@@ -6,7 +6,7 @@ use game::{
 };
 use map::game::entity::map::enemy_spawn::EnemySpawnerComponent;
 use utils::net_id::GgrsNetIdFactory;
-use bevy_ggrs::AddRollbackCommandExtension;
+use bevy_ggrs::Rollback;
 
 fn main() {
     let game_config = CoreSetupConfig {
@@ -165,7 +165,7 @@ fn spawn_test_enemy_spawner(commands: &mut Commands, position: Vec3) {
             EnemySpawnerState::default(),
             EnemySpawnerComponent::default(),
         ))
-        .add_rollback();
+        .insert(Rollback);
 }
 
 

@@ -5,7 +5,7 @@ use bevy_ecs_ldtk::prelude::LevelIid;
 use game::{character::enemy::ai::Obstacle, character::enemy::spawning::EnemySpawnerState, collider::{Collider, CollisionLayer, CollisionSettings, Wall, Window}, core::AppState};
 use map::game::entity::{map::{door::{DoorComponent, DoorGridPosition}, enemy_spawn::EnemySpawnerComponent, level_id::LevelId, map_rollback::MapRollbackMarker}, MapRollbackItem};
 use map::generation::entity::door::DoorConfig;
-use bevy_ggrs::AddRollbackCommandExtension;
+use bevy_ggrs::Rollback;
 use utils::net_id::GgrsNetIdFactory;
 
 use crate::{game::{collider::create_wall_colliders_from_ldtk, entity::door::LdtkEntitySize, utility::load_levels_if_not_present}, loader::{get_asset_loader_generation, setup_generated_map}};
@@ -335,10 +335,10 @@ fn wait_for_all_map_rollback_entity(
             }
 
             // Register the entity with GGRS rollback system
-            let _rollback_entity = cmd.add_rollback().id();
+            let _rollback_entity = cmd.insert(Rollback).id();
             
             // Add window-specific visual children
-            // Note: This must be done after add_rollback() completes to avoid mutable borrow conflicts
+            // Note: This must be done after the Rollback marker is inserted to avoid mutable borrow conflicts
             // since add_children() requires exclusive access to Commands
             if item.kind.as_str() == "window" {
                 commands.entity(item.entity).with_children(|parent| {

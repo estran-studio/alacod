@@ -22,11 +22,11 @@ fn setup_weapon_ui(mut commands: Commands, asset_server: Res<AssetServer>) {
         ReloadingText,
         Text::new(""),
         TextFont {
-            font: font.clone(),
-            font_size: 16.0,
+            font: font.clone().into(),
+            font_size: FontSize::Px(16.0),
             ..Default::default()
         },
-        TextLayout::new_with_justify(Justify::Center),
+        TextLayout::justify(Justify::Center),
         Node {
             position_type: PositionType::Absolute,
             bottom: Val::Px(37.0),
@@ -39,11 +39,11 @@ fn setup_weapon_ui(mut commands: Commands, asset_server: Res<AssetServer>) {
         CurrentWeaponText,
         Text::new("Weapon: "),
         TextFont {
-            font: font.clone(),
-            font_size: 16.0,
+            font: font.clone().into(),
+            font_size: FontSize::Px(16.0),
             ..Default::default()
         },
-        TextLayout::new_with_justify(Justify::Center),
+        TextLayout::justify(Justify::Center),
         Node {
             position_type: PositionType::Absolute,
             bottom: Val::Px(20.0),
@@ -56,11 +56,11 @@ fn setup_weapon_ui(mut commands: Commands, asset_server: Res<AssetServer>) {
         AmmoText,
         Text::new("Ammo: "),
         TextFont {
-            font,
-            font_size: 16.0,
+            font: font.into(),
+            font_size: FontSize::Px(16.0),
             ..Default::default()
         },
-        TextLayout::new_with_justify(Justify::Center),
+        TextLayout::justify(Justify::Center),
         Node {
             position_type: PositionType::Absolute,
             bottom: Val::Px(3.0),

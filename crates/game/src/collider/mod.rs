@@ -1,7 +1,7 @@
 use bevy::color::palettes::css::YELLOW;
 use bevy::prelude::*;
 use bevy_fixed::fixed_math;
-use bevy_ggrs::AddRollbackCommandExtension;
+use bevy_ggrs::Rollback;
 use bevy_ggrs::RollbackApp;
 
 #[cfg(feature = "lighting")]
@@ -286,7 +286,7 @@ pub fn spawn_test_wall(
                 CollisionLayer(collision_settings.wall_layer),
                 g_id,
             ))
-            .add_rollback();
+            .insert(Rollback);
     }
     
     #[cfg(not(feature = "lighting"))]
@@ -311,7 +311,7 @@ pub fn spawn_test_wall(
                 CollisionLayer(collision_settings.wall_layer),
                 g_id,
             ))
-            .add_rollback();
+            .insert(Rollback);
     }
 }
 

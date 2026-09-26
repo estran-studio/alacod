@@ -19,7 +19,7 @@ struct ReloadButton;
 
 fn handle_disconnect_event(
     mut commands: Commands,
-    mut events: EventReader<GameDisconnectedEvent>,
+    mut events: MessageReader<GameDisconnectedEvent>,
     q_existing_ui: Query<Entity, With<DisconnectedUiRoot>>,
 ) {
     // Check if UI is already visible to avoid duplicates if multiple events fire
@@ -49,13 +49,13 @@ fn spawn_disconnect_ui(commands: &mut Commands, message: String) {
     )).with_children(|parent| {
         parent.spawn((
             Text::new("GAME DISCONNECTED"),
-            TextFont { font_size: 50.0, ..default() },
+            TextFont { font_size: FontSize::Px(50.0), ..default() },
             TextColor(Color::srgb(1.0, 0.2, 0.2)),
         ));
         
         parent.spawn((
             Text::new(message),
-            TextFont { font_size: 30.0, ..default() },
+            TextFont { font_size: FontSize::Px(30.0), ..default() },
             TextColor(Color::WHITE),
              Node {
                 margin: UiRect::top(Val::Px(20.0)),
@@ -79,7 +79,7 @@ fn spawn_disconnect_ui(commands: &mut Commands, message: String) {
         )).with_children(|parent| {
              parent.spawn((
                 Text::new("Back to Menu"),
-                TextFont { font_size: 30.0, ..default() },
+                TextFont { font_size: FontSize::Px(30.0), ..default() },
                 TextColor(Color::WHITE),
             ));
         });

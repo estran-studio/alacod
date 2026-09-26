@@ -582,12 +582,12 @@ fn setup_interaction_ui(mut commands: Commands, asset_server: Res<AssetServer>) 
         InteractionPromptText,
         Text::new(""),
         TextFont {
-            font,
-            font_size: 12.0,
+            font: font.into(),
+            font_size: FontSize::Px(12.0),
             ..Default::default()
         },
         TextColor(Color::srgb(1.0, 1.0, 0.0)),
-        TextLayout::new_with_justify(Justify::Center),
+        TextLayout::justify(Justify::Center),
         Node {
             position_type: PositionType::Absolute,
             top: Val::Percent(40.0), // Position in the upper-middle of the screen

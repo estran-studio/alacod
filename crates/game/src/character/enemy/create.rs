@@ -2,6 +2,7 @@ use animation::SpriteSheetConfig;
 use bevy::prelude::*;
 use bevy_fixed::fixed_math;
 use utils::net_id::GgrsNetIdFactory;
+#[cfg(feature = "harmonium")]
 use harmonium_bevy::components::HarmoniumTag;
 
 use crate::{
@@ -79,8 +80,12 @@ pub fn spawn_enemy(
             EnemyAiConfig::zombie(),
             EnemyTarget::default(),
             MonsterState::default(),
-            HarmoniumTag::new(&["danger", "combat", "monster"], 1.0),
         ));
+
+    #[cfg(feature = "harmonium")]
+    commands
+        .entity(entity)
+        .insert(HarmoniumTag::new(&["danger", "combat", "monster"], 1.0));
 
     entity
 }

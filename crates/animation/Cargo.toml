@@ -4,10 +4,10 @@ version = "0.2.0"
 edition = "2021"
 
 [dependencies]
-bevy = "0.17"
-bevy_ggrs = "0.19.0"
+bevy = "0.19.1"
+bevy_ggrs = "0.22.0"
 bevy_fixed = { path = "../bevy_fixed" }
 
 serde = { version = "1.0", features = ["derive"] }
 
-bevy_common_assets = { version = "0.14", features = ["ron"] }
+bevy_common_assets = { version = "0.17", features = ["ron"] }

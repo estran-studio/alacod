@@ -9,7 +9,6 @@ use game::{
 use map::{game::entity::map::{enemy_spawn::EnemySpawnerComponent, player_spawn::PlayerSpawnConfig}, generation::{config::MapGenerationConfig, position}};
 use map_ldtk::{game::plugin::LdtkMapLoadingEvent, plugins::LdtkRoguePlugin};
 use utils::net_id::GgrsNetIdFactory;
-use bevy_ggrs::AddRollbackCommandExtension;
 
 fn main() {
     let game_config = CoreSetupConfig {
@@ -35,7 +34,7 @@ fn main() {
         .add_systems(OnEnter(AppState::LobbyLocal), system_configure_map)
         .add_systems(OnEnter(AppState::LobbyOnline), system_configure_map)
         .add_systems(Update, (
-            system_wait_for_map_loaded.run_if(on_event::<LdtkMapLoadingEvent>),
+            system_wait_for_map_loaded.run_if(on_message::<LdtkMapLoadingEvent>),
         ))
         .run();
 }

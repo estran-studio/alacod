@@ -1,7 +1,7 @@
 use bevy::prelude::*;
 use bevy_ecs_ldtk::prelude::*;
 use bevy_fixed::fixed_math;
-use bevy_ggrs::AddRollbackCommandExtension;
+use bevy_ggrs::Rollback;
 use game::character::enemy::ai::navigation::FlowFieldCache;
 use game::collider::{spawn_test_wall, CollisionSettings, Wall, Collider, ColliderShape};
 use utils::net_id::GgrsNetIdFactory;
@@ -230,5 +230,5 @@ fn spawn_invisible_wall_collider(
             g_id,
             //Visibility::Hidden,
         ))
-        .add_rollback();
+        .insert(Rollback);
 }

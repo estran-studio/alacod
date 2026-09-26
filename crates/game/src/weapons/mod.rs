@@ -6,7 +6,7 @@ use animation::{create_child_sprite, AnimationBundle, FacingDirection, SpriteShe
 use bevy::{log::{tracing::span, Level}, platform::collections::{HashMap, HashSet}, prelude::*};
 use bevy_common_assets::ron::RonAssetPlugin;
 use bevy_fixed::{fixed_math, rng::RollbackRng};
-use bevy_ggrs::{AddRollbackCommandExtension, GgrsSchedule, PlayerInputs, Rollback, RollbackApp};
+use bevy_ggrs::{GgrsSchedule, PlayerInputs, Rollback, RollbackApp};
 use ggrs::PlayerHandle;
 
 use serde::{Deserialize, Serialize};
@@ -379,7 +379,7 @@ pub fn spawn_weapon_for_player(
             animation_bundle,
             id_factory.next(weapon.config.name.clone()),
         ))
-        .add_rollback()
+        .insert(Rollback)
         .id();
 
     let spritesheet_config = sprint_sheet_assets
@@ -541,7 +541,7 @@ fn spawn_bullet_rollback(
         _ => {}
     };
 
-    entity_commands.add_rollback().id()
+    entity_commands.insert(Rollback).id()
 }
 
 // SYSTEMS

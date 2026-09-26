@@ -19,7 +19,7 @@ struct ReloadButton;
 
 fn handle_player_death(
     mut commands: Commands,
-    mut events: EventReader<PlayerDiedEvent>,
+    mut events: MessageReader<PlayerDiedEvent>,
     q_existing_ui: Query<Entity, With<GameOverUiRoot>>,
 ) {
     if !q_existing_ui.is_empty() {
@@ -48,7 +48,7 @@ fn spawn_game_over_ui(commands: &mut Commands) {
     )).with_children(|parent| {
         parent.spawn((
             Text::new("GAME OVER"),
-            TextFont { font_size: 60.0, ..default() },
+            TextFont { font_size: FontSize::Px(60.0), ..default() },
             TextColor(Color::WHITE),
         ));
         
@@ -68,7 +68,7 @@ fn spawn_game_over_ui(commands: &mut Commands) {
         )).with_children(|parent| {
              parent.spawn((
                 Text::new("Restart"),
-                TextFont { font_size: 30.0, ..default() },
+                TextFont { font_size: FontSize::Px(30.0), ..default() },
                 TextColor(Color::WHITE),
             ));
         });

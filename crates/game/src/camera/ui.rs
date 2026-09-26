@@ -14,11 +14,11 @@ fn setup_camera_debug_ui(mut commands: Commands, asset_server: Res<AssetServer>)
         CameraDebugText,
         Text::new("Camera: Mode, Zoom"),
         TextFont {
-            font,
-            font_size: 16.0,
+            font: font.into(),
+            font_size: FontSize::Px(16.0),
             ..Default::default()
         },
-        TextLayout::new_with_justify(Justify::Left),
+        TextLayout::justify(Justify::Left),
         Node {
             position_type: PositionType::Absolute,
             top: Val::Px(5.0),

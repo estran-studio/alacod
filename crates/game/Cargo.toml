@@ -5,21 +5,24 @@ version = "0.2.0"
 edition = "2021"
 
 [dependencies]
-bevy = "0.17"
-ggrs = "0.11.1"
-bevy_ggrs = "0.19.0"
-bevy_kira_audio ={ version = "0.24" }
-bevy_matchbox = { version = "0.13", features = ["ggrs"] }
-bevy_light_2d = { version = "0.8", optional = true }
-leafwing-input-manager = "0.19.0"
-bevy_common_assets = { version = "0.14", features = ["ron"]}
+bevy = "0.19.1"
+ggrs = "0.13.0"
+bevy_ggrs = "0.22.0"
+bevy_kira_audio = { version = "0.26" }
+# TODO: revenir sur une release crates.io quand bevy_matchbox supportera bevy 0.19
+# (port upstream: https://github.com/johanhelsing/matchbox/pull/557)
+bevy_matchbox = { git = "https://github.com/AdamWhitehurst/matchbox", rev = "593f900c4f27e94632a71232389d9e4ffaeb9bdf", features = ["ggrs"] }
+bevy_light_2d = { version = "0.10", optional = true }
+leafwing-input-manager = "0.21.0"
+bevy_common_assets = { version = "0.17", features = ["ron"]}
 
 bevy_fixed = { path = "../bevy_fixed"}
 utils = { path = "../utils"}
 map = { path = "../map"}
 animation ={ path = "../animation"}
 telemetry = { path = "../telemetry"}
-harmonium_bevy = { git = "https://github.com/bascanada/harmonium", branch = "main" }
+# TODO: harmonium_bevy est encore sur bevy 0.17, réactiver la feature `harmonium` après son port
+harmonium_bevy = { git = "https://github.com/bascanada/harmonium", branch = "main", optional = true }
 
 thiserror = "2.0.12"
 
@@ -33,7 +36,7 @@ wasm-bindgen = "0.2"
 
 clap = { version = "4.4", features = ["derive"] }
 
-bevy-inspector-egui = { version = "0.35.0", optional = true }
+bevy-inspector-egui = { version = "0.37.0", optional = true }
 chrono = "0.4.42"
 
 
@@ -51,4 +54,6 @@ features = [
 debug_ui = ["bevy-inspector-egui"]
 # Enable lighting system (disabled by default for wasm to improve performance)
 lighting = ["bevy_light_2d"]
+# Musique générative (harmonium). Désactivée tant que harmonium_bevy n'est pas porté à bevy 0.19
+harmonium = ["dep:harmonium_bevy"]
 

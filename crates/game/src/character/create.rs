@@ -11,7 +11,7 @@ use crate::{
     weapons::melee::MeleeAttackState,
 };
 
-use bevy_ggrs::AddRollbackCommandExtension;
+use bevy_ggrs::Rollback;
 
 use super::{
     config::CharacterConfig,
@@ -208,10 +208,10 @@ pub fn create_character(
                 },
                 Transform::from_translation(Vec3::new(0.0, 10.0, 0.1)),
             ))
-            .add_rollback();
+            .insert(Rollback);
     });
 
-    commands.entity(entity).add_rollback();
+    commands.entity(entity).insert(Rollback);
 
     entity
 }
