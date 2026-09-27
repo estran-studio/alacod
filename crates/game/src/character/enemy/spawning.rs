@@ -1,4 +1,3 @@
-use animation::SpriteSheetConfig;
 use bevy::prelude::*;
 use bevy_fixed::{fixed_math, rng::RollbackRng};
 use map::game::entity::map::{enemy_spawn::EnemySpawnerComponent, level_id::LevelId, room::RoomBounds};
@@ -55,9 +54,6 @@ pub fn enemy_spawn_from_spawners_system(
     weapons_asset: Res<Assets<WeaponsConfig>>,
     melee_weapons_asset: Res<Assets<MeleeWeaponsConfig>>,
     characters_asset: Res<Assets<CharacterConfig>>,
-    asset_server: Res<AssetServer>,
-    mut texture_atlas_layouts: ResMut<Assets<TextureAtlasLayout>>,
-    sprint_sheet_assets: Res<Assets<SpriteSheetConfig>>,
 
     mut id_factory: ResMut<GgrsNetIdFactory>,
 ) {
@@ -277,9 +273,6 @@ pub fn enemy_spawn_from_spawners_system(
             &weapons_asset,
             &melee_weapons_asset,
             &characters_asset,
-            &asset_server,
-            &mut texture_atlas_layouts,
-            &sprint_sheet_assets,
             &global_assets,
             &collision_settings,
             &mut id_factory,

@@ -2,7 +2,7 @@
 pub mod ui;
 pub mod melee;
 
-use animation::{create_child_sprite, AnimationBundle, FacingDirection, SpriteSheetConfig};
+use animation::{create_child_sprite, AnimationStateBundle, AnimationVisualsBundle, FacingDirection, SpriteSheetConfig};
 use bevy::{log::{tracing::span, Level}, platform::collections::{HashMap, HashSet}, prelude::*};
 use bevy_common_assets::ron::RonAssetPlugin;
 use bevy_fixed::{fixed_math, rng::RollbackRng};
@@ -14,6 +14,7 @@ use utils::{
     bmap, net_id::{GgrsNetId, GgrsNetIdFactory}, order_iter, order_mut_iter
 };
 
+use crate::character::visuals::VisualsAttached;
 use crate::{
     character::{
         dash::DashState,
@@ -305,11 +306,6 @@ impl WeaponInventory {
 // Function to spawn weapon , all weapon should be spawn on the user when they got them
 pub fn spawn_weapon_for_player(
     commands: &mut Commands,
-    global_assets: &Res<GlobalAsset>,
-
-    asset_server: &Res<AssetServer>,
-    texture_atlas_layouts: &mut ResMut<Assets<TextureAtlasLayout>>,
-    sprint_sheet_assets: &Res<Assets<SpriteSheetConfig>>,
 
     active: bool,
 
@@ -319,23 +315,8 @@ pub fn spawn_weapon_for_player(
 
     id_factory: &mut ResMut<GgrsNetIdFactory>,
 ) -> Entity {
-    let map_layers = global_assets
-        .spritesheets
-        .get(&weapon.sprite_config.name)
-        .unwrap()
-        .clone();
-    let animation_handle = global_assets
-        .animations
-        .get(&weapon.sprite_config.name)
-        .unwrap()
-        .clone();
-
-    let animation_bundle = AnimationBundle::new(
-        map_layers.clone(),
-        animation_handle.clone(),
-        weapon.sprite_config.index,
-        bmap!("body" => String::new()),
-    );
+    // Entité logique uniquement : le sprite est ajouté par attach_weapon_visuals
+    let animation_bundle = AnimationStateBundle::new(bmap!("body" => String::new()));
 
     let mut weapon_state = WeaponState::default();
     let mut weapon_modes_state = WeaponModesState::default();
@@ -382,18 +363,6 @@ pub fn spawn_weapon_for_player(
         .insert(Rollback)
         .id();
 
-    let spritesheet_config = sprint_sheet_assets
-        .get(map_layers.get("body").unwrap())
-        .unwrap();
-    create_child_sprite(
-        commands,
-        asset_server,
-        texture_atlas_layouts,
-        entity,
-        spritesheet_config,
-        0,
-    );
-
     inventory.weapons.push((entity, weapon));
 
     if active {
@@ -408,6 +377,50 @@ pub fn spawn_weapon_for_player(
     commands.entity(player_entity).add_child(entity);
 
     entity
+}
+
+/// Présentation : ajoute le sprite animé des armes qui n'en ont pas encore
+/// (nouvelles ou recréées par un rollback).
+pub fn attach_weapon_visuals(
+    mut commands: Commands,
+    global_assets: Res<GlobalAsset>,
+    spritesheet_assets: Res<Assets<SpriteSheetConfig>>,
+    asset_server: Res<AssetServer>,
+    mut texture_atlas_layouts: ResMut<Assets<TextureAtlasLayout>>,
+    weapons: Query<(Entity, &Weapon), Without<VisualsAttached>>,
+) {
+    for (entity, weapon) in weapons.iter() {
+        let name = &weapon.sprite_config.name;
+        let (Some(map_layers), Some(animation_handle)) = (
+            global_assets.spritesheets.get(name),
+            global_assets.animations.get(name),
+        ) else {
+            continue;
+        };
+        let Some(spritesheet_config) = map_layers
+            .get("body")
+            .and_then(|handle| spritesheet_assets.get(handle))
+        else {
+            continue;
+        };
+
+        commands.entity(entity).insert((
+            AnimationVisualsBundle::new(
+                map_layers.clone(),
+                animation_handle.clone(),
+                weapon.sprite_config.index,
+            ),
+            VisualsAttached,
+        ));
+        create_child_sprite(
+            &mut commands,
+            &asset_server,
+            &mut texture_atlas_layouts,
+            entity,
+            spritesheet_config,
+            0,
+        );
+    }
 }
 
 fn spawn_bullet_rollback(
@@ -547,13 +560,15 @@ fn spawn_bullet_rollback(
 // SYSTEMS
 
 // Rollback system to correctly transform the weapon based on the position
+// L'arme active vient de WeaponInventory (rollback), pas du marqueur ActiveWeapon
+// qui n'est mis à jour que dans Update pour l'affichage.
 pub fn system_weapon_position(
-    query: Query<(&Children, &CursorPosition, &FacingDirection), With<Rollback>>,
-    mut query_weapon: Query<&mut fixed_math::FixedTransform3D, With<ActiveWeapon>>,
+    query: Query<(&WeaponInventory, &CursorPosition), With<Rollback>>,
+    mut query_weapon: Query<&mut fixed_math::FixedTransform3D, With<Weapon>>,
 ) {
-    for (childs, cursor_position, _direction) in query.iter() {
-        for child in childs.iter() {
-            if let Ok(mut transform) = query_weapon.get_mut(child.clone()) {
+    for (inventory, cursor_position) in query.iter() {
+        if let Some((active_weapon, _)) = inventory.weapons.get(inventory.active_weapon_index) {
+            if let Ok(mut transform) = query_weapon.get_mut(*active_weapon) {
                 let cursor_game_world_pos = fixed_math::FixedVec3::new(
                     fixed_math::new(cursor_position.x as f32),
                     fixed_math::new(cursor_position.y as f32),
@@ -1123,11 +1138,6 @@ pub struct BaseWeaponGamePlugin {}
 
 impl Plugin for BaseWeaponGamePlugin {
     fn build(&self, app: &mut App) {
-        // Only include the debug UI plugin when the `debug_ui` feature is enabled.
-        // This keeps Egui / WorldInspector out of production builds unless explicitly requested.
-        #[cfg(feature = "debug_ui")]
-        app.add_plugins(self::ui::WeaponDebugUIPlugin);
-
         // Add RON asset plugins for weapons and melee weapons
         app.add_plugins(RonAssetPlugin::<WeaponsConfig>::new(&["ron"]));
         app.add_plugins(RonAssetPlugin::<melee::MeleeWeaponsConfig>::new(&["ron"]));
@@ -1136,7 +1146,8 @@ impl Plugin for BaseWeaponGamePlugin {
         app.rollback_component_with_clone::<WeaponInventory>()
             .rollback_component_with_clone::<WeaponModesState>()
             .rollback_component_with_clone::<WeaponState>()
-            .rollback_component_with_clone::<Bullet>();
+            .rollback_component_with_clone::<Bullet>()
+            .rollback_component_with_clone::<Weapon>();
 
         // Rollback components for melee weapons
         app.rollback_component_with_clone::<melee::MeleeWeapon>()
@@ -1146,10 +1157,8 @@ impl Plugin for BaseWeaponGamePlugin {
         app.add_systems(
             Update,
             (
-                update_weapon_sprite_direction,
                 weapon_inventory_system,
                 weapons_config_update_system,
-                melee::update_slash_effects, // Add slash effect animation system
             ),
         );
 
@@ -1168,6 +1177,28 @@ impl Plugin for BaseWeaponGamePlugin {
                 melee::melee_hitbox_collision_system.after(melee::update_melee_hitboxes),
             )
                 .in_set(RollbackSystemSet::Weapon),
+        );
+    }
+}
+
+/// Sprites des armes, effets de slash et UI de debug. Ajouté par `PresentationPlugin`.
+pub struct WeaponPresentationPlugin;
+
+impl Plugin for WeaponPresentationPlugin {
+    fn build(&self, app: &mut App) {
+        // Only include the debug UI plugin when the `debug_ui` feature is enabled.
+        // This keeps Egui / WorldInspector out of production builds unless explicitly requested.
+        #[cfg(feature = "debug_ui")]
+        app.add_plugins(self::ui::WeaponDebugUIPlugin);
+
+        app.add_systems(
+            Update,
+            (
+                attach_weapon_visuals,
+                update_weapon_sprite_direction,
+                melee::spawn_slash_effects,
+                melee::update_slash_effects,
+            ),
         );
     }
 }

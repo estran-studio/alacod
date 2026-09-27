@@ -1,4 +1,3 @@
-use animation::SpriteSheetConfig;
 use bevy::{color::palettes::{css::TURQUOISE, tailwind::{ORANGE_300, PURPLE_300}}, prelude::*};
 use bevy_fixed::fixed_math;
 use game::{
@@ -50,10 +49,6 @@ fn system_game_loading(
     weapons_asset: Res<Assets<WeaponsConfig>>,
     melee_weapons_asset: Res<Assets<MeleeWeaponsConfig>>,
 
-    asset_server: Res<AssetServer>,
-    mut texture_atlas_layouts: ResMut<Assets<TextureAtlasLayout>>,
-    sprint_sheet_assets: Res<Assets<SpriteSheetConfig>>,
-
     mut id_provider: ResMut<GgrsNetIdFactory>,
 
     ggrs_session_building: Res<GgrsSessionBuilding>,
@@ -78,9 +73,6 @@ fn system_game_loading(
             &melee_weapons_asset,
             &character_asset,
             &collision_settings,
-            &asset_server,
-            &mut texture_atlas_layouts,
-            &sprint_sheet_assets,
             position,
             is_local,
             i,

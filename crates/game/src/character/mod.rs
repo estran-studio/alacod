@@ -5,6 +5,7 @@ pub mod enemy;
 pub mod health;
 pub mod movement;
 pub mod player;
+pub mod visuals;
 
 use animation::set_sprite_flip;
 use bevy::prelude::*;
@@ -100,6 +101,7 @@ impl Plugin for BaseCharacterGamePlugin {
             .rollback_component_with_clone::<EnemySpawnerState>()
             .rollback_component_with_clone::<EnemyPath>()
             .rollback_component_with_clone::<Obstacle>()
+            .rollback_component_with_clone::<visuals::CharacterAppearance>()
             .rollback_component_with_clone::<enemy::ai::pathing::WallSlideTracker>()
             // New AI components
             .rollback_component_with_clone::<EnemyAiConfig>()
@@ -124,19 +126,6 @@ impl Plugin for BaseCharacterGamePlugin {
         app.add_systems(ReadInputs, read_local_inputs);
 
         // Non-rollback systems: update visuals and debug
-        app.add_systems(
-            Update,
-            (
-                set_sprite_flip,
-                update_health_bars,
-                // Debug toggles
-                toggle_flow_field_debug,
-                toggle_enemy_state_debug,
-                // Debug drawing
-                draw_flow_field_debug,
-                draw_enemy_state_debug,
-            ),
-        );
 
         app.add_systems(
             GgrsSchedule,
@@ -181,6 +170,28 @@ impl Plugin for BaseCharacterGamePlugin {
                 (process_obstacle_damage,)
                     .after(RollbackSystemSet::EnemyAI)
                     .before(RollbackSystemSet::FrameCounter),
+            ),
+        );
+    }
+}
+
+/// Sprites, barres de vie et debug visuel de l'IA. Ajouté par `PresentationPlugin`.
+pub struct CharacterPresentationPlugin;
+
+impl Plugin for CharacterPresentationPlugin {
+    fn build(&self, app: &mut App) {
+        app.add_systems(
+            Update,
+            (
+                visuals::attach_character_visuals,
+                set_sprite_flip,
+                update_health_bars,
+                // Debug toggles
+                toggle_flow_field_debug,
+                toggle_enemy_state_debug,
+                // Debug drawing
+                draw_flow_field_debug,
+                draw_enemy_state_debug,
             ),
         );
     }

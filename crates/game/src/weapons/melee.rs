@@ -131,6 +131,8 @@ pub struct MeleeHitbox {
     pub owner_handle: Option<PlayerHandle>,
     pub created_frame: u32,
     pub duration_frames: u32,
+    /// Direction de l'attaquant au moment du coup (orientation de l'effet visuel)
+    pub facing: FacingDirection,
 }
 
 // SLASH VISUAL EFFECT
@@ -193,11 +195,6 @@ pub fn spawn_melee_hitbox(
     collision_settings: &Res<CollisionSettings>,
     owner_handle: Option<PlayerHandle>,
     id_factory: &mut ResMut<GgrsNetIdFactory>,
-    global_assets: &Res<GlobalAsset>,
-    spritesheet_assets: &Res<Assets<SpriteSheetConfig>>,
-    animation_configs: &Res<Assets<animation::AnimationMapConfig>>,
-    asset_server: &Res<AssetServer>,
-    texture_atlas_layouts: &mut ResMut<Assets<TextureAtlasLayout>>,
 ) -> Entity {
     let config = &melee_weapon.config;
     
@@ -274,6 +271,7 @@ pub fn spawn_melee_hitbox(
                 owner_handle,
                 created_frame: current_frame,
                 duration_frames: config.attack_duration_frames,
+                facing: *facing_direction,
             },
             hitbox_collider,
             CollisionLayer(layer),
@@ -283,71 +281,6 @@ pub fn spawn_melee_hitbox(
         ))
         .insert(Rollback)
         .id();
-    
-    // Spawn slash visual effect
-    let slash_spritesheet = spritesheet_assets.get(&global_assets.slash_effect_spritesheet);
-    let slash_anim_config = animation_configs.get(&global_assets.slash_effect_animation);
-    
-    if let (Some(slash_config), Some(anim_config)) = (slash_spritesheet, slash_anim_config) {
-        let texture_handle: Handle<Image> = asset_server.load(&slash_config.path);
-        let layout = TextureAtlasLayout::from_grid(
-            UVec2::new(slash_config.tile_size.0, slash_config.tile_size.1),
-            slash_config.columns,
-            slash_config.rows,
-            None,
-            None,
-        );
-        let layout_handle = texture_atlas_layouts.add(layout);
-
-        // Get animation configuration dynamically
-        let slash_anim = anim_config.animations.get("slash").expect("slash animation not found in config");
-        let columns = slash_config.columns;
-        let (start, end) = slash_anim.to_absolute(columns);
-        let frame_duration = anim_config.frame_duration as u32;
-        let animation_frame_count = (end - start + 1) as u32;
-        let total_duration = animation_frame_count * frame_duration;
-            
-        // Position effect at hitbox location
-        let mut effect_transform = hitbox_transform.to_bevy_transform();
-        effect_transform.translation.z = 5.0; // Place above everything
-        
-        // For 8-directional slashes, we need to handle flipping carefully
-        // The sprite is designed for right-facing attacks (0 degrees)
-        // For left-facing, we flip and use the opposite angle
-        let (flip_x, rotation_angle) = match facing_direction {
-            FacingDirection::Right => (false, 0.0),
-            FacingDirection::UpRight => (false, std::f32::consts::PI / 4.0),
-            FacingDirection::Up => (false, std::f32::consts::PI / 2.0),
-            FacingDirection::UpLeft => (true, -std::f32::consts::PI / 4.0),  // Flip + negative angle for upper left
-            FacingDirection::Left => (true, 0.0),  // Flip + 0° for left
-            FacingDirection::DownLeft => (true, std::f32::consts::PI / 4.0),  // Flip + positive angle for lower left
-            FacingDirection::Down => (false, -std::f32::consts::PI / 2.0),
-            FacingDirection::DownRight => (false, -std::f32::consts::PI / 4.0),
-        };
-        
-        effect_transform.rotation = Quat::from_rotation_z(rotation_angle);
-        
-        commands.spawn((
-            SlashEffect {
-                start_frame: current_frame,
-                duration_frames: total_duration,
-                frame_duration,
-                animation_start: start,
-                animation_end: end,
-            },
-            Sprite {
-                image: texture_handle,
-                texture_atlas: Some(TextureAtlas {
-                    layout: layout_handle,
-                    index: start,  // Start at the correct animation frame
-                }),
-                flip_x,
-                flip_y: false,
-                ..default()
-            },
-            effect_transform,
-        ));
-    }
     
     hitbox_entity
 }
@@ -372,6 +305,95 @@ pub fn update_melee_hitboxes(
 }
 
 // SYSTEM: UPDATE SLASH VISUAL EFFECTS
+/// Présentation : crée l'effet de slash d'une hitbox de mêlée. Une hitbox recréée
+/// ou resimulée par un rollback (même GgrsNetId) ne produit pas de second effet.
+pub fn spawn_slash_effects(
+    mut commands: Commands,
+    global_assets: Res<GlobalAsset>,
+    spritesheet_assets: Res<Assets<SpriteSheetConfig>>,
+    animation_configs: Res<Assets<animation::AnimationMapConfig>>,
+    asset_server: Res<AssetServer>,
+    mut texture_atlas_layouts: ResMut<Assets<TextureAtlasLayout>>,
+    frame: Res<FrameCount>,
+    hitboxes: Query<(&GgrsNetId, &MeleeHitbox, &fixed_math::FixedTransform3D)>,
+    mut shown: Local<HashMap<usize, u32>>,
+) {
+    // Oublier les hitbox trop anciennes pour être encore rejouées par un rollback
+    shown.retain(|_, created_frame| frame.frame.saturating_sub(*created_frame) < 600);
+
+    let (Some(slash_config), Some(anim_config)) = (
+        spritesheet_assets.get(&global_assets.slash_effect_spritesheet),
+        animation_configs.get(&global_assets.slash_effect_animation),
+    ) else {
+        return;
+    };
+
+    for (net_id, hitbox, hitbox_transform) in hitboxes.iter() {
+        if shown.insert(net_id.0, hitbox.created_frame).is_some() {
+            continue;
+        }
+
+        let texture_handle: Handle<Image> = asset_server.load(&slash_config.path);
+        let layout = TextureAtlasLayout::from_grid(
+            UVec2::new(slash_config.tile_size.0, slash_config.tile_size.1),
+            slash_config.columns,
+            slash_config.rows,
+            None,
+            None,
+        );
+        let layout_handle = texture_atlas_layouts.add(layout);
+
+        // Get animation configuration dynamically
+        let slash_anim = anim_config.animations.get("slash").expect("slash animation not found in config");
+        let columns = slash_config.columns;
+        let (start, end) = slash_anim.to_absolute(columns);
+        let frame_duration = anim_config.frame_duration as u32;
+        let animation_frame_count = (end - start + 1) as u32;
+        let total_duration = animation_frame_count * frame_duration;
+
+        // Position effect at hitbox location
+        let mut effect_transform = hitbox_transform.to_bevy_transform();
+        effect_transform.translation.z = 5.0; // Place above everything
+
+        // For 8-directional slashes, we need to handle flipping carefully
+        // The sprite is designed for right-facing attacks (0 degrees)
+        // For left-facing, we flip and use the opposite angle
+        let (flip_x, rotation_angle) = match hitbox.facing {
+            FacingDirection::Right => (false, 0.0),
+            FacingDirection::UpRight => (false, std::f32::consts::PI / 4.0),
+            FacingDirection::Up => (false, std::f32::consts::PI / 2.0),
+            FacingDirection::UpLeft => (true, -std::f32::consts::PI / 4.0),  // Flip + negative angle for upper left
+            FacingDirection::Left => (true, 0.0),  // Flip + 0° for left
+            FacingDirection::DownLeft => (true, std::f32::consts::PI / 4.0),  // Flip + positive angle for lower left
+            FacingDirection::Down => (false, -std::f32::consts::PI / 2.0),
+            FacingDirection::DownRight => (false, -std::f32::consts::PI / 4.0),
+        };
+
+        effect_transform.rotation = Quat::from_rotation_z(rotation_angle);
+
+        commands.spawn((
+            SlashEffect {
+                start_frame: hitbox.created_frame,
+                duration_frames: total_duration,
+                frame_duration,
+                animation_start: start,
+                animation_end: end,
+            },
+            Sprite {
+                image: texture_handle,
+                texture_atlas: Some(TextureAtlas {
+                    layout: layout_handle,
+                    index: start,  // Start at the correct animation frame
+                }),
+                flip_x,
+                flip_y: false,
+                ..default()
+            },
+            effect_transform,
+        ));
+    }
+}
+
 pub fn update_slash_effects(
     mut commands: Commands,
     frame: Res<FrameCount>,
@@ -549,11 +571,6 @@ pub fn player_melee_attack_system(
     inputs: Res<bevy_ggrs::PlayerInputs<PeerConfig>>,
     collision_settings: Res<CollisionSettings>,
     mut id_factory: ResMut<GgrsNetIdFactory>,
-    global_assets: Res<GlobalAsset>,
-    spritesheet_assets: Res<Assets<SpriteSheetConfig>>,
-    asset_server: Res<AssetServer>,
-    mut texture_atlas_layouts: ResMut<Assets<TextureAtlasLayout>>,
-    animation_configs: Res<Assets<animation::AnimationMapConfig>>,
     mut player_query: Query<
         (
             &GgrsNetId,
@@ -616,11 +633,6 @@ pub fn player_melee_attack_system(
                     &collision_settings,
                     Some(player.handle),
                     &mut id_factory,
-                    &global_assets,
-                    &spritesheet_assets,
-                    &animation_configs,
-                    &asset_server,
-                    &mut texture_atlas_layouts,
                 );
                 
                 info!(
@@ -638,11 +650,6 @@ pub fn enemy_melee_attack_system(
     frame: Res<FrameCount>,
     collision_settings: Res<CollisionSettings>,
     mut id_factory: ResMut<GgrsNetIdFactory>,
-    global_assets: Res<GlobalAsset>,
-    spritesheet_assets: Res<Assets<SpriteSheetConfig>>,
-    asset_server: Res<AssetServer>,
-    mut texture_atlas_layouts: ResMut<Assets<TextureAtlasLayout>>,
-    animation_configs: Res<Assets<animation::AnimationMapConfig>>,
     mut enemy_query: Query<
         (
             &GgrsNetId,
@@ -715,11 +722,6 @@ pub fn enemy_melee_attack_system(
                         &collision_settings,
                         None, // No player handle for enemies
                         &mut id_factory,
-                        &global_assets,
-                        &spritesheet_assets,
-                        &animation_configs,
-                        &asset_server,
-                        &mut texture_atlas_layouts,
                     );
                     
                     info!(
