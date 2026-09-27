@@ -4,7 +4,7 @@ use bevy::window::PrimaryWindow;
 use bevy::{prelude::*, platform::collections::hash_map::HashMap};
 use bevy_fixed::fixed_math;
 use bevy_ggrs::prelude::*;
-use bevy_ggrs::LocalInputs;
+use bevy_ggrs::{LocalInputs, LocalPlayers};
 use leafwing_input_manager::prelude::*;
 use serde::{Deserialize, Serialize};
 use utils::{order_mut_iter, net_id::GgrsNetId};
@@ -105,6 +105,7 @@ pub fn read_local_inputs(
 
     q_window: Query<&Window, With<PrimaryWindow>>,
     q_camera: Query<(&Camera, &GlobalTransform)>,
+    local_players: Res<LocalPlayers>,
 ) {
     let mut local_inputs = HashMap::new();
 
@@ -187,6 +188,12 @@ pub fn read_local_inputs(
         }
 
         local_inputs.insert(player.handle, input);
+    }
+
+    // GGRS exige un input par joueur local à chaque frame : un joueur mort
+    // (entité despawn) ou pas encore créé envoie un input neutre.
+    for handle in &local_players.0 {
+        local_inputs.entry(*handle).or_insert_with(BoxInput::default);
     }
 
     commands.insert_resource(LocalInputs::<PeerConfig>(local_inputs));
