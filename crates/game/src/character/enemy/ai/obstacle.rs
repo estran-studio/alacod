@@ -6,6 +6,8 @@
 use bevy::prelude::*;
 use serde::{Deserialize, Serialize};
 
+use crate::frame_events::FrameEvents;
+
 /// Type of obstacle - determines default behavior and appearance
 /// GGRS: PartialOrd + Ord required for BTreeMap in FlowFieldCache
 #[derive(Clone, Copy, Debug, PartialEq, Eq, Hash, PartialOrd, Ord, Reflect, Serialize, Deserialize, Default)]
@@ -208,31 +210,23 @@ impl From<&ObstacleConfig> for Obstacle {
     }
 }
 
-/// Event fired when an obstacle is attacked
-#[derive(Event, Message, Clone, Debug)]
+/// Attaque d'un obstacle, émise par l'IA et appliquée dans la même frame
+/// par [`process_obstacle_damage`] (voir [`FrameEvents`]).
+#[derive(Clone, Debug)]
 pub struct ObstacleAttackEvent {
     pub attacker: Entity,
     pub obstacle: Entity,
     pub damage: u32,
 }
 
-/// Event fired when an obstacle is destroyed
-#[derive(Event, Message, Clone, Debug)]
-pub struct ObstacleDestroyedEvent {
-    pub obstacle: Entity,
-    pub obstacle_type: ObstacleType,
-    pub destroyed_by: Option<Entity>,
-}
-
 /// System to process obstacle damage
 /// Also syncs with WindowHealth for legacy compatibility
 pub fn process_obstacle_damage(
-    mut attack_events: MessageReader<ObstacleAttackEvent>,
+    attack_events: Res<FrameEvents<ObstacleAttackEvent>>,
     mut obstacle_query: Query<(Entity, &mut Obstacle, Option<&mut map::game::entity::map::window::WindowHealth>)>,
-    mut destroyed_events: MessageWriter<ObstacleDestroyedEvent>,
     mut commands: Commands,
 ) {
-    for event in attack_events.read() {
+    for event in attack_events.iter() {
         if let Ok((entity, mut obstacle, window_health_opt)) = obstacle_query.get_mut(event.obstacle) {
             let destroyed = obstacle.take_damage(event.damage);
 
@@ -246,12 +240,6 @@ pub fn process_obstacle_damage(
                 commands.entity(entity)
                     .remove::<crate::collider::Collider>()
                     .remove::<crate::collider::CollisionLayer>();
-
-                destroyed_events.write(ObstacleDestroyedEvent {
-                    obstacle: entity,
-                    obstacle_type: obstacle.obstacle_type,
-                    destroyed_by: Some(event.attacker),
-                });
 
                 info!("Obstacle {:?} destroyed by {:?}", entity, event.attacker);
             }

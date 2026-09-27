@@ -5,6 +5,7 @@ pub mod character;
 pub mod collider;
 pub mod core;
 pub mod frame;
+pub mod frame_events;
 pub mod global_asset;
 pub mod interaction;
 pub mod jjrs;

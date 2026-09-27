@@ -115,6 +115,7 @@ impl Plugin for CoreSetupPlugin {
         app.configure_sets(
             GgrsSchedule,
             (
+                RollbackSystemSet::FrameStart,
                 RollbackSystemSet::Input,
                 RollbackSystemSet::Interaction,
                 RollbackSystemSet::Movement,

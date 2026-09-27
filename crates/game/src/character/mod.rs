@@ -13,6 +13,7 @@ use bevy_ggrs::{RollbackApp, GgrsSchedule, ReadInputs};
 use leafwing_input_manager::plugin::InputManagerPlugin;
 use map::game::entity::map::enemy_spawn::EnemySpawnerComponent;
 
+use crate::frame_events::FrameEventsAppExt;
 use crate::{
     args::DebugAiConfig,
     character::{
@@ -22,14 +23,13 @@ use crate::{
             ai::{
                 // New AI behavior systems
                 behavior::{enemy_target_selection, enemy_attack_system},
-                combat::ZombieCombatConfig,
                 pathing::{
                     move_enemies, update_enemy_targets,
                     EnemyPath, PathfindingConfig,
                 },
                 // Flow field navigation
                 navigation::{FlowFieldCache, FlowFieldConfig, update_flow_field_system},
-                obstacle::{Obstacle, ObstacleAttackEvent, ObstacleDestroyedEvent, process_obstacle_damage},
+                obstacle::{Obstacle, ObstacleAttackEvent, process_obstacle_damage},
                 state::{EnemyAiConfig, EnemyTarget, MonsterState},
                 debug::{
                     FlowFieldDebug, EnemyStateDebug,
@@ -73,9 +73,6 @@ impl Plugin for BaseCharacterGamePlugin {
         // Resources
         app.init_resource::<PathfindingConfig>();
         app.init_resource::<KnockbackDampingConfig>();
-        app.init_resource::<ZombieCombatConfig>();
-        app.add_message::<crate::character::enemy::ai::combat::ZombieWindowAttackEvent>();
-        app.add_message::<crate::character::health::PlayerDiedEvent>();
 
         // AI system resources
         app.init_resource::<FlowFieldCache>();
@@ -94,8 +91,7 @@ impl Plugin for BaseCharacterGamePlugin {
             enabled: debug_ai_enabled,
             ..EnemyStateDebug::new()
         });
-        app.add_message::<ObstacleAttackEvent>();
-        app.add_message::<ObstacleDestroyedEvent>();
+        app.add_frame_events::<ObstacleAttackEvent>();
 
         // Rollback registration
         app.rollback_resource_with_clone::<PathfindingConfig>()
@@ -103,6 +99,7 @@ impl Plugin for BaseCharacterGamePlugin {
             .rollback_component_with_clone::<EnemySpawnerComponent>()
             .rollback_component_with_clone::<EnemySpawnerState>()
             .rollback_component_with_clone::<EnemyPath>()
+            .rollback_component_with_clone::<Obstacle>()
             .rollback_component_with_clone::<enemy::ai::pathing::WallSlideTracker>()
             // New AI components
             .rollback_component_with_clone::<EnemyAiConfig>()

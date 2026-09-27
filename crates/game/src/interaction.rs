@@ -7,6 +7,7 @@ use utils::{frame::FrameCount, net_id::GgrsNetId, order_iter};
 use crate::{
     collider::{Collider, CollisionLayer},
     core::AppState,
+    frame_events::{FrameEvents, FrameEventsAppExt},
     system_set::RollbackSystemSet,
 };
 
@@ -62,8 +63,9 @@ pub enum InteractionType {
 #[derive(Component, Clone, Copy, Debug, Serialize, Deserialize, Default)]
 pub struct Interactor;
 
-/// Event sent when an interaction is triggered
-#[derive(Event, Message, Clone, Debug)]
+/// Interaction déclenchée par un joueur, consommée dans la même frame GGRS
+/// (voir [`FrameEvents`]).
+#[derive(Clone, Debug)]
 pub struct InteractionEvent {
     /// The entity performing the interaction
     pub interactor: Entity,
@@ -77,34 +79,10 @@ pub struct InteractionEvent {
     pub interactable_net_id: GgrsNetId,
 }
 
-/// Event sent when a door is opened (for visual feedback)
-/// This event is sent from GGRS schedule to Update schedule
-#[derive(Event, Message, Clone, Debug)]
-pub struct DoorOpenedEvent {
-    /// The GGRS net ID of the door that was opened
-    pub door_net_id: GgrsNetId,
-    /// The visual entity (LDTK entity) that needs to be hidden
-    pub visual_entity: Entity,
-}
-
-/// Event sent when a window is repaired (for visual feedback)
-/// This event is sent from GGRS schedule to Update schedule
-#[derive(Event, Message, Clone, Debug)]
-pub struct WindowRepairedEvent {
-    /// The GGRS net ID of the window that was repaired
-    pub window_net_id: GgrsNetId,
-    /// The visual entity for the window
-    pub visual_entity: Entity,
-    /// The new health value (for updating visuals)
-    pub new_health: u8,
-    /// The maximum health value (for calculating health bar ratio)
-    pub max_health: u8,
-}
-
 /// System that detects interactions within the GGRS schedule
 pub fn interaction_detection_system(
     frame: Res<FrameCount>,
-    mut event_writer: MessageWriter<InteractionEvent>,
+    mut event_writer: ResMut<FrameEvents<InteractionEvent>>,
     interactors: Query<
         (&GgrsNetId, Entity, &fixed_math::FixedTransform3D, &crate::character::player::input::InteractionInput),
         (With<Interactor>, With<Rollback>),
@@ -182,7 +160,7 @@ pub fn interaction_detection_system(
             info!("{} interaction detected: interactor {} with {} ({}) at distance_sq {:?}", 
                   frame.as_ref(), interactor_net_id, net_id, interaction_type_str,
                   fixed_math::to_f32(fixed_math::Fixed::from_num(distance_sq.to_num::<f32>())));
-            event_writer.write(InteractionEvent {
+            event_writer.send(InteractionEvent {
                 interactor: interactor_entity,
                 interactor_net_id: interactor_net_id.clone(),
                 interactable: interactable_entity,
@@ -241,23 +219,22 @@ fn point_to_collider_surface_distance_sq(
 /// System that handles door interactions
 pub fn handle_door_interaction(
     frame: Res<FrameCount>,
-    mut event_reader: MessageReader<InteractionEvent>,
-    mut door_opened_writer: MessageWriter<DoorOpenedEvent>,
+    events: Res<FrameEvents<InteractionEvent>>,
     mut commands: Commands,
-    door_query: Query<(Entity, &map::game::entity::MapRollbackItem, &map::game::entity::map::door::DoorComponent), (With<Interactable>, With<Rollback>)>,
-    all_doors_query: Query<(Entity, &GgrsNetId, &map::game::entity::MapRollbackItem, &map::game::entity::map::door::DoorComponent, &map::game::entity::map::door::DoorGridPosition), With<Rollback>>,
+    door_query: Query<(Entity, &map::game::entity::map::door::DoorComponent), (With<Interactable>, With<Rollback>)>,
+    all_doors_query: Query<(Entity, &GgrsNetId, &map::game::entity::map::door::DoorGridPosition), (With<map::game::entity::map::door::DoorComponent>, With<Rollback>)>,
 ) {
     let system_span = span!(Level::INFO, "ggrs", f = frame.frame, s = "handle_door_interaction");
     let _enter = system_span.enter();
 
-    for event in event_reader.read() {
+    for event in events.iter() {
         // Only handle door interactions
         if event.interaction_type != InteractionType::Door {
             continue;
         }
 
         // Verify the interactable entity exists and is a rollback entity
-        if let Ok((door_entity, rollback_item, door_component)) = door_query.get(event.interactable) {
+        if let Ok((door_entity, door_component)) = door_query.get(event.interactable) {
             info!(
                 "{} door interaction triggered: interactor {} on door {}",
                 frame.as_ref(), event.interactor_net_id, event.interactable_net_id
@@ -274,19 +251,13 @@ pub fn handle_door_interaction(
                 "{} door {} components removed (Collider, CollisionLayer, Interactable)",
                 frame.as_ref(), event.interactable_net_id
             );
-
-            // Send event for visual feedback system with the parent (visual) entity
-            door_opened_writer.write(DoorOpenedEvent {
-                door_net_id: event.interactable_net_id.clone(),
-                visual_entity: rollback_item.parent,
-            });
             
             // If this door has a paired door, open it too
             if let Some((paired_level_iid, (paired_x, paired_y))) = &door_component.config.paired_door {
                 // Find the paired door by matching level_iid and grid position
                 // Note: We use iter() instead of order_iter! here since we're searching for a specific door
                 // and the ordering doesn't matter for this lookup
-                for (paired_door_entity, paired_net_id, paired_rollback_item, _paired_door_component, paired_grid_pos) in all_doors_query.iter() {
+                for (paired_door_entity, paired_net_id, paired_grid_pos) in all_doors_query.iter() {
                     // Match by level_iid and grid position
                     if &paired_grid_pos.level_iid == paired_level_iid 
                         && paired_grid_pos.grid_x == *paired_x 
@@ -301,12 +272,6 @@ pub fn handle_door_interaction(
                             .remove::<Collider>()
                             .remove::<CollisionLayer>()
                             .remove::<Interactable>();
-                        
-                        // Send visual event for paired door
-                        door_opened_writer.write(DoorOpenedEvent {
-                            door_net_id: paired_net_id.clone(),
-                            visual_entity: paired_rollback_item.parent,
-                        });
                         
                         break;
                     }
@@ -324,14 +289,12 @@ pub fn handle_door_interaction(
 /// System that handles window repair interactions
 pub fn handle_window_repair(
     frame: Res<FrameCount>,
-    mut event_reader: MessageReader<InteractionEvent>,
-    mut window_repaired_writer: MessageWriter<WindowRepairedEvent>,
+    events: Res<FrameEvents<InteractionEvent>>,
     repair_config: Res<WindowRepairConfig>,
     mut window_query: Query<
         (
             Entity,
             &GgrsNetId,
-            &map::game::entity::MapRollbackItem,
             &mut map::game::entity::map::window::WindowHealth,
             Option<&mut crate::character::enemy::ai::obstacle::Obstacle>,
         ),
@@ -341,9 +304,9 @@ pub fn handle_window_repair(
     let system_span = span!(Level::INFO, "ggrs", f = frame.frame, s = "handle_window_repair_system");
     let _enter = system_span.enter();
 
-    // Events are delivered in deterministic order from interaction_detection_system
-    // No need for order_iter! on EventReader since the source system uses order_iter!
-    for event in event_reader.read() {
+    // Events are delivered in deterministic order from interaction_detection_system,
+    // which uses order_iter!
+    for event in events.iter() {
         // Only handle window interactions
         if event.interaction_type != InteractionType::Window {
             continue;
@@ -357,7 +320,7 @@ pub fn handle_window_repair(
         );
 
         // Verify the interactable entity exists and is a rollback entity with WindowHealth
-        if let Ok((window_entity, window_net_id, rollback_item, mut window_health, obstacle_opt)) =
+        if let Ok((window_entity, window_net_id, mut window_health, obstacle_opt)) =
             window_query.get_mut(event.interactable)
         {
             info!(
@@ -368,22 +331,6 @@ pub fn handle_window_repair(
                 window_health.max,
                 window_health.can_repair_after_frame
             );
-
-            // Sync with Obstacle if present (new AI system compatibility)
-            if let Some(mut obstacle) = obstacle_opt {
-                // Calculate new health value (current + 1 for the repair we're about to do)
-                let new_health = window_health.current as u32 + 1;
-
-                // If obstacle was destroyed, restore it
-                if obstacle.health == Some(0) && new_health > 0 {
-                    obstacle.blocks_movement = true;
-                }
-
-                // Update obstacle health to match
-                if obstacle.health.is_some() {
-                    obstacle.health = Some(new_health);
-                }
-            }
 
             // Check if we can repair (cooldown check)
             if let Some(cooldown_frame) = window_health.can_repair_after_frame {
@@ -417,6 +364,16 @@ pub fn handle_window_repair(
             let new_cooldown_frame = frame.frame + repair_config.repair_cooldown_frames;
             window_health.can_repair_after_frame = Some(new_cooldown_frame);
 
+            // Garder l'Obstacle (utilisé par l'IA) aligné sur la santé réelle de la fenêtre
+            if let Some(mut obstacle) = obstacle_opt {
+                if obstacle.health == Some(0) {
+                    obstacle.blocks_movement = true;
+                }
+                if obstacle.health.is_some() {
+                    obstacle.health = Some(window_health.current as u32);
+                }
+            }
+
             info!(
                 "{} [GGRS] window {} REPAIRED: health {}→{}/{}, cooldown set to frame {}, config_cooldown={}",
                 frame.as_ref(),
@@ -437,13 +394,6 @@ pub fn handle_window_repair(
                 );
             }
 
-            // Send event for visual feedback
-            window_repaired_writer.write(WindowRepairedEvent {
-                window_net_id: window_net_id.clone(),
-                visual_entity: rollback_item.parent,
-                new_health: window_health.current,
-                max_health: window_health.max,
-            });
 
             info!(
                 "{} [GGRS] window {} state after repair: health={}/{}, cooldown_frame={:?}, entity={:?}",
@@ -470,10 +420,7 @@ pub struct InteractionPlugin;
 
 impl Plugin for InteractionPlugin {
     fn build(&self, app: &mut App) {
-        // Register events
-        app.add_message::<InteractionEvent>();
-        app.add_message::<DoorOpenedEvent>();
-        app.add_message::<WindowRepairedEvent>();
+        app.add_frame_events::<InteractionEvent>();
 
         // Initialize window repair config
         app.init_resource::<WindowRepairConfig>();
@@ -517,22 +464,20 @@ impl Plugin for InteractionPlugin {
     }
 }
 
-/// System that updates door visual state based on door opened events
-/// This runs outside the GGRS schedule for visual feedback only
-/// Uses the visual entity (parent) from MapRollbackItem to directly update the LDTK entity
+/// Cache l'entité visuelle (LDtk) des portes ouvertes.
+/// Hors GGRS : l'état est lu à chaque frame, donc il reste juste après un rollback
+/// (une porte dont l'ouverture est annulée redevient visible).
 pub fn update_door_visuals(
-    mut door_opened_events: MessageReader<DoorOpenedEvent>,
-    mut door_query: Query<&mut Visibility>,
+    doors: Query<
+        (&map::game::entity::MapRollbackItem, Has<Interactable>),
+        With<map::game::entity::map::door::DoorComponent>,
+    >,
+    mut visibilities: Query<&mut Visibility>,
 ) {
-    for event in door_opened_events.read() {
-        // Directly access the visual entity using the parent from MapRollbackItem
-        if let Ok(mut visibility) = door_query.get_mut(event.visual_entity) {
-            *visibility = Visibility::Hidden;
-            info!("Door {:?} (visual entity {:?}) visibility updated to Hidden", 
-                  event.door_net_id, event.visual_entity);
-        } else {
-            warn!("Could not find visual entity {:?} for door {:?}", 
-                  event.visual_entity, event.door_net_id);
+    for (rollback_item, closed) in doors.iter() {
+        let target = if closed { Visibility::Inherited } else { Visibility::Hidden };
+        if let Ok(mut visibility) = visibilities.get_mut(rollback_item.parent) {
+            visibility.set_if_neq(target);
         }
     }
 }
@@ -541,35 +486,29 @@ pub fn update_door_visuals(
 #[derive(Component)]
 pub struct WindowHealthBar;
 
-/// System that updates window health bar visuals based on window repaired events
-/// This runs outside the GGRS schedule for visual feedback only
+/// Ajuste la barre de vie des fenêtres à leur santé actuelle (réparations comme dégâts).
+/// Hors GGRS, dérivé de l'état : reste juste après un rollback.
 pub fn update_window_health_bars(
-    mut window_repaired_events: MessageReader<WindowRepairedEvent>,
+    windows: Query<(
+        &map::game::entity::MapRollbackItem,
+        &map::game::entity::map::window::WindowHealth,
+    )>,
     children_query: Query<&Children>,
     mut health_bar_query: Query<&mut Sprite, With<WindowHealthBar>>,
 ) {
-    for event in window_repaired_events.read() {
-        info!(
-            "Window {:?} health bar update: new health {}/{}",
-            event.window_net_id, event.new_health, event.max_health
-        );
-        
-        // Directly query the visual entity's children - O(1) instead of O(N)
-        if let Ok(children) = children_query.get(event.visual_entity) {
-            for child in children.iter() {
-                if let Ok(mut sprite) = health_bar_query.get_mut(child) {
-                    // Update health bar width based on current health
-                    let health_ratio = event.new_health as f32 / event.max_health as f32;
-                    sprite.custom_size = Some(Vec2::new(16.0 * health_ratio, 2.0)); // Smaller health bar
-                    info!("Updated window health bar sprite: ratio {}", health_ratio);
-                    break; // Found and updated the health bar, no need to continue
+    for (rollback_item, window_health) in windows.iter() {
+        let Ok(children) = children_query.get(rollback_item.parent) else {
+            continue;
+        };
+        let health_ratio = window_health.current as f32 / window_health.max.max(1) as f32;
+        let size = Some(Vec2::new(16.0 * health_ratio, 2.0));
+        for child in children.iter() {
+            if let Ok(mut sprite) = health_bar_query.get_mut(child) {
+                if sprite.custom_size != size {
+                    sprite.custom_size = size;
                 }
+                break;
             }
-        } else {
-            warn!(
-                "Could not find children for window visual entity {:?}",
-                event.visual_entity
-            );
         }
     }
 }

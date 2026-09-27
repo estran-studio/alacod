@@ -1,12 +1,12 @@
 use bevy::prelude::*;
-use crate::character::health::PlayerDiedEvent;
+use crate::character::player::Player;
 use crate::core::AppState;
 
 pub struct GameOverUiPlugin;
 
 impl Plugin for GameOverUiPlugin {
     fn build(&self, app: &mut App) {
-        app.add_systems(Update, handle_player_death.run_if(in_state(AppState::InGame)));
+        app.add_systems(Update, update_game_over_ui.run_if(in_state(AppState::InGame)));
         app.add_systems(Update, button_system.run_if(in_state(AppState::InGame)));
     }
 }
@@ -17,18 +17,23 @@ struct GameOverUiRoot;
 #[derive(Component)]
 struct ReloadButton;
 
-fn handle_player_death(
+/// Affiche le game over dès qu'un joueur est mort (son entité est despawn).
+/// Dérivé de l'état et non d'un événement : si un rollback annule la mort,
+/// l'écran disparaît.
+fn update_game_over_ui(
     mut commands: Commands,
-    mut events: MessageReader<PlayerDiedEvent>,
+    players: Query<(), With<Player>>,
+    mut max_players_seen: Local<usize>,
     q_existing_ui: Query<Entity, With<GameOverUiRoot>>,
 ) {
-    if !q_existing_ui.is_empty() {
-        return;
-    }
+    let alive = players.iter().count();
+    *max_players_seen = (*max_players_seen).max(alive);
+    let game_over = alive < *max_players_seen;
 
-    for _event in events.read() {
-        spawn_game_over_ui(&mut commands);
-        break; 
+    match (game_over, q_existing_ui.single()) {
+        (true, Err(_)) => spawn_game_over_ui(&mut commands),
+        (false, Ok(ui)) => commands.entity(ui).despawn(),
+        _ => {}
     }
 }
 

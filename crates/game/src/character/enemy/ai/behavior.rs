@@ -16,6 +16,7 @@ use crate::character::enemy::Enemy;
 use crate::character::health::DamageAccumulator;
 use crate::character::movement::Velocity;
 use crate::character::player::Player;
+use crate::frame_events::FrameEvents;
 
 use super::navigation::FlowFieldCache;
 use super::obstacle::{Obstacle, ObstacleAttackEvent};
@@ -268,7 +269,7 @@ pub fn enemy_attack_system(
         (With<Rollback>, Without<Enemy>, Without<Player>),
     >,
     mut player_damage_query: Query<&mut DamageAccumulator>,
-    mut obstacle_events: MessageWriter<ObstacleAttackEvent>,
+    mut obstacle_events: ResMut<FrameEvents<ObstacleAttackEvent>>,
 ) {
     for (enemy_net_id, enemy_entity, enemy_transform, ai_config, target, mut state) in
         order_mut_iter!(enemy_query)
@@ -362,7 +363,7 @@ pub fn enemy_attack_system(
 
                             if should_attack {
                                 // Send attack event
-                                obstacle_events.write(ObstacleAttackEvent {
+                                obstacle_events.send(ObstacleAttackEvent {
                                     attacker: enemy_entity,
                                     obstacle: obstacle_entity,
                                     damage: 1, // TODO: Configure per enemy
