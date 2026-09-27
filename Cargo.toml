@@ -33,12 +33,12 @@ debug-assertions = false
 members = [ "crates/*" ]
 
 [dependencies]
-bevy_ecs_tilemap = { version = "0.17.0", default-features = false }
-bevy_ecs_ldtk = { version = "0.13", default-features = true }
-bevy = { version = "0.17", default-features = false, features = [
+bevy_ecs_tilemap = { version = "0.19.0", default-features = false }
+bevy_ecs_ldtk = { version = "0.15", default-features = true }
+bevy = { version = "0.19.1", default-features = false, features = [
   "bevy_sprite", "bevy_render", "bevy_core_pipeline", "webgl2", "png", "multi_threaded"
 ]}
-bevy_ggrs = "0.19.0"
+bevy_ggrs = "0.22.0"
 
 serde_json = "1.0"
 
@@ -69,4 +69,4 @@ name = "character_tester"
 path = "examples/character_tester.rs"
 
 [patch.crates-io]
-bevy_ecs_ldtk = { git = "https://github.com/bascanada/bevy_ecs_ldtk", branch = "transform_ldtk_project" }
+bevy_ecs_ldtk = { git = "https://github.com/estran-studio/bevy_ecs_ldtk", branch = "transform_ldtk_project" }

@@ -140,7 +140,7 @@ pub fn rollback_apply_death(
     frame: Res<FrameCount>,
     mut commands: Commands,
     mut query: Query<(&GgrsNetId, Entity, &Death, Option<&Player>), With<Rollback>>,
-    mut event_writer: EventWriter<PlayerDiedEvent>,
+    mut event_writer: MessageWriter<PlayerDiedEvent>,
 ) {
     let system_span = span!(Level::INFO, "ggrs", f = frame.frame, s = "apply_death");
     let _enter = system_span.enter();

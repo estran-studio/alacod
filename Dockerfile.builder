@@ -43,7 +43,7 @@ RUN rustup component add rustfmt clippy
 RUN rustup target add wasm32-unknown-unknown
 
 # Install wasm-bindgen-cli
-RUN cargo install -f wasm-bindgen-cli --version 0.2.106
+RUN cargo install -f wasm-bindgen-cli --version 0.2.129
 
 # Install wasm-opt (binaryen)
 RUN wget https://github.com/WebAssembly/binaryen/releases/download/version_119/binaryen-version_119-x86_64-linux.tar.gz && \

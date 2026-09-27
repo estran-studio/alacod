@@ -47,7 +47,7 @@ fn spawn_lobby_ui(mut commands: Commands) {
         parent.spawn((
             Text::new("Waiting for Players..."),
             TextFont {
-                font_size: 40.0,
+                font_size: FontSize::Px(40.0),
                 ..default()
             },
             TextColor(Color::WHITE),
@@ -135,12 +135,12 @@ fn update_lobby_ui(
                 )).with_children(|row| {
                     row.spawn((
                         Text::new(format!("{}: ", player_config.name)),
-                        TextFont { font_size: 24.0, ..default() },
+                        TextFont { font_size: FontSize::Px(24.0), ..default() },
                         TextColor(Color::WHITE),
                     ));
                     row.spawn((
                         Text::new(status_text),
-                        TextFont { font_size: 24.0, ..default() },
+                        TextFont { font_size: FontSize::Px(24.0), ..default() },
                         TextColor(status_color),
                     ));
                 });

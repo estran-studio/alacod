@@ -22,11 +22,11 @@ fn setup_frame_counter_ui(mut commands: Commands, asset_server: Res<AssetServer>
         FrameCountText,
         Text::new("Frame Count"),
         TextFont {
-            font,
-            font_size: 16.0,
+            font: font.into(),
+            font_size: FontSize::Px(16.0),
             ..Default::default()
         },
-        TextLayout::new_with_justify(Justify::Center),
+        TextLayout::justify(Justify::Center),
         Node {
             position_type: PositionType::Absolute,
             bottom: Val::Px(5.0),

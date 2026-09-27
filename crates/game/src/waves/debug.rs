@@ -21,11 +21,11 @@ fn setup_wave_debug_ui(mut commands: Commands, asset_server: Res<AssetServer>) {
         WaveDebugText,
         Text::new("Wave: --"),
         TextFont {
-            font,
-            font_size: 16.0,
+            font: font.into(),
+            font_size: FontSize::Px(16.0),
             ..Default::default()
         },
-        TextLayout::new_with_justify(Justify::Left),
+        TextLayout::justify(Justify::Left),
         Node {
             position_type: PositionType::Absolute,
             bottom: Val::Px(54.0),

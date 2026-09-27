@@ -160,6 +160,7 @@ pub fn system_after_map_loaded(
     // start the GGRS session
     let mut session_builder = ggrs::SessionBuilder::<PeerConfig>::new()
         .with_num_players(num_players)
+        .expect("invalid number of players")
         .with_max_prediction_window(12)
         .with_input_delay(ggrs_config.connection.input_delay);
 

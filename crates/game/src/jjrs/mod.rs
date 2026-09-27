@@ -90,7 +90,7 @@ pub fn log_ggrs_events(
     mut session: ResMut<bevy_ggrs::Session<PeerConfig>>,
     telemetry_config: Res<telemetry::TelemetryConfig>,
     #[cfg(not(target_arch = "wasm32"))] telemetry_sender: Option<Res<telemetry::TelemetrySender>>,
-    mut disconnect_writer: EventWriter<GameDisconnectedEvent>,
+    mut disconnect_writer: MessageWriter<GameDisconnectedEvent>,
     session_building: Option<Res<GgrsSessionBuilding>>,
 ) {
     if let Session::P2P(session) = session.as_mut() {

@@ -1,7 +1,7 @@
 use animation::{FacingDirection, SpriteSheetConfig};
 use bevy::{log::{tracing::span, Level}, platform::collections::HashMap, prelude::*};
 use bevy_fixed::fixed_math;
-use bevy_ggrs::{AddRollbackCommandExtension, Rollback};
+use bevy_ggrs::Rollback;
 use ggrs::PlayerHandle;
 use serde::{Deserialize, Serialize};
 use utils::{net_id::{GgrsNetId, GgrsNetIdFactory}, order_iter, order_mut_iter};
@@ -173,7 +173,7 @@ pub fn spawn_melee_weapon_for_character(
             id_factory.next(weapon_component.config.name.clone()),
             Visibility::Hidden, // Melee weapons can be invisible or shown only during attack
         ))
-        .add_rollback()
+        .insert(Rollback)
         .id();
 
     commands.entity(character_entity).add_child(entity);
@@ -281,7 +281,7 @@ pub fn spawn_melee_hitbox(
             hitbox_transform.clone(),
             g_id,
         ))
-        .add_rollback()
+        .insert(Rollback)
         .id();
     
     // Spawn slash visual effect

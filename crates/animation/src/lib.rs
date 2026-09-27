@@ -503,7 +503,7 @@ pub fn create_child_sprite(
         entity_commands.insert(AnimatedLayer {});
     }
 
-    let sprite = entity_commands.add_rollback().id();
+    let sprite = entity_commands.insert(Rollback).id();
 
     commands.entity(parent_entity).add_child(sprite);
 

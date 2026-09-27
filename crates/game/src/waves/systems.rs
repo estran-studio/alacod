@@ -6,7 +6,6 @@
 use animation::SpriteSheetConfig;
 use bevy::{ecs::system::SystemParam, prelude::*};
 use bevy_fixed::{fixed_math, rng::RollbackRng};
-use bevy_ggrs::AddRollbackCommandExtension;
 use map::game::entity::map::enemy_spawn::EnemySpawnerComponent;
 use utils::{frame::FrameCount, net_id::{GgrsNetId, GgrsNetIdFactory}};
 

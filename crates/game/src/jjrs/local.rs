@@ -75,6 +75,7 @@ pub fn system_after_map_loaded_local(
 
     let mut sess_build = SessionBuilder::<PeerConfig>::new()
         .with_num_players(session_config.connection.max_player)
+        .expect("invalid number of players")
         .with_desync_detection_mode(ggrs::DesyncDetection::On {
             interval: session_config.connection.desync_interval,
         })

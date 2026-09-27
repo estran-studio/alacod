@@ -4,15 +4,16 @@ version = "0.2.0"
 edition = "2021"
 
 [dependencies]
-bevy = { version = "0.17", default-features = false }
-bevy_ggrs = "0.19.0"
+bevy = { version = "0.19.1", default-features = false }
+bevy_ggrs = "0.22.0"
 
 serde = { version = "1.0", features = ["derive"] }
 
 tracing = "0.1"
 tracing-subscriber = { version = "0.3.18", features = ["fmt", "env-filter", "registry"] }
 tracing-web = { version = "0.1" }
-tracing-appender = "0.2"
+# 0.2.5 ne compile plus pour wasm32 (crate symlink sans cible wasm)
+tracing-appender = "=0.2.4"
 
 rand = "0.8"
 getrandom = { version = "0.2", features = ["js"] }
