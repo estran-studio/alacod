@@ -9686,6 +9686,19 @@ dependencies = [
 ]
 
 [[package]]
+name = "scenario"
+version = "0.1.0"
+dependencies = [
+ "bevy 0.19.1",
+ "bevy_ggrs",
+ "game",
+ "map_ldtk",
+ "ron 0.12.2",
+ "serde",
+ "utils",
+]
+
+[[package]]
 name = "scoped-tls"
 version = "1.0.1"
 source = "registry+https://github.com/rust-lang/crates.io-index"

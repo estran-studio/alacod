@@ -247,6 +247,25 @@ Variables d'environnement (natif) :
 
 Avant/après un refactoring de la simulation, comparer les traces : elles doivent être identiques.
 
+## Scénarios (tests de comportement et de régression)
+
+`crates/scenario` joue des parties scriptées en headless, dans le processus de test :
+- `tests/scenarios/<nom>.ron` : map, seed, un script d'inputs par joueur (segments de frames avec
+  boutons et visée), nombre de frames, attentes (`PlayerAlive`, `PlayerDead`, `WaveAtLeast`,
+  `KillsAtLeast` à une frame donnée). Format documenté dans `crates/scenario/src/format.rs`.
+- `tests/scenarios/<nom>.trace` : trace d'état de référence. Toute différence fait échouer le test.
+- `make test_scenarios` (profil `headless`, sans rendu) ; `SCENARIO=<nom>` pour un seul ;
+  `BLESS=1` pour réécrire les traces après un **changement de gameplay voulu** (le dire dans le commit).
+- `make play_scenario SCENARIO=<nom>` : affiche le scénario avec rendu, mêmes inputs.
+
+La partie jouée est celle de `map_explorer` (plugin partagé `map_ldtk::game::local::LdtkLocalGamePlugin`).
+Tout changement de simulation doit garder les scénarios verts, ou justifier le `BLESS`.
+
+### Numérotation des entités (`GgrsNetId`)
+Les ids doivent être attribués dans un ordre indépendant du timing et de l'allocation des `Entity` :
+trier par une clé de contenu (type, position, level iid) avant `id_factory.next`, et ordonner tout
+système qui crée des entités rollback sur `LdtkMapLoadingEvent` `.after(MapNetIdAssignment)`.
+
 ## Système IA (En Refonte)
 
 ### Problème Actuel

@@ -7,7 +7,7 @@ use bevy_ggrs::prelude::*;
 use bevy_ggrs::{LocalInputs, LocalPlayers};
 use leafwing_input_manager::prelude::*;
 use serde::{Deserialize, Serialize};
-use utils::{order_mut_iter, net_id::GgrsNetId};
+use utils::{frame::FrameCount, order_mut_iter, net_id::GgrsNetId};
 
 use crate::character::config::{CharacterConfig, CharacterConfigHandles};
 use crate::character::dash::DashState;
@@ -21,10 +21,10 @@ use super::LocalPlayer;
 
 pub const FIXED_TIMESTEP: f32 = 1.0 / 60.0; // 60 FPS fixed timestep
 
-const INPUT_UP: u16 = 1 << 0;
-const INPUT_DOWN: u16 = 1 << 1;
-const INPUT_LEFT: u16 = 1 << 2;
-const INPUT_RIGHT: u16 = 1 << 3;
+pub const INPUT_UP: u16 = 1 << 0;
+pub const INPUT_DOWN: u16 = 1 << 1;
+pub const INPUT_LEFT: u16 = 1 << 2;
+pub const INPUT_RIGHT: u16 = 1 << 3;
 pub const INPUT_RELOAD: u16 = 1 << 4;
 pub const INPUT_SWITCH_WEAPON_MODE: u16 = 1 << 5;
 pub const INPUT_SPRINT: u16 = 1 << 6;
@@ -110,6 +110,33 @@ pub enum InputSource {
     /// Aucun input : les joueurs locaux ne bougent pas. Rend un run reproductible,
     /// indépendamment de la position de la souris.
     Neutral,
+    /// Inputs lus dans la ressource [`ScriptedInputs`] (scénarios, replays).
+    Scripted,
+}
+
+/// Input d'un joueur sur les frames `from..to`.
+#[derive(Clone, Debug)]
+pub struct InputSegment {
+    pub from: u32,
+    pub to: u32,
+    pub input: BoxInput,
+}
+
+/// Pistes d'inputs scriptées, une par joueur (index = handle GGRS). Hors de ses
+/// segments, un joueur envoie un input neutre.
+#[derive(Resource, Clone, Debug, Default)]
+pub struct ScriptedInputs {
+    pub players: Vec<Vec<InputSegment>>,
+}
+
+impl ScriptedInputs {
+    pub fn input_at(&self, handle: usize, frame: u32) -> BoxInput {
+        self.players
+            .get(handle)
+            .and_then(|segments| segments.iter().find(|s| (s.from..s.to).contains(&frame)))
+            .map(|s| s.input)
+            .unwrap_or_default()
+    }
 }
 
 impl InputSource {
@@ -130,8 +157,17 @@ pub fn read_local_inputs(
     q_window: Query<&Window, With<PrimaryWindow>>,
     q_camera: Query<(&Camera, &GlobalTransform)>,
     local_players: Res<LocalPlayers>,
+    frame: Res<FrameCount>,
+    scripted: Option<Res<ScriptedInputs>>,
 ) {
     let mut local_inputs = HashMap::new();
+
+    if *input_source == InputSource::Scripted {
+        let scripted = scripted.expect("InputSource::Scripted demande la ressource ScriptedInputs");
+        for handle in &local_players.0 {
+            local_inputs.insert(*handle, scripted.input_at(*handle, frame.frame));
+        }
+    }
 
     for (action_state, transform, player) in players
         .iter()

@@ -1,0 +1,15 @@
+// Deux joueurs locaux immobiles dans la même partie (session synctest à 2 joueurs).
+Scenario(
+    frames: 1500,
+    players: [
+        (),
+        (),
+    ],
+    expect: [
+        PlayerAlive(handle: 0, at_frame: 300),
+        PlayerAlive(handle: 1, at_frame: 300),
+        // La partie continue après la mort d'un joueur
+        PlayerDead(handle: 0, at_frame: 1500),
+        PlayerAlive(handle: 1, at_frame: 1500),
+    ],
+)

@@ -73,9 +73,18 @@ format_fix:
 
 # Test
 
-test:
+test: test_scenarios
 	@echo "Running tests with profile"
 	cargo test
+
+# Scénarios de jeu headless (tests/scenarios/*.ron), comparés à leur trace de référence.
+# BLESS=1 réécrit les traces de référence ; SCENARIO=<nom> n'en joue qu'un.
+test_scenarios:
+	ALACOD_BLESS=$(BLESS) ALACOD_SCENARIO=$(SCENARIO) APP_VERSION=$(VERSION) cargo test -p scenario --profile headless --test scenarios -- --nocapture
+
+# Affiche un scénario avec rendu : make play_scenario SCENARIO=shoot_around
+play_scenario:
+	APP_VERSION=$(VERSION) cargo run -p scenario --features render --bin play_scenario -- tests/scenarios/$(SCENARIO).ron
 
 
 # Env

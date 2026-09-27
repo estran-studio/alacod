@@ -1,0 +1,13 @@
+// Un joueur immobile : les zombies de la vague 1 le rejoignent et le tuent.
+// Couvre : génération de map, vagues, IA (flow field, poursuite, attaque), dégâts, mort.
+Scenario(
+    frames: 1500,
+    players: [
+        (),
+    ],
+    expect: [
+        PlayerAlive(handle: 0, at_frame: 1000),
+        PlayerDead(handle: 0, at_frame: 1300),
+        WaveAtLeast(wave: 1, at_frame: 1500),
+    ],
+)

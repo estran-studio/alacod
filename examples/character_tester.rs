@@ -8,9 +8,7 @@ use utils::net_id::GgrsNetIdFactory;
 use bevy_ggrs::Rollback;
 
 fn main() {
-    let game_config = CoreSetupConfig {
-        app_name: "zrl-character_tester".into(),
-    };
+    let game_config = CoreSetupConfig::from_env("zrl-character_tester");
 
     let core_plugin = CoreSetupPlugin(game_config);
 

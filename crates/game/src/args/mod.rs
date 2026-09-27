@@ -21,6 +21,7 @@ mod cli;
 pub mod web;
 
 /// Parsed arguments for game configuration
+#[derive(Clone, Debug)]
 pub struct GameArgs {
     pub local_port: u16,
     pub number_player: usize,
@@ -140,11 +141,29 @@ pub fn get_args() -> GameArgs {
     }
 }
 
+/// Configure la partie depuis la ligne de commande (natif) ou le canvas (web).
 pub struct BaseArgsPlugin;
 
 impl Plugin for BaseArgsPlugin {
     fn build(&self, app: &mut App) {
         let args = get_args();
+
+        #[cfg(not(target_arch = "wasm32"))]
+        app.add_plugins(utils::logs::NativeLogPlugin(args.cid.clone()));
+
+        app.add_plugins(telemetry::TelemetryPlugin);
+
+        app.add_plugins(GameArgsPlugin(args));
+    }
+}
+
+/// Configure la session de jeu à partir d'arguments déjà construits, sans lire la ligne
+/// de commande ni installer de logs ou de télémétrie globaux (utilisé par les scénarios).
+pub struct GameArgsPlugin(pub GameArgs);
+
+impl Plugin for GameArgsPlugin {
+    fn build(&self, app: &mut App) {
+        let args = self.0.clone();
         app.insert_resource(DebugAiConfig { enabled: args.debug_ai });
 
         let mut nbr_player = args.number_player;
@@ -152,10 +171,6 @@ impl Plugin for BaseArgsPlugin {
             nbr_player = args.players.len();
         }
 
-        #[cfg(not(target_arch = "wasm32"))]
-        app.add_plugins(utils::logs::NativeLogPlugin(args.cid.clone()));
-
-        app.add_plugins(telemetry::TelemetryPlugin);
         app.insert_resource(telemetry::TelemetryConfig {
             enabled: args.telemetry,
             url: args.telemetry_url,
@@ -176,7 +191,9 @@ impl Plugin for BaseArgsPlugin {
                 input_delay: 5,
                 max_player: nbr_player,
                 desync_interval: 10,
-                socket: args.players.len() > 1,
+                // UDP seulement s'il y a des joueurs distants : plusieurs joueurs locaux
+                // partagent une session synctest
+                socket: args.players.iter().any(|p| !p.is_local),
                 udp_port: args.local_port,
             },
             players: args.players,

@@ -31,6 +31,21 @@ use crate::{
 #[derive(Serialize, Deserialize, Default, Clone)]
 pub struct CoreSetupConfig {
     pub app_name: String,
+    /// Sans fenêtre ni GPU, une frame de simulation par update (voir [`is_headless`]).
+    pub headless: bool,
+    /// Dossier des assets ; `None` pour le dossier par défaut de bevy.
+    pub asset_root: Option<String>,
+}
+
+impl CoreSetupConfig {
+    /// Config d'un exécutable : le mode headless vient de `ALACOD_HEADLESS`.
+    pub fn from_env(app_name: impl Into<String>) -> Self {
+        Self {
+            app_name: app_name.into(),
+            headless: is_headless(),
+            asset_root: None,
+        }
+    }
 }
 
 #[derive(Debug, Clone, Default, Eq, PartialEq, Hash, States)]
@@ -77,7 +92,7 @@ pub struct CoreSetupPlugin(pub CoreSetupConfig);
 
 impl Plugin for CoreSetupPlugin {
     fn build(&self, app: &mut App) {
-        if is_headless() {
+        if self.0.headless {
             // Chaque update avance d'exactement une frame GGRS, aussi vite que le CPU le permet
             app.insert_resource(TimeUpdateStrategy::ManualDuration(
                 std::time::Duration::from_nanos(1_000_000_000 / SIM_FPS),
@@ -87,7 +102,7 @@ impl Plugin for CoreSetupPlugin {
         app.add_plugins(WebPlugin);
         app.add_plugins(D2AnimationPlugin);
         app.add_plugins(GgrsPlugin::<PeerConfig>::default());
-        if !is_headless() {
+        if !self.0.headless {
             app.add_plugins(PresentationPlugin);
         }
 
@@ -189,17 +204,22 @@ impl CoreSetupPlugin {
             ..Default::default()
         };
 
+        let mut asset_plugin = AssetPlugin {
+            meta_check: AssetMetaCheck::Never,
+            #[cfg(target_arch = "wasm32")]
+            file_path: format!("{}/assets", env!("APP_VERSION")),
+            ..Default::default()
+        };
+        if let Some(asset_root) = &self.0.asset_root {
+            asset_plugin.file_path = asset_root.clone();
+        }
+
         let plugins = DefaultPlugins
             .set(ImagePlugin::default_nearest())
-            .set(AssetPlugin {
-                meta_check: AssetMetaCheck::Never,
-                #[cfg(target_arch = "wasm32")]
-                file_path: format!("{}/assets", env!("APP_VERSION")),
-                ..Default::default()
-            })
+            .set(asset_plugin)
             .disable::<LogPlugin>();
 
-        if !is_headless() {
+        if !self.0.headless {
             return plugins.set(window_plugin);
         }
 
