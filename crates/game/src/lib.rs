@@ -10,6 +10,7 @@ pub mod global_asset;
 pub mod interaction;
 pub mod jjrs;
 pub mod light;
+pub mod state_trace;
 pub mod system_set;
 pub mod ui;
 pub mod waves;

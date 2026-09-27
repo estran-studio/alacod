@@ -162,6 +162,8 @@ impl Plugin for CoreSetupPlugin {
 
         app.add_systems(Update, log_ggrs_events.run_if(in_state(AppState::InGame)));
 
+        app.add_plugins(crate::state_trace::StateTracePlugin);
+
         app.add_systems(
             GgrsSchedule,
             (increase_frame_system,).in_set(RollbackSystemSet::FrameCounter),

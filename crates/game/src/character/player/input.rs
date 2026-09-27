@@ -99,8 +99,32 @@ fn get_facing_direction(input: &BoxInput) -> FacingDirection {
     }
 }
 
+/// Source des inputs des joueurs locaux.
+///
+/// Choisie par la variable d'environnement `ALACOD_INPUT` (`devices` par défaut).
+#[derive(Resource, Clone, Copy, Debug, Default, PartialEq, Eq)]
+pub enum InputSource {
+    /// Clavier et souris.
+    #[default]
+    Devices,
+    /// Aucun input : les joueurs locaux ne bougent pas. Rend un run reproductible,
+    /// indépendamment de la position de la souris.
+    Neutral,
+}
+
+impl InputSource {
+    pub fn from_env() -> Self {
+        match std::env::var("ALACOD_INPUT").as_deref() {
+            Err(_) | Ok("devices") => Self::Devices,
+            Ok("neutral") => Self::Neutral,
+            Ok(other) => panic!("ALACOD_INPUT inconnu : {other} (attendu : devices, neutral)"),
+        }
+    }
+}
+
 pub fn read_local_inputs(
     mut commands: Commands,
+    input_source: Res<InputSource>,
     players: Query<(&ActionState<PlayerAction>, &Transform, &Player), With<LocalPlayer>>,
 
     q_window: Query<&Window, With<PrimaryWindow>>,
@@ -109,7 +133,10 @@ pub fn read_local_inputs(
 ) {
     let mut local_inputs = HashMap::new();
 
-    for (action_state, transform, player) in players.iter() {
+    for (action_state, transform, player) in players
+        .iter()
+        .filter(|_| *input_source == InputSource::Devices)
+    {
         let mut input = BoxInput::default();
 
         if action_state.pressed(&PlayerAction::MoveUp) {

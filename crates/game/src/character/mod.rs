@@ -120,6 +120,7 @@ impl Plugin for BaseCharacterGamePlugin {
         app.rollback_resource_with_clone::<FlowFieldCache>();
         // Note: FlowFieldConfig is not rolled back (static configuration)
 
+        app.insert_resource(player::input::InputSource::from_env());
         app.add_systems(ReadInputs, read_local_inputs);
 
         // Non-rollback systems: update visuals and debug
@@ -178,7 +179,8 @@ impl Plugin for BaseCharacterGamePlugin {
                     .in_set(RollbackSystemSet::EnemyAI),
                 // OBSTACLE DAMAGE PROCESSING
                 (process_obstacle_damage,)
-                    .after(RollbackSystemSet::EnemyAI),
+                    .after(RollbackSystemSet::EnemyAI)
+                    .before(RollbackSystemSet::FrameCounter),
             ),
         );
     }
