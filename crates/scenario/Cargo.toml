@@ -7,10 +7,9 @@ description = "Parties scriptées et déterministes : tests de comportement et d
 [dependencies]
 bevy = "0.19.1"
 bevy_ggrs = "0.22.0"
-ron = "0.12"
-serde = { version = "1.0", features = ["derive"] }
 
 game = { path = "../game" }
+map = { path = "../map" }
 map_ldtk = { path = "../map_ldtk" }
 utils = { path = "../utils" }
 

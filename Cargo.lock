@@ -5713,6 +5713,7 @@ dependencies = [
  "map",
  "once_cell",
  "pathfinding",
+ "ron 0.12.2",
  "serde",
  "serde_json",
  "telemetry",
@@ -9692,9 +9693,8 @@ dependencies = [
  "bevy 0.19.1",
  "bevy_ggrs",
  "game",
+ "map",
  "map_ldtk",
- "ron 0.12.2",
- "serde",
  "utils",
 ]
 

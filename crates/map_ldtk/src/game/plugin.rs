@@ -63,6 +63,7 @@ impl Plugin for LdtkMapLoadingPlugin {
         app.register_asset_loader(level_loader);
 
         app.init_resource::<LdtkMapEntityLoadingRegistry>();
+        app.init_resource::<crate::loader::MapLoaderSettings>();
         app.add_message::<LdtkMapLoadingEvent>();
 
         app.add_systems(OnEnter(AppState::GameLoading), setup_generated_map);

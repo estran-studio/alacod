@@ -5,8 +5,9 @@
 //! GPU, et produit une trace d'état comparée à une trace de référence
 //! (`tests/scenarios/<nom>.trace`) pour détecter toute régression.
 
-pub mod format;
 pub mod runner;
 
-pub use format::Scenario;
+/// Format des scénarios (défini dans `game`, qui écrit aussi les enregistrements).
+pub use game::replay as format;
+pub use game::replay::Scenario;
 pub use runner::{run, ScenarioOutcome};

@@ -4,7 +4,7 @@ use bevy_ecs_ldtk::prelude::*;
 use game::core::AppState;
 use map::{game::entity::map::door::DoorComponent, generation::config::MapGenerationConfig};
 use map_ldtk::{
-    game::utility::load_levels_if_not_present, loader::{get_asset_loader_generation, reload_map, setup_generated_map}, plugins::LdtkRoguePlugin
+    game::utility::load_levels_if_not_present, loader::{get_asset_loader_generation, reload_map, setup_generated_map, MapLoaderSettings}, plugins::LdtkRoguePlugin
 };
 use utils::{
     camera::tod::{move_camera, setup_camera},
@@ -81,6 +81,7 @@ fn keyinput(
     level_query: Query<Entity, With<LevelIid>>,
     mut commands: Commands,
     asset_server: Res<AssetServer>,
+    loader_settings: Res<MapLoaderSettings>,
     mut config: ResMut<MapGenerationConfig>,
     mut level_set: Query<&mut LevelSet>,
 ) {
@@ -95,7 +96,7 @@ fn keyinput(
             .expect("Time went backwards");
 
         config.seed = since_the_epoch.as_secs() as i32;
-        reload_map(&asset_server, config.as_ref());
+        reload_map(&asset_server, &loader_settings, config.as_ref());
         for mut level_set in level_set.iter_mut() {
             level_set.iids.clear();
         }

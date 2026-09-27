@@ -1,4 +1,4 @@
-//! Format RON des scénarios (`tests/scenarios/*.ron`).
+//! Format RON des scénarios et replays (`tests/scenarios/*.ron`, enregistrements).
 //!
 //! ```ron
 //! Scenario(
@@ -17,15 +17,17 @@
 //!
 //! Les frames d'un segment sont celles où l'input est *lu* : GGRS l'applique après
 //! le délai d'input de la session.
+//!
+//! Joué par `crates/scenario` ; écrit par l'enregistrement (`crate::recording`).
 
-use game::character::player::input::{
+use crate::character::player::input::{
     BoxInput, InputSegment, ScriptedInputs, INPUT_DASH, INPUT_DOWN, INPUT_INTERACTION,
-    INPUT_LEFT, INPUT_MELEE_ATTACK, INPUT_MODIFIER, INPUT_RELOAD, INPUT_RIGHT, INPUT_SPRINT,
+    INPUT_FORCE_CRASH, INPUT_LEFT, INPUT_MELEE_ATTACK, INPUT_MODIFIER, INPUT_RELOAD, INPUT_RIGHT, INPUT_SPRINT,
     INPUT_SWITCH_WEAPON_MODE, INPUT_UP,
 };
-use serde::Deserialize;
+use serde::{Deserialize, Serialize};
 
-#[derive(Debug, Clone, Deserialize)]
+#[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct Scenario {
     /// Map LDtk, relative au dossier des assets.
     #[serde(default = "default_map")]
@@ -36,7 +38,7 @@ pub struct Scenario {
     pub frames: u32,
     /// Un script par joueur ; le joueur `i` a le handle GGRS `i`.
     pub players: Vec<PlayerScript>,
-    #[serde(default)]
+    #[serde(default, skip_serializing_if = "Vec::is_empty")]
     pub expect: Vec<Expectation>,
 }
 
@@ -48,14 +50,14 @@ fn default_map_seed() -> i32 {
     123456
 }
 
-#[derive(Debug, Clone, Default, Deserialize)]
+#[derive(Debug, Clone, Default, Serialize, Deserialize)]
 pub struct PlayerScript {
     #[serde(default)]
     pub inputs: Vec<Segment>,
 }
 
 /// Input maintenu sur les frames `from..to`.
-#[derive(Debug, Clone, Deserialize)]
+#[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct Segment {
     pub from: u32,
     pub to: u32,
@@ -66,7 +68,7 @@ pub struct Segment {
     pub pan: (i16, i16),
 }
 
-#[derive(Debug, Clone, Copy, PartialEq, Eq, Deserialize)]
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize)]
 pub enum Button {
     Up,
     Down,
@@ -81,10 +83,12 @@ pub enum Button {
     Modifier,
     Interaction,
     Melee,
+    /// Touche de debug qui provoque un crash volontaire
+    ForceCrash,
 }
 
 /// Vérification faite quand la simulation atteint `at_frame`.
-#[derive(Debug, Clone, Deserialize)]
+#[derive(Debug, Clone, Serialize, Deserialize)]
 pub enum Expectation {
     PlayerAlive { handle: usize, at_frame: u32 },
     PlayerDead { handle: usize, at_frame: u32 },
@@ -108,6 +112,14 @@ impl Scenario {
         ron::from_str(source)
     }
 
+    pub fn to_ron(&self) -> String {
+        let config = ron::ser::PrettyConfig::new()
+            .struct_names(true)
+            .depth_limit(4)
+            .indentor("    ".to_string());
+        ron::ser::to_string_pretty(self, config).expect("sérialisation du scénario")
+    }
+
     pub fn scripted_inputs(&self) -> ScriptedInputs {
         ScriptedInputs {
             players: self
@@ -120,6 +132,27 @@ impl Scenario {
 }
 
 impl Segment {
+    /// Segment qui rejoue `input` sur les frames `from..to`.
+    pub fn from_input(from: u32, to: u32, input: &BoxInput) -> Self {
+        let mut buttons: Vec<Button> = ALL_BUTTONS
+            .iter()
+            .copied()
+            .filter(|b| button_bit(*b) != 0 && input.buttons & button_bit(*b) != 0)
+            .collect();
+        if input.fire {
+            buttons.push(Button::Fire);
+        }
+        if input.switch_weapon {
+            buttons.push(Button::SwitchWeapon);
+        }
+        Self {
+            from,
+            to,
+            buttons,
+            pan: (input.pan_x, input.pan_y),
+        }
+    }
+
     fn to_input_segment(&self) -> InputSegment {
         let mut input = BoxInput {
             pan_x: self.pan.0,
@@ -141,6 +174,23 @@ impl Segment {
     }
 }
 
+const ALL_BUTTONS: [Button; 14] = [
+    Button::Up,
+    Button::Down,
+    Button::Left,
+    Button::Right,
+    Button::Fire,
+    Button::SwitchWeapon,
+    Button::SwitchWeaponMode,
+    Button::Reload,
+    Button::Sprint,
+    Button::Dash,
+    Button::Modifier,
+    Button::Interaction,
+    Button::Melee,
+    Button::ForceCrash,
+];
+
 fn button_bit(button: Button) -> u16 {
     match button {
         Button::Up => INPUT_UP,
@@ -154,6 +204,7 @@ fn button_bit(button: Button) -> u16 {
         Button::Modifier => INPUT_MODIFIER,
         Button::Interaction => INPUT_INTERACTION,
         Button::Melee => INPUT_MELEE_ATTACK,
+        Button::ForceCrash => INPUT_FORCE_CRASH,
         Button::Fire | Button::SwitchWeapon => 0,
     }
 }

@@ -78,3 +78,22 @@ fn scenarios() {
 
     assert!(failures.is_empty(), "\n{}\n", failures.join("\n"));
 }
+
+/// Un scénario rejoué depuis son propre enregistrement donne la même trace : ce que
+/// l'enregistrement capture suffit à reproduire la partie.
+#[test]
+fn recording_replays_identically() {
+    if map_ldtk::RENDER_ENABLED {
+        return;
+    }
+
+    let source = std::fs::read_to_string(scenarios_dir().join("shoot_around.ron")).unwrap();
+    let original = run(&Scenario::from_ron(&source).unwrap());
+
+    // Le RON écrit doit se relire
+    let mut recorded = Scenario::from_ron(&original.recorded.to_ron()).unwrap();
+    recorded.frames = original.trace.len() as u32;
+    let replayed = run(&recorded);
+
+    assert_eq!(original.trace, replayed.trace, "le replay de l'enregistrement diverge");
+}

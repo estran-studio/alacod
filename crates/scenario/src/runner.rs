@@ -16,9 +16,11 @@ use map_ldtk::{
     game::local::{LdtkGameMap, LdtkLocalGamePlugin},
     plugins::LdtkRoguePlugin,
 };
+use game::recording::InputRecorder;
+use map::generation::config::MapGenerationConfig;
 use utils::frame::FrameCount;
 
-use crate::format::{Expectation, Scenario};
+use game::replay::{Expectation, Scenario};
 
 /// Updates maximum pour charger la map avant la première frame de simulation.
 const MAX_LOADING_UPDATES: u32 = 10_000;
@@ -31,6 +33,8 @@ pub struct ScenarioOutcome {
     pub failures: Vec<String>,
     /// État en fin de partie, pour écrire ou déboguer un scénario.
     pub summary: String,
+    /// Inputs réellement envoyés à GGRS, réenregistrés en scénario.
+    pub recorded: Scenario,
 }
 
 /// Dossier des assets du dépôt.
@@ -107,11 +111,16 @@ pub fn run(scenario: &Scenario) -> ScenarioOutcome {
         .collect();
 
     let summary = summarize(app.world_mut(), frame);
+    let recorded = app
+        .world()
+        .resource::<InputRecorder>()
+        .to_scenario(app.world().get_resource::<MapGenerationConfig>());
 
     ScenarioOutcome {
         trace,
         failures,
         summary,
+        recorded,
     }
 }
 
