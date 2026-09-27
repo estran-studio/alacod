@@ -1,9 +1,13 @@
 
 use animation::D2AnimationPlugin;
 use bevy::{
-    app::PluginGroupBuilder, asset::AssetMetaCheck, diagnostic::FrameTimeDiagnosticsPlugin, log::LogPlugin, prelude::*,
-    window::WindowResolution,
+    app::{PluginGroupBuilder, ScheduleRunnerPlugin}, asset::AssetMetaCheck, diagnostic::FrameTimeDiagnosticsPlugin, log::LogPlugin, prelude::*,
+    render::{settings::{RenderCreation, WgpuSettings}, RenderPlugin},
+    time::TimeUpdateStrategy,
+    window::{ExitCondition, WindowResolution},
 };
+#[cfg(not(target_arch = "wasm32"))]
+use bevy::winit::WinitPlugin;
 use bevy_fixed::{
     fixed_math::{self, sync_bevy_transforms_from_fixed},
     rng::RollbackRng,
@@ -73,28 +77,27 @@ pub struct CoreSetupPlugin(pub CoreSetupConfig);
 
 impl Plugin for CoreSetupPlugin {
     fn build(&self, app: &mut App) {
-        app.add_plugins(FrameTimeDiagnosticsPlugin::default());
-        app.add_plugins(ZLightPlugin);
-        app.add_plugins(ZAudioPlugin);
+        if is_headless() {
+            // Chaque update avance d'exactement une frame GGRS, aussi vite que le CPU le permet
+            app.insert_resource(TimeUpdateStrategy::ManualDuration(
+                std::time::Duration::from_nanos(1_000_000_000 / SIM_FPS),
+            ));
+        }
+
         app.add_plugins(WebPlugin);
-        app.add_plugins(FrameDebugUIPlugin);
         app.add_plugins(D2AnimationPlugin);
-        app.add_plugins(CameraControlPlugin);
         app.add_plugins(GgrsPlugin::<PeerConfig>::default());
+        if !is_headless() {
+            app.add_plugins(PresentationPlugin);
+        }
 
         app.add_plugins(BaseWeaponGamePlugin {});
         app.add_plugins(BaseColliderGamePlugin {});
-        app.add_plugins(DebugColliderGamePlugin);
         app.add_plugins(BaseCharacterGamePlugin {});
         app.add_plugins(crate::interaction::InteractionPlugin);
         app.add_plugins(GameUiPlugin);
         app.add_plugins(WaveSystemPlugin);
 
-        #[cfg(feature = "debug_ui")]
-        app.add_plugins(EguiPlugin::default());
-
-        #[cfg(feature = "debug_ui")]
-        app.add_plugins(WorldInspectorPlugin::new());
 
         app.init_resource::<GameInfo>();
         app.init_resource::<GggrsSessionConfigurationState>();
@@ -186,7 +189,7 @@ impl CoreSetupPlugin {
             ..Default::default()
         };
 
-        DefaultPlugins
+        let plugins = DefaultPlugins
             .set(ImagePlugin::default_nearest())
             .set(AssetPlugin {
                 meta_check: AssetMetaCheck::Never,
@@ -194,7 +197,58 @@ impl CoreSetupPlugin {
                 file_path: format!("{}/assets", env!("APP_VERSION")),
                 ..Default::default()
             })
-            .disable::<LogPlugin>()
-            .set(window_plugin)
+            .disable::<LogPlugin>();
+
+        if !is_headless() {
+            return plugins.set(window_plugin);
+        }
+
+        // Headless : ni fenêtre ni GPU, la boucle tourne sans attendre
+        let plugins = plugins
+            .set(WindowPlugin {
+                primary_window: None,
+                exit_condition: ExitCondition::DontExit,
+                ..Default::default()
+            })
+            .set(RenderPlugin {
+                render_creation: RenderCreation::Automatic(Box::new(WgpuSettings {
+                    backends: None,
+                    ..Default::default()
+                })),
+                ..Default::default()
+            })
+            .add(ScheduleRunnerPlugin::run_loop(std::time::Duration::ZERO));
+        #[cfg(not(target_arch = "wasm32"))]
+        let plugins = plugins.disable::<WinitPlugin>();
+        plugins
     }
+}
+
+/// Tout ce qui ne sert qu'à afficher ou faire entendre la partie : caméra, lumière,
+/// audio, UI de debug. Absent en headless ; la simulation ne doit jamais en dépendre.
+pub struct PresentationPlugin;
+
+impl Plugin for PresentationPlugin {
+    fn build(&self, app: &mut App) {
+        app.add_plugins(FrameTimeDiagnosticsPlugin::default());
+        app.add_plugins(ZLightPlugin);
+        app.add_plugins(ZAudioPlugin);
+        app.add_plugins(FrameDebugUIPlugin);
+        app.add_plugins(CameraControlPlugin);
+        app.add_plugins(DebugColliderGamePlugin);
+        #[cfg(feature = "debug_ui")]
+        app.add_plugins(EguiPlugin::default());
+
+        #[cfg(feature = "debug_ui")]
+        app.add_plugins(WorldInspectorPlugin::new());
+    }
+}
+
+/// Fréquence de simulation GGRS (valeur par défaut de `RollbackFrameRate`).
+pub const SIM_FPS: u64 = 60;
+
+/// Mode headless (`ALACOD_HEADLESS=1`) : pas de fenêtre ni de GPU, et le temps
+/// avance d'une frame de simulation par update. Pour les tests et les replays.
+pub fn is_headless() -> bool {
+    std::env::var("ALACOD_HEADLESS").is_ok_and(|v| v == "1")
 }

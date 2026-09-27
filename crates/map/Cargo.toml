@@ -6,7 +6,7 @@ edition = "2021"
 
 [dependencies]
 bevy = "0.19.1"
-bevy_ecs_ldtk = { version = "0.15", default-features = true }
+bevy_ecs_ldtk = { version = "0.15", default-features = false, features = ["derive", "internal_levels"] }
 
 bevy_fixed = { path = "../bevy_fixed"}
 utils = { path = "../utils"}
@@ -22,3 +22,5 @@ bevy-inspector-egui = { version = "0.37.0", optional = true }
 
 [features]
 debug_ui = ["bevy-inspector-egui"]
+# Rendu des tilemaps LDtk. Sans cette feature, la map existe (entités, colliders) sans être dessinée.
+render = ["bevy_ecs_ldtk/render"]

@@ -129,21 +129,21 @@ cp_asset:
 	cp -r ./assets/* ./website/static/$(VERSION)/assets/
 
 build_map_preview_web:
-	APP_VERSION=$(VERSION) cargo build --example map_preview --target wasm32-unknown-unknown --no-default-features --features bevy_ecs_tilemap/atlas $(RELEASE)
+	APP_VERSION=$(VERSION) cargo build --example map_preview --target wasm32-unknown-unknown --no-default-features --features render,bevy_ecs_tilemap/atlas $(RELEASE)
 	wasm-bindgen --out-dir ./website/static/$(VERSION)/map_preview --out-name wasm --target web $(CARGO_TARGET_DIR)/wasm32-unknown-unknown/$(MODE_DIR)/examples/map_preview.wasm
 ifeq ($(PROFILE), prod)
 	wasm-opt -Oz --vacuum ./website/static/$(VERSION)/map_preview/wasm_bg.wasm -o ./website/static/$(VERSION)/map_preview/wasm_bg.wasm
 endif
 
 build_character_tester_web:
-	APP_VERSION=$(VERSION) cargo build --example character_tester --target wasm32-unknown-unknown --no-default-features $(RELEASE)
+	APP_VERSION=$(VERSION) cargo build --example character_tester --target wasm32-unknown-unknown --no-default-features --features render $(RELEASE)
 	wasm-bindgen --out-dir ./website/static/$(VERSION)/character_tester --out-name wasm --target web $(CARGO_TARGET_DIR)/wasm32-unknown-unknown/$(MODE_DIR)/examples/character_tester.wasm
 ifeq ($(PROFILE), prod)
 	wasm-opt -Oz --vacuum ./website/static/$(VERSION)/character_tester/wasm_bg.wasm -o ./website/static/$(VERSION)/character_tester/wasm_bg.wasm
 endif
 
 build_ldtk_map_explorer_web:
-	APP_VERSION=$(VERSION) cargo build --example map_explorer --target wasm32-unknown-unknown --no-default-features $(RELEASE)
+	APP_VERSION=$(VERSION) cargo build --example map_explorer --target wasm32-unknown-unknown --no-default-features --features render $(RELEASE)
 	wasm-bindgen --out-dir ./website/static/$(VERSION)/map_explorer --out-name wasm --target web $(CARGO_TARGET_DIR)/wasm32-unknown-unknown/$(MODE_DIR)/examples/map_explorer.wasm
 ifeq ($(PROFILE), prod)
 	wasm-opt -Oz --vacuum ./website/static/$(VERSION)/map_explorer/wasm_bg.wasm -o ./website/static/$(VERSION)/map_explorer/wasm_bg.wasm

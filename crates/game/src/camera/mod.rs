@@ -24,7 +24,7 @@ impl Plugin for CameraControlPlugin {
         app.init_resource::<CameraSettings>()
             .add_plugins(CameraDebugUIPlugin)
             .add_plugins(RonAssetPlugin::<CameraSettingsAsset>::new(&[".ron"]))
-            .add_systems(Startup, setup_camera)
+            .add_systems(Startup, (setup_camera, load_camera_settings))
             .add_systems(
                 Update,
                 (
@@ -471,6 +471,15 @@ fn player_indicator_system(
             ));
         }
     }
+}
+
+/// Garde le handle de `camera.ron` chargé ; les réglages sont appliqués à la réception
+/// de l'asset (et à chaque modification) par `character_visuals_update_system`.
+#[derive(Resource)]
+struct CameraSettingsHandle(#[allow(dead_code)] Handle<CameraSettingsAsset>);
+
+fn load_camera_settings(mut commands: Commands, asset_server: Res<AssetServer>) {
+    commands.insert_resource(CameraSettingsHandle(asset_server.load("camera.ron")));
 }
 
 fn character_visuals_update_system(
