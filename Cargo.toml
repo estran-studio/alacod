@@ -69,4 +69,4 @@ name = "character_tester"
 path = "examples/character_tester.rs"
 
 [patch.crates-io]
-bevy_ecs_ldtk = { git = "https://github.com/estran-studio/bevy_ecs_ldtk", branch = "bevy-0.19" }
+bevy_ecs_ldtk = { git = "https://github.com/estran-studio/bevy_ecs_ldtk", branch = "transform_ldtk_project" }
