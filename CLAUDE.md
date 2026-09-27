@@ -223,6 +223,30 @@ make diff_log CID_1=alice CID_2=bob
 - `GgrsSchedule` : Simulation rollback (tout le gameplay)
 - `PostUpdate` : Sync visual (`FixedTransform3D` -> `Transform`)
 
+#### Événements dans la simulation
+**Jamais de `Message` bevy (`MessageReader`/`MessageWriter`) dans `GgrsSchedule`** : ils ne sont pas
+dans les snapshots et leurs curseurs ne sont pas rollbackés. Utiliser `FrameEvents<T>`
+(`crates/game/src/frame_events.rs`, `app.add_frame_events::<T>()`) : file vidée au début de chaque
+frame (`RollbackSystemSet::FrameStart`), lue par les systèmes ordonnés après l'émetteur.
+
+Les visuels (portes, barres de vie, game over) se **dérivent de l'état** dans `Update`, jamais
+d'un événement émis par la simulation : ils restent justes après un rollback.
+
+#### Simulation et présentation
+La simulation ne dépend jamais du rendu. Tout ce qui sert à afficher (caméra, lumière, audio,
+UI de debug) va dans `PresentationPlugin` (`core.rs`), absent en headless.
+
+## Headless, trace d'état et déterminisme
+
+Variables d'environnement (natif) :
+- `ALACOD_HEADLESS=1` : sans fenêtre ni GPU, une frame GGRS par update. Compiler sans le rendu des
+  tilemaps : `--no-default-features` (et `--profile headless` pour la vitesse).
+- `ALACOD_INPUT=neutral` : ignore clavier et souris (sinon la position du curseur entre dans l'input).
+- `ALACOD_STATE_TRACE=<fichier>` + `ALACOD_EXIT_AT_FRAME=<n>` : hash de l'état rollback à chaque frame,
+  puis arrêt. `ALACOD_STATE_TRACE_FULL=1` ajoute l'état détaillé pour trouver une divergence.
+
+Avant/après un refactoring de la simulation, comparer les traces : elles doivent être identiques.
+
 ## Système IA (En Refonte)
 
 ### Problème Actuel
@@ -390,8 +414,7 @@ crates/game/src/character/enemy/
 ├── spawning.rs            # Spawner logic
 └── ai/
     ├── mod.rs             # Re-exports + legacy modules
-    ├── combat.rs          # [LEGACY] ZombieState, ZombieTarget
-    ├── pathing.rs         # [LEGACY] Individual pathfinding
+    ├── pathing.rs         # Cibles et déplacement des ennemis (move_enemies)
     ├── navigation.rs      # [NEW] FlowField, GridPos, NavProfile
     ├── obstacle.rs        # [NEW] Generic Obstacle component
     ├── state.rs           # [NEW] MonsterState, EnemyAiConfig
@@ -451,4 +474,4 @@ Le système utilise **BFS (Breadth-First Search)** au lieu de Dijkstra pour la p
 - Player target sélectionné par tri `net_id.0` (pas `.iter().next()`)
 - `GridPos` et `NavProfile` implémentent `Ord` pour `BTreeMap`
 
-Note: Le système legacy (`pathing.rs`) reste actif mais utilise aussi les macros `order_iter!`/`order_mut_iter!`.
+Note: `pathing.rs` fournit encore `update_enemy_targets` et `move_enemies` ; il utilise aussi les macros `order_iter!`/`order_mut_iter!`.
