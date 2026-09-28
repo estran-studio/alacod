@@ -217,3 +217,118 @@ pub fn play(scenario: &Scenario) -> AppExit {
     );
     app.run()
 }
+
+/// Capture d'un scénario en images, pour les vidéos.
+pub struct CaptureConfig {
+    /// Dossier des images (`frame_00000.png`, ...), numérotées par frame de simulation.
+    pub dir: std::path::PathBuf,
+    /// Une image toutes les `every` frames (2 → vidéo à 30 images/s).
+    pub every: u32,
+}
+
+#[derive(Resource)]
+struct CaptureState {
+    dir: std::path::PathBuf,
+    every: u32,
+    frames: u32,
+    last_captured: Option<u32>,
+    updates_after_end: u32,
+    /// Image où la caméra rend pendant la capture (taille fixe, indépendante de la fenêtre).
+    target: Option<Handle<Image>>,
+}
+
+/// Taille des images capturées.
+pub const CAPTURE_SIZE: (u32, u32) = (960, 540);
+
+/// Joue le scénario avec rendu et capture une image toutes les `every` frames de
+/// simulation. Le temps avance d'exactement une frame par update : l'image `n` montre
+/// toujours la frame `n`, quelle que soit la vitesse de la machine.
+pub fn capture(scenario: &Scenario, config: CaptureConfig) -> AppExit {
+    std::fs::create_dir_all(&config.dir).expect("dossier de capture");
+
+    let mut app = build_app(scenario, false);
+    app.insert_resource(bevy::time::TimeUpdateStrategy::ManualDuration(
+        std::time::Duration::from_nanos(1_000_000_000 / game::core::SIM_FPS),
+    ))
+    .insert_resource(CaptureState {
+        dir: config.dir,
+        every: config.every.max(1),
+        frames: scenario.frames,
+        last_captured: None,
+        updates_after_end: 0,
+        target: None,
+    })
+    .add_systems(Startup, configure_capture_window)
+    .add_systems(Update, (render_cameras_to_image, capture_frames).chain());
+    app.run()
+}
+
+/// La fenêtre ne sert pas : cachée, et sans vsync pour capturer aussi vite que possible.
+fn configure_capture_window(mut windows: Query<&mut bevy::window::Window>) {
+    for mut window in &mut windows {
+        window.present_mode = bevy::window::PresentMode::AutoNoVsync;
+        window.visible = false;
+    }
+}
+
+/// Fait rendre les caméras dans une image de taille fixe ([`CAPTURE_SIZE`]) : le cadrage ne
+/// dépend pas de la taille de la fenêtre (donnée par le gestionnaire de fenêtres).
+fn render_cameras_to_image(
+    mut commands: Commands,
+    mut images: ResMut<Assets<Image>>,
+    mut state: ResMut<CaptureState>,
+    cameras: Query<(Entity, &bevy::camera::RenderTarget), With<Camera>>,
+) {
+    let target = state
+        .target
+        .get_or_insert_with(|| {
+            images.add(Image::new_target_texture(
+                CAPTURE_SIZE.0,
+                CAPTURE_SIZE.1,
+                bevy::render::render_resource::TextureFormat::Rgba8UnormSrgb,
+                None,
+            ))
+        })
+        .clone();
+    for (camera, current) in &cameras {
+        if !matches!(current, bevy::camera::RenderTarget::Image(_)) {
+            commands
+                .entity(camera)
+                .insert(bevy::camera::RenderTarget::Image(target.clone().into()));
+        }
+    }
+}
+
+fn capture_frames(
+    mut commands: Commands,
+    frame: Res<FrameCount>,
+    session: Option<Res<bevy_ggrs::Session<game::character::player::jjrs::PeerConfig>>>,
+    mut state: ResMut<CaptureState>,
+    mut exit: MessageWriter<AppExit>,
+) {
+    use bevy::render::view::screenshot::{save_to_disk, Screenshot};
+
+    // Rien à capturer avant le début de la partie
+    if session.is_none() {
+        return;
+    }
+    let Some(target) = state.target.clone() else {
+        return;
+    };
+
+    let frame = frame.frame;
+    if frame >= state.frames {
+        // Laisser le temps aux dernières captures d'être écrites
+        state.updates_after_end += 1;
+        if state.updates_after_end > 10 {
+            exit.write(AppExit::Success);
+        }
+        return;
+    }
+
+    if frame % state.every == 0 && state.last_captured != Some(frame) {
+        let path = state.dir.join(format!("frame_{frame:05}.png"));
+        commands.spawn(Screenshot::image(target)).observe(save_to_disk(path));
+        state.last_captured = Some(frame);
+    }
+}

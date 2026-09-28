@@ -268,6 +268,15 @@ Avant/après un refactoring de la simulation, comparer les traces : elles doiven
   `make record_session NAME=x`) produit un scénario rejouable. Ajouter des `expect`, puis
   `make test_scenarios SCENARIO=<nom> BLESS=1`.
 
+### Vidéos (validation visuelle)
+`scripts/scenario-video` rejoue les scénarios avec rendu et capture chaque frame (image n = frame n,
+960×540 hors écran, indépendant de la fenêtre), puis encode avec ffmpeg :
+- `make videos [SCENARIO=<nom>]` : une vidéo par scénario + `montage.mp4` (grille), dans
+  `target/videos/<commit>/` ;
+- `make compare_video SCENARIO=<nom> BASE=<réf> [HEAD=<réf>]` : avant/après côte à côte, le même
+  scénario joué par le code des deux références (worktree git, target partagé). La référence doit
+  contenir `play_scenario --capture`.
+
 La partie jouée est celle de `map_explorer` (plugin partagé `map_ldtk::game::local::LdtkLocalGamePlugin`).
 Tout changement de simulation doit garder les scénarios verts, ou justifier le `BLESS`.
 

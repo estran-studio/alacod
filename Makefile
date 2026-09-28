@@ -82,6 +82,16 @@ test: test_scenarios
 test_scenarios:
 	ALACOD_BLESS=$(BLESS) ALACOD_SCENARIO=$(SCENARIO) APP_VERSION=$(VERSION) cargo test -p scenario --profile headless --test scenarios -- --nocapture
 
+# Vidéos des scénarios (target/videos/<commit>/) : une par scénario + montage en grille.
+# SCENARIO=<nom> pour un seul ; EVERY=N une image toutes les N frames (défaut 2).
+videos:
+	EVERY=$(or $(EVERY),2) ./scripts/scenario-video render $(SCENARIO)
+	./scripts/scenario-video montage
+
+# Avant/après côte à côte : make compare_video SCENARIO=idle BASE=main [HEAD=<réf>]
+compare_video:
+	EVERY=$(or $(EVERY),2) ./scripts/scenario-video compare $(SCENARIO) $(BASE) $(or $(HEAD),HEAD)
+
 # Partie pilotée à distance (scripts/alacod-remote), en pause au départ.
 # HEADLESS=1 : sans fenêtre, bien plus rapide.
 remote:
