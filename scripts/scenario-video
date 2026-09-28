@@ -107,6 +107,15 @@ cmd_compare() {
     local out="$ROOT/target/videos/compare"
     mkdir -p "$out"
 
+    # Les attentes ne servent pas à la vidéo, et un ancien commit peut ne pas connaître les
+    # plus récentes : on joue le scénario sans elles
+    local playable="$out/$name.playable.ron"
+    python3 - "$scenario" "$playable" <<'PY'
+import re, sys
+text = open(sys.argv[1]).read()
+open(sys.argv[2], "w").write(re.sub(r"\n\s*expect:\s*\[.*?\n\s*\],", "", text, flags=re.S))
+PY
+
     local side sides=() ref sha tree player
     for side in base head; do
         ref="$([ "$side" = base ] && echo "$base" || echo "$head")"
@@ -121,7 +130,7 @@ cmd_compare() {
         # Même scénario (celui du dépôt courant) pour les deux côtés : seuls le code et les
         # assets changent. Le target partagé évite de recompiler les dépendances.
         player="$(CARGO_TARGET_DIR="$ROOT/target" build_player "$tree")"
-        capture "$player" "$scenario" "$out/frames/$side"
+        capture "$player" "$playable" "$out/frames/$side"
         encode "$out/frames/$side" "$out/$side.mp4" "$ref ($sha)"
         cp "$out/frames/$side/events.json" "$out/$side.events.json" 2>/dev/null || echo "[]" > "$out/$side.events.json"
         sides+=("$out/$side.mp4")
@@ -134,7 +143,7 @@ cmd_compare() {
         -pix_fmt yuv420p "${ENCODER[@]}" "$result"
     mv "$out/base.events.json" "${result%.mp4}.base.events.json"
     mv "$out/head.events.json" "${result%.mp4}.head.events.json"
-    rm -rf "$out/frames" "${sides[@]}"
+    rm -rf "$out/frames" "${sides[@]}" "$playable"
     echo "comparaison : $result"
 }
 
