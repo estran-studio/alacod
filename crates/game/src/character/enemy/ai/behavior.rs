@@ -76,11 +76,23 @@ pub fn enemy_target_selection(
             _ => {}
         }
 
+        // Target the player the flow field leads to (the closest one along the path), so the
+        // enemy chases and attacks the same player; fall back to the closest in straight line
+        let path_player = flow_field_cache
+            .nearest_target(super::navigation::NavProfile::GroundBreaker, enemy_pos)
+            .and_then(|net_id| players.iter().find(|(id, _)| id.0 == net_id))
+            .map(|(id, transform)| {
+                let pos = transform.translation.truncate();
+                ((*id).clone(), enemy_pos.distance(&pos), pos)
+            })
+            .filter(|(_, distance, _)| *distance < ai_config.aggro_range);
+
         // Find closest player deterministically
         let mut closest_player: Option<(GgrsNetId, fixed_math::Fixed, fixed_math::FixedVec2)> =
-            None;
+            path_player;
 
-        for (player_net_id, player_transform) in &players {
+        let has_path_player = closest_player.is_some();
+        for (player_net_id, player_transform) in players.iter().filter(|_| !has_path_player) {
             let player_pos = player_transform.translation.truncate();
             let distance = enemy_pos.distance(&player_pos);
 

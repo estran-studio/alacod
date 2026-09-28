@@ -127,6 +127,8 @@ pub enum Expectation {
     DoorsOpenAtLeast { doors: u32, at_frame: u32 },
     /// Santé exacte d'une fenêtre (par son GgrsNetId).
     WindowHealth { window: usize, health: u8, at_frame: u32 },
+    /// Toutes les balles en vol sont dans la zone (ex. elles ne traversent pas un mur).
+    BulletsInside { x_min: f32, x_max: f32, y_min: f32, y_max: f32, at_frame: u32 },
     /// Position du joueur, à `tolerance` unités près sur chaque axe.
     PlayerPosition { handle: usize, x: f32, y: f32, tolerance: f32, at_frame: u32 },
 }
@@ -143,6 +145,7 @@ impl Expectation {
             | Self::Ammo { at_frame, .. }
             | Self::DoorsOpenAtLeast { at_frame, .. }
             | Self::WindowHealth { at_frame, .. }
+            | Self::BulletsInside { at_frame, .. }
             | Self::PlayerPosition { at_frame, .. } => *at_frame,
         }
     }

@@ -1,0 +1,28 @@
+// Deux joueurs locaux tirent en même temps à la mitrailleuse, chacun dans sa direction (vers le
+// haut et vers la droite), jusqu'au rechargement automatique. Chaque joueur a ses propres
+// munitions ; les tirs consomment l'aléatoire et les identifiants réseau dans l'ordre des joueurs.
+//
+// À regarder : deux jets de balles simultanés, qui s'arrêtent sur les murs ; les deux joueurs
+// rechargent en même temps (f190).
+Scenario(
+    frames: 300,
+    players: [
+        (inputs: [
+            (from: 10, to: 250, buttons: [Fire], pan: (0, 100)),
+        ]),
+        (inputs: [
+            (from: 10, to: 250, buttons: [Fire], pan: (100, 0)),
+        ]),
+    ],
+    expect: [
+        // Chacun ses munitions, décomptées au même rythme
+        Ammo(handle: 0, ammo: 15, at_frame: 100),
+        Ammo(handle: 1, ammo: 15, at_frame: 100),
+        // Rechargement automatique des deux
+        Ammo(handle: 0, ammo: 30, at_frame: 285),
+        Ammo(handle: 1, ammo: 30, at_frame: 285),
+        // Les balles des deux joueurs s'arrêtent sur les murs de la pièce (haut y 767, droite x 655)
+        BulletsInside(x_min: 0, x_max: 655, y_min: 0, y_max: 767, at_frame: 60),
+        BulletsInside(x_min: 0, x_max: 655, y_min: 0, y_max: 767, at_frame: 150),
+    ],
+)

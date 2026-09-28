@@ -330,3 +330,28 @@ fn net_ids() {
     ids.sort();
     for (id, name) in ids { println!("id {id:>3} {name}"); }
 }
+
+/// Diagnostic : balles vivantes et la plus à gauche/droite, frame par frame
+/// (`ALACOD_BULLETS=<scénario>:<de>:<à>`).
+#[test]
+#[ignore]
+fn bullets_probe() {
+    use bevy::prelude::*;
+    use bevy_fixed::fixed_math::FixedTransform3D;
+    use game::weapons::Bullet;
+    use utils::frame::FrameCount;
+    let spec = std::env::var("ALACOD_BULLETS").unwrap_or_else(|_| "bullets_walls:0:400".into());
+    let p: Vec<&str> = spec.split(':').collect();
+    let (from, to): (u32, u32) = (p[1].parse().unwrap(), p[2].parse().unwrap());
+    let source = std::fs::read_to_string(scenarios_dir().join(format!("{}.ron", p[0]))).unwrap();
+    let mut app = scenario::runner::run_until(&Scenario::from_ron(&source).unwrap(), from);
+    let (mut min_x, mut max_x, mut max_y, mut max_alive) = (f32::MAX, f32::MIN, f32::MIN, 0usize);
+    while app.world().resource::<FrameCount>().frame < to {
+        app.update();
+        let world = app.world_mut();
+        let ps: Vec<(f32, f32)> = world.query_filtered::<&FixedTransform3D, With<Bullet>>().iter(world).map(|t| (t.translation.x.to_num(), t.translation.y.to_num())).collect();
+        max_alive = max_alive.max(ps.len());
+        for (x, y) in ps { min_x = min_x.min(x); max_x = max_x.max(x); max_y = max_y.max(y); }
+    }
+    println!("balles : au plus {max_alive} en vol, x {min_x:.1}..{max_x:.1}, y max {max_y:.1}");
+}

@@ -253,7 +253,8 @@ Avant/après un refactoring de la simulation, comparer les traces : elles doiven
 - `tests/scenarios/<nom>.ron` : map, seed, un script d'inputs par joueur (segments de frames avec
   boutons et visée), nombre de frames, attentes à une frame donnée (`PlayerAlive`, `PlayerDead`,
   `WaveAtLeast`, `KillsAtLeast`, `WindowsBrokenAtLeast`, `WindowHealth`, `DoorsOpenAtLeast`,
-  `ActiveWeapon`, `Ammo`, `PlayerPosition`). Format documenté dans `crates/game/src/replay.rs`.
+  `ActiveWeapon`, `Ammo`, `PlayerPosition`, `BulletsInside`). `weapon_overrides` modifie la taille
+  et le nombre de chargeurs d'une arme pour un scénario. Format documenté dans `crates/game/src/replay.rs`.
 - `tests/scenarios/<nom>.trace` : trace d'état de référence. Toute différence fait échouer le test.
 - `make test_scenarios` (profil `headless`, sans rendu) ; `SCENARIO=<nom>` pour un seul ;
   `BLESS=1` pour réécrire les traces après un **changement de gameplay voulu** (le dire dans le commit).
@@ -509,8 +510,9 @@ Matrix définit qui collide avec qui. Les obstacles ont leur propre layer selon 
 
 ## Flow Field - Implémentation Actuelle
 
-Le système utilise **Dijkstra** vers le joueur (le premier par `net_id`), déterministe (tas trié
-par coût puis case) :
+Le système utilise **Dijkstra multi-source** depuis tous les joueurs (triés par `net_id`),
+déterministe (tas trié par coût puis case) : chaque case mène au joueur **le plus proche par le
+chemin** (`FlowField::owners`), et un zombie cible ce joueur (`FlowFieldCache::nearest_target`) :
 
 - **Cellules** : 16 unités, 1:1 avec les tuiles LDtk (`GRID_CELL_SIZE`)
 - **Couverture** : toute la map (boîte englobante des murs + marge), pas un rayon autour du joueur :
@@ -523,7 +525,7 @@ par coût puis case) :
 - **Coûts** : 10 orthogonal, 14 diagonal, + pénalité près des murs (`wall_penalty` : +30 à 1 case,
   +10 à 2 cases) : les chemins passent au large quand il y a de la place (les sprites, 32×32, sont plus
   grands que les colliders, 20×20 aux pieds) et serrent les murs seulement dans les ouvertures
-- **Mise à jour** : quand le joueur change de case **ou** quand les cases bloquées changent
+- **Mise à jour** : quand un joueur change de case **ou** quand les cases bloquées changent
   (porte ouverte, fenêtre cassée/réparée)
 - **Suivi** : un ennemi vise le `steering_point` de la case suivante — son centre écarté d'au moins
   une demi-case de chaque mur voisin (plus si son collider dépasse, `AgentBody`, offset compris), et

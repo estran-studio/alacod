@@ -122,6 +122,9 @@ pub struct FlowField {
     pub directions: BTreeMap<GridPos, GridPos>,
     /// Cost to reach target from each cell
     pub costs: BTreeMap<GridPos, u32>,
+    /// For each cell, the target (index in `FlowFieldCache::target_ids`) it leads to:
+    /// the closest one along the path
+    pub owners: BTreeMap<GridPos, usize>,
 }
 
 impl FlowField {
@@ -279,6 +282,10 @@ pub struct LevelGridInfo {
 pub struct FlowFieldCache {
     /// Target position (player) at last calculation
     pub target_pos: GridPos,
+    /// Cells of all targets (players), in net_id order: the field leads to the closest one
+    pub targets: Vec<GridPos>,
+    /// Net ids of the targets, same order as `targets`
+    pub target_ids: Vec<usize>,
     /// Frame when last updated
     pub last_update_frame: u32,
     /// Update interval in frames
@@ -301,6 +308,8 @@ impl FlowFieldCache {
     pub fn new() -> Self {
         Self {
             target_pos: GridPos::default(),
+            targets: Vec::new(),
+            target_ids: Vec::new(),
             last_update_frame: 0,
             update_interval: 30, // Update every 30 frames (~2 times per second at 60 FPS)
             layers: BTreeMap::new(),
@@ -340,6 +349,13 @@ impl FlowFieldCache {
         self.blocked_cells
             .iter()
             .any(|(obstacle_type, cells)| cells.contains(pos) && profile.can_pass(*obstacle_type))
+    }
+
+    /// Net id of the target (player) the flow field leads to from `pos`: the closest one
+    /// along the path.
+    pub fn nearest_target(&self, profile: NavProfile, pos: fixed_math::FixedVec2) -> Option<usize> {
+        let owner = *self.get_flow_field(profile)?.owners.get(&GridPos::from_fixed(pos))?;
+        self.target_ids.get(owner).copied()
     }
 
     /// Cells of the flow field path from `from`, up to `steps` cells ahead.
@@ -547,17 +563,19 @@ pub fn update_flow_field_system(
         return;
     }
 
-    // GGRS CRITICAL: Must select player deterministically by sorting by net_id
-    let target_pos = {
-        let mut players: Vec<_> = player_query.iter().collect();
-        if players.is_empty() {
-            return; // No players, nothing to do
-        }
-        // Sort by net_id for deterministic selection
-        players.sort_unstable_by_key(|(net_id, _)| net_id.0);
-        let (_, transform) = players[0];
-        GridPos::from_fixed(transform.translation.truncate())
-    };
+    // Every player is a target: each cell leads to the closest one along the path.
+    // GGRS CRITICAL: players sorted by net_id (deterministic target order)
+    let mut players: Vec<_> = player_query.iter().collect();
+    if players.is_empty() {
+        return; // No players, nothing to do
+    }
+    players.sort_unstable_by_key(|(net_id, _)| net_id.0);
+    let targets: Vec<GridPos> = players
+        .iter()
+        .map(|(_, transform)| GridPos::from_fixed(transform.translation.truncate()))
+        .collect();
+    let target_ids: Vec<usize> = players.iter().map(|(net_id, _)| net_id.0).collect();
+    let target_pos = targets[0];
 
     // Rebuild blocked cells first: an opened door or a broken window changes the field
     // even when the target does not move
@@ -567,19 +585,21 @@ pub fn update_flow_field_system(
     let obstacles_changed =
         cache.wall_cells != previous_walls || cache.blocked_cells != previous_blocked;
 
-    if target_pos == cache.target_pos && !obstacles_changed && !cache.layers.is_empty() {
+    if targets == cache.targets && target_ids == cache.target_ids && !obstacles_changed && !cache.layers.is_empty() {
         return;
     }
 
     cache.target_pos = target_pos;
+    cache.targets = targets.clone();
+    cache.target_ids = target_ids;
 
     // Use GroundBreaker profile so zombies can pathfind through breakable obstacles (windows)
-    let flow_field = build_flow_field(target_pos, NavProfile::GroundBreaker, &cache, &config);
+    let flow_field = build_flow_field(&targets, NavProfile::GroundBreaker, &cache, &config);
 
     // Log flow field stats only on significant rebuilds
     trace!(
-        "FlowField: target=({},{}), reachable={}, walls={}",
-        target_pos.x, target_pos.y,
+        "FlowField: targets={}, first=({},{}), reachable={}, walls={}",
+        targets.len(), target_pos.x, target_pos.y,
         flow_field.directions.len(), cache.wall_cells.len()
     );
 
@@ -712,7 +732,7 @@ pub fn get_collider_cells(
 /// walls (see [`FlowFieldConfig::wall_penalty`]). Deterministic: the heap is ordered by
 /// (cost, cell), and cells are only improved by a strictly lower cost.
 fn build_flow_field(
-    target: GridPos,
+    targets: &[GridPos],
     profile: NavProfile,
     cache: &FlowFieldCache,
     config: &FlowFieldConfig,
@@ -733,17 +753,20 @@ fn build_flow_field(
     });
     let (min_x, max_x, min_y, max_y) = match bounds {
         Some((x0, x1, y0, y1)) => (
-            x0.min(target.x) - margin,
-            x1.max(target.x) + margin,
-            y0.min(target.y) - margin,
-            y1.max(target.y) + margin,
+            targets.iter().map(|t| t.x).fold(x0, i32::min) - margin,
+            targets.iter().map(|t| t.x).fold(x1, i32::max) + margin,
+            targets.iter().map(|t| t.y).fold(y0, i32::min) - margin,
+            targets.iter().map(|t| t.y).fold(y1, i32::max) + margin,
         ),
-        None => (
-            target.x - config.max_search_radius,
-            target.x + config.max_search_radius,
-            target.y - config.max_search_radius,
-            target.y + config.max_search_radius,
-        ),
+        None => {
+            let first = targets.first().copied().unwrap_or_default();
+            (
+                first.x - config.max_search_radius,
+                first.x + config.max_search_radius,
+                first.y - config.max_search_radius,
+                first.y + config.max_search_radius,
+            )
+        }
     };
     let in_bounds = |p: &GridPos| p.x >= min_x && p.x <= max_x && p.y >= min_y && p.y <= max_y;
 
@@ -776,10 +799,17 @@ fn build_flow_field(
         _ => 0,
     };
 
+    // Every target is a source of cost 0 (a cell shared by two targets goes to the first)
     let mut heap: BinaryHeap<Reverse<(u32, GridPos)>> = BinaryHeap::new();
-    flow_field.directions.insert(target, target);
-    flow_field.costs.insert(target, 0);
-    heap.push(Reverse((0, target)));
+    for (index, target) in targets.iter().enumerate() {
+        if flow_field.costs.contains_key(target) {
+            continue;
+        }
+        flow_field.directions.insert(*target, *target);
+        flow_field.costs.insert(*target, 0);
+        flow_field.owners.insert(*target, index);
+        heap.push(Reverse((0, *target)));
+    }
 
     while let Some(Reverse((cost, current))) = heap.pop() {
         if flow_field.costs.get(&current).is_some_and(|best| cost > *best) {
@@ -827,6 +857,8 @@ fn build_flow_field(
             // Direction points TOWARD target (so we store 'current' as the next step)
             flow_field.directions.insert(neighbor, current);
             flow_field.costs.insert(neighbor, new_cost);
+            let owner = flow_field.owners[&current];
+            flow_field.owners.insert(neighbor, owner);
             heap.push(Reverse((new_cost, neighbor)));
         }
     }

@@ -253,6 +253,19 @@ fn check(world: &mut World, expectation: &Expectation) -> Result<(), String> {
                 Err(format!("{current} balles dans {name} ({mode})"))
             }
         }
+        Expectation::BulletsInside { x_min, x_max, y_min, y_max, .. } => {
+            let outside: Vec<(f32, f32)> = world
+                .query_filtered::<&bevy_fixed::fixed_math::FixedTransform3D, With<game::weapons::Bullet>>()
+                .iter(world)
+                .map(|t| (t.translation.x.to_num::<f32>(), t.translation.y.to_num::<f32>()))
+                .filter(|(x, y)| x < x_min || x > x_max || y < y_min || y > y_max)
+                .collect();
+            if outside.is_empty() {
+                Ok(())
+            } else {
+                Err(format!("balles hors zone : {outside:?}"))
+            }
+        }
         Expectation::WindowHealth { window, health, .. } => {
             let current = world
                 .query::<(&utils::net_id::GgrsNetId, &map::game::entity::map::window::WindowHealth)>()
