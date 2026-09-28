@@ -63,6 +63,7 @@ cmd_render() {
         echo "→ $name"
         capture "$player" "$ROOT/tests/scenarios/$name.ron" "$out/frames/$name"
         encode "$out/frames/$name" "$out/$name.mp4" "$name  $commit"
+        cp "$out/frames/$name/events.json" "$out/$name.events.json" 2>/dev/null || true
         rm -rf "$out/frames/$name"
     done
     rmdir "$out/frames" 2>/dev/null || true
@@ -122,6 +123,7 @@ cmd_compare() {
         player="$(CARGO_TARGET_DIR="$ROOT/target" build_player "$tree")"
         capture "$player" "$scenario" "$out/frames/$side"
         encode "$out/frames/$side" "$out/$side.mp4" "$ref ($sha)"
+        cp "$out/frames/$side/events.json" "$out/$side.events.json" 2>/dev/null || echo "[]" > "$out/$side.events.json"
         sides+=("$out/$side.mp4")
     done
 
@@ -130,6 +132,8 @@ cmd_compare() {
         "[0:v]tpad=stop_mode=clone:stop_duration=3600[a];[1:v]tpad=stop_mode=clone:stop_duration=3600[b];[a][b]hstack=inputs=2[out]" \
         -map "[out]" -t "$(for v in "${sides[@]}"; do ffprobe -v error -show_entries format=duration -of csv=p=0 "$v"; done | sort -g | tail -1)" \
         -pix_fmt yuv420p "${ENCODER[@]}" "$result"
+    mv "$out/base.events.json" "${result%.mp4}.base.events.json"
+    mv "$out/head.events.json" "${result%.mp4}.head.events.json"
     rm -rf "$out/frames"
     echo "comparaison : $result"
 }

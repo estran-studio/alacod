@@ -1,5 +1,10 @@
 // Première session jouée en contrôle remote (Claude), enregistrée telle quelle.
 // Tirs visés sur les zombies qui entrent, recul, rechargement.
+//
+// À regarder : f200-230 les balles partent vers le bas et s'arrêtent sur le mur (le zombie est
+// dehors). f290-350 le joueur vise le zombie entré dans la pièce : sa barre rouge baisse puis il
+// disparaît (kill f344). Le joueur recule vers le haut (f350-370), tue un 2e zombie arrivé par
+// la gauche (f467) puis recharge (f496 : 5-6 frames après l'appui, délai d'input GGRS).
 Scenario(
     map: "exemples/test_map.ldtk",
     map_seed: 123456,

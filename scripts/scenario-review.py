@@ -31,20 +31,40 @@ def git(*args):
 
 
 def scenario_info(name):
-    """Description (commentaires en tête du .ron) et attentes du scénario."""
+    """Description et « À regarder » (commentaires en tête du .ron), attentes du scénario."""
     path = SCENARIOS / f"{name}.ron"
     if not path.exists():
-        return {"description": "", "expect": [], "frames": None}
+        return {"description": "", "watch": "", "expect": [], "frames": None}
     text = path.read_text()
-    description = []
+    description, watch = [], []
     for line in text.splitlines():
-        if line.startswith("//"):
-            description.append(line.lstrip("/").strip())
-        elif line.strip():
-            break
+        if not line.startswith("//"):
+            if line.strip():
+                break
+            continue
+        content = line.lstrip("/").strip()
+        if content.startswith("À regarder"):
+            watch.append(content.split(":", 1)[1].strip() if ":" in content else "")
+        elif watch:
+            watch.append(content)
+        elif content:
+            description.append(content)
     expect = re.findall(r"^\s*((?:PlayerAlive|PlayerDead|WaveAtLeast|KillsAtLeast)\([^)]*\))", text, re.M)
     frames = re.search(r"frames:\s*(\d+)", text)
-    return {"description": " ".join(description), "expect": expect, "frames": int(frames.group(1)) if frames else None}
+    return {
+        "description": " ".join(description),
+        "watch": " ".join(w for w in watch if w),
+        "expect": expect,
+        "frames": int(frames.group(1)) if frames else None,
+    }
+
+
+def load_events(path):
+    """Moments clés écrits par la capture (play_scenario), s'ils existent."""
+    try:
+        return json.loads(path.read_text())
+    except (OSError, ValueError):
+        return []
 
 
 def commit_info(dirname):
@@ -66,7 +86,10 @@ def main():
             "id": d.name,
             **commit_info(d.name),
             "montage": (d / "montage.mp4").exists(),
-            "videos": [{"name": v, **scenario_info(v)} for v in videos],
+            "videos": [
+                {"name": v, **scenario_info(v), "events": load_events(d / f"{v}.events.json")}
+                for v in videos
+            ],
         })
 
     compares = []
@@ -85,6 +108,8 @@ def main():
                 "base_subject": git("log", "-1", "--format=%s", base),
                 "head_subject": git("log", "-1", "--format=%s", head),
                 **scenario_info(name),
+                "base_events": load_events(v.with_suffix(".base.events.json")),
+                "head_events": load_events(v.with_suffix(".head.events.json")),
             })
 
     data = {"commits": commits, "compares": compares, "branch": git("rev-parse", "--abbrev-ref", "HEAD")}

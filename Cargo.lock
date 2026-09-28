@@ -9779,6 +9779,8 @@ dependencies = [
  "game",
  "map",
  "map_ldtk",
+ "serde",
+ "serde_json",
  "utils",
 ]
 

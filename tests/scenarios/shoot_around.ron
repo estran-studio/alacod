@@ -1,6 +1,10 @@
 // Un joueur immobile qui tire en continu en faisant tourner sa visée (8 directions,
 // 50 frames chacune). Couvre : tir, projectiles, collisions balle/ennemi, dégâts, morts
 // d'ennemis, rechargement automatique.
+//
+// À regarder : les balles partent en étoile, la visée change toutes les 50 frames. Le chargeur
+// se vide en continu et le rechargement automatique coupe le tir (f182, f447, f712, f977). Un
+// seul zombie tué (f633) : la plupart des balles partent dans le vide. Mort du joueur f1040.
 Scenario(
     frames: 1500,
     players: [

@@ -1,4 +1,8 @@
 // Deux joueurs locaux immobiles dans la même partie (session synctest à 2 joueurs).
+//
+// À regarder : la caméra suit le joueur 0 (les deux joueurs sont visibles au centre). Les
+// zombies attaquent les deux (f281 joueur 1, f395 joueur 0). Le joueur 0 meurt (f1350) : il
+// disparaît, la partie continue et le joueur 1 reste en vie jusqu'à la fin.
 Scenario(
     frames: 1500,
     players: [

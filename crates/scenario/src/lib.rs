@@ -5,6 +5,7 @@
 //! GPU, et produit une trace d'état comparée à une trace de référence
 //! (`tests/scenarios/<nom>.trace`) pour détecter toute régression.
 
+pub mod events;
 pub mod runner;
 
 /// Format des scénarios (défini dans `game`, qui écrit aussi les enregistrements).

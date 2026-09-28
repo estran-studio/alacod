@@ -49,6 +49,11 @@ fn scenarios() {
         let started = std::time::Instant::now();
         let outcome = run(&scenario);
         eprintln!("{name}: {} ({:.1?})", outcome.summary, started.elapsed());
+        if std::env::var("ALACOD_EVENTS").is_ok_and(|v| v == "1") {
+            for event in &outcome.events {
+                eprintln!("  f{:>5} {:<7} {}", event.frame, event.kind, event.label);
+            }
+        }
 
         failures.extend(outcome.failures.iter().map(|f| format!("{name}: {f}")));
 

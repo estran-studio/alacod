@@ -16,6 +16,7 @@ use map_ldtk::{
     game::local::{LdtkGameMap, LdtkLocalGamePlugin},
     plugins::LdtkRoguePlugin,
 };
+use crate::events::{GameEvent, GameEvents, GameEventsPlugin};
 use game::recording::InputRecorder;
 use map::generation::config::MapGenerationConfig;
 use utils::frame::FrameCount;
@@ -35,6 +36,8 @@ pub struct ScenarioOutcome {
     pub summary: String,
     /// Inputs réellement envoyés à GGRS, réenregistrés en scénario.
     pub recorded: Scenario,
+    /// Moments clés de la partie.
+    pub events: Vec<GameEvent>,
 }
 
 /// Dossier des assets du dépôt.
@@ -63,6 +66,7 @@ pub fn build_app(scenario: &Scenario, headless: bool) -> App {
         .insert_resource(WaveModeEnabled(true))
         .insert_resource(WaveDebugEnabled(true))
         .add_plugins(StateTraceRecorderPlugin { full: false })
+        .add_plugins(GameEventsPlugin)
         .insert_resource(InputSource::Scripted)
         .insert_resource::<ScriptedInputs>(scenario.scripted_inputs());
     app
@@ -116,11 +120,14 @@ pub fn run(scenario: &Scenario) -> ScenarioOutcome {
         .resource::<InputRecorder>()
         .to_scenario(app.world().get_resource::<MapGenerationConfig>());
 
+    let events = app.world().resource::<GameEvents>().events.clone();
+
     ScenarioOutcome {
         trace,
         failures,
         summary,
         recorded,
+        events,
     }
 }
 
@@ -304,6 +311,7 @@ fn capture_frames(
     frame: Res<FrameCount>,
     session: Option<Res<bevy_ggrs::Session<game::character::player::jjrs::PeerConfig>>>,
     mut state: ResMut<CaptureState>,
+    events: Res<GameEvents>,
     mut exit: MessageWriter<AppExit>,
 ) {
     use bevy::render::view::screenshot::{save_to_disk, Screenshot};
@@ -321,6 +329,11 @@ fn capture_frames(
         // Laisser le temps aux dernières captures d'être écrites
         state.updates_after_end += 1;
         if state.updates_after_end > 10 {
+            // Moments clés à côté des images, pour la page de revue
+            let frames = state.frames;
+            let events: Vec<&GameEvent> = events.events.iter().filter(|e| e.frame < frames).collect();
+            let json = serde_json::to_string_pretty(&events).expect("sérialisation des moments clés");
+            std::fs::write(state.dir.join("events.json"), json).expect("écriture de events.json");
             exit.write(AppExit::Success);
         }
         return;

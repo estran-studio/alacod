@@ -276,6 +276,12 @@ Avant/après un refactoring de la simulation, comparer les traces : elles doiven
 - `make compare_video SCENARIO=<nom> BASE=<réf> [HEAD=<réf>]` : avant/après côte à côte, le même
   scénario joué par le code des deux références (worktree git, target partagé). La référence doit
   contenir `play_scenario --capture`.
+- Moments clés : pendant la capture, `crates/scenario/src/events.rs` détecte vague, kills, coups reçus,
+  morts, rechargements, changements d'arme, fenêtres cassées/réparées, portes ouvertes ; écrits dans
+  `<scénario>.events.json`, affichés en pastilles cliquables sous chaque vidéo. En test :
+  `ALACOD_EVENTS=1 make test_scenarios` les affiche.
+- Chaque scénario commence par un commentaire `// À regarder : ...` (ce qu'on doit voir, avec les frames),
+  affiché en tête de sa vidéo. Le mettre à jour quand le comportement change.
 - `make review_videos [TAILSCALE=1]` : page de revue (`target/videos/index.html`, regénérée après chaque rendu) sur
   http://localhost:8766 : commits et comparaisons, lecture synchronisée image par image, notes par
   vidéo. Servie par `scripts/scenario-review.py --serve` (requêtes Range, requises pour se

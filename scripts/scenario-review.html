@@ -8,17 +8,20 @@
   :root {
     --bg: #f4f4f2; --panel: #ffffff; --panel-2: #ecebe7; --text: #1d1d1b; --muted: #6b6a66;
     --border: #d9d7d1; --accent: #b4532a; --accent-soft: #f3e3da; --ok: #2f7d4f;
+    --ev-kill: #2f7d4f; --ev-death: #b3261e; --ev-hit: #b86e00; --ev-wave: #2a5db0; --ev-other: #6b6a66;
     --radius: 10px; --mono: ui-monospace, "SF Mono", Menlo, Consolas, monospace;
   }
   @media (prefers-color-scheme: dark) {
     :root:not([data-theme="light"]) {
       --bg: #141413; --panel: #1d1d1b; --panel-2: #262624; --text: #ecebe6; --muted: #9a988f;
       --border: #34332f; --accent: #e07a4b; --accent-soft: #3a2519; --ok: #6cc18d;
+      --ev-kill: #6cc18d; --ev-death: #f07b72; --ev-hit: #f0b35a; --ev-wave: #7ea8f0; --ev-other: #9a988f;
     }
   }
   :root[data-theme="dark"] {
     --bg: #141413; --panel: #1d1d1b; --panel-2: #262624; --text: #ecebe6; --muted: #9a988f;
     --border: #34332f; --accent: #e07a4b; --accent-soft: #3a2519; --ok: #6cc18d;
+    --ev-kill: #6cc18d; --ev-death: #f07b72; --ev-hit: #f0b35a; --ev-wave: #7ea8f0; --ev-other: #9a988f;
   }
   * { box-sizing: border-box; }
   body { margin: 0; background: var(--bg); color: var(--text);
@@ -66,6 +69,20 @@
   .desc { margin: 0; color: var(--muted); font-size: 14px; }
   .expect { display: flex; flex-wrap: wrap; gap: 6px; }
   .expect span { font: 12px var(--mono); background: var(--panel-2); border-radius: 6px; padding: 2px 8px; }
+  .watch { margin: 0; padding: 10px 12px; border-left: 3px solid var(--accent); background: var(--accent-soft);
+           border-radius: 0 8px 8px 0; font-size: 14px; }
+  .watch strong { display: block; font-size: 12px; text-transform: uppercase; letter-spacing: .05em;
+                  color: var(--accent); margin-bottom: 2px; }
+  .events-label { font-size: 12px; text-transform: uppercase; letter-spacing: .05em; color: var(--muted); }
+  .events { display: flex; flex-wrap: wrap; gap: 6px; }
+  .ev { font: 13px inherit; font-family: inherit; color: var(--text); background: var(--panel-2);
+        border: 1px solid var(--border); border-left: 4px solid var(--ev-other); border-radius: 6px;
+        padding: 3px 8px; cursor: pointer; text-align: left; }
+  .ev:hover { border-color: var(--accent); }
+  .ev .f { font: 12px var(--mono); color: var(--muted); margin-right: 4px; }
+  .ev.kill { border-left-color: var(--ev-kill); } .ev.death { border-left-color: var(--ev-death); }
+  .ev.hit { border-left-color: var(--ev-hit); } .ev.wave { border-left-color: var(--ev-wave); }
+  .ev.past { opacity: .5; }
   textarea { width: 100%; min-height: 56px; resize: vertical; font: 14px inherit; font-family: inherit;
              color: var(--text); background: var(--bg); border: 1px solid var(--border);
              border-radius: 8px; padding: 8px; }
@@ -127,14 +144,26 @@ function leader() {
   return videos().reduce((a, b) => (!a || b.duration > a.duration ? b : a), null);
 }
 
-function card({ src, title, meta, desc, expect, noteKey, wide, compare }) {
+function eventChips(events) {
+  return (events || []).map((e) => `<button class="ev ${esc(e.kind)}" data-frame="${e.frame}"
+      title="Aller à la frame ${e.frame}"><span class="f">f${e.frame}</span>${esc(e.label)}</button>`).join("");
+}
+
+function eventsBlock(label, events) {
+  if (!events || !events.length) return "";
+  return `<div><div class="events-label">${esc(label)}</div><div class="events">${eventChips(events)}</div></div>`;
+}
+
+function card({ src, title, meta, desc, watch, expect, events, noteKey, wide, compare }) {
   const expectHtml = (expect || []).map((e) => `<span>${esc(e)}</span>`).join("");
   return `<article class="card${wide ? " wide" : ""}${compare ? " compare" : ""}">
     <video src="${esc(src)}" preload="auto" muted playsinline></video>
     <div class="body">
       <h3>${esc(title)}<span class="meta">${esc(meta || "")}</span></h3>
       ${desc ? `<p class="desc">${esc(desc)}</p>` : ""}
-      ${expectHtml ? `<div class="expect">${expectHtml}</div>` : ""}
+      ${watch ? `<p class="watch"><strong>À regarder</strong>${esc(watch)}</p>` : ""}
+      ${events || ""}
+      ${expectHtml ? `<div class="events-label">Attentes vérifiées par les tests</div><div class="expect">${expectHtml}</div>` : ""}
       <textarea placeholder="Notes de revue (gardées dans ce navigateur)" data-note="${esc(noteKey)}"></textarea>
     </div>
   </article>`;
@@ -148,7 +177,8 @@ function showCommit(commit) {
   }
   for (const v of commit.videos) {
     cards.push(card({ src: `${commit.id}/${v.name}.mp4`, title: v.name,
-      meta: v.frames ? `${v.frames} frames` : "", desc: v.description, expect: v.expect,
+      meta: v.frames ? `${v.frames} frames` : "", desc: v.description, watch: v.watch, expect: v.expect,
+      events: eventsBlock("Moments clés (clic : aller à la frame)", v.events),
       noteKey: `${commit.id}/${v.name}` }));
   }
   $("view").innerHTML = `<div class="title"><h2>${esc(commit.id)}</h2>
@@ -160,7 +190,9 @@ function showCompare(c) {
   $("view").innerHTML = `<div class="title"><h2>${esc(c.scenario)} : ${esc(c.base)} → ${esc(c.head)}</h2>
     <p>À gauche ${esc(c.base)} (${esc(c.base_subject)}), à droite ${esc(c.head)} (${esc(c.head_subject)})</p></div>
     <div class="grid">${card({ src: c.file, title: c.scenario, meta: `${c.base} vs ${c.head}`, desc: c.description,
-      expect: c.expect, noteKey: c.file, wide: true, compare: true })}</div>`;
+      watch: c.watch, expect: c.expect, noteKey: c.file, wide: true, compare: true,
+      events: eventsBlock(`Moments clés à gauche (${c.base})`, c.base_events)
+        + eventsBlock(`Moments clés à droite (${c.head})`, c.head_events) })}</div>`;
 }
 
 function select(kind, index) {
@@ -175,6 +207,13 @@ function bindView() {
     const key = `alacod-review:${t.dataset.note}`;
     t.value = store(key);
     t.addEventListener("input", () => store(key, t.value));
+  }
+  for (const chip of document.querySelectorAll(".ev[data-frame]")) {
+    chip.addEventListener("click", () => {
+      videos().forEach((v) => v.pause());
+      seekAll(Number(chip.dataset.frame) / SIM_FPS);
+      syncButton();
+    });
   }
   const vs = videos();
   vs.forEach((v) => { v.playbackRate = Number($("speed").value); v.addEventListener("ended", syncButton); });
@@ -193,7 +232,11 @@ function seekAll(t) {
 function updatePosition() {
   const lead = leader();
   if (!lead) return;
-  $("frame").textContent = `frame ${Math.round(lead.currentTime * SIM_FPS)}`;
+  const frame = Math.round(lead.currentTime * SIM_FPS);
+  $("frame").textContent = `frame ${frame}`;
+  for (const chip of document.querySelectorAll(".ev[data-frame]")) {
+    chip.classList.toggle("past", Number(chip.dataset.frame) < frame);
+  }
   if (lead.duration) $("seek").value = Math.round((lead.currentTime / lead.duration) * 1000);
 }
 function playing() { return videos().some((v) => !v.paused && !v.ended); }
