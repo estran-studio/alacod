@@ -508,7 +508,8 @@ Matrix définit qui collide avec qui. Les obstacles ont leur propre layer selon 
 
 ## Flow Field - Implémentation Actuelle
 
-Le système utilise **BFS (Breadth-First Search)** vers le joueur (le premier par `net_id`) :
+Le système utilise **Dijkstra** vers le joueur (le premier par `net_id`), déterministe (tas trié
+par coût puis case) :
 
 - **Cellules** : 16 unités, 1:1 avec les tuiles LDtk (`GRID_CELL_SIZE`)
 - **Couverture** : toute la map (boîte englobante des murs + marge), pas un rayon autour du joueur :
@@ -518,14 +519,20 @@ Le système utilise **BFS (Breadth-First Search)** vers le joueur (le premier pa
 - **Cases trop étroites** : bloquées des deux côtés opposés (couloir d'une case) → infranchissables,
   les zombies font 20 px de large pour des cases de 16
 - **Diagonales** : interdites si elles coupent un coin (les deux cases orthogonales doivent être libres)
+- **Coûts** : 10 orthogonal, 14 diagonal, + pénalité près des murs (`wall_penalty` : +30 à 1 case,
+  +10 à 2 cases) : les chemins passent au large quand il y a de la place (les sprites, 32×32, sont plus
+  grands que les colliders, 20×20 aux pieds) et serrent les murs seulement dans les ouvertures
 - **Mise à jour** : quand le joueur change de case **ou** quand les cases bloquées changent
   (porte ouverte, fenêtre cassée/réparée)
-- **Suivi** : un ennemi vise le `steering_point` de la case suivante — son centre écarté des murs
-  voisins selon l'étendue réelle de son collider (`AgentBody`, offset vers les pieds compris)
+- **Suivi** : un ennemi vise le `steering_point` de la case suivante — son centre écarté d'au moins
+  une demi-case de chaque mur voisin (plus si son collider dépasse, `AgentBody`, offset compris), et
+  d'une demi-case en diagonale d'un coin : dans une ouverture de 2 cases il vise le milieu du passage,
+  et il se centre devant une porte/fenêtre avant de s'y engager
 
 Outils de diagnostic (`crates/scenario/tests/scenarios.rs`, tests ignorés) :
 `nav_map` (grille ASCII avec directions, `ALACOD_NAV=idle:700 ALACOD_NAV_ARROWS=1`),
-`nav_stats` (par zombie : apparition, contact, blocages), `nav_probe` (un zombie à une frame).
+`nav_stats` (par zombie : apparition, contact, blocages, sprite qui entre dans un mur et où),
+`nav_probe` (un zombie à une frame).
 
 ### GGRS Compliance
 - `FlowFieldCache` est `Clone` et enregistré avec `rollback_resource_with_clone`

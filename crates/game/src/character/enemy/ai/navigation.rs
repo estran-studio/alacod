@@ -1,7 +1,7 @@
 //! Flow Field Navigation System
 //!
 //! This module provides a shared pathfinding solution for hordes of enemies.
-//! Uses a lightweight BFS (Breadth-First Search) over the map bounds.
+//! Uses Dijkstra over the map bounds, with extra cost near walls.
 //! O(1) direction lookups per enemy after computation.
 //!
 //! Blocking cells: LDtk IntGrid walls, closed doors (door entities that still have a
@@ -342,8 +342,12 @@ impl FlowFieldCache {
     }
 
     /// Point to steer toward in a cell: its center, pushed away from each adjacent blocked
-    /// cell by what the agent's body sticks out of the cell on that side (+1 unit), so an
-    /// agent wider than a cell, or with an offset collider, does not rub the wall.
+    /// cell by at least half a cell, and more if the agent's body sticks out further on that
+    /// side (+1 unit). In a 2-cell opening (door, window) this aims at the middle of the
+    /// passage; along a wall it keeps the agent (and its larger sprite) off the wall.
+    /// A blocked diagonal neighbor (wall corner, edge of an opening) pushes away by half a
+    /// cell on both axes: the agent is centered *before* entering an opening, instead of
+    /// entering at an angle and clipping its edge.
     pub fn steering_point(
         &self,
         cell: GridPos,
@@ -352,7 +356,7 @@ impl FlowFieldCache {
     ) -> fixed_math::FixedVec2 {
         let blocked = |dx: i32, dy: i32| self.is_blocked(&GridPos::new(cell.x + dx, cell.y + dy), profile);
         let half_cell = fixed_math::Fixed::from_num(GRID_CELL_SIZE / 2);
-        let push = |extent: fixed_math::Fixed| (extent - half_cell + fixed_math::FIXED_ONE).max(fixed_math::FIXED_ZERO);
+        let push = |extent: fixed_math::Fixed| (extent - half_cell + fixed_math::FIXED_ONE).max(half_cell);
         let mut point = cell.to_fixed();
         if blocked(-1, 0) {
             point.x += push(body.left);
@@ -365,6 +369,12 @@ impl FlowFieldCache {
         }
         if blocked(0, 1) {
             point.y -= push(body.up);
+        }
+        for (dx, dy) in [(-1, -1), (1, -1), (-1, 1), (1, 1)] {
+            if blocked(dx, dy) && !blocked(dx, 0) && !blocked(0, dy) {
+                point.x -= half_cell * fixed_math::Fixed::from_num(dx);
+                point.y -= half_cell * fixed_math::Fixed::from_num(dy);
+            }
         }
         point
     }
@@ -458,8 +468,14 @@ pub struct FlowFieldConfig {
     pub max_search_radius: i32,
     /// Use 8-directional movement (vs 4-directional)
     pub use_8_directions: bool,
-    /// Diagonal movement cost multiplier (for 8-directional)
+    /// Cost of an orthogonal step
+    pub straight_cost: u32,
+    /// Cost of a diagonal step (~straight × √2)
     pub diagonal_cost: u32,
+    /// Extra cost to enter a cell 1 and 2 cells away from a blocked cell. Paths keep away
+    /// from walls when there is room (sprites are larger than colliders and would overlap
+    /// walls), but still go through doors and windows when they are the only way.
+    pub wall_penalty: [u32; 2],
 }
 
 impl Default for FlowFieldConfig {
@@ -468,7 +484,9 @@ impl Default for FlowFieldConfig {
             update_interval: 30,  // Update every 0.5s at 60fps
             max_search_radius: 50, // 50 cells * 16 units = 800 units radius
             use_8_directions: true, // 8 directions for smoother diagonal movement
+            straight_cost: 10,
             diagonal_cost: 14,
+            wall_penalty: [30, 10],
         }
     }
 }
@@ -658,22 +676,19 @@ fn get_collider_cells(
     cells
 }
 
-/// Build a flow field using simple BFS (much faster than Dijkstra for unweighted graphs)
+/// Build a flow field with Dijkstra from the target. Step costs favor cells away from
+/// walls (see [`FlowFieldConfig::wall_penalty`]). Deterministic: the heap is ordered by
+/// (cost, cell), and cells are only improved by a strictly lower cost.
 fn build_flow_field(
     target: GridPos,
     profile: NavProfile,
     cache: &FlowFieldCache,
     config: &FlowFieldConfig,
 ) -> FlowField {
-    let mut flow_field = FlowField::default();
-    let mut visited: BTreeSet<GridPos> = BTreeSet::new();
-    let mut queue: VecDeque<GridPos> = VecDeque::new();
+    use std::cmp::Reverse;
+    use std::collections::BinaryHeap;
 
-    // Start BFS from target
-    queue.push_back(target);
-    visited.insert(target);
-    flow_field.directions.insert(target, target);
-    flow_field.costs.insert(target, 0);
+    let mut flow_field = FlowField::default();
 
     // Search inside the map (walls bounding box + margin) instead of a radius around the
     // target: every spawner of the map must be covered
@@ -698,19 +713,47 @@ fn build_flow_field(
             target.y + config.max_search_radius,
         ),
     };
-    let max_cells = ((max_x - min_x + 1) * (max_y - min_y + 1)) as usize;
-    let mut cells_processed = 0;
+    let in_bounds = |p: &GridPos| p.x >= min_x && p.x <= max_x && p.y >= min_y && p.y <= max_y;
 
-    while let Some(current) = queue.pop_front() {
-        // Safety limit to prevent infinite loops
-        cells_processed += 1;
-        if cells_processed > max_cells {
-            break;
+    // Distance (in cells, 8-neighborhood) to the nearest blocked cell, up to 2
+    let mut wall_distance: BTreeMap<GridPos, u8> = BTreeMap::new();
+    let mut frontier: VecDeque<(GridPos, u8)> = VecDeque::new();
+    for x in min_x..=max_x {
+        for y in min_y..=max_y {
+            let p = GridPos::new(x, y);
+            if cache.is_blocked(&p, profile) {
+                wall_distance.insert(p, 0);
+                frontier.push_back((p, 0));
+            }
+        }
+    }
+    while let Some((p, d)) = frontier.pop_front() {
+        if d >= 2 {
+            continue;
+        }
+        for n in p.neighbors_8() {
+            if in_bounds(&n) && !wall_distance.contains_key(&n) {
+                wall_distance.insert(n, d + 1);
+                frontier.push_back((n, d + 1));
+            }
+        }
+    }
+    let penalty = |p: &GridPos| match wall_distance.get(p) {
+        Some(1) => config.wall_penalty[0],
+        Some(2) => config.wall_penalty[1],
+        _ => 0,
+    };
+
+    let mut heap: BinaryHeap<Reverse<(u32, GridPos)>> = BinaryHeap::new();
+    flow_field.directions.insert(target, target);
+    flow_field.costs.insert(target, 0);
+    heap.push(Reverse((0, target)));
+
+    while let Some(Reverse((cost, current))) = heap.pop() {
+        if flow_field.costs.get(&current).is_some_and(|best| cost > *best) {
+            continue; // stale heap entry
         }
 
-        let current_cost = *flow_field.costs.get(&current).unwrap_or(&0);
-
-        // Get neighbors (4 or 8 directions)
         let neighbors = if config.use_8_directions {
             current.neighbors_8().to_vec()
         } else {
@@ -718,13 +761,7 @@ fn build_flow_field(
         };
 
         for neighbor in neighbors {
-            // Skip if already visited
-            if visited.contains(&neighbor) {
-                continue;
-            }
-
-            // Stay inside the map bounds
-            if neighbor.x < min_x || neighbor.x > max_x || neighbor.y < min_y || neighbor.y > max_y {
+            if !in_bounds(&neighbor) {
                 continue;
             }
 
@@ -736,21 +773,24 @@ fn build_flow_field(
             // A diagonal step must not cut a corner: both orthogonal cells must be free,
             // otherwise the enemy collider hits the wall corner and gets stuck
             let (dx, dy) = (neighbor.x - current.x, neighbor.y - current.y);
-            if dx != 0
-                && dy != 0
+            let diagonal = dx != 0 && dy != 0;
+            if diagonal
                 && (cache.is_blocked(&GridPos::new(current.x + dx, current.y), profile)
                     || cache.is_blocked(&GridPos::new(current.x, current.y + dy), profile))
             {
                 continue;
             }
 
-            // Mark as visited and add to queue
-            visited.insert(neighbor);
-            queue.push_back(neighbor);
+            let step = if diagonal { config.diagonal_cost } else { config.straight_cost };
+            let new_cost = cost + step + penalty(&neighbor);
+            if flow_field.costs.get(&neighbor).is_some_and(|best| new_cost >= *best) {
+                continue;
+            }
 
             // Direction points TOWARD target (so we store 'current' as the next step)
             flow_field.directions.insert(neighbor, current);
-            flow_field.costs.insert(neighbor, current_cost + 1);
+            flow_field.costs.insert(neighbor, new_cost);
+            heap.push(Reverse((new_cost, neighbor)));
         }
     }
 

@@ -136,12 +136,27 @@ fn nav_stats() {
     app.finish();
     app.cleanup();
     #[derive(Default)]
-    struct Z { spawn: u32, contact: Option<u32>, window: Option<u32>, history: Vec<(u32, f32, f32, bool)> }
+    struct Z { spawn: u32, contact: Option<u32>, window: Option<u32>, history: Vec<(u32, f32, f32, bool)>, clip_frames: u32, clip_max: f32, clip_at: (u32, f32, f32) }
+    // Murs (y compris portes fermées) en rectangles monde, lus à chaque frame
+    use game::collider::{Collider, ColliderShape, Wall};
+    const SPRITE_HALF: f32 = 16.0; // sprite 32x32 centré sur le zombie
+    const CLIP_TOLERANCE: f32 = 3.0;
+    let mut clip_kind: BTreeMap<&str, u32> = BTreeMap::new();
+    let mut clip_spots: BTreeMap<(i32, i32), u32> = BTreeMap::new();
     let mut zombies: BTreeMap<usize, Z> = BTreeMap::new();
     for _ in 0..20_000 {
         app.update();
         let frame = app.world().resource::<FrameCount>().frame;
         let world = app.world_mut();
+        let mut wq = world.query_filtered::<(&FixedTransform3D, &Collider), With<Wall>>();
+        let walls: Vec<(f32, f32, f32, f32)> = wq.iter(world).filter_map(|(t, c)| {
+            let ColliderShape::Rectangle { width, height } = c.shape else { return None };
+            let (x, y, w, h) = (t.translation.x.to_num::<f32>(), t.translation.y.to_num::<f32>(), width.to_num::<f32>() / 2.0, height.to_num::<f32>() / 2.0);
+            Some((x - w, x + w, y - h, y + h))
+        }).collect();
+        // Ouvertures : fenêtres (obstacles) et portes
+        let mut oq = world.query_filtered::<&FixedTransform3D, Or<(With<game::character::enemy::ai::Obstacle>, With<map::game::entity::map::door::DoorComponent>)>>();
+        let openings: Vec<(f32, f32)> = oq.iter(world).map(|t| (t.translation.x.to_num(), t.translation.y.to_num())).collect();
         let mut q = world.query_filtered::<(&GgrsNetId, &FixedTransform3D, &MonsterState), With<Enemy>>();
         for (id, t, state) in q.iter(world) {
             let z = zombies.entry(id.0).or_insert_with(|| Z { spawn: frame, ..Default::default() });
@@ -150,6 +165,21 @@ fn nav_stats() {
             if attacking_player && z.contact.is_none() { z.contact = Some(frame); }
             if attacking_obstacle && z.window.is_none() { z.window = Some(frame); }
             z.history.push((frame, t.translation.x.to_num(), t.translation.y.to_num(), matches!(state, MonsterState::Chasing)));
+            // Chevauchement visuel : profondeur du sprite dans le mur le plus enfoncé
+            let (px, py): (f32, f32) = (t.translation.x.to_num(), t.translation.y.to_num());
+            let depth = walls.iter().map(|(x0, x1, y0, y1)| {
+                let ox = (px + SPRITE_HALF).min(*x1) - (px - SPRITE_HALF).max(*x0);
+                let oy = (py + SPRITE_HALF).min(*y1) - (py - SPRITE_HALF).max(*y0);
+                if ox > 0.0 && oy > 0.0 { ox.min(oy) } else { 0.0 }
+            }).fold(0.0, f32::max);
+            if depth > CLIP_TOLERANCE {
+                z.clip_frames += 1;
+                let near_opening = openings.iter().any(|(ox, oy)| (ox - px).abs() < 40.0 && (oy - py).abs() < 40.0);
+                let kind = if near_opening { "ouverture (porte/fenêtre)" } else if matches!(state, MonsterState::Attacking { .. }) { "en attaque" } else { "longe un mur" };
+                *clip_kind.entry(kind).or_default() += 1;
+                if kind == "longe un mur" { *clip_spots.entry(((px / 16.0) as i32, (py / 16.0) as i32)).or_default() += 1; }
+            }
+            if depth > z.clip_max { z.clip_max = depth; z.clip_at = (frame, px, py); }
         }
         if frame >= frames { break; }
     }
@@ -163,12 +193,19 @@ fn nav_stats() {
             if w.iter().all(|h| h.3) && moved < 2.0 { stuck += 1; if stuck > longest { longest = stuck; where_ = (b.1, b.2); } } else { stuck = 0; }
         }
         if longest > 0 { total_stuck += 1; }
-        println!("zombie {id:>3} apparu f{:<5} contact joueur {:<7} fenêtre {:<7} bloqué max {:>4} frames{}",
-            z.spawn, z.contact.map_or("-".into(), |f| format!("f{f}")), z.window.map_or("-".into(), |f| format!("f{f}")),
-            longest, if longest > 0 { format!(" vers ({:.0},{:.0})", where_.0, where_.1) } else { String::new() });
+        println!("zombie {id:>3} apparu f{:<5} contact joueur {:<7} bloqué max {:>4} frames  sprite dans un mur {:>4} frames (max {:>4.1} px){}",
+            z.spawn, z.contact.map_or("-".into(), |f| format!("f{f}")),
+            longest, z.clip_frames, z.clip_max, if z.clip_max > CLIP_TOLERANCE { format!(" à f{} ({:.0},{:.0})", z.clip_at.0, z.clip_at.1, z.clip_at.2) } else { String::new() } + &if longest > 0 { format!(" bloqué vers ({:.0},{:.0})", where_.0, where_.1) } else { String::new() });
     }
     let contacts = zombies.values().filter(|z| z.contact.is_some()).count();
-    println!("{name} jusqu'à f{frames} : {} zombies, {contacts} au contact d'un joueur, {total_stuck} bloqués", zombies.len());
+    println!("répartition : {clip_kind:?}");
+    let mut spots: Vec<_> = clip_spots.into_iter().collect();
+    spots.sort_by_key(|(_, n)| std::cmp::Reverse(*n));
+    println!("cases où les sprites longent un mur : {:?}", &spots[..spots.len().min(8)]);
+    let clip_total: u32 = zombies.values().map(|z| z.clip_frames).sum();
+    let alive_total: usize = zombies.values().map(|z| z.history.len()).sum();
+    println!("{name} jusqu'à f{frames} : {} zombies, {contacts} au contact d'un joueur, {total_stuck} bloqués, sprite dans un mur {clip_total}/{alive_total} frames-zombie ({:.1} %)",
+        zombies.len(), 100.0 * clip_total as f32 / alive_total.max(1) as f32);
 }
 
 /// Diagnostic : un zombie à une frame (`ALACOD_PROBE=<net_id>:<frame>`, scénario idle).

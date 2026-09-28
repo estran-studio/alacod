@@ -4,7 +4,7 @@
 //
 // À regarder : les balles partent en étoile, la visée change toutes les 50 frames. Le chargeur
 // se vide en continu et le rechargement automatique coupe le tir (f182, f447, f712). Les zombies
-// entrent et l'encerclent (premier coup f336) ; un seul est tué (f639). Mort du joueur f874.
+// entrent et l'encerclent (premier coup f325) ; deux sont tués (f633, f705). Mort du joueur f921.
 Scenario(
     frames: 1500,
     players: [

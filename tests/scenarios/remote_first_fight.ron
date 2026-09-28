@@ -4,7 +4,7 @@
 //
 // À regarder : f260-325 le joueur tire sur le premier zombie entré par le bas (kill f320) ;
 // f325-345 il recule vers le haut ; f425-450 ses tirs vers la gauche ratent, les zombies sont
-// encore dans l'ouverture de la fenêtre ; f480-540 il tue le zombie arrivé à droite (f534) puis
+// encore dans l'ouverture de la fenêtre ; f480-540 il tue le zombie arrivé à droite (f540) puis
 // recharge (f565 : quelques frames après l'appui, délai d'input GGRS).
 Scenario(
     map: "exemples/test_map.ldtk",
