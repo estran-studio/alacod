@@ -3,7 +3,6 @@
 //! GGRS CRITICAL: All systems must be deterministic.
 //! See CLAUDE.md for GGRS rules.
 
-use animation::SpriteSheetConfig;
 use bevy::{ecs::system::SystemParam, prelude::*};
 use bevy_fixed::{fixed_math, rng::RollbackRng};
 use map::game::entity::map::enemy_spawn::EnemySpawnerComponent;
@@ -28,9 +27,6 @@ pub struct SpawnAssets<'w> {
     pub weapons_asset: Res<'w, Assets<WeaponsConfig>>,
     pub melee_weapons_asset: Res<'w, Assets<MeleeWeaponsConfig>>,
     pub characters_asset: Res<'w, Assets<CharacterConfig>>,
-    pub asset_server: Res<'w, AssetServer>,
-    pub texture_atlas_layouts: ResMut<'w, Assets<TextureAtlasLayout>>,
-    pub spritesheet_assets: Res<'w, Assets<SpriteSheetConfig>>,
 }
 
 use super::{
@@ -274,9 +270,6 @@ pub fn wave_spawning_system(
             &spawn_assets.weapons_asset,
             &spawn_assets.melee_weapons_asset,
             &spawn_assets.characters_asset,
-            &spawn_assets.asset_server,
-            &mut spawn_assets.texture_atlas_layouts,
-            &spawn_assets.spritesheet_assets,
             &global_assets,
             &spawn_assets.collision_settings,
             &mut id_factory,

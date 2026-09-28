@@ -8,10 +8,6 @@ use ggrs::PlayerHandle;
 use serde::{Deserialize, Serialize};
 use std::fmt;
 use utils::{frame::FrameCount, net_id::GgrsNetId, order_iter, order_mut_iter};
-use crate::character::player::Player;
-
-#[derive(Event, Message)]
-pub struct PlayerDiedEvent(pub GgrsNetId);
 
 #[derive(Component, Reflect, Debug, Clone, Serialize, Deserialize)]
 pub enum HitBy {
@@ -139,18 +135,13 @@ pub fn rollback_apply_accumulated_damage(
 pub fn rollback_apply_death(
     frame: Res<FrameCount>,
     mut commands: Commands,
-    mut query: Query<(&GgrsNetId, Entity, &Death, Option<&Player>), With<Rollback>>,
-    mut event_writer: MessageWriter<PlayerDiedEvent>,
+    query: Query<(&GgrsNetId, Entity, &Death), With<Rollback>>,
 ) {
     let system_span = span!(Level::INFO, "ggrs", f = frame.frame, s = "apply_death");
     let _enter = system_span.enter();
 
-    for (id, entity, death_info, player) in order_iter!(query) {
+    for (id, entity, death_info) in order_iter!(query) {
         info!("{} entity killed by {}", id, death_info);
-        
-        if player.is_some() {
-            event_writer.write(PlayerDiedEvent(id.clone()));
-        }
 
         // Despawn the rollback entity
         commands.entity(entity).despawn();

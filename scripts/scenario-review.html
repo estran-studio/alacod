@@ -1,0 +1,297 @@
+<!doctype html>
+<html lang="fr">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Revue des scénarios</title>
+<style>
+  :root {
+    --bg: #f4f4f2; --panel: #ffffff; --panel-2: #ecebe7; --text: #1d1d1b; --muted: #6b6a66;
+    --border: #d9d7d1; --accent: #b4532a; --accent-soft: #f3e3da; --ok: #2f7d4f;
+    --ev-kill: #2f7d4f; --ev-death: #b3261e; --ev-hit: #b86e00; --ev-wave: #2a5db0; --ev-other: #6b6a66;
+    --radius: 10px; --mono: ui-monospace, "SF Mono", Menlo, Consolas, monospace;
+  }
+  @media (prefers-color-scheme: dark) {
+    :root:not([data-theme="light"]) {
+      --bg: #141413; --panel: #1d1d1b; --panel-2: #262624; --text: #ecebe6; --muted: #9a988f;
+      --border: #34332f; --accent: #e07a4b; --accent-soft: #3a2519; --ok: #6cc18d;
+      --ev-kill: #6cc18d; --ev-death: #f07b72; --ev-hit: #f0b35a; --ev-wave: #7ea8f0; --ev-other: #9a988f;
+    }
+  }
+  :root[data-theme="dark"] {
+    --bg: #141413; --panel: #1d1d1b; --panel-2: #262624; --text: #ecebe6; --muted: #9a988f;
+    --border: #34332f; --accent: #e07a4b; --accent-soft: #3a2519; --ok: #6cc18d;
+    --ev-kill: #6cc18d; --ev-death: #f07b72; --ev-hit: #f0b35a; --ev-wave: #7ea8f0; --ev-other: #9a988f;
+  }
+  * { box-sizing: border-box; }
+  body { margin: 0; background: var(--bg); color: var(--text);
+         font: 15px/1.5 system-ui, -apple-system, "Segoe UI", sans-serif; }
+  .layout { display: grid; grid-template-columns: 280px 1fr; min-height: 100vh; }
+  aside { border-right: 1px solid var(--border); padding: 20px 16px; background: var(--panel);
+          position: sticky; top: 0; height: 100vh; overflow-y: auto; }
+  aside h1 { font-size: 17px; margin: 0 0 2px; }
+  aside .branch { color: var(--muted); font: 12px var(--mono); margin-bottom: 20px; }
+  aside h2 { font-size: 12px; text-transform: uppercase; letter-spacing: .06em; color: var(--muted);
+             margin: 20px 0 8px; }
+  .nav-item { display: block; width: 100%; text-align: left; border: 1px solid transparent;
+              background: none; color: inherit; font: inherit; padding: 8px 10px; border-radius: 8px;
+              cursor: pointer; margin-bottom: 4px; }
+  .nav-item:hover { background: var(--panel-2); }
+  .nav-item.active { background: var(--accent-soft); border-color: var(--accent); }
+  .nav-item .sha { font: 12px var(--mono); color: var(--accent); }
+  .nav-item .sub { display: block; font-size: 13px; color: var(--muted); overflow: hidden;
+                   text-overflow: ellipsis; white-space: nowrap; }
+  main { padding: 0 28px 48px; min-width: 0; }
+  .transport { position: sticky; top: 0; z-index: 5; background: var(--bg); padding: 16px 0 12px;
+               border-bottom: 1px solid var(--border); margin-bottom: 20px;
+               display: flex; flex-wrap: wrap; gap: 8px; align-items: center; }
+  .transport button, .transport select { font: inherit; font-size: 14px; color: var(--text);
+               background: var(--panel); border: 1px solid var(--border); border-radius: 8px;
+               padding: 6px 12px; cursor: pointer; min-height: 36px; }
+  .transport button:hover { border-color: var(--accent); }
+  .transport .primary { background: var(--accent); border-color: var(--accent); color: #fff; min-width: 96px; }
+  .transport .frame { font: 14px var(--mono); color: var(--muted); margin-left: auto; }
+  .transport input[type=range] { flex: 1 1 200px; accent-color: var(--accent); min-width: 140px; }
+  .keys { font-size: 12px; color: var(--muted); width: 100%; }
+  kbd { font: 11px var(--mono); border: 1px solid var(--border); border-radius: 4px; padding: 0 4px;
+        background: var(--panel); }
+  .title h2 { margin: 0 0 4px; font-size: 22px; }
+  .title p { margin: 0 0 20px; color: var(--muted); }
+  .grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(min(100%, 460px), 1fr)); gap: 20px; }
+  .card { background: var(--panel); border: 1px solid var(--border); border-radius: var(--radius);
+          overflow: hidden; display: flex; flex-direction: column; }
+  .card.wide { grid-column: 1 / -1; }
+  video { width: 100%; display: block; background: #000; aspect-ratio: 16 / 9; }
+  .card.compare video { aspect-ratio: 32 / 9; }
+  .card .body { padding: 14px 16px 16px; display: flex; flex-direction: column; gap: 8px; }
+  .card h3 { margin: 0; font-size: 16px; display: flex; justify-content: space-between; gap: 8px; }
+  .card h3 .meta { font: 12px var(--mono); color: var(--muted); font-weight: normal; }
+  .desc { margin: 0; color: var(--muted); font-size: 14px; }
+  .expect { display: flex; flex-wrap: wrap; gap: 6px; }
+  .expect span { font: 12px var(--mono); background: var(--panel-2); border-radius: 6px; padding: 2px 8px; }
+  .watch { margin: 0; padding: 10px 12px; border-left: 3px solid var(--accent); background: var(--accent-soft);
+           border-radius: 0 8px 8px 0; font-size: 14px; }
+  .watch strong { display: block; font-size: 12px; text-transform: uppercase; letter-spacing: .05em;
+                  color: var(--accent); margin-bottom: 2px; }
+  .events-label { font-size: 12px; text-transform: uppercase; letter-spacing: .05em; color: var(--muted); }
+  .events { display: flex; flex-wrap: wrap; gap: 6px; }
+  .ev { font: 13px inherit; font-family: inherit; color: var(--text); background: var(--panel-2);
+        border: 1px solid var(--border); border-left: 4px solid var(--ev-other); border-radius: 6px;
+        padding: 3px 8px; cursor: pointer; text-align: left; }
+  .ev:hover { border-color: var(--accent); }
+  .ev .f { font: 12px var(--mono); color: var(--muted); margin-right: 4px; }
+  .ev.kill { border-left-color: var(--ev-kill); } .ev.death { border-left-color: var(--ev-death); }
+  .ev.hit { border-left-color: var(--ev-hit); } .ev.wave { border-left-color: var(--ev-wave); }
+  .ev.past { opacity: .5; }
+  textarea { width: 100%; min-height: 56px; resize: vertical; font: 14px inherit; font-family: inherit;
+             color: var(--text); background: var(--bg); border: 1px solid var(--border);
+             border-radius: 8px; padding: 8px; }
+  textarea:focus { outline: 2px solid var(--accent); outline-offset: 0; }
+  .empty { color: var(--muted); padding: 40px 0; }
+  @media (max-width: 820px) {
+    .layout { grid-template-columns: 1fr; }
+    aside { position: static; height: auto; border-right: 0; border-bottom: 1px solid var(--border); }
+    main { padding: 0 16px 40px; }
+  }
+</style>
+</head>
+<body>
+<div class="layout">
+  <aside>
+    <h1>Revue des scénarios</h1>
+    <div class="branch" id="branch"></div>
+    <h2>Commits rendus</h2>
+    <div id="commits"></div>
+    <h2>Comparaisons</h2>
+    <div id="compares"></div>
+  </aside>
+  <main>
+    <div class="transport">
+      <button class="primary" id="play">▶ Lecture</button>
+      <button id="restart" title="Revenir au début">⏮</button>
+      <button id="back" title="Image précédente">−1 img</button>
+      <button id="fwd" title="Image suivante">+1 img</button>
+      <select id="speed" title="Vitesse">
+        <option value="0.25">×0.25</option><option value="0.5">×0.5</option>
+        <option value="1" selected>×1</option><option value="2">×2</option><option value="4">×4</option>
+      </select>
+      <input type="range" id="seek" min="0" max="1000" value="0" aria-label="Position">
+      <span class="frame" id="frame">frame 0</span>
+      <div class="keys"><kbd>espace</kbd> lecture · <kbd>←</kbd> <kbd>→</kbd> image par image ·
+        <kbd>[</kbd> <kbd>]</kbd> vitesse · toutes les vidéos de la vue restent synchronisées</div>
+    </div>
+    <div id="view"></div>
+  </main>
+</div>
+<script>
+const DATA = /*__DATA__*/null;
+const SIM_FPS = 60;          // frames de simulation par seconde de vidéo
+const IMAGE_STEP = 2 / SIM_FPS; // une image vidéo = 2 frames (EVERY=2)
+const INITIAL_TIME = 1;       // secondes (frame 60)
+
+const $ = (id) => document.getElementById(id);
+const esc = (s) => String(s ?? "").replace(/[&<>"]/g, (c) => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;" }[c]));
+
+function store(key, value) {
+  try {
+    if (value === undefined) return localStorage.getItem(key) ?? "";
+    localStorage.setItem(key, value);
+  } catch { return ""; }
+}
+
+function videos() { return [...document.querySelectorAll("#view video")]; }
+function leader() {
+  return videos().reduce((a, b) => (!a || b.duration > a.duration ? b : a), null);
+}
+
+function eventChips(events) {
+  return (events || []).map((e) => `<button class="ev ${esc(e.kind)}" data-frame="${e.frame}"
+      title="Aller à la frame ${e.frame}"><span class="f">f${e.frame}</span>${esc(e.label)}</button>`).join("");
+}
+
+function eventsBlock(label, events) {
+  if (!events || !events.length) return "";
+  return `<div><div class="events-label">${esc(label)}</div><div class="events">${eventChips(events)}</div></div>`;
+}
+
+function card({ src, title, meta, desc, watch, expect, events, noteKey, wide, compare }) {
+  const expectHtml = (expect || []).map((e) => `<span>${esc(e)}</span>`).join("");
+  return `<article class="card${wide ? " wide" : ""}${compare ? " compare" : ""}">
+    <video src="${esc(src)}" preload="auto" muted playsinline></video>
+    <div class="body">
+      <h3>${esc(title)}<span class="meta">${esc(meta || "")}</span></h3>
+      ${desc ? `<p class="desc">${esc(desc)}</p>` : ""}
+      ${watch ? `<p class="watch"><strong>À regarder</strong>${esc(watch)}</p>` : ""}
+      ${events || ""}
+      ${expectHtml ? `<div class="events-label">Attentes vérifiées par les tests</div><div class="expect">${expectHtml}</div>` : ""}
+      <textarea placeholder="Notes de revue (gardées dans ce navigateur)" data-note="${esc(noteKey)}"></textarea>
+    </div>
+  </article>`;
+}
+
+function showCommit(commit) {
+  const cards = [];
+  if (commit.montage) {
+    cards.push(card({ src: `${commit.id}/montage.mp4`, title: "Montage", meta: `${commit.videos.length} scénarios`,
+      noteKey: `${commit.id}/montage`, wide: true }));
+  }
+  for (const v of commit.videos) {
+    cards.push(card({ src: `${commit.id}/${v.name}.mp4`, title: v.name,
+      meta: v.frames ? `${v.frames} frames` : "", desc: v.description, watch: v.watch, expect: v.expect,
+      events: eventsBlock("Moments clés (clic : aller à la frame)", v.events),
+      noteKey: `${commit.id}/${v.name}` }));
+  }
+  $("view").innerHTML = `<div class="title"><h2>${esc(commit.id)}</h2>
+    <p>${esc(commit.subject || "")}${commit.date ? ` · ${esc(commit.date)}` : ""}${commit.dirty ? " · modifications non commitées" : ""}</p></div>
+    <div class="grid">${cards.join("")}</div>`;
+}
+
+function showCompare(c) {
+  $("view").innerHTML = `<div class="title"><h2>${esc(c.scenario)} : ${esc(c.base)} → ${esc(c.head)}</h2>
+    <p>À gauche ${esc(c.base)} (${esc(c.base_subject)}), à droite ${esc(c.head)} (${esc(c.head_subject)})</p></div>
+    <div class="grid">${card({ src: c.file, title: c.scenario, meta: `${c.base} vs ${c.head}`, desc: c.description,
+      watch: c.watch, expect: c.expect, noteKey: c.file, wide: true, compare: true,
+      events: eventsBlock(`Moments clés à gauche (${c.base})`, c.base_events)
+        + eventsBlock(`Moments clés à droite (${c.head})`, c.head_events) })}</div>`;
+}
+
+function select(kind, index) {
+  document.querySelectorAll(".nav-item").forEach((b) => b.classList.toggle("active", b.dataset.key === `${kind}:${index}`));
+  if (kind === "commit") showCommit(DATA.commits[index]); else showCompare(DATA.compares[index]);
+  location.hash = `${kind}=${index}`;
+  bindView();
+}
+
+function bindView() {
+  for (const t of document.querySelectorAll("textarea[data-note]")) {
+    const key = `alacod-review:${t.dataset.note}`;
+    t.value = store(key);
+    t.addEventListener("input", () => store(key, t.value));
+  }
+  for (const chip of document.querySelectorAll(".ev[data-frame]")) {
+    chip.addEventListener("click", () => {
+      videos().forEach((v) => v.pause());
+      seekAll(Number(chip.dataset.frame) / SIM_FPS);
+      syncButton();
+    });
+  }
+  const vs = videos();
+  vs.forEach((v) => { v.playbackRate = Number($("speed").value); v.addEventListener("ended", syncButton); });
+  const lead = leader() || vs[0];
+  if (lead) lead.addEventListener("timeupdate", updatePosition);
+  // Vue initiale à 1 s : aux premières frames, la caméra n'a pas encore rejoint le joueur
+  Promise.all(vs.map((v) => v.readyState >= 1 ? null : new Promise((ok) => v.addEventListener("loadedmetadata", ok, { once: true }))))
+    .then(() => seekAll(INITIAL_TIME));
+  syncButton();
+}
+
+function seekAll(t) {
+  for (const v of videos()) v.currentTime = Math.min(Math.max(t, 0), v.duration || t);
+  updatePosition();
+}
+function updatePosition() {
+  const lead = leader();
+  if (!lead) return;
+  const frame = Math.round(lead.currentTime * SIM_FPS);
+  $("frame").textContent = `frame ${frame}`;
+  for (const chip of document.querySelectorAll(".ev[data-frame]")) {
+    chip.classList.toggle("past", Number(chip.dataset.frame) < frame);
+  }
+  if (lead.duration) $("seek").value = Math.round((lead.currentTime / lead.duration) * 1000);
+}
+function playing() { return videos().some((v) => !v.paused && !v.ended); }
+function syncButton() { $("play").textContent = playing() ? "⏸ Pause" : "▶ Lecture"; }
+function togglePlay() {
+  const vs = videos();
+  if (playing()) vs.forEach((v) => v.pause());
+  else {
+    const t = leader()?.currentTime ?? 0;
+    const restart = vs.every((v) => v.ended || v.currentTime >= v.duration - 0.05);
+    vs.forEach((v) => { v.currentTime = restart ? 0 : Math.min(t, v.duration); v.play(); });
+  }
+  syncButton();
+}
+function step(delta) {
+  videos().forEach((v) => v.pause());
+  seekAll((leader()?.currentTime ?? 0) + delta);
+  syncButton();
+}
+function setSpeed(value) {
+  $("speed").value = value;
+  videos().forEach((v) => (v.playbackRate = Number(value)));
+}
+
+$("play").onclick = togglePlay;
+$("restart").onclick = () => seekAll(0);
+$("back").onclick = () => step(-IMAGE_STEP);
+$("fwd").onclick = () => step(IMAGE_STEP);
+$("speed").onchange = (e) => setSpeed(e.target.value);
+$("seek").oninput = (e) => { const lead = leader(); if (lead?.duration) seekAll((e.target.value / 1000) * lead.duration); };
+document.addEventListener("keydown", (e) => {
+  if (e.target.tagName === "TEXTAREA") return;
+  const speeds = [...$("speed").options].map((o) => o.value);
+  const i = speeds.indexOf($("speed").value);
+  if (e.key === " ") { e.preventDefault(); togglePlay(); }
+  else if (e.key === "ArrowRight") { e.preventDefault(); step(IMAGE_STEP); }
+  else if (e.key === "ArrowLeft") { e.preventDefault(); step(-IMAGE_STEP); }
+  else if (e.key === "]" && i < speeds.length - 1) setSpeed(speeds[i + 1]);
+  else if (e.key === "[" && i > 0) setSpeed(speeds[i - 1]);
+});
+
+$("branch").textContent = DATA.branch ? `branche ${DATA.branch}` : "";
+$("commits").innerHTML = DATA.commits.length
+  ? DATA.commits.map((c, i) => `<button class="nav-item" data-key="commit:${i}" onclick="select('commit', ${i})">
+      <span class="sha">${esc(c.id)}</span><span class="sub">${esc(c.subject || "")}</span></button>`).join("")
+  : `<div class="empty">Aucun rendu : <code>make videos</code></div>`;
+$("compares").innerHTML = DATA.compares.length
+  ? DATA.compares.map((c, i) => `<button class="nav-item" data-key="compare:${i}" onclick="select('compare', ${i})">
+      <span class="sha">${esc(c.base)} → ${esc(c.head)}</span><span class="sub">${esc(c.scenario)}</span></button>`).join("")
+  : `<div class="empty">Aucune : <code>make compare_video</code></div>`;
+
+const [kind, index] = (location.hash.slice(1).split("=") || []);
+if (kind === "compare" && DATA.compares[index]) select("compare", Number(index));
+else if (DATA.commits.length) select("commit", kind === "commit" && DATA.commits[index] ? Number(index) : 0);
+else if (DATA.compares.length) select("compare", 0);
+</script>
+</body>
+</html>

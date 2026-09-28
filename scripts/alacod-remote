@@ -1,0 +1,90 @@
+#!/usr/bin/env python3
+"""Client du contrôle remote d'alacod (jeu lancé avec ALACOD_REMOTE=1).
+
+  alacod-remote state                     état complet (JSON)
+  alacod-remote brief                     résumé d'une ligne par joueur + ennemis proches
+  alacod-remote input Up,Fire --pan 100,0 [--handle 0]   input maintenu (vide = relâcher)
+  alacod-remote step 30 [--no-wait]       avance de 30 frames, attend, affiche le résumé
+  alacod-remote pause | resume
+  alacod-remote screenshot /tmp/x.png
+  alacod-remote save tests/scenarios/ma_session.ron
+
+Boutons : Up Down Left Right Fire SwitchWeapon SwitchWeaponMode Reload Sprint Dash
+Modifier Interaction Melee. Port : ALACOD_REMOTE_PORT (15702 par défaut).
+"""
+import argparse, json, math, os, sys, time, urllib.request
+
+URL = f"http://127.0.0.1:{os.environ.get('ALACOD_REMOTE_PORT', '15702')}"
+
+
+def call(method, params=None):
+    body = json.dumps({"jsonrpc": "2.0", "id": 1, "method": method, "params": params}).encode()
+    req = urllib.request.Request(URL, body, {"Content-Type": "application/json"})
+    with urllib.request.urlopen(req, timeout=10) as resp:
+        answer = json.load(resp)
+    if "error" in answer:
+        sys.exit(f"erreur {method} : {answer['error']}")
+    return answer["result"]
+
+
+def brief(state):
+    lines = [f"frame {state['frame']}  pause={state['clock']['paused']}  vague={state['wave']}"]
+    for p in state["players"]:
+        w = p.get("weapon") or {}
+        lines.append(
+            f"joueur {p['handle']} ({p['x']},{p['y']}) pv {p['health']}/{p['max_health']} "
+            f"arme {w.get('name')} {w.get('ammo')}x{w.get('mags')}{' recharge' if w.get('reloading') else ''}"
+        )
+        near = sorted(state["enemies"], key=lambda e: math.dist((e["x"], e["y"]), (p["x"], p["y"])))[:5]
+        for e in near:
+            dx, dy = e["x"] - p["x"], e["y"] - p["y"]
+            lines.append(f"  ennemi {e['id']} dx={dx:.0f} dy={dy:.0f} dist={math.hypot(dx, dy):.0f} pv {e['health']} {e['state']}")
+    lines.append(f"ennemis {len(state['enemies'])}, fenêtres {[w['health'] for w in state['windows']]}")
+    return "\n".join(lines)
+
+
+def main():
+    parser = argparse.ArgumentParser(description=__doc__, formatter_class=argparse.RawDescriptionHelpFormatter)
+    sub = parser.add_subparsers(dest="cmd", required=True)
+    sub.add_parser("state")
+    sub.add_parser("brief")
+    p = sub.add_parser("input")
+    p.add_argument("buttons", nargs="?", default="")
+    p.add_argument("--pan", default="0,0")
+    p.add_argument("--handle", type=int, default=0)
+    p = sub.add_parser("step")
+    p.add_argument("frames", type=int)
+    p.add_argument("--no-wait", action="store_true")
+    sub.add_parser("pause")
+    sub.add_parser("resume")
+    p = sub.add_parser("screenshot")
+    p.add_argument("path")
+    p = sub.add_parser("save")
+    p.add_argument("path")
+    args = parser.parse_args()
+
+    if args.cmd == "state":
+        print(json.dumps(call("alacod/state"), indent=1))
+    elif args.cmd == "brief":
+        print(brief(call("alacod/state")))
+    elif args.cmd == "input":
+        buttons = [b for b in args.buttons.split(",") if b]
+        pan = [int(v) for v in args.pan.split(",")]
+        print(call("alacod/input", {"handle": args.handle, "buttons": buttons, "pan": pan}))
+    elif args.cmd == "step":
+        target = call("alacod/step", {"frames": args.frames})["target_frame"]
+        if not args.no_wait:
+            deadline = time.time() + 60
+            while call("alacod/state")["frame"] < target and time.time() < deadline:
+                time.sleep(0.02)
+            print(brief(call("alacod/state")))
+    elif args.cmd in ("pause", "resume"):
+        print(call(f"alacod/{args.cmd}"))
+    elif args.cmd == "screenshot":
+        print(call("alacod/screenshot", {"path": os.path.abspath(args.path)}))
+    elif args.cmd == "save":
+        print(call("alacod/save_recording", {"path": os.path.abspath(args.path)}))
+
+
+if __name__ == "__main__":
+    main()

@@ -1,0 +1,29 @@
+// Le joueur tire vers le mur plein du haut de sa pièce avec les trois armes (mitrailleuse en
+// continu, pistolet et fusil à pompe au clic) : les balles s'arrêtent sur le mur.
+// (Les fenêtres, elles, laissent passer les balles : on tire sur les zombies à travers.)
+//
+// À regarder : les balles montent et disparaissent au contact du mur, sans le traverser.
+Scenario(
+    frames: 400,
+    players: [
+        (inputs: [
+            (from: 10, to: 90, buttons: [Fire], pan: (0, 100)),
+            (from: 100, to: 103, buttons: [SwitchWeapon]),
+            (from: 120, to: 123, buttons: [Fire], pan: (0, 100)),
+            (from: 155, to: 158, buttons: [Fire], pan: (0, 100)),
+            (from: 190, to: 193, buttons: [Fire], pan: (0, 100)),
+            (from: 225, to: 228, buttons: [Fire], pan: (0, 100)),
+            (from: 250, to: 253, buttons: [SwitchWeapon]),
+            (from: 270, to: 273, buttons: [Fire], pan: (0, 100)),
+            (from: 340, to: 343, buttons: [Fire], pan: (0, 100)),
+        ]),
+    ],
+    expect: [
+        // Le mur du haut commence à y = 767 : aucune balle au-delà
+        BulletsInside(x_min: 0, x_max: 2000, y_min: 0, y_max: 767, at_frame: 40),
+        BulletsInside(x_min: 0, x_max: 2000, y_min: 0, y_max: 767, at_frame: 80),
+        BulletsInside(x_min: 0, x_max: 2000, y_min: 0, y_max: 767, at_frame: 160),
+        BulletsInside(x_min: 0, x_max: 2000, y_min: 0, y_max: 767, at_frame: 290),
+        BulletsInside(x_min: 0, x_max: 2000, y_min: 0, y_max: 767, at_frame: 360),
+    ],
+)

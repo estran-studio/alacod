@@ -1,0 +1,54 @@
+// Toutes les manipulations d'armes d'un joueur (tirs vers le haut de la pièce), avec les cas
+// limites : changer d'arme pendant le cooldown initial, vider un chargeur jusqu'au clic à vide,
+// recharger un chargeur plein, changer de mode pendant un rechargement, tir automatique jusqu'au
+// rechargement automatique, rafales. Pistolet et fusil sont semi-automatiques : un clic par tir.
+//
+// À regarder : le joueur prend le pistolet (f46) et tire 6 fois ; le clic à vide déclenche le
+// rechargement (f267-327). Fusil à pompe (f406) : il recharge après chaque tir ; le changement de
+// mode pendant ce rechargement est refusé. Mitrailleuse (f566) : tir continu, chargeur vide à f760,
+// rechargement (f761-851) pendant lequel le changement de mode est refusé. Les zombies entrent
+// entre-temps et tuent le joueur (f917).
+Scenario(
+    frames: 950,
+    players: [
+        (inputs: [
+            (from: 10, to: 13, buttons: [SwitchWeapon]),
+            (from: 40, to: 43, buttons: [SwitchWeapon]),
+            (from: 60, to: 63, buttons: [Fire], pan: (40, 100)),
+            (from: 100, to: 103, buttons: [Fire], pan: (40, 100)),
+            (from: 140, to: 143, buttons: [Fire], pan: (40, 100)),
+            (from: 180, to: 183, buttons: [Fire], pan: (40, 100)),
+            (from: 220, to: 223, buttons: [Fire], pan: (40, 100)),
+            (from: 260, to: 263, buttons: [Fire], pan: (40, 100)),
+            (from: 300, to: 303, buttons: [Fire], pan: (40, 100)),
+            (from: 380, to: 382, buttons: [Reload]),
+            (from: 400, to: 403, buttons: [SwitchWeapon]),
+            (from: 410, to: 413, buttons: [Fire], pan: (40, 100)),
+            (from: 470, to: 473, buttons: [Fire], pan: (40, 100)),
+            (from: 480, to: 483, buttons: [SwitchWeaponMode]),
+            (from: 560, to: 563, buttons: [SwitchWeapon]),
+            (from: 580, to: 800, buttons: [Fire], pan: (40, 100)),
+            (from: 805, to: 808, buttons: [SwitchWeaponMode]),
+            (from: 830, to: 833, buttons: [Fire], pan: (40, 100)),
+            (from: 860, to: 863, buttons: [Fire], pan: (40, 100)),
+            (from: 890, to: 893, buttons: [Fire], pan: (40, 100)),
+        ]),
+    ],
+    expect: [
+        // Changement d'arme refusé pendant le cooldown initial (f10), accepté ensuite
+        ActiveWeapon(handle: 0, weapon: "machine_gun", at_frame: 30),
+        ActiveWeapon(handle: 0, weapon: "pistol", at_frame: 50),
+        // Pistolet vidé (6 tirs) : rechargement automatique au clic à vide, puis plein
+        Ammo(handle: 0, ammo: 0, at_frame: 300),
+        Ammo(handle: 0, ammo: 6, at_frame: 330),
+        // Recharger un chargeur plein ne fait rien (le changement d'arme reste possible)
+        Ammo(handle: 0, ammo: 6, at_frame: 395),
+        // Changement de mode refusé pendant le rechargement du fusil : le mode reste « default »
+        ActiveWeapon(handle: 0, weapon: "shotgun", mode: "default", at_frame: 500),
+        Ammo(handle: 0, ammo: 62, at_frame: 530),
+        // Mitrailleuse vidée en automatique, changement de mode refusé pendant son rechargement,
+        // qui remplit bien le mode vidé
+        ActiveWeapon(handle: 0, weapon: "machine_gun", mode: "default", at_frame: 850),
+        Ammo(handle: 0, ammo: 30, at_frame: 855),
+    ],
+)

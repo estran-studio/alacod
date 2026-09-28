@@ -3,7 +3,7 @@ use std::time::Duration;
 use bevy::{platform::collections::HashMap, prelude::*, reflect::TypePath, sprite::Anchor};
 use bevy_common_assets::ron::RonAssetPlugin;
 use bevy_ggrs::prelude::*;
-use serde::Deserialize;
+use serde::{Deserialize, Serialize};
 
 // CONFIG
 
@@ -131,7 +131,7 @@ struct AnimationTimer {
     frame_timer: Timer,
 }
 
-#[derive(Component, Reflect, Debug, Clone, Copy, PartialEq, Eq, Default)]
+#[derive(Component, Reflect, Debug, Clone, Copy, PartialEq, Eq, Default, Serialize, Deserialize)]
 #[reflect(Component, PartialEq)]
 pub enum FacingDirection {
     #[default]
@@ -254,38 +254,49 @@ impl FacingDirection {
 
 // Bundle
 
+/// État d'animation logique : fait partie de la simulation (rollback).
 #[derive(Bundle)]
-pub struct AnimationBundle {
+pub struct AnimationStateBundle {
     state: AnimationState,
-    handles: CharacterAnimationHandles,
-    timer: AnimationTimer,
     active_layers: ActiveLayers,
     facing_direction: FacingDirection,
 }
 
-impl AnimationBundle {
+impl AnimationStateBundle {
+    pub fn new(starting_layers: HashMap<String, String>) -> Self {
+        Self {
+            state: AnimationState("Idle".into()),
+            active_layers: ActiveLayers {
+                layers: starting_layers,
+            },
+            facing_direction: FacingDirection::default(),
+        }
+    }
+}
+
+/// Partie visuelle de l'animation (handles et timer), ajoutée par la présentation
+/// à côté d'un [`AnimationStateBundle`].
+#[derive(Bundle)]
+pub struct AnimationVisualsBundle {
+    handles: CharacterAnimationHandles,
+    timer: AnimationTimer,
+}
+
+impl AnimationVisualsBundle {
     pub fn new(
         spritesheets: HashMap<String, Handle<SpriteSheetConfig>>,
         animations: Handle<AnimationMapConfig>,
-
         starting_index: usize,
-
-        starting_layers: HashMap<String, String>,
     ) -> Self {
         Self {
-            state: AnimationState("Idle".into()),
-            timer: AnimationTimer {
-                frame_timer: Timer::from_seconds(1., TimerMode::Repeating),
-            },
             handles: CharacterAnimationHandles {
                 spritesheets,
                 animations,
                 starting_index,
             },
-            active_layers: ActiveLayers {
-                layers: starting_layers,
+            timer: AnimationTimer {
+                frame_timer: Timer::from_seconds(1., TimerMode::Repeating),
             },
-            facing_direction: FacingDirection::default(),
         }
     }
 }
@@ -503,7 +514,7 @@ pub fn create_child_sprite(
         entity_commands.insert(AnimatedLayer {});
     }
 
-    let sprite = entity_commands.insert(Rollback).id();
+    let sprite = entity_commands.id();
 
     commands.entity(parent_entity).add_child(sprite);
 
@@ -521,7 +532,6 @@ impl Plugin for D2AnimationPlugin {
 
         app.rollback_component_with_reflect::<AnimationState>()
             .rollback_component_with_reflect::<FacingDirection>()
-            .rollback_component_with_clone::<LayerName>()
             .rollback_component_with_clone::<ActiveLayers>();
 
         app.add_systems(

@@ -1,4 +1,3 @@
-use animation::SpriteSheetConfig;
 use bevy::prelude::*;
 
 #[cfg(feature = "lighting")]
@@ -37,9 +36,6 @@ pub fn create_player(
     melee_weapons_asset: &Res<Assets<MeleeWeaponsConfig>>,
     character_asset: &Res<Assets<CharacterConfig>>,
     collision_settings: &Res<CollisionSettings>,
-    asset_server: &Res<AssetServer>,
-    texture_atlas_layouts: &mut ResMut<Assets<TextureAtlasLayout>>,
-    sprint_sheet_assets: &Res<Assets<SpriteSheetConfig>>,
 
     position: FixedVec3,
 
@@ -60,9 +56,6 @@ pub fn create_player(
         commands,
         global_assets,
         character_asset,
-        asset_server,
-        texture_atlas_layouts,
-        sprint_sheet_assets,
         config_name,
         Some(if handle == 0 { "1" } else { "2" }.into()),
         (LinearRgba::GREEN).into(),
@@ -93,10 +86,6 @@ pub fn create_player(
         for (i, k) in keys.iter().enumerate() {
             spawn_weapon_for_player(
                 commands,
-                global_assets,
-                asset_server,
-                texture_atlas_layouts,
-                sprint_sheet_assets,
                 i == 0,
                 entity,
                 weapons_config.0.get(*k).unwrap().clone(),

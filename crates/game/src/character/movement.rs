@@ -25,7 +25,7 @@ pub struct SprintState {
     pub sprint_factor: fixed_math::Fixed, // Ranges from 0.0 to 1.0 for gradual acceleration
 }
 
-#[derive(Component, Default, Clone)]
+#[derive(Component, Default, Clone, Debug)]
 pub struct Velocity {
     pub main: fixed_math::FixedVec2,
     pub knockback: fixed_math::FixedVec2,

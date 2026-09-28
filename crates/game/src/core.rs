@@ -1,9 +1,13 @@
 
 use animation::D2AnimationPlugin;
 use bevy::{
-    app::PluginGroupBuilder, asset::AssetMetaCheck, diagnostic::FrameTimeDiagnosticsPlugin, log::LogPlugin, prelude::*,
-    window::WindowResolution,
+    app::{PluginGroupBuilder, ScheduleRunnerPlugin}, asset::AssetMetaCheck, diagnostic::FrameTimeDiagnosticsPlugin, log::LogPlugin, prelude::*,
+    render::{settings::{RenderCreation, WgpuSettings}, RenderPlugin},
+    time::TimeUpdateStrategy,
+    window::{ExitCondition, WindowResolution},
 };
+#[cfg(not(target_arch = "wasm32"))]
+use bevy::winit::WinitPlugin;
 use bevy_fixed::{
     fixed_math::{self, sync_bevy_transforms_from_fixed},
     rng::RollbackRng,
@@ -27,6 +31,21 @@ use crate::{
 #[derive(Serialize, Deserialize, Default, Clone)]
 pub struct CoreSetupConfig {
     pub app_name: String,
+    /// Sans fenêtre ni GPU, une frame de simulation par update (voir [`is_headless`]).
+    pub headless: bool,
+    /// Dossier des assets ; `None` pour le dossier par défaut de bevy.
+    pub asset_root: Option<String>,
+}
+
+impl CoreSetupConfig {
+    /// Config d'un exécutable : le mode headless vient de `ALACOD_HEADLESS`.
+    pub fn from_env(app_name: impl Into<String>) -> Self {
+        Self {
+            app_name: app_name.into(),
+            headless: is_headless(),
+            asset_root: None,
+        }
+    }
 }
 
 #[derive(Debug, Clone, Default, Eq, PartialEq, Hash, States)]
@@ -73,28 +92,27 @@ pub struct CoreSetupPlugin(pub CoreSetupConfig);
 
 impl Plugin for CoreSetupPlugin {
     fn build(&self, app: &mut App) {
-        app.add_plugins(FrameTimeDiagnosticsPlugin::default());
-        app.add_plugins(ZLightPlugin);
-        app.add_plugins(ZAudioPlugin);
+        if self.0.headless {
+            // Chaque update avance d'exactement une frame GGRS, aussi vite que le CPU le permet
+            app.insert_resource(TimeUpdateStrategy::ManualDuration(
+                std::time::Duration::from_nanos(1_000_000_000 / SIM_FPS),
+            ));
+        }
+
         app.add_plugins(WebPlugin);
-        app.add_plugins(FrameDebugUIPlugin);
         app.add_plugins(D2AnimationPlugin);
-        app.add_plugins(CameraControlPlugin);
         app.add_plugins(GgrsPlugin::<PeerConfig>::default());
+        if !self.0.headless {
+            app.add_plugins(PresentationPlugin);
+        }
 
         app.add_plugins(BaseWeaponGamePlugin {});
         app.add_plugins(BaseColliderGamePlugin {});
-        app.add_plugins(DebugColliderGamePlugin);
         app.add_plugins(BaseCharacterGamePlugin {});
         app.add_plugins(crate::interaction::InteractionPlugin);
         app.add_plugins(GameUiPlugin);
         app.add_plugins(WaveSystemPlugin);
 
-        #[cfg(feature = "debug_ui")]
-        app.add_plugins(EguiPlugin::default());
-
-        #[cfg(feature = "debug_ui")]
-        app.add_plugins(WorldInspectorPlugin::new());
 
         app.init_resource::<GameInfo>();
         app.init_resource::<GggrsSessionConfigurationState>();
@@ -115,6 +133,7 @@ impl Plugin for CoreSetupPlugin {
         app.configure_sets(
             GgrsSchedule,
             (
+                RollbackSystemSet::FrameStart,
                 RollbackSystemSet::Input,
                 RollbackSystemSet::Interaction,
                 RollbackSystemSet::Movement,
@@ -161,6 +180,13 @@ impl Plugin for CoreSetupPlugin {
 
         app.add_systems(Update, log_ggrs_events.run_if(in_state(AppState::InGame)));
 
+        app.add_plugins(crate::state_trace::StateTracePlugin);
+        app.add_plugins(crate::recording::RecordingPlugin);
+        #[cfg(not(target_arch = "wasm32"))]
+        if let Some(remote) = crate::remote::RemoteControlPlugin::from_env() {
+            app.add_plugins(remote);
+        }
+
         app.add_systems(
             GgrsSchedule,
             (increase_frame_system,).in_set(RollbackSystemSet::FrameCounter),
@@ -183,15 +209,73 @@ impl CoreSetupPlugin {
             ..Default::default()
         };
 
-        DefaultPlugins
+        let mut asset_plugin = AssetPlugin {
+            meta_check: AssetMetaCheck::Never,
+            #[cfg(target_arch = "wasm32")]
+            file_path: format!("{}/assets", env!("APP_VERSION")),
+            ..Default::default()
+        };
+        if let Some(asset_root) = &self.0.asset_root {
+            asset_plugin.file_path = asset_root.clone();
+        }
+
+        let plugins = DefaultPlugins
             .set(ImagePlugin::default_nearest())
-            .set(AssetPlugin {
-                meta_check: AssetMetaCheck::Never,
-                #[cfg(target_arch = "wasm32")]
-                file_path: format!("{}/assets", env!("APP_VERSION")),
+            .set(asset_plugin)
+            .disable::<LogPlugin>();
+
+        if !self.0.headless {
+            return plugins.set(window_plugin);
+        }
+
+        // Headless : ni fenêtre ni GPU, la boucle tourne sans attendre
+        let plugins = plugins
+            .set(WindowPlugin {
+                primary_window: None,
+                exit_condition: ExitCondition::DontExit,
                 ..Default::default()
             })
-            .disable::<LogPlugin>()
-            .set(window_plugin)
+            .set(RenderPlugin {
+                render_creation: RenderCreation::Automatic(Box::new(WgpuSettings {
+                    backends: None,
+                    ..Default::default()
+                })),
+                ..Default::default()
+            })
+            .add(ScheduleRunnerPlugin::run_loop(std::time::Duration::ZERO));
+        #[cfg(not(target_arch = "wasm32"))]
+        let plugins = plugins.disable::<WinitPlugin>();
+        plugins
     }
+}
+
+/// Tout ce qui ne sert qu'à afficher ou faire entendre la partie : caméra, lumière,
+/// audio, UI de debug. Absent en headless ; la simulation ne doit jamais en dépendre.
+pub struct PresentationPlugin;
+
+impl Plugin for PresentationPlugin {
+    fn build(&self, app: &mut App) {
+        app.add_plugins(FrameTimeDiagnosticsPlugin::default());
+        app.add_plugins(ZLightPlugin);
+        app.add_plugins(ZAudioPlugin);
+        app.add_plugins(FrameDebugUIPlugin);
+        app.add_plugins(CameraControlPlugin);
+        app.add_plugins(DebugColliderGamePlugin);
+        app.add_plugins(crate::character::CharacterPresentationPlugin);
+        app.add_plugins(crate::weapons::WeaponPresentationPlugin);
+        #[cfg(feature = "debug_ui")]
+        app.add_plugins(EguiPlugin::default());
+
+        #[cfg(feature = "debug_ui")]
+        app.add_plugins(WorldInspectorPlugin::new());
+    }
+}
+
+/// Fréquence de simulation GGRS (valeur par défaut de `RollbackFrameRate`).
+pub const SIM_FPS: u64 = 60;
+
+/// Mode headless (`ALACOD_HEADLESS=1`) : pas de fenêtre ni de GPU, et le temps
+/// avance d'une frame de simulation par update. Pour les tests et les replays.
+pub fn is_headless() -> bool {
+    std::env::var("ALACOD_HEADLESS").is_ok_and(|v| v == "1")
 }

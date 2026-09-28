@@ -7,13 +7,12 @@ use crate::collider::{is_colliding, Collider, Wall, Window};
 use animation::FacingDirection;
 use bevy::prelude::*;
 use bevy_fixed::fixed_math;
-use bevy_fixed::rng::RollbackRng;
 use bevy_ggrs::Rollback;
 use serde::{Deserialize, Serialize};
 use std::collections::VecDeque;
 use utils::{frame::FrameCount, net_id::GgrsNetId, order_iter, order_mut_iter};
 
-use super::obstacle::{Obstacle, ObstacleAttackEvent};
+use super::obstacle::Obstacle;
 
 #[derive(Component, Debug, Clone, Default)]
 pub struct EnemyPath {
@@ -149,288 +148,6 @@ pub fn update_enemy_targets(
     }
 }
 
-// System to check if direct path is clear
-pub fn check_direct_paths(
-    wall_query: Query<(&fixed_math::FixedTransform3D, &Collider), With<Wall>>,
-    mut enemy_query: Query<(&fixed_math::FixedTransform3D, &mut EnemyPath), With<Enemy>>,
-    config: Res<PathfindingConfig>,
-) {
-    for (enemy_fixed_transform, mut path) in enemy_query.iter_mut() {
-        let enemy_pos_v2 = enemy_fixed_transform.translation.truncate();
-        let target_v2 = path.target_position;
-
-        let distance = enemy_pos_v2.distance(&target_v2);
-        if distance < config.direct_path_threshold {
-            let direction_v2 = (target_v2 - enemy_pos_v2).normalize_or_zero();
-
-            // If direction is zero (enemy is at target), path is clear
-            if direction_v2 == fixed_math::FixedVec2::ZERO {
-                path.waypoints.clear();
-                path.path_status = PathStatus::DirectPath;
-                continue;
-            }
-
-            // Define a step distance for checking collisions along the path
-            let check_step_distance = fixed_math::new(10.0); // How far each step check is (e.g., half collider radius)
-            let num_steps = (distance / check_step_distance)
-                .ceil()
-                .to_num::<i32>()
-                .max(1) as usize; // Fixed.ceil() then convert
-
-            let mut path_is_blocked = false;
-
-            // Virtual collider for checking along the path
-            // Ensure Collider struct and ColliderShape are updated for fixed-point
-            let test_collider = Collider {
-                shape: crate::collider::ColliderShape::Circle {
-                    radius: fixed_math::new(15.0),
-                }, // Example radius
-                offset: fixed_math::FixedVec3::ZERO,
-            };
-
-            for i in 1..=num_steps {
-                // Iterate up to and including the target (or num_steps)
-                let step_dist = check_step_distance * fixed_math::Fixed::from_num(i);
-                let current_check_dist = if step_dist > distance {
-                    distance
-                } else {
-                    step_dist
-                };
-                let test_pos_v2 = enemy_pos_v2 + direction_v2 * current_check_dist;
-
-                // Create a FixedTransform3D for the test position
-                // Assuming Z is 0 for 2D path checking
-                let test_fixed_transform = fixed_math::FixedTransform3D {
-                    translation: test_pos_v2.extend(), // Converts FixedVec2 to FixedVec3 with z=0
-                    rotation: fixed_math::FixedMat3::IDENTITY, // Assuming no rotation for point check
-                    scale: fixed_math::FixedVec3::ONE,
-                };
-
-                for (wall_fixed_transform, wall_collider) in wall_query.iter() {
-                    // is_colliding must take (&FixedTransform3D, &Collider, &FixedTransform3D, &Collider)
-                    if is_colliding(
-                        &test_fixed_transform.translation,
-                        &test_collider,
-                        &wall_fixed_transform.translation,
-                        wall_collider,
-                    ) {
-                        path_is_blocked = true;
-                        break;
-                    }
-                }
-                if path_is_blocked {
-                    break;
-                }
-            }
-
-            if !path_is_blocked {
-                path.waypoints.clear();
-                path.path_status = PathStatus::DirectPath;
-            } else {
-                // Path is blocked
-                // If not already following a calculated path, mark for calculation
-                if path.path_status != PathStatus::FollowingPath
-                    && path.path_status != PathStatus::CalculatingPath
-                {
-                    path.path_status = PathStatus::CalculatingPath;
-                }
-            }
-        } else {
-            // Target is far, needs pathfinding
-            // If not already following a calculated path, mark for calculation
-            if path.path_status != PathStatus::FollowingPath
-                && path.path_status != PathStatus::CalculatingPath
-            {
-                path.path_status = PathStatus::CalculatingPath;
-            }
-        }
-    }
-}
-
-// System to calculate paths around obstacles when needed
-pub fn calculate_paths(
-    mut enemy_query: Query<(&GgrsNetId, Entity, &fixed_math::FixedTransform3D, &mut EnemyPath), With<Enemy>>,
-    wall_query: Query<(&fixed_math::FixedTransform3D, &Collider), With<Wall>>,
-    mut rng: ResMut<RollbackRng>,
-    config: Res<PathfindingConfig>,
-) {
-    // --- Step 1: Collect entities and categorize them ---
-    let mut entities_needing_path_calculation_data: Vec<(
-        usize, // net_id for sorting
-        Entity,
-        fixed_math::FixedVec2,
-        fixed_math::FixedVec2,
-    )> = Vec::new();
-    let mut entities_to_set_direct: Vec<Entity> = Vec::new();
-
-    // Initial immutable iteration to categorize
-    for (net_id, entity, enemy_fixed_transform, path_component) in enemy_query.iter() {
-        if path_component.path_status == PathStatus::CalculatingPath {
-            let enemy_pos_v2 = enemy_fixed_transform.translation.truncate();
-            let target_v2 = path_component.target_position;
-
-            // Check if already at target (or very close) using squared length for efficiency
-            if (target_v2 - enemy_pos_v2).length_squared() > fixed_math::FixedWide::ZERO {
-                entities_needing_path_calculation_data.push((net_id.0, entity, enemy_pos_v2, target_v2));
-            } else {
-                // This entity is in CalculatingPath but already at its target.
-                entities_to_set_direct.push(entity);
-            }
-        }
-    }
-
-    // --- Step 2: Update status for entities already at their target ---
-    // These entities are no longer part of the main path calculation logic using RNG for this frame.
-    for entity_id in entities_to_set_direct {
-        if let Ok((_, _, _, mut path_mut)) = enemy_query.get_mut(entity_id) {
-            path_mut.waypoints.clear();
-            path_mut.path_status = PathStatus::DirectPath;
-        }
-    }
-
-    // --- Step 3: Sort entities by net_id for deterministic RNG use ---
-    entities_needing_path_calculation_data.sort_unstable_by_key(|(net_id, _, _, _)| *net_id);
-
-    // --- Step 4: Iterate sorted entities and perform path calculation logic (including RNG) ---
-    for (_net_id, entity_id, enemy_pos_v2, target_v2) in entities_needing_path_calculation_data {
-        // Get mutable access to the path component for the current entity
-        if let Ok((_, _fetched_entity, _fetched_transform, mut path)) = enemy_query.get_mut(entity_id)
-        {
-            // The entity should still be in PathStatus::CalculatingPath because we filtered
-            // and processed the "already at target" cases separately. A defensive check can be added if necessary.
-            // if path.path_status != PathStatus::CalculatingPath { continue; }
-
-            let mut waypoints = VecDeque::new();
-            // Note: enemy_pos_v2 and target_v2 are passed from the collected data
-            let direct_dir_v2 = (target_v2 - enemy_pos_v2).normalize_or_zero();
-
-            // If, after all, direct_dir_v2 is zero (e.g. due to precision after collection),
-            // handle it here to avoid issues in path logic.
-            if direct_dir_v2 == fixed_math::FixedVec2::ZERO {
-                path.waypoints.clear();
-                path.path_status = PathStatus::DirectPath;
-                continue;
-            }
-
-            let base_angle_offsets: [fixed_math::Fixed; 7] = [
-                fixed_math::FIXED_ZERO,
-                fixed_math::new(0.5),
-                -fixed_math::new(0.5),
-                fixed_math::FIXED_ONE,
-                -fixed_math::FIXED_ONE,
-                fixed_math::new(1.5),
-                -fixed_math::new(1.5),
-            ];
-
-            let mut best_angle_fixed = fixed_math::FIXED_ZERO;
-            // Initialize with a value that any valid score can beat.
-            // Using Fixed::MIN if scores can be negative, or a very small fixed number otherwise.
-            let mut best_clearance_score = fixed_math::Fixed::MIN; // Or Fixed::MIN if NEG_INFINITY not defined
-
-            let initial_angle_fixed = fixed_math::atan2_fixed(direct_dir_v2.y, direct_dir_v2.x);
-
-            for angle_offset_fixed in base_angle_offsets.iter() {
-                let current_angle_fixed = initial_angle_fixed + *angle_offset_fixed;
-                let test_dir_v2 = fixed_math::FixedVec2::new(
-                    fixed_math::cos_fixed(current_angle_fixed),
-                    fixed_math::sin_fixed(current_angle_fixed),
-                );
-
-                let step_check_distance = config.node_size;
-                let max_check_steps = 10;
-
-                let test_collider = Collider {
-                    shape: crate::collider::ColliderShape::Circle {
-                        radius: fixed_math::new(15.0),
-                    },
-                    offset: fixed_math::FixedVec3::ZERO, // Assuming Collider.offset is FixedVec2
-                };
-
-                let mut max_clear_distance = fixed_math::FIXED_ZERO;
-                for i in 1..=max_check_steps {
-                    let test_dist_along_dir = fixed_math::Fixed::from_num(i) * step_check_distance;
-                    let test_pos_v2 = enemy_pos_v2 + test_dir_v2 * test_dist_along_dir;
-
-                    let test_fixed_transform = fixed_math::FixedTransform3D {
-                        translation: test_pos_v2.extend(),
-                        rotation: fixed_math::FixedMat3::IDENTITY,
-                        scale: fixed_math::FixedVec3::ONE,
-                    };
-
-                    let mut collides = false;
-                    for (wall_fixed_transform, wall_collider) in wall_query.iter() {
-                        if is_colliding(
-                            &test_fixed_transform.translation,
-                            &test_collider,
-                            &wall_fixed_transform.translation,
-                            wall_collider,
-                        ) {
-                            collides = true;
-                            break;
-                        }
-                    }
-
-                    if collides {
-                        max_clear_distance = test_dist_along_dir - step_check_distance;
-                        break;
-                    } else {
-                        max_clear_distance = test_dist_along_dir;
-                    }
-                }
-                max_clear_distance = max_clear_distance.max(fixed_math::FIXED_ZERO);
-
-                let alignment_factor = fixed_math::FIXED_ONE + test_dir_v2.dot(&direct_dir_v2);
-                let current_score = max_clear_distance * alignment_factor;
-
-                if current_score > best_clearance_score {
-                    best_clearance_score = current_score;
-                    best_angle_fixed = current_angle_fixed;
-                }
-            }
-
-            if best_clearance_score > fixed_math::Fixed::MIN {
-                // Check against initial value
-                let waypoint_distance = config.node_size * fixed_math::new(2.0);
-                // Calculate remaining distance to target to avoid overshooting massively with waypoint
-                let distance_to_target = enemy_pos_v2.distance(&target_v2);
-                let waypoint_dist_clamped =
-                    waypoint_distance.min(distance_to_target * fixed_math::FIXED_HALF);
-
-                // *** RNG consumed in deterministic order ***
-                let jitter_angle_offset = rng.next_fixed_symmetric() * fixed_math::new(0.1);
-                let final_waypoint_angle = best_angle_fixed + jitter_angle_offset;
-                let final_waypoint_dir = fixed_math::FixedVec2::new(
-                    fixed_math::cos_fixed(final_waypoint_angle),
-                    fixed_math::sin_fixed(final_waypoint_angle),
-                );
-
-                // Ensure waypoint_dist_clamped is positive before creating waypoint
-                if waypoint_dist_clamped > fixed_math::FIXED_ZERO {
-                    let waypoint_v2 = enemy_pos_v2 + final_waypoint_dir * waypoint_dist_clamped;
-                    waypoints.push_back(waypoint_v2);
-                }
-            }
-
-            if waypoints.len() < config.max_path_length
-                && (waypoints.is_empty() || waypoints.back() != Some(&target_v2))
-            {
-                waypoints.push_back(target_v2);
-            }
-
-            if !waypoints.is_empty() {
-                path.waypoints = waypoints;
-                path.path_status = PathStatus::FollowingPath;
-            } else {
-                // If no waypoints generated (e.g. couldn't find a clear path, or already very close)
-                // Revert to direct path, or mark as blocked if direct path isn't viable.
-                // For simplicity here, let's assume if no waypoints, it becomes blocked,
-                // allowing check_direct_paths to potentially resolve it next frame or it remains blocked.
-                path.path_status = PathStatus::Blocked;
-            }
-        }
-    }
-}
-
 pub fn move_enemies(
     frame: Res<FrameCount>,
     mut enemy_query: Query<
@@ -446,7 +163,6 @@ pub fn move_enemies(
             &crate::collider::CollisionLayer,
             &mut WallSlideTracker,
             Option<&super::state::EnemyTarget>,
-            Option<&super::state::EnemyAiConfig>,
         ),
         With<Enemy>,
     >,
@@ -458,13 +174,12 @@ pub fn move_enemies(
         (&fixed_math::FixedTransform3D, &Collider, &crate::collider::CollisionLayer),
         (With<Wall>, Without<Enemy>, Without<Player>),
     >,
-    // Query for windows (obstacles we can attack when blocked)
+    // Windows block enemies while intact (see process_obstacle_damage)
     window_query: Query<
-        (Entity, &fixed_math::FixedTransform3D, &Obstacle),
+        (&GgrsNetId, &fixed_math::FixedTransform3D, &Obstacle, &Collider),
         (With<Window>, With<Rollback>, Without<Enemy>, Without<Player>),
     >,
     flow_field_cache: Res<super::navigation::FlowFieldCache>,
-    mut obstacle_events: MessageWriter<ObstacleAttackEvent>,
 ) {
     // --- Optimization 1: Cache walls ---
     // Collect walls into a Vec for faster iteration (cache locality)
@@ -492,8 +207,12 @@ pub fn move_enemies(
             .push(index);
     }
 
-    // Cache windows for collision checking
-    let windows: Vec<_> = window_query.iter().collect();
+    // Intact windows block enemies (deterministic order for the collision loop)
+    let windows: Vec<_> = order_iter!(window_query)
+        .into_iter()
+        .filter(|(_, _, obstacle, _)| obstacle.blocks_movement)
+        .map(|(_, transform, _, collider)| (transform, collider))
+        .collect();
 
     // Obstacle avoidance constants
     let lookahead_distance = fixed_math::new(30.0); // How far ahead to check for obstacles
@@ -512,7 +231,6 @@ pub fn move_enemies(
         enemy_collision_layer,
         mut wall_slide_tracker,
         enemy_target_opt,
-        enemy_ai_config_opt,
     ) in order_mut_iter!(enemy_query)
     {
         let enemy_pos_v2 = fixed_transform.translation.truncate();
@@ -542,12 +260,20 @@ pub fn move_enemies(
             player_pos
         };
 
+        // Enemies are wider than a flow field cell and their collider is offset toward the
+        // feet: steer toward points pushed away from walls accordingly
+        let body = super::navigation::AgentBody::from_collider(enemy_collider);
+
         // Calculate direction to actual target using flow field
         let direction_to_target_v2 = if let Some(flow_field) =
             flow_field_cache.get_flow_field(super::navigation::NavProfile::GroundBreaker)
         {
             // Always use flow field for navigation - it handles pathfinding around walls
-            match flow_field.get_direction_vector(enemy_pos_v2) {
+            match flow_field_cache.flow_direction(
+                super::navigation::NavProfile::GroundBreaker,
+                enemy_pos_v2,
+                &body,
+            ) {
                 Some(dir) => dir,
                 None => {
                     // Outside flow field coverage - find nearest covered cell
@@ -739,16 +465,23 @@ pub fn move_enemies(
             let delta_y = total_velocity.y * fixed_math::new(FIXED_TIMESTEP);
 
             // Helper to check collision at a position (using cached walls)
-            // Optimization: only check walls within 100 units to avoid O(all_walls) per check
+            // Optimization: skip walls whose *edges* are more than 100 units away. Walls are
+            // merged into long rectangles: measuring from their center would skip a wall
+            // whose end is right next to the enemy.
             let max_check_dist = fixed_math::new(100.0);
             let check_wall_collision = |pos: &fixed_math::FixedVec3| -> bool {
                 let pos_2d = fixed_math::FixedVec2::new(pos.x, pos.y);
                 for (wall_transform, wall_collider, wall_layer) in &walls {
-                    // Skip walls that are too far away (Manhattan distance is faster than Euclidean)
+                    let (half_w, half_h) = match &wall_collider.shape {
+                        crate::collider::ColliderShape::Circle { radius } => (*radius, *radius),
+                        crate::collider::ColliderShape::Rectangle { width, height } => {
+                            (*width / fixed_math::new(2.0), *height / fixed_math::new(2.0))
+                        }
+                    };
                     let wall_pos_2d = wall_transform.translation.truncate();
                     let dx = (pos_2d.x - wall_pos_2d.x).abs();
                     let dy = (pos_2d.y - wall_pos_2d.y).abs();
-                    if dx > max_check_dist || dy > max_check_dist {
+                    if dx > max_check_dist + half_w || dy > max_check_dist + half_h {
                         continue;
                     }
                     if !collision_settings.layer_matrix[enemy_collision_layer.0][wall_layer.0] {
@@ -758,7 +491,9 @@ pub fn move_enemies(
                         return true;
                     }
                 }
-                false
+                windows.iter().any(|(window_transform, window_collider)| {
+                    is_colliding(pos, enemy_collider, &window_transform.translation, window_collider)
+                })
             };
 
             // Try full movement (X + Y)
@@ -863,38 +598,8 @@ pub fn move_enemies(
                     // Reset wall slide tracker when completely stuck
                     wall_slide_tracker.consecutive_slide_frames = 0;
 
-                    // CHECK FOR NEARBY WINDOWS AND ATTACK THEM
-                    // When blocked, look for intact windows within attack range
-                    let attack_range = enemy_ai_config_opt
-                        .map(|c| c.attack_range)
-                        .unwrap_or(fixed_math::new(50.0));
-
-                    for (window_entity, window_transform, window_obstacle) in &windows {
-                        // Skip destroyed windows
-                        if !window_obstacle.is_intact() {
-                            continue;
-                        }
-
-                        let window_pos = window_transform.translation.truncate();
-                        let distance_to_window = enemy_pos_v2.distance(&window_pos);
-
-                        // If we're close enough to a window, attack it
-                        if distance_to_window < attack_range {
-                            // Send attack event
-                            obstacle_events.write(ObstacleAttackEvent {
-                                attacker: entity,
-                                obstacle: *window_entity,
-                                damage: 1,
-                            });
-                            trace!(
-                                "ggrs{{f={} ai_attack net_id={} target=window dist={}}}",
-                                frame.frame,
-                                net_id.0,
-                                distance_to_window.to_num::<i32>()
-                            );
-                            break; // Only attack one window per frame
-                        }
-                    }
+                    // A blocking intact window is attacked by enemy_attack_system: the
+                    // enemy targets it in enemy_target_selection (with attack cooldown)
 
                     let move_magnitude = (delta_x.abs() + delta_y.abs()).max(fixed_math::new(1.0));
                     let speed = velocity_component.main.length();

@@ -5,6 +5,7 @@ pub mod enemy;
 pub mod health;
 pub mod movement;
 pub mod player;
+pub mod visuals;
 
 use animation::set_sprite_flip;
 use bevy::prelude::*;
@@ -13,6 +14,7 @@ use bevy_ggrs::{RollbackApp, GgrsSchedule, ReadInputs};
 use leafwing_input_manager::plugin::InputManagerPlugin;
 use map::game::entity::map::enemy_spawn::EnemySpawnerComponent;
 
+use crate::frame_events::FrameEventsAppExt;
 use crate::{
     args::DebugAiConfig,
     character::{
@@ -22,14 +24,13 @@ use crate::{
             ai::{
                 // New AI behavior systems
                 behavior::{enemy_target_selection, enemy_attack_system},
-                combat::ZombieCombatConfig,
                 pathing::{
                     move_enemies, update_enemy_targets,
                     EnemyPath, PathfindingConfig,
                 },
                 // Flow field navigation
                 navigation::{FlowFieldCache, FlowFieldConfig, update_flow_field_system},
-                obstacle::{Obstacle, ObstacleAttackEvent, ObstacleDestroyedEvent, process_obstacle_damage},
+                obstacle::{Obstacle, ObstacleAttackEvent, process_obstacle_damage},
                 state::{EnemyAiConfig, EnemyTarget, MonsterState},
                 debug::{
                     FlowFieldDebug, EnemyStateDebug,
@@ -73,9 +74,6 @@ impl Plugin for BaseCharacterGamePlugin {
         // Resources
         app.init_resource::<PathfindingConfig>();
         app.init_resource::<KnockbackDampingConfig>();
-        app.init_resource::<ZombieCombatConfig>();
-        app.add_message::<crate::character::enemy::ai::combat::ZombieWindowAttackEvent>();
-        app.add_message::<crate::character::health::PlayerDiedEvent>();
 
         // AI system resources
         app.init_resource::<FlowFieldCache>();
@@ -94,8 +92,7 @@ impl Plugin for BaseCharacterGamePlugin {
             enabled: debug_ai_enabled,
             ..EnemyStateDebug::new()
         });
-        app.add_message::<ObstacleAttackEvent>();
-        app.add_message::<ObstacleDestroyedEvent>();
+        app.add_frame_events::<ObstacleAttackEvent>();
 
         // Rollback registration
         app.rollback_resource_with_clone::<PathfindingConfig>()
@@ -103,6 +100,8 @@ impl Plugin for BaseCharacterGamePlugin {
             .rollback_component_with_clone::<EnemySpawnerComponent>()
             .rollback_component_with_clone::<EnemySpawnerState>()
             .rollback_component_with_clone::<EnemyPath>()
+            .rollback_component_with_clone::<Obstacle>()
+            .rollback_component_with_clone::<visuals::CharacterAppearance>()
             .rollback_component_with_clone::<enemy::ai::pathing::WallSlideTracker>()
             // New AI components
             .rollback_component_with_clone::<EnemyAiConfig>()
@@ -123,22 +122,10 @@ impl Plugin for BaseCharacterGamePlugin {
         app.rollback_resource_with_clone::<FlowFieldCache>();
         // Note: FlowFieldConfig is not rolled back (static configuration)
 
+        app.insert_resource(player::input::InputSource::from_env());
         app.add_systems(ReadInputs, read_local_inputs);
 
         // Non-rollback systems: update visuals and debug
-        app.add_systems(
-            Update,
-            (
-                set_sprite_flip,
-                update_health_bars,
-                // Debug toggles
-                toggle_flow_field_debug,
-                toggle_enemy_state_debug,
-                // Debug drawing
-                draw_flow_field_debug,
-                draw_enemy_state_debug,
-            ),
-        );
 
         app.add_systems(
             GgrsSchedule,
@@ -181,7 +168,30 @@ impl Plugin for BaseCharacterGamePlugin {
                     .in_set(RollbackSystemSet::EnemyAI),
                 // OBSTACLE DAMAGE PROCESSING
                 (process_obstacle_damage,)
-                    .after(RollbackSystemSet::EnemyAI),
+                    .after(RollbackSystemSet::EnemyAI)
+                    .before(RollbackSystemSet::FrameCounter),
+            ),
+        );
+    }
+}
+
+/// Sprites, barres de vie et debug visuel de l'IA. Ajouté par `PresentationPlugin`.
+pub struct CharacterPresentationPlugin;
+
+impl Plugin for CharacterPresentationPlugin {
+    fn build(&self, app: &mut App) {
+        app.add_systems(
+            Update,
+            (
+                visuals::attach_character_visuals,
+                set_sprite_flip,
+                update_health_bars,
+                // Debug toggles
+                toggle_flow_field_debug,
+                toggle_enemy_state_debug,
+                // Debug drawing
+                draw_flow_field_debug,
+                draw_enemy_state_debug,
             ),
         );
     }

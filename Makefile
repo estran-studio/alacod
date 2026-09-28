@@ -73,9 +73,47 @@ format_fix:
 
 # Test
 
-test:
+test: test_scenarios
 	@echo "Running tests with profile"
 	cargo test
+
+# Scénarios de jeu headless (tests/scenarios/*.ron), comparés à leur trace de référence.
+# BLESS=1 réécrit les traces de référence ; SCENARIO=<nom> n'en joue qu'un.
+test_scenarios:
+	ALACOD_BLESS=$(BLESS) ALACOD_SCENARIO=$(SCENARIO) APP_VERSION=$(VERSION) cargo test -p scenario --profile headless --test scenarios -- --nocapture
+
+# Vidéos des scénarios (target/videos/<commit>/) : une par scénario + montage en grille.
+# SCENARIO=<nom> pour un seul ; EVERY=N une image toutes les N frames (défaut 2).
+videos:
+	EVERY=$(or $(EVERY),2) ./scripts/scenario-video render $(SCENARIO)
+	./scripts/scenario-video montage
+
+# Avant/après côte à côte : make compare_video SCENARIO=idle BASE=main [HEAD=<réf>]
+compare_video:
+	EVERY=$(or $(EVERY),2) ./scripts/scenario-video compare $(SCENARIO) $(BASE) $(or $(HEAD),HEAD)
+
+# Page de revue des vidéos (target/videos/index.html) servie sur http://localhost:8766
+# TAILSCALE=1 : sur l'IP Tailscale de la machine (accessible depuis le tailnet uniquement)
+review_videos:
+	./scripts/scenario-review.py --serve 8766 --bind $(if $(TAILSCALE),$$(tailscale ip -4),127.0.0.1)
+
+# Partie pilotée à distance (scripts/alacod-remote), en pause au départ.
+# HEADLESS=1 : sans fenêtre, bien plus rapide.
+remote:
+ifeq ($(HEADLESS), 1)
+	ALACOD_HEADLESS=1 ALACOD_REMOTE=1 APP_VERSION=$(VERSION) cargo run --profile headless --example map_explorer --no-default-features -- --local-port 7000 --players localhost
+else
+	ALACOD_REMOTE=1 $(MAKE) ldtk_map_explorer
+endif
+
+# Joue au clavier et enregistre la session en scénario : make record_session NAME=ma_session
+# (écrit tests/scenarios/<NAME>.ron à la fermeture ; puis make test_scenarios SCENARIO=<NAME> BLESS=1)
+record_session:
+	ALACOD_RECORD=$(CURDIR)/tests/scenarios/$(NAME).ron $(MAKE) ldtk_map_explorer
+
+# Affiche un scénario avec rendu : make play_scenario SCENARIO=shoot_around
+play_scenario:
+	APP_VERSION=$(VERSION) cargo run -p scenario --features render --bin play_scenario -- tests/scenarios/$(SCENARIO).ron
 
 
 # Env
@@ -129,21 +167,21 @@ cp_asset:
 	cp -r ./assets/* ./website/static/$(VERSION)/assets/
 
 build_map_preview_web:
-	APP_VERSION=$(VERSION) cargo build --example map_preview --target wasm32-unknown-unknown --no-default-features --features bevy_ecs_tilemap/atlas $(RELEASE)
+	APP_VERSION=$(VERSION) cargo build --example map_preview --target wasm32-unknown-unknown --no-default-features --features render,bevy_ecs_tilemap/atlas $(RELEASE)
 	wasm-bindgen --out-dir ./website/static/$(VERSION)/map_preview --out-name wasm --target web $(CARGO_TARGET_DIR)/wasm32-unknown-unknown/$(MODE_DIR)/examples/map_preview.wasm
 ifeq ($(PROFILE), prod)
 	wasm-opt -Oz --vacuum ./website/static/$(VERSION)/map_preview/wasm_bg.wasm -o ./website/static/$(VERSION)/map_preview/wasm_bg.wasm
 endif
 
 build_character_tester_web:
-	APP_VERSION=$(VERSION) cargo build --example character_tester --target wasm32-unknown-unknown --no-default-features $(RELEASE)
+	APP_VERSION=$(VERSION) cargo build --example character_tester --target wasm32-unknown-unknown --no-default-features --features render $(RELEASE)
 	wasm-bindgen --out-dir ./website/static/$(VERSION)/character_tester --out-name wasm --target web $(CARGO_TARGET_DIR)/wasm32-unknown-unknown/$(MODE_DIR)/examples/character_tester.wasm
 ifeq ($(PROFILE), prod)
 	wasm-opt -Oz --vacuum ./website/static/$(VERSION)/character_tester/wasm_bg.wasm -o ./website/static/$(VERSION)/character_tester/wasm_bg.wasm
 endif
 
 build_ldtk_map_explorer_web:
-	APP_VERSION=$(VERSION) cargo build --example map_explorer --target wasm32-unknown-unknown --no-default-features $(RELEASE)
+	APP_VERSION=$(VERSION) cargo build --example map_explorer --target wasm32-unknown-unknown --no-default-features --features render $(RELEASE)
 	wasm-bindgen --out-dir ./website/static/$(VERSION)/map_explorer --out-name wasm --target web $(CARGO_TARGET_DIR)/wasm32-unknown-unknown/$(MODE_DIR)/examples/map_explorer.wasm
 ifeq ($(PROFILE), prod)
 	wasm-opt -Oz --vacuum ./website/static/$(VERSION)/map_explorer/wasm_bg.wasm -o ./website/static/$(VERSION)/map_explorer/wasm_bg.wasm

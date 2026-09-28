@@ -1,0 +1,159 @@
+#!/usr/bin/env bash
+# Vidéos des scénarios (tests/scenarios/*.ron) : capture déterministe frame par frame
+# (play_scenario --capture) puis encodage et montage avec ffmpeg.
+#
+#   scenario-video render [noms...]          une vidéo par scénario (tous par défaut)
+#   scenario-video montage                   grille de toutes les vidéos rendues
+#   scenario-video compare <nom> <réf> [réf2] avant/après côte à côte : le scénario joué
+#                                            par le code de <réf> et de <réf2> (défaut : HEAD)
+#   scenario-video index                     regénère la page de revue target/videos/index.html
+#
+# Sorties dans target/videos/<commit>/ (compare : target/videos/compare/).
+# EVERY=N : une image toutes les N frames de simulation (défaut 2 → 30 images/s).
+set -euo pipefail
+
+ROOT="$(cd "$(dirname "$0")/.." && pwd)"
+EVERY="${EVERY:-2}"
+FPS=$((60 / EVERY))
+FONT="$(fc-match -f '%{file}' monospace)"
+export APP_VERSION="${APP_VERSION:-dev}"
+
+if ffmpeg -hide_banner -encoders 2>/dev/null | grep -q h264_nvenc; then
+    ENCODER=(-c:v h264_nvenc -preset p5 -cq 23)
+else
+    ENCODER=(-c:v libx264 -preset medium -crf 20)
+fi
+
+# Compile play_scenario dans le dépôt (ou worktree) $1 ; affiche le chemin du binaire.
+build_player() {
+    local repo="$1"
+    (cd "$repo" && cargo build -q --profile headless -p scenario --features render --bin play_scenario >&2)
+    echo "$ROOT/target/headless/play_scenario"
+}
+
+# capture <binaire> <scenario.ron> <dossier images>
+capture() {
+    rm -rf "$3"
+    "$1" "$2" --capture "$3" --every "$EVERY" >/dev/null 2>&1
+}
+
+# encode <dossier images> <sortie.mp4> <étiquette>
+encode() {
+    local label="${3//:/\\:}"
+    ffmpeg -hide_banner -loglevel error -y -framerate "$FPS" -pattern_type glob -i "$1/frame_*.png" \
+        -vf "drawtext=fontfile=$FONT:fontsize=20:fontcolor=white:box=1:boxcolor=black@0.6:boxborderw=6:x=10:y=10:text='$label  frame %{eif\:n*$EVERY\:d}'" \
+        -pix_fmt yuv420p "${ENCODER[@]}" "$2"
+}
+
+scenario_names() {
+    if [ $# -gt 0 ]; then
+        printf '%s\n' "$@"
+    else
+        for f in "$ROOT"/tests/scenarios/*.ron; do basename "$f" .ron; done
+    fi
+}
+
+cmd_render() {
+    local commit out player
+    commit="$(git -C "$ROOT" rev-parse --short HEAD)$(git -C "$ROOT" diff --quiet || echo "-dirty")"
+    out="$ROOT/target/videos/$commit"
+    mkdir -p "$out"
+    player="$(build_player "$ROOT")"
+    for name in $(scenario_names "$@"); do
+        echo "→ $name"
+        capture "$player" "$ROOT/tests/scenarios/$name.ron" "$out/frames/$name"
+        encode "$out/frames/$name" "$out/$name.mp4" "$name  $commit"
+        cp "$out/frames/$name/events.json" "$out/$name.events.json" 2>/dev/null || true
+        rm -rf "$out/frames/$name"
+    done
+    rmdir "$out/frames" 2>/dev/null || true
+    echo "vidéos dans $out"
+}
+
+cmd_montage() {
+    local commit out
+    commit="$(git -C "$ROOT" rev-parse --short HEAD)$(git -C "$ROOT" diff --quiet || echo "-dirty")"
+    out="$ROOT/target/videos/$commit"
+    mapfile -t videos < <(ls "$out"/*.mp4 | grep -v '/montage.mp4$')
+    local n=${#videos[@]}
+    [ "$n" -gt 0 ] || { echo "aucune vidéo dans $out : lancer d'abord render" >&2; exit 1; }
+
+    # Grille de 2 colonnes, chaque vidéo en 480x270, prolongée sur sa dernière image
+    local inputs=() filter="" layout="" i cols=2
+    for i in "${!videos[@]}"; do
+        inputs+=(-i "${videos[$i]}")
+        filter+="[$i:v]scale=480:270,tpad=stop_mode=clone:stop_duration=3600[v$i];"
+        if [ "$i" -gt 0 ]; then layout+="|"; fi
+        layout+="$(( (i % cols) * 480 ))_$(( (i / cols) * 270 ))"
+    done
+    local streams
+    streams="$(for i in "${!videos[@]}"; do printf '[v%s]' "$i"; done)"
+    if [ "$n" -eq 1 ]; then
+        filter+="[v0]null[out]"
+    else
+        filter+="${streams}xstack=inputs=$n:layout=$layout:fill=black[out]"
+    fi
+    local longest
+    longest="$(for v in "${videos[@]}"; do ffprobe -v error -show_entries format=duration -of csv=p=0 "$v"; done | sort -g | tail -1)"
+    ffmpeg -hide_banner -loglevel error -y "${inputs[@]}" -filter_complex "$filter" -map "[out]" \
+        -t "$longest" -pix_fmt yuv420p "${ENCODER[@]}" "$out/montage.mp4"
+    echo "montage : $out/montage.mp4"
+}
+
+cmd_compare() {
+    local name="$1" base="$2" head="${3:-HEAD}"
+    local scenario="$ROOT/tests/scenarios/$name.ron"
+    [ -f "$scenario" ] || { echo "scénario inconnu : $name" >&2; exit 1; }
+    local out="$ROOT/target/videos/compare"
+    mkdir -p "$out"
+
+    # Les attentes ne servent pas à la vidéo, et un ancien commit peut ne pas connaître les
+    # plus récentes : on joue le scénario sans elles
+    local playable="$out/$name.playable.ron"
+    python3 - "$scenario" "$playable" <<'PY'
+import re, sys
+text = open(sys.argv[1]).read()
+open(sys.argv[2], "w").write(re.sub(r"\n\s*expect:\s*\[.*?\n\s*\],", "", text, flags=re.S))
+PY
+
+    local side sides=() ref sha tree player
+    for side in base head; do
+        ref="$([ "$side" = base ] && echo "$base" || echo "$head")"
+        sha="$(git -C "$ROOT" rev-parse --short "$ref")"
+        if [ "$ref" = HEAD ]; then
+            tree="$ROOT"
+        else
+            tree="$ROOT/target/videos/worktrees/$sha"
+            [ -d "$tree" ] || git -C "$ROOT" worktree add -q --detach "$tree" "$sha"
+        fi
+        echo "→ $name joué par $ref ($sha)"
+        # Même scénario (celui du dépôt courant) pour les deux côtés : seuls le code et les
+        # assets changent. Le target partagé évite de recompiler les dépendances.
+        player="$(CARGO_TARGET_DIR="$ROOT/target" build_player "$tree")"
+        capture "$player" "$playable" "$out/frames/$side"
+        encode "$out/frames/$side" "$out/$side.mp4" "$ref ($sha)"
+        cp "$out/frames/$side/events.json" "$out/$side.events.json" 2>/dev/null || echo "[]" > "$out/$side.events.json"
+        sides+=("$out/$side.mp4")
+    done
+
+    local result="$out/${name}_$(git -C "$ROOT" rev-parse --short "$base")_vs_$(git -C "$ROOT" rev-parse --short "$head").mp4"
+    ffmpeg -hide_banner -loglevel error -y -i "${sides[0]}" -i "${sides[1]}" -filter_complex \
+        "[0:v]tpad=stop_mode=clone:stop_duration=3600[a];[1:v]tpad=stop_mode=clone:stop_duration=3600[b];[a][b]hstack=inputs=2[out]" \
+        -map "[out]" -t "$(for v in "${sides[@]}"; do ffprobe -v error -show_entries format=duration -of csv=p=0 "$v"; done | sort -g | tail -1)" \
+        -pix_fmt yuv420p "${ENCODER[@]}" "$result"
+    mv "$out/base.events.json" "${result%.mp4}.base.events.json"
+    mv "$out/head.events.json" "${result%.mp4}.head.events.json"
+    rm -rf "$out/frames" "${sides[@]}" "$playable"
+    echo "comparaison : $result"
+}
+
+case "${1:-}" in
+    render) shift; cmd_render "$@" ;;
+    montage) shift; cmd_montage ;;
+    compare) shift; [ $# -ge 2 ] || { echo "usage : scenario-video compare <nom> <réf> [réf2]" >&2; exit 1; }; cmd_compare "$@" ;;
+    index) ;;
+    *) sed -n '2,14p' "$0" | sed 's/^# \{0,1\}//'; exit 1 ;;
+esac
+
+# Page de revue (target/videos/index.html) à jour après chaque commande
+"$ROOT/scripts/scenario-review.py"

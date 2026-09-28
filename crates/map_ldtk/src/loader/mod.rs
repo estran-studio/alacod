@@ -5,23 +5,28 @@ use bevy_ecs_ldtk::assets::{LdtkProjectLoader, LdtkProjectLoaderSettings};
 use bevy_ecs_ldtk::prelude::*;
 
 use bevy_fixed::rng::RollbackRng;
-use once_cell::sync::Lazy;
+use std::sync::{Arc, Mutex};
 
 use map::generation::config::MapGenerationConfig;
 use map::generation::map_generation;
 
 use super::generation::{from_map, GeneratedMap};
 
-static mut CONFIG: Lazy<MapGenerationConfig> = Lazy::new(MapGenerationConfig::default);
+/// Config de génération transmise au loader LDtk (sérialisée dans ses settings).
+///
+/// Propre à chaque app (plusieurs parties peuvent tourner dans un même processus,
+/// ex. les tests de scénarios). La closure de settings du chargement en garde une
+/// copie : un `reload` relit la config courante.
+#[derive(Resource, Clone, Default)]
+pub struct MapLoaderSettings(Arc<Mutex<serde_json::Map<String, serde_json::Value>>>);
 
-fn set_global_config(config: &MapGenerationConfig) {
-    unsafe {
-        //let rf = Lazy::force_mut(&mut CONFIG);
-        CONFIG.seed = config.seed;
-        CONFIG.max_width = config.max_width;
-        CONFIG.max_heigth = config.max_heigth;
-        CONFIG.mode = config.mode;
-        CONFIG.map_path = config.map_path.clone();
+impl MapLoaderSettings {
+    fn set(&self, config: &MapGenerationConfig) {
+        *self.0.lock().unwrap() = serde_json::to_value(config)
+            .expect("Failed to convert struct to value")
+            .as_object()
+            .expect("Failed to convert value to object")
+            .clone();
     }
 }
 
@@ -42,26 +47,28 @@ pub fn get_asset_loader_generation() -> LdtkProjectLoader {
     }
 }
 
-pub fn reload_map(asset_server: &Res<AssetServer>, config: &MapGenerationConfig) {
-    set_global_config(config);
+pub fn reload_map(
+    asset_server: &Res<AssetServer>,
+    settings: &MapLoaderSettings,
+    config: &MapGenerationConfig,
+) {
+    settings.set(config);
     asset_server.reload(config.map_path.clone());
 }
 
 pub fn load_map(
     commands: &mut Commands,
     asset_server: &Res<AssetServer>,
+    settings: &MapLoaderSettings,
     config: &MapGenerationConfig,
 ) {
-    set_global_config(config);
+    settings.set(config);
 
+    let shared = settings.clone();
     let ldtk_handle: LdtkProjectHandle = asset_server
         .load_builder()
-        .with_settings(|s: &mut LdtkProjectLoaderSettings| unsafe {
-            s.data = serde_json::to_value(&*CONFIG)
-                .expect("Failed to convert struct to value")
-                .as_object()
-                .expect("Failed to convert value to object")
-                .clone();
+        .with_settings(move |s: &mut LdtkProjectLoaderSettings| {
+            s.data = shared.0.lock().unwrap().clone();
         })
         .load(config.map_path.clone())
         .into();
@@ -78,7 +85,8 @@ pub fn load_map(
 pub fn setup_generated_map(
     mut commands: Commands,
     asset_server: Res<AssetServer>,
+    settings: Res<MapLoaderSettings>,
     config: Res<MapGenerationConfig>,
 ) {
-    load_map(&mut commands, &asset_server, config.as_ref())
+    load_map(&mut commands, &asset_server, &settings, config.as_ref())
 }

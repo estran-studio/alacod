@@ -1,0 +1,505 @@
+//! Exécution headless d'un scénario, dans le processus courant.
+
+use bevy::prelude::*;
+use game::{
+    args::{GameArgs, GameArgsPlugin},
+    character::player::{
+        input::{InputSource, ScriptedInputs},
+        Player,
+    },
+    core::{CoreSetupConfig, CoreSetupPlugin},
+    jjrs::PlayerConfig,
+    state_trace::{StateTraceRecorder, StateTraceRecorderPlugin},
+    waves::{WaveDebugEnabled, WaveModeEnabled, WaveState},
+};
+use map_ldtk::{
+    game::local::{LdtkGameMap, LdtkLocalGamePlugin},
+    plugins::LdtkRoguePlugin,
+};
+use crate::events::{GameEvent, GameEvents, GameEventsPlugin};
+use game::recording::InputRecorder;
+use map::generation::config::MapGenerationConfig;
+use utils::frame::FrameCount;
+
+use game::replay::{Expectation, Scenario};
+
+/// Updates maximum pour charger la map avant la première frame de simulation.
+const MAX_LOADING_UPDATES: u32 = 10_000;
+
+/// Résultat d'un scénario.
+pub struct ScenarioOutcome {
+    /// Trace d'état, une ligne par frame (voir `game::state_trace`).
+    pub trace: Vec<String>,
+    /// Attentes non satisfaites, avec leur frame.
+    pub failures: Vec<String>,
+    /// État en fin de partie, pour écrire ou déboguer un scénario.
+    pub summary: String,
+    /// Inputs réellement envoyés à GGRS, réenregistrés en scénario.
+    pub recorded: Scenario,
+    /// Moments clés de la partie.
+    pub events: Vec<GameEvent>,
+}
+
+/// Dossier des assets du dépôt.
+pub fn assets_dir() -> String {
+    concat!(env!("CARGO_MANIFEST_DIR"), "/../../assets").to_string()
+}
+
+/// App de la partie décrite par le scénario (même partie que `map_explorer`).
+/// Avec `headless: false`, la partie est affichée (voir le binaire `play_scenario`).
+pub fn build_app(scenario: &Scenario, headless: bool) -> App {
+    let core_plugin = CoreSetupPlugin(CoreSetupConfig {
+        app_name: "scenario".into(),
+        headless,
+        asset_root: Some(assets_dir()),
+    });
+
+    let mut app = App::new();
+    app.add_plugins(core_plugin.get_default_plugin())
+        .add_plugins(GameArgsPlugin(game_args(scenario.players.len())))
+        .add_plugins(core_plugin)
+        .add_plugins(LdtkRoguePlugin)
+        .add_plugins(LdtkLocalGamePlugin(LdtkGameMap {
+            map_path: scenario.map.clone(),
+            seed: scenario.map_seed,
+        }))
+        .insert_resource(WaveModeEnabled(true))
+        .insert_resource(WaveDebugEnabled(true))
+        .add_plugins(StateTraceRecorderPlugin { full: false })
+        .add_plugins(GameEventsPlugin)
+        .insert_resource(WeaponOverrides(scenario.weapon_overrides.clone()))
+        .add_systems(Update, apply_weapon_overrides)
+        .insert_resource(InputSource::Scripted)
+        .insert_resource::<ScriptedInputs>(scenario.scripted_inputs());
+    app
+}
+
+/// Fait avancer le scénario (headless) jusqu'à la frame `frame` et rend l'app, pour
+/// inspecter le monde à cet instant (diagnostic).
+pub fn run_until(scenario: &Scenario, frame: u32) -> App {
+    let mut app = build_app(scenario, true);
+    app.finish();
+    app.cleanup();
+    for _ in 0..MAX_LOADING_UPDATES + frame {
+        app.update();
+        if app.world().resource::<FrameCount>().frame >= frame {
+            break;
+        }
+    }
+    app
+}
+
+#[derive(Resource)]
+struct WeaponOverrides(Vec<game::replay::WeaponOverride>);
+
+/// Applique les modifications d'armes du scénario dès que la config est chargée, avant la
+/// création des joueurs (qui copient la config de leurs armes).
+fn apply_weapon_overrides(
+    overrides: Res<WeaponOverrides>,
+    global_assets: Option<Res<game::global_asset::GlobalAsset>>,
+    mut weapons: ResMut<Assets<game::weapons::WeaponsConfig>>,
+    mut applied: Local<bool>,
+) {
+    if *applied || overrides.0.is_empty() {
+        return;
+    }
+    let Some(mut config) = global_assets.and_then(|g| weapons.get_mut(&g.weapons)) else {
+        return;
+    };
+    for o in &overrides.0 {
+        let weapon = config
+            .0
+            .get_mut(&o.weapon)
+            .unwrap_or_else(|| panic!("weapon_overrides : arme inconnue {}", o.weapon));
+        for (mode_name, mode) in weapon.config.firing_modes.iter_mut() {
+            if o.mode.as_ref().is_some_and(|m| m != mode_name) {
+                continue;
+            }
+            if let game::weapons::MagBulletConfig::Mag { mag_size, mag_limit } = &mut mode.mag {
+                if let Some(size) = o.mag_size {
+                    *mag_size = size;
+                }
+                if let Some(limit) = o.mag_limit {
+                    *mag_limit = limit;
+                }
+            }
+        }
+    }
+    *applied = true;
+}
+
+/// Joue le scénario jusqu'à `scenario.frames` et vérifie ses attentes.
+pub fn run(scenario: &Scenario) -> ScenarioOutcome {
+    let mut app = build_app(scenario, true);
+    app.finish();
+    app.cleanup();
+
+    let mut pending: Vec<&Expectation> = scenario.expect.iter().collect();
+    pending.sort_by_key(|e| e.at_frame());
+    let mut failures = Vec::new();
+
+    let max_updates = MAX_LOADING_UPDATES + scenario.frames;
+    let mut frame = 0;
+    for _ in 0..max_updates {
+        app.update();
+        frame = app.world().resource::<FrameCount>().frame;
+
+        while pending.first().is_some_and(|e| e.at_frame() <= frame) {
+            let expectation = pending.remove(0);
+            if let Err(reason) = check(app.world_mut(), expectation) {
+                failures.push(format!("frame {frame}: {expectation:?} : {reason}"));
+            }
+        }
+
+        if frame >= scenario.frames {
+            break;
+        }
+    }
+
+    if frame < scenario.frames {
+        failures.push(format!(
+            "la simulation n'a atteint que la frame {frame} sur {} (map pas chargée ?)",
+            scenario.frames
+        ));
+    }
+
+    let trace = app
+        .world()
+        .resource::<StateTraceRecorder>()
+        .lines_until(scenario.frames)
+        .map(str::to_string)
+        .collect();
+
+    let summary = summarize(app.world_mut(), frame);
+    let recorded = app
+        .world()
+        .resource::<InputRecorder>()
+        .to_scenario(app.world().get_resource::<MapGenerationConfig>());
+
+    let events = app.world().resource::<GameEvents>().events.clone();
+
+    ScenarioOutcome {
+        trace,
+        failures,
+        summary,
+        recorded,
+        events,
+    }
+}
+
+fn game_args(player_count: usize) -> GameArgs {
+    GameArgs {
+        local_port: 0,
+        number_player: player_count,
+        players: (0..player_count)
+            .map(|i| PlayerConfig {
+                name: format!("Player {}", i + 1),
+                pubkey: "local".into(),
+                is_local: true,
+            })
+            .collect(),
+        spectators: vec![],
+        matchbox: String::new(),
+        lobby: String::new(),
+        cid: "scenario".into(),
+        debug_ai: false,
+        telemetry: false,
+        telemetry_url: String::new(),
+        telemetry_auth: String::new(),
+    }
+}
+
+fn check(world: &mut World, expectation: &Expectation) -> Result<(), String> {
+    match expectation {
+        Expectation::PlayerAlive { handle, .. } => {
+            if player_alive(world, *handle) {
+                Ok(())
+            } else {
+                Err("joueur mort".into())
+            }
+        }
+        Expectation::PlayerDead { handle, .. } => {
+            if player_alive(world, *handle) {
+                Err("joueur vivant".into())
+            } else {
+                Ok(())
+            }
+        }
+        Expectation::WaveAtLeast { wave, .. } => {
+            let current = world.resource::<WaveState>().current_wave;
+            if current >= *wave {
+                Ok(())
+            } else {
+                Err(format!("vague {current}"))
+            }
+        }
+        Expectation::ActiveWeapon { handle, weapon, mode, .. } => {
+            let Some((name, active_mode, _)) = active_weapon(world, *handle) else {
+                return Err("joueur absent ou sans arme".into());
+            };
+            if name != *weapon || mode.as_ref().is_some_and(|m| *m != active_mode) {
+                Err(format!("arme active {name} (mode {active_mode})"))
+            } else {
+                Ok(())
+            }
+        }
+        Expectation::Ammo { handle, ammo, .. } => {
+            let Some((name, mode, current)) = active_weapon(world, *handle) else {
+                return Err("joueur absent ou sans arme".into());
+            };
+            if current == *ammo {
+                Ok(())
+            } else {
+                Err(format!("{current} balles dans {name} ({mode})"))
+            }
+        }
+        Expectation::BulletsInside { x_min, x_max, y_min, y_max, .. } => {
+            let outside: Vec<(f32, f32)> = world
+                .query_filtered::<&bevy_fixed::fixed_math::FixedTransform3D, With<game::weapons::Bullet>>()
+                .iter(world)
+                .map(|t| (t.translation.x.to_num::<f32>(), t.translation.y.to_num::<f32>()))
+                .filter(|(x, y)| x < x_min || x > x_max || y < y_min || y > y_max)
+                .collect();
+            if outside.is_empty() {
+                Ok(())
+            } else {
+                Err(format!("balles hors zone : {outside:?}"))
+            }
+        }
+        Expectation::WindowHealth { window, health, .. } => {
+            let current = world
+                .query::<(&utils::net_id::GgrsNetId, &map::game::entity::map::window::WindowHealth)>()
+                .iter(world)
+                .find(|(id, _)| id.0 == *window)
+                .map(|(_, h)| h.current);
+            match current {
+                Some(current) if current == *health => Ok(()),
+                Some(current) => Err(format!("santé {current}")),
+                None => Err("fenêtre absente".into()),
+            }
+        }
+        Expectation::DoorsOpenAtLeast { doors, .. } => {
+            let open = world
+                .query_filtered::<Has<game::collider::Collider>, With<map::game::entity::map::door::DoorComponent>>()
+                .iter(world)
+                .filter(|closed| !closed)
+                .count() as u32;
+            if open >= *doors {
+                Ok(())
+            } else {
+                Err(format!("{open} portes ouvertes"))
+            }
+        }
+        Expectation::PlayerPosition { handle, x, y, tolerance, .. } => {
+            let Some((px, py)) = world
+                .query::<(&Player, &bevy_fixed::fixed_math::FixedTransform3D)>()
+                .iter(world)
+                .find(|(player, _)| player.handle == *handle)
+                .map(|(_, t)| (t.translation.x.to_num::<f32>(), t.translation.y.to_num::<f32>()))
+            else {
+                return Err("joueur absent".into());
+            };
+            if (px - x).abs() <= *tolerance && (py - y).abs() <= *tolerance {
+                Ok(())
+            } else {
+                Err(format!("joueur en ({px:.1}, {py:.1})"))
+            }
+        }
+        Expectation::WindowsBrokenAtLeast { windows, .. } => {
+            let broken = windows_broken(world);
+            if broken >= *windows {
+                Ok(())
+            } else {
+                Err(format!("{broken} fenêtres cassées"))
+            }
+        }
+        Expectation::KillsAtLeast { kills, .. } => {
+            let killed = world.resource::<WaveState>().total_enemies_killed;
+            if killed >= *kills {
+                Ok(())
+            } else {
+                Err(format!("{killed} ennemis tués"))
+            }
+        }
+    }
+}
+
+fn summarize(world: &mut World, frame: u32) -> String {
+    let mut alive: Vec<usize> = world
+        .query::<&Player>()
+        .iter(world)
+        .map(|player| player.handle)
+        .collect();
+    alive.sort();
+    let waves = world.resource::<WaveState>();
+    format!(
+        "frame {frame} : vague {}, {} ennemis tués, joueurs vivants {alive:?}",
+        waves.current_wave, waves.total_enemies_killed
+    )
+}
+
+/// Arme active d'un joueur : nom, mode, munitions du chargeur.
+fn active_weapon(world: &mut World, handle: usize) -> Option<(String, String, u32)> {
+    use game::weapons::{WeaponInventory, WeaponModesState, WeaponState};
+    let (entity, name) = world
+        .query::<(&Player, &WeaponInventory)>()
+        .iter(world)
+        .find(|(player, _)| player.handle == handle)
+        .and_then(|(_, inventory)| inventory.weapons.get(inventory.active_weapon_index))
+        .map(|(entity, weapon)| (*entity, weapon.config.name.clone()))?;
+    let (state, modes) = world.query::<(&WeaponState, &WeaponModesState)>().get(world, entity).ok()?;
+    let ammo = modes.modes.get(&state.active_mode).map_or(0, |m| m.mag_ammo);
+    Some((name, state.active_mode.clone(), ammo))
+}
+
+fn windows_broken(world: &mut World) -> u32 {
+    world
+        .query::<&game::character::enemy::ai::Obstacle>()
+        .iter(world)
+        .filter(|o| o.breakable && !o.is_intact())
+        .count() as u32
+}
+
+fn player_alive(world: &mut World, handle: usize) -> bool {
+    world
+        .query::<&Player>()
+        .iter(world)
+        .any(|player| player.handle == handle)
+}
+
+/// Joue le scénario avec rendu, à vitesse réelle, et quitte à la fin de ses frames.
+/// Les attentes ne sont pas vérifiées : c'est un outil de visualisation.
+pub fn play(scenario: &Scenario) -> AppExit {
+    let frames = scenario.frames;
+    let mut app = build_app(scenario, false);
+    app.add_systems(
+        Update,
+        move |frame: Res<FrameCount>, mut exit: MessageWriter<AppExit>| {
+            if frame.frame >= frames {
+                exit.write(AppExit::Success);
+            }
+        },
+    );
+    app.run()
+}
+
+/// Capture d'un scénario en images, pour les vidéos.
+pub struct CaptureConfig {
+    /// Dossier des images (`frame_00000.png`, ...), numérotées par frame de simulation.
+    pub dir: std::path::PathBuf,
+    /// Une image toutes les `every` frames (2 → vidéo à 30 images/s).
+    pub every: u32,
+}
+
+#[derive(Resource)]
+struct CaptureState {
+    dir: std::path::PathBuf,
+    every: u32,
+    frames: u32,
+    last_captured: Option<u32>,
+    updates_after_end: u32,
+    /// Image où la caméra rend pendant la capture (taille fixe, indépendante de la fenêtre).
+    target: Option<Handle<Image>>,
+}
+
+/// Taille des images capturées.
+pub const CAPTURE_SIZE: (u32, u32) = (960, 540);
+
+/// Joue le scénario avec rendu et capture une image toutes les `every` frames de
+/// simulation. Le temps avance d'exactement une frame par update : l'image `n` montre
+/// toujours la frame `n`, quelle que soit la vitesse de la machine.
+pub fn capture(scenario: &Scenario, config: CaptureConfig) -> AppExit {
+    std::fs::create_dir_all(&config.dir).expect("dossier de capture");
+
+    let mut app = build_app(scenario, false);
+    app.insert_resource(bevy::time::TimeUpdateStrategy::ManualDuration(
+        std::time::Duration::from_nanos(1_000_000_000 / game::core::SIM_FPS),
+    ))
+    .insert_resource(CaptureState {
+        dir: config.dir,
+        every: config.every.max(1),
+        frames: scenario.frames,
+        last_captured: None,
+        updates_after_end: 0,
+        target: None,
+    })
+    .add_systems(Startup, configure_capture_window)
+    .add_systems(Update, (render_cameras_to_image, capture_frames).chain());
+    app.run()
+}
+
+/// La fenêtre ne sert pas : cachée, et sans vsync pour capturer aussi vite que possible.
+fn configure_capture_window(mut windows: Query<&mut bevy::window::Window>) {
+    for mut window in &mut windows {
+        window.present_mode = bevy::window::PresentMode::AutoNoVsync;
+        window.visible = false;
+    }
+}
+
+/// Fait rendre les caméras dans une image de taille fixe ([`CAPTURE_SIZE`]) : le cadrage ne
+/// dépend pas de la taille de la fenêtre (donnée par le gestionnaire de fenêtres).
+fn render_cameras_to_image(
+    mut commands: Commands,
+    mut images: ResMut<Assets<Image>>,
+    mut state: ResMut<CaptureState>,
+    cameras: Query<(Entity, &bevy::camera::RenderTarget), With<Camera>>,
+) {
+    let target = state
+        .target
+        .get_or_insert_with(|| {
+            images.add(Image::new_target_texture(
+                CAPTURE_SIZE.0,
+                CAPTURE_SIZE.1,
+                bevy::render::render_resource::TextureFormat::Rgba8UnormSrgb,
+                None,
+            ))
+        })
+        .clone();
+    for (camera, current) in &cameras {
+        if !matches!(current, bevy::camera::RenderTarget::Image(_)) {
+            commands
+                .entity(camera)
+                .insert(bevy::camera::RenderTarget::Image(target.clone().into()));
+        }
+    }
+}
+
+fn capture_frames(
+    mut commands: Commands,
+    frame: Res<FrameCount>,
+    session: Option<Res<bevy_ggrs::Session<game::character::player::jjrs::PeerConfig>>>,
+    mut state: ResMut<CaptureState>,
+    events: Res<GameEvents>,
+    mut exit: MessageWriter<AppExit>,
+) {
+    use bevy::render::view::screenshot::{save_to_disk, Screenshot};
+
+    // Rien à capturer avant le début de la partie
+    if session.is_none() {
+        return;
+    }
+    let Some(target) = state.target.clone() else {
+        return;
+    };
+
+    let frame = frame.frame;
+    if frame >= state.frames {
+        // Laisser le temps aux dernières captures d'être écrites
+        state.updates_after_end += 1;
+        if state.updates_after_end > 10 {
+            // Moments clés à côté des images, pour la page de revue
+            let frames = state.frames;
+            let events: Vec<&GameEvent> = events.events.iter().filter(|e| e.frame < frames).collect();
+            let json = serde_json::to_string_pretty(&events).expect("sérialisation des moments clés");
+            std::fs::write(state.dir.join("events.json"), json).expect("écriture de events.json");
+            exit.write(AppExit::Success);
+        }
+        return;
+    }
+
+    if frame % state.every == 0 && state.last_captured != Some(frame) {
+        let path = state.dir.join(format!("frame_{frame:05}.png"));
+        commands.spawn(Screenshot::image(target)).observe(save_to_disk(path));
+        state.last_captured = Some(frame);
+    }
+}

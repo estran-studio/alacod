@@ -4,10 +4,10 @@ use bevy::window::PrimaryWindow;
 use bevy::{prelude::*, platform::collections::hash_map::HashMap};
 use bevy_fixed::fixed_math;
 use bevy_ggrs::prelude::*;
-use bevy_ggrs::LocalInputs;
+use bevy_ggrs::{LocalInputs, LocalPlayers};
 use leafwing_input_manager::prelude::*;
 use serde::{Deserialize, Serialize};
-use utils::{order_mut_iter, net_id::GgrsNetId};
+use utils::{frame::FrameCount, order_mut_iter, net_id::GgrsNetId};
 
 use crate::character::config::{CharacterConfig, CharacterConfigHandles};
 use crate::character::dash::DashState;
@@ -21,10 +21,10 @@ use super::LocalPlayer;
 
 pub const FIXED_TIMESTEP: f32 = 1.0 / 60.0; // 60 FPS fixed timestep
 
-const INPUT_UP: u16 = 1 << 0;
-const INPUT_DOWN: u16 = 1 << 1;
-const INPUT_LEFT: u16 = 1 << 2;
-const INPUT_RIGHT: u16 = 1 << 3;
+pub const INPUT_UP: u16 = 1 << 0;
+pub const INPUT_DOWN: u16 = 1 << 1;
+pub const INPUT_LEFT: u16 = 1 << 2;
+pub const INPUT_RIGHT: u16 = 1 << 3;
 pub const INPUT_RELOAD: u16 = 1 << 4;
 pub const INPUT_SWITCH_WEAPON_MODE: u16 = 1 << 5;
 pub const INPUT_SPRINT: u16 = 1 << 6;
@@ -63,6 +63,24 @@ pub struct InteractionInput {
     pub is_holding: bool,
 }
 
+/// Direction de déplacement demandée par les touches (non normalisée, composantes -1/0/1).
+fn movement_direction(input: &BoxInput) -> fixed_math::FixedVec2 {
+    let mut direction = fixed_math::FixedVec2::ZERO;
+    if input.buttons & INPUT_UP != 0 {
+        direction.y += fixed_math::FIXED_ONE;
+    }
+    if input.buttons & INPUT_DOWN != 0 {
+        direction.y -= fixed_math::FIXED_ONE;
+    }
+    if input.buttons & INPUT_LEFT != 0 {
+        direction.x -= fixed_math::FIXED_ONE;
+    }
+    if input.buttons & INPUT_RIGHT != 0 {
+        direction.x += fixed_math::FIXED_ONE;
+    }
+    direction
+}
+
 fn get_facing_direction(input: &BoxInput) -> FacingDirection {
     // Use pan (cursor) input for 8-directional aiming if available
     if input.pan_x.abs() > PAN_FACING_THRESHOLD || input.pan_y.abs() > PAN_FACING_THRESHOLD {
@@ -99,16 +117,97 @@ fn get_facing_direction(input: &BoxInput) -> FacingDirection {
     }
 }
 
+/// Source des inputs des joueurs locaux.
+///
+/// Choisie par la variable d'environnement `ALACOD_INPUT` (`devices` par défaut).
+#[derive(Resource, Clone, Copy, Debug, Default, PartialEq, Eq)]
+pub enum InputSource {
+    /// Clavier et souris.
+    #[default]
+    Devices,
+    /// Aucun input : les joueurs locaux ne bougent pas. Rend un run reproductible,
+    /// indépendamment de la position de la souris.
+    Neutral,
+    /// Inputs lus dans la ressource [`ScriptedInputs`] (scénarios, replays).
+    Scripted,
+    /// Inputs maintenus dans [`RemoteInputs`], modifiés par le contrôle remote.
+    Remote,
+}
+
+/// Input maintenu par joueur (handle GGRS) en mode [`InputSource::Remote`] ; un joueur
+/// absent envoie un input neutre.
+#[derive(Resource, Clone, Debug, Default)]
+pub struct RemoteInputs {
+    pub held: HashMap<usize, BoxInput>,
+}
+
+/// Input d'un joueur sur les frames `from..to`.
+#[derive(Clone, Debug)]
+pub struct InputSegment {
+    pub from: u32,
+    pub to: u32,
+    pub input: BoxInput,
+}
+
+/// Pistes d'inputs scriptées, une par joueur (index = handle GGRS). Hors de ses
+/// segments, un joueur envoie un input neutre.
+#[derive(Resource, Clone, Debug, Default)]
+pub struct ScriptedInputs {
+    pub players: Vec<Vec<InputSegment>>,
+}
+
+impl ScriptedInputs {
+    pub fn input_at(&self, handle: usize, frame: u32) -> BoxInput {
+        self.players
+            .get(handle)
+            .and_then(|segments| segments.iter().find(|s| (s.from..s.to).contains(&frame)))
+            .map(|s| s.input)
+            .unwrap_or_default()
+    }
+}
+
+impl InputSource {
+    pub fn from_env() -> Self {
+        match std::env::var("ALACOD_INPUT").as_deref() {
+            Err(_) | Ok("devices") => Self::Devices,
+            Ok("neutral") => Self::Neutral,
+            Ok(other) => panic!("ALACOD_INPUT inconnu : {other} (attendu : devices, neutral)"),
+        }
+    }
+}
+
 pub fn read_local_inputs(
     mut commands: Commands,
+    input_source: Res<InputSource>,
     players: Query<(&ActionState<PlayerAction>, &Transform, &Player), With<LocalPlayer>>,
 
     q_window: Query<&Window, With<PrimaryWindow>>,
     q_camera: Query<(&Camera, &GlobalTransform)>,
+    local_players: Res<LocalPlayers>,
+    frame: Res<FrameCount>,
+    scripted: Option<Res<ScriptedInputs>>,
+    remote: Option<Res<RemoteInputs>>,
 ) {
     let mut local_inputs = HashMap::new();
 
-    for (action_state, transform, player) in players.iter() {
+    if *input_source == InputSource::Remote {
+        let remote = remote.expect("InputSource::Remote demande la ressource RemoteInputs");
+        for handle in &local_players.0 {
+            local_inputs.insert(*handle, remote.held.get(handle).copied().unwrap_or_default());
+        }
+    }
+
+    if *input_source == InputSource::Scripted {
+        let scripted = scripted.expect("InputSource::Scripted demande la ressource ScriptedInputs");
+        for handle in &local_players.0 {
+            local_inputs.insert(*handle, scripted.input_at(*handle, frame.frame));
+        }
+    }
+
+    for (action_state, transform, player) in players
+        .iter()
+        .filter(|_| *input_source == InputSource::Devices)
+    {
         let mut input = BoxInput::default();
 
         if action_state.pressed(&PlayerAction::MoveUp) {
@@ -189,6 +288,12 @@ pub fn read_local_inputs(
         local_inputs.insert(player.handle, input);
     }
 
+    // GGRS exige un input par joueur local à chaque frame : un joueur mort
+    // (entité despawn) ou pas encore créé envoie un input neutre.
+    for handle in &local_players.0 {
+        local_inputs.entry(*handle).or_insert_with(BoxInput::default);
+    }
+
     commands.insert_resource(LocalInputs::<PeerConfig>(local_inputs));
 }
 
@@ -219,7 +324,7 @@ pub fn apply_inputs(
         _net_id,
         _entity,
         _inventory,
-        mut transform,
+        transform,
         mut dash_state,
         mut velocity,
         _active_layers,
@@ -238,46 +343,41 @@ pub fn apply_inputs(
                 panic!("FORCED CRASH BY PLAYER {}", player.handle);
             }
 
+            let was_dashing = dash_state.is_dashing;
             dash_state.update();
+            if was_dashing && !dash_state.is_dashing {
+                // End of the dash: stop instead of coasting at dash speed
+                velocity.main = fixed_math::FixedVec2::ZERO;
+            }
 
             // Update interaction input state
             interaction_input.is_holding = (input.buttons & INPUT_INTERACTION) != 0;
 
-            // If currently dashing, directly update position
+            // While dashing, the dash is a velocity applied by move_characters, which handles
+            // collisions (a dash stops at walls instead of going through them)
             if dash_state.is_dashing {
-                // Calculate position based on remaining frames and distance
-                // Protect against division by zero
-                let dash_duration = config.movement.dash_duration_frames.max(1);
-                let completed_fraction = fixed_math::FIXED_ONE
-                    - (fixed_math::new(dash_state.dash_frames_remaining as f32)
-                        / fixed_math::new(dash_duration as f32));
-
-                let dash_offset =
-                    dash_state.dash_direction * dash_state.dash_total_distance * completed_fraction;
-                transform.translation = dash_state.dash_start_position
-                    + fixed_math::FixedVec3::new(
-                        dash_offset.x,
-                        dash_offset.y,
-                        fixed_math::new(0.0),
-                    );
-
-                // Zero out velocity while dashing to prevent normal movement physics
-                velocity.main = fixed_math::FixedVec2::ZERO;
+                let dash_duration = fixed_math::Fixed::from_num(config.movement.dash_duration_frames.max(1));
+                let distance_per_frame = dash_state.dash_total_distance / dash_duration;
+                velocity.main = dash_state.dash_direction * distance_per_frame
+                    / fixed_math::new(FIXED_TIMESTEP);
                 continue;
             }
 
             // Check if player is trying to dash
             if (input.buttons & INPUT_DASH != 0) && dash_state.can_dash() {
-                // Get looking direction for dash
+                let move_direction = movement_direction(&input);
                 let look_direction = fixed_math::FixedVec2::new(
-                    fixed_math::new(input.pan_x as f32),
-                    fixed_math::new(input.pan_y as f32),
+                    fixed_math::Fixed::from_num(input.pan_x),
+                    fixed_math::Fixed::from_num(input.pan_y),
                 );
 
                 let is_reverse_dash = (input.buttons & INPUT_MODIFIER) != 0;
 
-                // If the player isn't aiming, use facing direction
-                let mut dash_direction = if look_direction.length_squared() > fixed_math::FIXED_ONE {
+                // Dash where the player is moving; if not moving, where they aim; otherwise
+                // where they face
+                let mut dash_direction = if move_direction != fixed_math::FixedVec2::ZERO {
+                    move_direction.normalize_or_zero()
+                } else if look_direction.length_squared() > fixed_math::FIXED_ONE {
                     look_direction.normalize_or_zero()
                 } else {
                     fixed_math::FixedVec2::new(
@@ -309,25 +409,13 @@ pub fn apply_inputs(
 
             if is_sprinting {
                 sprint_state.sprint_factor += config.movement.sprint_acceleration_per_frame;
-                sprint_state.sprint_factor = sprint_state.sprint_factor.min(fixed_math::FIXED_ZERO);
+                sprint_state.sprint_factor = sprint_state.sprint_factor.min(fixed_math::FIXED_ONE);
             } else {
                 sprint_state.sprint_factor -= config.movement.sprint_deceleration_per_frame;
                 sprint_state.sprint_factor = sprint_state.sprint_factor.max(fixed_math::FIXED_ZERO);
             }
 
-            let mut direction = fixed_math::FixedVec2::ZERO;
-            if input.buttons & INPUT_UP != 0 {
-                direction.y += fixed_math::FIXED_ONE;
-            }
-            if input.buttons & INPUT_DOWN != 0 {
-                direction.y -= fixed_math::FIXED_ONE;
-            }
-            if input.buttons & INPUT_LEFT != 0 {
-                direction.x -= fixed_math::FIXED_ONE;
-            }
-            if input.buttons & INPUT_RIGHT != 0 {
-                direction.x += fixed_math::FIXED_ONE;
-            }
+            let direction = movement_direction(&input);
 
             *facing_direction = get_facing_direction(&input);
 
@@ -355,9 +443,13 @@ pub fn apply_inputs(
 pub fn apply_friction(
     inputs: Res<PlayerInputs<PeerConfig>>,
     movement_configs: Res<Assets<CharacterConfig>>,
-    mut query: Query<(&GgrsNetId, &mut Velocity, &CharacterConfigHandles, &Player), With<Rollback>>,
+    mut query: Query<(&GgrsNetId, &mut Velocity, &CharacterConfigHandles, &Player, &DashState), With<Rollback>>,
 ) {
-    for (_net_id, mut velocity, config_handles, player) in order_mut_iter!(query) {
+    for (_net_id, mut velocity, config_handles, player, dash_state) in order_mut_iter!(query) {
+        // The dash velocity is constant for its whole duration
+        if dash_state.is_dashing {
+            continue;
+        }
         if let Some(config) = movement_configs.get(&config_handles.config) {
             let (input, _input_status) = inputs[player.handle];
 
@@ -497,6 +589,47 @@ pub fn move_characters(
             if !check_hard_collision(&y_only_pos) {
                 transform.translation.y = y_only_pos.y;
                 moved_y = true;
+            }
+        }
+
+        // Opening assist: moving mainly along one axis and blocked, while a small side offset
+        // (at most NUDGE_MAX) would clear the way (e.g. a door, 32 units high, entered a few
+        // units off): slide toward that side at the movement speed
+        const NUDGE_MAX: i32 = 12;
+        let z = transform.translation.z;
+        let half = |v: fixed_math::Fixed| v.abs() / fixed_math::new(2.0);
+        let try_nudge = |primary: (fixed_math::Fixed, fixed_math::Fixed), side: (fixed_math::Fixed, fixed_math::Fixed)| {
+            for n in 1..=NUDGE_MAX {
+                for sign in [fixed_math::FIXED_ONE, -fixed_math::FIXED_ONE] {
+                    let offset = fixed_math::Fixed::from_num(n) * sign;
+                    let target = fixed_math::FixedVec3::new(
+                        start_x + primary.0 + side.0 * offset,
+                        start_y + primary.1 + side.1 * offset,
+                        z,
+                    );
+                    if !check_hard_collision(&target) {
+                        return Some(sign);
+                    }
+                }
+            }
+            None
+        };
+        if !moved_x && delta_x != fixed_math::FIXED_ZERO && delta_y.abs() <= half(delta_x) {
+            if let Some(sign) = try_nudge((delta_x, fixed_math::FIXED_ZERO), (fixed_math::FIXED_ZERO, fixed_math::FIXED_ONE)) {
+                let side_pos = fixed_math::FixedVec3::new(start_x, start_y + delta_x.abs() * sign, transform.translation.z);
+                if !check_hard_collision(&side_pos) {
+                    transform.translation.y = side_pos.y;
+                    moved_y = true;
+                }
+            }
+        }
+        if !moved_y && delta_y != fixed_math::FIXED_ZERO && delta_x.abs() <= half(delta_y) {
+            if let Some(sign) = try_nudge((fixed_math::FIXED_ZERO, delta_y), (fixed_math::FIXED_ONE, fixed_math::FIXED_ZERO)) {
+                let side_pos = fixed_math::FixedVec3::new(start_x + delta_y.abs() * sign, start_y, transform.translation.z);
+                if !check_hard_collision(&side_pos) {
+                    transform.translation.x = side_pos.x;
+                    moved_x = true;
+                }
             }
         }
 

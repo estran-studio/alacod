@@ -1,0 +1,21 @@
+// Dashs vers le mur gauche de la pièce : le premier (56 px) s'arrête avant le mur, le second
+// (après le cooldown de 180 frames) s'arrête contre le mur au lieu de le traverser.
+//
+// À regarder : premier dash vers la gauche (f16), le joueur s'arrête net ; second dash (f206) : il
+// bute contre le mur, à côté de la fenêtre, sans entrer dedans.
+Scenario(
+    frames: 320,
+    players: [
+        (inputs: [
+            (from: 10, to: 13, buttons: [Left, Dash]),
+            (from: 200, to: 203, buttons: [Left, Dash]),
+        ]),
+    ],
+    expect: [
+        // Le dash suit la direction du déplacement (Gauche), 56 px
+        PlayerPosition(handle: 0, x: 367, y: 695, tolerance: 1, at_frame: 40),
+        // Le second dash s'arrête contre le mur (il le traversait quand la position était imposée)
+        PlayerPosition(handle: 0, x: 331, y: 695, tolerance: 1, at_frame: 230),
+        PlayerPosition(handle: 0, x: 331, y: 695, tolerance: 1, at_frame: 300),
+    ],
+)

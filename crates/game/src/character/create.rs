@@ -1,5 +1,5 @@
-use animation::{create_child_sprite, AnimationBundle, SpriteSheetConfig};
-use bevy::{platform::collections::HashMap, prelude::*};
+use animation::AnimationStateBundle;
+use bevy::prelude::*;
 use bevy_fixed::fixed_math;
 use bevy_kira_audio::prelude::*;
 use utils::net_id::GgrsNetIdFactory;
@@ -16,100 +16,16 @@ use bevy_ggrs::Rollback;
 use super::{
     config::CharacterConfig,
     dash::DashState,
-    health::{ui::HealthBar, Health, HealthRegen},
+    health::{Health, HealthRegen},
     movement::SprintState,
+    visuals::CharacterAppearance,
     Character,
 };
-
-/// Spawns the visual components (sprites, animations) for a character.
-/// Returns the spawned entity ID and the animation bundle info for further customization.
-/// 
-/// This function handles:
-/// - Loading character config and assets
-/// - Creating animation bundle
-/// - Spawning base entity with transform and visibility
-/// - Creating child sprites for each layer
-/// 
-/// # Returns
-/// A tuple of (entity_id, animation_state_name) where animation_state_name can be set on the entity
-pub fn spawn_character_visuals(
-    commands: &mut Commands,
-    global_assets: &GlobalAsset,
-    character_asset: &Assets<CharacterConfig>,
-    asset_server: &Res<AssetServer>,
-    texture_atlas_layouts: &mut ResMut<Assets<TextureAtlasLayout>>,
-    spritesheet_assets: &Assets<SpriteSheetConfig>,
-    config_name: &str,
-    skin: Option<&str>,
-    translation: fixed_math::FixedVec3,
-    scale_override: Option<fixed_math::Fixed>,
-) -> (Entity, HashMap<String, String>) {
-    let handle = global_assets.character_configs.get(config_name).unwrap();
-    let config = character_asset.get(handle).unwrap();
-
-    let map_layers = global_assets
-        .spritesheets
-        .get(&config.asset_name_ref)
-        .unwrap()
-        .clone();
-    let animation_handle = global_assets
-        .animations
-        .get(&config.asset_name_ref)
-        .unwrap()
-        .clone();
-
-    let starting_layer = config
-        .skins
-        .get(skin.unwrap_or(&config.starting_skin))
-        .unwrap()
-        .layers
-        .clone();
-
-    let animation_bundle = AnimationBundle::new(
-        map_layers.clone(),
-        animation_handle.clone(),
-        0,
-        starting_layer.clone(),
-    );
-
-    let scale = scale_override.unwrap_or(config.scale);
-    let transform_fixed = fixed_math::FixedTransform3D::new(
-        translation,
-        fixed_math::FixedMat3::IDENTITY,
-        fixed_math::FixedVec3::splat(scale),
-    );
-
-    let entity = commands.spawn((
-        transform_fixed.to_bevy_transform(),
-        Visibility::default(),
-        animation_bundle,
-    ));
-    
-    let entity = entity.id();
-
-    // Create child sprites for each layer
-    for k in starting_layer.keys() {
-        let spritesheet_config = spritesheet_assets.get(map_layers.get(k).unwrap()).unwrap();
-        create_child_sprite(
-            commands,
-            asset_server,
-            texture_atlas_layouts,
-            entity,
-            spritesheet_config,
-            0,
-        );
-    }
-
-    (entity, starting_layer)
-}
 
 pub fn create_character(
     commands: &mut Commands,
     global_assets: &Res<GlobalAsset>,
     character_asset: &Res<Assets<CharacterConfig>>,
-    asset_server: &Res<AssetServer>,
-    texture_atlas_layouts: &mut ResMut<Assets<TextureAtlasLayout>>,
-    spritesheet_assets: &Res<Assets<SpriteSheetConfig>>,
 
     config_name: String,
 
@@ -129,25 +45,33 @@ pub fn create_character(
         .unwrap()
         .clone();
 
-    // Spawn visual components using shared function
-    let (entity, _starting_layer) = spawn_character_visuals(
-        commands,
-        global_assets.as_ref(),
-        character_asset.as_ref(),
-        asset_server,
-        texture_atlas_layouts,
-        spritesheet_assets.as_ref(),
-        &config_name,
-        skin.as_deref(),
-        translation,
-        None, // Use default scale from config
-    );
+    let starting_layers = config
+        .skins
+        .get(skin.as_deref().unwrap_or(&config.starting_skin))
+        .unwrap()
+        .layers
+        .clone();
 
     let transform_fixed = fixed_math::FixedTransform3D::new(
         translation,
         fixed_math::FixedMat3::IDENTITY,
         fixed_math::FixedVec3::splat(config.scale),
     );
+
+    // Entité logique uniquement : les sprites et la barre de vie sont ajoutés par
+    // la présentation à partir de CharacterAppearance (voir character::visuals).
+    let entity = commands
+        .spawn((
+            transform_fixed.to_bevy_transform(),
+            Visibility::default(),
+            AnimationStateBundle::new(starting_layers),
+            CharacterAppearance {
+                config_name: config_name.clone(),
+                skin: skin.clone(),
+                health_bar_color: color_health_bar,
+            },
+        ))
+        .id();
 
     // Apply character scale to collider dimensions
     let mut collider: Collider = (&config.collider).into();
@@ -195,21 +119,6 @@ pub fn create_character(
             regen_delay_frames,
         });
     }
-
-    // Add health bar as child
-    commands.entity(entity).with_children(|parent| {
-        parent
-            .spawn((
-                HealthBar,
-                Sprite {
-                    color: color_health_bar,
-                    custom_size: Some(Vec2::new(30.0, 3.0)),
-                    ..default()
-                },
-                Transform::from_translation(Vec3::new(0.0, 10.0, 0.1)),
-            ))
-            .insert(Rollback);
-    });
 
     commands.entity(entity).insert(Rollback);
 

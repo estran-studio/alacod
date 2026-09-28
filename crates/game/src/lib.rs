@@ -5,10 +5,16 @@ pub mod character;
 pub mod collider;
 pub mod core;
 pub mod frame;
+pub mod frame_events;
 pub mod global_asset;
 pub mod interaction;
 pub mod jjrs;
+pub mod recording;
+#[cfg(not(target_arch = "wasm32"))]
+pub mod remote;
+pub mod replay;
 pub mod light;
+pub mod state_trace;
 pub mod system_set;
 pub mod ui;
 pub mod waves;

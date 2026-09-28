@@ -223,6 +223,80 @@ make diff_log CID_1=alice CID_2=bob
 - `GgrsSchedule` : Simulation rollback (tout le gameplay)
 - `PostUpdate` : Sync visual (`FixedTransform3D` -> `Transform`)
 
+#### Événements dans la simulation
+**Jamais de `Message` bevy (`MessageReader`/`MessageWriter`) dans `GgrsSchedule`** : ils ne sont pas
+dans les snapshots et leurs curseurs ne sont pas rollbackés. Utiliser `FrameEvents<T>`
+(`crates/game/src/frame_events.rs`, `app.add_frame_events::<T>()`) : file vidée au début de chaque
+frame (`RollbackSystemSet::FrameStart`), lue par les systèmes ordonnés après l'émetteur.
+
+Les visuels (portes, barres de vie, game over) se **dérivent de l'état** dans `Update`, jamais
+d'un événement émis par la simulation : ils restent justes après un rollback.
+
+#### Simulation et présentation
+La simulation ne dépend jamais du rendu. Tout ce qui sert à afficher (caméra, lumière, audio,
+UI de debug) va dans `PresentationPlugin` (`core.rs`), absent en headless.
+
+## Headless, trace d'état et déterminisme
+
+Variables d'environnement (natif) :
+- `ALACOD_HEADLESS=1` : sans fenêtre ni GPU, une frame GGRS par update. Compiler sans le rendu des
+  tilemaps : `--no-default-features` (et `--profile headless` pour la vitesse).
+- `ALACOD_INPUT=neutral` : ignore clavier et souris (sinon la position du curseur entre dans l'input).
+- `ALACOD_STATE_TRACE=<fichier>` + `ALACOD_EXIT_AT_FRAME=<n>` : hash de l'état rollback à chaque frame,
+  puis arrêt. `ALACOD_STATE_TRACE_FULL=1` ajoute l'état détaillé pour trouver une divergence.
+
+Avant/après un refactoring de la simulation, comparer les traces : elles doivent être identiques.
+
+## Scénarios (tests de comportement et de régression)
+
+`crates/scenario` joue des parties scriptées en headless, dans le processus de test :
+- `tests/scenarios/<nom>.ron` : map, seed, un script d'inputs par joueur (segments de frames avec
+  boutons et visée), nombre de frames, attentes à une frame donnée (`PlayerAlive`, `PlayerDead`,
+  `WaveAtLeast`, `KillsAtLeast`, `WindowsBrokenAtLeast`, `WindowHealth`, `DoorsOpenAtLeast`,
+  `ActiveWeapon`, `Ammo`, `PlayerPosition`, `BulletsInside`). `weapon_overrides` modifie la taille
+  et le nombre de chargeurs d'une arme pour un scénario. Format documenté dans `crates/game/src/replay.rs`.
+- `tests/scenarios/<nom>.trace` : trace d'état de référence. Toute différence fait échouer le test.
+- `make test_scenarios` (profil `headless`, sans rendu) ; `SCENARIO=<nom>` pour un seul ;
+  `BLESS=1` pour réécrire les traces après un **changement de gameplay voulu** (le dire dans le commit).
+- `make play_scenario SCENARIO=<nom>` : affiche le scénario avec rendu, mêmes inputs.
+
+### Jouer et enregistrer
+- **Contrôle remote** (`game::remote`, `ALACOD_REMOTE=1`) : `make remote` (ou `make remote HEADLESS=1`)
+  lance la partie en pause ; `scripts/alacod-remote` la pilote : `brief`/`state` (joueurs, ennemis
+  avec dx/dy, vague, fenêtres, portes), `input Fire --pan 100,0`, `step 30` (avance puis affiche),
+  `screenshot`, `save <fichier.ron>`, `pause`/`resume`.
+- **Enregistrement** (`game::recording`) : les inputs réellement envoyés à GGRS sont capturés à chaque
+  frame ; `save` (remote) ou `ALACOD_RECORD=<fichier>` (écrit à la fermeture, ex.
+  `make record_session NAME=x`) produit un scénario rejouable. Ajouter des `expect`, puis
+  `make test_scenarios SCENARIO=<nom> BLESS=1`.
+
+### Vidéos (validation visuelle)
+`scripts/scenario-video` rejoue les scénarios avec rendu et capture chaque frame (image n = frame n,
+960×540 hors écran, indépendant de la fenêtre), puis encode avec ffmpeg :
+- `make videos [SCENARIO=<nom>]` : une vidéo par scénario + `montage.mp4` (grille), dans
+  `target/videos/<commit>/` ;
+- `make compare_video SCENARIO=<nom> BASE=<réf> [HEAD=<réf>]` : avant/après côte à côte, le même
+  scénario joué par le code des deux références (worktree git, target partagé). La référence doit
+  contenir `play_scenario --capture`.
+- Moments clés : pendant la capture, `crates/scenario/src/events.rs` détecte vague, kills, coups reçus,
+  morts, rechargements, changements d'arme, fenêtres cassées/réparées, portes ouvertes ; écrits dans
+  `<scénario>.events.json`, affichés en pastilles cliquables sous chaque vidéo. En test :
+  `ALACOD_EVENTS=1 make test_scenarios` les affiche.
+- Chaque scénario commence par un commentaire `// À regarder : ...` (ce qu'on doit voir, avec les frames),
+  affiché en tête de sa vidéo. Le mettre à jour quand le comportement change.
+- `make review_videos [TAILSCALE=1]` : page de revue (`target/videos/index.html`, regénérée après chaque rendu) sur
+  http://localhost:8766 : commits et comparaisons, lecture synchronisée image par image, notes par
+  vidéo. Servie par `scripts/scenario-review.py --serve` (requêtes Range, requises pour se
+  positionner dans les vidéos).
+
+La partie jouée est celle de `map_explorer` (plugin partagé `map_ldtk::game::local::LdtkLocalGamePlugin`).
+Tout changement de simulation doit garder les scénarios verts, ou justifier le `BLESS`.
+
+### Numérotation des entités (`GgrsNetId`)
+Les ids doivent être attribués dans un ordre indépendant du timing et de l'allocation des `Entity` :
+trier par une clé de contenu (type, position, level iid) avant `id_factory.next`, et ordonner tout
+système qui crée des entités rollback sur `LdtkMapLoadingEvent` `.after(MapNetIdAssignment)`.
+
 ## Système IA (En Refonte)
 
 ### Problème Actuel
@@ -390,8 +464,7 @@ crates/game/src/character/enemy/
 ├── spawning.rs            # Spawner logic
 └── ai/
     ├── mod.rs             # Re-exports + legacy modules
-    ├── combat.rs          # [LEGACY] ZombieState, ZombieTarget
-    ├── pathing.rs         # [LEGACY] Individual pathfinding
+    ├── pathing.rs         # Cibles et déplacement des ennemis (move_enemies)
     ├── navigation.rs      # [NEW] FlowField, GridPos, NavProfile
     ├── obstacle.rs        # [NEW] Generic Obstacle component
     ├── state.rs           # [NEW] MonsterState, EnemyAiConfig
@@ -437,18 +510,46 @@ Matrix définit qui collide avec qui. Les obstacles ont leur propre layer selon 
 
 ## Flow Field - Implémentation Actuelle
 
-Le système utilise **BFS (Breadth-First Search)** au lieu de Dijkstra pour la performance :
+Le système utilise **Dijkstra multi-source** depuis tous les joueurs (triés par `net_id`),
+déterministe (tas trié par coût puis case) : chaque case mène au joueur **le plus proche par le
+chemin** (`FlowField::owners`), et un zombie cible ce joueur (`FlowFieldCache::nearest_target`) :
 
-- **Rayon** : 60 cellules (1200 unités)
-- **Directions** : 8 (diagonales incluses pour mouvement fluide)
-- **Profil** : Ground uniquement (autres profils à ajouter si besoin)
-- **Update** : Tous les 5 frames (~83ms) pour tracking réactif
-- **Cell size** : 20 unités
-- **Data structures** : `BTreeMap`/`BTreeSet` pour déterminisme GGRS
+- **Cellules** : 16 unités, 1:1 avec les tuiles LDtk (`GRID_CELL_SIZE`)
+- **Couverture** : toute la map (boîte englobante des murs + marge), pas un rayon autour du joueur :
+  chaque spawner doit être couvert
+- **Cases bloquées** : murs IntGrid, **portes fermées** (une porte bloque tant qu'elle a un collider ;
+  une porte non interactive ne s'ouvre jamais), obstacles selon le profil (fenêtres intactes pour `Ground`)
+- **Cases trop étroites** : bloquées des deux côtés opposés (couloir d'une case) → infranchissables,
+  les zombies font 20 px de large pour des cases de 16
+- **Diagonales** : interdites si elles coupent un coin (les deux cases orthogonales doivent être libres)
+- **Coûts** : 10 orthogonal, 14 diagonal, + pénalité près des murs (`wall_penalty` : +30 à 1 case,
+  +10 à 2 cases) : les chemins passent au large quand il y a de la place (les sprites, 32×32, sont plus
+  grands que les colliders, 20×20 aux pieds) et serrent les murs seulement dans les ouvertures
+- **Mise à jour** : quand un joueur change de case **ou** quand les cases bloquées changent
+  (porte ouverte, fenêtre cassée/réparée)
+- **Suivi** : un ennemi vise le `steering_point` de la case suivante — son centre écarté d'au moins
+  une demi-case de chaque mur voisin (plus si son collider dépasse, `AgentBody`, offset compris), et
+  d'une demi-case en diagonale d'un coin : dans une ouverture de 2 cases il vise le milieu du passage,
+  et il se centre devant une porte/fenêtre avant de s'y engager
+
+Outils de diagnostic (`crates/scenario/tests/scenarios.rs`, tests ignorés) :
+`nav_map` (grille ASCII avec directions, `ALACOD_NAV=idle:700 ALACOD_NAV_ARROWS=1`),
+`nav_stats` (par zombie : apparition, contact, blocages, sprite qui entre dans un mur et où),
+`nav_probe` (un zombie à une frame).
+Aussi `weapon_probe` (état des armes frame par frame) et `map_probe` (positions et état des
+joueurs, portes et fenêtres).
 
 ### GGRS Compliance
 - `FlowFieldCache` est `Clone` et enregistré avec `rollback_resource_with_clone`
 - Player target sélectionné par tri `net_id.0` (pas `.iter().next()`)
 - `GridPos` et `NavProfile` implémentent `Ord` pour `BTreeMap`
 
-Note: Le système legacy (`pathing.rs`) reste actif mais utilise aussi les macros `order_iter!`/`order_mut_iter!`.
+Note: `pathing.rs` fournit encore `update_enemy_targets` et `move_enemies` ; il utilise aussi les macros `order_iter!`/`order_mut_iter!`.
+
+**Fenêtres** : une fenêtre intacte (`Obstacle::blocks_movement`) bloque les zombies (collision dans
+`move_enemies`). Quand elle est sur leur chemin (case actuelle ou 3 suivantes) et à portée, elle
+devient leur cible (`enemy_target_selection`) : ils la frappent avec le cooldown d'attaque
+(`enemy_attack_system`) puis reprennent la poursuite une fois cassée. Une fenêtre cassée garde son
+collider : elle bloque toujours les joueurs, plus les zombies ; la réparer la rend bloquante à nouveau.
+Dans le flow field, une fenêtre intacte coûte `breakable_penalty` (le temps de la casser) : les
+zombies prennent un passage ouvert s'il n'est pas beaucoup plus long.

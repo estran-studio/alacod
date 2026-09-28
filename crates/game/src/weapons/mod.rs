@@ -2,7 +2,7 @@
 pub mod ui;
 pub mod melee;
 
-use animation::{create_child_sprite, AnimationBundle, FacingDirection, SpriteSheetConfig};
+use animation::{create_child_sprite, AnimationStateBundle, AnimationVisualsBundle, FacingDirection, SpriteSheetConfig};
 use bevy::{log::{tracing::span, Level}, platform::collections::{HashMap, HashSet}, prelude::*};
 use bevy_common_assets::ron::RonAssetPlugin;
 use bevy_fixed::{fixed_math, rng::RollbackRng};
@@ -14,6 +14,7 @@ use utils::{
     bmap, net_id::{GgrsNetId, GgrsNetIdFactory}, order_iter, order_mut_iter
 };
 
+use crate::character::visuals::VisualsAttached;
 use crate::{
     character::{
         dash::DashState,
@@ -254,6 +255,12 @@ impl WeaponModeState {
     pub fn is_mag_full(&self) -> bool {
         self.mag_ammo == self.mag_size
     }
+
+    /// A reload is only possible with a spare magazine and a mag that is not full (a
+    /// magless weapon has no spare magazine: the shotgun pump reload is started by firing).
+    pub fn can_reload(&self) -> bool {
+        self.mag_quantity > 0 && !self.is_mag_full()
+    }
 }
 
 impl WeaponModesState {
@@ -305,11 +312,6 @@ impl WeaponInventory {
 // Function to spawn weapon , all weapon should be spawn on the user when they got them
 pub fn spawn_weapon_for_player(
     commands: &mut Commands,
-    global_assets: &Res<GlobalAsset>,
-
-    asset_server: &Res<AssetServer>,
-    texture_atlas_layouts: &mut ResMut<Assets<TextureAtlasLayout>>,
-    sprint_sheet_assets: &Res<Assets<SpriteSheetConfig>>,
 
     active: bool,
 
@@ -319,23 +321,8 @@ pub fn spawn_weapon_for_player(
 
     id_factory: &mut ResMut<GgrsNetIdFactory>,
 ) -> Entity {
-    let map_layers = global_assets
-        .spritesheets
-        .get(&weapon.sprite_config.name)
-        .unwrap()
-        .clone();
-    let animation_handle = global_assets
-        .animations
-        .get(&weapon.sprite_config.name)
-        .unwrap()
-        .clone();
-
-    let animation_bundle = AnimationBundle::new(
-        map_layers.clone(),
-        animation_handle.clone(),
-        weapon.sprite_config.index,
-        bmap!("body" => String::new()),
-    );
+    // Entité logique uniquement : le sprite est ajouté par attach_weapon_visuals
+    let animation_bundle = AnimationStateBundle::new(bmap!("body" => String::new()));
 
     let mut weapon_state = WeaponState::default();
     let mut weapon_modes_state = WeaponModesState::default();
@@ -382,18 +369,6 @@ pub fn spawn_weapon_for_player(
         .insert(Rollback)
         .id();
 
-    let spritesheet_config = sprint_sheet_assets
-        .get(map_layers.get("body").unwrap())
-        .unwrap();
-    create_child_sprite(
-        commands,
-        asset_server,
-        texture_atlas_layouts,
-        entity,
-        spritesheet_config,
-        0,
-    );
-
     inventory.weapons.push((entity, weapon));
 
     if active {
@@ -408,6 +383,50 @@ pub fn spawn_weapon_for_player(
     commands.entity(player_entity).add_child(entity);
 
     entity
+}
+
+/// Présentation : ajoute le sprite animé des armes qui n'en ont pas encore
+/// (nouvelles ou recréées par un rollback).
+pub fn attach_weapon_visuals(
+    mut commands: Commands,
+    global_assets: Res<GlobalAsset>,
+    spritesheet_assets: Res<Assets<SpriteSheetConfig>>,
+    asset_server: Res<AssetServer>,
+    mut texture_atlas_layouts: ResMut<Assets<TextureAtlasLayout>>,
+    weapons: Query<(Entity, &Weapon), Without<VisualsAttached>>,
+) {
+    for (entity, weapon) in weapons.iter() {
+        let name = &weapon.sprite_config.name;
+        let (Some(map_layers), Some(animation_handle)) = (
+            global_assets.spritesheets.get(name),
+            global_assets.animations.get(name),
+        ) else {
+            continue;
+        };
+        let Some(spritesheet_config) = map_layers
+            .get("body")
+            .and_then(|handle| spritesheet_assets.get(handle))
+        else {
+            continue;
+        };
+
+        commands.entity(entity).insert((
+            AnimationVisualsBundle::new(
+                map_layers.clone(),
+                animation_handle.clone(),
+                weapon.sprite_config.index,
+            ),
+            VisualsAttached,
+        ));
+        create_child_sprite(
+            &mut commands,
+            &asset_server,
+            &mut texture_atlas_layouts,
+            entity,
+            spritesheet_config,
+            0,
+        );
+    }
 }
 
 fn spawn_bullet_rollback(
@@ -547,13 +566,15 @@ fn spawn_bullet_rollback(
 // SYSTEMS
 
 // Rollback system to correctly transform the weapon based on the position
+// L'arme active vient de WeaponInventory (rollback), pas du marqueur ActiveWeapon
+// qui n'est mis à jour que dans Update pour l'affichage.
 pub fn system_weapon_position(
-    query: Query<(&Children, &CursorPosition, &FacingDirection), With<Rollback>>,
-    mut query_weapon: Query<&mut fixed_math::FixedTransform3D, With<ActiveWeapon>>,
+    query: Query<(&WeaponInventory, &CursorPosition), With<Rollback>>,
+    mut query_weapon: Query<&mut fixed_math::FixedTransform3D, With<Weapon>>,
 ) {
-    for (childs, cursor_position, _direction) in query.iter() {
-        for child in childs.iter() {
-            if let Ok(mut transform) = query_weapon.get_mut(child.clone()) {
+    for (inventory, cursor_position) in query.iter() {
+        if let Some((active_weapon, _)) = inventory.weapons.get(inventory.active_weapon_index) {
+            if let Ok(mut transform) = query_weapon.get_mut(*active_weapon) {
                 let cursor_game_world_pos = fixed_math::FixedVec3::new(
                     fixed_math::new(cursor_position.x as f32),
                     fixed_math::new(cursor_position.y as f32),
@@ -605,15 +626,28 @@ pub fn weapon_rollback_system(
     let system_span = span!(Level::INFO, "ggrs", f = frame.frame, s = "weapon");
     let _enter = system_span.enter(); // Enter the span
 
-    // Process weapon firing for all players
+    // Process weapon firing for all players, in handle order: firing consumes RollbackRng
+    // (spread) and GgrsNetIds (bullets), so the order must be the same on every client
+    let mut players: Vec<_> = inventory_query.iter_mut().collect();
+    players.sort_by_key(|(.., player)| player.handle);
+
     for (_entity, mut inventory, sprint_state, dash_state, melee_attack_state, transform, player) in
-        inventory_query.iter_mut()
+        players
     {
         let (input, _input_status) = inputs[player.handle];
 
         // Do nothing if no weapons
         if inventory.weapons.is_empty() {
             continue;
+        }
+
+        // A released trigger is always registered, even while reloading, switching, sprinting
+        // or in melee: semi-automatic weapons need a new press after it
+        if !input.fire {
+            let (active_weapon, _) = inventory.weapons[inventory.active_weapon_index];
+            if let Ok((_, mut weapon_state, ..)) = weapon_query.get_mut(active_weapon) {
+                weapon_state.is_firing = false;
+            }
         }
 
         // Don't allow weapon firing during melee attacks
@@ -641,12 +675,28 @@ pub fn weapon_rollback_system(
             let active_mode = weapon_state.active_mode.clone();
             let weapon_config = weapon.config.firing_modes.get(&active_mode).unwrap();
 
+            // A reload in progress completes on the mode it was started for: switching mode
+            // (like switching weapon) is not possible until it is over
+            if inventory.is_reloading() {
+                if inventory.is_reloading_over(frame.frame) {
+                    weapon_modes_state.modes.get_mut(&active_mode).unwrap().reload();
+                    inventory.clear_reloading();
+                } else {
+                    continue;
+                }
+            }
+
             if input.buttons & INPUT_SWITCH_WEAPON_MODE != 0 {
-                if let Some(new_mode) = weapon_modes_state
-                    .modes
-                    .keys()
-                    .find(|&x| *x != weapon_state.active_mode)
-                {
+                // Next mode in name order (any number of modes, same order on every client)
+                let mut mode_names: Vec<&String> = weapon_modes_state.modes.keys().collect();
+                mode_names.sort();
+                let next_mode = mode_names
+                    .iter()
+                    .position(|name| **name == weapon_state.active_mode)
+                    .map(|i| mode_names[(i + 1) % mode_names.len()])
+                    .filter(|name| **name != weapon_state.active_mode)
+                    .cloned();
+                if let Some(new_mode) = next_mode {
                     if inventory.frame_switched_mode + 20 < frame.frame
                         && inventory.frame_switched + 20 < frame.frame
                     {
@@ -660,15 +710,7 @@ pub fn weapon_rollback_system(
 
             let weapon_mode_state = weapon_modes_state.modes.get_mut(&active_mode).unwrap();
 
-            // Check if reloading and update progress,
-            if inventory.is_reloading() {
-                if inventory.is_reloading_over(frame.frame) {
-                    weapon_mode_state.reload();
-                    inventory.clear_reloading();
-                } else {
-                    continue;
-                }
-            } else if input.buttons & INPUT_RELOAD != 0 && !weapon_mode_state.is_mag_full() {
+            if input.buttons & INPUT_RELOAD != 0 && weapon_mode_state.can_reload() {
                 inventory.start_reload(frame.frame, weapon_config.reload_time_seconds);
                 continue;
             }
@@ -688,8 +730,11 @@ pub fn weapon_rollback_system(
                 }
             }
 
-            // TODO: fix only support two mode, take the first that is not the current
-            if input.fire {
+            // A burst, once started, is fired to the end even if the trigger is released
+            let burst_in_progress = matches!(weapon_config.firing_mode, FiringMode::Burst { .. })
+                && weapon_mode_state.burst_shots_left > 0;
+
+            if input.fire || burst_in_progress {
                 // Calculate fire rate in frames (60 FPS assumed) , need to be configure via ressource instead
                 let frame_per_shot =
                     (bevy_fixed::fixed_math::new(60.) / weapon_config.firing_rate).to_num::<u32>();
@@ -711,6 +756,11 @@ pub fn weapon_rollback_system(
                         pellets_per_shot,
                         cooldown_frames,
                     } => {
+                        // The cooldown between bursts ends by itself: a single press then
+                        // starts the next burst (it used to be spent lifting the cooldown)
+                        if weapon_mode_state.burst_cooldown && frames_since_last_shot >= cooldown_frames {
+                            weapon_mode_state.burst_cooldown = false;
+                        }
                         if weapon_mode_state.burst_shots_left > 0
                             && frames_since_last_shot >= frame_per_shot
                         {
@@ -749,11 +799,14 @@ pub fn weapon_rollback_system(
                 };
 
                 if empty {
-                    inventory.start_reload(frame.frame, weapon_config.reload_time_seconds);
+                    // Empty mag: reload if a spare magazine is left, otherwise just a dry click
+                    if weapon_mode_state.can_reload() {
+                        inventory.start_reload(frame.frame, weapon_config.reload_time_seconds);
+                    }
                     continue;
                 }
 
-                weapon_state.is_firing = true;
+                weapon_state.is_firing = input.fire;
 
                 if can_fire {
                     if let Ok((_, facing_direction, _)) = player_query.get(child_of.parent()) {
@@ -1123,11 +1176,6 @@ pub struct BaseWeaponGamePlugin {}
 
 impl Plugin for BaseWeaponGamePlugin {
     fn build(&self, app: &mut App) {
-        // Only include the debug UI plugin when the `debug_ui` feature is enabled.
-        // This keeps Egui / WorldInspector out of production builds unless explicitly requested.
-        #[cfg(feature = "debug_ui")]
-        app.add_plugins(self::ui::WeaponDebugUIPlugin);
-
         // Add RON asset plugins for weapons and melee weapons
         app.add_plugins(RonAssetPlugin::<WeaponsConfig>::new(&["ron"]));
         app.add_plugins(RonAssetPlugin::<melee::MeleeWeaponsConfig>::new(&["ron"]));
@@ -1136,7 +1184,8 @@ impl Plugin for BaseWeaponGamePlugin {
         app.rollback_component_with_clone::<WeaponInventory>()
             .rollback_component_with_clone::<WeaponModesState>()
             .rollback_component_with_clone::<WeaponState>()
-            .rollback_component_with_clone::<Bullet>();
+            .rollback_component_with_clone::<Bullet>()
+            .rollback_component_with_clone::<Weapon>();
 
         // Rollback components for melee weapons
         app.rollback_component_with_clone::<melee::MeleeWeapon>()
@@ -1146,10 +1195,8 @@ impl Plugin for BaseWeaponGamePlugin {
         app.add_systems(
             Update,
             (
-                update_weapon_sprite_direction,
                 weapon_inventory_system,
                 weapons_config_update_system,
-                melee::update_slash_effects, // Add slash effect animation system
             ),
         );
 
@@ -1168,6 +1215,28 @@ impl Plugin for BaseWeaponGamePlugin {
                 melee::melee_hitbox_collision_system.after(melee::update_melee_hitboxes),
             )
                 .in_set(RollbackSystemSet::Weapon),
+        );
+    }
+}
+
+/// Sprites des armes, effets de slash et UI de debug. Ajouté par `PresentationPlugin`.
+pub struct WeaponPresentationPlugin;
+
+impl Plugin for WeaponPresentationPlugin {
+    fn build(&self, app: &mut App) {
+        // Only include the debug UI plugin when the `debug_ui` feature is enabled.
+        // This keeps Egui / WorldInspector out of production builds unless explicitly requested.
+        #[cfg(feature = "debug_ui")]
+        app.add_plugins(self::ui::WeaponDebugUIPlugin);
+
+        app.add_systems(
+            Update,
+            (
+                attach_weapon_visuals,
+                update_weapon_sprite_direction,
+                melee::spawn_slash_effects,
+                melee::update_slash_effects,
+            ),
         );
     }
 }

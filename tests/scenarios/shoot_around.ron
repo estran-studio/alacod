@@ -1,0 +1,48 @@
+// Un joueur immobile qui tire en continu en faisant tourner sa visée (8 directions,
+// 50 frames chacune). Couvre : tir, projectiles, collisions balle/ennemi, dégâts, morts
+// d'ennemis, rechargement automatique.
+//
+// À regarder : les balles partent en étoile, la visée change toutes les 50 frames. Le chargeur
+// se vide en continu et le rechargement automatique coupe le tir (f182, f447, f712). Les zombies
+// cassent la fenêtre de gauche (f327) puis celle du bas (f556) pour entrer ; premier coup reçu
+// f375, un zombie tué f639, mort du joueur f906.
+Scenario(
+    frames: 1500,
+    players: [
+        (inputs: [
+            (from: 0, to: 50, buttons: [Fire], pan: (100, 0)),
+            (from: 50, to: 100, buttons: [Fire], pan: (70, 70)),
+            (from: 100, to: 150, buttons: [Fire], pan: (0, 100)),
+            (from: 150, to: 200, buttons: [Fire], pan: (-70, 70)),
+            (from: 200, to: 250, buttons: [Fire], pan: (-100, 0)),
+            (from: 250, to: 300, buttons: [Fire], pan: (-70, -70)),
+            (from: 300, to: 350, buttons: [Fire], pan: (0, -100)),
+            (from: 350, to: 400, buttons: [Fire], pan: (70, -70)),
+            (from: 400, to: 450, buttons: [Fire], pan: (100, 0)),
+            (from: 450, to: 500, buttons: [Fire], pan: (70, 70)),
+            (from: 500, to: 550, buttons: [Fire], pan: (0, 100)),
+            (from: 550, to: 600, buttons: [Fire], pan: (-70, 70)),
+            (from: 600, to: 650, buttons: [Fire], pan: (-100, 0)),
+            (from: 650, to: 700, buttons: [Fire], pan: (-70, -70)),
+            (from: 700, to: 750, buttons: [Fire], pan: (0, -100)),
+            (from: 750, to: 800, buttons: [Fire], pan: (70, -70)),
+            (from: 800, to: 850, buttons: [Fire], pan: (100, 0)),
+            (from: 850, to: 900, buttons: [Fire], pan: (70, 70)),
+            (from: 900, to: 950, buttons: [Fire], pan: (0, 100)),
+            (from: 950, to: 1000, buttons: [Fire], pan: (-70, 70)),
+            (from: 1000, to: 1050, buttons: [Fire], pan: (-100, 0)),
+            (from: 1050, to: 1100, buttons: [Fire], pan: (-70, -70)),
+            (from: 1100, to: 1150, buttons: [Fire], pan: (0, -100)),
+            (from: 1150, to: 1200, buttons: [Fire], pan: (70, -70)),
+            (from: 1200, to: 1250, buttons: [Fire], pan: (100, 0)),
+            (from: 1250, to: 1300, buttons: [Fire], pan: (70, 70)),
+            (from: 1300, to: 1350, buttons: [Fire], pan: (0, 100)),
+            (from: 1350, to: 1400, buttons: [Fire], pan: (-70, 70)),
+            (from: 1400, to: 1450, buttons: [Fire], pan: (-100, 0)),
+            (from: 1450, to: 1500, buttons: [Fire], pan: (-70, -70)),
+        ]),
+    ],
+    expect: [
+        KillsAtLeast(kills: 1, at_frame: 1500),
+    ],
+)

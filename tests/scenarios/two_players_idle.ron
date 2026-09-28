@@ -1,0 +1,20 @@
+// Deux joueurs locaux immobiles dans la même partie (session synctest à 2 joueurs).
+//
+// À regarder : la caméra suit le joueur 0. Chaque zombie va vers le joueur le plus proche par le
+// chemin : ils cassent la fenêtre du bas (f345) et attaquent d'abord le joueur 1, plus près
+// (f380), puis le joueur 0 (f494). Le joueur 1 meurt (f1033) : la partie continue, le joueur 0 se
+// fait encercler à son tour (f1223).
+Scenario(
+    frames: 1500,
+    players: [
+        (),
+        (),
+    ],
+    expect: [
+        PlayerAlive(handle: 0, at_frame: 300),
+        PlayerAlive(handle: 1, at_frame: 300),
+        // La partie continue après la mort d'un joueur : le joueur 1 meurt, le 0 est encore là
+        PlayerDead(handle: 1, at_frame: 1100),
+        PlayerAlive(handle: 0, at_frame: 1100),
+    ],
+)

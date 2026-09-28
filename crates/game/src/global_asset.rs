@@ -3,7 +3,6 @@ use bevy::{prelude::*, platform::collections::hash_map::HashMap};
 use utils::bmap;
 
 use crate::{
-    camera::CameraSettingsAsset,
     character::config::CharacterConfig,
     core::{AppState, OnlineState},
     waves::WaveConfig,
@@ -25,7 +24,6 @@ pub struct GlobalAsset {
     pub character_configs: HashMap<String, Handle<CharacterConfig>>,
     pub weapons: Handle<WeaponsConfig>,
     pub melee_weapons: Handle<MeleeWeaponsConfig>,
-    pub camera: Handle<CameraSettingsAsset>,
 
     // Visual effects
     pub slash_effect_spritesheet: Handle<SpriteSheetConfig>,
@@ -84,7 +82,6 @@ impl GlobalAsset {
             ),
             weapons: asset_server.load("ZombieShooter/Sprites/Character/weapons.ron"),
             melee_weapons: asset_server.load("weapons/melee/melee_weapons.ron"),
-            camera: asset_server.load("camera.ron"),
             
             // Visual effects
             slash_effect_spritesheet: asset_server.load("ZombieShooter/Sprites/Character/slash_sheet.ron"),
@@ -132,9 +129,6 @@ pub fn loading_asset_system(
         return;
     }
     if !asset_server.load_state(&global_assets.melee_weapons).is_loaded() {
-        return;
-    }
-    if !asset_server.load_state(&global_assets.camera).is_loaded() {
         return;
     }
     

@@ -1,0 +1,20 @@
+// Un joueur immobile : les zombies de la vague 1 le rejoignent et le tuent.
+// Couvre : génération de map, vagues, IA (flow field, poursuite, attaque), dégâts, mort.
+//
+// À regarder : les zombies apparaissent hors de la pièce (f181), contournent le bâtiment à
+// distance des murs et s'arrêtent devant une fenêtre intacte pour la frapper : elle cède à f329
+// (sa barre verte tombe à zéro), puis ils entrent. Les suivants passent par la fenêtre déjà
+// cassée ; une autre cède à f775. Premier coup reçu f399, mort du joueur f1052.
+Scenario(
+    frames: 1500,
+    players: [
+        (),
+    ],
+    expect: [
+        PlayerAlive(handle: 0, at_frame: 800),
+        PlayerDead(handle: 0, at_frame: 1300),
+        WaveAtLeast(wave: 1, at_frame: 1500),
+        // Les zombies cassent une fenêtre avant d'entrer
+        WindowsBrokenAtLeast(windows: 1, at_frame: 340),
+    ],
+)

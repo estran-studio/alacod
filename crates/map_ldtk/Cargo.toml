@@ -5,7 +5,7 @@ edition = "2021"
 
 [dependencies]
 bevy = "0.19.1"
-bevy_ecs_ldtk = { version = "0.15", default-features = true }
+bevy_ecs_ldtk = { version = "0.15", default-features = false, features = ["derive", "internal_levels"] }
 bevy_ggrs = "0.22.0"
 
 bevy_fixed = { path = "../bevy_fixed"}
@@ -21,3 +21,4 @@ bevy-inspector-egui = { version = "0.37.0", optional = true }
 
 [features]
 debug_ui = ["bevy-inspector-egui"]
+render = ["map/render", "bevy_ecs_ldtk/render"]

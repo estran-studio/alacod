@@ -1,0 +1,22 @@
+[package]
+name = "scenario"
+version = "0.1.0"
+edition = "2021"
+description = "Parties scriptées et déterministes : tests de comportement et de régression headless"
+
+[dependencies]
+bevy = "0.19.1"
+bevy_ggrs = "0.22.0"
+serde = { version = "1.0", features = ["derive"] }
+serde_json = "1.0"
+
+bevy_fixed = { path = "../bevy_fixed" }
+game = { path = "../game" }
+map = { path = "../map" }
+map_ldtk = { path = "../map_ldtk" }
+utils = { path = "../utils" }
+
+[features]
+# Rendu des tilemaps, requis pour afficher un scénario (play_scenario). Les tests
+# headless compilent sans.
+render = ["map_ldtk/render"]

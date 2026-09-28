@@ -1,7 +1,3 @@
-// DEPRECATED: Legacy combat module - replaced by behavior.rs and state.rs
-#[deprecated(note = "Use behavior.rs systems and state.rs components instead")]
-pub mod combat;
-
 // Movement with collision detection
 pub mod pathing;
 
@@ -25,8 +21,7 @@ pub use navigation::{
     GRID_CELL_SIZE,
 };
 pub use obstacle::{
-    process_obstacle_damage, Obstacle, ObstacleAttackEvent, ObstacleConfig, ObstacleDestroyedEvent,
-    ObstacleType,
+    process_obstacle_damage, Obstacle, ObstacleAttackEvent, ObstacleConfig, ObstacleType,
 };
 pub use pathing::WallSlideTracker;
 pub use state::{

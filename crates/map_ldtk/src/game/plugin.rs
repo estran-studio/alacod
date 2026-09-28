@@ -63,21 +63,41 @@ impl Plugin for LdtkMapLoadingPlugin {
         app.register_asset_loader(level_loader);
 
         app.init_resource::<LdtkMapEntityLoadingRegistry>();
+        app.init_resource::<crate::loader::MapLoaderSettings>();
         app.add_message::<LdtkMapLoadingEvent>();
 
         app.add_systems(OnEnter(AppState::GameLoading), setup_generated_map);
+        // Deterministic order at the end of map loading: door level iids, then map entity
+        // ids (this system also sends LdtkMapLoadingEvent), then walls, then players (see
+        // MapNetIdAssignment)
         app.add_systems(Update, (
             load_levels_if_not_present,
-            wait_for_all_map_rollback_entity,
             populate_door_level_iids,
+            wait_for_all_map_rollback_entity
+                .after(populate_door_level_iids)
+                .in_set(MapNetIdAssignment),
         ).run_if(in_state(AppState::GameLoading)));
 
         // Transition from GameLoading to GameStarting when map loading is complete
         app.add_systems(Update, transition_to_game_starting.run_if(on_message::<LdtkMapLoadingEvent>));
 
-        app.add_systems(Update, create_wall_colliders_from_ldtk.run_if(on_message::<LdtkMapLoadingEvent>));
+        app.add_systems(
+            Update,
+            create_wall_colliders_from_ldtk
+                .run_if(on_message::<LdtkMapLoadingEvent>)
+                .after(wait_for_all_map_rollback_entity)
+                .in_set(MapNetIdAssignment),
+        );
     }
 }
+
+/// Systèmes qui attribuent des `GgrsNetId` aux entités de la map à la fin de son chargement :
+/// entités de la map (qui émet aussi `LdtkMapLoadingEvent`), puis murs. Tout système qui crée
+/// des entités rollback en réponse à cet événement (ex. les joueurs) doit être ordonné
+/// `.after(MapNetIdAssignment)` : sinon l'ordre d'exécution, et donc la numérotation, varie
+/// d'un client à l'autre (et change dès qu'on ajoute un système).
+#[derive(SystemSet, Debug, Clone, PartialEq, Eq, Hash)]
+pub struct MapNetIdAssignment;
 
 /// System to populate the level_iid in DoorGridPosition from the parent level entity
 fn populate_door_level_iids(
@@ -207,6 +227,16 @@ fn wait_for_all_map_rollback_entity(
         && (entity_registery.frames_since_last_update >= entity_registery.required_stable_frames
             || (current_time - entity_registery.last_update_time) >= entity_registery.timeout_duration)
     {
+
+        // Les entités arrivent sur plusieurs frames selon le chargement LDtk : trier le
+        // registre complet pour que les GgrsNetId ne dépendent pas de ce timing
+        entity_registery.entities.sort_by(|a, b| {
+            let pos_a = a.global_transform.translation();
+            let pos_b = b.global_transform.translation();
+            a.id.cmp(&b.id)
+                .then_with(|| pos_a.x.total_cmp(&pos_b.x))
+                .then_with(|| pos_a.y.total_cmp(&pos_b.y))
+        });
 
         for item in entity_registery.entities.iter() {
             let rollback_item = 
