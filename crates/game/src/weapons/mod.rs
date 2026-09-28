@@ -681,11 +681,16 @@ pub fn weapon_rollback_system(
             }
 
             if input.buttons & INPUT_SWITCH_WEAPON_MODE != 0 {
-                if let Some(new_mode) = weapon_modes_state
-                    .modes
-                    .keys()
-                    .find(|&x| *x != weapon_state.active_mode)
-                {
+                // Next mode in name order (any number of modes, same order on every client)
+                let mut mode_names: Vec<&String> = weapon_modes_state.modes.keys().collect();
+                mode_names.sort();
+                let next_mode = mode_names
+                    .iter()
+                    .position(|name| **name == weapon_state.active_mode)
+                    .map(|i| mode_names[(i + 1) % mode_names.len()])
+                    .filter(|name| **name != weapon_state.active_mode)
+                    .cloned();
+                if let Some(new_mode) = next_mode {
                     if inventory.frame_switched_mode + 20 < frame.frame
                         && inventory.frame_switched + 20 < frame.frame
                     {
@@ -719,7 +724,6 @@ pub fn weapon_rollback_system(
                 }
             }
 
-            // TODO: fix only support two mode, take the first that is not the current
             if input.fire {
                 // Calculate fire rate in frames (60 FPS assumed) , need to be configure via ressource instead
                 let frame_per_shot =

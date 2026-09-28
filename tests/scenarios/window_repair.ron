@@ -4,13 +4,16 @@
 //
 // À regarder : les zombies frappent la fenêtre, le joueur la répare (f387, f447) ; elle cède (f506),
 // le joueur la répare aussitôt (f507, 1 PV) et les zombies doivent la frapper encore (cède f536).
+// Le joueur essaie alors de sortir par la fenêtre cassée (f560-620) : il reste bloqué.
 Scenario(
     frames: 1100,
     players: [
         (inputs: [
             (from: 10, to: 22, buttons: [Right]),
             (from: 10, to: 120, buttons: [Down]),
-            (from: 340, to: 1100, buttons: [Interaction]),
+            (from: 340, to: 550, buttons: [Interaction]),
+            // La fenêtre est recassée : le joueur tente de sortir par elle
+            (from: 560, to: 620, buttons: [Down]),
         ]),
     ],
     expect: [
@@ -18,5 +21,7 @@ Scenario(
         WindowHealth(window: 28, health: 1, at_frame: 510),
         // Les zombies ont dû la recasser
         WindowHealth(window: 28, health: 0, at_frame: 540),
+        // Une fenêtre cassée laisse passer les zombies, pas le joueur : il reste dans la pièce
+        PlayerPosition(handle: 0, x: 478, y: 607, tolerance: 5, at_frame: 625),
     ],
 )
