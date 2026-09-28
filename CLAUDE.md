@@ -508,14 +508,24 @@ Matrix définit qui collide avec qui. Les obstacles ont leur propre layer selon 
 
 ## Flow Field - Implémentation Actuelle
 
-Le système utilise **BFS (Breadth-First Search)** au lieu de Dijkstra pour la performance :
+Le système utilise **BFS (Breadth-First Search)** vers le joueur (le premier par `net_id`) :
 
-- **Rayon** : 60 cellules (1200 unités)
-- **Directions** : 8 (diagonales incluses pour mouvement fluide)
-- **Profil** : Ground uniquement (autres profils à ajouter si besoin)
-- **Update** : Tous les 5 frames (~83ms) pour tracking réactif
-- **Cell size** : 20 unités
-- **Data structures** : `BTreeMap`/`BTreeSet` pour déterminisme GGRS
+- **Cellules** : 16 unités, 1:1 avec les tuiles LDtk (`GRID_CELL_SIZE`)
+- **Couverture** : toute la map (boîte englobante des murs + marge), pas un rayon autour du joueur :
+  chaque spawner doit être couvert
+- **Cases bloquées** : murs IntGrid, **portes fermées** (une porte bloque tant qu'elle a un collider ;
+  une porte non interactive ne s'ouvre jamais), obstacles selon le profil (fenêtres intactes pour `Ground`)
+- **Cases trop étroites** : bloquées des deux côtés opposés (couloir d'une case) → infranchissables,
+  les zombies font 20 px de large pour des cases de 16
+- **Diagonales** : interdites si elles coupent un coin (les deux cases orthogonales doivent être libres)
+- **Mise à jour** : quand le joueur change de case **ou** quand les cases bloquées changent
+  (porte ouverte, fenêtre cassée/réparée)
+- **Suivi** : un ennemi vise le `steering_point` de la case suivante — son centre écarté des murs
+  voisins selon l'étendue réelle de son collider (`AgentBody`, offset vers les pieds compris)
+
+Outils de diagnostic (`crates/scenario/tests/scenarios.rs`, tests ignorés) :
+`nav_map` (grille ASCII avec directions, `ALACOD_NAV=idle:700 ALACOD_NAV_ARROWS=1`),
+`nav_stats` (par zombie : apparition, contact, blocages), `nav_probe` (un zombie à une frame).
 
 ### GGRS Compliance
 - `FlowFieldCache` est `Clone` et enregistré avec `rollback_resource_with_clone`
@@ -523,3 +533,7 @@ Le système utilise **BFS (Breadth-First Search)** au lieu de Dijkstra pour la p
 - `GridPos` et `NavProfile` implémentent `Ord` pour `BTreeMap`
 
 Note: `pathing.rs` fournit encore `update_enemy_targets` et `move_enemies` ; il utilise aussi les macros `order_iter!`/`order_mut_iter!`.
+
+**Fenêtres** : elles ne bloquent pas les zombies physiquement (pas d'entrée zombie↔fenêtre dans la
+matrice de collisions) — les zombies les traversent. Les fenêtres ne sont attaquées que si un
+zombie est complètement bloqué devant.

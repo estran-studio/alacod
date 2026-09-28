@@ -1,9 +1,9 @@
 // Un joueur immobile : les zombies de la vague 1 le rejoignent et le tuent.
 // Couvre : génération de map, vagues, IA (flow field, poursuite, attaque), dégâts, mort.
 //
-// À regarder : les zombies apparaissent hors de la pièce (f181) et entrent par les fenêtres
-// et la porte sans traverser les murs. Premier coup vers f297 : arc de slash blanc, la barre
-// verte du joueur baisse. À sa mort (f1187) le joueur disparaît et les zombies restent.
+// À regarder : les zombies apparaissent hors de la pièce (f181), contournent le bâtiment sans
+// rester collés aux coins extérieurs et entrent par les fenêtres. Premier coup vers f294 : arc de
+// slash blanc, la barre verte du joueur baisse. À sa mort (f1019) le joueur disparaît.
 Scenario(
     frames: 1500,
     players: [

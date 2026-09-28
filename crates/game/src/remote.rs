@@ -42,7 +42,6 @@ use crate::{
         },
     },
     core::SIM_FPS,
-    interaction::Interactable,
     recording::{write_recording, InputRecorder},
     replay::{box_input, Button},
     waves::WaveState,
@@ -210,8 +209,9 @@ fn state(In(_): In<Option<Value>>, world: &mut World) -> BrpResult {
         .collect();
     windows.sort_by_key(|w| w["id"].as_u64());
 
+    // Porte ouverte = sans collider (une porte non interactive reste fermée)
     let mut doors_query =
-        world.query_filtered::<(&GgrsNetId, &FixedTransform3D, Has<Interactable>), With<DoorComponent>>();
+        world.query_filtered::<(&GgrsNetId, &FixedTransform3D, Has<crate::collider::Collider>), With<DoorComponent>>();
     let mut doors: Vec<Value> = doors_query
         .iter(world)
         .map(|(id, transform, closed)| {

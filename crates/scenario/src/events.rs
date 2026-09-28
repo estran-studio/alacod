@@ -9,7 +9,7 @@ use std::collections::{BTreeMap, BTreeSet};
 use bevy::prelude::*;
 use game::{
     character::{health::Health, player::Player},
-    interaction::Interactable,
+    collider::Collider,
     waves::{WavePhase, WaveState},
     weapons::WeaponInventory,
 };
@@ -75,7 +75,8 @@ fn detect_events(
     wave: Option<Res<WaveState>>,
     players: Query<(&Player, &Health, Option<&WeaponInventory>)>,
     windows: Query<(&GgrsNetId, &WindowHealth)>,
-    doors: Query<(&GgrsNetId, Has<Interactable>), With<DoorComponent>>,
+    // Porte ouverte = sans collider (une porte non interactive reste fermée)
+    doors: Query<(&GgrsNetId, Has<Collider>), With<DoorComponent>>,
 ) {
     let mut now = Snapshot::default();
     if let Some(wave) = &wave {
@@ -148,7 +149,6 @@ fn detect_events(
             push("window", format!("fenêtre {id} réparée ({health})"));
         }
     }
-    // Seulement les portes qui étaient fermées : certaines sont ouvertes dès la map
     for id in now.open_doors.intersection(&before.closed_doors) {
         push("door", format!("porte {id} ouverte"));
     }

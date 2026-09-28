@@ -72,6 +72,21 @@ pub fn build_app(scenario: &Scenario, headless: bool) -> App {
     app
 }
 
+/// Fait avancer le scénario (headless) jusqu'à la frame `frame` et rend l'app, pour
+/// inspecter le monde à cet instant (diagnostic).
+pub fn run_until(scenario: &Scenario, frame: u32) -> App {
+    let mut app = build_app(scenario, true);
+    app.finish();
+    app.cleanup();
+    for _ in 0..MAX_LOADING_UPDATES + frame {
+        app.update();
+        if app.world().resource::<FrameCount>().frame >= frame {
+            break;
+        }
+    }
+    app
+}
+
 /// Joue le scénario jusqu'à `scenario.frames` et vérifie ses attentes.
 pub fn run(scenario: &Scenario) -> ScenarioOutcome {
     let mut app = build_app(scenario, true);

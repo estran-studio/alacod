@@ -1,8 +1,13 @@
 //! Flow Field Navigation System
 //!
 //! This module provides a shared pathfinding solution for hordes of enemies.
-//! Uses a lightweight BFS (Breadth-First Search) with limited radius for performance.
+//! Uses a lightweight BFS (Breadth-First Search) over the map bounds.
 //! O(1) direction lookups per enemy after computation.
+//!
+//! Blocking cells: LDtk IntGrid walls, closed doors (door entities that still have a
+//! collider) and, depending on the profile, obstacles such as intact windows. The field is
+//! rebuilt when the target moves *or* when blocking cells change (door opened, window
+//! broken or repaired). Diagonal steps never cut a wall corner.
 //!
 //! IMPORTANT: Uses BTreeMap/BTreeSet for deterministic iteration order (GGRS rollback).
 
@@ -14,7 +19,8 @@ use std::collections::{BTreeMap, BTreeSet, VecDeque};
 use utils::{frame::FrameCount, net_id::GgrsNetId};
 
 use crate::character::player::Player;
-use crate::collider::{Collider, ColliderShape, Wall};
+use crate::collider::{Collider, ColliderShape};
+use map::game::entity::map::door::DoorComponent;
 
 use super::obstacle::{Obstacle, ObstacleType};
 
@@ -231,6 +237,33 @@ impl FlowField {
     }
 }
 
+/// How far an agent's collider extends from its position on each side (the collider
+/// may be offset, e.g. toward the feet).
+#[derive(Clone, Copy, Debug)]
+pub struct AgentBody {
+    pub left: fixed_math::Fixed,
+    pub right: fixed_math::Fixed,
+    pub down: fixed_math::Fixed,
+    pub up: fixed_math::Fixed,
+}
+
+impl AgentBody {
+    pub fn from_collider(collider: &Collider) -> Self {
+        let (half_w, half_h) = match &collider.shape {
+            ColliderShape::Circle { radius } => (*radius, *radius),
+            ColliderShape::Rectangle { width, height } => {
+                (*width / fixed_math::new(2.0), *height / fixed_math::new(2.0))
+            }
+        };
+        Self {
+            left: half_w - collider.offset.x,
+            right: half_w + collider.offset.x,
+            down: half_h - collider.offset.y,
+            up: half_h + collider.offset.y,
+        }
+    }
+}
+
 /// Level grid information for coordinate conversion
 #[derive(Clone, Default, Debug)]
 pub struct LevelGridInfo {
@@ -299,6 +332,61 @@ impl FlowFieldCache {
         }
 
         false
+    }
+
+    /// A cell blocked on two opposite sides is a 1-cell corridor: an agent wider than a
+    /// cell (zombies are 20 px, cells 16 px) cannot stand in it.
+    pub fn is_too_narrow(&self, pos: &GridPos, profile: NavProfile) -> bool {
+        let blocked = |dx: i32, dy: i32| self.is_blocked(&GridPos::new(pos.x + dx, pos.y + dy), profile);
+        (blocked(-1, 0) && blocked(1, 0)) || (blocked(0, -1) && blocked(0, 1))
+    }
+
+    /// Point to steer toward in a cell: its center, pushed away from each adjacent blocked
+    /// cell by what the agent's body sticks out of the cell on that side (+1 unit), so an
+    /// agent wider than a cell, or with an offset collider, does not rub the wall.
+    pub fn steering_point(
+        &self,
+        cell: GridPos,
+        profile: NavProfile,
+        body: &AgentBody,
+    ) -> fixed_math::FixedVec2 {
+        let blocked = |dx: i32, dy: i32| self.is_blocked(&GridPos::new(cell.x + dx, cell.y + dy), profile);
+        let half_cell = fixed_math::Fixed::from_num(GRID_CELL_SIZE / 2);
+        let push = |extent: fixed_math::Fixed| (extent - half_cell + fixed_math::FIXED_ONE).max(fixed_math::FIXED_ZERO);
+        let mut point = cell.to_fixed();
+        if blocked(-1, 0) {
+            point.x += push(body.left);
+        }
+        if blocked(1, 0) {
+            point.x -= push(body.right);
+        }
+        if blocked(0, -1) {
+            point.y += push(body.down);
+        }
+        if blocked(0, 1) {
+            point.y -= push(body.up);
+        }
+        point
+    }
+
+    /// Direction to follow the flow field from `pos`, aiming at the next cell's steering
+    /// point (see [`Self::steering_point`]). `None` outside the field.
+    pub fn flow_direction(
+        &self,
+        profile: NavProfile,
+        pos: fixed_math::FixedVec2,
+        body: &AgentBody,
+    ) -> Option<fixed_math::FixedVec2> {
+        let field = self.get_flow_field(profile)?;
+        let next = field.get_direction(GridPos::from_fixed(pos))?;
+        let direction = self.steering_point(next, profile, body) - pos;
+        if direction.length_squared() > fixed_math::FixedWide::ZERO {
+            return Some(direction.normalize_or_zero());
+        }
+        // Already on the steering point: aim at the following cell
+        let further = field.get_direction(next)?;
+        let direction = self.steering_point(further, profile, body) - pos;
+        (direction.length_squared() > fixed_math::FixedWide::ZERO).then(|| direction.normalize_or_zero())
     }
 
     /// Load wall cells directly from LDtk IntGrid data
@@ -390,10 +478,8 @@ pub fn update_flow_field_system(
     frame: Res<FrameCount>,
     config: Res<FlowFieldConfig>,
     player_query: Query<(&GgrsNetId, &fixed_math::FixedTransform3D), With<Player>>,
-    wall_query: Query<
-        (&fixed_math::FixedTransform3D, &Collider),
-        (With<Wall>, Without<Obstacle>),
-    >,
+    // Portes fermées : une porte ouverte n'a plus de collider
+    door_query: Query<(&GgrsNetId, &fixed_math::FixedTransform3D, &Collider), With<DoorComponent>>,
     obstacle_query: Query<
         (&fixed_math::FixedTransform3D, &Collider, &Obstacle),
         With<Rollback>,
@@ -424,17 +510,19 @@ pub fn update_flow_field_system(
         GridPos::from_fixed(transform.translation.truncate())
     };
 
-    // Skip if target hasn't moved and we have a valid flow field
-    if target_pos == cache.target_pos && !cache.layers.is_empty() {
+    // Rebuild blocked cells first: an opened door or a broken window changes the field
+    // even when the target does not move
+    let previous_walls = cache.wall_cells.clone();
+    let previous_blocked = cache.blocked_cells.clone();
+    rebuild_blocked_cells(&mut cache, &door_query, &obstacle_query);
+    let obstacles_changed =
+        cache.wall_cells != previous_walls || cache.blocked_cells != previous_blocked;
+
+    if target_pos == cache.target_pos && !obstacles_changed && !cache.layers.is_empty() {
         return;
     }
 
-    // Update target and frame
     cache.target_pos = target_pos;
-    cache.last_update_frame = frame.frame;
-
-    // Rebuild blocked cell cache
-    rebuild_blocked_cells(&mut cache, &wall_query, &obstacle_query);
 
     // Use GroundBreaker profile so zombies can pathfind through breakable obstacles (windows)
     let flow_field = build_flow_field(target_pos, NavProfile::GroundBreaker, &cache, &config);
@@ -452,10 +540,7 @@ pub fn update_flow_field_system(
 /// Rebuild the blocked cell cache from IntGrid data and current obstacle positions
 fn rebuild_blocked_cells(
     cache: &mut FlowFieldCache,
-    _wall_query: &Query<
-        (&fixed_math::FixedTransform3D, &Collider),
-        (With<Wall>, Without<Obstacle>),
-    >,
+    door_query: &Query<(&GgrsNetId, &fixed_math::FixedTransform3D, &Collider), With<DoorComponent>>,
     obstacle_query: &Query<
         (&fixed_math::FixedTransform3D, &Collider, &Obstacle),
         With<Rollback>,
@@ -467,6 +552,14 @@ fn rebuild_blocked_cells(
     // We no longer iterate wall colliders since IntGrid has all static walls.
     // Wall colliders are only used for physics, not pathfinding.
     cache.wall_cells = cache.intgrid_wall_cells.clone();
+
+    // Door tiles are free in the IntGrid: a door blocks as long as it has a collider
+    // (closed, or never openable when not interactable)
+    for (_, transform, collider) in utils::order_iter!(door_query) {
+        cache
+            .wall_cells
+            .extend(get_collider_cells(transform.translation.truncate(), collider));
+    }
 
     let mut window_cells_removed = 0;
     // Process obstacles - windows create HOLES in walls
@@ -582,7 +675,30 @@ fn build_flow_field(
     flow_field.directions.insert(target, target);
     flow_field.costs.insert(target, 0);
 
-    let max_cells = (config.max_search_radius * config.max_search_radius * 4) as usize;
+    // Search inside the map (walls bounding box + margin) instead of a radius around the
+    // target: every spawner of the map must be covered
+    let margin = config.max_search_radius.min(8);
+    let bounds = cache.wall_cells.iter().fold(None, |acc: Option<(i32, i32, i32, i32)>, p| {
+        Some(match acc {
+            None => (p.x, p.x, p.y, p.y),
+            Some((x0, x1, y0, y1)) => (x0.min(p.x), x1.max(p.x), y0.min(p.y), y1.max(p.y)),
+        })
+    });
+    let (min_x, max_x, min_y, max_y) = match bounds {
+        Some((x0, x1, y0, y1)) => (
+            x0.min(target.x) - margin,
+            x1.max(target.x) + margin,
+            y0.min(target.y) - margin,
+            y1.max(target.y) + margin,
+        ),
+        None => (
+            target.x - config.max_search_radius,
+            target.x + config.max_search_radius,
+            target.y - config.max_search_radius,
+            target.y + config.max_search_radius,
+        ),
+    };
+    let max_cells = ((max_x - min_x + 1) * (max_y - min_y + 1)) as usize;
     let mut cells_processed = 0;
 
     while let Some(current) = queue.pop_front() {
@@ -607,13 +723,24 @@ fn build_flow_field(
                 continue;
             }
 
-            // Check bounds (manhattan distance from target)
-            if neighbor.manhattan_distance(&target) > config.max_search_radius {
+            // Stay inside the map bounds
+            if neighbor.x < min_x || neighbor.x > max_x || neighbor.y < min_y || neighbor.y > max_y {
                 continue;
             }
 
-            // Check if blocked for this profile
-            if cache.is_blocked(&neighbor, profile) {
+            // Check if blocked for this profile, or too narrow for an agent
+            if cache.is_blocked(&neighbor, profile) || cache.is_too_narrow(&neighbor, profile) {
+                continue;
+            }
+
+            // A diagonal step must not cut a corner: both orthogonal cells must be free,
+            // otherwise the enemy collider hits the wall corner and gets stuck
+            let (dx, dy) = (neighbor.x - current.x, neighbor.y - current.y);
+            if dx != 0
+                && dy != 0
+                && (cache.is_blocked(&GridPos::new(current.x + dx, current.y), profile)
+                    || cache.is_blocked(&GridPos::new(current.x, current.y + dy), profile))
+            {
                 continue;
             }
 

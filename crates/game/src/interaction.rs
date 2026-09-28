@@ -467,9 +467,11 @@ impl Plugin for InteractionPlugin {
 /// Cache l'entité visuelle (LDtk) des portes ouvertes.
 /// Hors GGRS : l'état est lu à chaque frame, donc il reste juste après un rollback
 /// (une porte dont l'ouverture est annulée redevient visible).
+/// Une porte est ouverte quand elle n'a plus de collider : une porte non interactive
+/// n'a pas d'`Interactable` mais reste fermée.
 pub fn update_door_visuals(
     doors: Query<
-        (&map::game::entity::MapRollbackItem, Has<Interactable>),
+        (&map::game::entity::MapRollbackItem, Has<Collider>),
         With<map::game::entity::map::door::DoorComponent>,
     >,
     mut visibilities: Query<&mut Visibility>,

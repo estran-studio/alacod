@@ -260,12 +260,20 @@ pub fn move_enemies(
             player_pos
         };
 
+        // Enemies are wider than a flow field cell and their collider is offset toward the
+        // feet: steer toward points pushed away from walls accordingly
+        let body = super::navigation::AgentBody::from_collider(enemy_collider);
+
         // Calculate direction to actual target using flow field
         let direction_to_target_v2 = if let Some(flow_field) =
             flow_field_cache.get_flow_field(super::navigation::NavProfile::GroundBreaker)
         {
             // Always use flow field for navigation - it handles pathfinding around walls
-            match flow_field.get_direction_vector(enemy_pos_v2) {
+            match flow_field_cache.flow_direction(
+                super::navigation::NavProfile::GroundBreaker,
+                enemy_pos_v2,
+                &body,
+            ) {
                 Some(dir) => dir,
                 None => {
                     // Outside flow field coverage - find nearest covered cell
@@ -457,16 +465,23 @@ pub fn move_enemies(
             let delta_y = total_velocity.y * fixed_math::new(FIXED_TIMESTEP);
 
             // Helper to check collision at a position (using cached walls)
-            // Optimization: only check walls within 100 units to avoid O(all_walls) per check
+            // Optimization: skip walls whose *edges* are more than 100 units away. Walls are
+            // merged into long rectangles: measuring from their center would skip a wall
+            // whose end is right next to the enemy.
             let max_check_dist = fixed_math::new(100.0);
             let check_wall_collision = |pos: &fixed_math::FixedVec3| -> bool {
                 let pos_2d = fixed_math::FixedVec2::new(pos.x, pos.y);
                 for (wall_transform, wall_collider, wall_layer) in &walls {
-                    // Skip walls that are too far away (Manhattan distance is faster than Euclidean)
+                    let (half_w, half_h) = match &wall_collider.shape {
+                        crate::collider::ColliderShape::Circle { radius } => (*radius, *radius),
+                        crate::collider::ColliderShape::Rectangle { width, height } => {
+                            (*width / fixed_math::new(2.0), *height / fixed_math::new(2.0))
+                        }
+                    };
                     let wall_pos_2d = wall_transform.translation.truncate();
                     let dx = (pos_2d.x - wall_pos_2d.x).abs();
                     let dy = (pos_2d.y - wall_pos_2d.y).abs();
-                    if dx > max_check_dist || dy > max_check_dist {
+                    if dx > max_check_dist + half_w || dy > max_check_dist + half_h {
                         continue;
                     }
                     if !collision_settings.layer_matrix[enemy_collision_layer.0][wall_layer.0] {

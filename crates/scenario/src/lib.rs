@@ -6,6 +6,7 @@
 //! (`tests/scenarios/<nom>.trace`) pour détecter toute régression.
 
 pub mod events;
+pub mod nav_debug;
 pub mod runner;
 
 /// Format des scénarios (défini dans `game`, qui écrit aussi les enregistrements).
