@@ -134,7 +134,7 @@ cmd_compare() {
         -pix_fmt yuv420p "${ENCODER[@]}" "$result"
     mv "$out/base.events.json" "${result%.mp4}.base.events.json"
     mv "$out/head.events.json" "${result%.mp4}.head.events.json"
-    rm -rf "$out/frames"
+    rm -rf "$out/frames" "${sides[@]}"
     echo "comparaison : $result"
 }
 
