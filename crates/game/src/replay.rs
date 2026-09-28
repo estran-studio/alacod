@@ -94,6 +94,8 @@ pub enum Expectation {
     PlayerDead { handle: usize, at_frame: u32 },
     WaveAtLeast { wave: u32, at_frame: u32 },
     KillsAtLeast { kills: u32, at_frame: u32 },
+    /// Fenêtres détruites (obstacles cassables qui ne bloquent plus).
+    WindowsBrokenAtLeast { windows: u32, at_frame: u32 },
 }
 
 impl Expectation {
@@ -102,7 +104,8 @@ impl Expectation {
             Self::PlayerAlive { at_frame, .. }
             | Self::PlayerDead { at_frame, .. }
             | Self::WaveAtLeast { at_frame, .. }
-            | Self::KillsAtLeast { at_frame, .. } => *at_frame,
+            | Self::KillsAtLeast { at_frame, .. }
+            | Self::WindowsBrokenAtLeast { at_frame, .. } => *at_frame,
         }
     }
 }

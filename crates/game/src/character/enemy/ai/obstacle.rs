@@ -221,13 +221,17 @@ pub struct ObstacleAttackEvent {
 
 /// System to process obstacle damage
 /// Also syncs with WindowHealth for legacy compatibility
+///
+/// A destroyed obstacle keeps its collider: `blocks_movement` becomes false, so enemies
+/// walk through it (their collision ignores obstacles that no longer block), while
+/// players are still stopped by a broken window. Repairing it blocks enemies again.
 pub fn process_obstacle_damage(
+    frame: Res<utils::frame::FrameCount>,
     attack_events: Res<FrameEvents<ObstacleAttackEvent>>,
-    mut obstacle_query: Query<(Entity, &mut Obstacle, Option<&mut map::game::entity::map::window::WindowHealth>)>,
-    mut commands: Commands,
+    mut obstacle_query: Query<(&utils::net_id::GgrsNetId, &mut Obstacle, Option<&mut map::game::entity::map::window::WindowHealth>)>,
 ) {
     for event in attack_events.iter() {
-        if let Ok((entity, mut obstacle, window_health_opt)) = obstacle_query.get_mut(event.obstacle) {
+        if let Ok((net_id, mut obstacle, window_health_opt)) = obstacle_query.get_mut(event.obstacle) {
             let destroyed = obstacle.take_damage(event.damage);
 
             // Sync with WindowHealth if present (legacy compatibility)
@@ -236,12 +240,7 @@ pub fn process_obstacle_damage(
             }
 
             if destroyed {
-                // Remove collision so entities can pass through
-                commands.entity(entity)
-                    .remove::<crate::collider::Collider>()
-                    .remove::<crate::collider::CollisionLayer>();
-
-                info!("Obstacle {:?} destroyed by {:?}", entity, event.attacker);
+                info!("ggrs{{f={} obstacle_destroyed net_id={}}}", frame.frame, net_id.0);
             }
         }
     }

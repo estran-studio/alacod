@@ -1,11 +1,12 @@
-// Session jouée en contrôle remote (Claude), enregistrée telle quelle, rejouée après la
-// correction du pathing des zombies (la session précédente visait leurs anciennes trajectoires).
-// Tirs visés sur les zombies qui entrent par les fenêtres, recul, rechargement.
+// Session jouée en contrôle remote (Claude), enregistrée telle quelle. Rejouée après que les
+// zombies doivent casser les fenêtres (les sessions précédentes visaient d'anciennes trajectoires).
+// Le joueur attend que la fenêtre du bas cède, vise le zombie le plus proche toutes les 10 frames,
+// recule vers le haut puis recharge.
 //
-// À regarder : f260-325 le joueur tire sur le premier zombie entré par le bas (kill f320) ;
-// f325-345 il recule vers le haut ; f425-450 ses tirs vers la gauche ratent, les zombies sont
-// encore dans l'ouverture de la fenêtre ; f480-540 il tue le zombie arrivé à droite (f540) puis
-// recharge (f565 : quelques frames après l'appui, délai d'input GGRS).
+// À regarder : le joueur attend que le premier zombie casse la fenêtre du bas (f329) et entre ;
+// il vise le zombie le plus proche toutes les 10 frames : kills f427 et f499. Il recule vers le
+// haut puis recharge (f541, quelques frames après l'appui : délai d'input GGRS). Une deuxième
+// fenêtre cède à f555.
 Scenario(
     map: "exemples/test_map.ldtk",
     map_seed: 123456,
@@ -13,22 +14,29 @@ Scenario(
     players: [
         PlayerScript(
             inputs: [
-                Segment(from: 260, to: 280, buttons: [Fire], pan: (78, -66)),
-                Segment(from: 280, to: 300, buttons: [Fire], pan: (50, -39)),
-                Segment(from: 300, to: 325, buttons: [Fire], pan: (30, -25)),
-                Segment(from: 325, to: 345, buttons: [Up], pan: (0, 0)),
-                Segment(from: 425, to: 450, buttons: [Fire], pan: (-127, -52)),
-                Segment(from: 480, to: 500, buttons: [Fire], pan: (45, -43)),
-                Segment(from: 500, to: 530, buttons: [Fire], pan: (26, -26)),
-                Segment(from: 530, to: 540, buttons: [Fire], pan: (17, -23)),
-                Segment(from: 540, to: 560, buttons: [Fire], pan: (-38, -1)),
-                Segment(from: 560, to: 570, buttons: [Reload], pan: (0, 0)),
+                Segment(from: 355, to: 375, buttons: [Fire], pan: (91, -80)),
+                Segment(from: 375, to: 385, buttons: [Fire], pan: (63, -53)),
+                Segment(from: 385, to: 395, buttons: [Fire], pan: (50, -39)),
+                Segment(from: 395, to: 405, buttons: [Fire], pan: (37, -25)),
+                Segment(from: 405, to: 415, buttons: [Fire], pan: (31, -19)),
+                Segment(from: 415, to: 425, buttons: [Fire], pan: (29, -15)),
+                Segment(from: 425, to: 435, buttons: [Fire], pan: (28, -13)),
+                Segment(from: 435, to: 445, buttons: [Fire], pan: (67, -57)),
+                Segment(from: 445, to: 455, buttons: [Fire], pan: (59, -47)),
+                Segment(from: 455, to: 465, buttons: [Fire], pan: (48, -39)),
+                Segment(from: 465, to: 475, buttons: [Fire], pan: (40, -29)),
+                Segment(from: 475, to: 485, buttons: [Fire], pan: (33, -24)),
+                Segment(from: 485, to: 495, buttons: [Fire], pan: (31, -19)),
+                Segment(from: 495, to: 505, buttons: [Fire], pan: (29, -17)),
+                Segment(from: 505, to: 515, buttons: [Fire], pan: (-124, -10)),
+                Segment(from: 515, to: 535, buttons: [Up], pan: (0, 0)),
+                Segment(from: 535, to: 545, buttons: [Reload], pan: (0, 0)),
             ],
         ),
     ],
     expect: [
-        KillsAtLeast(kills: 1, at_frame: 330),
-        KillsAtLeast(kills: 2, at_frame: 545),
+        KillsAtLeast(kills: 1, at_frame: 440),
+        KillsAtLeast(kills: 2, at_frame: 510),
         PlayerAlive(handle: 0, at_frame: 600),
     ],
 )

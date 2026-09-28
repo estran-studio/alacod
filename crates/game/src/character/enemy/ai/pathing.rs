@@ -4,7 +4,6 @@ use crate::character::movement::Velocity;
 use crate::character::player::input::FIXED_TIMESTEP;
 use crate::character::player::Player;
 use crate::collider::{is_colliding, Collider, Wall, Window};
-use crate::frame_events::FrameEvents;
 use animation::FacingDirection;
 use bevy::prelude::*;
 use bevy_fixed::fixed_math;
@@ -13,7 +12,7 @@ use serde::{Deserialize, Serialize};
 use std::collections::VecDeque;
 use utils::{frame::FrameCount, net_id::GgrsNetId, order_iter, order_mut_iter};
 
-use super::obstacle::{Obstacle, ObstacleAttackEvent};
+use super::obstacle::Obstacle;
 
 #[derive(Component, Debug, Clone, Default)]
 pub struct EnemyPath {
@@ -164,7 +163,6 @@ pub fn move_enemies(
             &crate::collider::CollisionLayer,
             &mut WallSlideTracker,
             Option<&super::state::EnemyTarget>,
-            Option<&super::state::EnemyAiConfig>,
         ),
         With<Enemy>,
     >,
@@ -176,13 +174,12 @@ pub fn move_enemies(
         (&fixed_math::FixedTransform3D, &Collider, &crate::collider::CollisionLayer),
         (With<Wall>, Without<Enemy>, Without<Player>),
     >,
-    // Query for windows (obstacles we can attack when blocked)
+    // Windows block enemies while intact (see process_obstacle_damage)
     window_query: Query<
-        (Entity, &fixed_math::FixedTransform3D, &Obstacle),
+        (&GgrsNetId, &fixed_math::FixedTransform3D, &Obstacle, &Collider),
         (With<Window>, With<Rollback>, Without<Enemy>, Without<Player>),
     >,
     flow_field_cache: Res<super::navigation::FlowFieldCache>,
-    mut obstacle_events: ResMut<FrameEvents<ObstacleAttackEvent>>,
 ) {
     // --- Optimization 1: Cache walls ---
     // Collect walls into a Vec for faster iteration (cache locality)
@@ -210,8 +207,12 @@ pub fn move_enemies(
             .push(index);
     }
 
-    // Cache windows for collision checking
-    let windows: Vec<_> = window_query.iter().collect();
+    // Intact windows block enemies (deterministic order for the collision loop)
+    let windows: Vec<_> = order_iter!(window_query)
+        .into_iter()
+        .filter(|(_, _, obstacle, _)| obstacle.blocks_movement)
+        .map(|(_, transform, _, collider)| (transform, collider))
+        .collect();
 
     // Obstacle avoidance constants
     let lookahead_distance = fixed_math::new(30.0); // How far ahead to check for obstacles
@@ -230,7 +231,6 @@ pub fn move_enemies(
         enemy_collision_layer,
         mut wall_slide_tracker,
         enemy_target_opt,
-        enemy_ai_config_opt,
     ) in order_mut_iter!(enemy_query)
     {
         let enemy_pos_v2 = fixed_transform.translation.truncate();
@@ -491,7 +491,9 @@ pub fn move_enemies(
                         return true;
                     }
                 }
-                false
+                windows.iter().any(|(window_transform, window_collider)| {
+                    is_colliding(pos, enemy_collider, &window_transform.translation, window_collider)
+                })
             };
 
             // Try full movement (X + Y)
@@ -596,38 +598,8 @@ pub fn move_enemies(
                     // Reset wall slide tracker when completely stuck
                     wall_slide_tracker.consecutive_slide_frames = 0;
 
-                    // CHECK FOR NEARBY WINDOWS AND ATTACK THEM
-                    // When blocked, look for intact windows within attack range
-                    let attack_range = enemy_ai_config_opt
-                        .map(|c| c.attack_range)
-                        .unwrap_or(fixed_math::new(50.0));
-
-                    for (window_entity, window_transform, window_obstacle) in &windows {
-                        // Skip destroyed windows
-                        if !window_obstacle.is_intact() {
-                            continue;
-                        }
-
-                        let window_pos = window_transform.translation.truncate();
-                        let distance_to_window = enemy_pos_v2.distance(&window_pos);
-
-                        // If we're close enough to a window, attack it
-                        if distance_to_window < attack_range {
-                            // Send attack event
-                            obstacle_events.send(ObstacleAttackEvent {
-                                attacker: entity,
-                                obstacle: *window_entity,
-                                damage: 1,
-                            });
-                            trace!(
-                                "ggrs{{f={} ai_attack net_id={} target=window dist={}}}",
-                                frame.frame,
-                                net_id.0,
-                                distance_to_window.to_num::<i32>()
-                            );
-                            break; // Only attack one window per frame
-                        }
-                    }
+                    // A blocking intact window is attacked by enemy_attack_system: the
+                    // enemy targets it in enemy_target_selection (with attack cooldown)
 
                     let move_magnitude = (delta_x.abs() + delta_y.abs()).max(fixed_math::new(1.0));
                     let speed = velocity_component.main.length();

@@ -3,9 +3,9 @@
 //! Implements the AI behavior loop using the flow field navigation
 //! and generic state machine.
 //!
-//! NOTE: Window/obstacle attacks are now handled via collision detection
-//! in `move_enemies` (pathing.rs). This module only handles player targeting
-//! and player attacks.
+//! Enemies chase the closest player along the flow field. An intact window that blocks
+//! their path (they collide with it in `move_enemies`) becomes their target: they break
+//! it first, then resume the chase.
 
 use bevy::prelude::*;
 use bevy_fixed::fixed_math;
@@ -24,11 +24,15 @@ use super::state::{AttackTarget, EnemyAiConfig, EnemyTarget, MonsterState, Targe
 
 /// System to select targets for enemies based on proximity
 ///
-/// NOTE: Zombies only target players here. Window/obstacle attacks are handled
-/// via collision detection in `move_enemies` (pathing.rs). This keeps the logic
-/// simple: follow flow field toward player, attack whatever physically blocks you.
+/// Target: the closest player in aggro range, unless an intact breakable obstacle (window)
+/// is on the enemy's flow field path, within attack range: the enemy must break it first.
 pub fn enemy_target_selection(
     frame: Res<FrameCount>,
+    flow_field_cache: Res<FlowFieldCache>,
+    obstacle_query: Query<
+        (&GgrsNetId, &fixed_math::FixedTransform3D, &Obstacle, &crate::collider::Collider),
+        (With<Rollback>, Without<Enemy>, Without<Player>),
+    >,
     mut enemy_query: Query<
         (
             &GgrsNetId,
@@ -47,6 +51,16 @@ pub fn enemy_target_selection(
     // Collect and sort players for deterministic iteration
     let mut players: Vec<_> = player_query.iter().collect();
     players.sort_by_key(|(net_id, _)| net_id.0);
+
+    // Intact breakable obstacles and the cells they cover, by net_id
+    let breakables: Vec<_> = utils::order_iter!(obstacle_query)
+        .into_iter()
+        .filter(|(_, _, obstacle, _)| obstacle.blocks_movement && obstacle.breakable)
+        .map(|(net_id, transform, _, collider)| {
+            let pos = transform.translation.truncate();
+            (net_id.clone(), pos, super::navigation::get_collider_cells(pos, collider))
+        })
+        .collect();
 
     for (_enemy_net_id, enemy_transform, ai_config, mut target, mut state) in
         order_mut_iter!(enemy_query)
@@ -85,8 +99,25 @@ pub fn enemy_target_selection(
             }
         }
 
-        // Simple logic: only target players
-        // Window/obstacle attacks are handled by collision detection in move_enemies
+        // An intact window on the way (current cell or next cells), within attack range:
+        // break it before going through
+        if closest_player.is_some() {
+            let here = super::navigation::GridPos::from_fixed(enemy_pos);
+            let mut ahead = vec![here];
+            ahead.extend(flow_field_cache.path_ahead(super::navigation::NavProfile::GroundBreaker, here, 3));
+            let blocking = breakables.iter().find(|(_, pos, cells)| {
+                enemy_pos.distance(pos) < ai_config.attack_range
+                    && ahead.iter().any(|cell| cells.contains(cell))
+            });
+            if let Some((obstacle_id, obstacle_pos, _)) = blocking {
+                target.target = Some(obstacle_id.clone());
+                target.target_type = TargetType::Obstacle;
+                target.last_known_position = Some(*obstacle_pos);
+                *state = MonsterState::Chasing;
+                continue;
+            }
+        }
+
         if let Some((player_id, _, player_pos)) = closest_player {
             target.target = Some(player_id);
             target.target_type = TargetType::Player;

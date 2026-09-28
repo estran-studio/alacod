@@ -252,7 +252,7 @@ Avant/après un refactoring de la simulation, comparer les traces : elles doiven
 `crates/scenario` joue des parties scriptées en headless, dans le processus de test :
 - `tests/scenarios/<nom>.ron` : map, seed, un script d'inputs par joueur (segments de frames avec
   boutons et visée), nombre de frames, attentes (`PlayerAlive`, `PlayerDead`, `WaveAtLeast`,
-  `KillsAtLeast` à une frame donnée). Format documenté dans `crates/scenario/src/format.rs`.
+  `KillsAtLeast`, `WindowsBrokenAtLeast` à une frame donnée). Format documenté dans `crates/game/src/replay.rs`.
 - `tests/scenarios/<nom>.trace` : trace d'état de référence. Toute différence fait échouer le test.
 - `make test_scenarios` (profil `headless`, sans rendu) ; `SCENARIO=<nom>` pour un seul ;
   `BLESS=1` pour réécrire les traces après un **changement de gameplay voulu** (le dire dans le commit).
@@ -541,6 +541,10 @@ Outils de diagnostic (`crates/scenario/tests/scenarios.rs`, tests ignorés) :
 
 Note: `pathing.rs` fournit encore `update_enemy_targets` et `move_enemies` ; il utilise aussi les macros `order_iter!`/`order_mut_iter!`.
 
-**Fenêtres** : elles ne bloquent pas les zombies physiquement (pas d'entrée zombie↔fenêtre dans la
-matrice de collisions) — les zombies les traversent. Les fenêtres ne sont attaquées que si un
-zombie est complètement bloqué devant.
+**Fenêtres** : une fenêtre intacte (`Obstacle::blocks_movement`) bloque les zombies (collision dans
+`move_enemies`). Quand elle est sur leur chemin (case actuelle ou 3 suivantes) et à portée, elle
+devient leur cible (`enemy_target_selection`) : ils la frappent avec le cooldown d'attaque
+(`enemy_attack_system`) puis reprennent la poursuite une fois cassée. Une fenêtre cassée garde son
+collider : elle bloque toujours les joueurs, plus les zombies ; la réparer la rend bloquante à nouveau.
+Dans le flow field, une fenêtre intacte coûte `breakable_penalty` (le temps de la casser) : les
+zombies prennent un passage ouvert s'il n'est pas beaucoup plus long.

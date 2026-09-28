@@ -193,8 +193,8 @@ fn nav_stats() {
             if w.iter().all(|h| h.3) && moved < 2.0 { stuck += 1; if stuck > longest { longest = stuck; where_ = (b.1, b.2); } } else { stuck = 0; }
         }
         if longest > 0 { total_stuck += 1; }
-        println!("zombie {id:>3} apparu f{:<5} contact joueur {:<7} bloqué max {:>4} frames  sprite dans un mur {:>4} frames (max {:>4.1} px){}",
-            z.spawn, z.contact.map_or("-".into(), |f| format!("f{f}")),
+        println!("zombie {id:>3} apparu f{:<5} attaque fenêtre {:<7} contact joueur {:<7} bloqué max {:>4} frames  sprite dans un mur {:>4} frames (max {:>4.1} px){}",
+            z.spawn, z.window.map_or("-".into(), |f| format!("f{f}")), z.contact.map_or("-".into(), |f| format!("f{f}")),
             longest, z.clip_frames, z.clip_max, if z.clip_max > CLIP_TOLERANCE { format!(" à f{} ({:.0},{:.0})", z.clip_at.0, z.clip_at.1, z.clip_at.2) } else { String::new() } + &if longest > 0 { format!(" bloqué vers ({:.0},{:.0})", where_.0, where_.1) } else { String::new() });
     }
     let contacts = zombies.values().filter(|z| z.contact.is_some()).count();

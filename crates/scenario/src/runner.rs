@@ -192,6 +192,14 @@ fn check(world: &mut World, expectation: &Expectation) -> Result<(), String> {
                 Err(format!("vague {current}"))
             }
         }
+        Expectation::WindowsBrokenAtLeast { windows, .. } => {
+            let broken = windows_broken(world);
+            if broken >= *windows {
+                Ok(())
+            } else {
+                Err(format!("{broken} fenêtres cassées"))
+            }
+        }
         Expectation::KillsAtLeast { kills, .. } => {
             let killed = world.resource::<WaveState>().total_enemies_killed;
             if killed >= *kills {
@@ -215,6 +223,14 @@ fn summarize(world: &mut World, frame: u32) -> String {
         "frame {frame} : vague {}, {} ennemis tués, joueurs vivants {alive:?}",
         waves.current_wave, waves.total_enemies_killed
     )
+}
+
+fn windows_broken(world: &mut World) -> u32 {
+    world
+        .query::<&game::character::enemy::ai::Obstacle>()
+        .iter(world)
+        .filter(|o| o.breakable && !o.is_intact())
+        .count() as u32
 }
 
 fn player_alive(world: &mut World, handle: usize) -> bool {

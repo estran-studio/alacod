@@ -334,6 +334,33 @@ impl FlowFieldCache {
         false
     }
 
+    /// Intact obstacle that blocks movement but that `profile` can break (e.g. a window
+    /// for [`NavProfile::GroundBreaker`]).
+    pub fn is_breakable_obstacle(&self, pos: &GridPos, profile: NavProfile) -> bool {
+        self.blocked_cells
+            .iter()
+            .any(|(obstacle_type, cells)| cells.contains(pos) && profile.can_pass(*obstacle_type))
+    }
+
+    /// Cells of the flow field path from `from`, up to `steps` cells ahead.
+    pub fn path_ahead(&self, profile: NavProfile, from: GridPos, steps: usize) -> Vec<GridPos> {
+        let Some(field) = self.get_flow_field(profile) else {
+            return vec![];
+        };
+        let mut path = Vec::with_capacity(steps);
+        let mut current = from;
+        for _ in 0..steps {
+            match field.get_direction(current) {
+                Some(next) if next != current => {
+                    path.push(next);
+                    current = next;
+                }
+                _ => break,
+            }
+        }
+        path
+    }
+
     /// A cell blocked on two opposite sides is a 1-cell corridor: an agent wider than a
     /// cell (zombies are 20 px, cells 16 px) cannot stand in it.
     pub fn is_too_narrow(&self, pos: &GridPos, profile: NavProfile) -> bool {
@@ -476,6 +503,9 @@ pub struct FlowFieldConfig {
     /// from walls when there is room (sprites are larger than colliders and would overlap
     /// walls), but still go through doors and windows when they are the only way.
     pub wall_penalty: [u32; 2],
+    /// Extra cost to go through an intact obstacle the profile can break (window): the
+    /// time to break it. Enemies take an open way if it is not much longer.
+    pub breakable_penalty: u32,
 }
 
 impl Default for FlowFieldConfig {
@@ -487,6 +517,7 @@ impl Default for FlowFieldConfig {
             straight_cost: 10,
             diagonal_cost: 14,
             wall_penalty: [30, 10],
+            breakable_penalty: 60,
         }
     }
 }
@@ -592,13 +623,14 @@ fn rebuild_blocked_cells(
             if cache.wall_cells.remove(&center_cell) {
                 window_cells_removed += 1;
             }
-            // Windows also block movement for Ground profile (until broken)
+            // An intact window blocks all the cells of its collider (the whole opening),
+            // for profiles that cannot break it; GroundBreaker pays breakable_penalty
             if obstacle.blocks_movement {
                 cache
                     .blocked_cells
                     .entry(obstacle.obstacle_type)
                     .or_default()
-                    .insert(center_cell);
+                    .extend(get_collider_cells(pos, collider));
             }
             continue;
         }
@@ -624,7 +656,7 @@ fn rebuild_blocked_cells(
 
 /// Get all grid cells occupied by a collider (precise, no padding)
 /// Uses exact boundary calculation for proper 1:1 tile alignment
-fn get_collider_cells(
+pub fn get_collider_cells(
     pos: fixed_math::FixedVec2,
     collider: &Collider,
 ) -> Vec<GridPos> {
@@ -782,7 +814,12 @@ fn build_flow_field(
             }
 
             let step = if diagonal { config.diagonal_cost } else { config.straight_cost };
-            let new_cost = cost + step + penalty(&neighbor);
+            let breakable = if cache.is_breakable_obstacle(&neighbor, profile) {
+                config.breakable_penalty
+            } else {
+                0
+            };
+            let new_cost = cost + step + penalty(&neighbor) + breakable;
             if flow_field.costs.get(&neighbor).is_some_and(|best| new_cost >= *best) {
                 continue;
             }
