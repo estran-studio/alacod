@@ -102,15 +102,24 @@ pub struct PlayerIndicator {
     pub player_entity: Entity,
 }
 
+/// Actions du joueur local qui contrôle la caméra : celui au plus petit handle
+/// (plusieurs joueurs locaux partagent une session synctest).
+fn camera_owner_actions<'a>(
+    action_query: &'a Query<(&Player, &ActionState<PlayerAction>), With<LocalPlayer>>,
+) -> Option<&'a ActionState<PlayerAction>> {
+    action_query
+        .iter()
+        .min_by_key(|(player, _)| player.handle)
+        .map(|(_, actions)| actions)
+}
+
 // System to handle camera input
 fn camera_input_system(
-    action_query: Query<&ActionState<PlayerAction>>,
+    action_query: Query<(&Player, &ActionState<PlayerAction>), With<LocalPlayer>>,
     mut camera_query: Query<&mut GameCamera>,
     _player_query: Query<(Entity, &Player)>,
 ) {
-    let action_state = if let Ok(state) = action_query.single() {
-        state
-    } else {
+    let Some(action_state) = camera_owner_actions(&action_query) else {
         return;
     };
 
@@ -167,7 +176,7 @@ fn camera_control_system(
     time: Res<Time>,
     settings: Res<CameraSettings>,
     windows: Query<&Window>,
-    action_query: Query<&ActionState<PlayerAction>>,
+    action_query: Query<(&Player, &ActionState<PlayerAction>), With<LocalPlayer>>,
     mut camera_query: Query<
         (&mut GameCamera, &mut Transform, &mut Projection),
         Without<Player>,
@@ -188,9 +197,7 @@ fn camera_control_system(
         Vec2::ZERO
     };
 
-    let action_state = if let Ok(state) = action_query.single() {
-        state
-    } else {
+    let Some(action_state) = camera_owner_actions(&action_query) else {
         return;
     };
 
@@ -201,14 +208,13 @@ fn camera_control_system(
             return;
         };
 
-    // Find the local player if not already set
+    // Find the local player if not already set (smallest handle)
     if camera.target_player_id.is_none() {
-        for (entity, _, _, local_player_opt) in player_query.iter() {
-            if local_player_opt.is_some() {
-                camera.target_player_id = Some(entity);
-                break;
-            }
-        }
+        camera.target_player_id = player_query
+            .iter()
+            .filter(|(_, _, _, local)| local.is_some())
+            .min_by_key(|(_, _, player, _)| player.handle)
+            .map(|(entity, _, _, _)| entity);
     }
 
     // Calculate target position and zoom based on camera mode
