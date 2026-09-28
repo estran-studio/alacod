@@ -92,6 +92,10 @@ videos:
 compare_video:
 	EVERY=$(or $(EVERY),2) ./scripts/scenario-video compare $(SCENARIO) $(BASE) $(or $(HEAD),HEAD)
 
+# Page de revue des vidéos (target/videos/index.html) servie sur http://localhost:8765
+review_videos:
+	./scripts/scenario-review.py --serve 8765
+
 # Partie pilotée à distance (scripts/alacod-remote), en pause au départ.
 # HEADLESS=1 : sans fenêtre, bien plus rapide.
 remote:

@@ -276,6 +276,10 @@ Avant/après un refactoring de la simulation, comparer les traces : elles doiven
 - `make compare_video SCENARIO=<nom> BASE=<réf> [HEAD=<réf>]` : avant/après côte à côte, le même
   scénario joué par le code des deux références (worktree git, target partagé). La référence doit
   contenir `play_scenario --capture`.
+- `make review_videos` : page de revue (`target/videos/index.html`, regénérée après chaque rendu) sur
+  http://localhost:8765 : commits et comparaisons, lecture synchronisée image par image, notes par
+  vidéo. Servie par `scripts/scenario-review.py --serve` (requêtes Range, requises pour se
+  positionner dans les vidéos).
 
 La partie jouée est celle de `map_explorer` (plugin partagé `map_ldtk::game::local::LdtkLocalGamePlugin`).
 Tout changement de simulation doit garder les scénarios verts, ou justifier le `BLESS`.

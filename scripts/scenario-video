@@ -6,6 +6,7 @@
 #   scenario-video montage                   grille de toutes les vidéos rendues
 #   scenario-video compare <nom> <réf> [réf2] avant/après côte à côte : le scénario joué
 #                                            par le code de <réf> et de <réf2> (défaut : HEAD)
+#   scenario-video index                     regénère la page de revue target/videos/index.html
 #
 # Sorties dans target/videos/<commit>/ (compare : target/videos/compare/).
 # EVERY=N : une image toutes les N frames de simulation (défaut 2 → 30 images/s).
@@ -137,5 +138,9 @@ case "${1:-}" in
     render) shift; cmd_render "$@" ;;
     montage) shift; cmd_montage ;;
     compare) shift; [ $# -ge 2 ] || { echo "usage : scenario-video compare <nom> <réf> [réf2]" >&2; exit 1; }; cmd_compare "$@" ;;
-    *) sed -n '2,13p' "$0" | sed 's/^# \{0,1\}//'; exit 1 ;;
+    index) ;;
+    *) sed -n '2,14p' "$0" | sed 's/^# \{0,1\}//'; exit 1 ;;
 esac
+
+# Page de revue (target/videos/index.html) à jour après chaque commande
+"$ROOT/scripts/scenario-review.py"
