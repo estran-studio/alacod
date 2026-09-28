@@ -212,6 +212,45 @@ fn check(world: &mut World, expectation: &Expectation) -> Result<(), String> {
                 Err(format!("{current} balles dans {name} ({mode})"))
             }
         }
+        Expectation::WindowHealth { window, health, .. } => {
+            let current = world
+                .query::<(&utils::net_id::GgrsNetId, &map::game::entity::map::window::WindowHealth)>()
+                .iter(world)
+                .find(|(id, _)| id.0 == *window)
+                .map(|(_, h)| h.current);
+            match current {
+                Some(current) if current == *health => Ok(()),
+                Some(current) => Err(format!("santé {current}")),
+                None => Err("fenêtre absente".into()),
+            }
+        }
+        Expectation::DoorsOpenAtLeast { doors, .. } => {
+            let open = world
+                .query_filtered::<Has<game::collider::Collider>, With<map::game::entity::map::door::DoorComponent>>()
+                .iter(world)
+                .filter(|closed| !closed)
+                .count() as u32;
+            if open >= *doors {
+                Ok(())
+            } else {
+                Err(format!("{open} portes ouvertes"))
+            }
+        }
+        Expectation::PlayerPosition { handle, x, y, tolerance, .. } => {
+            let Some((px, py)) = world
+                .query::<(&Player, &bevy_fixed::fixed_math::FixedTransform3D)>()
+                .iter(world)
+                .find(|(player, _)| player.handle == *handle)
+                .map(|(_, t)| (t.translation.x.to_num::<f32>(), t.translation.y.to_num::<f32>()))
+            else {
+                return Err("joueur absent".into());
+            };
+            if (px - x).abs() <= *tolerance && (py - y).abs() <= *tolerance {
+                Ok(())
+            } else {
+                Err(format!("joueur en ({px:.1}, {py:.1})"))
+            }
+        }
         Expectation::WindowsBrokenAtLeast { windows, .. } => {
             let broken = windows_broken(world);
             if broken >= *windows {

@@ -41,6 +41,10 @@ struct PlayerSnapshot {
     mode: String,
     ammo: u32,
     mags: u32,
+    dashing: bool,
+    sprinting: bool,
+    melee: bool,
+    position: (i32, i32),
 }
 
 #[derive(Default, Clone)]
@@ -78,7 +82,15 @@ fn detect_events(
     frame: Res<FrameCount>,
     mut events: ResMut<GameEvents>,
     wave: Option<Res<WaveState>>,
-    players: Query<(&Player, &Health, Option<&WeaponInventory>)>,
+    players: Query<(
+        &Player,
+        &Health,
+        Option<&WeaponInventory>,
+        Option<&game::character::dash::DashState>,
+        Option<&game::character::movement::SprintState>,
+        Option<&game::weapons::melee::MeleeAttackState>,
+        &bevy_fixed::fixed_math::FixedTransform3D,
+    )>,
     weapons: Query<(&WeaponState, &WeaponModesState)>,
     windows: Query<(&GgrsNetId, &WindowHealth)>,
     // Porte ouverte = sans collider (une porte non interactive reste fermée)
@@ -90,11 +102,18 @@ fn detect_events(
         now.phase = Some(wave.phase);
         now.kills = wave.total_enemies_killed;
     }
-    for (player, health, inventory) in &players {
+    for (player, health, inventory, dash, sprint, melee, transform) in &players {
         let mut snapshot = PlayerSnapshot {
             reloading: inventory.is_some_and(|i| i.reloading_ending_frame.is_some()),
             weapon_index: inventory.map_or(0, |i| i.active_weapon_index),
             hit: health.current < health.max,
+            dashing: dash.is_some_and(|d| d.is_dashing),
+            sprinting: sprint.is_some_and(|s| s.is_sprinting),
+            melee: melee.is_some_and(|m| m.is_attacking),
+            position: (
+                transform.translation.x.to_num::<i32>(),
+                transform.translation.y.to_num::<i32>(),
+            ),
             ..Default::default()
         };
         if let Some((entity, weapon)) = inventory.and_then(|i| i.weapons.get(i.active_weapon_index)) {
@@ -154,6 +173,19 @@ fn detect_events(
                     push("weapon", format!("joueur {handle} prend {} ({}, {} balles)", player.weapon, player.mode, player.ammo));
                 } else if player.mode != previous.mode {
                     push("weapon", format!("joueur {handle} passe en mode {} ({} balles)", player.mode, player.ammo));
+                }
+                if player.dashing && !previous.dashing {
+                    push("move", format!("joueur {handle} dash depuis {:?}", previous.position));
+                }
+                if !player.dashing && previous.dashing {
+                    push("move", format!("joueur {handle} fin du dash en {:?}", player.position));
+                }
+                if player.sprinting != previous.sprinting {
+                    let what = if player.sprinting { "sprinte" } else { "arrête de sprinter" };
+                    push("move", format!("joueur {handle} {what}"));
+                }
+                if player.melee && !previous.melee {
+                    push("melee", format!("joueur {handle} attaque au corps à corps"));
                 }
                 if player.weapon_index == previous.weapon_index && player.ammo == 0 && previous.ammo > 0 {
                     push("weapon", format!("joueur {handle} : chargeur vide ({})", player.weapon));

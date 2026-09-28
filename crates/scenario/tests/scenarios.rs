@@ -286,3 +286,32 @@ fn weapon_probe() {
         app.update();
     }
 }
+
+/// Diagnostic : positions des joueurs, portes et fenêtres (et leur état) à une frame.
+/// `ALACOD_MAP_PROBE=<scénario>:<frame>`
+#[test]
+#[ignore]
+fn map_probe() {
+    use bevy::prelude::*;
+    use bevy_fixed::fixed_math::FixedTransform3D;
+    use game::character::{enemy::ai::Obstacle, player::Player};
+    use game::collider::Collider;
+    use game::interaction::Interactable;
+    use map::game::entity::map::{door::DoorComponent, window::WindowHealth};
+    use utils::net_id::GgrsNetId;
+    let spec = std::env::var("ALACOD_MAP_PROBE").unwrap_or_else(|_| "idle:5".into());
+    let (name, frame) = spec.split_once(':').unwrap();
+    let source = std::fs::read_to_string(scenarios_dir().join(format!("{name}.ron"))).unwrap();
+    let mut app = scenario::runner::run_until(&Scenario::from_ron(&source).unwrap(), frame.parse().unwrap());
+    let world = app.world_mut();
+    let pos = |t: &FixedTransform3D| (t.translation.x.to_num::<f32>(), t.translation.y.to_num::<f32>());
+    for (p, t) in world.query::<(&Player, &FixedTransform3D)>().iter(world) { println!("joueur {} {:?}", p.handle, pos(t)); }
+    let mut windows: Vec<_> = world.query::<(&GgrsNetId, &FixedTransform3D, &WindowHealth, &Obstacle, Option<&Interactable>)>().iter(world)
+        .map(|(id, t, h, o, i)| (id.0, pos(t), h.current, o.blocks_movement, i.map(|i| i.interaction_range.to_num::<f32>()))).collect();
+    windows.sort_by_key(|w| w.0);
+    for w in windows { println!("fenêtre {} {:?} santé {} bloque_zombies={} portée_interaction={:?}", w.0, w.1, w.2, w.3, w.4); }
+    let mut doors: Vec<_> = world.query::<(&GgrsNetId, &FixedTransform3D, Option<&Collider>, Option<&Interactable>, &DoorComponent)>().iter(world)
+        .map(|(id, t, c, i, d)| (id.0, pos(t), c.is_some(), i.map(|i| i.interaction_range.to_num::<f32>()), d.config.interactable)).collect();
+    doors.sort_by_key(|d| d.0);
+    for d in doors { println!("porte {} {:?} fermée={} portée_interaction={:?} interactive={}", d.0, d.1, d.2, d.3, d.4); }
+}

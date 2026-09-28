@@ -251,8 +251,9 @@ Avant/après un refactoring de la simulation, comparer les traces : elles doiven
 
 `crates/scenario` joue des parties scriptées en headless, dans le processus de test :
 - `tests/scenarios/<nom>.ron` : map, seed, un script d'inputs par joueur (segments de frames avec
-  boutons et visée), nombre de frames, attentes (`PlayerAlive`, `PlayerDead`, `WaveAtLeast`,
-  `KillsAtLeast`, `WindowsBrokenAtLeast` à une frame donnée). Format documenté dans `crates/game/src/replay.rs`.
+  boutons et visée), nombre de frames, attentes à une frame donnée (`PlayerAlive`, `PlayerDead`,
+  `WaveAtLeast`, `KillsAtLeast`, `WindowsBrokenAtLeast`, `WindowHealth`, `DoorsOpenAtLeast`,
+  `ActiveWeapon`, `Ammo`, `PlayerPosition`). Format documenté dans `crates/game/src/replay.rs`.
 - `tests/scenarios/<nom>.trace` : trace d'état de référence. Toute différence fait échouer le test.
 - `make test_scenarios` (profil `headless`, sans rendu) ; `SCENARIO=<nom>` pour un seul ;
   `BLESS=1` pour réécrire les traces après un **changement de gameplay voulu** (le dire dans le commit).
@@ -533,6 +534,8 @@ Outils de diagnostic (`crates/scenario/tests/scenarios.rs`, tests ignorés) :
 `nav_map` (grille ASCII avec directions, `ALACOD_NAV=idle:700 ALACOD_NAV_ARROWS=1`),
 `nav_stats` (par zombie : apparition, contact, blocages, sprite qui entre dans un mur et où),
 `nav_probe` (un zombie à une frame).
+Aussi `weapon_probe` (état des armes frame par frame) et `map_probe` (positions et état des
+joueurs, portes et fenêtres).
 
 ### GGRS Compliance
 - `FlowFieldCache` est `Clone` et enregistré avec `rollback_resource_with_clone`

@@ -1,0 +1,33 @@
+// Déplacements spéciaux et corps à corps d'un joueur seul : sprint, dash (il suit la visée, ou la
+// direction du regard sans visée ; cooldown de 180 frames), sprint en tirant (le sprint empêche de
+// tirer), puis attaques au corps à corps répétées quand les zombies arrivent.
+//
+// À regarder : sprint vers la droite (f16-76). À f96, Gauche + Dash sans visée : le dash part vers la
+// droite, direction du regard (56 px). Les dashs de f150 et f160 sont refusés (cooldown). Sprint en
+// tirant vers le haut (f226-256) : aucun tir. Attaques au corps à corps toutes les 40 frames à
+// partir de f386 (arc de slash vers le bas).
+Scenario(
+    frames: 900,
+    players: [
+        (inputs: [
+            (from: 10, to: 70, buttons: [Right, Sprint]),
+            (from: 90, to: 93, buttons: [Left, Dash]),
+            (from: 150, to: 153, buttons: [Left, Dash]),
+            (from: 160, to: 163, buttons: [Left, Dash]),
+            (from: 220, to: 250, buttons: [Sprint, Fire], pan: (0, 100)),
+            (from: 380, to: 383, buttons: [Melee], pan: (0, -60)),
+            (from: 420, to: 423, buttons: [Melee], pan: (0, -60)),
+            (from: 460, to: 463, buttons: [Melee], pan: (0, -60)),
+            (from: 500, to: 503, buttons: [Melee], pan: (0, -60)),
+            (from: 540, to: 543, buttons: [Melee], pan: (0, -60)),
+            (from: 580, to: 583, buttons: [Melee], pan: (0, -60)),
+        ]),
+    ],
+    expect: [
+        PlayerPosition(handle: 0, x: 511.4, y: 695, tolerance: 1, at_frame: 95),
+        // Dash de ~56 px dans la direction du regard (droite), pas de l'input de déplacement
+        PlayerPosition(handle: 0, x: 567.4, y: 695, tolerance: 1, at_frame: 115),
+        // Dashs refusés pendant le cooldown : le joueur n'a presque pas bougé
+        PlayerPosition(handle: 0, x: 566, y: 695, tolerance: 2, at_frame: 170),
+    ],
+)

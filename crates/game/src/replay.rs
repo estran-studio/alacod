@@ -106,6 +106,12 @@ pub enum Expectation {
     },
     /// Munitions exactes dans le chargeur de l'arme active.
     Ammo { handle: usize, ammo: u32, at_frame: u32 },
+    /// Portes ouvertes (sans collider).
+    DoorsOpenAtLeast { doors: u32, at_frame: u32 },
+    /// Santé exacte d'une fenêtre (par son GgrsNetId).
+    WindowHealth { window: usize, health: u8, at_frame: u32 },
+    /// Position du joueur, à `tolerance` unités près sur chaque axe.
+    PlayerPosition { handle: usize, x: f32, y: f32, tolerance: f32, at_frame: u32 },
 }
 
 impl Expectation {
@@ -117,7 +123,10 @@ impl Expectation {
             | Self::KillsAtLeast { at_frame, .. }
             | Self::WindowsBrokenAtLeast { at_frame, .. }
             | Self::ActiveWeapon { at_frame, .. }
-            | Self::Ammo { at_frame, .. } => *at_frame,
+            | Self::Ammo { at_frame, .. }
+            | Self::DoorsOpenAtLeast { at_frame, .. }
+            | Self::WindowHealth { at_frame, .. }
+            | Self::PlayerPosition { at_frame, .. } => *at_frame,
         }
     }
 }

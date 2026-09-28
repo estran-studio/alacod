@@ -1,0 +1,24 @@
+// Le joueur marche jusqu'à la porte de droite de sa pièce, l'ouvre (Interaction), s'aligne sur
+// l'ouverture (elle fait 32 px de haut, il apparaît 9 px trop bas) et la franchit.
+//
+// À regarder : le joueur bute contre la porte fermée (f140-150), l'ouvre : la porte et sa jumelle
+// de l'autre niveau disparaissent ensemble (f156). Il monte un peu pour s'aligner puis passe.
+Scenario(
+    frames: 330,
+    players: [
+        (inputs: [
+            (from: 10, to: 150, buttons: [Right]),
+            (from: 150, to: 154, buttons: [Interaction]),
+            (from: 170, to: 190, buttons: [Up]),
+            (from: 190, to: 300, buttons: [Right]),
+        ]),
+    ],
+    expect: [
+        // La porte fermée arrête le joueur
+        PlayerPosition(handle: 0, x: 645, y: 695, tolerance: 3, at_frame: 148),
+        // Interaction : la porte et sa jumelle (autre niveau) s'ouvrent
+        DoorsOpenAtLeast(doors: 2, at_frame: 160),
+        // Le joueur est passé de l'autre côté
+        PlayerPosition(handle: 0, x: 805, y: 714, tolerance: 20, at_frame: 320),
+    ],
+)

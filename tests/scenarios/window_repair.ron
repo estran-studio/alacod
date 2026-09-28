@@ -1,0 +1,22 @@
+// Le joueur se poste devant la fenêtre du bas (fenêtre 28) et la répare (Interaction maintenue)
+// pendant que les zombies la frappent de l'extérieur. Vérifie qu'une fenêtre cassée puis réparée
+// bloque de nouveau les zombies : ils doivent la recasser pour entrer.
+//
+// À regarder : les zombies frappent la fenêtre, le joueur la répare (f387, f447) ; elle cède (f506),
+// le joueur la répare aussitôt (f507, 1 PV) et les zombies doivent la frapper encore (cède f536).
+Scenario(
+    frames: 1100,
+    players: [
+        (inputs: [
+            (from: 10, to: 22, buttons: [Right]),
+            (from: 10, to: 120, buttons: [Down]),
+            (from: 340, to: 1100, buttons: [Interaction]),
+        ]),
+    ],
+    expect: [
+        // Réparée juste après avoir cédé : bloquante à nouveau
+        WindowHealth(window: 28, health: 1, at_frame: 510),
+        // Les zombies ont dû la recasser
+        WindowHealth(window: 28, health: 0, at_frame: 540),
+    ],
+)

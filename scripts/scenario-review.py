@@ -49,7 +49,7 @@ def scenario_info(name):
             watch.append(content)
         elif content:
             description.append(content)
-    expect = re.findall(r"^\s*((?:PlayerAlive|PlayerDead|WaveAtLeast|KillsAtLeast|WindowsBrokenAtLeast|ActiveWeapon|Ammo)\([^)]*\))", text, re.M)
+    expect = re.findall(r"^\s*((?:PlayerAlive|PlayerDead|WaveAtLeast|KillsAtLeast|WindowsBrokenAtLeast|ActiveWeapon|Ammo|DoorsOpenAtLeast|PlayerPosition|WindowHealth)\([^)]*\))", text, re.M)
     frames = re.search(r"frames:\s*(\d+)", text)
     return {
         "description": " ".join(description),
