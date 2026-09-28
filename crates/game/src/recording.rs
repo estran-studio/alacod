@@ -59,6 +59,7 @@ impl InputRecorder {
             frames: self.frame_count(),
             players,
             expect: vec![],
+            weapon_overrides: vec![],
         };
         if let Some(map) = map {
             scenario.map = map.map_path.clone();

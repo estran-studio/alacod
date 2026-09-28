@@ -67,10 +67,15 @@ impl Plugin for LdtkMapLoadingPlugin {
         app.add_message::<LdtkMapLoadingEvent>();
 
         app.add_systems(OnEnter(AppState::GameLoading), setup_generated_map);
+        // Deterministic order at the end of map loading: door level iids, then map entity
+        // ids (this system also sends LdtkMapLoadingEvent), then walls, then players (see
+        // MapNetIdAssignment)
         app.add_systems(Update, (
             load_levels_if_not_present,
-            wait_for_all_map_rollback_entity,
             populate_door_level_iids,
+            wait_for_all_map_rollback_entity
+                .after(populate_door_level_iids)
+                .in_set(MapNetIdAssignment),
         ).run_if(in_state(AppState::GameLoading)));
 
         // Transition from GameLoading to GameStarting when map loading is complete
@@ -80,15 +85,17 @@ impl Plugin for LdtkMapLoadingPlugin {
             Update,
             create_wall_colliders_from_ldtk
                 .run_if(on_message::<LdtkMapLoadingEvent>)
+                .after(wait_for_all_map_rollback_entity)
                 .in_set(MapNetIdAssignment),
         );
     }
 }
 
-/// Systèmes qui attribuent des `GgrsNetId` aux entités de la map quand elle est chargée
-/// (en réponse à `LdtkMapLoadingEvent`). Tout système qui crée des entités rollback en
-/// réponse au même événement (ex. les joueurs) doit être ordonné `.after(MapNetIdAssignment)` :
-/// sinon l'ordre d'exécution, et donc la numérotation, varie d'un client à l'autre.
+/// Systèmes qui attribuent des `GgrsNetId` aux entités de la map à la fin de son chargement :
+/// entités de la map (qui émet aussi `LdtkMapLoadingEvent`), puis murs. Tout système qui crée
+/// des entités rollback en réponse à cet événement (ex. les joueurs) doit être ordonné
+/// `.after(MapNetIdAssignment)` : sinon l'ordre d'exécution, et donc la numérotation, varie
+/// d'un client à l'autre (et change dès qu'on ajoute un système).
 #[derive(SystemSet, Debug, Clone, PartialEq, Eq, Hash)]
 pub struct MapNetIdAssignment;
 

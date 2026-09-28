@@ -315,3 +315,18 @@ fn map_probe() {
     doors.sort_by_key(|d| d.0);
     for d in doors { println!("porte {} {:?} fermée={} portée_interaction={:?} interactive={}", d.0, d.1, d.2, d.3, d.4); }
 }
+
+/// Diagnostic : GgrsNetId des entités rollback à une frame (`ALACOD_IDS=<scénario>:<frame>`).
+#[test]
+#[ignore]
+fn net_ids() {
+    use utils::net_id::GgrsNetId;
+    let spec = std::env::var("ALACOD_IDS").unwrap_or_else(|_| "idle:1".into());
+    let (name, frame) = spec.split_once(':').unwrap();
+    let source = std::fs::read_to_string(scenarios_dir().join(format!("{name}.ron"))).unwrap();
+    let mut app = scenario::runner::run_until(&Scenario::from_ron(&source).unwrap(), frame.parse().unwrap());
+    let world = app.world_mut();
+    let mut ids: Vec<(usize, String)> = world.query::<&GgrsNetId>().iter(world).map(|id| (id.0, id.1.clone())).collect();
+    ids.sort();
+    for (id, name) in ids { println!("id {id:>3} {name}"); }
+}

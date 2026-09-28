@@ -40,6 +40,23 @@ pub struct Scenario {
     pub players: Vec<PlayerScript>,
     #[serde(default, skip_serializing_if = "Vec::is_empty")]
     pub expect: Vec<Expectation>,
+    /// Modifications de la config des armes pour ce scénario (ex. moins de chargeurs pour
+    /// tester leur épuisement en quelques secondes).
+    #[serde(default, skip_serializing_if = "Vec::is_empty")]
+    pub weapon_overrides: Vec<WeaponOverride>,
+}
+
+/// Remplace des valeurs de chargeur d'une arme, pour tous ses modes ou un seul.
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct WeaponOverride {
+    pub weapon: String,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub mode: Option<String>,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub mag_size: Option<u32>,
+    /// Chargeurs de réserve.
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub mag_limit: Option<u32>,
 }
 
 fn default_map() -> String {

@@ -1,0 +1,54 @@
+// Mode rafale et épuisement des munitions. Mitrailleuse en rafale : gâchette tenue (une seule
+// rafale), puis un clic par rafale. Pistolet avec un seul chargeur de réserve (weapon_overrides) :
+// il est vidé, rechargé, revidé ; ensuite plus aucun rechargement (manuel ou au clic à vide) et le
+// changement d'arme reste possible.
+//
+// À regarder : rafale de 3 balles gâchette tenue (f55-67), puis une rafale par clic (f105, f135).
+// Pistolet (f206) : 6 tirs, rechargement (f402-462), 6 tirs ; clics à vide sans rechargement ;
+// passage au fusil à pompe (f806).
+Scenario(
+    frames: 900,
+    weapon_overrides: [
+        (weapon: "pistol", mag_limit: 1),
+    ],
+    players: [
+        (inputs: [
+            (from: 30, to: 33, buttons: [SwitchWeaponMode]),
+            (from: 50, to: 80, buttons: [Fire], pan: (40, 100)),
+            (from: 100, to: 103, buttons: [Fire], pan: (40, 100)),
+            (from: 130, to: 133, buttons: [Fire], pan: (40, 100)),
+            (from: 200, to: 203, buttons: [SwitchWeapon]),
+            (from: 220, to: 223, buttons: [Fire], pan: (40, 100)),
+            (from: 255, to: 258, buttons: [Fire], pan: (40, 100)),
+            (from: 290, to: 293, buttons: [Fire], pan: (40, 100)),
+            (from: 325, to: 328, buttons: [Fire], pan: (40, 100)),
+            (from: 360, to: 363, buttons: [Fire], pan: (40, 100)),
+            (from: 395, to: 398, buttons: [Fire], pan: (40, 100)),
+            (from: 430, to: 433, buttons: [Fire], pan: (40, 100)),
+            (from: 465, to: 468, buttons: [Fire], pan: (40, 100)),
+            (from: 500, to: 503, buttons: [Fire], pan: (40, 100)),
+            (from: 535, to: 538, buttons: [Fire], pan: (40, 100)),
+            (from: 570, to: 573, buttons: [Fire], pan: (40, 100)),
+            (from: 605, to: 608, buttons: [Fire], pan: (40, 100)),
+            (from: 700, to: 703, buttons: [Reload]),
+            (from: 740, to: 743, buttons: [Fire], pan: (40, 100)),
+            (from: 780, to: 783, buttons: [Fire], pan: (40, 100)),
+            (from: 800, to: 803, buttons: [SwitchWeapon]),
+        ]),
+    ],
+    expect: [
+        ActiveWeapon(handle: 0, weapon: "machine_gun", mode: "rafale", at_frame: 40),
+        // Gâchette tenue : une seule rafale de 3 balles
+        Ammo(handle: 0, ammo: 27, at_frame: 95),
+        // Un clic = une rafale complète, même gâchette relâchée ; un seul clic suffit après le
+        // cooldown entre rafales
+        Ammo(handle: 0, ammo: 24, at_frame: 125),
+        Ammo(handle: 0, ammo: 21, at_frame: 160),
+        ActiveWeapon(handle: 0, weapon: "pistol", at_frame: 215),
+        // Dernier chargeur de réserve utilisé
+        Ammo(handle: 0, ammo: 6, at_frame: 465),
+        Ammo(handle: 0, ammo: 0, at_frame: 790),
+        // Pas de faux rechargement sans chargeur : le changement d'arme n'est pas bloqué
+        ActiveWeapon(handle: 0, weapon: "shotgun", at_frame: 830),
+    ],
+)

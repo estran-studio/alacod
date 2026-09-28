@@ -255,6 +255,12 @@ impl WeaponModeState {
     pub fn is_mag_full(&self) -> bool {
         self.mag_ammo == self.mag_size
     }
+
+    /// A reload is only possible with a spare magazine and a mag that is not full (a
+    /// magless weapon has no spare magazine: the shotgun pump reload is started by firing).
+    pub fn can_reload(&self) -> bool {
+        self.mag_quantity > 0 && !self.is_mag_full()
+    }
 }
 
 impl WeaponModesState {
@@ -704,7 +710,7 @@ pub fn weapon_rollback_system(
 
             let weapon_mode_state = weapon_modes_state.modes.get_mut(&active_mode).unwrap();
 
-            if input.buttons & INPUT_RELOAD != 0 && !weapon_mode_state.is_mag_full() {
+            if input.buttons & INPUT_RELOAD != 0 && weapon_mode_state.can_reload() {
                 inventory.start_reload(frame.frame, weapon_config.reload_time_seconds);
                 continue;
             }
@@ -724,7 +730,11 @@ pub fn weapon_rollback_system(
                 }
             }
 
-            if input.fire {
+            // A burst, once started, is fired to the end even if the trigger is released
+            let burst_in_progress = matches!(weapon_config.firing_mode, FiringMode::Burst { .. })
+                && weapon_mode_state.burst_shots_left > 0;
+
+            if input.fire || burst_in_progress {
                 // Calculate fire rate in frames (60 FPS assumed) , need to be configure via ressource instead
                 let frame_per_shot =
                     (bevy_fixed::fixed_math::new(60.) / weapon_config.firing_rate).to_num::<u32>();
@@ -746,6 +756,11 @@ pub fn weapon_rollback_system(
                         pellets_per_shot,
                         cooldown_frames,
                     } => {
+                        // The cooldown between bursts ends by itself: a single press then
+                        // starts the next burst (it used to be spent lifting the cooldown)
+                        if weapon_mode_state.burst_cooldown && frames_since_last_shot >= cooldown_frames {
+                            weapon_mode_state.burst_cooldown = false;
+                        }
                         if weapon_mode_state.burst_shots_left > 0
                             && frames_since_last_shot >= frame_per_shot
                         {
@@ -784,11 +799,14 @@ pub fn weapon_rollback_system(
                 };
 
                 if empty {
-                    inventory.start_reload(frame.frame, weapon_config.reload_time_seconds);
+                    // Empty mag: reload if a spare magazine is left, otherwise just a dry click
+                    if weapon_mode_state.can_reload() {
+                        inventory.start_reload(frame.frame, weapon_config.reload_time_seconds);
+                    }
                     continue;
                 }
 
-                weapon_state.is_firing = true;
+                weapon_state.is_firing = input.fire;
 
                 if can_fire {
                     if let Ok((_, facing_direction, _)) = player_query.get(child_of.parent()) {

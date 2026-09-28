@@ -67,6 +67,8 @@ pub fn build_app(scenario: &Scenario, headless: bool) -> App {
         .insert_resource(WaveDebugEnabled(true))
         .add_plugins(StateTraceRecorderPlugin { full: false })
         .add_plugins(GameEventsPlugin)
+        .insert_resource(WeaponOverrides(scenario.weapon_overrides.clone()))
+        .add_systems(Update, apply_weapon_overrides)
         .insert_resource(InputSource::Scripted)
         .insert_resource::<ScriptedInputs>(scenario.scripted_inputs());
     app
@@ -85,6 +87,45 @@ pub fn run_until(scenario: &Scenario, frame: u32) -> App {
         }
     }
     app
+}
+
+#[derive(Resource)]
+struct WeaponOverrides(Vec<game::replay::WeaponOverride>);
+
+/// Applique les modifications d'armes du scénario dès que la config est chargée, avant la
+/// création des joueurs (qui copient la config de leurs armes).
+fn apply_weapon_overrides(
+    overrides: Res<WeaponOverrides>,
+    global_assets: Option<Res<game::global_asset::GlobalAsset>>,
+    mut weapons: ResMut<Assets<game::weapons::WeaponsConfig>>,
+    mut applied: Local<bool>,
+) {
+    if *applied || overrides.0.is_empty() {
+        return;
+    }
+    let Some(mut config) = global_assets.and_then(|g| weapons.get_mut(&g.weapons)) else {
+        return;
+    };
+    for o in &overrides.0 {
+        let weapon = config
+            .0
+            .get_mut(&o.weapon)
+            .unwrap_or_else(|| panic!("weapon_overrides : arme inconnue {}", o.weapon));
+        for (mode_name, mode) in weapon.config.firing_modes.iter_mut() {
+            if o.mode.as_ref().is_some_and(|m| m != mode_name) {
+                continue;
+            }
+            if let game::weapons::MagBulletConfig::Mag { mag_size, mag_limit } = &mut mode.mag {
+                if let Some(size) = o.mag_size {
+                    *mag_size = size;
+                }
+                if let Some(limit) = o.mag_limit {
+                    *mag_limit = limit;
+                }
+            }
+        }
+    }
+    *applied = true;
 }
 
 /// Joue le scénario jusqu'à `scenario.frames` et vérifie ses attentes.
