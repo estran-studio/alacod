@@ -118,7 +118,12 @@ impl Plugin for RecordingPlugin {
             path: std::env::var("ALACOD_RECORD").ok().map(PathBuf::from),
         })
         .add_systems(ReadInputs, record_local_inputs.after(read_local_inputs))
-        .add_systems(Last, write_recording_on_exit);
+        // Après l'arrêt demandé par la trace d'état : l'app s'arrête à la fin de l'update
+        // qui émet AppExit, le message doit être lu dans le même update
+        .add_systems(
+            Last,
+            write_recording_on_exit.after(crate::state_trace::ExitRequests),
+        );
     }
 }
 

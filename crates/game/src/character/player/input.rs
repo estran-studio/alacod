@@ -112,6 +112,15 @@ pub enum InputSource {
     Neutral,
     /// Inputs lus dans la ressource [`ScriptedInputs`] (scénarios, replays).
     Scripted,
+    /// Inputs maintenus dans [`RemoteInputs`], modifiés par le contrôle remote.
+    Remote,
+}
+
+/// Input maintenu par joueur (handle GGRS) en mode [`InputSource::Remote`] ; un joueur
+/// absent envoie un input neutre.
+#[derive(Resource, Clone, Debug, Default)]
+pub struct RemoteInputs {
+    pub held: HashMap<usize, BoxInput>,
 }
 
 /// Input d'un joueur sur les frames `from..to`.
@@ -159,8 +168,16 @@ pub fn read_local_inputs(
     local_players: Res<LocalPlayers>,
     frame: Res<FrameCount>,
     scripted: Option<Res<ScriptedInputs>>,
+    remote: Option<Res<RemoteInputs>>,
 ) {
     let mut local_inputs = HashMap::new();
+
+    if *input_source == InputSource::Remote {
+        let remote = remote.expect("InputSource::Remote demande la ressource RemoteInputs");
+        for handle in &local_players.0 {
+            local_inputs.insert(*handle, remote.held.get(handle).copied().unwrap_or_default());
+        }
+    }
 
     if *input_source == InputSource::Scripted {
         let scripted = scripted.expect("InputSource::Scripted demande la ressource ScriptedInputs");

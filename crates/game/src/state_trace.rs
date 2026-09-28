@@ -67,6 +67,11 @@ impl Plugin for StateTraceRecorderPlugin {
     }
 }
 
+/// Systèmes de `Last` qui peuvent demander l'arrêt du jeu (`AppExit`). Ce qui doit réagir
+/// à l'arrêt dans le même update (ex. écrire un enregistrement) s'ordonne après.
+#[derive(SystemSet, Debug, Clone, PartialEq, Eq, Hash)]
+pub struct ExitRequests;
+
 /// Destination fichier de la trace (variables d'environnement).
 #[derive(Resource)]
 struct StateTraceFile {
@@ -96,7 +101,7 @@ impl Plugin for StateTracePlugin {
             exit_at_frame,
             written: false,
         })
-        .add_systems(Last, write_trace_at_exit_frame);
+        .add_systems(Last, write_trace_at_exit_frame.in_set(ExitRequests));
     }
 }
 

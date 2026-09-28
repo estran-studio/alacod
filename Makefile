@@ -82,6 +82,20 @@ test: test_scenarios
 test_scenarios:
 	ALACOD_BLESS=$(BLESS) ALACOD_SCENARIO=$(SCENARIO) APP_VERSION=$(VERSION) cargo test -p scenario --profile headless --test scenarios -- --nocapture
 
+# Partie pilotée à distance (scripts/alacod-remote), en pause au départ.
+# HEADLESS=1 : sans fenêtre, bien plus rapide.
+remote:
+ifeq ($(HEADLESS), 1)
+	ALACOD_HEADLESS=1 ALACOD_REMOTE=1 APP_VERSION=$(VERSION) cargo run --profile headless --example map_explorer --no-default-features -- --local-port 7000 --players localhost
+else
+	ALACOD_REMOTE=1 $(MAKE) ldtk_map_explorer
+endif
+
+# Joue au clavier et enregistre la session en scénario : make record_session NAME=ma_session
+# (écrit tests/scenarios/<NAME>.ron à la fermeture ; puis make test_scenarios SCENARIO=<NAME> BLESS=1)
+record_session:
+	ALACOD_RECORD=$(CURDIR)/tests/scenarios/$(NAME).ron $(MAKE) ldtk_map_explorer
+
 # Affiche un scénario avec rendu : make play_scenario SCENARIO=shoot_around
 play_scenario:
 	APP_VERSION=$(VERSION) cargo run -p scenario --features render --bin play_scenario -- tests/scenarios/$(SCENARIO).ron

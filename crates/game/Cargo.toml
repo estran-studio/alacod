@@ -58,3 +58,6 @@ lighting = ["bevy_light_2d"]
 # Musique générative (harmonium). Désactivée tant que harmonium_bevy n'est pas porté à bevy 0.19
 harmonium = ["dep:harmonium_bevy"]
 
+# Contrôle remote (bevy_remote : JSON-RPC sur HTTP), natif uniquement
+[target.'cfg(not(target_arch = "wasm32"))'.dependencies]
+bevy = { version = "0.19.1", features = ["bevy_remote"] }

@@ -154,24 +154,29 @@ impl Segment {
     }
 
     fn to_input_segment(&self) -> InputSegment {
-        let mut input = BoxInput {
-            pan_x: self.pan.0,
-            pan_y: self.pan.1,
-            ..Default::default()
-        };
-        for button in &self.buttons {
-            match button {
-                Button::Fire => input.fire = true,
-                Button::SwitchWeapon => input.switch_weapon = true,
-                other => input.buttons |= button_bit(*other),
-            }
-        }
         InputSegment {
             from: self.from,
             to: self.to,
-            input,
+            input: box_input(&self.buttons, self.pan),
         }
     }
+}
+
+/// Input GGRS correspondant à des boutons enfoncés et une visée.
+pub fn box_input(buttons: &[Button], pan: (i16, i16)) -> BoxInput {
+    let mut input = BoxInput {
+        pan_x: pan.0,
+        pan_y: pan.1,
+        ..Default::default()
+    };
+    for button in buttons {
+        match button {
+            Button::Fire => input.fire = true,
+            Button::SwitchWeapon => input.switch_weapon = true,
+            other => input.buttons |= button_bit(*other),
+        }
+    }
+    input
 }
 
 const ALL_BUTTONS: [Button; 14] = [

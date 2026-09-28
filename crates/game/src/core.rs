@@ -182,6 +182,10 @@ impl Plugin for CoreSetupPlugin {
 
         app.add_plugins(crate::state_trace::StateTracePlugin);
         app.add_plugins(crate::recording::RecordingPlugin);
+        #[cfg(not(target_arch = "wasm32"))]
+        if let Some(remote) = crate::remote::RemoteControlPlugin::from_env() {
+            app.add_plugins(remote);
+        }
 
         app.add_systems(
             GgrsSchedule,

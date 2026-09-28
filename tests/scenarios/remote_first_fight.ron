@@ -1,0 +1,25 @@
+// Première session jouée en contrôle remote (Claude), enregistrée telle quelle.
+// Tirs visés sur les zombies qui entrent, recul, rechargement.
+Scenario(
+    map: "exemples/test_map.ldtk",
+    map_seed: 123456,
+    frames: 580,
+    players: [
+        PlayerScript(
+            inputs: [
+                Segment(from: 200, to: 230, buttons: [Fire], pan: (104, -167)),
+                Segment(from: 290, to: 310, buttons: [Fire], pan: (5, -51)),
+                Segment(from: 310, to: 350, buttons: [Fire], pan: (2, -34)),
+                Segment(from: 350, to: 370, buttons: [Up], pan: (0, 0)),
+                Segment(from: 410, to: 450, buttons: [Fire], pan: (-107, -14)),
+                Segment(from: 450, to: 490, buttons: [Fire], pan: (-60, -1)),
+                Segment(from: 490, to: 500, buttons: [Reload], pan: (0, 0)),
+            ],
+        ),
+    ],
+    expect: [
+        KillsAtLeast(kills: 1, at_frame: 350),
+        KillsAtLeast(kills: 2, at_frame: 490),
+        PlayerAlive(handle: 0, at_frame: 580),
+    ],
+)

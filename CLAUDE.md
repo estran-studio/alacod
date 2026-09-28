@@ -258,6 +258,16 @@ Avant/après un refactoring de la simulation, comparer les traces : elles doiven
   `BLESS=1` pour réécrire les traces après un **changement de gameplay voulu** (le dire dans le commit).
 - `make play_scenario SCENARIO=<nom>` : affiche le scénario avec rendu, mêmes inputs.
 
+### Jouer et enregistrer
+- **Contrôle remote** (`game::remote`, `ALACOD_REMOTE=1`) : `make remote` (ou `make remote HEADLESS=1`)
+  lance la partie en pause ; `scripts/alacod-remote` la pilote : `brief`/`state` (joueurs, ennemis
+  avec dx/dy, vague, fenêtres, portes), `input Fire --pan 100,0`, `step 30` (avance puis affiche),
+  `screenshot`, `save <fichier.ron>`, `pause`/`resume`.
+- **Enregistrement** (`game::recording`) : les inputs réellement envoyés à GGRS sont capturés à chaque
+  frame ; `save` (remote) ou `ALACOD_RECORD=<fichier>` (écrit à la fermeture, ex.
+  `make record_session NAME=x`) produit un scénario rejouable. Ajouter des `expect`, puis
+  `make test_scenarios SCENARIO=<nom> BLESS=1`.
+
 La partie jouée est celle de `map_explorer` (plugin partagé `map_ldtk::game::local::LdtkLocalGamePlugin`).
 Tout changement de simulation doit garder les scénarios verts, ou justifier le `BLESS`.
 
