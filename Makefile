@@ -92,9 +92,10 @@ videos:
 compare_video:
 	EVERY=$(or $(EVERY),2) ./scripts/scenario-video compare $(SCENARIO) $(BASE) $(or $(HEAD),HEAD)
 
-# Page de revue des vidéos (target/videos/index.html) servie sur http://localhost:8765
+# Page de revue des vidéos (target/videos/index.html) servie sur http://localhost:8766
+# TAILSCALE=1 : sur l'IP Tailscale de la machine (accessible depuis le tailnet uniquement)
 review_videos:
-	./scripts/scenario-review.py --serve 8765
+	./scripts/scenario-review.py --serve 8766 --bind $(if $(TAILSCALE),$$(tailscale ip -4),127.0.0.1)
 
 # Partie pilotée à distance (scripts/alacod-remote), en pause au départ.
 # HEADLESS=1 : sans fenêtre, bien plus rapide.

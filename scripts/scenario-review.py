@@ -6,8 +6,9 @@ Appelé par scripts/scenario-video après chaque rendu. Liste les commits rendus
 (target/videos/compare/). La page est statique : les données sont intégrées en JSON,
 les vidéos référencées par chemin relatif.
 
-`--serve [port]` : sert target/videos (défaut 8765) avec les requêtes HTTP Range, sans
-lesquelles le navigateur ne peut pas se positionner dans une vidéo (`make review_videos`).
+`--serve [port] [--bind <adresse>]` : sert target/videos (défaut 8766, sur 127.0.0.1) avec
+les requêtes HTTP Range, sans lesquelles le navigateur ne peut pas se positionner dans une
+vidéo (`make review_videos`, `TAILSCALE=1` pour l'IP Tailscale de la machine).
 """
 import functools
 import http.server
@@ -143,10 +144,11 @@ class RangeHandler(http.server.SimpleHTTPRequestHandler):
         pass
 
 
-def serve(port):
+def serve(port, bind):
     handler = functools.partial(RangeHandler, directory=str(VIDEOS))
-    with http.server.ThreadingHTTPServer(("127.0.0.1", port), handler) as server:
-        print(f"revue : http://localhost:{port}  (Ctrl+C pour arrêter)")
+    with http.server.ThreadingHTTPServer((bind, port), handler) as server:
+        host = "localhost" if bind == "127.0.0.1" else bind
+        print(f"revue : http://{host}:{port}  (Ctrl+C pour arrêter)")
         try:
             server.serve_forever()
         except KeyboardInterrupt:
@@ -155,5 +157,11 @@ def serve(port):
 
 if __name__ == "__main__":
     main()
-    if len(sys.argv) > 1 and sys.argv[1] == "--serve":
-        serve(int(sys.argv[2]) if len(sys.argv) > 2 else 8765)
+    args = sys.argv[1:]
+    if args[:1] == ["--serve"]:
+        bind = "127.0.0.1"
+        if "--bind" in args:
+            i = args.index("--bind")
+            bind = args[i + 1]
+            del args[i : i + 2]
+        serve(int(args[1]) if len(args) > 1 else 8766, bind)
