@@ -620,15 +620,28 @@ pub fn weapon_rollback_system(
     let system_span = span!(Level::INFO, "ggrs", f = frame.frame, s = "weapon");
     let _enter = system_span.enter(); // Enter the span
 
-    // Process weapon firing for all players
+    // Process weapon firing for all players, in handle order: firing consumes RollbackRng
+    // (spread) and GgrsNetIds (bullets), so the order must be the same on every client
+    let mut players: Vec<_> = inventory_query.iter_mut().collect();
+    players.sort_by_key(|(.., player)| player.handle);
+
     for (_entity, mut inventory, sprint_state, dash_state, melee_attack_state, transform, player) in
-        inventory_query.iter_mut()
+        players
     {
         let (input, _input_status) = inputs[player.handle];
 
         // Do nothing if no weapons
         if inventory.weapons.is_empty() {
             continue;
+        }
+
+        // A released trigger is always registered, even while reloading, switching, sprinting
+        // or in melee: semi-automatic weapons need a new press after it
+        if !input.fire {
+            let (active_weapon, _) = inventory.weapons[inventory.active_weapon_index];
+            if let Ok((_, mut weapon_state, ..)) = weapon_query.get_mut(active_weapon) {
+                weapon_state.is_firing = false;
+            }
         }
 
         // Don't allow weapon firing during melee attacks
@@ -656,6 +669,17 @@ pub fn weapon_rollback_system(
             let active_mode = weapon_state.active_mode.clone();
             let weapon_config = weapon.config.firing_modes.get(&active_mode).unwrap();
 
+            // A reload in progress completes on the mode it was started for: switching mode
+            // (like switching weapon) is not possible until it is over
+            if inventory.is_reloading() {
+                if inventory.is_reloading_over(frame.frame) {
+                    weapon_modes_state.modes.get_mut(&active_mode).unwrap().reload();
+                    inventory.clear_reloading();
+                } else {
+                    continue;
+                }
+            }
+
             if input.buttons & INPUT_SWITCH_WEAPON_MODE != 0 {
                 if let Some(new_mode) = weapon_modes_state
                     .modes
@@ -675,15 +699,7 @@ pub fn weapon_rollback_system(
 
             let weapon_mode_state = weapon_modes_state.modes.get_mut(&active_mode).unwrap();
 
-            // Check if reloading and update progress,
-            if inventory.is_reloading() {
-                if inventory.is_reloading_over(frame.frame) {
-                    weapon_mode_state.reload();
-                    inventory.clear_reloading();
-                } else {
-                    continue;
-                }
-            } else if input.buttons & INPUT_RELOAD != 0 && !weapon_mode_state.is_mag_full() {
+            if input.buttons & INPUT_RELOAD != 0 && !weapon_mode_state.is_mag_full() {
                 inventory.start_reload(frame.frame, weapon_config.reload_time_seconds);
                 continue;
             }

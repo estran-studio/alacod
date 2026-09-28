@@ -253,3 +253,36 @@ fn nav_probe() {
         if gap_x < 25.0 && gap_y < 25.0 { println!("   mur x {x0}..{x1} y {y0}..{y1} (écart {gap_x:.1},{gap_y:.1})"); }
     }
 }
+
+/// Diagnostic : état des armes d'un joueur, frame par frame.
+/// `ALACOD_WEAPON_PROBE=<scénario>:<de>:<à>:<pas>`
+#[test]
+#[ignore]
+fn weapon_probe() {
+    use bevy::prelude::*;
+    use game::character::{dash::DashState, movement::SprintState, player::Player};
+    use game::weapons::{melee::MeleeAttackState, WeaponInventory, WeaponModesState, WeaponState};
+    use utils::frame::FrameCount;
+    let spec = std::env::var("ALACOD_WEAPON_PROBE").unwrap_or_else(|_| "weapons_workout:480:570:5".into());
+    let parts: Vec<&str> = spec.split(':').collect();
+    let (name, from, to, step): (&str, u32, u32, u32) = (parts[0], parts[1].parse().unwrap(), parts[2].parse().unwrap(), parts[3].parse().unwrap());
+    let source = std::fs::read_to_string(scenarios_dir().join(format!("{name}.ron"))).unwrap();
+    let mut app = scenario::runner::run_until(&Scenario::from_ron(&source).unwrap(), from);
+    loop {
+        let frame = app.world().resource::<FrameCount>().frame;
+        if frame >= to { break; }
+        if (frame - from) % step == 0 {
+            let world = app.world_mut();
+            let mut q = world.query::<(&Player, &WeaponInventory, &SprintState, &DashState, &MeleeAttackState)>();
+            let rows: Vec<_> = q.iter(world).map(|(p, inv, sprint, dash, melee)| (p.handle, inv.active_weapon_index, inv.weapons.get(inv.active_weapon_index).map(|(e, w)| (*e, w.config.name.clone())), inv.reloading_ending_frame, inv.frame_switched, sprint.is_sprinting, dash.is_dashing, melee.is_attacking)).collect();
+            for (handle, idx, weapon, reload_end, switched, sprinting, dashing, meleeing) in rows {
+                let (entity, wname) = weapon.unwrap();
+                let (state, modes) = world.query::<(&WeaponState, &WeaponModesState)>().get(world, entity).unwrap();
+                let m = modes.modes.get(&state.active_mode).unwrap();
+                println!("f{frame} j{handle} arme#{idx} {wname}/{} balles {} chargeurs {} dernier_tir f{} recharge_fin {:?} changé f{switched} sprint={sprinting} dash={dashing} mêlée={meleeing}",
+                    state.active_mode, m.mag_ammo, m.mag_quantity, state.last_fire_frame, reload_end);
+            }
+        }
+        app.update();
+    }
+}

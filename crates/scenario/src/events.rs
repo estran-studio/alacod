@@ -11,7 +11,7 @@ use game::{
     character::{health::Health, player::Player},
     collider::Collider,
     waves::{WavePhase, WaveState},
-    weapons::WeaponInventory,
+    weapons::{WeaponInventory, WeaponModesState, WeaponState},
 };
 use map::game::entity::map::{door::DoorComponent, window::WindowHealth};
 use serde::Serialize;
@@ -36,6 +36,11 @@ struct PlayerSnapshot {
     reloading: bool,
     weapon_index: usize,
     hit: bool,
+    /// Arme active : nom, mode, munitions du chargeur et chargeurs restants
+    weapon: String,
+    mode: String,
+    ammo: u32,
+    mags: u32,
 }
 
 #[derive(Default, Clone)]
@@ -74,6 +79,7 @@ fn detect_events(
     mut events: ResMut<GameEvents>,
     wave: Option<Res<WaveState>>,
     players: Query<(&Player, &Health, Option<&WeaponInventory>)>,
+    weapons: Query<(&WeaponState, &WeaponModesState)>,
     windows: Query<(&GgrsNetId, &WindowHealth)>,
     // Porte ouverte = sans collider (une porte non interactive reste fermée)
     doors: Query<(&GgrsNetId, Has<Collider>), With<DoorComponent>>,
@@ -85,14 +91,23 @@ fn detect_events(
         now.kills = wave.total_enemies_killed;
     }
     for (player, health, inventory) in &players {
-        now.players.insert(
-            player.handle,
-            PlayerSnapshot {
-                reloading: inventory.is_some_and(|i| i.reloading_ending_frame.is_some()),
-                weapon_index: inventory.map_or(0, |i| i.active_weapon_index),
-                hit: health.current < health.max,
-            },
-        );
+        let mut snapshot = PlayerSnapshot {
+            reloading: inventory.is_some_and(|i| i.reloading_ending_frame.is_some()),
+            weapon_index: inventory.map_or(0, |i| i.active_weapon_index),
+            hit: health.current < health.max,
+            ..Default::default()
+        };
+        if let Some((entity, weapon)) = inventory.and_then(|i| i.weapons.get(i.active_weapon_index)) {
+            snapshot.weapon = weapon.config.name.clone();
+            if let Ok((state, modes)) = weapons.get(*entity) {
+                snapshot.mode = state.active_mode.clone();
+                if let Some(mode) = modes.modes.get(&state.active_mode) {
+                    snapshot.ammo = mode.mag_ammo;
+                    snapshot.mags = mode.mag_quantity;
+                }
+            }
+        }
+        now.players.insert(player.handle, snapshot);
     }
     for (id, health) in &windows {
         now.windows.insert(id.0, health.current);
@@ -130,10 +145,18 @@ fn detect_events(
                     push("hit", format!("joueur {handle} touché"));
                 }
                 if player.reloading && !previous.reloading {
-                    push("reload", format!("joueur {handle} recharge"));
+                    push("reload", format!("joueur {handle} recharge ({} {})", player.weapon, player.mode));
+                }
+                if !player.reloading && previous.reloading {
+                    push("reload", format!("joueur {handle} a rechargé : {} ({} chargeurs)", player.ammo, player.mags));
                 }
                 if player.weapon_index != previous.weapon_index {
-                    push("weapon", format!("joueur {handle} change d'arme"));
+                    push("weapon", format!("joueur {handle} prend {} ({}, {} balles)", player.weapon, player.mode, player.ammo));
+                } else if player.mode != previous.mode {
+                    push("weapon", format!("joueur {handle} passe en mode {} ({} balles)", player.mode, player.ammo));
+                }
+                if player.weapon_index == previous.weapon_index && player.ammo == 0 && previous.ammo > 0 {
+                    push("weapon", format!("joueur {handle} : chargeur vide ({})", player.weapon));
                 }
             }
         }

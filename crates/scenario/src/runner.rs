@@ -192,6 +192,26 @@ fn check(world: &mut World, expectation: &Expectation) -> Result<(), String> {
                 Err(format!("vague {current}"))
             }
         }
+        Expectation::ActiveWeapon { handle, weapon, mode, .. } => {
+            let Some((name, active_mode, _)) = active_weapon(world, *handle) else {
+                return Err("joueur absent ou sans arme".into());
+            };
+            if name != *weapon || mode.as_ref().is_some_and(|m| *m != active_mode) {
+                Err(format!("arme active {name} (mode {active_mode})"))
+            } else {
+                Ok(())
+            }
+        }
+        Expectation::Ammo { handle, ammo, .. } => {
+            let Some((name, mode, current)) = active_weapon(world, *handle) else {
+                return Err("joueur absent ou sans arme".into());
+            };
+            if current == *ammo {
+                Ok(())
+            } else {
+                Err(format!("{current} balles dans {name} ({mode})"))
+            }
+        }
         Expectation::WindowsBrokenAtLeast { windows, .. } => {
             let broken = windows_broken(world);
             if broken >= *windows {
@@ -223,6 +243,20 @@ fn summarize(world: &mut World, frame: u32) -> String {
         "frame {frame} : vague {}, {} ennemis tués, joueurs vivants {alive:?}",
         waves.current_wave, waves.total_enemies_killed
     )
+}
+
+/// Arme active d'un joueur : nom, mode, munitions du chargeur.
+fn active_weapon(world: &mut World, handle: usize) -> Option<(String, String, u32)> {
+    use game::weapons::{WeaponInventory, WeaponModesState, WeaponState};
+    let (entity, name) = world
+        .query::<(&Player, &WeaponInventory)>()
+        .iter(world)
+        .find(|(player, _)| player.handle == handle)
+        .and_then(|(_, inventory)| inventory.weapons.get(inventory.active_weapon_index))
+        .map(|(entity, weapon)| (*entity, weapon.config.name.clone()))?;
+    let (state, modes) = world.query::<(&WeaponState, &WeaponModesState)>().get(world, entity).ok()?;
+    let ammo = modes.modes.get(&state.active_mode).map_or(0, |m| m.mag_ammo);
+    Some((name, state.active_mode.clone(), ammo))
 }
 
 fn windows_broken(world: &mut World) -> u32 {

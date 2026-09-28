@@ -96,6 +96,16 @@ pub enum Expectation {
     KillsAtLeast { kills: u32, at_frame: u32 },
     /// Fenêtres détruites (obstacles cassables qui ne bloquent plus).
     WindowsBrokenAtLeast { windows: u32, at_frame: u32 },
+    /// Arme active du joueur (et son mode de tir, si précisé).
+    ActiveWeapon {
+        handle: usize,
+        weapon: String,
+        #[serde(default, skip_serializing_if = "Option::is_none")]
+        mode: Option<String>,
+        at_frame: u32,
+    },
+    /// Munitions exactes dans le chargeur de l'arme active.
+    Ammo { handle: usize, ammo: u32, at_frame: u32 },
 }
 
 impl Expectation {
@@ -105,21 +115,28 @@ impl Expectation {
             | Self::PlayerDead { at_frame, .. }
             | Self::WaveAtLeast { at_frame, .. }
             | Self::KillsAtLeast { at_frame, .. }
-            | Self::WindowsBrokenAtLeast { at_frame, .. } => *at_frame,
+            | Self::WindowsBrokenAtLeast { at_frame, .. }
+            | Self::ActiveWeapon { at_frame, .. }
+            | Self::Ammo { at_frame, .. } => *at_frame,
         }
     }
 }
 
 impl Scenario {
+    /// Lecture avec l'extension RON `implicit_some` : un champ optionnel s'écrit
+    /// `mode: "default"` plutôt que `mode: Some("default")`.
     pub fn from_ron(source: &str) -> Result<Self, ron::error::SpannedError> {
-        ron::from_str(source)
+        ron::Options::default()
+            .with_default_extension(ron::extensions::Extensions::IMPLICIT_SOME)
+            .from_str(source)
     }
 
     pub fn to_ron(&self) -> String {
         let config = ron::ser::PrettyConfig::new()
             .struct_names(true)
             .depth_limit(4)
-            .indentor("    ".to_string());
+            .indentor("    ".to_string())
+            .extensions(ron::extensions::Extensions::IMPLICIT_SOME);
         ron::ser::to_string_pretty(self, config).expect("sérialisation du scénario")
     }
 
