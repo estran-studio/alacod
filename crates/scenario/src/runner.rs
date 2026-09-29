@@ -47,7 +47,7 @@ pub struct Metrics {
     pub bullets_max: u32,
     /// Nombre maximum d'ennemis à une frame.
     pub enemies_max: u32,
-    /// Nombre de joueurs.
+    /// Nombre maximal de joueurs vivants à une frame.
     pub players: u32,
 }
 
@@ -189,47 +189,37 @@ pub fn run_with<F: FnOnce(&mut App)>(scenario: &Scenario, configure: F) -> Scena
     pending.sort_by_key(|e| e.at_frame());
     let mut failures = Vec::new();
 
-    // Metrics collection
-    let sim_start = std::time::Instant::now();
+    // Métriques : le chrono part au premier update simulé (le chargement de la map n'est pas
+    // compté) ; les compteurs d'entités sont lus entre deux updates, jamais dans la simulation.
+    let mut sim_start: Option<std::time::Instant> = None;
+    let mut sim_elapsed = 0.0f64;
     let mut entities_max = 0u32;
     let mut bullets_max = 0u32;
     let mut enemies_max = 0u32;
     let mut players_count = 0u32;
+    let mut q_rollback = app.world_mut().query_filtered::<(), With<bevy_ggrs::Rollback>>();
+    let mut q_bullets = app.world_mut().query_filtered::<(), With<game::weapons::Bullet>>();
+    let mut q_enemies = app.world_mut().query_filtered::<(), With<game::character::enemy::Enemy>>();
+    let mut q_players = app.world_mut().query_filtered::<(), With<Player>>();
 
     let max_updates = MAX_LOADING_UPDATES + scenario.frames;
     let mut frame = 0;
     for _ in 0..max_updates {
+        let before = app.world().resource::<FrameCount>().frame;
+        if before > 0 && sim_start.is_none() {
+            sim_start = Some(std::time::Instant::now());
+        }
         app.update();
         frame = app.world().resource::<FrameCount>().frame;
+        if let Some(start) = sim_start {
+            sim_elapsed = start.elapsed().as_secs_f64();
+        }
 
-        // Count entities only after the simulation has started (frame > 0)
         if frame > 0 {
-            // Count rollback entities
-            let rollback_count = app.world_mut()
-                .query_filtered::<(), With<bevy_ggrs::Rollback>>()
-                .iter(app.world())
-                .count() as u32;
-            entities_max = entities_max.max(rollback_count);
-
-            // Count bullets
-            let bullets_count = app.world_mut()
-                .query_filtered::<(), With<game::weapons::Bullet>>()
-                .iter(app.world())
-                .count() as u32;
-            bullets_max = bullets_max.max(bullets_count);
-
-            // Count enemies
-            let enemies_count = app.world_mut()
-                .query_filtered::<(), With<game::character::enemy::Enemy>>()
-                .iter(app.world())
-                .count() as u32;
-            enemies_max = enemies_max.max(enemies_count);
-
-            // Count players
-            players_count = app.world_mut()
-                .query_filtered::<(), With<Player>>()
-                .iter(app.world())
-                .count() as u32;
+            entities_max = entities_max.max(q_rollback.iter(app.world()).count() as u32);
+            bullets_max = bullets_max.max(q_bullets.iter(app.world()).count() as u32);
+            enemies_max = enemies_max.max(q_enemies.iter(app.world()).count() as u32);
+            players_count = players_count.max(q_players.iter(app.world()).count() as u32);
         }
 
         while pending.first().is_some_and(|e| e.at_frame() <= frame) {
@@ -244,7 +234,6 @@ pub fn run_with<F: FnOnce(&mut App)>(scenario: &Scenario, configure: F) -> Scena
         }
     }
 
-    let sim_elapsed = sim_start.elapsed().as_secs_f64();
     let sim_fps = if sim_elapsed > 0.0 {
         frame as f64 / sim_elapsed
     } else {

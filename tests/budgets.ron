@@ -1,22 +1,24 @@
-// Budgets de performance : seuils de non-régression par scénario.
-// Ces valeurs sont des planchers mesurés sur la machine de dev à 2026-09-28.
-// Un scénario dont le fps mesuré est inférieur au minimum budgété fait échouer le test.
+// Budgets de performance : planchers de NON-RÉGRESSION en frames simulées par seconde, par
+// scénario. Ce ne sont pas des objectifs : la moitié de la mesure du 2026-09-28 sur le poste de
+// dev (profil headless, une compilation en parallèle), arrondie à la dizaine. Ils ne bloquent
+// que `make bench` (ALACOD_BENCH_STRICT=1) ; `make test_scenarios` se contente d'avertir.
+// Mesures de référence : ammo_burst 155, bullets_walls 169, dash_wall 146, door_open 95,
+// idle 164, movement_melee 161, remote_first_fight 199, shoot_around 191, two_players_idle 174,
+// two_players_shooting 203, weapons_workout 216, window_repair 218.
 (
-    default: (
-        min_sim_fps: 40.0,
-    ),
+    default: (min_sim_fps: 40.0),
     scenarios: {
-        "idle": (min_sim_fps: 100.0),
+        "ammo_burst": (min_sim_fps: 70.0),
+        "bullets_walls": (min_sim_fps: 80.0),
+        "dash_wall": (min_sim_fps: 70.0),
+        "door_open": (min_sim_fps: 45.0),
+        "idle": (min_sim_fps: 80.0),
+        "movement_melee": (min_sim_fps: 80.0),
+        "remote_first_fight": (min_sim_fps: 90.0),
+        "shoot_around": (min_sim_fps: 90.0),
         "two_players_idle": (min_sim_fps: 80.0),
-        "ammo_burst": (min_sim_fps: 50.0),
-        "bullets_walls": (min_sim_fps: 45.0),
-        "dash_wall": (min_sim_fps: 60.0),
-        "door_open": (min_sim_fps: 60.0),
-        "movement_melee": (min_sim_fps: 50.0),
-        "remote_first_fight": (min_sim_fps: 40.0),
-        "shoot_around": (min_sim_fps: 40.0),
-        "two_players_shooting": (min_sim_fps: 40.0),
-        "weapons_workout": (min_sim_fps: 50.0),
-        "window_repair": (min_sim_fps: 50.0),
+        "two_players_shooting": (min_sim_fps: 100.0),
+        "weapons_workout": (min_sim_fps: 100.0),
+        "window_repair": (min_sim_fps: 100.0),
     },
 )

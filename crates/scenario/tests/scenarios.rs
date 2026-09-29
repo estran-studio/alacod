@@ -101,13 +101,19 @@ fn scenarios() {
             }
         }
 
-        // Check budget
+        // Budget : bloquant seulement en bench (`ALACOD_BENCH_STRICT=1`, `make bench`) ; les
+        // mesures d'un poste chargé (compilations en parallèle) ne doivent pas casser les tests.
         let budget = budgets.scenarios.get(&name).unwrap_or(&budgets.default);
         if outcome.metrics.sim_fps < budget.min_sim_fps {
-            failures.push(format!(
+            let message = format!(
                 "{name}: budget : {:.1} fps < {:.1} fps",
                 outcome.metrics.sim_fps, budget.min_sim_fps
-            ));
+            );
+            if std::env::var("ALACOD_BENCH_STRICT").is_ok_and(|v| v == "1") {
+                failures.push(message);
+            } else {
+                eprintln!("  attention, {message}");
+            }
         }
 
         failures.extend(outcome.failures.iter().map(|f| format!("{name}: {f}")));
@@ -143,18 +149,26 @@ fn scenarios() {
     assert!(failures.is_empty(), "\n{}\n", failures.join("\n"));
 }
 
+/// Nom du dossier : le sha court, suffixé `-dirty` si l'arbre a des changements, comme
+/// `scripts/scenario-video` pour que la page de revue retrouve les métriques d'un commit.
+fn commit_dir_name() -> String {
+    let git = |args: &[&str]| {
+        std::process::Command::new("git")
+            .args(args)
+            .output()
+            .ok()
+            .filter(|o| o.status.success())
+            .and_then(|o| String::from_utf8(o.stdout).ok())
+            .map(|s| s.trim().to_string())
+    };
+    let sha = git(&["rev-parse", "--short", "HEAD"]).unwrap_or_else(|| "unknown".to_string());
+    // `git diff --quiet` échoue (exit 1) s'il y a des changements : même règle que scenario-video.
+    let dirty = git(&["diff", "--quiet"]).is_none();
+    if dirty { format!("{sha}-dirty") } else { sha }
+}
+
 fn write_metrics(metrics: &BTreeMap<String, Metrics>) {
-    let commit = std::env::var("APP_VERSION")
-        .or_else(|_| {
-            std::process::Command::new("git")
-                .args(&["rev-parse", "--short", "HEAD"])
-                .output()
-                .ok()
-                .and_then(|o| String::from_utf8(o.stdout).ok())
-                .map(|s| s.trim().to_string())
-                .ok_or_else(|| std::env::VarError::NotPresent)
-        })
-        .unwrap_or_else(|_| "unknown".to_string());
+    let commit = commit_dir_name();
 
     let metrics_dir = metrics_dir();
     let commit_dir = metrics_dir.join(&commit);

@@ -9800,6 +9800,7 @@ dependencies = [
  "game",
  "map",
  "map_ldtk",
+ "ron 0.12.2",
  "serde",
  "serde_json",
  "utils",
