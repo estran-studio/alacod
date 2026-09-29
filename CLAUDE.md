@@ -258,8 +258,9 @@ Avant/après un refactoring de la simulation, comparer les traces : elles doiven
   `ActiveWeapon`, `Ammo`, `PlayerPosition`, `BulletsInside`). `weapon_overrides` modifie la taille
   et le nombre de chargeurs d'une arme pour un scénario. Format documenté dans `crates/game/src/replay.rs`.
 - `tests/scenarios/<nom>.trace` : trace d'état de référence. Toute différence fait échouer le test.
-- `tests/budgets.ron` : seuils de non-régression en fps par scénario (budget par défaut et surcharges).
-  Un scénario dont le fps mesuré est inférieur au budget fait échouer le test.
+- `tests/budgets.ron` : planchers de non-régression en frames simulées par seconde (défaut et
+  surcharges par scénario). Sous le plancher, `make test_scenarios` avertit ; `make bench`
+  (`ALACOD_BENCH_STRICT=1`) échoue.
 - `make test_scenarios` (profil `headless`, sans rendu) ; `SCENARIO=<nom>` pour un seul ;
   `BLESS=1` pour réécrire les traces après un **changement de gameplay voulu** (le dire dans le commit).
 - `make bench` : lance `test_scenarios`, puis affiche un tableau des métriques (fps, entités, balles, ennemis).
