@@ -13,6 +13,7 @@ vidéo (`make review_videos`, `TAILSCALE=1` pour l'IP Tailscale de la machine).
 import functools
 import http.server
 import json
+import os
 import re
 import subprocess
 import sys
@@ -20,6 +21,7 @@ from pathlib import Path
 
 ROOT = Path(__file__).resolve().parent.parent
 VIDEOS = ROOT / "target" / "videos"
+METRICS = Path(os.environ.get("CARGO_TARGET_DIR", ROOT / "target")) / "metrics"
 SCENARIOS = ROOT / "tests" / "scenarios"
 
 
@@ -74,6 +76,14 @@ def commit_info(dirname):
     return {"subject": subject, "date": date, "dirty": dirname.endswith("-dirty")}
 
 
+def load_metrics(path):
+    """Charge les métriques depuis un fichier JSON."""
+    try:
+        return json.loads(path.read_text())
+    except (OSError, ValueError):
+        return {}
+
+
 def main():
     commits = []
     for d in sorted((p for p in VIDEOS.iterdir() if p.is_dir()), key=lambda p: p.stat().st_mtime, reverse=True):
@@ -82,10 +92,16 @@ def main():
         videos = sorted(v.stem for v in d.glob("*.mp4") if v.stem != "montage")
         if not videos:
             continue
+
+        # Load metrics for this commit
+        metrics_path = METRICS / d.name / "metrics.json"
+        metrics_data = load_metrics(metrics_path)
+
         commits.append({
             "id": d.name,
             **commit_info(d.name),
             "montage": (d / "montage.mp4").exists(),
+            "metrics": metrics_data,
             "videos": [
                 {"name": v, **scenario_info(v), "events": load_events(d / f"{v}.events.json")}
                 for v in videos

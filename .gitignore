@@ -9,3 +9,4 @@
 *generated.ldtk
 logs/
 build.zip
+__pycache__/

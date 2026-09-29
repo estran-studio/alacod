@@ -88,6 +88,10 @@
              border-radius: 8px; padding: 8px; }
   textarea:focus { outline: 2px solid var(--accent); outline-offset: 0; }
   .empty { color: var(--muted); padding: 40px 0; }
+  .metrics { width: 100%; border-collapse: collapse; font-size: 14px; }
+  .metrics th, .metrics td { padding: 8px; text-align: left; border-bottom: 1px solid var(--border); }
+  .metrics th { background: var(--panel-2); font-weight: 600; font-size: 12px; text-transform: uppercase; letter-spacing: .05em; }
+  .metrics td.num { text-align: right; font-family: var(--mono); }
   @media (max-width: 820px) {
     .layout { grid-template-columns: 1fr; }
     aside { position: static; height: auto; border-right: 0; border-bottom: 1px solid var(--border); }
@@ -169,8 +173,29 @@ function card({ src, title, meta, desc, watch, expect, events, noteKey, wide, co
   </article>`;
 }
 
+function performanceTable(metrics) {
+  if (!metrics || Object.keys(metrics).length === 0) return "";
+  const scenarios = Object.entries(metrics).sort((a, b) => a[0].localeCompare(b[0]));
+  const rows = scenarios.map(([name, m]) => `
+    <tr><td>${esc(name)}</td><td class="num">${m.sim_fps.toFixed(1)}</td>
+      <td class="num">${m.frames}</td><td class="num">${m.entities_max}</td>
+      <td class="num">${m.bullets_max}</td><td class="num">${m.enemies_max}</td></tr>`).join("");
+  return `<div class="card wide">
+    <div class="body">
+      <h3>Performance</h3>
+      <table class="metrics">
+        <thead><tr><th>Scénario</th><th>FPS</th><th>Frames</th><th>Entités max</th><th>Balles max</th><th>Ennemis max</th></tr></thead>
+        <tbody>${rows}</tbody>
+      </table>
+    </div>
+  </div>`;
+}
+
 function showCommit(commit) {
   const cards = [];
+  if (commit.metrics) {
+    cards.push(performanceTable(commit.metrics));
+  }
   if (commit.montage) {
     cards.push(card({ src: `${commit.id}/montage.mp4`, title: "Montage", meta: `${commit.videos.length} scénarios`,
       noteKey: `${commit.id}/montage`, wide: true }));

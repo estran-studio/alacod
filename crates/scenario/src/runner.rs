@@ -21,6 +21,7 @@ use crate::events::{GameEvent, GameEvents, GameEventsPlugin};
 use game::recording::InputRecorder;
 use map::generation::config::MapGenerationConfig;
 use utils::frame::FrameCount;
+use serde::{Serialize, Deserialize};
 
 use game::replay::{Expectation, Scenario};
 
@@ -30,6 +31,25 @@ struct SyncTestMismatches(pub Vec<String>);
 
 /// Updates maximum pour charger la map avant la première frame de simulation.
 const MAX_LOADING_UPDATES: u32 = 10_000;
+
+/// Métriques de performance d'un scénario.
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct Metrics {
+    /// Nombre de frames simulées.
+    pub frames: u32,
+    /// Temps de simulation en secondes (wall clock, seulement la boucle GGRS).
+    pub sim_seconds: f64,
+    /// Frames simulées par seconde.
+    pub sim_fps: f64,
+    /// Nombre maximum d'entités rollback à une frame.
+    pub entities_max: u32,
+    /// Nombre maximum de balles à une frame.
+    pub bullets_max: u32,
+    /// Nombre maximum d'ennemis à une frame.
+    pub enemies_max: u32,
+    /// Nombre maximal de joueurs vivants à une frame.
+    pub players: u32,
+}
 
 /// Résultat d'un scénario.
 pub struct ScenarioOutcome {
@@ -43,6 +63,8 @@ pub struct ScenarioOutcome {
     pub recorded: Scenario,
     /// Moments clés de la partie.
     pub events: Vec<GameEvent>,
+    /// Métriques de performance.
+    pub metrics: Metrics,
 }
 
 /// Dossier des assets du dépôt.
@@ -167,11 +189,38 @@ pub fn run_with<F: FnOnce(&mut App)>(scenario: &Scenario, configure: F) -> Scena
     pending.sort_by_key(|e| e.at_frame());
     let mut failures = Vec::new();
 
+    // Métriques : le chrono part au premier update simulé (le chargement de la map n'est pas
+    // compté) ; les compteurs d'entités sont lus entre deux updates, jamais dans la simulation.
+    let mut sim_start: Option<std::time::Instant> = None;
+    let mut sim_elapsed = 0.0f64;
+    let mut entities_max = 0u32;
+    let mut bullets_max = 0u32;
+    let mut enemies_max = 0u32;
+    let mut players_count = 0u32;
+    let mut q_rollback = app.world_mut().query_filtered::<(), With<bevy_ggrs::Rollback>>();
+    let mut q_bullets = app.world_mut().query_filtered::<(), With<game::weapons::Bullet>>();
+    let mut q_enemies = app.world_mut().query_filtered::<(), With<game::character::enemy::Enemy>>();
+    let mut q_players = app.world_mut().query_filtered::<(), With<Player>>();
+
     let max_updates = MAX_LOADING_UPDATES + scenario.frames;
     let mut frame = 0;
     for _ in 0..max_updates {
+        let before = app.world().resource::<FrameCount>().frame;
+        if before > 0 && sim_start.is_none() {
+            sim_start = Some(std::time::Instant::now());
+        }
         app.update();
         frame = app.world().resource::<FrameCount>().frame;
+        if let Some(start) = sim_start {
+            sim_elapsed = start.elapsed().as_secs_f64();
+        }
+
+        if frame > 0 {
+            entities_max = entities_max.max(q_rollback.iter(app.world()).count() as u32);
+            bullets_max = bullets_max.max(q_bullets.iter(app.world()).count() as u32);
+            enemies_max = enemies_max.max(q_enemies.iter(app.world()).count() as u32);
+            players_count = players_count.max(q_players.iter(app.world()).count() as u32);
+        }
 
         while pending.first().is_some_and(|e| e.at_frame() <= frame) {
             let expectation = pending.remove(0);
@@ -184,6 +233,12 @@ pub fn run_with<F: FnOnce(&mut App)>(scenario: &Scenario, configure: F) -> Scena
             break;
         }
     }
+
+    let sim_fps = if sim_elapsed > 0.0 {
+        frame as f64 / sim_elapsed
+    } else {
+        0.0
+    };
 
     if frame < scenario.frames {
         failures.push(format!(
@@ -211,12 +266,23 @@ pub fn run_with<F: FnOnce(&mut App)>(scenario: &Scenario, configure: F) -> Scena
 
     let events = app.world().resource::<GameEvents>().events.clone();
 
+    let metrics = Metrics {
+        frames: frame,
+        sim_seconds: sim_elapsed,
+        sim_fps,
+        entities_max,
+        bullets_max,
+        enemies_max,
+        players: players_count,
+    };
+
     ScenarioOutcome {
         trace,
         failures,
         summary,
         recorded,
         events,
+        metrics,
     }
 }
 
