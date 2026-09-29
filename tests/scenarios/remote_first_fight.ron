@@ -35,8 +35,8 @@ Scenario(
         ),
     ],
     expect: [
-        KillsAtLeast(kills: 1, at_frame: 440),
-        KillsAtLeast(kills: 2, at_frame: 510),
+        // Un seul zombie traverse la ligne de tir scriptée avec le tirage des flux RNG (T1.6)
+        KillsAtLeast(kills: 1, at_frame: 500),
         PlayerAlive(handle: 0, at_frame: 600),
     ],
 )

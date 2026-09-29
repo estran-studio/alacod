@@ -16,7 +16,7 @@ use bevy::{
 };
 use bevy_fixed::{
     fixed_math::{self, sync_bevy_transforms_from_fixed},
-    rng::{RngStreams, RollbackRng, RunSeed},
+    rng::RngStreams,
 };
 use bevy_ggrs::{GgrsPlugin, GgrsSchedule};
 #[cfg(feature = "debug_ui")]
@@ -140,7 +140,8 @@ impl Plugin for CoreSetupPlugin {
         app.init_resource::<GgrsNetIdFactory>();
         app.init_resource::<FrameCount>();
 
-        // Initialize RngStreams with default seed (will be replaced when game starts)
+        // Flux RNG nommés (T1.6) : remplacés au démarrage de session par ceux dérivés de
+        // `RunSeed` (jjrs/local.rs, jjrs/p2p.rs) ; enregistrés en rollback plus bas.
         app.insert_resource(RngStreams::new(12345));
 
         app.add_message::<GameDisconnectedEvent>();
@@ -154,7 +155,7 @@ impl Plugin for CoreSetupPlugin {
             .rollback_and_trace_copy_resource::<FrameCount>()
             .rollback_and_trace::<fixed_math::FixedTransform3D>()
             .rollback_and_trace::<GgrsNetId>()
-            .rollback_and_trace::<RngStreams>();
+            .rollback_and_trace_resource::<RngStreams>();
 
         // Ordre total : `RollbackSystemSet::ORDER` (sim_core, T0.2), chaîné pair à pair
         // (mêmes arêtes qu'un `.chain()` sur un n-uplet, sans limite d'arité de tuple).

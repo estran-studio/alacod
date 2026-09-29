@@ -148,12 +148,12 @@ fn event_kill_found() {
         return;
     }
 
-    let mut scenario = load_scenario("shoot_around");
-    // À la frame 1500, au moins un ennemi doit avoir été tué
+    let mut scenario = load_scenario("remote_first_fight");
+    // À la frame 600, au moins un ennemi doit avoir été tué (un kill à la frame 482 avec les flux RNG de T1.6)
     scenario.expect = vec![game::replay::Expectation::Event {
         kind: "kill".to_string(),
         label_contains: None,
-        by_frame: 1500,
+        by_frame: 600,
     }];
     let outcome = run(&scenario);
     assert!(

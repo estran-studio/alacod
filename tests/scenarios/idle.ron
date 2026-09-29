@@ -15,6 +15,6 @@ Scenario(
         PlayerDead(handle: 0, at_frame: 1300),
         WaveAtLeast(wave: 1, at_frame: 1500),
         // Les zombies cassent une fenêtre avant d'entrer
-        WindowsBrokenAtLeast(windows: 1, at_frame: 340),
+        WindowsBrokenAtLeast(windows: 1, at_frame: 400),
     ],
 )

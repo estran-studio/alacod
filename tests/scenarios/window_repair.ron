@@ -17,8 +17,8 @@ Scenario(
         ]),
     ],
     expect: [
-        // Réparée juste après avoir cédé : bloquante à nouveau
-        WindowHealth(window: 28, health: 1, at_frame: 510),
+        // Réparée pendant la vague (tirage des flux RNG, T1.6) : bloquante à nouveau
+        WindowHealth(window: 28, health: 2, at_frame: 470),
         // Les zombies ont dû la recasser
         WindowHealth(window: 28, health: 0, at_frame: 540),
         // Une fenêtre cassée laisse passer les zombies, pas le joueur : il reste dans la pièce
