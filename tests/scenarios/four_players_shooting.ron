@@ -1,0 +1,39 @@
+// Quatre joueurs locaux tirent simultanément à la mitrailleuse, chacun dans une direction différente :
+// joueur 0 vers le haut, joueur 1 vers la droite, joueur 2 vers le bas, joueur 3 vers la gauche.
+// Chaque joueur a ses propres munitions ; les tirs consomment l'aléatoire et les identifiants réseau
+// dans l'ordre des joueurs.
+//
+// À regarder : quatre jets de balles simultanés dans quatre directions, qui s'arrêtent sur les murs ;
+// les quatre joueurs rechargent en même temps (frame 190).
+Scenario(
+    frames: 300,
+    players: [
+        (inputs: [
+            (from: 10, to: 250, buttons: [Fire], pan: (0, 100)),
+        ]),
+        (inputs: [
+            (from: 10, to: 250, buttons: [Fire], pan: (100, 0)),
+        ]),
+        (inputs: [
+            (from: 10, to: 250, buttons: [Fire], pan: (0, -100)),
+        ]),
+        (inputs: [
+            (from: 10, to: 250, buttons: [Fire], pan: (-100, 0)),
+        ]),
+    ],
+    expect: [
+        // Chacun ses munitions, décomptées au même rythme
+        Ammo(handle: 0, ammo: 15, at_frame: 100),
+        Ammo(handle: 1, ammo: 15, at_frame: 100),
+        Ammo(handle: 2, ammo: 15, at_frame: 100),
+        Ammo(handle: 3, ammo: 15, at_frame: 100),
+        // Rechargement automatique des quatre
+        Ammo(handle: 0, ammo: 30, at_frame: 285),
+        Ammo(handle: 1, ammo: 30, at_frame: 285),
+        Ammo(handle: 2, ammo: 30, at_frame: 285),
+        Ammo(handle: 3, ammo: 30, at_frame: 285),
+        // Les balles des quatre joueurs s'arrêtent sur les murs de la pièce
+        BulletsInside(x_min: 0, x_max: 655, y_min: 0, y_max: 767, at_frame: 60),
+        BulletsInside(x_min: 0, x_max: 655, y_min: 0, y_max: 767, at_frame: 150),
+    ],
+)

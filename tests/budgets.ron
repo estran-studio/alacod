@@ -20,5 +20,8 @@
         "two_players_shooting": (min_sim_fps: 100.0),
         "weapons_workout": (min_sim_fps: 100.0),
         "window_repair": (min_sim_fps: 100.0),
+        // quatre joueurs (mesures du 2026-09-29 : 179 et 209)
+        "four_players_idle": (min_sim_fps: 80.0),
+        "four_players_shooting": (min_sim_fps: 100.0),
     },
 )

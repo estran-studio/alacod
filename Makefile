@@ -1,6 +1,11 @@
+# Les recettes utilisent des tableaux bash (test_multiplayer) : pas de /bin/sh (dash sur Ubuntu).
+SHELL := /bin/bash
+
 PROFILE ?= dev
 
 LOBBY ?= "test"
+# Joueurs d'une session matchbox : le local puis un `remote` par pair (voir test_multiplayer).
+PLAYERS ?= localhost remote
 NUMBER_PLAYER ?= 2
 NAME ?= "Player"
 TIMEOUT ?= 10
@@ -168,13 +173,13 @@ character_tester:
 	APP_VERSION=$(VERSION) cargo run --example character_tester $(ARGS) --features native -- $(GARGS) --local-port 7000 --players localhost
 
 character_tester_matchbox:
-	APP_VERSION=$(VERSION) cargo run --example character_tester $(ARGS) --features native -- --number-player $(NUMBER_PLAYER) --matchbox $(MATCHBOX_URL) --lobby $(LOBBY) --players localhost remote --cid $(CID) --name $(NAME)
+	APP_VERSION=$(VERSION) cargo run --example character_tester $(ARGS) --features native -- --number-player $(NUMBER_PLAYER) --matchbox $(MATCHBOX_URL) --lobby $(LOBBY) --players $(PLAYERS) --cid $(CID) --name $(NAME)
 
 ldtk_map_explorer:
 	APP_VERSION=$(VERSION) cargo run --example map_explorer $(ARGS) --features native -- $(GARGS) --local-port 7000 --players localhost
 
 ldtk_map_explorer_matchbox:
-	APP_VERSION=$(VERSION) cargo run --example map_explorer $(ARGS) --features native -- --number-player $(NUMBER_PLAYER) --matchbox $(MATCHBOX_URL) --lobby $(LOBBY) --players localhost remote --cid $(CID) --name $(NAME)
+	APP_VERSION=$(VERSION) cargo run --example map_explorer $(ARGS) --features native -- --number-player $(NUMBER_PLAYER) --matchbox $(MATCHBOX_URL) --lobby $(LOBBY) --players $(PLAYERS) --cid $(CID) --name $(NAME)
 
 host_website:
 	cd website && APP_VERSION=$(VERSION) npm run dev
@@ -251,21 +256,32 @@ diff_log:
 	diff $(FILTERED_LOG_DIR)/$(CID_1).log $(FILTERED_LOG_DIR)/$(CID_2).log
 
 test_multiplayer:
-	@echo "Starting multiplayer test with lobby: $(LOBBY_1)"; \
-	echo "Starting Bob's instance..."; \
-	make $(TARGET)_matchbox CID=bob NAME=Bob LOBBY=$(LOBBY_1) & \
-	BOB_PID=$$!; \
-	echo "Bob started with PID: $$BOB_PID"; \
-	echo "Waiting $(TIMEOUT) seconds before starting second instance..."; \
-	sleep $(TIMEOUT); \
-	echo "Starting Alice's instance..."; \
-	make $(TARGET)_matchbox CID=alice NAME=Alice LOBBY=$(LOBBY_2) & \
-	ALICE_PID=$$!; \
-	echo "Alice started with PID: $$ALICE_PID"; \
-	echo "Waiting for both instances to complete..."; \
-	wait $$BOB_PID; \
-	echo "Bob's instance completed"; \
-	wait $$ALICE_PID; \
-	echo "Alice's instance completed"; \
-	echo "Running log diff..."; \
-	make diff_log CID_1=alice CID_2=bob
+	@N=$(or $(N),2); \
+	PIDS=""; \
+	CIDS=""; \
+	PLAYER_NAMES=("alice" "bob" "charlie" "diana" "emma" "frank"); \
+	echo "Starting multiplayer test with $$N players (same lobby: $(LOBBY))..."; \
+	for ((i=1; i<=N; i++)); do \
+		PLAYER_NAME=$${PLAYER_NAMES[$$((i-1))]}; \
+		REMOTES=""; for ((j=1; j<N; j++)); do REMOTES="$$REMOTES remote"; done; \
+		echo "Starting player $$i ($$PLAYER_NAME) in lobby $(LOBBY)..."; \
+		make $(TARGET)_matchbox CID=$$PLAYER_NAME NAME="$$PLAYER_NAME" LOBBY=$(LOBBY) NUMBER_PLAYER=$$N PLAYERS="localhost$$REMOTES" & \
+		PID=$$!; \
+		PIDS="$$PIDS $$PID"; \
+		CIDS="$$CIDS $$PLAYER_NAME"; \
+		if [ $$i -lt $$N ]; then \
+			echo "Waiting $(TIMEOUT) seconds before starting next player..."; \
+			sleep $(TIMEOUT); \
+		fi; \
+	done; \
+	echo "Waiting for all instances to complete..."; \
+	wait $$PIDS; \
+	echo "All instances completed"; \
+	echo "Running log diffs..."; \
+	FIRST_CID=$$(echo $$CIDS | awk '{print $$1}'); \
+	for CID in $$CIDS; do \
+		if [ "$$CID" != "$$FIRST_CID" ]; then \
+			echo "Comparing $$FIRST_CID vs $$CID..."; \
+			make diff_log CID_1=$$FIRST_CID CID_2=$$CID || true; \
+		fi; \
+	done
