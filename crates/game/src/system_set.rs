@@ -1,17 +1,9 @@
-use bevy::prelude::SystemSet;
+//! Réexport : voir `sim_core::system_set`. Déménagé dans `sim_core` en T0.2
+//! (`docs/taches.md`) et complété (`Projectiles`, `Effects`, `Status`, `Run`) pour que les
+//! futurs crates de vocabulaire (`combat`, `effects`, `behaviors`...) puissent placer
+//! leurs systèmes sans dépendre de `game`. Réexporté ici pour que les sites existants
+//! gardent `use crate::system_set::RollbackSystemSet` (même idiome que `crate::rollback`,
+//! qui réexporte `utils::rollback`). `crates/game/src/core.rs` configure la chaîne
+//! d'ordre à partir de `RollbackSystemSet::ORDER`.
 
-#[derive(SystemSet, Debug, Hash, PartialEq, Eq, Clone, Copy)]
-pub enum RollbackSystemSet {
-    /// Début de frame : nettoyage des `FrameEvents` de la frame précédente
-    FrameStart,
-    Input,
-    Interaction,
-    Movement,
-    Weapon,
-    CollisionDamage,
-    DeathManagement,
-    AnimationUpdates,
-    EnemySpawning,
-    EnemyAI,
-    FrameCounter,
-}
+pub use sim_core::system_set::*;

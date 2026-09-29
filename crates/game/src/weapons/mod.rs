@@ -15,6 +15,7 @@ use bevy_common_assets::ron::RonAssetPlugin;
 use bevy_fixed::{fixed_math, rng::RollbackRng};
 use bevy_ggrs::{GgrsSchedule, PlayerInputs, Rollback};
 use ggrs::PlayerHandle;
+use sim_core::kinds::{KindDecl, KindRegistry};
 use std::collections::BTreeMap;
 
 use serde::{Deserialize, Serialize};
@@ -1217,6 +1218,22 @@ impl Plugin for BaseWeaponGamePlugin {
         // Add RON asset plugins for weapons and melee weapons
         app.add_plugins(RonAssetPlugin::<WeaponsConfig>::new(&["ron"]));
         app.add_plugins(RonAssetPlugin::<melee::MeleeWeaponsConfig>::new(&["ron"]));
+
+        // Kinds existants (lus par le lint de contenu, `crates/content`, T1.5). Les noms
+        // sont ceux des tables `weapons.ron`/`melee_weapons.ron`, déjà en dur ailleurs
+        // dans ce fichier et dans `character/enemy/create.rs` ; T1.5 les lira depuis le
+        // registre construit au chargement des RON plutôt que d'une liste Rust.
+        app.register_kinds([
+            KindDecl::new("weapon", "pistol"),
+            KindDecl::new("weapon", "machine_gun"),
+            KindDecl::new("weapon", "shotgun"),
+            KindDecl::new("weapon", "bare_hands"),
+            KindDecl::new("weapon", "zombie_claws"),
+            KindDecl::new("weapon", "club"),
+            KindDecl::new("weapon", "knife"),
+            KindDecl::new("weapon", "sword"),
+            KindDecl::new("weapon", "axe"),
+        ]);
 
         // Rollback components for ranged weapons
         app.rollback_and_trace::<WeaponInventory>()

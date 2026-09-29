@@ -13,6 +13,7 @@ use bevy_common_assets::ron::RonAssetPlugin;
 use bevy_ggrs::{GgrsSchedule, ReadInputs};
 use leafwing_input_manager::plugin::InputManagerPlugin;
 use map::game::entity::map::enemy_spawn::EnemySpawnerComponent;
+use sim_core::kinds::{KindDecl, KindRegistry};
 
 use crate::frame_events::FrameEventsAppExt;
 use crate::{
@@ -91,6 +92,15 @@ impl Plugin for BaseCharacterGamePlugin {
             ..EnemyStateDebug::new()
         });
         app.add_frame_events::<ObstacleAttackEvent>();
+
+        // Kinds existants (lus par le lint de contenu, `crates/content`, T1.5). Les noms
+        // viennent de `global_asset.rs` (`character_configs`) : ce sont les seuls types
+        // d'ennemis chargés aujourd'hui, en dur ; T1.5 les lira depuis le manifeste RON.
+        app.register_kinds([
+            KindDecl::new("enemy", "zombie_1"),
+            KindDecl::new("enemy", "zombie_2"),
+            KindDecl::new("enemy", "zombie_full"),
+        ]);
 
         // Rollback registration
         use crate::rollback::RollbackTraceApp;

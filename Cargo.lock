@@ -5772,6 +5772,7 @@ dependencies = [
  "ron 0.12.2",
  "serde",
  "serde_json",
+ "sim_core",
  "telemetry",
  "thiserror 2.0.21",
  "utils",
@@ -10061,6 +10062,18 @@ checksum = "77549399552de45a898a580c1b41d445bf730df867cc44e6c0233bbc4b8329de"
 dependencies = [
  "digest",
  "rand_core 0.6.4",
+]
+
+[[package]]
+name = "sim_core"
+version = "0.1.0"
+dependencies = [
+ "bevy 0.19.1",
+ "bevy_fixed",
+ "bevy_ggrs",
+ "ron 0.12.2",
+ "serde",
+ "utils",
 ]
 
 [[package]]

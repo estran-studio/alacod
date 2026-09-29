@@ -22,6 +22,8 @@ fi
 
 # Crates to check
 CRATES=(
+    "crates/sim_core/src"
+    "crates/combat/src"
     "crates/game/src"
     "crates/map/src"
     "crates/map_ldtk/src"

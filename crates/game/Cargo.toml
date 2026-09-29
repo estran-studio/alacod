@@ -18,6 +18,7 @@ bevy_common_assets = { version = "0.17", features = ["ron"]}
 
 bevy_fixed = { path = "../bevy_fixed"}
 utils = { path = "../utils"}
+sim_core = { path = "../sim_core"}
 map = { path = "../map"}
 animation ={ path = "../animation"}
 telemetry = { path = "../telemetry"}

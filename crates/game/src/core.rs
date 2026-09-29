@@ -153,23 +153,11 @@ impl Plugin for CoreSetupPlugin {
             .rollback_and_trace::<fixed_math::FixedTransform3D>()
             .rollback_and_trace::<GgrsNetId>();
 
-        app.configure_sets(
-            GgrsSchedule,
-            (
-                RollbackSystemSet::FrameStart,
-                RollbackSystemSet::Input,
-                RollbackSystemSet::Interaction,
-                RollbackSystemSet::Movement,
-                RollbackSystemSet::Weapon,
-                RollbackSystemSet::CollisionDamage,
-                RollbackSystemSet::DeathManagement,
-                RollbackSystemSet::AnimationUpdates,
-                RollbackSystemSet::EnemySpawning,
-                RollbackSystemSet::EnemyAI,
-                RollbackSystemSet::FrameCounter,
-            )
-                .chain(),
-        );
+        // Ordre total : `RollbackSystemSet::ORDER` (sim_core, T0.2), chaîné pair à pair
+        // (mêmes arêtes qu'un `.chain()` sur un n-uplet, sans limite d'arité de tuple).
+        for pair in RollbackSystemSet::ORDER.windows(2) {
+            app.configure_sets(GgrsSchedule, pair[1].after(pair[0]));
+        }
 
         // First step is to load the global asset
         app.add_systems(Startup, add_global_asset);
