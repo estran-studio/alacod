@@ -521,3 +521,18 @@ région des chantiers puis la campagne.
   le commit de merge et la vidéo.
 - Le digest hebdomadaire (plan §9.8) liste les tâches mergées, en cours, bloquées, et les métriques.
 - Une tâche qui découvre une autre tâche l'ajoute ici, dans la vague suivante, jamais dans la sienne.
+
+## 10. Journal
+
+| Date | Tâche | Branche | Agent | État |
+|---|---|---|---|---|
+| 2026-09-28 | T0.1a (K0, première étape : extension `rollback_and_trace`, observateur `SyncTestMismatch`, `check_distance`, test du filet) | `m0-v3-determinisme` | Haiku | en cours |
+| 2026-09-28 | T0.4 (K6a, CI rapide sans conteneur, `make check`, `scripts/check-forbidden.sh`) | `m0-v5-ci-rapide` | Haiku | en cours |
+| 2026-09-28 | T1.4 (A3, crate `content`, module `expr`) | `m0-v2-expressions` | Haiku | en cours |
+| 2026-09-28 | T1.10 (I3, caméra par joueur en ligne, `play_scenario --follow`) | `m0-v4-camera` | Haiku | en cours |
+
+Orchestration : Fable crée les worktrees (`scripts/task-new.sh` du meta-repo), lance un agent par
+tâche avec le modèle le moins cher (Haiku d'abord, Sonnet si une tâche échoue deux fois), vérifie
+la branche (`make test_scenarios`, `cargo test`, lecture du diff), fusionne dans `main`
+(`scripts/task-merge.sh`, merge `--no-ff`) dans l'ordre de merge de la vague, et tient ce journal.
+Base de référence : `main` à `4e93269`, douze scénarios verts en 78 s.
