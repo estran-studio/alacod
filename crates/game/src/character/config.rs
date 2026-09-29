@@ -2,9 +2,13 @@ use bevy::{platform::collections::hash_map::HashMap, prelude::*, reflect::TypePa
 use bevy_fixed::fixed_math;
 use serde::Deserialize;
 use sim_core::tag::{Tag, Tags};
+use sim_core::team::Team;
 use std::collections::BTreeMap;
 
-use crate::{character::movement::MovementConfig, collider::ColliderConfig};
+use crate::{
+    character::enemy::ai::EnemyAiConfigRon, character::movement::MovementConfig,
+    collider::ColliderConfig,
+};
 
 use super::health::HealthConfig;
 
@@ -56,6 +60,27 @@ pub struct CharacterConfig {
     /// `weapons.ron`).
     #[serde(default)]
     pub starting_weapons: Vec<String>,
+
+    /// Équipe par défaut d'un personnage spawné via `spawn_enemy` sans `team` explicite sur
+    /// l'entité `CharacterSpawn` qui l'a créé (T2.9, testbed). `None` pour tout le contenu
+    /// zombies existant (comportement inchangé : `Team::Enemies` en dur, voir
+    /// `character::enemy::create::spawn_enemy`).
+    #[serde(default)]
+    pub team: Option<Team>,
+
+    /// Configuration d'IA (mouvement, portées, obstacles) de ce personnage quand il est
+    /// spawné comme ennemi (T2.9, testbed : `dummy`/`target`/`follower`/etc. ont besoin d'un
+    /// comportement différent du zombie standard). `None` pour tout le contenu zombies
+    /// existant : `spawn_enemy` retombe alors sur `EnemyAiConfig::zombie()` comme avant.
+    #[serde(default)]
+    pub ai: Option<EnemyAiConfigRon>,
+
+    /// Si vrai, ce personnage reçoit un composant `HitCount` (rollback) à sa création,
+    /// incrémenté par le résolveur de dégâts pour chaque coup reçu (T2.9, testbed : la
+    /// cible `target`). Faux par défaut : ne s'applique à aucun personnage zombie/joueur
+    /// existant.
+    #[serde(default)]
+    pub counts_hits: bool,
 }
 
 #[derive(Component)]

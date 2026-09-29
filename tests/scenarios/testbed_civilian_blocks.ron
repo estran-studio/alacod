@@ -1,0 +1,20 @@
+// T2.9 (testbed) : le joueur tire sur `civilian` (net_id 31, sud-ouest du spawn,
+// `team: Neutral`). `Team::Neutral` intercepte toujours un tir (`combat::team::team_allows_hit`
+// renvoie `true` : la balle standard s'y arrête) mais `combat::damage::resolve_damage` renvoie
+// toujours `None` pour une cible `Neutral` : aucun dégât. Vérifie que sa santé reste intacte.
+//
+// À regarder : le joueur tire en continu vers le sud-ouest (f10-160) ; le civil reste immobile
+// et indemne, les balles s'arrêtent sur lui (elles ne continuent pas au-delà).
+Scenario(
+    game: "testbed",
+    map: "testbed/arena.ldtk",
+    frames: 200,
+    players: [
+        (inputs: [
+            (from: 10, to: 160, buttons: [Fire], pan: (-64, -80)),
+        ]),
+    ],
+    expect: [
+        EntityHealth(net_id: 31, min: Some(40.0), max: Some(40.0), at_frame: 180),
+    ],
+)

@@ -312,6 +312,15 @@ pub enum Expectation {
         max: Option<f32>,
         at_frame: u32,
     },
+    /// Nombre de coups reçus par l'entité `net_id`, au moins `min` (T2.9, testbed : la cible
+    /// `target`, composant `HitCount` posé par `CharacterConfig::counts_hits`). L'entité doit
+    /// exister et porter `HitCount` à `at_frame`, sinon l'attente échoue (comme
+    /// `EntityHealth`).
+    EntityHits {
+        net_id: usize,
+        min: u32,
+        at_frame: u32,
+    },
     /// La santé du joueur `handle` ne diminue à aucune frame entre `from_frame` et `to_frame` inclus.
     /// C'est une attente **continue** : le runner relève la santé à chaque frame de l'intervalle.
     /// Une baisse produit une failure qui dit la frame et les deux valeurs.
@@ -356,6 +365,7 @@ impl Expectation {
             | Self::PlayerPosition { at_frame, .. }
             | Self::Health { at_frame, .. }
             | Self::EntityHealth { at_frame, .. }
+            | Self::EntityHits { at_frame, .. }
             | Self::EntityCount { at_frame, .. }
             | Self::Event {
                 by_frame: at_frame, ..

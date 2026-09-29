@@ -27,6 +27,15 @@ use super::{
 ///
 /// Returns the spawned Entity so callers can attach additional components
 /// (e.g., WaveEnemy for wave tracking).
+///
+/// `team` : équipe posée sur l'entité (T2.9, testbed : `dummy`/`ally`/`civilian`/... ne sont
+/// pas tous `Team::Enemies`). Le seul appelant historique (`enemy_spawn_from_spawners_system`,
+/// vagues zombies) passe `Team::Enemies` explicitement, comportement inchangé.
+///
+/// L'IA (portées, obstacles, immobilité) vient de `CharacterConfig::ai` du personnage
+/// `enemy_type_name` s'il en déclare une (T2.9), sinon `EnemyAiConfig::zombie()` comme avant
+/// T2.9 : aucun personnage zombie existant ne déclare `ai`, ce repli garde leur comportement
+/// exact.
 pub fn spawn_enemy(
     enemy_type_name: String,
     position: fixed_math::FixedVec3,
@@ -39,7 +48,16 @@ pub fn spawn_enemy(
     collision_settings: &Res<CollisionSettings>,
 
     id_factory: &mut ResMut<GgrsNetIdFactory>,
+    team: Team,
 ) -> Entity {
+    let ai_config = global_assets
+        .character_configs
+        .get(&enemy_type_name)
+        .and_then(|handle| characters_asset.get(handle))
+        .and_then(|config| config.ai.as_ref())
+        .map(EnemyAiConfig::from)
+        .unwrap_or_else(EnemyAiConfig::zombie);
+
     let entity = create_character(
         commands,
         global_assets,
@@ -54,14 +72,23 @@ pub fn spawn_enemy(
 
     let inventory = WeaponInventory::default();
 
-    // Give the enemy a melee weapon (zombie claws, fallback to bare hands)
-    if let Some(melee_weapons_config) = melee_weapons_asset.get(&global_assets.melee_weapons) {
-        if let Some(weapon) = melee_weapons_config
-            .0
-            .get("zombie_claws")
-            .or_else(|| melee_weapons_config.0.get("bare_hands"))
-        {
-            spawn_melee_weapon_for_character(commands, entity, weapon.clone(), id_factory);
+    // Give the enemy a melee weapon (zombie claws, fallback to bare hands) — sauf si son
+    // `attack_range` est nul (T2.9, testbed : `dummy`/`target`/`follower`/`ally`/`civilian`
+    // ne doivent jamais attaquer). `enemy_melee_attack_system`
+    // (`crates/game/src/weapons/melee.rs`) déclenche une attaque dès qu'un joueur entre dans
+    // la portée de l'ARME elle-même, indépendamment d'`EnemyAiConfig` : sans cette garde, un
+    // ennemi à `attack_range: "0"` continuerait de griffer via la griffe équipée. Aucun
+    // personnage zombie existant n'a un `attack_range` nul (`EnemyAiConfig::zombie()` = 40,
+    // voir aussi `EnemyAiConfig::default()`), donc inchangé pour le contenu existant.
+    if ai_config.attack_range > fixed_math::FIXED_ZERO {
+        if let Some(melee_weapons_config) = melee_weapons_asset.get(&global_assets.melee_weapons) {
+            if let Some(weapon) = melee_weapons_config
+                .0
+                .get("zombie_claws")
+                .or_else(|| melee_weapons_config.0.get("bare_hands"))
+            {
+                spawn_melee_weapon_for_character(commands, entity, weapon.clone(), id_factory);
+            }
         }
     }
 
@@ -71,12 +98,12 @@ pub fn spawn_enemy(
         WallSlideTracker::default(),
         Enemy::default(),
         // AI components for flow field navigation and combat
-        EnemyAiConfig::zombie(),
+        ai_config,
         EnemyTarget::default(),
         MonsterState::default(),
         // `Team` est un composant statique, non enregistré en rollback (voir sa doc dans
         // `sim_core::team`) : ne pas l'ajouter à `RollbackTraceApp` sans blesser les traces.
-        Team::Enemies,
+        team,
     ));
 
     #[cfg(feature = "harmonium")]

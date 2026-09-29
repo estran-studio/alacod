@@ -75,7 +75,10 @@ impl From<MovementType> for NavProfile {
 }
 
 /// AI configuration for an enemy - loaded from RON
-#[derive(Component, Clone, Debug, Hash, Serialize, Deserialize)]
+///
+/// `Hash` manuel (voir l'impl plus bas) : exclut `stationary` (T2.9). Motif identique à
+/// `CharacterAppearance` (`character/visuals.rs`).
+#[derive(Component, Clone, Debug, Serialize, Deserialize)]
 pub struct EnemyAiConfig {
     /// Movement type determines pathfinding behavior
     pub movement_type: MovementType,
@@ -100,6 +103,37 @@ pub struct EnemyAiConfig {
     /// Politique de tir ami de l'attaque (T1.1, chantier B1). `Never` : un ennemi ne
     /// touche jamais un autre ennemi (même bord, voir `combat::team::team_allows_hit`).
     pub friendly_fire: FriendlyFire,
+    /// Si vrai, ne bouge jamais (T2.9, testbed : `dummy`/`target`/`ally`/`civilian`) :
+    /// `move_enemies` (`character::enemy::ai::pathing`) laisse cet ennemi immobile quelle
+    /// que soit la flow field. `false` par défaut : aucun personnage zombie existant n'est
+    /// stationnaire.
+    pub stationary: bool,
+}
+
+/// Hash manuel : hache exactement les champs présents avant T2.9, dans le même ordre que
+/// l'ancien `#[derive(Hash)]` — `stationary` en est exclu. Ajouter un champ à une struct
+/// hachée par un `derive` change toujours le hash produit, même à valeur « neutre »
+/// (`false`) : sur du contenu zombie existant (aucun ne pose `stationary`), ça déplacerait
+/// le checksum GGRS agrégé de toute entité `Enemy` (`EnemyAiConfig` y est déjà enregistré
+/// via `rollback_and_trace`, avec checksum) et casserait les traces de référence
+/// (`tests/scenarios/*.trace`) sans aucun changement de gameplay. Vérifié empiriquement :
+/// sans cet impl manuel, `idle.ron` diverge dès l'apparition du premier zombie (f181).
+/// Même motif que `CharacterAppearance` (`character/visuals.rs`), qui exclut
+/// `health_bar_color` pour une raison différente (pas de `Hash`).
+impl std::hash::Hash for EnemyAiConfig {
+    fn hash<H: std::hash::Hasher>(&self, state: &mut H) {
+        self.movement_type.hash(state);
+        self.aggro_range.hash(state);
+        self.attack_range.hash(state);
+        self.attack_cooldown_frames.hash(state);
+        self.can_break.hash(state);
+        self.attack_through.hash(state);
+        self.ignores.hash(state);
+        self.path_through_breakables.hash(state);
+        self.flee_threshold.hash(state);
+        self.attack_damage.hash(state);
+        self.friendly_fire.hash(state);
+    }
 }
 
 impl Default for EnemyAiConfig {
@@ -116,6 +150,7 @@ impl Default for EnemyAiConfig {
             flee_threshold: None,
             attack_damage: fixed_math::new(10.0),
             friendly_fire: FriendlyFire::Never,
+            stationary: false,
         }
     }
 }
@@ -159,6 +194,7 @@ impl EnemyAiConfig {
             flee_threshold: None,
             attack_damage: fixed_math::new(10.0),
             friendly_fire: FriendlyFire::Never,
+            stationary: false,
         }
     }
 
@@ -176,6 +212,7 @@ impl EnemyAiConfig {
             flee_threshold: None,
             attack_damage: fixed_math::new(8.0),
             friendly_fire: FriendlyFire::Never,
+            stationary: false,
         }
     }
 
@@ -203,6 +240,7 @@ impl EnemyAiConfig {
             flee_threshold: None,
             attack_damage: fixed_math::new(15.0),
             friendly_fire: FriendlyFire::Never,
+            stationary: false,
         }
     }
 
@@ -224,6 +262,7 @@ impl EnemyAiConfig {
             flee_threshold: None,
             attack_damage: fixed_math::new(25.0),
             friendly_fire: FriendlyFire::Never,
+            stationary: false,
         }
     }
 }
@@ -241,6 +280,10 @@ pub struct EnemyAiConfigRon {
     pub path_through_breakables: Option<bool>,
     pub flee_threshold: Option<String>,
     pub attack_damage: Option<String>,
+    /// Voir `EnemyAiConfig::stationary`. `None` = inchangé (`false`, comportement zombie
+    /// existant).
+    #[serde(default)]
+    pub stationary: Option<bool>,
 }
 
 impl From<&EnemyAiConfigRon> for EnemyAiConfig {
@@ -298,6 +341,9 @@ impl From<&EnemyAiConfigRon> for EnemyAiConfig {
                     damage
                 );
             }
+        }
+        if let Some(stationary) = ron.stationary {
+            config.stationary = stationary;
         }
 
         config

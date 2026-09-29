@@ -17,7 +17,7 @@ use bevy_ggrs::Rollback;
 use super::{
     config::CharacterConfig,
     dash::DashState,
-    health::{Health, HealthRegen},
+    health::{Health, HealthRegen, HitCount},
     movement::SprintState,
     visuals::CharacterAppearance,
     Character,
@@ -126,6 +126,13 @@ pub fn create_character(
         },
         id_factory.next(config_name),
     ));
+
+    // T2.9 (testbed) : compteur de coups, seulement pour les personnages qui le déclarent
+    // (`CharacterConfig::counts_hits`, faux par défaut : aucun personnage zombie/joueur
+    // existant n'en reçoit un).
+    if config.counts_hits {
+        commands.entity(entity).insert(HitCount::default());
+    }
 
     // Add HealthRegen component if configured
     if let (Some(regen_rate), Some(regen_delay_frames)) = (

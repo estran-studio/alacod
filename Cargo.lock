@@ -7517,6 +7517,7 @@ dependencies = [
  "once_cell",
  "serde",
  "serde_json",
+ "sim_core",
  "utils",
 ]
 

@@ -11,6 +11,7 @@ bevy_ggrs = "0.22.0"
 bevy_fixed = { path = "../bevy_fixed"}
 map = { path = "../map"}
 game = { path = "../game"}
+sim_core = { path = "../sim_core"}
 utils = { path = "../utils"}
 
 serde = { version = "1.0", features = ["derive"] }

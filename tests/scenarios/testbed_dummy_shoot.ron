@@ -1,0 +1,19 @@
+// T2.9 (testbed) : le joueur tire sur `dummy` (mannequin immobile, net_id 33, nord-ouest du
+// spawn) avec la machine_gun (arme active par défaut). Vérifie que le mannequin encaisse des
+// dégâts (santé décroît) sans bouger ni riposter.
+//
+// À regarder : le joueur ne bouge pas, tire en continu vers le nord-ouest (f10-130) ; le
+// mannequin reste immobile et sa barre de vie baisse.
+Scenario(
+    game: "testbed",
+    map: "testbed/arena.ldtk",
+    frames: 180,
+    players: [
+        (inputs: [
+            (from: 10, to: 130, buttons: [Fire], pan: (-64, 48)),
+        ]),
+    ],
+    expect: [
+        EntityHealth(net_id: 33, min: Some(1.0), max: Some(199.0), at_frame: 150),
+    ],
+)

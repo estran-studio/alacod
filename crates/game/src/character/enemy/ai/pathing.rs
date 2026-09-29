@@ -13,6 +13,7 @@ use std::collections::VecDeque;
 use utils::{frame::FrameCount, net_id::GgrsNetId, order_iter, order_mut_iter};
 
 use super::obstacle::Obstacle;
+use super::state::EnemyAiConfig;
 
 #[derive(Component, Debug, Clone, Hash, Default)]
 pub struct EnemyPath {
@@ -165,6 +166,7 @@ pub fn move_enemies(
             &crate::collider::CollisionLayer,
             &mut WallSlideTracker,
             Option<&super::state::EnemyTarget>,
+            &EnemyAiConfig,
         ),
         With<Enemy>,
     >,
@@ -247,8 +249,17 @@ pub fn move_enemies(
         enemy_collision_layer,
         mut wall_slide_tracker,
         enemy_target_opt,
+        ai_config,
     ) in order_mut_iter!(enemy_query)
     {
+        // T2.9 (testbed) : un ennemi stationnaire (`dummy`/`target`/`ally`/`civilian`)
+        // ignore la flow field et ne bouge jamais, quelle que soit sa cible. `false` par
+        // défaut : aucun ennemi zombie existant n'est concerné.
+        if ai_config.stationary {
+            velocity_component.main = fixed_math::FixedVec2::ZERO;
+            continue;
+        }
+
         let enemy_pos_v2 = fixed_transform.translation.truncate();
 
         // Get character movement config

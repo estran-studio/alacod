@@ -59,6 +59,17 @@ pub struct DamageAccumulator {
     pub last_hit_by: Option<Vec<HitBy>>,
 }
 
+/// Compte les coups reçus par une entité (T2.9, testbed : la cible `target`). Posé à la
+/// création par `character::create::create_character` quand `CharacterConfig::counts_hits`
+/// est vrai (aucun personnage zombie/joueur existant ne le déclare) ; incrémenté ici par
+/// [`rollback_resolve_damage_events`] pour chaque `DamageEvent` résolu en un dégât réel
+/// (`combat::damage::resolve_damage` renvoie `Some`), qu'il porte ce composant ou non — seule
+/// une entité qui le porte voit son compteur avancer. Rollback + trace (composant `Hash`,
+/// voir `BaseCharacterGamePlugin`), pour rester lisible par une attente `EntityHits` de
+/// scénario (`game::replay::Expectation::EntityHits`).
+#[derive(Component, Clone, Debug, Hash, Serialize, Deserialize, Default)]
+pub struct HitCount(pub u32);
+
 impl fmt::Display for HitBy {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
         match self {
@@ -128,6 +139,7 @@ pub fn rollback_resolve_damage_events(
             Option<&Defenses>,
             Option<&Health>,
             Option<&mut DamageAccumulator>,
+            Option<&mut HitCount>,
         ),
         With<Rollback>,
     >,
@@ -156,8 +168,14 @@ pub fn rollback_resolve_damage_events(
         let Some(&entity) = entity_by_net_id.get(&event.target.0) else {
             continue; // cible déjà disparue (rollback, mort le même frame par un autre coup)
         };
-        let Ok((target_net_id, target_team, opt_defenses, opt_health, opt_accumulator)) =
-            target_query.get_mut(entity)
+        let Ok((
+            target_net_id,
+            target_team,
+            opt_defenses,
+            opt_health,
+            opt_accumulator,
+            opt_hit_count,
+        )) = target_query.get_mut(entity)
         else {
             continue;
         };
@@ -182,6 +200,13 @@ pub fn rollback_resolve_damage_events(
         ) else {
             continue;
         };
+
+        // T2.9 (testbed) : compte le coup pour toute entité qui porte `HitCount`, quel que
+        // soit le montant final (le coup a bien été résolu en dégât réel ici, après équipe,
+        // tir ami, immunités et résistances).
+        if let Some(mut hit_count) = opt_hit_count {
+            hit_count.0 += 1;
+        }
 
         let mut last_hit_by = Vec::with_capacity(2);
         if let Some(&handle) = player_handle_by_net_id.get(&event.source.0) {

@@ -15,8 +15,8 @@ use crate::{
 use self::{
     context::MapGenerationContext,
     entity::{
-        door::DoorConfig, enemy_spawn::EnemySpawnConfig, location::EntityLocation,
-        window::WindowConfig,
+        character_spawn::CharacterSpawnConfig, door::DoorConfig, enemy_spawn::EnemySpawnConfig,
+        location::EntityLocation, window::WindowConfig,
     },
     room::{Room, RoomConnection},
 };
@@ -43,6 +43,12 @@ trait IMapGeneration {
         &mut self,
         rng: &mut RollbackRng,
     ) -> Vec<(EntityLocation, EnemySpawnConfig)>;
+    /// T2.9 (testbed) : personnages de laboratoire (`CharacterSpawn`), portés tels quels
+    /// depuis les salles source (pas de règle de recalcul, contrairement aux portes).
+    fn get_character_spawns(
+        &mut self,
+        rng: &mut RollbackRng,
+    ) -> Vec<(EntityLocation, CharacterSpawnConfig)>;
 }
 
 pub trait IMapGenerator {
@@ -64,6 +70,12 @@ pub trait IMapGenerator {
         &mut self,
         rng: &mut RollbackRng,
         enemy_spawns: &Vec<(EntityLocation, EnemySpawnConfig)>,
+    );
+    /// T2.9 (testbed) : voir [`IMapGeneration::get_character_spawns`].
+    fn add_character_spawns(
+        &mut self,
+        rng: &mut RollbackRng,
+        character_spawns: &Vec<(EntityLocation, CharacterSpawnConfig)>,
     );
 }
 
@@ -95,6 +107,7 @@ pub fn map_generation(
     let windows = generator.get_windows(&mut rng);
     let player_spawns = generator.get_player_spawn(&mut rng);
     let enemy_spawns = generator.get_enemy_spawns(&mut rng);
+    let character_spawns = generator.get_character_spawns(&mut rng);
 
     map_generator.add_doors(&mut rng, &doors);
 
@@ -103,6 +116,8 @@ pub fn map_generation(
     map_generator.add_player_spawns(&mut rng, &player_spawns);
 
     map_generator.add_enemy_spawns(&mut rng, &enemy_spawns);
+
+    map_generator.add_character_spawns(&mut rng, &character_spawns);
 
     Ok(())
 }

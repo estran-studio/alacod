@@ -1,0 +1,20 @@
+// T2.9 (testbed) : un joueur immobile dans l'arène (salle vide, quatre PlayerSpawn). Couvre
+// le chargement de `testbed/arena.ldtk` (bevy_ecs_ldtk + map_ldtk::generation) et le spawn
+// des cinq personnages de laboratoire (dummy, target, follower, ally, civilian) sans qu'ils
+// dérangent le joueur (dummy/target/ally/civilian immobiles ; follower a une portée d'aggro
+// mais n'attaque jamais, `attack_range: "0"`).
+//
+// À regarder : le joueur reste immobile au centre ; les cinq personnages de laboratoire sont
+// visibles autour de lui (est, nord, sud, ouest, sud-est) ; le follower se rapproche
+// lentement mais ne l'atteint jamais en 300 frames.
+Scenario(
+    game: "testbed",
+    map: "testbed/arena.ldtk",
+    frames: 300,
+    players: [
+        (),
+    ],
+    expect: [
+        PlayerAlive(handle: 0, at_frame: 300),
+    ],
+)

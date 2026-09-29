@@ -1,0 +1,20 @@
+// T2.9 (testbed) : le joueur tire sur `ally` (net_id 34, sud-est du spawn, `team: Allies`).
+// `Allies` compte comme le bord des joueurs (`combat::team::team_allows_hit`) : l'arme active
+// (`friendly_fire: Never`, le défaut) ne le touche jamais — les balles le traversent sans même
+// générer de collision. Vérifie que sa santé reste intacte.
+//
+// À regarder : le joueur tire en continu vers le sud-est (f10-160) ; l'allié reste immobile,
+// les balles passent au travers sans le ralentir ni le blesser.
+Scenario(
+    game: "testbed",
+    map: "testbed/arena.ldtk",
+    frames: 200,
+    players: [
+        (inputs: [
+            (from: 10, to: 160, buttons: [Fire], pan: (128, -48)),
+        ]),
+    ],
+    expect: [
+        EntityHealth(net_id: 34, min: Some(80.0), max: Some(80.0), at_frame: 180),
+    ],
+)

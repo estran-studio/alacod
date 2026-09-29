@@ -1,6 +1,7 @@
 use std::rc::Rc;
 
 use bevy_ecs_ldtk::ldtk::{FieldValue, LayerInstance, LdtkJson, Level};
+use bevy_ecs_ldtk::prelude::LdtkFields;
 
 use map::generation::{
     config::MapGenerationConfig,
@@ -8,7 +9,10 @@ use map::generation::{
         populate_level_connections, scan_height_side, scan_width_side, AvailableLevel, LevelType,
         MapGenerationContext, Side,
     },
-    entity::location::{EntityLocation, EntityLocations},
+    entity::{
+        character_spawn::CharacterSpawnConfig,
+        location::{EntityLocation, EntityLocations},
+    },
     position::Position,
 };
 
@@ -57,6 +61,41 @@ macro_rules! get_entities_multi {
             })
             .collect()
     };
+}
+
+/// T2.9 (testbed) : extrait les entités `CharacterSpawn` avec leurs champs `character`/`team`
+/// (valeurs d'auteur, contrairement aux portes dont la config est recalculée plus tard —
+/// `get_entities!`/`get_entities_multi!` ne portent que position/taille, pas de champs).
+fn get_character_spawns(
+    entities: &[bevy_ecs_ldtk::EntityInstance],
+    tile_size: &(i32, i32),
+) -> Vec<(EntityLocation, CharacterSpawnConfig)> {
+    entities
+        .iter()
+        .filter(|x| x.identifier == map_const::ENTITY_CHARACTER_SPAWN_LOCATION)
+        .map(|x| {
+            let position = Position(x.grid.x, x.grid.y);
+            let size = (x.width / tile_size.0, x.height / tile_size.1);
+            let character = x
+                .get_string_field(map_const::FIELD_CHARACTER_NAME)
+                .ok()
+                .cloned()
+                .unwrap_or_default();
+            let team = x
+                .get_string_field(map_const::FIELD_TEAM_NAME)
+                .ok()
+                .cloned()
+                .filter(|s| !s.is_empty());
+            (
+                EntityLocation {
+                    position,
+                    size,
+                    level_iid: "".to_string(),
+                },
+                CharacterSpawnConfig { character, team },
+            )
+        })
+        .collect()
 }
 
 fn extract_entity_locations(level: &Level, tile_size: &(i32, i32)) -> EntityLocations {
@@ -117,6 +156,7 @@ fn extract_entity_locations(level: &Level, tile_size: &(i32, i32)) -> EntityLoca
                 ],
                 EntityLocation
             ),
+            character_spawns: get_character_spawns(&entity_layer.entity_instances, tile_size),
         }
     } else {
         EntityLocations {
@@ -127,6 +167,7 @@ fn extract_entity_locations(level: &Level, tile_size: &(i32, i32)) -> EntityLoca
             crates: vec![],
             weapons: vec![],
             windows: vec![],
+            character_spawns: vec![],
         }
     }
 }

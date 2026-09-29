@@ -1,0 +1,18 @@
+// T2.9 (testbed) : couvre le chargement et la génération de `testbed/two_rooms_door.ldtk`
+// (deux salles côte à côte reliées par une porte payante — le générateur fixe son coût à
+// 750 + 250×profondeur, voir `crates/map/src/generation/imp/basic.rs::get_doors`) sans
+// erreur — pas de scénario dédié requis par la tâche pour ce fichier, ajouté pour ne pas
+// laisser sa génération sans filet automatique.
+//
+// À regarder : le joueur reste immobile dans la première salle.
+Scenario(
+    game: "testbed",
+    map: "testbed/two_rooms_door.ldtk",
+    frames: 120,
+    players: [
+        (),
+    ],
+    expect: [
+        PlayerAlive(handle: 0, at_frame: 100),
+    ],
+)
