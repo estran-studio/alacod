@@ -1,5 +1,7 @@
-//! Tests pour les nouvelles attentes (Health, EntityHealth, NoDamageBetween, EntityCount, Event).
+//! Tests pour les nouvelles attentes (Health, EntityHealth, NoDamageBetween, EntityCount, Event,
+//! PlayerDowned, PlayerRevived, Defeat).
 
+use game::replay::Expectation;
 use scenario::{run, Scenario};
 
 fn load_scenario(name: &str) -> Scenario {
@@ -405,4 +407,104 @@ fn invariant_sante_bornee_et_desactivation() {
         "{:?}",
         outcome.failures
     );
+}
+
+// À terre et réanimation (T1.3, chantier B6) : `PlayerDowned`, `PlayerRevived`, `Defeat`.
+// `downed_revive.ron` : le joueur 0 abat le joueur 1 (friendly_fire: Always), qui tombe à
+// terre (f89) puis est réanimé (f295).
+
+#[test]
+fn player_downed_true_once_fallen() {
+    if map_ldtk::RENDER_ENABLED {
+        return;
+    }
+    let mut scenario = load_scenario("downed_revive");
+    scenario.expect = vec![Expectation::PlayerDowned {
+        handle: 1,
+        at_frame: 100,
+    }];
+    let outcome = run(&scenario);
+    assert!(outcome.failures.is_empty(), "{:?}", outcome.failures);
+}
+
+#[test]
+fn player_downed_false_before_falling_fails() {
+    if map_ldtk::RENDER_ENABLED {
+        return;
+    }
+    let mut scenario = load_scenario("downed_revive");
+    // À la frame 50, le joueur 1 encaisse encore la rafale (santé pas encore à 0) : pas à terre.
+    scenario.expect = vec![Expectation::PlayerDowned {
+        handle: 1,
+        at_frame: 50,
+    }];
+    let outcome = run(&scenario);
+    assert!(
+        outcome.failures.iter().any(|f| f.contains("PlayerDowned")),
+        "{:?}",
+        outcome.failures
+    );
+}
+
+#[test]
+fn player_revived_true_after_holding_interaction() {
+    if map_ldtk::RENDER_ENABLED {
+        return;
+    }
+    let mut scenario = load_scenario("downed_revive");
+    scenario.expect = vec![Expectation::PlayerRevived {
+        handle: 1,
+        by_frame: 350,
+    }];
+    let outcome = run(&scenario);
+    assert!(outcome.failures.is_empty(), "{:?}", outcome.failures);
+}
+
+#[test]
+fn player_revived_false_when_nobody_revives_fails() {
+    if map_ldtk::RENDER_ENABLED {
+        return;
+    }
+    // `downed_bleedout` : même chute (f89), personne ne maintient l'interaction ensuite.
+    let mut scenario = load_scenario("downed_bleedout");
+    scenario.expect = vec![Expectation::PlayerRevived {
+        handle: 1,
+        by_frame: 1050,
+    }];
+    let outcome = run(&scenario);
+    assert!(
+        outcome.failures.iter().any(|f| f.contains("PlayerRevived")),
+        "{:?}",
+        outcome.failures
+    );
+}
+
+#[test]
+fn defeat_false_while_a_player_still_stands_fails() {
+    if map_ldtk::RENDER_ENABLED {
+        return;
+    }
+    // `downed_revive` à la frame 100 : le joueur 1 est à terre mais le joueur 0 est encore
+    // debout — pas de défaite.
+    let mut scenario = load_scenario("downed_revive");
+    scenario.expect = vec![Expectation::Defeat { by_frame: 100 }];
+    let outcome = run(&scenario);
+    assert!(
+        outcome.failures.iter().any(|f| f.contains("Defeat")),
+        "{:?}",
+        outcome.failures
+    );
+}
+
+#[test]
+fn defeat_true_once_all_players_down_or_dead() {
+    if map_ldtk::RENDER_ENABLED {
+        return;
+    }
+    // `downed_all_lose` : le joueur 1 tombe à terre (f1174), le joueur 0 meurt seul (f1505) —
+    // défaite à ce moment.
+    let mut scenario = load_scenario("downed_all_lose");
+    scenario.expect = vec![Expectation::Defeat { by_frame: 1600 }];
+    let outcome = run(&scenario);
+    assert!(outcome.failures.is_empty(), "{:?}", outcome.failures);
 }

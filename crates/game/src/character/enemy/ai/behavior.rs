@@ -10,6 +10,7 @@
 use bevy::prelude::*;
 use bevy_fixed::fixed_math;
 use bevy_ggrs::Rollback;
+use combat::downed::Downed;
 use sim_core::damage::{DamageEvent, DamageKind};
 use sim_core::tag::{Tag, Tags};
 use sim_core::team::Team;
@@ -53,12 +54,20 @@ pub fn enemy_target_selection(
         With<Enemy>,
     >,
     player_query: Query<
-        (&GgrsNetId, &fixed_math::FixedTransform3D),
+        (&GgrsNetId, &fixed_math::FixedTransform3D, Has<Downed>),
         (With<Player>, Without<Enemy>),
     >,
 ) {
     // Collect and sort players for deterministic iteration
     let mut players: Vec<_> = player_query.iter().collect();
+    // À terre (T1.3, chantier B6) : même règle que `update_flow_field_system`/
+    // `update_enemy_targets` — ignorer les joueurs à terre tant qu'un autre est encore
+    // debout (voir la doc de `combat::downed::Downed`).
+    let any_standing = players.iter().any(|(_, _, downed)| !downed);
+    if any_standing {
+        players.retain(|(_, _, downed)| !downed);
+    }
+    let mut players: Vec<_> = players.into_iter().map(|(id, t, _)| (id, t)).collect();
     players.sort_by_key(|(net_id, _)| net_id.0);
 
     // Intact breakable obstacles and the cells they cover, by net_id

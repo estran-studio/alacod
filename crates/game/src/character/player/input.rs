@@ -5,6 +5,7 @@ use bevy::{platform::collections::hash_map::HashMap, prelude::*};
 use bevy_fixed::fixed_math;
 use bevy_ggrs::prelude::*;
 use bevy_ggrs::{LocalInputs, LocalPlayers};
+use combat::downed::Downed;
 use leafwing_input_manager::prelude::*;
 use serde::{Deserialize, Serialize};
 use sim_core::stats::StatId;
@@ -332,6 +333,7 @@ pub fn apply_inputs(
             &mut InteractionInput,
             &CharacterConfigHandles,
             &Player,
+            Has<Downed>,
         ),
         With<Rollback>,
     >,
@@ -350,6 +352,7 @@ pub fn apply_inputs(
         mut interaction_input,
         config_handles,
         player,
+        is_downed,
     ) in order_mut_iter!(query)
     {
         if let Some(config) = character_configs.get(&config_handles.config) {
@@ -380,8 +383,8 @@ pub fn apply_inputs(
                 continue;
             }
 
-            // Check if player is trying to dash
-            if (input.buttons & INPUT_DASH != 0) && dash_state.can_dash() {
+            // Check if player is trying to dash — à terre (T1.3) : pas de dash.
+            if !is_downed && (input.buttons & INPUT_DASH != 0) && dash_state.can_dash() {
                 let move_direction = movement_direction(&input);
                 let look_direction = fixed_math::FixedVec2::new(
                     fixed_math::Fixed::from_num(input.pan_x),
@@ -421,7 +424,9 @@ pub fn apply_inputs(
                 continue;
             }
 
-            let is_sprinting = input.buttons & INPUT_SPRINT != 0;
+            // À terre (T1.3) : pas de sprint (la vitesse réduite vient du modificateur
+            // `downed`, voir `combat::downed::Downed`, pas de ce multiplicateur-ci).
+            let is_sprinting = !is_downed && (input.buttons & INPUT_SPRINT != 0);
             sprint_state.is_sprinting = is_sprinting;
 
             if is_sprinting {

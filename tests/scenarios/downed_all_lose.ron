@@ -1,0 +1,25 @@
+// Défaite : tous les joueurs à terre ou morts (T1.3, chantier B6). Deux joueurs immobiles (même
+// mise en scène que `two_players_idle`) : les zombies mettent le joueur 1 à terre en premier
+// (plus proche des spawners), puis, personne ne le réanimant (les deux sont immobiles), ils
+// finissent par submerger le joueur 0 à son tour. Le joueur 0 est alors seul debout : au coup
+// suivant, plus aucun joueur n'est ni mort ni à terre pour l'empêcher de mourir (voir la doc de
+// `combat::downed::Downed`), il meurt pour de vrai — `RunOutcome.defeat_at_frame` se fige à ce
+// moment (tous les joueurs à terre ou morts).
+//
+// À regarder : le joueur 1 tombe à terre en premier (f1174), puis le joueur 0 meurt, seul, plus
+// tard (f1505 : défaite la même frame). Le joueur 1, toujours à terre, finit par saigner à mort
+// à son tour (f2074, 1174 + 900) bien après la défaite — hors de la fenêtre de ce scénario
+// (`frames: 1600`), qui s'arrête dès la défaite constatée.
+Scenario(
+    game: "zombies",
+    frames: 1600,
+    players: [
+        (),
+        (),
+    ],
+    expect: [
+        PlayerDowned(handle: 1, at_frame: 1200),
+        PlayerDead(handle: 0, at_frame: 1600),
+        Defeat(by_frame: 1600),
+    ],
+)

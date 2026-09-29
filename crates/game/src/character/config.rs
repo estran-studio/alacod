@@ -65,6 +65,38 @@ pub struct CharacterConfig {
     /// `content::lint` (valeurs >= 0).
     #[serde(default)]
     pub stats: BTreeMap<StatId, fixed_math::Fixed>,
+
+    /// À terre (T1.3, chantier B6) : frames de saignement avant `Death` pour un **joueur**
+    /// tombé à terre (`combat::downed::Downed`) sans avoir été réanimé. Défaut 1800 (30 s à
+    /// 60 FPS). Sans effet sur un personnage qui ne peut pas tomber à terre (ennemis :
+    /// `character::health::rollback_apply_accumulated_damage` ne pose `Downed` que sur un
+    /// `Player`). Borné par `content::lint` (> 0).
+    #[serde(default = "default_bleedout_frames")]
+    pub bleedout_frames: u32,
+    /// Frames d'interaction maintenue nécessaires pour réanimer ce personnage une fois à
+    /// terre (lues sur la config du joueur **à terre**, pas de celui qui réanime — voir
+    /// `interaction::handle_revive_interaction`). Défaut 180 (3 s à 60 FPS). Borné par
+    /// `content::lint` (> 0).
+    #[serde(default = "default_revive_frames")]
+    pub revive_frames: u32,
+    /// Multiplicateur de vitesse de déplacement pendant qu'il est à terre : posé comme
+    /// modificateur `StatId::MoveSpeed`/`ModifierOp::Mul`, source
+    /// `combat::downed::downed_modifier_source()` (T1.2). Défaut 0.3. Borné par
+    /// `content::lint` (`0 < downed_speed_mult <= 1`).
+    #[serde(default = "default_downed_speed_mult")]
+    pub downed_speed_mult: fixed_math::Fixed,
+}
+
+fn default_bleedout_frames() -> u32 {
+    1800
+}
+
+fn default_revive_frames() -> u32 {
+    180
+}
+
+fn default_downed_speed_mult() -> fixed_math::Fixed {
+    fixed_math::new(0.3)
 }
 
 #[derive(Component)]

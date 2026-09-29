@@ -11,6 +11,7 @@ use animation::set_sprite_flip;
 use bevy::prelude::*;
 use bevy_common_assets::ron::RonAssetPlugin;
 use bevy_ggrs::{GgrsSchedule, ReadInputs};
+use combat::downed::{Downed, Reviving, RunOutcome};
 use leafwing_input_manager::plugin::InputManagerPlugin;
 use map::game::entity::map::enemy_spawn::EnemySpawnerComponent;
 use sim_core::kinds::{KindDecl, KindRegistry};
@@ -43,9 +44,10 @@ use crate::{
             Enemy,
         },
         health::{
-            rollback_apply_accumulated_damage, rollback_apply_death, rollback_health_regeneration,
-            rollback_resolve_damage_events, sync_health_from_stats, ui::update_health_bars,
-            DamageAccumulator, Death, Health, HealthRegen,
+            rollback_apply_accumulated_damage, rollback_apply_bleedout, rollback_apply_death,
+            rollback_check_defeat, rollback_health_regeneration, rollback_resolve_damage_events,
+            sync_health_from_stats, ui::update_health_bars, DamageAccumulator, Death, Health,
+            HealthRegen,
         },
         movement::{apply_knockback_damping, KnockbackDampingConfig, SprintState, Velocity},
         player::{
@@ -140,7 +142,16 @@ impl Plugin for BaseCharacterGamePlugin {
             .rollback_and_trace::<Velocity>()
             .rollback_and_trace::<Death>()
             .rollback_and_trace::<Player>()
-            .rollback_and_trace::<Enemy>();
+            .rollback_and_trace::<Enemy>()
+            // À terre (T1.3, chantier B6) : `Downed`/`Reviving` n'apparaissent sur une
+            // entité que quand un joueur tombe à terre (jamais en solo, voir la doc de
+            // `combat::downed::Downed`) ; `RunOutcome` existe toujours (une seule instance,
+            // `defeat_at_frame: None` tant qu'aucune défaite).
+            .rollback_and_trace::<Downed>()
+            .rollback_and_trace::<Reviving>();
+
+        app.init_resource::<RunOutcome>();
+        app.rollback_and_trace_resource::<RunOutcome>();
 
         // Rollback registration - Flow field cache
         app.rollback_and_trace_resource::<FlowFieldCache>();
@@ -177,11 +188,18 @@ impl Plugin for BaseCharacterGamePlugin {
                 sync_health_from_stats
                     .after(expire_modifiers_system)
                     .in_set(RollbackSystemSet::Status),
-                // HEALTH
+                // HEALTH — à terre (T1.3, chantier B6) : `rollback_apply_bleedout` juste
+                // après (un joueur peut tomber à terre puis, une fois `bleedout_frames`
+                // plus tard sans réanimation, mourir — jamais la même frame, voir sa doc) ;
+                // `rollback_check_defeat` juste avant le despawn, pour voir les `Death`
+                // posés cette frame (même contrainte que le suivi des kills de vagues, voir
+                // `waves::WaveSystemPlugin`).
                 (
                     rollback_apply_accumulated_damage,
-                    rollback_health_regeneration.after(rollback_apply_accumulated_damage),
-                    rollback_apply_death.after(rollback_health_regeneration),
+                    rollback_apply_bleedout.after(rollback_apply_accumulated_damage),
+                    rollback_health_regeneration.after(rollback_apply_bleedout),
+                    rollback_check_defeat.after(rollback_health_regeneration),
+                    rollback_apply_death.after(rollback_check_defeat),
                 )
                     .in_set(RollbackSystemSet::DeathManagement),
                 // KNOCKBACK DAMPING - Apply after weapons (which apply knockback) but before animation/AI
