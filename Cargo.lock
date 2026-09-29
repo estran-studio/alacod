@@ -3864,21 +3864,6 @@ dependencies = [
 ]
 
 [[package]]
-name = "bots"
-version = "0.1.0"
-dependencies = [
- "bevy 0.19.1",
- "bevy_fixed",
- "bevy_ggrs",
- "game",
- "map",
- "ron 0.12.2",
- "serde",
- "sim_core",
- "utils",
-]
-
-[[package]]
 name = "bstr"
 version = "1.13.1"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -4300,7 +4285,9 @@ version = "0.1.0"
 dependencies = [
  "bevy 0.19.1",
  "bevy_fixed",
+ "ron 0.12.2",
  "serde",
+ "sim_core",
  "utils",
 ]
 
@@ -5781,6 +5768,7 @@ dependencies = [
  "bevy_matchbox",
  "chrono",
  "clap 4.6.7",
+ "combat",
  "content",
  "ggrs",
  "harmonium_bevy",
@@ -9819,7 +9807,7 @@ dependencies = [
  "bevy 0.19.1",
  "bevy_fixed",
  "bevy_ggrs",
- "bots",
+ "combat",
  "content",
  "game",
  "map",
@@ -9827,6 +9815,7 @@ dependencies = [
  "ron 0.12.2",
  "serde",
  "serde_json",
+ "sim_core",
  "utils",
 ]
 

@@ -15,7 +15,8 @@
 //!
 //! - [`team`] : équipe d'une entité (composant statique, non rollback — voir sa doc).
 //! - [`tag`] : vocabulaire libre ordonné (`Tag`, `Tags`).
-//! - [`damage`] : genres de dégâts et `DamageEvent` (type défini, pas encore émis).
+//! - [`damage`] : genres de dégâts, `FriendlyFire` et `DamageEvent` (branché depuis T1.1,
+//!   voir la doc du module).
 //! - [`stats`] : identifiants de stats et composant `Stats` (valeurs de base).
 //! - [`modifier`] : modificateurs de stats et leur résolution déterministe.
 //! - [`gauge`] : valeur bornée avec plancher et seuils (santé, jauges 1837...).

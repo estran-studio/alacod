@@ -13,10 +13,12 @@ ron = "0.12"
 
 bevy_fixed = { path = "../bevy_fixed" }
 bots = { path = "../bots" }
+combat = { path = "../combat" }
 content = { path = "../content" }
 game = { path = "../game" }
 map = { path = "../map" }
 map_ldtk = { path = "../map_ldtk" }
+sim_core = { path = "../sim_core" }
 utils = { path = "../utils" }
 
 [features]

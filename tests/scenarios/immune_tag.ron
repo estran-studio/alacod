@@ -1,0 +1,25 @@
+// T1.1 (chantier B1, « Équipes et dégâts ») : immunité par tag. La mitrailleuse (arme active
+// par défaut : "machine_gun", première par ordre alphabétique — voir
+// `character::player::create::create_player`) est surchargée en `friendly_fire: Always` pour
+// isoler l'immunité de la règle d'équipe (sans ça, le tir ami bloquerait déjà tout, sans
+// exercer `immune_to`) ; le joueur 1 porte `immune_to: ["bullet"]` (le tag que porte toute
+// balle, voir `sim_core::damage::DamageEvent::tags`) : les tirs du joueur 0, plein sud comme
+// dans `friendly_fire_never`, ne lui font toujours aucun dégât.
+//
+// À regarder : mêmes tirs que `friendly_fire_never` (tir ami autorisé cette fois), mais le
+// joueur 1 (en bas), immunisé aux balles, ne perd toujours aucune vie.
+Scenario(
+    frames: 150,
+    players: [
+        (inputs: [
+            (from: 10, to: 100, buttons: [Fire], pan: (0, -100)),
+        ]),
+        (immune_to: ["bullet"]),
+    ],
+    weapon_overrides: [
+        (weapon: "machine_gun", friendly_fire: Always),
+    ],
+    expect: [
+        NoDamageBetween(handle: 1, from_frame: 0, to_frame: 150),
+    ],
+)

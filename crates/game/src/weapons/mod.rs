@@ -14,8 +14,12 @@ use bevy::{
 use bevy_common_assets::ron::RonAssetPlugin;
 use bevy_fixed::{fixed_math, rng::RngStreams};
 use bevy_ggrs::{GgrsSchedule, PlayerInputs, Rollback};
+use combat::team::team_allows_hit;
 use ggrs::PlayerHandle;
+use sim_core::damage::{DamageEvent, DamageKind, FriendlyFire};
 use sim_core::kinds::{KindDecl, KindRegistry};
+use sim_core::tag::{Tag, Tags};
+use sim_core::team::Team;
 use std::collections::BTreeMap;
 
 use serde::{Deserialize, Serialize};
@@ -26,11 +30,12 @@ use utils::{
 
 use self::melee::MeleeAttackState;
 use crate::character::visuals::VisualsAttached;
+use crate::frame_events::FrameEvents;
 use crate::rollback::RollbackTraceApp;
 use crate::{
     character::{
         dash::DashState,
-        health::{DamageAccumulator, Health, HitBy},
+        health::Health,
         movement::SprintState,
         player::{
             input::{
@@ -123,6 +128,11 @@ pub struct WeaponConfig {
     pub default_firing_mode: String,
     // BTreeMap (pas HashMap) : ce config est intégré au composant `Weapon`, rollback.
     pub firing_modes: BTreeMap<String, FiringModeConfig>,
+    /// Politique de tir ami (T1.1, chantier B1). `#[serde(default)]` = `Never` : les armes
+    /// existantes ne touchent jamais un allié, comme avant (où la matrice de collision ne
+    /// laissait de toute façon jamais une balle atteindre un joueur).
+    #[serde(default)]
+    pub friendly_fire: FriendlyFire,
 }
 
 #[derive(Debug, Clone, Hash, Serialize, Deserialize, PartialEq)]
@@ -200,6 +210,17 @@ pub struct Bullet {
     pub distance_traveled: fixed_math::Fixed,
     pub player_handle: PlayerHandle,
     pub created_at: u32,
+    /// Identité du tireur (T1.1) : `DamageEvent::source` à la collision. Capturée au tir
+    /// (pas de requête sur l'entité tireuse au moment de la collision, qui peut arriver
+    /// plusieurs frames plus tard).
+    pub source: GgrsNetId,
+    /// Équipe du tireur au moment du tir (T1.1, `combat::team::team_allows_hit`).
+    pub source_team: Team,
+    /// Tags du tireur au moment du tir, union `"bullet"` (T1.1, voir
+    /// `sim_core::damage::DamageEvent::tags`).
+    pub tags: Tags,
+    /// Politique de tir ami de l'arme au moment du tir (`WeaponConfig::friendly_fire`).
+    pub friendly_fire: FriendlyFire,
 }
 
 /// Component to track the player's weapon inventory
@@ -460,6 +481,7 @@ pub fn attach_weapon_visuals(
     }
 }
 
+#[allow(clippy::too_many_arguments)]
 fn spawn_bullet_rollback(
     commands: &mut Commands,
     weapon: &Weapon,
@@ -473,6 +495,10 @@ fn spawn_bullet_rollback(
     current_frame: u32,
     collision_settings: &Res<CollisionSettings>,
     id_factory: &mut ResMut<GgrsNetIdFactory>,
+    source: &GgrsNetId,
+    source_team: Team,
+    source_tags: &Tags,
+    friendly_fire: FriendlyFire,
 ) -> Entity {
     let (velocity, damage, range, radius) = match &bullet_type {
         BulletType::Standard {
@@ -560,6 +586,11 @@ fn spawn_bullet_rollback(
         g_id, new_projectile_fixed_transform.translation, player_handle
     );
 
+    // Tags du dégât (T1.1) : tags du tireur union le genre d'attaque `bullet` (voir la doc
+    // de `sim_core::damage::DamageEvent::tags`).
+    let mut tags = source_tags.clone();
+    tags.insert(Tag::new("bullet"));
+
     let mut entity_commands = commands.spawn((
         Sprite::from_color(color, Vec2::new(3.5, 3.5)),
         Bullet {
@@ -570,6 +601,10 @@ fn spawn_bullet_rollback(
             distance_traveled: fixed_math::Fixed::ZERO,
             player_handle,
             created_at: current_frame,
+            source: source.clone(),
+            source_team,
+            tags,
+            friendly_fire,
         },
         Collider {
             offset: fixed_math::FixedVec3::ZERO,
@@ -648,7 +683,14 @@ pub fn weapon_rollback_system(
         &ChildOf,
     )>,
 
-    player_query: Query<(&fixed_math::FixedTransform3D, &FacingDirection, &Player)>,
+    player_query: Query<(
+        &fixed_math::FixedTransform3D,
+        &FacingDirection,
+        &Player,
+        &GgrsNetId,
+        &Team,
+        Option<&Tags>,
+    )>,
 
     collision_settings: Res<CollisionSettings>,
 
@@ -846,7 +888,10 @@ pub fn weapon_rollback_system(
                 weapon_state.is_firing = input.fire;
 
                 if can_fire {
-                    if let Ok((_, facing_direction, _)) = player_query.get(child_of.parent()) {
+                    if let Ok((_, facing_direction, _, shooter_net_id, shooter_team, opt_tags)) =
+                        player_query.get(child_of.parent())
+                    {
+                        let shooter_tags = opt_tags.cloned().unwrap_or_default();
                         let mut aim_dir = fixed_math::FixedVec2::new(
                             fixed_math::Fixed::from_num(input.pan_x),
                             fixed_math::Fixed::from_num(input.pan_y),
@@ -890,6 +935,10 @@ pub fn weapon_rollback_system(
                                         frame.frame,
                                         &collision_settings,
                                         &mut id_factory,
+                                        shooter_net_id,
+                                        *shooter_team,
+                                        &shooter_tags,
+                                        weapon.config.friendly_fire,
                                     );
                                 }
                                 weapon_mode_state.mag_ammo -= 1; // Shotgun uses one ammo for all pellets
@@ -920,6 +969,10 @@ pub fn weapon_rollback_system(
                                     frame.frame,
                                     &collision_settings,
                                     &mut id_factory,
+                                    shooter_net_id,
+                                    *shooter_team,
+                                    &shooter_tags,
+                                    weapon.config.friendly_fire,
                                 );
                                 weapon_mode_state.mag_ammo -= 1;
 
@@ -978,10 +1031,36 @@ pub fn bullet_rollback_system(
         }
     }
 }
+/// Cible potentielle d'une balle, choisie parmi tous les candidats en collision (triés par
+/// `GgrsNetId`, voir [`bullet_rollback_collision_system`]).
+enum BulletTarget {
+    /// Mur : décidé par `CollisionLayer`/`layer_matrix` (physique, inchangé par T1.1).
+    Wall,
+    /// Personnage (`Team`) : décidé par `combat::team::team_allows_hit`, pas par
+    /// `layer_matrix` (T1.1). `Team::Neutral` arrive ici aussi (elle bloque le tir sans
+    /// jamais être blessée, voir `combat::damage::resolve_damage`).
+    Character,
+}
+
+/// Collision des balles : qui une balle touche et ce que ça déclenche (T1.1, chantier B1).
+///
+/// La cible géométrique la plus proche (par `GgrsNetId`, déterministe) parmi :
+/// - les murs, toujours filtrés par `CollisionLayer`/`layer_matrix` (reste la seule
+///   utilité de la matrice de collision pour les balles : les arrêter physiquement) ;
+/// - les personnages (`Team`), filtrés par `combat::team::team_allows_hit` (équipe +
+///   politique de tir ami de l'arme) — **pas** par `layer_matrix`. Un personnage que la
+///   politique bloque (allié, tir ami `Never`) n'est pas un candidat du tout : la balle le
+///   traverse comme s'il n'était pas là. `Team::Neutral` est toujours un candidat valide
+///   (elle bloque le tir) ; `combat::damage::resolve_damage` décidera ensuite qu'elle ne
+///   subit aucun dégât.
+///
+/// Émet un `DamageEvent` (résolu par `character::health::rollback_resolve_damage_events`,
+/// `RollbackSystemSet::CollisionDamage`) au lieu d'écrire `DamageAccumulator` directement.
 pub fn bullet_rollback_collision_system(
     frame: Res<FrameCount>,
     mut commands: Commands,
     settings: Res<CollisionSettings>,
+    mut damage_events: ResMut<FrameEvents<DamageEvent>>,
     bullet_query: Query<
         (
             &GgrsNetId,
@@ -993,19 +1072,18 @@ pub fn bullet_rollback_collision_system(
         ),
         With<Rollback>,
     >,
-    // Query for colliders. We'll need mutable access to DamageAccumulator later.
-    mut collider_query: Query<
+    wall_query: Query<
         (
-            Entity,
             &fixed_math::FixedTransform3D,
             &Collider,
             &CollisionLayer,
             &GgrsNetId,
-            Option<&Wall>,
-            Option<&Health>,
-            Option<&mut DamageAccumulator>,
         ),
-        (Without<Bullet>, With<Rollback>),
+        (With<Wall>, With<Rollback>),
+    >,
+    target_query: Query<
+        (&fixed_math::FixedTransform3D, &Collider, &GgrsNetId, &Team),
+        (With<Health>, Without<Bullet>, With<Rollback>),
     >,
 ) {
     let system_span = span!(
@@ -1025,20 +1103,11 @@ pub fn bullet_rollback_collision_system(
             continue;
         }
 
-        let mut actual_collided_target_entities: Vec<(Entity, GgrsNetId)> = Vec::new();
+        // Phase 1 : tous les candidats en collision géométrique (murs par layer_matrix,
+        // personnages par équipe/politique de tir ami).
+        let mut candidates: Vec<(GgrsNetId, BulletTarget)> = Vec::new();
 
-        // Phase 1: Identify ALL entities this bullet is colliding with (immutable pass first)
-        for (
-            target_entity,
-            target_transform,
-            target_collider,
-            target_layer,
-            collider_net_id,
-            _opt_wall,
-            _opt_health,
-            /* no mut here */ _,
-        ) in collider_query.iter()
-        {
+        for (target_transform, target_collider, target_layer, wall_net_id) in wall_query.iter() {
             if !settings.layer_matrix[bullet_layer.0][target_layer.0] {
                 continue;
             }
@@ -1048,81 +1117,81 @@ pub fn bullet_rollback_collision_system(
                 &target_transform.translation,
                 target_collider,
             ) {
-                actual_collided_target_entities.push((target_entity, collider_net_id.clone()));
+                candidates.push((wall_net_id.clone(), BulletTarget::Wall));
             }
         }
 
-        if actual_collided_target_entities.is_empty() {
+        for (target_transform, target_collider, target_net_id, target_team) in target_query.iter() {
+            if !team_allows_hit(
+                bullet.source_team,
+                *target_team,
+                bullet.friendly_fire,
+                &bullet.tags,
+            ) {
+                continue;
+            }
+            if is_colliding(
+                &bullet_transform.translation,
+                bullet_collider,
+                &target_transform.translation,
+                target_collider,
+            ) {
+                candidates.push((target_net_id.clone(), BulletTarget::Character));
+            }
+        }
+
+        if candidates.is_empty() {
             continue; // No collision for this bullet
         }
 
         // Sort the collided entities to pick the "first" one deterministically
-        actual_collided_target_entities.sort_unstable_by_key(|(_, g_id)| g_id.0);
-
-        // The bullet will interact with the first entity in this sorted list.
-        let (deterministic_target_entity, deterministic_target_g_id) =
-            actual_collided_target_entities[0].clone();
+        candidates.sort_unstable_by_key(|(g_id, _)| g_id.0);
+        let (deterministic_target_g_id, target_kind) = &candidates[0];
 
         info!(
             "bullet {} collissions with {:?}",
             ggrs_net_id, deterministic_target_g_id
         );
-        // Now get mutable components for this specific, deterministically chosen target
-        if let Ok((
-            _target_entity_refetch,
-            _target_transform,
-            _target_collider,
-            _target_layer,
-            _,
-            opt_wall,
-            opt_health,
-            opt_accumulator_mut,
-        )) = collider_query.get_mut(deterministic_target_entity)
-        {
-            if opt_health.is_some() {
-                let last_hit_by = Some(vec![
-                    HitBy::Player(bullet.player_handle),
-                    HitBy::Entity(ggrs_net_id.clone()),
-                ]);
-                if let Some(mut accumulator) = opt_accumulator_mut {
-                    accumulator.total_damage =
-                        accumulator.total_damage.saturating_add(bullet.damage);
-                    accumulator.hit_count += 1;
-                    accumulator.last_hit_by = last_hit_by;
-                } else {
-                    commands
-                        .entity(deterministic_target_entity)
-                        .insert(DamageAccumulator {
-                            hit_count: 1,
-                            total_damage: bullet.damage,
-                            last_hit_by,
-                        });
+
+        let mut should_bullet_despawn_now = false;
+        match target_kind {
+            BulletTarget::Character => {
+                damage_events.send(DamageEvent {
+                    source: bullet.source.clone(),
+                    target: deterministic_target_g_id.clone(),
+                    kind: DamageKind::Physical,
+                    amount: bullet.damage,
+                    frame: frame.frame,
+                    tags: bullet.tags.clone(),
+                    source_team: bullet.source_team,
+                    friendly_fire: bullet.friendly_fire,
+                });
+
+                match bullet.bullet_type {
+                    BulletType::Standard { .. } | BulletType::Explosive { .. } => {
+                        should_bullet_despawn_now = true;
+                    }
+                    BulletType::Piercing { .. } => {
+                        // Les balles perforantes continuent à travers les personnages ;
+                        // elles ne s'arrêtent que sur un mur (voir plus bas).
+                    }
                 }
             }
-
-            let mut should_bullet_despawn_now = false;
-            match bullet.bullet_type {
-                BulletType::Standard { .. } => {
-                    should_bullet_despawn_now = true;
-                }
-                BulletType::Explosive { .. } => {
+            BulletTarget::Wall => match bullet.bullet_type {
+                BulletType::Standard { .. } | BulletType::Explosive { .. } => {
                     should_bullet_despawn_now = true;
                 }
                 BulletType::Piercing { .. } => {
-                    if opt_wall.is_some() {
-                        // Piercing bullets despawn on walls
-                        should_bullet_despawn_now = true;
-                    }
-                    // If piercing bullets should continue through enemies, this logic is fine.
-                    // They would only despawn if they hit a wall (or run out of pierce, etc.)
+                    // Piercing bullets despawn on walls
+                    should_bullet_despawn_now = true;
                 }
-            }
+            },
+        }
 
-            if should_bullet_despawn_now {
-                bullets_to_despawn_set.insert(bullet_entity);
-                // Since the original code had a `break` here, we effectively stop processing
-                // more targets for this bullet after this first deterministic interaction.
-            }
+        if should_bullet_despawn_now {
+            bullets_to_despawn_set.insert(bullet_entity);
+            // Since the original code had a `break` here, we effectively stop processing
+            // more targets for this bullet after this first deterministic interaction.
         }
     }
 

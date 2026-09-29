@@ -53,6 +53,8 @@ impl InputRecorder {
                 // Un enregistrement capture le BoxInput réellement envoyé à GGRS (bot ou pas :
                 // voir `bots::read_bot_inputs`), donc rejoue toujours en `Scripted` (T2.11).
                 bot: None,
+                tags: vec![],
+                immune_to: vec![],
             })
             .collect();
 
