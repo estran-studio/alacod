@@ -1,7 +1,7 @@
-//! Extension unique pour enregistrer un état rollback avec checksum et trace.
-//!
-//! Unifies rollback registration, checksumming and state tracing via
-//! [`RollbackTraceApp`] trait on [`App`].
+//! Extension unique pour enregistrer un état rollback : rollback bevy_ggrs, checksum GGRS
+//! (ce que le synctest et la détection de desync p2p comparent) et trace d'état, en un
+//! seul appel. Les appels directs à `rollback_component_*` / `rollback_resource_*` sont à
+//! remplacer par [`RollbackTraceApp`] (plan §9.6, tâche K0).
 
 use bevy::prelude::*;
 use bevy::ecs::component::Mutable;

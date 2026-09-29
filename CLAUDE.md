@@ -294,6 +294,23 @@ Avant/après un refactoring de la simulation, comparer les traces : elles doiven
 La partie jouée est celle de `map_explorer` (plugin partagé `map_ldtk::game::local::LdtkLocalGamePlugin`).
 Tout changement de simulation doit garder les scénarios verts, ou justifier le `BLESS`.
 
+### Caméra : suivi par joueur en ligne
+La caméra est configurable dans `assets/camera.ron` via `CameraSettings`. En particulier, le réglage
+`online_follow` (deux valeurs : `LocalPlayer` par défaut, ou `AllPlayers`) n'affecte que quand
+on est en mode Online (p2p) :
+- `LocalPlayer` : la caméra suit le joueur local du client (défaut en ligne, chaque client ne voit que son joueur).
+- `AllPlayers` : la caméra cadre tous les joueurs sur le client (local + distants), comme en local.
+
+En Offline (local multi-joueurs ou synctest), c'est `CameraMode` qui décide (PlayerLock/PlayersLock/Unlock).
+
+Dans `play_scenario`, l'option `--follow <handle>` force la caméra à suivre le joueur avec ce handle GGRS
+(utile pour les vidéos de validation quand tous les joueurs du scénario sont locaux) :
+```bash
+cargo run -p scenario --features render --bin play_scenario -- tests/scenarios/two_players_shooting.ron \
+  --follow 1 --capture /tmp/out --every 2
+```
+L'override s'applique avant le réglage `online_follow`.
+
 ### Numérotation des entités (`GgrsNetId`)
 Les ids doivent être attribués dans un ordre indépendant du timing et de l'allocation des `Entity` :
 trier par une clé de contenu (type, position, level iid) avant `id_factory.next`, et ordonner tout

@@ -1,84 +1,69 @@
-//! Tests d'observabilité des divergences de déterminisme en synctest GGRS.
-//!
-//! - `synctest_passe_sur_un_scenario_sain` : vérifie qu'un scénario propre ne génère
-//!   aucun mismatch de synctest.
-//! - `synctest_detecte_une_mutation_hors_simulation` : injecte une mutation délibérée
-//!   hors du schedule GGRS et vérifie qu'un mismatch est détecté.
+//! Le filet du déterminisme (plan §9.6). En session synctest, GGRS recharge un état, rejoue les
+//! dernières frames et compare les checksums des états enregistrés par `rollback_and_trace`.
+//! Un état qui n'est pas rollback mais qui influence la simulation diverge à la resimulation :
+//! le runner doit le signaler.
 
 use bevy::prelude::*;
 use bevy_fixed::fixed_math;
-use game::character::{health::Health, player::Player};
+use bevy_ggrs::GgrsSchedule;
+use game::{
+    character::{health::Health, player::Player},
+    system_set::RollbackSystemSet,
+};
 use scenario::{run_with, Scenario};
 
-fn scenarios_dir() -> std::path::PathBuf {
-    std::path::PathBuf::from(concat!(env!("CARGO_MANIFEST_DIR"), "/../../tests/scenarios"))
+fn idle() -> Scenario {
+    let path = concat!(env!("CARGO_MANIFEST_DIR"), "/../../tests/scenarios/idle.ron");
+    let source = std::fs::read_to_string(path).expect("idle.ron");
+    Scenario::from_ron(&source).expect("scénario valide")
+}
+
+fn failures_synctest(failures: &[String]) -> Vec<&String> {
+    failures.iter().filter(|f| f.contains("synctest mismatch")).collect()
 }
 
 #[test]
 fn synctest_passe_sur_un_scenario_sain() {
     if map_ldtk::RENDER_ENABLED {
-        eprintln!("test déterminisme ignoré : compilés avec le rendu");
+        eprintln!("test ignoré : compilé avec le rendu des tilemaps (utiliser --no-default-features)");
         return;
     }
+    let outcome = run_with(&idle(), |_| {});
+    let mismatches = failures_synctest(&outcome.failures);
+    assert!(mismatches.is_empty(), "aucun mismatch attendu, trouvé : {mismatches:?}");
+}
 
-    let path = scenarios_dir().join("idle.ron");
-    let source = std::fs::read_to_string(path).expect("idle.ron");
-    let scenario = Scenario::from_ron(&source).expect("scenario valid");
+/// Ressource volontairement absente du rollback : après un rechargement d'état, elle continue
+/// de compter au lieu de revenir en arrière. C'est le bug type (état oublié) que le filet doit voir.
+#[derive(Resource, Default)]
+struct Compteur(u32);
 
-    let outcome = run_with(&scenario, |_| {});
-
-    // Vérifie qu'aucune failure ne contient "synctest"
-    let synctest_failures: Vec<_> = outcome
-        .failures
-        .iter()
-        .filter(|f| f.contains("synctest"))
-        .collect();
-
-    assert!(
-        synctest_failures.is_empty(),
-        "Aucun mismatch de synctest attendu, trouvé : {:?}",
-        synctest_failures
-    );
+/// Dans la simulation, la santé des joueurs dépend du compteur : à la resimulation, le compteur a
+/// d'autres valeurs, la santé diverge, et son checksum (enregistré par `rollback_and_trace`) aussi.
+/// La santé est une fonction directe du compteur (pas une condition périodique : le synctest rejoue
+/// `check_distance + 1` frames par appel, et une période égale rendrait la divergence invisible).
+fn user_du_compteur(mut compteur: ResMut<Compteur>, mut joueurs: Query<&mut Health, With<Player>>) {
+    compteur.0 += 1;
+    let valeur = fixed_math::Fixed::from_num((compteur.0 % 50) as i32 + 1);
+    for mut health in &mut joueurs {
+        health.current = valeur;
+    }
 }
 
 #[test]
-fn synctest_detecte_une_mutation_hors_simulation() {
+fn synctest_detecte_un_etat_hors_rollback() {
     if map_ldtk::RENDER_ENABLED {
-        eprintln!("test déterminisme ignoré : compilés avec le rendu");
+        eprintln!("test ignoré : compilé avec le rendu des tilemaps (utiliser --no-default-features)");
         return;
     }
-
-    let path = scenarios_dir().join("idle.ron");
-    let source = std::fs::read_to_string(path).expect("idle.ron");
-    let scenario = Scenario::from_ron(&source).expect("scenario valid");
-
-    // Applique une mutation délibérée hors du schedule GGRS (dans Update ou Last).
-    // Cette mutation doit être détectée comme un desync lors de la resimulation en synctest.
-    let outcome = run_with(&scenario, |app| {
-        app.add_systems(Update, mutate_player_health);
+    let outcome = run_with(&idle(), |app| {
+        app.init_resource::<Compteur>();
+        app.add_systems(GgrsSchedule, user_du_compteur.in_set(RollbackSystemSet::Movement));
     });
-
-    // Vérifie qu'au moins une failure contient "synctest mismatch"
-    let synctest_failures: Vec<_> = outcome
-        .failures
-        .iter()
-        .filter(|f| f.contains("synctest mismatch"))
-        .collect();
-
+    let mismatches = failures_synctest(&outcome.failures);
     assert!(
-        !synctest_failures.is_empty(),
-        "Attendu au moins un mismatch de synctest, aucun trouvé. Failures : {:?}",
+        !mismatches.is_empty(),
+        "un mismatch de synctest était attendu ; failures : {:?}",
         outcome.failures
     );
-}
-
-/// Système qui mutate la santé d'un joueur à chaque update (hors GgrsSchedule).
-/// Cette mutation devrait être détectée comme un desync lors de la resimulation en synctest.
-fn mutate_player_health(
-    mut query: Query<&mut Health, With<Player>>,
-) {
-    if let Some(mut health) = query.iter_mut().next() {
-        // Réduit la santé de 1 unité à chaque frame (hors simulation rollback)
-        health.current -= fixed_math::Fixed::from_num(1);
-    }
 }

@@ -54,6 +54,12 @@ endif
 
 all: test format
 
+# CI check target (runs locally or in CI)
+check: format test check_forbidden
+	@echo "✓ All checks passed"
+
+.PHONY: check
+
 
 # Misc
 
@@ -76,6 +82,10 @@ format_fix:
 test: test_scenarios
 	@echo "Running tests with profile"
 	cargo test
+
+check_forbidden:
+	@echo "Checking for forbidden patterns..."
+	./scripts/check-forbidden.sh
 
 # Scénarios de jeu headless (tests/scenarios/*.ron), comparés à leur trace de référence.
 # BLESS=1 réécrit les traces de référence ; SCENARIO=<nom> n'en joue qu'un.

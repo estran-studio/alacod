@@ -79,7 +79,8 @@ pub fn system_after_map_loaded_local(
         .with_desync_detection_mode(ggrs::DesyncDetection::On {
             interval: session_config.connection.desync_interval,
         })
-        .with_input_delay(session_config.connection.input_delay);
+        .with_input_delay(session_config.connection.input_delay)
+        .with_check_distance(session_config.connection.check_distance);
 
 
     for (i, player_config) in session_config.players.iter().enumerate() {

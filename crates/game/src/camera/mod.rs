@@ -12,12 +12,19 @@ use serde::{Deserialize, Serialize};
 use ui::CameraDebugUIPlugin;
 
 use crate::character::player::{control::PlayerAction, LocalPlayer, Player};
+use crate::core::OnlineState;
 
 #[derive(Asset, TypePath, Debug, Clone, Deserialize, Serialize)]
 pub struct CameraSettingsAsset(pub CameraSettings);
 
 // Plugin to add all camera systems
 pub struct CameraControlPlugin;
+
+/// Ressource optionnelle pour forcer le suivi d'un joueur spécifique (utilisée par play_scenario --follow).
+/// Si présente, remplace le choix de joueur local lors de la sélection initiale.
+/// Stocke le handle GGRS du joueur à suivre.
+#[derive(Resource, Clone, Copy, Debug)]
+pub struct CameraFollowOverride(pub usize);
 
 impl Plugin for CameraControlPlugin {
     fn build(&self, app: &mut App) {
@@ -59,6 +66,9 @@ pub struct CameraSettings {
     pub indicator_edge_distance: f32,
     // Whether to use screen edge detection for camera movement
     pub use_edge_detection: bool,
+    // En ligne, mode de suivi : LocalPlayer (défaut, suit mon joueur) ou AllPlayers (cadre tout le monde).
+    // N'affecte que OnlineState::Online ; en Offline c'est CameraMode qui décide.
+    pub online_follow: OnlineFollowMode,
 }
 
 impl Default for CameraSettings {
@@ -74,6 +84,7 @@ impl Default for CameraSettings {
             indicator_size: 20.0,
             indicator_edge_distance: 20.0,
             use_edge_detection: true,
+            online_follow: OnlineFollowMode::LocalPlayer,
         }
     }
 }
@@ -85,6 +96,17 @@ pub enum CameraMode {
     PlayerLock,
     PlayersLock,
     Unlock,
+}
+
+/// Mode de suivi de la caméra en ligne : détermine quel(s) joueur(s) la caméra suit.
+/// Ce réglage ne s'applique que quand on est en mode Online (p2p).
+/// En mode Offline (local), le comportement est déterminé par CameraMode.
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize)]
+pub enum OnlineFollowMode {
+    /// Suivre uniquement le joueur local de ce client (défaut en ligne)
+    LocalPlayer,
+    /// Suivre tous les joueurs comme en local (cadre tout le monde)
+    AllPlayers,
 }
 
 // Component to mark the camera entity
@@ -182,6 +204,8 @@ fn camera_control_system(
         Without<Player>,
     >,
     player_query: Query<(Entity, &Transform, &Player, Option<&LocalPlayer>), Without<GameCamera>>,
+    online_state: Res<OnlineState>,
+    follow_override: Option<Res<CameraFollowOverride>>,
 ) {
     // Get the primary window for dimensions
     let window = windows.single().unwrap();
@@ -208,13 +232,47 @@ fn camera_control_system(
             return;
         };
 
-    // Find the local player if not already set (smallest handle)
+    // Find the player to follow if not already set
     if camera.target_player_id.is_none() {
-        camera.target_player_id = player_query
-            .iter()
-            .filter(|(_, _, _, local)| local.is_some())
-            .min_by_key(|(_, _, player, _)| player.handle)
-            .map(|(entity, _, _, _)| entity);
+        // If there's an override, follow that player by handle (used by play_scenario --follow)
+        if let Some(override_res) = follow_override {
+            camera.target_player_id = player_query
+                .iter()
+                .find(|(_, _, player, _)| player.handle == override_res.0)
+                .map(|(entity, _, _, _)| entity);
+        } else {
+            // Otherwise, choose based on online state and settings
+            match *online_state {
+                OnlineState::Online => {
+                    match settings.online_follow {
+                        OnlineFollowMode::AllPlayers => {
+                            // Switch to PlayersLock mode to frame all players
+                            camera.mode = CameraMode::PlayersLock;
+                        }
+                        OnlineFollowMode::LocalPlayer => {
+                            // Follow only the local player
+                            camera.target_player_id = player_query
+                                .iter()
+                                .filter(|(_, _, _, local)| local.is_some())
+                                .min_by_key(|(_, _, player, _)| player.handle)
+                                .map(|(entity, _, _, _)| entity);
+                        }
+                    }
+                }
+                _ => {
+                    // In offline or unset, let CameraMode decide (don't force a target)
+                    // For PlayersLock mode, this will frame all players
+                    // For PlayerLock mode, set target to smallest handle local player
+                    if !matches!(camera.mode, CameraMode::PlayersLock) {
+                        camera.target_player_id = player_query
+                            .iter()
+                            .filter(|(_, _, _, local)| local.is_some())
+                            .min_by_key(|(_, _, player, _)| player.handle)
+                            .map(|(entity, _, _, _)| entity);
+                    }
+                }
+            }
+        }
     }
 
     // Calculate target position and zoom based on camera mode
