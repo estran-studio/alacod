@@ -50,5 +50,10 @@
             }
         )
 
-    }
+    },
+
+    // Armes de départ (T1.5, `crates/content`) : avant, tous les joueurs recevaient tout
+    // `weapons.ron` (ordre alphabétique des clés, "machine_gun" en premier = arme active).
+    // Cet ordre est repris ici à l'identique pour ne pas changer les traces de scénario.
+    starting_weapons: ["machine_gun", "pistol", "shotgun"],
 )

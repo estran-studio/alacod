@@ -1,0 +1,14 @@
+(
+    movement: (
+        max_speed: "100.0",
+    ),
+    asset_name_ref: "hero",
+    base_health: (
+        // Erreur volontaire : littéral RON nu (pas une chaîne) dans un champ Fixed.
+        max: 100.0,
+    ),
+    starting_skin: "1",
+    skins: {
+        "1": (layers: {}),
+    },
+)

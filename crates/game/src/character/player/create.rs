@@ -60,7 +60,7 @@ pub fn create_player(
         commands,
         global_assets,
         character_asset,
-        config_name,
+        config_name.clone(),
         Some(if handle == 0 { "1" } else { "2" }.into()),
         (LinearRgba::GREEN).into(),
         position,
@@ -89,15 +89,31 @@ pub fn create_player(
 
     let mut inventory = WeaponInventory::default();
 
-    if let Some(weapons_config) = weapons_asset.get(&global_assets.weapons) {
-        let mut keys: Vec<&String> = weapons_config.0.keys().collect();
-        keys.sort();
-        for (i, k) in keys.iter().enumerate() {
+    // Armes de départ déclarées par `characters/*.ron` (`starting_weapons`, T1.5) : avant,
+    // tous les joueurs recevaient toutes les entrées de `weapons.ron`, triées par nom
+    // (l'ordre déterminait l'arme active : la première du tri). `player_config.ron`
+    // déclare `starting_weapons: ["machine_gun", "pistol", "shotgun"]`, cet ordre exact,
+    // pour que la simulation ne change pas (même arme active, mêmes GgrsNetId).
+    let character_config = global_assets
+        .character_configs
+        .get(&config_name)
+        .and_then(|handle| character_asset.get(handle));
+    if let (Some(character_config), Some(weapons_config)) =
+        (character_config, weapons_asset.get(&global_assets.weapons))
+    {
+        for (i, weapon_id) in character_config.starting_weapons.iter().enumerate() {
+            let Some(weapon_asset) = weapons_config.0.get(weapon_id) else {
+                // Ne devrait pas arriver : `alacod lint` refuse une référence cassée au
+                // démarrage. On ignore plutôt que de paniquer si le contenu a changé sous
+                // nos pieds (rechargement à chaud hors partie).
+                warn!("starting_weapons : arme inconnue « {weapon_id} » pour « {config_name} »");
+                continue;
+            };
             spawn_weapon_for_player(
                 commands,
                 i == 0,
                 entity,
-                weapons_config.0.get(*k).unwrap().clone(),
+                weapon_asset.clone(),
                 &mut inventory,
                 id_factory,
             );

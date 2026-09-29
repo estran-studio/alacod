@@ -1,0 +1,13 @@
+({
+    "pistol": (
+        config: (
+            name: "pistol",
+            default_firing_mode: "default",
+            firing_modes: {
+                "default": (
+                    firing_rate: "2.0",
+                ),
+            },
+        ),
+    ),
+})

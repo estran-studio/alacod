@@ -1,0 +1,14 @@
+(
+    movement: (
+        max_speed: "120.0",
+    ),
+    // Erreur volontaire : même asset_name_ref que characters/a.ron.
+    asset_name_ref: "hero",
+    base_health: (
+        max: "80.0",
+    ),
+    starting_skin: "1",
+    skins: {
+        "1": (layers: {}),
+    },
+)

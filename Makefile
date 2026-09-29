@@ -104,6 +104,17 @@ check_rollback_registration:
 	@echo "Checking rollback registration goes through RollbackTraceApp..."
 	./scripts/check-rollback-registration.sh
 
+# Lint du contenu (crates/content, T1.5) : références cassées, ids dupliqués, valeurs hors
+# plage, kinds inconnus, littéraux nus dans des champs Fixed. Sans lancer le moteur.
+# Code de sortie 1 (messages sur stderr) si un des deux jeux a une erreur.
+lint:
+	@echo "alacod lint games/zombies"
+	cargo run -q -p content --bin alacod --profile headless -- lint games/zombies
+	@echo "alacod lint games/testbed"
+	cargo run -q -p content --bin alacod --profile headless -- lint games/testbed
+
+.PHONY: lint
+
 # Scénarios de jeu headless (tests/scenarios/*.ron), comparés à leur trace de référence.
 # BLESS=1 réécrit les traces de référence ; SCENARIO=<nom> n'en joue qu'un.
 test_scenarios:

@@ -1,0 +1,14 @@
+(
+    movement: (
+        max_speed: "100.0",
+    ),
+    asset_name_ref: "hero",
+    // Erreur volontaire : santé <= 0.
+    base_health: (
+        max: "0.0",
+    ),
+    starting_skin: "1",
+    skins: {
+        "1": (layers: {}),
+    },
+)

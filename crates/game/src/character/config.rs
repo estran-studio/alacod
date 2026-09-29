@@ -25,6 +25,15 @@ pub struct CharacterConfig {
 
     pub starting_skin: String,
     pub skins: HashMap<String, CharacterSkin>,
+
+    /// Armes à distance données au spawn (`WeaponId` de `weapons.ron`), dans l'ordre
+    /// déclaré : la première est l'arme active (T1.5, voir
+    /// `character/player/create.rs::create_player`). Vide par défaut : seuls les
+    /// personnages joueurs en déclarent aujourd'hui (les ennemis n'ont pas d'arme à
+    /// distance). Validé par `crates/content::lint` (référence vers une entrée de
+    /// `weapons.ron`).
+    #[serde(default)]
+    pub starting_weapons: Vec<String>,
 }
 
 #[derive(Component)]
