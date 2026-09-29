@@ -9,6 +9,8 @@ use bevy::prelude::*;
 use bevy_fixed::fixed_math;
 use bevy_ggrs::Rollback;
 use serde::{Deserialize, Serialize};
+use sim_core::stats::StatId;
+use stats::StatReader;
 use std::collections::VecDeque;
 use utils::{frame::FrameCount, net_id::GgrsNetId, order_iter, order_mut_iter};
 
@@ -196,6 +198,7 @@ pub fn move_enemies(
         ),
     >,
     flow_field_cache: Res<super::navigation::FlowFieldCache>,
+    stats: StatReader,
 ) {
     // --- Optimization 1: Cache walls ---
     // Collect walls into a Vec for faster iteration (cache locality)
@@ -209,7 +212,13 @@ pub fn move_enemies(
         .map(|(_, entity, transform, ..)| (*entity, transform.translation.truncate()))
         .collect();
 
-    // Build spatial grid
+    // Build spatial grid. Granularité du bucketing spatial seulement (optimisation de
+    // recherche de voisins) : reste la constante partagée `PathfindingConfig`, pas la stat
+    // `SeparationDistance` de chaque ennemi (T1.2) — aujourd'hui identiques pour tous les
+    // ennemis (aucun `stats:` de RON ne la surcharge encore), donc sans effet sur le
+    // résultat ; un futur type d'ennemi avec une `SeparationDistance` très différente
+    // resterait correct (le rayon réel de répulsion, lu plus bas, est bien celui de
+    // l'ennemi), seulement avec une grille moins optimale pour ce cas précis.
     let cell_size = config.enemy_separation_distance;
     let mut spatial_grid: std::collections::HashMap<(i32, i32), Vec<usize>> =
         std::collections::HashMap::new();
@@ -252,12 +261,35 @@ pub fn move_enemies(
         let enemy_pos_v2 = fixed_transform.translation.truncate();
 
         // Get character movement config
-        let movement_speed =
+        let base_movement_speed =
             if let Some(char_config) = character_configs.get(&config_handles.config) {
                 char_config.movement.max_speed // This should be fixed_math::Fixed
             } else {
                 config.movement_speed // Fallback is also Fixed
             };
+        // Stats branchées (T1.2, chantier B2) : les constantes de `PathfindingConfig` sont
+        // maintenant des stats par ennemi (`character::create::create_character` les pose
+        // depuis ce même `PathfindingConfig::default()` à la création, voir
+        // `enemy::create::enemy_stat_defaults`), surchargeables par `CharacterConfig::stats`
+        // dans le RON de chaque type d'ennemi. Sans surcharge, valeur identique à avant.
+        let movement_speed = stats.get(entity, &StatId::EnemyMoveSpeed, base_movement_speed);
+        let separation_distance = stats.get(
+            entity,
+            &StatId::SeparationDistance,
+            config.enemy_separation_distance,
+        );
+        let separation_force = stats.get(
+            entity,
+            &StatId::SeparationForce,
+            config.enemy_separation_force,
+        );
+        let optimal_attack_distance = stats.get(
+            entity,
+            &StatId::OptimalAttackDistance,
+            config.optimal_attack_distance,
+        );
+        let slow_down_distance =
+            stats.get(entity, &StatId::SlowDownDistance, config.slow_down_distance);
 
         // Get the player position from flow field cache
         let player_pos = flow_field_cache.target_pos.to_fixed();
@@ -421,7 +453,7 @@ pub fn move_enemies(
 
                         let dist_to_other = enemy_pos_v2.distance(other_pos_v2);
                         // Use small epsilon for distance > 0 check
-                        if dist_to_other < config.enemy_separation_distance
+                        if dist_to_other < separation_distance
                             && dist_to_other > fixed_math::new(0.1)
                         {
                             let repulsion_v2 = (enemy_pos_v2 - *other_pos_v2).normalize_or_zero()
@@ -436,20 +468,20 @@ pub fn move_enemies(
 
         if separation_count > 0 {
             // Convert count to Fixed for division
-            separation_v2 = (separation_v2 / fixed_math::Fixed::from_num(separation_count))
-                * config.enemy_separation_force;
+            separation_v2 =
+                (separation_v2 / fixed_math::Fixed::from_num(separation_count)) * separation_force;
         }
 
         // Calculate base velocity using flow field direction
         let base_velocity_v2 = direction_to_target_v2 * movement_speed;
 
         // Slow down when near player (for attack positioning)
-        let speed_factor_fixed = if distance_to_nearest_player < config.optimal_attack_distance {
+        let speed_factor_fixed = if distance_to_nearest_player < optimal_attack_distance {
             fixed_math::FIXED_ZERO // Stop when in melee range
-        } else if distance_to_nearest_player < config.slow_down_distance {
-            let range = config.slow_down_distance - config.optimal_attack_distance;
+        } else if distance_to_nearest_player < slow_down_distance {
+            let range = slow_down_distance - optimal_attack_distance;
             if range > fixed_math::FIXED_ZERO {
-                let t = (distance_to_nearest_player - config.optimal_attack_distance) / range;
+                let t = (distance_to_nearest_player - optimal_attack_distance) / range;
                 t.clamp(fixed_math::FIXED_ZERO, fixed_math::FIXED_ONE)
             } else {
                 fixed_math::FIXED_ONE

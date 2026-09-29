@@ -7,6 +7,8 @@ use bevy_ggrs::prelude::*;
 use bevy_ggrs::{LocalInputs, LocalPlayers};
 use leafwing_input_manager::prelude::*;
 use serde::{Deserialize, Serialize};
+use sim_core::stats::StatId;
+use stats::StatReader;
 use utils::{frame::FrameCount, net_id::GgrsNetId, order_mut_iter};
 
 use crate::character::config::{CharacterConfig, CharacterConfigHandles};
@@ -306,6 +308,7 @@ pub fn apply_inputs(
     _commands: Commands,
     inputs: Res<PlayerInputs<PeerConfig>>,
     character_configs: Res<Assets<CharacterConfig>>,
+    stats: StatReader,
     mut query: Query<
         (
             &GgrsNetId,
@@ -327,7 +330,7 @@ pub fn apply_inputs(
 ) {
     for (
         _net_id,
-        _entity,
+        entity,
         _inventory,
         transform,
         mut dash_state,
@@ -429,17 +432,29 @@ pub fn apply_inputs(
             cursor_position.y = input.pan_y as i32;
 
             if direction != fixed_math::FixedVec2::ZERO {
+                // Stats branchées (T1.2, chantier B2) : résolues (base + modificateurs
+                // actifs) à la place des constantes `config.movement.*` — `StatReader`
+                // retombe sur la valeur de config si l'entité n'a pas la stat (garde
+                // défensive, voir sa doc), donc identique à avant sans modificateur actif.
+                let sprint_mult_stat = stats.get(
+                    entity,
+                    &StatId::SprintMultiplier,
+                    config.movement.sprint_multiplier,
+                );
                 let sprint_multiplier = fixed_math::FIXED_ONE
-                    + (config.movement.sprint_multiplier - fixed_math::FIXED_ONE)
-                        * sprint_state.sprint_factor;
+                    + (sprint_mult_stat - fixed_math::FIXED_ONE) * sprint_state.sprint_factor;
+
+                let acceleration =
+                    stats.get(entity, &StatId::Acceleration, config.movement.acceleration);
                 // Using FIXED_TIMESTEP instead of time.delta()
                 let move_delta = direction.normalize_or_zero()
-                    * config.movement.acceleration
+                    * acceleration
                     * sprint_multiplier
                     * fixed_math::new(FIXED_TIMESTEP);
                 velocity.main += move_delta;
 
-                let max_speed = config.movement.max_speed * sprint_multiplier;
+                let move_speed = stats.get(entity, &StatId::MoveSpeed, config.movement.max_speed);
+                let max_speed = move_speed * sprint_multiplier;
                 velocity.main = velocity.main.clamp_length_max(max_speed);
             }
         }
