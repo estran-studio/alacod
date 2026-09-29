@@ -535,6 +535,7 @@ région des chantiers puis la campagne.
 | 2026-09-28 | T1.8a (B4, grille spatiale : structure et tests d'équivalence, nouveau crate `combat`) | `m0-v3-grille` | Haiku | mergée ; 15 tests dont quatre d'équivalence avec la force brute ; corrigé par l'orchestrateur : détour par `f32` (règle 7), troncature au lieu du plancher pour les cellules négatives, entités de test invalides (tests ignorés), features de `bevy` |
 | 2026-09-28 | T2.7 (K4, `docs/conventions.md` : LDtk, sprites, dossier de jeu, checklist d'un vocabulaire) | `m0-v2-conventions` | Haiku | mergée ; une reprise (quinze erreurs factuelles corrigées par l'agent sur liste, dernières retouches par l'orchestrateur) |
 | 2026-09-28 | T0.1b et T0.1c (K0 : migration des 47 enregistrements rollback vers l'extension, checksums partout, script strict, trace d'état générique = checksum GGRS) | `m0-v3-rollback-migration` | Sonnet (tâche large et piégeuse : `Entity` et `f32` à exclure du hachage, `HashMap` à convertir ; T0.1a en Haiku a demandé une reprise complète) | en cours |
+| 2026-09-28 | T1.9 (K3, métriques de performance par scénario, `tests/budgets.ron`, `make bench`, section Performance de la page de revue) | `m0-v3-bench` | Haiku | en cours |
 
 Orchestration : Fable crée les worktrees (`scripts/task-new.sh` du meta-repo), lance un agent par
 tâche avec le modèle le moins cher (Haiku d'abord, Sonnet si une tâche échoue deux fois), vérifie
