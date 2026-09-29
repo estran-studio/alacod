@@ -50,6 +50,9 @@ impl InputRecorder {
         let players = (0..player_count)
             .map(|handle| PlayerScript {
                 inputs: self.segments(handle),
+                // Un enregistrement capture le BoxInput réellement envoyé à GGRS (bot ou pas :
+                // voir `bots::read_bot_inputs`), donc rejoue toujours en `Scripted` (T2.11).
+                bot: None,
                 tags: vec![],
                 immune_to: vec![],
                 modifiers: vec![],
@@ -134,7 +137,12 @@ impl Plugin for RecordingPlugin {
     }
 }
 
-fn record_local_inputs(
+/// `pub` pour que `crates/bots` puisse ordonner son système `read_bot_inputs` avant celui-ci
+/// (`.before(record_local_inputs)`) : sinon l'enregistrement capturerait l'input neutre
+/// provisoire posé par `read_local_inputs` plutôt que la décision du bot qui le remplace
+/// ensuite dans le même schedule `ReadInputs` (T2.11 ; la partie jouée par GGRS n'est pas
+/// affectée par cet ordre, seul l'enregistrement le serait).
+pub fn record_local_inputs(
     frame: Res<FrameCount>,
     local_inputs: Option<Res<LocalInputs<PeerConfig>>>,
     mut recorder: ResMut<InputRecorder>,

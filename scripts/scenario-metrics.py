@@ -32,17 +32,20 @@ def load_metrics(path):
 
 
 def main():
+    current_commit = git("rev-parse", "--short", "HEAD")
+
     if not METRICS_DIR.exists():
         print("Aucune métrique trouvée (target/metrics/latest.json n'existe pas)")
+        print_sim_table(current_commit)
         return
 
     latest = load_metrics(METRICS_DIR / "latest.json")
     if not latest:
         print("Aucune métrique dans latest.json")
+        print_sim_table(current_commit)
         return
 
     # Essayer de charger le commit précédent
-    current_commit = git("rev-parse", "--short", "HEAD")
     previous_metrics = {}
     if current_commit:
         parent_commit = git("rev-parse", "--short", f"{current_commit}^") if git("rev-parse", f"{current_commit}^", "--verify") else None
@@ -72,6 +75,31 @@ def main():
         print(f"│ {name:21s} │ {fps_str:>5s} │ {delta_str:>6s} │ {metrics['entities_max']:>7} │ {metrics['bullets_max']:>6} │ {metrics['enemies_max']:>7} │")
 
     print("╰───────────────────────┴───────┴────────┴─────────┴────────┴─────────╯")
+    print()
+
+    print_sim_table(current_commit)
+
+
+def print_sim_table(commit):
+    """Tableau des runs `alacod-sim` (T2.11), si `target/metrics/sim-<commit>.json` existe
+    (écrit par `make sim`). Minimal : une ligne par graine."""
+    if not commit:
+        return
+    path = METRICS_DIR / f"sim-{commit}.json"
+    runs = load_metrics(path)
+    if not runs:
+        return
+
+    print("╭─ alacod-sim ────────────────────────────────────────────────╮")
+    print("│ Graine   │ Vague │ Morts │ Kills │  FPS  │ Desync          │")
+    print("├──────────┼───────┼───────┼───────┼───────┼─────────────────┤")
+    for run in runs:
+        desync = "OUI" if run.get("desync") else ""
+        print(
+            f"│ {run['seed']:>8} │ {run['wave']:>5} │ {run['deaths']:>5} │ {run['kills']:>5} │ "
+            f"{run['sim_fps']:>5.1f} │ {desync:<15} │"
+        )
+    print("╰──────────┴───────┴───────┴───────┴───────┴─────────────────╯")
     print()
 
 

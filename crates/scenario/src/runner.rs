@@ -5,6 +5,7 @@ use crate::invariants::InvariantQueries;
 use bevy::prelude::*;
 use bevy_fixed::fixed_math;
 use bevy_ggrs::SyncTestMismatch;
+use bots::{BotAssignments, BotsPlugin};
 use combat::damage::Defenses;
 use game::recording::InputRecorder;
 use game::{
@@ -60,6 +61,16 @@ pub struct Metrics {
     pub enemies_max: u32,
     /// Nombre maximal de joueurs vivants à une frame.
     pub players: u32,
+    /// Vague courante à la dernière frame simulée (`WaveState::current_wave`, T2.11 `alacod-sim`).
+    #[serde(default)]
+    pub final_wave: u32,
+    /// Ennemis tués au total à la dernière frame simulée (`WaveState::total_enemies_killed`).
+    #[serde(default)]
+    pub kills: u32,
+    /// Joueurs vivants à la dernière frame simulée (contrairement à `players`, qui est un
+    /// maximum sur toute la partie) : `scenario.players.len() - players_alive` = morts.
+    #[serde(default)]
+    pub players_alive: u32,
 }
 
 /// Résultat d'un scénario.
@@ -157,6 +168,12 @@ pub fn build_app(scenario: &Scenario, headless: bool, config: &PlayConfig) -> Ap
         .add_systems(Update, apply_player_overrides)
         .insert_resource(InputSource::Scripted)
         .insert_resource::<ScriptedInputs>(scenario.scripted_inputs())
+        // T2.11 : toujours ajouté (BotAssignments vide ⇒ read_bot_inputs ne fait rien, les
+        // scénarios sans bot ne changent pas) ; le mode de base reste Scripted (au-dessus) pour
+        // que les joueurs scriptés d'un scénario qui mélange les deux gardent leurs inputs, les
+        // joueurs de `bot_assignments` sont remplacés ensuite quel que soit ce mode.
+        .add_plugins(BotsPlugin)
+        .insert_resource(bot_assignments(scenario))
         .init_resource::<SyncTestMismatches>()
         .add_observer(|mismatch: On<SyncTestMismatch>, mut log: ResMut<SyncTestMismatches>| {
             let m = mismatch.event();
@@ -175,6 +192,25 @@ pub fn build_app(scenario: &Scenario, headless: bool, config: &PlayConfig) -> Ap
     }
 
     app
+}
+
+/// Un profil de bot par joueur (`PlayerScript::bot`), pour `bots::BotsPlugin` (T2.11). Le
+/// handle GGRS d'un joueur est son index dans `scenario.players` (voir `ScriptedInputs`,
+/// `game_args`, même règle).
+fn bot_assignments(scenario: &Scenario) -> BotAssignments {
+    let mut assignments = std::collections::BTreeMap::new();
+    for (handle, player) in scenario.players.iter().enumerate() {
+        if let Some(profile) = player.bot {
+            assert!(
+                player.inputs.is_empty(),
+                "scénario « {} » : joueur {handle} a à la fois des inputs scriptés et un profil de bot ({}) : exclusif (voir PlayerScript::bot)",
+                scenario.game,
+                profile.name(),
+            );
+            assignments.insert(handle, profile);
+        }
+    }
+    BotAssignments(assignments)
 }
 
 /// Fait avancer le scénario (headless) jusqu'à la frame `frame` et rend l'app, pour
@@ -239,6 +275,18 @@ fn apply_weapon_overrides(
         }
     }
     *applied = true;
+}
+
+/// Condition d'arrêt anticipé du runner (`alacod-sim`, T2.11) : la simulation s'arrête avant
+/// `scenario.frames` dès qu'une condition est atteinte. Contrairement à une simulation qui
+/// n'atteint pas `scenario.frames` sans condition d'arrêt (échec, signe habituel d'un problème
+/// de chargement), un arrêt anticipé volontaire n'est jamais une failure.
+#[derive(Debug, Clone, Copy, Default)]
+pub struct StopEarly {
+    /// S'arrête dès que `WaveState::current_wave >= until_wave`.
+    pub until_wave: Option<u32>,
+    /// S'arrête dès qu'aucun joueur n'est vivant (à partir de la première frame simulée).
+    pub stop_when_all_players_dead: bool,
 }
 
 /// Tags, immunités et modificateurs de stats par joueur (T1.1 chantier B1, T1.2 chantier
@@ -310,6 +358,15 @@ fn apply_player_overrides(
 /// Joue le scénario jusqu'à `scenario.frames` et vérifie ses attentes, après avoir appliqué
 /// `configure` à l'app (pour les tests qui ajoutent un système ou une ressource).
 pub fn run_with<F: FnOnce(&mut App)>(scenario: &Scenario, configure: F) -> ScenarioOutcome {
+    run_with_options(scenario, configure, None)
+}
+
+/// Comme [`run_with`], avec une condition d'arrêt anticipé optionnelle (`alacod-sim`, T2.11).
+pub fn run_with_options<F: FnOnce(&mut App)>(
+    scenario: &Scenario,
+    configure: F,
+    stop_early: Option<StopEarly>,
+) -> ScenarioOutcome {
     let config = PlayConfig {
         follow_handle: None,
     };
@@ -358,6 +415,7 @@ pub fn run_with<F: FnOnce(&mut App)>(scenario: &Scenario, configure: F) -> Scena
 
     let max_updates = MAX_LOADING_UPDATES + scenario.frames;
     let mut frame = 0;
+    let mut stopped_early = false;
     for _ in 0..max_updates {
         let before = app.world().resource::<FrameCount>().frame;
         if before > 0 && sim_start.is_none() {
@@ -414,7 +472,20 @@ pub fn run_with<F: FnOnce(&mut App)>(scenario: &Scenario, configure: F) -> Scena
             }
         }
 
-        if frame >= scenario.frames {
+        if frame > 0 {
+            if let Some(stop) = stop_early {
+                let wave_reached = stop.until_wave.is_some_and(|until_wave| {
+                    app.world().resource::<WaveState>().current_wave >= until_wave
+                });
+                let all_dead =
+                    stop.stop_when_all_players_dead && q_players.iter(app.world()).count() == 0;
+                if wave_reached || all_dead {
+                    stopped_early = true;
+                }
+            }
+        }
+
+        if stopped_early || frame >= scenario.frames {
             break;
         }
     }
@@ -425,7 +496,7 @@ pub fn run_with<F: FnOnce(&mut App)>(scenario: &Scenario, configure: F) -> Scena
         0.0
     };
 
-    if frame < scenario.frames {
+    if frame < scenario.frames && !stopped_early {
         failures.push(format!(
             "la simulation n'a atteint que la frame {frame} sur {} (map pas chargée ?)",
             scenario.frames
@@ -460,6 +531,11 @@ pub fn run_with<F: FnOnce(&mut App)>(scenario: &Scenario, configure: F) -> Scena
 
     let events = app.world().resource::<GameEvents>().events.clone();
 
+    let wave_state = app.world().resource::<WaveState>();
+    let final_wave = wave_state.current_wave;
+    let kills = wave_state.total_enemies_killed;
+    let players_alive = q_players.iter(app.world()).count() as u32;
+
     let metrics = Metrics {
         frames: frame,
         sim_seconds: sim_elapsed,
@@ -468,6 +544,9 @@ pub fn run_with<F: FnOnce(&mut App)>(scenario: &Scenario, configure: F) -> Scena
         bullets_max,
         enemies_max,
         players: players_count,
+        final_wave,
+        kills,
+        players_alive,
     };
 
     ScenarioOutcome {

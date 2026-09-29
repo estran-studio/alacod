@@ -3864,6 +3864,21 @@ dependencies = [
 ]
 
 [[package]]
+name = "bots"
+version = "0.1.0"
+dependencies = [
+ "bevy 0.19.1",
+ "bevy_fixed",
+ "bevy_ggrs",
+ "game",
+ "map",
+ "ron 0.12.2",
+ "serde",
+ "sim_core",
+ "utils",
+]
+
+[[package]]
 name = "bstr"
 version = "1.13.1"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -9808,6 +9823,7 @@ dependencies = [
  "bevy 0.19.1",
  "bevy_fixed",
  "bevy_ggrs",
+ "bots",
  "combat",
  "content",
  "game",
