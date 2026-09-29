@@ -6,11 +6,35 @@
 //! - `ALACOD_SCENARIO=<nom>` : ne joue que ce scénario.
 
 use std::path::PathBuf;
+use std::collections::BTreeMap;
 
-use scenario::{run, Scenario};
+use scenario::{run, Scenario, Metrics};
+use serde::Deserialize;
 
 fn scenarios_dir() -> PathBuf {
     PathBuf::from(concat!(env!("CARGO_MANIFEST_DIR"), "/../../tests/scenarios"))
+}
+
+fn budgets_dir() -> PathBuf {
+    PathBuf::from(concat!(env!("CARGO_MANIFEST_DIR"), "/../../tests"))
+}
+
+fn metrics_dir() -> PathBuf {
+    let target = std::env::var("CARGO_TARGET_DIR").unwrap_or_else(|_| "./target".into());
+    PathBuf::from(target).join("metrics")
+}
+
+#[derive(Debug, Default, Deserialize)]
+struct BudgetConfig {
+    min_sim_fps: f64,
+}
+
+#[derive(Debug, Deserialize)]
+struct Budgets {
+    #[serde(default)]
+    default: BudgetConfig,
+    #[serde(default)]
+    scenarios: BTreeMap<String, BudgetConfig>,
 }
 
 #[test]
@@ -23,6 +47,16 @@ fn scenarios() {
     let bless = std::env::var("ALACOD_BLESS").is_ok_and(|v| v == "1");
     let only = std::env::var("ALACOD_SCENARIO").ok().filter(|name| !name.is_empty());
 
+    // Load budgets
+    let budgets_path = budgets_dir().join("budgets.ron");
+    let budgets: Budgets = match std::fs::read_to_string(&budgets_path) {
+        Ok(content) => ron::from_str(&content).expect("budgets.ron invalide"),
+        Err(_) => Budgets {
+            default: BudgetConfig { min_sim_fps: 40.0 },
+            scenarios: BTreeMap::new(),
+        },
+    };
+
     let mut paths: Vec<PathBuf> = std::fs::read_dir(scenarios_dir())
         .expect("dossier tests/scenarios")
         .map(|entry| entry.unwrap().path())
@@ -31,6 +65,8 @@ fn scenarios() {
     paths.sort();
 
     let mut failures = Vec::new();
+    let mut metrics_map: BTreeMap<String, Metrics> = BTreeMap::new();
+
     for path in paths {
         let name = path.file_stem().unwrap().to_string_lossy().to_string();
         if only.as_ref().is_some_and(|only| *only != name) {
@@ -48,14 +84,34 @@ fn scenarios() {
 
         let started = std::time::Instant::now();
         let outcome = run(&scenario);
-        eprintln!("{name}: {} ({:.1?})", outcome.summary, started.elapsed());
+
+        let metrics_str = format!(
+            "| frames={} fps={:.1} entités_max={} balles_max={} ennemis_max={}",
+            outcome.metrics.frames,
+            outcome.metrics.sim_fps,
+            outcome.metrics.entities_max,
+            outcome.metrics.bullets_max,
+            outcome.metrics.enemies_max
+        );
+        eprintln!("{name}: {} {} ({:.1?})", outcome.summary, metrics_str, started.elapsed());
+
         if std::env::var("ALACOD_EVENTS").is_ok_and(|v| v == "1") {
             for event in &outcome.events {
                 eprintln!("  f{:>5} {:<7} {}", event.frame, event.kind, event.label);
             }
         }
 
+        // Check budget
+        let budget = budgets.scenarios.get(&name).unwrap_or(&budgets.default);
+        if outcome.metrics.sim_fps < budget.min_sim_fps {
+            failures.push(format!(
+                "{name}: budget : {:.1} fps < {:.1} fps",
+                outcome.metrics.sim_fps, budget.min_sim_fps
+            ));
+        }
+
         failures.extend(outcome.failures.iter().map(|f| format!("{name}: {f}")));
+        metrics_map.insert(name.clone(), outcome.metrics.clone());
 
         let golden_path = path.with_extension("trace");
         let trace = outcome.trace.join("\n") + "\n";
@@ -81,7 +137,37 @@ fn scenarios() {
         }
     }
 
+    // Write metrics to JSON
+    write_metrics(&metrics_map);
+
     assert!(failures.is_empty(), "\n{}\n", failures.join("\n"));
+}
+
+fn write_metrics(metrics: &BTreeMap<String, Metrics>) {
+    let commit = std::env::var("APP_VERSION")
+        .or_else(|_| {
+            std::process::Command::new("git")
+                .args(&["rev-parse", "--short", "HEAD"])
+                .output()
+                .ok()
+                .and_then(|o| String::from_utf8(o.stdout).ok())
+                .map(|s| s.trim().to_string())
+                .ok_or_else(|| std::env::VarError::NotPresent)
+        })
+        .unwrap_or_else(|_| "unknown".to_string());
+
+    let metrics_dir = metrics_dir();
+    let commit_dir = metrics_dir.join(&commit);
+
+    // Create directory if it doesn't exist
+    std::fs::create_dir_all(&commit_dir).ok();
+
+    // Write metrics for this commit
+    let metrics_json = serde_json::to_string_pretty(metrics).expect("sérialisation des métriques");
+    std::fs::write(commit_dir.join("metrics.json"), &metrics_json).ok();
+
+    // Write latest.json symlink (or just copy for portability)
+    std::fs::write(metrics_dir.join("latest.json"), &metrics_json).ok();
 }
 
 /// Un scénario rejoué depuis son propre enregistrement donne la même trace : ce que

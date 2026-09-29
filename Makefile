@@ -94,6 +94,10 @@ check_forbidden:
 test_scenarios:
 	ALACOD_BLESS=$(BLESS) ALACOD_SCENARIO=$(SCENARIO) APP_VERSION=$(VERSION) cargo test -p scenario --profile headless --test scenarios -- --nocapture
 
+# Benchmarks : lance test_scenarios puis affiche les métriques de performance.
+bench: test_scenarios
+	./scripts/scenario-metrics.py
+
 # Vidéos des scénarios (target/videos/<commit>/) : une par scénario + montage en grille.
 # SCENARIO=<nom> pour un seul ; EVERY=N une image toutes les N frames (défaut 2).
 videos:

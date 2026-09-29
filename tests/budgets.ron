@@ -1,0 +1,22 @@
+// Budgets de performance : seuils de non-régression par scénario.
+// Ces valeurs sont des planchers mesurés sur la machine de dev à 2026-09-28.
+// Un scénario dont le fps mesuré est inférieur au minimum budgété fait échouer le test.
+(
+    default: (
+        min_sim_fps: 40.0,
+    ),
+    scenarios: {
+        "idle": (min_sim_fps: 100.0),
+        "two_players_idle": (min_sim_fps: 80.0),
+        "ammo_burst": (min_sim_fps: 50.0),
+        "bullets_walls": (min_sim_fps: 45.0),
+        "dash_wall": (min_sim_fps: 60.0),
+        "door_open": (min_sim_fps: 60.0),
+        "movement_melee": (min_sim_fps: 50.0),
+        "remote_first_fight": (min_sim_fps: 40.0),
+        "shoot_around": (min_sim_fps: 40.0),
+        "two_players_shooting": (min_sim_fps: 40.0),
+        "weapons_workout": (min_sim_fps: 50.0),
+        "window_repair": (min_sim_fps: 50.0),
+    },
+)
