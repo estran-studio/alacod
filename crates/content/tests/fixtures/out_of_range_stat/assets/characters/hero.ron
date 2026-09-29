@@ -1,0 +1,17 @@
+(
+    movement: (
+        max_speed: "100.0",
+    ),
+    asset_name_ref: "hero",
+    base_health: (
+        max: "100.0",
+    ),
+    starting_skin: "1",
+    skins: {
+        "1": (layers: {}),
+    },
+    // Erreur volontaire (T1.2, chantier B2) : stat négative.
+    stats: {
+        MoveSpeed: "-10.0",
+    },
+)

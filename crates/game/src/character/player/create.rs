@@ -66,6 +66,9 @@ pub fn create_player(
         position,
         CollisionLayer(collision_settings.player_layer),
         id_factory,
+        // Pas de stats additionnelles pour un joueur (T1.2) : les cinq stats d'ennemi
+        // n'ont pas de sens ici, voir la doc du paramètre.
+        &[],
     );
 
     // `Team` est un composant statique, non enregistré en rollback (voir sa doc dans

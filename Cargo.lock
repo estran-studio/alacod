@@ -5796,6 +5796,7 @@ dependencies = [
  "serde",
  "serde_json",
  "sim_core",
+ "stats",
  "telemetry",
  "thiserror 2.0.21",
  "utils",
@@ -10350,6 +10351,18 @@ name = "static_assertions"
 version = "1.1.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "a2eb9349b6444b326872e140eb1cf5e7c522154d69e7a0ffb0fb81c06b37543f"
+
+[[package]]
+name = "stats"
+version = "0.1.0"
+dependencies = [
+ "bevy 0.19.1",
+ "bevy_fixed",
+ "bevy_ggrs",
+ "ron 0.12.2",
+ "sim_core",
+ "utils",
+]
 
 [[package]]
 name = "strict-num"

@@ -14,6 +14,7 @@ use bevy_ggrs::{GgrsSchedule, ReadInputs};
 use leafwing_input_manager::plugin::InputManagerPlugin;
 use map::game::entity::map::enemy_spawn::EnemySpawnerComponent;
 use sim_core::kinds::{KindDecl, KindRegistry};
+use stats::{expire_modifiers_system, StatsPlugin};
 
 use crate::frame_events::FrameEventsAppExt;
 use crate::{
@@ -43,8 +44,8 @@ use crate::{
         },
         health::{
             rollback_apply_accumulated_damage, rollback_apply_death, rollback_health_regeneration,
-            rollback_resolve_damage_events, ui::update_health_bars, DamageAccumulator, Death,
-            Health, HealthRegen, HitCount,
+            rollback_resolve_damage_events, sync_health_from_stats, ui::update_health_bars,
+            DamageAccumulator, Death, Health, HealthRegen, HitCount,
         },
         movement::{apply_knockback_damping, KnockbackDampingConfig, SprintState, Velocity},
         player::{
@@ -70,6 +71,10 @@ impl Plugin for BaseCharacterGamePlugin {
         app.add_plugins((RonAssetPlugin::<CharacterConfig>::new(&["ron"]),));
 
         app.add_plugins(InputManagerPlugin::<PlayerAction>::default());
+        // Stats et modificateurs (T1.2, chantier B2) : enregistre `Stats`/`Modifiers` en
+        // rollback et l'expiration des modificateurs (`RollbackSystemSet::Status`). Voir
+        // `docs/conventions.md` §7.
+        app.add_plugins(StatsPlugin);
         app.init_resource::<PointerWorldPosition>();
 
         // Resources
@@ -167,6 +172,15 @@ impl Plugin for BaseCharacterGamePlugin {
                     rollback_resolve_damage_events.after(enemy_attack_damage_translate_system),
                 )
                     .in_set(RollbackSystemSet::CollisionDamage),
+                // STATS (T1.2, chantier B2) : `Health.max`/`HealthRegen.regen_rate`
+                // recalculés depuis les stats résolues, après l'expiration des
+                // modificateurs (`stats::expire_modifiers_system`, ajouté par
+                // `StatsPlugin`) — les deux sont dans `RollbackSystemSet::Status` et
+                // touchent `Modifiers`, l'ordre doit être explicite (voir la doc de
+                // `expire_modifiers_system`).
+                sync_health_from_stats
+                    .after(expire_modifiers_system)
+                    .in_set(RollbackSystemSet::Status),
                 // HEALTH
                 (
                     rollback_apply_accumulated_damage,

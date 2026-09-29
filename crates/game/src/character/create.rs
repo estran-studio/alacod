@@ -3,6 +3,8 @@ use bevy::prelude::*;
 use bevy_fixed::fixed_math;
 use bevy_kira_audio::prelude::*;
 use combat::damage::Defenses;
+use sim_core::modifier::Modifiers;
+use sim_core::stats::{StatId, Stats};
 use utils::net_id::GgrsNetIdFactory;
 
 use crate::{
@@ -36,6 +38,13 @@ pub fn create_character(
 
     collision_layer: CollisionLayer,
     id_factory: &mut ResMut<GgrsNetIdFactory>,
+
+    // Stats de base additionnelles, posées avant les surcharges `CharacterConfig::stats`
+    // du RON (qui gagnent toujours) : sert à `enemy::create::spawn_enemy` pour les cinq
+    // stats d'ennemi (T1.2, `docs/conventions.md` §7) qui n'ont pas de champ dédié dans
+    // `CharacterConfig` (elles viennent de `PathfindingConfig::default()`, pas du RON du
+    // personnage). Vide pour un joueur (`player::create::create_player`).
+    extra_stat_defaults: &[(StatId, fixed_math::Fixed)],
 ) -> Entity {
     let handle = global_assets.character_configs.get(&config_name).unwrap();
     let config = character_asset.get(handle).unwrap();
@@ -96,6 +105,38 @@ pub fn create_character(
 
     let health: Health = config.base_health.clone().into();
 
+    // Stats de base (T1.2, chantier B2, `docs/conventions.md` §7) : dérivées des champs
+    // existants de `CharacterConfig`, puis `extra_stat_defaults` (ennemis), puis
+    // `config.stats` du RON en dernier — RON gagne toujours. Aucun de ces défauts ne
+    // change la simulation d'un personnage qui ne déclare pas `stats:` : c'est exactement
+    // la valeur que lisait jusqu'ici le code branché sur `CharacterConfig`/`PathfindingConfig`.
+    let mut stats = Stats::new();
+    stats.set(StatId::MoveSpeed, config.movement.max_speed);
+    // Même valeur de base que `MoveSpeed`, lue par `move_enemies` : une stat distincte pour
+    // ne pas coupler réglage joueur et ennemi (voir la doc de `StatId::EnemyMoveSpeed`).
+    // Posée pour tout personnage, y compris les joueurs (jamais lue pour eux : inoffensif).
+    stats.set(StatId::EnemyMoveSpeed, config.movement.max_speed);
+    stats.set(StatId::Acceleration, config.movement.acceleration);
+    stats.set(StatId::SprintMultiplier, config.movement.sprint_multiplier);
+    stats.set(StatId::MaxHealth, config.base_health.max);
+    if let Some(regen_rate) = config.base_health.regen_rate {
+        stats.set(StatId::HealthRegen, regen_rate);
+    }
+    // Multiplicateurs à 1 par défaut : un `Mul`/`Pct` posé dessus par un futur chantier
+    // (perk, statut) s'applique tel quel ; sans lui, `resolve()` renvoie exactement 1 et le
+    // produit avec la valeur de configuration (dégâts, portée, cadence...) ne change rien
+    // (voir la contrainte « traces identiques » du rapport de tâche).
+    stats.set(StatId::FireRate, fixed_math::FIXED_ONE);
+    stats.set(StatId::ReloadSpeed, fixed_math::FIXED_ONE);
+    stats.set(StatId::Damage, fixed_math::FIXED_ONE);
+    stats.set(StatId::Range, fixed_math::FIXED_ONE);
+    for (id, value) in extra_stat_defaults {
+        stats.set(id.clone(), *value);
+    }
+    for (id, value) in &config.stats {
+        stats.set(id.clone(), *value);
+    }
+
     // Add gameplay components to the visual entity
     commands.entity(entity).insert((
         transform_fixed,
@@ -124,6 +165,15 @@ pub fn create_character(
             immune_to: config.immune_to.clone(),
             resistances: config.resistances.clone(),
         },
+    ));
+    // Second `insert` : un tuple `Bundle` est limité en arité (15 éléments avec bevy_ecs
+    // 0.19) ; le premier est déjà plein.
+    commands.entity(entity).insert((
+        // `Stats`/`Modifiers` (T1.2, chantier B2) : à l'inverse de `Tags`/`Defenses`,
+        // enregistrés en rollback par `stats::StatsPlugin` (`Modifiers` change avec le
+        // temps — expiration, futurs statuts/perks — donc entre dans le `Checksum` GGRS).
+        stats,
+        Modifiers::default(),
         id_factory.next(config_name),
     ));
 

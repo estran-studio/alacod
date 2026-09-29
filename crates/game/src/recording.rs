@@ -55,6 +55,7 @@ impl InputRecorder {
                 bot: None,
                 tags: vec![],
                 immune_to: vec![],
+                modifiers: vec![],
             })
             .collect();
 
