@@ -1,0 +1,11 @@
+(
+    name: "fixture-broken-reference",
+    content_folders: [
+        (path: "characters/hero.ron", kind: "Character"),
+        (path: "weapons.ron", kind: "Weapon"),
+    ],
+    entry: (
+        start_map: "unused",
+        default_seed: 1,
+    ),
+)

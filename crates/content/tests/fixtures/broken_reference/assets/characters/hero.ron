@@ -1,0 +1,15 @@
+(
+    movement: (
+        max_speed: "100.0",
+    ),
+    asset_name_ref: "hero",
+    base_health: (
+        max: "100.0",
+    ),
+    starting_skin: "1",
+    skins: {
+        "1": (layers: {}),
+    },
+    // Erreur volontaire : « plasma_rifle » n'existe pas dans weapons.ron.
+    starting_weapons: ["plasma_rifle"],
+)

@@ -1,0 +1,14 @@
+(
+    name: "fixture-unknown-kind",
+    content_folders: [
+        (path: "characters/hero.ron", kind: "Character"),
+        // Erreur volontaire : « Npc » n'est pas un kind connu (voir
+        // `registry::KNOWN_KIND_NAMES`). Le fichier n'a pas besoin d'exister : le kind
+        // inconnu est détecté avant toute tentative de lecture.
+        (path: "whatever.ron", kind: "Npc"),
+    ],
+    entry: (
+        start_map: "unused",
+        default_seed: 1,
+    ),
+)

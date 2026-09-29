@@ -1,0 +1,11 @@
+(
+    name: "fixture-duplicate-id",
+    content_folders: [
+        (path: "characters/a.ron", kind: "Character"),
+        (path: "characters/b.ron", kind: "Character"),
+    ],
+    entry: (
+        start_map: "unused",
+        default_seed: 1,
+    ),
+)

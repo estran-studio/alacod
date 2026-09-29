@@ -33,6 +33,7 @@ use crate::{
     camera::CameraControlPlugin,
     character::{player::jjrs::PeerConfig, BaseCharacterGamePlugin},
     collider::{debug::DebugColliderGamePlugin, BaseColliderGamePlugin},
+    content_hot_reload::ContentHotReloadPlugin,
     frame::{increase_frame_system, FrameDebugUIPlugin},
     global_asset::{add_global_asset, loading_asset_system},
     jjrs::{
@@ -197,6 +198,10 @@ impl Plugin for CoreSetupPlugin {
 
         app.add_plugins(crate::state_trace::StateTracePlugin);
         app.add_plugins(crate::recording::RecordingPlugin);
+        // Rechargement à chaud du registre de contenu hors partie (T1.5) : no-op sans
+        // `GameRoot` (tests de scénario) ou sans changement de fichier détecté (sans
+        // feature `native`, aucun `AssetEvent` de modification n'est jamais émis).
+        app.add_plugins(ContentHotReloadPlugin);
         #[cfg(not(target_arch = "wasm32"))]
         if let Some(remote) = crate::remote::RemoteControlPlugin::from_env() {
             app.add_plugins(remote);

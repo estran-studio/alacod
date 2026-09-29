@@ -58,6 +58,7 @@ serde_json = "1.0"
 utils = { path = "./crates/utils" }
 map = { path = "./crates/map" }
 game = { path = "./crates/game" }
+content = { path = "./crates/content" }
 map_ldtk = { path = "./crates/map_ldtk" }
 bevy_fixed = { path = "./crates/bevy_fixed" }
 animation = { path = "./crates/animation" }

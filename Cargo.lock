@@ -220,6 +220,7 @@ dependencies = [
  "bevy_ecs_tilemap",
  "bevy_fixed",
  "bevy_ggrs",
+ "content",
  "game",
  "map",
  "map_ldtk",
@@ -4364,9 +4365,12 @@ dependencies = [
 name = "content"
 version = "0.1.0"
 dependencies = [
+ "bevy 0.19.1",
  "bevy_fixed",
+ "clap 4.6.7",
  "ron 0.12.2",
  "serde",
+ "sim_core",
  "thiserror 2.0.21",
 ]
 
@@ -5762,6 +5766,7 @@ dependencies = [
  "bevy_matchbox",
  "chrono",
  "clap 4.6.7",
+ "content",
  "ggrs",
  "harmonium_bevy",
  "lazy_static",
@@ -9799,6 +9804,7 @@ dependencies = [
  "bevy 0.19.1",
  "bevy_fixed",
  "bevy_ggrs",
+ "content",
  "game",
  "map",
  "map_ldtk",
@@ -10789,6 +10795,7 @@ dependencies = [
  "bevy_ecs_tilemap",
  "bevy_fixed",
  "bevy_ggrs",
+ "content",
  "game",
  "map",
  "map_ldtk",
@@ -13405,6 +13412,7 @@ dependencies = [
  "bevy_ecs_tilemap",
  "bevy_fixed",
  "bevy_ggrs",
+ "content",
  "game",
  "map",
  "map_ldtk",

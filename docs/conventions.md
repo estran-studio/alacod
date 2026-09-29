@@ -101,19 +101,68 @@ games/<jeu>/
 └── scenarios/         # Scénarios de test (.ron)
 ```
 
-**`game.ron`** (manifeste du jeu, exemple indicatif ; format fixé par T1.5) :
+**`game.ron`** (manifeste du jeu, `crates/content/src/manifest.rs`, T1.5) : nom, dossiers de
+contenu typés, point d'entrée (carte de départ, graine par défaut). Exemple
+(`games/testbed/assets/game.ron`) :
 ```ron
 (
-    name: "zombies",
+    name: "testbed",
     content_folders: [
-        (path: "assets/characters", type: Character),
-        (path: "assets/weapons", type: Weapon),
-        (path: "assets/waves", type: Wave),
+        (path: "ZombieShooter/Sprites/Character/player_config.ron", kind: "Character"),
+        (path: "ZombieShooter/Sprites/Character/weapons.ron", kind: "Weapon"),
+        (path: "weapons/melee/melee_weapons.ron", kind: "MeleeWeapon"),
+        (path: "testbed", kind: "Map"),
+        (path: "ui", kind: "Ui"),
+        (path: "camera.ron", kind: "Camera"),
     ],
+    entry: (
+        start_map: "testbed/testbed_empty.ldtk",
+        default_seed: 123456,
+    ),
 )
 ```
+Chaque entrée de `content_folders` est un **fichier** ou un **dossier**, relatif à
+`assets/`. Un dossier est scanné (non récursif) pour l'extension attendue par son `kind`
+(`.ron`, sauf `Map` qui attend `.ldtk`) ; un fichier est lu tel quel. Les jeux actuels
+mélangent encore plusieurs kinds dans un même dossier historique
+(`ZombieShooter/Sprites/Character/` contient à la fois `player_config.ron` et des feuilles
+de sprite) : dans ce cas le manifeste déclare le **fichier** précis plutôt que le dossier
+entier (voir `games/zombies/assets/game.ron`). Les kinds connus : `Character`, `Weapon`,
+`MeleeWeapon`, `Wave`, `Map`, `Ui`, `Camera` (`content::registry::KNOWN_KIND_NAMES`) ; un
+autre kind produit une erreur de lint (« kind inconnu ») plutôt qu'un échec RON générique.
 
-Chaque dossier est scanné ; les fichiers `.ron` créent des entrées typées dans un registre global : `CharacterId`, `WeaponId`, etc. Les références cassées sont rejetées au chargement (sans ambiguïté à l'exécution). Chemin au chargement : `assets/weapons/melee/melee_weapons.ron` (relatif à `assets/`).
+**Le registre** (`content::registry::Registry`, chargé par `Registry::build`) est la
+source de vérité des ids de contenu : `CharacterId`, `WeaponId`, `MeleeWeaponId`,
+`EnemyId`, `WaveConfigId`, `MapId` (newtypes sur chaîne, `Ord`, `BTreeMap`). L'id d'un
+personnage vient de son champ `asset_name_ref` (pas du nom de fichier, qui ne le reflète
+pas toujours aujourd'hui) ; l'id d'une arme ou d'une arme de corps à corps vient de la clé
+dans `weapons.ron`/`melee_weapons.ron` ; l'id d'une carte ou d'une config de vagues vient du
+nom de fichier sans extension. Les joueurs reçoivent les armes déclarées dans le champ
+`starting_weapons: [WeaponId]` de leur fichier `characters/*.ron` (dans l'ordre déclaré : la
+première est l'arme active), pas tout `weapons.ron`.
+
+**Le lint** (`content::lint::run`, appelé par `alacod lint`, par le jeu au démarrage et par
+le rechargement à chaud) refuse une référence cassée (`starting_weapons` vers une arme
+inconnue, `enemy_probabilities` d'une vague vers un personnage inconnu, `entry.start_map`
+vers une carte non chargée), un id dupliqué, une valeur hors plage (santé > 0, vitesse
+mouvement >= 0, cadence de tir > 0), un kind de dossier inconnu, ou un littéral RON nu
+(entier ou flottant) là où une valeur `Fixed` est attendue (le projet exige une chaîne,
+`"1.5"` : voir §2 ci-dessus et CLAUDE.md, règle 1). Chaque erreur nomme le fichier (relatif
+à `assets/`) et un message précis (id, champ, valeur).
+
+**CLI** : `cargo run -p content --bin alacod --profile headless -- lint games/<jeu>` (code
+de sortie 1 et messages sur stderr en cas d'erreur, 0 sinon) ; `make lint` l'appelle pour
+`zombies` et `testbed`. Un hook `PostToolUse` (`.claude/settings.json`,
+`scripts/lint-edited-game.sh`) relance ce lint en arrière-plan quand un fichier sous
+`games/**` est édité.
+
+**Rechargement à chaud** : hors partie (`AppState::LobbyLocal`/`LobbyOnline`), si un
+fichier de contenu suivi par bevy change (feature `native`, `bevy/file_watcher`), le
+registre est relu depuis le disque et le lint relancé
+(`crates/game/src/content_hot_reload.rs`, idiome `MessageReader<AssetEvent<T>>` repris de
+`crates/game/src/ui/hud.rs`) ; un contenu invalide laisse l'ancien registre en place
+(erreur journalisée). Jamais pendant une partie (`GgrsSchedule`) : les snapshots rollback ne
+se réécrivent pas à chaud.
 
 ---
 

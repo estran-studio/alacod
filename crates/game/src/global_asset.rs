@@ -1,5 +1,19 @@
+//! Pont entre le registre de contenu (`content::registry::Registry`, T1.5) et les
+//! `Handle<...>` Bevy utilisés par le rendu et l'animation.
+//!
+//! Le registre est la **source de vérité des ids** (quels personnages, quelles armes...
+//! existent pour ce jeu) : `character_configs`, `weapons` et `melee_weapons` sont chargés
+//! d'après ses entrées. Les feuilles de sprite et configs d'animation par `asset_name_ref`
+//! (`spritesheets`, `animations`) restent une table en dur ici : leur chemin ne vient
+//! d'aucun RON aujourd'hui (voir `docs/plan-engine.md` §5 A5, « Pipeline sprites », hors
+//! périmètre de T1.5) ; seul le *sous-ensemble effectivement utilisé* par ce jeu (d'après
+//! le registre) est chargé, pour qu'un jeu qui ne déclare pas de personnage "zombie_full"
+//! (ex. `games/testbed`) n'exige plus ses sprites.
+
 use animation::{AnimationMapConfig, SpriteSheetConfig};
 use bevy::{platform::collections::hash_map::HashMap, prelude::*};
+use content::registry::Registry;
+use std::collections::BTreeSet;
 use utils::bmap;
 
 use crate::{
@@ -15,7 +29,6 @@ const PLAYER_SHIRT_SPRITESHEET_CONFIG_PATH: &str =
 const PLAYER_HAIR_SPRITESHEET_CONFIG_PATH: &str =
     "ZombieShooter/Sprites/Character/hair_1_sheet.ron";
 const PLAYER_ANIMATIONS_CONFIG_PATH: &str = "ZombieShooter/Sprites/Character/player_animation.ron";
-const PLAYER_CONFIG_PATH: &str = "ZombieShooter/Sprites/Character/player_config.ron";
 
 #[derive(Resource)]
 pub struct GlobalAsset {
@@ -29,59 +42,156 @@ pub struct GlobalAsset {
     pub slash_effect_spritesheet: Handle<SpriteSheetConfig>,
     pub slash_effect_animation: Handle<AnimationMapConfig>,
 
-    // Wave spawning config (optional - only loaded when wave mode is used)
+    // Wave spawning config (optional - only loaded when the game declares a `Wave` folder)
     pub wave_config: Option<Handle<WaveConfig>>,
 }
 
 impl GlobalAsset {
-    pub fn create(asset_server: &AssetServer) -> Self {
-        Self {
-            spritesheets: bmap!(
-                "player" => bmap!(
+    pub fn create(asset_server: &AssetServer, registry: &Registry) -> Self {
+        // asset_name_ref réellement déclarés par ce jeu (`characters/*.ron` via le
+        // registre) : pilote quelles feuilles de sprite sont chargées ci-dessous.
+        let used_refs: BTreeSet<&str> = registry
+            .characters
+            .values()
+            .map(|entry| entry.asset_name_ref.as_str())
+            .collect();
+
+        let mut spritesheets: HashMap<String, HashMap<String, Handle<SpriteSheetConfig>>> =
+            HashMap::default();
+        let mut animations: HashMap<String, Handle<AnimationMapConfig>> = HashMap::default();
+
+        if used_refs.contains("player") {
+            spritesheets.insert(
+                "player".to_string(),
+                bmap!(
                     "body" => asset_server.load(PLAYER_SPRITESHEET_CONFIG_PATH),
                     "shirt" => asset_server.load(PLAYER_SHIRT_SPRITESHEET_CONFIG_PATH),
                     "hair" => asset_server.load(PLAYER_HAIR_SPRITESHEET_CONFIG_PATH),
                     "shadow" => asset_server.load("ZombieShooter/Sprites/Character/shadow_sheet.ron")
                 ),
-                "shotgun" => bmap!(
-                    "body" => asset_server.load("ZombieShooter/Sprites/Character/shotgun_sheet.ron")
-                ),
-                "pistol" => bmap!(
-                    "body" => asset_server.load("ZombieShooter/Sprites/Character/pistol_sheet.ron")
-                ),
-                "machine_gun" => bmap!(
-                    "body" => asset_server.load("ZombieShooter/Sprites/Character/machine_gun_sheet.ron")
-                ),
-                "zombie_1" => bmap!(
+            );
+            animations.insert(
+                "player".to_string(),
+                asset_server.load(PLAYER_ANIMATIONS_CONFIG_PATH),
+            );
+
+            // Armes à distance : sprites du joueur qui les porte, pas d'un personnage
+            // particulier ; chargées avec "player" tant qu'il n'y a qu'un seul jeu de
+            // sprites d'armes (voir la note du module sur le pipeline sprites, A5).
+            spritesheets.insert(
+                "shotgun".to_string(),
+                bmap!("body" => asset_server.load("ZombieShooter/Sprites/Character/shotgun_sheet.ron")),
+            );
+            spritesheets.insert(
+                "pistol".to_string(),
+                bmap!("body" => asset_server.load("ZombieShooter/Sprites/Character/pistol_sheet.ron")),
+            );
+            spritesheets.insert(
+                "machine_gun".to_string(),
+                bmap!("body" => asset_server.load("ZombieShooter/Sprites/Character/machine_gun_sheet.ron")),
+            );
+            animations.insert(
+                "shotgun".to_string(),
+                asset_server.load(PLAYER_ANIMATIONS_CONFIG_PATH),
+            );
+            animations.insert(
+                "pistol".to_string(),
+                asset_server.load(PLAYER_ANIMATIONS_CONFIG_PATH),
+            );
+            animations.insert(
+                "machine_gun".to_string(),
+                asset_server.load(PLAYER_ANIMATIONS_CONFIG_PATH),
+            );
+        }
+
+        if used_refs.contains("zombie_1") {
+            spritesheets.insert(
+                "zombie_1".to_string(),
+                bmap!(
                     "body" => asset_server.load("ZombieShooter/Sprites/Zombie/zombie_sheet.ron"),
                     "shadow" => asset_server.load("ZombieShooter/Sprites/Character/shadow_sheet.ron")
                 ),
-                "zombie_2" => bmap!(
+            );
+            animations.insert(
+                "zombie_1".to_string(),
+                asset_server.load("ZombieShooter/Sprites/Zombie/zombie_animation.ron"),
+            );
+        }
+
+        if used_refs.contains("zombie_2") {
+            spritesheets.insert(
+                "zombie_2".to_string(),
+                bmap!(
                     "body" => asset_server.load("ZombieShooter/Sprites/Zombie/zombie_hard_sheet.ron"),
                     "shadow" => asset_server.load("ZombieShooter/Sprites/Character/shadow_sheet.ron")
                 ),
-                "zombie_full" => bmap!(
+            );
+            // Le zombie "hard" réutilise l'animation du zombie standard (aucun fichier
+            // `zombie_hard_animation.ron` n'existe) : comportement inchangé par T1.5.
+            animations.insert(
+                "zombie_2".to_string(),
+                asset_server.load("ZombieShooter/Sprites/Zombie/zombie_animation.ron"),
+            );
+        }
+
+        if used_refs.contains("zombie_full") {
+            spritesheets.insert(
+                "zombie_full".to_string(),
+                bmap!(
                     "body" => asset_server.load("ZombieShooter/Sprites/Zombie/zombie_full_sheet.ron"),
                     "shadow" => asset_server.load("ZombieShooter/Sprites/Character/shadow_sheet.ron")
+                ),
+            );
+            animations.insert(
+                "zombie_full".to_string(),
+                asset_server.load("ZombieShooter/Sprites/Zombie/zombie_full_animation.ron"),
+            );
+        }
+
+        // character_configs : la clé est le `CharacterId` du registre (== `asset_name_ref`
+        // aujourd'hui), le chemin vient de l'entrée du registre (source de vérité, T1.5).
+        let character_configs = registry
+            .characters
+            .values()
+            .map(|entry| {
+                (
+                    entry.id.as_str().to_string(),
+                    asset_server.load(path_to_asset_string(&entry.file)),
                 )
-            ),
-            animations: bmap!(
-                "player" => asset_server.load(PLAYER_ANIMATIONS_CONFIG_PATH),
-                "machine_gun" => asset_server.load(PLAYER_ANIMATIONS_CONFIG_PATH),
-                "pistol" => asset_server.load(PLAYER_ANIMATIONS_CONFIG_PATH),
-                "shotgun" => asset_server.load(PLAYER_ANIMATIONS_CONFIG_PATH),
-                "zombie_1" => asset_server.load("ZombieShooter/Sprites/Zombie/zombie_animation.ron"),
-                "zombie_2" => asset_server.load("ZombieShooter/Sprites/Zombie/zombie_animation.ron"),
-                "zombie_full" => asset_server.load("ZombieShooter/Sprites/Zombie/zombie_full_animation.ron")
-            ),
-            character_configs: bmap!(
-                "player" => asset_server.load(PLAYER_CONFIG_PATH),
-                "zombie_1" => asset_server.load("ZombieShooter/Sprites/Zombie/zombie_config.ron"),
-                "zombie_2" => asset_server.load("ZombieShooter/Sprites/Zombie/zombie_hard_config.ron"),
-                "zombie_full" => asset_server.load("ZombieShooter/Sprites/Zombie/zombie_full_config.ron")
-            ),
-            weapons: asset_server.load("ZombieShooter/Sprites/Character/weapons.ron"),
-            melee_weapons: asset_server.load("weapons/melee/melee_weapons.ron"),
+            })
+            .collect();
+
+        let weapons = registry
+            .weapons
+            .values()
+            .next()
+            .map(|entry| asset_server.load(path_to_asset_string(&entry.file)))
+            .unwrap_or_else(|| {
+                panic!("game.ron ne déclare aucun dossier de contenu `Weapon` (`content_folders`)")
+            });
+        let melee_weapons = registry
+            .melee_weapons
+            .values()
+            .next()
+            .map(|entry| asset_server.load(path_to_asset_string(&entry.file)))
+            .unwrap_or_else(|| {
+                panic!(
+                    "game.ron ne déclare aucun dossier de contenu `MeleeWeapon` (`content_folders`)"
+                )
+            });
+        let wave_config = registry
+            .waves
+            .values()
+            .next()
+            .map(|entry| asset_server.load(path_to_asset_string(&entry.file)));
+
+        Self {
+            spritesheets,
+            animations,
+            character_configs,
+
+            weapons,
+            melee_weapons,
 
             // Visual effects
             slash_effect_spritesheet: asset_server
@@ -89,14 +199,25 @@ impl GlobalAsset {
             slash_effect_animation: asset_server
                 .load("ZombieShooter/Sprites/Character/slash_animation.ron"),
 
-            // Wave spawning config
-            wave_config: Some(asset_server.load("waves/wave_config.ron")),
+            // Wave spawning config : seulement si le jeu déclare un dossier `Wave`.
+            wave_config,
         }
     }
 }
 
-pub fn add_global_asset(mut commands: Commands, asset_server: Res<AssetServer>) {
-    let global_asset = GlobalAsset::create(&asset_server);
+/// `AssetServer::load` prend un chemin relatif à `assets/`, comme une chaîne (pas de
+/// séparateur Windows possible ici : le projet ne cible que Linux/wasm, voir
+/// `crates/utils/src/test/mod.rs`).
+fn path_to_asset_string(path: &std::path::Path) -> String {
+    path.to_string_lossy().replace('\\', "/")
+}
+
+pub fn add_global_asset(
+    mut commands: Commands,
+    asset_server: Res<AssetServer>,
+    registry: Res<Registry>,
+) {
+    let global_asset = GlobalAsset::create(&asset_server, &registry);
 
     commands.insert_resource(global_asset);
 }
