@@ -1,0 +1,41 @@
+(
+    movement: (
+        acceleration: "80.0",
+        max_speed: "80.0",
+        friction: "10.0",
+
+        sprint_multiplier: "2.0",
+        sprint_acceleration_per_frame: "0.1",
+        sprint_deceleration_per_frame: "0.2",
+
+        dash_distance: "250.0",
+        dash_duration_frames: 15,
+        dash_cooldown_frames: 180,
+    ),
+
+    asset_name_ref: "zombie_full",
+
+    collider: (
+        shape: Rectangle(
+            width: "20.",
+            height: "20.",
+        ),
+        offset: ( x: "0.0", y: "-6.0", z: "0.0" )
+    ),
+
+    scale: "1.0",
+    base_health: (
+        max: "50.0"
+    ),
+
+    starting_skin: "1",
+
+    skins: {
+        "1": (
+            layers: {
+                "shadow": "",
+                "body": "",
+            }
+        )
+    }
+)

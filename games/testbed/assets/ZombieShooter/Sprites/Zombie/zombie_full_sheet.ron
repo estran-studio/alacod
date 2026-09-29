@@ -1,0 +1,17 @@
+(
+    path: "ZombieShooter/Sprites/Zombie/Zombie2.png",
+    tile_size: (32, 32),
+    columns: 9,
+    rows: 12,
+
+    animated: true,
+    name: "body",
+
+    scale: 1.0,
+
+    anchor: Center,
+
+    offset_x: 0.0,
+    offset_y: 0.0,
+    offset_z: 1.0,
+)

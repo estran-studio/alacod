@@ -185,6 +185,13 @@ character_tester:
 character_tester_matchbox:
 	APP_VERSION=$(VERSION) cargo run --example character_tester $(ARGS) --features native -- --number-player $(NUMBER_PLAYER) --matchbox $(MATCHBOX_URL) --lobby $(LOBBY) --players $(PLAYERS) --cid $(CID) --name $(NAME)
 
+# Lance un jeu du dossier games/ en local (un joueur) : make zombies / make testbed
+zombies:
+	APP_VERSION=$(VERSION) cargo run -p zombies $(ARGS) --features native -- $(GARGS) --local-port 7000 --players localhost
+
+testbed:
+	APP_VERSION=$(VERSION) cargo run -p testbed $(ARGS) --features native -- $(GARGS) --local-port 7000 --players localhost
+
 ldtk_map_explorer:
 	APP_VERSION=$(VERSION) cargo run -p zombies $(ARGS) --features native -- $(GARGS) --local-port 7000 --players localhost
 

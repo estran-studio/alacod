@@ -1,0 +1,23 @@
+(
+    frame_duration: 90,
+    columns: Some(9),
+    animations: {
+        "Idle": (
+            row: 0,
+            end: 7,
+        ),
+        "Run": (
+            row: 1,
+            end: 4,
+        ),
+        "Dying_1": (
+            row: 4,
+            end: 4,
+        ),
+        "Dying_2": (
+            row: 10,
+            end: 4,
+        )
+
+    },
+)

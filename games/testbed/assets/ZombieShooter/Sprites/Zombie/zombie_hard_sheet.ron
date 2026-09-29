@@ -1,0 +1,18 @@
+(
+    path: "ZombieShooter/Sprites/Zombie/ZombieHard.png",
+    tile_size: (32, 32),
+    columns: 10,
+    rows: 1,
+
+    animated: true,
+    name: "body",
+
+    scale: 1.0,
+
+    anchor: Center,
+
+    offset_x: 0.0,
+    offset_y: 0.0,
+    offset_z: 1.0,
+
+)
