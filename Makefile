@@ -28,7 +28,8 @@ endif
 
 ifeq ($(PROFILE), dev)
 	export MODE_DIR := debug
-	export CARGO_TARGET_DIR := ./target
+	# ?= : un CARGO_TARGET_DIR déjà dans l'environnement (worktree de tâche) est respecté
+	export CARGO_TARGET_DIR ?= ./target
 endif
 
 ifeq ($(PROFILE), prod)
@@ -37,7 +38,8 @@ ifeq ($(PROFILE), prod)
 endif
 
 ifeq ($(TARGET), native)
-	export CARGO_TARGET_DIR := ./target
+	# ?= : un CARGO_TARGET_DIR déjà dans l'environnement (worktree de tâche) est respecté
+	export CARGO_TARGET_DIR ?= ./target
 endif
 
 

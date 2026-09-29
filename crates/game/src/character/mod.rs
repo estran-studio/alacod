@@ -95,6 +95,8 @@ impl Plugin for BaseCharacterGamePlugin {
         app.add_frame_events::<ObstacleAttackEvent>();
 
         // Rollback registration
+        use crate::rollback::RollbackTraceApp;
+
         app.rollback_resource_with_clone::<PathfindingConfig>()
             .rollback_resource_with_clone::<KnockbackDampingConfig>()
             .rollback_component_with_clone::<EnemySpawnerComponent>()
@@ -108,7 +110,7 @@ impl Plugin for BaseCharacterGamePlugin {
             .rollback_component_with_clone::<EnemyTarget>()
             .rollback_component_with_clone::<MonsterState>()
             .rollback_resource_with_copy::<PointerWorldPosition>()
-            .rollback_component_with_clone::<Health>()
+            .rollback_and_trace::<Health>()
             .rollback_component_with_clone::<HealthRegen>()
             .rollback_component_with_clone::<DamageAccumulator>()
             .rollback_component_with_clone::<DashState>()

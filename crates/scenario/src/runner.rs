@@ -1,6 +1,7 @@
 //! Exécution headless d'un scénario, dans le processus courant.
 
 use bevy::prelude::*;
+use bevy_ggrs::SyncTestMismatch;
 use game::{
     args::{GameArgs, GameArgsPlugin},
     character::player::{
@@ -22,6 +23,10 @@ use map::generation::config::MapGenerationConfig;
 use utils::frame::FrameCount;
 
 use game::replay::{Expectation, Scenario};
+
+/// Ressource pour enregistrer les mismatches de synctest.
+#[derive(Resource, Default)]
+struct SyncTestMismatches(pub Vec<String>);
 
 /// Updates maximum pour charger la map avant la première frame de simulation.
 const MAX_LOADING_UPDATES: u32 = 10_000;
@@ -76,9 +81,17 @@ pub fn build_app(scenario: &Scenario, headless: bool, config: &PlayConfig) -> Ap
         .insert_resource(WeaponOverrides(scenario.weapon_overrides.clone()))
         .add_systems(Update, apply_weapon_overrides)
         .insert_resource(InputSource::Scripted)
-        .insert_resource::<ScriptedInputs>(scenario.scripted_inputs());
+        .insert_resource::<ScriptedInputs>(scenario.scripted_inputs())
+        .init_resource::<SyncTestMismatches>()
+        .add_observer(|mismatch: On<SyncTestMismatch>, mut log: ResMut<SyncTestMismatches>| {
+            let m = mismatch.event();
+            log.0.push(format!(
+                "frame {}: synctest mismatch (frames {:?}) : l'état rejoué après rollback diffère de l'état sauvegardé",
+                m.current_frame, m.mismatched_frames
+            ));
+        });
 
-    // Insert camera follow override if specified (for play_scenario --follow)
+    // Caméra forcée sur un joueur (play_scenario --follow)
     if let Some(handle) = config.follow_handle {
         app.insert_resource(game::camera::CameraFollowOverride(handle));
     }
@@ -141,10 +154,12 @@ fn apply_weapon_overrides(
     *applied = true;
 }
 
-/// Joue le scénario jusqu'à `scenario.frames` et vérifie ses attentes.
-pub fn run(scenario: &Scenario) -> ScenarioOutcome {
+/// Joue le scénario jusqu'à `scenario.frames` et vérifie ses attentes, après avoir appliqué
+/// `configure` à l'app (pour les tests qui ajoutent un système ou une ressource).
+pub fn run_with<F: FnOnce(&mut App)>(scenario: &Scenario, configure: F) -> ScenarioOutcome {
     let config = PlayConfig { follow_handle: None };
     let mut app = build_app(scenario, true, &config);
+    configure(&mut app);
     app.finish();
     app.cleanup();
 
@@ -177,6 +192,10 @@ pub fn run(scenario: &Scenario) -> ScenarioOutcome {
         ));
     }
 
+    // Ajoute les mismatches de synctest aux failures
+    let synctest_mismatches = app.world().resource::<SyncTestMismatches>();
+    failures.extend(synctest_mismatches.0.iter().cloned());
+
     let trace = app
         .world()
         .resource::<StateTraceRecorder>()
@@ -201,8 +220,14 @@ pub fn run(scenario: &Scenario) -> ScenarioOutcome {
     }
 }
 
+/// Joue le scénario jusqu'à `scenario.frames` et vérifie ses attentes.
+pub fn run(scenario: &Scenario) -> ScenarioOutcome {
+    run_with(scenario, |_| {})
+}
+
 fn game_args(player_count: usize) -> GameArgs {
     GameArgs {
+        check_distance: game::args::check_distance_from_env(),
         local_port: 0,
         number_player: player_count,
         players: (0..player_count)

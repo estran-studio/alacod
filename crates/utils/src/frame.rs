@@ -1,6 +1,6 @@
 use bevy::prelude::*;
 
-#[derive(Resource, Default, Reflect, Hash, Clone, Copy)]
+#[derive(Resource, Default, Reflect, Hash, Clone, Copy, Debug)]
 #[reflect(Hash)]
 pub struct FrameCount {
     pub frame: u32,

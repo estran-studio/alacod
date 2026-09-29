@@ -163,7 +163,7 @@ fn write_trace_at_exit_frame(
 }
 
 /// Hash FNV-1a 64 bits : stable entre les runs et les machines.
-fn fnv1a(bytes: &[u8]) -> u64 {
+pub fn fnv1a(bytes: &[u8]) -> u64 {
     bytes.iter().fold(0xcbf2_9ce4_8422_2325, |hash, byte| {
         (hash ^ u64::from(*byte)).wrapping_mul(0x0000_0100_0000_01b3)
     })
