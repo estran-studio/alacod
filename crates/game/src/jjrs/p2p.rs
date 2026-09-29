@@ -1,7 +1,8 @@
 use bevy::prelude::*;
-use bevy_fixed::rng::RollbackRng;
+use bevy_fixed::rng::{RngStreams, RunSeed};
 use bevy_ggrs::ggrs::PlayerType;
 use bevy_matchbox::{prelude::PeerState, MatchboxSocket};
+use map::generation::config::MapGenerationConfig;
 
 use crate::{
     character::player::jjrs::PeerConfig,
@@ -153,6 +154,7 @@ pub fn system_after_map_loaded(
     mut socket: Option<ResMut<MatchboxSocket>>,
     ggrs_config: Res<GggrsSessionConfiguration>,
     online_state: Res<OnlineState>,
+    map_config: Option<Res<MapGenerationConfig>>,
 ) {
     if !matches!(online_state.as_ref(), OnlineState::Online) {
         return;
@@ -182,7 +184,15 @@ pub fn system_after_map_loaded(
         .start_p2p_session(channel)
         .expect("failed to start session");
 
-    commands.insert_resource(RollbackRng::new(12345));
+    // Dérive la graine de run à partir de la graine de carte
+    let run_seed = match map_config {
+        Some(config) => RunSeed(config.seed as u32),
+        None => RunSeed(12345), // Graine par défaut si la map n'est pas configurée
+    };
+    let rng_streams = RngStreams::new(run_seed.0);
+
+    commands.insert_resource(run_seed);
+    commands.insert_resource(rng_streams);
     commands.insert_resource(bevy_ggrs::Session::P2P(ggrs_session));
 
     app_state.set(AppState::InGame);

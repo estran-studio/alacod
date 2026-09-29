@@ -16,7 +16,7 @@ use bevy::{
 };
 use bevy_fixed::{
     fixed_math::{self, sync_bevy_transforms_from_fixed},
-    rng::RollbackRng,
+    rng::{RngStreams, RollbackRng, RunSeed},
 };
 use bevy_ggrs::{GgrsPlugin, GgrsSchedule};
 #[cfg(feature = "debug_ui")]
@@ -140,6 +140,9 @@ impl Plugin for CoreSetupPlugin {
         app.init_resource::<GgrsNetIdFactory>();
         app.init_resource::<FrameCount>();
 
+        // Initialize RngStreams with default seed (will be replaced when game starts)
+        app.insert_resource(RngStreams::new(12345));
+
         app.add_message::<GameDisconnectedEvent>();
 
         app.init_state::<AppState>();
@@ -147,11 +150,11 @@ impl Plugin for CoreSetupPlugin {
 
         use crate::rollback::RollbackTraceApp;
 
-        app.rollback_and_trace_copy_resource::<RollbackRng>()
-            .rollback_and_trace_copy_resource::<GgrsNetIdFactory>()
+        app.rollback_and_trace_copy_resource::<GgrsNetIdFactory>()
             .rollback_and_trace_copy_resource::<FrameCount>()
             .rollback_and_trace::<fixed_math::FixedTransform3D>()
-            .rollback_and_trace::<GgrsNetId>();
+            .rollback_and_trace::<GgrsNetId>()
+            .rollback_and_trace::<RngStreams>();
 
         // Ordre total : `RollbackSystemSet::ORDER` (sim_core, T0.2), chaîné pair à pair
         // (mêmes arêtes qu'un `.chain()` sur un n-uplet, sans limite d'arité de tuple).

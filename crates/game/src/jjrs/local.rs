@@ -8,11 +8,15 @@ use bevy::{
     },
     prelude::*,
 };
-use bevy_fixed::{fixed_math, rng::RollbackRng};
+use bevy_fixed::{
+    fixed_math,
+    rng::{RngStreams, RunSeed},
+};
 use bevy_ggrs::{ggrs::PlayerType, prelude::*};
 use bevy_matchbox::{prelude::PeerState, MatchboxSocket};
 use ggrs::UdpNonBlockingSocket;
 use map::game::entity::map::enemy_spawn::EnemySpawnerComponent;
+use map::generation::config::MapGenerationConfig;
 use utils::net_id::GgrsNetIdFactory;
 
 use crate::{
@@ -73,6 +77,7 @@ pub fn system_after_map_loaded_local(
 
     ggrs_config: Res<GggrsSessionConfiguration>,
     online_state: Res<OnlineState>,
+    map_config: Option<Res<MapGenerationConfig>>,
 ) {
     if !matches!(online_state.as_ref(), OnlineState::Offline) {
         return;
@@ -122,8 +127,16 @@ pub fn system_after_map_loaded_local(
         //Session::P2P(sess)
     };
 
+    // Dérive la graine de run à partir de la graine de carte
+    let run_seed = match map_config {
+        Some(config) => RunSeed(config.seed as u32),
+        None => RunSeed(12345), // Graine par défaut si la map n'est pas configurée
+    };
+    let rng_streams = RngStreams::new(run_seed.0);
+
     // Insert the GGRS session resource
-    commands.insert_resource(RollbackRng::new(12345));
+    commands.insert_resource(run_seed);
+    commands.insert_resource(rng_streams);
     commands.insert_resource(sess);
 
     app_state.set(AppState::InGame);

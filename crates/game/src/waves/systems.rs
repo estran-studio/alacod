@@ -4,7 +4,10 @@
 //! See CLAUDE.md for GGRS rules.
 
 use bevy::{ecs::system::SystemParam, prelude::*};
-use bevy_fixed::{fixed_math, rng::RollbackRng};
+use bevy_fixed::{
+    fixed_math,
+    rng::{RngStreams, RollbackRng},
+};
 use map::game::entity::map::enemy_spawn::EnemySpawnerComponent;
 use utils::{
     frame::FrameCount,
@@ -44,7 +47,7 @@ use super::{
 pub fn wave_state_machine_system(
     frame: Res<FrameCount>,
     mut wave_state: ResMut<WaveState>,
-    mut rng: ResMut<RollbackRng>,
+    mut rng_streams: ResMut<RngStreams>,
     wave_config_assets: Res<Assets<WaveConfig>>,
     global_assets: Res<GlobalAsset>,
     wave_enemy_query: Query<Entity, (With<Enemy>, With<WaveEnemy>)>,
@@ -70,7 +73,9 @@ pub fn wave_state_machine_system(
 
             // Calculate wave 1 enemies
             let variance = if config.max_random_variance > 0 {
-                rng.next_u32_range(0, config.max_random_variance + 1)
+                rng_streams
+                    .get_mut("waves")
+                    .next_u32_range(0, config.max_random_variance + 1)
             } else {
                 0
             };
@@ -142,7 +147,9 @@ pub fn wave_state_machine_system(
 
                 // Calculate next wave enemies
                 let variance = if config.max_random_variance > 0 {
-                    rng.next_u32_range(0, config.max_random_variance + 1)
+                    rng_streams
+                        .get_mut("waves")
+                        .next_u32_range(0, config.max_random_variance + 1)
                 } else {
                     0
                 };
@@ -167,7 +174,7 @@ pub fn wave_spawning_system(
     mut commands: Commands,
     frame: Res<FrameCount>,
     mut wave_state: ResMut<WaveState>,
-    mut rng: ResMut<RollbackRng>,
+    mut rng_streams: ResMut<RngStreams>,
     wave_config_assets: Res<Assets<WaveConfig>>,
     global_assets: Res<GlobalAsset>,
 
@@ -258,7 +265,9 @@ pub fn wave_spawning_system(
         let spawner_idx = if valid_spawners.len() == 1 {
             0
         } else {
-            rng.next_u32_range(0, valid_spawners.len() as u32) as usize
+            rng_streams
+                .get_mut("waves")
+                .next_u32_range(0, valid_spawners.len() as u32) as usize
         };
         let (_, _, spawner_config, spawner_transform) = &valid_spawners[spawner_idx];
 
@@ -266,11 +275,11 @@ pub fn wave_spawning_system(
         let spawn_pos = calculate_spawn_position(
             spawner_transform.translation,
             spawner_config.spawn_radius,
-            &mut rng,
+            rng_streams.get_mut("waves"),
         );
 
         // Select enemy type based on current wave tier
-        let enemy_type = select_enemy_type(&wave_state, config, &mut rng);
+        let enemy_type = select_enemy_type(&wave_state, config, rng_streams.get_mut("waves"));
 
         // Spawn the enemy and get the entity
         let enemy_entity = spawn_enemy(
