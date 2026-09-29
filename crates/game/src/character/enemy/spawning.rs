@@ -1,5 +1,5 @@
 use bevy::prelude::*;
-use bevy_fixed::{fixed_math, rng::RollbackRng};
+use bevy_fixed::{fixed_math, rng::RngStreams};
 use map::game::entity::map::{
     enemy_spawn::EnemySpawnerComponent, level_id::LevelId, room::RoomBounds,
 };
@@ -43,7 +43,7 @@ impl Default for EnemySpawnerState {
 pub fn enemy_spawn_from_spawners_system(
     mut commands: Commands,
     frame: Res<FrameCount>,
-    mut rng: ResMut<RollbackRng>,
+    mut rng_streams: ResMut<RngStreams>,
     mut spawner_query: Query<(
         &GgrsNetId,
         Entity,
@@ -264,10 +264,10 @@ pub fn enemy_spawn_from_spawners_system(
         let spawner_pos = spawner_transform.translation.truncate();
 
         let final_spawn_pos = if config.spawn_radius > fixed_math::FIXED_ZERO {
-            let angle_rand = rng.next_fixed();
+            let angle_rand = rng_streams.get_mut("waves").next_fixed();
             let angle = angle_rand * fixed_math::FIXED_TAU;
 
-            let distance_rand = rng.next_fixed();
+            let distance_rand = rng_streams.get_mut("waves").next_fixed();
             let distance = distance_rand * config.spawn_radius;
 
             let offset = fixed_math::FixedVec2::new(
@@ -284,7 +284,8 @@ pub fn enemy_spawn_from_spawners_system(
             spawner_transform.translation
         };
 
-        let type_index = (rng.next_u32() as usize) % config.enemy_types.len();
+        let type_index =
+            (rng_streams.get_mut("waves").next_u32() as usize) % config.enemy_types.len();
         let enemy_type_name = config.enemy_types[type_index].clone();
 
         debug!(
