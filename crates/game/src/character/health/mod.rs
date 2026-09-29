@@ -1,7 +1,9 @@
-
 pub mod ui;
 
-use bevy::{log::{tracing::span, Level}, prelude::*};
+use bevy::{
+    log::{tracing::span, Level},
+    prelude::*,
+};
 use bevy_fixed::fixed_math;
 use bevy_ggrs::Rollback;
 use ggrs::PlayerHandle;
@@ -74,8 +76,6 @@ impl fmt::Display for Death {
         match &self.last_hit_by {
             Some(hits) if !hits.is_empty() => {
                 for (i, hit_by) in hits.iter().enumerate() {
-
- 
                     if i > 0 {
                         write!(f, ", ")?;
                     }
@@ -98,11 +98,19 @@ impl From<HealthConfig> for Health {
     }
 }
 
-
 pub fn rollback_apply_accumulated_damage(
     frame: Res<FrameCount>,
     mut commands: Commands,
-    mut query: Query<(&GgrsNetId, Entity, &DamageAccumulator, &mut Health, Option<&mut HealthRegen>), With<Rollback>>,
+    mut query: Query<
+        (
+            &GgrsNetId,
+            Entity,
+            &DamageAccumulator,
+            &mut Health,
+            Option<&mut HealthRegen>,
+        ),
+        With<Rollback>,
+    >,
 ) {
     let system_span = span!(Level::INFO, "ggrs", f = frame.frame, s = "apply_damage");
     let _enter = system_span.enter();
@@ -143,8 +151,9 @@ pub fn rollback_apply_death(
     for (id, entity, death_info) in order_iter!(query) {
         info!("{} entity killed by {}", id, death_info);
 
-        // Despawn the rollback entity
-        commands.entity(entity).despawn();
+        // Despawn différé : ressuscitable en cas de rollback (voir `RollbackDespawnPlugin`)
+        use bevy_ggrs::RollbackDespawnCommandExtension;
+        commands.entity(entity).despawn_rollback();
     }
 }
 
@@ -159,13 +168,13 @@ pub fn rollback_health_regeneration(
     for (g_id, mut health, regen) in order_mut_iter!(query) {
         // Check if enough time has passed since last damage
         let frames_since_damage = frame.frame.saturating_sub(regen.last_damage_frame);
-        
+
         if frames_since_damage >= regen.regen_delay_frames && health.current < health.max {
             let health_before = health.current;
             // Regenerate health (60 frames per second)
             let regen_per_frame = regen.regen_rate / fixed_math::new(60.0);
             health.current = (health.current + regen_per_frame).min(health.max);
-            
+
             // Log every 60 frames (once per second) or when reaching max health
             if frame.frame % 60 == 0 || health.current >= health.max {
                 info!(

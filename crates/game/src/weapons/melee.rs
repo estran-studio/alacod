@@ -1,16 +1,23 @@
 use animation::{FacingDirection, SpriteSheetConfig};
-use bevy::{log::{tracing::span, Level}, platform::collections::HashMap, prelude::*};
+use bevy::{
+    log::{tracing::span, Level},
+    platform::collections::HashMap,
+    prelude::*,
+};
 use bevy_fixed::fixed_math;
 use bevy_ggrs::Rollback;
 use ggrs::PlayerHandle;
 use serde::{Deserialize, Serialize};
-use utils::{net_id::{GgrsNetId, GgrsNetIdFactory}, order_iter, order_mut_iter};
+use utils::{
+    net_id::{GgrsNetId, GgrsNetIdFactory},
+    order_iter, order_mut_iter,
+};
 
 use crate::{
     character::{
+        enemy::Enemy,
         health::{DamageAccumulator, Health, HitBy},
         movement::Velocity,
-        enemy::Enemy,
         player::{input::INPUT_MELEE_ATTACK, jjrs::PeerConfig, Player},
     },
     collider::{is_colliding, Collider, ColliderShape, CollisionLayer, CollisionSettings},
@@ -24,15 +31,11 @@ pub enum MeleeAttackPattern {
     // Single quick strike
     SingleStrike,
     // Sweeping arc attack (hits multiple targets in front)
-    Sweep {
-        arc_angle: fixed_math::Fixed,
-    },
+    Sweep { arc_angle: fixed_math::Fixed },
     // Thrust forward (longer range, narrower)
     Thrust,
     // Combo chain (multiple strikes in sequence)
-    Combo {
-        strikes_in_combo: u32,
-    },
+    Combo { strikes_in_combo: u32 },
 }
 
 // MELEE WEAPON CONFIG
@@ -154,9 +157,9 @@ impl std::hash::Hash for MeleeHitbox {
 pub struct SlashEffect {
     pub start_frame: u32,
     pub duration_frames: u32,
-    pub frame_duration: u32,  // Frames per animation frame
+    pub frame_duration: u32, // Frames per animation frame
     pub animation_start: usize,
-    pub animation_end: usize,  // Inclusive
+    pub animation_end: usize, // Inclusive
 }
 
 // MELEE WEAPONS CONFIG ASSET
@@ -172,9 +175,9 @@ pub fn spawn_melee_weapon_for_character(
 ) -> Entity {
     // For now, melee weapons might not have visible sprites or use simple sprite representations
     // This can be expanded later with actual weapon sprites
-    
+
     let weapon_component: MeleeWeapon = weapon.into();
-    
+
     let transform = Transform::from_translation(
         fixed_math::fixed_to_vec2(weapon_component.sprite_config.weapon_offset).extend(0.),
     )
@@ -211,7 +214,7 @@ pub fn spawn_melee_hitbox(
     id_factory: &mut ResMut<GgrsNetIdFactory>,
 ) -> Entity {
     let config = &melee_weapon.config;
-    
+
     // Calculate hitbox position based on facing direction and range
     // Use the direction's vector to determine offset
     let direction_vec = facing_direction.to_vector();
@@ -219,62 +222,56 @@ pub fn spawn_melee_hitbox(
         fixed_math::Fixed::from_num(direction_vec.x),
         fixed_math::Fixed::from_num(direction_vec.y),
     );
-    
+
     let offset = direction_fixed * config.range * fixed_math::FIXED_HALF;
     let hitbox_position = fixed_math::FixedVec3::new(
         attacker_transform.translation.x + offset.x,
         attacker_transform.translation.y + offset.y,
         attacker_transform.translation.z,
     );
-    
+
     let hitbox_transform = fixed_math::FixedTransform3D::new(
         hitbox_position,
         attacker_transform.rotation.clone(),
         fixed_math::FixedVec3::ONE,
     );
-    
+
     // Determine hitbox shape based on attack pattern
     let hitbox_collider = match config.attack_pattern {
-        MeleeAttackPattern::SingleStrike | MeleeAttackPattern::Combo { .. } => {
-            Collider {
-                shape: ColliderShape::Circle {
-                    radius: config.range * fixed_math::new(0.6),
-                },
-                offset: fixed_math::FixedVec3::ZERO,
-            }
-        }
-        MeleeAttackPattern::Sweep { .. } => {
-            Collider {
-                shape: ColliderShape::Circle {
-                    radius: config.range * fixed_math::new(0.8),
-                },
-                offset: fixed_math::FixedVec3::ZERO,
-            }
-        }
-        MeleeAttackPattern::Thrust => {
-            Collider {
-                shape: ColliderShape::Rectangle {
-                    width: config.range,
-                    height: config.range * fixed_math::new(0.5),
-                },
-                offset: fixed_math::FixedVec3::ZERO,
-            }
-        }
+        MeleeAttackPattern::SingleStrike | MeleeAttackPattern::Combo { .. } => Collider {
+            shape: ColliderShape::Circle {
+                radius: config.range * fixed_math::new(0.6),
+            },
+            offset: fixed_math::FixedVec3::ZERO,
+        },
+        MeleeAttackPattern::Sweep { .. } => Collider {
+            shape: ColliderShape::Circle {
+                radius: config.range * fixed_math::new(0.8),
+            },
+            offset: fixed_math::FixedVec3::ZERO,
+        },
+        MeleeAttackPattern::Thrust => Collider {
+            shape: ColliderShape::Rectangle {
+                width: config.range,
+                height: config.range * fixed_math::new(0.5),
+            },
+            offset: fixed_math::FixedVec3::ZERO,
+        },
     };
-    
+
     let g_id = id_factory.next(format!("melee_hitbox_{}", config.name));
-    
+
     info!(
         "{} melee hitbox spawned at {} by {:?}",
         g_id, hitbox_position, owner_handle
     );
-    
+
     let layer = if owner_handle.is_some() {
         collision_settings.bullet_layer // Reuse bullet layer for player melee attacks
     } else {
         collision_settings.enemy_layer // Enemy melee attacks
     };
-    
+
     let hitbox_entity = commands
         .spawn((
             MeleeHitbox {
@@ -295,7 +292,7 @@ pub fn spawn_melee_hitbox(
         ))
         .insert(Rollback)
         .id();
-    
+
     hitbox_entity
 }
 
@@ -305,15 +302,24 @@ pub fn update_melee_hitboxes(
     frame: Res<FrameCount>,
     hitbox_query: Query<(&GgrsNetId, Entity, &MeleeHitbox), With<Rollback>>,
 ) {
-    let system_span = span!(Level::INFO, "ggrs", f = frame.frame, s = "melee_hitbox_update");
+    let system_span = span!(
+        Level::INFO,
+        "ggrs",
+        f = frame.frame,
+        s = "melee_hitbox_update"
+    );
     let _enter = system_span.enter();
-    
+
     for (g_id, entity, hitbox) in order_iter!(hitbox_query) {
         let frames_alive = frame.frame - hitbox.created_frame;
-        
+
         if frames_alive >= hitbox.duration_frames {
-            info!("{} melee hitbox despawned after {} frames", g_id, frames_alive);
-            commands.entity(entity).despawn();
+            info!(
+                "{} melee hitbox despawned after {} frames",
+                g_id, frames_alive
+            );
+            use bevy_ggrs::RollbackDespawnCommandExtension;
+            commands.entity(entity).despawn_rollback();
         }
     }
 }
@@ -358,7 +364,10 @@ pub fn spawn_slash_effects(
         let layout_handle = texture_atlas_layouts.add(layout);
 
         // Get animation configuration dynamically
-        let slash_anim = anim_config.animations.get("slash").expect("slash animation not found in config");
+        let slash_anim = anim_config
+            .animations
+            .get("slash")
+            .expect("slash animation not found in config");
         let columns = slash_config.columns;
         let (start, end) = slash_anim.to_absolute(columns);
         let frame_duration = anim_config.frame_duration as u32;
@@ -376,9 +385,9 @@ pub fn spawn_slash_effects(
             FacingDirection::Right => (false, 0.0),
             FacingDirection::UpRight => (false, std::f32::consts::PI / 4.0),
             FacingDirection::Up => (false, std::f32::consts::PI / 2.0),
-            FacingDirection::UpLeft => (true, -std::f32::consts::PI / 4.0),  // Flip + negative angle for upper left
-            FacingDirection::Left => (true, 0.0),  // Flip + 0° for left
-            FacingDirection::DownLeft => (true, std::f32::consts::PI / 4.0),  // Flip + positive angle for lower left
+            FacingDirection::UpLeft => (true, -std::f32::consts::PI / 4.0), // Flip + negative angle for upper left
+            FacingDirection::Left => (true, 0.0),                           // Flip + 0° for left
+            FacingDirection::DownLeft => (true, std::f32::consts::PI / 4.0), // Flip + positive angle for lower left
             FacingDirection::Down => (false, -std::f32::consts::PI / 2.0),
             FacingDirection::DownRight => (false, -std::f32::consts::PI / 4.0),
         };
@@ -397,7 +406,7 @@ pub fn spawn_slash_effects(
                 image: texture_handle,
                 texture_atlas: Some(TextureAtlas {
                     layout: layout_handle,
-                    index: start,  // Start at the correct animation frame
+                    index: start, // Start at the correct animation frame
                 }),
                 flip_x,
                 flip_y: false,
@@ -415,17 +424,18 @@ pub fn update_slash_effects(
 ) {
     for (entity, slash_effect, mut sprite) in slash_query.iter_mut() {
         let frames_alive = frame.frame - slash_effect.start_frame;
-        
+
         // Calculate current animation frame dynamically based on SlashEffect config
         let animation_progress = frames_alive / slash_effect.frame_duration;
-        let animation_frame_count = (slash_effect.animation_end - slash_effect.animation_start + 1) as u32;
+        let animation_frame_count =
+            (slash_effect.animation_end - slash_effect.animation_start + 1) as u32;
         let current_animation_frame = animation_progress.min(animation_frame_count - 1) as usize;
         let sprite_index = slash_effect.animation_start + current_animation_frame;
-        
+
         if let Some(ref mut atlas) = sprite.texture_atlas {
             atlas.index = sprite_index;
         }
-        
+
         // Despawn when animation is complete
         if frames_alive >= slash_effect.duration_frames {
             commands.entity(entity).despawn();
@@ -464,11 +474,18 @@ pub fn melee_hitbox_collision_system(
         ),
         (Without<MeleeHitbox>, With<Rollback>),
     >,
-    mut attacker_query: Query<(&GgrsNetId, &mut MeleeAttackState, &fixed_math::FixedTransform3D), With<Rollback>>,
+    mut attacker_query: Query<
+        (
+            &GgrsNetId,
+            &mut MeleeAttackState,
+            &fixed_math::FixedTransform3D,
+        ),
+        With<Rollback>,
+    >,
 ) {
     let system_span = span!(Level::INFO, "ggrs", f = frame.frame, s = "melee_collisions");
     let _enter = system_span.enter();
-    
+
     for (hitbox_g_id, _hitbox_entity, hitbox_transform, hitbox, hitbox_collider, hitbox_layer) in
         order_iter!(hitbox_query)
     {
@@ -480,11 +497,11 @@ pub fn melee_hitbox_collision_system(
                 break;
             }
         }
-        
+
         let Some((mut attacker_state, attacker_transform)) = attacker_data else {
             continue;
         };
-        
+
         for (
             target_g_id,
             target_entity,
@@ -502,17 +519,17 @@ pub fn melee_hitbox_collision_system(
             if target_entity == hitbox.owner_entity {
                 continue;
             }
-            
+
             // Skip if already hit this entity in this attack
             if attacker_state.has_hit_entity(target_g_id) {
                 continue;
             }
-            
+
             // Check layer collision compatibility
             if !settings.layer_matrix[hitbox_layer.0][target_layer.0] {
                 continue;
             }
-            
+
             // Skip if player attacking player or enemy attacking enemy
             if hitbox.owner_handle.is_some() && opt_player.is_some() {
                 continue;
@@ -520,7 +537,7 @@ pub fn melee_hitbox_collision_system(
             if hitbox.owner_handle.is_none() && opt_enemy.is_some() {
                 continue;
             }
-            
+
             // Check collision
             if is_colliding(
                 &hitbox_transform.translation,
@@ -532,7 +549,7 @@ pub fn melee_hitbox_collision_system(
                     "Melee hitbox {} hit target {} for {} damage",
                     hitbox_g_id, target_g_id, hitbox.damage
                 );
-                
+
                 // Apply damage
                 if opt_health.is_some() {
                     let hit_by = if let Some(handle) = hitbox.owner_handle {
@@ -540,9 +557,10 @@ pub fn melee_hitbox_collision_system(
                     } else {
                         vec![HitBy::Entity(hitbox_g_id.clone())]
                     };
-                    
+
                     if let Some(mut accumulator) = opt_accumulator_mut {
-                        accumulator.total_damage = accumulator.total_damage.saturating_add(hitbox.damage);
+                        accumulator.total_damage =
+                            accumulator.total_damage.saturating_add(hitbox.damage);
                         accumulator.hit_count += 1;
                         accumulator.last_hit_by = Some(hit_by);
                     } else {
@@ -552,7 +570,7 @@ pub fn melee_hitbox_collision_system(
                             last_hit_by: Some(hit_by),
                         });
                     }
-                    
+
                     // Apply knockback
                     if let Some(mut velocity) = opt_velocity_mut {
                         // Calculate direction from attacker to target
@@ -569,7 +587,7 @@ pub fn melee_hitbox_collision_system(
                             hitbox.knockback_force, knockback_direction, target_g_id
                         );
                     }
-                    
+
                     // Mark entity as hit
                     attacker_state.add_hit_entity(target_g_id.clone());
                 }
@@ -599,17 +617,22 @@ pub fn player_melee_attack_system(
     >,
     melee_weapon_query: Query<&MeleeWeapon, With<Rollback>>,
 ) {
-    let system_span = span!(Level::INFO, "ggrs", f = frame.frame, s = "player_melee_attack");
+    let system_span = span!(
+        Level::INFO,
+        "ggrs",
+        f = frame.frame,
+        s = "player_melee_attack"
+    );
     let _enter = system_span.enter();
-    
+
     for (net_id, entity, player, transform, facing_direction, children, mut attack_state) in
         order_mut_iter!(player_query)
     {
         let (input, _status) = inputs[player.handle];
-        
+
         // Check if melee attack button is pressed
         let wants_melee_attack = input.buttons & INPUT_MELEE_ATTACK != 0;
-        
+
         // Find melee weapon in children
         let mut melee_weapon_opt: Option<&MeleeWeapon> = None;
         for child in children.iter() {
@@ -618,10 +641,10 @@ pub fn player_melee_attack_system(
                 break;
             }
         }
-        
+
         if let Some(melee_weapon) = melee_weapon_opt {
             let config = &melee_weapon.config;
-            
+
             // Update attack state
             if attack_state.is_attacking {
                 // Check if attack duration has expired
@@ -631,10 +654,12 @@ pub fn player_melee_attack_system(
                         attack_state.end_attack(frame.frame);
                     }
                 }
-            } else if wants_melee_attack && attack_state.can_attack(frame.frame, config.cooldown_frames) {
+            } else if wants_melee_attack
+                && attack_state.can_attack(frame.frame, config.cooldown_frames)
+            {
                 // Start new attack
                 attack_state.start_attack(frame.frame);
-                
+
                 // Spawn hitbox
                 spawn_melee_hitbox(
                     &mut commands,
@@ -648,7 +673,7 @@ pub fn player_melee_attack_system(
                     Some(player.handle),
                     &mut id_factory,
                 );
-                
+
                 info!(
                     "Player {} started melee attack with {} at frame {}",
                     player.handle, config.name, frame.frame
@@ -678,10 +703,16 @@ pub fn enemy_melee_attack_system(
     player_query: Query<&fixed_math::FixedTransform3D, (With<Player>, Without<Enemy>)>,
     melee_weapon_query: Query<&MeleeWeapon, With<Rollback>>,
 ) {
-    let system_span = span!(Level::INFO, "ggrs", f = frame.frame, s = "enemy_melee_attack");
+    let system_span = span!(
+        Level::INFO,
+        "ggrs",
+        f = frame.frame,
+        s = "enemy_melee_attack"
+    );
     let _enter = system_span.enter();
-    
-    for (net_id, entity, transform, facing_direction, children, mut attack_state) in order_mut_iter!(enemy_query)
+
+    for (net_id, entity, transform, facing_direction, children, mut attack_state) in
+        order_mut_iter!(enemy_query)
     {
         // Find melee weapon in children
         let mut melee_weapon_opt: Option<&MeleeWeapon> = None;
@@ -691,11 +722,11 @@ pub fn enemy_melee_attack_system(
                 break;
             }
         }
-        
+
         if let Some(melee_weapon) = melee_weapon_opt {
             let config = &melee_weapon.config;
             let enemy_pos = transform.translation.truncate();
-            
+
             // Update attack state
             if attack_state.is_attacking {
                 // Check if attack duration has expired
@@ -708,22 +739,22 @@ pub fn enemy_melee_attack_system(
             } else if attack_state.can_attack(frame.frame, config.cooldown_frames) {
                 // Check if any player is in range
                 let mut player_in_range = false;
-                
+
                 for player_transform in player_query.iter() {
                     let player_pos = player_transform.translation.truncate();
                     let distance = enemy_pos.distance(&player_pos);
-                    
+
                     // Attack if player is within range
                     if distance <= config.range * fixed_math::new(1.2) {
                         player_in_range = true;
                         break;
                     }
                 }
-                
+
                 if player_in_range {
                     // Start new attack
                     attack_state.start_attack(frame.frame);
-                    
+
                     // Spawn hitbox
                     spawn_melee_hitbox(
                         &mut commands,
@@ -737,7 +768,7 @@ pub fn enemy_melee_attack_system(
                         None, // No player handle for enemies
                         &mut id_factory,
                     );
-                    
+
                     info!(
                         "Enemy {} started melee attack with {} at frame {}",
                         net_id, config.name, frame.frame

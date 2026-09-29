@@ -1,9 +1,16 @@
+pub mod melee;
 #[cfg(feature = "debug_ui")]
 pub mod ui;
-pub mod melee;
 
-use animation::{create_child_sprite, AnimationStateBundle, AnimationVisualsBundle, FacingDirection, SpriteSheetConfig};
-use bevy::{log::{tracing::span, Level}, platform::collections::{HashMap, HashSet}, prelude::*};
+use animation::{
+    create_child_sprite, AnimationStateBundle, AnimationVisualsBundle, FacingDirection,
+    SpriteSheetConfig,
+};
+use bevy::{
+    log::{tracing::span, Level},
+    platform::collections::{HashMap, HashSet},
+    prelude::*,
+};
 use bevy_common_assets::ron::RonAssetPlugin;
 use bevy_fixed::{fixed_math, rng::RollbackRng};
 use bevy_ggrs::{GgrsSchedule, PlayerInputs, Rollback};
@@ -12,9 +19,11 @@ use std::collections::BTreeMap;
 
 use serde::{Deserialize, Serialize};
 use utils::{
-    net_id::{GgrsNetId, GgrsNetIdFactory}, order_iter, order_mut_iter
+    net_id::{GgrsNetId, GgrsNetIdFactory},
+    order_iter, order_mut_iter,
 };
 
+use self::melee::MeleeAttackState;
 use crate::character::visuals::VisualsAttached;
 use crate::rollback::RollbackTraceApp;
 use crate::{
@@ -35,7 +44,6 @@ use crate::{
     system_set::RollbackSystemSet,
     GAME_SPEED,
 };
-use self::melee::MeleeAttackState;
 use std::fmt;
 use utils::frame::FrameCount;
 
@@ -701,7 +709,11 @@ pub fn weapon_rollback_system(
             // (like switching weapon) is not possible until it is over
             if inventory.is_reloading() {
                 if inventory.is_reloading_over(frame.frame) {
-                    weapon_modes_state.modes.get_mut(&active_mode).unwrap().reload();
+                    weapon_modes_state
+                        .modes
+                        .get_mut(&active_mode)
+                        .unwrap()
+                        .reload();
                     inventory.clear_reloading();
                 } else {
                     continue;
@@ -780,7 +792,9 @@ pub fn weapon_rollback_system(
                     } => {
                         // The cooldown between bursts ends by itself: a single press then
                         // starts the next burst (it used to be spent lifting the cooldown)
-                        if weapon_mode_state.burst_cooldown && frames_since_last_shot >= cooldown_frames {
+                        if weapon_mode_state.burst_cooldown
+                            && frames_since_last_shot >= cooldown_frames
+                        {
                             weapon_mode_state.burst_cooldown = false;
                         }
                         if weapon_mode_state.burst_shots_left > 0
@@ -957,7 +971,8 @@ pub fn bullet_rollback_system(
                 "{} despawn after travelleing {}",
                 g_id, bullet.distance_traveled
             );
-            commands.entity(entity).despawn();
+            use bevy_ggrs::RollbackDespawnCommandExtension;
+            commands.entity(entity).despawn_rollback();
         }
     }
 }
@@ -1002,7 +1017,7 @@ pub fn bullet_rollback_collision_system(
     let mut bullets_to_despawn_set = HashSet::new();
 
     for (ggrs_net_id, bullet_entity, bullet_transform, bullet, bullet_collider, bullet_layer) in
-       order_iter!(bullet_query) 
+        order_iter!(bullet_query)
     {
         if bullets_to_despawn_set.contains(&bullet_entity) {
             continue;
@@ -1112,8 +1127,9 @@ pub fn bullet_rollback_collision_system(
     // Deterministic despawning of bullets (already good)
     let mut bullets_to_despawn_vec: Vec<Entity> = bullets_to_despawn_set.into_iter().collect();
     bullets_to_despawn_vec.sort_by_key(|entity| entity.index()); // Or .to_bits()
+    use bevy_ggrs::RollbackDespawnCommandExtension;
     for entity in bullets_to_despawn_vec {
-        commands.entity(entity).despawn();
+        commands.entity(entity).despawn_rollback();
     }
 }
 
@@ -1216,10 +1232,7 @@ impl Plugin for BaseWeaponGamePlugin {
 
         app.add_systems(
             Update,
-            (
-                weapon_inventory_system,
-                weapons_config_update_system,
-            ),
+            (weapon_inventory_system, weapons_config_update_system),
         );
 
         app.add_systems(

@@ -159,6 +159,27 @@ info!("Player {} attacked", player.handle);  // Handle GGRS
 info!("Frame {}: damage {} applied", frame.frame, damage);  // Valeurs de jeu
 ```
 
+#### 9. Despawn différé des entités rollback
+
+Une entité rollback détruite par `despawn()` puis ramenée par un rollback (synctest, prédiction
+p2p ratée) est **respawnée avec ses seuls composants rollback** : sans `Sprite`, sans
+`CharacterConfigHandles`, etc. Elle devient invisible aux systèmes qui exigent ces composants
+(ex. `move_enemies`), ce qui change la séparation de ses voisins et fait diverger la simulation.
+
+```rust
+// ❌ INTERDIT dans GgrsSchedule - l'entité respawnée après rollback est incomplète
+commands.entity(entity).despawn();
+
+// ✅ CORRECT - désactivée tout de suite (invisible aux queries), détruite une fois la frame
+// confirmée, ressuscitée intacte si un rollback remonte avant sa mort
+use bevy_ggrs::RollbackDespawnCommandExtension;
+commands.entity(entity).despawn_rollback();
+```
+
+`RollbackDespawnPlugin` est installé par `GgrsPlugin`. Les entités désactivées
+(`RollbackDespawned`) sont exclues des queries, des snapshots, du checksum et de la trace :
+la simulation se comporte exactement comme avec un despawn immédiat.
+
 **Pourquoi?** On compare les logs entre clients avec `diff` pour détecter les desyncs.
 Si les logs contiennent des Entity IDs, le diff montrera des différences même si la simulation est synchronisée.
 
@@ -217,6 +238,7 @@ make diff_log CID_1=alice CID_2=bob
 - [ ] Pas de `.iter().next()` sans tri préalable
 - [ ] Pas de `f32`/`f64` - uniquement `Fixed`/`FixedWide`
 - [ ] RNG via `RollbackRng` consommé dans ordre déterministe
+- [ ] Destruction d'une entité rollback via `despawn_rollback()` (jamais `despawn()`)
 - [ ] Resource enregistrée avec l'extension `RollbackTraceApp` (`rollback_and_trace_resource`
       / `_debug_resource` / `_copy_resource`), jamais `rollback_resource_with_*` directement
       (un script CI le bloque, voir `scripts/check-rollback-registration.sh`)
