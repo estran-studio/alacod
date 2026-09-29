@@ -24,11 +24,13 @@ use map_ldtk::{
     plugins::LdtkRoguePlugin,
 };
 use serde::{Deserialize, Serialize};
+use sim_core::modifier::{Modifier, ModifierSource, Modifiers};
 use sim_core::tag::Tags;
 use std::collections::BTreeMap;
+use std::path::PathBuf;
 use utils::frame::FrameCount;
 
-use game::replay::{Expectation, Scenario};
+use game::replay::{Expectation, ModifierSpec, Scenario};
 
 /// Mismatches de synctest : le premier seulement (GGRS répète ensuite le même à chaque
 /// frame et n'avance plus), avec les frames qu'il incrimine.
@@ -64,6 +66,11 @@ pub struct Metrics {
 pub struct ScenarioOutcome {
     /// Trace d'état, une ligne par frame (voir `game::state_trace`).
     pub trace: Vec<String>,
+    /// Trace détaillée de toutes les frames (hash + détail), si `ALACOD_DUMP_TRACE` était
+    /// défini pour ce run (outil de preuve permanent, T1.2, `docs/conventions.md` §8).
+    /// `None` sinon. `crates/scenario/tests/scenarios.rs` écrit ces lignes dans
+    /// `<dossier>/<scénario>.full` quand elles sont présentes.
+    pub full_trace: Option<Vec<String>>,
     /// Attentes non satisfaites, avec leur frame.
     pub failures: Vec<String>,
     /// État en fin de partie, pour écrire ou déboguer un scénario.
@@ -130,8 +137,12 @@ pub fn build_app(scenario: &Scenario, headless: bool, config: &PlayConfig) -> Ap
         .insert_resource(WaveModeEnabled(true))
         .insert_resource(WaveDebugEnabled(true))
         // ALACOD_DIAG=1 : trace détaillée, pour nommer le composant qui diverge en synctest
+        // ALACOD_DUMP_TRACE=<dossier> : outil de preuve permanent (T1.2), voir
+        // `docs/conventions.md` §8 et `crates/scenario/tests/scenarios.rs` (qui écrit
+        // `<dossier>/<scénario>.full` depuis `ScenarioOutcome::full_trace`).
         .add_plugins(StateTraceRecorderPlugin {
             full: std::env::var("ALACOD_DIAG").is_ok_and(|v| v == "1"),
+            dump: std::env::var("ALACOD_DUMP_TRACE").ok().map(PathBuf::from),
         })
         .add_plugins(GameEventsPlugin)
         .insert_resource(WeaponOverrides(scenario.weapon_overrides.clone()))
@@ -140,7 +151,7 @@ pub fn build_app(scenario: &Scenario, headless: bool, config: &PlayConfig) -> Ap
             scenario
                 .players
                 .iter()
-                .map(|p| (p.tags.clone(), p.immune_to.clone()))
+                .map(|p| (p.tags.clone(), p.immune_to.clone(), p.modifiers.clone()))
                 .collect(),
         ))
         .add_systems(Update, apply_player_overrides)
@@ -230,18 +241,21 @@ fn apply_weapon_overrides(
     *applied = true;
 }
 
-/// Tags et immunités par joueur (T1.1, chantier B1), indexés par handle GGRS — voir
-/// `game::replay::PlayerScript::{tags, immune_to}`.
+/// Tags, immunités et modificateurs de stats par joueur (T1.1 chantier B1, T1.2 chantier
+/// B2), indexés par handle GGRS — voir `game::replay::PlayerScript::{tags, immune_to,
+/// modifiers}`.
 #[derive(Resource)]
-struct PlayerOverrides(Vec<(Vec<String>, Vec<String>)>);
+struct PlayerOverrides(Vec<(Vec<String>, Vec<String>, Vec<ModifierSpec>)>);
 
-/// Pose les `tags`/`immune_to` d'un scénario sur les joueurs une fois créés (composants
-/// `Tags`/`Defenses`, T1.1). Contrairement à `apply_weapon_overrides` (qui doit s'appliquer
-/// *avant* la création des joueurs, qui copient la config de leurs armes), celui-ci
-/// s'applique *après* : il attend que les entités `Player` existent, puis pose les
+/// Pose les `tags`/`immune_to`/`modifiers` d'un scénario sur les joueurs une fois créés
+/// (composants `Tags`/`Defenses`/`Modifiers`). Contrairement à `apply_weapon_overrides` (qui
+/// doit s'appliquer *avant* la création des joueurs, qui copient la config de leurs armes),
+/// celui-ci s'applique *après* : il attend que les entités `Player` existent, puis pose les
 /// composants une seule fois (`Local<bool>`). `Tags`/`Defenses` sont hors rollback (voir
 /// leur doc) : les poser ici, avant la première frame simulée, suffit — ils ne sont jamais
-/// mutés ensuite.
+/// mutés ensuite. `Modifiers` est en rollback (`stats::StatsPlugin`) mais poser la valeur
+/// initiale avant la première frame simulée est tout aussi correct : elle est identique sur
+/// tous les clients (même scénario), donc fait partie de l'état de départ comme les autres.
 fn apply_player_overrides(
     overrides: Res<PlayerOverrides>,
     mut commands: Commands,
@@ -251,11 +265,9 @@ fn apply_player_overrides(
     if *applied {
         return;
     }
-    if overrides
-        .0
-        .iter()
-        .all(|(tags, immune_to)| tags.is_empty() && immune_to.is_empty())
-    {
+    if overrides.0.iter().all(|(tags, immune_to, modifiers)| {
+        tags.is_empty() && immune_to.is_empty() && modifiers.is_empty()
+    }) {
         *applied = true;
         return;
     }
@@ -263,7 +275,7 @@ fn apply_player_overrides(
         return; // les joueurs ne sont pas encore tous créés
     }
     for (entity, player) in players.iter() {
-        let Some((tags, immune_to)) = overrides.0.get(player.handle) else {
+        let Some((tags, immune_to, modifiers)) = overrides.0.get(player.handle) else {
             continue;
         };
         if !tags.is_empty() {
@@ -274,6 +286,22 @@ fn apply_player_overrides(
                 immune_to: Tags::parse(immune_to.clone()),
                 resistances: Default::default(),
             });
+        }
+        if !modifiers.is_empty() {
+            let mut built = Modifiers::default();
+            for (i, spec) in modifiers.iter().enumerate() {
+                built.push(Modifier {
+                    stat: spec.stat.clone(),
+                    op: spec.op,
+                    value: spec.value,
+                    // Source stable par joueur/index : suffit pour un scénario (jamais
+                    // retiré par `remove_by_source`), et distingue les modificateurs entre
+                    // eux si un futur scénario en pose plusieurs sur le même joueur.
+                    source: ModifierSource::Named(format!("scenario_player_{}_{i}", player.handle)),
+                    until: spec.until,
+                });
+            }
+            commands.entity(entity).insert(built);
         }
     }
     *applied = true;
@@ -415,12 +443,14 @@ pub fn run_with<F: FnOnce(&mut App)>(scenario: &Scenario, configure: F) -> Scena
         failures.push(format!("trace des frames divergentes :\n{report}"));
     }
 
-    let trace = app
-        .world()
-        .resource::<StateTraceRecorder>()
+    let recorder = app.world().resource::<StateTraceRecorder>();
+    let trace = recorder
         .lines_until(scenario.frames)
         .map(str::to_string)
         .collect();
+    let full_trace = recorder
+        .dump_lines_until(scenario.frames)
+        .map(|lines| lines.map(str::to_string).collect());
 
     let summary = summarize(app.world_mut(), frame);
     let recorded = app
@@ -442,6 +472,7 @@ pub fn run_with<F: FnOnce(&mut App)>(scenario: &Scenario, configure: F) -> Scena
 
     ScenarioOutcome {
         trace,
+        full_trace,
         failures,
         summary,
         recorded,

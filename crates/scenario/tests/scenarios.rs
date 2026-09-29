@@ -129,6 +129,20 @@ fn scenarios() {
         failures.extend(outcome.failures.iter().map(|f| format!("{name}: {f}")));
         metrics_map.insert(name.clone(), outcome.metrics.clone());
 
+        // Outil de preuve permanent (T1.2, `docs/conventions.md` §8) : dump la trace
+        // détaillée de toutes les frames dans `<ALACOD_DUMP_TRACE>/<name>.full`, comparée
+        // ensuite avec `scripts/trace-diff.py` (ex. entre `main` et cette branche, pour
+        // prouver qu'aucune valeur de stat ne diverge des constantes qu'elle remplace).
+        if let Ok(dump_dir) = std::env::var("ALACOD_DUMP_TRACE") {
+            if let Some(full) = &outcome.full_trace {
+                std::fs::create_dir_all(&dump_dir).expect("création du dossier ALACOD_DUMP_TRACE");
+                let dump_path = PathBuf::from(&dump_dir).join(format!("{name}.full"));
+                let content = full.join("\n") + "\n";
+                std::fs::write(&dump_path, content)
+                    .unwrap_or_else(|e| panic!("écriture de {}: {e}", dump_path.display()));
+            }
+        }
+
         let golden_path = path.with_extension("trace");
         let trace = outcome.trace.join("\n") + "\n";
         if bless {

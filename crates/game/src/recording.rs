@@ -52,6 +52,7 @@ impl InputRecorder {
                 inputs: self.segments(handle),
                 tags: vec![],
                 immune_to: vec![],
+                modifiers: vec![],
             })
             .collect();
 

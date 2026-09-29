@@ -25,8 +25,11 @@ use crate::character::player::input::{
     INPUT_INTERACTION, INPUT_LEFT, INPUT_MELEE_ATTACK, INPUT_MODIFIER, INPUT_RELOAD, INPUT_RIGHT,
     INPUT_SPRINT, INPUT_SWITCH_WEAPON_MODE, INPUT_UP,
 };
+use bevy_fixed::fixed_math::Fixed;
 use serde::{Deserialize, Serialize};
 use sim_core::damage::FriendlyFire;
+use sim_core::modifier::ModifierOp;
+use sim_core::stats::StatId;
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct Scenario {
@@ -134,6 +137,24 @@ pub struct PlayerScript {
     /// défaut, donc pas de perte en pratique). Vide par défaut.
     #[serde(default, skip_serializing_if = "Vec::is_empty")]
     pub immune_to: Vec<String>,
+    /// Modificateurs de stats posés sur ce joueur une fois créé (T1.2, chantier B2,
+    /// scénario `stat_move_speed`), comme `tags`/`immune_to`
+    /// (`scenario::runner::apply_player_overrides`). Vide par défaut.
+    #[serde(default, skip_serializing_if = "Vec::is_empty")]
+    pub modifiers: Vec<ModifierSpec>,
+}
+
+/// Un modificateur de scénario, posé sur un joueur après sa création
+/// (`scenario::runner::apply_player_overrides`). Format RON :
+/// `(stat: MoveSpeed, op: Mul, value: "0.5")`. `until` absent = permanent (dure toute la
+/// partie, largement suffisant pour un scénario de test).
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct ModifierSpec {
+    pub stat: StatId,
+    pub op: ModifierOp,
+    pub value: Fixed,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub until: Option<u32>,
 }
 
 /// Input maintenu sur les frames `from..to`.
