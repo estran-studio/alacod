@@ -20,8 +20,8 @@ Référence pour ceux qui créent du contenu (cartes LDtk, sprites RON) et ceux 
 
 - `DoorHorizontal`, `DoorVertical` (32×16 ou 16×32 px) : portes payantes. En éditeur LDtk, deux champs seulement : `price` (entier, coût en points), `electrify` (booléen, desserte électrique si vrai). Le générateur ajoute trois champs aux portes qu'il place : `interactable` (booléen, défaut `true`), `paired_door_x`, `paired_door_y` (entiers), `paired_door_level` (chaîne) pour les portes appariées (une porte achetée ouvre son jumeau simultanément). Lus par `door_component_from_field` dans `crates/map_ldtk/src/game/entity/door.rs`. Les portes **bloquent le flow field** tant qu'elles ont un collider (portes fermées) ; une porte non interactive ne s'ouvre jamais (CLAUDE.md Flow Field, ligne ~539).
 - `WindowHorizontal`, `WindowVertical` (16×32 ou 32×16 px) : vitres cassables. Aucun champ en éditeur. Santé fixée à 3 dans le code (`crates/map/src/game/entity/map/window.rs`). Les fenêtres intactes bloquent les ennemis (collision, mais permettent le tir à travers) ; cassées, elles bloquent les joueurs seulement (perméables aux ennemis). Réparation par interaction. Lus par `crates/map_ldtk/src/game/entity/window.rs`.
-- `PlayerSpawn` (16×16 px) : points de départ des joueurs. Champ obligatoire : `index` (0, 1, 2, 3) = handle GGRS du joueur. Seul le niveau de départ use besoin d'avoir des spawns. Lus par `crates/map_ldtk/src/game/entity/player_spawn.rs`.
-- `ZombieSpawn` (16×16 px) : emplacements de spawn des ennemis. Aucun champ. La vague (mode `Waves` de F1) les utilise pour spawner des ennemis. Lus par `crates/map_ldtk/src/game/entity/enemy_spawn.rs`.
+- `PlayerSpawn` (16×16 px) : points de départ des joueurs. Champ obligatoire : `index` (0, 1, 2, 3) = handle GGRS du joueur. Seul le niveau de départ a besoin de points de départ. Lus par `crates/map_ldtk/src/game/entity/player_spawn.rs`.
+- `ZombieSpawn` (16×16 px) : emplacements de spawn des ennemis. Aucun champ. Le mode vagues (`WaveModeEnabled` aujourd'hui, mode `Waves` du run en cible, F1) y fait apparaître les ennemis. Lus par `crates/map_ldtk/src/game/entity/enemy_spawn.rs`.
 - `CrateLocation` (16×16 px), `WeaponLocation` (16×16 px), `SodaLocation` (16×16 px) : **non lues actuellement** (`crates/map_ldtk/src/map_const.rs` les déclare, aucun bundle implémenté en entity/*.rs). Réservées pour T2.3 (achats et économie).
 
 **Champ de niveau** : le champ `spawn` (booléen) détermine le niveau de départ d'une run. Lus par `crates/map_ldtk/src/generation/from.rs` ligne 150 : si présent et `true`, le niveau est marqué `LevelType::Spawn`.
@@ -40,7 +40,7 @@ Référence pour ceux qui créent du contenu (cartes LDtk, sprites RON) et ceux 
 - `path` : chemin du PNG relatif à `assets/`.
 - `tile_size` : (largeur, hauteur) en pixels d'une case.
 - `columns`, `rows` : grille de la planche.
-- `anchor` : `Center`, `BottomLeft`, `BottomCenter`, etc. (enum `ConfigurableAnchor`). Pour des personnages, souvent `BottomCenter` (pieds au point (0,0) de la map).
+- `anchor` : `Center`, `BottomLeft`, `BottomCenter`, etc. (enum `ConfigurableAnchor`). Les planches actuelles utilisent `Center` avec des `offset_*` (voir `player_sheet.ron`).
 - `offset_x`, `offset_y`, `offset_z` : translation du sprite par rapport à l'entité.
 - `scale` : facteur appliqué au rendu.
 - `animated` : `true` si la planche a plusieurs frames ; `false` sinon.
@@ -51,7 +51,7 @@ Référence pour ceux qui créent du contenu (cartes LDtk, sprites RON) et ceux 
 - `animations` : table `{ "nom": { start: 0, end: 6 } }` ou `{ "nom": { row: 0, end: 7 } }`. Format direct (indices absolus) ou basé sur les lignes (spécifier la ligne et le nombre de frames).
 - `columns` : optionnel, dérivé de `SpriteSheetConfig` sinon.
 
-**8 directions, 2 dessinées** : l'engine suit 8 directions par `FacingDirection` (`crates/animation/src/lib.rs`) mais dessine seulement 2 (gauche/droite, obtenues par retournement automatique). La planche n'a pas besoin de 8 orientations : une animation comprend la direction de visée, le retournement se fait au rendu.
+**8 directions, 2 dessinées** : l'engine suit 8 directions par `FacingDirection` (`crates/animation/src/lib.rs`) mais dessine seulement 2 (gauche/droite, obtenues par retournement automatique). La planche n'a pas besoin de 8 orientations : elle est dessinée tournée vers la droite, et le rendu la retourne pour la gauche (`set_sprite_flip`).
 
 **Calques (skins)** : un personnage peut avoir plusieurs calques animés (`body`, `shadow`, `effect`). Chaque calque est une `SpriteSheetConfig` et une `AnimationMapConfig` ; ils sont composés dans `CharacterConfig` (`crates/game/src/character/config.rs`).
 
@@ -74,7 +74,7 @@ Référence pour ceux qui créent du contenu (cartes LDtk, sprites RON) et ceux 
 ```
 
 **Armes** (exemple : `assets/weapons/melee/melee_weapons.ron`, table `{ "bare_hands": (...), ... }`) :
-- `config` : `name`, `damage`, `range`, `attack_pattern` (enum : `SingleStrike`, `Combo(strikes: N)`, `Sweep(arc_angle)`, `Thrust`), `attack_duration_frames`, `cooldown_frames`, `knockback_force`, `stamina_cost`. Tous les nombres décimaux en chaîne (`"100.0"`).
+- `config` : `name`, `damage`, `range`, `attack_pattern` (enum : `SingleStrike`, `Combo(strikes_in_combo: N)`, `Sweep(arc_angle)`, `Thrust`), `attack_duration_frames`, `cooldown_frames`, `knockback_force`, `stamina_cost`. Tous les nombres décimaux en chaîne (`"100.0"`).
 - `sprite_config` : `name`, `index` (première frame), `weapon_offset`.
 
 **Fixed-point** : les valeurs de type `Fixed` s'écrivent en **chaîne** (`"100.0"`, jamais `100` ni `100.0` littéral). Les entiers (`frames`, `mag_size`, indices) s'écrivent nus. La sérialisation Bevy/RON (crate `fixed`) convertit les chaînes en `Fixed` au chargement, garantissant le déterminisme. Exemple : `damage: "10.0"` (Fixed), `attack_duration_frames: 10` (entier). Consulter `CLAUDE.md` §Déterminisme, règle 1 (Fixed-Point Math UNIQUEMENT).
@@ -85,7 +85,7 @@ Référence pour ceux qui créent du contenu (cartes LDtk, sprites RON) et ceux 
 
 ## 3. Le dossier de jeu
 
-**Aujourd'hui** (branche `m0-v2-conventions`) : assets à la racine du worktree (`assets/`), chemins codés en dur dans `crates/game/src/global_asset.rs` (chaine `"assets/weapons/melee"`, etc.). Point d'entrée unique `examples/map_explorer.rs` (cible Cargo `ldtk_map_explorer`). Tous les jeux partagent le même binaire, un seul `global_asset.rs` pour tous les chemins.
+**Aujourd'hui** (branche `m0-v2-conventions`) : assets à la racine du worktree (`assets/`), chemins codés en dur dans `crates/game/src/global_asset.rs` (par exemple `weapons/melee/melee_weapons.ron`, relatif à `assets/`). Point d'entrée unique `examples/map_explorer.rs` (cible Cargo `ldtk_map_explorer`). Tous les jeux partagent le même binaire, un seul `global_asset.rs` pour tous les chemins.
 
 **Cible (T0.3 et T1.5)** : structure `games/<jeu>/` autonome.
 
@@ -130,7 +130,7 @@ Exemple : ajouter un nouveau type d'ennemi, un effet, ou un statut. Suivre ce fl
 5. **Flux RNG dédié** (plan §4.6) : si le vocabulaire utilise l'aléatoire (variantes, direction), créer un `stream` unique (ex. `RNG.stream("status")`). Consommer le RNG dans un ordre déterministe (après tri par `GgrsNetId`), jamais à la première occurrence.
 6. **FrameEvents** : tous les événements émis (impact, mort, soin) passent par `FrameEvents<T>` (`crates/game/src/frame_events.rs`). Lus par les systèmes de la simulation (`GgrsSchedule`), ordonnés après l'émetteur. La présentation en dérive (`Update`, jamais d'événements), restant juste après un rollback.
 7. **Scénario et trace** : `make test_scenarios SCENARIO=<nom>` sans `BLESS` la première fois. Si divergence, corriger le code. Une fois vert : `BLESS=1 make test_scenarios SCENARIO=<nom>` écrit la trace de référence. Cette trace est comparée à chaque commit.
-8. **Vidéo et validation** : `make play_scenario SCENARIO=<nom> --capture /tmp/out --every 2` capture le scénario (PNG dans `/tmp/out/`, 960×540). Moments clés détectés (vague, kills, coups reçus, morts, rechargements, changements d'arme, fenêtres, portes) visibles et cliquables dans la page de revue.
+8. **Vidéo et validation** : `make videos SCENARIO=<nom>` produit la vidéo dans `target/videos/<commit>/` ; pour regarder des images fixes, `cargo run -p scenario --features render --bin play_scenario -- tests/scenarios/<nom>.ron --capture <dossier> --every 2` (PNG 960×540, une image toutes les 2 frames). Moments clés détectés (vague, kills, coups reçus, morts, rechargements, changements d'arme, fenêtres, portes) visibles et cliquables dans la page de revue.
 9. **Doc** : ajouter une ligne ou un paragraphe à `docs/conventions.md` décrivant le kind, ses champs, les attentes, les invariants, et les fichiers lus.
 
 ---
@@ -139,11 +139,11 @@ Exemple : ajouter un nouveau type d'ennemi, un effet, ou un statut. Suivre ce fl
 
 | Cible | Rôle |
 |---|---|
-| `make check` | Format, tests, lint (CI rapide) |
+| `make check` | Format, tests unitaires, scénarios, motifs interdits en avertissement (la CI rapide) |
 | `make test_scenarios` | Rejoue tous les scénarios en headless, compare les traces |
-| `make map_preview` | Affiche une carte LDtk (GUI, requiert `--` et le chemin) |
-| `make map_generation` | Assemble une carte par connexions (affiche le résultat) |
-| `make play_scenario SCENARIO=<nom>` | Rejouele scénario avec rendu ; `--follow <handle>` suit un joueur |
+| `make map_preview ARGS=<fichier.ldtk>` | Affiche une carte LDtk (fenêtre) |
+| `make map_generation ARGS=<entrée.ldtk> <sortie.ldtk> <graine>` | Génère une carte assemblée par connexions (voir `examples/map_generation.rs` pour les arguments exacts) |
+| `make play_scenario SCENARIO=<nom>` | Rejoue le scénario avec rendu (l'option `--follow <handle>` du binaire suit un joueur) |
 | `make record_session NAME=<nom>` | Enregistre une partie en scénario |
 | `make remote [HEADLESS=1]` | Lance une partie en pause, pilotée par `scripts/alacod-remote` |
 | `make videos [SCENARIO=<nom>]` | Encode les scénarios en vidéos (960×540, `target/videos/<commit>/`) |
