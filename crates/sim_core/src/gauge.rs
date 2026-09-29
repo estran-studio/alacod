@@ -9,6 +9,7 @@ use crate::team::Team;
 /// Étiquette d'un événement de seuil (ex. `"sacre_plein"`), lue par les vocabulaires
 /// d'effets (chantier C1, `OnGauge(id, Above(x))`) pour déclencher des effets de contenu.
 #[derive(Debug, Clone, PartialEq, Eq, Hash, PartialOrd, Ord, Serialize, Deserialize)]
+#[serde(transparent)]
 pub struct GaugeEvent(pub String);
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Hash, Serialize, Deserialize)]
@@ -141,8 +142,19 @@ mod tests {
             fx(40.0),
             "le plancher dynamique l'emporte sur `min`"
         );
+        // 50 -> 40 : aucun seuil (25, 75) franchi
+        assert!(crossed.is_empty());
+    }
+
+    #[test]
+    fn floor_below_threshold_reports_the_crossing() {
+        let mut g = gauge();
+        g.floor = fx(20.0);
+        let crossed = g.add(fx(-1000.0));
+        assert_eq!(g.value, fx(20.0));
         assert_eq!(crossed.len(), 1);
         assert_eq!(crossed[0].direction, CrossingDirection::Falling);
+        assert_eq!(crossed[0].event, GaugeEvent("quart".into()));
     }
 
     #[test]

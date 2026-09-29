@@ -10,6 +10,7 @@ use std::fmt;
 /// `Vec<String>` ou une liste `["froid", "arbres"]` désérialise directement en `Tag`
 /// pour chaque élément, sans wrapper explicite dans le RON.
 #[derive(Debug, Clone, PartialEq, Eq, PartialOrd, Ord, Hash, Serialize, Deserialize)]
+#[serde(transparent)]
 pub struct Tag(pub String);
 
 impl Tag {
@@ -40,6 +41,7 @@ impl From<String> for Tag {
 /// (`["froid", "arbres"]`) grâce à la désérialisation « newtype » transparente de `Tag`
 /// et de `Tags` elle-même (voir le test `deserializes_from_ron_string_list`).
 #[derive(Debug, Clone, Default, PartialEq, Eq, Serialize, Deserialize)]
+#[serde(transparent)]
 pub struct Tags(BTreeSet<Tag>);
 
 impl Tags {
