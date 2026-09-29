@@ -45,9 +45,15 @@ pub fn assets_dir() -> String {
     concat!(env!("CARGO_MANIFEST_DIR"), "/../../assets").to_string()
 }
 
+/// Configuration de lecture d'un scénario.
+pub struct PlayConfig {
+    /// Si présent, force la caméra à suivre le joueur avec ce handle GGRS.
+    pub follow_handle: Option<usize>,
+}
+
 /// App de la partie décrite par le scénario (même partie que `map_explorer`).
 /// Avec `headless: false`, la partie est affichée (voir le binaire `play_scenario`).
-pub fn build_app(scenario: &Scenario, headless: bool) -> App {
+pub fn build_app(scenario: &Scenario, headless: bool, config: &PlayConfig) -> App {
     let core_plugin = CoreSetupPlugin(CoreSetupConfig {
         app_name: "scenario".into(),
         headless,
@@ -71,13 +77,20 @@ pub fn build_app(scenario: &Scenario, headless: bool) -> App {
         .add_systems(Update, apply_weapon_overrides)
         .insert_resource(InputSource::Scripted)
         .insert_resource::<ScriptedInputs>(scenario.scripted_inputs());
+
+    // Insert camera follow override if specified (for play_scenario --follow)
+    if let Some(handle) = config.follow_handle {
+        app.insert_resource(game::camera::CameraFollowOverride(handle));
+    }
+
     app
 }
 
 /// Fait avancer le scénario (headless) jusqu'à la frame `frame` et rend l'app, pour
 /// inspecter le monde à cet instant (diagnostic).
 pub fn run_until(scenario: &Scenario, frame: u32) -> App {
-    let mut app = build_app(scenario, true);
+    let config = PlayConfig { follow_handle: None };
+    let mut app = build_app(scenario, true, &config);
     app.finish();
     app.cleanup();
     for _ in 0..MAX_LOADING_UPDATES + frame {
@@ -130,7 +143,8 @@ fn apply_weapon_overrides(
 
 /// Joue le scénario jusqu'à `scenario.frames` et vérifie ses attentes.
 pub fn run(scenario: &Scenario) -> ScenarioOutcome {
-    let mut app = build_app(scenario, true);
+    let config = PlayConfig { follow_handle: None };
+    let mut app = build_app(scenario, true, &config);
     app.finish();
     app.cleanup();
 
@@ -369,9 +383,9 @@ fn player_alive(world: &mut World, handle: usize) -> bool {
 
 /// Joue le scénario avec rendu, à vitesse réelle, et quitte à la fin de ses frames.
 /// Les attentes ne sont pas vérifiées : c'est un outil de visualisation.
-pub fn play(scenario: &Scenario) -> AppExit {
+pub fn play(scenario: &Scenario, config: PlayConfig) -> AppExit {
     let frames = scenario.frames;
-    let mut app = build_app(scenario, false);
+    let mut app = build_app(scenario, false, &config);
     app.add_systems(
         Update,
         move |frame: Res<FrameCount>, mut exit: MessageWriter<AppExit>| {
@@ -389,6 +403,8 @@ pub struct CaptureConfig {
     pub dir: std::path::PathBuf,
     /// Une image toutes les `every` frames (2 → vidéo à 30 images/s).
     pub every: u32,
+    /// Si présent, force la caméra à suivre le joueur avec ce handle GGRS.
+    pub follow_handle: Option<usize>,
 }
 
 #[derive(Resource)]
@@ -411,7 +427,8 @@ pub const CAPTURE_SIZE: (u32, u32) = (960, 540);
 pub fn capture(scenario: &Scenario, config: CaptureConfig) -> AppExit {
     std::fs::create_dir_all(&config.dir).expect("dossier de capture");
 
-    let mut app = build_app(scenario, false);
+    let play_config = PlayConfig { follow_handle: config.follow_handle };
+    let mut app = build_app(scenario, false, &play_config);
     app.insert_resource(bevy::time::TimeUpdateStrategy::ManualDuration(
         std::time::Duration::from_nanos(1_000_000_000 / game::core::SIM_FPS),
     ))

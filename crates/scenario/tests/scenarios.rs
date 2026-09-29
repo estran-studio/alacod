@@ -132,7 +132,8 @@ fn nav_stats() {
     let (name, frames) = spec.split_once(':').unwrap();
     let frames: u32 = frames.parse().unwrap();
     let source = std::fs::read_to_string(scenarios_dir().join(format!("{name}.ron"))).unwrap();
-    let mut app = scenario::runner::build_app(&Scenario::from_ron(&source).unwrap(), true);
+    let config = scenario::runner::PlayConfig { follow_handle: None };
+    let mut app = scenario::runner::build_app(&Scenario::from_ron(&source).unwrap(), true, &config);
     app.finish();
     app.cleanup();
     #[derive(Default)]
