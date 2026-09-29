@@ -195,6 +195,7 @@ impl Plugin for GameArgsPlugin {
                 // partagent une session synctest
                 socket: args.players.iter().any(|p| !p.is_local),
                 udp_port: args.local_port,
+                check_distance: 2,
             },
             players: args.players,
         });

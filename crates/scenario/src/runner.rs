@@ -1,6 +1,7 @@
 //! Exécution headless d'un scénario, dans le processus courant.
 
 use bevy::prelude::*;
+use bevy_ggrs::SyncTestMismatch;
 use game::{
     args::{GameArgs, GameArgsPlugin},
     character::player::{
@@ -22,6 +23,10 @@ use map::generation::config::MapGenerationConfig;
 use utils::frame::FrameCount;
 
 use game::replay::{Expectation, Scenario};
+
+/// Ressource pour enregistrer les mismatches de synctest.
+#[derive(Resource, Default)]
+struct SyncTestMismatches(pub Vec<String>);
 
 /// Updates maximum pour charger la map avant la première frame de simulation.
 const MAX_LOADING_UPDATES: u32 = 10_000;
@@ -70,7 +75,15 @@ pub fn build_app(scenario: &Scenario, headless: bool) -> App {
         .insert_resource(WeaponOverrides(scenario.weapon_overrides.clone()))
         .add_systems(Update, apply_weapon_overrides)
         .insert_resource(InputSource::Scripted)
-        .insert_resource::<ScriptedInputs>(scenario.scripted_inputs());
+        .insert_resource::<ScriptedInputs>(scenario.scripted_inputs())
+        .init_resource::<SyncTestMismatches>()
+        .add_observer(|mismatch: Trigger<SyncTestMismatch>, mut log: ResMut<SyncTestMismatches>| {
+            let m = mismatch.event();
+            log.0.push(format!(
+                "frame {}: synctest mismatch (frames {:?})",
+                m.current_frame, m.mismatched_frames
+            ));
+        });
     app
 }
 
@@ -128,9 +141,11 @@ fn apply_weapon_overrides(
     *applied = true;
 }
 
-/// Joue le scénario jusqu'à `scenario.frames` et vérifie ses attentes.
-pub fn run(scenario: &Scenario) -> ScenarioOutcome {
+/// Joue le scénario jusqu'à `scenario.frames` et vérifie ses attentes,
+/// en appliquant une closure de configuration personnalisée à l'app.
+pub fn run_with<F: FnOnce(&mut App)>(scenario: &Scenario, configure: F) -> ScenarioOutcome {
     let mut app = build_app(scenario, true);
+    configure(&mut app);
     app.finish();
     app.cleanup();
 
@@ -163,6 +178,10 @@ pub fn run(scenario: &Scenario) -> ScenarioOutcome {
         ));
     }
 
+    // Ajoute les mismatches de synctest aux failures
+    let synctest_mismatches = app.world().resource::<SyncTestMismatches>();
+    failures.extend(synctest_mismatches.0.iter().cloned());
+
     let trace = app
         .world()
         .resource::<StateTraceRecorder>()
@@ -187,7 +206,18 @@ pub fn run(scenario: &Scenario) -> ScenarioOutcome {
     }
 }
 
+/// Joue le scénario jusqu'à `scenario.frames` et vérifie ses attentes.
+pub fn run(scenario: &Scenario) -> ScenarioOutcome {
+    run_with(scenario, |_| {})
+}
+
 fn game_args(player_count: usize) -> GameArgs {
+    // Read ALACOD_CHECK_DISTANCE environment variable (default 2)
+    let _check_distance = std::env::var("ALACOD_CHECK_DISTANCE")
+        .ok()
+        .and_then(|v| v.parse::<usize>().ok())
+        .unwrap_or(2);
+
     GameArgs {
         local_port: 0,
         number_player: player_count,

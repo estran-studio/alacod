@@ -24,7 +24,7 @@ pub struct HealthConfig {
     pub regen_delay_frames: Option<u32>, // Frames to wait after taking damage before regen starts
 }
 
-#[derive(Component, Clone, Debug, Serialize, Default, Deserialize)]
+#[derive(Component, Clone, Debug, Serialize, Default, Deserialize, Hash)]
 pub struct Health {
     pub current: fixed_math::Fixed,
     pub max: fixed_math::Fixed,

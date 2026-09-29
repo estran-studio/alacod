@@ -33,6 +33,7 @@ pub struct GggrsConnectionConfiguration {
     pub desync_interval: u32,
     pub socket: bool,
     pub udp_port: u16,
+    pub check_distance: usize,
 }
 
 /// Player configuration data from frontend

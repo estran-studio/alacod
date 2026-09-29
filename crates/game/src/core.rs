@@ -124,9 +124,11 @@ impl Plugin for CoreSetupPlugin {
         app.init_state::<AppState>();
         // app.set_rollback_schedule_fps(60);
 
-        app.rollback_resource_with_copy::<RollbackRng>()
+        use crate::rollback::RollbackTraceApp;
+
+        app.rollback_and_trace_copy_resource::<RollbackRng>()
             .rollback_resource_with_clone::<GgrsNetIdFactory>()
-            .rollback_resource_with_copy::<FrameCount>()
+            .rollback_and_trace_copy_resource::<FrameCount>()
             .rollback_component_with_clone::<fixed_math::FixedTransform3D>()
             .rollback_component_with_clone::<GgrsNetId>();
 
