@@ -253,10 +253,13 @@ Avant/après un refactoring de la simulation, comparer les traces : elles doiven
 
 `crates/scenario` joue des parties scriptées en headless, dans le processus de test :
 - `tests/scenarios/<nom>.ron` : map, seed, un script d'inputs par joueur (segments de frames avec
-  boutons et visée), nombre de frames, attentes à une frame donnée (`PlayerAlive`, `PlayerDead`,
-  `WaveAtLeast`, `KillsAtLeast`, `WindowsBrokenAtLeast`, `WindowHealth`, `DoorsOpenAtLeast`,
-  `ActiveWeapon`, `Ammo`, `PlayerPosition`, `BulletsInside`). `weapon_overrides` modifie la taille
-  et le nombre de chargeurs d'une arme pour un scénario. Format documenté dans `crates/game/src/replay.rs`.
+  boutons et visée), nombre de frames, attentes à une frame donnée :
+  - Ponctuelles : `PlayerAlive`, `PlayerDead`, `WaveAtLeast`, `KillsAtLeast`, `WindowsBrokenAtLeast`,
+    `WindowHealth`, `DoorsOpenAtLeast`, `ActiveWeapon`, `Ammo`, `PlayerPosition`, `BulletsInside`,
+    `Health`, `EntityHealth`, `EntityCount`, `Event`.
+  - Continues (vérifiées à chaque frame) : `NoDamageBetween` (santé du joueur ne diminue pas dans l'intervalle).
+  - `weapon_overrides` modifie la taille et le nombre de chargeurs d'une arme pour un scénario.
+  - Format documenté dans `crates/game/src/replay.rs`.
 - `tests/scenarios/<nom>.trace` : trace d'état de référence. Toute différence fait échouer le test.
 - `tests/budgets.ron` : planchers de non-régression en frames simulées par seconde (défaut et
   surcharges par scénario). Sous le plancher, `make test_scenarios` avertit ; `make bench`
@@ -267,6 +270,24 @@ Avant/après un refactoring de la simulation, comparer les traces : elles doiven
 - `make play_scenario SCENARIO=<nom>` : affiche le scénario avec rendu, mêmes inputs.
 - Métriques écrites dans `target/metrics/<commit>/metrics.json` et `target/metrics/latest.json` ; 
   visibles sur la page de revue (`make review_videos`, section Performance).
+
+### Invariants vérifiés à chaque frame (sans écrire dans le scénario)
+
+Le runner vérifie automatiquement des invariants de la simulation à chaque frame, sans qu'il faille
+les spécifier dans le scénario. Une violation produit une failure « invariant <nom> : frame N : détail ».
+Invariants par défaut :
+- `sante_bornee` : pour toute entité rollback avec `Health`, `0 ≤ current ≤ max`.
+- `net_ids_uniques` : deux entités rollback n'ont jamais le même `GgrsNetId`.
+- `joueur_hors_mur` : aucun joueur ne chevauche un collider `Wall`.
+
+Un scénario peut désactiver un invariant par un champ optionnel dans le scénario RON (exemple) :
+```ron
+Scenario(
+    ...
+    // Désactiver un invariant pour ce scénario seulement (ex. comportement volontaire pour tester)
+    invariants: (joueur_hors_mur: false),
+)
+```
 
 ### Jouer et enregistrer
 - **Contrôle remote** (`game::remote`, `ALACOD_REMOTE=1`) : `make remote` (ou `make remote HEADLESS=1`)

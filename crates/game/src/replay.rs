@@ -104,6 +104,19 @@ pub enum Button {
     ForceCrash,
 }
 
+/// Catégorie d'entités pour `EntityCount`.
+#[derive(Debug, Clone, Copy, Serialize, Deserialize)]
+pub enum EntityKind {
+    /// Joueurs vivants.
+    Player,
+    /// Ennemis vivants.
+    Enemy,
+    /// Balles en vol.
+    Bullet,
+    /// Toutes les entités marquées `Rollback`.
+    Rollback,
+}
+
 /// Vérification faite quand la simulation atteint `at_frame`.
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub enum Expectation {
@@ -131,6 +144,52 @@ pub enum Expectation {
     BulletsInside { x_min: f32, x_max: f32, y_min: f32, y_max: f32, at_frame: u32 },
     /// Position du joueur, à `tolerance` unités près sur chaque axe.
     PlayerPosition { handle: usize, x: f32, y: f32, tolerance: f32, at_frame: u32 },
+    /// Santé du joueur `handle` dans l'intervalle `[min, max]` (bornes inclusives, `None` = pas de borne).
+    /// Les `f32` sont convertis en `Fixed` pour la comparaison.
+    Health {
+        handle: usize,
+        #[serde(default, skip_serializing_if = "Option::is_none")]
+        min: Option<f32>,
+        #[serde(default, skip_serializing_if = "Option::is_none")]
+        max: Option<f32>,
+        at_frame: u32,
+    },
+    /// Santé de l'entité rollback `net_id` dans l'intervalle `[min, max]` (bornes inclusives, `None` = pas de borne).
+    /// Les `f32` sont convertis en `Fixed` pour la comparaison.
+    EntityHealth {
+        net_id: usize,
+        #[serde(default, skip_serializing_if = "Option::is_none")]
+        min: Option<f32>,
+        #[serde(default, skip_serializing_if = "Option::is_none")]
+        max: Option<f32>,
+        at_frame: u32,
+    },
+    /// La santé du joueur `handle` ne diminue à aucune frame entre `from_frame` et `to_frame` inclus.
+    /// C'est une attente **continue** : le runner relève la santé à chaque frame de l'intervalle.
+    /// Une baisse produit une failure qui dit la frame et les deux valeurs.
+    NoDamageBetween {
+        handle: usize,
+        from_frame: u32,
+        to_frame: u32,
+    },
+    /// Compte d'entités vivantes du type `kind` dans l'intervalle `[min, max]` (bornes inclusives, `None` = pas de borne).
+    EntityCount {
+        kind: EntityKind,
+        #[serde(default, skip_serializing_if = "Option::is_none")]
+        min: Option<u32>,
+        #[serde(default, skip_serializing_if = "Option::is_none")]
+        max: Option<u32>,
+        at_frame: u32,
+    },
+    /// Un `GameEvent` de ce `kind` (et dont le label contient la sous-chaîne, si donnée) est survenu
+    /// à une frame ≤ `by_frame`. Les `kind` possibles : "wave", "kill", "player", "hit", "reload",
+    /// "weapon", "move", "melee", "death", "window", "door".
+    Event {
+        kind: String,
+        #[serde(default, skip_serializing_if = "Option::is_none")]
+        label_contains: Option<String>,
+        by_frame: u32,
+    },
 }
 
 impl Expectation {
@@ -146,7 +205,12 @@ impl Expectation {
             | Self::DoorsOpenAtLeast { at_frame, .. }
             | Self::WindowHealth { at_frame, .. }
             | Self::BulletsInside { at_frame, .. }
-            | Self::PlayerPosition { at_frame, .. } => *at_frame,
+            | Self::PlayerPosition { at_frame, .. }
+            | Self::Health { at_frame, .. }
+            | Self::EntityHealth { at_frame, .. }
+            | Self::EntityCount { at_frame, .. }
+            | Self::Event { by_frame: at_frame, .. } => *at_frame,
+            Self::NoDamageBetween { to_frame, .. } => *to_frame,
         }
     }
 }
