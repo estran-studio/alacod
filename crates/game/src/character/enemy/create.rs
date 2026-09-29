@@ -2,6 +2,7 @@ use bevy::prelude::*;
 use bevy_fixed::fixed_math;
 #[cfg(feature = "harmonium")]
 use harmonium_bevy::components::HarmoniumTag;
+use sim_core::team::Team;
 use utils::net_id::GgrsNetIdFactory;
 
 use crate::{
@@ -73,6 +74,9 @@ pub fn spawn_enemy(
         EnemyAiConfig::zombie(),
         EnemyTarget::default(),
         MonsterState::default(),
+        // `Team` est un composant statique, non enregistré en rollback (voir sa doc dans
+        // `sim_core::team`) : ne pas l'ajouter à `RollbackTraceApp` sans blesser les traces.
+        Team::Enemies,
     ));
 
     #[cfg(feature = "harmonium")]
