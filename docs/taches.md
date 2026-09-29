@@ -545,7 +545,10 @@ Leçons de la vague 0 : (1) un `target` partagé entre worktrees fait la queue s
 pire, sert des artefacts périmés (les empreintes des crates du workspace sont relatives à la racine et
 datées) : un `target` par tâche, amorcé depuis `main` puis `touch` des sources (`task-new.sh`) ;
 (2) les agents rapportent parfois « vérifié » sans avoir pu compiler : l'orchestrateur relance toujours
-les vérifications lui-même ; (3) un agent arrêté laisse ses `cargo` en arrière-plan : les tuer.
+les vérifications lui-même ; (3) un agent arrêté laisse ses `cargo` en arrière-plan : les tuer ; (4) le `Makefile` forçait
+`CARGO_TARGET_DIR := ./target` : chaque `make test_scenarios` d'un worktree recompilait tout à froid
+dans un `target` local (corrigé en `?=` sur la branche T0.1a) ; (5) des agents ont compilé dans `/tmp`
+(tmpfs de 7,7 Go, saturé à 80 %) : le nettoyer et ne jamais y compiler.
 
 À faire à la frontière de la vague 1 (tâche de contrats, sériel) : `make format` ne vérifie rien
 (`cargo fmt --emit=files` réécrit les fichiers) et le code n'est pas formaté. Un commit dédié qui
