@@ -17,10 +17,12 @@ fn two_fonceurs(frames: u32) -> Scenario {
             PlayerScript {
                 inputs: vec![],
                 bot: Some(BotProfile::Fonceur),
+                ..Default::default()
             },
             PlayerScript {
                 inputs: vec![],
                 bot: Some(BotProfile::Fonceur),
+                ..Default::default()
             },
         ],
         expect: vec![],

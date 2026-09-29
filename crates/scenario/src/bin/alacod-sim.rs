@@ -123,6 +123,7 @@ fn main() {
             .map(|profile| PlayerScript {
                 inputs: vec![],
                 bot: Some(*profile),
+                ..Default::default()
             })
             .collect();
         let run_scenario = Scenario {
