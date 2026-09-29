@@ -251,21 +251,32 @@ diff_log:
 	diff $(FILTERED_LOG_DIR)/$(CID_1).log $(FILTERED_LOG_DIR)/$(CID_2).log
 
 test_multiplayer:
-	@echo "Starting multiplayer test with lobby: $(LOBBY_1)"; \
-	echo "Starting Bob's instance..."; \
-	make $(TARGET)_matchbox CID=bob NAME=Bob LOBBY=$(LOBBY_1) & \
-	BOB_PID=$$!; \
-	echo "Bob started with PID: $$BOB_PID"; \
-	echo "Waiting $(TIMEOUT) seconds before starting second instance..."; \
-	sleep $(TIMEOUT); \
-	echo "Starting Alice's instance..."; \
-	make $(TARGET)_matchbox CID=alice NAME=Alice LOBBY=$(LOBBY_2) & \
-	ALICE_PID=$$!; \
-	echo "Alice started with PID: $$ALICE_PID"; \
-	echo "Waiting for both instances to complete..."; \
-	wait $$BOB_PID; \
-	echo "Bob's instance completed"; \
-	wait $$ALICE_PID; \
-	echo "Alice's instance completed"; \
-	echo "Running log diff..."; \
-	make diff_log CID_1=alice CID_2=bob
+	@N=$(or $(N),2); \
+	PIDS=""; \
+	CIDS=""; \
+	PLAYER_NAMES=("alice" "bob" "charlie" "diana" "emma" "frank"); \
+	echo "Starting multiplayer test with $(N) players..."; \
+	for ((i=1; i<=N; i++)); do \
+		PLAYER_NAME=$${PLAYER_NAMES[$$((i-1))]}; \
+		LOBBY_ID="$$i"; \
+		echo "Starting player $$i ($$PLAYER_NAME)..."; \
+		make $(TARGET)_matchbox CID=$$PLAYER_NAME NAME="$$PLAYER_NAME" LOBBY="test_$$LOBBY_ID" NUMBER_PLAYER=$$N & \
+		PID=$$!; \
+		PIDS="$$PIDS $$PID"; \
+		CIDS="$$CIDS $$PLAYER_NAME"; \
+		if [ $$i -lt $$N ]; then \
+			echo "Waiting $(TIMEOUT) seconds before starting next player..."; \
+			sleep $(TIMEOUT); \
+		fi; \
+	done; \
+	echo "Waiting for all instances to complete..."; \
+	wait $$PIDS; \
+	echo "All instances completed"; \
+	echo "Running log diffs..."; \
+	FIRST_CID=$$(echo $$CIDS | awk '{print $$1}'); \
+	for CID in $$CIDS; do \
+		if [ "$$CID" != "$$FIRST_CID" ]; then \
+			echo "Comparing $$FIRST_CID vs $$CID..."; \
+			make diff_log CID_1=$$FIRST_CID CID_2=$$CID || true; \
+		fi; \
+	done

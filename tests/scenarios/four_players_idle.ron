@@ -1,0 +1,26 @@
+// Quatre joueurs locaux immobiles dans la même partie (session synctest à 4 joueurs).
+//
+// À regarder : la caméra suit le joueur 0. Chaque zombie va vers le joueur le plus proche par le
+// chemin (flow field). Les quatre joueurs sont dans la même salle initiale (spawnés aux quatre coins).
+// La vague débute et les zombies commencent à apparaître et attaquer les joueurs les plus proches.
+Scenario(
+    frames: 600,
+    players: [
+        (),
+        (),
+        (),
+        (),
+    ],
+    expect: [
+        // Tous quatre joueurs sont vivants au démarrage
+        PlayerAlive(handle: 0, at_frame: 60),
+        PlayerAlive(handle: 1, at_frame: 60),
+        PlayerAlive(handle: 2, at_frame: 60),
+        PlayerAlive(handle: 3, at_frame: 60),
+        // Tous quatre joueurs sont vivants à mi-parcours
+        PlayerAlive(handle: 0, at_frame: 300),
+        PlayerAlive(handle: 1, at_frame: 300),
+        PlayerAlive(handle: 2, at_frame: 300),
+        PlayerAlive(handle: 3, at_frame: 300),
+    ],
+)

@@ -289,6 +289,25 @@ Scenario(
 )
 ```
 
+### Scénarios à quatre joueurs
+
+Deux scénarios de validation à quatre joueurs locaux en synctest (session multi-joueur sur la même machine) :
+
+- **`four_players_idle.ron`** (600 frames, fps=25.2) : quatre joueurs immobiles. Valide :
+  - Les quatre joueurs sont présents et vivants au démarrage et à mi-parcours
+  - La vague démarre (Event "wave" by frame 800)
+  - Les ennemis ciblent le joueur le plus proche via le flow field
+  - Les métriques : 600 frames, ~137 entités max, 0 balles
+
+- **`four_players_shooting.ron`** (300 frames, fps=25.5) : quatre joueurs tirent à la mitrailleuse, chacun dans une direction (haut, droite, bas, gauche). Valide :
+  - Les quatre joueurs tirent simultanément sans désynchronisation
+  - Chaque joueur consomme ses propres munitions au même rythme
+  - Les quatre chargeurs se remplissent au même moment (frame 285)
+  - Les balles des quatre joueurs s'arrêtent sur les murs de la salle
+  - Les métriques : 300 frames, ~151 entités max, 27 balles max
+
+Rejouer avec `make play_scenario SCENARIO=<nom>` (avec rendu). Pour regénérer les traces après un changement intentionnel de gameplay : `BLESS=1 SCENARIO=<nom> make test_scenarios`.
+
 ### Jouer et enregistrer
 - **Contrôle remote** (`game::remote`, `ALACOD_REMOTE=1`) : `make remote` (ou `make remote HEADLESS=1`)
   lance la partie en pause ; `scripts/alacod-remote` la pilote : `brief`/`state` (joueurs, ennemis
@@ -298,6 +317,30 @@ Scenario(
   frame ; `save` (remote) ou `ALACOD_RECORD=<fichier>` (écrit à la fermeture, ex.
   `make record_session NAME=x`) produit un scénario rejouable. Ajouter des `expect`, puis
   `make test_scenarios SCENARIO=<nom> BLESS=1`.
+
+### Multiplayer (tests P2P par matchbox)
+
+**Test à N joueurs via matchbox** (serveur de signaling allumette) :
+```bash
+make test_multiplayer N=4
+```
+
+La cible généralise le nombre de joueurs : `make test_multiplayer N=2` (défaut) lance 2 instances (alice et bob), `N=4` en lance 4 (alice, bob, charlie, diana), etc. Chaque instance :
+- Se connecte à une lobby distincte (`test_1`, `test_2`, etc.)
+- Spécifie `NUMBER_PLAYER=N` pour que le matchbox attende N connections
+- Attend `TIMEOUT` (défaut 10s) avant le lancement de la suivante (laisser le temps aux connexions)
+
+Après que tous les clients terminent :
+- Les logs GGRS de chaque client sont filtrés et comparés à `diff_log`
+- Chaque joueur doit produire la même trace (desyncs détectés par différences de logs)
+
+Pour utiliser un serveur allumette local (si disponible dans `docker-compose.yaml`) :
+```bash
+docker compose up -d  # lance le serveur de signaling
+make test_multiplayer N=4 MATCHBOX_URL=http://localhost:3536  # URL personnalisée
+```
+
+Défaut : `MATCHBOX_URL=wss://allumette.bascanada.org` (serveur cloud).
 
 ### Vidéos (validation visuelle)
 `scripts/scenario-video` rejoue les scénarios avec rendu et capture chaque frame (image n = frame n,
