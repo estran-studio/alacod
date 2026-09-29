@@ -9,4 +9,6 @@
     indicator_size: 20.0,
     indicator_edge_distance: 20.0,
     use_edge_detection: true,
+    // En ligne, mode de suivi : LocalPlayer (défaut, suit mon joueur) ou AllPlayers (cadre tout le monde)
+    online_follow: LocalPlayer,
 ))
