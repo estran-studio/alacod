@@ -10,7 +10,9 @@ import sys
 from pathlib import Path
 
 ROOT = Path(__file__).resolve().parent.parent
-METRICS_DIR = ROOT / "target" / "metrics"
+import os
+# Le target de la tâche courante (worktree) ou ./target par défaut, comme cargo.
+METRICS_DIR = Path(os.environ.get("CARGO_TARGET_DIR", ROOT / "target")) / "metrics"
 
 
 def git(*args):

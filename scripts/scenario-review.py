@@ -13,6 +13,7 @@ vidéo (`make review_videos`, `TAILSCALE=1` pour l'IP Tailscale de la machine).
 import functools
 import http.server
 import json
+import os
 import re
 import subprocess
 import sys
@@ -20,7 +21,7 @@ from pathlib import Path
 
 ROOT = Path(__file__).resolve().parent.parent
 VIDEOS = ROOT / "target" / "videos"
-METRICS = ROOT / "target" / "metrics"
+METRICS = Path(os.environ.get("CARGO_TARGET_DIR", ROOT / "target")) / "metrics"
 SCENARIOS = ROOT / "tests" / "scenarios"
 
 
