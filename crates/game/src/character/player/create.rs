@@ -6,6 +6,7 @@ use bevy_light_2d::light::PointLight2d;
 #[cfg(feature = "harmonium")]
 use harmonium_bevy::components::AiDriver;
 use leafwing_input_manager::prelude::ActionState;
+use sim_core::team::Team;
 use utils::net_id::GgrsNetIdFactory;
 
 use crate::{
@@ -66,6 +67,11 @@ pub fn create_player(
         CollisionLayer(collision_settings.player_layer),
         id_factory,
     );
+
+    // `Team` est un composant statique, non enregistré en rollback (voir sa doc dans
+    // `sim_core::team`) : ne pas l'ajouter à `RollbackTraceApp` sans blesser les traces.
+    commands.entity(entity).insert(Team::Players);
+
     if local {
         commands.entity(entity).insert((
             LocalPlayer {},

@@ -1,6 +1,7 @@
 use std::net::SocketAddr;
 
 use bevy::prelude::*;
+use sim_core::players::PlayersCount;
 use utils::cid::generate_random_correlation_id;
 
 use crate::{
@@ -185,6 +186,10 @@ impl Plugin for GameArgsPlugin {
         if nbr_player == 0 {
             nbr_player = args.players.len();
         }
+
+        // Ressource ordinaire, hors rollback (voir `sim_core::players`) : ne pas
+        // l'enregistrer avec `RollbackTraceApp`, ça changerait les traces de référence.
+        app.insert_resource(PlayersCount(nbr_player));
 
         app.insert_resource(telemetry::TelemetryConfig {
             enabled: args.telemetry,
