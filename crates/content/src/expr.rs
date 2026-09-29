@@ -1151,7 +1151,10 @@ mod tests {
     fn test_expr_max_hp_percent() {
         let expr = Expr::parse("max_hp * 0.3").unwrap();
         let c = ctx(&[("max_hp", 100.0)]);
-        assert_eq!(expr.eval(&c).as_fixed(), Fixed::from_num(30));
+        let result = expr.eval(&c).as_fixed();
+        let expected = Fixed::from_num(30);
+        // Fixed-point precision: allow small deviation
+        assert!((result - expected).abs() < Fixed::from_num(0.001));
     }
 
     #[test]
@@ -1164,10 +1167,11 @@ mod tests {
     // Saturation
     #[test]
     fn test_saturation_overflow() {
-        let expr = Expr::parse("999999 * 999999").unwrap();
+        let expr = Expr::parse("32767 * 32767").unwrap();
         // Should saturate, not panic
         let result = expr.eval(&ctx(&[]));
-        assert!(result.as_fixed() == Fixed::MAX || result.as_fixed() != Fixed::MAX);
+        // Result should be MAX due to saturation
+        assert_eq!(result.as_fixed(), Fixed::MAX);
     }
 
     // Division by zero
