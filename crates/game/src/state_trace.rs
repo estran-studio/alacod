@@ -2,13 +2,32 @@
 //!
 //! Inactif par défaut. Variables d'environnement :
 //! - `ALACOD_STATE_TRACE=<fichier>` : écrit une ligne par frame simulée
-//!   (`<frame> <hash> <nb entités>`) ;
-//! - `ALACOD_STATE_TRACE_FULL=1` : écrit aussi l'état détaillé de chaque entité ;
+//!   (`<frame> <checksum GGRS 128 bits> <nb entités rollback>`) ;
+//! - `ALACOD_STATE_TRACE_FULL=1` : écrit aussi l'état détaillé de chaque ressource et
+//!   entité rollback tracées (voir [`crate::rollback::StateTracers`]) ;
 //! - `ALACOD_EXIT_AT_FRAME=<n>` : écrit la trace et quitte le jeu une fois la frame `n`
-//!   atteinte (requis : la trace n'est écrite qu'à ce moment).
+//!   atteinte (requis : la trace n'est écrite qu'à ce moment). La trace compte alors `n - 1`
+//!   lignes, pas `n` : la toute dernière frame n'a pas le temps d'être enregistrée avant
+//!   l'arrêt (voir [`write_trace_at_exit_frame`]).
 //!
 //! Deux runs avec les mêmes inputs et les mêmes seeds doivent produire le même
 //! fichier. En synctest, une frame resimulée remplace sa ligne précédente.
+//!
+//! Le hash de chaque ligne est le [`Checksum`](bevy_ggrs::Checksum) GGRS : la même valeur
+//! que celle comparée par le synctest et la détection de desync p2p (donc exactement ce
+//! qu'`app.rollback_and_trace::<T>()`, via `checksum_component`/`checksum_resource`, fait
+//! contribuer). Ce checksum n'est finalisé par bevy_ggrs qu'entre les sets
+//! `SaveWorldSystems::Checksum` et `SaveWorldSystems::Snapshot` du schedule `SaveWorld`
+//! (voir `bevy_ggrs::snapshot::checksum` : `ChecksumPlugin::update` s'exécute
+//! `.after(Checksum).before(Snapshot)`) : [`record_state`] est donc un système du
+//! schedule `SaveWorld`, dans le set `Snapshot`, et non plus du `GgrsSchedule` où
+//! vivait l'ancienne version (qui aurait lu le checksum de la `SaveGameState`
+//! précédente, pas celle de la frame en cours). Comme `SaveWorld` tourne juste après
+//! l'`AdvanceFrame` de la même frame (même appel à `handle_requests` côté bevy_ggrs), le
+//! numéro de frame utilisé est [`bevy_ggrs::RollbackFrameCount`] (et non la ressource
+//! `FrameCount` du jeu, dont l'incrément a lieu plus tôt, dans le `GgrsSchedule`) — moins
+//! un : `RollbackFrameCount` lu à ce point vaut systématiquement un de plus que le numéro
+//! de frame au sens du jeu (vérifié empiriquement, voir [`current_rollback_frame`]).
 //!
 //! Depuis le code (scénarios) : [`StateTraceRecorderPlugin`] enregistre la trace dans la
 //! ressource [`StateTraceRecorder`], sans fichier ni arrêt.
@@ -16,27 +35,15 @@
 use std::{collections::BTreeMap, fmt::Write as _, path::PathBuf};
 
 use bevy::prelude::*;
-use bevy_fixed::{fixed_math::FixedTransform3D, rng::RollbackRng};
-use bevy_ggrs::{GgrsSchedule, Rollback};
-use map::game::entity::map::window::WindowHealth;
-use utils::{frame::FrameCount, net_id::GgrsNetId, order_iter};
+use bevy_ggrs::{Checksum, Rollback, RollbackFrameCount, SaveWorld, SaveWorldSystems};
+use utils::{frame::FrameCount, net_id::GgrsNetId};
 
-use crate::{
-    character::{
-        enemy::ai::{EnemyTarget, MonsterState, Obstacle},
-        health::Health,
-        movement::Velocity,
-    },
-    frame::increase_frame_system,
-    rollback::fnv1a,
-    system_set::RollbackSystemSet,
-    waves::WaveState,
-};
+use crate::rollback::StateTracers;
 
 /// Trace enregistrée : une ligne par frame simulée, indexée par numéro de frame.
 #[derive(Resource, Default)]
 pub struct StateTraceRecorder {
-    /// Ajoute l'état détaillé de chaque entité sous la ligne de hash.
+    /// Ajoute l'état détaillé de chaque ressource et entité tracée sous la ligne de hash.
     pub full: bool,
     frames: BTreeMap<u32, String>,
 }
@@ -59,12 +66,7 @@ impl Plugin for StateTraceRecorderPlugin {
             full: self.full,
             frames: BTreeMap::new(),
         })
-        .add_systems(
-            GgrsSchedule,
-            record_state
-                .in_set(RollbackSystemSet::FrameCounter)
-                .before(increase_frame_system),
-        );
+        .add_systems(SaveWorld, record_state.in_set(SaveWorldSystems::Snapshot));
     }
 }
 
@@ -106,40 +108,64 @@ impl Plugin for StateTracePlugin {
     }
 }
 
-type TracedEntity<'a> = (
-    &'a GgrsNetId,
-    Option<&'a FixedTransform3D>,
-    Option<&'a Health>,
-    Option<&'a Velocity>,
-    Option<&'a MonsterState>,
-    Option<&'a EnemyTarget>,
-    Option<&'a WindowHealth>,
-    Option<&'a Obstacle>,
-);
+/// Numéro de frame GGRS de la `SaveGameState` en cours (voir la doc du module). `None`
+/// avant que la première frame n'ait été simulée, ou hors session GGRS (schedule
+/// `SaveWorld` non déclenché de toute façon dans ce cas).
+///
+/// `RollbackFrameCount` lu ici vaut systématiquement un de plus que le numéro de frame
+/// tel que le jeu (et l'ancienne trace, en `GgrsSchedule`) le compte : vérifié
+/// empiriquement en comparant les traces avant/après ce changement de schedule (les
+/// entités apparaissent une frame plus tard sans le `- 1`, de façon reproductible à
+/// l'identique sur plusieurs runs). `- 1` réaligne les deux numérotations ; documenté ici
+/// faute d'avoir trouvé où bevy_ggrs 0.22 le documente lui-même.
+fn current_rollback_frame(world: &World) -> Option<u32> {
+    let frame = world.get_resource::<RollbackFrameCount>()?.0 - 1;
+    u32::try_from(frame).ok()
+}
 
-fn record_state(
-    frame: Res<FrameCount>,
-    mut trace: ResMut<StateTraceRecorder>,
-    entities: Query<TracedEntity, With<Rollback>>,
-    wave_state: Option<Res<WaveState>>,
-    rng: Option<Res<RollbackRng>>,
-) {
-    let mut state = String::new();
-    let _ = writeln!(state, "wave={wave_state:?} rng={rng:?}", wave_state = wave_state.as_deref(), rng = rng.as_deref());
-    let items = order_iter!(entities);
-    for (id, transform, health, velocity, monster, target, window, obstacle) in &items {
-        let _ = writeln!(
-            state,
-            "{id:?} t={transform:?} h={health:?} v={velocity:?} m={monster:?} tg={target:?} w={window:?} o={obstacle:?}"
-        );
-    }
+/// Système exclusif (`&mut World`) : les tracers génériques de [`StateTracers`] prennent
+/// `&World`/`&World, Entity`, et itérer toutes les entités rollback triées par
+/// `GgrsNetId` demande une query ad hoc (`World::query_filtered`, qui exige `&mut World`
+/// pour s'enregistrer). Voir la doc du module pour l'ordonnancement dans `SaveWorld`.
+fn record_state(world: &mut World) {
+    let Some(frame) = current_rollback_frame(world) else {
+        return;
+    };
 
-    let mut line = format!("{} {:016x} {}", frame.frame, fnv1a(state.as_bytes()), items.len());
-    if trace.full {
+    let mut rollback_entities = world.query_filtered::<(&GgrsNetId, Entity), With<Rollback>>();
+    let mut entities: Vec<(GgrsNetId, Entity)> = rollback_entities
+        .iter(world)
+        .map(|(id, entity)| (id.clone(), entity))
+        .collect();
+    entities.sort_unstable_by_key(|(id, _)| id.0);
+
+    let checksum = world.resource::<Checksum>().0;
+    let full = world.resource::<StateTraceRecorder>().full;
+
+    let mut line = format!("{frame} {checksum:032x} {}", entities.len());
+    if full {
         line.push('\n');
-        line.push_str(&state);
+        // Emprunt partagé pour toute la phase de lecture : tracers + monde restent tous
+        // les deux accessibles en lecture simultanément (voir la doc de `record_state`).
+        let world: &World = world;
+        let tracers = world.resource::<StateTracers>();
+        for &(name, tracer) in &tracers.resources {
+            if let Some(value) = tracer(world) {
+                let _ = writeln!(line, "{name}={value}");
+            }
+        }
+        for (id, entity) in &entities {
+            let _ = write!(line, "{id:?}");
+            for &(name, tracer) in &tracers.components {
+                if let Some(value) = tracer(world, *entity) {
+                    let _ = write!(line, " {name}={value}");
+                }
+            }
+            let _ = writeln!(line);
+        }
     }
-    trace.frames.insert(frame.frame, line);
+
+    world.resource_mut::<StateTraceRecorder>().frames.insert(frame, line);
 }
 
 fn write_trace_at_exit_frame(
@@ -151,7 +177,14 @@ fn write_trace_at_exit_frame(
     if file.written || frame.frame < file.exit_at_frame {
         return;
     }
-
+    // La toute dernière frame demandée (`exit_at_frame - 1`) manque systématiquement :
+    // `record_state` vit dans `SaveWorld`, et la `SaveGameState` de cette dernière frame
+    // n'a pas encore été traitée quand ce système voit `FrameCount` atteindre
+    // `exit_at_frame` (constaté empiriquement, de façon reproductible : attendre plusieurs
+    // ticks de plus avant d'écrire ne change rien, la donnée n'arrive jamais par ce
+    // chemin). La trace compte donc `exit_at_frame - 1` lignes (frames `0..exit_at_frame -
+    // 2` inclus) au lieu de `exit_at_frame` : documenté ici plutôt que deviné plus loin ;
+    // aucun impact sur ce qui EST enregistré, complet et correct jusque-là.
     let mut out = String::new();
     for line in trace.lines_until(file.exit_at_frame) {
         out.push_str(line);

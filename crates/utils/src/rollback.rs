@@ -15,9 +15,24 @@ use bevy_ggrs::RollbackApp;
 use std::any::type_name;
 
 /// Ressource pour tracker les types enregistrés avec tracing.
-/// Utile pour vérifier la couverture plus tard.
+/// Utile pour vérifier la couverture plus tard (voir [`StateTracers`] et le test de
+/// couverture dans `game::rollback`).
 #[derive(Resource, Default)]
 pub struct TracedTypes(pub Vec<&'static str>);
+
+/// Fonction de trace d'un composant : lit le composant `Debug` sur une entité si présent.
+pub type ComponentTracer = fn(&World, Entity) -> Option<String>;
+/// Fonction de trace d'une ressource : lit la ressource `Debug` si présente.
+pub type ResourceTracer = fn(&World) -> Option<String>;
+
+/// Tracers génériques enregistrés par [`RollbackTraceApp`], dans l'ordre d'enregistrement
+/// des types. Utilisée par `state_trace::record_state` (mode `ALACOD_STATE_TRACE_FULL`)
+/// pour construire un dump détaillé sans connaître la liste des types à l'avance.
+#[derive(Resource, Default)]
+pub struct StateTracers {
+    pub components: Vec<(&'static str, ComponentTracer)>,
+    pub resources: Vec<(&'static str, ResourceTracer)>,
+}
 
 /// Extension sur [`App`] pour enregistrer composants et ressources en rollback
 /// tout en activant le checksum GGRS et en enregistrant le type.
@@ -62,7 +77,7 @@ impl RollbackTraceApp for App {
     where
         C: Component<Mutability = Mutable> + Clone + std::hash::Hash + std::fmt::Debug + Send + Sync + 'static,
     {
-        register_traced_type::<C>(self);
+        register_traced_component::<C>(self);
         self.rollback_component_with_clone::<C>()
             .checksum_component_with_hash::<C>()
     }
@@ -71,7 +86,7 @@ impl RollbackTraceApp for App {
     where
         C: Component<Mutability = Mutable> + Clone + std::fmt::Debug + Send + Sync + 'static,
     {
-        register_traced_type::<C>(self);
+        register_traced_component::<C>(self);
         self.rollback_component_with_clone::<C>()
             .checksum_component(hash_debug::<C>)
     }
@@ -80,7 +95,7 @@ impl RollbackTraceApp for App {
     where
         R: Resource<Mutability = Mutable> + Clone + std::hash::Hash + std::fmt::Debug + Send + Sync + 'static,
     {
-        register_traced_type::<R>(self);
+        register_traced_resource::<R>(self);
         self.rollback_resource_with_clone::<R>()
             .checksum_resource_with_hash::<R>()
     }
@@ -89,7 +104,7 @@ impl RollbackTraceApp for App {
     where
         R: Resource<Mutability = Mutable> + Clone + std::fmt::Debug + Send + Sync + 'static,
     {
-        register_traced_type::<R>(self);
+        register_traced_resource::<R>(self);
         self.rollback_resource_with_clone::<R>()
             .checksum_resource(hash_debug::<R>)
     }
@@ -98,7 +113,7 @@ impl RollbackTraceApp for App {
     where
         R: Resource<Mutability = Mutable> + Copy + std::hash::Hash + std::fmt::Debug + Send + Sync + 'static,
     {
-        register_traced_type::<R>(self);
+        register_traced_resource::<R>(self);
         self.rollback_resource_with_copy::<R>()
             .checksum_resource_with_hash::<R>()
     }
@@ -107,19 +122,41 @@ impl RollbackTraceApp for App {
     where
         R: Resource<Mutability = Mutable> + Copy + std::fmt::Debug + Send + Sync + 'static,
     {
-        register_traced_type::<R>(self);
+        register_traced_resource::<R>(self);
         self.rollback_resource_with_copy::<R>()
     }
 }
 
-/// Enregistre un type de trace dans la ressource `TracedTypes`.
-fn register_traced_type<T: 'static>(app: &mut App) {
+/// Enregistre un type de trace dans `TracedTypes`, initialisant les ressources de trace
+/// au besoin (premier type enregistré).
+fn ensure_trace_resources(app: &mut App) {
     if !app.world().contains_resource::<TracedTypes>() {
         app.init_resource::<TracedTypes>();
     }
-    if let Some(mut traced) = app.world_mut().get_resource_mut::<TracedTypes>() {
-        traced.0.push(type_name::<T>());
+    if !app.world().contains_resource::<StateTracers>() {
+        app.init_resource::<StateTracers>();
     }
+}
+
+/// Enregistre un composant : nom dans `TracedTypes`, tracer `Debug` dans `StateTracers`.
+fn register_traced_component<C: Component + std::fmt::Debug>(app: &mut App) {
+    ensure_trace_resources(app);
+    let name = type_name::<C>();
+    let tracer: ComponentTracer =
+        |world, entity| world.get_entity(entity).ok()?.get::<C>().map(|c| format!("{c:?}"));
+    let state = app.world_mut();
+    state.resource_mut::<TracedTypes>().0.push(name);
+    state.resource_mut::<StateTracers>().components.push((name, tracer));
+}
+
+/// Enregistre une ressource : nom dans `TracedTypes`, tracer `Debug` dans `StateTracers`.
+fn register_traced_resource<R: Resource + std::fmt::Debug>(app: &mut App) {
+    ensure_trace_resources(app);
+    let name = type_name::<R>();
+    let tracer: ResourceTracer = |world| world.get_resource::<R>().map(|r| format!("{r:?}"));
+    let state = app.world_mut();
+    state.resource_mut::<TracedTypes>().0.push(name);
+    state.resource_mut::<StateTracers>().resources.push((name, tracer));
 }
 
 /// Fonction de hashage pour les types qui n'implémentent pas `Hash` :
