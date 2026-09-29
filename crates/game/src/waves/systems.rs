@@ -6,7 +6,10 @@
 use bevy::{ecs::system::SystemParam, prelude::*};
 use bevy_fixed::{fixed_math, rng::RollbackRng};
 use map::game::entity::map::enemy_spawn::EnemySpawnerComponent;
-use utils::{frame::FrameCount, net_id::{GgrsNetId, GgrsNetIdFactory}};
+use utils::{
+    frame::FrameCount,
+    net_id::{GgrsNetId, GgrsNetIdFactory},
+};
 
 use crate::{
     character::{
@@ -170,7 +173,12 @@ pub fn wave_spawning_system(
 
     // Spawner query (from LDTK map)
     // GGRS CRITICAL: GgrsNetId must be first for deterministic sorting
-    spawner_query: Query<(&GgrsNetId, Entity, &EnemySpawnerComponent, &fixed_math::FixedTransform3D)>,
+    spawner_query: Query<(
+        &GgrsNetId,
+        Entity,
+        &EnemySpawnerComponent,
+        &fixed_math::FixedTransform3D,
+    )>,
     // Player positions for spawner selection
     player_query: Query<&fixed_math::FixedTransform3D, With<Player>>,
     // Current enemy count
@@ -233,7 +241,9 @@ pub fn wave_spawning_system(
     }
 
     // Calculate batch size
-    let available_slots = config.max_concurrent_enemies.saturating_sub(current_enemies);
+    let available_slots = config
+        .max_concurrent_enemies
+        .saturating_sub(current_enemies);
     let batch_size = wave_state
         .enemies_to_spawn
         .min(config.spawn_batch_size)
@@ -296,10 +306,20 @@ pub fn wave_spawning_system(
 
 /// Select spawners that are within valid distance range from players.
 fn select_valid_spawners<'a>(
-    spawner_query: &'a Query<(&GgrsNetId, Entity, &EnemySpawnerComponent, &fixed_math::FixedTransform3D)>,
+    spawner_query: &'a Query<(
+        &GgrsNetId,
+        Entity,
+        &EnemySpawnerComponent,
+        &fixed_math::FixedTransform3D,
+    )>,
     player_positions: &[fixed_math::FixedVec2],
     config: &WaveConfig,
-) -> Vec<(&'a GgrsNetId, Entity, &'a EnemySpawnerComponent, &'a fixed_math::FixedTransform3D)> {
+) -> Vec<(
+    &'a GgrsNetId,
+    Entity,
+    &'a EnemySpawnerComponent,
+    &'a fixed_math::FixedTransform3D,
+)> {
     let mut spawners: Vec<_> = spawner_query.iter().collect();
     spawners.sort_unstable_by_key(|(net_id, _, _, _)| net_id.0);
 
@@ -338,10 +358,9 @@ fn calculate_spawn_position(
     let angle = rng.next_fixed() * fixed_math::FIXED_TAU;
     let distance = rng.next_fixed() * spawn_radius;
 
-    let offset = fixed_math::FixedVec2::new(
-        fixed_math::cos_fixed(angle),
-        fixed_math::sin_fixed(angle),
-    ) * distance;
+    let offset =
+        fixed_math::FixedVec2::new(fixed_math::cos_fixed(angle), fixed_math::sin_fixed(angle))
+            * distance;
 
     fixed_math::FixedVec3::new(
         spawner_pos.x.saturating_add(offset.x),
@@ -353,11 +372,7 @@ fn calculate_spawn_position(
 /// Select enemy type based on wave tier probabilities.
 ///
 /// GGRS CRITICAL: Sorts probability keys for deterministic weighted selection.
-fn select_enemy_type(
-    wave_state: &WaveState,
-    config: &WaveConfig,
-    rng: &mut RollbackRng,
-) -> String {
+fn select_enemy_type(wave_state: &WaveState, config: &WaveConfig, rng: &mut RollbackRng) -> String {
     // Get tier for current wave
     let tier = config.get_tier(wave_state.current_wave);
 

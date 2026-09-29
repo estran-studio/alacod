@@ -25,5 +25,4 @@ pub const FIELD_PAIRED_DOOR_X_NAME: &str = "paired_door_x";
 pub const FIELD_PAIRED_DOOR_Y_NAME: &str = "paired_door_y";
 pub const FIELD_PAIRED_DOOR_LEVEL_NAME: &str = "paired_door_level";
 
-
 pub const FIELD_PLAYER_SPAWN_INDEX_NAME: &str = "index";

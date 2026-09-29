@@ -199,10 +199,7 @@ fn camera_control_system(
     settings: Res<CameraSettings>,
     windows: Query<&Window>,
     action_query: Query<(&Player, &ActionState<PlayerAction>), With<LocalPlayer>>,
-    mut camera_query: Query<
-        (&mut GameCamera, &mut Transform, &mut Projection),
-        Without<Player>,
-    >,
+    mut camera_query: Query<(&mut GameCamera, &mut Transform, &mut Projection), Without<Player>>,
     player_query: Query<(Entity, &Transform, &Player, Option<&LocalPlayer>), Without<GameCamera>>,
     online_state: Res<OnlineState>,
     follow_override: Option<Res<CameraFollowOverride>>,
@@ -400,7 +397,7 @@ fn camera_control_system(
             let current_zoom = orth.scale;
             let new_zoom = current_zoom + (camera.target_zoom - current_zoom) * lerp_factor;
             orth.scale = new_zoom;
-        },
+        }
         _ => {}
     };
 }
@@ -591,7 +588,7 @@ pub fn setup_camera(mut commands: Commands, settings: Res<CameraSettings>) {
         commands.spawn((
             Camera2d::default(),
             SpatialAudioReceiver,
-            AmbientLight2d{
+            AmbientLight2d {
                 brightness: 0.4,
                 ..Default::default()
             },
@@ -603,7 +600,7 @@ pub fn setup_camera(mut commands: Commands, settings: Res<CameraSettings>) {
             },
         ));
     }
-    
+
     #[cfg(not(feature = "lighting"))]
     {
         commands.spawn((

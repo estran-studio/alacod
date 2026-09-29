@@ -1,8 +1,8 @@
+use crate::{TelemetryConfig, TelemetryEvent};
 use bevy::prelude::*;
+use chrono::Utc;
 use std::panic;
 use std::sync::{Arc, Mutex};
-use crate::{TelemetryConfig, TelemetryEvent};
-use chrono::Utc;
 
 #[cfg(target_arch = "wasm32")]
 use wasm_bindgen::prelude::*;
@@ -42,7 +42,12 @@ fn setup_panic_hook_config(config: Res<TelemetryConfig>) {
             };
 
             let location = if let Some(location) = info.location() {
-                format!(" at {}:{}:{}", location.file(), location.line(), location.column())
+                format!(
+                    " at {}:{}:{}",
+                    location.file(),
+                    location.line(),
+                    location.column()
+                )
             } else {
                 "".to_string()
             };
@@ -90,8 +95,7 @@ pub fn send_log_blocking(config: &TelemetryConfig, events: &[TelemetryEvent]) {
     let url = &config.url;
     let auth = get_auth_header(&config.auth_token);
 
-    let mut request = ureq::post(url)
-        .set("Content-Type", "application/json");
+    let mut request = ureq::post(url).set("Content-Type", "application/json");
 
     if !auth.is_empty() {
         request = request.set("Authorization", &auth);
@@ -116,12 +120,12 @@ pub fn send_log_wasm_panic(config: &TelemetryConfig, events: &[TelemetryEvent]) 
     opts.set_method("POST");
     opts.set_mode(RequestMode::Cors);
     opts.set_body(&JsValue::from_str(&body));
-    
+
     // Set keepalive using Reflect since web-sys might check features or version issues
     let _ = js_sys::Reflect::set(
         &opts,
         &JsValue::from_str("keepalive"),
-        &JsValue::from_bool(true)
+        &JsValue::from_bool(true),
     );
 
     let url = config.url.clone();
@@ -154,7 +158,7 @@ pub async fn send_log_wasm(config: &TelemetryConfig, events: &[TelemetryEvent]) 
 
     let headers = web_sys::Headers::new().unwrap();
     headers.append("Content-Type", "application/json").unwrap();
-    
+
     let auth = get_auth_header(&config.auth_token);
     if !auth.is_empty() {
         headers.append("Authorization", &auth).unwrap();

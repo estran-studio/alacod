@@ -13,7 +13,9 @@ use super::navigation::NavProfile;
 use super::obstacle::ObstacleType;
 
 /// Generic monster state - replaces ZombieState
-#[derive(Component, Clone, Debug, Hash, PartialEq, Eq, Reflect, Serialize, Deserialize, Default)]
+#[derive(
+    Component, Clone, Debug, Hash, PartialEq, Eq, Reflect, Serialize, Deserialize, Default,
+)]
 pub enum MonsterState {
     /// Waiting or wandering randomly
     #[default]
@@ -26,9 +28,7 @@ pub enum MonsterState {
         last_attack_frame: u32,
     },
     /// Stunned or knocked back (recovering)
-    Stunned {
-        recover_at_frame: u32,
-    },
+    Stunned { recover_at_frame: u32 },
     /// Special state for breaking through obstacles
     Breaching {
         obstacle: GgrsNetId,
@@ -284,7 +284,10 @@ impl From<&EnemyAiConfigRon> for EnemyAiConfig {
             if let Ok(val) = damage.parse::<f32>() {
                 config.attack_damage = fixed_math::new(val);
             } else {
-                warn!("Failed to parse attack_damage '{}' from RON config.", damage);
+                warn!(
+                    "Failed to parse attack_damage '{}' from RON config.",
+                    damage
+                );
             }
         }
 

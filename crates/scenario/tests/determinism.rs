@@ -13,24 +13,35 @@ use game::{
 use scenario::{run_with, Scenario};
 
 fn idle() -> Scenario {
-    let path = concat!(env!("CARGO_MANIFEST_DIR"), "/../../tests/scenarios/idle.ron");
+    let path = concat!(
+        env!("CARGO_MANIFEST_DIR"),
+        "/../../tests/scenarios/idle.ron"
+    );
     let source = std::fs::read_to_string(path).expect("idle.ron");
     Scenario::from_ron(&source).expect("scénario valide")
 }
 
 fn failures_synctest(failures: &[String]) -> Vec<&String> {
-    failures.iter().filter(|f| f.contains("synctest mismatch")).collect()
+    failures
+        .iter()
+        .filter(|f| f.contains("synctest mismatch"))
+        .collect()
 }
 
 #[test]
 fn synctest_passe_sur_un_scenario_sain() {
     if map_ldtk::RENDER_ENABLED {
-        eprintln!("test ignoré : compilé avec le rendu des tilemaps (utiliser --no-default-features)");
+        eprintln!(
+            "test ignoré : compilé avec le rendu des tilemaps (utiliser --no-default-features)"
+        );
         return;
     }
     let outcome = run_with(&idle(), |_| {});
     let mismatches = failures_synctest(&outcome.failures);
-    assert!(mismatches.is_empty(), "aucun mismatch attendu, trouvé : {mismatches:?}");
+    assert!(
+        mismatches.is_empty(),
+        "aucun mismatch attendu, trouvé : {mismatches:?}"
+    );
 }
 
 /// Ressource volontairement absente du rollback : après un rechargement d'état, elle continue
@@ -53,12 +64,17 @@ fn user_du_compteur(mut compteur: ResMut<Compteur>, mut joueurs: Query<&mut Heal
 #[test]
 fn synctest_detecte_un_etat_hors_rollback() {
     if map_ldtk::RENDER_ENABLED {
-        eprintln!("test ignoré : compilé avec le rendu des tilemaps (utiliser --no-default-features)");
+        eprintln!(
+            "test ignoré : compilé avec le rendu des tilemaps (utiliser --no-default-features)"
+        );
         return;
     }
     let outcome = run_with(&idle(), |app| {
         app.init_resource::<Compteur>();
-        app.add_systems(GgrsSchedule, user_du_compteur.in_set(RollbackSystemSet::Movement));
+        app.add_systems(
+            GgrsSchedule,
+            user_du_compteur.in_set(RollbackSystemSet::Movement),
+        );
     });
     let mismatches = failures_synctest(&outcome.failures);
     assert!(

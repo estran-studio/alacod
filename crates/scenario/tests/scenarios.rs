@@ -5,10 +5,10 @@
 //! - `ALACOD_BLESS=1` : réécrit les traces de référence (après un changement voulu).
 //! - `ALACOD_SCENARIO=<nom>` : ne joue que ce scénario.
 
-use std::path::PathBuf;
 use std::collections::BTreeMap;
+use std::path::PathBuf;
 
-use scenario::{run, Scenario, Metrics};
+use scenario::{run, Metrics, Scenario};
 use serde::Deserialize;
 
 fn scenarios_dir() -> PathBuf {
@@ -98,7 +98,12 @@ fn scenarios() {
             outcome.metrics.bullets_max,
             outcome.metrics.enemies_max
         );
-        eprintln!("{name}: {} {} ({:.1?})", outcome.summary, metrics_str, started.elapsed());
+        eprintln!(
+            "{name}: {} {} ({:.1?})",
+            outcome.summary,
+            metrics_str,
+            started.elapsed()
+        );
 
         if std::env::var("ALACOD_EVENTS").is_ok_and(|v| v == "1") {
             for event in &outcome.events {
@@ -173,7 +178,11 @@ fn commit_dir_name() -> String {
     let sha = git(&["rev-parse", "--short", "HEAD"]).unwrap_or_else(|| "unknown".to_string());
     // `git diff --quiet` échoue (exit 1) s'il y a des changements : même règle que scenario-video.
     let dirty = git(&["diff", "--quiet"]).is_none();
-    if dirty { format!("{sha}-dirty") } else { sha }
+    if dirty {
+        format!("{sha}-dirty")
+    } else {
+        sha
+    }
 }
 
 fn write_metrics(metrics: &BTreeMap<String, Metrics>) {

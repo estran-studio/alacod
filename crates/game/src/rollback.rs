@@ -60,7 +60,10 @@ mod tests {
         for name in &traced.0 {
             let has_tracer = tracers.components.iter().any(|(n, _)| n == name)
                 || tracers.resources.iter().any(|(n, _)| n == name);
-            assert!(has_tracer, "{name} enregistré dans TracedTypes mais sans tracer dans StateTracers");
+            assert!(
+                has_tracer,
+                "{name} enregistré dans TracedTypes mais sans tracer dans StateTracers"
+            );
         }
     }
 }

@@ -1,14 +1,17 @@
 use bevy::prelude::*;
 use bevy_fixed::fixed_math;
-use utils::net_id::GgrsNetIdFactory;
 #[cfg(feature = "harmonium")]
 use harmonium_bevy::components::HarmoniumTag;
+use utils::net_id::GgrsNetIdFactory;
 
 use crate::{
     character::{config::CharacterConfig, create::create_character},
     collider::{CollisionLayer, CollisionSettings},
     global_asset::GlobalAsset,
-    weapons::{melee::{spawn_melee_weapon_for_character, MeleeWeaponsConfig}, WeaponInventory, WeaponsConfig},
+    weapons::{
+        melee::{spawn_melee_weapon_for_character, MeleeWeaponsConfig},
+        WeaponInventory, WeaponsConfig,
+    },
 };
 
 use super::{
@@ -52,28 +55,25 @@ pub fn spawn_enemy(
 
     // Give the enemy a melee weapon (zombie claws, fallback to bare hands)
     if let Some(melee_weapons_config) = melee_weapons_asset.get(&global_assets.melee_weapons) {
-        if let Some(weapon) = melee_weapons_config.0.get("zombie_claws").or_else(|| melee_weapons_config.0.get("bare_hands")) {
-            spawn_melee_weapon_for_character(
-                commands,
-                entity,
-                weapon.clone(),
-                id_factory,
-            );
+        if let Some(weapon) = melee_weapons_config
+            .0
+            .get("zombie_claws")
+            .or_else(|| melee_weapons_config.0.get("bare_hands"))
+        {
+            spawn_melee_weapon_for_character(commands, entity, weapon.clone(), id_factory);
         }
     }
 
-    commands
-        .entity(entity)
-        .insert((
-            inventory,
-            EnemyPath::default(),
-            WallSlideTracker::default(),
-            Enemy::default(),
-            // AI components for flow field navigation and combat
-            EnemyAiConfig::zombie(),
-            EnemyTarget::default(),
-            MonsterState::default(),
-        ));
+    commands.entity(entity).insert((
+        inventory,
+        EnemyPath::default(),
+        WallSlideTracker::default(),
+        Enemy::default(),
+        // AI components for flow field navigation and combat
+        EnemyAiConfig::zombie(),
+        EnemyTarget::default(),
+        MonsterState::default(),
+    ));
 
     #[cfg(feature = "harmonium")]
     commands

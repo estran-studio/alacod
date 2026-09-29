@@ -304,7 +304,10 @@ fn infer_kind(node: &AstNode) -> Result<Kind, ParseError> {
                     if left_kind != Kind::Num || right_kind != Kind::Num {
                         return Err(ParseError {
                             pos: 0,
-                            message: format!("comparison operator {:?} requires numeric operands", op),
+                            message: format!(
+                                "comparison operator {:?} requires numeric operands",
+                                op
+                            ),
                         });
                     }
                     Ok(Kind::Bool)
@@ -343,63 +346,61 @@ fn infer_kind(node: &AstNode) -> Result<Kind, ParseError> {
                 }
             }
         }
-        AstNode::Call { name, args } => {
-            match name.as_str() {
-                "min" | "max" => {
-                    if args.len() != 2 {
-                        return Err(ParseError {
-                            pos: 0,
-                            message: format!("{} requires 2 arguments", name),
-                        });
-                    }
-                    let arg1_kind = infer_kind(&args[0])?;
-                    let arg2_kind = infer_kind(&args[1])?;
-                    if arg1_kind != Kind::Num || arg2_kind != Kind::Num {
-                        return Err(ParseError {
-                            pos: 0,
-                            message: format!("{} requires numeric arguments", name),
-                        });
-                    }
-                    Ok(Kind::Num)
+        AstNode::Call { name, args } => match name.as_str() {
+            "min" | "max" => {
+                if args.len() != 2 {
+                    return Err(ParseError {
+                        pos: 0,
+                        message: format!("{} requires 2 arguments", name),
+                    });
                 }
-                "clamp" => {
-                    if args.len() != 3 {
-                        return Err(ParseError {
-                            pos: 0,
-                            message: "clamp requires 3 arguments".to_string(),
-                        });
-                    }
-                    for arg in args {
-                        if infer_kind(arg)? != Kind::Num {
-                            return Err(ParseError {
-                                pos: 0,
-                                message: "clamp requires numeric arguments".to_string(),
-                            });
-                        }
-                    }
-                    Ok(Kind::Num)
+                let arg1_kind = infer_kind(&args[0])?;
+                let arg2_kind = infer_kind(&args[1])?;
+                if arg1_kind != Kind::Num || arg2_kind != Kind::Num {
+                    return Err(ParseError {
+                        pos: 0,
+                        message: format!("{} requires numeric arguments", name),
+                    });
                 }
-                "abs" | "floor" => {
-                    if args.len() != 1 {
-                        return Err(ParseError {
-                            pos: 0,
-                            message: format!("{} requires 1 argument", name),
-                        });
-                    }
-                    if infer_kind(&args[0])? != Kind::Num {
-                        return Err(ParseError {
-                            pos: 0,
-                            message: format!("{} requires numeric argument", name),
-                        });
-                    }
-                    Ok(Kind::Num)
-                }
-                _ => Err(ParseError {
-                    pos: 0,
-                    message: format!("unknown function: {}", name),
-                }),
+                Ok(Kind::Num)
             }
-        }
+            "clamp" => {
+                if args.len() != 3 {
+                    return Err(ParseError {
+                        pos: 0,
+                        message: "clamp requires 3 arguments".to_string(),
+                    });
+                }
+                for arg in args {
+                    if infer_kind(arg)? != Kind::Num {
+                        return Err(ParseError {
+                            pos: 0,
+                            message: "clamp requires numeric arguments".to_string(),
+                        });
+                    }
+                }
+                Ok(Kind::Num)
+            }
+            "abs" | "floor" => {
+                if args.len() != 1 {
+                    return Err(ParseError {
+                        pos: 0,
+                        message: format!("{} requires 1 argument", name),
+                    });
+                }
+                if infer_kind(&args[0])? != Kind::Num {
+                    return Err(ParseError {
+                        pos: 0,
+                        message: format!("{} requires numeric argument", name),
+                    });
+                }
+                Ok(Kind::Num)
+            }
+            _ => Err(ParseError {
+                pos: 0,
+                message: format!("unknown function: {}", name),
+            }),
+        },
     }
 }
 
@@ -454,16 +455,18 @@ fn eval_node(node: &AstNode, ctx: &dyn Context) -> Value {
                 BinOp::Gte => Value::Bool(left_val >= right_val),
                 BinOp::Eq => Value::Bool(left_val == right_val),
                 BinOp::Neq => Value::Bool(left_val != right_val),
-                BinOp::And => Value::Bool(eval_node(left, ctx).as_bool() && eval_node(right, ctx).as_bool()),
-                BinOp::Or => Value::Bool(eval_node(left, ctx).as_bool() || eval_node(right, ctx).as_bool()),
+                BinOp::And => {
+                    Value::Bool(eval_node(left, ctx).as_bool() && eval_node(right, ctx).as_bool())
+                }
+                BinOp::Or => {
+                    Value::Bool(eval_node(left, ctx).as_bool() || eval_node(right, ctx).as_bool())
+                }
             }
         }
-        AstNode::UnaryOp { op, operand } => {
-            match op {
-                UnaryOp::Neg => Value::Num(eval_node(operand, ctx).as_fixed().saturating_neg()),
-                UnaryOp::Not => Value::Bool(!eval_node(operand, ctx).as_bool()),
-            }
-        }
+        AstNode::UnaryOp { op, operand } => match op {
+            UnaryOp::Neg => Value::Num(eval_node(operand, ctx).as_fixed().saturating_neg()),
+            UnaryOp::Not => Value::Bool(!eval_node(operand, ctx).as_bool()),
+        },
         AstNode::Call { name, args } => {
             match name.as_str() {
                 "min" => {
@@ -535,7 +538,6 @@ impl Lexer {
             None
         }
     }
-
 
     fn advance(&mut self) -> Option<char> {
         let c = self.current();

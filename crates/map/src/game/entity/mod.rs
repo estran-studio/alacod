@@ -2,7 +2,6 @@ use bevy::ecs::{component::Component, entity::Entity};
 
 pub mod map;
 
-
 #[derive(Component, Clone)]
 pub struct MapRollbackItem {
     pub parent: Entity,
@@ -10,9 +9,7 @@ pub struct MapRollbackItem {
 }
 
 impl MapRollbackItem {
-
     pub fn new(parent: Entity, kind: String) -> Self {
         Self { parent, kind }
     }
-    
 }

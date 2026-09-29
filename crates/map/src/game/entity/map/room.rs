@@ -16,7 +16,9 @@ pub struct RoomBounds {
 
 impl RoomBounds {
     pub fn contains(&self, point: FixedVec2) -> bool {
-        point.x >= self.position.x && point.x <= self.position.x + self.size.x &&
-        point.y >= self.position.y && point.y <= self.position.y + self.size.y
+        point.x >= self.position.x
+            && point.x <= self.position.x + self.size.x
+            && point.y >= self.position.y
+            && point.y <= self.position.y + self.size.y
     }
 }

@@ -9,8 +9,8 @@
 //! d'aucun crate de gameplay ; `game` réexporte ce module (`game::rollback`) pour que les
 //! sites existants n'aient pas à changer leur `use crate::rollback::RollbackTraceApp;`.
 
-use bevy::prelude::*;
 use bevy::ecs::component::Mutable;
+use bevy::prelude::*;
 use bevy_ggrs::RollbackApp;
 use std::any::type_name;
 
@@ -40,7 +40,13 @@ pub trait RollbackTraceApp {
     /// Enregistre un composant en rollback avec clone, checksum et trace.
     fn rollback_and_trace<C>(&mut self) -> &mut Self
     where
-        C: Component<Mutability = Mutable> + Clone + std::hash::Hash + std::fmt::Debug + Send + Sync + 'static;
+        C: Component<Mutability = Mutable>
+            + Clone
+            + std::hash::Hash
+            + std::fmt::Debug
+            + Send
+            + Sync
+            + 'static;
 
     /// Variante pour les types qui n'implémentent pas `Hash` : utilise `Debug`.
     fn rollback_and_trace_debug<C>(&mut self) -> &mut Self
@@ -50,7 +56,13 @@ pub trait RollbackTraceApp {
     /// Enregistre une ressource en rollback avec clone, checksum et trace.
     fn rollback_and_trace_resource<R>(&mut self) -> &mut Self
     where
-        R: Resource<Mutability = Mutable> + Clone + std::hash::Hash + std::fmt::Debug + Send + Sync + 'static;
+        R: Resource<Mutability = Mutable>
+            + Clone
+            + std::hash::Hash
+            + std::fmt::Debug
+            + Send
+            + Sync
+            + 'static;
 
     /// Variante pour les ressources qui n'implémentent pas `Hash` : utilise `Debug`.
     fn rollback_and_trace_debug_resource<R>(&mut self) -> &mut Self
@@ -60,7 +72,13 @@ pub trait RollbackTraceApp {
     /// Enregistre une ressource `Copy` en rollback avec checksum et trace.
     fn rollback_and_trace_copy_resource<R>(&mut self) -> &mut Self
     where
-        R: Resource<Mutability = Mutable> + Copy + std::hash::Hash + std::fmt::Debug + Send + Sync + 'static;
+        R: Resource<Mutability = Mutable>
+            + Copy
+            + std::hash::Hash
+            + std::fmt::Debug
+            + Send
+            + Sync
+            + 'static;
 
     /// Enregistre une ressource `Copy` en rollback et en trace, **sans** l'ajouter au
     /// checksum GGRS. Réservé aux ressources de présentation qui se sont glissées dans
@@ -75,7 +93,13 @@ pub trait RollbackTraceApp {
 impl RollbackTraceApp for App {
     fn rollback_and_trace<C>(&mut self) -> &mut Self
     where
-        C: Component<Mutability = Mutable> + Clone + std::hash::Hash + std::fmt::Debug + Send + Sync + 'static,
+        C: Component<Mutability = Mutable>
+            + Clone
+            + std::hash::Hash
+            + std::fmt::Debug
+            + Send
+            + Sync
+            + 'static,
     {
         register_traced_component::<C>(self);
         self.rollback_component_with_clone::<C>()
@@ -93,7 +117,13 @@ impl RollbackTraceApp for App {
 
     fn rollback_and_trace_resource<R>(&mut self) -> &mut Self
     where
-        R: Resource<Mutability = Mutable> + Clone + std::hash::Hash + std::fmt::Debug + Send + Sync + 'static,
+        R: Resource<Mutability = Mutable>
+            + Clone
+            + std::hash::Hash
+            + std::fmt::Debug
+            + Send
+            + Sync
+            + 'static,
     {
         register_traced_resource::<R>(self);
         self.rollback_resource_with_clone::<R>()
@@ -111,7 +141,13 @@ impl RollbackTraceApp for App {
 
     fn rollback_and_trace_copy_resource<R>(&mut self) -> &mut Self
     where
-        R: Resource<Mutability = Mutable> + Copy + std::hash::Hash + std::fmt::Debug + Send + Sync + 'static,
+        R: Resource<Mutability = Mutable>
+            + Copy
+            + std::hash::Hash
+            + std::fmt::Debug
+            + Send
+            + Sync
+            + 'static,
     {
         register_traced_resource::<R>(self);
         self.rollback_resource_with_copy::<R>()
@@ -142,11 +178,19 @@ fn ensure_trace_resources(app: &mut App) {
 fn register_traced_component<C: Component + std::fmt::Debug>(app: &mut App) {
     ensure_trace_resources(app);
     let name = type_name::<C>();
-    let tracer: ComponentTracer =
-        |world, entity| world.get_entity(entity).ok()?.get::<C>().map(|c| format!("{c:?}"));
+    let tracer: ComponentTracer = |world, entity| {
+        world
+            .get_entity(entity)
+            .ok()?
+            .get::<C>()
+            .map(|c| format!("{c:?}"))
+    };
     let state = app.world_mut();
     state.resource_mut::<TracedTypes>().0.push(name);
-    state.resource_mut::<StateTracers>().components.push((name, tracer));
+    state
+        .resource_mut::<StateTracers>()
+        .components
+        .push((name, tracer));
 }
 
 /// Enregistre une ressource : nom dans `TracedTypes`, tracer `Debug` dans `StateTracers`.
@@ -156,7 +200,10 @@ fn register_traced_resource<R: Resource + std::fmt::Debug>(app: &mut App) {
     let tracer: ResourceTracer = |world| world.get_resource::<R>().map(|r| format!("{r:?}"));
     let state = app.world_mut();
     state.resource_mut::<TracedTypes>().0.push(name);
-    state.resource_mut::<StateTracers>().resources.push((name, tracer));
+    state
+        .resource_mut::<StateTracers>()
+        .resources
+        .push((name, tracer));
 }
 
 /// Fonction de hashage pour les types qui n'implémentent pas `Hash` :

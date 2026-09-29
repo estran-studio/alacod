@@ -12,7 +12,7 @@ impl Plugin for ZLightPlugin {
         {
             app.add_plugins(Light2dPlugin);
         }
-        
+
         #[cfg(not(feature = "lighting"))]
         {
             // Lighting is disabled - no plugin added

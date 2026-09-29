@@ -1,7 +1,11 @@
 //! Exécution headless d'un scénario, dans le processus courant.
 
+use crate::events::{GameEvent, GameEvents, GameEventsPlugin};
+use crate::invariants::InvariantQueries;
 use bevy::prelude::*;
+use bevy_fixed::fixed_math;
 use bevy_ggrs::SyncTestMismatch;
+use game::recording::InputRecorder;
 use game::{
     args::{GameArgs, GameArgsPlugin},
     character::player::{
@@ -13,18 +17,14 @@ use game::{
     state_trace::{StateTraceRecorder, StateTraceRecorderPlugin},
     waves::{WaveDebugEnabled, WaveModeEnabled, WaveState},
 };
+use map::generation::config::MapGenerationConfig;
 use map_ldtk::{
     game::local::{LdtkGameMap, LdtkLocalGamePlugin},
     plugins::LdtkRoguePlugin,
 };
-use crate::events::{GameEvent, GameEvents, GameEventsPlugin};
-use crate::invariants::InvariantQueries;
-use game::recording::InputRecorder;
-use map::generation::config::MapGenerationConfig;
-use utils::frame::FrameCount;
-use serde::{Serialize, Deserialize};
+use serde::{Deserialize, Serialize};
 use std::collections::BTreeMap;
-use bevy_fixed::fixed_math;
+use utils::frame::FrameCount;
 
 use game::replay::{Expectation, Scenario};
 
@@ -137,7 +137,9 @@ pub fn build_app(scenario: &Scenario, headless: bool, config: &PlayConfig) -> Ap
 /// Fait avancer le scénario (headless) jusqu'à la frame `frame` et rend l'app, pour
 /// inspecter le monde à cet instant (diagnostic).
 pub fn run_until(scenario: &Scenario, frame: u32) -> App {
-    let config = PlayConfig { follow_handle: None };
+    let config = PlayConfig {
+        follow_handle: None,
+    };
     let mut app = build_app(scenario, true, &config);
     app.finish();
     app.cleanup();
@@ -176,7 +178,11 @@ fn apply_weapon_overrides(
             if o.mode.as_ref().is_some_and(|m| m != mode_name) {
                 continue;
             }
-            if let game::weapons::MagBulletConfig::Mag { mag_size, mag_limit } = &mut mode.mag {
+            if let game::weapons::MagBulletConfig::Mag {
+                mag_size,
+                mag_limit,
+            } = &mut mode.mag
+            {
                 if let Some(size) = o.mag_size {
                     *mag_size = size;
                 }
@@ -192,7 +198,9 @@ fn apply_weapon_overrides(
 /// Joue le scénario jusqu'à `scenario.frames` et vérifie ses attentes, après avoir appliqué
 /// `configure` à l'app (pour les tests qui ajoutent un système ou une ressource).
 pub fn run_with<F: FnOnce(&mut App)>(scenario: &Scenario, configure: F) -> ScenarioOutcome {
-    let config = PlayConfig { follow_handle: None };
+    let config = PlayConfig {
+        follow_handle: None,
+    };
     let mut app = build_app(scenario, true, &config);
     configure(&mut app);
     app.finish();
@@ -225,9 +233,15 @@ pub fn run_with<F: FnOnce(&mut App)>(scenario: &Scenario, configure: F) -> Scena
     let mut bullets_max = 0u32;
     let mut enemies_max = 0u32;
     let mut players_count = 0u32;
-    let mut q_rollback = app.world_mut().query_filtered::<(), With<bevy_ggrs::Rollback>>();
-    let mut q_bullets = app.world_mut().query_filtered::<(), With<game::weapons::Bullet>>();
-    let mut q_enemies = app.world_mut().query_filtered::<(), With<game::character::enemy::Enemy>>();
+    let mut q_rollback = app
+        .world_mut()
+        .query_filtered::<(), With<bevy_ggrs::Rollback>>();
+    let mut q_bullets = app
+        .world_mut()
+        .query_filtered::<(), With<game::weapons::Bullet>>();
+    let mut q_enemies = app
+        .world_mut()
+        .query_filtered::<(), With<game::character::enemy::Enemy>>();
     let mut q_players = app.world_mut().query_filtered::<(), With<Player>>();
 
     let max_updates = MAX_LOADING_UPDATES + scenario.frames;
@@ -252,9 +266,19 @@ pub fn run_with<F: FnOnce(&mut App)>(scenario: &Scenario, configure: F) -> Scena
             failures.extend(invariants.check(app.world_mut(), &scenario.invariants, frame));
 
             for expectation in &no_damage_between {
-                if let Expectation::NoDamageBetween { handle, from_frame, to_frame } = expectation {
+                if let Expectation::NoDamageBetween {
+                    handle,
+                    from_frame,
+                    to_frame,
+                } = expectation
+                {
                     if frame >= *from_frame && frame <= *to_frame {
-                        if let Err(reason) = check_no_damage(app.world_mut(), &mut dernieres_santes, *handle, *from_frame) {
+                        if let Err(reason) = check_no_damage(
+                            app.world_mut(),
+                            &mut dernieres_santes,
+                            *handle,
+                            *from_frame,
+                        ) {
                             failures.push(format!("frame {frame}: {expectation:?} : {reason}"));
                         }
                     }
@@ -262,7 +286,12 @@ pub fn run_with<F: FnOnce(&mut App)>(scenario: &Scenario, configure: F) -> Scena
             }
         }
 
-        if !app.world().resource::<SyncTestMismatches>().messages.is_empty() {
+        if !app
+            .world()
+            .resource::<SyncTestMismatches>()
+            .messages
+            .is_empty()
+        {
             break; // la session synctest n'avance plus après un mismatch
         }
 
@@ -389,7 +418,12 @@ fn check(world: &mut World, expectation: &Expectation) -> Result<(), String> {
                 Err(format!("vague {current}"))
             }
         }
-        Expectation::ActiveWeapon { handle, weapon, mode, .. } => {
+        Expectation::ActiveWeapon {
+            handle,
+            weapon,
+            mode,
+            ..
+        } => {
             let Some((name, active_mode, _)) = active_weapon(world, *handle) else {
                 return Err("joueur absent ou sans arme".into());
             };
@@ -409,7 +443,13 @@ fn check(world: &mut World, expectation: &Expectation) -> Result<(), String> {
                 Err(format!("{current} balles dans {name} ({mode})"))
             }
         }
-        Expectation::BulletsInside { x_min, x_max, y_min, y_max, .. } => {
+        Expectation::BulletsInside {
+            x_min,
+            x_max,
+            y_min,
+            y_max,
+            ..
+        } => {
             let outside: Vec<(f32, f32)> = world
                 .query_filtered::<&bevy_fixed::fixed_math::FixedTransform3D, With<game::weapons::Bullet>>()
                 .iter(world)
@@ -424,7 +464,10 @@ fn check(world: &mut World, expectation: &Expectation) -> Result<(), String> {
         }
         Expectation::WindowHealth { window, health, .. } => {
             let current = world
-                .query::<(&utils::net_id::GgrsNetId, &map::game::entity::map::window::WindowHealth)>()
+                .query::<(
+                    &utils::net_id::GgrsNetId,
+                    &map::game::entity::map::window::WindowHealth,
+                )>()
                 .iter(world)
                 .find(|(id, _)| id.0 == *window)
                 .map(|(_, h)| h.current);
@@ -446,12 +489,23 @@ fn check(world: &mut World, expectation: &Expectation) -> Result<(), String> {
                 Err(format!("{open} portes ouvertes"))
             }
         }
-        Expectation::PlayerPosition { handle, x, y, tolerance, .. } => {
+        Expectation::PlayerPosition {
+            handle,
+            x,
+            y,
+            tolerance,
+            ..
+        } => {
             let Some((px, py)) = world
                 .query::<(&Player, &bevy_fixed::fixed_math::FixedTransform3D)>()
                 .iter(world)
                 .find(|(player, _)| player.handle == *handle)
-                .map(|(_, t)| (t.translation.x.to_num::<f32>(), t.translation.y.to_num::<f32>()))
+                .map(|(_, t)| {
+                    (
+                        t.translation.x.to_num::<f32>(),
+                        t.translation.y.to_num::<f32>(),
+                    )
+                })
             else {
                 return Err("joueur absent".into());
             };
@@ -477,7 +531,9 @@ fn check(world: &mut World, expectation: &Expectation) -> Result<(), String> {
                 Err(format!("{killed} ennemis tués"))
             }
         }
-        Expectation::Health { handle, min, max, .. } => {
+        Expectation::Health {
+            handle, min, max, ..
+        } => {
             let Some(health_fixed) = player_health(world, *handle) else {
                 return Err("joueur absent".into());
             };
@@ -496,7 +552,9 @@ fn check(world: &mut World, expectation: &Expectation) -> Result<(), String> {
             }
             Ok(())
         }
-        Expectation::EntityHealth { net_id, min, max, .. } => {
+        Expectation::EntityHealth {
+            net_id, min, max, ..
+        } => {
             let Some(health_fixed) = entity_health(world, *net_id) else {
                 return Err("entité absente ou sans santé".into());
             };
@@ -521,18 +579,22 @@ fn check(world: &mut World, expectation: &Expectation) -> Result<(), String> {
         }
         Expectation::EntityCount { kind, min, max, .. } => {
             let count = match kind {
-                game::replay::EntityKind::Player => {
-                    world.query_filtered::<(), With<Player>>().iter(world).count() as u32
-                }
-                game::replay::EntityKind::Enemy => {
-                    world.query_filtered::<(), With<game::character::enemy::Enemy>>().iter(world).count() as u32
-                }
-                game::replay::EntityKind::Bullet => {
-                    world.query_filtered::<(), With<game::weapons::Bullet>>().iter(world).count() as u32
-                }
-                game::replay::EntityKind::Rollback => {
-                    world.query_filtered::<(), With<bevy_ggrs::Rollback>>().iter(world).count() as u32
-                }
+                game::replay::EntityKind::Player => world
+                    .query_filtered::<(), With<Player>>()
+                    .iter(world)
+                    .count() as u32,
+                game::replay::EntityKind::Enemy => world
+                    .query_filtered::<(), With<game::character::enemy::Enemy>>()
+                    .iter(world)
+                    .count() as u32,
+                game::replay::EntityKind::Bullet => world
+                    .query_filtered::<(), With<game::weapons::Bullet>>()
+                    .iter(world)
+                    .count() as u32,
+                game::replay::EntityKind::Rollback => world
+                    .query_filtered::<(), With<bevy_ggrs::Rollback>>()
+                    .iter(world)
+                    .count() as u32,
             };
 
             if let Some(min_val) = min {
@@ -547,7 +609,11 @@ fn check(world: &mut World, expectation: &Expectation) -> Result<(), String> {
             }
             Ok(())
         }
-        Expectation::Event { kind, label_contains, by_frame: _ } => {
+        Expectation::Event {
+            kind,
+            label_contains,
+            by_frame: _,
+        } => {
             let events = world.resource::<GameEvents>();
             let found = events.events.iter().any(|event| {
                 event.kind == kind.as_str()
@@ -592,8 +658,14 @@ fn active_weapon(world: &mut World, handle: usize) -> Option<(String, String, u3
         .find(|(player, _)| player.handle == handle)
         .and_then(|(_, inventory)| inventory.weapons.get(inventory.active_weapon_index))
         .map(|(entity, weapon)| (*entity, weapon.config.name.clone()))?;
-    let (state, modes) = world.query::<(&WeaponState, &WeaponModesState)>().get(world, entity).ok()?;
-    let ammo = modes.modes.get(&state.active_mode).map_or(0, |m| m.mag_ammo);
+    let (state, modes) = world
+        .query::<(&WeaponState, &WeaponModesState)>()
+        .get(world, entity)
+        .ok()?;
+    let ammo = modes
+        .modes
+        .get(&state.active_mode)
+        .map_or(0, |m| m.mag_ammo);
     Some((name, state.active_mode.clone(), ammo))
 }
 
@@ -700,7 +772,9 @@ pub const CAPTURE_SIZE: (u32, u32) = (960, 540);
 pub fn capture(scenario: &Scenario, config: CaptureConfig) -> AppExit {
     std::fs::create_dir_all(&config.dir).expect("dossier de capture");
 
-    let play_config = PlayConfig { follow_handle: config.follow_handle };
+    let play_config = PlayConfig {
+        follow_handle: config.follow_handle,
+    };
     let mut app = build_app(scenario, false, &play_config);
     app.insert_resource(bevy::time::TimeUpdateStrategy::ManualDuration(
         std::time::Duration::from_nanos(1_000_000_000 / game::core::SIM_FPS),
@@ -786,8 +860,10 @@ fn capture_frames(
         if state.updates_after_end > 10 {
             // Moments clés à côté des images, pour la page de revue
             let frames = state.frames;
-            let events: Vec<&GameEvent> = events.events.iter().filter(|e| e.frame < frames).collect();
-            let json = serde_json::to_string_pretty(&events).expect("sérialisation des moments clés");
+            let events: Vec<&GameEvent> =
+                events.events.iter().filter(|e| e.frame < frames).collect();
+            let json =
+                serde_json::to_string_pretty(&events).expect("sérialisation des moments clés");
             std::fs::write(state.dir.join("events.json"), json).expect("écriture de events.json");
             exit.write(AppExit::Success);
         }
@@ -796,7 +872,9 @@ fn capture_frames(
 
     if frame % state.every == 0 && state.last_captured != Some(frame) {
         let path = state.dir.join(format!("frame_{frame:05}.png"));
-        commands.spawn(Screenshot::image(target)).observe(save_to_disk(path));
+        commands
+            .spawn(Screenshot::image(target))
+            .observe(save_to_disk(path));
         state.last_captured = Some(frame);
     }
 }

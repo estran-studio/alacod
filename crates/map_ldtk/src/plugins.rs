@@ -5,7 +5,10 @@ use crate::game::{collider::create_wall_colliders_from_ldtk, plugin::LdtkMapLoad
 
 use super::{
     game::{
-        entity::{door::DoorBundle, enemy_spawn::EnemySpawnBundle, player_spawn::PlayerSpawnBundle, window::WindowBundle},
+        entity::{
+            door::DoorBundle, enemy_spawn::EnemySpawnBundle, player_spawn::PlayerSpawnBundle,
+            window::WindowBundle,
+        },
         system::add_level_components::add_room_component_to_ldtk_level,
     },
     map_const,
@@ -16,9 +19,9 @@ pub struct EntityPlugin;
 impl Plugin for EntityPlugin {
     fn build(&self, app: &mut App) {
         app.add_systems(
-            Update,(
-            add_room_component_to_ldtk_level.run_if(on_message::<LevelEvent>),
-        ))
+            Update,
+            (add_room_component_to_ldtk_level.run_if(on_message::<LevelEvent>),),
+        )
         .register_ldtk_entity::<PlayerSpawnBundle>(map_const::ENTITY_PLAYER_SPAWN_LOCATION)
         .register_ldtk_entity::<EnemySpawnBundle>(map_const::ENTITY_ZOMBIE_SPAWN_LOCATION)
         .register_ldtk_entity::<WindowBundle>(map_const::ENTITY_WINDOW_HORIZONTAL_LOCATION)

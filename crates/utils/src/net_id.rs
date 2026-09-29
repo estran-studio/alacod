@@ -33,7 +33,7 @@ impl GgrsNetIdFactory {
 macro_rules! order_iter {
     ($query:expr) => {{
         let mut items: Vec<_> = $query.iter().collect();
-        items.sort_unstable_by_key(|item| item.0.0); // Sort by GgrsNetId.0 (StableIdType)
+        items.sort_unstable_by_key(|item| item.0 .0); // Sort by GgrsNetId.0 (StableIdType)
         items
     }};
 }
@@ -44,7 +44,7 @@ macro_rules! order_iter {
 macro_rules! order_mut_iter {
     ($query:expr) => {{
         let mut items: Vec<_> = $query.iter_mut().collect();
-        items.sort_unstable_by_key(|item| item.0.0); // Sort by GgrsNetId.0 (StableIdType)
+        items.sort_unstable_by_key(|item| item.0 .0); // Sort by GgrsNetId.0 (StableIdType)
         items
     }};
 }

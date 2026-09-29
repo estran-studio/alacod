@@ -1,9 +1,13 @@
-
-
-use std::{net::SocketAddr};
+use std::net::SocketAddr;
 
 use animation::SpriteSheetConfig;
-use bevy::{color::palettes::{css::TURQUOISE, tailwind::{ORANGE_300, PURPLE_300}}, prelude::*};
+use bevy::{
+    color::palettes::{
+        css::TURQUOISE,
+        tailwind::{ORANGE_300, PURPLE_300},
+    },
+    prelude::*,
+};
 use bevy_fixed::{fixed_math, rng::RollbackRng};
 use bevy_ggrs::{ggrs::PlayerType, prelude::*};
 use bevy_matchbox::{prelude::PeerState, MatchboxSocket};
@@ -11,15 +15,20 @@ use ggrs::UdpNonBlockingSocket;
 use map::game::entity::map::enemy_spawn::EnemySpawnerComponent;
 use utils::net_id::GgrsNetIdFactory;
 
-
 use crate::{
     character::{
         config::CharacterConfig,
         enemy::spawning::EnemySpawnerState,
         player::{create::create_player, jjrs::PeerConfig},
-    }, collider::{spawn_test_wall, CollisionSettings}, core::{AppState, OnlineState}, global_asset::GlobalAsset, jjrs::{GggrsSessionConfiguration, GggrsSessionConfigurationState, GgrsPlayer, GgrsSessionBuilding}, weapons::WeaponsConfig
+    },
+    collider::{spawn_test_wall, CollisionSettings},
+    core::{AppState, OnlineState},
+    global_asset::GlobalAsset,
+    jjrs::{
+        GggrsSessionConfiguration, GggrsSessionConfigurationState, GgrsPlayer, GgrsSessionBuilding,
+    },
+    weapons::WeaponsConfig,
 };
-
 
 pub fn setup_ggrs_local(
     mut commands: Commands,
@@ -28,7 +37,6 @@ pub fn setup_ggrs_local(
     online_state: Res<OnlineState>,
     session_state: Res<GggrsSessionConfigurationState>,
 ) {
-
     if !matches!(online_state.as_ref(), OnlineState::Offline) {
         return;
     }
@@ -56,7 +64,6 @@ pub fn setup_ggrs_local(
     app_state.set(AppState::GameLoading);
 }
 
-
 // For local connection
 pub fn system_after_map_loaded_local(
     mut app_state: ResMut<NextState<AppState>>,
@@ -81,7 +88,6 @@ pub fn system_after_map_loaded_local(
         })
         .with_input_delay(session_config.connection.input_delay)
         .with_check_distance(session_config.connection.check_distance);
-
 
     for (i, player_config) in session_config.players.iter().enumerate() {
         let local = player_config.pubkey == "local" || player_config.pubkey == "localhost";

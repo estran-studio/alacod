@@ -2,7 +2,10 @@ use bevy::prelude::*;
 use bevy_ecs_ldtk::prelude::*;
 use bevy_fixed::fixed_math::{self, Fixed, FixedVec2};
 use map::{
-    game::entity::map::{level_id::LevelId, room::{RoomBounds, RoomComponent}},
+    game::entity::map::{
+        level_id::LevelId,
+        room::{RoomBounds, RoomComponent},
+    },
     generation::{entity::room::RoomConfig, LEVEL_PROPERTIES_SPAWN_NAME},
 };
 
@@ -37,7 +40,9 @@ pub fn add_room_component_to_ldtk_level(
                     RoomBounds {
                         position: FixedVec2::new(
                             fixed_math::Fixed::from_num(level_data.world_x as f32),
-                            fixed_math::Fixed::from_num(-level_data.world_y as f32 - level_data.px_hei as f32),
+                            fixed_math::Fixed::from_num(
+                                -level_data.world_y as f32 - level_data.px_hei as f32,
+                            ),
                         ),
                         size: FixedVec2::new(
                             fixed_math::Fixed::from_num(level_data.px_wid as f32),
@@ -47,14 +52,15 @@ pub fn add_room_component_to_ldtk_level(
                     LevelId(level_iid.to_string()),
                 ));
 
-                debug!("Added RoomBounds to level {:?} ({}): pos=({}, {}), size=({}, {})", 
-                    entity, level_iid, 
+                debug!(
+                    "Added RoomBounds to level {:?} ({}): pos=({}, {}), size=({}, {})",
+                    entity,
+                    level_iid,
                     Fixed::from_num(level_data.world_x),
                     Fixed::from_num(-level_data.world_y - level_data.px_hei),
                     Fixed::from_num(level_data.px_wid),
                     Fixed::from_num(level_data.px_hei)
                 );
-
 
                 if *is_spawn {
                     println!("found a spawn level: {}", level_iid);

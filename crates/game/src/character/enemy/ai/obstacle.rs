@@ -10,7 +10,20 @@ use crate::frame_events::FrameEvents;
 
 /// Type of obstacle - determines default behavior and appearance
 /// GGRS: PartialOrd + Ord required for BTreeMap in FlowFieldCache
-#[derive(Clone, Copy, Debug, PartialEq, Eq, Hash, PartialOrd, Ord, Reflect, Serialize, Deserialize, Default)]
+#[derive(
+    Clone,
+    Copy,
+    Debug,
+    PartialEq,
+    Eq,
+    Hash,
+    PartialOrd,
+    Ord,
+    Reflect,
+    Serialize,
+    Deserialize,
+    Default,
+)]
 pub enum ObstacleType {
     /// Solid wall - never breakable, always blocks
     #[default]
@@ -239,10 +252,16 @@ impl std::hash::Hash for ObstacleAttackEvent {
 pub fn process_obstacle_damage(
     frame: Res<utils::frame::FrameCount>,
     attack_events: Res<FrameEvents<ObstacleAttackEvent>>,
-    mut obstacle_query: Query<(&utils::net_id::GgrsNetId, &mut Obstacle, Option<&mut map::game::entity::map::window::WindowHealth>)>,
+    mut obstacle_query: Query<(
+        &utils::net_id::GgrsNetId,
+        &mut Obstacle,
+        Option<&mut map::game::entity::map::window::WindowHealth>,
+    )>,
 ) {
     for event in attack_events.iter() {
-        if let Ok((net_id, mut obstacle, window_health_opt)) = obstacle_query.get_mut(event.obstacle) {
+        if let Ok((net_id, mut obstacle, window_health_opt)) =
+            obstacle_query.get_mut(event.obstacle)
+        {
             let destroyed = obstacle.take_damage(event.damage);
 
             // Sync with WindowHealth if present (legacy compatibility)
@@ -251,7 +270,10 @@ pub fn process_obstacle_damage(
             }
 
             if destroyed {
-                info!("ggrs{{f={} obstacle_destroyed net_id={}}}", frame.frame, net_id.0);
+                info!(
+                    "ggrs{{f={} obstacle_destroyed net_id={}}}",
+                    frame.frame, net_id.0
+                );
             }
         }
     }

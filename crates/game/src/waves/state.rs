@@ -36,7 +36,6 @@ pub struct WaveState {
     pub current_wave: u32,
 
     // === Spawning Tracking ===
-
     /// Remaining enemies to spawn this wave
     pub enemies_to_spawn: u32,
     /// Enemies already spawned this wave
@@ -45,14 +44,12 @@ pub struct WaveState {
     pub wave_enemy_count: u32,
 
     // === Statistics ===
-
     /// Total enemies killed across all waves
     pub total_enemies_killed: u32,
     /// Enemies killed in current wave
     pub wave_enemies_killed: u32,
 
     // === Timing (frame-based for determinism) ===
-
     /// Frame when current wave started
     pub wave_start_frame: u32,
     /// Frame of last spawn batch
@@ -63,7 +60,6 @@ pub struct WaveState {
     pub phase_start_frame: u32,
 
     // === Current Wave Modifiers ===
-
     /// Health multiplier for current wave (1.0 = 100%)
     pub current_health_multiplier: fixed_math::Fixed,
     /// Damage multiplier for current wave (1.0 = 100%)
@@ -118,7 +114,12 @@ impl WaveState {
     }
 
     /// Prepare for next wave
-    pub fn prepare_next_wave(&mut self, enemy_count: u32, health_mult: fixed_math::Fixed, damage_mult: fixed_math::Fixed) {
+    pub fn prepare_next_wave(
+        &mut self,
+        enemy_count: u32,
+        health_mult: fixed_math::Fixed,
+        damage_mult: fixed_math::Fixed,
+    ) {
         self.wave_enemy_count = enemy_count;
         self.enemies_to_spawn = enemy_count;
         self.enemies_spawned_this_wave = 0;

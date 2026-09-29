@@ -1,4 +1,7 @@
-use bevy::{diagnostic::{DiagnosticsStore, FrameTimeDiagnosticsPlugin}, prelude::*};
+use bevy::{
+    diagnostic::{DiagnosticsStore, FrameTimeDiagnosticsPlugin},
+    prelude::*,
+};
 use utils::frame::FrameCount;
 
 use crate::character::enemy::Enemy;
@@ -56,8 +59,10 @@ fn update_frame_counter_text(
             "  ...".to_string()
         };
 
-        text.0 = format!("{} : {:>8} | FPS: {} | E: {}",
-            game_info.version, frame_count.frame, fps_text, enemy_count);
+        text.0 = format!(
+            "{} : {:>8} | FPS: {} | E: {}",
+            game_info.version, frame_count.frame, fps_text, enemy_count
+        );
     }
 }
 

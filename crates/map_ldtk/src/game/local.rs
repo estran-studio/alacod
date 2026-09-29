@@ -14,7 +14,9 @@ use game::{
     jjrs::{GggrsSessionConfigurationState, GgrsSessionBuilding},
     weapons::{melee::MeleeWeaponsConfig, WeaponsConfig},
 };
-use map::{game::entity::map::player_spawn::PlayerSpawnConfig, generation::config::MapGenerationConfig};
+use map::{
+    game::entity::map::player_spawn::PlayerSpawnConfig, generation::config::MapGenerationConfig,
+};
 use utils::net_id::GgrsNetIdFactory;
 
 use super::plugin::{LdtkMapLoadingEvent, MapNetIdAssignment};

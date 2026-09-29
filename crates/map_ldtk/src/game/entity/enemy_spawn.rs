@@ -1,11 +1,13 @@
 use bevy::prelude::*;
 use bevy_ecs_ldtk::prelude::*;
 
-use map::game::entity::map::{map_rollback::MapRollbackMarker, enemy_spawn::EnemySpawnerComponent};
+use map::game::entity::map::{enemy_spawn::EnemySpawnerComponent, map_rollback::MapRollbackMarker};
 
 use crate::map_const;
 
-pub fn enemy_spawner_component_from_field(_entity_instance: &EntityInstance) -> EnemySpawnerComponent {
+pub fn enemy_spawner_component_from_field(
+    _entity_instance: &EntityInstance,
+) -> EnemySpawnerComponent {
     // You can customize spawner properties from LDTK fields if needed
     // For now, using default values
     EnemySpawnerComponent::default()

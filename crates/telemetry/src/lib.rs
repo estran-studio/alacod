@@ -52,7 +52,7 @@ pub struct TelemetryPlugin;
 impl Plugin for TelemetryPlugin {
     fn build(&self, app: &mut App) {
         app.init_resource::<TelemetryConfig>()
-           .init_resource::<TelemetryBuffer>();
+            .init_resource::<TelemetryBuffer>();
 
         panic::register_panic_hook(app);
 
@@ -66,7 +66,7 @@ fn start_telemetry_worker(mut commands: Commands, config: Res<TelemetryConfig>) 
     // Check enabled? Even if disabled, we probably want the channel to exist so system params don't panic?
     // But TelemetrySender is Option<Res> in some places? No, in send_event it's &TelemetrySender.
     // So we MUST insert the resource.
-    
+
     let (tx, rx) = std::sync::mpsc::channel::<TelemetryEvent>();
     commands.insert_resource(TelemetrySender(tx));
 
@@ -96,7 +96,7 @@ fn start_telemetry_worker(mut commands: Commands, config: Res<TelemetryConfig>) 
                             buffer.clear();
                             last_flush = std::time::Instant::now();
                         }
-                    },
+                    }
                     Err(std::sync::mpsc::RecvTimeoutError::Timeout) => {
                         // Timeout reached, flush if we have anything
                         if !buffer.is_empty() {
@@ -104,7 +104,7 @@ fn start_telemetry_worker(mut commands: Commands, config: Res<TelemetryConfig>) 
                             buffer.clear();
                             last_flush = std::time::Instant::now();
                         }
-                    },
+                    }
                     Err(std::sync::mpsc::RecvTimeoutError::Disconnected) => break, // Channel closed
                 }
             }
@@ -115,7 +115,7 @@ fn start_telemetry_worker(mut commands: Commands, config: Res<TelemetryConfig>) 
 pub fn send_event(
     #[cfg(not(target_arch = "wasm32"))] sender: &TelemetrySender,
     #[cfg(target_arch = "wasm32")] config: &TelemetryConfig,
-    event: TelemetryEvent
+    event: TelemetryEvent,
 ) {
     #[cfg(not(target_arch = "wasm32"))]
     {
@@ -126,7 +126,7 @@ pub fn send_event(
     #[cfg(target_arch = "wasm32")]
     {
         if !config.enabled {
-             return;
+            return;
         }
         let config = config.clone();
         let event = event.clone();

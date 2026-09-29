@@ -33,19 +33,27 @@ pub fn door_component_from_field(entity_instance: &EntityInstance) -> DoorCompon
         .ok()
         .copied()
         .unwrap_or(true); // Default to true if field doesn't exist
-    
+
     // Try to read paired door information
     let paired_door = match (
-        entity_instance.get_int_field(map_const::FIELD_PAIRED_DOOR_X_NAME).ok().copied(),
-        entity_instance.get_int_field(map_const::FIELD_PAIRED_DOOR_Y_NAME).ok().copied(),
-        entity_instance.get_string_field(map_const::FIELD_PAIRED_DOOR_LEVEL_NAME).ok(),
+        entity_instance
+            .get_int_field(map_const::FIELD_PAIRED_DOOR_X_NAME)
+            .ok()
+            .copied(),
+        entity_instance
+            .get_int_field(map_const::FIELD_PAIRED_DOOR_Y_NAME)
+            .ok()
+            .copied(),
+        entity_instance
+            .get_string_field(map_const::FIELD_PAIRED_DOOR_LEVEL_NAME)
+            .ok(),
     ) {
         (Some(paired_x), Some(paired_y), Some(paired_level)) => {
             Some((paired_level.clone(), (paired_x, paired_y)))
         }
         _ => None,
     };
-    
+
     DoorComponent {
         config: DoorConfig {
             electrify: *entity_instance
@@ -76,17 +84,20 @@ pub struct DoorBundle {
 
 impl Default for DoorBundle {
     fn default() -> Self {
-        Self { 
-            rollback_marker: MapRollbackMarker("door".into()), 
+        Self {
+            rollback_marker: MapRollbackMarker("door".into()),
             door: DoorComponent::default(),
             grid_position: DoorGridPosition {
                 level_iid: String::new(),
                 grid_x: 0,
                 grid_y: 0,
             },
-            sprite_sheet: Sprite::default(), 
+            sprite_sheet: Sprite::default(),
             visibility: Visibility::default(),
-            ldtk_size: LdtkEntitySize { width: 64.0, height: 32.0 },
+            ldtk_size: LdtkEntitySize {
+                width: 64.0,
+                height: 32.0,
+            },
         }
-    } 
+    }
 }

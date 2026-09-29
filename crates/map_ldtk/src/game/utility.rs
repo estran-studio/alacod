@@ -1,7 +1,7 @@
 use bevy::prelude::*;
+use bevy_ecs_ldtk::prelude::RawLevelAccessor;
 use bevy_ecs_ldtk::LevelIid;
 use bevy_ecs_ldtk::{assets::LdtkProject, LevelSet};
-use bevy_ecs_ldtk::prelude::RawLevelAccessor;
 
 // should be a step before the game part
 pub fn load_levels_if_not_present(

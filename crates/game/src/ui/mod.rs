@@ -1,9 +1,9 @@
 use bevy::prelude::*;
 
-pub mod lobby;
 pub mod disconnected;
 pub mod game_over;
 pub mod hud;
+pub mod lobby;
 
 pub struct GameUiPlugin;
 

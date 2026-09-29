@@ -1,6 +1,5 @@
-use bevy::prelude::Resource;
 use crate::fixed_math;
-
+use bevy::prelude::Resource;
 
 pub type UUID = String;
 

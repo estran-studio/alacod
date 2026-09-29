@@ -26,9 +26,9 @@ pub fn move_camera(
 pub fn setup_camera(mut commands: Commands) {
     commands.spawn((
         Camera2d::default(),
-        Projection::Orthographic(OrthographicProjection { 
+        Projection::Orthographic(OrthographicProjection {
             scale: 1.3,
             ..OrthographicProjection::default_2d()
-        })
+        }),
     ));
 }

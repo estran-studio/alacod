@@ -75,10 +75,16 @@ fn update_wave_debug_text(
 }
 
 /// Toggles wave debug UI with F3 key.
-fn toggle_wave_debug(keyboard: Res<ButtonInput<KeyCode>>, mut debug_enabled: ResMut<WaveDebugEnabled>) {
+fn toggle_wave_debug(
+    keyboard: Res<ButtonInput<KeyCode>>,
+    mut debug_enabled: ResMut<WaveDebugEnabled>,
+) {
     if keyboard.just_pressed(KeyCode::F3) {
         debug_enabled.0 = !debug_enabled.0;
-        info!("Wave debug UI: {}", if debug_enabled.0 { "ON" } else { "OFF" });
+        info!(
+            "Wave debug UI: {}",
+            if debug_enabled.0 { "ON" } else { "OFF" }
+        );
     }
 }
 

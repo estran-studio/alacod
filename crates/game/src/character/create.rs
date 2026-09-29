@@ -92,14 +92,17 @@ pub fn create_character(
     collider.offset.x = collider.offset.x.saturating_mul(config.scale);
     collider.offset.y = collider.offset.y.saturating_mul(config.scale);
     collider.offset.z = collider.offset.z.saturating_mul(config.scale);
-    
+
     let health: Health = config.base_health.clone().into();
-    
+
     // Add gameplay components to the visual entity
     commands.entity(entity).insert((
         transform_fixed,
         SpatialAudioEmitter { instances: vec![] },
-        Velocity { main: fixed_math::FixedVec2::ZERO, knockback: fixed_math::FixedVec2::ZERO },
+        Velocity {
+            main: fixed_math::FixedVec2::ZERO,
+            knockback: fixed_math::FixedVec2::ZERO,
+        },
         SprintState::default(),
         DashState::default(),
         MeleeAttackState::default(),
@@ -114,9 +117,10 @@ pub fn create_character(
     ));
 
     // Add HealthRegen component if configured
-    if let (Some(regen_rate), Some(regen_delay_frames)) = 
-        (config.base_health.regen_rate, config.base_health.regen_delay_frames) 
-    {
+    if let (Some(regen_rate), Some(regen_delay_frames)) = (
+        config.base_health.regen_rate,
+        config.base_health.regen_delay_frames,
+    ) {
         commands.entity(entity).insert(HealthRegen {
             last_damage_frame: 0,
             regen_rate,

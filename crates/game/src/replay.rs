@@ -21,9 +21,9 @@
 //! Joué par `crates/scenario` ; écrit par l'enregistrement (`crate::recording`).
 
 use crate::character::player::input::{
-    BoxInput, InputSegment, ScriptedInputs, INPUT_DASH, INPUT_DOWN, INPUT_INTERACTION,
-    INPUT_FORCE_CRASH, INPUT_LEFT, INPUT_MELEE_ATTACK, INPUT_MODIFIER, INPUT_RELOAD, INPUT_RIGHT, INPUT_SPRINT,
-    INPUT_SWITCH_WEAPON_MODE, INPUT_UP,
+    BoxInput, InputSegment, ScriptedInputs, INPUT_DASH, INPUT_DOWN, INPUT_FORCE_CRASH,
+    INPUT_INTERACTION, INPUT_LEFT, INPUT_MELEE_ATTACK, INPUT_MODIFIER, INPUT_RELOAD, INPUT_RIGHT,
+    INPUT_SPRINT, INPUT_SWITCH_WEAPON_MODE, INPUT_UP,
 };
 use serde::{Deserialize, Serialize};
 
@@ -71,7 +71,11 @@ fn vrai() -> bool {
 
 impl Default for Invariants {
     fn default() -> Self {
-        Self { sante_bornee: true, net_ids_uniques: true, joueur_hors_mur: true }
+        Self {
+            sante_bornee: true,
+            net_ids_uniques: true,
+            joueur_hors_mur: true,
+        }
     }
 }
 
@@ -155,12 +159,27 @@ pub enum EntityKind {
 /// Vérification faite quand la simulation atteint `at_frame`.
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub enum Expectation {
-    PlayerAlive { handle: usize, at_frame: u32 },
-    PlayerDead { handle: usize, at_frame: u32 },
-    WaveAtLeast { wave: u32, at_frame: u32 },
-    KillsAtLeast { kills: u32, at_frame: u32 },
+    PlayerAlive {
+        handle: usize,
+        at_frame: u32,
+    },
+    PlayerDead {
+        handle: usize,
+        at_frame: u32,
+    },
+    WaveAtLeast {
+        wave: u32,
+        at_frame: u32,
+    },
+    KillsAtLeast {
+        kills: u32,
+        at_frame: u32,
+    },
     /// Fenêtres détruites (obstacles cassables qui ne bloquent plus).
-    WindowsBrokenAtLeast { windows: u32, at_frame: u32 },
+    WindowsBrokenAtLeast {
+        windows: u32,
+        at_frame: u32,
+    },
     /// Arme active du joueur (et son mode de tir, si précisé).
     ActiveWeapon {
         handle: usize,
@@ -170,15 +189,38 @@ pub enum Expectation {
         at_frame: u32,
     },
     /// Munitions exactes dans le chargeur de l'arme active.
-    Ammo { handle: usize, ammo: u32, at_frame: u32 },
+    Ammo {
+        handle: usize,
+        ammo: u32,
+        at_frame: u32,
+    },
     /// Portes ouvertes (sans collider).
-    DoorsOpenAtLeast { doors: u32, at_frame: u32 },
+    DoorsOpenAtLeast {
+        doors: u32,
+        at_frame: u32,
+    },
     /// Santé exacte d'une fenêtre (par son GgrsNetId).
-    WindowHealth { window: usize, health: u8, at_frame: u32 },
+    WindowHealth {
+        window: usize,
+        health: u8,
+        at_frame: u32,
+    },
     /// Toutes les balles en vol sont dans la zone (ex. elles ne traversent pas un mur).
-    BulletsInside { x_min: f32, x_max: f32, y_min: f32, y_max: f32, at_frame: u32 },
+    BulletsInside {
+        x_min: f32,
+        x_max: f32,
+        y_min: f32,
+        y_max: f32,
+        at_frame: u32,
+    },
     /// Position du joueur, à `tolerance` unités près sur chaque axe.
-    PlayerPosition { handle: usize, x: f32, y: f32, tolerance: f32, at_frame: u32 },
+    PlayerPosition {
+        handle: usize,
+        x: f32,
+        y: f32,
+        tolerance: f32,
+        at_frame: u32,
+    },
     /// Santé du joueur `handle` dans l'intervalle `[min, max]` (bornes inclusives, `None` = pas de borne).
     /// Les `f32` sont convertis en `Fixed` pour la comparaison.
     Health {
@@ -244,7 +286,9 @@ impl Expectation {
             | Self::Health { at_frame, .. }
             | Self::EntityHealth { at_frame, .. }
             | Self::EntityCount { at_frame, .. }
-            | Self::Event { by_frame: at_frame, .. } => *at_frame,
+            | Self::Event {
+                by_frame: at_frame, ..
+            } => *at_frame,
             Self::NoDamageBetween { to_frame, .. } => *to_frame,
         }
     }
@@ -273,7 +317,13 @@ impl Scenario {
             players: self
                 .players
                 .iter()
-                .map(|player| player.inputs.iter().map(Segment::to_input_segment).collect())
+                .map(|player| {
+                    player
+                        .inputs
+                        .iter()
+                        .map(Segment::to_input_segment)
+                        .collect()
+                })
                 .collect(),
         }
     }

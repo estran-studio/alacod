@@ -1,12 +1,12 @@
 use bevy::prelude::*;
 use bevy_common_assets::ron::RonAssetPlugin;
-use serde::{Deserialize, Serialize};
 use bevy_fixed::fixed_math;
+use serde::{Deserialize, Serialize};
 
-use crate::core::AppState;
-use crate::character::health::Health;
-use crate::character::player::{Player, LocalPlayer};
 use crate::character::enemy::Enemy;
+use crate::character::health::Health;
+use crate::character::player::{LocalPlayer, Player};
+use crate::core::AppState;
 use crate::waves::state::WaveState;
 use crate::weapons::{WeaponInventory, WeaponModesState, WeaponState};
 
@@ -45,8 +45,13 @@ pub enum HudAnchor {
 /// HUD widget kind
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub enum HudWidgetKind {
-    Bar { source: String },
-    Text { source: String, prefix: Option<String> },
+    Bar {
+        source: String,
+    },
+    Text {
+        source: String,
+        prefix: Option<String>,
+    },
 }
 
 /// A single HUD widget definition
@@ -73,7 +78,10 @@ impl Plugin for HudPlugin {
         app.add_plugins(RonAssetPlugin::<HudConfig>::new(&["ron"]))
             .init_resource::<HudConfigHandle>()
             .add_systems(OnEnter(AppState::InGame), load_hud_config)
-            .add_systems(Update, spawn_hud_when_ready.run_if(in_state(AppState::InGame)))
+            .add_systems(
+                Update,
+                spawn_hud_when_ready.run_if(in_state(AppState::InGame)),
+            )
             .add_systems(Update, update_hud_values.run_if(in_state(AppState::InGame)))
             .add_systems(
                 Update,
@@ -88,10 +96,7 @@ impl Plugin for HudPlugin {
 struct HudConfigHandle(Option<Handle<HudConfig>>);
 
 /// Load the HUD config handle
-fn load_hud_config(
-    asset_server: Res<AssetServer>,
-    mut config_handle: ResMut<HudConfigHandle>,
-) {
+fn load_hud_config(asset_server: Res<AssetServer>, mut config_handle: ResMut<HudConfigHandle>) {
     config_handle.0 = Some(asset_server.load("ui/hud.ron"));
 }
 
@@ -105,14 +110,16 @@ fn spawn_hud_when_ready(
     if q_hud_root.is_empty() {
         if let Some(handle) = &config_handle.0 {
             if let Some(config) = configs.get(handle) {
-                let entity = commands.spawn((
-                    Node {
-                        width: Val::Percent(100.0),
-                        height: Val::Percent(100.0),
-                        ..default()
-                    },
-                    HudRoot,
-                )).id();
+                let entity = commands
+                    .spawn((
+                        Node {
+                            width: Val::Percent(100.0),
+                            height: Val::Percent(100.0),
+                            ..default()
+                        },
+                        HudRoot,
+                    ))
+                    .id();
                 spawn_hud_widgets(&mut commands, entity, config);
             }
         }

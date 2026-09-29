@@ -1,8 +1,8 @@
+use crate::rollback::RollbackTraceApp;
 use bevy::color::palettes::css::YELLOW;
 use bevy::prelude::*;
 use bevy_fixed::fixed_math;
 use bevy_ggrs::Rollback;
-use crate::rollback::RollbackTraceApp;
 
 #[cfg(feature = "lighting")]
 use bevy_light_2d::light::PointLight2d;
@@ -288,7 +288,7 @@ pub fn spawn_test_wall(
             ))
             .insert(Rollback);
     }
-    
+
     #[cfg(not(feature = "lighting"))]
     {
         commands
@@ -320,7 +320,6 @@ pub struct BaseColliderGamePlugin {}
 impl Plugin for BaseColliderGamePlugin {
     fn build(&self, app: &mut App) {
         app.init_resource::<CollisionSettings>();
-
 
         app.rollback_and_trace::<Collider>()
             .rollback_and_trace::<Wall>()

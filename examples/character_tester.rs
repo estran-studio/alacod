@@ -1,11 +1,26 @@
-use bevy::{color::palettes::{css::TURQUOISE, tailwind::{ORANGE_300, PURPLE_300}}, prelude::*};
+use bevy::{
+    color::palettes::{
+        css::TURQUOISE,
+        tailwind::{ORANGE_300, PURPLE_300},
+    },
+    prelude::*,
+};
 use bevy_fixed::fixed_math;
+use bevy_ggrs::Rollback;
 use game::{
-    args::BaseArgsPlugin, character::{config::CharacterConfig, enemy::spawning::EnemySpawnerState, player::create::create_player}, collider::{spawn_test_wall, CollisionSettings}, core::{AppState, CoreSetupConfig, CoreSetupPlugin}, global_asset::GlobalAsset, jjrs::{GggrsSessionConfiguration, GggrsSessionConfigurationState, GgrsSessionBuilding}, waves::{WaveDebugEnabled, WaveModeEnabled}, weapons::{melee::MeleeWeaponsConfig, WeaponsConfig}
+    args::BaseArgsPlugin,
+    character::{
+        config::CharacterConfig, enemy::spawning::EnemySpawnerState, player::create::create_player,
+    },
+    collider::{spawn_test_wall, CollisionSettings},
+    core::{AppState, CoreSetupConfig, CoreSetupPlugin},
+    global_asset::GlobalAsset,
+    jjrs::{GggrsSessionConfiguration, GggrsSessionConfigurationState, GgrsSessionBuilding},
+    waves::{WaveDebugEnabled, WaveModeEnabled},
+    weapons::{melee::MeleeWeaponsConfig, WeaponsConfig},
 };
 use map::game::entity::map::enemy_spawn::EnemySpawnerComponent;
 use utils::net_id::GgrsNetIdFactory;
-use bevy_ggrs::Rollback;
 
 fn main() {
     let game_config = CoreSetupConfig::from_env("zrl-character_tester");
@@ -17,17 +32,16 @@ fn main() {
         // Load default arguments from cli or query params (MUST be before core_plugin for --debug-ai to work)
         .add_plugins(BaseArgsPlugin)
         .add_plugins(core_plugin)
-
         // Because i don't have extra configuration yet we can directly start
         .insert_resource(GggrsSessionConfigurationState::ready())
         // Enable wave-based spawning mode (CoD Zombies style)
         .insert_resource(WaveModeEnabled(true))
         // Enable wave debug UI (toggle with F3)
         .insert_resource(WaveDebugEnabled(true))
-        .add_systems(OnEnter(AppState::GameLoading), (
-            setup_simple_background,
-            system_game_loading,
-        ))
+        .add_systems(
+            OnEnter(AppState::GameLoading),
+            (setup_simple_background, system_game_loading),
+        )
         .add_systems(Update, panic_on_p_press)
         .run();
 }
@@ -51,7 +65,6 @@ fn system_game_loading(
 
     ggrs_session_building: Res<GgrsSessionBuilding>,
 ) {
-
     for ggrs_player in ggrs_session_building.players.iter() {
         let i = ggrs_player.handle;
         let is_local = ggrs_player.is_local;
@@ -82,12 +95,8 @@ fn system_game_loading(
 
     spawn_test_map(&mut commands, &mut id_provider, &collision_settings);
 
-
     app_state.set(AppState::GameStarting);
-
 }
-
-
 
 fn spawn_test_map(
     commands: &mut Commands,
@@ -157,7 +166,6 @@ fn spawn_test_enemy_spawner(commands: &mut Commands, position: Vec3) {
         ))
         .insert(Rollback);
 }
-
 
 fn setup_simple_background(mut commands: Commands) {
     // Background parameters - scaled down to match smaller character

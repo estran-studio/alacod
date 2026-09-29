@@ -5,13 +5,12 @@ use map::game::entity::map::{map_rollback::MapRollbackMarker, player_spawn::Play
 
 use crate::map_const;
 
-
 pub fn player_spawn_component_from_field(entity_instance: &EntityInstance) -> PlayerSpawnConfig {
     println!("player spawn {:?}", entity_instance.field_instances);
     PlayerSpawnConfig {
         index: *entity_instance
-                .get_int_field(map_const::FIELD_PLAYER_SPAWN_INDEX_NAME)
-                .unwrap() as usize,
+            .get_int_field(map_const::FIELD_PLAYER_SPAWN_INDEX_NAME)
+            .unwrap() as usize,
     }
 }
 
@@ -24,9 +23,12 @@ pub struct PlayerSpawnBundle {
     sprite_sheet: Sprite,
 }
 
-
-impl Default for  PlayerSpawnBundle {
+impl Default for PlayerSpawnBundle {
     fn default() -> Self {
-        Self { rollback_marker: MapRollbackMarker("p_spawn".into()), player_spawn: PlayerSpawnConfig::default(), sprite_sheet: Sprite::default()}
-    } 
+        Self {
+            rollback_marker: MapRollbackMarker("p_spawn".into()),
+            player_spawn: PlayerSpawnConfig::default(),
+            sprite_sheet: Sprite::default(),
+        }
+    }
 }

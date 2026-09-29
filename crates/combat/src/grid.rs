@@ -92,7 +92,11 @@ impl SpatialGrid {
     /// L'AABB peut couvrir plusieurs cellules ; l'entrée sera insérée dans chacune.
     pub fn insert(&mut self, net_id: GgrsNetId, entity: Entity, aabb: Aabb) {
         let entry_idx = self.entries.len();
-        self.entries.push(GridEntry { net_id, entity, aabb });
+        self.entries.push(GridEntry {
+            net_id,
+            entity,
+            aabb,
+        });
 
         // Calculer toutes les cellules couvertes par l'AABB.
         let cell_min = self.pos_to_cell(aabb.min);
@@ -241,8 +245,8 @@ impl SpatialGrid {
         // Calculer la distance au carré en FixedWide.
         let diff_x_fw = FixedWide::from_num(diff_x);
         let diff_y_fw = FixedWide::from_num(diff_y);
-        let distance_sq_fw = diff_x_fw.saturating_mul(diff_x_fw)
-            + diff_y_fw.saturating_mul(diff_y_fw);
+        let distance_sq_fw =
+            diff_x_fw.saturating_mul(diff_x_fw) + diff_y_fw.saturating_mul(diff_y_fw);
 
         let radius_fw = FixedWide::from_num(radius);
         let radius_sq_fw = radius_fw.saturating_mul(radius_fw);
@@ -553,11 +557,8 @@ mod tests {
             let height = rng.range(4, 120);
 
             let center = FixedVec2::new(Fixed::from_num(pos_x), Fixed::from_num(pos_y));
-            let aabb = Aabb::from_center_size(
-                center,
-                Fixed::from_num(width),
-                Fixed::from_num(height),
-            );
+            let aabb =
+                Aabb::from_center_size(center, Fixed::from_num(width), Fixed::from_num(height));
 
             let net_id = GgrsNetId(i as usize, format!("box{}", i));
             let entity = test_entity(i);
@@ -609,11 +610,8 @@ mod tests {
             let height = rng.range(4, 120);
 
             let center = FixedVec2::new(Fixed::from_num(pos_x), Fixed::from_num(pos_y));
-            let aabb = Aabb::from_center_size(
-                center,
-                Fixed::from_num(width),
-                Fixed::from_num(height),
-            );
+            let aabb =
+                Aabb::from_center_size(center, Fixed::from_num(width), Fixed::from_num(height));
 
             let net_id = GgrsNetId(i as usize, format!("box{}", i));
             let entity = test_entity(i);
@@ -640,12 +638,18 @@ mod tests {
             let mut brute_ids = std::collections::BTreeSet::new();
             let circle_aabb = Aabb::from_circle(center, radius_fixed);
             for (net_id, aabb) in &entries {
-                if circle_aabb.overlaps(aabb) && circle_overlaps_aabb_brute(center, radius_fixed, aabb) {
+                if circle_aabb.overlaps(aabb)
+                    && circle_overlaps_aabb_brute(center, radius_fixed, aabb)
+                {
                     brute_ids.insert(net_id.0);
                 }
             }
 
-            assert_eq!(grid_ids, brute_ids, "Mismatch for query circle center={:?}, radius={}", center, radius);
+            assert_eq!(
+                grid_ids, brute_ids,
+                "Mismatch for query circle center={:?}, radius={}",
+                center, radius
+            );
         }
     }
 
@@ -664,11 +668,8 @@ mod tests {
             let height = rng.range(4, 120);
 
             let center = FixedVec2::new(Fixed::from_num(pos_x), Fixed::from_num(pos_y));
-            let aabb = Aabb::from_center_size(
-                center,
-                Fixed::from_num(width),
-                Fixed::from_num(height),
-            );
+            let aabb =
+                Aabb::from_center_size(center, Fixed::from_num(width), Fixed::from_num(height));
 
             let net_id = GgrsNetId(i as usize, format!("box{}", i));
             let entity = test_entity(i);
@@ -688,8 +689,8 @@ mod tests {
         for i in 0..entries.len() {
             for j in (i + 1)..entries.len() {
                 if entries[i].1.overlaps(&entries[j].1) {
-                    let a = entries[i].0.0;
-                    let b = entries[j].0.0;
+                    let a = entries[i].0 .0;
+                    let b = entries[j].0 .0;
                     brute_pairs.push((a.min(b), a.max(b)));
                 }
             }
@@ -715,11 +716,8 @@ mod tests {
                 let height = rng.range(4, 120);
 
                 let center = FixedVec2::new(Fixed::from_num(pos_x), Fixed::from_num(pos_y));
-                let aabb = Aabb::from_center_size(
-                    center,
-                    Fixed::from_num(width),
-                    Fixed::from_num(height),
-                );
+                let aabb =
+                    Aabb::from_center_size(center, Fixed::from_num(width), Fixed::from_num(height));
 
                 let net_id = GgrsNetId(i as usize, format!("box{}", i));
                 let entity = test_entity(i);
@@ -774,8 +772,8 @@ mod tests {
 
         let diff_x_fw = FixedWide::from_num(diff_x);
         let diff_y_fw = FixedWide::from_num(diff_y);
-        let distance_sq_fw = diff_x_fw.saturating_mul(diff_x_fw)
-            + diff_y_fw.saturating_mul(diff_y_fw);
+        let distance_sq_fw =
+            diff_x_fw.saturating_mul(diff_x_fw) + diff_y_fw.saturating_mul(diff_y_fw);
 
         let radius_fw = FixedWide::from_num(radius);
         let radius_sq_fw = radius_fw.saturating_mul(radius_fw);

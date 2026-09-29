@@ -116,7 +116,8 @@ fn detect_events(
             ),
             ..Default::default()
         };
-        if let Some((entity, weapon)) = inventory.and_then(|i| i.weapons.get(i.active_weapon_index)) {
+        if let Some((entity, weapon)) = inventory.and_then(|i| i.weapons.get(i.active_weapon_index))
+        {
             snapshot.weapon = weapon.config.name.clone();
             if let Ok((state, modes)) = weapons.get(*entity) {
                 snapshot.mode = state.active_mode.clone();
@@ -145,12 +146,19 @@ fn detect_events(
     };
     let f = frame.frame;
     let mut push = |kind: &'static str, label: String| {
-        events.events.push(GameEvent { frame: f, kind, label });
+        events.events.push(GameEvent {
+            frame: f,
+            kind,
+            label,
+        });
     };
 
     if now.wave != before.wave || now.phase != before.phase {
         if let Some(phase) = now.phase {
-            push("wave", format!("vague {} : {}", now.wave, phase_label(phase)));
+            push(
+                "wave",
+                format!("vague {} : {}", now.wave, phase_label(phase)),
+            );
         }
     }
     if now.kills > before.kills {
@@ -164,36 +172,80 @@ fn detect_events(
                     push("hit", format!("joueur {handle} touché"));
                 }
                 if player.reloading && !previous.reloading {
-                    push("reload", format!("joueur {handle} recharge ({} {})", player.weapon, player.mode));
+                    push(
+                        "reload",
+                        format!(
+                            "joueur {handle} recharge ({} {})",
+                            player.weapon, player.mode
+                        ),
+                    );
                 }
                 if !player.reloading && previous.reloading {
-                    push("reload", format!("joueur {handle} a rechargé : {} ({} chargeurs)", player.ammo, player.mags));
+                    push(
+                        "reload",
+                        format!(
+                            "joueur {handle} a rechargé : {} ({} chargeurs)",
+                            player.ammo, player.mags
+                        ),
+                    );
                 }
                 if player.weapon_index != previous.weapon_index {
-                    push("weapon", format!("joueur {handle} prend {} ({}, {} balles)", player.weapon, player.mode, player.ammo));
+                    push(
+                        "weapon",
+                        format!(
+                            "joueur {handle} prend {} ({}, {} balles)",
+                            player.weapon, player.mode, player.ammo
+                        ),
+                    );
                 } else if player.mode != previous.mode {
-                    push("weapon", format!("joueur {handle} passe en mode {} ({} balles)", player.mode, player.ammo));
+                    push(
+                        "weapon",
+                        format!(
+                            "joueur {handle} passe en mode {} ({} balles)",
+                            player.mode, player.ammo
+                        ),
+                    );
                 }
                 if player.dashing && !previous.dashing {
-                    push("move", format!("joueur {handle} dash depuis {:?}", previous.position));
+                    push(
+                        "move",
+                        format!("joueur {handle} dash depuis {:?}", previous.position),
+                    );
                 }
                 if !player.dashing && previous.dashing {
-                    push("move", format!("joueur {handle} fin du dash en {:?}", player.position));
+                    push(
+                        "move",
+                        format!("joueur {handle} fin du dash en {:?}", player.position),
+                    );
                 }
                 if player.sprinting != previous.sprinting {
-                    let what = if player.sprinting { "sprinte" } else { "arrête de sprinter" };
+                    let what = if player.sprinting {
+                        "sprinte"
+                    } else {
+                        "arrête de sprinter"
+                    };
                     push("move", format!("joueur {handle} {what}"));
                 }
                 if player.melee && !previous.melee {
                     push("melee", format!("joueur {handle} attaque au corps à corps"));
                 }
-                if player.weapon_index == previous.weapon_index && player.ammo == 0 && previous.ammo > 0 {
-                    push("weapon", format!("joueur {handle} : chargeur vide ({})", player.weapon));
+                if player.weapon_index == previous.weapon_index
+                    && player.ammo == 0
+                    && previous.ammo > 0
+                {
+                    push(
+                        "weapon",
+                        format!("joueur {handle} : chargeur vide ({})", player.weapon),
+                    );
                 }
             }
         }
     }
-    for handle in before.players.keys().filter(|h| !now.players.contains_key(h)) {
+    for handle in before
+        .players
+        .keys()
+        .filter(|h| !now.players.contains_key(h))
+    {
         push("death", format!("joueur {handle} meurt"));
     }
     for (id, health) in &now.windows {

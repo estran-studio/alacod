@@ -25,12 +25,18 @@ fn collider_cells(transform: &FixedTransform3D, collider: &Collider) -> Vec<Grid
     let center_y = (transform.translation.y + collider.offset.y).to_num::<i32>();
     let (half_w, half_h) = match &collider.shape {
         ColliderShape::Circle { radius } => (radius.to_num::<i32>(), radius.to_num::<i32>()),
-        ColliderShape::Rectangle { width, height } => (width.to_num::<i32>() / 2, height.to_num::<i32>() / 2),
+        ColliderShape::Rectangle { width, height } => {
+            (width.to_num::<i32>() / 2, height.to_num::<i32>() / 2)
+        }
     };
     let min_x = (center_x - half_w).div_euclid(GRID_CELL_SIZE);
-    let max_x = (center_x + half_w - 1).div_euclid(GRID_CELL_SIZE).max(min_x);
+    let max_x = (center_x + half_w - 1)
+        .div_euclid(GRID_CELL_SIZE)
+        .max(min_x);
     let min_y = (center_y - half_h).div_euclid(GRID_CELL_SIZE);
-    let max_y = (center_y + half_h - 1).div_euclid(GRID_CELL_SIZE).max(min_y);
+    let max_y = (center_y + half_h - 1)
+        .div_euclid(GRID_CELL_SIZE)
+        .max(min_y);
     (min_x..=max_x)
         .flat_map(|x| (min_y..=max_y).map(move |y| GridPos::new(x, y)))
         .collect()
@@ -56,10 +62,14 @@ fn arrow(from: GridPos, to: GridPos) -> char {
 /// Avec `arrows`, les cases atteignables montrent la direction du flow field.
 pub fn nav_ascii(world: &mut World, arrows: bool) -> String {
     let cache = world.resource::<FlowFieldCache>().clone();
-    let field = cache.get_flow_field(NavProfile::GroundBreaker).cloned().unwrap_or_default();
+    let field = cache
+        .get_flow_field(NavProfile::GroundBreaker)
+        .cloned()
+        .unwrap_or_default();
 
     let mut physics: BTreeSet<GridPos> = BTreeSet::new();
-    let mut q = world.query_filtered::<(&FixedTransform3D, &Collider), (With<Wall>, Without<Obstacle>)>();
+    let mut q =
+        world.query_filtered::<(&FixedTransform3D, &Collider), (With<Wall>, Without<Obstacle>)>();
     for (t, c) in q.iter(world) {
         physics.extend(collider_cells(t, c));
     }
@@ -67,16 +77,21 @@ pub fn nav_ascii(world: &mut World, arrows: bool) -> String {
     let mut marks: BTreeMap<GridPos, char> = BTreeMap::new();
     let mut q = world.query::<(&FixedTransform3D, Option<&Collider>, &Obstacle)>();
     for (t, c, obstacle) in q.iter(world) {
-        let cells = c.map(|c| collider_cells(t, c)).unwrap_or_else(|| vec![GridPos::from_fixed(t.translation.truncate())]);
+        let cells = c
+            .map(|c| collider_cells(t, c))
+            .unwrap_or_else(|| vec![GridPos::from_fixed(t.translation.truncate())]);
         let ch = if obstacle.blocks_movement { 'W' } else { 'w' };
         for cell in cells {
             marks.insert(cell, ch);
         }
     }
     // Porte ouverte = sans collider (une porte non interactive reste fermée)
-    let mut q = world.query_filtered::<(&FixedTransform3D, Option<&Collider>), With<DoorComponent>>();
+    let mut q =
+        world.query_filtered::<(&FixedTransform3D, Option<&Collider>), With<DoorComponent>>();
     for (t, c) in q.iter(world) {
-        let cells = c.map(|c| collider_cells(t, c)).unwrap_or_else(|| vec![GridPos::from_fixed(t.translation.truncate())]);
+        let cells = c
+            .map(|c| collider_cells(t, c))
+            .unwrap_or_else(|| vec![GridPos::from_fixed(t.translation.truncate())]);
         for cell in cells {
             marks.insert(cell, if c.is_some() { 'D' } else { 'd' });
         }
@@ -94,7 +109,12 @@ pub fn nav_ascii(world: &mut World, arrows: bool) -> String {
         marks.insert(GridPos::from_fixed(t.translation.truncate()), 'P');
     }
 
-    let all: Vec<&GridPos> = cache.wall_cells.iter().chain(physics.iter()).chain(marks.keys()).collect();
+    let all: Vec<&GridPos> = cache
+        .wall_cells
+        .iter()
+        .chain(physics.iter())
+        .chain(marks.keys())
+        .collect();
     if all.is_empty() {
         return "aucune donnée de navigation".into();
     }
@@ -127,7 +147,11 @@ pub fn nav_ascii(world: &mut World, arrows: bool) -> String {
             } else if nav_wall {
                 'n'
             } else if let Some(next) = field.directions.get(&pos) {
-                if arrows { arrow(pos, *next) } else { '.' }
+                if arrows {
+                    arrow(pos, *next)
+                } else {
+                    '.'
+                }
             } else {
                 ' '
             };

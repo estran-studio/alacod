@@ -89,7 +89,20 @@ impl GridPos {
 }
 
 /// Navigation profile determines which obstacles block an enemy
-#[derive(Clone, Copy, Debug, PartialEq, Eq, Hash, Default, Reflect, Serialize, Deserialize, PartialOrd, Ord)]
+#[derive(
+    Clone,
+    Copy,
+    Debug,
+    PartialEq,
+    Eq,
+    Hash,
+    Default,
+    Reflect,
+    Serialize,
+    Deserialize,
+    PartialOrd,
+    Ord,
+)]
 pub enum NavProfile {
     /// Respects all obstacles (walls, windows, barricades, water, pits)
     #[default]
@@ -135,7 +148,10 @@ impl FlowField {
 
     /// Get the world-space direction vector from a given position
     /// Uses actual enemy position (not cell center) for smoother movement
-    pub fn get_direction_vector(&self, pos: fixed_math::FixedVec2) -> Option<fixed_math::FixedVec2> {
+    pub fn get_direction_vector(
+        &self,
+        pos: fixed_math::FixedVec2,
+    ) -> Option<fixed_math::FixedVec2> {
         let grid_pos = GridPos::from_fixed(pos);
         let next_pos = self.get_direction(grid_pos)?;
 
@@ -160,7 +176,10 @@ impl FlowField {
 
     /// Get alternative directions from neighboring cells (for escaping corners)
     /// Returns directions sorted by cost (lowest cost = closest to target)
-    pub fn get_neighbor_directions(&self, pos: fixed_math::FixedVec2) -> Vec<fixed_math::FixedVec2> {
+    pub fn get_neighbor_directions(
+        &self,
+        pos: fixed_math::FixedVec2,
+    ) -> Vec<fixed_math::FixedVec2> {
         let grid_pos = GridPos::from_fixed(pos);
         let mut directions = Vec::new();
 
@@ -185,7 +204,11 @@ impl FlowField {
     /// Find the nearest cell that has flow field coverage
     /// Used when an enemy is outside the flow field to find a path back in
     /// Returns the direction to move toward the nearest covered cell
-    pub fn find_nearest_covered_cell(&self, pos: fixed_math::FixedVec2, max_search: i32) -> Option<fixed_math::FixedVec2> {
+    pub fn find_nearest_covered_cell(
+        &self,
+        pos: fixed_math::FixedVec2,
+        max_search: i32,
+    ) -> Option<fixed_math::FixedVec2> {
         let grid_pos = GridPos::from_fixed(pos);
 
         // First check immediate neighbors (most common case)
@@ -254,9 +277,10 @@ impl AgentBody {
     pub fn from_collider(collider: &Collider) -> Self {
         let (half_w, half_h) = match &collider.shape {
             ColliderShape::Circle { radius } => (*radius, *radius),
-            ColliderShape::Rectangle { width, height } => {
-                (*width / fixed_math::new(2.0), *height / fixed_math::new(2.0))
-            }
+            ColliderShape::Rectangle { width, height } => (
+                *width / fixed_math::new(2.0),
+                *height / fixed_math::new(2.0),
+            ),
         };
         Self {
             left: half_w - collider.offset.x,
@@ -354,7 +378,10 @@ impl FlowFieldCache {
     /// Net id of the target (player) the flow field leads to from `pos`: the closest one
     /// along the path.
     pub fn nearest_target(&self, profile: NavProfile, pos: fixed_math::FixedVec2) -> Option<usize> {
-        let owner = *self.get_flow_field(profile)?.owners.get(&GridPos::from_fixed(pos))?;
+        let owner = *self
+            .get_flow_field(profile)?
+            .owners
+            .get(&GridPos::from_fixed(pos))?;
         self.target_ids.get(owner).copied()
     }
 
@@ -380,7 +407,8 @@ impl FlowFieldCache {
     /// A cell blocked on two opposite sides is a 1-cell corridor: an agent wider than a
     /// cell (zombies are 20 px, cells 16 px) cannot stand in it.
     pub fn is_too_narrow(&self, pos: &GridPos, profile: NavProfile) -> bool {
-        let blocked = |dx: i32, dy: i32| self.is_blocked(&GridPos::new(pos.x + dx, pos.y + dy), profile);
+        let blocked =
+            |dx: i32, dy: i32| self.is_blocked(&GridPos::new(pos.x + dx, pos.y + dy), profile);
         (blocked(-1, 0) && blocked(1, 0)) || (blocked(0, -1) && blocked(0, 1))
     }
 
@@ -397,9 +425,11 @@ impl FlowFieldCache {
         profile: NavProfile,
         body: &AgentBody,
     ) -> fixed_math::FixedVec2 {
-        let blocked = |dx: i32, dy: i32| self.is_blocked(&GridPos::new(cell.x + dx, cell.y + dy), profile);
+        let blocked =
+            |dx: i32, dy: i32| self.is_blocked(&GridPos::new(cell.x + dx, cell.y + dy), profile);
         let half_cell = fixed_math::Fixed::from_num(GRID_CELL_SIZE / 2);
-        let push = |extent: fixed_math::Fixed| (extent - half_cell + fixed_math::FIXED_ONE).max(half_cell);
+        let push =
+            |extent: fixed_math::Fixed| (extent - half_cell + fixed_math::FIXED_ONE).max(half_cell);
         let mut point = cell.to_fixed();
         if blocked(-1, 0) {
             point.x += push(body.left);
@@ -439,7 +469,8 @@ impl FlowFieldCache {
         // Already on the steering point: aim at the following cell
         let further = field.get_direction(next)?;
         let direction = self.steering_point(further, profile, body) - pos;
-        (direction.length_squared() > fixed_math::FixedWide::ZERO).then(|| direction.normalize_or_zero())
+        (direction.length_squared() > fixed_math::FixedWide::ZERO)
+            .then(|| direction.normalize_or_zero())
     }
 
     /// Load wall cells directly from LDtk IntGrid data
@@ -472,8 +503,10 @@ impl FlowFieldCache {
         info!(
             "FlowField: loaded {} IntGrid wall cells from {}x{} level at ({}, {})",
             self.intgrid_wall_cells.len(),
-            level_width, level_height,
-            level_offset.x, level_offset.y
+            level_width,
+            level_height,
+            level_offset.x,
+            level_offset.y
         );
     }
 }
@@ -527,8 +560,8 @@ pub struct FlowFieldConfig {
 impl Default for FlowFieldConfig {
     fn default() -> Self {
         Self {
-            update_interval: 30,  // Update every 0.5s at 60fps
-            max_search_radius: 50, // 50 cells * 16 units = 800 units radius
+            update_interval: 30,    // Update every 0.5s at 60fps
+            max_search_radius: 50,  // 50 cells * 16 units = 800 units radius
             use_8_directions: true, // 8 directions for smoother diagonal movement
             straight_cost: 10,
             diagonal_cost: 14,
@@ -545,10 +578,7 @@ pub fn update_flow_field_system(
     player_query: Query<(&GgrsNetId, &fixed_math::FixedTransform3D), With<Player>>,
     // Portes fermées : une porte ouverte n'a plus de collider
     door_query: Query<(&GgrsNetId, &fixed_math::FixedTransform3D, &Collider), With<DoorComponent>>,
-    obstacle_query: Query<
-        (&fixed_math::FixedTransform3D, &Collider, &Obstacle),
-        With<Rollback>,
-    >,
+    obstacle_query: Query<(&fixed_math::FixedTransform3D, &Collider, &Obstacle), With<Rollback>>,
     mut cache: ResMut<FlowFieldCache>,
 ) {
     // Check if we need to update (rate limit)
@@ -585,7 +615,11 @@ pub fn update_flow_field_system(
     let obstacles_changed =
         cache.wall_cells != previous_walls || cache.blocked_cells != previous_blocked;
 
-    if targets == cache.targets && target_ids == cache.target_ids && !obstacles_changed && !cache.layers.is_empty() {
+    if targets == cache.targets
+        && target_ids == cache.target_ids
+        && !obstacles_changed
+        && !cache.layers.is_empty()
+    {
         return;
     }
 
@@ -599,8 +633,11 @@ pub fn update_flow_field_system(
     // Log flow field stats only on significant rebuilds
     trace!(
         "FlowField: targets={}, first=({},{}), reachable={}, walls={}",
-        targets.len(), target_pos.x, target_pos.y,
-        flow_field.directions.len(), cache.wall_cells.len()
+        targets.len(),
+        target_pos.x,
+        target_pos.y,
+        flow_field.directions.len(),
+        cache.wall_cells.len()
     );
 
     cache.layers.insert(NavProfile::GroundBreaker, flow_field);
@@ -610,10 +647,7 @@ pub fn update_flow_field_system(
 fn rebuild_blocked_cells(
     cache: &mut FlowFieldCache,
     door_query: &Query<(&GgrsNetId, &fixed_math::FixedTransform3D, &Collider), With<DoorComponent>>,
-    obstacle_query: &Query<
-        (&fixed_math::FixedTransform3D, &Collider, &Obstacle),
-        With<Rollback>,
-    >,
+    obstacle_query: &Query<(&fixed_math::FixedTransform3D, &Collider, &Obstacle), With<Rollback>>,
 ) {
     cache.blocked_cells.clear();
 
@@ -625,9 +659,10 @@ fn rebuild_blocked_cells(
     // Door tiles are free in the IntGrid: a door blocks as long as it has a collider
     // (closed, or never openable when not interactable)
     for (_, transform, collider) in utils::order_iter!(door_query) {
-        cache
-            .wall_cells
-            .extend(get_collider_cells(transform.translation.truncate(), collider));
+        cache.wall_cells.extend(get_collider_cells(
+            transform.translation.truncate(),
+            collider,
+        ));
     }
 
     let mut window_cells_removed = 0;
@@ -670,16 +705,14 @@ fn rebuild_blocked_cells(
     // Log only at trace level to avoid spam
     trace!(
         "FlowField: {} wall cells, {} window holes",
-        cache.wall_cells.len(), window_cells_removed
+        cache.wall_cells.len(),
+        window_cells_removed
     );
 }
 
 /// Get all grid cells occupied by a collider (precise, no padding)
 /// Uses exact boundary calculation for proper 1:1 tile alignment
-pub fn get_collider_cells(
-    pos: fixed_math::FixedVec2,
-    collider: &Collider,
-) -> Vec<GridPos> {
+pub fn get_collider_cells(pos: fixed_math::FixedVec2, collider: &Collider) -> Vec<GridPos> {
     let mut cells = Vec::new();
     let offset = fixed_math::FixedVec2::new(collider.offset.x, collider.offset.y);
     let center = pos + offset;
@@ -745,12 +778,15 @@ fn build_flow_field(
     // Search inside the map (walls bounding box + margin) instead of a radius around the
     // target: every spawner of the map must be covered
     let margin = config.max_search_radius.min(8);
-    let bounds = cache.wall_cells.iter().fold(None, |acc: Option<(i32, i32, i32, i32)>, p| {
-        Some(match acc {
-            None => (p.x, p.x, p.y, p.y),
-            Some((x0, x1, y0, y1)) => (x0.min(p.x), x1.max(p.x), y0.min(p.y), y1.max(p.y)),
-        })
-    });
+    let bounds = cache
+        .wall_cells
+        .iter()
+        .fold(None, |acc: Option<(i32, i32, i32, i32)>, p| {
+            Some(match acc {
+                None => (p.x, p.x, p.y, p.y),
+                Some((x0, x1, y0, y1)) => (x0.min(p.x), x1.max(p.x), y0.min(p.y), y1.max(p.y)),
+            })
+        });
     let (min_x, max_x, min_y, max_y) = match bounds {
         Some((x0, x1, y0, y1)) => (
             targets.iter().map(|t| t.x).fold(x0, i32::min) - margin,
@@ -812,7 +848,11 @@ fn build_flow_field(
     }
 
     while let Some(Reverse((cost, current))) = heap.pop() {
-        if flow_field.costs.get(&current).is_some_and(|best| cost > *best) {
+        if flow_field
+            .costs
+            .get(&current)
+            .is_some_and(|best| cost > *best)
+        {
             continue; // stale heap entry
         }
 
@@ -843,14 +883,22 @@ fn build_flow_field(
                 continue;
             }
 
-            let step = if diagonal { config.diagonal_cost } else { config.straight_cost };
+            let step = if diagonal {
+                config.diagonal_cost
+            } else {
+                config.straight_cost
+            };
             let breakable = if cache.is_breakable_obstacle(&neighbor, profile) {
                 config.breakable_penalty
             } else {
                 0
             };
             let new_cost = cost + step + penalty(&neighbor) + breakable;
-            if flow_field.costs.get(&neighbor).is_some_and(|best| new_cost >= *best) {
+            if flow_field
+                .costs
+                .get(&neighbor)
+                .is_some_and(|best| new_cost >= *best)
+            {
                 continue;
             }
 

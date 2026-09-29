@@ -8,11 +8,16 @@ pub mod room;
 
 use bevy_fixed::rng::RollbackRng;
 
-use crate::{game::entity::map::player_spawn::PlayerSpawnConfig, generation::imp::get_implementation};
+use crate::{
+    game::entity::map::player_spawn::PlayerSpawnConfig, generation::imp::get_implementation,
+};
 
 use self::{
     context::MapGenerationContext,
-    entity::{door::DoorConfig, enemy_spawn::EnemySpawnConfig, location::EntityLocation, window::WindowConfig},
+    entity::{
+        door::DoorConfig, enemy_spawn::EnemySpawnConfig, location::EntityLocation,
+        window::WindowConfig,
+    },
     room::{Room, RoomConnection},
 };
 
@@ -21,14 +26,23 @@ pub const LEVEL_PROPERTIES_GENERATION_NAME: &str = "generation";
 
 trait IMapGeneration {
     // generate the first room that will be the game starting point
-    fn get_spawning_room(&mut self, rng: &mut RollbackRng,) -> Room;
+    fn get_spawning_room(&mut self, rng: &mut RollbackRng) -> Room;
     // generate the next room and provide the two connection used to create this room
-    fn get_next_room(&mut self, rng: &mut RollbackRng,) -> Option<(Room, RoomConnection, RoomConnection)>;
+    fn get_next_room(
+        &mut self,
+        rng: &mut RollbackRng,
+    ) -> Option<(Room, RoomConnection, RoomConnection)>;
 
-    fn get_doors(&mut self, rng: &mut RollbackRng,) -> Vec<(EntityLocation, DoorConfig)>;
-    fn get_windows(&mut self, rng: &mut RollbackRng,) -> Vec<(EntityLocation, WindowConfig)>;
-    fn get_player_spawn(&mut self, rng: &mut RollbackRng,) -> Vec<(EntityLocation, PlayerSpawnConfig)>;
-    fn get_enemy_spawns(&mut self, rng: &mut RollbackRng,) -> Vec<(EntityLocation, EnemySpawnConfig)>;
+    fn get_doors(&mut self, rng: &mut RollbackRng) -> Vec<(EntityLocation, DoorConfig)>;
+    fn get_windows(&mut self, rng: &mut RollbackRng) -> Vec<(EntityLocation, WindowConfig)>;
+    fn get_player_spawn(
+        &mut self,
+        rng: &mut RollbackRng,
+    ) -> Vec<(EntityLocation, PlayerSpawnConfig)>;
+    fn get_enemy_spawns(
+        &mut self,
+        rng: &mut RollbackRng,
+    ) -> Vec<(EntityLocation, EnemySpawnConfig)>;
 }
 
 pub trait IMapGenerator {
@@ -41,8 +55,16 @@ pub trait IMapGenerator {
     );
     fn add_doors(&mut self, rng: &mut RollbackRng, doors: &Vec<(EntityLocation, DoorConfig)>);
     fn add_windows(&mut self, rng: &mut RollbackRng, windows: &Vec<(EntityLocation, WindowConfig)>);
-    fn add_player_spawns(&mut self, rng: &mut RollbackRng, player_spawns: &Vec<(EntityLocation, PlayerSpawnConfig)>);
-    fn add_enemy_spawns(&mut self, rng: &mut RollbackRng, enemy_spawns: &Vec<(EntityLocation, EnemySpawnConfig)>);
+    fn add_player_spawns(
+        &mut self,
+        rng: &mut RollbackRng,
+        player_spawns: &Vec<(EntityLocation, PlayerSpawnConfig)>,
+    );
+    fn add_enemy_spawns(
+        &mut self,
+        rng: &mut RollbackRng,
+        enemy_spawns: &Vec<(EntityLocation, EnemySpawnConfig)>,
+    );
 }
 
 pub fn map_generation(
@@ -74,7 +96,7 @@ pub fn map_generation(
     let player_spawns = generator.get_player_spawn(&mut rng);
     let enemy_spawns = generator.get_enemy_spawns(&mut rng);
 
-    map_generator.add_doors( &mut rng, &doors);
+    map_generator.add_doors(&mut rng, &doors);
 
     map_generator.add_windows(&mut rng, &windows);
 

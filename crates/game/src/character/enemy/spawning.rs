@@ -1,6 +1,8 @@
 use bevy::prelude::*;
 use bevy_fixed::{fixed_math, rng::RollbackRng};
-use map::game::entity::map::{enemy_spawn::EnemySpawnerComponent, level_id::LevelId, room::RoomBounds};
+use map::game::entity::map::{
+    enemy_spawn::EnemySpawnerComponent, level_id::LevelId, room::RoomBounds,
+};
 
 use crate::{
     character::{config::CharacterConfig, player::Player},
@@ -8,7 +10,11 @@ use crate::{
     global_asset::GlobalAsset,
     weapons::{melee::MeleeWeaponsConfig, WeaponsConfig},
 };
-use utils::{frame::FrameCount, net_id::{GgrsNetId, GgrsNetIdFactory}, order_iter};
+use utils::{
+    frame::FrameCount,
+    net_id::{GgrsNetId, GgrsNetIdFactory},
+    order_iter,
+};
 
 use super::{create::spawn_enemy, Enemy};
 
@@ -92,7 +98,10 @@ pub fn enemy_spawn_from_spawners_system(
     }
 
     if frame.frame % 60 == 0 {
-        debug!("Frame {}: Players with rooms: {:?}", frame.frame, players_with_rooms);
+        debug!(
+            "Frame {}: Players with rooms: {:?}",
+            frame.frame, players_with_rooms
+        );
     }
 
     // --- Step 2: Check enemy count limit ---
@@ -129,7 +138,10 @@ pub fn enemy_spawn_from_spawners_system(
             Some(id) => id.0.as_str(),
             None => {
                 if frame.frame % 60 == 0 {
-                    debug!("Frame {}: Spawner {} has no LevelId, skipped", frame.frame, net_id.0);
+                    debug!(
+                        "Frame {}: Spawner {} has no LevelId, skipped",
+                        frame.frame, net_id.0
+                    );
                 }
                 continue;
             }
@@ -162,8 +174,10 @@ pub fn enemy_spawn_from_spawners_system(
             Some(d) => d,
             None => {
                 if frame.frame % 60 == 0 {
-                    debug!("Frame {}: Spawner {} (Level: {}) has no players in same room, skipped",
-                           frame.frame, net_id.0, spawner_level);
+                    debug!(
+                        "Frame {}: Spawner {} (Level: {}) has no players in same room, skipped",
+                        frame.frame, net_id.0, spawner_level
+                    );
                 }
                 continue;
             }
@@ -172,8 +186,14 @@ pub fn enemy_spawn_from_spawners_system(
         // Check min distance (player too close)
         if distance_to_player < config.min_spawn_distance {
             if frame.frame % 60 == 0 {
-                debug!("Frame {}: Spawner {} (Level: {}) skipped: player too close ({:?} < {:?})",
-                       frame.frame, net_id.0, spawner_level, distance_to_player, config.min_spawn_distance);
+                debug!(
+                    "Frame {}: Spawner {} (Level: {}) skipped: player too close ({:?} < {:?})",
+                    frame.frame,
+                    net_id.0,
+                    spawner_level,
+                    distance_to_player,
+                    config.min_spawn_distance
+                );
             }
             continue;
         }
@@ -181,28 +201,37 @@ pub fn enemy_spawn_from_spawners_system(
         // Check max distance (player too far / outside flow field range)
         if distance_to_player > max_spawn_dist {
             if frame.frame % 60 == 0 {
-                debug!("Frame {}: Spawner {} (Level: {}) skipped: player too far ({:?} > {:?})",
-                       frame.frame, net_id.0, spawner_level, distance_to_player, max_spawn_dist);
+                debug!(
+                    "Frame {}: Spawner {} (Level: {}) skipped: player too far ({:?} > {:?})",
+                    frame.frame, net_id.0, spawner_level, distance_to_player, max_spawn_dist
+                );
             }
             continue;
         }
 
         if frame.frame % 60 == 0 {
-            debug!("Frame {}: Spawner {} (Level: {}) is valid candidate, distance: {:?}",
-                   frame.frame, net_id.0, spawner_level, distance_to_player);
+            debug!(
+                "Frame {}: Spawner {} (Level: {}) is valid candidate, distance: {:?}",
+                frame.frame, net_id.0, spawner_level, distance_to_player
+            );
         }
 
         // Update best spawner if this one is closer (with deterministic tie-breaking by net_id)
         let should_update = match &best_spawner {
             None => true,
             Some((best_net_id, _, best_dist, _)) => {
-                distance_to_player < *best_dist ||
-                (distance_to_player == *best_dist && net_id.0 < *best_net_id)
+                distance_to_player < *best_dist
+                    || (distance_to_player == *best_dist && net_id.0 < *best_net_id)
             }
         };
 
         if should_update {
-            best_spawner = Some((net_id.0, entity, distance_to_player, spawner_level.to_string()));
+            best_spawner = Some((
+                net_id.0,
+                entity,
+                distance_to_player,
+                spawner_level.to_string(),
+            ));
         }
     }
 
@@ -216,8 +245,10 @@ pub fn enemy_spawn_from_spawners_system(
     };
 
     if frame.frame % 60 == 0 {
-        debug!("Frame {}: Selected spawner {} (Level: {}) at distance {:?}",
-               frame.frame, best_net_id, best_level, best_distance);
+        debug!(
+            "Frame {}: Selected spawner {} (Level: {}) at distance {:?}",
+            frame.frame, best_net_id, best_level, best_distance
+        );
     }
 
     // GGRS trace log for spawner selection
@@ -256,14 +287,21 @@ pub fn enemy_spawn_from_spawners_system(
         let type_index = (rng.next_u32() as usize) % config.enemy_types.len();
         let enemy_type_name = config.enemy_types[type_index].clone();
 
-        debug!("Frame {}: Spawning enemy (type: {}) from spawner {} (Level: {}) at {:?}",
-               frame.frame, enemy_type_name, spawner_net_id.0, best_level, final_spawn_pos);
+        debug!(
+            "Frame {}: Spawning enemy (type: {}) from spawner {} (Level: {}) at {:?}",
+            frame.frame, enemy_type_name, spawner_net_id.0, best_level, final_spawn_pos
+        );
 
         // GGRS trace log for diff_log comparison between clients
         info!(
             "ggrs{{f={} enemy_spawn room={} spawner={} dist={} type={} pos=({},{})}}",
-            frame.frame, best_level, spawner_net_id.0, best_distance,
-            enemy_type_name, final_spawn_pos.x, final_spawn_pos.y
+            frame.frame,
+            best_level,
+            spawner_net_id.0,
+            best_distance,
+            enemy_type_name,
+            final_spawn_pos.x,
+            final_spawn_pos.y
         );
 
         let _ = spawn_enemy(

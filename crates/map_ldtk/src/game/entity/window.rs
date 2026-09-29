@@ -1,8 +1,11 @@
 use bevy::prelude::*;
 use bevy_ecs_ldtk::prelude::*;
 
-use map::{game::entity::map::{map_rollback::MapRollbackMarker, window::WindowComponent}, generation::entity::window::WindowConfig};
-use super::door::{LdtkEntitySize, ldtk_entity_size_from_instance};
+use super::door::{ldtk_entity_size_from_instance, LdtkEntitySize};
+use map::{
+    game::entity::map::{map_rollback::MapRollbackMarker, window::WindowComponent},
+    generation::entity::window::WindowConfig,
+};
 
 pub fn window_from_field(_: &EntityInstance) -> WindowComponent {
     WindowComponent {
@@ -21,14 +24,16 @@ pub struct WindowBundle {
     ldtk_size: LdtkEntitySize,
 }
 
-
 impl Default for WindowBundle {
     fn default() -> Self {
-        Self { 
-            rollback_marker: MapRollbackMarker("window".into()), 
-            window: WindowComponent::default(), 
+        Self {
+            rollback_marker: MapRollbackMarker("window".into()),
+            window: WindowComponent::default(),
             sprite_sheet: Sprite::default(),
-            ldtk_size: LdtkEntitySize { width: 16.0, height: 16.0 },
+            ldtk_size: LdtkEntitySize {
+                width: 16.0,
+                height: 16.0,
+            },
         }
-    } 
+    }
 }

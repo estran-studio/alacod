@@ -1,4 +1,3 @@
-
 use bevy::prelude::*;
 use bevy_fixed::fixed_math;
 use bevy_ggrs::Rollback;
@@ -31,7 +30,6 @@ pub struct Velocity {
     pub knockback: fixed_math::FixedVec2,
 }
 
-
 /// Resource for configuring knockback damping
 /// IMPORTANT: Uses Fixed instead of f32 for determinism across rollback
 #[derive(Resource, Clone, Debug, Hash)]
@@ -41,7 +39,9 @@ pub struct KnockbackDampingConfig {
 
 impl Default for KnockbackDampingConfig {
     fn default() -> Self {
-        Self { damping: fixed_math::new(0.85) }
+        Self {
+            damping: fixed_math::new(0.85),
+        }
     }
 }
 

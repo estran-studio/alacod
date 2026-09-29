@@ -42,7 +42,7 @@ fn add_harmonium(app: &mut App) {
 // Setup system to initialize generative music
 #[cfg(feature = "harmonium")]
 fn setup_harmonium_music(mut commands: Commands) {
-    use harmonium_bevy::components::{HarmoniumSource, GenerativeConfig, OdinConfig};
+    use harmonium_bevy::components::{GenerativeConfig, HarmoniumSource, OdinConfig};
     use harmonium_bevy::harmonium_core::sequencer::RhythmMode;
 
     // Create the music controller entity
@@ -60,6 +60,6 @@ fn setup_harmonium_music(mut commands: Commands) {
             // Use defaults which loads embedded presets
             synth: OdinConfig::default(),
             manual_visual_params: Default::default(),
-        }
+        },
     ));
 }

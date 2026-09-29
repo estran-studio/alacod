@@ -3,16 +3,19 @@ use bevy::prelude::*;
 #[cfg(feature = "lighting")]
 use bevy_light_2d::light::PointLight2d;
 
-use leafwing_input_manager::prelude::ActionState;
-use utils::net_id::GgrsNetIdFactory;
 #[cfg(feature = "harmonium")]
 use harmonium_bevy::components::AiDriver;
+use leafwing_input_manager::prelude::ActionState;
+use utils::net_id::GgrsNetIdFactory;
 
 use crate::{
     character::{config::CharacterConfig, create::create_character},
     collider::{CollisionLayer, CollisionSettings},
     global_asset::GlobalAsset,
-    weapons::{melee::{spawn_melee_weapon_for_character, MeleeWeaponsConfig}, spawn_weapon_for_player, WeaponInventory, WeaponsConfig},
+    weapons::{
+        melee::{spawn_melee_weapon_for_character, MeleeWeaponsConfig},
+        spawn_weapon_for_player, WeaponInventory, WeaponsConfig,
+    },
 };
 
 use super::{
@@ -98,12 +101,7 @@ pub fn create_player(
     // Add a default melee weapon (bare hands) to all players
     if let Some(melee_weapons_config) = melee_weapons_asset.get(&global_assets.melee_weapons) {
         if let Some(bare_hands) = melee_weapons_config.0.get("bare_hands") {
-            spawn_melee_weapon_for_character(
-                commands,
-                entity,
-                bare_hands.clone(),
-                id_factory,
-            );
+            spawn_melee_weapon_for_character(commands, entity, bare_hands.clone(), id_factory);
         }
     }
 

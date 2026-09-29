@@ -1,11 +1,16 @@
-pub mod p2p;
 pub mod local;
-
+pub mod p2p;
 
 use std::{default, net::SocketAddr};
 
 use animation::SpriteSheetConfig;
-use bevy::{color::palettes::{css::TURQUOISE, tailwind::{ORANGE_300, PURPLE_300}}, prelude::*};
+use bevy::{
+    color::palettes::{
+        css::TURQUOISE,
+        tailwind::{ORANGE_300, PURPLE_300},
+    },
+    prelude::*,
+};
 use bevy_fixed::{fixed_math, rng::RollbackRng};
 use bevy_ggrs::{ggrs::PlayerType, prelude::*};
 use bevy_matchbox::{prelude::PeerState, MatchboxSocket};
@@ -60,7 +65,7 @@ pub struct GggrsSessionConfiguration {
 // if you need to have extra ui to configure your game
 #[derive(Resource, Default)]
 pub struct GggrsSessionConfigurationState {
-    pub ready: bool
+    pub ready: bool,
 }
 
 impl GggrsSessionConfigurationState {
@@ -68,7 +73,6 @@ impl GggrsSessionConfigurationState {
         Self { ready: true }
     }
 }
-
 
 pub struct GgrsPlayer {
     pub handle: usize,
@@ -81,7 +85,7 @@ pub struct GgrsPlayer {
 // after all player have joined and the game configuration is aggreed on
 #[derive(Resource)]
 pub struct GgrsSessionBuilding {
-    pub players: Vec<GgrsPlayer>
+    pub players: Vec<GgrsPlayer>,
 }
 
 #[derive(Event, Message)]
@@ -111,7 +115,10 @@ pub fn log_ggrs_events(
                         .unwrap_or_else(|| format!("{:?}", addr));
 
                     error!("Player '{}' disconnected", player_name);
-                    disconnect_writer.write(GameDisconnectedEvent(format!("{} disconnected", player_name)));
+                    disconnect_writer.write(GameDisconnectedEvent(format!(
+                        "{} disconnected",
+                        player_name
+                    )));
                 }
                 GgrsEvent::DesyncDetected {
                     frame,

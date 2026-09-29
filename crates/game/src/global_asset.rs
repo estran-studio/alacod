@@ -1,5 +1,5 @@
 use animation::{AnimationMapConfig, SpriteSheetConfig};
-use bevy::{prelude::*, platform::collections::hash_map::HashMap};
+use bevy::{platform::collections::hash_map::HashMap, prelude::*};
 use utils::bmap;
 
 use crate::{
@@ -82,10 +82,12 @@ impl GlobalAsset {
             ),
             weapons: asset_server.load("ZombieShooter/Sprites/Character/weapons.ron"),
             melee_weapons: asset_server.load("weapons/melee/melee_weapons.ron"),
-            
+
             // Visual effects
-            slash_effect_spritesheet: asset_server.load("ZombieShooter/Sprites/Character/slash_sheet.ron"),
-            slash_effect_animation: asset_server.load("ZombieShooter/Sprites/Character/slash_animation.ron"),
+            slash_effect_spritesheet: asset_server
+                .load("ZombieShooter/Sprites/Character/slash_sheet.ron"),
+            slash_effect_animation: asset_server
+                .load("ZombieShooter/Sprites/Character/slash_animation.ron"),
 
             // Wave spawning config
             wave_config: Some(asset_server.load("waves/wave_config.ron")),
@@ -128,15 +130,24 @@ pub fn loading_asset_system(
     if !asset_server.load_state(&global_assets.weapons).is_loaded() {
         return;
     }
-    if !asset_server.load_state(&global_assets.melee_weapons).is_loaded() {
+    if !asset_server
+        .load_state(&global_assets.melee_weapons)
+        .is_loaded()
+    {
         return;
     }
-    
+
     // Check visual effects
-    if !asset_server.load_state(&global_assets.slash_effect_spritesheet).is_loaded() {
+    if !asset_server
+        .load_state(&global_assets.slash_effect_spritesheet)
+        .is_loaded()
+    {
         return;
     }
-    if !asset_server.load_state(&global_assets.slash_effect_animation).is_loaded() {
+    if !asset_server
+        .load_state(&global_assets.slash_effect_animation)
+        .is_loaded()
+    {
         return;
     }
 

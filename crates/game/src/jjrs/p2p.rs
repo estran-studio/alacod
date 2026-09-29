@@ -117,12 +117,18 @@ pub fn wait_for_players(
                 remote_idx += 1;
                 match config {
                     Some(c) => (c.name.clone(), c.pubkey.clone(), false),
-                    None => (format!("Player {}", i + 1), format!("player_{}", i + 1), false),
+                    None => (
+                        format!("Player {}", i + 1),
+                        format!("player_{}", i + 1),
+                        false,
+                    ),
                 }
             }
-            PlayerType::Spectator(_) => {
-                (format!("Spectator {}", i + 1), format!("spectator_{}", i + 1), false)
-            }
+            PlayerType::Spectator(_) => (
+                format!("Spectator {}", i + 1),
+                format!("spectator_{}", i + 1),
+                false,
+            ),
         };
 
         ggrs_players.push(GgrsPlayer {
@@ -181,4 +187,3 @@ pub fn system_after_map_loaded(
 
     app_state.set(AppState::InGame);
 }
-

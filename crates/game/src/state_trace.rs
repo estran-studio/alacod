@@ -81,16 +81,34 @@ impl StateTraceRecorder {
         let mut out = String::new();
         let mut keys: Vec<u32> = frames
             .iter()
-            .flat_map(|f| [(*f - 2).max(0) as u32, (*f - 1).max(0) as u32, (*f).max(0) as u32])
+            .flat_map(|f| {
+                [
+                    (*f - 2).max(0) as u32,
+                    (*f - 1).max(0) as u32,
+                    (*f).max(0) as u32,
+                ]
+            })
             .collect();
         keys.sort_unstable();
         keys.dedup();
         for key in keys {
-            let versions: Vec<&String> = self.history.iter().filter(|(f, _)| *f == key).map(|(_, l)| l).collect();
-            let _ = writeln!(out, "  frame {key} : {} version(s) enregistrée(s)", versions.len());
+            let versions: Vec<&String> = self
+                .history
+                .iter()
+                .filter(|(f, _)| *f == key)
+                .map(|(_, l)| l)
+                .collect();
+            let _ = writeln!(
+                out,
+                "  frame {key} : {} version(s) enregistrée(s)",
+                versions.len()
+            );
             for pair in versions.windows(2) {
                 let (a, b) = (pair[0], pair[1]);
-                let (ha, hb) = (a.lines().next().unwrap_or(""), b.lines().next().unwrap_or(""));
+                let (ha, hb) = (
+                    a.lines().next().unwrap_or(""),
+                    b.lines().next().unwrap_or(""),
+                );
                 if ha == hb {
                     continue;
                 }
@@ -126,10 +144,26 @@ impl StateTraceRecorder {
         if self.full {
             let before: std::collections::BTreeSet<&str> = d.before.lines().skip(1).collect();
             let after: std::collections::BTreeSet<&str> = d.after.lines().skip(1).collect();
-            let only_before: Vec<&str> = d.before.lines().skip(1).filter(|l| !after.contains(l)).take(12).collect();
-            let only_after: Vec<&str> = d.after.lines().skip(1).filter(|l| !before.contains(l)).take(12).collect();
-            let _ = write!(out, "\n  passage initial :\n    {}\n  resimulation :\n    {}",
-                only_before.join("\n    "), only_after.join("\n    "));
+            let only_before: Vec<&str> = d
+                .before
+                .lines()
+                .skip(1)
+                .filter(|l| !after.contains(l))
+                .take(12)
+                .collect();
+            let only_after: Vec<&str> = d
+                .after
+                .lines()
+                .skip(1)
+                .filter(|l| !before.contains(l))
+                .take(12)
+                .collect();
+            let _ = write!(
+                out,
+                "\n  passage initial :\n    {}\n  resimulation :\n    {}",
+                only_before.join("\n    "),
+                only_after.join("\n    ")
+            );
         } else {
             out.push_str(" (ALACOD_DIAG=1 pour le détail par composant)");
         }
@@ -260,7 +294,11 @@ fn record_state(world: &mut World) {
     if let Some(previous) = recorder.frames.get(&frame) {
         if previous != &hash_line && recorder.divergences.len() < 3 {
             let before = previous.clone();
-            recorder.divergences.push(Divergence { frame, before, after: line });
+            recorder.divergences.push(Divergence {
+                frame,
+                before,
+                after: line,
+            });
         }
     }
     recorder.frames.insert(frame, hash_line);

@@ -3,12 +3,12 @@
 //! This system runs OUTSIDE the GGRS rollback loop (PostUpdate schedule) since
 //! music generation is a visual/audio presentation concern, not game state.
 
-use bevy::prelude::*;
-use harmonium_bevy::components::{HarmoniumSource, GenerativeConfig};
 use crate::character::enemy::Enemy;
-use crate::character::player::Player;
 use crate::character::health::Health;
-use crate::waves::state::{WaveState, WavePhase};
+use crate::character::player::Player;
+use crate::waves::state::{WavePhase, WaveState};
+use bevy::prelude::*;
+use harmonium_bevy::components::{GenerativeConfig, HarmoniumSource};
 
 /// Configuration for how game state maps to music parameters
 #[derive(Resource, Clone)]
@@ -44,7 +44,8 @@ fn calculate_player_health_pct(player_query: &Query<&Health, With<Player>>) -> f
     }
 
     // Iterate once to calculate both sum and count
-    let (total, count) = player_query.iter()
+    let (total, count) = player_query
+        .iter()
         .fold((0.0_f32, 0_usize), |(sum, count), health| {
             let current = health.current.to_num::<f32>();
             let max = health.max.to_num::<f32>();

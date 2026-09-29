@@ -5,7 +5,7 @@ use bevy::{color::palettes::css::*, prelude::*};
 use bevy_fixed::fixed_math;
 
 use super::{Collider, ColliderShape, CollisionLayer, Wall};
-use crate::character::{player::Player, enemy::Enemy};
+use crate::character::{enemy::Enemy, player::Player};
 
 /// Resource to control collider debug visualization
 #[derive(Resource)]
@@ -26,7 +26,10 @@ pub fn toggle_collider_debug(
 ) {
     if keyboard_input.just_pressed(KeyCode::F3) {
         debug_settings.enabled = !debug_settings.enabled;
-        info!("Collider debug: {}", if debug_settings.enabled { "ON" } else { "OFF" });
+        info!(
+            "Collider debug: {}",
+            if debug_settings.enabled { "ON" } else { "OFF" }
+        );
     }
 }
 
@@ -34,7 +37,7 @@ pub fn toggle_collider_debug(
 pub fn draw_collider_debug(
     mut gizmos: Gizmos,
     debug_settings: Res<ColliderDebugSettings>,
-    
+
     // Query for all entities with colliders
     collider_query: Query<(
         &Collider,
@@ -52,11 +55,11 @@ pub fn draw_collider_debug(
     for (collider, fixed_transform, wall, player, enemy, bullet) in collider_query.iter() {
         // Determine color based on entity type
         let color = match (wall, player, enemy, bullet) {
-            (Some(_), _, _, _) => ORANGE,   // Walls
-            (_, Some(_), _, _) => GREEN,    // Players
-            (_, _, Some(_), _) => RED,      // Enemies
-            (_, _, _, Some(_)) => YELLOW,   // Bullets
-            _ => PURPLE,                    // Other
+            (Some(_), _, _, _) => ORANGE, // Walls
+            (_, Some(_), _, _) => GREEN,  // Players
+            (_, _, Some(_), _) => RED,    // Enemies
+            (_, _, _, Some(_)) => YELLOW, // Bullets
+            _ => PURPLE,                  // Other
         };
 
         // Calculate world position including collider offset
@@ -71,21 +74,17 @@ pub fn draw_collider_debug(
         match &collider.shape {
             ColliderShape::Circle { radius } => {
                 let radius_f32 = fixed_math::to_f32(*radius);
-                
+
                 // Draw circle outline
                 gizmos.circle(
                     Isometry3d::from_translation(world_pos_bevy),
                     radius_f32,
                     color,
                 );
-                
+
                 // Draw center point
-                gizmos.sphere(
-                    Isometry3d::from_translation(world_pos_bevy),
-                    2.0,
-                    color,
-                );
-                
+                gizmos.sphere(Isometry3d::from_translation(world_pos_bevy), 2.0, color);
+
                 // Draw cross for center reference
                 let cross_size = radius_f32 * 0.3;
                 gizmos.line(
@@ -99,24 +98,20 @@ pub fn draw_collider_debug(
                     color,
                 );
             }
-            
+
             ColliderShape::Rectangle { width, height } => {
                 let width_f32 = fixed_math::to_f32(*width);
                 let height_f32 = fixed_math::to_f32(*height);
-                
+
                 // Draw rectangle using gizmos
                 gizmos.rect(
                     Isometry3d::from_translation(world_pos_bevy),
                     Vec2::new(width_f32, height_f32),
                     color,
                 );
-                
+
                 // Draw center point
-                gizmos.sphere(
-                    Isometry3d::from_translation(world_pos_bevy),
-                    2.0,
-                    color,
-                );
+                gizmos.sphere(Isometry3d::from_translation(world_pos_bevy), 2.0, color);
             }
         }
     }
@@ -151,7 +146,7 @@ pub fn debug_collider_stats(
         }
 
         let total = wall_count + player_count + enemy_count + bullet_count + other_count;
-        
+
         info!("=== COLLIDER STATS ===");
         info!("Total: {}", total);
         info!("Walls: {}", wall_count);
@@ -163,13 +158,12 @@ pub fn debug_collider_stats(
     }
 }
 
-
 pub struct DebugColliderGamePlugin;
 
 impl Plugin for DebugColliderGamePlugin {
     fn build(&self, app: &mut App) {
         app.init_resource::<ColliderDebugSettings>();
-        
+
         app.add_systems(
             Update,
             (

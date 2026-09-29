@@ -137,9 +137,10 @@ fn record_local_inputs(
     let Some(local_inputs) = local_inputs else {
         return;
     };
-    recorder
-        .frames
-        .insert(frame.frame, local_inputs.0.iter().map(|(h, i)| (*h, *i)).collect());
+    recorder.frames.insert(
+        frame.frame,
+        local_inputs.0.iter().map(|(h, i)| (*h, *i)).collect(),
+    );
 }
 
 fn write_recording_on_exit(
@@ -154,7 +155,10 @@ fn write_recording_on_exit(
         return;
     };
     match write_recording(&recorder, map.as_deref(), path) {
-        Ok(()) => info!("session enregistrée dans {path:?} ({} frames)", recorder.frame_count()),
+        Ok(()) => info!(
+            "session enregistrée dans {path:?} ({} frames)",
+            recorder.frame_count()
+        ),
         Err(err) => error!("écriture de l'enregistrement {path:?} : {err}"),
     }
 }

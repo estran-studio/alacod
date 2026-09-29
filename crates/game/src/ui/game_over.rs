@@ -1,12 +1,15 @@
-use bevy::prelude::*;
 use crate::character::player::Player;
 use crate::core::AppState;
+use bevy::prelude::*;
 
 pub struct GameOverUiPlugin;
 
 impl Plugin for GameOverUiPlugin {
     fn build(&self, app: &mut App) {
-        app.add_systems(Update, update_game_over_ui.run_if(in_state(AppState::InGame)));
+        app.add_systems(
+            Update,
+            update_game_over_ui.run_if(in_state(AppState::InGame)),
+        );
         app.add_systems(Update, button_system.run_if(in_state(AppState::InGame)));
     }
 }
@@ -38,46 +41,56 @@ fn update_game_over_ui(
 }
 
 fn spawn_game_over_ui(commands: &mut Commands) {
-    commands.spawn((
-        Node {
-            width: Val::Percent(100.0),
-            height: Val::Percent(100.0),
-            position_type: PositionType::Absolute,
-            justify_content: JustifyContent::Center,
-            align_items: AlignItems::Center,
-            flex_direction: FlexDirection::Column,
-            ..default()
-        },
-        BackgroundColor(Color::srgba(0.5, 0.0, 0.0, 0.5)), // Red tint
-        GameOverUiRoot,
-    )).with_children(|parent| {
-        parent.spawn((
-            Text::new("GAME OVER"),
-            TextFont { font_size: FontSize::Px(60.0), ..default() },
-            TextColor(Color::WHITE),
-        ));
-        
-        // Reload/Back Button
-        parent.spawn((
-            Button,
+    commands
+        .spawn((
             Node {
-                width: Val::Px(200.0),
-                height: Val::Px(65.0),
-                margin: UiRect::top(Val::Px(40.0)),
+                width: Val::Percent(100.0),
+                height: Val::Percent(100.0),
+                position_type: PositionType::Absolute,
                 justify_content: JustifyContent::Center,
                 align_items: AlignItems::Center,
+                flex_direction: FlexDirection::Column,
                 ..default()
             },
-            BackgroundColor(Color::srgb(0.3, 0.3, 0.3)),
-            ReloadButton,
-        )).with_children(|parent| {
-             parent.spawn((
-                Text::new("Restart"),
-                TextFont { font_size: FontSize::Px(30.0), ..default() },
+            BackgroundColor(Color::srgba(0.5, 0.0, 0.0, 0.5)), // Red tint
+            GameOverUiRoot,
+        ))
+        .with_children(|parent| {
+            parent.spawn((
+                Text::new("GAME OVER"),
+                TextFont {
+                    font_size: FontSize::Px(60.0),
+                    ..default()
+                },
                 TextColor(Color::WHITE),
             ));
+
+            // Reload/Back Button
+            parent
+                .spawn((
+                    Button,
+                    Node {
+                        width: Val::Px(200.0),
+                        height: Val::Px(65.0),
+                        margin: UiRect::top(Val::Px(40.0)),
+                        justify_content: JustifyContent::Center,
+                        align_items: AlignItems::Center,
+                        ..default()
+                    },
+                    BackgroundColor(Color::srgb(0.3, 0.3, 0.3)),
+                    ReloadButton,
+                ))
+                .with_children(|parent| {
+                    parent.spawn((
+                        Text::new("Restart"),
+                        TextFont {
+                            font_size: FontSize::Px(30.0),
+                            ..default()
+                        },
+                        TextColor(Color::WHITE),
+                    ));
+                });
         });
-    });
 }
 
 fn button_system(
@@ -97,7 +110,7 @@ fn button_system(
                 }
                 #[cfg(not(target_arch = "wasm32"))]
                 {
-                    std::process::exit(0); 
+                    std::process::exit(0);
                 }
             }
             Interaction::Hovered => {

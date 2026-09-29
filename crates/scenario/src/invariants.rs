@@ -17,7 +17,14 @@ use utils::net_id::GgrsNetId;
 pub struct InvariantQueries {
     santes: QueryState<(&'static GgrsNetId, &'static Health), With<Rollback>>,
     net_ids: QueryState<&'static GgrsNetId, With<Rollback>>,
-    joueurs: QueryState<(&'static Player, &'static FixedTransform3D, &'static Collider), With<Rollback>>,
+    joueurs: QueryState<
+        (
+            &'static Player,
+            &'static FixedTransform3D,
+            &'static Collider,
+        ),
+        With<Rollback>,
+    >,
     murs: QueryState<(&'static FixedTransform3D, &'static Collider), With<Wall>>,
 }
 
@@ -65,11 +72,18 @@ impl InvariantQueries {
             let joueurs: Vec<(usize, FixedTransform3D, Collider)> = self
                 .joueurs
                 .iter(world)
-                .map(|(player, transform, collider)| (player.handle, transform.clone(), collider.clone()))
+                .map(|(player, transform, collider)| {
+                    (player.handle, transform.clone(), collider.clone())
+                })
                 .collect();
             'joueurs: for (handle, transform, collider) in &joueurs {
                 for (mur_transform, mur_collider) in self.murs.iter(world) {
-                    if is_colliding(&transform.translation, collider, &mur_transform.translation, mur_collider) {
+                    if is_colliding(
+                        &transform.translation,
+                        collider,
+                        &mur_transform.translation,
+                        mur_collider,
+                    ) {
                         failures.push(format!(
                             "invariant joueur_hors_mur : frame {frame} : joueur {handle} chevauche un mur en ({}, {})",
                             transform.translation.x, transform.translation.y

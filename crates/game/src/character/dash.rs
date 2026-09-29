@@ -26,7 +26,7 @@ impl DashState {
     ) {
         // Ensure duration is at least 1 to prevent division by zero
         let safe_duration = duration_frames.max(1);
-        
+
         self.is_dashing = true;
         self.dash_direction = direction.normalize_or_zero();
         self.dash_frames_remaining = safe_duration;

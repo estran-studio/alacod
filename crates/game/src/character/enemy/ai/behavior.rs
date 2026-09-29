@@ -30,7 +30,12 @@ pub fn enemy_target_selection(
     frame: Res<FrameCount>,
     flow_field_cache: Res<FlowFieldCache>,
     obstacle_query: Query<
-        (&GgrsNetId, &fixed_math::FixedTransform3D, &Obstacle, &crate::collider::Collider),
+        (
+            &GgrsNetId,
+            &fixed_math::FixedTransform3D,
+            &Obstacle,
+            &crate::collider::Collider,
+        ),
         (With<Rollback>, Without<Enemy>, Without<Player>),
     >,
     mut enemy_query: Query<
@@ -58,7 +63,11 @@ pub fn enemy_target_selection(
         .filter(|(_, _, obstacle, _)| obstacle.blocks_movement && obstacle.breakable)
         .map(|(net_id, transform, _, collider)| {
             let pos = transform.translation.truncate();
-            (net_id.clone(), pos, super::navigation::get_collider_cells(pos, collider))
+            (
+                net_id.clone(),
+                pos,
+                super::navigation::get_collider_cells(pos, collider),
+            )
         })
         .collect();
 
@@ -116,7 +125,11 @@ pub fn enemy_target_selection(
         if closest_player.is_some() {
             let here = super::navigation::GridPos::from_fixed(enemy_pos);
             let mut ahead = vec![here];
-            ahead.extend(flow_field_cache.path_ahead(super::navigation::NavProfile::GroundBreaker, here, 3));
+            ahead.extend(flow_field_cache.path_ahead(
+                super::navigation::NavProfile::GroundBreaker,
+                here,
+                3,
+            ));
             let blocking = breakables.iter().find(|(_, pos, cells)| {
                 enemy_pos.distance(pos) < ai_config.attack_range
                     && ahead.iter().any(|cell| cells.contains(cell))
@@ -242,13 +255,16 @@ pub fn enemy_movement_system(
         let distance_to_nearest_player = player_query
             .iter()
             .map(|pt| enemy_pos.distance(&pt.translation.truncate()))
-            .fold(fixed_math::Fixed::MAX, |acc, d| {
-                if d < acc {
-                    d
-                } else {
-                    acc
-                }
-            });
+            .fold(
+                fixed_math::Fixed::MAX,
+                |acc, d| {
+                    if d < acc {
+                        d
+                    } else {
+                        acc
+                    }
+                },
+            );
 
         let speed_factor = if distance_to_nearest_player < optimal_attack_distance {
             fixed_math::FIXED_ZERO
@@ -337,7 +353,8 @@ pub fn enemy_attack_system(
                                 MonsterState::Attacking {
                                     last_attack_frame, ..
                                 } => {
-                                    frame.frame >= *last_attack_frame + ai_config.attack_cooldown_frames
+                                    frame.frame
+                                        >= *last_attack_frame + ai_config.attack_cooldown_frames
                                 }
                                 MonsterState::Chasing => true,
                                 _ => false,
@@ -398,7 +415,8 @@ pub fn enemy_attack_system(
                                 MonsterState::Attacking {
                                     last_attack_frame, ..
                                 } => {
-                                    frame.frame >= *last_attack_frame + ai_config.attack_cooldown_frames
+                                    frame.frame
+                                        >= *last_attack_frame + ai_config.attack_cooldown_frames
                                 }
                                 MonsterState::Chasing => true,
                                 _ => false,

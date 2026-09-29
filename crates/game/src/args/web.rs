@@ -1,6 +1,6 @@
 use bevy::prelude::*;
-use wasm_bindgen::JsCast; // For safe casting
 use serde::Deserialize;
+use wasm_bindgen::JsCast; // For safe casting
 
 /// Player data passed from the frontend (pubkey + name)
 #[derive(Debug, Clone, Deserialize)]

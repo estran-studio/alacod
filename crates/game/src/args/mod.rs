@@ -177,7 +177,9 @@ pub struct GameArgsPlugin(pub GameArgs);
 impl Plugin for GameArgsPlugin {
     fn build(&self, app: &mut App) {
         let args = self.0.clone();
-        app.insert_resource(DebugAiConfig { enabled: args.debug_ai });
+        app.insert_resource(DebugAiConfig {
+            enabled: args.debug_ai,
+        });
 
         let mut nbr_player = args.number_player;
         if nbr_player == 0 {

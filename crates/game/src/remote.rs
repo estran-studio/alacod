@@ -150,8 +150,13 @@ fn state(In(_): In<Option<Value>>, world: &mut World) -> BrpResult {
     });
 
     let mut weapons = world.query::<(&WeaponState, &WeaponModesState)>();
-    let mut players_query =
-        world.query::<(&Player, &GgrsNetId, &FixedTransform3D, &Health, Option<&WeaponInventory>)>();
+    let mut players_query = world.query::<(
+        &Player,
+        &GgrsNetId,
+        &FixedTransform3D,
+        &Health,
+        Option<&WeaponInventory>,
+    )>();
     let mut players = Vec::new();
     for (player, id, transform, health, inventory) in players_query.iter(world) {
         let weapon = inventory.and_then(|inventory| {
@@ -178,8 +183,12 @@ fn state(In(_): In<Option<Value>>, world: &mut World) -> BrpResult {
     }
     players.sort_by_key(|p| p["handle"].as_u64());
 
-    let mut enemies_query =
-        world.query_filtered::<(&GgrsNetId, &FixedTransform3D, &Health, Option<&MonsterState>), With<Enemy>>();
+    let mut enemies_query = world.query_filtered::<(
+        &GgrsNetId,
+        &FixedTransform3D,
+        &Health,
+        Option<&MonsterState>,
+    ), With<Enemy>>();
     let mut enemies: Vec<Value> = enemies_query
         .iter(world)
         .map(|(id, transform, health, monster)| {
@@ -210,8 +219,11 @@ fn state(In(_): In<Option<Value>>, world: &mut World) -> BrpResult {
     windows.sort_by_key(|w| w["id"].as_u64());
 
     // Porte ouverte = sans collider (une porte non interactive reste fermée)
-    let mut doors_query =
-        world.query_filtered::<(&GgrsNetId, &FixedTransform3D, Has<crate::collider::Collider>), With<DoorComponent>>();
+    let mut doors_query = world.query_filtered::<(
+        &GgrsNetId,
+        &FixedTransform3D,
+        Has<crate::collider::Collider>,
+    ), With<DoorComponent>>();
     let mut doors: Vec<Value> = doors_query
         .iter(world)
         .map(|(id, transform, closed)| {

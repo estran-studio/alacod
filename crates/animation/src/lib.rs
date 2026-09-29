@@ -134,18 +134,20 @@ struct AnimationTimer {
     frame_timer: Timer,
 }
 
-#[derive(Component, Reflect, Debug, Clone, Copy, Hash, PartialEq, Eq, Default, Serialize, Deserialize)]
+#[derive(
+    Component, Reflect, Debug, Clone, Copy, Hash, PartialEq, Eq, Default, Serialize, Deserialize,
+)]
 #[reflect(Component, PartialEq)]
 pub enum FacingDirection {
     #[default]
-    Right,        // 0 degrees
-    UpRight,      // 45 degrees
-    Up,           // 90 degrees
-    UpLeft,       // 135 degrees
-    Left,         // 180 degrees
-    DownLeft,     // 225 degrees
-    Down,         // 270 degrees
-    DownRight,    // 315 degrees
+    Right, // 0 degrees
+    UpRight,   // 45 degrees
+    Up,        // 90 degrees
+    UpLeft,    // 135 degrees
+    Left,      // 180 degrees
+    DownLeft,  // 225 degrees
+    Down,      // 270 degrees
+    DownRight, // 315 degrees
 }
 
 impl FacingDirection {
@@ -157,7 +159,7 @@ impl FacingDirection {
             FacingDirection::Up | FacingDirection::Down => 0,
         }
     }
-    
+
     /// Returns the angle in radians for this direction
     pub fn to_radians(&self) -> f32 {
         match self {
@@ -171,29 +173,31 @@ impl FacingDirection {
             FacingDirection::DownRight => 7.0 * std::f32::consts::PI / 4.0,
         }
     }
-    
+
     /// Returns the unit vector for this direction
     pub fn to_vector(&self) -> bevy::math::Vec2 {
         let angle = self.to_radians();
         bevy::math::Vec2::new(angle.cos(), angle.sin())
     }
-    
+
     /// Determines the facing direction from a 2D vector (using f32 for non-rollback systems)
     pub fn from_vector(vec: bevy::math::Vec2) -> Self {
         if vec.length_squared() < 0.001 {
             return FacingDirection::default();
         }
-        
+
         let angle = vec.y.atan2(vec.x);
         let normalized_angle = if angle < 0.0 {
             angle + 2.0 * std::f32::consts::PI
         } else {
             angle
         };
-        
+
         // Divide circle into 8 equal segments (45 degrees each)
-        let segment = ((normalized_angle + std::f32::consts::PI / 8.0) / (std::f32::consts::PI / 4.0)) as u8 % 8;
-        
+        let segment = ((normalized_angle + std::f32::consts::PI / 8.0)
+            / (std::f32::consts::PI / 4.0)) as u8
+            % 8;
+
         match segment {
             0 => FacingDirection::Right,
             1 => FacingDirection::UpRight,
@@ -206,15 +210,15 @@ impl FacingDirection {
             _ => FacingDirection::Right,
         }
     }
-    
+
     /// Determines the facing direction from a fixed-point 2D vector (for deterministic rollback systems)
     pub fn from_fixed_vector(vec: bevy_fixed::fixed_math::FixedVec2) -> Self {
         use bevy_fixed::fixed_math;
-        
+
         if vec.length_squared() < fixed_math::new(0.001) {
             return FacingDirection::default();
         }
-        
+
         let angle = fixed_math::atan2_fixed(vec.y, vec.x);
         let two_pi = fixed_math::new(2.0) * fixed_math::FIXED_PI;
         let normalized_angle = if angle < fixed_math::FIXED_ZERO {
@@ -222,12 +226,12 @@ impl FacingDirection {
         } else {
             angle
         };
-        
+
         // Divide circle into 8 equal segments (45 degrees each)
         let pi_over_8 = fixed_math::FIXED_PI / fixed_math::new(8.0);
         let pi_over_4 = fixed_math::FIXED_PI / fixed_math::new(4.0);
         let segment = ((normalized_angle + pi_over_8) / pi_over_4).to_num::<u8>() % 8;
-        
+
         match segment {
             0 => FacingDirection::Right,
             1 => FacingDirection::UpRight,
@@ -240,12 +244,12 @@ impl FacingDirection {
             _ => FacingDirection::Right,
         }
     }
-    
+
     /// Check if this direction is primarily horizontal
     pub fn is_horizontal(&self) -> bool {
         matches!(self, FacingDirection::Left | FacingDirection::Right)
     }
-    
+
     /// Check if sprite should be flipped horizontally
     pub fn should_flip_x(&self) -> bool {
         matches!(
@@ -320,12 +324,19 @@ fn animate_sprite_system(
     for (childs, config_handles, mut timer, state) in query.iter_mut() {
         if let Some(anim_config) = animation_configs.get(&config_handles.animations) {
             // Try to get columns count from animation config or first spritesheet
-            let columns = anim_config.columns.or_else(|| {
-                config_handles.spritesheets.values().next().and_then(|handle| {
-                    spritesheet_configs.get(handle).map(|config| config.columns)
+            let columns = anim_config
+                .columns
+                .or_else(|| {
+                    config_handles
+                        .spritesheets
+                        .values()
+                        .next()
+                        .and_then(|handle| {
+                            spritesheet_configs.get(handle).map(|config| config.columns)
+                        })
                 })
-            }).unwrap_or(1); // Default to 1 if we can't determine
-            
+                .unwrap_or(1); // Default to 1 if we can't determine
+
             timer.frame_timer.tick(time.delta());
             if timer.frame_timer.just_finished() {
                 for child in childs.iter() {
@@ -341,13 +352,10 @@ fn animate_sprite_system(
                                         + start_index;
                                 }
                             } else {
-                                atlas.index = anim_config
-                                    .animations
-                                    .get("Idle")
-                                    .map_or(0, |idx| {
-                                        let (start, _) = idx.to_absolute(columns);
-                                        start
-                                    });
+                                atlas.index = anim_config.animations.get("Idle").map_or(0, |idx| {
+                                    let (start, _) = idx.to_absolute(columns);
+                                    start
+                                });
                             }
                         }
                     }

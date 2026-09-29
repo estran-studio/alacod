@@ -39,7 +39,7 @@ impl FlowFieldDebug {
             show_costs: false,
             show_intgrid_source: false, // Toggle with F6 to show IntGrid vs collider-derived cells
             profile: NavProfile::GroundBreaker, // Default to GroundBreaker (zombie profile)
-            max_cells: 10000, // High limit to show all cells
+            max_cells: 10000,           // High limit to show all cells
             render_radius: 100, // Large radius to show full flow field (50 cell search radius * 2)
         }
     }
@@ -74,7 +74,11 @@ pub fn toggle_flow_field_debug(
         ff_debug.show_intgrid_source = !ff_debug.show_intgrid_source;
         info!(
             "IntGrid source visualization: {}",
-            if ff_debug.show_intgrid_source { "ON" } else { "OFF" }
+            if ff_debug.show_intgrid_source {
+                "ON"
+            } else {
+                "OFF"
+            }
         );
     }
 }
@@ -296,10 +300,8 @@ pub fn draw_enemy_state_debug(
         // Draw line to target
         if state_debug.show_target_line {
             if let Some(target_pos) = target.last_known_position {
-                let target_vec = Vec2::new(
-                    target_pos.x.to_num::<f32>(),
-                    target_pos.y.to_num::<f32>(),
-                );
+                let target_vec =
+                    Vec2::new(target_pos.x.to_num::<f32>(), target_pos.y.to_num::<f32>());
 
                 let color = match target.target_type {
                     super::state::TargetType::Player => Color::srgb(1.0, 0.0, 0.0),

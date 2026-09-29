@@ -8,11 +8,17 @@ use bevy_ecs_ldtk::{
 use bevy_fixed::rng::RollbackRng;
 use serde_json::Value;
 
-use map::{game::entity::map::player_spawn::PlayerSpawnConfig, generation::{
-    entity::{door::DoorConfig, enemy_spawn::EnemySpawnConfig, location::EntityLocation, window::WindowConfig},
-    room::{Room, RoomConnection},
-    IMapGenerator,
-}};
+use map::{
+    game::entity::map::player_spawn::PlayerSpawnConfig,
+    generation::{
+        entity::{
+            door::DoorConfig, enemy_spawn::EnemySpawnConfig, location::EntityLocation,
+            window::WindowConfig,
+        },
+        room::{Room, RoomConnection},
+        IMapGenerator,
+    },
+};
 
 use crate::map_const::{self, LAYER_ENTITY};
 
@@ -102,15 +108,14 @@ pub fn get_new_entity(
         .iter()
         .map(|x| {
             // Try to find the field in the entity template
-            let field_opt = entity
-                .field_defs
-                .iter()
-                .find(|fd| fd.identifier == x.0);
+            let field_opt = entity.field_defs.iter().find(|fd| fd.identifier == x.0);
 
             let real_editor_value = match x.1.clone() {
                 FieldValue::Int(v) => Some(("V_Int", serde_json::to_value(v).unwrap())),
                 FieldValue::Bool(v) => Some(("V_Bool", serde_json::to_value(v).unwrap())),
-                FieldValue::String(v) => v.as_ref().map(|s| ("V_String", serde_json::to_value(s).unwrap())),
+                FieldValue::String(v) => v
+                    .as_ref()
+                    .map(|s| ("V_String", serde_json::to_value(s).unwrap())),
                 _ => None,
             };
 
@@ -137,7 +142,7 @@ pub fn get_new_entity(
                     FieldValue::String(_) => "String",
                     _ => "String", // Default to String for unknown types
                 };
-                
+
                 FieldInstance {
                     identifier: x.0.to_string(),
                     def_uid: 0, // Use 0 for synthetic fields
@@ -285,7 +290,7 @@ impl IMapGenerator for GeneratedMap {
 
     fn add_doors(&mut self, rng: &mut RollbackRng, doors: &Vec<(EntityLocation, DoorConfig)>) {
         println!("Adding {} doors to map", doors.len());
-        
+
         for (location, door) in doors.iter() {
             // Determine if door is horizontal or vertical based on size
             // If width > height, it's horizontal; otherwise vertical
@@ -294,18 +299,28 @@ impl IMapGenerator for GeneratedMap {
             } else {
                 map_const::ENTITY_DOOR_VERTICAL_LOCATION
             };
-            
+
             // Log door configuration
             let pairing_info = if let Some((paired_level, (px, py))) = &door.paired_door {
-                format!("paired with door at ({}, {}) in level {}", px, py, paired_level)
+                format!(
+                    "paired with door at ({}, {}) in level {}",
+                    px, py, paired_level
+                )
             } else {
                 "unpaired".to_string()
             };
-            
-            println!("  Door at ({}, {}) in level {}: cost={}, electrify={}, interactable={}, {}",
-                     location.position.0, location.position.1, location.level_iid,
-                     door.cost, door.electrify, door.interactable, pairing_info);
-            
+
+            println!(
+                "  Door at ({}, {}) in level {}: cost={}, electrify={}, interactable={}, {}",
+                location.position.0,
+                location.position.1,
+                location.level_iid,
+                door.cost,
+                door.electrify,
+                door.interactable,
+                pairing_info
+            );
+
             let mut fields = vec![
                 (
                     map_const::FIELD_PRICE_NAME,
@@ -320,7 +335,7 @@ impl IMapGenerator for GeneratedMap {
                     FieldValue::Bool(door.interactable),
                 ),
             ];
-            
+
             // Add paired door information if it exists
             if let Some((paired_level_iid, (paired_x, paired_y))) = &door.paired_door {
                 fields.push((
@@ -336,19 +351,18 @@ impl IMapGenerator for GeneratedMap {
                     FieldValue::String(Some(paired_level_iid.clone())),
                 ));
             }
-            
-            self.add_entity_to_level(
-                rng,
-                location,
-                door_type,
-                fields,
-            );
+
+            self.add_entity_to_level(rng, location, door_type, fields);
         }
-        
+
         println!("Door generation complete\n");
     }
 
-    fn add_windows(&mut self, rng: &mut RollbackRng, windows: &Vec<(EntityLocation, WindowConfig)>) {
+    fn add_windows(
+        &mut self,
+        rng: &mut RollbackRng,
+        windows: &Vec<(EntityLocation, WindowConfig)>,
+    ) {
         for (location, _) in windows.iter() {
             // Determine if window is horizontal or vertical based on size
             // If width > height, it's horizontal; otherwise vertical
@@ -357,29 +371,42 @@ impl IMapGenerator for GeneratedMap {
             } else {
                 map_const::ENTITY_WINDOW_VERTICAL_LOCATION
             };
-            
+
             self.add_entity_to_level(rng, location, window_type, vec![]);
         }
     }
 
-    fn add_player_spawns(&mut self, rng: &mut RollbackRng, player_spawns: &Vec<(EntityLocation, PlayerSpawnConfig)>) {
+    fn add_player_spawns(
+        &mut self,
+        rng: &mut RollbackRng,
+        player_spawns: &Vec<(EntityLocation, PlayerSpawnConfig)>,
+    ) {
         for (location, spawn) in player_spawns.iter() {
-            self.add_entity_to_level(rng, location, map_const::ENTITY_PLAYER_SPAWN_LOCATION, vec![
-                (
+            self.add_entity_to_level(
+                rng,
+                location,
+                map_const::ENTITY_PLAYER_SPAWN_LOCATION,
+                vec![(
                     map_const::FIELD_PLAYER_SPAWN_INDEX_NAME,
-                    FieldValue::Int(Some(spawn.index as i32))
-                )
-            ]);
+                    FieldValue::Int(Some(spawn.index as i32)),
+                )],
+            );
         }
     }
 
-    fn add_enemy_spawns(&mut self, rng: &mut RollbackRng, enemy_spawns: &Vec<(EntityLocation, EnemySpawnConfig)>) {
+    fn add_enemy_spawns(
+        &mut self,
+        rng: &mut RollbackRng,
+        enemy_spawns: &Vec<(EntityLocation, EnemySpawnConfig)>,
+    ) {
         println!("Adding {} enemy spawns to map", enemy_spawns.len());
-        
+
         for (location, _spawn) in enemy_spawns.iter() {
-            println!("  Enemy spawn at ({}, {}) in level {}",
-                     location.position.0, location.position.1, location.level_iid);
-            
+            println!(
+                "  Enemy spawn at ({}, {}) in level {}",
+                location.position.0, location.position.1, location.level_iid
+            );
+
             self.add_entity_to_level(
                 rng,
                 location,
@@ -387,7 +414,7 @@ impl IMapGenerator for GeneratedMap {
                 vec![],
             );
         }
-        
+
         println!("Enemy spawn generation complete\n");
     }
 }

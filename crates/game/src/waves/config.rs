@@ -21,7 +21,6 @@ pub struct WaveTier {
 pub struct WaveConfig {
     // === Enemy Count Formula ===
     // count = base_enemies + ((wave - 1) * enemies_per_wave) + random(0, max_variance)
-
     /// Base number of enemies for wave 1
     pub base_enemies: u32,
     /// Additional enemies per wave after wave 1
@@ -30,14 +29,12 @@ pub struct WaveConfig {
     pub max_random_variance: u32,
 
     // === Timing (in frames at 60fps) ===
-
     /// Minimum delay after all enemies killed before next wave starts
     pub min_wave_delay_frames: u32,
     /// Grace period before spawning starts (player prep time)
     pub grace_period_frames: u32,
 
     // === Spawning Constraints ===
-
     /// Maximum enemies alive at any time
     pub max_concurrent_enemies: u32,
     /// Maximum enemies to spawn per batch
@@ -46,19 +43,16 @@ pub struct WaveConfig {
     pub spawn_interval_frames: u32,
 
     // === Spawner Selection ===
-
     /// Minimum distance from any player for spawner activation
     pub min_player_distance: fixed_math::Fixed,
     /// Maximum distance from nearest player for spawner activation
     pub max_player_distance: fixed_math::Fixed,
 
     // === Enemy Type Probabilities ===
-
     /// Wave tiers defining enemy probabilities at different wave ranges
     pub wave_tiers: Vec<WaveTier>,
 
     // === Scaling ===
-
     /// Health multiplier increase per wave (e.g., 0.05 = +5% per wave)
     pub health_multiplier_per_wave: fixed_math::Fixed,
     /// Damage multiplier increase per wave (e.g., 0.03 = +3% per wave)
@@ -88,13 +82,13 @@ impl Default for WaveConfig {
             max_random_variance: 2,
 
             // Timing (at 60fps)
-            min_wave_delay_frames: 600,  // 10 seconds
-            grace_period_frames: 180,    // 3 seconds
+            min_wave_delay_frames: 600, // 10 seconds
+            grace_period_frames: 180,   // 3 seconds
 
             // Spawning constraints
             max_concurrent_enemies: 20,
             spawn_batch_size: 3,
-            spawn_interval_frames: 30,   // 0.5 seconds between batches
+            spawn_interval_frames: 30, // 0.5 seconds between batches
 
             // Spawner selection
             min_player_distance: fixed_math::new(150.0),
@@ -139,15 +133,15 @@ impl WaveConfig {
 
     /// Calculate health multiplier for a wave (as Fixed, 1.0 = 100%)
     pub fn calculate_health_multiplier(&self, wave: u32) -> fixed_math::Fixed {
-        let wave_bonus = self.health_multiplier_per_wave
-            * fixed_math::Fixed::from_num(wave.saturating_sub(1));
+        let wave_bonus =
+            self.health_multiplier_per_wave * fixed_math::Fixed::from_num(wave.saturating_sub(1));
         fixed_math::FIXED_ONE + wave_bonus
     }
 
     /// Calculate damage multiplier for a wave (as Fixed, 1.0 = 100%)
     pub fn calculate_damage_multiplier(&self, wave: u32) -> fixed_math::Fixed {
-        let wave_bonus = self.damage_multiplier_per_wave
-            * fixed_math::Fixed::from_num(wave.saturating_sub(1));
+        let wave_bonus =
+            self.damage_multiplier_per_wave * fixed_math::Fixed::from_num(wave.saturating_sub(1));
         fixed_math::FIXED_ONE + wave_bonus
     }
 }

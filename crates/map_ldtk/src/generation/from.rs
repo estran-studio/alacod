@@ -72,7 +72,10 @@ fn extract_entity_locations(level: &Level, tile_size: &(i32, i32)) -> EntityLoca
             doors: get_entities_multi!(
                 entity_layer.entity_instances,
                 tile_size,
-                &[map_const::ENTITY_DOOR_HORIZONTAL_LOCATION, map_const::ENTITY_DOOR_VERTICAL_LOCATION],
+                &[
+                    map_const::ENTITY_DOOR_HORIZONTAL_LOCATION,
+                    map_const::ENTITY_DOOR_VERTICAL_LOCATION
+                ],
                 EntityLocation
             ),
             sodas: get_entities!(
@@ -108,7 +111,10 @@ fn extract_entity_locations(level: &Level, tile_size: &(i32, i32)) -> EntityLoca
             windows: get_entities_multi!(
                 entity_layer.entity_instances,
                 tile_size,
-                &[map_const::ENTITY_WINDOW_HORIZONTAL_LOCATION, map_const::ENTITY_WINDOW_VERTICAL_LOCATION],
+                &[
+                    map_const::ENTITY_WINDOW_HORIZONTAL_LOCATION,
+                    map_const::ENTITY_WINDOW_VERTICAL_LOCATION
+                ],
                 EntityLocation
             ),
         }

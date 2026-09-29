@@ -4,7 +4,9 @@ use bevy_ecs_ldtk::prelude::*;
 use game::core::AppState;
 use map::{game::entity::map::door::DoorComponent, generation::config::MapGenerationConfig};
 use map_ldtk::{
-    game::utility::load_levels_if_not_present, loader::{get_asset_loader_generation, reload_map, setup_generated_map, MapLoaderSettings}, plugins::LdtkRoguePlugin
+    game::utility::load_levels_if_not_present,
+    loader::{get_asset_loader_generation, reload_map, setup_generated_map, MapLoaderSettings},
+    plugins::LdtkRoguePlugin,
 };
 use utils::{
     camera::tod::{move_camera, setup_camera},
@@ -46,14 +48,7 @@ fn main() {
         .add_systems(Startup, (setup_camera))
         .add_plugins(LdtkRoguePlugin)
         .insert_resource(map_generation_config)
-        .add_systems(
-            Update,
-            (
-                move_camera,
-                keyinput,
-                toggle_door_visibility,
-            ),
-        )
+        .add_systems(Update, (move_camera, keyinput, toggle_door_visibility))
         .add_plugins(WebPlugin {})
         .run();
 }

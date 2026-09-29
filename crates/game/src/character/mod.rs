@@ -23,20 +23,16 @@ use crate::{
         enemy::{
             ai::{
                 // New AI behavior systems
-                behavior::{enemy_target_selection, enemy_attack_system},
-                pathing::{
-                    move_enemies, update_enemy_targets,
-                    EnemyPath, PathfindingConfig,
+                behavior::{enemy_attack_system, enemy_target_selection},
+                debug::{
+                    draw_enemy_state_debug, draw_flow_field_debug, toggle_enemy_state_debug,
+                    toggle_flow_field_debug, EnemyStateDebug, FlowFieldDebug,
                 },
                 // Flow field navigation
-                navigation::{FlowFieldCache, FlowFieldConfig, update_flow_field_system},
-                obstacle::{Obstacle, ObstacleAttackEvent, process_obstacle_damage},
+                navigation::{update_flow_field_system, FlowFieldCache, FlowFieldConfig},
+                obstacle::{process_obstacle_damage, Obstacle, ObstacleAttackEvent},
+                pathing::{move_enemies, update_enemy_targets, EnemyPath, PathfindingConfig},
                 state::{EnemyAiConfig, EnemyTarget, MonsterState},
-                debug::{
-                    FlowFieldDebug, EnemyStateDebug,
-                    toggle_flow_field_debug, draw_flow_field_debug,
-                    toggle_enemy_state_debug, draw_enemy_state_debug,
-                },
             },
             spawning::{enemy_spawn_from_spawners_system, EnemySpawnerState},
             Enemy,
@@ -80,7 +76,9 @@ impl Plugin for BaseCharacterGamePlugin {
         app.init_resource::<FlowFieldConfig>();
 
         // Initialize debug resources with --debug-ai flag if present
-        let debug_ai_enabled = app.world().get_resource::<DebugAiConfig>()
+        let debug_ai_enabled = app
+            .world()
+            .get_resource::<DebugAiConfig>()
             .map(|c| c.enabled)
             .unwrap_or(false);
 

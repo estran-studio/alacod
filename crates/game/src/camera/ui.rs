@@ -48,7 +48,10 @@ fn update_camera_debug_text(
             text.0 = format!(
                 "Camera: {} | Zoom: {:.2} | Target: {:.2} | Pos: ({:.1}, {:.1})",
                 mode_str,
-                match projection { Projection::Orthographic(o) => o.scale, _ => 0. },
+                match projection {
+                    Projection::Orthographic(o) => o.scale,
+                    _ => 0.,
+                },
                 camera.target_zoom,
                 camera.target_position.x,
                 camera.target_position.y

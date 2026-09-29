@@ -1,13 +1,13 @@
 use animation::AnimationState;
 use animation::{ActiveLayers, FacingDirection};
 use bevy::window::PrimaryWindow;
-use bevy::{prelude::*, platform::collections::hash_map::HashMap};
+use bevy::{platform::collections::hash_map::HashMap, prelude::*};
 use bevy_fixed::fixed_math;
 use bevy_ggrs::prelude::*;
 use bevy_ggrs::{LocalInputs, LocalPlayers};
 use leafwing_input_manager::prelude::*;
 use serde::{Deserialize, Serialize};
-use utils::{frame::FrameCount, order_mut_iter, net_id::GgrsNetId};
+use utils::{frame::FrameCount, net_id::GgrsNetId, order_mut_iter};
 
 use crate::character::config::{CharacterConfig, CharacterConfigHandles};
 use crate::character::dash::DashState;
@@ -92,10 +92,10 @@ fn get_facing_direction(input: &BoxInput) -> FacingDirection {
         let normalized = direction_vec.normalize_or_zero();
         return FacingDirection::from_fixed_vector(normalized);
     }
-    
+
     // Fallback to movement keys for 8-directional movement
     let mut direction = fixed_math::FixedVec2::ZERO;
-    
+
     if input.buttons & INPUT_RIGHT != 0 {
         direction.x += fixed_math::FIXED_ONE;
     }
@@ -108,7 +108,7 @@ fn get_facing_direction(input: &BoxInput) -> FacingDirection {
     if input.buttons & INPUT_DOWN != 0 {
         direction.y -= fixed_math::FIXED_ONE;
     }
-    
+
     if direction.length_squared() > fixed_math::new(0.01) {
         FacingDirection::from_fixed_vector(direction)
     } else {
@@ -193,7 +193,10 @@ pub fn read_local_inputs(
     if *input_source == InputSource::Remote {
         let remote = remote.expect("InputSource::Remote demande la ressource RemoteInputs");
         for handle in &local_players.0 {
-            local_inputs.insert(*handle, remote.held.get(handle).copied().unwrap_or_default());
+            local_inputs.insert(
+                *handle,
+                remote.held.get(handle).copied().unwrap_or_default(),
+            );
         }
     }
 
@@ -291,7 +294,9 @@ pub fn read_local_inputs(
     // GGRS exige un input par joueur local à chaque frame : un joueur mort
     // (entité despawn) ou pas encore créé envoie un input neutre.
     for handle in &local_players.0 {
-        local_inputs.entry(*handle).or_insert_with(BoxInput::default);
+        local_inputs
+            .entry(*handle)
+            .or_insert_with(BoxInput::default);
     }
 
     commands.insert_resource(LocalInputs::<PeerConfig>(local_inputs));
@@ -356,7 +361,8 @@ pub fn apply_inputs(
             // While dashing, the dash is a velocity applied by move_characters, which handles
             // collisions (a dash stops at walls instead of going through them)
             if dash_state.is_dashing {
-                let dash_duration = fixed_math::Fixed::from_num(config.movement.dash_duration_frames.max(1));
+                let dash_duration =
+                    fixed_math::Fixed::from_num(config.movement.dash_duration_frames.max(1));
                 let distance_per_frame = dash_state.dash_total_distance / dash_duration;
                 velocity.main = dash_state.dash_direction * distance_per_frame
                     / fixed_math::new(FIXED_TIMESTEP);
@@ -443,7 +449,16 @@ pub fn apply_inputs(
 pub fn apply_friction(
     inputs: Res<PlayerInputs<PeerConfig>>,
     movement_configs: Res<Assets<CharacterConfig>>,
-    mut query: Query<(&GgrsNetId, &mut Velocity, &CharacterConfigHandles, &Player, &DashState), With<Rollback>>,
+    mut query: Query<
+        (
+            &GgrsNetId,
+            &mut Velocity,
+            &CharacterConfigHandles,
+            &Player,
+            &DashState,
+        ),
+        With<Rollback>,
+    >,
 ) {
     for (_net_id, mut velocity, config_handles, player, dash_state) in order_mut_iter!(query) {
         // The dash velocity is constant for its whole duration
@@ -493,7 +508,9 @@ pub fn move_characters(
         (With<Collider>, Without<Player>, With<Rollback>),
     >,
 ) {
-    for (_net_id, mut transform, mut velocity, player_collider, collision_layer) in order_mut_iter!(query) {
+    for (_net_id, mut transform, mut velocity, player_collider, collision_layer) in
+        order_mut_iter!(query)
+    {
         let total_velocity = velocity.main + velocity.knockback;
         let delta_x = total_velocity.x * fixed_math::new(FIXED_TIMESTEP);
         let delta_y = total_velocity.y * fixed_math::new(FIXED_TIMESTEP);
@@ -512,7 +529,12 @@ pub fn move_characters(
                 if target_layer.0 == settings.enemy_layer {
                     continue;
                 }
-                if is_colliding(pos, player_collider, &target_transform.translation, target_collider) {
+                if is_colliding(
+                    pos,
+                    player_collider,
+                    &target_transform.translation,
+                    target_collider,
+                ) {
                     return true;
                 }
             }
@@ -528,7 +550,12 @@ pub fn move_characters(
                 if target_layer.0 != settings.enemy_layer {
                     continue;
                 }
-                if is_colliding(pos, player_collider, &target_transform.translation, target_collider) {
+                if is_colliding(
+                    pos,
+                    player_collider,
+                    &target_transform.translation,
+                    target_collider,
+                ) {
                     count += 1;
                 }
             }
@@ -539,7 +566,8 @@ pub fn move_characters(
         let enemy_count = count_enemy_collisions(&transform.translation);
         let slowdown = if enemy_count > 0 {
             // Each enemy reduces speed by 20%, min 30% speed
-            let factor = fixed_math::FIXED_ONE - fixed_math::new(0.2) * fixed_math::Fixed::from_num(enemy_count);
+            let factor = fixed_math::FIXED_ONE
+                - fixed_math::new(0.2) * fixed_math::Fixed::from_num(enemy_count);
             factor.max(fixed_math::new(0.3))
         } else {
             fixed_math::FIXED_ONE
@@ -568,11 +596,8 @@ pub fn move_characters(
 
         // Try X only
         if delta_x != fixed_math::FIXED_ZERO {
-            let x_only_pos = fixed_math::FixedVec3::new(
-                start_x + delta_x,
-                start_y,
-                transform.translation.z,
-            );
+            let x_only_pos =
+                fixed_math::FixedVec3::new(start_x + delta_x, start_y, transform.translation.z);
             if !check_hard_collision(&x_only_pos) {
                 transform.translation.x = x_only_pos.x;
                 moved_x = true;
@@ -581,11 +606,8 @@ pub fn move_characters(
 
         // Try Y only
         if delta_y != fixed_math::FIXED_ZERO {
-            let y_only_pos = fixed_math::FixedVec3::new(
-                start_x,
-                start_y + delta_y,
-                transform.translation.z,
-            );
+            let y_only_pos =
+                fixed_math::FixedVec3::new(start_x, start_y + delta_y, transform.translation.z);
             if !check_hard_collision(&y_only_pos) {
                 transform.translation.y = y_only_pos.y;
                 moved_y = true;
@@ -598,7 +620,8 @@ pub fn move_characters(
         const NUDGE_MAX: i32 = 12;
         let z = transform.translation.z;
         let half = |v: fixed_math::Fixed| v.abs() / fixed_math::new(2.0);
-        let try_nudge = |primary: (fixed_math::Fixed, fixed_math::Fixed), side: (fixed_math::Fixed, fixed_math::Fixed)| {
+        let try_nudge = |primary: (fixed_math::Fixed, fixed_math::Fixed),
+                         side: (fixed_math::Fixed, fixed_math::Fixed)| {
             for n in 1..=NUDGE_MAX {
                 for sign in [fixed_math::FIXED_ONE, -fixed_math::FIXED_ONE] {
                     let offset = fixed_math::Fixed::from_num(n) * sign;
@@ -615,8 +638,15 @@ pub fn move_characters(
             None
         };
         if !moved_x && delta_x != fixed_math::FIXED_ZERO && delta_y.abs() <= half(delta_x) {
-            if let Some(sign) = try_nudge((delta_x, fixed_math::FIXED_ZERO), (fixed_math::FIXED_ZERO, fixed_math::FIXED_ONE)) {
-                let side_pos = fixed_math::FixedVec3::new(start_x, start_y + delta_x.abs() * sign, transform.translation.z);
+            if let Some(sign) = try_nudge(
+                (delta_x, fixed_math::FIXED_ZERO),
+                (fixed_math::FIXED_ZERO, fixed_math::FIXED_ONE),
+            ) {
+                let side_pos = fixed_math::FixedVec3::new(
+                    start_x,
+                    start_y + delta_x.abs() * sign,
+                    transform.translation.z,
+                );
                 if !check_hard_collision(&side_pos) {
                     transform.translation.y = side_pos.y;
                     moved_y = true;
@@ -624,8 +654,15 @@ pub fn move_characters(
             }
         }
         if !moved_y && delta_y != fixed_math::FIXED_ZERO && delta_x.abs() <= half(delta_y) {
-            if let Some(sign) = try_nudge((fixed_math::FIXED_ZERO, delta_y), (fixed_math::FIXED_ONE, fixed_math::FIXED_ZERO)) {
-                let side_pos = fixed_math::FixedVec3::new(start_x + delta_y.abs() * sign, start_y, transform.translation.z);
+            if let Some(sign) = try_nudge(
+                (fixed_math::FIXED_ZERO, delta_y),
+                (fixed_math::FIXED_ONE, fixed_math::FIXED_ZERO),
+            ) {
+                let side_pos = fixed_math::FixedVec3::new(
+                    start_x + delta_y.abs() * sign,
+                    start_y,
+                    transform.translation.z,
+                );
                 if !check_hard_collision(&side_pos) {
                     transform.translation.x = side_pos.x;
                     moved_x = true;
@@ -640,7 +677,9 @@ pub fn move_characters(
     }
 }
 
-pub fn update_animation_state(mut query: Query<(&GgrsNetId, &Velocity, &mut AnimationState), With<Rollback>>) {
+pub fn update_animation_state(
+    mut query: Query<(&GgrsNetId, &Velocity, &mut AnimationState), With<Rollback>>,
+) {
     for (_net_id, velocity, mut state) in order_mut_iter!(query) {
         let current_state_name = state.0.clone();
         let new_state_name = if (velocity.main + velocity.knockback).length_squared() > 0.5 {

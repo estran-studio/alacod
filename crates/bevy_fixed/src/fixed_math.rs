@@ -41,13 +41,24 @@ pub struct FixedVec3 {
 // --- The Wrapper Type for Reflection ---
 impl std::fmt::Display for FixedVec2 {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
-        write!(f, "( {:.3} {:.3} )", self.x.to_num::<f32>(), self.y.to_num::<f32>())
+        write!(
+            f,
+            "( {:.3} {:.3} )",
+            self.x.to_num::<f32>(),
+            self.y.to_num::<f32>()
+        )
     }
 }
 
 impl std::fmt::Display for FixedVec3 {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
-        write!(f, "( {:.3} {:.3} {:.3} )", self.x.to_num::<f32>(), self.y.to_num::<f32>(), self.z.to_num::<f32>())
+        write!(
+            f,
+            "( {:.3} {:.3} {:.3} )",
+            self.x.to_num::<f32>(),
+            self.y.to_num::<f32>(),
+            self.z.to_num::<f32>()
+        )
     }
 }
 
@@ -65,7 +76,6 @@ impl Hash for FixedVec2 {
         self.y.to_bits().hash(state);
     }
 }
-
 
 // Conversion constants
 pub const FIXED_ZERO: Fixed = Fixed::from_bits(0);
@@ -905,14 +915,26 @@ mod tests {
         // Test with values that have many decimal places
         let vec = FixedVec2::from_f32(-30.34894123, -53.05115789);
         let display = format!("{}", vec);
-        
+
         // Should only show 3 decimal places
-        assert!(display.contains("-30.349"), "FixedVec2 display should show 3 decimal places for x: {}", display);
-        assert!(display.contains("-53.051"), "FixedVec2 display should show 3 decimal places for y: {}", display);
-        
+        assert!(
+            display.contains("-30.349"),
+            "FixedVec2 display should show 3 decimal places for x: {}",
+            display
+        );
+        assert!(
+            display.contains("-53.051"),
+            "FixedVec2 display should show 3 decimal places for y: {}",
+            display
+        );
+
         // Should not contain more than 3 decimal places
-        assert!(!display.contains("-30.3489"), "FixedVec2 display should not show more than 3 decimal places: {}", display);
-        
+        assert!(
+            !display.contains("-30.3489"),
+            "FixedVec2 display should not show more than 3 decimal places: {}",
+            display
+        );
+
         println!("FixedVec2 display: {}", display);
     }
 
@@ -921,12 +943,24 @@ mod tests {
         // Test with values that have many decimal places
         let vec = FixedVec3::from_f32(-22.27951234, 15.12345678, -100.99999999);
         let display = format!("{}", vec);
-        
+
         // Should only show 3 decimal places
-        assert!(display.contains("-22.280"), "FixedVec3 display should show 3 decimal places for x: {}", display);
-        assert!(display.contains("15.123"), "FixedVec3 display should show 3 decimal places for y: {}", display);
-        assert!(display.contains("-101.000"), "FixedVec3 display should show 3 decimal places for z: {}", display);
-        
+        assert!(
+            display.contains("-22.280"),
+            "FixedVec3 display should show 3 decimal places for x: {}",
+            display
+        );
+        assert!(
+            display.contains("15.123"),
+            "FixedVec3 display should show 3 decimal places for y: {}",
+            display
+        );
+        assert!(
+            display.contains("-101.000"),
+            "FixedVec3 display should show 3 decimal places for z: {}",
+            display
+        );
+
         println!("FixedVec3 display: {}", display);
     }
 }

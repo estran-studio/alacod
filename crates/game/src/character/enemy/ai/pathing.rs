@@ -81,7 +81,7 @@ impl Default for PathfindingConfig {
             waypoint_reach_distance: fixed_math::new(10.0),
             optimal_attack_distance: fixed_math::new(30.0), // Melee range - get close to players
             slow_down_distance: fixed_math::new(50.0),      // Start slowing down very close
-            enemy_separation_force: fixed_math::new(2.0),    // Much stronger separation force
+            enemy_separation_force: fixed_math::new(2.0),   // Much stronger separation force
             enemy_separation_distance: fixed_math::new(80.0), // Larger separation distance
         }
     }
@@ -106,7 +106,9 @@ pub fn update_enemy_targets(
     // GGRS CRITICAL: Sort by net_id for deterministic tie-breaking when multiple players at equal distance
     let mut player_positions: Vec<(GgrsNetId, fixed_math::FixedVec2)> = player_query
         .iter()
-        .map(|(net_id, fixed_transform, _)| (net_id.clone(), fixed_transform.translation.truncate()))
+        .map(|(net_id, fixed_transform, _)| {
+            (net_id.clone(), fixed_transform.translation.truncate())
+        })
         .collect();
     player_positions.sort_unstable_by_key(|(net_id, _)| net_id.0);
 
@@ -171,13 +173,27 @@ pub fn move_enemies(
     config: Res<PathfindingConfig>,
     collision_settings: Res<crate::collider::CollisionSettings>,
     wall_collider_query: Query<
-        (&fixed_math::FixedTransform3D, &Collider, &crate::collider::CollisionLayer),
+        (
+            &fixed_math::FixedTransform3D,
+            &Collider,
+            &crate::collider::CollisionLayer,
+        ),
         (With<Wall>, Without<Enemy>, Without<Player>),
     >,
     // Windows block enemies while intact (see process_obstacle_damage)
     window_query: Query<
-        (&GgrsNetId, &fixed_math::FixedTransform3D, &Obstacle, &Collider),
-        (With<Window>, With<Rollback>, Without<Enemy>, Without<Player>),
+        (
+            &GgrsNetId,
+            &fixed_math::FixedTransform3D,
+            &Obstacle,
+            &Collider,
+        ),
+        (
+            With<Window>,
+            With<Rollback>,
+            Without<Enemy>,
+            Without<Player>,
+        ),
     >,
     flow_field_cache: Res<super::navigation::FlowFieldCache>,
 ) {
@@ -313,30 +329,35 @@ pub fn move_enemies(
 
             if is_cell_blocked(forward_pos) {
                 // Forward is blocked - check left and right to find clear path
-                let perpendicular = fixed_math::FixedVec2::new(
-                    -direction_to_target_v2.y,
-                    direction_to_target_v2.x,
-                );
+                let perpendicular =
+                    fixed_math::FixedVec2::new(-direction_to_target_v2.y, direction_to_target_v2.x);
 
-                let left_pos = enemy_pos_v2 + (direction_to_target_v2 + perpendicular).normalize_or_zero() * lookahead_distance;
-                let right_pos = enemy_pos_v2 + (direction_to_target_v2 - perpendicular).normalize_or_zero() * lookahead_distance;
+                let left_pos = enemy_pos_v2
+                    + (direction_to_target_v2 + perpendicular).normalize_or_zero()
+                        * lookahead_distance;
+                let right_pos = enemy_pos_v2
+                    + (direction_to_target_v2 - perpendicular).normalize_or_zero()
+                        * lookahead_distance;
 
                 let left_clear = !is_cell_blocked(left_pos);
                 let right_clear = !is_cell_blocked(right_pos);
 
                 if left_clear && !right_clear {
                     // Steer left
-                    let blended = direction_to_target_v2 * (fixed_math::FIXED_ONE - avoidance_strength)
+                    let blended = direction_to_target_v2
+                        * (fixed_math::FIXED_ONE - avoidance_strength)
                         + perpendicular * avoidance_strength;
                     blended.normalize_or_zero()
                 } else if right_clear && !left_clear {
                     // Steer right
-                    let blended = direction_to_target_v2 * (fixed_math::FIXED_ONE - avoidance_strength)
+                    let blended = direction_to_target_v2
+                        * (fixed_math::FIXED_ONE - avoidance_strength)
                         - perpendicular * avoidance_strength;
                     blended.normalize_or_zero()
                 } else if left_clear && right_clear {
                     // Both clear - pick left (deterministic for GGRS)
-                    let blended = direction_to_target_v2 * (fixed_math::FIXED_ONE - avoidance_strength)
+                    let blended = direction_to_target_v2
+                        * (fixed_math::FIXED_ONE - avoidance_strength)
                         + perpendicular * avoidance_strength;
                     blended.normalize_or_zero()
                 } else {
@@ -423,20 +444,19 @@ pub fn move_enemies(
         let base_velocity_v2 = direction_to_target_v2 * movement_speed;
 
         // Slow down when near player (for attack positioning)
-        let speed_factor_fixed =
-            if distance_to_nearest_player < config.optimal_attack_distance {
-                fixed_math::FIXED_ZERO // Stop when in melee range
-            } else if distance_to_nearest_player < config.slow_down_distance {
-                let range = config.slow_down_distance - config.optimal_attack_distance;
-                if range > fixed_math::FIXED_ZERO {
-                    let t = (distance_to_nearest_player - config.optimal_attack_distance) / range;
-                    t.clamp(fixed_math::FIXED_ZERO, fixed_math::FIXED_ONE)
-                } else {
-                    fixed_math::FIXED_ONE
-                }
+        let speed_factor_fixed = if distance_to_nearest_player < config.optimal_attack_distance {
+            fixed_math::FIXED_ZERO // Stop when in melee range
+        } else if distance_to_nearest_player < config.slow_down_distance {
+            let range = config.slow_down_distance - config.optimal_attack_distance;
+            if range > fixed_math::FIXED_ZERO {
+                let t = (distance_to_nearest_player - config.optimal_attack_distance) / range;
+                t.clamp(fixed_math::FIXED_ZERO, fixed_math::FIXED_ONE)
             } else {
-                fixed_math::FIXED_ONE // Full speed
-            };
+                fixed_math::FIXED_ONE
+            }
+        } else {
+            fixed_math::FIXED_ONE // Full speed
+        };
 
         let desired_move_velocity_v2 = base_velocity_v2 * speed_factor_fixed;
 
@@ -474,9 +494,10 @@ pub fn move_enemies(
                 for (wall_transform, wall_collider, wall_layer) in &walls {
                     let (half_w, half_h) = match &wall_collider.shape {
                         crate::collider::ColliderShape::Circle { radius } => (*radius, *radius),
-                        crate::collider::ColliderShape::Rectangle { width, height } => {
-                            (*width / fixed_math::new(2.0), *height / fixed_math::new(2.0))
-                        }
+                        crate::collider::ColliderShape::Rectangle { width, height } => (
+                            *width / fixed_math::new(2.0),
+                            *height / fixed_math::new(2.0),
+                        ),
                     };
                     let wall_pos_2d = wall_transform.translation.truncate();
                     let dx = (pos_2d.x - wall_pos_2d.x).abs();
@@ -487,12 +508,22 @@ pub fn move_enemies(
                     if !collision_settings.layer_matrix[enemy_collision_layer.0][wall_layer.0] {
                         continue;
                     }
-                    if is_colliding(pos, enemy_collider, &wall_transform.translation, wall_collider) {
+                    if is_colliding(
+                        pos,
+                        enemy_collider,
+                        &wall_transform.translation,
+                        wall_collider,
+                    ) {
                         return true;
                     }
                 }
                 windows.iter().any(|(window_transform, window_collider)| {
-                    is_colliding(pos, enemy_collider, &window_transform.translation, window_collider)
+                    is_colliding(
+                        pos,
+                        enemy_collider,
+                        &window_transform.translation,
+                        window_collider,
+                    )
                 })
             };
 
@@ -544,8 +575,9 @@ pub fn move_enemies(
                 let is_wall_sliding = was_trying_diagonal && (moved_x != moved_y);
 
                 if is_wall_sliding {
-                    wall_slide_tracker.consecutive_slide_frames =
-                        wall_slide_tracker.consecutive_slide_frames.saturating_add(1);
+                    wall_slide_tracker.consecutive_slide_frames = wall_slide_tracker
+                        .consecutive_slide_frames
+                        .saturating_add(1);
                 } else if moved_x && moved_y {
                     // Successfully moved in both axes - reset tracker
                     wall_slide_tracker.consecutive_slide_frames = 0;
@@ -562,18 +594,27 @@ pub fn move_enemies(
                     let speed = velocity_component.main.length();
 
                     // Try flow field neighbor directions first
-                    if let Some(flow_field) = flow_field_cache.get_flow_field(super::navigation::NavProfile::GroundBreaker) {
+                    if let Some(flow_field) = flow_field_cache
+                        .get_flow_field(super::navigation::NavProfile::GroundBreaker)
+                    {
                         let neighbor_dirs = flow_field.get_neighbor_directions(enemy_pos_v2);
                         for dir in neighbor_dirs {
                             // Determine slide axis (which axis succeeded)
                             let slide_axis = if moved_x {
-                                fixed_math::FixedVec2::new(fixed_math::new(1.0), fixed_math::FIXED_ZERO)
+                                fixed_math::FixedVec2::new(
+                                    fixed_math::new(1.0),
+                                    fixed_math::FIXED_ZERO,
+                                )
                             } else {
-                                fixed_math::FixedVec2::new(fixed_math::FIXED_ZERO, fixed_math::new(1.0))
+                                fixed_math::FixedVec2::new(
+                                    fixed_math::FIXED_ZERO,
+                                    fixed_math::new(1.0),
+                                )
                             };
 
                             // Prefer directions perpendicular to slide axis
-                            let perpendicular_component = dir.x * slide_axis.y + dir.y * slide_axis.x;
+                            let perpendicular_component =
+                                dir.x * slide_axis.y + dir.y * slide_axis.x;
                             if perpendicular_component.abs() > fixed_math::new(0.3) {
                                 let dx = dir.x * move_magnitude;
                                 let dy = dir.y * move_magnitude;
@@ -607,7 +648,9 @@ pub fn move_enemies(
                     let mut escaped = false;
 
                     // First, try directions from neighboring flow field cells (sorted by cost)
-                    if let Some(flow_field) = flow_field_cache.get_flow_field(super::navigation::NavProfile::GroundBreaker) {
+                    if let Some(flow_field) = flow_field_cache
+                        .get_flow_field(super::navigation::NavProfile::GroundBreaker)
+                    {
                         let neighbor_dirs = flow_field.get_neighbor_directions(enemy_pos_v2);
                         for dir in neighbor_dirs {
                             let dx = dir.x * move_magnitude;
@@ -629,14 +672,14 @@ pub fn move_enemies(
                     // If flow field neighbors didn't help, try all 8 cardinal directions
                     if !escaped {
                         let directions: [(fixed_math::Fixed, fixed_math::Fixed); 8] = [
-                            (move_magnitude, fixed_math::FIXED_ZERO),   // Right
-                            (-move_magnitude, fixed_math::FIXED_ZERO),  // Left
-                            (fixed_math::FIXED_ZERO, move_magnitude),   // Up
-                            (fixed_math::FIXED_ZERO, -move_magnitude),  // Down
-                            (move_magnitude, move_magnitude),           // Up-Right
-                            (-move_magnitude, move_magnitude),          // Up-Left
-                            (move_magnitude, -move_magnitude),          // Down-Right
-                            (-move_magnitude, -move_magnitude),         // Down-Left
+                            (move_magnitude, fixed_math::FIXED_ZERO),  // Right
+                            (-move_magnitude, fixed_math::FIXED_ZERO), // Left
+                            (fixed_math::FIXED_ZERO, move_magnitude),  // Up
+                            (fixed_math::FIXED_ZERO, -move_magnitude), // Down
+                            (move_magnitude, move_magnitude),          // Up-Right
+                            (-move_magnitude, move_magnitude),         // Up-Left
+                            (move_magnitude, -move_magnitude),         // Down-Right
+                            (-move_magnitude, -move_magnitude),        // Down-Left
                         ];
 
                         for (dx, dy) in directions {
@@ -647,8 +690,8 @@ pub fn move_enemies(
                             );
                             if !check_wall_collision(&test_pos) {
                                 fixed_transform.translation = test_pos;
-                                velocity_component.main = fixed_math::FixedVec2::new(dx, dy)
-                                    .normalize_or_zero() * speed;
+                                velocity_component.main =
+                                    fixed_math::FixedVec2::new(dx, dy).normalize_or_zero() * speed;
                                 escaped = true;
                                 break;
                             }

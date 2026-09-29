@@ -25,7 +25,10 @@ pub struct Opt {
     pub debug_ai: bool,
     #[clap(long)]
     pub telemetry: bool,
-    #[clap(long, default_value = "http://localhost:5080/api/default/default/_json")]
+    #[clap(
+        long,
+        default_value = "http://localhost:5080/api/default/default/_json"
+    )]
     pub telemetry_url: String,
     #[clap(long, default_value = "")]
     pub telemetry_auth: String,
