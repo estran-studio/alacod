@@ -18,3 +18,13 @@ pub struct Player {
     pub name: String,
     pub pubkey: String,
 }
+
+/// Hash manuel : exclut `color` (présentation, `Color` est `f32` et n'implémente pas
+/// `Hash`) ; `handle`/`name`/`pubkey` identifient le joueur et contribuent au checksum.
+impl std::hash::Hash for Player {
+    fn hash<H: std::hash::Hasher>(&self, state: &mut H) {
+        self.handle.hash(state);
+        self.name.hash(state);
+        self.pubkey.hash(state);
+    }
+}

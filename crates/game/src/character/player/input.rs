@@ -58,7 +58,7 @@ pub struct CursorPosition {
 }
 
 /// Component that tracks interaction input state
-#[derive(Component, Clone, Copy, Default, Debug, Serialize, Deserialize)]
+#[derive(Component, Clone, Copy, Default, Debug, Hash, Serialize, Deserialize)]
 pub struct InteractionInput {
     pub is_holding: bool,
 }

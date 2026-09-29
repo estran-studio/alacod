@@ -1,109 +1,66 @@
-//! Extension unique pour enregistrer un état rollback : rollback bevy_ggrs, checksum GGRS
-//! (ce que le synctest et la détection de desync p2p comparent) et trace d'état, en un
-//! seul appel. Les appels directs à `rollback_component_*` / `rollback_resource_*` sont à
-//! remplacer par [`RollbackTraceApp`] (plan §9.6, tâche K0).
+//! Réexport de l'extension rollback : l'implémentation vit dans `utils` (voir sa doc)
+//! parce qu'`animation` en a besoin sans dépendre de `game`. Réexporté ici pour que les
+//! sites de `game` continuent d'écrire `use crate::rollback::RollbackTraceApp;`.
 
-use bevy::prelude::*;
-use bevy::ecs::component::Mutable;
-use bevy_ggrs::RollbackApp;
-use std::any::type_name;
+pub use utils::rollback::*;
 
-use crate::state_trace::fnv1a;
+/// Couverture de `TracedTypes`/`StateTracers` (plan §9.6, tâche T0.1c) : chaque type
+/// enregistré par `RollbackTraceApp` doit avoir un tracer, qu'il soit passé par
+/// `rollback_and_trace{,_debug}` (composant) ou `rollback_and_trace{,_debug}_resource` /
+/// `rollback_and_trace_copy_resource{,_no_checksum}` (ressource). Vit dans `game` (et pas
+/// `utils`, où vit le mécanisme) car T0.1c demande ce test précisément ici ; il exerce le
+/// même code que le jeu utilise, via ce réexport.
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use bevy::prelude::*;
 
-/// Ressource pour tracker les types enregistrés avec tracing.
-/// Utile pour vérifier la couverture plus tard.
-#[derive(Resource, Default)]
-pub struct TracedTypes(pub Vec<&'static str>);
+    #[derive(Component, Clone, Hash, Debug)]
+    struct CompHash;
 
-/// Extension sur [`App`] pour enregistrer composants et ressources en rollback
-/// tout en activant le checksum GGRS et en enregistrant le type.
-pub trait RollbackTraceApp {
-    /// Enregistre un composant en rollback avec clone, checksum et trace.
-    fn rollback_and_trace<C>(&mut self) -> &mut Self
-    where
-        C: Component<Mutability = Mutable> + Clone + std::hash::Hash + std::fmt::Debug + Send + Sync + 'static;
+    #[derive(Component, Clone, Debug)]
+    struct CompDebugOnly;
 
-    /// Variante pour les types qui n'implémentent pas `Hash` : utilise `Debug`.
-    fn rollback_and_trace_debug<C>(&mut self) -> &mut Self
-    where
-        C: Component<Mutability = Mutable> + Clone + std::fmt::Debug + Send + Sync + 'static;
+    #[derive(Resource, Clone, Hash, Debug, Default)]
+    struct ResHash;
 
-    /// Enregistre une ressource en rollback avec clone, checksum et trace.
-    fn rollback_and_trace_resource<R>(&mut self) -> &mut Self
-    where
-        R: Resource<Mutability = Mutable> + Clone + std::hash::Hash + std::fmt::Debug + Send + Sync + 'static;
+    #[derive(Resource, Clone, Debug, Default)]
+    struct ResDebugOnly;
 
-    /// Variante pour les ressources qui n'implémentent pas `Hash` : utilise `Debug`.
-    fn rollback_and_trace_debug_resource<R>(&mut self) -> &mut Self
-    where
-        R: Resource<Mutability = Mutable> + Clone + std::fmt::Debug + Send + Sync + 'static;
+    #[derive(Resource, Clone, Copy, Hash, Debug, Default)]
+    struct ResCopy;
 
-    /// Enregistre une ressource `Copy` en rollback avec checksum et trace.
-    fn rollback_and_trace_copy_resource<R>(&mut self) -> &mut Self
-    where
-        R: Resource<Mutability = Mutable> + Copy + std::hash::Hash + std::fmt::Debug + Send + Sync + 'static;
-}
+    #[derive(Resource, Clone, Copy, Debug, Default)]
+    struct ResCopyNoChecksum;
 
-impl RollbackTraceApp for App {
-    fn rollback_and_trace<C>(&mut self) -> &mut Self
-    where
-        C: Component<Mutability = Mutable> + Clone + std::hash::Hash + std::fmt::Debug + Send + Sync + 'static,
-    {
-        register_traced_type::<C>(self);
-        self.rollback_component_with_clone::<C>()
-            .checksum_component_with_hash::<C>()
+    #[test]
+    fn chaque_type_trace_a_un_tracer() {
+        let mut app = App::new();
+        app.rollback_and_trace::<CompHash>();
+        app.rollback_and_trace_debug::<CompDebugOnly>();
+        app.rollback_and_trace_resource::<ResHash>();
+        app.rollback_and_trace_debug_resource::<ResDebugOnly>();
+        app.rollback_and_trace_copy_resource::<ResCopy>();
+        app.rollback_and_trace_copy_resource_no_checksum::<ResCopyNoChecksum>();
+
+        let traced = app.world().resource::<TracedTypes>();
+        let tracers = app.world().resource::<StateTracers>();
+
+        assert_eq!(
+            traced.0.len(),
+            6,
+            "les six méthodes de RollbackTraceApp doivent enregistrer un type chacune, trouvé {:?}",
+            traced.0
+        );
+        assert_eq!(
+            tracers.components.len() + tracers.resources.len(),
+            traced.0.len(),
+            "chaque type de TracedTypes doit avoir exactement un tracer (composant ou ressource)"
+        );
+        for name in &traced.0 {
+            let has_tracer = tracers.components.iter().any(|(n, _)| n == name)
+                || tracers.resources.iter().any(|(n, _)| n == name);
+            assert!(has_tracer, "{name} enregistré dans TracedTypes mais sans tracer dans StateTracers");
+        }
     }
-
-    fn rollback_and_trace_debug<C>(&mut self) -> &mut Self
-    where
-        C: Component<Mutability = Mutable> + Clone + std::fmt::Debug + Send + Sync + 'static,
-    {
-        register_traced_type::<C>(self);
-        self.rollback_component_with_clone::<C>()
-            .checksum_component(hash_debug::<C>)
-    }
-
-    fn rollback_and_trace_resource<R>(&mut self) -> &mut Self
-    where
-        R: Resource<Mutability = Mutable> + Clone + std::hash::Hash + std::fmt::Debug + Send + Sync + 'static,
-    {
-        register_traced_type::<R>(self);
-        self.rollback_resource_with_clone::<R>()
-            .checksum_resource_with_hash::<R>()
-    }
-
-    fn rollback_and_trace_debug_resource<R>(&mut self) -> &mut Self
-    where
-        R: Resource<Mutability = Mutable> + Clone + std::fmt::Debug + Send + Sync + 'static,
-    {
-        register_traced_type::<R>(self);
-        self.rollback_resource_with_clone::<R>()
-            .checksum_resource(hash_debug::<R>)
-    }
-
-    fn rollback_and_trace_copy_resource<R>(&mut self) -> &mut Self
-    where
-        R: Resource<Mutability = Mutable> + Copy + std::hash::Hash + std::fmt::Debug + Send + Sync + 'static,
-    {
-        register_traced_type::<R>(self);
-        self.rollback_resource_with_copy::<R>()
-            .checksum_resource_with_hash::<R>()
-    }
-}
-
-/// Enregistre un type de trace dans la ressource `TracedTypes`.
-fn register_traced_type<T: 'static>(app: &mut App) {
-    if !app.world().contains_resource::<TracedTypes>() {
-        app.init_resource::<TracedTypes>();
-    }
-    if let Some(mut traced) = app.world_mut().get_resource_mut::<TracedTypes>() {
-        traced.0.push(type_name::<T>());
-    }
-}
-
-/// Fonction de hashage pour les types qui n'implémentent pas `Hash` :
-/// formate le `Debug` et le hache en FNV-1a 64 bits.
-pub fn hash_debug<T: std::fmt::Debug>(value: &T) -> u64 {
-    let debug_str = format!("{:?}", value);
-    fnv1a(debug_str.as_bytes())
 }

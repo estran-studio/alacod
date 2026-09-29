@@ -1,7 +1,9 @@
-
 pub mod ui;
 
-use bevy::{log::{tracing::span, Level}, prelude::*};
+use bevy::{
+    log::{tracing::span, Level},
+    prelude::*,
+};
 use bevy_fixed::fixed_math;
 use bevy_ggrs::Rollback;
 use ggrs::PlayerHandle;
@@ -9,7 +11,7 @@ use serde::{Deserialize, Serialize};
 use std::fmt;
 use utils::{frame::FrameCount, net_id::GgrsNetId, order_iter, order_mut_iter};
 
-#[derive(Component, Reflect, Debug, Clone, Serialize, Deserialize)]
+#[derive(Component, Reflect, Debug, Clone, Hash, Serialize, Deserialize)]
 pub enum HitBy {
     Entity(GgrsNetId),
     Player(PlayerHandle),
@@ -31,19 +33,19 @@ pub struct Health {
     pub invulnerable_until_frame: Option<u32>, // Optional invulnerability window
 }
 
-#[derive(Component, Clone, Debug, Serialize, Default, Deserialize)]
+#[derive(Component, Clone, Debug, Hash, Serialize, Default, Deserialize)]
 pub struct HealthRegen {
     pub last_damage_frame: u32,
     pub regen_rate: fixed_math::Fixed,
     pub regen_delay_frames: u32,
 }
 
-#[derive(Component, Clone, Debug, Serialize, Deserialize, Default)]
+#[derive(Component, Clone, Debug, Hash, Serialize, Deserialize, Default)]
 pub struct Death {
     pub last_hit_by: Option<Vec<HitBy>>,
 }
 
-#[derive(Component, Clone, Serialize, Deserialize, Default)]
+#[derive(Component, Clone, Debug, Hash, Serialize, Deserialize, Default)]
 pub struct DamageAccumulator {
     pub total_damage: fixed_math::Fixed,
     pub hit_count: u32,
@@ -74,8 +76,6 @@ impl fmt::Display for Death {
         match &self.last_hit_by {
             Some(hits) if !hits.is_empty() => {
                 for (i, hit_by) in hits.iter().enumerate() {
-
- 
                     if i > 0 {
                         write!(f, ", ")?;
                     }
@@ -98,11 +98,19 @@ impl From<HealthConfig> for Health {
     }
 }
 
-
 pub fn rollback_apply_accumulated_damage(
     frame: Res<FrameCount>,
     mut commands: Commands,
-    mut query: Query<(&GgrsNetId, Entity, &DamageAccumulator, &mut Health, Option<&mut HealthRegen>), With<Rollback>>,
+    mut query: Query<
+        (
+            &GgrsNetId,
+            Entity,
+            &DamageAccumulator,
+            &mut Health,
+            Option<&mut HealthRegen>,
+        ),
+        With<Rollback>,
+    >,
 ) {
     let system_span = span!(Level::INFO, "ggrs", f = frame.frame, s = "apply_damage");
     let _enter = system_span.enter();
@@ -143,8 +151,9 @@ pub fn rollback_apply_death(
     for (id, entity, death_info) in order_iter!(query) {
         info!("{} entity killed by {}", id, death_info);
 
-        // Despawn the rollback entity
-        commands.entity(entity).despawn();
+        // Despawn différé : ressuscitable en cas de rollback (voir `RollbackDespawnPlugin`)
+        use bevy_ggrs::RollbackDespawnCommandExtension;
+        commands.entity(entity).despawn_rollback();
     }
 }
 
@@ -159,13 +168,13 @@ pub fn rollback_health_regeneration(
     for (g_id, mut health, regen) in order_mut_iter!(query) {
         // Check if enough time has passed since last damage
         let frames_since_damage = frame.frame.saturating_sub(regen.last_damage_frame);
-        
+
         if frames_since_damage >= regen.regen_delay_frames && health.current < health.max {
             let health_before = health.current;
             // Regenerate health (60 frames per second)
             let regen_per_frame = regen.regen_rate / fixed_math::new(60.0);
             health.current = (health.current + regen_per_frame).min(health.max);
-            
+
             // Log every 60 frames (once per second) or when reaching max health
             if frame.frame % 60 == 0 || health.current >= health.max {
                 info!(

@@ -10,7 +10,7 @@ pub struct WindowComponent {
 
 /// Component that tracks window health and repair state
 /// This is a rollback component for deterministic gameplay
-#[derive(Component, Clone, Debug, Serialize, Deserialize)]
+#[derive(Component, Clone, Debug, Hash, Serialize, Deserialize)]
 pub struct WindowHealth {
     /// Current health (0-3)
     pub current: u8,

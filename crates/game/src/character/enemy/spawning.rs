@@ -16,7 +16,7 @@ use super::{create::spawn_enemy, Enemy};
 /// Should be within flow field range (50 cells * 16 = 800 units)
 const MAX_SPAWN_DISTANCE: f32 = 700.0;
 
-#[derive(Component, Debug, Reflect, Clone)]
+#[derive(Component, Debug, Reflect, Clone, Hash)]
 #[reflect]
 pub struct EnemySpawnerState {
     pub cooldown_remaining: u32,

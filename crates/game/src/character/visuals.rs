@@ -21,6 +21,16 @@ pub struct CharacterAppearance {
     pub health_bar_color: Color,
 }
 
+/// Hash manuel : exclut `health_bar_color` (présentation, `Color` est `f32` et
+/// n'implémente pas `Hash`) ; seuls `config_name`/`skin` (le choix de skin, qui affecte
+/// bien la simulation via le spawn des layers) contribuent au checksum.
+impl std::hash::Hash for CharacterAppearance {
+    fn hash<H: std::hash::Hasher>(&self, state: &mut H) {
+        self.config_name.hash(state);
+        self.skin.hash(state);
+    }
+}
+
 /// Marque une entité dont les visuels ont été créés (hors rollback).
 #[derive(Component)]
 pub struct VisualsAttached;

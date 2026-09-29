@@ -14,7 +14,7 @@ use utils::{frame::FrameCount, net_id::GgrsNetId, order_iter, order_mut_iter};
 
 use super::obstacle::Obstacle;
 
-#[derive(Component, Debug, Clone, Default)]
+#[derive(Component, Debug, Clone, Hash, Default)]
 pub struct EnemyPath {
     // Target to move toward
     pub target_position: fixed_math::FixedVec2,
@@ -26,7 +26,7 @@ pub struct EnemyPath {
     pub path_status: PathStatus,
 }
 
-#[derive(Debug, Clone, PartialEq, Eq, Default)]
+#[derive(Debug, Clone, Hash, PartialEq, Eq, Default)]
 pub enum PathStatus {
     #[default]
     Idle,
@@ -37,13 +37,13 @@ pub enum PathStatus {
 }
 
 /// Tracks consecutive frames of wall-sliding for stuck recovery
-#[derive(Component, Clone, Debug, Default, Serialize, Deserialize)]
+#[derive(Component, Clone, Debug, Hash, Default, Serialize, Deserialize)]
 pub struct WallSlideTracker {
     /// Number of consecutive frames where movement was partially blocked
     pub consecutive_slide_frames: u8,
 }
 
-#[derive(Resource, Clone)]
+#[derive(Resource, Clone, Debug, Hash)]
 pub struct PathfindingConfig {
     // How often to recalculate paths (in frames)
     pub recalculation_interval: u32,

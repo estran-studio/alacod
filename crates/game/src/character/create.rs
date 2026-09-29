@@ -45,12 +45,16 @@ pub fn create_character(
         .unwrap()
         .clone();
 
-    let starting_layers = config
+    // BTreeMap (pas HashMap) : `AnimationStateBundle` place ces layers dans `ActiveLayers`,
+    // un composant rollback dont l'ordre d'itération doit être stable entre clients.
+    let starting_layers: std::collections::BTreeMap<String, String> = config
         .skins
         .get(skin.as_deref().unwrap_or(&config.starting_skin))
         .unwrap()
         .layers
-        .clone();
+        .iter()
+        .map(|(k, v)| (k.clone(), v.clone()))
+        .collect();
 
     let transform_fixed = fixed_math::FixedTransform3D::new(
         translation,

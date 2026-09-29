@@ -1,18 +1,24 @@
-
 use animation::D2AnimationPlugin;
+#[cfg(not(target_arch = "wasm32"))]
+use bevy::winit::WinitPlugin;
 use bevy::{
-    app::{PluginGroupBuilder, ScheduleRunnerPlugin}, asset::AssetMetaCheck, diagnostic::FrameTimeDiagnosticsPlugin, log::LogPlugin, prelude::*,
-    render::{settings::{RenderCreation, WgpuSettings}, RenderPlugin},
+    app::{PluginGroupBuilder, ScheduleRunnerPlugin},
+    asset::AssetMetaCheck,
+    diagnostic::FrameTimeDiagnosticsPlugin,
+    log::LogPlugin,
+    prelude::*,
+    render::{
+        settings::{RenderCreation, WgpuSettings},
+        RenderPlugin,
+    },
     time::TimeUpdateStrategy,
     window::{ExitCondition, WindowResolution},
 };
-#[cfg(not(target_arch = "wasm32"))]
-use bevy::winit::WinitPlugin;
 use bevy_fixed::{
     fixed_math::{self, sync_bevy_transforms_from_fixed},
     rng::RollbackRng,
 };
-use bevy_ggrs::{GgrsPlugin, GgrsSchedule, RollbackApp};
+use bevy_ggrs::{GgrsPlugin, GgrsSchedule};
 #[cfg(feature = "debug_ui")]
 use bevy_inspector_egui::{bevy_egui::EguiPlugin, quick::WorldInspectorPlugin};
 use serde::{Deserialize, Serialize};
@@ -23,9 +29,24 @@ use utils::{
 };
 
 use crate::{
-    audio::ZAudioPlugin, camera::CameraControlPlugin, character::{player::jjrs::PeerConfig, BaseCharacterGamePlugin}, collider::{debug::DebugColliderGamePlugin, BaseColliderGamePlugin}, frame::{increase_frame_system, FrameDebugUIPlugin}, global_asset::{add_global_asset, loading_asset_system}, jjrs::{local::{setup_ggrs_local, system_after_map_loaded_local}, log_ggrs_events, p2p::{start_matchbox_socket, system_after_map_loaded, wait_for_players}, GggrsSessionConfigurationState, GameDisconnectedEvent}, light::ZLightPlugin, system_set::RollbackSystemSet, ui::GameUiPlugin, waves::WaveSystemPlugin, weapons::BaseWeaponGamePlugin
+    audio::ZAudioPlugin,
+    camera::CameraControlPlugin,
+    character::{player::jjrs::PeerConfig, BaseCharacterGamePlugin},
+    collider::{debug::DebugColliderGamePlugin, BaseColliderGamePlugin},
+    frame::{increase_frame_system, FrameDebugUIPlugin},
+    global_asset::{add_global_asset, loading_asset_system},
+    jjrs::{
+        local::{setup_ggrs_local, system_after_map_loaded_local},
+        log_ggrs_events,
+        p2p::{start_matchbox_socket, system_after_map_loaded, wait_for_players},
+        GameDisconnectedEvent, GggrsSessionConfigurationState,
+    },
+    light::ZLightPlugin,
+    system_set::RollbackSystemSet,
+    ui::GameUiPlugin,
+    waves::WaveSystemPlugin,
+    weapons::BaseWeaponGamePlugin,
 };
-
 
 // Configuration that is static and bundle with the game
 #[derive(Serialize, Deserialize, Default, Clone)]
@@ -52,21 +73,20 @@ impl CoreSetupConfig {
 pub enum AppState {
     #[default]
     Loading, // Initial loading step for all the required global asset to be resolved
-    LobbyLocal, // Create a local lobby for lan UDP or SyncTest Session
-    LobbyOnline, // Create an online lobby with matchbox
+    LobbyLocal,   // Create a local lobby for lan UDP or SyncTest Session
+    LobbyOnline,  // Create an online lobby with matchbox
     GameLoading, // After the lobby as agree on the game parameters all required asset are loaded before the game can start
     GameStarting, // To launch the session after the game is loaded
-    InGame, // When the game is played with the active ggrs session from local or online
+    InGame,      // When the game is played with the active ggrs session from local or online
 }
 
 #[derive(Resource, Debug, Default, Clone, Copy, PartialEq, Eq)]
 pub enum OnlineState {
     #[default]
     Unset, // No ggrs system enable to start a game
-    Online, // For ggrs p2p system to be enable
+    Online,  // For ggrs p2p system to be enable
     Offline, // For ggrs synctest/lan system to be enabe
 }
-
 
 // Ressource to share information about the identity of this game instance ( game name , version , .... )
 // this is used between client to validate that their binary are compatible
@@ -82,7 +102,6 @@ impl Default for GameInfo {
         }
     }
 }
-
 
 // Core plugin for alacod
 // Configure all infrastructure and game mechanics.
@@ -102,6 +121,9 @@ impl Plugin for CoreSetupPlugin {
         app.add_plugins(WebPlugin);
         app.add_plugins(D2AnimationPlugin);
         app.add_plugins(GgrsPlugin::<PeerConfig>::default());
+        // `GgrsPlugin` installe aussi `RollbackDespawnPlugin` : les entités de la simulation se
+        // détruisent avec `despawn_rollback()` (voir CLAUDE.md, règle 9) et `GgrsSchedule` refuse
+        // toute ambiguïté d'ordre entre systèmes (`ambiguity_detection: Error`).
         if !self.0.headless {
             app.add_plugins(PresentationPlugin);
         }
@@ -112,7 +134,6 @@ impl Plugin for CoreSetupPlugin {
         app.add_plugins(crate::interaction::InteractionPlugin);
         app.add_plugins(GameUiPlugin);
         app.add_plugins(WaveSystemPlugin);
-
 
         app.init_resource::<GameInfo>();
         app.init_resource::<GggrsSessionConfigurationState>();
@@ -127,10 +148,10 @@ impl Plugin for CoreSetupPlugin {
         use crate::rollback::RollbackTraceApp;
 
         app.rollback_and_trace_copy_resource::<RollbackRng>()
-            .rollback_resource_with_clone::<GgrsNetIdFactory>()
+            .rollback_and_trace_copy_resource::<GgrsNetIdFactory>()
             .rollback_and_trace_copy_resource::<FrameCount>()
-            .rollback_component_with_clone::<fixed_math::FixedTransform3D>()
-            .rollback_component_with_clone::<GgrsNetId>();
+            .rollback_and_trace::<fixed_math::FixedTransform3D>()
+            .rollback_and_trace::<GgrsNetId>();
 
         app.configure_sets(
             GgrsSchedule,
@@ -155,9 +176,7 @@ impl Plugin for CoreSetupPlugin {
 
         app.add_systems(
             Update,
-            (
-                loading_asset_system.run_if(in_state(AppState::Loading)),
-            ),
+            (loading_asset_system.run_if(in_state(AppState::Loading)),),
         );
 
         // Sync FixedTransform3D to Transform after GGRS schedule runs
@@ -167,18 +186,20 @@ impl Plugin for CoreSetupPlugin {
             sync_bevy_transforms_from_fixed.run_if(in_state(AppState::InGame)),
         );
 
-
         app.add_systems(OnEnter(AppState::LobbyOnline), start_matchbox_socket);
 
         app.add_systems(
             Update,
             (
-                    wait_for_players.run_if(in_state(AppState::LobbyOnline)),
-                    setup_ggrs_local.run_if(in_state(AppState::LobbyLocal)
-                )),
+                wait_for_players.run_if(in_state(AppState::LobbyOnline)),
+                setup_ggrs_local.run_if(in_state(AppState::LobbyLocal)),
+            ),
         );
         // System for ggrs that register the session when the map is correctly loaded
-        app.add_systems(OnEnter(AppState::GameStarting), (system_after_map_loaded, system_after_map_loaded_local));
+        app.add_systems(
+            OnEnter(AppState::GameStarting),
+            (system_after_map_loaded, system_after_map_loaded_local),
+        );
 
         app.add_systems(Update, log_ggrs_events.run_if(in_state(AppState::InGame)));
 

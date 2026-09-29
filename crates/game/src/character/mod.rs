@@ -10,7 +10,7 @@ pub mod visuals;
 use animation::set_sprite_flip;
 use bevy::prelude::*;
 use bevy_common_assets::ron::RonAssetPlugin;
-use bevy_ggrs::{RollbackApp, GgrsSchedule, ReadInputs};
+use bevy_ggrs::{GgrsSchedule, ReadInputs};
 use leafwing_input_manager::plugin::InputManagerPlugin;
 use map::game::entity::map::enemy_spawn::EnemySpawnerComponent;
 
@@ -97,31 +97,33 @@ impl Plugin for BaseCharacterGamePlugin {
         // Rollback registration
         use crate::rollback::RollbackTraceApp;
 
-        app.rollback_resource_with_clone::<PathfindingConfig>()
-            .rollback_resource_with_clone::<KnockbackDampingConfig>()
-            .rollback_component_with_clone::<EnemySpawnerComponent>()
-            .rollback_component_with_clone::<EnemySpawnerState>()
-            .rollback_component_with_clone::<EnemyPath>()
-            .rollback_component_with_clone::<Obstacle>()
-            .rollback_component_with_clone::<visuals::CharacterAppearance>()
-            .rollback_component_with_clone::<enemy::ai::pathing::WallSlideTracker>()
+        app.rollback_and_trace_resource::<PathfindingConfig>()
+            .rollback_and_trace_resource::<KnockbackDampingConfig>()
+            .rollback_and_trace::<EnemySpawnerComponent>()
+            .rollback_and_trace::<EnemySpawnerState>()
+            .rollback_and_trace::<EnemyPath>()
+            .rollback_and_trace::<Obstacle>()
+            .rollback_and_trace::<visuals::CharacterAppearance>()
+            .rollback_and_trace::<enemy::ai::pathing::WallSlideTracker>()
             // New AI components
-            .rollback_component_with_clone::<EnemyAiConfig>()
-            .rollback_component_with_clone::<EnemyTarget>()
-            .rollback_component_with_clone::<MonsterState>()
-            .rollback_resource_with_copy::<PointerWorldPosition>()
+            .rollback_and_trace::<EnemyAiConfig>()
+            .rollback_and_trace::<EnemyTarget>()
+            .rollback_and_trace::<MonsterState>()
+            // Ressource de présentation (curseur) glissée dans le rollback : rollback +
+            // trace pour ne rien changer au snapshot, mais hors checksum (voir sa doc).
+            .rollback_and_trace_copy_resource_no_checksum::<PointerWorldPosition>()
             .rollback_and_trace::<Health>()
-            .rollback_component_with_clone::<HealthRegen>()
-            .rollback_component_with_clone::<DamageAccumulator>()
-            .rollback_component_with_clone::<DashState>()
-            .rollback_component_with_clone::<SprintState>()
-            .rollback_component_with_clone::<Velocity>()
-            .rollback_component_with_clone::<Death>()
-            .rollback_component_with_reflect::<Player>()
-            .rollback_component_with_reflect::<Enemy>();
+            .rollback_and_trace::<HealthRegen>()
+            .rollback_and_trace::<DamageAccumulator>()
+            .rollback_and_trace::<DashState>()
+            .rollback_and_trace::<SprintState>()
+            .rollback_and_trace::<Velocity>()
+            .rollback_and_trace::<Death>()
+            .rollback_and_trace::<Player>()
+            .rollback_and_trace::<Enemy>();
 
         // Rollback registration - Flow field cache
-        app.rollback_resource_with_clone::<FlowFieldCache>();
+        app.rollback_and_trace_resource::<FlowFieldCache>();
         // Note: FlowFieldConfig is not rolled back (static configuration)
 
         app.insert_resource(player::input::InputSource::from_env());

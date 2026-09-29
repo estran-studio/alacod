@@ -1,13 +1,15 @@
 use bevy::{log::{tracing::span, Level}, prelude::*};
 use bevy_fixed::fixed_math;
-use bevy_ggrs::{GgrsSchedule, Rollback, RollbackApp};
+use bevy_ggrs::{GgrsSchedule, Rollback};
 use serde::{Deserialize, Serialize};
+use std::hash::{Hash, Hasher};
 use utils::{frame::FrameCount, net_id::GgrsNetId, order_iter};
 
 use crate::{
     collider::{Collider, CollisionLayer},
     core::AppState,
     frame_events::{FrameEvents, FrameEventsAppExt},
+    rollback::RollbackTraceApp,
     system_set::RollbackSystemSet,
 };
 
@@ -16,7 +18,7 @@ use crate::{
 pub struct InteractionPromptText;
 
 /// Resource that configures window repair behavior
-#[derive(Resource, Clone, Debug, Serialize, Deserialize)]
+#[derive(Resource, Clone, Debug, Hash, Serialize, Deserialize)]
 pub struct WindowRepairConfig {
     /// Number of frames to wait between repairs
     pub repair_cooldown_frames: u32,
@@ -34,7 +36,7 @@ impl Default for WindowRepairConfig {
 }
 
 /// Component that marks an entity as interactable
-#[derive(Component, Clone, Debug, Serialize, Deserialize)]
+#[derive(Component, Clone, Debug, Hash, Serialize, Deserialize)]
 pub struct Interactable {
     /// Range within which interaction is possible
     pub interaction_range: fixed_math::Fixed,
@@ -52,7 +54,7 @@ impl Default for Interactable {
 }
 
 /// Types of interactions available
-#[derive(Clone, Copy, Debug, Serialize, Deserialize, Reflect, PartialEq, Eq)]
+#[derive(Clone, Copy, Debug, Hash, Serialize, Deserialize, Reflect, PartialEq, Eq)]
 pub enum InteractionType {
     Door,
     Window,
@@ -60,7 +62,7 @@ pub enum InteractionType {
 }
 
 /// Component that marks an entity as capable of interacting
-#[derive(Component, Clone, Copy, Debug, Serialize, Deserialize, Default)]
+#[derive(Component, Clone, Copy, Debug, Hash, Serialize, Deserialize, Default)]
 pub struct Interactor;
 
 /// Interaction déclenchée par un joueur, consommée dans la même frame GGRS
@@ -77,6 +79,16 @@ pub struct InteractionEvent {
     pub interaction_type: InteractionType,
     /// The GGRS net ID of the interactable (for deterministic lookup)
     pub interactable_net_id: GgrsNetId,
+}
+
+/// Hash manuel : exclut `interactor`/`interactable` (`Entity`, différents d'un client à
+/// l'autre) au profit de leurs `GgrsNetId` déjà présents sur l'événement.
+impl Hash for InteractionEvent {
+    fn hash<H: Hasher>(&self, state: &mut H) {
+        self.interactor_net_id.hash(state);
+        self.interactable_net_id.hash(state);
+        self.interaction_type.hash(state);
+    }
 }
 
 /// System that detects interactions within the GGRS schedule
@@ -426,11 +438,11 @@ impl Plugin for InteractionPlugin {
         app.init_resource::<WindowRepairConfig>();
 
         // Register rollback components
-        app.rollback_component_with_clone::<Interactable>()
-            .rollback_component_with_clone::<Interactor>()
-            .rollback_component_with_clone::<map::game::entity::map::window::WindowHealth>()
-            .rollback_resource_with_clone::<WindowRepairConfig>()
-            .rollback_component_with_clone::<crate::character::player::input::InteractionInput>();
+        app.rollback_and_trace::<Interactable>()
+            .rollback_and_trace::<Interactor>()
+            .rollback_and_trace::<map::game::entity::map::window::WindowHealth>()
+            .rollback_and_trace_resource::<WindowRepairConfig>()
+            .rollback_and_trace::<crate::character::player::input::InteractionInput>();
 
         // Add interaction detection to GGRS schedule
         // This runs after input processing but before movement

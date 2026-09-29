@@ -1,20 +1,31 @@
+pub mod melee;
 #[cfg(feature = "debug_ui")]
 pub mod ui;
-pub mod melee;
 
-use animation::{create_child_sprite, AnimationStateBundle, AnimationVisualsBundle, FacingDirection, SpriteSheetConfig};
-use bevy::{log::{tracing::span, Level}, platform::collections::{HashMap, HashSet}, prelude::*};
+use animation::{
+    create_child_sprite, AnimationStateBundle, AnimationVisualsBundle, FacingDirection,
+    SpriteSheetConfig,
+};
+use bevy::{
+    log::{tracing::span, Level},
+    platform::collections::{HashMap, HashSet},
+    prelude::*,
+};
 use bevy_common_assets::ron::RonAssetPlugin;
 use bevy_fixed::{fixed_math, rng::RollbackRng};
-use bevy_ggrs::{GgrsSchedule, PlayerInputs, Rollback, RollbackApp};
+use bevy_ggrs::{GgrsSchedule, PlayerInputs, Rollback};
 use ggrs::PlayerHandle;
+use std::collections::BTreeMap;
 
 use serde::{Deserialize, Serialize};
 use utils::{
-    bmap, net_id::{GgrsNetId, GgrsNetIdFactory}, order_iter, order_mut_iter
+    net_id::{GgrsNetId, GgrsNetIdFactory},
+    order_iter, order_mut_iter,
 };
 
+use self::melee::MeleeAttackState;
 use crate::character::visuals::VisualsAttached;
+use crate::rollback::RollbackTraceApp;
 use crate::{
     character::{
         dash::DashState,
@@ -33,12 +44,11 @@ use crate::{
     system_set::RollbackSystemSet,
     GAME_SPEED,
 };
-use self::melee::MeleeAttackState;
 use std::fmt;
 use utils::frame::FrameCount;
 
 // COMPONENTS
-#[derive(Debug, Clone, Copy, Serialize, Deserialize, PartialEq)]
+#[derive(Debug, Clone, Copy, Hash, Serialize, Deserialize, PartialEq)]
 pub enum FiringMode {
     Automatic {}, // Hold trigger to continuously fire
     Manual {},    // One shot per trigger pull
@@ -52,13 +62,13 @@ pub enum FiringMode {
     },
 }
 
-#[derive(Debug, Clone, Serialize, Deserialize, PartialEq)]
+#[derive(Debug, Clone, Hash, Serialize, Deserialize, PartialEq)]
 pub enum MagBulletConfig {
     Mag { mag_size: u32, mag_limit: u32 },
     Magless { bullet_limit: u32 },
 }
 
-#[derive(Debug, Clone, Copy, Serialize, Deserialize, PartialEq)]
+#[derive(Debug, Clone, Copy, Hash, Serialize, Deserialize, PartialEq)]
 pub enum BulletType {
     Standard {
         damage: fixed_math::Fixed,
@@ -93,7 +103,7 @@ pub struct ExplosiveTag;
 #[derive(Component)]
 pub struct PiercingTag;
 
-#[derive(Debug, Clone, Serialize, Deserialize, PartialEq)]
+#[derive(Debug, Clone, Hash, Serialize, Deserialize, PartialEq)]
 pub struct FiringModeConfig {
     pub firing_rate: fixed_math::Fixed,
     pub firing_mode: FiringMode,
@@ -106,14 +116,15 @@ pub struct FiringModeConfig {
     pub mag: MagBulletConfig,
 }
 
-#[derive(Debug, Clone, Serialize, Deserialize, PartialEq)]
+#[derive(Debug, Clone, Hash, Serialize, Deserialize, PartialEq)]
 pub struct WeaponConfig {
     pub name: String,
     pub default_firing_mode: String,
-    pub firing_modes: HashMap<String, FiringModeConfig>,
+    // BTreeMap (pas HashMap) : ce config est intégré au composant `Weapon`, rollback.
+    pub firing_modes: BTreeMap<String, FiringModeConfig>,
 }
 
-#[derive(Debug, Clone, Serialize, Deserialize, PartialEq)]
+#[derive(Debug, Clone, Hash, Serialize, Deserialize, PartialEq)]
 pub struct WeaponSpriteConfig {
     pub name: String,
     pub index: usize,
@@ -131,7 +142,7 @@ pub struct WeaponAsset {
 }
 
 // Component for a weapon
-#[derive(Component, Debug, Clone)]
+#[derive(Component, Debug, Clone, Hash)]
 pub struct Weapon {
     pub config: WeaponConfig,
     pub sprite_config: WeaponSpriteConfig,
@@ -179,7 +190,7 @@ pub struct ExplosionMarker {
 pub struct ActiveWeapon;
 
 /// Component for bullets
-#[derive(Component, Clone)]
+#[derive(Component, Clone, Debug, Hash)]
 pub struct Bullet {
     pub velocity: fixed_math::FixedVec2,
     pub bullet_type: BulletType,
@@ -201,13 +212,29 @@ pub struct WeaponInventory {
     pub reloading_ending_frame: Option<u32>,
 }
 
+/// Hash manuel : `weapons` porte des `Entity` (différents d'un client à l'autre) à côté
+/// de chaque `Weapon` ; seuls l'index actif, les frames et les `Weapon` (dans l'ordre du
+/// `Vec`, déterministe) contribuent au checksum.
+impl std::hash::Hash for WeaponInventory {
+    fn hash<H: std::hash::Hasher>(&self, state: &mut H) {
+        self.active_weapon_index.hash(state);
+        self.frame_switched.hash(state);
+        self.frame_switched_mode.hash(state);
+        self.weapons.len().hash(state);
+        for (_entity, weapon) in &self.weapons {
+            weapon.hash(state);
+        }
+        self.reloading_ending_frame.hash(state);
+    }
+}
+
 impl WeaponInventory {
     pub fn active_weapon(&self) -> &(Entity, Weapon) {
         self.weapons.get(self.active_weapon_index).unwrap()
     }
 }
 
-#[derive(Reflect, Default, Clone)]
+#[derive(Reflect, Default, Clone, Debug, Hash)]
 pub struct WeaponModeState {
     pub mag_ammo: u32,
     pub mag_quantity: u32,
@@ -218,13 +245,15 @@ pub struct WeaponModeState {
     pub burst_cooldown: bool,
 }
 
-#[derive(Component, Reflect, Default, Clone)]
+#[derive(Component, Reflect, Default, Clone, Debug, Hash)]
 pub struct WeaponModesState {
-    pub modes: HashMap<String, WeaponModeState>,
+    // BTreeMap (pas HashMap) : ce composant est rollback, la clé (nom du mode) doit
+    // s'itérer dans un ordre stable entre clients (voir le changement de mode par nom).
+    pub modes: BTreeMap<String, WeaponModeState>,
 }
 
 // Component to track rollbackable state for weapons
-#[derive(Component, Reflect, Default, Clone)]
+#[derive(Component, Reflect, Default, Clone, Debug, Hash)]
 pub struct WeaponState {
     pub last_fire_frame: u32,
     pub is_firing: bool,
@@ -322,7 +351,8 @@ pub fn spawn_weapon_for_player(
     id_factory: &mut ResMut<GgrsNetIdFactory>,
 ) -> Entity {
     // Entité logique uniquement : le sprite est ajouté par attach_weapon_visuals
-    let animation_bundle = AnimationStateBundle::new(bmap!("body" => String::new()));
+    let animation_bundle =
+        AnimationStateBundle::new(BTreeMap::from([("body".to_string(), String::new())]));
 
     let mut weapon_state = WeaponState::default();
     let mut weapon_modes_state = WeaponModesState::default();
@@ -679,7 +709,11 @@ pub fn weapon_rollback_system(
             // (like switching weapon) is not possible until it is over
             if inventory.is_reloading() {
                 if inventory.is_reloading_over(frame.frame) {
-                    weapon_modes_state.modes.get_mut(&active_mode).unwrap().reload();
+                    weapon_modes_state
+                        .modes
+                        .get_mut(&active_mode)
+                        .unwrap()
+                        .reload();
                     inventory.clear_reloading();
                 } else {
                     continue;
@@ -758,7 +792,9 @@ pub fn weapon_rollback_system(
                     } => {
                         // The cooldown between bursts ends by itself: a single press then
                         // starts the next burst (it used to be spent lifting the cooldown)
-                        if weapon_mode_state.burst_cooldown && frames_since_last_shot >= cooldown_frames {
+                        if weapon_mode_state.burst_cooldown
+                            && frames_since_last_shot >= cooldown_frames
+                        {
                             weapon_mode_state.burst_cooldown = false;
                         }
                         if weapon_mode_state.burst_shots_left > 0
@@ -935,7 +971,8 @@ pub fn bullet_rollback_system(
                 "{} despawn after travelleing {}",
                 g_id, bullet.distance_traveled
             );
-            commands.entity(entity).despawn();
+            use bevy_ggrs::RollbackDespawnCommandExtension;
+            commands.entity(entity).despawn_rollback();
         }
     }
 }
@@ -980,7 +1017,7 @@ pub fn bullet_rollback_collision_system(
     let mut bullets_to_despawn_set = HashSet::new();
 
     for (ggrs_net_id, bullet_entity, bullet_transform, bullet, bullet_collider, bullet_layer) in
-       order_iter!(bullet_query) 
+        order_iter!(bullet_query)
     {
         if bullets_to_despawn_set.contains(&bullet_entity) {
             continue;
@@ -1090,8 +1127,9 @@ pub fn bullet_rollback_collision_system(
     // Deterministic despawning of bullets (already good)
     let mut bullets_to_despawn_vec: Vec<Entity> = bullets_to_despawn_set.into_iter().collect();
     bullets_to_despawn_vec.sort_by_key(|entity| entity.index()); // Or .to_bits()
+    use bevy_ggrs::RollbackDespawnCommandExtension;
     for entity in bullets_to_despawn_vec {
-        commands.entity(entity).despawn();
+        commands.entity(entity).despawn_rollback();
     }
 }
 
@@ -1181,23 +1219,20 @@ impl Plugin for BaseWeaponGamePlugin {
         app.add_plugins(RonAssetPlugin::<melee::MeleeWeaponsConfig>::new(&["ron"]));
 
         // Rollback components for ranged weapons
-        app.rollback_component_with_clone::<WeaponInventory>()
-            .rollback_component_with_clone::<WeaponModesState>()
-            .rollback_component_with_clone::<WeaponState>()
-            .rollback_component_with_clone::<Bullet>()
-            .rollback_component_with_clone::<Weapon>();
+        app.rollback_and_trace::<WeaponInventory>()
+            .rollback_and_trace::<WeaponModesState>()
+            .rollback_and_trace::<WeaponState>()
+            .rollback_and_trace::<Bullet>()
+            .rollback_and_trace::<Weapon>();
 
         // Rollback components for melee weapons
-        app.rollback_component_with_clone::<melee::MeleeWeapon>()
-            .rollback_component_with_clone::<melee::MeleeAttackState>()
-            .rollback_component_with_clone::<melee::MeleeHitbox>();
+        app.rollback_and_trace::<melee::MeleeWeapon>()
+            .rollback_and_trace::<melee::MeleeAttackState>()
+            .rollback_and_trace::<melee::MeleeHitbox>();
 
         app.add_systems(
             Update,
-            (
-                weapon_inventory_system,
-                weapons_config_update_system,
-            ),
+            (weapon_inventory_system, weapons_config_update_system),
         );
 
         app.add_systems(

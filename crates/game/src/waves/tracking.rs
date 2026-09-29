@@ -11,7 +11,7 @@ use serde::{Deserialize, Serialize};
 /// - Track which enemies belong to the current wave
 /// - Detect when all wave enemies are killed
 /// - Apply wave-specific modifiers
-#[derive(Component, Debug, Clone, Serialize, Deserialize, Default, Reflect)]
+#[derive(Component, Debug, Clone, Hash, Serialize, Deserialize, Default, Reflect)]
 pub struct WaveEnemy {
     /// Wave number when this enemy was spawned
     pub spawned_wave: u32,

@@ -613,7 +613,7 @@ impl FixedMat2 {
     }
 }
 
-#[derive(Debug, Clone, Serialize, Deserialize)]
+#[derive(Debug, Clone, Hash, Serialize, Deserialize)]
 pub struct FixedMat3 {
     // Columns of the matrix
     pub x_axis: FixedVec3, // First column
@@ -796,7 +796,7 @@ impl From<&FixedVec3> for FixedPosition {
     }
 }
 
-#[derive(Debug, Component, Clone, Serialize, Deserialize)]
+#[derive(Debug, Component, Clone, Hash, Serialize, Deserialize)]
 pub struct FixedTransform3D {
     pub translation: FixedVec3,
     pub rotation: FixedMat3,

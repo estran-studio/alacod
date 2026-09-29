@@ -48,6 +48,9 @@ jobs:
         run: ./scripts/check-forbidden.sh
         continue-on-error: true
 
+      - name: Check rollback registration
+        run: ./scripts/check-rollback-registration.sh
+
   build:
     name: Build WASM & Deploy
     runs-on: [self-hosted, alacod-builder]

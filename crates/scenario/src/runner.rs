@@ -28,9 +28,13 @@ use bevy_fixed::fixed_math;
 
 use game::replay::{Expectation, Scenario};
 
-/// Ressource pour enregistrer les mismatches de synctest.
+/// Mismatches de synctest : le premier seulement (GGRS répète ensuite le même à chaque
+/// frame et n'avance plus), avec les frames qu'il incrimine.
 #[derive(Resource, Default)]
-struct SyncTestMismatches(pub Vec<String>);
+struct SyncTestMismatches {
+    messages: Vec<String>,
+    frames: Vec<i32>,
+}
 
 /// Updates maximum pour charger la map avant la première frame de simulation.
 const MAX_LOADING_UPDATES: u32 = 10_000;
@@ -101,7 +105,10 @@ pub fn build_app(scenario: &Scenario, headless: bool, config: &PlayConfig) -> Ap
         }))
         .insert_resource(WaveModeEnabled(true))
         .insert_resource(WaveDebugEnabled(true))
-        .add_plugins(StateTraceRecorderPlugin { full: false })
+        // ALACOD_DIAG=1 : trace détaillée, pour nommer le composant qui diverge en synctest
+        .add_plugins(StateTraceRecorderPlugin {
+            full: std::env::var("ALACOD_DIAG").is_ok_and(|v| v == "1"),
+        })
         .add_plugins(GameEventsPlugin)
         .insert_resource(WeaponOverrides(scenario.weapon_overrides.clone()))
         .add_systems(Update, apply_weapon_overrides)
@@ -110,10 +117,13 @@ pub fn build_app(scenario: &Scenario, headless: bool, config: &PlayConfig) -> Ap
         .init_resource::<SyncTestMismatches>()
         .add_observer(|mismatch: On<SyncTestMismatch>, mut log: ResMut<SyncTestMismatches>| {
             let m = mismatch.event();
-            log.0.push(format!(
-                "frame {}: synctest mismatch (frames {:?}) : l'état rejoué après rollback diffère de l'état sauvegardé",
-                m.current_frame, m.mismatched_frames
-            ));
+            if log.messages.is_empty() {
+                log.frames = m.mismatched_frames.clone();
+                log.messages.push(format!(
+                    "frame {}: synctest mismatch (frames {:?}) : l'état rejoué après rollback diffère de l'état sauvegardé",
+                    m.current_frame, m.mismatched_frames
+                ));
+            }
         });
 
     // Caméra forcée sur un joueur (play_scenario --follow)
@@ -252,6 +262,10 @@ pub fn run_with<F: FnOnce(&mut App)>(scenario: &Scenario, configure: F) -> Scena
             }
         }
 
+        if !app.world().resource::<SyncTestMismatches>().messages.is_empty() {
+            break; // la session synctest n'avance plus après un mismatch
+        }
+
         while pending.first().is_some_and(|e| e.at_frame() <= frame) {
             let expectation = pending.remove(0);
             if let Err(reason) = check(app.world_mut(), expectation) {
@@ -279,7 +293,14 @@ pub fn run_with<F: FnOnce(&mut App)>(scenario: &Scenario, configure: F) -> Scena
 
     // Ajoute les mismatches de synctest aux failures
     let synctest_mismatches = app.world().resource::<SyncTestMismatches>();
-    failures.extend(synctest_mismatches.0.iter().cloned());
+    failures.extend(synctest_mismatches.messages.iter().cloned());
+    if !synctest_mismatches.frames.is_empty() {
+        let report = app
+            .world()
+            .resource::<StateTraceRecorder>()
+            .report_for_frames(&synctest_mismatches.frames);
+        failures.push(format!("trace des frames divergentes :\n{report}"));
+    }
 
     let trace = app
         .world()

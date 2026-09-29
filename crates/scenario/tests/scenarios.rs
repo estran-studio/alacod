@@ -12,7 +12,10 @@ use scenario::{run, Scenario, Metrics};
 use serde::Deserialize;
 
 fn scenarios_dir() -> PathBuf {
-    PathBuf::from(concat!(env!("CARGO_MANIFEST_DIR"), "/../../tests/scenarios"))
+    PathBuf::from(concat!(
+        env!("CARGO_MANIFEST_DIR"),
+        "/../../tests/scenarios"
+    ))
 }
 
 fn budgets_dir() -> PathBuf {
@@ -45,7 +48,9 @@ fn scenarios() {
     }
 
     let bless = std::env::var("ALACOD_BLESS").is_ok_and(|v| v == "1");
-    let only = std::env::var("ALACOD_SCENARIO").ok().filter(|name| !name.is_empty());
+    let only = std::env::var("ALACOD_SCENARIO")
+        .ok()
+        .filter(|name| !name.is_empty());
 
     // Load budgets
     let budgets_path = budgets_dir().join("budgets.ron");
@@ -136,10 +141,14 @@ fn scenarios() {
                     line + 1
                 ));
             } else if golden.lines().count() != trace.lines().count() {
-                failures.push(format!("{name}: la trace n'a pas la même longueur que la référence"));
+                failures.push(format!(
+                    "{name}: la trace n'a pas la même longueur que la référence"
+                ));
             }
         } else {
-            failures.push(format!("{name}: pas de trace de référence (lancer avec ALACOD_BLESS=1)"));
+            failures.push(format!(
+                "{name}: pas de trace de référence (lancer avec ALACOD_BLESS=1)"
+            ));
         }
     }
 
@@ -193,14 +202,19 @@ fn recording_replays_identically() {
     }
 
     let source = std::fs::read_to_string(scenarios_dir().join("shoot_around.ron")).unwrap();
-    let original = run(&Scenario::from_ron(&source).unwrap());
+    let scenario = Scenario::from_ron(&source).unwrap();
+    let original = run(&scenario);
 
-    // Le RON écrit doit se relire
+    // Le RON écrit doit se relire ; le replay simule autant de frames que l'original (la trace
+    // s'arrête une frame avant : l'état final n'est sauvegardé qu'à l'avance suivante)
     let mut recorded = Scenario::from_ron(&original.recorded.to_ron()).unwrap();
-    recorded.frames = original.trace.len() as u32;
+    recorded.frames = scenario.frames;
     let replayed = run(&recorded);
 
-    assert_eq!(original.trace, replayed.trace, "le replay de l'enregistrement diverge");
+    assert_eq!(
+        original.trace, replayed.trace,
+        "le replay de l'enregistrement diverge"
+    );
 }
 
 /// Diagnostic : grille de navigation d'un scénario à une frame donnée.
@@ -214,9 +228,11 @@ fn nav_map() {
     let scenario = Scenario::from_ron(&source).unwrap();
     let mut app = scenario::runner::run_until(&scenario, frame.parse().unwrap());
     let arrows = std::env::var("ALACOD_NAV_ARROWS").is_ok_and(|v| v == "1");
-    println!("{name} frame {frame}\n{}", scenario::nav_debug::nav_ascii(app.world_mut(), arrows));
+    println!(
+        "{name} frame {frame}\n{}",
+        scenario::nav_debug::nav_ascii(app.world_mut(), arrows)
+    );
 }
-
 
 /// Diagnostic : pour chaque zombie, apparition, premier contact avec un joueur, et plus
 /// longue période bloquée en poursuite. `ALACOD_NAV=<scénario>:<frames>`.
@@ -225,19 +241,32 @@ fn nav_map() {
 fn nav_stats() {
     use bevy::prelude::*;
     use bevy_fixed::fixed_math::FixedTransform3D;
-    use game::character::enemy::{ai::{AttackTarget, MonsterState}, Enemy};
+    use game::character::enemy::{
+        ai::{AttackTarget, MonsterState},
+        Enemy,
+    };
     use std::collections::BTreeMap;
     use utils::{frame::FrameCount, net_id::GgrsNetId};
     let spec = std::env::var("ALACOD_NAV").unwrap_or_else(|_| "idle:1180".into());
     let (name, frames) = spec.split_once(':').unwrap();
     let frames: u32 = frames.parse().unwrap();
     let source = std::fs::read_to_string(scenarios_dir().join(format!("{name}.ron"))).unwrap();
-    let config = scenario::runner::PlayConfig { follow_handle: None };
+    let config = scenario::runner::PlayConfig {
+        follow_handle: None,
+    };
     let mut app = scenario::runner::build_app(&Scenario::from_ron(&source).unwrap(), true, &config);
     app.finish();
     app.cleanup();
     #[derive(Default)]
-    struct Z { spawn: u32, contact: Option<u32>, window: Option<u32>, history: Vec<(u32, f32, f32, bool)>, clip_frames: u32, clip_max: f32, clip_at: (u32, f32, f32) }
+    struct Z {
+        spawn: u32,
+        contact: Option<u32>,
+        window: Option<u32>,
+        history: Vec<(u32, f32, f32, bool)>,
+        clip_frames: u32,
+        clip_max: f32,
+        clip_at: (u32, f32, f32),
+    }
     // Murs (y compris portes fermées) en rectangles monde, lus à chaque frame
     use game::collider::{Collider, ColliderShape, Wall};
     const SPRITE_HALF: f32 = 16.0; // sprite 32x32 centré sur le zombie
@@ -250,50 +279,127 @@ fn nav_stats() {
         let frame = app.world().resource::<FrameCount>().frame;
         let world = app.world_mut();
         let mut wq = world.query_filtered::<(&FixedTransform3D, &Collider), With<Wall>>();
-        let walls: Vec<(f32, f32, f32, f32)> = wq.iter(world).filter_map(|(t, c)| {
-            let ColliderShape::Rectangle { width, height } = c.shape else { return None };
-            let (x, y, w, h) = (t.translation.x.to_num::<f32>(), t.translation.y.to_num::<f32>(), width.to_num::<f32>() / 2.0, height.to_num::<f32>() / 2.0);
-            Some((x - w, x + w, y - h, y + h))
-        }).collect();
+        let walls: Vec<(f32, f32, f32, f32)> = wq
+            .iter(world)
+            .filter_map(|(t, c)| {
+                let ColliderShape::Rectangle { width, height } = c.shape else {
+                    return None;
+                };
+                let (x, y, w, h) = (
+                    t.translation.x.to_num::<f32>(),
+                    t.translation.y.to_num::<f32>(),
+                    width.to_num::<f32>() / 2.0,
+                    height.to_num::<f32>() / 2.0,
+                );
+                Some((x - w, x + w, y - h, y + h))
+            })
+            .collect();
         // Ouvertures : fenêtres (obstacles) et portes
-        let mut oq = world.query_filtered::<&FixedTransform3D, Or<(With<game::character::enemy::ai::Obstacle>, With<map::game::entity::map::door::DoorComponent>)>>();
-        let openings: Vec<(f32, f32)> = oq.iter(world).map(|t| (t.translation.x.to_num(), t.translation.y.to_num())).collect();
-        let mut q = world.query_filtered::<(&GgrsNetId, &FixedTransform3D, &MonsterState), With<Enemy>>();
+        let mut oq = world.query_filtered::<&FixedTransform3D, Or<(
+            With<game::character::enemy::ai::Obstacle>,
+            With<map::game::entity::map::door::DoorComponent>,
+        )>>();
+        let openings: Vec<(f32, f32)> = oq
+            .iter(world)
+            .map(|t| (t.translation.x.to_num(), t.translation.y.to_num()))
+            .collect();
+        let mut q =
+            world.query_filtered::<(&GgrsNetId, &FixedTransform3D, &MonsterState), With<Enemy>>();
         for (id, t, state) in q.iter(world) {
-            let z = zombies.entry(id.0).or_insert_with(|| Z { spawn: frame, ..Default::default() });
-            let attacking_player = matches!(state, MonsterState::Attacking { target: AttackTarget::Player { .. }, .. });
-            let attacking_obstacle = matches!(state, MonsterState::Attacking { target: AttackTarget::Obstacle { .. }, .. });
-            if attacking_player && z.contact.is_none() { z.contact = Some(frame); }
-            if attacking_obstacle && z.window.is_none() { z.window = Some(frame); }
-            z.history.push((frame, t.translation.x.to_num(), t.translation.y.to_num(), matches!(state, MonsterState::Chasing)));
+            let z = zombies.entry(id.0).or_insert_with(|| Z {
+                spawn: frame,
+                ..Default::default()
+            });
+            let attacking_player = matches!(
+                state,
+                MonsterState::Attacking {
+                    target: AttackTarget::Player { .. },
+                    ..
+                }
+            );
+            let attacking_obstacle = matches!(
+                state,
+                MonsterState::Attacking {
+                    target: AttackTarget::Obstacle { .. },
+                    ..
+                }
+            );
+            if attacking_player && z.contact.is_none() {
+                z.contact = Some(frame);
+            }
+            if attacking_obstacle && z.window.is_none() {
+                z.window = Some(frame);
+            }
+            z.history.push((
+                frame,
+                t.translation.x.to_num(),
+                t.translation.y.to_num(),
+                matches!(state, MonsterState::Chasing),
+            ));
             // Chevauchement visuel : profondeur du sprite dans le mur le plus enfoncé
             let (px, py): (f32, f32) = (t.translation.x.to_num(), t.translation.y.to_num());
-            let depth = walls.iter().map(|(x0, x1, y0, y1)| {
-                let ox = (px + SPRITE_HALF).min(*x1) - (px - SPRITE_HALF).max(*x0);
-                let oy = (py + SPRITE_HALF).min(*y1) - (py - SPRITE_HALF).max(*y0);
-                if ox > 0.0 && oy > 0.0 { ox.min(oy) } else { 0.0 }
-            }).fold(0.0, f32::max);
+            let depth = walls
+                .iter()
+                .map(|(x0, x1, y0, y1)| {
+                    let ox = (px + SPRITE_HALF).min(*x1) - (px - SPRITE_HALF).max(*x0);
+                    let oy = (py + SPRITE_HALF).min(*y1) - (py - SPRITE_HALF).max(*y0);
+                    if ox > 0.0 && oy > 0.0 {
+                        ox.min(oy)
+                    } else {
+                        0.0
+                    }
+                })
+                .fold(0.0, f32::max);
             if depth > CLIP_TOLERANCE {
                 z.clip_frames += 1;
-                let near_opening = openings.iter().any(|(ox, oy)| (ox - px).abs() < 40.0 && (oy - py).abs() < 40.0);
-                let kind = if near_opening { "ouverture (porte/fenêtre)" } else if matches!(state, MonsterState::Attacking { .. }) { "en attaque" } else { "longe un mur" };
+                let near_opening = openings
+                    .iter()
+                    .any(|(ox, oy)| (ox - px).abs() < 40.0 && (oy - py).abs() < 40.0);
+                let kind = if near_opening {
+                    "ouverture (porte/fenêtre)"
+                } else if matches!(state, MonsterState::Attacking { .. }) {
+                    "en attaque"
+                } else {
+                    "longe un mur"
+                };
                 *clip_kind.entry(kind).or_default() += 1;
-                if kind == "longe un mur" { *clip_spots.entry(((px / 16.0) as i32, (py / 16.0) as i32)).or_default() += 1; }
+                if kind == "longe un mur" {
+                    *clip_spots
+                        .entry(((px / 16.0) as i32, (py / 16.0) as i32))
+                        .or_default() += 1;
+                }
             }
-            if depth > z.clip_max { z.clip_max = depth; z.clip_at = (frame, px, py); }
+            if depth > z.clip_max {
+                z.clip_max = depth;
+                z.clip_at = (frame, px, py);
+            }
         }
-        if frame >= frames { break; }
+        if frame >= frames {
+            break;
+        }
     }
     let mut total_stuck = 0;
     for (id, z) in &zombies {
         // Plus longue suite de fenêtres de 60 frames en poursuite avec moins de 2 px de déplacement
-        let mut stuck = 0; let mut longest = 0; let mut where_ = (0.0, 0.0);
+        let mut stuck = 0;
+        let mut longest = 0;
+        let mut where_ = (0.0, 0.0);
         for w in z.history.windows(60) {
             let (a, b) = (w[0], w[59]);
             let moved = ((b.1 - a.1).powi(2) + (b.2 - a.2).powi(2)).sqrt();
-            if w.iter().all(|h| h.3) && moved < 2.0 { stuck += 1; if stuck > longest { longest = stuck; where_ = (b.1, b.2); } } else { stuck = 0; }
+            if w.iter().all(|h| h.3) && moved < 2.0 {
+                stuck += 1;
+                if stuck > longest {
+                    longest = stuck;
+                    where_ = (b.1, b.2);
+                }
+            } else {
+                stuck = 0;
+            }
         }
-        if longest > 0 { total_stuck += 1; }
+        if longest > 0 {
+            total_stuck += 1;
+        }
         println!("zombie {id:>3} apparu f{:<5} attaque fenêtre {:<7} contact joueur {:<7} bloqué max {:>4} frames  sprite dans un mur {:>4} frames (max {:>4.1} px){}",
             z.spawn, z.window.map_or("-".into(), |f| format!("f{f}")), z.contact.map_or("-".into(), |f| format!("f{f}")),
             longest, z.clip_frames, z.clip_max, if z.clip_max > CLIP_TOLERANCE { format!(" à f{} ({:.0},{:.0})", z.clip_at.0, z.clip_at.1, z.clip_at.2) } else { String::new() } + &if longest > 0 { format!(" bloqué vers ({:.0},{:.0})", where_.0, where_.1) } else { String::new() });
@@ -302,7 +408,10 @@ fn nav_stats() {
     println!("répartition : {clip_kind:?}");
     let mut spots: Vec<_> = clip_spots.into_iter().collect();
     spots.sort_by_key(|(_, n)| std::cmp::Reverse(*n));
-    println!("cases où les sprites longent un mur : {:?}", &spots[..spots.len().min(8)]);
+    println!(
+        "cases où les sprites longent un mur : {:?}",
+        &spots[..spots.len().min(8)]
+    );
     let clip_total: u32 = zombies.values().map(|z| z.clip_frames).sum();
     let alive_total: usize = zombies.values().map(|z| z.history.len()).sum();
     println!("{name} jusqu'à f{frames} : {} zombies, {contacts} au contact d'un joueur, {total_stuck} bloqués, sprite dans un mur {clip_total}/{alive_total} frames-zombie ({:.1} %)",
@@ -315,7 +424,10 @@ fn nav_stats() {
 fn nav_probe() {
     use bevy::prelude::*;
     use bevy_fixed::fixed_math::{self, FixedTransform3D};
-    use game::character::enemy::{ai::{FlowFieldCache, GridPos, MonsterState, NavProfile}, Enemy};
+    use game::character::enemy::{
+        ai::{FlowFieldCache, GridPos, MonsterState, NavProfile},
+        Enemy,
+    };
     use game::character::movement::Velocity;
     use game::collider::{Collider, ColliderShape, Wall};
     use utils::net_id::GgrsNetId;
@@ -326,32 +438,85 @@ fn nav_probe() {
     let mut app = scenario::runner::run_until(&Scenario::from_ron(&source).unwrap(), frame);
     let world = app.world_mut();
     let cache = world.resource::<FlowFieldCache>().clone();
-    let field = cache.get_flow_field(NavProfile::GroundBreaker).cloned().unwrap_or_default();
-    let mut q = world.query_filtered::<(&GgrsNetId, &FixedTransform3D, &Velocity, &MonsterState, &Collider), With<Enemy>>();
-    let Some((_, t, v, state, c)) = q.iter(world).find(|(n, ..)| n.0 == id) else { println!("zombie {id} absent"); return };
+    let field = cache
+        .get_flow_field(NavProfile::GroundBreaker)
+        .cloned()
+        .unwrap_or_default();
+    let mut q = world.query_filtered::<(
+        &GgrsNetId,
+        &FixedTransform3D,
+        &Velocity,
+        &MonsterState,
+        &Collider,
+    ), With<Enemy>>();
+    let Some((_, t, v, state, c)) = q.iter(world).find(|(n, ..)| n.0 == id) else {
+        println!("zombie {id} absent");
+        return;
+    };
     let pos = t.translation.truncate();
     let cell = GridPos::from_fixed(pos);
     let next = field.get_direction(cell);
     let body = game::character::enemy::ai::navigation::AgentBody::from_collider(c);
-    println!("zombie {id} f{frame} pos ({:.2},{:.2}) case {:?} → {:?} coût {:?} état {state:?}",
-        pos.x.to_num::<f32>(), pos.y.to_num::<f32>(), (cell.x, cell.y), next.map(|n| (n.x, n.y)), field.costs.get(&cell));
-    if let Some(n) = next { let sp = cache.steering_point(n, NavProfile::GroundBreaker, &body); println!("   point visé ({:.1},{:.1})", sp.x.to_num::<f32>(), sp.y.to_num::<f32>()); }
-    println!("   vitesse main ({:.2},{:.2}) knockback ({:.2},{:.2}) collider {:?}", v.main.x.to_num::<f32>(), v.main.y.to_num::<f32>(), v.knockback.x.to_num::<f32>(), v.knockback.y.to_num::<f32>(), c.shape);
+    println!(
+        "zombie {id} f{frame} pos ({:.2},{:.2}) case {:?} → {:?} coût {:?} état {state:?}",
+        pos.x.to_num::<f32>(),
+        pos.y.to_num::<f32>(),
+        (cell.x, cell.y),
+        next.map(|n| (n.x, n.y)),
+        field.costs.get(&cell)
+    );
+    if let Some(n) = next {
+        let sp = cache.steering_point(n, NavProfile::GroundBreaker, &body);
+        println!(
+            "   point visé ({:.1},{:.1})",
+            sp.x.to_num::<f32>(),
+            sp.y.to_num::<f32>()
+        );
+    }
+    println!(
+        "   vitesse main ({:.2},{:.2}) knockback ({:.2},{:.2}) collider {:?}",
+        v.main.x.to_num::<f32>(),
+        v.main.y.to_num::<f32>(),
+        v.knockback.x.to_num::<f32>(),
+        v.knockback.y.to_num::<f32>(),
+        c.shape
+    );
     for dy in (-2..=2).rev() {
-        let row: String = (-3..=3).map(|dx| {
-            let p = GridPos::new(cell.x + dx, cell.y + dy);
-            if dx == 0 && dy == 0 { 'Z' } else if cache.is_blocked(&p, NavProfile::GroundBreaker) { '#' } else if field.directions.contains_key(&p) { '.' } else { ' ' }
-        }).collect();
+        let row: String = (-3..=3)
+            .map(|dx| {
+                let p = GridPos::new(cell.x + dx, cell.y + dy);
+                if dx == 0 && dy == 0 {
+                    'Z'
+                } else if cache.is_blocked(&p, NavProfile::GroundBreaker) {
+                    '#'
+                } else if field.directions.contains_key(&p) {
+                    '.'
+                } else {
+                    ' '
+                }
+            })
+            .collect();
         println!("   {row}   y={}", cell.y + dy);
     }
     let mut walls = world.query_filtered::<(&FixedTransform3D, &Collider), With<Wall>>();
     for (wt, wc) in walls.iter(world) {
-        let ColliderShape::Rectangle { width, height } = wc.shape else { continue };
-        let (x0, x1) = ((wt.translation.x - width / fixed_math::new(2.0)).to_num::<f32>(), (wt.translation.x + width / fixed_math::new(2.0)).to_num::<f32>());
-        let (y0, y1) = ((wt.translation.y - height / fixed_math::new(2.0)).to_num::<f32>(), (wt.translation.y + height / fixed_math::new(2.0)).to_num::<f32>());
+        let ColliderShape::Rectangle { width, height } = wc.shape else {
+            continue;
+        };
+        let (x0, x1) = (
+            (wt.translation.x - width / fixed_math::new(2.0)).to_num::<f32>(),
+            (wt.translation.x + width / fixed_math::new(2.0)).to_num::<f32>(),
+        );
+        let (y0, y1) = (
+            (wt.translation.y - height / fixed_math::new(2.0)).to_num::<f32>(),
+            (wt.translation.y + height / fixed_math::new(2.0)).to_num::<f32>(),
+        );
         let (px, py) = (pos.x.to_num::<f32>(), pos.y.to_num::<f32>());
-        let gap_x = (x0 - px).max(px - x1).max(0.0); let gap_y = (y0 - py).max(py - y1).max(0.0);
-        if gap_x < 25.0 && gap_y < 25.0 { println!("   mur x {x0}..{x1} y {y0}..{y1} (écart {gap_x:.1},{gap_y:.1})"); }
+        let gap_x = (x0 - px).max(px - x1).max(0.0);
+        let gap_y = (y0 - py).max(py - y1).max(0.0);
+        if gap_x < 25.0 && gap_y < 25.0 {
+            println!("   mur x {x0}..{x1} y {y0}..{y1} (écart {gap_x:.1},{gap_y:.1})");
+        }
     }
 }
 
@@ -364,21 +529,54 @@ fn weapon_probe() {
     use game::character::{dash::DashState, movement::SprintState, player::Player};
     use game::weapons::{melee::MeleeAttackState, WeaponInventory, WeaponModesState, WeaponState};
     use utils::frame::FrameCount;
-    let spec = std::env::var("ALACOD_WEAPON_PROBE").unwrap_or_else(|_| "weapons_workout:480:570:5".into());
+    let spec =
+        std::env::var("ALACOD_WEAPON_PROBE").unwrap_or_else(|_| "weapons_workout:480:570:5".into());
     let parts: Vec<&str> = spec.split(':').collect();
-    let (name, from, to, step): (&str, u32, u32, u32) = (parts[0], parts[1].parse().unwrap(), parts[2].parse().unwrap(), parts[3].parse().unwrap());
+    let (name, from, to, step): (&str, u32, u32, u32) = (
+        parts[0],
+        parts[1].parse().unwrap(),
+        parts[2].parse().unwrap(),
+        parts[3].parse().unwrap(),
+    );
     let source = std::fs::read_to_string(scenarios_dir().join(format!("{name}.ron"))).unwrap();
     let mut app = scenario::runner::run_until(&Scenario::from_ron(&source).unwrap(), from);
     loop {
         let frame = app.world().resource::<FrameCount>().frame;
-        if frame >= to { break; }
+        if frame >= to {
+            break;
+        }
         if (frame - from) % step == 0 {
             let world = app.world_mut();
-            let mut q = world.query::<(&Player, &WeaponInventory, &SprintState, &DashState, &MeleeAttackState)>();
-            let rows: Vec<_> = q.iter(world).map(|(p, inv, sprint, dash, melee)| (p.handle, inv.active_weapon_index, inv.weapons.get(inv.active_weapon_index).map(|(e, w)| (*e, w.config.name.clone())), inv.reloading_ending_frame, inv.frame_switched, sprint.is_sprinting, dash.is_dashing, melee.is_attacking)).collect();
+            let mut q = world.query::<(
+                &Player,
+                &WeaponInventory,
+                &SprintState,
+                &DashState,
+                &MeleeAttackState,
+            )>();
+            let rows: Vec<_> = q
+                .iter(world)
+                .map(|(p, inv, sprint, dash, melee)| {
+                    (
+                        p.handle,
+                        inv.active_weapon_index,
+                        inv.weapons
+                            .get(inv.active_weapon_index)
+                            .map(|(e, w)| (*e, w.config.name.clone())),
+                        inv.reloading_ending_frame,
+                        inv.frame_switched,
+                        sprint.is_sprinting,
+                        dash.is_dashing,
+                        melee.is_attacking,
+                    )
+                })
+                .collect();
             for (handle, idx, weapon, reload_end, switched, sprinting, dashing, meleeing) in rows {
                 let (entity, wname) = weapon.unwrap();
-                let (state, modes) = world.query::<(&WeaponState, &WeaponModesState)>().get(world, entity).unwrap();
+                let (state, modes) = world
+                    .query::<(&WeaponState, &WeaponModesState)>()
+                    .get(world, entity)
+                    .unwrap();
                 let m = modes.modes.get(&state.active_mode).unwrap();
                 println!("f{frame} j{handle} arme#{idx} {wname}/{} balles {} chargeurs {} dernier_tir f{} recharge_fin {:?} changé f{switched} sprint={sprinting} dash={dashing} mêlée={meleeing}",
                     state.active_mode, m.mag_ammo, m.mag_quantity, state.last_fire_frame, reload_end);
@@ -403,18 +601,72 @@ fn map_probe() {
     let spec = std::env::var("ALACOD_MAP_PROBE").unwrap_or_else(|_| "idle:5".into());
     let (name, frame) = spec.split_once(':').unwrap();
     let source = std::fs::read_to_string(scenarios_dir().join(format!("{name}.ron"))).unwrap();
-    let mut app = scenario::runner::run_until(&Scenario::from_ron(&source).unwrap(), frame.parse().unwrap());
+    let mut app = scenario::runner::run_until(
+        &Scenario::from_ron(&source).unwrap(),
+        frame.parse().unwrap(),
+    );
     let world = app.world_mut();
-    let pos = |t: &FixedTransform3D| (t.translation.x.to_num::<f32>(), t.translation.y.to_num::<f32>());
-    for (p, t) in world.query::<(&Player, &FixedTransform3D)>().iter(world) { println!("joueur {} {:?}", p.handle, pos(t)); }
-    let mut windows: Vec<_> = world.query::<(&GgrsNetId, &FixedTransform3D, &WindowHealth, &Obstacle, Option<&Interactable>)>().iter(world)
-        .map(|(id, t, h, o, i)| (id.0, pos(t), h.current, o.blocks_movement, i.map(|i| i.interaction_range.to_num::<f32>()))).collect();
+    let pos = |t: &FixedTransform3D| {
+        (
+            t.translation.x.to_num::<f32>(),
+            t.translation.y.to_num::<f32>(),
+        )
+    };
+    for (p, t) in world.query::<(&Player, &FixedTransform3D)>().iter(world) {
+        println!("joueur {} {:?}", p.handle, pos(t));
+    }
+    let mut windows: Vec<_> = world
+        .query::<(
+            &GgrsNetId,
+            &FixedTransform3D,
+            &WindowHealth,
+            &Obstacle,
+            Option<&Interactable>,
+        )>()
+        .iter(world)
+        .map(|(id, t, h, o, i)| {
+            (
+                id.0,
+                pos(t),
+                h.current,
+                o.blocks_movement,
+                i.map(|i| i.interaction_range.to_num::<f32>()),
+            )
+        })
+        .collect();
     windows.sort_by_key(|w| w.0);
-    for w in windows { println!("fenêtre {} {:?} santé {} bloque_zombies={} portée_interaction={:?}", w.0, w.1, w.2, w.3, w.4); }
-    let mut doors: Vec<_> = world.query::<(&GgrsNetId, &FixedTransform3D, Option<&Collider>, Option<&Interactable>, &DoorComponent)>().iter(world)
-        .map(|(id, t, c, i, d)| (id.0, pos(t), c.is_some(), i.map(|i| i.interaction_range.to_num::<f32>()), d.config.interactable)).collect();
+    for w in windows {
+        println!(
+            "fenêtre {} {:?} santé {} bloque_zombies={} portée_interaction={:?}",
+            w.0, w.1, w.2, w.3, w.4
+        );
+    }
+    let mut doors: Vec<_> = world
+        .query::<(
+            &GgrsNetId,
+            &FixedTransform3D,
+            Option<&Collider>,
+            Option<&Interactable>,
+            &DoorComponent,
+        )>()
+        .iter(world)
+        .map(|(id, t, c, i, d)| {
+            (
+                id.0,
+                pos(t),
+                c.is_some(),
+                i.map(|i| i.interaction_range.to_num::<f32>()),
+                d.config.interactable,
+            )
+        })
+        .collect();
     doors.sort_by_key(|d| d.0);
-    for d in doors { println!("porte {} {:?} fermée={} portée_interaction={:?} interactive={}", d.0, d.1, d.2, d.3, d.4); }
+    for d in doors {
+        println!(
+            "porte {} {:?} fermée={} portée_interaction={:?} interactive={}",
+            d.0, d.1, d.2, d.3, d.4
+        );
+    }
 }
 
 /// Diagnostic : GgrsNetId des entités rollback à une frame (`ALACOD_IDS=<scénario>:<frame>`).
@@ -425,11 +677,20 @@ fn net_ids() {
     let spec = std::env::var("ALACOD_IDS").unwrap_or_else(|_| "idle:1".into());
     let (name, frame) = spec.split_once(':').unwrap();
     let source = std::fs::read_to_string(scenarios_dir().join(format!("{name}.ron"))).unwrap();
-    let mut app = scenario::runner::run_until(&Scenario::from_ron(&source).unwrap(), frame.parse().unwrap());
+    let mut app = scenario::runner::run_until(
+        &Scenario::from_ron(&source).unwrap(),
+        frame.parse().unwrap(),
+    );
     let world = app.world_mut();
-    let mut ids: Vec<(usize, String)> = world.query::<&GgrsNetId>().iter(world).map(|id| (id.0, id.1.clone())).collect();
+    let mut ids: Vec<(usize, String)> = world
+        .query::<&GgrsNetId>()
+        .iter(world)
+        .map(|id| (id.0, id.1.clone()))
+        .collect();
     ids.sort();
-    for (id, name) in ids { println!("id {id:>3} {name}"); }
+    for (id, name) in ids {
+        println!("id {id:>3} {name}");
+    }
 }
 
 /// Diagnostic : balles vivantes et la plus à gauche/droite, frame par frame
@@ -450,9 +711,17 @@ fn bullets_probe() {
     while app.world().resource::<FrameCount>().frame < to {
         app.update();
         let world = app.world_mut();
-        let ps: Vec<(f32, f32)> = world.query_filtered::<&FixedTransform3D, With<Bullet>>().iter(world).map(|t| (t.translation.x.to_num(), t.translation.y.to_num())).collect();
+        let ps: Vec<(f32, f32)> = world
+            .query_filtered::<&FixedTransform3D, With<Bullet>>()
+            .iter(world)
+            .map(|t| (t.translation.x.to_num(), t.translation.y.to_num()))
+            .collect();
         max_alive = max_alive.max(ps.len());
-        for (x, y) in ps { min_x = min_x.min(x); max_x = max_x.max(x); max_y = max_y.max(y); }
+        for (x, y) in ps {
+            min_x = min_x.min(x);
+            max_x = max_x.max(x);
+            max_y = max_y.max(y);
+        }
     }
     println!("balles : au plus {max_alive} en vol, x {min_x:.1}..{max_x:.1}, y max {max_y:.1}");
 }

@@ -50,7 +50,7 @@ impl ObstacleType {
 }
 
 /// Generic obstacle component that replaces hardcoded Window behavior
-#[derive(Component, Clone, Debug, Reflect, Serialize, Deserialize)]
+#[derive(Component, Clone, Debug, Hash, Reflect, Serialize, Deserialize)]
 pub struct Obstacle {
     /// Type of obstacle (determines default behaviors)
     pub obstacle_type: ObstacleType,
@@ -217,6 +217,17 @@ pub struct ObstacleAttackEvent {
     pub attacker: Entity,
     pub obstacle: Entity,
     pub damage: u32,
+}
+
+/// Hash manuel : `attacker`/`obstacle` sont des `Entity` (différents d'un client à
+/// l'autre) sans `GgrsNetId` compagnon sur cet événement, contrairement à
+/// `InteractionEvent`/`MeleeHitbox` ; ils sont donc exclus faute de mieux. Seul `damage`
+/// contribue au checksum : une divergence sur QUEL obstacle est visé, à dégâts égaux,
+/// resterait invisible (dette, voir le rapport de migration).
+impl std::hash::Hash for ObstacleAttackEvent {
+    fn hash<H: std::hash::Hasher>(&self, state: &mut H) {
+        self.damage.hash(state);
+    }
 }
 
 /// System to process obstacle damage

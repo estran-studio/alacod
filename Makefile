@@ -62,7 +62,7 @@ endif
 all: test format
 
 # CI check target (runs locally or in CI)
-check: format test check_forbidden
+check: format test check_forbidden check_rollback_registration
 	@echo "✓ All checks passed"
 
 .PHONY: check
@@ -93,6 +93,12 @@ test: test_scenarios
 check_forbidden:
 	@echo "Checking for forbidden patterns..."
 	./scripts/check-forbidden.sh
+
+# Strict (jamais en avertissement) : un appel direct rollback_component_with*/
+# rollback_resource_with* hors de crates/utils/src/rollback.rs échappe au checksum GGRS.
+check_rollback_registration:
+	@echo "Checking rollback registration goes through RollbackTraceApp..."
+	./scripts/check-rollback-registration.sh
 
 # Scénarios de jeu headless (tests/scenarios/*.ron), comparés à leur trace de référence.
 # BLESS=1 réécrit les traces de référence ; SCENARIO=<nom> n'en joue qu'un.

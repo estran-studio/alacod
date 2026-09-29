@@ -19,13 +19,13 @@ pub struct MovementConfig {
     pub dash_cooldown_frames: u32,        // Frames before dash can be used again
 }
 
-#[derive(Component, Default, Clone)]
+#[derive(Component, Default, Clone, Debug, Hash)]
 pub struct SprintState {
     pub is_sprinting: bool,
     pub sprint_factor: fixed_math::Fixed, // Ranges from 0.0 to 1.0 for gradual acceleration
 }
 
-#[derive(Component, Default, Clone, Debug)]
+#[derive(Component, Default, Clone, Debug, Hash)]
 pub struct Velocity {
     pub main: fixed_math::FixedVec2,
     pub knockback: fixed_math::FixedVec2,
@@ -34,7 +34,7 @@ pub struct Velocity {
 
 /// Resource for configuring knockback damping
 /// IMPORTANT: Uses Fixed instead of f32 for determinism across rollback
-#[derive(Resource, Clone)]
+#[derive(Resource, Clone, Debug, Hash)]
 pub struct KnockbackDampingConfig {
     pub damping: fixed_math::Fixed, // e.g., 0.85 means 15% decay per frame
 }
