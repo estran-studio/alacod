@@ -30,7 +30,10 @@ use sim_core::damage::FriendlyFire;
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct Scenario {
-    /// Map LDtk, relative au dossier des assets.
+    /// Jeu auquel ce scénario appartient (dossier `games/<game>/`).
+    #[serde(default = "default_game")]
+    pub game: String,
+    /// Map LDtk, relative au dossier des assets du jeu.
     #[serde(default = "default_map")]
     pub map: String,
     #[serde(default = "default_map_seed")]
@@ -103,6 +106,10 @@ pub struct WeaponOverride {
     /// n'est pas par mode de tir.
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub friendly_fire: Option<FriendlyFire>,
+}
+
+fn default_game() -> String {
+    "zombies".into()
 }
 
 fn default_map() -> String {

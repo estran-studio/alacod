@@ -1,0 +1,13 @@
+(
+    path: "ZombieShooter/Sprites/Character/Slash_strip3.png",
+    tile_size: (48, 48),
+    columns: 3,
+    rows: 1,
+    name: "slash_effect",
+    scale: 10.0,
+    offset_x: 0.0,
+    offset_y: 0.0,
+    offset_z: 0.1,
+    anchor: Center,
+    animated: true,
+)

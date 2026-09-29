@@ -3,6 +3,7 @@ pub mod audio;
 pub mod camera;
 pub mod character;
 pub mod collider;
+pub mod content_hot_reload;
 pub mod core;
 pub mod frame;
 pub mod frame_events;

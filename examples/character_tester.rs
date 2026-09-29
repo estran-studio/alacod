@@ -23,7 +23,22 @@ use map::game::entity::map::enemy_spawn::EnemySpawnerComponent;
 use utils::net_id::GgrsNetIdFactory;
 
 fn main() {
-    let game_config = CoreSetupConfig::from_env("zrl-character_tester");
+    let mut game_config = CoreSetupConfig::from_env("zrl-character_tester");
+
+    // Cet exemple joue avec le contenu de `games/zombies` (assets, manifeste, registre, T1.5) :
+    // même chargement et même lint que le binaire `zombies`.
+    let game_dir = std::path::PathBuf::from(concat!(env!("CARGO_MANIFEST_DIR"), "/games/zombies"));
+    game_config.asset_root = Some(game_dir.join("assets").to_string_lossy().into_owned());
+    let (registry, _manifest, errors) = content::load_and_lint(&game_dir).unwrap_or_else(|e| {
+        eprintln!("games/zombies : {e}");
+        std::process::exit(1);
+    });
+    if !errors.is_empty() {
+        for e in &errors {
+            eprintln!("{e}");
+        }
+        std::process::exit(1);
+    }
 
     let core_plugin = CoreSetupPlugin(game_config);
 
@@ -32,6 +47,8 @@ fn main() {
         // Load default arguments from cli or query params (MUST be before core_plugin for --debug-ai to work)
         .add_plugins(BaseArgsPlugin)
         .add_plugins(core_plugin)
+        .insert_resource(game::content_hot_reload::GameRoot(game_dir))
+        .insert_resource(registry)
         // Because i don't have extra configuration yet we can directly start
         .insert_resource(GggrsSessionConfigurationState::ready())
         // Enable wave-based spawning mode (CoD Zombies style)

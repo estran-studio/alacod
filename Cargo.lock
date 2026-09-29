@@ -220,6 +220,7 @@ dependencies = [
  "bevy_ecs_tilemap",
  "bevy_fixed",
  "bevy_ggrs",
+ "content",
  "game",
  "map",
  "map_ldtk",
@@ -4284,9 +4285,7 @@ version = "0.1.0"
 dependencies = [
  "bevy 0.19.1",
  "bevy_fixed",
- "ron 0.12.2",
  "serde",
- "sim_core",
  "utils",
 ]
 
@@ -4366,9 +4365,12 @@ dependencies = [
 name = "content"
 version = "0.1.0"
 dependencies = [
+ "bevy 0.19.1",
  "bevy_fixed",
+ "clap 4.6.7",
  "ron 0.12.2",
  "serde",
+ "sim_core",
  "thiserror 2.0.21",
 ]
 
@@ -5764,7 +5766,7 @@ dependencies = [
  "bevy_matchbox",
  "chrono",
  "clap 4.6.7",
- "combat",
+ "content",
  "ggrs",
  "harmonium_bevy",
  "lazy_static",
@@ -9802,14 +9804,13 @@ dependencies = [
  "bevy 0.19.1",
  "bevy_fixed",
  "bevy_ggrs",
- "combat",
+ "content",
  "game",
  "map",
  "map_ldtk",
  "ron 0.12.2",
  "serde",
  "serde_json",
- "sim_core",
  "utils",
 ]
 
@@ -10782,6 +10783,24 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "06794f8f6c5c898b3275aebefa6b8a1cb24cd2c6c79397ab15774837a0bc5755"
 dependencies = [
  "winapi-util",
+]
+
+[[package]]
+name = "testbed"
+version = "0.0.1"
+dependencies = [
+ "animation",
+ "bevy 0.19.1",
+ "bevy_ecs_ldtk",
+ "bevy_ecs_tilemap",
+ "bevy_fixed",
+ "bevy_ggrs",
+ "content",
+ "game",
+ "map",
+ "map_ldtk",
+ "serde_json",
+ "utils",
 ]
 
 [[package]]
@@ -13382,6 +13401,24 @@ name = "zmij"
 version = "1.0.23"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "29666d0abbfad1e3dc4dcf6144730dd3a3ab225bbbdac83319345b1b44ccfc1b"
+
+[[package]]
+name = "zombies"
+version = "0.0.1"
+dependencies = [
+ "animation",
+ "bevy 0.19.1",
+ "bevy_ecs_ldtk",
+ "bevy_ecs_tilemap",
+ "bevy_fixed",
+ "bevy_ggrs",
+ "content",
+ "game",
+ "map",
+ "map_ldtk",
+ "serde_json",
+ "utils",
+]
 
 [[package]]
 name = "zune-core"

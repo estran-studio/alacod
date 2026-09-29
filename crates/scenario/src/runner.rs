@@ -76,9 +76,18 @@ pub struct ScenarioOutcome {
     pub metrics: Metrics,
 }
 
-/// Dossier des assets du dépôt.
-pub fn assets_dir() -> String {
-    concat!(env!("CARGO_MANIFEST_DIR"), "/../../assets").to_string()
+/// Dossier racine du jeu (`games/<jeu>`), pour `content::load_and_lint` (T1.5).
+pub fn game_dir(game: &str) -> std::path::PathBuf {
+    std::path::PathBuf::from(format!(
+        "{}/../../games/{}",
+        env!("CARGO_MANIFEST_DIR"),
+        game
+    ))
+}
+
+/// Dossier des assets du jeu.
+pub fn assets_dir(game: &str) -> String {
+    format!("{}/../../games/{}/assets", env!("CARGO_MANIFEST_DIR"), game)
 }
 
 /// Configuration de lecture d'un scénario.
@@ -87,18 +96,31 @@ pub struct PlayConfig {
     pub follow_handle: Option<usize>,
 }
 
-/// App de la partie décrite par le scénario (même partie que `map_explorer`).
+/// App de la partie décrite par le scénario (même partie que `zombies`).
 /// Avec `headless: false`, la partie est affichée (voir le binaire `play_scenario`).
 pub fn build_app(scenario: &Scenario, headless: bool, config: &PlayConfig) -> App {
     let core_plugin = CoreSetupPlugin(CoreSetupConfig {
         app_name: "scenario".into(),
         headless,
-        asset_root: Some(assets_dir()),
+        asset_root: Some(assets_dir(&scenario.game)),
     });
+
+    // Registre de contenu (T1.5) : mêmes règles que `alacod lint`, un contenu invalide
+    // fait échouer le test tout de suite plutôt qu'en plein milieu de la simulation.
+    let game_root = game_dir(&scenario.game);
+    let (registry, _manifest, content_errors) = content::load_and_lint(&game_root)
+        .unwrap_or_else(|e| panic!("scénario « {} » : game.ron invalide : {e}", scenario.game));
+    assert!(
+        content_errors.is_empty(),
+        "scénario « {} » : contenu invalide :\n{:#?}",
+        scenario.game,
+        content_errors
+    );
 
     let mut app = App::new();
     app.add_plugins(core_plugin.get_default_plugin())
         .add_plugins(GameArgsPlugin(game_args(scenario.players.len())))
+        .insert_resource(registry)
         .add_plugins(core_plugin)
         .add_plugins(LdtkRoguePlugin)
         .add_plugins(LdtkLocalGamePlugin(LdtkGameMap {

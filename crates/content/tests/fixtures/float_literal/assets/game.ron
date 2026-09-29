@@ -1,0 +1,10 @@
+(
+    name: "fixture-float-literal",
+    content_folders: [
+        (path: "characters/hero.ron", kind: "Character"),
+    ],
+    entry: (
+        start_map: "unused",
+        default_seed: 1,
+    ),
+)

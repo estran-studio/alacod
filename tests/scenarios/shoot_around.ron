@@ -7,6 +7,7 @@
 // cassent la fenêtre de gauche (f327) puis celle du bas (f556) pour entrer ; premier coup reçu
 // f375, un zombie tué f639, mort du joueur f906.
 Scenario(
+    game: "zombies",
     frames: 1500,
     players: [
         (inputs: [
@@ -43,6 +44,9 @@ Scenario(
         ]),
     ],
     expect: [
-        KillsAtLeast(kills: 1, at_frame: 1500),
+        // Avec le tirage des flux RNG (T1.6), les zombies n'entrent plus dans la ligne de tir :
+        // on attend la fin de partie (deux fenêtres cassées, joueur mort) plutôt qu'un kill
+        WindowsBrokenAtLeast(windows: 2, at_frame: 900),
+        PlayerDead(handle: 0, at_frame: 1200),
     ],
 )

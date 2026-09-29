@@ -20,6 +20,7 @@ bevy_fixed = { path = "../bevy_fixed"}
 utils = { path = "../utils"}
 sim_core = { path = "../sim_core"}
 combat = { path = "../combat"}
+content = { path = "../content"}
 map = { path = "../map"}
 animation ={ path = "../animation"}
 telemetry = { path = "../telemetry"}

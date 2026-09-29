@@ -1,0 +1,59 @@
+(
+    movement: (
+        acceleration: "150.0",
+        max_speed: "150.0",
+        friction: "10.0",
+        sprint_multiplier: "2.0",                // Double speed
+        sprint_acceleration_per_frame: "0.1",    // Reach full sprint in 10 frames
+        sprint_deceleration_per_frame: "0.2", 
+
+        dash_distance: "60.0",         // A substantial dash distance (tune based on your world scale)
+        dash_duration_frames: 15,      // Very quick dash (1/10th second)
+        dash_cooldown_frames: 180,     // Half-second cooldown
+    ),
+
+    asset_name_ref: "player",
+
+    collider: (
+        shape: Rectangle(
+            width: "20.",
+            height: "20.",
+        ),
+        offset: ( x: "0.0", y: "-6.0", z: "0.0" )
+    ),
+
+    scale: "1.0",
+
+    base_health: (
+        max: "100.0",
+        regen_rate: Some("10.0"),  // 1 HP per second
+        regen_delay_frames: Some(180),  // 3 seconds at 60 FPS
+    ),
+
+
+    starting_skin: "1",
+
+    skins: {
+        "1": (
+            layers: {
+                "shadow": "",
+                "body": "",
+                "shirt": ""
+            }
+        ),
+        "2": (
+            layers: {
+                "shadow": "",
+                "body": "",
+                "shirt": "",
+                "hair": ""
+            }
+        )
+
+    },
+
+    // Armes de départ (T1.5, `crates/content`) : avant, tous les joueurs recevaient tout
+    // `weapons.ron` (ordre alphabétique des clés, "machine_gun" en premier = arme active).
+    // Cet ordre est repris ici à l'identique pour ne pas changer les traces de scénario.
+    starting_weapons: ["machine_gun", "pistol", "shotgun"],
+)

@@ -4,6 +4,7 @@
 // À regarder : premier dash vers la gauche (f16), le joueur s'arrête net ; second dash (f206) : il
 // bute contre le mur, à côté de la fenêtre, sans entrer dedans.
 Scenario(
+    game: "zombies",
     frames: 320,
     players: [
         (inputs: [

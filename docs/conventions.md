@@ -6,7 +6,7 @@ Référence pour ceux qui créent du contenu (cartes LDtk, sprites RON) et ceux 
 
 ## 1. Cartes LDtk
 
-**Version** : LDtk 1.5.3 (`jsonVersion` dans le fichier). Consulter `assets/exemples/test_map.ldtk`.
+**Version** : LDtk 1.5.3 (`jsonVersion` dans le fichier). Consulter `games/zombies/assets/exemples/test_map.ldtk`.
 
 **Grille et taille** : tuiles de 16 pixels (`defaultGridSize: 16`). Un niveau LDtk = une salle de jeu. Les niveaux s'assemblent par leurs **connexions** (voir ci-dessous) ; le générateur (`crates/map/src/generation/`) en calcule position et taille dans le monde.
 
@@ -28,16 +28,16 @@ Référence pour ceux qui créent du contenu (cartes LDtk, sprites RON) et ceux 
 
 **Tailles de collision** : les colliders des entités (joueurs, ennemis) font 20×20 pixels aux pieds (voir `crates/game/src/character/config.rs`). Les sprites font 32×32 pixels. Les colliders de porte et fenêtre sont déterminés par leur taille LDtk (32×16 ou 16×32) ; l'engine les lit dans `crates/map_ldtk/src/game/entity/door.rs` et `window.rs`.
 
-**Vérification** : `make map_preview ARGS=assets/exemples/test_map.ldtk` affiche une carte ; `make map_generation ARGS=assets/exemples/test_map.ldtk` la génère avec assemblage des salles par connexions. Un scénario `idle` sur la carte rejouée en vidéo (`make play_scenario SCENARIO=idle`) vérifie visuellement l'assemblage et les entités.
+**Vérification** : `make map_preview ARGS=games/zombies/assets/exemples/test_map.ldtk` affiche une carte ; `make map_generation ARGS=games/zombies/assets/exemples/test_map.ldtk` la génère avec assemblage des salles par connexions. Un scénario `idle` sur la carte rejouée en vidéo (`make play_scenario SCENARIO=idle`) vérifie visuellement l'assemblage et les entités.
 
 ---
 
 ## 2. Sprites et animations
 
-**Format de planche** : grille régulière en PNG, décrite par deux fichiers RON (exemple : `assets/ZombieShooter/Sprites/Zombie/`).
+**Format de planche** : grille régulière en PNG, décrite par deux fichiers RON (exemple : `games/zombies/assets/ZombieShooter/Sprites/Zombie/`).
 
 `SpriteSheetConfig` (`crates/animation/src/lib.rs`, une planche = une couche) :
-- `path` : chemin du PNG relatif à `assets/`.
+- `path` : chemin du PNG relatif au dossier `assets/` du jeu (`games/<jeu>/assets/`).
 - `tile_size` : (largeur, hauteur) en pixels d'une case.
 - `columns`, `rows` : grille de la planche.
 - `anchor` : `Center`, `BottomLeft`, `BottomCenter`, etc. (enum `ConfigurableAnchor`). Les planches actuelles utilisent `Center` avec des `offset_*` (voir `player_sheet.ron`).
@@ -73,21 +73,19 @@ Référence pour ceux qui créent du contenu (cartes LDtk, sprites RON) et ceux 
 )
 ```
 
-**Armes** (exemple : `assets/weapons/melee/melee_weapons.ron`, table `{ "bare_hands": (...), ... }`) :
+**Armes** (exemple : `games/zombies/assets/weapons/melee/melee_weapons.ron`, table `{ "bare_hands": (...), ... }`) :
 - `config` : `name`, `damage`, `range`, `attack_pattern` (enum : `SingleStrike`, `Combo(strikes_in_combo: N)`, `Sweep(arc_angle)`, `Thrust`), `attack_duration_frames`, `cooldown_frames`, `knockback_force`, `stamina_cost`. Tous les nombres décimaux en chaîne (`"100.0"`).
 - `sprite_config` : `name`, `index` (première frame), `weapon_offset`.
 
 **Fixed-point** : les valeurs de type `Fixed` s'écrivent en **chaîne** (`"100.0"`, jamais `100` ni `100.0` littéral). Les entiers (`frames`, `mag_size`, indices) s'écrivent nus. La sérialisation Bevy/RON (crate `fixed`) convertit les chaînes en `Fixed` au chargement, garantissant le déterminisme. Exemple : `damage: "10.0"` (Fixed), `attack_duration_frames: 10` (entier). Consulter `CLAUDE.md` §Déterminisme, règle 1 (Fixed-Point Math UNIQUEMENT).
 
-**Vagues** (`assets/waves/wave_config.ron`) : RON, configuration simple. Champs : `base_enemies`, `enemies_per_wave`, `max_random_variance`, `min_wave_delay_frames`, `grace_period_frames`, `max_concurrent_enemies`, `spawn_batch_size`, `spawn_interval_frames`, `min_player_distance`/`max_player_distance` (Fixed en chaîne), `wave_tiers` (liste de `{max_wave, enemy_probabilities}`), `health_multiplier_per_wave`, `damage_multiplier_per_wave`. Un flux RNG dédié est en chantier (T1.6) pour isoler la variante.
+**Vagues** (`games/zombies/assets/waves/wave_config.ron`) : RON, configuration simple. Champs : `base_enemies`, `enemies_per_wave`, `max_random_variance`, `min_wave_delay_frames`, `grace_period_frames`, `max_concurrent_enemies`, `spawn_batch_size`, `spawn_interval_frames`, `min_player_distance`/`max_player_distance` (Fixed en chaîne), `wave_tiers` (liste de `{max_wave, enemy_probabilities}`), `health_multiplier_per_wave`, `damage_multiplier_per_wave`. Un flux RNG dédié est en chantier (T1.6) pour isoler la variante.
 
 ---
 
 ## 3. Le dossier de jeu
 
-**Aujourd'hui** (branche `m0-v2-conventions`) : assets à la racine du worktree (`assets/`), chemins codés en dur dans `crates/game/src/global_asset.rs` (par exemple `weapons/melee/melee_weapons.ron`, relatif à `assets/`). Point d'entrée unique `examples/map_explorer.rs` (cible Cargo `ldtk_map_explorer`). Tous les jeux partagent le même binaire, un seul `global_asset.rs` pour tous les chemins.
-
-**Cible (T0.3 et T1.5)** : structure `games/<jeu>/` autonome.
+**Depuis T0.3** : structure `games/<jeu>/` autonome. Chaque jeu a son propre crate binaire (`games/<jeu>/Cargo.toml`, `src/main.rs`), ses assets (`games/<jeu>/assets/`), et ses scénarios de test. Le premier jeu implémenté est `zombies` (T0.3) ; un testbed minimal (`testbed`) valide l'engine sans simulation complexe.
 
 ```
 games/<jeu>/
@@ -103,19 +101,68 @@ games/<jeu>/
 └── scenarios/         # Scénarios de test (.ron)
 ```
 
-**`game.ron`** (manifeste du jeu, exemple indicatif ; format fixé par T1.5) :
+**`game.ron`** (manifeste du jeu, `crates/content/src/manifest.rs`, T1.5) : nom, dossiers de
+contenu typés, point d'entrée (carte de départ, graine par défaut). Exemple
+(`games/testbed/assets/game.ron`) :
 ```ron
 (
-    name: "zombies",
+    name: "testbed",
     content_folders: [
-        (path: "assets/characters", type: Character),
-        (path: "assets/weapons", type: Weapon),
-        (path: "assets/waves", type: Wave),
+        (path: "ZombieShooter/Sprites/Character/player_config.ron", kind: "Character"),
+        (path: "ZombieShooter/Sprites/Character/weapons.ron", kind: "Weapon"),
+        (path: "weapons/melee/melee_weapons.ron", kind: "MeleeWeapon"),
+        (path: "testbed", kind: "Map"),
+        (path: "ui", kind: "Ui"),
+        (path: "camera.ron", kind: "Camera"),
     ],
+    entry: (
+        start_map: "testbed/testbed_empty.ldtk",
+        default_seed: 123456,
+    ),
 )
 ```
+Chaque entrée de `content_folders` est un **fichier** ou un **dossier**, relatif à
+`assets/`. Un dossier est scanné (non récursif) pour l'extension attendue par son `kind`
+(`.ron`, sauf `Map` qui attend `.ldtk`) ; un fichier est lu tel quel. Les jeux actuels
+mélangent encore plusieurs kinds dans un même dossier historique
+(`ZombieShooter/Sprites/Character/` contient à la fois `player_config.ron` et des feuilles
+de sprite) : dans ce cas le manifeste déclare le **fichier** précis plutôt que le dossier
+entier (voir `games/zombies/assets/game.ron`). Les kinds connus : `Character`, `Weapon`,
+`MeleeWeapon`, `Wave`, `Map`, `Ui`, `Camera` (`content::registry::KNOWN_KIND_NAMES`) ; un
+autre kind produit une erreur de lint (« kind inconnu ») plutôt qu'un échec RON générique.
 
-Chaque dossier est scanné ; les fichiers `.ron` créent des entrées typées dans un registre global : `CharacterId`, `WeaponId`, etc. Les références cassées sont rejetées au chargement (sans ambiguïté à l'exécution). Chemin au chargement : `assets/weapons/melee/melee_weapons.ron` (relatif à `assets/`).
+**Le registre** (`content::registry::Registry`, chargé par `Registry::build`) est la
+source de vérité des ids de contenu : `CharacterId`, `WeaponId`, `MeleeWeaponId`,
+`EnemyId`, `WaveConfigId`, `MapId` (newtypes sur chaîne, `Ord`, `BTreeMap`). L'id d'un
+personnage vient de son champ `asset_name_ref` (pas du nom de fichier, qui ne le reflète
+pas toujours aujourd'hui) ; l'id d'une arme ou d'une arme de corps à corps vient de la clé
+dans `weapons.ron`/`melee_weapons.ron` ; l'id d'une carte ou d'une config de vagues vient du
+nom de fichier sans extension. Les joueurs reçoivent les armes déclarées dans le champ
+`starting_weapons: [WeaponId]` de leur fichier `characters/*.ron` (dans l'ordre déclaré : la
+première est l'arme active), pas tout `weapons.ron`.
+
+**Le lint** (`content::lint::run`, appelé par `alacod lint`, par le jeu au démarrage et par
+le rechargement à chaud) refuse une référence cassée (`starting_weapons` vers une arme
+inconnue, `enemy_probabilities` d'une vague vers un personnage inconnu, `entry.start_map`
+vers une carte non chargée), un id dupliqué, une valeur hors plage (santé > 0, vitesse
+mouvement >= 0, cadence de tir > 0), un kind de dossier inconnu, ou un littéral RON nu
+(entier ou flottant) là où une valeur `Fixed` est attendue (le projet exige une chaîne,
+`"1.5"` : voir §2 ci-dessus et CLAUDE.md, règle 1). Chaque erreur nomme le fichier (relatif
+à `assets/`) et un message précis (id, champ, valeur).
+
+**CLI** : `cargo run -p content --bin alacod --profile headless -- lint games/<jeu>` (code
+de sortie 1 et messages sur stderr en cas d'erreur, 0 sinon) ; `make lint` l'appelle pour
+`zombies` et `testbed`. Un hook `PostToolUse` (`.claude/settings.json`,
+`scripts/lint-edited-game.sh`) relance ce lint en arrière-plan quand un fichier sous
+`games/**` est édité.
+
+**Rechargement à chaud** : hors partie (`AppState::LobbyLocal`/`LobbyOnline`), si un
+fichier de contenu suivi par bevy change (feature `native`, `bevy/file_watcher`), le
+registre est relu depuis le disque et le lint relancé
+(`crates/game/src/content_hot_reload.rs`, idiome `MessageReader<AssetEvent<T>>` repris de
+`crates/game/src/ui/hud.rs`) ; un contenu invalide laisse l'ancien registre en place
+(erreur journalisée). Jamais pendant une partie (`GgrsSchedule`) : les snapshots rollback ne
+se réécrivent pas à chaud.
 
 ---
 

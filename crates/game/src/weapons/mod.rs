@@ -12,7 +12,7 @@ use bevy::{
     prelude::*,
 };
 use bevy_common_assets::ron::RonAssetPlugin;
-use bevy_fixed::{fixed_math, rng::RollbackRng};
+use bevy_fixed::{fixed_math, rng::RngStreams};
 use bevy_ggrs::{GgrsSchedule, PlayerInputs, Rollback};
 use combat::team::team_allows_hit;
 use ggrs::PlayerHandle;
@@ -662,7 +662,7 @@ pub fn system_weapon_position(
 // rollback system for weapon action , firing and all
 pub fn weapon_rollback_system(
     mut commands: Commands,
-    mut rng: ResMut<RollbackRng>,
+    mut rng_streams: ResMut<RngStreams>,
     inputs: Res<PlayerInputs<PeerConfig>>,
     frame: Res<FrameCount>,
 
@@ -908,7 +908,8 @@ pub fn weapon_rollback_system(
                                 // Fire multiple pellets in a spread pattern
                                 for _ in 0..pellet_count {
                                     // Calculate a random angle within the spread range
-                                    let random_fixed_val = rng.next_fixed();
+                                    let random_fixed_val =
+                                        rng_streams.get_mut("weapons").next_fixed();
                                     let offset_from_center =
                                         random_fixed_val.saturating_sub(fixed_math::FIXED_HALF);
                                     let pellet_angle_fixed =
@@ -945,7 +946,7 @@ pub fn weapon_rollback_system(
                                     .start_reload(frame.frame, weapon_config.reload_time_seconds);
                             }
                             _ => {
-                                let random_fixed_val = rng.next_fixed();
+                                let random_fixed_val = rng_streams.get_mut("weapons").next_fixed();
                                 let offset_from_center =
                                     random_fixed_val.saturating_sub(fixed_math::FIXED_HALF);
                                 let pellet_angle_fixed =

@@ -380,11 +380,11 @@ Défaut : `MATCHBOX_URL=wss://allumette.bascanada.org` (serveur cloud).
   vidéo. Servie par `scripts/scenario-review.py --serve` (requêtes Range, requises pour se
   positionner dans les vidéos).
 
-La partie jouée est celle de `map_explorer` (plugin partagé `map_ldtk::game::local::LdtkLocalGamePlugin`).
+La partie jouée est celle de `games/zombies` (`cargo run -p zombies`, plugin partagé `map_ldtk::game::local::LdtkLocalGamePlugin`).
 Tout changement de simulation doit garder les scénarios verts, ou justifier le `BLESS`.
 
 ### Caméra : suivi par joueur en ligne
-La caméra est configurable dans `assets/camera.ron` via `CameraSettings`. En particulier, le réglage
+La caméra est configurable dans `games/zombies/assets/camera.ron` via `CameraSettings`. En particulier, le réglage
 `online_follow` (deux valeurs : `LocalPlayer` par défaut, ou `AllPlayers`) n'affecte que quand
 on est en mode Online (p2p) :
 - `LocalPlayer` : la caméra suit le joueur local du client (défaut en ligne, chaque client ne voit que son joueur).
@@ -402,7 +402,7 @@ L'override s'applique avant le réglage `online_follow`.
 
 ### HUD (Affichage tête haute)
 
-Le HUD est décrit dans un fichier RON (`assets/ui/hud.ron`) et construit automatiquement en UI Bevy.
+Le HUD est décrit dans un fichier RON (`games/zombies/assets/ui/hud.ron`) et construit automatiquement en UI Bevy.
 Il est lié aux données de la simulation par **noms de sources**, sans dépendre du code ou de la simulation.
 Absent en headless (la PresentationPlugin n'est chargée que si !headless).
 
@@ -450,7 +450,7 @@ Chaque widget est lié à une source. Une source inconnue provoque un `warn!` au
 
 #### Rechargement à chaud
 
-Quand le fichier `assets/ui/hud.ron` est modifié (feature `native`, file_watcher bevy activé),
+Quand le fichier `games/zombies/assets/ui/hud.ron` est modifié (feature `native`, file_watcher bevy activé),
 l'arbre UI est automatiquement reconstruit. Utile pour l'itération en développement.
 
 ### Numérotation des entités (`GgrsNetId`)

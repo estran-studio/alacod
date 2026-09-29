@@ -1,0 +1,158 @@
+({
+    "pistol": (
+        config: (
+            name: "pistol",
+            default_firing_mode: "default",
+            firing_modes: {
+                "default": (
+                    firing_rate: "2.0",
+                    firing_mode: Manual(),
+                    spread:  "0.0005",
+                    recoil: "3.0",
+                    bullet_type: Standard(
+                        damage: "15.0",
+                        speed: "400.0",
+                    ),
+                    range: "700.0",
+                    reload_time_seconds: "1.0",
+                    mag: Mag(
+                        mag_size: 6,
+                        mag_limit: 8,
+                    )
+                )
+            }
+        ),
+        sprite_config: (
+            name: "pistol",
+            index: 3,
+            bullet_offset_right: ( x: "-5.0", y: "2.0" ),
+            bullet_offset_left: ( x: "0.0", y: "-2.0" ),
+            weapon_offset: ( x: "0.0", y: "-5.0" )
+        ),
+        audio_config: (
+            modes: {
+                "default": (
+                    reloading: "sounds/machine-gun-reloading.ogg",
+                    firing: "sounds/machine-gun.ogg"
+                )
+            }
+        )
+    ),
+    "machine_gun": (
+        config: (
+            name: "machine_gun",
+            default_firing_mode: "default",
+            firing_modes: {
+                "default": (
+                    firing_rate: "10.0",
+                    firing_mode: Automatic(),
+                    spread: "0.15",
+                    recoil: "1.5",
+                    bullet_type: Standard(
+                        damage: "8.0",
+                        speed: "300.0",
+                    ),
+                    range: "900.0",
+                    reload_time_seconds: "1.5",
+                    mag: Mag(
+                        mag_size: 30,
+                        mag_limit: 8,
+                    )
+                ),
+                "rafale": (
+                    firing_rate: "10.0",
+                    firing_mode: Burst(pellets_per_shot: 3, cooldown_frames: 1),
+                    spread: "1",
+                    recoil: "1.5",
+                    bullet_type: Standard(
+                        damage: "8.0",
+                        speed: "400.0",
+                    ),
+                    range: "900.0",
+                    reload_time_seconds: "0.7",
+                    mag: Mag(
+                        mag_size: 30,
+                        mag_limit: 8,
+                    )
+                )
+            }
+        ),
+        sprite_config: (
+            name: "machine_gun",
+            index: 1,
+            bullet_offset_right: ( x: "12.0", y: "0.0" ),
+            bullet_offset_left: ( x: "12.0", y: "-0.0" ),
+            weapon_offset: ( x: "0.0", y: "-5.0" )
+        ),
+        audio_config: (
+            modes: {
+                "default": (
+                    reloading: "sounds/machine-gun-reloading.ogg",
+                    firing: "sounds/machine-gun.ogg"
+                )
+            }
+        )
+    ),
+    "shotgun": (
+        config: (
+            name: "shotgun",
+            default_firing_mode: "default",
+            firing_modes: {
+                "default": (
+                    firing_rate: "1.0",
+                    firing_mode: Shotgun(
+                        pellet_count: 8,
+                        spread_angle: "0.4" // Wide spread
+                    ), 
+                    spread: "0.0",
+                    recoil: "8.0",
+                    mag_size: 5000,
+                    bullet_type: Standard(
+                        damage: "30.0",
+                        speed: "200.0",
+                    ),
+                    range: "400.0",
+                    reload_time_seconds: "0.8",
+                    mag: Magless(
+                        bullet_limit: 64,
+                    )
+                ),
+                "piercing": (
+                    firing_rate: "1.0",
+                    firing_mode: Shotgun(
+                        pellet_count: 8,
+                        spread_angle: "0.4" // Wide spread
+                    ), 
+                    spread: "0.0",
+                    recoil: "8.0",
+                    mag_size: 5000,
+                    bullet_type: Piercing(
+                        damage: "10.0",
+                        speed: "700.0",
+                        penetration: 1,
+                    ),
+                    range: "400.0",
+                    reload_time_seconds: "3.0",
+                    mag: Magless(
+                        bullet_limit: 64,
+                    )
+                )
+            }
+        ),
+        sprite_config: (
+            name: "shotgun",
+            index: 0,
+            bullet_offset_right: ( x: "10.0", y: "-0" ),
+            bullet_offset_left: ( x: "10.0", y: "0" ),
+            weapon_offset: ( x: "0.0", y: "-5." )
+        ),
+        audio_config: (
+            modes: {
+                "default": (
+                    reloading: "sounds/machine-gun-reloading.ogg",
+                    firing: "sounds/machine-gun.ogg"
+                )
+            }
+        )
+    ),
+})

@@ -1,0 +1,27 @@
+// Manifeste du jeu (T1.5, voir `docs/conventions.md` §3 et `crates/content/src/manifest.rs`).
+// Reflète le contenu actuel de `games/zombies/assets/` : les personnages et les tables
+// d'armes vivent sous `ZombieShooter/Sprites/**`, mélangés à des feuilles de sprite et des
+// configs d'animation (pas encore réorganisés, voir `docs/plan-engine.md` §5 A5) ; c'est
+// pourquoi ces deux kinds déclarent des fichiers individuels plutôt qu'un dossier entier
+// (un dossier entier serait scanné et tenterait de parser les feuilles de sprite comme du
+// contenu du kind déclaré). Les autres dossiers (`waves/`, `exemples/`, `ui/`) ne
+// contiennent que le kind déclaré et sont scannés tels quels.
+(
+    name: "zombies",
+    content_folders: [
+        (path: "ZombieShooter/Sprites/Character/player_config.ron", kind: "Character"),
+        (path: "ZombieShooter/Sprites/Zombie/zombie_config.ron", kind: "Character"),
+        (path: "ZombieShooter/Sprites/Zombie/zombie_hard_config.ron", kind: "Character"),
+        (path: "ZombieShooter/Sprites/Zombie/zombie_full_config.ron", kind: "Character"),
+        (path: "ZombieShooter/Sprites/Character/weapons.ron", kind: "Weapon"),
+        (path: "weapons/melee/melee_weapons.ron", kind: "MeleeWeapon"),
+        (path: "waves", kind: "Wave"),
+        (path: "exemples", kind: "Map"),
+        (path: "ui", kind: "Ui"),
+        (path: "camera.ron", kind: "Camera"),
+    ],
+    entry: (
+        start_map: "exemples/test_map.ldtk",
+        default_seed: 123456,
+    ),
+)

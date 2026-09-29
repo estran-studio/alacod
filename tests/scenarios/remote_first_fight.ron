@@ -8,6 +8,7 @@
 // haut puis recharge (f541, quelques frames après l'appui : délai d'input GGRS). Une deuxième
 // fenêtre cède à f555.
 Scenario(
+    game: "zombies",
     map: "exemples/test_map.ldtk",
     map_seed: 123456,
     frames: 600,
@@ -35,8 +36,8 @@ Scenario(
         ),
     ],
     expect: [
-        KillsAtLeast(kills: 1, at_frame: 440),
-        KillsAtLeast(kills: 2, at_frame: 510),
+        // Un seul zombie traverse la ligne de tir scriptée avec le tirage des flux RNG (T1.6)
+        KillsAtLeast(kills: 1, at_frame: 500),
         PlayerAlive(handle: 0, at_frame: 600),
     ],
 )

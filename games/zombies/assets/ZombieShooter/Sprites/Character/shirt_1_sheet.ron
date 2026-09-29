@@ -1,0 +1,17 @@
+(
+    path: "ZombieShooter/Sprites/Character/Shirt/Shirt1.png",
+    tile_size: (32, 32),
+    columns: 10,
+    rows: 1,
+    
+    name: "shirt",
+    animated: true,
+    
+    scale: 1.0,
+
+    anchor: Center,
+
+    offset_x: 00.0,
+    offset_y: 0.0,
+    offset_z: 1.1,
+)

@@ -13,6 +13,7 @@ ron = "0.12"
 
 bevy_fixed = { path = "../bevy_fixed" }
 combat = { path = "../combat" }
+content = { path = "../content" }
 game = { path = "../game" }
 map = { path = "../map" }
 map_ldtk = { path = "../map_ldtk" }

@@ -6,6 +6,7 @@
 // À regarder : quatre jets de balles simultanés dans quatre directions, qui s'arrêtent sur les murs ;
 // les quatre joueurs rechargent en même temps (frame 190).
 Scenario(
+    game: "zombies",
     frames: 300,
     players: [
         (inputs: [
@@ -32,8 +33,10 @@ Scenario(
         Ammo(handle: 1, ammo: 30, at_frame: 285),
         Ammo(handle: 2, ammo: 30, at_frame: 285),
         Ammo(handle: 3, ammo: 30, at_frame: 285),
-        // Les balles des quatre joueurs s'arrêtent sur les murs de la pièce
-        BulletsInside(x_min: 0, x_max: 655, y_min: 0, y_max: 767, at_frame: 60),
-        BulletsInside(x_min: 0, x_max: 655, y_min: 0, y_max: 767, at_frame: 150),
+        // Les balles des quatre joueurs s'arrêtent sur les murs de la pièce. Le mur gauche a une
+        // fenêtre à hauteur du joueur 3, et les fenêtres laissent passer les balles (matrice de
+        // collision) : une balle peut donc sortir par là, d'où la marge à gauche
+        BulletsInside(x_min: -64, x_max: 655, y_min: 0, y_max: 767, at_frame: 60),
+        BulletsInside(x_min: -64, x_max: 655, y_min: 0, y_max: 767, at_frame: 150),
     ],
 )

@@ -56,6 +56,8 @@ impl InputRecorder {
             .collect();
 
         let mut scenario = Scenario {
+            // TODO(T1.5) : lire le jeu courant depuis son manifeste, pas en dur
+            game: "zombies".into(),
             map: "exemples/test_map.ldtk".into(),
             map_seed: 123456,
             frames: self.frame_count(),

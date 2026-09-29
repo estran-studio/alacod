@@ -5,6 +5,7 @@
 // (f380), puis le joueur 0 (f494). Le joueur 1 meurt (f1033) : la partie continue, le joueur 0 se
 // fait encercler à son tour (f1223).
 Scenario(
+    game: "zombies",
     frames: 1500,
     players: [
         (),
@@ -14,7 +15,7 @@ Scenario(
         PlayerAlive(handle: 0, at_frame: 300),
         PlayerAlive(handle: 1, at_frame: 300),
         // La partie continue après la mort d'un joueur : le joueur 1 meurt, le 0 est encore là
-        PlayerDead(handle: 1, at_frame: 1100),
-        PlayerAlive(handle: 0, at_frame: 1100),
+        PlayerDead(handle: 1, at_frame: 1200),
+        PlayerAlive(handle: 0, at_frame: 1200),
     ],
 )

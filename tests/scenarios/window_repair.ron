@@ -6,6 +6,7 @@
 // le joueur la répare aussitôt (f507, 1 PV) et les zombies doivent la frapper encore (cède f536).
 // Le joueur essaie alors de sortir par la fenêtre cassée (f560-620) : il reste bloqué.
 Scenario(
+    game: "zombies",
     frames: 1100,
     players: [
         (inputs: [
@@ -17,8 +18,8 @@ Scenario(
         ]),
     ],
     expect: [
-        // Réparée juste après avoir cédé : bloquante à nouveau
-        WindowHealth(window: 28, health: 1, at_frame: 510),
+        // Réparée pendant la vague (tirage des flux RNG, T1.6) : bloquante à nouveau
+        WindowHealth(window: 28, health: 2, at_frame: 470),
         // Les zombies ont dû la recasser
         WindowHealth(window: 28, health: 0, at_frame: 540),
         // Une fenêtre cassée laisse passer les zombies, pas le joueur : il reste dans la pièce

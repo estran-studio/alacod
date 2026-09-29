@@ -7,8 +7,8 @@
         "request": "launch",
         "program": "${workspaceRoot}/target/debug/examples/map_generation",
         "args": [
-            "assets/exemples/test_map.ldtk",
-            "assets/exemples/test_map_generated.ldtk",
+            "games/zombies/assets/exemples/test_map.ldtk",
+            "games/zombies/assets/exemples/test_map_generated.ldtk",
             "2057489116"
         ],
         "cwd": "${workspaceRoot}"

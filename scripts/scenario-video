@@ -28,7 +28,7 @@ fi
 build_player() {
     local repo="$1"
     (cd "$repo" && cargo build -q --profile headless -p scenario --features render --bin play_scenario >&2)
-    echo "$ROOT/target/headless/play_scenario"
+    echo "${CARGO_TARGET_DIR:-$ROOT/target}/headless/play_scenario"
 }
 
 # capture <binaire> <scenario.ron> <dossier images>
