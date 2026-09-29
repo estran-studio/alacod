@@ -54,6 +54,7 @@ impl InputRecorder {
             .collect();
 
         let mut scenario = Scenario {
+            game: "zombies".into(),
             map: "exemples/test_map.ldtk".into(),
             map_seed: 123456,
             frames: self.frame_count(),

@@ -43,7 +43,7 @@ debug-assertions = false
 debug-assertions = false
 
 [workspace]
-members = [ "crates/*" ]
+members = [ "crates/*", "games/*" ]
 
 [dependencies]
 bevy_ecs_tilemap = { version = "0.19.0", default-features = false }
@@ -68,10 +68,6 @@ all-features = true
 [[example]]
 name = "map_preview"
 path = "examples/map_preview.rs"
-
-[[example]]
-name = "map_explorer"
-path = "examples/map_explorer.rs"
 
 [[example]]
 name = "map_generation"

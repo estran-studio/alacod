@@ -1,0 +1,19 @@
+(
+    path: "ZombieShooter/Sprites/Obj/Weapons.png",
+    tile_size: (33, 10),
+    columns: 1,
+    rows: 3,
+    
+    name: "body",
+    animated: false,
+
+    scale: 0.7,
+
+    anchor: CenterLeft,
+
+    offset_x: 0.0,
+    offset_y: 0.0,
+    offset_z: 2.0,
+    
+
+)

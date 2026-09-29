@@ -74,9 +74,9 @@ pub struct ScenarioOutcome {
     pub metrics: Metrics,
 }
 
-/// Dossier des assets du dépôt.
-pub fn assets_dir() -> String {
-    concat!(env!("CARGO_MANIFEST_DIR"), "/../../assets").to_string()
+/// Dossier des assets du jeu.
+pub fn assets_dir(game: &str) -> String {
+    format!("{}/../../games/{}/assets", env!("CARGO_MANIFEST_DIR"), game)
 }
 
 /// Configuration de lecture d'un scénario.
@@ -85,13 +85,13 @@ pub struct PlayConfig {
     pub follow_handle: Option<usize>,
 }
 
-/// App de la partie décrite par le scénario (même partie que `map_explorer`).
+/// App de la partie décrite par le scénario (même partie que `zombies`).
 /// Avec `headless: false`, la partie est affichée (voir le binaire `play_scenario`).
 pub fn build_app(scenario: &Scenario, headless: bool, config: &PlayConfig) -> App {
     let core_plugin = CoreSetupPlugin(CoreSetupConfig {
         app_name: "scenario".into(),
         headless,
-        asset_root: Some(assets_dir()),
+        asset_root: Some(assets_dir(&scenario.game)),
     });
 
     let mut app = App::new();

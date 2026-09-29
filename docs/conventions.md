@@ -85,9 +85,7 @@ Référence pour ceux qui créent du contenu (cartes LDtk, sprites RON) et ceux 
 
 ## 3. Le dossier de jeu
 
-**Aujourd'hui** (branche `m0-v2-conventions`) : assets à la racine du worktree (`assets/`), chemins codés en dur dans `crates/game/src/global_asset.rs` (par exemple `weapons/melee/melee_weapons.ron`, relatif à `assets/`). Point d'entrée unique `examples/map_explorer.rs` (cible Cargo `ldtk_map_explorer`). Tous les jeux partagent le même binaire, un seul `global_asset.rs` pour tous les chemins.
-
-**Cible (T0.3 et T1.5)** : structure `games/<jeu>/` autonome.
+**Depuis T0.3** : structure `games/<jeu>/` autonome. Chaque jeu a son propre crate binaire (`games/<jeu>/Cargo.toml`, `src/main.rs`), ses assets (`games/<jeu>/assets/`), et ses scénarios de test. Le premier jeu implémenté est `zombies` (T0.3) ; un testbed minimal (`testbed`) valide l'engine sans simulation complexe.
 
 ```
 games/<jeu>/

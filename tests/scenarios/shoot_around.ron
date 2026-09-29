@@ -7,6 +7,7 @@
 // cassent la fenêtre de gauche (f327) puis celle du bas (f556) pour entrer ; premier coup reçu
 // f375, un zombie tué f639, mort du joueur f906.
 Scenario(
+    game: "zombies",
     frames: 1500,
     players: [
         (inputs: [
