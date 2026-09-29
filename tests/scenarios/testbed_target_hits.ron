@@ -1,0 +1,19 @@
+// T2.9 (testbed) : le joueur tire sur `target` (mannequin immobile, net_id 35, nord-est du
+// spawn, `counts_hits: true`) ; vérifie que `HitCount` (posé par `character::health::HitCount`,
+// incrémenté par le résolveur de dégâts unique) compte au moins 5 coups.
+//
+// À regarder : le joueur tire en continu vers le nord-est (f10-160) ; la cible reste immobile
+// et encaisse de nombreux impacts sans jamais mourir (santé de départ très haute).
+Scenario(
+    game: "testbed",
+    map: "testbed/arena.ldtk",
+    frames: 220,
+    players: [
+        (inputs: [
+            (from: 10, to: 160, buttons: [Fire], pan: (128, 48)),
+        ]),
+    ],
+    expect: [
+        EntityHits(net_id: 35, min: 5, at_frame: 200),
+    ],
+)

@@ -47,7 +47,7 @@ use crate::{
             rollback_apply_accumulated_damage, rollback_apply_bleedout, rollback_apply_death,
             rollback_check_defeat, rollback_health_regeneration, rollback_resolve_damage_events,
             sync_health_from_stats, ui::update_health_bars, DamageAccumulator, Death, Health,
-            HealthRegen,
+            HealthRegen, HitCount,
         },
         movement::{apply_knockback_damping, KnockbackDampingConfig, SprintState, Velocity},
         player::{
@@ -137,6 +137,10 @@ impl Plugin for BaseCharacterGamePlugin {
             .rollback_and_trace::<Health>()
             .rollback_and_trace::<HealthRegen>()
             .rollback_and_trace::<DamageAccumulator>()
+            // Hors checksum GGRS (T2.9, voir la doc de `HitCount` et de
+            // `RollbackTraceApp::rollback_and_trace_no_checksum`) : ne déplace pas le
+            // checksum agrégé des scénarios zombies existants, qui n'en posent jamais.
+            .rollback_and_trace_no_checksum::<HitCount>()
             .rollback_and_trace::<DashState>()
             .rollback_and_trace::<SprintState>()
             .rollback_and_trace::<Velocity>()

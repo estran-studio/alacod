@@ -1,0 +1,25 @@
+// T2.9 (testbed) : `breacher` (personnage de laboratoire capable de casser un obstacle,
+// `ai.can_break: [Window]`, `ai.attack_through: [Window]`, `ai.path_through_breakables: true`
+// — contrairement à `follower`, dont `attack_range: "0"` l'empêche justement de casser quoi
+// que ce soit) est enfermé dans une poche derrière une fenêtre (`window.ldtk`), seul passage
+// vers le joueur. Vérifie qu'il la casse pour passer.
+//
+// Décision (rapport de tâche) : n'utilise pas l'entité LDtk `ZombieSpawn` existante (voir
+// `breacher.ron`) : son `enemy_types` par défaut ("zombie_full") n'a pas de sprites dans
+// `games/testbed`, et surtout `enemy_spawn_from_spawners_system` ne tourne jamais dans les
+// scénarios (`WaveModeEnabled(true)` y est toujours forcé). `breacher` est placé par une
+// `CharacterSpawn` (T2.9), comme les autres personnages de laboratoire.
+//
+// À regarder : le joueur ne bouge pas ; `breacher` traverse sa poche, s'arrête devant la
+// fenêtre et la frappe (cooldown ~30 frames) jusqu'à la casser, puis avance vers le joueur.
+Scenario(
+    game: "testbed",
+    map: "testbed/window.ldtk",
+    frames: 450,
+    players: [
+        (),
+    ],
+    expect: [
+        WindowsBrokenAtLeast(windows: 1, at_frame: 420),
+    ],
+)

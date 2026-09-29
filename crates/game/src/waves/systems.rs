@@ -9,6 +9,7 @@ use bevy_fixed::{
     rng::{RngStreams, RollbackRng},
 };
 use map::game::entity::map::enemy_spawn::EnemySpawnerComponent;
+use sim_core::team::Team;
 use utils::{
     frame::FrameCount,
     net_id::{GgrsNetId, GgrsNetIdFactory},
@@ -292,6 +293,7 @@ pub fn wave_spawning_system(
             &global_assets,
             &spawn_assets.collision_settings,
             &mut id_factory,
+            Team::Enemies,
         );
 
         // Add WaveEnemy component to track this enemy for wave completion

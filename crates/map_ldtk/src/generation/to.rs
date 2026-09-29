@@ -12,8 +12,8 @@ use map::{
     game::entity::map::player_spawn::PlayerSpawnConfig,
     generation::{
         entity::{
-            door::DoorConfig, enemy_spawn::EnemySpawnConfig, location::EntityLocation,
-            window::WindowConfig,
+            character_spawn::CharacterSpawnConfig, door::DoorConfig, enemy_spawn::EnemySpawnConfig,
+            location::EntityLocation, window::WindowConfig,
         },
         room::{Room, RoomConnection},
         IMapGenerator,
@@ -416,5 +416,31 @@ impl IMapGenerator for GeneratedMap {
         }
 
         println!("Enemy spawn generation complete\n");
+    }
+
+    /// T2.9 (testbed) : contrairement aux portes/fenêtres (config recalculée ou vide),
+    /// `character`/`team` sont des valeurs d'auteur : réécrites telles quelles.
+    fn add_character_spawns(
+        &mut self,
+        rng: &mut RollbackRng,
+        character_spawns: &Vec<(EntityLocation, CharacterSpawnConfig)>,
+    ) {
+        for (location, config) in character_spawns.iter() {
+            self.add_entity_to_level(
+                rng,
+                location,
+                map_const::ENTITY_CHARACTER_SPAWN_LOCATION,
+                vec![
+                    (
+                        map_const::FIELD_CHARACTER_NAME,
+                        FieldValue::String(Some(config.character.clone())),
+                    ),
+                    (
+                        map_const::FIELD_TEAM_NAME,
+                        FieldValue::String(config.team.clone()),
+                    ),
+                ],
+            );
+        }
     }
 }

@@ -1,0 +1,24 @@
+// T2.9 (testbed) : `follower` (net_id 33, ennemi suiveur ordinaire mais sans attaque —
+// `ai.attack_range: "0"`) poursuit le joueur immobile via la flow field (`move_enemies`)
+// pendant toute la scène. Aucune attente de position/distance disponible pour une entité qui
+// n'est pas un joueur (`PlayerPosition` est réservée aux joueurs) : `EntityCount` sert de repli
+// (voir la tâche T2.9) pour vérifier que les cinq personnages de laboratoire restent en vie
+// (rien ne meurt, rien ne disparaît) pendant que le follower se rapproche — l'approche
+// elle-même se vérifie à l'œil (vidéo/`play_scenario`).
+//
+// À regarder : le joueur ne bouge pas ; `follower` se rapproche régulièrement de lui sur toute
+// la scène sans jamais l'attaquer (contrairement à un zombie ordinaire) ; les quatre autres
+// personnages de laboratoire restent immobiles autour.
+Scenario(
+    game: "testbed",
+    map: "testbed/arena.ldtk",
+    frames: 250,
+    players: [
+        (),
+    ],
+    expect: [
+        EntityCount(kind: Enemy, min: Some(5), max: Some(5), at_frame: 5),
+        EntityCount(kind: Enemy, min: Some(5), max: Some(5), at_frame: 250),
+        NoDamageBetween(handle: 0, from_frame: 0, to_frame: 250),
+    ],
+)

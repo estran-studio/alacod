@@ -1,11 +1,16 @@
 // Manifeste du jeu (T1.5, voir `docs/conventions.md` §3 et `crates/content/src/manifest.rs`).
-// Le testbed n'a besoin que du personnage joueur, des armes et d'une salle vide : pas de
-// zombies ni de vagues (voir `docs/taches.md` T1.5 et le rapport de la tâche — les copies
-// `ZombieShooter/Sprites/Zombie/**` et `waves/` ont été retirées de ce dossier).
+// Le testbed n'a besoin que du personnage joueur, des armes et de salles minimales : pas de
+// vagues (voir `docs/taches.md` T1.5 et le rapport de la tâche — les copies
+// `ZombieShooter/Sprites/Zombie/**` et `waves/` ont été retirées de ce dossier). T2.9 ajoute
+// les personnages de laboratoire (`characters/`, spawnés par l'entité LDtk `CharacterSpawn`,
+// pas par les vagues) et les salles du testbed (`arena`, `corridor`, `two_rooms_door`,
+// `window`) ; `testbed_empty.ldtk` est devenu `arena.ldtk` (même contenu, quatre
+// `PlayerSpawn`).
 (
     name: "testbed",
     content_folders: [
         (path: "ZombieShooter/Sprites/Character/player_config.ron", kind: "Character"),
+        (path: "characters", kind: "Character"),
         (path: "ZombieShooter/Sprites/Character/weapons.ron", kind: "Weapon"),
         (path: "weapons/melee/melee_weapons.ron", kind: "MeleeWeapon"),
         (path: "testbed", kind: "Map"),
@@ -13,7 +18,7 @@
         (path: "camera.ron", kind: "Camera"),
     ],
     entry: (
-        start_map: "testbed/testbed_empty.ldtk",
+        start_map: "testbed/arena.ldtk",
         default_seed: 123456,
     ),
 )

@@ -53,6 +53,17 @@ pub trait RollbackTraceApp {
     where
         C: Component<Mutability = Mutable> + Clone + std::fmt::Debug + Send + Sync + 'static;
 
+    /// Enregistre un composant en rollback avec clone et trace, **sans** l'ajouter au
+    /// checksum GGRS. Réservé à un composant nouveau dont aucune entité existante ne doit
+    /// changer le checksum comparé par le synctest/desync (T2.9 : `HitCount`, posé
+    /// uniquement sur du contenu nouveau — même simplement *enregistrer* un type au
+    /// checksum GGRS déplace le checksum agrégé de toutes les entités existantes, y compris
+    /// quand aucune n'en porte). Mêmes garanties de rollback qu'avec checksum : seule la
+    /// comparaison entre clients change.
+    fn rollback_and_trace_no_checksum<C>(&mut self) -> &mut Self
+    where
+        C: Component<Mutability = Mutable> + Clone + std::fmt::Debug + Send + Sync + 'static;
+
     /// Enregistre une ressource en rollback avec clone, checksum et trace.
     fn rollback_and_trace_resource<R>(&mut self) -> &mut Self
     where
@@ -113,6 +124,14 @@ impl RollbackTraceApp for App {
         register_traced_component::<C>(self);
         self.rollback_component_with_clone::<C>()
             .checksum_component(hash_debug::<C>)
+    }
+
+    fn rollback_and_trace_no_checksum<C>(&mut self) -> &mut Self
+    where
+        C: Component<Mutability = Mutable> + Clone + std::fmt::Debug + Send + Sync + 'static,
+    {
+        register_traced_component::<C>(self);
+        self.rollback_component_with_clone::<C>()
     }
 
     fn rollback_and_trace_resource<R>(&mut self) -> &mut Self

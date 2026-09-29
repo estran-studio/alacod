@@ -1,0 +1,64 @@
+// Personnage de laboratoire T2.9 (testbed), en plus des cinq demandés par la tâche : un
+// ennemi capable de casser une fenêtre pour atteindre le joueur (`ai.can_break: [Window]`,
+// `ai.attack_through: [Window]`, `ai.path_through_breakables: true`, `ai.attack_range` non
+// nul — contrairement à `follower`, dont `attack_range: "0"` l'empêche justement de casser
+// quoi que ce soit, voir `character::enemy::ai::behavior::enemy_target_selection`). Utilisé
+// par `testbed_window` (une fenêtre, un `breacher` derrière, doit la casser).
+//
+// Décision (rapport de tâche T2.9) : l'entité LDtk `ZombieSpawn` existante (spawn par vagues,
+// `enemy_types` par défaut = "zombie_full") est écartée pour ce scénario : "zombie_full" n'a
+// pas de sprites dans `games/testbed` (retirés en T1.5) et surtout `enemy_spawn_from_spawners_system`
+// ne tourne jamais en scénario (`WaveModeEnabled(true)` y est toujours forcé, voir
+// `crates/scenario/src/runner.rs`) — un `ZombieSpawn` y resterait inerte. `breacher` est donc
+// placé par une `CharacterSpawn` (T2.9), comme les cinq autres personnages de laboratoire.
+// N'a pas de champ `team` : ni sur cette config, ni sur l'entité `CharacterSpawn` qui le
+// place dans `window.ldtk` — retombe sur `Team::Enemies` par défaut.
+(
+    movement: (
+        acceleration: "120.0",
+        max_speed: "70.0",
+        friction: "10.0",
+        sprint_multiplier: "1.0",
+        sprint_acceleration_per_frame: "0.0",
+        sprint_deceleration_per_frame: "0.0",
+
+        dash_distance: "0.0",
+        dash_duration_frames: 0,
+        dash_cooldown_frames: 0,
+    ),
+
+    asset_name_ref: "breacher",
+
+    collider: (
+        shape: Rectangle(
+            width: "20.",
+            height: "20.",
+        ),
+        offset: ( x: "0.0", y: "-6.0", z: "0.0" )
+    ),
+
+    scale: "1.0",
+
+    base_health: (
+        max: "80.0",
+    ),
+
+    starting_skin: "1",
+    skins: {
+        "1": (layers: {}),
+    },
+
+    ai: Some((
+        movement_type: None,
+        aggro_range: Some("600.0"),
+        attack_range: Some("40.0"),
+        attack_cooldown_frames: Some(30),
+        can_break: Some([Window]),
+        attack_through: Some([Window]),
+        ignores: None,
+        path_through_breakables: Some(true),
+        flee_threshold: None,
+        attack_damage: Some("5.0"),
+        stationary: None,
+    )),
+)

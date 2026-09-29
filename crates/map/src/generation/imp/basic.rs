@@ -5,8 +5,8 @@ use crate::{
     generation::{
         context::{AvailableLevel, LevelType, MapGenerationContext, MapGenerationData},
         entity::{
-            door::DoorConfig, enemy_spawn::EnemySpawnConfig, location::EntityLocation,
-            window::WindowConfig,
+            character_spawn::CharacterSpawnConfig, door::DoorConfig, enemy_spawn::EnemySpawnConfig,
+            location::EntityLocation, window::WindowConfig,
         },
         position::Position,
         room::{ConnectionTo, RoomConnection},
@@ -531,6 +531,32 @@ impl IMapGeneration for BasicMapGeneration {
                         )
                     })
                     .collect::<Vec<(EntityLocation, EnemySpawnConfig)>>()
+            })
+            .collect()
+    }
+
+    fn get_character_spawns(
+        &mut self,
+        _rng: &mut RollbackRng,
+    ) -> Vec<(EntityLocation, CharacterSpawnConfig)> {
+        self.map
+            .rooms
+            .iter()
+            .flat_map(|room| {
+                room.entity_locations
+                    .character_spawns
+                    .iter()
+                    .map(|(location, config)| {
+                        (
+                            EntityLocation {
+                                position: location.position,
+                                size: location.size,
+                                level_iid: room.level_iid.clone(),
+                            },
+                            config.clone(),
+                        )
+                    })
+                    .collect::<Vec<(EntityLocation, CharacterSpawnConfig)>>()
             })
             .collect()
     }

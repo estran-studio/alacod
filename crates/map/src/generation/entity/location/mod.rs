@@ -1,3 +1,4 @@
+use crate::generation::entity::character_spawn::CharacterSpawnConfig;
 use crate::generation::position::Position;
 
 #[derive(Debug, Clone)]
@@ -16,4 +17,8 @@ pub struct EntityLocations {
     pub crates: Vec<EntityLocation>,
     pub weapons: Vec<EntityLocation>,
     pub windows: Vec<EntityLocation>,
+    /// T2.9 (testbed) : `character`/`team` sont des valeurs d'auteur (voir
+    /// `CharacterSpawnConfig`), portées avec leur position dès l'extraction (contrairement à
+    /// `doors`, dont la config est recalculée plus tard à partir de la profondeur de la salle).
+    pub character_spawns: Vec<(EntityLocation, CharacterSpawnConfig)>,
 }

@@ -39,7 +39,7 @@ mod tests {
     fn get_context() -> GeneratedMap {
         let seed = 1;
         let data: LdtkJson =
-            load_ldtk_json_file(get_crate_root_path!("../../assets/exemples/test_map.ldtk"))
+            load_ldtk_json_file(get_crate_root_path!("../../games/zombies/assets/exemples/test_map.ldtk"))
                 .expect("Failed to deserialize JSON");
 
         let config = MapGenerationConfig {

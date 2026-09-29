@@ -22,6 +22,7 @@ Référence pour ceux qui créent du contenu (cartes LDtk, sprites RON) et ceux 
 - `WindowHorizontal`, `WindowVertical` (16×32 ou 32×16 px) : vitres cassables. Aucun champ en éditeur. Santé fixée à 3 dans le code (`crates/map/src/game/entity/map/window.rs`). Les fenêtres intactes bloquent les ennemis (collision, mais permettent le tir à travers) ; cassées, elles bloquent les joueurs seulement (perméables aux ennemis). Réparation par interaction. Lus par `crates/map_ldtk/src/game/entity/window.rs`.
 - `PlayerSpawn` (16×16 px) : points de départ des joueurs. Champ obligatoire : `index` (0, 1, 2, 3) = handle GGRS du joueur. Seul le niveau de départ a besoin de points de départ. Lus par `crates/map_ldtk/src/game/entity/player_spawn.rs`.
 - `ZombieSpawn` (16×16 px) : emplacements de spawn des ennemis. Aucun champ. Le mode vagues (`WaveModeEnabled` aujourd'hui, mode `Waves` du run en cible, F1) y fait apparaître les ennemis. Lus par `crates/map_ldtk/src/game/entity/enemy_spawn.rs`.
+- `CharacterSpawn` (16×16 px, T2.9, testbed) : fait apparaître, une fois au chargement de la map (pas par les vagues), un personnage précis du registre. Deux champs : `character` (chaîne, `CharacterId`, obligatoire) et `team` (chaîne optionnelle : `players`/`enemies`/`allies`/`neutral` ; absente ou vide → `CharacterConfig.team` du personnage, sinon `Enemies`). Lus par `crates/map_ldtk/src/game/entity/character_spawn.rs` ; spawné par `map_ldtk::game::local::spawn_characters_when_map_loaded` via `character::enemy::create::spawn_enemy`. Utilisé par `games/testbed/assets/testbed/*.ldtk` pour placer `dummy`/`target`/`follower`/`ally`/`civilian`/`breacher` (`games/testbed/assets/characters/*.ron`).
 - `CrateLocation` (16×16 px), `WeaponLocation` (16×16 px), `SodaLocation` (16×16 px) : **non lues actuellement** (`crates/map_ldtk/src/map_const.rs` les déclare, aucun bundle implémenté en entity/*.rs). Réservées pour T2.3 (achats et économie).
 
 **Champ de niveau** : le champ `spawn` (booléen) détermine le niveau de départ d'une run. Lus par `crates/map_ldtk/src/generation/from.rs` ligne 150 : si présent et `true`, le niveau est marqué `LevelType::Spawn`.
@@ -116,7 +117,7 @@ contenu typés, point d'entrée (carte de départ, graine par défaut). Exemple
         (path: "camera.ron", kind: "Camera"),
     ],
     entry: (
-        start_map: "testbed/testbed_empty.ldtk",
+        start_map: "testbed/arena.ldtk",
         default_seed: 123456,
     ),
 )
