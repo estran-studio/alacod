@@ -13,7 +13,7 @@ use super::navigation::NavProfile;
 use super::obstacle::ObstacleType;
 
 /// Generic monster state - replaces ZombieState
-#[derive(Component, Clone, Debug, PartialEq, Eq, Reflect, Serialize, Deserialize, Default)]
+#[derive(Component, Clone, Debug, Hash, PartialEq, Eq, Reflect, Serialize, Deserialize, Default)]
 pub enum MonsterState {
     /// Waiting or wandering randomly
     #[default]
@@ -41,7 +41,7 @@ pub enum MonsterState {
 }
 
 /// Target for attacks
-#[derive(Clone, Debug, PartialEq, Eq, Reflect, Serialize, Deserialize)]
+#[derive(Clone, Debug, Hash, PartialEq, Eq, Reflect, Serialize, Deserialize)]
 pub enum AttackTarget {
     /// Attacking a player
     Player { net_id: GgrsNetId },
@@ -52,7 +52,7 @@ pub enum AttackTarget {
 }
 
 /// Movement type for enemies
-#[derive(Clone, Copy, Debug, PartialEq, Eq, Default, Reflect, Serialize, Deserialize)]
+#[derive(Clone, Copy, Debug, Hash, PartialEq, Eq, Default, Reflect, Serialize, Deserialize)]
 pub enum MovementType {
     /// Standard ground movement
     #[default]
@@ -74,7 +74,7 @@ impl From<MovementType> for NavProfile {
 }
 
 /// AI configuration for an enemy - loaded from RON
-#[derive(Component, Clone, Debug, Serialize, Deserialize)]
+#[derive(Component, Clone, Debug, Hash, Serialize, Deserialize)]
 pub struct EnemyAiConfig {
     /// Movement type determines pathfinding behavior
     pub movement_type: MovementType,
@@ -293,7 +293,7 @@ impl From<&EnemyAiConfigRon> for EnemyAiConfig {
 }
 
 /// Current target information for an enemy
-#[derive(Component, Clone, Debug, Default, Serialize, Deserialize)]
+#[derive(Component, Clone, Debug, Hash, Default, Serialize, Deserialize)]
 pub struct EnemyTarget {
     /// The current target entity (if any)
     pub target: Option<GgrsNetId>,
@@ -304,7 +304,7 @@ pub struct EnemyTarget {
 }
 
 /// Type of target being pursued
-#[derive(Clone, Copy, Debug, PartialEq, Eq, Default, Reflect, Serialize, Deserialize)]
+#[derive(Clone, Copy, Debug, Hash, PartialEq, Eq, Default, Reflect, Serialize, Deserialize)]
 pub enum TargetType {
     #[default]
     None,

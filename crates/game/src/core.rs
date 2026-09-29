@@ -12,7 +12,7 @@ use bevy_fixed::{
     fixed_math::{self, sync_bevy_transforms_from_fixed},
     rng::RollbackRng,
 };
-use bevy_ggrs::{GgrsPlugin, GgrsSchedule, RollbackApp};
+use bevy_ggrs::{GgrsPlugin, GgrsSchedule};
 #[cfg(feature = "debug_ui")]
 use bevy_inspector_egui::{bevy_egui::EguiPlugin, quick::WorldInspectorPlugin};
 use serde::{Deserialize, Serialize};
@@ -127,10 +127,10 @@ impl Plugin for CoreSetupPlugin {
         use crate::rollback::RollbackTraceApp;
 
         app.rollback_and_trace_copy_resource::<RollbackRng>()
-            .rollback_resource_with_clone::<GgrsNetIdFactory>()
+            .rollback_and_trace_copy_resource::<GgrsNetIdFactory>()
             .rollback_and_trace_copy_resource::<FrameCount>()
-            .rollback_component_with_clone::<fixed_math::FixedTransform3D>()
-            .rollback_component_with_clone::<GgrsNetId>();
+            .rollback_and_trace::<fixed_math::FixedTransform3D>()
+            .rollback_and_trace::<GgrsNetId>();
 
         app.configure_sets(
             GgrsSchedule,

@@ -1,9 +1,10 @@
+use std::collections::BTreeMap;
 use std::time::Duration;
 
 use bevy::{platform::collections::HashMap, prelude::*, reflect::TypePath, sprite::Anchor};
 use bevy_common_assets::ron::RonAssetPlugin;
-use bevy_ggrs::prelude::*;
 use serde::{Deserialize, Serialize};
+use utils::rollback::RollbackTraceApp;
 
 // CONFIG
 
@@ -109,12 +110,14 @@ pub struct AnimatedLayer {}
 #[derive(Component)]
 pub struct ColoredLayer {}
 
-#[derive(Component, Clone)]
+#[derive(Component, Clone, Debug, Hash)]
 pub struct ActiveLayers {
-    pub layers: HashMap<String, String>,
+    // BTreeMap (pas HashMap) : ce composant est rollback, l'ordre d'itération doit être
+    // stable entre clients.
+    pub layers: BTreeMap<String, String>,
 }
 
-#[derive(Component, Reflect, Default, Clone, Debug, PartialEq, Eq)]
+#[derive(Component, Reflect, Default, Clone, Debug, Hash, PartialEq, Eq)]
 #[reflect(Component, PartialEq)] // Reflect needed for GGRS state hashing
 pub struct AnimationState(pub String);
 
@@ -131,7 +134,7 @@ struct AnimationTimer {
     frame_timer: Timer,
 }
 
-#[derive(Component, Reflect, Debug, Clone, Copy, PartialEq, Eq, Default, Serialize, Deserialize)]
+#[derive(Component, Reflect, Debug, Clone, Copy, Hash, PartialEq, Eq, Default, Serialize, Deserialize)]
 #[reflect(Component, PartialEq)]
 pub enum FacingDirection {
     #[default]
@@ -263,7 +266,7 @@ pub struct AnimationStateBundle {
 }
 
 impl AnimationStateBundle {
-    pub fn new(starting_layers: HashMap<String, String>) -> Self {
+    pub fn new(starting_layers: BTreeMap<String, String>) -> Self {
         Self {
             state: AnimationState("Idle".into()),
             active_layers: ActiveLayers {
@@ -530,9 +533,9 @@ impl Plugin for D2AnimationPlugin {
         app.add_plugins(RonAssetPlugin::<SpriteSheetConfig>::new(&["ron"]));
         app.add_plugins(RonAssetPlugin::<AnimationMapConfig>::new(&["ron"]));
 
-        app.rollback_component_with_reflect::<AnimationState>()
-            .rollback_component_with_reflect::<FacingDirection>()
-            .rollback_component_with_clone::<ActiveLayers>();
+        app.rollback_and_trace::<AnimationState>()
+            .rollback_and_trace::<FacingDirection>()
+            .rollback_and_trace::<ActiveLayers>();
 
         app.add_systems(
             Update,

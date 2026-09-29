@@ -10,7 +10,7 @@ use serde::{Deserialize, Serialize};
 // The rollback system uses Clone, which is sufficient.
 
 /// Current phase of the wave system
-#[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize, Default, Reflect)]
+#[derive(Debug, Clone, Copy, Hash, PartialEq, Eq, Serialize, Deserialize, Default, Reflect)]
 pub enum WavePhase {
     /// Initial state before first wave
     #[default]
@@ -28,7 +28,7 @@ pub enum WavePhase {
 /// Wave system state resource
 ///
 /// GGRS CRITICAL: Must be registered with `.rollback_resource_with_clone::<WaveState>()`
-#[derive(Resource, Debug, Clone, Serialize, Deserialize)]
+#[derive(Resource, Debug, Clone, Hash, Serialize, Deserialize)]
 pub struct WaveState {
     /// Current phase of the wave
     pub phase: WavePhase,

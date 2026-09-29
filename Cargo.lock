@@ -317,6 +317,7 @@ dependencies = [
  "bevy_fixed",
  "bevy_ggrs",
  "serde",
+ "utils",
 ]
 
 [[package]]

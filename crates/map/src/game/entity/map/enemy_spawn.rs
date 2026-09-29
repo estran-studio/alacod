@@ -1,7 +1,7 @@
 use bevy::prelude::*;
 use bevy_fixed::fixed_math;
 
-#[derive(Component, Clone)]
+#[derive(Component, Clone, Debug, Hash)]
 pub struct EnemySpawnerComponent {
     pub spawn_radius: fixed_math::Fixed,
     pub min_spawn_distance: fixed_math::Fixed,

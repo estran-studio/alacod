@@ -37,10 +37,11 @@ pub mod tracking;
 
 use bevy::prelude::*;
 use bevy_common_assets::ron::RonAssetPlugin;
-use bevy_ggrs::{GgrsSchedule, RollbackApp};
+use bevy_ggrs::GgrsSchedule;
 
 use crate::character::enemy::spawning::enemy_spawn_from_spawners_system;
 use crate::character::health::{rollback_apply_accumulated_damage, rollback_apply_death};
+use crate::rollback::RollbackTraceApp;
 use crate::system_set::RollbackSystemSet;
 
 pub use config::WaveConfig;
@@ -75,8 +76,8 @@ impl Plugin for WaveSystemPlugin {
         app.register_type::<WaveEnemy>();
 
         // Rollback registration
-        app.rollback_resource_with_clone::<WaveState>();
-        app.rollback_component_with_clone::<WaveEnemy>();
+        app.rollback_and_trace_resource::<WaveState>();
+        app.rollback_and_trace::<WaveEnemy>();
 
         // Wave state and spawning systems run in EnemySpawning set
         // Use ambiguous_with to mark intentional ambiguity with old spawner

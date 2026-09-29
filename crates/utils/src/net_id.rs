@@ -16,7 +16,7 @@ impl fmt::Display for GgrsNetId {
     }
 }
 
-#[derive(Resource, Debug, Clone, Copy, Default)]
+#[derive(Resource, Debug, Clone, Copy, Default, Hash)]
 pub struct GgrsNetIdFactory {
     counter: StableIdType,
 }

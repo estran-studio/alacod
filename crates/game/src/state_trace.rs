@@ -28,6 +28,7 @@ use crate::{
         movement::Velocity,
     },
     frame::increase_frame_system,
+    rollback::fnv1a,
     system_set::RollbackSystemSet,
     waves::WaveState,
 };
@@ -160,11 +161,4 @@ fn write_trace_at_exit_frame(
     info!("trace d'état écrite dans {:?}", file.path);
     file.written = true;
     exit.write(AppExit::Success);
-}
-
-/// Hash FNV-1a 64 bits : stable entre les runs et les machines.
-pub fn fnv1a(bytes: &[u8]) -> u64 {
-    bytes.iter().fold(0xcbf2_9ce4_8422_2325, |hash, byte| {
-        (hash ^ u64::from(*byte)).wrapping_mul(0x0000_0100_0000_01b3)
-    })
 }

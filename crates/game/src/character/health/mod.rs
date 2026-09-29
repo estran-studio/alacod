@@ -9,7 +9,7 @@ use serde::{Deserialize, Serialize};
 use std::fmt;
 use utils::{frame::FrameCount, net_id::GgrsNetId, order_iter, order_mut_iter};
 
-#[derive(Component, Reflect, Debug, Clone, Serialize, Deserialize)]
+#[derive(Component, Reflect, Debug, Clone, Hash, Serialize, Deserialize)]
 pub enum HitBy {
     Entity(GgrsNetId),
     Player(PlayerHandle),
@@ -31,19 +31,19 @@ pub struct Health {
     pub invulnerable_until_frame: Option<u32>, // Optional invulnerability window
 }
 
-#[derive(Component, Clone, Debug, Serialize, Default, Deserialize)]
+#[derive(Component, Clone, Debug, Hash, Serialize, Default, Deserialize)]
 pub struct HealthRegen {
     pub last_damage_frame: u32,
     pub regen_rate: fixed_math::Fixed,
     pub regen_delay_frames: u32,
 }
 
-#[derive(Component, Clone, Debug, Serialize, Deserialize, Default)]
+#[derive(Component, Clone, Debug, Hash, Serialize, Deserialize, Default)]
 pub struct Death {
     pub last_hit_by: Option<Vec<HitBy>>,
 }
 
-#[derive(Component, Clone, Serialize, Deserialize, Default)]
+#[derive(Component, Clone, Debug, Hash, Serialize, Deserialize, Default)]
 pub struct DamageAccumulator {
     pub total_damage: fixed_math::Fixed,
     pub hit_count: u32,

@@ -116,7 +116,7 @@ impl NavProfile {
 
 /// A single flow field for a specific navigation profile
 /// Uses BTreeMap for deterministic iteration (GGRS rollback compatibility)
-#[derive(Clone, Debug, Default)]
+#[derive(Clone, Debug, Default, Hash)]
 pub struct FlowField {
     /// For each cell, the next cell to move to (toward target)
     pub directions: BTreeMap<GridPos, GridPos>,
@@ -268,7 +268,7 @@ impl AgentBody {
 }
 
 /// Level grid information for coordinate conversion
-#[derive(Clone, Default, Debug)]
+#[derive(Clone, Default, Debug, Hash)]
 pub struct LevelGridInfo {
     pub offset_x: i32,
     pub offset_y: i32,
@@ -278,7 +278,7 @@ pub struct LevelGridInfo {
 
 /// Cache of flow fields for different navigation profiles
 /// Uses BTreeMap/BTreeSet for deterministic iteration (GGRS rollback compatibility)
-#[derive(Resource, Default, Clone)]
+#[derive(Resource, Default, Clone, Debug, Hash)]
 pub struct FlowFieldCache {
     /// Target position (player) at last calculation
     pub target_pos: GridPos,

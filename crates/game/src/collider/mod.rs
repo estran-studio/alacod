@@ -2,7 +2,7 @@ use bevy::color::palettes::css::YELLOW;
 use bevy::prelude::*;
 use bevy_fixed::fixed_math;
 use bevy_ggrs::Rollback;
-use bevy_ggrs::RollbackApp;
+use crate::rollback::RollbackTraceApp;
 
 #[cfg(feature = "lighting")]
 use bevy_light_2d::light::PointLight2d;
@@ -12,7 +12,7 @@ use utils::net_id::GgrsNetId;
 
 pub mod debug;
 
-#[derive(Clone, Debug, Serialize, Deserialize)]
+#[derive(Clone, Debug, Hash, Serialize, Deserialize)]
 pub enum ColliderShape {
     Circle {
         radius: fixed_math::Fixed,
@@ -38,19 +38,19 @@ impl From<&ColliderConfig> for Collider {
     }
 }
 
-#[derive(Component, Clone, Debug, Serialize, Deserialize)]
+#[derive(Component, Clone, Debug, Hash, Serialize, Deserialize)]
 pub struct Collider {
     pub shape: ColliderShape,
     pub offset: fixed_math::FixedVec3, // Offset from entity transform
 }
 
-#[derive(Component, Clone)]
+#[derive(Component, Clone, Debug, Hash)]
 pub struct Wall;
 
-#[derive(Component, Clone)]
+#[derive(Component, Clone, Debug, Hash)]
 pub struct Window;
 
-#[derive(Component, Clone, Serialize, Deserialize)]
+#[derive(Component, Clone, Debug, Hash, Serialize, Deserialize)]
 pub struct CollisionLayer(pub usize);
 
 #[derive(Resource)]
@@ -322,9 +322,9 @@ impl Plugin for BaseColliderGamePlugin {
         app.init_resource::<CollisionSettings>();
 
 
-        app.rollback_component_with_clone::<Collider>()
-            .rollback_component_with_clone::<Wall>()
-            .rollback_component_with_clone::<Window>()
-            .rollback_component_with_clone::<CollisionLayer>();
+        app.rollback_and_trace::<Collider>()
+            .rollback_and_trace::<Wall>()
+            .rollback_and_trace::<Window>()
+            .rollback_and_trace::<CollisionLayer>();
     }
 }

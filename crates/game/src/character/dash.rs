@@ -1,7 +1,7 @@
 use bevy::prelude::*;
 use bevy_fixed::fixed_math;
 
-#[derive(Component, Default, Clone)]
+#[derive(Component, Default, Clone, Debug, Hash)]
 pub struct DashState {
     pub is_dashing: bool,
     pub dash_direction: fixed_math::FixedVec2,

@@ -19,7 +19,7 @@ use crate::{
 use utils::frame::FrameCount;
 
 // MELEE ATTACK PATTERN
-#[derive(Debug, Clone, Copy, Serialize, Deserialize, PartialEq)]
+#[derive(Debug, Clone, Copy, Hash, Serialize, Deserialize, PartialEq)]
 pub enum MeleeAttackPattern {
     // Single quick strike
     SingleStrike,
@@ -36,7 +36,7 @@ pub enum MeleeAttackPattern {
 }
 
 // MELEE WEAPON CONFIG
-#[derive(Debug, Clone, Serialize, Deserialize, PartialEq)]
+#[derive(Debug, Clone, Hash, Serialize, Deserialize, PartialEq)]
 pub struct MeleeWeaponConfig {
     pub name: String,
     pub damage: fixed_math::Fixed,
@@ -49,7 +49,7 @@ pub struct MeleeWeaponConfig {
 }
 
 // MELEE WEAPON SPRITE CONFIG
-#[derive(Debug, Clone, Serialize, Deserialize, PartialEq)]
+#[derive(Debug, Clone, Hash, Serialize, Deserialize, PartialEq)]
 pub struct MeleeWeaponSpriteConfig {
     pub name: String,
     pub index: usize,
@@ -64,7 +64,7 @@ pub struct MeleeWeaponAsset {
 }
 
 // MELEE WEAPON COMPONENT
-#[derive(Component, Debug, Clone)]
+#[derive(Component, Debug, Clone, Hash)]
 pub struct MeleeWeapon {
     pub config: MeleeWeaponConfig,
     pub sprite_config: MeleeWeaponSpriteConfig,
@@ -80,7 +80,7 @@ impl From<MeleeWeaponAsset> for MeleeWeapon {
 }
 
 // MELEE ATTACK STATE
-#[derive(Component, Reflect, Default, Clone, Debug, Serialize, Deserialize)]
+#[derive(Component, Reflect, Default, Clone, Debug, Hash, Serialize, Deserialize)]
 pub struct MeleeAttackState {
     pub is_attacking: bool,
     pub attack_started_frame: Option<u32>,
@@ -133,6 +133,20 @@ pub struct MeleeHitbox {
     pub duration_frames: u32,
     /// Direction de l'attaquant au moment du coup (orientation de l'effet visuel)
     pub facing: FacingDirection,
+}
+
+/// Hash manuel : exclut `owner_entity` (`Entity`, différent d'un client à l'autre) au
+/// profit de `owner_net_id`, déjà présent sur le composant.
+impl std::hash::Hash for MeleeHitbox {
+    fn hash<H: std::hash::Hasher>(&self, state: &mut H) {
+        self.damage.hash(state);
+        self.knockback_force.hash(state);
+        self.owner_net_id.hash(state);
+        self.owner_handle.hash(state);
+        self.created_frame.hash(state);
+        self.duration_frames.hash(state);
+        self.facing.hash(state);
+    }
 }
 
 // SLASH VISUAL EFFECT
