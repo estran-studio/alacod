@@ -1,0 +1,15 @@
+[package]
+name = "stats"
+description = "Résolution des stats et modificateurs (T1.2, chantier B2) : branchement Bevy/rollback de sim_core::stats et sim_core::modifier"
+version = "0.1.0"
+edition = "2021"
+
+[dependencies]
+bevy = { version = "0.19.1", default-features = false }
+bevy_ggrs = "0.22.0"
+bevy_fixed = { path = "../bevy_fixed" }
+sim_core = { path = "../sim_core" }
+utils = { path = "../utils" }
+
+[dev-dependencies]
+ron = "0.12"
