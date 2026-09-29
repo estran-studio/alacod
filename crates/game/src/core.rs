@@ -265,6 +265,7 @@ impl Plugin for PresentationPlugin {
         app.add_plugins(DebugColliderGamePlugin);
         app.add_plugins(crate::character::CharacterPresentationPlugin);
         app.add_plugins(crate::weapons::WeaponPresentationPlugin);
+        app.add_plugins(crate::ui::hud::HudPlugin);
         #[cfg(feature = "debug_ui")]
         app.add_plugins(EguiPlugin::default());
 

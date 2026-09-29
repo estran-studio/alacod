@@ -338,6 +338,59 @@ cargo run -p scenario --features render --bin play_scenario -- tests/scenarios/t
 ```
 L'override s'applique avant le réglage `online_follow`.
 
+### HUD (Affichage tête haute)
+
+Le HUD est décrit dans un fichier RON (`assets/ui/hud.ron`) et construit automatiquement en UI Bevy.
+Il est lié aux données de la simulation par **noms de sources**, sans dépendre du code ou de la simulation.
+Absent en headless (la PresentationPlugin n'est chargée que si !headless).
+
+#### Format du fichier de configuration
+
+```ron
+(
+    widgets: [
+        (
+            kind: Bar(source: "health"),
+            anchor: BottomLeft,
+            offset: (16.0, 16.0),
+            size: Some((200.0, 12.0)),
+            color: Some("#c0392b"),
+            font_size: None,
+        ),
+        (
+            kind: Text(source: "wave", prefix: Some("Vague ")),
+            anchor: TopCenter,
+            offset: (0.0, 12.0),
+            size: None,
+            color: Some("#ffffff"),
+            font_size: Some(20.0),
+        ),
+        // Plus de widgets...
+    ],
+)
+```
+
+#### Ancrages disponibles
+
+`TopLeft`, `TopCenter`, `TopRight`, `BottomLeft`, `BottomCenter`, `BottomRight`. Les offsets (x, y)
+sont en pixels. Pour les ancrages centrés (`TopCenter`, `BottomCenter`), l'offset x n'est pas utilisé.
+
+#### Sources de données
+
+Chaque widget est lié à une source. Une source inconnue provoque un `warn!` au chargement, le widget reste vide.
+
+- `health` : ratio et texte du joueur local (`current/max`). Les barres utilisent la ratio pour la largeur et interpolent rouge→vert. Les textes affichent la valeur.
+- `wave` : numéro de la vague actuelle (WaveState::current_wave).
+- `ammo` : munitions du mode actif de l'arme active (`mag_ammo | mag_quantity`).
+- `weapon` : nom de l'arme active.
+- `enemies` : nombre d'entités `Enemy` vivantes.
+- `players` : nombre d'entités `Player` vivantes.
+
+#### Rechargement à chaud
+
+Quand le fichier `assets/ui/hud.ron` est modifié (feature `native`, file_watcher bevy activé),
+l'arbre UI est automatiquement reconstruit. Utile pour l'itération en développement.
+
 ### Numérotation des entités (`GgrsNetId`)
 Les ids doivent être attribués dans un ordre indépendant du timing et de l'allocation des `Entity` :
 trier par une clé de contenu (type, position, level iid) avant `id_factory.next`, et ordonner tout
