@@ -8,7 +8,7 @@
 
 use bevy::prelude::SystemSet;
 
-#[derive(SystemSet, Debug, Hash, PartialEq, Eq, Clone, Copy)]
+#[derive(SystemSet, Debug, Hash, PartialEq, Eq, Clone, Copy, PartialOrd, Ord)]
 pub enum RollbackSystemSet {
     /// Début de frame : nettoyage des `FrameEvents` de la frame précédente.
     FrameStart,
@@ -60,7 +60,7 @@ impl RollbackSystemSet {
 #[cfg(test)]
 mod tests {
     use super::*;
-    use std::collections::HashSet;
+    use std::collections::BTreeSet;
 
     /// Liste exhaustive indépendante de `ORDER`, dans l'ordre documenté par T0.2
     /// (`docs/taches.md`). Sert de référence aux trois tests ci-dessous.
@@ -84,7 +84,7 @@ mod tests {
 
     #[test]
     fn order_has_no_duplicate() {
-        let set: HashSet<_> = RollbackSystemSet::ORDER.iter().copied().collect();
+        let set: BTreeSet<_> = RollbackSystemSet::ORDER.iter().copied().collect();
         assert_eq!(
             set.len(),
             RollbackSystemSet::ORDER.len(),
@@ -94,8 +94,8 @@ mod tests {
 
     #[test]
     fn order_contains_every_variant() {
-        let order_set: HashSet<_> = RollbackSystemSet::ORDER.iter().copied().collect();
-        let all_set: HashSet<_> = ALL.iter().copied().collect();
+        let order_set: BTreeSet<_> = RollbackSystemSet::ORDER.iter().copied().collect();
+        let all_set: BTreeSet<_> = ALL.iter().copied().collect();
         assert_eq!(
             order_set, all_set,
             "ORDER doit contenir chaque variante de RollbackSystemSet exactement une fois"
