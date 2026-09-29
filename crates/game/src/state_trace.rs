@@ -46,12 +46,94 @@ pub struct StateTraceRecorder {
     /// Ajoute l'état détaillé de chaque ressource et entité tracée sous la ligne de hash.
     pub full: bool,
     frames: BTreeMap<u32, String>,
+    /// Frames dont la resimulation (synctest) a produit un autre checksum que le premier
+    /// passage : les trois premières, avec les deux versions de la ligne.
+    pub divergences: Vec<Divergence>,
+    /// Les dernières lignes enregistrées, dans l'ordre d'enregistrement (frame, ligne) : en
+    /// synctest, une frame y figure plusieurs fois (premier passage, resimulations). Sert au
+    /// diagnostic d'une divergence signalée par GGRS, quelle que soit la numérotation.
+    pub history: std::collections::VecDeque<(u32, String)>,
+}
+
+/// Nombre de lignes gardées dans `history` (une frame = jusqu'à trois versions).
+const HISTORY_LEN: usize = 400;
+
+/// Une frame enregistrée deux fois (passage initial, puis resimulation après rollback)
+/// avec deux états différents : c'est un bug de déterminisme.
+#[derive(Debug, Clone)]
+pub struct Divergence {
+    pub frame: u32,
+    pub before: String,
+    pub after: String,
 }
 
 impl StateTraceRecorder {
     /// Lignes des frames `0..end`, dans l'ordre.
     pub fn lines_until(&self, end: u32) -> impl Iterator<Item = &str> {
         self.frames.range(..end).map(|(_, line)| line.as_str())
+    }
+
+    /// Diagnostic pour les frames que GGRS déclare divergentes (numérotation GGRS) : pour
+    /// chaque frame `f` et `f - 1`, toutes les versions enregistrées ; quand deux versions
+    /// consécutives ont un checksum différent, les lignes d'état (`full`) présentes d'un
+    /// seul côté, pour nommer le composant qui diverge.
+    pub fn report_for_frames(&self, frames: &[i32]) -> String {
+        let mut out = String::new();
+        let mut keys: Vec<u32> = frames
+            .iter()
+            .flat_map(|f| [(*f - 2).max(0) as u32, (*f - 1).max(0) as u32, (*f).max(0) as u32])
+            .collect();
+        keys.sort_unstable();
+        keys.dedup();
+        for key in keys {
+            let versions: Vec<&String> = self.history.iter().filter(|(f, _)| *f == key).map(|(_, l)| l).collect();
+            let _ = writeln!(out, "  frame {key} : {} version(s) enregistrée(s)", versions.len());
+            for pair in versions.windows(2) {
+                let (a, b) = (pair[0], pair[1]);
+                let (ha, hb) = (a.lines().next().unwrap_or(""), b.lines().next().unwrap_or(""));
+                if ha == hb {
+                    continue;
+                }
+                let _ = writeln!(out, "    checksums : {ha}  →  {hb}");
+                if self.full {
+                    let sa: std::collections::BTreeSet<&str> = a.lines().skip(1).collect();
+                    let sb: std::collections::BTreeSet<&str> = b.lines().skip(1).collect();
+                    for l in a.lines().skip(1).filter(|l| !sb.contains(l)).take(10) {
+                        let _ = writeln!(out, "    avant : {l}");
+                    }
+                    for l in b.lines().skip(1).filter(|l| !sa.contains(l)).take(10) {
+                        let _ = writeln!(out, "    après : {l}");
+                    }
+                } else {
+                    out.push_str("    (ALACOD_DIAG=1 pour le détail par composant)\n");
+                }
+            }
+        }
+        out
+    }
+
+    /// Décrit la première divergence : la frame, les deux checksums et, si la trace est
+    /// détaillée (`full`), les lignes d'état qui ne sont que d'un côté (composant par
+    /// composant), pour nommer ce qui diverge.
+    pub fn first_divergence_report(&self) -> Option<String> {
+        let d = self.divergences.first()?;
+        let mut out = format!(
+            "frame {} rejouée différemment après rollback : {} puis {}",
+            d.frame,
+            d.before.lines().next().unwrap_or(""),
+            d.after.lines().next().unwrap_or("")
+        );
+        if self.full {
+            let before: std::collections::BTreeSet<&str> = d.before.lines().skip(1).collect();
+            let after: std::collections::BTreeSet<&str> = d.after.lines().skip(1).collect();
+            let only_before: Vec<&str> = d.before.lines().skip(1).filter(|l| !after.contains(l)).take(12).collect();
+            let only_after: Vec<&str> = d.after.lines().skip(1).filter(|l| !before.contains(l)).take(12).collect();
+            let _ = write!(out, "\n  passage initial :\n    {}\n  resimulation :\n    {}",
+                only_before.join("\n    "), only_after.join("\n    "));
+        } else {
+            out.push_str(" (ALACOD_DIAG=1 pour le détail par composant)");
+        }
+        Some(out)
     }
 }
 
@@ -65,6 +147,8 @@ impl Plugin for StateTraceRecorderPlugin {
         app.insert_resource(StateTraceRecorder {
             full: self.full,
             frames: BTreeMap::new(),
+            divergences: Vec::new(),
+            history: std::collections::VecDeque::new(),
         })
         .add_systems(SaveWorld, record_state.in_set(SaveWorldSystems::Snapshot));
     }
@@ -142,7 +226,10 @@ fn record_state(world: &mut World) {
     let checksum = world.resource::<Checksum>().0;
     let full = world.resource::<StateTraceRecorder>().full;
 
-    let mut line = format!("{frame} {checksum:032x} {}", entities.len());
+    // La ligne de trace (comparée aux références) ne porte que le hash ; le détail va dans
+    // `history`, pour les diagnostics.
+    let hash_line = format!("{frame} {checksum:032x} {}", entities.len());
+    let mut line = hash_line.clone();
     if full {
         line.push('\n');
         // Emprunt partagé pour toute la phase de lecture : tracers + monde restent tous
@@ -165,7 +252,18 @@ fn record_state(world: &mut World) {
         }
     }
 
-    world.resource_mut::<StateTraceRecorder>().frames.insert(frame, line);
+    let mut recorder = world.resource_mut::<StateTraceRecorder>();
+    if recorder.history.len() >= HISTORY_LEN {
+        recorder.history.pop_front();
+    }
+    recorder.history.push_back((frame, line.clone()));
+    if let Some(previous) = recorder.frames.get(&frame) {
+        if previous != &hash_line && recorder.divergences.len() < 3 {
+            let before = previous.clone();
+            recorder.divergences.push(Divergence { frame, before, after: line });
+        }
+    }
+    recorder.frames.insert(frame, hash_line);
 }
 
 fn write_trace_at_exit_frame(
