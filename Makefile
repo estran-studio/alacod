@@ -1,6 +1,11 @@
+# Les recettes utilisent des tableaux bash (test_multiplayer) : pas de /bin/sh (dash sur Ubuntu).
+SHELL := /bin/bash
+
 PROFILE ?= dev
 
 LOBBY ?= "test"
+# Joueurs d'une session matchbox : le local puis un `remote` par pair (voir test_multiplayer).
+PLAYERS ?= localhost remote
 NUMBER_PLAYER ?= 2
 NAME ?= "Player"
 TIMEOUT ?= 10
@@ -168,13 +173,13 @@ character_tester:
 	APP_VERSION=$(VERSION) cargo run --example character_tester $(ARGS) --features native -- $(GARGS) --local-port 7000 --players localhost
 
 character_tester_matchbox:
-	APP_VERSION=$(VERSION) cargo run --example character_tester $(ARGS) --features native -- --number-player $(NUMBER_PLAYER) --matchbox $(MATCHBOX_URL) --lobby $(LOBBY) --players localhost remote --cid $(CID) --name $(NAME)
+	APP_VERSION=$(VERSION) cargo run --example character_tester $(ARGS) --features native -- --number-player $(NUMBER_PLAYER) --matchbox $(MATCHBOX_URL) --lobby $(LOBBY) --players $(PLAYERS) --cid $(CID) --name $(NAME)
 
 ldtk_map_explorer:
 	APP_VERSION=$(VERSION) cargo run --example map_explorer $(ARGS) --features native -- $(GARGS) --local-port 7000 --players localhost
 
 ldtk_map_explorer_matchbox:
-	APP_VERSION=$(VERSION) cargo run --example map_explorer $(ARGS) --features native -- --number-player $(NUMBER_PLAYER) --matchbox $(MATCHBOX_URL) --lobby $(LOBBY) --players localhost remote --cid $(CID) --name $(NAME)
+	APP_VERSION=$(VERSION) cargo run --example map_explorer $(ARGS) --features native -- --number-player $(NUMBER_PLAYER) --matchbox $(MATCHBOX_URL) --lobby $(LOBBY) --players $(PLAYERS) --cid $(CID) --name $(NAME)
 
 host_website:
 	cd website && APP_VERSION=$(VERSION) npm run dev
@@ -255,12 +260,12 @@ test_multiplayer:
 	PIDS=""; \
 	CIDS=""; \
 	PLAYER_NAMES=("alice" "bob" "charlie" "diana" "emma" "frank"); \
-	echo "Starting multiplayer test with $(N) players..."; \
+	echo "Starting multiplayer test with $$N players (same lobby: $(LOBBY))..."; \
 	for ((i=1; i<=N; i++)); do \
 		PLAYER_NAME=$${PLAYER_NAMES[$$((i-1))]}; \
-		LOBBY_ID="$$i"; \
-		echo "Starting player $$i ($$PLAYER_NAME)..."; \
-		make $(TARGET)_matchbox CID=$$PLAYER_NAME NAME="$$PLAYER_NAME" LOBBY="test_$$LOBBY_ID" NUMBER_PLAYER=$$N & \
+		REMOTES=""; for ((j=1; j<N; j++)); do REMOTES="$$REMOTES remote"; done; \
+		echo "Starting player $$i ($$PLAYER_NAME) in lobby $(LOBBY)..."; \
+		make $(TARGET)_matchbox CID=$$PLAYER_NAME NAME="$$PLAYER_NAME" LOBBY=$(LOBBY) NUMBER_PLAYER=$$N PLAYERS="localhost$$REMOTES" & \
 		PID=$$!; \
 		PIDS="$$PIDS $$PID"; \
 		CIDS="$$CIDS $$PLAYER_NAME"; \

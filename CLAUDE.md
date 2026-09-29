@@ -293,18 +293,12 @@ Scenario(
 
 Deux scénarios de validation à quatre joueurs locaux en synctest (session multi-joueur sur la même machine) :
 
-- **`four_players_idle.ron`** (600 frames, fps=25.2) : quatre joueurs immobiles. Valide :
-  - Les quatre joueurs sont présents et vivants au démarrage et à mi-parcours
-  - La vague démarre (Event "wave" by frame 800)
-  - Les ennemis ciblent le joueur le plus proche via le flow field
-  - Les métriques : 600 frames, ~137 entités max, 0 balles
+- **`four_players_idle.ron`** (600 frames) : quatre joueurs immobiles ; les quatre sont vivants aux
+  frames 60 et 300, les zombies vont chacun vers le joueur le plus proche par le chemin.
 
-- **`four_players_shooting.ron`** (300 frames, fps=25.5) : quatre joueurs tirent à la mitrailleuse, chacun dans une direction (haut, droite, bas, gauche). Valide :
-  - Les quatre joueurs tirent simultanément sans désynchronisation
-  - Chaque joueur consomme ses propres munitions au même rythme
-  - Les quatre chargeurs se remplissent au même moment (frame 285)
-  - Les balles des quatre joueurs s'arrêtent sur les murs de la salle
-  - Les métriques : 300 frames, ~151 entités max, 27 balles max
+- **`four_players_shooting.ron`** (300 frames) : quatre joueurs tirent chacun dans une direction ;
+  chacun consomme ses munitions au même rythme (`Ammo` à la frame 100), les quatre rechargent
+  ensemble (frame 285), et les balles restent dans la salle (`BulletsInside`).
 
 Rejouer avec `make play_scenario SCENARIO=<nom>` (avec rendu). Pour regénérer les traces après un changement intentionnel de gameplay : `BLESS=1 SCENARIO=<nom> make test_scenarios`.
 
@@ -325,10 +319,11 @@ Rejouer avec `make play_scenario SCENARIO=<nom>` (avec rendu). Pour regénérer 
 make test_multiplayer N=4
 ```
 
-La cible généralise le nombre de joueurs : `make test_multiplayer N=2` (défaut) lance 2 instances (alice et bob), `N=4` en lance 4 (alice, bob, charlie, diana), etc. Chaque instance :
-- Se connecte à une lobby distincte (`test_1`, `test_2`, etc.)
-- Spécifie `NUMBER_PLAYER=N` pour que le matchbox attende N connections
-- Attend `TIMEOUT` (défaut 10s) avant le lancement de la suivante (laisser le temps aux connexions)
+La cible généralise le nombre de joueurs : `make test_multiplayer N=2` (défaut) lance 2 instances (alice et bob), `N=4` en lance 4 (alice, bob, charlie, diana), etc. Toutes les instances :
+- rejoignent le **même** lobby (`LOBBY`, `test` par défaut) : c'est là que les pairs se trouvent ;
+- reçoivent `NUMBER_PLAYER=N` et `PLAYERS="localhost remote…"` (un `remote` par pair) ;
+- se lancent à `TIMEOUT` secondes d'intervalle (défaut 10 s), le temps des connexions.
+Les cibles `*_matchbox` ouvrent une fenêtre : ce test demande un affichage.
 
 Après que tous les clients terminent :
 - Les logs GGRS de chaque client sont filtrés et comparés à `diff_log`
