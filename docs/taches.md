@@ -528,7 +528,7 @@ région des chantiers puis la campagne.
 | Date | Tâche | Branche | Agent | État |
 |---|---|---|---|---|
 | 2026-09-28 | T0.1a (K0, première étape : extension `rollback_and_trace`, observateur `SyncTestMismatch`, `check_distance`, test du filet) | `m0-v3-determinisme` | Haiku | en cours |
-| 2026-09-28 | T0.4 (K6a, CI rapide sans conteneur, `make check`, `scripts/check-forbidden.sh`) | `m0-v5-ci-rapide` | Haiku | en cours |
+| 2026-09-28 | T0.4 (K6a, CI rapide sans conteneur, `make check`, `scripts/check-forbidden.sh`) | `m0-v5-ci-rapide` | Haiku | mergée (`3218f5d`) ; six occurrences interdites en avertissement (pathing.rs, state.rs, map_ldtk plugin.rs, un commentaire dans bevy_fixed) |
 | 2026-09-28 | T1.4 (A3, crate `content`, module `expr`) | `m0-v2-expressions` | Haiku | en cours |
 | 2026-09-28 | T1.10 (I3, caméra par joueur en ligne, `play_scenario --follow`) | `m0-v4-camera` | Haiku | en cours |
 
@@ -537,6 +537,11 @@ tâche avec le modèle le moins cher (Haiku d'abord, Sonnet si une tâche échou
 la branche (`make test_scenarios`, `cargo test`, lecture du diff), fusionne dans `main`
 (`scripts/task-merge.sh`, merge `--no-ff`) dans l'ordre de merge de la vague, et tient ce journal.
 Base de référence : `main` à `4e93269`, douze scénarios verts en 78 s.
+
+À faire à la frontière de la vague 1 (tâche de contrats, sériel) : `make format` ne vérifie rien
+(`cargo fmt --emit=files` réécrit les fichiers) et le code n'est pas formaté. Un commit dédié qui
+formate tout le workspace (traces identiques), puis `make format` devient `cargo fmt --all --check`
+et la CI échoue sur le style. Pas pendant une vague : ça toucherait tous les fichiers des branches ouvertes.
 
 ## 11. Voie V6 : assets et cartes (session à part)
 
