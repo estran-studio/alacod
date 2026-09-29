@@ -77,8 +77,12 @@ clean:
 
 
 format:
-	@echo "Running fmy..."
-	cargo fmt --all -- --emit=files
+	@echo "Vérification du formatage (cargo fmt --check)..."
+	cargo fmt --all -- --check
+
+# Formate le workspace (à lancer avant de commiter)
+fmt:
+	cargo fmt --all
 
 format_fix:
 	cargo fmt
