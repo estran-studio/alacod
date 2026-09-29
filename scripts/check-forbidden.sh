@@ -28,6 +28,7 @@ CRATES=(
     "crates/map/src"
     "crates/map_ldtk/src"
     "crates/bevy_fixed/src"
+    "crates/bots/src"
 )
 
 # Forbidden patterns

@@ -1,0 +1,22 @@
+// Deux bots fonceurs (T2.11, InputSource::Bot / BotProfile::Fonceur) : chacun reste immobile
+// pendant la période de grâce (aucun zombie), puis charge et tire dès qu'un zombie de la vague 1
+// apparaît. Fixture de régression pour la source d'inputs Bot, indépendante des scénarios
+// scriptés existants (`bot:`, pas `inputs:`).
+//
+// À regarder : les deux joueurs immobiles au départ (f0-f180, période de grâce), puis en
+// mouvement et tirant dès l'arrivée des premiers zombies (~f180-240).
+Scenario(
+    game: "zombies",
+    frames: 900,
+    players: [
+        (bot: fonceur),
+        (bot: fonceur),
+    ],
+    expect: [
+        PlayerAlive(handle: 0, at_frame: 300),
+        PlayerAlive(handle: 1, at_frame: 300),
+        WaveAtLeast(wave: 1, at_frame: 900),
+        // Observé : 4 zombies tués à f900 (les deux fonceurs chargent et tirent) ; marge sous 4.
+        KillsAtLeast(kills: 2, at_frame: 900),
+    ],
+)

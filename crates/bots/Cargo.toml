@@ -1,0 +1,22 @@
+[package]
+name = "bots"
+version = "0.1.0"
+edition = "2021"
+description = "Joueurs artificiels déterministes (T2.11) : profils de bot (decide()) et la source d'inputs InputSource::Bot (ReadInputs)"
+
+[dependencies]
+bevy = { version = "0.19.1", default-features = false }
+bevy_ggrs = "0.22.0"
+serde = { version = "1.0", features = ["derive"] }
+
+bevy_fixed = { path = "../bevy_fixed" }
+sim_core = { path = "../sim_core" }
+utils = { path = "../utils" }
+game = { path = "../game" }
+# La santé/position des fenêtres (WindowHealth) est définie dans `map`, pas ré-exportée par
+# `game` : dépendance directe nécessaire pour construire la BotView (bots dépend de game, pas
+# l'inverse ; map est déjà une dépendance de game, donc pas de nouvelle inversion de couche).
+map = { path = "../map" }
+
+[dev-dependencies]
+ron = "0.12"

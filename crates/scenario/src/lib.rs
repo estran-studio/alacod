@@ -13,4 +13,4 @@ pub mod runner;
 /// Format des scénarios (défini dans `game`, qui écrit aussi les enregistrements).
 pub use game::replay as format;
 pub use game::replay::Scenario;
-pub use runner::{run, run_with, Metrics, ScenarioOutcome};
+pub use runner::{run, run_with, run_with_options, Metrics, ScenarioOutcome, StopEarly};
