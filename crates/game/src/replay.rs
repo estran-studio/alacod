@@ -44,6 +44,41 @@ pub struct Scenario {
     /// tester leur épuisement en quelques secondes).
     #[serde(default, skip_serializing_if = "Vec::is_empty")]
     pub weapon_overrides: Vec<WeaponOverride>,
+    /// Invariants vérifiés à chaque frame par le runner ; tous actifs par défaut.
+    #[serde(default, skip_serializing_if = "Invariants::tous_actifs")]
+    pub invariants: Invariants,
+}
+
+/// Invariants de la simulation vérifiés par le runner à chaque frame (plan §9.4,
+/// `crates/scenario/src/invariants.rs`). Un scénario en désactive un ainsi :
+/// `invariants: (joueur_hors_mur: false)`.
+#[derive(Debug, Clone, Copy, Serialize, Deserialize)]
+pub struct Invariants {
+    /// Toute entité rollback avec une santé : `0 ≤ current ≤ max`.
+    #[serde(default = "vrai")]
+    pub sante_bornee: bool,
+    /// Deux entités rollback n'ont jamais le même `GgrsNetId`.
+    #[serde(default = "vrai")]
+    pub net_ids_uniques: bool,
+    /// Aucun joueur ne chevauche un collider de mur.
+    #[serde(default = "vrai")]
+    pub joueur_hors_mur: bool,
+}
+
+fn vrai() -> bool {
+    true
+}
+
+impl Default for Invariants {
+    fn default() -> Self {
+        Self { sante_bornee: true, net_ids_uniques: true, joueur_hors_mur: true }
+    }
+}
+
+impl Invariants {
+    pub fn tous_actifs(&self) -> bool {
+        self.sante_bornee && self.net_ids_uniques && self.joueur_hors_mur
+    }
 }
 
 /// Remplace des valeurs de chargeur d'une arme, pour tous ses modes ou un seul.
@@ -104,6 +139,19 @@ pub enum Button {
     ForceCrash,
 }
 
+/// Catégorie d'entités pour `EntityCount`.
+#[derive(Debug, Clone, Copy, Serialize, Deserialize)]
+pub enum EntityKind {
+    /// Joueurs vivants.
+    Player,
+    /// Ennemis vivants.
+    Enemy,
+    /// Balles en vol.
+    Bullet,
+    /// Toutes les entités marquées `Rollback`.
+    Rollback,
+}
+
 /// Vérification faite quand la simulation atteint `at_frame`.
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub enum Expectation {
@@ -131,6 +179,52 @@ pub enum Expectation {
     BulletsInside { x_min: f32, x_max: f32, y_min: f32, y_max: f32, at_frame: u32 },
     /// Position du joueur, à `tolerance` unités près sur chaque axe.
     PlayerPosition { handle: usize, x: f32, y: f32, tolerance: f32, at_frame: u32 },
+    /// Santé du joueur `handle` dans l'intervalle `[min, max]` (bornes inclusives, `None` = pas de borne).
+    /// Les `f32` sont convertis en `Fixed` pour la comparaison.
+    Health {
+        handle: usize,
+        #[serde(default, skip_serializing_if = "Option::is_none")]
+        min: Option<f32>,
+        #[serde(default, skip_serializing_if = "Option::is_none")]
+        max: Option<f32>,
+        at_frame: u32,
+    },
+    /// Santé de l'entité rollback `net_id` dans l'intervalle `[min, max]` (bornes inclusives, `None` = pas de borne).
+    /// Les `f32` sont convertis en `Fixed` pour la comparaison.
+    EntityHealth {
+        net_id: usize,
+        #[serde(default, skip_serializing_if = "Option::is_none")]
+        min: Option<f32>,
+        #[serde(default, skip_serializing_if = "Option::is_none")]
+        max: Option<f32>,
+        at_frame: u32,
+    },
+    /// La santé du joueur `handle` ne diminue à aucune frame entre `from_frame` et `to_frame` inclus.
+    /// C'est une attente **continue** : le runner relève la santé à chaque frame de l'intervalle.
+    /// Une baisse produit une failure qui dit la frame et les deux valeurs.
+    NoDamageBetween {
+        handle: usize,
+        from_frame: u32,
+        to_frame: u32,
+    },
+    /// Compte d'entités vivantes du type `kind` dans l'intervalle `[min, max]` (bornes inclusives, `None` = pas de borne).
+    EntityCount {
+        kind: EntityKind,
+        #[serde(default, skip_serializing_if = "Option::is_none")]
+        min: Option<u32>,
+        #[serde(default, skip_serializing_if = "Option::is_none")]
+        max: Option<u32>,
+        at_frame: u32,
+    },
+    /// Un `GameEvent` de ce `kind` (et dont le label contient la sous-chaîne, si donnée) est survenu
+    /// à une frame ≤ `by_frame`. Les `kind` possibles : "wave", "kill", "player", "hit", "reload",
+    /// "weapon", "move", "melee", "death", "window", "door".
+    Event {
+        kind: String,
+        #[serde(default, skip_serializing_if = "Option::is_none")]
+        label_contains: Option<String>,
+        by_frame: u32,
+    },
 }
 
 impl Expectation {
@@ -146,7 +240,12 @@ impl Expectation {
             | Self::DoorsOpenAtLeast { at_frame, .. }
             | Self::WindowHealth { at_frame, .. }
             | Self::BulletsInside { at_frame, .. }
-            | Self::PlayerPosition { at_frame, .. } => *at_frame,
+            | Self::PlayerPosition { at_frame, .. }
+            | Self::Health { at_frame, .. }
+            | Self::EntityHealth { at_frame, .. }
+            | Self::EntityCount { at_frame, .. }
+            | Self::Event { by_frame: at_frame, .. } => *at_frame,
+            Self::NoDamageBetween { to_frame, .. } => *to_frame,
         }
     }
 }

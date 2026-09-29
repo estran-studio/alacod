@@ -18,10 +18,13 @@ use map_ldtk::{
     plugins::LdtkRoguePlugin,
 };
 use crate::events::{GameEvent, GameEvents, GameEventsPlugin};
+use crate::invariants::InvariantQueries;
 use game::recording::InputRecorder;
 use map::generation::config::MapGenerationConfig;
 use utils::frame::FrameCount;
 use serde::{Serialize, Deserialize};
+use std::collections::BTreeMap;
+use bevy_fixed::fixed_math;
 
 use game::replay::{Expectation, Scenario};
 
@@ -185,9 +188,24 @@ pub fn run_with<F: FnOnce(&mut App)>(scenario: &Scenario, configure: F) -> Scena
     app.finish();
     app.cleanup();
 
-    let mut pending: Vec<&Expectation> = scenario.expect.iter().collect();
+    // Séparer les attentes ponctuelles des attentes continues (NoDamageBetween)
+    let mut pending: Vec<&Expectation> = scenario
+        .expect
+        .iter()
+        .filter(|e| !matches!(e, Expectation::NoDamageBetween { .. }))
+        .collect();
     pending.sort_by_key(|e| e.at_frame());
+
+    let no_damage_between: Vec<&Expectation> = scenario
+        .expect
+        .iter()
+        .filter(|e| matches!(e, Expectation::NoDamageBetween { .. }))
+        .collect();
+
     let mut failures = Vec::new();
+    let mut invariants = InvariantQueries::new(app.world_mut());
+    // Dernière santé vue par attente `NoDamageBetween`, clé (handle, from_frame).
+    let mut dernieres_santes: BTreeMap<(usize, u32), fixed_math::Fixed> = BTreeMap::new();
 
     // Métriques : le chrono part au premier update simulé (le chargement de la map n'est pas
     // compté) ; les compteurs d'entités sont lus entre deux updates, jamais dans la simulation.
@@ -220,6 +238,18 @@ pub fn run_with<F: FnOnce(&mut App)>(scenario: &Scenario, configure: F) -> Scena
             bullets_max = bullets_max.max(q_bullets.iter(app.world()).count() as u32);
             enemies_max = enemies_max.max(q_enemies.iter(app.world()).count() as u32);
             players_count = players_count.max(q_players.iter(app.world()).count() as u32);
+
+            failures.extend(invariants.check(app.world_mut(), &scenario.invariants, frame));
+
+            for expectation in &no_damage_between {
+                if let Expectation::NoDamageBetween { handle, from_frame, to_frame } = expectation {
+                    if frame >= *from_frame && frame <= *to_frame {
+                        if let Err(reason) = check_no_damage(app.world_mut(), &mut dernieres_santes, *handle, *from_frame) {
+                            failures.push(format!("frame {frame}: {expectation:?} : {reason}"));
+                        }
+                    }
+                }
+            }
         }
 
         while pending.first().is_some_and(|e| e.at_frame() <= frame) {
@@ -426,6 +456,95 @@ fn check(world: &mut World, expectation: &Expectation) -> Result<(), String> {
                 Err(format!("{killed} ennemis tués"))
             }
         }
+        Expectation::Health { handle, min, max, .. } => {
+            let Some(health_fixed) = player_health(world, *handle) else {
+                return Err("joueur absent".into());
+            };
+            let min_fixed = min.map(fixed_math::Fixed::from_num);
+            let max_fixed = max.map(fixed_math::Fixed::from_num);
+
+            if let Some(min_val) = min_fixed {
+                if health_fixed < min_val {
+                    return Err(format!("santé {} < min {}", health_fixed, min_val));
+                }
+            }
+            if let Some(max_val) = max_fixed {
+                if health_fixed > max_val {
+                    return Err(format!("santé {} > max {}", health_fixed, max_val));
+                }
+            }
+            Ok(())
+        }
+        Expectation::EntityHealth { net_id, min, max, .. } => {
+            let Some(health_fixed) = entity_health(world, *net_id) else {
+                return Err("entité absente ou sans santé".into());
+            };
+            let min_fixed = min.map(fixed_math::Fixed::from_num);
+            let max_fixed = max.map(fixed_math::Fixed::from_num);
+
+            if let Some(min_val) = min_fixed {
+                if health_fixed < min_val {
+                    return Err(format!("santé {} < min {}", health_fixed, min_val));
+                }
+            }
+            if let Some(max_val) = max_fixed {
+                if health_fixed > max_val {
+                    return Err(format!("santé {} > max {}", health_fixed, max_val));
+                }
+            }
+            Ok(())
+        }
+        Expectation::NoDamageBetween { .. } => {
+            // Géré dans la boucle principale, pas dans check()
+            Ok(())
+        }
+        Expectation::EntityCount { kind, min, max, .. } => {
+            let count = match kind {
+                game::replay::EntityKind::Player => {
+                    world.query_filtered::<(), With<Player>>().iter(world).count() as u32
+                }
+                game::replay::EntityKind::Enemy => {
+                    world.query_filtered::<(), With<game::character::enemy::Enemy>>().iter(world).count() as u32
+                }
+                game::replay::EntityKind::Bullet => {
+                    world.query_filtered::<(), With<game::weapons::Bullet>>().iter(world).count() as u32
+                }
+                game::replay::EntityKind::Rollback => {
+                    world.query_filtered::<(), With<bevy_ggrs::Rollback>>().iter(world).count() as u32
+                }
+            };
+
+            if let Some(min_val) = min {
+                if count < *min_val {
+                    return Err(format!("{} entités < min {}", count, min_val));
+                }
+            }
+            if let Some(max_val) = max {
+                if count > *max_val {
+                    return Err(format!("{} entités > max {}", count, max_val));
+                }
+            }
+            Ok(())
+        }
+        Expectation::Event { kind, label_contains, by_frame: _ } => {
+            let events = world.resource::<GameEvents>();
+            let found = events.events.iter().any(|event| {
+                event.kind == kind.as_str()
+                    && label_contains
+                        .as_ref()
+                        .map_or(true, |label| event.label.contains(label))
+            });
+
+            if found {
+                Ok(())
+            } else {
+                let label_desc = label_contains
+                    .as_ref()
+                    .map(|l| format!(", label contient '{}'", l))
+                    .unwrap_or_default();
+                Err(format!("événement '{}' non trouvé{}", kind, label_desc))
+            }
+        }
     }
 }
 
@@ -470,6 +589,48 @@ fn player_alive(world: &mut World, handle: usize) -> bool {
         .query::<&Player>()
         .iter(world)
         .any(|player| player.handle == handle)
+}
+
+/// Santé courante du joueur `handle`.
+fn player_health(world: &mut World, handle: usize) -> Option<fixed_math::Fixed> {
+    use game::character::health::Health;
+    world
+        .query::<(&Player, &Health)>()
+        .iter(world)
+        .find(|(player, _)| player.handle == handle)
+        .map(|(_, health)| health.current)
+}
+
+/// Santé courante d'une entité rollback, par son `GgrsNetId`.
+fn entity_health(world: &mut World, net_id: usize) -> Option<fixed_math::Fixed> {
+    use bevy_ggrs::Rollback;
+    use game::character::health::Health;
+    use utils::net_id::GgrsNetId;
+    world
+        .query_filtered::<(&GgrsNetId, &Health), With<Rollback>>()
+        .iter(world)
+        .find(|(id, _)| id.0 == net_id)
+        .map(|(_, health)| health.current)
+}
+
+/// `NoDamageBetween` : la santé du joueur ne doit pas avoir baissé depuis la frame précédente
+/// de l'intervalle (comparaison en `Fixed`, un état par intervalle).
+fn check_no_damage(
+    world: &mut World,
+    dernieres: &mut BTreeMap<(usize, u32), fixed_math::Fixed>,
+    handle: usize,
+    from_frame: u32,
+) -> Result<(), String> {
+    let courante = player_health(world, handle).ok_or("joueur absent")?;
+    let cle = (handle, from_frame);
+    let resultat = match dernieres.get(&cle) {
+        Some(&precedente) if courante < precedente => {
+            Err(format!("santé passée de {precedente} à {courante}"))
+        }
+        _ => Ok(()),
+    };
+    dernieres.insert(cle, courante);
+    resultat
 }
 
 /// Joue le scénario avec rendu, à vitesse réelle, et quitte à la fin de ses frames.
