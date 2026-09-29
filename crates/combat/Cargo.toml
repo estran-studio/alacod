@@ -4,7 +4,7 @@ version = "0.1.0"
 edition = "2021"
 
 [dependencies]
-bevy = "0.19.1"
+bevy = { version = "0.19.1", default-features = false }
 bevy_fixed = { path = "../bevy_fixed" }
 utils = { path = "../utils" }
 serde = { version = "1.0", features = ["derive"] }

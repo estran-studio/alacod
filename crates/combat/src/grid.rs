@@ -216,14 +216,14 @@ impl SpatialGrid {
     /// Convertit une position en coordonnées de cellule.
     /// Les coordonnées négatives sont supportées (floor division).
     fn pos_to_cell(&self, pos: FixedVec2) -> (i32, i32) {
-        // Effectuer la division en FixedWide pour éviter les débordements,
-        // puis convertir en i32.
-        let cell_size_fw = FixedWide::from_num(self.cell_size.to_num::<f32>());
-        let x_fw = FixedWide::from_num(pos.x.to_num::<f32>());
-        let y_fw = FixedWide::from_num(pos.y.to_num::<f32>());
+        // Division en FixedWide (exacte : I64F32 contient I32F16), puis plancher.
+        let cell_size_fw = FixedWide::from_num(self.cell_size);
+        let x_fw = FixedWide::from_num(pos.x);
+        let y_fw = FixedWide::from_num(pos.y);
 
-        let cell_x_fw = x_fw.saturating_div(cell_size_fw).to_num::<i32>();
-        let cell_y_fw = y_fw.saturating_div(cell_size_fw).to_num::<i32>();
+        // `floor` et non troncature : -0.5 doit tomber dans la cellule -1.
+        let cell_x_fw = x_fw.saturating_div(cell_size_fw).floor().to_num::<i32>();
+        let cell_y_fw = y_fw.saturating_div(cell_size_fw).floor().to_num::<i32>();
 
         (cell_x_fw, cell_y_fw)
     }
@@ -239,12 +239,12 @@ impl SpatialGrid {
         let diff_y = center.y - closest_y;
 
         // Calculer la distance au carré en FixedWide.
-        let diff_x_fw = FixedWide::from_num(diff_x.to_num::<f32>());
-        let diff_y_fw = FixedWide::from_num(diff_y.to_num::<f32>());
+        let diff_x_fw = FixedWide::from_num(diff_x);
+        let diff_y_fw = FixedWide::from_num(diff_y);
         let distance_sq_fw = diff_x_fw.saturating_mul(diff_x_fw)
             + diff_y_fw.saturating_mul(diff_y_fw);
 
-        let radius_fw = FixedWide::from_num(radius.to_num::<f32>());
+        let radius_fw = FixedWide::from_num(radius);
         let radius_sq_fw = radius_fw.saturating_mul(radius_fw);
 
         distance_sq_fw <= radius_sq_fw
@@ -255,14 +255,10 @@ impl SpatialGrid {
 mod tests {
     use super::*;
     use bevy::prelude::Entity;
-    use bevy::ecs::entity::EntityIndex;
 
-    /// Créer une entité test valide à partir d'un index.
+    /// Une entité de test valide (index seul) : la grille ne fait que la transporter.
     fn test_entity(i: u32) -> Entity {
-        // Créer une entité avec un index valide.
-        // Utiliser une formule simple pour générer des bits valides.
-        let bits = ((i as u64 + 1) << 32) | (i as u64);
-        Entity::from_bits(bits)
+        Entity::from_raw_u32(i).expect("index d'entité valide")
     }
 
     /// Simple LCG (Linear Congruential Generator) 64-bit pour les tests.
@@ -543,7 +539,6 @@ mod tests {
     }
 
     #[test]
-    #[ignore = "Requires valid Entity generation for test_entity"]
     fn test_equivalence_with_brute_force_aabb() {
         let mut grid = SpatialGrid::new(Fixed::from_num(32));
         let mut entries = Vec::new();
@@ -600,7 +595,6 @@ mod tests {
     }
 
     #[test]
-    #[ignore = "Requires valid Entity generation for test_entity"]
     fn test_equivalence_with_brute_force_circle() {
         let mut grid = SpatialGrid::new(Fixed::from_num(32));
         let mut entries = Vec::new();
@@ -656,7 +650,6 @@ mod tests {
     }
 
     #[test]
-    #[ignore = "Requires valid Entity generation for test_entity"]
     fn test_equivalence_with_brute_force_for_each_pair() {
         let mut grid = SpatialGrid::new(Fixed::from_num(32));
         let mut entries = Vec::new();
@@ -707,7 +700,6 @@ mod tests {
     }
 
     #[test]
-    #[ignore = "Requires valid Entity generation for test_entity"]
     fn test_grid_different_cell_sizes() {
         for cell_size_val in [8, 32, 256].iter() {
             let mut grid = SpatialGrid::new(Fixed::from_num(*cell_size_val));
@@ -780,12 +772,12 @@ mod tests {
         let diff_x = center.x - closest_x;
         let diff_y = center.y - closest_y;
 
-        let diff_x_fw = FixedWide::from_num(diff_x.to_num::<f32>());
-        let diff_y_fw = FixedWide::from_num(diff_y.to_num::<f32>());
+        let diff_x_fw = FixedWide::from_num(diff_x);
+        let diff_y_fw = FixedWide::from_num(diff_y);
         let distance_sq_fw = diff_x_fw.saturating_mul(diff_x_fw)
             + diff_y_fw.saturating_mul(diff_y_fw);
 
-        let radius_fw = FixedWide::from_num(radius.to_num::<f32>());
+        let radius_fw = FixedWide::from_num(radius);
         let radius_sq_fw = radius_fw.saturating_mul(radius_fw);
 
         distance_sq_fw <= radius_sq_fw
