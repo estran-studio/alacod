@@ -191,10 +191,31 @@ function performanceTable(metrics) {
   </div>`;
 }
 
+function simTable(runs) {
+  if (!runs || runs.length === 0) return "";
+  const rows = runs.map((r) => `
+    <tr><td class="num">${esc(r.seed)}</td><td class="num">${r.wave}</td>
+      <td class="num">${r.deaths}</td><td class="num">${r.kills}</td>
+      <td class="num">${r.sim_fps.toFixed(1)}</td>
+      <td>${r.desync ? "OUI" : ""}</td></tr>`).join("");
+  return `<div class="card wide">
+    <div class="body">
+      <h3>alacod-sim<span class="meta">${runs.length} graine(s)</span></h3>
+      <table class="metrics">
+        <thead><tr><th>Graine</th><th>Vague</th><th>Morts</th><th>Kills</th><th>FPS</th><th>Desync</th></tr></thead>
+        <tbody>${rows}</tbody>
+      </table>
+    </div>
+  </div>`;
+}
+
 function showCommit(commit) {
   const cards = [];
   if (commit.metrics) {
     cards.push(performanceTable(commit.metrics));
+  }
+  if (commit.sim) {
+    cards.push(simTable(commit.sim));
   }
   if (commit.montage) {
     cards.push(card({ src: `${commit.id}/montage.mp4`, title: "Montage", meta: `${commit.videos.length} scénarios`,

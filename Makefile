@@ -125,6 +125,20 @@ bench:
 	ALACOD_BENCH_STRICT=1 $(MAKE) test_scenarios
 	./scripts/scenario-metrics.py
 
+# alacod-sim (T2.11) : centaines de parties bots headless par graine, métriques JSON dans
+# target/metrics/sim-<commit>.json (lu par scenario-metrics.py / scenario-review.py) et affichées
+# à l'écran. SEEDS=1..5 BOTS=4 WAVE=3 par défaut, pour rester court ; PROFILES=fonceur,fonceur,...
+# doit avoir BOTS entrées.
+SEEDS ?= 1..5
+BOTS ?= 4
+PROFILES ?= fonceur,fonceur,prudent,immobile
+WAVE ?= 3
+MAX_FRAMES ?= 20000
+sim:
+	mkdir -p $(CARGO_TARGET_DIR)/metrics
+	cargo run -q -p scenario --bin alacod-sim --profile headless -- --game zombies --bots $(BOTS) --profiles $(PROFILES) --seeds $(SEEDS) --until-wave $(WAVE) --max-frames $(MAX_FRAMES) --json $(CARGO_TARGET_DIR)/metrics/sim-$$(git rev-parse --short HEAD).json
+	./scripts/scenario-metrics.py
+
 # Vidéos des scénarios (target/videos/<commit>/) : une par scénario + montage en grille.
 # SCENARIO=<nom> pour un seul ; EVERY=N une image toutes les N frames (défaut 2).
 videos:

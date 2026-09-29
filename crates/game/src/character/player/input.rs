@@ -132,6 +132,14 @@ pub enum InputSource {
     Scripted,
     /// Inputs maintenus dans [`RemoteInputs`], modifiés par le contrôle remote.
     Remote,
+    /// Inputs décidés par `crates/bots` (T2.11) : aucune branche de [`read_local_inputs`] ne
+    /// traite ce mode (il se comporte comme [`Self::Neutral`] ici, input neutre par défaut) ;
+    /// un système séparé (`bots::read_bot_inputs`, ajouté à `ReadInputs` après
+    /// [`read_local_inputs`]) remplace ensuite l'input des joueurs locaux présents dans la
+    /// ressource `BotAssignments` de `crates/bots`, quel que soit le mode courant. Ce variant
+    /// sert de mode de base explicite pour `alacod-sim` (aucun joueur scripté) ; les scénarios
+    /// RON qui mélangent joueurs scriptés et bots gardent [`Self::Scripted`] comme mode de base.
+    Bot,
 }
 
 /// Input maintenu par joueur (handle GGRS) en mode [`InputSource::Remote`] ; un joueur

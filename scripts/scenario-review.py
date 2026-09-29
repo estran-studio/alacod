@@ -97,11 +97,18 @@ def main():
         metrics_path = METRICS / d.name / "metrics.json"
         metrics_data = load_metrics(metrics_path)
 
+        # Runs `alacod-sim` (T2.11, `make sim`) du même commit, si présents. Le nom du fichier
+        # n'a jamais de suffixe `-dirty` (écrit par le sha seul, voir la cible `sim` du
+        # Makefile) : on le retire du nom du dossier vidéo avant de chercher le fichier.
+        sim_path = METRICS / f"sim-{d.name.removesuffix('-dirty')}.json"
+        sim_data = load_metrics(sim_path) or []
+
         commits.append({
             "id": d.name,
             **commit_info(d.name),
             "montage": (d / "montage.mp4").exists(),
             "metrics": metrics_data,
+            "sim": sim_data,
             "videos": [
                 {"name": v, **scenario_info(v), "events": load_events(d / f"{v}.events.json")}
                 for v in videos

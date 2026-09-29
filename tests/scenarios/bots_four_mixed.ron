@@ -1,0 +1,28 @@
+// Quatre bots aux profils différents (T2.11) : deux fonceurs, un prudent (garde ses distances),
+// un immobile (ne bouge jamais, ne tire jamais). Fixture de régression pour BotAssignments à
+// plusieurs profils dans la même partie, et pour InputSource::Bot à quatre joueurs locaux
+// (synctest).
+//
+// À regarder : les fonceurs chargent les zombies dès la vague 1 ; le prudent tire en reculant ou
+// en avançant selon la distance, sans jamais se rapprocher volontairement ; l'immobile ne bouge
+// jamais (cible facile pour les zombies).
+Scenario(
+    game: "zombies",
+    frames: 600,
+    players: [
+        (bot: fonceur),
+        (bot: fonceur),
+        (bot: prudent),
+        (bot: immobile),
+    ],
+    expect: [
+        PlayerAlive(handle: 0, at_frame: 300),
+        PlayerAlive(handle: 1, at_frame: 300),
+        PlayerAlive(handle: 2, at_frame: 300),
+        PlayerAlive(handle: 3, at_frame: 300),
+        WaveAtLeast(wave: 1, at_frame: 600),
+        // Observé : 2 zombies tués à f600 par les deux fonceurs (le prudent tire aussi, mais
+        // reste souvent hors de portée en gardant ses distances ; l'immobile ne tire jamais).
+        KillsAtLeast(kills: 1, at_frame: 600),
+    ],
+)

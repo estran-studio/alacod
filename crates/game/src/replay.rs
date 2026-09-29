@@ -117,6 +117,53 @@ fn default_map_seed() -> i32 {
 pub struct PlayerScript {
     #[serde(default)]
     pub inputs: Vec<Segment>,
+    /// Profil de bot (T2.11) : ce joueur est piloté par `crates/bots::decide()` au lieu de
+    /// `inputs`. Exclusif avec `inputs` non vide (un joueur est scripté OU piloté par un bot,
+    /// jamais les deux ; le runner panique si les deux sont présents). RON : `(bot: fonceur)`.
+    /// `skip_serializing_if` (même style que `WeaponOverride` plus bas) : un enregistrement
+    /// (`InputRecorder::to_scenario`, toujours `bot: None`) ne l'écrit pas, un scénario rejoué
+    /// reste un scénario `Scripted` ordinaire.
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub bot: Option<BotProfile>,
+}
+
+/// Profil de bot (T2.11, `crates/bots`). Défini ici plutôt que dans `crates/bots` : le format
+/// de scénario (`PlayerScript`) vit dans `game`, qui ne doit pas dépendre de `bots` (`bots`
+/// dépend de `game`, jamais l'inverse) ; `crates/bots` ré-exporte ce type sous `bots::BotProfile`
+/// et y ajoute le comportement (`decide`). Noms RON en minuscules (`immobile`, `fonceur`,
+/// `prudent`), voir `Self::parse_name`/`Self::name`.
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize)]
+#[serde(rename_all = "lowercase")]
+pub enum BotProfile {
+    /// Aucun input : reste immobile, ne tire pas, ne répare pas.
+    Immobile,
+    /// Va vers l'ennemi le plus proche, tire à portée, recharge à vide ; répare la fenêtre la
+    /// plus proche quand aucun ennemi n'est à portée.
+    Fonceur,
+    /// Garde ses distances (recule si un ennemi est trop près, avance sinon), tire, recharge.
+    Prudent,
+}
+
+impl BotProfile {
+    /// Nom RON en minuscules (`#[serde(rename_all = "lowercase")]`), utilisé aussi par la CLI
+    /// `alacod-sim` (`--profiles fonceur,prudent,...`) pour ne pas dupliquer le mapping.
+    pub fn name(&self) -> &'static str {
+        match self {
+            Self::Immobile => "immobile",
+            Self::Fonceur => "fonceur",
+            Self::Prudent => "prudent",
+        }
+    }
+
+    /// Analyse inverse de [`Self::name`] ; `None` si le nom n'est pas un profil connu.
+    pub fn parse_name(name: &str) -> Option<Self> {
+        match name {
+            "immobile" => Some(Self::Immobile),
+            "fonceur" => Some(Self::Fonceur),
+            "prudent" => Some(Self::Prudent),
+            _ => None,
+        }
+    }
 }
 
 /// Input maintenu sur les frames `from..to`.
