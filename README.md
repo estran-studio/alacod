@@ -1,8 +1,15 @@
 # Alacod
 
+[![PR](https://github.com/bascanada/alacod/actions/workflows/pr.yaml/badge.svg)](https://github.com/bascanada/alacod/actions/workflows/pr.yaml)
+[![Build & Deploy](https://github.com/bascanada/alacod/actions/workflows/main.yaml/badge.svg)](https://github.com/bascanada/alacod/actions/workflows/main.yaml)
+
 Alacod is a engine (set of bevy plugins) to build a 2D rogue like shooter with p2p networking using rollback.
 
 * [Documentation and Demo](https://alacod.bascanada.org)
+
+## Quick Start
+
+To run the fast CI checks locally, use `make check` which runs format verification, unit tests, scenario tests, and forbidden pattern detection.
 
 ## Crates
 

@@ -6,46 +6,52 @@ on:
       - main
 
 jobs:
-  test:
+  check:
     name: Tests & Format
     runs-on: ubuntu-latest
-    container:
-      image: ghcr.io/bascanada/alacod-builder:1.0.0
-      credentials:
-        username: wquintal
-        password: ${{ secrets.ACCESS_TOKEN }}
     steps:
       - name: Check out
         uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - name: Install system dependencies
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y \
+            pkg-config \
+            libasound2-dev \
+            libudev-dev \
+            libwayland-dev \
+            libxkbcommon-dev \
+            libx11-dev
+
+      - name: Install Rust toolchain
+        uses: dtolnay/rust-toolchain@nightly
 
       - name: Cache cargo registry and git
-        uses: actions/cache@v4
+        uses: Swatinem/rust-cache@v2
         with:
-          path: |
-            ~/.cargo/registry
-            ~/.cargo/git
-          key: ${{ runner.os }}-cargo-${{ hashFiles('**/Cargo.lock') }}
-          restore-keys: |
-            ${{ runner.os }}-cargo-
+          workspaces: .
+          cache-all-crates: true
 
-      - name: Cache sccache
-        uses: actions/cache@v4
-        with:
-          path: ~/.cache/sccache
-          key: ${{ runner.os }}-sccache-${{ hashFiles('**/Cargo.lock') }}
-          restore-keys: |
-            ${{ runner.os }}-sccache-
-
-      - name: Test
-        run: make test
-
-      - name: Style Check
+      - name: Format check
         run: make format
+
+      - name: Run tests
+        run: cargo test
+
+      - name: Run scenario tests
+        run: make test_scenarios
+
+      - name: Check forbidden patterns
+        run: ./scripts/check-forbidden.sh
+        continue-on-error: true
 
   build:
     name: Build WASM & Deploy
     runs-on: [self-hosted, alacod-builder]
-    needs: test
+    needs: check
     environment: production
     steps:
       - name: Clean workspace with sudo
