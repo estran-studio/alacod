@@ -527,11 +527,11 @@ région des chantiers puis la campagne.
 
 | Date | Tâche | Branche | Agent | État |
 |---|---|---|---|---|
-| 2026-09-28 | T0.1a (K0, première étape : extension `rollback_and_trace`, observateur `SyncTestMismatch`, `check_distance`, test du filet) | `m0-v3-determinisme` | Haiku | en cours |
+| 2026-09-28 | T0.1a (K0, première étape : extension `rollback_and_trace`, observateur `SyncTestMismatch`, `check_distance`, test du filet) | `m0-v3-determinisme` | Haiku | livrée avec trois défauts (API `Trigger`, `check_distance` non branché, test inopérant), reprise par l'orchestrateur, voir la ligne suivante |
 | 2026-09-28 | T0.4 (K6a, CI rapide sans conteneur, `make check`, `scripts/check-forbidden.sh`) | `m0-v5-ci-rapide` | Haiku | mergée (`3218f5d`) ; six occurrences interdites en avertissement (pathing.rs, state.rs, map_ldtk plugin.rs, un commentaire dans bevy_fixed) |
 | 2026-09-28 | T1.4 (A3, crate `content`, module `expr`) | `m0-v2-expressions` | Haiku | mergée ; 55 tests unitaires ; corrigé par l'orchestrateur : majeures alignées (`thiserror 2`, `ron 0.12`), `Cargo.lock` sans montée collatérale |
 | 2026-09-28 | T1.10 (I3, caméra par joueur en ligne, `play_scenario --follow`) | `m0-v4-camera` | Haiku | mergée ; `online_follow` dans `camera.ron`, `PlayConfig` dans le runner (signature de `build_app` changée), captures vérifiées par l'agent, traces intactes |
-| 2026-09-28 | T0.1a, reprise par l'orchestrateur : conflit `runner.rs` avec la caméra, `On<>` au lieu de `Trigger<>`, `check_distance` branché de bout en bout, test du filet réécrit (ressource hors rollback lue dans `GgrsSchedule`) | `m0-v3-determinisme` | Fable | vérification en cours |
+| 2026-09-28 | T0.1a, reprise par l'orchestrateur : conflit `runner.rs` avec la caméra, `On<>` au lieu de `Trigger<>`, `check_distance` branché de bout en bout, test du filet réécrit (ressource hors rollback lue dans `GgrsSchedule`) | `m0-v3-determinisme` | Fable | mergée ; douze scénarios verts, traces intactes, deux tests du filet verts (`crates/scenario/tests/determinism.rs`), `ALACOD_CHECK_DISTANCE` (2 par défaut) |
 | 2026-09-28 | T1.8a (B4, grille spatiale : structure et tests d'équivalence, nouveau crate `combat`) | `m0-v3-grille` | Haiku | en cours |
 | 2026-09-28 | T2.7 (K4, `docs/conventions.md` : LDtk, sprites, dossier de jeu, checklist d'un vocabulaire) | `m0-v2-conventions` | Haiku | mergée ; une reprise (quinze erreurs factuelles corrigées par l'agent sur liste, dernières retouches par l'orchestrateur) |
 
