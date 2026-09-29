@@ -1,0 +1,17 @@
+// T2.9 (testbed) : couvre le chargement et la génération de `testbed/corridor.ldtk` (deux
+// salles étroites empilées, reliées par une porte, spawn sur la première) sans erreur — pas de
+// scénario dédié requis par la tâche pour ce fichier, ajouté pour ne pas laisser sa
+// génération sans filet automatique (les trois autres salles ont chacune un scénario).
+//
+// À regarder : le joueur reste immobile dans la première salle (le couloir de départ).
+Scenario(
+    game: "testbed",
+    map: "testbed/corridor.ldtk",
+    frames: 120,
+    players: [
+        (),
+    ],
+    expect: [
+        PlayerAlive(handle: 0, at_frame: 100),
+    ],
+)

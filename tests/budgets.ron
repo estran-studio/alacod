@@ -23,5 +23,17 @@
         // quatre joueurs (mesures du 2026-09-29 : 179 et 209)
         "four_players_idle": (min_sim_fps: 80.0),
         "four_players_shooting": (min_sim_fps: 100.0),
+        // T2.9, testbed (mesures du 2026-09-29 : ally_safe 214, arena_idle 230,
+        // civilian_blocks 218, corridor_idle 282, dummy_shoot 224, follower 234,
+        // target_hits 220, two_rooms_door_idle 281, window 269)
+        "testbed_ally_safe": (min_sim_fps: 100.0),
+        "testbed_arena_idle": (min_sim_fps: 110.0),
+        "testbed_civilian_blocks": (min_sim_fps: 100.0),
+        "testbed_corridor_idle": (min_sim_fps: 140.0),
+        "testbed_dummy_shoot": (min_sim_fps: 110.0),
+        "testbed_follower": (min_sim_fps: 110.0),
+        "testbed_target_hits": (min_sim_fps: 110.0),
+        "testbed_two_rooms_door_idle": (min_sim_fps: 140.0),
+        "testbed_window": (min_sim_fps: 130.0),
     },
 )

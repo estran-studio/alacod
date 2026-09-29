@@ -3,6 +3,7 @@ use bevy_fixed::{fixed_math, rng::RngStreams};
 use map::game::entity::map::{
     enemy_spawn::EnemySpawnerComponent, level_id::LevelId, room::RoomBounds,
 };
+use sim_core::team::Team;
 
 use crate::{
     character::{config::CharacterConfig, player::Player},
@@ -315,6 +316,7 @@ pub fn enemy_spawn_from_spawners_system(
             &global_assets,
             &collision_settings,
             &mut id_factory,
+            Team::Enemies,
         );
 
         state.cooldown_remaining = config.max_cooldown;

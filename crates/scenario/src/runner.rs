@@ -767,6 +767,16 @@ fn check(world: &mut World, expectation: &Expectation) -> Result<(), String> {
             }
             Ok(())
         }
+        Expectation::EntityHits { net_id, min, .. } => {
+            let Some(hits) = entity_hit_count(world, *net_id) else {
+                return Err("entité absente ou sans compteur de coups (HitCount)".into());
+            };
+            if hits >= *min {
+                Ok(())
+            } else {
+                Err(format!("{hits} coups reçus < min {min}"))
+            }
+        }
         Expectation::NoDamageBetween { .. } => {
             // Géré dans la boucle principale, pas dans check()
             Ok(())
@@ -898,6 +908,18 @@ fn entity_health(world: &mut World, net_id: usize) -> Option<fixed_math::Fixed> 
         .iter(world)
         .find(|(id, _)| id.0 == net_id)
         .map(|(_, health)| health.current)
+}
+
+/// Nombre de coups reçus par une entité rollback (`HitCount`, T2.9), par son `GgrsNetId`.
+fn entity_hit_count(world: &mut World, net_id: usize) -> Option<u32> {
+    use bevy_ggrs::Rollback;
+    use game::character::health::HitCount;
+    use utils::net_id::GgrsNetId;
+    world
+        .query_filtered::<(&GgrsNetId, &HitCount), With<Rollback>>()
+        .iter(world)
+        .find(|(id, _)| id.0 == net_id)
+        .map(|(_, hit_count)| hit_count.0)
 }
 
 /// `NoDamageBetween` : la santé du joueur ne doit pas avoir baissé depuis la frame précédente
