@@ -27,7 +27,7 @@
 //!
 //! # Configuration
 //!
-//! Configure via `assets/waves/wave_config.ron`. See `config::WaveConfig` for options.
+//! Configure via `waves/wave_config.ron` dans les assets du jeu. See `config::WaveConfig` for options.
 
 pub mod config;
 pub mod debug;
