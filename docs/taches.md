@@ -533,7 +533,7 @@ région des chantiers puis la campagne.
 | 2026-09-28 | T1.10 (I3, caméra par joueur en ligne, `play_scenario --follow`) | `m0-v4-camera` | Haiku | mergée ; `online_follow` dans `camera.ron`, `PlayConfig` dans le runner (signature de `build_app` changée), captures vérifiées par l'agent, traces intactes |
 | 2026-09-28 | T0.1a, reprise par l'orchestrateur : conflit `runner.rs` avec la caméra, `On<>` au lieu de `Trigger<>`, `check_distance` branché de bout en bout, test du filet réécrit (ressource hors rollback lue dans `GgrsSchedule`) | `m0-v3-determinisme` | Fable | vérification en cours |
 | 2026-09-28 | T1.8a (B4, grille spatiale : structure et tests d'équivalence, nouveau crate `combat`) | `m0-v3-grille` | Haiku | en cours |
-| 2026-09-28 | T2.7 (K4, `docs/conventions.md` : LDtk, sprites, dossier de jeu, checklist d'un vocabulaire) | `m0-v2-conventions` | Haiku | en cours |
+| 2026-09-28 | T2.7 (K4, `docs/conventions.md` : LDtk, sprites, dossier de jeu, checklist d'un vocabulaire) | `m0-v2-conventions` | Haiku | mergée ; une reprise (quinze erreurs factuelles corrigées par l'agent sur liste, dernières retouches par l'orchestrateur) |
 
 Orchestration : Fable crée les worktrees (`scripts/task-new.sh` du meta-repo), lance un agent par
 tâche avec le modèle le moins cher (Haiku d'abord, Sonnet si une tâche échoue deux fois), vérifie
