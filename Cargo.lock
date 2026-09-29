@@ -220,6 +220,7 @@ dependencies = [
  "bevy_ecs_tilemap",
  "bevy_fixed",
  "bevy_ggrs",
+ "content",
  "game",
  "map",
  "map_ldtk",
