@@ -1,11 +1,65 @@
 use crate::fixed_math;
 use bevy::prelude::Resource;
+use std::collections::BTreeMap;
 
 pub type UUID = String;
 
 #[derive(Debug, Resource, Clone, Copy, PartialEq, Eq, Hash)]
 pub struct RollbackRng {
     pub seed: u32,
+}
+
+/// Graine de run (hors rollback) : dérivée de la graine de carte, stable pour la session.
+#[derive(Debug, Resource, Clone, Copy, PartialEq, Eq, Hash)]
+pub struct RunSeed(pub u32);
+
+/// Flux nommés de RNG (ressource rollback) : `BTreeMap<String, RollbackRng>`.
+/// Les flux sont dérivés à la demande à partir de la graine de run et du nom du flux.
+/// La graine d'un flux = `fnv1a(name) as u32 ^ run_seed`.
+#[derive(Debug, Resource, Clone, PartialEq, Eq, Hash)]
+pub struct RngStreams {
+    pub streams: BTreeMap<String, RollbackRng>,
+    pub run_seed: u32,
+}
+
+impl RngStreams {
+    /// Crée une nouvelle ressource `RngStreams` à partir de la graine de run.
+    pub fn new(run_seed: u32) -> Self {
+        RngStreams {
+            streams: BTreeMap::new(),
+            run_seed,
+        }
+    }
+
+    /// Récupère ou crée un flux nommé. La graine est dérivée de manière déterministe
+    /// à partir du nom et de la graine de run via FNV-1a.
+    pub fn get_mut(&mut self, name: &str) -> &mut RollbackRng {
+        let run_seed = self.run_seed;
+        self.streams.entry(name.to_string()).or_insert_with(|| {
+            let name_hash = fnv1a(name.as_bytes()) as u32;
+            let seed = name_hash ^ run_seed;
+            RollbackRng::new(seed)
+        })
+    }
+
+    /// Variante immutable pour la lecture sans modification.
+    pub fn get(&self, name: &str) -> Option<&RollbackRng> {
+        self.streams.get(name)
+    }
+}
+
+impl Default for RngStreams {
+    fn default() -> Self {
+        RngStreams::new(12345)
+    }
+}
+
+/// Hash FNV-1a 64 bits, copié de `crates/utils/src/rollback.rs` pour éviter une dépendance.
+/// Stable entre les runs et les machines.
+pub fn fnv1a(bytes: &[u8]) -> u64 {
+    bytes.iter().fold(0xcbf2_9ce4_8422_2325, |hash, byte| {
+        (hash ^ u64::from(*byte)).wrapping_mul(0x0000_0100_0000_01b3)
+    })
 }
 
 impl RollbackRng {
@@ -247,6 +301,105 @@ mod tests {
         assert_ne!(
             rng.seed, seed_after_f32,
             "Seed should change after calling next_f32_symmetric."
+        );
+    }
+
+    #[test]
+    fn test_fnv1a_stability() {
+        let hash1 = fnv1a(b"waves");
+        let hash2 = fnv1a(b"waves");
+        assert_eq!(
+            hash1, hash2,
+            "FNV-1a should produce identical hashes for the same input"
+        );
+
+        let different = fnv1a(b"weapons");
+        assert_ne!(
+            hash1, different,
+            "FNV-1a should produce different hashes for different inputs"
+        );
+    }
+
+    #[test]
+    fn test_rng_streams_independence() {
+        let run_seed = 999;
+        let mut streams = RngStreams::new(run_seed);
+
+        // Get two different streams
+        let stream1 = streams.get_mut("waves");
+        let val1_a = stream1.next_u32();
+        let val1_b = stream1.next_u32();
+
+        let stream2 = streams.get_mut("weapons");
+        let val2_a = stream2.next_u32();
+        let val2_b = stream2.next_u32();
+
+        // Streams should produce different values (seeds derived from different names)
+        assert_ne!(
+            val1_a, val2_a,
+            "Different streams should produce different sequences"
+        );
+        assert_ne!(
+            val1_b, val2_b,
+            "Different streams should produce different sequences"
+        );
+
+        // Advancing one stream should not affect the other
+        let stream1_again = streams.get_mut("waves");
+        let val1_c = stream1_again.next_u32();
+        assert_ne!(
+            val1_c, val2_a,
+            "Continuing one stream should not affect the other"
+        );
+    }
+
+    #[test]
+    fn test_rng_streams_same_name_same_seed() {
+        let run_seed = 888;
+        let mut streams1 = RngStreams::new(run_seed);
+        let mut streams2 = RngStreams::new(run_seed);
+
+        let seq1: Vec<u32> = (0..5)
+            .map(|_| streams1.get_mut("test").next_u32())
+            .collect();
+        let seq2: Vec<u32> = (0..5)
+            .map(|_| streams2.get_mut("test").next_u32())
+            .collect();
+
+        assert_eq!(
+            seq1, seq2,
+            "Same name and run seed should produce identical sequences"
+        );
+    }
+
+    #[test]
+    fn test_rng_streams_order_independence() {
+        let run_seed = 777;
+        let mut streams1 = RngStreams::new(run_seed);
+        let mut streams2 = RngStreams::new(run_seed);
+
+        // Create streams in different orders
+        let seq1_waves: Vec<u32> = (0..3)
+            .map(|_| streams1.get_mut("waves").next_u32())
+            .collect();
+        let seq1_weapons: Vec<u32> = (0..3)
+            .map(|_| streams1.get_mut("weapons").next_u32())
+            .collect();
+
+        let seq2_weapons: Vec<u32> = (0..3)
+            .map(|_| streams2.get_mut("weapons").next_u32())
+            .collect();
+        let seq2_waves: Vec<u32> = (0..3)
+            .map(|_| streams2.get_mut("waves").next_u32())
+            .collect();
+
+        assert_eq!(
+            seq1_waves, seq2_waves,
+            "Stream order of creation should not affect sequences"
+        );
+        assert_eq!(
+            seq1_weapons, seq2_weapons,
+            "Stream order of creation should not affect sequences"
         );
     }
 }

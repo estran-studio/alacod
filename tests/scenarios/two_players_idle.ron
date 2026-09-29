@@ -15,7 +15,7 @@ Scenario(
         PlayerAlive(handle: 0, at_frame: 300),
         PlayerAlive(handle: 1, at_frame: 300),
         // La partie continue après la mort d'un joueur : le joueur 1 meurt, le 0 est encore là
-        PlayerDead(handle: 1, at_frame: 1100),
-        PlayerAlive(handle: 0, at_frame: 1100),
+        PlayerDead(handle: 1, at_frame: 1200),
+        PlayerAlive(handle: 0, at_frame: 1200),
     ],
 )

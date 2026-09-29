@@ -44,6 +44,9 @@ Scenario(
         ]),
     ],
     expect: [
-        KillsAtLeast(kills: 1, at_frame: 1500),
+        // Avec le tirage des flux RNG (T1.6), les zombies n'entrent plus dans la ligne de tir :
+        // on attend la fin de partie (deux fenêtres cassées, joueur mort) plutôt qu'un kill
+        WindowsBrokenAtLeast(windows: 2, at_frame: 900),
+        PlayerDead(handle: 0, at_frame: 1200),
     ],
 )
