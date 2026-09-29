@@ -50,6 +50,8 @@ impl InputRecorder {
         let players = (0..player_count)
             .map(|handle| PlayerScript {
                 inputs: self.segments(handle),
+                tags: vec![],
+                immune_to: vec![],
             })
             .collect();
 

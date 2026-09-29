@@ -38,5 +38,9 @@
                 "body": "",
             }
         )
-    }
+    },
+
+    // T1.1 (chantier B1) : porté par les DamageEvent de ses attaques (union avec le tag
+    // d'attaque `melee`) ; sert les résistances/immunités par tag (ex. `immune_to: ["zombie"]`).
+    tags: ["zombie"],
 )

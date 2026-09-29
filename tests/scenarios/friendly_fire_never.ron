@@ -1,0 +1,20 @@
+// T1.1 (chantier B1, « Équipes et dégâts ») : par défaut (`friendly_fire: Never`), un joueur
+// ne blesse jamais un autre joueur, même en tirant droit dessus. Joueur 0 immobile tire (arme
+// active par défaut : "machine_gun") plein sud vers le joueur 1, planté 32 unités plus bas
+// (positions de spawn de `exemples/test_map.ldtk`, seed par défaut) : les balles le
+// traversent sans dégât.
+//
+// À regarder : le joueur 0 (en haut) tire vers le bas en continu (f10-100) ; le joueur 1 (en
+// bas) ne bouge pas et ne perd jamais de vie.
+Scenario(
+    frames: 150,
+    players: [
+        (inputs: [
+            (from: 10, to: 100, buttons: [Fire], pan: (0, -100)),
+        ]),
+        (),
+    ],
+    expect: [
+        NoDamageBetween(handle: 1, from_frame: 0, to_frame: 150),
+    ],
+)

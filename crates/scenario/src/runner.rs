@@ -5,6 +5,7 @@ use crate::invariants::InvariantQueries;
 use bevy::prelude::*;
 use bevy_fixed::fixed_math;
 use bevy_ggrs::SyncTestMismatch;
+use combat::damage::Defenses;
 use game::recording::InputRecorder;
 use game::{
     args::{GameArgs, GameArgsPlugin},
@@ -23,6 +24,7 @@ use map_ldtk::{
     plugins::LdtkRoguePlugin,
 };
 use serde::{Deserialize, Serialize};
+use sim_core::tag::Tags;
 use std::collections::BTreeMap;
 use utils::frame::FrameCount;
 
@@ -112,6 +114,14 @@ pub fn build_app(scenario: &Scenario, headless: bool, config: &PlayConfig) -> Ap
         .add_plugins(GameEventsPlugin)
         .insert_resource(WeaponOverrides(scenario.weapon_overrides.clone()))
         .add_systems(Update, apply_weapon_overrides)
+        .insert_resource(PlayerOverrides(
+            scenario
+                .players
+                .iter()
+                .map(|p| (p.tags.clone(), p.immune_to.clone()))
+                .collect(),
+        ))
+        .add_systems(Update, apply_player_overrides)
         .insert_resource(InputSource::Scripted)
         .insert_resource::<ScriptedInputs>(scenario.scripted_inputs())
         .init_resource::<SyncTestMismatches>()
@@ -174,6 +184,9 @@ fn apply_weapon_overrides(
             .0
             .get_mut(&o.weapon)
             .unwrap_or_else(|| panic!("weapon_overrides : arme inconnue {}", o.weapon));
+        if let Some(friendly_fire) = o.friendly_fire {
+            weapon.config.friendly_fire = friendly_fire;
+        }
         for (mode_name, mode) in weapon.config.firing_modes.iter_mut() {
             if o.mode.as_ref().is_some_and(|m| m != mode_name) {
                 continue;
@@ -190,6 +203,55 @@ fn apply_weapon_overrides(
                     *mag_limit = limit;
                 }
             }
+        }
+    }
+    *applied = true;
+}
+
+/// Tags et immunités par joueur (T1.1, chantier B1), indexés par handle GGRS — voir
+/// `game::replay::PlayerScript::{tags, immune_to}`.
+#[derive(Resource)]
+struct PlayerOverrides(Vec<(Vec<String>, Vec<String>)>);
+
+/// Pose les `tags`/`immune_to` d'un scénario sur les joueurs une fois créés (composants
+/// `Tags`/`Defenses`, T1.1). Contrairement à `apply_weapon_overrides` (qui doit s'appliquer
+/// *avant* la création des joueurs, qui copient la config de leurs armes), celui-ci
+/// s'applique *après* : il attend que les entités `Player` existent, puis pose les
+/// composants une seule fois (`Local<bool>`). `Tags`/`Defenses` sont hors rollback (voir
+/// leur doc) : les poser ici, avant la première frame simulée, suffit — ils ne sont jamais
+/// mutés ensuite.
+fn apply_player_overrides(
+    overrides: Res<PlayerOverrides>,
+    mut commands: Commands,
+    players: Query<(Entity, &Player)>,
+    mut applied: Local<bool>,
+) {
+    if *applied {
+        return;
+    }
+    if overrides
+        .0
+        .iter()
+        .all(|(tags, immune_to)| tags.is_empty() && immune_to.is_empty())
+    {
+        *applied = true;
+        return;
+    }
+    if players.iter().count() < overrides.0.len() {
+        return; // les joueurs ne sont pas encore tous créés
+    }
+    for (entity, player) in players.iter() {
+        let Some((tags, immune_to)) = overrides.0.get(player.handle) else {
+            continue;
+        };
+        if !tags.is_empty() {
+            commands.entity(entity).insert(Tags::parse(tags.clone()));
+        }
+        if !immune_to.is_empty() {
+            commands.entity(entity).insert(Defenses {
+                immune_to: Tags::parse(immune_to.clone()),
+                resistances: Default::default(),
+            });
         }
     }
     *applied = true;

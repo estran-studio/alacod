@@ -1,0 +1,28 @@
+// T1.1 (chantier B1, « Équipes et dégâts ») : politique de tir ami `Cursed` — un allié n'est
+// touché que si la source porte le tag `cursed`. Même scène que `friendly_fire_never`
+// (joueur 0 tire plein sud sur le joueur 1, planté juste en dessous), mais le joueur 0 porte
+// le tag `cursed` et la mitrailleuse (arme active par défaut : "machine_gun", première par
+// ordre alphabétique — voir `character::player::create::create_player`) est surchargée en
+// `friendly_fire: Cursed` pour ce scénario : cette fois les balles font mal. Tir bref
+// (5 frames, un seul coup à cadence 10/s) pour blesser sans tuer.
+//
+// À regarder : un seul tir bref du joueur 0 (en haut, f10) vers le joueur 1 (en bas), qui
+// perd de la vie (8 dégâts, mitrailleuse) au lieu de rien.
+Scenario(
+    frames: 150,
+    players: [
+        (
+            inputs: [
+                (from: 10, to: 15, buttons: [Fire], pan: (0, -100)),
+            ],
+            tags: ["cursed"],
+        ),
+        (),
+    ],
+    weapon_overrides: [
+        (weapon: "machine_gun", friendly_fire: Cursed),
+    ],
+    expect: [
+        Health(handle: 1, max: 95.0, at_frame: 100),
+    ],
+)

@@ -6,6 +6,7 @@
 use bevy::prelude::*;
 use bevy_fixed::fixed_math;
 use serde::{Deserialize, Serialize};
+use sim_core::damage::FriendlyFire;
 use std::collections::HashSet;
 use utils::net_id::GgrsNetId;
 
@@ -96,6 +97,9 @@ pub struct EnemyAiConfig {
     pub flee_threshold: Option<fixed_math::Fixed>,
     /// Damage dealt per attack
     pub attack_damage: fixed_math::Fixed,
+    /// Politique de tir ami de l'attaque (T1.1, chantier B1). `Never` : un ennemi ne
+    /// touche jamais un autre ennemi (même bord, voir `combat::team::team_allows_hit`).
+    pub friendly_fire: FriendlyFire,
 }
 
 impl Default for EnemyAiConfig {
@@ -111,6 +115,7 @@ impl Default for EnemyAiConfig {
             path_through_breakables: false,
             flee_threshold: None,
             attack_damage: fixed_math::new(10.0),
+            friendly_fire: FriendlyFire::Never,
         }
     }
 }
@@ -153,6 +158,7 @@ impl EnemyAiConfig {
             path_through_breakables: true, // Zombies path through breakables (windows)
             flee_threshold: None,
             attack_damage: fixed_math::new(10.0),
+            friendly_fire: FriendlyFire::Never,
         }
     }
 
@@ -169,6 +175,7 @@ impl EnemyAiConfig {
             path_through_breakables: false,
             flee_threshold: None,
             attack_damage: fixed_math::new(8.0),
+            friendly_fire: FriendlyFire::Never,
         }
     }
 
@@ -195,6 +202,7 @@ impl EnemyAiConfig {
             path_through_breakables: false,
             flee_threshold: None,
             attack_damage: fixed_math::new(15.0),
+            friendly_fire: FriendlyFire::Never,
         }
     }
 
@@ -215,6 +223,7 @@ impl EnemyAiConfig {
             path_through_breakables: true, // Uses GroundBreaker profile
             flee_threshold: None,
             attack_damage: fixed_math::new(25.0),
+            friendly_fire: FriendlyFire::Never,
         }
     }
 }

@@ -26,6 +26,7 @@ use crate::character::player::input::{
     INPUT_SPRINT, INPUT_SWITCH_WEAPON_MODE, INPUT_UP,
 };
 use serde::{Deserialize, Serialize};
+use sim_core::damage::FriendlyFire;
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct Scenario {
@@ -96,6 +97,12 @@ pub struct WeaponOverride {
     /// Chargeurs de réserve.
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub mag_limit: Option<u32>,
+    /// Politique de tir ami de l'arme, pour ce scénario seulement (T1.1, chantier B1 :
+    /// scénarios `friendly_fire_cursed`/`immune_tag`). S'applique à l'arme entière (pas
+    /// `mode`, qui ne sélectionne que le sous-champ chargeur) : `WeaponConfig::friendly_fire`
+    /// n'est pas par mode de tir.
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub friendly_fire: Option<FriendlyFire>,
 }
 
 fn default_map() -> String {
@@ -110,6 +117,16 @@ fn default_map_seed() -> i32 {
 pub struct PlayerScript {
     #[serde(default)]
     pub inputs: Vec<Segment>,
+    /// Tags du personnage (T1.1, chantier B1), ex. `["cursed"]` (scénario
+    /// `friendly_fire_cursed`). Vide par défaut : n'affecte pas les scénarios existants.
+    /// Posé en composant `Tags` une fois le joueur créé (`scenario::runner::apply_player_overrides`).
+    #[serde(default, skip_serializing_if = "Vec::is_empty")]
+    pub tags: Vec<String>,
+    /// Tags de dégât contre lesquels ce joueur est immunisé (T1.1, scénario `immune_tag`).
+    /// Remplace le `Defenses` posé par `CharacterConfig` (les joueurs n'en ont pas par
+    /// défaut, donc pas de perte en pratique). Vide par défaut.
+    #[serde(default, skip_serializing_if = "Vec::is_empty")]
+    pub immune_to: Vec<String>,
 }
 
 /// Input maintenu sur les frames `from..to`.

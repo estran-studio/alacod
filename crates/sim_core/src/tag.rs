@@ -2,6 +2,7 @@
 //! (ex. `tags: ["froid", "arbres"]` sur une salle, `docs/plan-engine.md` §4.3). Ensemble
 //! ordonné (`BTreeSet`) : jamais de `HashSet` (CLAUDE.md, règle 5 — déterminisme).
 
+use bevy::prelude::Component;
 use serde::{Deserialize, Serialize};
 use std::collections::BTreeSet;
 use std::fmt;
@@ -40,7 +41,18 @@ impl From<String> for Tag {
 /// Ensemble ordonné de [`Tag`]. Se désérialise depuis une liste RON de chaînes
 /// (`["froid", "arbres"]`) grâce à la désérialisation « newtype » transparente de `Tag`
 /// et de `Tags` elle-même (voir le test `deserializes_from_ron_string_list`).
-#[derive(Debug, Clone, Default, PartialEq, Eq, Serialize, Deserialize)]
+///
+/// `Component` (T1.1, chantier B1) : posé sur un personnage à sa création
+/// (`character::create::create_character`, depuis `CharacterConfig::tags`), au même titre
+/// que `Team` — composant statique, non enregistré en rollback (voir la doc de
+/// `crate::team::Team` pour la justification : jamais muté en T1.1, une entité rollback
+/// détruite passe toujours par `despawn_rollback()`, donc le composant survit intact à une
+/// résurrection après rollback).
+///
+/// `Hash` (T1.1) : requis parce que [`crate::damage::DamageEvent`] porte un `Tags` et que
+/// `FrameEvents<DamageEvent>` doit être `Hash` pour le checksum GGRS ; `BTreeSet<Tag>` est
+/// `Hash` (ordre d'itération stable, trié).
+#[derive(Component, Debug, Clone, Default, PartialEq, Eq, Hash, Serialize, Deserialize)]
 #[serde(transparent)]
 pub struct Tags(BTreeSet<Tag>);
 
