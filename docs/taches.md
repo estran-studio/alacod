@@ -40,6 +40,7 @@ sur les traces de référence (`.trace`). D'où les règles :
 | **V3 Outillage et tests** | ce qui vérifie sans humain | `crates/scenario`, `crates/bots`, `games/testbed`, `tests/scenarios`, `scripts/`, `Makefile`, `.github/` | K0 (avec V1), K1, K2, K3, K5, K6, testbed |
 | **V4 Présentation** | ce qui ne tourne pas dans la simulation | `PresentationPlugin` et ses modules (`camera`, `ui`, `light`, `audio`, `character/visuals`, `animation`), `games/*/assets/ui` | I1, I2, I3, H1 (présentation), H3, A5 (crate `animation`) |
 | **V5 Réseau et session** | lobbies, session GGRS, p2p | `crates/game/src/jjrs`, `args`, `telemetry`, le repo `allumette` | J1, J3, J4 |
+| **V6 Assets et cartes** | ce que le joueur voit et entend, et les cartes LDtk | `games/*/assets/{sprites,tilesets,audio,maps}`, `games/*/assets/assets.yaml` (registre des licences), `docs/assets.md` | recherche d'assets libres, registre des licences, cartes LDtk des clones, gabarits de salles, tilesets ; voir §11 |
 
 Quand une voie a plusieurs agents (V1 surtout), elle se coupe par crate : V1a combat, V1b effets
 et objets, V1c ennemis, V1d monde, V1e run et méta. Deux sous-voies ne partagent aucun fichier.
@@ -536,3 +537,55 @@ tâche avec le modèle le moins cher (Haiku d'abord, Sonnet si une tâche échou
 la branche (`make test_scenarios`, `cargo test`, lecture du diff), fusionne dans `main`
 (`scripts/task-merge.sh`, merge `--no-ff`) dans l'ordre de merge de la vague, et tient ce journal.
 Base de référence : `main` à `4e93269`, douze scénarios verts en 78 s.
+
+## 11. Voie V6 : assets et cartes (session à part)
+
+Une voie sans code, qui peut avancer dans une autre session dès maintenant : elle ne touche que des
+fichiers de contenu (`games/<jeu>/assets/**`) et n'entre jamais en conflit avec les autres voies.
+Elle applique les règles du §1 : une branche par tâche (`m0-v6-carte-zombies`), aucune modification
+de fichiers existants hors de sa propriété, aucun `.trace`.
+
+**Règles propres à la voie**
+- **Tout asset a une licence enregistrée** avant d'entrer dans le dépôt : `games/<jeu>/assets/assets.yaml`
+  (id, fichier, source avec l'URL réellement consultée, auteur, licence, modifications faites). CC0
+  d'abord ; CC-BY accepté avec le crédit dans le fichier ; rien d'ambigu ; rien qui vienne des jeux
+  de référence eux-mêmes. Le pack `ZombieShooter` actuel doit être identifié et enregistré lui aussi.
+- **Les formats de l'engine** : planches de sprites en grille régulière décrites par un
+  `SpriteSheetConfig` (`crates/animation/src/lib.rs` : `path`, `tile_size`, `columns`, `rows`,
+  `anchor`, `offset_*`, `animated`) et un `AnimationMapConfig` (`frame_duration`, `animations` par
+  lignes ou par indices) ; l'engine rend gauche et droite par retournement (8 directions suivies,
+  2 dessinées : voir A5). Audio en `.ogg`. Cartes en LDtk 1.5, lues par le fork `bevy_ecs_ldtk`.
+- **Les conventions LDtk actuelles** sont celles de `assets/exemples/test_map.ldtk` : couches
+  `Walls` (IntGrid), `LevelConnection` (IntGrid : les ouvertures entre niveaux), `Entities` ;
+  entités `DoorHorizontal`, `DoorVertical` (champ `cost`, porte appariée), `WindowHorizontal`,
+  `WindowVertical`, `PlayerSpawn` (champ `index` 0..3), `ZombieSpawn`, `CrateLocation`,
+  `WeaponLocation`, `SodaLocation` ; champ de niveau `spawn` (le niveau de départ). Un niveau LDtk =
+  une salle ; le générateur (`crates/map/src/generation`) assemble les salles par leurs connexions
+  (côtés N, S, E, W, position et taille). `make map_preview` affiche une carte, `make
+  map_generation` la génère. Ces conventions seront écrites dans `docs/conventions.md` (T2.7) ; en
+  attendant, la voie les documente elle-même dans `docs/assets.md` à mesure qu'elle les découvre.
+- **Nouveaux fichiers seulement, au futur emplacement** `games/<jeu>/assets/...` (T0.3 déplace
+  l'existant vers `games/zombies/assets/`) : pas de modification des fichiers de `assets/`.
+- **Poids** : ne garder que les planches utilisées, pas les packs entiers ; pas de fichier de plus
+  de quelques mégaoctets sans en parler (git LFS est une décision à prendre).
+- **Vérification sans humain** : chaque carte a une capture (`make map_preview` ou la vidéo d'un
+  scénario `idle` posé dessus par V3) et une ligne « À regarder » ; le registre est validé par un
+  petit lint (`scripts/check-assets.py` : chaque fichier binaire du dossier a une entrée, chaque
+  entrée a une licence permise).
+
+**Tâches**
+
+| Tâche | Quoi | Sert à | Taille |
+|---|---|---|---|
+| V6.1 Registre et lint des assets | `assets.yaml` par jeu, `scripts/check-assets.py`, `docs/assets.md` (formats, conventions, sources retenues) ; identifier et enregistrer le pack `ZombieShooter` | tout | S |
+| V6.2 Recherche d'assets par clone | une liste courte de packs libres par clone (tilesets, personnages, ennemis, projectiles, objets, icônes, sons), avec licence vérifiée, et le téléchargement des seuls fichiers utiles ; pistes à vérifier : Kenney (CC0 : Top-down Shooter, Tiny Dungeon, Roguelike packs, sons), 0x72 « 16x16 Dungeon Tileset II » (CC0), OpenGameArt en filtrant CC0 | M1, M2, M4, M5 | M |
+| V6.3 Import de planches | `scripts/assets/import-sheet.py` : à partir d'une planche et de ses paramètres, écrit les `.ron` de `SpriteSheetConfig` et `AnimationMapConfig` ; exemple sur un ennemi de `throne` | V2 (contenu) | S |
+| V6.4 Carte `zombies` v1 | une vraie carte à la CoD Zombies pour M0 : six à huit salles, portes payantes (dont appariées), fenêtres sur les murs extérieurs, spawners dehors, quatre points de départ, emplacements d'armes murales et de perks (`WeaponLocation`, `SodaLocation`), avec le tileset actuel ; capture et « À regarder » | M0 (T3.1 la jouera) | M |
+| V6.5 Salles du testbed (LDtk) | arène vide, couloir, deux salles et une porte, une fenêtre, de l'eau, du bois : les `.ldtk` du plan §9.5 ; V3 (T2.9) y branche les entités et le RON | tests de vocabulaire | S |
+| V6.6 Tileset de cavernes `throne` | murs, sols, bords, débris, compatible avec un rendu à partir de cellules (E3 dessinera depuis `CellGrid` : convenir avec V1d du format des règles de tuiles) | M1 | M |
+| V6.7 Gabarits de salles `gungeon` | quinze salles typées (combat petite, moyenne, grande, boutique, coffre, boss, secrète, entrée, sortie, couloirs) avec entrées N, S, E, W ; commence quand les métadonnées de salle (E1, M2 vague 0) sont fixées ; la recherche du tileset et des props se fait avant | M2 | L |
+| V6.8 Audio | sons CC0 par clone (tir, impact, mort, achat, porte, power-up), deux boucles de musique ; réglages de `audio/adaptive.rs` | M0, M1 | S |
+
+Ordre proposé : V6.1, puis V6.4 et V6.5 (utiles à M0), puis V6.2 et V6.3 (M1), V6.6, V6.8, et V6.7
+quand M2 commence. Les sprites de 1837 ne passent pas par cette voie : ils viennent du pipeline
+`assetgen` de `1867_lore` (A5).
