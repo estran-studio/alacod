@@ -294,18 +294,16 @@ fn update_hud_values(
 
 // Hot-reload support: detect when HUD config is reloaded
 fn handle_hud_config_changes(
-    mut commands: Commands,
     config_handle: Res<HudConfigHandle>,
     configs: Res<Assets<HudConfig>>,
-    q_hud_root: Query<Entity, With<HudRoot>>,
+    _q_hud_root: Query<Entity, With<HudRoot>>,
 ) {
     // Check if the config has changed by checking if the handle's state changed
     if let Some(handle) = &config_handle.0 {
-        if let Some(config) = configs.get(handle) {
+        if let Some(_config) = configs.get(handle) {
             // If config is not in the "loading" state anymore, potentially re-render
             // For now, this is a simplified version - full hot-reload requires event listeners
             // which would be added later
-            _ = (config, q_hud_root); // Use values to avoid warnings
         }
     }
 }
