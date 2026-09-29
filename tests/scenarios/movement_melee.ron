@@ -7,6 +7,7 @@
 // (cooldown). Sprint en tirant vers le haut (f226-256) : aucun tir. Attaques au corps à corps toutes
 // les 40 frames à partir de f386 (arc de slash vers le bas).
 Scenario(
+    game: "zombies",
     frames: 900,
     players: [
         (inputs: [

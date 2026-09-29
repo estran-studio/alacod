@@ -6,6 +6,7 @@
 // À regarder : quatre jets de balles simultanés dans quatre directions, qui s'arrêtent sur les murs ;
 // les quatre joueurs rechargent en même temps (frame 190).
 Scenario(
+    game: "zombies",
     frames: 300,
     players: [
         (inputs: [

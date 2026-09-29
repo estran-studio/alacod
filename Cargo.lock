@@ -10780,6 +10780,23 @@ dependencies = [
 ]
 
 [[package]]
+name = "testbed"
+version = "0.0.1"
+dependencies = [
+ "animation",
+ "bevy 0.19.1",
+ "bevy_ecs_ldtk",
+ "bevy_ecs_tilemap",
+ "bevy_fixed",
+ "bevy_ggrs",
+ "game",
+ "map",
+ "map_ldtk",
+ "serde_json",
+ "utils",
+]
+
+[[package]]
 name = "textwrap"
 version = "0.11.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -13377,6 +13394,23 @@ name = "zmij"
 version = "1.0.23"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "29666d0abbfad1e3dc4dcf6144730dd3a3ab225bbbdac83319345b1b44ccfc1b"
+
+[[package]]
+name = "zombies"
+version = "0.0.1"
+dependencies = [
+ "animation",
+ "bevy 0.19.1",
+ "bevy_ecs_ldtk",
+ "bevy_ecs_tilemap",
+ "bevy_fixed",
+ "bevy_ggrs",
+ "game",
+ "map",
+ "map_ldtk",
+ "serde_json",
+ "utils",
+]
 
 [[package]]
 name = "zune-core"

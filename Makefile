@@ -133,7 +133,7 @@ review_videos:
 # HEADLESS=1 : sans fenêtre, bien plus rapide.
 remote:
 ifeq ($(HEADLESS), 1)
-	ALACOD_HEADLESS=1 ALACOD_REMOTE=1 APP_VERSION=$(VERSION) cargo run --profile headless --example map_explorer --no-default-features -- --local-port 7000 --players localhost
+	ALACOD_HEADLESS=1 ALACOD_REMOTE=1 APP_VERSION=$(VERSION) cargo run --profile headless -p zombies --no-default-features -- --local-port 7000 --players localhost
 else
 	ALACOD_REMOTE=1 $(MAKE) ldtk_map_explorer
 endif
@@ -172,12 +172,12 @@ map_generation:
 	cargo run --example map_generation $(ARGS)
 
 map_generation_test:
-	cargo run --example map_generation -- ./assets/exemples/test_map.ldtk ./assets/exemples/test_map_generated.ldtk $RANDOM_SEED
+	cargo run --example map_generation -- ./games/zombies/assets/exemples/test_map.ldtk ./games/zombies/assets/exemples/test_map_generated.ldtk $RANDOM_SEED
 
 map_generation_diff_test:
-	cargo run --example map_generation -- ./assets/exemples/test_map.ldtk ./assets/exemples/test_map_generated_1.ldtk $RANDOM_SEED
-	cargo run --example map_generation -- ./assets/exemples/test_map.ldtk ./assets/exemples/test_map_generated_2.ldtk $RANDOM_SEED
-	diff ./assets/exemples/test_map_generated_1.ldtk ./assets/exemples/test_map_generated_2.ldtk
+	cargo run --example map_generation -- ./games/zombies/assets/exemples/test_map.ldtk ./games/zombies/assets/exemples/test_map_generated_1.ldtk $RANDOM_SEED
+	cargo run --example map_generation -- ./games/zombies/assets/exemples/test_map.ldtk ./games/zombies/assets/exemples/test_map_generated_2.ldtk $RANDOM_SEED
+	diff ./games/zombies/assets/exemples/test_map_generated_1.ldtk ./games/zombies/assets/exemples/test_map_generated_2.ldtk
 
 character_tester:
 	APP_VERSION=$(VERSION) cargo run --example character_tester $(ARGS) --features native -- $(GARGS) --local-port 7000 --players localhost
@@ -185,18 +185,25 @@ character_tester:
 character_tester_matchbox:
 	APP_VERSION=$(VERSION) cargo run --example character_tester $(ARGS) --features native -- --number-player $(NUMBER_PLAYER) --matchbox $(MATCHBOX_URL) --lobby $(LOBBY) --players $(PLAYERS) --cid $(CID) --name $(NAME)
 
+# Lance un jeu du dossier games/ en local (un joueur) : make zombies / make testbed
+zombies:
+	APP_VERSION=$(VERSION) cargo run -p zombies $(ARGS) --features native -- $(GARGS) --local-port 7000 --players localhost
+
+testbed:
+	APP_VERSION=$(VERSION) cargo run -p testbed $(ARGS) --features native -- $(GARGS) --local-port 7000 --players localhost
+
 ldtk_map_explorer:
-	APP_VERSION=$(VERSION) cargo run --example map_explorer $(ARGS) --features native -- $(GARGS) --local-port 7000 --players localhost
+	APP_VERSION=$(VERSION) cargo run -p zombies $(ARGS) --features native -- $(GARGS) --local-port 7000 --players localhost
 
 ldtk_map_explorer_matchbox:
-	APP_VERSION=$(VERSION) cargo run --example map_explorer $(ARGS) --features native -- --number-player $(NUMBER_PLAYER) --matchbox $(MATCHBOX_URL) --lobby $(LOBBY) --players $(PLAYERS) --cid $(CID) --name $(NAME)
+	APP_VERSION=$(VERSION) cargo run -p zombies $(ARGS) --features native -- --number-player $(NUMBER_PLAYER) --matchbox $(MATCHBOX_URL) --lobby $(LOBBY) --players $(PLAYERS) --cid $(CID) --name $(NAME)
 
 host_website:
 	cd website && APP_VERSION=$(VERSION) npm run dev
 
 cp_asset:
 	mkdir -p ./website/static/$(VERSION)/assets/
-	cp -r ./assets/* ./website/static/$(VERSION)/assets/
+	cp -r ./games/zombies/assets/* ./website/static/$(VERSION)/assets/
 
 build_map_preview_web:
 	APP_VERSION=$(VERSION) cargo build --example map_preview --target wasm32-unknown-unknown --no-default-features --features render,bevy_ecs_tilemap/atlas $(RELEASE)
@@ -213,8 +220,8 @@ ifeq ($(PROFILE), prod)
 endif
 
 build_ldtk_map_explorer_web:
-	APP_VERSION=$(VERSION) cargo build --example map_explorer --target wasm32-unknown-unknown --no-default-features --features render $(RELEASE)
-	wasm-bindgen --out-dir ./website/static/$(VERSION)/map_explorer --out-name wasm --target web $(CARGO_TARGET_DIR)/wasm32-unknown-unknown/$(MODE_DIR)/examples/map_explorer.wasm
+	APP_VERSION=$(VERSION) cargo build -p zombies --target wasm32-unknown-unknown --no-default-features --features render $(RELEASE)
+	wasm-bindgen --out-dir ./website/static/$(VERSION)/map_explorer --out-name wasm --target web $(CARGO_TARGET_DIR)/wasm32-unknown-unknown/$(MODE_DIR)/zombies.wasm
 ifeq ($(PROFILE), prod)
 	wasm-opt -Oz --vacuum ./website/static/$(VERSION)/map_explorer/wasm_bg.wasm -o ./website/static/$(VERSION)/map_explorer/wasm_bg.wasm
 endif

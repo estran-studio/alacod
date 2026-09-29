@@ -5,6 +5,7 @@
 // (f380), puis le joueur 0 (f494). Le joueur 1 meurt (f1033) : la partie continue, le joueur 0 se
 // fait encercler à son tour (f1223).
 Scenario(
+    game: "zombies",
     frames: 1500,
     players: [
         (),

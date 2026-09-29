@@ -7,6 +7,7 @@
 // Pistolet (f206) : 6 tirs, rechargement (f402-462), 6 tirs ; clics à vide sans rechargement ;
 // passage au fusil à pompe (f806).
 Scenario(
+    game: "zombies",
     frames: 900,
     weapon_overrides: [
         (weapon: "pistol", mag_limit: 1),

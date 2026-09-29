@@ -1,7 +1,7 @@
 //! Partie sur une map LDtk générée : configure la map dans le lobby et crée les
 //! joueurs sur leurs points de spawn une fois la map chargée.
 //!
-//! Partagé par l'exemple `map_explorer` et les scénarios de test, pour qu'ils jouent
+//! Partagé par le jeu `zombies` (`games/zombies`) et les scénarios de test, pour qu'ils jouent
 //! exactement la même partie.
 
 use bevy::{platform::collections::HashMap, prelude::*};

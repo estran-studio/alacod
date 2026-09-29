@@ -4,6 +4,7 @@
 // chemin (flow field). Les quatre joueurs sont dans la même salle initiale (spawnés aux quatre coins).
 // La vague débute et les zombies commencent à apparaître et attaquer les joueurs les plus proches.
 Scenario(
+    game: "zombies",
     frames: 600,
     players: [
         (),
