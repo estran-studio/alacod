@@ -10,6 +10,8 @@ Alacod est un **engine 2D modulaire** pour roguelikes/shooters inspiré de :
 
 L'objectif est de créer un moteur **data-driven** où les comportements sont définis en fichiers RON et assemblés à partir de modules codés dans l'engine.
 
+Le plan de l'engine (écart avec les jeux de référence, architecture cible, jalons par clones, tests) est dans `docs/plan-engine.md` ; les tâches, les voies parallèles et l'ordre de merge dans `docs/taches.md`.
+
 ## Architecture Data-Driven
 
 ### Philosophie

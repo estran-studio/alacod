@@ -1,0 +1,523 @@
+# Tâches et parallélisation
+
+> Complète `docs/plan-engine.md` (le quoi et le pourquoi) : ici, le comment, dans quel ordre et en
+> parallèle. Les identifiants de chantiers (A1, B5, K0…) sont ceux du plan, §5 ; les jalons M0 à M6
+> ceux du §6. Statut : proposition du 2026-09-28. Les jalons se détaillent deux à l'avance : M0 et
+> M1 en fiches, M2 en tâches, M3 à M6 par voies à la sortie du jalon précédent.
+
+## 1. Les règles du travail en parallèle
+
+Le dépôt est un seul workspace Cargo et la simulation est déterministe : deux agents qui touchent
+les mêmes fichiers ou qui changent le gameplay en même temps se marchent dessus au merge (code) et
+sur les traces de référence (`.trace`). D'où les règles :
+
+1. **Une voie = une tâche Orca = une branche.** Orca crée un worktree de chaque sous-repo sur la
+   branche de la tâche (`scripts/orca-setup.sh`) ; le nom suit `<jalon>-<voie>-<sujet>` (ex.
+   `m0-v1-degats`). Une PR par repo modifié, même nom de branche partout (`AGENTS.md`).
+2. **Chaque voie possède des fichiers** (§2). On ne modifie pas un fichier d'une autre voie ; si on
+   en a besoin, on l'écrit dans la fiche de la tâche et on attend le merge, ou on le fait passer par
+   la tâche de contrats de la vague suivante.
+3. **Une seule voie change les traces existantes** : la voie simulation (V1). Les autres prouvent
+   qu'elles ne changent pas le gameplay : `make test_scenarios` vert **sans** `BLESS`. Un refactor
+   qui garde les traces identiques est un refactor prouvé.
+4. **Les déplacements de fichiers et les types partagés** ne se font qu'à la frontière des vagues,
+   dans une tâche de contrats courte et sérielle (T0.x, T1.0, T2.0…). Jamais pendant une vague.
+5. **Ordre de merge fixe par vague** : outillage (V3) → données (V2) → simulation (V1) → présentation
+   (V4) → réseau (V5). La simulation merge après les données et l'outillage, pour blesser ses traces
+   avec tout le reste en place ; la présentation ne touche pas aux traces.
+6. **Rebase sur `main` chaque jour**, CI rapide verte avant merge, `main` toujours vert.
+7. **Quatre voies actives au plus** en même temps : au-delà, les merges et la revue coûtent plus que
+   le parallélisme rapporte, et le digest hebdomadaire devient illisible.
+8. **Chaque tâche commence par ses tests** (plan §9.7) : le scénario ou le test unitaire avant le
+   code, le « À regarder » avant la vidéo.
+
+## 2. Les voies
+
+| Voie | Rôle | Possède | Chantiers |
+|---|---|---|---|
+| **V1 Simulation** | tout ce qui tourne dans `GgrsSchedule` | `crates/game` (parties simulation), puis les crates de vocabulaire : `combat`, `stats`, `effects`, `behaviors`, `world`, `run` ; les traces `.trace` | B1 à B8, C1 à C5 (moteur), D1 à D5, E1 à E9, F1 à F5, G (simulation), H2, J2 |
+| **V2 Données** | le contenu, son format, sa validation | `crates/content` (registre, lint, expressions), `crates/bevy_fixed` (RNG), `games/*/assets`, `docs/conventions.md` | A1 à A5, le contenu RON de chaque clone, K4 |
+| **V3 Outillage et tests** | ce qui vérifie sans humain | `crates/scenario`, `crates/bots`, `games/testbed`, `tests/scenarios`, `scripts/`, `Makefile`, `.github/` | K0 (avec V1), K1, K2, K3, K5, K6, testbed |
+| **V4 Présentation** | ce qui ne tourne pas dans la simulation | `PresentationPlugin` et ses modules (`camera`, `ui`, `light`, `audio`, `character/visuals`, `animation`), `games/*/assets/ui` | I1, I2, I3, H1 (présentation), H3, A5 (crate `animation`) |
+| **V5 Réseau et session** | lobbies, session GGRS, p2p | `crates/game/src/jjrs`, `args`, `telemetry`, le repo `allumette` | J1, J3, J4 |
+
+Quand une voie a plusieurs agents (V1 surtout), elle se coupe par crate : V1a combat, V1b effets
+et objets, V1c ennemis, V1d monde, V1e run et méta. Deux sous-voies ne partagent aucun fichier.
+
+## 3. Le découpage en crates, condition du parallélisme
+
+`crates/game` fait 12 800 lignes et tout le monde y écrit : `core.rs` (assemblage), `weapons/mod.rs`
+(1 242 lignes), `character/mod.rs` (enregistrement des systèmes), `global_asset.rs`. Tant que c'est
+le cas, une seule voie peut y travailler. Le découpage cible, fait progressivement, **un crate par
+vocabulaire** :
+
+| Crate | Contenu | Créé par |
+|---|---|---|
+| `sim_core` | les contrats : `Team`, `Tag`, `DamageKind`, `DamageEvent`, `StatId`, `Stats`, `Modifier`, `Gauge`, `RollbackSystemSet` complet, le trait de registre des kinds, `FrameEvents` | T0.2 |
+| `content` | manifeste, registre, expressions, lint, `alacod lint` | T1.5 |
+| `combat` | équipes et dégâts, santé, statuts, projectiles et patterns, mêlée, parade, grille spatiale | T1.1, puis T1.0 de M1 (déplacement de `weapons`) |
+| `stats` | stats et modificateurs | T1.2 |
+| `effects` | déclencheurs, conditions, actions, objets, inventaire, familiers | M1 |
+| `behaviors` | perception, ciblage, behaviors, résolutions, boss | M1 |
+| `world` | salles, étages, surfaces, feu, eau, destructible | M1 (E3), M2 (E1, E2) |
+| `run` | modes, état de run, horloges, route, profil | M1 (F1), M2 (G1) |
+| `bots` | sources d'inputs réactives, `alacod sim` | T2.11 |
+| `game` | ce qui reste : assemblage (`core.rs`), présentation, session ; se vide au fil des jalons | — |
+
+Règle : un crate se crée au moment où sa voie commence son premier chantier, et les fichiers qui y
+déménagent partent **à la frontière de vague** (règle 4), avec traces identiques comme preuve.
+
+## 4. Le rythme d'un jalon
+
+```
+vague 0  contrats (sériel, 1 agent, 3 à 5 jours) : types partagés, déplacements, squelettes
+vague 1  parallèle (3 à 4 voies, 1 à 2 semaines) : chaque voie sur ses fichiers
+vague 2  parallèle (3 à 4 voies, 1 à 2 semaines) : adoption, contenu, outillage
+vague 3  intégration (1 à 2 agents, 1 semaine) : le clone assemblé, scénarios, vidéos, revue humaine
+```
+
+À la fin de la vague 3, l'humain joue le clone et laisse ses notes (plan §9.8) ; les notes deviennent
+des tâches de la vague 0 du jalon suivant.
+
+Tailles en **jours-agent** (un agent, le flow du §9.7 en place) ; les semaines sont calendaires avec
+quatre voies. C'est une estimation, à recaler après M0.
+
+## 5. M0 : `zombies` complet
+
+**But** (plan §6) : le jeu est un crate et un dossier ; points, achats, perks, à terre et
+réanimation, power-ups ; 4 joueurs en ligne ; le déterminisme se vérifie tout seul et la CI tourne.
+
+### Vague 0 : contrats (sériel)
+
+#### T0.1 Déterminisme vérifiable (K0) — V3 avec V1, 3 j
+- Dépend de : rien. Bloque : tout.
+- Fichiers : `crates/game/src/core.rs`, tous les sites `rollback_component_*` et
+  `rollback_resource_*`, `state_trace.rs`, `crates/scenario/src/runner.rs`, `jjrs/local.rs`.
+- Livrable : `app.rollback_and_trace::<T>()` (rollback + `checksum_component` + trace) et son
+  équivalent ressource ; plus aucun appel direct ; un test qui compare types rollback et types
+  tracés ; le runner observe `SyncTestMismatch` et échoue à la première frame divergente en
+  rejouant en trace complète pour nommer le composant ; option `check_distance` du runner (2 par
+  défaut, 8 en stress).
+- Acceptation : les douze scénarios passent avec traces **identiques** ; un scénario volontairement
+  cassé (un composant non tracé, une mutation hors rollback) échoue avec le bon message ; `make
+  test_scenarios` reste sous la durée actuelle plus 20 %.
+
+#### T0.2 Contrats `sim_core` — V1, 3 j
+- Dépend de : T0.1. Bloque : toute la vague 1.
+- Fichiers : nouveau `crates/sim_core`, `core.rs` (ordre des sets), `character/player/create.rs` et
+  `enemy/create.rs` (insertion de `Team`), `system_set.rs`.
+- Livrable : `Team` (Players, Enemies, Allies, Neutral), `Tag` (chaîne interne, ensemble ordonné),
+  `DamageKind`, `DamageEvent { source, target, kind, amount, frame }` en `FrameEvents`, `StatId`
+  ouvert (enum + `Custom(String)`), `Stats`, `Modifier { stat, op, value, source, until }`, `Gauge`,
+  `RollbackSystemSet` complet et ordonné (Input, Interaction, Movement, Weapon, Projectiles,
+  CollisionDamage, Effects, Status, DeathManagement, EnemySpawning, EnemyAI, Run, FrameCounter),
+  `PlayersCount` ressource, trait `KindRegistry` (un plugin déclare ses kinds ; le lint lit la
+  liste), `Team` posé sur les joueurs et les ennemis existants.
+- Acceptation : compile, traces identiques, `cargo test` du crate (résolution de `Modifier`
+  triviale, ordre des sets stable).
+
+#### T0.3 Extraction de `games/zombies/` et squelette de `games/testbed/` (A2) — V2, 2 j
+- Dépend de : T0.2. Bloque : V2 et V3 de la vague 1.
+- Fichiers : `Cargo.toml` (membres `games/*`), `assets/` → `games/zombies/assets/`,
+  `games/zombies/src/main.rs` (l'ancien `map_explorer`), `games/testbed/` (un `main.rs` et une
+  salle vide), `crates/scenario` (jeu en paramètre du scénario : `game: "zombies"`), `Makefile`,
+  `scripts/scenario-video`, `examples/`.
+- Livrable : `cargo run -p zombies` joue la partie actuelle ; les scénarios portent leur jeu ; le
+  testbed lance une arène vide avec un joueur.
+- Acceptation : traces identiques ; `make videos` fonctionne ; plus rien dans `assets/` à la racine.
+
+#### T0.4 CI rapide (K6a) — V5, 2 j, en parallèle de T0.1 à T0.3
+- Dépend de : rien (jeton à réparer par l'humain).
+- Fichiers : `.github/workflows/*.yaml`, `Makefile` (`make check`), `Dockerfile.builder`.
+- Livrable : à chaque commit et PR, sur ubuntu : format, `cargo test`, `make test_scenarios`, grep
+  des interdits (`std::collections::HashMap`, `f32` dans les composants rollback de `crates/game`
+  hors présentation) ; moins de cinq minutes avec le cache ; badge dans le README.
+- Acceptation : une PR volontairement rouge est bloquée ; `main` vert.
+
+### Vague 1 (parallèle)
+
+**V1 simulation** (sériel dans la voie)
+
+#### T1.1 Équipes et dégâts (B1) — 3 j
+- Dépend de : T0.2. Bloque : T1.2, T2.1.
+- Fichiers : nouveau `crates/combat` (`team.rs`, `damage.rs`), `character/health/mod.rs`,
+  `weapons/mod.rs` (collision des balles), `weapons/melee.rs`, `enemy/ai/behavior.rs` (attaque
+  → `DamageEvent`).
+- Livrable : toute blessure passe par `DamageEvent` ; `DamageAccumulator` ne s'écrit plus
+  directement ; politique de tir ami par arme (`friendly_fire: Never | Always | Cursed`) ;
+  résistances et immunités par tag (`immune_to: [Bullet]`) ; `Health.invulnerable_until_frame`
+  enfin lu ; la matrice de couches remplacée par `Team` + règles.
+- Acceptation : scénarios `friendly_fire_never`, `friendly_fire_cursed`, `immune_tag`, verts en
+  synctest à 2 ; traces existantes inchangées sauf bless justifié (aucun attendu) ; bench inchangé.
+
+#### T1.2 Stats branchées (B2) — 4 j
+- Dépend de : T1.1, T1.4 (expressions, mergée avant). Bloque : T1.3, T2.3.
+- Fichiers : nouveau `crates/stats`, `character/movement.rs`, `character/player/input.rs`
+  (vitesse, sprint, dash), `weapons/mod.rs` (cadence, rechargement, dégâts), `health/mod.rs`
+  (max, regen), `character/config.rs` (le RON expose `stats:`).
+- Livrable : `Stats` par entité, résolution `(base + Σ flat) × (1 + Σ pct) × Π mult` en fixed-point,
+  modificateurs sourcés avec fin (frame, statut, salle) ; les constantes de `pathing.rs`
+  (séparation, ralentissement) deviennent des stats des ennemis.
+- Acceptation : unitaires (ordre, empilement, expiration) ; scénario `stat_move_speed` (position à
+  N frames avec `Mult 0.5`) ; traces identiques quand aucun modificateur n'est actif.
+
+#### T1.3 À terre et réanimation (B6, partie « à terre ») — 3 j
+- Dépend de : T1.2, T1.7. Bloque : T3.1.
+- Fichiers : `crates/combat/src/downed.rs`, `health/mod.rs` (mort → à terre si coop), `interaction.rs`
+  (réanimer = interaction maintenue), `character/player/input.rs`.
+- Livrable : à 2 joueurs et plus, un joueur à 0 PV tombe à terre (rampe, ne tire pas, minuteur
+  `bleedout_frames` dans le RON) ; un coéquipier le réanime en N frames ; seul, il meurt ; tous à
+  terre = défaite.
+- Acceptation : scénarios `downed_revive`, `downed_bleedout`, `downed_all_lose` à 2 en synctest ;
+  attentes `PlayerDowned`, `PlayerRevived` (T1.7).
+
+**V2 données**
+
+#### T1.4 Expressions numériques (A3) — 2 j
+- Dépend de : T0.2. Bloque : T1.2, T1.5.
+- Fichiers : nouveau `crates/content/src/expr.rs`.
+- Livrable : parseur (`+ - * / min max` , comparaisons, identifiants `players`, `wave`, `stat.x`,
+  `gauge.x`) et évaluateur fixed-point sur un contexte fourni par l'appelant ; erreurs de parse
+  avec position.
+- Acceptation : unitaires (précédence, débordements saturés, identifiant inconnu = erreur au
+  chargement, jamais à l'exécution).
+
+#### T1.5 Manifeste, registre, `alacod lint` (A1) — 5 j
+- Dépend de : T0.3, T1.4. Bloque : T2.6, T2.8, T2.10.
+- Fichiers : `crates/content` (`manifest.rs`, `registry.rs`, `lint.rs`, `bin/alacod.rs`),
+  `crates/game/src/global_asset.rs` (supprimé au profit du registre), `character/player/create.rs`,
+  `enemy/create.rs`, `waves/`, `games/zombies/assets/game.ron`, `games/testbed/assets/game.ron`.
+- Livrable : `game.ron` déclare les dossiers ; chargement en registre typé (`CharacterId`,
+  `WeaponId`, `EnemyId`, `WaveConfigId`…) ; refus de démarrer sur référence cassée, id dupliqué,
+  valeur hors plage, kind inconnu (liste fournie par `KindRegistry`), flottant dans une valeur
+  `Fixed` ; `alacod lint games/zombies` en CLI ; rechargement à chaud hors partie ; les joueurs
+  reçoivent les armes de leur `characters/*.ron` (`starting_weapons`) et non tout `weapons.ron`.
+- Acceptation : fixtures de contenu invalide, une par erreur, avec le message attendu ; les
+  scénarios existants gardent leurs traces (les armes de départ sont déclarées à l'identique) ;
+  hook PostToolUse qui lance le lint sur `games/**`.
+
+#### T1.6 RNG par flux (A4) — 1 j
+- Dépend de : T0.2. Bloque : M1 (patterns, butin).
+- Fichiers : `crates/bevy_fixed/src/rng.rs`, `core.rs` (graine de run).
+- Livrable : `RollbackRng::stream(name)` dérivé de la graine de run et d'un nom stable ; les
+  vagues utilisent `stream("waves")`.
+- Acceptation : unitaires (deux flux indépendants, même graine = même suite) ; traces des scénarios
+  de vagues **changent** (bless justifié : nouveau tirage), les autres non.
+
+**V3 outillage**
+
+#### T1.7 Attentes et invariants de M0 (K1) — 3 j
+- Dépend de : T0.3. Bloque : T1.3, T2.x scénarios.
+- Fichiers : `crates/game/src/replay.rs`, `crates/scenario/src/runner.rs`,
+  `crates/scenario/src/events.rs`, `crates/scenario/src/invariants.rs` (nouveau).
+- Livrable : attentes `Health`, `NoDamageBetween`, `Stat`, `Currency`, `PlayerDowned`,
+  `PlayerRevived`, `EntityCount(tag)`, `Event(nom)`, `RunState` ; invariants de frame (santé
+  bornée, entités dans la carte, joueur hors mur, net ids uniques) activables par scénario ;
+  moments clés étendus (achat, à terre, réanimation, power-up).
+- Acceptation : chaque attente a un scénario fixture vert et un rouge ; invariants verts sur les
+  douze scénarios.
+
+#### T1.8 Grille spatiale (B4a) — 3 j
+- Dépend de : T0.2. Bloque : T2.1.
+- Fichiers : `crates/combat/src/grid.rs` (structure seule, pas encore adoptée).
+- Livrable : grille de cellules 32 px sur les colliders rollback, requêtes par zone et par cercle,
+  reconstruite chaque frame (déterministe : ordre par net id), API `for_each_near`.
+- Acceptation : test d'équivalence avec la force brute sur 1 000 configurations aléatoires ;
+  scénarios `bench_horde` (200 ennemis) et `bench_bullets` (500 balles, arme fixture) ajoutés au
+  testbed sans encore utiliser la grille (ils mesurent l'avant).
+
+#### T1.9 Bench (K3) — 2 j
+- Dépend de : T0.3. Bloque : T2.14.
+- Fichiers : `crates/scenario` (métriques), `scripts/scenario-review.py` et `.html` (colonne
+  perf), `tests/budgets.ron`.
+- Livrable : chaque scénario rapporte frames simulées par seconde, taille de snapshot (via
+  bevy_ggrs), entités max ; `budgets.ron` fixe des seuils par scénario `bench_*` ; échec si
+  dépassé ; historique par commit sur la page de revue.
+- Acceptation : `make bench` en local, chiffres visibles sur la page.
+
+**V4 présentation**
+
+#### T1.10 Caméra par joueur en ligne (I3) — 1 j
+- Dépend de : rien. Fichiers : `camera/mod.rs`.
+- Livrable : en ligne, chaque client suit son joueur local ; en local à plusieurs, le comportement
+  actuel ; réglage dans `camera.ron`.
+- Acceptation : `play_scenario` à 2 avec `--follow 1` montre le bon joueur ; aucune trace touchée.
+
+#### T1.11 HUD v0 piloté par `ui/hud.ron` (I1 v0) — 4 j
+- Dépend de : T0.3. Bloque : T2.12.
+- Fichiers : `crates/game/src/ui/hud.rs` (nouveau), `games/zombies/assets/ui/hud.ron`.
+- Livrable : un arbre `bevy_ui` construit depuis le RON (ancrages, barres, compteurs, icônes) lié
+  aux données de la simulation par nom (`health`, `wave`, `ammo.mag`, `ammo.reserve`, `points`) ;
+  rechargement à chaud du RON ; rien dans la simulation.
+- Acceptation : capture d'écran de référence à 960×540 et 1920×1080 comparée en CI lente (T2.14) ;
+  traces intactes.
+
+**V5 réseau**
+
+#### T1.12 Quatre joueurs (J1) — 3 j
+- Dépend de : T0.3, T0.4. Bloque : T3.1.
+- Fichiers : `jjrs/`, `args/`, `Makefile` (`test_multiplayer N=4`), `docker-compose.yaml`
+  (allumette local), `ui/lobby.rs` (quatre entrées).
+- Livrable : scénarios `four_players_idle` et `four_players_shooting` en synctest ; quatre clients
+  headless par allumette en local, `diff_log` identique ; télémétrie de desync qui nomme la frame.
+- Acceptation : `make test_multiplayer N=4` vert en local ; sera nocturne (T2.14).
+
+**Ordre de merge de la vague 1** : T1.7, T1.8, T1.9 → T1.4, T1.6, T1.5 → T1.1, T1.2, T1.3 → T1.10,
+T1.11 → T1.12.
+
+### Vague 2 (parallèle)
+
+**V1 simulation**
+
+#### T2.1 Adoption de la grille (B4b) — 2 j
+- Dépend de : T1.8, T1.1. Fichiers : `weapons/mod.rs` (balles), `melee.rs`, `player/input.rs`
+  (déplacement), `enemy/ai/pathing.rs` (séparation).
+- Livrable : plus aucune boucle sur tous les colliders.
+- Acceptation : traces identiques (la grille ne change pas les résultats, seulement le coût) ;
+  `bench_bullets` et `bench_horde` au moins trois fois plus rapides ; budgets resserrés.
+
+#### T2.2 Munitions typées et inventaire d'armes (B7) — 3 j
+- Dépend de : T1.2. Fichiers : `weapons/mod.rs` (réserves), `crates/combat/src/inventory.rs`
+  (nouveau), `interaction.rs` (ramasser, lâcher), `games/zombies/assets/weapons/*.ron`.
+- Livrable : réserves par type de munition (`ammo_type: Plomb | …`, cinq types), deux emplacements,
+  lâcher et ramasser au sol, échange avec l'arme murale, coup de crosse pendant le rechargement.
+- Acceptation : scénarios `ammo_shared_reserve`, `drop_pickup_swap` ; `Ammo` étendu par type
+  (T1.7).
+
+#### T2.3 Monnaie et achats (C5 v1) — 4 j
+- Dépend de : T1.2, T1.5. Fichiers : `crates/run/src/currency.rs` (nouveau crate `run` minimal),
+  `interaction.rs` (achat = interaction avec coût), `waves/` (points par kill), `map_ldtk` (entités
+  `WeaponLocation`, `SodaLocation` enfin lues), `games/zombies/assets/economy/*.ron`.
+- Livrable : `Currency` par joueur ; points par kill et par réparation ; portes payantes (le
+  `cost` existant) ; armes murales ; perks = modificateurs de stats permanents pour la partie
+  (`Juggernog` = `max_hp × 2`…) ; prix dans le RON.
+- Acceptation : scénarios `buy_door`, `buy_wall_weapon`, `buy_perk` ; attentes `Currency`, `Stat`.
+
+#### T2.4 État de run et mode `Waves` (F1) — 3 j
+- Dépend de : T2.3, T1.3. Fichiers : `crates/run/src/{run,modes}.rs`, `waves/` (devient le mode
+  `Waves` du run), `core.rs`, `ui/game_over.rs` (résumé lu dans `Run`).
+- Livrable : ressource `Run { seed, mode, step, players, flags }` rollback ; conditions de fin
+  (tous à terre → défaite) ; résumé (vague atteinte, kills, points) ; relance sans relancer le
+  binaire (retour au lobby ou repartir avec la même config) en moins de dix secondes.
+- Acceptation : scénario `run_lose_summary` ; `RunState` attendu ; relance chronométrée dans un test.
+
+#### T2.5 Actions de ramassage : power-ups (C1 v0) — 2 j
+- Dépend de : T2.3. Fichiers : `crates/effects/src/actions.rs` (nouveau crate, minimal),
+  `waves/` (drop à la mort selon table), `games/zombies/assets/items/powerups.ron`.
+- Livrable : un pickup au sol applique une liste d'actions : `TimedModifier`, `RefillAmmo`,
+  `RepairAllWindows`, `KillAllWaveEnemies`, `Currency(×2 pendant N)` ; c'est la graine de C1.
+- Acceptation : un scénario par power-up dans le testbed ; drop déterministe (flux `loot`).
+
+**V2 données**
+
+#### T2.6 Contenu `zombies` en RON — 3 j
+- Dépend de : T1.5. Fichiers : `games/zombies/assets/**`.
+- Livrable : quatre armes murales avec prix, quatre perks, la table des power-ups, les vagues
+  (existant), les personnages avec `starting_weapons`, le `game.ron` complet ; les sprites
+  actuels rangés par entité.
+- Acceptation : `alacod lint games/zombies` vert ; les scénarios de T3.1 n'ont besoin d'aucun
+  contenu de plus.
+
+#### T2.7 Doc des conventions (K4) — 2 j
+- Fichiers : `docs/conventions.md`, `CLAUDE.md` (renvoi).
+- Livrable : LDtk (couches, entités, champs, tailles), dossier de jeu, `game.ron`, checklist d'un
+  nouveau vocabulaire (kind, registre, lint, `rollback_and_trace`, scénario, attente, vidéo).
+
+#### T2.8 Lint des nouveaux kinds — 1 j
+- Dépend de : T1.5, T2.3, T2.5. Livrable : le lint connaît `ammo_type`, `friendly_fire`, les
+  perks (stat ids), les actions de power-ups ; un test par règle.
+
+**V3 outillage**
+
+#### T2.9 Testbed — 3 j
+- Dépend de : T0.3, T1.5. Fichiers : `games/testbed/assets/**`.
+- Livrable : salles LDtk minimales (arène vide, couloir, deux salles et une porte, une fenêtre),
+  mannequin immobile à santé réglable, cible qui compte les coups, ennemi suiveur, un allié, un
+  civil ; `game.ron` ; scénarios de base.
+- Acceptation : `bench_*` et les scénarios fixtures de la vague 1 y tournent.
+
+#### T2.10 Générateur de scénarios v0 — 3 j
+- Dépend de : T2.9, T1.5. Fichiers : `crates/scenario/src/generate.rs`, `bin/alacod-gen`.
+- Livrable : pour chaque arme et chaque perk du jeu, un scénario instancié dans le testbed depuis
+  un gabarit (le joueur apparaît avec l'objet, tire sur le mannequin N frames) ; le `test:` d'une
+  définition ajoute des attentes ; sans `test:`, invariants seulement ; traces de référence gérées
+  comme les autres.
+- Acceptation : `alacod gen games/zombies` produit et joue les scénarios ; un objet sans `test:`
+  passe, un `test:` faux échoue.
+
+#### T2.11 Bots v0 et `alacod sim` — 4 j
+- Dépend de : T1.7. Fichiers : nouveau `crates/bots`, `crates/scenario` (source d'inputs `Bot`),
+  `bin/alacod-sim`.
+- Livrable : `InputSource::Bot(profil)` déterministe (flux RNG `bots`) : `immobile`, `fonceur`
+  (vers l'ennemi le plus proche, tire, répare la fenêtre la plus proche quand libre), `prudent`
+  (garde ses distances) ; `alacod sim --game zombies --bots 4 --seeds 1..50 --until-wave 10` sort
+  un JSON (vague atteinte, morts, kills, durée, desync) ; un run se sauve en scénario.
+- Acceptation : 50 graines à 4 bots sans desync en synctest ; métriques sur la page de revue.
+
+**V4 présentation**
+
+#### T2.12 HUD v1 et écran de résumé — 3 j
+- Dépend de : T1.11, T2.4. Livrable : perks en icônes, indicateur « à terre » et minuteur, power-up
+  actif, prompts d'achat avec prix en icône ; écran de résumé et relance.
+- Acceptation : captures de référence mises à jour ; traces intactes.
+
+#### T2.13 Feedback minimal (I2 v0) — 2 j
+- Livrable : flash blanc à l'impact, secousse courte à l'explosion, son d'achat et de power-up,
+  dérivés des `FrameEvents` relus en présentation.
+- Acceptation : visible sur les vidéos ; traces intactes.
+
+**V5 réseau**
+
+#### T2.14 CI lente (K6b) — 3 j
+- Dépend de : T0.4, T1.9, T1.12. Fichiers : `.github/workflows/nightly.yaml`, scripts.
+- Livrable : chaque nuit et sur `main` (self-hosted) : bench avec seuils, `alacod sim` à 4 sur 50
+  graines, p2p à 2 et 4 par allumette (docker compose), vidéos et captures, page de revue publiée
+  ; notes de revue écrites par le serveur dans `tests/review-notes/<commit>.md`.
+- Acceptation : une nuit verte de bout en bout ; artefacts téléchargeables.
+
+**Ordre de merge de la vague 2** : T2.9, T2.10, T2.11 → T2.6, T2.7, T2.8 → T2.1 à T2.5 → T2.12,
+T2.13 → T2.14.
+
+### Vague 3 : intégration (1 à 2 agents)
+
+#### T3.1 Scénarios du clone — V3 avec V1, 3 j
+Partie type à 1, 2 et 4 (vagues 1 à 5, achats, perk, un à terre réanimé, deux power-ups), en
+synctest ; « À regarder » par scénario ; bless justifié en une ligne par scénario.
+
+#### T3.2 Vidéos, digest — V4, 1 j
+Montage, comparaison avec la dernière vidéo de M0 vague 0, digest écrit avec les métriques de bots.
+
+#### T3.3 Revue humaine — 1 j
+Jouer trente minutes à deux ; notes sur la page.
+
+#### T3.4 Fermeture des notes — 2 j
+Chaque note devient une attente, un invariant, un scénario ou une tâche de M1.
+
+**Critères de sortie** : plan §9.8. Calendrier indicatif : vague 0 une semaine, vagues 1 et 2 deux
+semaines chacune, vague 3 une semaine : **six semaines** avec quatre voies.
+
+## 6. M1 : `throne` (Nuclear Throne)
+
+**But** (plan §6) : cavernes destructibles, projectiles ennemis, deux armes et cinq munitions,
+niveaux et mutations, portail, run seedée, horloge de difficulté.
+
+### Vague 0 : contrats (sériel, 4 j)
+
+#### T1.0a Contrats de combat et d'IA — V1
+`crates/combat` reçoit `weapons/` (déplacement, traces identiques) ; enums squelettes enregistrés au
+`KindRegistry` : `ProjectileModifier`, `Pattern`, `StatusDef`, `Behavior`, `Perception`,
+`Targeting`, `Effect { on, if, do }` ; composants d'état `Statuses`, `BehaviorState` ; crates
+`effects` et `behaviors` créés vides avec leurs sets.
+
+#### T1.0b Contrats de monde et de run — V1
+`crates/world` : `CellKind`, `CellGrid` (ressource rollback, source du flow field), `Destructible`
+; `crates/run` : `Mode::Floors`, `FloorIndex`, `Clock`. `RollbackSystemSet::World` inséré.
+
+#### T1.0c Contenu `games/throne/` squelette — V2
+`game.ron`, un personnage, une arme, un ennemi, une caverne fixe : le clone démarre vide.
+
+### Vague 1 (parallèle)
+
+**V1a combat**
+- T1.1 Projectiles composables (B5 v1) — 4 j : `Bounce(n)`, `Pierce(n)`, `Size`, `Lifetime`,
+  `Homing(force)`, `Gravity`, `on_hit: [Action]`, `on_expire: [Spawn(pattern)]` ; explosions comme
+  projectile à durée nulle. Acceptation : un scénario générable par modificateur dans le testbed ;
+  `BulletCount`, `HitsAtLeast` ; `bench_bullets` à 500 dans le budget.
+- T1.2 Patterns et tir ennemi (B5 v1) — 3 j : `Aimed`, `Spread`, `Ring`, `Sequence`, `Telegraph`
+  ; attaque `Shoot(pattern)` pour les ennemis ; graine par émetteur (flux `patterns`).
+  Acceptation : même graine = même trace à 1 et à 4 joueurs ; scénario `enemy_ring`.
+- T1.3 Statuts (B3) — 3 j : `Statuses` avec `Burn`, `Slow`, `Stun`, `Freeze`, empilement, tick,
+  modificateurs, visuel dérivé. Acceptation : `HasStatus`, `StatusStacks`, un scénario par statut.
+
+**V1c ennemis**
+- T1.4 Behaviors composables v1 (D1) — 5 j : `Chase`, `KeepDistance`, `Strafe`, `Charge(telegraph)`,
+  `Shoot`, `Melee`, `Flee`, `Wander` ; sélection par priorité ; `Perception { sight }` ;
+  `Targeting::Nearest` ; les zombies de `games/zombies` réécrits en RON avec traces identiques
+  (preuve). Acceptation : `EnemyState`, `EnemyDistance` ; diagnostics de navigation en attentes.
+- T1.5 Variantes (D2) — 2 j : `variants: { nom: (modifiers, tags, skin) }`, tirage par flux
+  `variants`. Acceptation : scénario `variant_fast`.
+
+**V1d monde**
+- T1.6 Terrain destructible et cavernes (E3) — 5 j : générateur de cavernes (automate cellulaire,
+  graine), `CellGrid` → colliders et flow field incrémental, cellule détruite par explosion.
+  Acceptation : unitaires du générateur (connexité, 1 000 graines) ; scénario `explode_wall` ;
+  `CellState` attendu ; `bench_cave` (recalcul du flow field après 50 destructions).
+- T1.7 Surfaces v1 (E4) — 2 j : tags de cellules et modificateurs de vitesse (eau peu profonde,
+  sable). Acceptation : `PlayerPosition` sur deux surfaces.
+
+**V1e run**
+- T1.8 Mode `Floors` (F1) — 4 j : séquence de niveaux, portail quand `EntityCount(enemy) == 0`,
+  chargement du niveau suivant avec continuité des net ids (numérotation triée par contenu), défaite
+  et résumé, boucle infinie après le dernier niveau. Acceptation : `FloorIndex` ; scénario
+  `portal_next_floor` ; bots qui finissent trois niveaux.
+- T1.9 Horloges (F2) — 2 j : `Clock` d'étage et de run, événements planifiés, difficulté qui
+  monte avec l'index et le temps (`players` dans les expressions). Acceptation : `Clock(id, fired)`.
+- T1.10 Effets v1 et mutations (C1 v1, C4 v1) — 4 j : `Effect { on, if, do }` avec `OnLevelUp`,
+  `OnKill`, `OnDamageTaken`, `Tick` ; actions `Modifier`, `Heal`, `SpawnProjectile` ; rads → niveau
+  → choix parmi trois mutations tirées d'un pool (flux `loot`) ; pool d'armes par niveau.
+  Acceptation : scénario par déclencheur ; `Event(levelup)` ; le choix passe par un input dédié
+  (scriptable).
+
+**V2 données**
+- T1.11 Contenu `throne` — 5 j : douze armes sur cinq munitions, dix ennemis (dont trois tireurs et
+  un chargeur), huit mutations, trois niveaux de caverne, tables de butin, `test:` sur chaque
+  définition. Acceptation : lint vert, scénarios générés verts.
+- T1.12 Lint des nouveaux kinds — 2 j.
+
+**V3 outillage**
+- T1.13 Générateur v1 — 3 j : gabarits par ennemi (seul contre joueur immobile, puis mobile) et par
+  statut ; `test:` sur les ennemis. 
+- T1.14 Bots v1 — 3 j : profil `prudent` qui esquive les projectiles, complétion de niveau ;
+  `alacod sim` avec `--until-floor` ; métriques de niveau.
+- T1.15 Attentes de M1 — 2 j : `BulletCount`, `HitsAtLeast`, `HasStatus`, `StatusStacks`,
+  `EnemyState`, `EnemyDistance`, `FloorIndex`, `Clock`, `CellState`.
+
+**V4 présentation**
+- T1.16 Écran de mutation et transition de niveau — 3 j : choix à trois cartes à la manette ;
+  fondu et recentrage au portail.
+- T1.17 Feedback v1 (I2) — 3 j : hit stop, secousse paramétrée, flash, télégraphe de charge
+  (cercle au sol depuis `Telegraph`), chiffres de dégâts optionnels.
+- T1.18 HUD throne — 2 j : barre de rads, munitions par type, niveau.
+
+**Ordre de merge** : V3 → V2 → V1 (V1a, V1c, V1d, V1e dans cet ordre : chacune blesse ses traces,
+V1e en dernier) → V4.
+
+### Vague 2 : intégration (1 semaine)
+Scénarios du clone (trois niveaux à 1, 2 et 4 ; un boss simple par timeline), bots sur 200 graines,
+vidéos, revue humaine, fermeture des notes. Calendrier indicatif : **cinq semaines**.
+
+## 7. M2 : `gungeon`, par voies (à détailler à la sortie de M1)
+
+- **Vague 0** : contrats de salles (`RoomKind`, `RoomState`, `Entrance`), d'objets (`ItemKind`,
+  `Inventory` à emplacements), de boss (`Phase`, `Timeline`), de profil (`Profile`) ; `crates/meta`.
+- **V1a combat** : B5 v2 (blanks, rebonds sur murs, patterns en spirale et en éventail), B6 (roulade
+  à i-frames, charges, variantes en données).
+- **V1b effets et objets** : C1 v2 (tous les déclencheurs), C2 (genres, emplacements, actifs à
+  cooldown par salles, consommables, synergies), C4 (coffres, clés, pools, rareté), C5 (boutique).
+- **V1c ennemis** : D4 (phases, timelines, arènes à tenir), D1 v2 (formations simples).
+- **V1d monde** : E1 (salles typées, verrouillage sur les présents, activation), E2 (grammaire
+  d'étage sur gabarits LDtk, minicarte, transition), E4 v2 (tables, barils, fosses).
+- **V1e run et méta** : G1 (profil et sauvegarde), G2 (hub : la Brèche), F1 (`Floors` à salles).
+- **V2** : contenu `gungeon` (vingt armes, vingt objets, dix ennemis, un boss, quinze gabarits de
+  salles), lint.
+- **V3** : K2 v1 (bot explorateur qui finit un étage), générateur v2 (objets et salles), bench à
+  500 balles en salle verrouillée, attentes `RoomState`, `Inventory`, `BossPhase`, `ProfileHas`.
+- **V4** : I1 v1 (le test comparatif d'UI de deux jours, puis HUD, pause, inventaire, minicarte),
+  I2 v2.
+- Calendrier indicatif : **huit semaines** (XL).
+
+## 8. M3 à M6
+
+Par voies, à la sortie de M2 et de chaque jalon suivant, avec les chantiers du plan §6 : M3 (la
+tranche verticale de 1837 : A5 en V4, B5 parade et D3 en V1a et V1c, E4 neige et E8 nuit en V1d, F2
+nuit en V1e, H1 en V4, J2 en V1e, le plugin `1837` dans son dépôt) ; M4 Isaac ; M5 Hades ; M6 la
+région des chantiers puis la campagne.
+
+## 9. Suivi
+
+- Ce fichier est la source de vérité des tâches : une ligne de statut par tâche (`à faire`, `en
+  cours (branche)`, `mergée (commit)`), tenue par l'agent qui prend la tâche.
+- Une tâche commence par un commentaire dans sa fiche : qui, quelle branche, quand ; elle finit par
+  le commit de merge et la vidéo.
+- Le digest hebdomadaire (plan §9.8) liste les tâches mergées, en cours, bloquées, et les métriques.
+- Une tâche qui découvre une autre tâche l'ajoute ici, dans la vague suivante, jamais dans la sienne.
