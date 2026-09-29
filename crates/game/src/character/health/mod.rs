@@ -10,7 +10,9 @@ use combat::damage::{resolve_damage, Defenses};
 use ggrs::PlayerHandle;
 use serde::{Deserialize, Serialize};
 use sim_core::damage::DamageEvent;
+use sim_core::stats::StatId;
 use sim_core::team::Team;
+use stats::StatReader;
 use std::collections::BTreeMap;
 use std::fmt;
 use utils::{frame::FrameCount, net_id::GgrsNetId, order_iter, order_mut_iter};
@@ -291,6 +293,38 @@ pub fn rollback_health_regeneration(
                     "{} regen {} -> {} (+{}/s, {}f since dmg)",
                     g_id, health_before, health.current, regen.regen_rate, frames_since_damage
                 );
+            }
+        }
+    }
+}
+
+/// Stats branchées (T1.2, chantier B2) : `Health.max` suit la stat `MaxHealth` (base +
+/// modificateurs actifs à la frame courante) et `HealthRegen.regen_rate` suit `HealthRegen`.
+/// `current` est borné à `max` s'il le dépasse (perte de stat, fin d'un buff) ; jamais
+/// relevé automatiquement quand `max` augmente (un soin/regen explicite s'en charge).
+///
+/// N'écrit rien si l'entité n'a pas la stat correspondante (`StatReader::try_get`, pas
+/// `get` avec un défaut) : reprendre la valeur déjà en place comme base de `resolve()` la
+/// ferait dériver à chaque frame sous un modificateur multiplicatif (`Mul`/`Pct`), au lieu
+/// de la laisser simplement inchangée.
+///
+/// `RollbackSystemSet::Status`, après `stats::expire_modifiers_system` (voir sa doc : les
+/// deux touchent `Modifiers`/l'état qui en dérive, l'`ambiguity_detection: Error` du
+/// `GgrsSchedule` exige un ordre explicite entre eux).
+pub fn sync_health_from_stats(
+    stats: StatReader,
+    mut query: Query<(&GgrsNetId, Entity, &mut Health, Option<&mut HealthRegen>), With<Rollback>>,
+) {
+    for (_net_id, entity, mut health, regen) in order_mut_iter!(query) {
+        if let Some(max) = stats.try_get(entity, &StatId::MaxHealth) {
+            health.max = max;
+            if health.current > max {
+                health.current = max;
+            }
+        }
+        if let Some(mut regen) = regen {
+            if let Some(rate) = stats.try_get(entity, &StatId::HealthRegen) {
+                regen.regen_rate = rate;
             }
         }
     }

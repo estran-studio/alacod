@@ -16,6 +16,7 @@ use std::path::{Path, PathBuf};
 
 use bevy::prelude::Resource;
 use sim_core::kinds::{KindDecl, Kinds};
+use sim_core::stats::StatId;
 
 use crate::lint::{LintError, LintErrorKind};
 use crate::manifest::{ContentFolderDecl, GameManifest, MANIFEST_FILE_NAME};
@@ -118,6 +119,8 @@ pub struct CharacterEntry {
     /// l'ordre compte (le premier est l'arme active), voir
     /// `crates/game/src/character/player/create.rs`.
     pub starting_weapons: Vec<WeaponId>,
+    /// Surcharges de stats (T1.2, chantier B2), pour la règle « valeurs >= 0 ».
+    pub stats: BTreeMap<StatId, FixedField>,
 }
 
 #[derive(Debug, Clone)]
@@ -309,6 +312,10 @@ struct CharacterFileSchema {
     skins: BTreeMap<String, serde::de::IgnoredAny>,
     #[serde(default)]
     starting_weapons: Vec<String>,
+    /// T1.2, chantier B2 : surcharges de stats. `StatId` vient directement de `sim_core`
+    /// (pas de mirroir : c'est déjà le type réel, `content` en dépend déjà).
+    #[serde(default)]
+    stats: BTreeMap<StatId, FixedField>,
 }
 
 #[derive(Deserialize)]
@@ -431,6 +438,7 @@ fn load_characters(
                     .into_iter()
                     .map(WeaponId::from)
                     .collect(),
+                stats: parsed.stats,
             },
         );
     }

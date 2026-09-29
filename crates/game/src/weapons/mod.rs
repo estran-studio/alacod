@@ -18,8 +18,10 @@ use combat::team::team_allows_hit;
 use ggrs::PlayerHandle;
 use sim_core::damage::{DamageEvent, DamageKind, FriendlyFire};
 use sim_core::kinds::{KindDecl, KindRegistry};
+use sim_core::stats::StatId;
 use sim_core::tag::{Tag, Tags};
 use sim_core::team::Team;
+use stats::StatReader;
 use std::collections::BTreeMap;
 
 use serde::{Deserialize, Serialize};
@@ -499,6 +501,10 @@ fn spawn_bullet_rollback(
     source_team: Team,
     source_tags: &Tags,
     friendly_fire: FriendlyFire,
+    // Multiplicateur de dégât du porteur (T1.2, stat `Damage`, 1 par défaut).
+    damage_mult: fixed_math::Fixed,
+    // Multiplicateur de portée du porteur (T1.2, stat `Range`, 1 par défaut).
+    range_mult: fixed_math::Fixed,
 ) -> Entity {
     let (velocity, damage, range, radius) = match &bullet_type {
         BulletType::Standard {
@@ -531,6 +537,12 @@ fn spawn_bullet_rollback(
             fixed_math::new(5.0),
         ),
     };
+
+    // Stats branchées (T1.2, chantier B2) : sans modificateur actif, `damage_mult`/
+    // `range_mult` valent exactement 1 (voir `character::create::create_character`), donc
+    // ce produit ne change aucune valeur par rapport à avant ce chantier.
+    let damage = damage.saturating_mul(damage_mult);
+    let range = range.saturating_mul(range_mult);
 
     let color = match &bullet_type {
         BulletType::Standard { .. } => Color::BLACK,
@@ -694,6 +706,8 @@ pub fn weapon_rollback_system(
 
     collision_settings: Res<CollisionSettings>,
 
+    stats: StatReader,
+
     mut id_factory: ResMut<GgrsNetIdFactory>,
 ) {
     let system_span = span!(Level::INFO, "ggrs", f = frame.frame, s = "weapon");
@@ -748,6 +762,18 @@ pub fn weapon_rollback_system(
             let active_mode = weapon_state.active_mode.clone();
             let weapon_config = weapon.config.firing_modes.get(&active_mode).unwrap();
 
+            // Stats branchées (T1.2, chantier B2) : la cadence de tir et le temps de
+            // rechargement de cette arme sont multipliés par les stats du porteur
+            // (`FireRate`/`ReloadSpeed`, 1 par défaut, voir
+            // `character::create::create_character`) — sans modificateur actif, produit
+            // exact par 1, aucune valeur ne change.
+            let shooter = child_of.parent();
+            let fire_rate_mult = stats.get(shooter, &StatId::FireRate, fixed_math::FIXED_ONE);
+            let reload_speed_mult = stats.get(shooter, &StatId::ReloadSpeed, fixed_math::FIXED_ONE);
+            let reload_time_seconds = weapon_config
+                .reload_time_seconds
+                .saturating_mul(reload_speed_mult);
+
             // A reload in progress completes on the mode it was started for: switching mode
             // (like switching weapon) is not possible until it is over
             if inventory.is_reloading() {
@@ -788,7 +814,7 @@ pub fn weapon_rollback_system(
             let weapon_mode_state = weapon_modes_state.modes.get_mut(&active_mode).unwrap();
 
             if input.buttons & INPUT_RELOAD != 0 && weapon_mode_state.can_reload() {
-                inventory.start_reload(frame.frame, weapon_config.reload_time_seconds);
+                inventory.start_reload(frame.frame, reload_time_seconds);
                 continue;
             }
 
@@ -813,8 +839,9 @@ pub fn weapon_rollback_system(
 
             if input.fire || burst_in_progress {
                 // Calculate fire rate in frames (60 FPS assumed) , need to be configure via ressource instead
+                let firing_rate = weapon_config.firing_rate.saturating_mul(fire_rate_mult);
                 let frame_per_shot =
-                    (bevy_fixed::fixed_math::new(60.) / weapon_config.firing_rate).to_num::<u32>();
+                    (bevy_fixed::fixed_math::new(60.) / firing_rate).to_num::<u32>();
                 let current_frame = frame.frame;
                 let frames_since_last_shot = current_frame - weapon_state.last_fire_frame;
 
@@ -880,7 +907,7 @@ pub fn weapon_rollback_system(
                 if empty {
                     // Empty mag: reload if a spare magazine is left, otherwise just a dry click
                     if weapon_mode_state.can_reload() {
-                        inventory.start_reload(frame.frame, weapon_config.reload_time_seconds);
+                        inventory.start_reload(frame.frame, reload_time_seconds);
                     }
                     continue;
                 }
@@ -892,6 +919,11 @@ pub fn weapon_rollback_system(
                         player_query.get(child_of.parent())
                     {
                         let shooter_tags = opt_tags.cloned().unwrap_or_default();
+                        // Stats branchées (T1.2) : dégâts et portée de la balle multipliés
+                        // par les stats du porteur (`Damage`/`Range`, 1 par défaut).
+                        let damage_mult =
+                            stats.get(shooter, &StatId::Damage, fixed_math::FIXED_ONE);
+                        let range_mult = stats.get(shooter, &StatId::Range, fixed_math::FIXED_ONE);
                         let mut aim_dir = fixed_math::FixedVec2::new(
                             fixed_math::Fixed::from_num(input.pan_x),
                             fixed_math::Fixed::from_num(input.pan_y),
@@ -939,11 +971,12 @@ pub fn weapon_rollback_system(
                                         *shooter_team,
                                         &shooter_tags,
                                         weapon.config.friendly_fire,
+                                        damage_mult,
+                                        range_mult,
                                     );
                                 }
                                 weapon_mode_state.mag_ammo -= 1; // Shotgun uses one ammo for all pellets
-                                inventory
-                                    .start_reload(frame.frame, weapon_config.reload_time_seconds);
+                                inventory.start_reload(frame.frame, reload_time_seconds);
                             }
                             _ => {
                                 let random_fixed_val = rng_streams.get_mut("weapons").next_fixed();
@@ -973,6 +1006,8 @@ pub fn weapon_rollback_system(
                                     *shooter_team,
                                     &shooter_tags,
                                     weapon.config.friendly_fire,
+                                    damage_mult,
+                                    range_mult,
                                 );
                                 weapon_mode_state.mag_ammo -= 1;
 

@@ -1,6 +1,7 @@
 use bevy::{platform::collections::hash_map::HashMap, prelude::*, reflect::TypePath};
 use bevy_fixed::fixed_math;
 use serde::Deserialize;
+use sim_core::stats::StatId;
 use sim_core::tag::{Tag, Tags};
 use std::collections::BTreeMap;
 
@@ -56,6 +57,14 @@ pub struct CharacterConfig {
     /// `weapons.ron`).
     #[serde(default)]
     pub starting_weapons: Vec<String>,
+
+    /// Surcharges de stats (T1.2, chantier B2) : appliquées par-dessus les valeurs de base
+    /// dérivées des champs ci-dessus (voir `character::create::create_character`), qui
+    /// restent la source de vérité pour un personnage qui ne déclare rien ici — ce champ
+    /// vide par défaut ne change donc aucun personnage existant. Bornes validées par
+    /// `content::lint` (valeurs >= 0).
+    #[serde(default)]
+    pub stats: BTreeMap<StatId, fixed_math::Fixed>,
 }
 
 #[derive(Component)]

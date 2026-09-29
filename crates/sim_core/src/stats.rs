@@ -8,16 +8,44 @@ use std::collections::BTreeMap;
 
 /// Identifiant de stat. Enum ouvert (`Custom`) pour que le contenu (RON) puisse définir
 /// des stats propres à un jeu sans toucher à l'engine.
+///
+/// Variantes ajoutées par T1.2 (chantier B2, « Stats branchées ») : `HealthRegen`,
+/// `Acceleration`, `SprintMultiplier` (mouvement du joueur) et les cinq stats d'ennemi
+/// (`SeparationDistance`, `SeparationForce`, `SlowDownDistance`, `OptimalAttackDistance`,
+/// `EnemyMoveSpeed`), qui remplacent les constantes jusque-là figées dans
+/// `character::enemy::ai::pathing::PathfindingConfig`. Voir
+/// `character::create::create_character` pour la valeur de base de chacune.
 #[derive(Debug, Clone, PartialEq, Eq, Hash, PartialOrd, Ord, Serialize, Deserialize)]
 pub enum StatId {
     MaxHealth,
+    /// Vie régénérée par seconde (`character::health::HealthRegen::regen_rate`).
+    HealthRegen,
     MoveSpeed,
+    /// Accélération du joueur (`MovementConfig::acceleration`).
+    Acceleration,
+    /// Multiplicateur de vitesse en sprint, à pleine charge (`MovementConfig::sprint_multiplier`).
+    SprintMultiplier,
     Damage,
     FireRate,
     ReloadSpeed,
     Range,
     Armor,
     Luck,
+    /// Distance sous laquelle deux ennemis se repoussent (ex-`PathfindingConfig::enemy_separation_distance`).
+    SeparationDistance,
+    /// Force de répulsion entre ennemis trop proches (ex-`PathfindingConfig::enemy_separation_force`).
+    SeparationForce,
+    /// Distance à laquelle un ennemi commence à ralentir en approchant sa cible
+    /// (ex-`PathfindingConfig::slow_down_distance`).
+    SlowDownDistance,
+    /// Distance d'attaque optimale d'un ennemi : il s'arrête à cette distance de sa cible
+    /// (ex-`PathfindingConfig::optimal_attack_distance`).
+    OptimalAttackDistance,
+    /// Vitesse de déplacement d'un ennemi, lue par `move_enemies`. Distincte de `MoveSpeed`
+    /// (posée sur tous les personnages depuis `movement.max_speed`) pour ne pas coupler le
+    /// réglage du déplacement joueur et celui des ennemis : un modificateur qui vise l'un
+    /// ne touche jamais l'autre.
+    EnemyMoveSpeed,
     Custom(String),
 }
 

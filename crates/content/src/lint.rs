@@ -111,6 +111,22 @@ fn lint_characters(registry: &Registry, errors: &mut Vec<LintError>) {
                 ),
             });
         }
+
+        // Hors plage (T1.2, chantier B2) : chaque stat surchargée par `stats:` doit être >= 0.
+        for (stat_id, value) in &character.stats {
+            if value.get() < Fixed::ZERO {
+                errors.push(LintError {
+                    kind: LintErrorKind::OutOfRange,
+                    file: file.clone(),
+                    message: format!(
+                        "personnage « {} » : champ stats.{:?} = {} : doit être >= 0",
+                        character.id,
+                        stat_id,
+                        value.get()
+                    ),
+                });
+            }
+        }
     }
 }
 

@@ -2,6 +2,7 @@ use bevy::prelude::*;
 use bevy_fixed::fixed_math;
 #[cfg(feature = "harmonium")]
 use harmonium_bevy::components::HarmoniumTag;
+use sim_core::stats::StatId;
 use sim_core::team::Team;
 use utils::net_id::GgrsNetIdFactory;
 
@@ -17,11 +18,36 @@ use crate::{
 
 use super::{
     ai::{
-        pathing::{EnemyPath, WallSlideTracker},
+        pathing::{EnemyPath, PathfindingConfig, WallSlideTracker},
         state::{EnemyAiConfig, EnemyTarget, MonsterState},
     },
     Enemy,
 };
+
+/// Quatre des cinq stats d'ennemi (T1.2, chantier B2) posées à la création, avant les
+/// surcharges `CharacterConfig::stats` du RON de ce type d'ennemi : la valeur de base vient
+/// de `PathfindingConfig::default()`, la même constante partagée que lisait jusqu'ici
+/// `move_enemies` (`docs/conventions.md` §7). Un type d'ennemi qui ne déclare rien dans
+/// `stats:` se comporte donc exactement comme avant ce chantier.
+///
+/// La cinquième, `EnemyMoveSpeed`, n'est pas ici : sa valeur de base est
+/// `movement.max_speed`, propre à chaque `CharacterConfig` (comme `MoveSpeed`), pas la
+/// constante partagée de `PathfindingConfig` — `create_character` la pose directement.
+fn enemy_stat_defaults() -> [(StatId, fixed_math::Fixed); 4] {
+    let defaults = PathfindingConfig::default();
+    [
+        (
+            StatId::SeparationDistance,
+            defaults.enemy_separation_distance,
+        ),
+        (StatId::SeparationForce, defaults.enemy_separation_force),
+        (StatId::SlowDownDistance, defaults.slow_down_distance),
+        (
+            StatId::OptimalAttackDistance,
+            defaults.optimal_attack_distance,
+        ),
+    ]
+}
 
 /// Spawns an enemy entity and returns it.
 ///
@@ -50,6 +76,7 @@ pub fn spawn_enemy(
         position,
         CollisionLayer(collision_settings.enemy_layer),
         id_factory,
+        &enemy_stat_defaults(),
     );
 
     let inventory = WeaponInventory::default();

@@ -53,6 +53,12 @@ pub struct StateTraceRecorder {
     /// synctest, une frame y figure plusieurs fois (premier passage, resimulations). Sert au
     /// diagnostic d'une divergence signalée par GGRS, quelle que soit la numérotation.
     pub history: std::collections::VecDeque<(u32, String)>,
+    /// Lignes complètes (hash puis détail), pour **toutes** les frames simulées, sans la
+    /// limite de `history` (`HISTORY_LEN`) : peuplé seulement quand
+    /// [`StateTraceRecorderPlugin::dump`] est actif (outil de preuve permanent, T1.2 —
+    /// voir `docs/conventions.md` §8 « Blesser une trace : la preuve »). `None` sinon,
+    /// pour ne rien coûter en usage normal (tests de scénario, jeu).
+    dump: Option<BTreeMap<u32, String>>,
 }
 
 /// Nombre de lignes gardées dans `history` (une frame = jusqu'à trois versions).
@@ -71,6 +77,15 @@ impl StateTraceRecorder {
     /// Lignes des frames `0..end`, dans l'ordre.
     pub fn lines_until(&self, end: u32) -> impl Iterator<Item = &str> {
         self.frames.range(..end).map(|(_, line)| line.as_str())
+    }
+
+    /// Comme [`Self::lines_until`], avec la ligne détaillée (hash + détail, comme en mode
+    /// `full`) de **toutes** les frames `0..end`, sans la limite de `history`. `None` si
+    /// [`StateTraceRecorderPlugin::dump`] n'était pas actif pour ce run.
+    pub fn dump_lines_until(&self, end: u32) -> Option<impl Iterator<Item = &str>> {
+        self.dump
+            .as_ref()
+            .map(|frames| frames.range(..end).map(|(_, line)| line.as_str()))
     }
 
     /// Diagnostic pour les frames que GGRS déclare divergentes (numérotation GGRS) : pour
@@ -174,14 +189,25 @@ impl StateTraceRecorder {
 /// Enregistre la trace d'état dans [`StateTraceRecorder`].
 pub struct StateTraceRecorderPlugin {
     pub full: bool,
+    /// Outil de preuve permanent (T1.2) : quand `Some`, la trace détaillée (hash + détail,
+    /// comme en mode `full`) de **toutes** les frames est conservée sans la limite de
+    /// `history`, lisible ensuite via [`StateTraceRecorder::dump_lines_until`]. La valeur
+    /// elle-même (un dossier, typiquement `ALACOD_DUMP_TRACE`) n'est pas utilisée par ce
+    /// plugin : c'est l'appelant (`crates/scenario/tests/scenarios.rs`) qui sait dans quel
+    /// fichier — `<dossier>/<scénario>.full` — écrire ces lignes une fois le scénario
+    /// terminé (voir `docs/conventions.md` §8 « Blesser une trace : la preuve »).
+    pub dump: Option<PathBuf>,
 }
 
 impl Plugin for StateTraceRecorderPlugin {
     fn build(&self, app: &mut App) {
         app.insert_resource(StateTraceRecorder {
-            full: self.full,
+            // Le dump a besoin du détail par ressource/entité, comme `full` : actif dès
+            // que `dump` est demandé, même si `full` ne l'est pas par ailleurs (ALACOD_DIAG).
+            full: self.full || self.dump.is_some(),
             frames: BTreeMap::new(),
             divergences: Vec::new(),
+            dump: self.dump.is_some().then(BTreeMap::new),
             history: std::collections::VecDeque::new(),
         })
         .add_systems(SaveWorld, record_state.in_set(SaveWorldSystems::Snapshot));
@@ -216,6 +242,11 @@ impl Plugin for StateTracePlugin {
 
         app.add_plugins(StateTraceRecorderPlugin {
             full: std::env::var("ALACOD_STATE_TRACE_FULL").is_ok_and(|v| v == "1"),
+            // Le dump (T1.2) est propre au harnais de scénarios (`ALACOD_DUMP_TRACE`,
+            // voir `crates/scenario/src/runner.rs::build_app`) : ce plugin-ci, piloté par
+            // `ALACOD_STATE_TRACE`, écrit déjà un fichier complet à la sortie
+            // (`write_trace_at_exit_frame`), pas besoin du dump en plus.
+            dump: None,
         })
         .insert_resource(StateTraceFile {
             path: path.into(),
@@ -291,6 +322,9 @@ fn record_state(world: &mut World) {
         recorder.history.pop_front();
     }
     recorder.history.push_back((frame, line.clone()));
+    if let Some(dump) = recorder.dump.as_mut() {
+        dump.insert(frame, line.clone());
+    }
     if let Some(previous) = recorder.frames.get(&frame) {
         if previous != &hash_line && recorder.divergences.len() < 3 {
             let before = previous.clone();
