@@ -4285,7 +4285,9 @@ version = "0.1.0"
 dependencies = [
  "bevy 0.19.1",
  "bevy_fixed",
+ "ron 0.12.2",
  "serde",
+ "sim_core",
  "utils",
 ]
 
@@ -5766,6 +5768,7 @@ dependencies = [
  "bevy_matchbox",
  "chrono",
  "clap 4.6.7",
+ "combat",
  "content",
  "ggrs",
  "harmonium_bevy",
@@ -9804,6 +9807,7 @@ dependencies = [
  "bevy 0.19.1",
  "bevy_fixed",
  "bevy_ggrs",
+ "combat",
  "content",
  "game",
  "map",
@@ -9811,6 +9815,7 @@ dependencies = [
  "ron 0.12.2",
  "serde",
  "serde_json",
+ "sim_core",
  "utils",
 ]
 

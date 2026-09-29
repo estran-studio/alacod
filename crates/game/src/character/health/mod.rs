@@ -6,10 +6,17 @@ use bevy::{
 };
 use bevy_fixed::fixed_math;
 use bevy_ggrs::Rollback;
+use combat::damage::{resolve_damage, Defenses};
 use ggrs::PlayerHandle;
 use serde::{Deserialize, Serialize};
+use sim_core::damage::DamageEvent;
+use sim_core::team::Team;
+use std::collections::BTreeMap;
 use std::fmt;
 use utils::{frame::FrameCount, net_id::GgrsNetId, order_iter, order_mut_iter};
+
+use crate::character::player::Player;
+use crate::frame_events::FrameEvents;
 
 #[derive(Component, Reflect, Debug, Clone, Hash, Serialize, Deserialize)]
 pub enum HitBy {
@@ -95,6 +102,109 @@ impl From<HealthConfig> for Health {
             max: value.max,
             invulnerable_until_frame: None,
         }
+    }
+}
+
+/// Lit `FrameEvents<DamageEvent>` (émis par les trois émetteurs : collision de balles,
+/// collision de mêlée, attaque d'ennemi) dans l'ordre d'émission et applique
+/// `combat::damage::resolve_damage` (équipe, tir ami, tags, résistances, immunités,
+/// invulnérabilité — `Health.invulnerable_until_frame` enfin honoré) ; accumule le
+/// résultat dans `DamageAccumulator` (`HitBy`/`last_hit_by` pour l'attribution des kills,
+/// comme avant T1.1). Seul point d'écriture de `DamageAccumulator` : les trois émetteurs
+/// n'y touchent plus directement (T1.1, chantier B1).
+///
+/// `RollbackSystemSet::CollisionDamage`, après les émetteurs (`Weapon`, `Projectiles`, et
+/// le traducteur `enemy_attack_damage_translate_system`), avant `DeathManagement`.
+pub fn rollback_resolve_damage_events(
+    frame: Res<FrameCount>,
+    events: Res<FrameEvents<DamageEvent>>,
+    mut commands: Commands,
+    net_id_query: Query<(&GgrsNetId, Entity), With<Rollback>>,
+    player_handle_query: Query<(&GgrsNetId, &Player)>,
+    mut target_query: Query<
+        (
+            &GgrsNetId,
+            &Team,
+            Option<&Defenses>,
+            Option<&Health>,
+            Option<&mut DamageAccumulator>,
+        ),
+        With<Rollback>,
+    >,
+) {
+    if events.is_empty() {
+        return;
+    }
+
+    let system_span = span!(Level::INFO, "ggrs", f = frame.frame, s = "resolve_damage");
+    let _enter = system_span.enter();
+
+    // GgrsNetId -> Entity, déterministe (BTreeMap) : construit une fois pour retrouver la
+    // cible de chaque événement (identifiée par net_id, jamais par Entity — CLAUDE.md règle 3).
+    let mut entity_by_net_id: BTreeMap<usize, Entity> = BTreeMap::new();
+    for (net_id, entity) in order_iter!(net_id_query) {
+        entity_by_net_id.insert(net_id.0, entity);
+    }
+    let mut player_handle_by_net_id: BTreeMap<usize, PlayerHandle> = BTreeMap::new();
+    for (net_id, player) in order_iter!(player_handle_query) {
+        player_handle_by_net_id.insert(net_id.0, player.handle);
+    }
+
+    let default_defenses = Defenses::default();
+
+    for event in events.iter() {
+        let Some(&entity) = entity_by_net_id.get(&event.target.0) else {
+            continue; // cible déjà disparue (rollback, mort le même frame par un autre coup)
+        };
+        let Ok((target_net_id, target_team, opt_defenses, opt_health, opt_accumulator)) =
+            target_query.get_mut(entity)
+        else {
+            continue;
+        };
+        // Pas de santé : rien à blesser (ex. un mur touché par erreur).
+        if opt_health.is_none() {
+            continue;
+        }
+        let invulnerable = opt_health
+            .and_then(|h| h.invulnerable_until_frame)
+            .is_some_and(|until| event.frame <= until);
+        let defenses = opt_defenses.unwrap_or(&default_defenses);
+
+        let Some(amount) = resolve_damage(
+            event.source_team,
+            *target_team,
+            event.friendly_fire,
+            &event.tags,
+            defenses,
+            event.kind.clone(),
+            event.amount,
+            invulnerable,
+        ) else {
+            continue;
+        };
+
+        let mut last_hit_by = Vec::with_capacity(2);
+        if let Some(&handle) = player_handle_by_net_id.get(&event.source.0) {
+            last_hit_by.push(HitBy::Player(handle));
+        }
+        last_hit_by.push(HitBy::Entity(event.source.clone()));
+
+        if let Some(mut accumulator) = opt_accumulator {
+            accumulator.total_damage = accumulator.total_damage.saturating_add(amount);
+            accumulator.hit_count += 1;
+            accumulator.last_hit_by = Some(last_hit_by);
+        } else {
+            commands.entity(entity).insert(DamageAccumulator {
+                hit_count: 1,
+                total_damage: amount,
+                last_hit_by: Some(last_hit_by),
+            });
+        }
+
+        info!(
+            "{} <- {} dmg from {} (kind {:?}, tags {:?})",
+            target_net_id, amount, event.source, event.kind, event.tags
+        );
     }
 }
 

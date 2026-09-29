@@ -2,6 +2,7 @@ use animation::AnimationStateBundle;
 use bevy::prelude::*;
 use bevy_fixed::fixed_math;
 use bevy_kira_audio::prelude::*;
+use combat::damage::Defenses;
 use utils::net_id::GgrsNetIdFactory;
 
 use crate::{
@@ -112,6 +113,16 @@ pub fn create_character(
         Character,
         CharacterConfigHandles {
             config: player_config_handle.clone(),
+        },
+        // `Tags`/`Defenses` (T1.1, chantier B1) : composants statiques, non enregistrés en
+        // rollback (même justification que `Team`, voir sa doc dans `sim_core::team`) —
+        // jamais mutés en T1.1, une entité rollback détruite passe toujours par
+        // `despawn_rollback()`, donc ils survivent intacts à une résurrection après
+        // rollback.
+        config.tags.clone(),
+        Defenses {
+            immune_to: config.immune_to.clone(),
+            resistances: config.resistances.clone(),
         },
         id_factory.next(config_name),
     ));

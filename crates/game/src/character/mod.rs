@@ -24,7 +24,10 @@ use crate::{
         enemy::{
             ai::{
                 // New AI behavior systems
-                behavior::{enemy_attack_system, enemy_target_selection},
+                behavior::{
+                    enemy_attack_damage_translate_system, enemy_attack_system,
+                    enemy_target_selection,
+                },
                 debug::{
                     draw_enemy_state_debug, draw_flow_field_debug, toggle_enemy_state_debug,
                     toggle_flow_field_debug, EnemyStateDebug, FlowFieldDebug,
@@ -40,7 +43,8 @@ use crate::{
         },
         health::{
             rollback_apply_accumulated_damage, rollback_apply_death, rollback_health_regeneration,
-            ui::update_health_bars, DamageAccumulator, Death, Health, HealthRegen,
+            rollback_resolve_damage_events, ui::update_health_bars, DamageAccumulator, Death,
+            Health, HealthRegen,
         },
         movement::{apply_knockback_damping, KnockbackDampingConfig, SprintState, Velocity},
         player::{
@@ -92,6 +96,9 @@ impl Plugin for BaseCharacterGamePlugin {
             ..EnemyStateDebug::new()
         });
         app.add_frame_events::<ObstacleAttackEvent>();
+        // `FrameEvents<DamageEvent>` (T1.1, chantier B1) : voir la doc de
+        // `sim_core::damage` pour les trois émetteurs et le résolveur unique.
+        sim_core::damage::add_damage_events(app);
 
         // Kinds existants (lus par le lint de contenu, `crates/content`, T1.5). Les noms
         // viennent de `global_asset.rs` (`character_configs`) : ce sont les seuls types
@@ -147,6 +154,15 @@ impl Plugin for BaseCharacterGamePlugin {
                 // MOVEMENT CHARACTERS
                 (apply_friction, move_characters.after(apply_friction))
                     .in_set(RollbackSystemSet::Movement),
+                // DÉGÂTS (T1.1, chantier B1) : traducteur de l'attaque d'ennemi (frame
+                // précédente, voir sa doc) puis résolveur unique
+                // (`combat::damage::resolve_damage`) de tous les `DamageEvent` de la frame
+                // (balles, mêlée, ennemis) — avant `DeathManagement`.
+                (
+                    enemy_attack_damage_translate_system,
+                    rollback_resolve_damage_events.after(enemy_attack_damage_translate_system),
+                )
+                    .in_set(RollbackSystemSet::CollisionDamage),
                 // HEALTH
                 (
                     rollback_apply_accumulated_damage,

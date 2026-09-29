@@ -6,8 +6,12 @@ use bevy::{
 };
 use bevy_fixed::fixed_math;
 use bevy_ggrs::Rollback;
+use combat::team::team_allows_hit;
 use ggrs::PlayerHandle;
 use serde::{Deserialize, Serialize};
+use sim_core::damage::{DamageEvent, DamageKind, FriendlyFire};
+use sim_core::tag::{Tag, Tags};
+use sim_core::team::Team;
 use utils::{
     net_id::{GgrsNetId, GgrsNetIdFactory},
     order_iter, order_mut_iter,
@@ -16,11 +20,11 @@ use utils::{
 use crate::{
     character::{
         enemy::Enemy,
-        health::{DamageAccumulator, Health, HitBy},
         movement::Velocity,
         player::{input::INPUT_MELEE_ATTACK, jjrs::PeerConfig, Player},
     },
     collider::{is_colliding, Collider, ColliderShape, CollisionLayer, CollisionSettings},
+    frame_events::FrameEvents,
     global_asset::GlobalAsset,
 };
 use utils::frame::FrameCount;
@@ -49,6 +53,9 @@ pub struct MeleeWeaponConfig {
     pub cooldown_frames: u32,
     pub knockback_force: fixed_math::Fixed,
     pub stamina_cost: fixed_math::Fixed,
+    /// Politique de tir ami (T1.1, chantier B1). `#[serde(default)]` = `Never`.
+    #[serde(default)]
+    pub friendly_fire: FriendlyFire,
 }
 
 // MELEE WEAPON SPRITE CONFIG
@@ -136,6 +143,13 @@ pub struct MeleeHitbox {
     pub duration_frames: u32,
     /// Direction de l'attaquant au moment du coup (orientation de l'effet visuel)
     pub facing: FacingDirection,
+    /// Équipe de l'attaquant au moment du coup (T1.1, `combat::team::team_allows_hit`).
+    pub owner_team: Team,
+    /// Tags de l'attaquant au moment du coup, union `"melee"` (T1.1, voir
+    /// `sim_core::damage::DamageEvent::tags`).
+    pub tags: Tags,
+    /// Politique de tir ami de l'arme au moment du coup (`MeleeWeaponConfig::friendly_fire`).
+    pub friendly_fire: FriendlyFire,
 }
 
 /// Hash manuel : exclut `owner_entity` (`Entity`, différent d'un client à l'autre) au
@@ -149,6 +163,9 @@ impl std::hash::Hash for MeleeHitbox {
         self.created_frame.hash(state);
         self.duration_frames.hash(state);
         self.facing.hash(state);
+        self.owner_team.hash(state);
+        self.tags.hash(state);
+        self.friendly_fire.hash(state);
     }
 }
 
@@ -201,6 +218,7 @@ pub fn spawn_melee_weapon_for_character(
 }
 
 // SYSTEM: MELEE ATTACK HITBOX SPAWNING
+#[allow(clippy::too_many_arguments)]
 pub fn spawn_melee_hitbox(
     commands: &mut Commands,
     attacker_entity: Entity,
@@ -212,6 +230,8 @@ pub fn spawn_melee_hitbox(
     collision_settings: &Res<CollisionSettings>,
     owner_handle: Option<PlayerHandle>,
     id_factory: &mut ResMut<GgrsNetIdFactory>,
+    owner_team: Team,
+    owner_tags: &Tags,
 ) -> Entity {
     let config = &melee_weapon.config;
 
@@ -272,6 +292,11 @@ pub fn spawn_melee_hitbox(
         collision_settings.enemy_layer // Enemy melee attacks
     };
 
+    // Tags du dégât (T1.1) : tags de l'attaquant union le genre d'attaque `melee` (voir la
+    // doc de `sim_core::damage::DamageEvent::tags`).
+    let mut tags = owner_tags.clone();
+    tags.insert(Tag::new("melee"));
+
     let hitbox_entity = commands
         .spawn((
             MeleeHitbox {
@@ -283,6 +308,9 @@ pub fn spawn_melee_hitbox(
                 created_frame: current_frame,
                 duration_frames: config.attack_duration_frames,
                 facing: *facing_direction,
+                owner_team,
+                tags,
+                friendly_fire: config.friendly_fire,
             },
             hitbox_collider,
             CollisionLayer(layer),
@@ -444,18 +472,25 @@ pub fn update_slash_effects(
 }
 
 // SYSTEM: MELEE HITBOX COLLISION DETECTION
+/// Collision des hitbox de mêlée (joueur ou ennemi, même système — T1.1, chantier B1).
+///
+/// Chaque cible en collision géométrique est filtrée par équipe et politique de tir ami
+/// (`combat::team::team_allows_hit`), **pas** par `CollisionLayer`/`layer_matrix` : une
+/// cible que la politique bloque (allié, tir ami `Never`) n'est pas touchée du tout (ni
+/// dégât, ni recul), comme si la hitbox ne la voyait pas. Émet un `DamageEvent` (résolu par
+/// `character::health::rollback_resolve_damage_events`) au lieu d'écrire
+/// `DamageAccumulator` directement ; le recul (`Velocity.knockback`) reste appliqué ici,
+/// inconditionnellement une fois la cible acceptée (T1.1 ne conditionne pas le recul aux
+/// résistances/immunités/invulnérabilité, qui ne concernent que le *montant* du dégât).
 pub fn melee_hitbox_collision_system(
     frame: Res<FrameCount>,
-    mut commands: Commands,
-    settings: Res<CollisionSettings>,
+    mut damage_events: ResMut<FrameEvents<DamageEvent>>,
     hitbox_query: Query<
         (
             &GgrsNetId,
-            Entity,
             &fixed_math::FixedTransform3D,
             &MeleeHitbox,
             &Collider,
-            &CollisionLayer,
         ),
         With<Rollback>,
     >,
@@ -465,12 +500,8 @@ pub fn melee_hitbox_collision_system(
             Entity,
             &fixed_math::FixedTransform3D,
             &Collider,
-            &CollisionLayer,
-            Option<&Health>,
-            Option<&mut DamageAccumulator>,
+            &Team,
             Option<&mut Velocity>,
-            Option<&Player>,
-            Option<&Enemy>,
         ),
         (Without<MeleeHitbox>, With<Rollback>),
     >,
@@ -486,9 +517,7 @@ pub fn melee_hitbox_collision_system(
     let system_span = span!(Level::INFO, "ggrs", f = frame.frame, s = "melee_collisions");
     let _enter = system_span.enter();
 
-    for (hitbox_g_id, _hitbox_entity, hitbox_transform, hitbox, hitbox_collider, hitbox_layer) in
-        order_iter!(hitbox_query)
-    {
+    for (hitbox_g_id, hitbox_transform, hitbox, hitbox_collider) in order_iter!(hitbox_query) {
         // Find the attacker by their GgrsNetId
         let mut attacker_data = None;
         for (attacker_net_id, attack_state, attacker_transform) in order_mut_iter!(attacker_query) {
@@ -507,12 +536,8 @@ pub fn melee_hitbox_collision_system(
             target_entity,
             target_transform,
             target_collider,
-            target_layer,
-            opt_health,
-            opt_accumulator_mut,
+            target_team,
             opt_velocity_mut,
-            opt_player,
-            opt_enemy,
         ) in order_mut_iter!(target_query)
         {
             // Skip if this is the attacker
@@ -525,16 +550,14 @@ pub fn melee_hitbox_collision_system(
                 continue;
             }
 
-            // Check layer collision compatibility
-            if !settings.layer_matrix[hitbox_layer.0][target_layer.0] {
-                continue;
-            }
-
-            // Skip if player attacking player or enemy attacking enemy
-            if hitbox.owner_handle.is_some() && opt_player.is_some() {
-                continue;
-            }
-            if hitbox.owner_handle.is_none() && opt_enemy.is_some() {
+            // Équipe + politique de tir ami (remplace layer_matrix et le test
+            // owner_handle/Player/Enemy d'avant T1.1).
+            if !team_allows_hit(
+                hitbox.owner_team,
+                *target_team,
+                hitbox.friendly_fire,
+                &hitbox.tags,
+            ) {
                 continue;
             }
 
@@ -550,47 +573,36 @@ pub fn melee_hitbox_collision_system(
                     hitbox_g_id, target_g_id, hitbox.damage
                 );
 
-                // Apply damage
-                if opt_health.is_some() {
-                    let hit_by = if let Some(handle) = hitbox.owner_handle {
-                        vec![HitBy::Player(handle), HitBy::Entity(hitbox_g_id.clone())]
-                    } else {
-                        vec![HitBy::Entity(hitbox_g_id.clone())]
-                    };
+                damage_events.send(DamageEvent {
+                    source: hitbox.owner_net_id.clone(),
+                    target: target_g_id.clone(),
+                    kind: DamageKind::Physical,
+                    amount: hitbox.damage,
+                    frame: frame.frame,
+                    tags: hitbox.tags.clone(),
+                    source_team: hitbox.owner_team,
+                    friendly_fire: hitbox.friendly_fire,
+                });
 
-                    if let Some(mut accumulator) = opt_accumulator_mut {
-                        accumulator.total_damage =
-                            accumulator.total_damage.saturating_add(hitbox.damage);
-                        accumulator.hit_count += 1;
-                        accumulator.last_hit_by = Some(hit_by);
-                    } else {
-                        commands.entity(target_entity).insert(DamageAccumulator {
-                            hit_count: 1,
-                            total_damage: hitbox.damage,
-                            last_hit_by: Some(hit_by),
-                        });
-                    }
+                // Apply knockback
+                if let Some(mut velocity) = opt_velocity_mut {
+                    // Calculate direction from attacker to target
+                    let attacker_pos = attacker_transform.translation.truncate();
+                    let target_pos = target_transform.translation.truncate();
+                    let knockback_direction = (target_pos - attacker_pos).normalize_or_zero();
 
-                    // Apply knockback
-                    if let Some(mut velocity) = opt_velocity_mut {
-                        // Calculate direction from attacker to target
-                        let attacker_pos = attacker_transform.translation.truncate();
-                        let target_pos = target_transform.translation.truncate();
-                        let knockback_direction = (target_pos - attacker_pos).normalize_or_zero();
+                    // Apply knockback force to knockback field
+                    let knockback_velocity = knockback_direction * hitbox.knockback_force;
+                    velocity.knockback = velocity.knockback + knockback_velocity;
 
-                        // Apply knockback force to knockback field
-                        let knockback_velocity = knockback_direction * hitbox.knockback_force;
-                        velocity.knockback = velocity.knockback + knockback_velocity;
-
-                        info!(
-                            "Applied knockback force {} in direction {:?} to target {} (knockback field)",
-                            hitbox.knockback_force, knockback_direction, target_g_id
-                        );
-                    }
-
-                    // Mark entity as hit
-                    attacker_state.add_hit_entity(target_g_id.clone());
+                    info!(
+                        "Applied knockback force {} in direction {:?} to target {} (knockback field)",
+                        hitbox.knockback_force, knockback_direction, target_g_id
+                    );
                 }
+
+                // Mark entity as hit
+                attacker_state.add_hit_entity(target_g_id.clone());
             }
         }
     }
@@ -612,6 +624,8 @@ pub fn player_melee_attack_system(
             &FacingDirection,
             &Children,
             &mut MeleeAttackState,
+            &Team,
+            Option<&Tags>,
         ),
         With<Rollback>,
     >,
@@ -625,8 +639,17 @@ pub fn player_melee_attack_system(
     );
     let _enter = system_span.enter();
 
-    for (net_id, entity, player, transform, facing_direction, children, mut attack_state) in
-        order_mut_iter!(player_query)
+    for (
+        net_id,
+        entity,
+        player,
+        transform,
+        facing_direction,
+        children,
+        mut attack_state,
+        team,
+        opt_tags,
+    ) in order_mut_iter!(player_query)
     {
         let (input, _status) = inputs[player.handle];
 
@@ -672,6 +695,8 @@ pub fn player_melee_attack_system(
                     &collision_settings,
                     Some(player.handle),
                     &mut id_factory,
+                    *team,
+                    opt_tags.unwrap_or(&Tags::default()),
                 );
 
                 info!(
@@ -697,6 +722,8 @@ pub fn enemy_melee_attack_system(
             &FacingDirection,
             &Children,
             &mut MeleeAttackState,
+            &Team,
+            Option<&Tags>,
         ),
         (With<Enemy>, With<Rollback>),
     >,
@@ -711,7 +738,7 @@ pub fn enemy_melee_attack_system(
     );
     let _enter = system_span.enter();
 
-    for (net_id, entity, transform, facing_direction, children, mut attack_state) in
+    for (net_id, entity, transform, facing_direction, children, mut attack_state, team, opt_tags) in
         order_mut_iter!(enemy_query)
     {
         // Find melee weapon in children
@@ -767,6 +794,8 @@ pub fn enemy_melee_attack_system(
                         &collision_settings,
                         None, // No player handle for enemies
                         &mut id_factory,
+                        *team,
+                        opt_tags.unwrap_or(&Tags::default()),
                     );
 
                     info!(

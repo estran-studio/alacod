@@ -10,7 +10,11 @@
 use bevy::prelude::*;
 use bevy_fixed::fixed_math;
 use bevy_ggrs::Rollback;
-use utils::{frame::FrameCount, net_id::GgrsNetId, order_mut_iter};
+use sim_core::damage::{DamageEvent, DamageKind};
+use sim_core::tag::{Tag, Tags};
+use sim_core::team::Team;
+use std::collections::BTreeMap;
+use utils::{frame::FrameCount, net_id::GgrsNetId, order_iter, order_mut_iter};
 
 use crate::character::enemy::Enemy;
 use crate::character::health::DamageAccumulator;
@@ -320,14 +324,13 @@ pub fn enemy_attack_system(
         With<Enemy>,
     >,
     player_query: Query<
-        (Entity, &GgrsNetId, &fixed_math::FixedTransform3D),
+        (&GgrsNetId, &fixed_math::FixedTransform3D),
         (With<Player>, Without<Enemy>),
     >,
     obstacle_query: Query<
         (Entity, &GgrsNetId, &fixed_math::FixedTransform3D, &Obstacle),
         (With<Rollback>, Without<Enemy>, Without<Player>),
     >,
-    mut player_damage_query: Query<&mut DamageAccumulator>,
     mut obstacle_events: ResMut<FrameEvents<ObstacleAttackEvent>>,
 ) {
     for (enemy_net_id, enemy_entity, enemy_transform, ai_config, target, mut state) in
@@ -339,7 +342,7 @@ pub fn enemy_attack_system(
             TargetType::Player => {
                 if let Some(ref target_net_id) = target.target {
                     // Find player
-                    for (player_entity, player_net_id, player_transform) in player_query.iter() {
+                    for (player_net_id, player_transform) in player_query.iter() {
                         if player_net_id != target_net_id {
                             continue;
                         }
@@ -361,11 +364,17 @@ pub fn enemy_attack_system(
                             };
 
                             if should_attack {
-                                // Apply damage
-                                if let Ok(mut damage) = player_damage_query.get_mut(player_entity) {
-                                    damage.total_damage += ai_config.attack_damage;
-                                }
-
+                                // Dégât (T1.1) : pas d'écriture directe ici. `MonsterState`
+                                // transitionne vers `Attacking { last_attack_frame: frame.frame,
+                                // .. }` ci-dessous ; `enemy_attack_damage_translate_system`
+                                // (RollbackSystemSet::CollisionDamage, avant DeathManagement)
+                                // relit cette transition à la frame SUIVANTE (elle ne peut pas
+                                // émettre un DamageEvent résolu la même frame : `EnemyAI` est
+                                // ordonné après `CollisionDamage`, voir sa doc) et émet le
+                                // DamageEvent avec `ai_config.attack_damage` — reproduisant
+                                // exactement le délai d'une frame d'avant T1.1 (le dégât était
+                                // déjà appliqué à la santé une frame après la décision, puisque
+                                // `DeathManagement` de cette frame-ci avait déjà eu lieu).
                                 *state = MonsterState::Attacking {
                                     target: AttackTarget::Player {
                                         net_id: player_net_id.clone(),
@@ -458,6 +467,108 @@ pub fn enemy_attack_system(
                 }
             }
         }
+    }
+}
+
+/// Traduit une attaque d'ennemi décidée à la frame précédente (`MonsterState::Attacking`,
+/// mis à jour par [`enemy_attack_system`] ci-dessus, `RollbackSystemSet::EnemyAI`) en
+/// `DamageEvent` (T1.1, chantier B1).
+///
+/// Pourquoi une frame de retard : `RollbackSystemSet::ORDER` place `EnemyAI` **après**
+/// `CollisionDamage` (où vit le résolveur unique,
+/// `character::health::rollback_resolve_damage_events`) et `DeathManagement`. Un
+/// `DamageEvent` émis pendant `EnemyAI` ne pourrait donc jamais être lu la même frame par
+/// `CollisionDamage`, déjà passé plus tôt — et serait perdu au nettoyage de
+/// `FrameEvents<DamageEvent>` au début de la frame suivante (`RollbackSystemSet::FrameStart`)
+/// sans jamais être résolu. Ce système lit donc la transition de la frame **précédente**
+/// (`last_attack_frame == frame - 1`) et construit l'événement ici, dans `CollisionDamage`,
+/// avant `rollback_resolve_damage_events` : le dégât est appliqué exactement une frame après
+/// la décision — comme avant T1.1, où `DamageAccumulator` était déjà écrit dans `EnemyAI`
+/// mais n'était consommé par `DeathManagement` que la frame suivante (elle avait déjà
+/// tourné, plus tôt, cette même frame). Reproduit donc la trace existante à l'identique
+/// (voir le rapport, point 4) : ce n'est pas un choix de gameplay, juste la façon de faire
+/// passer ce dégât par `DamageEvent` sans changer son timing.
+pub fn enemy_attack_damage_translate_system(
+    frame: Res<FrameCount>,
+    mut damage_events: ResMut<FrameEvents<DamageEvent>>,
+    enemy_query: Query<
+        (
+            &GgrsNetId,
+            &Team,
+            Option<&Tags>,
+            &EnemyAiConfig,
+            &MonsterState,
+        ),
+        With<Enemy>,
+    >,
+    // Préservation d'un bug pré-existant (voir le rapport, point 4) : ne sert qu'à la
+    // vérification ci-dessous, jamais à écrire.
+    target_has_accumulator: Query<(&GgrsNetId, Has<DamageAccumulator>), With<Player>>,
+) {
+    let Some(previous_frame) = frame.frame.checked_sub(1) else {
+        return;
+    };
+
+    // Bug pré-existant (avant T1.1) préservé à l'identique, PAS un choix de gameplay :
+    // `enemy_attack_system` (ci-dessus) écrivait `player_damage_query.get_mut(player_entity)`
+    // avec `Query<&mut DamageAccumulator>` (sans `Option`) — cette écriture n'avait donc
+    // d'effet QUE si la cible portait déjà un `DamageAccumulator` à cet instant précis. Or
+    // `DamageAccumulator` est retiré (`commands.remove`) dès qu'il est appliqué, la même
+    // frame, par `rollback_apply_accumulated_damage` (`DeathManagement`, qui tourne avant
+    // `EnemyAI` où vivait cette écriture) : en pratique, le dégât direct de
+    // `EnemyAiConfig::attack_damage` ne s'appliquait donc (quasiment) jamais — seule la
+    // griffe via hitbox (`weapons::melee`, `MeleeWeaponConfig::damage`, ex. 2.5 pour
+    // `zombie_claws`) touchait réellement le joueur. Vérifié empiriquement (T1.1, point 4) :
+    // sans cette garde, `idle`/`shoot_around`/`remote_first_fight` divergent bien au-delà des
+    // lignes `DamageEvent`/`DamageAccumulator`/`HitBy` (le joueur meurt nettement plus tôt,
+    // `shoot_around` ne tue même plus aucun zombie avant sa propre mort). Corriger ce bug
+    // changerait l'équilibrage (dégâts ennemis ~5× plus fréquents) sans rapport avec ce
+    // chantier ; à traiter séparément, délibérément, avec ses propres tests. Un résolveur
+    // unique et correct (`character::health::rollback_resolve_damage_events`) ne peut pas
+    // reproduire ce comportement lui-même (il utilise `Option<&mut DamageAccumulator>`,
+    // correct, pour les deux autres émetteurs) : la garde vit donc ici, à l'émission.
+    let mut has_accumulator: BTreeMap<usize, bool> = BTreeMap::new();
+    for (net_id, has) in target_has_accumulator.iter() {
+        has_accumulator.insert(net_id.0, has);
+    }
+
+    for (enemy_net_id, team, opt_tags, ai_config, state) in order_iter!(enemy_query) {
+        let MonsterState::Attacking {
+            target: AttackTarget::Player {
+                net_id: target_net_id,
+            },
+            last_attack_frame,
+        } = state
+        else {
+            continue;
+        };
+        if *last_attack_frame != previous_frame {
+            continue;
+        }
+        if !has_accumulator
+            .get(&target_net_id.0)
+            .copied()
+            .unwrap_or(false)
+        {
+            continue;
+        }
+
+        // Tags du dégât (T1.1) : tags du zombie (ex. `zombie`, posé par
+        // `CharacterConfig::tags`) union le genre d'attaque `melee` (voir la doc de
+        // `sim_core::damage::DamageEvent::tags`).
+        let mut tags = opt_tags.cloned().unwrap_or_default();
+        tags.insert(Tag::new("melee"));
+
+        damage_events.send(DamageEvent {
+            source: enemy_net_id.clone(),
+            target: target_net_id.clone(),
+            kind: DamageKind::Physical,
+            amount: ai_config.attack_damage,
+            frame: frame.frame,
+            tags,
+            source_team: *team,
+            friendly_fire: ai_config.friendly_fire,
+        });
     }
 }
 
