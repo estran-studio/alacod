@@ -43,6 +43,12 @@ fn out_of_range_fixture_reports_non_positive_health() {
 }
 
 #[test]
+fn out_of_range_stat_fixture_reports_negative_stat() {
+    let (_, _, errors) = load_and_lint(&fixture_dir("out_of_range_stat")).unwrap();
+    assert_has_error(&errors, LintErrorKind::OutOfRange, "stats.MoveSpeed");
+}
+
+#[test]
 fn unknown_kind_fixture_reports_unsupported_content_kind() {
     let (_, _, errors) = load_and_lint(&fixture_dir("unknown_kind")).unwrap();
     assert_has_error(&errors, LintErrorKind::UnknownKind, "Npc");
