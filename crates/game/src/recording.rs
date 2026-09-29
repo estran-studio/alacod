@@ -60,6 +60,7 @@ impl InputRecorder {
             players,
             expect: vec![],
             weapon_overrides: vec![],
+            invariants: Default::default(),
         };
         if let Some(map) = map {
             scenario.map = map.map_path.clone();

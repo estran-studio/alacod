@@ -340,3 +340,86 @@ fn health_lower_bound_only() {
         outcome.failures
     );
 }
+
+/// Le `GgrsNetId` du joueur `handle` dans le scénario, lu à la première frame.
+fn net_id_du_joueur(scenario: &Scenario, handle: usize) -> usize {
+    use bevy::prelude::*;
+    let mut app = scenario::runner::run_until(scenario, 1);
+    let mut query = app.world_mut().query::<(&game::character::player::Player, &utils::net_id::GgrsNetId)>();
+    query
+        .iter(app.world())
+        .find(|(player, _)| player.handle == handle)
+        .map(|(_, net_id)| net_id.0)
+        .expect("joueur présent à la frame 1")
+}
+
+#[test]
+fn entity_health_du_joueur_par_net_id() {
+    if map_ldtk::RENDER_ENABLED {
+        return;
+    }
+    let mut scenario = load_scenario("idle");
+    let net_id = net_id_du_joueur(&scenario, 0);
+    scenario.expect = vec![game::replay::Expectation::EntityHealth {
+        net_id,
+        min: Some(100.0),
+        max: Some(100.0),
+        at_frame: 1,
+    }];
+    let outcome = run(&scenario);
+    assert!(outcome.failures.is_empty(), "{:?}", outcome.failures);
+
+    scenario.expect = vec![game::replay::Expectation::EntityHealth {
+        net_id,
+        min: Some(101.0),
+        max: None,
+        at_frame: 1,
+    }];
+    let outcome = run(&scenario);
+    assert!(
+        outcome.failures.iter().any(|f| f.contains("EntityHealth")),
+        "{:?}",
+        outcome.failures
+    );
+}
+
+/// Une santé négative posée hors simulation est vue par l'invariant `sante_bornee`,
+/// et ne l'est plus quand le scénario le désactive.
+#[test]
+fn invariant_sante_bornee_et_desactivation() {
+    if map_ldtk::RENDER_ENABLED {
+        return;
+    }
+    use bevy::prelude::*;
+    use bevy_fixed::fixed_math::Fixed;
+    use game::character::{health::Health, player::Player};
+
+    fn sante_negative(mut joueurs: Query<&mut Health, With<Player>>) {
+        for mut health in &mut joueurs {
+            health.current = Fixed::from_num(-1);
+        }
+    }
+
+    let mut scenario = load_scenario("idle");
+    scenario.expect = vec![];
+    scenario.frames = 120;
+
+    let outcome = scenario::run_with(&scenario, |app| {
+        app.add_systems(Update, sante_negative);
+    });
+    assert!(
+        outcome.failures.iter().any(|f| f.contains("invariant sante_bornee")),
+        "{:?}",
+        outcome.failures
+    );
+
+    scenario.invariants.sante_bornee = false;
+    let outcome = scenario::run_with(&scenario, |app| {
+        app.add_systems(Update, sante_negative);
+    });
+    assert!(
+        !outcome.failures.iter().any(|f| f.contains("invariant sante_bornee")),
+        "{:?}",
+        outcome.failures
+    );
+}

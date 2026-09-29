@@ -1,118 +1,85 @@
-//! Invariants vérifiés à chaque frame simulée, sans rien écrire dans le scénario.
-//! Une violation produit une failure « invariant <nom> : frame N : détail ».
+//! Invariants vérifiés à chaque frame simulée, sans rien écrire dans le scénario (plan §9.4).
+//! Une violation produit une failure « invariant <nom> : frame N : détail ». Chaque invariant se
+//! désactive par scénario (`invariants: (joueur_hors_mur: false)`, voir [`Invariants`]).
 
+use bevy::ecs::query::{QueryState, With};
 use bevy::prelude::*;
-use bevy_fixed::fixed_math;
+use bevy_fixed::fixed_math::{Fixed, FixedTransform3D};
+use bevy_ggrs::Rollback;
 use game::character::health::Health;
-use game::collider::{Collider, Wall};
+use game::character::player::Player;
+use game::collider::{is_colliding, Collider, Wall};
+pub use game::replay::Invariants;
+use std::collections::BTreeSet;
 use utils::net_id::GgrsNetId;
 
-/// Configuration des invariants pour un scénario.
-#[derive(Component, Clone, Debug)]
-pub struct InvariantConfig {
-    /// Si faux, `sante_bornee` n'est pas vérifié.
-    pub sante_bornee: bool,
-    /// Si faux, `net_ids_uniques` n'est pas vérifié.
-    pub net_ids_uniques: bool,
-    /// Si faux, `joueur_hors_mur` n'est pas vérifié.
-    pub joueur_hors_mur: bool,
+/// Les requêtes des invariants, construites une fois par partie (pas à chaque frame).
+pub struct InvariantQueries {
+    santes: QueryState<(&'static GgrsNetId, &'static Health), With<Rollback>>,
+    net_ids: QueryState<&'static GgrsNetId, With<Rollback>>,
+    joueurs: QueryState<(&'static Player, &'static FixedTransform3D, &'static Collider), With<Rollback>>,
+    murs: QueryState<(&'static FixedTransform3D, &'static Collider), With<Wall>>,
 }
 
-impl Default for InvariantConfig {
-    fn default() -> Self {
+impl InvariantQueries {
+    pub fn new(world: &mut World) -> Self {
         Self {
-            sante_bornee: true,
-            net_ids_uniques: true,
-            joueur_hors_mur: true,
-        }
-    }
-}
-
-/// Résultat d'une vérification d'invariant.
-pub type InvariantResult = Result<(), String>;
-
-/// Vérifie tous les invariants actifs.
-pub fn check_invariants(
-    world: &mut World,
-    config: &InvariantConfig,
-    frame: u32,
-) -> Vec<String> {
-    let mut failures = Vec::new();
-
-    if config.sante_bornee {
-        if let Err(msg) = check_sante_bornee(world) {
-            failures.push(format!("invariant sante_bornee : frame {frame} : {msg}"));
+            santes: world.query_filtered(),
+            net_ids: world.query_filtered(),
+            joueurs: world.query_filtered(),
+            murs: world.query_filtered(),
         }
     }
 
-    if config.net_ids_uniques {
-        if let Err(msg) = check_net_ids_uniques(world) {
-            failures.push(format!("invariant net_ids_uniques : frame {frame} : {msg}"));
-        }
-    }
+    /// Vérifie les invariants actifs après la frame `frame` ; une violation au plus par invariant.
+    pub fn check(&mut self, world: &mut World, config: &Invariants, frame: u32) -> Vec<String> {
+        let mut failures = Vec::new();
 
-    if config.joueur_hors_mur {
-        if let Err(msg) = check_joueur_hors_mur(world) {
-            failures.push(format!("invariant joueur_hors_mur : frame {frame} : {msg}"));
-        }
-    }
-
-    failures
-}
-
-/// Pour toute entité rollback avec `Health`, `0 ≤ current ≤ max`.
-fn check_sante_bornee(world: &mut World) -> InvariantResult {
-    for (net_id, health) in world.query_filtered::<(&GgrsNetId, &Health), With<bevy_ggrs::Rollback>>().iter(world) {
-        if health.current < fixed_math::Fixed::ZERO {
-            return Err(format!("net_id {} : santé négative {}", net_id.0, health.current));
-        }
-        if health.current > health.max {
-            return Err(format!("net_id {} : santé {} > max {}", net_id.0, health.current, health.max));
-        }
-    }
-    Ok(())
-}
-
-/// Deux entités rollback n'ont jamais le même `GgrsNetId`.
-fn check_net_ids_uniques(world: &mut World) -> InvariantResult {
-    use std::collections::BTreeSet;
-    let mut seen = BTreeSet::new();
-    for net_id in world.query_filtered::<&GgrsNetId, With<bevy_ggrs::Rollback>>().iter(world) {
-        if !seen.insert(net_id.0) {
-            return Err(format!("net_id {} apparaît deux fois", net_id.0));
-        }
-    }
-    Ok(())
-}
-
-/// Aucun joueur ne chevauche un collider `Wall`.
-/// Utilise la même logique que `move_characters` dans `crates/game/src/character/player/input.rs`.
-fn check_joueur_hors_mur(world: &mut World) -> InvariantResult {
-    use game::collider::is_colliding;
-
-    let players: Vec<_> = world
-        .query_filtered::<(&game::character::player::Player, &bevy_fixed::fixed_math::FixedTransform3D, &Collider), With<bevy_ggrs::Rollback>>()
-        .iter(world)
-        .map(|(player, transform, collider)| (player.clone(), transform.translation.clone(), collider.clone()))
-        .collect();
-
-    let walls: Vec<_> = world
-        .query_filtered::<(&bevy_fixed::fixed_math::FixedTransform3D, &Collider), With<Wall>>()
-        .iter(world)
-        .map(|(t, c)| (t.translation.clone(), c.clone()))
-        .collect();
-
-    for (player, player_pos, player_collider) in &players {
-        for (wall_pos, wall_collider) in &walls {
-            if is_colliding(player_pos, player_collider, wall_pos, wall_collider) {
-                return Err(format!(
-                    "joueur {} chevauche un mur à ({}, {})",
-                    player.handle,
-                    player_pos.x.to_num::<f32>(),
-                    player_pos.y.to_num::<f32>()
-                ));
+        if config.sante_bornee {
+            for (net_id, health) in self.santes.iter(world) {
+                if health.current < Fixed::ZERO || health.current > health.max {
+                    failures.push(format!(
+                        "invariant sante_bornee : frame {frame} : net_id {} : santé {} hors de [0, {}]",
+                        net_id.0, health.current, health.max
+                    ));
+                    break;
+                }
             }
         }
+
+        if config.net_ids_uniques {
+            let mut vus = BTreeSet::new();
+            for net_id in self.net_ids.iter(world) {
+                if !vus.insert(net_id.0) {
+                    failures.push(format!(
+                        "invariant net_ids_uniques : frame {frame} : net_id {} apparaît deux fois",
+                        net_id.0
+                    ));
+                    break;
+                }
+            }
+        }
+
+        if config.joueur_hors_mur {
+            // Peu de joueurs, beaucoup de murs : on copie les joueurs, pas les murs.
+            let joueurs: Vec<(usize, FixedTransform3D, Collider)> = self
+                .joueurs
+                .iter(world)
+                .map(|(player, transform, collider)| (player.handle, transform.clone(), collider.clone()))
+                .collect();
+            'joueurs: for (handle, transform, collider) in &joueurs {
+                for (mur_transform, mur_collider) in self.murs.iter(world) {
+                    if is_colliding(&transform.translation, collider, &mur_transform.translation, mur_collider) {
+                        failures.push(format!(
+                            "invariant joueur_hors_mur : frame {frame} : joueur {handle} chevauche un mur en ({}, {})",
+                            transform.translation.x, transform.translation.y
+                        ));
+                        break 'joueurs;
+                    }
+                }
+            }
+        }
+
+        failures
     }
-    Ok(())
 }

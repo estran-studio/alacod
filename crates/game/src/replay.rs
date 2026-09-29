@@ -44,6 +44,41 @@ pub struct Scenario {
     /// tester leur épuisement en quelques secondes).
     #[serde(default, skip_serializing_if = "Vec::is_empty")]
     pub weapon_overrides: Vec<WeaponOverride>,
+    /// Invariants vérifiés à chaque frame par le runner ; tous actifs par défaut.
+    #[serde(default, skip_serializing_if = "Invariants::tous_actifs")]
+    pub invariants: Invariants,
+}
+
+/// Invariants de la simulation vérifiés par le runner à chaque frame (plan §9.4,
+/// `crates/scenario/src/invariants.rs`). Un scénario en désactive un ainsi :
+/// `invariants: (joueur_hors_mur: false)`.
+#[derive(Debug, Clone, Copy, Serialize, Deserialize)]
+pub struct Invariants {
+    /// Toute entité rollback avec une santé : `0 ≤ current ≤ max`.
+    #[serde(default = "vrai")]
+    pub sante_bornee: bool,
+    /// Deux entités rollback n'ont jamais le même `GgrsNetId`.
+    #[serde(default = "vrai")]
+    pub net_ids_uniques: bool,
+    /// Aucun joueur ne chevauche un collider de mur.
+    #[serde(default = "vrai")]
+    pub joueur_hors_mur: bool,
+}
+
+fn vrai() -> bool {
+    true
+}
+
+impl Default for Invariants {
+    fn default() -> Self {
+        Self { sante_bornee: true, net_ids_uniques: true, joueur_hors_mur: true }
+    }
+}
+
+impl Invariants {
+    pub fn tous_actifs(&self) -> bool {
+        self.sante_bornee && self.net_ids_uniques && self.joueur_hors_mur
+    }
 }
 
 /// Remplace des valeurs de chargeur d'une arme, pour tous ses modes ou un seul.

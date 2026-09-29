@@ -18,7 +18,7 @@ use map_ldtk::{
     plugins::LdtkRoguePlugin,
 };
 use crate::events::{GameEvent, GameEvents, GameEventsPlugin};
-use crate::invariants::{self, InvariantConfig};
+use crate::invariants::InvariantQueries;
 use game::recording::InputRecorder;
 use map::generation::config::MapGenerationConfig;
 use utils::frame::FrameCount;
@@ -31,13 +31,6 @@ use game::replay::{Expectation, Scenario};
 /// Ressource pour enregistrer les mismatches de synctest.
 #[derive(Resource, Default)]
 struct SyncTestMismatches(pub Vec<String>);
-
-/// Ressource pour tracker les attentes NoDamageBetween pendant la simulation.
-#[derive(Resource, Default)]
-struct NoDamageState {
-    /// Santé du joueur à chaque frame (handle -> health_value)
-    player_health: BTreeMap<usize, fixed_math::Fixed>,
-}
 
 /// Updates maximum pour charger la map avant la première frame de simulation.
 const MAX_LOADING_UPDATES: u32 = 10_000;
@@ -115,7 +108,6 @@ pub fn build_app(scenario: &Scenario, headless: bool, config: &PlayConfig) -> Ap
         .insert_resource(InputSource::Scripted)
         .insert_resource::<ScriptedInputs>(scenario.scripted_inputs())
         .init_resource::<SyncTestMismatches>()
-        .init_resource::<NoDamageState>()
         .add_observer(|mismatch: On<SyncTestMismatch>, mut log: ResMut<SyncTestMismatches>| {
             let m = mismatch.event();
             log.0.push(format!(
@@ -211,7 +203,9 @@ pub fn run_with<F: FnOnce(&mut App)>(scenario: &Scenario, configure: F) -> Scena
         .collect();
 
     let mut failures = Vec::new();
-    let invariant_config = InvariantConfig::default();
+    let mut invariants = InvariantQueries::new(app.world_mut());
+    // Dernière santé vue par attente `NoDamageBetween`, clé (handle, from_frame).
+    let mut dernieres_santes: BTreeMap<(usize, u32), fixed_math::Fixed> = BTreeMap::new();
 
     // Métriques : le chrono part au premier update simulé (le chargement de la map n'est pas
     // compté) ; les compteurs d'entités sont lus entre deux updates, jamais dans la simulation.
@@ -245,14 +239,12 @@ pub fn run_with<F: FnOnce(&mut App)>(scenario: &Scenario, configure: F) -> Scena
             enemies_max = enemies_max.max(q_enemies.iter(app.world()).count() as u32);
             players_count = players_count.max(q_players.iter(app.world()).count() as u32);
 
-            // Vérifier les invariants
-            failures.extend(invariants::check_invariants(app.world_mut(), &invariant_config, frame));
+            failures.extend(invariants.check(app.world_mut(), &scenario.invariants, frame));
 
-            // Vérifier les attentes NoDamageBetween
             for expectation in &no_damage_between {
                 if let Expectation::NoDamageBetween { handle, from_frame, to_frame } = expectation {
                     if frame >= *from_frame && frame <= *to_frame {
-                        if let Err(reason) = check_no_damage_at_frame(app.world_mut(), *handle, frame) {
+                        if let Err(reason) = check_no_damage(app.world_mut(), &mut dernieres_santes, *handle, *from_frame) {
                             failures.push(format!("frame {frame}: {expectation:?} : {reason}"));
                         }
                     }
@@ -465,10 +457,9 @@ fn check(world: &mut World, expectation: &Expectation) -> Result<(), String> {
             }
         }
         Expectation::Health { handle, min, max, .. } => {
-            let Some(health) = player_health(world, *handle) else {
+            let Some(health_fixed) = player_health(world, *handle) else {
                 return Err("joueur absent".into());
             };
-            let health_fixed = fixed_math::Fixed::from_num(health);
             let min_fixed = min.map(fixed_math::Fixed::from_num);
             let max_fixed = max.map(fixed_math::Fixed::from_num);
 
@@ -485,10 +476,9 @@ fn check(world: &mut World, expectation: &Expectation) -> Result<(), String> {
             Ok(())
         }
         Expectation::EntityHealth { net_id, min, max, .. } => {
-            let Some(health) = entity_health(world, *net_id) else {
+            let Some(health_fixed) = entity_health(world, *net_id) else {
                 return Err("entité absente ou sans santé".into());
             };
-            let health_fixed = fixed_math::Fixed::from_num(health);
             let min_fixed = min.map(fixed_math::Fixed::from_num);
             let max_fixed = max.map(fixed_math::Fixed::from_num);
 
@@ -601,51 +591,46 @@ fn player_alive(world: &mut World, handle: usize) -> bool {
         .any(|player| player.handle == handle)
 }
 
-/// Santé du joueur (en f32).
-fn player_health(world: &mut World, handle: usize) -> Option<f32> {
+/// Santé courante du joueur `handle`.
+fn player_health(world: &mut World, handle: usize) -> Option<fixed_math::Fixed> {
     use game::character::health::Health;
     world
         .query::<(&Player, &Health)>()
         .iter(world)
         .find(|(player, _)| player.handle == handle)
-        .map(|(_, health)| health.current.to_num::<f32>())
+        .map(|(_, health)| health.current)
 }
 
-/// Santé d'une entité rollback par son GgrsNetId (en f32).
-fn entity_health(world: &mut World, net_id: usize) -> Option<f32> {
+/// Santé courante d'une entité rollback, par son `GgrsNetId`.
+fn entity_health(world: &mut World, net_id: usize) -> Option<fixed_math::Fixed> {
+    use bevy_ggrs::Rollback;
     use game::character::health::Health;
     use utils::net_id::GgrsNetId;
-    use bevy_ggrs::Rollback;
     world
         .query_filtered::<(&GgrsNetId, &Health), With<Rollback>>()
         .iter(world)
         .find(|(id, _)| id.0 == net_id)
-        .map(|(_, health)| health.current.to_num::<f32>())
+        .map(|(_, health)| health.current)
 }
 
-/// Vérifier qu'un joueur n'a pas reçu de dégâts entre deux frames.
-fn check_no_damage_at_frame(world: &mut World, handle: usize, _frame: u32) -> Result<(), String> {
-    let current_health = player_health(world, handle).ok_or("joueur absent")?;
-
-    let mut state = world.resource_mut::<NoDamageState>();
-
-    match state.player_health.get(&handle) {
-        None => {
-            // Première fois que on voit ce joueur sur cette attente : enregistrer la santé
-            state.player_health.insert(handle, fixed_math::Fixed::from_num(current_health));
-            Ok(())
+/// `NoDamageBetween` : la santé du joueur ne doit pas avoir baissé depuis la frame précédente
+/// de l'intervalle (comparaison en `Fixed`, un état par intervalle).
+fn check_no_damage(
+    world: &mut World,
+    dernieres: &mut BTreeMap<(usize, u32), fixed_math::Fixed>,
+    handle: usize,
+    from_frame: u32,
+) -> Result<(), String> {
+    let courante = player_health(world, handle).ok_or("joueur absent")?;
+    let cle = (handle, from_frame);
+    let resultat = match dernieres.get(&cle) {
+        Some(&precedente) if courante < precedente => {
+            Err(format!("santé passée de {precedente} à {courante}"))
         }
-        Some(&previous_health) => {
-            let previous = previous_health.to_num::<f32>();
-            if current_health < previous {
-                Err(format!("santé diminuée de {} à {} entre les frames", previous, current_health))
-            } else {
-                // Mettre à jour la santé pour la prochaine frame
-                state.player_health.insert(handle, fixed_math::Fixed::from_num(current_health));
-                Ok(())
-            }
-        }
-    }
+        _ => Ok(()),
+    };
+    dernieres.insert(cle, courante);
+    resultat
 }
 
 /// Joue le scénario avec rendu, à vitesse réelle, et quitte à la fin de ses frames.
