@@ -217,7 +217,9 @@ make diff_log CID_1=alice CID_2=bob
 - [ ] Pas de `.iter().next()` sans tri préalable
 - [ ] Pas de `f32`/`f64` - uniquement `Fixed`/`FixedWide`
 - [ ] RNG via `RollbackRng` consommé dans ordre déterministe
-- [ ] Resource registered avec `rollback_resource_with_clone` si mutable
+- [ ] Resource enregistrée avec l'extension `RollbackTraceApp` (`rollback_and_trace_resource`
+      / `_debug_resource` / `_copy_resource`), jamais `rollback_resource_with_*` directement
+      (un script CI le bloque, voir `scripts/check-rollback-registration.sh`)
 - [ ] Logs utilisent `GgrsNetId`/`player.handle` (pas `Entity`) pour comparaison
 - [ ] Trace logs suivent format `ggrs{{f={} system_name key=value...}}` pour diff_log
 
@@ -525,7 +527,9 @@ Matrix définit qui collide avec qui. Les obstacles ont leur propre layer selon 
 8. **RON strings pour Fixed** - ex: `"100.0"` pas `100.0`
 9. **Behaviors sont composables** - Un ennemi peut avoir plusieurs behaviors
 10. **FlowField par NavProfile** - Pas par ennemi individuel
-11. **Clone + rollback_resource_with_clone** - Pour Resources mutables dans GgrsSchedule
+11. **Clone + Hash + `app.rollback_and_trace_resource::<T>()`** - Pour Resources mutables
+    dans GgrsSchedule (extension `RollbackTraceApp`, `crates/utils/src/rollback.rs` : rollback
+    + checksum GGRS + trace, en un seul appel ; jamais `rollback_resource_with_*` directement)
 
 ## Flow Field - Implémentation Actuelle
 
@@ -559,7 +563,7 @@ Aussi `weapon_probe` (état des armes frame par frame) et `map_probe` (positions
 joueurs, portes et fenêtres).
 
 ### GGRS Compliance
-- `FlowFieldCache` est `Clone` et enregistré avec `rollback_resource_with_clone`
+- `FlowFieldCache` est `Clone` + `Hash` et enregistré avec `rollback_and_trace_resource`
 - Player target sélectionné par tri `net_id.0` (pas `.iter().next()`)
 - `GridPos` et `NavProfile` implémentent `Ord` pour `BTreeMap`
 

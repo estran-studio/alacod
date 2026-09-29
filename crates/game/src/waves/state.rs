@@ -27,7 +27,7 @@ pub enum WavePhase {
 
 /// Wave system state resource
 ///
-/// GGRS CRITICAL: Must be registered with `.rollback_resource_with_clone::<WaveState>()`
+/// GGRS CRITICAL: Must be registered with `.rollback_and_trace_resource::<WaveState>()`
 #[derive(Resource, Debug, Clone, Hash, Serialize, Deserialize)]
 pub struct WaveState {
     /// Current phase of the wave
