@@ -724,11 +724,18 @@ fn render_cameras_to_image(
             ))
         })
         .clone();
+    // bevy_ui ne dessine que sur sa caméra par défaut, qui doit viser la fenêtre principale : une
+    // caméra retargetée vers une image n'en est plus une, et l'UI (HUD, prompts, game over)
+    // disparaîtrait des captures. On désigne explicitement la première caméra comme caméra d'UI.
+    let mut ui_camera_set = false;
     for (camera, current) in &cameras {
         if !matches!(current, bevy::camera::RenderTarget::Image(_)) {
-            commands
-                .entity(camera)
-                .insert(bevy::camera::RenderTarget::Image(target.clone().into()));
+            let mut entity = commands.entity(camera);
+            entity.insert(bevy::camera::RenderTarget::Image(target.clone().into()));
+            if !ui_camera_set {
+                entity.insert(bevy::ui::IsDefaultUiCamera);
+                ui_camera_set = true;
+            }
         }
     }
 }

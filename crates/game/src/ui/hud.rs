@@ -8,7 +8,7 @@ use crate::character::health::Health;
 use crate::character::player::{Player, LocalPlayer};
 use crate::character::enemy::Enemy;
 use crate::waves::state::WaveState;
-use crate::weapons::{Weapon, WeaponState, WeaponModesState};
+use crate::weapons::{WeaponInventory, WeaponModesState, WeaponState};
 
 /// HUD Root marker component
 #[derive(Component)]
@@ -24,7 +24,12 @@ pub struct HudBarWidget {
 #[derive(Component)]
 pub struct HudTextWidget {
     pub source: String,
+    /// Texte fixe devant la valeur (« Vague »), gardé ici : le texte affiché est recomposé.
+    pub prefix: String,
 }
+
+/// Les sources que le HUD sait lire ; une autre dans le RON déclenche un `warn!` au chargement.
+const SOURCES: &[&str] = &["health", "wave", "ammo", "weapon", "enemies", "players"];
 
 /// Position anchor for HUD widgets
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize)]
@@ -65,7 +70,7 @@ pub struct HudPlugin;
 
 impl Plugin for HudPlugin {
     fn build(&self, app: &mut App) {
-        app.add_plugins(RonAssetPlugin::<HudConfig>::new(&[".ron"]))
+        app.add_plugins(RonAssetPlugin::<HudConfig>::new(&["ron"]))
             .init_resource::<HudConfigHandle>()
             .add_systems(OnEnter(AppState::InGame), load_hud_config)
             .add_systems(Update, spawn_hud_when_ready.run_if(in_state(AppState::InGame)))
@@ -158,7 +163,13 @@ fn anchor_to_node(anchor: HudAnchor, offset: (f32, f32), size: (f32, f32)) -> No
 fn spawn_hud_widgets(commands: &mut Commands, entity: Entity, config: &HudConfig) {
     commands.entity(entity).with_children(|parent| {
         for widget in &config.widgets {
-            let size = widget.size.unwrap_or((100.0, 20.0));
+            let size = widget.size.unwrap_or((160.0, 24.0));
+            let source = match &widget.kind {
+                HudWidgetKind::Bar { source } | HudWidgetKind::Text { source, .. } => source,
+            };
+            if !SOURCES.contains(&source.as_str()) {
+                warn!("hud.ron : source inconnue « {source} » (connues : {SOURCES:?})");
+            }
             let node = anchor_to_node(widget.anchor, widget.offset, size);
             let font_size = widget.font_size.unwrap_or(16.0);
             let color = parse_color(widget.color.as_deref().unwrap_or("#ffffff"));
@@ -178,7 +189,7 @@ fn spawn_hud_widgets(commands: &mut Commands, entity: Entity, config: &HudConfig
                     let text = prefix.clone().unwrap_or_default();
                     parent.spawn((
                         node,
-                        Text::new(text),
+                        Text::new(text.clone()),
                         TextFont {
                             font_size: FontSize::Px(font_size),
                             ..default()
@@ -186,6 +197,7 @@ fn spawn_hud_widgets(commands: &mut Commands, entity: Entity, config: &HudConfig
                         TextColor(color),
                         HudTextWidget {
                             source: source.clone(),
+                            prefix: text,
                         },
                     ));
                 }
@@ -200,7 +212,8 @@ fn update_hud_values(
     all_players: Query<(), With<Player>>,
     enemies: Query<(), With<Enemy>>,
     wave_state: Res<WaveState>,
-    weapons_query: Query<(&Weapon, &WeaponState, &WeaponModesState), With<LocalPlayer>>,
+    inventories: Query<&WeaponInventory, With<LocalPlayer>>,
+    weapons_query: Query<(&WeaponState, &WeaponModesState)>,
     mut bar_widgets: Query<(&HudBarWidget, &mut Node, &mut BackgroundColor)>,
     mut text_widgets: Query<(&HudTextWidget, &mut Text)>,
 ) {
@@ -214,14 +227,16 @@ fn update_hud_values(
     let player_count = all_players.iter().count();
     let wave_num = wave_state.current_wave;
 
-    let weapon_info = weapons_query
-        .iter()
-        .next()
-        .and_then(|(weapon, state, modes)| {
-            let name = weapon.config.name.clone();
-            let active_mode = modes.modes.get(&state.active_mode);
-            Some((name, active_mode.cloned()))
-        });
+    // L'arme active vient de `WeaponInventory` (rollback), comme dans `weapons/ui.rs`.
+    let weapon_info = inventories.iter().next().and_then(|inventory| {
+        let (entity, weapon) = inventory.weapons.get(inventory.active_weapon_index)?;
+        let name = weapon.config.name.clone();
+        let mode = weapons_query
+            .get(*entity)
+            .ok()
+            .and_then(|(state, modes)| modes.modes.get(&state.active_mode).cloned());
+        Some((name, mode))
+    });
 
     // Update bar widgets
     for (bar_widget, mut node, mut bg_color) in bar_widgets.iter_mut() {
@@ -252,7 +267,7 @@ fn update_hud_values(
 
     // Update text widgets
     for (text_widget, mut text) in text_widgets.iter_mut() {
-        let prefix_text = text.0.split('\n').next().unwrap_or("").to_string();
+        let prefix_text = text_widget.prefix.clone();
         let new_text = match text_widget.source.as_str() {
             "health" => {
                 if let Some((current, max)) = health_info {
@@ -288,22 +303,31 @@ fn update_hud_values(
                 prefix_text
             }
         };
-        text.0 = new_text;
+        if text.0 != new_text {
+            text.0 = new_text;
+        }
     }
 }
 
-// Hot-reload support: detect when HUD config is reloaded
+/// Rechargement à chaud : quand `hud.ron` est modifié (feature `native`, file watcher de bevy),
+/// l'arbre est détruit ; `spawn_hud_when_ready` le reconstruit à la frame suivante.
 fn handle_hud_config_changes(
+    mut events: MessageReader<AssetEvent<HudConfig>>,
     config_handle: Res<HudConfigHandle>,
-    configs: Res<Assets<HudConfig>>,
-    _q_hud_root: Query<Entity, With<HudRoot>>,
+    q_hud_root: Query<Entity, With<HudRoot>>,
+    mut commands: Commands,
 ) {
-    // Check if the config has changed by checking if the handle's state changed
-    if let Some(handle) = &config_handle.0 {
-        if let Some(_config) = configs.get(handle) {
-            // If config is not in the "loading" state anymore, potentially re-render
-            // For now, this is a simplified version - full hot-reload requires event listeners
-            // which would be added later
+    let Some(handle) = &config_handle.0 else {
+        return;
+    };
+    for event in events.read() {
+        if let AssetEvent::Modified { id } = event {
+            if *id == handle.id() {
+                for entity in q_hud_root.iter() {
+                    commands.entity(entity).despawn();
+                }
+                info!("hud.ron rechargé");
+            }
         }
     }
 }
