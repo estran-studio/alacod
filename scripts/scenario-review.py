@@ -34,6 +34,8 @@ def git(*args):
 
 def scenario_info(name):
     """Description et « À regarder » (commentaires en tête du .ron), attentes du scénario."""
+    # `<nom>.vues` (scenario-video views) : mêmes description et « À regarder » que le scénario.
+    name = name[: -len(".vues")] if name.endswith(".vues") else name
     path = SCENARIOS / f"{name}.ron"
     if not path.exists():
         return {"description": "", "watch": "", "expect": [], "frames": None}

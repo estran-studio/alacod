@@ -156,6 +156,10 @@ videos:
 	EVERY=$(or $(EVERY),2) ./scripts/scenario-video render $(SCENARIO)
 	./scripts/scenario-video montage
 
+# La même partie vue par chaque joueur, côte à côte : make views SCENARIO=four_players_shooting
+views:
+	EVERY=$(or $(EVERY),2) ./scripts/scenario-video views $(SCENARIO)
+
 # Avant/après côte à côte : make compare_video SCENARIO=idle BASE=main [HEAD=<réf>]
 compare_video:
 	EVERY=$(or $(EVERY),2) ./scripts/scenario-video compare $(SCENARIO) $(BASE) $(or $(HEAD),HEAD)
