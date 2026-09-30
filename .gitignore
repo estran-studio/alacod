@@ -1,4 +1,5 @@
-**/target*
+**/target/
+/target_wasm/
 *.d.ts
 .DS_Store
 **/vendor*
