@@ -1,0 +1,42 @@
+// Tour d'achat sur la carte jouable test_map.ldtk (T2.6) : un joueur avec 6000 points achète
+// l'arme murale de la salle de départ puis le perk de la salle de départ.
+//
+// À regarder : le joueur monte puis se déplace à gauche vers l'arme murale de départ (f10-110),
+// achète le pistolet (500 points, f110-130) : le pistolet devient son arme active, son solde
+// tombe à 5500. Il continue à gauche vers la machine à perk Juggernog (f130-160) et l'achète
+// (2500 points, f160-200) : sa vie maximum double (100 -> 200), sa vie courante suit, son solde
+// tombe à 3000.
+Scenario(
+    game: "zombies",
+    map: "exemples/test_map.ldtk",
+    frames: 300,
+    players: [
+        (
+            inputs: [
+                (from: 10, to: 60, buttons: [Up]),
+                (from: 60, to: 110, buttons: [Left]),
+                (from: 110, to: 130, buttons: [Interaction]),
+                (from: 130, to: 160, buttons: [Left]),
+                (from: 160, to: 200, buttons: [Interaction]),
+            ],
+            // Exclusivité (voir PlayerScript::weapon et buy_wall_weapon.ron) : le joueur
+            // démarre avec la seule mitraillette. Avec ses armes de départ habituelles
+            // (machine_gun, pistol, shotgun) il possède déjà le pistolet et l'interaction
+            // rachèterait des munitions (250 = 0,5 × 500) sans changer d'arme.
+            weapon: "machine_gun",
+            currency: 6000,
+        ),
+    ],
+    expect: [
+        // Après achat du pistolet (500) : 6000 - 500 = 5500.
+        Currency(handle: 0, min: 5500, max: 5500, at_frame: 150),
+        // Le pistolet devient l'arme active.
+        ActiveWeapon(handle: 0, weapon: "pistol", at_frame: 150),
+        // Après achat de Juggernog (2500) : 5500 - 2500 = 3000.
+        Currency(handle: 0, min: 3000, max: 3000, at_frame: 250),
+        // MaxHealth de base 100, Juggernog double (Mul "2.0").
+        Stat(handle: 0, stat: MaxHealth, value: 200.0, at_frame: 250),
+        // Health.current est relevée de la même différence à l'achat (200/200).
+        Health(handle: 0, min: 200.0, max: 200.0, at_frame: 250),
+    ],
+)
