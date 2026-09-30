@@ -1,193 +1,120 @@
-# Zombies Game Content
+# Contenu du jeu `zombies`
 
-## Overview
+Clone type Call of Duty Zombies construit sur l'engine alacod (`docs/plan-engine.md`). Tout le
+contenu (cartes, personnages, armes, économie, HUD) est chargé à l'exécution par le manifeste
+`assets/game.ron` (format et kinds : `docs/conventions.md` §3, `crates/content`). Le binaire
+est `games/zombies/src/main.rs` ; le plugin de partie est partagé avec `testbed`
+(`map_ldtk::game::local::LdtkLocalGamePlugin`).
 
-The `zombies` game is a Call of Duty Zombies-style shooter implemented with the alacod engine. This directory contains all game content (maps, characters, weapons, economy, UI) loaded at runtime via the manifest (`game.ron`).
+## Arborescence (`games/zombies/assets/`)
 
-## Asset Structure
+| Chemin | Kind | Contenu |
+|---|---|---|
+| `game.ron` | manifeste | dossiers de contenu et leur kind, carte de départ, seed par défaut |
+| `camera.ron` | `Camera` | réglages de caméra (`CameraSettings`, suivi en ligne) |
+| `ZombieShooter/Sprites/Character/player_config.ron` | `Character` | personnage joueur : `starting_weapons`, `weapon_slots`, vie, à terre |
+| `ZombieShooter/Sprites/Character/weapons.ron` | `Weapon` | armes à distance : `pistol`, `machine_gun`, `shotgun`, `rifle` |
+| `ZombieShooter/Sprites/Character/*_sheet.ron`, `*_animation.ron` | — | feuilles de sprites et animations du joueur et des armes (nommées dans `crates/game/src/global_asset.rs`) |
+| `ZombieShooter/Sprites/Zombie/zombie*_config.ron` | `Character` | zombies : `zombie`, `zombie_hard`, `zombie_full` (+ feuilles et animations) |
+| `ZombieShooter/Sprites/Obj/Weapons.png` | — | feuille des sprites d'armes (trois armes) |
+| `weapons/melee/melee_weapons.ron` | `MeleeWeapon` | armes de mêlée (`bare_hands`, `knife`, `club`, `sword`, `axe`, `zombie_claws`) |
+| `waves/wave_config.ron` | `Wave` | vagues : effectifs, cadence, montée en difficulté |
+| `economy/economy.ron` | `Economy` | points par kill, coup et réparation ; ratio de recharge d'une arme murale déjà possédée |
+| `economy/perks.ron` | `Perk` | perks : `juggernog`, `speed_cola`, `double_tap`, `stamin_up` |
+| `exemples/test_map.ldtk` | `Map` | gabarits de salles de la carte jouable (trois niveaux LDtk, voir ci-dessous) |
+| `exemples/test_map_shop.ldtk` | `Map` | copie de `test_map` avec une arme murale et un perk dans le gabarit de départ, pour les scénarios d'achat |
+| `exemples/atlas/` | — | tuiles des cartes |
+| `ui/hud.ron`, `ui/feedback.ron` | `Ui` | HUD (sources `health`, `wave`, `ammo`, `weapon`, `enemies`, `players`, `currency`) et retours (flash, secousse, sons) |
+| `fonts/`, `sounds/` | — | police et sons |
 
-All assets are relative to `games/zombies/assets/`.
+Pas encore de table de power-ups : son format arrive avec le chantier des power-ups
+(`docs/plan-engine.md` §5).
 
-### Directories
+## La carte : des gabarits assemblés
 
-- **`ZombieShooter/Sprites/`** - Character sprites and configs
-  - `Character/` - Player and character definitions
-    - `player_config.ron` - Player character configuration
-    - `weapons.ron` - Ranged weapon definitions
-    - `player_sheet.ron` - Player sprite sheet config
-    - `player_animation.ron` - Player animation definitions
-  - `Zombie/` - Zombie and enemy definitions
-    - `zombie_config.ron` - Basic zombie configuration
-    - `zombie_hard_config.ron` - Tougher zombie variant
-    - `zombie_full_config.ron` - Full-featured zombie
-    - `*.ron` / `*.png` - Zombie sprite sheets and animations
+Une partie ne joue pas `test_map.ldtk` tel quel : le chargeur (`crates/map_ldtk/src/loader`)
+passe le projet au générateur (`crates/map/src/generation`, mode `Basic`), qui tire au sort avec
+la seed (`default_seed` de `game.ron`, `seed` d'un scénario) une salle de départ parmi les niveaux
+marqués `spawn: true`, puis accroche d'autres salles par leurs cases `LevelConnection`, jusqu'à
+`max_room` (10) ou faute de connexion libre. Chaque niveau LDtk est un **gabarit** réutilisable :
+avec la seed des scénarios, la partie compte quatre salles, dont deux copies de `Level_0` (la
+salle de départ et une salle ordinaire), donc deux murs `pistol` et deux Juggernog. Les joueurs
+apparaissent dans la salle de départ (`PlayerSpawn` du gabarit de départ seulement).
 
-- **`weapons/melee/`** - Melee weapon definitions
-  - `melee_weapons.ron` - Melee weapon configurations (knife, club, etc.)
+## Armes murales et perks de `test_map.ldtk`
 
-- **`waves/`** - Wave configuration
-  - `wave_config.ron` - Zombie spawning rules, scaling, difficulty
+| Gabarit | Entité LDtk | Contenu | Prix |
+|---|---|---|---|
+| `Level_0` (départ) | `WeaponLocation` | `pistol` | 500 |
+| `Level_0` (départ) | `SodaLocation` | `juggernog` (vie max ×2) | 2500 |
+| `Level_1` | `WeaponLocation` | `rifle` | 1200 |
+| `Level_1` | `WeaponLocation` | `shotgun` | 1000 |
+| `Level_1` | `SodaLocation` | `speed_cola` (rechargement ×0,5) | 3000 |
+| `Level_2` | `WeaponLocation` | `machine_gun` | 1500 |
+| `Level_2` | `SodaLocation` | `double_tap` (cadence ×1,5) | 2000 |
+| `Level_2` | `SodaLocation` | `stamin_up` (vitesse +25 %) | 2000 |
 
-- **`economy/`** - In-game economy definitions
-  - `economy.ron` - Kill/hit/repair point values
-  - `perks.ron` - Perk machines and their stat modifiers
+Le prix d'une arme murale est un champ de l'entité (`price`), celui d'un perk vient de
+`economy/perks.ron`. Le joueur démarre avec `machine_gun`, `pistol` et `shotgun`
+(`player_config.ron`) : acheter une arme déjà possédée recharge ses munitions pour
+`refill_price_ratio` × prix (`economy.ron`) ; le `rifle` est la seule arme murale qu'il ne
+possède pas au départ. Un scénario peut restreindre l'arme de départ (`weapon:` dans
+`PlayerScript`, voir `tests/scenarios/shop_tour.ron`).
 
-- **`exemples/`** - Map definitions
-  - `test_map.ldtk` - Main playable map with 3 rooms
-  - `test_map_shop.ldtk` - Shop reference map (used in scenarios)
-  - `atlas/` - Tileset and map graphics
+## Ajouter du contenu
 
-- **`ui/`** - UI configurations
-  - `hud.ron` - Head-up display layout and widgets
-  - `camera.ron` - Camera behavior settings
+### Une arme à distance
 
-- **`items/`** - Item definitions (TODO: T2.5)
-  - `powerups.ron` - Power-up drop table (format defined in T2.5)
+1. Une entrée dans `weapons.ron` : `config` (`ammo_type`, `firing_modes` avec cadence, dispersion,
+   balle, portée, chargeur ; `test` = bornes du scénario généré, voir ci-dessous), `sprite_config`
+   (`name` = feuille `<name>_sheet.ron`, `index` = case de la feuille), `audio_config`.
+   Les nombres `Fixed` sont des chaînes (`"4.0"`).
+2. Facultatif : l'ajouter aux `starting_weapons` d'un personnage (les traces de tous les scénarios
+   changent : bless justifié).
+3. La poser sur un mur (section suivante).
+4. `make lint`, puis `make test_scenarios` : chaque arme reçoit un scénario généré
+   (`alacod-gen`, `crates/scenario/src/generate.rs`) qui vérifie `min_hits`/`max_hits` ;
+   `cargo run -p scenario --profile headless --bin alacod-gen -- --play` affiche les coups
+   observés pour poser les bornes.
 
-## How to Add Content
+### Un perk
 
-### Add a Weapon
+1. Une entrée dans `economy/perks.ron` : `name`, `price`, `modifiers: [(stat, op, value)]`
+   (`op` : `Add`, `Mul`, `Pct` ; stats de `sim_core::StatId`).
+2. Une `SodaLocation` avec `perk: "<id>"` sur la carte.
+3. `make lint` (référence de perk inconnue refusée).
 
-1. **Define the weapon** in `weapons/melee/melee_weapons.ron` or create a new ranged weapon in `ZombieShooter/Sprites/Character/weapons.ron`:
-   ```ron
-   "club": (
-       config: (
-           name: "Club",
-           damage: "12.0",
-           range: "30.0",
-           attack_pattern: SingleStrike,
-           attack_duration_frames: 10,
-           cooldown_frames: 30,
-           knockback_force: "5.0",
-           stamina_cost: "20.0",
-       ),
-       sprite_config: (
-           name: "club",
-           index: 0,
-           weapon_offset: (-10.0, 0.0),
-       ),
-   ),
-   ```
+### Une arme murale ou une machine à perk sur la carte
 
-2. **Add to a character's starting weapons** in `ZombieShooter/Sprites/Character/player_config.ron`:
-   ```ron
-   starting_weapons: ["pistol", "club"],
-   ```
+Dans LDtk (1.5.3), poser une entité `WeaponLocation` (champs `weapon`, `price`) ou
+`SodaLocation` (champ `perk`) sur une case libre contre un mur d'un gabarit, jamais sur un spawn,
+une porte ou une fenêtre (le générateur recopie l'entité dans chaque salle faite de ce gabarit). Les définitions de champs existent dans `test_map.ldtk` et `test_map_shop.ldtk`.
 
-3. **Place on a map** (optional): Add a `WeaponLocation` entity in LDtk:
-   - Set `weapon: "club"`
-   - Set `price: 750` (or appropriate value)
+À la main dans le JSON : copier une instance existante du même type et garder toutes ses
+clés (`__grid`, `__pivot`, `__tags`, `__tile`, `__smartColor`, `iid` unique, `width`, `height`,
+`defUid`, `px`, `fieldInstances`, `__worldX`, `__worldY`) ; chaque champ porte `__identifier`,
+`__type`, `__value`, `__tile`, `defUid` (uid du champ dans `defs.entities[].fieldDefs`) et
+`realEditorValues`. Le chargeur refuse une instance incomplète (`missing field`). Garder le
+format natif de LDtk (tabulations, tableaux de nombres sur une ligne) pour un diff lisible.
 
-4. **Test**: Run `cargo run -p content --bin alacod --profile headless -- lint games/zombies` to validate the reference.
+Toute entité ajoutée à `test_map.ldtk` crée des entités rollback : les traces de tous les
+scénarios sur cette carte changent dès la frame 0. Vérifier avec `scripts/trace-diff.py` que
+seules les nouvelles entités et la numérotation `GgrsNetId` bougent, puis
+`BLESS=1 make test_scenarios` avec la justification dans le commit (`docs/conventions.md` §8).
 
-### Add a Perk
-
-1. **Define the perk** in `economy/perks.ron`:
-   ```ron
-   "who_dares_wins": (
-       name: "Who Dares Wins",
-       price: 1500,
-       modifiers: [
-           (stat: FireRate, op: Mul, value: "1.2"),
-       ],
-   ),
-   ```
-
-2. **Place on a map**: Add a `SodaLocation` entity in LDtk:
-   - Set `perk: "who_dares_wins"`
-
-3. **Test**: Run lint and scenarios.
-
-### Add a Wall Weapon or Perk Machine to the Map
-
-Use the provided Python script to update `exemples/test_map.ldtk`:
-
-```bash
-python3 << 'EOF'
-import json
-import uuid
-
-# Load map
-with open('games/zombies/assets/exemples/test_map.ldtk', 'r') as f:
-    test_map = json.load(f)
-
-# Find level and Entities layer, add entity with proper UUID and position
-# See script in T2.6 implementation for full details
-EOF
-```
-
-**Key details**:
-- Positions must be on a 16px grid boundary (aligned to LDtk cell positions)
-- Place wall weapons and machines against interior walls, not on player spawns, doors, or windows
-- Keep `iid` (instance ID) unique - generate a UUID4 for each new entity
-- Weapon prices follow CoD: cheap entry weapons (500), medium (1000), high (1500+)
-
-## Game Manifest (`game.ron`)
-
-The manifest declares all content directories and entry point:
-
-```ron
-(
-    name: "zombies",
-    content_folders: [
-        (path: "ZombieShooter/Sprites/Character/player_config.ron", kind: "Character"),
-        (path: "ZombieShooter/Sprites/Zombie/zombie_config.ron", kind: "Character"),
-        // ... more content folders ...
-        (path: "economy/economy.ron", kind: "Economy"),
-        (path: "economy/perks.ron", kind: "Perk"),
-    ],
-    entry: (
-        start_map: "exemples/test_map.ldtk",
-        default_seed: 123456,
-    ),
-)
-```
-
-Run `cargo run -p content --bin alacod --profile headless -- lint games/zombies` to validate.
-
-## Validation
-
-### Lint
-
-Checks all references, types, and values:
+## Vérifier
 
 ```bash
-cargo run -p content --bin alacod --profile headless -- lint games/zombies
+make lint                                   # alacod lint games/zombies (et testbed)
+make test_scenarios SCENARIO=shop_tour      # achat d'une arme murale puis d'un perk sur test_map
+make play_scenario SCENARIO=shop_tour       # le même, avec rendu
+make zombies                                # jouer (fenêtre, joueur local)
 ```
 
-**What it validates**:
-- All referenced weapons, perks, maps exist
-- No duplicate IDs
-- All `Fixed`-point numbers are strings (`"100.0"` not `100.0`)
-- Stat values are in valid ranges
-- LDtk entities have required fields
+## Limites connues
 
-### Scenarios
-
-Test content with scripted gameplay:
-
-```bash
-make test_scenarios SCENARIO=shop_tour
-```
-
-### Play
-
-Run the game locally:
-
-```bash
-cargo run -p zombies --profile headless
-```
-
-## Known Limitations & Future Work
-
-1. **Sprite organization** (A5): Sprites are currently stored under `ZombieShooter/Sprites/` and named in code (`crates/game/src/global_asset.rs`). Future work will move to a data-driven asset registry.
-
-2. **Power-ups** (T2.5): `items/powerups.ron` format is being defined. Wall weapons and perks work; pickups on the ground are next.
-
-3. **Melee weapons**: Club and other melee weapons exist but may need additional wall placement configurations.
-
-## References
-
-- **Conventions**: `docs/conventions.md` - LDtk layers, entity types, RON formats
-- **Engine**: `CLAUDE.md` - Determinism rules, deferred spawning, rollback mechanics
-- **Plan**: `docs/plan-engine.md` - Overall engine architecture and clones
+- Les feuilles de sprites sont nommées dans `crates/game/src/global_asset.rs` et restent
+  mélangées aux configs sous `ZombieShooter/Sprites/**` (`docs/plan-engine.md` §5 A5) ; le
+  `rifle` réutilise le sprite du fusil à pompe.
+- Pas de table de power-ups ni de ramassage au sol.
+- Le prix des armes murales et des perks n'est pas affiché à l'écran.

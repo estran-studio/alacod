@@ -361,10 +361,11 @@ pub enum Expectation {
         amount: u32,
         at_frame: u32,
     },
-    /// Nombre d'armes tombées au sol (T2.2, chantier B7, `weapons::WeaponPickup`), toutes
-    /// entités confondues (pas par joueur : lâcher/ramasser n'a pas de propriétaire une fois
-    /// l'arme au sol). Bornes `[min, max]` inclusives, `None` = pas de borne — voir le
-    /// scénario `drop_pickup_swap`.
+    /// Nombre d'armes tombées au sol (T2.2, chantier B7, `weapons::WeaponPickup` sans
+    /// `price`), toutes entités confondues (pas par joueur : lâcher/ramasser n'a pas de
+    /// propriétaire une fois l'arme au sol). Les armes murales (`price: Some(..)`, posées par
+    /// la carte, T2.3) ne comptent pas. Bornes `[min, max]` inclusives, `None` = pas de
+    /// borne — voir le scénario `drop_pickup_swap`.
     WeaponPickups {
         #[serde(default, skip_serializing_if = "Option::is_none")]
         min: Option<u32>,

@@ -160,4 +160,47 @@
             }
         )
     ),
+    "rifle": (
+        config: (
+            name: "rifle",
+            default_firing_mode: "default",
+            // T2.6 : copie de l'entrée de games/zombies (les scénarios générés par
+            // `alacod-gen games/zombies` jouent dans l'arène du testbed, qui doit connaître
+            // chaque arme du contenu zombies). Voir le commentaire complet là-bas.
+            ammo_type: Balle,
+            firing_modes: {
+                "default": (
+                    firing_rate: "4.0",
+                    firing_mode: Manual(),
+                    spread: "0.01",
+                    recoil: "4.0",
+                    bullet_type: Standard(
+                        damage: "35.0",
+                        speed: "600.0",
+                    ),
+                    range: "1000.0",
+                    reload_time_seconds: "1.2",
+                    mag: Mag(
+                        mag_size: 10,
+                        mag_limit: 6,
+                    )
+                )
+            },
+        ),
+        sprite_config: (
+            name: "shotgun",
+            index: 0,
+            bullet_offset_right: ( x: "10.0", y: "0.0" ),
+            bullet_offset_left: ( x: "10.0", y: "0.0" ),
+            weapon_offset: ( x: "0.0", y: "-5.0" )
+        ),
+        audio_config: (
+            modes: {
+                "default": (
+                    reloading: "sounds/machine-gun-reloading.ogg",
+                    firing: "sounds/machine-gun.ogg"
+                )
+            }
+        )
+    ),
 })
