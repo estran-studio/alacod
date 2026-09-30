@@ -6,6 +6,7 @@ pub mod collider;
 pub mod collision_grid;
 pub mod content_hot_reload;
 pub mod core;
+pub mod economy;
 pub mod feedback;
 pub mod frame;
 pub mod frame_events;

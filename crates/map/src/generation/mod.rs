@@ -16,7 +16,8 @@ use self::{
     context::MapGenerationContext,
     entity::{
         character_spawn::CharacterSpawnConfig, door::DoorConfig, enemy_spawn::EnemySpawnConfig,
-        location::EntityLocation, window::WindowConfig,
+        location::EntityLocation, soda_location::SodaLocationConfig,
+        weapon_location::WeaponLocationConfig, window::WindowConfig,
     },
     room::{Room, RoomConnection},
 };
@@ -49,6 +50,17 @@ trait IMapGeneration {
         &mut self,
         rng: &mut RollbackRng,
     ) -> Vec<(EntityLocation, CharacterSpawnConfig)>;
+    /// T2.3, chantier C5 v1 : armes murales (`WeaponLocation`), portées telles quelles
+    /// (voir [`IMapGeneration::get_character_spawns`]).
+    fn get_weapon_locations(
+        &mut self,
+        rng: &mut RollbackRng,
+    ) -> Vec<(EntityLocation, WeaponLocationConfig)>;
+    /// T2.3, chantier C5 v1 : machines à perks (`SodaLocation`), portées telles quelles.
+    fn get_soda_locations(
+        &mut self,
+        rng: &mut RollbackRng,
+    ) -> Vec<(EntityLocation, SodaLocationConfig)>;
 }
 
 pub trait IMapGenerator {
@@ -76,6 +88,18 @@ pub trait IMapGenerator {
         &mut self,
         rng: &mut RollbackRng,
         character_spawns: &Vec<(EntityLocation, CharacterSpawnConfig)>,
+    );
+    /// T2.3, chantier C5 v1 : voir [`IMapGeneration::get_weapon_locations`].
+    fn add_weapon_locations(
+        &mut self,
+        rng: &mut RollbackRng,
+        weapon_locations: &Vec<(EntityLocation, WeaponLocationConfig)>,
+    );
+    /// T2.3, chantier C5 v1 : voir [`IMapGeneration::get_soda_locations`].
+    fn add_soda_locations(
+        &mut self,
+        rng: &mut RollbackRng,
+        soda_locations: &Vec<(EntityLocation, SodaLocationConfig)>,
     );
 }
 
@@ -108,6 +132,8 @@ pub fn map_generation(
     let player_spawns = generator.get_player_spawn(&mut rng);
     let enemy_spawns = generator.get_enemy_spawns(&mut rng);
     let character_spawns = generator.get_character_spawns(&mut rng);
+    let weapon_locations = generator.get_weapon_locations(&mut rng);
+    let soda_locations = generator.get_soda_locations(&mut rng);
 
     map_generator.add_doors(&mut rng, &doors);
 
@@ -118,6 +144,10 @@ pub fn map_generation(
     map_generator.add_enemy_spawns(&mut rng, &enemy_spawns);
 
     map_generator.add_character_spawns(&mut rng, &character_spawns);
+
+    map_generator.add_weapon_locations(&mut rng, &weapon_locations);
+
+    map_generator.add_soda_locations(&mut rng, &soda_locations);
 
     Ok(())
 }

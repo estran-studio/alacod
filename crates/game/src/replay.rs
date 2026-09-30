@@ -206,6 +206,13 @@ pub struct PlayerScript {
     /// avant ce champ (tous les scénarios existants).
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub weapon: Option<String>,
+    /// Solde de départ (T2.3, chantier C5 v1, scénarios d'achat : `buy_door`,
+    /// `buy_wall_weapon`, `buy_perk`) : remplace `starting_currency` du personnage, posé
+    /// comme `weapon` ci-dessus (`scenario::runner::apply_player_overrides`), avant la
+    /// première frame simulée. `None` (défaut) : comportement inchangé, le joueur démarre
+    /// avec `CharacterConfig::starting_currency` (tous les scénarios existants).
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub currency: Option<u32>,
 }
 
 /// Un modificateur de scénario, posé sur un joueur après sa création
@@ -471,6 +478,26 @@ pub enum Expectation {
     Defeat {
         by_frame: u32,
     },
+    /// Solde de monnaie du joueur `handle` dans `[min, max]` (bornes inclusives, `None` =
+    /// pas de borne), T2.3 chantier C5 v1 — même forme que [`Self::EntityCount`].
+    Currency {
+        handle: usize,
+        #[serde(default, skip_serializing_if = "Option::is_none")]
+        min: Option<u32>,
+        #[serde(default, skip_serializing_if = "Option::is_none")]
+        max: Option<u32>,
+        at_frame: u32,
+    },
+    /// Valeur résolue (base + modificateurs actifs, `stats::StatReader`) d'une stat du
+    /// joueur `handle` — T2.3 chantier C5 v1, scénario `buy_perk` (`Stat MaxHealth 200`
+    /// après l'achat de Juggernog). Le `f32` est converti en `Fixed` pour la comparaison,
+    /// comme [`Self::Health`].
+    Stat {
+        handle: usize,
+        stat: StatId,
+        value: f32,
+        at_frame: u32,
+    },
 }
 
 impl Expectation {
@@ -494,6 +521,8 @@ impl Expectation {
             | Self::EntityHits { at_frame, .. }
             | Self::EntityCount { at_frame, .. }
             | Self::PlayerDowned { at_frame, .. }
+            | Self::Currency { at_frame, .. }
+            | Self::Stat { at_frame, .. }
             | Self::Event {
                 by_frame: at_frame, ..
             }

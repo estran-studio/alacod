@@ -69,4 +69,9 @@
     bleedout_frames: 900,
     revive_frames: 180,
     downed_speed_mult: "0.3",
+
+    // Monnaie de départ (T2.3, chantier C5 v1). Même valeur que le défaut de l'engine (500,
+    // `character::config::CharacterConfig::starting_currency`) : déclarée explicitement ici
+    // pour que le contenu du jeu documente son économie sans dépendre d'un défaut caché.
+    starting_currency: 500,
 )

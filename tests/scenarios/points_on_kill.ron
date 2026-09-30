@@ -1,0 +1,43 @@
+// Même script que remote_first_fight (combat prouvé, kill au plus tard f500) : le point de ce
+// scénario n'est pas le combat, c'est la monnaie qui en découle (T2.3, chantier C5 v1).
+//
+// À regarder : comme remote_first_fight (le joueur vise le zombie le plus proche toutes les
+// 10 frames, kills f427 et f499). Son solde augmente d'au moins kill_points (60, economy.ron)
+// au premier kill ; probablement plus (points aussi gagnés par coup au but,
+// economy::award_points_system).
+Scenario(
+    game: "zombies",
+    map: "exemples/test_map.ldtk",
+    map_seed: 123456,
+    frames: 600,
+    players: [
+        PlayerScript(
+            inputs: [
+                Segment(from: 355, to: 375, buttons: [Fire], pan: (91, -80)),
+                Segment(from: 375, to: 385, buttons: [Fire], pan: (63, -53)),
+                Segment(from: 385, to: 395, buttons: [Fire], pan: (50, -39)),
+                Segment(from: 395, to: 405, buttons: [Fire], pan: (37, -25)),
+                Segment(from: 405, to: 415, buttons: [Fire], pan: (31, -19)),
+                Segment(from: 415, to: 425, buttons: [Fire], pan: (29, -15)),
+                Segment(from: 425, to: 435, buttons: [Fire], pan: (28, -13)),
+                Segment(from: 435, to: 445, buttons: [Fire], pan: (67, -57)),
+                Segment(from: 445, to: 455, buttons: [Fire], pan: (59, -47)),
+                Segment(from: 455, to: 465, buttons: [Fire], pan: (48, -39)),
+                Segment(from: 465, to: 475, buttons: [Fire], pan: (40, -29)),
+                Segment(from: 475, to: 485, buttons: [Fire], pan: (33, -24)),
+                Segment(from: 485, to: 495, buttons: [Fire], pan: (31, -19)),
+                Segment(from: 495, to: 505, buttons: [Fire], pan: (29, -17)),
+                Segment(from: 505, to: 515, buttons: [Fire], pan: (-124, -10)),
+                Segment(from: 515, to: 535, buttons: [Up], pan: (0, 0)),
+                Segment(from: 535, to: 545, buttons: [Reload], pan: (0, 0)),
+            ],
+        ),
+    ],
+    expect: [
+        KillsAtLeast(kills: 1, at_frame: 500),
+        PlayerAlive(handle: 0, at_frame: 600),
+        // Solde de départ 500 (CharacterConfig::starting_currency) + au moins kill_points
+        // (60, economy.ron) au premier kill (f499 au plus tard, voir remote_first_fight).
+        Currency(handle: 0, min: 560, at_frame: 500),
+    ],
+)

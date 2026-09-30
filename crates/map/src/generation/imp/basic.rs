@@ -6,7 +6,8 @@ use crate::{
         context::{AvailableLevel, LevelType, MapGenerationContext, MapGenerationData},
         entity::{
             character_spawn::CharacterSpawnConfig, door::DoorConfig, enemy_spawn::EnemySpawnConfig,
-            location::EntityLocation, window::WindowConfig,
+            location::EntityLocation, soda_location::SodaLocationConfig,
+            weapon_location::WeaponLocationConfig, window::WindowConfig,
         },
         position::Position,
         room::{ConnectionTo, RoomConnection},
@@ -557,6 +558,60 @@ impl IMapGeneration for BasicMapGeneration {
                         )
                     })
                     .collect::<Vec<(EntityLocation, CharacterSpawnConfig)>>()
+            })
+            .collect()
+    }
+
+    /// T2.3, chantier C5 v1 : mêmes règles que [`Self::get_character_spawns`] ci-dessus.
+    fn get_weapon_locations(
+        &mut self,
+        _rng: &mut RollbackRng,
+    ) -> Vec<(EntityLocation, WeaponLocationConfig)> {
+        self.map
+            .rooms
+            .iter()
+            .flat_map(|room| {
+                room.entity_locations
+                    .weapons
+                    .iter()
+                    .map(|(location, config)| {
+                        (
+                            EntityLocation {
+                                position: location.position,
+                                size: location.size,
+                                level_iid: room.level_iid.clone(),
+                            },
+                            config.clone(),
+                        )
+                    })
+                    .collect::<Vec<(EntityLocation, WeaponLocationConfig)>>()
+            })
+            .collect()
+    }
+
+    /// T2.3, chantier C5 v1 : mêmes règles que [`Self::get_character_spawns`] ci-dessus.
+    fn get_soda_locations(
+        &mut self,
+        _rng: &mut RollbackRng,
+    ) -> Vec<(EntityLocation, SodaLocationConfig)> {
+        self.map
+            .rooms
+            .iter()
+            .flat_map(|room| {
+                room.entity_locations
+                    .sodas
+                    .iter()
+                    .map(|(location, config)| {
+                        (
+                            EntityLocation {
+                                position: location.position,
+                                size: location.size,
+                                level_iid: room.level_iid.clone(),
+                            },
+                            config.clone(),
+                        )
+                    })
+                    .collect::<Vec<(EntityLocation, SodaLocationConfig)>>()
             })
             .collect()
     }

@@ -9,11 +9,19 @@ Scenario(
     game: "zombies",
     frames: 330,
     players: [
-        (inputs: [
-            (from: 10, to: 150, buttons: [Right]),
-            (from: 150, to: 154, buttons: [Interaction]),
-            (from: 170, to: 300, buttons: [Right]),
-        ]),
+        (
+            inputs: [
+                (from: 10, to: 150, buttons: [Right]),
+                (from: 150, to: 154, buttons: [Interaction]),
+                (from: 170, to: 300, buttons: [Right]),
+            ],
+            // T2.3, chantier C5 v1 : les portes sont payantes (`DoorConfig::cost`, calculé
+            // par le générateur selon la profondeur de salle — 750 pour cette porte, salle
+            // de départ). Solde au-delà du défaut (500, `CharacterConfig::starting_currency`)
+            // pour garder ce scénario centré sur la mécanique de porte/passage, pas sur
+            // l'économie (voir `buy_door` pour ça).
+            currency: 1000,
+        ),
     ],
     expect: [
         // La porte fermée arrête le joueur

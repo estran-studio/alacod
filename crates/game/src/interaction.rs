@@ -5,8 +5,12 @@ use bevy::{
 use bevy_fixed::fixed_math;
 use bevy_ggrs::{GgrsSchedule, Rollback};
 use combat::downed::{downed_modifier_source, revive_health_fraction, Downed, Reviving};
+use combat::inventory::AmmoReserves;
+use run::currency::{Currency, CurrencyEvent};
+use run::perks::Perks;
 use serde::{Deserialize, Serialize};
-use sim_core::modifier::Modifiers;
+use sim_core::modifier::{resolve, Modifiers};
+use sim_core::stats::StatId;
 use std::collections::BTreeMap;
 use std::hash::{Hash, Hasher};
 use utils::{
@@ -19,15 +23,18 @@ use crate::{
     character::{
         config::{CharacterConfig, CharacterConfigHandles},
         health::Health,
+        player::Player,
     },
     collider::{Collider, CollisionLayer},
     core::AppState,
+    economy::{perk_modifier_source, EconomyConfig, PerkMachine, PerksConfig, PointsCredit},
     frame_events::{FrameEvents, FrameEventsAppExt},
+    global_asset::GlobalAsset,
     rollback::RollbackTraceApp,
     system_set::RollbackSystemSet,
     weapons::{
-        spawn_weapon_for_player, spawn_weapon_pickup, Weapon, WeaponAsset, WeaponInventory,
-        WeaponModesState, WeaponPickup, WeaponState,
+        default_mode_ammo_contribution, spawn_weapon_for_player, spawn_weapon_pickup, Weapon,
+        WeaponAsset, WeaponInventory, WeaponModesState, WeaponPickup, WeaponState,
     },
 };
 
@@ -85,7 +92,11 @@ pub enum InteractionType {
     /// entité `weapons::WeaponPickup` (`weapons::spawn_weapon_pickup` : lâcher, ou une
     /// arme murale T2.3) ; consommé par [`handle_weapon_pickup_interaction`].
     Weapon,
-    // Future: Crate, Soda, etc.
+    /// Acheter un perk (T2.3, chantier C5 v1). Posé avec `Interactable` sur une entité
+    /// `economy::PerkMachine` (`map_ldtk::game::local::spawn_soda_locations_when_map_loaded`,
+    /// entité LDtk `SodaLocation`) ; consommé par [`handle_perk_purchase_interaction`].
+    Perk,
+    // Future: Crate, etc.
 }
 
 /// Component that marks an entity as capable of interacting
@@ -229,6 +240,7 @@ pub fn interaction_detection_system(
                 InteractionType::Window => "Window",
                 InteractionType::Revive => "Revive",
                 InteractionType::Weapon => "Weapon",
+                InteractionType::Perk => "Perk",
             };
             info!(
                 "{} interaction detected: interactor {} with {} ({}) at distance_sq {:?}",
@@ -303,6 +315,11 @@ fn point_to_collider_surface_distance_sq(
 }
 
 /// System that handles door interactions
+///
+/// Portes payantes (T2.3, chantier C5 v1) : `DoorConfig::cost` (`cost <= 0` = gratuite,
+/// comportement inchangé) est débité du joueur qui interagit avant d'ouvrir ; solde
+/// insuffisant = refus silencieux (la porte reste fermée, `CurrencyEvent { delta: 0, reason:
+/// "door_refused" }` pour le HUD/les scénarios, voir `run::currency`).
 pub fn handle_door_interaction(
     frame: Res<FrameCount>,
     events: Res<FrameEvents<InteractionEvent>>,
@@ -322,6 +339,8 @@ pub fn handle_door_interaction(
             With<Rollback>,
         ),
     >,
+    mut wallets: Query<(&Player, &mut Currency), With<Rollback>>,
+    mut currency_events: ResMut<FrameEvents<CurrencyEvent>>,
 ) {
     let system_span = span!(
         Level::INFO,
@@ -339,6 +358,34 @@ pub fn handle_door_interaction(
 
         // Verify the interactable entity exists and is a rollback entity
         if let Ok((door_entity, door_component)) = door_query.get(event.interactable) {
+            let cost = door_component.config.cost;
+            if cost > 0 {
+                let Ok((player, mut wallet)) = wallets.get_mut(event.interactor) else {
+                    continue;
+                };
+                if !wallet.spend(cost as u32) {
+                    info!(
+                        "{} door {} purchase refused: interactor {} (cost {}, balance {})",
+                        frame.as_ref(),
+                        event.interactable_net_id,
+                        event.interactor_net_id,
+                        cost,
+                        wallet.0
+                    );
+                    currency_events.send(CurrencyEvent {
+                        handle: player.handle,
+                        delta: 0,
+                        reason: "door_refused".to_string(),
+                    });
+                    continue;
+                }
+                currency_events.send(CurrencyEvent {
+                    handle: player.handle,
+                    delta: -(cost as i64),
+                    reason: "door".to_string(),
+                });
+            }
+
             info!(
                 "{} door interaction triggered: interactor {} on door {}",
                 frame.as_ref(),
@@ -416,6 +463,9 @@ pub fn handle_window_repair(
         ),
         (With<Interactable>, With<Rollback>),
     >,
+    // T2.3, chantier C5 v1 : points de réparation (voir `crate::economy`, doc du module).
+    players: Query<&Player, With<Rollback>>,
+    mut points_credits: ResMut<FrameEvents<PointsCredit>>,
 ) {
     let system_span = span!(
         Level::INFO,
@@ -484,6 +534,15 @@ pub fn handle_window_repair(
             window_health.current += 1;
             let new_cooldown_frame = frame.frame + repair_config.repair_cooldown_frames;
             window_health.can_repair_after_frame = Some(new_cooldown_frame);
+
+            // T2.3, chantier C5 v1 : réparation réussie, points pour le joueur qui répare
+            // (plafond éventuel appliqué en `RollbackSystemSet::Run`, voir
+            // `economy::award_points_system`).
+            if let Ok(player) = players.get(event.interactor) {
+                points_credits.send(PointsCredit::Repair {
+                    handle: player.handle,
+                });
+            }
 
             // Garder l'Obstacle (utilisé par l'IA) aligné sur la santé réelle de la fenêtre
             if let Some(mut obstacle) = obstacle_opt {
@@ -641,15 +700,29 @@ pub fn handle_revive_interaction(
 /// `WeaponPickup`, à la position de celui qui ramasse) avec son propre chargeur restauré au
 /// prochain ramassage, comme n'importe quelle arme lâchée. En dessous des emplacements,
 /// l'arme ramassée s'ajoute et devient active, sans retirer aucune arme existante.
+/// Arme murale (T2.3, chantier C5 v1) : `WeaponPickup::price` distingue une arme murale
+/// (`Some`, `map_ldtk::game::local::spawn_weapon_locations_when_map_loaded`) d'une arme
+/// tombée au sol (`None`, `weapons::weapon_drop_system` ou ramassage T2.2 ordinaire).
+/// Une arme murale n'est **jamais** consommée (le mural reste achetable indéfiniment) ;
+/// déjà possédée par l'acheteur (même `WeaponId` dans `WeaponInventory`), l'interaction
+/// recharge la réserve de munitions du type de l'arme (`EconomyConfig::refill_price`) au
+/// lieu d'équiper une seconde copie. Solde insuffisant = refus silencieux (mural inchangé,
+/// `CurrencyEvent { delta: 0, .. }`).
+#[allow(clippy::too_many_arguments)]
 pub fn handle_weapon_pickup_interaction(
     frame: Res<FrameCount>,
     events: Res<FrameEvents<InteractionEvent>>,
     mut commands: Commands,
     character_configs: Res<Assets<CharacterConfig>>,
-    pickup_query: Query<(&Weapon, &WeaponPickup), With<Rollback>>,
+    global_assets: Res<GlobalAsset>,
+    economy_configs: Res<Assets<EconomyConfig>>,
+    mut pickup_query: Query<(&Weapon, &mut WeaponPickup), With<Rollback>>,
     mut inventory_query: Query<
         (
             &mut WeaponInventory,
+            &mut AmmoReserves,
+            &mut Currency,
+            &Player,
             &CharacterConfigHandles,
             &fixed_math::FixedTransform3D,
         ),
@@ -657,6 +730,7 @@ pub fn handle_weapon_pickup_interaction(
     >,
     weapon_state_query: Query<(&WeaponState, &WeaponModesState), With<Rollback>>,
     mut id_factory: ResMut<GgrsNetIdFactory>,
+    mut currency_events: ResMut<FrameEvents<CurrencyEvent>>,
 ) {
     let system_span = span!(
         Level::INFO,
@@ -671,7 +745,7 @@ pub fn handle_weapon_pickup_interaction(
             continue;
         }
 
-        let Ok((picked_weapon, pickup)) = pickup_query.get(event.interactable) else {
+        let Ok((picked_weapon, mut pickup)) = pickup_query.get_mut(event.interactable) else {
             warn!(
                 "ramassage d'arme : entité {:?} (net_id {}) sans WeaponPickup",
                 event.interactable, event.interactable_net_id
@@ -680,12 +754,101 @@ pub fn handle_weapon_pickup_interaction(
         };
         let picked_weapon = picked_weapon.clone();
         let picked_mag_ammo = pickup.mag_ammo;
+        let wall_price = pickup.price;
 
-        let Ok((mut inventory, config_handles, transform)) =
+        // T2.3, chantier C5 v1 : anti-rebond d'une arme murale (voir la doc de
+        // `WeaponPickup::can_buy_after_frame`) — une arme non murale (`wall_price: None`)
+        // n'a jamais de cooldown posé, cette condition ne la bloque donc jamais.
+        if wall_price.is_some() {
+            if let Some(cooldown_frame) = pickup.can_buy_after_frame {
+                if frame.frame < cooldown_frame {
+                    continue;
+                }
+            }
+        }
+
+        let Ok((mut inventory, mut ammo_reserves, mut wallet, player, config_handles, transform)) =
             inventory_query.get_mut(event.interactor)
         else {
             continue;
         };
+
+        if let Some(price) = wall_price {
+            let already_owned = inventory
+                .weapons
+                .iter()
+                .any(|(_, w)| w.config.name == picked_weapon.config.name);
+            let economy = global_assets
+                .economy_config
+                .as_ref()
+                .and_then(|h| economy_configs.get(h))
+                .cloned()
+                .unwrap_or_default();
+            let cost = if already_owned {
+                economy.refill_price(price)
+            } else {
+                price
+            };
+
+            if !wallet.spend(cost) {
+                info!(
+                    "{} wall weapon purchase refused: interactor {} on {} ({}, cost {}, balance {})",
+                    frame.as_ref(),
+                    event.interactor_net_id,
+                    event.interactable_net_id,
+                    picked_weapon.config.name,
+                    cost,
+                    wallet.0
+                );
+                currency_events.send(CurrencyEvent {
+                    handle: player.handle,
+                    delta: 0,
+                    reason: "wall_weapon_refused".to_string(),
+                });
+                continue;
+            }
+            currency_events.send(CurrencyEvent {
+                handle: player.handle,
+                delta: -(cost as i64),
+                reason: if already_owned {
+                    "wall_weapon_refill"
+                } else {
+                    "wall_weapon"
+                }
+                .to_string(),
+            });
+            // Anti-rebond (voir la doc de `WeaponPickup::can_buy_after_frame`) : posé pour
+            // tout achat réussi, mural seulement (`wall_price.is_some()` ici toujours vrai).
+            pickup.can_buy_after_frame =
+                Some(frame.frame + crate::weapons::WALL_WEAPON_PURCHASE_COOLDOWN_FRAMES);
+
+            if already_owned {
+                // Déjà équipée : recharge la réserve du type au lieu d'équiper une seconde
+                // copie (voir la doc de la fonction). Le mural n'est jamais despawn.
+                // `default_mode_ammo_contribution` prend un `&WeaponAsset` (le type du
+                // registre) ; `picked_weapon` est un `Weapon` (composant, mêmes champs) —
+                // clone ponctuel plutôt qu'élargir la signature d'une fonction partagée par
+                // `create_player`/`scenario::runner` pour un seul appelant.
+                let weapon_asset = WeaponAsset {
+                    config: picked_weapon.config.clone(),
+                    sprite_config: picked_weapon.sprite_config.clone(),
+                };
+                let (ammo_type, amount) = default_mode_ammo_contribution(&weapon_asset);
+                let current = ammo_reserves.get(&ammo_type);
+                if amount > current {
+                    ammo_reserves.add(ammo_type.clone(), amount - current);
+                }
+                info!(
+                    "{} wall weapon refill: interactor {} tops up {} ({:?} to {})",
+                    frame.as_ref(),
+                    event.interactor_net_id,
+                    picked_weapon.config.name,
+                    ammo_type,
+                    amount.max(current)
+                );
+                continue;
+            }
+        }
 
         let weapon_slots = character_configs
             .get(&config_handles.config)
@@ -714,17 +877,21 @@ pub fn handle_weapon_pickup_interaction(
         };
 
         info!(
-            "{} weapon pickup: interactor {} equips {} (mag {}), displaced={}",
+            "{} weapon pickup: interactor {} equips {} (mag {}), displaced={}, wall={}",
             frame.as_ref(),
             event.interactor_net_id,
             picked_weapon.config.name,
             picked_mag_ammo,
-            displaced.is_some()
+            displaced.is_some(),
+            wall_price.is_some()
         );
 
-        // Le ramassage consomme l'entité au sol, qu'il y ait échange ou non.
-        use bevy_ggrs::RollbackDespawnCommandExtension;
-        commands.entity(event.interactable).despawn_rollback();
+        // Mural (T2.3) : jamais consommé, reste achetable. Ordinaire (T2.2) : consommé,
+        // qu'il y ait échange ou non.
+        if wall_price.is_none() {
+            use bevy_ggrs::RollbackDespawnCommandExtension;
+            commands.entity(event.interactable).despawn_rollback();
+        }
 
         spawn_weapon_for_player(
             &mut commands,
@@ -749,6 +916,154 @@ pub fn handle_weapon_pickup_interaction(
                 &mut id_factory,
             );
         }
+    }
+}
+
+/// Achat de perk (T2.3, chantier C5 v1). `INPUT_INTERACTION` à portée d'une entité
+/// `economy::PerkMachine` (posée avec `Interactable { interaction_type: Perk }` par
+/// `map_ldtk::game::local::spawn_soda_locations_when_map_loaded`, entité LDtk
+/// `SodaLocation`). Un seul achat par perk et par joueur (`run::perks::Perks`, vérifié
+/// **avant** de débiter — un perk déjà possédé n'émet aucun événement, ni achat ni refus, ce
+/// n'est pas une tentative). Modificateurs posés permanents (`until: None`,
+/// `economy::perk_modifier_source`).
+pub fn handle_perk_purchase_interaction(
+    frame: Res<FrameCount>,
+    events: Res<FrameEvents<InteractionEvent>>,
+    global_assets: Res<GlobalAsset>,
+    perks_configs: Res<Assets<PerksConfig>>,
+    machine_query: Query<&PerkMachine, With<Rollback>>,
+    mut player_query: Query<
+        (
+            &Player,
+            &mut Currency,
+            &mut Perks,
+            &mut Modifiers,
+            &sim_core::stats::Stats,
+            &mut Health,
+        ),
+        With<Rollback>,
+    >,
+    mut currency_events: ResMut<FrameEvents<CurrencyEvent>>,
+) {
+    let system_span = span!(
+        Level::INFO,
+        "ggrs",
+        f = frame.frame,
+        s = "handle_perk_purchase_interaction"
+    );
+    let _enter = system_span.enter();
+
+    for event in events.iter() {
+        if event.interaction_type != InteractionType::Perk {
+            continue;
+        }
+
+        let Ok(machine) = machine_query.get(event.interactable) else {
+            warn!(
+                "achat de perk : entité {:?} (net_id {}) sans PerkMachine",
+                event.interactable, event.interactable_net_id
+            );
+            continue;
+        };
+        let Some(def) = global_assets
+            .perks_config
+            .as_ref()
+            .and_then(|h| perks_configs.get(h))
+            .and_then(|config| config.0.get(&machine.perk_id))
+        else {
+            warn!(
+                "achat de perk : id inconnu « {} » (voir `alacod lint`)",
+                machine.perk_id
+            );
+            continue;
+        };
+
+        let Ok((player, mut wallet, mut perks, mut modifiers, stats, mut health)) =
+            player_query.get_mut(event.interactor)
+        else {
+            continue;
+        };
+
+        // Déjà possédé : silencieux, ni achat ni refus (pas une question de solde).
+        if perks.has(&machine.perk_id) {
+            continue;
+        }
+
+        if !wallet.spend(def.price) {
+            info!(
+                "{} perk purchase refused: interactor {} perk {} (price {}, balance {})",
+                frame.as_ref(),
+                event.interactor_net_id,
+                machine.perk_id,
+                def.price,
+                wallet.0
+            );
+            currency_events.send(CurrencyEvent {
+                handle: player.handle,
+                delta: 0,
+                reason: format!("perk_refused:{}", machine.perk_id),
+            });
+            continue;
+        }
+
+        currency_events.send(CurrencyEvent {
+            handle: player.handle,
+            delta: -(def.price as i64),
+            reason: format!("perk:{}", machine.perk_id),
+        });
+        perks.insert(machine.perk_id.clone());
+
+        // T2.3, chantier C5 v1 : un perk qui augmente `MaxHealth` (ex. Juggernog) relève
+        // aussi `Health.current` de la même différence — payer pour un plafond plus haut
+        // qu'on ne remplit qu'en régénérant ensuite serait contre-intuitif pour un achat
+        // (CoD : Juggernog soigne immédiatement). `sync_health_from_stats`
+        // (`RollbackSystemSet::Status`, après `Interaction`) ne fait que plafonner `current`
+        // à la baisse quand `max` diminue, jamais à la hausse quand il augmente (voir sa
+        // doc) : cette hausse ponctuelle vit ici, propre à l'achat d'un perk, pas au recalcul
+        // générique des stats (un statut temporaire qui relèverait `MaxHealth` puis
+        // expirerait ne doit pas, lui, soigner le joueur à chaque tick).
+        let max_health_before = stats.get(&StatId::MaxHealth).map(|base| {
+            resolve(
+                base,
+                modifiers.iter().filter(|m| m.stat == StatId::MaxHealth),
+                frame.frame,
+            )
+        });
+
+        for modifier in &def.modifiers {
+            modifiers.push_from(
+                perk_modifier_source(&machine.perk_id),
+                modifier.stat.clone(),
+                modifier.op,
+                modifier.value,
+                None,
+            );
+        }
+
+        if let Some(before) = max_health_before {
+            let after = stats
+                .get(&StatId::MaxHealth)
+                .map(|base| {
+                    resolve(
+                        base,
+                        modifiers.iter().filter(|m| m.stat == StatId::MaxHealth),
+                        frame.frame,
+                    )
+                })
+                .unwrap_or(before);
+            if after > before {
+                let gained = after.saturating_sub(before);
+                health.current = health.current.saturating_add(gained).min(after);
+            }
+        }
+
+        info!(
+            "{} perk purchased: interactor {} buys {} ({})",
+            frame.as_ref(),
+            event.interactor_net_id,
+            machine.perk_id,
+            def.name
+        );
     }
 }
 
@@ -784,6 +1099,8 @@ impl Plugin for InteractionPlugin {
                 handle_revive_interaction,
                 // T2.2, chantier B7 : même position, filtré comme les autres.
                 handle_weapon_pickup_interaction,
+                // T2.3, chantier C5 v1 : même position, filtré comme les autres.
+                handle_perk_purchase_interaction,
             )
                 .chain()
                 .after(RollbackSystemSet::Input)

@@ -118,6 +118,14 @@ pub struct CharacterConfig {
     /// déclare trois) ; le testbed garde le défaut. Borné par `content::lint` (`> 0`).
     #[serde(default = "default_weapon_slots")]
     pub weapon_slots: u32,
+
+    /// Monnaie de départ (T2.3, chantier C5 v1) : valeur initiale de `run::currency::Currency`,
+    /// posée à la création (`character::player::create::create_player`). Défaut 500 ; le
+    /// contenu `zombies` le déclare explicitement (voir `games/zombies/assets/ZombieShooter/
+    /// Sprites/Character/player_config.ron`). Sans effet sur un ennemi (`enemy::create::spawn_enemy`
+    /// ne pose jamais `Currency`, voir sa doc).
+    #[serde(default = "default_starting_currency")]
+    pub starting_currency: u32,
 }
 
 fn default_bleedout_frames() -> u32 {
@@ -134,6 +142,10 @@ fn default_downed_speed_mult() -> fixed_math::Fixed {
 
 fn default_weapon_slots() -> u32 {
     2
+}
+
+fn default_starting_currency() -> u32 {
+    500
 }
 
 #[derive(Component)]

@@ -434,6 +434,20 @@ impl WeaponInventory {
 /// chargeur séparé à réapprovisionner, voir la doc de `WeaponModeState::can_reload`).
 /// Partagée par `character::player::create::create_player` (somme des armes de départ) et
 /// `scenario::runner::apply_player_overrides` (`PlayerScript::weapon`, une seule arme).
+/// Capacité (chargeur plein) du mode par défaut de cette arme : `mag_size` (chargeur séparé)
+/// ou `bullet_limit` (magless). T2.3 (chantier C5 v1) : arme murale fraîchement achetée,
+/// toujours livrée chargeur plein (voir `map_ldtk::game::local::spawn_weapon_locations_when_map_loaded`).
+pub fn default_mode_capacity(weapon: &WeaponAsset) -> u32 {
+    weapon
+        .config
+        .firing_modes
+        .get(&weapon.config.default_firing_mode)
+        .map_or(0, |mode| match mode.mag {
+            MagBulletConfig::Mag { mag_size, .. } => mag_size,
+            MagBulletConfig::Magless { bullet_limit } => bullet_limit,
+        })
+}
+
 pub fn default_mode_ammo_contribution(weapon: &WeaponAsset) -> (AmmoType, u32) {
     let amount = weapon
         .config
@@ -551,14 +565,35 @@ pub struct WeaponPickup {
     /// mode par défaut est le seul restauré (comportement documenté, voir le rapport de la
     /// tâche T2.2, décision « forme de WeaponPickup »).
     pub mag_ammo: u32,
+    /// Prix (T2.3, chantier C5 v1) : `Some(prix)` pour une arme murale (`WeaponLocation`,
+    /// `map_ldtk::game::local::spawn_weapon_locations_when_map_loaded`), `None` pour une
+    /// arme lâchée par un joueur (`weapons::weapon_drop_system`) ou ramassée sans économie
+    /// (T2.2). Lu par `interaction::handle_weapon_pickup_interaction` : une arme murale
+    /// n'est jamais consommée au ramassage (elle reste achetable) et exige `Currency >=
+    /// price` (ou `refill_price` si le joueur possède déjà cette arme).
+    #[serde(default)]
+    pub price: Option<u32>,
+    /// Anti-rebond (T2.3, chantier C5 v1) : une arme murale n'a pas de cooldown naturel
+    /// contrairement à une porte (`Interactable` retiré après ouverture) — sans ceci,
+    /// maintenir Interaction facturerait `refill_price` à **chaque frame** après le premier
+    /// achat (l'arme devient « déjà possédée » dès la frame suivante). Même mécanisme que
+    /// `map::game::entity::map::window::WindowHealth::can_repair_after_frame` : posé après
+    /// chaque achat réussi, ignoré (`None`) pour une arme non murale.
+    #[serde(default)]
+    pub can_buy_after_frame: Option<u32>,
 }
 
+/// Délai (frames) avant qu'une arme murale (T2.3) puisse à nouveau être achetée/rechargée
+/// après un achat réussi — même ordre de grandeur que
+/// `interaction::WindowRepairConfig::repair_cooldown_frames` (défaut 60, 1 s à 60 FPS).
+pub const WALL_WEAPON_PURCHASE_COOLDOWN_FRAMES: u32 = 60;
+
 /// Fait tomber une arme au sol (`WeaponPickup`), interactable au ramassage. Portée
-/// commune à `weapons::weapon_drop_system` (T2.2) et à T2.3 (armes murales,
-/// `interaction.rs`, docs/conventions.md « CrateLocation/WeaponLocation/SodaLocation ») :
+/// commune à `weapons::weapon_drop_system` (T2.2, `price: None`) et à T2.3 (armes murales,
+/// `map_ldtk::game::local::spawn_weapon_locations_when_map_loaded`, `price: Some(prix)`) :
 /// même mécanisme de ramassage (`interaction::handle_weapon_pickup_interaction`) pour les
-/// deux, `price` ignoré ici (toujours `None` — T2.2 n'a pas d'économie), lu par T2.3 pour
-/// afficher/vérifier un coût à l'achat.
+/// deux, qui lit `WeaponPickup::price` pour distinguer une arme murale (jamais consommée,
+/// débite `Currency`) d'une arme au sol ordinaire (consommée, gratuite).
 #[allow(clippy::too_many_arguments)]
 pub fn spawn_weapon_pickup(
     commands: &mut Commands,
@@ -568,10 +603,6 @@ pub fn spawn_weapon_pickup(
     price: Option<u32>,
     id_factory: &mut ResMut<GgrsNetIdFactory>,
 ) -> Entity {
-    // T2.2 ne vend rien : ce paramètre existe uniquement pour que T2.3 réutilise cette même
-    // fonction sans changer sa signature (voir la doc ci-dessus).
-    let _ = price;
-
     let weapon_id = weapon.config.name.clone();
 
     let transform = fixed_math::FixedTransform3D::new(
@@ -590,6 +621,8 @@ pub fn spawn_weapon_pickup(
             WeaponPickup {
                 weapon_id,
                 mag_ammo,
+                price,
+                can_buy_after_frame: None,
             },
             Interactable {
                 interaction_range: fixed_math::new(30.0),
