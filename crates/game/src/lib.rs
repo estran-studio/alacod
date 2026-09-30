@@ -5,6 +5,7 @@ pub mod character;
 pub mod collider;
 pub mod content_hot_reload;
 pub mod core;
+pub mod feedback;
 pub mod frame;
 pub mod frame_events;
 pub mod global_asset;
