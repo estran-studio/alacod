@@ -70,6 +70,9 @@ impl Plugin for FeedbackPlugin {
 
         // Charger la config au démarrage
         app.add_systems(Startup, load_feedback_config);
+        // Publie `FeedbackConfigLoaded` une fois l'asset chargé (et à chaque modification) :
+        // sans ce système, aucun effet ne s'appliquait jamais (config toujours absente).
+        app.add_systems(Update, publish_loaded_feedback_config);
 
         // Systèmes de présentation (PostUpdate, hors GgrsSchedule)
         app.add_systems(
@@ -101,6 +104,29 @@ struct FeedbackConfigHandle(Handle<FeedbackConfig>);
 fn load_feedback_config(mut commands: Commands, asset_server: Res<AssetServer>) {
     let config_handle: Handle<FeedbackConfig> = asset_server.load("ui/feedback.ron");
     commands.insert_resource(FeedbackConfigHandle(config_handle));
+}
+
+/// Copie l'asset chargé dans la ressource `FeedbackConfigLoaded` (une fois, puis à chaque
+/// `AssetEvent::Modified` pour le rechargement à chaud). Les systèmes d'effets lisent cette
+/// ressource ; tant qu'elle est absente, ils ne font rien.
+fn publish_loaded_feedback_config(
+    mut commands: Commands,
+    handle: Option<Res<FeedbackConfigHandle>>,
+    assets: Res<Assets<FeedbackConfig>>,
+    loaded: Option<Res<FeedbackConfigLoaded>>,
+    mut events: MessageReader<AssetEvent<FeedbackConfig>>,
+) {
+    let Some(handle) = handle else {
+        return;
+    };
+    let modified = events
+        .read()
+        .any(|event| matches!(event, AssetEvent::Modified { .. }));
+    if loaded.is_none() || modified {
+        if let Some(config) = assets.get(&handle.0) {
+            commands.insert_resource(FeedbackConfigLoaded(config.clone()));
+        }
+    }
 }
 
 /// Système appliquant HitFlash selon les DamageEvents de la frame courante.
