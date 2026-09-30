@@ -43,7 +43,7 @@ pub enum MeleeAttackPattern {
 }
 
 // MELEE WEAPON CONFIG
-#[derive(Debug, Clone, Hash, Serialize, Deserialize, PartialEq)]
+#[derive(Debug, Clone, Serialize, Deserialize, PartialEq)]
 pub struct MeleeWeaponConfig {
     pub name: String,
     pub damage: fixed_math::Fixed,
@@ -56,6 +56,26 @@ pub struct MeleeWeaponConfig {
     /// Politique de tir ami (T1.1, chantier B1). `#[serde(default)]` = `Never`.
     #[serde(default)]
     pub friendly_fire: FriendlyFire,
+    /// Gabarit de scénario généré (T2.10). Même rôle que `WeaponConfig::test` (voir sa
+    /// doc) : jamais dans le hash (impl manuelle ci-dessous), pure métadonnée d'outillage.
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub test: Option<super::WeaponTest>,
+}
+
+/// Hash manuel : voir `WeaponConfig::hash` (même raison, même méthode) — reprend l'ordre des
+/// champs que dérivait `MeleeWeaponConfig` avant l'ajout de `test`, en l'excluant.
+impl std::hash::Hash for MeleeWeaponConfig {
+    fn hash<H: std::hash::Hasher>(&self, state: &mut H) {
+        self.name.hash(state);
+        self.damage.hash(state);
+        self.range.hash(state);
+        self.attack_pattern.hash(state);
+        self.attack_duration_frames.hash(state);
+        self.cooldown_frames.hash(state);
+        self.knockback_force.hash(state);
+        self.stamina_cost.hash(state);
+        self.friendly_fire.hash(state);
+    }
 }
 
 // MELEE WEAPON SPRITE CONFIG

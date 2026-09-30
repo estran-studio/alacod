@@ -1,5 +1,11 @@
 //! Joue chaque scénario de `tests/scenarios/*.ron`, vérifie ses attentes et compare sa
-//! trace d'état à `tests/scenarios/<nom>.trace`.
+//! trace d'état à `tests/scenarios/<nom>.trace`. Joue aussi, en plus, tout scénario généré
+//! sous `tests/scenarios/generated/<jeu>/*.ron` (T2.10, `alacod-gen` /
+//! `crates/scenario/src/generate.rs`) : même mécanisme de trace `.trace` sœur, même bless,
+//! même filtre `ALACOD_SCENARIO` (par nom de fichier, sans le dossier — deux scénarios,
+//! générés ou non, ne doivent donc pas partager un nom). `alacod-gen` (re)génère ces
+//! fichiers et gère lui-même leur suppression quand une arme disparaît du registre ; ce test
+//! ne fait que les jouer comme n'importe quel autre scénario.
 //!
 //! - `make test_scenarios` : compile sans rendu, avec le profil `headless`.
 //! - `ALACOD_BLESS=1` : réécrit les traces de référence (après un changement voulu).
@@ -16,6 +22,30 @@ fn scenarios_dir() -> PathBuf {
         env!("CARGO_MANIFEST_DIR"),
         "/../../tests/scenarios"
     ))
+}
+
+/// `.ron` sous `tests/scenarios/generated/<jeu>/` (un niveau, pas plus : `alacod-gen` n'écrit
+/// jamais plus profond), triés (déterminisme, comme le tri de `paths` ci-dessous).
+fn generated_scenario_paths() -> Vec<PathBuf> {
+    let generated_dir = scenarios_dir().join("generated");
+    let Ok(game_dirs) = std::fs::read_dir(&generated_dir) else {
+        return Vec::new(); // pas encore généré (ex. avant le premier `alacod-gen`)
+    };
+    let mut paths: Vec<PathBuf> = game_dirs
+        .filter_map(|entry| entry.ok())
+        .map(|entry| entry.path())
+        .filter(|path| path.is_dir())
+        .flat_map(|game_dir| {
+            std::fs::read_dir(&game_dir)
+                .into_iter()
+                .flatten()
+                .filter_map(|entry| entry.ok())
+                .map(|entry| entry.path())
+        })
+        .filter(|path| path.extension().is_some_and(|ext| ext == "ron"))
+        .collect();
+    paths.sort();
+    paths
 }
 
 fn budgets_dir() -> PathBuf {
@@ -68,6 +98,9 @@ fn scenarios() {
         .filter(|path| path.extension().is_some_and(|ext| ext == "ron"))
         .collect();
     paths.sort();
+    // T2.10 : en plus des scénarios manuscrits ci-dessus, un par arme générée (voir la doc du
+    // module) ; même boucle ci-dessous, aucun traitement spécial.
+    paths.extend(generated_scenario_paths());
 
     let mut failures = Vec::new();
     let mut metrics_map: BTreeMap<String, Metrics> = BTreeMap::new();
