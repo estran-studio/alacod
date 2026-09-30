@@ -14,6 +14,7 @@ pub mod global_asset;
 pub mod interaction;
 pub mod jjrs;
 pub mod light;
+pub mod powerups;
 pub mod recording;
 #[cfg(not(target_arch = "wasm32"))]
 pub mod remote;

@@ -364,6 +364,115 @@ Enregistrer un nouveau composant/ressource en rollback (`RollbackTraceApp`) chan
 
 **Scénarios de référence** (`tests/scenarios/`) : `buy_door`, `buy_wall_weapon`, `buy_perk` (sur `games/zombies/assets/exemples/test_map_shop.ldtk`, copie de `test_map.ldtk` avec une `WeaponLocation`/`SodaLocation` dans la salle de départ — `test_map.ldtk` n'en avait pas avant T2.6, qui en a posé quatre de chaque et re-blessé toutes les traces de cette carte), `points_on_kill` et `shop_tour` (sur `test_map.ldtk`). Nouvelles attentes de scénario : `Expectation::Currency { handle, min, max, at_frame }`, `Expectation::Stat { handle, stat, value, at_frame }` (valeur résolue, comme `stats::StatReader`) ; `PlayerScript::currency: Option<u32>` (solde de départ, comme `weapon`).
 
+## 13. Power-ups (T2.5, chantier C1 v0)
+
+**Vocabulaire d'actions** (`crates/effects`, nouveau crate minimal — comme `run`, sans
+dépendance vers `bevy`) : `effects::Action` est la liste fermée des effets qu'un power-up
+peut appliquer, la graine du futur système de déclencheurs/effets de `docs/plan-engine.md`
+§5 (« C1. Effets ») — pas de déclencheur ni de condition dans ce chantier, seulement les
+actions. Cinq variantes : `TimedModifier { stat, op, value, frames }` (modificateur de stat
+temporaire, `frames` = durée relative à la frame de ramassage), `RefillAmmo`,
+`RepairAllWindows`, `KillAllWaveEnemies`, `CurrencyMultiplier { factor, frames }`.
+`Action::as_modifier(frame, source)` est l'« applicateur déterministe » pur (sans ECS,
+testé unitairement) pour les deux variantes modifier-based ; les trois autres sont résolues
+directement par `game::powerups` (accès à `AmmoReserves`/`WindowHealth`/`Team`, inconnus
+d'`effects`).
+
+**Sémantique CoD (décision)** : un power-up ramassé s'applique à **tous les joueurs** de la
+partie, jamais au seul joueur qui l'a ramassé — aucun des cinq power-ups de référence
+(Insta-Kill, Double Points, Max Ammo, Carpenter, Nuke) n'est individuel dans le jeu source.
+
+**Table de contenu** (kind `PowerUp`, `games/<jeu>/assets/items/powerups.ron`, déclaré comme
+un **dossier** dans `game.ron` — comme `characters/`, pas un fichier unique — pour qu'un
+futur id dupliqué entre deux fichiers du dossier produise l'erreur `DuplicateId` habituelle) :
+```ron
+(
+    drop_chance: "0.15",  // probabilité qu'un ennemi tué (équipe Enemies) laisse tomber un power-up
+    powerups: {
+        "insta_kill": (
+            name: "Insta-Kill",
+            weight: 15,            // poids de tirage parmi les power-ups, si un drop a lieu
+            pickup_range: "30.0",  // portée de ramassage (Fixed), au passage, pas un bouton
+            lifetime_frames: 1800, // durée de vie au sol avant disparition (≈ 30 s à 60 FPS)
+            actions: [
+                TimedModifier(stat: Damage, op: Set, value: "100.0", frames: 1800),
+            ],
+        ),
+        // double_points: CurrencyMultiplier ; max_ammo: RefillAmmo ;
+        // carpenter: RepairAllWindows ; nuke: KillAllWaveEnemies.
+    },
+)
+```
+`drop_chance` décide **si** un drop a lieu (tirage global), `weight` décide **lequel** parmi
+la table (tirage pondéré, même méthode que `waves/wave_config.ron`/`select_enemy_type`).
+Lint (`content::lint::lint_powerups`) : `drop_chance` dans `[0, 1]`, `weight > 0` par
+power-up (`LintErrorKind::OutOfRange`) ; une référence de `StatId` inconnue dans
+`actions[].stat` échoue déjà au chargement RON (`actions` réutilise le type réel
+`effects::Action`, pas un mirroir — comme `StatId` pour `perks.ron`), rapportée
+`LintErrorKind::Parse` ; un id de power-up dupliqué entre deux fichiers du dossier `PowerUp`,
+`LintErrorKind::DuplicateId` (même mécanisme que `characters/`/`weapons.ron`). Fixtures :
+`crates/content/tests/fixtures/powerup_out_of_range`, `powerup_duplicate_id`,
+`powerup_unknown_stat`.
+
+**Entité rollback « power-up au sol »** (`game::powerups::PowerUpPickup { id, expires_at_frame }`,
+posée par `spawn_powerup_pickup`, point d'entrée commun au drop et au placement scripté de
+scénario — comme `weapons::spawn_weapon_pickup` pour lâcher/armes murales) : **pas** une
+`Interactable` (contrairement aux armes/fenêtres/perks) — `powerup_pickup_detect_system`
+(`RollbackSystemSet::Effects`) ramasse automatiquement au passage, dès qu'un joueur entre
+dans `PowerUpDef::pickup_range` (le premier dans l'ordre `GgrsNetId` s'il y en a plusieurs à
+portée la même frame), despawn immédiat (`despawn_rollback`) et émission de
+`FrameEvents<PowerUpPickedUp>`, résolu par `apply_powerup_actions_system` (même set,
+`.after`). `powerup_expiry_system` (même set) détruit un power-up jamais ramassé à
+`expires_at_frame`. `PowerUpPickup` est enregistré **sans checksum**
+(`rollback_and_trace_no_checksum`, comme `character::health::HitCount`, T2.9) : aucune
+entité existante n'en porte jamais, sa valeur ne bouge donc pour aucun scénario préexistant.
+
+**Piège vérifié par la preuve (T2.5)** : `FrameEvents<T>` (`sim_core::frame_events::
+FrameEventsAppExt::add_frame_events`) n'a **pas** de variante `_no_checksum` — elle
+s'enregistre toujours avec checksum. Résultat : même avec `PowerUpPickup` en
+`_no_checksum`, **toutes** les traces existantes ont quand même changé (nouvelle ressource
+`FrameEvents<PowerUpPickedUp>`, valeur constante `[]` mais checksummée). `trace-diff.py
+--ignore "FrameEvents<game::powerups::PowerUpPickedUp>,PowerUpPickup"` confirme qu'aucune
+autre valeur ne diverge sur `idle`/`two_players_shooting`/`points_on_kill` (main vs
+branche) : un bless en confiance, comme pour toute nouvelle `FrameEvents<T>`.
+
+**Drop à la mort** (`game::powerups::loot_drop_on_death_system`,
+`RollbackSystemSet::DeathManagement`, `.after(rollback_apply_accumulated_damage)
+.before(rollback_apply_death)` — même contrainte que
+`waves::systems::wave_enemy_death_tracking_system`, il lui faut la position de l'entité
+avant qu'elle ne soit détruite) : portée **équipe `Enemies`** (pas seulement `WaveEnemy`,
+absent des personnages de laboratoire du testbed placés par `CharacterSpawn` — sans quoi le
+chemin « drop à la mort » ne serait pas prouvable dans le testbed, T2.9 n'y faisant jamais
+tourner le mode vagues). Tirage déterministe dans le flux RNG nommé **`loot`**
+(`bevy_fixed::rng::RngStreams`, T1.6, comme `"waves"`/`"weapons"`), **dans l'ordre des
+`GgrsNetId`** des morts de la frame (`order_iter!`) : un tirage « un power-up tombe-t-il »
+(comparé à `drop_chance`), puis, si oui, un tirage pondéré (`weight`) pour lequel.
+
+**Réglages de scénario** (`game::replay::Scenario`, appliqués par `crates/scenario/src/runner.rs`,
+même famille que `wave_overrides`/`weapon_overrides`) :
+- `powerups: [(id, x, y, at_frame)]` (`PowerUpPlacement`) : fait apparaître un power-up à une
+  position et une frame exactes, sans dépendre d'une carte LDtk ni du tirage RNG — pour
+  prouver l'**effet** de chaque power-up indépendamment du mécanisme de drop. Contrairement
+  aux autres réglages (`Update`, une fois avant la première frame), celui-ci tourne dans
+  `GgrsSchedule` (`RollbackSystemSet::Effects`, avant la détection de ramassage) : la
+  condition `frame == at_frame` est naturellement rollback-safe (même raisonnement qu'un
+  spawn de vague), pas de `Local<bool>` par placement.
+- `powerup_drop_chance_override: Fixed` : force `PowerUpsConfig::drop_chance` pour ce
+  scénario (`Update`, comme `apply_wave_overrides`) — pour prouver le chemin « drop à la
+  mort » sans dépendre du tirage réel du jeu (scénario `powerup_drop_on_kill`, chance forcée
+  à 1).
+
+**Nouvelle attente** (`game::replay::Expectation::PowerUpPickups { min, max, at_frame }`) :
+nombre de `PowerUpPickup` au sol, bornes `[min, max]` inclusives — même forme que
+`WeaponPickups`.
+
+**Scénarios de référence** (`tests/scenarios/`, testbed, un par power-up + un pour le drop) :
+`powerup_insta_kill`, `powerup_double_points`, `powerup_max_ammo`, `powerup_carpenter`
+(seul à utiliser `testbed/window.ldtk` plutôt que `testbed/arena.ldtk` : il faut une fenêtre
+à réparer, absente de l'arène — le `breacher` de `window.ldtk` la casse naturellement avant
+que le scénario ne pose le power-up), `powerup_nuke`, `powerup_drop_on_kill` (chance forcée
+à 1, tue `dummy` par tir soutenu, vérifie qu'un `PowerUpPickup` apparaît).
+
 ## Notes essentielles
 
 **À vérifier** : l'entité `CrateLocation` n'est pas lue actuellement (`WeaponLocation`/`SodaLocation` le sont depuis T2.3, voir §1 ci-dessus). Elle apparaît dans `crates/map_ldtk/src/map_const.rs` (constante) mais aucun bundle Bevy ne la traite (`entity/*.rs` ne la liste pas). Avant d'utiliser une carte avec une entité nouvellement lue, vérifier que `make test_scenarios` accepte un scénario `idle` dessus.

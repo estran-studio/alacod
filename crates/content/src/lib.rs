@@ -8,8 +8,8 @@ pub use expr::{BoolExpr, Context, Expr, Kind, NumExpr, ParseError, Value};
 pub use lint::{LintError, LintErrorKind};
 pub use manifest::{ContentFolderDecl, EntryPoint, GameManifest, ManifestError};
 pub use registry::{
-    known_content_kinds, CharacterId, EnemyId, MapId, MeleeWeaponId, Registry, WaveConfigId,
-    WeaponId,
+    known_content_kinds, CharacterId, EnemyId, MapId, MeleeWeaponId, PowerUpId, Registry,
+    WaveConfigId, WeaponId,
 };
 
 /// Charge le manifeste, construit le registre et lint le contenu d'un jeu en un seul

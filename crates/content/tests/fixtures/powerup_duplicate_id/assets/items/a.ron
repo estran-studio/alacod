@@ -1,0 +1,11 @@
+// Fixture T2.5 : id de power-up dupliqué entre deux fichiers du même dossier `PowerUp`
+// (comme `duplicate_id`/personnages : deux fichiers déclarant le même id).
+(
+    drop_chance: "0.2",
+    powerups: {
+        "insta_kill": (
+            weight: 10,
+            actions: [],
+        ),
+    },
+)

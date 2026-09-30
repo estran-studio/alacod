@@ -1,0 +1,13 @@
+[package]
+name = "effects"
+description = "Vocabulaire d'actions de power-up (T2.5, chantier C1 v0, la graine du futur système de déclencheurs/effets de docs/plan-engine.md §5 C1)."
+version = "0.1.0"
+edition = "2021"
+
+[dependencies]
+bevy_fixed = { path = "../bevy_fixed" }
+sim_core = { path = "../sim_core" }
+serde = { version = "1.0", features = ["derive"] }
+
+[dev-dependencies]
+ron = "0.12"

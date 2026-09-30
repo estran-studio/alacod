@@ -61,6 +61,25 @@ fn float_literal_fixture_reports_bare_number_in_fixed_field() {
 }
 
 #[test]
+fn powerup_out_of_range_fixture_reports_bad_drop_chance_and_weight() {
+    let (_, _, errors) = load_and_lint(&fixture_dir("powerup_out_of_range")).unwrap();
+    assert_has_error(&errors, LintErrorKind::OutOfRange, "drop_chance");
+    assert_has_error(&errors, LintErrorKind::OutOfRange, "weight");
+}
+
+#[test]
+fn powerup_duplicate_id_fixture_reports_repeated_powerup_id() {
+    let (_, _, errors) = load_and_lint(&fixture_dir("powerup_duplicate_id")).unwrap();
+    assert_has_error(&errors, LintErrorKind::DuplicateId, "insta_kill");
+}
+
+#[test]
+fn powerup_unknown_stat_fixture_reports_parse_error() {
+    let (_, _, errors) = load_and_lint(&fixture_dir("powerup_unknown_stat")).unwrap();
+    assert_has_error(&errors, LintErrorKind::Parse, "PasUneStatConnue");
+}
+
+#[test]
 fn zombies_and_testbed_lint_without_error() {
     for game in ["zombies", "testbed"] {
         let (registry, _, errors) = load_and_lint(&game_dir(game))

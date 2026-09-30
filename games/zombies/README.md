@@ -21,14 +21,23 @@ est `games/zombies/src/main.rs` ; le plugin de partie est partagé avec `testbed
 | `waves/wave_config.ron` | `Wave` | vagues : effectifs, cadence, montée en difficulté |
 | `economy/economy.ron` | `Economy` | points par kill, coup et réparation ; ratio de recharge d'une arme murale déjà possédée |
 | `economy/perks.ron` | `Perk` | perks : `juggernog`, `speed_cola`, `double_tap`, `stamin_up` |
+| `items/powerups.ron` | `PowerUp` | table des power-ups : `insta_kill`, `double_points`, `max_ammo`, `carpenter`, `nuke` (`drop_chance`, poids, actions) |
 | `exemples/test_map.ldtk` | `Map` | gabarits de salles de la carte jouable (trois niveaux LDtk, voir ci-dessous) |
 | `exemples/test_map_shop.ldtk` | `Map` | copie de `test_map` avec une arme murale et un perk dans le gabarit de départ, pour les scénarios d'achat |
 | `exemples/atlas/` | — | tuiles des cartes |
 | `ui/hud.ron`, `ui/feedback.ron` | `Ui` | HUD (sources `health`, `wave`, `ammo`, `weapon`, `enemies`, `players`, `currency`) et retours (flash, secousse, sons) |
 | `fonts/`, `sounds/` | — | police et sons |
 
-Pas encore de table de power-ups : son format arrive avec le chantier des power-ups
-(`docs/plan-engine.md` §5).
+## Power-ups (T2.5, chantier C1 v0)
+
+Cinq power-ups de référence CoD : `insta_kill`, `double_points`, `max_ammo`, `carpenter`,
+`nuke` (`items/powerups.ron`, kind `PowerUp` — voir `docs/conventions.md` §13). Un ennemi
+tué (équipe `Enemies`) a `drop_chance` (15 %) de laisser tomber un power-up, choisi par
+tirage pondéré (`weight`) parmi la table, dans le flux RNG nommé `loot`
+(`crates/game/src/powerups.rs`). Un power-up au sol se ramasse **au passage** (pas
+d'interaction à bouton, contrairement aux armes/fenêtres/perks) et s'applique à **tous les
+joueurs** de la partie (sémantique CoD) ; il disparaît après `lifetime_frames` (≈ 30 s) s'il
+n'a jamais été ramassé.
 
 ## La carte : des gabarits assemblés
 
@@ -116,5 +125,7 @@ make zombies                                # jouer (fenêtre, joueur local)
 - Les feuilles de sprites sont nommées dans `crates/game/src/global_asset.rs` et restent
   mélangées aux configs sous `ZombieShooter/Sprites/**` (`docs/plan-engine.md` §5 A5) ; le
   `rifle` réutilise le sprite du fusil à pompe.
-- Pas de table de power-ups ni de ramassage au sol.
 - Le prix des armes murales et des perks n'est pas affiché à l'écran.
+- Power-ups : pas d'icône/minuteur à l'écran pour un power-up actif (T2.12 HUD v1) ; pas de
+  son/flash au ramassage (T2.13) ; `KillAllWaveEnemies` (Nuke) ne crédite aucun point de kill
+  (contrairement à CoD) — simplification v0, voir le rapport de la tâche T2.5.

@@ -140,6 +140,12 @@ impl Plugin for CoreSetupPlugin {
         app.add_plugins(run::RunPlugin);
         app.add_plugins(crate::economy::EconomyPlugin);
         app.add_plugins(crate::interaction::InteractionPlugin);
+        // Power-ups (T2.5, chantier C1 v0) : après `EconomyPlugin` (l'action
+        // `CurrencyMultiplier` lit la stat qu'elle pose via `economy::award_points_system`,
+        // ordre de *systèmes* explicite entre `RollbackSystemSet::Effects` et `::Run`, pas
+        // besoin d'ordre entre plugins ici — seulement une dépendance de lecture, listée
+        // après par lisibilité).
+        app.add_plugins(crate::powerups::PowerUpsPlugin);
         app.add_plugins(GameUiPlugin);
         app.add_plugins(WaveSystemPlugin);
 

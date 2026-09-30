@@ -51,6 +51,7 @@ pub fn run(registry: &Registry, manifest: &GameManifest) -> Vec<LintError> {
     lint_melee_weapons(registry, &mut errors);
     lint_waves(registry, &mut errors);
     lint_perks(registry, &mut errors);
+    lint_powerups(registry, &mut errors);
     lint_entry_point(registry, manifest, &mut errors);
 
     errors
@@ -284,6 +285,38 @@ fn lint_perks(registry: &Registry, errors: &mut Vec<LintError>) {
                 kind: LintErrorKind::OutOfRange,
                 file: perk.file.display().to_string(),
                 message: format!("perk « {} » : champ price = 0 : doit être > 0", perk.id),
+            });
+        }
+    }
+}
+
+/// T2.5, chantier C1 v0 : `drop_chance` dans `[0, 1]` (racine de `items/powerups.ron`) et
+/// `weight > 0` pour chaque power-up (un poids nul ne serait jamais tiré : sans intérêt,
+/// et exclu pour rester cohérent avec `lint_perks`/`price == 0`). « stat connue » n'a pas
+/// besoin d'une règle ici : voir la doc de `registry::PowerUpEntry`/`PowerUpEntrySchema`.
+fn lint_powerups(registry: &Registry, errors: &mut Vec<LintError>) {
+    if let Some(entry) = &registry.powerup_drop_chance {
+        let value = entry.drop_chance.get();
+        if value < Fixed::ZERO || value > Fixed::from_num(1.0) {
+            errors.push(LintError {
+                kind: LintErrorKind::OutOfRange,
+                file: entry.file.display().to_string(),
+                message: format!(
+                    "power-ups : champ drop_chance = {value} : doit être dans [0, 1]"
+                ),
+            });
+        }
+    }
+
+    for powerup in registry.powerups.values() {
+        if powerup.weight == 0 {
+            errors.push(LintError {
+                kind: LintErrorKind::OutOfRange,
+                file: powerup.file.display().to_string(),
+                message: format!(
+                    "power-up « {} » : champ weight = 0 : doit être > 0",
+                    powerup.id
+                ),
             });
         }
     }

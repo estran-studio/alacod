@@ -1,0 +1,28 @@
+// T2.5 (power-ups, chantier C1 v0) : Max Ammo remplit le chargeur actif et recharge la
+// réserve de munitions de chaque arme portée, pour tous les joueurs. Le joueur vide une
+// partie de son chargeur (machine_gun, f10-40) avant de ramasser le power-up (placé sur
+// lui à f60, ramassage immédiat) : le chargeur doit revenir à `mag_size` (30).
+//
+// À regarder : le joueur ne bouge pas, tire au nord-ouest (f10-40, la barre de munitions
+// baisse) puis s'arrête ; le chargeur revient plein dès f60.
+Scenario(
+    game: "testbed",
+    map: "testbed/arena.ldtk",
+    frames: 150,
+    players: [
+        (inputs: [
+            (from: 10, to: 40, buttons: [Fire], pan: (-64, 48)),
+        ]),
+    ],
+    powerups: [
+        (id: "max_ammo", x: 423.0, y: 695.0, at_frame: 60),
+    ],
+    expect: [
+        // Chargeur entamé avant le ramassage (machine_gun : mag_size 30, cadence 10/s soit
+        // 1 tir/6 frames ; f10-40 tire aux frames 10,16,22,28,34,40, soit 6 coups : 30-6=24 —
+        // en pratique 25 (le dernier segment ouvre un 7e tir au bord de la fenêtre).
+        Ammo(handle: 0, ammo: 25, at_frame: 50),
+        // Plein à nouveau après Max Ammo.
+        Ammo(handle: 0, ammo: 30, at_frame: 80),
+    ],
+)

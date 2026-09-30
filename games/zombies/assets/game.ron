@@ -24,6 +24,8 @@
         // d'en-tête) : déclarés individuellement plutôt que le dossier `economy` entier.
         (path: "economy/economy.ron", kind: "Economy"),
         (path: "economy/perks.ron", kind: "Perk"),
+        // T2.5, chantier C1 v0 : table des power-ups.
+        (path: "items", kind: "PowerUp"),
     ],
     entry: (
         start_map: "exemples/test_map.ldtk",

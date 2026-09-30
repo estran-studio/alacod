@@ -1,0 +1,25 @@
+// T2.5 (power-ups, chantier C1 v0) : Nuke tue instantanément tous les ennemis vivants
+// (équipe `Enemies`, pas seulement les ennemis de vague — voir `docs/conventions.md` §13).
+// `testbed/arena.ldtk` place cinq personnages de laboratoire (T2.9) : `dummy`/`target`/
+// `follower` (équipe `Enemies`) et `ally`/`civilian` (`Allies`/`Neutral`) — Nuke doit tuer
+// les trois premiers et épargner les deux derniers.
+//
+// À regarder : le joueur ne bouge pas ; un power-up Nuke apparaît sur lui à f20 ; les cinq
+// personnages de laboratoire sont visibles jusque-là, puis seuls `ally`/`civilian` restent.
+Scenario(
+    game: "testbed",
+    map: "testbed/arena.ldtk",
+    frames: 100,
+    players: [
+        (),
+    ],
+    powerups: [
+        (id: "nuke", x: 423.0, y: 695.0, at_frame: 20),
+    ],
+    expect: [
+        // Avant le Nuke : les cinq personnages de laboratoire sont vivants.
+        EntityCount(kind: Enemy, min: 5, max: 5, at_frame: 10),
+        // Après : seuls `ally`/`civilian` (pas équipe Enemies) survivent.
+        EntityCount(kind: Enemy, min: 2, max: 2, at_frame: 60),
+    ],
+)

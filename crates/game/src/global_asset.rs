@@ -20,6 +20,7 @@ use crate::{
     character::config::CharacterConfig,
     core::{AppState, OnlineState},
     economy::{EconomyConfig, PerksConfig},
+    powerups::PowerUpsConfig,
     waves::WaveConfig,
     weapons::{melee::MeleeWeaponsConfig, WeaponsConfig},
 };
@@ -53,6 +54,11 @@ pub struct GlobalAsset {
     /// refuse tout achat).
     pub economy_config: Option<Handle<EconomyConfig>>,
     pub perks_config: Option<Handle<PerksConfig>>,
+    /// Power-ups (T2.5, chantier C1 v0) : `Some` seulement si le jeu déclare un dossier de
+    /// contenu `PowerUp`, comme `wave_config`/`economy_config` ci-dessus. Absent :
+    /// `powerups::loot_drop_on_death_system`/`powerup_pickup_detect_system` ne font rien
+    /// (retour anticipé), aucun power-up ne tombe ni ne peut être ramassé.
+    pub powerups_config: Option<Handle<PowerUpsConfig>>,
 }
 
 impl GlobalAsset {
@@ -210,6 +216,15 @@ impl GlobalAsset {
             .next()
             .map(|entry| asset_server.load(path_to_asset_string(&entry.file)));
 
+        // Power-ups (T2.5) : `registry.powerups` a une entrée par power-up (pas par
+        // fichier), comme `perks` ci-dessus — `.next()` suffit pour retrouver le fichier
+        // unique du jeu.
+        let powerups_config = registry
+            .powerups
+            .values()
+            .next()
+            .map(|entry| asset_server.load(path_to_asset_string(&entry.file)));
+
         Self {
             spritesheets,
             animations,
@@ -230,6 +245,9 @@ impl GlobalAsset {
             // Économie de run (T2.3) : seulement si le jeu déclare `Economy`/`Perk`.
             economy_config,
             perks_config,
+
+            // Power-ups (T2.5) : seulement si le jeu déclare `PowerUp`.
+            powerups_config,
         }
     }
 }
@@ -316,6 +334,12 @@ pub fn loading_asset_system(
     }
     if let Some(perks_config) = &global_assets.perks_config {
         if !asset_server.load_state(perks_config).is_loaded() {
+            return;
+        }
+    }
+    // Power-ups (T2.5) : mêmes règles que `wave_config` ci-dessus.
+    if let Some(powerups_config) = &global_assets.powerups_config {
+        if !asset_server.load_state(powerups_config).is_loaded() {
             return;
         }
     }

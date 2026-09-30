@@ -576,6 +576,47 @@ fn weapon_pickups_zero_when_nothing_dropped() {
     assert!(outcome.failures.is_empty(), "{:?}", outcome.failures);
 }
 
+/// T2.5 (power-ups, chantier C1 v0) : aucun power-up placé ni tombé (`idle`, personne ne
+/// meurt) — `PowerUpPickups` doit rester à 0, comme `WeaponPickups` ci-dessus.
+#[test]
+fn powerup_pickups_zero_when_none_placed() {
+    if map_ldtk::RENDER_ENABLED {
+        return;
+    }
+    let mut scenario = load_scenario("idle");
+    scenario.expect = vec![Expectation::PowerUpPickups {
+        min: Some(0),
+        max: Some(0),
+        at_frame: 100,
+    }];
+    let outcome = run(&scenario);
+    assert!(outcome.failures.is_empty(), "{:?}", outcome.failures);
+}
+
+/// Un placement scripté (`Scenario::powerups`) fait apparaître exactement un
+/// `PowerUpPickup` au sol tant qu'il n'a pas été ramassé — ici loin de tout joueur
+/// (position arbitraire hors de portée), donc jamais ramassé avant `at_frame`.
+#[test]
+fn powerup_placement_spawns_one_pickup() {
+    if map_ldtk::RENDER_ENABLED {
+        return;
+    }
+    let mut scenario = load_scenario("idle");
+    scenario.powerups = vec![game::replay::PowerUpPlacement {
+        id: "insta_kill".to_string(),
+        x: -5000.0,
+        y: -5000.0,
+        at_frame: 10,
+    }];
+    scenario.expect = vec![Expectation::PowerUpPickups {
+        min: Some(1),
+        max: Some(1),
+        at_frame: 50,
+    }];
+    let outcome = run(&scenario);
+    assert!(outcome.failures.is_empty(), "{:?}", outcome.failures);
+}
+
 /// L'attaque de mêlée reste possible pendant un rechargement, sans l'annuler (T2.2, chantier
 /// B7, décision « coup de crosse pendant le rechargement »). `player_melee_attack_system` ne
 /// consulte jamais `WeaponInventory::is_reloading` : ce test le prouve par un scénario plutôt

@@ -19,6 +19,8 @@
         // T2.3, chantier C5 v1 : economy.ron minimal (pas de perks.ron, le testbed n'en a
         // pas besoin aujourd'hui).
         (path: "economy/economy.ron", kind: "Economy"),
+        // T2.5, chantier C1 v0 : table des power-ups (scénarios `powerup_*`).
+        (path: "items", kind: "PowerUp"),
     ],
     entry: (
         start_map: "testbed/arena.ldtk",

@@ -101,6 +101,11 @@ string_id!(
     /// Identifiant d'un perk de `economy/perks.ron` (T2.3, chantier C5 v1) : clé de la table.
     PerkId
 );
+string_id!(
+    /// Identifiant d'un power-up de `items/powerups.ron` (T2.5, chantier C1 v0) : clé de
+    /// la table (`insta_kill`, `double_points`, `max_ammo`, `carpenter`, `nuke`...).
+    PowerUpId
+);
 
 /// Dérive le même id qu'au chargement (`load_maps`) à partir d'un chemin quelconque
 /// (utilisé pour valider `entry.start_map`, qui n'est pas forcément le même chemin exact
@@ -215,6 +220,29 @@ pub struct PerkEntry {
     pub price: u32,
 }
 
+/// T2.5, chantier C1 v0 : une entrée de `games/<jeu>/assets/items/powerups.ron`. `actions`
+/// n'a pas besoin d'être gardé ici pour le lint : une référence de `StatId` inconnue dans
+/// `actions[].stat` échoue déjà au chargement RON (`effects::Action` est le type réel, pas
+/// un mirroir — voir la doc de [`PowerUpEntrySchema`]), rapportée comme n'importe quelle
+/// autre erreur de parse.
+#[derive(Debug, Clone)]
+pub struct PowerUpEntry {
+    pub id: PowerUpId,
+    pub file: PathBuf,
+    /// Poids relatif de tirage parmi les power-ups (T2.5) quand un drop a lieu. Pour la
+    /// règle « chance de drop » (probabilité globale qu'un drop ait lieu du tout, pas
+    /// laquelle), voir [`Registry::powerup_drop_chance`].
+    pub weight: u32,
+}
+
+/// Valeur racine de `items/powerups.ron` (T2.5) avec son fichier, pour un message de lint
+/// précis (voir [`Registry::powerup_drop_chance`]).
+#[derive(Debug, Clone)]
+pub struct PowerUpDropChanceEntry {
+    pub drop_chance: FixedField,
+    pub file: PathBuf,
+}
+
 /// Registre de contenu d'un jeu, chargé depuis son manifeste (`GameManifest`). Voir le
 /// module pour les garanties (BTreeMap partout, chargement "best effort").
 #[derive(Resource, Debug, Clone, Default)]
@@ -229,6 +257,16 @@ pub struct Registry {
     pub economy: BTreeMap<EconomyId, EconomyEntry>,
     /// T2.3, chantier C5 v1.
     pub perks: BTreeMap<PerkId, PerkEntry>,
+    /// T2.5, chantier C1 v0 : une entrée par power-up de `items/powerups.ron`.
+    pub powerups: BTreeMap<PowerUpId, PowerUpEntry>,
+    /// T2.5, chantier C1 v0 : probabilité (Fixed `[0, 1]`) qu'un ennemi tué laisse tomber
+    /// un power-up, lue à la racine de `items/powerups.ron` (`PowerUpsFileSchema::
+    /// drop_chance`) — indépendante du choix du power-up (voir [`PowerUpEntry::weight`]).
+    /// `None` si aucun dossier de contenu `PowerUp` n'est déclaré par le jeu. Plusieurs
+    /// fichiers `PowerUp` chargés (pas le cas en pratique, un seul par jeu comme
+    /// `Economy`) : le dernier traité gagne silencieusement, comme `wave_config`/
+    /// `economy_config` dans `game::global_asset` (`.values().next()`).
+    pub powerup_drop_chance: Option<PowerUpDropChanceEntry>,
     /// Fichiers `Ui`/`Camera` validés (RON syntaxiquement correct). Pas de table typée par
     /// id : rien ne les référence par id aujourd'hui (décision T1.5, voir le rapport de la
     /// tâche).
@@ -249,6 +287,7 @@ pub const KNOWN_KIND_NAMES: &[&str] = &[
     "Camera",
     "Economy",
     "Perk",
+    "PowerUp",
 ];
 
 pub fn known_content_kinds() -> Kinds {
@@ -302,6 +341,7 @@ impl Registry {
                 }
                 "Economy" => load_economy(&assets_dir, decl, &mut registry, &mut errors),
                 "Perk" => load_perks(&assets_dir, decl, &mut registry, &mut errors),
+                "PowerUp" => load_powerups(&assets_dir, decl, &mut registry, &mut errors),
                 _ => unreachable!("filtré par `kinds.has` ci-dessus"),
             }
         }
@@ -555,6 +595,29 @@ struct PerkEntrySchema {
 struct PerkModifierSchema {
     #[allow(dead_code)]
     stat: StatId,
+}
+
+/// Mirroir de `game::powerups::PowerUpsConfig` (T2.5, chantier C1 v0) : `drop_chance`
+/// (racine du fichier, probabilité qu'un ennemi tué laisse tomber un power-up) et la table
+/// nommée des power-ups eux-mêmes.
+#[derive(Deserialize)]
+struct PowerUpsFileSchema {
+    drop_chance: FixedField,
+    powerups: BTreeMap<String, PowerUpEntrySchema>,
+}
+
+/// `actions` réutilise le type réel `effects::Action` (pas un mirroir) : comme `StatId`
+/// pour `PerkModifierSchema` (voir sa doc), `content` dépend déjà de `effects` (crate de
+/// vocabulaire, sans dépendance vers `content`/`game` — aucun cycle). Une référence de
+/// `StatId` inconnue dans une `TimedModifier` échoue donc au chargement RON exactement
+/// comme ailleurs dans le projet, sans règle de lint dédiée (voir la doc de
+/// [`PowerUpEntry`]).
+#[derive(Deserialize)]
+struct PowerUpEntrySchema {
+    weight: u32,
+    #[allow(dead_code)]
+    #[serde(default)]
+    actions: Vec<effects::Action>,
 }
 
 // ---------------------------------------------------------------------------------------
@@ -955,6 +1018,77 @@ fn load_perks(
                     id,
                     file: rel.clone(),
                     price: entry.price,
+                },
+            );
+        }
+    }
+}
+
+/// T2.5, chantier C1 v0 : `drop_chance` (racine) et la table des power-ups (une entrée par
+/// clé, même forme que [`load_perks`]) d'un seul fichier `items/powerups.ron`. Un dossier
+/// `PowerUp` qui contient plusieurs fichiers (pas le cas des jeux réels, seulement la
+/// fixture `powerup_duplicate_id`, voir `tests/fixtures/`) : chaque fichier contribue ses
+/// propres entrées à `registry.powerups` (id dupliqué entre fichiers = erreur, comme
+/// `load_perks`), et `registry.powerup_drop_chance` retient le dernier fichier traité (voir
+/// sa doc).
+fn load_powerups(
+    assets_dir: &Path,
+    decl: &ContentFolderDecl,
+    registry: &mut Registry,
+    errors: &mut Vec<LintError>,
+) {
+    let files = match discover_files(assets_dir, decl, "ron") {
+        Ok(f) => f,
+        Err(e) => {
+            errors.push(e);
+            return;
+        }
+    };
+
+    for rel in files {
+        let text = match read_file(assets_dir, &rel) {
+            Ok(t) => t,
+            Err(e) => {
+                errors.push(e);
+                continue;
+            }
+        };
+        let parsed: PowerUpsFileSchema = match ron::from_str(&text) {
+            Ok(p) => p,
+            Err(e) => {
+                errors.push(LintError {
+                    kind: LintErrorKind::Parse,
+                    file: rel.display().to_string(),
+                    message: format!("erreur RON : {e}"),
+                });
+                continue;
+            }
+        };
+
+        registry.powerup_drop_chance = Some(PowerUpDropChanceEntry {
+            drop_chance: parsed.drop_chance,
+            file: rel.clone(),
+        });
+
+        for (name, entry) in parsed.powerups {
+            let id = PowerUpId::from(name);
+            if let Some(existing) = registry.powerups.get(&id) {
+                errors.push(LintError {
+                    kind: LintErrorKind::DuplicateId,
+                    file: rel.display().to_string(),
+                    message: format!(
+                        "id de power-up « {id} » déjà défini dans {}",
+                        existing.file.display()
+                    ),
+                });
+                continue;
+            }
+            registry.powerups.insert(
+                id.clone(),
+                PowerUpEntry {
+                    id,
+                    file: rel.clone(),
+                    weight: entry.weight,
                 },
             );
         }
