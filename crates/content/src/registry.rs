@@ -136,6 +136,10 @@ pub struct WeaponEntry {
     pub file: PathBuf,
     /// Cadence de tir par mode (`firing_modes`), pour la règle « cadence > 0 ».
     pub firing_rates: BTreeMap<String, FixedField>,
+    /// Gabarit de scénario généré (T2.10, champ `test:` de `WeaponConfig`), pour le lint
+    /// (`frames > 0`, `min_hits <= max_hits`). `None` : pas de `test:`, aucune règle à
+    /// vérifier (l'arme obtient quand même un scénario généré, invariants seulement).
+    pub test: Option<WeaponTestRange>,
 }
 
 #[derive(Debug, Clone)]
@@ -143,6 +147,20 @@ pub struct MeleeWeaponEntry {
     pub id: MeleeWeaponId,
     pub file: PathBuf,
     pub damage: FixedField,
+    /// Voir `WeaponEntry::test`.
+    pub test: Option<WeaponTestRange>,
+}
+
+/// Mirroir minimal de `game::weapons::WeaponTest` (`content` ne dépend pas de `game`, voir
+/// le module) : juste assez pour que `lint.rs` valide les plages (`frames > 0`, `min_hits
+/// <= max_hits`). Le générateur (`crates/scenario/src/generate.rs`, qui dépend à la fois de
+/// `content` et de `game`) relit lui-même le RON de l'arme avec le vrai type pour construire
+/// le scénario (attentes `expect:` libres comprises, que ce mirroir ignore).
+#[derive(Debug, Clone, Copy)]
+pub struct WeaponTestRange {
+    pub frames: u32,
+    pub min_hits: u32,
+    pub max_hits: Option<u32>,
 }
 
 #[derive(Debug, Clone)]
@@ -366,11 +384,34 @@ struct WeaponEntrySchema {
 struct WeaponConfigSchema {
     #[serde(default)]
     firing_modes: BTreeMap<String, FiringModeSchema>,
+    #[serde(default)]
+    test: Option<WeaponTestSchema>,
 }
 
 #[derive(Deserialize)]
 struct FiringModeSchema {
     firing_rate: FixedField,
+}
+
+/// Mirroir RON de `game::weapons::WeaponTest` (voir `WeaponTestRange`) : ignore `expect`,
+/// que `content` ne peut pas typer (`Expectation` vit dans `game`, `content` n'en dépend
+/// pas) — silencieusement, comme tout champ non déclaré ici (voir la doc du module).
+#[derive(Deserialize)]
+struct WeaponTestSchema {
+    frames: u32,
+    min_hits: u32,
+    #[serde(default)]
+    max_hits: Option<u32>,
+}
+
+impl From<&WeaponTestSchema> for WeaponTestRange {
+    fn from(schema: &WeaponTestSchema) -> Self {
+        WeaponTestRange {
+            frames: schema.frames,
+            min_hits: schema.min_hits,
+            max_hits: schema.max_hits,
+        }
+    }
 }
 
 #[derive(Deserialize)]
@@ -384,6 +425,8 @@ struct MeleeWeaponEntrySchema {
 #[derive(Deserialize)]
 struct MeleeWeaponConfigSchema {
     damage: FixedField,
+    #[serde(default)]
+    test: Option<WeaponTestSchema>,
 }
 
 #[derive(Deserialize)]
@@ -520,6 +563,7 @@ fn load_weapons(
                 });
                 continue;
             }
+            let test = entry.config.test.as_ref().map(WeaponTestRange::from);
             let firing_rates = entry
                 .config
                 .firing_modes
@@ -532,6 +576,7 @@ fn load_weapons(
                     id,
                     file: rel.clone(),
                     firing_rates,
+                    test,
                 },
             );
         }
@@ -585,12 +630,14 @@ fn load_melee_weapons(
                 });
                 continue;
             }
+            let test = entry.config.test.as_ref().map(WeaponTestRange::from);
             registry.melee_weapons.insert(
                 id.clone(),
                 MeleeWeaponEntry {
                     id,
                     file: rel.clone(),
                     damage: entry.config.damage,
+                    test,
                 },
             );
         }

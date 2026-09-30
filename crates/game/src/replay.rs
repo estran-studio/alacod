@@ -150,6 +150,15 @@ pub struct PlayerScript {
     /// (`scenario::runner::apply_player_overrides`). Vide par défaut.
     #[serde(default, skip_serializing_if = "Vec::is_empty")]
     pub modifiers: Vec<ModifierSpec>,
+    /// Arme unique de ce joueur (T2.10, générateur de scénarios), id du registre (arme à
+    /// distance de `weapons.ron` ou de mêlée de `melee_weapons.ron`) : le joueur apparaît
+    /// avec **cette seule arme** au lieu de ses `starting_weapons` (et sans l'arme de mêlée
+    /// par défaut, `bare_hands`, si l'id choisi est une arme à distance — exclusivité
+    /// complète, voir `scenario::runner::apply_player_overrides`). `None` (défaut) :
+    /// comportement inchangé, le joueur reçoit les armes de son `CharacterConfig` comme
+    /// avant ce champ (tous les scénarios existants).
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub weapon: Option<String>,
 }
 
 /// Un modificateur de scénario, posé sur un joueur après sa création
@@ -236,7 +245,7 @@ pub enum Button {
 }
 
 /// Catégorie d'entités pour `EntityCount`.
-#[derive(Debug, Clone, Copy, Serialize, Deserialize)]
+#[derive(Debug, Clone, Copy, PartialEq, Serialize, Deserialize)]
 pub enum EntityKind {
     /// Joueurs vivants.
     Player,
@@ -249,7 +258,7 @@ pub enum EntityKind {
 }
 
 /// Vérification faite quand la simulation atteint `at_frame`.
-#[derive(Debug, Clone, Serialize, Deserialize)]
+#[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
 pub enum Expectation {
     PlayerAlive {
         handle: usize,
@@ -333,13 +342,16 @@ pub enum Expectation {
         max: Option<f32>,
         at_frame: u32,
     },
-    /// Nombre de coups reçus par l'entité `net_id`, au moins `min` (T2.9, testbed : la cible
-    /// `target`, composant `HitCount` posé par `CharacterConfig::counts_hits`). L'entité doit
+    /// Nombre de coups reçus par l'entité `net_id`, dans `[min, max]` (`max` optionnel,
+    /// T2.10 : borne haute d'un `test:` de définition d'arme). T2.9, testbed : la cible
+    /// `target`, composant `HitCount` posé par `CharacterConfig::counts_hits`. L'entité doit
     /// exister et porter `HitCount` à `at_frame`, sinon l'attente échoue (comme
     /// `EntityHealth`).
     EntityHits {
         net_id: usize,
         min: u32,
+        #[serde(default, skip_serializing_if = "Option::is_none")]
+        max: Option<u32>,
         at_frame: u32,
     },
     /// La santé du joueur `handle` ne diminue à aucune frame entre `from_frame` et `to_frame` inclus.

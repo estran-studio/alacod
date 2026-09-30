@@ -115,6 +115,17 @@ lint:
 
 .PHONY: lint
 
+# Générateur de scénarios (T2.10, crates/scenario/src/generate.rs) : un scénario par arme du
+# registre de GAME dans tests/scenarios/generated/GAME/, joué et affiché en tableau
+# (attentes, trace). Code de sortie 1 si une attente échoue, un scénario n'atteint pas sa
+# dernière frame, ou une trace diffère de la référence. GEN_BLESS=1 les blesse au lieu de
+# les comparer : make gen GAME=zombies GEN_BLESS=1.
+GAME ?= zombies
+gen:
+	cargo run -q -p scenario --bin alacod-gen --profile headless -- games/$(GAME) --play $(if $(filter 1,$(GEN_BLESS)),--bless)
+
+.PHONY: gen
+
 # Scénarios de jeu headless (tests/scenarios/*.ron), comparés à leur trace de référence.
 # BLESS=1 réécrit les traces de référence ; SCENARIO=<nom> n'en joue qu'un.
 test_scenarios:

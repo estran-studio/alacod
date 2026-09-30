@@ -43,6 +43,11 @@
             cooldown_frames: 45,
             knockback_force: "30.0",
             stamina_cost: "10.0",
+            // Scénario généré (T2.10, `alacod-gen`) : joueur équipé du club seul, marche
+            // jusqu'à `target` puis frappe en continu (`crates/scenario/src/generate.rs`,
+            // gabarit WeaponOnTarget). `min_hits` observé avec `alacod-gen --play` (valeur
+            // réelle dans le rapport de la tâche), gardé prudent.
+            test: Some((frames: 400, min_hits: 2, max_hits: Some(20))),
         ),
         sprite_config: (
             name: "club",
@@ -81,6 +86,8 @@
             cooldown_frames: 40,
             knockback_force: "20.0",
             stamina_cost: "15.0",
+            // Voir le commentaire `test:` de `club` ci-dessus (même gabarit).
+            test: Some((frames: 400, min_hits: 3, max_hits: Some(20))),
         ),
         sprite_config: (
             name: "sword",

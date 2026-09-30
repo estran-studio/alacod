@@ -6,6 +6,7 @@
 //! (`tests/scenarios/<nom>.trace`) pour détecter toute régression.
 
 pub mod events;
+pub mod generate;
 pub mod invariants;
 pub mod nav_debug;
 pub mod runner;

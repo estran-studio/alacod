@@ -20,7 +20,13 @@
                         mag_limit: 8,
                     )
                 )
-            }
+            },
+            // Scénario généré (T2.10, `alacod-gen`) : joueur équipé du pistolet seul, vise
+            // et tire (par pulsations, mode Manual : `crates/scenario/src/generate.rs::fire_pulses`)
+            // sur `target` de la frame 10 à 600. `min_hits` observé avec `alacod-gen --play`
+            // (4 sur cette durée : cadence lente et dispersion large du tir, voir le rapport
+            // de la tâche), gardé prudent (marge sous l'observé).
+            test: Some((frames: 600, min_hits: 2, max_hits: Some(20))),
         ),
         sprite_config: (
             name: "pistol",
@@ -75,7 +81,9 @@
                         mag_limit: 8,
                     )
                 )
-            }
+            },
+            // Voir le commentaire `test:` de `pistol` ci-dessus (même gabarit).
+            test: Some((frames: 600, min_hits: 10, max_hits: Some(60))),
         ),
         sprite_config: (
             name: "machine_gun",
@@ -137,7 +145,11 @@
                         bullet_limit: 64,
                     )
                 )
-            }
+            },
+            // Voir le commentaire `test:` de `pistol` ci-dessus (même gabarit). Cadence
+            // basse (1 tir/s) : `min_hits` compte les pastilles qui touchent (8 par tir),
+            // pas les tirs.
+            test: Some((frames: 600, min_hits: 25, max_hits: Some(120))),
         ),
         sprite_config: (
             name: "shotgun",

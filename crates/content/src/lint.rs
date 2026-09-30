@@ -183,6 +183,41 @@ fn lint_weapons(registry: &Registry, errors: &mut Vec<LintError>) {
                 });
             }
         }
+        lint_weapon_test(&weapon.id, &weapon.file, weapon.test.as_ref(), errors);
+    }
+}
+
+/// Valide le gabarit de scénario généré d'une arme (T2.10, `WeaponEntry::test`/
+/// `MeleeWeaponEntry::test`) : `frames > 0`, `min_hits <= max_hits` si `max_hits` est
+/// présent. Partagé par `lint_weapons`/`lint_melee_weapons` (`id` affiché avec son type par
+/// l'appelant, comme les autres messages de ce fichier).
+fn lint_weapon_test(
+    id: &dyn std::fmt::Display,
+    file: &std::path::Path,
+    test: Option<&registry::WeaponTestRange>,
+    errors: &mut Vec<LintError>,
+) {
+    let Some(test) = test else {
+        return;
+    };
+    if test.frames == 0 {
+        errors.push(LintError {
+            kind: LintErrorKind::OutOfRange,
+            file: file.display().to_string(),
+            message: format!("arme « {id} » : champ test.frames = 0 : doit être > 0"),
+        });
+    }
+    if let Some(max_hits) = test.max_hits {
+        if test.min_hits > max_hits {
+            errors.push(LintError {
+                kind: LintErrorKind::OutOfRange,
+                file: file.display().to_string(),
+                message: format!(
+                    "arme « {id} » : champ test.min_hits = {} > test.max_hits = {}",
+                    test.min_hits, max_hits
+                ),
+            });
+        }
     }
 }
 
@@ -199,6 +234,7 @@ fn lint_melee_weapons(registry: &Registry, errors: &mut Vec<LintError>) {
                 ),
             });
         }
+        lint_weapon_test(&weapon.id, &weapon.file, weapon.test.as_ref(), errors);
     }
 }
 
