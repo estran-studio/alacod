@@ -51,6 +51,12 @@ pub struct Scenario {
     /// tester leur épuisement en quelques secondes).
     #[serde(default, skip_serializing_if = "Vec::is_empty")]
     pub weapon_overrides: Vec<WeaponOverride>,
+    /// Modification de la config des vagues pour ce scénario (T2.1, chantier B4b, bench
+    /// `bench_horde` : le plus d'ennemis possible dès la première vague). Même idée que
+    /// `weapon_overrides` mais appliquée à `waves::config::WaveConfig` ; voir
+    /// `scenario::runner::apply_wave_overrides`.
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub wave_overrides: Option<WaveOverride>,
     /// Invariants vérifiés à chaque frame par le runner ; tous actifs par défaut.
     #[serde(default, skip_serializing_if = "Invariants::tous_actifs")]
     pub invariants: Invariants,
@@ -103,12 +109,47 @@ pub struct WeaponOverride {
     /// Chargeurs de réserve.
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub mag_limit: Option<u32>,
+    /// Cadence de tir (coups/minute, voir `weapons::FiringModeConfig::firing_rate`), pour ce
+    /// mode ou tous (T2.1, chantier B4b, bench `bench_bullets` : « cadence maximale »).
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub firing_rate: Option<Fixed>,
     /// Politique de tir ami de l'arme, pour ce scénario seulement (T1.1, chantier B1 :
     /// scénarios `friendly_fire_cursed`/`immune_tag`). S'applique à l'arme entière (pas
     /// `mode`, qui ne sélectionne que le sous-champ chargeur) : `WeaponConfig::friendly_fire`
     /// n'est pas par mode de tir.
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub friendly_fire: Option<FriendlyFire>,
+}
+
+/// Remplace des valeurs de `waves::config::WaveConfig` pour un scénario (T2.1, bench
+/// `bench_horde`). Tous les champs sont optionnels ; absents, la valeur du RON du jeu
+/// (`games/<jeu>/assets/**/waves.ron` ou équivalent) reste inchangée. `base_enemies`,
+/// `enemies_per_wave` et `grace_period_frames` couvrent la demande de la tâche (plus
+/// d'ennemis, plus tôt) ; `max_concurrent_enemies` s'y ajoute parce que sans lui la config
+/// par défaut (20) plafonne les ennemis *vivants en même temps* bien en dessous de
+/// `base_enemies` — la file d'attente grossirait sans jamais stresser la grille comme voulu.
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct WaveOverride {
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub base_enemies: Option<u32>,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub enemies_per_wave: Option<u32>,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub grace_period_frames: Option<u32>,
+    /// Voir la doc du type : nécessaire pour que `base_enemies` se traduise en ennemis
+    /// réellement présents à la fois, pas seulement en file d'attente.
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub max_concurrent_enemies: Option<u32>,
+    /// Combien d'ennemis apparaissent par salve (`waves::config::WaveConfig::spawn_batch_size`).
+    /// Ajouté avec `max_concurrent_enemies` pour la même raison : la config par défaut d'un
+    /// jeu peut faire apparaître les ennemis un par un toutes les N frames, bien trop lentement
+    /// pour atteindre `base_enemies` vivants dans la durée d'un bench.
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub spawn_batch_size: Option<u32>,
+    /// Délai entre deux salves (`waves::config::WaveConfig::spawn_interval_frames`). Voir
+    /// `spawn_batch_size`.
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub spawn_interval_frames: Option<u32>,
 }
 
 fn default_game() -> String {

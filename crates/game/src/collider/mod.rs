@@ -1,8 +1,13 @@
+use crate::collision_grid::{
+    maybe_rebuild_wall_grid, rebuild_character_grid_post_movement,
+    rebuild_character_grid_pre_movement, CollisionGrids,
+};
 use crate::rollback::RollbackTraceApp;
+use crate::system_set::RollbackSystemSet;
 use bevy::color::palettes::css::YELLOW;
 use bevy::prelude::*;
 use bevy_fixed::fixed_math;
-use bevy_ggrs::Rollback;
+use bevy_ggrs::{GgrsSchedule, Rollback};
 
 #[cfg(feature = "lighting")]
 use bevy_light_2d::light::PointLight2d;
@@ -325,5 +330,21 @@ impl Plugin for BaseColliderGamePlugin {
             .rollback_and_trace::<Wall>()
             .rollback_and_trace::<Window>()
             .rollback_and_trace::<CollisionLayer>();
+
+        // Grilles spatiales dérivées (T2.1, chantier B4b) : ressource non rollback, non
+        // checksum (voir `crate::collision_grid`), reconstruite à deux points du planning.
+        app.init_resource::<CollisionGrids>();
+        app.add_systems(
+            GgrsSchedule,
+            (
+                (maybe_rebuild_wall_grid, rebuild_character_grid_pre_movement)
+                    .chain()
+                    .after(RollbackSystemSet::Interaction)
+                    .before(RollbackSystemSet::Movement),
+                rebuild_character_grid_post_movement
+                    .after(RollbackSystemSet::Movement)
+                    .before(RollbackSystemSet::Weapon),
+            ),
+        );
     }
 }

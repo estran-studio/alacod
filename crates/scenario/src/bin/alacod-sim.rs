@@ -134,6 +134,7 @@ fn main() {
             players,
             expect: vec![],
             weapon_overrides: vec![],
+            wave_overrides: None,
             invariants: Default::default(),
         };
 

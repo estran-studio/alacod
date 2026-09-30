@@ -486,6 +486,7 @@ pub fn update_slash_effects(
 pub fn melee_hitbox_collision_system(
     frame: Res<FrameCount>,
     mut damage_events: ResMut<FrameEvents<DamageEvent>>,
+    grids: Res<crate::collision_grid::CollisionGrids>,
     hitbox_query: Query<
         (
             &GgrsNetId,
@@ -532,15 +533,26 @@ pub fn melee_hitbox_collision_system(
             continue;
         };
 
-        for (
-            target_g_id,
-            target_entity,
-            target_transform,
-            target_collider,
-            target_team,
-            opt_velocity_mut,
-        ) in order_mut_iter!(target_query)
-        {
+        // Grille spatiale (T2.1, chantier B4b) : candidats triés par `net_id` (comme
+        // `order_mut_iter!` avant), donc les `damage_events.send` ci-dessous gardent le même
+        // ordre de file qu'avant — seul le nombre de candidats testés change (la boucle ne
+        // parcourt plus toutes les cibles du monde, seulement celles proches de la hitbox).
+        let hitbox_aabb =
+            crate::collision_grid::collider_aabb(&hitbox_transform.translation, hitbox_collider);
+
+        for target_entry in grids.characters.query_aabb(&hitbox_aabb) {
+            let Ok((
+                target_g_id,
+                target_entity,
+                target_transform,
+                target_collider,
+                target_team,
+                opt_velocity_mut,
+            )) = target_query.get_mut(target_entry.entity)
+            else {
+                continue;
+            };
+
             // Skip if this is the attacker
             if target_entity == hitbox.owner_entity {
                 continue;
