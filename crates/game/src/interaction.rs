@@ -9,7 +9,11 @@ use serde::{Deserialize, Serialize};
 use sim_core::modifier::Modifiers;
 use std::collections::BTreeMap;
 use std::hash::{Hash, Hasher};
-use utils::{frame::FrameCount, net_id::GgrsNetId, order_iter, order_mut_iter};
+use utils::{
+    frame::FrameCount,
+    net_id::{GgrsNetId, GgrsNetIdFactory},
+    order_iter, order_mut_iter,
+};
 
 use crate::{
     character::{
@@ -21,6 +25,10 @@ use crate::{
     frame_events::{FrameEvents, FrameEventsAppExt},
     rollback::RollbackTraceApp,
     system_set::RollbackSystemSet,
+    weapons::{
+        spawn_weapon_for_player, spawn_weapon_pickup, Weapon, WeaponAsset, WeaponInventory,
+        WeaponModesState, WeaponPickup, WeaponState,
+    },
 };
 
 /// Component marker for the interaction prompt text UI
@@ -73,7 +81,11 @@ pub enum InteractionType {
     /// `character::health::rollback_apply_bleedout`) ; consommé par
     /// [`handle_revive_interaction`].
     Revive,
-    // Future: Crate, Weapon, Soda, etc.
+    /// Ramasser une arme au sol (T2.2, chantier B7). Posé avec `Interactable` sur une
+    /// entité `weapons::WeaponPickup` (`weapons::spawn_weapon_pickup` : lâcher, ou une
+    /// arme murale T2.3) ; consommé par [`handle_weapon_pickup_interaction`].
+    Weapon,
+    // Future: Crate, Soda, etc.
 }
 
 /// Component that marks an entity as capable of interacting
@@ -216,6 +228,7 @@ pub fn interaction_detection_system(
                 InteractionType::Door => "Door",
                 InteractionType::Window => "Window",
                 InteractionType::Revive => "Revive",
+                InteractionType::Weapon => "Weapon",
             };
             info!(
                 "{} interaction detected: interactor {} with {} ({}) at distance_sq {:?}",
@@ -618,6 +631,127 @@ pub fn handle_revive_interaction(
     }
 }
 
+/// Ramasser une arme au sol (T2.2, chantier B7). `INPUT_INTERACTION` maintenu à portée d'une
+/// entité `WeaponPickup` (lâchée par `weapons::weapon_drop_system`, ou T2.3 armes murales) :
+/// équipe l'arme et restaure exactement le chargeur capturé au moment du dépôt
+/// (`WeaponPickup::mag_ammo`, voir `spawn_weapon_for_player::initial_mag_ammo`).
+///
+/// **Emplacements pleins** (`CharacterConfig::weapon_slots`, T2.2) : l'arme ramassée
+/// remplace l'arme active plutôt que s'ajouter — celle-ci tombe au sol (nouvelle
+/// `WeaponPickup`, à la position de celui qui ramasse) avec son propre chargeur restauré au
+/// prochain ramassage, comme n'importe quelle arme lâchée. En dessous des emplacements,
+/// l'arme ramassée s'ajoute et devient active, sans retirer aucune arme existante.
+pub fn handle_weapon_pickup_interaction(
+    frame: Res<FrameCount>,
+    events: Res<FrameEvents<InteractionEvent>>,
+    mut commands: Commands,
+    character_configs: Res<Assets<CharacterConfig>>,
+    pickup_query: Query<(&Weapon, &WeaponPickup), With<Rollback>>,
+    mut inventory_query: Query<
+        (
+            &mut WeaponInventory,
+            &CharacterConfigHandles,
+            &fixed_math::FixedTransform3D,
+        ),
+        With<Rollback>,
+    >,
+    weapon_state_query: Query<(&WeaponState, &WeaponModesState), With<Rollback>>,
+    mut id_factory: ResMut<GgrsNetIdFactory>,
+) {
+    let system_span = span!(
+        Level::INFO,
+        "ggrs",
+        f = frame.frame,
+        s = "handle_weapon_pickup_interaction"
+    );
+    let _enter = system_span.enter();
+
+    for event in events.iter() {
+        if event.interaction_type != InteractionType::Weapon {
+            continue;
+        }
+
+        let Ok((picked_weapon, pickup)) = pickup_query.get(event.interactable) else {
+            warn!(
+                "ramassage d'arme : entité {:?} (net_id {}) sans WeaponPickup",
+                event.interactable, event.interactable_net_id
+            );
+            continue;
+        };
+        let picked_weapon = picked_weapon.clone();
+        let picked_mag_ammo = pickup.mag_ammo;
+
+        let Ok((mut inventory, config_handles, transform)) =
+            inventory_query.get_mut(event.interactor)
+        else {
+            continue;
+        };
+
+        let weapon_slots = character_configs
+            .get(&config_handles.config)
+            .map_or(2, |config| config.weapon_slots) as usize;
+
+        // Emplacements pleins (T2.2) : l'arme active cède sa place, elle tombe au sol.
+        let displaced = if !inventory.weapons.is_empty() && inventory.weapons.len() >= weapon_slots
+        {
+            let idx = inventory.active_weapon_index;
+            let (old_entity, old_weapon) = inventory.weapons.remove(idx);
+            let old_mag_ammo = weapon_state_query
+                .get(old_entity)
+                .ok()
+                .and_then(|(state, modes)| modes.modes.get(&state.active_mode))
+                .map_or(0, |mode| mode.mag_ammo);
+            use bevy_ggrs::RollbackDespawnCommandExtension;
+            commands.entity(old_entity).despawn_rollback();
+            if !inventory.weapons.is_empty() {
+                inventory.active_weapon_index = inventory
+                    .active_weapon_index
+                    .min(inventory.weapons.len() - 1);
+            }
+            Some((old_weapon, old_mag_ammo))
+        } else {
+            None
+        };
+
+        info!(
+            "{} weapon pickup: interactor {} equips {} (mag {}), displaced={}",
+            frame.as_ref(),
+            event.interactor_net_id,
+            picked_weapon.config.name,
+            picked_mag_ammo,
+            displaced.is_some()
+        );
+
+        // Le ramassage consomme l'entité au sol, qu'il y ait échange ou non.
+        use bevy_ggrs::RollbackDespawnCommandExtension;
+        commands.entity(event.interactable).despawn_rollback();
+
+        spawn_weapon_for_player(
+            &mut commands,
+            true,
+            event.interactor,
+            WeaponAsset {
+                config: picked_weapon.config,
+                sprite_config: picked_weapon.sprite_config,
+            },
+            &mut inventory,
+            &mut id_factory,
+            Some(picked_mag_ammo),
+        );
+
+        if let Some((old_weapon, old_mag_ammo)) = displaced {
+            spawn_weapon_pickup(
+                &mut commands,
+                old_weapon,
+                old_mag_ammo,
+                transform.translation,
+                None,
+                &mut id_factory,
+            );
+        }
+    }
+}
+
 /// Plugin for the interaction system
 pub struct InteractionPlugin;
 
@@ -648,6 +782,8 @@ impl Plugin for InteractionPlugin {
                 // À terre (T1.3) : même position dans la chaîne que les autres handlers
                 // d'`InteractionEvent`, filtré par `interaction_type` comme eux.
                 handle_revive_interaction,
+                // T2.2, chantier B7 : même position, filtré comme les autres.
+                handle_weapon_pickup_interaction,
             )
                 .chain()
                 .after(RollbackSystemSet::Input)

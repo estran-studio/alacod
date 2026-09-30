@@ -164,6 +164,19 @@ fn lint_characters(registry: &Registry, errors: &mut Vec<LintError>) {
                 ),
             });
         }
+
+        // Hors plage (T2.2, chantier B7) : zéro emplacement bloquerait tout ramassage
+        // d'arme (voir `interaction::handle_weapon_pickup_interaction`).
+        if character.weapon_slots == 0 {
+            errors.push(LintError {
+                kind: LintErrorKind::OutOfRange,
+                file: file.clone(),
+                message: format!(
+                    "personnage « {} » : champ weapon_slots = 0 : doit être > 0",
+                    character.id
+                ),
+            });
+        }
     }
 }
 

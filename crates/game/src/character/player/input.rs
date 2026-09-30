@@ -36,6 +36,10 @@ pub const INPUT_MODIFIER: u16 = 1 << 8;
 pub const INPUT_INTERACTION: u16 = 1 << 9;
 pub const INPUT_MELEE_ATTACK: u16 = 1 << 10;
 pub const INPUT_FORCE_CRASH: u16 = 1 << 11;
+/// Lâche l'arme active au sol (T2.2, chantier B7). Touche `G` (`Devices`, voir
+/// `character::player::control::get_input_map`), bouton `DropWeapon` des scénarios (voir
+/// `game::replay::Button`).
+pub const INPUT_DROP_WEAPON: u16 = 1 << 12;
 
 const PAN_FACING_THRESHOLD: i16 = 5;
 
@@ -270,6 +274,10 @@ pub fn read_local_inputs(
 
         if action_state.pressed(&PlayerAction::MeleeAttack) {
             input.buttons |= INPUT_MELEE_ATTACK;
+        }
+
+        if action_state.pressed(&PlayerAction::DropWeapon) {
+            input.buttons |= INPUT_DROP_WEAPON;
         }
 
         // F12 to force crash (debug)

@@ -1,0 +1,35 @@
+// Lâcher et ramasser une arme (T2.2, chantier B7) : le joueur lâche sa mitrailleuse (arme
+// active au spawn), s'éloigne, revient et la ramasse.
+//
+// À regarder : lâcher refusé pendant le cooldown initial (f10, comme le changement d'arme,
+// voir `weapons_workout.ron`), accepté à f25 : la mitrailleuse tombe au sol (WeaponPickups
+// passe à 1, l'arme active devient le pistolet, la seconde arme de départ). Le joueur
+// s'éloigne vers la droite (f50-90, ~34 unités, hors de portée d'interaction) puis revient
+// vers la gauche (f120-160, même durée : retour au point de dépôt) et la ramasse en
+// maintenant l'interaction (f200-240) : ActiveWeapon redevient machine_gun, WeaponPickups
+// repasse à 0.
+Scenario(
+    game: "zombies",
+    frames: 300,
+    players: [
+        (inputs: [
+            (from: 10, to: 13, buttons: [DropWeapon]),
+            (from: 25, to: 28, buttons: [DropWeapon]),
+            (from: 50, to: 90, buttons: [Right]),
+            (from: 120, to: 160, buttons: [Left]),
+            (from: 200, to: 240, buttons: [Interaction]),
+        ]),
+    ],
+    expect: [
+        // Premier essai (f10) dans le cooldown initial (20 frames, partagé avec le
+        // changement d'arme) : sans effet, la mitrailleuse reste active.
+        ActiveWeapon(handle: 0, weapon: "machine_gun", at_frame: 20),
+        WeaponPickups(min: 0, max: 0, at_frame: 20),
+        // Second essai (f25), après le cooldown : accepté.
+        WeaponPickups(min: 1, max: 1, at_frame: 40),
+        ActiveWeapon(handle: 0, weapon: "pistol", at_frame: 40),
+        WeaponPickups(min: 1, max: 1, at_frame: 190),
+        ActiveWeapon(handle: 0, weapon: "machine_gun", at_frame: 250),
+        WeaponPickups(min: 0, max: 0, at_frame: 250),
+    ],
+)

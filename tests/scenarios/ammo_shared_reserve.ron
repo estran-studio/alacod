@@ -1,0 +1,37 @@
+// Réserve de munitions partagée par type (T2.2, chantier B7) : pistolet et mitrailleuse
+// forcés sur le même type (Balle, `weapon_overrides`) pour prouver que la réserve est
+// commune aux deux armes. Mitrailleuse : mag_size 5, mag_limit 2 (réserve 10). Pistolet :
+// mag_size 5, mag_limit 1 (réserve 5). Réserve totale au départ : 15.
+//
+// À regarder : le joueur vide et recharge la mitrailleuse deux fois de suite (tir continu,
+// f10-260) ; la réserve baisse à chaque rechargement automatique. Il change ensuite pour le
+// pistolet (f300), le vide par pulsations (f320-500) puis recharge : la même réserve baisse
+// encore, jusqu'à épuisement.
+Scenario(
+    game: "zombies",
+    frames: 700,
+    weapon_overrides: [
+        (weapon: "machine_gun", mag_size: 5, mag_limit: 2, ammo_type: Balle),
+        (weapon: "pistol", mag_size: 5, mag_limit: 1, ammo_type: Balle),
+    ],
+    players: [
+        (inputs: [
+            (from: 10, to: 260, buttons: [Fire], pan: (40, 100)),
+            (from: 300, to: 303, buttons: [SwitchWeapon]),
+            (from: 320, to: 323, buttons: [Fire], pan: (40, 100)),
+            (from: 360, to: 363, buttons: [Fire], pan: (40, 100)),
+            (from: 400, to: 403, buttons: [Fire], pan: (40, 100)),
+            (from: 440, to: 443, buttons: [Fire], pan: (40, 100)),
+            (from: 480, to: 483, buttons: [Fire], pan: (40, 100)),
+        ]),
+    ],
+    expect: [
+        ActiveWeapon(handle: 0, weapon: "machine_gun", at_frame: 15),
+        // Deux rechargements automatiques de la mitrailleuse (chargeur vidé deux fois) :
+        // la réserve commune baisse deux fois (15 -> 10 -> 5).
+        AmmoReserve(handle: 0, ammo_type: Balle, amount: 5, at_frame: 260),
+        ActiveWeapon(handle: 0, weapon: "pistol", at_frame: 310),
+        // Le pistolet puise dans la même réserve (Balle) : elle baisse encore.
+        AmmoReserve(handle: 0, ammo_type: Balle, amount: 0, at_frame: 650),
+    ],
+)

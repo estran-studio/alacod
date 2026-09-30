@@ -24,7 +24,9 @@
 //! - [`kinds`] : registre des « kinds » de contenu déclarés par les plugins.
 //! - [`frame_events`] : `FrameEvents<T>`, déménagé de `crates/game`.
 //! - [`system_set`] : `RollbackSystemSet` et son ordre total, déménagé de `crates/game`.
+//! - [`ammo`] : type de munition d'une arme à distance (T2.2, chantier B7).
 
+pub mod ammo;
 pub mod damage;
 pub mod frame_events;
 pub mod gauge;

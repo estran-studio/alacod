@@ -3,6 +3,9 @@
         config: (
             name: "pistol",
             default_firing_mode: "default",
+            // T2.2, chantier B7 : type de munition, voir la copie de ce fichier sous
+            // games/zombies (même contenu, ce commentaire n'est pas dupliqué partout ici).
+            ammo_type: Plomb,
             firing_modes: {
                 "default": (
                     firing_rate: "2.0",
@@ -42,6 +45,7 @@
         config: (
             name: "machine_gun",
             default_firing_mode: "default",
+            ammo_type: Balle,
             firing_modes: {
                 "default": (
                     firing_rate: "10.0",
@@ -97,6 +101,7 @@
         config: (
             name: "shotgun",
             default_firing_mode: "default",
+            ammo_type: Cartouche,
             firing_modes: {
                 "default": (
                     firing_rate: "1.0",

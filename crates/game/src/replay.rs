@@ -21,12 +21,13 @@
 //! Joué par `crates/scenario` ; écrit par l'enregistrement (`crate::recording`).
 
 use crate::character::player::input::{
-    BoxInput, InputSegment, ScriptedInputs, INPUT_DASH, INPUT_DOWN, INPUT_FORCE_CRASH,
-    INPUT_INTERACTION, INPUT_LEFT, INPUT_MELEE_ATTACK, INPUT_MODIFIER, INPUT_RELOAD, INPUT_RIGHT,
-    INPUT_SPRINT, INPUT_SWITCH_WEAPON_MODE, INPUT_UP,
+    BoxInput, InputSegment, ScriptedInputs, INPUT_DASH, INPUT_DOWN, INPUT_DROP_WEAPON,
+    INPUT_FORCE_CRASH, INPUT_INTERACTION, INPUT_LEFT, INPUT_MELEE_ATTACK, INPUT_MODIFIER,
+    INPUT_RELOAD, INPUT_RIGHT, INPUT_SPRINT, INPUT_SWITCH_WEAPON_MODE, INPUT_UP,
 };
 use bevy_fixed::fixed_math::Fixed;
 use serde::{Deserialize, Serialize};
+use sim_core::ammo::AmmoType;
 use sim_core::damage::FriendlyFire;
 use sim_core::modifier::ModifierOp;
 use sim_core::stats::StatId;
@@ -119,6 +120,11 @@ pub struct WeaponOverride {
     /// n'est pas par mode de tir.
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub friendly_fire: Option<FriendlyFire>,
+    /// Type de munition de l'arme, pour ce scénario seulement (T2.2, chantier B7 :
+    /// scénario `ammo_shared_reserve`, deux armes forcées sur le même type pour prouver la
+    /// réserve partagée). S'applique à l'arme entière, comme `friendly_fire`.
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub ammo_type: Option<AmmoType>,
 }
 
 /// Remplace des valeurs de `waves::config::WaveConfig` pour un scénario (T2.1, bench
@@ -281,6 +287,8 @@ pub enum Button {
     Modifier,
     Interaction,
     Melee,
+    /// Lâche l'arme active au sol (T2.2, chantier B7). Voir `INPUT_DROP_WEAPON`.
+    DropWeapon,
     /// Touche de debug qui provoque un crash volontaire
     ForceCrash,
 }
@@ -334,6 +342,27 @@ pub enum Expectation {
     Ammo {
         handle: usize,
         ammo: u32,
+        at_frame: u32,
+    },
+    /// Munitions exactes dans la réserve du joueur pour un type de munition donné (T2.2,
+    /// chantier B7, `combat::inventory::AmmoReserves`). Contrairement à `Ammo` (chargeur de
+    /// l'arme active), vérifie la réserve d'un type précis, partagée entre toutes les armes
+    /// qui le déclarent — voir le scénario `ammo_shared_reserve`.
+    AmmoReserve {
+        handle: usize,
+        ammo_type: AmmoType,
+        amount: u32,
+        at_frame: u32,
+    },
+    /// Nombre d'armes tombées au sol (T2.2, chantier B7, `weapons::WeaponPickup`), toutes
+    /// entités confondues (pas par joueur : lâcher/ramasser n'a pas de propriétaire une fois
+    /// l'arme au sol). Bornes `[min, max]` inclusives, `None` = pas de borne — voir le
+    /// scénario `drop_pickup_swap`.
+    WeaponPickups {
+        #[serde(default, skip_serializing_if = "Option::is_none")]
+        min: Option<u32>,
+        #[serde(default, skip_serializing_if = "Option::is_none")]
+        max: Option<u32>,
         at_frame: u32,
     },
     /// Portes ouvertes (sans collider).
@@ -414,7 +443,8 @@ pub enum Expectation {
     },
     /// Un `GameEvent` de ce `kind` (et dont le label contient la sous-chaîne, si donnée) est survenu
     /// à une frame ≤ `by_frame`. Les `kind` possibles : "wave", "kill", "player", "hit", "reload",
-    /// "weapon", "move", "melee", "death", "window", "door", "downed", "revived", "defeat".
+    /// "weapon", "move", "melee", "death", "window", "door", "downed", "revived", "defeat",
+    /// "drop", "pickup" (T2.2, chantier B7).
     Event {
         kind: String,
         #[serde(default, skip_serializing_if = "Option::is_none")]
@@ -453,6 +483,8 @@ impl Expectation {
             | Self::WindowsBrokenAtLeast { at_frame, .. }
             | Self::ActiveWeapon { at_frame, .. }
             | Self::Ammo { at_frame, .. }
+            | Self::AmmoReserve { at_frame, .. }
+            | Self::WeaponPickups { at_frame, .. }
             | Self::DoorsOpenAtLeast { at_frame, .. }
             | Self::WindowHealth { at_frame, .. }
             | Self::BulletsInside { at_frame, .. }
@@ -559,7 +591,7 @@ pub fn box_input(buttons: &[Button], pan: (i16, i16)) -> BoxInput {
     input
 }
 
-const ALL_BUTTONS: [Button; 14] = [
+const ALL_BUTTONS: [Button; 15] = [
     Button::Up,
     Button::Down,
     Button::Left,
@@ -573,6 +605,7 @@ const ALL_BUTTONS: [Button; 14] = [
     Button::Modifier,
     Button::Interaction,
     Button::Melee,
+    Button::DropWeapon,
     Button::ForceCrash,
 ];
 
@@ -589,6 +622,7 @@ fn button_bit(button: Button) -> u16 {
         Button::Modifier => INPUT_MODIFIER,
         Button::Interaction => INPUT_INTERACTION,
         Button::Melee => INPUT_MELEE_ATTACK,
+        Button::DropWeapon => INPUT_DROP_WEAPON,
         Button::ForceCrash => INPUT_FORCE_CRASH,
         Button::Fire | Button::SwitchWeapon => 0,
     }

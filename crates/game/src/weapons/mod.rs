@@ -25,7 +25,9 @@ use sim_core::team::Team;
 use stats::StatReader;
 use std::collections::BTreeMap;
 
+use combat::inventory::AmmoReserves;
 use serde::{Deserialize, Serialize};
+use sim_core::ammo::AmmoType;
 use utils::{
     net_id::{GgrsNetId, GgrsNetIdFactory},
     order_iter, order_mut_iter,
@@ -34,6 +36,7 @@ use utils::{
 use self::melee::MeleeAttackState;
 use crate::character::visuals::VisualsAttached;
 use crate::frame_events::FrameEvents;
+use crate::interaction::{Interactable, InteractionType};
 use crate::rollback::RollbackTraceApp;
 use crate::{
     character::{
@@ -42,7 +45,8 @@ use crate::{
         movement::SprintState,
         player::{
             input::{
-                CursorPosition, INPUT_DASH, INPUT_RELOAD, INPUT_SPRINT, INPUT_SWITCH_WEAPON_MODE,
+                CursorPosition, INPUT_DASH, INPUT_DROP_WEAPON, INPUT_RELOAD, INPUT_SPRINT,
+                INPUT_SWITCH_WEAPON_MODE,
             },
             jjrs::PeerConfig,
             Player,
@@ -136,6 +140,18 @@ pub struct WeaponConfig {
     /// laissait de toute façon jamais une balle atteindre un joueur).
     #[serde(default)]
     pub friendly_fire: FriendlyFire,
+    /// Type de munition (T2.2, chantier B7 « Munitions typées et inventaire d'armes »).
+    /// Obligatoire (pas de `#[serde(default)]`) : une arme à distance sans `ammo_type` dans
+    /// son RON échoue au chargement (`content::lint` rapporte l'erreur RON, fichier +
+    /// message). Clé partagée de `combat::inventory::AmmoReserves` : deux armes qui déclarent
+    /// le même type puisent dans la même réserve (voir le scénario `ammo_shared_reserve`).
+    /// **Exclu du hash manuel ci-dessous** (comme `test`, mais pour une raison différente :
+    /// `ammo_type` est une vraie valeur de gameplay, pas une métadonnée d'outillage — il est
+    /// exclu uniquement pour que l'ajout de ce champ ne fasse pas dériver le checksum GGRS
+    /// des scénarios existants, qui ne changent pas de comportement observable ; la valeur
+    /// qui compte pour la simulation vit dans `combat::inventory::AmmoReserves`, déjà
+    /// rollback). Voir le rapport de la tâche T2.2, décision « ammo_type hors hash ».
+    pub ammo_type: AmmoType,
     /// Gabarit de scénario généré (T2.10, `crates/scenario/src/generate.rs`) : nombre de
     /// coups attendus sur `target` après `frames` images de tir continu. `None` (défaut) :
     /// l'arme obtient quand même un scénario généré, mais avec les invariants seulement (pas
@@ -151,6 +167,10 @@ pub struct WeaponConfig {
 /// avant l'ajout de `test`, en excluant `test` — une arme sans `test:` (`None`, tout le
 /// contenu existant) produit donc le même hash qu'avant ce champ, et une arme avec `test:`
 /// n'en produit pas un différent selon la valeur de `test` (pure métadonnée, voir sa doc).
+/// `ammo_type` (T2.2) est exclu pour la même raison pratique (voir sa doc) : les cinq armes
+/// du contenu `zombies` avaient déjà des comportements de munition distincts avant ce champ
+/// (mag/reload par arme) ; le rendre visible au hash ferait dériver le checksum de tous les
+/// scénarios existants dès l'ajout du champ, sans qu'aucune valeur de jeu ne bouge.
 impl std::hash::Hash for WeaponConfig {
     fn hash<H: std::hash::Hasher>(&self, state: &mut H) {
         self.name.hash(state);
@@ -299,10 +319,16 @@ impl WeaponInventory {
     }
 }
 
+/// État d'un mode de tir d'une arme équipée. **Migration T2.2** : portait jusque-là
+/// `mag_quantity: u32` (chargeurs de réserve, décrémenté à chaque rechargement, propre à
+/// cette arme). Retiré : la réserve est désormais partagée par type de munition entre toutes
+/// les armes d'un joueur (`combat::inventory::AmmoReserves`, clé `WeaponConfig::ammo_type`)
+/// plutôt que comptée par arme — voir [`WeaponModeState::can_reload`]/[`WeaponModeState::reload`]
+/// et le rapport de la tâche T2.2 pour l'équivalence (même nombre de balles tirables au total
+/// qu'avant, avec les types distincts du contenu `zombies` d'aujourd'hui).
 #[derive(Reflect, Default, Clone, Debug, Hash)]
 pub struct WeaponModeState {
     pub mag_ammo: u32,
-    pub mag_quantity: u32,
 
     pub burst_shots_left: u32,
 
@@ -338,30 +364,30 @@ pub struct WeaponsConfig(pub HashMap<String, WeaponAsset>);
 // UTILITY FUNCTION
 
 impl WeaponModeState {
-    // Do the reloading of the ammo when the reloading process is over or some other event
-    pub fn reload(&mut self) {
-        if self.mag_quantity > 0 {
-            self.mag_quantity -= 1;
-            self.mag_ammo = self.mag_size;
-        }
-    }
-
     pub fn is_mag_full(&self) -> bool {
         self.mag_ammo == self.mag_size
     }
 
-    /// A reload is only possible with a spare magazine and a mag that is not full (a
-    /// magless weapon has no spare magazine: the shotgun pump reload is started by firing).
-    pub fn can_reload(&self) -> bool {
-        self.mag_quantity > 0 && !self.is_mag_full()
+    /// Un rechargement n'est possible que pour une arme à chargeur séparé
+    /// (`MagBulletConfig::Mag` ; jamais `Magless` — un fusil à pompe n'a pas de réserve à
+    /// puiser, son « rechargement » entre deux tirs n'est qu'un délai de pompe, voir le
+    /// commentaire de l'appel dans `weapon_rollback_system`), avec au moins un chargeur
+    /// plein (`mag_size` unités) disponible dans `reserve`
+    /// (T2.2, `combat::inventory::AmmoReserves::get`), et un chargeur pas déjà plein.
+    pub fn can_reload(&self, mag: &MagBulletConfig, reserve: u32) -> bool {
+        matches!(mag, MagBulletConfig::Mag { .. })
+            && reserve >= self.mag_size
+            && !self.is_mag_full()
     }
-}
 
-impl WeaponModesState {
-    pub fn reload(&mut self, mode: &String) {
-        if let Some(mode) = self.modes.get_mut(mode) {
-            mode.reload();
-        }
+    /// Termine un rechargement commencé avec [`Self::can_reload`] vrai : remplit le
+    /// chargeur. L'appelant (`weapon_rollback_system`) a déjà retiré `mag_size` de la
+    /// réserve avant d'appeler cette méthode (T2.2) — reprend le rythme de l'ancien
+    /// `mag_quantity` (un chargeur entier par rechargement, jamais un appoint partiel qui
+    /// gaspillerait moins de munitions qu'avant), mesuré en munitions plutôt qu'en
+    /// chargeurs de réserve.
+    pub fn reload(&mut self) {
+        self.mag_ammo = self.mag_size;
     }
 }
 
@@ -403,7 +429,28 @@ impl WeaponInventory {
 
 // start the reload process
 
+/// Contribution de cette arme à la réserve initiale de son type de munition (T2.2, chantier
+/// B7) : `mag_limit × mag_size` de son mode par défaut ; `0` pour une arme magless (pas de
+/// chargeur séparé à réapprovisionner, voir la doc de `WeaponModeState::can_reload`).
+/// Partagée par `character::player::create::create_player` (somme des armes de départ) et
+/// `scenario::runner::apply_player_overrides` (`PlayerScript::weapon`, une seule arme).
+pub fn default_mode_ammo_contribution(weapon: &WeaponAsset) -> (AmmoType, u32) {
+    let amount = weapon
+        .config
+        .firing_modes
+        .get(&weapon.config.default_firing_mode)
+        .map_or(0, |mode| match mode.mag {
+            MagBulletConfig::Mag {
+                mag_size,
+                mag_limit,
+            } => mag_size * mag_limit,
+            MagBulletConfig::Magless { .. } => 0,
+        });
+    (weapon.config.ammo_type.clone(), amount)
+}
+
 // Function to spawn weapon , all weapon should be spawn on the user when they got them
+#[allow(clippy::too_many_arguments)]
 pub fn spawn_weapon_for_player(
     commands: &mut Commands,
 
@@ -414,6 +461,11 @@ pub fn spawn_weapon_for_player(
     inventory: &mut WeaponInventory,
 
     id_factory: &mut ResMut<GgrsNetIdFactory>,
+    // Munitions à poser dans le chargeur du mode par défaut, au lieu de le remplir à plein
+    // (T2.2, chantier B7) : ramasser une arme au sol restaure le `mag_ammo` capturé au
+    // moment du dépôt (`WeaponPickup::mag_ammo`), borné à la capacité du mode par défaut.
+    // `None` (tous les appels existants avant T2.2) : chargeur plein, comportement inchangé.
+    initial_mag_ammo: Option<u32>,
 ) -> Entity {
     // Entité logique uniquement : le sprite est ajouté par attach_weapon_visuals
     let animation_bundle =
@@ -424,18 +476,22 @@ pub fn spawn_weapon_for_player(
     weapon_state.active_mode = weapon.config.default_firing_mode.clone();
     for (k, v) in weapon.config.firing_modes.iter() {
         let mut weapon_mode_state = WeaponModeState::default();
-        match v.mag {
-            MagBulletConfig::Mag {
-                mag_size,
-                mag_limit,
-            } => {
-                weapon_mode_state.mag_ammo = mag_size;
-                weapon_mode_state.mag_quantity = mag_limit;
+        // Capacité de ce mode : `mag_size` (chargeur séparé) ou `bullet_limit` (magless, pas
+        // de chargeur séparé, voir la doc de `WeaponModeState::can_reload`).
+        let capacity = match v.mag {
+            MagBulletConfig::Mag { mag_size, .. } => {
                 weapon_mode_state.mag_size = mag_size;
+                mag_size
             }
-            MagBulletConfig::Magless { bullet_limit } => {
-                weapon_mode_state.mag_ammo = bullet_limit;
-            }
+            MagBulletConfig::Magless { bullet_limit } => bullet_limit,
+        };
+        // `initial_mag_ammo` (T2.2) ne s'applique qu'au mode par défaut : c'est le seul dont
+        // `WeaponPickup` a capturé le `mag_ammo` au moment du dépôt (voir sa doc) ; les
+        // autres modes démarrent pleins, comme avant ce champ.
+        weapon_mode_state.mag_ammo = if k == &weapon.config.default_firing_mode {
+            initial_mag_ammo.map_or(capacity, |ammo| ammo.min(capacity))
+        } else {
+            capacity
         };
 
         weapon_modes_state
@@ -478,6 +534,71 @@ pub fn spawn_weapon_for_player(
     commands.entity(player_entity).add_child(entity);
 
     entity
+}
+
+/// Arme à distance tombée au sol (T2.2, chantier B7 : lâcher/ramasser). Posé avec
+/// `Interactable { interaction_type: InteractionType::Weapon }` et un `Weapon` (réutilisé
+/// tel quel pour le sprite en présentation : `attach_weapon_visuals` itère tout `Weapon` sans
+/// visuel, qu'il soit équipé ou au sol — pas de système de rendu dédié) sur la même entité
+/// rollback. Consommé par `interaction::handle_weapon_pickup_interaction`.
+#[derive(Component, Debug, Clone, Hash, Serialize, Deserialize)]
+pub struct WeaponPickup {
+    /// Id de l'arme dans `weapons.ron` (`WeaponConfig::name`, clé du registre) : relu au
+    /// ramassage pour retrouver le `WeaponAsset` complet dans `Assets<WeaponsConfig>`.
+    pub weapon_id: String,
+    /// Munitions du chargeur du mode par défaut au moment du dépôt (voir
+    /// `spawn_weapon_for_player::initial_mag_ammo`) : un seul nombre, pas un par mode — le
+    /// mode par défaut est le seul restauré (comportement documenté, voir le rapport de la
+    /// tâche T2.2, décision « forme de WeaponPickup »).
+    pub mag_ammo: u32,
+}
+
+/// Fait tomber une arme au sol (`WeaponPickup`), interactable au ramassage. Portée
+/// commune à `weapons::weapon_drop_system` (T2.2) et à T2.3 (armes murales,
+/// `interaction.rs`, docs/conventions.md « CrateLocation/WeaponLocation/SodaLocation ») :
+/// même mécanisme de ramassage (`interaction::handle_weapon_pickup_interaction`) pour les
+/// deux, `price` ignoré ici (toujours `None` — T2.2 n'a pas d'économie), lu par T2.3 pour
+/// afficher/vérifier un coût à l'achat.
+#[allow(clippy::too_many_arguments)]
+pub fn spawn_weapon_pickup(
+    commands: &mut Commands,
+    weapon: Weapon,
+    mag_ammo: u32,
+    position: fixed_math::FixedVec3,
+    price: Option<u32>,
+    id_factory: &mut ResMut<GgrsNetIdFactory>,
+) -> Entity {
+    // T2.2 ne vend rien : ce paramètre existe uniquement pour que T2.3 réutilise cette même
+    // fonction sans changer sa signature (voir la doc ci-dessus).
+    let _ = price;
+
+    let weapon_id = weapon.config.name.clone();
+
+    let transform = fixed_math::FixedTransform3D::new(
+        position,
+        fixed_math::FixedMat3::IDENTITY,
+        fixed_math::FixedVec3::ONE,
+    );
+
+    let g_id = id_factory.next(format!("weapon_pickup_{weapon_id}"));
+
+    commands
+        .spawn((
+            transform.to_bevy_transform(),
+            transform,
+            weapon,
+            WeaponPickup {
+                weapon_id,
+                mag_ammo,
+            },
+            Interactable {
+                interaction_range: fixed_math::new(30.0),
+                interaction_type: InteractionType::Weapon,
+            },
+            g_id,
+        ))
+        .insert(Rollback)
+        .id()
 }
 
 /// Présentation : ajoute le sprite animé des armes qui n'en ont pas encore
@@ -712,6 +833,98 @@ pub fn system_weapon_position(
     }
 }
 
+/// Lâche l'arme active au sol (T2.2, chantier B7) : `INPUT_DROP_WEAPON`, touche `G`
+/// (`Devices`), bouton `DropWeapon` des scénarios. Sans effet si le joueur n'a pas d'arme à
+/// distance ou est à terre (T1.3, comme les autres actions volontaires — dash, sprint,
+/// interaction). Tourne avant `weapon_rollback_system` (voir `BaseWeaponGamePlugin`) : un
+/// lâcher et un tir/rechargement ne se rencontrent jamais à la même frame pour la même arme,
+/// la suite de la frame relit un `WeaponInventory` déjà à jour.
+pub fn weapon_drop_system(
+    mut commands: Commands,
+    inputs: Res<PlayerInputs<PeerConfig>>,
+    frame: Res<FrameCount>,
+    mut inventory_query: Query<
+        (
+            &mut WeaponInventory,
+            &fixed_math::FixedTransform3D,
+            &Player,
+            Has<Downed>,
+        ),
+        With<Rollback>,
+    >,
+    weapon_state_query: Query<(&WeaponState, &WeaponModesState)>,
+    mut id_factory: ResMut<GgrsNetIdFactory>,
+) {
+    let system_span = span!(Level::INFO, "ggrs", f = frame.frame, s = "weapon_drop");
+    let _enter = system_span.enter();
+
+    // Ordre par handle (déterministe), comme `weapon_rollback_system` : ce système alloue
+    // aussi des `GgrsNetId` (l'entité `WeaponPickup`).
+    let mut players: Vec<_> = inventory_query.iter_mut().collect();
+    players.sort_by_key(|(_, _, player, _is_downed)| player.handle);
+
+    for (mut inventory, transform, player, is_downed) in players {
+        let (input, _status) = inputs[player.handle];
+        if input.buttons & INPUT_DROP_WEAPON == 0 {
+            continue;
+        }
+        // À terre (T1.3) : pas d'action volontaire.
+        if is_downed {
+            continue;
+        }
+        if inventory.weapons.is_empty() {
+            continue;
+        }
+        // Anti-rebond (même délai et même champ que le changement d'arme,
+        // `weapon_rollback_system` : un lâcher change aussi l'arme active) : sans lui, tenir
+        // le bouton plusieurs frames (un scénario tient toujours au moins 2-3 frames, voir
+        // `Segment`) ferait tomber une arme différente à chaque frame jusqu'à vider
+        // l'inventaire entier.
+        if inventory.frame_switched + 20 >= frame.frame {
+            continue;
+        }
+
+        let idx = inventory.active_weapon_index;
+        let (weapon_entity, weapon) = inventory.weapons[idx].clone();
+        // Munitions du mode actif au moment du dépôt (voir la doc de `WeaponPickup`) :
+        // absente (entité déjà despawn) seulement dans un cas qui ne devrait pas arriver
+        // (incohérence `WeaponInventory`/entité enfant), 0 par défaut plutôt que paniquer.
+        let mag_ammo = weapon_state_query
+            .get(weapon_entity)
+            .ok()
+            .and_then(|(state, modes)| modes.modes.get(&state.active_mode))
+            .map_or(0, |mode| mode.mag_ammo);
+
+        info!(
+            "player {} drops {} ({} balles)",
+            player.handle, weapon.config.name, mag_ammo
+        );
+
+        use bevy_ggrs::RollbackDespawnCommandExtension;
+        commands.entity(weapon_entity).despawn_rollback();
+        inventory.weapons.remove(idx);
+        inventory.active_weapon_index = if inventory.weapons.is_empty() {
+            0
+        } else {
+            idx.min(inventory.weapons.len() - 1)
+        };
+        inventory.frame_switched = frame.frame;
+        // Une arme qui tombe emporte son rechargement en cours (l'entité qui rechargeait
+        // n'existe plus) ; une seule arme peut être en cours de rechargement à la fois
+        // (`WeaponInventory::is_reloading`), donc ceci ne touche jamais une autre arme.
+        inventory.clear_reloading();
+
+        spawn_weapon_pickup(
+            &mut commands,
+            weapon,
+            mag_ammo,
+            transform.translation,
+            None,
+            &mut id_factory,
+        );
+    }
+}
+
 // rollback system for weapon action , firing and all
 pub fn weapon_rollback_system(
     mut commands: Commands,
@@ -728,6 +941,9 @@ pub fn weapon_rollback_system(
         &fixed_math::FixedTransform3D,
         &Player,
         Has<Downed>,
+        // Réserve de munitions partagée par type (T2.2, chantier B7) : consultée/consommée
+        // au rechargement, à la place de l'ancien `WeaponModeState::mag_quantity`.
+        &mut AmmoReserves,
     )>,
     mut weapon_query: Query<(
         &mut Weapon,
@@ -758,7 +974,7 @@ pub fn weapon_rollback_system(
     // Process weapon firing for all players, in handle order: firing consumes RollbackRng
     // (spread) and GgrsNetIds (bullets), so the order must be the same on every client
     let mut players: Vec<_> = inventory_query.iter_mut().collect();
-    players.sort_by_key(|(.., player, _is_downed)| player.handle);
+    players.sort_by_key(|(.., player, _is_downed, _ammo_reserves)| player.handle);
 
     for (
         _entity,
@@ -769,6 +985,7 @@ pub fn weapon_rollback_system(
         transform,
         player,
         is_downed,
+        mut ammo_reserves,
     ) in players
     {
         let (input, _input_status) = inputs[player.handle];
@@ -833,11 +1050,24 @@ pub fn weapon_rollback_system(
             // (like switching weapon) is not possible until it is over
             if inventory.is_reloading() {
                 if inventory.is_reloading_over(frame.frame) {
-                    weapon_modes_state
-                        .modes
-                        .get_mut(&active_mode)
-                        .unwrap()
-                        .reload();
+                    // Magless (fusil à pompe) : le "rechargement" n'est qu'un délai de pompe
+                    // entre deux tirs, jamais un réapprovisionnement — aucune réserve à
+                    // puiser (voir la doc de `WeaponModeState::can_reload`), `mag_ammo`
+                    // inchangé, comme avant T2.2 (`mag_quantity` valait toujours 0 pour ces
+                    // armes, le corps du `if` d'origine ne s'exécutait jamais).
+                    if let MagBulletConfig::Mag { .. } = weapon_config.mag {
+                        let mode_state = weapon_modes_state.modes.get_mut(&active_mode).unwrap();
+                        let needed = mode_state.mag_size;
+                        // Puise dans la réserve du type de cette arme (T2.2,
+                        // `combat::inventory::AmmoReserves`) : un chargeur entier à la fois,
+                        // jamais un appoint partiel (voir la doc de `reload`). Lu puis retiré
+                        // séparément (pas juste le résultat de `take`) pour ne jamais
+                        // consommer une réserve insuffisante sans remplir le chargeur.
+                        if ammo_reserves.get(&weapon.config.ammo_type) >= needed {
+                            ammo_reserves.take(&weapon.config.ammo_type, needed);
+                            mode_state.reload();
+                        }
+                    }
                     inventory.clear_reloading();
                 } else {
                     continue;
@@ -867,8 +1097,11 @@ pub fn weapon_rollback_system(
             }
 
             let weapon_mode_state = weapon_modes_state.modes.get_mut(&active_mode).unwrap();
+            let reserve = ammo_reserves.get(&weapon.config.ammo_type);
 
-            if input.buttons & INPUT_RELOAD != 0 && weapon_mode_state.can_reload() {
+            if input.buttons & INPUT_RELOAD != 0
+                && weapon_mode_state.can_reload(&weapon_config.mag, reserve)
+            {
                 inventory.start_reload(frame.frame, reload_time_seconds);
                 continue;
             }
@@ -960,8 +1193,10 @@ pub fn weapon_rollback_system(
                 };
 
                 if empty {
-                    // Empty mag: reload if a spare magazine is left, otherwise just a dry click
-                    if weapon_mode_state.can_reload() {
+                    // Empty mag: reload if the reserve has enough for a full mag, otherwise
+                    // just a dry click (`reserve` computed above, unchanged since : neither
+                    // branch reached this point after consuming it this frame).
+                    if weapon_mode_state.can_reload(&weapon_config.mag, reserve) {
                         inventory.start_reload(frame.frame, reload_time_seconds);
                     }
                     continue;
@@ -1427,7 +1662,10 @@ impl Plugin for BaseWeaponGamePlugin {
             .rollback_and_trace::<WeaponModesState>()
             .rollback_and_trace::<WeaponState>()
             .rollback_and_trace::<Bullet>()
-            .rollback_and_trace::<Weapon>();
+            .rollback_and_trace::<Weapon>()
+            // T2.2, chantier B7 : réserve de munitions par joueur et arme tombée au sol.
+            .rollback_and_trace::<AmmoReserves>()
+            .rollback_and_trace::<WeaponPickup>();
 
         // Rollback components for melee weapons
         app.rollback_and_trace::<melee::MeleeWeapon>()
@@ -1442,8 +1680,11 @@ impl Plugin for BaseWeaponGamePlugin {
         app.add_systems(
             GgrsSchedule,
             (
-                // Ranged weapon systems
-                system_weapon_position,
+                // Ranged weapon systems. `weapon_drop_system` avant tout le reste (T2.2) :
+                // un lâcher cette frame doit être vu par `system_weapon_position`/
+                // `weapon_rollback_system` (inventaire déjà à jour, arme déjà despawn).
+                weapon_drop_system,
+                system_weapon_position.after(weapon_drop_system),
                 weapon_rollback_system.after(system_weapon_position),
                 bullet_rollback_system.after(weapon_rollback_system),
                 bullet_rollback_collision_system.after(bullet_rollback_system),

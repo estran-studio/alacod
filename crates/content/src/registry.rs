@@ -16,6 +16,7 @@ use std::path::{Path, PathBuf};
 
 use bevy::prelude::Resource;
 use bevy_fixed::fixed_math::Fixed;
+use sim_core::ammo::AmmoType;
 use sim_core::kinds::{KindDecl, Kinds};
 use sim_core::stats::StatId;
 
@@ -128,6 +129,8 @@ pub struct CharacterEntry {
     pub revive_frames: u32,
     /// À terre (T1.3, chantier B6), pour la règle « 0 < downed_speed_mult <= 1 ».
     pub downed_speed_mult: FixedField,
+    /// Emplacements d'armes à distance (T2.2, chantier B7), pour la règle « > 0 ».
+    pub weapon_slots: u32,
 }
 
 #[derive(Debug, Clone)]
@@ -348,6 +351,9 @@ struct CharacterFileSchema {
     revive_frames: u32,
     #[serde(default = "default_downed_speed_mult")]
     downed_speed_mult: FixedField,
+    /// T2.2, chantier B7 : voir `game::character::config::CharacterConfig::weapon_slots`.
+    #[serde(default = "default_weapon_slots")]
+    weapon_slots: u32,
 }
 
 fn default_bleedout_frames() -> u32 {
@@ -360,6 +366,10 @@ fn default_revive_frames() -> u32 {
 
 fn default_downed_speed_mult() -> FixedField {
     FixedField(Fixed::from_num(0.3))
+}
+
+fn default_weapon_slots() -> u32 {
+    2
 }
 
 #[derive(Deserialize)]
@@ -386,6 +396,14 @@ struct WeaponConfigSchema {
     firing_modes: BTreeMap<String, FiringModeSchema>,
     #[serde(default)]
     test: Option<WeaponTestSchema>,
+    /// Type de munition (T2.2, chantier B7). **Pas de `#[serde(default)]`** : le type réel
+    /// (`game::weapons::WeaponConfig::ammo_type`) ne l'a pas non plus — une arme à distance
+    /// sans `ammo_type` dans son RON échoue déjà à charger comme le type réel, ce mirroir se
+    /// contente de reproduire la même erreur ici (`LintErrorKind::Parse`, fichier + message
+    /// RON) plutôt que de la laisser silencieusement absente d'un `WeaponEntry` construit
+    /// avec des valeurs par défaut.
+    #[allow(dead_code)]
+    ammo_type: AmmoType,
 }
 
 #[derive(Deserialize)]
@@ -511,6 +529,7 @@ fn load_characters(
                 bleedout_frames: parsed.bleedout_frames,
                 revive_frames: parsed.revive_frames,
                 downed_speed_mult: parsed.downed_speed_mult,
+                weapon_slots: parsed.weapon_slots,
             },
         );
     }

@@ -110,6 +110,14 @@ pub struct CharacterConfig {
     /// `content::lint` (`0 < downed_speed_mult <= 1`).
     #[serde(default = "default_downed_speed_mult")]
     pub downed_speed_mult: fixed_math::Fixed,
+
+    /// Emplacements d'armes à distance (T2.2, chantier B7 « Munitions typées et inventaire
+    /// d'armes ») : au-delà, ramasser une arme remplace l'arme active plutôt que
+    /// l'ajouter — voir `interaction::handle_weapon_pickup_interaction`. Défaut 2. Le
+    /// personnage joueur `zombies` le porte à 3 explicitement (`starting_weapons` en
+    /// déclare trois) ; le testbed garde le défaut. Borné par `content::lint` (`> 0`).
+    #[serde(default = "default_weapon_slots")]
+    pub weapon_slots: u32,
 }
 
 fn default_bleedout_frames() -> u32 {
@@ -122,6 +130,10 @@ fn default_revive_frames() -> u32 {
 
 fn default_downed_speed_mult() -> fixed_math::Fixed {
     fixed_math::new(0.3)
+}
+
+fn default_weapon_slots() -> u32 {
+    2
 }
 
 #[derive(Component)]

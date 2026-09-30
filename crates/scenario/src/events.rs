@@ -8,11 +8,12 @@ use std::collections::{BTreeMap, BTreeSet};
 
 use bevy::prelude::*;
 use combat::downed::{Downed, RunOutcome};
+use combat::inventory::AmmoReserves;
 use game::{
     character::{health::Health, player::Player},
     collider::Collider,
     waves::{WavePhase, WaveState},
-    weapons::{WeaponInventory, WeaponModesState, WeaponState},
+    weapons::{WeaponInventory, WeaponModesState, WeaponPickup, WeaponState},
 };
 use map::game::entity::map::{door::DoorComponent, window::WindowHealth};
 use serde::Serialize;
@@ -37,11 +38,14 @@ struct PlayerSnapshot {
     reloading: bool,
     weapon_index: usize,
     hit: bool,
-    /// Arme active : nom, mode, munitions du chargeur et chargeurs restants
+    /// Arme active : nom, mode, munitions du chargeur et réserve du type de munition
     weapon: String,
     mode: String,
     ammo: u32,
-    mags: u32,
+    /// Réserve du type de munition de l'arme active (T2.2, chantier B7,
+    /// `combat::inventory::AmmoReserves`) : remplace l'ancien `mag_quantity` (chargeurs de
+    /// réserve propres à l'arme), désormais partagé par type entre les armes d'un joueur.
+    reserve: u32,
     dashing: bool,
     sprinting: bool,
     melee: bool,
@@ -59,6 +63,10 @@ struct Snapshot {
     windows: BTreeMap<usize, u8>,
     closed_doors: BTreeSet<usize>,
     open_doors: BTreeSet<usize>,
+    /// Armes au sol (T2.2, chantier B7) : `GgrsNetId` -> id de l'arme
+    /// (`WeaponPickup::weapon_id`). Un id qui apparaît = lâcher (`drop`) ; un id qui
+    /// disparaît = ramassage (`pickup`).
+    weapon_pickups: BTreeMap<usize, String>,
     /// À terre (T1.3, chantier B6) : `combat::downed::RunOutcome::defeat_at_frame.is_some()`.
     defeat: bool,
 }
@@ -92,6 +100,7 @@ fn detect_events(
         &Player,
         &Health,
         Option<&WeaponInventory>,
+        Option<&AmmoReserves>,
         Option<&game::character::dash::DashState>,
         Option<&game::character::movement::SprintState>,
         Option<&game::weapons::melee::MeleeAttackState>,
@@ -102,6 +111,8 @@ fn detect_events(
     windows: Query<(&GgrsNetId, &WindowHealth)>,
     // Porte ouverte = sans collider (une porte non interactive reste fermée)
     doors: Query<(&GgrsNetId, Has<Collider>), With<DoorComponent>>,
+    // T2.2, chantier B7 : armes tombées au sol.
+    weapon_pickups: Query<(&GgrsNetId, &WeaponPickup)>,
 ) {
     let mut now = Snapshot::default();
     if let Some(wave) = &wave {
@@ -110,7 +121,9 @@ fn detect_events(
         now.kills = wave.total_enemies_killed;
     }
     now.defeat = run_outcome.is_some_and(|outcome| outcome.defeat_at_frame.is_some());
-    for (player, health, inventory, dash, sprint, melee, transform, downed) in &players {
+    for (player, health, inventory, ammo_reserves, dash, sprint, melee, transform, downed) in
+        &players
+    {
         let mut snapshot = PlayerSnapshot {
             reloading: inventory.is_some_and(|i| i.reloading_ending_frame.is_some()),
             weapon_index: inventory.map_or(0, |i| i.active_weapon_index),
@@ -128,11 +141,11 @@ fn detect_events(
         if let Some((entity, weapon)) = inventory.and_then(|i| i.weapons.get(i.active_weapon_index))
         {
             snapshot.weapon = weapon.config.name.clone();
+            snapshot.reserve = ammo_reserves.map_or(0, |r| r.get(&weapon.config.ammo_type));
             if let Ok((state, modes)) = weapons.get(*entity) {
                 snapshot.mode = state.active_mode.clone();
                 if let Some(mode) = modes.modes.get(&state.active_mode) {
                     snapshot.ammo = mode.mag_ammo;
-                    snapshot.mags = mode.mag_quantity;
                 }
             }
         }
@@ -147,6 +160,9 @@ fn detect_events(
         } else {
             now.open_doors.insert(id.0);
         }
+    }
+    for (id, pickup) in &weapon_pickups {
+        now.weapon_pickups.insert(id.0, pickup.weapon_id.clone());
     }
 
     // Première frame vue : référence, rien à signaler (sauf joueurs présents)
@@ -193,8 +209,8 @@ fn detect_events(
                     push(
                         "reload",
                         format!(
-                            "joueur {handle} a rechargé : {} ({} chargeurs)",
-                            player.ammo, player.mags
+                            "joueur {handle} a rechargé : {} ({} en réserve)",
+                            player.ammo, player.reserve
                         ),
                     );
                 }
@@ -277,6 +293,17 @@ fn detect_events(
     }
     for id in now.open_doors.intersection(&before.closed_doors) {
         push("door", format!("porte {id} ouverte"));
+    }
+    // T2.2, chantier B7 : une arme qui apparaît au sol = lâcher ; une qui disparaît = ramassage.
+    for (id, weapon_id) in &now.weapon_pickups {
+        if !before.weapon_pickups.contains_key(id) {
+            push("drop", format!("arme {weapon_id} tombée au sol ({id})"));
+        }
+    }
+    for (id, weapon_id) in &before.weapon_pickups {
+        if !now.weapon_pickups.contains_key(id) {
+            push("pickup", format!("arme {weapon_id} ramassée ({id})"));
+        }
     }
     if now.defeat && !before.defeat {
         push(
