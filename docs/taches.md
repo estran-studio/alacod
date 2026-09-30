@@ -523,6 +523,12 @@ région des chantiers puis la campagne.
 - Le digest hebdomadaire (plan §9.8) liste les tâches mergées, en cours, bloquées, et les métriques.
 - Une tâche qui découvre une autre tâche l'ajoute ici, dans la vague suivante, jamais dans la sienne.
 
+**Fiches détaillées** (2026-09-30) : `docs/taches/` contient un préambule commun (`README.md` :
+où travailler, règles de compilation, vérification standard, protocole de preuve, merge, journal,
+rapport) et une fiche autonome par tâche restante (T2.4 vérification/merge, T2.5 reprise, T2.8,
+T2.12, T3.1, T3.2, `dettes.md`), écrites pour un agent sans contexte (DeepSeek, Qwen, Haiku) :
+coller le préambule puis la fiche dans son prompt.
+
 ## 10. Journal
 
 | Date | Tâche | Branche | Agent | État |
