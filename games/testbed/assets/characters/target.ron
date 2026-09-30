@@ -1,9 +1,7 @@
-// Personnage de laboratoire T2.9 (testbed) : cible qui compte les coups reçus, santé
-// réglable par ce fichier (`base_health.max`). Ne tire pas (aucune `starting_weapons`), ne
-// poursuit ni n'attaque personne (`ai.aggro_range`/`ai.attack_range` = 0, `ai.stationary` =
-// true, lu par `character::enemy::ai::pathing::move_enemies`). Spawné via l'entité LDtk
-// `CharacterSpawn` (`character: "target"`), équipe posée par le champ `team` de cette entité
-// (voir `games/testbed/assets/testbed/arena.ldtk`).
+// Personnage de laboratoire T2.9 (testbed) : cible immobile à très haute santé qui compte les
+// coups reçus (`counts_hits: true` → composant `HitCount`, lu par l'attente `EntityHits` du
+// scénario `testbed_target_hits`). Même configuration que `dummy` par ailleurs. Recréé par
+// l'orchestrateur : le fichier livré par T2.9 était avalé par le motif `target` du .gitignore.
 (
     movement: (
         acceleration: "0.0",
@@ -33,6 +31,8 @@
     base_health: (
         max: "5000.0",
     ),
+
+    // Cible : compte les coups reçus (`HitCount`, attente `EntityHits`).
     counts_hits: true,
 
     starting_skin: "1",

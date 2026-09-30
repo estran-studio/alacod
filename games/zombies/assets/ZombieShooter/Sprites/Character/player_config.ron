@@ -56,4 +56,11 @@
     // `weapons.ron` (ordre alphabétique des clés, "machine_gun" en premier = arme active).
     // Cet ordre est repris ici à l'identique pour ne pas changer les traces de scénario.
     starting_weapons: ["machine_gun", "pistol", "shotgun"],
+
+    // À terre (T1.3, chantier B6). `bleedout_frames` réduit à 900 (15 s au lieu de 30 s) :
+    // les scénarios de test (`downed_bleedout`, `two_players_idle`) simulent le saignement
+    // en entier sans traîner des dizaines de secondes de frames inutiles.
+    bleedout_frames: 900,
+    revive_frames: 180,
+    downed_speed_mult: "0.3",
 )

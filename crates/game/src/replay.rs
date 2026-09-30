@@ -373,11 +373,31 @@ pub enum Expectation {
     },
     /// Un `GameEvent` de ce `kind` (et dont le label contient la sous-chaîne, si donnée) est survenu
     /// à une frame ≤ `by_frame`. Les `kind` possibles : "wave", "kill", "player", "hit", "reload",
-    /// "weapon", "move", "melee", "death", "window", "door".
+    /// "weapon", "move", "melee", "death", "window", "door", "downed", "revived", "defeat".
     Event {
         kind: String,
         #[serde(default, skip_serializing_if = "Option::is_none")]
         label_contains: Option<String>,
+        by_frame: u32,
+    },
+    /// Le joueur `handle` est à terre (`combat::downed::Downed`) à la frame exacte
+    /// `at_frame` — vérification ponctuelle, comme `PlayerAlive`/`PlayerDead` (T1.3,
+    /// chantier B6).
+    PlayerDowned {
+        handle: usize,
+        at_frame: u32,
+    },
+    /// Le joueur `handle` a été réanimé (`combat::downed::Downed` retiré par une
+    /// réanimation complète, pas par un saignement mortel) à une frame ≤ `by_frame` —
+    /// vérification cumulative sur l'historique des événements (`GameEvents`, kind
+    /// `"revived"`), comme `Event` (T1.3, chantier B6).
+    PlayerRevived {
+        handle: usize,
+        by_frame: u32,
+    },
+    /// Tous les joueurs sont à terre ou morts (`combat::downed::RunOutcome::defeat_at_frame`)
+    /// à une frame ≤ `by_frame` (T1.3, chantier B6).
+    Defeat {
         by_frame: u32,
     },
 }
@@ -400,7 +420,14 @@ impl Expectation {
             | Self::EntityHealth { at_frame, .. }
             | Self::EntityHits { at_frame, .. }
             | Self::EntityCount { at_frame, .. }
+            | Self::PlayerDowned { at_frame, .. }
             | Self::Event {
+                by_frame: at_frame, ..
+            }
+            | Self::PlayerRevived {
+                by_frame: at_frame, ..
+            }
+            | Self::Defeat {
                 by_frame: at_frame, ..
             } => *at_frame,
             Self::NoDamageBetween { to_frame, .. } => *to_frame,

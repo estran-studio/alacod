@@ -1,6 +1,6 @@
-use crate::character::player::Player;
 use crate::core::AppState;
 use bevy::prelude::*;
+use combat::downed::RunOutcome;
 
 pub struct GameOverUiPlugin;
 
@@ -20,18 +20,17 @@ struct GameOverUiRoot;
 #[derive(Component)]
 struct ReloadButton;
 
-/// Affiche le game over dès qu'un joueur est mort (son entité est despawn).
-/// Dérivé de l'état et non d'un événement : si un rollback annule la mort,
-/// l'écran disparaît.
+/// Affiche le game over à la défaite (T1.3, chantier B6 : `RunOutcome.defeat_at_frame`,
+/// tous les joueurs à terre ou morts — avant ce chantier, un seul joueur mort suffisait ;
+/// maintenant la partie continue tant qu'il en reste un debout, voir
+/// `combat::downed::RunOutcome`). Dérivé de l'état et non d'un événement : si un rollback
+/// annule la défaite, l'écran disparaît.
 fn update_game_over_ui(
     mut commands: Commands,
-    players: Query<(), With<Player>>,
-    mut max_players_seen: Local<usize>,
+    run_outcome: Option<Res<RunOutcome>>,
     q_existing_ui: Query<Entity, With<GameOverUiRoot>>,
 ) {
-    let alive = players.iter().count();
-    *max_players_seen = (*max_players_seen).max(alive);
-    let game_over = alive < *max_players_seen;
+    let game_over = run_outcome.is_some_and(|outcome| outcome.defeat_at_frame.is_some());
 
     match (game_over, q_existing_ui.single()) {
         (true, Err(_)) => spawn_game_over_ui(&mut commands),

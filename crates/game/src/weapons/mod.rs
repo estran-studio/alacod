@@ -14,6 +14,7 @@ use bevy::{
 use bevy_common_assets::ron::RonAssetPlugin;
 use bevy_fixed::{fixed_math, rng::RngStreams};
 use bevy_ggrs::{GgrsSchedule, PlayerInputs, Rollback};
+use combat::downed::Downed;
 use combat::team::team_allows_hit;
 use ggrs::PlayerHandle;
 use sim_core::damage::{DamageEvent, DamageKind, FriendlyFire};
@@ -726,6 +727,7 @@ pub fn weapon_rollback_system(
         &MeleeAttackState,
         &fixed_math::FixedTransform3D,
         &Player,
+        Has<Downed>,
     )>,
     mut weapon_query: Query<(
         &mut Weapon,
@@ -756,15 +758,28 @@ pub fn weapon_rollback_system(
     // Process weapon firing for all players, in handle order: firing consumes RollbackRng
     // (spread) and GgrsNetIds (bullets), so the order must be the same on every client
     let mut players: Vec<_> = inventory_query.iter_mut().collect();
-    players.sort_by_key(|(.., player)| player.handle);
+    players.sort_by_key(|(.., player, _is_downed)| player.handle);
 
-    for (_entity, mut inventory, sprint_state, dash_state, melee_attack_state, transform, player) in
-        players
+    for (
+        _entity,
+        mut inventory,
+        sprint_state,
+        dash_state,
+        melee_attack_state,
+        transform,
+        player,
+        is_downed,
+    ) in players
     {
         let (input, _input_status) = inputs[player.handle];
 
         // Do nothing if no weapons
         if inventory.weapons.is_empty() {
+            continue;
+        }
+
+        // À terre (T1.3) : pas de tir.
+        if is_downed {
             continue;
         }
 

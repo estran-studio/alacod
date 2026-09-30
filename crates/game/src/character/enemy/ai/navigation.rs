@@ -14,6 +14,7 @@
 use bevy::prelude::*;
 use bevy_fixed::fixed_math;
 use bevy_ggrs::Rollback;
+use combat::downed::Downed;
 use serde::{Deserialize, Serialize};
 use std::collections::{BTreeMap, BTreeSet, VecDeque};
 use utils::{frame::FrameCount, net_id::GgrsNetId};
@@ -575,7 +576,7 @@ impl Default for FlowFieldConfig {
 pub fn update_flow_field_system(
     frame: Res<FrameCount>,
     config: Res<FlowFieldConfig>,
-    player_query: Query<(&GgrsNetId, &fixed_math::FixedTransform3D), With<Player>>,
+    player_query: Query<(&GgrsNetId, &fixed_math::FixedTransform3D, Has<Downed>), With<Player>>,
     // Portes fermées : une porte ouverte n'a plus de collider
     door_query: Query<(&GgrsNetId, &fixed_math::FixedTransform3D, &Collider), With<DoorComponent>>,
     obstacle_query: Query<(&fixed_math::FixedTransform3D, &Collider, &Obstacle), With<Rollback>>,
@@ -599,12 +600,21 @@ pub fn update_flow_field_system(
     if players.is_empty() {
         return; // No players, nothing to do
     }
-    players.sort_unstable_by_key(|(net_id, _)| net_id.0);
+    // À terre (T1.3, chantier B6) : tant qu'au moins un joueur est encore debout, le flow
+    // field (et donc le ciblage ennemi qui s'appuie dessus, `enemy_target_selection`,
+    // `update_enemy_targets`) ignore les joueurs à terre — voir la doc de
+    // `combat::downed::Downed`. Si personne n'est débout (tous à terre/morts), pas de
+    // filtrage : mieux vaut un flow field qui mène quand même quelque part qu'aucun.
+    let any_standing = players.iter().any(|(_, _, downed)| !downed);
+    if any_standing {
+        players.retain(|(_, _, downed)| !downed);
+    }
+    players.sort_unstable_by_key(|(net_id, ..)| net_id.0);
     let targets: Vec<GridPos> = players
         .iter()
-        .map(|(_, transform)| GridPos::from_fixed(transform.translation.truncate()))
+        .map(|(_, transform, _)| GridPos::from_fixed(transform.translation.truncate()))
         .collect();
-    let target_ids: Vec<usize> = players.iter().map(|(net_id, _)| net_id.0).collect();
+    let target_ids: Vec<usize> = players.iter().map(|(net_id, ..)| net_id.0).collect();
     let target_pos = targets[0];
 
     // Rebuild blocked cells first: an opened door or a broken window changes the field

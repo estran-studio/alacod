@@ -6,6 +6,7 @@ use bevy::{
 };
 use bevy_fixed::fixed_math;
 use bevy_ggrs::Rollback;
+use combat::downed::Downed;
 use combat::team::team_allows_hit;
 use ggrs::PlayerHandle;
 use serde::{Deserialize, Serialize};
@@ -646,6 +647,7 @@ pub fn player_melee_attack_system(
             &mut MeleeAttackState,
             &Team,
             Option<&Tags>,
+            Has<Downed>,
         ),
         With<Rollback>,
     >,
@@ -669,12 +671,13 @@ pub fn player_melee_attack_system(
         mut attack_state,
         team,
         opt_tags,
+        is_downed,
     ) in order_mut_iter!(player_query)
     {
         let (input, _status) = inputs[player.handle];
 
-        // Check if melee attack button is pressed
-        let wants_melee_attack = input.buttons & INPUT_MELEE_ATTACK != 0;
+        // Check if melee attack button is pressed — à terre (T1.3) : pas de mêlée.
+        let wants_melee_attack = !is_downed && (input.buttons & INPUT_MELEE_ATTACK != 0);
 
         // Find melee weapon in children
         let mut melee_weapon_opt: Option<&MeleeWeapon> = None;

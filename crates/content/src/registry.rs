@@ -15,6 +15,7 @@ use std::fmt;
 use std::path::{Path, PathBuf};
 
 use bevy::prelude::Resource;
+use bevy_fixed::fixed_math::Fixed;
 use sim_core::kinds::{KindDecl, Kinds};
 use sim_core::stats::StatId;
 
@@ -121,6 +122,12 @@ pub struct CharacterEntry {
     pub starting_weapons: Vec<WeaponId>,
     /// Surcharges de stats (T1.2, chantier B2), pour la règle « valeurs >= 0 ».
     pub stats: BTreeMap<StatId, FixedField>,
+    /// À terre (T1.3, chantier B6), pour la règle « > 0 ».
+    pub bleedout_frames: u32,
+    /// À terre (T1.3, chantier B6), pour la règle « > 0 ».
+    pub revive_frames: u32,
+    /// À terre (T1.3, chantier B6), pour la règle « 0 < downed_speed_mult <= 1 ».
+    pub downed_speed_mult: FixedField,
 }
 
 #[derive(Debug, Clone)]
@@ -334,6 +341,25 @@ struct CharacterFileSchema {
     /// (pas de mirroir : c'est déjà le type réel, `content` en dépend déjà).
     #[serde(default)]
     stats: BTreeMap<StatId, FixedField>,
+    /// T1.3, chantier B6 : voir `game::character::config::CharacterConfig::bleedout_frames`.
+    #[serde(default = "default_bleedout_frames")]
+    bleedout_frames: u32,
+    #[serde(default = "default_revive_frames")]
+    revive_frames: u32,
+    #[serde(default = "default_downed_speed_mult")]
+    downed_speed_mult: FixedField,
+}
+
+fn default_bleedout_frames() -> u32 {
+    1800
+}
+
+fn default_revive_frames() -> u32 {
+    180
+}
+
+fn default_downed_speed_mult() -> FixedField {
+    FixedField(Fixed::from_num(0.3))
 }
 
 #[derive(Deserialize)]
@@ -482,6 +508,9 @@ fn load_characters(
                     .map(WeaponId::from)
                     .collect(),
                 stats: parsed.stats,
+                bleedout_frames: parsed.bleedout_frames,
+                revive_frames: parsed.revive_frames,
+                downed_speed_mult: parsed.downed_speed_mult,
             },
         );
     }
