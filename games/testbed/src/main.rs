@@ -48,6 +48,8 @@ fn main() {
         .add_plugins(BaseArgsPlugin)
         .insert_resource(GameRoot(game_dir))
         .insert_resource(registry)
+        // T2.4, chantier F1 : voir `games/zombies/src/main.rs`.
+        .insert_resource(manifest.clone())
         // Core systems and components
         .add_plugins(core_plugin)
         // Plugins for rogue like map with ldtk

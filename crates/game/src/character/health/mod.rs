@@ -7,8 +7,9 @@ use bevy::{
 use bevy_fixed::fixed_math;
 use bevy_ggrs::Rollback;
 use combat::damage::{resolve_damage, Defenses};
-use combat::downed::{downed_modifier_source, Downed, Reviving, RunOutcome};
+use combat::downed::{downed_modifier_source, Downed, Reviving};
 use ggrs::PlayerHandle;
+use run::{Run, RunEnd, RunStep};
 use serde::{Deserialize, Serialize};
 use sim_core::damage::DamageEvent;
 use sim_core::modifier::{ModifierOp, Modifiers};
@@ -453,9 +454,11 @@ pub fn rollback_apply_bleedout(
 
 /// À terre (T1.3) : dès que tous les joueurs actuellement en jeu sont à terre ou sur le
 /// point de mourir cette même frame (`Death` déjà posé, entité pas encore détruite — voir
-/// `RollbackSystemSet::DeathManagement`), fige `RunOutcome.defeat_at_frame` une bonne fois
-/// pour toutes (`if outcome.defeat_at_frame.is_some() { return; }`, jamais réinitialisé :
-/// pas de condition de victoire qui l'efface dans ce chantier).
+/// `RollbackSystemSet::DeathManagement`), fige `Run.step` en `Ended { outcome: Defeat, .. }`
+/// une bonne fois pour toutes (`if !run.is_playing() { return; }`, T2.4 : ne réécrit jamais
+/// une issue déjà posée — ni par une défaite déjà constatée, ni par la victoire du mode
+/// (`crate::run_state::check_run_victory_system`, plus tard dans la frame), ni par un
+/// abandon vers le lobby).
 ///
 /// Aucun joueur en jeu (`Player` déjà tous détruits, ex. un run solo où le seul joueur est
 /// mort il y a plusieurs frames) : pas de défaite déclenchée ici (`any` reste faux) — elle a
@@ -468,10 +471,10 @@ pub fn rollback_apply_bleedout(
 /// sa doc).
 pub fn rollback_check_defeat(
     frame: Res<FrameCount>,
-    mut outcome: ResMut<RunOutcome>,
+    mut run: ResMut<Run>,
     players: Query<(Has<Death>, Has<Downed>), With<Player>>,
 ) {
-    if outcome.defeat_at_frame.is_some() {
+    if !run.is_playing() {
         return;
     }
 
@@ -480,7 +483,10 @@ pub fn rollback_check_defeat(
         !statuses.is_empty() && statuses.iter().all(|(dead, downed)| *dead || *downed);
 
     if all_down_or_dead {
-        outcome.defeat_at_frame = Some(frame.frame);
+        run.step = RunStep::Ended {
+            at_frame: frame.frame,
+            outcome: RunEnd::Defeat,
+        };
         info!("f{} defeat: all players downed or dead", frame.frame);
     }
 }

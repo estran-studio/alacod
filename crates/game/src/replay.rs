@@ -26,6 +26,7 @@ use crate::character::player::input::{
     INPUT_RELOAD, INPUT_RIGHT, INPUT_SPRINT, INPUT_SWITCH_WEAPON_MODE, INPUT_UP,
 };
 use bevy_fixed::fixed_math::Fixed;
+use run::RunEnd;
 use serde::{Deserialize, Serialize};
 use sim_core::ammo::AmmoType;
 use sim_core::damage::FriendlyFire;
@@ -313,6 +314,15 @@ pub enum EntityKind {
     Rollback,
 }
 
+/// Étape de `Run` attendue (T2.4, chantier F1, `Expectation::RunState`) : miroir minimal de
+/// `run::run::RunStep` pour le format RON des scénarios — pas de `since_frame` (`Playing`)
+/// ni `at_frame` (`Ended`, déjà le rôle du champ `at_frame` de l'attente elle-même).
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize)]
+pub enum RunStepExpectation {
+    Playing,
+    Ended(RunEnd),
+}
+
 /// Vérification faite quand la simulation atteint `at_frame`.
 #[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
 pub enum Expectation {
@@ -473,10 +483,33 @@ pub enum Expectation {
         handle: usize,
         by_frame: u32,
     },
-    /// Tous les joueurs sont à terre ou morts (`combat::downed::RunOutcome::defeat_at_frame`)
-    /// à une frame ≤ `by_frame` (T1.3, chantier B6).
+    /// Tous les joueurs sont à terre ou morts (`run::run::Run::step`, `RunStep::Ended {
+    /// outcome: RunEnd::Defeat, .. }`) à une frame ≤ `by_frame` (T1.3, chantier B6 ; T2.4,
+    /// chantier F1 : ne lit plus `combat::downed::RunOutcome`, disparue).
     Defeat {
         by_frame: u32,
+    },
+    /// Étape de `Run` (T2.4, chantier F1) à la frame exacte `at_frame` — vérification
+    /// ponctuelle (comme `PlayerAlive`), pas cumulative sur l'historique : une fois posée,
+    /// `RunStep::Ended` ne change plus (voir `run::run::Run`), `at_frame` n'a donc qu'à être
+    /// une frame ≥ celle où l'issue a été constatée.
+    RunState {
+        step: RunStepExpectation,
+        at_frame: u32,
+    },
+    /// Résumé de fin de partie (T2.4, chantier F1, `run::run::RunSummary`) à `at_frame` :
+    /// bornes inférieures plutôt que valeurs exactes (un joueur immobile ne tue jamais
+    /// personne — voir le scénario `run_lose_summary` — `0` est une borne toujours vraie,
+    /// pas une absence de vérification : elle documente que le résumé est cohérent avec
+    /// « aucun kill »). Échoue si `Run.summary` est encore `None` à `at_frame` (la partie
+    /// n'est pas terminée, ou `finalize_run_summary_system` n'a pas encore tourné — une
+    /// seule frame de retard sur `RunState`, voir sa doc dans `game::run_state`).
+    RunSummary {
+        #[serde(default, skip_serializing_if = "Option::is_none")]
+        wave_reached_min: Option<u32>,
+        #[serde(default, skip_serializing_if = "Option::is_none")]
+        kills_min: Option<u32>,
+        at_frame: u32,
     },
     /// Solde de monnaie du joueur `handle` dans `[min, max]` (bornes inclusives, `None` =
     /// pas de borne), T2.3 chantier C5 v1 — même forme que [`Self::EntityCount`].
@@ -523,6 +556,8 @@ impl Expectation {
             | Self::PlayerDowned { at_frame, .. }
             | Self::Currency { at_frame, .. }
             | Self::Stat { at_frame, .. }
+            | Self::RunState { at_frame, .. }
+            | Self::RunSummary { at_frame, .. }
             | Self::Event {
                 by_frame: at_frame, ..
             }

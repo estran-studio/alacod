@@ -142,6 +142,9 @@ impl Plugin for CoreSetupPlugin {
         app.add_plugins(crate::interaction::InteractionPlugin);
         app.add_plugins(GameUiPlugin);
         app.add_plugins(WaveSystemPlugin);
+        // État de run (T2.4, chantier F1) : condition de victoire, résumé, relance sans
+        // relancer le binaire (`RunRequest`). Voir `crate::run_state`.
+        app.add_plugins(crate::run_state::RunStatePlugin);
 
         app.init_resource::<GameInfo>();
         app.init_resource::<GggrsSessionConfigurationState>();

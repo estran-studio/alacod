@@ -1,0 +1,34 @@
+// État de run (T2.4, chantier F1) : défaite complète, `Run.step` et `Run.summary`. Même
+// mise en scène que `downed_all_lose` (T1.3) : deux joueurs immobiles, le joueur 1 tombe à
+// terre en premier (plus proche des spawners), personne ne le réanime, puis le joueur 0
+// est submergé à son tour ; seul debout à ce moment, il meurt pour de vrai au coup suivant
+// (voir la doc de `combat::downed::Downed`) — c'est ce coup qui fige `Run.step` en
+// `Ended { outcome: Defeat }` (`character::health::rollback_check_defeat`, T2.4 : n'écrit
+// plus `RunOutcome`, disparue).
+//
+// Aucun des deux joueurs ne tire ni ne bouge : aucun ennemi n'est jamais tué
+// (`WaveState::total_enemies_killed` reste à 0, donc `RunSummary.kills`) et la vague
+// n'avance jamais au-delà de 1 (`WaveState::current_wave` n'incrémente qu'une fois tous les
+// ennemis de la vague tués — voir `waves::systems::wave_state_machine_system`,
+// `WavePhase::WaveComplete`) : `wave_reached_min`/`kills_min` ci-dessous sont donc des
+// bornes exactes pour ce scénario précis, pas seulement des minimums prudents.
+//
+// À regarder : comme `downed_all_lose` — joueur 1 à terre (f1174), joueur 0 meurt seul
+// (f1505, défaite la même frame). `Run.step` devient `Ended` à f1505 ;
+// `finalize_run_summary_system` calcule `Run.summary` la frame suivante (même
+// `RollbackSystemSet::Run`, après le système qui pose `step` — voir `game::run_state`).
+Scenario(
+    game: "zombies",
+    frames: 1600,
+    players: [
+        (),
+        (),
+    ],
+    expect: [
+        PlayerDowned(handle: 1, at_frame: 1200),
+        PlayerDead(handle: 0, at_frame: 1600),
+        Defeat(by_frame: 1600),
+        RunState(step: Ended(Defeat), at_frame: 1600),
+        RunSummary(wave_reached_min: 1, kills_min: 0, at_frame: 1600),
+    ],
+)
