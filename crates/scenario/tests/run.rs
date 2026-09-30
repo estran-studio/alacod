@@ -71,19 +71,48 @@ fn run_until_defeat_or(app: &mut App, max_frame: u32) -> u32 {
     last_frame
 }
 
-/// Avance `app` jusqu'à ce qu'il soit de retour `InGame` à la frame 0 (une nouvelle partie
-/// a démarré), ou que `budget` updates se soient écoulées sans y parvenir (échec). Retourne
-/// le temps mural écoulé depuis l'appel.
+/// Avance `app` jusqu'à ce qu'il soit de retour `InGame` avec une partie fraîche (`Run`
+/// tout juste recréée), ou que `budget` updates se soient écoulées sans y parvenir (échec).
+/// Retourne le temps mural écoulé depuis l'appel.
+///
+/// Détecte la *transition* vers `InGame` (état différent juste avant, `InGame` juste après
+/// un `app.update()`) plutôt qu'un `frame() == 0` exact observé après coup : `GgrsSchedule`
+/// tourne dans `PreUpdate`, avant que l'état ne se lise comme `InGame` à l'extérieur, donc
+/// la frame 0 elle-même n'est jamais observable après un `update()` qui vient de faire
+/// passer l'état à `InGame` — elle est déjà à 1 par construction (même décalage d'un cran
+/// documenté dans `game::state_trace`, § `current_rollback_frame`). Vérifie `frame() <= 1`
+/// au lieu de `== 0` pour cette seule raison, jamais plus.
 fn wait_for_fresh_in_game(app: &mut App, budget: u32) -> std::time::Duration {
     let start = Instant::now();
+
+    // D'abord, attendre que l'app quitte InGame (la transition déclenchée par RunRequest).
+    let mut left_in_game = false;
     for _ in 0..budget {
         app.update();
-        if app_state(app) == AppState::InGame && frame(app) == 0 {
+        if app_state(app) != AppState::InGame {
+            left_in_game = true;
+            break;
+        }
+    }
+    assert!(
+        left_in_game,
+        "jamais quitté InGame après {budget} updates malgré RunRequest"
+    );
+
+    // Puis attendre la transition de retour vers InGame.
+    for _ in 0..budget {
+        app.update();
+        if app_state(app) == AppState::InGame {
+            let f = frame(app);
+            assert!(
+                f <= 1,
+                "retour en InGame mais FrameCount = {f} (attendu 0 ou 1, voir la doc de cette fonction)"
+            );
             return start.elapsed();
         }
     }
     panic!(
-        "pas revenu en InGame à la frame 0 après {budget} updates (état={:?}, frame={})",
+        "pas revenu en InGame après {budget} updates (état={:?}, frame={})",
         app_state(app),
         frame(app)
     );
@@ -130,8 +159,9 @@ fn restart_replays_identically_under_ten_seconds() {
         "trace de la première partie incomplète avant la relance"
     );
 
-    // Relance (T2.4) : pose la commande, mesure le temps mural jusqu'au retour en InGame à
-    // la frame 0 — doit rester sous dix secondes (acceptation de la tâche).
+    // Relance (T2.4) : pose la commande, mesure le temps mural jusqu'au retour en InGame
+    // (frame fraîche, voir la doc de `wait_for_fresh_in_game`) — doit rester sous dix
+    // secondes (acceptation de la tâche).
     app.world_mut().insert_resource(RunRequest::Restart);
     let elapsed = wait_for_fresh_in_game(&mut app, 20_000);
     assert!(
@@ -142,14 +172,17 @@ fn restart_replays_identically_under_ten_seconds() {
     // Rejoue 300 frames de la deuxième partie et compare : même graine, même carte, mêmes
     // joueurs (RunRequest::Restart ne les change pas, voir game::run_state) -> la
     // simulation doit être bit-à-bit identique, preuve que la relance n'a rien laissé
-    // traîner (entité, ressource rollback, session GGRS) de la première partie.
+    // traîner (entité, ressource rollback, session GGRS) de la première partie. Delta plutôt
+    // que valeur absolue : `frame()` peut valoir 0 ou 1 au moment où `InGame` redevient
+    // observable (voir la doc de `wait_for_fresh_in_game`).
+    let frame_at_restart = frame(&app);
     for _ in 0..300 {
         app.update();
     }
     assert_eq!(
-        frame(&app),
+        frame(&app) - frame_at_restart,
         300,
-        "la deuxième partie n'a pas atteint la frame 300"
+        "la deuxième partie n'a pas avancé de 300 frames après la relance"
     );
     let second_run_trace: Vec<String> = app
         .world()

@@ -26,7 +26,14 @@
 //! `bevy_ggrs::schedule_systems::run_ggrs_schedules`), `Run` elle-même, et les ressources
 //! rollback globales qui ne sont pas réinitialisées ailleurs par le chargement normal d'une
 //! partie (`FrameCount`, `GgrsNetIdFactory`, `WaveState`, `FlowFieldCache`,
-//! `RepairPointsTracking`). **Ce qui n'est pas détruit, volontairement** : `RunSeed`,
+//! `RepairPointsTracking`). **`bevy_ggrs::RollbackOrdered`** (interne à bevy_ggrs, pas
+//! passée par `RollbackTraceApp`) aussi : elle compte *tous* les `Rollback` jamais créés
+//! depuis le lancement du processus (pas juste la partie en cours, voir sa doc), et
+//! contribue au checksum via `EntityChecksumPlugin` — sans ce reset, la relance produit un
+//! checksum différent dès la frame 0 malgré un état de jeu par ailleurs identique (trouvé en
+//! comparant les traces complètes d'un boot frais et d'une relance après une longue partie :
+//! seule `RollbackOrdered.len()` différait, aucune valeur de composant/ressource tracée).
+//! **Ce qui n'est pas détruit, volontairement** : `RunSeed`,
 //! `RngStreams`, `MapGenerationConfig` (via `LdtkGameMap`, jamais retirée de l'app),
 //! `GggrsSessionConfiguration`/`GgrsSessionBuilding` — c'est justement ce qui permet à
 //! `Restart` de rejouer « la même configuration » (même carte, même graine, mêmes joueurs)
@@ -38,7 +45,7 @@
 //! [`RunRequest::Restart`]) — redirigé vers `ToLobby`.
 
 use bevy::prelude::*;
-use bevy_ggrs::{GgrsSchedule, Rollback, Session};
+use bevy_ggrs::{GgrsSchedule, Rollback, RollbackOrdered, Session};
 use content::manifest::{EntryMode, GameManifest};
 use content::registry::Registry;
 use run::{Currency, Run, RunContext, RunEnd, RunMode, RunModeRules, RunStep};
@@ -280,6 +287,10 @@ fn cleanup_rollback_world_system(
     commands.insert_resource(WaveState::default());
     commands.insert_resource(FlowFieldCache::default());
     commands.insert_resource(RepairPointsTracking::default());
+    // Compteur cumulatif interne à bevy_ggrs (voir la doc du module) : sans ce reset, le
+    // checksum de la frame 0 d'une partie relancée diffère de celui d'un boot frais, même à
+    // état de jeu par ailleurs strictement identique.
+    commands.insert_resource(RollbackOrdered::default());
 
     info!("sortie d'InGame : {despawned} entité(s) rollback détruite(s), session et état de run remis à zéro");
 }
