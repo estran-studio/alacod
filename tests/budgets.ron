@@ -35,5 +35,17 @@
         "testbed_target_hits": (min_sim_fps: 110.0),
         "testbed_two_rooms_door_idle": (min_sim_fps: 140.0),
         "testbed_window": (min_sim_fps: 130.0),
+        // T2.1, chantier B4b (grille spatiale) : bench_bullets (4 joueurs, mitrailleuse
+        // chargeur énorme/cadence maximale, ~155 balles vivantes) et bench_horde (4 joueurs,
+        // 60+ ennemis dès la vague 1). Planchers = moitié de la mesure sur la branche
+        // (2026-09-29), mais mesurée avec un job CFD externe (simpleFoam, 6-7 processus à
+        // ~98% CPU chacun, sans rapport avec cette tâche) saturant 6-7 des 12 coeurs de la
+        // machine : mesures anormalement basses (bench_bullets 24.7-31.3 fps, bench_horde
+        // 20.3-21.3 fps) par rapport à une machine calme (bench_bullets a atteint 158 fps,
+        // bench_horde 64.7 fps, avant que ce job n'apparaisse dans la même session). Ces deux
+        // planchers sont donc plus prudents (bas) que la convention habituelle : à resserrer
+        // une fois une mesure propre disponible (voir le rapport de la tâche T2.1).
+        "bench_bullets": (min_sim_fps: 70.0),
+        "bench_horde": (min_sim_fps: 38.0),
     },
 )

@@ -1151,6 +1151,7 @@ pub fn bullet_rollback_collision_system(
     mut commands: Commands,
     settings: Res<CollisionSettings>,
     mut damage_events: ResMut<FrameEvents<DamageEvent>>,
+    grids: Res<crate::collision_grid::CollisionGrids>,
     bullet_query: Query<
         (
             &GgrsNetId,
@@ -1194,10 +1195,31 @@ pub fn bullet_rollback_collision_system(
         }
 
         // Phase 1 : tous les candidats en collision géométrique (murs par layer_matrix,
-        // personnages par équipe/politique de tir ami).
+        // personnages par équipe/politique de tir ami). Grille spatiale (T2.1, chantier B4b) :
+        // requête sur le segment de déplacement de la frame (AABB englobant l'ancienne et la
+        // nouvelle position, `bullet_rollback_system` a déjà appliqué `bullet.velocity` cette
+        // frame) — un sur-ensemble sûr pour le broad-phase, jamais plus étroit que la boucle
+        // d'avant ; le test précis `is_colliding` qui suit reste sur la position actuelle
+        // seule, exactement comme avant (résultat inchangé, seul le nombre de paires testées
+        // change).
         let mut candidates: Vec<(GgrsNetId, BulletTarget)> = Vec::new();
 
-        for (target_transform, target_collider, target_layer, wall_net_id) in wall_query.iter() {
+        let old_pos = fixed_math::FixedVec3::new(
+            bullet_transform.translation.x - bullet.velocity.x,
+            bullet_transform.translation.y - bullet.velocity.y,
+            bullet_transform.translation.z,
+        );
+        let swept_aabb = crate::collision_grid::union_aabb(
+            crate::collision_grid::collider_aabb(&old_pos, bullet_collider),
+            crate::collision_grid::collider_aabb(&bullet_transform.translation, bullet_collider),
+        );
+
+        for wall_entry in grids.walls.query_aabb(&swept_aabb) {
+            let Ok((target_transform, target_collider, target_layer, wall_net_id)) =
+                wall_query.get(wall_entry.entity)
+            else {
+                continue;
+            };
             if !settings.layer_matrix[bullet_layer.0][target_layer.0] {
                 continue;
             }
@@ -1211,7 +1233,12 @@ pub fn bullet_rollback_collision_system(
             }
         }
 
-        for (target_transform, target_collider, target_net_id, target_team) in target_query.iter() {
+        for char_entry in grids.characters.query_aabb(&swept_aabb) {
+            let Ok((target_transform, target_collider, target_net_id, target_team)) =
+                target_query.get(char_entry.entity)
+            else {
+                continue;
+            };
             if !team_allows_hit(
                 bullet.source_team,
                 *target_team,
