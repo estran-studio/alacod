@@ -1,0 +1,99 @@
+name: Nightly CI
+
+on:
+  schedule:
+    # 03:00 UTC every day
+    - cron: '03 03 * * *'
+  workflow_dispatch:
+  push:
+    branches:
+      - main
+
+concurrency:
+  group: nightly
+  cancel-in-progress: false
+
+jobs:
+  nightly:
+    name: Nightly Pipeline
+    runs-on: [self-hosted, alacod-builder]
+    permissions:
+      contents: write
+    steps:
+      - name: Clean workspace
+        run: |
+          if [ -d "${{ github.workspace }}" ]; then
+            sudo chown -R $USER:$USER ${{ github.workspace }}
+          fi
+
+      - name: Check out
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+          clean: true
+
+      - name: Install system dependencies
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y \
+            pkg-config \
+            libasound2-dev \
+            libudev-dev \
+            libwayland-dev \
+            libxkbcommon-dev \
+            libx11-dev \
+            python3
+
+      - name: Install Rust toolchain
+        uses: dtolnay/rust-toolchain@nightly
+
+      - name: Cache cargo registry and git
+        uses: Swatinem/rust-cache@v2
+        with:
+          workspaces: .
+          cache-all-crates: true
+
+      - name: Set environment
+        run: |
+          echo "CARGO_TARGET_DIR=${{ github.workspace }}/target_nightly" >> $GITHUB_ENV
+          echo "CARGO_BUILD_JOBS=3" >> $GITHUB_ENV
+
+      - name: Run nightly pipeline
+        run: bash scripts/nightly.sh
+        env:
+          NIGHTLY_SEEDS: 1..50
+          NIGHTLY_BOTS: 4
+          NIGHTLY_WAVE: 10
+          NIGHTLY_P2P: 2,4
+          NIGHTLY_VIDEOS: all
+
+      - name: Generate commit data
+        if: always()
+        run: |
+          COMMIT=$(git rev-parse --short HEAD)
+          echo "COMMIT=${COMMIT}" >> $GITHUB_ENV
+
+      - name: Commit review notes
+        if: success()
+        run: |
+          git config user.name "alacod-nightly"
+          git config user.email "alacod-nightly@bascanada.org"
+          git add tests/review-notes/
+          git commit -m "nightly: notes $(git rev-parse --short HEAD)" || echo "No changes to commit"
+          git push origin HEAD:main || echo "Failed to push (may have been pushed by another job)"
+
+      - name: Upload nightly artifacts
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: nightly-${{ env.COMMIT }}
+          path: target_nightly/nightly/${{ env.COMMIT }}/
+          retention-days: 30
+          if-no-files-found: warn
+
+      - name: Clean up build artifacts
+        if: always()
+        run: |
+          chmod -R u+w "${{ github.workspace }}/target_nightly" 2>/dev/null || true
+          rm -rf "${{ github.workspace }}/target_nightly" || true
+        continue-on-error: true

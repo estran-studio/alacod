@@ -1,0 +1,16 @@
+version: '3.8'
+services:
+  allumette:
+    build:
+      context: ../allumette
+      dockerfile: Dockerfile
+    ports:
+      - "3536:3536"
+    environment:
+      RUST_LOG: info
+    healthcheck:
+      test: ["CMD", "nc", "-z", "localhost", "3536"]
+      interval: 2s
+      timeout: 5s
+      retries: 10
+      start_period: 3s
