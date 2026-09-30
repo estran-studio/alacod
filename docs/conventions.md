@@ -202,7 +202,49 @@ Voir `Makefile` pour les détails (cibles `test_multiplayer`, etc.).
 
 ---
 
-## 6. Combat : équipes et dégâts (T1.1, chantier B1)
+## 6. CI lente (nuit) — T2.14
+
+**Quoi** : chaque nuit (03:00 UTC) et à chaque push sur `main`, un runner auto-hébergé (`[self-hosted, alacod-builder]`) exécute un pipeline complet : benchmarks strict, simulation multi-bots, p2p headless (2 et 4 joueurs via allumette, détection des desyncs), génération des vidéos de tous les scénarios, page de revue interactive, et notes Markdown commitées dans `tests/review-notes/<commit>.md`.
+
+**Où** : `.github/workflows/nightly.yaml` (workflow), `scripts/nightly.sh` (pipeline), `docker-compose.ci.yaml` (allumette headless), `Makefile` (`make nightly`, `make nightly_quick`).
+
+**Comment lancer localement** (rapide, 2 graines, vague 2, vidéos idle+shoot_around) :
+```bash
+make nightly_quick
+```
+
+Résultats dans `target/nightly/<commit>/summary.md`, `sim.json`, `review/index.html`, `p2p-*.trace`, et `tests/review-notes/<commit>.md` (sans commit).
+
+**Options** (full : 50 graines, vague 10, vidéos toutes, 2 et 4 joueurs p2p) :
+```bash
+NIGHTLY_SEEDS=1..100 NIGHTLY_BOTS=4 NIGHTLY_WAVE=15 NIGHTLY_P2P=2,4,8 NIGHTLY_VIDEOS=all bash scripts/nightly.sh
+```
+
+**Étapes du pipeline** :
+
+1. **Bench** (seuils de `tests/budgets.ron`) : rejeu de tous les scénarios en headless, compare FPS simulés par scénario à un plancher de non-régression ; échoue si un scénario dépasse son seuil (`ALACOD_BENCH_STRICT=1 make test_scenarios`).
+
+2. **Sim** (simulation bots) : centaines de parties sans rendu à N bots sur M graines jusqu'à la vague K, détecte les crashes et deadlocks ; JSON de métriques par graine (taux de survie, ennemis tués, vague atteinte, FPS moyenne). L'absence de crash = pas de desync en single-player.
+
+3. **P2P headless** (2 et 4 joueurs) : lance une instance d'allumette (docker compose), puis N clients `zombies` en headless dans le même lobby sans rendu. Chaque client écrit sa trace d'état à chaque frame (`ALACOD_STATE_TRACE`, `ALACOD_EXIT_AT_FRAME=600`). À la fin, compare les traces : identiques = pas de desync, différentes = log la première frame qui diffère et échoue (information précieuse pour debug).
+
+4. **Vidéos** : encode chaque scénario en MP4 (960×540, 60 FPS), stocke dans `target/videos/<commit>/`.
+
+5. **Page de revue** : `scenarios-review.py` génère une page HTML avec tableau des scénarios (trace, FPS, moments clés détectés : vagues, kills, morts, tirs, rechargements, perte de santé) ; tableau d'historique par commit avec courbes FPS (benchmark vs sim).
+
+6. **Notes** : Markdown généré (`tests/review-notes/<commit>.md`) avec lien vers la page de revue, timestamp, commit, résumé des étapes (✅/❌), métriques agrégées (FPS min par scénario, nombre de desyncs, p2p clients testés).
+
+**Résultats** (artefacts GitHub Actions) :
+- Vidéos MP4 (évaluables sans machine avec GPU)
+- Page de revue HTML (tableau des FPS, moments clés, comparaison historique)
+- Traces P2P (fichiers texte, premiers desyncs identifiables avec `diff`)
+- JSON de métriques (entrées pour graphiques, alertes de régression)
+
+**Si p2p échoue** : examine les logs dans `logs/p2p-<N>-<cid>.log` (socket, timeout, spawn, GGRS frame error) ; les traces dans `target/nightly/<commit>/p2p-*.trace` montrent la divergence. Deux clients en headless => 10 minutes avec `--quick`.
+
+---
+
+## 8. Combat : équipes et dégâts (T1.1, chantier B1) {#section7}
 
 **Équipe** (`sim_core::team::Team` : `Players`, `Enemies`, `Allies`, `Neutral`) : composant statique posé une fois à la création (`character::create::create_character`, via `Team::Players`/`Team::Enemies` en dur ; `Allies`/`Neutral` réservés aux chantiers futurs). Hors rollback (jamais muté en T1.1 ; voir la doc du composant pour la justification). `Allies` compte comme la même équipe que `Players` pour le tir ami ; `Enemies` est sa propre équipe. `Neutral` bloque toujours un coup (comme un mur) mais ne subit jamais de dégât.
 
@@ -220,7 +262,7 @@ Voir `Makefile` pour les détails (cibles `test_multiplayer`, etc.).
 
 **Bug pré-existant préservé (pas corrigé par T1.1)** : avant ce chantier, l'attaque directe de `EnemyAiConfig::attack_damage` (`enemy_attack_system`) n'avait presque jamais d'effet — elle écrivait dans `DamageAccumulator` sans `Option`, composant retiré dès qu'appliqué la même frame, donc absent la plupart du temps. Seule la griffe via hitbox (`MeleeWeaponConfig::damage`, ex. `zombie_claws` à 2.5) touchait vraiment le joueur. `enemy_attack_damage_translate_system` reproduit ce comportement à l'identique (garde explicite, voir sa doc) : le corriger changerait l'équilibrage (dégâts ennemis beaucoup plus fréquents) sans rapport avec ce chantier.
 
-## 7. Stats et modificateurs (T1.2, chantier B2)
+## 9. Stats et modificateurs (T1.2, chantier B2)
 
 **Contrats** (`sim_core`) : `stats::{StatId, Stats}` (identifiants et valeurs de base, `BTreeMap<StatId, Fixed>`) et `modifier::{ModifierOp, ModifierSource, Modifier, Modifiers, resolve}`. `StatId` est un enum ouvert (`Custom(String)` pour un vocabulaire propre à un jeu) ; `ModifierOp` a trois opérations `Set` (dernier gagne), `Add` (somme), `Pct` (pourcentage additif, `0.5` = +50 %, plusieurs `Pct` s'additionnent avant de multiplier une seule fois) et `Mul` (produit direct). `resolve(base, modifiers, frame)` calcule `(base + Σ Add) × (1 + Σ Pct) × Π Mul`, `Set` appliqué d'abord ; un `Pct` absent ne multiplie même pas par 1 (aucune dérive possible en l'absence de modificateur). Le crate ne pose rien sur aucune entité — c'est le rôle de `crates/stats` et de `character::create::create_character`.
 
@@ -241,7 +283,7 @@ stats: {
 
 **Scénario de preuve** (`tests/scenarios/stat_move_speed.ron`) : deux joueurs avancent avec le même script d'inputs, l'un avec un modificateur `(stat: MoveSpeed, op: Mul, value: "0.5")` posé après création (`PlayerScript::modifiers`, comme `tags`/`immune_to`, appliqué par `scenario::runner::apply_player_overrides`), l'autre sans — `PlayerPosition` aux mêmes frames pour les deux, lecture directe de l'écart.
 
-## 8. Blesser une trace : la preuve
+## 10. Blesser une trace : la preuve
 
 Enregistrer un nouveau composant/ressource en rollback (`RollbackTraceApp`) change le `Checksum` GGRS de chaque frame, donc **toutes** les traces de référence (`tests/scenarios/*.trace`) changent, même quand aucune valeur de jeu ne bouge. Avant de blesser (`BLESS=1`), il faut prouver que c'est bien le cas : que la nouvelle trace ne diffère de l'ancienne que par le nouveau composant lui-même.
 
@@ -251,7 +293,42 @@ Enregistrer un nouveau composant/ressource en rollback (`RollbackTraceApp`) chan
 
 **Méthode** : dumper les mêmes scénarios sur la référence (avant le chantier, ex. `main` dans un `git worktree add --detach`) et sur la branche, avec la même variable d'environnement, puis comparer en ignorant le(s) nouveau(x) composant(s)/ressource(s). Aucune différence : le chantier n'a changé que la présence du nouveau composant, jamais une valeur de jeu — on peut blesser en confiance. Une différence : une valeur de stat (ou autre) ne correspond pas exactement à la constante qu'elle remplace ; corriger avant de blesser.
 
-## 9. Munitions et inventaire d'armes (T2.2, chantier B7)
+## 9. Feedback (présentation, T2.13)
+
+**Configuration RON** : fichier `games/<jeu>/assets/ui/feedback.ron` charge les paramètres de flash, secousse et sons.
+
+```ron
+(
+    hit_flash: (
+        frames: 4,                  // Durée du flash blanc (frames de simulation)
+        color: (1.0, 1.0, 1.0),     // Couleur d'éclaircissement (RGB)
+    ),
+    shake: (
+        frames: 8,                  // Durée de la secousse
+        amplitude: 4.0,             // Amplitude du décalage en pixels
+    ),
+    sounds: {
+        "shot": "sounds/machine-gun.ogg",
+        "reload": "sounds/machine-gun-reload.ogg",
+        // Les clés absentes désactivent le son correspondant
+    },
+)
+```
+
+**Systèmes** : tous en `PostUpdate` (hors `GgrsSchedule`), lisant les événements de simulation dans `FrameEvents<T>` émis par `GgrsSchedule`. Les trois émetteurs sont :
+- `DamageEvent` pour les impacts (flash, secousse si joueur local)
+- Spawn de `Bullet` pour le son de tir (source = joueur local)
+- Changement `WeaponInventory.reloading_ending_frame` pour le son de rechargement
+
+**Composants non-rollback** :
+- `HitFlash { until_frame, original_color }` : pose sur l'entité cible d'un `DamageEvent`, tinte le sprite en blanc jusqu'à `until_frame`.
+- `CameraShake { until_frame, amplitude }` : pose sur la caméra quand un joueur local prend des dégâts.
+
+**Déterminisme** : la secousse applique un motif déterministe (décalage indexé par `FrameCount`) pour la reproductibilité des captures (`--capture` de `play_scenario`). Jamais de source aléatoire (`rand`, temps réel).
+
+**Journal de preuve** : chaque effet écrit une ligne `info!("feedback f{frame} <effet> {net_id|kind}")` pour vérification sans écran.
+
+## 11. Munitions et inventaire d'armes (T2.2, chantier B7)
 
 **Type de munition** (`sim_core::ammo::AmmoType`) : enum ouvert (`Plomb`, `Balle`, `Cartouche`, `Energie`, `Special`, `Custom(String)`), comme `StatId`. Champ RON `ammo_type` sur `WeaponConfig` (`weapons.ron`), **obligatoire** pour toute arme à distance (pas de `#[serde(default)]` : une entrée sans `ammo_type` échoue au chargement RON, rapportée par `content::lint` comme n'importe quel autre littéral invalide). Contenu `zombies`/`testbed` : `pistol` → `Plomb`, `machine_gun` → `Balle`, `shotgun` → `Cartouche` (trois types distincts aujourd'hui, donc chaque arme a sa réserve propre en pratique). Exclu du hash manuel de `WeaponConfig` (comme `test`, voir §6 du fichier lui-même) : une vraie valeur de gameplay, mais dont la valeur observable vit dans `AmmoReserves` (rollback), pas dans ce champ de config statique — l'y inclure ferait dériver le checksum de tous les scénarios existants sans qu'aucun comportement ne change.
 

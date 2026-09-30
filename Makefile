@@ -338,3 +338,15 @@ test_multiplayer:
 			make diff_log CID_1=$$FIRST_CID CID_2=$$CID || true; \
 		fi; \
 	done
+
+.PHONY: test_multiplayer
+
+# Nightly CI pipeline (full)
+nightly:
+	bash scripts/nightly.sh
+
+# Nightly CI pipeline (quick local test)
+nightly_quick:
+	bash scripts/nightly.sh --quick
+
+.PHONY: nightly nightly_quick

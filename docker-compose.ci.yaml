@@ -1,0 +1,22 @@
+# Services de la CI de nuit (scripts/nightly.sh). `signaling` = matchbox_server nu, suffisant
+# pour le test p2p headless (les clients se retrouvent par le chemin de salle) ; `allumette`
+# (profil optionnel) = le vrai serveur de matchmaking, qui exige un jeton JWT dans le chemin
+# du WebSocket (API HTTP /auth, /lobbies) que le jeu natif n'implémente pas encore.
+services:
+  signaling:
+    build:
+      context: .
+      dockerfile: ci/matchbox.Dockerfile
+    ports:
+      - "3536:3536"
+  allumette:
+    profiles: ["allumette"]
+    build:
+      # Dépôt frère allumette : `../allumette` dans le meta-repo alacod_root ; depuis un
+      # worktree de tâche ou le runner, passer ALLUMETTE_DIR=<chemin absolu>.
+      context: ${ALLUMETTE_DIR:-../allumette}
+      dockerfile: Dockerfile
+    ports:
+      - "3537:3536"
+    environment:
+      RUST_LOG: info
