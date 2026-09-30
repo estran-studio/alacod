@@ -251,6 +251,41 @@ Enregistrer un nouveau composant/ressource en rollback (`RollbackTraceApp`) chan
 
 **Méthode** : dumper les mêmes scénarios sur la référence (avant le chantier, ex. `main` dans un `git worktree add --detach`) et sur la branche, avec la même variable d'environnement, puis comparer en ignorant le(s) nouveau(x) composant(s)/ressource(s). Aucune différence : le chantier n'a changé que la présence du nouveau composant, jamais une valeur de jeu — on peut blesser en confiance. Une différence : une valeur de stat (ou autre) ne correspond pas exactement à la constante qu'elle remplace ; corriger avant de blesser.
 
+## 9. Feedback (présentation, T2.13)
+
+**Configuration RON** : fichier `games/<jeu>/assets/ui/feedback.ron` charge les paramètres de flash, secousse et sons.
+
+```ron
+(
+    hit_flash: (
+        frames: 4,                  // Durée du flash blanc (frames de simulation)
+        color: (1.0, 1.0, 1.0),     // Couleur d'éclaircissement (RGB)
+    ),
+    shake: (
+        frames: 8,                  // Durée de la secousse
+        amplitude: 4.0,             // Amplitude du décalage en pixels
+    ),
+    sounds: {
+        "shot": "sounds/machine-gun.ogg",
+        "reload": "sounds/machine-gun-reload.ogg",
+        // Les clés absentes désactivent le son correspondant
+    },
+)
+```
+
+**Systèmes** : tous en `PostUpdate` (hors `GgrsSchedule`), lisant les événements de simulation dans `FrameEvents<T>` émis par `GgrsSchedule`. Les trois émetteurs sont :
+- `DamageEvent` pour les impacts (flash, secousse si joueur local)
+- Spawn de `Bullet` pour le son de tir (source = joueur local)
+- Changement `WeaponInventory.reloading_ending_frame` pour le son de rechargement
+
+**Composants non-rollback** :
+- `HitFlash { until_frame, original_color }` : pose sur l'entité cible d'un `DamageEvent`, tinte le sprite en blanc jusqu'à `until_frame`.
+- `CameraShake { until_frame, amplitude }` : pose sur la caméra quand un joueur local prend des dégâts.
+
+**Déterminisme** : la secousse applique un motif déterministe (décalage indexé par `FrameCount`) pour la reproductibilité des captures (`--capture` de `play_scenario`). Jamais de source aléatoire (`rand`, temps réel).
+
+**Journal de preuve** : chaque effet écrit une ligne `info!("feedback f{frame} <effet> {net_id|kind}")` pour vérification sans écran.
+
 ## Notes essentielles
 
 **À vérifier** : les entités `CrateLocation`, `WeaponLocation`, `SodaLocation` ne sont pas lues actuellement. Elles apparaissent dans `crates/map_ldtk/src/map_const.rs` (constantes) mais aucun bundle Bevy ne les traite (`entity/*.rs` ne les liste pas). T2.3 (Monnaie et achats) les implémentera ; avant d'utiliser une carte avec ces entités, vérifier que `make test_scenarios` accepte un scénario `idle` dessus.
