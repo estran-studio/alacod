@@ -1,0 +1,18 @@
+// Économie de run (T2.3, chantier C5 v1, docs/plan-engine.md §5 C5).
+// Chargé par le registre de contenu (kind "Economy", crates/content/src/registry.rs) ; lu
+// par game::economy::award_points_system (points) et
+// game::interaction::handle_weapon_pickup_interaction (refill_price_ratio).
+//
+// Tous les champs ont un défaut côté code (game::economy::EconomyConfig) : un fichier qui
+// n'en déclare qu'un sous-ensemble se comporte pareil. Ici tous sont explicites pour la
+// lisibilité du contenu.
+(
+    kill_points: 60,
+    hit_points: 10,
+    repair_points: 10,
+    // Pas de plafond par vague pour les points de réparation (CoD en a un ; laissé ouvert
+    // ici, aucun scénario de ce chantier ne dépend d'un plafond précis).
+    repair_points_cap_per_wave: None,
+    // Recharger une arme murale déjà possédée coûte la moitié du prix d'achat.
+    refill_price_ratio: "0.5",
+)

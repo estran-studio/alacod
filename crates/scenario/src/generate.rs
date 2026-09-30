@@ -292,6 +292,7 @@ pub fn build_scenario(
             immune_to: vec![],
             modifiers: vec![],
             weapon: Some(weapon_id.to_string()),
+            currency: None,
         }],
         expect,
         weapon_overrides: vec![],

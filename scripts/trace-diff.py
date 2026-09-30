@@ -26,7 +26,10 @@ l'autre même à code strictement identique (déjà exclue du `Checksum` GGRS po
 voir le `Hash` manuel de `WeaponInventory`). Avec `--ignore`,
 retire en plus les paires `<Nom>=<valeur>` dont le dernier segment du nom (après `::`) est
 dans la liste — sur les lignes de ressource et d'entité (une ligne d'entité peut porter
-plusieurs composants, `--ignore` ne retire que ceux nommés, pas toute la ligne).
+plusieurs composants, `--ignore` ne retire que ceux nommés, pas toute la ligne). Un nom
+générique (`FrameEvents<run::currency::CurrencyEvent>`, une ressource `FrameEvents<T>`
+entière) se filtre par son nom complet tel qu'il apparaît dans le dump : le suffixe `<...>`
+est gardé entier (pas coupé à son propre `::` interne), voir `short_name`.
 
 Affiche la première frame qui diffère (numéro, lignes présentes d'un seul côté) et sort
 avec le code 1. Code 0 si les deux dumps sont identiques une fois checksums et noms ignorés
@@ -64,7 +67,27 @@ ENTITY_RE = re.compile(r"\b\d+v\d+\b")
 # présent). Le contenu d'une valeur (Debug d'un composant quelconque) peut lui contenir des
 # espaces, des deux-points, des virgules... jamais un `=` suivi de ce motif de clé, en
 # pratique (Debug dérivé utilise `champ: valeur`, jamais `champ=valeur`).
-KEY_RE = re.compile(r"(?:(?<=\s)|^)([A-Za-z_][A-Za-z0-9_]*(?:::[A-Za-z_][A-Za-z0-9_]*)*)=")
+#
+# Suffixe générique optionnel (`<...>`, T2.3 : `FrameEvents<run::currency::CurrencyEvent>`,
+# le nom de type que `std::any::type_name` produit pour toute ressource `FrameEvents<T>`,
+# T1.1+) : un seul niveau (pas de `<`/`>`/`=`/espace à l'intérieur), suffisant pour tous les
+# types réellement tracés par `StateTracers` aujourd'hui (leur paramètre générique est
+# toujours un type non générique). `short_name` en dessous garde ce suffixe entier plutôt que
+# de le couper au `::` qu'il contient.
+KEY_RE = re.compile(
+    r"(?:(?<=\s)|^)([A-Za-z_][A-Za-z0-9_]*(?:::[A-Za-z_][A-Za-z0-9_]*)*(?:<[^<>=\s]*>)?)="
+)
+
+
+def short_name(key: str) -> str:
+    """Dernier segment du nom pour le filtrage `--ignore` : le suffixe générique (s'il y en
+    a un) est gardé entier plutôt que coupé au `::` qu'il contient lui-même, pour que
+    `--ignore FrameEvents<run::currency::CurrencyEvent>` matche exactement le nom tel qu'il
+    apparaît dans le dump (voir la doc de `KEY_RE`)."""
+    if "<" in key:
+        head, _, rest = key.partition("<")
+        return head.rsplit("::", 1)[-1] + "<" + rest
+    return key.rsplit("::", 1)[-1]
 
 # Combien de frames tenir en mémoire des deux côtés pour donner du contexte autour d'une
 # différence trouvée en flux (voir `iter_frames`/la boucle de comparaison dans `main`).
@@ -83,7 +106,7 @@ def strip_ignored(line: str, ignored: set) -> str:
     kept = []
     for i, m in enumerate(matches):
         key = m.group(1)
-        short = key.rsplit("::", 1)[-1]
+        short = short_name(key)
         if short in ignored:
             continue
         end = matches[i + 1].start() if i + 1 < len(matches) else len(line)

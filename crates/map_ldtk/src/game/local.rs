@@ -6,19 +6,23 @@
 
 use bevy::{platform::collections::HashMap, prelude::*};
 use bevy_fixed::fixed_math;
+use bevy_ggrs::Rollback;
 use game::{
     character::{
         config::CharacterConfig, enemy::create::spawn_enemy, player::create::create_player,
     },
     collider::CollisionSettings,
     core::AppState,
+    economy::PerkMachine,
     global_asset::GlobalAsset,
+    interaction::{Interactable, InteractionType},
     jjrs::{GggrsSessionConfigurationState, GgrsSessionBuilding},
-    weapons::{melee::MeleeWeaponsConfig, WeaponsConfig},
+    weapons::{self, melee::MeleeWeaponsConfig, WeaponsConfig},
 };
 use map::{
     game::entity::map::{
         character_spawn::CharacterSpawnComponent, player_spawn::PlayerSpawnConfig,
+        soda_location::SodaLocationComponent, weapon_location::WeaponLocationComponent,
     },
     generation::config::MapGenerationConfig,
 };
@@ -46,12 +50,16 @@ impl Plugin for LdtkLocalGamePlugin {
                 Update,
                 (
                     spawn_players_when_map_loaded,
-                    // Ordonné après les joueurs (net_id déterministe : CLAUDE.md, « Numérotation
-                    // des entités ») ; les deux répondent au même événement, sans lien de données
-                    // entre eux, donc un ordre explicite est requis (sinon la numérotation varie
-                    // d'un client à l'autre).
-                    spawn_characters_when_map_loaded.after(spawn_players_when_map_loaded),
+                    // `.chain()` ci-dessous : net_id déterministe (CLAUDE.md, « Numérotation
+                    // des entités ») ; les quatre répondent au même événement, sans lien de
+                    // données entre eux, donc un ordre total explicite est requis (sinon la
+                    // numérotation varie d'un client à l'autre).
+                    spawn_characters_when_map_loaded,
+                    // T2.3, chantier C5 v1 (armes murales, machines à perks).
+                    spawn_weapon_locations_when_map_loaded,
+                    spawn_soda_locations_when_map_loaded,
                 )
+                    .chain()
                     .run_if(on_message::<LdtkMapLoadingEvent>)
                     .after(MapNetIdAssignment),
             );
@@ -202,6 +210,127 @@ fn spawn_characters_when_map_loaded(
             &mut id_provider,
             team,
         );
+    }
+}
+
+/// `WeaponLocation` (T2.3, chantier C5 v1) : fait apparaître, une fois au chargement de la
+/// map, une arme murale (`weapons::WeaponPickup`, `price: Some(...)`, jamais consommée au
+/// ramassage — voir `interaction::handle_weapon_pickup_interaction`) par entité LDtk
+/// `WeaponLocation`. `docs/conventions.md` §1 notait qu'aucune `WeaponLocation` n'était lue :
+/// ce chantier comble le trou.
+///
+/// Ordre déterministe (CLAUDE.md, « Numérotation des entités ») : trié par position (puis id
+/// d'arme) avant `id_factory.next`, comme [`spawn_characters_when_map_loaded`].
+fn spawn_weapon_locations_when_map_loaded(
+    mut commands: Commands,
+    global_assets: Res<GlobalAsset>,
+    weapons_asset: Res<Assets<WeaponsConfig>>,
+    mut id_provider: ResMut<GgrsNetIdFactory>,
+    locations: Query<(&GlobalTransform, &WeaponLocationComponent)>,
+) {
+    let mut spawns: Vec<(&GlobalTransform, &WeaponLocationComponent)> = locations.iter().collect();
+    if spawns.is_empty() {
+        return;
+    }
+    spawns.sort_by(|(a_transform, a_loc), (b_transform, b_loc)| {
+        let a_pos = a_transform.translation();
+        let b_pos = b_transform.translation();
+        a_pos
+            .x
+            .total_cmp(&b_pos.x)
+            .then_with(|| a_pos.y.total_cmp(&b_pos.y))
+            .then_with(|| a_loc.weapon.cmp(&b_loc.weapon))
+    });
+
+    info!("Map is loaded with {} weapon locations", spawns.len());
+
+    let Some(weapons_config) = weapons_asset.get(&global_assets.weapons) else {
+        return;
+    };
+
+    for (transform, location) in spawns {
+        if location.weapon.is_empty() {
+            warn!(
+                "WeaponLocation sans champ « weapon » à {:?}, ignoré",
+                transform.translation()
+            );
+            continue;
+        }
+        let Some(weapon_asset) = weapons_config.0.get(&location.weapon) else {
+            warn!(
+                "WeaponLocation : arme inconnue « {} » (voir `alacod lint`), ignoré",
+                location.weapon
+            );
+            continue;
+        };
+        let mag_ammo = weapons::default_mode_capacity(weapon_asset);
+        let weapon: weapons::Weapon = weapon_asset.clone().into();
+        weapons::spawn_weapon_pickup(
+            &mut commands,
+            weapon,
+            mag_ammo,
+            fixed_math::vec3_to_fixed(transform.translation()),
+            Some(location.price),
+            &mut id_provider,
+        );
+    }
+}
+
+/// `SodaLocation` (T2.3, chantier C5 v1) : fait apparaître, une fois au chargement de la
+/// map, une machine à perk (`game::economy::PerkMachine`, `Interactable { interaction_type:
+/// Perk }`) par entité LDtk `SodaLocation` ; consommée par
+/// `interaction::handle_perk_purchase_interaction`.
+fn spawn_soda_locations_when_map_loaded(
+    mut commands: Commands,
+    mut id_provider: ResMut<GgrsNetIdFactory>,
+    locations: Query<(&GlobalTransform, &SodaLocationComponent)>,
+) {
+    let mut spawns: Vec<(&GlobalTransform, &SodaLocationComponent)> = locations.iter().collect();
+    if spawns.is_empty() {
+        return;
+    }
+    spawns.sort_by(|(a_transform, a_loc), (b_transform, b_loc)| {
+        let a_pos = a_transform.translation();
+        let b_pos = b_transform.translation();
+        a_pos
+            .x
+            .total_cmp(&b_pos.x)
+            .then_with(|| a_pos.y.total_cmp(&b_pos.y))
+            .then_with(|| a_loc.perk.cmp(&b_loc.perk))
+    });
+
+    info!("Map is loaded with {} soda locations", spawns.len());
+
+    for (transform, location) in spawns {
+        if location.perk.is_empty() {
+            warn!(
+                "SodaLocation sans champ « perk » à {:?}, ignoré",
+                transform.translation()
+            );
+            continue;
+        }
+
+        let position = fixed_math::vec3_to_fixed(transform.translation());
+        let ggrs_transform = fixed_math::FixedTransform3D::new(
+            position,
+            fixed_math::FixedMat3::IDENTITY,
+            fixed_math::FixedVec3::ONE,
+        );
+
+        commands.spawn((
+            ggrs_transform.to_bevy_transform(),
+            ggrs_transform,
+            Visibility::default(),
+            PerkMachine {
+                perk_id: location.perk.clone(),
+            },
+            Interactable {
+                interaction_range: fixed_math::new(30.0),
+                interaction_type: InteractionType::Perk,
+            },
+            id_provider.next(format!("perk_machine_{}", location.perk)),
+            Rollback,
+        ));
     }
 }
 

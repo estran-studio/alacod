@@ -13,7 +13,8 @@ use map::{
     generation::{
         entity::{
             character_spawn::CharacterSpawnConfig, door::DoorConfig, enemy_spawn::EnemySpawnConfig,
-            location::EntityLocation, window::WindowConfig,
+            location::EntityLocation, soda_location::SodaLocationConfig,
+            weapon_location::WeaponLocationConfig, window::WindowConfig,
         },
         room::{Room, RoomConnection},
         IMapGenerator,
@@ -440,6 +441,51 @@ impl IMapGenerator for GeneratedMap {
                         FieldValue::String(config.team.clone()),
                     ),
                 ],
+            );
+        }
+    }
+
+    /// T2.3, chantier C5 v1 : `weapon`/`price` sont des valeurs d'auteur, réécrites telles
+    /// quelles (voir la doc de [`Self::add_character_spawns`]).
+    fn add_weapon_locations(
+        &mut self,
+        rng: &mut RollbackRng,
+        weapon_locations: &Vec<(EntityLocation, WeaponLocationConfig)>,
+    ) {
+        for (location, config) in weapon_locations.iter() {
+            self.add_entity_to_level(
+                rng,
+                location,
+                map_const::ENTITY_WEAPON_LOCATION,
+                vec![
+                    (
+                        map_const::FIELD_WEAPON_NAME,
+                        FieldValue::String(Some(config.weapon.clone())),
+                    ),
+                    (
+                        map_const::FIELD_PRICE_NAME,
+                        FieldValue::Int(Some(config.price as i32)),
+                    ),
+                ],
+            );
+        }
+    }
+
+    /// T2.3, chantier C5 v1 : `perk` est une valeur d'auteur, réécrite telle quelle.
+    fn add_soda_locations(
+        &mut self,
+        rng: &mut RollbackRng,
+        soda_locations: &Vec<(EntityLocation, SodaLocationConfig)>,
+    ) {
+        for (location, config) in soda_locations.iter() {
+            self.add_entity_to_level(
+                rng,
+                location,
+                map_const::ENTITY_SODA_LOCATION,
+                vec![(
+                    map_const::FIELD_PERK_NAME,
+                    FieldValue::String(Some(config.perk.clone())),
+                )],
             );
         }
     }

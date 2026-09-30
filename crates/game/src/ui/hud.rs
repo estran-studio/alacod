@@ -29,7 +29,9 @@ pub struct HudTextWidget {
 }
 
 /// Les sources que le HUD sait lire ; une autre dans le RON déclenche un `warn!` au chargement.
-const SOURCES: &[&str] = &["health", "wave", "ammo", "weapon", "enemies", "players"];
+const SOURCES: &[&str] = &[
+    "health", "wave", "ammo", "weapon", "enemies", "players", "currency",
+];
 
 /// Position anchor for HUD widgets
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize)]
@@ -216,6 +218,8 @@ fn spawn_hud_widgets(commands: &mut Commands, entity: Entity, config: &HudConfig
 /// Update HUD values from game state
 fn update_hud_values(
     local_players: Query<(&Health, &Player), With<LocalPlayer>>,
+    // T2.3, chantier C5 v1 : solde de monnaie du joueur local.
+    currency_query: Query<&run::currency::Currency, With<LocalPlayer>>,
     all_players: Query<(), With<Player>>,
     enemies: Query<(), With<Enemy>>,
     wave_state: Res<WaveState>,
@@ -233,6 +237,7 @@ fn update_hud_values(
     let enemy_count = enemies.iter().count();
     let player_count = all_players.iter().count();
     let wave_num = wave_state.current_wave;
+    let currency = currency_query.iter().next().map(|c| c.0);
 
     // L'arme active vient de `WeaponInventory` (rollback), comme dans `weapons/ui.rs`. La
     // réserve (T2.2, `combat::inventory::AmmoReserves`) remplace l'ancien `mag_quantity`
@@ -308,6 +313,10 @@ fn update_hud_values(
             }
             "enemies" => format!("{}{}", prefix_text, enemy_count),
             "players" => format!("{}{}", prefix_text, player_count),
+            "currency" => match currency {
+                Some(amount) => format!("{}{}", prefix_text, amount),
+                None => prefix_text,
+            },
             _ => {
                 // Silently ignore unknown sources
                 prefix_text

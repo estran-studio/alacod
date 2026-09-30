@@ -132,6 +132,13 @@ impl Plugin for CoreSetupPlugin {
         app.add_plugins(BaseWeaponGamePlugin {});
         app.add_plugins(BaseColliderGamePlugin {});
         app.add_plugins(BaseCharacterGamePlugin {});
+        // Monnaie et perks (T2.3, chantier C5 v1) : `run::RunPlugin` enregistre
+        // `Currency`/`Perks`/`FrameEvents<CurrencyEvent>` en rollback ; `economy::EconomyPlugin`
+        // charge `economy.ron`/`perks.ron` et ajoute le système de points
+        // (`RollbackSystemSet::Run`). Avant `InteractionPlugin` : les achats (portes, armes
+        // murales, perks) vivent dans `interaction.rs` et lisent `Currency`/`Perks`.
+        app.add_plugins(run::RunPlugin);
+        app.add_plugins(crate::economy::EconomyPlugin);
         app.add_plugins(crate::interaction::InteractionPlugin);
         app.add_plugins(GameUiPlugin);
         app.add_plugins(WaveSystemPlugin);

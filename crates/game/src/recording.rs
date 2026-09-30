@@ -59,6 +59,9 @@ impl InputRecorder {
                 // Un enregistrement ne choisit jamais l'arme (T2.10) : le joueur garde
                 // l'équipement de son personnage, comme avant ce champ.
                 weapon: None,
+                // Un enregistrement ne choisit jamais le solde de départ (T2.3) : le joueur
+                // garde `CharacterConfig::starting_currency`, comme avant ce champ.
+                currency: None,
             })
             .collect();
 

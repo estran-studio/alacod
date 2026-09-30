@@ -19,6 +19,7 @@ use utils::bmap;
 use crate::{
     character::config::CharacterConfig,
     core::{AppState, OnlineState},
+    economy::{EconomyConfig, PerksConfig},
     waves::WaveConfig,
     weapons::{melee::MeleeWeaponsConfig, WeaponsConfig},
 };
@@ -44,6 +45,14 @@ pub struct GlobalAsset {
 
     // Wave spawning config (optional - only loaded when the game declares a `Wave` folder)
     pub wave_config: Option<Handle<WaveConfig>>,
+
+    /// Économie de run (T2.3, chantier C5 v1) : `Some` seulement si le jeu déclare un dossier
+    /// de contenu `Economy`/`Perk` (comme `wave_config` pour `Wave`). Absent : les points et
+    /// achats retombent sur `EconomyConfig::default()` (voir `economy::award_points_system`),
+    /// et les perks n'ont aucune entrée connue (`interaction::handle_perk_purchase_interaction`
+    /// refuse tout achat).
+    pub economy_config: Option<Handle<EconomyConfig>>,
+    pub perks_config: Option<Handle<PerksConfig>>,
 }
 
 impl GlobalAsset {
@@ -185,6 +194,22 @@ impl GlobalAsset {
             .next()
             .map(|entry| asset_server.load(path_to_asset_string(&entry.file)));
 
+        // Économie de run (T2.3) : `Some` seulement si `game.ron` déclare un dossier
+        // `Economy`/`Perk`, comme `wave_config` ci-dessus.
+        let economy_config = registry
+            .economy
+            .values()
+            .next()
+            .map(|entry| asset_server.load(path_to_asset_string(&entry.file)));
+        // `registry.perks` a une entrée par perk (pas par fichier) : toutes celles d'un
+        // même `perks.ron` partagent le même `file`, `.next()` suffit pour le retrouver
+        // (comme `weapons`/`melee_weapons` ci-dessus, une seule table par jeu).
+        let perks_config = registry
+            .perks
+            .values()
+            .next()
+            .map(|entry| asset_server.load(path_to_asset_string(&entry.file)));
+
         Self {
             spritesheets,
             animations,
@@ -201,6 +226,10 @@ impl GlobalAsset {
 
             // Wave spawning config : seulement si le jeu déclare un dossier `Wave`.
             wave_config,
+
+            // Économie de run (T2.3) : seulement si le jeu déclare `Economy`/`Perk`.
+            economy_config,
+            perks_config,
         }
     }
 }
@@ -275,6 +304,18 @@ pub fn loading_asset_system(
     // Check wave config (if loaded)
     if let Some(wave_config) = &global_assets.wave_config {
         if !asset_server.load_state(wave_config).is_loaded() {
+            return;
+        }
+    }
+
+    // Économie de run (T2.3) : mêmes règles que `wave_config` ci-dessus.
+    if let Some(economy_config) = &global_assets.economy_config {
+        if !asset_server.load_state(economy_config).is_loaded() {
+            return;
+        }
+    }
+    if let Some(perks_config) = &global_assets.perks_config {
+        if !asset_server.load_state(perks_config).is_loaded() {
             return;
         }
     }

@@ -25,8 +25,10 @@ use map_ldtk::{
     game::local::{LdtkGameMap, LdtkLocalGamePlugin},
     plugins::LdtkRoguePlugin,
 };
+use run::currency::Currency;
 use serde::{Deserialize, Serialize};
-use sim_core::modifier::{Modifier, ModifierSource, Modifiers};
+use sim_core::modifier::{resolve, Modifier, ModifierSource, Modifiers};
+use sim_core::stats::{StatId, Stats};
 use sim_core::tag::Tags;
 use std::collections::BTreeMap;
 use std::path::PathBuf;
@@ -174,6 +176,7 @@ pub fn build_app(scenario: &Scenario, headless: bool, config: &PlayConfig) -> Ap
                     immune_to: p.immune_to.clone(),
                     modifiers: p.modifiers.clone(),
                     weapon: p.weapon.clone(),
+                    currency: p.currency,
                 })
                 .collect(),
         ))
@@ -372,6 +375,8 @@ struct PlayerOverride {
     immune_to: Vec<String>,
     modifiers: Vec<ModifierSpec>,
     weapon: Option<String>,
+    /// T2.3, chantier C5 v1 (scénarios d'achat) : voir `game::replay::PlayerScript::currency`.
+    currency: Option<u32>,
 }
 
 #[derive(Resource)]
@@ -417,7 +422,11 @@ fn apply_player_overrides(
         return;
     }
     if overrides.0.iter().all(|o| {
-        o.tags.is_empty() && o.immune_to.is_empty() && o.modifiers.is_empty() && o.weapon.is_none()
+        o.tags.is_empty()
+            && o.immune_to.is_empty()
+            && o.modifiers.is_empty()
+            && o.weapon.is_none()
+            && o.currency.is_none()
     }) {
         *applied = true;
         return;
@@ -510,6 +519,13 @@ fn apply_player_overrides(
             // par celui-ci (une seule arme, ou aucune si `weapon_id` est une arme de mêlée).
             commands.entity(entity).insert(inventory);
             commands.entity(entity).insert(ammo_reserves);
+        }
+        // T2.3, chantier C5 v1 (scénarios d'achat `buy_door`/`buy_wall_weapon`/`buy_perk`) :
+        // remplace le `Currency` posé par `create_player`
+        // (`CharacterConfig::starting_currency`), avant la première frame simulée — même
+        // raisonnement que `weapon` ci-dessus (voir sa doc).
+        if let Some(amount) = over.currency {
+            commands.entity(entity).insert(Currency::new(amount));
         }
     }
     *applied = true;
@@ -1073,7 +1089,70 @@ fn check(world: &mut World, expectation: &Expectation) -> Result<(), String> {
                 Err(format!("pas de défaite avant la frame {by_frame}"))
             }
         }
+        // T2.3, chantier C5 v1 : scénarios `buy_door`/`buy_wall_weapon`/`buy_perk`.
+        Expectation::Currency {
+            handle, min, max, ..
+        } => {
+            let Some(balance) = player_currency(world, *handle) else {
+                return Err("joueur absent".into());
+            };
+            if let Some(min_val) = min {
+                if balance < *min_val {
+                    return Err(format!("solde {balance} < min {min_val}"));
+                }
+            }
+            if let Some(max_val) = max {
+                if balance > *max_val {
+                    return Err(format!("solde {balance} > max {max_val}"));
+                }
+            }
+            Ok(())
+        }
+        Expectation::Stat {
+            handle,
+            stat,
+            value,
+            ..
+        } => {
+            let Some(resolved) = player_stat(world, *handle, stat) else {
+                return Err(format!("joueur absent ou sans stat {stat:?}"));
+            };
+            let expected = fixed_math::Fixed::from_num(*value);
+            if resolved == expected {
+                Ok(())
+            } else {
+                Err(format!("stat {stat:?} = {resolved} (attendu {expected})"))
+            }
+        }
     }
+}
+
+/// Solde de monnaie du joueur `handle` (T2.3, chantier C5 v1). `None` si le joueur est absent.
+fn player_currency(world: &mut World, handle: usize) -> Option<u32> {
+    world
+        .query::<(&Player, &Currency)>()
+        .iter(world)
+        .find(|(player, _)| player.handle == handle)
+        .map(|(_, currency)| currency.0)
+}
+
+/// Valeur résolue (base + modificateurs actifs à la frame courante) d'une stat du joueur
+/// `handle` (T2.3, chantier C5 v1, scénario `buy_perk`). `None` si le joueur est absent ou
+/// n'a pas cette stat — même règle que `stats::StatReader::try_get`, réimplémentée ici en
+/// requêtes `World` directes (`check` vérifie des attentes après coup, hors d'un système
+/// Bevy où `StatReader`, un `SystemParam`, serait injectable directement).
+fn player_stat(world: &mut World, handle: usize, stat: &StatId) -> Option<fixed_math::Fixed> {
+    let entity = world
+        .query::<(&Player, Entity)>()
+        .iter(world)
+        .find(|(player, _)| player.handle == handle)
+        .map(|(_, entity)| entity)?;
+    let base = world.get::<Stats>(entity)?.get(stat)?;
+    let frame = world.resource::<FrameCount>().frame;
+    Some(match world.get::<Modifiers>(entity) {
+        Some(modifiers) => resolve(base, modifiers.iter().filter(|m| &m.stat == stat), frame),
+        None => base,
+    })
 }
 
 /// Le joueur `handle` est-il à terre (`combat::downed::Downed`) ? `None` si absent (mort).

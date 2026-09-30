@@ -1,0 +1,8 @@
+// Économie minimale (T2.3, chantier C5 v1) : le testbed n'a pas de perks ni d'armes murales
+// aujourd'hui, seulement ce fichier pour que game::economy::award_points_system résolve des
+// valeurs de contenu plutôt que les défauts côté code partout où le testbed est utilisé.
+(
+    kill_points: 60,
+    hit_points: 10,
+    repair_points: 10,
+)

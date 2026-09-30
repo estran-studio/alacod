@@ -16,7 +16,9 @@ use game::{
     weapons::{WeaponInventory, WeaponModesState, WeaponPickup, WeaponState},
 };
 use map::game::entity::map::{door::DoorComponent, window::WindowHealth};
+use run::currency::CurrencyEvent;
 use serde::Serialize;
+use sim_core::frame_events::FrameEvents;
 use utils::{frame::FrameCount, net_id::GgrsNetId};
 
 /// Un moment clé : sa frame, sa catégorie (pour le style) et son libellé.
@@ -113,6 +115,11 @@ fn detect_events(
     doors: Query<(&GgrsNetId, Has<Collider>), With<DoorComponent>>,
     // T2.2, chantier B7 : armes tombées au sol.
     weapon_pickups: Query<(&GgrsNetId, &WeaponPickup)>,
+    // T2.3, chantier C5 v1 : monnaie (points, achats, refus). Lu directement (pas de
+    // diffing par snapshot comme le reste de cette fonction) : `CurrencyEvent` est déjà un
+    // événement borné à sa frame d'émission (`FrameEvents`, vidé au `FrameStart` suivant),
+    // encore valide ici (`Last` tourne après la dernière frame GGRS simulée cet `Update`).
+    currency_events: Res<FrameEvents<CurrencyEvent>>,
 ) {
     let mut now = Snapshot::default();
     if let Some(wave) = &wave {
@@ -310,5 +317,29 @@ fn detect_events(
             "defeat",
             "défaite : tous les joueurs sont à terre ou morts".to_string(),
         );
+    }
+    // T2.3, chantier C5 v1 : monnaie. `delta > 0` = points gagnés, `< 0` = achat réussi,
+    // `== 0` = achat refusé (solde insuffisant, voir `run::currency::CurrencyEvent`).
+    for event in currency_events.iter() {
+        match event.delta.cmp(&0) {
+            std::cmp::Ordering::Greater => push(
+                "points",
+                format!(
+                    "joueur {} gagne {} points ({})",
+                    event.handle, event.delta, event.reason
+                ),
+            ),
+            std::cmp::Ordering::Less => push(
+                "purchase",
+                format!(
+                    "joueur {} paie {} ({})",
+                    event.handle, -event.delta, event.reason
+                ),
+            ),
+            std::cmp::Ordering::Equal => push(
+                "purchase_refused",
+                format!("joueur {} : achat refusé ({})", event.handle, event.reason),
+            ),
+        }
     }
 }

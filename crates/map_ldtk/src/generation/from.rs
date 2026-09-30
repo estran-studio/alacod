@@ -12,6 +12,8 @@ use map::generation::{
     entity::{
         character_spawn::CharacterSpawnConfig,
         location::{EntityLocation, EntityLocations},
+        soda_location::SodaLocationConfig,
+        weapon_location::WeaponLocationConfig,
     },
     position::Position,
 };
@@ -98,6 +100,69 @@ fn get_character_spawns(
         .collect()
 }
 
+/// T2.3 (chantier C5 v1) : extrait les entités `WeaponLocation` avec leurs champs
+/// `weapon`/`price` (valeurs d'auteur, comme [`get_character_spawns`] — voir sa doc).
+fn get_weapon_locations(
+    entities: &[bevy_ecs_ldtk::EntityInstance],
+    tile_size: &(i32, i32),
+) -> Vec<(EntityLocation, WeaponLocationConfig)> {
+    entities
+        .iter()
+        .filter(|x| x.identifier == map_const::ENTITY_WEAPON_LOCATION)
+        .map(|x| {
+            let position = Position(x.grid.x, x.grid.y);
+            let size = (x.width / tile_size.0, x.height / tile_size.1);
+            let weapon = x
+                .get_string_field(map_const::FIELD_WEAPON_NAME)
+                .ok()
+                .cloned()
+                .unwrap_or_default();
+            let price = x
+                .get_int_field(map_const::FIELD_PRICE_NAME)
+                .ok()
+                .copied()
+                .unwrap_or(0)
+                .max(0) as u32;
+            (
+                EntityLocation {
+                    position,
+                    size,
+                    level_iid: "".to_string(),
+                },
+                WeaponLocationConfig { weapon, price },
+            )
+        })
+        .collect()
+}
+
+/// T2.3 (chantier C5 v1) : extrait les entités `SodaLocation` avec leur champ `perk`.
+fn get_soda_locations(
+    entities: &[bevy_ecs_ldtk::EntityInstance],
+    tile_size: &(i32, i32),
+) -> Vec<(EntityLocation, SodaLocationConfig)> {
+    entities
+        .iter()
+        .filter(|x| x.identifier == map_const::ENTITY_SODA_LOCATION)
+        .map(|x| {
+            let position = Position(x.grid.x, x.grid.y);
+            let size = (x.width / tile_size.0, x.height / tile_size.1);
+            let perk = x
+                .get_string_field(map_const::FIELD_PERK_NAME)
+                .ok()
+                .cloned()
+                .unwrap_or_default();
+            (
+                EntityLocation {
+                    position,
+                    size,
+                    level_iid: "".to_string(),
+                },
+                SodaLocationConfig { perk },
+            )
+        })
+        .collect()
+}
+
 fn extract_entity_locations(level: &Level, tile_size: &(i32, i32)) -> EntityLocations {
     let entity_layer = level
         .layer_instances
@@ -117,12 +182,7 @@ fn extract_entity_locations(level: &Level, tile_size: &(i32, i32)) -> EntityLoca
                 ],
                 EntityLocation
             ),
-            sodas: get_entities!(
-                entity_layer.entity_instances,
-                tile_size,
-                map_const::ENTITY_SODA_LOCATION,
-                EntityLocation
-            ),
+            sodas: get_soda_locations(&entity_layer.entity_instances, tile_size),
             player_spawns: get_entities!(
                 entity_layer.entity_instances,
                 tile_size,
@@ -141,12 +201,7 @@ fn extract_entity_locations(level: &Level, tile_size: &(i32, i32)) -> EntityLoca
                 map_const::ENTITY_CRATE_LOCATION,
                 EntityLocation
             ),
-            weapons: get_entities!(
-                entity_layer.entity_instances,
-                tile_size,
-                map_const::ENTITY_WEAPON_LOCATION,
-                EntityLocation
-            ),
+            weapons: get_weapon_locations(&entity_layer.entity_instances, tile_size),
             windows: get_entities_multi!(
                 entity_layer.entity_instances,
                 tile_size,

@@ -1,0 +1,44 @@
+// Perks (T2.3, chantier C5 v1, docs/plan-engine.md §5 C5).
+// Chargé par le registre de contenu (kind "Perk", crates/content/src/registry.rs) ; acheté
+// via une entité LDtk SodaLocation (game::economy::PerkMachine,
+// game::interaction::handle_perk_purchase_interaction). Modificateurs posés permanents
+// (until: None, source "perk:<id>") sur sim_core::modifier::Modifiers du joueur.
+//
+// Valeurs de stat en chaîne (Fixed, voir docs/conventions.md §2 et CLAUDE.md règle 1).
+//
+// Parenthèse ouvrante : PerksConfig est un newtype (tuple struct) sur la table, comme
+// WeaponsConfig dans weapons.ron (voir son en-tête `({ ... })`).
+({
+    "juggernog": (
+        name: "Juggernog",
+        price: 2500,
+        modifiers: [
+            // Double la vie maximum (character::health::sync_health_from_stats).
+            (stat: MaxHealth, op: Mul, value: "2.0"),
+        ],
+    ),
+    "speed_cola": (
+        name: "Speed Cola",
+        price: 3000,
+        modifiers: [
+            // ReloadSpeed multiplie directement le temps de rechargement
+            // (weapons::weapon_rollback_system) : 0.5 = rechargement deux fois plus rapide.
+            (stat: ReloadSpeed, op: Mul, value: "0.5"),
+        ],
+    ),
+    "double_tap": (
+        name: "Double Tap",
+        price: 2000,
+        modifiers: [
+            // FireRate multiplie la cadence de tir (coups/minute) : 1.5 = 50% plus rapide.
+            (stat: FireRate, op: Mul, value: "1.5"),
+        ],
+    ),
+    "stamin_up": (
+        name: "Stamin-Up",
+        price: 2000,
+        modifiers: [
+            (stat: MoveSpeed, op: Pct, value: "0.25"),
+        ],
+    ),
+})

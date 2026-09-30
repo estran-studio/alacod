@@ -50,6 +50,7 @@ pub fn run(registry: &Registry, manifest: &GameManifest) -> Vec<LintError> {
     lint_weapons(registry, &mut errors);
     lint_melee_weapons(registry, &mut errors);
     lint_waves(registry, &mut errors);
+    lint_perks(registry, &mut errors);
     lint_entry_point(registry, manifest, &mut errors);
 
     errors
@@ -267,6 +268,23 @@ fn lint_waves(registry: &Registry, errors: &mut Vec<LintError>) {
                     ),
                 });
             }
+        }
+    }
+}
+
+/// T2.3, chantier C5 v1 : prix > 0 (un perk gratuit n'a pas de sens — pas de cas d'usage
+/// documenté par la tâche). « stat connue » n'a pas besoin d'une règle ici : un `StatId`
+/// inconnu dans `modifiers[].stat` échoue déjà au chargement RON
+/// (`registry::PerkModifierSchema`, voir sa doc), rapporté comme `LintErrorKind::Parse` par
+/// `Registry::build` avant même d'atteindre ce lint.
+fn lint_perks(registry: &Registry, errors: &mut Vec<LintError>) {
+    for perk in registry.perks.values() {
+        if perk.price == 0 {
+            errors.push(LintError {
+                kind: LintErrorKind::OutOfRange,
+                file: perk.file.display().to_string(),
+                message: format!("perk « {} » : champ price = 0 : doit être > 0", perk.id),
+            });
         }
     }
 }

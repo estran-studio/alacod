@@ -63,5 +63,14 @@
             color: Some("#ffffff"),
             font_size: Some(12.0),
         ),
+        // Monnaie (T2.3, chantier C5 v1) - top center, sous la vague
+        (
+            kind: Text(source: "currency", prefix: Some("$")),
+            anchor: TopCenter,
+            offset: (0.0, 36.0),
+            size: None,
+            color: Some("#f1c40f"),
+            font_size: Some(16.0),
+        ),
     ],
 )

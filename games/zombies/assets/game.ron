@@ -19,6 +19,11 @@
         (path: "exemples", kind: "Map"),
         (path: "ui", kind: "Ui"),
         (path: "camera.ron", kind: "Camera"),
+        // T2.3, chantier C5 v1 : deux fichiers de kinds différents dans le même dossier
+        // (comme les personnages sous ZombieShooter/Sprites/**, voir le commentaire
+        // d'en-tête) : déclarés individuellement plutôt que le dossier `economy` entier.
+        (path: "economy/economy.ron", kind: "Economy"),
+        (path: "economy/perks.ron", kind: "Perk"),
     ],
     entry: (
         start_map: "exemples/test_map.ldtk",

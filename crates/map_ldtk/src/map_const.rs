@@ -37,3 +37,11 @@ pub const FIELD_CHARACTER_NAME: &str = "character";
 /// `crate::game::local::parse_team`) ; absent ou vide → `CharacterConfig.team`, sinon
 /// `Enemies`.
 pub const FIELD_TEAM_NAME: &str = "team";
+
+/// Champ de l'entité `WeaponLocation` (T2.3, chantier C5 v1) : `WeaponId` du registre
+/// (`weapons.ron`). `FIELD_PRICE_NAME` (même champ que `DoorHorizontal`/`DoorVertical`,
+/// même type entier) porte le prix.
+pub const FIELD_WEAPON_NAME: &str = "weapon";
+/// Champ de l'entité `SodaLocation` (T2.3, chantier C5 v1) : `PerkId` du registre
+/// (`economy/perks.ron`).
+pub const FIELD_PERK_NAME: &str = "perk";

@@ -22,6 +22,7 @@ sim_core = { path = "../sim_core"}
 stats = { path = "../stats"}
 combat = { path = "../combat"}
 content = { path = "../content"}
+run = { path = "../run"}
 map = { path = "../map"}
 animation ={ path = "../animation"}
 telemetry = { path = "../telemetry"}

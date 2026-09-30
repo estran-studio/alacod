@@ -19,6 +19,8 @@ game = { path = "../game" }
 map = { path = "../map" }
 map_ldtk = { path = "../map_ldtk" }
 sim_core = { path = "../sim_core" }
+stats = { path = "../stats" }
+run = { path = "../run" }
 utils = { path = "../utils" }
 
 [features]

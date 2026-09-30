@@ -145,6 +145,14 @@ pub fn create_player(
         }
     }
 
+    // Monnaie et perks (T2.3, chantier C5 v1) : posés une fois, à la création, comme le
+    // reste de l'équipement de départ ci-dessus. `starting_currency` vient de
+    // `CharacterConfig` (défaut 500, voir sa doc) ; `Perks` démarre toujours vide (aucun
+    // perk n'est jamais acheté avant la première frame simulée).
+    let starting_currency = character_config.map_or(500, |c| c.starting_currency);
+    let currency = run::currency::Currency::new(starting_currency);
+    let perks = run::perks::Perks::new();
+
     #[cfg(feature = "lighting")]
     {
         commands.entity(entity).insert((
@@ -165,6 +173,8 @@ pub fn create_player(
                 falloff: 4.,
                 ..default()
             },
+            currency,
+            perks,
         ));
     }
 
@@ -176,6 +186,8 @@ pub fn create_player(
             CursorPosition::default(),
             super::input::InteractionInput::default(),
             crate::interaction::Interactor,
+            currency,
+            perks,
             Player {
                 handle,
                 color: PLAYER_COLORS[handle].into(),

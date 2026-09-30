@@ -22,6 +22,7 @@ use utils::{frame::FrameCount, net_id::GgrsNetId, order_iter, order_mut_iter};
 
 use crate::character::config::{CharacterConfig, CharacterConfigHandles};
 use crate::character::player::Player;
+use crate::economy::PointsCredit;
 use crate::frame_events::FrameEvents;
 use crate::interaction::{Interactable, InteractionType};
 
@@ -137,6 +138,9 @@ pub fn rollback_resolve_damage_events(
     frame: Res<FrameCount>,
     events: Res<FrameEvents<DamageEvent>>,
     mut commands: Commands,
+    // T2.3, chantier C5 v1 : points au coup au but (voir `crate::economy`, doc du module,
+    // section « Attribution des points »).
+    mut points_credits: ResMut<FrameEvents<PointsCredit>>,
     net_id_query: Query<(&GgrsNetId, Entity), With<Rollback>>,
     player_handle_query: Query<(&GgrsNetId, &Player)>,
     mut target_query: Query<
@@ -227,6 +231,11 @@ pub fn rollback_resolve_damage_events(
         let mut last_hit_by = Vec::with_capacity(2);
         if let Some(&handle) = player_handle_by_net_id.get(&event.source.0) {
             last_hit_by.push(HitBy::Player(handle));
+            // T2.3, chantier C5 v1 : coup au but porté par un joueur sur une cible qui n'en
+            // est pas un (pas de points à se tirer dessus entre joueurs, même sous tir ami).
+            if *target_team != Team::Players {
+                points_credits.send(PointsCredit::Hit { handle });
+            }
         }
         last_hit_by.push(HitBy::Entity(event.source.clone()));
 
@@ -261,6 +270,9 @@ pub fn rollback_apply_accumulated_damage(
     mut commands: Commands,
     players_count: Res<PlayersCount>,
     character_configs: Res<Assets<CharacterConfig>>,
+    // T2.3, chantier C5 v1 : points au kill (voir `crate::economy`, doc du module, section
+    // « Attribution des points »).
+    mut points_credits: ResMut<FrameEvents<PointsCredit>>,
     // Lecture seule, indépendante de la query mutable ci-dessous (aucun composant en
     // commun : `Player`/`Downed` vs `Health`/`DamageAccumulator`/`Modifiers`/
     // `CharacterConfigHandles`) : sert à savoir, pour un joueur qui tombe à 0 PV cette
@@ -373,6 +385,20 @@ pub fn rollback_apply_accumulated_damage(
                         frame.frame + bleedout_frames
                     );
                 } else {
+                    // T2.3, chantier C5 v1 : kill (entité qui meurt directement, jamais un
+                    // joueur — `opt_player.is_some()` implique `other_standing` géré plus
+                    // haut) attribué au dernier joueur à avoir touché, comme CoD (le tireur
+                    // du coup fatal, pas qui a le plus tapé dedans).
+                    if opt_player.is_none() {
+                        if let Some(handle) = accumulator.last_hit_by.as_ref().and_then(|hits| {
+                            hits.iter().find_map(|hit_by| match hit_by {
+                                HitBy::Player(handle) => Some(*handle),
+                                HitBy::Entity(_) => None,
+                            })
+                        }) {
+                            points_credits.send(PointsCredit::Kill { handle });
+                        }
+                    }
                     commands.entity(entity).insert(Death {
                         last_hit_by: accumulator.last_hit_by.clone(),
                     });

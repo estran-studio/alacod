@@ -91,6 +91,16 @@ string_id!(
     /// Identifiant d'une carte LDtk (nom de fichier, sans extension).
     MapId
 );
+string_id!(
+    /// Identifiant du fichier d'économie (T2.3, chantier C5 v1). Nom de fichier, sans
+    /// extension (même règle que [`WaveConfigId`]) : un seul fichier par jeu en pratique,
+    /// pas imposé par le chargement (comme `Wave`).
+    EconomyId
+);
+string_id!(
+    /// Identifiant d'un perk de `economy/perks.ron` (T2.3, chantier C5 v1) : clé de la table.
+    PerkId
+);
 
 /// Dérive le même id qu'au chargement (`load_maps`) à partir d'un chemin quelconque
 /// (utilisé pour valider `entry.start_map`, qui n'est pas forcément le même chemin exact
@@ -180,6 +190,31 @@ pub struct MapEntry {
     pub file: PathBuf,
 }
 
+/// T2.3, chantier C5 v1 : `games/<jeu>/assets/economy/economy.ron`. Pas de règle de lint
+/// dédiée (contrairement à `PerkEntry`) : tous les champs sont des compteurs de points ou un
+/// ratio, sans plage interdite documentée par la tâche.
+#[derive(Debug, Clone)]
+pub struct EconomyEntry {
+    pub id: EconomyId,
+    pub file: PathBuf,
+    pub kill_points: u32,
+    pub hit_points: u32,
+    pub repair_points: u32,
+    pub repair_points_cap_per_wave: Option<u32>,
+    pub refill_price_ratio: FixedField,
+}
+
+/// T2.3, chantier C5 v1 : une entrée de `games/<jeu>/assets/economy/perks.ron`. `stat`
+/// n'a pas besoin d'être gardé ici pour le lint : une référence à un `StatId` inconnu échoue
+/// déjà au chargement RON (`StatId` n'a pas de variante fourre-tout implicite, voir
+/// `PerkModifierSchema`), rapportée comme n'importe quelle autre erreur de parse.
+#[derive(Debug, Clone)]
+pub struct PerkEntry {
+    pub id: PerkId,
+    pub file: PathBuf,
+    pub price: u32,
+}
+
 /// Registre de contenu d'un jeu, chargé depuis son manifeste (`GameManifest`). Voir le
 /// module pour les garanties (BTreeMap partout, chargement "best effort").
 #[derive(Resource, Debug, Clone, Default)]
@@ -190,6 +225,10 @@ pub struct Registry {
     pub melee_weapons: BTreeMap<MeleeWeaponId, MeleeWeaponEntry>,
     pub waves: BTreeMap<WaveConfigId, WaveConfigEntry>,
     pub maps: BTreeMap<MapId, MapEntry>,
+    /// T2.3, chantier C5 v1.
+    pub economy: BTreeMap<EconomyId, EconomyEntry>,
+    /// T2.3, chantier C5 v1.
+    pub perks: BTreeMap<PerkId, PerkEntry>,
     /// Fichiers `Ui`/`Camera` validés (RON syntaxiquement correct). Pas de table typée par
     /// id : rien ne les référence par id aujourd'hui (décision T1.5, voir le rapport de la
     /// tâche).
@@ -208,6 +247,8 @@ pub const KNOWN_KIND_NAMES: &[&str] = &[
     "Map",
     "Ui",
     "Camera",
+    "Economy",
+    "Perk",
 ];
 
 pub fn known_content_kinds() -> Kinds {
@@ -259,6 +300,8 @@ impl Registry {
                 "Camera" => {
                     load_generic_ron(&assets_dir, decl, &mut registry.camera_files, &mut errors)
                 }
+                "Economy" => load_economy(&assets_dir, decl, &mut registry, &mut errors),
+                "Perk" => load_perks(&assets_dir, decl, &mut registry, &mut errors),
                 _ => unreachable!("filtré par `kinds.has` ci-dessus"),
             }
         }
@@ -457,6 +500,61 @@ struct WaveConfigFileSchema {
 struct WaveTierSchema {
     #[serde(default)]
     enemy_probabilities: BTreeMap<String, u32>,
+}
+
+/// Mirroir de `game::economy::EconomyConfig` (T2.3, chantier C5 v1). Défauts identiques
+/// (voir leur doc respective) : un `economy.ron` qui ne déclare qu'un sous-ensemble des
+/// champs se comporte pareil ici et à l'exécution.
+#[derive(Deserialize)]
+struct EconomyFileSchema {
+    #[serde(default = "default_kill_points")]
+    kill_points: u32,
+    #[serde(default = "default_hit_points")]
+    hit_points: u32,
+    #[serde(default = "default_repair_points")]
+    repair_points: u32,
+    #[serde(default)]
+    repair_points_cap_per_wave: Option<u32>,
+    #[serde(default = "default_refill_price_ratio")]
+    refill_price_ratio: FixedField,
+}
+
+fn default_kill_points() -> u32 {
+    60
+}
+
+fn default_hit_points() -> u32 {
+    10
+}
+
+fn default_repair_points() -> u32 {
+    10
+}
+
+fn default_refill_price_ratio() -> FixedField {
+    FixedField(Fixed::from_num(0.5))
+}
+
+/// Mirroir de `game::economy::PerksConfig` (T2.3, chantier C5 v1) : juste assez pour le lint
+/// (`price > 0`, voir `lint::lint_perks`) — `modifiers[].stat` doit être déclaré pour que
+/// `ron::from_str` échoue sur un `StatId` inconnu (voir la doc de `PerkEntry`), `op`/`value`
+/// n'ont pas besoin d'être mirroités (aucune règle ne les inspecte, ignorés silencieusement
+/// comme tout champ non déclaré, voir la doc du module).
+#[derive(Deserialize)]
+struct PerksFileSchema(BTreeMap<String, PerkEntrySchema>);
+
+#[derive(Deserialize)]
+struct PerkEntrySchema {
+    price: u32,
+    #[serde(default)]
+    #[allow(dead_code)]
+    modifiers: Vec<PerkModifierSchema>,
+}
+
+#[derive(Deserialize)]
+struct PerkModifierSchema {
+    #[allow(dead_code)]
+    stat: StatId,
 }
 
 // ---------------------------------------------------------------------------------------
@@ -730,6 +828,136 @@ fn load_waves(
                 enemy_refs,
             },
         );
+    }
+}
+
+/// T2.3, chantier C5 v1 : mêmes règles que [`load_waves`] (id = nom de fichier sans
+/// extension, un fichier par jeu en pratique mais pas imposé).
+fn load_economy(
+    assets_dir: &Path,
+    decl: &ContentFolderDecl,
+    registry: &mut Registry,
+    errors: &mut Vec<LintError>,
+) {
+    let files = match discover_files(assets_dir, decl, "ron") {
+        Ok(f) => f,
+        Err(e) => {
+            errors.push(e);
+            return;
+        }
+    };
+
+    for rel in files {
+        let text = match read_file(assets_dir, &rel) {
+            Ok(t) => t,
+            Err(e) => {
+                errors.push(e);
+                continue;
+            }
+        };
+        let parsed: EconomyFileSchema = match ron::from_str(&text) {
+            Ok(p) => p,
+            Err(e) => {
+                errors.push(LintError {
+                    kind: LintErrorKind::Parse,
+                    file: rel.display().to_string(),
+                    message: format!("erreur RON : {e}"),
+                });
+                continue;
+            }
+        };
+
+        let id = EconomyId::from(
+            rel.file_stem()
+                .and_then(|s| s.to_str())
+                .unwrap_or_default()
+                .to_string(),
+        );
+        if let Some(existing) = registry.economy.get(&id) {
+            errors.push(LintError {
+                kind: LintErrorKind::DuplicateId,
+                file: rel.display().to_string(),
+                message: format!(
+                    "id d'économie « {id} » déjà défini dans {}",
+                    existing.file.display()
+                ),
+            });
+            continue;
+        }
+
+        registry.economy.insert(
+            id.clone(),
+            EconomyEntry {
+                id,
+                file: rel,
+                kill_points: parsed.kill_points,
+                hit_points: parsed.hit_points,
+                repair_points: parsed.repair_points,
+                repair_points_cap_per_wave: parsed.repair_points_cap_per_wave,
+                refill_price_ratio: parsed.refill_price_ratio,
+            },
+        );
+    }
+}
+
+/// T2.3, chantier C5 v1 : table de perks (même forme que [`load_weapons`], une entrée par
+/// clé du fichier).
+fn load_perks(
+    assets_dir: &Path,
+    decl: &ContentFolderDecl,
+    registry: &mut Registry,
+    errors: &mut Vec<LintError>,
+) {
+    let files = match discover_files(assets_dir, decl, "ron") {
+        Ok(f) => f,
+        Err(e) => {
+            errors.push(e);
+            return;
+        }
+    };
+
+    for rel in files {
+        let text = match read_file(assets_dir, &rel) {
+            Ok(t) => t,
+            Err(e) => {
+                errors.push(e);
+                continue;
+            }
+        };
+        let parsed: PerksFileSchema = match ron::from_str(&text) {
+            Ok(p) => p,
+            Err(e) => {
+                errors.push(LintError {
+                    kind: LintErrorKind::Parse,
+                    file: rel.display().to_string(),
+                    message: format!("erreur RON : {e}"),
+                });
+                continue;
+            }
+        };
+
+        for (name, entry) in parsed.0 {
+            let id = PerkId::from(name);
+            if let Some(existing) = registry.perks.get(&id) {
+                errors.push(LintError {
+                    kind: LintErrorKind::DuplicateId,
+                    file: rel.display().to_string(),
+                    message: format!(
+                        "id de perk « {id} » déjà défini dans {}",
+                        existing.file.display()
+                    ),
+                });
+                continue;
+            }
+            registry.perks.insert(
+                id.clone(),
+                PerkEntry {
+                    id,
+                    file: rel.clone(),
+                    price: entry.price,
+                },
+            );
+        }
     }
 }
 

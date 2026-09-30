@@ -1,0 +1,15 @@
+[package]
+name = "run"
+description = "État de run minimal (T2.3, chantier C5 v1) : monnaie et perks par joueur, rollback GGRS."
+version = "0.1.0"
+edition = "2021"
+
+[dependencies]
+bevy = { version = "0.19.1", default-features = false }
+bevy_fixed = { path = "../bevy_fixed" }
+sim_core = { path = "../sim_core" }
+utils = { path = "../utils" }
+serde = { version = "1.0", features = ["derive"] }
+
+[dev-dependencies]
+ron = "0.12"

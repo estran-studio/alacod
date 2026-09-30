@@ -1,0 +1,26 @@
+// Le joueur (solde 800) marche jusqu'à la porte est de la salle de départ
+// (games/zombies/assets/exemples/test_map_shop.ldtk, coût 750 : porte de profondeur 0, voir
+// BasicMapGeneration::get_doors) et l'ouvre en payant.
+//
+// À regarder : le joueur bute contre la porte fermée (f10-150), l'ouvre en interagissant
+// (f150-160) : son solde tombe à 50, la porte (et sa jumelle de l'autre niveau) disparaissent.
+Scenario(
+    game: "zombies",
+    map: "exemples/test_map_shop.ldtk",
+    frames: 220,
+    players: [
+        (
+            inputs: [
+                (from: 10, to: 150, buttons: [Right]),
+                (from: 150, to: 160, buttons: [Interaction]),
+            ],
+            currency: 800,
+        ),
+    ],
+    expect: [
+        // La porte et sa jumelle (autre niveau) s'ouvrent.
+        DoorsOpenAtLeast(doors: 2, at_frame: 170),
+        // 800 - 750 (coût, profondeur 0) = 50.
+        Currency(handle: 0, max: 50, at_frame: 170),
+    ],
+)
