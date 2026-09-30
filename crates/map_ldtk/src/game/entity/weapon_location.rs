@@ -28,7 +28,7 @@ pub fn weapon_location_component_from_field(
 /// même sans cas particulier pour son `kind` dans son `match`. `spawn_weapon_locations_when_map_loaded`
 /// lit `WeaponLocationComponent` directement sur l'entité LDtk (pas besoin de cette
 /// promotion) : lui ajouter le marqueur transformerait chaque `WeaponLocation` déjà posée
-/// dans une carte (y compris `test_map.ldtk`, qui en a sans champs configurés — voir
+/// dans une carte (y compris `test_map.ldtk`, quatre depuis T2.6 — voir
 /// `docs/conventions.md` §1) en entité rollback fantôme de plus, décalant la numérotation
 /// `GgrsNetId` de tout ce qui est créé après (portes, joueurs, ennemis...) et changeant la
 /// trace de **tous** les scénarios existants sans aucune raison de jeu.

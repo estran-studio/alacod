@@ -180,4 +180,56 @@
             }
         )
     ),
+    "rifle": (
+        config: (
+            name: "rifle",
+            default_firing_mode: "default",
+            // T2.6 : fusil semi-automatique, quatrième arme murale de `test_map.ldtk` (1 200
+            // points, salle du milieu) et seule arme murale que le joueur ne possède pas au
+            // départ (`player_config.ron`, `starting_weapons`). Même munition que
+            // `machine_gun` (`Balle`) : première réserve partagée du contenu `zombies`
+            // (T2.2, `combat::inventory::AmmoReserves`) — un joueur qui possède les deux
+            // puise dans la même réserve, comme deux armes de même calibre.
+            ammo_type: Balle,
+            firing_modes: {
+                "default": (
+                    firing_rate: "4.0",
+                    firing_mode: Manual(),
+                    spread: "0.01",
+                    recoil: "4.0",
+                    bullet_type: Standard(
+                        damage: "35.0",
+                        speed: "600.0",
+                    ),
+                    range: "1000.0",
+                    reload_time_seconds: "1.2",
+                    mag: Mag(
+                        mag_size: 10,
+                        mag_limit: 6,
+                    )
+                )
+            },
+            // Voir le commentaire `test:` de `pistol` ci-dessus (même gabarit) : 8 coups
+            // observés sur 600 frames (tir semi-automatique par pulsations, dispersion
+            // faible), bornes prudentes en dessous et bien au-dessus.
+            test: Some((frames: 600, min_hits: 4, max_hits: Some(40))),
+        ),
+        // Pas de sprite propre (`Obj/Weapons.png` n'a que trois armes, voir
+        // docs/plan-engine.md §5 A5) : réutilise celui du fusil à pompe.
+        sprite_config: (
+            name: "shotgun",
+            index: 0,
+            bullet_offset_right: ( x: "10.0", y: "0.0" ),
+            bullet_offset_left: ( x: "10.0", y: "0.0" ),
+            weapon_offset: ( x: "0.0", y: "-5.0" )
+        ),
+        audio_config: (
+            modes: {
+                "default": (
+                    reloading: "sounds/machine-gun-reloading.ogg",
+                    firing: "sounds/machine-gun.ogg"
+                )
+            }
+        )
+    ),
 })

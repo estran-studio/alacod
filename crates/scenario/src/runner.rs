@@ -836,9 +836,13 @@ fn check(world: &mut World, expectation: &Expectation) -> Result<(), String> {
             }
         }
         Expectation::WeaponPickups { min, max, .. } => {
+            // Armes au sol seulement : une arme murale (T2.3, `price: Some(..)`) est un
+            // `WeaponPickup` permanent posé par la carte, pas une arme lâchée par un joueur
+            // (T2.6 : `test_map.ldtk` en pose cinq, `drop_pickup_swap` compte de 0 à 1).
             let count = world
-                .query_filtered::<(), With<game::weapons::WeaponPickup>>()
+                .query::<&game::weapons::WeaponPickup>()
                 .iter(world)
+                .filter(|pickup| pickup.price.is_none())
                 .count() as u32;
             if let Some(min_val) = min {
                 if count < *min_val {
