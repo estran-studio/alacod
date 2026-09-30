@@ -8,6 +8,8 @@
 #   NIGHTLY_BOTS=4
 #   NIGHTLY_WAVE=10
 #   NIGHTLY_P2P=2,4 (comma-separated list of player counts)
+#   Le signaling p2p est le service `signaling` (matchbox_server nu, docker-compose.ci.yaml) ;
+#   allumette (jeton JWT requis, API HTTP) est un profil optionnel non utilisé ici.
 #   NIGHTLY_VIDEOS=all (or list of scenario names)
 #   --quick : fast local test (2 seeds, wave 2, p2p 2 only, idle+shoot_around videos)
 
@@ -133,7 +135,7 @@ append_summary "### B. Sim: ✅ PASSED (${DURATION}s)"
 log_step "Sim passed (${DURATION}s)"
 
 # ============================================================================
-# STEP C: P2P HEADLESS (via allumette)
+# STEP C: P2P HEADLESS (via le service signaling = matchbox_server)
 # ============================================================================
 
 log_step "Starting p2p headless tests (players: ${NIGHTLY_P2P})..."
@@ -156,10 +158,10 @@ else
     fi
 
     if [ -n "${DOCKER_COMPOSE}" ]; then
-        # Build and start allumette
-        log_step "Starting allumette via docker compose..."
-        if ${DOCKER_COMPOSE} -f docker-compose.ci.yaml up -d allumette 2>/dev/null; then
-            # Wait for allumette to be ready
+        # Build and start the signaling server
+        log_step "Starting signaling (matchbox_server) via docker compose..."
+        if ${DOCKER_COMPOSE} -f docker-compose.ci.yaml up -d signaling > "${NIGHTLY_DIR}/signaling.log" 2>&1; then
+            # Wait for the signaling server to be ready
             sleep 3
 
             # Convert comma-separated list to array
@@ -246,7 +248,7 @@ else
             done
 
             # Cleanup
-            log_step "Stopping allumette..."
+            log_step "Stopping signaling..."
             ${DOCKER_COMPOSE} -f docker-compose.ci.yaml down 2>/dev/null || true
 
             END_TIME=$(date +%s)
@@ -254,8 +256,8 @@ else
             append_summary "### C. P2P Headless: ✅ PASSED (${DURATION}s)"
             log_step "P2P headless passed (${DURATION}s)"
         else
-            log_warn "Failed to start allumette. Skipping p2p tests."
-            append_summary "### C. P2P Headless: ⚠ SKIPPED (allumette startup failed)"
+            log_warn "Failed to start signaling (see signaling.log). Skipping p2p tests."
+            append_summary "### C. P2P Headless: ⚠ SKIPPED (signaling startup failed)"
         fi
     fi
 fi

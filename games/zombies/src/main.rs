@@ -37,7 +37,10 @@ fn main() {
     // avant T1.5, `WaveModeEnabled(true)` était codé en dur ici.
     let wave_mode = !registry.waves.is_empty();
 
-    let game_config = CoreSetupConfig::from_env("zrl-character_tester");
+    let mut game_config = CoreSetupConfig::from_env("zrl-character_tester");
+    // Assets du jeu : chemin explicite (dossier du manifeste capturé à la compilation), pour
+    // que le binaire lancé hors de `cargo run` (CI de nuit, p2p headless) les trouve aussi.
+    game_config.asset_root = Some(game_dir.join("assets").to_string_lossy().into_owned());
 
     let core_plugin = CoreSetupPlugin(game_config);
 
