@@ -45,7 +45,7 @@
         // bench_horde 64.7 fps, avant que ce job n'apparaisse dans la même session). Ces deux
         // planchers sont donc plus prudents (bas) que la convention habituelle : à resserrer
         // une fois une mesure propre disponible (voir le rapport de la tâche T2.1).
-        "bench_bullets": (min_sim_fps: 15.0),
-        "bench_horde": (min_sim_fps: 10.0),
+        "bench_bullets": (min_sim_fps: 70.0),
+        "bench_horde": (min_sim_fps: 38.0),
     },
 )
