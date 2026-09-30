@@ -270,20 +270,29 @@ log_step "Generating videos..."
 START_TIME=$(date +%s)
 
 if [ "${NIGHTLY_VIDEOS}" = "all" ]; then
-    if ! make videos &>/dev/null; then
-        log_warn "Video generation had issues (continuing anyway)"
+    if ! make videos >> "${NIGHTLY_DIR}/videos.log" 2>&1; then
+        log_warn "Video generation had issues (see videos.log, continuing anyway)"
         append_summary "### D. Videos: ⚠ PARTIAL"
     else
         append_summary "### D. Videos: ✅ GENERATED"
         log_step "Videos generated"
     fi
 else
-    if ! make videos SCENARIO="${NIGHTLY_VIDEOS}" &>/dev/null; then
-        log_warn "Video generation had issues (continuing anyway)"
-        append_summary "### D. Videos: ⚠ PARTIAL"
-    else
-        append_summary "### D. Videos: ✅ GENERATED"
+    # Liste séparée par des virgules : `make videos` ne prend qu'un scénario à la fois.
+    VIDEOS_OK=true
+    IFS=',' read -ra VIDEO_LIST <<< "${NIGHTLY_VIDEOS}"
+    for VIDEO_SCENARIO in "${VIDEO_LIST[@]}"; do
+        VIDEO_SCENARIO=$(echo "${VIDEO_SCENARIO}" | xargs)
+        if ! make videos SCENARIO="${VIDEO_SCENARIO}" >> "${NIGHTLY_DIR}/videos.log" 2>&1; then
+            log_warn "Video generation failed for ${VIDEO_SCENARIO} (see videos.log)"
+            VIDEOS_OK=false
+        fi
+    done
+    if [ "${VIDEOS_OK}" = true ]; then
+        append_summary "### D. Videos: ✅ GENERATED (${NIGHTLY_VIDEOS})"
         log_step "Videos generated (${NIGHTLY_VIDEOS})"
+    else
+        append_summary "### D. Videos: ⚠ PARTIAL (voir videos.log)"
     fi
 fi
 
