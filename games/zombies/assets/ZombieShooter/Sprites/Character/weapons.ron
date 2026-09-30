@@ -3,6 +3,12 @@
         config: (
             name: "pistol",
             default_firing_mode: "default",
+            // T2.2, chantier B7 : type de munition (BTreeMap<AmmoType, u32> de
+            // `combat::inventory::AmmoReserves`). Distinct de `machine_gun`/`shotgun` : pas
+            // de réserve partagée dans le contenu `zombies` d'aujourd'hui (voir
+            // `tests/scenarios/ammo_shared_reserve.ron` pour un scénario qui les force à
+            // partager, via `weapon_overrides`).
+            ammo_type: Plomb,
             firing_modes: {
                 "default": (
                     firing_rate: "2.0",
@@ -48,6 +54,8 @@
         config: (
             name: "machine_gun",
             default_firing_mode: "default",
+            // T2.2, chantier B7 : voir le commentaire de `pistol` ci-dessus.
+            ammo_type: Balle,
             firing_modes: {
                 "default": (
                     firing_rate: "10.0",
@@ -105,6 +113,11 @@
         config: (
             name: "shotgun",
             default_firing_mode: "default",
+            // T2.2, chantier B7 : voir le commentaire de `pistol` ci-dessus. Sans effet sur
+            // la réserve (armes `Magless` : pas de chargeur séparé, voir la doc de
+            // `game::weapons::WeaponModeState::can_reload`), gardé pour la cohérence du
+            // contenu et un futur fusil à pompe `Mag`.
+            ammo_type: Cartouche,
             firing_modes: {
                 "default": (
                     firing_rate: "1.0",

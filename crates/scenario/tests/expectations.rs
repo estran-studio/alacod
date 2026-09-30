@@ -496,6 +496,146 @@ fn defeat_false_while_a_player_still_stands_fails() {
     );
 }
 
+// Munitions typées et inventaire d'armes (T2.2, chantier B7).
+
+#[test]
+fn ammo_reserve_matches_starting_weapons_at_creation() {
+    if map_ldtk::RENDER_ENABLED {
+        return;
+    }
+    use sim_core::ammo::AmmoType;
+
+    let mut scenario = load_scenario("idle");
+
+    // Pistolet (Plomb) : mag_size 6 x mag_limit 8 (voir weapons.ron).
+    scenario.expect = vec![Expectation::AmmoReserve {
+        handle: 0,
+        ammo_type: AmmoType::Plomb,
+        amount: 48,
+        at_frame: 1,
+    }];
+    let outcome = run(&scenario);
+    assert!(outcome.failures.is_empty(), "{:?}", outcome.failures);
+
+    // Mitrailleuse (Balle) : mag_size 30 x mag_limit 8.
+    scenario.expect = vec![Expectation::AmmoReserve {
+        handle: 0,
+        ammo_type: AmmoType::Balle,
+        amount: 240,
+        at_frame: 1,
+    }];
+    let outcome = run(&scenario);
+    assert!(outcome.failures.is_empty(), "{:?}", outcome.failures);
+
+    // Fusil à pompe (Cartouche) : magless, ne contribue rien à la réserve partagée (voir
+    // `game::weapons::default_mode_ammo_contribution`).
+    scenario.expect = vec![Expectation::AmmoReserve {
+        handle: 0,
+        ammo_type: AmmoType::Cartouche,
+        amount: 0,
+        at_frame: 1,
+    }];
+    let outcome = run(&scenario);
+    assert!(outcome.failures.is_empty(), "{:?}", outcome.failures);
+}
+
+#[test]
+fn ammo_reserve_wrong_amount_fails() {
+    if map_ldtk::RENDER_ENABLED {
+        return;
+    }
+    use sim_core::ammo::AmmoType;
+
+    let mut scenario = load_scenario("idle");
+    scenario.expect = vec![Expectation::AmmoReserve {
+        handle: 0,
+        ammo_type: AmmoType::Plomb,
+        amount: 999,
+        at_frame: 1,
+    }];
+    let outcome = run(&scenario);
+    assert!(
+        outcome.failures.iter().any(|f| f.contains("AmmoReserve")),
+        "{:?}",
+        outcome.failures
+    );
+}
+
+#[test]
+fn weapon_pickups_zero_when_nothing_dropped() {
+    if map_ldtk::RENDER_ENABLED {
+        return;
+    }
+    let mut scenario = load_scenario("idle");
+    scenario.expect = vec![Expectation::WeaponPickups {
+        min: Some(0),
+        max: Some(0),
+        at_frame: 100,
+    }];
+    let outcome = run(&scenario);
+    assert!(outcome.failures.is_empty(), "{:?}", outcome.failures);
+}
+
+/// L'attaque de mêlée reste possible pendant un rechargement, sans l'annuler (T2.2, chantier
+/// B7, décision « coup de crosse pendant le rechargement »). `player_melee_attack_system` ne
+/// consulte jamais `WeaponInventory::is_reloading` : ce test le prouve par un scénario plutôt
+/// que par lecture de code.
+///
+/// Mitrailleuse à un seul coup par chargeur (`weapon_overrides`, `mag_size: 1`) : un tir la
+/// vide, déclenchant un rechargement automatique (1,5 s = 90 frames), largement plus long que
+/// l'attaque `bare_hands` (10 frames de duration, voir `melee_weapons.ron`) déclenchée à la
+/// frame 60, pendant ce rechargement.
+#[test]
+fn melee_attack_during_reload_does_not_cancel_it() {
+    if map_ldtk::RENDER_ENABLED {
+        return;
+    }
+    use game::replay::{Button, Segment, WeaponOverride};
+
+    let mut scenario = load_scenario("idle");
+    scenario.frames = 200;
+    scenario.weapon_overrides = vec![WeaponOverride {
+        weapon: "machine_gun".to_string(),
+        mode: None,
+        mag_size: Some(1),
+        mag_limit: None,
+        firing_rate: None,
+        friendly_fire: None,
+        ammo_type: None,
+    }];
+    scenario.players[0].inputs = vec![
+        Segment {
+            from: 10,
+            to: 13,
+            buttons: vec![Button::Fire],
+            pan: (40, 100),
+        },
+        Segment {
+            from: 60,
+            to: 63,
+            buttons: vec![Button::Melee],
+            pan: (40, 100),
+        },
+    ];
+    scenario.expect = vec![
+        // Preuve que la mêlée a bien lieu (pas bloquée par le rechargement en cours).
+        Expectation::Event {
+            kind: "melee".to_string(),
+            label_contains: None,
+            by_frame: 70,
+        },
+        // Preuve que le rechargement n'a pas été annulé : le chargeur (capacité 1, voir
+        // l'override) est plein bien après la fin de son délai (frame 11 + 90 = 101).
+        Expectation::Ammo {
+            handle: 0,
+            ammo: 1,
+            at_frame: 150,
+        },
+    ];
+    let outcome = run(&scenario);
+    assert!(outcome.failures.is_empty(), "{:?}", outcome.failures);
+}
+
 #[test]
 fn defeat_true_once_all_players_down_or_dead() {
     if map_ldtk::RENDER_ENABLED {

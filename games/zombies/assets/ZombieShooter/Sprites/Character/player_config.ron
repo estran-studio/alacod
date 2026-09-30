@@ -57,6 +57,12 @@
     // Cet ordre est repris ici à l'identique pour ne pas changer les traces de scénario.
     starting_weapons: ["machine_gun", "pistol", "shotgun"],
 
+    // Emplacements d'armes (T2.2, chantier B7) : 3, explicite, pour garder ses trois armes
+    // de départ ci-dessus (le défaut de l'engine est 2 — voir
+    // `character::config::CharacterConfig::weapon_slots`) ; traces identiques (aucun
+    // ramassage dans les scénarios existants).
+    weapon_slots: 3,
+
     // À terre (T1.3, chantier B6). `bleedout_frames` réduit à 900 (15 s au lieu de 30 s) :
     // les scénarios de test (`downed_bleedout`, `two_players_idle`) simulent le saignement
     // en entier sans traîner des dizaines de secondes de frames inutiles.

@@ -3,6 +3,7 @@ use bevy::prelude::*;
 #[cfg(feature = "lighting")]
 use bevy_light_2d::light::PointLight2d;
 
+use combat::inventory::AmmoReserves;
 #[cfg(feature = "harmonium")]
 use harmonium_bevy::components::AiDriver;
 use leafwing_input_manager::prelude::ActionState;
@@ -91,6 +92,10 @@ pub fn create_player(
     }
 
     let mut inventory = WeaponInventory::default();
+    // Réserves de munitions par type (T2.2, chantier B7), créditées ci-dessous en même
+    // temps que chaque arme de départ ; posées sur le joueur avec le reste de son
+    // équipement (voir plus bas).
+    let mut ammo_reserves = AmmoReserves::new();
 
     // Armes de départ déclarées par `characters/*.ron` (`starting_weapons`, T1.5) : avant,
     // tous les joueurs recevaient toutes les entrées de `weapons.ron`, triées par nom
@@ -112,6 +117,13 @@ pub fn create_player(
                 warn!("starting_weapons : arme inconnue « {weapon_id} » pour « {config_name} »");
                 continue;
             };
+
+            // Réserve initiale (T2.2), additionnée par type de munition
+            // (`AmmoReserves::add` : deux armes qui partagent un type s'additionnent, voir
+            // le scénario `ammo_shared_reserve`).
+            let (ammo_type, amount) = crate::weapons::default_mode_ammo_contribution(weapon_asset);
+            ammo_reserves.add(ammo_type, amount);
+
             spawn_weapon_for_player(
                 commands,
                 i == 0,
@@ -119,6 +131,9 @@ pub fn create_player(
                 weapon_asset.clone(),
                 &mut inventory,
                 id_factory,
+                // Chargeur plein à la création (pas de restauration, T2.2) : comportement
+                // inchangé, voir la doc du paramètre.
+                None,
             );
         }
     }
@@ -134,6 +149,7 @@ pub fn create_player(
     {
         commands.entity(entity).insert((
             inventory,
+            ammo_reserves,
             CursorPosition::default(),
             super::input::InteractionInput::default(),
             crate::interaction::Interactor,
@@ -156,6 +172,7 @@ pub fn create_player(
     {
         commands.entity(entity).insert((
             inventory,
+            ammo_reserves,
             CursorPosition::default(),
             super::input::InteractionInput::default(),
             crate::interaction::Interactor,

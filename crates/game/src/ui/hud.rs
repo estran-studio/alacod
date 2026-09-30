@@ -219,7 +219,7 @@ fn update_hud_values(
     all_players: Query<(), With<Player>>,
     enemies: Query<(), With<Enemy>>,
     wave_state: Res<WaveState>,
-    inventories: Query<&WeaponInventory, With<LocalPlayer>>,
+    inventories: Query<(&WeaponInventory, &combat::inventory::AmmoReserves), With<LocalPlayer>>,
     weapons_query: Query<(&WeaponState, &WeaponModesState)>,
     mut bar_widgets: Query<(&HudBarWidget, &mut Node, &mut BackgroundColor)>,
     mut text_widgets: Query<(&HudTextWidget, &mut Text)>,
@@ -234,15 +234,18 @@ fn update_hud_values(
     let player_count = all_players.iter().count();
     let wave_num = wave_state.current_wave;
 
-    // L'arme active vient de `WeaponInventory` (rollback), comme dans `weapons/ui.rs`.
-    let weapon_info = inventories.iter().next().and_then(|inventory| {
+    // L'arme active vient de `WeaponInventory` (rollback), comme dans `weapons/ui.rs`. La
+    // réserve (T2.2, `combat::inventory::AmmoReserves`) remplace l'ancien `mag_quantity`
+    // par arme pour l'affichage « chargeur / réserve ».
+    let weapon_info = inventories.iter().next().and_then(|(inventory, reserves)| {
         let (entity, weapon) = inventory.weapons.get(inventory.active_weapon_index)?;
         let name = weapon.config.name.clone();
+        let reserve = reserves.get(&weapon.config.ammo_type);
         let mode = weapons_query
             .get(*entity)
             .ok()
             .and_then(|(state, modes)| modes.modes.get(&state.active_mode).cloned());
-        Some((name, mode))
+        Some((name, mode, reserve))
     });
 
     // Update bar widgets
@@ -290,14 +293,14 @@ fn update_hud_values(
             }
             "wave" => format!("{}{}", prefix_text, wave_num),
             "ammo" => {
-                if let Some((_name, Some(mode))) = &weapon_info {
-                    format!("{}{} | {}", prefix_text, mode.mag_ammo, mode.mag_quantity)
+                if let Some((_name, Some(mode), reserve)) = &weapon_info {
+                    format!("{}{} | {}", prefix_text, mode.mag_ammo, reserve)
                 } else {
                     format!("{}? | ?", prefix_text)
                 }
             }
             "weapon" => {
-                if let Some((name, _mode)) = &weapon_info {
+                if let Some((name, _mode, _reserve)) = &weapon_info {
                     format!("{}{}", prefix_text, name)
                 } else {
                     prefix_text

@@ -7,6 +7,7 @@ use bevy_fixed::fixed_math;
 use bevy_ggrs::SyncTestMismatch;
 use bots::{BotAssignments, BotsPlugin};
 use combat::damage::Defenses;
+use combat::inventory::AmmoReserves;
 use game::recording::InputRecorder;
 use game::{
     args::{GameArgs, GameArgsPlugin},
@@ -277,6 +278,9 @@ fn apply_weapon_overrides(
         if let Some(friendly_fire) = o.friendly_fire {
             weapon.config.friendly_fire = friendly_fire;
         }
+        if let Some(ammo_type) = &o.ammo_type {
+            weapon.config.ammo_type = ammo_type.clone();
+        }
         for (mode_name, mode) in weapon.config.firing_modes.iter_mut() {
             if o.mode.as_ref().is_some_and(|m| m != mode_name) {
                 continue;
@@ -465,10 +469,18 @@ fn apply_player_overrides(
                 }
             }
             let mut inventory = WeaponInventory::default();
+            // Réserve de munitions (T2.2) recalculée pour cette seule arme — pas la somme
+            // des armes de départ du personnage (`create_player`), qui n'existent plus dans
+            // l'inventaire une fois l'exclusivité appliquée ci-dessus. Vide si `weapon_id`
+            // est une arme de mêlée (pas de munitions).
+            let mut ammo_reserves = AmmoReserves::new();
             if let Some(weapon_asset) = weapons_asset
                 .get(&global_assets.weapons)
                 .and_then(|config| config.0.get(weapon_id))
             {
+                let (ammo_type, amount) =
+                    game::weapons::default_mode_ammo_contribution(weapon_asset);
+                ammo_reserves.add(ammo_type, amount);
                 spawn_weapon_for_player(
                     &mut commands,
                     true,
@@ -476,6 +488,7 @@ fn apply_player_overrides(
                     weapon_asset.clone(),
                     &mut inventory,
                     &mut id_factory,
+                    None,
                 );
             } else if let Some(melee_asset) = melee_weapons_asset
                 .get(&global_assets.melee_weapons)
@@ -496,6 +509,7 @@ fn apply_player_overrides(
             // Remplace l'inventaire par défaut (potentiellement plusieurs armes à distance)
             // par celui-ci (une seule arme, ou aucune si `weapon_id` est une arme de mêlée).
             commands.entity(entity).insert(inventory);
+            commands.entity(entity).insert(ammo_reserves);
         }
     }
     *applied = true;
@@ -783,6 +797,40 @@ fn check(world: &mut World, expectation: &Expectation) -> Result<(), String> {
                 Err(format!("{current} balles dans {name} ({mode})"))
             }
         }
+        Expectation::AmmoReserve {
+            handle,
+            ammo_type,
+            amount,
+            ..
+        } => {
+            let Some(current) = player_ammo_reserve(world, *handle, ammo_type) else {
+                return Err("joueur absent".into());
+            };
+            if current == *amount {
+                Ok(())
+            } else {
+                Err(format!(
+                    "réserve {ammo_type:?} = {current} (attendu {amount})"
+                ))
+            }
+        }
+        Expectation::WeaponPickups { min, max, .. } => {
+            let count = world
+                .query_filtered::<(), With<game::weapons::WeaponPickup>>()
+                .iter(world)
+                .count() as u32;
+            if let Some(min_val) = min {
+                if count < *min_val {
+                    return Err(format!("{count} armes au sol < min {min_val}"));
+                }
+            }
+            if let Some(max_val) = max {
+                if count > *max_val {
+                    return Err(format!("{count} armes au sol > max {max_val}"));
+                }
+            }
+            Ok(())
+        }
         Expectation::BulletsInside {
             x_min,
             x_max,
@@ -1069,6 +1117,21 @@ fn active_weapon(world: &mut World, handle: usize) -> Option<(String, String, u3
         .get(&state.active_mode)
         .map_or(0, |m| m.mag_ammo);
     Some((name, state.active_mode.clone(), ammo))
+}
+
+/// Réserve du joueur `handle` pour `ammo_type` (T2.2, chantier B7,
+/// `combat::inventory::AmmoReserves`). `None` si le joueur est absent (0 s'il est présent
+/// mais que ce type n'a jamais été crédité, voir `AmmoReserves::get`).
+fn player_ammo_reserve(
+    world: &mut World,
+    handle: usize,
+    ammo_type: &sim_core::ammo::AmmoType,
+) -> Option<u32> {
+    world
+        .query::<(&Player, &combat::inventory::AmmoReserves)>()
+        .iter(world)
+        .find(|(player, _)| player.handle == handle)
+        .map(|(_, reserves)| reserves.get(ammo_type))
 }
 
 fn windows_broken(world: &mut World) -> u32 {

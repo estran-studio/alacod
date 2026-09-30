@@ -8,6 +8,7 @@
                     firing_rate: "2.0",
                 ),
             },
+            ammo_type: Plomb,
         ),
     ),
 })

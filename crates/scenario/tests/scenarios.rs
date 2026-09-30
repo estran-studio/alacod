@@ -609,33 +609,48 @@ fn weapon_probe() {
                 &SprintState,
                 &DashState,
                 &MeleeAttackState,
+                &combat::inventory::AmmoReserves,
             )>();
             let rows: Vec<_> = q
                 .iter(world)
-                .map(|(p, inv, sprint, dash, melee)| {
+                .map(|(p, inv, sprint, dash, melee, reserves)| {
                     (
                         p.handle,
                         inv.active_weapon_index,
                         inv.weapons
                             .get(inv.active_weapon_index)
-                            .map(|(e, w)| (*e, w.config.name.clone())),
+                            .map(|(e, w)| (*e, w.config.name.clone(), w.config.ammo_type.clone())),
                         inv.reloading_ending_frame,
                         inv.frame_switched,
                         sprint.is_sprinting,
                         dash.is_dashing,
                         melee.is_attacking,
+                        reserves.clone(),
                     )
                 })
                 .collect();
-            for (handle, idx, weapon, reload_end, switched, sprinting, dashing, meleeing) in rows {
-                let (entity, wname) = weapon.unwrap();
+            for (
+                handle,
+                idx,
+                weapon,
+                reload_end,
+                switched,
+                sprinting,
+                dashing,
+                meleeing,
+                reserves,
+            ) in rows
+            {
+                let (entity, wname, ammo_type) = weapon.unwrap();
                 let (state, modes) = world
                     .query::<(&WeaponState, &WeaponModesState)>()
                     .get(world, entity)
                     .unwrap();
                 let m = modes.modes.get(&state.active_mode).unwrap();
-                println!("f{frame} j{handle} arme#{idx} {wname}/{} balles {} chargeurs {} dernier_tir f{} recharge_fin {:?} changé f{switched} sprint={sprinting} dash={dashing} mêlée={meleeing}",
-                    state.active_mode, m.mag_ammo, m.mag_quantity, state.last_fire_frame, reload_end);
+                // T2.2 : la réserve (par type de munition) remplace l'ancien `mag_quantity`
+                // (chargeurs de réserve propres à l'arme).
+                println!("f{frame} j{handle} arme#{idx} {wname}/{} balles {} réserve {} dernier_tir f{} recharge_fin {:?} changé f{switched} sprint={sprinting} dash={dashing} mêlée={meleeing}",
+                    state.active_mode, m.mag_ammo, reserves.get(&ammo_type), state.last_fire_frame, reload_end);
             }
         }
         app.update();

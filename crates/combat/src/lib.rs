@@ -6,8 +6,10 @@
 //!   `DamageEvent`/`FriendlyFire` de `sim_core` (T1.1, chantier B1 « Équipes et dégâts »).
 //! - [`downed`] : contrats « à terre » et réanimation (`Downed`, `Reviving`, `RunOutcome`),
 //!   T1.3, chantier B6.
+//! - [`inventory`] : réserves de munitions par type (`AmmoReserves`), T2.2, chantier B7.
 
 pub mod damage;
 pub mod downed;
 pub mod grid;
+pub mod inventory;
 pub mod team;

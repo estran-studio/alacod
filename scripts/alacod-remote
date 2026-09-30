@@ -33,7 +33,7 @@ def brief(state):
         w = p.get("weapon") or {}
         lines.append(
             f"joueur {p['handle']} ({p['x']},{p['y']}) pv {p['health']}/{p['max_health']} "
-            f"arme {w.get('name')} {w.get('ammo')}x{w.get('mags')}{' recharge' if w.get('reloading') else ''}"
+            f"arme {w.get('name')} {w.get('ammo')}x{w.get('reserve')}{' recharge' if w.get('reloading') else ''}"
         )
         near = sorted(state["enemies"], key=lambda e: math.dist((e["x"], e["y"]), (p["x"], p["y"])))[:5]
         for e in near:

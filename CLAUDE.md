@@ -443,7 +443,9 @@ Chaque widget est lié à une source. Une source inconnue provoque un `warn!` au
 
 - `health` : ratio et texte du joueur local (`current/max`). Les barres utilisent la ratio pour la largeur et interpolent rouge→vert. Les textes affichent la valeur.
 - `wave` : numéro de la vague actuelle (WaveState::current_wave).
-- `ammo` : munitions du mode actif de l'arme active (`mag_ammo | mag_quantity`).
+- `ammo` : munitions du mode actif de l'arme active (`mag_ammo | réserve`, T2.2 : la réserve
+  du type de munition de l'arme, `combat::inventory::AmmoReserves`, remplace l'ancien
+  `mag_quantity` par arme).
 - `weapon` : nom de l'arme active.
 - `enemies` : nombre d'entités `Enemy` vivantes.
 - `players` : nombre d'entités `Player` vivantes.

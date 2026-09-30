@@ -1,5 +1,6 @@
 use bevy::prelude::*;
 use bevy_fixed::math::calculate_time_remaining_seconds;
+use combat::inventory::AmmoReserves;
 use utils::frame::FrameCount;
 
 use crate::{character::player::LocalPlayer, core::AppState};
@@ -72,7 +73,7 @@ fn setup_weapon_ui(mut commands: Commands, asset_server: Res<AssetServer>) {
 
 fn update_weapons_text(
     frame: Res<FrameCount>,
-    q_player: Query<&WeaponInventory, With<LocalPlayer>>,
+    q_player: Query<(&WeaponInventory, &AmmoReserves), With<LocalPlayer>>,
     weapon_query: Query<(&WeaponState, &WeaponModesState)>,
     mut q_weapon: Query<&mut Text, (With<CurrentWeaponText>, Without<AmmoText>)>,
     mut q_ammo: Query<&mut Text, (With<AmmoText>, Without<CurrentWeaponText>)>,
@@ -85,7 +86,11 @@ fn update_weapons_text(
         ),
     >,
 ) {
-    if let Ok(inventory) = q_player.single() {
+    if let Ok((inventory, ammo_reserves)) = q_player.single() {
+        // T2.2 (lâcher/ramasser) : l'inventaire peut être vide (toutes les armes au sol).
+        if inventory.weapons.is_empty() {
+            return;
+        }
         let active_weapon = inventory.active_weapon();
         if let Ok((state, modes_state)) = weapon_query.get(active_weapon.0) {
             let active_weapon_state = modes_state.modes.get(&state.active_mode).unwrap();
@@ -96,9 +101,13 @@ fn update_weapons_text(
                 );
             }
             if let Ok(mut text) = q_ammo.single_mut() {
+                // Munitions du chargeur / réserve du type de l'arme active (T2.2 : la
+                // réserve remplace l'ancien `mag_quantity` par arme, voir
+                // `combat::inventory::AmmoReserves`).
                 text.0 = format!(
                     "Ammo: {} / {}",
-                    active_weapon_state.mag_ammo, active_weapon_state.mag_quantity
+                    active_weapon_state.mag_ammo,
+                    ammo_reserves.get(&active_weapon.1.config.ammo_type)
                 )
             }
 

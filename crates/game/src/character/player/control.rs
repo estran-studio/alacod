@@ -21,6 +21,7 @@ pub enum PlayerAction {
 
     Reload,
     MeleeAttack,
+    DropWeapon,
 
     Modifier,
 
@@ -56,6 +57,7 @@ pub fn get_input_map() -> InputMap<PlayerAction> {
         (PlayerAction::SwitchWeaponMode, KeyCode::KeyZ),
         (PlayerAction::Reload, KeyCode::KeyR),
         (PlayerAction::MeleeAttack, KeyCode::KeyF),
+        (PlayerAction::DropWeapon, KeyCode::KeyG),
         (PlayerAction::MoveCameraRight, KeyCode::ArrowRight),
         (PlayerAction::Sprint, KeyCode::ShiftLeft),
         (PlayerAction::Dash, KeyCode::KeyC),

@@ -156,18 +156,23 @@ fn state(In(_): In<Option<Value>>, world: &mut World) -> BrpResult {
         &FixedTransform3D,
         &Health,
         Option<&WeaponInventory>,
+        Option<&combat::inventory::AmmoReserves>,
     )>();
     let mut players = Vec::new();
-    for (player, id, transform, health, inventory) in players_query.iter(world) {
+    for (player, id, transform, health, inventory, ammo_reserves) in players_query.iter(world) {
         let weapon = inventory.and_then(|inventory| {
             let (entity, weapon) = inventory.weapons.get(inventory.active_weapon_index)?;
             let (state, modes) = weapons.get(world, *entity).ok()?;
             let mode = modes.modes.get(&state.active_mode);
+            // Réserve du type de munition de l'arme active (T2.2) : remplace l'ancien
+            // `mag_quantity` (chargeurs de réserve propres à l'arme) par la réserve partagée
+            // (unités de munition, `combat::inventory::AmmoReserves`).
+            let reserve = ammo_reserves.map(|r| r.get(&weapon.config.ammo_type));
             Some(json!({
                 "name": weapon.config.name,
                 "mode": state.active_mode,
                 "ammo": mode.map(|m| m.mag_ammo),
-                "mags": mode.map(|m| m.mag_quantity),
+                "reserve": reserve,
                 "reloading": inventory.reloading_ending_frame.is_some(),
             }))
         });
