@@ -56,6 +56,9 @@ impl InputRecorder {
                 tags: vec![],
                 immune_to: vec![],
                 modifiers: vec![],
+                // Un enregistrement ne choisit jamais l'arme (T2.10) : le joueur garde
+                // l'équipement de son personnage, comme avant ce champ.
+                weapon: None,
             })
             .collect();
 

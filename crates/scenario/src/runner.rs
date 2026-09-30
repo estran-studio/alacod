@@ -31,7 +31,11 @@ use std::collections::BTreeMap;
 use std::path::PathBuf;
 use utils::frame::FrameCount;
 
+use game::global_asset::GlobalAsset;
 use game::replay::{Expectation, ModifierSpec, Scenario, WaveOverride};
+use game::weapons::melee::{self, MeleeWeapon, MeleeWeaponsConfig};
+use game::weapons::{spawn_weapon_for_player, Weapon, WeaponInventory, WeaponsConfig};
+use utils::net_id::GgrsNetIdFactory;
 
 /// Mismatches de synctest : le premier seulement (GGRS répète ensuite le même à chaque
 /// frame et n'avance plus), avec les frames qu'il incrimine.
@@ -164,10 +168,25 @@ pub fn build_app(scenario: &Scenario, headless: bool, config: &PlayConfig) -> Ap
             scenario
                 .players
                 .iter()
-                .map(|p| (p.tags.clone(), p.immune_to.clone(), p.modifiers.clone()))
+                .map(|p| PlayerOverride {
+                    tags: p.tags.clone(),
+                    immune_to: p.immune_to.clone(),
+                    modifiers: p.modifiers.clone(),
+                    weapon: p.weapon.clone(),
+                })
                 .collect(),
         ))
-        .add_systems(Update, apply_player_overrides)
+        // `.before(weapon_inventory_system)` : quand `weapon` despawn/recrée les armes du
+        // joueur (voir la doc de `apply_player_overrides`), `weapon_inventory_system` (Update,
+        // `BaseWeaponGamePlugin`) ne doit jamais lire l'ancien `WeaponInventory` (armes déjà
+        // despawnées) dans la même frame — Bevy insère un `ApplyDeferred` entre deux systèmes
+        // ordonnés (`auto_insert_apply_deferred`, par défaut), ce qui suffit ici : pas besoin
+        // d'ordonner aussi par rapport à `spawn_players_when_map_loaded` (voir la doc de la
+        // fonction, inchangé : elle attend déjà que `Player` existe).
+        .add_systems(
+            Update,
+            apply_player_overrides.before(game::weapons::weapon_inventory_system),
+        )
         .insert_resource(InputSource::Scripted)
         .insert_resource::<ScriptedInputs>(scenario.scripted_inputs())
         // T2.11 : toujours ajouté (BotAssignments vide ⇒ read_bot_inputs ne fait rien, les
@@ -341,32 +360,60 @@ pub struct StopEarly {
     pub stop_when_all_players_dead: bool,
 }
 
-/// Tags, immunités et modificateurs de stats par joueur (T1.1 chantier B1, T1.2 chantier
-/// B2), indexés par handle GGRS — voir `game::replay::PlayerScript::{tags, immune_to,
-/// modifiers}`.
-#[derive(Resource)]
-struct PlayerOverrides(Vec<(Vec<String>, Vec<String>, Vec<ModifierSpec>)>);
+/// Tags, immunités, modificateurs de stats et choix d'arme par joueur (T1.1 chantier B1,
+/// T1.2 chantier B2, T2.10 générateur) — voir `game::replay::PlayerScript::{tags,
+/// immune_to, modifiers, weapon}`.
+struct PlayerOverride {
+    tags: Vec<String>,
+    immune_to: Vec<String>,
+    modifiers: Vec<ModifierSpec>,
+    weapon: Option<String>,
+}
 
-/// Pose les `tags`/`immune_to`/`modifiers` d'un scénario sur les joueurs une fois créés
-/// (composants `Tags`/`Defenses`/`Modifiers`). Contrairement à `apply_weapon_overrides` (qui
-/// doit s'appliquer *avant* la création des joueurs, qui copient la config de leurs armes),
-/// celui-ci s'applique *après* : il attend que les entités `Player` existent, puis pose les
-/// composants une seule fois (`Local<bool>`). `Tags`/`Defenses` sont hors rollback (voir
-/// leur doc) : les poser ici, avant la première frame simulée, suffit — ils ne sont jamais
-/// mutés ensuite. `Modifiers` est en rollback (`stats::StatsPlugin`) mais poser la valeur
-/// initiale avant la première frame simulée est tout aussi correct : elle est identique sur
-/// tous les clients (même scénario), donc fait partie de l'état de départ comme les autres.
+#[derive(Resource)]
+struct PlayerOverrides(Vec<PlayerOverride>);
+
+/// Pose les `tags`/`immune_to`/`modifiers`/`weapon` d'un scénario sur les joueurs une fois
+/// créés (composants `Tags`/`Defenses`/`Modifiers`/`WeaponInventory`). Contrairement à
+/// `apply_weapon_overrides` (qui doit s'appliquer *avant* la création des joueurs, qui
+/// copient la config de leurs armes), celui-ci s'applique *après* : il attend que les
+/// entités `Player` existent, puis pose les composants une seule fois (`Local<bool>`).
+/// `Tags`/`Defenses` sont hors rollback (voir leur doc) : les poser ici, avant la première
+/// frame simulée, suffit — ils ne sont jamais mutés ensuite. `Modifiers`/`WeaponInventory`
+/// sont en rollback, mais poser leur valeur initiale avant la première frame simulée est
+/// tout aussi correct : elle est identique sur tous les clients (même scénario), donc fait
+/// partie de l'état de départ comme les autres — `weapon` n'ajoute donc rien de nouveau au
+/// checksum GGRS, ce n'est qu'un choix d'inventaire à la création (voir la doc de
+/// `PlayerScript::weapon`).
+///
+/// `weapon` : le joueur apparaît avec **cette seule arme** (à distance ou de mêlée, id du
+/// registre), à la place de la totalité de son équipement par défaut — exclusivité complète
+/// (les armes à distance par défaut du personnage *et* son arme de mêlée par défaut,
+/// `bare_hands`, sont retirées, même si `weapon` désigne une arme à distance). Décision
+/// (rapport T2.10) : plus simple et plus sûr pour un scénario généré isolé par arme (aucun
+/// risque qu'un coup de mêlée ou un tir parasite d'une arme de départ non retirée fausse
+/// `EntityHits`) que de ne retirer que la catégorie choisie. Cherche `weapon_id` d'abord
+/// dans `weapons.ron` (arme à distance), puis dans `melee_weapons.ron` (arme de mêlée) ;
+/// panique si absent des deux (même style que `apply_weapon_overrides`, faute de contenu
+/// plutôt que silencieuse).
+#[allow(clippy::too_many_arguments)]
 fn apply_player_overrides(
     overrides: Res<PlayerOverrides>,
     mut commands: Commands,
-    players: Query<(Entity, &Player)>,
+    players: Query<(Entity, &Player, &Children)>,
+    ranged_children: Query<(), With<Weapon>>,
+    melee_children: Query<(), With<MeleeWeapon>>,
+    global_assets: Option<Res<GlobalAsset>>,
+    weapons_asset: Res<Assets<WeaponsConfig>>,
+    melee_weapons_asset: Res<Assets<MeleeWeaponsConfig>>,
+    mut id_factory: ResMut<GgrsNetIdFactory>,
     mut applied: Local<bool>,
 ) {
     if *applied {
         return;
     }
-    if overrides.0.iter().all(|(tags, immune_to, modifiers)| {
-        tags.is_empty() && immune_to.is_empty() && modifiers.is_empty()
+    if overrides.0.iter().all(|o| {
+        o.tags.is_empty() && o.immune_to.is_empty() && o.modifiers.is_empty() && o.weapon.is_none()
     }) {
         *applied = true;
         return;
@@ -374,22 +421,27 @@ fn apply_player_overrides(
     if players.iter().count() < overrides.0.len() {
         return; // les joueurs ne sont pas encore tous créés
     }
-    for (entity, player) in players.iter() {
-        let Some((tags, immune_to, modifiers)) = overrides.0.get(player.handle) else {
+    let Some(global_assets) = global_assets else {
+        return; // arme choisie : attend GlobalAsset (comme apply_weapon_overrides)
+    };
+    for (entity, player, children) in players.iter() {
+        let Some(over) = overrides.0.get(player.handle) else {
             continue;
         };
-        if !tags.is_empty() {
-            commands.entity(entity).insert(Tags::parse(tags.clone()));
+        if !over.tags.is_empty() {
+            commands
+                .entity(entity)
+                .insert(Tags::parse(over.tags.clone()));
         }
-        if !immune_to.is_empty() {
+        if !over.immune_to.is_empty() {
             commands.entity(entity).insert(Defenses {
-                immune_to: Tags::parse(immune_to.clone()),
+                immune_to: Tags::parse(over.immune_to.clone()),
                 resistances: Default::default(),
             });
         }
-        if !modifiers.is_empty() {
+        if !over.modifiers.is_empty() {
             let mut built = Modifiers::default();
-            for (i, spec) in modifiers.iter().enumerate() {
+            for (i, spec) in over.modifiers.iter().enumerate() {
                 built.push(Modifier {
                     stat: spec.stat.clone(),
                     op: spec.op,
@@ -402,6 +454,48 @@ fn apply_player_overrides(
                 });
             }
             commands.entity(entity).insert(built);
+        }
+        if let Some(weapon_id) = &over.weapon {
+            // Exclusivité complète (voir la doc de la fonction) : retire toute arme (à
+            // distance ou de mêlée) déjà posée par `create_player` avant d'en spawner une
+            // seule.
+            for child in children.iter() {
+                if ranged_children.get(child).is_ok() || melee_children.get(child).is_ok() {
+                    commands.entity(child).despawn();
+                }
+            }
+            let mut inventory = WeaponInventory::default();
+            if let Some(weapon_asset) = weapons_asset
+                .get(&global_assets.weapons)
+                .and_then(|config| config.0.get(weapon_id))
+            {
+                spawn_weapon_for_player(
+                    &mut commands,
+                    true,
+                    entity,
+                    weapon_asset.clone(),
+                    &mut inventory,
+                    &mut id_factory,
+                );
+            } else if let Some(melee_asset) = melee_weapons_asset
+                .get(&global_assets.melee_weapons)
+                .and_then(|config| config.0.get(weapon_id))
+            {
+                melee::spawn_melee_weapon_for_character(
+                    &mut commands,
+                    entity,
+                    melee_asset.clone(),
+                    &mut id_factory,
+                );
+            } else {
+                panic!(
+                    "PlayerScript::weapon : arme inconnue « {weapon_id} » pour le joueur {} (ni dans weapons.ron ni dans melee_weapons.ron)",
+                    player.handle
+                );
+            }
+            // Remplace l'inventaire par défaut (potentiellement plusieurs armes à distance)
+            // par celui-ci (une seule arme, ou aucune si `weapon_id` est une arme de mêlée).
+            commands.entity(entity).insert(inventory);
         }
     }
     *applied = true;
@@ -819,15 +913,21 @@ fn check(world: &mut World, expectation: &Expectation) -> Result<(), String> {
             }
             Ok(())
         }
-        Expectation::EntityHits { net_id, min, .. } => {
+        Expectation::EntityHits {
+            net_id, min, max, ..
+        } => {
             let Some(hits) = entity_hit_count(world, *net_id) else {
                 return Err("entité absente ou sans compteur de coups (HitCount)".into());
             };
-            if hits >= *min {
-                Ok(())
-            } else {
-                Err(format!("{hits} coups reçus < min {min}"))
+            if hits < *min {
+                return Err(format!("{hits} coups reçus < min {min}"));
             }
+            if let Some(max_val) = max {
+                if hits > *max_val {
+                    return Err(format!("{hits} coups reçus > max {max_val}"));
+                }
+            }
+            Ok(())
         }
         Expectation::NoDamageBetween { .. } => {
             // Géré dans la boucle principale, pas dans check()

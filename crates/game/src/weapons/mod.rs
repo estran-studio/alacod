@@ -125,7 +125,7 @@ pub struct FiringModeConfig {
     pub mag: MagBulletConfig,
 }
 
-#[derive(Debug, Clone, Hash, Serialize, Deserialize, PartialEq)]
+#[derive(Debug, Clone, Serialize, Deserialize, PartialEq)]
 pub struct WeaponConfig {
     pub name: String,
     pub default_firing_mode: String,
@@ -136,6 +136,46 @@ pub struct WeaponConfig {
     /// laissait de toute façon jamais une balle atteindre un joueur).
     #[serde(default)]
     pub friendly_fire: FriendlyFire,
+    /// Gabarit de scénario généré (T2.10, `crates/scenario/src/generate.rs`) : nombre de
+    /// coups attendus sur `target` après `frames` images de tir continu. `None` (défaut) :
+    /// l'arme obtient quand même un scénario généré, mais avec les invariants seulement (pas
+    /// d'attente de coups). Pure métadonnée d'outillage : ne doit **jamais** entrer dans le
+    /// hash de `WeaponConfig` (voir l'impl manuelle de `Hash` ci-dessous), qui contribue au
+    /// checksum GGRS via `Weapon`/`WeaponInventory` — un `derive(Hash)` ordinaire changerait
+    /// le checksum de *toutes* les armes dès que ce champ existe, même à `None`.
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub test: Option<WeaponTest>,
+}
+
+/// Hash manuel : reprend exactement les champs (et l'ordre) que dérivait `WeaponConfig`
+/// avant l'ajout de `test`, en excluant `test` — une arme sans `test:` (`None`, tout le
+/// contenu existant) produit donc le même hash qu'avant ce champ, et une arme avec `test:`
+/// n'en produit pas un différent selon la valeur de `test` (pure métadonnée, voir sa doc).
+impl std::hash::Hash for WeaponConfig {
+    fn hash<H: std::hash::Hasher>(&self, state: &mut H) {
+        self.name.hash(state);
+        self.default_firing_mode.hash(state);
+        self.firing_modes.hash(state);
+        self.friendly_fire.hash(state);
+    }
+}
+
+/// Attentes d'un scénario généré pour cette arme (T2.10). RON : `test: (frames: 240,
+/// min_hits: 5, max_hits: 200)` (`max_hits`/`expect` optionnels). Validé par
+/// `content::lint` (`frames > 0`, `min_hits <= max_hits`).
+#[derive(Debug, Clone, Serialize, Deserialize, PartialEq, Default)]
+pub struct WeaponTest {
+    /// Nombre de frames du scénario généré, et frame de vérification de `EntityHits`.
+    pub frames: u32,
+    /// `EntityHits::min` : coups minimum sur `target` à la frame `frames`.
+    pub min_hits: u32,
+    /// `EntityHits::max`, si présent (sinon aucune borne haute).
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub max_hits: Option<u32>,
+    /// Attentes supplémentaires ajoutées telles quelles au scénario généré, en plus de
+    /// `EntityHits` (ex. vérifier autre chose que `target`). Vide par défaut.
+    #[serde(default, skip_serializing_if = "Vec::is_empty")]
+    pub expect: Vec<crate::replay::Expectation>,
 }
 
 #[derive(Debug, Clone, Hash, Serialize, Deserialize, PartialEq)]
