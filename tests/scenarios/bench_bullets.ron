@@ -1,0 +1,30 @@
+// Bench de performance (T2.1, chantier B4b, `docs/taches.md`) : quatre joueurs immobiles
+// tirent à la mitrailleuse en continu, chacun dans une direction différente, avec un
+// chargeur énorme et la cadence maximale (`weapon_overrides`) : des centaines de balles
+// vivantes en même temps pendant la plus grande partie des 600 frames, pour mesurer le gain
+// de la grille spatiale sur `bullet_rollback_collision_system` (balles contre murs et
+// personnages).
+//
+// À regarder : quatre jets de balles continus qui remplissent la salle et s'arrêtent sur les
+// murs.
+Scenario(
+    game: "zombies",
+    frames: 600,
+    weapon_overrides: [
+        (weapon: "machine_gun", mag_size: 100000, mag_limit: 1, firing_rate: "600.0"),
+    ],
+    players: [
+        (inputs: [
+            (from: 5, to: 600, buttons: [Fire], pan: (0, 100)),
+        ]),
+        (inputs: [
+            (from: 5, to: 600, buttons: [Fire], pan: (100, 0)),
+        ]),
+        (inputs: [
+            (from: 5, to: 600, buttons: [Fire], pan: (0, -100)),
+        ]),
+        (inputs: [
+            (from: 5, to: 600, buttons: [Fire], pan: (-100, 0)),
+        ]),
+    ],
+)

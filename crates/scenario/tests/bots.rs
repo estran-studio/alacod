@@ -27,6 +27,7 @@ fn two_fonceurs(frames: u32) -> Scenario {
         ],
         expect: vec![],
         weapon_overrides: vec![],
+        wave_overrides: None,
         invariants: Default::default(),
     }
 }

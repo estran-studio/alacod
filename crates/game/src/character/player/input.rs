@@ -526,6 +526,7 @@ pub fn move_characters(
         (With<Rollback>, With<Player>),
     >,
     settings: Res<CollisionSettings>,
+    grids: Res<crate::collision_grid::CollisionGrids>,
     collider_query: Query<
         (
             Entity,
@@ -543,12 +544,25 @@ pub fn move_characters(
         let delta_x = total_velocity.x * fixed_math::new(FIXED_TIMESTEP);
         let delta_y = total_velocity.y * fixed_math::new(FIXED_TIMESTEP);
 
-        // Check for HARD collisions only (walls, not enemies)
-        // Enemies are "soft" - player can push through them
+        // Check for HARD collisions only (walls, not enemies). Grille spatiale (T2.1,
+        // chantier B4b) : candidats des deux grilles (murs statiques + fenêtres/obstacles de
+        // la grille dynamique — jamais les joueurs, exclus comme avant par le filtre
+        // `Without<Player>` de `collider_query`, qui rejette silencieusement un candidat
+        // joueur via `.get()`) autour de `pos`, au lieu de toute la carte. Enemies are "soft" -
+        // player can push through them.
         let check_hard_collision = |pos: &fixed_math::FixedVec3| -> bool {
-            for (_target_entity, target_transform, target_collider, target_layer) in
-                collider_query.iter()
+            let aabb = crate::collision_grid::collider_aabb(pos, player_collider);
+            for entry in grids
+                .walls
+                .query_aabb(&aabb)
+                .into_iter()
+                .chain(grids.characters.query_aabb(&aabb))
             {
+                let Ok((_target_entity, target_transform, target_collider, target_layer)) =
+                    collider_query.get(entry.entity)
+                else {
+                    continue;
+                };
                 // Skip if layers don't collide
                 if !settings.layer_matrix[collision_layer.0][target_layer.0] {
                     continue;
@@ -569,12 +583,17 @@ pub fn move_characters(
             false
         };
 
-        // Count enemy collisions for slowdown effect
+        // Count enemy collisions for slowdown effect. Only the dynamic grid can hold
+        // enemy-layer colliders (walls never do).
         let count_enemy_collisions = |pos: &fixed_math::FixedVec3| -> u32 {
+            let aabb = crate::collision_grid::collider_aabb(pos, player_collider);
             let mut count = 0u32;
-            for (_target_entity, target_transform, target_collider, target_layer) in
-                collider_query.iter()
-            {
+            for entry in grids.characters.query_aabb(&aabb) {
+                let Ok((_target_entity, target_transform, target_collider, target_layer)) =
+                    collider_query.get(entry.entity)
+                else {
+                    continue;
+                };
                 if target_layer.0 != settings.enemy_layer {
                     continue;
                 }

@@ -295,6 +295,7 @@ pub fn build_scenario(
         }],
         expect,
         weapon_overrides: vec![],
+        wave_overrides: None,
         invariants: Invariants::default(),
     }
 }

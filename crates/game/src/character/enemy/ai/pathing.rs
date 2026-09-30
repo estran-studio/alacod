@@ -222,45 +222,41 @@ pub fn move_enemies(
     >,
     flow_field_cache: Res<super::navigation::FlowFieldCache>,
     stats: StatReader,
+    grids: Res<crate::collision_grid::CollisionGrids>,
 ) {
-    // --- Optimization 1: Cache walls ---
-    // Collect walls into a Vec for faster iteration (cache locality)
-    let walls: Vec<_> = wall_collider_query.iter().collect();
-
-    // --- Optimization 2: Spatial Grid for Separation ---
-    // GGRS CRITICAL: Use order_iter! for deterministic iteration order
-    // We collect (Entity, Position)
-    let enemy_positions: Vec<(Entity, fixed_math::FixedVec2)> = order_iter!(enemy_query)
+    // --- Spatial Grid for Separation (T2.1, chantier B4b) ---
+    // Remplace la table de hachage locale (collection non déterministe interdite par
+    // `check-forbidden.sh`) par `combat::grid::SpatialGrid` (T1.8). Entrées ponctuelles (AABB
+    // dégénérée min==max==position). `enemy_positions` reste un instantané figé au début de
+    // l'appel :
+    // les mouvements appliqués plus bas, un ennemi à la fois, ne doivent pas se voir entre eux
+    // (comportement inchangé, GGRS CRITICAL : `order_iter!` pour un ordre déterministe).
+    let enemy_positions: Vec<(GgrsNetId, Entity, fixed_math::FixedVec2)> = order_iter!(enemy_query)
         .iter()
-        .map(|(_, entity, transform, ..)| (*entity, transform.translation.truncate()))
+        .map(|(net_id, entity, transform, ..)| {
+            ((*net_id).clone(), *entity, transform.translation.truncate())
+        })
         .collect();
 
-    // Build spatial grid. Granularité du bucketing spatial seulement (optimisation de
-    // recherche de voisins) : reste la constante partagée `PathfindingConfig`, pas la stat
-    // `SeparationDistance` de chaque ennemi (T1.2) — aujourd'hui identiques pour tous les
-    // ennemis (aucun `stats:` de RON ne la surcharge encore), donc sans effet sur le
-    // résultat ; un futur type d'ennemi avec une `SeparationDistance` très différente
-    // resterait correct (le rayon réel de répulsion, lu plus bas, est bien celui de
-    // l'ennemi), seulement avec une grille moins optimale pour ce cas précis.
+    // Granularité du bucketing spatial seulement (optimisation de recherche de voisins) :
+    // reste la constante partagée `PathfindingConfig`, pas la stat `SeparationDistance` de
+    // chaque ennemi (T1.2) — aujourd'hui identiques pour tous les ennemis (aucun `stats:` de
+    // RON ne la surcharge encore), donc sans effet sur le résultat ; un futur type d'ennemi
+    // avec une `SeparationDistance` très différente resterait correct (le rayon réel de
+    // répulsion, lu plus bas, est bien celui de l'ennemi), seulement avec une grille moins
+    // optimale pour ce cas précis (limite déjà présente avant T2.1, inchangée).
     let cell_size = config.enemy_separation_distance;
-    let mut spatial_grid: std::collections::HashMap<(i32, i32), Vec<usize>> =
-        std::collections::HashMap::new();
-
-    for (index, (_, pos)) in enemy_positions.iter().enumerate() {
-        let grid_x = (pos.x / cell_size).floor().to_num::<i32>();
-        let grid_y = (pos.y / cell_size).floor().to_num::<i32>();
-        spatial_grid
-            .entry((grid_x, grid_y))
-            .or_default()
-            .push(index);
+    let mut separation_grid = combat::grid::SpatialGrid::new(cell_size);
+    for (net_id, entity, pos) in &enemy_positions {
+        separation_grid.insert(
+            net_id.clone(),
+            *entity,
+            combat::grid::Aabb {
+                min: *pos,
+                max: *pos,
+            },
+        );
     }
-
-    // Intact windows block enemies (deterministic order for the collision loop)
-    let windows: Vec<_> = order_iter!(window_query)
-        .into_iter()
-        .filter(|(_, _, obstacle, _)| obstacle.blocks_movement)
-        .map(|(_, transform, _, collider)| (transform, collider))
-        .collect();
 
     // Obstacle avoidance constants
     let lookahead_distance = fixed_math::new(30.0); // How far ahead to check for obstacles
@@ -466,35 +462,35 @@ pub fn move_enemies(
             distance_to_nearest_player = fixed_math::Fixed::MAX;
         }
 
-        // Calculate separation force (avoid other enemies) using Spatial Grid
+        // Calculate separation force (avoid other enemies) using the spatial grid (T2.1).
+        // Requête AABB de demi-étendue `cell_size` : couvre exactement les 9 cellules
+        // `(cellule ± 1, cellule ± 1)` de l'ancien bucketing (identité mathématique
+        // floor((p ± cell_size) / cell_size) == floor(p / cell_size) ± 1, voir le rapport de
+        // la tâche), donc le même ensemble de candidats avant le filtre
+        // `dist_to_other < separation_distance` qui décide réellement qui compte. Résultats
+        // triés par `net_id` (la grille les insère dans cet ordre et `query_aabb` les trie) :
+        // la somme fixed-point accumule dans le même ordre croissant qu'avant.
         let mut separation_v2 = fixed_math::FixedVec2::ZERO;
         let mut separation_count: u32 = 0; // Use u32 for count
 
-        let grid_x = (enemy_pos_v2.x / cell_size).floor().to_num::<i32>();
-        let grid_y = (enemy_pos_v2.y / cell_size).floor().to_num::<i32>();
+        let neighborhood = combat::grid::Aabb {
+            min: fixed_math::FixedVec2::new(enemy_pos_v2.x - cell_size, enemy_pos_v2.y - cell_size),
+            max: fixed_math::FixedVec2::new(enemy_pos_v2.x + cell_size, enemy_pos_v2.y + cell_size),
+        };
 
-        // Check current cell and neighbors (3x3 area)
-        for dx in -1..=1 {
-            for dy in -1..=1 {
-                if let Some(indices) = spatial_grid.get(&(grid_x + dx, grid_y + dy)) {
-                    for &idx in indices {
-                        let (other_entity, other_pos_v2) = &enemy_positions[idx];
-                        if *other_entity == entity {
-                            continue;
-                        }
+        for other_entry in separation_grid.query_aabb(&neighborhood) {
+            if other_entry.entity == entity {
+                continue;
+            }
+            let other_pos_v2 = other_entry.aabb.min;
 
-                        let dist_to_other = enemy_pos_v2.distance(other_pos_v2);
-                        // Use small epsilon for distance > 0 check
-                        if dist_to_other < separation_distance
-                            && dist_to_other > fixed_math::new(0.1)
-                        {
-                            let repulsion_v2 = (enemy_pos_v2 - *other_pos_v2).normalize_or_zero()
-                                / dist_to_other.max(fixed_math::FIXED_ONE);
-                            separation_v2 += repulsion_v2;
-                            separation_count += 1;
-                        }
-                    }
-                }
+            let dist_to_other = enemy_pos_v2.distance(&other_pos_v2);
+            // Use small epsilon for distance > 0 check
+            if dist_to_other < separation_distance && dist_to_other > fixed_math::new(0.1) {
+                let repulsion_v2 = (enemy_pos_v2 - other_pos_v2).normalize_or_zero()
+                    / dist_to_other.max(fixed_math::FIXED_ONE);
+                separation_v2 += repulsion_v2;
+                separation_count += 1;
             }
         }
 
@@ -548,27 +544,18 @@ pub fn move_enemies(
             let delta_x = total_velocity.x * fixed_math::new(FIXED_TIMESTEP);
             let delta_y = total_velocity.y * fixed_math::new(FIXED_TIMESTEP);
 
-            // Helper to check collision at a position (using cached walls)
-            // Optimization: skip walls whose *edges* are more than 100 units away. Walls are
-            // merged into long rectangles: measuring from their center would skip a wall
-            // whose end is right next to the enemy.
-            let max_check_dist = fixed_math::new(100.0);
+            // Helper to check collision at a position. Grille spatiale (T2.1, chantier B4b) :
+            // requête sur `CollisionGrids::walls` au lieu de la boucle sur tous les murs —
+            // l'ancienne optimisation `max_check_dist` (sauter les murs à plus de 100 unités)
+            // est maintenant inutile, la grille ne renvoie déjà que les murs proches de `pos`.
             let check_wall_collision = |pos: &fixed_math::FixedVec3| -> bool {
-                let pos_2d = fixed_math::FixedVec2::new(pos.x, pos.y);
-                for (wall_transform, wall_collider, wall_layer) in &walls {
-                    let (half_w, half_h) = match &wall_collider.shape {
-                        crate::collider::ColliderShape::Circle { radius } => (*radius, *radius),
-                        crate::collider::ColliderShape::Rectangle { width, height } => (
-                            *width / fixed_math::new(2.0),
-                            *height / fixed_math::new(2.0),
-                        ),
-                    };
-                    let wall_pos_2d = wall_transform.translation.truncate();
-                    let dx = (pos_2d.x - wall_pos_2d.x).abs();
-                    let dy = (pos_2d.y - wall_pos_2d.y).abs();
-                    if dx > max_check_dist + half_w || dy > max_check_dist + half_h {
+                let aabb = crate::collision_grid::collider_aabb(pos, enemy_collider);
+                for wall_entry in grids.walls.query_aabb(&aabb) {
+                    let Ok((wall_transform, wall_collider, wall_layer)) =
+                        wall_collider_query.get(wall_entry.entity)
+                    else {
                         continue;
-                    }
+                    };
                     if !collision_settings.layer_matrix[enemy_collision_layer.0][wall_layer.0] {
                         continue;
                     }
@@ -581,12 +568,23 @@ pub fn move_enemies(
                         return true;
                     }
                 }
-                windows.iter().any(|(window_transform, window_collider)| {
-                    is_colliding(
-                        pos,
-                        enemy_collider,
-                        &window_transform.translation,
-                        window_collider,
+                // Fenêtres intactes bloquent les ennemis : grille dynamique partagée
+                // (`CollisionGrids::characters`), filtrée par `blocks_movement` comme avant.
+                // Même instantané que les balles/la mêlée cette frame (les fenêtres ne
+                // bougent pas et leur `Obstacle`/`Collider` ne changent pas entre `Movement`
+                // et `EnemyAI`, voir `crate::collision_grid`) : les entrées joueurs/ennemis,
+                // périmées à ce point, ne sont jamais lues ici (`window_query` les rejette).
+                grids.characters.query_aabb(&aabb).into_iter().any(|entry| {
+                    window_query.get(entry.entity).is_ok_and(
+                        |(_, window_transform, obstacle, window_collider)| {
+                            obstacle.blocks_movement
+                                && is_colliding(
+                                    pos,
+                                    enemy_collider,
+                                    &window_transform.translation,
+                                    window_collider,
+                                )
+                        },
                     )
                 })
             };
