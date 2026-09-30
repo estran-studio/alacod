@@ -7,6 +7,7 @@
 use std::collections::{BTreeMap, BTreeSet};
 
 use bevy::prelude::*;
+use combat::downed::{Downed, RunOutcome};
 use game::{
     character::{health::Health, player::Player},
     collider::Collider,
@@ -45,6 +46,8 @@ struct PlayerSnapshot {
     sprinting: bool,
     melee: bool,
     position: (i32, i32),
+    /// À terre (T1.3, chantier B6) : `combat::downed::Downed` présent sur ce joueur.
+    downed: bool,
 }
 
 #[derive(Default, Clone)]
@@ -56,6 +59,8 @@ struct Snapshot {
     windows: BTreeMap<usize, u8>,
     closed_doors: BTreeSet<usize>,
     open_doors: BTreeSet<usize>,
+    /// À terre (T1.3, chantier B6) : `combat::downed::RunOutcome::defeat_at_frame.is_some()`.
+    defeat: bool,
 }
 
 pub struct GameEventsPlugin;
@@ -82,6 +87,7 @@ fn detect_events(
     frame: Res<FrameCount>,
     mut events: ResMut<GameEvents>,
     wave: Option<Res<WaveState>>,
+    run_outcome: Option<Res<RunOutcome>>,
     players: Query<(
         &Player,
         &Health,
@@ -90,6 +96,7 @@ fn detect_events(
         Option<&game::character::movement::SprintState>,
         Option<&game::weapons::melee::MeleeAttackState>,
         &bevy_fixed::fixed_math::FixedTransform3D,
+        Has<Downed>,
     )>,
     weapons: Query<(&WeaponState, &WeaponModesState)>,
     windows: Query<(&GgrsNetId, &WindowHealth)>,
@@ -102,7 +109,8 @@ fn detect_events(
         now.phase = Some(wave.phase);
         now.kills = wave.total_enemies_killed;
     }
-    for (player, health, inventory, dash, sprint, melee, transform) in &players {
+    now.defeat = run_outcome.is_some_and(|outcome| outcome.defeat_at_frame.is_some());
+    for (player, health, inventory, dash, sprint, melee, transform, downed) in &players {
         let mut snapshot = PlayerSnapshot {
             reloading: inventory.is_some_and(|i| i.reloading_ending_frame.is_some()),
             weapon_index: inventory.map_or(0, |i| i.active_weapon_index),
@@ -114,6 +122,7 @@ fn detect_events(
                 transform.translation.x.to_num::<i32>(),
                 transform.translation.y.to_num::<i32>(),
             ),
+            downed,
             ..Default::default()
         };
         if let Some((entity, weapon)) = inventory.and_then(|i| i.weapons.get(i.active_weapon_index))
@@ -229,6 +238,16 @@ fn detect_events(
                 if player.melee && !previous.melee {
                     push("melee", format!("joueur {handle} attaque au corps à corps"));
                 }
+                // À terre (T1.3, chantier B6). `revived` seulement quand le joueur est
+                // toujours là (`now.players` le contient) : `Downed` retiré par une mort
+                // de saignement, sans joueur qui reste, tombe dans la boucle `death`
+                // ci-dessous, pas ici.
+                if player.downed && !previous.downed {
+                    push("downed", format!("joueur {handle} tombe à terre"));
+                }
+                if !player.downed && previous.downed {
+                    push("revived", format!("joueur {handle} réanimé"));
+                }
                 if player.weapon_index == previous.weapon_index
                     && player.ammo == 0
                     && previous.ammo > 0
@@ -258,5 +277,11 @@ fn detect_events(
     }
     for id in now.open_doors.intersection(&before.closed_doors) {
         push("door", format!("porte {id} ouverte"));
+    }
+    if now.defeat && !before.defeat {
+        push(
+            "defeat",
+            "défaite : tous les joueurs sont à terre ou morts".to_string(),
+        );
     }
 }

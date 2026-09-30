@@ -836,7 +836,53 @@ fn check(world: &mut World, expectation: &Expectation) -> Result<(), String> {
                 Err(format!("événement '{}' non trouvé{}", kind, label_desc))
             }
         }
+        // À terre (T1.3, chantier B6). `PlayerDowned` : vérification ponctuelle (comme
+        // `PlayerAlive`/`PlayerDead`) — l'entité existe toujours quand un joueur est à
+        // terre (contrairement à la mort), seul `Downed` change.
+        Expectation::PlayerDowned { handle, .. } => match player_downed(world, *handle) {
+            Some(true) => Ok(()),
+            Some(false) => Err("joueur pas à terre".into()),
+            None => Err("joueur absent".into()),
+        },
+        // `PlayerRevived`/`Defeat` : vérification cumulative sur l'historique des
+        // `GameEvents` (comme `Event`), la transition elle-même (pas un état ponctuel).
+        Expectation::PlayerRevived { handle, by_frame } => {
+            let label_needle = format!("joueur {handle} ");
+            let found = world.resource::<GameEvents>().events.iter().any(|event| {
+                event.kind == "revived"
+                    && event.frame <= *by_frame
+                    && event.label.contains(&label_needle)
+            });
+            if found {
+                Ok(())
+            } else {
+                Err(format!(
+                    "joueur {handle} pas réanimé avant la frame {by_frame}"
+                ))
+            }
+        }
+        Expectation::Defeat { by_frame } => {
+            let found = world
+                .resource::<GameEvents>()
+                .events
+                .iter()
+                .any(|event| event.kind == "defeat" && event.frame <= *by_frame);
+            if found {
+                Ok(())
+            } else {
+                Err(format!("pas de défaite avant la frame {by_frame}"))
+            }
+        }
     }
+}
+
+/// Le joueur `handle` est-il à terre (`combat::downed::Downed`) ? `None` si absent (mort).
+fn player_downed(world: &mut World, handle: usize) -> Option<bool> {
+    world
+        .query::<(&Player, Has<combat::downed::Downed>)>()
+        .iter(world)
+        .find(|(player, _)| player.handle == handle)
+        .map(|(_, downed)| downed)
 }
 
 fn summarize(world: &mut World, frame: u32) -> String {

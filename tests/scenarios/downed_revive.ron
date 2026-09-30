@@ -1,0 +1,31 @@
+// À terre et réanimation (T1.3, chantier B6). Le joueur 0 (en haut) abat le joueur 1 (en bas,
+// 32 unités plus bas — positions de spawn de `exemples/test_map.ldtk`, seed par défaut) à la
+// mitrailleuse, `friendly_fire: Always` (comme `friendly_fire_cursed`) pour que le tir ami
+// compte. À 0 PV et le joueur 0 encore debout, le joueur 1 tombe à terre au lieu de mourir (voir
+// la doc de `combat::downed::Downed`). Le joueur 0 est déjà à portée de réanimation
+// (`combat::downed::revive_range`, 40 unités, dépasse les 32 qui les séparent) : il n'a pas
+// besoin de marcher, seulement de maintenir l'interaction jusqu'à `revive_frames` (180,
+// `player_config.ron`).
+//
+// À regarder : rafale du joueur 0 vers le bas (f10-100) ; le joueur 1 tombe à terre (f89) puis
+// est réanimé (f295, 110 + 180 + un peu de latence d'input) sans que le joueur 0 ait bougé.
+Scenario(
+    frames: 500,
+    players: [
+        (
+            inputs: [
+                (from: 10, to: 100, buttons: [Fire], pan: (0, -100)),
+                (from: 110, to: 400, buttons: [Interaction], pan: (0, -100)),
+            ],
+        ),
+        (),
+    ],
+    weapon_overrides: [
+        (weapon: "machine_gun", friendly_fire: Always),
+    ],
+    expect: [
+        PlayerDowned(handle: 1, at_frame: 100),
+        PlayerRevived(handle: 1, by_frame: 350),
+        PlayerAlive(handle: 1, at_frame: 450),
+    ],
+)

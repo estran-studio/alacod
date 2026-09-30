@@ -8,6 +8,7 @@ use animation::FacingDirection;
 use bevy::prelude::*;
 use bevy_fixed::fixed_math;
 use bevy_ggrs::Rollback;
+use combat::downed::Downed;
 use serde::{Deserialize, Serialize};
 use sim_core::stats::StatId;
 use stats::StatReader;
@@ -93,7 +94,12 @@ impl Default for PathfindingConfig {
 // System to find closest player and set as target
 // Uses EnemyTarget from the new AI state system
 pub fn update_enemy_targets(
-    player_query: Query<(&GgrsNetId, &fixed_math::FixedTransform3D, &Player)>,
+    player_query: Query<(
+        &GgrsNetId,
+        &fixed_math::FixedTransform3D,
+        &Player,
+        Has<Downed>,
+    )>,
     mut enemy_query: Query<
         (
             &fixed_math::FixedTransform3D,
@@ -107,11 +113,26 @@ pub fn update_enemy_targets(
 ) {
     // Get all player positions with their net IDs
     // GGRS CRITICAL: Sort by net_id for deterministic tie-breaking when multiple players at equal distance
-    let mut player_positions: Vec<(GgrsNetId, fixed_math::FixedVec2)> = player_query
+    let mut player_positions: Vec<(GgrsNetId, fixed_math::FixedVec2, bool)> = player_query
         .iter()
-        .map(|(net_id, fixed_transform, _)| {
-            (net_id.clone(), fixed_transform.translation.truncate())
+        .map(|(net_id, fixed_transform, _, downed)| {
+            (
+                net_id.clone(),
+                fixed_transform.translation.truncate(),
+                downed,
+            )
         })
+        .collect();
+    // À terre (T1.3, chantier B6) : même règle que `update_flow_field_system` — ignorer les
+    // joueurs à terre tant qu'un autre est encore debout (voir la doc de
+    // `combat::downed::Downed`).
+    let any_standing = player_positions.iter().any(|(_, _, downed)| !downed);
+    if any_standing {
+        player_positions.retain(|(_, _, downed)| !downed);
+    }
+    let mut player_positions: Vec<(GgrsNetId, fixed_math::FixedVec2)> = player_positions
+        .into_iter()
+        .map(|(id, pos, _)| (id, pos))
         .collect();
     player_positions.sort_unstable_by_key(|(net_id, _)| net_id.0);
 

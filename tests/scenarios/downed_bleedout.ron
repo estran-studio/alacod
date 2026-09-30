@@ -1,0 +1,26 @@
+// À terre et saignement (T1.3, chantier B6). Même mise en scène que `downed_revive` (le joueur
+// 0 abat le joueur 1 à bout portant, `friendly_fire: Always`), mais personne ne réanime : le
+// joueur 1, à terre, meurt de saignement au bout de `bleedout_frames` (900,
+// `player_config.ron`) sans avoir été retouché entre-temps (`Health` gelée pendant qu'il est à
+// terre, voir la doc de `combat::downed::Downed`).
+//
+// À regarder : rafale du joueur 0 (f10-100), le joueur 1 tombe à terre (f89) puis meurt de
+// saignement à f989 (89 + 900), sans autre coup porté.
+Scenario(
+    frames: 1100,
+    players: [
+        (
+            inputs: [
+                (from: 10, to: 100, buttons: [Fire], pan: (0, -100)),
+            ],
+        ),
+        (),
+    ],
+    weapon_overrides: [
+        (weapon: "machine_gun", friendly_fire: Always),
+    ],
+    expect: [
+        PlayerDowned(handle: 1, at_frame: 100),
+        PlayerDead(handle: 1, at_frame: 1050),
+    ],
+)

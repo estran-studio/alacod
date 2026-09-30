@@ -1,4 +1,6 @@
-**/target*
+# Dossiers de build Cargo seulement (pas un fichier comme games/**/target.ron)
+**/target/
+/target_wasm/
 *.d.ts
 .DS_Store
 **/vendor*

@@ -7,18 +7,23 @@ use bevy::{
 use bevy_fixed::fixed_math;
 use bevy_ggrs::Rollback;
 use combat::damage::{resolve_damage, Defenses};
+use combat::downed::{downed_modifier_source, Downed, Reviving, RunOutcome};
 use ggrs::PlayerHandle;
 use serde::{Deserialize, Serialize};
 use sim_core::damage::DamageEvent;
+use sim_core::modifier::{ModifierOp, Modifiers};
+use sim_core::players::PlayersCount;
 use sim_core::stats::StatId;
 use sim_core::team::Team;
 use stats::StatReader;
-use std::collections::BTreeMap;
+use std::collections::{BTreeMap, BTreeSet};
 use std::fmt;
 use utils::{frame::FrameCount, net_id::GgrsNetId, order_iter, order_mut_iter};
 
+use crate::character::config::{CharacterConfig, CharacterConfigHandles};
 use crate::character::player::Player;
 use crate::frame_events::FrameEvents;
+use crate::interaction::{Interactable, InteractionType};
 
 #[derive(Component, Reflect, Debug, Clone, Hash, Serialize, Deserialize)]
 pub enum HitBy {
@@ -141,6 +146,7 @@ pub fn rollback_resolve_damage_events(
             Option<&Defenses>,
             Option<&Health>,
             Option<&mut DamageAccumulator>,
+            Has<Downed>,
             Option<&mut HitCount>,
         ),
         With<Rollback>,
@@ -176,6 +182,7 @@ pub fn rollback_resolve_damage_events(
             opt_defenses,
             opt_health,
             opt_accumulator,
+            downed,
             opt_hit_count,
         )) = target_query.get_mut(entity)
         else {
@@ -183,6 +190,13 @@ pub fn rollback_resolve_damage_events(
         };
         // Pas de santé : rien à blesser (ex. un mur touché par erreur).
         if opt_health.is_none() {
+            continue;
+        }
+        // À terre (T1.3) : `Health` n'est plus touchée tant qu'un joueur est `Downed` — voir
+        // la doc de `combat::downed::Downed`. Ignoré ici plutôt que dans `resolve_damage`
+        // (fonction pure, sans accès ECS) : ce résolveur est déjà le seul point qui lit à la
+        // fois l'événement et l'état de la cible.
+        if downed {
             continue;
         }
         let invulnerable = opt_health
@@ -235,9 +249,23 @@ pub fn rollback_resolve_damage_events(
     }
 }
 
+/// Handle par défaut de `bleedout_frames`/`downed_speed_mult` quand la config n'a pas pu
+/// être lue (`CharacterConfigHandles` absent ou asset pas encore chargé — ne devrait pas
+/// arriver en pratique, garde défensive). Mêmes valeurs que `CharacterConfig::default_*`
+/// (`character/config.rs`), dupliquées ici en constantes simples pour ne pas dépendre d'une
+/// instance de `CharacterConfig` déjà construite.
+const FALLBACK_BLEEDOUT_FRAMES: u32 = 1800;
+
 pub fn rollback_apply_accumulated_damage(
     frame: Res<FrameCount>,
     mut commands: Commands,
+    players_count: Res<PlayersCount>,
+    character_configs: Res<Assets<CharacterConfig>>,
+    // Lecture seule, indépendante de la query mutable ci-dessous (aucun composant en
+    // commun : `Player`/`Downed` vs `Health`/`DamageAccumulator`/`Modifiers`/
+    // `CharacterConfigHandles`) : sert à savoir, pour un joueur qui tombe à 0 PV cette
+    // frame, si un AUTRE joueur est encore debout (ni mort, ni déjà à terre).
+    standing_players: Query<(&Player, Has<Downed>)>,
     mut query: Query<
         (
             &GgrsNetId,
@@ -245,6 +273,9 @@ pub fn rollback_apply_accumulated_damage(
             &DamageAccumulator,
             &mut Health,
             Option<&mut HealthRegen>,
+            Option<&Player>,
+            Option<&CharacterConfigHandles>,
+            Option<&mut Modifiers>,
         ),
         With<Rollback>,
     >,
@@ -252,7 +283,28 @@ pub fn rollback_apply_accumulated_damage(
     let system_span = span!(Level::INFO, "ggrs", f = frame.frame, s = "apply_damage");
     let _enter = system_span.enter();
 
-    for (g_id, entity, accumulator, mut health, opt_regen) in order_mut_iter!(query) {
+    // À terre (T1.3, chantier B6) : handles des joueurs encore debout, lus une fois avant la
+    // boucle. Un joueur qui tombe à terre CETTE frame ne porte pas encore `Downed` au moment
+    // de cette lecture (il est ajouté plus bas, après coup, par `commands`) : il compte donc
+    // comme « debout » pour lui-même, ce qui est correct — la règle porte sur les AUTRES
+    // joueurs (`other != player.handle` plus bas), jamais sur lui-même.
+    let standing_handles: BTreeSet<usize> = standing_players
+        .iter()
+        .filter(|(_, downed)| !downed)
+        .map(|(player, _)| player.handle)
+        .collect();
+
+    for (
+        g_id,
+        entity,
+        accumulator,
+        mut health,
+        opt_regen,
+        opt_player,
+        opt_config_handles,
+        opt_modifiers,
+    ) in order_mut_iter!(query)
+    {
         if accumulator.total_damage > fixed_math::FIXED_ZERO {
             health.current = health.current.saturating_sub(accumulator.total_damage);
 
@@ -269,11 +321,141 @@ pub fn rollback_apply_accumulated_damage(
             commands.entity(entity).remove::<DamageAccumulator>();
 
             if health.current <= fixed_math::FIXED_ZERO {
-                commands.entity(entity).insert(Death {
-                    last_hit_by: accumulator.last_hit_by.clone(),
-                });
+                // À terre (T1.3) plutôt que mort : seulement un joueur, et seulement s'il
+                // reste au moins un AUTRE joueur debout pour le réanimer (`PlayersCount > 1`
+                // et un autre handle que le sien dans `standing_handles`) ; sinon (seul, ou
+                // tous les autres déjà à terre/morts) il meurt comme avant T1.3. Voir la doc
+                // de `combat::downed::Downed`.
+                let other_standing = opt_player
+                    .is_some_and(|player| standing_handles.iter().any(|&h| h != player.handle));
+
+                if players_count.0 > 1 && other_standing {
+                    let player = opt_player.expect("other_standing implique un Player");
+                    let config = opt_config_handles.and_then(|h| character_configs.get(&h.config));
+                    let bleedout_frames =
+                        config.map_or(FALLBACK_BLEEDOUT_FRAMES, |c| c.bleedout_frames);
+                    let downed_speed_mult =
+                        config.map_or_else(|| fixed_math::new(0.3), |c| c.downed_speed_mult);
+
+                    // Gelée à exactement 0 (pas laissée à la valeur négative du
+                    // `saturating_sub` ci-dessus) : l'invariant `sante_bornee`
+                    // (`crates/scenario/src/invariants.rs`) exige `0 <= current <= max` à
+                    // CHAQUE frame simulée, y compris pour un joueur à terre dont `Health`
+                    // « n'est plus touchée » ensuite (elle ne doit donc jamais y entrer
+                    // négative).
+                    health.current = fixed_math::FIXED_ZERO;
+
+                    commands.entity(entity).insert((
+                        Downed {
+                            since_frame: frame.frame,
+                            bleedout_at_frame: frame.frame + bleedout_frames,
+                        },
+                        Interactable {
+                            interaction_range: combat::downed::revive_range(),
+                            interaction_type: InteractionType::Revive,
+                        },
+                    ));
+
+                    if let Some(mut modifiers) = opt_modifiers {
+                        modifiers.push_from(
+                            downed_modifier_source(),
+                            StatId::MoveSpeed,
+                            ModifierOp::Mul,
+                            downed_speed_mult,
+                            None,
+                        );
+                    }
+
+                    info!(
+                        "{} downed (player {}, bleedout at frame {})",
+                        g_id,
+                        player.handle,
+                        frame.frame + bleedout_frames
+                    );
+                } else {
+                    commands.entity(entity).insert(Death {
+                        last_hit_by: accumulator.last_hit_by.clone(),
+                    });
+                }
             }
         }
+    }
+}
+
+/// À terre (T1.3) : joueur non réanimé à temps (`Downed::bleedout_at_frame` atteint) → meurt
+/// de saignement (`Death`). `last_hit_by: None` : la cause du coup fatal d'origine n'est pas
+/// gardée sur `Downed` (voir sa doc) — cohérent avec `Death::last_hit_by` déjà optionnel pour
+/// une cause inconnue (voir son `Display`). Retire aussi `Reviving`, `Interactable` et le
+/// modificateur de vitesse « downed » (T1.2, `Modifiers::remove_by_source`) : cohérent avec
+/// une réanimation complète, même si l'entité est de toute façon détruite juste après
+/// (`rollback_apply_death`, plus tard dans `DeathManagement`).
+///
+/// `RollbackSystemSet::DeathManagement`, après `rollback_apply_accumulated_damage` (un
+/// joueur ne peut pas tomber à terre et saigner à mort la même frame : `bleedout_frames`
+/// est borné `> 0` par `content::lint`, donc `bleedout_at_frame > since_frame` toujours),
+/// avant `rollback_check_defeat` et `rollback_apply_death`.
+pub fn rollback_apply_bleedout(
+    frame: Res<FrameCount>,
+    mut commands: Commands,
+    mut query: Query<(&GgrsNetId, Entity, &Downed, Option<&mut Modifiers>), With<Rollback>>,
+) {
+    let system_span = span!(Level::INFO, "ggrs", f = frame.frame, s = "bleedout");
+    let _enter = system_span.enter();
+
+    for (g_id, entity, downed, opt_modifiers) in order_mut_iter!(query) {
+        if frame.frame < downed.bleedout_at_frame {
+            continue;
+        }
+
+        info!(
+            "{} bled out (downed since frame {})",
+            g_id, downed.since_frame
+        );
+
+        if let Some(mut modifiers) = opt_modifiers {
+            modifiers.remove_by_source(&downed_modifier_source());
+        }
+
+        commands
+            .entity(entity)
+            .remove::<Downed>()
+            .remove::<Reviving>()
+            .remove::<Interactable>()
+            .insert(Death { last_hit_by: None });
+    }
+}
+
+/// À terre (T1.3) : dès que tous les joueurs actuellement en jeu sont à terre ou sur le
+/// point de mourir cette même frame (`Death` déjà posé, entité pas encore détruite — voir
+/// `RollbackSystemSet::DeathManagement`), fige `RunOutcome.defeat_at_frame` une bonne fois
+/// pour toutes (`if outcome.defeat_at_frame.is_some() { return; }`, jamais réinitialisé :
+/// pas de condition de victoire qui l'efface dans ce chantier).
+///
+/// Aucun joueur en jeu (`Player` déjà tous détruits, ex. un run solo où le seul joueur est
+/// mort il y a plusieurs frames) : pas de défaite déclenchée ici (`any` reste faux) — elle a
+/// déjà été posée la frame où ce dernier joueur est mort.
+///
+/// Doit tourner après les systèmes qui posent `Downed`/`Death` cette frame
+/// (`rollback_apply_accumulated_damage`, `rollback_apply_bleedout`) et avant
+/// `rollback_apply_death` (qui détruirait les entités `Death`, les sortant de la query
+/// `Player` — même contrainte que `waves::systems::wave_enemy_death_tracking_system`, voir
+/// sa doc).
+pub fn rollback_check_defeat(
+    frame: Res<FrameCount>,
+    mut outcome: ResMut<RunOutcome>,
+    players: Query<(Has<Death>, Has<Downed>), With<Player>>,
+) {
+    if outcome.defeat_at_frame.is_some() {
+        return;
+    }
+
+    let statuses: Vec<(bool, bool)> = players.iter().collect();
+    let all_down_or_dead =
+        !statuses.is_empty() && statuses.iter().all(|(dead, downed)| *dead || *downed);
+
+    if all_down_or_dead {
+        outcome.defeat_at_frame = Some(frame.frame);
+        info!("f{} defeat: all players downed or dead", frame.frame);
     }
 }
 
@@ -297,7 +479,10 @@ pub fn rollback_apply_death(
 // SYSTEM: HEALTH REGENERATION
 pub fn rollback_health_regeneration(
     frame: Res<FrameCount>,
-    mut query: Query<(&GgrsNetId, &mut Health, &HealthRegen), With<Rollback>>,
+    // À terre (T1.3) : `Health` n'est plus touchée, y compris par la regen (sinon un
+    // joueur à terre remonterait passivement vers `max` au lieu de saigner) — voir la doc
+    // de `combat::downed::Downed`.
+    mut query: Query<(&GgrsNetId, &mut Health, &HealthRegen), (With<Rollback>, Without<Downed>)>,
 ) {
     let system_span = span!(Level::INFO, "ggrs", f = frame.frame, s = "health_regen");
     let _enter = system_span.enter();

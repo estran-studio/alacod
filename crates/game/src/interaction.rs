@@ -4,11 +4,18 @@ use bevy::{
 };
 use bevy_fixed::fixed_math;
 use bevy_ggrs::{GgrsSchedule, Rollback};
+use combat::downed::{downed_modifier_source, revive_health_fraction, Downed, Reviving};
 use serde::{Deserialize, Serialize};
+use sim_core::modifier::Modifiers;
+use std::collections::BTreeMap;
 use std::hash::{Hash, Hasher};
-use utils::{frame::FrameCount, net_id::GgrsNetId, order_iter};
+use utils::{frame::FrameCount, net_id::GgrsNetId, order_iter, order_mut_iter};
 
 use crate::{
+    character::{
+        config::{CharacterConfig, CharacterConfigHandles},
+        health::Health,
+    },
     collider::{Collider, CollisionLayer},
     core::AppState,
     frame_events::{FrameEvents, FrameEventsAppExt},
@@ -61,6 +68,11 @@ impl Default for Interactable {
 pub enum InteractionType {
     Door,
     Window,
+    /// Réanimer un joueur à terre (T1.3, chantier B6). Posé avec `Interactable` sur le
+    /// joueur à terre lui-même (`character::health::rollback_apply_accumulated_damage`,
+    /// `character::health::rollback_apply_bleedout`) ; consommé par
+    /// [`handle_revive_interaction`].
+    Revive,
     // Future: Crate, Weapon, Soda, etc.
 }
 
@@ -105,7 +117,9 @@ pub fn interaction_detection_system(
             &fixed_math::FixedTransform3D,
             &crate::character::player::input::InteractionInput,
         ),
-        (With<Interactor>, With<Rollback>),
+        // À terre (T1.3) : pas d'interaction (ni réanimer, ni ouvrir une porte, ni réparer
+        // une fenêtre) — voir la doc de `combat::downed::Downed`.
+        (With<Interactor>, With<Rollback>, Without<Downed>),
     >,
     interactables: Query<
         (
@@ -201,6 +215,7 @@ pub fn interaction_detection_system(
             let interaction_type_str = match interaction_type {
                 InteractionType::Door => "Door",
                 InteractionType::Window => "Window",
+                InteractionType::Revive => "Revive",
             };
             info!(
                 "{} interaction detected: interactor {} with {} ({}) at distance_sq {:?}",
@@ -507,6 +522,102 @@ pub fn handle_window_repair(
     }
 }
 
+/// Réanimation (T1.3, chantier B6) : un joueur debout maintient `INPUT_INTERACTION` à
+/// portée d'un joueur à terre (`InteractionType::Revive`, posé avec `Interactable` en même
+/// temps que `Downed`, voir `character::health::rollback_apply_accumulated_damage`).
+///
+/// `Reviving.progress_frames` avance d'une frame par `InteractionEvent { Revive }` reçu pour
+/// ce joueur à terre cette frame ; **retombe à 0** (composant retiré) dès qu'une frame passe
+/// sans un tel événement — `interaction_detection_system` ne resoumet l'événement que tant
+/// que la portée et le bouton maintenu tiennent tous les deux, donc son absence veut dire
+/// relâché ou hors de portée, sans distinction (revenir réanimer recommence de zéro).
+///
+/// À `CharacterConfig::revive_frames` (résolu sur le joueur à terre, pas sur celui qui
+/// réanime) : `Downed`/`Reviving`/`Interactable` retirés, le modificateur de vitesse
+/// « downed » retiré (`Modifiers::remove_by_source`, T1.2),
+/// `Health.current = max × combat::downed::revive_health_fraction()`.
+///
+/// Plusieurs interacteurs sur le même joueur à terre la même frame (co-réanimation) :
+/// `events.iter()` est déjà dans l'ordre net_id de l'interacteur (`interaction_detection_system`,
+/// `order_iter!`) — le premier (net_id le plus bas) gagne `Reviving.by` pour cette frame,
+/// déterministe.
+pub fn handle_revive_interaction(
+    frame: Res<FrameCount>,
+    events: Res<FrameEvents<InteractionEvent>>,
+    mut commands: Commands,
+    character_configs: Res<Assets<CharacterConfig>>,
+    mut downed_query: Query<
+        (
+            &GgrsNetId,
+            Entity,
+            Option<&Reviving>,
+            &CharacterConfigHandles,
+            &mut Health,
+            Option<&mut Modifiers>,
+        ),
+        (With<Rollback>, With<Downed>),
+    >,
+) {
+    let system_span = span!(
+        Level::INFO,
+        "ggrs",
+        f = frame.frame,
+        s = "handle_revive_interaction"
+    );
+    let _enter = system_span.enter();
+
+    // Interacteur (le premier par net_id) par joueur à terre visé cette frame.
+    let mut revivers: BTreeMap<usize, GgrsNetId> = BTreeMap::new();
+    for event in events.iter() {
+        if event.interaction_type != InteractionType::Revive {
+            continue;
+        }
+        revivers
+            .entry(event.interactable_net_id.0)
+            .or_insert_with(|| event.interactor_net_id.clone());
+    }
+
+    for (net_id, entity, opt_reviving, config_handles, mut health, opt_modifiers) in
+        order_mut_iter!(downed_query)
+    {
+        let Some(reviver_net_id) = revivers.get(&net_id.0) else {
+            if opt_reviving.is_some() {
+                info!("{} revive interrupted", net_id);
+                commands.entity(entity).remove::<Reviving>();
+            }
+            continue;
+        };
+
+        let revive_frames = character_configs
+            .get(&config_handles.config)
+            .map_or(180, |config| config.revive_frames);
+        let progress = opt_reviving.map_or(0, |r| r.progress_frames) + 1;
+
+        if progress >= revive_frames {
+            if let Some(mut modifiers) = opt_modifiers {
+                modifiers.remove_by_source(&downed_modifier_source());
+            }
+            health.current = health.max.saturating_mul(revive_health_fraction());
+
+            commands
+                .entity(entity)
+                .remove::<Downed>()
+                .remove::<Reviving>()
+                .remove::<Interactable>();
+
+            info!(
+                "{} revived by {} (health {})",
+                net_id, reviver_net_id, health.current
+            );
+        } else {
+            commands.entity(entity).insert(Reviving {
+                by: reviver_net_id.clone(),
+                progress_frames: progress,
+            });
+        }
+    }
+}
+
 /// Plugin for the interaction system
 pub struct InteractionPlugin;
 
@@ -534,6 +645,9 @@ impl Plugin for InteractionPlugin {
                 interaction_detection_system,
                 handle_door_interaction,
                 handle_window_repair,
+                // À terre (T1.3) : même position dans la chaîne que les autres handlers
+                // d'`InteractionEvent`, filtré par `interaction_type` comme eux.
+                handle_revive_interaction,
             )
                 .chain()
                 .after(RollbackSystemSet::Input)
@@ -646,6 +760,9 @@ pub fn display_interaction_prompts(
             With<Interactor>,
             With<Rollback>,
             With<crate::character::player::LocalPlayer>,
+            // À terre (T1.3) : un joueur à terre ne peut interagir avec rien (voir
+            // `interaction_detection_system`), le prompt ne doit donc pas lui être montré.
+            Without<Downed>,
         ),
     >,
     interactables: Query<
@@ -665,6 +782,8 @@ pub fn display_interaction_prompts(
     // Track the closest window
     // Store: (distance, current_health, max_health, position, range)
     let mut closest_window_info: Option<(f32, u8, u8, Vec3, f32)> = None;
+    // À terre (T1.3) : joueur le plus proche à réanimer. Store: (distance, position, range)
+    let mut closest_revive_info: Option<(f32, Vec3, f32)> = None;
 
     // Only check local players
     for interactor_transform in local_interactors.iter() {
@@ -722,6 +841,17 @@ pub fn display_interaction_prompts(
                     }
                 }
 
+                // À terre (T1.3) : joueur à réanimer.
+                if interactable.interaction_type == InteractionType::Revive {
+                    match &closest_revive_info {
+                        None => closest_revive_info = Some((distance, pos, interaction_range)),
+                        Some((closest_dist, _, _)) if distance < *closest_dist => {
+                            closest_revive_info = Some((distance, pos, interaction_range));
+                        }
+                        _ => {}
+                    }
+                }
+
                 // Check if it's a window
                 if let Some(window_health) = window_health_opt {
                     match &closest_window_info {
@@ -751,7 +881,7 @@ pub fn display_interaction_prompts(
         }
     }
 
-    // Priority: show door prompt if there's a door nearby, otherwise show window prompt
+    // Priority: door, then revive (T1.3), then window.
     if let Some((_distance, cost, door_pos, interaction_range)) = closest_door_info {
         // Draw outer range circle in yellow with low opacity
         gizmos.circle(
@@ -763,6 +893,15 @@ pub fn display_interaction_prompts(
         // Update the text UI
         if let Ok(mut text) = text_query.single_mut() {
             text.0 = format!("Press H to open door (Cost: {})", cost);
+        }
+    } else if let Some((_distance, revive_pos, interaction_range)) = closest_revive_info {
+        gizmos.circle(
+            Isometry3d::from_translation(revive_pos),
+            interaction_range,
+            Color::srgba(0.0, 0.6, 1.0, 0.3),
+        );
+        if let Ok(mut text) = text_query.single_mut() {
+            text.0 = "Maintenez H pour réanimer".to_string();
         }
     } else if let Some((_distance, current_health, max_health, window_pos, interaction_range)) =
         closest_window_info

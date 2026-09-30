@@ -127,6 +127,43 @@ fn lint_characters(registry: &Registry, errors: &mut Vec<LintError>) {
                 });
             }
         }
+
+        // Hors plage (T1.3, chantier B6, « À terre ») : le minuteur de saignement et le
+        // temps de réanimation doivent avancer (0 frame boucherait le personnage dans un
+        // état transitoire, ou le réanimerait instantanément).
+        if character.bleedout_frames == 0 {
+            errors.push(LintError {
+                kind: LintErrorKind::OutOfRange,
+                file: file.clone(),
+                message: format!(
+                    "personnage « {} » : champ bleedout_frames = 0 : doit être > 0",
+                    character.id
+                ),
+            });
+        }
+        if character.revive_frames == 0 {
+            errors.push(LintError {
+                kind: LintErrorKind::OutOfRange,
+                file: file.clone(),
+                message: format!(
+                    "personnage « {} » : champ revive_frames = 0 : doit être > 0",
+                    character.id
+                ),
+            });
+        }
+        // `downed_speed_mult` multiplie `MoveSpeed` (`ModifierOp::Mul`) : 0 fige le
+        // personnage à terre, au-delà de 1 il irait plus vite à terre que debout.
+        let downed_speed_mult = character.downed_speed_mult.get();
+        if downed_speed_mult <= Fixed::ZERO || downed_speed_mult > Fixed::from_num(1.0) {
+            errors.push(LintError {
+                kind: LintErrorKind::OutOfRange,
+                file: file.clone(),
+                message: format!(
+                    "personnage « {} » : champ downed_speed_mult = {} : doit être dans ]0, 1]",
+                    character.id, downed_speed_mult
+                ),
+            });
+        }
     }
 }
 
