@@ -79,7 +79,12 @@ impl Plugin for FeedbackPlugin {
                 update_hit_flash_colors.after(apply_hit_flash_from_damage_events),
                 cleanup_expired_hit_flash.after(update_hit_flash_colors),
                 apply_camera_shake_from_damage_events,
-                update_camera_shake_offset.after(apply_camera_shake_from_damage_events),
+                // Avant la propagation des transforms : sinon le décalage n'est appliqué au
+                // `Transform` qu'après le calcul du `GlobalTransform` rendu, et le suivi de
+                // caméra (`Update`) l'écrase à la frame suivante : la secousse n'est jamais vue.
+                update_camera_shake_offset
+                    .after(apply_camera_shake_from_damage_events)
+                    .before(bevy::transform::TransformSystems::Propagate),
                 cleanup_expired_camera_shake.after(update_camera_shake_offset),
                 play_shot_sound_for_new_bullets,
                 play_reload_sound_for_reload_events,
@@ -162,7 +167,9 @@ fn apply_camera_shake_from_damage_events(
     frame_count: Res<FrameCount>,
     config: Option<Res<FeedbackConfigLoaded>>,
     local_players: Query<(&GgrsNetId, &Player), With<LocalPlayer>>,
-    camera_query: Query<Entity, With<Camera>>,
+    // La caméra de jeu (`GameCamera`, suivi des joueurs), pas n'importe quelle `Camera` : en
+    // capture il en existe plusieurs et secouer la mauvaise ne se voit jamais.
+    camera_query: Query<Entity, With<crate::camera::GameCamera>>,
 ) {
     if let Some(cfg) = config {
         let shake_until = frame_count.frame + cfg.0.shake.frames;

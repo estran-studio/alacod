@@ -5,7 +5,7 @@
     ),
     shake: (
         frames: 8,
-        amplitude: 4.0,
+        amplitude: 12.0,
     ),
     sounds: {
         "shot": "sounds/machine-gun.ogg",
