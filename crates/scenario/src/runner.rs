@@ -32,7 +32,7 @@ use std::path::PathBuf;
 use utils::frame::FrameCount;
 
 use game::global_asset::GlobalAsset;
-use game::replay::{Expectation, ModifierSpec, Scenario};
+use game::replay::{Expectation, ModifierSpec, Scenario, WaveOverride};
 use game::weapons::melee::{self, MeleeWeapon, MeleeWeaponsConfig};
 use game::weapons::{spawn_weapon_for_player, Weapon, WeaponInventory, WeaponsConfig};
 use utils::net_id::GgrsNetIdFactory;
@@ -162,6 +162,8 @@ pub fn build_app(scenario: &Scenario, headless: bool, config: &PlayConfig) -> Ap
         .add_plugins(GameEventsPlugin)
         .insert_resource(WeaponOverrides(scenario.weapon_overrides.clone()))
         .add_systems(Update, apply_weapon_overrides)
+        .insert_resource(WaveOverrideRes(scenario.wave_overrides.clone()))
+        .add_systems(Update, apply_wave_overrides)
         .insert_resource(PlayerOverrides(
             scenario
                 .players
@@ -291,7 +293,57 @@ fn apply_weapon_overrides(
                     *mag_limit = limit;
                 }
             }
+            if let Some(firing_rate) = o.firing_rate {
+                mode.firing_rate = firing_rate;
+            }
         }
+    }
+    *applied = true;
+}
+
+#[derive(Resource)]
+struct WaveOverrideRes(Option<WaveOverride>);
+
+/// Applique la modification de config des vagues du scénario (T2.1, bench `bench_horde`),
+/// même idée que `apply_weapon_overrides` mais sur `waves::config::WaveConfig` : dès que
+/// l'asset est chargé, avant que `wave_state_machine_system` ne calcule la taille de la
+/// première vague (qui lit cette config).
+fn apply_wave_overrides(
+    overrides: Res<WaveOverrideRes>,
+    global_assets: Option<Res<game::global_asset::GlobalAsset>>,
+    mut wave_configs: ResMut<Assets<game::waves::config::WaveConfig>>,
+    mut applied: Local<bool>,
+) {
+    if *applied {
+        return;
+    }
+    let Some(o) = overrides.0.as_ref() else {
+        *applied = true;
+        return;
+    };
+    let Some(handle) = global_assets.and_then(|g| g.wave_config.clone()) else {
+        return;
+    };
+    let Some(mut config) = wave_configs.get_mut(&handle) else {
+        return;
+    };
+    if let Some(v) = o.base_enemies {
+        config.base_enemies = v;
+    }
+    if let Some(v) = o.enemies_per_wave {
+        config.enemies_per_wave = v;
+    }
+    if let Some(v) = o.grace_period_frames {
+        config.grace_period_frames = v;
+    }
+    if let Some(v) = o.max_concurrent_enemies {
+        config.max_concurrent_enemies = v;
+    }
+    if let Some(v) = o.spawn_batch_size {
+        config.spawn_batch_size = v;
+    }
+    if let Some(v) = o.spawn_interval_frames {
+        config.spawn_interval_frames = v;
     }
     *applied = true;
 }

@@ -1,0 +1,28 @@
+// Bench de performance (T2.1, chantier B4b, `docs/taches.md`) : le plus d'ennemis possible
+// dès la première vague (`wave_overrides`), quatre joueurs immobiles aux quatre coins de la
+// salle, 900 frames : 60 zombies vivants en même temps dès les premières frames, pour mesurer
+// le gain de la grille spatiale sur `move_enemies` (séparation entre ennemis et collision
+// contre les murs). `max_concurrent_enemies` doit dépasser `base_enemies` (le plafond du jeu
+// est plus bas, il limiterait sinon les ennemis vivants bien en dessous des 60 demandés) ;
+// `grace_period_frames: 0` démarre le spawn immédiatement ; `spawn_batch_size: 60` avec
+// `spawn_interval_frames: 1` fait apparaître les 60 en une seule salve (le jeu les fait
+// apparaître un par un toutes les N frames par défaut, bien trop lentement pour ce bench).
+//
+// À regarder : une horde de zombies converge des quatre coins vers les joueurs.
+Scenario(
+    game: "zombies",
+    frames: 900,
+    wave_overrides: (
+        base_enemies: 60,
+        max_concurrent_enemies: 80,
+        grace_period_frames: 0,
+        spawn_batch_size: 60,
+        spawn_interval_frames: 1,
+    ),
+    players: [
+        (),
+        (),
+        (),
+        (),
+    ],
+)
