@@ -53,7 +53,9 @@ def scenario_info(name):
             watch.append(content)
         elif content:
             description.append(content)
-    expect = re.findall(r"^\s*((?:PlayerAlive|PlayerDead|WaveAtLeast|KillsAtLeast|WindowsBrokenAtLeast|ActiveWeapon|Ammo|DoorsOpenAtLeast|PlayerPosition|WindowHealth|BulletsInside)\([^)]*\))", text, re.M)
+    # Toute attente `Nom(...)` du bloc `expect: [...]` (une par ligne dans les scénarios).
+    block = text[text.find("expect:"):] if "expect:" in text else ""
+    expect = re.findall(r"^\s*([A-Z][A-Za-z]+\([^)]*\))", block, re.M)
     frames = re.search(r"frames:\s*(\d+)", text)
     return {
         "description": " ".join(description),
