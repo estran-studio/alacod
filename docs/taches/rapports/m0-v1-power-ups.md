@@ -1,25 +1,25 @@
-# T2.5 — reprise des power-ups, livraison intermédiaire bloquée
+# T2.5 — reprise des power-ups, livraison finale
 
-SHA de la tête de code vérifiée : `86c5283d07b10e2ce9df9c8416f8580870a14df1`.
-Fiche : `docs/taches/T2.5-reprise-power-ups.md` du checkout principal.
+SHA de la tête de branche vérifiée (code et traces) :
+`c6211eccf9bd8bb53f0c066f4d2251fbe5097aeb`.
+Fiche : `docs/taches/T2.5-reprise-power-ups.md`.
+Base de preuve : main `cc2a7a82ad088addb38bbc4547a39eefc3914799`, après T2.4.
 Date : 2026-10-01. Agent : Codex.
-Ce SHA précède le commit de ce rapport ; le SHA livré inclut ensuite le rapport.
+Le SHA livré inclut ensuite le commit documentaire de ce rapport ; aucun code ni
+contenu de simulation n'est changé par ce dernier commit.
 
-**Statut : incomplet, bloqué sur le merge de T2.4 par l'orchestrateur.** La fiche exige
-« Faire T2.4 (merge) avant » puis une fusion de main dans cette branche. Le checkout
-principal et `origin/main` sont toujours à `adbd06059eff293368f86e45ffdee3c2dc52deba` ;
-ils ne contiennent pas la livraison T2.4 `d246a205d7df8fa4df46b60691c74ecb6ebd186d`
-(PR #54). Une demande de transmission a été adressée à William pendant le travail.
-L'attente dépasse 30 minutes. Aucun merge dans main, journal ou retrait de worktree
-n'a été effectué. Aucune fiche suivante n'a été commencée.
+**Vérification finale entièrement verte.** T2.5 est livrée pour revue et merge local
+par l'orchestrateur. Aucun merge dans main, changement propre au journal
+`docs/taches.md` ou retrait de worktree n'a été effectué. Aucune fiche suivante
+n'a été commencée.
 
 ## 1. Fait
 
-Reprise du WIP `9866a6a`, sur son worktree existant
-`/home/wq/Project/bascanada/alacod_tasks/m0-v1-power-ups/alacod`, avec son target
-amorcé existant (33 Go au départ). Lecture du préambule, de la fiche, de CLAUDE.md,
-des conventions pertinentes et du diff de code/contenu du WIP. Une compilation à la
-fois, `source ../env.sh`, `CARGO_BUILD_JOBS=4`, profil headless ; build zombies sans
+Reprise du WIP `9866a6a` dans le worktree existant
+`/home/wq/Project/bascanada/alacod_tasks/m0-v1-power-ups/alacod`, branche
+`m0-v1-power-ups`, avec son target amorcé. Lecture du préambule, de la fiche,
+de CLAUDE.md, des conventions et du diff WIP. Une compilation à la fois,
+`source ../env.sh`, `CARGO_BUILD_JOBS=4`, profil headless ; binaires de jeu sans
 features par défaut. Aucun build avec rendu.
 
 Corrigé par le commit de reprise :
@@ -39,7 +39,7 @@ Corrigé par le commit de reprise :
 - Les modificateurs utilisent `ModifierSource::Named("powerup:<id>")`, sur chaque
   joueur. Le runner conserve le jeu, les overrides d'armes/vagues, les placements et
   la chance de drop dans son scénario réenregistré. Le replay de Max Ammo est testé.
-- Les 56 scénarios autres que `powerup_drop_on_kill` désactivent explicitement les
+- Les 57 scénarios autres que `powerup_drop_on_kill` désactivent explicitement les
   drops aléatoires ; le générateur d'essais d'armes produit aussi cette isolation.
   Le scénario de drop garde sa chance forcée à 1, les tables des jeux restent à 15 %.
   À chance nulle le système ne crée ni ne consomme le flux `loot`.
@@ -63,187 +63,189 @@ l'équipe Enemies, y compris les personnages de laboratoire ; tirages pondérés
 Les changements d'actions/économie/lint supplémentaires dans ce commit sont du
 formatage uniquement, hormis les corrections énumérées ci-dessus.
 
-**Aucune trace n'a été réécrite pendant cette reprise.** Les 57 traces du WIP restent
-présentes mais ne constituent pas des références finales validées. Le checkout
-principal reste propre, sur main.
+
+Finalisation après le merge de T2.4 :
+
+- `git fetch origin` puis `git merge --no-commit origin/main`, merge enregistré
+  dans `0916514`. Les 51 conflits de traces reprennent provisoirement main ; les
+  conflits d'import dans `runner.rs` et de sections dans les conventions conservent
+  les deux fonctionnalités. Run, RunRequest, RunState/RunSummary et les tests de
+  run restent présents. Le nouveau scénario `run_lose_summary` isole aussi le loot.
+- Quatre preuves contre main après T2.4, **avant tout bless** : 3 996 frames identiques.
+  Le commit `c6211ec` porte la justification précise du bless. Les 58 scénarios ont
+  été blessés, mais seules les six traces `powerup_*` ont effectivement changé ;
+  les 52 références héritées de main restent identiques.
+- Les dix scénarios d'armes ont été régénérés et explicitement blessés. La chance
+  nulle figure dans le RON produit par le générateur ; ses traces restent identiques.
+- CLAUDE.md liste aussi RunState et RunSummary ; la doc d'actions décrit la source
+  `powerup:<id>` ; les renvois Power-ups pointent vers le §14, après Run au §13.
 
 ## 2. Vérifié
 
-Les logs persistants sont hors git dans `../verification/` du worktree. Les trois dumps
-complets de diagnostic (environ 324 Mo chacun) ont été supprimés après comparaison ;
-leurs commandes, résultats et logs sont conservés. Aucun résultat ci-dessous ne
-prétend valider l'état après fusion avec T2.4, qui n'existe pas encore.
+Les commandes ci-dessous ont été exécutées dans cette session. Les logs persistants
+sont hors git dans `../verification/`. Le rapport intermédiaire et ses résultats
+avant fusion restent consultables au commit `20fd2c9` ; ils ne décrivent plus
+l'état courant.
 
-### Scénarios sans bless
+### Preuve README §5
 
-- `source ../env.sh; export CARGO_BUILD_JOBS=4; make test_scenarios` sur le WIP initial :
-  **57 scénarios, 30 930 frames**, 47 manuscrits + 10 générés ; 2 tests de harness verts,
-  0 échec, 7 ignorés, 210,34 s. Log `01-wip-scenarios.log`. Cela vérifie uniquement la
-  cohérence du WIP avec ses propres goldens.
-- Même commande après les corrections de simulation : 57 scénarios atteignent leur
-  dernière frame et satisfont leurs attentes, dont les six power-ups. Les **57 traces
-  divergent dès la première ligne**. Harness : 0 passé, 2 échoués, 7 ignorés, 213,49 s
-  (`06-corrected-scenarios.log`). Le second échec, replay perdant la chance de drop,
-  a ensuite été corrigé et la vérification standard confirme sa résolution.
-
-Liste exacte des traces actuellement rouges :
-
-```text
-ammo_burst, ammo_shared_reserve, bench_bullets, bench_horde,
-bots_four_mixed, bots_two_fonceurs, bullets_walls, buy_door, buy_perk,
-buy_wall_weapon, dash_wall, door_open, downed_all_lose, downed_bleedout,
-downed_revive, drop_pickup_swap, four_players_idle, four_players_shooting,
-friendly_fire_cursed, friendly_fire_never, idle, immune_tag, movement_melee,
-points_on_kill, powerup_carpenter, powerup_double_points, powerup_drop_on_kill,
-powerup_insta_kill, powerup_max_ammo, powerup_nuke, remote_first_fight,
-shoot_around, shop_tour, stat_move_speed, testbed_ally_safe, testbed_arena_idle,
-testbed_civilian_blocks, testbed_corridor_idle, testbed_dummy_shoot,
-testbed_follower, testbed_target_hits, testbed_two_rooms_door_idle,
-testbed_window, two_players_idle, two_players_shooting, weapons_workout,
-window_repair, weapon_axe, weapon_bare_hands, weapon_club, weapon_knife,
-weapon_machine_gun, weapon_pistol, weapon_rifle, weapon_shotgun, weapon_sword,
-weapon_zombie_claws
-```
-
-### Tests des crates et relances nécessaires
+Sur main, sans `CARGO_TARGET_DIR`, `CARGO_BUILD_JOBS=4` ; dans la branche,
+`source ../env.sh` et `CARGO_BUILD_JOBS=4`. Un scénario par appel, dossiers vides :
 
 ```bash
-cargo test -q --profile headless -p scenario -p run -p combat -p game -p content \
-  -p map_ldtk -p sim_core -p stats -p bots -p effects --no-fail-fast
-```
-
-Première exécution : **221 passés, 6 échoués, 8 ignorés** (`07-standard-tests.log`).
-Les échecs sont les quatre tests de systèmes dont le montage manquait la ressource
-GGRS `RollbackOrdered`, l'attente d'expiration du placement observant le compteur du
-runner une frame trop tôt, et la cible scenarios pour ses 57 traces.
-Les deux erreurs de montage/attente ont été corrigées puis relancées :
-
-- `cargo test -q --profile headless -p game -p effects` : **game 9/9, effects 6/6**, 0
-  échec, 1 doctest ignoré (`08-unit-recheck.log`).
-- `cargo test -q --profile headless -p scenario --test expectations powerup_` :
-  **4 passés, 0 échoué, 26 filtrés**, 13,55 s (`09-powerup-expectations-recheck.log`).
-  Le replay de Max Ammo, la disparition à la durée configurée et les deux attentes
-  WIP de comptage sont verts.
-
-Bilan après relances ciblées, **sans nouvelle exécution intégrale** : 226 tests
-réussis, 1 cible encore rouge (scenarios), 8 ignorés, en comptant chaque test une seule
-fois. Dans cette branche avant fusion, content compte 62 tests unitaires et 10 tests
-`lint_fixtures`, tous verts ; les trois fixtures power-ups font partie des 10.
-`expectations` compte 30 tests : les 29 autres étaient verts lors de la première
-exécution, puis le test d'expiration a passé la relance. Les nombres du README
-pour le main plus récent ne décrivent pas encore cette ancienne base de branche.
-Le harness `recording_replays_identically` est vert dans la suite standard : la
-cible scenarios compte 1 passé, 1 échoué, 7 ignorés, 212,27 s.
-
-### Lint, formatage, scripts
-
-- `make lint` : exit 0 ; **aucune erreur** sur zombies (4 personnages, 4 armes, 6 armes
-  de corps à corps, 1 config de vagues, 2 cartes) et testbed (7 personnages, 4 armes,
-  6 armes de corps à corps, 0 config de vagues, 4 cartes). Log `10-lint.log`.
-- `cargo fmt --all -- --check` : exit 0, sortie vide (`11-fmt.log`).
-- `./scripts/check-forbidden.sh` : exit 0, **4 avertissements préexistants**, identiques
-  au checkout principal : 3 HashSet (state.rs et plugin.rs), 1 commentaire rand dans
-  bevy_fixed/math.rs. Aucun nouvel avertissement (`12-forbidden.log`).
-- `./scripts/check-rollback-registration.sh` : exit 0, **OK**, aucun enregistrement
-  direct hors utils (`13-registration.log`).
-- `make gen GAME=zombies` non lancé : aucune définition d'arme du jeu n'a changé.
-  Les dix scénarios générés ont été exécutés dans les suites ; leurs goldens restent
-  rouges avec les autres. Régénérer leurs fichiers lors de la finalisation si nécessaire.
-
-### Diagnostics trace-diff, provisoires
-
-Dumps séparés, une seule compilation à la fois, via :
-
-```bash
-ALACOD_SCENARIO=points_on_kill ALACOD_DUMP_TRACE=<dossier-vide> APP_VERSION=x \
+ALACOD_SCENARIO=<nom> ALACOD_DUMP_TRACE=<dossier-vide> APP_VERSION=x \
   cargo test -p scenario --profile headless --test scenarios scenarios -- --nocapture
-python3 scripts/trace-diff.py <dump-main>/points_on_kill.full \
-  <dump-branche>/points_on_kill.full \
+python3 scripts/trace-diff.py <dump-main>/<nom>.full <dump-branche>/<nom>.full \
   --ignore 'PowerUpPickup,FrameEvents<game::powerups::PowerUpPickedUp>'
 ```
 
-Sur le principal, `CARGO_TARGET_DIR` était retiré ; dans la tâche, env.sh était sourcé.
-Types ignorés : uniquement les deux nouveaux types rollback de T2.5.
+| Scénario | Frames comparées | Résultat trace-diff |
+|---|---:|---|
+| idle | 1 499 | exit 0, identique |
+| two_players_shooting | 299 | exit 0, identique |
+| points_on_kill | 599 | exit 0, identique |
+| downed_all_lose | 1 599 | exit 0, identique |
+| Total | **3 996** | **aucune autre différence** |
 
-- WIP `9866a6a` contre main **avant T2.4**, `adbd060` : les deux dumps sont produits par
-  un test passé (1/1, 8 filtrés), mais comparaison **exit 1**, première divergence
-  à la **frame 469**, `RngStreams` ajoute `loot`. Les graines `waves`/`weapons` restent
-  égales. Logs `02-diagnostic-wip`, `03-diagnostic-main`, `04-diagnostic-diff`.
-- Code corrigé `86c5283` contre ce même main : dump produit malgré l'échec attendu
-  sur son golden (0 passé, 1 échoué, 8 filtrés, 7,70 s). Comparaison **exit 0,
-  599 frames identiques**, mêmes deux types ignorés. Logs `14-diagnostic-corrected`,
-  `15-diagnostic-corrected-diff`.
+Les huit appels de dump sont eux-mêmes verts : chacun 1 test réussi, 0 échec,
+8 filtrés. Types ignorés : exactement les deux nouveaux types rollback T2.5.
+Run, RngStreams, stats, économie et modificateurs ne sont pas ignorés. Les drops
+sont désactivés dans ces scénarios : aucun flux loot créé ou consommé.
 
-Ce second diagnostic valide l'isolation corrigée du loot sur ce scénario ; **il
-n'autorise aucun bless à ce stade**. Les quatre preuves contre main contenant T2.4
-restent à faire, comme prescrit par la fiche.
+Preuve effectuée sur le merge `0916514`, dont la simulation est identique à celle
+vérifiée dans `c6211ec` (les changements suivants sont docs, goldens et sérialisation
+équivalente des RON générés). Script `final-proof.sh`, logs `19-final-proof.log`
+et `final-proof/{main,branche,diff}-<nom>.log`. Les huit `.full` ont été supprimés
+après leurs comparaisons réussies ; les résultats et traces courtes sont conservés.
 
-### P2P
+### Bless et génération
 
-`bash ../verification/p2p.sh` : build `APP_VERSION=x cargo build -q -p zombies
---profile headless --no-default-features`, puis serveur signaling Docker utilisant
-l'image locale existante (aucune compilation Docker). Projet dédié
-`alacod-t25-codex`, lobby unique. Deux exécutions parallèles du binaire déjà compilé,
-avec `ALACOD_HEADLESS=1`, `ALACOD_STATE_TRACE`, `ALACOD_EXIT_AT_FRAME=600`, `APP_VERSION=x`,
-`--matchbox ws://127.0.0.1:3536 --number-player 2 --players localhost remote`.
+```bash
+source ../env.sh
+export CARGO_BUILD_JOBS=4
+BLESS=1 make test_scenarios
+make gen GAME=zombies
+make gen GAME=zombies GEN_BLESS=1
+```
 
-**Deux exits 0, 599 lignes chacun, cmp exit 0**, aucune occurrence Desync/ERROR/panicked
-dans les deux logs. Le conteneur et le réseau dédiés ont été retirés. Logs et traces
-`16-p2p*`, `p2p-0/1.*`. Ce test utilise des inputs neutres ; les drops et effets sont
-exercés par les scénarios en synctest et les tests de systèmes.
+- Bless : **58 scénarios, 32 530 frames**, 48 manuscrits et 10 générés ; harness
+  **2 réussis, 0 échec, 7 ignorés**, 220,31 s. Six power-ups verts avec leurs attentes.
+  Exit 0, log `20-final-bless.log`.
+- Génération avec comparaison : **10/10 armes**, 4 à distance et 6 de corps à corps,
+  **4 800 frames**, attentes et traces vertes ; exit 0, `21-final-gen.log`.
+- Génération avec bless explicite : mêmes **10/10**, attentes vertes, exit 0,
+  `22-final-gen-bless.log`. Le changement de sérialisation RON ne change aucune trace
+  générée. Justification commise dans `c6211ec`.
+
+### Vérification standard, sans bless, sur c6211ec
+
+```bash
+make test_scenarios
+cargo test -q --profile headless -p scenario -p run -p combat -p game -p content \
+  -p map_ldtk -p sim_core -p stats -p bots -p effects --no-fail-fast
+make lint
+cargo fmt --all -- --check
+./scripts/check-forbidden.sh
+./scripts/check-rollback-registration.sh
+```
+
+- `make test_scenarios` : **58 scénarios, 32 530 frames**, toutes les attentes et
+  traces vertes ; **2 tests réussis, 0 échec, 7 ignorés**, 225,33 s, exit 0.
+  Log `23-final-scenarios.log`.
+- Tests des crates : **240 réussis, 0 échec, 8 ignorés**, exit 0,
+  `24-final-crates.log`. Dont **effects 6/6**, **game 13/13**,
+  **content 63/63 + lint_fixtures 10/10** (les trois fixtures PowerUp incluses),
+  **expectations 30/30**, **run 13/13**. Le test de relance locale et celui de
+  retour au lobby passent : cible d'intégration `run`, **2/2**, 9,91 s.
+  La cible scenarios repasse : **2/2, 7 ignorés**, 227,96 s. Le huitième test
+  ignoré est un doctest. Les chiffres sont ceux observés, pas ceux du README ancien.
+- `make lint` : exit 0, **aucune erreur** dans les deux jeux. Zombies : 4 personnages,
+  4 armes, 6 armes de corps à corps, 1 configuration de vagues, 2 cartes ; testbed :
+  7 personnages, 4 armes, 6 armes de corps à corps, 0 vagues, 4 cartes.
+  `25-final-lint.log`.
+- Format : exit 0, sortie vide, `25-final-fmt.log`.
+- Interdits : exit 0, **4 avertissements préexistants**, aucun nouveau : 3 HashSet
+  (`character/enemy/ai/state.rs`, `map_ldtk/game/plugin.rs`) et 1 commentaire rand
+  (`bevy_fixed/math.rs`). `26-final-forbidden.log`.
+- Enregistrement rollback : exit 0, **OK**, aucun appel direct hors utils.
+  `26-final-registration.log`. Tous les exits sont consignés dans
+  `23-final-standard.status`.
+
+### P2P à deux clients
+
+```bash
+bash ../verification/final-p2p.sh
+```
+
+Build unique `APP_VERSION=x cargo build -q -p zombies --profile headless
+--no-default-features`, puis deux exécutions parallèles du binaire compilé avec
+`ALACOD_HEADLESS=1`, `ALACOD_STATE_TRACE`, `ALACOD_EXIT_AT_FRAME=600`, `APP_VERSION=x`,
+`--matchbox ws://127.0.0.1:3536 --number-player 2 --players localhost remote`, lobby unique.
+Signaling Docker depuis l'image locale existante, projet dédié `alacod-t25-codex`.
+
+**Deux exits 0, 599 lignes chacun, cmp exit 0**, aucune occurrence Desync/ERROR/panicked.
+Le conteneur et le réseau dédiés sont arrêtés et retirés. Logs `27-final-p2p.log`,
+`27-p2p-build.log`, `27-p2p-cleanup.log`, traces et logs `final-p2p-0/1.*`.
+Inputs neutres ; drops et effets exercés par les scénarios synctest et les tests de systèmes.
 
 ### Bench au calme
 
-Après fin de toute compilation et du p2p, `vmstat 1 2` mesure 87 % de CPU idle sur
-l'intervalle instantané (79 % sur la première ligne cumulée). Aucun autre cargo/rustc.
-
 ```bash
-ALACOD_BENCH_STRICT=1 make test_scenarios
-./scripts/scenario-metrics.py
+ALACOD_BENCH_STRICT=1 make test_scenarios && ./scripts/scenario-metrics.py
 ```
 
-Bench **exit 2**, dû exclusivement aux **57 traces non reblessées** ; harness 1 passé,
-1 échoué, 7 ignorés, 209,21 s. Les **57 scénarios**, 30 930 frames, satisfont leurs attentes
-et **tous les 57 budgets**, aucun plancher non respecté. Ceci est un relevé de
-performance réussi, pas une commande de bench verte. Le script de métriques est
-lancé séparément après cet échec : **exit 0**, tableau de 57 lignes. Logs
-`17-charge-avant-bench`, `17-bench-strict`, `17-bench-status`, `18-bench-metrics` ;
-copie JSON `bench-metrics.json`, métriques sous `target/metrics/86c5283/`.
+Avant exécution : `vmstat 1 3`, **88 % CPU idle** sur les deux intervalles instantanés,
+aucun autre cargo/rustc. Charge et processus dans `28-final-charge.log` et
+`28-final-processes.log`. Les deux commandes ont été exécutées successivement,
+la seconde seulement après le succès de la première.
+
+**Bench exit 0, métriques exit 0 : 58 scénarios, 32 530 frames, 58 budgets respectés,
+0 sous le plancher.** Harness 2 réussis, 0 échec, 7 ignorés, 224,45 s.
+Logs `28-final-bench.log`, `28-final-bench.status`, `29-final-metrics.log`.
+Métriques du commit sous le target de tâche `metrics/c6211ec/metrics.json`,
+copie conservée dans `../verification/final-bench-metrics.json`.
 
 | Scénario | fps mesurées | Plancher |
 |---|---:|---:|
-| bench_bullets | 109.9 | 70 |
-| bench_horde | 69.2 | 38 |
-| movement_melee | 134.2 | 80 |
-| remote_first_fight | 157.3 | 90 |
-| shoot_around | 148.8 | 90 |
+| bench_bullets | 108,3 | 70 |
+| bench_horde | 68,5 | 38 |
+| movement_melee | 133,8 | 80 |
+| remote_first_fight | 156,2 | 90 |
+| shoot_around | 142,7 | 90 |
+
+### Historique des corrections
+
+Le WIP passait ses 57 goldens hérités, mais une comparaison détaillée sur
+points_on_kill révélait une divergence RNG loot à la frame 469. L'isolation du loot,
+le checksum des pickups et les autres corrections sont dans `86c5283`.
+Les premières relances ont aussi révélé des erreurs de montage des nouveaux tests
+(RollbackOrdered absent, attente d'expiration décalée) et un replay perdant les
+réglages de loot ; elles ont été corrigées. La suite complète ci-dessus a depuis
+été rejouée avec succès sur l'état fusionné. Les résultats intermédiaires rouges
+restent consignés dans les logs 01 à 18 et le rapport historique `20fd2c9`.
 
 ## 3. Non fait / non vérifié
 
-- Merge T2.4 dans main (orchestrateur), puis fusion de ce main dans la branche T2.5.
-- Preuves finales sur idle, two_players_shooting, points_on_kill, downed_all_lose
-  contre le **main après T2.4**. Le diagnostic 599 frames ci-dessus est provisoire.
-- Bless justifié, nouvelle vérification standard entièrement verte, puis p2p/bench
-  de l'état fusionné. T2.5 **n'est pas terminée** ; les traces restent rouges.
-- Vidéos, validation visuelle humaine, sprite de pickup au sol et indicateur d'effet
-  actif. Les commentaires ne prétendent plus montrer un sprite inexistant.
-- Merge final, ligne de journal et suppression du worktree : réservés à l'orchestrateur.
+- Les **8 tests ignorés** n'ont pas été exécutés.
+- Vidéos, validation visuelle humaine et compilation avec rendu : non effectuées.
+  Aucun sprite de pickup au sol ni indicateur d'effet actif ajouté.
+- Le p2p ne teste pas la relance en ligne, toujours non supportée par T2.4 ; il utilise
+  les inputs neutres du protocole standard.
+- Merge dans main, ligne de journal et retrait du worktree : réservés à l'orchestrateur.
+- T2.8 et les fiches suivantes : non commencées.
 
 ## 4. Dettes et décisions ouvertes
 
-- Décisions WIP conservées : actions à toute l'équipe ; ramassage automatique et
-  unique ; départage par net_id ; durée de vie au sol 1 800 frames dans les tables ;
-  Nuke/drop sur Team::Enemies et non uniquement WaveEnemy ; Nuke ne crédite pas de
-  points de kill, simplification v0 documentée.
-- Des modificateurs de même power-up peuvent s'empiler lors de ramassages répétés
-  (Double Points peut se multiplier davantage). Une politique de rafraîchissement
-  ou de non-cumul n'est pas implémentée dans cette reprise.
-- Le lint WIP conserve ses trois règles/fixtures ; les validations supplémentaires
-  des actions, durées, portées, poids et bornes relèvent de la reprise T2.8. La
-  conversion Fixed du multiplicateur de points reste celle du WIP, sans nouvelle
-  garantie pour des montants hors plage Fixed.
-- L'enregistrement général n'a pas été étendu à tous les réglages de joueur ; seules
-  les configurations nécessaires aux power-ups/armes/vagues et au jeu sont préservées
-  ici. Le replay du scénario Max Ammo et celui de shoot_around ont été exécutés.
-- Les 57 goldens hérités du WIP n'ont toujours pas la preuve finale requise. Ne pas
-  merger cette branche avant sa finalisation et sa nouvelle livraison.
+- Actions sur toute l'équipe, ramassage automatique unique départagé par net_id,
+  durée de vie au sol de 1 800 frames dans les tables. Nuke/drop portent sur
+  Team::Enemies, y compris les ennemis de laboratoire ; Nuke ne crédite pas de
+  points de kill (simplification v0 documentée).
+- Les modificateurs de même power-up peuvent se cumuler : Double Points peut
+  multiplier davantage. Pas de politique de rafraîchissement ou de non-cumul.
+- Les trois règles/fixtures du lint WIP sont conservées. Les validations supplémentaires
+  des actions, durées, portées, poids et bornes restent pour T2.8. Le multiplicateur
+  de monnaie conserve la conversion Fixed du WIP ; aucune nouvelle garantie pour
+  les montants hors de la plage Fixed.
+- L'enregistrement général n'a pas été étendu à tous les overrides de joueur.
+  Les paramètres nécessaires aux power-ups, au jeu, aux armes et aux vagues sont
+  préservés ; replay de Max Ammo et de shoot_around vérifié.
