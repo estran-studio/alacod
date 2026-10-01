@@ -49,7 +49,11 @@ use bevy_ggrs::{GgrsSchedule, Rollback, RollbackOrdered, Session};
 use content::manifest::{EntryMode, GameManifest};
 use content::registry::Registry;
 use run::{Currency, Run, RunContext, RunEnd, RunMode, RunModeRules, RunStep};
-use utils::{frame::FrameCount, net_id::GgrsNetIdFactory};
+use utils::{
+    frame::FrameCount,
+    net_id::{GgrsNetId, GgrsNetIdFactory},
+    order_iter,
+};
 
 use crate::{
     character::{
@@ -183,7 +187,7 @@ pub fn check_run_victory_system(
 pub fn finalize_run_summary_system(
     frame: Res<FrameCount>,
     wave_state: Res<WaveState>,
-    currencies: Query<&Currency, With<Player>>,
+    currencies: Query<(&GgrsNetId, &Currency), With<Player>>,
     mut run: ResMut<Run>,
 ) {
     let RunStep::Ended { outcome, .. } = run.step else {
@@ -193,9 +197,10 @@ pub fn finalize_run_summary_system(
         return;
     }
 
-    let points_total = currencies
-        .iter()
-        .fold(0u32, |total, currency| total.saturating_add(currency.0));
+    let mut points_total = 0u32;
+    for (_, currency) in order_iter!(currencies) {
+        points_total = points_total.saturating_add(currency.0);
+    }
 
     let ctx = RunContext {
         frame: frame.frame,
