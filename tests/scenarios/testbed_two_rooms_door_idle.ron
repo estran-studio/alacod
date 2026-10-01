@@ -6,6 +6,8 @@
 //
 // À regarder : le joueur reste immobile dans la première salle.
 Scenario(
+    // Isoler ce scénario des drops aléatoires ; powerup_drop_on_kill teste ce chemin.
+    powerup_drop_chance_override: "0.0",
     game: "testbed",
     map: "testbed/two_rooms_door.ldtk",
     frames: 120,

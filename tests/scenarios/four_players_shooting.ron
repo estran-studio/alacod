@@ -6,6 +6,8 @@
 // À regarder : quatre jets de balles simultanés dans quatre directions, qui s'arrêtent sur les murs ;
 // les quatre joueurs rechargent en même temps (frame 190).
 Scenario(
+    // Isoler ce scénario des drops aléatoires ; powerup_drop_on_kill teste ce chemin.
+    powerup_drop_chance_override: "0.0",
     game: "zombies",
     frames: 300,
     players: [

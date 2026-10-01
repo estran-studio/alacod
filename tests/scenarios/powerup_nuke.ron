@@ -4,9 +4,11 @@
 // `follower` (équipe `Enemies`) et `ally`/`civilian` (`Allies`/`Neutral`) — Nuke doit tuer
 // les trois premiers et épargner les deux derniers.
 //
-// À regarder : le joueur ne bouge pas ; un power-up Nuke apparaît sur lui à f20 ; les cinq
+// À regarder : le joueur ne bouge pas ; Nuke est ramassé à f20 (pas de sprite en v0) ; les cinq
 // personnages de laboratoire sont visibles jusque-là, puis seuls `ally`/`civilian` restent.
 Scenario(
+    // Isoler ce scénario des drops aléatoires ; powerup_drop_on_kill teste ce chemin.
+    powerup_drop_chance_override: "0.0",
     game: "testbed",
     map: "testbed/arena.ldtk",
     frames: 100,
@@ -14,7 +16,7 @@ Scenario(
         (),
     ],
     powerups: [
-        (id: "nuke", x: 423.0, y: 695.0, at_frame: 20),
+        (id: "nuke", x: "423.0", y: "695.0", at_frame: 20),
     ],
     expect: [
         // Avant le Nuke : les cinq personnages de laboratoire sont vivants.

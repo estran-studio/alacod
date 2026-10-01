@@ -285,7 +285,7 @@ Avant/après un refactoring de la simulation, comparer les traces : elles doiven
   - Continues (vérifiées à chaque frame) : `NoDamageBetween` (santé du joueur ne diminue pas dans l'intervalle).
   - `weapon_overrides` modifie la taille et le nombre de chargeurs d'une arme pour un scénario ;
     `wave_overrides` la config de vagues ; `powerups` (T2.5) place un power-up à une position et
-    une frame exactes ; `powerup_drop_chance_override` (T2.5) force la chance de drop de la table
+    une frame exactes (coordonnées en chaînes `Fixed`) ; `powerup_drop_chance_override` (T2.5) force la chance de drop de la table
     `items/powerups.ron` pour un scénario (preuve du chemin « drop à la mort »).
   - Format documenté dans `crates/game/src/replay.rs`.
 - `tests/scenarios/<nom>.trace` : trace d'état de référence. Toute différence fait échouer le test.

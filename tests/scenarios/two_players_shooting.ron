@@ -5,6 +5,8 @@
 // À regarder : deux jets de balles simultanés, qui s'arrêtent sur les murs ; les deux joueurs
 // rechargent en même temps (f190).
 Scenario(
+    // Isoler ce scénario des drops aléatoires ; powerup_drop_on_kill teste ce chemin.
+    powerup_drop_chance_override: "0.0",
     game: "zombies",
     frames: 300,
     players: [

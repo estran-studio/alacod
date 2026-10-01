@@ -6,7 +6,7 @@
 //
 // À regarder : le joueur ne bouge pas, tire en continu vers le nord-ouest (f10-700, le
 // dispersement de la machine_gun fait que tous les tirs ne touchent pas) ; `dummy` finit par
-// mourir et un power-up apparaît à ses pieds.
+// mourir ; un pickup est créé à ses pieds (PowerUpPickups, pas de sprite en v0).
 Scenario(
     game: "testbed",
     map: "testbed/arena.ldtk",

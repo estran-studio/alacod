@@ -131,7 +131,8 @@ mélangent encore plusieurs kinds dans un même dossier historique
 (`ZombieShooter/Sprites/Character/` contient à la fois `player_config.ron` et des feuilles
 de sprite) : dans ce cas le manifeste déclare le **fichier** précis plutôt que le dossier
 entier (voir `games/zombies/assets/game.ron`). Les kinds connus : `Character`, `Weapon`,
-`MeleeWeapon`, `Wave`, `Map`, `Ui`, `Camera` (`content::registry::KNOWN_KIND_NAMES`) ; un
+`MeleeWeapon`, `Wave`, `Map`, `Ui`, `Camera`, `Economy`, `Perk`, `PowerUp`
+(`content::registry::KNOWN_KIND_NAMES`) ; un
 autre kind produit une erreur de lint (« kind inconnu ») plutôt qu'un échec RON générique.
 
 **Le registre** (`content::registry::Registry`, chargé par `Registry::build`) est la
@@ -423,18 +424,16 @@ dans `PowerUpDef::pickup_range` (le premier dans l'ordre `GgrsNetId` s'il y en a
 portée la même frame), despawn immédiat (`despawn_rollback`) et émission de
 `FrameEvents<PowerUpPickedUp>`, résolu par `apply_powerup_actions_system` (même set,
 `.after`). `powerup_expiry_system` (même set) détruit un power-up jamais ramassé à
-`expires_at_frame`. `PowerUpPickup` est enregistré **sans checksum**
-(`rollback_and_trace_no_checksum`, comme `character::health::HitCount`, T2.9) : aucune
-entité existante n'en porte jamais, sa valeur ne bouge donc pour aucun scénario préexistant.
+`expires_at_frame` : à cette frame le ramassage est fermé. `PowerUpPickup` est
+enregistré par `rollback_and_trace` (rollback, checksum GGRS et trace). La file
+`FrameEvents<PowerUpPickedUp>` est elle aussi checksummée. Tout bless exige la preuve
+décrite au §10 ; les résultats figurent dans le rapport de tâche.
 
-**Piège vérifié par la preuve (T2.5)** : `FrameEvents<T>` (`sim_core::frame_events::
-FrameEventsAppExt::add_frame_events`) n'a **pas** de variante `_no_checksum` — elle
-s'enregistre toujours avec checksum. Résultat : même avec `PowerUpPickup` en
-`_no_checksum`, **toutes** les traces existantes ont quand même changé (nouvelle ressource
-`FrameEvents<PowerUpPickedUp>`, valeur constante `[]` mais checksummée). `trace-diff.py
---ignore "FrameEvents<game::powerups::PowerUpPickedUp>,PowerUpPickup"` confirme qu'aucune
-autre valeur ne diverge sur `idle`/`two_players_shooting`/`points_on_kill` (main vs
-branche) : un bless en confiance, comme pour toute nouvelle `FrameEvents<T>`.
+**Max Ammo** : remplit tous les modes de chaque arme portée, additionne les capacités
+`mag_size × mag_limit` du mode par défaut **par type de munition**, puis relève chaque
+réserve à cette somme sans diminuer une réserve déjà supérieure. Un rechargement en
+cours est annulé pour éviter un débit après le remplissage. Les armes `Magless` ne
+contribuent pas à la réserve, mais leur stock propre est rempli.
 
 **Drop à la mort** (`game::powerups::loot_drop_on_death_system`,
 `RollbackSystemSet::DeathManagement`, `.after(rollback_apply_accumulated_damage)
@@ -451,20 +450,25 @@ tourner le mode vagues). Tirage déterministe dans le flux RNG nommé **`loot`**
 **Réglages de scénario** (`game::replay::Scenario`, appliqués par `crates/scenario/src/runner.rs`,
 même famille que `wave_overrides`/`weapon_overrides`) :
 - `powerups: [(id, x, y, at_frame)]` (`PowerUpPlacement`) : fait apparaître un power-up à une
-  position et une frame exactes, sans dépendre d'une carte LDtk ni du tirage RNG — pour
+  position (`x` et `y` en chaînes Fixed) et une frame exactes, sans dépendre d'une carte
+  LDtk ni du tirage RNG — pour
   prouver l'**effet** de chaque power-up indépendamment du mécanisme de drop. Contrairement
   aux autres réglages (`Update`, une fois avant la première frame), celui-ci tourne dans
   `GgrsSchedule` (`RollbackSystemSet::Effects`, avant la détection de ramassage) : la
   condition `frame == at_frame` est naturellement rollback-safe (même raisonnement qu'un
-  spawn de vague), pas de `Local<bool>` par placement.
+  spawn de vague), pas de `Local<bool>` par placement. La durée de vie est celle de la
+  table du jeu, comme pour un drop réel.
 - `powerup_drop_chance_override: Fixed` : force `PowerUpsConfig::drop_chance` pour ce
   scénario (`Update`, comme `apply_wave_overrides`) — pour prouver le chemin « drop à la
   mort » sans dépendre du tirage réel du jeu (scénario `powerup_drop_on_kill`, chance forcée
-  à 1).
+  à 1). Les scénarios de régression et les essais générés d'armes déclarent explicitement
+  une chance nulle pour isoler leur comportement. Dans ce cas aucun tirage ni flux
+  `loot` n'est créé. La table du jeu conserve sa chance de 15 %.
 
 **Nouvelle attente** (`game::replay::Expectation::PowerUpPickups { min, max, at_frame }`) :
 nombre de `PowerUpPickup` au sol, bornes `[min, max]` inclusives — même forme que
-`WeaponPickups`.
+`WeaponPickups`. Les placements et la chance de drop sont préservés dans le scénario
+réenregistré par le runner.
 
 **Scénarios de référence** (`tests/scenarios/`, testbed, un par power-up + un pour le drop) :
 `powerup_insta_kill`, `powerup_double_points`, `powerup_max_ammo`, `powerup_carpenter`

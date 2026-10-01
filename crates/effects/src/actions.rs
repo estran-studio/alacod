@@ -151,7 +151,9 @@ mod tests {
     fn non_modifier_actions_have_no_pure_form() {
         assert!(Action::RefillAmmo.as_modifier(0, source()).is_none());
         assert!(Action::RepairAllWindows.as_modifier(0, source()).is_none());
-        assert!(Action::KillAllWaveEnemies.as_modifier(0, source()).is_none());
+        assert!(Action::KillAllWaveEnemies
+            .as_modifier(0, source())
+            .is_none());
     }
 
     #[test]
@@ -184,7 +186,8 @@ mod tests {
     /// `powerup_unknown_stat`).
     #[test]
     fn unknown_bare_stat_identifier_fails_to_parse() {
-        let ron_text = r#"TimedModifier(stat: PasUneStatConnue, op: Set, value: "1.0", frames: 60)"#;
+        let ron_text =
+            r#"TimedModifier(stat: PasUneStatConnue, op: Set, value: "1.0", frames: 60)"#;
         assert!(ron::from_str::<Action>(ron_text).is_err());
     }
 }

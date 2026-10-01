@@ -13,6 +13,8 @@
 // À regarder : le joueur ne bouge pas, tire au pistolet vers le nord-ouest en trois appuis
 // espacés (f60, f100, f140) ; `dummy` meurt au premier qui touche ; le solde passe à 140.
 Scenario(
+    // Isoler ce scénario des drops aléatoires ; powerup_drop_on_kill teste ce chemin.
+    powerup_drop_chance_override: "0.0",
     game: "testbed",
     map: "testbed/arena.ldtk",
     frames: 250,
@@ -28,8 +30,8 @@ Scenario(
         ),
     ],
     powerups: [
-        (id: "insta_kill", x: 423.0, y: 695.0, at_frame: 10),
-        (id: "double_points", x: 423.0, y: 695.0, at_frame: 10),
+        (id: "insta_kill", x: "423.0", y: "695.0", at_frame: 10),
+        (id: "double_points", x: "423.0", y: "695.0", at_frame: 10),
     ],
     expect: [
         EntityCount(kind: Enemy, max: 4, at_frame: 200),

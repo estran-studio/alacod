@@ -6,6 +6,8 @@
 // (sa barre verte tombe à zéro), puis ils entrent. Les suivants passent par la fenêtre déjà
 // cassée ; une autre cède à f775. Premier coup reçu f399, mort du joueur f1052.
 Scenario(
+    // Isoler ce scénario des drops aléatoires ; powerup_drop_on_kill teste ce chemin.
+    powerup_drop_chance_override: "0.0",
     game: "zombies",
     frames: 1500,
     players: [

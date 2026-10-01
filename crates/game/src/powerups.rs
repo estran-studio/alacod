@@ -38,37 +38,13 @@
 //! `waves::systems::select_enemy_type` : somme des poids, tirage uniforme, parcours trié
 //! par id de `BTreeMap`) pour choisir lequel.
 //!
-//! # Décision : pas de ressource globale toujours présente
+//! # État rollback
 //!
-//! `TimedModifier`/`CurrencyMultiplier` (Insta-Kill, Double Points) réutilisent le
-//! composant [`sim_core::modifier::Modifiers`] **déjà posé sur chaque personnage** depuis
-//! T1.2 (`character::create::create_character`) plutôt qu'un nouveau composant ou une
-//! ressource globale : aucun scénario existant ne pousse jamais rien dans `Modifiers` pour
-//! ce chantier, sa valeur ne bouge donc pas pour eux (aucune trace à blesser côté
-//! `Modifiers`). `RefillAmmo`/`RepairAllWindows` mutent directement des composants déjà
-//! posés partout où ils s'appliquent (`combat::inventory::AmmoReserves`, `WeaponModesState`,
-//! `map::game::entity::map::window::WindowHealth`) — même raisonnement. [`PowerUpPickup`]
-//! est enregistré avec `rollback_and_trace_no_checksum` (comme `character::health::HitCount`,
-//! T2.9) : aucune entité existante n'en porte jamais, sa présence (valeur) ne bouge donc pas
-//! pour les scénarios qui ne placent ni ne font tomber de power-up.
-//!
-//! **Preuve trace-diff (§8, `docs/conventions.md` §10)** : malgré ce qui précède,
-//! **toutes** les traces de référence existantes ont quand même dû être blessées. La cause
-//! n'est ni `PowerUpPickup` ni `Modifiers`/`AmmoReserves`/`WindowHealth` (dont la valeur ne
-//! change bien pour aucun scénario préexistant, confirmé par `trace-diff.py`), mais
-//! `FrameEvents<PowerUpPickedUp>` : `add_frame_events::<T>()`
-//! (`sim_core::frame_events::FrameEventsAppExt`) enregistre **toujours** la file via
-//! `rollback_and_trace_resource` (checksum inclus, comme `FrameEvents<DamageEvent>`,
-//! `FrameEvents<CurrencyEvent>`...), jamais en variante `_no_checksum` — il n'y a pas
-//! d'équivalent `add_frame_events_no_checksum`. Une `FrameEvents<T>` vide (`[]`) a beau
-//! avoir une valeur strictement constante sur un scénario qui n'émet jamais cet événement,
-//! c'est une **nouvelle ressource checksummée** : son enregistrement seul déplace le
-//! `Checksum` GGRS agrégé de chaque frame, pour tous les scénarios, même ceux qui n'en
-//! voient jamais le contenu varier — exactement le cas « la présence du nouveau type
-//! change le checksum, jamais une valeur de jeu » que `docs/conventions.md` §10 documente
-//! pour n'importe quel `rollback_and_trace*`. Confirmé par `trace-diff.py --ignore
-//! "FrameEvents<game::powerups::PowerUpPickedUp>,PowerUpPickup"` sur `idle`,
-//! `two_players_shooting`, `points_on_kill` (main vs branche) : aucune autre différence.
+//! `TimedModifier`/`CurrencyMultiplier` réutilisent [`Modifiers`] sur chaque joueur.
+//! `RefillAmmo`/`RepairAllWindows` modifient les composants rollback existants. Le pickup
+//! et sa file d'événements participent tous deux au checksum GGRS : la durée de vie et
+//! l'identité du power-up doivent être couvertes par la détection des désynchronisations.
+//! Les preuves avant bless sont consignées dans le rapport de tâche.
 
 use bevy::{log::tracing::span, log::Level, prelude::*};
 use bevy_common_assets::ron::RonAssetPlugin;
@@ -128,9 +104,7 @@ pub struct PowerUpsConfig {
 /// même point d'entrée commun, [`spawn_powerup_pickup`], que `weapons::spawn_weapon_pickup`
 /// pour lâcher/armes murales.
 ///
-/// Rollback **sans checksum** (`rollback_and_trace_no_checksum`, voir la doc du module) :
-/// nouveau composant dont aucune entité existante ne doit changer le checksum GGRS comparé
-/// par le synctest/désync tant qu'aucun scénario ne place ou ne fait tomber de power-up.
+/// Rollback, checksum GGRS et trace enregistrés ensemble par `rollback_and_trace`.
 #[derive(Component, Debug, Clone, Hash, Serialize, Deserialize)]
 pub struct PowerUpPickup {
     /// Id dans `items/powerups.ron` (clé de `PowerUpsConfig::powerups`), relu à chaque
@@ -198,7 +172,12 @@ pub fn powerup_pickup_detect_system(
     mut commands: Commands,
     mut events: ResMut<FrameEvents<PowerUpPickedUp>>,
     pickups: Query<
-        (&GgrsNetId, Entity, &PowerUpPickup, &fixed_math::FixedTransform3D),
+        (
+            &GgrsNetId,
+            Entity,
+            &PowerUpPickup,
+            &fixed_math::FixedTransform3D,
+        ),
         With<Rollback>,
     >,
     players: Query<(&GgrsNetId, &fixed_math::FixedTransform3D), With<Player>>,
@@ -215,6 +194,11 @@ pub fn powerup_pickup_detect_system(
     };
 
     for (pickup_net_id, pickup_entity, pickup, pickup_transform) in order_iter!(pickups) {
+        // À la frame d'expiration, le ramassage est déjà fermé ; le système d'expiration
+        // retire ensuite l'entité, sans émettre d'action.
+        if frame.frame >= pickup.expires_at_frame {
+            continue;
+        }
         let Some(def) = config.powerups.get(&pickup.id) else {
             continue;
         };
@@ -263,7 +247,7 @@ pub fn apply_powerup_actions_system(
             &GgrsNetId,
             &mut Modifiers,
             &mut AmmoReserves,
-            &WeaponInventory,
+            &mut WeaponInventory,
         ),
         With<Player>,
     >,
@@ -293,11 +277,8 @@ pub fn apply_powerup_actions_system(
         for action in &def.actions {
             match action {
                 Action::TimedModifier { .. } | Action::CurrencyMultiplier { .. } => {
-                    for (net_id, mut modifiers, _reserves, _inventory) in
-                        order_mut_iter!(players)
-                    {
-                        let source =
-                            ModifierSource::Named(format!("powerup:{}:{}", event.id, net_id.0));
+                    for (net_id, mut modifiers, _reserves, _inventory) in order_mut_iter!(players) {
+                        let source = ModifierSource::Named(format!("powerup:{}", event.id));
                         if let Some(modifier) = action.as_modifier(frame.frame, source) {
                             info!(
                                 "ggrs{{f={} powerup_effect powerup={} target={} kind=modifier stat={:?}}}",
@@ -308,9 +289,10 @@ pub fn apply_powerup_actions_system(
                     }
                 }
                 Action::RefillAmmo => {
-                    for (net_id, _modifiers, mut reserves, inventory) in
+                    for (net_id, _modifiers, mut reserves, mut inventory) in
                         order_mut_iter!(players)
                     {
+                        let mut capacities = BTreeMap::<sim_core::ammo::AmmoType, u32>::new();
                         for (weapon_entity, _weapon) in &inventory.weapons {
                             let Ok((weapon, mut modes_state)) =
                                 weapon_modes.get_mut(*weapon_entity)
@@ -339,11 +321,18 @@ pub fn apply_powerup_actions_system(
                             };
                             let (ammo_type, full_amount) =
                                 crate::weapons::default_mode_ammo_contribution(&weapon_asset);
+                            let capacity = capacities.entry(ammo_type).or_default();
+                            *capacity = capacity.saturating_add(full_amount);
+                        }
+                        for (ammo_type, full_amount) in capacities {
                             let current = reserves.get(&ammo_type);
                             if full_amount > current {
                                 reserves.add(ammo_type, full_amount - current);
                             }
                         }
+                        // Un rechargement entamé ne doit pas retirer un chargeur de la
+                        // réserve après le remplissage instantané.
+                        inventory.clear_reloading();
                         info!(
                             "ggrs{{f={} powerup_effect powerup={} target={} kind=refill_ammo}}",
                             frame.frame, event.id, net_id.0
@@ -375,9 +364,7 @@ pub fn apply_powerup_actions_system(
                             "ggrs{{f={} powerup_effect powerup={} target={} kind=nuke}}",
                             frame.frame, event.id, net_id.0
                         );
-                        commands
-                            .entity(entity)
-                            .insert(Death { last_hit_by: None });
+                        commands.entity(entity).insert(Death { last_hit_by: None });
                     }
                 }
             }
@@ -436,7 +423,7 @@ pub fn loot_drop_on_death_system(
     else {
         return;
     };
-    if config.powerups.is_empty() {
+    if config.powerups.is_empty() || config.drop_chance <= fixed_math::FIXED_ZERO {
         return;
     }
 
@@ -490,7 +477,7 @@ impl Plugin for PowerUpsPlugin {
     fn build(&self, app: &mut App) {
         app.add_plugins(RonAssetPlugin::<PowerUpsConfig>::new(&["ron"]));
         app.add_frame_events::<PowerUpPickedUp>();
-        app.rollback_and_trace_no_checksum::<PowerUpPickup>();
+        app.rollback_and_trace::<PowerUpPickup>();
 
         app.add_systems(
             GgrsSchedule,
@@ -509,5 +496,263 @@ impl Plugin for PowerUpsPlugin {
                 .before(crate::character::health::rollback_apply_death)
                 .in_set(RollbackSystemSet::DeathManagement),
         );
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use bevy::ecs::system::RunSystemOnce;
+    use sim_core::{ammo::AmmoType, modifier::ModifierOp, stats::StatId};
+
+    fn world_with_config(action: Action, drop_chance: fixed_math::Fixed) -> World {
+        let mut assets = Assets::<PowerUpsConfig>::default();
+        let handle = assets.add(PowerUpsConfig {
+            drop_chance,
+            powerups: BTreeMap::from([(
+                "test".to_string(),
+                PowerUpDef {
+                    name: "test".to_string(),
+                    weight: 1,
+                    pickup_range: fixed_math::Fixed::from_num(30),
+                    lifetime_frames: 60,
+                    actions: vec![action],
+                },
+            )]),
+        });
+        let mut world = World::new();
+        world.init_resource::<bevy_ggrs::RollbackOrdered>();
+        world.insert_resource(assets);
+        world.insert_resource(GlobalAsset {
+            spritesheets: Default::default(),
+            animations: Default::default(),
+            character_configs: Default::default(),
+            weapons: Default::default(),
+            melee_weapons: Default::default(),
+            slash_effect_spritesheet: Default::default(),
+            slash_effect_animation: Default::default(),
+            wave_config: None,
+            economy_config: None,
+            perks_config: None,
+            powerups_config: Some(handle),
+        });
+        world.insert_resource(FrameCount { frame: 10 });
+        world.insert_resource(FrameEvents::<PowerUpPickedUp>::default());
+        world.insert_resource(RngStreams::new(123456));
+        world.insert_resource(GgrsNetIdFactory::default());
+        world
+    }
+
+    fn add_pickup(world: &mut World, expires_at_frame: u32) -> Entity {
+        world
+            .spawn((
+                Rollback,
+                GgrsNetId(100, "pickup".to_string()),
+                PowerUpPickup {
+                    id: "test".to_string(),
+                    expires_at_frame,
+                },
+                fixed_math::FixedTransform3D::IDENTITY,
+            ))
+            .id()
+    }
+
+    #[test]
+    fn un_seul_ramasseur_avec_le_plus_petit_net_id() {
+        let mut world = world_with_config(Action::RefillAmmo, fixed_math::FIXED_ZERO);
+        for id in [20, 10] {
+            world.spawn((
+                GgrsNetId(id, "player".to_string()),
+                Player::default(),
+                fixed_math::FixedTransform3D::IDENTITY,
+            ));
+        }
+        let pickup = add_pickup(&mut world, 11);
+        world.run_system_once(powerup_pickup_detect_system).unwrap();
+        let events = world.resource::<FrameEvents<PowerUpPickedUp>>();
+        assert_eq!(events.iter().count(), 1);
+        assert_eq!(events.iter().next().unwrap().picked_up_by.0, 10);
+        assert!(world.get_entity(pickup).is_err());
+    }
+
+    #[test]
+    fn expiration_ferme_le_ramassage_a_la_frame_exacte() {
+        let mut world = world_with_config(Action::RefillAmmo, fixed_math::FIXED_ZERO);
+        world.spawn((
+            GgrsNetId(1, "player".to_string()),
+            Player::default(),
+            fixed_math::FixedTransform3D::IDENTITY,
+        ));
+        let pickup = add_pickup(&mut world, 10);
+        world.run_system_once(powerup_pickup_detect_system).unwrap();
+        assert!(world.resource::<FrameEvents<PowerUpPickedUp>>().is_empty());
+        world.run_system_once(powerup_expiry_system).unwrap();
+        assert!(world.get_entity(pickup).is_err());
+    }
+
+    #[test]
+    fn effet_temporise_applique_a_tous_les_joueurs() {
+        let mut world = world_with_config(
+            Action::TimedModifier {
+                stat: StatId::Damage,
+                op: ModifierOp::Set,
+                value: fixed_math::Fixed::from_num(100),
+                frames: 60,
+            },
+            fixed_math::FIXED_ZERO,
+        );
+        let players: Vec<_> = [20, 10]
+            .into_iter()
+            .map(|id| {
+                world
+                    .spawn((
+                        GgrsNetId(id, "player".to_string()),
+                        Player::default(),
+                        Modifiers::default(),
+                        AmmoReserves::default(),
+                        WeaponInventory::default(),
+                    ))
+                    .id()
+            })
+            .collect();
+        world
+            .resource_mut::<FrameEvents<PowerUpPickedUp>>()
+            .send(PowerUpPickedUp {
+                id: "test".to_string(),
+                picked_up_by: GgrsNetId(10, "player".to_string()),
+            });
+        world.run_system_once(apply_powerup_actions_system).unwrap();
+        for entity in players {
+            let modifiers = world.get::<Modifiers>(entity).unwrap();
+            assert_eq!(modifiers.0.len(), 1);
+            let modifier = &modifiers.0[0];
+            assert_eq!(
+                modifier.source,
+                ModifierSource::Named("powerup:test".to_string())
+            );
+            assert_eq!(modifier.until, Some(70));
+            assert!(!modifier.is_expired(70));
+            assert!(modifier.is_expired(71));
+        }
+    }
+
+    #[test]
+    fn max_ammo_additionne_les_reserves_et_annule_le_rechargement() {
+        let mut world = world_with_config(Action::RefillAmmo, fixed_math::FIXED_ZERO);
+        let weapons: crate::weapons::WeaponsConfig = ron::from_str(include_str!(
+            "../../../games/testbed/assets/ZombieShooter/Sprites/Character/weapons.ron"
+        ))
+        .unwrap();
+        let mut inventory = WeaponInventory {
+            reloading_ending_frame: Some(100),
+            ..Default::default()
+        };
+        for id in ["machine_gun", "pistol"] {
+            let mut weapon = Weapon::from(weapons.0.get(id).unwrap().clone());
+            weapon.config.ammo_type = AmmoType::Balle;
+            let entity = world
+                .spawn((
+                    weapon.clone(),
+                    WeaponModesState {
+                        modes: BTreeMap::from([(
+                            "default".to_string(),
+                            crate::weapons::WeaponModeState::default(),
+                        )]),
+                    },
+                ))
+                .id();
+            inventory.weapons.push((entity, weapon));
+        }
+        let player = world
+            .spawn((
+                GgrsNetId(1, "player".to_string()),
+                Player::default(),
+                Modifiers::default(),
+                AmmoReserves::default(),
+                inventory,
+            ))
+            .id();
+        world
+            .resource_mut::<FrameEvents<PowerUpPickedUp>>()
+            .send(PowerUpPickedUp {
+                id: "test".to_string(),
+                picked_up_by: GgrsNetId(1, "player".to_string()),
+            });
+        world.run_system_once(apply_powerup_actions_system).unwrap();
+        assert_eq!(
+            world
+                .get::<AmmoReserves>(player)
+                .unwrap()
+                .get(&AmmoType::Balle),
+            288
+        );
+        let inventory = world.get::<WeaponInventory>(player).unwrap();
+        assert!(!inventory.is_reloading());
+        for (entity, weapon) in &inventory.weapons {
+            let mode = &world.get::<WeaponModesState>(*entity).unwrap().modes["default"];
+            assert_eq!(
+                mode.mag_ammo,
+                match weapon.config.firing_modes["default"].mag {
+                    MagBulletConfig::Mag { mag_size, .. } => mag_size,
+                    MagBulletConfig::Magless { bullet_limit } => bullet_limit,
+                }
+            );
+        }
+    }
+
+    #[test]
+    fn chance_nulle_ne_cree_pas_le_flux_loot() {
+        let mut world = world_with_config(Action::RefillAmmo, fixed_math::FIXED_ZERO);
+        world.spawn((
+            Rollback,
+            GgrsNetId(1, "enemy".to_string()),
+            Team::Enemies,
+            fixed_math::FixedTransform3D::IDENTITY,
+            Death { last_hit_by: None },
+        ));
+        let before = world.resource::<RngStreams>().clone();
+        world.run_system_once(loot_drop_on_death_system).unwrap();
+        assert_eq!(*world.resource::<RngStreams>(), before);
+        assert_eq!(world.query::<&PowerUpPickup>().iter(&world).count(), 0);
+    }
+
+    #[test]
+    fn morts_simultanees_tirent_dans_loot_par_net_id() {
+        let mut world = world_with_config(Action::RefillAmmo, fixed_math::FIXED_ONE);
+        world
+            .resource_mut::<RngStreams>()
+            .get_mut("waves")
+            .next_u32();
+        let waves_before = *world.resource::<RngStreams>().get("waves").unwrap();
+        for id in [20, 10] {
+            let mut transform = fixed_math::FixedTransform3D::IDENTITY;
+            transform.translation.x = fixed_math::Fixed::from_num(id);
+            world.spawn((
+                Rollback,
+                GgrsNetId(id, "enemy".to_string()),
+                Team::Enemies,
+                transform,
+                Death { last_hit_by: None },
+            ));
+        }
+        world.run_system_once(loot_drop_on_death_system).unwrap();
+        let mut drops: Vec<_> = world
+            .query::<(&GgrsNetId, &PowerUpPickup, &fixed_math::FixedTransform3D)>()
+            .iter(&world)
+            .map(|(id, pickup, transform)| (id.0, pickup.expires_at_frame, transform.translation.x))
+            .collect();
+        drops.sort_by_key(|drop| drop.0);
+        assert_eq!(drops.len(), 2);
+        assert_eq!(drops[0].2, fixed_math::Fixed::from_num(10));
+        assert_eq!(drops[1].2, fixed_math::Fixed::from_num(20));
+        assert!(drops.iter().all(|drop| drop.1 == 70));
+        let streams = world.resource::<RngStreams>();
+        assert_eq!(*streams.get("waves").unwrap(), waves_before);
+        let mut expected = RngStreams::new(123456);
+        for _ in 0..2 {
+            expected.get_mut("loot").next_fixed();
+            expected.get_mut("loot").next_u32_range(0, 1);
+        }
+        assert_eq!(streams.get("loot"), expected.get("loot"));
     }
 }

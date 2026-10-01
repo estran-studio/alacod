@@ -5,9 +5,11 @@
 // réparer, absente de l'arène (T2.9 n'y en a pas posé).
 //
 // À regarder : le joueur ne bouge pas ; le breacher traverse sa poche, casse la fenêtre
-// (~f420, comme `testbed_window`) et avance vers le joueur ; un power-up Carpenter apparaît
-// sur le joueur à f450 et répare la fenêtre aussitôt (santé 3/3 dès f451).
+// (~f420, comme `testbed_window`) et avance vers le joueur ; Carpenter est placé et ramassé
+// à f450 et répare la fenêtre aussitôt (santé 3/3 dès f451). Pas de sprite de pickup en v0.
 Scenario(
+    // Isoler ce scénario des drops aléatoires ; powerup_drop_on_kill teste ce chemin.
+    powerup_drop_chance_override: "0.0",
     game: "testbed",
     map: "testbed/window.ldtk",
     frames: 520,
@@ -15,10 +17,11 @@ Scenario(
         (),
     ],
     powerups: [
-        (id: "carpenter", x: 686.0, y: -444.0, at_frame: 450),
+        (id: "carpenter", x: "686.0", y: "-444.0", at_frame: 450),
     ],
     expect: [
         WindowsBrokenAtLeast(windows: 1, at_frame: 420),
+        WindowHealth(window: 3, health: 3, at_frame: 451),
         WindowHealth(window: 3, health: 3, at_frame: 480),
     ],
 )

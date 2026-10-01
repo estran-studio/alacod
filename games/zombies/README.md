@@ -126,6 +126,6 @@ make zombies                                # jouer (fenêtre, joueur local)
   mélangées aux configs sous `ZombieShooter/Sprites/**` (`docs/plan-engine.md` §5 A5) ; le
   `rifle` réutilise le sprite du fusil à pompe.
 - Le prix des armes murales et des perks n'est pas affiché à l'écran.
-- Power-ups : pas d'icône/minuteur à l'écran pour un power-up actif (T2.12 HUD v1) ; pas de
+- Power-ups : pas de sprite de pickup au sol, ni d'icône/minuteur à l'écran pour un power-up actif (T2.12 HUD v1) ; pas de
   son/flash au ramassage (T2.13) ; `KillAllWaveEnemies` (Nuke) ne crédite aucun point de kill
   (contrairement à CoD) — simplification v0, voir le rapport de la tâche T2.5.

@@ -13,6 +13,8 @@
 // À regarder : le joueur ne bouge pas ; `breacher` traverse sa poche, s'arrête devant la
 // fenêtre et la frappe (cooldown ~30 frames) jusqu'à la casser, puis avance vers le joueur.
 Scenario(
+    // Isoler ce scénario des drops aléatoires ; powerup_drop_on_kill teste ce chemin.
+    powerup_drop_chance_override: "0.0",
     game: "testbed",
     map: "testbed/window.ldtk",
     frames: 450,

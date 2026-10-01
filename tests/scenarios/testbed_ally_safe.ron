@@ -6,6 +6,8 @@
 // À regarder : le joueur tire en continu vers le sud-est (f10-160) ; l'allié reste immobile,
 // les balles passent au travers sans le ralentir ni le blesser.
 Scenario(
+    // Isoler ce scénario des drops aléatoires ; powerup_drop_on_kill teste ce chemin.
+    powerup_drop_chance_override: "0.0",
     game: "testbed",
     map: "testbed/arena.ldtk",
     frames: 200,

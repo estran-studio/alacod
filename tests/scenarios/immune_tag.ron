@@ -9,6 +9,8 @@
 // À regarder : mêmes tirs que `friendly_fire_never` (tir ami autorisé cette fois), mais le
 // joueur 1 (en bas), immunisé aux balles, ne perd toujours aucune vie.
 Scenario(
+    // Isoler ce scénario des drops aléatoires ; powerup_drop_on_kill teste ce chemin.
+    powerup_drop_chance_override: "0.0",
     frames: 150,
     players: [
         (inputs: [

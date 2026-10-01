@@ -7,6 +7,8 @@
 // À regarder : rafale du joueur 0 (f10-100), le joueur 1 tombe à terre (f89) puis meurt de
 // saignement à f989 (89 + 900), sans autre coup porté.
 Scenario(
+    // Isoler ce scénario des drops aléatoires ; powerup_drop_on_kill teste ce chemin.
+    powerup_drop_chance_override: "0.0",
     frames: 1100,
     players: [
         (

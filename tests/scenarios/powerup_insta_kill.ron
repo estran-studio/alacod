@@ -7,6 +7,8 @@
 // À regarder : le joueur ne bouge pas ; rien de visible (la preuve est la stat, pas un
 // effet à l'écran — un futur HUD de power-up, T2.12, l'affichera).
 Scenario(
+    // Isoler ce scénario des drops aléatoires ; powerup_drop_on_kill teste ce chemin.
+    powerup_drop_chance_override: "0.0",
     game: "testbed",
     map: "testbed/arena.ldtk",
     frames: 1830,
@@ -14,11 +16,13 @@ Scenario(
         (),
     ],
     powerups: [
-        (id: "insta_kill", x: 423.0, y: 695.0, at_frame: 10),
+        (id: "insta_kill", x: "423.0", y: "695.0", at_frame: 10),
     ],
     expect: [
         // Actif : Damage = 100 (Set, tant que frame <= 1810).
         Stat(handle: 0, stat: Damage, value: 100.0, at_frame: 100),
+        Stat(handle: 0, stat: Damage, value: 100.0, at_frame: 1810),
+        Stat(handle: 0, stat: Damage, value: 1.0, at_frame: 1811),
         // Expiré : retombé au produit neutre (1.0, posé par `create_character`).
         Stat(handle: 0, stat: Damage, value: 1.0, at_frame: 1820),
     ],

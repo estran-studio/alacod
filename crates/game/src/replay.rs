@@ -85,8 +85,8 @@ pub struct Scenario {
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct PowerUpPlacement {
     pub id: String,
-    pub x: f32,
-    pub y: f32,
+    pub x: Fixed,
+    pub y: Fixed,
     pub at_frame: u32,
 }
 

@@ -5,6 +5,8 @@
 // À regarder : le joueur ne bouge pas, tire en continu vers le nord-ouest (f10-130) ; le
 // mannequin reste immobile et sa barre de vie baisse.
 Scenario(
+    // Isoler ce scénario des drops aléatoires ; powerup_drop_on_kill teste ce chemin.
+    powerup_drop_chance_override: "0.0",
     game: "testbed",
     map: "testbed/arena.ldtk",
     frames: 180,

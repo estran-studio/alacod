@@ -4,6 +4,8 @@
 //
 // À regarder : les balles montent et disparaissent au contact du mur, sans le traverser.
 Scenario(
+    // Isoler ce scénario des drops aléatoires ; powerup_drop_on_kill teste ce chemin.
+    powerup_drop_chance_override: "0.0",
     game: "zombies",
     frames: 400,
     players: [

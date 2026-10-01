@@ -422,22 +422,27 @@ struct ScenarioPowerUpPlacements(Vec<PowerUpPlacement>);
 fn apply_scenario_powerup_placements(
     frame: Res<FrameCount>,
     placements: Res<ScenarioPowerUpPlacements>,
+    global_assets: Res<GlobalAsset>,
+    powerup_configs: Res<Assets<PowerUpsConfig>>,
     mut commands: Commands,
     mut id_factory: ResMut<GgrsNetIdFactory>,
 ) {
+    let Some(config) = global_assets
+        .powerups_config
+        .as_ref()
+        .and_then(|handle| powerup_configs.get(handle))
+    else {
+        return;
+    };
     for placement in &placements.0 {
         if frame.frame != placement.at_frame {
             continue;
         }
-        let position = fixed_math::FixedVec3::new(
-            fixed_math::Fixed::from_num(placement.x),
-            fixed_math::Fixed::from_num(placement.y),
-            fixed_math::FIXED_ZERO,
-        );
-        // Placement scripté : pas de durée de vie courte utile pour un test (le scénario
-        // contrôle quand il est ramassé) — une fenêtre large, jamais vue expirer en
-        // pratique dans un scénario de quelques centaines de frames.
-        let expires_at_frame = frame.frame.saturating_add(100_000);
+        let Some(definition) = config.powerups.get(&placement.id) else {
+            continue;
+        };
+        let position = fixed_math::FixedVec3::new(placement.x, placement.y, fixed_math::FIXED_ZERO);
+        let expires_at_frame = frame.frame.saturating_add(definition.lifetime_frames);
         spawn_powerup_pickup(
             &mut commands,
             placement.id.clone(),
@@ -793,10 +798,16 @@ pub fn run_with_options<F: FnOnce(&mut App)>(
         .map(|lines| lines.map(str::to_string).collect());
 
     let summary = summarize(app.world_mut(), frame);
-    let recorded = app
+    let mut recorded = app
         .world()
         .resource::<InputRecorder>()
         .to_scenario(app.world().get_resource::<MapGenerationConfig>());
+    // Ces réglages font partie de la simulation rejouée, pas du flux d'inputs.
+    recorded.game = scenario.game.clone();
+    recorded.weapon_overrides = scenario.weapon_overrides.clone();
+    recorded.wave_overrides = scenario.wave_overrides.clone();
+    recorded.powerups = scenario.powerups.clone();
+    recorded.powerup_drop_chance_override = scenario.powerup_drop_chance_override;
 
     let events = app.world().resource::<GameEvents>().events.clone();
 

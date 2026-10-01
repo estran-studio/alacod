@@ -4,6 +4,8 @@
 // À regarder : premier dash vers la gauche (f16), le joueur s'arrête net ; second dash (f206) : il
 // bute contre le mur, à côté de la fenêtre, sans entrer dedans.
 Scenario(
+    // Isoler ce scénario des drops aléatoires ; powerup_drop_on_kill teste ce chemin.
+    powerup_drop_chance_override: "0.0",
     game: "zombies",
     frames: 320,
     players: [

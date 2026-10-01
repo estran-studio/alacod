@@ -10,6 +10,8 @@
 // À regarder : rafale du joueur 0 vers le bas (f10-100) ; le joueur 1 tombe à terre (f89) puis
 // est réanimé (f295, 110 + 180 + un peu de latence d'input) sans que le joueur 0 ait bougé.
 Scenario(
+    // Isoler ce scénario des drops aléatoires ; powerup_drop_on_kill teste ce chemin.
+    powerup_drop_chance_override: "0.0",
     frames: 500,
     players: [
         (

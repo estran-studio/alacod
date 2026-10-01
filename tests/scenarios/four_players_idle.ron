@@ -4,6 +4,8 @@
 // chemin (flow field). Les quatre joueurs sont dans la même salle initiale (spawnés aux quatre coins).
 // La vague débute et les zombies commencent à apparaître et attaquer les joueurs les plus proches.
 Scenario(
+    // Isoler ce scénario des drops aléatoires ; powerup_drop_on_kill teste ce chemin.
+    powerup_drop_chance_override: "0.0",
     game: "zombies",
     frames: 600,
     players: [

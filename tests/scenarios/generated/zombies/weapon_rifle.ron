@@ -3,6 +3,8 @@
 // uniquement « rifle » (arme à distance) et vise et tire sur `target`.
 #![enable(implicit_some)]
 Scenario(
+    // Isoler ce scénario des drops aléatoires ; powerup_drop_on_kill teste ce chemin.
+    powerup_drop_chance_override: "0.0",
     game: "testbed",
     map: "testbed/arena.ldtk",
     map_seed: 123456,

@@ -6,6 +6,8 @@
 // le joueur la répare aussitôt (f507, 1 PV) et les zombies doivent la frapper encore (cède f536).
 // Le joueur essaie alors de sortir par la fenêtre cassée (f560-620) : il reste bloqué.
 Scenario(
+    // Isoler ce scénario des drops aléatoires ; powerup_drop_on_kill teste ce chemin.
+    powerup_drop_chance_override: "0.0",
     game: "zombies",
     frames: 1100,
     players: [

@@ -9,6 +9,8 @@
 // personnage joueur dépasse la frame 1500 depuis sa chute). Le joueur 0 se fait encercler à son
 // tour, sans jamais tomber lui-même dans ces 1500 frames.
 Scenario(
+    // Isoler ce scénario des drops aléatoires ; powerup_drop_on_kill teste ce chemin.
+    powerup_drop_chance_override: "0.0",
     game: "zombies",
     frames: 1500,
     players: [

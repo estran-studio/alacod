@@ -604,8 +604,8 @@ fn powerup_placement_spawns_one_pickup() {
     let mut scenario = load_scenario("idle");
     scenario.powerups = vec![game::replay::PowerUpPlacement {
         id: "insta_kill".to_string(),
-        x: -5000.0,
-        y: -5000.0,
+        x: bevy_fixed::fixed_math::Fixed::from_num(-5000),
+        y: bevy_fixed::fixed_math::Fixed::from_num(-5000),
         at_frame: 10,
     }];
     scenario.expect = vec![Expectation::PowerUpPickups {
@@ -615,6 +615,46 @@ fn powerup_placement_spawns_one_pickup() {
     }];
     let outcome = run(&scenario);
     assert!(outcome.failures.is_empty(), "{:?}", outcome.failures);
+}
+
+#[test]
+fn powerup_placement_expire_selon_la_table_du_jeu() {
+    if map_ldtk::RENDER_ENABLED {
+        return;
+    }
+    let mut scenario = load_scenario("powerup_insta_kill");
+    scenario.powerups[0].x = bevy_fixed::fixed_math::Fixed::from_num(-5000);
+    scenario.powerups[0].y = bevy_fixed::fixed_math::Fixed::from_num(-5000);
+    scenario.expect = vec![
+        Expectation::PowerUpPickups {
+            min: Some(1),
+            max: Some(1),
+            // Le runner observe le compteur après la frame simulée : ici l'état 1809.
+            at_frame: 1810,
+        },
+        Expectation::PowerUpPickups {
+            min: Some(0),
+            max: Some(0),
+            at_frame: 1811,
+        },
+    ];
+    let outcome = run(&scenario);
+    assert!(outcome.failures.is_empty(), "{:?}", outcome.failures);
+}
+
+#[test]
+fn powerup_max_ammo_se_rejoue_depuis_son_enregistrement() {
+    if map_ldtk::RENDER_ENABLED {
+        return;
+    }
+    let scenario = load_scenario("powerup_max_ammo");
+    let original = run(&scenario);
+    assert!(original.failures.is_empty(), "{:?}", original.failures);
+    let mut recorded = Scenario::from_ron(&original.recorded.to_ron()).unwrap();
+    recorded.frames = scenario.frames;
+    let replayed = run(&recorded);
+    assert!(replayed.failures.is_empty(), "{:?}", replayed.failures);
+    assert_eq!(original.trace, replayed.trace);
 }
 
 /// L'attaque de mêlée reste possible pendant un rechargement, sans l'annuler (T2.2, chantier

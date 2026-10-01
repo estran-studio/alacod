@@ -9,6 +9,8 @@
 // rechargement (f761-851) pendant lequel le changement de mode est refusé. Les zombies entrent
 // entre-temps et tuent le joueur (f917).
 Scenario(
+    // Isoler ce scénario des drops aléatoires ; powerup_drop_on_kill teste ce chemin.
+    powerup_drop_chance_override: "0.0",
     game: "zombies",
     frames: 950,
     players: [

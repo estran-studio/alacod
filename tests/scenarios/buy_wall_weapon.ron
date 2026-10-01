@@ -6,6 +6,8 @@
 // achète le fusil à pompe en interagissant (f115-130) : le fusil devient son arme active, son
 // solde tombe à 100.
 Scenario(
+    // Isoler ce scénario des drops aléatoires ; powerup_drop_on_kill teste ce chemin.
+    powerup_drop_chance_override: "0.0",
     game: "zombies",
     map: "exemples/test_map_shop.ldtk",
     frames: 160,

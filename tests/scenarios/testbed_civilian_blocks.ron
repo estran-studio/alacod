@@ -6,6 +6,8 @@
 // À regarder : le joueur tire en continu vers le sud-ouest (f10-160) ; le civil reste immobile
 // et indemne, les balles s'arrêtent sur lui (elles ne continuent pas au-delà).
 Scenario(
+    // Isoler ce scénario des drops aléatoires ; powerup_drop_on_kill teste ce chemin.
+    powerup_drop_chance_override: "0.0",
     game: "testbed",
     map: "testbed/arena.ldtk",
     frames: 200,

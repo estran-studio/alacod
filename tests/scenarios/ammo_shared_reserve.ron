@@ -8,6 +8,8 @@
 // pistolet (f300), le vide par pulsations (f320-500) puis recharge : la même réserve baisse
 // encore, jusqu'à épuisement.
 Scenario(
+    // Isoler ce scénario des drops aléatoires ; powerup_drop_on_kill teste ce chemin.
+    powerup_drop_chance_override: "0.0",
     game: "zombies",
     frames: 700,
     weapon_overrides: [

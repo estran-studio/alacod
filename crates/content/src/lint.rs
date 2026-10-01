@@ -301,9 +301,7 @@ fn lint_powerups(registry: &Registry, errors: &mut Vec<LintError>) {
             errors.push(LintError {
                 kind: LintErrorKind::OutOfRange,
                 file: entry.file.display().to_string(),
-                message: format!(
-                    "power-ups : champ drop_chance = {value} : doit être dans [0, 1]"
-                ),
+                message: format!("power-ups : champ drop_chance = {value} : doit être dans [0, 1]"),
             });
         }
     }
