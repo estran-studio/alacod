@@ -34,6 +34,8 @@ def git(*args):
 
 def scenario_info(name):
     """Description et « À regarder » (commentaires en tête du .ron), attentes du scénario."""
+    # `<nom>.vues` (scenario-video views) : mêmes description et « À regarder » que le scénario.
+    name = name[: -len(".vues")] if name.endswith(".vues") else name
     path = SCENARIOS / f"{name}.ron"
     if not path.exists():
         return {"description": "", "watch": "", "expect": [], "frames": None}
@@ -51,7 +53,9 @@ def scenario_info(name):
             watch.append(content)
         elif content:
             description.append(content)
-    expect = re.findall(r"^\s*((?:PlayerAlive|PlayerDead|WaveAtLeast|KillsAtLeast|WindowsBrokenAtLeast|ActiveWeapon|Ammo|DoorsOpenAtLeast|PlayerPosition|WindowHealth|BulletsInside)\([^)]*\))", text, re.M)
+    # Toute attente `Nom(...)` du bloc `expect: [...]` (une par ligne dans les scénarios).
+    block = text[text.find("expect:"):] if "expect:" in text else ""
+    expect = re.findall(r"^\s*([A-Z][A-Za-z]+\([^)]*\))", block, re.M)
     frames = re.search(r"frames:\s*(\d+)", text)
     return {
         "description": " ".join(description),

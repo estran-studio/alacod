@@ -26,6 +26,7 @@ use map_ldtk::{
     plugins::LdtkRoguePlugin,
 };
 use run::currency::Currency;
+use run::{Run, RunStep};
 use serde::{Deserialize, Serialize};
 use sim_core::modifier::{resolve, Modifier, ModifierSource, Modifiers};
 use sim_core::stats::{StatId, Stats};
@@ -36,7 +37,9 @@ use utils::frame::FrameCount;
 
 use game::global_asset::GlobalAsset;
 use game::powerups::{spawn_powerup_pickup, PowerUpPickup, PowerUpsConfig};
-use game::replay::{Expectation, ModifierSpec, PowerUpPlacement, Scenario, WaveOverride};
+use game::replay::{
+    Expectation, ModifierSpec, PowerUpPlacement, RunStepExpectation, Scenario, WaveOverride,
+};
 use game::weapons::melee::{self, MeleeWeapon, MeleeWeaponsConfig};
 use game::weapons::{spawn_weapon_for_player, Weapon, WeaponInventory, WeaponsConfig};
 use utils::net_id::GgrsNetIdFactory;
@@ -134,7 +137,7 @@ pub fn build_app(scenario: &Scenario, headless: bool, config: &PlayConfig) -> Ap
     // Registre de contenu (T1.5) : mêmes règles que `alacod lint`, un contenu invalide
     // fait échouer le test tout de suite plutôt qu'en plein milieu de la simulation.
     let game_root = game_dir(&scenario.game);
-    let (registry, _manifest, content_errors) = content::load_and_lint(&game_root)
+    let (registry, manifest, content_errors) = content::load_and_lint(&game_root)
         .unwrap_or_else(|e| panic!("scénario « {} » : game.ron invalide : {e}", scenario.game));
     assert!(
         content_errors.is_empty(),
@@ -147,6 +150,10 @@ pub fn build_app(scenario: &Scenario, headless: bool, config: &PlayConfig) -> Ap
     app.add_plugins(core_plugin.get_default_plugin())
         .add_plugins(GameArgsPlugin(game_args(scenario.players.len())))
         .insert_resource(registry)
+        // T2.4, chantier F1 : `game::jjrs::{local, p2p}` résout `RunMode` depuis
+        // `GameManifest` (`entry.mode`) au démarrage de session — présente ici comme dans
+        // `games/<jeu>/src/main.rs` (voir `game::run_state::resolve_run_mode`).
+        .insert_resource(manifest)
         .add_plugins(core_plugin)
         .add_plugins(LdtkRoguePlugin)
         .add_plugins(LdtkLocalGamePlugin(LdtkGameMap {
@@ -1210,6 +1217,42 @@ fn check(world: &mut World, expectation: &Expectation) -> Result<(), String> {
             } else {
                 Err(format!("pas de défaite avant la frame {by_frame}"))
             }
+        }
+        // T2.4, chantier F1.
+        Expectation::RunState { step, .. } => {
+            let actual = &world.resource::<Run>().step;
+            let matches = match (step, actual) {
+                (RunStepExpectation::Playing, RunStep::Playing { .. }) => true,
+                (RunStepExpectation::Ended(expected_outcome), RunStep::Ended { outcome, .. }) => {
+                    expected_outcome == outcome
+                }
+                _ => false,
+            };
+            if matches {
+                Ok(())
+            } else {
+                Err(format!("Run.step = {actual:?} (attendu {step:?})"))
+            }
+        }
+        Expectation::RunSummary {
+            wave_reached_min,
+            kills_min,
+            ..
+        } => {
+            let Some(summary) = world.resource::<Run>().summary else {
+                return Err("Run.summary absent (partie pas terminée ?)".into());
+            };
+            if let Some(min) = wave_reached_min {
+                if summary.wave_reached < *min {
+                    return Err(format!("wave_reached {} < min {min}", summary.wave_reached));
+                }
+            }
+            if let Some(min) = kills_min {
+                if summary.kills < *min {
+                    return Err(format!("kills {} < min {min}", summary.kills));
+                }
+            }
+            Ok(())
         }
         // T2.3, chantier C5 v1 : scénarios `buy_door`/`buy_wall_weapon`/`buy_perk`.
         Expectation::Currency {

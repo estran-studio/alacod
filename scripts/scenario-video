@@ -6,6 +6,8 @@
 #   scenario-video montage                   grille de toutes les vidéos rendues
 #   scenario-video compare <nom> <réf> [réf2] avant/après côte à côte : le scénario joué
 #                                            par le code de <réf> et de <réf2> (défaut : HEAD)
+#   scenario-video views <nom> [n]           la même partie vue par chacun des n joueurs
+#                                            (caméra --follow), côte à côte : <nom>.vues.mp4
 #   scenario-video index                     regénère la page de revue target/videos/index.html
 #
 # Sorties dans target/videos/<commit>/ (compare : target/videos/compare/).
@@ -68,6 +70,64 @@ cmd_render() {
     done
     rmdir "$out/frames" 2>/dev/null || true
     echo "vidéos dans $out"
+}
+
+# Nombre de joueurs d'un scénario : entrées de `players: [ ... ]` (parenthèses de niveau 1).
+player_count() {
+    python3 - "$1" <<'PY'
+import re, sys
+s = re.sub(r"//.*", "", open(sys.argv[1]).read())
+i = s.index("players:"); i = s.index("[", i); depth = 0; n = 0
+for ch in s[i:]:
+    if ch == "[":
+        depth += 1
+    elif ch == "]":
+        depth -= 1
+        if depth == 0:
+            break
+    elif ch == "(" and depth == 1:
+        n += 1
+print(n)
+PY
+}
+
+# views <nom> [n] : la même partie capturée une fois par joueur avec la caméra sur lui
+# (play_scenario --follow, T1.10), puis les n vues assemblées côte à côte (2 colonnes) —
+# toutes de la même durée, contrairement au montage de scénarios différents. Les moments
+# clés sont ceux de la capture du joueur 0 (identiques pour tous : même simulation).
+cmd_views() {
+    local name="$1" n="${2:-}" commit out player i cols
+    commit="$(git -C "$ROOT" rev-parse --short HEAD)$(git -C "$ROOT" diff --quiet || echo "-dirty")"
+    out="$ROOT/target/videos/$commit"
+    mkdir -p "$out"
+    player="$(build_player "$ROOT")"
+    [ -n "$n" ] || n="$(player_count "$ROOT/tests/scenarios/$name.ron")"
+    [ "$n" -ge 1 ] || { echo "aucun joueur dans $name" >&2; exit 1; }
+    cols=2; [ "$n" -lt 2 ] && cols=1
+    local inputs=() filter="" layout=""
+    for ((i = 0; i < n; i++)); do
+        echo "→ $name, vue du joueur $i"
+        rm -rf "$out/frames/$name.p$i"
+        "$player" "$ROOT/tests/scenarios/$name.ron" --capture "$out/frames/$name.p$i" --every "$EVERY" --follow "$i" >/dev/null 2>&1
+        encode "$out/frames/$name.p$i" "$out/frames/$name.p$i.mp4" "$name  joueur $i"
+        inputs+=(-i "$out/frames/$name.p$i.mp4")
+        filter+="[$i:v]scale=960:540[v$i];"
+        if [ "$i" -gt 0 ]; then layout+="|"; fi
+        layout+="$(( (i % cols) * 960 ))_$(( (i / cols) * 540 ))"
+    done
+    local streams
+    streams="$(for ((i = 0; i < n; i++)); do printf '[v%s]' "$i"; done)"
+    if [ "$n" -eq 1 ]; then
+        filter+="[v0]null[out]"
+    else
+        filter+="${streams}xstack=inputs=$n:layout=$layout:fill=black[out]"
+    fi
+    ffmpeg -hide_banner -loglevel error -y "${inputs[@]}" -filter_complex "$filter" -map "[out]" \
+        -pix_fmt yuv420p "${ENCODER[@]}" "$out/$name.vues.mp4"
+    cp "$out/frames/$name.p0/events.json" "$out/$name.vues.events.json" 2>/dev/null || true
+    rm -rf "$out/frames/$name".p*
+    rmdir "$out/frames" 2>/dev/null || true
+    echo "vues : $out/$name.vues.mp4"
 }
 
 cmd_montage() {
@@ -150,6 +210,7 @@ PY
 case "${1:-}" in
     render) shift; cmd_render "$@" ;;
     montage) shift; cmd_montage ;;
+    views) shift; [ $# -ge 1 ] || { echo "usage : scenario-video views <nom> [n]" >&2; exit 1; }; cmd_views "$@" ;;
     compare) shift; [ $# -ge 2 ] || { echo "usage : scenario-video compare <nom> <réf> [réf2]" >&2; exit 1; }; cmd_compare "$@" ;;
     index) ;;
     *) sed -n '2,14p' "$0" | sed 's/^# \{0,1\}//'; exit 1 ;;

@@ -370,6 +370,9 @@ Défaut : `MATCHBOX_URL=wss://allumette.bascanada.org` (serveur cloud).
 960×540 hors écran, indépendant de la fenêtre), puis encode avec ffmpeg :
 - `make videos [SCENARIO=<nom>]` : une vidéo par scénario + `montage.mp4` (grille), dans
   `target/videos/<commit>/` ;
+- `make views SCENARIO=<nom>` : la même partie vue par chacun de ses joueurs (caméra `--follow`),
+  côte à côte dans `<nom>.vues.mp4` (toutes les vues ont la même durée ; le `montage.mp4` de
+  scénarios différents, lui, prolonge les courts sur leur dernière image) ;
 - `make compare_video SCENARIO=<nom> BASE=<réf> [HEAD=<réf>]` : avant/après côte à côte, le même
   scénario joué par le code des deux références (worktree git, target partagé). La référence doit
   contenir `play_scenario --capture`.

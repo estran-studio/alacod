@@ -14,9 +14,12 @@ use bevy_fixed::{
 };
 use bevy_ggrs::{ggrs::PlayerType, prelude::*};
 use bevy_matchbox::{prelude::PeerState, MatchboxSocket};
+use content::manifest::GameManifest;
+use content::registry::Registry;
 use ggrs::UdpNonBlockingSocket;
 use map::game::entity::map::enemy_spawn::EnemySpawnerComponent;
 use map::generation::config::MapGenerationConfig;
+use run::Run;
 use utils::net_id::GgrsNetIdFactory;
 
 use crate::{
@@ -31,6 +34,7 @@ use crate::{
     jjrs::{
         GggrsSessionConfiguration, GggrsSessionConfigurationState, GgrsPlayer, GgrsSessionBuilding,
     },
+    run_state::resolve_run_mode,
     weapons::WeaponsConfig,
 };
 
@@ -69,6 +73,7 @@ pub fn setup_ggrs_local(
 }
 
 // For local connection
+#[allow(clippy::too_many_arguments)]
 pub fn system_after_map_loaded_local(
     mut app_state: ResMut<NextState<AppState>>,
     mut commands: Commands,
@@ -78,6 +83,9 @@ pub fn system_after_map_loaded_local(
     ggrs_config: Res<GggrsSessionConfiguration>,
     online_state: Res<OnlineState>,
     map_config: Option<Res<MapGenerationConfig>>,
+    session_building: Res<GgrsSessionBuilding>,
+    manifest: Option<Res<GameManifest>>,
+    registry: Option<Res<Registry>>,
 ) {
     if !matches!(online_state.as_ref(), OnlineState::Offline) {
         return;
@@ -134,9 +142,24 @@ pub fn system_after_map_loaded_local(
     };
     let rng_streams = RngStreams::new(run_seed.0);
 
+    // État de run (T2.4, chantier F1) : créée au même instant que `RunSeed`/`RngStreams`
+    // (voir la doc de `run::run::Run` et `docs/conventions.md` section « Run »), y compris
+    // pour une relance (`RunRequest::Restart` repasse par ce même système, voir
+    // `game::run_state`) — même graine, même mode, mêmes handles à chaque fois, tant que
+    // `GggrsSessionConfiguration`/`GgrsSessionBuilding` ne changent pas entre-temps (jamais
+    // le cas pour un `Restart`, qui ne les touche pas).
+    let players: Vec<usize> = session_building
+        .players
+        .iter()
+        .map(|player| player.handle)
+        .collect();
+    let mode = resolve_run_mode(manifest.as_deref(), registry.as_deref());
+    let run = Run::new(run_seed.0, mode, players, 0);
+
     // Insert the GGRS session resource
     commands.insert_resource(run_seed);
     commands.insert_resource(rng_streams);
+    commands.insert_resource(run);
     commands.insert_resource(sess);
 
     app_state.set(AppState::InGame);

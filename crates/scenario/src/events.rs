@@ -7,7 +7,7 @@
 use std::collections::{BTreeMap, BTreeSet};
 
 use bevy::prelude::*;
-use combat::downed::{Downed, RunOutcome};
+use combat::downed::Downed;
 use combat::inventory::AmmoReserves;
 use game::{
     character::{health::Health, player::Player},
@@ -17,6 +17,7 @@ use game::{
 };
 use map::game::entity::map::{door::DoorComponent, window::WindowHealth};
 use run::currency::CurrencyEvent;
+use run::{Run, RunStep, RunSummary};
 use serde::Serialize;
 use sim_core::frame_events::FrameEvents;
 use utils::{frame::FrameCount, net_id::GgrsNetId};
@@ -32,6 +33,12 @@ pub struct GameEvent {
 #[derive(Resource, Default)]
 pub struct GameEvents {
     pub events: Vec<GameEvent>,
+    /// Résumé de fin de partie (T2.4, chantier F1, `run::run::Run::summary`) : copié ici
+    /// dès qu'il apparaît (`Run.step` devient `Ended` et `finalize_run_summary_system` le
+    /// calcule), pour que les outils qui consomment déjà `GameEvents` (page de revue, CI de
+    /// nuit) n'aient pas besoin de lire `Run` séparément. `None` tant que la partie n'est
+    /// pas terminée.
+    pub summary: Option<RunSummary>,
     previous: Option<Snapshot>,
 }
 
@@ -69,7 +76,9 @@ struct Snapshot {
     /// (`WeaponPickup::weapon_id`). Un id qui apparaît = lâcher (`drop`) ; un id qui
     /// disparaît = ramassage (`pickup`).
     weapon_pickups: BTreeMap<usize, String>,
-    /// À terre (T1.3, chantier B6) : `combat::downed::RunOutcome::defeat_at_frame.is_some()`.
+    /// À terre (T1.3, chantier B6) : `run::run::Run::step` est `RunStep::Ended { outcome:
+    /// RunEnd::Defeat, .. }` (T2.4, chantier F1 : ne lit plus `combat::downed::RunOutcome`,
+    /// disparue).
     defeat: bool,
 }
 
@@ -97,7 +106,7 @@ fn detect_events(
     frame: Res<FrameCount>,
     mut events: ResMut<GameEvents>,
     wave: Option<Res<WaveState>>,
-    run_outcome: Option<Res<RunOutcome>>,
+    run: Option<Res<Run>>,
     players: Query<(
         &Player,
         &Health,
@@ -127,7 +136,21 @@ fn detect_events(
         now.phase = Some(wave.phase);
         now.kills = wave.total_enemies_killed;
     }
-    now.defeat = run_outcome.is_some_and(|outcome| outcome.defeat_at_frame.is_some());
+    now.defeat = run.as_deref().is_some_and(|run| {
+        matches!(
+            run.step,
+            RunStep::Ended {
+                outcome: run::RunEnd::Defeat,
+                ..
+            }
+        )
+    });
+    // T2.4, chantier F1 : copie le résumé dans `GameEvents` dès qu'il apparaît (voir la
+    // doc du champ) ; ne l'efface jamais (un rollback qui défait `Run.step` avant la
+    // confirmation de frame n'a pas de sens ici, `events` lui-même n'est jamais rejoué).
+    if events.summary.is_none() {
+        events.summary = run.as_deref().and_then(|run| run.summary);
+    }
     for (player, health, inventory, ammo_reserves, dash, sprint, melee, transform, downed) in
         &players
     {

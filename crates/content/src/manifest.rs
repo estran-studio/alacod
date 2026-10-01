@@ -2,6 +2,7 @@
 //! §4.2). Décrit le nom du jeu, les dossiers de contenu à charger (typés) et le point
 //! d'entrée (carte de départ, graine par défaut).
 
+use bevy::prelude::Resource;
 use serde::Deserialize;
 use std::fmt;
 use std::path::{Path, PathBuf};
@@ -22,15 +23,34 @@ pub struct ContentFolderDecl {
     pub kind: String,
 }
 
-/// Point d'entrée d'une partie : carte de départ et graine par défaut.
+/// Mode de run déclaré par le manifeste (T2.4, chantier F1, `docs/plan-engine.md` §5 F1).
+/// Enum fermé (comme `sim_core::damage::FriendlyFire`) : une valeur inconnue échoue au
+/// chargement RON, rapportée comme n'importe quelle autre erreur de parse — pas de lint
+/// dédié nécessaire. Converti en `run::run::RunMode` par `game::jjrs` (ce crate ne dépend
+/// pas de `run`, voir `docs/conventions.md` §13).
+#[derive(Debug, Clone, Copy, Deserialize, PartialEq, Eq)]
+pub enum EntryMode {
+    /// Le système de vagues actuel (`game::waves`). Exige un dossier de contenu `Wave`
+    /// (validé par `lint::lint_entry_point`).
+    Waves,
+    /// Aucune condition de fin hors défaite.
+    Sandbox,
+}
+
+/// Point d'entrée d'une partie : carte de départ, graine par défaut, mode de run.
 #[derive(Debug, Clone, Deserialize, PartialEq, Eq)]
 pub struct EntryPoint {
     /// Chemin de la carte LDtk de départ, relatif à `<jeu>/assets/`.
     pub start_map: String,
     pub default_seed: i32,
+    /// Mode de run (T2.4). Absent (défaut) : `Waves` si le jeu déclare un dossier de
+    /// contenu `Wave`, sinon `Sandbox` — résolu par `game::jjrs` à partir du registre, pas
+    /// ici (ce module ne construit pas de registre).
+    #[serde(default)]
+    pub mode: Option<EntryMode>,
 }
 
-#[derive(Debug, Clone, Deserialize, PartialEq, Eq)]
+#[derive(Resource, Debug, Clone, Deserialize, PartialEq, Eq)]
 pub struct GameManifest {
     pub name: String,
     pub content_folders: Vec<ContentFolderDecl>,
@@ -115,6 +135,26 @@ mod tests {
         assert_eq!(manifest.name, "demo");
         assert_eq!(manifest.content_folders.len(), 2);
         assert_eq!(manifest.entry.default_seed, 123);
+        assert_eq!(manifest.entry.mode, None);
+    }
+
+    /// T2.4 : `entry.mode` absent reste `None` (résolu par `game::jjrs`, pas ici) ;
+    /// présent, il parse comme un enum fermé (`Waves`/`Sandbox`).
+    #[test]
+    fn parses_explicit_entry_mode() {
+        let ron_text = r#"
+        (
+            name: "demo",
+            content_folders: [],
+            entry: (
+                start_map: "exemples/test_map.ldtk",
+                default_seed: 123,
+                mode: Some(Sandbox),
+            ),
+        )
+        "#;
+        let manifest: GameManifest = ron::from_str(ron_text).unwrap();
+        assert_eq!(manifest.entry.mode, Some(EntryMode::Sandbox));
     }
 
     #[test]

@@ -22,6 +22,7 @@ use sim_core::frame_events::FrameEventsAppExt;
 use utils::rollback::RollbackTraceApp;
 
 use crate::perks::Perks;
+use crate::run::Run;
 
 /// Solde de monnaie d'un joueur. Rollback (checksum GGRS, voir [`RunPlugin`]) : toute
 /// divergence de solde entre clients est un desync, comme n'importe quel autre état de jeu.
@@ -66,11 +67,15 @@ pub struct CurrencyEvent {
     pub reason: String,
 }
 
-/// Enregistre [`Currency`]/[`Perks`] en rollback (checksum + trace) et
-/// `FrameEvents<CurrencyEvent>` (rollback, vidé à chaque frame — voir
+/// Enregistre [`Currency`]/[`Perks`] (composants) et [`Run`] (ressource, T2.4) en rollback
+/// (checksum + trace) et `FrameEvents<CurrencyEvent>` (rollback, vidé à chaque frame — voir
 /// `sim_core::frame_events`). Ajouté par `game::core::CoreSetupPlugin` : la pose initiale de
-/// `Currency`/`Perks` sur un joueur (`character::player::create::create_player`) et leur
-/// lecture/écriture (points, achats) vivent dans `game`, qui dépend de ce crate.
+/// `Currency`/`Perks` sur un joueur (`character::player::create::create_player`), la
+/// création de `Run` (`game::jjrs::{local, p2p}`, au démarrage de session) et leur
+/// lecture/écriture (points, achats, fin de partie) vivent dans `game`, qui dépend de ce
+/// crate. Contrairement à `Currency`/`Perks` (composants posés une fois par joueur, jamais
+/// `init_resource`), `Run` n'a pas de valeur par défaut sensée (pas de graine/mode hors
+/// contexte) : rien n'appelle `init_resource::<Run>()`, elle n'existe qu'une fois créée.
 pub struct RunPlugin;
 
 impl Plugin for RunPlugin {
@@ -78,6 +83,7 @@ impl Plugin for RunPlugin {
         app.rollback_and_trace::<Currency>()
             .rollback_and_trace::<Perks>();
         app.add_frame_events::<CurrencyEvent>();
+        app.rollback_and_trace_resource::<Run>();
     }
 }
 

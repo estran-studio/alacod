@@ -52,6 +52,9 @@ fn main() {
         .add_plugins(BaseArgsPlugin)
         .insert_resource(GameRoot(game_dir))
         .insert_resource(registry)
+        // T2.4, chantier F1 : `game::jjrs::{local, p2p}` résout `RunMode` depuis
+        // `entry.mode` au démarrage de session (voir `game::run_state::resolve_run_mode`).
+        .insert_resource(manifest.clone())
         // Core systems and components
         .add_plugins(core_plugin)
         // Plugins for rogue like map with ldtk
