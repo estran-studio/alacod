@@ -164,6 +164,7 @@ fn restart_replays_identically_under_ten_seconds() {
     // secondes (acceptation de la tâche).
     app.world_mut().insert_resource(RunRequest::Restart);
     let elapsed = wait_for_fresh_in_game(&mut app, 20_000);
+    eprintln!("relance locale : {:.3} s", elapsed.as_secs_f64());
     assert!(
         elapsed.as_secs_f64() < 10.0,
         "relance trop lente : {elapsed:?} (attendu < 10 s)"

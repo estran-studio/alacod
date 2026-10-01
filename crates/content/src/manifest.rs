@@ -149,7 +149,7 @@ mod tests {
             entry: (
                 start_map: "exemples/test_map.ldtk",
                 default_seed: 123,
-                mode: Sandbox,
+                mode: Some(Sandbox),
             ),
         )
         "#;
