@@ -1,6 +1,6 @@
 use bevy::ecs::relationship::Relationship;
 use bevy::prelude::*;
-use bevy_ecs_ldtk::prelude::LevelIid;
+use bevy_ecs_ldtk::prelude::{LdtkProjectHandle, LevelIid};
 use bevy_fixed::fixed_math;
 use bevy_ggrs::Rollback;
 use game::{
@@ -84,7 +84,17 @@ impl Plugin for LdtkMapLoadingPlugin {
         app.init_resource::<crate::loader::MapLoaderSettings>();
         app.add_message::<LdtkMapLoadingEvent>();
 
-        app.add_systems(OnEnter(AppState::GameLoading), setup_generated_map);
+        // T2.4, chantier F1 : `GameLoading` peut être ré-entré par une relance
+        // (`RunRequest::Restart`, `game::run_state`), pas seulement au premier
+        // chargement — remettre `LdtkMapEntityLoadingRegistry` à zéro avant
+        // `setup_generated_map`, sinon `wait_for_all_map_rollback_entity` la voit déjà
+        // `loading_complete` (partie précédente) et ne relit plus jamais les entités de la
+        // nouvelle carte (`LdtkMapLoadingEvent` jamais réémis, la partie reste bloquée en
+        // `GameLoading`).
+        app.add_systems(
+            OnEnter(AppState::GameLoading),
+            (reset_map_loading_registry, setup_generated_map).chain(),
+        );
         // Deterministic order at the end of map loading: door level iids, then map entity
         // ids (this system also sends LdtkMapLoadingEvent), then walls, then players (see
         // MapNetIdAssignment)
@@ -113,6 +123,34 @@ impl Plugin for LdtkMapLoadingPlugin {
                 .after(wait_for_all_map_rollback_entity)
                 .in_set(MapNetIdAssignment),
         );
+
+        // T2.4, chantier F1 : détruit l'arbre LDtk (niveaux, calques, tuiles, et toute
+        // entité LDtk encore dessous — portes, fenêtres, spawners, `WeaponLocation`/
+        // `SodaLocation`...) à la sortie d'`InGame`, quelle qu'en soit la cause (relance ou
+        // retour au lobby, voir `game::run_state`). `game` ne dépend pas de
+        // `bevy_ecs_ldtk` : ce nettoyage-ci vit dans `map_ldtk`, sur le même hook d'état
+        // (`OnExit(AppState::InGame)`) que `game::run_state::cleanup_rollback_world_system`
+        // (entités `Rollback`, session GGRS) — les deux sont indépendants, sans appel direct
+        // entre les deux crates.
+        app.add_systems(OnExit(AppState::InGame), despawn_ldtk_world_on_exit_ingame);
+    }
+}
+
+/// Voir la doc de `LdtkMapLoadingPlugin::build` (`OnEnter(AppState::GameLoading)`).
+fn reset_map_loading_registry(mut registry: ResMut<LdtkMapEntityLoadingRegistry>) {
+    *registry = LdtkMapEntityLoadingRegistry::default();
+}
+
+/// Voir la doc de `LdtkMapLoadingPlugin::build` (`OnExit(AppState::InGame)`). `try_despawn`
+/// (pas `despawn`) pour la même raison que
+/// `game::run_state::cleanup_rollback_world_system` : un despawn recursif est sûr même si
+/// une autre entité de la hiérarchie a déjà été détruite par ailleurs cette même frame.
+fn despawn_ldtk_world_on_exit_ingame(
+    mut commands: Commands,
+    worlds: Query<Entity, With<LdtkProjectHandle>>,
+) {
+    for entity in &worlds {
+        commands.entity(entity).try_despawn();
     }
 }
 

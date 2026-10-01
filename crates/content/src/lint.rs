@@ -301,4 +301,16 @@ fn lint_entry_point(registry: &Registry, manifest: &GameManifest, errors: &mut V
             ),
         });
     }
+    // T2.4, chantier F1 : `entry.mode: Waves` explicite exige un dossier `Wave` (sinon le
+    // mode `Waves` du run n'aurait aucune config à charger). Pas de règle symétrique pour
+    // `Sandbox` : déclarer des vagues sans les utiliser n'est pas une erreur (contenu de
+    // test, migration progressive).
+    if manifest.entry.mode == Some(crate::manifest::EntryMode::Waves) && registry.waves.is_empty() {
+        errors.push(LintError {
+            kind: LintErrorKind::BrokenReference,
+            file: crate::manifest::MANIFEST_FILE_NAME.to_string(),
+            message: "champ entry.mode = Waves : aucun dossier de contenu « Wave » déclaré"
+                .to_string(),
+        });
+    }
 }

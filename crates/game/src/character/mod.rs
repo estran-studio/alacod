@@ -11,7 +11,7 @@ use animation::set_sprite_flip;
 use bevy::prelude::*;
 use bevy_common_assets::ron::RonAssetPlugin;
 use bevy_ggrs::{GgrsSchedule, ReadInputs};
-use combat::downed::{Downed, Reviving, RunOutcome};
+use combat::downed::{Downed, Reviving};
 use leafwing_input_manager::plugin::InputManagerPlugin;
 use map::game::entity::map::enemy_spawn::EnemySpawnerComponent;
 use sim_core::kinds::{KindDecl, KindRegistry};
@@ -149,13 +149,14 @@ impl Plugin for BaseCharacterGamePlugin {
             .rollback_and_trace::<Enemy>()
             // À terre (T1.3, chantier B6) : `Downed`/`Reviving` n'apparaissent sur une
             // entité que quand un joueur tombe à terre (jamais en solo, voir la doc de
-            // `combat::downed::Downed`) ; `RunOutcome` existe toujours (une seule instance,
-            // `defeat_at_frame: None` tant qu'aucune défaite).
+            // `combat::downed::Downed`).
             .rollback_and_trace::<Downed>()
             .rollback_and_trace::<Reviving>();
 
-        app.init_resource::<RunOutcome>();
-        app.rollback_and_trace_resource::<RunOutcome>();
+        // `run::run::Run` (T2.4, chantier F1, remplace `RunOutcome`) est enregistrée par
+        // `run::RunPlugin` (`crate::core::CoreSetupPlugin`), pas ici : elle n'a pas de
+        // valeur par défaut sensée (voir sa doc), contrairement à `RunOutcome` qu'elle
+        // remplace.
 
         // Rollback registration - Flow field cache
         app.rollback_and_trace_resource::<FlowFieldCache>();

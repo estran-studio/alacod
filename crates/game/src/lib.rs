@@ -19,6 +19,7 @@ pub mod recording;
 pub mod remote;
 pub mod replay;
 pub mod rollback;
+pub mod run_state;
 pub mod state_trace;
 pub mod system_set;
 pub mod ui;

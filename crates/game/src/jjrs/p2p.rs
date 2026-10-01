@@ -2,7 +2,10 @@ use bevy::prelude::*;
 use bevy_fixed::rng::{RngStreams, RunSeed};
 use bevy_ggrs::ggrs::PlayerType;
 use bevy_matchbox::{prelude::PeerState, MatchboxSocket};
+use content::manifest::GameManifest;
+use content::registry::Registry;
 use map::generation::config::MapGenerationConfig;
+use run::Run;
 
 use crate::{
     character::player::jjrs::PeerConfig,
@@ -10,6 +13,7 @@ use crate::{
     jjrs::{
         GggrsSessionConfiguration, GggrsSessionConfigurationState, GgrsPlayer, GgrsSessionBuilding,
     },
+    run_state::resolve_run_mode,
 };
 
 // For matchbox socket connection
@@ -147,6 +151,7 @@ pub fn wait_for_players(
     app_state.set(AppState::GameLoading);
 }
 
+#[allow(clippy::too_many_arguments)]
 pub fn system_after_map_loaded(
     mut commands: Commands,
 
@@ -155,6 +160,9 @@ pub fn system_after_map_loaded(
     ggrs_config: Res<GggrsSessionConfiguration>,
     online_state: Res<OnlineState>,
     map_config: Option<Res<MapGenerationConfig>>,
+    session_building: Res<GgrsSessionBuilding>,
+    manifest: Option<Res<GameManifest>>,
+    registry: Option<Res<Registry>>,
 ) {
     if !matches!(online_state.as_ref(), OnlineState::Online) {
         return;
@@ -191,8 +199,21 @@ pub fn system_after_map_loaded(
     };
     let rng_streams = RngStreams::new(run_seed.0);
 
+    // État de run (T2.4, chantier F1) : voir la doc de `jjrs::local::system_after_map_loaded_local`
+    // (même raisonnement). Restart n'est pas supporté en p2p pour ce chantier (voir
+    // `run_state::RunRequest::Restart`) : ce système ne tourne donc qu'une fois par
+    // session p2p, jamais pour une relance.
+    let run_players: Vec<usize> = session_building
+        .players
+        .iter()
+        .map(|player| player.handle)
+        .collect();
+    let mode = resolve_run_mode(manifest.as_deref(), registry.as_deref());
+    let run = Run::new(run_seed.0, mode, run_players, 0);
+
     commands.insert_resource(run_seed);
     commands.insert_resource(rng_streams);
+    commands.insert_resource(run);
     commands.insert_resource(bevy_ggrs::Session::P2P(ggrs_session));
 
     app_state.set(AppState::InGame);

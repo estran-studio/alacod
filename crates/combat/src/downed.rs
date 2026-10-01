@@ -1,6 +1,6 @@
 //! État « à terre » et réanimation (T1.3, chantier B6 « Esquive et capacités », partie
-//! « à terre »). Contrats seulement (composants, ressource, constantes) : les systèmes qui
-//! les posent/consomment vivent dans `game` (`character::health`, `interaction`,
+//! « à terre »). Contrats seulement (composants, constantes) : les systèmes qui les
+//! posent/consomment vivent dans `game` (`character::health`, `interaction`,
 //! `character::player::input`), qui a accès à `Player`/`GgrsNetId`/`CharacterConfig` — ce
 //! crate ne dépend pas de `game` (voir la doc du crate parent).
 //!
@@ -12,8 +12,14 @@
 //! behavior}`). C'est l'option la plus simple des deux envisagées (l'autre : remonter
 //! `Health.current` à 1 et poser une invulnérabilité temporaire) et elle ne demande pas de
 //! nouvelle exception dans `resolve_damage`.
+//!
+//! **T2.4, chantier F1** : l'ancienne ressource `RunOutcome` (issue de la partie couplée à
+//! l'état « à terre ») a disparu au profit de `run::run::Run::step`
+//! (`RunStep::Ended { outcome: RunEnd::Defeat, .. }`, posé par
+//! `character::health::rollback_check_defeat`, toujours dans `game` : ce crate ne dépend
+//! toujours pas de `run`) — voir `docs/conventions.md` section « Run ».
 
-use bevy::prelude::{Component, Resource};
+use bevy::prelude::Component;
 use bevy_fixed::fixed_math::{self, Fixed};
 use serde::{Deserialize, Serialize};
 use sim_core::modifier::ModifierSource;
@@ -53,19 +59,6 @@ pub struct Reviving {
     /// Frames d'interaction maintenue accumulées. À `CharacterConfig::revive_frames`
     /// (résolu sur le joueur à terre, pas sur celui qui réanime) : réanimation complète.
     pub progress_frames: u32,
-}
-
-/// Issue de la partie couplée à l'état « à terre » : tous les joueurs à terre ou morts.
-///
-/// Ressource rollback (`RollbackTraceApp::rollback_and_trace_resource`, donc dans le
-/// `Checksum` GGRS et les traces) plutôt qu'un simple `GameEvent` : l'écran de fin de partie
-/// (présentation, `game::ui::game_over`) doit pouvoir lire l'issue à tout moment après le
-/// coup fatal, pas seulement à la frame exacte où l'événement a été détecté.
-#[derive(Resource, Clone, Debug, Default, Hash, Serialize, Deserialize)]
-pub struct RunOutcome {
-    /// `Some(frame)` la première fois que tous les joueurs sont à terre ou morts ; ne
-    /// change plus ensuite (posé une seule fois, voir `character::health::rollback_check_defeat`).
-    pub defeat_at_frame: Option<u32>,
 }
 
 /// Source du modificateur de vitesse posé pendant qu'un joueur est à terre (`StatId::MoveSpeed`,

@@ -57,6 +57,14 @@ pub struct WaveConfig {
     pub health_multiplier_per_wave: fixed_math::Fixed,
     /// Damage multiplier increase per wave (e.g., 0.03 = +3% per wave)
     pub damage_multiplier_per_wave: fixed_math::Fixed,
+
+    /// Vague de victoire (T2.4, chantier F1, `run::modes::RunModeRules for RunMode`) :
+    /// `Some(n)` déclare que la partie est gagnée dès que `WaveState::current_wave >= n` ;
+    /// `None` (défaut, `#[serde(default)]`) : le mode `Waves` n'a jamais de victoire, comme
+    /// avant ce chantier (partie infinie jusqu'à la défaite). Pas encore utilisé par aucun
+    /// `wave_config.ron` existant.
+    #[serde(default)]
+    pub max_wave: Option<u32>,
 }
 
 impl Default for WaveConfig {
@@ -113,6 +121,8 @@ impl Default for WaveConfig {
             // Scaling
             health_multiplier_per_wave: fixed_math::new(0.05),
             damage_multiplier_per_wave: fixed_math::new(0.03),
+
+            max_wave: None,
         }
     }
 }
