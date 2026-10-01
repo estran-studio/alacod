@@ -85,7 +85,7 @@
   .watch strong { display: block; font-size: 12px; text-transform: uppercase; letter-spacing: .05em; color: var(--accent); margin-bottom: 2px; }
   .expect { display: flex; flex-wrap: wrap; gap: 6px; }
   .expect span { font: 12px var(--mono); background: var(--panel-2); border-radius: 6px; padding: 2px 8px; }
-  .events { display: flex; flex-direction: column; gap: 4px; max-height: 52vh; overflow-y: auto; }
+  .events { display: flex; flex-direction: column; gap: 4px; max-height: 52vh; overflow-y: auto; position: relative; }
   .ev { font: 13px inherit; font-family: inherit; color: var(--text); background: var(--panel-2);
         border: 1px solid var(--border); border-left: 4px solid var(--ev-other); border-radius: 6px;
         padding: 4px 8px; cursor: pointer; text-align: left; }
@@ -161,7 +161,7 @@ function renderSidebar() {
   $("commit-sub").textContent = commit ? `${commit.subject || ""}${commit.dirty ? " · modifications non commitées" : ""}` : "";
   renderScenarioList();
   $("compares").innerHTML = DATA.compares.length
-    ? DATA.compares.map((c, i) => `<button class="nav-item" data-key="compare:${i}" onclick="selectCompare(${i})">
+    ? DATA.compares.map((c, i) => `<button class="nav-item" data-key="compare:${i}" data-compare="${i}">
         <span class="name">${esc(c.scenario)}</span><span class="sub">${esc(c.base)} → ${esc(c.head)}</span></button>`).join("")
     : `<div class="empty">Aucune : <code>make compare_video</code></div>`;
 }
@@ -171,7 +171,7 @@ function renderScenarioList() {
   if (!commit) { $("scenarios").innerHTML = `<div class="empty">Aucun rendu : <code>make videos</code></div>`; return; }
   const items = [];
   if (commit.metrics && Object.keys(commit.metrics).length || (commit.sim && commit.sim.length)) {
-    items.push(`<button class="nav-item" data-key="perf" onclick="selectPerf()"><span class="name">Performance</span>
+    items.push(`<button class="nav-item" data-key="perf" data-perf="1"><span class="name">Performance</span>
       <span class="sub">fps, entités, alacod-sim</span></button>`);
   }
   const videos = commit.videos.filter((v) => !filter || v.name.toLowerCase().includes(filter));
@@ -179,12 +179,12 @@ function renderScenarioList() {
   for (const v of videos) {
     const vues = v.name.endsWith(".vues");
     const base = vues ? v.name.slice(0, -5) : v.name;
-    items.push(`<button class="nav-item" data-key="video:${esc(v.name)}" onclick="selectVideo(${JSON.stringify(v.name)})">
+    items.push(`<button class="nav-item" data-key="video:${esc(v.name)}" data-video="${esc(v.name)}">
       <span class="name">${esc(base)}${vues ? `<span class="tag">vues</span>` : ""}</span>
       <span class="sub">${v.frames ? `${v.frames} frames · ` : ""}${(v.events || []).length} moment(s)</span></button>`);
   }
   if (commit.montage) {
-    items.push(`<button class="nav-item" data-key="video:montage" onclick="selectVideo('montage')">
+    items.push(`<button class="nav-item" data-key="video:montage" data-video="montage">
       <span class="name">montage</span><span class="sub">grille de tous les scénarios</span></button>`);
   }
   $("scenarios").innerHTML = items.join("") || `<div class="empty">Rien ne correspond au filtre</div>`;
@@ -377,8 +377,19 @@ function updatePosition() {
     cur.innerHTML = e ? `<span class="f">f${e.frame}</span>${esc(e.label)}${idx + 1 < events.length ? ` <span class="f">· suivant f${events[idx + 1].frame}</span>` : ""}`
                       : `<span class="f">avant le premier moment clé${events.length ? ` (f${events[0].frame})` : ""}</span>`;
     const chip = document.querySelector(".ev.current");
-    if (chip && !dragging) chip.scrollIntoView({ block: "nearest" });
+    if (chip && !dragging) scrollChipIntoList(chip);
   }
+}
+
+// Fait défiler la liste des moments clés (et elle seule : `scrollIntoView` ferait aussi
+// défiler la page pendant la lecture) pour garder le moment courant visible.
+function scrollChipIntoList(chip) {
+  const list = chip.parentElement;
+  if (!list) return;
+  const top = chip.offsetTop - list.offsetTop;
+  const bottom = top + chip.offsetHeight;
+  if (top < list.scrollTop) list.scrollTop = top;
+  else if (bottom > list.scrollTop + list.clientHeight) list.scrollTop = bottom - list.clientHeight;
 }
 
 function jumpEvent(dir) {
@@ -421,6 +432,13 @@ document.addEventListener("keydown", (e) => {
 });
 
 // ---- navigation ------------------------------------------------------------------------
+document.querySelector("aside").addEventListener("click", (e) => {
+  const item = e.target.closest(".nav-item");
+  if (!item) return;
+  if (item.dataset.video) selectVideo(item.dataset.video);
+  else if (item.dataset.compare !== undefined) selectCompare(Number(item.dataset.compare));
+  else if (item.dataset.perf) selectPerf();
+});
 $("commit").onchange = (e) => { commit = DATA.commits[Number(e.target.value)]; renderSidebar(); openFirst(); };
 $("filter").oninput = () => { renderScenarioList(); if (current) markActive(`video:${current.name}`); };
 
