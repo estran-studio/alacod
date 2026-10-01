@@ -1,5 +1,5 @@
 // T2.5 (power-ups, chantier C1 v0) : Nuke tue instantanément tous les ennemis vivants
-// (équipe `Enemies`, pas seulement les ennemis de vague — voir `docs/conventions.md` §13).
+// (équipe `Enemies`, pas seulement les ennemis de vague — voir `docs/conventions.md` §14).
 // `testbed/arena.ldtk` place cinq personnages de laboratoire (T2.9) : `dummy`/`target`/
 // `follower` (équipe `Enemies`) et `ally`/`civilian` (`Allies`/`Neutral`) — Nuke doit tuer
 // les trois premiers et épargner les deux derniers.

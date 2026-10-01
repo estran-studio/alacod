@@ -64,7 +64,7 @@ impl Action {
     /// C'est l'« applicateur déterministe » de la tâche T2.5 : pure, sans ECS, donc
     /// testable directement (voir les tests de ce module) — `frame` est la frame de
     /// ramassage, `source` identifie l'origine du modificateur (typiquement
-    /// `ModifierSource::Named("powerup:<id>:<net_id du joueur>")`, voir
+    /// `ModifierSource::Named("powerup:<id>")`, voir
     /// `game::powerups::apply_powerup_actions_system`) pour que
     /// `Modifiers::remove_by_source` puisse un jour le retirer explicitement si un chantier
     /// futur en a besoin (v0 : laissé expirer par `stats::expire_modifiers_system`, jamais

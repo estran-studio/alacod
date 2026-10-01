@@ -31,7 +31,7 @@ est `games/zombies/src/main.rs` ; le plugin de partie est partagé avec `testbed
 ## Power-ups (T2.5, chantier C1 v0)
 
 Cinq power-ups de référence CoD : `insta_kill`, `double_points`, `max_ammo`, `carpenter`,
-`nuke` (`items/powerups.ron`, kind `PowerUp` — voir `docs/conventions.md` §13). Un ennemi
+`nuke` (`items/powerups.ron`, kind `PowerUp` — voir `docs/conventions.md` §14). Un ennemi
 tué (équipe `Enemies`) a `drop_chance` (15 %) de laisser tomber un power-up, choisi par
 tirage pondéré (`weight`) parmi la table, dans le flux RNG nommé `loot`
 (`crates/game/src/powerups.rs`). Un power-up au sol se ramasse **au passage** (pas

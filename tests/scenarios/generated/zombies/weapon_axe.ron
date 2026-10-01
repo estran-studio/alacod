@@ -3,8 +3,6 @@
 // uniquement « axe » (arme de corps à corps) et marche jusqu'à et frappe `target`.
 #![enable(implicit_some)]
 Scenario(
-    // Isoler ce scénario des drops aléatoires ; powerup_drop_on_kill teste ce chemin.
-    powerup_drop_chance_override: "0.0",
     game: "testbed",
     map: "testbed/arena.ldtk",
     map_seed: 123456,
@@ -19,4 +17,5 @@ Scenario(
             weapon: "axe",
         ),
     ],
+    powerup_drop_chance_override: "0",
 )

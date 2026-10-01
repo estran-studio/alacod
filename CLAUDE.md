@@ -281,7 +281,8 @@ Avant/après un refactoring de la simulation, comparer les traces : elles doiven
   - Ponctuelles : `PlayerAlive`, `PlayerDead`, `WaveAtLeast`, `KillsAtLeast`, `WindowsBrokenAtLeast`,
     `WindowHealth`, `DoorsOpenAtLeast`, `ActiveWeapon`, `Ammo`, `AmmoReserve`, `WeaponPickups`,
     `PowerUpPickups` (T2.5), `PlayerPosition`, `BulletsInside`, `Health`, `EntityHealth`,
-    `EntityHits`, `EntityCount`, `Currency`, `Stat`, `PlayerDowned`, `Event`.
+    `EntityHits`, `EntityCount`, `Currency`, `Stat`, `PlayerDowned`, `RunState`,
+    `RunSummary`, `Event`.
   - Continues (vérifiées à chaque frame) : `NoDamageBetween` (santé du joueur ne diminue pas dans l'intervalle).
   - `weapon_overrides` modifie la taille et le nombre de chargeurs d'une arme pour un scénario ;
     `wave_overrides` la config de vagues ; `powerups` (T2.5) place un power-up à une position et
