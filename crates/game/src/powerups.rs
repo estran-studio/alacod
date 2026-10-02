@@ -278,14 +278,30 @@ pub fn apply_powerup_actions_system(
         let Some(def) = config.powerups.get(&event.id) else {
             continue;
         };
+        let source = ModifierSource::Named(format!("powerup:{}", event.id));
+        // D18 : rafraîchissement, comme CoD. Un power-up déjà actif ramassé à nouveau
+        // remplace ses modificateurs (la durée recommence) au lieu de les cumuler (Double
+        // Points × Double Points ferait × 4). Retrait une fois par ramassage, avant toutes
+        // les actions : un power-up à plusieurs actions modificatrices garde chacune.
+        if def.actions.iter().any(|action| {
+            matches!(
+                action,
+                Action::TimedModifier { .. } | Action::CurrencyMultiplier { .. }
+            )
+        }) {
+            for (_net_id, _player, _dead, mut modifiers, _reserves, _inventory) in
+                order_mut_iter!(players)
+            {
+                modifiers.remove_by_source(&source);
+            }
+        }
         for action in &def.actions {
             match action {
                 Action::TimedModifier { .. } | Action::CurrencyMultiplier { .. } => {
                     for (net_id, _player, _dead, mut modifiers, _reserves, _inventory) in
                         order_mut_iter!(players)
                     {
-                        let source = ModifierSource::Named(format!("powerup:{}", event.id));
-                        if let Some(modifier) = action.as_modifier(frame.frame, source) {
+                        if let Some(modifier) = action.as_modifier(frame.frame, source.clone()) {
                             info!(
                                 "ggrs{{f={} powerup_effect powerup={} target={} kind=modifier stat={:?}}}",
                                 frame.frame, event.id, net_id.0, modifier.stat
@@ -658,6 +674,72 @@ mod tests {
             assert!(!modifier.is_expired(70));
             assert!(modifier.is_expired(71));
         }
+    }
+
+    #[test]
+    fn meme_power_up_rafraichit_sans_cumuler() {
+        let mut world = world_with_config(
+            Action::CurrencyMultiplier {
+                factor: fixed_math::Fixed::from_num(2),
+                frames: 60,
+            },
+            fixed_math::FIXED_ZERO,
+        );
+        // Un modificateur d'une autre source (perk) ne doit pas être touché.
+        let perk = sim_core::modifier::Modifier {
+            stat: StatId::MaxHealth,
+            op: ModifierOp::Mul,
+            value: fixed_math::Fixed::from_num(2),
+            source: ModifierSource::Named("perk:juggernog".to_string()),
+            until: None,
+        };
+        let player = world
+            .spawn((
+                GgrsNetId(1, "player".to_string()),
+                Player::default(),
+                Modifiers(vec![perk.clone()]),
+                AmmoReserves::default(),
+                WeaponInventory::default(),
+            ))
+            .id();
+        let pickup = || PowerUpPickedUp {
+            id: "test".to_string(),
+            picked_up_by: GgrsNetId(1, "player".to_string()),
+        };
+
+        world
+            .resource_mut::<FrameEvents<PowerUpPickedUp>>()
+            .send(pickup());
+        world.run_system_once(apply_powerup_actions_system).unwrap();
+
+        // Second ramassage 30 frames plus tard : la durée recommence, un seul ×2.
+        world.resource_mut::<FrameCount>().frame = 40;
+        world.insert_resource(FrameEvents::<PowerUpPickedUp>::default());
+        world
+            .resource_mut::<FrameEvents<PowerUpPickedUp>>()
+            .send(pickup());
+        world.run_system_once(apply_powerup_actions_system).unwrap();
+
+        let modifiers = world.get::<Modifiers>(player).unwrap();
+        assert_eq!(modifiers.0.len(), 2, "{:?}", modifiers.0);
+        assert_eq!(modifiers.0[0], perk);
+        let powerup = &modifiers.0[1];
+        assert_eq!(
+            powerup.source,
+            ModifierSource::Named("powerup:test".to_string())
+        );
+        assert_eq!(powerup.value, fixed_math::Fixed::from_num(2));
+        assert_eq!(powerup.until, Some(100));
+        assert_eq!(
+            sim_core::modifier::resolve(
+                fixed_math::FIXED_ONE,
+                modifiers.0.iter().filter(|m| {
+                    m.stat == StatId::Custom(effects::CURRENCY_MULTIPLIER_STAT.to_string())
+                }),
+                40,
+            ),
+            fixed_math::Fixed::from_num(2)
+        );
     }
 
     #[test]

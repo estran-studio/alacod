@@ -550,6 +550,12 @@ contribuent pas à la réserve, mais leur stock propre est rempli.
 comme CoD) et le multiplicateur de points du joueur (800 sous Double Points). Les ennemis tués
 par le nuke ne rapportent pas de points de kill (`Death { last_hit_by: None }`).
 
+**Rafraîchissement** (D18) : un power-up déjà actif ramassé à nouveau ne se cumule pas
+(Double Points × Double Points ne fait pas × 4). Au ramassage, `apply_powerup_actions_system`
+retire d'abord, sur chaque joueur, les modificateurs de source `powerup:<id>`
+(`Modifiers::remove_by_source`), une fois pour toutes les actions du power-up, puis les
+repose : la durée recommence à la frame du ramassage, comme dans CoD.
+
 **Drop à la mort** (`game::powerups::loot_drop_on_death_system`,
 `RollbackSystemSet::DeathManagement`, `.after(rollback_apply_accumulated_damage)
 .before(rollback_apply_death)` — même contrainte que
