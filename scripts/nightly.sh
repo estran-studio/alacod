@@ -88,14 +88,18 @@ EOF
 log_step "Running bench (strict performance thresholds)..."
 START_TIME=$(date +%s)
 
-if ! ALACOD_BENCH_STRICT=1 make test_scenarios &>/dev/null; then
+if ! ALACOD_BENCH_STRICT=1 make test_scenarios > logs/bench.log 2>&1; then
     log_error "Bench failed (ALACOD_BENCH_STRICT=1 make test_scenarios)"
+    echo "--- bench.log (tail) ---"
+    tail -40 logs/bench.log
     append_summary "### A. Bench: ❌ FAILED"
     exit 1
 fi
 
-if ! ./scripts/scenario-metrics.py &>/dev/null; then
+if ! ./scripts/scenario-metrics.py > logs/metrics.log 2>&1; then
     log_error "scenario-metrics.py failed"
+    echo "--- metrics.log (tail) ---"
+    tail -40 logs/metrics.log
     append_summary "### A. Bench: ❌ FAILED (metrics)"
     exit 1
 fi
