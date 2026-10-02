@@ -577,6 +577,10 @@ fn nav_probe() {
             println!("   mur x {x0}..{x1} y {y0}..{y1} (écart {gap_x:.1},{gap_y:.1})");
         }
     }
+    if let Ok(path) = std::env::var("ALACOD_PROBE_JSON") {
+        let snapshot = scenario::softlock::snapshot(world);
+        std::fs::write(path, serde_json::to_string_pretty(&snapshot).unwrap()).unwrap();
+    }
 }
 
 /// Diagnostic : état des armes d'un joueur, frame par frame.
