@@ -1,5 +1,5 @@
 //! Tests pour les nouvelles attentes (Health, EntityHealth, NoDamageBetween, EntityCount, Event,
-//! PlayerDowned, PlayerRevived, Defeat).
+//! PlayerDowned, PlayerRevived, Defeat, EntityHits).
 
 use game::replay::Expectation;
 use scenario::{run, Scenario};
@@ -728,4 +728,128 @@ fn defeat_true_once_all_players_down_or_dead() {
     scenario.expect = vec![Expectation::Defeat { by_frame: 1600 }];
     let outcome = run(&scenario);
     assert!(outcome.failures.is_empty(), "{:?}", outcome.failures);
+}
+
+/// `GgrsNetId` et `HitCount` de `target` (seul personnage de `testbed/arena.ldtk` avec
+/// `counts_hits: true`) à la frame `frame`.
+fn coups_sur_target(scenario: &Scenario, frame: u32) -> (usize, u32) {
+    use bevy::prelude::*;
+    let mut app = scenario::runner::run_until(scenario, frame);
+    let mut query = app.world_mut().query_filtered::<(
+        &utils::net_id::GgrsNetId,
+        &game::character::health::HitCount,
+    ), With<bevy_ggrs::Rollback>>();
+    let compteurs: Vec<_> = query
+        .iter(app.world())
+        .map(|(net_id, hits)| (net_id.0, hits.0))
+        .collect();
+    assert_eq!(
+        compteurs.len(),
+        1,
+        "un seul compteur de coups : {compteurs:?}"
+    );
+    compteurs[0]
+}
+
+/// D6 : l'attente `EntityHits` compare le compteur de coups de `target` dans l'arène du
+/// testbed (le joueur lui tire dessus de f10 à f160, `testbed_target_hits`) : zéro avant le
+/// premier tir, le compte exact relu dans le monde ensuite.
+#[test]
+fn entity_hits_compte_les_coups_sur_target() {
+    if map_ldtk::RENDER_ENABLED {
+        return;
+    }
+    let mut scenario = load_scenario("testbed_target_hits");
+    let (net_id, coups) = coups_sur_target(&scenario, 200);
+    assert!(coups >= 5, "le tir soutenu touche target : {coups} coups");
+
+    scenario.expect = vec![
+        Expectation::EntityHits {
+            net_id,
+            min: 0,
+            max: Some(0),
+            at_frame: 5,
+        },
+        Expectation::EntityHits {
+            net_id,
+            min: coups,
+            max: Some(coups),
+            at_frame: 200,
+        },
+    ];
+    let outcome = run(&scenario);
+    assert!(outcome.failures.is_empty(), "{:?}", outcome.failures);
+}
+
+/// D6 : `EntityHits` échoue sous le minimum, au-dessus du maximum, et sur une entité sans
+/// `HitCount` (le joueur) ou absente.
+#[test]
+fn entity_hits_hors_bornes_ou_sans_compteur_echoue() {
+    if map_ldtk::RENDER_ENABLED {
+        return;
+    }
+    let mut scenario = load_scenario("testbed_target_hits");
+    let (net_id, coups) = coups_sur_target(&scenario, 200);
+    let joueur = net_id_du_joueur(&scenario, 0);
+
+    let attentes = [
+        (
+            Expectation::EntityHits {
+                net_id,
+                min: coups + 1,
+                max: None,
+                at_frame: 200,
+            },
+            "< min",
+        ),
+        (
+            Expectation::EntityHits {
+                net_id,
+                min: 0,
+                max: Some(coups - 1),
+                at_frame: 200,
+            },
+            "> max",
+        ),
+        (
+            Expectation::EntityHits {
+                net_id: joueur,
+                min: 0,
+                max: None,
+                at_frame: 200,
+            },
+            "HitCount",
+        ),
+        (
+            Expectation::EntityHits {
+                net_id: usize::MAX,
+                min: 0,
+                max: None,
+                at_frame: 200,
+            },
+            "HitCount",
+        ),
+    ];
+    scenario.expect = attentes
+        .iter()
+        .map(|(attente, _)| attente.clone())
+        .collect();
+    let outcome = run(&scenario);
+    assert_eq!(
+        outcome.failures.len(),
+        attentes.len(),
+        "{:?}",
+        outcome.failures
+    );
+    for (attente, raison) in &attentes {
+        let attendu = format!("{attente:?}");
+        assert!(
+            outcome
+                .failures
+                .iter()
+                .any(|f| f.contains(&attendu) && f.contains(raison)),
+            "{attendu} devait échouer ({raison}) : {:?}",
+            outcome.failures
+        );
+    }
 }
