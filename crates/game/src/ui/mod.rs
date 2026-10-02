@@ -14,3 +14,7 @@ impl Plugin for GameUiPlugin {
         app.add_plugins(game_over::GameOverUiPlugin);
     }
 }
+
+#[cfg(feature = "debug_ui")]
+pub mod weapon_hud;
+pub mod weapon_visuals;

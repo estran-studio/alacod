@@ -6,6 +6,14 @@
 //!   `DamageEvent`/`FriendlyFire` de `sim_core` (T1.1, chantier B1 « Équipes et dégâts »).
 //! - [`downed`] : contrats « à terre » et réanimation (`Downed`, `Reviving`), T1.3,
 //!   chantier B6.
+//! - [`weapons`] : tir, munitions, inventaire et mêlée, déplacés de game en T1.0a.
+//! - [`actors`] / [`collider`] / [`collision_grid`] : données partagées requises par les armes.
+//! - [`projectile`] / [`status`] : squelettes M1, étendus dans ce crate par la vague 1.
+//!
+//! Kinds : catégories snake_case, noms de variantes Rust exacts (PascalCase).
+//! Les contrats M1 n'ajoutent aucun système ; leurs futurs sets sont Projectiles,
+//! Effects et Status, sans nouveau RollbackSystemSet.
+//!
 //! - [`inventory`] : réserves de munitions par type (`AmmoReserves`), T2.2, chantier B7.
 
 pub mod damage;
@@ -13,3 +21,75 @@ pub mod downed;
 pub mod grid;
 pub mod inventory;
 pub mod team;
+
+pub mod actors;
+pub mod collider;
+pub mod collision_grid;
+pub mod weapons;
+
+/// Contrats de M1 (B3/B5), sans systèmes d'exécution. Les futurs systèmes utilisent
+/// RollbackSystemSet::Projectiles / Effects / Status, sans nouveau set.
+/// Kinds : catégories snake_case, noms de variantes Rust exacts (PascalCase).
+/// Le format des références de contenu sera validé par T1.12.
+pub mod projectile;
+pub mod status;
+pub use projectile::{Pattern, ProjectileModifier};
+pub use status::{StatusDef, StatusEntry, Statuses};
+
+use bevy::prelude::{App, Plugin};
+use sim_core::kinds::{KindDecl, KindRegistry};
+use utils::rollback::RollbackTraceApp;
+
+/// Monte le vocabulaire et enregistre l'état rollback, sans poser de composant.
+pub struct CombatPlugin;
+impl Plugin for CombatPlugin {
+    fn build(&self, app: &mut App) {
+        for (category, names) in [
+            (
+                "projectile_modifier",
+                &["Bounce", "Pierce", "Size", "Lifetime", "Homing", "Gravity"][..],
+            ),
+            (
+                "pattern",
+                &["Aimed", "Spread", "Ring", "Sequence", "Telegraph", "Wait"][..],
+            ),
+            ("status", &["Burn", "Slow", "Stun", "Freeze"][..]),
+        ] {
+            app.register_kinds(names.iter().map(|name| KindDecl::new(category, *name)));
+        }
+        app.rollback_and_trace::<Statuses>();
+    }
+}
+
+#[cfg(test)]
+mod contract_tests {
+    use super::*;
+    use sim_core::kinds::Kinds;
+    use utils::rollback::{StateTracers, TracedTypes};
+    #[test]
+    fn plugin_registers_contract_kinds_and_rollback_state() {
+        let mut app = App::new();
+        app.add_plugins(CombatPlugin);
+        let kinds = app.world().resource::<Kinds>();
+        for name in ["Bounce", "Pierce", "Size", "Lifetime", "Homing", "Gravity"] {
+            assert!(kinds.has("projectile_modifier", name));
+        }
+        for name in ["Aimed", "Spread", "Ring", "Sequence", "Telegraph", "Wait"] {
+            assert!(kinds.has("pattern", name));
+        }
+        for name in ["Burn", "Slow", "Stun", "Freeze"] {
+            assert!(kinds.has("status", name));
+        }
+        assert_eq!(kinds.names("projectile_modifier").count(), 6);
+        assert_eq!(kinds.names("pattern").count(), 6);
+        assert_eq!(kinds.names("status").count(), 4);
+        let name = std::any::type_name::<Statuses>();
+        assert!(app.world().resource::<TracedTypes>().0.contains(&name));
+        assert!(app
+            .world()
+            .resource::<StateTracers>()
+            .components
+            .iter()
+            .any(|(n, _)| *n == name));
+    }
+}

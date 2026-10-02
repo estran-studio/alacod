@@ -56,10 +56,10 @@ vocabulaire** :
 |---|---|---|
 | `sim_core` | les contrats : `Team`, `Tag`, `DamageKind`, `DamageEvent`, `StatId`, `Stats`, `Modifier`, `Gauge`, `RollbackSystemSet` complet, le trait de registre des kinds, `FrameEvents` | T0.2 |
 | `content` | manifeste, registre, expressions, lint, `alacod lint` | T1.5 |
-| `combat` | équipes et dégâts, santé, statuts, projectiles et patterns, mêlée, parade, grille spatiale | T1.1, puis T1.0 de M1 (déplacement de `weapons`) |
+| `combat` | armes, équipes et dégâts, santé, statuts, projectiles et patterns, mêlée, parade, grille spatiale | T1.1, puis T1.0 de M1 (déplacement de `weapons`) |
 | `stats` | stats et modificateurs | T1.2 |
-| `effects` | déclencheurs, conditions, actions, objets, inventaire, familiers | M1 |
-| `behaviors` | perception, ciblage, behaviors, résolutions, boss | M1 |
+| `effects` | actions des power-ups, contrats de déclencheurs et conditions ; objets, inventaire, familiers à venir | T2.5, puis T1.0a de M1 |
+| `behaviors` | contrats de perception, ciblage, behaviors et état ; résolutions, boss à venir | T1.0a de M1 |
 | `world` | salles, étages, surfaces, feu, eau, destructible | M1 (E3), M2 (E1, E2) |
 | `run` | modes, état de run, horloges, route, profil | M1 (F1), M2 (G1) |
 | `bots` | sources d'inputs réactives, `alacod sim` | T2.11 |
@@ -410,8 +410,8 @@ demande de recréer la session GGRS entre les pairs ; une tâche de M1 devra le 
 #### T1.0a Contrats de combat et d'IA — V1
 `crates/combat` reçoit `weapons/` (déplacement, traces identiques) ; enums squelettes enregistrés au
 `KindRegistry` : `ProjectileModifier`, `Pattern`, `StatusDef`, `Behavior`, `Perception`,
-`Targeting`, `Effect { on, if, do }` ; composants d'état `Statuses`, `BehaviorState` ; crates
-`effects` et `behaviors` créés vides avec leurs sets.
+`Targeting`, `Effect { on, if, do }` ; composants d'état `Statuses`, `BehaviorState` ; crate
+`behaviors` créé, `effects` étendu ; futurs systèmes dans les sets existants.
 
 #### T1.0b Contrats de monde et de run — V1
 `crates/world` : `CellKind`, `CellGrid` (ressource rollback, source du flow field), `Destructible`
@@ -518,6 +518,8 @@ nuit en V1e, H1 en V4, J2 en V1e, le plugin `1837` dans son dépôt) ; M4 Isaac 
 région des chantiers puis la campagne.
 
 ## 9. Suivi
+
+- T1.0a : en cours (`m1-v1-contrats-combat-ia`).
 
 - Ce fichier est la source de vérité des tâches : une ligne de statut par tâche (`à faire`, `en
   cours (branche)`, `mergée (commit)`), tenue par l'agent qui prend la tâche.

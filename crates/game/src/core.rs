@@ -130,6 +130,12 @@ impl Plugin for CoreSetupPlugin {
         }
 
         app.add_plugins(BaseWeaponGamePlugin {});
+        // Contrats M1 : enregistrés ensemble, aucun état posé ni système exécuté.
+        app.add_plugins((
+            combat::CombatPlugin,
+            behaviors::BehaviorsPlugin,
+            effects::EffectsPlugin,
+        ));
         app.add_plugins(BaseColliderGamePlugin {});
         app.add_plugins(BaseCharacterGamePlugin {});
         // Monnaie et perks (T2.3, chantier C5 v1) : `run::RunPlugin` enregistre
@@ -298,7 +304,7 @@ impl Plugin for PresentationPlugin {
         app.add_plugins(CameraControlPlugin);
         app.add_plugins(DebugColliderGamePlugin);
         app.add_plugins(crate::character::CharacterPresentationPlugin);
-        app.add_plugins(crate::weapons::WeaponPresentationPlugin);
+        app.add_plugins(crate::ui::weapon_visuals::WeaponPresentationPlugin);
         app.add_plugins(crate::feedback::FeedbackPlugin);
         app.add_plugins(crate::ui::hud::HudPlugin);
         #[cfg(feature = "debug_ui")]
