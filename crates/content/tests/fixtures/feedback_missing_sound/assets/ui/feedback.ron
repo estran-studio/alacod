@@ -1,0 +1,5 @@
+(
+    hit_flash: (frames: 4, color: (1.0, 1.0, 1.0)),
+    shake: (frames: 8, amplitude: 0.0),
+    sounds: {"shot": "sounds/absent.ogg", "reload": "sounds/present.ogg"},
+)

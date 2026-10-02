@@ -3,7 +3,7 @@
 //! `tests/scenarios/generated/<jeu>/weapon_<id>.ron` (gabarit `Template::WeaponOnTarget`,
 //! voir `crates/scenario/src/generate.rs`), et supprime ceux dont l'arme n'existe plus.
 //!
-//! - `--play` : joue chaque scénario généré et affiche un tableau (arme, frames, attentes,
+//! - `--play` : joue chaque scénario généré et affiche un tableau (arme, frames, coups sur la cible, attentes,
 //!   trace) ; code de sortie 1 si une attente échoue, si un scénario n'atteint pas sa
 //!   dernière frame, ou si sa trace diffère de la référence (`tests/scenarios/generated/<jeu>/<fichier>.trace`).
 //! - `--bless` : comme `--play`, mais écrit la trace de référence au lieu de la comparer.
@@ -86,8 +86,8 @@ fn main() {
 /// hors `--bless`).
 fn run_and_report(generated: &[GeneratedScenario], out_dir: &Path, bless: bool) -> bool {
     println!(
-        "{:<20} {:>7}  {:<8}  {}",
-        "arme", "frames", "attentes", "trace"
+        "{:<20} {:>7} {:>7}  {:<8}  {}",
+        "arme", "frames", "coups", "attentes", "trace"
     );
     let mut all_ok = true;
     for g in generated {
@@ -117,9 +117,10 @@ fn run_and_report(generated: &[GeneratedScenario], out_dir: &Path, bless: bool) 
         };
 
         println!(
-            "{:<20} {:>7}  {:<8}  {}",
+            "{:<20} {:>7} {:>7}  {:<8}  {}",
             g.weapon_id,
-            g.scenario.frames,
+            outcome.metrics.frames,
+            outcome.entity_hits.values().sum::<u32>(),
             if expect_ok { "ok" } else { "échec" },
             trace_status,
         );

@@ -1,0 +1,5 @@
+// T3.4 : clé répétée dans la table de corps à corps.
+({
+    "club": (config: (damage: "10.0")),
+    "club": (config: (damage: "20.0")),
+})

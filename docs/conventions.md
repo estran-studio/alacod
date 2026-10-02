@@ -169,6 +169,7 @@ un seul problème en plus de `start_map: "unused"` commun à toutes), un test pa
 | `game.ron` | `entry.mode: Waves` sans dossier `Wave` (T2.4) | `BrokenReference` | `entry_mode_waves_without_waves` |
 | personnage | id (`asset_name_ref`) dupliqué | `DuplicateId` | `duplicate_id` |
 | personnage | `starting_weapons` vers une arme inconnue | `BrokenReference` | `broken_reference` |
+| personnage | `starting_weapons.len() <= weapon_slots` (T3.4) | `OutOfRange` | `starting_weapons_exceed_slots` |
 | personnage | `starting_skin` absent de `skins` | `BrokenReference` | — |
 | personnage | `base_health.max > 0`, `movement.max_speed >= 0` | `OutOfRange` | `out_of_range` |
 | personnage | `stats.<StatId> >= 0` (T1.2) | `OutOfRange` | `out_of_range_stat` |
@@ -178,6 +179,8 @@ un seul problème en plus de `start_map: "unused"` commun à toutes), un test pa
 | arme | `ammo_type: Custom("")` (nom vide) (T2.8) | `OutOfRange` | `ammo_type_empty_custom` |
 | arme, corps à corps | `friendly_fire` : valeur inconnue (enum fermé `Never`/`Always`/`Cursed`) (T2.8) | `Parse` (nomme le champ) | `friendly_fire_unknown` |
 | arme | `audio_config.modes.<mode>.reloading`/`firing` : fichier absent de `assets/` (T2.8) | `BrokenReference` | `audio_missing_file` |
+| arme | clé répétée dans `weapons.ron` (T3.4) | `DuplicateId` | `weapons_duplicate_key` |
+| corps à corps | clé répétée dans `melee_weapons.ron` (T3.4) | `DuplicateId` | `melee_duplicate_key` |
 | corps à corps | `damage >= 0` | `OutOfRange` | — |
 | vagues | `enemy_probabilities` vers un personnage inconnu | `BrokenReference` | — |
 | économie | `refill_price_ratio` dans [0, 1] (T2.8) | `OutOfRange` | `economy_ratio_out_of_range` |
@@ -187,6 +190,7 @@ un seul problème en plus de `start_map: "unused"` commun à toutes), un test pa
 | perk | `stat` inconnue (`StatId` : hors liste seulement via `Custom("...")`) | `Parse` (nomme le champ) | `perk_unknown_stat` |
 | perk | id écrit deux fois dans `perks.ron` (T2.8) | `DuplicateId` | `perk_duplicate_id` |
 | power-up | id dupliqué entre deux fichiers du dossier | `DuplicateId` | `powerup_duplicate_id` |
+| power-up | clé répétée dans `items/powerups.ron` (T3.4) | `DuplicateId` | `powerups_duplicate_key` |
 | power-up | `actions[].stat` inconnue | `Parse` | `powerup_unknown_stat` |
 | power-up | `drop_chance` dans [0, 1] | `OutOfRange` | `powerup_drop_chance_out_of_range` |
 | power-up | `weight > 0` | `OutOfRange` | `powerup_weight_zero` |
@@ -195,15 +199,21 @@ un seul problème en plus de `start_map: "unused"` commun à toutes), un test pa
 | power-up | `pickup_range > 0` (T2.8) | `OutOfRange` | `powerup_pickup_range_non_positive` |
 | power-up | `TimedModifier`/`CurrencyMultiplier` : `frames > 0` (T2.8) | `OutOfRange` | `powerup_frames_zero` |
 | power-up | `CurrencyMultiplier` : `factor > 0` (T2.8) | `OutOfRange` | `powerup_factor_non_positive` |
+| power-up | `TimedModifier` avec `op: Mul` : `value > 0` (T3.4) | `OutOfRange` | `powerup_timed_mul_non_positive` |
+| `ui/feedback.ron` | `hit_flash.frames`, `shake.frames` > 0 (T3.4) | `OutOfRange` | `feedback_frames_zero` |
+| `ui/feedback.ron` | `shake.amplitude >= 0` (T3.4, zéro désactive la secousse) | `OutOfRange` | `feedback_amplitude_negative` |
+| `ui/feedback.ron` | chaque fichier de `sounds` présent sous `assets/` (T3.4) | `BrokenReference` | `feedback_missing_sound` |
 
 Les enums fermés (`FriendlyFire`, `ModifierOp`, `Action`) et les variantes nues inconnues des
 enums ouverts (`AmmoType`, `StatId`, qui n'acceptent un nom libre que sous `Custom("...")`)
 échouent au chargement RON : la règle est le parse lui-même, la fixture documente le message
 (`champ ammo_type : ...`, `champ friendly_fire : ...`, `champ stat : ...`). Une table RON
-(`{ "id": ... }`) garde silencieusement la dernière valeur d'une clé répétée : seul
-`perks.ron` est lu en liste pour rapporter le doublon (`registry::KeyedEntries`) ; les autres
-tables (`weapons.ron`, `melee_weapons.ron`, `powerups.ron`) ne le détectent pas encore à
-l'intérieur d'un même fichier.
+(`{ "id": ... }`) désérialisée en `BTreeMap` garde silencieusement la dernière valeur d'une
+clé répétée. Le registre lit donc `perks.ron`, `weapons.ron`, `melee_weapons.ron` et la table
+`powerups` de `items/powerups.ron` en liste (`registry::KeyedEntries`) pour rapporter les
+doublons, y compris dans un même fichier. La première entrée est conservée, la seconde
+produit `DuplicateId`. Les fichiers nommés `feedback.ron` déclarés sous le kind `Ui` sont
+lus avec un schéma typé ; les autres fichiers Ui restent validés syntaxiquement.
 
 **CLI** : `cargo run -p content --bin alacod --profile headless -- lint games/<jeu>` (code
 de sortie 1 et messages sur stderr en cas d'erreur, 0 sinon) ; `make lint` l'appelle pour
@@ -408,7 +418,7 @@ Enregistrer un nouveau composant/ressource en rollback (`RollbackTraceApp`) chan
 
 **Rechargement** (`weapons::weapon_rollback_system`) : un rechargement (bouton ou chargeur vide) exige que la réserve du type de l'arme active contienne au moins un chargeur plein (`mag_size` unités) — `WeaponModeState::can_reload(mag, reserve)`. À la fin du délai de rechargement, l'arme retire `mag_size` unités de la réserve et remplit son chargeur (`WeaponModeState::reload`), exactement comme l'ancien `mag_quantity` (un chargeur entier par rechargement, jamais un appoint partiel) — seule l'unité change (munitions plutôt que nombre de chargeurs), pour un total de munitions tirables strictement identique. Une arme `Magless` ne passe jamais ce test (`can_reload` renvoie toujours faux pour `MagBulletConfig::Magless`) : son « rechargement » entre deux tirs (fusil à pompe) reste un délai de pompe qui ne touche jamais la réserve, comme avant.
 
-**Emplacements** (`CharacterConfig::weapon_slots: u32`, `#[serde(default)]` = 2, validé par `content::lint` : `> 0`) : nombre d'armes à distance qu'un personnage peut porter. Ne borne que le **ramassage** (voir plus bas), pas les `starting_weapons` à la création. `zombies`/`testbed` déclarent `weapon_slots: 3` sur le joueur (garde ses trois armes de départ) ; le testbed reste au défaut (2).
+**Emplacements** (`CharacterConfig::weapon_slots: u32`, `#[serde(default)]` = 2, validé par `content::lint` : `> 0` et `starting_weapons.len() <= weapon_slots`) : nombre d'armes à distance qu'un personnage peut porter. À l'exécution, borne le **ramassage** (voir plus bas) ; la création donne toutes les `starting_weapons`, le lint refuse désormais une liste trop longue (T3.4, D7). `zombies` et `testbed` déclarent `weapon_slots: 3` sur le joueur : ses trois armes de départ étaient déjà créées, aucune n'était perdue.
 
 **Lâcher** (`INPUT_DROP_WEAPON`, touche `G`, bouton `DropWeapon` des scénarios ; `weapons::weapon_drop_system`, avant `weapon_rollback_system` dans `GgrsSchedule`) : l'arme active est retirée de `WeaponInventory.weapons`, son entité despawn (`despawn_rollback`), et une entité rollback `weapons::WeaponPickup { weapon_id, mag_ammo }` apparaît au sol à la position du joueur — `mag_ammo` est celui du **mode actif** au moment du dépôt (un seul nombre, pas un par mode). Le rechargement en cours, s'il y en avait un, est annulé (`WeaponInventory::clear_reloading`) : l'arme qui rechargeait n'existe plus.
 
@@ -440,7 +450,7 @@ Enregistrer un nouveau composant/ressource en rollback (`RollbackTraceApp`) chan
 
 **Création** : `Run::new(seed, mode, players, since_frame)` construit toujours directement `Playing` (jamais `Lobby` dans ce chantier : réservé à un futur état où `Run` existerait déjà pendant un lobby interactif, M1/M2). Appelée par `game::jjrs::{local, p2p}` (`system_after_map_loaded_local`/`system_after_map_loaded`, `OnEnter(AppState::GameStarting)`), au même instant que `RunSeed`/`RngStreams` (T1.6) — avant que `GgrsSchedule` ne tourne pour la première fois (aucune session GGRS encore présente). `players` vient de `GgrsSessionBuilding.players[].handle`. `mode` vient de `game::run_state::resolve_run_mode(manifest, registry)` : `entry.mode` du manifeste (`content::manifest::EntryMode::Waves`/`Sandbox`, enum fermé comme `sim_core::damage::FriendlyFire`) s'il est présent, sinon `Waves` si le jeu déclare un dossier de contenu `Wave`, sinon `Sandbox` — `content::lint` refuse `entry.mode: Waves` sans dossier `Wave` déclaré (`lint_entry_point`), mais pas l'absence d'`entry.mode` avec un dossier `Wave` présent (c'est le chemin par défaut).
 
-**Syntaxe RON du mode optionnel** : `entry: (..., mode: Some(Waves))` ou `Some(Sandbox)`. Le raccourci `mode: Waves` exige `#![enable(implicit_some)]` en tête du manifeste. Sans ce champ, le mode est résolu comme décrit ci-dessus.
+**Syntaxe RON du mode optionnel** (T3.4, D16) : `entry: (..., mode: Waves)` ou `mode: Sandbox`. Le chargeur de manifeste active `implicit_some` sans directive en tête du fichier ; `Some(Waves)`/`Some(Sandbox)` et `None` restent acceptés. Les deux jeux déclarent leur mode explicitement. Sans ce champ, le mode est résolu comme décrit ci-dessus.
 
 **Fin de partie** : deux voies, jamais concurrentes (`Run::is_playing()` gardé par les deux avant d'écrire `step`, une seule issue jamais réécrite).
 - **Défaite** (universelle, tout mode confondu, T1.3) : `character::health::rollback_check_defeat` (`RollbackSystemSet::DeathManagement`, inchangé sinon) écrit `Ended { outcome: RunEnd::Defeat, .. }` dès que tous les joueurs en jeu sont à terre ou morts.
@@ -506,7 +516,8 @@ la table (tirage pondéré, même méthode que `waves/wave_config.ron`/`select_e
 Lint (`content::lint::lint_powerups`) : `drop_chance` dans `[0, 1]`, `weight > 0`,
 `lifetime_frames > 0`, `pickup_range > 0`, au moins une action, `frames > 0` pour
 `TimedModifier`/`CurrencyMultiplier` et `factor > 0` pour `CurrencyMultiplier` par
-power-up (`LintErrorKind::OutOfRange`, T2.8 pour les cinq dernières) ; une référence de `StatId` inconnue dans
+power-up (`LintErrorKind::OutOfRange`, T2.8 pour les cinq dernières), et `value > 0` pour un
+`TimedModifier` avec `op: Mul` (T3.4) ; une référence de `StatId` inconnue dans
 `actions[].stat` échoue déjà au chargement RON (`actions` réutilise le type réel
 `effects::Action`, pas un mirroir — comme `StatId` pour `perks.ron`), rapportée
 `LintErrorKind::Parse` ; un id de power-up dupliqué entre deux fichiers du dossier `PowerUp`,

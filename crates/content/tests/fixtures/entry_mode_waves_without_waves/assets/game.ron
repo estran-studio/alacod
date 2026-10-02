@@ -6,6 +6,6 @@
     entry: (
         start_map: "unused",
         default_seed: 1,
-        mode: Some(Waves),
+        mode: Waves,
     ),
 )

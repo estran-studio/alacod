@@ -1,0 +1,5 @@
+(
+    name: "fixture-starting_weapons_exceed_slots",
+    content_folders: [(path: "player.ron", kind: "Character"), (path: "weapons.ron", kind: "Weapon")],
+    entry: (start_map: "unused", default_seed: 1),
+)

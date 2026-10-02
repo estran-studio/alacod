@@ -1,0 +1,2 @@
+// T3.4 : id répété dans le même fichier.
+(drop_chance: "0.2", powerups: {"max_ammo": (weight: 10, pickup_range: "30.0", lifetime_frames: 1800, actions: [RefillAmmo]), "max_ammo": (weight: 10, pickup_range: "30.0", lifetime_frames: 1800, actions: [RefillAmmo])})

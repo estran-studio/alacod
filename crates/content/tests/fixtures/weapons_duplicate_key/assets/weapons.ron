@@ -1,0 +1,5 @@
+// T3.4 : une clé répétée doit être signalée, pas écrasée.
+({
+    "rifle": (config: (ammo_type: Balle, firing_modes: {"default": (firing_rate: "5.0")})),
+    "rifle": (config: (ammo_type: Balle, firing_modes: {"default": (firing_rate: "6.0")})),
+})

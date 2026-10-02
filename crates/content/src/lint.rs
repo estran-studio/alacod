@@ -45,8 +45,8 @@ pub struct LintError {
 
 /// Valide les références croisées et les plages de valeurs du contenu déjà chargé dans
 /// `registry`. Ne relit aucun fichier de contenu : opère sur les entrées déjà parsées. Seule
-/// exception (T2.8) : l'**existence** des sons référencés par une arme
-/// (`audio_config`), vérifiée sous `registry.game_dir/assets/`.
+/// exception : l'**existence** des sons référencés par une arme (`audio_config`) ou
+/// par le feedback (`ui/feedback.ron`), vérifiée sous `registry.game_dir/assets/`.
 pub fn run(registry: &Registry, manifest: &GameManifest) -> Vec<LintError> {
     let mut errors = Vec::new();
 
@@ -57,6 +57,7 @@ pub fn run(registry: &Registry, manifest: &GameManifest) -> Vec<LintError> {
     lint_economy(registry, &mut errors);
     lint_perks(registry, &mut errors);
     lint_powerups(registry, &mut errors);
+    lint_feedback(registry, &mut errors);
     lint_entry_point(registry, manifest, &mut errors);
 
     errors
@@ -79,6 +80,17 @@ fn lint_characters(registry: &Registry, errors: &mut Vec<LintError>) {
                     ),
                 });
             }
+        }
+
+        if character.starting_weapons.len() > character.weapon_slots as usize {
+            errors.push(LintError {
+                kind: LintErrorKind::OutOfRange,
+                file: file.clone(),
+                message: format!(
+                    "personnage « {} » : starting_weapons contient {} armes : dépasse weapon_slots = {}",
+                    character.id, character.starting_weapons.len(), character.weapon_slots
+                ),
+            });
         }
 
         // Référence : starting_skin -> une clé de skins.
@@ -431,10 +443,22 @@ fn lint_powerups(registry: &Registry, errors: &mut Vec<LintError>) {
             match action {
                 // `frames: 0` : modificateur posé avec `until = frame de ramassage`, expiré
                 // aussitôt (voir `effects::Action::as_modifier`).
-                effects::Action::TimedModifier { frames: 0, .. } => push(format!(
-                    "power-up « {} » : actions[{index}] (TimedModifier) : champ frames = 0 : doit être > 0",
-                    powerup.id
-                )),
+                effects::Action::TimedModifier {
+                    frames, op, value, ..
+                } => {
+                    if *frames == 0 {
+                        push(format!(
+                            "power-up « {} » : actions[{index}] (TimedModifier) : champ frames = 0 : doit être > 0",
+                            powerup.id
+                        ));
+                    }
+                    if *op == ModifierOp::Mul && *value <= Fixed::ZERO {
+                        push(format!(
+                            "power-up « {} » : actions[{index}] (TimedModifier, op Mul) : champ value = {value} : doit être > 0",
+                            powerup.id
+                        ));
+                    }
+                }
                 effects::Action::CurrencyMultiplier { factor, frames } => {
                     if *frames == 0 {
                         push(format!(
@@ -452,6 +476,47 @@ fn lint_powerups(registry: &Registry, errors: &mut Vec<LintError>) {
                     }
                 }
                 _ => {}
+            }
+        }
+    }
+}
+
+/// Réglages de présentation : aucun état de simulation n'est modifié (T3.4).
+fn lint_feedback(registry: &Registry, errors: &mut Vec<LintError>) {
+    let assets_dir = GameManifest::assets_dir(&registry.game_dir);
+    for feedback in &registry.feedback {
+        let file = feedback.file.display().to_string();
+        for (key, path) in &feedback.sounds {
+            if !assets_dir.join(path).is_file() {
+                errors.push(LintError {
+                    kind: LintErrorKind::BrokenReference,
+                    file: file.clone(),
+                    message: format!(
+                        "feedback : champ sounds.{key} = « {path} » : fichier absent de assets/"
+                    ),
+                });
+            }
+        }
+        if feedback.shake_amplitude < 0.0 {
+            errors.push(LintError {
+                kind: LintErrorKind::OutOfRange,
+                file: file.clone(),
+                message: format!(
+                    "feedback : champ shake.amplitude = {} : doit être >= 0",
+                    feedback.shake_amplitude
+                ),
+            });
+        }
+        for (field, frames) in [
+            ("hit_flash.frames", feedback.hit_flash_frames),
+            ("shake.frames", feedback.shake_frames),
+        ] {
+            if frames == 0 {
+                errors.push(LintError {
+                    kind: LintErrorKind::OutOfRange,
+                    file: file.clone(),
+                    message: format!("feedback : champ {field} = 0 : doit être > 0"),
+                });
             }
         }
     }

@@ -105,10 +105,13 @@ impl GameManifest {
             path: path.clone(),
             message: e.to_string(),
         })?;
-        ron::from_str(&text).map_err(|e| ManifestError::Parse {
-            path,
-            message: e.to_string(),
-        })
+        ron::Options::default()
+            .with_default_extension(ron::extensions::Extensions::IMPLICIT_SOME)
+            .from_str(&text)
+            .map_err(|e| ManifestError::Parse {
+                path,
+                message: e.to_string(),
+            })
     }
 }
 
@@ -155,6 +158,16 @@ mod tests {
         "#;
         let manifest: GameManifest = ron::from_str(ron_text).unwrap();
         assert_eq!(manifest.entry.mode, Some(EntryMode::Sandbox));
+    }
+
+    #[test]
+    fn loads_implicit_entry_mode() {
+        let game_dir = Path::new(concat!(
+            env!("CARGO_MANIFEST_DIR"),
+            "/tests/fixtures/entry_mode_waves_without_waves"
+        ));
+        let manifest = GameManifest::load(game_dir).unwrap();
+        assert_eq!(manifest.entry.mode, Some(EntryMode::Waves));
     }
 
     #[test]

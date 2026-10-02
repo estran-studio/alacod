@@ -30,5 +30,6 @@
     entry: (
         start_map: "exemples/test_map.ldtk",
         default_seed: 123456,
+        mode: Waves,
     ),
 )
