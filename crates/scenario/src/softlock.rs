@@ -8,13 +8,16 @@ use combat::{downed::Downed, inventory::AmmoReserves};
 use game::{
     character::{
         enemy::{
-            ai::{EnemyAiConfig, EnemyTarget, FlowFieldCache, GridPos, MonsterState},
+            ai::{
+                navigation::AgentBody, EnemyAiConfig, EnemyTarget, FlowFieldCache, GridPos,
+                MonsterState,
+            },
             Enemy,
         },
         health::Health,
         player::Player,
     },
-    collider::Collider,
+    collider::{is_colliding, Collider, Wall},
     waves::{WaveEnemy, WaveState},
     weapons::{WeaponInventory, WeaponModesState, WeaponState},
 };
@@ -45,9 +48,15 @@ impl SoftlockDump {
                 final_state.wave.phase, remaining, final_state.wave.enemies_to_spawn
             ),
             format!(
-                "{uncovered} ennemis sans chemin depuis leur case exacte vers un joueur debout"
+                "{uncovered} ennemis sans chemin depuis leur case exacte vers une cible du flow field"
             ),
         ];
+        let blocked_points = final_state
+            .enemies
+            .iter()
+            .filter(|e| !e.steering_point_blockers.is_empty())
+            .count();
+        observations.push(format!("{blocked_points} ennemis dont le point visé par le flow field chevauche un mur physique avec leur collider"));
         if let Some(before) = &previous {
             if before.wave.total_enemies_killed == final_state.wave.total_enemies_killed {
                 observations.push(format!(
@@ -104,9 +113,21 @@ pub struct EnemySnapshot {
     pub state: Option<MonsterState>,
     pub target: Option<EnemyTarget>,
     pub nav_profile: Option<String>,
-    /// Coût depuis la case exacte vers un joueur debout ; absent si non couverte.
+    /// Coût depuis la case exacte vers une cible courante ; absent si non couverte.
     pub path_cost: Option<u32>,
     pub next_cell: Option<(i32, i32)>,
+    pub steering_point: Option<Position>,
+    /// Murs qui chevaucheraient le corps au point visé par le flow field.
+    /// La direction finale peut aussi inclure évitement et séparation.
+    pub steering_point_blockers: Vec<WallSnapshot>,
+}
+
+#[derive(Debug, Serialize)]
+pub struct WallSnapshot {
+    pub net_id: usize,
+    /// Bornes du collider, offset compris, en coordonnées monde.
+    pub min: (String, String),
+    pub max: (String, String),
 }
 
 #[derive(Debug, Serialize)]
@@ -144,9 +165,16 @@ pub fn snapshot(world: &mut World) -> Snapshot {
     let run_step = world
         .get_resource::<Run>()
         .map(|run| format!("{:?}", run.step));
+    let mut walls: Vec<_> = world
+        .query_filtered::<(&GgrsNetId, &FixedTransform3D, &Collider), With<Wall>>()
+        .iter(world)
+        .map(|(id, t, c)| (id.0, t.clone(), c.clone()))
+        .collect();
+    walls.sort_by_key(|(id, ..)| *id);
     let mut enemies: Vec<_> = world
         .query_filtered::<(
             &GgrsNetId,
+            Entity,
             &FixedTransform3D,
             &Health,
             Option<&WaveEnemy>,
@@ -155,10 +183,35 @@ pub fn snapshot(world: &mut World) -> Snapshot {
             Option<&EnemyAiConfig>,
         ), With<Enemy>>()
         .iter(world)
-        .map(|(id, t, health, wave, state, target, ai)| {
+        .map(|(id, entity, t, health, wave, state, target, ai)| {
             let cache = world.resource::<FlowFieldCache>();
             let cell = GridPos::from_fixed(t.translation.truncate());
             let field = ai.and_then(|ai| cache.get_flow_field(ai.nav_profile()));
+            let collider = world.get::<Collider>(entity);
+            let steering = ai.zip(collider).and_then(|(ai, c)| {
+                field?.get_direction(cell).map(|next| {
+                    cache.steering_point(next, ai.nav_profile(), &AgentBody::from_collider(c))
+                })
+            });
+            let candidate =
+                steering.map(|p| bevy_fixed::fixed_math::FixedVec3::new(p.x, p.y, t.translation.z));
+            let blockers = candidate
+                .zip(collider)
+                .map(|(p, c)| {
+                    walls
+                        .iter()
+                        .filter(|(_, wt, wc)| is_colliding(&p, c, &wt.translation, wc))
+                        .map(|(id, wt, wc)| {
+                            let bounds = game::collision_grid::collider_aabb(&wt.translation, wc);
+                            WallSnapshot {
+                                net_id: *id,
+                                min: (bounds.min.x.to_string(), bounds.min.y.to_string()),
+                                max: (bounds.max.x.to_string(), bounds.max.y.to_string()),
+                            }
+                        })
+                        .collect()
+                })
+                .unwrap_or_default();
             EnemySnapshot {
                 net_id: id.0,
                 position: Position::from_transform(t),
@@ -171,6 +224,13 @@ pub fn snapshot(world: &mut World) -> Snapshot {
                 next_cell: field
                     .and_then(|f| f.get_direction(cell))
                     .map(|c| (c.x, c.y)),
+                steering_point: candidate.map(|p| {
+                    Position::from_transform(&FixedTransform3D {
+                        translation: p,
+                        ..t.clone()
+                    })
+                }),
+                steering_point_blockers: blockers,
             }
         })
         .collect();

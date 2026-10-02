@@ -490,7 +490,10 @@ fn nav_probe() {
     let spec = std::env::var("ALACOD_PROBE").unwrap_or_else(|_| "116:560".into());
     let (id, frame) = spec.split_once(':').unwrap();
     let (id, frame): (usize, u32) = (id.parse().unwrap(), frame.parse().unwrap());
-    let source = std::fs::read_to_string(scenarios_dir().join("idle.ron")).unwrap();
+    let source_path = std::env::var("ALACOD_PROBE_FILE")
+        .map(PathBuf::from)
+        .unwrap_or_else(|_| scenarios_dir().join("idle.ron"));
+    let source = std::fs::read_to_string(source_path).unwrap();
     let mut app = scenario::runner::run_until(&Scenario::from_ron(&source).unwrap(), frame);
     let world = app.world_mut();
     let cache = world.resource::<FlowFieldCache>().clone();
