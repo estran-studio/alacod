@@ -1,0 +1,42 @@
+[
+  {
+    "frame": 0,
+    "kind": "player",
+    "label": "joueur 0 apparaît"
+  },
+  {
+    "frame": 1,
+    "kind": "wave",
+    "label": "vague 1 : préparation"
+  },
+  {
+    "frame": 181,
+    "kind": "wave",
+    "label": "vague 1 : arrivée des zombies"
+  },
+  {
+    "frame": 329,
+    "kind": "window",
+    "label": "fenêtre 29 cassée"
+  },
+  {
+    "frame": 399,
+    "kind": "hit",
+    "label": "joueur 0 touché"
+  },
+  {
+    "frame": 602,
+    "kind": "wave",
+    "label": "vague 1 : tous les zombies sont là"
+  },
+  {
+    "frame": 775,
+    "kind": "window",
+    "label": "fenêtre 27 cassée"
+  },
+  {
+    "frame": 1052,
+    "kind": "death",
+    "label": "joueur 0 meurt"
+  }
+]

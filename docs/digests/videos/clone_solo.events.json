@@ -1,0 +1,637 @@
+[
+  {
+    "frame": 0,
+    "kind": "player",
+    "label": "joueur 0 apparaît"
+  },
+  {
+    "frame": 0,
+    "kind": "drop",
+    "label": "arme pistol tombée au sol (108)"
+  },
+  {
+    "frame": 0,
+    "kind": "drop",
+    "label": "arme pistol tombée au sol (109)"
+  },
+  {
+    "frame": 0,
+    "kind": "drop",
+    "label": "arme machine_gun tombée au sol (110)"
+  },
+  {
+    "frame": 0,
+    "kind": "drop",
+    "label": "arme rifle tombée au sol (111)"
+  },
+  {
+    "frame": 0,
+    "kind": "drop",
+    "label": "arme shotgun tombée au sol (112)"
+  },
+  {
+    "frame": 1,
+    "kind": "wave",
+    "label": "vague 1 : préparation"
+  },
+  {
+    "frame": 116,
+    "kind": "weapon",
+    "label": "joueur 0 prend pistol (default, 6 balles)"
+  },
+  {
+    "frame": 116,
+    "kind": "purchase",
+    "label": "joueur 0 paie 500 (wall_weapon)"
+  },
+  {
+    "frame": 166,
+    "kind": "purchase",
+    "label": "joueur 0 paie 2500 (perk:juggernog)"
+  },
+  {
+    "frame": 256,
+    "kind": "weapon",
+    "label": "joueur 0 prend machine_gun (default, 30 balles)"
+  },
+  {
+    "frame": 301,
+    "kind": "wave",
+    "label": "vague 1 : arrivée des zombies"
+  },
+  {
+    "frame": 302,
+    "kind": "wave",
+    "label": "vague 1 : tous les zombies sont là"
+  },
+  {
+    "frame": 465,
+    "kind": "window",
+    "label": "fenêtre 28 cassée"
+  },
+  {
+    "frame": 502,
+    "kind": "window",
+    "label": "fenêtre 29 cassée"
+  },
+  {
+    "frame": 560,
+    "kind": "window",
+    "label": "fenêtre 27 cassée"
+  },
+  {
+    "frame": 619,
+    "kind": "hit",
+    "label": "joueur 0 touché"
+  },
+  {
+    "frame": 651,
+    "kind": "wave",
+    "label": "vague 1 : vague terminée"
+  },
+  {
+    "frame": 651,
+    "kind": "kill",
+    "label": "zombie tué (3 au total)"
+  },
+  {
+    "frame": 771,
+    "kind": "wave",
+    "label": "vague 2 : préparation"
+  },
+  {
+    "frame": 1071,
+    "kind": "wave",
+    "label": "vague 2 : arrivée des zombies"
+  },
+  {
+    "frame": 1072,
+    "kind": "wave",
+    "label": "vague 2 : tous les zombies sont là"
+  },
+  {
+    "frame": 1154,
+    "kind": "points",
+    "label": "joueur 0 gagne 10 points (hit)"
+  },
+  {
+    "frame": 1209,
+    "kind": "points",
+    "label": "joueur 0 gagne 10 points (hit)"
+  },
+  {
+    "frame": 1236,
+    "kind": "points",
+    "label": "joueur 0 gagne 10 points (hit)"
+  },
+  {
+    "frame": 1242,
+    "kind": "points",
+    "label": "joueur 0 gagne 10 points (hit)"
+  },
+  {
+    "frame": 1255,
+    "kind": "weapon",
+    "label": "joueur 0 : chargeur vide (machine_gun)"
+  },
+  {
+    "frame": 1256,
+    "kind": "reload",
+    "label": "joueur 0 recharge (machine_gun default)"
+  },
+  {
+    "frame": 1324,
+    "kind": "hit",
+    "label": "joueur 0 touché"
+  },
+  {
+    "frame": 1346,
+    "kind": "reload",
+    "label": "joueur 0 a rechargé : 29 (210 en réserve)"
+  },
+  {
+    "frame": 1346,
+    "kind": "points",
+    "label": "joueur 0 gagne 10 points (hit)"
+  },
+  {
+    "frame": 1352,
+    "kind": "points",
+    "label": "joueur 0 gagne 10 points (hit)"
+  },
+  {
+    "frame": 1358,
+    "kind": "kill",
+    "label": "zombie tué (4 au total)"
+  },
+  {
+    "frame": 1358,
+    "kind": "points",
+    "label": "joueur 0 gagne 10 points (hit)"
+  },
+  {
+    "frame": 1358,
+    "kind": "points",
+    "label": "joueur 0 gagne 60 points (kill)"
+  },
+  {
+    "frame": 1367,
+    "kind": "points",
+    "label": "joueur 0 gagne 10 points (hit)"
+  },
+  {
+    "frame": 1372,
+    "kind": "points",
+    "label": "joueur 0 gagne 10 points (hit)"
+  },
+  {
+    "frame": 1377,
+    "kind": "points",
+    "label": "joueur 0 gagne 10 points (hit)"
+  },
+  {
+    "frame": 1383,
+    "kind": "points",
+    "label": "joueur 0 gagne 10 points (hit)"
+  },
+  {
+    "frame": 1389,
+    "kind": "points",
+    "label": "joueur 0 gagne 10 points (hit)"
+  },
+  {
+    "frame": 1394,
+    "kind": "points",
+    "label": "joueur 0 gagne 10 points (hit)"
+  },
+  {
+    "frame": 1400,
+    "kind": "kill",
+    "label": "zombie tué (5 au total)"
+  },
+  {
+    "frame": 1400,
+    "kind": "points",
+    "label": "joueur 0 gagne 10 points (hit)"
+  },
+  {
+    "frame": 1400,
+    "kind": "points",
+    "label": "joueur 0 gagne 60 points (kill)"
+  },
+  {
+    "frame": 1406,
+    "kind": "points",
+    "label": "joueur 0 gagne 10 points (hit)"
+  },
+  {
+    "frame": 1412,
+    "kind": "points",
+    "label": "joueur 0 gagne 10 points (hit)"
+  },
+  {
+    "frame": 1418,
+    "kind": "points",
+    "label": "joueur 0 gagne 10 points (hit)"
+  },
+  {
+    "frame": 1424,
+    "kind": "points",
+    "label": "joueur 0 gagne 10 points (hit)"
+  },
+  {
+    "frame": 1430,
+    "kind": "points",
+    "label": "joueur 0 gagne 10 points (hit)"
+  },
+  {
+    "frame": 1436,
+    "kind": "points",
+    "label": "joueur 0 gagne 10 points (hit)"
+  },
+  {
+    "frame": 1442,
+    "kind": "kill",
+    "label": "zombie tué (6 au total)"
+  },
+  {
+    "frame": 1442,
+    "kind": "points",
+    "label": "joueur 0 gagne 10 points (hit)"
+  },
+  {
+    "frame": 1442,
+    "kind": "points",
+    "label": "joueur 0 gagne 60 points (kill)"
+  },
+  {
+    "frame": 1470,
+    "kind": "points",
+    "label": "joueur 0 gagne 10 points (hit)"
+  },
+  {
+    "frame": 1475,
+    "kind": "points",
+    "label": "joueur 0 gagne 10 points (hit)"
+  },
+  {
+    "frame": 1483,
+    "kind": "points",
+    "label": "joueur 0 gagne 10 points (hit)"
+  },
+  {
+    "frame": 1487,
+    "kind": "points",
+    "label": "joueur 0 gagne 10 points (hit)"
+  },
+  {
+    "frame": 1493,
+    "kind": "points",
+    "label": "joueur 0 gagne 10 points (hit)"
+  },
+  {
+    "frame": 1497,
+    "kind": "points",
+    "label": "joueur 0 gagne 10 points (hit)"
+  },
+  {
+    "frame": 1503,
+    "kind": "wave",
+    "label": "vague 2 : vague terminée"
+  },
+  {
+    "frame": 1503,
+    "kind": "kill",
+    "label": "zombie tué (7 au total)"
+  },
+  {
+    "frame": 1503,
+    "kind": "points",
+    "label": "joueur 0 gagne 10 points (hit)"
+  },
+  {
+    "frame": 1503,
+    "kind": "points",
+    "label": "joueur 0 gagne 60 points (kill)"
+  },
+  {
+    "frame": 1623,
+    "kind": "wave",
+    "label": "vague 3 : préparation"
+  },
+  {
+    "frame": 1923,
+    "kind": "wave",
+    "label": "vague 3 : arrivée des zombies"
+  },
+  {
+    "frame": 1924,
+    "kind": "wave",
+    "label": "vague 3 : tous les zombies sont là"
+  },
+  {
+    "frame": 1936,
+    "kind": "weapon",
+    "label": "joueur 0 : chargeur vide (machine_gun)"
+  },
+  {
+    "frame": 1937,
+    "kind": "reload",
+    "label": "joueur 0 recharge (machine_gun default)"
+  },
+  {
+    "frame": 2027,
+    "kind": "reload",
+    "label": "joueur 0 a rechargé : 29 (180 en réserve)"
+  },
+  {
+    "frame": 2051,
+    "kind": "points",
+    "label": "joueur 0 gagne 10 points (hit)"
+  },
+  {
+    "frame": 2056,
+    "kind": "points",
+    "label": "joueur 0 gagne 10 points (hit)"
+  },
+  {
+    "frame": 2060,
+    "kind": "points",
+    "label": "joueur 0 gagne 10 points (hit)"
+  },
+  {
+    "frame": 2064,
+    "kind": "points",
+    "label": "joueur 0 gagne 10 points (hit)"
+  },
+  {
+    "frame": 2068,
+    "kind": "points",
+    "label": "joueur 0 gagne 10 points (hit)"
+  },
+  {
+    "frame": 2075,
+    "kind": "hit",
+    "label": "joueur 0 touché"
+  },
+  {
+    "frame": 2075,
+    "kind": "points",
+    "label": "joueur 0 gagne 10 points (hit)"
+  },
+  {
+    "frame": 2077,
+    "kind": "kill",
+    "label": "zombie tué (8 au total)"
+  },
+  {
+    "frame": 2077,
+    "kind": "points",
+    "label": "joueur 0 gagne 10 points (hit)"
+  },
+  {
+    "frame": 2077,
+    "kind": "points",
+    "label": "joueur 0 gagne 60 points (kill)"
+  },
+  {
+    "frame": 2116,
+    "kind": "points",
+    "label": "joueur 0 gagne 10 points (hit)"
+  },
+  {
+    "frame": 2117,
+    "kind": "points",
+    "label": "joueur 0 gagne 10 points (hit)"
+  },
+  {
+    "frame": 2122,
+    "kind": "points",
+    "label": "joueur 0 gagne 10 points (hit)"
+  },
+  {
+    "frame": 2126,
+    "kind": "points",
+    "label": "joueur 0 gagne 10 points (hit)"
+  },
+  {
+    "frame": 2131,
+    "kind": "points",
+    "label": "joueur 0 gagne 10 points (hit)"
+  },
+  {
+    "frame": 2136,
+    "kind": "points",
+    "label": "joueur 0 gagne 10 points (hit)"
+  },
+  {
+    "frame": 2147,
+    "kind": "points",
+    "label": "joueur 0 gagne 10 points (hit)"
+  },
+  {
+    "frame": 2150,
+    "kind": "points",
+    "label": "joueur 0 gagne 10 points (hit)"
+  },
+  {
+    "frame": 2150,
+    "kind": "points",
+    "label": "joueur 0 gagne 10 points (hit)"
+  },
+  {
+    "frame": 2155,
+    "kind": "points",
+    "label": "joueur 0 gagne 10 points (hit)"
+  },
+  {
+    "frame": 2160,
+    "kind": "kill",
+    "label": "zombie tué (9 au total)"
+  },
+  {
+    "frame": 2160,
+    "kind": "points",
+    "label": "joueur 0 gagne 10 points (hit)"
+  },
+  {
+    "frame": 2160,
+    "kind": "points",
+    "label": "joueur 0 gagne 60 points (kill)"
+  },
+  {
+    "frame": 2179,
+    "kind": "points",
+    "label": "joueur 0 gagne 10 points (hit)"
+  },
+  {
+    "frame": 2184,
+    "kind": "points",
+    "label": "joueur 0 gagne 10 points (hit)"
+  },
+  {
+    "frame": 2193,
+    "kind": "wave",
+    "label": "vague 3 : vague terminée"
+  },
+  {
+    "frame": 2193,
+    "kind": "kill",
+    "label": "zombie tué (10 au total)"
+  },
+  {
+    "frame": 2193,
+    "kind": "points",
+    "label": "joueur 0 gagne 10 points (hit)"
+  },
+  {
+    "frame": 2193,
+    "kind": "points",
+    "label": "joueur 0 gagne 60 points (kill)"
+  },
+  {
+    "frame": 2201,
+    "kind": "weapon",
+    "label": "joueur 0 : chargeur vide (machine_gun)"
+  },
+  {
+    "frame": 2202,
+    "kind": "reload",
+    "label": "joueur 0 recharge (machine_gun default)"
+  },
+  {
+    "frame": 2292,
+    "kind": "reload",
+    "label": "joueur 0 a rechargé : 30 (150 en réserve)"
+  },
+  {
+    "frame": 2313,
+    "kind": "wave",
+    "label": "vague 4 : préparation"
+  },
+  {
+    "frame": 2613,
+    "kind": "wave",
+    "label": "vague 4 : arrivée des zombies"
+  },
+  {
+    "frame": 2614,
+    "kind": "wave",
+    "label": "vague 4 : tous les zombies sont là"
+  },
+  {
+    "frame": 2745,
+    "kind": "points",
+    "label": "joueur 0 gagne 10 points (hit)"
+  },
+  {
+    "frame": 2754,
+    "kind": "points",
+    "label": "joueur 0 gagne 10 points (hit)"
+  },
+  {
+    "frame": 2756,
+    "kind": "hit",
+    "label": "joueur 0 touché"
+  },
+  {
+    "frame": 2762,
+    "kind": "points",
+    "label": "joueur 0 gagne 10 points (hit)"
+  },
+  {
+    "frame": 2765,
+    "kind": "points",
+    "label": "joueur 0 gagne 10 points (hit)"
+  },
+  {
+    "frame": 2770,
+    "kind": "points",
+    "label": "joueur 0 gagne 10 points (hit)"
+  },
+  {
+    "frame": 2776,
+    "kind": "points",
+    "label": "joueur 0 gagne 10 points (hit)"
+  },
+  {
+    "frame": 2782,
+    "kind": "kill",
+    "label": "zombie tué (11 au total)"
+  },
+  {
+    "frame": 2782,
+    "kind": "points",
+    "label": "joueur 0 gagne 10 points (hit)"
+  },
+  {
+    "frame": 2782,
+    "kind": "points",
+    "label": "joueur 0 gagne 60 points (kill)"
+  },
+  {
+    "frame": 2789,
+    "kind": "points",
+    "label": "joueur 0 gagne 10 points (hit)"
+  },
+  {
+    "frame": 2794,
+    "kind": "kill",
+    "label": "zombie tué (12 au total)"
+  },
+  {
+    "frame": 2794,
+    "kind": "points",
+    "label": "joueur 0 gagne 10 points (hit)"
+  },
+  {
+    "frame": 2794,
+    "kind": "points",
+    "label": "joueur 0 gagne 60 points (kill)"
+  },
+  {
+    "frame": 2800,
+    "kind": "weapon",
+    "label": "joueur 0 : chargeur vide (machine_gun)"
+  },
+  {
+    "frame": 2801,
+    "kind": "reload",
+    "label": "joueur 0 recharge (machine_gun default)"
+  },
+  {
+    "frame": 2891,
+    "kind": "reload",
+    "label": "joueur 0 a rechargé : 29 (120 en réserve)"
+  },
+  {
+    "frame": 2891,
+    "kind": "points",
+    "label": "joueur 0 gagne 10 points (hit)"
+  },
+  {
+    "frame": 2897,
+    "kind": "wave",
+    "label": "vague 4 : vague terminée"
+  },
+  {
+    "frame": 2897,
+    "kind": "kill",
+    "label": "zombie tué (13 au total)"
+  },
+  {
+    "frame": 2897,
+    "kind": "points",
+    "label": "joueur 0 gagne 10 points (hit)"
+  },
+  {
+    "frame": 2897,
+    "kind": "points",
+    "label": "joueur 0 gagne 60 points (kill)"
+  },
+  {
+    "frame": 3017,
+    "kind": "wave",
+    "label": "vague 5 : préparation"
+  }
+]

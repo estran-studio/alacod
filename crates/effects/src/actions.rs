@@ -23,7 +23,7 @@ pub const CURRENCY_MULTIPLIER_STAT: &str = "powerup_currency_multiplier";
 /// Une action appliquée par un power-up ramassé. Liste fermée et minimale (T2.5, graine de
 /// C1 — `docs/plan-engine.md` §5) : un power-up futur qui a besoin d'un autre effet ajoute
 /// une variante ici, jamais un type de contenu séparé.
-#[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
+#[derive(Debug, Clone, PartialEq, Eq, Hash, Serialize, Deserialize)]
 pub enum Action {
     /// Modificateur de stat temporaire posé sur chaque joueur (ex. Insta-Kill : `stat:
     /// Damage, op: Set, value: "100.0"`). `frames` est une **durée** relative à la frame de

@@ -1,11 +1,18 @@
 pub mod melee;
-#[cfg(feature = "debug_ui")]
-pub mod ui;
 
-use animation::{
-    create_child_sprite, AnimationStateBundle, AnimationVisualsBundle, FacingDirection,
-    SpriteSheetConfig,
+pub mod expectations;
+use self::melee::MeleeAttackState;
+use crate::{
+    actors::{
+        CursorPosition, DashState, Health, PeerConfig, Player, SprintState, INPUT_DASH,
+        INPUT_DROP_WEAPON, INPUT_RELOAD, INPUT_SPRINT, INPUT_SWITCH_WEAPON_MODE,
+    },
+    collider::{is_colliding, Collider, ColliderShape, CollisionLayer, CollisionSettings, Wall},
+    downed::Downed,
+    inventory::AmmoReserves,
+    team::team_allows_hit,
 };
+use animation::{AnimationStateBundle, FacingDirection};
 use bevy::{
     log::{tracing::span, Level},
     platform::collections::{HashMap, HashSet},
@@ -14,51 +21,27 @@ use bevy::{
 use bevy_common_assets::ron::RonAssetPlugin;
 use bevy_fixed::{fixed_math, rng::RngStreams};
 use bevy_ggrs::{GgrsSchedule, PlayerInputs, Rollback};
-use combat::downed::Downed;
-use combat::team::team_allows_hit;
 use ggrs::PlayerHandle;
-use sim_core::damage::{DamageEvent, DamageKind, FriendlyFire};
-use sim_core::kinds::{KindDecl, KindRegistry};
-use sim_core::stats::StatId;
-use sim_core::tag::{Tag, Tags};
-use sim_core::team::Team;
-use stats::StatReader;
-use std::collections::BTreeMap;
-
-use combat::inventory::AmmoReserves;
 use serde::{Deserialize, Serialize};
-use sim_core::ammo::AmmoType;
+use sim_core::{
+    ammo::AmmoType,
+    damage::{DamageEvent, DamageKind, FriendlyFire},
+    frame_events::FrameEvents,
+    interaction::{Interactable, InteractionType},
+    kinds::{KindDecl, KindRegistry},
+    stats::StatId,
+    system_set::RollbackSystemSet,
+    tag::{Tag, Tags},
+    team::Team,
+};
+use stats::StatReader;
+use std::{collections::BTreeMap, fmt};
 use utils::{
+    frame::FrameCount,
     net_id::{GgrsNetId, GgrsNetIdFactory},
     order_iter, order_mut_iter,
+    rollback::RollbackTraceApp,
 };
-
-use self::melee::MeleeAttackState;
-use crate::character::visuals::VisualsAttached;
-use crate::frame_events::FrameEvents;
-use crate::interaction::{Interactable, InteractionType};
-use crate::rollback::RollbackTraceApp;
-use crate::{
-    character::{
-        dash::DashState,
-        health::Health,
-        movement::SprintState,
-        player::{
-            input::{
-                CursorPosition, INPUT_DASH, INPUT_DROP_WEAPON, INPUT_RELOAD, INPUT_SPRINT,
-                INPUT_SWITCH_WEAPON_MODE,
-            },
-            jjrs::PeerConfig,
-            Player,
-        },
-    },
-    collider::{is_colliding, Collider, ColliderShape, CollisionLayer, CollisionSettings, Wall},
-    global_asset::GlobalAsset,
-    system_set::RollbackSystemSet,
-    GAME_SPEED,
-};
-use std::fmt;
-use utils::frame::FrameCount;
 
 // COMPONENTS
 #[derive(Debug, Clone, Copy, Hash, Serialize, Deserialize, PartialEq)]
@@ -195,7 +178,7 @@ pub struct WeaponTest {
     /// Attentes supplémentaires ajoutées telles quelles au scénario généré, en plus de
     /// `EntityHits` (ex. vérifier autre chose que `target`). Vide par défaut.
     #[serde(default, skip_serializing_if = "Vec::is_empty")]
-    pub expect: Vec<crate::replay::Expectation>,
+    pub expect: Vec<expectations::Expectation>,
 }
 
 #[derive(Debug, Clone, Hash, Serialize, Deserialize, PartialEq)]
@@ -634,50 +617,6 @@ pub fn spawn_weapon_pickup(
         .id()
 }
 
-/// Présentation : ajoute le sprite animé des armes qui n'en ont pas encore
-/// (nouvelles ou recréées par un rollback).
-pub fn attach_weapon_visuals(
-    mut commands: Commands,
-    global_assets: Res<GlobalAsset>,
-    spritesheet_assets: Res<Assets<SpriteSheetConfig>>,
-    asset_server: Res<AssetServer>,
-    mut texture_atlas_layouts: ResMut<Assets<TextureAtlasLayout>>,
-    weapons: Query<(Entity, &Weapon), Without<VisualsAttached>>,
-) {
-    for (entity, weapon) in weapons.iter() {
-        let name = &weapon.sprite_config.name;
-        let (Some(map_layers), Some(animation_handle)) = (
-            global_assets.spritesheets.get(name),
-            global_assets.animations.get(name),
-        ) else {
-            continue;
-        };
-        let Some(spritesheet_config) = map_layers
-            .get("body")
-            .and_then(|handle| spritesheet_assets.get(handle))
-        else {
-            continue;
-        };
-
-        commands.entity(entity).insert((
-            AnimationVisualsBundle::new(
-                map_layers.clone(),
-                animation_handle.clone(),
-                weapon.sprite_config.index,
-            ),
-            VisualsAttached,
-        ));
-        create_child_sprite(
-            &mut commands,
-            &asset_server,
-            &mut texture_atlas_layouts,
-            entity,
-            spritesheet_config,
-            0,
-        );
-    }
-}
-
 #[allow(clippy::too_many_arguments)]
 fn spawn_bullet_rollback(
     commands: &mut Commands,
@@ -706,7 +645,7 @@ fn spawn_bullet_rollback(
             speed,
             damage: damage_bullet,
         } => (
-            direction * (*speed / *GAME_SPEED),
+            direction * (*speed / fixed_math::Fixed::from_num(60)),
             *damage_bullet,
             range,
             fixed_math::new(5.0),
@@ -716,7 +655,7 @@ fn spawn_bullet_rollback(
             damage: damage_bullet,
             ..
         } => (
-            direction * (*speed / *GAME_SPEED),
+            direction * (*speed / fixed_math::Fixed::from_num(60)),
             *damage_bullet,
             range,
             fixed_math::new(8.0),
@@ -726,7 +665,7 @@ fn spawn_bullet_rollback(
             damage: damage_bullet,
             ..
         } => (
-            direction * (*speed / *GAME_SPEED),
+            direction * (*speed / fixed_math::Fixed::from_num(60)),
             *damage_bullet,
             range,
             fixed_math::new(5.0),
@@ -1624,25 +1563,6 @@ pub fn weapon_inventory_system(
     }
 }
 
-pub fn update_weapon_sprite_direction(
-    mut query_sprite: Query<&mut Sprite>,
-    query_players: Query<(&Children, &FacingDirection)>,
-    query_weapons: Query<&Children, With<ActiveWeapon>>,
-) {
-    for (childs, direction) in query_players.iter() {
-        for child in childs.iter() {
-            if let Ok(childs) = query_weapons.get(child.clone()) {
-                for child in childs.iter() {
-                    if let Ok(mut sprite) = query_sprite.get_mut(child.clone()) {
-                        // Flip sprite based on facing direction
-                        sprite.flip_y = direction.should_flip_x();
-                    }
-                }
-            }
-        }
-    }
-}
-
 pub fn weapons_config_update_system(
     _asset_server: Res<AssetServer>,
 
@@ -1728,28 +1648,6 @@ impl Plugin for BaseWeaponGamePlugin {
                 melee::melee_hitbox_collision_system.after(melee::update_melee_hitboxes),
             )
                 .in_set(RollbackSystemSet::Weapon),
-        );
-    }
-}
-
-/// Sprites des armes, effets de slash et UI de debug. Ajouté par `PresentationPlugin`.
-pub struct WeaponPresentationPlugin;
-
-impl Plugin for WeaponPresentationPlugin {
-    fn build(&self, app: &mut App) {
-        // Only include the debug UI plugin when the `debug_ui` feature is enabled.
-        // This keeps Egui / WorldInspector out of production builds unless explicitly requested.
-        #[cfg(feature = "debug_ui")]
-        app.add_plugins(self::ui::WeaponDebugUIPlugin);
-
-        app.add_systems(
-            Update,
-            (
-                attach_weapon_visuals,
-                update_weapon_sprite_direction,
-                melee::spawn_slash_effects,
-                melee::update_slash_effects,
-            ),
         );
     }
 }

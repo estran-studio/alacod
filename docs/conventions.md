@@ -247,6 +247,52 @@ Exemple : ajouter un nouveau type d'ennemi, un effet, ou un statut. Suivre ce fl
 
 ---
 
+### 4.3 Contrats de M1 (squelettes)
+
+T1.0a fixe le vocabulaire ci-dessous. **La vague 1 étend chaque enum dans son crate** ;
+un renommage doit être signalé dans son rapport. Aucun système n'exécute ces contrats
+pendant la vague 0, et aucune trace de référence ne change.
+
+| Crate | Contrats | Plugin / futurs sets |
+|---|---|---|
+| `combat` | `ProjectileModifier` : Bounce, Pierce, Size, Lifetime, Homing, Gravity ; `Pattern` : Aimed, Spread, Ring, Sequence, Telegraph, Wait ; `StatusDef` : Burn, Slow, Stun, Freeze ; état `Statuses(Vec<StatusEntry>)` (statut, piles, frame d'expiration) | `CombatPlugin` ; Projectiles, Effects, Status |
+| `behaviors` | `Behavior` : Chase, KeepDistance, Strafe, Charge, Shoot, Melee, Flee, Wander ; `Perception` : Sight, Hearing ; `Targeting::Nearest` ; état `BehaviorState` (indice de règle, frame d'entrée, cible GgrsNetId) | `BehaviorsPlugin` ; EnemyAI |
+| `effects` | `Effect { on, if, do }`, `On` (11 déclencheurs), `Condition` (7 conditions), `GaugeThreshold::Above` ; réutilise `Action` des power-ups | `EffectsPlugin` ; Effects |
+
+Les plugins enregistrent les noms Rust exacts (PascalCase) dans les catégories snake_case
+`projectile_modifier`, `pattern`, `status`, `behavior`, `perception`, `targeting`,
+`effect_trigger`, `effect_condition`. T1.12 fixera la validation des références dans le
+contenu. `Kinds` et `KindRegistry` restent inchangés. `Statuses` et `BehaviorState` sont
+enregistrés ensemble en rollback + checksum + trace, mais ne sont encore posés sur aucune
+entité. Il n'y a pas de nouveau `RollbackSystemSet`.
+
+Les quantités `Fixed` restent des chaînes (§2), les compteurs et durées des entiers en
+frames, les angles des radians et les vitesses des unités/seconde. `Chase` porte un id de
+profil (`"Ground"`, etc.) ; `Shoot`/`Melee` portent un id de pattern/arme. T1.4 les résoudra,
+sans dépendance de `behaviors` vers `game` ou `combat`. `PerceptionConfig` compose une liste
+de sens et `needs_light` (vue seulement). Les listes de séquence, conditions, actions et
+statuts conservent l'ordre déclaré.
+
+```ron
+Sequence([Telegraph(60), Aimed(count: 4, spread: "0.1", projectile: "plomb"), Wait(180)])
+Ring(count: 12, speed: "150", projectile: "braise", every: 90)
+Chase(profile: "Ground")
+Nearest(ignore: ["disguised", "ghost"])
+(on: OnGauge("sacre", Above("0.75")), if: [HpBelow("0.2")], do: [RefillAmmo])
+```
+
+Le déplacement des armes met simulation, données des acteurs et géométrie de collision
+dans `combat`. `game::weapons`, les anciens chemins des composants de personnage,
+`game::collider` et `game::collision_grid` restent des réexports. Les attentes typées du
+champ `test.expect` vivent dans `combat::weapons::expectations` et sont réexportées par
+`game::replay` : métadonnées d'outillage, exclues du hash des armes, jamais exécutées par
+`combat`. Les sprites attachés, slashs et HUD restent dans `game::ui` ; les handlers d'achat
+et de ramassage et le chargement des armes murales restent dans `game`/`map_ldtk`.
+`Interactable`/`InteractionType` sont des contrats `sim_core::interaction`, réexportés par
+`game::interaction`, ce qui permet aussi à `combat` de créer une arme lâchée interactable.
+
+---
+
 ## 5. Commandes make
 
 | Cible | Rôle |
@@ -474,11 +520,11 @@ Ressources GGRS internes (`RollbackFrameCount`, `ConfirmedFrameCount`, `MaxPredi
 
 ## 14. Power-ups (T2.5, chantier C1 v0)
 
-**Vocabulaire d'actions** (`crates/effects`, nouveau crate minimal — comme `run`, sans
-dépendance vers `bevy`) : `effects::Action` est la liste fermée des effets qu'un power-up
+**Vocabulaire d'actions** (`crates/effects`, données pures ; `bevy` sert uniquement au
+plugin de déclaration des kinds depuis T1.0a) : `effects::Action` est la liste fermée des effets qu'un power-up
 peut appliquer, la graine du futur système de déclencheurs/effets de `docs/plan-engine.md`
-§5 (« C1. Effets ») — pas de déclencheur ni de condition dans ce chantier, seulement les
-actions. Cinq variantes : `TimedModifier { stat, op, value, frames }` (modificateur de stat
+§5 (« C1. Effets ») — pas de déclencheur ni de condition dans T2.5, seulement les
+actions ; les contrats de M1 sont décrits au §4.3. Cinq variantes : `TimedModifier { stat, op, value, frames }` (modificateur de stat
 temporaire, `frames` = durée relative à la frame de ramassage), `RefillAmmo`,
 `RepairAllWindows`, `KillAllWaveEnemies`, `CurrencyMultiplier { factor, frames }`.
 `Action::as_modifier(frame, source)` est l'« applicateur déterministe » pur (sans ECS,
