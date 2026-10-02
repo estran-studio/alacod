@@ -557,6 +557,56 @@ réenregistré par le runner.
 que le scénario ne pose le power-up), `powerup_nuke`, `powerup_drop_on_kill` (chance forcée
 à 1, tue `dummy` par tir soutenu, vérifie qu'un `PowerUpPickup` apparaît).
 
+## 15. HUD : icônes, noms et sources (T2.12)
+
+Le HUD est décrit par `games/<jeu>/assets/ui/hud.ron` (`crates/game/src/ui/hud.rs`, liste des
+sources et des ancrages dans `CLAUDE.md` § HUD). Il ne fait que **lire** l'état à chaque
+`Update` : aucun système dans `GgrsSchedule`, aucun état rollback, aucune trace touchée.
+
+Champs optionnels à la racine de `hud.ron`, à côté de `widgets` : `font`, `icons`, `names`.
+Par widget : `background`.
+```ron
+(
+    // Police de tous les textes du HUD, relative à `assets/`. La police par défaut de Bevy
+    // n'a ni accents (« À TERRE », « possédé ») ni tiret long : les deux jeux déclarent celle-ci.
+    font: Some("fonts/FiraMono-Medium.ttf"),
+    widgets: [
+        (kind: Icons(source: "perks"), anchor: BottomLeft, offset: (16.0, 80.0),
+         size: Some((200.0, 24.0)), color: None, font_size: None),
+        (kind: Text(source: "prompt", prefix: Some("[H] ")), anchor: BottomCenter,
+         offset: (0.0, 110.0), size: Some((480.0, 24.0)), color: Some("#f1c40f"), font_size: Some(18.0),
+         // Fond derrière le texte (`#rrggbb` ou `#rrggbbaa`), masqué quand le texte est vide ;
+         // avec un fond, la hauteur suit le nombre de lignes.
+         background: Some("#000000a0")),
+        // ...
+    ],
+    // Icône par id de perk (`economy/perks.ron`) : pas de sprite, un carré de couleur
+    // (hex `#rrggbb`) et une étiquette courte (l'initiale).
+    icons: {
+        "juggernog": (color: "#c0392b", label: "J"),
+    },
+    // Nom affiché par id d'arme (`weapons.ron`), utilisé par la source `prompt`.
+    names: {
+        "shotgun": "fusil à pompe",
+    },
+)
+```
+- **Icône manquante** : un perk absent de `icons` est affiché en carré gris avec la première
+  lettre de son id en majuscule (pas d'erreur).
+- **Nom manquant** : une arme absente de `names` est affichée par son id.
+- `Icons(source)` : `size.1` est le côté d'un carré ; la rangée s'étend vers la droite depuis
+  l'ancre, quel que soit le nombre de perks. `Text(source: "perks")` affiche les étiquettes
+  séparées par des espaces.
+- Les noms des perks et des power-ups viennent de leur propre contenu (`name` de `perks.ron`
+  et de `items/powerups.ron`), pas de `hud.ron`.
+- Prix « en icône » : préfixe `$` devant le montant (`Ouvrir — $750`).
+- Placement : les textes de debug (`Wave 1 | PREP …` en bas à gauche, caméra en haut à
+  gauche) occupent le bas de l'écran jusqu'à ~75 px : les perks (80) et le prompt (110) sont
+  placés au-dessus. L'écran de fin utilise la même police (`ui/game_over.rs`).
+
+Captures de référence : `docs/captures/hud-v1/` (prompt d'achat, perk et power-up actifs, à
+terre), produites par `play_scenario --capture` (voir `CLAUDE.md` § Vidéos).
+
 ## Notes essentielles
 
 **À vérifier** : l'entité `CrateLocation` n'est pas lue actuellement (`WeaponLocation`/`SodaLocation` le sont depuis T2.3, voir §1 ci-dessus). Elle apparaît dans `crates/map_ldtk/src/map_const.rs` (constante) mais aucun bundle Bevy ne la traite (`entity/*.rs` ne la liste pas). Avant d'utiliser une carte avec une entité nouvellement lue, vérifier que `make test_scenarios` accepte un scénario `idle` dessus.

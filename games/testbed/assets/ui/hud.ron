@@ -1,4 +1,6 @@
 (
+    // T2.12 : police de tous les textes du HUD (la police par défaut n'a pas d'accents).
+    font: Some("fonts/FiraMono-Medium.ttf"),
     widgets: [
         // Health bar - bottom left, 200x12 pixels
         (
@@ -62,6 +64,36 @@
             size: None,
             color: Some("#ffffff"),
             font_size: Some(12.0),
+        ),
+        // T2.12 : « À TERRE 12 s » / « Réanimation 40 % », au centre de l'écran.
+        (
+            kind: Text(source: "downed", prefix: None),
+            anchor: Center,
+            offset: (0.0, -150.0),
+            size: Some((360.0, 70.0)),
+            color: Some("#e74c3c"),
+            font_size: Some(28.0),
+            background: Some("#000000a0"),
+        ),
+        // T2.12 : power-ups actifs, une ligne par power-up.
+        (
+            kind: Text(source: "powerups", prefix: None),
+            anchor: TopRight,
+            offset: (16.0, 34.0),
+            size: Some((220.0, 80.0)),
+            color: Some("#2ecc71"),
+            font_size: Some(16.0),
+            background: Some("#000000a0"),
+        ),
+        // T2.12 : prompt d'interaction (remplace l'ancien texte d'`interaction.rs`).
+        (
+            kind: Text(source: "prompt", prefix: Some("[H] ")),
+            anchor: BottomCenter,
+            offset: (0.0, 110.0),
+            size: Some((480.0, 24.0)),
+            color: Some("#f1c40f"),
+            font_size: Some(18.0),
+            background: Some("#000000a0"),
         ),
     ],
 )

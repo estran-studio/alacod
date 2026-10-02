@@ -38,10 +38,6 @@ use crate::{
     },
 };
 
-/// Component marker for the interaction prompt text UI
-#[derive(Component)]
-pub struct InteractionPromptText;
-
 /// Resource that configures window repair behavior
 #[derive(Resource, Clone, Debug, Hash, Serialize, Deserialize)]
 pub struct WindowRepairConfig {
@@ -261,8 +257,10 @@ pub fn interaction_detection_system(
     }
 }
 
-// Helper: compute squared distance (FixedWide) from a point to the surface of a collider
-fn point_to_collider_surface_distance_sq(
+// Helper: compute squared distance (FixedWide) from a point to the surface of a collider.
+// Aussi utilisé par le HUD (T2.12, source `prompt`) pour annoncer exactement l'interactable
+// que `interaction_detection_system` choisirait.
+pub(crate) fn point_to_collider_surface_distance_sq(
     point: fixed_math::FixedVec3,
     collider_pos: fixed_math::FixedVec3,
     collider: &crate::collider::Collider,
@@ -1108,9 +1106,6 @@ impl Plugin for InteractionPlugin {
                 .in_set(RollbackSystemSet::Interaction),
         );
 
-        // Setup UI on entering InGame state
-        app.add_systems(OnEnter(AppState::InGame), setup_interaction_ui);
-
         // Add visual feedback systems (outside GGRS schedule)
         app.add_systems(
             Update,
@@ -1179,34 +1174,12 @@ pub fn update_window_health_bars(
     }
 }
 
-/// Setup the interaction prompt UI text
-fn setup_interaction_ui(mut commands: Commands, asset_server: Res<AssetServer>) {
-    let font = asset_server.load("fonts/FiraMono-Medium.ttf");
-
-    commands.spawn((
-        InteractionPromptText,
-        Text::new(""),
-        TextFont {
-            font: font.into(),
-            font_size: FontSize::Px(12.0),
-            ..Default::default()
-        },
-        TextColor(Color::srgb(1.0, 1.0, 0.0)),
-        TextLayout::justify(Justify::Center),
-        Node {
-            position_type: PositionType::Absolute,
-            top: Val::Percent(40.0), // Position in the upper-middle of the screen
-            left: Val::Percent(50.0),
-            ..default()
-        },
-    ));
-}
-
-/// System that displays interaction prompts when player is near interactable
-/// Only shows prompts for local players (supports split-screen multiplayer)
+/// Cercle de portée autour de l'interactable proche d'un joueur local (porte, joueur à
+/// réanimer, fenêtre). Le texte du prompt (« Ouvrir — $750 », « Acheter … ») est dans le HUD
+/// depuis T2.12 (source `prompt`, `ui::hud`), qui couvre aussi armes et perks ; ce système
+/// ne dessine plus que les cercles.
 pub fn display_interaction_prompts(
     mut gizmos: Gizmos,
-    mut text_query: Query<&mut Text, With<InteractionPromptText>>,
     local_interactors: Query<
         &fixed_math::FixedTransform3D,
         (
@@ -1335,28 +1308,20 @@ pub fn display_interaction_prompts(
     }
 
     // Priority: door, then revive (T1.3), then window.
-    if let Some((_distance, cost, door_pos, interaction_range)) = closest_door_info {
+    if let Some((_distance, _cost, door_pos, interaction_range)) = closest_door_info {
         // Draw outer range circle in yellow with low opacity
         gizmos.circle(
             Isometry3d::from_translation(door_pos),
             interaction_range,
             Color::srgba(1.0, 1.0, 0.0, 0.3),
         );
-
-        // Update the text UI
-        if let Ok(mut text) = text_query.single_mut() {
-            text.0 = format!("Press H to open door (Cost: {})", cost);
-        }
     } else if let Some((_distance, revive_pos, interaction_range)) = closest_revive_info {
         gizmos.circle(
             Isometry3d::from_translation(revive_pos),
             interaction_range,
             Color::srgba(0.0, 0.6, 1.0, 0.3),
         );
-        if let Ok(mut text) = text_query.single_mut() {
-            text.0 = "Maintenez H pour réanimer".to_string();
-        }
-    } else if let Some((_distance, current_health, max_health, window_pos, interaction_range)) =
+    } else if let Some((_distance, _current, _max, window_pos, interaction_range)) =
         closest_window_info
     {
         // Draw outer range circle in green with low opacity for windows
@@ -1365,22 +1330,5 @@ pub fn display_interaction_prompts(
             interaction_range,
             Color::srgba(0.0, 1.0, 0.0, 0.3),
         );
-
-        // Update the text UI
-        if let Ok(mut text) = text_query.single_mut() {
-            if current_health < max_health {
-                text.0 = format!(
-                    "Press H to repair window ({}/{})",
-                    current_health, max_health
-                );
-            } else {
-                text.0 = format!("Window fully repaired ({}/{})", current_health, max_health);
-            }
-        }
-    } else {
-        // Clear the text if no interactable is in range for any local player
-        if let Ok(mut text) = text_query.single_mut() {
-            text.0.clear();
-        }
     }
 }
