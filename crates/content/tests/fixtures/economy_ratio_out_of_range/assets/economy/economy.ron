@@ -1,0 +1,8 @@
+// Fixture T2.8 : `refill_price_ratio` hors [0, 1] (une recharge coûterait plus cher que
+// l'arme) : LintErrorKind::OutOfRange (`lint::lint_economy`).
+(
+    kill_points: 60,
+    hit_points: 10,
+    repair_points: 10,
+    refill_price_ratio: "1.5",
+)

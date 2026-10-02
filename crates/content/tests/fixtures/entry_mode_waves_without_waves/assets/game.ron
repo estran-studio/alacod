@@ -1,0 +1,11 @@
+// Fixture T2.8 : `entry.mode: Waves` explicite sans aucun dossier de contenu `Wave` (règle
+// T2.4, `lint::lint_entry_point`) : LintErrorKind::BrokenReference.
+(
+    name: "fixture-entry-mode-waves-without-waves",
+    content_folders: [],
+    entry: (
+        start_map: "unused",
+        default_seed: 1,
+        mode: Some(Waves),
+    ),
+)

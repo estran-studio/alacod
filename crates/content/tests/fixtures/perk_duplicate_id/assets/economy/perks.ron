@@ -1,0 +1,13 @@
+// Fixture T2.8 : même id de perk deux fois dans `perks.ron` : RON (comme serde pour une `BTreeMap`) garderait silencieusement la seconde ; `registry::load_perks` les lit en liste pour rapporter LintErrorKind::DuplicateId.
+({
+    "juggernog": (
+        name: "Juggernog",
+        price: 2500,
+        modifiers: [(stat: MaxHealth, op: Mul, value: "2.0")],
+    ),
+    "juggernog": (
+        name: "Juggernog bis",
+        price: 3000,
+        modifiers: [(stat: MaxHealth, op: Mul, value: "3.0")],
+    ),
+})

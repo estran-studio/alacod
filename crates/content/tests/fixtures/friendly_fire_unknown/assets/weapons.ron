@@ -1,0 +1,14 @@
+// Fixture T2.8 : valeur inconnue de `friendly_fire` (enum fermé `FriendlyFire` : Never/Always/Cursed) : échoue au chargement RON, rapportée LintErrorKind::Parse avec le nom du champ.
+({
+    "rifle": (
+        config: (
+            name: "rifle",
+            default_firing_mode: "default",
+            ammo_type: Balle,
+            friendly_fire: Sometimes,
+            firing_modes: {
+                "default": (firing_rate: "5.0"),
+            },
+        ),
+    ),
+})

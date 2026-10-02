@@ -1,0 +1,10 @@
+(
+    name: "fixture-powerup-factor-non-positive",
+    content_folders: [
+        (path: "items", kind: "PowerUp"),
+    ],
+    entry: (
+        start_map: "unused",
+        default_seed: 1,
+    ),
+)

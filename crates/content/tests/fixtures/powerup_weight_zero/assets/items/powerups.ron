@@ -1,0 +1,12 @@
+// Fixture T2.8 : poids de tirage nul (`weight: 0`, jamais tiré) : LintErrorKind::OutOfRange (`lint::lint_powerups`). Scindée de l'ancienne `powerup_out_of_range` (T2.5), qui cumulait deux problèmes.
+(
+    drop_chance: "0.2",
+    powerups: {
+        "insta_kill": (
+            weight: 0,
+            pickup_range: "30.0",
+            lifetime_frames: 1800,
+            actions: [RefillAmmo],
+        ),
+    },
+)

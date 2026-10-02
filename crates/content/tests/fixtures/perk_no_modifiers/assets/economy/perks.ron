@@ -1,0 +1,4 @@
+// Fixture T2.8 : perk sans aucun modificateur (`modifiers: []`) : achat sans effet, LintErrorKind::OutOfRange (`lint::lint_perks`).
+({
+    "juggernog": (name: "Juggernog", price: 2500, modifiers: []),
+})

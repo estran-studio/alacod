@@ -1,0 +1,12 @@
+// Fixture T2.8 : durée de vie au sol nulle (`lifetime_frames: 0`, disparaît à l'apparition) : LintErrorKind::OutOfRange (`lint::lint_powerups`).
+(
+    drop_chance: "0.2",
+    powerups: {
+        "insta_kill": (
+            weight: 10,
+            pickup_range: "30.0",
+            lifetime_frames: 0,
+            actions: [RefillAmmo],
+        ),
+    },
+)

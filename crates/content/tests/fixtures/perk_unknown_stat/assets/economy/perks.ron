@@ -1,0 +1,8 @@
+// Fixture T2.8 : stat inconnue (`Bonheur`) : `StatId` n'accepte une stat hors liste que sous `Custom("...")`, une variante nue inconnue échoue au chargement RON, rapportée LintErrorKind::Parse avec le nom du champ.
+({
+    "juggernog": (
+        name: "Juggernog",
+        price: 2500,
+        modifiers: [(stat: Bonheur, op: Mul, value: "2.0")],
+    ),
+})

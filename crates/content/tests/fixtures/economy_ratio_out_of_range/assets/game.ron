@@ -1,0 +1,10 @@
+(
+    name: "fixture-economy-ratio-out-of-range",
+    content_folders: [
+        (path: "economy/economy.ron", kind: "Economy"),
+    ],
+    entry: (
+        start_map: "unused",
+        default_seed: 1,
+    ),
+)

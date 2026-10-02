@@ -9,15 +9,19 @@
 //! `alacod lint` et le rechargement à chaud (`crates/game/src/content_hot_reload.rs`)
 //! rapportent plusieurs problèmes en un seul passage.
 
+use serde::de::{self, Deserializer, MapAccess, Visitor};
 use serde::Deserialize;
 use std::collections::{BTreeMap, BTreeSet};
 use std::fmt;
+use std::marker::PhantomData;
 use std::path::{Path, PathBuf};
 
 use bevy::prelude::Resource;
 use bevy_fixed::fixed_math::Fixed;
 use sim_core::ammo::AmmoType;
+use sim_core::damage::FriendlyFire;
 use sim_core::kinds::{KindDecl, Kinds};
+use sim_core::modifier::ModifierOp;
 use sim_core::stats::StatId;
 
 use crate::lint::{LintError, LintErrorKind};
@@ -158,6 +162,19 @@ pub struct WeaponEntry {
     /// (`frames > 0`, `min_hits <= max_hits`). `None` : pas de `test:`, aucune règle à
     /// vérifier (l'arme obtient quand même un scénario généré, invariants seulement).
     pub test: Option<WeaponTestRange>,
+    /// Type de munition (T2.2), pour la règle « `Custom` au nom non vide » (T2.8).
+    pub ammo_type: AmmoType,
+    /// Sons référencés par `audio_config` (T2.8), pour la règle « fichier présent sous
+    /// `assets/` ». Dans l'ordre (mode, champ) : déterministe pour les messages.
+    pub sounds: Vec<SoundRef>,
+}
+
+/// Un chemin de son lu dans le contenu (T2.8) : `field` est le chemin du champ RON
+/// (`audio_config.modes.default.reloading`), `path` le fichier, relatif à `assets/`.
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub struct SoundRef {
+    pub field: String,
+    pub path: String,
 }
 
 #[derive(Debug, Clone)]
@@ -195,9 +212,9 @@ pub struct MapEntry {
     pub file: PathBuf,
 }
 
-/// T2.3, chantier C5 v1 : `games/<jeu>/assets/economy/economy.ron`. Pas de règle de lint
-/// dédiée (contrairement à `PerkEntry`) : tous les champs sont des compteurs de points ou un
-/// ratio, sans plage interdite documentée par la tâche.
+/// T2.3, chantier C5 v1 : `games/<jeu>/assets/economy/economy.ron`. Lint (T2.8,
+/// `lint::lint_economy`) : `refill_price_ratio` dans `[0, 1]` ; les compteurs de points
+/// (`u32`) n'ont pas de plage interdite.
 #[derive(Debug, Clone)]
 pub struct EconomyEntry {
     pub id: EconomyId,
@@ -209,22 +226,31 @@ pub struct EconomyEntry {
     pub refill_price_ratio: FixedField,
 }
 
-/// T2.3, chantier C5 v1 : une entrée de `games/<jeu>/assets/economy/perks.ron`. `stat`
-/// n'a pas besoin d'être gardé ici pour le lint : une référence à un `StatId` inconnu échoue
-/// déjà au chargement RON (`StatId` n'a pas de variante fourre-tout implicite, voir
-/// `PerkModifierSchema`), rapportée comme n'importe quelle autre erreur de parse.
+/// T2.3, chantier C5 v1 : une entrée de `games/<jeu>/assets/economy/perks.ron`. Un `StatId`
+/// inconnu dans `modifiers[].stat` échoue déjà au chargement RON (`StatId` n'a pas de
+/// variante fourre-tout implicite, voir `PerkModifierSchema`), rapporté comme erreur de
+/// parse avec le nom du champ (T2.8).
 #[derive(Debug, Clone)]
 pub struct PerkEntry {
     pub id: PerkId,
     pub file: PathBuf,
     pub price: u32,
+    /// T2.8 : pour les règles « au moins un modificateur » et « `Mul` > 0 ».
+    pub modifiers: Vec<PerkModifierEntry>,
 }
 
-/// T2.5, chantier C1 v0 : une entrée de `games/<jeu>/assets/items/powerups.ron`. `actions`
-/// n'a pas besoin d'être gardé ici pour le lint : une référence de `StatId` inconnue dans
-/// `actions[].stat` échoue déjà au chargement RON (`effects::Action` est le type réel, pas
-/// un mirroir — voir la doc de [`PowerUpEntrySchema`]), rapportée comme n'importe quelle
-/// autre erreur de parse.
+/// Un modificateur de perk (T2.8), mirroir de `game::economy::PerkModifierDef`.
+#[derive(Debug, Clone)]
+pub struct PerkModifierEntry {
+    pub stat: StatId,
+    pub op: ModifierOp,
+    pub value: FixedField,
+}
+
+/// T2.5, chantier C1 v0 : une entrée de `games/<jeu>/assets/items/powerups.ron`. Une
+/// référence de `StatId` inconnue dans `actions[].stat` échoue déjà au chargement RON
+/// (`effects::Action` est le type réel, pas un mirroir — voir la doc de
+/// [`PowerUpEntrySchema`]), rapportée comme n'importe quelle autre erreur de parse.
 #[derive(Debug, Clone)]
 pub struct PowerUpEntry {
     pub id: PowerUpId,
@@ -233,6 +259,12 @@ pub struct PowerUpEntry {
     /// règle « chance de drop » (probabilité globale qu'un drop ait lieu du tout, pas
     /// laquelle), voir [`Registry::powerup_drop_chance`].
     pub weight: u32,
+    /// T2.8 : portée de ramassage, pour la règle « > 0 ».
+    pub pickup_range: FixedField,
+    /// T2.8 : durée de vie au sol, pour la règle « > 0 ».
+    pub lifetime_frames: u32,
+    /// T2.8 : pour les règles « au moins une action », « `frames` > 0 », « `factor` > 0 ».
+    pub actions: Vec<effects::Action>,
 }
 
 /// Valeur racine de `items/powerups.ron` (T2.5) avec son fichier, pour un message de lint
@@ -471,6 +503,28 @@ struct WeaponsFileSchema(BTreeMap<String, WeaponEntrySchema>);
 #[derive(Deserialize)]
 struct WeaponEntrySchema {
     config: WeaponConfigSchema,
+    /// T2.8 : sons de l'arme. Lu par aucun type de `game` aujourd'hui (les sons joués
+    /// viennent de `ui/feedback.ron`), mais validé pour qu'un chemin cassé ne reste pas
+    /// invisible jusqu'au jour où il sera branché.
+    /// Pas d'`Option` : en RON, un `Option` exige `Some(...)` ; absent = aucun son.
+    #[serde(default)]
+    audio_config: WeaponAudioSchema,
+}
+
+#[derive(Deserialize, Default)]
+struct WeaponAudioSchema {
+    #[serde(default)]
+    modes: BTreeMap<String, WeaponAudioModeSchema>,
+}
+
+/// `String` (pas `Option<String>`, pour la même raison que `audio_config`) : un champ absent
+/// vaut `""`, ignoré par le lint.
+#[derive(Deserialize)]
+struct WeaponAudioModeSchema {
+    #[serde(default)]
+    reloading: String,
+    #[serde(default)]
+    firing: String,
 }
 
 #[derive(Deserialize)]
@@ -484,9 +538,16 @@ struct WeaponConfigSchema {
     /// sans `ammo_type` dans son RON échoue déjà à charger comme le type réel, ce mirroir se
     /// contente de reproduire la même erreur ici (`LintErrorKind::Parse`, fichier + message
     /// RON) plutôt que de la laisser silencieusement absente d'un `WeaponEntry` construit
-    /// avec des valeurs par défaut.
-    #[allow(dead_code)]
+    /// avec des valeurs par défaut. T2.8 : une variante inconnue est rapportée avec le nom
+    /// du champ (`de_ammo_type`), un `Custom("")` par `lint::lint_weapons`.
+    #[serde(deserialize_with = "de_ammo_type")]
     ammo_type: AmmoType,
+    /// T2.8 : mirroité seulement pour que le lint voie une valeur inconnue (enum fermé
+    /// `FriendlyFire`, `#[serde(default)]` = `Never` comme le type réel) ; aucune règle
+    /// sémantique dessus.
+    #[serde(default, deserialize_with = "de_friendly_fire")]
+    #[allow(dead_code)]
+    friendly_fire: FriendlyFire,
 }
 
 #[derive(Deserialize)]
@@ -528,6 +589,10 @@ struct MeleeWeaponConfigSchema {
     damage: FixedField,
     #[serde(default)]
     test: Option<WeaponTestSchema>,
+    /// T2.8 : voir `WeaponConfigSchema::friendly_fire`.
+    #[serde(default, deserialize_with = "de_friendly_fire")]
+    #[allow(dead_code)]
+    friendly_fire: FriendlyFire,
 }
 
 #[derive(Deserialize)]
@@ -576,25 +641,27 @@ fn default_refill_price_ratio() -> FixedField {
 }
 
 /// Mirroir de `game::economy::PerksConfig` (T2.3, chantier C5 v1) : juste assez pour le lint
-/// (`price > 0`, voir `lint::lint_perks`) — `modifiers[].stat` doit être déclaré pour que
-/// `ron::from_str` échoue sur un `StatId` inconnu (voir la doc de `PerkEntry`), `op`/`value`
-/// n'ont pas besoin d'être mirroités (aucune règle ne les inspecte, ignorés silencieusement
-/// comme tout champ non déclaré, voir la doc du module).
+/// (`price > 0`, au moins un modificateur, `Mul` > 0, voir `lint::lint_perks`). La table est
+/// lue en liste ([`KeyedEntries`], T2.8) : un id écrit deux fois dans le fichier est
+/// rapporté `DuplicateId` au lieu d'être écrasé en silence.
 #[derive(Deserialize)]
-struct PerksFileSchema(BTreeMap<String, PerkEntrySchema>);
+struct PerksFileSchema(KeyedEntries<PerkEntrySchema>);
 
 #[derive(Deserialize)]
 struct PerkEntrySchema {
     price: u32,
     #[serde(default)]
-    #[allow(dead_code)]
     modifiers: Vec<PerkModifierSchema>,
 }
 
+/// Mirroir de `game::economy::PerkModifierDef` (`value` en [`FixedField`] : même règle de
+/// chaîne que le type réel `Fixed`, message plus clair pour un littéral nu).
 #[derive(Deserialize)]
 struct PerkModifierSchema {
-    #[allow(dead_code)]
+    #[serde(deserialize_with = "de_stat")]
     stat: StatId,
+    op: ModifierOp,
+    value: FixedField,
 }
 
 /// Mirroir de `game::powerups::PowerUpsConfig` (T2.5, chantier C1 v0) : `drop_chance`
@@ -612,12 +679,74 @@ struct PowerUpsFileSchema {
 /// `StatId` inconnue dans une `TimedModifier` échoue donc au chargement RON exactement
 /// comme ailleurs dans le projet, sans règle de lint dédiée (voir la doc de
 /// [`PowerUpEntry`]).
+///
+/// `pickup_range`/`lifetime_frames` (T2.8) : obligatoires, comme dans le type réel
+/// `game::powerups::PowerUpDef` (un fichier qui les omet échoue au chargement du jeu ; le
+/// lint rapporte la même erreur plutôt que de laisser passer le fichier).
 #[derive(Deserialize)]
 struct PowerUpEntrySchema {
     weight: u32,
-    #[allow(dead_code)]
+    pickup_range: FixedField,
+    lifetime_frames: u32,
     #[serde(default)]
     actions: Vec<effects::Action>,
+}
+
+// ---------------------------------------------------------------------------------------
+// Aides de désérialisation (T2.8)
+// ---------------------------------------------------------------------------------------
+
+/// Désérialise `T` et préfixe une erreur par le nom du champ RON. Une variante inconnue
+/// d'un enum (`ammo_type: Laser`) donne sinon un message RON qui nomme le type
+/// (`AmmoType`) mais pas le champ ; avec ce préfixe, le message de lint nomme les deux.
+fn with_field_name<'de, D, T>(deserializer: D, field: &str) -> Result<T, D::Error>
+where
+    D: Deserializer<'de>,
+    T: Deserialize<'de>,
+{
+    T::deserialize(deserializer).map_err(|e| de::Error::custom(format!("champ {field} : {e}")))
+}
+
+fn de_ammo_type<'de, D: Deserializer<'de>>(d: D) -> Result<AmmoType, D::Error> {
+    with_field_name(d, "ammo_type")
+}
+
+fn de_friendly_fire<'de, D: Deserializer<'de>>(d: D) -> Result<FriendlyFire, D::Error> {
+    with_field_name(d, "friendly_fire")
+}
+
+fn de_stat<'de, D: Deserializer<'de>>(d: D) -> Result<StatId, D::Error> {
+    with_field_name(d, "stat")
+}
+
+/// Table RON `{ "id": valeur, ... }` lue en liste, dans l'ordre du fichier, **doublons
+/// compris** (T2.8). Une `BTreeMap` (comme `serde` le fait pour toute map) garderait la
+/// dernière valeur d'une clé répétée sans rien dire ; le chargeur, qui insère les entrées
+/// une à une dans le registre, rapporte ainsi le doublon comme `DuplicateId`.
+struct KeyedEntries<V>(Vec<(String, V)>);
+
+impl<'de, V: Deserialize<'de>> Deserialize<'de> for KeyedEntries<V> {
+    fn deserialize<D: Deserializer<'de>>(deserializer: D) -> Result<Self, D::Error> {
+        struct EntriesVisitor<V>(PhantomData<V>);
+
+        impl<'de, V: Deserialize<'de>> Visitor<'de> for EntriesVisitor<V> {
+            type Value = KeyedEntries<V>;
+
+            fn expecting(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+                write!(f, "une table {{ \"id\": (...), ... }}")
+            }
+
+            fn visit_map<A: MapAccess<'de>>(self, mut map: A) -> Result<Self::Value, A::Error> {
+                let mut entries = Vec::new();
+                while let Some(entry) = map.next_entry::<String, V>()? {
+                    entries.push(entry);
+                }
+                Ok(KeyedEntries(entries))
+            }
+        }
+
+        deserializer.deserialize_map(EntriesVisitor(PhantomData))
+    }
 }
 
 // ---------------------------------------------------------------------------------------
@@ -750,6 +879,17 @@ fn load_weapons(
                 .into_iter()
                 .map(|(mode, cfg)| (mode, cfg.firing_rate))
                 .collect();
+            let mut sounds = Vec::new();
+            for (mode, audio) in entry.audio_config.modes {
+                for (name, path) in [("reloading", audio.reloading), ("firing", audio.firing)] {
+                    if !path.is_empty() {
+                        sounds.push(SoundRef {
+                            field: format!("audio_config.modes.{mode}.{name}"),
+                            path,
+                        });
+                    }
+                }
+            }
             registry.weapons.insert(
                 id.clone(),
                 WeaponEntry {
@@ -757,6 +897,8 @@ fn load_weapons(
                     file: rel.clone(),
                     firing_rates,
                     test,
+                    ammo_type: entry.config.ammo_type,
+                    sounds,
                 },
             );
         }
@@ -999,7 +1141,7 @@ fn load_perks(
             }
         };
 
-        for (name, entry) in parsed.0 {
+        for (name, entry) in parsed.0 .0 {
             let id = PerkId::from(name);
             if let Some(existing) = registry.perks.get(&id) {
                 errors.push(LintError {
@@ -1012,12 +1154,22 @@ fn load_perks(
                 });
                 continue;
             }
+            let modifiers = entry
+                .modifiers
+                .into_iter()
+                .map(|m| PerkModifierEntry {
+                    stat: m.stat,
+                    op: m.op,
+                    value: m.value,
+                })
+                .collect();
             registry.perks.insert(
                 id.clone(),
                 PerkEntry {
                     id,
                     file: rel.clone(),
                     price: entry.price,
+                    modifiers,
                 },
             );
         }
@@ -1089,6 +1241,9 @@ fn load_powerups(
                     id,
                     file: rel.clone(),
                     weight: entry.weight,
+                    pickup_range: entry.pickup_range,
+                    lifetime_frames: entry.lifetime_frames,
+                    actions: entry.actions,
                 },
             );
         }

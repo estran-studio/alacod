@@ -1,7 +1,7 @@
 (
-    name: "fixture-powerup-out-of-range",
+    name: "fixture-ammo-type-empty-custom",
     content_folders: [
-        (path: "items", kind: "PowerUp"),
+        (path: "weapons.ron", kind: "Weapon"),
     ],
     entry: (
         start_map: "unused",

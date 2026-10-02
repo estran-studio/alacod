@@ -6,6 +6,8 @@
     powerups: {
         "insta_kill": (
             weight: 10,
+            pickup_range: "30.0",
+            lifetime_frames: 1800,
             actions: [
                 TimedModifier(stat: PasUneStatConnue, op: Set, value: "1.0", frames: 60),
             ],

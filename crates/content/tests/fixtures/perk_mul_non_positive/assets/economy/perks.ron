@@ -1,0 +1,8 @@
+// Fixture T2.8 : `op: Mul` avec `value <= 0` (annulerait ou inverserait la stat) : LintErrorKind::OutOfRange (`lint::lint_perks`).
+({
+    "juggernog": (
+        name: "Juggernog",
+        price: 2500,
+        modifiers: [(stat: MaxHealth, op: Mul, value: "0.0")],
+    ),
+})

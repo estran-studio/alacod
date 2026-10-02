@@ -3,7 +3,9 @@
     powerups: {
         "insta_kill": (
             weight: 5,
-            actions: [],
+            pickup_range: "30.0",
+            lifetime_frames: 1800,
+            actions: [RefillAmmo],
         ),
     },
 )

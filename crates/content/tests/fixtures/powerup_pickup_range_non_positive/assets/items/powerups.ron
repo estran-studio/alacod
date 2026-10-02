@@ -1,0 +1,12 @@
+// Fixture T2.8 : portée de ramassage nulle (`pickup_range: "0.0"`, jamais ramassable) : LintErrorKind::OutOfRange (`lint::lint_powerups`).
+(
+    drop_chance: "0.2",
+    powerups: {
+        "insta_kill": (
+            weight: 10,
+            pickup_range: "0.0",
+            lifetime_frames: 1800,
+            actions: [RefillAmmo],
+        ),
+    },
+)

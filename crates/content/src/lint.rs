@@ -8,6 +8,8 @@
 //! les deux listes.
 
 use bevy_fixed::fixed_math::Fixed;
+use sim_core::ammo::AmmoType;
+use sim_core::modifier::ModifierOp;
 
 use crate::manifest::GameManifest;
 use crate::registry::{self, Registry};
@@ -42,7 +44,9 @@ pub struct LintError {
 }
 
 /// Valide les références croisées et les plages de valeurs du contenu déjà chargé dans
-/// `registry`. Ne relit rien sur disque : opère uniquement sur les entrées déjà parsées.
+/// `registry`. Ne relit aucun fichier de contenu : opère sur les entrées déjà parsées. Seule
+/// exception (T2.8) : l'**existence** des sons référencés par une arme
+/// (`audio_config`), vérifiée sous `registry.game_dir/assets/`.
 pub fn run(registry: &Registry, manifest: &GameManifest) -> Vec<LintError> {
     let mut errors = Vec::new();
 
@@ -50,6 +54,7 @@ pub fn run(registry: &Registry, manifest: &GameManifest) -> Vec<LintError> {
     lint_weapons(registry, &mut errors);
     lint_melee_weapons(registry, &mut errors);
     lint_waves(registry, &mut errors);
+    lint_economy(registry, &mut errors);
     lint_perks(registry, &mut errors);
     lint_powerups(registry, &mut errors);
     lint_entry_point(registry, manifest, &mut errors);
@@ -183,7 +188,37 @@ fn lint_characters(registry: &Registry, errors: &mut Vec<LintError>) {
 }
 
 fn lint_weapons(registry: &Registry, errors: &mut Vec<LintError>) {
+    let assets_dir = GameManifest::assets_dir(&registry.game_dir);
     for weapon in registry.weapons.values() {
+        // T2.8 : `Custom` est la porte d'un type de munition propre au jeu ; un nom vide (ou
+        // fait d'espaces) ne désigne rien et partagerait la réserve de toute autre arme
+        // `Custom("")` par accident.
+        if let AmmoType::Custom(name) = &weapon.ammo_type {
+            if name.trim().is_empty() {
+                errors.push(LintError {
+                    kind: LintErrorKind::OutOfRange,
+                    file: weapon.file.display().to_string(),
+                    message: format!(
+                        "arme « {} » : champ ammo_type = Custom({name:?}) : le nom d'un type de munition personnalisé ne doit pas être vide",
+                        weapon.id
+                    ),
+                });
+            }
+        }
+        // T2.8 : un son d'arme doit exister sous `assets/` (référence vers un fichier, pas
+        // vers un id de contenu).
+        for sound in &weapon.sounds {
+            if !assets_dir.join(&sound.path).is_file() {
+                errors.push(LintError {
+                    kind: LintErrorKind::BrokenReference,
+                    file: weapon.file.display().to_string(),
+                    message: format!(
+                        "arme « {} » : champ {} = « {} » : fichier absent de assets/",
+                        weapon.id, sound.field, sound.path
+                    ),
+                });
+            }
+        }
         for (mode, rate) in &weapon.firing_rates {
             if rate.get() <= Fixed::ZERO {
                 errors.push(LintError {
@@ -278,13 +313,62 @@ fn lint_waves(registry: &Registry, errors: &mut Vec<LintError>) {
 /// inconnu dans `modifiers[].stat` échoue déjà au chargement RON
 /// (`registry::PerkModifierSchema`, voir sa doc), rapporté comme `LintErrorKind::Parse` par
 /// `Registry::build` avant même d'atteindre ce lint.
+///
+/// T2.8 : au moins un modificateur (un perk sans effet se paie pour rien), et `value > 0`
+/// pour un `op: Mul` (0 annulerait la stat, une valeur négative l'inverserait). Les autres
+/// opérations n'ont pas de plage interdite (`Add`/`Pct` négatifs = malus voulu, `Set`
+/// arbitraire). Un id écrit deux fois dans `perks.ron` est rapporté au chargement
+/// (`DuplicateId`, voir `registry::KeyedEntries`).
 fn lint_perks(registry: &Registry, errors: &mut Vec<LintError>) {
     for perk in registry.perks.values() {
+        let file = perk.file.display().to_string();
         if perk.price == 0 {
             errors.push(LintError {
                 kind: LintErrorKind::OutOfRange,
-                file: perk.file.display().to_string(),
+                file: file.clone(),
                 message: format!("perk « {} » : champ price = 0 : doit être > 0", perk.id),
+            });
+        }
+        if perk.modifiers.is_empty() {
+            errors.push(LintError {
+                kind: LintErrorKind::OutOfRange,
+                file: file.clone(),
+                message: format!(
+                    "perk « {} » : champ modifiers vide : doit contenir au moins un modificateur",
+                    perk.id
+                ),
+            });
+        }
+        for (index, modifier) in perk.modifiers.iter().enumerate() {
+            let value = modifier.value.get();
+            if modifier.op == ModifierOp::Mul && value <= Fixed::ZERO {
+                errors.push(LintError {
+                    kind: LintErrorKind::OutOfRange,
+                    file: file.clone(),
+                    message: format!(
+                        "perk « {} » : modifiers[{index}] (stat {:?}, op Mul) : champ value = {value} : doit être > 0",
+                        perk.id, modifier.stat
+                    ),
+                });
+            }
+        }
+    }
+}
+
+/// T2.8 (dette T2.3) : `refill_price_ratio` dans `[0, 1]` : au-delà de 1, recharger une
+/// arme murale déjà possédée coûterait plus cher que l'acheter ; négatif, le prix
+/// (`EconomyConfig::refill_price`, arrondi en `u32`) n'aurait pas de sens.
+fn lint_economy(registry: &Registry, errors: &mut Vec<LintError>) {
+    for economy in registry.economy.values() {
+        let ratio = economy.refill_price_ratio.get();
+        if ratio < Fixed::ZERO || ratio > Fixed::from_num(1.0) {
+            errors.push(LintError {
+                kind: LintErrorKind::OutOfRange,
+                file: economy.file.display().to_string(),
+                message: format!(
+                    "économie « {} » : champ refill_price_ratio = {ratio} : doit être dans [0, 1]",
+                    economy.id
+                ),
             });
         }
     }
@@ -307,15 +391,68 @@ fn lint_powerups(registry: &Registry, errors: &mut Vec<LintError>) {
     }
 
     for powerup in registry.powerups.values() {
-        if powerup.weight == 0 {
+        let file = powerup.file.display().to_string();
+        let mut push = |message: String| {
             errors.push(LintError {
                 kind: LintErrorKind::OutOfRange,
-                file: powerup.file.display().to_string(),
-                message: format!(
-                    "power-up « {} » : champ weight = 0 : doit être > 0",
+                file: file.clone(),
+                message,
+            })
+        };
+        if powerup.weight == 0 {
+            push(format!(
+                "power-up « {} » : champ weight = 0 : doit être > 0",
+                powerup.id
+            ));
+        }
+        // T2.8 : un power-up qui disparaît à l'apparition, ou qu'on ne peut pas ramasser,
+        // n'existe pas pour le joueur.
+        if powerup.lifetime_frames == 0 {
+            push(format!(
+                "power-up « {} » : champ lifetime_frames = 0 : doit être > 0",
+                powerup.id
+            ));
+        }
+        let pickup_range = powerup.pickup_range.get();
+        if pickup_range <= Fixed::ZERO {
+            push(format!(
+                "power-up « {} » : champ pickup_range = {pickup_range} : doit être > 0",
+                powerup.id
+            ));
+        }
+        // T2.8 : un ramassage sans action n'a aucun effet.
+        if powerup.actions.is_empty() {
+            push(format!(
+                "power-up « {} » : champ actions vide : doit contenir au moins une action",
+                powerup.id
+            ));
+        }
+        for (index, action) in powerup.actions.iter().enumerate() {
+            match action {
+                // `frames: 0` : modificateur posé avec `until = frame de ramassage`, expiré
+                // aussitôt (voir `effects::Action::as_modifier`).
+                effects::Action::TimedModifier { frames: 0, .. } => push(format!(
+                    "power-up « {} » : actions[{index}] (TimedModifier) : champ frames = 0 : doit être > 0",
                     powerup.id
-                ),
-            });
+                )),
+                effects::Action::CurrencyMultiplier { factor, frames } => {
+                    if *frames == 0 {
+                        push(format!(
+                            "power-up « {} » : actions[{index}] (CurrencyMultiplier) : champ frames = 0 : doit être > 0",
+                            powerup.id
+                        ));
+                    }
+                    // `ModifierOp::Mul` sur les points gagnés : 0 les annulerait, une valeur
+                    // négative les retirerait.
+                    if *factor <= Fixed::ZERO {
+                        push(format!(
+                            "power-up « {} » : actions[{index}] (CurrencyMultiplier) : champ factor = {factor} : doit être > 0",
+                            powerup.id
+                        ));
+                    }
+                }
+                _ => {}
+            }
         }
     }
 }
