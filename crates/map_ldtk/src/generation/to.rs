@@ -1,3 +1,4 @@
+use bevy::log::debug;
 use std::rc::Rc;
 
 use bevy::math::{IVec2, Vec2};
@@ -247,7 +248,7 @@ impl IMapGenerator for GeneratedMap {
     ) {
         let mut generated_room = GeneratedRoom::create(self.ldtk_json.clone(), room);
 
-        println!(
+        debug!(
             "adding room id={} type={:?} from_level={} position={} \n property={:?}",
             room.level_iid,
             room.level_def.level_type,
@@ -272,7 +273,7 @@ impl IMapGenerator for GeneratedMap {
                 .find(|r| r.level.iid == connected_to.level_iid)
                 .unwrap();
 
-            println!("  connecting my side={:?} index={} with side={:?} index={} of room id={} from_level={} position={}x{}",
+            debug!("  connecting my side={:?} index={} with side={:?} index={} of room id={} from_level={} position={}x{}",
                connection_used.side, connection_used.index, connected_to.side, connected_to.index, connected_to.level_iid,
                connected_to.level_id, linked_room.level.world_x, linked_room.level.world_y,
             );
@@ -284,13 +285,11 @@ impl IMapGenerator for GeneratedMap {
             })
         }
 
-        println!();
-
         self.generated_rooms.push(generated_room);
     }
 
     fn add_doors(&mut self, rng: &mut RollbackRng, doors: &Vec<(EntityLocation, DoorConfig)>) {
-        println!("Adding {} doors to map", doors.len());
+        debug!("Adding {} doors to map", doors.len());
 
         for (location, door) in doors.iter() {
             // Determine if door is horizontal or vertical based on size
@@ -311,7 +310,7 @@ impl IMapGenerator for GeneratedMap {
                 "unpaired".to_string()
             };
 
-            println!(
+            debug!(
                 "  Door at ({}, {}) in level {}: cost={}, electrify={}, interactable={}, {}",
                 location.position.0,
                 location.position.1,
@@ -356,7 +355,7 @@ impl IMapGenerator for GeneratedMap {
             self.add_entity_to_level(rng, location, door_type, fields);
         }
 
-        println!("Door generation complete\n");
+        debug!("Door generation complete\n");
     }
 
     fn add_windows(
@@ -400,10 +399,10 @@ impl IMapGenerator for GeneratedMap {
         rng: &mut RollbackRng,
         enemy_spawns: &Vec<(EntityLocation, EnemySpawnConfig)>,
     ) {
-        println!("Adding {} enemy spawns to map", enemy_spawns.len());
+        debug!("Adding {} enemy spawns to map", enemy_spawns.len());
 
         for (location, _spawn) in enemy_spawns.iter() {
-            println!(
+            debug!(
                 "  Enemy spawn at ({}, {}) in level {}",
                 location.position.0, location.position.1, location.level_iid
             );
@@ -416,7 +415,7 @@ impl IMapGenerator for GeneratedMap {
             );
         }
 
-        println!("Enemy spawn generation complete\n");
+        debug!("Enemy spawn generation complete\n");
     }
 
     /// T2.9 (testbed) : contrairement aux portes/fenêtres (config recalculée ou vide),

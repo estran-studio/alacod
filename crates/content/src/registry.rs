@@ -275,6 +275,16 @@ pub struct PowerUpDropChanceEntry {
     pub file: PathBuf,
 }
 
+/// Paramètres de présentation de `ui/feedback.ron`, lus par le lint hors simulation.
+#[derive(Debug, Clone)]
+pub struct FeedbackEntry {
+    pub file: PathBuf,
+    pub hit_flash_frames: u32,
+    pub shake_frames: u32,
+    pub shake_amplitude: f32,
+    pub sounds: BTreeMap<String, String>,
+}
+
 /// Registre de contenu d'un jeu, chargé depuis son manifeste (`GameManifest`). Voir le
 /// module pour les garanties (BTreeMap partout, chargement "best effort").
 #[derive(Resource, Debug, Clone, Default)]
@@ -299,10 +309,12 @@ pub struct Registry {
     /// `Economy`) : le dernier traité gagne silencieusement, comme `wave_config`/
     /// `economy_config` dans `game::global_asset` (`.values().next()`).
     pub powerup_drop_chance: Option<PowerUpDropChanceEntry>,
-    /// Fichiers `Ui`/`Camera` validés (RON syntaxiquement correct). Pas de table typée par
+    /// Fichiers `Ui`/`Camera` validés (RON syntaxiquement correct, feedback typé). Pas de table typée par
     /// id : rien ne les référence par id aujourd'hui (décision T1.5, voir le rapport de la
     /// tâche).
     pub ui_files: Vec<PathBuf>,
+    /// Réglages typés du feedback (T3.4) parmi les fichiers Ui.
+    pub feedback: Vec<FeedbackEntry>,
     pub camera_files: Vec<PathBuf>,
 }
 
@@ -367,7 +379,7 @@ impl Registry {
                 "MeleeWeapon" => load_melee_weapons(&assets_dir, decl, &mut registry, &mut errors),
                 "Wave" => load_waves(&assets_dir, decl, &mut registry, &mut errors),
                 "Map" => load_maps(&assets_dir, decl, &mut registry, &mut errors),
-                "Ui" => load_generic_ron(&assets_dir, decl, &mut registry.ui_files, &mut errors),
+                "Ui" => load_ui(&assets_dir, decl, &mut registry, &mut errors),
                 "Camera" => {
                     load_generic_ron(&assets_dir, decl, &mut registry.camera_files, &mut errors)
                 }
@@ -498,7 +510,7 @@ struct HealthSchema {
 }
 
 #[derive(Deserialize)]
-struct WeaponsFileSchema(BTreeMap<String, WeaponEntrySchema>);
+struct WeaponsFileSchema(KeyedEntries<WeaponEntrySchema>);
 
 #[derive(Deserialize)]
 struct WeaponEntrySchema {
@@ -577,7 +589,7 @@ impl From<&WeaponTestSchema> for WeaponTestRange {
 }
 
 #[derive(Deserialize)]
-struct MeleeWeaponsFileSchema(BTreeMap<String, MeleeWeaponEntrySchema>);
+struct MeleeWeaponsFileSchema(KeyedEntries<MeleeWeaponEntrySchema>);
 
 #[derive(Deserialize)]
 struct MeleeWeaponEntrySchema {
@@ -670,7 +682,7 @@ struct PerkModifierSchema {
 #[derive(Deserialize)]
 struct PowerUpsFileSchema {
     drop_chance: FixedField,
-    powerups: BTreeMap<String, PowerUpEntrySchema>,
+    powerups: KeyedEntries<PowerUpEntrySchema>,
 }
 
 /// `actions` réutilise le type réel `effects::Action` (pas un mirroir) : comme `StatId`
@@ -690,6 +702,26 @@ struct PowerUpEntrySchema {
     lifetime_frames: u32,
     #[serde(default)]
     actions: Vec<effects::Action>,
+}
+
+#[derive(Deserialize)]
+struct FeedbackFileSchema {
+    hit_flash: HitFlashSchema,
+    shake: ShakeSchema,
+    sounds: BTreeMap<String, String>,
+}
+
+#[derive(Deserialize)]
+struct HitFlashSchema {
+    frames: u32,
+    #[serde(rename = "color")]
+    _color: (f32, f32, f32),
+}
+
+#[derive(Deserialize)]
+struct ShakeSchema {
+    frames: u32,
+    amplitude: f32,
 }
 
 // ---------------------------------------------------------------------------------------
@@ -859,7 +891,7 @@ fn load_weapons(
             }
         };
 
-        for (name, entry) in parsed.0 {
+        for (name, entry) in parsed.0 .0 {
             let id = WeaponId::from(name);
             if let Some(existing) = registry.weapons.get(&id) {
                 errors.push(LintError {
@@ -939,7 +971,7 @@ fn load_melee_weapons(
             }
         };
 
-        for (name, entry) in parsed.0 {
+        for (name, entry) in parsed.0 .0 {
             let id = MeleeWeaponId::from(name);
             if let Some(existing) = registry.melee_weapons.get(&id) {
                 errors.push(LintError {
@@ -1222,7 +1254,7 @@ fn load_powerups(
             file: rel.clone(),
         });
 
-        for (name, entry) in parsed.powerups {
+        for (name, entry) in parsed.powerups.0 {
             let id = PowerUpId::from(name);
             if let Some(existing) = registry.powerups.get(&id) {
                 errors.push(LintError {
@@ -1281,7 +1313,54 @@ fn load_maps(
     }
 }
 
-/// `Ui`/`Camera` : seule la validité syntaxique RON est vérifiée (pas de schéma typé,
+/// Les réglages `feedback.ron` déclarés comme Ui ont un schéma typé (T3.4).
+/// Les autres fichiers Ui gardent la validation syntaxique.
+fn load_ui(
+    assets_dir: &Path,
+    decl: &ContentFolderDecl,
+    registry: &mut Registry,
+    errors: &mut Vec<LintError>,
+) {
+    let files = match discover_files(assets_dir, decl, "ron") {
+        Ok(files) => files,
+        Err(error) => {
+            errors.push(error);
+            return;
+        }
+    };
+    for rel in files {
+        let text = match read_file(assets_dir, &rel) {
+            Ok(text) => text,
+            Err(error) => {
+                errors.push(error);
+                continue;
+            }
+        };
+        let parsed = if rel.file_name().and_then(|name| name.to_str()) == Some("feedback.ron") {
+            ron::from_str::<FeedbackFileSchema>(&text).map(|config| {
+                registry.feedback.push(FeedbackEntry {
+                    file: rel.clone(),
+                    hit_flash_frames: config.hit_flash.frames,
+                    shake_frames: config.shake.frames,
+                    shake_amplitude: config.shake.amplitude,
+                    sounds: config.sounds,
+                });
+            })
+        } else {
+            ron::from_str::<ron::Value>(&text).map(|_| ())
+        };
+        match parsed {
+            Ok(()) => registry.ui_files.push(rel),
+            Err(error) => errors.push(LintError {
+                kind: LintErrorKind::Parse,
+                file: rel.display().to_string(),
+                message: format!("erreur RON : {error}"),
+            }),
+        }
+    }
+}
+
+/// `Camera` : seule la validité syntaxique RON est vérifiée (pas de schéma typé,
 /// ces fichiers ne sont référencés par id par aucun autre contenu aujourd'hui).
 fn load_generic_ron(
     assets_dir: &Path,

@@ -1,3 +1,4 @@
+use bevy::log::debug;
 use std::rc::Rc;
 
 use bevy_ecs_ldtk::ldtk::{FieldValue, LayerInstance, LdtkJson, Level};
@@ -340,7 +341,7 @@ pub fn from_map(map_json: &LdtkJson, config: MapGenerationConfig) -> MapGenerati
         first_level.px_hei / tile_size.1,
     );
 
-    println!("starting level generation with config \nseed={} \ntilse_size={}x{} \nlevel_size={}x{}\nmap_size={}x{}", 
+    debug!("starting level generation with config \nseed={} \ntilse_size={}x{} \nlevel_size={}x{}\nmap_size={}x{}",
         config.seed, tile_size.0, tile_size.1, level_size.0, level_size.1,
         config.max_width, config.max_heigth
     );

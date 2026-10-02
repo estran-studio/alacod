@@ -42,7 +42,7 @@ use game::replay::{
 };
 use game::weapons::melee::{self, MeleeWeapon, MeleeWeaponsConfig};
 use game::weapons::{spawn_weapon_for_player, Weapon, WeaponInventory, WeaponsConfig};
-use utils::net_id::GgrsNetIdFactory;
+use utils::net_id::{GgrsNetId, GgrsNetIdFactory};
 
 /// Mismatches de synctest : le premier seulement (GGRS répète ensuite le même à chaque
 /// frame et n'avance plus), avec les frames qu'il incrimine.
@@ -103,6 +103,9 @@ pub struct ScenarioOutcome {
     pub events: Vec<GameEvent>,
     /// Métriques de performance.
     pub metrics: Metrics,
+    /// Compteurs de coups par entité encore présente à la dernière frame (`HitCount`).
+    /// Lecture hors simulation, pour le tableau du générateur (une cible dans son arène).
+    pub entity_hits: BTreeMap<usize, u32>,
 }
 
 /// Dossier racine du jeu (`games/<jeu>`), pour `content::load_and_lint` (T1.5).
@@ -842,7 +845,15 @@ pub fn run_with_options<F: FnOnce(&mut App)>(
         players_alive,
     };
 
+    let world = app.world_mut();
+    let entity_hits = world
+        .query_filtered::<(&GgrsNetId, &game::character::health::HitCount), With<bevy_ggrs::Rollback>>()
+        .iter(world)
+        .map(|(net_id, hits)| (net_id.0, hits.0))
+        .collect();
+
     ScenarioOutcome {
+        entity_hits,
         trace,
         full_trace,
         failures,

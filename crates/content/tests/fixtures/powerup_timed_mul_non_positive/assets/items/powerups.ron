@@ -1,0 +1,5 @@
+// T3.4 : un Mul temporaire doit être strictement positif.
+(drop_chance: "0.2", powerups: {
+    "slow": (weight: 10, pickup_range: "30.0", lifetime_frames: 1800,
+        actions: [TimedModifier(stat: MoveSpeed, op: Mul, value: "0.0", frames: 1800)]),
+})

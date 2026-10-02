@@ -25,5 +25,6 @@
     entry: (
         start_map: "testbed/arena.ldtk",
         default_seed: 123456,
+        mode: Sandbox,
     ),
 )

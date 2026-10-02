@@ -1,0 +1,5 @@
+(
+    name: "fixture-powerup_timed_mul_non_positive",
+    content_folders: [(path: "items", kind: "PowerUp")],
+    entry: (start_map: "unused", default_seed: 1),
+)

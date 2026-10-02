@@ -53,6 +53,14 @@ fn false_weapon_test_fails_with_expected_message() {
         outcome.failures
     );
 
+    // La colonne « coups » lit le même compteur que l'attente EntityHits.
+    let hits = outcome.entity_hits[&target_net_id];
+    assert!(hits > 0, "aucun coup observé sur la cible");
+    assert!(outcome
+        .failures
+        .iter()
+        .any(|f| f.contains(&format!("{hits} coups reçus < min 10000"))));
+
     // Ce test ne construit le scénario qu'en mémoire : rien n'a été écrit sous
     // `tests/scenarios/generated/` par cet appel (`alacod-gen`, pas `generate::build_scenario`,
     // est seul responsable d'écrire des fichiers).

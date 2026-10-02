@@ -263,3 +263,133 @@ fn zombies_and_testbed_lint_without_error() {
         );
     }
 }
+
+#[test]
+fn weapons_duplicate_key_fixture_reports_repeated_key() {
+    let (_, _, errors) = load_and_lint(&fixture_dir("weapons_duplicate_key")).unwrap();
+    assert_has_error(&errors, LintErrorKind::DuplicateId, "rifle");
+}
+
+#[test]
+fn melee_duplicate_key_fixture_reports_repeated_key() {
+    let (_, _, errors) = load_and_lint(&fixture_dir("melee_duplicate_key")).unwrap();
+    assert_has_error(&errors, LintErrorKind::DuplicateId, "club");
+}
+
+#[test]
+fn powerups_duplicate_key_fixture_reports_error() {
+    let (_, _, errors) = load_and_lint(&fixture_dir("powerups_duplicate_key")).unwrap();
+    assert_has_error(&errors, LintErrorKind::DuplicateId, "max_ammo");
+}
+
+#[test]
+fn powerup_timed_mul_non_positive_fixture_reports_error() {
+    let (mut registry, manifest, errors) =
+        load_and_lint(&fixture_dir("powerup_timed_mul_non_positive")).unwrap();
+    assert_has_error(&errors, LintErrorKind::OutOfRange, "value");
+    use sim_core::modifier::ModifierOp;
+    for (op, value, invalid) in [
+        (ModifierOp::Mul, "-1.0", true),
+        (ModifierOp::Mul, "0.0", true),
+        (ModifierOp::Mul, "1.0", false),
+        (ModifierOp::Set, "0.0", false),
+        (ModifierOp::Add, "-1.0", false),
+        (ModifierOp::Pct, "-0.5", false),
+    ] {
+        let powerup = registry.powerups.values_mut().next().unwrap();
+        powerup.actions = vec![effects::Action::TimedModifier {
+            stat: sim_core::stats::StatId::MoveSpeed,
+            op,
+            value: value.parse().unwrap(),
+            frames: 1800,
+        }];
+        let errors = content::lint::run(&registry, &manifest);
+        assert_eq!(
+            errors.iter().any(|e| e.kind == LintErrorKind::OutOfRange),
+            invalid,
+            "{op:?} {value}: {errors:#?}"
+        );
+    }
+}
+
+#[test]
+fn feedback_frames_zero_fixture_reports_error() {
+    let (_, _, errors) = load_and_lint(&fixture_dir("feedback_frames_zero")).unwrap();
+    assert_has_error(&errors, LintErrorKind::OutOfRange, "hit_flash.frames");
+    assert_has_error(&errors, LintErrorKind::OutOfRange, "shake.frames");
+}
+
+#[test]
+fn feedback_amplitude_negative_fixture_reports_error() {
+    let (mut registry, manifest, errors) =
+        load_and_lint(&fixture_dir("feedback_amplitude_negative")).unwrap();
+    assert_has_error(&errors, LintErrorKind::OutOfRange, "amplitude");
+    for amplitude in [0.0, 1.0] {
+        registry.feedback[0].shake_amplitude = amplitude;
+        let errors = content::lint::run(&registry, &manifest);
+        assert!(
+            !errors.iter().any(|e| e.kind == LintErrorKind::OutOfRange),
+            "{errors:#?}"
+        );
+    }
+}
+
+#[test]
+fn feedback_missing_sound_fixture_reports_error() {
+    let (_, _, errors) = load_and_lint(&fixture_dir("feedback_missing_sound")).unwrap();
+    assert_has_error(&errors, LintErrorKind::BrokenReference, "sounds/absent.ogg");
+    assert!(!errors
+        .iter()
+        .any(|e| e.message.contains("sounds/present.ogg")));
+}
+
+#[test]
+fn starting_weapons_exceed_slots_fixture_reports_error() {
+    let (mut registry, manifest, errors) =
+        load_and_lint(&fixture_dir("starting_weapons_exceed_slots")).unwrap();
+    assert_has_error(&errors, LintErrorKind::OutOfRange, "weapon_slots");
+    for slots in [3, 4] {
+        registry
+            .characters
+            .values_mut()
+            .next()
+            .unwrap()
+            .weapon_slots = slots;
+        let errors = content::lint::run(&registry, &manifest);
+        assert!(
+            !errors.iter().any(|e| e.kind == LintErrorKind::OutOfRange),
+            "{errors:#?}"
+        );
+    }
+}
+
+/// T3.4 : exactement l'erreur visée par fixture, en plus du start_map commun.
+#[test]
+fn t3_4_fixtures_have_a_single_rule_failure() {
+    for (name, kind, count) in [
+        ("weapons_duplicate_key", LintErrorKind::DuplicateId, 1),
+        ("melee_duplicate_key", LintErrorKind::DuplicateId, 1),
+        ("powerups_duplicate_key", LintErrorKind::DuplicateId, 1),
+        (
+            "powerup_timed_mul_non_positive",
+            LintErrorKind::OutOfRange,
+            1,
+        ),
+        ("feedback_frames_zero", LintErrorKind::OutOfRange, 2),
+        ("feedback_amplitude_negative", LintErrorKind::OutOfRange, 1),
+        ("feedback_missing_sound", LintErrorKind::BrokenReference, 1),
+        (
+            "starting_weapons_exceed_slots",
+            LintErrorKind::OutOfRange,
+            1,
+        ),
+    ] {
+        let (_, _, errors) = load_and_lint(&fixture_dir(name)).unwrap();
+        let others: Vec<_> = errors
+            .iter()
+            .filter(|e| !e.message.contains("entry.start_map"))
+            .collect();
+        assert_eq!(others.len(), count, "{name}: {errors:#?}");
+        assert!(others.iter().all(|e| e.kind == kind), "{name}: {errors:#?}");
+    }
+}

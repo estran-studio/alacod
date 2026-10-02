@@ -242,7 +242,10 @@ fn spawn_weapon_locations_when_map_loaded(
             .then_with(|| a_loc.weapon.cmp(&b_loc.weapon))
     });
 
-    info!("Map is loaded with {} weapon locations", spawns.len());
+    info!(
+        "Carte chargée : {} emplacements d’armes dans les copies de gabarits de salles",
+        spawns.len()
+    );
 
     let Some(weapons_config) = weapons_asset.get(&global_assets.weapons) else {
         return;

@@ -1,0 +1,5 @@
+(
+    name: "fixture-melee-duplicate-key",
+    content_folders: [(path: "melee_weapons.ron", kind: "MeleeWeapon")],
+    entry: (start_map: "unused", default_seed: 1),
+)

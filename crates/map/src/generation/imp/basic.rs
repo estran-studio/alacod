@@ -1,3 +1,4 @@
+use bevy::log::debug;
 use std::rc::Rc;
 
 use crate::{
@@ -111,7 +112,7 @@ impl BasicMapGeneration {
     ) -> Option<(Room, RoomConnection, RoomConnection)> {
         if self.context.config.max_room > 0 && self.map.rooms.len() >= self.context.config.max_room
         {
-            println!(
+            debug!(
                 "max room stopping generation {} {}",
                 self.map.rooms.len(),
                 self.context.config.max_room
@@ -121,7 +122,7 @@ impl BasicMapGeneration {
 
         loop {
             if self.map.last_generated_room_index.is_none() {
-                println!("no room mark to continue generation");
+                debug!("no room mark to continue generation");
                 return None;
             }
 
@@ -147,7 +148,7 @@ impl BasicMapGeneration {
                 }
 
                 if self.map.rooms_possible.is_empty() {
-                    println!("no more room_possible stopping generation");
+                    debug!("no more room_possible stopping generation");
                     return None;
                 }
 
@@ -178,7 +179,7 @@ impl BasicMapGeneration {
                         .get_mut(connection_def.index)
                         .unwrap()
                         .to = Some(ConnectionTo::DeadEnd);
-                    println!("no compatible levels marking as DeadEnd");
+                    debug!("no compatible levels marking as DeadEnd");
                     continue;
                 } else {
                     let compatible_level = connection_def
