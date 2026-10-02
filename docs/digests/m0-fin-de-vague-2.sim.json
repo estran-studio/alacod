@@ -1,0 +1,202 @@
+[
+  {
+    "seed": 1,
+    "wave": 4,
+    "frames": 8960,
+    "deaths": 4,
+    "kills": 37,
+    "wall_seconds": 335.074927437,
+    "desync": false,
+    "sim_fps": 26.766281650022005
+  },
+  {
+    "seed": 2,
+    "wave": 2,
+    "frames": 5901,
+    "deaths": 4,
+    "kills": 12,
+    "wall_seconds": 261.31728143,
+    "desync": false,
+    "sim_fps": 22.605608918596694
+  },
+  {
+    "seed": 3,
+    "wave": 2,
+    "frames": 6417,
+    "deaths": 4,
+    "kills": 9,
+    "wall_seconds": 176.330354541,
+    "desync": false,
+    "sim_fps": 36.45867166841798
+  },
+  {
+    "seed": 4,
+    "wave": 1,
+    "frames": 20000,
+    "deaths": 2,
+    "kills": 0,
+    "wall_seconds": 494.557679116,
+    "desync": false,
+    "sim_fps": 40.47001154694815
+  },
+  {
+    "seed": 5,
+    "wave": 2,
+    "frames": 6302,
+    "deaths": 4,
+    "kills": 16,
+    "wall_seconds": 168.220612438,
+    "desync": false,
+    "sim_fps": 37.51762392281385
+  },
+  {
+    "seed": 6,
+    "wave": 3,
+    "frames": 7265,
+    "deaths": 4,
+    "kills": 21,
+    "wall_seconds": 230.448821692,
+    "desync": false,
+    "sim_fps": 31.563247841231785
+  },
+  {
+    "seed": 7,
+    "wave": 2,
+    "frames": 6238,
+    "deaths": 4,
+    "kills": 14,
+    "wall_seconds": 219.63244065,
+    "desync": false,
+    "sim_fps": 28.443994367737737
+  },
+  {
+    "seed": 8,
+    "wave": 3,
+    "frames": 8798,
+    "deaths": 4,
+    "kills": 21,
+    "wall_seconds": 247.556168588,
+    "desync": false,
+    "sim_fps": 35.579241318731306
+  },
+  {
+    "seed": 9,
+    "wave": 2,
+    "frames": 5536,
+    "deaths": 4,
+    "kills": 14,
+    "wall_seconds": 107.351284625,
+    "desync": false,
+    "sim_fps": 51.68133061089159
+  },
+  {
+    "seed": 10,
+    "wave": 2,
+    "frames": 6551,
+    "deaths": 4,
+    "kills": 15,
+    "wall_seconds": 266.439204147,
+    "desync": false,
+    "sim_fps": 24.615448820110398
+  },
+  {
+    "seed": 11,
+    "wave": 2,
+    "frames": 20000,
+    "deaths": 0,
+    "kills": 18,
+    "wall_seconds": 487.52759404,
+    "desync": false,
+    "sim_fps": 41.0461443859178
+  },
+  {
+    "seed": 12,
+    "wave": 1,
+    "frames": 20000,
+    "deaths": 2,
+    "kills": 1,
+    "wall_seconds": 510.541820775,
+    "desync": false,
+    "sim_fps": 39.20089177463294
+  },
+  {
+    "seed": 13,
+    "wave": 2,
+    "frames": 20000,
+    "deaths": 0,
+    "kills": 19,
+    "wall_seconds": 567.566268128,
+    "desync": false,
+    "sim_fps": 35.256996162613596
+  },
+  {
+    "seed": 14,
+    "wave": 3,
+    "frames": 6750,
+    "deaths": 4,
+    "kills": 18,
+    "wall_seconds": 241.161562363,
+    "desync": false,
+    "sim_fps": 28.031293285316913
+  },
+  {
+    "seed": 15,
+    "wave": 2,
+    "frames": 7162,
+    "deaths": 4,
+    "kills": 13,
+    "wall_seconds": 199.206499074,
+    "desync": false,
+    "sim_fps": 36.00593250625839
+  },
+  {
+    "seed": 16,
+    "wave": 1,
+    "frames": 20000,
+    "deaths": 0,
+    "kills": 5,
+    "wall_seconds": 596.971541376,
+    "desync": false,
+    "sim_fps": 33.516066620061345
+  },
+  {
+    "seed": 17,
+    "wave": 1,
+    "frames": 20000,
+    "deaths": 0,
+    "kills": 6,
+    "wall_seconds": 548.690531671,
+    "desync": false,
+    "sim_fps": 36.47280920430739
+  },
+  {
+    "seed": 18,
+    "wave": 1,
+    "frames": 20000,
+    "deaths": 0,
+    "kills": 6,
+    "wall_seconds": 533.690050333,
+    "desync": false,
+    "sim_fps": 37.495376493399895
+  },
+  {
+    "seed": 19,
+    "wave": 2,
+    "frames": 20000,
+    "deaths": 0,
+    "kills": 16,
+    "wall_seconds": 560.333671336,
+    "desync": false,
+    "sim_fps": 35.71110149527638
+  },
+  {
+    "seed": 20,
+    "wave": 2,
+    "frames": 5551,
+    "deaths": 4,
+    "kills": 10,
+    "wall_seconds": 167.19200572,
+    "desync": false,
+    "sim_fps": 33.252778408549204
+  }
+]
