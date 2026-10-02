@@ -164,6 +164,13 @@ pub struct WeaponOverride {
 /// `base_enemies` — la file d'attente grossirait sans jamais stresser la grille comme voulu.
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct WaveOverride {
+    /// Vague qui déclenche la victoire du mode Waves (T3.1, scénarios du clone).
+    /// Absent : conserve la condition de fin définie par le jeu.
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub max_wave: Option<u32>,
+    /// Délai entre vagues, pour rejouer une partie courte sans modifier les assets.
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub min_wave_delay_frames: Option<u32>,
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub base_enemies: Option<u32>,
     #[serde(default, skip_serializing_if = "Option::is_none")]

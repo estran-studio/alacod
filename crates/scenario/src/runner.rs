@@ -356,6 +356,12 @@ fn apply_wave_overrides(
     let Some(mut config) = wave_configs.get_mut(&handle) else {
         return;
     };
+    if let Some(v) = o.max_wave {
+        config.max_wave = Some(v);
+    }
+    if let Some(v) = o.min_wave_delay_frames {
+        config.min_wave_delay_frames = v;
+    }
     if let Some(v) = o.base_enemies {
         config.base_enemies = v;
     }

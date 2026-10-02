@@ -254,6 +254,24 @@ Exemple : ajouter un nouveau type d'ennemi, un effet, ou un statut. Suivre ce fl
 
 Voir `Makefile` pour les détails (cibles `test_multiplayer`, etc.).
 
+**Parties de référence du clone `zombies` (T3.1)** : `clone_solo`, `clone_duo` et
+`clone_quad` (`tests/scenarios/`, `exemples/test_map.ldtk`, graine 123456) suivent les
+vagues 1 à 5 avec achats du pistolet et de Juggernog, Max Ammo et Nuke placés, et des
+attentes datées. Le duo ajoute le tir ami bloqué et une réanimation ; le quad combine
+deux bots `fonceur`, un `prudent` et un joueur scripté qui réanime un fonceur. Les
+commentaires « À regarder » donnent les frames de revue, mesurées avec
+`ALACOD_EVENTS=1 make test_scenarios SCENARIO=<nom>`. Les visées scriptées sont
+enregistrées en headless, puis rejouées comme inputs fixes ; les bots du quad restent
+pilotés par leur profil.
+
+Les effectifs sont réduits par `wave_overrides`. Deux champs optionnels de ce réglage
+complètent les effectifs et la préparation : `min_wave_delay_frames` raccourcit
+l'attente entre vagues, `max_wave` fixe la condition de victoire. Absents, ils conservent
+les valeurs du jeu. Solo et duo déclarent `max_wave: 5` : le mode `Waves` termine à
+l'**entrée** en vague 5 et produit le résumé (la cinquième vague n'est pas combattue).
+Le quad laisse cette limite absente et attend `RunState(Playing)` avec quatre joueurs
+debout à l'entrée en vague 5. Aucune trace antérieure n'est blessée pour ces références.
+
 ---
 
 ## 6. CI lente (nuit) — T2.14

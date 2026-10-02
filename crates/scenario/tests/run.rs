@@ -25,6 +25,42 @@ fn idle() -> Scenario {
     Scenario::from_ron(&source).expect("scénario valide")
 }
 
+/// T3.1 : la limite de vagues du scénario déclenche une vraie victoire, avec résumé,
+/// et survit à la sérialisation de l'enregistrement (sans toucher au contenu du jeu).
+#[test]
+fn victoire_par_override_de_vagues_et_rejeu() {
+    if map_ldtk::RENDER_ENABLED {
+        return;
+    }
+    let mut scenario = idle();
+    scenario.frames = 50;
+    scenario.wave_overrides = Some(
+        ron::Options::default()
+            .with_default_extension(ron::extensions::Extensions::IMPLICIT_SOME)
+            .from_str("(max_wave: 1)")
+            .unwrap(),
+    );
+    scenario.expect = vec![
+        game::replay::Expectation::RunState {
+            step: game::replay::RunStepExpectation::Ended(run::RunEnd::Victory),
+            at_frame: 50,
+        },
+        game::replay::Expectation::RunSummary {
+            wave_reached_min: Some(1),
+            kills_min: Some(0),
+            at_frame: 50,
+        },
+    ];
+    let original = scenario::run(&scenario);
+    assert!(original.failures.is_empty(), "{:?}", original.failures);
+    let mut recorded = Scenario::from_ron(&original.recorded.to_ron()).unwrap();
+    recorded.frames = scenario.frames;
+    recorded.expect = scenario.expect;
+    let replayed = scenario::run(&recorded);
+    assert!(replayed.failures.is_empty(), "{:?}", replayed.failures);
+    assert_eq!(original.trace, replayed.trace);
+}
+
 /// Une app headless prête à jouer `idle` (même chemin que `runner::run_with_options`, sans
 /// son évaluation d'attentes : ce test pilote la boucle `app.update()` lui-même pour poser
 /// `RunRequest` entre deux parties).
