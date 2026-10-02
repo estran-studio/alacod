@@ -2,7 +2,8 @@
 // À regarder : tir du joueur 1 vers le joueur 0 f40-42 (aucun dégât) ;
 // la mitraillette Always met le joueur 1 à terre f149, réanimation f355.
 // Achats du joueur 0 : pistolet f516 (-500), Juggernog f566 (-2500, 200 PV).
-// Max Ammo f800 remplit les deux joueurs ; Nuke f950 supprime les 3 zombies.
+// Max Ammo f800 remplit les deux joueurs ; Nuke f950 supprime les 3 zombies (+400 points
+// à chaque joueur, D17).
 // À f986, retour au pistolet Never pour le combat (visée enregistrée tous les 15 frames).
 // Vagues 2/3/4 à f1071/f2356/f3644 ; kills f1956-2236, f3344-3524, f4293-4518.
 // Victoire à l'entrée en vague 5 f4638 : 13 kills, deux joueurs debout,
@@ -271,11 +272,11 @@ Scenario(
         WaveAtLeast(wave: 3, at_frame: 2400),
         WaveAtLeast(wave: 4, at_frame: 3700),
         WaveAtLeast(wave: 5, at_frame: 4668),
-        Currency(handle: 0, min: 3000, max: 3000, at_frame: 1100),
-        Currency(handle: 0, min: 3230, max: 3230, at_frame: 2400),
-        Currency(handle: 0, min: 3390, max: 3390, at_frame: 3700),
-        Currency(handle: 0, min: 3400, max: 3400, at_frame: 4668),
-        Currency(handle: 1, min: 1040, max: 1040, at_frame: 4668),
+        Currency(handle: 0, min: 3400, max: 3400, at_frame: 1100),
+        Currency(handle: 0, min: 3630, max: 3630, at_frame: 2400),
+        Currency(handle: 0, min: 3790, max: 3790, at_frame: 3700),
+        Currency(handle: 0, min: 3800, max: 3800, at_frame: 4668),
+        Currency(handle: 1, min: 1440, max: 1440, at_frame: 4668),
         KillsAtLeast(kills: 13, at_frame: 4668),
         PlayerAlive(handle: 0, at_frame: 4668),
         PlayerAlive(handle: 1, at_frame: 4668),

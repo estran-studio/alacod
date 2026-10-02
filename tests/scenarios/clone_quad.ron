@@ -2,7 +2,8 @@
 // À regarder : tirs du joueur 3 au rifle Always f20-102 ; joueur 0 à terre f90,
 // rapprochement f120-160, réanimation f355. Le rifle n'est plus utilisé ensuite.
 // Joueur 3 : pistolet acheté f526 (-500), Juggernog f586 (-2500, 200 PV),
-// tir f650-652, Max Ammo placé f700 (5 -> 6 balles), Nuke f750 (3 kills f751).
+// tir f650-652, Max Ammo placé f700 (5 -> 6 balles), Nuke f750 (3 kills f751, +400 points
+// à chaque joueur, D17).
 // Deux fonceurs chargent, le prudent recule, le joueur 3 vise au pistolet Never.
 // Vagues 2/3/4/5 à f871/f2065/f3117/f4342 ; kills f1815-1945, f2949-2997,
 // f4056-4222. À f4372 : quatre joueurs debout, soldes 1040/1170/890/3000,
@@ -165,11 +166,12 @@ Scenario(
         WaveAtLeast(wave: 4, at_frame: 3200),
         WaveAtLeast(wave: 5, at_frame: 4372),
         KillsAtLeast(kills: 13, at_frame: 4372),
-        // Les trois bots gagnent des points ; le joueur scripté garde 3000 après achats.
-        Currency(handle: 0, min: 1040, max: 1040, at_frame: 4372),
-        Currency(handle: 1, min: 1170, max: 1170, at_frame: 4372),
-        Currency(handle: 2, min: 890, max: 890, at_frame: 4372),
-        Currency(handle: 3, min: 3000, max: 3000, at_frame: 4372),
+        // Les trois bots gagnent des points ; le joueur scripté garde 3000 après achats, + 400 du
+        // Nuke (D17).
+        Currency(handle: 0, min: 1440, max: 1440, at_frame: 4372),
+        Currency(handle: 1, min: 1570, max: 1570, at_frame: 4372),
+        Currency(handle: 2, min: 1290, max: 1290, at_frame: 4372),
+        Currency(handle: 3, min: 3400, max: 3400, at_frame: 4372),
         PlayerAlive(handle: 0, at_frame: 4372),
         PlayerAlive(handle: 1, at_frame: 4372),
         PlayerAlive(handle: 2, at_frame: 4372),
