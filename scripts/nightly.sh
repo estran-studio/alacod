@@ -85,11 +85,17 @@ EOF
 # STEP A: BENCH
 # ============================================================================
 
-log_step "Running bench (strict performance thresholds)..."
+# Budgets absolus désactivés : tests/budgets.ron est calibré sur la machine de
+# développement (M4, moitié de sa référence). Le VPS de CI est ~4x plus lent : tout
+# scénario serait sous son plancher et le nightly serait rouge en permanence sans
+# régression réelle. Les traces et les attentes, elles, restent strictes (un échec
+# de scénario fait toujours échouer la commande) ; la régression de performance se
+# lit dans le tableau comparatif des notes (scenario-metrics.py, commit précédent).
+log_step "Running bench (traces strictes, budgets absolus désactivés : machine de CI plus lente que la machine de calibration)..."
 START_TIME=$(date +%s)
 
-if ! ALACOD_BENCH_STRICT=1 make test_scenarios > logs/bench.log 2>&1; then
-    log_error "Bench failed (ALACOD_BENCH_STRICT=1 make test_scenarios)"
+if ! make test_scenarios > logs/bench.log 2>&1; then
+    log_error "Bench failed (make test_scenarios)"
     echo "--- bench.log (tail) ---"
     tail -40 logs/bench.log
     append_summary "### A. Bench: ❌ FAILED"
