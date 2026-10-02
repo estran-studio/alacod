@@ -222,6 +222,7 @@ pub struct EconomyEntry {
     pub kill_points: u32,
     pub hit_points: u32,
     pub repair_points: u32,
+    pub nuke_points: u32,
     pub repair_points_cap_per_wave: Option<u32>,
     pub refill_price_ratio: FixedField,
 }
@@ -630,6 +631,8 @@ struct EconomyFileSchema {
     hit_points: u32,
     #[serde(default = "default_repair_points")]
     repair_points: u32,
+    #[serde(default = "default_nuke_points")]
+    nuke_points: u32,
     #[serde(default)]
     repair_points_cap_per_wave: Option<u32>,
     #[serde(default = "default_refill_price_ratio")]
@@ -646,6 +649,10 @@ fn default_hit_points() -> u32 {
 
 fn default_repair_points() -> u32 {
     10
+}
+
+fn default_nuke_points() -> u32 {
+    400
 }
 
 fn default_refill_price_ratio() -> FixedField {
@@ -1130,6 +1137,7 @@ fn load_economy(
                 kill_points: parsed.kill_points,
                 hit_points: parsed.hit_points,
                 repair_points: parsed.repair_points,
+                nuke_points: parsed.nuke_points,
                 repair_points_cap_per_wave: parsed.repair_points_cap_per_wave,
                 refill_price_ratio: parsed.refill_price_ratio,
             },

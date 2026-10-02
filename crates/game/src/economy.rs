@@ -23,9 +23,14 @@
 //!   tir ami `Cursed`/`Always`).
 //! - **Repair** : `interaction::handle_window_repair` (`RollbackSystemSet::Interaction`), à
 //!   chaque réparation qui avance réellement la santé de la fenêtre.
+//! - **Nuke** (D17) : `powerups::apply_powerup_actions_system` (`RollbackSystemSet::Effects`),
+//!   au ramassage d'un power-up portant `effects::Action::KillAllWaveEnemies` : un crédit
+//!   par joueur vivant, pas par ennemi tué (CoD : 400 points à chaque joueur, quel que soit
+//!   le nombre de zombies). Les ennemis tués par le nuke ne rapportent pas de points de kill
+//!   (`Death { last_hit_by: None }`).
 //!
 //! [`award_points_system`] (`RollbackSystemSet::Run`, en fin de frame) est le **seul**
-//! point qui appelle `Currency::earn`/émet `CurrencyEvent` pour ces trois sources : il vide
+//! point qui appelle `Currency::earn`/émet `CurrencyEvent` pour ces quatre sources : il vide
 //! `FrameEvents<PointsCredit>` (encore valide à ce point de la frame, vidée seulement au
 //! `FrameStart` suivant) et résout `economy.ron` une fois pour tous les crédits de la frame.
 //! Centraliser la lecture de configuration et l'émission d'événements ici, plutôt que dans
@@ -77,6 +82,10 @@ pub struct EconomyConfig {
     pub hit_points: u32,
     #[serde(default = "default_repair_points")]
     pub repair_points: u32,
+    /// Points crédités à chaque joueur vivant au ramassage d'un nuke (D17, CoD : 400),
+    /// une fois par joueur et non par ennemi tué.
+    #[serde(default = "default_nuke_points")]
+    pub nuke_points: u32,
     /// Plafond de points de réparation gagnés par joueur et par vague (CoD : les points de
     /// réparation de fenêtre sont limités par round). `None` (défaut) : pas de plafond.
     #[serde(default)]
@@ -94,6 +103,7 @@ impl Default for EconomyConfig {
             kill_points: default_kill_points(),
             hit_points: default_hit_points(),
             repair_points: default_repair_points(),
+            nuke_points: default_nuke_points(),
             repair_points_cap_per_wave: None,
             refill_price_ratio: default_refill_price_ratio(),
         }
@@ -110,6 +120,10 @@ fn default_hit_points() -> u32 {
 
 fn default_repair_points() -> u32 {
     10
+}
+
+fn default_nuke_points() -> u32 {
+    400
 }
 
 fn default_refill_price_ratio() -> Fixed {
@@ -159,12 +173,14 @@ pub struct PerkMachine {
 }
 
 /// Occasion de gagner des points, détectée au plus près de l'information (voir la doc du
-/// module) et résolue par [`award_points_system`] en fin de frame.
+/// module) et résolue par [`award_points_system`] en fin de frame. `Nuke` (D17) : un crédit
+/// par joueur vivant au ramassage, émis par `powerups::apply_powerup_actions_system`.
 #[derive(Debug, Clone, Copy, Hash)]
 pub enum PointsCredit {
     Kill { handle: usize },
     Hit { handle: usize },
     Repair { handle: usize },
+    Nuke { handle: usize },
 }
 
 /// Points de réparation déjà gagnés par joueur pour la vague en cours (T2.3,
@@ -209,7 +225,7 @@ impl RepairPointsTracking {
 }
 
 /// Seul point d'écriture de `Currency::earn`/d'émission de `CurrencyEvent` pour les points de
-/// kill/coup/réparation (voir la doc du module) ; `RollbackSystemSet::Run`, après tout ce qui
+/// kill/coup/réparation/nuke (voir la doc du module) ; `RollbackSystemSet::Run`, après tout ce qui
 /// peut produire un [`PointsCredit`] cette frame (`CollisionDamage`, `DeathManagement`,
 /// `Interaction` — tous avant `Run` dans `RollbackSystemSet::ORDER`).
 ///
@@ -217,7 +233,9 @@ impl RepairPointsTracking {
 /// montant crédité est multiplié par la stat résolue [`CURRENCY_MULTIPLIER_STAT`] du joueur
 /// crédité (`stats::StatReader`, base neutre `1.0` — voir la doc du module `game::powerups`
 /// et `sim_core::modifier::resolve`, aucun modificateur actif ne multiplie même pas par 1).
-/// Arrondi au plus proche (`Fixed::round`, comme `EconomyConfig::refill_price`).
+/// Arrondi au plus proche (`Fixed::round`, comme `EconomyConfig::refill_price`). Les points
+/// du nuke (D17) passent par le même chemin : sous Double Points, un nuke rapporte 800
+/// (comme dans CoD).
 #[allow(clippy::too_many_arguments)]
 pub fn award_points_system(
     credits: Res<FrameEvents<PointsCredit>>,
@@ -254,6 +272,7 @@ pub fn award_points_system(
                 }
                 (handle, config.repair_points, "repair")
             }
+            PointsCredit::Nuke { handle } => (handle, config.nuke_points, "nuke"),
         };
         if amount == 0 {
             continue;
