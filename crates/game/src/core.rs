@@ -130,6 +130,12 @@ impl Plugin for CoreSetupPlugin {
         }
 
         app.add_plugins(BaseWeaponGamePlugin {});
+        // Contrats M1 : enregistrés ensemble, aucun état posé ni système exécuté.
+        app.add_plugins((
+            combat::CombatPlugin,
+            behaviors::BehaviorsPlugin,
+            effects::EffectsPlugin,
+        ));
         app.add_plugins(BaseColliderGamePlugin {});
         app.add_plugins(BaseCharacterGamePlugin {});
         // Monnaie et perks (T2.3, chantier C5 v1) : `run::RunPlugin` enregistre
