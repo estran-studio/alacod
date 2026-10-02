@@ -2,9 +2,10 @@
 // Couvre : génération de map, vagues, IA (flow field, poursuite, attaque), dégâts, mort.
 //
 // À regarder : les zombies apparaissent hors de la pièce (f181), contournent le bâtiment à
-// distance des murs et s'arrêtent devant une fenêtre intacte pour la frapper : elle cède à f329
+// distance des murs et s'arrêtent devant une fenêtre intacte pour la frapper : elle cède à f381
 // (sa barre verte tombe à zéro), puis ils entrent. Les suivants passent par la fenêtre déjà
-// cassée ; une autre cède à f775. Premier coup reçu f399, mort du joueur f1052.
+// cassée ; une autre cède à f873. Premier coup reçu f465, mort du joueur et écran « DÉFAITE »
+// f1117 (frames relevées par T3.2 ; f329/f399/f775/f1052 avant le tirage par flux de T1.6).
 Scenario(
     // Isoler ce scénario des drops aléatoires ; powerup_drop_on_kill teste ce chemin.
     powerup_drop_chance_override: "0.0",

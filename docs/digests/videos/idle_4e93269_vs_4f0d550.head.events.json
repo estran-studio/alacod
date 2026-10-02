@@ -1,0 +1,72 @@
+[
+  {
+    "frame": 0,
+    "kind": "player",
+    "label": "joueur 0 apparaît"
+  },
+  {
+    "frame": 0,
+    "kind": "drop",
+    "label": "arme pistol tombée au sol (108)"
+  },
+  {
+    "frame": 0,
+    "kind": "drop",
+    "label": "arme pistol tombée au sol (109)"
+  },
+  {
+    "frame": 0,
+    "kind": "drop",
+    "label": "arme machine_gun tombée au sol (110)"
+  },
+  {
+    "frame": 0,
+    "kind": "drop",
+    "label": "arme rifle tombée au sol (111)"
+  },
+  {
+    "frame": 0,
+    "kind": "drop",
+    "label": "arme shotgun tombée au sol (112)"
+  },
+  {
+    "frame": 1,
+    "kind": "wave",
+    "label": "vague 1 : préparation"
+  },
+  {
+    "frame": 181,
+    "kind": "wave",
+    "label": "vague 1 : arrivée des zombies"
+  },
+  {
+    "frame": 381,
+    "kind": "window",
+    "label": "fenêtre 29 cassée"
+  },
+  {
+    "frame": 465,
+    "kind": "hit",
+    "label": "joueur 0 touché"
+  },
+  {
+    "frame": 542,
+    "kind": "wave",
+    "label": "vague 1 : tous les zombies sont là"
+  },
+  {
+    "frame": 873,
+    "kind": "window",
+    "label": "fenêtre 27 cassée"
+  },
+  {
+    "frame": 1117,
+    "kind": "death",
+    "label": "joueur 0 meurt"
+  },
+  {
+    "frame": 1117,
+    "kind": "defeat",
+    "label": "défaite : tous les joueurs sont à terre ou morts"
+  }
+]
