@@ -1,4 +1,6 @@
 (
+    // T2.12 : police de tous les textes du HUD (la police par défaut n'a pas d'accents).
+    font: Some("fonts/FiraMono-Medium.ttf"),
     widgets: [
         // Health bar - bottom left, 200x12 pixels
         (
@@ -72,5 +74,59 @@
             color: Some("#f1c40f"),
             font_size: Some(16.0),
         ),
+        // T2.12 : perks possédés, une icône par perk (voir `icons` plus bas), en bas à
+        // gauche au-dessus de la vie. `size.1` = côté d'une icône.
+        (
+            kind: Icons(source: "perks"),
+            anchor: BottomLeft,
+            offset: (16.0, 80.0),
+            size: Some((200.0, 24.0)),
+            color: None,
+            font_size: None,
+        ),
+        // T2.12 : « À TERRE 12 s » / « Réanimation 40 % », au centre de l'écran.
+        (
+            kind: Text(source: "downed", prefix: None),
+            anchor: Center,
+            offset: (0.0, -150.0),
+            size: Some((360.0, 70.0)),
+            color: Some("#e74c3c"),
+            font_size: Some(28.0),
+            background: Some("#000000a0"),
+        ),
+        // T2.12 : power-ups actifs, une ligne par power-up, en haut à droite sous les ennemis.
+        (
+            kind: Text(source: "powerups", prefix: None),
+            anchor: TopRight,
+            offset: (16.0, 34.0),
+            size: Some((220.0, 80.0)),
+            color: Some("#2ecc71"),
+            font_size: Some(16.0),
+            background: Some("#000000a0"),
+        ),
+        // T2.12 : prompt d'interaction (« Acheter … — $500 »), en bas au centre.
+        (
+            kind: Text(source: "prompt", prefix: Some("[H] ")),
+            anchor: BottomCenter,
+            offset: (0.0, 110.0),
+            size: Some((480.0, 24.0)),
+            color: Some("#f1c40f"),
+            font_size: Some(18.0),
+            background: Some("#000000a0"),
+        ),
     ],
+    // T2.12 : icônes des perks (`economy/perks.ron`) : carré de couleur + étiquette.
+    icons: {
+        "juggernog": (color: "#c0392b", label: "J"),
+        "speed_cola": (color: "#27ae60", label: "S"),
+        "double_tap": (color: "#e67e22", label: "D"),
+        "stamin_up": (color: "#f1c40f", label: "T"),
+    },
+    // T2.12 : noms affichés des armes (`weapons.ron`) dans le prompt.
+    names: {
+        "pistol": "pistolet",
+        "machine_gun": "mitrailleuse",
+        "shotgun": "fusil à pompe",
+        "rifle": "fusil",
+    },
 )
