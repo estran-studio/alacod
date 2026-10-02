@@ -5,9 +5,6 @@ on:
     # 03:00 UTC every day
     - cron: '03 03 * * *'
   workflow_dispatch:
-  push:
-    branches:
-      - main
 
 concurrency:
   group: nightly
