@@ -1,0 +1,12 @@
+// Fixture T2.8 : `drop_chance` hors [0, 1] : LintErrorKind::OutOfRange (`lint::lint_powerups`). Scindée de l'ancienne `powerup_out_of_range` (T2.5), qui cumulait deux problèmes.
+(
+    drop_chance: "1.5",
+    powerups: {
+        "insta_kill": (
+            weight: 10,
+            pickup_range: "30.0",
+            lifetime_frames: 1800,
+            actions: [RefillAmmo],
+        ),
+    },
+)

@@ -1,0 +1,14 @@
+// Fixture T2.8 : type de munition personnalisé au nom vide (`Custom("")`) : LintErrorKind::OutOfRange (`lint::lint_weapons`).
+({
+    "rifle": (
+        config: (
+            name: "rifle",
+            default_firing_mode: "default",
+            ammo_type: Custom(""),
+
+            firing_modes: {
+                "default": (firing_rate: "5.0"),
+            },
+        ),
+    ),
+})

@@ -1,0 +1,15 @@
+// Fixture T2.8 : durée nulle (`frames: 0`) dans une action à durée, `TimedModifier` et `CurrencyMultiplier` (modificateur expiré dès sa pose) : LintErrorKind::OutOfRange (`lint::lint_powerups`), une erreur par action.
+(
+    drop_chance: "0.2",
+    powerups: {
+        "insta_kill": (
+            weight: 10,
+            pickup_range: "30.0",
+            lifetime_frames: 1800,
+            actions: [
+                TimedModifier(stat: Damage, op: Set, value: "100.0", frames: 0),
+                CurrencyMultiplier(factor: "2.0", frames: 0),
+            ],
+        ),
+    },
+)

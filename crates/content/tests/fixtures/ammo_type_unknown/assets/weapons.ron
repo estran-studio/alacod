@@ -1,0 +1,14 @@
+// Fixture T2.8 : variante inconnue de `AmmoType` (`Laser`) : enum ouvert par `Custom(String)` seulement, une variante nue inconnue échoue au chargement RON, rapportée LintErrorKind::Parse avec le nom du champ.
+({
+    "rifle": (
+        config: (
+            name: "rifle",
+            default_firing_mode: "default",
+            ammo_type: Laser,
+
+            firing_modes: {
+                "default": (firing_rate: "5.0"),
+            },
+        ),
+    ),
+})

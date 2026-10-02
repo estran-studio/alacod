@@ -1,0 +1,10 @@
+(
+    name: "fixture-perk-duplicate-id",
+    content_folders: [
+        (path: "economy/perks.ron", kind: "Perk"),
+    ],
+    entry: (
+        start_map: "unused",
+        default_seed: 1,
+    ),
+)

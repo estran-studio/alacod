@@ -1,0 +1,23 @@
+// Fixture T2.8 : `audio_config` référence un son absent du dossier d'assets (`reloading`) ;
+// `firing` pointe un fichier présent (vide, seule son existence compte) :
+// LintErrorKind::BrokenReference (`lint::lint_weapons`).
+({
+    "rifle": (
+        config: (
+            name: "rifle",
+            default_firing_mode: "default",
+            ammo_type: Balle,
+            firing_modes: {
+                "default": (firing_rate: "5.0"),
+            },
+        ),
+        audio_config: (
+            modes: {
+                "default": (
+                    reloading: "sounds/rifle-reloading.ogg",
+                    firing: "sounds/rifle.ogg",
+                ),
+            },
+        ),
+    ),
+})

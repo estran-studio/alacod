@@ -35,7 +35,7 @@
         audio_config: (
             modes: {
                 "default": (
-                    reloading: "sounds/machine-gun-reloading.ogg",
+                    reloading: "sounds/machine-gun-reload.ogg",
                     firing: "sounds/machine-gun.ogg"
                 )
             }
@@ -91,7 +91,7 @@
         audio_config: (
             modes: {
                 "default": (
-                    reloading: "sounds/machine-gun-reloading.ogg",
+                    reloading: "sounds/machine-gun-reload.ogg",
                     firing: "sounds/machine-gun.ogg"
                 )
             }
@@ -154,7 +154,7 @@
         audio_config: (
             modes: {
                 "default": (
-                    reloading: "sounds/machine-gun-reloading.ogg",
+                    reloading: "sounds/machine-gun-reload.ogg",
                     firing: "sounds/machine-gun.ogg"
                 )
             }
@@ -197,7 +197,7 @@
         audio_config: (
             modes: {
                 "default": (
-                    reloading: "sounds/machine-gun-reloading.ogg",
+                    reloading: "sounds/machine-gun-reload.ogg",
                     firing: "sounds/machine-gun.ogg"
                 )
             }

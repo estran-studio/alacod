@@ -154,6 +154,57 @@ mouvement >= 0, cadence de tir > 0), un kind de dossier inconnu, ou un littéral
 `"1.5"` : voir §2 ci-dessus et CLAUDE.md, règle 1). Chaque erreur nomme le fichier (relatif
 à `assets/`) et un message précis (id, champ, valeur).
 
+**Règles de lint** (`crates/content/src/lint.rs` pour les règles sémantiques,
+`crates/content/src/registry.rs` pour les erreurs de chargement). Une fixture par règle sous
+`crates/content/tests/fixtures/<fixture>/` (mini-jeu : `assets/game.ron` + contenu minimal,
+un seul problème en plus de `start_map: "unused"` commun à toutes), un test par fixture dans
+`crates/content/tests/lint_fixtures.rs`. Kinds d'erreur (`LintErrorKind`) : `Parse`,
+`DuplicateId`, `BrokenReference`, `OutOfRange`, `UnknownKind`.
+
+| Contenu | Règle | Kind | Fixture |
+|---|---|---|---|
+| tout | RON invalide, littéral nu dans un champ `Fixed` | `Parse` | `float_literal` |
+| `game.ron` | kind de dossier inconnu | `UnknownKind` | `unknown_kind` |
+| `game.ron` | `entry.start_map` vers une carte non chargée | `BrokenReference` | (toutes) |
+| `game.ron` | `entry.mode: Waves` sans dossier `Wave` (T2.4) | `BrokenReference` | `entry_mode_waves_without_waves` |
+| personnage | id (`asset_name_ref`) dupliqué | `DuplicateId` | `duplicate_id` |
+| personnage | `starting_weapons` vers une arme inconnue | `BrokenReference` | `broken_reference` |
+| personnage | `starting_skin` absent de `skins` | `BrokenReference` | — |
+| personnage | `base_health.max > 0`, `movement.max_speed >= 0` | `OutOfRange` | `out_of_range` |
+| personnage | `stats.<StatId> >= 0` (T1.2) | `OutOfRange` | `out_of_range_stat` |
+| personnage | `bleedout_frames`, `revive_frames`, `weapon_slots` > 0 ; `downed_speed_mult` dans ]0, 1] | `OutOfRange` | — |
+| arme | `firing_modes.<mode>.firing_rate > 0` ; gabarit `test:` (`frames > 0`, `min_hits <= max_hits`) | `OutOfRange` | — |
+| arme | `ammo_type` : variante inconnue (`Laser`) | `Parse` (nomme le champ) | `ammo_type_unknown` |
+| arme | `ammo_type: Custom("")` (nom vide) (T2.8) | `OutOfRange` | `ammo_type_empty_custom` |
+| arme, corps à corps | `friendly_fire` : valeur inconnue (enum fermé `Never`/`Always`/`Cursed`) (T2.8) | `Parse` (nomme le champ) | `friendly_fire_unknown` |
+| arme | `audio_config.modes.<mode>.reloading`/`firing` : fichier absent de `assets/` (T2.8) | `BrokenReference` | `audio_missing_file` |
+| corps à corps | `damage >= 0` | `OutOfRange` | — |
+| vagues | `enemy_probabilities` vers un personnage inconnu | `BrokenReference` | — |
+| économie | `refill_price_ratio` dans [0, 1] (T2.8) | `OutOfRange` | `economy_ratio_out_of_range` |
+| perk | `price > 0` | `OutOfRange` | — |
+| perk | `modifiers` non vide (T2.8) | `OutOfRange` | `perk_no_modifiers` |
+| perk | `op: Mul` exige `value > 0` (T2.8) | `OutOfRange` | `perk_mul_non_positive` |
+| perk | `stat` inconnue (`StatId` : hors liste seulement via `Custom("...")`) | `Parse` (nomme le champ) | `perk_unknown_stat` |
+| perk | id écrit deux fois dans `perks.ron` (T2.8) | `DuplicateId` | `perk_duplicate_id` |
+| power-up | id dupliqué entre deux fichiers du dossier | `DuplicateId` | `powerup_duplicate_id` |
+| power-up | `actions[].stat` inconnue | `Parse` | `powerup_unknown_stat` |
+| power-up | `drop_chance` dans [0, 1] | `OutOfRange` | `powerup_drop_chance_out_of_range` |
+| power-up | `weight > 0` | `OutOfRange` | `powerup_weight_zero` |
+| power-up | `actions` non vide (T2.8) | `OutOfRange` | `powerup_no_actions` |
+| power-up | `lifetime_frames > 0` (T2.8) | `OutOfRange` | `powerup_lifetime_zero` |
+| power-up | `pickup_range > 0` (T2.8) | `OutOfRange` | `powerup_pickup_range_non_positive` |
+| power-up | `TimedModifier`/`CurrencyMultiplier` : `frames > 0` (T2.8) | `OutOfRange` | `powerup_frames_zero` |
+| power-up | `CurrencyMultiplier` : `factor > 0` (T2.8) | `OutOfRange` | `powerup_factor_non_positive` |
+
+Les enums fermés (`FriendlyFire`, `ModifierOp`, `Action`) et les variantes nues inconnues des
+enums ouverts (`AmmoType`, `StatId`, qui n'acceptent un nom libre que sous `Custom("...")`)
+échouent au chargement RON : la règle est le parse lui-même, la fixture documente le message
+(`champ ammo_type : ...`, `champ friendly_fire : ...`, `champ stat : ...`). Une table RON
+(`{ "id": ... }`) garde silencieusement la dernière valeur d'une clé répétée : seul
+`perks.ron` est lu en liste pour rapporter le doublon (`registry::KeyedEntries`) ; les autres
+tables (`weapons.ron`, `melee_weapons.ron`, `powerups.ron`) ne le détectent pas encore à
+l'intérieur d'un même fichier.
+
 **CLI** : `cargo run -p content --bin alacod --profile headless -- lint games/<jeu>` (code
 de sortie 1 et messages sur stderr en cas d'erreur, 0 sinon) ; `make lint` l'appelle pour
 `zombies` et `testbed`. Un hook `PostToolUse` (`.claude/settings.json`,
@@ -361,7 +412,7 @@ Enregistrer un nouveau composant/ressource en rollback (`RollbackTraceApp`) chan
 
 **Perks** (`SodaLocation`, §1, kind de contenu `Perk`, `games/<jeu>/assets/economy/perks.ron`) : table `{ "id": (name: "...", price: N, modifiers: [(stat: ..., op: ..., value: "...")]) }` (fichier RON, newtype sur la table — parenthèse ouvrante/fermante autour de tout le fichier, comme `weapons.ron`). Achat = interaction (`InteractionType::Perk`) sur une entité `economy::PerkMachine` ; un seul achat par perk et par joueur (`run::perks::Perks`, `BTreeSet<String>`, vérifié **avant** de débiter — déjà possédé n'émet ni achat ni refus). Modificateurs posés permanents (`until: None`, `sim_core::modifier::ModifierSource::Named("perk:<id>")`) via `Modifiers::push_from`. Un perk qui relève `MaxHealth` (ex. Juggernog, `Mul "2.0"`) relève aussi `Health.current` de la même différence au moment de l'achat (`sync_health_from_stats`, `RollbackSystemSet::Status`, ne fait que plafonner `current` à la baisse, jamais à la hausse — voir sa doc) : décision propre à l'achat d'un perk (un statut temporaire qui relèverait `MaxHealth` puis expirerait ne doit pas, lui, soigner le joueur).
 
-**Économie RON** (kind de contenu `Economy`, `games/<jeu>/assets/economy/economy.ron`, un seul fichier) : `kill_points` (défaut 60), `hit_points` (défaut 10), `repair_points` (défaut 10), `repair_points_cap_per_wave` (`Option<u32>`, défaut aucun plafond), `refill_price_ratio` (`Fixed` en chaîne, défaut `"0.5"`). Chargé par le registre comme `Wave` (id = nom de fichier). Lint (`content::lint::lint_perks`) : `price > 0` ; un `StatId` inconnu dans `perks.ron` échoue déjà au chargement RON (pas de variante fourre-tout implicite).
+**Économie RON** (kind de contenu `Economy`, `games/<jeu>/assets/economy/economy.ron`, un seul fichier) : `kill_points` (défaut 60), `hit_points` (défaut 10), `repair_points` (défaut 10), `repair_points_cap_per_wave` (`Option<u32>`, défaut aucun plafond), `refill_price_ratio` (`Fixed` en chaîne, défaut `"0.5"`). Chargé par le registre comme `Wave` (id = nom de fichier). Lint (`content::lint::lint_perks`, `lint_economy`) : `price > 0`, au moins un modificateur, `value > 0` pour un `op: Mul`, id unique dans `perks.ron` ; `refill_price_ratio` dans [0, 1] ; un `StatId` inconnu dans `perks.ron` échoue déjà au chargement RON (pas de variante fourre-tout implicite). Voir le tableau des règles, §3.
 
 **Scénarios de référence** (`tests/scenarios/`) : `buy_door`, `buy_wall_weapon`, `buy_perk` (sur `games/zombies/assets/exemples/test_map_shop.ldtk`, copie de `test_map.ldtk` avec une `WeaponLocation`/`SodaLocation` dans la salle de départ — `test_map.ldtk` n'en avait pas avant T2.6, qui en a posé quatre de chaque et re-blessé toutes les traces de cette carte), `points_on_kill` et `shop_tour` (sur `test_map.ldtk`). Nouvelles attentes de scénario : `Expectation::Currency { handle, min, max, at_frame }`, `Expectation::Stat { handle, stat, value, at_frame }` (valeur résolue, comme `stats::StatReader`) ; `PlayerScript::currency: Option<u32>` (solde de départ, comme `weapon`).
 
@@ -434,14 +485,15 @@ futur id dupliqué entre deux fichiers du dossier produise l'erreur `DuplicateId
 ```
 `drop_chance` décide **si** un drop a lieu (tirage global), `weight` décide **lequel** parmi
 la table (tirage pondéré, même méthode que `waves/wave_config.ron`/`select_enemy_type`).
-Lint (`content::lint::lint_powerups`) : `drop_chance` dans `[0, 1]`, `weight > 0` par
-power-up (`LintErrorKind::OutOfRange`) ; une référence de `StatId` inconnue dans
+Lint (`content::lint::lint_powerups`) : `drop_chance` dans `[0, 1]`, `weight > 0`,
+`lifetime_frames > 0`, `pickup_range > 0`, au moins une action, `frames > 0` pour
+`TimedModifier`/`CurrencyMultiplier` et `factor > 0` pour `CurrencyMultiplier` par
+power-up (`LintErrorKind::OutOfRange`, T2.8 pour les cinq dernières) ; une référence de `StatId` inconnue dans
 `actions[].stat` échoue déjà au chargement RON (`actions` réutilise le type réel
 `effects::Action`, pas un mirroir — comme `StatId` pour `perks.ron`), rapportée
 `LintErrorKind::Parse` ; un id de power-up dupliqué entre deux fichiers du dossier `PowerUp`,
 `LintErrorKind::DuplicateId` (même mécanisme que `characters/`/`weapons.ron`). Fixtures :
-`crates/content/tests/fixtures/powerup_out_of_range`, `powerup_duplicate_id`,
-`powerup_unknown_stat`.
+voir le tableau des règles de lint, §3.
 
 **Entité rollback « power-up au sol »** (`game::powerups::PowerUpPickup { id, expires_at_frame }`,
 posée par `spawn_powerup_pickup`, point d'entrée commun au drop et au placement scripté de

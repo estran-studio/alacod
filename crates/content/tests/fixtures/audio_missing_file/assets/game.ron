@@ -1,0 +1,10 @@
+(
+    name: "fixture-audio-missing-file",
+    content_folders: [
+        (path: "weapons.ron", kind: "Weapon"),
+    ],
+    entry: (
+        start_map: "unused",
+        default_seed: 1,
+    ),
+)

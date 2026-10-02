@@ -1,0 +1,12 @@
+// Fixture T2.8 : `CurrencyMultiplier` avec `factor <= 0` (annulerait ou inverserait les points gagnés) : LintErrorKind::OutOfRange (`lint::lint_powerups`).
+(
+    drop_chance: "0.2",
+    powerups: {
+        "double_points": (
+            weight: 10,
+            pickup_range: "30.0",
+            lifetime_frames: 1800,
+            actions: [CurrencyMultiplier(factor: "0.0", frames: 1800)],
+        ),
+    },
+)
