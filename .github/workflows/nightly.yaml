@@ -16,6 +16,9 @@ concurrency:
 jobs:
   nightly:
     name: Nightly Pipeline
+    # La poussée des notes de revue (actor `alacod-nightly`) ne doit pas
+    # re-déclencher le pipeline : sinon boucle infinie à chaque commit.
+    if: github.actor != 'alacod-nightly'
     runs-on: [self-hosted, alacod-builder]
     permissions:
       contents: write

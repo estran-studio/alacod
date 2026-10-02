@@ -8,6 +8,9 @@ on:
 jobs:
   check:
     name: Tests & Format
+    # La poussée des notes de revue du nightly (actor `alacod-nightly`) ne
+    # doit pas re-déclencher tests + déploiement : boucle infinie sinon.
+    if: github.actor != 'alacod-nightly'
     runs-on: ubuntu-latest
     steps:
       - name: Check out
