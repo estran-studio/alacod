@@ -17,4 +17,5 @@ Scenario(
             weapon: "knife",
         ),
     ],
+    powerup_drop_chance_override: "0",
 )

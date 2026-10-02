@@ -17,4 +17,5 @@ Scenario(
             weapon: "zombie_claws",
         ),
     ],
+    powerup_drop_chance_override: "0",
 )

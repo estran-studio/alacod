@@ -8,6 +8,8 @@
 // À regarder : quatre jets de balles continus qui remplissent la salle et s'arrêtent sur les
 // murs.
 Scenario(
+    // Isoler ce scénario des drops aléatoires ; powerup_drop_on_kill teste ce chemin.
+    powerup_drop_chance_override: "0.0",
     game: "zombies",
     frames: 600,
     weapon_overrides: [

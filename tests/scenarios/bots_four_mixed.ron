@@ -7,6 +7,8 @@
 // en avançant selon la distance, sans jamais se rapprocher volontairement ; l'immobile ne bouge
 // jamais (cible facile pour les zombies).
 Scenario(
+    // Isoler ce scénario des drops aléatoires ; powerup_drop_on_kill teste ce chemin.
+    powerup_drop_chance_override: "0.0",
     game: "zombies",
     frames: 600,
     players: [

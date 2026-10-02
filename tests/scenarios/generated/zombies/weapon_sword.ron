@@ -25,4 +25,5 @@ Scenario(
             at_frame: 400,
         ),
     ],
+    powerup_drop_chance_override: "0",
 )

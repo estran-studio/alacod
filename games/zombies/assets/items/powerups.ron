@@ -1,0 +1,63 @@
+// Table des power-ups (T2.5, chantier C1 v0, `docs/conventions.md` §« Power-ups »).
+// `drop_chance` : probabilité qu'un ennemi tué (équipe Enemies) laisse tomber un power-up,
+// tirée dans le flux RNG nommé `loot` (voir `crates/game/src/powerups.rs`). `weight` décide
+// ensuite lequel, parmi ceux ci-dessous, quand un drop a lieu (tirage pondéré, même méthode
+// que `waves/wave_config.ron` pour le type d'ennemi). `pickup_range`/`lifetime_frames` :
+// portée de ramassage au passage (pas une interaction à bouton) et durée de vie au sol
+// avant disparition — CoD Zombies : environ 30 s (1800 frames à 60 FPS).
+(
+    drop_chance: "0.15",
+    powerups: {
+        // Insta-Kill : tout tir tue en un coup pendant 30 s (multiplicateur de dégâts
+        // énorme, appliqué à tous les joueurs).
+        "insta_kill": (
+            name: "Insta-Kill",
+            weight: 15,
+            pickup_range: "30.0",
+            lifetime_frames: 1800,
+            actions: [
+                TimedModifier(stat: Damage, op: Set, value: "100.0", frames: 1800),
+            ],
+        ),
+        // Double Points : points doublés pendant 30 s (kill/coup/réparation), tous joueurs.
+        "double_points": (
+            name: "Double Points",
+            weight: 20,
+            pickup_range: "30.0",
+            lifetime_frames: 1800,
+            actions: [
+                CurrencyMultiplier(factor: "2.0", frames: 1800),
+            ],
+        ),
+        // Max Ammo : chargeurs et réserves de munitions remplis, pour tous les joueurs.
+        "max_ammo": (
+            name: "Max Ammo",
+            weight: 20,
+            pickup_range: "30.0",
+            lifetime_frames: 1800,
+            actions: [
+                RefillAmmo,
+            ],
+        ),
+        // Carpenter : toutes les fenêtres de la carte réparées à santé maximale.
+        "carpenter": (
+            name: "Carpenter",
+            weight: 15,
+            pickup_range: "30.0",
+            lifetime_frames: 1800,
+            actions: [
+                RepairAllWindows,
+            ],
+        ),
+        // Nuke : tous les ennemis actuellement en vie meurent instantanément.
+        "nuke": (
+            name: "Nuke",
+            weight: 10,
+            pickup_range: "30.0",
+            lifetime_frames: 1800,
+            actions: [
+                KillAllWaveEnemies,
+            ],
+        ),
+    },
+)

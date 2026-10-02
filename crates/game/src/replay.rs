@@ -62,6 +62,33 @@ pub struct Scenario {
     /// Invariants vérifiés à chaque frame par le runner ; tous actifs par défaut.
     #[serde(default, skip_serializing_if = "Invariants::tous_actifs")]
     pub invariants: Invariants,
+    /// Placements scriptés de power-ups (T2.5, chantier C1 v0) : fait apparaître un
+    /// power-up à une position et une frame exactes, sans dépendre d'une carte LDtk ni du
+    /// tirage RNG `loot` — voir [`PowerUpPlacement`] et
+    /// `scenario::runner::apply_scenario_powerup_placements`.
+    #[serde(default, skip_serializing_if = "Vec::is_empty")]
+    pub powerups: Vec<PowerUpPlacement>,
+    /// Force `PowerUpsConfig::drop_chance` pour ce scénario (T2.5), pour prouver le chemin
+    /// « drop à la mort » sans dépendre du tirage réel du jeu (scénario
+    /// `powerup_drop_on_kill`) — voir `scenario::runner::apply_powerup_drop_chance_override`.
+    /// `None` (défaut) : `drop_chance` de `items/powerups.ron` du jeu, inchangé pour tous
+    /// les scénarios existants.
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub powerup_drop_chance_override: Option<Fixed>,
+}
+
+/// Placement scripté d'un power-up (T2.5) : fait apparaître le power-up `id` (clé de
+/// `items/powerups.ron`) à la position `(x, y)` du monde, à la frame `at_frame` exacte.
+/// Même idée que `wave_overrides`/`weapon_overrides` (réglage de scénario, pas un vrai
+/// champ de contenu) mais appliquée pendant la simulation (`GgrsSchedule`, pas `Update`) :
+/// un placement doit apparaître à une frame précise et rester rollback-safe, comme un
+/// spawn d'ennemi de vague — voir `scenario::runner::apply_scenario_powerup_placements`.
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct PowerUpPlacement {
+    pub id: String,
+    pub x: Fixed,
+    pub y: Fixed,
+    pub at_frame: u32,
 }
 
 /// Invariants de la simulation vérifiés par le runner à chaque frame (plan §9.4,
@@ -383,6 +410,16 @@ pub enum Expectation {
         max: Option<u32>,
         at_frame: u32,
     },
+    /// Nombre de power-ups au sol (T2.5, `game::powerups::PowerUpPickup`, même forme que
+    /// [`Self::WeaponPickups`]). Bornes `[min, max]` inclusives, `None` = pas de borne —
+    /// voir le scénario `powerup_drop_on_kill` (preuve du drop déterministe à la mort).
+    PowerUpPickups {
+        #[serde(default, skip_serializing_if = "Option::is_none")]
+        min: Option<u32>,
+        #[serde(default, skip_serializing_if = "Option::is_none")]
+        max: Option<u32>,
+        at_frame: u32,
+    },
     /// Portes ouvertes (sans collider).
     DoorsOpenAtLeast {
         doors: u32,
@@ -546,6 +583,7 @@ impl Expectation {
             | Self::Ammo { at_frame, .. }
             | Self::AmmoReserve { at_frame, .. }
             | Self::WeaponPickups { at_frame, .. }
+            | Self::PowerUpPickups { at_frame, .. }
             | Self::DoorsOpenAtLeast { at_frame, .. }
             | Self::WindowHealth { at_frame, .. }
             | Self::BulletsInside { at_frame, .. }

@@ -8,6 +8,8 @@
 // visibles autour de lui (est, nord, sud, ouest, sud-est) ; le follower se rapproche
 // lentement mais ne l'atteint jamais en 300 frames.
 Scenario(
+    // Isoler ce scénario des drops aléatoires ; powerup_drop_on_kill teste ce chemin.
+    powerup_drop_chance_override: "0.0",
     game: "testbed",
     map: "testbed/arena.ldtk",
     frames: 300,

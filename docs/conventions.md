@@ -131,7 +131,8 @@ mélangent encore plusieurs kinds dans un même dossier historique
 (`ZombieShooter/Sprites/Character/` contient à la fois `player_config.ron` et des feuilles
 de sprite) : dans ce cas le manifeste déclare le **fichier** précis plutôt que le dossier
 entier (voir `games/zombies/assets/game.ron`). Les kinds connus : `Character`, `Weapon`,
-`MeleeWeapon`, `Wave`, `Map`, `Ui`, `Camera` (`content::registry::KNOWN_KIND_NAMES`) ; un
+`MeleeWeapon`, `Wave`, `Map`, `Ui`, `Camera`, `Economy`, `Perk`, `PowerUp`
+(`content::registry::KNOWN_KIND_NAMES`) ; un
 autre kind produit une erreur de lint (« kind inconnu ») plutôt qu'un échec RON générique.
 
 **Le registre** (`content::registry::Registry`, chargé par `Registry::build`) est la
@@ -391,6 +392,118 @@ Ressources GGRS internes (`RollbackFrameCount`, `ConfirmedFrameCount`, `MaxPredi
 **Restart en p2p** : non supporté par ce chantier — `apply_run_request_system` redirige `Restart` vers `ToLobby` quand `OnlineState::Online` (le bouton « renvoie au lobby », averti par un `warn!`).
 
 **Scénarios et tests** : `run_lose_summary` (deux joueurs immobiles sur `test_map.ldtk`, même mise en scène que `downed_all_lose` — défaite complète à f1505) vérifie `RunState(step: Ended(Defeat), at_frame: ...)` et `RunSummary(wave_reached_min: 1, kills_min: 0, at_frame: ...)`. Nouvelles attentes de scénario : `Expectation::RunState { step: RunStepExpectation::{Playing, Ended(RunEnd)}, at_frame }` (vérification ponctuelle, comme `PlayerAlive` — `RunStep::Ended` ne change plus une fois posé) et `Expectation::RunSummary { wave_reached_min, kills_min, at_frame }` (bornes inférieures, échoue si `Run.summary` est encore `None`). `crates/scenario/tests/run.rs` : test d'intégration qui pilote `App::update()` directement (pas via `Scenario::expect`) — joue `idle` jusqu'à la défaite, pose `RunRequest::Restart`, mesure le temps mural jusqu'au retour en `InGame` à la frame 0 (doit rester sous dix secondes), rejoue 300 frames et compare la trace d'état (`StateTraceRecorder::lines_until`) à celle des 300 premières frames de la première partie — identiques si la relance n'a rien laissé traîner. `ToLobby` : vérifié au moins pour le changement d'état (`AppState` devient `LobbyLocal`).
+
+## 14. Power-ups (T2.5, chantier C1 v0)
+
+**Vocabulaire d'actions** (`crates/effects`, nouveau crate minimal — comme `run`, sans
+dépendance vers `bevy`) : `effects::Action` est la liste fermée des effets qu'un power-up
+peut appliquer, la graine du futur système de déclencheurs/effets de `docs/plan-engine.md`
+§5 (« C1. Effets ») — pas de déclencheur ni de condition dans ce chantier, seulement les
+actions. Cinq variantes : `TimedModifier { stat, op, value, frames }` (modificateur de stat
+temporaire, `frames` = durée relative à la frame de ramassage), `RefillAmmo`,
+`RepairAllWindows`, `KillAllWaveEnemies`, `CurrencyMultiplier { factor, frames }`.
+`Action::as_modifier(frame, source)` est l'« applicateur déterministe » pur (sans ECS,
+testé unitairement) pour les deux variantes modifier-based ; les trois autres sont résolues
+directement par `game::powerups` (accès à `AmmoReserves`/`WindowHealth`/`Team`, inconnus
+d'`effects`).
+
+**Sémantique CoD (décision)** : un power-up ramassé s'applique à **tous les joueurs** de la
+partie, jamais au seul joueur qui l'a ramassé — aucun des cinq power-ups de référence
+(Insta-Kill, Double Points, Max Ammo, Carpenter, Nuke) n'est individuel dans le jeu source.
+
+**Table de contenu** (kind `PowerUp`, `games/<jeu>/assets/items/powerups.ron`, déclaré comme
+un **dossier** dans `game.ron` — comme `characters/`, pas un fichier unique — pour qu'un
+futur id dupliqué entre deux fichiers du dossier produise l'erreur `DuplicateId` habituelle) :
+```ron
+(
+    drop_chance: "0.15",  // probabilité qu'un ennemi tué (équipe Enemies) laisse tomber un power-up
+    powerups: {
+        "insta_kill": (
+            name: "Insta-Kill",
+            weight: 15,            // poids de tirage parmi les power-ups, si un drop a lieu
+            pickup_range: "30.0",  // portée de ramassage (Fixed), au passage, pas un bouton
+            lifetime_frames: 1800, // durée de vie au sol avant disparition (≈ 30 s à 60 FPS)
+            actions: [
+                TimedModifier(stat: Damage, op: Set, value: "100.0", frames: 1800),
+            ],
+        ),
+        // double_points: CurrencyMultiplier ; max_ammo: RefillAmmo ;
+        // carpenter: RepairAllWindows ; nuke: KillAllWaveEnemies.
+    },
+)
+```
+`drop_chance` décide **si** un drop a lieu (tirage global), `weight` décide **lequel** parmi
+la table (tirage pondéré, même méthode que `waves/wave_config.ron`/`select_enemy_type`).
+Lint (`content::lint::lint_powerups`) : `drop_chance` dans `[0, 1]`, `weight > 0` par
+power-up (`LintErrorKind::OutOfRange`) ; une référence de `StatId` inconnue dans
+`actions[].stat` échoue déjà au chargement RON (`actions` réutilise le type réel
+`effects::Action`, pas un mirroir — comme `StatId` pour `perks.ron`), rapportée
+`LintErrorKind::Parse` ; un id de power-up dupliqué entre deux fichiers du dossier `PowerUp`,
+`LintErrorKind::DuplicateId` (même mécanisme que `characters/`/`weapons.ron`). Fixtures :
+`crates/content/tests/fixtures/powerup_out_of_range`, `powerup_duplicate_id`,
+`powerup_unknown_stat`.
+
+**Entité rollback « power-up au sol »** (`game::powerups::PowerUpPickup { id, expires_at_frame }`,
+posée par `spawn_powerup_pickup`, point d'entrée commun au drop et au placement scripté de
+scénario — comme `weapons::spawn_weapon_pickup` pour lâcher/armes murales) : **pas** une
+`Interactable` (contrairement aux armes/fenêtres/perks) — `powerup_pickup_detect_system`
+(`RollbackSystemSet::Effects`) ramasse automatiquement au passage, dès qu'un joueur entre
+dans `PowerUpDef::pickup_range` (le premier dans l'ordre `GgrsNetId` s'il y en a plusieurs à
+portée la même frame), despawn immédiat (`despawn_rollback`) et émission de
+`FrameEvents<PowerUpPickedUp>`, résolu par `apply_powerup_actions_system` (même set,
+`.after`). `powerup_expiry_system` (même set) détruit un power-up jamais ramassé à
+`expires_at_frame` : à cette frame le ramassage est fermé. `PowerUpPickup` est
+enregistré par `rollback_and_trace` (rollback, checksum GGRS et trace). La file
+`FrameEvents<PowerUpPickedUp>` est elle aussi checksummée. Tout bless exige la preuve
+décrite au §10 ; les résultats figurent dans le rapport de tâche.
+
+**Max Ammo** : remplit tous les modes de chaque arme portée, additionne les capacités
+`mag_size × mag_limit` du mode par défaut **par type de munition**, puis relève chaque
+réserve à cette somme sans diminuer une réserve déjà supérieure. Un rechargement en
+cours est annulé pour éviter un débit après le remplissage. Les armes `Magless` ne
+contribuent pas à la réserve, mais leur stock propre est rempli.
+
+**Drop à la mort** (`game::powerups::loot_drop_on_death_system`,
+`RollbackSystemSet::DeathManagement`, `.after(rollback_apply_accumulated_damage)
+.before(rollback_apply_death)` — même contrainte que
+`waves::systems::wave_enemy_death_tracking_system`, il lui faut la position de l'entité
+avant qu'elle ne soit détruite) : portée **équipe `Enemies`** (pas seulement `WaveEnemy`,
+absent des personnages de laboratoire du testbed placés par `CharacterSpawn` — sans quoi le
+chemin « drop à la mort » ne serait pas prouvable dans le testbed, T2.9 n'y faisant jamais
+tourner le mode vagues). Tirage déterministe dans le flux RNG nommé **`loot`**
+(`bevy_fixed::rng::RngStreams`, T1.6, comme `"waves"`/`"weapons"`), **dans l'ordre des
+`GgrsNetId`** des morts de la frame (`order_iter!`) : un tirage « un power-up tombe-t-il »
+(comparé à `drop_chance`), puis, si oui, un tirage pondéré (`weight`) pour lequel.
+
+**Réglages de scénario** (`game::replay::Scenario`, appliqués par `crates/scenario/src/runner.rs`,
+même famille que `wave_overrides`/`weapon_overrides`) :
+- `powerups: [(id, x, y, at_frame)]` (`PowerUpPlacement`) : fait apparaître un power-up à une
+  position (`x` et `y` en chaînes Fixed) et une frame exactes, sans dépendre d'une carte
+  LDtk ni du tirage RNG — pour
+  prouver l'**effet** de chaque power-up indépendamment du mécanisme de drop. Contrairement
+  aux autres réglages (`Update`, une fois avant la première frame), celui-ci tourne dans
+  `GgrsSchedule` (`RollbackSystemSet::Effects`, avant la détection de ramassage) : la
+  condition `frame == at_frame` est naturellement rollback-safe (même raisonnement qu'un
+  spawn de vague), pas de `Local<bool>` par placement. La durée de vie est celle de la
+  table du jeu, comme pour un drop réel.
+- `powerup_drop_chance_override: Fixed` : force `PowerUpsConfig::drop_chance` pour ce
+  scénario (`Update`, comme `apply_wave_overrides`) — pour prouver le chemin « drop à la
+  mort » sans dépendre du tirage réel du jeu (scénario `powerup_drop_on_kill`, chance forcée
+  à 1). Les scénarios de régression et les essais générés d'armes déclarent explicitement
+  une chance nulle pour isoler leur comportement. Dans ce cas aucun tirage ni flux
+  `loot` n'est créé. La table du jeu conserve sa chance de 15 %.
+
+**Nouvelle attente** (`game::replay::Expectation::PowerUpPickups { min, max, at_frame }`) :
+nombre de `PowerUpPickup` au sol, bornes `[min, max]` inclusives — même forme que
+`WeaponPickups`. Les placements et la chance de drop sont préservés dans le scénario
+réenregistré par le runner.
+
+**Scénarios de référence** (`tests/scenarios/`, testbed, un par power-up + un pour le drop) :
+`powerup_insta_kill`, `powerup_double_points`, `powerup_max_ammo`, `powerup_carpenter`
+(seul à utiliser `testbed/window.ldtk` plutôt que `testbed/arena.ldtk` : il faut une fenêtre
+à réparer, absente de l'arène — le `breacher` de `window.ldtk` la casse naturellement avant
+que le scénario ne pose le power-up), `powerup_nuke`, `powerup_drop_on_kill` (chance forcée
+à 1, tue `dummy` par tir soutenu, vérifie qu'un `PowerUpPickup` apparaît).
 
 ## Notes essentielles
 

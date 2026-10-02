@@ -17,4 +17,5 @@ Scenario(
             weapon: "axe",
         ),
     ],
+    powerup_drop_chance_override: "0",
 )

@@ -1,0 +1,14 @@
+// Fixture T2.5 : référence de stat inconnue dans une action `TimedModifier` — échoue au
+// chargement RON (`effects::Action` est le type réel, voir `registry::PowerUpEntrySchema`),
+// rapporté comme LintErrorKind::Parse.
+(
+    drop_chance: "0.2",
+    powerups: {
+        "insta_kill": (
+            weight: 10,
+            actions: [
+                TimedModifier(stat: PasUneStatConnue, op: Set, value: "1.0", frames: 60),
+            ],
+        ),
+    },
+)

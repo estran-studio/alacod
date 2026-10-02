@@ -1,0 +1,40 @@
+// T2.5 (power-ups, chantier C1 v0) : Double Points multiplie les points gagnés par deux
+// (`CurrencyMultiplier(factor: "2.0", ...)`, lu par `economy::award_points_system` via la
+// stat `powerup_currency_multiplier`). Combine volontairement avec `insta_kill` (placé en
+// même temps) pour obtenir un kill au premier coup au but **exact** (sinon le nombre de
+// coups sur `dummy`, 200 PV, dépend du spread et fausserait le solde final) : dès qu'un tir
+// de pistolet touche (15 dégâts × 100 = 1500), il tue `dummy` du même coup, ce qui crédite
+// exactement un `Hit` (10) + un `Kill` (60) = 70 points de base, doublés = 140 — peu importe
+// lequel des trois tirs scriptés touche en premier (mode Manual, un tir par appui, espacés
+// de plus que le délai de tir du pistolet — 30 frames à `firing_rate: 2.0` — pour que
+// chaque appui compte comme un nouveau tir). `currency: 0` isole ce calcul de
+// `starting_currency`.
+//
+// À regarder : le joueur ne bouge pas, tire au pistolet vers le nord-ouest en trois appuis
+// espacés (f60, f100, f140) ; `dummy` meurt au premier qui touche ; le solde passe à 140.
+Scenario(
+    // Isoler ce scénario des drops aléatoires ; powerup_drop_on_kill teste ce chemin.
+    powerup_drop_chance_override: "0.0",
+    game: "testbed",
+    map: "testbed/arena.ldtk",
+    frames: 250,
+    players: [
+        (
+            weapon: "pistol",
+            currency: 0,
+            inputs: [
+                (from: 60, to: 62, buttons: [Fire], pan: (-64, 48)),
+                (from: 100, to: 102, buttons: [Fire], pan: (-64, 48)),
+                (from: 140, to: 142, buttons: [Fire], pan: (-64, 48)),
+            ],
+        ),
+    ],
+    powerups: [
+        (id: "insta_kill", x: "423.0", y: "695.0", at_frame: 10),
+        (id: "double_points", x: "423.0", y: "695.0", at_frame: 10),
+    ],
+    expect: [
+        EntityCount(kind: Enemy, max: 4, at_frame: 200),
+        Currency(handle: 0, min: 140, max: 140, at_frame: 200),
+    ],
+)

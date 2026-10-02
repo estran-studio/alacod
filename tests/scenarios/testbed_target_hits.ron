@@ -5,6 +5,8 @@
 // À regarder : le joueur tire en continu vers le nord-est (f10-160) ; la cible reste immobile
 // et encaisse de nombreux impacts sans jamais mourir (santé de départ très haute).
 Scenario(
+    // Isoler ce scénario des drops aléatoires ; powerup_drop_on_kill teste ce chemin.
+    powerup_drop_chance_override: "0.0",
     game: "testbed",
     map: "testbed/arena.ldtk",
     frames: 220,

@@ -1,0 +1,9 @@
+(
+    drop_chance: "0.2",
+    powerups: {
+        "insta_kill": (
+            weight: 5,
+            actions: [],
+        ),
+    },
+)

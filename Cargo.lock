@@ -4385,6 +4385,7 @@ dependencies = [
  "bevy 0.19.1",
  "bevy_fixed",
  "clap 4.6.7",
+ "effects",
  "ron 0.12.2",
  "serde",
  "sim_core",
@@ -5121,6 +5122,16 @@ dependencies = [
 ]
 
 [[package]]
+name = "effects"
+version = "0.1.0"
+dependencies = [
+ "bevy_fixed",
+ "ron 0.12.2",
+ "serde",
+ "sim_core",
+]
+
+[[package]]
 name = "egui"
 version = "0.34.3"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -5785,6 +5796,7 @@ dependencies = [
  "clap 4.6.7",
  "combat",
  "content",
+ "effects",
  "ggrs",
  "harmonium_bevy",
  "lazy_static",

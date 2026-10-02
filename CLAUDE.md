@@ -279,10 +279,15 @@ Avant/après un refactoring de la simulation, comparer les traces : elles doiven
 - `tests/scenarios/<nom>.ron` : map, seed, un script d'inputs par joueur (segments de frames avec
   boutons et visée), nombre de frames, attentes à une frame donnée :
   - Ponctuelles : `PlayerAlive`, `PlayerDead`, `WaveAtLeast`, `KillsAtLeast`, `WindowsBrokenAtLeast`,
-    `WindowHealth`, `DoorsOpenAtLeast`, `ActiveWeapon`, `Ammo`, `PlayerPosition`, `BulletsInside`,
-    `Health`, `EntityHealth`, `EntityCount`, `Event`.
+    `WindowHealth`, `DoorsOpenAtLeast`, `ActiveWeapon`, `Ammo`, `AmmoReserve`, `WeaponPickups`,
+    `PowerUpPickups` (T2.5), `PlayerPosition`, `BulletsInside`, `Health`, `EntityHealth`,
+    `EntityHits`, `EntityCount`, `Currency`, `Stat`, `PlayerDowned`, `RunState`,
+    `RunSummary`, `Event`.
   - Continues (vérifiées à chaque frame) : `NoDamageBetween` (santé du joueur ne diminue pas dans l'intervalle).
-  - `weapon_overrides` modifie la taille et le nombre de chargeurs d'une arme pour un scénario.
+  - `weapon_overrides` modifie la taille et le nombre de chargeurs d'une arme pour un scénario ;
+    `wave_overrides` la config de vagues ; `powerups` (T2.5) place un power-up à une position et
+    une frame exactes (coordonnées en chaînes `Fixed`) ; `powerup_drop_chance_override` (T2.5) force la chance de drop de la table
+    `items/powerups.ron` pour un scénario (preuve du chemin « drop à la mort »).
   - Format documenté dans `crates/game/src/replay.rs`.
 - `tests/scenarios/<nom>.trace` : trace d'état de référence. Toute différence fait échouer le test.
 - `tests/budgets.ron` : planchers de non-régression en frames simulées par seconde (défaut et

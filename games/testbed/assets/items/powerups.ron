@@ -1,0 +1,53 @@
+// Table des power-ups (T2.5, chantier C1 v0) : copie de `games/zombies/assets/items/
+// powerups.ron` (même contenu, comme `economy/economy.ron` dupliqué entre les deux jeux).
+// Sert aux scénarios `tests/scenarios/powerup_*.ron` (testbed, un scénario par power-up).
+(
+    drop_chance: "0.15",
+    powerups: {
+        "insta_kill": (
+            name: "Insta-Kill",
+            weight: 15,
+            pickup_range: "30.0",
+            lifetime_frames: 1800,
+            actions: [
+                TimedModifier(stat: Damage, op: Set, value: "100.0", frames: 1800),
+            ],
+        ),
+        "double_points": (
+            name: "Double Points",
+            weight: 20,
+            pickup_range: "30.0",
+            lifetime_frames: 1800,
+            actions: [
+                CurrencyMultiplier(factor: "2.0", frames: 1800),
+            ],
+        ),
+        "max_ammo": (
+            name: "Max Ammo",
+            weight: 20,
+            pickup_range: "30.0",
+            lifetime_frames: 1800,
+            actions: [
+                RefillAmmo,
+            ],
+        ),
+        "carpenter": (
+            name: "Carpenter",
+            weight: 15,
+            pickup_range: "30.0",
+            lifetime_frames: 1800,
+            actions: [
+                RepairAllWindows,
+            ],
+        ),
+        "nuke": (
+            name: "Nuke",
+            weight: 10,
+            pickup_range: "30.0",
+            lifetime_frames: 1800,
+            actions: [
+                KillAllWaveEnemies,
+            ],
+        ),
+    },
+)

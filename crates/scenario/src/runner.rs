@@ -4,7 +4,7 @@ use crate::events::{GameEvent, GameEvents, GameEventsPlugin};
 use crate::invariants::InvariantQueries;
 use bevy::prelude::*;
 use bevy_fixed::fixed_math;
-use bevy_ggrs::SyncTestMismatch;
+use bevy_ggrs::{GgrsSchedule, SyncTestMismatch};
 use bots::{BotAssignments, BotsPlugin};
 use combat::damage::Defenses;
 use combat::inventory::AmmoReserves;
@@ -36,7 +36,10 @@ use std::path::PathBuf;
 use utils::frame::FrameCount;
 
 use game::global_asset::GlobalAsset;
-use game::replay::{Expectation, ModifierSpec, RunStepExpectation, Scenario, WaveOverride};
+use game::powerups::{spawn_powerup_pickup, PowerUpPickup, PowerUpsConfig};
+use game::replay::{
+    Expectation, ModifierSpec, PowerUpPlacement, RunStepExpectation, Scenario, WaveOverride,
+};
 use game::weapons::melee::{self, MeleeWeapon, MeleeWeaponsConfig};
 use game::weapons::{spawn_weapon_for_player, Weapon, WeaponInventory, WeaponsConfig};
 use utils::net_id::GgrsNetIdFactory;
@@ -172,6 +175,20 @@ pub fn build_app(scenario: &Scenario, headless: bool, config: &PlayConfig) -> Ap
         .add_systems(Update, apply_weapon_overrides)
         .insert_resource(WaveOverrideRes(scenario.wave_overrides.clone()))
         .add_systems(Update, apply_wave_overrides)
+        // Power-ups (T2.5, chantier C1 v0) : `drop_chance` forcé (pré-run, comme
+        // `apply_wave_overrides`) et placements scriptés (pendant la simulation, voir la
+        // doc de `apply_scenario_powerup_placements`).
+        .insert_resource(PowerUpDropChanceOverrideRes(
+            scenario.powerup_drop_chance_override,
+        ))
+        .add_systems(Update, apply_powerup_drop_chance_override)
+        .insert_resource(ScenarioPowerUpPlacements(scenario.powerups.clone()))
+        .add_systems(
+            GgrsSchedule,
+            apply_scenario_powerup_placements
+                .before(game::powerups::powerup_pickup_detect_system)
+                .in_set(game::system_set::RollbackSystemSet::Effects),
+        )
         .insert_resource(PlayerOverrides(
             scenario
                 .players
@@ -358,6 +375,89 @@ fn apply_wave_overrides(
         config.spawn_interval_frames = v;
     }
     *applied = true;
+}
+
+#[derive(Resource)]
+struct PowerUpDropChanceOverrideRes(Option<fixed_math::Fixed>);
+
+/// Force `PowerUpsConfig::drop_chance` pour ce scénario (T2.5, scénario
+/// `powerup_drop_on_kill` : preuve du chemin « drop à la mort » sans dépendre du tirage réel
+/// du jeu — voir `game::replay::Scenario::powerup_drop_chance_override`). Même idée que
+/// [`apply_wave_overrides`] : s'applique dès que l'asset est chargé, avant la première mort
+/// simulée (qui lit cette config).
+fn apply_powerup_drop_chance_override(
+    overrides: Res<PowerUpDropChanceOverrideRes>,
+    global_assets: Option<Res<GlobalAsset>>,
+    mut powerup_configs: ResMut<Assets<PowerUpsConfig>>,
+    mut applied: Local<bool>,
+) {
+    if *applied {
+        return;
+    }
+    let Some(drop_chance) = overrides.0 else {
+        *applied = true;
+        return;
+    };
+    let Some(handle) = global_assets.and_then(|g| g.powerups_config.clone()) else {
+        return;
+    };
+    let Some(mut config) = powerup_configs.get_mut(&handle) else {
+        return;
+    };
+    config.drop_chance = drop_chance;
+    *applied = true;
+}
+
+#[derive(Resource)]
+struct ScenarioPowerUpPlacements(Vec<PowerUpPlacement>);
+
+/// Placements scriptés de power-ups (T2.5, `Scenario::powerups`) : fait apparaître un
+/// power-up à une position et une frame exactes, sans dépendre d'une carte LDtk ni du
+/// tirage RNG `loot` (voir la doc de `game::replay::PowerUpPlacement`). Contrairement aux
+/// autres réglages de scénario de ce fichier (`Update`, une seule application avant la
+/// première frame), celui-ci tourne dans `GgrsSchedule` : un placement doit apparaître à
+/// une frame précise **pendant** la simulation, comme un spawn d'ennemi de vague — la
+/// condition `frame.frame == at_frame` est naturellement rollback-safe (même raisonnement
+/// que `waves::systems::wave_spawning_system` : re-simuler la même frame retrouve le même
+/// `GgrsNetIdFactory`, donc le même id), pas besoin d'un `Local<bool>` par placement.
+///
+/// `RollbackSystemSet::Effects`, `.before(game::powerups::powerup_pickup_detect_system)` :
+/// un power-up placé exactement sur un joueur déjà présent est ramassable la **même**
+/// frame où il apparaît (contrairement à un drop à la mort, posé dans
+/// `DeathManagement`, un set plus tard — un frame de latence avant que
+/// `Effects` ne le revoie, sans conséquence observable).
+fn apply_scenario_powerup_placements(
+    frame: Res<FrameCount>,
+    placements: Res<ScenarioPowerUpPlacements>,
+    global_assets: Res<GlobalAsset>,
+    powerup_configs: Res<Assets<PowerUpsConfig>>,
+    mut commands: Commands,
+    mut id_factory: ResMut<GgrsNetIdFactory>,
+) {
+    let Some(config) = global_assets
+        .powerups_config
+        .as_ref()
+        .and_then(|handle| powerup_configs.get(handle))
+    else {
+        return;
+    };
+    for placement in &placements.0 {
+        if frame.frame != placement.at_frame {
+            continue;
+        }
+        let Some(definition) = config.powerups.get(&placement.id) else {
+            continue;
+        };
+        let position = fixed_math::FixedVec3::new(placement.x, placement.y, fixed_math::FIXED_ZERO);
+        let expires_at_frame = frame.frame.saturating_add(definition.lifetime_frames);
+        spawn_powerup_pickup(
+            &mut commands,
+            placement.id.clone(),
+            position,
+            expires_at_frame,
+            &mut id_factory,
+        );
+    }
 }
 
 /// Condition d'arrêt anticipé du runner (`alacod-sim`, T2.11) : la simulation s'arrête avant
@@ -705,10 +805,16 @@ pub fn run_with_options<F: FnOnce(&mut App)>(
         .map(|lines| lines.map(str::to_string).collect());
 
     let summary = summarize(app.world_mut(), frame);
-    let recorded = app
+    let mut recorded = app
         .world()
         .resource::<InputRecorder>()
         .to_scenario(app.world().get_resource::<MapGenerationConfig>());
+    // Ces réglages font partie de la simulation rejouée, pas du flux d'inputs.
+    recorded.game = scenario.game.clone();
+    recorded.weapon_overrides = scenario.weapon_overrides.clone();
+    recorded.wave_overrides = scenario.wave_overrides.clone();
+    recorded.powerups = scenario.powerups.clone();
+    recorded.powerup_drop_chance_override = scenario.powerup_drop_chance_override;
 
     let events = app.world().resource::<GameEvents>().events.clone();
 
@@ -852,6 +958,20 @@ fn check(world: &mut World, expectation: &Expectation) -> Result<(), String> {
             if let Some(max_val) = max {
                 if count > *max_val {
                     return Err(format!("{count} armes au sol > max {max_val}"));
+                }
+            }
+            Ok(())
+        }
+        Expectation::PowerUpPickups { min, max, .. } => {
+            let count = world.query::<&PowerUpPickup>().iter(world).count() as u32;
+            if let Some(min_val) = min {
+                if count < *min_val {
+                    return Err(format!("{count} power-ups au sol < min {min_val}"));
+                }
+            }
+            if let Some(max_val) = max {
+                if count > *max_val {
+                    return Err(format!("{count} power-ups au sol > max {max_val}"));
                 }
             }
             Ok(())

@@ -11,6 +11,8 @@
 // deux fois plus basse seulement pour le joueur 0 — la rampe d'accélération, commune aux
 // deux, pèse relativement plus sur le trajet du joueur 0.
 Scenario(
+    // Isoler ce scénario des drops aléatoires ; powerup_drop_on_kill teste ce chemin.
+    powerup_drop_chance_override: "0.0",
     frames: 150,
     players: [
         (

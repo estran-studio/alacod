@@ -36,10 +36,12 @@ use bevy::prelude::*;
 use bevy_common_assets::ron::RonAssetPlugin;
 use bevy_fixed::fixed_math::{self, Fixed};
 use bevy_ggrs::{GgrsSchedule, Rollback};
+use effects::CURRENCY_MULTIPLIER_STAT;
 use serde::{Deserialize, Serialize};
 use sim_core::frame_events::{FrameEvents, FrameEventsAppExt};
 use sim_core::modifier::ModifierSource;
 use sim_core::stats::StatId;
+use stats::StatReader;
 use std::collections::BTreeMap;
 use utils::{net_id::GgrsNetId, order_mut_iter};
 
@@ -210,6 +212,12 @@ impl RepairPointsTracking {
 /// kill/coup/réparation (voir la doc du module) ; `RollbackSystemSet::Run`, après tout ce qui
 /// peut produire un [`PointsCredit`] cette frame (`CollisionDamage`, `DeathManagement`,
 /// `Interaction` — tous avant `Run` dans `RollbackSystemSet::ORDER`).
+///
+/// Double Points (T2.5, chantier C1 v0, `effects::Action::CurrencyMultiplier`) : chaque
+/// montant crédité est multiplié par la stat résolue [`CURRENCY_MULTIPLIER_STAT`] du joueur
+/// crédité (`stats::StatReader`, base neutre `1.0` — voir la doc du module `game::powerups`
+/// et `sim_core::modifier::resolve`, aucun modificateur actif ne multiplie même pas par 1).
+/// Arrondi au plus proche (`Fixed::round`, comme `EconomyConfig::refill_price`).
 #[allow(clippy::too_many_arguments)]
 pub fn award_points_system(
     credits: Res<FrameEvents<PointsCredit>>,
@@ -217,7 +225,8 @@ pub fn award_points_system(
     economy_configs: Res<Assets<EconomyConfig>>,
     wave_state: Res<WaveState>,
     mut repair_tracking: ResMut<RepairPointsTracking>,
-    mut players: Query<(&GgrsNetId, &Player, &mut Currency), With<Rollback>>,
+    stats: StatReader,
+    mut players: Query<(&GgrsNetId, Entity, &Player, &mut Currency), With<Rollback>>,
     mut currency_events: ResMut<FrameEvents<CurrencyEvent>>,
 ) {
     if credits.is_empty() {
@@ -249,12 +258,25 @@ pub fn award_points_system(
         if amount == 0 {
             continue;
         }
-        for (_net_id, player, mut currency) in order_mut_iter!(players) {
+        for (_net_id, entity, player, mut currency) in order_mut_iter!(players) {
             if player.handle == target_handle {
-                currency.earn(amount);
+                let multiplier = stats.get(
+                    entity,
+                    &StatId::Custom(CURRENCY_MULTIPLIER_STAT.to_string()),
+                    fixed_math::FIXED_ONE,
+                );
+                let boosted = if multiplier == fixed_math::FIXED_ONE {
+                    amount
+                } else {
+                    Fixed::from_num(amount)
+                        .saturating_mul(multiplier)
+                        .round()
+                        .to_num::<u32>()
+                };
+                currency.earn(boosted);
                 currency_events.send(CurrencyEvent {
                     handle: target_handle,
-                    delta: amount as i64,
+                    delta: boosted as i64,
                     reason: reason.to_string(),
                 });
                 break;

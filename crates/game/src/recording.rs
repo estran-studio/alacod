@@ -76,6 +76,10 @@ impl InputRecorder {
             weapon_overrides: vec![],
             wave_overrides: None,
             invariants: Default::default(),
+            // Un enregistrement ne place jamais de power-up ni ne force la chance de drop
+            // (T2.5) : comportement inchangé, comme les autres champs ci-dessus.
+            powerups: vec![],
+            powerup_drop_chance_override: None,
         };
         if let Some(map) = map {
             scenario.map = map.map_path.clone();

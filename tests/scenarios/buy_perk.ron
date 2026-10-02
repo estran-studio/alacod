@@ -5,6 +5,8 @@
 // achète Juggernog en interagissant (f93-108) : sa vie maximum double (100 -> 200) et sa
 // vie actuelle remonte immédiatement de la même différence (200/200), son solde tombe à 500.
 Scenario(
+    // Isoler ce scénario des drops aléatoires ; powerup_drop_on_kill teste ce chemin.
+    powerup_drop_chance_override: "0.0",
     game: "zombies",
     map: "exemples/test_map_shop.ldtk",
     frames: 160,

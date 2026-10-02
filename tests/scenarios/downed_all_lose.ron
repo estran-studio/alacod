@@ -11,6 +11,8 @@
 // à son tour (f2074, 1174 + 900) bien après la défaite — hors de la fenêtre de ce scénario
 // (`frames: 1600`), qui s'arrête dès la défaite constatée.
 Scenario(
+    // Isoler ce scénario des drops aléatoires ; powerup_drop_on_kill teste ce chemin.
+    powerup_drop_chance_override: "0.0",
     game: "zombies",
     frames: 1600,
     players: [

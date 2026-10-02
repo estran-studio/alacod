@@ -17,4 +17,5 @@ Scenario(
             weapon: "bare_hands",
         ),
     ],
+    powerup_drop_chance_override: "0",
 )

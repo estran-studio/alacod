@@ -19,6 +19,7 @@
 // `RollbackSystemSet::Run`, après le système qui pose `step` — voir `game::run_state`).
 Scenario(
     game: "zombies",
+    powerup_drop_chance_override: "0.0",
     frames: 1600,
     players: [
         (),

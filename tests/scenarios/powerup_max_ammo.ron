@@ -1,0 +1,35 @@
+// T2.5 (power-ups, chantier C1 v0) : Max Ammo remplit le chargeur actif et recharge la
+// réserve de munitions de chaque arme portée, pour tous les joueurs. Le joueur tire puis
+// entame un rechargement ; le power-up placé à f60 remplit le chargeur (30), additionne
+// les capacités de la mitrailleuse et du pistolet (240 + 48 balles) et annule la recharge.
+//
+// À regarder : le joueur ne bouge pas, tire au nord-ouest (f10-40, la barre de munitions
+// baisse) puis recharge à f50 ; le chargeur revient plein dès f60, sans débit ultérieur.
+Scenario(
+    // Isoler ce scénario des drops aléatoires ; powerup_drop_on_kill teste ce chemin.
+    powerup_drop_chance_override: "0.0",
+    game: "testbed",
+    map: "testbed/arena.ldtk",
+    frames: 150,
+    weapon_overrides: [
+        (weapon: "pistol", ammo_type: Balle),
+    ],
+    players: [
+        (inputs: [
+            (from: 10, to: 40, buttons: [Fire], pan: (-64, 48)),
+            (from: 50, to: 52, buttons: [Reload]),
+        ]),
+    ],
+    powerups: [
+        (id: "max_ammo", x: "423.0", y: "695.0", at_frame: 60),
+    ],
+    expect: [
+        // Le segment de tir [10, 40) contient cinq coups : 30 - 5 = 25.
+        Ammo(handle: 0, ammo: 25, at_frame: 50),
+        // Plein à nouveau après Max Ammo.
+        Ammo(handle: 0, ammo: 30, at_frame: 80),
+        AmmoReserve(handle: 0, ammo_type: Balle, amount: 288, at_frame: 80),
+        AmmoReserve(handle: 0, ammo_type: Balle, amount: 288, at_frame: 140),
+        PowerUpPickups(max: 0, at_frame: 80),
+    ],
+)

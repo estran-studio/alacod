@@ -23,6 +23,7 @@ stats = { path = "../stats"}
 combat = { path = "../combat"}
 content = { path = "../content"}
 run = { path = "../run"}
+effects = { path = "../effects"}
 map = { path = "../map"}
 animation ={ path = "../animation"}
 telemetry = { path = "../telemetry"}

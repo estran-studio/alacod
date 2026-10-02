@@ -1,0 +1,24 @@
+// T2.5 (power-ups, chantier C1 v0) : preuve du chemin « drop à la mort », distincte des cinq
+// scénarios `powerup_<id>` (qui placent le power-up par réglage de scénario, pour isoler
+// l'effet). `powerup_drop_chance_override: "1.0"` force `PowerUpsConfig::drop_chance` à 1 :
+// le premier ennemi tué doit obligatoirement faire tomber un power-up (tirage `loot`
+// déterministe, T1.6). Le joueur tue `dummy` (200 PV, machine_gun) par tir soutenu.
+//
+// À regarder : le joueur ne bouge pas, tire en continu vers le nord-ouest (f10-700, le
+// dispersement de la machine_gun fait que tous les tirs ne touchent pas) ; `dummy` finit par
+// mourir ; un pickup est créé à ses pieds (PowerUpPickups, pas de sprite en v0).
+Scenario(
+    game: "testbed",
+    map: "testbed/arena.ldtk",
+    frames: 800,
+    players: [
+        (inputs: [
+            (from: 10, to: 700, buttons: [Fire], pan: (-64, 48)),
+        ]),
+    ],
+    powerup_drop_chance_override: "1.0",
+    expect: [
+        EntityCount(kind: Enemy, max: 4, at_frame: 750),
+        PowerUpPickups(min: 1, at_frame: 750),
+    ],
+)

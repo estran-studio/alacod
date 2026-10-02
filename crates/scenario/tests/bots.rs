@@ -29,6 +29,8 @@ fn two_fonceurs(frames: u32) -> Scenario {
         weapon_overrides: vec![],
         wave_overrides: None,
         invariants: Default::default(),
+        powerups: vec![],
+        powerup_drop_chance_override: None,
     }
 }
 
