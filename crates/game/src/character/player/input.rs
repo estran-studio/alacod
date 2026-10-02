@@ -24,45 +24,16 @@ use super::LocalPlayer;
 
 pub const FIXED_TIMESTEP: f32 = 1.0 / 60.0; // 60 FPS fixed timestep
 
-pub const INPUT_UP: u16 = 1 << 0;
-pub const INPUT_DOWN: u16 = 1 << 1;
-pub const INPUT_LEFT: u16 = 1 << 2;
-pub const INPUT_RIGHT: u16 = 1 << 3;
-pub const INPUT_RELOAD: u16 = 1 << 4;
-pub const INPUT_SWITCH_WEAPON_MODE: u16 = 1 << 5;
-pub const INPUT_SPRINT: u16 = 1 << 6;
-pub const INPUT_DASH: u16 = 1 << 7;
-pub const INPUT_MODIFIER: u16 = 1 << 8;
-pub const INPUT_INTERACTION: u16 = 1 << 9;
-pub const INPUT_MELEE_ATTACK: u16 = 1 << 10;
-pub const INPUT_FORCE_CRASH: u16 = 1 << 11;
-/// Lâche l'arme active au sol (T2.2, chantier B7). Touche `G` (`Devices`, voir
-/// `character::player::control::get_input_map`), bouton `DropWeapon` des scénarios (voir
-/// `game::replay::Button`).
-pub const INPUT_DROP_WEAPON: u16 = 1 << 12;
+pub use combat::actors::{
+    BoxInput, CursorPosition, INPUT_DASH, INPUT_DOWN, INPUT_DROP_WEAPON, INPUT_FORCE_CRASH,
+    INPUT_INTERACTION, INPUT_LEFT, INPUT_MELEE_ATTACK, INPUT_MODIFIER, INPUT_RELOAD, INPUT_RIGHT,
+    INPUT_SPRINT, INPUT_SWITCH_WEAPON_MODE, INPUT_UP,
+};
 
 const PAN_FACING_THRESHOLD: i16 = 5;
 
-#[repr(C)]
-#[derive(Copy, Clone, Debug, PartialEq, Eq, Default, Serialize, Deserialize)]
-pub struct BoxInput {
-    pub buttons: u16,
-    pub pan_x: i16,
-    pub pan_y: i16,
-
-    pub fire: bool,
-    pub switch_weapon: bool,
-}
-
 #[derive(Resource, Default, Debug, Clone, Copy)]
 pub struct PointerWorldPosition(pub Vec2);
-
-/// Component for the weapon sprite's position relative to player
-#[derive(Component, Clone, Copy, Default)]
-pub struct CursorPosition {
-    pub x: i32,
-    pub y: i32,
-}
 
 /// Component that tracks interaction input state
 #[derive(Component, Clone, Copy, Default, Debug, Hash, Serialize, Deserialize)]

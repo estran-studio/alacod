@@ -56,7 +56,7 @@ vocabulaire** :
 |---|---|---|
 | `sim_core` | les contrats : `Team`, `Tag`, `DamageKind`, `DamageEvent`, `StatId`, `Stats`, `Modifier`, `Gauge`, `RollbackSystemSet` complet, le trait de registre des kinds, `FrameEvents` | T0.2 |
 | `content` | manifeste, registre, expressions, lint, `alacod lint` | T1.5 |
-| `combat` | équipes et dégâts, santé, statuts, projectiles et patterns, mêlée, parade, grille spatiale | T1.1, puis T1.0 de M1 (déplacement de `weapons`) |
+| `combat` | armes, équipes et dégâts, santé, statuts, projectiles et patterns, mêlée, parade, grille spatiale | T1.1, puis T1.0 de M1 (déplacement de `weapons`) |
 | `stats` | stats et modificateurs | T1.2 |
 | `effects` | déclencheurs, conditions, actions, objets, inventaire, familiers | M1 |
 | `behaviors` | perception, ciblage, behaviors, résolutions, boss | M1 |
@@ -515,6 +515,8 @@ nuit en V1e, H1 en V4, J2 en V1e, le plugin `1837` dans son dépôt) ; M4 Isaac 
 région des chantiers puis la campagne.
 
 ## 9. Suivi
+
+- T1.0a : en cours (`m1-v1-contrats-combat-ia`).
 
 - Ce fichier est la source de vérité des tâches : une ligne de statut par tâche (`à faire`, `en
   cours (branche)`, `mergée (commit)`), tenue par l'agent qui prend la tâche.

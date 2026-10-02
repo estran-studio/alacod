@@ -298,7 +298,7 @@ impl Plugin for PresentationPlugin {
         app.add_plugins(CameraControlPlugin);
         app.add_plugins(DebugColliderGamePlugin);
         app.add_plugins(crate::character::CharacterPresentationPlugin);
-        app.add_plugins(crate::weapons::WeaponPresentationPlugin);
+        app.add_plugins(crate::ui::weapon_visuals::WeaponPresentationPlugin);
         app.add_plugins(crate::feedback::FeedbackPlugin);
         app.add_plugins(crate::ui::hud::HudPlugin);
         #[cfg(feature = "debug_ui")]

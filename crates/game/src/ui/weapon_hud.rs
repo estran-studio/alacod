@@ -5,7 +5,7 @@ use utils::frame::FrameCount;
 
 use crate::{character::player::LocalPlayer, core::AppState};
 
-use super::{WeaponInventory, WeaponModesState, WeaponState};
+use combat::weapons::{WeaponInventory, WeaponModesState, WeaponState};
 
 #[derive(Component)]
 struct CurrentWeaponText;

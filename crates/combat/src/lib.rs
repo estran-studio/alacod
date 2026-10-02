@@ -13,3 +13,8 @@ pub mod downed;
 pub mod grid;
 pub mod inventory;
 pub mod team;
+
+pub mod actors;
+pub mod collider;
+pub mod collision_grid;
+pub mod weapons;

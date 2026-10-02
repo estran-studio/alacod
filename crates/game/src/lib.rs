@@ -25,7 +25,7 @@ pub mod state_trace;
 pub mod system_set;
 pub mod ui;
 pub mod waves;
-pub mod weapons;
+pub use combat::weapons;
 
 use lazy_static::lazy_static;
 
