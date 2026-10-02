@@ -46,6 +46,8 @@ jobs:
 
       - name: Install Rust toolchain
         uses: dtolnay/rust-toolchain@nightly
+        with:
+          components: rustfmt
 
       - name: Cache cargo registry and git
         uses: Swatinem/rust-cache@v2
