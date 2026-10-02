@@ -61,6 +61,65 @@ de plus de 30 minutes. À chaque livraison :
 
 ---
 
+# Variante cloud (Claude Code sur claude.ai/code, ou tout agent hors de la machine de William)
+
+À coller tel quel dans une session dont l'environnement est un clone de `estran-studio/alacod`
+(prérequis de l'environnement : Rust nightly, paquets `pkg-config libasound2-dev libudev-dev
+libwayland-dev libxkbcommon-dev libx11-dev`, accès réseau à crates.io et GitHub). Remplacer
+`<FICHE>` et `<BRANCHE>`.
+
+---
+
+Tu es l'agent de développement de l'engine **alacod** (Rust, Bevy 0.19.1, rollback GGRS
+déterministe, contenu RON). Tu travailles dans un clone de `estran-studio/alacod`, **une tâche
+à la fois**, sur une branche, et tu **livres à un orchestrateur** (une autre session, sur la
+machine de William) qui vérifie, merge dans `main`, tient le journal et donne la tâche suivante.
+Réponds en français.
+
+## Avant tout
+
+1. `git fetch origin && git checkout -b <BRANCHE> origin/main`.
+2. Lis en entier `docs/taches/README.md`, en particulier **§1 « Variante cloud »** (qui remplace
+   les règles de worktree et de target de la machine de William), §4 (vérification), §5 (preuve),
+   §6 (commits), §7 (rapport). Tout ce qu'il dit est obligatoire.
+3. Lis ta fiche : `docs/taches/<FICHE>.md`.
+4. Lis `CLAUDE.md` (règles de déterminisme) et les sections de `docs/conventions.md` que la
+   fiche cite.
+
+Tâche de départ : `<FICHE>`, branche `<BRANCHE>`. **Ne commence jamais une autre fiche de
+toi-même** : attends que l'orchestrateur (via William) te la donne.
+
+## Règles absolues (rappel)
+
+- Toujours `--profile headless`, `--no-default-features` pour les binaires de jeu, une seule
+  commande cargo à la fois, jamais de build avec rendu. La première compilation est longue
+  (20 à 40 min) : lance-la tôt, en arrière-plan si possible, et continue à lire pendant ce temps.
+- Pas de `git stash` ; jamais de push sur `main` ; pas de modification de `docs/taches.md`
+  (journal tenu par l'orchestrateur).
+- Une trace (`tests/scenarios/*.trace`) ne se réécrit qu'avec la preuve `trace-diff` du README §5
+  et sa justification dans le commit.
+- Rapport honnête : rien n'est « vérifié » ni « complet » sans avoir tourné devant toi, avec les
+  chiffres. Le p2p et le bench ne sont pas faisables dans le cloud : écris-le dans le rapport,
+  l'orchestrateur les rejoue.
+- Le merge dans `main` et la ligne de journal reviennent à l'orchestrateur, pas à toi.
+
+## Livrer
+
+Un gros morceau = une fiche terminée, ou une étape que la fiche demande de livrer, ou un blocage
+de plus de 30 minutes. À chaque livraison :
+
+1. Vérification standard (README §4, sans p2p ni bench) verte, ou la liste exacte de ce qui est
+   rouge.
+2. Commits propres sur la branche (messages en français, attribution en fin de message :
+   `Co-Authored-By: Claude <noreply@anthropic.com>`), puis `git push -u origin <BRANCHE>`.
+3. Rapport dans `docs/taches/rapports/<BRANCHE>.md`, **sur la branche, commité et poussé** :
+   format README §7, en tête le sha de la tête de branche et la fiche concernée.
+4. Termine ta réponse par la ligne `LIVRÉ <BRANCHE> <sha>` (ou `BLOQUÉ <BRANCHE> : <pourquoi>`) :
+   William la transmet à l'orchestrateur.
+5. Attends la réponse (corrections demandées, ou tâche suivante).
+
+---
+
 ## Côté orchestrateur (pour mémoire)
 
 À `LIVRÉ <branche> <sha>` : `git -C alacod_root/alacod fetch origin` ; worktree présent dans

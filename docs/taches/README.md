@@ -33,7 +33,33 @@ fermeture des notes, qui ne sont pas des tâches d'agent).
   `--profile headless` (le profil dev pèse 6 Go et n'est pas amorcé), `--no-default-features`
   pour les binaires de jeu (`zombies`, `testbed`). Jamais de compilation depuis un `target` vide,
   jamais dans `/tmp`, jamais de build avec rendu sauf `play_scenario --features render` (vidéos).
-- Ne jamais utiliser `git stash` (pile partagée entre worktrees). Ne jamais `git push`.
+- Ne jamais utiliser `git stash` (pile partagée entre worktrees). Jamais de `git push` sur
+  `main` : seule la branche de tâche est poussée, à la livraison (`git push -u origin <tâche>`,
+  voir `PROMPT-KICKSTART.md`).
+
+### Variante cloud (agent hors de la machine de William : Claude Code sur claude.ai/code, etc.)
+
+L'environnement est un clone de `estran-studio/alacod` (GitHub) seul : pas de meta-repo, pas
+de `scripts/task-new.sh`, pas de worktree ni d'`env.sh`. Ce qui change :
+
+- **Branche** : `git fetch origin && git checkout -b <tâche> origin/main` dans le clone. Tout le
+  reste du README s'applique avec des chemins relatifs à la racine du clone.
+- **Compilation** : à froid, inévitablement (il n'y a pas de target à amorcer) : toujours
+  `--profile headless` et `--no-default-features` pour les binaires de jeu, `CARGO_BUILD_JOBS`
+  non limité (la machine n'est pas partagée), une seule commande cargo à la fois. Compter 20 à
+  40 minutes pour le premier `make test_scenarios` ; ensuite c'est incrémental. Prérequis :
+  Rust **nightly** (`rust-toolchain.toml`) et les paquets de la CI (`.github/workflows/pr.yaml`) :
+  `pkg-config libasound2-dev libudev-dev libwayland-dev libxkbcommon-dev libx11-dev`.
+- **Preuve (§5)** quand une trace doit changer : les deux dumps se font dans le même clone,
+  `main` d'abord (`git worktree add ../alacod-main origin/main`, même `CARGO_TARGET_DIR` que le
+  clone pour ne pas recompiler les dépendances, un scénario par appel), puis la branche.
+- **Hors de portée dans le cloud** : p2p à deux clients (Docker) et bench au calme
+  (`ALACOD_BENCH_STRICT=1`). L'orchestrateur les rejoue sur la machine de William à la revue ;
+  le rapport (§7) les liste comme « non vérifiés ici ».
+- **Livraison** : commits sur la branche, `git push -u origin <tâche>`, rapport commité sur la
+  branche, et la ligne `LIVRÉ <tâche> <sha>` en fin de réponse (pas de `SendMessage` depuis le
+  cloud) : William la relaie à l'orchestrateur. Pas de PR nécessaire (merge local), une PR
+  brouillon ne gêne pas.
 
 ## 2. Lire avant de coder
 
@@ -73,7 +99,7 @@ fermeture des notes, qui ne sont pas des tâches d'agent).
 
 ```bash
 make test_scenarios                       # tous les scénarios (traces comparées aux .trace) ; SCENARIO=<nom> pour un seul
-cargo test -q --profile headless -p scenario -p run -p combat -p game -p content -p map_ldtk -p sim_core -p stats -p bots --no-fail-fast
+cargo test -q --profile headless -p scenario -p run -p combat -p game -p content -p map_ldtk -p sim_core -p stats -p bots -p effects --no-fail-fast
 make lint                                 # alacod lint games/zombies et games/testbed : « aucune erreur »
 cargo fmt --all -- --check                # rien à afficher ; sinon `make fmt`
 ./scripts/check-forbidden.sh              # avertissements préexistants tolérés, aucun nouveau
@@ -81,9 +107,11 @@ cargo fmt --all -- --check                # rien à afficher ; sinon `make fmt`
 make gen GAME=zombies                     # seulement si une arme a changé (scénarios générés)
 ALACOD_BENCH_STRICT=1 make test_scenarios && ./scripts/scenario-metrics.py   # bench : à faire machine calme
 ```
-Résultats attendus aujourd'hui (main 6281b64) : 51 scénarios verts en `make test_scenarios`
-(41 + 10 générés ; 52 avec `run_lose_summary` une fois T2.4 mergée), `expectations` 26 tests,
-`lint_fixtures` 39 tests, lint des deux jeux sans erreur.
+Résultats attendus aujourd'hui (main e2716ff, T2.4 et T2.5 mergées) : 58 scénarios verts en
+`make test_scenarios` (48 + 10 générés), tests des dix crates 240 réussis / 0 échec / 8 ignorés
+(`expectations` 30, `lint_fixtures` 10, `run` 13, `effects` 6), lint des deux jeux sans erreur,
+`check-forbidden` 4 avertissements préexistants, bench : `bench_bullets` ≥ 70 fps et
+`bench_horde` ≥ 38 fps (`tests/budgets.ron`).
 
 **p2p à deux clients** (obligatoire quand la simulation ou la session change) :
 ```bash
