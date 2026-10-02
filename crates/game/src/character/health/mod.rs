@@ -42,13 +42,6 @@ pub struct HealthConfig {
     pub regen_delay_frames: Option<u32>, // Frames to wait after taking damage before regen starts
 }
 
-#[derive(Component, Clone, Debug, Serialize, Default, Deserialize, Hash)]
-pub struct Health {
-    pub current: fixed_math::Fixed,
-    pub max: fixed_math::Fixed,
-    pub invulnerable_until_frame: Option<u32>, // Optional invulnerability window
-}
-
 #[derive(Component, Clone, Debug, Hash, Serialize, Default, Deserialize)]
 pub struct HealthRegen {
     pub last_damage_frame: u32,
@@ -85,16 +78,6 @@ impl fmt::Display for HitBy {
             HitBy::Entity(net_id) => write!(f, "NetId({})", net_id.0),
             HitBy::Player(player_handle) => write!(f, "Player({})", player_handle),
         }
-    }
-}
-
-impl fmt::Display for Health {
-    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
-        write!(f, "HP: {}/{}", self.current, self.max)?;
-        if let Some(frame) = self.invulnerable_until_frame {
-            write!(f, " (Invulnerable until frame {})", frame)?;
-        }
-        Ok(())
     }
 }
 
@@ -571,3 +554,5 @@ pub fn sync_health_from_stats(
         }
     }
 }
+
+pub use combat::actors::Health;
