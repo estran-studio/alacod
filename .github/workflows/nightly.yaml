@@ -36,6 +36,10 @@ jobs:
         run: |
           sudo apt-get update
           sudo apt-get install -y \
+            make \
+            ffmpeg \
+            fontconfig \
+            fonts-dejavu-core \
             pkg-config \
             libasound2-dev \
             libudev-dev \
@@ -57,7 +61,9 @@ jobs:
 
       - name: Set environment
         run: |
-          echo "CARGO_TARGET_DIR=${{ github.workspace }}/target_nightly" >> $GITHUB_ENV
+          # Target hors du workspace : `clean: true` du checkout détruirait
+          # sinon le target à chaque run (recompilation complète de Bevy).
+          echo "CARGO_TARGET_DIR=/home/debian/alacod-target-nightly" >> $GITHUB_ENV
           echo "CARGO_BUILD_JOBS=3" >> $GITHUB_ENV
 
       - name: Run nightly pipeline
@@ -89,13 +95,14 @@ jobs:
         uses: actions/upload-artifact@v4
         with:
           name: nightly-${{ env.COMMIT }}
-          path: target_nightly/nightly/${{ env.COMMIT }}/
+          path: /home/debian/alacod-target-nightly/nightly/${{ env.COMMIT }}/
           retention-days: 30
           if-no-files-found: warn
 
       - name: Clean up build artifacts
         if: always()
         run: |
-          chmod -R u+w "${{ github.workspace }}/target_nightly" 2>/dev/null || true
-          rm -rf "${{ github.workspace }}/target_nightly" || true
+          # Le target persiste entre les runs (compile incrémentale) ; on ne
+          # supprime que les sorties de vidéos de plus de 7 jours.
+          find /home/debian/alacod-target-nightly/nightly -mindepth 1 -maxdepth 1 -type d -mtime +7 -exec rm -rf {} + 2>/dev/null || true
         continue-on-error: true
