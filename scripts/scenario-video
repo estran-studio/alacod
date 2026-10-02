@@ -13,6 +13,10 @@
 # Sorties dans target/videos/<commit>/ (compare : target/videos/compare/).
 # EVERY=N : une image toutes les N frames de simulation (défaut 2 → 30 images/s).
 set -euo pipefail
+# Une compilation qui échoue dans `player="$(build_player …)"` doit arrêter le script : sans
+# cette option, bash ignore `set -e` dans une substitution de commande et la capture se fait
+# avec le binaire de la compilation précédente.
+shopt -s inherit_errexit
 
 ROOT="$(cd "$(dirname "$0")/.." && pwd)"
 EVERY="${EVERY:-2}"
@@ -189,6 +193,17 @@ PY
         echo "→ $name joué par $ref ($sha)"
         # Même scénario (celui du dépôt courant) pour les deux côtés : seuls le code et les
         # assets changent. Le target partagé évite de recompiler les dépendances.
+        # Les crates du workspace (`utils`, `game`…) ont le même hash de compilation dans les
+        # deux arbres (cargo le calcule sur le chemin relatif au workspace), donc le même
+        # emplacement dans le target partagé, et leur empreinte renvoie aux sources de l'arbre
+        # compilé en dernier : sans `touch` des deux arbres, cargo juge à jour les
+        # bibliothèques compilées pour l'autre côté.
+        local t
+        for t in "$ROOT" "$ROOT"/target/videos/worktrees/*; do
+            if [ -d "$t/crates" ]; then
+                find "$t/crates" "$t/games" -name '*.rs' -exec touch {} + 2>/dev/null || true
+            fi
+        done
         player="$(CARGO_TARGET_DIR="$ROOT/target" build_player "$tree")"
         capture "$player" "$playable" "$out/frames/$side"
         encode "$out/frames/$side" "$out/$side.mp4" "$ref ($sha)"
