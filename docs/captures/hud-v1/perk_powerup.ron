@@ -1,0 +1,34 @@
+// Recette de la capture `perk_powerup.png` (T2.12) : `tests/scenarios/shop_tour.ron` plus
+// deux power-ups posés sur le point d'apparition du joueur (423, 695 sur test_map, voir
+// `dash_wall.ron`), ramassés dès f5-f6. Pas un scénario de test (hors de `tests/scenarios`,
+// aucune trace) : seulement pour montrer en une image les perks et les power-ups actifs.
+//
+// cargo run -p scenario --profile headless --features render --bin play_scenario -- \
+//   docs/captures/hud-v1/perk_powerup.ron --capture /tmp/cap --every 10
+//
+// À regarder : f260, icône « J » (Juggernog) en bas à gauche au-dessus de la vie,
+// « Double Points … s » et « Insta-Kill … s » en haut à droite.
+Scenario(
+    powerup_drop_chance_override: "0.0",
+    game: "zombies",
+    map: "exemples/test_map.ldtk",
+    frames: 300,
+    players: [
+        (
+            inputs: [
+                (from: 10, to: 60, buttons: [Up]),
+                (from: 60, to: 110, buttons: [Left]),
+                (from: 110, to: 130, buttons: [Interaction]),
+                (from: 130, to: 160, buttons: [Left]),
+                (from: 160, to: 200, buttons: [Interaction]),
+            ],
+            weapon: "machine_gun",
+            currency: 6000,
+        ),
+    ],
+    powerups: [
+        (id: "insta_kill", x: "423.0", y: "695.0", at_frame: 5),
+        (id: "double_points", x: "423.0", y: "695.0", at_frame: 6),
+    ],
+    expect: [],
+)

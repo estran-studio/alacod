@@ -442,8 +442,23 @@ Absent en headless (la PresentationPlugin n'est chargée que si !headless).
 
 #### Ancrages disponibles
 
-`TopLeft`, `TopCenter`, `TopRight`, `BottomLeft`, `BottomCenter`, `BottomRight`. Les offsets (x, y)
-sont en pixels. Pour les ancrages centrés (`TopCenter`, `BottomCenter`), l'offset x n'est pas utilisé.
+`TopLeft`, `TopCenter`, `TopRight`, `BottomLeft`, `BottomCenter`, `BottomRight`, `Center` (T2.12,
+centre de l'écran : l'offset décale depuis le centre). Les offsets (x, y) sont en pixels. Pour
+`TopCenter`/`BottomCenter`, l'offset x n'est pas utilisé. Le texte est centré pour les ancrages
+centrés, aligné à droite pour les ancrages de droite.
+
+Racine du fichier (T2.12, optionnels) : `font` (police de tous les textes, ex.
+`Some("fonts/FiraMono-Medium.ttf")` : la police par défaut n'a pas d'accents), `icons` (icône
+par perk) et `names` (nom affiché par arme). Par widget : `background` (`#rrggbbaa`, fond
+masqué quand le texte est vide). Format détaillé : `docs/conventions.md` §15.
+
+#### Types de widgets
+
+- `Bar(source)` : barre (seule la source `health` la remplit).
+- `Text(source, prefix)` : texte, `prefix` devant la valeur. Pour les sources T2.12 (`perks`,
+  `downed`, `powerups`, `prompt`), une valeur vide n'affiche rien, pas même le préfixe.
+- `Icons(source)` (T2.12) : rangée de carrés de côté `size.1`, un par entrée de la source
+  (`perks`), couleur et étiquette lues dans `icons` (voir `docs/conventions.md` § HUD).
 
 #### Sources de données
 
@@ -451,12 +466,33 @@ Chaque widget est lié à une source. Une source inconnue provoque un `warn!` au
 
 - `health` : ratio et texte du joueur local (`current/max`). Les barres utilisent la ratio pour la largeur et interpolent rouge→vert. Les textes affichent la valeur.
 - `wave` : numéro de la vague actuelle (WaveState::current_wave).
+- `health`, `wave`, `ammo`, `weapon`, `currency` : lus sur le joueur du HUD (voir plus bas).
 - `ammo` : munitions du mode actif de l'arme active (`mag_ammo | réserve`, T2.2 : la réserve
   du type de munition de l'arme, `combat::inventory::AmmoReserves`, remplace l'ancien
   `mag_quantity` par arme).
 - `weapon` : nom de l'arme active.
 - `enemies` : nombre d'entités `Enemy` vivantes.
 - `players` : nombre d'entités `Player` vivantes.
+- `currency` : solde de points du joueur.
+- `perks` (T2.12) : perks possédés (`run::perks::Perks`), une icône par perk avec `Icons`, ou
+  les étiquettes séparées par des espaces (« J S ») avec `Text`.
+- `downed` (T2.12) : « À TERRE 12 s » (secondes avant la mort par saignement, arrondies
+  au-dessus) et « Réanimation 40 % » pendant une réanimation ; le réanimateur voit aussi sa
+  progression ; vide sinon.
+- `powerups` (T2.12) : une ligne par power-up actif (« Insta-Kill 24 s »), lue dans les
+  modificateurs `powerup:<id>` du joueur et nommée par `items/powerups.ron` ; vide sinon.
+- `prompt` (T2.12) : interactable que l'appui sur Interaction toucherait (même règle que
+  `interaction_detection_system` : surface du collider, portée, ordre `GgrsNetId`) :
+  « Ouvrir — $750 », « Acheter fusil à pompe — $1000 », « Munitions … — $500 » (arme déjà
+  possédée), « Ramasser … », « Juggernog — $2500 » / « — possédé », « Réanimer »,
+  « Réparer » (fenêtre abîmée) ; vide sinon, et vide pour un joueur à terre.
+
+Le joueur affiché est celui que la caméra suit de force (`--follow <handle>` de
+`play_scenario`), sinon le joueur local de plus petit handle. Les cercles de portée restent
+dessinés par `interaction::display_interaction_prompts` ; le texte du prompt est dans le HUD.
+
+L'écran de fin (`ui/game_over.rs`) affiche le résumé de la run et deux boutons : « Rejouer (R) »
+(`RunRequest::Restart`) et « Lobby » (`RunRequest::ToLobby`, T2.12).
 
 #### Rechargement à chaud
 
