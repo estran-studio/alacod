@@ -17,6 +17,10 @@
 //!   envoyés à GGRS (rejouable en `Scripted`, voir `crates/scenario/tests/bots.rs`).
 //! - `--json <fichier>` : le JSON (toujours un tableau, une entrée par graine) va dans ce
 //!   fichier plutôt que stdout.
+//! - Si le plafond est atteint sans objectif ni mort de tous les joueurs, `softlock`
+//!   contient les faits observés et deux instantanés (fin et 600 frames auparavant) :
+//!   vague, ennemis/cibles/chemins, joueurs/munitions, portes, fenêtres et grille ASCII.
+//!   Ce diagnostic ne modifie ni les règles de jeu ni la trace rollback.
 //! - Code de sortie 1 si au moins une graine a un desync (mismatch synctest) : un vrai bug de
 //!   déterminisme, jamais à masquer (voir la doc de `bots::input`).
 
@@ -40,6 +44,9 @@ struct SimResult {
     sim_fps: f64,
     #[serde(skip_serializing_if = "Vec::is_empty")]
     failures: Vec<String>,
+    /// État au plafond et 600 frames auparavant ; absent en cas d'arrêt volontaire.
+    #[serde(skip_serializing_if = "Option::is_none")]
+    softlock: Option<scenario::softlock::SoftlockDump>,
 }
 
 fn main() {
@@ -190,6 +197,7 @@ fn main() {
             desync,
             sim_fps: outcome.metrics.sim_fps,
             failures: outcome.failures,
+            softlock: outcome.softlock,
         });
     }
 

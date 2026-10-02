@@ -10,6 +10,7 @@ pub mod generate;
 pub mod invariants;
 pub mod nav_debug;
 pub mod runner;
+pub mod softlock;
 
 /// Format des scénarios (défini dans `game`, qui écrit aussi les enregistrements).
 pub use game::replay as format;
