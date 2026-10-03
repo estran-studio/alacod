@@ -63,7 +63,7 @@ fn main() {
             panic!(
                 "usage : alacod-sim --game <jeu> --bots <n> --profiles <a,b,...> \
                  --seeds <de>..<à> --until-wave <n> --max-frames <n> \
-                 [--save-scenario <dossier>] [--json <fichier>] ({name} manquant)"
+                 [--map <fichier.ldtk>] [--save-scenario <dossier>] [--json <fichier>] ({name} manquant)"
             )
         })
     };
@@ -105,7 +105,8 @@ fn main() {
 
     // Carte de départ du jeu (manifeste, T1.5) : la même que ses parties normales, plutôt que le
     // défaut générique de `Scenario` (`exemples/test_map.ldtk`, qui n'est correct que par
-    // coïncidence pour `zombies`).
+    // coïncidence pour `zombies`). `--map` la remplace (chemin relatif aux assets du jeu,
+    // comme `start_map`).
     let game_root = runner::game_dir(&game);
     let (_registry, manifest, content_errors) = content::load_and_lint(&game_root)
         .unwrap_or_else(|e| panic!("alacod-sim : « {game} » : game.ron invalide : {e}"));
@@ -113,10 +114,10 @@ fn main() {
         content_errors.is_empty(),
         "alacod-sim : « {game} » : contenu invalide :\n{content_errors:#?}"
     );
-    let map = manifest.entry.start_map.clone();
+    let map = opt("--map").unwrap_or_else(|| manifest.entry.start_map.clone());
 
     eprintln!(
-        "alacod-sim : {game}, {bots} bots ({}), graines {seed_from}..={seed_to}, jusqu'à la vague {until_wave} ou {max_frames} frames",
+        "alacod-sim : {game}, {bots} bots ({}), graines {seed_from}..={seed_to}, jusqu'à la vague {until_wave} ou {max_frames} frames, carte {map}",
         profiles.iter().map(|p| p.name()).collect::<Vec<_>>().join(",")
     );
 
