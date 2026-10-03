@@ -17,7 +17,7 @@ use game::economy::{EconomyConfig, PerkMachine, PerksConfig};
 use game::global_asset::GlobalAsset;
 use game::interaction::{Interactable, InteractionType};
 use game::replay::BotProfile;
-use game::weapons::{WeaponInventory, WeaponModesState, WeaponPickup, WeaponState};
+use game::weapons::{FiringMode, WeaponInventory, WeaponModesState, WeaponPickup, WeaponState};
 use map::game::entity::map::{door::DoorComponent, window::WindowHealth};
 use run::{currency::Currency, perks::Perks};
 use utils::{frame::FrameCount, net_id::GgrsNetId, order_iter};
@@ -59,6 +59,10 @@ pub fn decide_hunter(view: &HunterView) -> BoxInput {
         input.buttons |= INPUT_INTERACTION;
     }
     input
+}
+
+fn fire_trigger_ready(mode: FiringMode, is_firing: bool) -> bool {
+    matches!(mode, FiringMode::Automatic { .. }) || !is_firing
 }
 
 #[derive(SystemParam)]
@@ -226,24 +230,25 @@ pub fn read_hunter_inputs(
                             mode.mag_ammo,
                             mode.can_reload(&config.mag, reserve),
                             config.range,
+                            fire_trigger_ready(config.firing_mode, s.is_firing),
                         ))
                     })
-                    .unwrap_or((0, false, Fixed::ZERO))
+                    .unwrap_or((0, false, Fixed::ZERO, false))
             })
             .collect();
-        let (ammo, reloadable, range) = ammunition
+        let (ammo, reloadable, range, trigger_ready) = ammunition
             .get(inventory.active_weapon_index)
             .copied()
-            .unwrap_or((0, false, Fixed::ZERO));
+            .unwrap_or((0, false, Fixed::ZERO, false));
         let usable = ammo > 0 || reloadable;
         view.reload = ammo == 0 && reloadable;
         view.switch_weapon = !usable
             && ammunition
                 .iter()
-                .any(|(ammo, reload, _)| *ammo > 0 || *reload);
+                .any(|(ammo, reload, ..)| *ammo > 0 || *reload);
         let all_empty = !ammunition
             .iter()
-            .any(|(ammo, reload, _)| *ammo > 0 || *reload);
+            .any(|(ammo, reload, ..)| *ammo > 0 || *reload);
         let nearest = enemies
             .iter()
             .min_by_key(|(id, p)| (position.distance(p), *id));
@@ -255,7 +260,9 @@ pub fn read_hunter_inputs(
             })
             .min_by_key(|(id, p)| (position.distance(p), *id));
         view.target = shootable.or(nearest).map(|(_, p)| *p);
-        view.can_fire = shootable.is_some() && ammo > 0;
+        // Manual/Shotgun/Burst require a release between trigger pulls. Read the
+        // rollback weapon state rather than hiding a pulse counter in the bot cache.
+        view.can_fire = shootable.is_some() && ammo > 0 && trigger_ready;
         let chase = nav.chase(position).or_else(|| {
             // A zombie outside its aggro radius does not break its window. Approach
             // within that radius along a physical path, even before a firing post exists.
@@ -303,7 +310,7 @@ pub fn read_hunter_inputs(
                                     .position(|(_, w)| w.config.name == p.weapon_id);
                                 let owned = owned_index.is_some();
                                 if let Some(index) = owned_index {
-                                    let (ammo, reloadable, _) = ammunition[index];
+                                    let (ammo, reloadable, ..) = ammunition[index];
                                     if ammo > 0 || reloadable {
                                         return None;
                                     }
@@ -394,6 +401,34 @@ pub fn read_hunter_inputs(
 mod tests {
     use super::*;
     use game::character::player::input::{INPUT_RIGHT, INPUT_UP};
+    #[test]
+    fn manual_shotgun_and_burst_release_between_shots_while_automatic_holds() {
+        for mode in [
+            FiringMode::Manual {},
+            FiringMode::Shotgun {
+                pellet_count: 8,
+                spread_angle: Fixed::ZERO,
+            },
+            FiringMode::Burst {
+                pellets_per_shot: 3,
+                cooldown_frames: 1,
+            },
+        ] {
+            let mut held = false;
+            let pulses: Vec<_> = (0..4)
+                .map(|_| {
+                    let input = decide_hunter(&HunterView {
+                        can_fire: fire_trigger_ready(mode, held),
+                        ..Default::default()
+                    });
+                    held = input.fire;
+                    input.fire
+                })
+                .collect();
+            assert_eq!(pulses, [true, false, true, false]);
+        }
+        assert!(fire_trigger_ready(FiringMode::Automatic {}, true));
+    }
     #[test]
     fn hunts_while_firing_and_reloads() {
         let input = decide_hunter(&HunterView {
