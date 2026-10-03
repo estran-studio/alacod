@@ -21,6 +21,7 @@ use map::game::entity::{
 use map::generation::entity::door::DoorConfig;
 use utils::net_id::GgrsNetIdFactory;
 
+use super::floors::{compute_floor_plan, FloorPlan, FloorSlots, FloorWorldsReady};
 use crate::{
     game::{
         collider::create_wall_colliders_from_ldtk, entity::door::LdtkEntitySize,
@@ -42,6 +43,9 @@ pub struct LdtkMapEntityLoading {
     pub door_grid_position: Option<DoorGridPosition>,
     pub spawner_config: Option<EnemySpawnerComponent>,
     pub level_id: Option<LevelId>,
+    /// Emplacement du monde LDtk de l'entité dans la séquence du mode `Floors` (T1.8,
+    /// [`FloorWorld`]) ; `0` pour la carte unique des autres modes.
+    pub slot: usize,
 }
 
 #[derive(Resource, Clone)]
@@ -91,10 +95,18 @@ impl Plugin for LdtkMapLoadingPlugin {
         // `loading_complete` (partie précédente) et ne relit plus jamais les entités de la
         // nouvelle carte (`LdtkMapLoadingEvent` jamais réémis, la partie reste bloquée en
         // `GameLoading`).
+        // T1.8 : `compute_floor_plan` décide (mode `Floors` ou non) avant le chargement des
+        // cartes, qui en dépend (un monde LDtk par niveau, voir `super::floors`).
         app.add_systems(
             OnEnter(AppState::GameLoading),
-            (reset_map_loading_registry, setup_generated_map).chain(),
+            (
+                reset_map_loading_registry,
+                compute_floor_plan,
+                setup_generated_map,
+            )
+                .chain(),
         );
+        app.add_plugins(super::floors::FloorsPlugin);
         // Deterministic order at the end of map loading: door level iids, then map entity
         // ids (this system also sends LdtkMapLoadingEvent), then walls, then players (see
         // MapNetIdAssignment)
@@ -213,9 +225,20 @@ fn wait_for_all_map_rollback_entity(
 
     time: Res<Time>,
     level_query: Query<&LevelIid>,
+    slots: FloorSlots,
+    plan: Option<Res<FloorPlan>>,
+    floor_worlds: FloorWorldsReady,
 ) {
     if entity_registery.loading_complete {
         return;
+    }
+    // T1.8 : en mode `Floors`, plusieurs mondes LDtk se chargent en parallèle ; ne commencer
+    // à compter les frames stables qu'une fois tous leurs niveaux apparus (sinon un monde en
+    // retard serait oublié). Hors `Floors` : comportement inchangé.
+    if let Some(plan) = &plan {
+        if !floor_worlds.all_spawned(plan) {
+            return;
+        }
     }
 
     let current_time = time.elapsed_secs();
@@ -296,6 +319,7 @@ fn wait_for_all_map_rollback_entity(
                 door_grid_position,
                 spawner_config,
                 level_id: entity_level_id,
+                slot: slots.slot_of(e),
             });
             entity_registery.registered_entities.insert(e);
         }
@@ -337,149 +361,177 @@ fn wait_for_all_map_rollback_entity(
                 .then_with(|| pos_a.y.total_cmp(&pos_b.y))
         });
 
-        for item in entity_registery.entities.iter() {
-            let rollback_item = MapRollbackItem::new(item.entity.clone(), item.kind.clone());
-            let id = id_factory.next(item.id.clone());
-
-            // Use the exact world position from the LDTK-spawned entity.
-            // bevy_ecs_ldtk already applies pivot and coordinate system conversions,
-            // so using the GlobalTransform directly keeps visuals and physics aligned.
-            let world_position = item.global_transform.translation();
-            let transform = Transform::from_translation(world_position);
-            let fixed_transform = fixed_math::FixedTransform3D::from_bevy_transform(&transform);
-
-            info!(
-                "spawning rollback map item {} at {} (fixed: {:?}) for parent {}",
-                id, world_position, fixed_transform.translation, item.entity
-            );
-            let mut cmd = commands.spawn((fixed_transform, rollback_item, id));
-
-            if let Some(level_id) = &item.level_id {
-                cmd.insert(level_id.clone());
-            }
-
-            match item.kind.as_str() {
-                "door" => {
-                    // Use sprite size if available, otherwise fall back to default size
-                    let (width, height) = if let Some(size) = item.sprite_size {
-                        (size.x, size.y)
-                    } else {
-                        info!("No sprite size for door, using default 64x32");
-                        (64.0, 32.0)
-                    };
-
-                    let max_dimension = width.max(height);
-                    let interaction_range = max_dimension;
-
-                    // Get the DoorConfig from the LDTK entity, or use default
-                    let door_config = item.door_config.clone().unwrap_or_default();
-
-                    // Get the DoorGridPosition if available
-                    let door_grid_position = item.door_grid_position.clone();
-
-                    cmd.insert((
-                        Wall,
-                        DoorComponent {
-                            config: door_config.clone(),
-                        },
-                        Collider {
-                            shape: game::collider::ColliderShape::Rectangle {
-                                width: fixed_math::Fixed::from_num(width),
-                                height: fixed_math::Fixed::from_num(height),
-                            },
-                            offset: fixed_math::FixedVec3::ZERO,
-                        },
-                        CollisionLayer(collision_settings.wall_layer),
-                    ));
-
-                    // Add grid position if available
-                    if let Some(grid_pos) = door_grid_position {
-                        cmd.insert(grid_pos);
-                    }
-
-                    // Only add Interactable component if the door is actually interactable
-                    if door_config.interactable {
-                        cmd.insert(game::interaction::Interactable {
-                            interaction_range: fixed_math::new(interaction_range),
-                            interaction_type: game::interaction::InteractionType::Door,
-                        });
-                        info!("adding collider to door entity with size {}x{}, interaction range {}, and config {:?}", 
-                              width, height, interaction_range, door_config);
-                    } else {
-                        info!("adding collider to NON-INTERACTABLE door entity with size {}x{} and config {:?}", 
-                              width, height, door_config);
-                    }
-                }
-                "window" => {
-                    // Use sprite size if available, otherwise fall back to default size
-                    let (width, height) = if let Some(size) = item.sprite_size {
-                        (size.x, size.y)
-                    } else {
-                        info!("No sprite size for window, using default 16x16");
-                        (16.0, 16.0)
-                    };
-
-                    let max_dimension = width.max(height);
-                    let interaction_range = max_dimension * 0.8; // Smaller range for windows - need to be close
-
-                    cmd.insert((
-                        Window,
-                        Obstacle::window(), // For flow field pathfinding (GroundBreaker can pass)
-                        Collider {
-                            shape: game::collider::ColliderShape::Rectangle {
-                                width: fixed_math::Fixed::from_num(width),
-                                height: fixed_math::Fixed::from_num(height),
-                            },
-                            offset: fixed_math::FixedVec3::ZERO,
-                        },
-                        CollisionLayer(collision_settings.window_layer),
-                        map::game::entity::map::window::WindowHealth {
-                            current: 3,
-                            max: 3,
-                            can_repair_after_frame: None,
-                        },
-                        game::interaction::Interactable {
-                            interaction_range: fixed_math::new(interaction_range),
-                            interaction_type: game::interaction::InteractionType::Window,
-                        },
-                    ));
-                    info!("adding collider and Obstacle to window entity with size {}x{}, interaction range {}",
-                          width, height, interaction_range);
-                }
-                "enemy_spawn" => {
-                    // Get spawner config from LDTK entity, or use default
-                    let spawner = item.spawner_config.clone().unwrap_or_default();
-
-                    cmd.insert((spawner, EnemySpawnerState::default()));
-                    info!("adding enemy spawner at {:?}", world_position);
-                }
-                _ => {}
-            }
-
-            // Register the entity with GGRS rollback system
-            let _rollback_entity = cmd.insert(Rollback).id();
-
-            // Add window-specific visual children
-            // Note: This must be done after the Rollback marker is inserted to avoid mutable borrow conflicts
-            // since add_children() requires exclusive access to Commands
-            if item.kind.as_str() == "window" {
-                commands.entity(item.entity).with_children(|parent| {
-                    parent.spawn((
-                        game::interaction::WindowHealthBar,
-                        Sprite {
-                            color: Color::srgb(0.0, 1.0, 0.0),      // Green health bar
-                            custom_size: Some(Vec2::new(0.0, 2.0)), // Start at 0 width (0 health), smaller height
-                            ..default()
-                        },
-                        Transform::from_translation(Vec3::new(0.0, 8.0, 0.1)), // Closer to window
-                    ));
-                });
-                info!("Added health bar to window entity {:?}", item.entity);
-            }
-        }
+        // T1.8 : seules les entités du premier niveau (emplacement 0) ; les autres niveaux
+        // du mode `Floors` sont créés au passage du portail (`super::floors`), depuis ce même
+        // registre (trié, figé après le chargement).
+        spawn_map_items(
+            &mut commands,
+            entity_registery
+                .entities
+                .iter()
+                .filter(|item| item.slot == 0),
+            &mut id_factory,
+            &collision_settings,
+            true,
+        );
 
         ev_loading_map.write_default();
         entity_registery.loading_complete = true;
+    }
+}
+
+/// Crée les entités rollback des entités de carte (`door`, `window`, `enemy_spawn`...) du
+/// registre, dans l'ordre donné (trié par le registre : numérotation déterministe).
+/// `window_bars` : ajoute la barre de vie (visuel, hors rollback) sous l'entité LDtk d'une
+/// fenêtre — `false` pendant la simulation (passage de niveau du mode `Floors`, où un visuel
+/// créé dans `GgrsSchedule` serait dupliqué par un rollback ; `super::floors` les ajoute
+/// dans `Update`).
+pub(crate) fn spawn_map_items<'a>(
+    commands: &mut Commands,
+    items: impl Iterator<Item = &'a LdtkMapEntityLoading>,
+    id_factory: &mut GgrsNetIdFactory,
+    collision_settings: &CollisionSettings,
+    window_bars: bool,
+) {
+    for item in items {
+        let rollback_item = MapRollbackItem::new(item.entity.clone(), item.kind.clone());
+        let id = id_factory.next(item.id.clone());
+
+        // Use the exact world position from the LDTK-spawned entity.
+        // bevy_ecs_ldtk already applies pivot and coordinate system conversions,
+        // so using the GlobalTransform directly keeps visuals and physics aligned.
+        let world_position = item.global_transform.translation();
+        let transform = Transform::from_translation(world_position);
+        let fixed_transform = fixed_math::FixedTransform3D::from_bevy_transform(&transform);
+
+        info!(
+            "spawning rollback map item {} at {} (fixed: {:?}) for parent {}",
+            id, world_position, fixed_transform.translation, item.entity
+        );
+        let mut cmd = commands.spawn((fixed_transform, rollback_item, id));
+
+        if let Some(level_id) = &item.level_id {
+            cmd.insert(level_id.clone());
+        }
+
+        match item.kind.as_str() {
+            "door" => {
+                // Use sprite size if available, otherwise fall back to default size
+                let (width, height) = if let Some(size) = item.sprite_size {
+                    (size.x, size.y)
+                } else {
+                    info!("No sprite size for door, using default 64x32");
+                    (64.0, 32.0)
+                };
+
+                let max_dimension = width.max(height);
+                let interaction_range = max_dimension;
+
+                // Get the DoorConfig from the LDTK entity, or use default
+                let door_config = item.door_config.clone().unwrap_or_default();
+
+                // Get the DoorGridPosition if available
+                let door_grid_position = item.door_grid_position.clone();
+
+                cmd.insert((
+                    Wall,
+                    DoorComponent {
+                        config: door_config.clone(),
+                    },
+                    Collider {
+                        shape: game::collider::ColliderShape::Rectangle {
+                            width: fixed_math::Fixed::from_num(width),
+                            height: fixed_math::Fixed::from_num(height),
+                        },
+                        offset: fixed_math::FixedVec3::ZERO,
+                    },
+                    CollisionLayer(collision_settings.wall_layer),
+                ));
+
+                // Add grid position if available
+                if let Some(grid_pos) = door_grid_position {
+                    cmd.insert(grid_pos);
+                }
+
+                // Only add Interactable component if the door is actually interactable
+                if door_config.interactable {
+                    cmd.insert(game::interaction::Interactable {
+                        interaction_range: fixed_math::new(interaction_range),
+                        interaction_type: game::interaction::InteractionType::Door,
+                    });
+                    info!("adding collider to door entity with size {}x{}, interaction range {}, and config {:?}", 
+                          width, height, interaction_range, door_config);
+                } else {
+                    info!("adding collider to NON-INTERACTABLE door entity with size {}x{} and config {:?}", 
+                          width, height, door_config);
+                }
+            }
+            "window" => {
+                // Use sprite size if available, otherwise fall back to default size
+                let (width, height) = if let Some(size) = item.sprite_size {
+                    (size.x, size.y)
+                } else {
+                    info!("No sprite size for window, using default 16x16");
+                    (16.0, 16.0)
+                };
+
+                let max_dimension = width.max(height);
+                let interaction_range = max_dimension * 0.8; // Smaller range for windows - need to be close
+
+                cmd.insert((
+                    Window,
+                    Obstacle::window(), // For flow field pathfinding (GroundBreaker can pass)
+                    Collider {
+                        shape: game::collider::ColliderShape::Rectangle {
+                            width: fixed_math::Fixed::from_num(width),
+                            height: fixed_math::Fixed::from_num(height),
+                        },
+                        offset: fixed_math::FixedVec3::ZERO,
+                    },
+                    CollisionLayer(collision_settings.window_layer),
+                    map::game::entity::map::window::WindowHealth {
+                        current: 3,
+                        max: 3,
+                        can_repair_after_frame: None,
+                    },
+                    game::interaction::Interactable {
+                        interaction_range: fixed_math::new(interaction_range),
+                        interaction_type: game::interaction::InteractionType::Window,
+                    },
+                ));
+                info!("adding collider and Obstacle to window entity with size {}x{}, interaction range {}",
+                      width, height, interaction_range);
+            }
+            "enemy_spawn" => {
+                // Get spawner config from LDTK entity, or use default
+                let spawner = item.spawner_config.clone().unwrap_or_default();
+
+                cmd.insert((spawner, EnemySpawnerState::default()));
+                info!("adding enemy spawner at {:?}", world_position);
+            }
+            _ => {}
+        }
+
+        // Register the entity with GGRS rollback system
+        let _rollback_entity = cmd.insert(Rollback).id();
+
+        // Add window-specific visual children
+        // Note: This must be done after the Rollback marker is inserted to avoid mutable borrow conflicts
+        // since add_children() requires exclusive access to Commands
+        if window_bars && item.kind.as_str() == "window" {
+            commands.entity(item.entity).with_children(|parent| {
+                parent.spawn((
+                    game::interaction::WindowHealthBar,
+                    Sprite {
+                        color: Color::srgb(0.0, 1.0, 0.0),      // Green health bar
+                        custom_size: Some(Vec2::new(0.0, 2.0)), // Start at 0 width (0 health), smaller height
+                        ..default()
+                    },
+                    Transform::from_translation(Vec3::new(0.0, 8.0, 0.1)), // Closer to window
+                ));
+            });
+            info!("Added health bar to window entity {:?}", item.entity);
+        }
     }
 }
 

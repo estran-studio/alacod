@@ -6,7 +6,14 @@ use game::character::enemy::ai::navigation::FlowFieldCache;
 use game::collider::{spawn_test_wall, Collider, ColliderShape, CollisionSettings, Wall};
 use utils::net_id::GgrsNetIdFactory;
 
+use super::floors::FloorSlots;
+
 /// System that creates optimized wall colliders from LDTK IntGrid tiles
+///
+/// T1.8 : seulement les niveaux du premier monde (emplacement 0, la carte unique hors mode
+/// `Floors`) ; les murs des niveaux suivants sont créés au passage du portail
+/// (`super::floors`, même fonction [`spawn_level_walls`]).
+#[allow(clippy::too_many_arguments)]
 pub fn create_wall_colliders_from_ldtk(
     mut commands: Commands,
     levels: Query<(Entity, &LevelIid, &Transform)>,
@@ -15,18 +22,39 @@ pub fn create_wall_colliders_from_ldtk(
     collision_settings: Res<CollisionSettings>,
     mut id_factory: ResMut<GgrsNetIdFactory>,
     mut flow_field_cache: ResMut<FlowFieldCache>,
+    slots: FloorSlots,
+) {
+    spawn_level_walls(
+        &mut commands,
+        levels
+            .iter()
+            .filter(|(entity, _, _)| slots.slot_of(*entity) == 0)
+            .filter_map(|(entity, iid, transform)| {
+                let project = project_assets.get(projects.get(slots.world_of(entity)?).ok()?)?;
+                Some((iid, transform, project))
+            })
+            .collect(),
+        &collision_settings,
+        &mut id_factory,
+        &mut flow_field_cache,
+    );
+}
+
+/// Murs (colliders rollback) et cases murées du flow field des niveaux donnés (niveau,
+/// transform, projet LDtk du monde du niveau), triés par iid de niveau (ordre déterministe).
+pub(crate) fn spawn_level_walls(
+    commands: &mut Commands,
+    mut sorted_levels: Vec<(&LevelIid, &Transform, &LdtkProject)>,
+    collision_settings: &CollisionSettings,
+    id_factory: &mut GgrsNetIdFactory,
+    flow_field_cache: &mut FlowFieldCache,
 ) {
     // Collect and sort levels by IID for deterministic order
-    let mut sorted_levels: Vec<_> = levels.iter().collect();
-    sorted_levels.sort_by(|a, b| a.1.to_string().cmp(&b.1.to_string()));
+    sorted_levels.sort_by(|a, b| a.0.to_string().cmp(&b.0.to_string()));
 
     let mut total_walls = 0;
 
-    for (_level_entity, level_iid, level_transform) in sorted_levels {
-        let project = project_assets
-            .get(projects.single().unwrap())
-            .expect("project asset should be loaded if levels are spawned");
-
+    for (level_iid, level_transform, project) in sorted_levels {
         let level_data = project
             .get_raw_level_by_iid(&level_iid.to_string())
             .expect("spawned level should exist in the loaded project");
@@ -61,9 +89,9 @@ pub fn create_wall_colliders_from_ldtk(
             // Spawn wall entities for each rectangle
             for rect in rectangles {
                 spawn_invisible_wall_collider(
-                    &mut commands,
-                    &collision_settings,
-                    &mut id_factory,
+                    commands,
+                    collision_settings,
+                    id_factory,
                     rect,
                     tile_size,
                     level_transform.translation.truncate(),
