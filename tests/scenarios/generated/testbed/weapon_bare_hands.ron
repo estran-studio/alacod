@@ -1,0 +1,21 @@
+// Généré par `alacod-gen`, ne pas éditer à la main (crates/scenario/src/generate.rs).
+// Gabarit WeaponOnTarget (T2.10) : le joueur apparaît dans l'arène du testbed avec
+// uniquement « bare_hands » (arme de corps à corps) et marche jusqu'à et frappe `target`.
+#![enable(implicit_some)]
+Scenario(
+    game: "testbed",
+    map: "testbed/arena.ldtk",
+    map_seed: 123456,
+    frames: 400,
+    players: [
+        PlayerScript(
+            inputs: [
+                Segment(from: 10, to: 82, buttons: [Right], pan: (128, 48)),
+                Segment(from: 102, to: 147, buttons: [Up], pan: (128, 48)),
+                Segment(from: 167, to: 400, buttons: [Melee], pan: (128, 48)),
+            ],
+            weapon: "bare_hands",
+        ),
+    ],
+    powerup_drop_chance_override: "0",
+)

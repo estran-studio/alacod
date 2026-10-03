@@ -738,6 +738,103 @@ Par widget : `background`.
 Captures de référence : `docs/captures/hud-v1/` (prompt d'achat, perk et power-up actifs, à
 terre), produites par `play_scenario --capture` (voir `CLAUDE.md` § Vidéos).
 
+## 16. Projectiles composables (T1.1, chantier B5 v1)
+
+Code : `crates/combat/src/projectile.rs` (données, mathématiques pures testées, systèmes),
+branché par `combat::weapons::BaseWeaponGamePlugin`. Les contrats de T1.0a
+(`ProjectileModifier`, `Pattern`, §4.3) sont exécutés ; aucun renommage, un ajout :
+`ExpireAction::Spawn(Pattern)`.
+
+**Contenu** : un mode de tir déclare `projectile:` (absent = balle ordinaire, exactement
+comme avant, sans composant `Projectile`) ; l'arme déclare la table `projectiles` des
+projectiles que ses patterns font naître (une table **par arme** en v1, résolue au tir et
+portée par la balle ; T1.2 pourra la remonter au niveau du jeu pour les ennemis).
+```ron
+"default": (
+    // ... champs habituels du mode (bullet_type, range... : le projectile tiré)
+    projectile: (
+        modifiers: [Bounce(2), Pierce(8), Lifetime(70)],
+        on_hit: [TimedModifier(stat: MoveSpeed, op: Mul, value: "0.5", frames: 60)],
+        on_expire: [Spawn(Aimed(count: 1, spread: "0.0", projectile: "explosion"))],
+    ),
+),
+// au niveau de `config`, à côté de `firing_modes` :
+projectiles: {
+    "explosion": (damage: "20.0", speed: "0.0", range: "1.0",
+                  modifiers: [Lifetime(0), Size("10.0"), Pierce(16)],
+                  on_expire: [Spawn(Ring(count: 8, speed: "240.0", projectile: "eclat", every: 0))]),
+    "eclat": (damage: "4.0", speed: "240.0", range: "96.0"),
+},
+```
+
+**Modificateurs** (décisions de gameplay ; un même modificateur répété : le dernier
+l'emporte, le lint le refuse) :
+
+| Modificateur | Effet |
+|---|---|
+| `Bounce(n)` | n rebonds sur les murs (`Wall` par `layer_matrix`) ; l'axe du déplacement qui entre dans le mur s'inverse (les deux dans un coin) et le projectile revient à sa position d'avant le déplacement. `n = 0` : fin au premier mur. |
+| `Pierce(n)` | traverse n personnages, se termine sur le (n+1)-ième ; **jamais deux fois le même** (liste `hits`). Tous les personnages en contact dans une frame sont touchés, par `GgrsNetId`, tant que `Pierce` le permet. |
+| `Size(f)` | rayon de collision × f (base 5, celui de `Standard`) et sprite × f. `f > 0`. |
+| `Lifetime(n)` | n frames de vie après la frame de tir, fin à la suivante : `Lifetime(0)` = une seule frame de collisions. La portée (`range`) termine aussi le projectile. |
+| `Homing(force)` | à chaque frame, la direction tourne vers le personnage le plus proche que l'équipe et le tir ami permettent de toucher (hors `Neutral`, hors cibles déjà traversées, égalité par `GgrsNetId`) : `v̂ + force·t̂` renormalisé, vitesse conservée. `0 < force <= 1`. Pas de portée de détection en v1. |
+| `Gravity(g)` | accélération verticale constante de g unités/s² (positive vers le haut du monde) : `v.y += g/3600` par frame. |
+
+**Ordre dans une frame** : `Weapon` (tir ; déplacement de toutes les balles, la portée
+atteinte *termine* un projectile composable au lieu de le détruire ; collisions des balles
+ordinaires, inchangées) → `Projectiles` (`projectile_collision_system` : personnages puis
+murs ; `apply_projectile_on_hit_system` ; `projectile_expire_system` : `Lifetime`,
+`on_expire`, `despawn_rollback` ; `projectile_steering_system` : `Gravity` puis `Homing`,
+appliqués au déplacement suivant) → `CollisionDamage` (les `DamageEvent` des projectiles).
+`apply_projectile_on_hit_system` est dans `Projectiles` et non `Effects` : `Effects` contient
+déjà `game::powerups::apply_powerup_actions_system`, qui écrit aussi `Modifiers` (ordre
+ambigu refusé par `GgrsSchedule`).
+
+**`on_hit: [Action]`** : actions de `effects::Action` posées sur **le personnage touché**
+(s'il a des `Modifiers`), seulement les actions à modificateur (`TimedModifier`,
+`CurrencyMultiplier`) ; les autres (`RefillAmmo`, `RepairAllWindows`, `KillAllWaveEnemies`)
+sont des effets globaux de power-up, refusés par le lint. Source du modificateur :
+`projectile:<id>:<rang>` ; un nouveau coup du même projectile **rafraîchit** le
+modificateur au lieu de l'empiler.
+
+**`on_expire: [Spawn(pattern)]`** : joué à **toute** fin du projectile (durée de vie,
+portée, mur sans rebond, perforation épuisée) au point de fin. Patterns instantanés
+seulement, sans aléa : `Aimed` (éventail de `count` sur `spread` radians, centré sur le
+personnage le plus proche, sinon sur la direction du projectile), `Spread` (même éventail,
+centré sur la direction du projectile), `Ring` (`count` directions régulières à partir de
+la direction du projectile — axe +x à l'arrêt —, vitesse du pattern, `every` ignoré : une
+seule salve), `Sequence` de ceux-ci. `Telegraph`/`Wait` sont réservés aux émetteurs (T1.2) et
+refusés par le lint. Les projectiles nés héritent du tireur (source, équipe, tags, tir
+ami, multiplicateur de dégâts `Damage` du tir) ; garde-fou de 8 générations (le lint refuse
+les cycles). Une **explosion** est un projectile de la table à vitesse nulle,
+`Lifetime(0)`, grand `Size` et `Pierce` élevé.
+
+**État rollback** : composant `combat::projectile::Projectile` (compteurs restants, cibles
+déjà touchées, `ended`, génération, actions, table partagée par `Arc` ; Debug compact : la
+table n'apparaît que par ses clés) et ressource `FrameEvents<ProjectileHit>`, enregistrés
+par `RollbackTraceApp`. `FiringModeConfig`/`WeaponConfig` ont un `Hash` et un `Debug`
+manuels qui ignorent `projectile`/`projectiles` vides : le contenu existant garde son hash
+et sa ligne de trace détaillée (preuve `trace-diff --ignore
+Projectile,FrameEvents<combat::projectile::ProjectileHit>`, §10).
+
+**Attentes** (`crates/scenario`) : `BulletCount(count, projectile?, team?, at_frame)` —
+nombre **exact** de balles vivantes, filtrées par id de projectile composable (l'arme qui a
+tiré, ou l'entrée de la table pour un projectile né) et par équipe du tireur ;
+`HitsAtLeast(entity, hits, at_frame)` — `HitCount` de `entity` ≥ `hits`, `entity` :
+`NetId(n)` ou `Target` (l'entité qui compte ses coups de plus petit `GgrsNetId`, `target` du
+testbed : utilisable dans le `test.expect` d'une arme, où le `GgrsNetId` dépend de l'arme).
+
+**Lint** (`content::lint::lint_weapon_projectiles`) : modificateur répété, `Size <= 0`,
+`Homing` hors `]0, 1]`, action `on_hit` sans modificateur, pattern temporel, `count = 0`,
+`spread`/`speed` négatifs, projectile absent de la table (`BrokenReference`), définition
+avec `damage`/`speed` négatif ou `range <= 0`, cycle de `on_expire`. Fixtures
+`projectile_broken_reference`, `projectile_temporal_pattern`, `projectile_cycle`.
+
+**Testbed** : une arme par modificateur (`proj_bounce`, `proj_pierce`, `proj_size`,
+`proj_lifetime`, `proj_homing`, `proj_gravity`) et `grenade` (Bounce, Pierce, explosion,
+éclats) dans `games/testbed/assets/ZombieShooter/Sprites/Character/weapons.ron`, chacune
+avec `test:` et son scénario généré (`make gen GAME=testbed`,
+`tests/scenarios/generated/testbed/`).
+
 ## 18. Équilibrage par joueurs (F5)
 
 **Décision (D25, le 2026-10-03) : F5 appartient à M0** — le plan §6 liste F5 dans le jalon M0

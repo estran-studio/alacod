@@ -1165,6 +1165,33 @@ fn check(world: &mut World, expectation: &Expectation) -> Result<(), String> {
             }
             Ok(())
         }
+        Expectation::BulletCount {
+            count,
+            projectile,
+            team,
+            ..
+        } => {
+            let alive = bullet_count(world, projectile.as_deref(), *team);
+            if alive == *count {
+                Ok(())
+            } else {
+                Err(format!("{alive} projectiles vivants, {count} attendus"))
+            }
+        }
+        Expectation::HitsAtLeast { entity, hits, .. } => {
+            let found = match entity {
+                game::replay::EntityRef::NetId(net_id) => entity_hit_count(world, *net_id),
+                game::replay::EntityRef::Target => target_hit_count(world),
+            };
+            let Some(found) = found else {
+                return Err("entité absente ou sans compteur de coups (HitCount)".into());
+            };
+            if found >= *hits {
+                Ok(())
+            } else {
+                Err(format!("{found} coups reçus < {hits}"))
+            }
+        }
         Expectation::NoDamageBetween { .. } => {
             // Géré dans la boucle principale, pas dans check()
             Ok(())
@@ -1468,6 +1495,39 @@ fn entity_hit_count(world: &mut World, net_id: usize) -> Option<u32> {
         .iter(world)
         .find(|(id, _)| id.0 == net_id)
         .map(|(_, hit_count)| hit_count.0)
+}
+
+/// `HitsAtLeast(entity: Target)` (T1.1) : compteur de coups de l'entité qui compte ses coups
+/// de plus petit `GgrsNetId` (`target` dans l'arène du testbed).
+fn target_hit_count(world: &mut World) -> Option<u32> {
+    use bevy_ggrs::Rollback;
+    use game::character::health::HitCount;
+    use utils::net_id::GgrsNetId;
+    world
+        .query_filtered::<(&GgrsNetId, &HitCount), With<Rollback>>()
+        .iter(world)
+        .min_by_key(|(id, _)| id.0)
+        .map(|(_, hit_count)| hit_count.0)
+}
+
+/// `BulletCount` (T1.1) : balles vivantes, filtrées par id de projectile composable et par
+/// équipe du tireur.
+fn bullet_count(
+    world: &mut World,
+    projectile: Option<&str>,
+    team: Option<sim_core::team::Team>,
+) -> u32 {
+    use bevy_ggrs::Rollback;
+    use combat::projectile::Projectile;
+    use game::weapons::Bullet;
+    world
+        .query_filtered::<(&Bullet, Option<&Projectile>), With<Rollback>>()
+        .iter(world)
+        .filter(|(bullet, composable)| {
+            projectile.is_none_or(|id| composable.is_some_and(|p| p.id == id))
+                && team.is_none_or(|team| bullet.source_team == team)
+        })
+        .count() as u32
 }
 
 /// `NoDamageBetween` : la santé du joueur ne doit pas avoir baissé depuis la frame précédente

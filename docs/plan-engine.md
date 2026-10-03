@@ -569,6 +569,16 @@ Notes.
 | 2 | Script ou RON | RON composé au maximum, plugins Rust sinon. Un jeu est par défaut un `main.rs` avec le boilerplate de l'engine et son dossier de contenu (§4.1). |
 | 3 | Steam | Hors plan. Allumette reste la couche de lobbies. |
 
+**Prise ensuite (2026-10-03) — Consoles.** Cibles futures : Steam Deck (immédiat, le build
+natif actuel suffit), puis Switch 1 et 2, PS4/PS5 en officiel ; la 3DS et la Vita restent des
+terrains de jeu homebrew, jamais des canaux de release. La frontière sim/présentation de
+`CLAUDE.md` est la frontière de portage : **rien à faire maintenant**, mais la simulation ne doit
+jamais dépendre de `bevy_render`, `bevy_winit`, `bevy_asset`, `bevy_audio`, `bevy_ui` ni `winit`
+(elle ne dépend de `bevy` qu'en ECS seul). Le jour venu, un port console remplace ce qui est
+derrière `PresentationPlugin` : wgpu-Vulkan sur Switch 1/2, renderer custom (ou porteur) sur
+PS4/PS5. Le prérequis réel n'est pas technique mais commercial : un jeu fini sur Steam pour la
+candidature Nintendo, puis le kit (~440 $US).
+
 ### Ouvertes
 
 | # | Question | Recommandation |

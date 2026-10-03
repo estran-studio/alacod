@@ -203,4 +203,283 @@
             }
         )
     ),
+    // T1.1 (chantier B5 v1) : une arme de démonstration par modificateur de projectile
+    // (`combat::projectile`, `docs/conventions.md` §16) et une grenade (explosion). Chacune a
+    // son scénario généré (`make gen GAME=testbed`, gabarit WeaponOnTarget : le joueur 0 tire
+    // sur `target`).
+    // Bounce(3) : rebondit trois fois sur les murs.
+    "proj_bounce": (
+        config: (
+            name: "proj_bounce",
+            default_firing_mode: "default",
+            ammo_type: Plomb,
+            firing_modes: {
+                "default": (
+                    firing_rate: "4.0",
+                    firing_mode: Manual(),
+                    spread: "0.0",
+                    recoil: "0.0",
+                    bullet_type: Standard(
+                        damage: "10.0",
+                        speed: "300.0",
+                    ),
+                    range: "900.0",
+                    reload_time_seconds: "1.0",
+                    mag: Mag(
+                        mag_size: 30,
+                        mag_limit: 4,
+                    ),
+                    projectile: (modifiers: [Bounce(3)]),
+                )
+            },
+            test: Some((frames: 200, min_hits: 3)),
+        ),
+        sprite_config: (
+            name: "pistol",
+            index: 3,
+            bullet_offset_right: ( x: "-5.0", y: "2.0" ),
+            bullet_offset_left: ( x: "0.0", y: "-2.0" ),
+            weapon_offset: ( x: "0.0", y: "-5.0" )
+        ),
+    ),
+    // Pierce(2) : traverse deux personnages, s'arrête au troisième.
+    "proj_pierce": (
+        config: (
+            name: "proj_pierce",
+            default_firing_mode: "default",
+            ammo_type: Plomb,
+            firing_modes: {
+                "default": (
+                    firing_rate: "4.0",
+                    firing_mode: Manual(),
+                    spread: "0.0",
+                    recoil: "0.0",
+                    bullet_type: Standard(
+                        damage: "10.0",
+                        speed: "300.0",
+                    ),
+                    range: "900.0",
+                    reload_time_seconds: "1.0",
+                    mag: Mag(
+                        mag_size: 30,
+                        mag_limit: 4,
+                    ),
+                    projectile: (modifiers: [Pierce(2)]),
+                )
+            },
+            test: Some((frames: 200, min_hits: 2)),
+        ),
+        sprite_config: (
+            name: "pistol",
+            index: 3,
+            bullet_offset_right: ( x: "-5.0", y: "2.0" ),
+            bullet_offset_left: ( x: "0.0", y: "-2.0" ),
+            weapon_offset: ( x: "0.0", y: "-5.0" )
+        ),
+    ),
+    // Size(3) : rayon de collision (et sprite) triplé.
+    "proj_size": (
+        config: (
+            name: "proj_size",
+            default_firing_mode: "default",
+            ammo_type: Plomb,
+            firing_modes: {
+                "default": (
+                    firing_rate: "4.0",
+                    firing_mode: Manual(),
+                    spread: "0.0",
+                    recoil: "0.0",
+                    bullet_type: Standard(
+                        damage: "10.0",
+                        speed: "300.0",
+                    ),
+                    range: "900.0",
+                    reload_time_seconds: "1.0",
+                    mag: Mag(
+                        mag_size: 30,
+                        mag_limit: 4,
+                    ),
+                    projectile: (modifiers: [Size("3.0")]),
+                )
+            },
+            test: Some((frames: 200, min_hits: 2)),
+        ),
+        sprite_config: (
+            name: "pistol",
+            index: 3,
+            bullet_offset_right: ( x: "-5.0", y: "2.0" ),
+            bullet_offset_left: ( x: "0.0", y: "-2.0" ),
+            weapon_offset: ( x: "0.0", y: "-5.0" )
+        ),
+    ),
+    // Lifetime(30) : expire après 30 frames (150 unités à 300 u/s), avant sa portée.
+    "proj_lifetime": (
+        config: (
+            name: "proj_lifetime",
+            default_firing_mode: "default",
+            ammo_type: Plomb,
+            firing_modes: {
+                "default": (
+                    firing_rate: "4.0",
+                    firing_mode: Manual(),
+                    spread: "0.0",
+                    recoil: "0.0",
+                    bullet_type: Standard(
+                        damage: "10.0",
+                        speed: "300.0",
+                    ),
+                    range: "900.0",
+                    reload_time_seconds: "1.0",
+                    mag: Mag(
+                        mag_size: 30,
+                        mag_limit: 4,
+                    ),
+                    projectile: (modifiers: [Lifetime(30)]),
+                )
+            },
+            test: Some((frames: 200, min_hits: 2)),
+        ),
+        sprite_config: (
+            name: "pistol",
+            index: 3,
+            bullet_offset_right: ( x: "-5.0", y: "2.0" ),
+            bullet_offset_left: ( x: "0.0", y: "-2.0" ),
+            weapon_offset: ( x: "0.0", y: "-5.0" )
+        ),
+    ),
+    // Homing(0.1) : vire vers l'ennemi le plus proche.
+    "proj_homing": (
+        config: (
+            name: "proj_homing",
+            default_firing_mode: "default",
+            ammo_type: Plomb,
+            firing_modes: {
+                "default": (
+                    firing_rate: "4.0",
+                    firing_mode: Manual(),
+                    spread: "0.0",
+                    recoil: "0.0",
+                    bullet_type: Standard(
+                        damage: "10.0",
+                        speed: "300.0",
+                    ),
+                    range: "900.0",
+                    reload_time_seconds: "1.0",
+                    mag: Mag(
+                        mag_size: 30,
+                        mag_limit: 4,
+                    ),
+                    projectile: (modifiers: [Homing("0.1")]),
+                )
+            },
+            test: Some((frames: 200, min_hits: 2)),
+        ),
+        sprite_config: (
+            name: "pistol",
+            index: 3,
+            bullet_offset_right: ( x: "-5.0", y: "2.0" ),
+            bullet_offset_left: ( x: "0.0", y: "-2.0" ),
+            weapon_offset: ( x: "0.0", y: "-5.0" )
+        ),
+    ),
+    // Gravity(-60) : accélération de 60 u/s² vers le bas du monde.
+    "proj_gravity": (
+        config: (
+            name: "proj_gravity",
+            default_firing_mode: "default",
+            ammo_type: Plomb,
+            firing_modes: {
+                "default": (
+                    firing_rate: "4.0",
+                    firing_mode: Manual(),
+                    spread: "0.0",
+                    recoil: "0.0",
+                    bullet_type: Standard(
+                        damage: "10.0",
+                        speed: "300.0",
+                    ),
+                    range: "900.0",
+                    reload_time_seconds: "1.0",
+                    mag: Mag(
+                        mag_size: 30,
+                        mag_limit: 4,
+                    ),
+                    projectile: (modifiers: [Gravity("-60.0")]),
+                )
+            },
+            test: Some((frames: 400, min_hits: 2)),
+        ),
+        sprite_config: (
+            name: "pistol",
+            index: 3,
+            bullet_offset_right: ( x: "-5.0", y: "2.0" ),
+            bullet_offset_left: ( x: "0.0", y: "-2.0" ),
+            weapon_offset: ( x: "0.0", y: "-5.0" )
+        ),
+    ),
+    // Grenade : rebondit (Bounce), roule à travers les personnages (Pierce) et explose
+    // à la fin de sa durée de vie (on_expire -> explosion -> éclats).
+    "grenade": (
+        config: (
+            name: "grenade",
+            default_firing_mode: "default",
+            ammo_type: Plomb,
+            firing_modes: {
+                "default": (
+                    firing_rate: "1.0",
+                    firing_mode: Manual(),
+                    spread: "0.0",
+                    recoil: "0.0",
+                    bullet_type: Standard(
+                        damage: "0.0",
+                        speed: "200.0",
+                    ),
+                    range: "600.0",
+                    reload_time_seconds: "1.0",
+                    mag: Mag(
+                        mag_size: 30,
+                        mag_limit: 4,
+                    ),
+                    projectile: (modifiers: [Bounce(2), Pierce(8), Lifetime(50)],
+                        on_expire: [Spawn(Aimed(count: 1, spread: "0.0", projectile: "explosion"))],
+                    ),
+                )
+            },
+            // Explosion : projectile immobile à durée nulle (Lifetime(0)) qui touche tout dans
+            // son rayon (Size, Pierce), puis projette huit éclats en anneau.
+            projectiles: {
+                "explosion": (
+                    damage: "20.0",
+                    speed: "0.0",
+                    range: "1.0",
+                    modifiers: [Lifetime(0), Size("10.0"), Pierce(16)],
+                    on_expire: [Spawn(Ring(count: 8, speed: "240.0", projectile: "eclat", every: 0))],
+                ),
+                "eclat": (
+                    damage: "4.0",
+                    speed: "240.0",
+                    range: "96.0",
+                ),
+            },
+            // Le 1er tir explose en f111 (8 éclats en vol en f113) ; le 2e rebondit sur le mur
+            // du haut (f160), traverse `target` (Pierce) et explose sur elle (f172) : ses 8
+            // éclats la touchent tous en f174 (calage : rapport de la tâche T1.1).
+            test: Some((
+                frames: 600,
+                min_hits: 20,
+                expect: [
+                    BulletCount(count: 8, projectile: Some("eclat"), at_frame: 113),
+                    BulletCount(count: 0, projectile: Some("eclat"), at_frame: 174),
+                    HitsAtLeast(entity: Target, hits: 11, at_frame: 175),
+                ],
+            )),
+        ),
+        sprite_config: (
+            name: "pistol",
+            index: 3,
+            bullet_offset_right: ( x: "-5.0", y: "2.0" ),
+            bullet_offset_left: ( x: "0.0", y: "-2.0" ),
+            weapon_offset: ( x: "0.0", y: "-5.0" )
+        ),
+    ),
 })
