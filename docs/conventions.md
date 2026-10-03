@@ -759,6 +759,9 @@ champs multi-source dérivés et partagés sur la même grille. Sans poste de ti
 le bot s’approche jusqu’au rayon d’aggro d'un zombie `Idle` : il peut alors casser sa
 fenêtre. Un zombie déjà en `Chasing` ne doit pas retenir le bot dans ce rayon quand il
 n'existe toujours aucun poste de tir ; les portes et réparations restent possibles.
+Sans poste de tir ni approche d'aggro, il cherche le point physiquement accessible le
+plus proche du zombie. Cette investigation conserve la possibilité d'ouvrir une porte
+ou de réparer, même quand le zombie inaccessible est à moins de 150 px.
 Sans chemin d’approche, le bot répare aussi pour gagner les points de sa première porte.
 Les interactions passent par le bouton existant : les règles de solde, coût, cooldown et
 réanimation restent celles du jeu. Les unitaires couvrent navigation et décisions ;
@@ -766,7 +769,7 @@ réanimation restent celles du jeu. Les unitaires couvrent navigation et décisi
 Si une autre surface possède le prompt à portée du but choisi, le bot se rapproche
 encore du but ou essaie une autre interaction, au lieu de rester immobile sans agir.
 `crates/scenario/tests/hunter_doors.rs` vérifie que les quatre acheteurs finissent la
-première vague des graines 11 et 12 sans cap ni décès.
+première vague des graines 2, 11 et 12 sans cap ni décès.
 Les modes Manual, Shotgun et Burst relâchent le tir lorsque `WeaponState.is_firing`
 est vrai, puis pressent de nouveau ; Automatic peut maintenir le bouton. Ce choix lit
 l'état rollback de l'arme, sans compteur de pulsations caché dans le bot.
@@ -786,6 +789,20 @@ traces des vagues qui n'en ont pas besoin. La limite d'ennemis
 simultanés et la taille des lots restent appliquées. Le test synctest
 `crates/scenario/tests/spawn_stall.rs` force une plage vide et vérifie trois spawns,
 sans desync, plutôt qu'un retour indéfini du système.
+
+En `Spawning` ou `InProgress`, après 600 frames sans kill ni spawn, les zombies de
+vague peuvent récupérer un point de steering sorti de sa case ou placé dans un mur.
+`ai/pathing.rs` échantillonne des points entiers à l'intérieur de la prochaine case,
+puis les étapes cardinales d'une diagonale, puis la case courante : un coin de mur
+peut couper toutes les routes directes, et un point de la case courante dégage le
+corps du coin avant le segment vers la case suivante. Le choix est stable (étape,
+distance au point initial, x, y), et le collider avec son offset doit rester libre
+sur chaque segment, vérifié à intervalles d'un pixel. Les fenêtres intactes restent
+bloquantes. Une étape intermédiaire doit permettre de rejoindre un point libre dans
+la case cible. La direction récupérée évite le mélange de steering qui
+réintroduisait le mur ; le mouvement conserve vitesse, séparation et collision
+ordinaires. Le délai dépend des compteurs existants de `WaveState`, sans état caché
+ou nouveau type rollback.
 
 ## Notes essentielles
 

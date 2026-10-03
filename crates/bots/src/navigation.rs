@@ -96,6 +96,7 @@ pub fn point(cell: GridPos) -> FixedVec2 {
 
 #[derive(Resource, Default)]
 pub struct BotNavigation {
+    nearest_goals: BTreeMap<GridPos, GridPos>,
     geometry: Vec<(Rect, bool)>,
     body_key: Option<(Fixed, Fixed, Fixed, Fixed)>,
     obstacles: Vec<Rect>,
@@ -201,6 +202,7 @@ impl BotNavigation {
             };
         if component_changed {
             self.approaches.clear();
+            self.nearest_goals.clear();
             self.reachable = None;
             if let Some(from) = from {
                 // Flood once per geometry/component change, not at every enemy step.
@@ -340,6 +342,35 @@ impl BotNavigation {
             .filter(|p| self.field.costs.contains_key(p) && self.clear(from, point(*p)))
             .min_by_key(|p| (from.distance(&point(*p)), self.field.costs[p], *p))
             .map(|p| point(p) - from)
+    }
+
+    /// Search from the nearest reachable point when the sampled firing posts are
+    /// inaccessible. This can expose a narrow firing line or change a stuck zombie's
+    /// path. It does not claim that firing is possible or suppress paid doors/repairs.
+    pub fn investigate(&mut self, from: FixedVec2, target: FixedVec2) -> Option<FixedVec2> {
+        let target = cell(target);
+        if !self.nearest_goals.contains_key(&target) {
+            let goal = self
+                .reachable
+                .as_ref()?
+                .iter()
+                .copied()
+                .min_by_key(|p| ((point(*p) - point(target)).length_squared(), *p))?;
+            if self.nearest_goals.len() >= 16 {
+                self.nearest_goals.clear();
+            }
+            self.nearest_goals.insert(target, goal);
+        }
+        let goal = point(self.nearest_goals[&target]);
+        self.approach(
+            from,
+            Rect {
+                min: goal,
+                max: goal,
+            },
+            Fixed::ZERO,
+        )
+        .map(|(direction, _)| direction)
     }
 
     /// Champ dérivé partagé pour une interaction ou une zone d'aggro. Les zones
@@ -586,5 +617,28 @@ mod tests {
         local.update_from(&geometry, &body(), &targets, vec(240, 0));
         assert!(local.field.costs.contains_key(&cell(vec(200, 0))));
         assert!(!local.field.costs.contains_key(&cell(vec(0, 0))));
+    }
+
+    #[test]
+    fn investigation_moves_toward_an_inaccessible_enemy_without_crossing_the_wall() {
+        let geometry = [
+            (rect(-96, -96, -80, 96), true),
+            (rect(80, -96, 96, 96), true),
+            (rect(-96, -96, 96, -80), true),
+            (rect(-96, 80, 96, 96), true),
+            (rect(20, -96, 40, 96), true),
+        ];
+        let from = vec(-40, 0);
+        let target = vec(64, 0);
+        let mut nav = BotNavigation::default();
+        nav.update_from(&geometry, &body(), &[(1, target)], from);
+        assert!(nav.field.costs.is_empty());
+        let direction = nav.investigate(from, target).unwrap();
+        assert!(direction.x > Fixed::ZERO);
+        assert!(nav.clear(from, from + direction));
+        let goal = point(nav.nearest_goals[&cell(target)]);
+        assert!(goal.x < Fixed::from_num(20));
+        assert!(nav.free(cell(goal)));
+        assert_eq!(nav.investigate(goal, target), Some(FixedVec2::ZERO));
     }
 }

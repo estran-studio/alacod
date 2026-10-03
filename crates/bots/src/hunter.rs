@@ -281,6 +281,16 @@ pub fn read_hunter_inputs(
                 .map(|(direction, _)| direction)
             })
         });
+        let investigation = if chase.is_none() {
+            let mut candidates = enemies.clone();
+            candidates.sort_by_key(|(id, p)| (position.distance(p), *id));
+            candidates.into_iter().find_map(|(_, p)| {
+                nav.investigate(position, p)
+                    .filter(|direction| direction.length_squared() > Fixed::from_num(4))
+            })
+        } else {
+            None
+        };
         let mut desired = if distance < Fixed::from_num(110) {
             nearest.map_or(FixedVec2::ZERO, |(_, p)| {
                 (position - *p).normalize_or_zero() * Fixed::from_num(32)
@@ -288,14 +298,14 @@ pub fn read_hunter_inputs(
         } else if shootable.is_some() && distance <= range.min(Fixed::from_num(240)) {
             FixedVec2::ZERO
         } else {
-            chase.unwrap_or(FixedVec2::ZERO)
+            chase.or(investigation).unwrap_or(FixedVec2::ZERO)
         };
 
         // Réanimer d'abord ; acheteur : refaire le stock, Juggernog, puis porte quand le
         // champ est inaccessible. Réparer en l'absence de menace, sans courir après une
         // fenêtre inaccessible. Tous les coûts viennent des mêmes données que les handlers.
         let mut choices = Vec::new();
-        if distance > Fixed::from_num(150) {
+        if distance > Fixed::from_num(150) || (chase.is_none() && shootable.is_none()) {
             for (id, transform, interactable, c, door, pickup, machine, window) in &interactions {
                 let pos = transform.translation.truncate();
                 let rect = c.map_or(Rect { min: pos, max: pos }, |c| Rect::collider(pos, c));
