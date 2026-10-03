@@ -204,7 +204,12 @@ pub fn read_hunter_inputs(
             inputs.0.insert(player.handle, decide_hunter(&view));
             continue;
         }
-        nav.update(&geometry, &AgentBody::from_collider(collider), &enemies);
+        nav.update_from(
+            &geometry,
+            &AgentBody::from_collider(collider),
+            &enemies,
+            position,
+        );
         let ammunition: Vec<_> = inventory
             .weapons
             .iter()

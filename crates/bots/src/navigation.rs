@@ -10,7 +10,7 @@
 //! Les fenêtres, même cassées, restent bloquantes pour le joueur. Les sources sont des postes
 //! de tir autour des ennemis, pour pouvoir tuer ceux qui restent derrière ces fenêtres.
 use std::cmp::Reverse;
-use std::collections::{BTreeMap, BTreeSet, BinaryHeap};
+use std::collections::{BTreeMap, BTreeSet, BinaryHeap, VecDeque};
 
 use bevy::prelude::Resource;
 use bevy_fixed::fixed_math::{Fixed, FixedVec2};
@@ -106,6 +106,7 @@ pub struct BotNavigation {
     targets: Vec<(usize, GridPos)>,
     pub field: FlowField,
     approaches: BTreeMap<(GridPos, GridPos, Fixed), FlowField>,
+    reachable: Option<BTreeSet<GridPos>>,
 }
 
 impl BotNavigation {
@@ -114,6 +115,26 @@ impl BotNavigation {
         geometry: &[(Rect, bool)],
         body: &AgentBody,
         enemies: &[(usize, FixedVec2)],
+    ) {
+        self.update_for(geometry, body, enemies, None);
+    }
+
+    pub fn update_from(
+        &mut self,
+        geometry: &[(Rect, bool)],
+        body: &AgentBody,
+        enemies: &[(usize, FixedVec2)],
+        from: FixedVec2,
+    ) {
+        self.update_for(geometry, body, enemies, Some(from));
+    }
+
+    fn update_for(
+        &mut self,
+        geometry: &[(Rect, bool)],
+        body: &AgentBody,
+        enemies: &[(usize, FixedVec2)],
+        from: Option<FixedVec2>,
     ) {
         let key = (body.left, body.right, body.down, body.up);
         let changed = self.geometry != geometry || self.body_key != Some(key);
@@ -156,11 +177,9 @@ impl BotNavigation {
             .iter()
             .map(|(id, position)| (*id, cell(*position)))
             .collect();
-        if !changed && targets == self.targets {
-            return;
-        }
-        self.approaches.clear();
+        let targets_changed = targets != self.targets;
         self.targets = targets;
+        let previous_bounds = self.bounds;
         self.bounds = self.geometry_bounds;
         for (_, target) in &self.targets {
             self.bounds = (
@@ -169,6 +188,45 @@ impl BotNavigation {
                 self.bounds.2.min(target.y - 32),
                 self.bounds.3.max(target.y + 32),
             );
+        }
+        let bounds_changed = self.bounds != previous_bounds;
+        let component_changed = changed
+            || bounds_changed
+            || match from {
+                None => self.reachable.is_some(),
+                Some(p) => self
+                    .reachable
+                    .as_ref()
+                    .is_none_or(|cells| !cells.contains(&cell(p))),
+            };
+        if component_changed {
+            self.approaches.clear();
+            self.reachable = None;
+            if let Some(from) = from {
+                // Flood once per geometry/component change, not at every enemy step.
+                // Fields in another disconnected room cannot affect this player's path.
+                let here = cell(from);
+                let seed = (-2..=2)
+                    .flat_map(|dx| (-2..=2).map(move |dy| GridPos::new(here.x + dx, here.y + dy)))
+                    .filter(|p| self.free(*p) && self.clear(from, point(*p)))
+                    .min_by_key(|p| (from.distance(&point(*p)), *p));
+                let mut cells = BTreeSet::new();
+                if let Some(seed) = seed {
+                    let mut queue = VecDeque::from([seed]);
+                    cells.insert(seed);
+                    while let Some(p) = queue.pop_front() {
+                        for next in p.neighbors_8() {
+                            if self.step_free(p, next) && cells.insert(next) {
+                                queue.push_back(next);
+                            }
+                        }
+                    }
+                }
+                self.reachable = Some(cells);
+            }
+        }
+        if !changed && !targets_changed && !component_changed {
+            return;
         }
         let mut sources = Vec::new();
         for (owner, (_, target)) in self.targets.iter().enumerate() {
@@ -196,7 +254,15 @@ impl BotNavigation {
     }
     fn free(&self, p: GridPos) -> bool {
         let (x0, x1, y0, y1) = self.bounds;
-        p.x >= x0 && p.x <= x1 && p.y >= y0 && p.y <= y1 && !self.blocked.contains(&p)
+        p.x >= x0
+            && p.x <= x1
+            && p.y >= y0
+            && p.y <= y1
+            && !self.blocked.contains(&p)
+            && self
+                .reachable
+                .as_ref()
+                .is_none_or(|cells| cells.contains(&p))
     }
     pub fn visible(&self, from: FixedVec2, to: FixedVec2) -> bool {
         !self.walls.iter().any(|rect| rect.crosses(from, to))
@@ -290,6 +356,10 @@ impl BotNavigation {
         }
         let key = (cell(target.min), cell(target.max), reach);
         if !self.approaches.contains_key(&key) {
+            // Eviction only changes the cost of recomputation, never a decision.
+            if self.approaches.len() >= 16 {
+                self.approaches.clear();
+            }
             let zone = Rect {
                 min: point(key.0),
                 max: point(key.1),
@@ -468,5 +538,53 @@ mod tests {
             .unwrap();
         assert!(nav.clear(from, from + direction));
         assert!(direction != FixedVec2::ZERO);
+    }
+
+    #[test]
+    fn moving_an_enemy_does_not_change_a_cached_interaction_path() {
+        let geometry = [
+            (rect(-8, -64, 8, 64), true),
+            (rect(1000, -64, 1016, 64), true),
+        ];
+        let mut nav = BotNavigation::default();
+        nav.update(&geometry, &body(), &[(1, vec(160, 0))]);
+        let from = vec(-80, 0);
+        let target = rect(80, 0, 80, 0);
+        let reach = Fixed::from_num(16);
+        let expected = nav.approach(from, target, reach);
+        nav.update(&geometry, &body(), &[(1, vec(168, 0))]);
+        assert_eq!(nav.approaches.len(), 1, "le champ doit être conservé");
+        let mut fresh = BotNavigation::default();
+        fresh.update(&geometry, &body(), &[(1, vec(168, 0))]);
+        assert_eq!(nav.approach(from, target, reach), expected);
+        assert_eq!(
+            nav.approach(from, target, reach),
+            fresh.approach(from, target, reach)
+        );
+    }
+
+    #[test]
+    fn restricting_to_the_player_component_preserves_all_its_paths() {
+        let geometry = [
+            (rect(-144, -144, -128, 144), true),
+            (rect(128, -144, 144, 144), true),
+            (rect(-144, -144, 144, -128), true),
+            (rect(-144, 128, 144, 144), true),
+        ];
+        let targets = [(1, vec(0, 0)), (2, vec(240, 0))];
+        let mut global = BotNavigation::default();
+        global.update(&geometry, &body(), &targets);
+        let mut local = BotNavigation::default();
+        local.update_from(&geometry, &body(), &targets, vec(-80, 0));
+        assert!(!local.field.costs.is_empty());
+        assert!(local.field.costs.len() < global.field.costs.len());
+        for (p, cost) in &local.field.costs {
+            assert_eq!(global.field.costs[p], *cost);
+            assert_eq!(global.field.directions[p], local.field.directions[p]);
+            assert_eq!(global.field.owners[p], local.field.owners[p]);
+        }
+        local.update_from(&geometry, &body(), &targets, vec(240, 0));
+        assert!(local.field.costs.contains_key(&cell(vec(200, 0))));
+        assert!(!local.field.costs.contains_key(&cell(vec(0, 0))));
     }
 }
