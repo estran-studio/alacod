@@ -2,7 +2,9 @@
 # Vidéos des scénarios (tests/scenarios/*.ron) : capture déterministe frame par frame
 # (play_scenario --capture) puis encodage et montage avec ffmpeg.
 #
-#   scenario-video render [noms...]          une vidéo par scénario (tous par défaut)
+#   scenario-video render [noms...]          une vidéo par scénario (tous par défaut) ;
+#                                            noms séparés par des espaces ou des virgules,
+#                                            DRY_RUN=1 : liste sans compiler ni capturer
 #   scenario-video montage                   grille de toutes les vidéos rendues
 #   scenario-video compare <nom> <réf> [réf2] avant/après côte à côte : le scénario joué
 #                                            par le code de <réf> et de <réf2> (défaut : HEAD)
@@ -51,21 +53,40 @@ encode() {
         -pix_fmt yuv420p "${ENCODER[@]}" "$2"
 }
 
+# Noms de scénarios, un par ligne. D23 : chaque argument peut en contenir plusieurs, séparés
+# par des virgules ou des espaces (`make videos SCENARIO=a,b` comme `SCENARIO="a b"`). Sans
+# argument : tous les scénarios. Un nom sans `tests/scenarios/<nom>.ron` arrête le script
+# avant toute compilation.
 scenario_names() {
     if [ $# -gt 0 ]; then
-        printf '%s\n' "$@"
+        local arg name
+        for arg in "$@"; do
+            for name in ${arg//,/ }; do
+                if [ ! -f "$ROOT/tests/scenarios/$name.ron" ]; then
+                    echo "scénario inconnu : $name (tests/scenarios/$name.ron absent)" >&2
+                    return 1
+                fi
+                printf '%s\n' "$name"
+            done
+        done
     else
         for f in "$ROOT"/tests/scenarios/*.ron; do basename "$f" .ron; done
     fi
 }
 
 cmd_render() {
-    local commit out player
+    local commit out player names
+    names="$(scenario_names "$@")"
+    # DRY_RUN=1 : affiche les scénarios qui seraient rendus, sans compiler ni capturer.
+    if [ -n "${DRY_RUN:-}" ]; then
+        printf 'à rendre : %s\n' $names
+        exit 0
+    fi
     commit="$(git -C "$ROOT" rev-parse --short HEAD)$(git -C "$ROOT" diff --quiet || echo "-dirty")"
     out="$ROOT/target/videos/$commit"
     mkdir -p "$out"
     player="$(build_player "$ROOT")"
-    for name in $(scenario_names "$@"); do
+    for name in $names; do
         echo "→ $name"
         capture "$player" "$ROOT/tests/scenarios/$name.ron" "$out/frames/$name"
         encode "$out/frames/$name" "$out/$name.mp4" "$name  $commit"
@@ -228,7 +249,7 @@ case "${1:-}" in
     views) shift; [ $# -ge 1 ] || { echo "usage : scenario-video views <nom> [n]" >&2; exit 1; }; cmd_views "$@" ;;
     compare) shift; [ $# -ge 2 ] || { echo "usage : scenario-video compare <nom> <réf> [réf2]" >&2; exit 1; }; cmd_compare "$@" ;;
     index) ;;
-    *) sed -n '2,14p' "$0" | sed 's/^# \{0,1\}//'; exit 1 ;;
+    *) sed -n '2,16p' "$0" | sed 's/^# \{0,1\}//'; exit 1 ;;
 esac
 
 # Page de revue (target/videos/index.html) à jour après chaque commande
