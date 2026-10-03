@@ -1,0 +1,13 @@
+// T1.1 : deux projectiles de la table se font naître l'un l'autre sans fin.
+({
+    "cluster": (config: (
+        ammo_type: Plomb,
+        firing_modes: {"default": (firing_rate: "1.0")},
+        projectiles: {
+            "a": (damage: "1.0", speed: "10.0", range: "10.0",
+                  on_expire: [Spawn(Ring(count: 2, speed: "10.0", projectile: "b", every: 0))]),
+            "b": (damage: "1.0", speed: "10.0", range: "10.0",
+                  on_expire: [Spawn(Ring(count: 2, speed: "10.0", projectile: "a", every: 0))]),
+        },
+    )),
+})
