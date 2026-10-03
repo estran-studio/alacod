@@ -4317,6 +4317,7 @@ dependencies = [
  "bevy_fixed",
  "bevy_ggrs",
  "bevy_matchbox",
+ "effects",
  "ggrs",
  "ron 0.12.2",
  "run",

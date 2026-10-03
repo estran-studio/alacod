@@ -473,3 +473,36 @@ fn sprite_sheet_duplicate_key_fixture_reports_repeated_id() {
     assert_has_error(&errors, LintErrorKind::DuplicateId, "hero");
     assert_only_one_besides_start_map(&errors);
 }
+
+// T1.1 (B5 v1) : projectiles composables.
+
+#[test]
+fn projectile_fixtures_have_a_single_rule_failure() {
+    for (name, kind, needle) in [
+        (
+            "projectile_broken_reference",
+            LintErrorKind::BrokenReference,
+            "« shrapnel » absent",
+        ),
+        (
+            "projectile_temporal_pattern",
+            LintErrorKind::OutOfRange,
+            "pattern temporel",
+        ),
+        // Le cycle a -> b -> a est vu depuis chacun des deux projectiles.
+        ("projectile_cycle", LintErrorKind::OutOfRange, "cycle"),
+    ] {
+        let (_, _, errors) = load_and_lint(&fixture_dir(name)).unwrap();
+        let others: Vec<_> = errors
+            .iter()
+            .filter(|e| !e.message.contains("entry.start_map"))
+            .collect();
+        assert!(!others.is_empty(), "{name}: {errors:#?}");
+        assert!(
+            others
+                .iter()
+                .all(|e| e.kind == kind && e.message.contains(needle)),
+            "{name}: {errors:#?}"
+        );
+    }
+}

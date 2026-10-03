@@ -262,6 +262,13 @@ d'un événement émis par la simulation : ils restent justes après un rollback
 La simulation ne dépend jamais du rendu. Tout ce qui sert à afficher (caméra, lumière, audio,
 UI de debug) va dans `PresentationPlugin` (`core.rs`), absent en headless.
 
+Cette frontière est aussi la **frontière de portage console** (décision du 2026-10-03,
+`docs/plan-engine.md` §7) : une cible console future (Switch 1/2, PS4/PS5 en officiel) remplacera
+ce qui est derrière `PresentationPlugin` — rendu, fenêtre, input, audio, UI — jamais la
+simulation. Les crates de simulation (`sim_core`, `combat`, `stats`, `effects`, `behaviors`,
+`map`…) ne doivent jamais importer `bevy_render`, `bevy_winit`, `bevy_asset`, `bevy_audio`,
+`bevy_ui` ni `winit` : elles ne dépendent de `bevy` qu'en `default-features = false` (ECS seul).
+
 ## Headless, trace d'état et déterminisme
 
 Variables d'environnement (natif) :
@@ -282,7 +289,9 @@ Avant/après un refactoring de la simulation, comparer les traces : elles doiven
     `WindowHealth`, `DoorsOpenAtLeast`, `ActiveWeapon`, `Ammo`, `AmmoReserve`, `WeaponPickups`,
     `PowerUpPickups` (T2.5), `PlayerPosition`, `BulletsInside`, `Health`, `EntityHealth`,
     `EntityHits`, `EntityCount`, `Currency`, `Stat`, `PlayerDowned`, `RunState`,
-    `RunSummary`, `Event`, `FloorIndex` (T1.8, mode `Floors`, voir `docs/conventions.md` §17).
+    `RunSummary`, `Event`, `BulletCount` et `HitsAtLeast` (T1.1, projectiles composables,
+    `docs/conventions.md` §16), `FloorIndex` (T1.8, mode `Floors`, voir `docs/conventions.md`
+    §17).
   - Continues (vérifiées à chaque frame) : `NoDamageBetween` (santé du joueur ne diminue pas dans l'intervalle).
   - `weapon_overrides` modifie la taille et le nombre de chargeurs d'une arme pour un scénario ;
     `wave_overrides` la config de vagues ; `powerups` (T2.5) place un power-up à une position et
