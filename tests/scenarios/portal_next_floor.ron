@@ -1,0 +1,33 @@
+// T1.8 (mode `Floors`) : séquence `deux_niveaux` du testbed (`floor_a` puis `floor_b`).
+// Le joueur tire sur le `follower` de `floor_a` qui vient à lui ; une fois le follower mort,
+// le portail s'ouvre (f62) au centre des points de départ ; le joueur y marche et passe au
+// niveau 1 (`floor_b`, f230), où il reste immobile : le `breacher` le met à terre (f2543),
+// défaite et résumé.
+//
+// À regarder : tir vers le haut à gauche, le follower meurt ; le carré violet du portail
+// apparaît au centre de la salle ; le joueur y entre et le niveau 1 se charge (même salle,
+// repeuplée : un breacher et un follower) ; le joueur, replacé sur son point de départ, ne bouge plus et le
+// breacher le met à terre (DÉFAITE, « niveau 2 » à l'écran de fin).
+Scenario(
+    powerup_drop_chance_override: "0.0",
+    game: "testbed",
+    floors: Some("deux_niveaux"),
+    frames: 2600,
+    players: [
+        (inputs: [
+            (from: 0, to: 200, buttons: [Fire], pan: (-64, 48)),
+            (from: 200, to: 230, buttons: [Right, Down], pan: (0, 0)),
+        ]),
+    ],
+    expect: [
+        // Le portail s'ouvre à la mort du follower (f62), le joueur l'atteint à f230.
+        Event(kind: "portal", by_frame: 70),
+        FloorIndex(index: 0, at_frame: 220),
+        FloorIndex(index: 1, at_frame: 240),
+        // Niveau 1 : deux nouveaux ennemis (breacher, follower).
+        EntityCount(kind: Enemy, min: Some(2), max: Some(2), at_frame: 240),
+        // Le breacher met le joueur à terre vers f2543 : défaite et résumé.
+        RunState(step: Ended(Defeat), at_frame: 2600),
+        RunSummary(kills_min: Some(1), floor_reached_min: Some(1), at_frame: 2600),
+    ],
+)

@@ -61,6 +61,7 @@ pub fn run(registry: &Registry, manifest: &GameManifest) -> Vec<LintError> {
     lint_powerups(registry, &mut errors);
     lint_feedback(registry, &mut errors);
     lint_sprite_sheets(registry, &mut errors);
+    lint_floors(registry, &mut errors);
     lint_entry_point(registry, manifest, &mut errors);
 
     errors
@@ -772,6 +773,37 @@ fn lint_feedback(registry: &Registry, errors: &mut Vec<LintError>) {
     }
 }
 
+/// T1.8 : une séquence de niveaux (`Floors`) n'est pas vide et chaque niveau désigne une
+/// carte chargée (kind `Map`, même résolution par id que `entry.start_map`).
+fn lint_floors(registry: &Registry, errors: &mut Vec<LintError>) {
+    for floors in registry.floors.values() {
+        let file = floors.file.display().to_string();
+        if floors.levels.is_empty() {
+            errors.push(LintError {
+                kind: LintErrorKind::OutOfRange,
+                file: file.clone(),
+                message: format!(
+                    "séquence de niveaux « {} » : champ levels vide (au moins un niveau)",
+                    floors.id
+                ),
+            });
+        }
+        for level in &floors.levels {
+            let map_id = registry::map_id_from_path(level);
+            if !registry.maps.contains_key(&map_id) {
+                errors.push(LintError {
+                    kind: LintErrorKind::BrokenReference,
+                    file: file.clone(),
+                    message: format!(
+                        "séquence de niveaux « {} » : champ levels : « {level} » : aucune carte chargée avec cet id (« {map_id} »)",
+                        floors.id
+                    ),
+                });
+            }
+        }
+    }
+}
+
 fn lint_entry_point(registry: &Registry, manifest: &GameManifest, errors: &mut Vec<LintError>) {
     let start_map_id = registry::map_id_from_path(&manifest.entry.start_map);
     if !registry.maps.contains_key(&start_map_id) {
@@ -793,6 +825,16 @@ fn lint_entry_point(registry: &Registry, manifest: &GameManifest, errors: &mut V
             kind: LintErrorKind::BrokenReference,
             file: crate::manifest::MANIFEST_FILE_NAME.to_string(),
             message: "champ entry.mode = Waves : aucun dossier de contenu « Wave » déclaré"
+                .to_string(),
+        });
+    }
+    // T1.8 : même règle pour `Floors` (la séquence jouée vient d'un dossier `Floors`).
+    if manifest.entry.mode == Some(crate::manifest::EntryMode::Floors) && registry.floors.is_empty()
+    {
+        errors.push(LintError {
+            kind: LintErrorKind::BrokenReference,
+            file: crate::manifest::MANIFEST_FILE_NAME.to_string(),
+            message: "champ entry.mode = Floors : aucun dossier de contenu « Floors » déclaré"
                 .to_string(),
         });
     }

@@ -1,0 +1,8 @@
+// Séquence de niveaux du mode `Floors` (T1.8, `docs/conventions.md` §17) : scénario
+// `portal_next_floor` (passage 0 → 1). Chemins relatifs à `assets/`, comme `entry.start_map`.
+(
+    levels: [
+        "testbed/floor_a.ldtk",
+        "testbed/floor_b.ldtk",
+    ],
+)

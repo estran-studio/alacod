@@ -82,6 +82,10 @@ pub struct Metrics {
     /// maximum sur toute la partie) : `scenario.players.len() - players_alive` = morts.
     #[serde(default)]
     pub players_alive: u32,
+    /// Index du niveau à la dernière frame simulée (mode `Floors`, T1.8 :
+    /// `run::FloorState::index`, `0` hors `Floors`) : niveaux terminés.
+    #[serde(default)]
+    pub final_floor: u32,
 }
 
 /// Résultat d'un scénario.
@@ -241,6 +245,11 @@ pub fn build_app(scenario: &Scenario, headless: bool, config: &PlayConfig) -> Ap
                 ));
             }
         });
+
+    // T1.8 : séquence de niveaux imposée par le scénario (mode `Floors`, `Scenario::floors`).
+    if let Some(floors) = &scenario.floors {
+        app.insert_resource(game::run_state::FloorsOverride(floors.clone()));
+    }
 
     // Caméra forcée sur un joueur (play_scenario --follow)
     if let Some(handle) = config.follow_handle {
@@ -844,6 +853,7 @@ pub fn run_with_options<F: FnOnce(&mut App)>(
     let final_wave = wave_state.current_wave;
     let kills = wave_state.total_enemies_killed;
     let players_alive = q_players.iter(app.world()).count() as u32;
+    let final_floor = app.world().resource::<run::FloorState>().index;
 
     let metrics = Metrics {
         frames: frame,
@@ -856,6 +866,7 @@ pub fn run_with_options<F: FnOnce(&mut App)>(
         final_wave,
         kills,
         players_alive,
+        final_floor,
     };
 
     let world = app.world_mut();
@@ -1305,6 +1316,7 @@ fn check(world: &mut World, expectation: &Expectation) -> Result<(), String> {
         Expectation::RunSummary {
             wave_reached_min,
             kills_min,
+            floor_reached_min,
             ..
         } => {
             let Some(summary) = world.resource::<Run>().summary else {
@@ -1319,6 +1331,22 @@ fn check(world: &mut World, expectation: &Expectation) -> Result<(), String> {
                 if summary.kills < *min {
                     return Err(format!("kills {} < min {min}", summary.kills));
                 }
+            }
+            if let Some(min) = floor_reached_min {
+                if summary.floor_reached < *min {
+                    return Err(format!(
+                        "floor_reached {} < min {min}",
+                        summary.floor_reached
+                    ));
+                }
+            }
+            Ok(())
+        }
+        // T1.8 : index du niveau courant du mode `Floors` (ressource rollback `FloorState`).
+        Expectation::FloorIndex { index, .. } => {
+            let actual = world.resource::<run::FloorState>().index;
+            if actual != *index {
+                return Err(format!("FloorIndex {actual} (attendu {index})"));
             }
             Ok(())
         }

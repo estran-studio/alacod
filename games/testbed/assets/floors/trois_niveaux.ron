@@ -1,0 +1,10 @@
+// Séquence de niveaux du mode `Floors` (T1.8) : `alacod-sim --game testbed --floors
+// trois_niveaux` (les bots finissent trois niveaux ; après le dernier, la partie boucle sur
+// `floor_c`).
+(
+    levels: [
+        "testbed/floor_a.ldtk",
+        "testbed/floor_b.ldtk",
+        "testbed/floor_c.ldtk",
+    ],
+)

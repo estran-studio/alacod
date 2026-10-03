@@ -59,10 +59,12 @@ use crate::collider::{Collider, ColliderShape, Wall};
 #[derive(Resource)]
 pub struct CollisionGrids {
     pub walls: SpatialGrid,
-    /// Nombre de murs (`With<Wall>, With<Collider>, With<Rollback>`) vu à la dernière
-    /// reconstruction de `walls` ; sert seulement à détecter un changement (porte
-    /// ouverte/fermée, mur ajouté), voir [`maybe_rebuild_wall_grid`].
-    walls_collider_count: usize,
+    /// Nombre de murs (`With<Wall>, With<Collider>, With<Rollback>`) et somme de leurs
+    /// `GgrsNetId` vus à la dernière reconstruction de `walls` ; sert seulement à détecter un
+    /// changement (porte ouverte/fermée, mur ajouté, et T1.8 : murs d'un niveau remplacés
+    /// par ceux du suivant, souvent en même nombre — le nombre seul ne suffit plus), voir
+    /// [`maybe_rebuild_wall_grid`].
+    walls_signature: (usize, usize),
     pub characters: SpatialGrid,
 }
 
@@ -75,7 +77,7 @@ impl Default for CollisionGrids {
     fn default() -> Self {
         Self {
             walls: SpatialGrid::new(cell_size()),
-            walls_collider_count: 0,
+            walls_signature: (0, 0),
             characters: SpatialGrid::new(cell_size()),
         }
     }
@@ -103,9 +105,11 @@ pub fn union_aabb(a: Aabb, b: Aabb) -> Aabb {
     }
 }
 
-/// Reconstruit [`CollisionGrids::walls`] seulement quand le nombre de murs avec collider a
+/// Reconstruit [`CollisionGrids::walls`] seulement quand l'ensemble des murs avec collider a
 /// changé depuis la dernière frame (une porte qui s'ouvre/se ferme retire/pose son
-/// `Collider`, voir `crate::interaction`). `.after(RollbackSystemSet::Interaction)` : voit
+/// `Collider`, voir `crate::interaction` ; T1.8 : passage de niveau du mode `Floors`, qui
+/// remplace tous les murs — signature nombre + somme des net ids, voir
+/// [`CollisionGrids::walls_signature`]). `.after(RollbackSystemSet::Interaction)` : voit
 /// les portes ouvertes/fermées cette frame ; `.before(RollbackSystemSet::Movement)` : prêt
 /// avant son premier consommateur (`move_characters`).
 pub fn maybe_rebuild_wall_grid(
@@ -115,11 +119,15 @@ pub fn maybe_rebuild_wall_grid(
         (With<Wall>, With<Rollback>),
     >,
 ) {
-    let count = wall_query.iter().count();
-    if count == grids.walls_collider_count {
+    let signature = wall_query
+        .iter()
+        .fold((0usize, 0usize), |(count, sum), (net_id, ..)| {
+            (count + 1, sum.wrapping_add(net_id.0))
+        });
+    if signature == grids.walls_signature {
         return;
     }
-    grids.walls_collider_count = count;
+    grids.walls_signature = signature;
     grids.walls.clear();
     for (net_id, entity, transform, collider) in order_iter!(wall_query) {
         let aabb = collider_aabb(&transform.translation, collider);

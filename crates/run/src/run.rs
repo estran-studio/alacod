@@ -30,6 +30,13 @@ pub enum RunMode {
     /// Aucune condition de fin hors défaite : pour un jeu qui ne déclare pas de vagues
     /// (ex. `games/testbed`). Partie infinie jusqu'à ce que tous les joueurs tombent.
     Sandbox,
+    /// Séquence de niveaux (T1.8) : `config` est l'id de la séquence (nom de fichier sans
+    /// extension, `content::registry::FloorsConfigId`, contenu `Floors`). Portail quand le
+    /// niveau n'a plus d'ennemi, boucle infinie au dernier niveau, pas de victoire : voir
+    /// [`crate::floors`] et `docs/conventions.md` §17. Variante ajoutée **en dernier** : le
+    /// hash dérivé de `RunMode` (discriminant) reste celui des variantes existantes, les
+    /// traces des autres modes ne bougent pas.
+    Floors { config: String },
 }
 
 /// Issue d'une partie terminée.
@@ -68,7 +75,11 @@ pub enum RunStep {
 /// (`RunModeRules::summarize`), conservé dans [`Run::summary`]. Affiché par l'écran de fin
 /// (`game::ui::game_over`), exposé par `scenario::events::GameEvents::summary` et par les
 /// attentes de scénario `RunState`/`RunSummary` (`game::replay::Expectation`).
-#[derive(Debug, Clone, Copy, PartialEq, Eq, Hash, Serialize, Deserialize)]
+///
+/// `Hash` est écrit à la main (voir son impl) : `floor_reached` (T1.8) n'entre dans le hash
+/// que s'il est non nul, pour que le checksum d'un résumé des autres modes reste celui
+/// d'avant T1.8 au bit près.
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize)]
 pub struct RunSummary {
     /// Vague atteinte (mode `Waves` ; `0` pour un mode sans notion de vague).
     pub wave_reached: u32,
@@ -79,6 +90,25 @@ pub struct RunSummary {
     /// Frame à laquelle la partie s'est terminée (`RunStep::Ended::at_frame`).
     pub frames: u32,
     pub outcome: RunEnd,
+    /// Niveau atteint (mode `Floors`, T1.8 : `FloorState::index`, `0` = premier niveau) ;
+    /// toujours `0` pour les autres modes.
+    #[serde(default)]
+    pub floor_reached: u32,
+}
+
+impl std::hash::Hash for RunSummary {
+    fn hash<H: std::hash::Hasher>(&self, state: &mut H) {
+        // Mêmes champs, même ordre que l'ancien `#[derive(Hash)]` : hash inchangé tant que
+        // `floor_reached == 0` (tous les modes sauf `Floors`).
+        self.wave_reached.hash(state);
+        self.kills.hash(state);
+        self.points_total.hash(state);
+        self.frames.hash(state);
+        self.outcome.hash(state);
+        if self.floor_reached != 0 {
+            self.floor_reached.hash(state);
+        }
+    }
 }
 
 /// État de run : ressource rollback (checksum GGRS + trace d'état, voir `RunPlugin` dans

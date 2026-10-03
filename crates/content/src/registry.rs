@@ -96,6 +96,11 @@ string_id!(
     MapId
 );
 string_id!(
+    /// Identifiant d'une séquence de niveaux du mode `Floors` (T1.8, kind `Floors`) : nom de
+    /// fichier sans extension (même règle que [`WaveConfigId`]).
+    FloorsConfigId
+);
+string_id!(
     /// Identifiant du fichier d'économie (T2.3, chantier C5 v1). Nom de fichier, sans
     /// extension (même règle que [`WaveConfigId`]) : un seul fichier par jeu en pratique,
     /// pas imposé par le chargement (comme `Wave`).
@@ -325,6 +330,23 @@ pub struct WaveConfigEntry {
     pub enemy_refs: BTreeSet<EnemyId>,
 }
 
+/// Séquence de niveaux du mode `Floors` (T1.8, `docs/conventions.md` §17), un fichier RON
+/// par séquence (`floors/<id>.ron`) : `(levels: ["testbed/floor_a.ldtk", ...])`. Les chemins
+/// sont relatifs à `assets/`, comme `entry.start_map`. Lint (`lint::lint_floors`) : liste
+/// non vide, chaque niveau désigne une carte chargée (kind `Map`).
+#[derive(Debug, Clone)]
+pub struct FloorsEntry {
+    pub id: FloorsConfigId,
+    pub file: PathBuf,
+    /// Cartes LDtk des niveaux, dans l'ordre de jeu.
+    pub levels: Vec<String>,
+}
+
+#[derive(Debug, Clone, Deserialize)]
+struct FloorsFileSchema {
+    levels: Vec<String>,
+}
+
 #[derive(Debug, Clone)]
 pub struct MapEntry {
     pub id: MapId,
@@ -415,6 +437,8 @@ pub struct Registry {
     pub melee_weapons: BTreeMap<MeleeWeaponId, MeleeWeaponEntry>,
     pub waves: BTreeMap<WaveConfigId, WaveConfigEntry>,
     pub maps: BTreeMap<MapId, MapEntry>,
+    /// T1.8 : séquences de niveaux du mode `Floors` (kind `Floors`).
+    pub floors: BTreeMap<FloorsConfigId, FloorsEntry>,
     /// T2.3, chantier C5 v1.
     pub economy: BTreeMap<EconomyId, EconomyEntry>,
     /// T2.3, chantier C5 v1.
@@ -456,6 +480,7 @@ pub const KNOWN_KIND_NAMES: &[&str] = &[
     "Perk",
     "PowerUp",
     "SpriteSheet",
+    "Floors",
 ];
 
 pub fn known_content_kinds() -> Kinds {
@@ -511,6 +536,7 @@ impl Registry {
                 "Perk" => load_perks(&assets_dir, decl, &mut registry, &mut errors),
                 "PowerUp" => load_powerups(&assets_dir, decl, &mut registry, &mut errors),
                 "SpriteSheet" => load_sprite_sheets(&assets_dir, decl, &mut registry, &mut errors),
+                "Floors" => load_floors(&assets_dir, decl, &mut registry, &mut errors),
                 _ => unreachable!("filtré par `kinds.has` ci-dessus"),
             }
         }
@@ -1230,6 +1256,68 @@ fn load_waves(
                 id,
                 file: rel,
                 enemy_refs,
+            },
+        );
+    }
+}
+
+/// T1.8 : mêmes règles que [`load_waves`] (id = nom de fichier sans extension).
+fn load_floors(
+    assets_dir: &Path,
+    decl: &ContentFolderDecl,
+    registry: &mut Registry,
+    errors: &mut Vec<LintError>,
+) {
+    let files = match discover_files(assets_dir, decl, "ron") {
+        Ok(f) => f,
+        Err(e) => {
+            errors.push(e);
+            return;
+        }
+    };
+
+    for rel in files {
+        let text = match read_file(assets_dir, &rel) {
+            Ok(t) => t,
+            Err(e) => {
+                errors.push(e);
+                continue;
+            }
+        };
+        let parsed: FloorsFileSchema = match ron::from_str(&text) {
+            Ok(p) => p,
+            Err(e) => {
+                errors.push(LintError {
+                    kind: LintErrorKind::Parse,
+                    file: rel.display().to_string(),
+                    message: format!("erreur RON : {e}"),
+                });
+                continue;
+            }
+        };
+        let id = FloorsConfigId::from(
+            rel.file_stem()
+                .and_then(|s| s.to_str())
+                .unwrap_or_default()
+                .to_string(),
+        );
+        if let Some(existing) = registry.floors.get(&id) {
+            errors.push(LintError {
+                kind: LintErrorKind::DuplicateId,
+                file: rel.display().to_string(),
+                message: format!(
+                    "id de séquence de niveaux « {id} » déjà défini dans {}",
+                    existing.file.display()
+                ),
+            });
+            continue;
+        }
+        registry.floors.insert(
+            id.clone(),
+            FloorsEntry {
+                id,
+                file: rel,
+                levels: parsed.levels,
             },
         );
     }
