@@ -106,6 +106,8 @@ pub struct ScenarioOutcome {
     /// Compteurs de coups par entité encore présente à la dernière frame (`HitCount`).
     /// Lecture hors simulation, pour le tableau du générateur (une cible dans son arène).
     pub entity_hits: BTreeMap<usize, u32>,
+    /// Diagnostic d'un run avec arrêt anticipé qui atteint pourtant son plafond.
+    pub softlock: Option<crate::softlock::SoftlockDump>,
 }
 
 /// Dossier racine du jeu (`games/<jeu>`), pour `content::load_and_lint` (T1.5).
@@ -706,6 +708,7 @@ pub fn run_with_options<F: FnOnce(&mut App)>(
     let max_updates = MAX_LOADING_UPDATES + scenario.frames;
     let mut frame = 0;
     let mut stopped_early = false;
+    let mut previous_snapshot = None;
     for _ in 0..max_updates {
         let before = app.world().resource::<FrameCount>().frame;
         if before > 0 && sim_start.is_none() {
@@ -773,6 +776,16 @@ pub fn run_with_options<F: FnOnce(&mut App)>(
                     stopped_early = true;
                 }
             }
+        }
+
+        if stop_early.is_some()
+            && frame > 0
+            && frame >= scenario.frames.saturating_sub(600)
+            && previous_snapshot.is_none()
+            && !stopped_early
+            && frame < scenario.frames
+        {
+            previous_snapshot = Some(crate::softlock::snapshot(app.world_mut()));
         }
 
         if stopped_early || frame >= scenario.frames {
@@ -852,7 +865,17 @@ pub fn run_with_options<F: FnOnce(&mut App)>(
         .map(|(net_id, hits)| (net_id.0, hits.0))
         .collect();
 
+    let softlock = if stop_early.is_some() && !stopped_early && frame >= scenario.frames {
+        Some(crate::softlock::SoftlockDump::new(
+            previous_snapshot,
+            crate::softlock::snapshot(world),
+        ))
+    } else {
+        None
+    };
+
     ScenarioOutcome {
+        softlock,
         entity_hits,
         trace,
         full_trace,

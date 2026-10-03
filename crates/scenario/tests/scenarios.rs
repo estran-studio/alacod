@@ -490,7 +490,10 @@ fn nav_probe() {
     let spec = std::env::var("ALACOD_PROBE").unwrap_or_else(|_| "116:560".into());
     let (id, frame) = spec.split_once(':').unwrap();
     let (id, frame): (usize, u32) = (id.parse().unwrap(), frame.parse().unwrap());
-    let source = std::fs::read_to_string(scenarios_dir().join("idle.ron")).unwrap();
+    let source_path = std::env::var("ALACOD_PROBE_FILE")
+        .map(PathBuf::from)
+        .unwrap_or_else(|_| scenarios_dir().join("idle.ron"));
+    let source = std::fs::read_to_string(source_path).unwrap();
     let mut app = scenario::runner::run_until(&Scenario::from_ron(&source).unwrap(), frame);
     let world = app.world_mut();
     let cache = world.resource::<FlowFieldCache>().clone();
@@ -573,6 +576,10 @@ fn nav_probe() {
         if gap_x < 25.0 && gap_y < 25.0 {
             println!("   mur x {x0}..{x1} y {y0}..{y1} (écart {gap_x:.1},{gap_y:.1})");
         }
+    }
+    if let Ok(path) = std::env::var("ALACOD_PROBE_JSON") {
+        let snapshot = scenario::softlock::snapshot(world);
+        std::fs::write(path, serde_json::to_string_pretty(&snapshot).unwrap()).unwrap();
     }
 }
 
