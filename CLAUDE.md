@@ -262,6 +262,13 @@ d'un événement émis par la simulation : ils restent justes après un rollback
 La simulation ne dépend jamais du rendu. Tout ce qui sert à afficher (caméra, lumière, audio,
 UI de debug) va dans `PresentationPlugin` (`core.rs`), absent en headless.
 
+Cette frontière est aussi la **frontière de portage console** (décision du 2026-10-03,
+`docs/plan-engine.md` §7) : une cible console future (Switch 1/2, PS4/PS5 en officiel) remplacera
+ce qui est derrière `PresentationPlugin` — rendu, fenêtre, input, audio, UI — jamais la
+simulation. Les crates de simulation (`sim_core`, `combat`, `stats`, `effects`, `behaviors`,
+`map`…) ne doivent jamais importer `bevy_render`, `bevy_winit`, `bevy_asset`, `bevy_audio`,
+`bevy_ui` ni `winit` : elles ne dépendent de `bevy` qu'en `default-features = false` (ECS seul).
+
 ## Headless, trace d'état et déterminisme
 
 Variables d'environnement (natif) :
