@@ -65,10 +65,17 @@ Ce que ça doit faire :
 - En mode allumette, **avant** d'ouvrir le socket (phase lobby, hors simulation) : générer une
   paire Ed25519 éphémère (une par partie, pas de persistance en v1) ; challenge → login (jeton) ;
   rejoindre ou créer un lobby de `game_id` **`"zombies"`** ; récupérer `/ice-servers`.
-  - `--lobby <uuid>` fourni = rejoindre ce lobby.
-  - Sinon : le client de plus petit `cid` crée (`is_private: false`), les autres **listent**
-    (`GET /lobbies`, filtre `game_id == "zombies"` et `status == Waiting`) et rejoignent ;
-    tolérer la course au démarrage en réessayant la liste quelques secondes avant de créer.
+  - `--lobby <uuid>` fourni = rejoindre ce lobby précis (il doit exister, ex. créé par une UI).
+  - Sinon, découverte automatique : chaque client **liste** (`GET /lobbies`, filtre
+    `game_id == "zombies"` et `status == "Waiting"`) et **rejoint** s'il en trouve un ; sinon il
+    **crée** (`is_private: false`). Deux clients démarrés en même temps peuvent chacun créer
+    (course connue, limite v1 documentée) : dans les tests et les recettes, démarrez les
+    clients en décalé de quelques secondes, comme la recette p2p du README §4 le fait déjà.
+  - **Le créateur attend que son lobby soit au complet avant d'ouvrir le WebSocket** : il
+    connaît l'id (réponse du `POST /lobbies`) et interroge `GET /lobbies` jusqu'à
+    `player_count == --number-player` (avec un délai raisonnable) — sinon la topologie marque le
+    lobby `InProgress` dès que le propriétaire connecte et les autres ne peuvent plus rejoindre.
+    Les rejoigneurs, eux, ouvrent leur WebSocket dès que le join a réussi.
 - `start_matchbox_socket` (`jjrs/p2p.rs`) consomme alors l'URL `ws(s)://hôte/JWT` et les ICE
   reçus de l'API (au lieu de `{matchbox_url}/{lobby}` et du STUN Google en dur). Le plus propre :
   une ressource (ex. `AllumetteConfig { ws_url, ice_servers }`) remplie pendant le flux HTTP et
@@ -86,12 +93,12 @@ Ce que ça doit faire :
    headless + `cmp` des traces) doit rester jouable — l'orchestrateur la rejoue après merge.
 3. **Partie réelle via allumette** : serveur local déjà compilé par l'orchestrateur
    (`../allumette/target/debug/allumette_server`, écoute sur `0.0.0.0:3536` par défaut), deux
-   clients zombies headless :
+   clients zombies headless, démarrés en décalé (recette p2p) :
    `ALACOD_HEADLESS=1 ALACOD_STATE_TRACE=/tmp/allu-$i.trace ALACOD_EXIT_AT_FRAME=600
    target/headless/zombies --allumette http://127.0.0.1:3536 --number-player 2
-   --players localhost remote --lobby <même uuid pour les deux>` puis `cmp` des deux traces :
-   **identiques**. Joue-le toi-même et mets les commandes exactes + le résultat dans le rapport
-   (si tu n'y arrives pas : « non fait » honnête, l'orchestrateur le jouera).
+   --players localhost remote` puis `cmp` des deux traces : **identiques**. Joue-le toi-même et
+   mets les commandes exactes + le résultat dans le rapport (si tu n'y arrives pas : « non
+   fait » honnête, l'orchestrateur le jouera).
 4. **Tests unitaires** des parties pures : dérivation http→ws, désérialisation d'un
    `LobbyResponse` depuis une fixture JSON, signature du challenge qui se vérifie
    (round-trip signer/vérifier en local).
