@@ -70,12 +70,13 @@ fn main() {
 
     let game = opt("--game").unwrap_or_else(|| "zombies".into());
     let bots: usize = require("--bots").parse().expect("--bots : entier");
-    let profiles: Vec<BotProfile> = require("--profiles")
+    let profiles: Vec<BotProfile> = opt("--profiles")
+        .unwrap_or_else(|| vec!["acheteur"; bots].join(","))
         .split(',')
         .map(|name| {
             BotProfile::parse_name(name.trim()).unwrap_or_else(|| {
                 panic!(
-                    "--profiles : profil inconnu « {name} » (attendu : immobile, fonceur, prudent)"
+                    "--profiles : profil inconnu « {name} » (attendu : immobile, fonceur, prudent, chasseur, acheteur)"
                 )
             })
         })

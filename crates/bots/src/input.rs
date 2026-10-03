@@ -81,8 +81,17 @@ impl Plugin for BotsPlugin {
             KindDecl::new("bot", BotProfile::Immobile.name()),
             KindDecl::new("bot", BotProfile::Fonceur.name()),
             KindDecl::new("bot", BotProfile::Prudent.name()),
+            KindDecl::new("bot", BotProfile::Chasseur.name()),
+            KindDecl::new("bot", BotProfile::Acheteur.name()),
         ]);
 
+        app.init_resource::<crate::navigation::BotNavigation>();
+        app.add_systems(
+            ReadInputs,
+            crate::hunter::read_hunter_inputs
+                .after(read_bot_inputs)
+                .before(record_local_inputs),
+        );
         app.add_systems(
             ReadInputs,
             read_bot_inputs
@@ -145,6 +154,10 @@ pub fn read_bot_inputs(
             continue;
         };
 
+        if matches!(profile, BotProfile::Chasseur | BotProfile::Acheteur) {
+            continue;
+        }
+
         let position = transform.translation.truncate();
 
         let nearest_enemy =
@@ -193,6 +206,7 @@ pub fn read_bot_inputs(
             wave: wave_number,
             nearest_enemy,
             nearest_window,
+            hunter: None,
         };
 
         let input = decide_with_lazy_rng(&mut rng_streams, profile, &view);

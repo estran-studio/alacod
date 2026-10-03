@@ -18,5 +18,8 @@ game = { path = "../game" }
 # l'inverse ; map est déjà une dépendance de game, donc pas de nouvelle inversion de couche).
 map = { path = "../map" }
 
+combat = { path = "../combat" }
+run = { path = "../run" }
+
 [dev-dependencies]
 ron = "0.12"

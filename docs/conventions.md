@@ -682,6 +682,30 @@ Par widget : `background`.
 Captures de référence : `docs/captures/hud-v1/` (prompt d'achat, perk et power-up actifs, à
 terre), produites par `play_scenario --capture` (voir `CLAUDE.md` § Vidéos).
 
+## Bots de validation (m0-v7 phase 2)
+
+Les profils RON `chasseur` et `acheteur` complètent `immobile`, `fonceur` et `prudent`.
+Les profils v0 gardent leurs décisions. `alacod-sim --bots 4 --seeds 1..20 --until-wave 5`
+utilise quatre `acheteur` par défaut ; `--profiles` permet les deux générations.
+
+`crates/bots/src/navigation.rs` réutilise `FlowField` et `GridPos` pour un Dijkstra
+multi-source vers des postes de tir autour des ennemis, sur une grille physique de 8 px.
+Le corps et son offset sont pris en compte ; murs, portes fermées et fenêtres, même cassées,
+bloquent le mouvement du joueur. Les fenêtres permettent le tir. Les cibles sont triées par
+`GgrsNetId`, et les diagonales ne coupent pas les coins. Le cache se reconstruit quand la
+position en grille d'un ennemi, les colliders ou le corps changent. Il est dérivé dans
+`ReadInputs`, hors simulation rollback, comme les inputs v0 : aucune décision ni RNG caché,
+aucune ressource de jeu supplémentaire dans la trace. Le rejeu en `Scripted` capture
+les inputs décidés et doit produire la même trace.
+
+`crates/bots/src/hunter.rs` choisit le tir visible, la distance de combat, le changement
+vers une arme approvisionnée, le rechargement et la réanimation. L'acheteur cherche aussi
+les munitions, Juggernog et une porte abordable quand le champ est inaccessible (prix,
+puis distance, puis `GgrsNetId`). Les approches ponctuelles utilisent A* sur la même grille.
+Les interactions passent par le bouton existant : les règles de solde, coût, cooldown et
+réanimation restent celles du jeu. Les unitaires couvrent navigation et décisions ;
+`crates/scenario/tests/bots.rs` vérifie le rejeu v0 et v1.
+
 ## Notes essentielles
 
 **À vérifier** : l'entité `CrateLocation` n'est pas lue actuellement (`WeaponLocation`/`SodaLocation` le sont depuis T2.3, voir §1 ci-dessus). Elle apparaît dans `crates/map_ldtk/src/map_const.rs` (constante) mais aucun bundle Bevy ne la traite (`entity/*.rs` ne la liste pas). Avant d'utiliser une carte avec une entité nouvellement lue, vérifier que `make test_scenarios` accepte un scénario `idle` dessus.

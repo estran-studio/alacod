@@ -278,6 +278,10 @@ pub enum BotProfile {
     Fonceur,
     /// Garde ses distances (recule si un ennemi est trop près, avance sinon), tire, recharge.
     Prudent,
+    /// Chasse avec navigation physique, change d’arme et réanime.
+    Chasseur,
+    /// Chasseur qui ouvre les portes et achète armes, munitions et Juggernog.
+    Acheteur,
 }
 
 impl BotProfile {
@@ -288,6 +292,8 @@ impl BotProfile {
             Self::Immobile => "immobile",
             Self::Fonceur => "fonceur",
             Self::Prudent => "prudent",
+            Self::Chasseur => "chasseur",
+            Self::Acheteur => "acheteur",
         }
     }
 
@@ -297,6 +303,8 @@ impl BotProfile {
             "immobile" => Some(Self::Immobile),
             "fonceur" => Some(Self::Fonceur),
             "prudent" => Some(Self::Prudent),
+            "chasseur" => Some(Self::Chasseur),
+            "acheteur" => Some(Self::Acheteur),
             _ => None,
         }
     }
