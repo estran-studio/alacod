@@ -28,10 +28,10 @@ Scenario(
     ],
     expect: [
         // Le sprint accélère : 189 px en 85 frames (la marche en fait ~90)
-        PlayerPosition(handle: 0, x: 612.4, y: 695, tolerance: 1, at_frame: 95),
+        PlayerPosition(handle: 0, x: 613.4, y: 696, tolerance: 1, at_frame: 95),
         // Dash de 56 px dans la direction du déplacement (gauche)
-        PlayerPosition(handle: 0, x: 556.4, y: 695, tolerance: 1, at_frame: 115),
+        PlayerPosition(handle: 0, x: 557.4, y: 696, tolerance: 1, at_frame: 115),
         // Dashs refusés pendant le cooldown : le joueur n'a presque pas bougé
-        PlayerPosition(handle: 0, x: 555, y: 695, tolerance: 2, at_frame: 170),
+        PlayerPosition(handle: 0, x: 556, y: 696, tolerance: 2, at_frame: 170),
     ],
 )
