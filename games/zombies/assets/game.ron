@@ -30,7 +30,8 @@
         (path: "items", kind: "PowerUp"),
     ],
     entry: (
-        start_map: "exemples/test_map.ldtk",
+        // m0-v8 (V6) : la carte avant_poste devient la carte par défaut des parties.
+        start_map: "maps/avant_poste.ldtk",
         default_seed: 123456,
         mode: Waves,
     ),
