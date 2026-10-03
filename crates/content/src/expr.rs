@@ -1,4 +1,6 @@
 use bevy_fixed::fixed_math::Fixed;
+use serde::de::{self, Deserializer, Visitor};
+use serde::ser::Serializer;
 use serde::{Deserialize, Serialize};
 use std::collections::BTreeMap;
 use std::fmt;
@@ -159,6 +161,22 @@ impl Expr {
         }
         self.eval(ctx).as_bool()
     }
+
+    /// Évalue strictement (F5, chantier m0-v11) : identifiant inconnu ou division par
+    /// zéro = [`EvalError`], jamais de valeur par défaut silencieuse (contrairement à
+    /// [`Expr::eval`], gardé pour la compatibilité).
+    pub fn try_eval(&self, ctx: &dyn Context) -> Result<Value, EvalError> {
+        try_eval_node(&self.ast, ctx)
+    }
+
+    /// Évalue strictement comme nombre (panique si kind != Num : invariant garanti à la
+    /// construction par [`NumExpr`]/[`BoolExpr`]).
+    pub fn try_eval_num(&self, ctx: &dyn Context) -> Result<Fixed, EvalError> {
+        if self.kind != Kind::Num {
+            panic!("try_eval_num called on non-numeric expression");
+        }
+        self.try_eval(ctx).map(Value::as_fixed)
+    }
 }
 
 impl fmt::Display for Expr {
@@ -206,6 +224,13 @@ impl NumExpr {
     /// Evaluate the expression
     pub fn eval(&self, ctx: &dyn Context) -> Fixed {
         self.0.eval_num(ctx)
+    }
+
+    /// Évalue strictement (F5, chantier m0-v11) : identifiant inconnu ou division par
+    /// zéro = [`EvalError`], jamais de valeur par défaut silencieuse (contrairement à
+    /// [`NumExpr::eval`], gardé pour la compatibilité).
+    pub fn try_eval(&self, ctx: &dyn Context) -> Result<Fixed, EvalError> {
+        self.0.try_eval_num(ctx)
     }
 }
 
@@ -490,6 +515,244 @@ fn eval_node(node: &AstNode, ctx: &dyn Context) -> Value {
                 _ => Value::Num(Fixed::ZERO), // Should never happen if type-checked
             }
         }
+    }
+}
+
+// --- Évaluation stricte et champs littéral-ou-expression (F5, chantier m0-v11) ---
+
+/// Erreur d'évaluation stricte d'une expression (F5). Contrairement à [`Expr::eval`]
+/// (indulgent : identifiant inconnu → 0, division par zéro → MAX/MIN), [`Expr::try_eval`]
+/// refuse de produire un résultat silencieusement faux : une erreur ici est un **échec du
+/// chargement du contenu**, jamais une valeur par défaut (voir `docs/conventions.md` §18).
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub enum EvalError {
+    /// Identifiant inconnu (le contexte d'un champ F5 ne fournit que `players`).
+    UnknownIdentifier { name: String },
+    /// Division par zéro.
+    DivisionByZero,
+    /// Valeur hors du domaine du champ cible (ex. négative pour un compteur `u32`).
+    InvalidNumber { value: Fixed, expected: String },
+}
+
+impl fmt::Display for EvalError {
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+        match self {
+            EvalError::UnknownIdentifier { name } => {
+                write!(
+                    f,
+                    "identifiant inconnu « {name} » (seul « players » existe)"
+                )
+            }
+            EvalError::DivisionByZero => write!(f, "division par zéro"),
+            EvalError::InvalidNumber { value, expected } => {
+                write!(f, "valeur {value} hors domaine : attendu {expected}")
+            }
+        }
+    }
+}
+
+impl std::error::Error for EvalError {}
+
+/// Évaluation stricte, miroir de [`eval_node`] : mêmes règles, mais identifiant inconnu et
+/// division par zéro deviennent des [`EvalError`] au lieu de valeurs de repli.
+fn try_eval_node(node: &AstNode, ctx: &dyn Context) -> Result<Value, EvalError> {
+    match node {
+        AstNode::Num(n) => Ok(Value::Num(*n)),
+        AstNode::Bool(b) => Ok(Value::Bool(*b)),
+        AstNode::Ident(name) => ctx
+            .get(name)
+            .map(Value::Num)
+            .ok_or_else(|| EvalError::UnknownIdentifier { name: name.clone() }),
+        AstNode::BinOp { op, left, right } => {
+            match op {
+                BinOp::And => {
+                    return Ok(Value::Bool(
+                        try_eval_node(left, ctx)?.as_bool() && try_eval_node(right, ctx)?.as_bool(),
+                    ))
+                }
+                BinOp::Or => {
+                    return Ok(Value::Bool(
+                        try_eval_node(left, ctx)?.as_bool() || try_eval_node(right, ctx)?.as_bool(),
+                    ))
+                }
+                _ => {}
+            }
+            let left_val = try_eval_node(left, ctx)?.as_fixed();
+            let right_val = try_eval_node(right, ctx)?.as_fixed();
+            match op {
+                BinOp::Add => Ok(Value::Num(left_val.saturating_add(right_val))),
+                BinOp::Sub => Ok(Value::Num(left_val.saturating_sub(right_val))),
+                BinOp::Mul => Ok(Value::Num(left_val.saturating_mul(right_val))),
+                BinOp::Div => {
+                    if right_val == Fixed::ZERO {
+                        Err(EvalError::DivisionByZero)
+                    } else {
+                        Ok(Value::Num(left_val.saturating_div(right_val)))
+                    }
+                }
+                BinOp::Lt => Ok(Value::Bool(left_val < right_val)),
+                BinOp::Lte => Ok(Value::Bool(left_val <= right_val)),
+                BinOp::Gt => Ok(Value::Bool(left_val > right_val)),
+                BinOp::Gte => Ok(Value::Bool(left_val >= right_val)),
+                BinOp::Eq => Ok(Value::Bool(left_val == right_val)),
+                BinOp::Neq => Ok(Value::Bool(left_val != right_val)),
+                BinOp::And | BinOp::Or => unreachable!("traité plus haut"),
+            }
+        }
+        AstNode::UnaryOp { op, operand } => match op {
+            UnaryOp::Neg => Ok(Value::Num(
+                try_eval_node(operand, ctx)?.as_fixed().saturating_neg(),
+            )),
+            UnaryOp::Not => Ok(Value::Bool(!try_eval_node(operand, ctx)?.as_bool())),
+        },
+        AstNode::Call { name, args } => {
+            let num = |i: usize| -> Result<Fixed, EvalError> {
+                Ok(try_eval_node(&args[i], ctx)?.as_fixed())
+            };
+            match name.as_str() {
+                "min" => Ok(Value::Num(num(0)?.min(num(1)?))),
+                "max" => Ok(Value::Num(num(0)?.max(num(1)?))),
+                "clamp" => Ok(Value::Num(num(0)?.max(num(1)?).min(num(2)?))),
+                "abs" => Ok(Value::Num(num(0)?.abs())),
+                "floor" => Ok(Value::Num(num(0)?.floor())),
+                _ => unreachable!("fonction inconnue, impossible après vérification de type"),
+            }
+        }
+    }
+}
+
+/// Contexte d'évaluation d'un champ F5 : seule la variable `players` (nombre de joueurs de
+/// la partie) existe. Le nombre de joueurs est connu au démarrage (local :
+/// `sim_core::players::PlayersCount` ; en ligne : `max_player` de la session ggrs) et ne
+/// change jamais ensuite — les expressions sont donc évaluées **une fois**, en valeurs
+/// concrètes, avant la première frame de simulation (voir `docs/conventions.md` §18).
+pub fn players_context(players: u32) -> BTreeMap<String, Fixed> {
+    BTreeMap::from([("players".to_string(), Fixed::from_num(players))])
+}
+
+/// Un champ numérique d'asset qui accepte soit sa valeur littérale habituelle (entier RON
+/// nu pour un champ `u32`, `Fixed` en chaîne pour un champ `Fixed` — inchangée), soit une
+/// expression [`NumExpr`] évaluée une fois au lancement de la partie (F5, chantier m0-v11 :
+/// équilibrage par nombre de joueurs, `docs/conventions.md` §18).
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub enum NumOrExpr {
+    /// Entier RON nu (`base_enemies: 6`), valeur inchangée.
+    Integer(u32),
+    /// Fixed littéral en chaîne (`min_player_distance: "150.0"`), valeur inchangée.
+    Literal(Fixed),
+    /// Expression (chaîne RON, ex. `"120.0 + (players - 1) * 30"`).
+    Expression(NumExpr),
+}
+
+impl NumOrExpr {
+    /// Résout ce champ en `Fixed` pour `players` joueurs. Les littéraux sont inchangés ;
+    /// une expression est évaluée strictement (une erreur est un échec de chargement).
+    pub fn resolve(&self, players: u32) -> Result<Fixed, EvalError> {
+        match self {
+            NumOrExpr::Integer(n) => Ok(Fixed::from_num(*n)),
+            NumOrExpr::Literal(f) => Ok(*f),
+            NumOrExpr::Expression(expr) => expr.try_eval(&players_context(players)),
+        }
+    }
+
+    /// Résout ce champ en `u32` (arrondi au plus proche). Une valeur négative est une
+    /// erreur de chargement (`EvalError::InvalidNumber`), pas un clamp silencieux.
+    pub fn resolve_u32(&self, players: u32) -> Result<u32, EvalError> {
+        let value = self.resolve(players)?;
+        if value < Fixed::ZERO {
+            return Err(EvalError::InvalidNumber {
+                value,
+                expected: "un entier >= 0".to_string(),
+            });
+        }
+        Ok(value.round().to_num::<u32>())
+    }
+
+    /// La valeur littérale de ce champ, s'il n'est pas une expression (`None` pour
+    /// `Expression`). Utile au lint, qui applique les règles de plage aux littéraux et
+    /// valide les expressions à part (`content::lint`).
+    pub fn literal(&self) -> Option<Fixed> {
+        match self {
+            NumOrExpr::Integer(n) => Some(Fixed::from_num(*n)),
+            NumOrExpr::Literal(f) => Some(*f),
+            NumOrExpr::Expression(_) => None,
+        }
+    }
+}
+
+impl Serialize for NumOrExpr {
+    fn serialize<S>(&self, serializer: S) -> Result<S::Ok, S::Error>
+    where
+        S: Serializer,
+    {
+        match self {
+            NumOrExpr::Integer(n) => serializer.serialize_u32(*n),
+            // Écrit en chaîne, comme le contenu Fixed existant (`min_player_distance:
+            // "150.0"`) — pas via `Fixed::serialize`, dont la représentation dépend de la
+            // feature serde de la crate `fixed` du crate courant.
+            NumOrExpr::Literal(f) => serializer.serialize_str(&f.to_string()),
+            // En chaîne aussi (`Display`), sinon la dérive Serialize de `NumExpr` (newtype
+            // struct) sérialise un tuple RON `(...)`, illisible par notre Deserialize.
+            NumOrExpr::Expression(expr) => serializer.serialize_str(&expr.to_string()),
+        }
+    }
+}
+
+impl<'de> Deserialize<'de> for NumOrExpr {
+    fn deserialize<D>(deserializer: D) -> Result<Self, D::Error>
+    where
+        D: Deserializer<'de>,
+    {
+        struct NumOrExprVisitor;
+
+        impl<'de> Visitor<'de> for NumOrExprVisitor {
+            type Value = NumOrExpr;
+
+            fn expecting(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+                write!(
+                    f,
+                    "un entier (ex. 6), un Fixed en chaîne (ex. \"150.0\") ou une expression (ex. \"120.0 + (players - 1) * 30\")"
+                )
+            }
+
+            fn visit_u64<E: de::Error>(self, v: u64) -> Result<Self::Value, E> {
+                Ok(NumOrExpr::Integer(v as u32))
+            }
+
+            fn visit_i64<E: de::Error>(self, v: i64) -> Result<Self::Value, E> {
+                if v < 0 {
+                    return Err(E::custom(format!(
+                        "entier négatif {v} : un compteur (frames, ennemis, points) ne peut pas être négatif"
+                    )));
+                }
+                Ok(NumOrExpr::Integer(v as u32))
+            }
+
+            fn visit_str<E: de::Error>(self, v: &str) -> Result<Self::Value, E> {
+                self.visit_string(v.to_string())
+            }
+
+            fn visit_string<E: de::Error>(self, v: String) -> Result<Self::Value, E> {
+                // Un Fixed littéral d'abord (les Fixed existants sont écrits en chaîne) ;
+                // sinon une expression.
+                match v.trim().parse::<Fixed>() {
+                    Ok(f) => Ok(NumOrExpr::Literal(f)),
+                    Err(_) => NumExpr::parse(&v).map(NumOrExpr::Expression).map_err(|parse| {
+                        E::custom(format!(
+                            "chaîne « {v} » : ni un nombre Fixed (ex. \"150.0\") ni une expression valide : {parse}"
+                        ))
+                    }),
+                }
+            }
+
+            fn visit_f64<E: de::Error>(self, v: f64) -> Result<Self::Value, E> {
+                Err(E::custom(format!(
+                    "flottant littéral {v} là où un Fixed ou une expression est attendu : écrire « {v} » (chaîne)"
+                )))
+            }
+        }
+
+        deserializer.deserialize_any(NumOrExprVisitor)
     }
 }
 
@@ -1310,5 +1573,106 @@ mod tests {
         let parsed: BoolExpr = ron::from_str(&ron_str).unwrap();
         let c = ctx(&[("health", 10.0)]);
         assert_eq!(parsed.eval(&c), true);
+    }
+
+    // --- F5 : NumOrExpr (champ numérique littéral ou expression) ---
+
+    #[test]
+    fn num_or_expr_accepts_bare_integer() {
+        let v: NumOrExpr = ron::from_str("6").unwrap();
+        assert_eq!(v, NumOrExpr::Integer(6));
+        assert_eq!(v.resolve(2).unwrap(), Fixed::from_num(6));
+    }
+
+    #[test]
+    fn num_or_expr_accepts_fixed_string() {
+        let v: NumOrExpr = ron::from_str("\"150.0\"").unwrap();
+        assert_eq!(v, NumOrExpr::Literal(Fixed::from_num(150)));
+        assert_eq!(v.resolve(3).unwrap(), Fixed::from_num(150));
+    }
+
+    #[test]
+    fn num_or_expr_accepts_expression() {
+        let v: NumOrExpr = ron::from_str("\"120.0 + (players - 1) * 30\"").unwrap();
+        assert!(
+            matches!(v, NumOrExpr::Expression(_)),
+            "attendu une expression, obtenu {v:?}"
+        );
+        assert_eq!(v.resolve(1).unwrap(), Fixed::from_num(120));
+        assert_eq!(v.resolve(4).unwrap(), Fixed::from_num(210));
+    }
+
+    #[test]
+    fn num_or_expr_rejects_bare_float() {
+        let err = ron::from_str::<NumOrExpr>("1.5").unwrap_err();
+        assert!(
+            err.to_string().contains("flottant littéral"),
+            "message inattendu: {err}"
+        );
+    }
+
+    #[test]
+    fn num_or_expr_rejects_invalid_string() {
+        let err = ron::from_str::<NumOrExpr>("\"10 +\"").unwrap_err();
+        assert!(
+            err.to_string().contains("ni une expression valide"),
+            "message inattendu: {err}"
+        );
+    }
+
+    #[test]
+    fn num_or_expr_rejects_negative_bare_integer() {
+        let err = ron::from_str::<NumOrExpr>("-3").unwrap_err();
+        assert!(
+            err.to_string().contains("négatif"),
+            "message inattendu: {err}"
+        );
+    }
+
+    #[test]
+    fn resolve_u32_rounds_to_nearest() {
+        let v: NumOrExpr = ron::from_str("\"1.4\"").unwrap();
+        assert_eq!(v.resolve_u32(2).unwrap(), 1);
+        let v: NumOrExpr = ron::from_str("\"1.6\"").unwrap();
+        assert_eq!(v.resolve_u32(2).unwrap(), 2);
+    }
+
+    #[test]
+    fn resolve_u32_rejects_negative() {
+        let v: NumOrExpr = ron::from_str("\"players - 2\"").unwrap();
+        let err = v.resolve_u32(1).unwrap_err();
+        assert!(
+            matches!(err, EvalError::InvalidNumber { .. }),
+            "erreur inattendue: {err}"
+        );
+    }
+
+    #[test]
+    fn expression_division_by_zero_is_an_error() {
+        let v: NumOrExpr = ron::from_str("\"10 / (players - players)\"").unwrap();
+        let err = v.resolve(1).unwrap_err();
+        assert_eq!(err, EvalError::DivisionByZero);
+    }
+
+    #[test]
+    fn expression_unknown_identifier_is_an_error() {
+        let v: NumOrExpr = ron::from_str("\"10 + toto\"").unwrap();
+        let err = v.resolve(1).unwrap_err();
+        assert_eq!(
+            err,
+            EvalError::UnknownIdentifier {
+                name: "toto".to_string()
+            }
+        );
+    }
+
+    #[test]
+    fn num_or_expr_serde_roundtrip() {
+        for source in ["6", "\"150.0\"", "\"10.0 + (players - 1) * 40.0\""] {
+            let v: NumOrExpr = ron::from_str(source).unwrap();
+            let ron_str = ron::to_string(&v).unwrap();
+            let back: NumOrExpr = ron::from_str(&ron_str).unwrap();
+            assert_eq!(v, back, "roundtrip de {source} -> {ron_str}");
+        }
     }
 }

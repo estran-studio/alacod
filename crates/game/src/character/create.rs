@@ -19,7 +19,7 @@ use bevy_ggrs::Rollback;
 use super::{
     config::CharacterConfig,
     dash::DashState,
-    health::{Health, HealthRegen, HitCount},
+    health::{new_health, Health, HealthRegen, HitCount},
     movement::SprintState,
     visuals::CharacterAppearance,
     Character,
@@ -45,6 +45,11 @@ pub fn create_character(
     // `CharacterConfig` (elles viennent de `PathfindingConfig::default()`, pas du RON du
     // personnage). Vide pour un joueur (`player::create::create_player`).
     extra_stat_defaults: &[(StatId, fixed_math::Fixed)],
+    // Santé max résolue pour le nombre de joueurs de la partie (F5, chantier m0-v11) :
+    // `crate::balance::ResolvedBalance::health_max_by_character[config.asset_name_ref]`.
+    // Plus jamais lue depuis `config.base_health.max` (qui peut être une expression) —
+    // aucune expression dans l'état rollback.
+    health_max: fixed_math::Fixed,
 ) -> Entity {
     let handle = global_assets.character_configs.get(&config_name).unwrap();
     let config = character_asset.get(handle).unwrap();
@@ -103,7 +108,7 @@ pub fn create_character(
     collider.offset.y = collider.offset.y.saturating_mul(config.scale);
     collider.offset.z = collider.offset.z.saturating_mul(config.scale);
 
-    let health: Health = config.base_health.clone().into();
+    let health = new_health(health_max);
 
     // Stats de base (T1.2, chantier B2, `docs/conventions.md` §7) : dérivées des champs
     // existants de `CharacterConfig`, puis `extra_stat_defaults` (ennemis), puis
@@ -118,7 +123,7 @@ pub fn create_character(
     stats.set(StatId::EnemyMoveSpeed, config.movement.max_speed);
     stats.set(StatId::Acceleration, config.movement.acceleration);
     stats.set(StatId::SprintMultiplier, config.movement.sprint_multiplier);
-    stats.set(StatId::MaxHealth, config.base_health.max);
+    stats.set(StatId::MaxHealth, health_max);
     if let Some(regen_rate) = config.base_health.regen_rate {
         stats.set(StatId::HealthRegen, regen_rate);
     }

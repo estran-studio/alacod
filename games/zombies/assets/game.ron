@@ -12,6 +12,9 @@
         (path: "ZombieShooter/Sprites/Zombie/zombie_config.ron", kind: "Character"),
         (path: "ZombieShooter/Sprites/Zombie/zombie_hard_config.ron", kind: "Character"),
         (path: "ZombieShooter/Sprites/Zombie/zombie_full_config.ron", kind: "Character"),
+        // F5 (chantier m0-v11) : preuve « équilibrage par joueurs » (santé par expression,
+        // voir `docs/conventions.md` §18).
+        (path: "ZombieShooter/Sprites/Zombie/zombie_scaled_config.ron", kind: "Character"),
         (path: "ZombieShooter/Sprites/Character/weapons.ron", kind: "Weapon"),
         (path: "weapons/melee/melee_weapons.ron", kind: "MeleeWeapon"),
         (path: "waves", kind: "Wave"),

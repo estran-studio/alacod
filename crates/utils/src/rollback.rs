@@ -75,6 +75,27 @@ pub trait RollbackTraceApp {
             + Sync
             + 'static;
 
+    /// Comme [`Self::rollback_and_trace_resource`], mais la valeur par défaut (`R::default()`)
+    /// contribue **`0`** au checksum GGRS (élément neutre du XOR de `bevy_ggrs::ChecksumPlugin`) ;
+    /// toute autre valeur contribue son hash habituel. Réservé à l'état d'un mode ou d'un
+    /// contenu nouveau qui reste à sa valeur par défaut partout ailleurs (T1.8 : `FloorState`
+    /// du mode `Floors`) : l'enregistrer ne déplace pas le checksum des parties qui ne
+    /// l'utilisent pas (traces inchangées), alors qu'une ressource ordinaire ajoute toujours
+    /// une part non nulle. La ressource doit exister (`init_resource`) dès que `SaveWorld`
+    /// tourne. Une valeur non défaut dont le hash vaudrait exactement `0` (probabilité 2⁻⁶⁴)
+    /// passerait inaperçue d'un desync : risque accepté.
+    fn rollback_and_trace_resource_neutral<R>(&mut self) -> &mut Self
+    where
+        R: Resource<Mutability = Mutable>
+            + Clone
+            + Default
+            + PartialEq
+            + std::hash::Hash
+            + std::fmt::Debug
+            + Send
+            + Sync
+            + 'static;
+
     /// Variante pour les ressources qui n'implémentent pas `Hash` : utilise `Debug`.
     fn rollback_and_trace_debug_resource<R>(&mut self) -> &mut Self
     where
@@ -147,6 +168,23 @@ impl RollbackTraceApp for App {
         register_traced_resource::<R>(self);
         self.rollback_resource_with_clone::<R>()
             .checksum_resource_with_hash::<R>()
+    }
+
+    fn rollback_and_trace_resource_neutral<R>(&mut self) -> &mut Self
+    where
+        R: Resource<Mutability = Mutable>
+            + Clone
+            + Default
+            + PartialEq
+            + std::hash::Hash
+            + std::fmt::Debug
+            + Send
+            + Sync
+            + 'static,
+    {
+        register_traced_resource::<R>(self);
+        self.rollback_resource_with_clone::<R>()
+            .checksum_resource(hash_neutral_default::<R>)
     }
 
     fn rollback_and_trace_debug_resource<R>(&mut self) -> &mut Self
@@ -225,6 +263,19 @@ fn register_traced_resource<R: Resource + std::fmt::Debug>(app: &mut App) {
         .push((name, tracer));
 }
 
+/// Hash d'une ressource à checksum neutre (voir
+/// [`RollbackTraceApp::rollback_and_trace_resource_neutral`]) : `0` pour `R::default()`,
+/// sinon le même hasher que `bevy_ggrs` pour une ressource `Hash`.
+pub fn hash_neutral_default<R: Default + PartialEq + std::hash::Hash>(value: &R) -> u64 {
+    use std::hash::Hasher;
+    if *value == R::default() {
+        return 0;
+    }
+    let mut hasher = bevy_ggrs::checksum_hasher();
+    value.hash(&mut hasher);
+    hasher.finish()
+}
+
 /// Fonction de hashage pour les types qui n'implémentent pas `Hash` :
 /// formate le `Debug` et le hache en FNV-1a 64 bits.
 pub fn hash_debug<T: std::fmt::Debug>(value: &T) -> u64 {
@@ -237,4 +288,24 @@ pub fn fnv1a(bytes: &[u8]) -> u64 {
     bytes.iter().fold(0xcbf2_9ce4_8422_2325, |hash, byte| {
         (hash ^ u64::from(*byte)).wrapping_mul(0x0000_0100_0000_01b3)
     })
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[derive(Default, PartialEq, Hash)]
+    struct Etat {
+        index: u32,
+    }
+
+    #[test]
+    fn checksum_neutre_nul_a_la_valeur_par_defaut_seulement() {
+        assert_eq!(hash_neutral_default(&Etat::default()), 0);
+        assert_ne!(hash_neutral_default(&Etat { index: 1 }), 0);
+        assert_ne!(
+            hash_neutral_default(&Etat { index: 1 }),
+            hash_neutral_default(&Etat { index: 2 })
+        );
+    }
 }

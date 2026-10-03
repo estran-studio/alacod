@@ -10,6 +10,7 @@ use crate::{
     collider::{is_colliding, Collider, ColliderShape, CollisionLayer, CollisionSettings, Wall},
     downed::Downed,
     inventory::AmmoReserves,
+    projectile::{Projectile, ProjectileSpec, ProjectileTable},
     team::team_allows_hit,
 };
 use animation::{AnimationStateBundle, FacingDirection};
@@ -26,7 +27,7 @@ use serde::{Deserialize, Serialize};
 use sim_core::{
     ammo::AmmoType,
     damage::{DamageEvent, DamageKind, FriendlyFire},
-    frame_events::FrameEvents,
+    frame_events::{FrameEvents, FrameEventsAppExt},
     interaction::{Interactable, InteractionType},
     kinds::{KindDecl, KindRegistry},
     stats::StatId,
@@ -99,7 +100,7 @@ pub struct ExplosiveTag;
 #[derive(Component)]
 pub struct PiercingTag;
 
-#[derive(Debug, Clone, Hash, Serialize, Deserialize, PartialEq)]
+#[derive(Clone, Serialize, Deserialize, PartialEq)]
 pub struct FiringModeConfig {
     pub firing_rate: fixed_math::Fixed,
     pub firing_mode: FiringMode,
@@ -110,9 +111,50 @@ pub struct FiringModeConfig {
 
     pub reload_time_seconds: fixed_math::Fixed,
     pub mag: MagBulletConfig,
+    /// Projectile composable (T1.1, chantier B5 v1, `crate::projectile`) : modificateurs,
+    /// `on_hit`, `on_expire`. Absent (vide) : balle ordinaire, comme avant ce champ.
+    #[serde(default, skip_serializing_if = "ProjectileSpec::is_empty")]
+    pub projectile: ProjectileSpec,
 }
 
-#[derive(Debug, Clone, Serialize, Deserialize, PartialEq)]
+/// Hash et Debug manuels (T1.1) : identiques à ceux que dérivait `FiringModeConfig` avant
+/// le champ `projectile` tant qu'il est vide — le contenu existant garde le même checksum
+/// (`Weapon` est rollback) et la même ligne dans la trace détaillée (preuve `trace-diff`).
+impl std::hash::Hash for FiringModeConfig {
+    fn hash<H: std::hash::Hasher>(&self, state: &mut H) {
+        self.firing_rate.hash(state);
+        self.firing_mode.hash(state);
+        self.spread.hash(state);
+        self.recoil.hash(state);
+        self.bullet_type.hash(state);
+        self.range.hash(state);
+        self.reload_time_seconds.hash(state);
+        self.mag.hash(state);
+        if !self.projectile.is_empty() {
+            self.projectile.hash(state);
+        }
+    }
+}
+
+impl fmt::Debug for FiringModeConfig {
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+        let mut d = f.debug_struct("FiringModeConfig");
+        d.field("firing_rate", &self.firing_rate)
+            .field("firing_mode", &self.firing_mode)
+            .field("spread", &self.spread)
+            .field("recoil", &self.recoil)
+            .field("bullet_type", &self.bullet_type)
+            .field("range", &self.range)
+            .field("reload_time_seconds", &self.reload_time_seconds)
+            .field("mag", &self.mag);
+        if !self.projectile.is_empty() {
+            d.field("projectile", &self.projectile);
+        }
+        d.finish()
+    }
+}
+
+#[derive(Clone, Serialize, Deserialize, PartialEq)]
 pub struct WeaponConfig {
     pub name: String,
     pub default_firing_mode: String,
@@ -144,6 +186,12 @@ pub struct WeaponConfig {
     /// le checksum de *toutes* les armes dès que ce champ existe, même à `None`.
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub test: Option<WeaponTest>,
+    /// Projectiles nommés que les patterns de `on_expire` font naître (T1.1, chantier B5
+    /// v1, `crate::projectile::ProjectileDef`) : `{ "eclat": (damage: "5", speed: "300",
+    /// range: "120") }`. Vide par défaut ; hors hash et hors Debug tant qu'il est vide (voir
+    /// `FiringModeConfig`).
+    #[serde(default, skip_serializing_if = "BTreeMap::is_empty")]
+    pub projectiles: ProjectileTable,
 }
 
 /// Hash manuel : reprend exactement les champs (et l'ordre) que dérivait `WeaponConfig`
@@ -160,6 +208,27 @@ impl std::hash::Hash for WeaponConfig {
         self.default_firing_mode.hash(state);
         self.firing_modes.hash(state);
         self.friendly_fire.hash(state);
+        if !self.projectiles.is_empty() {
+            self.projectiles.hash(state);
+        }
+    }
+}
+
+/// Voir le Hash ci-dessus : même sortie que l'ancien `derive(Debug)` tant que `projectiles`
+/// est vide.
+impl fmt::Debug for WeaponConfig {
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+        let mut d = f.debug_struct("WeaponConfig");
+        d.field("name", &self.name)
+            .field("default_firing_mode", &self.default_firing_mode)
+            .field("firing_modes", &self.firing_modes)
+            .field("friendly_fire", &self.friendly_fire)
+            .field("ammo_type", &self.ammo_type)
+            .field("test", &self.test);
+        if !self.projectiles.is_empty() {
+            d.field("projectiles", &self.projectiles);
+        }
+        d.finish()
     }
 }
 
@@ -639,6 +708,9 @@ fn spawn_bullet_rollback(
     damage_mult: fixed_math::Fixed,
     // Multiplicateur de portée du porteur (T1.2, stat `Range`, 1 par défaut).
     range_mult: fixed_math::Fixed,
+    // Projectile composable (T1.1) : `Size` agrandit collider et sprite ; `None` (mode de
+    // tir sans `projectile:`) : balle ordinaire, inchangée.
+    projectile: Option<Projectile>,
 ) -> Entity {
     let (velocity, damage, range, radius) = match &bullet_type {
         BulletType::Standard {
@@ -677,6 +749,13 @@ fn spawn_bullet_rollback(
     // ce produit ne change aucune valeur par rapport à avant ce chantier.
     let damage = damage.saturating_mul(damage_mult);
     let range = range.saturating_mul(range_mult);
+    let (radius, sprite_size) = match &projectile {
+        Some(projectile) => (
+            projectile.radius(radius),
+            fixed_math::to_f32(projectile.size) * crate::projectile::BASE_SPRITE,
+        ),
+        None => (radius, 3.5),
+    };
 
     let color = match &bullet_type {
         BulletType::Standard { .. } => Color::BLACK,
@@ -738,7 +817,7 @@ fn spawn_bullet_rollback(
     tags.insert(Tag::new("bullet"));
 
     let mut entity_commands = commands.spawn((
-        Sprite::from_color(color, Vec2::new(3.5, 3.5)),
+        Sprite::from_color(color, Vec2::new(sprite_size, sprite_size)),
         Bullet {
             velocity,
             bullet_type,
@@ -771,6 +850,9 @@ fn spawn_bullet_rollback(
         }
         _ => {}
     };
+    if let Some(projectile) = projectile {
+        entity_commands.insert(projectile);
+    }
 
     entity_commands.insert(Rollback).id()
 }
@@ -1193,6 +1275,16 @@ pub fn weapon_rollback_system(
                         aim_dir.x /= fixed_math::new(127.0);
                         aim_dir.y /= fixed_math::new(127.0);
                         aim_dir = aim_dir.normalize_or_zero();
+                        // Projectile composable du mode de tir (T1.1), cloné par balle.
+                        let projectile = (!weapon_config.projectile.is_empty()).then(|| {
+                            Projectile::new(
+                                weapon.config.name.clone(),
+                                &weapon_config.projectile,
+                                std::sync::Arc::new(weapon.config.projectiles.clone()),
+                                damage_mult,
+                                0,
+                            )
+                        });
 
                         match weapon_config.firing_mode {
                             FiringMode::Shotgun {
@@ -1235,6 +1327,7 @@ pub fn weapon_rollback_system(
                                         weapon.config.friendly_fire,
                                         damage_mult,
                                         range_mult,
+                                        projectile.clone(),
                                     );
                                 }
                                 weapon_mode_state.mag_ammo -= 1; // Shotgun uses one ammo for all pellets
@@ -1270,6 +1363,7 @@ pub fn weapon_rollback_system(
                                     weapon.config.friendly_fire,
                                     damage_mult,
                                     range_mult,
+                                    projectile,
                                 );
                                 weapon_mode_state.mag_ammo -= 1;
 
@@ -1303,12 +1397,13 @@ pub fn bullet_rollback_system(
         Entity,
         &mut fixed_math::FixedTransform3D,
         &mut Bullet,
+        Option<&mut Projectile>,
     )>,
 ) {
     let system_span = span!(Level::INFO, "ggrs", f = frame.frame, s = "bullet_movement");
     let _enter = system_span.enter();
 
-    for (g_id, entity, mut transform, mut bullet) in order_mut_iter!(bullet_query) {
+    for (g_id, entity, mut transform, mut bullet, projectile) in order_mut_iter!(bullet_query) {
         // Move bullet based on velocity (fixed timestep)
         let delta = bullet.velocity;
 
@@ -1323,8 +1418,14 @@ pub fn bullet_rollback_system(
                 "{} despawn after travelleing {}",
                 g_id, bullet.distance_traveled
             );
-            use bevy_ggrs::RollbackDespawnCommandExtension;
-            commands.entity(entity).despawn_rollback();
+            if let Some(mut projectile) = projectile {
+                // Projectile composable (T1.1) : terminé ici, détruit après `on_expire`
+                // par `projectile::projectile_expire_system`.
+                projectile.ended = true;
+            } else {
+                use bevy_ggrs::RollbackDespawnCommandExtension;
+                commands.entity(entity).despawn_rollback();
+            }
         }
     }
 }
@@ -1368,7 +1469,9 @@ pub fn bullet_rollback_collision_system(
             &Collider,
             &CollisionLayer,
         ),
-        With<Rollback>,
+        // Les projectiles composables ont leurs propres collisions (T1.1,
+        // `projectile::projectile_collision_system`).
+        (With<Rollback>, Without<Projectile>),
     >,
     wall_query: Query<
         (
@@ -1618,7 +1721,10 @@ impl Plugin for BaseWeaponGamePlugin {
             .rollback_and_trace::<Weapon>()
             // T2.2, chantier B7 : réserve de munitions par joueur et arme tombée au sol.
             .rollback_and_trace::<AmmoReserves>()
-            .rollback_and_trace::<WeaponPickup>();
+            .rollback_and_trace::<WeaponPickup>()
+            // T1.1, chantier B5 v1 : projectiles composables.
+            .rollback_and_trace::<Projectile>();
+        app.add_frame_events::<crate::projectile::ProjectileHit>();
 
         // Rollback components for melee weapons
         app.rollback_and_trace::<melee::MeleeWeapon>()
@@ -1648,6 +1754,21 @@ impl Plugin for BaseWeaponGamePlugin {
                 melee::melee_hitbox_collision_system.after(melee::update_melee_hitboxes),
             )
                 .in_set(RollbackSystemSet::Weapon),
+        );
+
+        // Projectiles composables (T1.1, voir la doc du module `crate::projectile`).
+        app.add_systems(
+            GgrsSchedule,
+            (
+                crate::projectile::projectile_collision_system,
+                // Dans `Projectiles` plutôt qu'`Effects` : seul système de ce set à écrire
+                // `Modifiers`, sans ambiguïté d'ordre avec les power-ups (`game`).
+                crate::projectile::apply_projectile_on_hit_system,
+                crate::projectile::projectile_expire_system,
+                crate::projectile::projectile_steering_system,
+            )
+                .chain()
+                .in_set(RollbackSystemSet::Projectiles),
         );
     }
 }

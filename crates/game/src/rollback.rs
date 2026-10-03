@@ -33,6 +33,9 @@ mod tests {
     #[derive(Resource, Clone, Copy, Debug, Default)]
     struct ResCopyNoChecksum;
 
+    #[derive(Resource, Clone, Hash, Debug, Default, PartialEq)]
+    struct ResNeutral;
+
     #[test]
     fn chaque_type_trace_a_un_tracer() {
         let mut app = App::new();
@@ -42,14 +45,16 @@ mod tests {
         app.rollback_and_trace_debug_resource::<ResDebugOnly>();
         app.rollback_and_trace_copy_resource::<ResCopy>();
         app.rollback_and_trace_copy_resource_no_checksum::<ResCopyNoChecksum>();
+        app.init_resource::<ResNeutral>();
+        app.rollback_and_trace_resource_neutral::<ResNeutral>();
 
         let traced = app.world().resource::<TracedTypes>();
         let tracers = app.world().resource::<StateTracers>();
 
         assert_eq!(
             traced.0.len(),
-            6,
-            "les six méthodes de RollbackTraceApp doivent enregistrer un type chacune, trouvé {:?}",
+            7,
+            "les sept méthodes de RollbackTraceApp doivent enregistrer un type chacune, trouvé {:?}",
             traced.0
         );
         assert_eq!(

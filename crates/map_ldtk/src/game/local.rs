@@ -4,7 +4,7 @@
 //! Partagé par le jeu `zombies` (`games/zombies`) et les scénarios de test, pour qu'ils jouent
 //! exactement la même partie.
 
-use bevy::{platform::collections::HashMap, prelude::*};
+use bevy::{ecs::system::SystemParam, platform::collections::HashMap, prelude::*};
 use bevy_fixed::fixed_math;
 use bevy_ggrs::Rollback;
 use game::{
@@ -29,7 +29,22 @@ use map::{
 use sim_core::team::Team;
 use utils::net_id::GgrsNetIdFactory;
 
+use super::floors::{FloorPlan, FloorSlots};
 use super::plugin::{LdtkMapLoadingEvent, MapNetIdAssignment};
+
+/// Ressources de contenu nécessaires pour créer les personnages et objets d'un niveau
+/// (regroupées : les mêmes servent au chargement de la carte et au passage de niveau du mode
+/// `Floors`, `super::floors`).
+#[derive(SystemParam)]
+pub struct LevelSpawnAssets<'w> {
+    pub collision_settings: Res<'w, CollisionSettings>,
+    pub global_assets: Res<'w, GlobalAsset>,
+    // F5 (chantier m0-v11) : santé max résolue au lancement (`game::balance`).
+    pub balance: Res<'w, game::balance::ResolvedBalance>,
+    pub character_asset: Res<'w, Assets<CharacterConfig>>,
+    pub weapons_asset: Res<'w, Assets<WeaponsConfig>>,
+    pub melee_weapons_asset: Res<'w, Assets<MeleeWeaponsConfig>>,
+}
 
 /// Map et seed de génération de la partie.
 #[derive(Resource, Clone, Debug)]
@@ -81,20 +96,26 @@ fn configure_map(
     ggrs_state.ready = true;
 }
 
+#[allow(clippy::too_many_arguments)]
 fn spawn_players_when_map_loaded(
     mut commands: Commands,
     collision_settings: Res<CollisionSettings>,
     global_assets: Res<GlobalAsset>,
+    balance: Res<game::balance::ResolvedBalance>,
     character_asset: Res<Assets<CharacterConfig>>,
     weapons_asset: Res<Assets<WeaponsConfig>>,
     melee_weapons_asset: Res<Assets<MeleeWeaponsConfig>>,
     mut id_provider: ResMut<GgrsNetIdFactory>,
     ggrs_session_building: Res<GgrsSessionBuilding>,
-    player_spawn: Query<(&GlobalTransform, &PlayerSpawnConfig)>,
+    player_spawn: Query<(Entity, &GlobalTransform, &PlayerSpawnConfig)>,
+    slots: FloorSlots,
 ) {
+    // T1.8 : seuls les points de départ du premier niveau (emplacement 0 ; la carte unique
+    // hors mode `Floors`).
     let spawns: HashMap<usize, &GlobalTransform> = player_spawn
         .iter()
-        .map(|(transform, config)| (config.index, transform))
+        .filter(|(entity, _, _)| slots.slot_of(*entity) == 0)
+        .map(|(_, transform, config)| (config.index, transform))
         .collect();
 
     info!("Map is loaded with {} player spawns", spawns.len());
@@ -113,6 +134,15 @@ fn spawn_players_when_map_loaded(
             return;
         }
 
+        // F5 (chantier m0-v11) : santé max résolue au lancement (`game::balance`).
+        let health_max = balance
+            .health_max_by_character
+            .get("player")
+            .copied()
+            .unwrap_or_else(|| {
+                panic!("équilibrage F5 : pas de santé résolue pour le personnage « player »")
+            });
+
         create_player(
             &mut commands,
             &global_assets,
@@ -125,6 +155,7 @@ fn spawn_players_when_map_loaded(
             handle,
             ggrs_player.name.clone(),
             ggrs_player.pubkey.clone(),
+            health_max,
             &mut id_provider,
         );
     }
@@ -143,18 +174,35 @@ fn spawn_players_when_map_loaded(
 /// l'ordre d'itération de la query.
 fn spawn_characters_when_map_loaded(
     mut commands: Commands,
-    collision_settings: Res<CollisionSettings>,
-    global_assets: Res<GlobalAsset>,
-    character_asset: Res<Assets<CharacterConfig>>,
-    weapons_asset: Res<Assets<WeaponsConfig>>,
-    melee_weapons_asset: Res<Assets<MeleeWeaponsConfig>>,
+    assets: LevelSpawnAssets,
     mut id_provider: ResMut<GgrsNetIdFactory>,
-    character_spawn: Query<(&GlobalTransform, &CharacterSpawnComponent)>,
+    character_spawn: Query<(Entity, &GlobalTransform, &CharacterSpawnComponent)>,
+    slots: FloorSlots,
+    plan: Option<Res<FloorPlan>>,
+    mut floor_state: ResMut<run::FloorState>,
 ) {
-    let mut spawns: Vec<(&GlobalTransform, &CharacterSpawnComponent)> =
-        character_spawn.iter().collect();
+    let spawns: Vec<(&GlobalTransform, &CharacterSpawnComponent)> = character_spawn
+        .iter()
+        .filter(|(entity, _, _)| slots.slot_of(*entity) == 0)
+        .map(|(_, transform, spawn)| (transform, spawn))
+        .collect();
+    let placed = spawn_level_characters(&mut commands, &assets, &mut id_provider, spawns);
+    // T1.8 : premier niveau du mode `Floors` (ennemis placés, pour les kills du résumé).
+    if plan.is_some() {
+        floor_state.enemies_placed = placed;
+    }
+}
+
+/// Crée les personnages `CharacterSpawn` d'un niveau (chargement de la carte, ou passage de
+/// niveau du mode `Floors`, `super::floors`) ; rend le nombre de personnages créés.
+pub(crate) fn spawn_level_characters(
+    commands: &mut Commands,
+    assets: &LevelSpawnAssets,
+    id_provider: &mut ResMut<GgrsNetIdFactory>,
+    mut spawns: Vec<(&GlobalTransform, &CharacterSpawnComponent)>,
+) -> u32 {
     if spawns.is_empty() {
-        return;
+        return 0;
     }
     spawns.sort_by(|(a_transform, a_spawn), (b_transform, b_spawn)| {
         let a_pos = a_transform.translation();
@@ -168,6 +216,7 @@ fn spawn_characters_when_map_loaded(
 
     info!("Map is loaded with {} character spawns", spawns.len());
 
+    let mut placed = 0;
     for (transform, spawn) in spawns {
         if spawn.character.is_empty() {
             warn!(
@@ -176,7 +225,8 @@ fn spawn_characters_when_map_loaded(
             );
             continue;
         }
-        if !global_assets
+        if !assets
+            .global_assets
             .character_configs
             .contains_key(&spawn.character)
         {
@@ -187,10 +237,11 @@ fn spawn_characters_when_map_loaded(
             continue;
         }
 
-        let character_config = global_assets
+        let character_config = assets
+            .global_assets
             .character_configs
             .get(&spawn.character)
-            .and_then(|handle| character_asset.get(handle));
+            .and_then(|handle| assets.character_asset.get(handle));
         let team = spawn
             .team
             .as_deref()
@@ -198,19 +249,35 @@ fn spawn_characters_when_map_loaded(
             .or_else(|| character_config.and_then(|config| config.team))
             .unwrap_or(Team::Enemies);
 
+        // F5 (chantier m0-v11) : santé max résolue au lancement (`game::balance`).
+        let health_max = assets
+            .balance
+            .health_max_by_character
+            .get(&spawn.character)
+            .copied()
+            .unwrap_or_else(|| {
+                panic!(
+                    "équilibrage F5 : pas de santé résolue pour le personnage « {} »",
+                    spawn.character
+                )
+            });
+
         spawn_enemy(
             spawn.character.clone(),
             fixed_math::vec3_to_fixed(transform.translation()),
-            &mut commands,
-            &weapons_asset,
-            &melee_weapons_asset,
-            &character_asset,
-            &global_assets,
-            &collision_settings,
-            &mut id_provider,
+            commands,
+            &assets.weapons_asset,
+            &assets.melee_weapons_asset,
+            &assets.character_asset,
+            &assets.global_assets,
+            &assets.collision_settings,
+            id_provider,
             team,
+            health_max,
         );
+        placed += 1;
     }
+    placed
 }
 
 /// `WeaponLocation` (T2.3, chantier C5 v1) : fait apparaître, une fois au chargement de la
@@ -226,9 +293,31 @@ fn spawn_weapon_locations_when_map_loaded(
     global_assets: Res<GlobalAsset>,
     weapons_asset: Res<Assets<WeaponsConfig>>,
     mut id_provider: ResMut<GgrsNetIdFactory>,
-    locations: Query<(&GlobalTransform, &WeaponLocationComponent)>,
+    locations: Query<(Entity, &GlobalTransform, &WeaponLocationComponent)>,
+    slots: FloorSlots,
 ) {
-    let mut spawns: Vec<(&GlobalTransform, &WeaponLocationComponent)> = locations.iter().collect();
+    let spawns = locations
+        .iter()
+        .filter(|(entity, _, _)| slots.slot_of(*entity) == 0)
+        .map(|(_, transform, location)| (transform, location))
+        .collect();
+    spawn_level_weapon_locations(
+        &mut commands,
+        &global_assets,
+        &weapons_asset,
+        &mut id_provider,
+        spawns,
+    );
+}
+
+/// Armes murales d'un niveau (chargement, ou passage de niveau du mode `Floors`).
+pub(crate) fn spawn_level_weapon_locations(
+    commands: &mut Commands,
+    global_assets: &GlobalAsset,
+    weapons_asset: &Assets<WeaponsConfig>,
+    id_provider: &mut ResMut<GgrsNetIdFactory>,
+    mut spawns: Vec<(&GlobalTransform, &WeaponLocationComponent)>,
+) {
     if spawns.is_empty() {
         return;
     }
@@ -269,12 +358,12 @@ fn spawn_weapon_locations_when_map_loaded(
         let mag_ammo = weapons::default_mode_capacity(weapon_asset);
         let weapon: weapons::Weapon = weapon_asset.clone().into();
         weapons::spawn_weapon_pickup(
-            &mut commands,
+            commands,
             weapon,
             mag_ammo,
             fixed_math::vec3_to_fixed(transform.translation()),
             Some(location.price),
-            &mut id_provider,
+            id_provider,
         );
     }
 }
@@ -286,9 +375,23 @@ fn spawn_weapon_locations_when_map_loaded(
 fn spawn_soda_locations_when_map_loaded(
     mut commands: Commands,
     mut id_provider: ResMut<GgrsNetIdFactory>,
-    locations: Query<(&GlobalTransform, &SodaLocationComponent)>,
+    locations: Query<(Entity, &GlobalTransform, &SodaLocationComponent)>,
+    slots: FloorSlots,
 ) {
-    let mut spawns: Vec<(&GlobalTransform, &SodaLocationComponent)> = locations.iter().collect();
+    let spawns = locations
+        .iter()
+        .filter(|(entity, _, _)| slots.slot_of(*entity) == 0)
+        .map(|(_, transform, location)| (transform, location))
+        .collect();
+    spawn_level_soda_locations(&mut commands, &mut id_provider, spawns);
+}
+
+/// Machines à perk d'un niveau (chargement, ou passage de niveau du mode `Floors`).
+pub(crate) fn spawn_level_soda_locations(
+    commands: &mut Commands,
+    id_provider: &mut ResMut<GgrsNetIdFactory>,
+    mut spawns: Vec<(&GlobalTransform, &SodaLocationComponent)>,
+) {
     if spawns.is_empty() {
         return;
     }

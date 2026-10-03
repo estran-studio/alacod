@@ -24,6 +24,10 @@
         (path: "economy/economy.ron", kind: "Economy"),
         // T2.5, chantier C1 v0 : table des power-ups (scénarios `powerup_*`).
         (path: "items", kind: "PowerUp"),
+        // T1.8 : séquences de niveaux du mode `Floors` (scénario `portal_next_floor`,
+        // `alacod-sim --floors`) ; le mode du testbed reste `Sandbox`, un scénario impose
+        // une séquence par son champ `floors`.
+        (path: "floors", kind: "Floors"),
     ],
     entry: (
         start_map: "testbed/arena.ldtk",

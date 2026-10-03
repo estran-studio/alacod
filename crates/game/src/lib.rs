@@ -1,5 +1,6 @@
 pub mod args;
 pub mod audio;
+pub mod balance;
 pub mod camera;
 pub mod character;
 pub mod collider;

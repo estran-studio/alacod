@@ -82,6 +82,10 @@ pub struct Metrics {
     /// maximum sur toute la partie) : `scenario.players.len() - players_alive` = morts.
     #[serde(default)]
     pub players_alive: u32,
+    /// Index du niveau à la dernière frame simulée (mode `Floors`, T1.8 :
+    /// `run::FloorState::index`, `0` hors `Floors`) : niveaux terminés.
+    #[serde(default)]
+    pub final_floor: u32,
 }
 
 /// Résultat d'un scénario.
@@ -242,6 +246,11 @@ pub fn build_app(scenario: &Scenario, headless: bool, config: &PlayConfig) -> Ap
             }
         });
 
+    // T1.8 : séquence de niveaux imposée par le scénario (mode `Floors`, `Scenario::floors`).
+    if let Some(floors) = &scenario.floors {
+        app.insert_resource(game::run_state::FloorsOverride(floors.clone()));
+    }
+
     // Caméra forcée sur un joueur (play_scenario --follow)
     if let Some(handle) = config.follow_handle {
         app.insert_resource(game::camera::CameraFollowOverride(handle));
@@ -365,29 +374,31 @@ fn apply_wave_overrides(
     let Some(mut config) = wave_configs.get_mut(&handle) else {
         return;
     };
+    // F5 (chantier m0-v11) : ces champs sont des `content::expr::NumOrExpr` ; un override
+    // de scénario est toujours un entier littéral.
     if let Some(v) = o.max_wave {
-        config.max_wave = Some(v);
+        config.max_wave = Some(content::expr::NumOrExpr::Integer(v));
     }
     if let Some(v) = o.min_wave_delay_frames {
-        config.min_wave_delay_frames = v;
+        config.min_wave_delay_frames = content::expr::NumOrExpr::Integer(v);
     }
     if let Some(v) = o.base_enemies {
-        config.base_enemies = v;
+        config.base_enemies = content::expr::NumOrExpr::Integer(v);
     }
     if let Some(v) = o.enemies_per_wave {
-        config.enemies_per_wave = v;
+        config.enemies_per_wave = content::expr::NumOrExpr::Integer(v);
     }
     if let Some(v) = o.grace_period_frames {
-        config.grace_period_frames = v;
+        config.grace_period_frames = content::expr::NumOrExpr::Integer(v);
     }
     if let Some(v) = o.max_concurrent_enemies {
-        config.max_concurrent_enemies = v;
+        config.max_concurrent_enemies = content::expr::NumOrExpr::Integer(v);
     }
     if let Some(v) = o.spawn_batch_size {
-        config.spawn_batch_size = v;
+        config.spawn_batch_size = content::expr::NumOrExpr::Integer(v);
     }
     if let Some(v) = o.spawn_interval_frames {
-        config.spawn_interval_frames = v;
+        config.spawn_interval_frames = content::expr::NumOrExpr::Integer(v);
     }
     *applied = true;
 }
@@ -844,6 +855,7 @@ pub fn run_with_options<F: FnOnce(&mut App)>(
     let final_wave = wave_state.current_wave;
     let kills = wave_state.total_enemies_killed;
     let players_alive = q_players.iter(app.world()).count() as u32;
+    let final_floor = app.world().resource::<run::FloorState>().index;
 
     let metrics = Metrics {
         frames: frame,
@@ -856,6 +868,7 @@ pub fn run_with_options<F: FnOnce(&mut App)>(
         final_wave,
         kills,
         players_alive,
+        final_floor,
     };
 
     let world = app.world_mut();
@@ -1163,6 +1176,33 @@ fn check(world: &mut World, expectation: &Expectation) -> Result<(), String> {
             }
             Ok(())
         }
+        Expectation::BulletCount {
+            count,
+            projectile,
+            team,
+            ..
+        } => {
+            let alive = bullet_count(world, projectile.as_deref(), *team);
+            if alive == *count {
+                Ok(())
+            } else {
+                Err(format!("{alive} projectiles vivants, {count} attendus"))
+            }
+        }
+        Expectation::HitsAtLeast { entity, hits, .. } => {
+            let found = match entity {
+                game::replay::EntityRef::NetId(net_id) => entity_hit_count(world, *net_id),
+                game::replay::EntityRef::Target => target_hit_count(world),
+            };
+            let Some(found) = found else {
+                return Err("entité absente ou sans compteur de coups (HitCount)".into());
+            };
+            if found >= *hits {
+                Ok(())
+            } else {
+                Err(format!("{found} coups reçus < {hits}"))
+            }
+        }
         Expectation::NoDamageBetween { .. } => {
             // Géré dans la boucle principale, pas dans check()
             Ok(())
@@ -1278,6 +1318,7 @@ fn check(world: &mut World, expectation: &Expectation) -> Result<(), String> {
         Expectation::RunSummary {
             wave_reached_min,
             kills_min,
+            floor_reached_min,
             ..
         } => {
             let Some(summary) = world.resource::<Run>().summary else {
@@ -1292,6 +1333,22 @@ fn check(world: &mut World, expectation: &Expectation) -> Result<(), String> {
                 if summary.kills < *min {
                     return Err(format!("kills {} < min {min}", summary.kills));
                 }
+            }
+            if let Some(min) = floor_reached_min {
+                if summary.floor_reached < *min {
+                    return Err(format!(
+                        "floor_reached {} < min {min}",
+                        summary.floor_reached
+                    ));
+                }
+            }
+            Ok(())
+        }
+        // T1.8 : index du niveau courant du mode `Floors` (ressource rollback `FloorState`).
+        Expectation::FloorIndex { index, .. } => {
+            let actual = world.resource::<run::FloorState>().index;
+            if actual != *index {
+                return Err(format!("FloorIndex {actual} (attendu {index})"));
             }
             Ok(())
         }
@@ -1466,6 +1523,39 @@ fn entity_hit_count(world: &mut World, net_id: usize) -> Option<u32> {
         .iter(world)
         .find(|(id, _)| id.0 == net_id)
         .map(|(_, hit_count)| hit_count.0)
+}
+
+/// `HitsAtLeast(entity: Target)` (T1.1) : compteur de coups de l'entité qui compte ses coups
+/// de plus petit `GgrsNetId` (`target` dans l'arène du testbed).
+fn target_hit_count(world: &mut World) -> Option<u32> {
+    use bevy_ggrs::Rollback;
+    use game::character::health::HitCount;
+    use utils::net_id::GgrsNetId;
+    world
+        .query_filtered::<(&GgrsNetId, &HitCount), With<Rollback>>()
+        .iter(world)
+        .min_by_key(|(id, _)| id.0)
+        .map(|(_, hit_count)| hit_count.0)
+}
+
+/// `BulletCount` (T1.1) : balles vivantes, filtrées par id de projectile composable et par
+/// équipe du tireur.
+fn bullet_count(
+    world: &mut World,
+    projectile: Option<&str>,
+    team: Option<sim_core::team::Team>,
+) -> u32 {
+    use bevy_ggrs::Rollback;
+    use combat::projectile::Projectile;
+    use game::weapons::Bullet;
+    world
+        .query_filtered::<(&Bullet, Option<&Projectile>), With<Rollback>>()
+        .iter(world)
+        .filter(|(bullet, composable)| {
+            projectile.is_none_or(|id| composable.is_some_and(|p| p.id == id))
+                && team.is_none_or(|team| bullet.source_team == team)
+        })
+        .count() as u32
 }
 
 /// `NoDamageBetween` : la santé du joueur ne doit pas avoir baissé depuis la frame précédente

@@ -1,0 +1,81 @@
+// F5 (chantier m0-v11) : preuve « équilibrage par nombre de joueurs » (santé).
+//
+// Même gabarit que `zombie_hard_config.ron` (collider, skins vides, tag `zombie`), mais :
+// - `base_health.max` est une **expression** `players` : 50 PV à 2 joueurs, 130 PV à 4
+//   (10 + (players - 1) * 40), résolue une fois au lancement de la partie
+//   (`game::balance`, `docs/conventions.md` §18) ;
+// - `ai` stationnaire (même forme que `target` du testbed) : la preuve tient au nombre de
+//   balles de `machine_gun` encaissées (7 × 8 = 56 ≥ 50 : mort à 2 joueurs ; 11 × 8 = 88 <
+//   130 : vivant à 4), pas à un déplacement.
+//
+// Apparaît via l'entité LDtk `CharacterSpawn` de `assets/exemples/zombie_scaled.ldtk`
+// (scénarios `equilibrage_joueurs_duo`/`equilibrage_joueurs_quad`). Le nom `zombie_scaled`
+// n'est référencé par aucun palier de `wave_config.ron` et par aucune entité des cartes
+// existantes : les 62 scénarios existants ne le rencontrent jamais.
+(
+    movement: (
+        acceleration: "0.0",
+        max_speed: "0.0",
+        friction: "10.0",
+
+        sprint_multiplier: "1.0",
+        sprint_acceleration_per_frame: "0.0",
+        sprint_deceleration_per_frame: "0.0",
+
+        dash_distance: "0.0",
+        dash_duration_frames: 0,
+        dash_cooldown_frames: 0,
+    ),
+
+    asset_name_ref: "zombie_scaled",
+
+    collider: (
+        // F5 : rectangle volontairement haut (32 px). Le zombie de preuve est placé juste
+        // devant le muzzle du joueur 0 (grid[9,5], ~10 px) : le tir de pistolet garde un
+        // angle aléatoire de ±0.5 rad (spread non-shotgun de l'engine), mais à cette
+        // distance la dispersion verticale (±~6 px) reste dans ce rectangle quelle que
+        // soit l'orientation du joueur — chaque balle touche. Personnage de preuve
+        // immobile, sans collision de gameplay.
+        shape: Rectangle(
+            width: "20.",
+            height: "32.",
+        ),
+        offset: ( x: "0.0", y: "-2.0", z: "0.0")
+    ),
+
+    base_health: (
+        // F5 : expression évaluée une fois au lancement, jamais en cours de partie.
+        max: "10.0 + (players - 1) * 40.0"
+    ),
+
+    scale: "1.0",
+
+    starting_skin: "1",
+
+    skins: {
+        "1": (
+            layers: {
+                "shadow": "",
+                "body": "",
+            }
+        )
+    },
+
+    // T1.1 (chantier B1) : porté par les DamageEvent de ses attaques (aucune ici :
+    // `ai` stationnaire) ; sert les résistances/immunités par tag.
+    tags: ["zombie"],
+
+    ai: Some((
+        movement_type: None,
+        aggro_range: Some("0.0"),
+        attack_range: Some("0.0"),
+        attack_cooldown_frames: None,
+        can_break: None,
+        attack_through: None,
+        ignores: None,
+        path_through_breakables: None,
+        flee_threshold: None,
+        attack_damage: None,
+        stationary: Some(true),
+    )),
+)

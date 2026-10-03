@@ -67,6 +67,9 @@ struct PlayerSnapshot {
 #[derive(Default, Clone)]
 struct Snapshot {
     wave: u32,
+    /// T1.8 : niveau du mode `Floors` (`FloorState::index`) et portail ouvert.
+    floor: u32,
+    portal_open: bool,
     phase: Option<WavePhase>,
     kills: u32,
     players: BTreeMap<usize, PlayerSnapshot>,
@@ -158,6 +161,7 @@ fn detect_events(
     mut events: ResMut<GameEvents>,
     wave: Option<Res<WaveState>>,
     run: Option<Res<Run>>,
+    floor_state: Option<Res<run::FloorState>>,
     players: Query<(
         &Player,
         &Health,
@@ -190,6 +194,10 @@ fn detect_events(
         now.wave = wave.current_wave;
         now.phase = Some(wave.phase);
         now.kills = wave.total_enemies_killed;
+    }
+    if let Some(floor_state) = &floor_state {
+        now.floor = floor_state.index;
+        now.portal_open = floor_state.portal_open;
     }
     now.outcome = run.as_deref().and_then(|run| match run.step {
         RunStep::Ended { outcome, .. } => Some(outcome),
@@ -287,6 +295,13 @@ fn detect_events(
                 format!("vague {} : {}", now.wave, phase_label(phase)),
             );
         }
+    }
+    // T1.8 : portail ouvert, passage au niveau suivant (mode `Floors`).
+    if now.portal_open && !before.portal_open {
+        push("portal", format!("portail ouvert (niveau {})", now.floor));
+    }
+    if now.floor > before.floor {
+        push("floor", format!("niveau {}", now.floor));
     }
     if now.kills > before.kills {
         push("kill", format!("zombie tué ({} au total)", now.kills));

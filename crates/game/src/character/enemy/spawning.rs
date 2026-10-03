@@ -61,6 +61,7 @@ pub fn enemy_spawn_from_spawners_system(
     weapons_asset: Res<Assets<WeaponsConfig>>,
     melee_weapons_asset: Res<Assets<MeleeWeaponsConfig>>,
     characters_asset: Res<Assets<CharacterConfig>>,
+    balance: Res<crate::balance::ResolvedBalance>,
 
     mut id_factory: ResMut<GgrsNetIdFactory>,
 ) {
@@ -306,6 +307,15 @@ pub fn enemy_spawn_from_spawners_system(
             final_spawn_pos.y
         );
 
+        // F5 (chantier m0-v11) : santé max résolue au lancement (`crate::balance`).
+        let health_max = balance
+            .health_max_by_character
+            .get(&enemy_type_name)
+            .copied()
+            .unwrap_or_else(|| {
+                panic!("équilibrage F5 : pas de santé résolue pour le personnage « {enemy_type_name} »")
+            });
+
         let _ = spawn_enemy(
             enemy_type_name,
             final_spawn_pos,
@@ -317,6 +327,7 @@ pub fn enemy_spawn_from_spawners_system(
             &collision_settings,
             &mut id_factory,
             Team::Enemies,
+            health_max,
         );
 
         state.cooldown_remaining = config.max_cooldown;

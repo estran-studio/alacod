@@ -308,6 +308,7 @@ mod tests {
             points_total: 1300,
             frames: 4000,
             outcome: RunEnd::Abandon,
+            floor_reached: 0,
         };
         assert_eq!(
             local_hold_text(Some(summary)),

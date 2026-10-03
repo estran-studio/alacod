@@ -738,6 +738,178 @@ Par widget : `background`.
 Captures de référence : `docs/captures/hud-v1/` (prompt d'achat, perk et power-up actifs, à
 terre), produites par `play_scenario --capture` (voir `CLAUDE.md` § Vidéos).
 
+## 16. Projectiles composables (T1.1, chantier B5 v1)
+
+Code : `crates/combat/src/projectile.rs` (données, mathématiques pures testées, systèmes),
+branché par `combat::weapons::BaseWeaponGamePlugin`. Les contrats de T1.0a
+(`ProjectileModifier`, `Pattern`, §4.3) sont exécutés ; aucun renommage, un ajout :
+`ExpireAction::Spawn(Pattern)`.
+
+**Contenu** : un mode de tir déclare `projectile:` (absent = balle ordinaire, exactement
+comme avant, sans composant `Projectile`) ; l'arme déclare la table `projectiles` des
+projectiles que ses patterns font naître (une table **par arme** en v1, résolue au tir et
+portée par la balle ; T1.2 pourra la remonter au niveau du jeu pour les ennemis).
+```ron
+"default": (
+    // ... champs habituels du mode (bullet_type, range... : le projectile tiré)
+    projectile: (
+        modifiers: [Bounce(2), Pierce(8), Lifetime(70)],
+        on_hit: [TimedModifier(stat: MoveSpeed, op: Mul, value: "0.5", frames: 60)],
+        on_expire: [Spawn(Aimed(count: 1, spread: "0.0", projectile: "explosion"))],
+    ),
+),
+// au niveau de `config`, à côté de `firing_modes` :
+projectiles: {
+    "explosion": (damage: "20.0", speed: "0.0", range: "1.0",
+                  modifiers: [Lifetime(0), Size("10.0"), Pierce(16)],
+                  on_expire: [Spawn(Ring(count: 8, speed: "240.0", projectile: "eclat", every: 0))]),
+    "eclat": (damage: "4.0", speed: "240.0", range: "96.0"),
+},
+```
+
+**Modificateurs** (décisions de gameplay ; un même modificateur répété : le dernier
+l'emporte, le lint le refuse) :
+
+| Modificateur | Effet |
+|---|---|
+| `Bounce(n)` | n rebonds sur les murs (`Wall` par `layer_matrix`) ; l'axe du déplacement qui entre dans le mur s'inverse (les deux dans un coin) et le projectile revient à sa position d'avant le déplacement. `n = 0` : fin au premier mur. |
+| `Pierce(n)` | traverse n personnages, se termine sur le (n+1)-ième ; **jamais deux fois le même** (liste `hits`). Tous les personnages en contact dans une frame sont touchés, par `GgrsNetId`, tant que `Pierce` le permet. |
+| `Size(f)` | rayon de collision × f (base 5, celui de `Standard`) et sprite × f. `f > 0`. |
+| `Lifetime(n)` | n frames de vie après la frame de tir, fin à la suivante : `Lifetime(0)` = une seule frame de collisions. La portée (`range`) termine aussi le projectile. |
+| `Homing(force)` | à chaque frame, la direction tourne vers le personnage le plus proche que l'équipe et le tir ami permettent de toucher (hors `Neutral`, hors cibles déjà traversées, égalité par `GgrsNetId`) : `v̂ + force·t̂` renormalisé, vitesse conservée. `0 < force <= 1`. Pas de portée de détection en v1. |
+| `Gravity(g)` | accélération verticale constante de g unités/s² (positive vers le haut du monde) : `v.y += g/3600` par frame. |
+
+**Ordre dans une frame** : `Weapon` (tir ; déplacement de toutes les balles, la portée
+atteinte *termine* un projectile composable au lieu de le détruire ; collisions des balles
+ordinaires, inchangées) → `Projectiles` (`projectile_collision_system` : personnages puis
+murs ; `apply_projectile_on_hit_system` ; `projectile_expire_system` : `Lifetime`,
+`on_expire`, `despawn_rollback` ; `projectile_steering_system` : `Gravity` puis `Homing`,
+appliqués au déplacement suivant) → `CollisionDamage` (les `DamageEvent` des projectiles).
+`apply_projectile_on_hit_system` est dans `Projectiles` et non `Effects` : `Effects` contient
+déjà `game::powerups::apply_powerup_actions_system`, qui écrit aussi `Modifiers` (ordre
+ambigu refusé par `GgrsSchedule`).
+
+**`on_hit: [Action]`** : actions de `effects::Action` posées sur **le personnage touché**
+(s'il a des `Modifiers`), seulement les actions à modificateur (`TimedModifier`,
+`CurrencyMultiplier`) ; les autres (`RefillAmmo`, `RepairAllWindows`, `KillAllWaveEnemies`)
+sont des effets globaux de power-up, refusés par le lint. Source du modificateur :
+`projectile:<id>:<rang>` ; un nouveau coup du même projectile **rafraîchit** le
+modificateur au lieu de l'empiler.
+
+**`on_expire: [Spawn(pattern)]`** : joué à **toute** fin du projectile (durée de vie,
+portée, mur sans rebond, perforation épuisée) au point de fin. Patterns instantanés
+seulement, sans aléa : `Aimed` (éventail de `count` sur `spread` radians, centré sur le
+personnage le plus proche, sinon sur la direction du projectile), `Spread` (même éventail,
+centré sur la direction du projectile), `Ring` (`count` directions régulières à partir de
+la direction du projectile — axe +x à l'arrêt —, vitesse du pattern, `every` ignoré : une
+seule salve), `Sequence` de ceux-ci. `Telegraph`/`Wait` sont réservés aux émetteurs (T1.2) et
+refusés par le lint. Les projectiles nés héritent du tireur (source, équipe, tags, tir
+ami, multiplicateur de dégâts `Damage` du tir) ; garde-fou de 8 générations (le lint refuse
+les cycles). Une **explosion** est un projectile de la table à vitesse nulle,
+`Lifetime(0)`, grand `Size` et `Pierce` élevé.
+
+**État rollback** : composant `combat::projectile::Projectile` (compteurs restants, cibles
+déjà touchées, `ended`, génération, actions, table partagée par `Arc` ; Debug compact : la
+table n'apparaît que par ses clés) et ressource `FrameEvents<ProjectileHit>`, enregistrés
+par `RollbackTraceApp`. `FiringModeConfig`/`WeaponConfig` ont un `Hash` et un `Debug`
+manuels qui ignorent `projectile`/`projectiles` vides : le contenu existant garde son hash
+et sa ligne de trace détaillée (preuve `trace-diff --ignore
+Projectile,FrameEvents<combat::projectile::ProjectileHit>`, §10).
+
+**Attentes** (`crates/scenario`) : `BulletCount(count, projectile?, team?, at_frame)` —
+nombre **exact** de balles vivantes, filtrées par id de projectile composable (l'arme qui a
+tiré, ou l'entrée de la table pour un projectile né) et par équipe du tireur ;
+`HitsAtLeast(entity, hits, at_frame)` — `HitCount` de `entity` ≥ `hits`, `entity` :
+`NetId(n)` ou `Target` (l'entité qui compte ses coups de plus petit `GgrsNetId`, `target` du
+testbed : utilisable dans le `test.expect` d'une arme, où le `GgrsNetId` dépend de l'arme).
+
+**Lint** (`content::lint::lint_weapon_projectiles`) : modificateur répété, `Size <= 0`,
+`Homing` hors `]0, 1]`, action `on_hit` sans modificateur, pattern temporel, `count = 0`,
+`spread`/`speed` négatifs, projectile absent de la table (`BrokenReference`), définition
+avec `damage`/`speed` négatif ou `range <= 0`, cycle de `on_expire`. Fixtures
+`projectile_broken_reference`, `projectile_temporal_pattern`, `projectile_cycle`.
+
+**Testbed** : une arme par modificateur (`proj_bounce`, `proj_pierce`, `proj_size`,
+`proj_lifetime`, `proj_homing`, `proj_gravity`) et `grenade` (Bounce, Pierce, explosion,
+éclats) dans `games/testbed/assets/ZombieShooter/Sprites/Character/weapons.ron`, chacune
+avec `test:` et son scénario généré (`make gen GAME=testbed`,
+`tests/scenarios/generated/testbed/`).
+
+## 17. Mode `Floors` (T1.8, chantier F1)
+
+**Contenu.** Kind de dossier `Floors` (`content::registry::FloorsEntry`) : un fichier RON par
+séquence de niveaux, id = nom de fichier sans extension.
+```ron
+// games/testbed/assets/floors/deux_niveaux.ron
+(levels: ["testbed/floor_a.ldtk", "testbed/floor_b.ldtk"])
+```
+Les chemins sont relatifs à `assets/` (comme `entry.start_map`) ; chaque niveau est une carte
+LDtk ordinaire (générée par gabarits comme les autres, même graine pour tous les niveaux).
+Mode : `entry: (..., mode: Floors)` joue la première séquence (ordre des ids) ; un scénario
+impose une séquence par son champ `floors: Some("deux_niveaux")` (`map` est alors ignorée), et
+`alacod-sim` par `--floors <id>` (`game::run_state::FloorsOverride`, hors rollback). `RunMode::
+Floors { config }` porte l'id de la séquence.
+
+**Lint** (`content::lint::lint_floors`, `lint_entry_point`) :
+
+| Règle | Kind | Fixture |
+|---|---|---|
+| `levels` non vide | `OutOfRange` | `floors_empty` |
+| chaque niveau désigne une carte chargée (kind `Map`) | `BrokenReference` | `floors_unknown_map` |
+| `entry.mode: Floors` exige un dossier `Floors` | `BrokenReference` | `entry_mode_floors_without_floors` |
+
+**Règles du mode.**
+- **Portail** : il s'ouvre quand le niveau courant n'a plus aucune entité `Enemy`
+  (`EntityCount(enemy) == 0` : alliés et civils du testbed compris — ne pas en placer dans un
+  niveau `Floors`). Position : barycentre des `PlayerSpawn` du niveau (centre de la salle de
+  départ), sans entité LDtk dédiée. Un joueur debout (ni à terre ni mort) à moins de 24 unités
+  (`run::floors::PORTAL_RADIUS`) le franchit.
+- **Passage** : à la frame du franchissement, toute entité rollback qui n'appartient pas à un
+  joueur (ennemis, murs, portes, fenêtres, spawners, balles, objets au sol, power-ups...) est
+  détruite (`despawn_rollback`), le flow field repart de zéro, les entités du niveau suivant sont
+  créées et les joueurs placés sur ses `PlayerSpawn` (même handle ; repli sur le plus petit
+  index). Les joueurs gardent santé, armes (enfants de l'entité joueur), munitions, monnaie,
+  perks, modificateurs ; un joueur à terre le reste.
+- **Numérotation** : `GgrsNetIdFactory` n'est jamais remise à zéro pendant la partie ; le
+  nouveau niveau est numéroté dans le même ordre qu'au chargement (entités de carte du
+  registre triées par nom puis position, murs par iid de niveau, personnages, armes murales et
+  machines à perk triés par position) : les ids continuent ceux du niveau quitté.
+- **Fin de séquence : boucle infinie au dernier niveau** (décision T1.8). Après le dernier
+  niveau de la liste, chaque portail recharge le dernier niveau (`run::floors::level_for_floor`)
+  et l'index continue de croître. Pas de victoire en `Floors` : la partie ne se termine que par
+  la défaite (universelle, mêmes chemins que `Waves`) ou l'abandon.
+- **Résumé** (`RunSummary`, mêmes chemins que `Waves`) : `floor_reached` = index atteint,
+  `kills` = ennemis placés par les niveaux chargés moins ceux encore en vie, `wave_reached` = 0.
+  L'écran de fin affiche « niveau N » (N = index + 1).
+
+**État rollback.** `run::FloorState` (ressource : `index`, `anchor` — position du portail —,
+`portal_open`, `enemies_placed`), enregistrée par `rollback_and_trace_resource_neutral` : sa
+valeur par défaut (tout autre mode) contribue `0` au checksum GGRS, les traces des autres modes
+ne changent pas ; `RunSummary::floor_reached` n'entre dans son hash que s'il est non nul (même
+raison). Attente de scénario `FloorIndex(index, at_frame)` (ponctuelle) et `RunSummary(...,
+floor_reached_min)`.
+
+**Chargement : un monde LDtk par niveau.** À l'entrée de `GameLoading`,
+`map_ldtk::game::floors::compute_floor_plan` pose `FloorPlan` (hors rollback) si la partie est
+en `Floors` ; `loader::setup_generated_map` charge alors toutes les cartes distinctes de la
+séquence, un monde chacun (`FloorWorld(emplacement)`, une carte répétée réutilise son monde),
+superposés à l'origine ; seul le monde du niveau courant est visible (présentation). Le
+chargement attend que tous les mondes aient leurs niveaux, puis ne crée les entités rollback
+que du premier niveau. Le passage de niveau (`floor_transition_system`, `GgrsSchedule`,
+`RollbackSystemSet::Run`) lit ces mondes déjà chargés, immuables et identiques sur tous les
+clients : aucune attente de chargement pendant la partie, et un rollback qui remonte avant le
+passage ressuscite l'ancien niveau. Hors `Floors`, la carte unique est le monde `FloorWorld(0)`
+et le chargement est inchangé.
+
+**Bots.** `BotView::portal` : un bot `fonceur` ou `prudent` sans ennemi visible marche vers le
+portail ouvert (ligne droite, sans pathfinding : les niveaux du testbed sont des salles
+ouvertes).
+
+**Limites connues.** Les `RoomBounds` des niveaux non courants existent aussi (mondes
+superposés) : les spawners de vagues (`ZombieSpawn`) ne sont pas pris en charge en `Floors`.
+Restart p2p : non supporté (comme `Waves`). Pas d'arrêt `--until-floor` dans `alacod-sim`
+(T1.14).
+
 ## 18. Équilibrage par joueurs (F5)
 
 **Décision (D25, le 2026-10-03) : F5 appartient à M0** — le plan §6 liste F5 dans le jalon M0
@@ -761,6 +933,45 @@ expression `content::expr` en chaîne RON (ex. `health: "120.0 + (players - 1) *
   existants gardent leurs traces, sauf bless avec preuve (§10). La preuve de F5 passe par de
   nouveaux scénarios (même partie à 2 et 4 joueurs, attente qui diverge) plutôt que par la
   modification de valeurs existantes.
+
+**Implémentation (m0-v11)** :
+
+- **Type** : `content::expr::NumOrExpr` — `Integer(u32)` (entier RON nu, ex. `base_enemies: 6`),
+  `Literal(Fixed)` (chaîne numérique, ex. `refill_price_ratio: "0.5"`), `Expression(NumExpr)`
+  (chaîne RON évaluée, ex. `max: "10.0 + (players - 1) * 40.0"`). La désérialisation tente dans
+  cet ordre : entier nu → `Integer` ; chaîne qui est un nombre → `Literal` ; sinon parse
+  `Expr` → `Expression` (un échec de parse est un échec du chargement).
+- **Point d'évaluation** : `game::balance::resolve_balance_system`, enregistré sur
+  `OnEnter(AppState::GameLoading)` — après le chargement des assets, avant le spawn des
+  joueurs/personnages (Update de `GameLoading`) et avant la première vague. Il insère la
+  ressource ordinaire (hors rollback, comme `Assets`) `game::balance::ResolvedBalance` :
+  `waves`, `economy`, `perks` et `health_max_by_character`, en valeurs concrètes. Les systèmes
+  de simulation lisent `ResolvedBalance`, jamais les assets d'origine — aucune expression dans
+  l'état rollback. Une relance locale re-entre `GameLoading` et re-résout avec le même nombre
+  de joueurs.
+- **Nombre de joueurs** : `OnlineState::Online` → `ggrs_config.connection.max_player` (source
+  autoritaire en ligne) ; sinon `PlayersCount` (partie locale ou scénario).
+- **Champs couverts** (rien d'autre — le reste des chantiers F est pour M1/M2) :
+  - **Vagues** (`games/zombies/assets/waves/wave_config.ron`) : `base_enemies`,
+    `enemies_per_wave`, `max_random_variance`, `min_wave_delay_frames`, `grace_period_frames`,
+    `max_concurrent_enemies`, `spawn_batch_size`, `spawn_interval_frames`,
+    `min_player_distance`, `max_player_distance`, `health_multiplier_per_wave`,
+    `damage_multiplier_per_wave`, `max_wave`, et par palier `max_wave` + poids des ennemis.
+  - **Prix** : `games/zombies/assets/economy/economy.ron` (`kill_points`, `hit_points`,
+    `repair_points`, `nuke_points`, `repair_points_cap_per_wave`, `refill_price_ratio`) et
+    `games/zombies/assets/economy/perks.ron` (`price` de chaque perk). Les prix d'armes
+    murales et de portes sont des champs **Int posés dans l'éditeur LDtk** (`WeaponLocation`,
+    portes), pas du RON — ils n'acceptent pas d'expression (et `weapons.ron`/
+    `melee_weapons.ron` ne portent aucun prix aujourd'hui) ; la recharge d'une arme murale
+    reste `prix_achat × refill_price_ratio` (ratio résolu).
+  - **Santé** : `base_health.max` de chaque personnage du registre (`CharacterConfig`) —
+    ennemis comme « player », les deux chemins de spawn lisent
+    `ResolvedBalance::health_max_by_character`.
+- **Erreurs** : `content::expr::EvalError` — identifiant inconnu (seul `players` existe),
+  division par zéro, valeur hors domaine (négatif pour un `u32` : erreur, jamais de clamp).
+  `resolve_balance_system` panique en nommant le fichier, le champ et le nombre de joueurs.
+  Tests unitaires : `content::expr` (désérialisation, résolution, erreurs) et `game::balance`
+  (dépendance à `players`, erreurs = panic avec contexte).
 
 ## Notes essentielles
 
