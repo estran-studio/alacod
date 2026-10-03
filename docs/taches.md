@@ -531,6 +531,10 @@ région des chantiers puis la campagne.
   rejouées par l'orchestrateur : traces identiques, même sha256.
 - m0-v10 : en cours — lot de dettes légères (reste de D12 : CI allumette ; D5 : documentation
   checksum), branche `m0-v10-dettes-legeres`, session locale b0.
+- m1-v1a : en cours — projectiles composables (T1.1) + attentes `BulletCount`/`HitsAtLeast`,
+  branche `m1-v1a-projectiles-composables`, session cloud c1.
+- m1-v1e : en cours — mode `Floors` (T1.8) + attente `FloorIndex`, branche
+  `m1-v1e-mode-floors`, session cloud c2.
 
 - Ce fichier est la source de vérité des tâches : une ligne de statut par tâche (`à faire`, `en
   cours (branche)`, `mergée (commit)`), tenue par l'agent qui prend la tâche.
