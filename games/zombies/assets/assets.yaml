@@ -8,27 +8,27 @@
 
 - id: basic-zombie-shooter-blackhunterdev
   fichiers:
-    - ZombieShooter/Sprites/Character/Body/Body.png
-    - ZombieShooter/Sprites/Character/Hair/Hair1.png
-    - ZombieShooter/Sprites/Character/Hair/Hair2.png
-    - ZombieShooter/Sprites/Character/Hair/Hair3.png
-    - ZombieShooter/Sprites/Character/Hair/Hair4.png
-    - ZombieShooter/Sprites/Character/Moustach/Moustach1.png
-    - ZombieShooter/Sprites/Character/Moustach/Moustach2.png
-    - ZombieShooter/Sprites/Character/Moustach/Moustach3.png
-    - ZombieShooter/Sprites/Character/Moustach/Moustach4.png
-    - ZombieShooter/Sprites/Character/Shirt/Shirt1.png
-    - ZombieShooter/Sprites/Character/Shirt/Shirt2.png
-    - ZombieShooter/Sprites/Character/Shirt/Shirt3.png
-    - ZombieShooter/Sprites/Character/Shirt/Shirt4.png
-    - ZombieShooter/Sprites/Character/Shadow.png
+    - sprites/characters/player/Body/Body.png
+    - sprites/characters/player/Hair/Hair1.png
+    - sprites/characters/player/Hair/Hair2.png
+    - sprites/characters/player/Hair/Hair3.png
+    - sprites/characters/player/Hair/Hair4.png
+    - sprites/characters/player/Moustach/Moustach1.png
+    - sprites/characters/player/Moustach/Moustach2.png
+    - sprites/characters/player/Moustach/Moustach3.png
+    - sprites/characters/player/Moustach/Moustach4.png
+    - sprites/characters/player/Shirt/Shirt1.png
+    - sprites/characters/player/Shirt/Shirt2.png
+    - sprites/characters/player/Shirt/Shirt3.png
+    - sprites/characters/player/Shirt/Shirt4.png
+    - sprites/characters/shadow/Shadow.png
     - ZombieShooter/Sprites/Obj/House&Props.png
     - ZombieShooter/Sprites/Obj/TileMapGrass.png
     - ZombieShooter/Sprites/Obj/Trees.png
     - ZombieShooter/Sprites/Obj/UI.png
-    - ZombieShooter/Sprites/Obj/Weapons.png
-    - ZombieShooter/Sprites/Zombie/Zombie.png
-    - ZombieShooter/Sprites/Zombie/ZombieHard.png
+    - sprites/weapons/Weapons.png
+    - sprites/enemies/zombie/Zombie.png
+    - sprites/enemies/zombie/ZombieHard.png
   source: https://blackhunterdev.itch.io/basic-zombie-shooter-game-asset
   auteur: blackHUNTERdev
   licence: CC BY 4.0 (https://creativecommons.org/licenses/by/4.0/)
@@ -36,8 +36,8 @@
 
 - id: zombie-shooter-source-inconnue
   fichiers:
-    - ZombieShooter/Sprites/Character/Slash_strip3.png
-    - ZombieShooter/Sprites/Zombie/Zombie2.png
+    - sprites/effects/slash/Slash_strip3.png
+    - sprites/enemies/zombie/Zombie2.png
   source: inconnue (ajoutés après coup, absents du pack blackHUNTERdev ; aucune page
     source identifiée de façon fiable au 2026-10-02)
   auteur: inconnu

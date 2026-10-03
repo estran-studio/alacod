@@ -111,6 +111,13 @@ string_id!(
     PowerUpId
 );
 
+string_id!(
+    /// D3 : identifiant d'une entrée de la table des feuilles de sprites (kind `SpriteSheet`,
+    /// `sprites/sprites.ron`) : le nom que le contenu cite — `asset_name_ref` d'un
+    /// personnage, `sprite_config.name` d'une arme à distance, `slash` pour l'effet de mêlée.
+    SpriteSheetId
+);
+
 /// Dérive le même id qu'au chargement (`load_maps`) à partir d'un chemin quelconque
 /// (utilisé pour valider `entry.start_map`, qui n'est pas forcément le même chemin exact
 /// que celui listé par un dossier `Map`, mais désigne le même fichier).
@@ -167,6 +174,24 @@ pub struct WeaponEntry {
     /// Sons référencés par `audio_config` (T2.8), pour la règle « fichier présent sous
     /// `assets/` ». Dans l'ordre (mode, champ) : déterministe pour les messages.
     pub sounds: Vec<SoundRef>,
+    /// D3 : `sprite_config.name`, id de la table `SpriteSheet` (`None` si absent ou vide).
+    pub sprite: Option<String>,
+}
+
+/// D3 : une entrée de la table des feuilles de sprites (kind `SpriteSheet`). Les chemins
+/// sont relatifs à `assets/`, comme partout dans le contenu.
+#[derive(Debug, Clone)]
+pub struct SpriteSheetEntry {
+    pub id: SpriteSheetId,
+    pub file: PathBuf,
+    /// Configuration d'animation (`animation::AnimationMapConfig`).
+    pub animation: String,
+    /// Calque (`body`, `shadow`, `hair`…) -> feuille (`animation::SpriteSheetConfig`).
+    pub layers: BTreeMap<String, String>,
+    /// Calque -> image (`path` de la feuille), pour les feuilles lisibles : le lint vérifie
+    /// que l'image existe. Une feuille illisible n'a pas d'entrée ici (le lint rapporte déjà
+    /// la feuille elle-même).
+    pub images: BTreeMap<String, String>,
 }
 
 /// Un chemin de son lu dans le contenu (T2.8) : `field` est le chemin du champ RON
@@ -317,6 +342,9 @@ pub struct Registry {
     /// Réglages typés du feedback (T3.4) parmi les fichiers Ui.
     pub feedback: Vec<FeedbackEntry>,
     pub camera_files: Vec<PathBuf>,
+    /// D3 : feuilles de sprites par id (kind `SpriteSheet`), source des sprites chargés par
+    /// `game::global_asset` (avant D3 : une table de chemins écrite dans le code).
+    pub sprite_sheets: BTreeMap<SpriteSheetId, SpriteSheetEntry>,
 }
 
 /// Les "kinds" de dossier de contenu que cette version de `content` sait charger. Exposé
@@ -333,6 +361,7 @@ pub const KNOWN_KIND_NAMES: &[&str] = &[
     "Economy",
     "Perk",
     "PowerUp",
+    "SpriteSheet",
 ];
 
 pub fn known_content_kinds() -> Kinds {
@@ -387,6 +416,7 @@ impl Registry {
                 "Economy" => load_economy(&assets_dir, decl, &mut registry, &mut errors),
                 "Perk" => load_perks(&assets_dir, decl, &mut registry, &mut errors),
                 "PowerUp" => load_powerups(&assets_dir, decl, &mut registry, &mut errors),
+                "SpriteSheet" => load_sprite_sheets(&assets_dir, decl, &mut registry, &mut errors),
                 _ => unreachable!("filtré par `kinds.has` ci-dessus"),
             }
         }
@@ -522,6 +552,33 @@ struct WeaponEntrySchema {
     /// Pas d'`Option` : en RON, un `Option` exige `Some(...)` ; absent = aucun son.
     #[serde(default)]
     audio_config: WeaponAudioSchema,
+    /// D3 : seul `name` est lu (référence vers la table `SpriteSheet`). Pas d'`Option`
+    /// (voir `audio_config`) : absent = nom vide = pas de sprite.
+    #[serde(default)]
+    sprite_config: WeaponSpriteSchema,
+}
+
+#[derive(Deserialize, Default)]
+struct WeaponSpriteSchema {
+    #[serde(default)]
+    name: String,
+}
+
+/// D3 : `sprites/sprites.ron`, table `{ "id": (animation: "...", layers: { ... }) }`, lue en
+/// liste pour rapporter un id répété (comme `weapons.ron`, voir [`KeyedEntries`]).
+#[derive(Deserialize)]
+struct SpriteSheetsFileSchema(KeyedEntries<SpriteSheetEntrySchema>);
+
+#[derive(Deserialize)]
+struct SpriteSheetEntrySchema {
+    animation: String,
+    layers: BTreeMap<String, String>,
+}
+
+/// D3 : le seul champ d'une feuille (`animation::SpriteSheetConfig`) que le lint lit.
+#[derive(Deserialize)]
+struct SheetImageSchema {
+    path: String,
 }
 
 #[derive(Deserialize, Default)]
@@ -938,6 +995,7 @@ fn load_weapons(
                     test,
                     ammo_type: entry.config.ammo_type,
                     sounds,
+                    sprite: Some(entry.sprite_config.name).filter(|name| !name.is_empty()),
                 },
             );
         }
@@ -1210,6 +1268,79 @@ fn load_perks(
                     file: rel.clone(),
                     price: entry.price,
                     modifiers,
+                },
+            );
+        }
+    }
+}
+
+/// D3 : table des feuilles de sprites (kind `SpriteSheet`). Un id répété (dans un fichier
+/// ou entre deux fichiers) est un `DuplicateId`, la première entrée est gardée. L'image de
+/// chaque feuille lisible est relevée pour le lint (fichier présent sous `assets/`).
+fn load_sprite_sheets(
+    assets_dir: &Path,
+    decl: &ContentFolderDecl,
+    registry: &mut Registry,
+    errors: &mut Vec<LintError>,
+) {
+    let files = match discover_files(assets_dir, decl, "ron") {
+        Ok(f) => f,
+        Err(e) => {
+            errors.push(e);
+            return;
+        }
+    };
+
+    for rel in files {
+        let text = match read_file(assets_dir, &rel) {
+            Ok(t) => t,
+            Err(e) => {
+                errors.push(e);
+                continue;
+            }
+        };
+        let parsed: SpriteSheetsFileSchema = match ron::from_str(&text) {
+            Ok(p) => p,
+            Err(e) => {
+                errors.push(LintError {
+                    kind: LintErrorKind::Parse,
+                    file: rel.display().to_string(),
+                    message: format!("erreur RON : {e}"),
+                });
+                continue;
+            }
+        };
+
+        for (name, entry) in parsed.0 .0 {
+            let id = SpriteSheetId::from(name);
+            if let Some(existing) = registry.sprite_sheets.get(&id) {
+                errors.push(LintError {
+                    kind: LintErrorKind::DuplicateId,
+                    file: rel.display().to_string(),
+                    message: format!(
+                        "id de feuille de sprites « {id} » déjà défini dans {}",
+                        existing.file.display()
+                    ),
+                });
+                continue;
+            }
+            let images = entry
+                .layers
+                .iter()
+                .filter_map(|(layer, sheet)| {
+                    let text = std::fs::read_to_string(assets_dir.join(sheet)).ok()?;
+                    let sheet: SheetImageSchema = ron::from_str(&text).ok()?;
+                    Some((layer.clone(), sheet.path))
+                })
+                .collect();
+            registry.sprite_sheets.insert(
+                id.clone(),
+                SpriteSheetEntry {
+                    id,
+                    file: rel.clone(),
+                    animation: entry.animation,
+                    layers: entry.layers,
+                    images,
                 },
             );
         }

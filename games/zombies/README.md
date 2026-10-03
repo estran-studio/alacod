@@ -14,9 +14,10 @@ est `games/zombies/src/main.rs` ; le plugin de partie est partagé avec `testbed
 | `camera.ron` | `Camera` | réglages de caméra (`CameraSettings`, suivi en ligne) |
 | `ZombieShooter/Sprites/Character/player_config.ron` | `Character` | personnage joueur : `starting_weapons`, `weapon_slots`, vie, à terre |
 | `ZombieShooter/Sprites/Character/weapons.ron` | `Weapon` | armes à distance : `pistol`, `machine_gun`, `shotgun`, `rifle` |
-| `ZombieShooter/Sprites/Character/*_sheet.ron`, `*_animation.ron` | — | feuilles de sprites et animations du joueur et des armes (nommées dans `crates/game/src/global_asset.rs`) |
-| `ZombieShooter/Sprites/Zombie/zombie*_config.ron` | `Character` | zombies : `zombie`, `zombie_hard`, `zombie_full` (+ feuilles et animations) |
-| `ZombieShooter/Sprites/Obj/Weapons.png` | — | feuille des sprites d'armes (trois armes) |
+| `ZombieShooter/Sprites/Zombie/zombie*_config.ron` | `Character` | zombies : `zombie`, `zombie_hard`, `zombie_full` |
+| `sprites/sprites.ron` | `SpriteSheet` | table des feuilles de sprites par id (D3) : `player`, armes (`pistol`, `machine_gun`, `shotgun`), zombies (`zombie_1`, `zombie_2`, `zombie_full`), effet `slash` ; calques et animation de chacune |
+| `sprites/characters/`, `sprites/weapons/`, `sprites/enemies/`, `sprites/effects/` | — | feuilles (`*_sheet.ron`), animations (`*_animation.ron`) et images, rangées par entité (`sprites/weapons/Weapons.png` : trois armes) |
+| `ZombieShooter/Sprites/Obj/` | — | images du pack d'origine que rien ne référence (décor, UI) |
 | `weapons/melee/melee_weapons.ron` | `MeleeWeapon` | armes de mêlée (`bare_hands`, `knife`, `club`, `sword`, `axe`, `zombie_claws`) |
 | `waves/wave_config.ron` | `Wave` | vagues : effectifs, cadence, montée en difficulté |
 | `economy/economy.ron` | `Economy` | points par kill, coup et réparation ; ratio de recharge d'une arme murale déjà possédée |
@@ -76,7 +77,8 @@ possède pas au départ. Un scénario peut restreindre l'arme de départ (`weapo
 
 1. Une entrée dans `weapons.ron` : `config` (`ammo_type`, `firing_modes` avec cadence, dispersion,
    balle, portée, chargeur ; `test` = bornes du scénario généré, voir ci-dessous), `sprite_config`
-   (`name` = feuille `<name>_sheet.ron`, `index` = case de la feuille), `audio_config`.
+   (`name` = id d'une entrée de `sprites/sprites.ron`, `index` = case de la feuille ; le lint
+   refuse un id absent de la table), `audio_config`.
    Les nombres `Fixed` sont des chaînes (`"4.0"`).
 2. Facultatif : l'ajouter aux `starting_weapons` d'un personnage (les traces de tous les scénarios
    changent : bless justifié).

@@ -1,0 +1,57 @@
+// D3 : table des feuilles de sprites (kind `SpriteSheet` de `game.ron`, chargée par
+// `content::registry::load_sprite_sheets`, lue par `game::global_asset`). Un id par entrée :
+// le `asset_name_ref` d'un personnage, le `sprite_config.name` d'une arme à distance, ou
+// `slash` (effet de coup de mêlée). `animation` : configuration d'animation
+// (`AnimationMapConfig`) ; `layers` : calque -> feuille (`SpriteSheetConfig`). Chemins relatifs
+// à `assets/`. Feuilles et images rangées par entité sous `sprites/` (characters/, weapons/,
+// enemies/, effects/) ; voir `docs/conventions.md` §2.
+({
+    "player": (
+        animation: "sprites/characters/player/player_animation.ron",
+        layers: {
+            "body": "sprites/characters/player/player_sheet.ron",
+            "shirt": "sprites/characters/player/shirt_1_sheet.ron",
+            "hair": "sprites/characters/player/hair_1_sheet.ron",
+            "shadow": "sprites/characters/shadow/shadow_sheet.ron",
+        },
+    ),
+    // Armes à distance : portées par le joueur, animées par l'animation du joueur.
+    "shotgun": (
+        animation: "sprites/characters/player/player_animation.ron",
+        layers: { "body": "sprites/weapons/shotgun_sheet.ron" },
+    ),
+    "pistol": (
+        animation: "sprites/characters/player/player_animation.ron",
+        layers: { "body": "sprites/weapons/pistol_sheet.ron" },
+    ),
+    "machine_gun": (
+        animation: "sprites/characters/player/player_animation.ron",
+        layers: { "body": "sprites/weapons/machine_gun_sheet.ron" },
+    ),
+    // Le zombie « hard » (`zombie_2`) réutilise l'animation du zombie standard.
+    "zombie_1": (
+        animation: "sprites/enemies/zombie/zombie_animation.ron",
+        layers: {
+            "body": "sprites/enemies/zombie/zombie_sheet.ron",
+            "shadow": "sprites/characters/shadow/shadow_sheet.ron",
+        },
+    ),
+    "zombie_2": (
+        animation: "sprites/enemies/zombie/zombie_animation.ron",
+        layers: {
+            "body": "sprites/enemies/zombie/zombie_hard_sheet.ron",
+            "shadow": "sprites/characters/shadow/shadow_sheet.ron",
+        },
+    ),
+    "zombie_full": (
+        animation: "sprites/enemies/zombie/zombie_full_animation.ron",
+        layers: {
+            "body": "sprites/enemies/zombie/zombie_full_sheet.ron",
+            "shadow": "sprites/characters/shadow/shadow_sheet.ron",
+        },
+    ),
+    "slash": (
+        animation: "sprites/effects/slash/slash_animation.ron",
+        layers: { "body": "sprites/effects/slash/slash_sheet.ron" },
+    ),
+})

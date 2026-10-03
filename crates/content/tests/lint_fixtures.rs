@@ -393,3 +393,50 @@ fn t3_4_fixtures_have_a_single_rule_failure() {
         assert!(others.iter().all(|e| e.kind == kind), "{name}: {errors:#?}");
     }
 }
+
+// D3 : table des feuilles de sprites (kind `SpriteSheet`).
+
+/// Une seule erreur en plus de `start_map: "unused"`, commune à toutes les fixtures.
+fn assert_only_one_besides_start_map(errors: &[LintError]) {
+    let others: Vec<_> = errors
+        .iter()
+        .filter(|e| !e.message.contains("start_map"))
+        .collect();
+    assert_eq!(others.len(), 1, "une seule erreur attendue :\n{errors:#?}");
+}
+
+#[test]
+fn sprite_sheet_missing_file_fixture_reports_missing_layer_sheet() {
+    let (_, _, errors) = load_and_lint(&fixture_dir("sprite_sheet_missing_file")).unwrap();
+    assert_has_error(
+        &errors,
+        LintErrorKind::BrokenReference,
+        "sprites/hero_sheet.ron",
+    );
+    assert_only_one_besides_start_map(&errors);
+}
+
+#[test]
+fn sprite_sheet_missing_image_fixture_reports_missing_png() {
+    let (_, _, errors) = load_and_lint(&fixture_dir("sprite_sheet_missing_image")).unwrap();
+    assert_has_error(&errors, LintErrorKind::BrokenReference, "sprites/hero.png");
+    assert_only_one_besides_start_map(&errors);
+}
+
+#[test]
+fn weapon_sprite_unknown_fixture_reports_unknown_sheet() {
+    let (_, _, errors) = load_and_lint(&fixture_dir("weapon_sprite_unknown")).unwrap();
+    assert_has_error(
+        &errors,
+        LintErrorKind::BrokenReference,
+        "sprite_config.name",
+    );
+    assert_only_one_besides_start_map(&errors);
+}
+
+#[test]
+fn sprite_sheet_duplicate_key_fixture_reports_repeated_id() {
+    let (_, _, errors) = load_and_lint(&fixture_dir("sprite_sheet_duplicate_key")).unwrap();
+    assert_has_error(&errors, LintErrorKind::DuplicateId, "hero");
+    assert_only_one_besides_start_map(&errors);
+}
