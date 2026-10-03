@@ -835,6 +835,81 @@ avec `damage`/`speed` négatif ou `range <= 0`, cycle de `on_expire`. Fixtures
 avec `test:` et son scénario généré (`make gen GAME=testbed`,
 `tests/scenarios/generated/testbed/`).
 
+## 17. Mode `Floors` (T1.8, chantier F1)
+
+**Contenu.** Kind de dossier `Floors` (`content::registry::FloorsEntry`) : un fichier RON par
+séquence de niveaux, id = nom de fichier sans extension.
+```ron
+// games/testbed/assets/floors/deux_niveaux.ron
+(levels: ["testbed/floor_a.ldtk", "testbed/floor_b.ldtk"])
+```
+Les chemins sont relatifs à `assets/` (comme `entry.start_map`) ; chaque niveau est une carte
+LDtk ordinaire (générée par gabarits comme les autres, même graine pour tous les niveaux).
+Mode : `entry: (..., mode: Floors)` joue la première séquence (ordre des ids) ; un scénario
+impose une séquence par son champ `floors: Some("deux_niveaux")` (`map` est alors ignorée), et
+`alacod-sim` par `--floors <id>` (`game::run_state::FloorsOverride`, hors rollback). `RunMode::
+Floors { config }` porte l'id de la séquence.
+
+**Lint** (`content::lint::lint_floors`, `lint_entry_point`) :
+
+| Règle | Kind | Fixture |
+|---|---|---|
+| `levels` non vide | `OutOfRange` | `floors_empty` |
+| chaque niveau désigne une carte chargée (kind `Map`) | `BrokenReference` | `floors_unknown_map` |
+| `entry.mode: Floors` exige un dossier `Floors` | `BrokenReference` | `entry_mode_floors_without_floors` |
+
+**Règles du mode.**
+- **Portail** : il s'ouvre quand le niveau courant n'a plus aucune entité `Enemy`
+  (`EntityCount(enemy) == 0` : alliés et civils du testbed compris — ne pas en placer dans un
+  niveau `Floors`). Position : barycentre des `PlayerSpawn` du niveau (centre de la salle de
+  départ), sans entité LDtk dédiée. Un joueur debout (ni à terre ni mort) à moins de 24 unités
+  (`run::floors::PORTAL_RADIUS`) le franchit.
+- **Passage** : à la frame du franchissement, toute entité rollback qui n'appartient pas à un
+  joueur (ennemis, murs, portes, fenêtres, spawners, balles, objets au sol, power-ups...) est
+  détruite (`despawn_rollback`), le flow field repart de zéro, les entités du niveau suivant sont
+  créées et les joueurs placés sur ses `PlayerSpawn` (même handle ; repli sur le plus petit
+  index). Les joueurs gardent santé, armes (enfants de l'entité joueur), munitions, monnaie,
+  perks, modificateurs ; un joueur à terre le reste.
+- **Numérotation** : `GgrsNetIdFactory` n'est jamais remise à zéro pendant la partie ; le
+  nouveau niveau est numéroté dans le même ordre qu'au chargement (entités de carte du
+  registre triées par nom puis position, murs par iid de niveau, personnages, armes murales et
+  machines à perk triés par position) : les ids continuent ceux du niveau quitté.
+- **Fin de séquence : boucle infinie au dernier niveau** (décision T1.8). Après le dernier
+  niveau de la liste, chaque portail recharge le dernier niveau (`run::floors::level_for_floor`)
+  et l'index continue de croître. Pas de victoire en `Floors` : la partie ne se termine que par
+  la défaite (universelle, mêmes chemins que `Waves`) ou l'abandon.
+- **Résumé** (`RunSummary`, mêmes chemins que `Waves`) : `floor_reached` = index atteint,
+  `kills` = ennemis placés par les niveaux chargés moins ceux encore en vie, `wave_reached` = 0.
+  L'écran de fin affiche « niveau N » (N = index + 1).
+
+**État rollback.** `run::FloorState` (ressource : `index`, `anchor` — position du portail —,
+`portal_open`, `enemies_placed`), enregistrée par `rollback_and_trace_resource_neutral` : sa
+valeur par défaut (tout autre mode) contribue `0` au checksum GGRS, les traces des autres modes
+ne changent pas ; `RunSummary::floor_reached` n'entre dans son hash que s'il est non nul (même
+raison). Attente de scénario `FloorIndex(index, at_frame)` (ponctuelle) et `RunSummary(...,
+floor_reached_min)`.
+
+**Chargement : un monde LDtk par niveau.** À l'entrée de `GameLoading`,
+`map_ldtk::game::floors::compute_floor_plan` pose `FloorPlan` (hors rollback) si la partie est
+en `Floors` ; `loader::setup_generated_map` charge alors toutes les cartes distinctes de la
+séquence, un monde chacun (`FloorWorld(emplacement)`, une carte répétée réutilise son monde),
+superposés à l'origine ; seul le monde du niveau courant est visible (présentation). Le
+chargement attend que tous les mondes aient leurs niveaux, puis ne crée les entités rollback
+que du premier niveau. Le passage de niveau (`floor_transition_system`, `GgrsSchedule`,
+`RollbackSystemSet::Run`) lit ces mondes déjà chargés, immuables et identiques sur tous les
+clients : aucune attente de chargement pendant la partie, et un rollback qui remonte avant le
+passage ressuscite l'ancien niveau. Hors `Floors`, la carte unique est le monde `FloorWorld(0)`
+et le chargement est inchangé.
+
+**Bots.** `BotView::portal` : un bot `fonceur` ou `prudent` sans ennemi visible marche vers le
+portail ouvert (ligne droite, sans pathfinding : les niveaux du testbed sont des salles
+ouvertes).
+
+**Limites connues.** Les `RoomBounds` des niveaux non courants existent aussi (mondes
+superposés) : les spawners de vagues (`ZombieSpawn`) ne sont pas pris en charge en `Floors`.
+Restart p2p : non supporté (comme `Waves`). Pas d'arrêt `--until-floor` dans `alacod-sim`
+(T1.14).
+
 ## 18. Équilibrage par joueurs (F5)
 
 **Décision (D25, le 2026-10-03) : F5 appartient à M0** — le plan §6 liste F5 dans le jalon M0

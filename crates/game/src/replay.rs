@@ -75,6 +75,12 @@ pub struct Scenario {
     /// les scénarios existants.
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub powerup_drop_chance_override: Option<Fixed>,
+    /// Mode `Floors` imposé (T1.8) : id d'une séquence de niveaux du dossier `Floors` du jeu
+    /// (`content::registry::FloorsConfigId`). La partie joue alors cette séquence quel que
+    /// soit `entry.mode` (`game::run_state::FloorsOverride`), et `map` est ignorée (le premier
+    /// niveau de la séquence la remplace). `None` (défaut) : mode du manifeste.
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub floors: Option<String>,
 }
 
 /// Placement scripté d'un power-up (T2.5) : fait apparaître le power-up `id` (clé de

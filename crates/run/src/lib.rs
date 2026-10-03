@@ -10,11 +10,13 @@
 //! `game::run` (le module qui branche [`Run`]/[`RunModeRules`] sur la simulation).
 
 pub mod currency;
+pub mod floors;
 pub mod modes;
 pub mod perks;
 pub mod run;
 
 pub use currency::{Currency, CurrencyEvent, RunPlugin};
+pub use floors::FloorState;
 pub use modes::{RunContext, RunModeRules};
 pub use perks::Perks;
 pub use run::{Run, RunEnd, RunMode, RunStep, RunSummary};

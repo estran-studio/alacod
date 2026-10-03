@@ -14,6 +14,7 @@ pub fn add_room_component_to_ldtk_level(
     levels: Query<(Entity, &LevelIid)>,
     projects: Query<&LdtkProjectHandle>,
     project_assets: Res<Assets<LdtkProject>>,
+    slots: crate::game::floors::FloorSlots,
     mut commands: Commands,
 ) {
     for level_event in level_events.read() {
@@ -21,8 +22,15 @@ pub fn add_room_component_to_ldtk_level(
             for (entity, level_iid) in levels.iter() {
                 // println!("spawn level {} {}", entity, level_iid);
 
+                // T1.8 : le projet du monde de ce niveau (un monde par niveau en `Floors`).
+                let Some(world) = slots.world_of(entity) else {
+                    continue;
+                };
+                let Ok(project) = projects.get(world) else {
+                    continue;
+                };
                 let level_data = project_assets
-                    .get(projects.single().unwrap())
+                    .get(project)
                     .expect("project asset should be loaded if levels are spawned")
                     .get_raw_level_by_iid(&level_iid.to_string())
                     .expect("spawned level should exist in the loaded project");

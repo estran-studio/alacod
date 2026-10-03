@@ -31,6 +31,7 @@ fn two_fonceurs(frames: u32) -> Scenario {
         invariants: Default::default(),
         powerups: vec![],
         powerup_drop_chance_override: None,
+        floors: None,
     }
 }
 

@@ -1,0 +1,11 @@
+// Fixture T1.8 : `entry.mode: Floors` explicite sans aucun dossier de contenu `Floors`
+// (`lint::lint_entry_point`) : LintErrorKind::BrokenReference.
+(
+    name: "fixture-entry-mode-floors-without-floors",
+    content_folders: [],
+    entry: (
+        start_map: "unused",
+        default_seed: 1,
+        mode: Floors,
+    ),
+)

@@ -36,6 +36,8 @@ pub struct RecordedSettings {
     pub wave_overrides: Option<WaveOverride>,
     pub powerups: Vec<PowerUpPlacement>,
     pub powerup_drop_chance_override: Option<Fixed>,
+    /// T1.8 : séquence de niveaux imposée (`Scenario::floors`).
+    pub floors: Option<String>,
 }
 
 impl Default for RecordedSettings {
@@ -48,6 +50,7 @@ impl Default for RecordedSettings {
             wave_overrides: None,
             powerups: vec![],
             powerup_drop_chance_override: None,
+            floors: None,
         }
     }
 }
@@ -61,6 +64,7 @@ impl RecordedSettings {
             wave_overrides: scenario.wave_overrides.clone(),
             powerups: scenario.powerups.clone(),
             powerup_drop_chance_override: scenario.powerup_drop_chance_override,
+            floors: scenario.floors.clone(),
         }
     }
 }
@@ -130,6 +134,7 @@ impl InputRecorder {
             invariants: Default::default(),
             powerups: settings.powerups,
             powerup_drop_chance_override: settings.powerup_drop_chance_override,
+            floors: settings.floors,
         };
         if let Some(map) = map {
             scenario.map = map.map_path.clone();
@@ -253,6 +258,7 @@ mod tests {
                 at_frame: 10,
             }],
             powerup_drop_chance_override: Some(Fixed::ZERO),
+            floors: Some("deux_niveaux".into()),
         };
         let mut recorder = InputRecorder::new(settings.clone());
         recorder

@@ -1,0 +1,12 @@
+// Fixture T1.8 : un niveau de la séquence ne désigne aucune carte chargée
+// (`lint::lint_floors`) : LintErrorKind::BrokenReference.
+(
+    name: "fixture-floors-unknown-map",
+    content_folders: [
+        (path: "floors", kind: "Floors"),
+    ],
+    entry: (
+        start_map: "unused",
+        default_seed: 1,
+    ),
+)

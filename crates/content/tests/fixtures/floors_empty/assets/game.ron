@@ -1,0 +1,12 @@
+// Fixture T1.8 : séquence de niveaux sans niveau (`lint::lint_floors`) :
+// LintErrorKind::OutOfRange.
+(
+    name: "fixture-floors-empty",
+    content_folders: [
+        (path: "floors", kind: "Floors"),
+    ],
+    entry: (
+        start_map: "unused",
+        default_seed: 1,
+    ),
+)

@@ -104,6 +104,7 @@ pub fn read_bot_inputs(
     local_inputs: Option<ResMut<LocalInputs<PeerConfig>>>,
     mut rng_streams: ResMut<RngStreams>,
     wave: Option<Res<WaveState>>,
+    floor_state: Option<Res<run::FloorState>>,
     players: Query<
         (
             &GgrsNetId,
@@ -131,6 +132,9 @@ pub fn read_bot_inputs(
     };
 
     let wave_number = wave.map_or(0, |w| w.current_wave);
+    let portal = floor_state
+        .filter(|state| state.portal_open)
+        .and_then(|state| state.anchor_vec());
     let enemies_sorted = order_iter!(enemies);
     let windows_sorted = order_iter!(windows);
 
@@ -193,6 +197,7 @@ pub fn read_bot_inputs(
             wave: wave_number,
             nearest_enemy,
             nearest_window,
+            portal,
         };
 
         let input = decide_with_lazy_rng(&mut rng_streams, profile, &view);

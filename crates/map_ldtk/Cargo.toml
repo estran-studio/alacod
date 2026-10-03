@@ -11,6 +11,9 @@ bevy_ggrs = "0.22.0"
 bevy_fixed = { path = "../bevy_fixed"}
 map = { path = "../map"}
 game = { path = "../game"}
+content = { path = "../content"}
+run = { path = "../run"}
+combat = { path = "../combat"}
 sim_core = { path = "../sim_core"}
 utils = { path = "../utils"}
 

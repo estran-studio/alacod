@@ -39,6 +39,9 @@ pub struct BotView {
     pub wave: u32,
     pub nearest_enemy: Option<EnemyView>,
     pub nearest_window: Option<WindowView>,
+    /// Portail ouvert du mode `Floors` (T1.8, `run::FloorState`), `None` sinon (portail fermé,
+    /// ou autre mode) : un bot sans ennemi s'y rend pour passer au niveau suivant.
+    pub portal: Option<FixedVec2>,
 }
 
 /// Choisit l'élément le plus proche parmi `candidates` (distance, puis `GgrsNetId.0` comme

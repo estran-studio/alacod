@@ -84,6 +84,11 @@ impl Plugin for RunPlugin {
             .rollback_and_trace::<Perks>();
         app.add_frame_events::<CurrencyEvent>();
         app.rollback_and_trace_resource::<Run>();
+        // T1.8 : état du mode `Floors`, toujours présent (valeur par défaut hors `Floors`).
+        // Checksum neutre : la valeur par défaut contribue `0` au checksum GGRS, les traces
+        // des autres modes restent identiques (voir la doc de `FloorState`).
+        app.init_resource::<crate::floors::FloorState>();
+        app.rollback_and_trace_resource_neutral::<crate::floors::FloorState>();
     }
 }
 
