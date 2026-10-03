@@ -12,6 +12,7 @@
 use std::{collections::BTreeMap, path::PathBuf};
 
 use bevy::prelude::*;
+use bevy_fixed::fixed_math::Fixed;
 use bevy_ggrs::{LocalInputs, ReadInputs};
 use map::generation::config::MapGenerationConfig;
 use utils::frame::FrameCount;
@@ -21,18 +22,69 @@ use crate::{
         input::{read_local_inputs, BoxInput},
         jjrs::PeerConfig,
     },
-    replay::{PlayerScript, Scenario, Segment},
+    replay::{PlayerScript, PowerUpPlacement, Scenario, Segment, WaveOverride, WeaponOverride},
 };
 
+/// Réglages de la partie qui ne passent pas par les inputs mais changent la simulation
+/// rejouée (D19) : l'enregistreur les reçoit à sa construction et [`InputRecorder::
+/// to_scenario`] les reporte tels quels. Avant D19, `to_scenario` ne les connaissait pas et
+/// `scenario::runner::run_with_options` les recopiait après coup dans le scénario enregistré.
+#[derive(Debug, Clone, PartialEq)]
+pub struct RecordedSettings {
+    pub game: String,
+    pub weapon_overrides: Vec<WeaponOverride>,
+    pub wave_overrides: Option<WaveOverride>,
+    pub powerups: Vec<PowerUpPlacement>,
+    pub powerup_drop_chance_override: Option<Fixed>,
+}
+
+impl Default for RecordedSettings {
+    /// Une partie jouée (`ALACOD_RECORD`, contrôle remote) : aucun réglage de scénario.
+    fn default() -> Self {
+        Self {
+            // TODO(T1.5) : lire le jeu courant depuis son manifeste, pas en dur
+            game: "zombies".into(),
+            weapon_overrides: vec![],
+            wave_overrides: None,
+            powerups: vec![],
+            powerup_drop_chance_override: None,
+        }
+    }
+}
+
+impl RecordedSettings {
+    /// Les réglages d'un scénario joué par `scenario::runner`.
+    pub fn from_scenario(scenario: &Scenario) -> Self {
+        Self {
+            game: scenario.game.clone(),
+            weapon_overrides: scenario.weapon_overrides.clone(),
+            wave_overrides: scenario.wave_overrides.clone(),
+            powerups: scenario.powerups.clone(),
+            powerup_drop_chance_override: scenario.powerup_drop_chance_override,
+        }
+    }
+}
+
 /// Inputs des joueurs locaux, par frame puis par handle.
-#[derive(Resource, Default)]
+#[derive(Resource)]
 pub struct InputRecorder {
     frames: BTreeMap<u32, BTreeMap<usize, BoxInput>>,
     /// Fichier écrit à la fermeture du jeu.
     pub path: Option<PathBuf>,
+    /// Reportés dans le scénario enregistré (D19).
+    settings: RecordedSettings,
 }
 
 impl InputRecorder {
+    /// Enregistreur vide, écrit à la fermeture dans `ALACOD_RECORD` s'il est défini.
+    pub fn new(settings: RecordedSettings) -> Self {
+        Self {
+            frames: BTreeMap::new(),
+            path: std::env::var("ALACOD_RECORD").ok().map(PathBuf::from),
+            settings,
+        }
+    }
+
     /// Nombre de frames enregistrées (dernière frame + 1).
     pub fn frame_count(&self) -> u32 {
         self.frames.keys().next_back().map_or(0, |f| f + 1)
@@ -65,21 +117,19 @@ impl InputRecorder {
             })
             .collect();
 
+        let settings = self.settings.clone();
         let mut scenario = Scenario {
-            // TODO(T1.5) : lire le jeu courant depuis son manifeste, pas en dur
-            game: "zombies".into(),
+            game: settings.game,
             map: "exemples/test_map.ldtk".into(),
             map_seed: 123456,
             frames: self.frame_count(),
             players,
             expect: vec![],
-            weapon_overrides: vec![],
-            wave_overrides: None,
+            weapon_overrides: settings.weapon_overrides,
+            wave_overrides: settings.wave_overrides,
             invariants: Default::default(),
-            // Un enregistrement ne place jamais de power-up ni ne force la chance de drop
-            // (T2.5) : comportement inchangé, comme les autres champs ci-dessus.
-            powerups: vec![],
-            powerup_drop_chance_override: None,
+            powerups: settings.powerups,
+            powerup_drop_chance_override: settings.powerup_drop_chance_override,
         };
         if let Some(map) = map {
             scenario.map = map.map_path.clone();
@@ -134,17 +184,16 @@ pub struct RecordingPlugin;
 
 impl Plugin for RecordingPlugin {
     fn build(&self, app: &mut App) {
-        app.insert_resource(InputRecorder {
-            frames: BTreeMap::new(),
-            path: std::env::var("ALACOD_RECORD").ok().map(PathBuf::from),
-        })
-        .add_systems(ReadInputs, record_local_inputs.after(read_local_inputs))
-        // Après l'arrêt demandé par la trace d'état : l'app s'arrête à la fin de l'update
-        // qui émet AppExit, le message doit être lu dans le même update
-        .add_systems(
-            Last,
-            write_recording_on_exit.after(crate::state_trace::ExitRequests),
-        );
+        // Une partie jouée n'a aucun réglage de scénario ; `scenario::runner` remplace cette
+        // ressource par `InputRecorder::new(RecordedSettings::from_scenario(..))` (D19).
+        app.insert_resource(InputRecorder::new(RecordedSettings::default()))
+            .add_systems(ReadInputs, record_local_inputs.after(read_local_inputs))
+            // Après l'arrêt demandé par la trace d'état : l'app s'arrête à la fin de l'update
+            // qui émet AppExit, le message doit être lu dans le même update
+            .add_systems(
+                Last,
+                write_recording_on_exit.after(crate::state_trace::ExitRequests),
+            );
     }
 }
 
@@ -184,5 +233,42 @@ fn write_recording_on_exit(
             recorder.frame_count()
         ),
         Err(err) => error!("écriture de l'enregistrement {path:?} : {err}"),
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn to_scenario_reporte_les_reglages_recus_a_la_construction() {
+        let settings = RecordedSettings {
+            game: "testbed".into(),
+            weapon_overrides: vec![],
+            wave_overrides: None,
+            powerups: vec![PowerUpPlacement {
+                id: "max_ammo".into(),
+                x: Fixed::from_num(423),
+                y: Fixed::from_num(695),
+                at_frame: 10,
+            }],
+            powerup_drop_chance_override: Some(Fixed::ZERO),
+        };
+        let mut recorder = InputRecorder::new(settings.clone());
+        recorder
+            .frames
+            .insert(0, [(0, BoxInput::default())].into_iter().collect());
+        let scenario = recorder.to_scenario(None);
+        assert_eq!(scenario.game, "testbed");
+        assert_eq!(scenario.powerups, settings.powerups);
+        assert_eq!(scenario.powerup_drop_chance_override, Some(Fixed::ZERO));
+        assert_eq!(RecordedSettings::from_scenario(&scenario), settings);
+
+        // Partie jouée : réglages par défaut, comme avant D19.
+        let played = InputRecorder::new(RecordedSettings::default()).to_scenario(None);
+        assert_eq!(played.game, "zombies");
+        assert!(played.powerups.is_empty() && played.weapon_overrides.is_empty());
+        assert_eq!(played.wave_overrides, None);
+        assert_eq!(played.powerup_drop_chance_override, None);
     }
 }

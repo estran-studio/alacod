@@ -83,7 +83,7 @@ pub struct Scenario {
 /// champ de contenu) mais appliquée pendant la simulation (`GgrsSchedule`, pas `Update`) :
 /// un placement doit apparaître à une frame précise et rester rollback-safe, comme un
 /// spawn d'ennemi de vague — voir `scenario::runner::apply_scenario_powerup_placements`.
-#[derive(Debug, Clone, Serialize, Deserialize)]
+#[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
 pub struct PowerUpPlacement {
     pub id: String,
     pub x: Fixed,
@@ -128,7 +128,7 @@ impl Invariants {
 }
 
 /// Remplace des valeurs de chargeur d'une arme, pour tous ses modes ou un seul.
-#[derive(Debug, Clone, Serialize, Deserialize)]
+#[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
 pub struct WeaponOverride {
     pub weapon: String,
     #[serde(default, skip_serializing_if = "Option::is_none")]
@@ -162,7 +162,7 @@ pub struct WeaponOverride {
 /// d'ennemis, plus tôt) ; `max_concurrent_enemies` s'y ajoute parce que sans lui la config
 /// par défaut (20) plafonne les ennemis *vivants en même temps* bien en dessous de
 /// `base_enemies` — la file d'attente grossirait sans jamais stresser la grille comme voulu.
-#[derive(Debug, Clone, Serialize, Deserialize)]
+#[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
 pub struct WaveOverride {
     /// Vague qui déclenche la victoire du mode Waves (T3.1, scénarios du clone).
     /// Absent : conserve la condition de fin définie par le jeu.
