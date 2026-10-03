@@ -78,7 +78,6 @@ impl Plugin for WaveSystemPlugin {
         // Rollback registration
         app.rollback_and_trace_resource::<WaveState>();
         app.rollback_and_trace::<WaveEnemy>();
-        app.rollback_and_trace::<tracking::SpawnFallback>();
 
         // Wave state and spawning systems run in EnemySpawning set
         // Use ambiguous_with to mark intentional ambiguity with old spawner

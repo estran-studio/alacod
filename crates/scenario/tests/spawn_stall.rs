@@ -47,8 +47,24 @@ fn empty_distance_range_spawns_after_deadline_without_desync() {
     );
     assert!(outcome.failures.is_empty(), "{:?}", outcome.failures);
     let dump = outcome.softlock.expect("snapshot at frame limit");
-    assert_eq!(dump.previous.unwrap().wave.enemies_spawned_this_wave, 0);
+    let before = dump.previous.unwrap();
+    assert_eq!(before.wave.enemies_spawned_this_wave, 0);
+    assert!(!before.wave.spawn_fallback);
     assert_eq!(dump.final_state.wave.enemies_spawned_this_wave, 3);
     assert_eq!(dump.final_state.wave.enemies_to_spawn, 0);
     assert_eq!(dump.final_state.wave.phase, WavePhase::InProgress);
+    assert!(dump.final_state.wave.spawn_fallback);
+
+    // Recovery is checksum-visible, and the next wave restores ordinary selection.
+    use std::hash::{Hash, Hasher};
+    let mut wave = dump.final_state.wave.clone();
+    let mut active = std::collections::hash_map::DefaultHasher::new();
+    wave.hash(&mut active);
+    wave.spawn_fallback = false;
+    let mut inactive = std::collections::hash_map::DefaultHasher::new();
+    wave.hash(&mut inactive);
+    assert_ne!(active.finish(), inactive.finish());
+    wave.spawn_fallback = true;
+    wave.prepare_next_wave(3, Fixed::ONE, Fixed::ONE);
+    assert!(!wave.spawn_fallback);
 }
