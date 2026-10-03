@@ -531,7 +531,9 @@ région des chantiers puis la campagne.
   rejouées par l'orchestrateur : traces identiques, même sha256.
 - m0-v10 : mergée (`7650f86`) ; aucune trace changée (zéro ligne Rust) ; recette du profil docker
   allumette rejouée par l'orchestrateur en N=2 et N=4 : N=2 sha256 `55ec099d…` identique à m0-v9,
-  N=4 quatre traces identiques.
+  N=4 quatre traces identiques. Fix-up `m0-v10b-down-profile` (`77d652c`) : `--profile allumette`
+  sur les trois `down` de nightly.sh (le conteneur profilé survivait sinon à l'arrêt du nightly —
+  piège signalé par b0 elle-même après CLOS).
 - m1-v1a : en cours — projectiles composables (T1.1) + attentes `BulletCount`/`HitsAtLeast`,
   branche `m1-v1a-projectiles-composables`, session cloud c1.
 - m1-v1e : en cours — mode `Floors` (T1.8) + attente `FloorIndex`, branche
