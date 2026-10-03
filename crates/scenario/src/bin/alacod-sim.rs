@@ -10,6 +10,7 @@
 //! - `--profiles a,b,...` : un profil par bot ; défaut : `acheteur` pour tous les bots.
 //!   Les profils v0 restent disponibles : `fonceur,fonceur,prudent,immobile`.
 //! - `--map <fichier.ldtk>` : carte explicite relative aux assets du jeu ; sinon `start_map`.
+//! - `--progress` : état de la vague toutes les 1000 frames, hors simulation.
 //! - `--seeds A..B` : graines `A` à `B` **inclusivement** (`1..50` = 50 graines, la carte est
 //!   générée avec `map_seed = graine`).
 //! - Un scénario est construit en mémoire par graine (`frames: max_frames`, un `PlayerScript` par
@@ -165,6 +166,9 @@ fn main() {
             &run_scenario,
             |app| {
                 app.insert_resource(InputSource::Bot);
+                if args.iter().any(|arg| arg == "--progress") {
+                    app.add_systems(bevy::prelude::Last, print_progress);
+                }
             },
             Some(stop_early),
         );
@@ -226,6 +230,24 @@ fn main() {
              pas à masquer (voir le scénario sauvé avec --save-scenario et la frame en cause)"
         );
         std::process::exit(1);
+    }
+}
+
+fn print_progress(
+    frame: bevy::prelude::Res<utils::frame::FrameCount>,
+    wave: bevy::prelude::Res<game::waves::WaveState>,
+    nav: bevy::prelude::Res<bots::navigation::BotNavigation>,
+) {
+    if frame.frame > 0 && frame.frame % 1000 == 0 {
+        eprintln!(
+            "progress frame={} wave={} phase={:?} remaining={} kills={} nav_cells={}",
+            frame.frame,
+            wave.current_wave,
+            wave.phase,
+            wave.enemies_to_spawn,
+            wave.total_enemies_killed,
+            nav.field.costs.len()
+        );
     }
 }
 
