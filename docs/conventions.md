@@ -699,13 +699,17 @@ terre), produites par `play_scenario --capture` (voir `CLAUDE.md` § Vidéos).
 Les profils RON `chasseur` et `acheteur` complètent `immobile`, `fonceur` et `prudent`.
 Les profils v0 gardent leurs décisions. `alacod-sim --bots 4 --seeds 1..20 --until-wave 5`
 utilise quatre `acheteur` par défaut ; `--profiles` permet les deux générations.
+Pour comparer avec le digest M0, préciser `--map exemples/test_map.ldtk` : sans cet
+argument, le manifeste choisit maintenant `maps/avant_poste.ldtk`.
 
 `crates/bots/src/navigation.rs` réutilise `FlowField` et `GridPos` pour un Dijkstra
 multi-source vers des postes de tir autour des ennemis, sur une grille physique de 8 px.
 Le corps et son offset sont pris en compte ; murs, portes fermées et fenêtres, même cassées,
 bloquent le mouvement du joueur. Les fenêtres permettent le tir. Les cibles sont triées par
 `GgrsNetId`, et les diagonales ne coupent pas les coins. Le cache se reconstruit quand la
-position en grille d'un ennemi, les colliders ou le corps changent. Il est dérivé dans
+position en grille d'un ennemi, les colliders ou le corps changent. Le calcul se limite
+à la composante physique accessible au joueur ; les champs d'approche restent en cache
+tant que leurs clés et cette composante sont identiques. Il est dérivé dans
 `ReadInputs`, hors simulation rollback, comme les inputs v0 : aucune décision ni RNG caché,
 aucune ressource de jeu supplémentaire dans la trace. Le rejeu en `Scripted` capture
 les inputs décidés et doit produire la même trace.
@@ -721,6 +725,20 @@ Les interactions passent par le bouton existant : les règles de solde, coût, c
 réanimation restent celles du jeu. Les unitaires couvrent navigation et décisions ;
 `crates/scenario/tests/bots.rs` vérifie le rejeu v0 et v1.
 
+Le déplacement du joueur résout un mouvement diagonal bloqué en faisant glisser X,
+puis en vérifiant Y à la position X obtenue. Vérifier les deux axes depuis la position
+initiale pouvait autoriser leur combinaison à entrer dans le coin d'un mur.
+
+En phase `Spawning`, après 600 frames sans spawn depuis le dernier spawn ou le début
+de phase, une plage de distance vide utilise le spawner le plus proche d'un joueur
+(égalité départagée par `GgrsNetId`). Les spawners dans la plage normale restent
+prioritaires. Le composant rollback et tracé `SpawnFallback(current_wave)` n'est ajouté
+qu'au déclenchement du secours : il maintient ensuite la cadence normale pour cette
+vague, sans modifier les traces des vagues qui n'en ont pas besoin. La limite d'ennemis
+simultanés et la taille des lots restent appliquées. Le test synctest
+`crates/scenario/tests/spawn_stall.rs` force une plage vide et vérifie trois spawns,
+sans desync, plutôt qu'un retour indéfini du système.
+
 ## Notes essentielles
 
 **À vérifier** : l'entité `CrateLocation` n'est pas lue actuellement (`WeaponLocation`/`SodaLocation` le sont depuis T2.3, voir §1 ci-dessus). Elle apparaît dans `crates/map_ldtk/src/map_const.rs` (constante) mais aucun bundle Bevy ne la traite (`entity/*.rs` ne la liste pas). Avant d'utiliser une carte avec une entité nouvellement lue, vérifier que `make test_scenarios` accepte un scénario `idle` dessus.
@@ -732,4 +750,3 @@ réanimation restent celles du jeu. Les unitaires couvrent navigation et décisi
 **Fixed-point** : les valeurs `Fixed` s'écrivent en chaîne (`"100.0"`). Les entiers (`frames`, `GridPos`) ne sont pas interdits. Aucun `f32` ou `f64` dans les composants rollback. Voir `CLAUDE.md` Déterminisme, règle 1.
 
 **Tests et scénarios** : `make test_scenarios` vérifie que les scénarios passent en synctest (mode déterministe local). Tout changement de code dans `GgrsSchedule` peut casser les traces `.trace` ; rebase sur `main` chaque jour et revalidate en CI rapide. Les seules voies autorisées à changer les traces : V1 (simulation), justifié par `BLESS=1` en commit.
-
