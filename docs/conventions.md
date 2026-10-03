@@ -486,7 +486,7 @@ Enregistrer un nouveau composant/ressource en rollback (`RollbackTraceApp`) chan
 
 **Perks** (`SodaLocation`, §1, kind de contenu `Perk`, `games/<jeu>/assets/economy/perks.ron`) : table `{ "id": (name: "...", price: N, modifiers: [(stat: ..., op: ..., value: "...")]) }` (fichier RON, newtype sur la table — parenthèse ouvrante/fermante autour de tout le fichier, comme `weapons.ron`). Achat = interaction (`InteractionType::Perk`) sur une entité `economy::PerkMachine` ; un seul achat par perk et par joueur (`run::perks::Perks`, `BTreeSet<String>`, vérifié **avant** de débiter — déjà possédé n'émet ni achat ni refus). Modificateurs posés permanents (`until: None`, `sim_core::modifier::ModifierSource::Named("perk:<id>")`) via `Modifiers::push_from`. Un perk qui relève `MaxHealth` (ex. Juggernog, `Mul "2.0"`) relève aussi `Health.current` de la même différence au moment de l'achat (`sync_health_from_stats`, `RollbackSystemSet::Status`, ne fait que plafonner `current` à la baisse, jamais à la hausse — voir sa doc) : décision propre à l'achat d'un perk (un statut temporaire qui relèverait `MaxHealth` puis expirerait ne doit pas, lui, soigner le joueur).
 
-**Économie RON** (kind de contenu `Economy`, `games/<jeu>/assets/economy/economy.ron`, un seul fichier) : `kill_points` (défaut 60), `hit_points` (défaut 10), `repair_points` (défaut 10), `repair_points_cap_per_wave` (`Option<u32>`, défaut aucun plafond), `refill_price_ratio` (`Fixed` en chaîne, défaut `"0.5"`). Chargé par le registre comme `Wave` (id = nom de fichier). Lint (`content::lint::lint_perks`, `lint_economy`) : `price > 0`, au moins un modificateur, `value > 0` pour un `op: Mul`, id unique dans `perks.ron` ; `refill_price_ratio` dans [0, 1] ; un `StatId` inconnu dans `perks.ron` échoue déjà au chargement RON (pas de variante fourre-tout implicite). Voir le tableau des règles, §3.
+**Économie RON** (kind de contenu `Economy`, `games/<jeu>/assets/economy/economy.ron`, un seul fichier) : `kill_points` (défaut 60), `hit_points` (défaut 10), `repair_points` (défaut 10), `nuke_points` (défaut 400, D17 : crédité à chaque joueur vivant au ramassage d'un nuke), `repair_points_cap_per_wave` (`Option<u32>`, défaut aucun plafond), `refill_price_ratio` (`Fixed` en chaîne, défaut `"0.5"`). Chargé par le registre comme `Wave` (id = nom de fichier). Lint (`content::lint::lint_perks`, `lint_economy`) : `price > 0`, au moins un modificateur, `value > 0` pour un `op: Mul`, id unique dans `perks.ron` ; `refill_price_ratio` dans [0, 1] ; un `StatId` inconnu dans `perks.ron` échoue déjà au chargement RON (pas de variante fourre-tout implicite). Voir le tableau des règles, §3.
 
 **Scénarios de référence** (`tests/scenarios/`) : `buy_door`, `buy_wall_weapon`, `buy_perk` (sur `games/zombies/assets/exemples/test_map_shop.ldtk`, copie de `test_map.ldtk` avec une `WeaponLocation`/`SodaLocation` dans la salle de départ — `test_map.ldtk` n'en avait pas avant T2.6, qui en a posé quatre de chaque et re-blessé toutes les traces de cette carte), `points_on_kill` et `shop_tour` (sur `test_map.ldtk`). Nouvelles attentes de scénario : `Expectation::Currency { handle, min, max, at_frame }`, `Expectation::Stat { handle, stat, value, at_frame }` (valeur résolue, comme `stats::StatReader`) ; `PlayerScript::currency: Option<u32>` (solde de départ, comme `weapon`).
 
@@ -589,6 +589,18 @@ décrite au §10 ; les résultats figurent dans le rapport de tâche.
 réserve à cette somme sans diminuer une réserve déjà supérieure. Un rechargement en
 cours est annulé pour éviter un débit après le remplissage. Les armes `Magless` ne
 contribuent pas à la réserve, mais leur stock propre est rempli.
+
+**Nuke : points** (D17) : au ramassage, `KillAllWaveEnemies` pousse un
+`economy::PointsCredit::Nuke` par joueur vivant (ordre `GgrsNetId`), pas par ennemi tué ;
+`award_points_system` le résout en fin de frame avec `EconomyConfig::nuke_points` (défaut 400,
+comme CoD) et le multiplicateur de points du joueur (800 sous Double Points). Les ennemis tués
+par le nuke ne rapportent pas de points de kill (`Death { last_hit_by: None }`).
+
+**Rafraîchissement** (D18) : un power-up déjà actif ramassé à nouveau ne se cumule pas
+(Double Points × Double Points ne fait pas × 4). Au ramassage, `apply_powerup_actions_system`
+retire d'abord, sur chaque joueur, les modificateurs de source `powerup:<id>`
+(`Modifiers::remove_by_source`), une fois pour toutes les actions du power-up, puis les
+repose : la durée recommence à la frame du ramassage, comme dans CoD.
 
 **Drop à la mort** (`game::powerups::loot_drop_on_death_system`,
 `RollbackSystemSet::DeathManagement`, `.after(rollback_apply_accumulated_damage)

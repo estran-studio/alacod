@@ -10,6 +10,9 @@
     kill_points: 60,
     hit_points: 10,
     repair_points: 10,
+    // Nuke (D17) : points crédités à chaque joueur vivant au ramassage, une fois par joueur et
+    // non par zombie tué (CoD : 400).
+    nuke_points: 400,
     // Pas de plafond par vague pour les points de réparation (CoD en a un ; laissé ouvert
     // ici, aucun scénario de ce chantier ne dépend d'un plafond précis).
     repair_points_cap_per_wave: None,
