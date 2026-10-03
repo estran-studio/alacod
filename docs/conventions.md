@@ -37,13 +37,41 @@ Référence pour ceux qui créent du contenu (cartes LDtk, sprites RON) et ceux 
 
 ## 2. Sprites et animations
 
-**Format de planche** : grille régulière en PNG, décrite par deux fichiers RON (exemple : `games/zombies/assets/ZombieShooter/Sprites/Zombie/`).
+**Format de planche** : grille régulière en PNG, décrite par deux fichiers RON (exemple : `games/zombies/assets/sprites/enemies/zombie/`).
+
+**Table des feuilles (D3, kind `SpriteSheet`)** : `sprites/sprites.ron`, déclaré dans `game.ron`
+(`(path: "sprites/sprites.ron", kind: "SpriteSheet")`), associe un **id** à une configuration
+d'animation et à ses calques. L'id est celui que le contenu cite : `asset_name_ref` d'un
+personnage, `sprite_config.name` d'une arme à distance, `slash` pour l'effet de coup de mêlée.
+`game::global_asset` charge exactement cette table (aucun chemin de sprite dans le code).
+```ron
+({
+    "player": (
+        animation: "sprites/characters/player/player_animation.ron",
+        layers: {
+            "body": "sprites/characters/player/player_sheet.ron",
+            "shadow": "sprites/characters/shadow/shadow_sheet.ron",
+        },
+    ),
+    "pistol": (
+        animation: "sprites/characters/player/player_animation.ron",
+        layers: { "body": "sprites/weapons/pistol_sheet.ron" },
+    ),
+})
+```
+Feuilles, animations et images sont rangées par entité sous `sprites/` : `characters/` (joueur,
+ombre), `weapons/`, `enemies/`, `effects/`. Un personnage sans entrée n'a pas de sprite (les
+personnages de laboratoire du testbed). Lint : fichiers d'une entrée présents (animation,
+feuilles, image `path` de chaque feuille), `sprite_config.name` d'une arme connu de la table, id
+répété refusé (tableau du §3). Les configs de contenu (`player_config.ron`, `weapons.ron`,
+`zombie_*_config.ron`) restent sous `ZombieShooter/Sprites/**` (dossier historique) : D3 n'a
+déplacé que les sprites.
 
 `SpriteSheetConfig` (`crates/animation/src/lib.rs`, une planche = une couche) :
 - `path` : chemin du PNG relatif au dossier `assets/` du jeu (`games/<jeu>/assets/`).
 - `tile_size` : (largeur, hauteur) en pixels d'une case.
 - `columns`, `rows` : grille de la planche.
-- `anchor` : `Center`, `BottomLeft`, `BottomCenter`, etc. (enum `ConfigurableAnchor`). Les planches actuelles utilisent `Center` avec des `offset_*` (voir `player_sheet.ron`).
+- `anchor` : `Center`, `BottomLeft`, `BottomCenter`, etc. (enum `ConfigurableAnchor`). Les planches actuelles utilisent `Center` avec des `offset_*` (voir `sprites/characters/player/player_sheet.ron`).
 - `offset_x`, `offset_y`, `offset_z` : translation du sprite par rapport à l'entité.
 - `scale` : facteur appliqué au rendu.
 - `animated` : `true` si la planche a plusieurs frames ; `false` sinon.
@@ -78,7 +106,7 @@ Référence pour ceux qui créent du contenu (cartes LDtk, sprites RON) et ceux 
 
 **Armes** (exemple : `games/zombies/assets/weapons/melee/melee_weapons.ron`, table `{ "bare_hands": (...), ... }`) :
 - `config` : `name`, `damage`, `range`, `attack_pattern` (enum : `SingleStrike`, `Combo(strikes_in_combo: N)`, `Sweep(arc_angle)`, `Thrust`), `attack_duration_frames`, `cooldown_frames`, `knockback_force`, `stamina_cost`. Tous les nombres décimaux en chaîne (`"100.0"`).
-- `sprite_config` : `name`, `index` (première frame), `weapon_offset`.
+- `sprite_config` : `name`, `index` (première frame), `weapon_offset`. Pour une arme à distance, `name` est un id de la table `SpriteSheet` (D3).
 
 **Fixed-point** : les valeurs de type `Fixed` s'écrivent en **chaîne** (`"100.0"`, jamais `100` ni `100.0` littéral). Les entiers (`frames`, `mag_size`, indices) s'écrivent nus. La sérialisation Bevy/RON (crate `fixed`) convertit les chaînes en `Fixed` au chargement, garantissant le déterminisme. Exemple : `damage: "10.0"` (Fixed), `attack_duration_frames: 10` (entier). Consulter `CLAUDE.md` §Déterminisme, règle 1 (Fixed-Point Math UNIQUEMENT).
 
@@ -131,7 +159,7 @@ mélangent encore plusieurs kinds dans un même dossier historique
 (`ZombieShooter/Sprites/Character/` contient à la fois `player_config.ron` et des feuilles
 de sprite) : dans ce cas le manifeste déclare le **fichier** précis plutôt que le dossier
 entier (voir `games/zombies/assets/game.ron`). Les kinds connus : `Character`, `Weapon`,
-`MeleeWeapon`, `Wave`, `Map`, `Ui`, `Camera`, `Economy`, `Perk`, `PowerUp`
+`MeleeWeapon`, `Wave`, `Map`, `Ui`, `Camera`, `Economy`, `Perk`, `PowerUp`, `SpriteSheet` (D3)
 (`content::registry::KNOWN_KIND_NAMES`) ; un
 autre kind produit une erreur de lint (« kind inconnu ») plutôt qu'un échec RON générique.
 
@@ -203,6 +231,10 @@ un seul problème en plus de `start_map: "unused"` commun à toutes), un test pa
 | `ui/feedback.ron` | `hit_flash.frames`, `shake.frames` > 0 (T3.4) | `OutOfRange` | `feedback_frames_zero` |
 | `ui/feedback.ron` | `shake.amplitude >= 0` (T3.4, zéro désactive la secousse) | `OutOfRange` | `feedback_amplitude_negative` |
 | `ui/feedback.ron` | chaque fichier de `sounds` présent sous `assets/` (T3.4) | `BrokenReference` | `feedback_missing_sound` |
+| feuilles de sprites | `animation` et feuille de chaque calque présentes sous `assets/` (D3) | `BrokenReference` | `sprite_sheet_missing_file` |
+| feuilles de sprites | image (`path`) de chaque feuille présente sous `assets/` (D3) | `BrokenReference` | `sprite_sheet_missing_image` |
+| feuilles de sprites | id répété dans `sprites/sprites.ron` (D3) | `DuplicateId` | `sprite_sheet_duplicate_key` |
+| arme | `sprite_config.name` absent de la table `SpriteSheet`, si le jeu en déclare une (D3) | `BrokenReference` | `weapon_sprite_unknown` |
 
 Les enums fermés (`FriendlyFire`, `ModifierOp`, `Action`) et les variantes nues inconnues des
 enums ouverts (`AmmoType`, `StatId`, qui n'acceptent un nom libre que sous `Custom("...")`)
@@ -242,7 +274,7 @@ Exemple : ajouter un nouveau type d'ennemi, un effet, ou un statut. Suivre ce fl
 5. **Flux RNG dédié** (plan §4.6) : si le vocabulaire utilise l'aléatoire (variantes, direction), créer un `stream` unique (ex. `RNG.stream("status")`). Consommer le RNG dans un ordre déterministe (après tri par `GgrsNetId`), jamais à la première occurrence.
 6. **FrameEvents** : tous les événements émis (impact, mort, soin) passent par `FrameEvents<T>` (`crates/game/src/frame_events.rs`). Lus par les systèmes de la simulation (`GgrsSchedule`), ordonnés après l'émetteur. La présentation en dérive (`Update`, jamais d'événements), restant juste après un rollback.
 7. **Scénario et trace** : `make test_scenarios SCENARIO=<nom>` sans `BLESS` la première fois. Si divergence, corriger le code. Une fois vert : `BLESS=1 make test_scenarios SCENARIO=<nom>` écrit la trace de référence. Cette trace est comparée à chaque commit.
-8. **Vidéo et validation** : `make videos SCENARIO=<nom>` produit la vidéo dans `target/videos/<commit>/` ; pour regarder des images fixes, `cargo run -p scenario --features render --bin play_scenario -- tests/scenarios/<nom>.ron --capture <dossier> --every 2` (PNG 960×540, une image toutes les 2 frames). Moments clés détectés (vague, kills, coups reçus, morts, rechargements, changements d'arme, fenêtres, portes) visibles et cliquables dans la page de revue.
+8. **Vidéo et validation** : `make videos SCENARIO=<nom>` produit la vidéo dans `target/videos/<commit>/` ; pour regarder des images fixes, `cargo run -p scenario --features render --bin play_scenario -- tests/scenarios/<nom>.ron --capture <dossier> --every 2` (PNG 960×540, une image toutes les 2 frames). Moments clés détectés (vague, kills, coups reçus, morts, rechargements, changements d'arme, fenêtres, portes, armes lâchées/ramassées, power-ups, victoire/défaite/abandon) visibles et cliquables dans la page de revue.
 9. **Doc** : ajouter une ligne ou un paragraphe à `docs/conventions.md` décrivant le kind, ses champs, les attentes, les invariants, et les fichiers lus.
 
 ---
@@ -304,7 +336,7 @@ et de ramassage et le chargement des armes murales restent dans `game`/`map_ldtk
 | `make play_scenario SCENARIO=<nom>` | Rejoue le scénario avec rendu (l'option `--follow <handle>` du binaire suit un joueur) |
 | `make record_session NAME=<nom>` | Enregistre une partie en scénario |
 | `make remote [HEADLESS=1]` | Lance une partie en pause, pilotée par `scripts/alacod-remote` |
-| `make videos [SCENARIO=<nom>]` | Encode les scénarios en vidéos (960×540, `target/videos/<commit>/`) |
+| `make videos [SCENARIO=<nom>]` | Encode les scénarios en vidéos (960×540, `target/videos/<commit>/`) ; plusieurs noms : `SCENARIO=a,b` ou `SCENARIO="a b"` ; `DRY_RUN=1` liste sans compiler (D23) |
 | `make review_videos [TAILSCALE=1]` | Serveur de revue des vidéos (`localhost:8766`) |
 | `make diff_log CID_1=alice CID_2=bob` | Compare les logs d'état entre deux clients (déterminisme) |
 
@@ -516,6 +548,8 @@ Ressources GGRS internes (`RollbackFrameCount`, `ConfirmedFrameCount`, `MaxPredi
 
 **Restart en p2p** : non supporté par ce chantier — `apply_run_request_system` redirige `Restart` vers `ToLobby` quand `OnlineState::Online` (le bouton « renvoie au lobby », averti par un `warn!`).
 
+**Abandon et lobby local (D13)** : quitter vers le lobby une partie encore en cours la termine en `Ended { outcome: Abandon }` **avec son résumé** (`apply_run_request_system`, mêmes champs qu'une défaite via le calcul partagé `run_summary`). Un retour au lobby **local** pose `LocalLobbyHold { summary }` (hors rollback) : `setup_ggrs_local` attend qu'elle disparaisse (condition dans `core.rs`), l'écran du lobby (`ui/lobby.rs`) affiche le résumé de la partie quittée et la retire sur Entrée ou « Nouvelle partie ». Au premier lancement, pas de `LocalLobbyHold` : le lobby local démarre aussitôt, comme avant (scénarios, `make zombies`). Décision pure testée : `run_state::plan_run_request`.
+
 **Scénarios et tests** : `run_lose_summary` (deux joueurs immobiles sur `test_map.ldtk`, même mise en scène que `downed_all_lose` — défaite complète à f1505) vérifie `RunState(step: Ended(Defeat), at_frame: ...)` et `RunSummary(wave_reached_min: 1, kills_min: 0, at_frame: ...)`. Nouvelles attentes de scénario : `Expectation::RunState { step: RunStepExpectation::{Playing, Ended(RunEnd)}, at_frame }` (vérification ponctuelle, comme `PlayerAlive` — `RunStep::Ended` ne change plus une fois posé) et `Expectation::RunSummary { wave_reached_min, kills_min, at_frame }` (bornes inférieures, échoue si `Run.summary` est encore `None`). `crates/scenario/tests/run.rs` : test d'intégration qui pilote `App::update()` directement (pas via `Scenario::expect`) — joue `idle` jusqu'à la défaite, pose `RunRequest::Restart`, mesure le temps mural jusqu'au retour en `InGame` à la frame 0 (doit rester sous dix secondes), rejoue 300 frames et compare la trace d'état (`StateTraceRecorder::lines_until`) à celle des 300 premières frames de la première partie — identiques si la relance n'a rien laissé traîner. `ToLobby` : vérifié au moins pour le changement d'état (`AppState` devient `LobbyLocal`).
 
 ## 14. Power-ups (T2.5, chantier C1 v0)
@@ -687,6 +721,9 @@ Par widget : `background`.
 - Les noms des perks et des power-ups viennent de leur propre contenu (`name` de `perks.ron`
   et de `items/powerups.ron`), pas de `hud.ron`.
 - Prix « en icône » : préfixe `$` devant le montant (`Ouvrir — $750`).
+- Valeur absente (D22) : les sources du joueur (`health`, `ammo`, `weapon`, `currency`)
+  n'affichent rien quand il n'existe plus (mort) ou n'a pas d'arme, pas même leur préfixe :
+  plus de « $ » ni de « ? | ? » sur le HUD d'un joueur mort.
 - Placement : les textes de debug (`Wave 1 | PREP …` en bas à gauche, caméra en haut à
   gauche) occupent le bas de l'écran jusqu'à ~75 px : les perks (80) et le prompt (110) sont
   placés au-dessus. L'écran de fin utilise la même police (`ui/game_over.rs`).
