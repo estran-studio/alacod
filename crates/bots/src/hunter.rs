@@ -5,7 +5,7 @@ use bevy::prelude::*;
 use bevy_fixed::fixed_math::{Fixed, FixedTransform3D, FixedVec2};
 use bevy_ggrs::{LocalInputs, LocalPlayers, Rollback};
 use combat::{downed::Downed, inventory::AmmoReserves};
-use game::character::enemy::ai::navigation::AgentBody;
+use game::character::enemy::ai::{navigation::AgentBody, EnemyAiConfig};
 use game::character::player::input::{BoxInput, INPUT_INTERACTION, INPUT_RELOAD};
 use game::character::{
     enemy::Enemy,
@@ -83,7 +83,11 @@ pub struct HunterWorld<'w, 's> {
     enemies: Query<
         'w,
         's,
-        (&'static GgrsNetId, &'static FixedTransform3D),
+        (
+            &'static GgrsNetId,
+            &'static FixedTransform3D,
+            &'static EnemyAiConfig,
+        ),
         (With<Enemy>, With<Rollback>),
     >,
     geometry: Query<
@@ -148,7 +152,11 @@ pub fn read_hunter_inputs(
     };
     let enemies: Vec<_> = order_iter!(state.enemies)
         .into_iter()
-        .map(|(id, t)| (id.0, t.translation.truncate()))
+        .map(|(id, t, _)| (id.0, t.translation.truncate()))
+        .collect();
+    let activation: Vec<_> = order_iter!(state.enemies)
+        .into_iter()
+        .map(|(id, t, ai)| (id.0, t.translation.truncate(), ai.aggro_range))
         .collect();
     let geometry: Vec<_> = order_iter!(state.geometry)
         .into_iter()
@@ -243,6 +251,20 @@ pub fn read_hunter_inputs(
             .min_by_key(|(id, p)| (position.distance(p), *id));
         view.target = shootable.or(nearest).map(|(_, p)| *p);
         view.can_fire = shootable.is_some() && ammo > 0;
+        let chase = nav.chase(position).or_else(|| {
+            // A zombie outside its aggro radius does not break its window. Approach
+            // within that radius along a physical path, even before a firing post exists.
+            let mut candidates = activation.clone();
+            candidates.sort_by_key(|(id, p, _)| (position.distance(p), *id));
+            candidates.into_iter().find_map(|(_, p, reach)| {
+                nav.approach(
+                    position,
+                    Rect { min: p, max: p },
+                    (reach - Fixed::from_num(24)).max(Fixed::ZERO),
+                )
+                .map(|(direction, _)| direction)
+            })
+        });
         let mut desired = if distance < Fixed::from_num(110) {
             nearest.map_or(FixedVec2::ZERO, |(_, p)| {
                 (position - *p).normalize_or_zero() * Fixed::from_num(32)
@@ -250,7 +272,7 @@ pub fn read_hunter_inputs(
         } else if shootable.is_some() && distance <= range.min(Fixed::from_num(240)) {
             FixedVec2::ZERO
         } else {
-            nav.chase(position).unwrap_or(FixedVec2::ZERO)
+            chase.unwrap_or(FixedVec2::ZERO)
         };
 
         // Réanimer d'abord ; acheteur : refaire le stock, Juggernog, puis porte quand le
@@ -262,63 +284,68 @@ pub fn read_hunter_inputs(
                 let pos = transform.translation.truncate();
                 let rect = c.map_or(Rect { min: pos, max: pos }, |c| Rect::collider(pos, c));
                 let balance = wallet.map_or(0, |w| w.0);
-                let priority_cost = match interactable.interaction_type {
-                    InteractionType::Revive => Some((0, 0)),
-                    InteractionType::Weapon if *profile == BotProfile::Acheteur => {
-                        pickup.and_then(|p| {
-                            if p.can_buy_after_frame.is_some_and(|f| frame.frame < f) {
-                                return None;
-                            }
-                            let owned_index = inventory
-                                .weapons
-                                .iter()
-                                .position(|(_, w)| w.config.name == p.weapon_id);
-                            let owned = owned_index.is_some();
-                            if let Some(index) = owned_index {
-                                let (ammo, reloadable, _) = ammunition[index];
-                                if ammo > 0 || reloadable {
+                let priority_cost =
+                    match interactable.interaction_type {
+                        InteractionType::Revive => Some((0, 0)),
+                        InteractionType::Weapon if *profile == BotProfile::Acheteur => pickup
+                            .and_then(|p| {
+                                if p.can_buy_after_frame.is_some_and(|f| frame.frame < f) {
                                     return None;
                                 }
-                            } else if !all_empty || (p.price.is_none() && p.mag_ammo == 0) {
-                                return None;
-                            }
-                            let price = p.price.map_or(0, |price| {
-                                if owned {
-                                    economy.refill_price(price)
-                                } else {
-                                    price
+                                let owned_index = inventory
+                                    .weapons
+                                    .iter()
+                                    .position(|(_, w)| w.config.name == p.weapon_id);
+                                let owned = owned_index.is_some();
+                                if let Some(index) = owned_index {
+                                    let (ammo, reloadable, _) = ammunition[index];
+                                    if ammo > 0 || reloadable {
+                                        return None;
+                                    }
+                                } else if !all_empty || (p.price.is_none() && p.mag_ammo == 0) {
+                                    return None;
                                 }
-                            });
-                            (balance >= price).then_some((1, price))
-                        })
-                    }
-                    InteractionType::Perk if *profile == BotProfile::Acheteur => {
-                        machine.and_then(|m| {
-                            let definition = perks_config?.0.get(&m.perk_id)?;
-                            (m.perk_id == "juggernog"
-                                && !perks.is_some_and(|p| p.has(&m.perk_id))
-                                && balance >= definition.price)
-                                .then_some((2, definition.price))
-                        })
-                    }
-                    InteractionType::Door
-                        if *profile == BotProfile::Acheteur && nav.chase(position).is_none() =>
-                    {
-                        door.and_then(|d| {
-                            let price = d.config.cost.max(0) as u32;
-                            (d.config.interactable && balance >= price).then_some((3, price))
-                        })
-                    }
-                    InteractionType::Window if enemies.is_empty() => {
-                        window.filter(|w| w.current < w.max).map(|_| (4, 0))
-                    }
-                    _ => None,
-                };
+                                let price = p.price.map_or(0, |price| {
+                                    if owned {
+                                        economy.refill_price(price)
+                                    } else {
+                                        price
+                                    }
+                                });
+                                (balance >= price).then_some((1, price))
+                            }),
+                        InteractionType::Perk if *profile == BotProfile::Acheteur => machine
+                            .and_then(|m| {
+                                let definition = perks_config?.0.get(&m.perk_id)?;
+                                (m.perk_id == "juggernog"
+                                    && !perks.is_some_and(|p| p.has(&m.perk_id))
+                                    && balance >= definition.price)
+                                    .then_some((2, definition.price))
+                            }),
+                        InteractionType::Door
+                            if *profile == BotProfile::Acheteur && chase.is_none() =>
+                        {
+                            door.and_then(|d| {
+                                let price = d.config.cost.max(0) as u32;
+                                (d.config.interactable && balance >= price).then_some((3, price))
+                            })
+                        }
+                        // An unreachable enemy is no immediate threat. Repairing also earns
+                        // the ordinary points needed to open the first paid door.
+                        InteractionType::Window if enemies.is_empty() || chase.is_none() => {
+                            window.filter(|w| w.current < w.max).map(|_| (4, 0))
+                        }
+                        _ => None,
+                    };
                 if let Some((priority, cost)) = priority_cost {
                     choices.push((
                         priority,
                         cost,
-                        position.distance(&pos),
+                        if door.is_some() {
+                            nearest.map_or(position.distance(&pos), |(_, p)| p.distance(&pos))
+                        } else {
+                            position.distance(&pos)
+                        },
                         id.0,
                         rect,
                         interactable.interaction_range,

@@ -105,6 +105,7 @@ pub struct BotNavigation {
     geometry_bounds: (i32, i32, i32, i32),
     targets: Vec<(usize, GridPos)>,
     pub field: FlowField,
+    approaches: BTreeMap<(GridPos, GridPos, Fixed), FlowField>,
 }
 
 impl BotNavigation {
@@ -117,6 +118,7 @@ impl BotNavigation {
         let key = (body.left, body.right, body.down, body.up);
         let changed = self.geometry != geometry || self.body_key != Some(key);
         if changed {
+            self.approaches.clear();
             self.geometry = geometry.to_vec();
             self.body_key = Some(key);
             self.obstacles = geometry
@@ -157,6 +159,7 @@ impl BotNavigation {
         if !changed && targets == self.targets {
             return;
         }
+        self.approaches.clear();
         self.targets = targets;
         self.bounds = self.geometry_bounds;
         for (_, target) in &self.targets {
@@ -273,9 +276,11 @@ impl BotNavigation {
             .map(|p| point(p) - from)
     }
 
-    /// A* pour une interaction ponctuelle ; le champ partagé reste réservé aux ennemis.
+    /// Champ dérivé partagé pour une interaction ou une zone d'aggro. Les zones
+    /// d'ennemis sont quantifiées comme le champ de tir (la marge d'approche couvre
+    /// l'erreur de quantification). Évite un A* exhaustif par bot et par frame.
     pub fn approach(
-        &self,
+        &mut self,
         from: FixedVec2,
         target: Rect,
         reach: Fixed,
@@ -283,38 +288,37 @@ impl BotNavigation {
         if target.distance(from) <= reach {
             return Some((FixedVec2::ZERO, 0));
         }
-        let start = cell(from);
-        let heuristic =
-            |p: GridPos| (target.distance(point(p)) / Fixed::from_num(CELL)).to_num::<u32>() * 10;
-        let mut heap = BinaryHeap::from([Reverse((heuristic(start), 0u32, start))]);
-        let mut costs = BTreeMap::from([(start, 0u32)]);
-        let mut first_steps = BTreeMap::new();
-        while let Some(Reverse((_, cost, p))) = heap.pop() {
-            if costs.get(&p) != Some(&cost) {
-                continue;
-            }
-            if target.distance(point(p)) <= reach {
-                return first_steps.get(&p).map(|next| (point(*next) - from, cost));
-            }
-            for next in p.neighbors_8() {
-                if !self.step_free(p, next) {
-                    continue;
+        let key = (cell(target.min), cell(target.max), reach);
+        if !self.approaches.contains_key(&key) {
+            let zone = Rect {
+                min: point(key.0),
+                max: point(key.1),
+            };
+            let radius = (reach / Fixed::from_num(CELL)).ceil().to_num::<i32>() + 1;
+            let mut sources = Vec::new();
+            for x in key.0.x - radius..=key.1.x + radius {
+                for y in key.0.y - radius..=key.1.y + radius {
+                    let p = GridPos::new(x, y);
+                    if self.free(p) && zone.distance(point(p)) <= reach {
+                        sources.push((p, 0));
+                    }
                 }
-                let next_cost = cost
-                    + if next.x == p.x || next.y == p.y {
-                        10
-                    } else {
-                        14
-                    };
-                if costs.get(&next).is_some_and(|c| *c <= next_cost) {
-                    continue;
-                }
-                costs.insert(next, next_cost);
-                first_steps.insert(next, if p == start { next } else { first_steps[&p] });
-                heap.push(Reverse((next_cost + heuristic(next), next_cost, next)));
+            }
+            let field = self.build_field(&sources);
+            self.approaches.insert(key, field);
+        }
+        let field = &self.approaches[&key];
+        let p = cell(from);
+        if let Some(next) = field.directions.get(&p) {
+            if self.clear(from, point(*next)) {
+                return Some((point(*next) - from, field.costs[&p]));
             }
         }
-        None
+        (-2..=2)
+            .flat_map(|dx| (-2..=2).map(move |dy| GridPos::new(p.x + dx, p.y + dy)))
+            .filter(|p| field.costs.contains_key(p) && self.clear(from, point(*p)))
+            .min_by_key(|p| (field.costs[p], from.distance(&point(*p)), *p))
+            .map(|p| (point(p) - from, field.costs[&p]))
     }
     /// Choisit parmi les huit directions du clavier, en vérifiant le segment réel du corps.
     pub fn safe_direction(&self, from: FixedVec2, desired: FixedVec2) -> FixedVec2 {
@@ -451,5 +455,18 @@ mod tests {
         let obstacle = rect(-16, -16, 0, 0);
         assert!(obstacle.crosses(vec(-32, 8), vec(8, -32)));
         assert!(!obstacle.crosses(vec(-32, 8), vec(8, 8)));
+    }
+
+    #[test]
+    fn interaction_path_starts_with_a_physically_clear_step() {
+        let mut nav = BotNavigation::default();
+        nav.update(&[(rect(-8, -64, 8, 64), true)], &body(), &[]);
+        // The real body is clear, but rounding places its grid cell inside the wall.
+        let from = vec(-20, 0);
+        let (direction, _) = nav
+            .approach(from, rect(80, 0, 80, 0), Fixed::from_num(4))
+            .unwrap();
+        assert!(nav.clear(from, from + direction));
+        assert!(direction != FixedVec2::ZERO);
     }
 }

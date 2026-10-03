@@ -2,11 +2,14 @@
 //! des métriques JSON.
 //!
 //! ```text
-//! alacod-sim --game zombies --bots 4 --profiles fonceur,fonceur,prudent,immobile \
+//! alacod-sim --game zombies --bots 4 --map exemples/test_map.ldtk \
 //!     --seeds 1..50 --until-wave 10 --max-frames 20000 \
 //!     [--save-scenario <dossier>] [--json <fichier>]
 //! ```
 //!
+//! - `--profiles a,b,...` : un profil par bot ; défaut : `acheteur` pour tous les bots.
+//!   Les profils v0 restent disponibles : `fonceur,fonceur,prudent,immobile`.
+//! - `--map <fichier.ldtk>` : carte explicite relative aux assets du jeu ; sinon `start_map`.
 //! - `--seeds A..B` : graines `A` à `B` **inclusivement** (`1..50` = 50 graines, la carte est
 //!   générée avec `map_seed = graine`).
 //! - Un scénario est construit en mémoire par graine (`frames: max_frames`, un `PlayerScript` par
@@ -61,7 +64,7 @@ fn main() {
     let require = |name: &str| {
         opt(name).unwrap_or_else(|| {
             panic!(
-                "usage : alacod-sim --game <jeu> --bots <n> --profiles <a,b,...> \
+                "usage : alacod-sim --game <jeu> --bots <n> [--profiles <a,b,...>] \
                  --seeds <de>..<à> --until-wave <n> --max-frames <n> \
                  [--map <fichier.ldtk>] [--save-scenario <dossier>] [--json <fichier>] ({name} manquant)"
             )

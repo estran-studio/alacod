@@ -713,7 +713,10 @@ les inputs décidés et doit produire la même trace.
 `crates/bots/src/hunter.rs` choisit le tir visible, la distance de combat, le changement
 vers une arme approvisionnée, le rechargement et la réanimation. L'acheteur cherche aussi
 les munitions, Juggernog et une porte abordable quand le champ est inaccessible (prix,
-puis distance, puis `GgrsNetId`). Les approches ponctuelles utilisent A* sur la même grille.
+puis distance à l’ennemi, puis `GgrsNetId`). Les approches ponctuelles utilisent des
+champs multi-source dérivés et partagés sur la même grille. Sans poste de tir accessible,
+le bot s’approche jusqu’au rayon d’aggro : le zombie peut alors casser sa fenêtre.
+Sans chemin d’approche, le bot répare aussi pour gagner les points de sa première porte.
 Les interactions passent par le bouton existant : les règles de solde, coût, cooldown et
 réanimation restent celles du jeu. Les unitaires couvrent navigation et décisions ;
 `crates/scenario/tests/bots.rs` vérifie le rejeu v0 et v1.
