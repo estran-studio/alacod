@@ -1,7 +1,8 @@
-# Services de la CI de nuit (scripts/nightly.sh). `signaling` = matchbox_server nu, suffisant
-# pour le test p2p headless (les clients se retrouvent par le chemin de salle) ; `allumette`
-# (profil optionnel) = le vrai serveur de matchmaking, qui exige un jeton JWT dans le chemin
-# du WebSocket (API HTTP /auth, /lobbies) que le jeu natif n'implémente pas encore.
+# Services de la CI. `signaling` = matchbox_server nu : reste la recette p2p du README §4
+# (chemin `--matchbox`, les clients se retrouvent par le nom de salle). `allumette` (profil
+# optionnel) = le serveur de matchmaking (API HTTP /auth, /lobbies, JWT dans le chemin du
+# WebSocket) : le client natif implémente ce flux depuis m0-v9 (`--allumette`), et
+# scripts/nightly.sh STEP C passe par ce profil (port hôte 3537).
 services:
   signaling:
     build:

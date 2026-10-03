@@ -453,6 +453,13 @@ Enregistrer un nouveau composant/ressource en rollback (`RollbackTraceApp`) chan
 
 **Méthode** : dumper les mêmes scénarios sur la référence (avant le chantier, ex. `main` dans un `git worktree add --detach`) et sur la branche, avec la même variable d'environnement, puis comparer en ignorant le(s) nouveau(x) composant(s)/ressource(s). Aucune différence : le chantier n'a changé que la présence du nouveau composant, jamais une valeur de jeu — on peut blesser en confiance. Une différence : une valeur de stat (ou autre) ne correspond pas exactement à la constante qu'elle remplace ; corriger avant de blesser.
 
+### Exclusions assumées du checksum
+
+Deux champs de test (testbed) sont délibérément hors du checksum GGRS — les inclure déplacerait les traces de référence sans changer aucun comportement de jeu (D5, m0-v10) :
+
+- **`HitCount`** (`crates/game/src/character/health/mod.rs`, T2.9) : compteur de coups reçus, posé à la création uniquement si `CharacterConfig::counts_hits` (`crates/game/src/character/create.rs`, faux par défaut — aucun personnage zombie/joueur ne le pose ; seul `target` de `games/testbed` le déclare, `crates/scenario/src/generate.rs`). Enregistré via `rollback_and_trace_no_checksum::<HitCount>()` (`crates/game/src/character/mod.rs`) : rollback et trace, mais hors checksum. Il sert aux attentes `EntityHits` des scénarios (`crates/combat/src/weapons/expectations.rs`) ; aucune décision de jeu ne le lit.
+- **`EnemyAiConfig::stationary`** (`crates/game/src/character/enemy/ai/state.rs`, T2.9) : immobilité totale d'un ennemi de testbed (`dummy`/`target`/`ally`/`civilian`), exclue du `Hash` manuel du composant. Aucun contenu zombie ne la pose ; hacher un champ de plus déplacerait le checksum de toute entité `Enemy` sans aucun changement de gameplay (vérifié empiriquement à l'époque : sans l'impl manuel, `idle.ron` diverge dès f181).
+
 ## 9. Feedback (présentation, T2.13)
 
 **Configuration RON** : fichier `games/<jeu>/assets/ui/feedback.ron` charge les paramètres de flash, secousse et sons.
@@ -827,6 +834,30 @@ avec `damage`/`speed` négatif ou `range <= 0`, cycle de `on_expire`. Fixtures
 éclats) dans `games/testbed/assets/ZombieShooter/Sprites/Character/weapons.ron`, chacune
 avec `test:` et son scénario généré (`make gen GAME=testbed`,
 `tests/scenarios/generated/testbed/`).
+
+## 18. Équilibrage par joueurs (F5)
+
+**Décision (D25, le 2026-10-03) : F5 appartient à M0** — le plan §6 liste F5 dans le jalon M0
+(`zombies` complet). Tâche dédiée : `docs/taches/m0-v11-f5-equilibrage-joueurs.md`.
+
+Les champs numériques des **vagues** (`games/zombies/assets/waves/wave_config.ron`), des **prix**
+(armes `assets/weapons/`, perks `assets/economy/perks.ron`, `assets/economy/economy.ron`) et de la
+**santé** des ennemis (`ZombieShooter/Sprites/Zombie/*_config.ron`) acceptent un littéral **ou** une
+expression `content::expr` en chaîne RON (ex. `health: "120.0 + (players - 1) * 30"`). Règles :
+
+- **Contexte** : l'identifiant `players` (nombre de joueurs de la run) est disponible partout où
+  une expression est acceptée. Pas d'autres identifiants pour l'instant (voir F5 du plan).
+- **Timing** : l'expression est évaluée **une seule fois, au démarrage de la run** (le nombre de
+  joueurs de la session est connu : local `NUMBER_PLAYER`, p2p `max_player`, scénario = ses
+  joueurs), en valeurs concrètes. **Jamais d'`Expr` dans l'état rollback** : seules les valeurs
+  évaluées entrent dans la simulation (déterminisme : mêmes configs + même nombre de joueurs
+  partout ⇒ mêmes valeurs).
+- **Erreurs** : une expression invalide (parse, division par zéro, identifiant inconnu) fait
+  échouer le chargement — jamais de valeur par défaut silencieuse.
+- **Traces** : les littéraux actuels restent valides et gardent leurs valeurs ; les 62 scénarios
+  existants gardent leurs traces, sauf bless avec preuve (§10). La preuve de F5 passe par de
+  nouveaux scénarios (même partie à 2 et 4 joueurs, attente qui diverge) plutôt que par la
+  modification de valeurs existantes.
 
 ## Notes essentielles
 
