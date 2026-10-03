@@ -520,8 +520,8 @@ région des chantiers puis la campagne.
 ## 9. Suivi
 
 - T1.0a : mergée (`51d70b6`).
-- m0-v7 : phase 1 (diagnostic) mergée (`5f977c9`) ; phase 2 en cours chez Codex (branche
-  `m0-v7-phase2-bots-finisent-le-clone`).
+- m0-v7 : phase 1 (diagnostic) mergée (`5f977c9`) ; phase 2 en cours (reprise par la session
+  locale b1 après la limite d'usage de Codex, branche `m0-v7-phase2-bots-finisent-le-clone`).
 - m0-v6 : mergée (`52046ab`) ; quatre traces bénies (`b8c9cae`).
 - m0-v8 : mergée (`d45431f`) ; trace `avant_poste_demo` bénie (`8fe873e`) ; `--map` (`cd6445a`) ;
   `start_map` basculé (`0942abb`) ; validation 20 graines : 0 desync, les softlocks relèvent de D20
@@ -529,6 +529,8 @@ région des chantiers puis la campagne.
 - m0-dettes (lot D3, D13, D19, D21-D24) : mergée (`8a92d10`) ; aucune trace changée.
 - m0-v9 : mergée (`2cb0897`) ; aucune trace changée ; recette allumette et recette `--matchbox`
   rejouées par l'orchestrateur : traces identiques, même sha256.
+- m0-v10 : en cours — lot de dettes légères (reste de D12 : CI allumette ; D5 : documentation
+  checksum), branche `m0-v10-dettes-legeres`, session locale b0.
 
 - Ce fichier est la source de vérité des tâches : une ligne de statut par tâche (`à faire`, `en
   cours (branche)`, `mergée (commit)`), tenue par l'agent qui prend la tâche.
