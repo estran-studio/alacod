@@ -1,5 +1,9 @@
 pub mod local;
 pub mod p2p;
+// Client HTTP allumette (D12, m0-v9) : natif uniquement (le flux challenge/login
+// n'existe pas sur le web en v1, et `ureq` n'est pas compilé pour wasm).
+#[cfg(not(target_arch = "wasm32"))]
+pub mod allumette;
 
 use std::{default, net::SocketAddr};
 
@@ -55,6 +59,9 @@ pub struct GggrsSessionConfiguration {
     pub cid: String,
     pub matchbox: bool,
     pub matchbox_url: String,
+    /// URL de base HTTP du serveur allumette (`--allumette`) ; vide = mode matchbox.
+    /// Consommée par `jjrs::allumette::start_allumette_flow` (natif uniquement).
+    pub allumette_url: String,
     pub lobby: String,
     pub connection: GggrsConnectionConfiguration,
     pub players: Vec<PlayerConfig>,

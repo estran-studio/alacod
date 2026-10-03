@@ -1,12 +1,18 @@
 use bevy::prelude::*;
 use bevy_fixed::rng::{RngStreams, RunSeed};
 use bevy_ggrs::ggrs::PlayerType;
-use bevy_matchbox::{prelude::PeerState, MatchboxSocket};
+use bevy_matchbox::{
+    matchbox_socket::{ChannelConfig, RtcIceServerConfig, WebRtcSocketBuilder},
+    prelude::PeerState,
+    MatchboxSocket,
+};
 use content::manifest::GameManifest;
 use content::registry::Registry;
 use map::generation::config::MapGenerationConfig;
 use run::Run;
 
+#[cfg(not(target_arch = "wasm32"))]
+use crate::jjrs::allumette::AllumetteConfig;
 use crate::{
     character::player::jjrs::PeerConfig,
     core::{AppState, OnlineState},
@@ -18,20 +24,54 @@ use crate::{
 
 // For matchbox socket connection
 
-pub fn start_matchbox_socket(mut commands: Commands, ggrs_config: Res<GggrsSessionConfiguration>) {
-    use bevy_matchbox::matchbox_socket::{ChannelConfig, RtcIceServerConfig, WebRtcSocketBuilder};
-
-    let url = format!("{}/{}", ggrs_config.matchbox_url, ggrs_config.lobby);
-
-    // Configure ICE servers including STUN and TURN for better NAT traversal
-    let ice_server = RtcIceServerConfig {
+/// STUN Google par défaut : configuration historique du chemin `--matchbox`
+/// (inchangée) et repli si l'API allumette ne renvoie aucun serveur ICE.
+fn default_ice_server() -> RtcIceServerConfig {
+    RtcIceServerConfig {
         urls: vec![
             "stun:stun.l.google.com:19302".to_string(),
             "stun:stun1.l.google.com:19302".to_string(),
         ],
         username: None,
         credential: None,
+    }
+}
+
+pub fn start_matchbox_socket(
+    mut commands: Commands,
+    ggrs_config: Res<GggrsSessionConfiguration>,
+    // Mode allumette (natif uniquement) : ressource remplie par
+    // `jjrs::allumette::start_allumette_flow`, chaîné avant ce système.
+    #[cfg(not(target_arch = "wasm32"))] allumette: Option<Res<AllumetteConfig>>,
+) {
+    // Mode allumette : URL ws(s)://hôte/JWT et ICE reçus de l'API (`/ice-servers`),
+    // au lieu de `{matchbox_url}/{lobby}` et du STUN en dur. Le builder matchbox
+    // n'accepte qu'un seul `RtcIceServerConfig` : on prend la première entrée.
+    // Sinon, chemin `--matchbox` historique, inchangé.
+    #[cfg(not(target_arch = "wasm32"))]
+    let (url, ice_server) = match allumette.as_deref() {
+        Some(config) => (
+            config.ws_url.clone(),
+            config
+                .ice_servers
+                .first()
+                .map(|ice| RtcIceServerConfig {
+                    urls: ice.urls.clone(),
+                    username: ice.username.clone(),
+                    credential: ice.credential.clone(),
+                })
+                .unwrap_or_else(default_ice_server),
+        ),
+        None => (
+            format!("{}/{}", ggrs_config.matchbox_url, ggrs_config.lobby),
+            default_ice_server(),
+        ),
     };
+    #[cfg(target_arch = "wasm32")]
+    let (url, ice_server) = (
+        format!("{}/{}", ggrs_config.matchbox_url, ggrs_config.lobby),
+        default_ice_server(),
+    );
 
     let socket = WebRtcSocketBuilder::new(url)
         .ice_server(ice_server)
