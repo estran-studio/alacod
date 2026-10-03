@@ -761,6 +761,9 @@ Sans chemin d’approche, le bot répare aussi pour gagner les points de sa prem
 Les interactions passent par le bouton existant : les règles de solde, coût, cooldown et
 réanimation restent celles du jeu. Les unitaires couvrent navigation et décisions ;
 `crates/scenario/tests/bots.rs` vérifie le rejeu v0 et v1.
+Les modes Manual, Shotgun et Burst relâchent le tir lorsque `WeaponState.is_firing`
+est vrai, puis pressent de nouveau ; Automatic peut maintenir le bouton. Ce choix lit
+l'état rollback de l'arme, sans compteur de pulsations caché dans le bot.
 
 Le déplacement du joueur résout un mouvement diagonal bloqué en faisant glisser X,
 puis en vérifiant Y à la position X obtenue. Vérifier les deux axes depuis la position
@@ -769,9 +772,11 @@ initiale pouvait autoriser leur combinaison à entrer dans le coin d'un mur.
 En phase `Spawning`, après 600 frames sans spawn depuis le dernier spawn ou le début
 de phase, une plage de distance vide utilise le spawner le plus proche d'un joueur
 (égalité départagée par `GgrsNetId`). Les spawners dans la plage normale restent
-prioritaires. Le composant rollback et tracé `SpawnFallback(current_wave)` n'est ajouté
-qu'au déclenchement du secours : il maintient ensuite la cadence normale pour cette
-vague, sans modifier les traces des vagues qui n'en ont pas besoin. La limite d'ennemis
+prioritaires. Le drapeau `WaveState.spawn_fallback`, rollback et tracé avec cette
+ressource, maintient ensuite la cadence normale pour cette vague et est remis à faux
+dans `prepare_next_wave`. Le hash de `WaveState` conserve l'ordre historique des champs
+et ajoute une contribution seulement si ce drapeau est actif, afin de conserver les
+traces des vagues qui n'en ont pas besoin. La limite d'ennemis
 simultanés et la taille des lots restent appliquées. Le test synctest
 `crates/scenario/tests/spawn_stall.rs` force une plage vide et vérifie trois spawns,
 sans desync, plutôt qu'un retour indéfini du système.
