@@ -190,6 +190,8 @@ pub fn move_enemies(
             &mut WallSlideTracker,
             Option<&super::state::EnemyTarget>,
             &EnemyAiConfig,
+            // T1.2 : un ennemi qui tire (émetteur posé) ne bouge pas.
+            Has<combat::emitter::Emitter>,
         ),
         With<Enemy>,
     >,
@@ -276,12 +278,14 @@ pub fn move_enemies(
         mut wall_slide_tracker,
         enemy_target_opt,
         ai_config,
+        emitting,
     ) in order_mut_iter!(enemy_query)
     {
         // T2.9 (testbed) : un ennemi stationnaire (`dummy`/`target`/`ally`/`civilian`)
         // ignore la flow field et ne bouge jamais, quelle que soit sa cible. `false` par
-        // défaut : aucun ennemi zombie existant n'est concerné.
-        if ai_config.stationary {
+        // défaut : aucun ennemi zombie existant n'est concerné. T1.2 : idem pendant un tir
+        // à distance (télégraphe compris) ; aucun ennemi existant ne tire.
+        if ai_config.stationary || emitting {
             velocity_component.main = fixed_math::FixedVec2::ZERO;
             continue;
         }

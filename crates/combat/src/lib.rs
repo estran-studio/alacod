@@ -28,6 +28,8 @@ pub mod collider;
 pub mod collision_grid;
 pub mod weapons;
 
+/// Émetteurs : patterns joués dans le temps et tir ennemi (T1.2).
+pub mod emitter;
 /// Contrats de M1 (B3/B5). `projectile` est exécuté depuis T1.1 ; `status` attend T1.3.
 /// Kinds : catégories snake_case, noms de variantes Rust exacts (PascalCase).
 pub mod projectile;
@@ -52,7 +54,16 @@ impl Plugin for CombatPlugin {
             ),
             (
                 "pattern",
-                &["Aimed", "Spread", "Ring", "Sequence", "Telegraph", "Wait"][..],
+                &[
+                    "Aimed",
+                    "Spread",
+                    "Ring",
+                    "Sequence",
+                    "Telegraph",
+                    "Wait",
+                    "Scatter",
+                    "Named",
+                ][..],
             ),
             ("status", &["Burn", "Slow", "Stun", "Freeze"][..]),
         ] {
@@ -75,14 +86,23 @@ mod contract_tests {
         for name in ["Bounce", "Pierce", "Size", "Lifetime", "Homing", "Gravity"] {
             assert!(kinds.has("projectile_modifier", name));
         }
-        for name in ["Aimed", "Spread", "Ring", "Sequence", "Telegraph", "Wait"] {
+        for name in [
+            "Aimed",
+            "Spread",
+            "Ring",
+            "Sequence",
+            "Telegraph",
+            "Wait",
+            "Scatter",
+            "Named",
+        ] {
             assert!(kinds.has("pattern", name));
         }
         for name in ["Burn", "Slow", "Stun", "Freeze"] {
             assert!(kinds.has("status", name));
         }
         assert_eq!(kinds.names("projectile_modifier").count(), 6);
-        assert_eq!(kinds.names("pattern").count(), 6);
+        assert_eq!(kinds.names("pattern").count(), 8);
         assert_eq!(kinds.names("status").count(), 4);
         let name = std::any::type_name::<Statuses>();
         assert!(app.world().resource::<TracedTypes>().0.contains(&name));

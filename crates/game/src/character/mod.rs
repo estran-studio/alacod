@@ -131,6 +131,9 @@ impl Plugin for BaseCharacterGamePlugin {
             .rollback_and_trace::<EnemyAiConfig>()
             .rollback_and_trace::<EnemyTarget>()
             .rollback_and_trace::<MonsterState>()
+            // T1.2 : tir à distance. Checksum neutre (aucun ennemi existant n'en porte, voir
+            // `RollbackTraceApp::rollback_and_trace_neutral`).
+            .rollback_and_trace_neutral::<enemy::ai::state::RangedAttackState>()
             // Ressource de présentation (curseur) glissée dans le rollback : rollback +
             // trace pour ne rien changer au snapshot, mais hors checksum (voir sa doc).
             .rollback_and_trace_copy_resource_no_checksum::<PointerWorldPosition>()

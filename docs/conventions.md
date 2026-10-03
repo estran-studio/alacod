@@ -835,6 +835,9 @@ avec `damage`/`speed` négatif ou `range <= 0`, cycle de `on_expire`. Fixtures
 avec `test:` et son scénario généré (`make gen GAME=testbed`,
 `tests/scenarios/generated/testbed/`).
 
+
+Patterns joués **dans le temps** (`Telegraph`, `Wait`, `Ring.every`, `Scatter`, `Named`),
+émetteurs et tir ennemi : voir §20 (T1.2).
 ## 17. Mode `Floors` (T1.8, chantier F1)
 
 **Contenu.** Kind de dossier `Floors` (`content::registry::FloorsEntry`) : un fichier RON par
@@ -972,6 +975,101 @@ expression `content::expr` en chaîne RON (ex. `health: "120.0 + (players - 1) *
   `resolve_balance_system` panique en nommant le fichier, le champ et le nombre de joueurs.
   Tests unitaires : `content::expr` (désérialisation, résolution, erreurs) et `game::balance`
   (dépendance à `players`, erreurs = panic avec contexte).
+
+## 20. Patterns, émetteurs et tir ennemi (T1.2, chantier B5 v1)
+
+Code : `crates/combat/src/emitter.rs` (état `Emitter`, avancée pure testée, `emitter_system`),
+`crates/combat/src/projectile.rs` (`Pattern`, `PatternLibrary`), `crates/combat/src/weapons/mod.rs`
+(`spawn_bullet`, la **seule** fonction d'apparition d'une balle : tir de joueur, projectile né
+d'un `on_expire`, tir d'émetteur), `crates/game/src/character/enemy/ai/behavior.rs`
+(`ranged_attack`), `crates/game/src/patterns.rs` (bibliothèque construite depuis le registre).
+
+**Patterns nommés** : kind de contenu `Pattern` (`(path: "patterns", kind: "Pattern")` dans
+`game.ron`), un fichier `patterns/<nom>.ron` par pattern, id = nom de fichier. Contenu : un
+`Pattern` RON, ex. `Ring(count: 8, speed: "90.0", projectile: "fireball", every: 60)`.
+Référencés par `ai.ranged.pattern` d'un personnage et par `Named("nom")` dans un pattern
+(`on_expire` compris). La bibliothèque (`combat::projectile::PatternLibrary`) est une ressource
+**hors rollback**, reconstruite à `OnEnter(GameLoading)` depuis le registre ; un nom inconnu
+est une erreur de lint, jamais une panique en jeu (en jeu : avertissement, rien n'est tiré).
+
+**Variantes ajoutées** (en fin d'enum : le `derive(Hash)` hache l'index de variante, le hash
+des armes et projectiles existants ne bouge pas) : `Scatter(count, spread, projectile)` et
+`Named("nom")`.
+
+**Sémantique dans un émetteur** (le pattern, résolu, est aplati : les `Sequence` imbriquées
+se déplient dans l'ordre RON) :
+
+| Étape | Effet |
+|---|---|
+| `Aimed`, `Spread`, `Ring` (`every: 0`) | une salve, comme §16 ; durée 0 frame (l'étape suivante joue la même frame) |
+| `Ring(every: n > 0)` | une salve tout de suite, puis une toutes les `n` frames **en tâche de fond**, jusqu'à la fin de la `Sequence` qui la contient ; un `Ring` **seul** est infini |
+| `Scatter` | `count` tirs à des angles tirés dans `±spread/2` autour de la visée, flux RNG `"patterns"` |
+| `Telegraph(n)` | `n` frames sans tir ; `Emitter::telegraphing() -> Option<frames restantes>` pour la présentation (dessin : T1.17) |
+| `Wait(n)` | `n` frames sans tir |
+
+La visée est **figée au départ** de la séquence (direction de la cible à la pose) : direction
+de `Aimed`/`Scatter`, centre de `Spread`, premier rayon de `Ring`. L'émetteur est posé à la
+frame `f` ; sa première étape joue à `f + 1` ; une étape après `Telegraph(n)` joue `n` frames
+après l'entrée dans le télégraphe. Dans une frame, les étapes de la séquence passent avant
+les couronnes de fond ; une couronne de fond ne tire plus la frame où la séquence finit
+(`Sequence([Ring(every: 20), Wait(60)])` : trois salves). À la fin de la séquence,
+`emitter_system` retire le composant.
+
+**Projectiles tirés** : entrée `projectile` de la table `projectiles` de l'**arme de
+l'émetteur** (§16), vitesse du `Ring` sinon celle de la définition ; nés au centre du tireur,
+génération 0, équipe et tags du tireur (plus `bullet`), tir ami de l'arme, multiplicateur
+`Damage` du tireur au départ. Ils suivent la même chaîne que les autres (`Weapon` puis
+`Projectiles` : collisions par règles d'équipe §8, `on_hit`, `on_expire`, 8 générations).
+`Bullet::player_handle` vaut `weapons::NO_PLAYER_HANDLE` (aucun joueur) ; il n'apparaît dans
+aucun log, qui nomme le tireur par son `GgrsNetId` (`ggrs{f=… emitter net_id=… step=…}`).
+
+**Déterminisme** : `emitter_system` (set `Weapon`, après tout tir de joueur et de mêlée)
+avance les émetteurs par `GgrsNetId` ; le flux `"patterns"` n'est créé et consommé que par un
+`Scatter` qui tire, et par rien d'autre : la suite des tirs d'un émetteur ne dépend que de la
+graine de run et de l'ordre des émetteurs, **pas du nombre de joueurs** (test unitaire
+`meme_graine_meme_tir_a_un_et_quatre_joueurs`, scénarios `enemy_ring`/`enemy_ring_quad`).
+
+**Tir ennemi** : champ optionnel de `ai` (`EnemyAiConfigRon`) :
+```ron
+ranged: Some((weapon: "fireball_gun", pattern: "ring_8", range: "260.0", cooldown_frames: 90)),
+```
+`spawn_enemy` équipe `weapon` (active, dans `WeaponInventory` ; la griffe de corps à corps
+reste posée selon `attack_range`) et pose `RangedAttackState`. `enemy_attack_system` joue le
+tir **avant** le corps à corps (`ranged_attack`) :
+- cible `Player` vivante, debout, à moins de `range`, refroidissement écoulé, état
+  `Idle`/`Chasing` → pose un `Emitter` (visée = position de la cible),
+  `MonsterState::Attacking { target: Player }` ;
+- l'ennemi **ne bouge pas** tant que l'émetteur est posé (`move_enemies`, télégraphe compris) ;
+- séquence interrompue si la cible meurt, passe à terre ou sort de `range` (l'émetteur est
+  retiré ; le tireur mort emporte le sien) ; fin ou interruption → refroidissement de
+  `cooldown_frames`, retour à `Chasing` ;
+- un `Attacking` posé par un tir n'émet jamais le coup direct de corps à corps
+  (`enemy_attack_damage_translate_system`).
+Sans `ranged`, rien ne change (hash de `EnemyAiConfig` : `ranged` n'est haché que s'il est
+présent, hacher un `None` déplacerait le checksum de tous les ennemis).
+
+**État rollback et checksum neutre** : `Emitter` (combat) et `RangedAttackState` (game) sont
+enregistrés par `RollbackTraceApp::rollback_and_trace_neutral` : un composant que **aucune**
+entité ne porte contribue `0` au checksum GGRS. Raison, vérifiée sur `idle` : bevy_ggrs 0.22
+fait contribuer à un type enregistré **sans porteur** une part constante `K = hash(0u64)`,
+**la même pour tous les types vides**, combinée par XOR — un type vide de plus déplace toutes
+les traces dès la ligne 1, deux de plus s'annulent (trace identique). **Piège pour toute
+voie** : un nouveau composant rollback absent du contenu existant passe par la variante
+neutre, jamais par `rollback_and_trace` en comptant sur la parité.
+
+**Lint** : `Scatter`/`Telegraph`/`Wait` refusés en `on_expire` (même au travers d'un `Named`) ;
+pattern nommé inconnu (`BrokenReference`) ; cycle de `Named` ; `count = 0`, `spread`/`speed`
+négatifs dans un pattern nommé ; `ai.ranged` : arme inconnue, pattern inconnu, projectile du
+pattern absent de la table de l'arme (`BrokenReference`), `cooldown_frames = 0`,
+`range <= 0`. Fixtures `pattern_unknown_name`, `pattern_scatter_on_expire`,
+`ranged_projectile_missing`, `ranged_cooldown_zero`.
+
+**Testbed** : arme `fireball_gun` (table `fireball`, `arrow`), patterns `ring_8`
+(`Ring(count: 8, every: 60)`) et `volee` (`Sequence([Telegraph(30), Aimed(count: 3),
+Wait(20), Scatter(count: 4)])`), personnages `turret` (immobile) et `archer` (poursuit),
+carte `testbed/arena_tir.ldtk` (copie d'`arena`, tourelle au centre, archer à l'ouest ; le
+joueur 0 est le plus proche de la tourelle, les joueurs 1 à 3 sont plus loin et hors des
+rayons de la couronne). Scénarios `enemy_ring`, `enemy_ring_quad`, `enemy_telegraph`.
 
 ## Notes essentielles
 

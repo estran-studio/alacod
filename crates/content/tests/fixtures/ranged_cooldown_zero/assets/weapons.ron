@@ -1,0 +1,7 @@
+({
+    "fireball_gun": (config: (ammo_type: Plomb, firing_modes: {"default": (
+        firing_rate: "1.0",
+    )}, projectiles: {
+        "fireball": (damage: "8.0", speed: "90.0", range: "400.0"),
+    })),
+})

@@ -1,0 +1,3 @@
+// T1.2 : couronne de la tourelle (`characters/turret.ron`) : 8 boules de feu toutes les 60
+// frames, tant que la cible reste à portée (`Ring` seul = infini, conventions §20).
+Ring(count: 8, speed: "60.0", projectile: "fireball", every: 60)

@@ -11,7 +11,10 @@
 
 use bevy::ecs::component::Mutable;
 use bevy::prelude::*;
-use bevy_ggrs::RollbackApp;
+use bevy_ggrs::{
+    ChecksumFlag, ChecksumPart, RollbackApp, RollbackId, RollbackOrdered, SaveWorld,
+    SaveWorldSystems,
+};
 use std::any::type_name;
 
 /// Ressource pour tracker les types enregistrés avec tracing.
@@ -63,6 +66,28 @@ pub trait RollbackTraceApp {
     fn rollback_and_trace_no_checksum<C>(&mut self) -> &mut Self
     where
         C: Component<Mutability = Mutable> + Clone + std::fmt::Debug + Send + Sync + 'static;
+
+    /// Comme [`Self::rollback_and_trace`], mais un type que **aucune** entité ne porte
+    /// contribue **`0`** au checksum GGRS (élément neutre du XOR de `bevy_ggrs::ChecksumPlugin`) ;
+    /// dès qu'une entité le porte, sa contribution est exactement celle de
+    /// `checksum_component_with_hash` (même hachage par entité, même ordre `RollbackOrdered`).
+    ///
+    /// Pourquoi (T1.2, vérifié sur `idle`) : `bevy_ggrs::ComponentChecksumPlugin` fait
+    /// contribuer à un type sans porteur une `ChecksumPart` constante `K = hash(0u64)`,
+    /// **identique pour tous les types vides** ; les parts sont combinées par XOR. Ajouter un
+    /// type vide déplace donc toutes les traces existantes (un type vide de plus : trace
+    /// différente dès la ligne 1 ; deux de plus : ils s'annulent, trace identique). Réservé à
+    /// un composant nouveau, absent du contenu existant (T1.2 : `combat::emitter::Emitter`) :
+    /// l'enregistrer ne change aucune trace, quelle que soit la parité des autres types vides.
+    fn rollback_and_trace_neutral<C>(&mut self) -> &mut Self
+    where
+        C: Component<Mutability = Mutable>
+            + Clone
+            + std::hash::Hash
+            + std::fmt::Debug
+            + Send
+            + Sync
+            + 'static;
 
     /// Enregistre une ressource en rollback avec clone, checksum et trace.
     fn rollback_and_trace_resource<R>(&mut self) -> &mut Self
@@ -153,6 +178,24 @@ impl RollbackTraceApp for App {
     {
         register_traced_component::<C>(self);
         self.rollback_component_with_clone::<C>()
+    }
+
+    fn rollback_and_trace_neutral<C>(&mut self) -> &mut Self
+    where
+        C: Component<Mutability = Mutable>
+            + Clone
+            + std::hash::Hash
+            + std::fmt::Debug
+            + Send
+            + Sync
+            + 'static,
+    {
+        register_traced_component::<C>(self);
+        self.rollback_component_with_clone::<C>();
+        self.add_systems(
+            SaveWorld,
+            neutral_component_checksum::<C>.in_set(SaveWorldSystems::Checksum),
+        )
     }
 
     fn rollback_and_trace_resource<R>(&mut self) -> &mut Self
@@ -261,6 +304,44 @@ fn register_traced_resource<R: Resource + std::fmt::Debug>(app: &mut App) {
         .resource_mut::<StateTracers>()
         .resources
         .push((name, tracer));
+}
+
+/// Checksum d'un composant à checksum neutre (voir
+/// [`RollbackTraceApp::rollback_and_trace_neutral`]) : copie de
+/// `bevy_ggrs::ComponentChecksumPlugin` (même hasher, même XOR des entités ordonnées par
+/// `RollbackOrdered`, même repli final), sauf qu'aucun porteur donne `ChecksumPart(0)`.
+#[allow(clippy::type_complexity)]
+fn neutral_component_checksum<C: Component + std::hash::Hash>(
+    mut commands: Commands,
+    rollback_ordered: Res<RollbackOrdered>,
+    components: Query<(&RollbackId, &C), (With<RollbackId>, Without<ChecksumFlag<C>>)>,
+    mut checksum: Query<&mut ChecksumPart, (Without<RollbackId>, With<ChecksumFlag<C>>)>,
+) {
+    use std::hash::{Hash, Hasher};
+    let hasher = bevy_ggrs::checksum_hasher();
+    let mut result = 0u64;
+    let mut carried = false;
+    for (&rollback, component) in components.iter() {
+        carried = true;
+        let mut entity_hasher = hasher;
+        rollback_ordered.order(rollback).hash(&mut entity_hasher);
+        let mut component_hasher = bevy_ggrs::checksum_hasher();
+        component.hash(&mut component_hasher);
+        component_hasher.finish().hash(&mut entity_hasher);
+        result ^= entity_hasher.finish();
+    }
+    let part = if carried {
+        let mut hasher = hasher;
+        result.hash(&mut hasher);
+        ChecksumPart(hasher.finish() as u128)
+    } else {
+        ChecksumPart(0)
+    };
+    if let Ok(mut current) = checksum.single_mut() {
+        *current = part;
+    } else {
+        commands.spawn((part, ChecksumFlag::<C>::default()));
+    }
 }
 
 /// Hash d'une ressource à checksum neutre (voir

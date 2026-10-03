@@ -1,0 +1,25 @@
+// T1.2 (testbed) : la même partie qu'`enemy_ring` à **4 joueurs** (1 à 3 immobiles, sans
+// input) : mêmes frames, mêmes `BulletCount` — même graine = même tir quel que soit le nombre
+// de joueurs (le flux RNG `patterns` n'est consommé que par les émetteurs, conventions §20).
+// Les joueurs 1 à 3 sont plus loin de la tourelle que le joueur 0 (elle le vise toujours) et
+// hors des 8 rayons de la couronne : aucune boule de feu ne meurt sur eux avant f62.
+Scenario(
+    powerup_drop_chance_override: "0.0",
+    game: "testbed",
+    map: "testbed/arena_tir.ldtk",
+    frames: 130,
+    players: [
+        (inputs: []),
+        (inputs: []),
+        (inputs: []),
+        (inputs: []),
+    ],
+    expect: [
+        BulletCount(count: 0, projectile: Some("fireball"), at_frame: 0),
+        BulletCount(count: 8, projectile: Some("fireball"), team: Some(Enemies), at_frame: 2),
+        BulletCount(count: 8, projectile: Some("fireball"), at_frame: 60),
+        BulletCount(count: 16, projectile: Some("fireball"), team: Some(Enemies), at_frame: 62),
+        Health(handle: 0, max: 99.0, at_frame: 90),
+        PlayerAlive(handle: 0, at_frame: 130),
+    ],
+)
