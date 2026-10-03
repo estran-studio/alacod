@@ -54,7 +54,7 @@ use crate::{
             control::PlayerAction,
             input::{
                 apply_friction, apply_inputs, move_characters, read_local_inputs,
-                update_animation_state, PointerWorldPosition,
+                update_animation_state, CursorPosition, PointerWorldPosition,
             },
             Player,
         },
@@ -141,6 +141,13 @@ impl Plugin for BaseCharacterGamePlugin {
             // `RollbackTraceApp::rollback_and_trace_no_checksum`) : ne déplace pas le
             // checksum agrégé des scénarios zombies existants, qui n'en posent jamais.
             .rollback_and_trace_no_checksum::<HitCount>()
+            // Visée du joueur : lue par `system_weapon_position` mais écrite par `apply_inputs`
+            // seulement hors dash. Sans rollback, une frame resimulée pendant un dash lisait la
+            // visée d'une frame plus récente : la rotation de l'arme (au checksum) divergeait,
+            // d'où un mismatch du synctest à chaque dash avec la souris qui bouge. Hors
+            // checksum pour ne pas déplacer les traces de référence (comme `HitCount`) : la
+            // rotation de l'arme, qui en dérive, y est déjà.
+            .rollback_and_trace_no_checksum::<CursorPosition>()
             .rollback_and_trace::<DashState>()
             .rollback_and_trace::<SprintState>()
             .rollback_and_trace::<Velocity>()

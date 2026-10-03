@@ -138,7 +138,11 @@ pub struct BoxInput {
 }
 
 /// Component for the weapon sprite's position relative to player
-#[derive(Component, Clone, Copy, Default)]
+///
+/// Lu par `system_weapon_position` (rotation de l'arme, `GgrsSchedule`) mais écrit par
+/// `apply_inputs` seulement hors dash : il est donc de l'état rollback, enregistré par
+/// `BaseCharacterGamePlugin` (hors checksum, voir là).
+#[derive(Component, Clone, Copy, Debug, Default)]
 pub struct CursorPosition {
     pub x: i32,
     pub y: i32,
