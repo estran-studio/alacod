@@ -526,6 +526,8 @@ région des chantiers puis la campagne.
 - m0-v8 : mergée (`d45431f`) ; trace `avant_poste_demo` bénie (`8fe873e`) ; `--map` (`cd6445a`) ;
   `start_map` basculé (`0942abb`) ; validation 20 graines : 0 desync, les softlocks relèvent de D20
   (m0-v7 phase 2 en cours, re-validation prévue).
+- m0-v9 : en cours (`m0-v9-allumette-client`) — client allumette dans le jeu natif (D12),
+  session locale, worktree amorcé par l'orchestrateur.
 
 - Ce fichier est la source de vérité des tâches : une ligne de statut par tâche (`à faire`, `en
   cours (branche)`, `mergée (commit)`), tenue par l'agent qui prend la tâche.
