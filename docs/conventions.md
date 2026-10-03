@@ -799,7 +799,13 @@ corps du coin avant le segment vers la case suivante. Le choix est stable (étap
 distance au point initial, x, y), et le collider avec son offset doit rester libre
 sur chaque segment, vérifié à intervalles d'un pixel. Les fenêtres intactes restent
 bloquantes. Une étape intermédiaire doit permettre de rejoindre un point libre dans
-la case cible. La direction récupérée évite le mélange de steering qui
+la case cible. Si la case cible n'offre aucun point libre pour le corps (un mur
+couvre toute la case), le glissement le long d'un axe du déplacement de case est
+essayé d'abord — une poche de coin est souvent ouverte latéralement (fenêtre cassée
+dans le mur sous le coin) quand la diagonale est pincée — puis la rotation du cap
+vers le waypoint par paliers de 45°, rotations proches d'abord, demi-tour en
+dernier. La première direction dont le segment reste libre sur 24 px à intervalles
+d'un pixel gagne, et le zombie glisse hors du coin avant que le champ ne reprenne. La direction récupérée évite le mélange de steering qui
 réintroduisait le mur ; le mouvement conserve vitesse, séparation et collision
 ordinaires. Le délai dépend des compteurs existants de `WaveState`, sans état caché
 ou nouveau type rollback.
