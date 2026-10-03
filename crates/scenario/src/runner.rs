@@ -8,7 +8,7 @@ use bevy_ggrs::{GgrsSchedule, SyncTestMismatch};
 use bots::{BotAssignments, BotsPlugin};
 use combat::damage::Defenses;
 use combat::inventory::AmmoReserves;
-use game::recording::InputRecorder;
+use game::recording::{InputRecorder, RecordedSettings};
 use game::{
     args::{GameArgs, GameArgsPlugin},
     character::player::{
@@ -176,6 +176,10 @@ pub fn build_app(scenario: &Scenario, headless: bool, config: &PlayConfig) -> Ap
             dump: std::env::var("ALACOD_DUMP_TRACE").ok().map(PathBuf::from),
         })
         .add_plugins(GameEventsPlugin)
+        // D19 : remplace l'enregistreur vide de `RecordingPlugin` (ajouté par `core_plugin`
+        // ci-dessus) par un enregistreur qui connaît les réglages de ce scénario, avant la
+        // première frame : `to_scenario` les reporte dans le scénario enregistré.
+        .insert_resource(InputRecorder::new(RecordedSettings::from_scenario(scenario)))
         .insert_resource(WeaponOverrides(scenario.weapon_overrides.clone()))
         .add_systems(Update, apply_weapon_overrides)
         .insert_resource(WaveOverrideRes(scenario.wave_overrides.clone()))
@@ -827,16 +831,12 @@ pub fn run_with_options<F: FnOnce(&mut App)>(
         .map(|lines| lines.map(str::to_string).collect());
 
     let summary = summarize(app.world_mut(), frame);
-    let mut recorded = app
+    // Les réglages de simulation (jeu, surcharges, power-ups) sont dans l'enregistreur depuis
+    // sa construction (D19, `RecordedSettings::from_scenario` ci-dessus) : plus de recopie ici.
+    let recorded = app
         .world()
         .resource::<InputRecorder>()
         .to_scenario(app.world().get_resource::<MapGenerationConfig>());
-    // Ces réglages font partie de la simulation rejouée, pas du flux d'inputs.
-    recorded.game = scenario.game.clone();
-    recorded.weapon_overrides = scenario.weapon_overrides.clone();
-    recorded.wave_overrides = scenario.wave_overrides.clone();
-    recorded.powerups = scenario.powerups.clone();
-    recorded.powerup_drop_chance_override = scenario.powerup_drop_chance_override;
 
     let events = app.world().resource::<GameEvents>().events.clone();
 

@@ -214,7 +214,7 @@
             // faible), bornes prudentes en dessous et bien au-dessus.
             test: Some((frames: 600, min_hits: 4, max_hits: Some(40))),
         ),
-        // Pas de sprite propre (`Obj/Weapons.png` n'a que trois armes, voir
+        // Pas de sprite propre (`sprites/weapons/Weapons.png` n’a que trois armes, voir
         // docs/plan-engine.md §5 A5) : réutilise celui du fusil à pompe.
         sprite_config: (
             name: "shotgun",

@@ -151,10 +151,11 @@ sim:
 	./scripts/scenario-metrics.py
 
 # Vidéos des scénarios (target/videos/<commit>/) : une par scénario + montage en grille.
-# SCENARIO=<nom> pour un seul ; EVERY=N une image toutes les N frames (défaut 2).
+# SCENARIO=<nom> pour un seul, SCENARIO=a,b ou SCENARIO="a b" pour plusieurs (D23) ;
+# EVERY=N une image toutes les N frames (défaut 2) ; DRY_RUN=1 liste sans compiler ni capturer.
 videos:
-	EVERY=$(or $(EVERY),2) ./scripts/scenario-video render $(SCENARIO)
-	./scripts/scenario-video montage
+	EVERY=$(or $(EVERY),2) DRY_RUN=$(DRY_RUN) ./scripts/scenario-video render $(SCENARIO)
+	$(if $(DRY_RUN),,./scripts/scenario-video montage)
 
 # La même partie vue par chaque joueur, côte à côte : make views SCENARIO=four_players_shooting
 views:

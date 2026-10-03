@@ -1,8 +1,10 @@
 use crate::core::AppState;
 use crate::jjrs::GggrsSessionConfiguration;
+use crate::run_state::LocalLobbyHold;
 use bevy::prelude::*;
 use bevy_ggrs::ggrs::PlayerType;
 use bevy_matchbox::prelude::MatchboxSocket;
+use run::{RunEnd, RunSummary};
 
 pub struct LobbyUiPlugin;
 
@@ -15,6 +17,127 @@ impl Plugin for LobbyUiPlugin {
             Update,
             update_lobby_ui.run_if(in_state(AppState::LobbyOnline)),
         );
+        // D13 : lobby local en attente après un retour de partie (`LocalLobbyHold`).
+        app.add_systems(OnEnter(AppState::LobbyLocal), spawn_local_hold_ui);
+        app.add_systems(OnExit(AppState::LobbyLocal), despawn_local_hold_ui);
+        app.add_systems(
+            Update,
+            release_local_hold.run_if(in_state(AppState::LobbyLocal)),
+        );
+    }
+}
+
+/// Police de l'écran d'attente : celle de l'écran de fin (la police par défaut de Bevy n'a
+/// pas les accents).
+const LOBBY_FONT: &str = "fonts/FiraMono-Medium.ttf";
+
+#[derive(Component)]
+struct LocalHoldUiRoot;
+
+#[derive(Component)]
+struct NewGameButton;
+
+/// Texte de l'écran d'attente du lobby local (D13) : le résumé de la partie quittée, puis
+/// comment relancer.
+fn local_hold_text(summary: Option<RunSummary>) -> String {
+    let last = match summary {
+        Some(summary) => {
+            let what = match summary.outcome {
+                RunEnd::Defeat => "Défaite",
+                RunEnd::Victory => "Victoire",
+                RunEnd::Abandon => "Partie abandonnée",
+            };
+            format!(
+                "{what} : vague {} - {} kills - {} points\n",
+                summary.wave_reached, summary.kills, summary.points_total
+            )
+        }
+        None => String::new(),
+    };
+    format!("{last}Entrée : nouvelle partie")
+}
+
+fn spawn_local_hold_ui(
+    mut commands: Commands,
+    hold: Option<Res<LocalLobbyHold>>,
+    asset_server: Res<AssetServer>,
+) {
+    let Some(hold) = hold else {
+        return;
+    };
+    let font: Handle<Font> = asset_server.load(LOBBY_FONT);
+    commands
+        .spawn((
+            Node {
+                width: Val::Percent(100.0),
+                height: Val::Percent(100.0),
+                justify_content: JustifyContent::Center,
+                align_items: AlignItems::Center,
+                flex_direction: FlexDirection::Column,
+                row_gap: Val::Px(24.0),
+                ..default()
+            },
+            BackgroundColor(Color::srgba(0.0, 0.0, 0.0, 0.8)),
+            LocalHoldUiRoot,
+        ))
+        .with_children(|parent| {
+            parent.spawn((
+                Text::new(local_hold_text(hold.summary)),
+                TextFont {
+                    font: font.clone().into(),
+                    font_size: FontSize::Px(32.0),
+                    ..default()
+                },
+                TextColor(Color::WHITE),
+                TextLayout::justify(Justify::Center),
+            ));
+            parent
+                .spawn((
+                    Button,
+                    Node {
+                        padding: UiRect::axes(Val::Px(24.0), Val::Px(12.0)),
+                        ..default()
+                    },
+                    BackgroundColor(Color::srgb(0.3, 0.3, 0.3)),
+                    NewGameButton,
+                ))
+                .with_children(|button| {
+                    button.spawn((
+                        Text::new("Nouvelle partie"),
+                        TextFont {
+                            font: font.into(),
+                            font_size: FontSize::Px(28.0),
+                            ..default()
+                        },
+                        TextColor(Color::WHITE),
+                    ));
+                });
+        });
+}
+
+fn despawn_local_hold_ui(mut commands: Commands, roots: Query<Entity, With<LocalHoldUiRoot>>) {
+    for entity in &roots {
+        commands.entity(entity).despawn();
+    }
+}
+
+/// Entrée ou « Nouvelle partie » : retire `LocalLobbyHold`, `setup_ggrs_local` relance la
+/// même configuration à la frame suivante (l'écran disparaît en quittant `LobbyLocal`).
+fn release_local_hold(
+    mut commands: Commands,
+    hold: Option<Res<LocalLobbyHold>>,
+    keys: Option<Res<ButtonInput<KeyCode>>>,
+    buttons: Query<&Interaction, (Changed<Interaction>, With<NewGameButton>)>,
+) {
+    if hold.is_none() {
+        return;
+    }
+    let key = keys.is_some_and(|keys| {
+        keys.just_pressed(KeyCode::Enter) || keys.just_pressed(KeyCode::NumpadEnter)
+    });
+    let clicked = buttons.iter().any(|i| *i == Interaction::Pressed);
+    if key || clicked {
+        commands.remove_resource::<LocalLobbyHold>();
     }
 }
 
@@ -169,5 +292,26 @@ fn update_lobby_ui(
                     });
             }
         });
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn ecran_d_attente_avec_et_sans_resume() {
+        assert_eq!(local_hold_text(None), "Entrée : nouvelle partie");
+        let summary = RunSummary {
+            wave_reached: 2,
+            kills: 9,
+            points_total: 1300,
+            frames: 4000,
+            outcome: RunEnd::Abandon,
+        };
+        assert_eq!(
+            local_hold_text(Some(summary)),
+            "Partie abandonnée : vague 2 - 9 kills - 1300 points\nEntrée : nouvelle partie"
+        );
     }
 }

@@ -8,20 +8,20 @@
   :root {
     --bg: #f4f4f2; --panel: #ffffff; --panel-2: #ecebe7; --text: #1d1d1b; --muted: #6b6a66;
     --border: #d9d7d1; --accent: #b4532a; --accent-soft: #f3e3da; --ok: #2f7d4f;
-    --ev-kill: #2f7d4f; --ev-death: #b3261e; --ev-hit: #b86e00; --ev-wave: #2a5db0; --ev-other: #6b6a66;
+    --ev-kill: #2f7d4f; --ev-death: #b3261e; --ev-hit: #b86e00; --ev-wave: #2a5db0; --ev-other: #6b6a66; --ev-powerup: #7a3fb0;
     --radius: 10px; --mono: ui-monospace, "SF Mono", Menlo, Consolas, monospace;
   }
   @media (prefers-color-scheme: dark) {
     :root:not([data-theme="light"]) {
       --bg: #141413; --panel: #1d1d1b; --panel-2: #262624; --text: #ecebe6; --muted: #9a988f;
       --border: #34332f; --accent: #e07a4b; --accent-soft: #3a2519; --ok: #6cc18d;
-      --ev-kill: #6cc18d; --ev-death: #f07b72; --ev-hit: #f0b35a; --ev-wave: #7ea8f0; --ev-other: #9a988f;
+      --ev-kill: #6cc18d; --ev-death: #f07b72; --ev-hit: #f0b35a; --ev-wave: #7ea8f0; --ev-other: #9a988f; --ev-powerup: #c39af0;
     }
   }
   :root[data-theme="dark"] {
     --bg: #141413; --panel: #1d1d1b; --panel-2: #262624; --text: #ecebe6; --muted: #9a988f;
     --border: #34332f; --accent: #e07a4b; --accent-soft: #3a2519; --ok: #6cc18d;
-    --ev-kill: #6cc18d; --ev-death: #f07b72; --ev-hit: #f0b35a; --ev-wave: #7ea8f0; --ev-other: #9a988f;
+    --ev-kill: #6cc18d; --ev-death: #f07b72; --ev-hit: #f0b35a; --ev-wave: #7ea8f0; --ev-other: #9a988f; --ev-powerup: #c39af0;
   }
   * { box-sizing: border-box; }
   body { margin: 0; background: var(--bg); color: var(--text);
@@ -69,6 +69,9 @@
                     transform: translateX(-1px); opacity: .9; }
   .timeline .mark.kill { background: var(--ev-kill); } .timeline .mark.death { background: var(--ev-death); }
   .timeline .mark.hit { background: var(--ev-hit); } .timeline .mark.wave { background: var(--ev-wave); }
+  /* D21 : fin de partie et power-ups */
+  .timeline .mark.victory { background: var(--ev-kill); } .timeline .mark.defeat { background: var(--ev-death); }
+  .timeline .mark.powerup, .timeline .mark.powerup_pickup { background: var(--ev-powerup); }
   .timeline .playhead { position: absolute; top: 1px; width: 2px; height: 26px; background: var(--text); transform: translateX(-1px); }
   .keys { font-size: 12px; color: var(--muted); width: 100%; }
   kbd { font: 11px var(--mono); border: 1px solid var(--border); border-radius: 4px; padding: 0 4px; background: var(--panel); }
@@ -93,6 +96,8 @@
   .ev .f { font: 12px var(--mono); color: var(--muted); margin-right: 6px; }
   .ev.kill { border-left-color: var(--ev-kill); } .ev.death { border-left-color: var(--ev-death); }
   .ev.hit { border-left-color: var(--ev-hit); } .ev.wave { border-left-color: var(--ev-wave); }
+  .ev.victory { border-left-color: var(--ev-kill); } .ev.defeat { border-left-color: var(--ev-death); }
+  .ev.powerup, .ev.powerup_pickup { border-left-color: var(--ev-powerup); }
   .ev.past { opacity: .55; }
   .ev.current { outline: 2px solid var(--accent); opacity: 1; }
   textarea { width: 100%; min-height: 90px; resize: vertical; font: 14px inherit; font-family: inherit;

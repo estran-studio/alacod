@@ -11,8 +11,12 @@ from pathlib import Path
 
 ROOT = Path(__file__).resolve().parent.parent
 import os
-# Le target de la tâche courante (worktree) ou ./target par défaut, comme cargo.
-METRICS_DIR = Path(os.environ.get("CARGO_TARGET_DIR", ROOT / "target")) / "metrics"
+# Le target de la tâche courante (worktree) ou ./target par défaut, comme cargo. Un chemin
+# relatif (le Makefile exporte `CARGO_TARGET_DIR=./target`) se lit depuis la racine du dépôt,
+# comme `metrics_dir` de `crates/scenario/tests/scenarios.rs` (D24), quel que soit le dossier
+# d'où le script est lancé.
+_TARGET = Path(os.environ.get("CARGO_TARGET_DIR") or ROOT / "target")
+METRICS_DIR = (_TARGET if _TARGET.is_absolute() else ROOT / _TARGET) / "metrics"
 
 
 def git(*args):

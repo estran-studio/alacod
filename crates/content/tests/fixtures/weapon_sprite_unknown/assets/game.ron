@@ -1,0 +1,11 @@
+(
+    name: "fixture-weapon-sprite-unknown",
+    content_folders: [
+        (path: "weapons.ron", kind: "Weapon"),
+        (path: "sprites/sprites.ron", kind: "SpriteSheet"),
+    ],
+    entry: (
+        start_map: "unused",
+        default_seed: 1,
+    ),
+)

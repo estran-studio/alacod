@@ -48,7 +48,7 @@ use bevy::prelude::*;
 use bevy_ggrs::{GgrsSchedule, Rollback, RollbackOrdered, Session};
 use content::manifest::{EntryMode, GameManifest};
 use content::registry::Registry;
-use run::{Currency, Run, RunContext, RunEnd, RunMode, RunModeRules, RunStep};
+use run::{Currency, Run, RunContext, RunEnd, RunMode, RunModeRules, RunStep, RunSummary};
 use utils::{
     frame::FrameCount,
     net_id::{GgrsNetId, GgrsNetIdFactory},
@@ -105,6 +105,79 @@ pub enum RunRequest {
     Restart,
     /// Retour au lobby (`LobbyLocal`/`LobbyOnline` selon `OnlineState`).
     ToLobby,
+}
+
+/// D13 : le lobby local attend une action du joueur avant de relancer une partie. Posée
+/// par [`apply_run_request_system`] quand une partie locale retourne au lobby ; tant
+/// qu'elle existe, `jjrs::local::setup_ggrs_local` ne démarre pas de session (condition
+/// dans `core::CoreSetupPlugin`). `ui::lobby` l'affiche (résumé de la partie quittée) et la
+/// retire sur Entrée ou un clic sur « Nouvelle partie ». Absente au premier lancement : le
+/// lobby local démarre aussitôt, comme avant D13 (scénarios, `make zombies`). Hors
+/// rollback, comme [`RunRequest`].
+#[derive(Resource, Debug, Clone, PartialEq)]
+pub struct LocalLobbyHold {
+    /// Résumé de la partie quittée (calculé à l'abandon, D13), `None` si elle n'en avait pas.
+    pub summary: Option<RunSummary>,
+}
+
+/// Ce qu'une [`RunRequest`] fait (D13) : décision pure de [`apply_run_request_system`].
+#[derive(Debug, Clone, PartialEq, Eq)]
+struct RunRequestPlan {
+    /// État suivant.
+    next: AppState,
+    /// La partie était en cours : elle se termine en `RunEnd::Abandon`, avec son résumé.
+    abandon: bool,
+    /// Retour au lobby **local** : il attend une action du joueur ([`LocalLobbyHold`]).
+    hold_local_lobby: bool,
+    /// `Restart` demandé en p2p, traité comme `ToLobby` (voir [`RunRequest::Restart`]).
+    restart_redirected: bool,
+}
+
+fn plan_run_request(request: RunRequest, online: bool, playing: bool) -> RunRequestPlan {
+    let restart_redirected = request == RunRequest::Restart && online;
+    if request == RunRequest::ToLobby || restart_redirected {
+        RunRequestPlan {
+            next: if online {
+                AppState::LobbyOnline
+            } else {
+                AppState::LobbyLocal
+            },
+            abandon: playing,
+            hold_local_lobby: !online,
+            restart_redirected,
+        }
+    } else {
+        // Restart local : `MapGenerationConfig`/`GggrsSessionConfiguration`/
+        // `GgrsSessionBuilding` restent en place, inchangées (voir la doc du module) —
+        // retour direct en `GameLoading`, sans repasser par un lobby.
+        RunRequestPlan {
+            next: AppState::GameLoading,
+            abandon: false,
+            hold_local_lobby: false,
+            restart_redirected: false,
+        }
+    }
+}
+
+/// Résumé d'une partie terminée (T2.4) ; D13 : partagé par la fin normale
+/// ([`finalize_run_summary_system`]) et l'abandon ([`apply_run_request_system`]), mêmes
+/// champs. `points_total` = somme des soldes des joueurs encore en jeu, dans l'ordre
+/// `GgrsNetId` (voir `docs/conventions.md` section « Run »).
+fn run_summary(
+    mode: &RunMode,
+    frame: u32,
+    wave_state: &WaveState,
+    points_total: u32,
+    outcome: RunEnd,
+) -> RunSummary {
+    let ctx = RunContext {
+        frame,
+        current_wave: wave_state.current_wave,
+        max_wave: None,
+        kills: wave_state.total_enemies_killed,
+        points_total,
+    };
+    mode.summarize(&ctx, outcome)
 }
 
 /// Branche [`Run`]/[`RunModeRules`] sur la simulation (victoire, résumé) et la relance
@@ -202,14 +275,7 @@ pub fn finalize_run_summary_system(
         points_total = points_total.saturating_add(currency.0);
     }
 
-    let ctx = RunContext {
-        frame: frame.frame,
-        current_wave: wave_state.current_wave,
-        max_wave: None,
-        kills: wave_state.total_enemies_killed,
-        points_total,
-    };
-    let summary = run.mode.summarize(&ctx, outcome);
+    let summary = run_summary(&run.mode, frame.frame, &wave_state, points_total, outcome);
     info!(
         "f{} run summary: wave={} kills={} points={} outcome={:?}",
         frame.frame, summary.wave_reached, summary.kills, summary.points_total, summary.outcome
@@ -218,18 +284,23 @@ pub fn finalize_run_summary_system(
 }
 
 /// Consomme [`RunRequest`] (posée par `ui::game_over`) à la prochaine frame hors
-/// `GgrsSchedule` : fige `Run.step` en `Ended { outcome: Abandon }` si la partie était
-/// encore en cours et qu'on quitte vers le lobby (pas de résumé calculé pour ce cas — voir
-/// le rapport de la tâche, limitation connue), puis change d'état. La destruction
-/// proprement dite (entités, session, ressources) est déclenchée par la transition d'état
-/// elle-même (`OnExit(AppState::InGame)`, voir [`cleanup_rollback_world_system`] et la doc
-/// du module), pas ici.
+/// `GgrsSchedule` (décision : [`plan_run_request`]) : si la partie était encore en cours et
+/// qu'on quitte vers le lobby, fige `Run.step` en `Ended { outcome: Abandon }` **et calcule
+/// son résumé** (D13 : mêmes champs qu'une défaite, issue `Abandon` ; avant D13, aucun
+/// résumé — `finalize_run_summary_system` ne tourne pas avant la destruction de `Run`). Un
+/// retour au lobby local pose [`LocalLobbyHold`] : le lobby attend le joueur au lieu de
+/// relancer aussitôt une partie (D13). La destruction proprement dite (entités, session,
+/// ressources) est déclenchée par la transition d'état elle-même
+/// (`OnExit(AppState::InGame)`, voir [`cleanup_rollback_world_system`] et la doc du
+/// module), pas ici.
 fn apply_run_request_system(
     mut commands: Commands,
     request: Option<Res<RunRequest>>,
     mut app_state: ResMut<NextState<AppState>>,
     online_state: Res<OnlineState>,
     frame: Res<FrameCount>,
+    wave_state: Res<WaveState>,
+    currencies: Query<(&GgrsNetId, &Currency), With<Player>>,
     mut run: ResMut<Run>,
 ) {
     let Some(request) = request else {
@@ -237,30 +308,38 @@ fn apply_run_request_system(
     };
 
     let online = matches!(*online_state, OnlineState::Online);
-    let to_lobby = matches!(*request, RunRequest::ToLobby)
-        || (matches!(*request, RunRequest::Restart) && online);
-
-    if to_lobby {
-        if online && matches!(*request, RunRequest::Restart) {
-            warn!("RunRequest::Restart demandé en p2p : non supporté, retour au lobby à la place (voir la doc de RunRequest::Restart)");
-        }
-        if run.is_playing() {
-            run.step = RunStep::Ended {
-                at_frame: frame.frame,
-                outcome: RunEnd::Abandon,
-            };
-        }
-        app_state.set(if online {
-            AppState::LobbyOnline
-        } else {
-            AppState::LobbyLocal
-        });
-    } else {
-        // Restart local : `MapGenerationConfig`/`GggrsSessionConfiguration`/
-        // `GgrsSessionBuilding` restent en place, inchangées (voir la doc du module) —
-        // retour direct en `GameLoading`, sans repasser par un lobby.
-        app_state.set(AppState::GameLoading);
+    let plan = plan_run_request(*request, online, run.is_playing());
+    if plan.restart_redirected {
+        warn!("RunRequest::Restart demandé en p2p : non supporté, retour au lobby à la place (voir la doc de RunRequest::Restart)");
     }
+    if plan.abandon {
+        run.step = RunStep::Ended {
+            at_frame: frame.frame,
+            outcome: RunEnd::Abandon,
+        };
+        let mut points_total = 0u32;
+        for (_, currency) in order_iter!(currencies) {
+            points_total = points_total.saturating_add(currency.0);
+        }
+        let summary = run_summary(
+            &run.mode,
+            frame.frame,
+            &wave_state,
+            points_total,
+            RunEnd::Abandon,
+        );
+        info!(
+            "f{} run summary: wave={} kills={} points={} outcome={:?}",
+            frame.frame, summary.wave_reached, summary.kills, summary.points_total, summary.outcome
+        );
+        run.summary = Some(summary);
+    }
+    if plan.hold_local_lobby {
+        commands.insert_resource(LocalLobbyHold {
+            summary: run.summary,
+        });
+    }
+    app_state.set(plan.next);
 
     commands.remove_resource::<RunRequest>();
 }
@@ -304,6 +383,75 @@ fn cleanup_rollback_world_system(
 mod tests {
     use super::*;
     use content::manifest::EntryPoint;
+
+    #[test]
+    fn to_lobby_en_local_abandonne_et_fait_attendre_le_lobby() {
+        // D13 : partie en cours quittée vers le lobby local.
+        let plan = plan_run_request(RunRequest::ToLobby, false, true);
+        assert_eq!(plan.next, AppState::LobbyLocal);
+        assert!(plan.abandon);
+        assert!(plan.hold_local_lobby);
+        // Depuis l'écran de fin (partie déjà terminée) : pas d'abandon, mais le lobby
+        // local attend quand même le joueur.
+        let plan = plan_run_request(RunRequest::ToLobby, false, false);
+        assert!(!plan.abandon && plan.hold_local_lobby);
+    }
+
+    #[test]
+    fn to_lobby_et_restart_en_ligne_vont_au_lobby_en_ligne_sans_attente_locale() {
+        for request in [RunRequest::ToLobby, RunRequest::Restart] {
+            let plan = plan_run_request(request, true, true);
+            assert_eq!(plan.next, AppState::LobbyOnline);
+            assert!(plan.abandon);
+            assert!(!plan.hold_local_lobby);
+            assert_eq!(plan.restart_redirected, request == RunRequest::Restart);
+        }
+    }
+
+    #[test]
+    fn restart_local_relance_sans_lobby_ni_abandon() {
+        let plan = plan_run_request(RunRequest::Restart, false, true);
+        assert_eq!(
+            plan,
+            RunRequestPlan {
+                next: AppState::GameLoading,
+                abandon: false,
+                hold_local_lobby: false,
+                restart_redirected: false,
+            }
+        );
+    }
+
+    #[test]
+    fn resume_a_l_abandon_memes_champs_qu_une_defaite() {
+        let wave_state = WaveState {
+            current_wave: 3,
+            total_enemies_killed: 17,
+            ..Default::default()
+        };
+        let mode = RunMode::Waves {
+            config: "wave_config".to_string(),
+        };
+        let abandon = run_summary(&mode, 1234, &wave_state, 2500, RunEnd::Abandon);
+        let defeat = run_summary(&mode, 1234, &wave_state, 2500, RunEnd::Defeat);
+        assert_eq!(
+            abandon,
+            RunSummary {
+                wave_reached: 3,
+                kills: 17,
+                points_total: 2500,
+                frames: 1234,
+                outcome: RunEnd::Abandon,
+            }
+        );
+        assert_eq!(
+            RunSummary {
+                outcome: RunEnd::Defeat,
+                ..abandon
+            },
+            defeat
+        );
+    }
 
     fn manifest_with_mode(mode: Option<EntryMode>) -> GameManifest {
         GameManifest {

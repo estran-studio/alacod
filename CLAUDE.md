@@ -369,7 +369,8 @@ Défaut : `MATCHBOX_URL=wss://allumette.bascanada.org` (serveur cloud).
 ### Vidéos (validation visuelle)
 `scripts/scenario-video` rejoue les scénarios avec rendu et capture chaque frame (image n = frame n,
 960×540 hors écran, indépendant de la fenêtre), puis encode avec ffmpeg :
-- `make videos [SCENARIO=<nom>]` : une vidéo par scénario + `montage.mp4` (grille), dans
+- `make videos [SCENARIO=<nom>]` (plusieurs : `SCENARIO=a,b` ou `SCENARIO="a b"` ; `DRY_RUN=1` liste
+  sans compiler) : une vidéo par scénario + `montage.mp4` (grille), dans
   `target/videos/<commit>/` ;
 - `make views SCENARIO=<nom>` : la même partie vue par chacun de ses joueurs (caméra `--follow`),
   côte à côte dans `<nom>.vues.mp4` (toutes les vues ont la même durée ; le `montage.mp4` de
@@ -378,7 +379,9 @@ Défaut : `MATCHBOX_URL=wss://allumette.bascanada.org` (serveur cloud).
   scénario joué par le code des deux références (worktree git, target partagé). La référence doit
   contenir `play_scenario --capture`.
 - Moments clés : pendant la capture, `crates/scenario/src/events.rs` détecte vague, kills, coups reçus,
-  morts, rechargements, changements d'arme, fenêtres cassées/réparées, portes ouvertes ; écrits dans
+  morts, rechargements, changements d'arme, fenêtres cassées/réparées, portes ouvertes, armes lâchées
+  et ramassées (pas les armes murales), power-ups (`powerup` : au sol, expiré ; `powerup_pickup` :
+  ramassé, avec le joueur) et fin de partie (`victory`, `defeat`, `abandon`, D21) ; écrits dans
   `<scénario>.events.json`, affichés en pastilles cliquables sous chaque vidéo. En test :
   `ALACOD_EVENTS=1 make test_scenarios` les affiche.
 - Chaque scénario commence par un commentaire `// À regarder : ...` (ce qu'on doit voir, avec les frames),
@@ -467,6 +470,8 @@ Chaque widget est lié à une source. Une source inconnue provoque un `warn!` au
 - `health` : ratio et texte du joueur local (`current/max`). Les barres utilisent la ratio pour la largeur et interpolent rouge→vert. Les textes affichent la valeur.
 - `wave` : numéro de la vague actuelle (WaveState::current_wave).
 - `health`, `wave`, `ammo`, `weapon`, `currency` : lus sur le joueur du HUD (voir plus bas).
+  D22 : sans valeur (joueur mort, dont l'entité est détruite ; pas d'arme), `health`, `ammo`,
+  `weapon` et `currency` n'affichent **rien**, pas même leur préfixe (avant : « $ » et « ? | ? »).
 - `ammo` : munitions du mode actif de l'arme active (`mag_ammo | réserve`, T2.2 : la réserve
   du type de munition de l'arme, `combat::inventory::AmmoReserves`, remplace l'ancien
   `mag_quantity` par arme).

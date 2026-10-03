@@ -3,18 +3,15 @@
 //!
 //! Le registre est la **source de vérité des ids** (quels personnages, quelles armes...
 //! existent pour ce jeu) : `character_configs`, `weapons` et `melee_weapons` sont chargés
-//! d'après ses entrées. Les feuilles de sprite et configs d'animation par `asset_name_ref`
-//! (`spritesheets`, `animations`) restent une table en dur ici : leur chemin ne vient
-//! d'aucun RON aujourd'hui (voir `docs/plan-engine.md` §5 A5, « Pipeline sprites », hors
-//! périmètre de T1.5) ; seul le *sous-ensemble effectivement utilisé* par ce jeu (d'après
-//! le registre) est chargé, pour qu'un jeu qui ne déclare pas de personnage "zombie_full"
-//! (ex. `games/testbed`) n'exige plus ses sprites.
+//! d'après ses entrées. D3 : les feuilles de sprite et configs d'animation aussi, d'après la
+//! table du kind `SpriteSheet` (`sprites/sprites.ron` des jeux) : un id par entrée (le
+//! `asset_name_ref` d'un personnage, le `sprite_config.name` d'une arme, ou
+//! [`SLASH_EFFECT_SPRITE_ID`]), avec sa configuration d'animation et ses calques. Avant D3,
+//! ces chemins étaient écrits ici en dur ; un jeu ne charge plus que ce qu'il déclare.
 
 use animation::{AnimationMapConfig, SpriteSheetConfig};
 use bevy::{platform::collections::hash_map::HashMap, prelude::*};
 use content::registry::Registry;
-use std::collections::BTreeSet;
-use utils::bmap;
 
 use crate::{
     character::config::CharacterConfig,
@@ -25,12 +22,10 @@ use crate::{
     weapons::{melee::MeleeWeaponsConfig, WeaponsConfig},
 };
 
-const PLAYER_SPRITESHEET_CONFIG_PATH: &str = "ZombieShooter/Sprites/Character/player_sheet.ron";
-const PLAYER_SHIRT_SPRITESHEET_CONFIG_PATH: &str =
-    "ZombieShooter/Sprites/Character/shirt_1_sheet.ron";
-const PLAYER_HAIR_SPRITESHEET_CONFIG_PATH: &str =
-    "ZombieShooter/Sprites/Character/hair_1_sheet.ron";
-const PLAYER_ANIMATIONS_CONFIG_PATH: &str = "ZombieShooter/Sprites/Character/player_animation.ron";
+/// D3 : id de la feuille de l'effet de coup de mêlée (`ui::weapon_visuals::
+/// spawn_slash_effects`) dans la table `SpriteSheet`, calque `body`. Absente : pas d'effet
+/// affiché.
+pub const SLASH_EFFECT_SPRITE_ID: &str = "slash";
 
 #[derive(Resource)]
 pub struct GlobalAsset {
@@ -40,9 +35,10 @@ pub struct GlobalAsset {
     pub weapons: Handle<WeaponsConfig>,
     pub melee_weapons: Handle<MeleeWeaponsConfig>,
 
-    // Visual effects
-    pub slash_effect_spritesheet: Handle<SpriteSheetConfig>,
-    pub slash_effect_animation: Handle<AnimationMapConfig>,
+    /// Effet de coup de mêlée (D3 : entrée [`SLASH_EFFECT_SPRITE_ID`] de la table
+    /// `SpriteSheet`, `None` si le jeu ne la déclare pas).
+    pub slash_effect_spritesheet: Option<Handle<SpriteSheetConfig>>,
+    pub slash_effect_animation: Option<Handle<AnimationMapConfig>>,
 
     // Wave spawning config (optional - only loaded when the game declares a `Wave` folder)
     pub wave_config: Option<Handle<WaveConfig>>,
@@ -63,105 +59,29 @@ pub struct GlobalAsset {
 
 impl GlobalAsset {
     pub fn create(asset_server: &AssetServer, registry: &Registry) -> Self {
-        // asset_name_ref réellement déclarés par ce jeu (`characters/*.ron` via le
-        // registre) : pilote quelles feuilles de sprite sont chargées ci-dessous.
-        let used_refs: BTreeSet<&str> = registry
-            .characters
-            .values()
-            .map(|entry| entry.asset_name_ref.as_str())
-            .collect();
-
+        // D3 : une entrée par id de la table `SpriteSheet` (calques + animation). Les clés
+        // sont celles que cherchent `character::visuals` (`asset_name_ref`) et
+        // `ui::weapon_visuals` (`sprite_config.name`), comme la table en dur d'avant D3.
         let mut spritesheets: HashMap<String, HashMap<String, Handle<SpriteSheetConfig>>> =
             HashMap::default();
         let mut animations: HashMap<String, Handle<AnimationMapConfig>> = HashMap::default();
-
-        if used_refs.contains("player") {
-            spritesheets.insert(
-                "player".to_string(),
-                bmap!(
-                    "body" => asset_server.load(PLAYER_SPRITESHEET_CONFIG_PATH),
-                    "shirt" => asset_server.load(PLAYER_SHIRT_SPRITESHEET_CONFIG_PATH),
-                    "hair" => asset_server.load(PLAYER_HAIR_SPRITESHEET_CONFIG_PATH),
-                    "shadow" => asset_server.load("ZombieShooter/Sprites/Character/shadow_sheet.ron")
-                ),
-            );
+        for entry in registry.sprite_sheets.values() {
+            let layers = entry
+                .layers
+                .iter()
+                .map(|(layer, path)| (layer.clone(), asset_server.load(path.clone())))
+                .collect();
+            spritesheets.insert(entry.id.as_str().to_string(), layers);
             animations.insert(
-                "player".to_string(),
-                asset_server.load(PLAYER_ANIMATIONS_CONFIG_PATH),
-            );
-
-            // Armes à distance : sprites du joueur qui les porte, pas d'un personnage
-            // particulier ; chargées avec "player" tant qu'il n'y a qu'un seul jeu de
-            // sprites d'armes (voir la note du module sur le pipeline sprites, A5).
-            spritesheets.insert(
-                "shotgun".to_string(),
-                bmap!("body" => asset_server.load("ZombieShooter/Sprites/Character/shotgun_sheet.ron")),
-            );
-            spritesheets.insert(
-                "pistol".to_string(),
-                bmap!("body" => asset_server.load("ZombieShooter/Sprites/Character/pistol_sheet.ron")),
-            );
-            spritesheets.insert(
-                "machine_gun".to_string(),
-                bmap!("body" => asset_server.load("ZombieShooter/Sprites/Character/machine_gun_sheet.ron")),
-            );
-            animations.insert(
-                "shotgun".to_string(),
-                asset_server.load(PLAYER_ANIMATIONS_CONFIG_PATH),
-            );
-            animations.insert(
-                "pistol".to_string(),
-                asset_server.load(PLAYER_ANIMATIONS_CONFIG_PATH),
-            );
-            animations.insert(
-                "machine_gun".to_string(),
-                asset_server.load(PLAYER_ANIMATIONS_CONFIG_PATH),
+                entry.id.as_str().to_string(),
+                asset_server.load(entry.animation.clone()),
             );
         }
-
-        if used_refs.contains("zombie_1") {
-            spritesheets.insert(
-                "zombie_1".to_string(),
-                bmap!(
-                    "body" => asset_server.load("ZombieShooter/Sprites/Zombie/zombie_sheet.ron"),
-                    "shadow" => asset_server.load("ZombieShooter/Sprites/Character/shadow_sheet.ron")
-                ),
-            );
-            animations.insert(
-                "zombie_1".to_string(),
-                asset_server.load("ZombieShooter/Sprites/Zombie/zombie_animation.ron"),
-            );
-        }
-
-        if used_refs.contains("zombie_2") {
-            spritesheets.insert(
-                "zombie_2".to_string(),
-                bmap!(
-                    "body" => asset_server.load("ZombieShooter/Sprites/Zombie/zombie_hard_sheet.ron"),
-                    "shadow" => asset_server.load("ZombieShooter/Sprites/Character/shadow_sheet.ron")
-                ),
-            );
-            // Le zombie "hard" réutilise l'animation du zombie standard (aucun fichier
-            // `zombie_hard_animation.ron` n'existe) : comportement inchangé par T1.5.
-            animations.insert(
-                "zombie_2".to_string(),
-                asset_server.load("ZombieShooter/Sprites/Zombie/zombie_animation.ron"),
-            );
-        }
-
-        if used_refs.contains("zombie_full") {
-            spritesheets.insert(
-                "zombie_full".to_string(),
-                bmap!(
-                    "body" => asset_server.load("ZombieShooter/Sprites/Zombie/zombie_full_sheet.ron"),
-                    "shadow" => asset_server.load("ZombieShooter/Sprites/Character/shadow_sheet.ron")
-                ),
-            );
-            animations.insert(
-                "zombie_full".to_string(),
-                asset_server.load("ZombieShooter/Sprites/Zombie/zombie_full_animation.ron"),
-            );
-        }
+        let slash_effect_spritesheet = spritesheets
+            .get(SLASH_EFFECT_SPRITE_ID)
+            .and_then(|layers| layers.get("body"))
+            .cloned();
+        let slash_effect_animation = animations.get(SLASH_EFFECT_SPRITE_ID).cloned();
 
         // character_configs : la clé est le `CharacterId` du registre (== `asset_name_ref`
         // aujourd'hui), le chemin vient de l'entrée du registre (source de vérité, T1.5).
@@ -233,11 +153,9 @@ impl GlobalAsset {
             weapons,
             melee_weapons,
 
-            // Visual effects
-            slash_effect_spritesheet: asset_server
-                .load("ZombieShooter/Sprites/Character/slash_sheet.ron"),
-            slash_effect_animation: asset_server
-                .load("ZombieShooter/Sprites/Character/slash_animation.ron"),
+            // Effet de coup de mêlée (D3 : table `SpriteSheet`).
+            slash_effect_spritesheet,
+            slash_effect_animation,
 
             // Wave spawning config : seulement si le jeu déclare un dossier `Wave`.
             wave_config,
@@ -305,18 +223,18 @@ pub fn loading_asset_system(
         return;
     }
 
-    // Check visual effects
-    if !asset_server
-        .load_state(&global_assets.slash_effect_spritesheet)
-        .is_loaded()
-    {
-        return;
+    // Effet de coup de mêlée : seulement s'il est déclaré (D3). Ses handles sont aussi dans
+    // `spritesheets`/`animations` ci-dessus, déjà attendus ; vérifiés ici pour le cas où
+    // l'entrée changerait de forme.
+    if let Some(handle) = &global_assets.slash_effect_spritesheet {
+        if !asset_server.load_state(handle).is_loaded() {
+            return;
+        }
     }
-    if !asset_server
-        .load_state(&global_assets.slash_effect_animation)
-        .is_loaded()
-    {
-        return;
+    if let Some(handle) = &global_assets.slash_effect_animation {
+        if !asset_server.load_state(handle).is_loaded() {
+            return;
+        }
     }
 
     // Check wave config (if loaded)

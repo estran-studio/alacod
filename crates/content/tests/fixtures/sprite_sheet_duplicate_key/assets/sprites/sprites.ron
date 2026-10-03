@@ -1,0 +1,12 @@
+// Fixture D3 : l'id `hero` est écrit deux fois (la table serait sinon écrasée en silence) :
+// LintErrorKind::DuplicateId (`registry::load_sprite_sheets`, `KeyedEntries`).
+({
+    "hero": (
+        animation: "sprites/hero_animation.ron",
+        layers: { "body": "sprites/hero_sheet.ron" },
+    ),
+    "hero": (
+        animation: "sprites/hero_animation.ron",
+        layers: { "body": "sprites/hero_sheet.ron" },
+    ),
+})

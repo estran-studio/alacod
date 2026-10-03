@@ -46,7 +46,8 @@ pub struct LintError {
 /// Valide les références croisées et les plages de valeurs du contenu déjà chargé dans
 /// `registry`. Ne relit aucun fichier de contenu : opère sur les entrées déjà parsées. Seule
 /// exception : l'**existence** des sons référencés par une arme (`audio_config`) ou
-/// par le feedback (`ui/feedback.ron`), vérifiée sous `registry.game_dir/assets/`.
+/// par le feedback (`ui/feedback.ron`), et des fichiers d'une feuille de sprites (D3 :
+/// animation, feuilles, images), vérifiée sous `registry.game_dir/assets/`.
 pub fn run(registry: &Registry, manifest: &GameManifest) -> Vec<LintError> {
     let mut errors = Vec::new();
 
@@ -58,6 +59,7 @@ pub fn run(registry: &Registry, manifest: &GameManifest) -> Vec<LintError> {
     lint_perks(registry, &mut errors);
     lint_powerups(registry, &mut errors);
     lint_feedback(registry, &mut errors);
+    lint_sprite_sheets(registry, &mut errors);
     lint_entry_point(registry, manifest, &mut errors);
 
     errors
@@ -246,6 +248,53 @@ fn lint_weapons(registry: &Registry, errors: &mut Vec<LintError>) {
             }
         }
         lint_weapon_test(&weapon.id, &weapon.file, weapon.test.as_ref(), errors);
+        // D3 : `sprite_config.name` désigne une entrée de la table `SpriteSheet`. Vérifié
+        // seulement si le jeu en déclare une : sans table, aucun sprite n'est chargé (les
+        // fixtures de lint n'en ont pas).
+        if let Some(sprite) = &weapon.sprite {
+            if !registry.sprite_sheets.is_empty()
+                && !registry
+                    .sprite_sheets
+                    .contains_key(&registry::SpriteSheetId::from(sprite.as_str()))
+            {
+                errors.push(LintError {
+                    kind: LintErrorKind::BrokenReference,
+                    file: weapon.file.display().to_string(),
+                    message: format!(
+                        "arme « {} » : champ sprite_config.name = « {sprite} » : feuille de sprites inconnue (kind SpriteSheet)",
+                        weapon.id
+                    ),
+                });
+            }
+        }
+    }
+}
+
+/// D3 : chaque fichier d'une entrée `SpriteSheet` (animation, feuille de chaque calque,
+/// image de chaque feuille) doit exister sous `assets/`.
+fn lint_sprite_sheets(registry: &Registry, errors: &mut Vec<LintError>) {
+    let assets_dir = GameManifest::assets_dir(&registry.game_dir);
+    for sheet in registry.sprite_sheets.values() {
+        let file = sheet.file.display().to_string();
+        let mut check = |field: String, path: &str| {
+            if !assets_dir.join(path).is_file() {
+                errors.push(LintError {
+                    kind: LintErrorKind::BrokenReference,
+                    file: file.clone(),
+                    message: format!(
+                        "feuille de sprites « {} » : champ {field} = « {path} » : fichier absent de assets/",
+                        sheet.id
+                    ),
+                });
+            }
+        };
+        check("animation".to_string(), &sheet.animation);
+        for (layer, path) in &sheet.layers {
+            check(format!("layers.{layer}"), path);
+        }
+        for (layer, image) in &sheet.images {
+            check(format!("layers.{layer} (path de la feuille)"), image);
+        }
     }
 }
 

@@ -119,8 +119,14 @@ pub fn spawn_slash_effects(
     shown.retain(|_, created_frame| frame.frame.saturating_sub(*created_frame) < 600);
 
     let (Some(slash_config), Some(anim_config)) = (
-        spritesheet_assets.get(&global_assets.slash_effect_spritesheet),
-        animation_configs.get(&global_assets.slash_effect_animation),
+        global_assets
+            .slash_effect_spritesheet
+            .as_ref()
+            .and_then(|handle| spritesheet_assets.get(handle)),
+        global_assets
+            .slash_effect_animation
+            .as_ref()
+            .and_then(|handle| animation_configs.get(handle)),
     ) else {
         return;
     };
