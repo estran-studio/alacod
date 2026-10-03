@@ -738,6 +738,30 @@ Par widget : `background`.
 Captures de référence : `docs/captures/hud-v1/` (prompt d'achat, perk et power-up actifs, à
 terre), produites par `play_scenario --capture` (voir `CLAUDE.md` § Vidéos).
 
+## 18. Équilibrage par joueurs (F5)
+
+**Décision (D25, le 2026-10-03) : F5 appartient à M0** — le plan §6 liste F5 dans le jalon M0
+(`zombies` complet). Tâche dédiée : `docs/taches/m0-v11-f5-equilibrage-joueurs.md`.
+
+Les champs numériques des **vagues** (`games/zombies/assets/waves/wave_config.ron`), des **prix**
+(armes `assets/weapons/`, perks `assets/economy/perks.ron`, `assets/economy/economy.ron`) et de la
+**santé** des ennemis (`ZombieShooter/Sprites/Zombie/*_config.ron`) acceptent un littéral **ou** une
+expression `content::expr` en chaîne RON (ex. `health: "120.0 + (players - 1) * 30"`). Règles :
+
+- **Contexte** : l'identifiant `players` (nombre de joueurs de la run) est disponible partout où
+  une expression est acceptée. Pas d'autres identifiants pour l'instant (voir F5 du plan).
+- **Timing** : l'expression est évaluée **une seule fois, au démarrage de la run** (le nombre de
+  joueurs de la session est connu : local `NUMBER_PLAYER`, p2p `max_player`, scénario = ses
+  joueurs), en valeurs concrètes. **Jamais d'`Expr` dans l'état rollback** : seules les valeurs
+  évaluées entrent dans la simulation (déterminisme : mêmes configs + même nombre de joueurs
+  partout ⇒ mêmes valeurs).
+- **Erreurs** : une expression invalide (parse, division par zéro, identifiant inconnu) fait
+  échouer le chargement — jamais de valeur par défaut silencieuse.
+- **Traces** : les littéraux actuels restent valides et gardent leurs valeurs ; les 62 scénarios
+  existants gardent leurs traces, sauf bless avec preuve (§10). La preuve de F5 passe par de
+  nouveaux scénarios (même partie à 2 et 4 joueurs, attente qui diverge) plutôt que par la
+  modification de valeurs existantes.
+
 ## Notes essentielles
 
 **À vérifier** : l'entité `CrateLocation` n'est pas lue actuellement (`WeaponLocation`/`SodaLocation` le sont depuis T2.3, voir §1 ci-dessus). Elle apparaît dans `crates/map_ldtk/src/map_const.rs` (constante) mais aucun bundle Bevy ne la traite (`entity/*.rs` ne la liste pas). Avant d'utiliser une carte avec une entité nouvellement lue, vérifier que `make test_scenarios` accepte un scénario `idle` dessus.

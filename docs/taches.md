@@ -538,6 +538,9 @@ région des chantiers puis la campagne.
   branche `m1-v1a-projectiles-composables`, session cloud c1.
 - m1-v1e : en cours — mode `Floors` (T1.8) + attente `FloorIndex`, branche
   `m1-v1e-mode-floors`, session cloud c2.
+- m0-v11 : en cours — F5 équilibrage par joueurs (vagues/prix/santé évalués par `Expr` avec
+  `players`), branche `m0-v11-f5-equilibrage-joueurs`, voie b0 ; décision M0 écrite dans
+  `conventions.md` §18 (D25).
 
 - Ce fichier est la source de vérité des tâches : une ligne de statut par tâche (`à faire`, `en
   cours (branche)`, `mergée (commit)`), tenue par l'agent qui prend la tâche.
