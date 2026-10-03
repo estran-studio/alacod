@@ -29,6 +29,9 @@ pub struct GameArgs {
     pub players: Vec<PlayerConfig>,
     pub spectators: Vec<SocketAddr>,
     pub matchbox: String,
+    /// URL de base HTTP du serveur allumette (`--allumette`) ; vide = chemin
+    /// `--matchbox` historique. Le flux challenge/login/lobby n'existe qu'en natif.
+    pub allumette: String,
     pub lobby: String,
     pub cid: String,
     pub debug_ai: bool,
@@ -94,6 +97,7 @@ pub fn get_args() -> GameArgs {
             players,
             spectators: args.spectators.unwrap_or(vec![]),
             matchbox: args.matchbox.unwrap_or(String::new()),
+            allumette: args.allumette.unwrap_or(String::new()),
             lobby: args.lobby.unwrap_or(String::new()),
             cid: args.cid.unwrap_or(generate_random_correlation_id()),
             debug_ai: args.debug_ai,
@@ -144,6 +148,7 @@ pub fn get_args() -> GameArgs {
             players,
             spectators: vec![],
             matchbox: canvas_config.matchbox.unwrap_or(String::new()),
+            allumette: String::new(), // le flux allumette n'existe pas sur le web en v1
             lobby: canvas_config.lobby.unwrap_or(String::new()),
             cid: generate_random_correlation_id(),
             debug_ai: false, // debug_ai not supported on WASM
@@ -197,16 +202,17 @@ impl Plugin for GameArgsPlugin {
             auth_token: args.telemetry_auth,
         });
 
-        app.insert_resource(if !args.matchbox.is_empty() {
+        app.insert_resource(if !args.matchbox.is_empty() || !args.allumette.is_empty() {
             OnlineState::Online
         } else {
             OnlineState::Offline
         })
         .insert_resource(GggrsSessionConfiguration {
             cid: args.cid,
-            matchbox: !args.matchbox.is_empty(),
+            matchbox: !args.matchbox.is_empty() || !args.allumette.is_empty(),
             lobby: args.lobby,
             matchbox_url: args.matchbox,
+            allumette_url: args.allumette,
             connection: GggrsConnectionConfiguration {
                 input_delay: 5,
                 max_player: nbr_player,

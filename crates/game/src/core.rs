@@ -201,6 +201,19 @@ impl Plugin for CoreSetupPlugin {
             sync_bevy_transforms_from_fixed.run_if(in_state(AppState::InGame)),
         );
 
+        // Mode allumette (natif) : le flux HTTP (challenge → login → lobby → ICE)
+        // remplit la ressource `AllumetteConfig` avant que le socket ne l'ouvre avec
+        // l'URL ws(s)://hôte/JWT. Chaîné : l'insertion est visible du second système.
+        #[cfg(not(target_arch = "wasm32"))]
+        app.add_systems(
+            OnEnter(AppState::LobbyOnline),
+            (
+                crate::jjrs::allumette::start_allumette_flow,
+                start_matchbox_socket,
+            )
+                .chain(),
+        );
+        #[cfg(target_arch = "wasm32")]
         app.add_systems(OnEnter(AppState::LobbyOnline), start_matchbox_socket);
 
         app.add_systems(

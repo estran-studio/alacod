@@ -906,6 +906,7 @@ fn game_args(player_count: usize) -> GameArgs {
             .collect(),
         spectators: vec![],
         matchbox: String::new(),
+        allumette: String::new(),
         lobby: String::new(),
         cid: "scenario".into(),
         debug_ai: false,
