@@ -1019,4 +1019,3 @@ mod recovery_tests {
         (body, wall, wall_pos)
     }
 }
-
