@@ -67,6 +67,7 @@ use crate::character::enemy::ai::obstacle::Obstacle;
 use crate::character::enemy::Enemy;
 use crate::character::health::Death;
 use crate::character::player::Player;
+use crate::economy::PointsCredit;
 use crate::global_asset::GlobalAsset;
 use crate::rollback::RollbackTraceApp;
 use crate::system_set::RollbackSystemSet;
@@ -245,6 +246,8 @@ pub fn apply_powerup_actions_system(
     mut players: Query<
         (
             &GgrsNetId,
+            &Player,
+            Has<Death>,
             &mut Modifiers,
             &mut AmmoReserves,
             &mut WeaponInventory,
@@ -254,6 +257,7 @@ pub fn apply_powerup_actions_system(
     mut weapon_modes: Query<(&Weapon, &mut WeaponModesState)>,
     mut windows: Query<(&GgrsNetId, &mut WindowHealth, Option<&mut Obstacle>), With<Rollback>>,
     enemies: Query<(&GgrsNetId, Entity, &Team, Has<Death>), With<Enemy>>,
+    mut points_credits: ResMut<FrameEvents<PointsCredit>>,
     mut commands: Commands,
 ) {
     if events.is_empty() {
@@ -274,12 +278,30 @@ pub fn apply_powerup_actions_system(
         let Some(def) = config.powerups.get(&event.id) else {
             continue;
         };
+        let source = ModifierSource::Named(format!("powerup:{}", event.id));
+        // D18 : rafraîchissement, comme CoD. Un power-up déjà actif ramassé à nouveau
+        // remplace ses modificateurs (la durée recommence) au lieu de les cumuler (Double
+        // Points × Double Points ferait × 4). Retrait une fois par ramassage, avant toutes
+        // les actions : un power-up à plusieurs actions modificatrices garde chacune.
+        if def.actions.iter().any(|action| {
+            matches!(
+                action,
+                Action::TimedModifier { .. } | Action::CurrencyMultiplier { .. }
+            )
+        }) {
+            for (_net_id, _player, _dead, mut modifiers, _reserves, _inventory) in
+                order_mut_iter!(players)
+            {
+                modifiers.remove_by_source(&source);
+            }
+        }
         for action in &def.actions {
             match action {
                 Action::TimedModifier { .. } | Action::CurrencyMultiplier { .. } => {
-                    for (net_id, mut modifiers, _reserves, _inventory) in order_mut_iter!(players) {
-                        let source = ModifierSource::Named(format!("powerup:{}", event.id));
-                        if let Some(modifier) = action.as_modifier(frame.frame, source) {
+                    for (net_id, _player, _dead, mut modifiers, _reserves, _inventory) in
+                        order_mut_iter!(players)
+                    {
+                        if let Some(modifier) = action.as_modifier(frame.frame, source.clone()) {
                             info!(
                                 "ggrs{{f={} powerup_effect powerup={} target={} kind=modifier stat={:?}}}",
                                 frame.frame, event.id, net_id.0, modifier.stat
@@ -289,7 +311,7 @@ pub fn apply_powerup_actions_system(
                     }
                 }
                 Action::RefillAmmo => {
-                    for (net_id, _modifiers, mut reserves, mut inventory) in
+                    for (net_id, _player, _dead, _modifiers, mut reserves, mut inventory) in
                         order_mut_iter!(players)
                     {
                         let mut capacities = BTreeMap::<sim_core::ammo::AmmoType, u32>::new();
@@ -365,6 +387,23 @@ pub fn apply_powerup_actions_system(
                             frame.frame, event.id, net_id.0
                         );
                         commands.entity(entity).insert(Death { last_hit_by: None });
+                    }
+                    // D17 : points au ramassage, un crédit par joueur vivant (pas par ennemi
+                    // tué), montant `EconomyConfig::nuke_points` résolu par
+                    // `economy::award_points_system` en fin de frame.
+                    for (net_id, player, dead, _modifiers, _reserves, _inventory) in
+                        order_iter!(players)
+                    {
+                        if dead {
+                            continue;
+                        }
+                        info!(
+                            "ggrs{{f={} powerup_effect powerup={} target={} kind=nuke_points}}",
+                            frame.frame, event.id, net_id.0
+                        );
+                        points_credits.send(PointsCredit::Nuke {
+                            handle: player.handle,
+                        });
                     }
                 }
             }
@@ -538,6 +577,7 @@ mod tests {
         });
         world.insert_resource(FrameCount { frame: 10 });
         world.insert_resource(FrameEvents::<PowerUpPickedUp>::default());
+        world.insert_resource(FrameEvents::<PointsCredit>::default());
         world.insert_resource(RngStreams::new(123456));
         world.insert_resource(GgrsNetIdFactory::default());
         world
@@ -633,6 +673,122 @@ mod tests {
             assert_eq!(modifier.until, Some(70));
             assert!(!modifier.is_expired(70));
             assert!(modifier.is_expired(71));
+        }
+    }
+
+    #[test]
+    fn meme_power_up_rafraichit_sans_cumuler() {
+        let mut world = world_with_config(
+            Action::CurrencyMultiplier {
+                factor: fixed_math::Fixed::from_num(2),
+                frames: 60,
+            },
+            fixed_math::FIXED_ZERO,
+        );
+        // Un modificateur d'une autre source (perk) ne doit pas être touché.
+        let perk = sim_core::modifier::Modifier {
+            stat: StatId::MaxHealth,
+            op: ModifierOp::Mul,
+            value: fixed_math::Fixed::from_num(2),
+            source: ModifierSource::Named("perk:juggernog".to_string()),
+            until: None,
+        };
+        let player = world
+            .spawn((
+                GgrsNetId(1, "player".to_string()),
+                Player::default(),
+                Modifiers(vec![perk.clone()]),
+                AmmoReserves::default(),
+                WeaponInventory::default(),
+            ))
+            .id();
+        let pickup = || PowerUpPickedUp {
+            id: "test".to_string(),
+            picked_up_by: GgrsNetId(1, "player".to_string()),
+        };
+
+        world
+            .resource_mut::<FrameEvents<PowerUpPickedUp>>()
+            .send(pickup());
+        world.run_system_once(apply_powerup_actions_system).unwrap();
+
+        // Second ramassage 30 frames plus tard : la durée recommence, un seul ×2.
+        world.resource_mut::<FrameCount>().frame = 40;
+        world.insert_resource(FrameEvents::<PowerUpPickedUp>::default());
+        world
+            .resource_mut::<FrameEvents<PowerUpPickedUp>>()
+            .send(pickup());
+        world.run_system_once(apply_powerup_actions_system).unwrap();
+
+        let modifiers = world.get::<Modifiers>(player).unwrap();
+        assert_eq!(modifiers.0.len(), 2, "{:?}", modifiers.0);
+        assert_eq!(modifiers.0[0], perk);
+        let powerup = &modifiers.0[1];
+        assert_eq!(
+            powerup.source,
+            ModifierSource::Named("powerup:test".to_string())
+        );
+        assert_eq!(powerup.value, fixed_math::Fixed::from_num(2));
+        assert_eq!(powerup.until, Some(100));
+        assert_eq!(
+            sim_core::modifier::resolve(
+                fixed_math::FIXED_ONE,
+                modifiers.0.iter().filter(|m| {
+                    m.stat == StatId::Custom(effects::CURRENCY_MULTIPLIER_STAT.to_string())
+                }),
+                40,
+            ),
+            fixed_math::Fixed::from_num(2)
+        );
+    }
+
+    #[test]
+    fn nuke_credite_chaque_joueur_vivant_une_fois() {
+        let mut world = world_with_config(Action::KillAllWaveEnemies, fixed_math::FIXED_ZERO);
+        // Deux joueurs vivants (handles 1 et 0, net_ids dans l'ordre inverse) et un joueur
+        // déjà mort cette frame : seuls les vivants sont crédités, dans l'ordre net_id.
+        for (id, handle, dead) in [(20, 0, false), (10, 1, false), (30, 2, true)] {
+            let mut player = world.spawn((
+                GgrsNetId(id, "player".to_string()),
+                Player {
+                    handle,
+                    ..Default::default()
+                },
+                Modifiers::default(),
+                AmmoReserves::default(),
+                WeaponInventory::default(),
+            ));
+            if dead {
+                player.insert(Death { last_hit_by: None });
+            }
+        }
+        // Trois ennemis : le crédit ne dépend pas du nombre d'ennemis tués.
+        let enemies: Vec<_> = [40, 41, 42]
+            .into_iter()
+            .map(|id| {
+                world
+                    .spawn((GgrsNetId(id, "enemy".to_string()), Enemy {}, Team::Enemies))
+                    .id()
+            })
+            .collect();
+        world
+            .resource_mut::<FrameEvents<PowerUpPickedUp>>()
+            .send(PowerUpPickedUp {
+                id: "test".to_string(),
+                picked_up_by: GgrsNetId(20, "player".to_string()),
+            });
+        world.run_system_once(apply_powerup_actions_system).unwrap();
+        let credited: Vec<_> = world
+            .resource::<FrameEvents<PointsCredit>>()
+            .iter()
+            .map(|credit| match credit {
+                PointsCredit::Nuke { handle } => *handle,
+                other => panic!("crédit inattendu : {other:?}"),
+            })
+            .collect();
+        assert_eq!(credited, vec![1, 0]);
+        for enemy in enemies {
+            assert!(world.get::<Death>(enemy).is_some());
         }
     }
 

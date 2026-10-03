@@ -1,0 +1,143 @@
+# Registre des licences des assets binaires de games/zombies/assets/.
+# Voie V6 (docs/taches.md §11) : tout asset a une licence enregistrée avant
+# d'entrer dans le dépôt ; chaque fichier binaire du dossier a une entrée
+# (id, fichiers, source réellement consultée, auteur, licence, modifications).
+# Règles : CC0 d'abord ; CC-BY accepté avec le crédit ici ; rien d'ambigu.
+# Créé par la tâche m0-v8-carte-zombies : enregistre les packs déjà présents
+# puis les nouveaux fichiers de la carte.
+
+- id: basic-zombie-shooter-blackhunterdev
+  fichiers:
+    - ZombieShooter/Sprites/Character/Body/Body.png
+    - ZombieShooter/Sprites/Character/Hair/Hair1.png
+    - ZombieShooter/Sprites/Character/Hair/Hair2.png
+    - ZombieShooter/Sprites/Character/Hair/Hair3.png
+    - ZombieShooter/Sprites/Character/Hair/Hair4.png
+    - ZombieShooter/Sprites/Character/Moustach/Moustach1.png
+    - ZombieShooter/Sprites/Character/Moustach/Moustach2.png
+    - ZombieShooter/Sprites/Character/Moustach/Moustach3.png
+    - ZombieShooter/Sprites/Character/Moustach/Moustach4.png
+    - ZombieShooter/Sprites/Character/Shirt/Shirt1.png
+    - ZombieShooter/Sprites/Character/Shirt/Shirt2.png
+    - ZombieShooter/Sprites/Character/Shirt/Shirt3.png
+    - ZombieShooter/Sprites/Character/Shirt/Shirt4.png
+    - ZombieShooter/Sprites/Character/Shadow.png
+    - ZombieShooter/Sprites/Obj/House&Props.png
+    - ZombieShooter/Sprites/Obj/TileMapGrass.png
+    - ZombieShooter/Sprites/Obj/Trees.png
+    - ZombieShooter/Sprites/Obj/UI.png
+    - ZombieShooter/Sprites/Obj/Weapons.png
+    - ZombieShooter/Sprites/Zombie/Zombie.png
+    - ZombieShooter/Sprites/Zombie/ZombieHard.png
+  source: https://blackhunterdev.itch.io/basic-zombie-shooter-game-asset
+  auteur: blackHUNTERdev
+  licence: CC BY 4.0 (https://creativecommons.org/licenses/by/4.0/)
+  modifications: aucune (fichiers identiques au pack, preuves md5)
+
+- id: zombie-shooter-source-inconnue
+  fichiers:
+    - ZombieShooter/Sprites/Character/Slash_strip3.png
+    - ZombieShooter/Sprites/Zombie/Zombie2.png
+  source: inconnue (ajoutés après coup, absents du pack blackHUNTERdev ; aucune page
+    source identifiée de façon fiable au 2026-10-02)
+  auteur: inconnu
+  licence: inconnue — à identifier ou remplacer (dette de la voie V6)
+  modifications: inconnues
+
+- id: sunnyland-ansimuz
+  fichiers:
+    - exemples/atlas/SunnyLand_by_Ansimuz-extended.png
+    - exemples/atlas/SunnyLand-player.png
+  source: https://ansimuz.itch.io/sunny-land-pixel-game-art
+  auteur: Ansimuz
+  licence: CC0 1.0 (https://creativecommons.org/publicdomain/zero/1.0/)
+  modifications: aucune (repris des assets d'exemple de bevy_ecs_ldtk)
+
+- id: pixel-poem-dungeon-tileset
+  fichiers:
+    - exemples/atlas/Dungeon_Tileset.png
+  source: https://pixel-poem.itch.io/dungeon-assetpuck
+  auteur: Pixel_Poem
+  licence: licence propre de l'auteur (pas CC0) — « This asset pack can be used
+    in free and commercial projects. You can modify it to suit your own needs.
+    Credit is not necessary, but appreciated. You may not redistribute it or
+    resell it. » L'auteur a explicitement autorisé en commentaire de la page
+    l'hébergement des sprites dans un dépôt open source (« Yes, you can. »).
+  modifications: aucune (fichier identique au pack, preuve md5)
+  note: licence hors CC0/CC-BY — à valider par l'équipe (dette de la voie V6)
+
+- id: nuclear-blaze-tileset-deepnight
+  fichiers:
+    - exemples/atlas/NuclearBlaze_by_deepnight.png
+  source: https://github.com/Trouv/bevy_ecs_ldtk (README, section « Asset Credits »)
+    et https://raw.githubusercontent.com/deepnight/ldtk/master/app/extraFiles/samples/README.md
+  auteur: Sébastien Benard (deepnight)
+  licence: CC BY-SA 4.0 (https://creativecommons.org/licenses/by-sa/4.0/)
+  modifications: « Tileset was exported from aseprite to png, but no other
+    modifications were made. » (README de bevy_ecs_ldtk, verbatim)
+  note: ShareAlike — toute version modifiée du tileset doit rester CC BY-SA
+
+- id: caz-pixel-fantasy-icons
+  fichiers:
+    - exemples/atlas/MV Icons Complete Sheet Free - ALL.png
+  source: https://cazwolf.itch.io/caz-pixel-free
+  auteur: Caz (cazwolf)
+  licence: CC BY 4.0 (https://creativecommons.org/licenses/by/4.0/) — « They're
+    CC by 4.0 » (commentaire de l'auteure sur la page ; le README de
+    bevy_ecs_ldtk crédite « PIXEL FANTASY RPG ICONS … by Caz, CC BY 4.0 »)
+  modifications: aucune connue (repris des assets d'exemple de bevy_ecs_ldtk)
+
+- id: sound-machine-gun-scottishperson
+  fichiers:
+    - sounds/machine-gun.ogg
+  source: https://pixabay.com/sound-effects/sound-effect-machine-gun-333524/
+  auteur: ScottishPerson
+  licence: Pixabay Content License (https://pixabay.com/service/license-summary/),
+    pas d'attribution requise
+  modifications: "ré-encodage ogg (conversion ffmpeg du mp3, durée identique : 17,6588 s)"
+
+- id: sound-machine-gun-reload-samsterbirdies
+  fichiers:
+    - sounds/machine-gun-reload.ogg
+  source: https://pixabay.com/sound-effects/technology-machine-gun-reload-81593/
+  auteur: SamsterBirdies (publié via le compte freesound_community)
+  licence: Pixabay Content License (https://pixabay.com/service/license-summary/),
+    pas d'attribution requise
+  modifications: "ré-encodage ogg (conversion ffmpeg du mp3, durée identique : 2,8212 s)"
+
+- id: sound-loop-jay-you
+  fichiers:
+    - sounds/loop.ogg
+  source: https://freesound.org/people/Jay_You/sounds/460432/
+  auteur: Jay_You
+  licence: CC BY 4.0 (https://creativecommons.org/licenses/by/4.0/) — la page
+    freesound affiche « Attribution 4.0 » et exige le nom de l'auteur ; le README
+    de bevy_kira_audio (dont le fichier est octet-identique au nôtre) le crédite
+    CC BY 3.0 — divergence relevée, crédit Jay_You conservé ici dans les deux cas
+  modifications: aucune (fichier octet-identique à l'asset de bevy_kira_audio,
+    lui-même version mono 44,1 kHz de l'original stéréo 48 kHz)
+
+- id: fira-mono
+  fichiers:
+    - fonts/FiraMono-Medium.ttf
+    - fonts/FiraMono-LICENSE
+  source: https://github.com/mozilla/Fira (texte de licence embarqué dans le
+    dépôt, fichier fonts/FiraMono-LICENSE)
+  auteur: The Mozilla Foundation and Telefonica S.A.
+  licence: SIL Open Font License 1.1 (https://openfontlicense.org/)
+  modifications: aucune
+
+- id: cartes-ldtk-interne
+  fichiers:
+    - exemples/test_map.ldtk
+    - exemples/test_map_shop.ldtk
+    - maps/avant_poste.ldtk
+  source: contenu du projet — avant_poste.ldtk a été générée par la voie V6
+    (tâche m0-v8-carte-zombies, script gen_map.py hors dépôt) à partir de la
+    structure de exemples/test_map.ldtk (couches Walls/LevelConnection/Entities,
+    mêmes defs d'entités)
+  auteur: "équipe alacod (avant_poste : William Quintal + agent V6)"
+  licence: interne au projet (pas de contenu tiers ; les tilesets référencés
+    — SunnyLand et Dungeon_asset — sont enregistrés ci-dessus)
+  modifications: aucune par rapport aux conventions de test_map.ldtk ; relPath
+    des tilesets préfixés de ../exemples/ (la carte vit dans maps/)

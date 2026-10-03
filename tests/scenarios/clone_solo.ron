@@ -1,7 +1,7 @@
 // T3.1 : partie solo du clone, achats puis combat sur la carte assemblée.
 // À regarder : pistolet acheté f116 (-500), Juggernog f166 (-2500, 200 PV) ;
 // rafale f300-330 (25 balles restantes), Max Ammo f400 (30 balles) ; premier coup
-// reçu f619, Nuke f650 (3 zombies supprimés). Vagues 2/3/4 à f771/f1623/f2313 ;
+// reçu f619, Nuke f650 (3 zombies supprimés, +400 points D17). Vagues 2/3/4 à f771/f1623/f2313 ;
 // combat à la mitraillette f1075-1503, f1930-2193 et f2620-2897, solde croissant.
 // Victoire à l'entrée en vague 5 f3017 : résumé de 13 kills, joueur encore debout.
 // La visée du combat est enregistrée en headless par tranches de 15 frames.
@@ -124,10 +124,10 @@ Scenario(
         WaveAtLeast(wave: 3, at_frame: 1700),
         WaveAtLeast(wave: 4, at_frame: 2400),
         WaveAtLeast(wave: 5, at_frame: 3047),
-        Currency(handle: 0, min: 3000, max: 3000, at_frame: 800),
-        Currency(handle: 0, min: 3520, max: 3520, at_frame: 1700),
-        Currency(handle: 0, min: 3910, max: 3910, at_frame: 2400),
-        Currency(handle: 0, min: 4200, max: 4200, at_frame: 3047),
+        Currency(handle: 0, min: 3400, max: 3400, at_frame: 800),
+        Currency(handle: 0, min: 3920, max: 3920, at_frame: 1700),
+        Currency(handle: 0, min: 4310, max: 4310, at_frame: 2400),
+        Currency(handle: 0, min: 4600, max: 4600, at_frame: 3047),
         KillsAtLeast(kills: 13, at_frame: 3047),
         PlayerAlive(handle: 0, at_frame: 3047),
         Health(handle: 0, min: 1.0, at_frame: 3047),

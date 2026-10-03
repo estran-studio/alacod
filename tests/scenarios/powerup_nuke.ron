@@ -3,9 +3,12 @@
 // `testbed/arena.ldtk` place cinq personnages de laboratoire (T2.9) : `dummy`/`target`/
 // `follower` (équipe `Enemies`) et `ally`/`civilian` (`Allies`/`Neutral`) — Nuke doit tuer
 // les trois premiers et épargner les deux derniers.
+// D17 : le ramassage crédite `nuke_points` (400, `economy/economy.ron`) au joueur vivant, une
+// fois (pas par ennemi tué) ; les ennemis tués par le nuke ne rapportent pas de points de kill.
 //
 // À regarder : le joueur ne bouge pas ; Nuke est ramassé à f20 (pas de sprite en v0) ; les cinq
-// personnages de laboratoire sont visibles jusque-là, puis seuls `ally`/`civilian` restent.
+// personnages de laboratoire sont visibles jusque-là, puis seuls `ally`/`civilian` restent ;
+// le solde passe de 500 à 900 à f20.
 Scenario(
     // Isoler ce scénario des drops aléatoires ; powerup_drop_on_kill teste ce chemin.
     powerup_drop_chance_override: "0.0",
@@ -23,5 +26,8 @@ Scenario(
         EntityCount(kind: Enemy, min: 5, max: 5, at_frame: 10),
         // Après : seuls `ally`/`civilian` (pas équipe Enemies) survivent.
         EntityCount(kind: Enemy, min: 2, max: 2, at_frame: 60),
+        // D17 : solde de départ (500) avant le ramassage, + 400 une seule fois après.
+        Currency(handle: 0, min: 500, max: 500, at_frame: 10),
+        Currency(handle: 0, min: 900, max: 900, at_frame: 30),
     ],
 )

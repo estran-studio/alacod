@@ -1,0 +1,72 @@
+// m0-v8 : démo de la carte avant_poste (9 salles, voie V6). Le joueur monte au
+// nord de la salle de départ (10,5)->(10,2), tient la position et tire à travers
+// la fenêtre ouest de la ligne 12 (les zombies la cassent à la vague 1 puis y
+// convergent tous : la fenêtre est reste intacte, vérifié en capture).
+// Tir continu pendant les fenêtres de transit de chaque vague (rafales de 100
+// frames, 4 pans sur la colonne de la fenêtre ouest, ~1880 frames de tir pour
+// ~313 coups, budget relevé à 390 par mag_limit) ; vagues raccourcies
+// (grace 150, délai 60) pour finir vers f2400, proche du « ~2000 frames » de
+// la fiche. À regarder : vague 1 vers f300-600, vagues suivantes vers
+// f800/f1400/f2000 ; le joueur reste debout, 8+ kills, entrée en vague 5 =
+// Victoire (règle du mode Waves).
+Scenario(
+    game: "zombies",
+    map: "maps/avant_poste.ldtk",
+    map_seed: 2,
+    powerup_drop_chance_override: "0.0",
+    frames: 3600,
+    wave_overrides: (
+        min_wave_delay_frames: 60,
+        base_enemies: 2,
+        enemies_per_wave: 0,
+        grace_period_frames: 150,
+        spawn_batch_size: 4,
+        spawn_interval_frames: 1,
+        max_wave: 5,
+    ),
+    weapon_overrides: [
+        (weapon: "machine_gun", mag_limit: 12),
+    ],
+    players: [
+        (
+            weapon: "machine_gun",
+            currency: 6000,
+            inputs: [
+                Segment(from: 10, to: 45, buttons: [Up], pan: (0, 0)),
+                // Vague 1 (zombies vers f151, fenêtre ouest cassée vers f200).
+                Segment(from: 160, to: 260, buttons: [Fire], pan: (-32, -160)),
+                Segment(from: 260, to: 360, buttons: [Fire], pan: (-24, -120)),
+                Segment(from: 360, to: 460, buttons: [Fire], pan: (-16, -90)),
+                Segment(from: 460, to: 560, buttons: [Fire], pan: (-32, -160)),
+                Segment(from: 560, to: 600, buttons: [Fire], pan: (-24, -120)),
+                // Vague 2 (zombies vers f760).
+                Segment(from: 780, to: 880, buttons: [Fire], pan: (-32, -160)),
+                Segment(from: 880, to: 980, buttons: [Fire], pan: (-24, -120)),
+                Segment(from: 980, to: 1080, buttons: [Fire], pan: (-16, -90)),
+                Segment(from: 1080, to: 1180, buttons: [Fire], pan: (-32, -160)),
+                Segment(from: 1180, to: 1220, buttons: [Fire], pan: (-24, -120)),
+                // Vague 3 (zombies vers f1370).
+                Segment(from: 1400, to: 1500, buttons: [Fire], pan: (-32, -160)),
+                Segment(from: 1500, to: 1600, buttons: [Fire], pan: (-24, -120)),
+                Segment(from: 1600, to: 1700, buttons: [Fire], pan: (-16, -90)),
+                Segment(from: 1700, to: 1800, buttons: [Fire], pan: (-32, -160)),
+                Segment(from: 1800, to: 1840, buttons: [Fire], pan: (-24, -120)),
+                // Vague 4 (zombies vers f1980), marge jusqu'à f2580.
+                Segment(from: 2020, to: 2120, buttons: [Fire], pan: (-32, -160)),
+                Segment(from: 2120, to: 2220, buttons: [Fire], pan: (-24, -120)),
+                Segment(from: 2220, to: 2320, buttons: [Fire], pan: (-16, -90)),
+                Segment(from: 2320, to: 2420, buttons: [Fire], pan: (-32, -160)),
+                Segment(from: 2420, to: 2520, buttons: [Fire], pan: (-24, -120)),
+                Segment(from: 2520, to: 2580, buttons: [Fire], pan: (-16, -90)),
+            ],
+        ),
+    ],
+    expect: [
+        PlayerAlive(handle: 0, at_frame: 3600),
+        WaveAtLeast(wave: 1, at_frame: 500),
+        WaveAtLeast(wave: 5, at_frame: 3600),
+        KillsAtLeast(kills: 8, at_frame: 3600),
+        RunState(step: Ended(Victory), at_frame: 3600),
+        RunSummary(wave_reached_min: 5, kills_min: 8, at_frame: 3600),
+    ],
+)

@@ -17,6 +17,8 @@
         (path: "weapons/melee/melee_weapons.ron", kind: "MeleeWeapon"),
         (path: "waves", kind: "Wave"),
         (path: "exemples", kind: "Map"),
+        // m0-v8 : cartes de la voie V6 (tâche m0-v8-carte-zombies), même kind que exemples/.
+        (path: "maps", kind: "Map"),
         (path: "ui", kind: "Ui"),
         (path: "camera.ron", kind: "Camera"),
         // T2.3, chantier C5 v1 : deux fichiers de kinds différents dans le même dossier
@@ -28,7 +30,8 @@
         (path: "items", kind: "PowerUp"),
     ],
     entry: (
-        start_map: "exemples/test_map.ldtk",
+        // m0-v8 (V6) : la carte avant_poste devient la carte par défaut des parties.
+        start_map: "maps/avant_poste.ldtk",
         default_seed: 123456,
         mode: Waves,
     ),
