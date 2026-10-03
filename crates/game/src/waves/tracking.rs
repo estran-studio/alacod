@@ -16,3 +16,8 @@ pub struct WaveEnemy {
     /// Wave number when this enemy was spawned
     pub spawned_wave: u32,
 }
+
+/// Added only after a distance stall. Keeps nearest-spawner recovery active for this
+/// wave, at the normal batch interval; the following wave starts with normal bounds.
+#[derive(Component, Debug, Clone, Hash, Serialize, Deserialize, Default, Reflect)]
+pub struct SpawnFallback(pub u32);

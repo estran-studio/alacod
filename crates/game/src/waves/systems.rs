@@ -39,7 +39,7 @@ pub struct SpawnAssets<'w> {
 use super::{
     config::WaveConfig,
     state::{WavePhase, WaveState},
-    tracking::WaveEnemy,
+    tracking::{SpawnFallback, WaveEnemy},
 };
 
 /// Ten seconds without a spawn: distance bounds must not freeze a wave forever.
@@ -194,6 +194,7 @@ pub fn wave_spawning_system(
         Entity,
         &EnemySpawnerComponent,
         &fixed_math::FixedTransform3D,
+        Option<&SpawnFallback>,
     )>,
     // Player positions for spawner selection
     player_query: Query<&fixed_math::FixedTransform3D, With<Player>>,
@@ -253,12 +254,34 @@ pub fn wave_spawning_system(
         &spawner_query,
         &player_positions,
         config,
-        spawn_stalled(&wave_state, current_frame),
+        spawn_stalled(&wave_state, current_frame)
+            || spawner_query.iter().any(|(_, _, _, _, recovery)| {
+                recovery.is_some_and(|recovery| recovery.0 == wave_state.current_wave)
+            }),
     );
 
     if valid_spawners.is_empty() {
         // No valid spawners - try again next frame
         return;
+    }
+
+    let using_fallback = valid_spawners.iter().all(|(_, _, _, transform)| {
+        let distance = player_positions
+            .iter()
+            .map(|p| transform.translation.truncate().distance(p))
+            .min()
+            .unwrap_or(fixed_math::Fixed::MAX);
+        distance < config.min_player_distance || distance > config.max_player_distance
+    });
+    if using_fallback {
+        let (id, entity, _, _) = valid_spawners[0];
+        commands
+            .entity(entity)
+            .insert(SpawnFallback(wave_state.current_wave));
+        info!(
+            "ggrs{{f={} wave_spawn_fallback wave={} spawner={}}}",
+            current_frame, wave_state.current_wave, id.0
+        );
     }
 
     // Calculate batch size
@@ -335,6 +358,7 @@ fn select_valid_spawners<'a>(
         Entity,
         &EnemySpawnerComponent,
         &fixed_math::FixedTransform3D,
+        Option<&SpawnFallback>,
     )>,
     player_positions: &[fixed_math::FixedVec2],
     config: &WaveConfig,
@@ -346,12 +370,12 @@ fn select_valid_spawners<'a>(
     &'a fixed_math::FixedTransform3D,
 )> {
     let mut spawners: Vec<_> = spawner_query.iter().collect();
-    spawners.sort_unstable_by_key(|(net_id, _, _, _)| net_id.0);
+    spawners.sort_unstable_by_key(|(net_id, _, _, _, _)| net_id.0);
 
     let mut valid = Vec::new();
     let mut nearest = None;
 
-    for (net_id, entity, spawner_config, transform) in spawners {
+    for (net_id, entity, spawner_config, transform, _) in spawners {
         let spawner_pos = transform.translation.truncate();
 
         // Find minimum distance to any player
@@ -485,6 +509,7 @@ mod tests {
             Entity,
             &EnemySpawnerComponent,
             &FixedTransform3D,
+            Option<&SpawnFallback>,
         )>,
     ) -> Vec<usize> {
         select_valid_spawners(&query, &positions, &WaveConfig::default(), fallback)
