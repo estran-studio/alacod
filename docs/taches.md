@@ -534,15 +534,18 @@ région des chantiers puis la campagne.
   N=4 quatre traces identiques. Fix-up `m0-v10b-down-profile` (`77d652c`) : `--profile allumette`
   sur les trois `down` de nightly.sh (le conteneur profilé survivait sinon à l'arrêt du nightly —
   piège signalé par b0 elle-même après CLOS).
-- m1-v1a : terminée en cloud (tête `5947213`, 3 commits basés sur `b6a58a0`) ; push refusé
-  par le proxy de la session (403) — bundle récupéré via Syncthing, branche locale créée ;
-  vérification de l'orchestrateur à venir (bench, p2p, bless des 17 scénarios
-  `generated/testbed/` sans trace).
-- m1-v1e : en cours — mode `Floors` (T1.8) + attente `FloorIndex`, branche
-  `m1-v1e-mode-floors`, session cloud c2.
+- m1-v1a : **mergée le 2026-10-03** (`ea1b222`) — projectiles composables (T1.1) + attentes
+  `BulletCount`/`HitsAtLeast` ; 17 traces testbed bénies par l'orchestrateur (`6a4c9f`) ;
+  bundle git (push 403 du proxy cloud) ; bench + p2p rejoués sur l'état fusionné (journal §10).
+- m1-v1e : terminée en cloud (tête `5ab5e0b`, 6 commits sur `b6a58a0`) — mode `Floors` (T1.8)
+  + attente `FloorIndex` ; bundle récupéré via Syncthing, branche locale créée ; vérification
+  de l'orchestrateur à venir après m1-v1a (ordre V1a → V1e ; conflits attendus : CLAUDE.md
+  liste des attentes, §16/§17 de conventions.md).
 - m0-v11 : en cours — F5 équilibrage par joueurs (vagues/prix/santé évalués par `Expr` avec
   `players`), branche `m0-v11-f5-equilibrage-joueurs`, voie b0 ; décision M0 écrite dans
   `conventions.md` §18 (D25).
+- m1-v1a-statuts : en cours — statuts Burn/Slow/Stun/Freeze (T1.3) + attentes
+  `HasStatus`/`StatusStacks`, session cloud c3 (kickstart envoyé le 2026-10-03).
 
 - Ce fichier est la source de vérité des tâches : une ligne de statut par tâche (`à faire`, `en
   cours (branche)`, `mergée (commit)`), tenue par l'agent qui prend la tâche.
