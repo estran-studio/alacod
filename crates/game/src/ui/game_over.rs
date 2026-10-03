@@ -116,7 +116,16 @@ fn summary_text(outcome: RunEnd, run: Option<&Run>) -> String {
         RunEnd::Victory => "VICTOIRE",
         RunEnd::Abandon => "PARTIE ABANDONNÉE",
     };
+    let floors = run.is_some_and(|run| matches!(run.mode, run::RunMode::Floors { .. }));
     match run.and_then(|run| run.summary) {
+        // T1.8 : en mode `Floors`, le niveau atteint (affiché à partir de 1) remplace la vague.
+        Some(summary) if floors => format!(
+            "{title}\n\nniveau {} - {} kills - {} points\n{} frames",
+            summary.floor_reached + 1,
+            summary.kills,
+            summary.points_total,
+            summary.frames
+        ),
         Some(summary) => format!(
             "{title}\n\nvague {} - {} kills - {} points\n{} frames",
             summary.wave_reached, summary.kills, summary.points_total, summary.frames

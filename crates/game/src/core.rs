@@ -232,6 +232,15 @@ impl Plugin for CoreSetupPlugin {
             OnEnter(AppState::GameStarting),
             (system_after_map_loaded, system_after_map_loaded_local),
         );
+        // F5 (chantier m0-v11) : résout une fois, au lancement de la partie, les champs
+        // numériques du contenu (vagues, prix, santé) en valeurs concrètes pour le nombre
+        // de joueurs de la session — assets chargés, session configurée, avant tout spawn
+        // et avant la première frame simulée. Plus jamais lu depuis les assets ensuite
+        // (`crate::balance`), donc aucune expression dans l'état rollback.
+        app.add_systems(
+            OnEnter(AppState::GameLoading),
+            crate::balance::resolve_balance_system,
+        );
 
         app.add_systems(Update, log_ggrs_events.run_if(in_state(AppState::InGame)));
 

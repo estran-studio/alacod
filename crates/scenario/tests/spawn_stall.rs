@@ -2,14 +2,16 @@
 use bevy::prelude::*;
 use bevy_fixed::fixed_math::Fixed;
 use game::{
-    global_asset::GlobalAsset,
+    balance::ResolvedBalance,
     replay::{BotProfile, PlayerScript, Scenario},
-    waves::{WaveConfig, WavePhase},
+    waves::WavePhase,
 };
 use scenario::{run_with_options, StopEarly};
 
-fn force_empty_spawn_range(global: Res<GlobalAsset>, mut configs: ResMut<Assets<WaveConfig>>) {
-    if let Some(mut config) = global.wave_config.as_ref().and_then(|h| configs.get_mut(h)) {
+// Les systèmes de vague lisent la config résolue (F5), pas l'asset d'origine
+fn force_empty_spawn_range(balance: Option<ResMut<ResolvedBalance>>) {
+    if let Some(mut balance) = balance {
+        let config = &mut balance.waves;
         config.min_player_distance = Fixed::ZERO;
         config.max_player_distance = Fixed::ZERO;
         config.base_enemies = 3;
@@ -34,6 +36,7 @@ fn empty_distance_range_spawns_after_deadline_without_desync() {
         invariants: Default::default(),
         powerups: vec![],
         powerup_drop_chance_override: None,
+        floors: None,
     };
     let outcome = run_with_options(
         &scenario,

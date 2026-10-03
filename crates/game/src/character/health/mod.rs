@@ -35,7 +35,9 @@ pub enum HitBy {
 
 #[derive(Clone, Debug, Serialize, Deserialize)]
 pub struct HealthConfig {
-    pub max: fixed_math::Fixed,
+    /// F5 (chantier m0-v11) : littéral (chaîne `Fixed`, inchangé) ou expression évaluée
+    /// une fois au lancement (voir `crate::balance` et `docs/conventions.md` §18).
+    pub max: content::expr::NumOrExpr,
     #[serde(default)]
     pub regen_rate: Option<fixed_math::Fixed>, // Health per second
     #[serde(default)]
@@ -98,13 +100,16 @@ impl fmt::Display for Death {
     }
 }
 
-impl From<HealthConfig> for Health {
-    fn from(value: HealthConfig) -> Self {
-        Self {
-            current: value.max,
-            max: value.max,
-            invulnerable_until_frame: None,
-        }
+/// Santé pleine (`current == max`) pour une valeur max **déjà résolue** (F5, chantier
+/// m0-v11 : `ResolvedBalance::health_max_by_character` ; remplace `From<HealthConfig>`,
+/// qui ne peut plus exister puisque `HealthConfig::max` peut être une expression non
+/// évaluée ici). `Health` vient de la crate `combat` : fonction libre plutôt qu'un
+/// `impl Health` (règle de l'orphelin).
+pub fn new_health(max: fixed_math::Fixed) -> Health {
+    Health {
+        current: max,
+        max,
+        invulnerable_until_frame: None,
     }
 }
 

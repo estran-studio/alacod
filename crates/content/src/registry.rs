@@ -24,6 +24,7 @@ use sim_core::kinds::{KindDecl, Kinds};
 use sim_core::modifier::ModifierOp;
 use sim_core::stats::StatId;
 
+use crate::expr::NumOrExpr;
 use crate::lint::{LintError, LintErrorKind};
 use crate::manifest::{ContentFolderDecl, GameManifest, MANIFEST_FILE_NAME};
 use crate::value::FixedField;
@@ -96,6 +97,11 @@ string_id!(
     MapId
 );
 string_id!(
+    /// Identifiant d'une séquence de niveaux du mode `Floors` (T1.8, kind `Floors`) : nom de
+    /// fichier sans extension (même règle que [`WaveConfigId`]).
+    FloorsConfigId
+);
+string_id!(
     /// Identifiant du fichier d'économie (T2.3, chantier C5 v1). Nom de fichier, sans
     /// extension (même règle que [`WaveConfigId`]) : un seul fichier par jeu en pratique,
     /// pas imposé par le chargement (comme `Wave`).
@@ -139,7 +145,8 @@ pub struct CharacterEntry {
     /// Chemin relatif à `assets/` : message d'erreur et `AssetServer::load`.
     pub file: PathBuf,
     pub asset_name_ref: String,
-    pub base_health_max: FixedField,
+    /// F5 (chantier m0-v11) : littéral ou expression `players` (`crate::expr::NumOrExpr`).
+    pub base_health_max: NumOrExpr,
     pub max_speed: FixedField,
     pub starting_skin: String,
     pub skins: BTreeSet<String>,
@@ -176,6 +183,100 @@ pub struct WeaponEntry {
     pub sounds: Vec<SoundRef>,
     /// D3 : `sprite_config.name`, id de la table `SpriteSheet` (`None` si absent ou vide).
     pub sprite: Option<String>,
+    /// T1.1 (B5 v1) : `projectile:` de chaque mode de tir (vide = balle ordinaire).
+    pub mode_projectiles: BTreeMap<String, ProjectileSpecEntry>,
+    /// T1.1 (B5 v1) : table `projectiles` de l'arme, cible des patterns de `on_expire`.
+    pub projectiles: BTreeMap<String, ProjectileDefEntry>,
+}
+
+/// T1.1 (B5 v1) : mirroirs de `combat::projectile` pour le lint (`content` ne dépend pas de
+/// `combat`). Les champs `Fixed` passent par [`FixedField`] (littéral nu refusé).
+#[derive(Debug, Clone, Deserialize)]
+pub enum ProjectileModifierEntry {
+    Bounce(u32),
+    Pierce(u32),
+    Size(FixedField),
+    Lifetime(u32),
+    Homing(FixedField),
+    Gravity(FixedField),
+}
+
+impl ProjectileModifierEntry {
+    pub fn name(&self) -> &'static str {
+        match self {
+            Self::Bounce(_) => "Bounce",
+            Self::Pierce(_) => "Pierce",
+            Self::Size(_) => "Size",
+            Self::Lifetime(_) => "Lifetime",
+            Self::Homing(_) => "Homing",
+            Self::Gravity(_) => "Gravity",
+        }
+    }
+}
+
+/// Mirroir de `combat::projectile::Pattern`.
+#[derive(Debug, Clone, Deserialize)]
+pub enum PatternEntry {
+    Aimed {
+        count: u32,
+        spread: FixedField,
+        projectile: String,
+    },
+    Spread {
+        count: u32,
+        spread: FixedField,
+        projectile: String,
+    },
+    Ring {
+        count: u32,
+        speed: FixedField,
+        projectile: String,
+        every: u32,
+    },
+    Sequence(Vec<PatternEntry>),
+    Telegraph(u32),
+    Wait(u32),
+}
+
+/// Mirroir de `combat::projectile::ExpireAction`.
+#[derive(Debug, Clone, Deserialize)]
+pub enum ExpireActionEntry {
+    Spawn(PatternEntry),
+}
+
+/// Mirroir de `combat::projectile::ProjectileSpec`.
+#[derive(Debug, Clone, Default, Deserialize)]
+pub struct ProjectileSpecEntry {
+    #[serde(default)]
+    pub modifiers: Vec<ProjectileModifierEntry>,
+    #[serde(default)]
+    pub on_hit: Vec<effects::Action>,
+    #[serde(default)]
+    pub on_expire: Vec<ExpireActionEntry>,
+}
+
+/// Mirroir de `combat::projectile::ProjectileDef`.
+#[derive(Debug, Clone, Deserialize)]
+pub struct ProjectileDefEntry {
+    pub damage: FixedField,
+    pub speed: FixedField,
+    pub range: FixedField,
+    #[serde(default)]
+    pub modifiers: Vec<ProjectileModifierEntry>,
+    #[serde(default)]
+    pub on_hit: Vec<effects::Action>,
+    #[serde(default)]
+    pub on_expire: Vec<ExpireActionEntry>,
+}
+
+impl ProjectileDefEntry {
+    pub fn spec(&self) -> ProjectileSpecEntry {
+        ProjectileSpecEntry {
+            modifiers: self.modifiers.clone(),
+            on_hit: self.on_hit.clone(),
+            on_expire: self.on_expire.clone(),
+        }
+    }
 }
 
 /// D3 : une entrée de la table des feuilles de sprites (kind `SpriteSheet`). Les chemins
@@ -231,6 +332,23 @@ pub struct WaveConfigEntry {
     pub enemy_refs: BTreeSet<EnemyId>,
 }
 
+/// Séquence de niveaux du mode `Floors` (T1.8, `docs/conventions.md` §17), un fichier RON
+/// par séquence (`floors/<id>.ron`) : `(levels: ["testbed/floor_a.ldtk", ...])`. Les chemins
+/// sont relatifs à `assets/`, comme `entry.start_map`. Lint (`lint::lint_floors`) : liste
+/// non vide, chaque niveau désigne une carte chargée (kind `Map`).
+#[derive(Debug, Clone)]
+pub struct FloorsEntry {
+    pub id: FloorsConfigId,
+    pub file: PathBuf,
+    /// Cartes LDtk des niveaux, dans l'ordre de jeu.
+    pub levels: Vec<String>,
+}
+
+#[derive(Debug, Clone, Deserialize)]
+struct FloorsFileSchema {
+    levels: Vec<String>,
+}
+
 #[derive(Debug, Clone)]
 pub struct MapEntry {
     pub id: MapId,
@@ -239,17 +357,18 @@ pub struct MapEntry {
 
 /// T2.3, chantier C5 v1 : `games/<jeu>/assets/economy/economy.ron`. Lint (T2.8,
 /// `lint::lint_economy`) : `refill_price_ratio` dans `[0, 1]` ; les compteurs de points
-/// (`u32`) n'ont pas de plage interdite.
+/// n'ont pas de plage interdite. F5 (chantier m0-v11) : champs numériques en
+/// `NumOrExpr` (littéral ou expression `players`, résolus par `game::balance`).
 #[derive(Debug, Clone)]
 pub struct EconomyEntry {
     pub id: EconomyId,
     pub file: PathBuf,
-    pub kill_points: u32,
-    pub hit_points: u32,
-    pub repair_points: u32,
-    pub nuke_points: u32,
-    pub repair_points_cap_per_wave: Option<u32>,
-    pub refill_price_ratio: FixedField,
+    pub kill_points: NumOrExpr,
+    pub hit_points: NumOrExpr,
+    pub repair_points: NumOrExpr,
+    pub nuke_points: NumOrExpr,
+    pub repair_points_cap_per_wave: Option<NumOrExpr>,
+    pub refill_price_ratio: NumOrExpr,
 }
 
 /// T2.3, chantier C5 v1 : une entrée de `games/<jeu>/assets/economy/perks.ron`. Un `StatId`
@@ -260,7 +379,8 @@ pub struct EconomyEntry {
 pub struct PerkEntry {
     pub id: PerkId,
     pub file: PathBuf,
-    pub price: u32,
+    /// F5 (chantier m0-v11) : littéral ou expression `players` (`crate::expr::NumOrExpr`).
+    pub price: NumOrExpr,
     /// T2.8 : pour les règles « au moins un modificateur » et « `Mul` > 0 ».
     pub modifiers: Vec<PerkModifierEntry>,
 }
@@ -321,6 +441,8 @@ pub struct Registry {
     pub melee_weapons: BTreeMap<MeleeWeaponId, MeleeWeaponEntry>,
     pub waves: BTreeMap<WaveConfigId, WaveConfigEntry>,
     pub maps: BTreeMap<MapId, MapEntry>,
+    /// T1.8 : séquences de niveaux du mode `Floors` (kind `Floors`).
+    pub floors: BTreeMap<FloorsConfigId, FloorsEntry>,
     /// T2.3, chantier C5 v1.
     pub economy: BTreeMap<EconomyId, EconomyEntry>,
     /// T2.3, chantier C5 v1.
@@ -362,6 +484,7 @@ pub const KNOWN_KIND_NAMES: &[&str] = &[
     "Perk",
     "PowerUp",
     "SpriteSheet",
+    "Floors",
 ];
 
 pub fn known_content_kinds() -> Kinds {
@@ -417,6 +540,7 @@ impl Registry {
                 "Perk" => load_perks(&assets_dir, decl, &mut registry, &mut errors),
                 "PowerUp" => load_powerups(&assets_dir, decl, &mut registry, &mut errors),
                 "SpriteSheet" => load_sprite_sheets(&assets_dir, decl, &mut registry, &mut errors),
+                "Floors" => load_floors(&assets_dir, decl, &mut registry, &mut errors),
                 _ => unreachable!("filtré par `kinds.has` ci-dessus"),
             }
         }
@@ -537,7 +661,8 @@ struct MovementSchema {
 
 #[derive(Deserialize)]
 struct HealthSchema {
-    max: FixedField,
+    /// F5 (chantier m0-v11) : littéral ou expression `players` (`crate::expr::NumOrExpr`).
+    max: NumOrExpr,
 }
 
 #[derive(Deserialize)]
@@ -618,11 +743,17 @@ struct WeaponConfigSchema {
     #[serde(default, deserialize_with = "de_friendly_fire")]
     #[allow(dead_code)]
     friendly_fire: FriendlyFire,
+    /// T1.1 : table `projectiles` (voir `WeaponEntry::projectiles`).
+    #[serde(default)]
+    projectiles: BTreeMap<String, ProjectileDefEntry>,
 }
 
 #[derive(Deserialize)]
 struct FiringModeSchema {
     firing_rate: FixedField,
+    /// T1.1 : voir `WeaponEntry::mode_projectiles`.
+    #[serde(default)]
+    projectile: ProjectileSpecEntry,
 }
 
 /// Mirroir RON de `game::weapons::WeaponTest` (voir `WeaponTestRange`) : ignore `expect`,
@@ -679,41 +810,41 @@ struct WaveTierSchema {
 
 /// Mirroir de `game::economy::EconomyConfig` (T2.3, chantier C5 v1). Défauts identiques
 /// (voir leur doc respective) : un `economy.ron` qui ne déclare qu'un sous-ensemble des
-/// champs se comporte pareil ici et à l'exécution.
+/// champs se comporte pareil ici et à l'exécution. F5 (chantier m0-v11) : `NumOrExpr`.
 #[derive(Deserialize)]
 struct EconomyFileSchema {
     #[serde(default = "default_kill_points")]
-    kill_points: u32,
+    kill_points: NumOrExpr,
     #[serde(default = "default_hit_points")]
-    hit_points: u32,
+    hit_points: NumOrExpr,
     #[serde(default = "default_repair_points")]
-    repair_points: u32,
+    repair_points: NumOrExpr,
     #[serde(default = "default_nuke_points")]
-    nuke_points: u32,
+    nuke_points: NumOrExpr,
     #[serde(default)]
-    repair_points_cap_per_wave: Option<u32>,
+    repair_points_cap_per_wave: Option<NumOrExpr>,
     #[serde(default = "default_refill_price_ratio")]
-    refill_price_ratio: FixedField,
+    refill_price_ratio: NumOrExpr,
 }
 
-fn default_kill_points() -> u32 {
-    60
+fn default_kill_points() -> NumOrExpr {
+    NumOrExpr::Integer(60)
 }
 
-fn default_hit_points() -> u32 {
-    10
+fn default_hit_points() -> NumOrExpr {
+    NumOrExpr::Integer(10)
 }
 
-fn default_repair_points() -> u32 {
-    10
+fn default_repair_points() -> NumOrExpr {
+    NumOrExpr::Integer(10)
 }
 
-fn default_nuke_points() -> u32 {
-    400
+fn default_nuke_points() -> NumOrExpr {
+    NumOrExpr::Integer(400)
 }
 
-fn default_refill_price_ratio() -> FixedField {
-    FixedField(Fixed::from_num(0.5))
+fn default_refill_price_ratio() -> NumOrExpr {
+    NumOrExpr::Literal(Fixed::from_num(0.5))
 }
 
 /// Mirroir de `game::economy::PerksConfig` (T2.3, chantier C5 v1) : juste assez pour le lint
@@ -725,7 +856,8 @@ struct PerksFileSchema(KeyedEntries<PerkEntrySchema>);
 
 #[derive(Deserialize)]
 struct PerkEntrySchema {
-    price: u32,
+    /// F5 (chantier m0-v11) : littéral ou expression `players` (`crate::expr::NumOrExpr`).
+    price: NumOrExpr,
     #[serde(default)]
     modifiers: Vec<PerkModifierSchema>,
 }
@@ -969,12 +1101,12 @@ fn load_weapons(
                 continue;
             }
             let test = entry.config.test.as_ref().map(WeaponTestRange::from);
-            let firing_rates = entry
-                .config
-                .firing_modes
-                .into_iter()
-                .map(|(mode, cfg)| (mode, cfg.firing_rate))
-                .collect();
+            let mut firing_rates = BTreeMap::new();
+            let mut mode_projectiles = BTreeMap::new();
+            for (mode, cfg) in entry.config.firing_modes {
+                firing_rates.insert(mode.clone(), cfg.firing_rate);
+                mode_projectiles.insert(mode, cfg.projectile);
+            }
             let mut sounds = Vec::new();
             for (mode, audio) in entry.audio_config.modes {
                 for (name, path) in [("reloading", audio.reloading), ("firing", audio.firing)] {
@@ -996,6 +1128,8 @@ fn load_weapons(
                     ammo_type: entry.config.ammo_type,
                     sounds,
                     sprite: Some(entry.sprite_config.name).filter(|name| !name.is_empty()),
+                    mode_projectiles,
+                    projectiles: entry.config.projectiles,
                 },
             );
         }
@@ -1128,6 +1262,68 @@ fn load_waves(
                 id,
                 file: rel,
                 enemy_refs,
+            },
+        );
+    }
+}
+
+/// T1.8 : mêmes règles que [`load_waves`] (id = nom de fichier sans extension).
+fn load_floors(
+    assets_dir: &Path,
+    decl: &ContentFolderDecl,
+    registry: &mut Registry,
+    errors: &mut Vec<LintError>,
+) {
+    let files = match discover_files(assets_dir, decl, "ron") {
+        Ok(f) => f,
+        Err(e) => {
+            errors.push(e);
+            return;
+        }
+    };
+
+    for rel in files {
+        let text = match read_file(assets_dir, &rel) {
+            Ok(t) => t,
+            Err(e) => {
+                errors.push(e);
+                continue;
+            }
+        };
+        let parsed: FloorsFileSchema = match ron::from_str(&text) {
+            Ok(p) => p,
+            Err(e) => {
+                errors.push(LintError {
+                    kind: LintErrorKind::Parse,
+                    file: rel.display().to_string(),
+                    message: format!("erreur RON : {e}"),
+                });
+                continue;
+            }
+        };
+        let id = FloorsConfigId::from(
+            rel.file_stem()
+                .and_then(|s| s.to_str())
+                .unwrap_or_default()
+                .to_string(),
+        );
+        if let Some(existing) = registry.floors.get(&id) {
+            errors.push(LintError {
+                kind: LintErrorKind::DuplicateId,
+                file: rel.display().to_string(),
+                message: format!(
+                    "id de séquence de niveaux « {id} » déjà défini dans {}",
+                    existing.file.display()
+                ),
+            });
+            continue;
+        }
+        registry.floors.insert(
+            id.clone(),
+            FloorsEntry {
+                id,
+                file: rel,
+                levels: parsed.levels,
             },
         );
     }

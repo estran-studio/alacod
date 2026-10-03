@@ -5,6 +5,7 @@ use bevy::prelude::*;
 use bevy_fixed::fixed_math::{Fixed, FixedTransform3D, FixedVec2};
 use bevy_ggrs::{LocalInputs, LocalPlayers, Rollback};
 use combat::{downed::Downed, inventory::AmmoReserves};
+use game::balance::ResolvedBalance;
 use game::character::enemy::ai::{navigation::AgentBody, EnemyAiConfig, MonsterState};
 use game::character::player::input::{BoxInput, INPUT_INTERACTION, INPUT_RELOAD};
 use game::character::{
@@ -13,8 +14,7 @@ use game::character::{
     player::{jjrs::PeerConfig, Player},
 };
 use game::collider::{Collider, Wall, Window};
-use game::economy::{EconomyConfig, PerkMachine, PerksConfig};
-use game::global_asset::GlobalAsset;
+use game::economy::PerkMachine;
 use game::interaction::{Interactable, InteractionType};
 use game::replay::BotProfile;
 use game::weapons::{FiringMode, WeaponInventory, WeaponModesState, WeaponPickup, WeaponState};
@@ -132,9 +132,8 @@ pub struct HunterWorld<'w, 's> {
             &'static WeaponModesState,
         ),
     >,
-    global: Option<Res<'w, GlobalAsset>>,
-    economies: Res<'w, Assets<EconomyConfig>>,
-    perks: Res<'w, Assets<PerksConfig>>,
+    // Prix et économie résolus (F5) : mêmes valeurs que les handlers d'interaction
+    balance: Option<Res<'w, ResolvedBalance>>,
 }
 
 pub fn read_hunter_inputs(
@@ -178,18 +177,12 @@ pub fn read_hunter_inputs(
             )
         })
         .collect();
-    let economy = state
-        .global
-        .as_ref()
-        .and_then(|g| g.economy_config.as_ref())
-        .and_then(|h| state.economies.get(h))
-        .cloned()
-        .unwrap_or_default();
-    let perks_config = state
-        .global
-        .as_ref()
-        .and_then(|g| g.perks_config.as_ref())
-        .and_then(|h| state.perks.get(h));
+    // Inséré à l'entrée de GameLoading : absent, aucune partie n'est en cours
+    let Some(resolved) = state.balance.as_deref() else {
+        return;
+    };
+    let economy = &resolved.economy;
+    let perks_config = &resolved.perks;
     let interactions = order_iter!(state.interactions);
     for (_, player, t, _, inventory, collider, reserves, wallet, perks, downed) in
         order_iter!(state.players)
@@ -342,7 +335,7 @@ pub fn read_hunter_inputs(
                             }),
                         InteractionType::Perk if *profile == BotProfile::Acheteur => machine
                             .and_then(|m| {
-                                let definition = perks_config?.0.get(&m.perk_id)?;
+                                let definition = perks_config.get(&m.perk_id)?;
                                 (m.perk_id == "juggernog"
                                     && !perks.is_some_and(|p| p.has(&m.perk_id))
                                     && balance >= definition.price)
@@ -509,6 +502,7 @@ mod profile_tests {
             wave: 1,
             nearest_enemy: None,
             nearest_window: None,
+            portal: None,
             hunter: Some(hunter),
         };
         for profile in [BotProfile::Chasseur, BotProfile::Acheteur] {
@@ -531,6 +525,7 @@ mod profile_tests {
             wave: 1,
             nearest_enemy: None,
             nearest_window: None,
+            portal: None,
             hunter: Some(HunterView {
                 can_fire: true,
                 interact: true,

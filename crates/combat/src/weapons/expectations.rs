@@ -1,7 +1,18 @@
 //! Attentes des gabarits d'armes et des scénarios : métadonnées hors simulation et checksum.
 use run::RunEnd;
 use serde::{Deserialize, Serialize};
-use sim_core::{ammo::AmmoType, stats::StatId};
+use sim_core::{ammo::AmmoType, stats::StatId, team::Team};
+
+/// Entité visée par une attente (T1.1, `Expectation::HitsAtLeast`).
+#[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
+pub enum EntityRef {
+    /// Entité rollback par son `GgrsNetId`.
+    NetId(usize),
+    /// L'entité qui compte les coups (`HitCount`) de plus petit `GgrsNetId` : `target` dans
+    /// l'arène du testbed. Sert au `test.expect` d'une arme, où le `GgrsNetId` de `target`
+    /// dépend de l'arme (voir `scenario::generate`).
+    Target,
+}
 
 /// Catégorie d'entités pour `EntityCount`.
 #[derive(Debug, Clone, Copy, PartialEq, Serialize, Deserialize)]
@@ -174,7 +185,7 @@ pub enum Expectation {
     /// Un `GameEvent` de ce `kind` (et dont le label contient la sous-chaîne, si donnée) est survenu
     /// à une frame ≤ `by_frame`. Les `kind` possibles : "wave", "kill", "player", "hit", "reload",
     /// "weapon", "move", "melee", "death", "window", "door", "downed", "revived", "defeat",
-    /// "drop", "pickup" (T2.2, chantier B7).
+    /// "drop", "pickup" (T2.2, chantier B7), "portal", "floor" (T1.8, mode `Floors`).
     Event {
         kind: String,
         #[serde(default, skip_serializing_if = "Option::is_none")]
@@ -222,6 +233,16 @@ pub enum Expectation {
         wave_reached_min: Option<u32>,
         #[serde(default, skip_serializing_if = "Option::is_none")]
         kills_min: Option<u32>,
+        /// Niveau atteint minimal (mode `Floors`, T1.8 : `RunSummary::floor_reached`).
+        #[serde(default, skip_serializing_if = "Option::is_none")]
+        floor_reached_min: Option<u32>,
+        at_frame: u32,
+    },
+    /// Index du niveau courant (mode `Floors`, T1.8 : `run::FloorState::index`, `0` = premier
+    /// niveau) à la frame exacte `at_frame` — vérification ponctuelle, comme `PlayerAlive`.
+    /// Hors mode `Floors`, l'index vaut toujours `0`.
+    FloorIndex {
+        index: u32,
         at_frame: u32,
     },
     /// Solde de monnaie du joueur `handle` dans `[min, max]` (bornes inclusives, `None` =
@@ -242,6 +263,26 @@ pub enum Expectation {
         handle: usize,
         stat: StatId,
         value: f32,
+        at_frame: u32,
+    },
+    /// Nombre **exact** de projectiles vivants (`weapons::Bullet`) à `at_frame` (T1.1,
+    /// chantier B5 v1). `projectile` : seulement les projectiles composables de cet id
+    /// (`projectile::Projectile::id` : l'arme qui a tiré, ou l'entrée de sa table
+    /// `projectiles` pour un projectile né d'un `on_expire`) ; `team` : seulement ceux de
+    /// cette équipe de tireur. Sans filtre : toutes les balles.
+    BulletCount {
+        count: u32,
+        #[serde(default, skip_serializing_if = "Option::is_none")]
+        projectile: Option<String>,
+        #[serde(default, skip_serializing_if = "Option::is_none")]
+        team: Option<Team>,
+        at_frame: u32,
+    },
+    /// Le compteur de coups (`HitCount`) de `entity` vaut au moins `hits` à `at_frame` (T1.1).
+    /// Échoue si l'entité n'existe pas ou ne compte pas ses coups (comme `EntityHits`).
+    HitsAtLeast {
+        entity: EntityRef,
+        hits: u32,
         at_frame: u32,
     },
 }
@@ -270,8 +311,11 @@ impl Expectation {
             | Self::PlayerDowned { at_frame, .. }
             | Self::Currency { at_frame, .. }
             | Self::Stat { at_frame, .. }
+            | Self::BulletCount { at_frame, .. }
+            | Self::HitsAtLeast { at_frame, .. }
             | Self::RunState { at_frame, .. }
             | Self::RunSummary { at_frame, .. }
+            | Self::FloorIndex { at_frame, .. }
             | Self::Event {
                 by_frame: at_frame, ..
             }

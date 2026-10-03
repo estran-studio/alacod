@@ -10,7 +10,9 @@
 use bevy_fixed::fixed_math::Fixed;
 use sim_core::ammo::AmmoType;
 use sim_core::modifier::ModifierOp;
+use std::collections::{BTreeMap, BTreeSet};
 
+use crate::expr::NumOrExpr;
 use crate::manifest::GameManifest;
 use crate::registry::{self, Registry};
 
@@ -60,6 +62,7 @@ pub fn run(registry: &Registry, manifest: &GameManifest) -> Vec<LintError> {
     lint_powerups(registry, &mut errors);
     lint_feedback(registry, &mut errors);
     lint_sprite_sheets(registry, &mut errors);
+    lint_floors(registry, &mut errors);
     lint_entry_point(registry, manifest, &mut errors);
 
     errors
@@ -107,18 +110,27 @@ fn lint_characters(registry: &Registry, errors: &mut Vec<LintError>) {
             });
         }
 
-        // Hors plage : santé > 0.
-        if character.base_health_max.get() <= Fixed::ZERO {
-            errors.push(LintError {
-                kind: LintErrorKind::OutOfRange,
-                file: file.clone(),
-                message: format!(
-                    "personnage « {} » : champ base_health.max = {} : doit être > 0",
-                    character.id,
-                    character.base_health_max.get()
-                ),
-            });
+        // Hors plage : santé > 0 (littéral seulement ; une expression est validée par
+        // `lint_num_or_expr`).
+        if let Some(max) = character.base_health_max.literal() {
+            if max <= Fixed::ZERO {
+                errors.push(LintError {
+                    kind: LintErrorKind::OutOfRange,
+                    file: file.clone(),
+                    message: format!(
+                        "personnage « {} » : champ base_health.max = {max} : doit être > 0",
+                        character.id
+                    ),
+                });
+            }
         }
+        lint_num_or_expr(
+            &character.base_health_max,
+            &format!("personnage « {} », champ base_health.max", character.id),
+            &file,
+            false,
+            errors,
+        );
 
         // Hors plage : vitesse >= 0.
         if character.max_speed.get() < Fixed::ZERO {
@@ -248,6 +260,7 @@ fn lint_weapons(registry: &Registry, errors: &mut Vec<LintError>) {
             }
         }
         lint_weapon_test(&weapon.id, &weapon.file, weapon.test.as_ref(), errors);
+        lint_weapon_projectiles(weapon, errors);
         // D3 : `sprite_config.name` désigne une entrée de la table `SpriteSheet`. Vérifié
         // seulement si le jeu en déclare une : sans table, aucun sprite n'est chargé (les
         // fixtures de lint n'en ont pas).
@@ -267,6 +280,205 @@ fn lint_weapons(registry: &Registry, errors: &mut Vec<LintError>) {
                 });
             }
         }
+    }
+}
+
+/// T1.1 (B5 v1) : projectiles composables d'une arme (`projectile:` de chaque mode, table
+/// `projectiles`). Règles : chaque modificateur au plus une fois, `Size > 0`,
+/// `0 < Homing <= 1` ; `on_hit` limité aux actions à modificateur (`TimedModifier`,
+/// `CurrencyMultiplier`) ; patterns de `on_expire` instantanés (`Telegraph`/`Wait`
+/// refusés), `count > 0`, `spread >= 0`, `speed >= 0`, projectile référencé présent dans la
+/// table ; définitions de la table : `damage >= 0`, `speed >= 0`, `range > 0`, aucun cycle
+/// de `on_expire`.
+fn lint_weapon_projectiles(weapon: &registry::WeaponEntry, errors: &mut Vec<LintError>) {
+    let mut push = |kind: LintErrorKind, message: String| {
+        errors.push(LintError {
+            kind,
+            file: weapon.file.display().to_string(),
+            message: format!("arme « {} » : {message}", weapon.id),
+        });
+    };
+    for (mode, spec) in &weapon.mode_projectiles {
+        lint_projectile_spec(
+            &format!("mode « {mode} » : projectile"),
+            spec,
+            &weapon.projectiles,
+            &mut push,
+        );
+    }
+    for (id, def) in &weapon.projectiles {
+        let at = format!("projectiles « {id} »");
+        for (field, value, strict) in [
+            ("damage", def.damage, false),
+            ("speed", def.speed, false),
+            ("range", def.range, true),
+        ] {
+            let value = value.get();
+            if value < Fixed::ZERO || (strict && value == Fixed::ZERO) {
+                let rule = if strict { "> 0" } else { ">= 0" };
+                push(
+                    LintErrorKind::OutOfRange,
+                    format!("{at} : champ {field} = {value} : doit être {rule}"),
+                );
+            }
+        }
+        lint_projectile_spec(&at, &def.spec(), &weapon.projectiles, &mut push);
+    }
+    // Cycles de `on_expire` dans la table (un projectile qui finit par se refaire naître).
+    for start in weapon.projectiles.keys() {
+        let mut seen = BTreeSet::new();
+        let mut stack = vec![start.as_str()];
+        while let Some(id) = stack.pop() {
+            let Some(def) = weapon.projectiles.get(id) else {
+                continue;
+            };
+            for next in expire_references(&def.on_expire) {
+                if next == start {
+                    push(
+                        LintErrorKind::OutOfRange,
+                        format!("projectiles « {start} » : on_expire se refait naître (cycle)"),
+                    );
+                    stack.clear();
+                    break;
+                }
+                if seen.insert(next) {
+                    stack.push(next);
+                }
+            }
+        }
+    }
+}
+
+/// Ids de projectiles nommés par les patterns d'une liste `on_expire`.
+fn expire_references(on_expire: &[registry::ExpireActionEntry]) -> Vec<&str> {
+    fn walk<'a>(pattern: &'a registry::PatternEntry, out: &mut Vec<&'a str>) {
+        match pattern {
+            registry::PatternEntry::Aimed { projectile, .. }
+            | registry::PatternEntry::Spread { projectile, .. }
+            | registry::PatternEntry::Ring { projectile, .. } => out.push(projectile),
+            registry::PatternEntry::Sequence(children) => {
+                children.iter().for_each(|child| walk(child, out))
+            }
+            registry::PatternEntry::Telegraph(_) | registry::PatternEntry::Wait(_) => {}
+        }
+    }
+    let mut out = Vec::new();
+    for registry::ExpireActionEntry::Spawn(pattern) in on_expire {
+        walk(pattern, &mut out);
+    }
+    out
+}
+
+fn lint_projectile_spec(
+    at: &str,
+    spec: &registry::ProjectileSpecEntry,
+    table: &BTreeMap<String, registry::ProjectileDefEntry>,
+    push: &mut impl FnMut(LintErrorKind, String),
+) {
+    let mut seen = BTreeSet::new();
+    for modifier in &spec.modifiers {
+        if !seen.insert(modifier.name()) {
+            push(
+                LintErrorKind::OutOfRange,
+                format!("{at} : modificateur {} répété", modifier.name()),
+            );
+        }
+        match modifier {
+            registry::ProjectileModifierEntry::Size(size) if size.get() <= Fixed::ZERO => push(
+                LintErrorKind::OutOfRange,
+                format!("{at} : Size({}) : doit être > 0", size.get()),
+            ),
+            registry::ProjectileModifierEntry::Homing(force)
+                if force.get() <= Fixed::ZERO
+                    || force.get() > bevy_fixed::fixed_math::FIXED_ONE =>
+            {
+                push(
+                    LintErrorKind::OutOfRange,
+                    format!("{at} : Homing({}) : doit être dans ]0, 1]", force.get()),
+                )
+            }
+            _ => {}
+        }
+    }
+    for action in &spec.on_hit {
+        if !matches!(
+            action,
+            effects::Action::TimedModifier { .. } | effects::Action::CurrencyMultiplier { .. }
+        ) {
+            push(
+                LintErrorKind::OutOfRange,
+                format!(
+                    "{at} : on_hit {action:?} : seules les actions à modificateur (TimedModifier, CurrencyMultiplier) s'appliquent à la cible"
+                ),
+            );
+        }
+    }
+    for registry::ExpireActionEntry::Spawn(pattern) in &spec.on_expire {
+        lint_expire_pattern(at, pattern, table, push);
+    }
+}
+
+fn lint_expire_pattern(
+    at: &str,
+    pattern: &registry::PatternEntry,
+    table: &BTreeMap<String, registry::ProjectileDefEntry>,
+    push: &mut impl FnMut(LintErrorKind, String),
+) {
+    use registry::PatternEntry;
+    let (count, spread, speed, projectile) = match pattern {
+        PatternEntry::Aimed {
+            count,
+            spread,
+            projectile,
+        }
+        | PatternEntry::Spread {
+            count,
+            spread,
+            projectile,
+        } => (*count, Some(spread.get()), None, projectile),
+        PatternEntry::Ring {
+            count,
+            speed,
+            projectile,
+            ..
+        } => (*count, None, Some(speed.get()), projectile),
+        PatternEntry::Sequence(children) => {
+            for child in children {
+                lint_expire_pattern(at, child, table, push);
+            }
+            return;
+        }
+        PatternEntry::Telegraph(_) | PatternEntry::Wait(_) => {
+            push(
+                LintErrorKind::OutOfRange,
+                format!("{at} : on_expire : pattern temporel {pattern:?} : seuls Aimed, Spread, Ring et Sequence sont joués à la fin d'un projectile"),
+            );
+            return;
+        }
+    };
+    if count == 0 {
+        push(
+            LintErrorKind::OutOfRange,
+            format!("{at} : on_expire : count = 0 : doit être > 0"),
+        );
+    }
+    if spread.is_some_and(|spread| spread < Fixed::ZERO) {
+        push(
+            LintErrorKind::OutOfRange,
+            format!("{at} : on_expire : spread < 0"),
+        );
+    }
+    if speed.is_some_and(|speed| speed < Fixed::ZERO) {
+        push(
+            LintErrorKind::OutOfRange,
+            format!("{at} : on_expire : speed < 0"),
+        );
+    }
+    if !table.contains_key(projectile) {
+        push(
+            LintErrorKind::BrokenReference,
+            format!("{at} : on_expire : projectile « {projectile} » absent de la table projectiles de l'arme"),
+        );
     }
 }
 
@@ -383,13 +595,26 @@ fn lint_waves(registry: &Registry, errors: &mut Vec<LintError>) {
 fn lint_perks(registry: &Registry, errors: &mut Vec<LintError>) {
     for perk in registry.perks.values() {
         let file = perk.file.display().to_string();
-        if perk.price == 0 {
-            errors.push(LintError {
-                kind: LintErrorKind::OutOfRange,
-                file: file.clone(),
-                message: format!("perk « {} » : champ price = 0 : doit être > 0", perk.id),
-            });
+        // Littéral seulement ; une expression est validée par `lint_num_or_expr`.
+        if let Some(price) = perk.price.literal() {
+            if price <= Fixed::ZERO {
+                errors.push(LintError {
+                    kind: LintErrorKind::OutOfRange,
+                    file: file.clone(),
+                    message: format!(
+                        "perk « {} » : champ price = {price} : doit être > 0",
+                        perk.id
+                    ),
+                });
+            }
         }
+        lint_num_or_expr(
+            &perk.price,
+            &format!("perk « {} », champ price", perk.id),
+            &file,
+            true,
+            errors,
+        );
         if perk.modifiers.is_empty() {
             errors.push(LintError {
                 kind: LintErrorKind::OutOfRange,
@@ -418,17 +643,117 @@ fn lint_perks(registry: &Registry, errors: &mut Vec<LintError>) {
 
 /// T2.8 (dette T2.3) : `refill_price_ratio` dans `[0, 1]` : au-delà de 1, recharger une
 /// arme murale déjà possédée coûterait plus cher que l'acheter ; négatif, le prix
-/// (`EconomyConfig::refill_price`, arrondi en `u32`) n'aurait pas de sens.
+/// (`EconomyConfig::refill_price`, arrondi en `u32`) n'aurait pas de sens. F5 (chantier
+/// m0-v11) : la règle de plage s'applique aux littéraux, les expressions sont validées par
+/// `lint_num_or_expr`.
 fn lint_economy(registry: &Registry, errors: &mut Vec<LintError>) {
     for economy in registry.economy.values() {
-        let ratio = economy.refill_price_ratio.get();
-        if ratio < Fixed::ZERO || ratio > Fixed::from_num(1.0) {
+        let file = economy.file.display().to_string();
+        if let Some(ratio) = economy.refill_price_ratio.literal() {
+            if ratio < Fixed::ZERO || ratio > Fixed::from_num(1.0) {
+                errors.push(LintError {
+                    kind: LintErrorKind::OutOfRange,
+                    file: file.clone(),
+                    message: format!(
+                        "économie « {} » : champ refill_price_ratio = {ratio} : doit être dans [0, 1]",
+                        economy.id
+                    ),
+                });
+            }
+        }
+        // F5 : expressions (identifiants et évaluation) pour tous les champs numériques.
+        lint_num_or_expr(
+            &economy.kill_points,
+            &format!("économie « {} », champ kill_points", economy.id),
+            &file,
+            true,
+            errors,
+        );
+        lint_num_or_expr(
+            &economy.hit_points,
+            &format!("économie « {} », champ hit_points", economy.id),
+            &file,
+            true,
+            errors,
+        );
+        lint_num_or_expr(
+            &economy.repair_points,
+            &format!("économie « {} », champ repair_points", economy.id),
+            &file,
+            true,
+            errors,
+        );
+        lint_num_or_expr(
+            &economy.nuke_points,
+            &format!("économie « {} », champ nuke_points", economy.id),
+            &file,
+            true,
+            errors,
+        );
+        if let Some(cap) = &economy.repair_points_cap_per_wave {
+            lint_num_or_expr(
+                cap,
+                &format!(
+                    "économie « {} », champ repair_points_cap_per_wave",
+                    economy.id
+                ),
+                &file,
+                true,
+                errors,
+            );
+        }
+        lint_num_or_expr(
+            &economy.refill_price_ratio,
+            &format!("économie « {} », champ refill_price_ratio", economy.id),
+            &file,
+            false,
+            errors,
+        );
+    }
+}
+
+/// F5 (chantier m0-v11) : valide l'expression d'un champ `NumOrExpr` (`Expression`) —
+/// no-op pour un littéral, dont les règles de plage existantes s'occupent déjà.
+///
+/// Deux règles, en miroir du chargement strict de `game::balance` (où une erreur est un
+/// échec de chargement, jamais une valeur par défaut silencieuse) :
+/// 1. identifiants limités à `players`, la seule variable du contexte
+///    (`expr::players_context`, `docs/conventions.md` §18) ;
+/// 2. l'expression s'évalue pour 1 et 4 joueurs (division par zéro, résultat négatif sur
+///    un champ `u32`, etc.).
+fn lint_num_or_expr(
+    num: &NumOrExpr,
+    what: &str,
+    file: &str,
+    is_u32: bool,
+    errors: &mut Vec<LintError>,
+) {
+    let NumOrExpr::Expression(expr) = num else {
+        return;
+    };
+    for id in expr.expr().identifiers() {
+        if id != "players" {
+            errors.push(LintError {
+                kind: LintErrorKind::BrokenReference,
+                file: file.to_string(),
+                message: format!(
+                    "{what} : identifiant « {id} » inconnu — seule la variable « players » existe"
+                ),
+            });
+        }
+    }
+    for players in [1u32, 4] {
+        let result = if is_u32 {
+            num.resolve_u32(players).map(|_| ())
+        } else {
+            num.resolve(players).map(|_| ())
+        };
+        if let Err(e) = result {
             errors.push(LintError {
                 kind: LintErrorKind::OutOfRange,
-                file: economy.file.display().to_string(),
+                file: file.to_string(),
                 message: format!(
-                    "économie « {} » : champ refill_price_ratio = {ratio} : doit être dans [0, 1]",
-                    economy.id
+                    "{what} : expression « {expr} » : {e} (évaluée à {players} joueur(s) ; en jeu, ce serait un échec de chargement)"
                 ),
             });
         }
@@ -571,6 +896,37 @@ fn lint_feedback(registry: &Registry, errors: &mut Vec<LintError>) {
     }
 }
 
+/// T1.8 : une séquence de niveaux (`Floors`) n'est pas vide et chaque niveau désigne une
+/// carte chargée (kind `Map`, même résolution par id que `entry.start_map`).
+fn lint_floors(registry: &Registry, errors: &mut Vec<LintError>) {
+    for floors in registry.floors.values() {
+        let file = floors.file.display().to_string();
+        if floors.levels.is_empty() {
+            errors.push(LintError {
+                kind: LintErrorKind::OutOfRange,
+                file: file.clone(),
+                message: format!(
+                    "séquence de niveaux « {} » : champ levels vide (au moins un niveau)",
+                    floors.id
+                ),
+            });
+        }
+        for level in &floors.levels {
+            let map_id = registry::map_id_from_path(level);
+            if !registry.maps.contains_key(&map_id) {
+                errors.push(LintError {
+                    kind: LintErrorKind::BrokenReference,
+                    file: file.clone(),
+                    message: format!(
+                        "séquence de niveaux « {} » : champ levels : « {level} » : aucune carte chargée avec cet id (« {map_id} »)",
+                        floors.id
+                    ),
+                });
+            }
+        }
+    }
+}
+
 fn lint_entry_point(registry: &Registry, manifest: &GameManifest, errors: &mut Vec<LintError>) {
     let start_map_id = registry::map_id_from_path(&manifest.entry.start_map);
     if !registry.maps.contains_key(&start_map_id) {
@@ -592,6 +948,16 @@ fn lint_entry_point(registry: &Registry, manifest: &GameManifest, errors: &mut V
             kind: LintErrorKind::BrokenReference,
             file: crate::manifest::MANIFEST_FILE_NAME.to_string(),
             message: "champ entry.mode = Waves : aucun dossier de contenu « Wave » déclaré"
+                .to_string(),
+        });
+    }
+    // T1.8 : même règle pour `Floors` (la séquence jouée vient d'un dossier `Floors`).
+    if manifest.entry.mode == Some(crate::manifest::EntryMode::Floors) && registry.floors.is_empty()
+    {
+        errors.push(LintError {
+            kind: LintErrorKind::BrokenReference,
+            file: crate::manifest::MANIFEST_FILE_NAME.to_string(),
+            message: "champ entry.mode = Floors : aucun dossier de contenu « Floors » déclaré"
                 .to_string(),
         });
     }

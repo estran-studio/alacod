@@ -48,7 +48,9 @@ use bevy::prelude::*;
 use bevy_ggrs::{GgrsSchedule, Rollback, RollbackOrdered, Session};
 use content::manifest::{EntryMode, GameManifest};
 use content::registry::Registry;
-use run::{Currency, Run, RunContext, RunEnd, RunMode, RunModeRules, RunStep, RunSummary};
+use run::{
+    Currency, FloorState, Run, RunContext, RunEnd, RunMode, RunModeRules, RunStep, RunSummary,
+};
 use utils::{
     frame::FrameCount,
     net_id::{GgrsNetId, GgrsNetIdFactory},
@@ -57,14 +59,13 @@ use utils::{
 
 use crate::{
     character::{
-        enemy::ai::navigation::FlowFieldCache,
+        enemy::{ai::navigation::FlowFieldCache, Enemy},
         player::{jjrs::PeerConfig, Player},
     },
     core::{AppState, OnlineState},
     economy::{award_points_system, RepairPointsTracking},
-    global_asset::GlobalAsset,
     system_set::RollbackSystemSet,
-    waves::{WaveConfig, WaveState},
+    waves::WaveState,
 };
 
 /// Résout le [`RunMode`] d'une session à partir du manifeste (`entry.mode`, T2.4) et du
@@ -77,10 +78,35 @@ use crate::{
 /// `Wave` (le lint refuse `entry.mode: Waves` sans dossier `Wave`, mais pas l'absence
 /// d'`entry.mode` avec un dossier `Wave` présent : ce chemin-ci), sinon `Sandbox`.
 pub fn resolve_run_mode(manifest: Option<&GameManifest>, registry: Option<&Registry>) -> RunMode {
+    // T1.8 : une séquence imposée (`FloorsOverride`, scénario ou `alacod-sim --floors`)
+    // passe par `resolve_run_mode_with_floors`, pas par ici.
+    resolve_run_mode_with_floors(manifest, registry, None)
+}
+
+/// Comme [`resolve_run_mode`], avec une séquence de niveaux imposée (T1.8 : champ `floors`
+/// d'un scénario, option `--floors` d'`alacod-sim`, voir [`FloorsOverride`]) : `Some(id)`
+/// force `RunMode::Floors { config: id }` quel que soit `entry.mode`. Sinon, `entry.mode:
+/// Floors` prend la première séquence (ordre des ids) du dossier `Floors`.
+pub fn resolve_run_mode_with_floors(
+    manifest: Option<&GameManifest>,
+    registry: Option<&Registry>,
+    floors_override: Option<&str>,
+) -> RunMode {
+    if let Some(config) = floors_override {
+        return RunMode::Floors {
+            config: config.to_string(),
+        };
+    }
     let wave_config_id = registry
         .and_then(|r| r.waves.keys().next())
         .map(|id| id.to_string());
     match manifest.and_then(|m| m.entry.mode) {
+        Some(EntryMode::Floors) => RunMode::Floors {
+            config: registry
+                .and_then(|r| r.floors.keys().next())
+                .map(|id| id.to_string())
+                .unwrap_or_default(),
+        },
         Some(EntryMode::Sandbox) => RunMode::Sandbox,
         Some(EntryMode::Waves) => RunMode::Waves {
             config: wave_config_id.unwrap_or_default(),
@@ -90,6 +116,25 @@ pub fn resolve_run_mode(manifest: Option<&GameManifest>, registry: Option<&Regis
             None => RunMode::Sandbox,
         },
     }
+}
+
+/// Séquence de niveaux imposée à la partie (T1.8), hors rollback : id d'une entrée du
+/// dossier `Floors` (`content::registry::FloorsConfigId`). Posée par le runner de scénarios
+/// (champ `floors`) ; lue par `jjrs::{local, p2p}` (mode de la partie) et par
+/// `map_ldtk::game::local` (cartes à charger). Absente : le mode vient du manifeste.
+#[derive(Resource, Debug, Clone, PartialEq, Eq)]
+pub struct FloorsOverride(pub String);
+
+/// Cartes des niveaux du mode `Floors` (T1.8) : la séquence `config` du registre. `None`
+/// si le mode n'est pas `Floors` ou que la séquence est inconnue (le lint l'aurait refusée).
+pub fn floor_levels(mode: &RunMode, registry: Option<&Registry>) -> Option<Vec<String>> {
+    let RunMode::Floors { config } = mode else {
+        return None;
+    };
+    registry?
+        .floors
+        .get(&content::registry::FloorsConfigId::from(config.clone()))
+        .map(|entry| entry.levels.clone())
 }
 
 /// Commande de relance (T2.4), posée hors rollback (ni checksum ni trace — comme
@@ -163,19 +208,31 @@ fn plan_run_request(request: RunRequest, online: bool, playing: bool) -> RunRequ
 /// ([`finalize_run_summary_system`]) et l'abandon ([`apply_run_request_system`]), mêmes
 /// champs. `points_total` = somme des soldes des joueurs encore en jeu, dans l'ordre
 /// `GgrsNetId` (voir `docs/conventions.md` section « Run »).
+///
+/// T1.8, mode `Floors` : `kills` = ennemis placés par les niveaux chargés
+/// (`FloorState::enemies_placed`) moins ceux encore en vie (`enemies_alive`), les ennemis du
+/// mode ne venant pas des vagues ; `floor_reached` = `FloorState::index`.
 fn run_summary(
     mode: &RunMode,
     frame: u32,
     wave_state: &WaveState,
+    floor_state: &FloorState,
+    enemies_alive: u32,
     points_total: u32,
     outcome: RunEnd,
 ) -> RunSummary {
+    let floors = matches!(mode, RunMode::Floors { .. });
     let ctx = RunContext {
         frame,
         current_wave: wave_state.current_wave,
         max_wave: None,
-        kills: wave_state.total_enemies_killed,
+        kills: if floors {
+            floor_state.enemies_placed.saturating_sub(enemies_alive)
+        } else {
+            wave_state.total_enemies_killed
+        },
         points_total,
+        floor: floor_state.index,
     };
     mode.summarize(&ctx, outcome)
 }
@@ -220,19 +277,15 @@ impl Plugin for RunStatePlugin {
 pub fn check_run_victory_system(
     frame: Res<FrameCount>,
     mut run: ResMut<Run>,
-    wave_config_assets: Res<Assets<WaveConfig>>,
-    global_assets: Res<GlobalAsset>,
+    balance: Res<crate::balance::ResolvedBalance>,
     wave_state: Res<WaveState>,
 ) {
     if !run.is_playing() {
         return;
     }
 
-    let max_wave = global_assets
-        .wave_config
-        .as_ref()
-        .and_then(|handle| wave_config_assets.get(handle))
-        .and_then(|config| config.max_wave);
+    // F5 (chantier m0-v11) : config résolue une fois au lancement (voir `crate::balance`).
+    let max_wave = balance.waves.max_wave;
 
     let ctx = RunContext {
         frame: frame.frame,
@@ -240,6 +293,7 @@ pub fn check_run_victory_system(
         max_wave,
         kills: wave_state.total_enemies_killed,
         points_total: 0,
+        floor: 0,
     };
 
     if let Some(outcome) = run.mode.check_victory(&ctx) {
@@ -260,6 +314,8 @@ pub fn check_run_victory_system(
 pub fn finalize_run_summary_system(
     frame: Res<FrameCount>,
     wave_state: Res<WaveState>,
+    floor_state: Res<FloorState>,
+    enemies: Query<(), With<Enemy>>,
     currencies: Query<(&GgrsNetId, &Currency), With<Player>>,
     mut run: ResMut<Run>,
 ) {
@@ -275,7 +331,15 @@ pub fn finalize_run_summary_system(
         points_total = points_total.saturating_add(currency.0);
     }
 
-    let summary = run_summary(&run.mode, frame.frame, &wave_state, points_total, outcome);
+    let summary = run_summary(
+        &run.mode,
+        frame.frame,
+        &wave_state,
+        &floor_state,
+        enemies.iter().count() as u32,
+        points_total,
+        outcome,
+    );
     info!(
         "f{} run summary: wave={} kills={} points={} outcome={:?}",
         frame.frame, summary.wave_reached, summary.kills, summary.points_total, summary.outcome
@@ -300,6 +364,8 @@ fn apply_run_request_system(
     online_state: Res<OnlineState>,
     frame: Res<FrameCount>,
     wave_state: Res<WaveState>,
+    floor_state: Res<FloorState>,
+    enemies: Query<(), With<Enemy>>,
     currencies: Query<(&GgrsNetId, &Currency), With<Player>>,
     mut run: ResMut<Run>,
 ) {
@@ -325,6 +391,8 @@ fn apply_run_request_system(
             &run.mode,
             frame.frame,
             &wave_state,
+            &floor_state,
+            enemies.iter().count() as u32,
             points_total,
             RunEnd::Abandon,
         );
@@ -369,6 +437,9 @@ fn cleanup_rollback_world_system(
     commands.insert_resource(FrameCount::default());
     commands.insert_resource(GgrsNetIdFactory::default());
     commands.insert_resource(WaveState::default());
+    // T1.8 : l'index de niveau repart de zéro (la nouvelle partie repose son portail au
+    // chargement de la carte, `map_ldtk::game::floors`).
+    commands.insert_resource(FloorState::default());
     commands.insert_resource(FlowFieldCache::default());
     commands.insert_resource(RepairPointsTracking::default());
     // Compteur cumulatif interne à bevy_ggrs (voir la doc du module) : sans ce reset, le
@@ -432,8 +503,9 @@ mod tests {
         let mode = RunMode::Waves {
             config: "wave_config".to_string(),
         };
-        let abandon = run_summary(&mode, 1234, &wave_state, 2500, RunEnd::Abandon);
-        let defeat = run_summary(&mode, 1234, &wave_state, 2500, RunEnd::Defeat);
+        let floors = FloorState::default();
+        let abandon = run_summary(&mode, 1234, &wave_state, &floors, 0, 2500, RunEnd::Abandon);
+        let defeat = run_summary(&mode, 1234, &wave_state, &floors, 0, 2500, RunEnd::Defeat);
         assert_eq!(
             abandon,
             RunSummary {
@@ -442,6 +514,7 @@ mod tests {
                 points_total: 2500,
                 frames: 1234,
                 outcome: RunEnd::Abandon,
+                floor_reached: 0,
             }
         );
         assert_eq!(
@@ -463,6 +536,50 @@ mod tests {
                 mode,
             },
         }
+    }
+
+    #[test]
+    fn resume_floors_niveau_et_ennemis_elimines() {
+        let mode = RunMode::Floors {
+            config: "deux_salles".to_string(),
+        };
+        let floors = FloorState {
+            index: 2,
+            enemies_placed: 7,
+            ..Default::default()
+        };
+        // Les vagues ne comptent pas en `Floors` : 7 placés, 2 encore en vie → 5 kills.
+        let wave_state = WaveState {
+            total_enemies_killed: 40,
+            ..Default::default()
+        };
+        let summary = run_summary(&mode, 900, &wave_state, &floors, 2, 10, RunEnd::Defeat);
+        assert_eq!(summary.kills, 5);
+        assert_eq!(summary.floor_reached, 2);
+        assert_eq!(summary.wave_reached, 0);
+    }
+
+    #[test]
+    fn floors_impose_ou_declare_par_le_manifeste() {
+        assert_eq!(
+            resolve_run_mode_with_floors(None, None, Some("deux_salles")),
+            RunMode::Floors {
+                config: "deux_salles".to_string()
+            }
+        );
+        let manifest = manifest_with_mode(Some(EntryMode::Floors));
+        assert_eq!(
+            resolve_run_mode(Some(&manifest), None),
+            RunMode::Floors {
+                config: String::new()
+            }
+        );
+        // L'override gagne même sur un manifeste `Sandbox`.
+        let manifest = manifest_with_mode(Some(EntryMode::Sandbox));
+        assert!(matches!(
+            resolve_run_mode_with_floors(Some(&manifest), None, Some("x")),
+            RunMode::Floors { .. }
+        ));
     }
 
     #[test]

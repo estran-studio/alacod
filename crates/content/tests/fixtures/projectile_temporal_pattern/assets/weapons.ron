@@ -1,0 +1,7 @@
+// T1.1 : Telegraph/Wait n'ont pas de sens à la fin d'un projectile (émetteurs, T1.2).
+({
+    "grenade": (config: (ammo_type: Plomb, firing_modes: {"default": (
+        firing_rate: "1.0",
+        projectile: (on_expire: [Spawn(Wait(30))]),
+    )})),
+})

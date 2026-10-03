@@ -242,6 +242,14 @@ make diff_log CID_1=alice CID_2=bob
 - [ ] Resource enregistrée avec l'extension `RollbackTraceApp` (`rollback_and_trace_resource`
       / `_debug_resource` / `_copy_resource`), jamais `rollback_resource_with_*` directement
       (un script CI le bloque, voir `scripts/check-rollback-registration.sh`)
+- [ ] **Parité des types vides** (mesuré le 2026-10-03, bevy_ggrs 0.22) : un type rollback
+      enregistré sous checksum mais porté par **aucune** entité ajoute une `ChecksumPart`
+      constante `hash(0u64)`, combinée par XOR → **un** nouveau type vide déplace toutes les
+      traces dès la frame 0, **deux** les laissent intactes. Un composant qui n'est posé que sur
+      de nouvelles entités (émetteur, statut, grille…) s'enregistre avec la variante **neutre**
+      (`rollback_and_trace_resource_neutral`, T1.8 ; `rollback_and_trace_neutral::<C>` pour les
+      composants, T1.2) : contribution 0 sans porteur, hash normal sinon. Ne jamais compenser par
+      la parité, ne jamais passer en `no_checksum` pour « sauver » les traces.
 - [ ] Logs utilisent `GgrsNetId`/`player.handle` (pas `Entity`) pour comparaison
 - [ ] Trace logs suivent format `ggrs{{f={} system_name key=value...}}` pour diff_log
 
@@ -261,6 +269,13 @@ d'un événement émis par la simulation : ils restent justes après un rollback
 #### Simulation et présentation
 La simulation ne dépend jamais du rendu. Tout ce qui sert à afficher (caméra, lumière, audio,
 UI de debug) va dans `PresentationPlugin` (`core.rs`), absent en headless.
+
+Cette frontière est aussi la **frontière de portage console** (décision du 2026-10-03,
+`docs/plan-engine.md` §7) : une cible console future (Switch 1/2, PS4/PS5 en officiel) remplacera
+ce qui est derrière `PresentationPlugin` — rendu, fenêtre, input, audio, UI — jamais la
+simulation. Les crates de simulation (`sim_core`, `combat`, `stats`, `effects`, `behaviors`,
+`map`…) ne doivent jamais importer `bevy_render`, `bevy_winit`, `bevy_asset`, `bevy_audio`,
+`bevy_ui` ni `winit` : elles ne dépendent de `bevy` qu'en `default-features = false` (ECS seul).
 
 ## Headless, trace d'état et déterminisme
 
@@ -282,7 +297,9 @@ Avant/après un refactoring de la simulation, comparer les traces : elles doiven
     `WindowHealth`, `DoorsOpenAtLeast`, `ActiveWeapon`, `Ammo`, `AmmoReserve`, `WeaponPickups`,
     `PowerUpPickups` (T2.5), `PlayerPosition`, `BulletsInside`, `Health`, `EntityHealth`,
     `EntityHits`, `EntityCount`, `Currency`, `Stat`, `PlayerDowned`, `RunState`,
-    `RunSummary`, `Event`.
+    `RunSummary`, `Event`, `BulletCount` et `HitsAtLeast` (T1.1, projectiles composables,
+    `docs/conventions.md` §16), `FloorIndex` (T1.8, mode `Floors`, voir `docs/conventions.md`
+    §17).
   - Continues (vérifiées à chaque frame) : `NoDamageBetween` (santé du joueur ne diminue pas dans l'intervalle).
   - `weapon_overrides` modifie la taille et le nombre de chargeurs d'une arme pour un scénario ;
     `wave_overrides` la config de vagues ; `powerups` (T2.5) place un power-up à une position et

@@ -11,6 +11,7 @@ use map::generation::config::MapGenerationConfig;
 use map::generation::map_generation;
 
 use super::generation::{from_map, GeneratedMap};
+use crate::game::floors::{FloorPlan, FloorWorld};
 
 /// Config de génération transmise au loader LDtk (sérialisée dans ses settings).
 ///
@@ -61,7 +62,7 @@ pub fn load_map(
     asset_server: &Res<AssetServer>,
     settings: &MapLoaderSettings,
     config: &MapGenerationConfig,
-) {
+) -> Entity {
     settings.set(config);
 
     let shared = settings.clone();
@@ -75,18 +76,72 @@ pub fn load_map(
 
     let level_set = LevelSet::default();
 
-    commands.spawn(LdtkWorldBundle {
-        ldtk_handle,
-        level_set,
-        ..Default::default()
-    });
+    commands
+        .spawn(LdtkWorldBundle {
+            ldtk_handle,
+            level_set,
+            ..Default::default()
+        })
+        .id()
 }
 
+/// Mode `Floors` (T1.8) : comme [`load_map`], mais la config de génération est figée dans
+/// la closure de settings de *ce* chargement (copie, pas l'`Arc` partagé de
+/// [`MapLoaderSettings`]) : plusieurs cartes se chargent dans la même frame, chacune avec sa
+/// propre config, quel que soit le moment où le chargeur lit ses settings.
+pub fn load_map_snapshot(
+    commands: &mut Commands,
+    asset_server: &Res<AssetServer>,
+    config: &MapGenerationConfig,
+) -> Entity {
+    let data = serde_json::to_value(config)
+        .expect("Failed to convert struct to value")
+        .as_object()
+        .expect("Failed to convert value to object")
+        .clone();
+    let ldtk_handle: LdtkProjectHandle = asset_server
+        .load_builder()
+        .with_settings(move |s: &mut LdtkProjectLoaderSettings| {
+            s.data = data.clone();
+        })
+        .load(config.map_path.clone())
+        .into();
+
+    commands
+        .spawn(LdtkWorldBundle {
+            ldtk_handle,
+            level_set: LevelSet::default(),
+            ..Default::default()
+        })
+        .id()
+}
+
+/// Charge la carte de la partie : une seule (`MapGenerationConfig`), ou, en mode `Floors`
+/// (T1.8, [`FloorPlan`] présent), un monde LDtk par carte distincte de la séquence. Chaque
+/// monde porte [`FloorWorld`] (son emplacement dans la séquence), `FloorWorld(0)` pour la
+/// carte unique : les systèmes de chargement filtrent par emplacement.
 pub fn setup_generated_map(
     mut commands: Commands,
     asset_server: Res<AssetServer>,
     settings: Res<MapLoaderSettings>,
     config: Res<MapGenerationConfig>,
+    plan: Option<Res<FloorPlan>>,
 ) {
-    load_map(&mut commands, &asset_server, &settings, config.as_ref())
+    let Some(plan) = plan else {
+        let world = load_map(&mut commands, &asset_server, &settings, config.as_ref());
+        commands.entity(world).insert(FloorWorld(0));
+        return;
+    };
+    for slot in plan.distinct_slots() {
+        let floor_config = MapGenerationConfig {
+            map_path: plan.levels[slot].clone(),
+            seed: config.seed,
+            max_width: config.max_width,
+            max_heigth: config.max_heigth,
+            max_room: config.max_room,
+            mode: config.mode,
+        };
+        let world = load_map_snapshot(&mut commands, &asset_server, &floor_config);
+        commands.entity(world).insert(FloorWorld(slot));
+    }
 }

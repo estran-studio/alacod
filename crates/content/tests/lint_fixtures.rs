@@ -97,6 +97,32 @@ fn entry_mode_waves_without_waves_fixture_reports_missing_wave_folder() {
 }
 
 #[test]
+fn entry_mode_floors_without_floors_fixture_reports_missing_floors_folder() {
+    let (_, _, errors) = load_and_lint(&fixture_dir("entry_mode_floors_without_floors")).unwrap();
+    assert_has_error(
+        &errors,
+        LintErrorKind::BrokenReference,
+        "entry.mode = Floors",
+    );
+}
+
+#[test]
+fn floors_empty_fixture_reports_empty_levels() {
+    let (_, _, errors) = load_and_lint(&fixture_dir("floors_empty")).unwrap();
+    assert_has_error(&errors, LintErrorKind::OutOfRange, "levels vide");
+}
+
+#[test]
+fn floors_unknown_map_fixture_reports_broken_level() {
+    let (_, _, errors) = load_and_lint(&fixture_dir("floors_unknown_map")).unwrap();
+    assert_has_error(
+        &errors,
+        LintErrorKind::BrokenReference,
+        "cartes/absente.ldtk",
+    );
+}
+
+#[test]
 fn ammo_type_empty_custom_fixture_reports_empty_name() {
     let (_, _, errors) = load_and_lint(&fixture_dir("ammo_type_empty_custom")).unwrap();
     assert_has_error(&errors, LintErrorKind::OutOfRange, "ammo_type");
@@ -234,6 +260,13 @@ fn t2_8_fixtures_have_a_single_problem() {
         ),
         ("economy_ratio_out_of_range", LintErrorKind::OutOfRange),
         ("audio_missing_file", LintErrorKind::BrokenReference),
+        // T1.8.
+        (
+            "entry_mode_floors_without_floors",
+            LintErrorKind::BrokenReference,
+        ),
+        ("floors_empty", LintErrorKind::OutOfRange),
+        ("floors_unknown_map", LintErrorKind::BrokenReference),
     ];
     for (name, kind) in cases {
         let (_, _, errors) = load_and_lint(&fixture_dir(name)).unwrap();
@@ -439,4 +472,37 @@ fn sprite_sheet_duplicate_key_fixture_reports_repeated_id() {
     let (_, _, errors) = load_and_lint(&fixture_dir("sprite_sheet_duplicate_key")).unwrap();
     assert_has_error(&errors, LintErrorKind::DuplicateId, "hero");
     assert_only_one_besides_start_map(&errors);
+}
+
+// T1.1 (B5 v1) : projectiles composables.
+
+#[test]
+fn projectile_fixtures_have_a_single_rule_failure() {
+    for (name, kind, needle) in [
+        (
+            "projectile_broken_reference",
+            LintErrorKind::BrokenReference,
+            "« shrapnel » absent",
+        ),
+        (
+            "projectile_temporal_pattern",
+            LintErrorKind::OutOfRange,
+            "pattern temporel",
+        ),
+        // Le cycle a -> b -> a est vu depuis chacun des deux projectiles.
+        ("projectile_cycle", LintErrorKind::OutOfRange, "cycle"),
+    ] {
+        let (_, _, errors) = load_and_lint(&fixture_dir(name)).unwrap();
+        let others: Vec<_> = errors
+            .iter()
+            .filter(|e| !e.message.contains("entry.start_map"))
+            .collect();
+        assert!(!others.is_empty(), "{name}: {errors:#?}");
+        assert!(
+            others
+                .iter()
+                .all(|e| e.kind == kind && e.message.contains(needle)),
+            "{name}: {errors:#?}"
+        );
+    }
 }

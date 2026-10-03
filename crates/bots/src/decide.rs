@@ -71,6 +71,9 @@ fn decide_fonceur(view: &BotView) -> BoxInput {
         if enemy.distance <= FONCEUR_THREAT_RANGE {
             input.fire = true;
         }
+    } else if let Some(portal) = view.portal {
+        // T1.8 : plus d'ennemi, portail ouvert : y aller (niveau suivant).
+        set_direction_buttons(&mut input, portal - view.position);
     }
 
     maybe_reload(&mut input, view);
@@ -92,6 +95,9 @@ fn decide_prudent(view: &BotView) -> BoxInput {
         if enemy.distance <= PRUDENT_MAX_DISTANCE {
             input.fire = true;
         }
+    } else if let Some(portal) = view.portal {
+        // T1.8 : plus d'ennemi, portail ouvert : y aller (niveau suivant).
+        set_direction_buttons(&mut input, portal - view.position);
     }
 
     maybe_reload(&mut input, view);
@@ -162,7 +168,38 @@ mod tests {
             nearest_enemy: None,
             nearest_window: None,
             hunter: None,
+            portal: None,
         }
+    }
+
+    #[test]
+    fn sans_ennemi_fonceur_et_prudent_vont_au_portail() {
+        let mut v = view(FixedVec2::new(fx(0.0), fx(0.0)));
+        v.portal = Some(FixedVec2::new(fx(-50.0), fx(30.0)));
+        for profile in [BotProfile::Fonceur, BotProfile::Prudent] {
+            let input = decide(profile, &v, &mut rng());
+            assert_ne!(
+                input.buttons & INPUT_LEFT,
+                0,
+                "{profile:?} : portail à gauche"
+            );
+            assert_ne!(input.buttons & INPUT_UP, 0, "{profile:?} : portail en haut");
+            assert!(!input.fire);
+        }
+        // Un ennemi présent passe avant le portail.
+        v.nearest_enemy = Some(EnemyView {
+            position: FixedVec2::new(fx(50.0), fx(0.0)),
+            distance: fx(50.0),
+        });
+        let input = decide(BotProfile::Fonceur, &v, &mut rng());
+        assert_ne!(input.buttons & INPUT_RIGHT, 0);
+        assert_eq!(input.buttons & INPUT_LEFT, 0);
+        // Immobile ne bouge jamais.
+        v.nearest_enemy = None;
+        assert_eq!(
+            decide(BotProfile::Immobile, &v, &mut rng()),
+            BoxInput::default()
+        );
     }
 
     fn rng() -> RollbackRng {

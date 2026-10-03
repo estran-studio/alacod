@@ -301,6 +301,7 @@ pub fn build_scenario(
         // Isoler les essais d'armes des drops : ils ont leur propre scénario de preuve.
         powerups: vec![],
         powerup_drop_chance_override: Some(bevy_fixed::fixed_math::FIXED_ZERO),
+        floors: None,
     }
 }
 

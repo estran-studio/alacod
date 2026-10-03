@@ -23,6 +23,7 @@ fn buyers_finish_the_first_wave_when_awake_zombies_are_inaccessible() {
             invariants: Default::default(),
             powerups: vec![],
             powerup_drop_chance_override: None,
+            floors: None,
         };
         let outcome = run_with_options(
             &scenario,

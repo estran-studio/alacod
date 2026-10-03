@@ -26,6 +26,8 @@ pub struct RunContext {
     pub kills: u32,
     /// Somme des soldes (`run::currency::Currency`) de tous les joueurs à cet instant.
     pub points_total: u32,
+    /// Niveau courant (mode `Floors`, T1.8 : `FloorState::index` ; `0` sinon).
+    pub floor: u32,
 }
 
 /// Règles de fin de partie propres à un mode. Implémenté pour [`RunMode`] directement (un
@@ -56,6 +58,9 @@ impl RunModeRules for RunMode {
                 (max_wave > 0 && ctx.current_wave >= max_wave).then_some(RunEnd::Victory)
             }
             RunMode::Sandbox => None,
+            // Boucle infinie au dernier niveau (T1.8, `docs/conventions.md` §17) : la partie
+            // ne finit que par la défaite (universelle) ou l'abandon.
+            RunMode::Floors { .. } => None,
         }
     }
 
@@ -66,6 +71,7 @@ impl RunModeRules for RunMode {
             points_total: ctx.points_total,
             frames: ctx.frame,
             outcome,
+            floor_reached: ctx.floor,
         }
     }
 }
@@ -118,6 +124,21 @@ mod tests {
     }
 
     #[test]
+    fn floors_never_wins_and_reports_floor() {
+        let mode = RunMode::Floors {
+            config: "deux_salles".to_string(),
+        };
+        let ctx = RunContext {
+            current_wave: 99,
+            max_wave: Some(1),
+            floor: 3,
+            ..Default::default()
+        };
+        assert_eq!(mode.check_victory(&ctx), None);
+        assert_eq!(mode.summarize(&ctx, RunEnd::Defeat).floor_reached, 3);
+    }
+
+    #[test]
     fn summarize_carries_context_and_outcome() {
         let ctx = RunContext {
             frame: 1500,
@@ -125,6 +146,7 @@ mod tests {
             max_wave: None,
             kills: 37,
             points_total: 900,
+            floor: 0,
         };
         let summary = waves().summarize(&ctx, RunEnd::Defeat);
         assert_eq!(summary.wave_reached, 4);

@@ -1,0 +1,7 @@
+// T1.1 : un pattern de on_expire nomme un projectile absent de la table de l'arme.
+({
+    "grenade": (config: (ammo_type: Plomb, firing_modes: {"default": (
+        firing_rate: "1.0",
+        projectile: (on_expire: [Spawn(Ring(count: 8, speed: "100.0", projectile: "shrapnel", every: 0))]),
+    )})),
+})

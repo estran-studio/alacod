@@ -1,0 +1,39 @@
+// F5 (chantier m0-v11) : preuve « équilibrage par nombre de joueurs », santé (2 joueurs).
+//
+// Même partie que `equilibrage_joueurs_quad`, seule différence : 2 joueurs au lieu de 4.
+// Le joueur 0 tire vers l'ouest (f10-76, `machine_gun` de départ : automatique, cadence
+// 6 frames, 8 dégâts — 11 balles, magasin 30, aucun rechargement) sur `zombie_scaled`
+// (CharacterSpawn de `exemples/zombie_scaled.ldtk`, placé juste devant le muzzle, immobile,
+// sans dégât ; son collider 20×32 absorbe la dispersion aléatoire du tir) : à 2 joueurs
+// son expression de santé vaut 10 + (2 - 1) * 40 = 50 PV — 7 balles (56 dégâts) suffisent,
+// il meurt avant la frame 220. À 4 joueurs (`equilibrage_joueurs_quad`) il vaut 130 PV et
+// survit aux 11 balles (88 dégâts) : la seule différence entre les deux parties est
+// l'évaluation de `players` au lancement (`docs/conventions.md` §18).
+// `grace_period_frames: 1200` : aucune vague ne démarre avant la frame 220,
+// `zombie_scaled` est le seul Enemy.
+Scenario(
+    game: "zombies",
+    map: "exemples/zombie_scaled.ldtk",
+    map_seed: 123456,
+    powerup_drop_chance_override: "0.0",
+    frames: 220,
+    wave_overrides: (
+        grace_period_frames: 1200,
+        base_enemies: 1,
+    ),
+    players: [
+        (
+            inputs: [
+                (from: 10, to: 76, buttons: [Fire], pan: (-128, 0)),
+            ],
+        ),
+        (inputs: []),
+    ],
+    expect: [
+        RunState(step: Playing, at_frame: 220),
+        PlayerAlive(handle: 0, at_frame: 220),
+        PlayerAlive(handle: 1, at_frame: 220),
+        // 50 PV à 2 joueurs : mort après 7 balles de machine_gun.
+        EntityCount(kind: Enemy, min: 0, max: 0, at_frame: 220),
+    ],
+)

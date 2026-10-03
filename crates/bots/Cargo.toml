@@ -17,9 +17,10 @@ game = { path = "../game" }
 # `game` : dépendance directe nécessaire pour construire la BotView (bots dépend de game, pas
 # l'inverse ; map est déjà une dépendance de game, donc pas de nouvelle inversion de couche).
 map = { path = "../map" }
+# T1.8 : position du portail ouvert du mode `Floors` (`run::FloorState`).
+run = { path = "../run" }
 
 combat = { path = "../combat" }
-run = { path = "../run" }
 
 [dev-dependencies]
 ron = "0.12"
