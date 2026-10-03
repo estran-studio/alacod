@@ -1,7 +1,14 @@
 # Rapport m0-v11 — F5 : équilibrage par nombre de joueurs (vagues, prix, santé)
 
-**Base de la branche** : `origin/main` à jour au moment de la livraison (`<sha-main>`, merge
-d'hygiène fait juste avant — règle m0-v9).
+**Base de la branche** : `origin/main` — merge `20be915` (m1-v1a) puis re-merge
+`origin/main` `b1c23ab` (m1-v1e, mode Floors) juste avant la livraison (règle m0-v9). Un seul
+conflit (`crates/map_ldtk/src/game/local.rs`, m1-v1e refactorait les fonctions de spawn de
+niveau) résolu en gardant les deux : structure de m1-v1e (`LevelSpawnAssets`, `FloorSlots`,
+`spawn_level_characters`) + fil de la santé résolue F5 (`ResolvedBalance` dans
+`LevelSpawnAssets`, `health_max` passé à `create_player`/`spawn_enemy`). §16 (m1-v1a), §17
+(m1-v1e) et §18 (F5) cohabitent dans `conventions.md` ; les attentes
+`BulletCount`/`HitsAtLeast`/`FloorIndex` et les champs `NumOrExpr` se retrouvent tels quels
+dans `lint.rs`/`registry.rs`/`runner.rs`.
 
 ## A. Évaluation par la simulation
 
@@ -113,10 +120,51 @@ et tests unitaires.
 
 ## Tests / lint / fmt / scripts / gen
 
-(à compléter après exécution : `make test_scenarios`, `make lint`, `make fmt`,
-`make scripts`, `make gen`, tests unitaires `cargo test -p content -p game balance`)
+Tout est exécuté sur l'arbre fusionné (base `b1c23ab` + correctif des vagues `56a9702`) ; le
+merge final de `origin/main` `5d49d9e` n'apporte que deux fiches `docs/taches/` (aucun code).
 
-- Tests unitaires (critère 2) : `content::expr` (désérialisation `NumOrExpr` littéral et
-  expression, `try_eval` et erreurs) et `game::balance`
-  (`expression_resolves_per_player_count`, `division_by_zero_is_a_load_failure`,
-  `unknown_identifier_is_a_load_failure`).
+- **Suite complète** (`make test_scenarios`) : 82 scénarios joués, **0 « trace différente »**
+  (dont `portal_next_floor` de m1-v1e). Seuls échecs : `equilibrage_joueurs_duo` et
+  `equilibrage_joueurs_quad`, sur « pas de trace de référence » (bless orchestrateur) —
+  toutes leurs attentes passent.
+- **Tests unitaires** (`cargo test -p content -p game --profile headless`) : tous verts
+  (75 + 44 + 38). Dont `content::expr` (désérialisation `NumOrExpr` littéral et expression,
+  `try_eval` et erreurs) et `game::balance` (`expression_resolves_per_player_count`,
+  `division_by_zero_is_a_load_failure`, `unknown_identifier_is_a_load_failure`).
+- **`make lint`** : `games/zombies` et `games/testbed` sans erreur.
+- **`make fmt`** : aucun écart (`cargo fmt --all --check`).
+- **`make check_rollback_registration`** : OK.
+- **`make check_forbidden`** : 4 occurrences, **identiques à main** (`HashSet` ×3, `rand::`
+  en commentaire), aucune introduite par F5.
+- **`make gen GAME=zombies`** (`alacod-gen --play`, sans bless) : 10/10 armes, attentes et
+  traces `ok`, aucun fichier régénéré modifié.
+
+### `make gen` — échec causé par F5, corrigé
+
+- **Observé** : `alacod-gen games/zombies --play` répondait « trace différente » pour les
+  **10** scénarios générés zombies (exit 1), et **25** scénarios de la suite complète
+  échouaient avec la même signature — tous des scénarios `game: "testbed"` (`powerup_*`,
+  `testbed_*`, `weapon_*`). Même signature que le gen : différence dès la **ligne 1** de
+  chaque trace (hash de la frame 0 ; ex. `weapon_pistol` : attendu `0 …a04ec1eb03d1f4c 32`,
+  obtenu `0 …4d384496a02cd3a3 32`) — l'état initial du monde diffère, pas la simulation
+  (même nombre d'entités rollback, mêmes frames jouées).
+- **Cause racine (bug F5)** : le testbed ne déclare pas de dossier `Wave`
+  (`games/testbed/assets/game.ron` — les copies vagues ont été retirées à T1.5), donc
+  `GlobalAsset.wave_config` y est `None`. Avant F5, la machine de vagues lisait la config
+  depuis l'asset et sortait immédiatement quand le handle était absent : les vagues ne
+  démarraient jamais (dump main : `WaveState { phase: NotStarted }` pendant les 519 frames).
+  Avec F5, `resolve_balance_system` résolvait `WaveConfig::default()`
+  (`unwrap_or_default`) pour un jeu sans contenu `Wave`, et la machine lisait
+  `ResolvedBalance` **sans plus vérifier l'asset** : la vague 1 démarrait à la frame 0
+  (dump branche : `GracePeriod`, `current_wave: 1`, 7 ennemis = 6 base + variance 1, graine
+  `waves` tirée, `FloorState` absent) — divergence de trace dès la frame 0. Les scénarios
+  générés utilisent `game: "testbed"` : même bug, d'où l'échec du gen. Les 31 scénarios
+  zombies passaient : leur jeu déclare `Wave`, la config résolue y vaut exactement celle
+  que la machine lisait avant F5.
+- **Correctif** : garde restaurée dans `crates/game/src/waves/systems.rs` —
+  `wave_state_machine_system` et `wave_spawning_system` sortent immédiatement quand
+  `global_assets.wave_config.is_none()`, comme l'early-return de main. La résolution reste
+  `unwrap_or_default` (la ressource `ResolvedBalance` existe pour tous les jeux ; la machine
+  reste inerte sans contenu `Wave`, un jeu n'ayant jamais de vagues dans ce cas).
+- **Après correctif** : les 25 scénarios testbed repassent, `alacod-gen games/zombies
+  --play` repasse, et aucune trace n'a été modifiée (aucun bless).
