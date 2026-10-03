@@ -174,7 +174,7 @@ pub enum Expectation {
     /// Un `GameEvent` de ce `kind` (et dont le label contient la sous-chaîne, si donnée) est survenu
     /// à une frame ≤ `by_frame`. Les `kind` possibles : "wave", "kill", "player", "hit", "reload",
     /// "weapon", "move", "melee", "death", "window", "door", "downed", "revived", "defeat",
-    /// "drop", "pickup" (T2.2, chantier B7).
+    /// "drop", "pickup" (T2.2, chantier B7), "portal", "floor" (T1.8, mode `Floors`).
     Event {
         kind: String,
         #[serde(default, skip_serializing_if = "Option::is_none")]
@@ -222,6 +222,16 @@ pub enum Expectation {
         wave_reached_min: Option<u32>,
         #[serde(default, skip_serializing_if = "Option::is_none")]
         kills_min: Option<u32>,
+        /// Niveau atteint minimal (mode `Floors`, T1.8 : `RunSummary::floor_reached`).
+        #[serde(default, skip_serializing_if = "Option::is_none")]
+        floor_reached_min: Option<u32>,
+        at_frame: u32,
+    },
+    /// Index du niveau courant (mode `Floors`, T1.8 : `run::FloorState::index`, `0` = premier
+    /// niveau) à la frame exacte `at_frame` — vérification ponctuelle, comme `PlayerAlive`.
+    /// Hors mode `Floors`, l'index vaut toujours `0`.
+    FloorIndex {
+        index: u32,
         at_frame: u32,
     },
     /// Solde de monnaie du joueur `handle` dans `[min, max]` (bornes inclusives, `None` =
@@ -272,6 +282,7 @@ impl Expectation {
             | Self::Stat { at_frame, .. }
             | Self::RunState { at_frame, .. }
             | Self::RunSummary { at_frame, .. }
+            | Self::FloorIndex { at_frame, .. }
             | Self::Event {
                 by_frame: at_frame, ..
             }

@@ -34,7 +34,7 @@ use crate::{
     jjrs::{
         GggrsSessionConfiguration, GggrsSessionConfigurationState, GgrsPlayer, GgrsSessionBuilding,
     },
-    run_state::resolve_run_mode,
+    run_state::resolve_run_mode_with_floors,
     weapons::WeaponsConfig,
 };
 
@@ -86,6 +86,7 @@ pub fn system_after_map_loaded_local(
     session_building: Res<GgrsSessionBuilding>,
     manifest: Option<Res<GameManifest>>,
     registry: Option<Res<Registry>>,
+    floors_override: Option<Res<crate::run_state::FloorsOverride>>,
 ) {
     if !matches!(online_state.as_ref(), OnlineState::Offline) {
         return;
@@ -153,7 +154,12 @@ pub fn system_after_map_loaded_local(
         .iter()
         .map(|player| player.handle)
         .collect();
-    let mode = resolve_run_mode(manifest.as_deref(), registry.as_deref());
+    // T1.8 : une séquence imposée (scénario, `alacod-sim --floors`) force le mode `Floors`.
+    let mode = resolve_run_mode_with_floors(
+        manifest.as_deref(),
+        registry.as_deref(),
+        floors_override.as_deref().map(|o| o.0.as_str()),
+    );
     let run = Run::new(run_seed.0, mode, players, 0);
 
     // Insert the GGRS session resource

@@ -35,6 +35,9 @@ pub enum EntryMode {
     Waves,
     /// Aucune condition de fin hors défaite.
     Sandbox,
+    /// Séquence de niveaux (T1.8) : la première séquence (ordre des ids) d'un dossier de
+    /// contenu `Floors` (validé par `lint::lint_entry_point`). Voir `docs/conventions.md` §17.
+    Floors,
 }
 
 /// Point d'entrée d'une partie : carte de départ, graine par défaut, mode de run.
