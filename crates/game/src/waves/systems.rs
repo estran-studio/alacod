@@ -515,11 +515,11 @@ mod tests {
         ] {
             let mut w = world(&positions);
             assert!(w
-                .run_system_once_with((vec![FixedVec2::ZERO], false), select)
+                .run_system_once_with(select, (vec![FixedVec2::ZERO], false))
                 .unwrap()
                 .is_empty());
             assert_eq!(
-                w.run_system_once_with((vec![FixedVec2::ZERO], true), select)
+                w.run_system_once_with(select, (vec![FixedVec2::ZERO], true))
                     .unwrap(),
                 vec![3]
             );
@@ -527,7 +527,7 @@ mod tests {
             reversed.reverse();
             assert_eq!(
                 world(&reversed)
-                    .run_system_once_with((vec![FixedVec2::ZERO], true), select)
+                    .run_system_once_with(select, (vec![FixedVec2::ZERO], true))
                     .unwrap(),
                 vec![3]
             );
@@ -539,17 +539,17 @@ mod tests {
         let mut w = world(&[(1, 20), (9, 300), (3, 400), (4, 1000)]);
         for fallback in [false, true] {
             assert_eq!(
-                w.run_system_once_with((vec![FixedVec2::ZERO], fallback), select)
+                w.run_system_once_with(select, (vec![FixedVec2::ZERO], fallback))
                     .unwrap(),
                 vec![3, 9]
             );
         }
         assert!(w
-            .run_system_once_with((vec![], true), select)
+            .run_system_once_with(select, (vec![], true))
             .unwrap()
             .is_empty());
         assert!(world(&[])
-            .run_system_once_with((vec![FixedVec2::ZERO], true), select)
+            .run_system_once_with(select, (vec![FixedVec2::ZERO], true))
             .unwrap()
             .is_empty());
     }
