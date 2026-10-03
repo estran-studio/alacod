@@ -52,9 +52,84 @@ fn budgets_dir() -> PathBuf {
     PathBuf::from(concat!(env!("CARGO_MANIFEST_DIR"), "/../../tests"))
 }
 
+/// D24 : `metrics/` du target **actif**, quel que soit `CARGO_TARGET_DIR`. Le binaire de test
+/// vit sous ce target, dont cargo marque la racine d'un `CACHEDIR.TAG`. Lire seulement la
+/// variable ne suffit pas : le Makefile exporte `CARGO_TARGET_DIR=./target`, chemin relatif,
+/// et `cargo test` lance ce binaire depuis `crates/scenario/` (les métriques finissaient dans
+/// `crates/scenario/target/metrics/`, où `scripts/scenario-metrics.py` ne les cherche pas).
 fn metrics_dir() -> PathBuf {
-    let target = std::env::var("CARGO_TARGET_DIR").unwrap_or_else(|_| "./target".into());
-    PathBuf::from(target).join("metrics")
+    active_target_dir(
+        std::env::current_exe().ok().as_deref(),
+        std::env::var_os("CARGO_TARGET_DIR").map(PathBuf::from),
+        &workspace_root(),
+    )
+    .join("metrics")
+}
+
+fn workspace_root() -> PathBuf {
+    PathBuf::from(concat!(env!("CARGO_MANIFEST_DIR"), "/../.."))
+}
+
+/// Racine du target : le premier ancêtre de l'exécutable qui porte `CACHEDIR.TAG` ; à défaut
+/// `CARGO_TARGET_DIR` (relatif : depuis la racine du workspace, d'où le Makefile lance
+/// cargo), sinon `<workspace>/target`, comme `scripts/scenario-metrics.py`.
+fn active_target_dir(
+    exe: Option<&std::path::Path>,
+    env_target: Option<PathBuf>,
+    workspace: &std::path::Path,
+) -> PathBuf {
+    if let Some(dir) = exe.and_then(|exe| {
+        exe.ancestors()
+            .skip(1)
+            .find(|dir| dir.join("CACHEDIR.TAG").is_file())
+    }) {
+        return dir.to_path_buf();
+    }
+    match env_target {
+        Some(dir) if dir.is_absolute() => dir,
+        Some(dir) => workspace.join(dir),
+        None => workspace.join("target"),
+    }
+}
+
+#[test]
+fn active_target_dir_suit_le_binaire_puis_la_variable() {
+    let tmp = std::env::temp_dir().join(format!("alacod-d24-{}", std::process::id()));
+    let target = tmp.join("cible");
+    let exe_dir = target.join("headless/build/scenario/abc");
+    std::fs::create_dir_all(&exe_dir).unwrap();
+    std::fs::write(target.join("CACHEDIR.TAG"), "").unwrap();
+    let workspace = tmp.join("ws");
+
+    // Le binaire est sous un target marqué : la variable est ignorée.
+    assert_eq!(
+        active_target_dir(
+            Some(&exe_dir.join("scenarios-0123")),
+            Some(PathBuf::from("./ailleurs")),
+            &workspace
+        ),
+        target
+    );
+    // Sans marqueur : variable relative lue depuis le workspace, absolue telle quelle, sinon
+    // `<workspace>/target`.
+    let sans_marqueur = tmp.join("nu/scenarios");
+    assert_eq!(
+        active_target_dir(
+            Some(&sans_marqueur),
+            Some(PathBuf::from("./target")),
+            &workspace
+        ),
+        workspace.join("./target")
+    );
+    assert_eq!(
+        active_target_dir(Some(&sans_marqueur), Some(target.clone()), &workspace),
+        target
+    );
+    assert_eq!(
+        active_target_dir(None, None, &workspace),
+        workspace.join("target")
+    );
+    std::fs::remove_dir_all(&tmp).ok();
 }
 
 #[derive(Debug, Default, Deserialize)]
