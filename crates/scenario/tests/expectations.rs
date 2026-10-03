@@ -853,3 +853,157 @@ fn entity_hits_hors_bornes_ou_sans_compteur_echoue() {
         );
     }
 }
+
+/// Balles vivantes à `frame` : (toutes, celles du projectile composable `id`).
+fn balles_vivantes(scenario: &Scenario, frame: u32, id: &str) -> (u32, u32) {
+    use bevy::prelude::*;
+    let mut app = scenario::runner::run_until(scenario, frame);
+    let mut query = app.world_mut().query_filtered::<(
+        &game::weapons::Bullet,
+        Option<&combat::projectile::Projectile>,
+    ), With<bevy_ggrs::Rollback>>();
+    let balles: Vec<_> = query
+        .iter(app.world())
+        .map(|(_, p)| p.map(|p| p.id.clone()))
+        .collect();
+    let composables = balles.iter().filter(|p| p.as_deref() == Some(id)).count();
+    (balles.len() as u32, composables as u32)
+}
+
+/// Scénario généré (gabarit WeaponOnTarget) de l'arme `grenade` du testbed, sans attente.
+fn scenario_grenade() -> Scenario {
+    scenario::generate::build_scenario("grenade", scenario::generate::WeaponKind::Ranged, None, 0)
+}
+
+/// T1.1 : `BulletCount` compte exactement les balles vivantes, filtrées par id de projectile
+/// composable et par équipe du tireur ; un compte faux échoue.
+#[test]
+fn bullet_count_compte_les_projectiles_vivants() {
+    if map_ldtk::RENDER_ENABLED {
+        return;
+    }
+    // Balles ordinaires : sans filtre, le compte exact ; aucun projectile composable.
+    let mut scenario = load_scenario("testbed_target_hits");
+    let (toutes, _) = balles_vivantes(&scenario, 40, "");
+    assert!(toutes > 0, "le joueur tire à la frame 40");
+    scenario.expect = vec![
+        Expectation::BulletCount {
+            count: toutes,
+            projectile: None,
+            team: None,
+            at_frame: 40,
+        },
+        Expectation::BulletCount {
+            count: toutes,
+            projectile: None,
+            team: Some(sim_core::team::Team::Players),
+            at_frame: 40,
+        },
+        Expectation::BulletCount {
+            count: 0,
+            projectile: None,
+            team: Some(sim_core::team::Team::Enemies),
+            at_frame: 40,
+        },
+        Expectation::BulletCount {
+            count: 0,
+            projectile: Some("eclat".into()),
+            team: None,
+            at_frame: 40,
+        },
+    ];
+    let outcome = run(&scenario);
+    assert!(outcome.failures.is_empty(), "{:?}", outcome.failures);
+
+    // Grenade : les éclats d'une explosion sont comptés par leur id ; un compte faux échoue.
+    // Le premier tir de grenade explose en f111 : ses huit éclats sont en vol en f113.
+    let mut scenario = scenario_grenade();
+    let frame = 113;
+    let (_, eclats) = balles_vivantes(&scenario, frame, "eclat");
+    assert_eq!(eclats, 8, "huit éclats de Ring(count: 8)");
+    scenario.expect = vec![
+        Expectation::BulletCount {
+            count: eclats,
+            projectile: Some("eclat".into()),
+            team: None,
+            at_frame: frame,
+        },
+        Expectation::BulletCount {
+            count: eclats + 1,
+            projectile: Some("eclat".into()),
+            team: None,
+            at_frame: frame,
+        },
+    ];
+    let outcome = run(&scenario);
+    assert_eq!(outcome.failures.len(), 1, "{:?}", outcome.failures);
+    assert!(outcome.failures[0].contains("projectiles vivants"));
+}
+
+/// T1.1 : `HitsAtLeast` lit `HitCount` de l'entité (par `GgrsNetId` ou `Target`) ; échoue
+/// sous le seuil et sur une entité sans compteur.
+#[test]
+fn hits_at_least_lit_le_compteur_de_la_cible() {
+    if map_ldtk::RENDER_ENABLED {
+        return;
+    }
+    use game::replay::EntityRef;
+    let mut scenario = load_scenario("testbed_target_hits");
+    let (net_id, coups) = coups_sur_target(&scenario, 200);
+    let joueur = net_id_du_joueur(&scenario, 0);
+    assert!(coups >= 5);
+
+    let reussies = [
+        Expectation::HitsAtLeast {
+            entity: EntityRef::Target,
+            hits: coups,
+            at_frame: 200,
+        },
+        Expectation::HitsAtLeast {
+            entity: EntityRef::NetId(net_id),
+            hits: 1,
+            at_frame: 200,
+        },
+    ];
+    let echouees = [
+        (
+            Expectation::HitsAtLeast {
+                entity: EntityRef::Target,
+                hits: coups + 1,
+                at_frame: 200,
+            },
+            "coups reçus <",
+        ),
+        (
+            Expectation::HitsAtLeast {
+                entity: EntityRef::NetId(joueur),
+                hits: 0,
+                at_frame: 200,
+            },
+            "HitCount",
+        ),
+    ];
+    scenario.expect = reussies
+        .iter()
+        .cloned()
+        .chain(echouees.iter().map(|(attente, _)| attente.clone()))
+        .collect();
+    let outcome = run(&scenario);
+    assert_eq!(
+        outcome.failures.len(),
+        echouees.len(),
+        "{:?}",
+        outcome.failures
+    );
+    for (attente, raison) in &echouees {
+        let attendu = format!("{attente:?}");
+        assert!(
+            outcome
+                .failures
+                .iter()
+                .any(|f| f.contains(&attendu) && f.contains(raison)),
+            "{attendu} devait échouer ({raison}) : {:?}",
+            outcome.failures
+        );
+    }
+}

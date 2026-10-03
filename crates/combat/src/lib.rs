@@ -8,11 +8,12 @@
 //!   chantier B6.
 //! - [`weapons`] : tir, munitions, inventaire et mêlée, déplacés de game en T1.0a.
 //! - [`actors`] / [`collider`] / [`collision_grid`] : données partagées requises par les armes.
-//! - [`projectile`] / [`status`] : squelettes M1, étendus dans ce crate par la vague 1.
+//! - [`projectile`] : projectiles composables (T1.1, B5 v1) — modificateurs, `on_hit`,
+//!   `on_expire` ; systèmes dans `RollbackSystemSet::Projectiles`, montés par
+//!   `weapons::BaseWeaponGamePlugin`.
+//! - [`status`] : squelette M1 (T1.3 l'exécutera dans `RollbackSystemSet::Status`).
 //!
 //! Kinds : catégories snake_case, noms de variantes Rust exacts (PascalCase).
-//! Les contrats M1 n'ajoutent aucun système ; leurs futurs sets sont Projectiles,
-//! Effects et Status, sans nouveau RollbackSystemSet.
 //!
 //! - [`inventory`] : réserves de munitions par type (`AmmoReserves`), T2.2, chantier B7.
 
@@ -27,13 +28,13 @@ pub mod collider;
 pub mod collision_grid;
 pub mod weapons;
 
-/// Contrats de M1 (B3/B5), sans systèmes d'exécution. Les futurs systèmes utilisent
-/// RollbackSystemSet::Projectiles / Effects / Status, sans nouveau set.
+/// Contrats de M1 (B3/B5). `projectile` est exécuté depuis T1.1 ; `status` attend T1.3.
 /// Kinds : catégories snake_case, noms de variantes Rust exacts (PascalCase).
-/// Le format des références de contenu sera validé par T1.12.
 pub mod projectile;
 pub mod status;
-pub use projectile::{Pattern, ProjectileModifier};
+pub use projectile::{
+    ExpireAction, Pattern, Projectile, ProjectileDef, ProjectileModifier, ProjectileSpec,
+};
 pub use status::{StatusDef, StatusEntry, Statuses};
 
 use bevy::prelude::{App, Plugin};

@@ -10,6 +10,7 @@
 use bevy_fixed::fixed_math::Fixed;
 use sim_core::ammo::AmmoType;
 use sim_core::modifier::ModifierOp;
+use std::collections::{BTreeMap, BTreeSet};
 
 use crate::manifest::GameManifest;
 use crate::registry::{self, Registry};
@@ -248,6 +249,7 @@ fn lint_weapons(registry: &Registry, errors: &mut Vec<LintError>) {
             }
         }
         lint_weapon_test(&weapon.id, &weapon.file, weapon.test.as_ref(), errors);
+        lint_weapon_projectiles(weapon, errors);
         // D3 : `sprite_config.name` désigne une entrée de la table `SpriteSheet`. Vérifié
         // seulement si le jeu en déclare une : sans table, aucun sprite n'est chargé (les
         // fixtures de lint n'en ont pas).
@@ -267,6 +269,205 @@ fn lint_weapons(registry: &Registry, errors: &mut Vec<LintError>) {
                 });
             }
         }
+    }
+}
+
+/// T1.1 (B5 v1) : projectiles composables d'une arme (`projectile:` de chaque mode, table
+/// `projectiles`). Règles : chaque modificateur au plus une fois, `Size > 0`,
+/// `0 < Homing <= 1` ; `on_hit` limité aux actions à modificateur (`TimedModifier`,
+/// `CurrencyMultiplier`) ; patterns de `on_expire` instantanés (`Telegraph`/`Wait`
+/// refusés), `count > 0`, `spread >= 0`, `speed >= 0`, projectile référencé présent dans la
+/// table ; définitions de la table : `damage >= 0`, `speed >= 0`, `range > 0`, aucun cycle
+/// de `on_expire`.
+fn lint_weapon_projectiles(weapon: &registry::WeaponEntry, errors: &mut Vec<LintError>) {
+    let mut push = |kind: LintErrorKind, message: String| {
+        errors.push(LintError {
+            kind,
+            file: weapon.file.display().to_string(),
+            message: format!("arme « {} » : {message}", weapon.id),
+        });
+    };
+    for (mode, spec) in &weapon.mode_projectiles {
+        lint_projectile_spec(
+            &format!("mode « {mode} » : projectile"),
+            spec,
+            &weapon.projectiles,
+            &mut push,
+        );
+    }
+    for (id, def) in &weapon.projectiles {
+        let at = format!("projectiles « {id} »");
+        for (field, value, strict) in [
+            ("damage", def.damage, false),
+            ("speed", def.speed, false),
+            ("range", def.range, true),
+        ] {
+            let value = value.get();
+            if value < Fixed::ZERO || (strict && value == Fixed::ZERO) {
+                let rule = if strict { "> 0" } else { ">= 0" };
+                push(
+                    LintErrorKind::OutOfRange,
+                    format!("{at} : champ {field} = {value} : doit être {rule}"),
+                );
+            }
+        }
+        lint_projectile_spec(&at, &def.spec(), &weapon.projectiles, &mut push);
+    }
+    // Cycles de `on_expire` dans la table (un projectile qui finit par se refaire naître).
+    for start in weapon.projectiles.keys() {
+        let mut seen = BTreeSet::new();
+        let mut stack = vec![start.as_str()];
+        while let Some(id) = stack.pop() {
+            let Some(def) = weapon.projectiles.get(id) else {
+                continue;
+            };
+            for next in expire_references(&def.on_expire) {
+                if next == start {
+                    push(
+                        LintErrorKind::OutOfRange,
+                        format!("projectiles « {start} » : on_expire se refait naître (cycle)"),
+                    );
+                    stack.clear();
+                    break;
+                }
+                if seen.insert(next) {
+                    stack.push(next);
+                }
+            }
+        }
+    }
+}
+
+/// Ids de projectiles nommés par les patterns d'une liste `on_expire`.
+fn expire_references(on_expire: &[registry::ExpireActionEntry]) -> Vec<&str> {
+    fn walk<'a>(pattern: &'a registry::PatternEntry, out: &mut Vec<&'a str>) {
+        match pattern {
+            registry::PatternEntry::Aimed { projectile, .. }
+            | registry::PatternEntry::Spread { projectile, .. }
+            | registry::PatternEntry::Ring { projectile, .. } => out.push(projectile),
+            registry::PatternEntry::Sequence(children) => {
+                children.iter().for_each(|child| walk(child, out))
+            }
+            registry::PatternEntry::Telegraph(_) | registry::PatternEntry::Wait(_) => {}
+        }
+    }
+    let mut out = Vec::new();
+    for registry::ExpireActionEntry::Spawn(pattern) in on_expire {
+        walk(pattern, &mut out);
+    }
+    out
+}
+
+fn lint_projectile_spec(
+    at: &str,
+    spec: &registry::ProjectileSpecEntry,
+    table: &BTreeMap<String, registry::ProjectileDefEntry>,
+    push: &mut impl FnMut(LintErrorKind, String),
+) {
+    let mut seen = BTreeSet::new();
+    for modifier in &spec.modifiers {
+        if !seen.insert(modifier.name()) {
+            push(
+                LintErrorKind::OutOfRange,
+                format!("{at} : modificateur {} répété", modifier.name()),
+            );
+        }
+        match modifier {
+            registry::ProjectileModifierEntry::Size(size) if size.get() <= Fixed::ZERO => push(
+                LintErrorKind::OutOfRange,
+                format!("{at} : Size({}) : doit être > 0", size.get()),
+            ),
+            registry::ProjectileModifierEntry::Homing(force)
+                if force.get() <= Fixed::ZERO
+                    || force.get() > bevy_fixed::fixed_math::FIXED_ONE =>
+            {
+                push(
+                    LintErrorKind::OutOfRange,
+                    format!("{at} : Homing({}) : doit être dans ]0, 1]", force.get()),
+                )
+            }
+            _ => {}
+        }
+    }
+    for action in &spec.on_hit {
+        if !matches!(
+            action,
+            effects::Action::TimedModifier { .. } | effects::Action::CurrencyMultiplier { .. }
+        ) {
+            push(
+                LintErrorKind::OutOfRange,
+                format!(
+                    "{at} : on_hit {action:?} : seules les actions à modificateur (TimedModifier, CurrencyMultiplier) s'appliquent à la cible"
+                ),
+            );
+        }
+    }
+    for registry::ExpireActionEntry::Spawn(pattern) in &spec.on_expire {
+        lint_expire_pattern(at, pattern, table, push);
+    }
+}
+
+fn lint_expire_pattern(
+    at: &str,
+    pattern: &registry::PatternEntry,
+    table: &BTreeMap<String, registry::ProjectileDefEntry>,
+    push: &mut impl FnMut(LintErrorKind, String),
+) {
+    use registry::PatternEntry;
+    let (count, spread, speed, projectile) = match pattern {
+        PatternEntry::Aimed {
+            count,
+            spread,
+            projectile,
+        }
+        | PatternEntry::Spread {
+            count,
+            spread,
+            projectile,
+        } => (*count, Some(spread.get()), None, projectile),
+        PatternEntry::Ring {
+            count,
+            speed,
+            projectile,
+            ..
+        } => (*count, None, Some(speed.get()), projectile),
+        PatternEntry::Sequence(children) => {
+            for child in children {
+                lint_expire_pattern(at, child, table, push);
+            }
+            return;
+        }
+        PatternEntry::Telegraph(_) | PatternEntry::Wait(_) => {
+            push(
+                LintErrorKind::OutOfRange,
+                format!("{at} : on_expire : pattern temporel {pattern:?} : seuls Aimed, Spread, Ring et Sequence sont joués à la fin d'un projectile"),
+            );
+            return;
+        }
+    };
+    if count == 0 {
+        push(
+            LintErrorKind::OutOfRange,
+            format!("{at} : on_expire : count = 0 : doit être > 0"),
+        );
+    }
+    if spread.is_some_and(|spread| spread < Fixed::ZERO) {
+        push(
+            LintErrorKind::OutOfRange,
+            format!("{at} : on_expire : spread < 0"),
+        );
+    }
+    if speed.is_some_and(|speed| speed < Fixed::ZERO) {
+        push(
+            LintErrorKind::OutOfRange,
+            format!("{at} : on_expire : speed < 0"),
+        );
+    }
+    if !table.contains_key(projectile) {
+        push(
+            LintErrorKind::BrokenReference,
+            format!("{at} : on_expire : projectile « {projectile} » absent de la table projectiles de l'arme"),
+        );
     }
 }
 

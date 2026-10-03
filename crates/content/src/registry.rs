@@ -176,6 +176,100 @@ pub struct WeaponEntry {
     pub sounds: Vec<SoundRef>,
     /// D3 : `sprite_config.name`, id de la table `SpriteSheet` (`None` si absent ou vide).
     pub sprite: Option<String>,
+    /// T1.1 (B5 v1) : `projectile:` de chaque mode de tir (vide = balle ordinaire).
+    pub mode_projectiles: BTreeMap<String, ProjectileSpecEntry>,
+    /// T1.1 (B5 v1) : table `projectiles` de l'arme, cible des patterns de `on_expire`.
+    pub projectiles: BTreeMap<String, ProjectileDefEntry>,
+}
+
+/// T1.1 (B5 v1) : mirroirs de `combat::projectile` pour le lint (`content` ne dépend pas de
+/// `combat`). Les champs `Fixed` passent par [`FixedField`] (littéral nu refusé).
+#[derive(Debug, Clone, Deserialize)]
+pub enum ProjectileModifierEntry {
+    Bounce(u32),
+    Pierce(u32),
+    Size(FixedField),
+    Lifetime(u32),
+    Homing(FixedField),
+    Gravity(FixedField),
+}
+
+impl ProjectileModifierEntry {
+    pub fn name(&self) -> &'static str {
+        match self {
+            Self::Bounce(_) => "Bounce",
+            Self::Pierce(_) => "Pierce",
+            Self::Size(_) => "Size",
+            Self::Lifetime(_) => "Lifetime",
+            Self::Homing(_) => "Homing",
+            Self::Gravity(_) => "Gravity",
+        }
+    }
+}
+
+/// Mirroir de `combat::projectile::Pattern`.
+#[derive(Debug, Clone, Deserialize)]
+pub enum PatternEntry {
+    Aimed {
+        count: u32,
+        spread: FixedField,
+        projectile: String,
+    },
+    Spread {
+        count: u32,
+        spread: FixedField,
+        projectile: String,
+    },
+    Ring {
+        count: u32,
+        speed: FixedField,
+        projectile: String,
+        every: u32,
+    },
+    Sequence(Vec<PatternEntry>),
+    Telegraph(u32),
+    Wait(u32),
+}
+
+/// Mirroir de `combat::projectile::ExpireAction`.
+#[derive(Debug, Clone, Deserialize)]
+pub enum ExpireActionEntry {
+    Spawn(PatternEntry),
+}
+
+/// Mirroir de `combat::projectile::ProjectileSpec`.
+#[derive(Debug, Clone, Default, Deserialize)]
+pub struct ProjectileSpecEntry {
+    #[serde(default)]
+    pub modifiers: Vec<ProjectileModifierEntry>,
+    #[serde(default)]
+    pub on_hit: Vec<effects::Action>,
+    #[serde(default)]
+    pub on_expire: Vec<ExpireActionEntry>,
+}
+
+/// Mirroir de `combat::projectile::ProjectileDef`.
+#[derive(Debug, Clone, Deserialize)]
+pub struct ProjectileDefEntry {
+    pub damage: FixedField,
+    pub speed: FixedField,
+    pub range: FixedField,
+    #[serde(default)]
+    pub modifiers: Vec<ProjectileModifierEntry>,
+    #[serde(default)]
+    pub on_hit: Vec<effects::Action>,
+    #[serde(default)]
+    pub on_expire: Vec<ExpireActionEntry>,
+}
+
+impl ProjectileDefEntry {
+    pub fn spec(&self) -> ProjectileSpecEntry {
+        ProjectileSpecEntry {
+            modifiers: self.modifiers.clone(),
+            on_hit: self.on_hit.clone(),
+            on_expire: self.on_expire.clone(),
+        }
+    }
 }
 
 /// D3 : une entrée de la table des feuilles de sprites (kind `SpriteSheet`). Les chemins
@@ -618,11 +712,17 @@ struct WeaponConfigSchema {
     #[serde(default, deserialize_with = "de_friendly_fire")]
     #[allow(dead_code)]
     friendly_fire: FriendlyFire,
+    /// T1.1 : table `projectiles` (voir `WeaponEntry::projectiles`).
+    #[serde(default)]
+    projectiles: BTreeMap<String, ProjectileDefEntry>,
 }
 
 #[derive(Deserialize)]
 struct FiringModeSchema {
     firing_rate: FixedField,
+    /// T1.1 : voir `WeaponEntry::mode_projectiles`.
+    #[serde(default)]
+    projectile: ProjectileSpecEntry,
 }
 
 /// Mirroir RON de `game::weapons::WeaponTest` (voir `WeaponTestRange`) : ignore `expect`,
@@ -969,12 +1069,12 @@ fn load_weapons(
                 continue;
             }
             let test = entry.config.test.as_ref().map(WeaponTestRange::from);
-            let firing_rates = entry
-                .config
-                .firing_modes
-                .into_iter()
-                .map(|(mode, cfg)| (mode, cfg.firing_rate))
-                .collect();
+            let mut firing_rates = BTreeMap::new();
+            let mut mode_projectiles = BTreeMap::new();
+            for (mode, cfg) in entry.config.firing_modes {
+                firing_rates.insert(mode.clone(), cfg.firing_rate);
+                mode_projectiles.insert(mode, cfg.projectile);
+            }
             let mut sounds = Vec::new();
             for (mode, audio) in entry.audio_config.modes {
                 for (name, path) in [("reloading", audio.reloading), ("firing", audio.firing)] {
@@ -996,6 +1096,8 @@ fn load_weapons(
                     ammo_type: entry.config.ammo_type,
                     sounds,
                     sprite: Some(entry.sprite_config.name).filter(|name| !name.is_empty()),
+                    mode_projectiles,
+                    projectiles: entry.config.projectiles,
                 },
             );
         }
