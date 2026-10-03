@@ -68,7 +68,7 @@ pub fn get_args() -> GameArgs {
         // For local players (localhost), use the --name argument
         // For remote players, use a default name with index
         let mut remote_index = 0;
-        let players: Vec<PlayerConfig> = args
+        let mut players: Vec<PlayerConfig> = args
             .players
             .unwrap_or(vec![])
             .into_iter()
@@ -90,6 +90,18 @@ pub fn get_args() -> GameArgs {
                 }
             })
             .collect();
+
+        // Sans `--players` ni mode en ligne (ex. `cargo run -p zombies` seul) : un seul joueur
+        // local, comme le repli du canvas web. Sinon `max_player` vaut 0 et GGRS refuse la session.
+        let offline = args.matchbox.as_deref().is_none_or(str::is_empty)
+            && args.allumette.as_deref().is_none_or(str::is_empty);
+        if players.is_empty() && args.number_player.unwrap_or(0) == 0 && offline {
+            players.push(PlayerConfig {
+                name: local_player_name,
+                pubkey: "local".to_string(),
+                is_local: true,
+            });
+        }
 
         GameArgs {
             local_port: args.local_port.unwrap_or(0),
