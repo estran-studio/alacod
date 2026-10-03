@@ -48,6 +48,7 @@ fn victoire_par_override_de_vagues_et_rejeu() {
         game::replay::Expectation::RunSummary {
             wave_reached_min: Some(1),
             kills_min: Some(0),
+            floor_reached_min: None,
             at_frame: 50,
         },
     ];

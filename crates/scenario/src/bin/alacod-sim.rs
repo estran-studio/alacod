@@ -4,8 +4,11 @@
 //! ```text
 //! alacod-sim --game zombies --bots 4 --profiles fonceur,fonceur,prudent,immobile \
 //!     --seeds 1..50 --until-wave 10 --max-frames 20000 \
-//!     [--save-scenario <dossier>] [--json <fichier>]
+//!     [--floors <séquence>] [--save-scenario <dossier>] [--json <fichier>]
 //! ```
+//!
+//! - `--floors <id>` (T1.8) : mode `Floors` avec la séquence `id` du dossier `Floors` du jeu ;
+//!   le JSON rapporte `floor`, le niveau atteint (pas d'arrêt anticipé par niveau : T1.14).
 //!
 //! - `--seeds A..B` : graines `A` à `B` **inclusivement** (`1..50` = 50 graines, la carte est
 //!   générée avec `map_seed = graine`).
@@ -36,6 +39,8 @@ use serde::Serialize;
 struct SimResult {
     seed: i32,
     wave: u32,
+    /// Niveau atteint (mode `Floors`, T1.8 : `FloorState::index`, `0` = premier niveau).
+    floor: u32,
     frames: u32,
     deaths: u32,
     kills: u32,
@@ -63,7 +68,7 @@ fn main() {
             panic!(
                 "usage : alacod-sim --game <jeu> --bots <n> --profiles <a,b,...> \
                  --seeds <de>..<à> --until-wave <n> --max-frames <n> \
-                 [--map <fichier.ldtk>] [--save-scenario <dossier>] [--json <fichier>] ({name} manquant)"
+                 [--map <fichier.ldtk>] [--floors <séquence>] [--save-scenario <dossier>] [--json <fichier>] ({name} manquant)"
             )
         })
     };
@@ -115,6 +120,11 @@ fn main() {
         "alacod-sim : « {game} » : contenu invalide :\n{content_errors:#?}"
     );
     let map = opt("--map").unwrap_or_else(|| manifest.entry.start_map.clone());
+    // T1.8 : `--floors <id>` impose le mode `Floors` avec cette séquence du dossier `Floors`
+    // du jeu (`Scenario::floors`) ; `--map` est alors ignorée. Pas d'arrêt au N-ième niveau
+    // (`--until-floor`, T1.14) : la partie va jusqu'à `--max-frames` ou la mort des bots, et
+    // le JSON rapporte le niveau atteint (`floor`).
+    let floors = opt("--floors");
 
     eprintln!(
         "alacod-sim : {game}, {bots} bots ({}), graines {seed_from}..={seed_to}, jusqu'à la vague {until_wave} ou {max_frames} frames, carte {map}",
@@ -146,6 +156,7 @@ fn main() {
             invariants: Default::default(),
             powerups: vec![],
             powerup_drop_chance_override: None,
+            floors: floors.clone(),
         };
 
         let stop_early = StopEarly {
@@ -184,13 +195,15 @@ fn main() {
         let kills = outcome.metrics.kills;
         let sim_fps = outcome.metrics.sim_fps;
         let desync_flag = if desync { "  DESYNC" } else { "" };
+        let floor = outcome.metrics.final_floor;
         eprintln!(
-            "seed {seed:>6} : vague {wave:>2}  frames {frames_reached:>6}  morts {deaths}/{bots}  kills {kills:>3}  {sim_fps:>6.1} fps  {wall_seconds:>5.2}s{desync_flag}"
+            "seed {seed:>6} : vague {wave:>2}  niveau {floor:>2}  frames {frames_reached:>6}  morts {deaths}/{bots}  kills {kills:>3}  {sim_fps:>6.1} fps  {wall_seconds:>5.2}s{desync_flag}"
         );
 
         results.push(SimResult {
             seed,
             wave: outcome.metrics.final_wave,
+            floor: outcome.metrics.final_floor,
             frames: outcome.metrics.frames,
             deaths,
             kills: outcome.metrics.kills,
