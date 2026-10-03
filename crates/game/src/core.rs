@@ -207,7 +207,11 @@ impl Plugin for CoreSetupPlugin {
             Update,
             (
                 wait_for_players.run_if(in_state(AppState::LobbyOnline)),
-                setup_ggrs_local.run_if(in_state(AppState::LobbyLocal)),
+                // D13 : après un retour au lobby local, attend que le joueur relance
+                // (`ui::lobby` retire `LocalLobbyHold`) au lieu de relancer aussitôt.
+                setup_ggrs_local
+                    .run_if(in_state(AppState::LobbyLocal))
+                    .run_if(not(resource_exists::<crate::run_state::LocalLobbyHold>)),
             ),
         );
         // System for ggrs that register the session when the map is correctly loaded
