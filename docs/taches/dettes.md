@@ -10,7 +10,7 @@ Aucune ne doit changer une trace sauf mention.
 | D2 | Sons référencés absents : `weapons.ron` (deux jeux) cite `sounds/machine-gun-reloading.ogg`, le fichier est `machine-gun-reload.ogg` ; aucun lint des chemins audio | T2.8 (`audio_missing_file`) | fait dans T2.8 |
 | D3 | Sprites nommés en code (`crates/game/src/global_asset.rs`) et feuilles mélangées aux configs sous `ZombieShooter/Sprites/**` (plan §5 A5) ; le `rifle` réutilise le sprite du fusil à pompe | `global_asset.rs`, `games/*/assets` | fait dans m0-dettes-overnight |
 | D4 | Prix des armes murales et des perks non affichés à l'écran | T2.12 (`prompt`) | fait dans T2.12 |
-| D5 | `HitCount` et `ai.stationary` (testbed) hors checksum | `crates/game/src/character/health` (`HitCount`), config IA | décider : soit enregistrer en `rollback_and_trace_component` (bless justifié avec preuve `--ignore HitCount`), soit documenter pourquoi hors checksum (compteur de test seulement) dans `docs/conventions.md` |
+| D5 | `HitCount` et `ai.stationary` (testbed) hors checksum | `crates/game/src/character/health` (`HitCount`), config IA | fait dans `m0-v10-dettes-legeres` : documenté dans `docs/conventions.md` §10 « Exclusions assumées du checksum » |
 | D6 | `EntityHits` : pas de test unitaire de l'attente | `crates/scenario/tests/expectations.rs` | fait dans m0-v6 |
 | D7 | Testbed : `weapon_slots: 2` mais trois armes de départ dans certains personnages | `games/testbed/assets/characters/*.ron` | fait dans T3.4 |
 | D8 | Bruit de sortie : `println!` de debug dans `crates/map_ldtk/src/game/entity/player_spawn.rs` (« player spawn … ») et dans la génération (`to.rs` : « Adding N doors… », « adding room … ») | `crates/map_ldtk`, `crates/map` | fait dans T3.4 |

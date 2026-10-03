@@ -8,8 +8,10 @@
 #   NIGHTLY_BOTS=4
 #   NIGHTLY_WAVE=10
 #   NIGHTLY_P2P=2,4 (comma-separated list of player counts)
-#   Le signaling p2p est le service `signaling` (matchbox_server nu, docker-compose.ci.yaml) ;
-#   allumette (jeton JWT requis, API HTTP) est un profil optionnel non utilisé ici.
+#   STEP C (p2p headless) passe par le profil `allumette` du docker-compose.ci.yaml
+#   (matchmaking HTTP + WebSocket avec JWT, port hôte 3537) : ALLUMETTE_DIR explicite ou
+#   ../allumette (layout meta-repo), SKIPPED propre s'il est introuvable. Le service
+#   `signaling` (matchbox_server nu) reste la recette p2p du README §4.
 #   NIGHTLY_VIDEOS=all (or list of scenario names)
 #   --quick : fast local test (2 seeds, wave 2, p2p 2 only, idle+shoot_around videos)
 
@@ -145,7 +147,7 @@ append_summary "### B. Sim: ✅ PASSED (${DURATION}s)"
 log_step "Sim passed (${DURATION}s)"
 
 # ============================================================================
-# STEP C: P2P HEADLESS (via le service signaling = matchbox_server)
+# STEP C: P2P HEADLESS (via le profil allumette : matchmaking HTTP + WS avec JWT)
 # ============================================================================
 
 log_step "Starting p2p headless tests (players: ${NIGHTLY_P2P})..."
@@ -167,25 +169,50 @@ else
         DOCKER_COMPOSE=""
     fi
 
-    if [ -n "${DOCKER_COMPOSE}" ]; then
-        # Build and start the signaling server
-        log_step "Starting signaling (matchbox_server) via docker compose..."
-        if ${DOCKER_COMPOSE} -f docker-compose.ci.yaml up -d signaling > "${NIGHTLY_DIR}/signaling.log" 2>&1; then
-            # Wait for the signaling server to be ready
+    # Dépôt allumette : ALLUMETTE_DIR explicite (worktree/runner) ou layout meta-repo.
+    # Le compose résout son contexte de build par ${ALLUMETTE_DIR:-../allumette}.
+    if [ -z "${ALLUMETTE_DIR:-}" ]; then
+        ALLUMETTE_DIR="../allumette"
+    fi
+
+    if [ ! -f "${ALLUMETTE_DIR}/Dockerfile" ]; then
+        log_warn "ALLUMETTE_DIR introuvable ou invalide (${ALLUMETTE_DIR}) : STEP C SKIPPED."
+        append_summary "### C. P2P Headless: ⚠ SKIPPED (allumette repo not found: ${ALLUMETTE_DIR})"
+    elif [ -z "${DOCKER_COMPOSE}" ]; then
+        : # déjà SKIPPED ci-dessus (docker compose not found)
+    else
+        export ALLUMETTE_DIR
+        # Build and start the allumette matchmaking server (profil optionnel du compose)
+        log_step "Starting allumette (matchmaking) via docker compose --profile allumette..."
+        if ${DOCKER_COMPOSE} -f docker-compose.ci.yaml --profile allumette up -d allumette > "${NIGHTLY_DIR}/allumette.log" 2>&1; then
+            # Wait for the server to be ready
             sleep 3
 
             # Convert comma-separated list to array
             IFS=',' read -ra PLAYER_COUNTS <<< "${NIGHTLY_P2P}"
 
+            FIRST_RUN=true
             for NUM_PLAYERS in "${PLAYER_COUNTS[@]}"; do
                 NUM_PLAYERS=$(echo "$NUM_PLAYERS" | xargs)  # trim
+                # Serveur à état en mémoire : un restart entre deux comptes de joueurs
+                # repart de lobbies vierges (sans lui, le lobby du run précédent repasserait
+                # Waiting à la déconnexion et la découverte rejoindrait un lobby éventé).
+                if [ "${FIRST_RUN}" != true ]; then
+                    log_step "Restarting allumette (fresh lobbies)..."
+                    ${DOCKER_COMPOSE} -f docker-compose.ci.yaml restart allumette > "${NIGHTLY_DIR}/allumette.log" 2>&1
+                    sleep 3
+                fi
+                FIRST_RUN=false
+
                 log_step "Testing p2p with ${NUM_PLAYERS} players..."
 
-                LOBBY="nightly-${NUM_PLAYERS}"
                 PIDS=""
                 SUCCESS=true
 
-                # Start N clients
+                # Start N clients : le créateur (client 0) d'abord — il crée le lobby
+                # "zombies" et attend le complet — puis les rejoigneurs en décalé (~6 s) :
+                # la découverte/création est une course connue en v1 (deux créateurs
+                # simultanés créeraient deux lobbies), recette m0-v9.
                 for ((i = 0; i < NUM_PLAYERS; i++)); do
                     CID="client_${i}"
                     TRACE_FILE="${NIGHTLY_DIR}/p2p-${NUM_PLAYERS}-${CID}.trace"
@@ -196,14 +223,13 @@ else
                         PLAYERS_LIST="$PLAYERS_LIST remote"
                     done
 
-                    log_step "  Starting ${CID} in lobby ${LOBBY}..."
+                    log_step "  Starting ${CID}..."
 
                     ALACOD_HEADLESS=1 \
                     ALACOD_STATE_TRACE="${TRACE_FILE}" \
                     ALACOD_EXIT_AT_FRAME=600 \
                     cargo run -q -p zombies --profile headless --no-default-features \
-                        -- --matchbox ws://127.0.0.1:3536 \
-                           --lobby "${LOBBY}" \
+                        -- --allumette http://127.0.0.1:3537 \
                            --number-player "${NUM_PLAYERS}" \
                            --players ${PLAYERS_LIST} \
                            --cid "${CID}" \
@@ -212,6 +238,12 @@ else
 
                     PID=$!
                     PIDS="${PIDS} ${PID}"
+
+                    # Décalage après le créateur : les rejoigneurs découvrent le lobby
+                    # Waiting déjà créé au lieu de créer le leur.
+                    if [ "$i" -eq 0 ]; then
+                        sleep 6
+                    fi
                 done
 
                 # Wait for all clients to finish
@@ -258,7 +290,7 @@ else
             done
 
             # Cleanup
-            log_step "Stopping signaling..."
+            log_step "Stopping allumette..."
             ${DOCKER_COMPOSE} -f docker-compose.ci.yaml down 2>/dev/null || true
 
             END_TIME=$(date +%s)
@@ -266,8 +298,8 @@ else
             append_summary "### C. P2P Headless: ✅ PASSED (${DURATION}s)"
             log_step "P2P headless passed (${DURATION}s)"
         else
-            log_warn "Failed to start signaling (see signaling.log). Skipping p2p tests."
-            append_summary "### C. P2P Headless: ⚠ SKIPPED (signaling startup failed)"
+            log_warn "Failed to start allumette (see allumette.log). Skipping p2p tests."
+            append_summary "### C. P2P Headless: ⚠ SKIPPED (allumette startup failed)"
         fi
     fi
 fi
