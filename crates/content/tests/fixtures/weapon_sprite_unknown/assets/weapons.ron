@@ -1,0 +1,16 @@
+// Fixture D3 : `sprite_config.name` cite une feuille absente de la table `SpriteSheet`
+// (`rifle`, seule `pistol` est déclarée) : LintErrorKind::BrokenReference
+// (`lint::lint_weapons`).
+({
+    "rifle": (
+        config: (
+            name: "rifle",
+            default_firing_mode: "default",
+            ammo_type: Balle,
+            firing_modes: {
+                "default": (firing_rate: "5.0"),
+            },
+        ),
+        sprite_config: (name: "rifle"),
+    ),
+})

@@ -1,0 +1,7 @@
+// Seule feuille déclarée : `pistol` (fichiers présents).
+({
+    "pistol": (
+        animation: "sprites/pistol_animation.ron",
+        layers: { "body": "sprites/pistol_sheet.ron" },
+    ),
+})

@@ -1,0 +1,8 @@
+// Fixture D3 : la feuille du calque `body` existe mais son image (`path`) est absente :
+// LintErrorKind::BrokenReference (`lint::lint_sprite_sheets`).
+({
+    "hero": (
+        animation: "sprites/hero_animation.ron",
+        layers: { "body": "sprites/hero_sheet.ron" },
+    ),
+})

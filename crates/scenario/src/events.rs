@@ -1,6 +1,6 @@
-//! Moments clés d'une partie (vague, kills, morts, fenêtres, portes, armes), détectés en
-//! comparant l'état du jeu d'une frame à l'autre. Affichés sous les vidéos de la page de
-//! revue pour aller directement aux instants importants.
+//! Moments clés d'une partie (vague, kills, morts, fenêtres, portes, armes, power-ups, fin
+//! de partie), détectés en comparant l'état du jeu d'une frame à l'autre. Affichés sous les
+//! vidéos de la page de revue pour aller directement aux instants importants.
 //!
 //! Hors simulation : lit l'état après chaque update, ne modifie rien.
 
@@ -12,12 +12,13 @@ use combat::inventory::AmmoReserves;
 use game::{
     character::{health::Health, player::Player},
     collider::Collider,
+    powerups::{PowerUpPickedUp, PowerUpPickup},
     waves::{WavePhase, WaveState},
     weapons::{WeaponInventory, WeaponModesState, WeaponPickup, WeaponState},
 };
 use map::game::entity::map::{door::DoorComponent, window::WindowHealth};
 use run::currency::CurrencyEvent;
-use run::{Run, RunStep, RunSummary};
+use run::{Run, RunEnd, RunStep, RunSummary};
 use serde::Serialize;
 use sim_core::frame_events::FrameEvents;
 use utils::{frame::FrameCount, net_id::GgrsNetId};
@@ -74,12 +75,62 @@ struct Snapshot {
     open_doors: BTreeSet<usize>,
     /// Armes au sol (T2.2, chantier B7) : `GgrsNetId` -> id de l'arme
     /// (`WeaponPickup::weapon_id`). Un id qui apparaît = lâcher (`drop`) ; un id qui
-    /// disparaît = ramassage (`pickup`).
+    /// disparaît = ramassage (`pickup`). D21 : sans les armes murales (`price: Some`,
+    /// jamais consommées) : elles apparaissent avec la carte et n'ont jamais été lâchées
+    /// (leur achat est déjà le moment clé `purchase`).
     weapon_pickups: BTreeMap<usize, String>,
-    /// À terre (T1.3, chantier B6) : `run::run::Run::step` est `RunStep::Ended { outcome:
-    /// RunEnd::Defeat, .. }` (T2.4, chantier F1 : ne lit plus `combat::downed::RunOutcome`,
-    /// disparue).
-    defeat: bool,
+    /// D21 : power-ups au sol (`game::powerups::PowerUpPickup`), `GgrsNetId` -> id.
+    powerup_pickups: BTreeMap<usize, String>,
+    /// Issue de la partie (`run::run::Run::step` : `RunStep::Ended { outcome, .. }`), `None`
+    /// tant qu'elle n'est pas finie (T2.4, chantier F1 ; D21 : victoire et abandon en plus
+    /// de la défaite).
+    outcome: Option<RunEnd>,
+}
+
+/// D21 : moment clé de fin de partie, à la frame où `Run.step` devient `Ended`. La défaite
+/// garde sa catégorie et son libellé d'avant D21 : l'attente `Defeat` (`runner.rs`) les lit.
+fn outcome_event(before: Option<RunEnd>, now: Option<RunEnd>) -> Option<(&'static str, String)> {
+    if before.is_some() {
+        return None;
+    }
+    match now? {
+        RunEnd::Defeat => Some((
+            "defeat",
+            "défaite : tous les joueurs sont à terre ou morts".to_string(),
+        )),
+        RunEnd::Victory => Some((
+            "victory",
+            "victoire : condition du mode atteinte".to_string(),
+        )),
+        RunEnd::Abandon => Some(("abandon", "partie abandonnée (retour au lobby)".to_string())),
+    }
+}
+
+/// D21 : power-ups au sol entre deux frames. `picked` : les ramassages de la frame
+/// (`FrameEvents<PowerUpPickedUp>`), `(id du power-up, handle du joueur s'il est connu)`.
+/// Un power-up qui apparaît = `powerup` ; un ramassage = `powerup_pickup` ; un power-up
+/// disparu sans ramassage du même id cette frame = expiré (`powerup`).
+fn powerup_events(
+    before: &BTreeMap<usize, String>,
+    now: &BTreeMap<usize, String>,
+    picked: &[(String, Option<usize>)],
+) -> Vec<(&'static str, String)> {
+    let mut out = Vec::new();
+    for (net_id, id) in now {
+        if !before.contains_key(net_id) {
+            out.push(("powerup", format!("power-up {id} au sol ({net_id})")));
+        }
+    }
+    for (id, handle) in picked {
+        let by = handle.map_or_else(|| "un joueur".to_string(), |h| format!("joueur {h}"));
+        out.push(("powerup_pickup", format!("power-up {id} ramassé par {by}")));
+    }
+    for (net_id, id) in before {
+        if !now.contains_key(net_id) && !picked.iter().any(|(picked_id, _)| picked_id == id) {
+            out.push(("powerup", format!("power-up {id} expiré ({net_id})")));
+        }
+    }
+    out
 }
 
 pub struct GameEventsPlugin;
@@ -124,6 +175,10 @@ fn detect_events(
     doors: Query<(&GgrsNetId, Has<Collider>), With<DoorComponent>>,
     // T2.2, chantier B7 : armes tombées au sol.
     weapon_pickups: Query<(&GgrsNetId, &WeaponPickup)>,
+    // D21 : power-ups au sol et leurs ramassages (même lecture que `currency_events`).
+    powerup_pickups: Query<(&GgrsNetId, &PowerUpPickup)>,
+    powerup_picked: Option<Res<FrameEvents<PowerUpPickedUp>>>,
+    player_ids: Query<(&GgrsNetId, &Player)>,
     // T2.3, chantier C5 v1 : monnaie (points, achats, refus). Lu directement (pas de
     // diffing par snapshot comme le reste de cette fonction) : `CurrencyEvent` est déjà un
     // événement borné à sa frame d'émission (`FrameEvents`, vidé au `FrameStart` suivant),
@@ -136,14 +191,9 @@ fn detect_events(
         now.phase = Some(wave.phase);
         now.kills = wave.total_enemies_killed;
     }
-    now.defeat = run.as_deref().is_some_and(|run| {
-        matches!(
-            run.step,
-            RunStep::Ended {
-                outcome: run::RunEnd::Defeat,
-                ..
-            }
-        )
+    now.outcome = run.as_deref().and_then(|run| match run.step {
+        RunStep::Ended { outcome, .. } => Some(outcome),
+        _ => None,
     });
     // T2.4, chantier F1 : copie le résumé dans `GameEvents` dès qu'il apparaît (voir la
     // doc du champ) ; ne l'efface jamais (un rollback qui défait `Run.step` avant la
@@ -192,8 +242,30 @@ fn detect_events(
         }
     }
     for (id, pickup) in &weapon_pickups {
-        now.weapon_pickups.insert(id.0, pickup.weapon_id.clone());
+        if pickup.price.is_none() {
+            now.weapon_pickups.insert(id.0, pickup.weapon_id.clone());
+        }
     }
+    for (id, pickup) in &powerup_pickups {
+        now.powerup_pickups.insert(id.0, pickup.id.clone());
+    }
+    // Ramassages de cette frame, avec le handle du ramasseur (`picked_up_by` est son
+    // `GgrsNetId`) : lu avant `events.previous.replace`, comme `currency_events` plus bas.
+    let picked: Vec<(String, Option<usize>)> = powerup_picked
+        .as_deref()
+        .map(|picked| {
+            picked
+                .iter()
+                .map(|event| {
+                    let handle = player_ids
+                        .iter()
+                        .find(|(net_id, _)| **net_id == event.picked_up_by)
+                        .map(|(_, player)| player.handle);
+                    (event.id.clone(), handle)
+                })
+                .collect()
+        })
+        .unwrap_or_default();
 
     // Première frame vue : référence, rien à signaler (sauf joueurs présents)
     let Some(before) = events.previous.replace(now.clone()) else {
@@ -335,11 +407,11 @@ fn detect_events(
             push("pickup", format!("arme {weapon_id} ramassée ({id})"));
         }
     }
-    if now.defeat && !before.defeat {
-        push(
-            "defeat",
-            "défaite : tous les joueurs sont à terre ou morts".to_string(),
-        );
+    for (kind, label) in powerup_events(&before.powerup_pickups, &now.powerup_pickups, &picked) {
+        push(kind, label);
+    }
+    if let Some((kind, label)) = outcome_event(before.outcome, now.outcome) {
+        push(kind, label);
     }
     // T2.3, chantier C5 v1 : monnaie. `delta > 0` = points gagnés, `< 0` = achat réussi,
     // `== 0` = achat refusé (solde insuffisant, voir `run::currency::CurrencyEvent`).
@@ -364,5 +436,53 @@ fn detect_events(
                 format!("joueur {} : achat refusé ({})", event.handle, event.reason),
             ),
         }
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn fin_de_partie_une_seule_fois_par_issue() {
+        assert_eq!(outcome_event(None, None), None);
+        let (kind, label) = outcome_event(None, Some(RunEnd::Defeat)).unwrap();
+        // Libellé et catégorie d'avant D21 : l'attente `Defeat` les lit.
+        assert_eq!(kind, "defeat");
+        assert_eq!(label, "défaite : tous les joueurs sont à terre ou morts");
+        assert_eq!(
+            outcome_event(None, Some(RunEnd::Victory)).unwrap().0,
+            "victory"
+        );
+        assert_eq!(
+            outcome_event(None, Some(RunEnd::Abandon)).unwrap().0,
+            "abandon"
+        );
+        // Déjà finie à la frame précédente : rien de nouveau.
+        assert_eq!(
+            outcome_event(Some(RunEnd::Victory), Some(RunEnd::Victory)),
+            None
+        );
+    }
+
+    #[test]
+    fn power_ups_apparition_ramassage_expiration() {
+        let before: BTreeMap<usize, String> =
+            [(7, "nuke".to_string()), (8, "max_ammo".to_string())].into();
+        let now: BTreeMap<usize, String> = [(9, "insta_kill".to_string())].into();
+        // `nuke` ramassé par le joueur 1, `max_ammo` disparu sans ramassage : expiré.
+        let events = powerup_events(&before, &now, &[("nuke".to_string(), Some(1))]);
+        assert_eq!(
+            events,
+            vec![
+                ("powerup", "power-up insta_kill au sol (9)".to_string()),
+                (
+                    "powerup_pickup",
+                    "power-up nuke ramassé par joueur 1".to_string()
+                ),
+                ("powerup", "power-up max_ammo expiré (8)".to_string()),
+            ]
+        );
+        assert!(powerup_events(&now, &now, &[]).is_empty());
     }
 }

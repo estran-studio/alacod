@@ -1,10 +1,9 @@
 // Manifeste du jeu (T1.5, voir `docs/conventions.md` §3 et `crates/content/src/manifest.rs`).
-// Reflète le contenu actuel de `games/zombies/assets/` : les personnages et les tables
-// d'armes vivent sous `ZombieShooter/Sprites/**`, mélangés à des feuilles de sprite et des
-// configs d'animation (pas encore réorganisés, voir `docs/plan-engine.md` §5 A5) ; c'est
-// pourquoi ces deux kinds déclarent des fichiers individuels plutôt qu'un dossier entier
-// (un dossier entier serait scanné et tenterait de parser les feuilles de sprite comme du
-// contenu du kind déclaré). Les autres dossiers (`waves/`, `exemples/`, `ui/`) ne
+// Reflète le contenu actuel de `games/zombies/assets/` : les personnages et la table
+// d'armes vivent encore sous `ZombieShooter/Sprites/**` (dossier historique), déclarés
+// fichier par fichier. D3 : les feuilles de sprite et configs d'animation n'y sont plus,
+// elles sont rangées par entité sous `sprites/` et déclarées par la table `SpriteSheet`
+// (`sprites/sprites.ron`). Les autres dossiers (`waves/`, `exemples/`, `ui/`) ne
 // contiennent que le kind déclaré et sont scannés tels quels.
 (
     name: "zombies",
@@ -21,6 +20,8 @@
         (path: "maps", kind: "Map"),
         (path: "ui", kind: "Ui"),
         (path: "camera.ron", kind: "Camera"),
+        // D3 : feuilles de sprites par id (personnages, armes, effet de mêlée).
+        (path: "sprites/sprites.ron", kind: "SpriteSheet"),
         // T2.3, chantier C5 v1 : deux fichiers de kinds différents dans le même dossier
         // (comme les personnages sous ZombieShooter/Sprites/**, voir le commentaire
         // d'en-tête) : déclarés individuellement plutôt que le dossier `economy` entier.

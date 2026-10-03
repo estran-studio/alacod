@@ -455,48 +455,58 @@ fn update_hud_values(
         }
     }
 
+    let values = HudPlayerValues {
+        health: health_info.map(|(current, max)| (current.to_num::<i32>(), max.to_num::<i32>())),
+        currency,
+        weapon: weapon_info.map(|(name, mode, reserve)| (name, mode.map(|m| m.mag_ammo), reserve)),
+    };
+
     // Update text widgets
     for (text_widget, mut text, mut background) in text_widgets.iter_mut() {
         let prefix_text = text_widget.prefix.clone();
         let new_text = match text_widget.source.as_str() {
-            "health" => {
-                if let Some((current, max)) = health_info {
-                    format!(
-                        "{}{}/{}",
-                        prefix_text,
-                        current.to_num::<i32>(),
-                        max.to_num::<i32>()
-                    )
-                } else {
-                    prefix_text
-                }
-            }
             "wave" => format!("{}{}", prefix_text, wave_num),
-            "ammo" => {
-                if let Some((_name, Some(mode), reserve)) = &weapon_info {
-                    format!("{}{} | {}", prefix_text, mode.mag_ammo, reserve)
-                } else {
-                    format!("{}? | ?", prefix_text)
-                }
-            }
-            "weapon" => {
-                if let Some((name, _mode, _reserve)) = &weapon_info {
-                    format!("{}{}", prefix_text, name)
-                } else {
-                    prefix_text
-                }
-            }
             "enemies" => format!("{}{}", prefix_text, enemy_count),
             "players" => format!("{}{}", prefix_text, player_count),
-            "currency" => match currency {
-                Some(amount) => format!("{}{}", prefix_text, amount),
-                None => prefix_text,
+            source => match player_source_text(source, &prefix_text, &values) {
+                Some(text) => text,
+                // Sources T2.12 (`update_hud_v1_values`) et sources inconnues : pas touchées ici.
+                None => continue,
             },
-            // Sources T2.12 (`update_hud_v1_values`) et sources inconnues : pas touchées ici.
-            _ => continue,
         };
         set_text(&mut text, &mut background, text_widget, new_text);
     }
+}
+
+/// Valeurs du joueur du HUD lues par [`update_hud_values`] ; `None` partout quand ce
+/// joueur n'existe plus (mort : son entité est détruite) ou n'a pas encore d'arme.
+#[derive(Debug, Default, Clone, PartialEq)]
+struct HudPlayerValues {
+    /// `(actuelle, max)`.
+    health: Option<(i32, i32)>,
+    currency: Option<u32>,
+    /// `(nom, munitions du chargeur du mode actif, réserve du type de munition)`.
+    weapon: Option<(String, Option<u32>, u32)>,
+}
+
+/// Texte d'une source du joueur (`health`, `ammo`, `weapon`, `currency`) ; `None` pour une
+/// autre source. D22 : sans valeur (joueur mort, pas d'arme), **rien**, pas même le préfixe :
+/// avant, le HUD d'un joueur mort affichait « $ » sans montant et « ? | ? » (comparaison de
+/// T3.2, f1120 d'`idle`). Même règle que les sources T2.12 (`perks`, `downed`…).
+fn player_source_text(source: &str, prefix: &str, values: &HudPlayerValues) -> Option<String> {
+    let value = match source {
+        "health" => values
+            .health
+            .map(|(current, max)| format!("{current}/{max}")),
+        "ammo" => values
+            .weapon
+            .as_ref()
+            .and_then(|(_, mag, reserve)| mag.map(|mag| format!("{mag} | {reserve}"))),
+        "weapon" => values.weapon.as_ref().map(|(name, _, _)| name.clone()),
+        "currency" => values.currency.map(|amount| amount.to_string()),
+        _ => return None,
+    };
+    Some(value.map_or_else(String::new, |value| format!("{prefix}{value}")))
 }
 
 // ---------------------------------------------------------------------------------------
@@ -1112,6 +1122,52 @@ mod tests {
         };
         assert_eq!(perk(false).text(), "Juggernog — $2500");
         assert_eq!(perk(true).text(), "Juggernog — possédé");
+    }
+
+    #[test]
+    fn sources_du_joueur_vides_quand_il_est_mort() {
+        // D22 : joueur mort (entité détruite) : aucune valeur, rien d'affiché, pas même le
+        // préfixe (« $ », « Vie : »).
+        let dead = HudPlayerValues::default();
+        for source in ["health", "ammo", "weapon", "currency"] {
+            assert_eq!(
+                player_source_text(source, "$", &dead),
+                Some(String::new()),
+                "{source}"
+            );
+        }
+        let alive = HudPlayerValues {
+            health: Some((80, 100)),
+            currency: Some(1500),
+            weapon: Some(("pistol".to_string(), Some(6), 48)),
+        };
+        assert_eq!(
+            player_source_text("currency", "$", &alive).as_deref(),
+            Some("$1500")
+        );
+        assert_eq!(
+            player_source_text("ammo", "", &alive).as_deref(),
+            Some("6 | 48")
+        );
+        assert_eq!(
+            player_source_text("health", "", &alive).as_deref(),
+            Some("80/100")
+        );
+        assert_eq!(
+            player_source_text("weapon", "", &alive).as_deref(),
+            Some("pistol")
+        );
+        // Arme sans mode actif lisible : rien (avant : « ? | ? »).
+        let no_mode = HudPlayerValues {
+            weapon: Some(("pistol".to_string(), None, 48)),
+            ..alive.clone()
+        };
+        assert_eq!(
+            player_source_text("ammo", "", &no_mode),
+            Some(String::new())
+        );
+        // Source hors joueur : pas traitée ici.
+        assert_eq!(player_source_text("wave", "", &alive), None);
     }
 
     #[test]

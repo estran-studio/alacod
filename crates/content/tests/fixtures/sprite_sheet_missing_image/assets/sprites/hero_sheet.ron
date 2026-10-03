@@ -1,0 +1,2 @@
+// Seul `path` est lu par le lint (D3) : l'image citée n'existe pas.
+(path: "sprites/hero.png")

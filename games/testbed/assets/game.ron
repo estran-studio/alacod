@@ -16,6 +16,9 @@
         (path: "testbed", kind: "Map"),
         (path: "ui", kind: "Ui"),
         (path: "camera.ron", kind: "Camera"),
+        // D3 : feuilles de sprites par id (joueur, armes, effet de mêlée ; les personnages
+        // de laboratoire n'ont pas de sprite).
+        (path: "sprites/sprites.ron", kind: "SpriteSheet"),
         // T2.3, chantier C5 v1 : economy.ron minimal (pas de perks.ron, le testbed n'en a
         // pas besoin aujourd'hui).
         (path: "economy/economy.ron", kind: "Economy"),

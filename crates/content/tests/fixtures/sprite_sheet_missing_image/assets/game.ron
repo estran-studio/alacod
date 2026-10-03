@@ -1,0 +1,10 @@
+(
+    name: "fixture-sprite-sheet-missing-image",
+    content_folders: [
+        (path: "sprites/sprites.ron", kind: "SpriteSheet"),
+    ],
+    entry: (
+        start_map: "unused",
+        default_seed: 1,
+    ),
+)

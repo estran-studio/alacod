@@ -1,0 +1,8 @@
+// Fixture D3 : le calque `body` cite une feuille absente du dossier d'assets (l'animation,
+// elle, existe) : LintErrorKind::BrokenReference (`lint::lint_sprite_sheets`).
+({
+    "hero": (
+        animation: "sprites/hero_animation.ron",
+        layers: { "body": "sprites/hero_sheet.ron" },
+    ),
+})
