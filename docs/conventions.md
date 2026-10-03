@@ -756,11 +756,17 @@ vers une arme approvisionnée, le rechargement et la réanimation. L'acheteur ch
 les munitions, Juggernog et une porte abordable quand le champ est inaccessible (prix,
 puis distance à l’ennemi, puis `GgrsNetId`). Les approches ponctuelles utilisent des
 champs multi-source dérivés et partagés sur la même grille. Sans poste de tir accessible,
-le bot s’approche jusqu’au rayon d’aggro : le zombie peut alors casser sa fenêtre.
+le bot s’approche jusqu’au rayon d’aggro d'un zombie `Idle` : il peut alors casser sa
+fenêtre. Un zombie déjà en `Chasing` ne doit pas retenir le bot dans ce rayon quand il
+n'existe toujours aucun poste de tir ; les portes et réparations restent possibles.
 Sans chemin d’approche, le bot répare aussi pour gagner les points de sa première porte.
 Les interactions passent par le bouton existant : les règles de solde, coût, cooldown et
 réanimation restent celles du jeu. Les unitaires couvrent navigation et décisions ;
 `crates/scenario/tests/bots.rs` vérifie le rejeu v0 et v1.
+Si une autre surface possède le prompt à portée du but choisi, le bot se rapproche
+encore du but ou essaie une autre interaction, au lieu de rester immobile sans agir.
+`crates/scenario/tests/hunter_doors.rs` vérifie que les quatre acheteurs finissent la
+première vague des graines 11 et 12 sans cap ni décès.
 Les modes Manual, Shotgun et Burst relâchent le tir lorsque `WeaponState.is_firing`
 est vrai, puis pressent de nouveau ; Automatic peut maintenir le bouton. Ce choix lit
 l'état rollback de l'arme, sans compteur de pulsations caché dans le bot.

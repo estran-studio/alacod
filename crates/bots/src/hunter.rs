@@ -5,7 +5,7 @@ use bevy::prelude::*;
 use bevy_fixed::fixed_math::{Fixed, FixedTransform3D, FixedVec2};
 use bevy_ggrs::{LocalInputs, LocalPlayers, Rollback};
 use combat::{downed::Downed, inventory::AmmoReserves};
-use game::character::enemy::ai::{navigation::AgentBody, EnemyAiConfig};
+use game::character::enemy::ai::{navigation::AgentBody, EnemyAiConfig, MonsterState};
 use game::character::player::input::{BoxInput, INPUT_INTERACTION, INPUT_RELOAD};
 use game::character::{
     enemy::Enemy,
@@ -91,6 +91,7 @@ pub struct HunterWorld<'w, 's> {
             &'static GgrsNetId,
             &'static FixedTransform3D,
             &'static EnemyAiConfig,
+            &'static MonsterState,
         ),
         (With<Enemy>, With<Rollback>),
     >,
@@ -156,11 +157,14 @@ pub fn read_hunter_inputs(
     };
     let enemies: Vec<_> = order_iter!(state.enemies)
         .into_iter()
-        .map(|(id, t, _)| (id.0, t.translation.truncate()))
+        .map(|(id, t, _, _)| (id.0, t.translation.truncate()))
         .collect();
     let activation: Vec<_> = order_iter!(state.enemies)
         .into_iter()
-        .map(|(id, t, ai)| (id.0, t.translation.truncate(), ai.aggro_range))
+        // An already-awake zombie may be physically stuck. Its aggro radius is
+        // not a firing path and must not suppress repairs or affordable doors.
+        .filter(|(_, _, _, monster)| matches!(monster, MonsterState::Idle))
+        .map(|(id, t, ai, _)| (id.0, t.translation.truncate(), ai.aggro_range))
         .collect();
     let geometry: Vec<_> = order_iter!(state.geometry)
         .into_iter()
@@ -367,14 +371,13 @@ pub fn read_hunter_inputs(
         }
         choices.sort_by_key(|c| (c.0, c.1, c.2, c.3));
         for (_, _, _, id, rect, reach) in choices {
-            let Some((direction, _)) = nav.approach(
+            let Some((mut direction, _)) = nav.approach(
                 position,
                 rect,
                 (reach - Fixed::from_num(8)).max(Fixed::ZERO),
             ) else {
                 continue;
             };
-            desired = direction;
             if direction == FixedVec2::ZERO {
                 // Le handler choisit la surface la plus proche : ne maintenir le bouton
                 // que si elle correspond au but, sinon on achèterait/réparerait autre chose.
@@ -389,7 +392,18 @@ pub fn read_hunter_inputs(
                     })
                     .min();
                 view.interact = selected.is_some_and(|(_, selected)| selected == id);
+                if !view.interact {
+                    // Being within range is insufficient if another surface owns
+                    // the prompt. Move closer until the ordinary handler selects
+                    // this goal; otherwise try another reachable interaction.
+                    let closer = (rect.distance(position) - Fixed::from_num(8)).max(Fixed::ZERO);
+                    let Some((closer_direction, _)) = nav.approach(position, rect, closer) else {
+                        continue;
+                    };
+                    direction = closer_direction;
+                }
             }
+            desired = direction;
             break;
         }
         view.direction = nav.safe_direction(position, desired);
