@@ -24,6 +24,7 @@ use sim_core::kinds::{KindDecl, Kinds};
 use sim_core::modifier::ModifierOp;
 use sim_core::stats::StatId;
 
+use crate::expr::NumOrExpr;
 use crate::lint::{LintError, LintErrorKind};
 use crate::manifest::{ContentFolderDecl, GameManifest, MANIFEST_FILE_NAME};
 use crate::value::FixedField;
@@ -144,7 +145,8 @@ pub struct CharacterEntry {
     /// Chemin relatif à `assets/` : message d'erreur et `AssetServer::load`.
     pub file: PathBuf,
     pub asset_name_ref: String,
-    pub base_health_max: FixedField,
+    /// F5 (chantier m0-v11) : littéral ou expression `players` (`crate::expr::NumOrExpr`).
+    pub base_health_max: NumOrExpr,
     pub max_speed: FixedField,
     pub starting_skin: String,
     pub skins: BTreeSet<String>,
@@ -355,17 +357,18 @@ pub struct MapEntry {
 
 /// T2.3, chantier C5 v1 : `games/<jeu>/assets/economy/economy.ron`. Lint (T2.8,
 /// `lint::lint_economy`) : `refill_price_ratio` dans `[0, 1]` ; les compteurs de points
-/// (`u32`) n'ont pas de plage interdite.
+/// n'ont pas de plage interdite. F5 (chantier m0-v11) : champs numériques en
+/// `NumOrExpr` (littéral ou expression `players`, résolus par `game::balance`).
 #[derive(Debug, Clone)]
 pub struct EconomyEntry {
     pub id: EconomyId,
     pub file: PathBuf,
-    pub kill_points: u32,
-    pub hit_points: u32,
-    pub repair_points: u32,
-    pub nuke_points: u32,
-    pub repair_points_cap_per_wave: Option<u32>,
-    pub refill_price_ratio: FixedField,
+    pub kill_points: NumOrExpr,
+    pub hit_points: NumOrExpr,
+    pub repair_points: NumOrExpr,
+    pub nuke_points: NumOrExpr,
+    pub repair_points_cap_per_wave: Option<NumOrExpr>,
+    pub refill_price_ratio: NumOrExpr,
 }
 
 /// T2.3, chantier C5 v1 : une entrée de `games/<jeu>/assets/economy/perks.ron`. Un `StatId`
@@ -376,7 +379,8 @@ pub struct EconomyEntry {
 pub struct PerkEntry {
     pub id: PerkId,
     pub file: PathBuf,
-    pub price: u32,
+    /// F5 (chantier m0-v11) : littéral ou expression `players` (`crate::expr::NumOrExpr`).
+    pub price: NumOrExpr,
     /// T2.8 : pour les règles « au moins un modificateur » et « `Mul` > 0 ».
     pub modifiers: Vec<PerkModifierEntry>,
 }
@@ -657,7 +661,8 @@ struct MovementSchema {
 
 #[derive(Deserialize)]
 struct HealthSchema {
-    max: FixedField,
+    /// F5 (chantier m0-v11) : littéral ou expression `players` (`crate::expr::NumOrExpr`).
+    max: NumOrExpr,
 }
 
 #[derive(Deserialize)]
@@ -805,41 +810,41 @@ struct WaveTierSchema {
 
 /// Mirroir de `game::economy::EconomyConfig` (T2.3, chantier C5 v1). Défauts identiques
 /// (voir leur doc respective) : un `economy.ron` qui ne déclare qu'un sous-ensemble des
-/// champs se comporte pareil ici et à l'exécution.
+/// champs se comporte pareil ici et à l'exécution. F5 (chantier m0-v11) : `NumOrExpr`.
 #[derive(Deserialize)]
 struct EconomyFileSchema {
     #[serde(default = "default_kill_points")]
-    kill_points: u32,
+    kill_points: NumOrExpr,
     #[serde(default = "default_hit_points")]
-    hit_points: u32,
+    hit_points: NumOrExpr,
     #[serde(default = "default_repair_points")]
-    repair_points: u32,
+    repair_points: NumOrExpr,
     #[serde(default = "default_nuke_points")]
-    nuke_points: u32,
+    nuke_points: NumOrExpr,
     #[serde(default)]
-    repair_points_cap_per_wave: Option<u32>,
+    repair_points_cap_per_wave: Option<NumOrExpr>,
     #[serde(default = "default_refill_price_ratio")]
-    refill_price_ratio: FixedField,
+    refill_price_ratio: NumOrExpr,
 }
 
-fn default_kill_points() -> u32 {
-    60
+fn default_kill_points() -> NumOrExpr {
+    NumOrExpr::Integer(60)
 }
 
-fn default_hit_points() -> u32 {
-    10
+fn default_hit_points() -> NumOrExpr {
+    NumOrExpr::Integer(10)
 }
 
-fn default_repair_points() -> u32 {
-    10
+fn default_repair_points() -> NumOrExpr {
+    NumOrExpr::Integer(10)
 }
 
-fn default_nuke_points() -> u32 {
-    400
+fn default_nuke_points() -> NumOrExpr {
+    NumOrExpr::Integer(400)
 }
 
-fn default_refill_price_ratio() -> FixedField {
-    FixedField(Fixed::from_num(0.5))
+fn default_refill_price_ratio() -> NumOrExpr {
+    NumOrExpr::Literal(Fixed::from_num(0.5))
 }
 
 /// Mirroir de `game::economy::PerksConfig` (T2.3, chantier C5 v1) : juste assez pour le lint
@@ -851,7 +856,8 @@ struct PerksFileSchema(KeyedEntries<PerkEntrySchema>);
 
 #[derive(Deserialize)]
 struct PerkEntrySchema {
-    price: u32,
+    /// F5 (chantier m0-v11) : littéral ou expression `players` (`crate::expr::NumOrExpr`).
+    price: NumOrExpr,
     #[serde(default)]
     modifiers: Vec<PerkModifierSchema>,
 }

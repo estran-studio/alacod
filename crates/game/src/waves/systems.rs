@@ -37,7 +37,6 @@ pub struct SpawnAssets<'w> {
 }
 
 use super::{
-    config::WaveConfig,
     state::{WavePhase, WaveState},
     tracking::WaveEnemy,
 };
@@ -49,18 +48,19 @@ pub fn wave_state_machine_system(
     frame: Res<FrameCount>,
     mut wave_state: ResMut<WaveState>,
     mut rng_streams: ResMut<RngStreams>,
-    wave_config_assets: Res<Assets<WaveConfig>>,
+    balance: Res<crate::balance::ResolvedBalance>,
     global_assets: Res<GlobalAsset>,
     wave_enemy_query: Query<Entity, (With<Enemy>, With<WaveEnemy>)>,
 ) {
-    // Get config (handle may not be loaded yet)
-    let Some(config) = global_assets
-        .wave_config
-        .as_ref()
-        .and_then(|h| wave_config_assets.get(h))
-    else {
+    // F5 (chantier m0-v11) : config résolue une fois au lancement (voir `crate::balance`),
+    // plus jamais lue depuis l'asset — valeurs identiques pour un contenu littéral.
+    // Un jeu sans dossier `Wave` (ex. `testbed`) n'a pas de `wave_config` : la machine
+    // reste inerte, comme avant F5 (la résolution ne doit pas réveiller les vagues
+    // d'un jeu qui n'en déclare pas).
+    if global_assets.wave_config.is_none() {
         return;
-    };
+    }
+    let config = &balance.waves;
 
     let current_frame = frame.frame;
     let alive_wave_enemies = wave_enemy_query.iter().count() as u32;
@@ -176,7 +176,7 @@ pub fn wave_spawning_system(
     frame: Res<FrameCount>,
     mut wave_state: ResMut<WaveState>,
     mut rng_streams: ResMut<RngStreams>,
-    wave_config_assets: Res<Assets<WaveConfig>>,
+    balance: Res<crate::balance::ResolvedBalance>,
     global_assets: Res<GlobalAsset>,
 
     // Spawner query (from LDTK map)
@@ -201,14 +201,12 @@ pub fn wave_spawning_system(
         return;
     }
 
-    // Get config
-    let Some(config) = global_assets
-        .wave_config
-        .as_ref()
-        .and_then(|h| wave_config_assets.get(h))
-    else {
+    // Get config (resolved once at run start, F5 — see `crate::balance`)
+    // Même garde que la machine : sans dossier `Wave` déclaré, rien à spawner.
+    if global_assets.wave_config.is_none() {
         return;
-    };
+    }
+    let config = &balance.waves;
 
     let current_frame = frame.frame;
 
@@ -282,6 +280,15 @@ pub fn wave_spawning_system(
         // Select enemy type based on current wave tier
         let enemy_type = select_enemy_type(&wave_state, config, rng_streams.get_mut("waves"));
 
+        // F5 (chantier m0-v11) : santé max résolue au lancement (`crate::balance`).
+        let health_max = balance
+            .health_max_by_character
+            .get(&enemy_type)
+            .copied()
+            .unwrap_or_else(|| {
+                panic!("équilibrage F5 : pas de santé résolue pour le personnage « {enemy_type} »")
+            });
+
         // Spawn the enemy and get the entity
         let enemy_entity = spawn_enemy(
             enemy_type.clone(),
@@ -294,6 +301,7 @@ pub fn wave_spawning_system(
             &spawn_assets.collision_settings,
             &mut id_factory,
             Team::Enemies,
+            health_max,
         );
 
         // Add WaveEnemy component to track this enemy for wave completion
@@ -324,7 +332,7 @@ fn select_valid_spawners<'a>(
         &fixed_math::FixedTransform3D,
     )>,
     player_positions: &[fixed_math::FixedVec2],
-    config: &WaveConfig,
+    config: &crate::balance::ResolvedWaveConfig,
 ) -> Vec<(
     &'a GgrsNetId,
     Entity,
@@ -383,7 +391,11 @@ fn calculate_spawn_position(
 /// Select enemy type based on wave tier probabilities.
 ///
 /// GGRS CRITICAL: Sorts probability keys for deterministic weighted selection.
-fn select_enemy_type(wave_state: &WaveState, config: &WaveConfig, rng: &mut RollbackRng) -> String {
+fn select_enemy_type(
+    wave_state: &WaveState,
+    config: &crate::balance::ResolvedWaveConfig,
+    rng: &mut RollbackRng,
+) -> String {
     // Get tier for current wave
     let tier = config.get_tier(wave_state.current_wave);
 

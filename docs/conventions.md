@@ -934,6 +934,45 @@ expression `content::expr` en chaîne RON (ex. `health: "120.0 + (players - 1) *
   nouveaux scénarios (même partie à 2 et 4 joueurs, attente qui diverge) plutôt que par la
   modification de valeurs existantes.
 
+**Implémentation (m0-v11)** :
+
+- **Type** : `content::expr::NumOrExpr` — `Integer(u32)` (entier RON nu, ex. `base_enemies: 6`),
+  `Literal(Fixed)` (chaîne numérique, ex. `refill_price_ratio: "0.5"`), `Expression(NumExpr)`
+  (chaîne RON évaluée, ex. `max: "10.0 + (players - 1) * 40.0"`). La désérialisation tente dans
+  cet ordre : entier nu → `Integer` ; chaîne qui est un nombre → `Literal` ; sinon parse
+  `Expr` → `Expression` (un échec de parse est un échec du chargement).
+- **Point d'évaluation** : `game::balance::resolve_balance_system`, enregistré sur
+  `OnEnter(AppState::GameLoading)` — après le chargement des assets, avant le spawn des
+  joueurs/personnages (Update de `GameLoading`) et avant la première vague. Il insère la
+  ressource ordinaire (hors rollback, comme `Assets`) `game::balance::ResolvedBalance` :
+  `waves`, `economy`, `perks` et `health_max_by_character`, en valeurs concrètes. Les systèmes
+  de simulation lisent `ResolvedBalance`, jamais les assets d'origine — aucune expression dans
+  l'état rollback. Une relance locale re-entre `GameLoading` et re-résout avec le même nombre
+  de joueurs.
+- **Nombre de joueurs** : `OnlineState::Online` → `ggrs_config.connection.max_player` (source
+  autoritaire en ligne) ; sinon `PlayersCount` (partie locale ou scénario).
+- **Champs couverts** (rien d'autre — le reste des chantiers F est pour M1/M2) :
+  - **Vagues** (`games/zombies/assets/waves/wave_config.ron`) : `base_enemies`,
+    `enemies_per_wave`, `max_random_variance`, `min_wave_delay_frames`, `grace_period_frames`,
+    `max_concurrent_enemies`, `spawn_batch_size`, `spawn_interval_frames`,
+    `min_player_distance`, `max_player_distance`, `health_multiplier_per_wave`,
+    `damage_multiplier_per_wave`, `max_wave`, et par palier `max_wave` + poids des ennemis.
+  - **Prix** : `games/zombies/assets/economy/economy.ron` (`kill_points`, `hit_points`,
+    `repair_points`, `nuke_points`, `repair_points_cap_per_wave`, `refill_price_ratio`) et
+    `games/zombies/assets/economy/perks.ron` (`price` de chaque perk). Les prix d'armes
+    murales et de portes sont des champs **Int posés dans l'éditeur LDtk** (`WeaponLocation`,
+    portes), pas du RON — ils n'acceptent pas d'expression (et `weapons.ron`/
+    `melee_weapons.ron` ne portent aucun prix aujourd'hui) ; la recharge d'une arme murale
+    reste `prix_achat × refill_price_ratio` (ratio résolu).
+  - **Santé** : `base_health.max` de chaque personnage du registre (`CharacterConfig`) —
+    ennemis comme « player », les deux chemins de spawn lisent
+    `ResolvedBalance::health_max_by_character`.
+- **Erreurs** : `content::expr::EvalError` — identifiant inconnu (seul `players` existe),
+  division par zéro, valeur hors domaine (négatif pour un `u32` : erreur, jamais de clamp).
+  `resolve_balance_system` panique en nommant le fichier, le champ et le nombre de joueurs.
+  Tests unitaires : `content::expr` (désérialisation, résolution, erreurs) et `game::balance`
+  (dépendance à `players`, erreurs = panic avec contexte).
+
 ## Notes essentielles
 
 **À vérifier** : l'entité `CrateLocation` n'est pas lue actuellement (`WeaponLocation`/`SodaLocation` le sont depuis T2.3, voir §1 ci-dessus). Elle apparaît dans `crates/map_ldtk/src/map_const.rs` (constante) mais aucun bundle Bevy ne la traite (`entity/*.rs` ne la liste pas). Avant d'utiliser une carte avec une entité nouvellement lue, vérifier que `make test_scenarios` accepte un scénario `idle` dessus.

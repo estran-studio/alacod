@@ -39,6 +39,8 @@ use super::plugin::{LdtkMapLoadingEvent, MapNetIdAssignment};
 pub struct LevelSpawnAssets<'w> {
     pub collision_settings: Res<'w, CollisionSettings>,
     pub global_assets: Res<'w, GlobalAsset>,
+    // F5 (chantier m0-v11) : santé max résolue au lancement (`game::balance`).
+    pub balance: Res<'w, game::balance::ResolvedBalance>,
     pub character_asset: Res<'w, Assets<CharacterConfig>>,
     pub weapons_asset: Res<'w, Assets<WeaponsConfig>>,
     pub melee_weapons_asset: Res<'w, Assets<MeleeWeaponsConfig>>,
@@ -99,6 +101,7 @@ fn spawn_players_when_map_loaded(
     mut commands: Commands,
     collision_settings: Res<CollisionSettings>,
     global_assets: Res<GlobalAsset>,
+    balance: Res<game::balance::ResolvedBalance>,
     character_asset: Res<Assets<CharacterConfig>>,
     weapons_asset: Res<Assets<WeaponsConfig>>,
     melee_weapons_asset: Res<Assets<MeleeWeaponsConfig>>,
@@ -131,6 +134,15 @@ fn spawn_players_when_map_loaded(
             return;
         }
 
+        // F5 (chantier m0-v11) : santé max résolue au lancement (`game::balance`).
+        let health_max = balance
+            .health_max_by_character
+            .get("player")
+            .copied()
+            .unwrap_or_else(|| {
+                panic!("équilibrage F5 : pas de santé résolue pour le personnage « player »")
+            });
+
         create_player(
             &mut commands,
             &global_assets,
@@ -143,6 +155,7 @@ fn spawn_players_when_map_loaded(
             handle,
             ggrs_player.name.clone(),
             ggrs_player.pubkey.clone(),
+            health_max,
             &mut id_provider,
         );
     }
@@ -236,6 +249,19 @@ pub(crate) fn spawn_level_characters(
             .or_else(|| character_config.and_then(|config| config.team))
             .unwrap_or(Team::Enemies);
 
+        // F5 (chantier m0-v11) : santé max résolue au lancement (`game::balance`).
+        let health_max = assets
+            .balance
+            .health_max_by_character
+            .get(&spawn.character)
+            .copied()
+            .unwrap_or_else(|| {
+                panic!(
+                    "équilibrage F5 : pas de santé résolue pour le personnage « {} »",
+                    spawn.character
+                )
+            });
+
         spawn_enemy(
             spawn.character.clone(),
             fixed_math::vec3_to_fixed(transform.translation()),
@@ -247,6 +273,7 @@ pub(crate) fn spawn_level_characters(
             &assets.collision_settings,
             id_provider,
             team,
+            health_max,
         );
         placed += 1;
     }
