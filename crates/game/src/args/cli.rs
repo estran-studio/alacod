@@ -6,6 +6,11 @@ use clap::Parser;
 pub struct Opt {
     #[clap(short, long)]
     pub matchbox: Option<String>,
+    /// URL de base HTTP du serveur allumette (authentification par challenge Ed25519,
+    /// lobby HTTP, WebSocket de signalisation avec le JWT dans le chemin).
+    /// Exclusif avec `--matchbox`.
+    #[clap(short, long, conflicts_with = "matchbox")]
+    pub allumette: Option<String>,
     #[clap(long)]
     pub lobby: Option<String>,
     #[clap(short, long)]
