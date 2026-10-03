@@ -258,7 +258,7 @@ else
                 if [ "$SUCCESS" = false ]; then
                     append_summary "### C. P2P Headless (${NUM_PLAYERS}p): ❌ FAILED"
                     log_error "P2p with ${NUM_PLAYERS} players failed"
-                    ${DOCKER_COMPOSE} -f docker-compose.ci.yaml down 2>/dev/null || true
+                    ${DOCKER_COMPOSE} -f docker-compose.ci.yaml --profile allumette down 2>/dev/null || true
                     exit 1
                 fi
 
@@ -283,7 +283,7 @@ else
 
                     if [ "$TRACES_MATCH" = false ]; then
                         append_summary "### C. P2P Headless (${NUM_PLAYERS}p): ❌ DESYNC DETECTED"
-                        ${DOCKER_COMPOSE} -f docker-compose.ci.yaml down 2>/dev/null || true
+                        ${DOCKER_COMPOSE} -f docker-compose.ci.yaml --profile allumette down 2>/dev/null || true
                         exit 1
                     fi
                 fi
@@ -291,7 +291,7 @@ else
 
             # Cleanup
             log_step "Stopping allumette..."
-            ${DOCKER_COMPOSE} -f docker-compose.ci.yaml down 2>/dev/null || true
+            ${DOCKER_COMPOSE} -f docker-compose.ci.yaml --profile allumette down 2>/dev/null || true
 
             END_TIME=$(date +%s)
             DURATION=$((END_TIME - START_TIME))
