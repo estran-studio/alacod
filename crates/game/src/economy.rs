@@ -51,7 +51,6 @@ use std::collections::BTreeMap;
 use utils::{net_id::GgrsNetId, order_mut_iter};
 
 use crate::character::player::Player;
-use crate::global_asset::GlobalAsset;
 use crate::rollback::RollbackTraceApp;
 use crate::system_set::RollbackSystemSet;
 use crate::waves::WaveState;
@@ -70,6 +69,9 @@ pub fn perk_modifier_source(perk_id: &str) -> ModifierSource {
 /// `Economy`, T2.3). Défauts repris de `content::registry` (voir sa doc) : un fichier qui ne
 /// déclare qu'un sous-ensemble des champs se comporte pareil ici et au lint.
 ///
+/// F5 (chantier m0-v11) : les champs numériques sont des [`NumOrExpr`] — littéral
+/// (inchangé) ou expression évaluée une fois au lancement (voir `crate::balance`).
+///
 /// `starting_currency` n'est **pas** un champ de ce type : la monnaie de départ est par
 /// personnage (`character::config::CharacterConfig::starting_currency`), pas globale au jeu —
 /// voir sa doc pour la justification (un testbed pourrait vouloir un personnage riche et un
@@ -77,24 +79,24 @@ pub fn perk_modifier_source(perk_id: &str) -> ModifierSource {
 #[derive(Asset, TypePath, Debug, Clone, Serialize, Deserialize)]
 pub struct EconomyConfig {
     #[serde(default = "default_kill_points")]
-    pub kill_points: u32,
+    pub kill_points: content::expr::NumOrExpr,
     #[serde(default = "default_hit_points")]
-    pub hit_points: u32,
+    pub hit_points: content::expr::NumOrExpr,
     #[serde(default = "default_repair_points")]
-    pub repair_points: u32,
+    pub repair_points: content::expr::NumOrExpr,
     /// Points crédités à chaque joueur vivant au ramassage d'un nuke (D17, CoD : 400),
     /// une fois par joueur et non par ennemi tué.
     #[serde(default = "default_nuke_points")]
-    pub nuke_points: u32,
+    pub nuke_points: content::expr::NumOrExpr,
     /// Plafond de points de réparation gagnés par joueur et par vague (CoD : les points de
     /// réparation de fenêtre sont limités par round). `None` (défaut) : pas de plafond.
     #[serde(default)]
-    pub repair_points_cap_per_wave: Option<u32>,
+    pub repair_points_cap_per_wave: Option<content::expr::NumOrExpr>,
     /// Ratio du prix d'achat facturé pour recharger la réserve d'une arme murale déjà
     /// possédée (`interaction::handle_weapon_pickup_interaction`) : `refill_price =
     /// round(price × refill_price_ratio)`.
     #[serde(default = "default_refill_price_ratio")]
-    pub refill_price_ratio: Fixed,
+    pub refill_price_ratio: content::expr::NumOrExpr,
 }
 
 impl Default for EconomyConfig {
@@ -110,43 +112,38 @@ impl Default for EconomyConfig {
     }
 }
 
-fn default_kill_points() -> u32 {
-    60
+fn default_kill_points() -> content::expr::NumOrExpr {
+    content::expr::NumOrExpr::Integer(60)
 }
 
-fn default_hit_points() -> u32 {
-    10
+fn default_hit_points() -> content::expr::NumOrExpr {
+    content::expr::NumOrExpr::Integer(10)
 }
 
-fn default_repair_points() -> u32 {
-    10
+fn default_repair_points() -> content::expr::NumOrExpr {
+    content::expr::NumOrExpr::Integer(10)
 }
 
-fn default_nuke_points() -> u32 {
-    400
+fn default_nuke_points() -> content::expr::NumOrExpr {
+    content::expr::NumOrExpr::Integer(400)
 }
 
-fn default_refill_price_ratio() -> Fixed {
-    fixed_math::new(0.5)
-}
-
-impl EconomyConfig {
-    /// Prix de recharge d'une arme murale déjà possédée, arrondi à l'unité la plus proche.
-    pub fn refill_price(&self, price: u32) -> u32 {
-        (Fixed::from_num(price).saturating_mul(self.refill_price_ratio))
-            .round()
-            .to_num::<u32>()
-    }
+fn default_refill_price_ratio() -> content::expr::NumOrExpr {
+    content::expr::NumOrExpr::Literal(fixed_math::new(0.5))
 }
 
 /// Un perk de `games/<jeu>/assets/economy/perks.ron` (kind de contenu `Perk`, T2.3) :
 /// `{ "juggernog": (name: "Juggernog", price: 2500, modifiers: [(stat: MaxHealth, op: Mul,
 /// value: "2.0")]) }`. `modifiers` posés permanents (`until: None`) via
 /// `sim_core::modifier::Modifiers::push_from` à l'achat, source [`perk_modifier_source`].
+///
+/// F5 (chantier m0-v11) : `price` accepte un littéral ou une expression (voir
+/// `crate::balance::ResolvedPerkDef` pour la valeur résolue) ; `modifiers[].value` reste
+/// un `Fixed` littéral (hors périmètre F5).
 #[derive(Debug, Clone, Deserialize)]
 pub struct PerkDef {
     pub name: String,
-    pub price: u32,
+    pub price: content::expr::NumOrExpr,
     #[serde(default)]
     pub modifiers: Vec<PerkModifierDef>,
 }
@@ -158,7 +155,7 @@ pub struct PerkModifierDef {
     pub value: Fixed,
 }
 
-#[derive(Asset, TypePath, Debug, Clone, Deserialize)]
+#[derive(Asset, TypePath, Debug, Clone, Default, Deserialize)]
 pub struct PerksConfig(pub BTreeMap<String, PerkDef>);
 
 /// Machine à perks (T2.3) : posée par
@@ -239,8 +236,7 @@ impl RepairPointsTracking {
 #[allow(clippy::too_many_arguments)]
 pub fn award_points_system(
     credits: Res<FrameEvents<PointsCredit>>,
-    global_assets: Res<GlobalAsset>,
-    economy_configs: Res<Assets<EconomyConfig>>,
+    balance: Res<crate::balance::ResolvedBalance>,
     wave_state: Res<WaveState>,
     mut repair_tracking: ResMut<RepairPointsTracking>,
     stats: StatReader,
@@ -251,11 +247,9 @@ pub fn award_points_system(
         return;
     }
 
-    let economy = global_assets
-        .economy_config
-        .as_ref()
-        .and_then(|handle| economy_configs.get(handle));
-    let config = economy.cloned().unwrap_or_default();
+    // F5 (chantier m0-v11) : config résolue une fois au lancement (voir `crate::balance`),
+    // plus jamais lue depuis l'asset — valeurs identiques pour un contenu littéral.
+    let config = &balance.economy;
 
     for credit in credits.iter() {
         let (target_handle, amount, reason) = match *credit {

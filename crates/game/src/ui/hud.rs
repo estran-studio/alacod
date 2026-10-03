@@ -21,7 +21,7 @@ use crate::character::health::Health;
 use crate::character::player::{LocalPlayer, Player};
 use crate::collider::Collider;
 use crate::core::{AppState, SIM_FPS};
-use crate::economy::{EconomyConfig, PerkMachine, PerksConfig};
+use crate::economy::PerkMachine;
 use crate::global_asset::GlobalAsset;
 use crate::interaction::{point_to_collider_surface_distance_sq, Interactable, InteractionType};
 use crate::powerups::PowerUpsConfig;
@@ -560,8 +560,8 @@ struct HudInteractables<'w, 's> {
         With<Rollback>,
     >,
     global_assets: Option<Res<'w, GlobalAsset>>,
-    perks_configs: Res<'w, Assets<PerksConfig>>,
-    economy_configs: Res<'w, Assets<EconomyConfig>>,
+    // F5 (chantier m0-v11) : prix et perks résolus une fois au lancement (`crate::balance`).
+    balance: Res<'w, crate::balance::ResolvedBalance>,
     powerups_configs: Res<'w, Assets<PowerUpsConfig>>,
 }
 
@@ -761,7 +761,6 @@ fn prompt_for(
     else {
         return String::new();
     };
-    let global = world.global_assets.as_deref();
     let prompt = match interactable.interaction_type {
         InteractionType::Door => Prompt::Door {
             cost: door.map_or(0, |d| d.config.cost),
@@ -779,9 +778,6 @@ fn prompt_for(
                     .iter()
                     .any(|(_, w)| w.config.name == pickup.weapon_id)
             });
-            let refill_ratio = global
-                .and_then(|g| g.economy_config.as_ref())
-                .and_then(|h| world.economy_configs.get(h));
             Prompt::Weapon {
                 name: config
                     .names
@@ -789,9 +785,7 @@ fn prompt_for(
                     .cloned()
                     .unwrap_or_else(|| pickup.weapon_id.clone()),
                 price: pickup.price,
-                refill_price: pickup
-                    .price
-                    .map(|p| refill_ratio.map_or(p, |economy| economy.refill_price(p))),
+                refill_price: pickup.price.map(|p| world.balance.economy.refill_price(p)),
                 owned,
             }
         }
@@ -799,10 +793,8 @@ fn prompt_for(
             let Some(machine) = perk_machine else {
                 return String::new();
             };
-            let def = global
-                .and_then(|g| g.perks_config.as_ref())
-                .and_then(|h| world.perks_configs.get(h))
-                .and_then(|c| c.0.get(&machine.perk_id));
+            // F5 (chantier m0-v11) : perk résolu une fois au lancement (`crate::balance`).
+            let def = world.balance.perks.get(&machine.perk_id);
             Prompt::Perk {
                 name: def.map_or_else(|| machine.perk_id.clone(), |d| d.name.clone()),
                 price: def.map(|d| d.price),
@@ -826,7 +818,7 @@ enum Prompt {
     },
     Revive,
     /// `price: None` : arme au sol (gratuite). `owned` : l'achat recharge les munitions au
-    /// prix `refill_price` (`EconomyConfig::refill_price`).
+    /// prix `refill_price` (`crate::balance::ResolvedEconomyConfig::refill_price`).
     Weapon {
         name: String,
         price: Option<u32>,

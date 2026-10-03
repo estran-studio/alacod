@@ -49,6 +49,10 @@ pub fn create_player(
     name: String,
     pubkey: String,
 
+    // Santé max résolue (F5, chantier m0-v11) : voir `create_character` (paramètre
+    // `health_max`).
+    health_max: fixed_math::Fixed,
+
     id_factory: &mut ResMut<GgrsNetIdFactory>,
 ) {
     let player_name = name;
@@ -70,6 +74,7 @@ pub fn create_player(
         // Pas de stats additionnelles pour un joueur (T1.2) : les cinq stats d'ennemi
         // n'ont pas de sens ici, voir la doc du paramètre.
         &[],
+        health_max,
     );
 
     // `Team` est un composant statique, non enregistré en rollback (voir sa doc dans

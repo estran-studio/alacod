@@ -11,6 +11,7 @@ use bevy_fixed::fixed_math::Fixed;
 use sim_core::ammo::AmmoType;
 use sim_core::modifier::ModifierOp;
 
+use crate::expr::NumOrExpr;
 use crate::manifest::GameManifest;
 use crate::registry::{self, Registry};
 
@@ -107,18 +108,27 @@ fn lint_characters(registry: &Registry, errors: &mut Vec<LintError>) {
             });
         }
 
-        // Hors plage : santé > 0.
-        if character.base_health_max.get() <= Fixed::ZERO {
-            errors.push(LintError {
-                kind: LintErrorKind::OutOfRange,
-                file: file.clone(),
-                message: format!(
-                    "personnage « {} » : champ base_health.max = {} : doit être > 0",
-                    character.id,
-                    character.base_health_max.get()
-                ),
-            });
+        // Hors plage : santé > 0 (littéral seulement ; une expression est validée par
+        // `lint_num_or_expr`).
+        if let Some(max) = character.base_health_max.literal() {
+            if max <= Fixed::ZERO {
+                errors.push(LintError {
+                    kind: LintErrorKind::OutOfRange,
+                    file: file.clone(),
+                    message: format!(
+                        "personnage « {} » : champ base_health.max = {max} : doit être > 0",
+                        character.id
+                    ),
+                });
+            }
         }
+        lint_num_or_expr(
+            &character.base_health_max,
+            &format!("personnage « {} », champ base_health.max", character.id),
+            &file,
+            false,
+            errors,
+        );
 
         // Hors plage : vitesse >= 0.
         if character.max_speed.get() < Fixed::ZERO {
@@ -383,13 +393,26 @@ fn lint_waves(registry: &Registry, errors: &mut Vec<LintError>) {
 fn lint_perks(registry: &Registry, errors: &mut Vec<LintError>) {
     for perk in registry.perks.values() {
         let file = perk.file.display().to_string();
-        if perk.price == 0 {
-            errors.push(LintError {
-                kind: LintErrorKind::OutOfRange,
-                file: file.clone(),
-                message: format!("perk « {} » : champ price = 0 : doit être > 0", perk.id),
-            });
+        // Littéral seulement ; une expression est validée par `lint_num_or_expr`.
+        if let Some(price) = perk.price.literal() {
+            if price <= Fixed::ZERO {
+                errors.push(LintError {
+                    kind: LintErrorKind::OutOfRange,
+                    file: file.clone(),
+                    message: format!(
+                        "perk « {} » : champ price = {price} : doit être > 0",
+                        perk.id
+                    ),
+                });
+            }
         }
+        lint_num_or_expr(
+            &perk.price,
+            &format!("perk « {} », champ price", perk.id),
+            &file,
+            true,
+            errors,
+        );
         if perk.modifiers.is_empty() {
             errors.push(LintError {
                 kind: LintErrorKind::OutOfRange,
@@ -418,17 +441,117 @@ fn lint_perks(registry: &Registry, errors: &mut Vec<LintError>) {
 
 /// T2.8 (dette T2.3) : `refill_price_ratio` dans `[0, 1]` : au-delà de 1, recharger une
 /// arme murale déjà possédée coûterait plus cher que l'acheter ; négatif, le prix
-/// (`EconomyConfig::refill_price`, arrondi en `u32`) n'aurait pas de sens.
+/// (`EconomyConfig::refill_price`, arrondi en `u32`) n'aurait pas de sens. F5 (chantier
+/// m0-v11) : la règle de plage s'applique aux littéraux, les expressions sont validées par
+/// `lint_num_or_expr`.
 fn lint_economy(registry: &Registry, errors: &mut Vec<LintError>) {
     for economy in registry.economy.values() {
-        let ratio = economy.refill_price_ratio.get();
-        if ratio < Fixed::ZERO || ratio > Fixed::from_num(1.0) {
+        let file = economy.file.display().to_string();
+        if let Some(ratio) = economy.refill_price_ratio.literal() {
+            if ratio < Fixed::ZERO || ratio > Fixed::from_num(1.0) {
+                errors.push(LintError {
+                    kind: LintErrorKind::OutOfRange,
+                    file: file.clone(),
+                    message: format!(
+                        "économie « {} » : champ refill_price_ratio = {ratio} : doit être dans [0, 1]",
+                        economy.id
+                    ),
+                });
+            }
+        }
+        // F5 : expressions (identifiants et évaluation) pour tous les champs numériques.
+        lint_num_or_expr(
+            &economy.kill_points,
+            &format!("économie « {} », champ kill_points", economy.id),
+            &file,
+            true,
+            errors,
+        );
+        lint_num_or_expr(
+            &economy.hit_points,
+            &format!("économie « {} », champ hit_points", economy.id),
+            &file,
+            true,
+            errors,
+        );
+        lint_num_or_expr(
+            &economy.repair_points,
+            &format!("économie « {} », champ repair_points", economy.id),
+            &file,
+            true,
+            errors,
+        );
+        lint_num_or_expr(
+            &economy.nuke_points,
+            &format!("économie « {} », champ nuke_points", economy.id),
+            &file,
+            true,
+            errors,
+        );
+        if let Some(cap) = &economy.repair_points_cap_per_wave {
+            lint_num_or_expr(
+                cap,
+                &format!(
+                    "économie « {} », champ repair_points_cap_per_wave",
+                    economy.id
+                ),
+                &file,
+                true,
+                errors,
+            );
+        }
+        lint_num_or_expr(
+            &economy.refill_price_ratio,
+            &format!("économie « {} », champ refill_price_ratio", economy.id),
+            &file,
+            false,
+            errors,
+        );
+    }
+}
+
+/// F5 (chantier m0-v11) : valide l'expression d'un champ `NumOrExpr` (`Expression`) —
+/// no-op pour un littéral, dont les règles de plage existantes s'occupent déjà.
+///
+/// Deux règles, en miroir du chargement strict de `game::balance` (où une erreur est un
+/// échec de chargement, jamais une valeur par défaut silencieuse) :
+/// 1. identifiants limités à `players`, la seule variable du contexte
+///    (`expr::players_context`, `docs/conventions.md` §18) ;
+/// 2. l'expression s'évalue pour 1 et 4 joueurs (division par zéro, résultat négatif sur
+///    un champ `u32`, etc.).
+fn lint_num_or_expr(
+    num: &NumOrExpr,
+    what: &str,
+    file: &str,
+    is_u32: bool,
+    errors: &mut Vec<LintError>,
+) {
+    let NumOrExpr::Expression(expr) = num else {
+        return;
+    };
+    for id in expr.expr().identifiers() {
+        if id != "players" {
+            errors.push(LintError {
+                kind: LintErrorKind::BrokenReference,
+                file: file.to_string(),
+                message: format!(
+                    "{what} : identifiant « {id} » inconnu — seule la variable « players » existe"
+                ),
+            });
+        }
+    }
+    for players in [1u32, 4] {
+        let result = if is_u32 {
+            num.resolve_u32(players).map(|_| ())
+        } else {
+            num.resolve(players).map(|_| ())
+        };
+        if let Err(e) = result {
             errors.push(LintError {
                 kind: LintErrorKind::OutOfRange,
-                file: economy.file.display().to_string(),
+                file: file.to_string(),
                 message: format!(
-                    "économie « {} » : champ refill_price_ratio = {ratio} : doit être dans [0, 1]",
-                    economy.id
+                    "{what} : expression « {expr} » : {e} (évaluée à {players} joueur(s) ; en jeu, ce serait un échec de chargement)"
                 ),
             });
         }

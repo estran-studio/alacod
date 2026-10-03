@@ -365,29 +365,31 @@ fn apply_wave_overrides(
     let Some(mut config) = wave_configs.get_mut(&handle) else {
         return;
     };
+    // F5 (chantier m0-v11) : ces champs sont des `content::expr::NumOrExpr` ; un override
+    // de scénario est toujours un entier littéral.
     if let Some(v) = o.max_wave {
-        config.max_wave = Some(v);
+        config.max_wave = Some(content::expr::NumOrExpr::Integer(v));
     }
     if let Some(v) = o.min_wave_delay_frames {
-        config.min_wave_delay_frames = v;
+        config.min_wave_delay_frames = content::expr::NumOrExpr::Integer(v);
     }
     if let Some(v) = o.base_enemies {
-        config.base_enemies = v;
+        config.base_enemies = content::expr::NumOrExpr::Integer(v);
     }
     if let Some(v) = o.enemies_per_wave {
-        config.enemies_per_wave = v;
+        config.enemies_per_wave = content::expr::NumOrExpr::Integer(v);
     }
     if let Some(v) = o.grace_period_frames {
-        config.grace_period_frames = v;
+        config.grace_period_frames = content::expr::NumOrExpr::Integer(v);
     }
     if let Some(v) = o.max_concurrent_enemies {
-        config.max_concurrent_enemies = v;
+        config.max_concurrent_enemies = content::expr::NumOrExpr::Integer(v);
     }
     if let Some(v) = o.spawn_batch_size {
-        config.spawn_batch_size = v;
+        config.spawn_batch_size = content::expr::NumOrExpr::Integer(v);
     }
     if let Some(v) = o.spawn_interval_frames {
-        config.spawn_interval_frames = v;
+        config.spawn_interval_frames = content::expr::NumOrExpr::Integer(v);
     }
     *applied = true;
 }

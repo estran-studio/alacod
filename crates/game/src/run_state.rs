@@ -62,9 +62,8 @@ use crate::{
     },
     core::{AppState, OnlineState},
     economy::{award_points_system, RepairPointsTracking},
-    global_asset::GlobalAsset,
     system_set::RollbackSystemSet,
-    waves::{WaveConfig, WaveState},
+    waves::WaveState,
 };
 
 /// Résout le [`RunMode`] d'une session à partir du manifeste (`entry.mode`, T2.4) et du
@@ -220,19 +219,15 @@ impl Plugin for RunStatePlugin {
 pub fn check_run_victory_system(
     frame: Res<FrameCount>,
     mut run: ResMut<Run>,
-    wave_config_assets: Res<Assets<WaveConfig>>,
-    global_assets: Res<GlobalAsset>,
+    balance: Res<crate::balance::ResolvedBalance>,
     wave_state: Res<WaveState>,
 ) {
     if !run.is_playing() {
         return;
     }
 
-    let max_wave = global_assets
-        .wave_config
-        .as_ref()
-        .and_then(|handle| wave_config_assets.get(handle))
-        .and_then(|config| config.max_wave);
+    // F5 (chantier m0-v11) : config résolue une fois au lancement (voir `crate::balance`).
+    let max_wave = balance.waves.max_wave;
 
     let ctx = RunContext {
         frame: frame.frame,

@@ -75,6 +75,9 @@ pub fn spawn_enemy(
 
     id_factory: &mut ResMut<GgrsNetIdFactory>,
     team: Team,
+    // Santé max résolue (F5, chantier m0-v11) : voir `create_character` (paramètre
+    // `health_max`).
+    health_max: fixed_math::Fixed,
 ) -> Entity {
     let ai_config = global_assets
         .character_configs
@@ -95,6 +98,7 @@ pub fn spawn_enemy(
         CollisionLayer(collision_settings.enemy_layer),
         id_factory,
         &enemy_stat_defaults(),
+        health_max,
     );
 
     let inventory = WeaponInventory::default();

@@ -27,7 +27,7 @@ use crate::{
     },
     collider::{Collider, CollisionLayer},
     core::AppState,
-    economy::{perk_modifier_source, EconomyConfig, PerkMachine, PerksConfig, PointsCredit},
+    economy::{perk_modifier_source, PerkMachine, PointsCredit},
     frame_events::{FrameEvents, FrameEventsAppExt},
     global_asset::GlobalAsset,
     rollback::RollbackTraceApp,
@@ -674,7 +674,7 @@ pub fn handle_weapon_pickup_interaction(
     mut commands: Commands,
     character_configs: Res<Assets<CharacterConfig>>,
     global_assets: Res<GlobalAsset>,
-    economy_configs: Res<Assets<EconomyConfig>>,
+    balance: Res<crate::balance::ResolvedBalance>,
     mut pickup_query: Query<(&Weapon, &mut WeaponPickup), With<Rollback>>,
     mut inventory_query: Query<
         (
@@ -737,14 +737,10 @@ pub fn handle_weapon_pickup_interaction(
                 .weapons
                 .iter()
                 .any(|(_, w)| w.config.name == picked_weapon.config.name);
-            let economy = global_assets
-                .economy_config
-                .as_ref()
-                .and_then(|h| economy_configs.get(h))
-                .cloned()
-                .unwrap_or_default();
+            // F5 (chantier m0-v11) : config résolue une fois au lancement (voir
+            // `crate::balance`).
             let cost = if already_owned {
-                economy.refill_price(price)
+                balance.economy.refill_price(price)
             } else {
                 price
             };
@@ -888,8 +884,7 @@ pub fn handle_weapon_pickup_interaction(
 pub fn handle_perk_purchase_interaction(
     frame: Res<FrameCount>,
     events: Res<FrameEvents<InteractionEvent>>,
-    global_assets: Res<GlobalAsset>,
-    perks_configs: Res<Assets<PerksConfig>>,
+    balance: Res<crate::balance::ResolvedBalance>,
     machine_query: Query<&PerkMachine, With<Rollback>>,
     mut player_query: Query<
         (
@@ -924,12 +919,9 @@ pub fn handle_perk_purchase_interaction(
             );
             continue;
         };
-        let Some(def) = global_assets
-            .perks_config
-            .as_ref()
-            .and_then(|h| perks_configs.get(h))
-            .and_then(|config| config.0.get(&machine.perk_id))
-        else {
+        // F5 (chantier m0-v11) : perk résolu une fois au lancement (voir
+        // `crate::balance`).
+        let Some(def) = balance.perks.get(&machine.perk_id) else {
             warn!(
                 "achat de perk : id inconnu « {} » (voir `alacod lint`)",
                 machine.perk_id
