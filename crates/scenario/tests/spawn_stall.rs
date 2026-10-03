@@ -43,7 +43,11 @@ fn empty_distance_range_spawns_after_deadline_without_desync() {
         |app| {
             app.add_systems(
                 bevy_ggrs::GgrsSchedule,
-                force_empty_spawn_range.before(game::waves::systems::wave_state_machine_system),
+                // Écrit les mêmes constantes de vague à chaque frame : l'ordre face aux
+                // interactions (qui ne lisent que prix et perks) est sans effet
+                force_empty_spawn_range
+                    .before(game::waves::systems::wave_state_machine_system)
+                    .ambiguous_with_all(),
             );
         },
         Some(StopEarly::default()),
