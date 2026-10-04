@@ -582,3 +582,107 @@ pub enum TargetType {
     Player,
     Obstacle,
 }
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    fn chase(profile: &str) -> Behavior {
+        Behavior::Chase {
+            profile: profile.into(),
+        }
+    }
+
+    fn claws() -> Behavior {
+        Behavior::Melee(DEFAULT_MELEE_WEAPON.into())
+    }
+
+    /// Liste par défaut dérivée de chaque préréglage (T1.4) : griffe si `attack_range > 0`,
+    /// poursuite au profil du `movement_type`.
+    #[test]
+    fn liste_par_defaut_des_prereglages() {
+        assert_eq!(
+            default_behaviors(&EnemyAiConfig::zombie()),
+            vec![claws(), chase("Ground")]
+        );
+        assert_eq!(
+            default_behaviors(&EnemyAiConfig::flying()),
+            vec![claws(), chase("Flying")]
+        );
+        assert_eq!(
+            default_behaviors(&EnemyAiConfig::ghost()),
+            vec![claws(), chase("Phasing")]
+        );
+        assert_eq!(
+            default_behaviors(&EnemyAiConfig::tank()),
+            vec![claws(), chase("Ground")]
+        );
+    }
+
+    /// `Flee` en tête si `flee_threshold`, `Shoot` si `ranged`, rien sans portée de mêlée,
+    /// pas de `Chase` si immobile.
+    #[test]
+    fn liste_par_defaut_selon_les_champs() {
+        let config = EnemyAiConfig {
+            flee_threshold: Some(fixed_math::new(0.5)),
+            ranged: Some(RangedAttack {
+                weapon: "gun".into(),
+                pattern: "ring".into(),
+                range: fixed_math::new(200.0),
+                cooldown_frames: 60,
+            }),
+            attack_range: fixed_math::FIXED_ZERO,
+            stationary: true,
+            ..EnemyAiConfig::default()
+        };
+        assert_eq!(
+            default_behaviors(&config),
+            vec![
+                Behavior::Flee,
+                Behavior::Shoot {
+                    weapon: "gun".into(),
+                    pattern: "ring".into(),
+                    range: fixed_math::new(200.0),
+                    cooldown_frames: 60,
+                },
+            ]
+        );
+    }
+
+    /// `Shoot` du RON se compile vers `ranged` (hash de T1.2 inchangé), `Sight` vers
+    /// `aggro_range` ; l'arme de mêlée vient de la règle `Melee`.
+    #[test]
+    fn compilation_vers_l_etat_existant() {
+        let ron: EnemyAiConfigRon = ron::from_str(
+            r#"(
+                movement_type: None, aggro_range: None, attack_range: Some("0.0"),
+                attack_cooldown_frames: None, can_break: None, attack_through: None,
+                ignores: None, path_through_breakables: None, flee_threshold: None,
+                attack_damage: None,
+                behaviors: Some([
+                    Shoot(weapon: "gun", pattern: "ring", range: "260.0", cooldown_frames: 90),
+                    Melee("claws"),
+                ]),
+                perception: Some((senses: [Sight("150.0"), Hearing("300.0")])),
+                targeting: Some(Nearest(ignore: ["ghost"])),
+            )"#,
+        )
+        .unwrap();
+        let config = EnemyAiConfig::from(&ron);
+        assert_eq!(
+            config.ranged,
+            Some(RangedAttack {
+                weapon: "gun".into(),
+                pattern: "ring".into(),
+                range: fixed_math::new(260.0),
+                cooldown_frames: 90,
+            })
+        );
+        assert_eq!(config.aggro_range, fixed_math::new(150.0));
+        let behaviors = EnemyBehaviors::from_config(Some(&ron), &config);
+        assert_eq!(behaviors.melee_weapon(), Some("claws"));
+        assert_eq!(behaviors.hearing, Some(fixed_math::new(300.0)));
+        assert_eq!(behaviors.ignore, vec![sim_core::tag::Tag::new("ghost")]);
+        assert!(!behaviors.needs_runtime());
+    }
+}

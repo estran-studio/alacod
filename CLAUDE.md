@@ -299,8 +299,10 @@ Avant/après un refactoring de la simulation, comparer les traces : elles doiven
     `EntityHits`, `EntityCount`, `Currency`, `Stat`, `PlayerDowned`, `RunState`,
     `RunSummary`, `Event`, `BulletCount` et `HitsAtLeast` (T1.1, projectiles composables,
     `docs/conventions.md` §16), `FloorIndex` (T1.8, mode `Floors`, voir `docs/conventions.md`
-    §17).
-  - Continues (vérifiées à chaque frame) : `NoDamageBetween` (santé du joueur ne diminue pas dans l'intervalle).
+    §17), `EnemyState` et `EnemyDistance` (T1.4, behaviors composables, `docs/conventions.md`
+    §22).
+  - Continues (vérifiées à chaque frame) : `NoDamageBetween` (santé du joueur ne diminue pas dans l'intervalle),
+    `EnemyContactBefore` et `EnemyNeverInWall` (T1.4, diagnostics de navigation, §22).
   - `weapon_overrides` modifie la taille et le nombre de chargeurs d'une arme pour un scénario ;
     `wave_overrides` la config de vagues ; `powerups` (T2.5) place un power-up à une position et
     une frame exactes (coordonnées en chaînes `Fixed`) ; `powerup_drop_chance_override` (T2.5) force la chance de drop de la table
