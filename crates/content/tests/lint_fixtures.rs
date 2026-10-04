@@ -139,7 +139,10 @@ fn m1_audit_fixtures() {
         (
             "behavior_shoot_unknown",
             LintErrorKind::BrokenReference,
-            &["arme inconnue « lance_flammes »", "pattern inconnu « spirale »"],
+            &[
+                "arme inconnue « lance_flammes »",
+                "pattern inconnu « spirale »",
+            ],
         ),
         (
             "cave_unknown_character",

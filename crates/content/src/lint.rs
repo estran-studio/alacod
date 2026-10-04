@@ -2102,7 +2102,11 @@ fn lint_map_characters(registry: &Registry, errors: &mut Vec<LintError>) {
 /// T1.12 (audit) : `entry.progression` (T1.10) désigne une progression chargée. Le champ
 /// `progression` d'un scénario n'est pas du contenu : le runner l'ignore avec un avertissement
 /// s'il est inconnu (§27).
-fn lint_entry_progression(registry: &Registry, manifest: &GameManifest, errors: &mut Vec<LintError>) {
+fn lint_entry_progression(
+    registry: &Registry,
+    manifest: &GameManifest,
+    errors: &mut Vec<LintError>,
+) {
     let Some(id) = &manifest.entry.progression else {
         return;
     };
@@ -2113,7 +2117,9 @@ fn lint_entry_progression(registry: &Registry, manifest: &GameManifest, errors: 
         errors.push(LintError {
             kind: LintErrorKind::BrokenReference,
             file: crate::manifest::MANIFEST_FILE_NAME.to_string(),
-            message: format!("entry.progression : progression inconnue « {id} » (kind Progression)"),
+            message: format!(
+                "entry.progression : progression inconnue « {id} » (kind Progression)"
+            ),
         });
     }
 }

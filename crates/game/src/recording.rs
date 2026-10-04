@@ -148,7 +148,12 @@ impl InputRecorder {
                 bot: None,
                 // Réglages du joueur dans le scénario d'origine (arme, tags, immunités,
                 // modificateurs, solde, mutations) ; aucun pour une partie jouée.
-                ..self.settings.players.get(handle).cloned().unwrap_or_default()
+                ..self
+                    .settings
+                    .players
+                    .get(handle)
+                    .cloned()
+                    .unwrap_or_default()
             })
             .collect();
 

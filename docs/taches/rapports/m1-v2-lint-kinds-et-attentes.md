@@ -86,7 +86,25 @@ inputs ni bot). Une seule liste d'attentes dans `CLAUDE.md`, triée par tâche a
 
 ## Vérifié
 
-(à compléter après compilation)
+Après merge d'`origin/main` (dbc3de8), `CARGO_BUILD_JOBS=2`, profil `headless` :
+
+- `cargo test -p content` : vert (dont `m1_audit_fixtures` et le tableau « une seule sorte » avec
+  les 11 nouvelles fixtures).
+- `cargo test -p game recording` : vert (round-trip `RecordedSettings` avec progression et
+  réglages des joueurs).
+- `cargo test -p scenario --test expectations` : 44 passés, dont `clock_expectation_pass_and_fail`
+  et `m1_expectations_survive_rerecording` (12 scénarios réenregistrés : aucune attente en échec,
+  trace identique).
+- `make test_scenarios` : vert, **aucune trace déplacée**, aucun bless.
+- Tests des crates (scenario, run, combat, game, content, map_ldtk, map, sim_core, stats, bots,
+  effects, behaviors, world, utils) : verts.
+- `make lint` (testbed, zombies, throne) : vert — la nouvelle règle CharacterSpawn ne casse
+  aucune carte existante.
+- `cargo fmt --check` (après `cargo fmt`), `check-forbidden`, `check-rollback-registration`,
+  exemples : verts.
+- `make gen` testbed et zombies : vert, aucun fichier généré modifié. `make gen GAME=throne` :
+  panique connue sur `arsenal` (arène du testbed, déjà notée dans les rapports throne et D39),
+  sans lien avec cette tâche.
 
 ## Non fait / dettes
 
