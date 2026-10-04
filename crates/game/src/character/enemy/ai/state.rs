@@ -12,6 +12,7 @@ use utils::net_id::GgrsNetId;
 
 use super::navigation::NavProfile;
 use super::obstacle::ObstacleType;
+use behaviors::{Behavior, Perception, PerceptionConfig, Targeting};
 
 /// Generic monster state - replaces ZombieState
 #[derive(
@@ -28,15 +29,10 @@ pub enum MonsterState {
         target: AttackTarget,
         last_attack_frame: u32,
     },
-    /// Stunned or knocked back (recovering)
-    Stunned { recover_at_frame: u32 },
-    /// Special state for breaking through obstacles
-    Breaching {
-        obstacle: GgrsNetId,
-        start_frame: u32,
-    },
-    /// Fleeing from target (low health behavior)
-    Fleeing,
+    // T1.4 : `Stunned`, `Breaching`, `Fleeing` retirés — jamais posés (code mort). Aucun
+    // effet sur les traces : le `derive(Hash)` hache l'index de variante, et ni `Dead` (seule
+    // variante dont l'index change) ni les variantes retirées ne sont jamais posés. La fuite
+    // est le behavior `Flee`, l'étourdissement un statut (T1.3).
     /// Dead but not yet despawned
     Dead,
 }
@@ -124,15 +120,6 @@ pub struct RangedAttack {
     pub weapon: String,
     pub pattern: String,
     pub range: fixed_math::Fixed,
-    pub cooldown_frames: u32,
-}
-
-/// Forme RON de [`RangedAttack`] (`range` en chaîne, conventions §2).
-#[derive(Clone, Debug, Serialize, Deserialize)]
-pub struct RangedAttackRon {
-    pub weapon: String,
-    pub pattern: String,
-    pub range: String,
     pub cooldown_frames: u32,
 }
 
@@ -330,9 +317,17 @@ pub struct EnemyAiConfigRon {
     /// existant).
     #[serde(default)]
     pub stationary: Option<bool>,
-    /// T1.2 : tir à distance, voir [`RangedAttack`]. Absent = corps à corps seulement.
+    /// T1.4 : règles de comportement, par priorité (ordre RON, `docs/conventions.md` §22).
+    /// Absent : liste par défaut dérivée de la config ([`default_behaviors`]). Se compile
+    /// vers l'état existant : `Shoot` remplit [`EnemyAiConfig::ranged`].
     #[serde(default)]
-    pub ranged: Option<RangedAttackRon>,
+    pub behaviors: Option<Vec<Behavior>>,
+    /// T1.4 : `Sight(r)` remplace `aggro_range` ; `Hearing(r)`, voir [`EnemyBehaviors`].
+    #[serde(default)]
+    pub perception: Option<PerceptionConfig>,
+    /// T1.4 : repli `Nearest { ignore: [] }` (l'algorithme actuel).
+    #[serde(default)]
+    pub targeting: Option<Targeting>,
 }
 
 impl From<&EnemyAiConfigRon> for EnemyAiConfig {
@@ -394,25 +389,178 @@ impl From<&EnemyAiConfigRon> for EnemyAiConfig {
         if let Some(stationary) = ron.stationary {
             config.stationary = stationary;
         }
-        if let Some(ref ranged) = ron.ranged {
-            match ranged.range.parse::<f32>() {
-                Ok(val) => {
-                    config.ranged = Some(RangedAttack {
-                        weapon: ranged.weapon.clone(),
-                        pattern: ranged.pattern.clone(),
-                        range: fixed_math::new(val),
-                        cooldown_frames: ranged.cooldown_frames,
-                    })
+        // T1.4 : `Shoot` se compile vers `ranged` (la première règle `Shoot`, une seule en v1),
+        // `Sight` vers `aggro_range` : l'état et son hash restent ceux de T1.2.
+        if let Some(behaviors) = &ron.behaviors {
+            config.ranged = behaviors.iter().find_map(|behavior| match behavior {
+                Behavior::Shoot {
+                    weapon,
+                    pattern,
+                    range,
+                    cooldown_frames,
+                } => Some(RangedAttack {
+                    weapon: weapon.clone(),
+                    pattern: pattern.clone(),
+                    range: *range,
+                    cooldown_frames: *cooldown_frames,
+                }),
+                _ => None,
+            });
+        }
+        if let Some(perception) = &ron.perception {
+            for sense in &perception.senses {
+                if let Perception::Sight(radius) = sense {
+                    config.aggro_range = *radius;
                 }
-                Err(_) => warn!(
-                    "Failed to parse ranged.range '{}' from RON config.",
-                    ranged.range
-                ),
             }
         }
 
         config
     }
+}
+
+/// T1.4 : liste par défaut d'un personnage sans `behaviors:` (`docs/conventions.md` §22),
+/// dérivée de sa config : `[Flee]` si `flee_threshold`, puis `Shoot` si `ranged`, puis
+/// `Melee("zombie_claws")` si `attack_range > 0`, puis `Chase` (profil = `movement_type`)
+/// sauf si `stationary`. Reproduit exactement le comportement d'avant T1.4.
+pub fn default_behaviors(config: &EnemyAiConfig) -> Vec<Behavior> {
+    let mut rules = Vec::new();
+    if config.flee_threshold.is_some() {
+        rules.push(Behavior::Flee);
+    }
+    if let Some(ranged) = &config.ranged {
+        rules.push(Behavior::Shoot {
+            weapon: ranged.weapon.clone(),
+            pattern: ranged.pattern.clone(),
+            range: ranged.range,
+            cooldown_frames: ranged.cooldown_frames,
+        });
+    }
+    if config.attack_range > fixed_math::FIXED_ZERO {
+        rules.push(Behavior::Melee(DEFAULT_MELEE_WEAPON.to_string()));
+    }
+    if !config.stationary {
+        rules.push(Behavior::Chase {
+            profile: movement_profile_name(config.movement_type).to_string(),
+        });
+    }
+    rules
+}
+
+/// Arme de mêlée de la liste par défaut (avant T1.4 : codée en dur dans `spawn_enemy`).
+pub const DEFAULT_MELEE_WEAPON: &str = "zombie_claws";
+
+/// Nom du profil de navigation d'un `movement_type` (profil de `Chase`).
+pub fn movement_profile_name(movement: MovementType) -> &'static str {
+    match movement {
+        MovementType::Ground => "Ground",
+        MovementType::Flying => "Flying",
+        MovementType::Phasing => "Phasing",
+    }
+}
+
+/// Profils de `Chase` connus (lint, `NavProfile`).
+pub const CHASE_PROFILES: &[&str] = &["Ground", "Flying", "Phasing", "GroundBreaker"];
+
+/// T1.4 : règles d'un ennemi, résolues au spawn (liste du RON, sinon [`default_behaviors`]).
+/// Composant **statique, hors rollback** (comme `Team`) : jamais modifié après le spawn,
+/// absent du checksum — les ennemis existants ne portent aucun nouvel état rollback.
+#[derive(Component, Clone, Debug, Default)]
+pub struct EnemyBehaviors {
+    pub rules: Vec<Behavior>,
+    /// `Perception::Hearing(r)` : un tir de joueur né à moins de `r` rend le tireur connu.
+    pub hearing: Option<fixed_math::Fixed>,
+    /// `Targeting::Nearest { ignore }` : joueurs portant un de ces tags ignorés.
+    pub ignore: Vec<sim_core::tag::Tag>,
+}
+
+impl EnemyBehaviors {
+    pub fn from_config(ron: Option<&EnemyAiConfigRon>, config: &EnemyAiConfig) -> Self {
+        let rules = ron
+            .and_then(|ron| ron.behaviors.clone())
+            .unwrap_or_else(|| default_behaviors(config));
+        let hearing = ron
+            .and_then(|ron| ron.perception.as_ref())
+            .and_then(|perception| {
+                perception.senses.iter().find_map(|sense| match sense {
+                    Perception::Hearing(radius) => Some(*radius),
+                    _ => None,
+                })
+            });
+        let ignore = ron
+            .and_then(|ron| ron.targeting.as_ref())
+            .map(|Targeting::Nearest { ignore }| ignore.clone())
+            .unwrap_or_default();
+        Self {
+            rules,
+            hearing,
+            ignore,
+        }
+    }
+
+    pub fn has(&self, name: &str) -> bool {
+        self.rules.iter().any(|rule| rule.name() == name)
+    }
+
+    /// Arme de la première règle `Melee`.
+    pub fn melee_weapon(&self) -> Option<&str> {
+        self.rules.iter().find_map(|rule| match rule {
+            Behavior::Melee(weapon) => Some(weapon.as_str()),
+            _ => None,
+        })
+    }
+
+    /// Un behavior nouveau (T1.4) à état est listé : l'ennemi porte [`BehaviorRuntime`].
+    pub fn needs_runtime(&self) -> bool {
+        self.rules.iter().any(|rule| {
+            matches!(
+                rule,
+                Behavior::KeepDistance { .. }
+                    | Behavior::Strafe
+                    | Behavior::Charge { .. }
+                    | Behavior::Flee
+                    | Behavior::Wander
+            )
+        })
+    }
+}
+
+/// Phase d'une charge (`Behavior::Charge`).
+#[derive(Clone, Debug, Default, Hash, PartialEq, Eq)]
+pub enum ChargePhase {
+    #[default]
+    Idle,
+    /// Immobile jusqu'à `until` (exclu), puis ruée vers `target` (position figée).
+    Telegraph {
+        until: u32,
+        target: (fixed_math::Fixed, fixed_math::Fixed),
+    },
+    /// Ruée vers `target` jusqu'au contact ou `until`.
+    Rush {
+        until: u32,
+        target: (fixed_math::Fixed, fixed_math::Fixed),
+    },
+}
+
+/// T1.4 : état rollback des behaviors nouveaux (`KeepDistance`, `Strafe`, `Charge`, `Flee`,
+/// `Wander`), posé **seulement** sur les ennemis qui en listent un
+/// ([`EnemyBehaviors::needs_runtime`]) ; checksum neutre (aucun ennemi existant n'en porte).
+#[derive(Component, Clone, Debug, Default, Hash, PartialEq, Eq)]
+pub struct BehaviorRuntime {
+    /// Règle retenue (index dans [`EnemyBehaviors::rules`]).
+    pub selected: Option<u32>,
+    /// Frame d'entrée dans la règle retenue.
+    pub since_frame: u32,
+    pub charge: ChargePhase,
+    /// Première frame où une nouvelle charge peut partir.
+    pub charge_ready_at: u32,
+    /// Frame du contact d'une ruée (dégât émis la frame suivante, `CollisionDamage`).
+    pub charge_hit: Option<(u32, GgrsNetId)>,
+    /// Direction d'errance (unitaire) et prochaine frame de tirage (flux `behaviors`).
+    pub wander_dir: (fixed_math::Fixed, fixed_math::Fixed),
+    pub wander_next: u32,
+    /// Tireur entendu (`Perception::Hearing`) et frame d'oubli.
+    pub heard: Option<(GgrsNetId, u32)>,
 }
 
 /// Current target information for an enemy
@@ -433,4 +581,108 @@ pub enum TargetType {
     None,
     Player,
     Obstacle,
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    fn chase(profile: &str) -> Behavior {
+        Behavior::Chase {
+            profile: profile.into(),
+        }
+    }
+
+    fn claws() -> Behavior {
+        Behavior::Melee(DEFAULT_MELEE_WEAPON.into())
+    }
+
+    /// Liste par défaut dérivée de chaque préréglage (T1.4) : griffe si `attack_range > 0`,
+    /// poursuite au profil du `movement_type`.
+    #[test]
+    fn liste_par_defaut_des_prereglages() {
+        assert_eq!(
+            default_behaviors(&EnemyAiConfig::zombie()),
+            vec![claws(), chase("Ground")]
+        );
+        assert_eq!(
+            default_behaviors(&EnemyAiConfig::flying()),
+            vec![claws(), chase("Flying")]
+        );
+        assert_eq!(
+            default_behaviors(&EnemyAiConfig::ghost()),
+            vec![claws(), chase("Phasing")]
+        );
+        assert_eq!(
+            default_behaviors(&EnemyAiConfig::tank()),
+            vec![claws(), chase("Ground")]
+        );
+    }
+
+    /// `Flee` en tête si `flee_threshold`, `Shoot` si `ranged`, rien sans portée de mêlée,
+    /// pas de `Chase` si immobile.
+    #[test]
+    fn liste_par_defaut_selon_les_champs() {
+        let config = EnemyAiConfig {
+            flee_threshold: Some(fixed_math::new(0.5)),
+            ranged: Some(RangedAttack {
+                weapon: "gun".into(),
+                pattern: "ring".into(),
+                range: fixed_math::new(200.0),
+                cooldown_frames: 60,
+            }),
+            attack_range: fixed_math::FIXED_ZERO,
+            stationary: true,
+            ..EnemyAiConfig::default()
+        };
+        assert_eq!(
+            default_behaviors(&config),
+            vec![
+                Behavior::Flee,
+                Behavior::Shoot {
+                    weapon: "gun".into(),
+                    pattern: "ring".into(),
+                    range: fixed_math::new(200.0),
+                    cooldown_frames: 60,
+                },
+            ]
+        );
+    }
+
+    /// `Shoot` du RON se compile vers `ranged` (hash de T1.2 inchangé), `Sight` vers
+    /// `aggro_range` ; l'arme de mêlée vient de la règle `Melee`.
+    #[test]
+    fn compilation_vers_l_etat_existant() {
+        let ron: EnemyAiConfigRon = ron::from_str(
+            r#"(
+                movement_type: None, aggro_range: None, attack_range: Some("0.0"),
+                attack_cooldown_frames: None, can_break: None, attack_through: None,
+                ignores: None, path_through_breakables: None, flee_threshold: None,
+                attack_damage: None,
+                behaviors: Some([
+                    Shoot(weapon: "gun", pattern: "ring", range: "260.0", cooldown_frames: 90),
+                    Melee("claws"),
+                ]),
+                perception: Some((senses: [Sight("150.0"), Hearing("300.0")])),
+                targeting: Some(Nearest(ignore: ["ghost"])),
+            )"#,
+        )
+        .unwrap();
+        let config = EnemyAiConfig::from(&ron);
+        assert_eq!(
+            config.ranged,
+            Some(RangedAttack {
+                weapon: "gun".into(),
+                pattern: "ring".into(),
+                range: fixed_math::new(260.0),
+                cooldown_frames: 90,
+            })
+        );
+        assert_eq!(config.aggro_range, fixed_math::new(150.0));
+        let behaviors = EnemyBehaviors::from_config(Some(&ron), &config);
+        assert_eq!(behaviors.melee_weapon(), Some("claws"));
+        assert_eq!(behaviors.hearing, Some(fixed_math::new(300.0)));
+        assert_eq!(behaviors.ignore, vec![sim_core::tag::Tag::new("ghost")]);
+        assert!(!behaviors.needs_runtime());
+    }
 }

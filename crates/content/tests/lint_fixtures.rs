@@ -548,3 +548,39 @@ fn ranged_cooldown_zero_fixture_reports_cooldown() {
     let (_, _, errors) = load_and_lint(&fixture_dir("ranged_cooldown_zero")).unwrap();
     assert_has_error(&errors, LintErrorKind::OutOfRange, "cooldown_frames = 0");
 }
+
+// T1.4 : behaviors composables (`ai.behaviors`, `ai.targeting`).
+
+#[test]
+fn behavior_melee_unknown_fixture_reports_unknown_melee_weapon() {
+    let (_, _, errors) = load_and_lint(&fixture_dir("behavior_melee_unknown")).unwrap();
+    assert_has_error(
+        &errors,
+        LintErrorKind::BrokenReference,
+        "« griffes_absentes »",
+    );
+}
+
+#[test]
+fn behavior_keep_distance_inverted_fixture_reports_empty_band() {
+    let (_, _, errors) = load_and_lint(&fixture_dir("behavior_keep_distance_inverted")).unwrap();
+    assert_has_error(&errors, LintErrorKind::OutOfRange, "KeepDistance");
+}
+
+#[test]
+fn behavior_charge_zero_fixture_reports_zero_telegraph() {
+    let (_, _, errors) = load_and_lint(&fixture_dir("behavior_charge_zero")).unwrap();
+    assert_has_error(&errors, LintErrorKind::OutOfRange, "telegraph = 0");
+}
+
+#[test]
+fn behavior_unknown_profile_fixture_reports_chase_profile() {
+    let (_, _, errors) = load_and_lint(&fixture_dir("behavior_unknown_profile")).unwrap();
+    assert_has_error(&errors, LintErrorKind::BrokenReference, "« Swimming »");
+}
+
+#[test]
+fn targeting_unknown_tag_fixture_reports_ignored_tag() {
+    let (_, _, errors) = load_and_lint(&fixture_dir("targeting_unknown_tag")).unwrap();
+    assert_has_error(&errors, LintErrorKind::BrokenReference, "« fantome »");
+}

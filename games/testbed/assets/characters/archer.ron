@@ -2,7 +2,7 @@
 // comme `follower`) puis, à moins de 240 unités, s'arrête et joue la volée `volee`
 // (`patterns/volee.ron` : télégraphe, 3 flèches visées, attente, 4 flèches dispersées) avec
 // la table `projectiles` de `fireball_gun` ; refroidissement de 90 frames ensuite
-// (`ai.ranged`, conventions §20). Pas de corps à corps. Scénario `enemy_telegraph`.
+// (règle `Shoot`, conventions §20 et §22). Pas de corps à corps. Scénario `enemy_telegraph`.
 (
     movement: (
         acceleration: "120.0",
@@ -50,11 +50,10 @@
         flee_threshold: None,
         attack_damage: None,
         stationary: None,
-        ranged: Some((
-            weapon: "fireball_gun",
-            pattern: "volee",
-            range: "240.0",
-            cooldown_frames: 90,
-        )),
+        // T1.4 : règles par priorité (conventions §22) ; `Shoot` remplace `ai.ranged` de T1.2.
+        behaviors: Some([
+            Shoot(weapon: "fireball_gun", pattern: "volee", range: "240.0", cooldown_frames: 90),
+            Chase(profile: "Ground"),
+        ]),
     )),
 )

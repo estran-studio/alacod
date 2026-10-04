@@ -995,7 +995,7 @@ d'un `on_expire`, tir d'émetteur), `crates/game/src/character/enemy/ai/behavior
 **Patterns nommés** : kind de contenu `Pattern` (`(path: "patterns", kind: "Pattern")` dans
 `game.ron`), un fichier `patterns/<nom>.ron` par pattern, id = nom de fichier. Contenu : un
 `Pattern` RON, ex. `Ring(count: 8, speed: "90.0", projectile: "fireball", every: 60)`.
-Référencés par `ai.ranged.pattern` d'un personnage et par `Named("nom")` dans un pattern
+Référencés par la règle `Shoot(pattern: ...)` d'un personnage (§22) et par `Named("nom")` dans un pattern
 (`on_expire` compris). La bibliothèque (`combat::projectile::PatternLibrary`) est une ressource
 **hors rollback**, reconstruite à `OnEnter(GameLoading)` depuis le registre ; un nom inconnu
 est une erreur de lint, jamais une panique en jeu (en jeu : avertissement, rien n'est tiré).
@@ -1037,9 +1037,9 @@ avance les émetteurs par `GgrsNetId` ; le flux `"patterns"` n'est créé et con
 graine de run et de l'ordre des émetteurs, **pas du nombre de joueurs** (test unitaire
 `meme_graine_meme_tir_a_un_et_quatre_joueurs`, scénarios `enemy_ring`/`enemy_ring_quad`).
 
-**Tir ennemi** : champ optionnel de `ai` (`EnemyAiConfigRon`) :
+**Tir ennemi** : règle `Shoot` de `ai.behaviors` (T1.4, §22 ; remplace le champ `ai.ranged` de T1.2) :
 ```ron
-ranged: Some((weapon: "fireball_gun", pattern: "ring_8", range: "260.0", cooldown_frames: 90)),
+behaviors: Some([Shoot(weapon: "fireball_gun", pattern: "ring_8", range: "260.0", cooldown_frames: 90)]),
 ```
 `spawn_enemy` équipe `weapon` (active, dans `WeaponInventory` ; la griffe de corps à corps
 reste posée selon `attack_range`) et pose `RangedAttackState`. `enemy_attack_system` joue le
@@ -1067,7 +1067,7 @@ neutre, jamais par `rollback_and_trace` en comptant sur la parité.
 
 **Lint** : `Scatter`/`Telegraph`/`Wait` refusés en `on_expire` (même au travers d'un `Named`) ;
 pattern nommé inconnu (`BrokenReference`) ; cycle de `Named` ; `count = 0`, `spread`/`speed`
-négatifs dans un pattern nommé ; `ai.ranged` : arme inconnue, pattern inconnu, projectile du
+négatifs dans un pattern nommé ; règle `Shoot` : arme inconnue, pattern inconnu, projectile du
 pattern absent de la table de l'arme (`BrokenReference`), `cooldown_frames = 0`,
 `range <= 0`. Fixtures `pattern_unknown_name`, `pattern_scatter_on_expire`,
 `ranged_projectile_missing`, `ranged_cooldown_zero`.
@@ -1192,6 +1192,93 @@ coordonnées de grille ci-dessus ; échoue hors de la grille (donc toujours hors
 **Limites.** Pas de surfaces de caverne (v2 de §26), pas de bots sur caverne (T1.14). Dans
 le testbed (pas de vagues), une caverne sans `characters` n'a pas d'ennemi : son portail
 `Floors` s'ouvre aussitôt.
+## 22. Behaviors composables (T1.4, chantier D1)
+
+Code : `crates/behaviors` (vocabulaire `Behavior`, `Perception`, `Targeting` ; sélection pure
+`select`/`applicable`, faits `SelectionContext`), `crates/game/src/character/enemy/ai/rules.rs`
+(`behavior_select_system`, `behavior_motion`, `charge_damage_translate_system`,
+`current_rule`), `state.rs` (`EnemyBehaviors`, `BehaviorRuntime`, `default_behaviors`).
+
+**Contenu** : champs optionnels de `ai` (`EnemyAiConfigRon`) :
+```ron
+ai: Some((
+    // ... champs habituels (aggro_range, attack_range, flee_threshold...)
+    behaviors: Some([
+        Shoot(weapon: "fireball_gun", pattern: "volee", range: "240.0", cooldown_frames: 90),
+        KeepDistance(min: "120.0", max: "200.0"),
+        Chase(profile: "Ground"),
+    ]),
+    perception: Some((senses: [Sight("80.0"), Hearing("300.0")])),
+    targeting: Some(Nearest(ignore: ["ghost"])),
+)),
+```
+
+**Sélection par priorité** : la liste est ordonnée par priorité (ordre RON) ; à chaque frame,
+dans `RollbackSystemSet::EnemyAI`, la **première règle applicable** gagne (pas de `when:` en
+v1). Applicabilité implicite :
+
+| Règle | Applicable quand | Exécution |
+|---|---|---|
+| `Melee(arme)` | une cible (joueur, ou obstacle cassable sur la route si `can_break`) est à moins de `attack_range` | l'attaque de mêlée d'origine ; l'arme (`melee_weapons.ron`) est équipée au spawn — `zombie_claws` n'est plus codé en dur |
+| `Shoot { weapon, pattern, range, cooldown_frames }` | séquence de tir en cours, ou cible vivante et debout à moins de `range`, refroidissement écoulé | `ranged_attack` (§20) ; se compile vers `EnemyAiConfig::ranged` |
+| `Charge { telegraph }` | charge en cours, ou cible entre `attack_range` et 3 × `attack_range`, refroidissement écoulé | `telegraph` frames immobile, ruée en ligne droite vers la position **figée** de la cible à 3 × la vitesse jusqu'au contact (`attack_range`) ou 60 frames, murs respectés ; dégât de contact `attack_damage` (émis la frame suivante, `CollisionDamage`, tags `melee`+`charge`) ; refroidissement `attack_cooldown_frames` |
+| `KeepDistance { min, max }` | cible à moins de `min`, ou déjà retenue et cible à moins de `max` (hystérésis) | recule : case voisine du champ de flux de **coût le plus élevé** (départage par `GridPos`), repli à l'opposé de la cible |
+| `Flee` | santé ≤ `flee_threshold` × max | recule comme `KeepDistance` |
+| `Strafe` | cible à moins de `Sight` | perpendiculaire à la cible, sens alterné toutes les 45 frames depuis l'entrée dans la règle |
+| `Chase { profile }` | cible connue | `move_enemies` d'origine (v1 : seul le champ `GroundBreaker` est construit, tous les profils l'utilisent) |
+| `Wander` | toujours (règle de fond) | direction tirée dans le flux RNG `"behaviors"` toutes les 60 frames (consommé seulement par `Wander`, ordre `GgrsNetId`), demi-vitesse |
+
+Une règle absente n'existe pas pour ce personnage. Les déplacements imposés (`KeepDistance`,
+`Flee`, `Strafe`, `Wander`, `Charge`) n'ont pas le ralentissement près du joueur de `Chase` et
+passent par la même résolution de collision (glissement sur les murs).
+
+**Liste par défaut** (personnage sans `behaviors:`, ex. testbed T2.9) : `[Flee]` si
+`flee_threshold`, puis `Shoot` si `ranged`, puis `Melee("zombie_claws")` si
+`attack_range > 0`, puis `Chase(profile: <movement_type>)` sauf si `stationary` — exactement le
+comportement d'avant T1.4. Les zombies de `games/zombies` déclarent leur `ai` en entier
+(valeurs du préréglage `zombie()`) et `behaviors: [Melee("zombie_claws"),
+Chase(profile: "GroundBreaker")]` : « les zombies deviennent un fichier », traces identiques.
+
+**Perception et ciblage** : `Sight(r)` = rayon seul, sans ligne de vue ni lumière ; se compile
+vers `aggro_range` (repli). `Hearing(r)` : un tir de joueur né à moins de `r` rend le tireur
+connu 120 frames, même hors de vue. `needs_light` ignoré (E8). `Targeting::Nearest { ignore }`
+(repli `ignore: []`) : l'algorithme d'origine (plus proche par le champ de flux, repli en ligne
+droite, joueurs à terre ignorés) ; un joueur portant un tag d'`ignore` n'est jamais ciblé.
+
+**État et traces** (critère central : aucune trace existante ne change) :
+- les règles résolues sont un composant **statique, hors rollback** (`EnemyBehaviors`, comme
+  `Team`) : un ennemi existant ne gagne ni ne perd aucun composant rollback ;
+- un ennemi qui ne liste que `Melee`/`Shoot`/`Chase` n'a **aucun état nouveau** : sa règle
+  retenue est dérivée de son état (`current_rule` : séquence de tir → `Shoot`, `Attacking` →
+  `Melee`, cible connue → `Chase`) ;
+- les behaviors nouveaux gardent leur état dans `BehaviorRuntime` (règle retenue, frame
+  d'entrée, phase de charge, errance, ouïe), **checksum neutre** (§20), posé seulement sur les
+  ennemis qui en listent un ;
+- `behaviors::BehaviorState` (contrat T1.0a) reste enregistré **tel quel** sous checksum
+  ordinaire et n'est posé sur personne : le retirer, le passer en neutre ou le poser
+  déplacerait toutes les traces par parité (§20, piège).
+Code mort retiré : `enemy_movement_system`, `enemy_stun_recovery_system`, `apply_stun`,
+`MonsterState::{Stunned, Breaching, Fleeing}` (jamais posés ; l'étourdissement est un statut,
+T1.3). `enemy_target_selection` et `update_enemy_targets` ne font pas doublon (cible d'IA d'un
+côté, point de chemin de `EnemyPath` de l'autre) : gardés. Dégât direct `attack_damage`
+préservé tel quel (dette D28).
+
+**Attentes** (`crates/scenario`) : `EnemyState(entity, behavior: "Chase", at_frame)` — règle
+retenue (nom de variante) ; `EnemyDistance(entity, target: Player(h), min?, max?, at_frame)` ;
+continues : `EnemyContactBefore(entity, frames)` (portée de mêlée d'un joueur atteinte au plus
+tard à `frames`) et `EnemyNeverInWall(entity, from, to)` (collider sans chevauchement de `Wall`).
+`entity` : `NetId(n)` ou `Target` (comme `HitsAtLeast`).
+
+**Lint** : liste vide ; `Shoot` (règles `ranged` de T1.2) ; `Melee` arme inconnue ; `Chase`
+profil inconnu (`Ground`, `Flying`, `Phasing`, `GroundBreaker`) ; `KeepDistance` `min >= max` ;
+`Charge` télégraphe 0 ; tag d'`ignore` porté par aucun personnage. Fixtures
+`behavior_melee_unknown`, `behavior_keep_distance_inverted`, `behavior_charge_zero`,
+`behavior_unknown_profile`, `targeting_unknown_tag` (et `ranged_*` migrées vers `Shoot`).
+
+**Testbed** : `kiter`, `charger`, `coward`, `drifter`, une carte chacun
+(`testbed/arena_ia_keep|charge|flee|wander.ldtk` : un scénario ne peut pas faire apparaître de
+personnage, une arène commune les ferait interagir), scénarios `enemy_keep_distance`,
+`enemy_charge`, `enemy_flee`, `enemy_wander`.
 
 ## 24. Bots de validation (m0-v7 phase 2)
 

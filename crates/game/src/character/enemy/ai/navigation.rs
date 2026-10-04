@@ -202,6 +202,36 @@ impl FlowField {
         directions.into_iter().map(|(_, dir)| dir).collect()
     }
 
+    /// T1.4 (`KeepDistance`, `Flee`) : direction de recul — vers la case voisine couverte
+    /// de **coût le plus élevé** (la plus loin des cibles par le chemin), si elle est plus
+    /// coûteuse que la case courante ; départage par `GridPos` (le plus petit). `None` : aucune
+    /// case voisine ne s'éloigne (coin), ou position hors du champ.
+    pub fn retreat_direction(&self, pos: fixed_math::FixedVec2) -> Option<fixed_math::FixedVec2> {
+        let here = GridPos::from_fixed(pos);
+        let here_cost = *self.costs.get(&here)?;
+        let mut best: Option<(u32, GridPos)> = None;
+        for neighbor in here.neighbors_8() {
+            let Some(&cost) = self.costs.get(&neighbor) else {
+                continue;
+            };
+            if cost <= here_cost {
+                continue;
+            }
+            let better = match best {
+                None => true,
+                Some((best_cost, best_pos)) => {
+                    cost > best_cost || (cost == best_cost && neighbor < best_pos)
+                }
+            };
+            if better {
+                best = Some((cost, neighbor));
+            }
+        }
+        let (_, cell) = best?;
+        let direction = (cell.to_fixed() - pos).normalize_or_zero();
+        (direction != fixed_math::FixedVec2::ZERO).then_some(direction)
+    }
+
     /// Find the nearest cell that has flow field coverage
     /// Used when an enemy is outside the flow field to find a path back in
     /// Returns the direction to move toward the nearest covered cell
@@ -955,5 +985,29 @@ mod tests {
         assert!(!NavProfile::Flying.can_pass(ObstacleType::Wall));
         assert!(NavProfile::Phasing.can_pass(ObstacleType::Window));
         assert!(!NavProfile::Phasing.can_pass(ObstacleType::Wall));
+    }
+}
+
+#[cfg(test)]
+mod retreat_tests {
+    use super::*;
+
+    /// Couloir horizontal : coût croissant vers la droite (cible à gauche) ; le recul va à
+    /// droite, et rien quand on est déjà au bout.
+    #[test]
+    fn recul_vers_le_cout_le_plus_eleve() {
+        let mut field = FlowField::default();
+        for x in 0..5 {
+            field.costs.insert(GridPos::new(x, 0), x as u32 * 10);
+        }
+        let at = |x: i32| GridPos::new(x, 0).to_fixed();
+        let dir = field.retreat_direction(at(2)).unwrap();
+        assert!(dir.x > fixed_math::new(0.9), "{dir:?}");
+        assert_eq!(field.retreat_direction(at(4)), None);
+        // Hors du champ : rien.
+        assert_eq!(
+            field.retreat_direction(GridPos::new(10, 10).to_fixed()),
+            None
+        );
     }
 }

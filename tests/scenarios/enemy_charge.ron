@@ -1,0 +1,26 @@
+// T1.4 (testbed, conventions §22) : `charger` = [Charge(telegraph: 30), Chase], à 159
+// unités du joueur 0 immobile (carte `testbed/arena_ia_charge.ldtk`, ennemi NetId 27,
+// `attack_range` 40). Mesuré : `Chase` jusqu'à 120 (3 × 40, ~f42), `Charge` : 30 frames
+// immobile (télégraphe, distance figée à 119), ruée à 3 × la vitesse vers la position figée,
+// contact vers f98 (dégât `attack_damage` 15 : santé 100 → 85), refroidissement, `Chase`.
+//
+// À regarder : l'ennemi approche, s'arrête une demi-seconde, puis fonce sur le joueur.
+Scenario(
+    powerup_drop_chance_override: "0.0",
+    game: "testbed",
+    map: "testbed/arena_ia_charge.ldtk",
+    frames: 200,
+    players: [
+        (inputs: []),
+    ],
+    expect: [
+        EnemyState(entity: NetId(27), behavior: "Chase", at_frame: 20),
+        EnemyState(entity: NetId(27), behavior: "Charge", at_frame: 61),
+        EnemyDistance(entity: NetId(27), target: Player(0), min: 118.0, max: 121.0, at_frame: 61),
+        EnemyDistance(entity: NetId(27), target: Player(0), min: 118.0, max: 121.0, at_frame: 71),
+        EnemyContactBefore(entity: NetId(27), frames: 120),
+        Health(handle: 0, max: 90.0, at_frame: 110),
+        EnemyState(entity: NetId(27), behavior: "Chase", at_frame: 130),
+        PlayerAlive(handle: 0, at_frame: 200),
+    ],
+)
