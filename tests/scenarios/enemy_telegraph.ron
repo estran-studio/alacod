@@ -1,0 +1,27 @@
+// T1.2 (testbed) : télégraphe et volée de l'archer (`archer`, sud-est de
+// `testbed/arena_tir.ldtk`, déjà à portée du joueur 0) : `volee` = `Telegraph(30)` (f0-f30,
+// aucune flèche), `Aimed(count: 3)` à f31, `Wait(20)`, `Scatter(count: 4)` à f51 (flux RNG
+// `patterns`), refroidissement de 90 frames, nouvelle volée à f141. L'archer ne bouge pas
+// pendant le télégraphe et le tir. La tourelle de la carte tire aussi (boules de feu, autre
+// id de projectile) : la santé du joueur baisse sous les deux.
+//
+// À regarder : l'archer s'arrête, rien ne part pendant une demi-seconde, puis 3 flèches en
+// éventail, puis 4 dispersées.
+Scenario(
+    powerup_drop_chance_override: "0.0",
+    game: "testbed",
+    map: "testbed/arena_tir.ldtk",
+    frames: 160,
+    players: [
+        (inputs: []),
+    ],
+    expect: [
+        BulletCount(count: 0, projectile: Some("arrow"), at_frame: 15),
+        BulletCount(count: 0, projectile: Some("arrow"), at_frame: 30),
+        BulletCount(count: 3, projectile: Some("arrow"), team: Some(Enemies), at_frame: 32),
+        BulletCount(count: 3, projectile: Some("arrow"), at_frame: 50),
+        BulletCount(count: 7, projectile: Some("arrow"), team: Some(Enemies), at_frame: 52),
+        Health(handle: 0, max: 99.0, at_frame: 140),
+        PlayerAlive(handle: 0, at_frame: 160),
+    ],
+)

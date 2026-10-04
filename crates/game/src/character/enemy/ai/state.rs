@@ -108,6 +108,42 @@ pub struct EnemyAiConfig {
     /// que soit la flow field. `false` par défaut : aucun personnage zombie existant n'est
     /// stationnaire.
     pub stationary: bool,
+    /// Tir à distance (T1.2, `docs/conventions.md` §20) : `None` (tout le contenu d'avant
+    /// T1.2) = corps à corps seulement, comportement inchangé.
+    #[serde(default)]
+    pub ranged: Option<RangedAttack>,
+}
+
+/// Tir à distance d'un ennemi (T1.2) : à moins de `range` de sa cible `Player` et
+/// refroidissement écoulé, l'ennemi pose un `combat::emitter::Emitter` jouant `pattern`
+/// (pattern nommé, kind `Pattern`) avec les projectiles de `weapon` (équipée par
+/// `spawn_enemy`), ne bouge plus pendant le télégraphe et le tir, puis attend
+/// `cooldown_frames` après la fin (ou l'interruption) de la séquence.
+#[derive(Clone, Debug, Hash, PartialEq, Eq, Serialize, Deserialize)]
+pub struct RangedAttack {
+    pub weapon: String,
+    pub pattern: String,
+    pub range: fixed_math::Fixed,
+    pub cooldown_frames: u32,
+}
+
+/// Forme RON de [`RangedAttack`] (`range` en chaîne, conventions §2).
+#[derive(Clone, Debug, Serialize, Deserialize)]
+pub struct RangedAttackRon {
+    pub weapon: String,
+    pub pattern: String,
+    pub range: String,
+    pub cooldown_frames: u32,
+}
+
+/// État rollback du tir à distance d'un ennemi (T1.2), posé par `spawn_enemy` sur les seuls
+/// personnages à `ranged` (enregistré à checksum neutre : aucun ennemi existant n'en
+/// porte). `target` : cible de la séquence en cours (`Some` tant qu'un émetteur tire pour
+/// cet ennemi) ; `ready_at` : première frame où une nouvelle séquence peut partir.
+#[derive(Component, Clone, Debug, Default, Hash, PartialEq, Eq)]
+pub struct RangedAttackState {
+    pub target: Option<GgrsNetId>,
+    pub ready_at: u32,
 }
 
 /// Hash manuel : hache exactement les champs présents avant T2.9, dans le même ordre que
@@ -133,6 +169,11 @@ impl std::hash::Hash for EnemyAiConfig {
         self.flee_threshold.hash(state);
         self.attack_damage.hash(state);
         self.friendly_fire.hash(state);
+        // T1.2 : haché seulement s'il est présent — hacher un `None` ajouterait des octets
+        // et déplacerait le checksum de tous les ennemis existants (aucun n'a `ranged`).
+        if let Some(ranged) = &self.ranged {
+            ranged.hash(state);
+        }
     }
 }
 
@@ -151,6 +192,7 @@ impl Default for EnemyAiConfig {
             attack_damage: fixed_math::new(10.0),
             friendly_fire: FriendlyFire::Never,
             stationary: false,
+            ranged: None,
         }
     }
 }
@@ -195,6 +237,7 @@ impl EnemyAiConfig {
             attack_damage: fixed_math::new(10.0),
             friendly_fire: FriendlyFire::Never,
             stationary: false,
+            ranged: None,
         }
     }
 
@@ -213,6 +256,7 @@ impl EnemyAiConfig {
             attack_damage: fixed_math::new(8.0),
             friendly_fire: FriendlyFire::Never,
             stationary: false,
+            ranged: None,
         }
     }
 
@@ -241,6 +285,7 @@ impl EnemyAiConfig {
             attack_damage: fixed_math::new(15.0),
             friendly_fire: FriendlyFire::Never,
             stationary: false,
+            ranged: None,
         }
     }
 
@@ -263,6 +308,7 @@ impl EnemyAiConfig {
             attack_damage: fixed_math::new(25.0),
             friendly_fire: FriendlyFire::Never,
             stationary: false,
+            ranged: None,
         }
     }
 }
@@ -284,6 +330,9 @@ pub struct EnemyAiConfigRon {
     /// existant).
     #[serde(default)]
     pub stationary: Option<bool>,
+    /// T1.2 : tir à distance, voir [`RangedAttack`]. Absent = corps à corps seulement.
+    #[serde(default)]
+    pub ranged: Option<RangedAttackRon>,
 }
 
 impl From<&EnemyAiConfigRon> for EnemyAiConfig {
@@ -344,6 +393,22 @@ impl From<&EnemyAiConfigRon> for EnemyAiConfig {
         }
         if let Some(stationary) = ron.stationary {
             config.stationary = stationary;
+        }
+        if let Some(ref ranged) = ron.ranged {
+            match ranged.range.parse::<f32>() {
+                Ok(val) => {
+                    config.ranged = Some(RangedAttack {
+                        weapon: ranged.weapon.clone(),
+                        pattern: ranged.pattern.clone(),
+                        range: fixed_math::new(val),
+                        cooldown_frames: ranged.cooldown_frames,
+                    })
+                }
+                Err(_) => warn!(
+                    "Failed to parse ranged.range '{}' from RON config.",
+                    ranged.range
+                ),
+            }
         }
 
         config

@@ -1,0 +1,9 @@
+(
+    name: "fixture-ranged_projectile_missing",
+    content_folders: [
+        (path: "characters/turret.ron", kind: "Character"),
+        (path: "weapons.ron", kind: "Weapon"),
+        (path: "patterns", kind: "Pattern"),
+    ],
+    entry: (start_map: "unused", default_seed: 1),
+)

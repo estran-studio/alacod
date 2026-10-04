@@ -686,6 +686,127 @@ pub fn spawn_weapon_pickup(
         .id()
 }
 
+/// Une balle à faire apparaître : tout est déjà résolu par l'appelant (position et rotation
+/// du point de tir, vitesse, dégât et portée finaux). Voir [`spawn_bullet`].
+pub struct BulletSpawn<'a> {
+    pub position: fixed_math::FixedVec3,
+    pub rotation: fixed_math::FixedMat3,
+    pub velocity: fixed_math::FixedVec2,
+    pub bullet_type: BulletType,
+    /// Dégât final (multiplicateur du tireur déjà appliqué).
+    pub damage: fixed_math::Fixed,
+    /// Portée finale (multiplicateur du tireur déjà appliqué).
+    pub range: fixed_math::Fixed,
+    /// Handle GGRS du joueur tireur ; [`NO_PLAYER_HANDLE`] pour un tir d'émetteur ennemi
+    /// (jamais écrit dans un log : les logs nomment le tireur par son `GgrsNetId`).
+    pub player_handle: PlayerHandle,
+    pub created_at: u32,
+    pub source: &'a GgrsNetId,
+    pub source_team: Team,
+    /// Tags du tireur : la balle porte leur union avec `bullet` (voir la doc de
+    /// `sim_core::damage::DamageEvent::tags`).
+    pub source_tags: &'a Tags,
+    pub friendly_fire: FriendlyFire,
+    /// Projectile composable (T1.1) ; `None` : balle ordinaire.
+    pub projectile: Option<Projectile>,
+    /// Préfixe du `GgrsNetId` de la balle (type de balle pour un tir de joueur, id de
+    /// projectile pour un projectile né d'un pattern).
+    pub id_label: String,
+}
+
+/// `player_handle` d'une balle tirée par un émetteur (T1.2, ennemi) : aucun joueur. Seule la
+/// copie vers les projectiles nés de cette balle le lit ; jamais écrit dans un log.
+pub const NO_PLAYER_HANDLE: PlayerHandle = PlayerHandle::MAX;
+
+/// **Seule** fonction d'apparition d'une balle (T1.2) : tir d'un joueur
+/// (`spawn_bullet_rollback`), projectile né d'un pattern
+/// (`projectile::spawn_child_projectile`) et tir d'émetteur (`emitter::emitter_system`).
+/// Rayon (base 5, 8 pour `Explosive`, × `Size`), sprite (3.5, × `Size` si composable),
+/// couleur et marqueurs (`ExplosiveTag`, `PiercingTag`) dérivent du type de balle et du
+/// projectile ; le `GgrsNetId` est alloué ici, une fois par balle.
+pub fn spawn_bullet(
+    commands: &mut Commands,
+    collision_settings: &CollisionSettings,
+    id_factory: &mut GgrsNetIdFactory,
+    spawn: BulletSpawn,
+) -> Entity {
+    let base_radius = match &spawn.bullet_type {
+        BulletType::Explosive { .. } => fixed_math::new(8.0),
+        BulletType::Standard { .. } | BulletType::Piercing { .. } => fixed_math::new(5.0),
+    };
+    let (radius, sprite_size) = match &spawn.projectile {
+        Some(projectile) => (
+            projectile.radius(base_radius),
+            fixed_math::to_f32(projectile.size) * crate::projectile::BASE_SPRITE,
+        ),
+        None => (base_radius, 3.5),
+    };
+    let color = match &spawn.bullet_type {
+        BulletType::Standard { .. } => Color::BLACK,
+        BulletType::Explosive { .. } => Color::WHITE,
+        BulletType::Piercing { .. } => Color::BLACK,
+    };
+
+    let transform = fixed_math::FixedTransform3D::new(
+        spawn.position,
+        spawn.rotation,
+        fixed_math::FixedVec3::ONE,
+    );
+
+    let g_id = id_factory.next(spawn.id_label);
+
+    info!(
+        "{} spawn at {} by {}",
+        g_id, transform.translation, spawn.source
+    );
+
+    let mut tags = spawn.source_tags.clone();
+    tags.insert(Tag::new("bullet"));
+
+    let bullet_type = spawn.bullet_type;
+    let mut entity_commands = commands.spawn((
+        Sprite::from_color(color, Vec2::new(sprite_size, sprite_size)),
+        Bullet {
+            velocity: spawn.velocity,
+            bullet_type,
+            damage: spawn.damage,
+            range: spawn.range,
+            distance_traveled: fixed_math::Fixed::ZERO,
+            player_handle: spawn.player_handle,
+            created_at: spawn.created_at,
+            source: spawn.source.clone(),
+            source_team: spawn.source_team,
+            tags,
+            friendly_fire: spawn.friendly_fire,
+        },
+        Collider {
+            offset: fixed_math::FixedVec3::ZERO,
+            shape: ColliderShape::Circle { radius },
+        },
+        CollisionLayer(collision_settings.bullet_layer),
+        transform.to_bevy_transform(),
+        transform,
+        g_id,
+    ));
+
+    match bullet_type {
+        BulletType::Explosive { .. } => {
+            entity_commands.insert(ExplosiveTag);
+        }
+        BulletType::Piercing { .. } => {
+            entity_commands.insert(PiercingTag);
+        }
+        _ => {}
+    };
+    if let Some(projectile) = spawn.projectile {
+        entity_commands.insert(projectile);
+    }
+
+    entity_commands.insert(Rollback).id()
+}
+
+/// Tir d'un joueur : point de tir à la bouche de l'arme (décalage du sprite, rotation de
+/// l'arme puis du joueur), puis [`spawn_bullet`].
 #[allow(clippy::too_many_arguments)]
 fn spawn_bullet_rollback(
     commands: &mut Commands,
@@ -712,35 +833,23 @@ fn spawn_bullet_rollback(
     // tir sans `projectile:`) : balle ordinaire, inchangée.
     projectile: Option<Projectile>,
 ) -> Entity {
-    let (velocity, damage, range, radius) = match &bullet_type {
+    let (velocity, damage) = match &bullet_type {
         BulletType::Standard {
             speed,
             damage: damage_bullet,
-        } => (
-            direction * (*speed / fixed_math::Fixed::from_num(60)),
-            *damage_bullet,
-            range,
-            fixed_math::new(5.0),
-        ),
-        BulletType::Explosive {
+        }
+        | BulletType::Explosive {
+            speed,
+            damage: damage_bullet,
+            ..
+        }
+        | BulletType::Piercing {
             speed,
             damage: damage_bullet,
             ..
         } => (
             direction * (*speed / fixed_math::Fixed::from_num(60)),
             *damage_bullet,
-            range,
-            fixed_math::new(8.0),
-        ),
-        BulletType::Piercing {
-            speed,
-            damage: damage_bullet,
-            ..
-        } => (
-            direction * (*speed / fixed_math::Fixed::from_num(60)),
-            *damage_bullet,
-            range,
-            fixed_math::new(5.0),
         ),
     };
 
@@ -749,19 +858,6 @@ fn spawn_bullet_rollback(
     // ce produit ne change aucune valeur par rapport à avant ce chantier.
     let damage = damage.saturating_mul(damage_mult);
     let range = range.saturating_mul(range_mult);
-    let (radius, sprite_size) = match &projectile {
-        Some(projectile) => (
-            projectile.radius(radius),
-            fixed_math::to_f32(projectile.size) * crate::projectile::BASE_SPRITE,
-        ),
-        None => (radius, 3.5),
-    };
-
-    let color = match &bullet_type {
-        BulletType::Standard { .. } => Color::BLACK,
-        BulletType::Explosive { .. } => Color::WHITE,
-        BulletType::Piercing { .. } => Color::BLACK,
-    };
 
     let local_muzzle_offset_v2 = if !facing_direction.should_flip_x() {
         weapon.sprite_config.bullet_offset_right
@@ -797,64 +893,28 @@ fn spawn_bullet_rollback(
     let projectile_world_rotation =
         player_world_rotation_mat3.mul_mat3(&weapon_local_rotation_mat3); // Ensure mul_mat3 is the correct operation
 
-    // 5. Create the projectile's transform.
-    let new_projectile_fixed_transform = fixed_math::FixedTransform3D::new(
-        world_firing_position,
-        projectile_world_rotation,
-        fixed_math::FixedVec3::ONE,
-    );
-
-    let g_id = id_factory.next(format!("{}", bullet_type));
-
-    info!(
-        "{} spawn at {} by {}",
-        g_id, new_projectile_fixed_transform.translation, player_handle
-    );
-
-    // Tags du dégât (T1.1) : tags du tireur union le genre d'attaque `bullet` (voir la doc
-    // de `sim_core::damage::DamageEvent::tags`).
-    let mut tags = source_tags.clone();
-    tags.insert(Tag::new("bullet"));
-
-    let mut entity_commands = commands.spawn((
-        Sprite::from_color(color, Vec2::new(sprite_size, sprite_size)),
-        Bullet {
+    let id_label = format!("{}", bullet_type);
+    spawn_bullet(
+        commands,
+        collision_settings,
+        id_factory,
+        BulletSpawn {
+            position: world_firing_position,
+            rotation: projectile_world_rotation,
             velocity,
             bullet_type,
             damage,
             range,
-            distance_traveled: fixed_math::Fixed::ZERO,
             player_handle,
             created_at: current_frame,
-            source: source.clone(),
+            source,
             source_team,
-            tags,
+            source_tags,
             friendly_fire,
+            projectile,
+            id_label,
         },
-        Collider {
-            offset: fixed_math::FixedVec3::ZERO,
-            shape: ColliderShape::Circle { radius },
-        },
-        CollisionLayer(collision_settings.bullet_layer),
-        new_projectile_fixed_transform.to_bevy_transform(),
-        new_projectile_fixed_transform,
-        g_id,
-    ));
-
-    match bullet_type {
-        BulletType::Explosive { .. } => {
-            entity_commands.insert(ExplosiveTag);
-        }
-        BulletType::Piercing { .. } => {
-            entity_commands.insert(PiercingTag);
-        }
-        _ => {}
-    };
-    if let Some(projectile) = projectile {
-        entity_commands.insert(projectile);
-    }
-
-    entity_commands.insert(Rollback).id()
+    )
 }
 
 // SYSTEMS
@@ -1723,7 +1783,11 @@ impl Plugin for BaseWeaponGamePlugin {
             .rollback_and_trace::<AmmoReserves>()
             .rollback_and_trace::<WeaponPickup>()
             // T1.1, chantier B5 v1 : projectiles composables.
-            .rollback_and_trace::<Projectile>();
+            .rollback_and_trace::<Projectile>()
+            // T1.2 : émetteurs. Checksum **neutre** : aucune entité du contenu existant n'en
+            // porte (voir la doc de `rollback_and_trace_neutral` : un type vide ordinaire
+            // déplacerait toutes les traces).
+            .rollback_and_trace_neutral::<crate::emitter::Emitter>();
         app.add_frame_events::<crate::projectile::ProjectileHit>();
 
         // Rollback components for melee weapons
@@ -1752,6 +1816,9 @@ impl Plugin for BaseWeaponGamePlugin {
                 melee::enemy_melee_attack_system.after(melee::player_melee_attack_system),
                 melee::update_melee_hitboxes.after(melee::enemy_melee_attack_system),
                 melee::melee_hitbox_collision_system.after(melee::update_melee_hitboxes),
+                // Émetteurs (T1.2) : après tout tir de joueur et de mêlée de la frame (flux
+                // RNG et `GgrsNetId` alloués dans un ordre total).
+                crate::emitter::emitter_system.after(melee::melee_hitbox_collision_system),
             )
                 .in_set(RollbackSystemSet::Weapon),
         );

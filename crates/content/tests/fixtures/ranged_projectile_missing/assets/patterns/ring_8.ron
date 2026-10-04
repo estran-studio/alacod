@@ -1,0 +1,2 @@
+// T1.2 : `ember` n'est pas dans la table `projectiles` de `fireball_gun`.
+Ring(count: 8, speed: "90.0", projectile: "ember", every: 60)

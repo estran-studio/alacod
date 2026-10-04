@@ -25,7 +25,16 @@ use crate::frame_events::FrameEvents;
 
 use super::navigation::FlowFieldCache;
 use super::obstacle::{Obstacle, ObstacleAttackEvent};
-use super::state::{AttackTarget, EnemyAiConfig, EnemyTarget, MonsterState, TargetType};
+use super::state::{
+    AttackTarget, EnemyAiConfig, EnemyTarget, MonsterState, RangedAttack, RangedAttackState,
+    TargetType,
+};
+use crate::character::health::Death;
+use crate::weapons::WeaponInventory;
+use combat::emitter::Emitter;
+use combat::projectile::{resolve_pattern, Pattern, PatternLibrary};
+use sim_core::stats::StatId;
+use stats::StatReader;
 
 /// System to select targets for enemies based on proximity
 ///
@@ -319,7 +328,12 @@ pub fn enemy_movement_system(
 }
 
 /// System to handle enemy attacks
+///
+/// Tir à distance (T1.2, `EnemyAiConfig::ranged`) : voir [`ranged_attack`], joué avant le
+/// corps à corps ; un ennemi qui tire (émetteur posé) ne passe pas par le corps à corps.
+#[allow(clippy::too_many_arguments, clippy::type_complexity)]
 pub fn enemy_attack_system(
+    mut commands: Commands,
     frame: Res<FrameCount>,
     mut enemy_query: Query<
         (
@@ -329,29 +343,73 @@ pub fn enemy_attack_system(
             &EnemyAiConfig,
             &EnemyTarget,
             &mut MonsterState,
+            Option<&mut RangedAttackState>,
+            Has<Emitter>,
+            Option<&WeaponInventory>,
         ),
         With<Enemy>,
     >,
     player_query: Query<
-        (&GgrsNetId, &fixed_math::FixedTransform3D),
+        (
+            &GgrsNetId,
+            &fixed_math::FixedTransform3D,
+            Has<Downed>,
+            Has<Death>,
+        ),
         (With<Player>, Without<Enemy>),
     >,
+    library: Option<Res<PatternLibrary>>,
+    stats: StatReader,
     obstacle_query: Query<
         (Entity, &GgrsNetId, &fixed_math::FixedTransform3D, &Obstacle),
         (With<Rollback>, Without<Enemy>, Without<Player>),
     >,
     mut obstacle_events: ResMut<FrameEvents<ObstacleAttackEvent>>,
 ) {
-    for (enemy_net_id, enemy_entity, enemy_transform, ai_config, target, mut state) in
-        order_mut_iter!(enemy_query)
+    for (
+        enemy_net_id,
+        enemy_entity,
+        enemy_transform,
+        ai_config,
+        target,
+        mut state,
+        ranged_state,
+        has_emitter,
+        inventory,
+    ) in order_mut_iter!(enemy_query)
     {
         let enemy_pos = enemy_transform.translation.truncate();
+
+        // Tir à distance (T1.2) : avant le corps à corps.
+        if let (Some(ranged), Some(mut ranged_state)) = (&ai_config.ranged, ranged_state) {
+            let firing = ranged_attack(
+                &mut commands,
+                frame.frame,
+                RangedShooter {
+                    net_id: enemy_net_id,
+                    entity: enemy_entity,
+                    position: enemy_pos,
+                    has_emitter,
+                    inventory,
+                },
+                ranged,
+                target,
+                &mut ranged_state,
+                &mut state,
+                &player_query,
+                library.as_deref(),
+                &stats,
+            );
+            if firing {
+                continue;
+            }
+        }
 
         match target.target_type {
             TargetType::Player => {
                 if let Some(ref target_net_id) = target.target {
                     // Find player
-                    for (player_net_id, player_transform) in player_query.iter() {
+                    for (player_net_id, player_transform, _, _) in player_query.iter() {
                         if player_net_id != target_net_id {
                             continue;
                         }
@@ -479,6 +537,139 @@ pub fn enemy_attack_system(
     }
 }
 
+/// Tireur d'une séquence de tir à distance (regroupe les composants lus par
+/// [`ranged_attack`]).
+pub struct RangedShooter<'a> {
+    pub net_id: &'a GgrsNetId,
+    pub entity: Entity,
+    pub position: fixed_math::FixedVec2,
+    /// Un `combat::emitter::Emitter` est posé (séquence en cours, pas encore finie).
+    pub has_emitter: bool,
+    pub inventory: Option<&'a WeaponInventory>,
+}
+
+/// Tir à distance d'un ennemi (T1.2, `docs/conventions.md` §20). Rend `true` si l'ennemi est
+/// en train de tirer (le corps à corps est alors sauté cette frame).
+///
+/// - Séquence en cours (`ranged_state.target`) : interrompue si la cible n'existe plus,
+///   est morte, à terre ou hors de `range` (l'émetteur est retiré) ; finie si
+///   `emitter_system` a retiré l'émetteur. Dans les deux cas : refroidissement de
+///   `cooldown_frames`, retour à `Chasing`.
+/// - Sinon, cible `Player` vivante, debout, à moins de `range`, refroidissement écoulé,
+///   état `Idle`/`Chasing` : pose un émetteur visant la cible (visée figée), passe
+///   `Attacking { target: Player }`. L'ennemi ne bouge plus tant que l'émetteur est posé
+///   (`pathing::move_enemies`).
+#[allow(clippy::too_many_arguments)]
+pub fn ranged_attack(
+    commands: &mut Commands,
+    frame: u32,
+    shooter: RangedShooter,
+    ranged: &RangedAttack,
+    target: &EnemyTarget,
+    ranged_state: &mut RangedAttackState,
+    state: &mut MonsterState,
+    player_query: &Query<
+        (
+            &GgrsNetId,
+            &fixed_math::FixedTransform3D,
+            Has<Downed>,
+            Has<Death>,
+        ),
+        (With<Player>, Without<Enemy>),
+    >,
+    library: Option<&PatternLibrary>,
+    stats: &StatReader,
+) -> bool {
+    // Cible jouable : existe, vivante, debout, à portée.
+    let target_in_reach = |net_id: &GgrsNetId| -> Option<fixed_math::FixedVec2> {
+        player_query
+            .iter()
+            .find(|(id, ..)| *id == net_id)
+            .filter(|(_, _, downed, dead)| !downed && !dead)
+            .map(|(_, transform, ..)| transform.translation.truncate())
+            .filter(|pos| shooter.position.distance(pos) < ranged.range)
+    };
+
+    if let Some(current) = ranged_state.target.clone() {
+        let interrupted = target_in_reach(&current).is_none();
+        if shooter.has_emitter && !interrupted {
+            return true;
+        }
+        if shooter.has_emitter {
+            commands.entity(shooter.entity).remove::<Emitter>();
+        }
+        info!(
+            "ggrs{{f={} emitter net_id={} {} target={}}}",
+            frame,
+            shooter.net_id,
+            if interrupted { "interrupted" } else { "done" },
+            current
+        );
+        ranged_state.target = None;
+        ranged_state.ready_at = frame.saturating_add(ranged.cooldown_frames);
+        *state = MonsterState::Chasing;
+        return false;
+    }
+
+    if frame < ranged_state.ready_at
+        || target.target_type != TargetType::Player
+        || !matches!(*state, MonsterState::Idle | MonsterState::Chasing)
+    {
+        return false;
+    }
+    let Some(target_net_id) = target.target.clone() else {
+        return false;
+    };
+    let Some(target_pos) = target_in_reach(&target_net_id) else {
+        return false;
+    };
+
+    let Some(weapon) = shooter.inventory.and_then(|inventory| {
+        inventory
+            .weapons
+            .iter()
+            .map(|(_, weapon)| weapon)
+            .find(|weapon| weapon.config.name == ranged.weapon)
+    }) else {
+        return false;
+    };
+    let named = Pattern::Named(ranged.pattern.clone());
+    let pattern = match resolve_pattern(library, &named) {
+        Ok(pattern) => pattern,
+        Err(name) => {
+            warn!(
+                "ennemi {} : pattern « {} » inconnu (voir `alacod lint`), pas de tir",
+                shooter.net_id, name
+            );
+            return false;
+        }
+    };
+    let aim = target_pos - shooter.position;
+    let damage_mult = stats.get(shooter.entity, &StatId::Damage, fixed_math::FIXED_ONE);
+    commands.entity(shooter.entity).insert(Emitter::new(
+        ranged.pattern.clone(),
+        &pattern,
+        ranged.weapon.clone(),
+        std::sync::Arc::new(weapon.config.projectiles.clone()),
+        damage_mult,
+        weapon.config.friendly_fire,
+        aim,
+        frame,
+    ));
+    ranged_state.target = Some(target_net_id.clone());
+    *state = MonsterState::Attacking {
+        target: AttackTarget::Player {
+            net_id: target_net_id.clone(),
+        },
+        last_attack_frame: frame,
+    };
+    info!(
+        "ggrs{{f={} emitter net_id={} start pattern={} target={}}}",
+        frame, shooter.net_id, ranged.pattern, target_net_id
+    );
+    true
+}
+
 /// Traduit une attaque d'ennemi décidée à la frame précédente (`MonsterState::Attacking`,
 /// mis à jour par [`enemy_attack_system`] ci-dessus, `RollbackSystemSet::EnemyAI`) en
 /// `DamageEvent` (T1.1, chantier B1).
@@ -507,6 +698,8 @@ pub fn enemy_attack_damage_translate_system(
             Option<&Tags>,
             &EnemyAiConfig,
             &MonsterState,
+            // T1.2 : une séquence de tir à distance n'est pas un coup de corps à corps.
+            Option<&RangedAttackState>,
         ),
         With<Enemy>,
     >,
@@ -541,7 +734,12 @@ pub fn enemy_attack_damage_translate_system(
         has_accumulator.insert(net_id.0, has);
     }
 
-    for (enemy_net_id, team, opt_tags, ai_config, state) in order_iter!(enemy_query) {
+    for (enemy_net_id, team, opt_tags, ai_config, state, ranged_state) in order_iter!(enemy_query) {
+        // T1.2 : `Attacking` posé par un tir à distance (séquence en cours) : les dégâts
+        // passent par les projectiles, jamais par ce coup direct.
+        if ranged_state.is_some_and(|ranged| ranged.target.is_some()) {
+            continue;
+        }
         let MonsterState::Attacking {
             target: AttackTarget::Player {
                 net_id: target_net_id,

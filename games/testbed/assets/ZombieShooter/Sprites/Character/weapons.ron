@@ -482,4 +482,47 @@
             weapon_offset: ( x: "0.0", y: "-5.0" )
         ),
     ),
+    // T1.2 : arme d'ennemi (tourelle, archer, `characters/turret.ron`/`archer.ron`) — sa
+    // table `projectiles` fournit les projectiles des patterns d'émetteur (`patterns/`).
+    // Tirée par un joueur (scénario généré `weapon_fireball_gun`) : balle ordinaire.
+    "fireball_gun": (
+        config: (
+            name: "fireball_gun",
+            default_firing_mode: "default",
+            ammo_type: Plomb,
+            firing_modes: {
+                "default": (
+                    firing_rate: "4.0",
+                    firing_mode: Manual(),
+                    spread: "0.0",
+                    recoil: "0.0",
+                    bullet_type: Standard(
+                        damage: "10.0",
+                        speed: "300.0",
+                    ),
+                    range: "900.0",
+                    reload_time_seconds: "1.0",
+                    mag: Mag(
+                        mag_size: 30,
+                        mag_limit: 4,
+                    ),
+                )
+            },
+            projectiles: {
+                // Couronne de la tourelle (`ring_8` impose sa vitesse, 60 u/s) : lente et de
+                // longue portée, une couronne vit encore quand la suivante part (60 frames).
+                "fireball": (damage: "8.0", speed: "90.0", range: "400.0"),
+                // Volée de l'archer (`volee`).
+                "arrow": (damage: "5.0", speed: "120.0", range: "320.0"),
+            },
+            test: Some((frames: 200, min_hits: 2)),
+        ),
+        sprite_config: (
+            name: "pistol",
+            index: 3,
+            bullet_offset_right: ( x: "-5.0", y: "2.0" ),
+            bullet_offset_left: ( x: "0.0", y: "-2.0" ),
+            weapon_offset: ( x: "0.0", y: "-5.0" )
+        ),
+    ),
 })

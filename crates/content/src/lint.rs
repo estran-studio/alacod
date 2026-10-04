@@ -64,6 +64,7 @@ pub fn run(registry: &Registry, manifest: &GameManifest) -> Vec<LintError> {
     lint_sprite_sheets(registry, &mut errors);
     lint_floors(registry, &mut errors);
     lint_caves(registry, &mut errors);
+    lint_patterns(registry, &mut errors);
     lint_entry_point(registry, manifest, &mut errors);
 
     errors
@@ -72,6 +73,11 @@ pub fn run(registry: &Registry, manifest: &GameManifest) -> Vec<LintError> {
 fn lint_characters(registry: &Registry, errors: &mut Vec<LintError>) {
     for character in registry.characters.values() {
         let file = character.file.display().to_string();
+
+        // T1.2 : tir à distance (`ai.ranged`).
+        if let Some(ranged) = &character.ranged {
+            lint_ranged(registry, character, ranged, errors);
+        }
 
         // Référence : starting_weapons -> WeaponId (T1.5 : les joueurs ne reçoivent plus
         // tout `weapons.ron`, seulement les armes déclarées ici).
@@ -261,7 +267,7 @@ fn lint_weapons(registry: &Registry, errors: &mut Vec<LintError>) {
             }
         }
         lint_weapon_test(&weapon.id, &weapon.file, weapon.test.as_ref(), errors);
-        lint_weapon_projectiles(weapon, errors);
+        lint_weapon_projectiles(weapon, &registry.patterns, errors);
         // D3 : `sprite_config.name` désigne une entrée de la table `SpriteSheet`. Vérifié
         // seulement si le jeu en déclare une : sans table, aucun sprite n'est chargé (les
         // fixtures de lint n'en ont pas).
@@ -291,7 +297,11 @@ fn lint_weapons(registry: &Registry, errors: &mut Vec<LintError>) {
 /// refusés), `count > 0`, `spread >= 0`, `speed >= 0`, projectile référencé présent dans la
 /// table ; définitions de la table : `damage >= 0`, `speed >= 0`, `range > 0`, aucun cycle
 /// de `on_expire`.
-fn lint_weapon_projectiles(weapon: &registry::WeaponEntry, errors: &mut Vec<LintError>) {
+fn lint_weapon_projectiles(
+    weapon: &registry::WeaponEntry,
+    patterns: &Patterns,
+    errors: &mut Vec<LintError>,
+) {
     let mut push = |kind: LintErrorKind, message: String| {
         errors.push(LintError {
             kind,
@@ -304,6 +314,7 @@ fn lint_weapon_projectiles(weapon: &registry::WeaponEntry, errors: &mut Vec<Lint
             &format!("mode « {mode} » : projectile"),
             spec,
             &weapon.projectiles,
+            patterns,
             &mut push,
         );
     }
@@ -323,7 +334,7 @@ fn lint_weapon_projectiles(weapon: &registry::WeaponEntry, errors: &mut Vec<Lint
                 );
             }
         }
-        lint_projectile_spec(&at, &def.spec(), &weapon.projectiles, &mut push);
+        lint_projectile_spec(&at, &def.spec(), &weapon.projectiles, patterns, &mut push);
     }
     // Cycles de `on_expire` dans la table (un projectile qui finit par se refaire naître).
     for start in weapon.projectiles.keys() {
@@ -333,7 +344,7 @@ fn lint_weapon_projectiles(weapon: &registry::WeaponEntry, errors: &mut Vec<Lint
             let Some(def) = weapon.projectiles.get(id) else {
                 continue;
             };
-            for next in expire_references(&def.on_expire) {
+            for next in expire_references(&def.on_expire, patterns) {
                 if next == start {
                     push(
                         LintErrorKind::OutOfRange,
@@ -350,22 +361,49 @@ fn lint_weapon_projectiles(weapon: &registry::WeaponEntry, errors: &mut Vec<Lint
     }
 }
 
-/// Ids de projectiles nommés par les patterns d'une liste `on_expire`.
-fn expire_references(on_expire: &[registry::ExpireActionEntry]) -> Vec<&str> {
-    fn walk<'a>(pattern: &'a registry::PatternEntry, out: &mut Vec<&'a str>) {
-        match pattern {
-            registry::PatternEntry::Aimed { projectile, .. }
-            | registry::PatternEntry::Spread { projectile, .. }
-            | registry::PatternEntry::Ring { projectile, .. } => out.push(projectile),
-            registry::PatternEntry::Sequence(children) => {
-                children.iter().for_each(|child| walk(child, out))
+/// T1.2 : patterns nommés du jeu (kind `Pattern`), pour résoudre `Named`.
+type Patterns = BTreeMap<registry::PatternId, registry::PatternFileEntry>;
+
+/// Garde-fou de résolution des `Named` imbriqués (le même que
+/// `combat::projectile::MAX_NAMED_DEPTH`) ; un cycle est rapporté par [`lint_patterns`].
+const MAX_NAMED_DEPTH: u8 = 8;
+
+/// Ids de projectiles nommés par un pattern, `Named` suivis dans `patterns` (un nom
+/// inconnu ne donne rien : rapporté ailleurs).
+fn pattern_projectiles<'a>(
+    pattern: &'a registry::PatternEntry,
+    patterns: &'a Patterns,
+    depth: u8,
+    out: &mut Vec<&'a str>,
+) {
+    use registry::PatternEntry;
+    match pattern {
+        PatternEntry::Aimed { projectile, .. }
+        | PatternEntry::Spread { projectile, .. }
+        | PatternEntry::Ring { projectile, .. }
+        | PatternEntry::Scatter { projectile, .. } => out.push(projectile),
+        PatternEntry::Sequence(children) => children
+            .iter()
+            .for_each(|child| pattern_projectiles(child, patterns, depth, out)),
+        PatternEntry::Named(name) => {
+            if depth < MAX_NAMED_DEPTH {
+                if let Some(entry) = patterns.get(&registry::PatternId::from(name.clone())) {
+                    pattern_projectiles(&entry.pattern, patterns, depth + 1, out);
+                }
             }
-            registry::PatternEntry::Telegraph(_) | registry::PatternEntry::Wait(_) => {}
         }
+        PatternEntry::Telegraph(_) | PatternEntry::Wait(_) => {}
     }
+}
+
+/// Ids de projectiles nommés par les patterns d'une liste `on_expire`.
+fn expire_references<'a>(
+    on_expire: &'a [registry::ExpireActionEntry],
+    patterns: &'a Patterns,
+) -> Vec<&'a str> {
     let mut out = Vec::new();
     for registry::ExpireActionEntry::Spawn(pattern) in on_expire {
-        walk(pattern, &mut out);
+        pattern_projectiles(pattern, patterns, 0, &mut out);
     }
     out
 }
@@ -374,6 +412,7 @@ fn lint_projectile_spec(
     at: &str,
     spec: &registry::ProjectileSpecEntry,
     table: &BTreeMap<String, registry::ProjectileDefEntry>,
+    patterns: &Patterns,
     push: &mut impl FnMut(LintErrorKind, String),
 ) {
     let mut seen = BTreeSet::new();
@@ -425,7 +464,7 @@ fn lint_projectile_spec(
         }
     }
     for registry::ExpireActionEntry::Spawn(pattern) in &spec.on_expire {
-        lint_expire_pattern(at, pattern, table, push);
+        lint_expire_pattern(at, pattern, table, patterns, 0, push);
     }
 }
 
@@ -433,6 +472,8 @@ fn lint_expire_pattern(
     at: &str,
     pattern: &registry::PatternEntry,
     table: &BTreeMap<String, registry::ProjectileDefEntry>,
+    patterns: &Patterns,
+    depth: u8,
     push: &mut impl FnMut(LintErrorKind, String),
 ) {
     use registry::PatternEntry;
@@ -455,7 +496,7 @@ fn lint_expire_pattern(
         } => (*count, None, Some(speed.get()), projectile),
         PatternEntry::Sequence(children) => {
             for child in children {
-                lint_expire_pattern(at, child, table, push);
+                lint_expire_pattern(at, child, table, patterns, depth, push);
             }
             return;
         }
@@ -464,6 +505,33 @@ fn lint_expire_pattern(
                 LintErrorKind::OutOfRange,
                 format!("{at} : on_expire : pattern temporel {pattern:?} : seuls Aimed, Spread, Ring et Sequence sont joués à la fin d'un projectile"),
             );
+            return;
+        }
+        // T1.2 : aléatoire (flux `patterns`), réservé aux émetteurs.
+        PatternEntry::Scatter { .. } => {
+            push(
+                LintErrorKind::OutOfRange,
+                format!("{at} : on_expire : pattern aléatoire Scatter : réservé aux émetteurs, seuls Aimed, Spread, Ring et Sequence sont joués à la fin d'un projectile"),
+            );
+            return;
+        }
+        // T1.2 : pattern nommé, linté comme s'il était écrit ici (cycle : `lint_patterns`).
+        PatternEntry::Named(name) => {
+            match patterns.get(&registry::PatternId::from(name.clone())) {
+                None => push(
+                    LintErrorKind::BrokenReference,
+                    format!("{at} : on_expire : pattern nommé « {name} » inconnu (kind Pattern)"),
+                ),
+                Some(entry) if depth < MAX_NAMED_DEPTH => lint_expire_pattern(
+                    &format!("{at} : pattern « {name} »"),
+                    &entry.pattern,
+                    table,
+                    patterns,
+                    depth + 1,
+                    push,
+                ),
+                Some(_) => {}
+            }
             return;
         }
     };
@@ -914,6 +982,172 @@ fn lint_feedback(registry: &Registry, errors: &mut Vec<LintError>) {
 
 /// T1.8 : une séquence de niveaux (`Floors`) n'est pas vide et chaque niveau désigne une
 /// carte chargée (kind `Map`, même résolution par id que `entry.start_map`).
+/// T1.2 : patterns nommés (kind `Pattern`) — valeurs (`count > 0`, `spread`/`speed >= 0`),
+/// `Named` vers un pattern connu, pas de cycle de `Named`. Les projectiles cités sont
+/// vérifiés là où l'arme est connue (`ranged` d'un personnage, `on_expire` d'une arme).
+fn lint_patterns(registry: &Registry, errors: &mut Vec<LintError>) {
+    for entry in registry.patterns.values() {
+        let file = entry.file.display().to_string();
+        let mut push = |kind: LintErrorKind, message: String| {
+            errors.push(LintError {
+                kind,
+                file: file.clone(),
+                message: format!("pattern « {} » : {message}", entry.id),
+            });
+        };
+        lint_pattern_values(&entry.pattern, &registry.patterns, &mut push);
+        // Cycle : en suivant les `Named` depuis ce pattern, on revient à lui.
+        let mut stack = vec![(&entry.pattern, 0u8)];
+        let mut cycle = false;
+        while let Some((pattern, depth)) = stack.pop() {
+            match pattern {
+                registry::PatternEntry::Sequence(children) => {
+                    stack.extend(children.iter().map(|child| (child, depth)))
+                }
+                registry::PatternEntry::Named(name) => {
+                    if name.as_str() == entry.id.as_str() {
+                        cycle = true;
+                        break;
+                    }
+                    if depth < MAX_NAMED_DEPTH {
+                        if let Some(next) = registry
+                            .patterns
+                            .get(&registry::PatternId::from(name.clone()))
+                        {
+                            stack.push((&next.pattern, depth + 1));
+                        }
+                    }
+                }
+                _ => {}
+            }
+        }
+        if cycle {
+            push(
+                LintErrorKind::OutOfRange,
+                "Named se référence lui-même (cycle)".to_string(),
+            );
+        }
+    }
+}
+
+/// Valeurs d'un pattern d'émetteur (tous les patterns sont admis, y compris temporels).
+fn lint_pattern_values(
+    pattern: &registry::PatternEntry,
+    patterns: &Patterns,
+    push: &mut impl FnMut(LintErrorKind, String),
+) {
+    use registry::PatternEntry;
+    match pattern {
+        PatternEntry::Aimed { count, spread, .. }
+        | PatternEntry::Spread { count, spread, .. }
+        | PatternEntry::Scatter { count, spread, .. } => {
+            if *count == 0 {
+                push(
+                    LintErrorKind::OutOfRange,
+                    format!("{pattern:?} : count = 0 : doit être > 0"),
+                );
+            }
+            if spread.get() < Fixed::ZERO {
+                push(
+                    LintErrorKind::OutOfRange,
+                    format!("{pattern:?} : spread < 0"),
+                );
+            }
+        }
+        PatternEntry::Ring { count, speed, .. } => {
+            if *count == 0 {
+                push(
+                    LintErrorKind::OutOfRange,
+                    format!("{pattern:?} : count = 0 : doit être > 0"),
+                );
+            }
+            if speed.get() < Fixed::ZERO {
+                push(
+                    LintErrorKind::OutOfRange,
+                    format!("{pattern:?} : speed < 0"),
+                );
+            }
+        }
+        PatternEntry::Sequence(children) => children
+            .iter()
+            .for_each(|child| lint_pattern_values(child, patterns, push)),
+        PatternEntry::Named(name) => {
+            if !patterns.contains_key(&registry::PatternId::from(name.clone())) {
+                push(
+                    LintErrorKind::BrokenReference,
+                    format!("pattern nommé « {name} » inconnu (kind Pattern)"),
+                );
+            }
+        }
+        PatternEntry::Telegraph(_) | PatternEntry::Wait(_) => {}
+    }
+}
+
+/// T1.2 : `ai.ranged` d'un personnage — arme et pattern connus, projectiles du pattern
+/// présents dans la table `projectiles` de l'arme, `cooldown_frames > 0`, `range > 0`.
+fn lint_ranged(
+    registry: &Registry,
+    character: &registry::CharacterEntry,
+    ranged: &registry::RangedEntry,
+    errors: &mut Vec<LintError>,
+) {
+    let file = character.file.display().to_string();
+    let mut push = |kind: LintErrorKind, message: String| {
+        errors.push(LintError {
+            kind,
+            file: file.clone(),
+            message: format!("personnage « {} » : ai.ranged : {message}", character.id),
+        });
+    };
+    let weapon = registry
+        .weapons
+        .get(&registry::WeaponId::from(ranged.weapon.clone()));
+    if weapon.is_none() {
+        push(
+            LintErrorKind::BrokenReference,
+            format!("arme inconnue « {} »", ranged.weapon),
+        );
+    }
+    match registry
+        .patterns
+        .get(&registry::PatternId::from(ranged.pattern.clone()))
+    {
+        None => push(
+            LintErrorKind::BrokenReference,
+            format!("pattern inconnu « {} » (kind Pattern)", ranged.pattern),
+        ),
+        Some(entry) => {
+            if let Some(weapon) = weapon {
+                let mut projectiles = Vec::new();
+                pattern_projectiles(&entry.pattern, &registry.patterns, 0, &mut projectiles);
+                for projectile in projectiles {
+                    if !weapon.projectiles.contains_key(projectile) {
+                        push(
+                            LintErrorKind::BrokenReference,
+                            format!(
+                                "pattern « {} » : projectile « {projectile} » absent de la table projectiles de l'arme « {} »",
+                                ranged.pattern, ranged.weapon
+                            ),
+                        );
+                    }
+                }
+            }
+        }
+    }
+    if ranged.cooldown_frames == 0 {
+        push(
+            LintErrorKind::OutOfRange,
+            "cooldown_frames = 0 : doit être > 0".to_string(),
+        );
+    }
+    if ranged.range.get() <= Fixed::ZERO {
+        push(
+            LintErrorKind::OutOfRange,
+            format!("range = {} : doit être > 0", ranged.range.get()),
+        );
+    }
+}
+
 fn lint_floors(registry: &Registry, errors: &mut Vec<LintError>) {
     for floors in registry.floors.values() {
         let file = floors.file.display().to_string();

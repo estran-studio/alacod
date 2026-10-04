@@ -242,7 +242,12 @@ impl Plugin for CoreSetupPlugin {
         // (`crate::balance`), donc aucune expression dans l'état rollback.
         app.add_systems(
             OnEnter(AppState::GameLoading),
-            crate::balance::resolve_balance_system,
+            (
+                crate::balance::resolve_balance_system,
+                // T1.2 : patterns nommés (kind `Pattern`), hors rollback, voir
+                // `crate::patterns`.
+                crate::patterns::resolve_pattern_library_system,
+            ),
         );
 
         app.add_systems(Update, log_ggrs_events.run_if(in_state(AppState::InGame)));

@@ -53,7 +53,7 @@ use utils::{
 
 use crate::{
     actors::Health,
-    collider::{is_colliding, Collider, ColliderShape, CollisionLayer, CollisionSettings, Wall},
+    collider::{is_colliding, Collider, CollisionLayer, CollisionSettings, Wall},
     collision_grid::{collider_aabb, union_aabb, CollisionGrids},
     team::team_allows_hit,
     weapons::{Bullet, BulletType},
@@ -92,6 +92,84 @@ pub enum Pattern {
     Sequence(Vec<Pattern>),
     Telegraph(u32),
     Wait(u32),
+    // T1.2 : variantes ajoutées **en fin d'enum** — le `derive(Hash)` hache l'index de la
+    // variante, les variantes existantes gardent le leur (hash des armes et projectiles
+    // existants inchangé).
+    /// `count` tirs à des angles tirés au hasard dans `±spread/2` autour de la visée (flux
+    /// RNG `"patterns"`, émetteurs seulement : refusé en `on_expire` par le lint).
+    Scatter {
+        count: u32,
+        spread: Fixed,
+        projectile: String,
+    },
+    /// Pattern nommé du contenu (`patterns/<nom>.ron`, kind `Pattern`), résolu par
+    /// [`PatternLibrary`] (nom inconnu : erreur de lint, jamais de panique en jeu).
+    Named(String),
+}
+
+impl Pattern {
+    /// Vrai si le pattern (ou un de ses enfants) contient une étape temporelle ou aléatoire
+    /// (`Telegraph`, `Wait`, `Scatter`, `Ring.every > 0` n'en est pas une : ignoré en
+    /// `on_expire`). `Named` n'est pas résolu ici.
+    pub fn has_emitter_only_step(&self) -> bool {
+        match self {
+            Pattern::Telegraph(_) | Pattern::Wait(_) | Pattern::Scatter { .. } => true,
+            Pattern::Sequence(children) => children.iter().any(Pattern::has_emitter_only_step),
+            _ => false,
+        }
+    }
+}
+
+/// Patterns nommés du jeu (kind de contenu `Pattern`, T1.2) : nom -> pattern. Ressource
+/// **hors rollback** (comme `Assets`) : remplie par `game` depuis le registre de contenu,
+/// identique sur tous les clients. Résout `Pattern::Named` au départ d'un émetteur et à
+/// l'expiration d'un projectile (`on_expire: [Spawn(Named("..."))]`).
+#[derive(Resource, Clone, Debug, Default)]
+pub struct PatternLibrary {
+    pub patterns: BTreeMap<String, Arc<Pattern>>,
+}
+
+/// Résout `pattern` par la bibliothèque (s'il y en a une) : un `Named` sans bibliothèque est
+/// une erreur (le lint garantit que tout nom référencé existe). Utilisé à l'expiration d'un
+/// projectile et au départ d'un émetteur (T1.2).
+pub fn resolve_pattern(
+    library: Option<&PatternLibrary>,
+    pattern: &Pattern,
+) -> Result<Pattern, String> {
+    match library {
+        Some(library) => library.resolve(pattern),
+        None if matches!(pattern, Pattern::Named(_)) => Err(format!("{pattern:?}")),
+        None => Ok(pattern.clone()),
+    }
+}
+
+/// Profondeur maximale de `Named` imbriqués (le lint refuse les cycles).
+pub const MAX_NAMED_DEPTH: u8 = 8;
+
+impl PatternLibrary {
+    /// Remplace récursivement chaque `Named` par sa définition. `Err(nom)` : nom inconnu
+    /// ou chaîne de `Named` trop profonde (cycle) — refusés par le lint.
+    pub fn resolve(&self, pattern: &Pattern) -> Result<Pattern, String> {
+        self.resolve_depth(pattern, 0)
+    }
+
+    fn resolve_depth(&self, pattern: &Pattern, depth: u8) -> Result<Pattern, String> {
+        match pattern {
+            Pattern::Named(name) => {
+                if depth >= MAX_NAMED_DEPTH {
+                    return Err(name.clone());
+                }
+                let target = self.patterns.get(name).ok_or_else(|| name.clone())?;
+                self.resolve_depth(target, depth + 1)
+            }
+            Pattern::Sequence(children) => children
+                .iter()
+                .map(|child| self.resolve_depth(child, depth))
+                .collect::<Result<Vec<_>, _>>()
+                .map(Pattern::Sequence),
+            other => Ok(other.clone()),
+        }
+    }
 }
 
 /// Action déclenchée à la fin d'un projectile (`on_expire`). Une seule en v1.
@@ -400,7 +478,7 @@ pub struct Shot {
 
 /// Angles d'un éventail de `count` projectiles centré sur `center`, sur `spread` radians
 /// au total (bornes comprises), un seul : `center`.
-fn fan_angles(center: Fixed, count: u32, spread: Fixed) -> Vec<Fixed> {
+pub(crate) fn fan_angles(center: Fixed, count: u32, spread: Fixed) -> Vec<Fixed> {
     if count <= 1 {
         return vec![center; count as usize];
     }
@@ -411,11 +489,24 @@ fn fan_angles(center: Fixed, count: u32, spread: Fixed) -> Vec<Fixed> {
         .collect()
 }
 
-fn direction_of(angle: Fixed) -> FixedVec2 {
+/// Direction unitaire d'un angle. Un angle au-delà de `±2π` est d'abord ramené dans
+/// `[-2π, 2π]` (T1.2) : le CORDIC de `fixed_math` perd sa précision puis **déborde** (panique
+/// `fixed`) au-delà (ex. 7,07 rad : le 8e rayon d'une couronne dont le premier part à π/2,
+/// cas d'une tourelle qui vise vers le haut). Les angles déjà dans `[-2π, 2π]` — tout le
+/// contenu d'avant T1.2 : couronnes partant de l'axe +x, au plus 7τ/8 — passent tels quels,
+/// valeurs inchangées au bit près.
+pub(crate) fn direction_of(angle: Fixed) -> FixedVec2 {
+    let mut angle = angle;
+    while angle > fixed_math::FIXED_TAU {
+        angle -= fixed_math::FIXED_TAU;
+    }
+    while angle < -fixed_math::FIXED_TAU {
+        angle += fixed_math::FIXED_TAU;
+    }
     FixedVec2::new(fixed_math::cos_fixed(angle), fixed_math::sin_fixed(angle))
 }
 
-fn angle_of(direction: FixedVec2) -> Fixed {
+pub(crate) fn angle_of(direction: FixedVec2) -> Fixed {
     // Normalisée d'abord : `atan2_fixed` déborde sur de grandes composantes (une distance
     // à la cible en unités monde).
     let direction = direction.normalize_or_zero();
@@ -495,8 +586,9 @@ fn collect_shots(
                 collect_shots(child, forward, aim, shots);
             }
         }
-        // Temporels : réservés aux émetteurs (T1.2), refusés en `on_expire` par le lint.
-        Pattern::Telegraph(_) | Pattern::Wait(_) => {}
+        // Temporels et aléatoires : réservés aux émetteurs (T1.2, `crate::emitter`),
+        // refusés en `on_expire` par le lint. `Named` est résolu avant (`PatternLibrary`).
+        Pattern::Telegraph(_) | Pattern::Wait(_) | Pattern::Scatter { .. } | Pattern::Named(_) => {}
     }
 }
 
@@ -589,52 +681,32 @@ pub fn spawn_child_projectile(
         shot.direction.x.saturating_mul(speed) / Fixed::from_num(60),
         shot.direction.y.saturating_mul(speed) / Fixed::from_num(60),
     );
-    let radius = projectile.radius(fixed_math::new(BASE_RADIUS));
-    let sprite = fixed_math::to_f32(projectile.size) * BASE_SPRITE;
-    let transform = fixed_math::FixedTransform3D::new(
-        parent.position,
-        fixed_math::FixedMat3::IDENTITY,
-        FixedVec3::ONE,
-    );
-    let net_id = id_factory.next(shot.projectile.clone());
-    info!(
-        "{} spawn at {} from {}",
-        net_id, transform.translation, shot.projectile
-    );
-    let bullet = Bullet {
-        velocity,
-        bullet_type: BulletType::Standard {
-            damage: def.damage,
-            speed,
+    // Les tags du parent contiennent déjà `bullet` (insertion idempotente, `Tags` est un
+    // ensemble) : la balle née porte exactement les mêmes.
+    Some(crate::weapons::spawn_bullet(
+        commands,
+        collision_settings,
+        id_factory,
+        crate::weapons::BulletSpawn {
+            position: parent.position,
+            rotation: fixed_math::FixedMat3::IDENTITY,
+            velocity,
+            bullet_type: BulletType::Standard {
+                damage: def.damage,
+                speed,
+            },
+            damage: def.damage.saturating_mul(parent.projectile.damage_mult),
+            range: def.range,
+            player_handle: parent.bullet.player_handle,
+            created_at: frame,
+            source: &parent.bullet.source,
+            source_team: parent.bullet.source_team,
+            source_tags: &parent.bullet.tags,
+            friendly_fire: parent.bullet.friendly_fire,
+            projectile: Some(projectile),
+            id_label: shot.projectile.clone(),
         },
-        damage: def.damage.saturating_mul(parent.projectile.damage_mult),
-        range: def.range,
-        distance_traveled: Fixed::ZERO,
-        player_handle: parent.bullet.player_handle,
-        created_at: frame,
-        source: parent.bullet.source.clone(),
-        source_team: parent.bullet.source_team,
-        tags: parent.bullet.tags.clone(),
-        friendly_fire: parent.bullet.friendly_fire,
-    };
-    Some(
-        commands
-            .spawn((
-                Sprite::from_color(Color::BLACK, Vec2::splat(sprite)),
-                bullet,
-                projectile,
-                Collider {
-                    offset: FixedVec3::ZERO,
-                    shape: ColliderShape::Circle { radius },
-                },
-                CollisionLayer(collision_settings.bullet_layer),
-                transform.to_bevy_transform(),
-                transform,
-                net_id,
-            ))
-            .insert(Rollback)
-            .id(),
-    )
+    ))
 }
 
 // ---------------------------------------------------------------------------------------
@@ -815,6 +887,8 @@ pub fn projectile_expire_system(
         With<Rollback>,
     >,
     target_query: TargetQuery,
+    // T1.2 : résolution des `Named` de `on_expire` (absente : aucun pattern nommé).
+    library: Option<Res<PatternLibrary>>,
 ) {
     let system_span = span!(
         Level::INFO,
@@ -849,7 +923,17 @@ pub fn projectile_expire_system(
         for action in &projectile.on_expire {
             match action {
                 ExpireAction::Spawn(pattern) => {
-                    for shot in pattern_shots(pattern, forward, aim) {
+                    let pattern = match resolve_pattern(library.as_deref(), pattern) {
+                        Ok(pattern) => pattern,
+                        Err(name) => {
+                            warn!(
+                                "projectile {} : on_expire : pattern nommé inconnu « {} » (voir `alacod lint`), ignoré",
+                                net_id, name
+                            );
+                            continue;
+                        }
+                    };
+                    for shot in pattern_shots(&pattern, forward, aim) {
                         spawn_child_projectile(
                             &mut commands,
                             &parent,

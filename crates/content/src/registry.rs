@@ -107,6 +107,12 @@ string_id!(
     CaveId
 );
 string_id!(
+    /// Identifiant d'un pattern nommé (T1.2, kind `Pattern`) : nom de fichier sans extension
+    /// (`patterns/<nom>.ron`), référencé par `ranged.pattern` d'un personnage et par
+    /// `Named("<nom>")` dans un pattern.
+    PatternId
+);
+string_id!(
     /// Identifiant du fichier d'économie (T2.3, chantier C5 v1). Nom de fichier, sans
     /// extension (même règle que [`WaveConfigId`]) : un seul fichier par jeu en pratique,
     /// pas imposé par le chargement (comme `Wave`).
@@ -184,6 +190,26 @@ pub struct CharacterEntry {
     pub downed_speed_mult: FixedField,
     /// Emplacements d'armes à distance (T2.2, chantier B7), pour la règle « > 0 ».
     pub weapon_slots: u32,
+    /// Tir à distance (T1.2, `ai.ranged`), pour les règles de référence et de plage.
+    pub ranged: Option<RangedEntry>,
+}
+
+/// T1.2 : mirroir de `game::character::enemy::ai::state::RangedAttackRon` (champ `ranged` de
+/// `ai`, voir `docs/conventions.md` §20).
+#[derive(Debug, Clone, Deserialize)]
+pub struct RangedEntry {
+    pub weapon: String,
+    pub pattern: String,
+    pub range: FixedField,
+    pub cooldown_frames: u32,
+}
+
+/// T1.2 : pattern nommé (`patterns/<nom>.ron`, kind `Pattern`).
+#[derive(Debug, Clone)]
+pub struct PatternFileEntry {
+    pub id: PatternId,
+    pub file: PathBuf,
+    pub pattern: PatternEntry,
 }
 
 #[derive(Debug, Clone)]
@@ -256,6 +282,14 @@ pub enum PatternEntry {
     Sequence(Vec<PatternEntry>),
     Telegraph(u32),
     Wait(u32),
+    /// T1.2 : émetteurs seulement (aléatoire, flux `patterns`).
+    Scatter {
+        count: u32,
+        spread: FixedField,
+        projectile: String,
+    },
+    /// T1.2 : pattern nommé du kind `Pattern`.
+    Named(String),
 }
 
 /// Mirroir de `combat::projectile::ExpireAction`.
@@ -476,6 +510,8 @@ pub struct Registry {
     pub floors: BTreeMap<FloorsConfigId, FloorsEntry>,
     /// T1.6 : cavernes générées (kind `Cave`).
     pub caves: BTreeMap<CaveId, CaveEntry>,
+    /// T1.2 : patterns nommés (kind `Pattern`).
+    pub patterns: BTreeMap<PatternId, PatternFileEntry>,
     /// T2.3, chantier C5 v1.
     pub economy: BTreeMap<EconomyId, EconomyEntry>,
     /// T2.3, chantier C5 v1.
@@ -519,6 +555,7 @@ pub const KNOWN_KIND_NAMES: &[&str] = &[
     "SpriteSheet",
     "Floors",
     "Cave",
+    "Pattern",
 ];
 
 pub fn known_content_kinds() -> Kinds {
@@ -576,6 +613,7 @@ impl Registry {
                 "SpriteSheet" => load_sprite_sheets(&assets_dir, decl, &mut registry, &mut errors),
                 "Floors" => load_floors(&assets_dir, decl, &mut registry, &mut errors),
                 "Cave" => load_caves(&assets_dir, decl, &mut registry, &mut errors),
+                "Pattern" => load_patterns(&assets_dir, decl, &mut registry, &mut errors),
                 _ => unreachable!("filtré par `kinds.has` ci-dessus"),
             }
         }
@@ -671,6 +709,15 @@ struct CharacterFileSchema {
     /// T2.2, chantier B7 : voir `game::character::config::CharacterConfig::weapon_slots`.
     #[serde(default = "default_weapon_slots")]
     weapon_slots: u32,
+    /// T1.2 : seul `ai.ranged` est lu (`None` : pas d'`ai`, ou `ai` sans `ranged`).
+    #[serde(default)]
+    ai: Option<AiSchema>,
+}
+
+#[derive(Deserialize)]
+struct AiSchema {
+    #[serde(default)]
+    ranged: Option<RangedEntry>,
 }
 
 fn default_bleedout_frames() -> u32 {
@@ -1083,6 +1130,7 @@ fn load_characters(
                 revive_frames: parsed.revive_frames,
                 downed_speed_mult: parsed.downed_speed_mult,
                 weapon_slots: parsed.weapon_slots,
+                ranged: parsed.ai.and_then(|ai| ai.ranged),
             },
         );
     }
@@ -1303,6 +1351,67 @@ fn load_waves(
 }
 
 /// T1.8 : mêmes règles que [`load_waves`] (id = nom de fichier sans extension).
+fn load_patterns(
+    assets_dir: &Path,
+    decl: &ContentFolderDecl,
+    registry: &mut Registry,
+    errors: &mut Vec<LintError>,
+) {
+    let files = match discover_files(assets_dir, decl, "ron") {
+        Ok(f) => f,
+        Err(e) => {
+            errors.push(e);
+            return;
+        }
+    };
+
+    for rel in files {
+        let text = match read_file(assets_dir, &rel) {
+            Ok(t) => t,
+            Err(e) => {
+                errors.push(e);
+                continue;
+            }
+        };
+        let pattern: PatternEntry = match ron::from_str(&text) {
+            Ok(p) => p,
+            Err(e) => {
+                errors.push(LintError {
+                    kind: LintErrorKind::Parse,
+                    file: rel.display().to_string(),
+                    message: format!("erreur RON : {e}"),
+                });
+                continue;
+            }
+        };
+        let id = PatternId::from(
+            rel.file_stem()
+                .and_then(|s| s.to_str())
+                .unwrap_or_default()
+                .to_string(),
+        );
+        if let Some(existing) = registry.patterns.get(&id) {
+            errors.push(LintError {
+                kind: LintErrorKind::DuplicateId,
+                file: rel.display().to_string(),
+                message: format!(
+                    "id de pattern « {id} » déjà défini dans {}",
+                    existing.file.display()
+                ),
+            });
+            continue;
+        }
+        registry.patterns.insert(
+            id.clone(),
+            PatternFileEntry {
+                id,
+                file: rel,
+                pattern,
+            },
+        );
+    }
+}
+
 fn load_floors(
     assets_dir: &Path,
     decl: &ContentFolderDecl,
