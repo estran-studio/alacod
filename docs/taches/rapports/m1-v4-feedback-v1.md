@@ -107,16 +107,16 @@ vitesse, une image par frame de simulation).
 - **`weapon_grenade`** : f114, **chiffre « 20 »** au-dessus de la cible touchée par
   l'explosion, secousse de surcharge visible.
 
-Images versionnées (`captures/m1-v4-feedback-v1/`) :
+Images versionnées (`docs/taches/rapports/m1-v4-feedback-v1/`) :
 
-- ![télégraphe de la ruée, f55](captures/m1-v4-feedback-v1/enemy_charge_f055_telegraphe.png)
+- ![télégraphe de la ruée, f55](m1-v4-feedback-v1/enemy_charge_f055_telegraphe.png)
   `enemy_charge` f55 : cercle de télégraphe au point visé.
-- ![contact, f101](captures/m1-v4-feedback-v1/enemy_charge_f101_contact.png)
+- ![contact, f101](m1-v4-feedback-v1/enemy_charge_f101_contact.png)
   `enemy_charge` f101 : contact, chiffre « 15 », flash, caméra décalée (secousse ; hit stop en
   cours).
-- ![explosion de grenade, f114](captures/m1-v4-feedback-v1/weapon_grenade_f114_explosion.png)
+- ![explosion de grenade, f114](m1-v4-feedback-v1/weapon_grenade_f114_explosion.png)
   `weapon_grenade` f114 : chiffre « 20 » sur la cible, secousse de surcharge.
-- ![chiffres superposés, f175](captures/m1-v4-feedback-v1/weapon_grenade_f175_chiffres_superposes.png)
+- ![chiffres superposés, f175](m1-v4-feedback-v1/weapon_grenade_f175_chiffres_superposes.png)
   `weapon_grenade` f175 : les 8 éclats sur la même cible, chiffres empilés (limite, §6).
 
 ## 6. Écarts, non fait / incertain
