@@ -55,6 +55,7 @@ fn objectif_atteint_a_la_frame_plafond_sans_dump() {
         &scenario(1),
         |_| {},
         Some(StopEarly {
+            until_floor: None,
             until_wave: Some(1),
             stop_when_all_players_dead: true,
         }),

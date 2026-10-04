@@ -94,18 +94,45 @@ def print_sim_table(commit):
     if not runs:
         return
 
-    print("╭─ alacod-sim ────────────────────────────────────────────────╮")
-    print("│ Graine   │ Vague │ Morts │ Kills │  FPS  │ Desync          │")
-    print("├──────────┼───────┼───────┼───────┼───────┼─────────────────┤")
+    # T1.14 : colonnes de niveaux quand une graine en a franchi, esquives quand non nulles
+    with_floors = any(run.get("floor", 0) > 0 for run in runs)
+    with_dodges = any(run.get("dodges", 0) > 0 for run in runs)
+    headers = ["Graine", "Vague", "Morts", "Kills", "FPS"]
+    if with_floors:
+        headers += ["Niveau", "Frames/niveau"]
+    if with_dodges:
+        headers.append("Esquives")
+    headers.append("Desync")
+    rows = []
     for run in runs:
-        desync = "OUI" if run.get("desync") else ""
-        print(
-            f"│ {run['seed']:>8} │ {run['wave']:>5} │ {run['deaths']:>5} │ {run['kills']:>5} │ "
-            f"{run['sim_fps']:>5.1f} │ {desync:<15} │"
-        )
-    print("╰──────────┴───────┴───────┴───────┴───────┴─────────────────╯")
+        row = [
+            str(run["seed"]),
+            str(run["wave"]),
+            str(run["deaths"]),
+            str(run["kills"]),
+            f"{run['sim_fps']:.1f}",
+        ]
+        if with_floors:
+            frames = run.get("floor_frames", [])
+            per_floor = [b - a for a, b in zip([0] + frames, frames)]
+            row += [str(run.get("floor", 0)), ",".join(map(str, per_floor)) or "-"]
+        if with_dodges:
+            row.append(str(run.get("dodges", 0)))
+        row.append("OUI" if run.get("desync") else "")
+        rows.append(row)
+    widths = [max(len(h), *(len(r[i]) for r in rows)) for i, h in enumerate(headers)]
+    line = lambda cells: "│ " + " │ ".join(c.rjust(w) for c, w in zip(cells, widths)) + " │"
+    print("╭─ alacod-sim " + "─" * (sum(widths) + 3 * len(widths) - 14) + "╮")
+    print(line(headers))
+    print("├" + "┼".join("─" * (w + 2) for w in widths) + "┤")
+    for row in rows:
+        print(line(row))
+    print("╰" + "┴".join("─" * (w + 2) for w in widths) + "╯")
+    if with_floors:
+        target = max(run.get("floor", 0) for run in runs)
+        done = sum(1 for run in runs if run.get("floor", 0) >= target)
+        print(f"Niveaux finis : {done}/{len(runs)} graines au niveau {target}")
     print()
-
 
 if __name__ == "__main__":
     main()

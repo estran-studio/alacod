@@ -61,7 +61,7 @@ pub fn decide_hunter(view: &HunterView) -> BoxInput {
     input
 }
 
-fn fire_trigger_ready(mode: FiringMode, is_firing: bool) -> bool {
+pub(crate) fn fire_trigger_ready(mode: FiringMode, is_firing: bool) -> bool {
     matches!(mode, FiringMode::Automatic { .. }) || !is_firing
 }
 
@@ -503,6 +503,12 @@ mod profile_tests {
             nearest_enemy: None,
             nearest_window: None,
             portal: None,
+            projectiles: vec![],
+            body_radius: bevy_fixed::fixed_math::Fixed::from_num(10),
+            reload: false,
+            switch_weapon: false,
+            trigger_ready: true,
+            velocity: FixedVec2::ZERO,
             hunter: Some(hunter),
         };
         for profile in [BotProfile::Chasseur, BotProfile::Acheteur] {
@@ -526,6 +532,12 @@ mod profile_tests {
             nearest_enemy: None,
             nearest_window: None,
             portal: None,
+            projectiles: vec![],
+            body_radius: bevy_fixed::fixed_math::Fixed::from_num(10),
+            reload: false,
+            switch_weapon: false,
+            trigger_ready: true,
+            velocity: FixedVec2::ZERO,
             hunter: Some(HunterView {
                 can_fire: true,
                 interact: true,

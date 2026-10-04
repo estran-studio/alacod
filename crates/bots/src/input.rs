@@ -37,7 +37,7 @@
 use std::collections::BTreeMap;
 
 use bevy::prelude::*;
-use bevy_fixed::fixed_math::FixedTransform3D;
+use bevy_fixed::fixed_math::{Fixed, FixedTransform3D, FixedVec2};
 use bevy_fixed::rng::{fnv1a, RngStreams, RollbackRng};
 use bevy_ggrs::{LocalInputs, LocalPlayers, ReadInputs, Rollback};
 use game::character::enemy::Enemy;
@@ -55,7 +55,12 @@ use utils::net_id::GgrsNetId;
 use utils::order_iter;
 
 use crate::decide::decide;
-use crate::view::{nearest_by_net_id, BotView, EnemyView, WindowView};
+use crate::view::{
+    nearest_by_net_id, projectile_views, BotView, EnemyView, ProjectileView, WindowView,
+};
+use combat::collider::{Collider, ColliderShape};
+use combat::weapons::Bullet;
+use sim_core::team::Team;
 
 /// Profil de bot par joueur local (handle GGRS). Ressource **ordinaire**, pas rollback, pas
 /// dans le checksum GGRS (assignée une fois avant la partie par le runner de scénario ou
@@ -63,6 +68,14 @@ use crate::view::{nearest_by_net_id, BotView, EnemyView, WindowView};
 /// changent pas. `BTreeMap` pour un ordre stable si elle est un jour itérée.
 #[derive(Resource, Debug, Clone, Default)]
 pub struct BotAssignments(pub BTreeMap<usize, BotProfile>);
+
+/// Compteurs des bots (T1.14), **hors rollback et hors simulation** : incrémentés dans
+/// `ReadInputs` (une fois par frame décidée), lus par `alacod-sim` en fin de partie.
+#[derive(Resource, Debug, Clone, Default)]
+pub struct BotStats {
+    /// Frames où l'esquive a remplacé le déplacement d'au moins un bot `prudent`.
+    pub dodges: u32,
+}
 
 /// Enregistre [`BotAssignments`] (vide par défaut ; un appelant l'assigne ensuite avec
 /// `insert_resource`) et ajoute [`read_bot_inputs`] au schedule `ReadInputs`. Peut être ajouté
@@ -73,6 +86,7 @@ pub struct BotsPlugin;
 impl Plugin for BotsPlugin {
     fn build(&self, app: &mut App) {
         app.init_resource::<BotAssignments>();
+        app.init_resource::<BotStats>();
 
         // Vocabulaire (docs/conventions.md §4, étape 2) : les noms de profils, pour un futur
         // lint/diagnostic qui voudrait les valider (aucun aujourd'hui : les scénarios ne sont
@@ -121,9 +135,15 @@ pub fn read_bot_inputs(
             &FixedTransform3D,
             &Health,
             &WeaponInventory,
+            Option<&Collider>,
+            Option<&combat::inventory::AmmoReserves>,
+            Option<&combat::actors::Velocity>,
         ),
         With<Rollback>,
     >,
+    // T1.14 : projectiles (toute balle) et compteur d'esquives hors rollback
+    bullets: Query<(&GgrsNetId, &FixedTransform3D, &Bullet, Option<&Collider>), With<Rollback>>,
+    mut stats: ResMut<BotStats>,
     weapons: Query<(&WeaponState, &WeaponModesState)>,
     enemies: Query<(&GgrsNetId, &FixedTransform3D), (With<Enemy>, With<Rollback>)>,
     windows: Query<(&GgrsNetId, &FixedTransform3D, &WindowHealth), With<Rollback>>,
@@ -146,11 +166,15 @@ pub fn read_bot_inputs(
         .and_then(|state| state.anchor_vec());
     let enemies_sorted = order_iter!(enemies);
     let windows_sorted = order_iter!(windows);
+    let bullets_sorted = order_iter!(bullets);
+    let mut dodged = false;
 
     // `_net_id` : nécessaire en première position pour `order_iter!` (tri déterministe des
     // joueurs avant de consommer le flux RNG "bots"), pas utilisé ensuite (même convention que
     // `move_characters`, `crates/game/src/character/player/input.rs`).
-    for (_net_id, player, transform, health, inventory) in order_iter!(players) {
+    for (_net_id, player, transform, health, inventory, collider, reserves, velocity) in
+        order_iter!(players)
+    {
         if !local_players.0.contains(&player.handle) {
             continue;
         }
@@ -201,6 +225,33 @@ pub fn read_bot_inputs(
             .and_then(|(entity, _)| weapons.get(*entity).ok())
             .and_then(|(state, modes)| modes.modes.get(&state.active_mode).map(|m| m.mag_ammo))
             .unwrap_or(0);
+        // T1.14 : (chargeur, rechargeable, détente prête) par arme, même calcul que `hunter`
+        let ammunition: Vec<(u32, bool, bool)> = inventory
+            .weapons
+            .iter()
+            .map(|(entity, weapon)| {
+                weapons
+                    .get(*entity)
+                    .ok()
+                    .and_then(|(state, modes)| {
+                        let mode = modes.modes.get(&state.active_mode)?;
+                        let config = weapon.config.firing_modes.get(&state.active_mode)?;
+                        let reserve = reserves.map_or(0, |r| r.get(&weapon.config.ammo_type));
+                        Some((
+                            mode.mag_ammo,
+                            mode.can_reload(&config.mag, reserve),
+                            crate::hunter::fire_trigger_ready(config.firing_mode, state.is_firing),
+                        ))
+                    })
+                    .unwrap_or((0, false, true))
+            })
+            .collect();
+        let (active_ammo, reloadable, trigger_ready) = ammunition
+            .get(inventory.active_weapon_index)
+            .copied()
+            .unwrap_or((0, false, true));
+        let usable = active_ammo > 0 || reloadable;
+        let switch_weapon = !usable && ammunition.iter().any(|(a, r, _)| *a > 0 || *r);
 
         let view = BotView {
             position,
@@ -212,11 +263,47 @@ pub fn read_bot_inputs(
             nearest_window,
             hunter: None,
             portal,
+            projectiles: projectile_views(bullets_sorted.iter().map(
+                |(id, bullet_transform, bullet, bullet_collider)| {
+                    let bullet_position = bullet_transform.translation.truncate();
+                    (
+                        id.0,
+                        bullet.source_team != Team::Players,
+                        ProjectileView {
+                            position: bullet_position,
+                            velocity: bullet.velocity,
+                            size: bullet_collider.map_or(Fixed::from_num(5), collider_radius),
+                            distance: position.distance(&bullet_position),
+                        },
+                    )
+                },
+            )),
+            body_radius: collider.map_or(Fixed::from_num(10), collider_radius),
+            reload: active_ammo == 0 && reloadable,
+            switch_weapon,
+            trigger_ready,
+            velocity: velocity.map_or(FixedVec2::ZERO, |v| v.main),
         };
 
+        if profile == BotProfile::Prudent && crate::dodge::dodge(&view).is_some() {
+            dodged = true;
+        }
         let input = decide_with_lazy_rng(&mut rng_streams, profile, &view);
 
         local_inputs.0.insert(player.handle, input);
+    }
+    if dodged {
+        stats.dodges += 1;
+    }
+}
+
+/// Rayon d'un collider : cercle → rayon, rectangle → demi-diagonale.
+fn collider_radius(collider: &Collider) -> Fixed {
+    match &collider.shape {
+        ColliderShape::Circle { radius } => *radius,
+        ColliderShape::Rectangle { width, height } => {
+            FixedVec2::new(*width / Fixed::from_num(2), *height / Fixed::from_num(2)).length()
+        }
     }
 }
 

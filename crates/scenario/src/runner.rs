@@ -90,6 +90,10 @@ pub struct Metrics {
     /// `terrain`, une par `world::TerrainDestroyed`) : `bench_cave` en exige au moins 50.
     #[serde(default)]
     pub terrain_destroyed: u32,
+    /// Dégâts subis par les joueurs (T1.14) : somme des baisses de santé observées entre deux
+    /// updates, arrondie.
+    #[serde(default)]
+    pub damage_taken: u32,
 }
 
 /// Résultat d'un scénario.
@@ -505,9 +509,16 @@ fn apply_scenario_powerup_placements(
 pub struct StopEarly {
     /// S'arrête dès que `WaveState::current_wave >= until_wave`.
     pub until_wave: Option<u32>,
+    /// S'arrête dès que `FloorState::index >= until_floor` (mode `Floors`, T1.14). Active aussi
+    /// la détection de soft-lock `Floors` : arrêt avec `softlock` quand ni passage de niveau ni
+    /// ennemi en moins depuis [`FLOORS_SOFTLOCK_FRAMES`].
+    pub until_floor: Option<u32>,
     /// S'arrête dès qu'aucun joueur n'est vivant (à partir de la première frame simulée).
     pub stop_when_all_players_dead: bool,
 }
+
+/// Soft-lock `Floors` (T1.14) : frames sans passage de niveau ni ennemi en moins.
+pub const FLOORS_SOFTLOCK_FRAMES: u32 = 1200;
 
 /// Tags, immunités, modificateurs de stats et choix d'arme par joueur (T1.1 chantier B1,
 /// T1.2 chantier B2, T2.10 générateur) — voir `game::replay::PlayerScript::{tags,
@@ -746,6 +757,15 @@ pub fn run_with_options<F: FnOnce(&mut App)>(
         .world_mut()
         .query_filtered::<(), With<game::character::enemy::Enemy>>();
     let mut q_players = app.world_mut().query_filtered::<(), With<Player>>();
+    // T1.14 : dégâts subis (somme des baisses de santé des joueurs, lue entre deux updates)
+    let mut q_player_health = app
+        .world_mut()
+        .query::<(&Player, &game::character::health::Health)>();
+    let mut player_health: BTreeMap<usize, fixed_math::Fixed> = BTreeMap::new();
+    let mut damage_taken = fixed_math::FIXED_ZERO;
+    // T1.14 : progrès en `Floors` (niveau, ennemis restants) pour le soft-lock
+    let mut floors_progress: (u32, usize, u32) = (0, usize::MAX, 0); // (niveau, ennemis, frame)
+    let mut floors_softlocked = false;
 
     let max_updates = MAX_LOADING_UPDATES + scenario.frames;
     let mut frame = 0;
@@ -767,6 +787,13 @@ pub fn run_with_options<F: FnOnce(&mut App)>(
             bullets_max = bullets_max.max(q_bullets.iter(app.world()).count() as u32);
             enemies_max = enemies_max.max(q_enemies.iter(app.world()).count() as u32);
             players_count = players_count.max(q_players.iter(app.world()).count() as u32);
+            for (player, health) in q_player_health.iter(app.world()) {
+                if let Some(previous) = player_health.insert(player.handle, health.current) {
+                    if health.current < previous {
+                        damage_taken += previous - health.current;
+                    }
+                }
+            }
 
             failures.extend(invariants.check(app.world_mut(), &scenario.invariants, frame));
 
@@ -838,10 +865,28 @@ pub fn run_with_options<F: FnOnce(&mut App)>(
                 let wave_reached = stop.until_wave.is_some_and(|until_wave| {
                     app.world().resource::<WaveState>().current_wave >= until_wave
                 });
+                let floor_index = app.world().resource::<run::FloorState>().index;
+                let floor_reached = stop.until_floor.is_some_and(|n| floor_index >= n);
                 let all_dead =
                     stop.stop_when_all_players_dead && q_players.iter(app.world()).count() == 0;
-                if wave_reached || all_dead {
+                if wave_reached || floor_reached || all_dead {
                     stopped_early = true;
+                } else if stop.until_floor.is_some() {
+                    // Soft-lock `Floors` : ni passage de niveau ni ennemi en moins
+                    let enemies = q_enemies.iter(app.world()).count();
+                    let (last_floor, last_enemies, since) = floors_progress;
+                    if floor_index != last_floor || enemies < last_enemies {
+                        floors_progress = (floor_index, enemies, frame);
+                    } else {
+                        floors_progress.1 = enemies;
+                        let stalled = frame.saturating_sub(since);
+                        if stalled == FLOORS_SOFTLOCK_FRAMES / 2 {
+                            previous_snapshot = Some(crate::softlock::snapshot(app.world_mut()));
+                        }
+                        if stalled >= FLOORS_SOFTLOCK_FRAMES {
+                            floors_softlocked = true;
+                        }
+                    }
                 }
             }
         }
@@ -856,7 +901,7 @@ pub fn run_with_options<F: FnOnce(&mut App)>(
             previous_snapshot = Some(crate::softlock::snapshot(app.world_mut()));
         }
 
-        if stopped_early || frame >= scenario.frames {
+        if stopped_early || floors_softlocked || frame >= scenario.frames {
             break;
         }
     }
@@ -867,7 +912,7 @@ pub fn run_with_options<F: FnOnce(&mut App)>(
         0.0
     };
 
-    if frame < scenario.frames && !stopped_early {
+    if frame < scenario.frames && !stopped_early && !floors_softlocked {
         failures.push(format!(
             "la simulation n'a atteint que la frame {frame} sur {} (map pas chargée ?)",
             scenario.frames
@@ -933,6 +978,7 @@ pub fn run_with_options<F: FnOnce(&mut App)>(
         players_alive,
         final_floor,
         terrain_destroyed: events.iter().filter(|e| e.kind == "terrain").count() as u32,
+        damage_taken: damage_taken.to_num::<f64>().round() as u32,
     };
 
     let world = app.world_mut();
@@ -942,7 +988,9 @@ pub fn run_with_options<F: FnOnce(&mut App)>(
         .map(|(net_id, hits)| (net_id.0, hits.0))
         .collect();
 
-    let softlock = if stop_early.is_some() && !stopped_early && frame >= scenario.frames {
+    let softlock = if floors_softlocked
+        || (stop_early.is_some() && !stopped_early && frame >= scenario.frames)
+    {
         Some(crate::softlock::SoftlockDump::new(
             previous_snapshot,
             crate::softlock::snapshot(world),

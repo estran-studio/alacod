@@ -51,11 +51,46 @@ struct SimResult {
     wall_seconds: f64,
     desync: bool,
     sim_fps: f64,
+    /// T1.14 : frame de chaque passage de niveau (mode `Floors`), vide sinon.
+    #[serde(skip_serializing_if = "Vec::is_empty")]
+    floor_frames: Vec<u32>,
+    /// T1.14 : dégâts subis par les joueurs (somme des baisses de santé).
+    damage_taken: u32,
+    /// T1.14 : frames où l'esquive a remplacé le déplacement d'au moins un bot `prudent`.
+    #[serde(skip_serializing_if = "is_zero")]
+    dodges: u32,
     #[serde(skip_serializing_if = "Vec::is_empty")]
     failures: Vec<String>,
-    /// État au plafond et 600 frames auparavant ; absent en cas d'arrêt volontaire.
+    /// État au plafond (ou au soft-lock `Floors`) et 600 frames auparavant ; absent en cas
+    /// d'arrêt volontaire.
     #[serde(skip_serializing_if = "Option::is_none")]
     softlock: Option<scenario::softlock::SoftlockDump>,
+}
+
+fn is_zero(value: &u32) -> bool {
+    *value == 0
+}
+
+/// Condition d'arrêt (T1.14) : `--until-wave <n>` en mode `Waves`, `--until-floor <n>` en mode
+/// `Floors` (exige `--floors`). L'un des deux est obligatoire.
+fn stop_condition(
+    until_wave: Option<&str>,
+    until_floor: Option<&str>,
+    floors: Option<&str>,
+) -> Result<(Option<u32>, Option<u32>), String> {
+    let until_wave = until_wave
+        .map(|v| v.parse().map_err(|_| "--until-wave : entier".to_string()))
+        .transpose()?;
+    let until_floor = until_floor
+        .map(|v| v.parse().map_err(|_| "--until-floor : entier".to_string()))
+        .transpose()?;
+    if until_floor.is_some() && floors.is_none() {
+        return Err("--until-floor exige --floors <séquence> (mode Floors)".into());
+    }
+    if until_wave.is_none() && until_floor.is_none() {
+        return Err("--until-wave <n> (Waves) ou --until-floor <n> (Floors) obligatoire".into());
+    }
+    Ok((until_wave, until_floor))
 }
 
 fn main() {
@@ -71,8 +106,8 @@ fn main() {
         opt(name).unwrap_or_else(|| {
             panic!(
                 "usage : alacod-sim --game <jeu> --bots <n> [--profiles <a,b,...>] \
-                 --seeds <de>..<à> --until-wave <n> --max-frames <n> \
-                 [--map <fichier.ldtk>] [--floors <séquence>] [--save-scenario <dossier>] [--json <fichier>] ({name} manquant)"
+                 --seeds <de>..<à> (--until-wave <n> | --floors <séquence> --until-floor <n>) \
+                 --max-frames <n> [--map <fichier.ldtk>] [--save-scenario <dossier>] [--json <fichier>] ({name} manquant)"
             )
         })
     };
@@ -98,9 +133,13 @@ fn main() {
     );
 
     let (seed_from, seed_to) = parse_seed_range(&require("--seeds"));
-    let until_wave: u32 = require("--until-wave")
-        .parse()
-        .expect("--until-wave : entier");
+    let floors = opt("--floors");
+    let (until_wave, until_floor) = stop_condition(
+        opt("--until-wave").as_deref(),
+        opt("--until-floor").as_deref(),
+        floors.as_deref(),
+    )
+    .unwrap_or_else(|e| panic!("alacod-sim : {e}"));
     // Défaut généreux (20 000 frames ≈ 5.5 min de partie simulée) : `--until-wave` arrête
     // presque toujours la partie bien avant, `--max-frames` n'est qu'un filet de sécurité.
     let max_frames: u32 = opt("--max-frames")
@@ -126,13 +165,12 @@ fn main() {
     );
     let map = opt("--map").unwrap_or_else(|| manifest.entry.start_map.clone());
     // T1.8 : `--floors <id>` impose le mode `Floors` avec cette séquence du dossier `Floors`
-    // du jeu (`Scenario::floors`) ; `--map` est alors ignorée. Pas d'arrêt au N-ième niveau
-    // (`--until-floor`, T1.14) : la partie va jusqu'à `--max-frames` ou la mort des bots, et
-    // le JSON rapporte le niveau atteint (`floor`).
-    let floors = opt("--floors");
+    // du jeu (`Scenario::floors`) ; `--map` est alors ignorée. T1.14 : `--until-floor <n>`
+    // arrête la graine au n-ième passage de portail (`floor >= n`) ; le JSON rapporte le
+    // niveau atteint (`floor`) et la frame de chaque passage (`floor_frames`).
 
     eprintln!(
-        "alacod-sim : {game}, {bots} bots ({}), graines {seed_from}..={seed_to}, jusqu'à la vague {until_wave} ou {max_frames} frames, carte {map}",
+        "alacod-sim : {game}, {bots} bots ({}), graines {seed_from}..={seed_to}, jusqu'à la vague {until_wave:?} / au niveau {until_floor:?} ou {max_frames} frames, carte {map}",
         profiles.iter().map(|p| p.name()).collect::<Vec<_>>().join(",")
     );
 
@@ -167,9 +205,12 @@ fn main() {
         };
 
         let stop_early = StopEarly {
-            until_wave: Some(until_wave),
+            until_wave,
+            until_floor,
             stop_when_all_players_dead: true,
         };
+        let dodges = std::sync::Arc::new(std::sync::atomic::AtomicU32::new(0));
+        let dodges_probe = dodges.clone();
 
         let wall_start = Instant::now();
         // `InputSource::Bot` : aucun joueur scripté ici, contrairement aux scénarios RON qui
@@ -179,6 +220,13 @@ fn main() {
             &run_scenario,
             |app| {
                 app.insert_resource(InputSource::Bot);
+                // T1.14 : compteur d'esquives (hors simulation), relu en fin de graine
+                app.add_systems(
+                    bevy::prelude::Last,
+                    move |stats: bevy::prelude::Res<bots::BotStats>| {
+                        dodges_probe.store(stats.dodges, std::sync::atomic::Ordering::Relaxed);
+                    },
+                );
                 if args.iter().any(|arg| arg == "--progress") {
                     app.add_systems(bevy::prelude::Last, print_progress);
                 }
@@ -220,6 +268,14 @@ fn main() {
             wall_seconds,
             desync,
             sim_fps: outcome.metrics.sim_fps,
+            floor_frames: outcome
+                .events
+                .iter()
+                .filter(|e| e.kind == "floor")
+                .map(|e| e.frame)
+                .collect(),
+            damage_taken: outcome.metrics.damage_taken,
+            dodges: dodges.load(std::sync::atomic::Ordering::Relaxed),
             failures: outcome.failures,
             softlock: outcome.softlock,
         });
@@ -285,4 +341,21 @@ fn parse_seed_range(spec: &str) -> (i32, i32) {
         "--seeds : {from}..{to} est vide (borne basse > borne haute)"
     );
     (from, to)
+}
+
+#[cfg(test)]
+mod tests {
+    use super::stop_condition;
+
+    #[test]
+    fn until_floor_exige_floors() {
+        assert!(stop_condition(None, Some("3"), None).is_err());
+        assert_eq!(
+            stop_condition(None, Some("3"), Some("trois_niveaux")),
+            Ok((None, Some(3)))
+        );
+        assert_eq!(stop_condition(Some("5"), None, None), Ok((Some(5), None)));
+        assert!(stop_condition(None, None, None).is_err());
+        assert!(stop_condition(Some("x"), None, None).is_err());
+    }
 }
