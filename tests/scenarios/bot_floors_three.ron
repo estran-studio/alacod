@@ -1,0 +1,24 @@
+// T1.14 : deux bots `prudent` v1 finissent la séquence `trois_niveaux` du testbed (`floor_a`,
+// `floor_d`, `floor_c`) en mode `Floors` : ils tuent les ennemis de chaque niveau (tir, gestion
+// d'arme, esquive), puis marchent vers le portail ouvert.
+//
+// À regarder : passages de portail à f175, f1275 et f2086 ; les deux bots restent en vie
+// (18 points de dégâts encaissés en tout).
+Scenario(
+    powerup_drop_chance_override: "0.0",
+    game: "testbed",
+    floors: Some("trois_niveaux"),
+    map_seed: 123456,
+    frames: 2100,
+    players: [
+        (bot: prudent),
+        (bot: prudent),
+    ],
+    expect: [
+        FloorIndex(index: 1, at_frame: 1000),
+        FloorIndex(index: 2, at_frame: 2000),
+        FloorIndex(index: 3, at_frame: 2099),
+        PlayerAlive(handle: 0, at_frame: 2099),
+        PlayerAlive(handle: 1, at_frame: 2099),
+    ],
+)
