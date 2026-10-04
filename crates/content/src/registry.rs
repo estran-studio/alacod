@@ -204,20 +204,86 @@ pub struct CharacterEntry {
     pub downed_speed_mult: FixedField,
     /// Emplacements d'armes à distance (T2.2, chantier B7), pour la règle « > 0 ».
     pub weapon_slots: u32,
-    /// Tir à distance (T1.2, `ai.ranged`), pour les règles de référence et de plage.
-    pub ranged: Option<RangedEntry>,
     /// T1.10 : effets v1 du personnage (`docs/conventions.md` §27).
     pub effects: Vec<effects::Effect>,
+    /// T1.4 : règles de comportement (`ai.behaviors`, `None` : liste par défaut).
+    pub behaviors: Option<Vec<BehaviorEntry>>,
+    /// T1.4 : tags ignorés par le ciblage (`ai.targeting: Some(Nearest(ignore: [...]))`).
+    pub ignore_tags: Vec<String>,
+    /// Tags du personnage (`tags`), source des tags connus du jeu (règle `ignore`).
+    pub tags: Vec<String>,
+    /// T1.5 : `ai` présent (personnage IA : la règle `MoveSpeed` → `EnemyMoveSpeed`).
+    pub has_ai: bool,
+    /// T1.5 : table de variantes (`variants`), dans l'ordre du fichier (doublons gardés pour
+    /// la règle « nom en double »).
+    pub variants: Option<VariantsEntry>,
 }
 
-/// T1.2 : mirroir de `game::character::enemy::ai::state::RangedAttackRon` (champ `ranged` de
-/// `ai`, voir `docs/conventions.md` §20).
+/// T1.5 : mirroir de `game::character::variant::VariantsConfig`.
+#[derive(Debug, Clone)]
+pub struct VariantsEntry {
+    pub chance: FixedField,
+    pub table: Vec<(String, VariantEntry)>,
+}
+
+/// T1.5 : mirroir de `game::character::variant::VariantDef`.
 #[derive(Debug, Clone, Deserialize)]
-pub struct RangedEntry {
-    pub weapon: String,
-    pub pattern: String,
-    pub range: FixedField,
-    pub cooldown_frames: u32,
+pub struct VariantEntry {
+    #[serde(default = "default_variant_weight")]
+    pub weight: u32,
+    #[serde(default)]
+    pub modifiers: Vec<VariantModifierEntry>,
+    #[serde(default)]
+    pub tags: Vec<String>,
+    #[serde(default)]
+    pub skin: Option<String>,
+}
+
+fn default_variant_weight() -> u32 {
+    1
+}
+
+/// T1.5 : un modificateur de variante (format §9 ; une stat inconnue échoue au chargement).
+#[derive(Debug, Clone, Deserialize)]
+pub struct VariantModifierEntry {
+    pub stat: StatId,
+    pub op: ModifierOp,
+    pub value: FixedField,
+}
+
+/// T1.4 : mirroir de `behaviors::Behavior` (`docs/conventions.md` §22) ; les `Fixed` passent
+/// par [`FixedField`].
+#[derive(Debug, Clone, Deserialize)]
+pub enum BehaviorEntry {
+    Chase {
+        profile: String,
+    },
+    KeepDistance {
+        min: FixedField,
+        max: FixedField,
+    },
+    Strafe,
+    Charge {
+        telegraph: u32,
+    },
+    Shoot {
+        weapon: String,
+        pattern: String,
+        range: FixedField,
+        cooldown_frames: u32,
+    },
+    Melee(String),
+    Flee,
+    Wander,
+}
+
+/// T1.4 : mirroir de `behaviors::Targeting`.
+#[derive(Debug, Clone, Deserialize)]
+pub enum TargetingEntry {
+    Nearest {
+        #[serde(default)]
+        ignore: Vec<String>,
+    },
 }
 
 /// T1.2 : pattern nommé (`patterns/<nom>.ron`, kind `Pattern`).
@@ -534,6 +600,40 @@ struct FloorsFileSchema {
 pub struct MapEntry {
     pub id: MapId,
     pub file: PathBuf,
+    /// T1.5 : `CharacterSpawn` qui imposent une variante (`(personnage, variante)`, champs LDtk
+    /// `character`/`variant` des niveaux internes du `.ldtk`), pour le lint des références.
+    pub forced_variants: Vec<(String, String)>,
+}
+
+/// T1.5 : `CharacterSpawn` à champ `variant` rempli dans un `.ldtk` (niveaux internes). Une
+/// carte illisible en JSON ne donne rien (le chargement LDtk du jeu la rapportera).
+fn ldtk_forced_variants(text: &str) -> Vec<(String, String)> {
+    let Ok(json) = serde_json::from_str::<serde_json::Value>(text) else {
+        return Vec::new();
+    };
+    let field = |entity: &serde_json::Value, name: &str| -> Option<String> {
+        entity["fieldInstances"]
+            .as_array()?
+            .iter()
+            .find(|f| f["__identifier"] == name)?["__value"]
+            .as_str()
+            .filter(|value| !value.is_empty())
+            .map(str::to_string)
+    };
+    let mut out = Vec::new();
+    for level in json["levels"].as_array().into_iter().flatten() {
+        for layer in level["layerInstances"].as_array().into_iter().flatten() {
+            for entity in layer["entityInstances"].as_array().into_iter().flatten() {
+                if entity["__identifier"] != "CharacterSpawn" {
+                    continue;
+                }
+                if let Some(variant) = field(entity, "variant") {
+                    out.push((field(entity, "character").unwrap_or_default(), variant));
+                }
+            }
+        }
+    }
+    out
 }
 
 /// T2.3, chantier C5 v1 : `games/<jeu>/assets/economy/economy.ron`. Lint (T2.8,
@@ -838,18 +938,36 @@ struct CharacterFileSchema {
     /// T2.2, chantier B7 : voir `game::character::config::CharacterConfig::weapon_slots`.
     #[serde(default = "default_weapon_slots")]
     weapon_slots: u32,
-    /// T1.2 : seul `ai.ranged` est lu (`None` : pas d'`ai`, ou `ai` sans `ranged`).
+    /// T1.4 : seuls `ai.behaviors` et `ai.targeting` sont lus.
     #[serde(default)]
     ai: Option<AiSchema>,
     /// T1.10 : effets v1.
     #[serde(default)]
     effects: Vec<effects::Effect>,
+    #[serde(default)]
+    tags: Vec<String>,
+    /// T1.5 : variantes et élites.
+    #[serde(default)]
+    variants: Option<VariantsSchema>,
+}
+
+#[derive(Deserialize)]
+struct VariantsSchema {
+    #[serde(default = "default_variant_chance")]
+    chance: FixedField,
+    table: KeyedEntries<VariantEntry>,
+}
+
+fn default_variant_chance() -> FixedField {
+    FixedField(Fixed::from_num(1))
 }
 
 #[derive(Deserialize)]
 struct AiSchema {
     #[serde(default)]
-    ranged: Option<RangedEntry>,
+    behaviors: Option<Vec<BehaviorEntry>>,
+    #[serde(default)]
+    targeting: Option<TargetingEntry>,
 }
 
 fn default_bleedout_frames() -> u32 {
@@ -1262,8 +1380,20 @@ fn load_characters(
                 revive_frames: parsed.revive_frames,
                 downed_speed_mult: parsed.downed_speed_mult,
                 weapon_slots: parsed.weapon_slots,
-                ranged: parsed.ai.and_then(|ai| ai.ranged),
                 effects: parsed.effects,
+                ignore_tags: parsed
+                    .ai
+                    .as_ref()
+                    .and_then(|ai| ai.targeting.as_ref())
+                    .map(|TargetingEntry::Nearest { ignore }| ignore.clone())
+                    .unwrap_or_default(),
+                has_ai: parsed.ai.is_some(),
+                behaviors: parsed.ai.and_then(|ai| ai.behaviors),
+                tags: parsed.tags,
+                variants: parsed.variants.map(|variants| VariantsEntry {
+                    chance: variants.chance,
+                    table: variants.table.0,
+                }),
             },
         );
     }
@@ -2171,7 +2301,17 @@ fn load_maps(
             });
             continue;
         }
-        registry.maps.insert(id.clone(), MapEntry { id, file: rel });
+        let forced_variants = read_file(assets_dir, &rel)
+            .map(|text| ldtk_forced_variants(&text))
+            .unwrap_or_default();
+        registry.maps.insert(
+            id.clone(),
+            MapEntry {
+                id,
+                file: rel,
+                forced_variants,
+            },
+        );
     }
 }
 

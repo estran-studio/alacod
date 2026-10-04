@@ -1,0 +1,22 @@
+// T1.5 (testbed, conventions §25) : `grunt_plain` (sans table `variants`) : aucune variante,
+// vitesse et santé de base (60, 60).
+// Carte `testbed/arena_variantes.ldtk` : grunt `rapide` imposé (NetId 33), grunt `blinde`
+// imposé (32), `grunt_plain` sans table (31), grunt sans champ, tiré (30) ; tous à ~167
+// unités du joueur 0 immobile, `Chase` seul. `variant_fast`, `variant_none` et
+// `variant_elite` jouent la même partie (même carte, même graine) et vérifient chacun leur
+// sujet : leurs trois traces sont identiques, c'est voulu.
+Scenario(
+    powerup_drop_chance_override: "0.0",
+    game: "testbed",
+    map: "testbed/arena_variantes.ldtk",
+    frames: 160,
+    players: [
+        (inputs: []),
+    ],
+    expect: [
+        EnemyVariant(entity: NetId(31), variant: None, at_frame: 2),
+        Stat(handle: 0, stat: EnemyMoveSpeed, value: 60.0, at_frame: 2, entity: Some(NetId(31))),
+        EntityHealth(net_id: 31, min: 60.0, max: 60.0, at_frame: 2),
+        EnemyDistance(entity: NetId(31), target: Player(0), min: 90.0, max: 105.0, at_frame: 80),
+    ],
+)

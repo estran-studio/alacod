@@ -332,6 +332,9 @@ pub fn wave_spawning_system(
             &mut id_factory,
             Team::Enemies,
             health_max,
+            // Graine de run (T1.5 : tirage des variantes), lue sans toucher aux flux.
+            rng_streams.run_seed,
+            None,
         );
 
         // Add WaveEnemy component to track this enemy for wave completion

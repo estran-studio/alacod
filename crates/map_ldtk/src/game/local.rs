@@ -44,6 +44,11 @@ pub struct LevelSpawnAssets<'w> {
     pub character_asset: Res<'w, Assets<CharacterConfig>>,
     pub weapons_asset: Res<'w, Assets<WeaponsConfig>>,
     pub melee_weapons_asset: Res<'w, Assets<MeleeWeaponsConfig>>,
+    /// Graine de run (T1.5 : tirage des variantes, `game::character::variant`) : la graine de
+    /// carte, celle que `system_after_map_loaded_local`/`p2p` donnera à `RunSeed`/`RngStreams`
+    /// — qui ne sont posés qu'à `OnEnter(GameStarting)`, après l'apparition des personnages de
+    /// la carte.
+    pub map_config: Option<Res<'w, MapGenerationConfig>>,
 }
 
 /// Map et seed de génération de la partie.
@@ -274,6 +279,11 @@ pub(crate) fn spawn_level_characters(
             id_provider,
             team,
             health_max,
+            assets
+                .map_config
+                .as_ref()
+                .map_or(0, |config| config.seed as u32),
+            spawn.variant.as_deref(),
         );
         placed += 1;
     }

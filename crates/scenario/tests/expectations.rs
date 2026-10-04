@@ -1066,3 +1066,239 @@ fn progression_expectations_pass_and_fail() {
         assert!(failures.contains(needle), "{needle} absent de :\n{failures}");
     }
 }
+
+/// Joue `scenario` avec `reussies` et `echouees` (attente, fragment du message d'échec) : les
+/// premières passent, chacune des secondes échoue une fois avec son message.
+fn verifie_attentes(
+    mut scenario: Scenario,
+    reussies: &[Expectation],
+    echouees: &[(Expectation, &str)],
+) {
+    scenario.expect = reussies
+        .iter()
+        .cloned()
+        .chain(echouees.iter().map(|(attente, _)| attente.clone()))
+        .collect();
+    let outcome = run(&scenario);
+    assert_eq!(
+        outcome.failures.len(),
+        echouees.len(),
+        "{:?}",
+        outcome.failures
+    );
+    for (attente, raison) in echouees {
+        let attendu = format!("{attente:?}");
+        assert!(
+            outcome
+                .failures
+                .iter()
+                .any(|f| f.contains(&attendu) && f.contains(raison)),
+            "échec attendu pour {attendu} ({raison}) : {:?}",
+            outcome.failures
+        );
+    }
+}
+
+/// T1.4 : `EnemyState` lit la règle retenue (état `BehaviorRuntime` de `kiter`) ; échoue sur
+/// une autre règle et sur une entité qui n'est pas un ennemi (le joueur).
+#[test]
+fn enemy_state_lit_la_regle_retenue() {
+    if map_ldtk::RENDER_ENABLED {
+        return;
+    }
+    use game::replay::EntityRef;
+    let scenario = load_scenario("enemy_keep_distance");
+    let joueur = net_id_du_joueur(&scenario, 0);
+    verifie_attentes(
+        scenario,
+        &[
+            Expectation::EnemyState {
+                entity: EntityRef::NetId(27),
+                behavior: "Shoot".into(),
+                at_frame: 20,
+            },
+            Expectation::EnemyState {
+                entity: EntityRef::NetId(27),
+                behavior: "KeepDistance".into(),
+                at_frame: 81,
+            },
+        ],
+        &[
+            (
+                Expectation::EnemyState {
+                    entity: EntityRef::NetId(27),
+                    behavior: "Chase".into(),
+                    at_frame: 81,
+                },
+                "behavior retenu KeepDistance",
+            ),
+            (
+                Expectation::EnemyState {
+                    entity: EntityRef::NetId(joueur),
+                    behavior: "Chase".into(),
+                    at_frame: 81,
+                },
+                "pas un ennemi",
+            ),
+        ],
+    );
+}
+
+/// T1.4 : `EnemyState` sur une entité absente échoue proprement (la règle dérivée des
+/// ennemis sans état nouveau — zombies — est testée dans `game::character::enemy::ai::rules`).
+#[test]
+fn enemy_state_entite_absente() {
+    if map_ldtk::RENDER_ENABLED {
+        return;
+    }
+    use game::replay::EntityRef;
+    verifie_attentes(
+        load_scenario("enemy_charge"),
+        &[],
+        &[(
+            Expectation::EnemyState {
+                entity: EntityRef::NetId(9999),
+                behavior: "Chase".into(),
+                at_frame: 10,
+            },
+            "entité absente",
+        )],
+    );
+}
+
+/// T1.4 : `EnemyDistance` entre bornes ; échoue hors bornes et sur un joueur absent.
+#[test]
+fn enemy_distance_entre_bornes() {
+    if map_ldtk::RENDER_ENABLED {
+        return;
+    }
+    use game::replay::{DistanceTarget, EntityRef};
+    let scenario = load_scenario("enemy_charge");
+    verifie_attentes(
+        scenario,
+        &[Expectation::EnemyDistance {
+            entity: EntityRef::NetId(27),
+            target: DistanceTarget::Player(0),
+            min: Some(118.0),
+            max: Some(121.0),
+            at_frame: 61,
+        }],
+        &[
+            (
+                Expectation::EnemyDistance {
+                    entity: EntityRef::NetId(27),
+                    target: DistanceTarget::Player(0),
+                    min: None,
+                    max: Some(100.0),
+                    at_frame: 61,
+                },
+                "> max 100",
+            ),
+            (
+                Expectation::EnemyDistance {
+                    entity: EntityRef::NetId(27),
+                    target: DistanceTarget::Player(3),
+                    min: None,
+                    max: None,
+                    at_frame: 61,
+                },
+                "joueur 3 absent",
+            ),
+        ],
+    );
+}
+
+/// T1.4 : `EnemyContactBefore` passe si le contact arrive avant l'échéance, échoue sinon.
+#[test]
+fn enemy_contact_before_echeance() {
+    if map_ldtk::RENDER_ENABLED {
+        return;
+    }
+    use game::replay::EntityRef;
+    let scenario = load_scenario("enemy_charge");
+    verifie_attentes(
+        scenario,
+        &[Expectation::EnemyContactBefore {
+            entity: EntityRef::NetId(27),
+            frames: 120,
+        }],
+        &[(
+            Expectation::EnemyContactBefore {
+                entity: EntityRef::NetId(27),
+                frames: 60,
+            },
+            "jamais à portée",
+        )],
+    );
+}
+
+/// T1.4 : `EnemyNeverInWall` passe pour un ennemi qui erre et ne lève que sur un
+/// chevauchement (une entité absente ne chevauche rien). Le cas d'échec n'a pas de scénario :
+/// aucune carte ne place d'ennemi dans un mur.
+#[test]
+fn enemy_never_in_wall_passe_en_salle_ouverte() {
+    if map_ldtk::RENDER_ENABLED {
+        return;
+    }
+    use game::replay::EntityRef;
+    let scenario = load_scenario("enemy_wander");
+    verifie_attentes(
+        scenario,
+        &[
+            Expectation::EnemyNeverInWall {
+                entity: EntityRef::NetId(27),
+                from: 1,
+                to: 330,
+            },
+            Expectation::EnemyNeverInWall {
+                entity: EntityRef::NetId(9999),
+                from: 1,
+                to: 330,
+            },
+        ],
+        &[],
+    );
+}
+
+/// T1.5 : `EnemyVariant` lit le composant `Variant` (imposé par le champ LDtk, ou absent) ;
+/// échoue sur une autre variante et sur une entité absente.
+#[test]
+fn enemy_variant_lit_la_variante() {
+    if map_ldtk::RENDER_ENABLED {
+        return;
+    }
+    use game::replay::EntityRef;
+    verifie_attentes(
+        load_scenario("variant_fast"),
+        &[
+            Expectation::EnemyVariant {
+                entity: EntityRef::NetId(33),
+                variant: Some("rapide".into()),
+                at_frame: 2,
+            },
+            Expectation::EnemyVariant {
+                entity: EntityRef::NetId(31),
+                variant: None,
+                at_frame: 2,
+            },
+        ],
+        &[
+            (
+                Expectation::EnemyVariant {
+                    entity: EntityRef::NetId(32),
+                    variant: Some("rapide".into()),
+                    at_frame: 2,
+                },
+                "variante blinde, rapide attendue",
+            ),
+            (
+                Expectation::EnemyVariant {
+                    entity: EntityRef::NetId(9999),
+                    variant: None,
+                    at_frame: 2,
+                },
+                "entité absente",
+            ),
+        ],
+    );
+}

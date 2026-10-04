@@ -4411,6 +4411,7 @@ dependencies = [
  "effects",
  "ron 0.12.2",
  "serde",
+ "serde_json",
  "sim_core",
  "thiserror 2.0.21",
  "world",

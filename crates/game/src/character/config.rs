@@ -81,6 +81,11 @@ pub struct CharacterConfig {
     #[serde(default)]
     pub ai: Option<EnemyAiConfigRon>,
 
+    /// Variantes et élites (T1.5, `docs/conventions.md` §25) : table tirée à l'apparition
+    /// (`character::variant`). `None` pour tout le contenu existant : aucun tirage.
+    #[serde(default)]
+    pub variants: Option<crate::character::variant::VariantsConfig>,
+
     /// Si vrai, ce personnage reçoit un composant `HitCount` (rollback) à sa création,
     /// incrémenté par le résolveur de dégâts pour chaque coup reçu (T2.9, testbed : la
     /// cible `target`). Faux par défaut : ne s'applique à aucun personnage zombie/joueur

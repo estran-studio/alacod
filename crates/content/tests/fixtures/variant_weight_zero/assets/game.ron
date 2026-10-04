@@ -1,0 +1,5 @@
+(
+    name: "fixture-variant_weight_zero",
+    content_folders: [(path: "characters", kind: "Character")],
+    entry: (start_map: "unused", default_seed: 1),
+)

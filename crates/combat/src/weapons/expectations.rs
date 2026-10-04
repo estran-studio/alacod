@@ -280,6 +280,10 @@ pub enum Expectation {
         stat: StatId,
         value: f32,
         at_frame: u32,
+        /// T1.5 : la stat d'une entité (ex. un ennemi à variante, `EnemyMoveSpeed`) plutôt que
+        /// du joueur `handle` (alors ignoré). Absent : le joueur, comme avant.
+        #[serde(default, skip_serializing_if = "Option::is_none")]
+        entity: Option<EntityRef>,
     },
     /// Nombre **exact** de projectiles vivants (`weapons::Bullet`) à `at_frame` (T1.1,
     /// chantier B5 v1). `projectile` : seulement les projectiles composables de cet id
@@ -301,7 +305,49 @@ pub enum Expectation {
         hits: u32,
         at_frame: u32,
     },
-    /// Jauge `id` (`game::effects_runtime::Gauges`, ex. les rads de la progression) du joueur
+    /// Le behavior retenu par l'ennemi `entity` à `at_frame` est `behavior` (nom de variante :
+    /// `Chase`, `Melee`, `Shoot`, `KeepDistance`, `Strafe`, `Charge`, `Flee`, `Wander` ; T1.4,
+    /// `docs/conventions.md` §22). Échoue si l'entité n'est pas un ennemi ou n'a aucune règle
+    /// retenue.
+    EnemyState {
+        entity: EntityRef,
+        behavior: String,
+        at_frame: u32,
+    },
+    /// Distance de l'ennemi `entity` à `target` dans `[min, max]` (bornes inclusives, `None` =
+    /// pas de borne ; `f32` convertis en `Fixed`) à `at_frame` (T1.4).
+    EnemyDistance {
+        entity: EntityRef,
+        target: DistanceTarget,
+        #[serde(default, skip_serializing_if = "Option::is_none")]
+        min: Option<f32>,
+        #[serde(default, skip_serializing_if = "Option::is_none")]
+        max: Option<f32>,
+        at_frame: u32,
+    },
+    /// Variante du personnage `entity` à `at_frame` (T1.5, `docs/conventions.md` §25) :
+    /// `Some("rapide")`, ou `None` = aucune variante (pas de composant `Variant`). Échoue si
+    /// l'entité n'existe pas.
+    EnemyVariant {
+        entity: EntityRef,
+        variant: Option<String>,
+        at_frame: u32,
+    },
+    /// Diagnostic de navigation (T1.4) : l'ennemi `entity` arrive à portée de mêlée
+    /// (`EnemyAiConfig::attack_range`) d'un joueur au plus tard à la frame `frames`. Attente
+    /// **continue** : relevée à chaque frame jusqu'à `frames`.
+    EnemyContactBefore {
+        entity: EntityRef,
+        frames: u32,
+    },
+    /// Diagnostic de navigation (T1.4) : le collider de l'ennemi `entity` ne chevauche aucun
+    /// `Wall` à aucune frame de `from` à `to` inclus. Attente **continue** (comme
+    /// `NoDamageBetween`) : la première frame fautive est rapportée.
+    EnemyNeverInWall {
+        entity: EntityRef,
+        from: u32,
+        to: u32,
+    },    /// Jauge `id` (`game::effects_runtime::Gauges`, ex. les rads de la progression) du joueur
     /// `handle` dans `[min, max]` (T1.10, `docs/conventions.md` §27). Échoue si le joueur n'a
     /// pas cette jauge.
     Gauge {
@@ -333,6 +379,13 @@ pub enum Expectation {
     },
 }
 
+/// Cible d'une distance (`EnemyDistance`).
+#[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
+pub enum DistanceTarget {
+    /// Le joueur de handle GGRS `0`, `1`, ...
+    Player(usize),
+}
+
 impl Expectation {
     pub fn at_frame(&self) -> u32 {
         match self {
@@ -359,6 +412,9 @@ impl Expectation {
             | Self::Stat { at_frame, .. }
             | Self::BulletCount { at_frame, .. }
             | Self::HitsAtLeast { at_frame, .. }
+            | Self::EnemyState { at_frame, .. }
+            | Self::EnemyDistance { at_frame, .. }
+            | Self::EnemyVariant { at_frame, .. }
             | Self::RunState { at_frame, .. }
             | Self::RunSummary { at_frame, .. }
             | Self::FloorIndex { at_frame, .. }
@@ -376,6 +432,8 @@ impl Expectation {
                 by_frame: at_frame, ..
             } => *at_frame,
             Self::NoDamageBetween { to_frame, .. } => *to_frame,
+            Self::EnemyContactBefore { frames, .. } => *frames,
+            Self::EnemyNeverInWall { to, .. } => *to,
         }
     }
 }

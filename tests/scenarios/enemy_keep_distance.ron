@@ -1,0 +1,27 @@
+// T1.4 (testbed, conventions §22) : `kiter` = [Shoot(volee), KeepDistance(120, 200), Chase],
+// à 47 unités du joueur 0 immobile (carte `testbed/arena_ia_keep.ldtk`, ennemi NetId 27).
+// Mesuré : `Shoot` (volée f1-51, immobile), puis `KeepDistance` recule par le champ de flux
+// inversé (47 → 124 à f141), `Shoot` dès la fin du refroidissement (~f142-192), puis le recul
+// reprend (hystérésis : il continue jusqu'à 200 même au-delà de 120).
+//
+// À regarder : l'ennemi tire, recule, tire encore de plus loin.
+Scenario(
+    powerup_drop_chance_override: "0.0",
+    game: "testbed",
+    map: "testbed/arena_ia_keep.ldtk",
+    frames: 260,
+    players: [
+        (inputs: []),
+    ],
+    expect: [
+        EnemyState(entity: NetId(27), behavior: "Shoot", at_frame: 20),
+        EnemyState(entity: NetId(27), behavior: "KeepDistance", at_frame: 81),
+        EnemyDistance(entity: NetId(27), target: Player(0), min: 110.0, max: 210.0, at_frame: 131),
+        EnemyState(entity: NetId(27), behavior: "Shoot", at_frame: 171),
+        EnemyDistance(entity: NetId(27), target: Player(0), min: 110.0, max: 210.0, at_frame: 171),
+        EnemyState(entity: NetId(27), behavior: "KeepDistance", at_frame: 221),
+        EnemyDistance(entity: NetId(27), target: Player(0), min: 110.0, max: 210.0, at_frame: 221),
+        Health(handle: 0, max: 99.0, at_frame: 100),
+        EnemyNeverInWall(entity: NetId(27), from: 1, to: 260),
+    ],
+)

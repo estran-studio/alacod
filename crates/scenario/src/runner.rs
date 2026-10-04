@@ -728,11 +728,12 @@ pub fn run_with_options<F: FnOnce(&mut App)>(
     app.finish();
     app.cleanup();
 
-    // Séparer les attentes ponctuelles des attentes continues (NoDamageBetween)
+    // Séparer les attentes ponctuelles des attentes continues (NoDamageBetween, et T1.4 :
+    // EnemyContactBefore, EnemyNeverInWall)
     let mut pending: Vec<&Expectation> = scenario
         .expect
         .iter()
-        .filter(|e| !matches!(e, Expectation::NoDamageBetween { .. }))
+        .filter(|e| !is_continuous(e))
         .collect();
     pending.sort_by_key(|e| e.at_frame());
 
@@ -741,6 +742,21 @@ pub fn run_with_options<F: FnOnce(&mut App)>(
         .iter()
         .filter(|e| matches!(e, Expectation::NoDamageBetween { .. }))
         .collect();
+
+    // T1.4 : diagnostics de navigation (continus). `contact_met[i]` : la portée de mêlée a
+    // été atteinte ; `wall_reported[i]` : un chevauchement de mur a déjà été rapporté.
+    let navigation: Vec<&Expectation> = scenario
+        .expect
+        .iter()
+        .filter(|e| {
+            matches!(
+                e,
+                Expectation::EnemyContactBefore { .. } | Expectation::EnemyNeverInWall { .. }
+            )
+        })
+        .collect();
+    let mut contact_met = vec![false; navigation.len()];
+    let mut wall_reported = vec![false; navigation.len()];
 
     let mut failures = Vec::new();
     let mut invariants = InvariantQueries::new(app.world_mut());
@@ -822,6 +838,32 @@ pub fn run_with_options<F: FnOnce(&mut App)>(
                             failures.push(format!("frame {frame}: {expectation:?} : {reason}"));
                         }
                     }
+                }
+            }
+
+            for (index, expectation) in navigation.iter().enumerate() {
+                match expectation {
+                    Expectation::EnemyContactBefore { entity, frames } => {
+                        if !contact_met[index]
+                            && frame <= *frames
+                            && enemy_in_melee_range(app.world_mut(), entity)
+                        {
+                            contact_met[index] = true;
+                        }
+                    }
+                    Expectation::EnemyNeverInWall { entity, from, to } => {
+                        if !wall_reported[index]
+                            && frame >= *from
+                            && frame <= *to
+                            && enemy_in_wall(app.world_mut(), entity)
+                        {
+                            wall_reported[index] = true;
+                            failures.push(format!(
+                                "frame {frame}: {expectation:?} : le collider de l'ennemi chevauche un mur"
+                            ));
+                        }
+                    }
+                    _ => {}
                 }
             }
         }
@@ -910,6 +952,16 @@ pub fn run_with_options<F: FnOnce(&mut App)>(
             .resource::<StateTraceRecorder>()
             .report_for_frames(&synctest_mismatches.frames);
         failures.push(format!("trace des frames divergentes :\n{report}"));
+    }
+
+    for (index, expectation) in navigation.iter().enumerate() {
+        if let Expectation::EnemyContactBefore { frames, .. } = expectation {
+            if !contact_met[index] {
+                failures.push(format!(
+                    "frame {frames}: {expectation:?} : jamais à portée de mêlée d'un joueur"
+                ));
+            }
+        }
     }
 
     let recorder = app.world().resource::<StateTraceRecorder>();
@@ -1287,8 +1339,54 @@ fn check(world: &mut World, expectation: &Expectation) -> Result<(), String> {
                 Err(format!("{found} coups reçus < {hits}"))
             }
         }
-        Expectation::NoDamageBetween { .. } => {
+        Expectation::NoDamageBetween { .. }
+        | Expectation::EnemyContactBefore { .. }
+        | Expectation::EnemyNeverInWall { .. } => {
             // Géré dans la boucle principale, pas dans check()
+            Ok(())
+        }
+        Expectation::EnemyState {
+            entity, behavior, ..
+        } => match enemy_rule(world, entity) {
+            Err(reason) => Err(reason),
+            Ok(Some(found)) if found == behavior => Ok(()),
+            Ok(found) => Err(format!(
+                "behavior retenu {}, {behavior} attendu",
+                found.unwrap_or("aucun")
+            )),
+        },
+        Expectation::EnemyVariant {
+            entity, variant, ..
+        } => {
+            let found = enemy_variant(world, entity)?;
+            if found == *variant {
+                Ok(())
+            } else {
+                Err(format!(
+                    "variante {}, {} attendue",
+                    found.as_deref().unwrap_or("aucune"),
+                    variant.as_deref().unwrap_or("aucune")
+                ))
+            }
+        }
+        Expectation::EnemyDistance {
+            entity,
+            target,
+            min,
+            max,
+            ..
+        } => {
+            let distance = enemy_distance(world, entity, target)?;
+            if let Some(min) = min {
+                if distance < fixed_math::new(*min) {
+                    return Err(format!("distance {distance} < min {min}"));
+                }
+            }
+            if let Some(max) = max {
+                if distance > fixed_math::new(*max) {
+                    return Err(format!("distance {distance} > max {max}"));
+                }
+            }
             Ok(())
         }
         Expectation::EntityCount { kind, min, max, .. } => {
@@ -1558,10 +1656,16 @@ fn check(world: &mut World, expectation: &Expectation) -> Result<(), String> {
             handle,
             stat,
             value,
+            entity,
             ..
         } => {
-            let Some(resolved) = player_stat(world, *handle, stat) else {
-                return Err(format!("joueur absent ou sans stat {stat:?}"));
+            let resolved = match entity {
+                Some(entity) => resolve_entity(world, entity)
+                    .and_then(|target| entity_stat(world, target, stat)),
+                None => player_stat(world, *handle, stat),
+            };
+            let Some(resolved) = resolved else {
+                return Err(format!("joueur ou entité absent, ou sans stat {stat:?}"));
             };
             let expected = fixed_math::Fixed::from_num(*value);
             if resolved == expected {
@@ -1602,6 +1706,11 @@ fn player_stat(world: &mut World, handle: usize, stat: &StatId) -> Option<fixed_
         .iter(world)
         .find(|(player, _)| player.handle == handle)
         .map(|(_, entity)| entity)?;
+    entity_stat(world, entity, stat)
+}
+
+/// Stat résolue d'une entité (base `Stats` + `Modifiers` actifs).
+fn entity_stat(world: &mut World, entity: Entity, stat: &StatId) -> Option<fixed_math::Fixed> {
     let base = world.get::<Stats>(entity)?.get(stat)?;
     let frame = world.resource::<FrameCount>().frame;
     Some(match world.get::<Modifiers>(entity) {
@@ -1921,4 +2030,149 @@ fn capture_frames(
             .observe(save_to_disk(path));
         state.last_captured = Some(frame);
     }
+}
+
+/// Attentes relevées à chaque frame plutôt qu'à `at_frame`.
+fn is_continuous(expectation: &Expectation) -> bool {
+    matches!(
+        expectation,
+        Expectation::NoDamageBetween { .. }
+            | Expectation::EnemyContactBefore { .. }
+            | Expectation::EnemyNeverInWall { .. }
+    )
+}
+
+/// Entité rollback désignée par un `EntityRef` (`Target` : l'entité qui compte ses coups de
+/// plus petit `GgrsNetId`, comme `HitsAtLeast`).
+fn resolve_entity(world: &mut World, entity: &game::replay::EntityRef) -> Option<Entity> {
+    use bevy_ggrs::Rollback;
+    match entity {
+        game::replay::EntityRef::NetId(net_id) => world
+            .query_filtered::<(Entity, &GgrsNetId), With<Rollback>>()
+            .iter(world)
+            .find(|(_, id)| id.0 == *net_id)
+            .map(|(entity, _)| entity),
+        game::replay::EntityRef::Target => world
+            .query_filtered::<(Entity, &GgrsNetId), (With<Rollback>, With<game::character::health::HitCount>)>()
+            .iter(world)
+            .min_by_key(|(_, id)| id.0)
+            .map(|(entity, _)| entity),
+    }
+}
+
+/// `EnemyState` (T1.4) : nom du behavior retenu par l'ennemi
+/// (`game::character::enemy::ai::rules::current_rule`).
+fn enemy_rule(
+    world: &mut World,
+    entity: &game::replay::EntityRef,
+) -> Result<Option<&'static str>, String> {
+    use game::character::enemy::ai::rules::current_rule;
+    use game::character::enemy::ai::state::{
+        BehaviorRuntime, EnemyBehaviors, EnemyTarget, MonsterState, RangedAttackState,
+    };
+    let target_entity = resolve_entity(world, entity).ok_or("entité absente")?;
+    let mut query = world.query::<(
+        &EnemyBehaviors,
+        Option<&BehaviorRuntime>,
+        &MonsterState,
+        &EnemyTarget,
+        Option<&RangedAttackState>,
+        Has<combat::emitter::Emitter>,
+    )>();
+    let (rules, runtime, state, target, ranged, emitting) = query
+        .get(world, target_entity)
+        .map_err(|_| "entité sans règles de comportement (pas un ennemi)".to_string())?;
+    let shooting = emitting || ranged.is_some_and(|ranged| ranged.target.is_some());
+    Ok(current_rule(rules, runtime, state, target, shooting))
+}
+
+/// `EnemyVariant` (T1.5) : variante du personnage (`None` sans composant `Variant`).
+fn enemy_variant(
+    world: &mut World,
+    entity: &game::replay::EntityRef,
+) -> Result<Option<String>, String> {
+    use game::character::variant::Variant;
+    let target = resolve_entity(world, entity).ok_or("entité absente")?;
+    Ok(world
+        .query::<&Variant>()
+        .get(world, target)
+        .ok()
+        .map(|variant| variant.0.clone()))
+}
+
+/// Position monde d'une entité.
+fn entity_position(world: &mut World, entity: Entity) -> Option<fixed_math::FixedVec2> {
+    world
+        .query::<&fixed_math::FixedTransform3D>()
+        .get(world, entity)
+        .ok()
+        .map(|transform| transform.translation.truncate())
+}
+
+/// `EnemyDistance` (T1.4) : distance de l'ennemi à la cible.
+fn enemy_distance(
+    world: &mut World,
+    entity: &game::replay::EntityRef,
+    target: &game::replay::DistanceTarget,
+) -> Result<fixed_math::Fixed, String> {
+    let enemy = resolve_entity(world, entity).ok_or("entité absente")?;
+    let enemy_pos = entity_position(world, enemy).ok_or("entité sans position")?;
+    let target_pos = match target {
+        game::replay::DistanceTarget::Player(handle) => world
+            .query::<(&Player, &fixed_math::FixedTransform3D)>()
+            .iter(world)
+            .find(|(player, _)| player.handle == *handle)
+            .map(|(_, transform)| transform.translation.truncate())
+            .ok_or_else(|| format!("joueur {handle} absent"))?,
+    };
+    Ok(enemy_pos.distance(&target_pos))
+}
+
+/// `EnemyContactBefore` (T1.4) : un joueur est à portée de mêlée (`attack_range`) de
+/// l'ennemi.
+fn enemy_in_melee_range(world: &mut World, entity: &game::replay::EntityRef) -> bool {
+    use game::character::enemy::ai::state::EnemyAiConfig;
+    let Some(enemy) = resolve_entity(world, entity) else {
+        return false;
+    };
+    let Some(enemy_pos) = entity_position(world, enemy) else {
+        return false;
+    };
+    let Ok(reach) = world
+        .query::<&EnemyAiConfig>()
+        .get(world, enemy)
+        .map(|config| config.attack_range)
+    else {
+        return false;
+    };
+    world
+        .query_filtered::<&fixed_math::FixedTransform3D, With<Player>>()
+        .iter(world)
+        .any(|transform| enemy_pos.distance(&transform.translation.truncate()) <= reach)
+}
+
+/// `EnemyNeverInWall` (T1.4) : le collider de l'ennemi chevauche un `Wall`.
+fn enemy_in_wall(world: &mut World, entity: &game::replay::EntityRef) -> bool {
+    use combat::collider::{is_colliding, Collider, Wall};
+    let Some(enemy) = resolve_entity(world, entity) else {
+        return false;
+    };
+    let Ok((enemy_transform, enemy_collider)) = world
+        .query::<(&fixed_math::FixedTransform3D, &Collider)>()
+        .get(world, enemy)
+        .map(|(transform, collider)| (transform.clone(), collider.clone()))
+    else {
+        return false;
+    };
+    world
+        .query_filtered::<(&fixed_math::FixedTransform3D, &Collider), With<Wall>>()
+        .iter(world)
+        .any(|(wall_transform, wall_collider)| {
+            is_colliding(
+                &enemy_transform.translation,
+                &enemy_collider,
+                &wall_transform.translation,
+                wall_collider,
+            )
+        })
 }

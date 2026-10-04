@@ -15,6 +15,7 @@ use std::collections::{BTreeMap, BTreeSet};
 use crate::expr::NumOrExpr;
 use crate::manifest::GameManifest;
 use crate::registry::{self, Registry};
+use sim_core::stats::StatId;
 
 /// Catégorie d'erreur de lint, pour les tests (correspondance sans dépendre du texte du
 /// message) et un futur regroupement en CLI.
@@ -71,6 +72,7 @@ pub fn run(registry: &Registry, manifest: &GameManifest) -> Vec<LintError> {
     lint_patterns(registry, &mut errors);
     lint_progression(registry, &mut errors);
     lint_mutations(registry, &mut errors);
+    lint_forced_variants(registry, &mut errors);
     lint_entry_point(registry, manifest, &mut errors);
 
     errors
@@ -175,10 +177,10 @@ fn lint_characters(registry: &Registry, errors: &mut Vec<LintError>) {
             });
         }
 
-        // T1.2 : tir à distance (`ai.ranged`).
-        if let Some(ranged) = &character.ranged {
-            lint_ranged(registry, character, ranged, errors);
-        }
+        // T1.4 : règles de comportement (`ai.behaviors`) et ciblage.
+        lint_behaviors(registry, character, errors);
+        // T1.5 : variantes et élites.
+        lint_variants(character, errors);
 
         // Référence : starting_weapons -> WeaponId (T1.5 : les joueurs ne reçoivent plus
         // tout `weapons.ron`, seulement les armes déclarées ici).
@@ -1210,68 +1212,248 @@ fn lint_pattern_values(
     }
 }
 
-/// T1.2 : `ai.ranged` d'un personnage — arme et pattern connus, projectiles du pattern
-/// présents dans la table `projectiles` de l'arme, `cooldown_frames > 0`, `range > 0`.
-fn lint_ranged(
-    registry: &Registry,
-    character: &registry::CharacterEntry,
-    ranged: &registry::RangedEntry,
-    errors: &mut Vec<LintError>,
-) {
+/// T1.5 : `variants` d'un personnage (`docs/conventions.md` §25) : `chance` dans `[0, 1]`,
+/// `weight > 0`, nom en double, `skin` clé de `skins`, `MoveSpeed` refusé sur un personnage IA
+/// (sa vitesse est `EnemyMoveSpeed`). Une stat inconnue échoue déjà au chargement RON.
+fn lint_variants(character: &registry::CharacterEntry, errors: &mut Vec<LintError>) {
+    let Some(variants) = &character.variants else {
+        return;
+    };
     let file = character.file.display().to_string();
     let mut push = |kind: LintErrorKind, message: String| {
         errors.push(LintError {
             kind,
             file: file.clone(),
-            message: format!("personnage « {} » : ai.ranged : {message}", character.id),
+            message: format!("personnage « {} » : variants : {message}", character.id),
         });
     };
-    let weapon = registry
-        .weapons
-        .get(&registry::WeaponId::from(ranged.weapon.clone()));
-    if weapon.is_none() {
+    let chance = variants.chance.get();
+    if chance < Fixed::ZERO || chance > Fixed::from_num(1) {
         push(
-            LintErrorKind::BrokenReference,
-            format!("arme inconnue « {} »", ranged.weapon),
+            LintErrorKind::OutOfRange,
+            format!("chance = {chance} : doit être dans [0, 1]"),
         );
     }
-    match registry
-        .patterns
-        .get(&registry::PatternId::from(ranged.pattern.clone()))
-    {
-        None => push(
-            LintErrorKind::BrokenReference,
-            format!("pattern inconnu « {} » (kind Pattern)", ranged.pattern),
-        ),
-        Some(entry) => {
-            if let Some(weapon) = weapon {
-                let mut projectiles = Vec::new();
-                pattern_projectiles(&entry.pattern, &registry.patterns, 0, &mut projectiles);
-                for projectile in projectiles {
-                    if !weapon.projectiles.contains_key(projectile) {
-                        push(
-                            LintErrorKind::BrokenReference,
-                            format!(
-                                "pattern « {} » : projectile « {projectile} » absent de la table projectiles de l'arme « {} »",
-                                ranged.pattern, ranged.weapon
-                            ),
-                        );
-                    }
-                }
+    let mut seen = BTreeSet::new();
+    for (name, variant) in &variants.table {
+        if !seen.insert(name.as_str()) {
+            push(
+                LintErrorKind::DuplicateId,
+                format!("variante « {name} » en double"),
+            );
+        }
+        if variant.weight == 0 {
+            push(
+                LintErrorKind::OutOfRange,
+                format!("variante « {name} » : weight = 0 : doit être > 0 (jamais tirée)"),
+            );
+        }
+        if let Some(skin) = &variant.skin {
+            if !character.skins.contains(skin) {
+                push(
+                    LintErrorKind::BrokenReference,
+                    format!(
+                        "variante « {name} » : skin « {skin} » absent de skins ({:?})",
+                        character.skins
+                    ),
+                );
+            }
+        }
+        if character.has_ai
+            && variant
+                .modifiers
+                .iter()
+                .any(|modifier| modifier.stat == StatId::MoveSpeed)
+        {
+            push(
+                LintErrorKind::OutOfRange,
+                format!(
+                    "variante « {name} » : MoveSpeed sur un personnage IA : sa vitesse est EnemyMoveSpeed"
+                ),
+            );
+        }
+    }
+}
+
+/// T1.5 : un `CharacterSpawn` LDtk qui impose une variante (`variant`) désigne un personnage
+/// connu qui déclare cette variante.
+fn lint_forced_variants(registry: &Registry, errors: &mut Vec<LintError>) {
+    for map in registry.maps.values() {
+        for (character_id, variant) in &map.forced_variants {
+            let character = registry
+                .characters
+                .get(&registry::CharacterId::from(character_id.clone()));
+            let known = character
+                .and_then(|c| c.variants.as_ref())
+                .is_some_and(|v| v.table.iter().any(|(name, _)| name == variant));
+            if !known {
+                errors.push(LintError {
+                    kind: LintErrorKind::BrokenReference,
+                    file: map.file.display().to_string(),
+                    message: format!(
+                        "CharacterSpawn « {character_id} » : variant « {variant} » inconnue (personnage inconnu ou sans cette variante)"
+                    ),
+                });
             }
         }
     }
-    if ranged.cooldown_frames == 0 {
+}
+
+/// Profils de `Chase` connus (même liste que `game::character::enemy::ai::state::CHASE_PROFILES`).
+const CHASE_PROFILES: &[&str] = &["Ground", "Flying", "Phasing", "GroundBreaker"];
+
+/// T1.4 : `ai.behaviors` et `ai.targeting` d'un personnage (`docs/conventions.md` §22) :
+/// liste non vide ; `Shoot` (arme et pattern connus, projectiles du pattern dans la table de
+/// l'arme, `cooldown_frames > 0`, `range > 0` — les règles `ranged` de T1.2) ; `Melee(arme)`
+/// connue ; `Chase` profil connu ; `KeepDistance` `min < max` ; `Charge` télégraphe > 0 ; tag
+/// d'`ignore` porté par au moins un personnage du jeu.
+fn lint_behaviors(
+    registry: &Registry,
+    character: &registry::CharacterEntry,
+    errors: &mut Vec<LintError>,
+) {
+    use registry::BehaviorEntry;
+    let file = character.file.display().to_string();
+    let mut push = |kind: LintErrorKind, message: String| {
+        errors.push(LintError {
+            kind,
+            file: file.clone(),
+            message: format!("personnage « {} » : ai.{message}", character.id),
+        });
+    };
+    if !character.ignore_tags.is_empty() {
+        let known: BTreeSet<&str> = registry
+            .characters
+            .values()
+            .flat_map(|c| c.tags.iter().map(String::as_str))
+            .collect();
+        for tag in &character.ignore_tags {
+            if !known.contains(tag.as_str()) {
+                push(
+                    LintErrorKind::BrokenReference,
+                    format!(
+                        "targeting : tag ignoré inconnu « {tag} » (porté par aucun personnage)"
+                    ),
+                );
+            }
+        }
+    }
+    let Some(rules) = &character.behaviors else {
+        return;
+    };
+    if rules.is_empty() {
         push(
             LintErrorKind::OutOfRange,
-            "cooldown_frames = 0 : doit être > 0".to_string(),
+            "behaviors : liste vide (absente = liste par défaut)".to_string(),
         );
     }
-    if ranged.range.get() <= Fixed::ZERO {
-        push(
-            LintErrorKind::OutOfRange,
-            format!("range = {} : doit être > 0", ranged.range.get()),
-        );
+    for rule in rules {
+        match rule {
+            BehaviorEntry::Shoot {
+                weapon,
+                pattern,
+                range,
+                cooldown_frames,
+            } => {
+                let weapon_entry = registry
+                    .weapons
+                    .get(&registry::WeaponId::from(weapon.clone()));
+                if weapon_entry.is_none() {
+                    push(
+                        LintErrorKind::BrokenReference,
+                        format!("behaviors : Shoot : arme inconnue « {weapon} »"),
+                    );
+                }
+                match registry
+                    .patterns
+                    .get(&registry::PatternId::from(pattern.clone()))
+                {
+                    None => push(
+                        LintErrorKind::BrokenReference,
+                        format!("behaviors : Shoot : pattern inconnu « {pattern} » (kind Pattern)"),
+                    ),
+                    Some(entry) => {
+                        if let Some(weapon_entry) = weapon_entry {
+                            let mut projectiles = Vec::new();
+                            pattern_projectiles(
+                                &entry.pattern,
+                                &registry.patterns,
+                                0,
+                                &mut projectiles,
+                            );
+                            for projectile in projectiles {
+                                if !weapon_entry.projectiles.contains_key(projectile) {
+                                    push(
+                                        LintErrorKind::BrokenReference,
+                                        format!(
+                                            "behaviors : Shoot : pattern « {pattern} » : projectile « {projectile} » absent de la table projectiles de l'arme « {weapon} »"
+                                        ),
+                                    );
+                                }
+                            }
+                        }
+                    }
+                }
+                if *cooldown_frames == 0 {
+                    push(
+                        LintErrorKind::OutOfRange,
+                        "behaviors : Shoot : cooldown_frames = 0 : doit être > 0".to_string(),
+                    );
+                }
+                if range.get() <= Fixed::ZERO {
+                    push(
+                        LintErrorKind::OutOfRange,
+                        format!(
+                            "behaviors : Shoot : range = {} : doit être > 0",
+                            range.get()
+                        ),
+                    );
+                }
+            }
+            BehaviorEntry::Melee(weapon) => {
+                if !registry
+                    .melee_weapons
+                    .contains_key(&registry::MeleeWeaponId::from(weapon.clone()))
+                {
+                    push(
+                        LintErrorKind::BrokenReference,
+                        format!("behaviors : Melee : arme de corps à corps inconnue « {weapon} »"),
+                    );
+                }
+            }
+            BehaviorEntry::Chase { profile } => {
+                if !CHASE_PROFILES.contains(&profile.as_str()) {
+                    push(
+                        LintErrorKind::BrokenReference,
+                        format!(
+                            "behaviors : Chase : profil inconnu « {profile} » (connus : {})",
+                            CHASE_PROFILES.join(", ")
+                        ),
+                    );
+                }
+            }
+            BehaviorEntry::KeepDistance { min, max } => {
+                if min.get() >= max.get() {
+                    push(
+                        LintErrorKind::OutOfRange,
+                        format!(
+                            "behaviors : KeepDistance : min = {} >= max = {} : la bande doit être non vide",
+                            min.get(),
+                            max.get()
+                        ),
+                    );
+                }
+            }
+            BehaviorEntry::Charge { telegraph } => {
+                if *telegraph == 0 {
+                    push(
+                        LintErrorKind::OutOfRange,
+                        "behaviors : Charge : telegraph = 0 : doit être > 0".to_string(),
+                    );
+                }
+            }
+            BehaviorEntry::Strafe | BehaviorEntry::Flee | BehaviorEntry::Wander => {}
+        }
     }
 }
 

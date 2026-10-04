@@ -1,0 +1,19 @@
+// T1.5 : variante de poids nul (jamais tirée).
+(
+    movement: (
+        max_speed: "60.0",
+    ),
+    asset_name_ref: "grunt",
+    base_health: (
+        max: "60.0",
+    ),
+    starting_skin: "1",
+    skins: {
+        "1": (layers: {}),
+        "rapide": (layers: {}),
+    },
+    ai: Some((behaviors: Some([Chase(profile: "Ground")]))),
+    variants: Some((
+        table: { "rapide": (weight: 0, modifiers: [(stat: EnemyMoveSpeed, op: Mul, value: "1.5")]) },
+    )),
+)

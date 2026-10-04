@@ -581,3 +581,77 @@ fn ranged_cooldown_zero_fixture_reports_cooldown() {
     let (_, _, errors) = load_and_lint(&fixture_dir("ranged_cooldown_zero")).unwrap();
     assert_has_error(&errors, LintErrorKind::OutOfRange, "cooldown_frames = 0");
 }
+
+// T1.4 : behaviors composables (`ai.behaviors`, `ai.targeting`).
+
+#[test]
+fn behavior_melee_unknown_fixture_reports_unknown_melee_weapon() {
+    let (_, _, errors) = load_and_lint(&fixture_dir("behavior_melee_unknown")).unwrap();
+    assert_has_error(
+        &errors,
+        LintErrorKind::BrokenReference,
+        "« griffes_absentes »",
+    );
+}
+
+#[test]
+fn behavior_keep_distance_inverted_fixture_reports_empty_band() {
+    let (_, _, errors) = load_and_lint(&fixture_dir("behavior_keep_distance_inverted")).unwrap();
+    assert_has_error(&errors, LintErrorKind::OutOfRange, "KeepDistance");
+}
+
+#[test]
+fn behavior_charge_zero_fixture_reports_zero_telegraph() {
+    let (_, _, errors) = load_and_lint(&fixture_dir("behavior_charge_zero")).unwrap();
+    assert_has_error(&errors, LintErrorKind::OutOfRange, "telegraph = 0");
+}
+
+#[test]
+fn behavior_unknown_profile_fixture_reports_chase_profile() {
+    let (_, _, errors) = load_and_lint(&fixture_dir("behavior_unknown_profile")).unwrap();
+    assert_has_error(&errors, LintErrorKind::BrokenReference, "« Swimming »");
+}
+
+#[test]
+fn targeting_unknown_tag_fixture_reports_ignored_tag() {
+    let (_, _, errors) = load_and_lint(&fixture_dir("targeting_unknown_tag")).unwrap();
+    assert_has_error(&errors, LintErrorKind::BrokenReference, "« fantome »");
+}
+
+// T1.5 : variantes et élites (`variants`, champ LDtk `variant`).
+
+#[test]
+fn variant_weight_zero_fixture_reports_weight() {
+    let (_, _, errors) = load_and_lint(&fixture_dir("variant_weight_zero")).unwrap();
+    assert_has_error(&errors, LintErrorKind::OutOfRange, "weight = 0");
+}
+
+#[test]
+fn variant_chance_out_of_range_fixture_reports_chance() {
+    let (_, _, errors) = load_and_lint(&fixture_dir("variant_chance_out_of_range")).unwrap();
+    assert_has_error(&errors, LintErrorKind::OutOfRange, "chance = 1.5");
+}
+
+#[test]
+fn variant_skin_unknown_fixture_reports_skin() {
+    let (_, _, errors) = load_and_lint(&fixture_dir("variant_skin_unknown")).unwrap();
+    assert_has_error(&errors, LintErrorKind::BrokenReference, "skin « dore »");
+}
+
+#[test]
+fn variant_move_speed_ai_fixture_points_to_enemy_move_speed() {
+    let (_, _, errors) = load_and_lint(&fixture_dir("variant_move_speed_ai")).unwrap();
+    assert_has_error(&errors, LintErrorKind::OutOfRange, "EnemyMoveSpeed");
+}
+
+#[test]
+fn variant_duplicate_fixture_reports_duplicate_name() {
+    let (_, _, errors) = load_and_lint(&fixture_dir("variant_duplicate")).unwrap();
+    assert_has_error(&errors, LintErrorKind::DuplicateId, "« rapide » en double");
+}
+
+#[test]
+fn variant_ldtk_unknown_fixture_reports_forced_variant() {
+    let (_, _, errors) = load_and_lint(&fixture_dir("variant_ldtk_unknown")).unwrap();
+    assert_has_error(&errors, LintErrorKind::BrokenReference, "variant « dore »");
+}

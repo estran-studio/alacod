@@ -1,0 +1,5 @@
+(
+    name: "fixture-variant_chance_out_of_range",
+    content_folders: [(path: "characters", kind: "Character")],
+    entry: (start_map: "unused", default_seed: 1),
+)

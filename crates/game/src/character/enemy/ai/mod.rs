@@ -6,12 +6,11 @@ pub mod behavior;
 pub mod debug;
 pub mod navigation;
 pub mod obstacle;
+pub mod rules;
 pub mod state;
 
 // Re-exports for convenience
-pub use behavior::{
-    enemy_attack_system, enemy_movement_system, enemy_stun_recovery_system, enemy_target_selection,
-};
+pub use behavior::{enemy_attack_system, enemy_target_selection};
 pub use debug::{
     draw_enemy_state_debug, draw_flow_field_debug, toggle_enemy_state_debug,
     toggle_flow_field_debug, EnemyStateDebug, FlowFieldDebug,

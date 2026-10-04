@@ -42,4 +42,23 @@
     // T1.1 (chantier B1) : porté par les DamageEvent de ses attaques (union avec le tag
     // d'attaque `melee`) ; sert les résistances/immunités par tag (ex. `immune_to: ["zombie"]`).
     tags: ["zombie"],
+
+    // T1.4 (chantier D1, conventions §22) : « les zombies deviennent un fichier » — valeurs du
+    // préréglage `EnemyAiConfig::zombie()` recopiées (avant T1.4 : pas de champ `ai`, repli sur
+    // ce préréglage) et règles explicites : la griffe quand un joueur ou une fenêtre est à
+    // portée, sinon la poursuite par la flow field (traces identiques).
+    ai: Some((
+        movement_type: Some(Ground),
+        aggro_range: Some("500.0"),
+        attack_range: Some("40.0"),
+        attack_cooldown_frames: Some(60),
+        can_break: Some([Window, Barricade]),
+        attack_through: Some([Window]),
+        ignores: Some([]),
+        path_through_breakables: Some(true),
+        flee_threshold: None,
+        attack_damage: Some("10.0"),
+        stationary: None,
+        behaviors: Some([Melee("zombie_claws"), Chase(profile: "GroundBreaker")]),
+    )),
 )
