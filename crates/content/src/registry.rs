@@ -858,10 +858,8 @@ pub struct PowerUpDropChanceEntry {
 #[derive(Debug, Clone)]
 pub struct FeedbackEntry {
     pub file: PathBuf,
-    pub hit_flash_frames: u32,
-    pub shake_frames: u32,
-    pub shake_amplitude: f32,
-    pub sounds: BTreeMap<String, String>,
+    /// Même type que l'asset du jeu (`game::feedback::FeedbackConfig`), T1.17.
+    pub settings: crate::feedback::FeedbackSettings,
 }
 
 /// Registre de contenu d'un jeu, chargé depuis son manifeste (`GameManifest`). Voir le
@@ -1421,26 +1419,6 @@ struct PowerUpEntrySchema {
     lifetime_frames: u32,
     #[serde(default)]
     actions: Vec<effects::Action>,
-}
-
-#[derive(Deserialize)]
-struct FeedbackFileSchema {
-    hit_flash: HitFlashSchema,
-    shake: ShakeSchema,
-    sounds: BTreeMap<String, String>,
-}
-
-#[derive(Deserialize)]
-struct HitFlashSchema {
-    frames: u32,
-    #[serde(rename = "color")]
-    _color: (f32, f32, f32),
-}
-
-#[derive(Deserialize)]
-struct ShakeSchema {
-    frames: u32,
-    amplitude: f32,
 }
 
 // ---------------------------------------------------------------------------------------
@@ -2679,13 +2657,10 @@ fn load_ui(
             }
         };
         let parsed = if rel.file_name().and_then(|name| name.to_str()) == Some("feedback.ron") {
-            ron::from_str::<FeedbackFileSchema>(&text).map(|config| {
+            ron::from_str::<crate::feedback::FeedbackSettings>(&text).map(|settings| {
                 registry.feedback.push(FeedbackEntry {
                     file: rel.clone(),
-                    hit_flash_frames: config.hit_flash.frames,
-                    shake_frames: config.shake.frames,
-                    shake_amplitude: config.shake.amplitude,
-                    sounds: config.sounds,
+                    settings,
                 });
             })
         } else if rel.file_name().and_then(|name| name.to_str())

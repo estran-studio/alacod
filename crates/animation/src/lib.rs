@@ -308,9 +308,36 @@ impl AnimationVisualsBundle {
     }
 }
 
+/// Gel de présentation des animations (hit stop, T1.17, `docs/conventions.md` §31) : tant
+/// qu'il est actif, `animate_sprite_system` n'avance plus les timers ni les images. Compté en
+/// **ticks de rendu** (un par `Update`), jamais en frames de simulation : la simulation
+/// (rollback, p2p) continue. Posé par `game::feedback`, lu aussi par le suivi de caméra.
+#[derive(Resource, Debug, Default)]
+pub struct AnimationFreeze {
+    tick: u64,
+    until_tick: u64,
+}
+
+impl AnimationFreeze {
+    /// Gèle les `frames` prochains ticks de rendu (prolonge un gel en cours, ne le raccourcit
+    /// jamais).
+    pub fn freeze_for(&mut self, frames: u32) {
+        self.until_tick = self.until_tick.max(self.tick + 1 + u64::from(frames));
+    }
+
+    pub fn is_frozen(&self) -> bool {
+        self.tick < self.until_tick
+    }
+}
+
+fn advance_animation_freeze(mut freeze: ResMut<AnimationFreeze>) {
+    freeze.tick += 1;
+}
+
 // Animates sprite based on AnimationState
 fn animate_sprite_system(
     time: Res<Time>,
+    freeze: Res<AnimationFreeze>,
     animation_configs: Res<Assets<AnimationMapConfig>>,
     spritesheet_configs: Res<Assets<SpriteSheetConfig>>,
     mut query: Query<(
@@ -321,6 +348,9 @@ fn animate_sprite_system(
     )>,
     mut query_sprites: Query<(&mut Sprite, &LayerName), With<AnimatedLayer>>,
 ) {
+    if freeze.is_frozen() {
+        return;
+    }
     for (childs, config_handles, mut timer, state) in query.iter_mut() {
         if let Some(anim_config) = animation_configs.get(&config_handles.animations) {
             // Try to get columns count from animation config or first spritesheet
@@ -545,6 +575,9 @@ impl Plugin for D2AnimationPlugin {
             .rollback_and_trace::<FacingDirection>()
             .rollback_and_trace::<ActiveLayers>();
 
+        app.init_resource::<AnimationFreeze>()
+            .add_systems(First, advance_animation_freeze);
+
         app.add_systems(
             Update,
             (
@@ -553,5 +586,34 @@ impl Plugin for D2AnimationPlugin {
                 check_animation_config_reload_system.after(animate_sprite_system),
             ),
         );
+    }
+}
+
+#[cfg(test)]
+mod freeze_tests {
+    use super::AnimationFreeze;
+
+    #[test]
+    fn gele_les_n_ticks_suivants_puis_reprend() {
+        let mut freeze = AnimationFreeze::default();
+        assert!(!freeze.is_frozen());
+        freeze.freeze_for(2);
+        // Le tick où le gel est posé n'est pas gelé (les animations ont déjà avancé).
+        let frozen: Vec<bool> = (0..4)
+            .map(|_| {
+                freeze.tick += 1;
+                freeze.is_frozen()
+            })
+            .collect();
+        assert_eq!(frozen, [true, true, false, false]);
+    }
+
+    #[test]
+    fn un_gel_plus_court_ne_raccourcit_pas() {
+        let mut freeze = AnimationFreeze::default();
+        freeze.freeze_for(5);
+        freeze.tick += 1;
+        freeze.freeze_for(1);
+        assert_eq!(freeze.until_tick, 6);
     }
 }

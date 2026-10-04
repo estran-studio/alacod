@@ -150,7 +150,40 @@ pub struct GameEventsPlugin;
 impl Plugin for GameEventsPlugin {
     fn build(&self, app: &mut App) {
         app.init_resource::<GameEvents>()
-            .add_systems(Last, detect_events);
+            .add_systems(Last, (detect_events, feedback_events.after(detect_events)));
+    }
+}
+
+/// Moments clés `feedback` (T1.17, `docs/conventions.md` §31) : relus de
+/// `game::feedback::FeedbackLog` (journal de présentation, rempli aussi en headless). Seuls
+/// les indices rares deviennent des moments clés : télégraphe, hit stop, secousse (le flash
+/// et le chiffre accompagnent chaque coup, déjà visibles par les moments `hit`). Libellé :
+/// « télégraphe 34 (30 frames, rayon 48) », « hit stop 35 (4 frames) », « secousse 26 (8
+/// frames) ».
+fn feedback_events(log: Option<Res<game::feedback::FeedbackLog>>, mut events: ResMut<GameEvents>) {
+    use game::feedback::FeedbackKind;
+    let Some(log) = log else {
+        return;
+    };
+    for cue in &log.frame_cues {
+        let label = match cue.kind {
+            FeedbackKind::Telegraph => format!(
+                "{} {} ({} frames, rayon {})",
+                cue.kind.label(),
+                cue.net_id,
+                cue.value,
+                cue.extra
+            ),
+            FeedbackKind::HitStop | FeedbackKind::Shake => {
+                format!("{} {} ({} frames)", cue.kind.label(), cue.net_id, cue.value)
+            }
+            FeedbackKind::Flash | FeedbackKind::Number => continue,
+        };
+        events.events.push(GameEvent {
+            frame: cue.frame,
+            kind: "feedback",
+            label,
+        });
     }
 }
 

@@ -1,0 +1,7 @@
+// T1.17 : une surcharge `by_kind` a une secousse de 0 frame.
+(
+    hit_flash: (frames: 4, color: (2.5, 2.5, 2.5)),
+    shake: (frames: 8, amplitude: 4.0),
+    by_kind: {Explosion: (shake: Some((frames: 0, amplitude: 20.0)))},
+    sounds: {},
+)

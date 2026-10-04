@@ -4,7 +4,12 @@
 // immobile (télégraphe, distance figée à 119), ruée à 3 × la vitesse vers la position figée,
 // contact vers f98 (dégât `attack_damage` 15 : santé 100 → 85), refroidissement, `Chase`.
 //
-// À regarder : l'ennemi approche, s'arrête une demi-seconde, puis fonce sur le joueur.
+// T1.17 (feedback, conventions §31) : moments clés `feedback` du journal de présentation :
+// télégraphe de la ruée vu à f42 (29 frames restantes, cercle de rayon 40 au point visé), hit
+// stop et secousse au contact (f100, joueur local touché). Présentation seule : trace inchangée.
+//
+// À regarder : l'ennemi approche, s'arrête une demi-seconde (cercle rouge au sol), puis fonce
+// sur le joueur ; l'image se fige deux frames et la caméra tremble au contact.
 Scenario(
     powerup_drop_chance_override: "0.0",
     game: "testbed",
@@ -22,5 +27,8 @@ Scenario(
         Health(handle: 0, max: 90.0, at_frame: 110),
         EnemyState(entity: NetId(27), behavior: "Chase", at_frame: 130),
         PlayerAlive(handle: 0, at_frame: 200),
+        Event(kind: "feedback", label_contains: Some("télégraphe 27 (29 frames, rayon 40)"), by_frame: 42),
+        Event(kind: "feedback", label_contains: Some("hit stop"), by_frame: 100),
+        Event(kind: "feedback", label_contains: Some("secousse"), by_frame: 100),
     ],
 )

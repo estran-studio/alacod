@@ -1,0 +1,5 @@
+(
+    name: "fixture-feedback_override_out_of_range",
+    content_folders: [(path: "ui", kind: "Ui")],
+    entry: (start_map: "unused", default_seed: 1),
+)
