@@ -1,0 +1,3 @@
+// `throne` (T1.9 + T1.11 phase 2, docs/conventions.md §23 et §29) : +25 % par étage et +25 %
+// par minute passée dans l'étage (santé des ennemis à l'apparition, dégâts qu'ils infligent).
+(value: "1 + floor * 0.25 + floor_minutes * 0.25")
