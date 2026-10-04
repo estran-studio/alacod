@@ -1,0 +1,9 @@
+// T1.2 : `Named` vers un pattern absent du dossier `patterns` (seul `ring` existe).
+({
+    "grenade": (config: (ammo_type: Plomb, firing_modes: {"default": (
+        firing_rate: "1.0",
+        projectile: (on_expire: [Spawn(Named("absent"))]),
+    )}, projectiles: {
+        "eclat": (damage: "4.0", speed: "240.0", range: "96.0"),
+    })),
+})

@@ -12,7 +12,7 @@ use crate::{
     global_asset::GlobalAsset,
     weapons::{
         melee::{spawn_melee_weapon_for_character, MeleeWeaponsConfig},
-        WeaponInventory, WeaponsConfig,
+        spawn_weapon_for_player, WeaponInventory, WeaponsConfig,
     },
 };
 
@@ -66,7 +66,7 @@ pub fn spawn_enemy(
     enemy_type_name: String,
     position: fixed_math::FixedVec3,
     commands: &mut Commands,
-    _weapons_asset: &Res<Assets<WeaponsConfig>>,
+    weapons_asset: &Res<Assets<WeaponsConfig>>,
     melee_weapons_asset: &Res<Assets<MeleeWeaponsConfig>>,
     characters_asset: &Res<Assets<CharacterConfig>>,
 
@@ -101,7 +101,7 @@ pub fn spawn_enemy(
         health_max,
     );
 
-    let inventory = WeaponInventory::default();
+    let mut inventory = WeaponInventory::default();
 
     // Give the enemy a melee weapon (zombie claws, fallback to bare hands) — sauf si son
     // `attack_range` est nul (T2.9, testbed : `dummy`/`target`/`follower`/`ally`/`civilian`
@@ -123,6 +123,34 @@ pub fn spawn_enemy(
         }
     }
 
+    // Tir à distance (T1.2) : l'arme de `ranged.weapon` est équipée (active) dans
+    // l'inventaire ; sa table `projectiles` fournit les projectiles de l'émetteur. Sans
+    // `ranged` (tout le contenu d'avant T1.2), rien ne change : inventaire vide, aucun
+    // `RangedAttackState`.
+    let ranged = ai_config.ranged.is_some();
+    if let Some(ranged_config) = &ai_config.ranged {
+        match weapons_asset
+            .get(&global_assets.weapons)
+            .and_then(|config| config.0.get(&ranged_config.weapon))
+        {
+            Some(weapon) => {
+                spawn_weapon_for_player(
+                    commands,
+                    true,
+                    entity,
+                    weapon.clone(),
+                    &mut inventory,
+                    id_factory,
+                    None,
+                );
+            }
+            None => warn!(
+                "ennemi : arme de tir « {} » inconnue (voir `alacod lint`), pas de tir à distance",
+                ranged_config.weapon
+            ),
+        }
+    }
+
     commands.entity(entity).insert((
         inventory,
         EnemyPath::default(),
@@ -136,6 +164,11 @@ pub fn spawn_enemy(
         // `sim_core::team`) : ne pas l'ajouter à `RollbackTraceApp` sans blesser les traces.
         team,
     ));
+    if ranged {
+        commands
+            .entity(entity)
+            .insert(super::ai::state::RangedAttackState::default());
+    }
 
     #[cfg(feature = "harmonium")]
     commands

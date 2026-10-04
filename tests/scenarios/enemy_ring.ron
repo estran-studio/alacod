@@ -1,0 +1,26 @@
+// T1.2 (testbed) : tir ennemi par émetteur — la tourelle (`turret`, immobile, centre de
+// `testbed/arena_tir.ldtk`) joue `ring_8` (`Ring(count: 8, every: 60)`, boules de feu de
+// `fireball_gun` à 60 u/s) sur le joueur 0, à 96 unités à sa gauche, dès la frame 0 :
+// couronnes à f1, f61, f121 (un `Ring` seul est infini, conventions §20). L'archer de la
+// carte tire aussi (flèches, autre id de projectile : n'entre pas dans les comptes).
+//
+// À regarder : 8 boules de feu partent en étoile, encore 8 une seconde plus tard ; aucune ne
+// meurt avant f62 (la salle est assez grande à cette vitesse). Celle qui vise le joueur 0
+// le touche vers f82 : sa santé baisse.
+Scenario(
+    powerup_drop_chance_override: "0.0",
+    game: "testbed",
+    map: "testbed/arena_tir.ldtk",
+    frames: 130,
+    players: [
+        (inputs: []),
+    ],
+    expect: [
+        BulletCount(count: 0, projectile: Some("fireball"), at_frame: 0),
+        BulletCount(count: 8, projectile: Some("fireball"), team: Some(Enemies), at_frame: 2),
+        BulletCount(count: 8, projectile: Some("fireball"), at_frame: 60),
+        BulletCount(count: 16, projectile: Some("fireball"), team: Some(Enemies), at_frame: 62),
+        Health(handle: 0, max: 99.0, at_frame: 90),
+        PlayerAlive(handle: 0, at_frame: 130),
+    ],
+)

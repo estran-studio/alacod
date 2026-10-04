@@ -506,3 +506,33 @@ fn projectile_fixtures_have_a_single_rule_failure() {
         );
     }
 }
+
+// T1.2 : patterns nommés, émetteurs et tir ennemi.
+
+#[test]
+fn pattern_unknown_name_fixture_reports_broken_named_reference() {
+    let (_, _, errors) = load_and_lint(&fixture_dir("pattern_unknown_name")).unwrap();
+    assert_has_error(
+        &errors,
+        LintErrorKind::BrokenReference,
+        "« absent » inconnu",
+    );
+}
+
+#[test]
+fn pattern_scatter_on_expire_fixture_reports_emitter_only_pattern() {
+    let (_, _, errors) = load_and_lint(&fixture_dir("pattern_scatter_on_expire")).unwrap();
+    assert_has_error(&errors, LintErrorKind::OutOfRange, "Scatter");
+}
+
+#[test]
+fn ranged_projectile_missing_fixture_reports_projectile_absent_from_weapon_table() {
+    let (_, _, errors) = load_and_lint(&fixture_dir("ranged_projectile_missing")).unwrap();
+    assert_has_error(&errors, LintErrorKind::BrokenReference, "« ember »");
+}
+
+#[test]
+fn ranged_cooldown_zero_fixture_reports_cooldown() {
+    let (_, _, errors) = load_and_lint(&fixture_dir("ranged_cooldown_zero")).unwrap();
+    assert_has_error(&errors, LintErrorKind::OutOfRange, "cooldown_frames = 0");
+}

@@ -1,0 +1,9 @@
+// T1.2 : Scatter est aléatoire (flux `patterns`), réservé aux émetteurs.
+({
+    "grenade": (config: (ammo_type: Plomb, firing_modes: {"default": (
+        firing_rate: "1.0",
+        projectile: (on_expire: [Spawn(Scatter(count: 4, spread: "0.6", projectile: "eclat"))]),
+    )}, projectiles: {
+        "eclat": (damage: "4.0", speed: "240.0", range: "96.0"),
+    })),
+})

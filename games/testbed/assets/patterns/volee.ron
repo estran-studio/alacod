@@ -1,0 +1,9 @@
+// T1.2 : volée de l'archer (`characters/archer.ron`) : télégraphe de 30 frames, 3 flèches en
+// éventail sur la cible, 20 frames d'attente, 4 flèches dispersées au hasard (flux RNG
+// `patterns`), puis refroidissement (conventions §20).
+Sequence([
+    Telegraph(30),
+    Aimed(count: 3, spread: "0.3", projectile: "arrow"),
+    Wait(20),
+    Scatter(count: 4, spread: "0.6", projectile: "arrow"),
+])

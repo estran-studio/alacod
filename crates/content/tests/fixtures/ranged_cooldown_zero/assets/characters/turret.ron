@@ -1,0 +1,22 @@
+(
+    movement: (
+        max_speed: "0.0",
+    ),
+    asset_name_ref: "turret",
+    base_health: (
+        max: "100.0",
+    ),
+    starting_skin: "1",
+    skins: {
+        "1": (layers: {}),
+    },
+    ai: Some((
+        stationary: Some(true),
+        ranged: Some((
+            weapon: "fireball_gun",
+            pattern: "ring_8",
+            range: "260.0",
+            cooldown_frames: 0,
+        )),
+    )),
+)
