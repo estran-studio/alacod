@@ -1099,10 +1099,15 @@ navigation (`EnemyAI`), qui voit une destruction dans la frame.
 4. ratio de sol hors de `[min_floor_ratio, 0.9]` : nouvel essai avec la suite du même RNG (64 au
    plus). Testé sur 1 000 graines (connexité, bordure, ratio, spawns sur le sol).
 
-**Points d'intérêt** (`world::points_of_interest`) : `PlayerSpawn{index}` 0..3 = les cases de
-sol les plus proches du centre (distance au carré, puis y, puis x) ; `ZombieSpawn` ×
-`enemy_spawns` = les cases de sol les plus éloignées du `PlayerSpawn` 0 en distance de grille
-(4-connexe), espacées d'au moins 8 cases (Tchebychev).
+**Points d'intérêt** (`world::points_of_interest`), choisis parmi les cases **dégagées** (sol
+dont les 8 voisines sont du sol, `world::cave::is_open` : un corps de personnage de 20 × 20,
+décalé vers le bas, y apparaît sans toucher de mur — sinon chaque déplacement serait refusé) :
+`PlayerSpawn{index}` 0..3 = les plus proches du centre (distance au carré, puis y, puis x) ;
+`ZombieSpawn` × `enemy_spawns` = les plus éloignées du `PlayerSpawn` 0 en distance de grille
+(4-connexe), espacées d'au moins 8 cases (Tchebychev). Champ optionnel `characters: [...]`
+(vide par défaut) : un `CharacterSpawn` (équipe `enemies`) par point `ZombieSpawn`, personnages
+pris à tour de rôle (lint : personnages chargés) — un jeu sans vagues (testbed) peuple ainsi
+une caverne (`caves/bench.ron` : six `follower`).
 
 **Niveau LDtk.** Le callback du loader réécrit le niveau unique du gabarit
 (`generation::cave::build_cave_ldtk`) : dimensions, IntGrid `Walls` (1 = `Wall` ou `Rock`),
@@ -1138,7 +1143,8 @@ coordonnées de grille ci-dessus ; échoue hors de la grille (donc toujours hors
 `CellGrid` (`cave_cells_visual_system`, rendu seulement), reconstruit quand la grille change.
 
 **Limites.** Pas de surfaces ni de tags de cases (T1.7), pas de bots sur caverne (T1.14). Dans
-le testbed, une caverne n'a pas d'ennemi (pas de vagues) : son portail `Floors` s'ouvre aussitôt.
+le testbed (pas de vagues), une caverne sans `characters` n'a pas d'ennemi : son portail
+`Floors` s'ouvre aussitôt.
 
 ## Notes essentielles
 

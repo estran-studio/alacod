@@ -264,3 +264,56 @@ fn caverne_dans_une_sequence_floors() {
         "floor_b : grille vide ({seen:?})"
     );
 }
+
+/// `cave:bench` : un `follower` (équipe `enemies`) par point `ZombieSpawn` ; ils poursuivent
+/// le joueur par la navigation de la caverne.
+#[test]
+fn followers_de_la_caverne_naviguent() {
+    if map_ldtk::RENDER_ENABLED {
+        return;
+    }
+    use game::character::enemy::Enemy;
+    use game::replay::EntityKind;
+
+    let mut scenario = Scenario::from_ron(&format!(
+        r#"(game: "testbed", map: "cave:bench", map_seed: {SEED}, frames: 400,
+            players: [()])"#
+    ))
+    .expect("scénario bench");
+    scenario.expect = vec![Expectation::EntityCount {
+        kind: EntityKind::Enemy,
+        min: Some(6),
+        max: Some(6),
+        at_frame: 10,
+    }];
+    // Distance totale des ennemis au joueur, à f10 puis à la dernière frame
+    let seen: Arc<Mutex<Vec<f32>>> = Arc::default();
+    let probe = seen.clone();
+    let outcome = run_with(&scenario, move |app| {
+        app.add_systems(
+            Last,
+            move |frame: Res<utils::frame::FrameCount>,
+                  enemies: Query<&FixedTransform3D, With<Enemy>>,
+                  players: Query<&FixedTransform3D, With<Player>>| {
+                let Some(player) = players.iter().next() else {
+                    return;
+                };
+                if frame.frame == 10 || frame.frame == 399 {
+                    let p = player.translation.truncate();
+                    let total: f32 = enemies
+                        .iter()
+                        .map(|e| (e.translation.truncate() - p).length().to_num::<f32>())
+                        .sum();
+                    probe.lock().unwrap().push(total);
+                }
+            },
+        );
+    });
+    assert!(outcome.failures.is_empty(), "{:?}", outcome.failures);
+    let seen = seen.lock().unwrap().clone();
+    assert!(seen.len() >= 2, "{seen:?}");
+    assert!(
+        seen.last().unwrap() < &(seen[0] * 0.7),
+        "les followers ne se rapprochent pas : {seen:?}"
+    );
+}

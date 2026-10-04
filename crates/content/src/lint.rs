@@ -989,6 +989,21 @@ fn lint_caves(registry: &Registry, errors: &mut Vec<LintError>) {
                 c.birth, c.survive
             ));
         }
+        for character in &c.characters {
+            if !registry
+                .characters
+                .contains_key(&registry::CharacterId::from(character.clone()))
+            {
+                errors.push(LintError {
+                    kind: LintErrorKind::BrokenReference,
+                    file: file.clone(),
+                    message: format!(
+                        "caverne « {} » : champ characters : « {character} » : aucun personnage chargé avec cet id",
+                        cave.id
+                    ),
+                });
+            }
+        }
         if !GameManifest::assets_dir(&registry.game_dir)
             .join(&cave.template)
             .is_file()

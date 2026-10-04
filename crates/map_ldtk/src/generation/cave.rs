@@ -72,13 +72,33 @@ pub fn build_cave_ldtk(template: &LdtkJson, seed: i32, config: &CaveConfig) -> L
         ));
     }
     for (index, &(x, y)) in points.zombie_spawns.iter().enumerate() {
+        let cell = (x as i32, h - 1 - y as i32);
         entities.push(entity(
             template,
             map_const::ENTITY_ZOMBIE_SPAWN_LOCATION,
-            (x as i32, h - 1 - y as i32),
+            cell,
             vec![],
             format!("cave-{seed}-zombie-{index}"),
         ));
+        if !config.characters.is_empty() {
+            let character = &config.characters[index % config.characters.len()];
+            entities.push(entity(
+                template,
+                map_const::ENTITY_CHARACTER_SPAWN_LOCATION,
+                cell,
+                vec![
+                    (
+                        map_const::FIELD_CHARACTER_NAME,
+                        FieldValue::String(Some(character.clone())),
+                    ),
+                    (
+                        map_const::FIELD_TEAM_NAME,
+                        FieldValue::String(Some("enemies".into())),
+                    ),
+                ],
+                format!("cave-{seed}-character-{index}"),
+            ));
+        }
     }
 
     for layer in level.layer_instances.iter_mut().flatten() {
@@ -123,6 +143,10 @@ fn entity(
             let editor = match &value {
                 FieldValue::Int(Some(v)) => Some(RealEditorValue {
                     id: "V_Int".into(),
+                    params: vec![serde_json::to_value(v).unwrap()],
+                }),
+                FieldValue::String(Some(v)) => Some(RealEditorValue {
+                    id: "V_String".into(),
                     params: vec![serde_json::to_value(v).unwrap()],
                 }),
                 _ => None,

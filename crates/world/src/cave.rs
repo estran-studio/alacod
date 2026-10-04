@@ -43,6 +43,11 @@ pub struct CaveConfig {
     pub min_floor_ratio: Fixed,
     /// Nombre de `ZombieSpawn` placés.
     pub enemy_spawns: u32,
+    /// Personnages de laboratoire (`CharacterSpawn`, équipe `enemies`) posés sur les points
+    /// `ZombieSpawn`, à tour de rôle (vide par défaut) : un jeu sans vagues (testbed) peuple
+    /// ainsi une caverne (bench `bench_cave`).
+    #[serde(default, skip_serializing_if = "Vec::is_empty")]
+    pub characters: Vec<String>,
 }
 
 /// Graine 64 bits repliée sur l'état 32 bits de `RollbackRng`.
@@ -216,13 +221,21 @@ pub struct CavePoints {
     pub zombie_spawns: Vec<(u32, u32)>,
 }
 
-/// Les `players` cases de sol les plus proches du centre (distance euclidienne au carré,
-/// puis y, puis x), puis les `ZombieSpawn`.
+/// Case de sol dont les 8 voisines sont aussi du sol : un corps de personnage (20 × 20, décalé
+/// vers le bas) y apparaît sans chevaucher de mur, sinon chaque déplacement serait refusé.
+pub fn is_open(grid: &CellGrid, x: u32, y: u32) -> bool {
+    (-1..=1).all(|dy| {
+        (-1..=1).all(|dx| grid.get(x as i32 + dx, y as i32 + dy) == Some(CellKind::Floor))
+    })
+}
+
+/// Les `players` cases **dégagées** ([`is_open`]) les plus proches du centre (distance
+/// euclidienne au carré, puis y, puis x), puis les `ZombieSpawn` (cases dégagées elles aussi).
 pub fn points_of_interest(grid: &CellGrid, players: usize, enemy_spawns: u32) -> CavePoints {
     let (w, h) = (grid.width as i64, grid.height as i64);
     let mut floor: Vec<(u32, u32)> = (0..grid.height)
         .flat_map(|y| (0..grid.width).map(move |x| (x, y)))
-        .filter(|&(x, y)| grid.get(x as i32, y as i32) == Some(CellKind::Floor))
+        .filter(|&(x, y)| is_open(grid, x, y))
         .collect();
     // Centre en coordonnées doublées : pas de demi-case
     floor.sort_by_key(|&(x, y)| {
@@ -273,6 +286,7 @@ mod tests {
             survive: 4,
             min_floor_ratio: Fixed::from_num(0.3),
             enemy_spawns: 4,
+            characters: vec![],
         }
     }
 
@@ -306,7 +320,10 @@ mod tests {
             assert_eq!(points.player_spawns.len(), 4, "graine {seed}");
             assert!(!points.zombie_spawns.is_empty(), "graine {seed}");
             for (x, y) in points.player_spawns.iter().chain(&points.zombie_spawns) {
-                assert_eq!(grid.get(*x as i32, *y as i32), Some(CellKind::Floor));
+                assert!(
+                    is_open(&grid, *x, *y),
+                    "graine {seed} : ({x}, {y}) pas dégagée"
+                );
             }
         }
     }
@@ -333,10 +350,17 @@ mod tests {
             .map(|&(x, y)| dist[(y * grid.width + x) as usize])
             .min()
             .unwrap();
-        let max_dist = dist.iter().filter(|d| **d != u32::MAX).max().unwrap();
+        // La plus grande distance parmi les cases dégagées (candidates)
+        let max_dist = (0..grid.height)
+            .flat_map(|y| (0..grid.width).map(move |x| (x, y)))
+            .filter(|&(x, y)| is_open(&grid, x, y))
+            .map(|(x, y)| dist[(y * grid.width + x) as usize])
+            .filter(|d| *d != u32::MAX)
+            .max()
+            .unwrap();
         assert_eq!(
             dist[(points.zombie_spawns[0].1 * grid.width + points.zombie_spawns[0].0) as usize],
-            *max_dist
+            max_dist
         );
         assert!(far > 0);
         for (i, a) in points.zombie_spawns.iter().enumerate() {

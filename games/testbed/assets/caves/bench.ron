@@ -1,0 +1,13 @@
+// T1.6 : caverne du bench `bench_cave` (`cave:bench`) : même automate que `petite`, peuplée de
+// `follower` (poursuite par flow field, sans attaque) sur ses six points `ZombieSpawn`.
+(
+    width: 48,
+    height: 32,
+    fill_ratio: "0.45",
+    iterations: 4,
+    birth: 5,
+    survive: 4,
+    min_floor_ratio: "0.3",
+    enemy_spawns: 6,
+    characters: ["follower"],
+)
