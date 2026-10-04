@@ -4412,6 +4412,7 @@ dependencies = [
  "serde",
  "sim_core",
  "thiserror 2.0.21",
+ "world",
 ]
 
 [[package]]
@@ -13209,6 +13210,18 @@ dependencies = [
  "wayland-client",
  "wayland-protocols",
  "wayland-protocols-wlr",
+]
+
+[[package]]
+name = "world"
+version = "0.1.0"
+dependencies = [
+ "bevy 0.19.1",
+ "bevy_fixed",
+ "ron 0.12.2",
+ "serde",
+ "sim_core",
+ "utils",
 ]
 
 [[package]]

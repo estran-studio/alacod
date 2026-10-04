@@ -63,6 +63,7 @@ pub fn run(registry: &Registry, manifest: &GameManifest) -> Vec<LintError> {
     lint_feedback(registry, &mut errors);
     lint_sprite_sheets(registry, &mut errors);
     lint_floors(registry, &mut errors);
+    lint_caves(registry, &mut errors);
     lint_entry_point(registry, manifest, &mut errors);
 
     errors
@@ -912,6 +913,19 @@ fn lint_floors(registry: &Registry, errors: &mut Vec<LintError>) {
             });
         }
         for level in &floors.levels {
+            if let Some(cave) = registry::cave_designation(level) {
+                if !registry.caves.contains_key(&cave) {
+                    errors.push(LintError {
+                        kind: LintErrorKind::BrokenReference,
+                        file: file.clone(),
+                        message: format!(
+                            "séquence de niveaux « {} » : champ levels : « {level} » : aucune caverne chargée avec cet id (« {cave} »)",
+                            floors.id
+                        ),
+                    });
+                }
+                continue;
+            }
             let map_id = registry::map_id_from_path(level);
             if !registry.maps.contains_key(&map_id) {
                 errors.push(LintError {
@@ -927,9 +941,62 @@ fn lint_floors(registry: &Registry, errors: &mut Vec<LintError>) {
     }
 }
 
+/// T1.6 : plages de l'automate (`docs/conventions.md` §21) et présence du gabarit LDtk.
+fn lint_caves(registry: &Registry, errors: &mut Vec<LintError>) {
+    for cave in registry.caves.values() {
+        let file = cave.file.display().to_string();
+        let c = &cave.config;
+        let mut out_of_range = |message: String| {
+            errors.push(LintError {
+                kind: LintErrorKind::OutOfRange,
+                file: file.clone(),
+                message: format!("caverne « {} » : {message}", cave.id),
+            })
+        };
+        if c.width < 16 || c.height < 16 {
+            out_of_range(format!(
+                "width × height = {} × {} : au moins 16 × 16 cases",
+                c.width, c.height
+            ));
+        }
+        if c.fill_ratio < Fixed::ZERO || c.fill_ratio > Fixed::ONE {
+            out_of_range(format!("fill_ratio = {} : hors de [0, 1]", c.fill_ratio));
+        }
+        if c.min_floor_ratio < Fixed::ZERO || c.min_floor_ratio > Fixed::from_num(0.9) {
+            out_of_range(format!(
+                "min_floor_ratio = {} : hors de [0, 0.9]",
+                c.min_floor_ratio
+            ));
+        }
+        if c.birth > 8 || c.survive > 8 {
+            out_of_range(format!(
+                "birth = {}, survive = {} : au plus 8 voisins",
+                c.birth, c.survive
+            ));
+        }
+        if !GameManifest::assets_dir(&registry.game_dir)
+            .join(&cave.template)
+            .is_file()
+        {
+            errors.push(LintError {
+                kind: LintErrorKind::BrokenReference,
+                file: file.clone(),
+                message: format!(
+                    "caverne « {} » : gabarit LDtk « {} » introuvable",
+                    cave.id, cave.template
+                ),
+            });
+        }
+    }
+}
+
 fn lint_entry_point(registry: &Registry, manifest: &GameManifest, errors: &mut Vec<LintError>) {
     let start_map_id = registry::map_id_from_path(&manifest.entry.start_map);
-    if !registry.maps.contains_key(&start_map_id) {
+    let start_is_known = match registry::cave_designation(&manifest.entry.start_map) {
+        Some(cave) => registry.caves.contains_key(&cave),
+        None => registry.maps.contains_key(&start_map_id),
+    };
+    if !start_is_known {
         errors.push(LintError {
             kind: LintErrorKind::BrokenReference,
             file: crate::manifest::MANIFEST_FILE_NAME.to_string(),
