@@ -81,6 +81,13 @@ impl Rect {
     }
 }
 
+/// Ligne de vue sans `Wall` entre `from` et `to`, directement sur la géométrie (sans champ).
+pub fn walls_clear(geometry: &[(Rect, bool)], from: FixedVec2, to: FixedVec2) -> bool {
+    !geometry
+        .iter()
+        .any(|(rect, wall)| *wall && rect.crosses(from, to))
+}
+
 pub fn cell(position: FixedVec2) -> GridPos {
     GridPos::new(
         (position.x / Fixed::from_num(CELL)).round().to_num(),

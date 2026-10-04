@@ -333,7 +333,7 @@ pub fn read_bot_inputs(
                 });
                 let body = AgentBody::from_collider(collider);
                 let (visible, route) =
-                    navigate(&mut nav.0, rects, &body, &enemy_points, &view);
+                    navigate(&mut nav.0, rects, &body, &enemy_points, &view, profile);
                 view.enemy_visible = visible;
                 view.route = route;
             }
@@ -355,17 +355,29 @@ pub fn read_bot_inputs(
 /// [`BotView::route`]) : vers l'ennemi le plus proche par le chemin (postes de tir du champ, puis
 /// le point accessible le plus proche s'il n'y en a pas), ou vers le portail sans ennemi.
 /// Dérivé hors rollback des colliders de la frame, comme pour `chasseur`.
+///
+/// Le champ n'est calculé que si le profil s'en sert (ennemi caché ; `prudent` : ennemi au-delà
+/// de sa bande ; portail au-delà de la zone de freinage). Une composante de moins de
+/// [`ROUTE_DEAD_ZONE`] est annulée : les boutons ne gardent que le signe, un écart d'un pixel
+/// ferait un pas en diagonale contre un coin de mur.
 fn navigate(
     nav: &mut crate::navigation::BotNavigation,
     geometry: &[(Rect, bool)],
     body: &AgentBody,
     enemies: &[(usize, FixedVec2)],
     view: &BotView,
+    profile: BotProfile,
 ) -> (bool, Option<FixedVec2>) {
     let position = view.position;
     if let Some(enemy) = view.nearest_enemy {
+        let visible = crate::navigation::walls_clear(geometry, position, enemy.position);
+        let needed = !visible
+            || (profile == BotProfile::Prudent
+                && enemy.distance > crate::decide::PRUDENT_MAX_DISTANCE);
+        if !needed {
+            return (visible, None);
+        }
         nav.update_from(geometry, body, enemies, position);
-        let visible = nav.visible(position, enemy.position);
         let route = nav.chase(position).or_else(|| {
             let mut candidates = enemies.to_vec();
             candidates.sort_by_key(|(id, p)| (position.distance(p), *id));
@@ -374,11 +386,14 @@ fn navigate(
                     .filter(|direction| direction.length_squared() > Fixed::from_num(4))
             })
         });
-        return (visible, route);
+        return (visible, route.map(dead_zone));
     }
     let Some(portal) = view.portal else {
         return (false, None);
     };
+    if position.distance(&portal) < crate::decide::PORTAL_BRAKE_DISTANCE {
+        return (false, None);
+    }
     nav.update_from(geometry, body, &[], position);
     let route = nav
         .approach(
@@ -389,8 +404,16 @@ fn navigate(
             },
             PORTAL_REACH,
         )
-        .map(|(direction, _)| direction);
+        .map(|(direction, _)| dead_zone(direction));
     (false, route)
+}
+
+/// Composante annulée sous laquelle une direction de route ne presse pas son axe.
+const ROUTE_DEAD_ZONE: Fixed = Fixed::from_bits(2 << 16);
+
+fn dead_zone(direction: FixedVec2) -> FixedVec2 {
+    let keep = |c: Fixed| if c.abs() < ROUTE_DEAD_ZONE { Fixed::ZERO } else { c };
+    FixedVec2::new(keep(direction.x), keep(direction.y))
 }
 
 /// Rayon d'un collider : cercle → rayon, rectangle → demi-diagonale.
