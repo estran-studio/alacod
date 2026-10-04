@@ -357,6 +357,8 @@ impl Plugin for ProgressionPlugin {
                     .chain()
                     .run_if(progression_active)
                     .after(crate::effects_runtime::apply_effects_system)
+                    // Flux `loot` : drops de power-ups d'abord, puis tirages des mutations
+                    .after(crate::powerups::loot_drop_on_death_system)
                     .before(crate::character::health::rollback_apply_bleedout)
                     .in_set(sim_core::system_set::RollbackSystemSet::DeathManagement),
             );

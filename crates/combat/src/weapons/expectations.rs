@@ -186,7 +186,7 @@ pub enum Expectation {
     /// à une frame ≤ `by_frame`. Les `kind` possibles : "wave", "kill", "player", "hit", "reload",
     /// "weapon", "move", "melee", "death", "window", "door", "downed", "revived", "defeat",
     /// "drop", "pickup" (T2.2, chantier B7), "portal", "floor" (T1.8, mode `Floors`),
-    /// "terrain" (T1.6, terrain de caverne creusé).
+    /// "terrain" (T1.6, terrain de caverne creusé), "levelup", "mutation" (T1.10).
     Event {
         kind: String,
         #[serde(default, skip_serializing_if = "Option::is_none")]
@@ -321,10 +321,14 @@ pub enum Expectation {
         at_frame: u32,
     },
     /// Les mutations prises par le joueur `handle` (`game::progression::Mutations`) contiennent
-    /// toutes celles de `contains` (T1.10).
+    /// toutes celles de `contains` et, si `count` est donné, sont exactement `count` (T1.10 ;
+    /// `count: 0` : aucune mutation prise, joueur sans `Mutations` compris).
     Mutations {
         handle: usize,
+        #[serde(default, skip_serializing_if = "Vec::is_empty")]
         contains: Vec<String>,
+        #[serde(default, skip_serializing_if = "Option::is_none")]
+        count: Option<u32>,
         at_frame: u32,
     },
 }

@@ -1514,7 +1514,10 @@ fn check(world: &mut World, expectation: &Expectation) -> Result<(), String> {
             Ok(())
         }
         Expectation::Mutations {
-            handle, contains, ..
+            handle,
+            contains,
+            count,
+            ..
         } => {
             let taken: Vec<String> = world
                 .query::<(&Player, &game::progression::Mutations)>()
@@ -1525,6 +1528,11 @@ fn check(world: &mut World, expectation: &Expectation) -> Result<(), String> {
             let missing: Vec<&String> = contains.iter().filter(|id| !taken.contains(id)).collect();
             if !missing.is_empty() {
                 return Err(format!("mutations {taken:?} : manque {missing:?}"));
+            }
+            if let Some(count) = count {
+                if taken.len() != *count as usize {
+                    return Err(format!("mutations {taken:?} : {} ≠ {count}", taken.len()));
+                }
             }
             Ok(())
         }

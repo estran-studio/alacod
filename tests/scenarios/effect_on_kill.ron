@@ -1,0 +1,26 @@
+// T1.10 (effets v1, docs/conventions.md §27) : `OnKill` → `Heal`. Mutation `vampire` imposée
+// (`mutations`, sans progression) : chaque kill rend 10 points. Carte `testbed/progression.ldtk`.
+//
+// Mesuré : le breacher touche le joueur à f46 (97,5 points), le joueur le tue avant f100 :
+// santé 100 à f100. Le même script sans mutation reste à 97,5 jusqu'à la régénération (f250,
+// `regen_delay_frames` 180) : l'écart à f150 est le soin du kill.
+//
+// À regarder : le joueur tire au sud-ouest sur le breacher qui arrive ; sa barre de vie remonte
+// dès que le breacher meurt.
+Scenario(
+    powerup_drop_chance_override: "0.0",
+    game: "testbed",
+    map: "testbed/progression.ldtk",
+    frames: 200,
+    players: [
+        (mutations: ["vampire"], inputs: [
+            (from: 5, to: 120, buttons: [Fire], pan: (-64, -48)),
+            (from: 120, to: 170, buttons: [Fire], pan: (-64, 48)),
+        ]),
+    ],
+    expect: [
+        Health(handle: 0, max: Some(98.0), at_frame: 60),
+        Health(handle: 0, min: Some(100.0), at_frame: 150),
+        Mutations(handle: 0, contains: ["vampire"], count: 1, at_frame: 10),
+    ],
+)

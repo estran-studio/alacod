@@ -1,0 +1,29 @@
+// T1.10 (progression v1, docs/conventions.md §27) : choix de mutation sans input. Même carte et
+// même progression que `levelup_choice`, même début de script (niveau 1 à f104, options
+// [vampire, tireur, coriace]) ; aucun bouton de choix : la première option, `vampire`, est prise
+// à `since_frame + choice_frames` = f104 + 600 = f704. La simulation ne s'arrête jamais.
+//
+// À regarder : le joueur tire au sud-ouest puis tout autour ; rien ne se passe à l'écran au
+// moment du choix (pas d'écran de choix en v1).
+Scenario(
+    powerup_drop_chance_override: "0.0",
+    game: "testbed",
+    map: "testbed/progression.ldtk",
+    progression: "progression",
+    frames: 760,
+    players: [
+        (inputs: [
+            (from: 5, to: 120, buttons: [Fire], pan: (-64, -48)),
+            (from: 120, to: 170, buttons: [Fire], pan: (-64, 48)),
+            (from: 170, to: 220, buttons: [Fire], pan: (128, 48)),
+            (from: 220, to: 270, buttons: [Fire], pan: (128, -48)),
+            (from: 270, to: 320, buttons: [Fire], pan: (-64, -80)),
+        ]),
+    ],
+    expect: [
+        Level(handle: 0, level: 1, at_frame: 110),
+        Mutations(handle: 0, count: 0, at_frame: 703),
+        Mutations(handle: 0, contains: ["vampire"], count: 1, at_frame: 704),
+        Event(kind: "mutation", label_contains: "vampire", by_frame: 710),
+    ],
+)
