@@ -47,9 +47,11 @@
         ]),
     )),
     // T1.13 (`docs/conventions.md` §28) : scénarios générés `enemy_<id>_still`/`_moving`
-    // (`make gen`). Immobile : `EnemyNeverInWall` borné à f540 — à f544, en reculant
-    // (`KeepDistance`), le collider du kiter chevauche un mur de `arena.ldtk` (constaté au
-    // calage, rapport m1-v3-generateur-v1).
+    // (`make gen`). Immobile : `EnemyNeverInWall` borné à f540 — à f544, le kiter chevauche
+    // le coin d'un mur de `arena.ldtk` pendant une frame. Cause (dette D39, rapport
+    // m1-dettes-lot-1) : le glissement de `move_enemies` teste X puis Y chacun depuis la
+    // position de départ ; deux axes libres séparément se combinent dans le coin. Pas propre à
+    // `KeepDistance`.
     test: Some((
         frames: 600,
         expect_still: [
