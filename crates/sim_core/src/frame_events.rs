@@ -28,7 +28,7 @@ use crate::system_set::RollbackSystemSet;
 /// `InteractionEvent` dans `crates/game/src/interaction.rs`). `Vec<T>::hash` hache déjà
 /// la longueur puis chaque élément : le `#[derive(Hash)]` ci-dessous fait exactement ce
 /// qu'un hash manuel ferait.
-#[derive(Resource, Clone, Debug, Hash)]
+#[derive(Resource, Clone, Debug, Hash, PartialEq)]
 pub struct FrameEvents<T: Clone + Send + Sync + 'static>(Vec<T>);
 
 impl<T: Clone + Send + Sync + 'static> Default for FrameEvents<T> {
@@ -57,6 +57,14 @@ pub trait FrameEventsAppExt {
     fn add_frame_events<T>(&mut self) -> &mut Self
     where
         T: Clone + Send + Sync + std::hash::Hash + std::fmt::Debug + 'static;
+
+    /// Comme [`Self::add_frame_events`], mais la file **vide** contribue `0` au checksum GGRS
+    /// (`rollback_and_trace_resource_neutral`) : une file nouvelle qui reste vide dans toutes
+    /// les parties existantes ne déplace aucune trace (T1.6 : demandes de destruction de
+    /// terrain, émises seulement dans une caverne).
+    fn add_frame_events_neutral<T>(&mut self) -> &mut Self
+    where
+        T: Clone + Send + Sync + PartialEq + std::hash::Hash + std::fmt::Debug + 'static;
 }
 
 impl FrameEventsAppExt for App {
@@ -66,6 +74,18 @@ impl FrameEventsAppExt for App {
     {
         self.init_resource::<FrameEvents<T>>()
             .rollback_and_trace_resource::<FrameEvents<T>>()
+            .add_systems(
+                GgrsSchedule,
+                clear_frame_events::<T>.in_set(RollbackSystemSet::FrameStart),
+            )
+    }
+
+    fn add_frame_events_neutral<T>(&mut self) -> &mut Self
+    where
+        T: Clone + Send + Sync + PartialEq + std::hash::Hash + std::fmt::Debug + 'static,
+    {
+        self.init_resource::<FrameEvents<T>>()
+            .rollback_and_trace_resource_neutral::<FrameEvents<T>>()
             .add_systems(
                 GgrsSchedule,
                 clear_frame_events::<T>.in_set(RollbackSystemSet::FrameStart),

@@ -3,9 +3,13 @@ use std::ops::RangeInclusive;
 use bevy::prelude::Resource;
 use serde::{Deserialize, Serialize};
 
-#[derive(Debug, Clone, Copy, Serialize, Deserialize)]
+#[derive(Debug, Clone, Serialize, Deserialize)]
 pub enum MapGenerationMode {
     Basic,
+    /// T1.6 : caverne générée par automate cellulaire (`world::cave`), un seul niveau écrit
+    /// dans le gabarit LDtk désigné par `map_path` (`map_ldtk::generation::cave`). La graine
+    /// est `seed`, comme pour `Basic`.
+    Cave(world::CaveConfig),
 }
 
 #[derive(Debug, Resource, Serialize, Deserialize)]

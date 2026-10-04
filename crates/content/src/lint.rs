@@ -402,6 +402,16 @@ fn lint_projectile_spec(
         }
     }
     for action in &spec.on_hit {
+        // T1.6 : `DestroyTerrain` creuse au point d'impact (mur de caverne touché)
+        if let effects::Action::DestroyTerrain { radius } = action {
+            if *radius <= Fixed::ZERO {
+                push(
+                    LintErrorKind::OutOfRange,
+                    format!("{at} : on_hit DestroyTerrain : radius = {radius} : doit être > 0"),
+                );
+            }
+            continue;
+        }
         if !matches!(
             action,
             effects::Action::TimedModifier { .. } | effects::Action::CurrencyMultiplier { .. }
@@ -850,6 +860,11 @@ fn lint_powerups(registry: &Registry, errors: &mut Vec<LintError>) {
                         ));
                     }
                 }
+                // T1.6 : action positionnelle, sans sens pour un power-up (ramassé, pas tiré)
+                effects::Action::DestroyTerrain { .. } => push(format!(
+                    "power-up « {} » : actions[{index}] (DestroyTerrain) : réservée aux projectiles (on_hit, on_expire)",
+                    powerup.id
+                )),
                 _ => {}
             }
         }

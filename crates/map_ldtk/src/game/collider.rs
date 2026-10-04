@@ -88,10 +88,12 @@ pub(crate) fn spawn_level_walls(
 
             // Spawn wall entities for each rectangle
             for rect in rectangles {
+                let name = format!("ldtk_wall_{}x{}", rect.width, rect.height);
                 spawn_invisible_wall_collider(
                     commands,
                     collision_settings,
                     id_factory,
+                    name,
                     rect,
                     tile_size,
                     level_transform.translation.truncate(),
@@ -111,6 +113,46 @@ pub(crate) fn spawn_level_walls(
             flow_field_cache.intgrid_wall_cells.len()
         );
     }
+}
+
+/// Murs d'une caverne recréés depuis `world::CellGrid` après une destruction (T1.6) : même
+/// fusion gloutonne que le chemin LDtk, niveau à l'origine (`CellGrid`), net ids
+/// `cave_wall_<frame>_<i>` (la factory est rollback : numérotation identique au rejeu). Rend le
+/// nombre de murs créés.
+pub(crate) fn spawn_cave_walls(
+    commands: &mut Commands,
+    grid: &world::CellGrid,
+    collision_settings: &CollisionSettings,
+    id_factory: &mut GgrsNetIdFactory,
+    frame: u32,
+) -> usize {
+    let (w, h) = (grid.width as usize, grid.height as usize);
+    // Rangées LDtk (haut en bas) : la rangée r est la rangée de grille h - 1 - r
+    let rows: Vec<Vec<bool>> = (0..h)
+        .map(|r| {
+            (0..w)
+                .map(|x| {
+                    grid.get(x as i32, (h - 1 - r) as i32)
+                        .is_some_and(world::CellKind::is_solid)
+                })
+                .collect()
+        })
+        .collect();
+    let rectangles = generate_collision_rectangles(&rows);
+    let count = rectangles.len();
+    for (i, rect) in rectangles.into_iter().enumerate() {
+        spawn_invisible_wall_collider(
+            commands,
+            collision_settings,
+            id_factory,
+            format!("cave_wall_{frame}_{i}"),
+            rect,
+            world::CELL_SIZE,
+            Vec2::ZERO,
+            h,
+        );
+    }
+    count
 }
 
 /// Represents a collision rectangle in tile coordinates
@@ -212,6 +254,7 @@ fn spawn_invisible_wall_collider(
     commands: &mut Commands,
     collision_settings: &CollisionSettings,
     id_factory: &mut GgrsNetIdFactory,
+    name: String,
     rect: CollisionRect,
     tile_size: i32,
     level_offset: Vec2,
@@ -240,7 +283,7 @@ fn spawn_invisible_wall_collider(
         fixed_math::FixedVec3::ONE,
     );
 
-    let g_id = id_factory.next(format!("ldtk_wall_{}x{}", rect.width, rect.height));
+    let g_id = id_factory.next(name);
 
     commands
         .spawn((

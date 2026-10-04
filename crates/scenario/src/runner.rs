@@ -1352,6 +1352,14 @@ fn check(world: &mut World, expectation: &Expectation) -> Result<(), String> {
             }
             Ok(())
         }
+        // T1.6 : case du terrain d'une caverne (ressource rollback `CellGrid`).
+        Expectation::CellState { x, y, kind, .. } => {
+            match world.resource::<world::CellGrid>().get(*x, *y) {
+                Some(actual) if actual == *kind => Ok(()),
+                Some(actual) => Err(format!("case ({x}, {y}) : {actual:?} (attendu {kind:?})")),
+                None => Err(format!("case ({x}, {y}) hors de la grille")),
+            }
+        }
         // T2.3, chantier C5 v1 : scénarios `buy_door`/`buy_wall_weapon`/`buy_perk`.
         Expectation::Currency {
             handle, min, max, ..

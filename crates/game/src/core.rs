@@ -144,6 +144,9 @@ impl Plugin for CoreSetupPlugin {
         // (`RollbackSystemSet::Run`). Avant `InteractionPlugin` : les achats (portes, armes
         // murales, perks) vivent dans `interaction.rs` et lisent `Currency`/`Perks`.
         app.add_plugins(run::RunPlugin);
+        // Terrain des cavernes (T1.6) : `CellGrid` et demandes de destruction, toutes neutres
+        // au checksum (grille vide et files vides hors caverne : traces inchangées).
+        app.add_plugins(world::WorldPlugin);
         app.add_plugins(crate::economy::EconomyPlugin);
         app.add_plugins(crate::interaction::InteractionPlugin);
         // Power-ups (T2.5, chantier C1 v0) : après `EconomyPlugin` (l'action
