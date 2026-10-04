@@ -155,7 +155,7 @@ pub fn build_app(scenario: &Scenario, headless: bool, config: &PlayConfig) -> Ap
     // Registre de contenu (T1.5) : mêmes règles que `alacod lint`, un contenu invalide
     // fait échouer le test tout de suite plutôt qu'en plein milieu de la simulation.
     let game_root = game_dir(&scenario.game);
-    let (registry, manifest, content_errors) = content::load_and_lint(&game_root)
+    let (registry, mut manifest, content_errors) = content::load_and_lint(&game_root)
         .unwrap_or_else(|e| panic!("scénario « {} » : game.ron invalide : {e}", scenario.game));
     assert!(
         content_errors.is_empty(),
@@ -163,6 +163,11 @@ pub fn build_app(scenario: &Scenario, headless: bool, config: &PlayConfig) -> Ap
         scenario.game,
         content_errors
     );
+
+    // Suite de T1.13 : mode de run imposé par le scénario, à la place de `entry.mode`.
+    if let Some(mode) = scenario.mode {
+        manifest.entry.mode = Some(mode);
+    }
 
     let mut app = App::new();
     app.add_plugins(core_plugin.get_default_plugin())
@@ -831,6 +836,11 @@ pub fn run_with_options<F: FnOnce(&mut App)>(
     let mut wall_reported = vec![false; navigation.len()];
 
     let mut failures = Vec::new();
+    // Suite de T1.13 : `mode: Floors` sans séquence imposée.
+    if scenario.mode == Some(content::EntryMode::Floors) && scenario.floors.is_none() {
+        failures
+            .push("mode: Floors exige floors (id d'une séquence du dossier Floors)".to_string());
+    }
     // T1.13 : un placement après la dernière frame ne serait jamais appliqué.
     for (index, placement) in scenario.characters.iter().enumerate() {
         if placement.at_frame >= scenario.frames {

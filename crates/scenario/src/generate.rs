@@ -258,6 +258,7 @@ pub fn generate_game(game_dir: &Path) -> Result<Vec<GeneratedScenario>, Generate
         Some(template) => WeaponArena {
             game: manifest.name.clone(),
             map: template.map.clone(),
+            mode: Some(content::EntryMode::Sandbox),
         },
         None => WeaponArena::testbed(),
     };
@@ -291,11 +292,16 @@ pub fn generate_game(game_dir: &Path) -> Result<Vec<GeneratedScenario>, Generate
             None => enemy_arena_map(&manifest.name, &manifest.entry.start_map),
         },
         // Même résolution que `game::jjrs` : `Waves` déclaré, ou mode absent et un dossier
-        // `Wave` présent.
-        waves: match manifest.entry.mode {
-            Some(mode) => mode == content::manifest::EntryMode::Waves,
-            None => !registry.waves.is_empty(),
-        },
+        // `Wave` présent ; un `generate_template` impose `Sandbox`.
+        waves: manifest.generate_template.is_none()
+            && match manifest.entry.mode {
+                Some(mode) => mode == content::manifest::EntryMode::Waves,
+                None => !registry.waves.is_empty(),
+            },
+        mode: manifest
+            .generate_template
+            .as_ref()
+            .map(|_| content::EntryMode::Sandbox),
     };
     for (id, entry) in &registry.characters {
         if entry.test.is_none() {
@@ -343,6 +349,8 @@ pub struct EnemyArena {
     pub map: String,
     /// Mode `Waves` : période de grâce au-delà de la durée du scénario (aucune vague).
     pub waves: bool,
+    /// Mode imposé, comme [`WeaponArena::mode`].
+    pub mode: Option<content::EntryMode>,
 }
 
 /// Carte des gabarits ennemis d'un jeu : l'arène du testbed, la petite carte d'exemple de
@@ -455,6 +463,7 @@ pub fn build_enemy_scenario(
             variant: None,
             team: None,
         }],
+        mode: arena.mode,
     }
 }
 
@@ -522,6 +531,10 @@ pub fn build_scenario(
 pub struct WeaponArena {
     pub game: String,
     pub map: String,
+    /// Mode imposé (`Scenario::mode`) : `Sandbox` pour un `generate_template` (la carte du
+    /// gabarit est jouée telle quelle, même si `entry.mode` vaut `Floors`) ; `None` pour le
+    /// testbed (fichiers générés inchangés).
+    pub mode: Option<content::EntryMode>,
 }
 
 impl WeaponArena {
@@ -529,6 +542,7 @@ impl WeaponArena {
         Self {
             game: TEMPLATE_GAME.to_string(),
             map: TEMPLATE_MAP.to_string(),
+            mode: None,
         }
     }
 }
@@ -622,6 +636,7 @@ pub fn build_weapon_scenario(
         clocks: None,
         difficulty: None,
         characters: vec![],
+        mode: arena.mode,
     }
 }
 

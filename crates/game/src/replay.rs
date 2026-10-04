@@ -95,6 +95,11 @@ pub struct Scenario {
     /// `scenario::runner::apply_scenario_character_placements`). Vide (défaut) : rien.
     #[serde(default, skip_serializing_if = "Vec::is_empty")]
     pub characters: Vec<CharacterPlacement>,
+    /// Mode de run imposé (suite de T1.13, `docs/conventions.md` §28) : l'emporte sur
+    /// `entry.mode` du manifeste (le runner le remplace avant de l'insérer). `Floors` exige
+    /// `floors`. `None` (défaut) : `entry.mode`, comme avant.
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub mode: Option<content::EntryMode>,
 }
 
 /// Placement scripté d'un personnage (T1.13, `docs/conventions.md` §28) : fait apparaître
