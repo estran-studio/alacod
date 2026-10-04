@@ -1,17 +1,54 @@
 // `throne` (T1.11, docs/conventions.md §14 et §29) : butin à la mort des ennemis (un ennemi sur
-// sept environ laisse un objet). Munitions, rage et vitesse ; pas de `Carpenter` ni de `Nuke` (pas de
-// fenêtres ni de vagues dans une caverne). `RefillAmmo` recharge toutes les munitions : un
-// butin par munition demanderait une action d'engine (dette du rapport).
+// sept environ laisse un objet). Munitions (une par munition, `RefillAmmoOf`, D40), rage et
+// vitesse ; pas de `Carpenter` ni de `Nuke` (pas de fenêtres ni de vagues dans une caverne).
 (
     drop_chance: "0.15",
     powerups: {
-        "munitions": (
-            name: "Munitions",
-            weight: 60,
+        // D40 : butin par munition (une par munition des armes de throne), poids 12 chacun :
+        // même chance totale (60) que l'ancien « munitions » (`RefillAmmo`, toutes les munitions).
+        "munitions_balles": (
+            name: "Munitions : Balles",
+            weight: 12,
             pickup_range: "30.0",
             lifetime_frames: 1800,
             actions: [
-                RefillAmmo,
+                RefillAmmoOf(Custom("balles")),
+            ],
+        ),
+        "munitions_obus": (
+            name: "Munitions : Obus",
+            weight: 12,
+            pickup_range: "30.0",
+            lifetime_frames: 1800,
+            actions: [
+                RefillAmmoOf(Custom("obus")),
+            ],
+        ),
+        "munitions_explosifs": (
+            name: "Munitions : Explosifs",
+            weight: 12,
+            pickup_range: "30.0",
+            lifetime_frames: 1800,
+            actions: [
+                RefillAmmoOf(Custom("explosifs")),
+            ],
+        ),
+        "munitions_energie": (
+            name: "Munitions : Énergie",
+            weight: 12,
+            pickup_range: "30.0",
+            lifetime_frames: 1800,
+            actions: [
+                RefillAmmoOf(Custom("energie")),
+            ],
+        ),
+        "munitions_lames": (
+            name: "Munitions : Lames",
+            weight: 12,
+            pickup_range: "30.0",
+            lifetime_frames: 1800,
+            actions: [
+                RefillAmmoOf(Custom("lames")),
             ],
         ),
         "rage": (

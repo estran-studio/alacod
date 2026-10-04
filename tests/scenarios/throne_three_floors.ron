@@ -3,28 +3,31 @@
 // profils), avec tout ce que le manifeste active (butin, progression, horloge, difficulté).
 //
 // Mesuré (graine 123456, comme `alacod-sim --game throne --bots 2 --profiles prudent,prudent
-// --floors run --seeds 123456..123456 --until-floor 3`) : passages à f517, f1198, f1759
-// (navigation par le champ ; f655, f1436, f2120 en ligne droite) ; le joueur 1 monte niveau 1 à
-// f679 et prend `irradie` d'office à f1279, le joueur 0 n'atteint le niveau 1 qu'à f1481.
+// --floors run --seeds 123456..123456 --until-floor 3`) : passages à f517, f1190, f2330
+// (navigation par le champ) ; le joueur 1 monte niveau 1 à f683 et niveau 2 à f1644
+// (`irradie`, `chasseur`), le joueur 0 niveau 1 à f964 (`rancune`). D40 : le butin de f434
+// est `munitions_lames` (même tirage que l'ancien `munitions`) ; il ne remplit plus les balles
+// ni n'annule le rechargement de la mitraillette, le troisième étage arrive plus tard
+// (f1759 avant D40).
 //
 // À regarder : les deux bots nettoient chaque caverne puis passent le portail.
 Scenario(
     game: "throne",
     floors: Some("run"),
     map_seed: 123456,
-    frames: 1780,
+    frames: 2350,
     players: [
         (bot: prudent),
         (bot: prudent),
     ],
     expect: [
         FloorIndex(index: 1, at_frame: 520),
-        FloorIndex(index: 2, at_frame: 1200),
-        FloorIndex(index: 2, at_frame: 1755),
-        FloorIndex(index: 3, at_frame: 1765),
-        Mutations(handle: 0, count: 0, at_frame: 1765),
-        Mutations(handle: 1, contains: ["irradie"], count: 1, at_frame: 1765),
-        PlayerAlive(handle: 0, at_frame: 1779),
-        PlayerAlive(handle: 1, at_frame: 1779),
+        FloorIndex(index: 2, at_frame: 1195),
+        FloorIndex(index: 2, at_frame: 2325),
+        FloorIndex(index: 3, at_frame: 2335),
+        Mutations(handle: 0, contains: ["rancune"], count: 1, at_frame: 2335),
+        Mutations(handle: 1, contains: ["irradie", "chasseur"], count: 2, at_frame: 2335),
+        PlayerAlive(handle: 0, at_frame: 2349),
+        PlayerAlive(handle: 1, at_frame: 2349),
     ],
 )
