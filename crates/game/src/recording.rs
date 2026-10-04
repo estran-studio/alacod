@@ -22,7 +22,10 @@ use crate::{
         input::{read_local_inputs, BoxInput},
         jjrs::PeerConfig,
     },
-    replay::{PlayerScript, PowerUpPlacement, Scenario, Segment, WaveOverride, WeaponOverride},
+    replay::{
+        CharacterPlacement, PlayerScript, PowerUpPlacement, Scenario, Segment, WaveOverride,
+        WeaponOverride,
+    },
 };
 
 /// Réglages de la partie qui ne passent pas par les inputs mais changent la simulation
@@ -41,6 +44,10 @@ pub struct RecordedSettings {
     /// T1.9 : horloges et difficulté actives (`Scenario::clocks`, `Scenario::difficulty`).
     pub clocks: Option<Vec<String>>,
     pub difficulty: Option<bool>,
+    /// T1.13 : placements scriptés de personnages (`Scenario::characters`).
+    pub characters: Vec<CharacterPlacement>,
+    /// Mode de run imposé (`Scenario::mode`).
+    pub mode: Option<content::EntryMode>,
 }
 
 impl Default for RecordedSettings {
@@ -56,6 +63,8 @@ impl Default for RecordedSettings {
             floors: None,
             clocks: None,
             difficulty: None,
+            characters: vec![],
+            mode: None,
         }
     }
 }
@@ -72,6 +81,8 @@ impl RecordedSettings {
             floors: scenario.floors.clone(),
             clocks: scenario.clocks.clone(),
             difficulty: scenario.difficulty,
+            characters: scenario.characters.clone(),
+            mode: scenario.mode,
         }
     }
 }
@@ -149,6 +160,8 @@ impl InputRecorder {
             progression: None,
             clocks: settings.clocks,
             difficulty: settings.difficulty,
+            characters: settings.characters,
+            mode: settings.mode,
         };
         if let Some(map) = map {
             scenario.map = map.map_path.clone();
@@ -275,6 +288,8 @@ mod tests {
             floors: Some("deux_niveaux".into()),
             clocks: None,
             difficulty: None,
+            characters: vec![],
+            mode: None,
         };
         let mut recorder = InputRecorder::new(settings.clone());
         recorder

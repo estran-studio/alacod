@@ -3,7 +3,7 @@
 //! d'entrée (carte de départ, graine par défaut).
 
 use bevy::prelude::Resource;
-use serde::Deserialize;
+use serde::{Deserialize, Serialize};
 use std::fmt;
 use std::path::{Path, PathBuf};
 
@@ -28,7 +28,7 @@ pub struct ContentFolderDecl {
 /// chargement RON, rapportée comme n'importe quelle autre erreur de parse — pas de lint
 /// dédié nécessaire. Converti en `run::run::RunMode` par `game::jjrs` (ce crate ne dépend
 /// pas de `run`, voir `docs/conventions.md` §13).
-#[derive(Debug, Clone, Copy, Deserialize, PartialEq, Eq)]
+#[derive(Debug, Clone, Copy, Serialize, Deserialize, PartialEq, Eq)]
 pub enum EntryMode {
     /// Le système de vagues actuel (`game::waves`). Exige un dossier de contenu `Wave`
     /// (validé par `lint::lint_entry_point`).
@@ -70,6 +70,19 @@ pub struct GameManifest {
     pub name: String,
     pub content_folders: Vec<ContentFolderDecl>,
     pub entry: EntryPoint,
+    /// T1.13 : carte et cible des scénarios générés de ce jeu (`scenario::generate`,
+    /// `docs/conventions.md` §28). Absent : les gabarits jouent dans le testbed.
+    #[serde(default)]
+    pub generate_template: Option<GenerateTemplate>,
+}
+
+/// `generate_template: (map: "maps/salle.ldtk", target: "cible")` (T1.13) : les gabarits
+/// d'armes et d'ennemis du jeu jouent dans ce jeu, sur `map` ; `target` est l'id du personnage
+/// (`counts_hits: true`) que vise le gabarit d'arme. Validé par `lint::lint_generate_template`.
+#[derive(Debug, Clone, Deserialize, PartialEq, Eq)]
+pub struct GenerateTemplate {
+    pub map: String,
+    pub target: String,
 }
 
 #[derive(Debug, Clone, PartialEq, Eq)]

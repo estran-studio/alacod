@@ -38,7 +38,8 @@ use utils::frame::FrameCount;
 use game::global_asset::GlobalAsset;
 use game::powerups::{spawn_powerup_pickup, PowerUpPickup, PowerUpsConfig};
 use game::replay::{
-    Expectation, ModifierSpec, PowerUpPlacement, RunStepExpectation, Scenario, WaveOverride,
+    CharacterPlacement, Expectation, ModifierSpec, PowerUpPlacement, RunStepExpectation, Scenario,
+    WaveOverride,
 };
 use game::weapons::melee::{self, MeleeWeapon, MeleeWeaponsConfig};
 use game::weapons::{spawn_weapon_for_player, Weapon, WeaponInventory, WeaponsConfig};
@@ -154,7 +155,7 @@ pub fn build_app(scenario: &Scenario, headless: bool, config: &PlayConfig) -> Ap
     // Registre de contenu (T1.5) : mêmes règles que `alacod lint`, un contenu invalide
     // fait échouer le test tout de suite plutôt qu'en plein milieu de la simulation.
     let game_root = game_dir(&scenario.game);
-    let (registry, manifest, content_errors) = content::load_and_lint(&game_root)
+    let (registry, mut manifest, content_errors) = content::load_and_lint(&game_root)
         .unwrap_or_else(|e| panic!("scénario « {} » : game.ron invalide : {e}", scenario.game));
     assert!(
         content_errors.is_empty(),
@@ -162,6 +163,11 @@ pub fn build_app(scenario: &Scenario, headless: bool, config: &PlayConfig) -> Ap
         scenario.game,
         content_errors
     );
+
+    // Suite de T1.13 : mode de run imposé par le scénario, à la place de `entry.mode`.
+    if let Some(mode) = scenario.mode {
+        manifest.entry.mode = Some(mode);
+    }
 
     let mut app = App::new();
     app.add_plugins(core_plugin.get_default_plugin())
@@ -209,6 +215,19 @@ pub fn build_app(scenario: &Scenario, headless: bool, config: &PlayConfig) -> Ap
             apply_scenario_powerup_placements
                 .before(game::powerups::powerup_pickup_detect_system)
                 .in_set(game::system_set::RollbackSystemSet::Effects),
+        )
+        // T1.13 : placements scriptés de personnages (voir la doc de
+        // `apply_scenario_character_placements`).
+        .insert_resource(ScenarioCharacterPlacements(scenario.characters.clone()))
+        .init_resource::<PlacementErrors>()
+        .add_systems(
+            GgrsSchedule,
+            apply_scenario_character_placements
+                .run_if(|placements: Res<ScenarioCharacterPlacements>| !placements.0.is_empty())
+                // Après les spawns du jeu de la même frame (ordre des net ids déterministe).
+                .after(game::waves::systems::wave_spawning_system)
+                .after(game::character::enemy::spawning::enemy_spawn_from_spawners_system)
+                .in_set(game::system_set::RollbackSystemSet::EnemySpawning),
         )
         .insert_resource(PlayerOverrides(
             scenario
@@ -456,6 +475,88 @@ fn apply_powerup_drop_chance_override(
 
 #[derive(Resource)]
 struct ScenarioPowerUpPlacements(Vec<PowerUpPlacement>);
+
+#[derive(Resource)]
+struct ScenarioCharacterPlacements(Vec<CharacterPlacement>);
+
+/// Placements refusés (personnage ou variante inconnus), par index : rapportés en échec en fin
+/// de partie. Hors rollback ; un placement rejoué par un rollback n'ajoute pas de doublon.
+#[derive(Resource, Default)]
+struct PlacementErrors(BTreeMap<usize, String>);
+
+/// Index (dans `Scenario::characters`) du placement qui a créé ce personnage, pour
+/// `EntityRef::Placed`. Composant d'observation, **hors rollback** (non enregistré, donc hors
+/// checksum et hors trace) : reposé à l'identique quand un rollback rejoue le placement.
+#[derive(Component)]
+struct ScriptedPlacement(usize);
+
+/// Placements scriptés de personnages (T1.13, `Scenario::characters`, `docs/conventions.md`
+/// §28) : à `frame == at_frame`, dans l'ordre de déclaration, crée le personnage par le chemin
+/// des `CharacterSpawn` de carte (`map_ldtk::game::local::spawn_character`). Dans
+/// `GgrsSchedule`, `RollbackSystemSet::EnemySpawning`, comme un spawn de vague : rejoué à
+/// l'identique après un rollback (le net id est alloué à cette frame). Sans placement, le
+/// système ne tourne pas (condition d'exécution).
+fn apply_scenario_character_placements(
+    frame: Res<FrameCount>,
+    placements: Res<ScenarioCharacterPlacements>,
+    assets: map_ldtk::game::local::LevelSpawnAssets,
+    mut commands: Commands,
+    mut id_factory: ResMut<GgrsNetIdFactory>,
+    mut errors: ResMut<PlacementErrors>,
+) {
+    for (index, placement) in placements
+        .0
+        .iter()
+        .enumerate()
+        .filter(|(_, p)| p.at_frame == frame.frame)
+    {
+        let config = assets
+            .global_assets
+            .character_configs
+            .get(&placement.character)
+            .and_then(|handle| assets.character_asset.get(handle));
+        let Some(config) = config else {
+            errors.0.insert(
+                index,
+                format!(
+                    "placement {index} : personnage inconnu « {} »",
+                    placement.character
+                ),
+            );
+            continue;
+        };
+        if let Some(variant) = &placement.variant {
+            let known = config
+                .variants
+                .as_ref()
+                .is_some_and(|variants| variants.table.contains_key(variant));
+            if !known {
+                errors.0.insert(
+                    index,
+                    format!(
+                        "placement {index} : variante « {variant} » inconnue de « {} »",
+                        placement.character
+                    ),
+                );
+                continue;
+            }
+        }
+        let position = fixed_math::FixedVec3::new(placement.x, placement.y, fixed_math::FIXED_ZERO);
+        let spawned = map_ldtk::game::local::spawn_character(
+            &mut commands,
+            &assets,
+            &mut id_factory,
+            &placement.character,
+            position,
+            placement.team,
+            placement.variant.as_deref(),
+            assets.difficulty.current(),
+        );
+        if let Some(entity) = spawned {
+            commands.entity(entity).insert(ScriptedPlacement(index));
+        }
+    }
+}
 
 /// Placements scriptés de power-ups (T2.5, `Scenario::powerups`) : fait apparaître un
 /// power-up à une position et une frame exactes, sans dépendre d'une carte LDtk ni du
@@ -771,6 +872,20 @@ pub fn run_with_options<F: FnOnce(&mut App)>(
     let mut wall_reported = vec![false; navigation.len()];
 
     let mut failures = Vec::new();
+    // Suite de T1.13 : `mode: Floors` sans séquence imposée.
+    if scenario.mode == Some(content::EntryMode::Floors) && scenario.floors.is_none() {
+        failures
+            .push("mode: Floors exige floors (id d'une séquence du dossier Floors)".to_string());
+    }
+    // T1.13 : un placement après la dernière frame ne serait jamais appliqué.
+    for (index, placement) in scenario.characters.iter().enumerate() {
+        if placement.at_frame >= scenario.frames {
+            failures.push(format!(
+                "placement {index} (« {} ») : at_frame {} >= frames {}",
+                placement.character, placement.at_frame, scenario.frames
+            ));
+        }
+    }
     let mut invariants = InvariantQueries::new(app.world_mut());
     // Dernière santé vue par attente `NoDamageBetween`, clé (handle, from_frame).
     let mut dernieres_santes: BTreeMap<(usize, u32), fixed_math::Fixed> = BTreeMap::new();
@@ -954,6 +1069,15 @@ pub fn run_with_options<F: FnOnce(&mut App)>(
             scenario.frames
         ));
     }
+
+    // T1.13 : placements refusés.
+    failures.extend(
+        app.world()
+            .resource::<PlacementErrors>()
+            .0
+            .values()
+            .cloned(),
+    );
 
     // Ajoute les mismatches de synctest aux failures
     let synctest_mismatches = app.world().resource::<SyncTestMismatches>();
@@ -1341,6 +1465,9 @@ fn check(world: &mut World, expectation: &Expectation) -> Result<(), String> {
             let found = match entity {
                 game::replay::EntityRef::NetId(net_id) => entity_hit_count(world, *net_id),
                 game::replay::EntityRef::Target => target_hit_count(world),
+                placed @ game::replay::EntityRef::Placed(_) => resolve_entity(world, placed)
+                    .and_then(|entity| world.get::<GgrsNetId>(entity).map(|id| id.0))
+                    .and_then(|net_id| entity_hit_count(world, net_id)),
             };
             let Some(found) = found else {
                 return Err("entité absente ou sans compteur de coups (HitCount)".into());
@@ -2120,6 +2247,12 @@ fn resolve_entity(world: &mut World, entity: &game::replay::EntityRef) -> Option
             .iter(world)
             .min_by_key(|(_, id)| id.0)
             .map(|(entity, _)| entity),
+        game::replay::EntityRef::Placed(index) => world
+            .query_filtered::<(Entity, &GgrsNetId, &ScriptedPlacement), With<Rollback>>()
+            .iter(world)
+            .filter(|(_, _, placement)| placement.0 == *index)
+            .min_by_key(|(_, id, _)| id.0)
+            .map(|(entity, _, _)| entity),
     }
 }
 

@@ -97,6 +97,33 @@ pub struct Scenario {
     /// `None` (défaut) : `entry.difficulty` du manifeste, sinon non.
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub difficulty: Option<bool>,
+    /// Placements scriptés de personnages (T1.13, voir [`CharacterPlacement`] et
+    /// `scenario::runner::apply_scenario_character_placements`). Vide (défaut) : rien.
+    #[serde(default, skip_serializing_if = "Vec::is_empty")]
+    pub characters: Vec<CharacterPlacement>,
+    /// Mode de run imposé (suite de T1.13, `docs/conventions.md` §28) : l'emporte sur
+    /// `entry.mode` du manifeste (le runner le remplace avant de l'insérer). `Floors` exige
+    /// `floors`. `None` (défaut) : `entry.mode`, comme avant.
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub mode: Option<content::EntryMode>,
+}
+
+/// Placement scripté d'un personnage (T1.13, `docs/conventions.md` §28) : fait apparaître
+/// `character` (id du kind `Character`) à la position `(x, y)` du monde, à la frame `at_frame`
+/// exacte, par le même chemin qu'un `CharacterSpawn` de carte (`map_ldtk::game::local::
+/// spawn_character` : net id alloué à cette frame, santé × difficulté, variante imposée par
+/// `variant` ou tirée). `team` : sinon `CharacterConfig.team`, sinon `Enemies`. Les placements
+/// d'une même frame sont appliqués dans l'ordre de déclaration.
+#[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
+pub struct CharacterPlacement {
+    pub character: String,
+    pub x: Fixed,
+    pub y: Fixed,
+    pub at_frame: u32,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub variant: Option<String>,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub team: Option<sim_core::team::Team>,
 }
 
 /// Placement scripté d'un power-up (T2.5) : fait apparaître le power-up `id` (clé de

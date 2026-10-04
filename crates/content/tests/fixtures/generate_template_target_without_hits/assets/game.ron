@@ -1,0 +1,7 @@
+// T1.13 : generate_template invalide.
+(
+    name: "fixture-generate_template_target_without_hits",
+    content_folders: [(path: "characters", kind: "Character")],
+    entry: (start_map: "unused", default_seed: 1),
+    generate_template: (map: "unused", target: "grunt"),
+)

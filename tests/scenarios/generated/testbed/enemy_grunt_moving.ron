@@ -1,0 +1,43 @@
+// Généré par `alacod-gen`, ne pas éditer à la main (crates/scenario/src/generate.rs).
+// Gabarit EnemyVsMovingPlayer (T1.13) : « grunt » est placé à 200 unités à
+// droite du joueur (frame 1) ; le joueur marche en carré sans tirer.
+#![enable(implicit_some)]
+Scenario(
+    game: "testbed",
+    map: "testbed/arena.ldtk",
+    map_seed: 123456,
+    frames: 600,
+    players: [
+        PlayerScript(
+            inputs: [
+                Segment(from: 10, to: 100, buttons: [Right], pan: (0, 0)),
+                Segment(from: 100, to: 190, buttons: [Down], pan: (0, 0)),
+                Segment(from: 190, to: 280, buttons: [Left], pan: (0, 0)),
+                Segment(from: 280, to: 370, buttons: [Up], pan: (0, 0)),
+                Segment(from: 370, to: 460, buttons: [Right], pan: (0, 0)),
+                Segment(from: 460, to: 550, buttons: [Down], pan: (0, 0)),
+                Segment(from: 550, to: 600, buttons: [Left], pan: (0, 0)),
+            ],
+        ),
+    ],
+    expect: [
+        PlayerAlive(
+            handle: 0,
+            at_frame: 600,
+        ),
+        EnemyNeverInWall(
+            entity: Placed(0),
+            from: 2,
+            to: 600,
+        ),
+    ],
+    powerup_drop_chance_override: "0",
+    characters: [
+        CharacterPlacement(
+            character: "grunt",
+            x: "624",
+            y: "696",
+            at_frame: 1,
+        ),
+    ],
+)

@@ -4,7 +4,9 @@ version = "0.2.0"
 edition = "2021"
 
 [dependencies]
-bevy = { version = "0.19.1", default-features = false }
+# D35 : `KeyCode` et `Camera2d` (camera/tod.rs, web/logs.rs) ; avant, ces features arrivaient
+# par les features par défaut de Bevy que `bevy_fixed` activait.
+bevy = { version = "0.19.1", default-features = false, features = ["keyboard", "bevy_camera"] }
 bevy_ggrs = "0.22.0"
 
 serde = { version = "1.0", features = ["derive"] }

@@ -1,7 +1,18 @@
-//! Générateur de scénarios v0 (T2.10, `docs/taches.md`) : pour chaque arme (à distance ou de
-//! corps à corps) du registre d'un jeu, construit en mémoire un [`Scenario`] à partir d'un
-//! gabarit ([`Template::WeaponOnTarget`], le seul aujourd'hui) et le rend disponible à l'appelant
-//! (CLI `alacod-gen` ou test) pour écriture/lecture sur disque.
+//! Générateur de scénarios (v0 T2.10, v1 T1.13, `docs/conventions.md` §28) : pour chaque arme
+//! (à distance ou de corps à corps) du registre d'un jeu, construit en mémoire un [`Scenario`] à
+//! partir du gabarit [`Template::WeaponOnTarget`] ; pour chaque personnage qui déclare `test:`,
+//! un scénario par gabarit actif ([`Template::EnemyVsStillPlayer`],
+//! [`Template::EnemyVsMovingPlayer`]). Le tout est rendu à l'appelant (CLI `alacod-gen` ou test)
+//! pour écriture/lecture sur disque.
+//!
+//! **Gabarits ennemis** (T1.13) : ils jouent dans le jeu énuméré lui-même (le registre du
+//! testbed n'a pas les personnages de `zombies`), sur une petite carte ([`enemy_arena_map`]) ;
+//! l'ennemi est **placé par le scénario** (`Scenario::characters`, à [`ENEMY_OFFSET_X`] unités à
+//! droite du spawn du joueur, retrouvé par une sonde : [`discover_enemy_probe`]) et désigné dans
+//! les attentes par `EntityRef::Placed(0)`. Un jeu en mode `Waves` reçoit une période de grâce
+//! plus longue que le scénario : aucune vague ne s'ajoute à l'ennemi testé.
+//!
+//! Gabarit d'arme :
 //!
 //! Les scénarios générés tournent tous dans le **testbed** (`games/testbed/assets/testbed/arena.ldtk`),
 //! quel que soit le jeu dont on énumère le contenu (`generate_game(games/zombies)` lit le
@@ -22,19 +33,48 @@ use std::collections::BTreeMap;
 use std::fs;
 use std::path::{Path, PathBuf};
 
+use bevy_fixed::fixed_math::{self, Fixed};
+use game::character::config::{CharacterConfig, CharacterTest};
 use game::character::health::HitCount;
-use game::replay::{Button, Expectation, Invariants, PlayerScript, Scenario, Segment};
+use game::character::player::Player;
+use game::replay::{
+    Button, CharacterPlacement, EntityRef, Expectation, Invariants, PlayerScript, Scenario,
+    Segment, WaveOverride,
+};
 use game::weapons::melee::{MeleeWeaponAsset, MeleeWeaponsConfig};
 use game::weapons::{WeaponAsset, WeaponTest, WeaponsConfig};
 use utils::net_id::GgrsNetId;
 
-/// Gabarit utilisé pour construire un scénario généré. Un seul aujourd'hui (T2.10 v0) ;
-/// d'autres (perks, ennemis...) s'ajouteront à cet enum sans toucher au reste du générateur.
+/// Gabarit utilisé pour construire un scénario généré.
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub enum Template {
     /// Le joueur apparaît dans l'arène du testbed avec une seule arme (`PlayerScript::weapon`),
     /// vise/marche vers `target` et l'attaque pendant `frames` images.
     WeaponOnTarget,
+    /// T1.13 : le joueur, avec ses armes de départ, ne fait rien ; l'ennemi testé apparaît à
+    /// [`ENEMY_OFFSET_X`] unités à sa droite à la frame [`ENEMY_AT_FRAME`].
+    EnemyVsStillPlayer,
+    /// T1.13 : même placement ; le joueur marche en carré ([`SQUARE_SIDE_FRAMES`] frames par
+    /// côté, en boucle), sans tirer.
+    EnemyVsMovingPlayer,
+}
+
+impl Template {
+    fn file_suffix(self) -> &'static str {
+        match self {
+            Template::WeaponOnTarget => "",
+            Template::EnemyVsStillPlayer => "still",
+            Template::EnemyVsMovingPlayer => "moving",
+        }
+    }
+}
+
+/// Sujet d'un scénario généré : une arme (gabarit [`Template::WeaponOnTarget`]) ou un
+/// personnage (gabarits ennemis).
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub enum GeneratedKind {
+    Weapon(WeaponKind),
+    Character(Template),
 }
 
 /// Catégorie d'une arme générée (détermine le registre d'où elle vient et la façon de
@@ -58,9 +98,11 @@ impl WeaponKind {
 /// joué directement (`scenario::run`).
 #[derive(Debug, Clone)]
 pub struct GeneratedScenario {
-    pub weapon_id: String,
-    pub kind: WeaponKind,
-    /// Nom de fichier seul (pas de dossier) : `weapon_<id>.ron`.
+    /// Id de l'arme ou du personnage.
+    pub subject_id: String,
+    pub kind: GeneratedKind,
+    /// Nom de fichier seul (pas de dossier) : `weapon_<id>.ron`, `enemy_<id>_still.ron`,
+    /// `enemy_<id>_moving.ron`.
     pub file_name: String,
     pub scenario: Scenario,
 }
@@ -71,6 +113,13 @@ const TEMPLATE_MAP: &str = "testbed/arena.ldtk";
 /// Même graine que `Scenario::default` (`game::replay::default_map_seed`, privée) : construit
 /// ici directement (pas de RON, pas de `#[serde(default)]`), donc explicite.
 const TEMPLATE_MAP_SEED: i32 = 123456;
+
+/// T1.13 : frame d'apparition de l'ennemi d'un gabarit ennemi.
+pub const ENEMY_AT_FRAME: u32 = 1;
+/// T1.13 : distance (unités monde, vers +x) entre le spawn du joueur et l'ennemi placé.
+pub const ENEMY_OFFSET_X: i32 = 200;
+/// T1.13 : durée d'un côté du carré du gabarit joueur mobile.
+pub const SQUARE_SIDE_FRAMES: u32 = 90;
 
 /// Frame de départ des inputs (délai de chargement de la map, comme les scénarios
 /// manuscrits, ex. `testbed_target_hits.ron` : `from: 10`).
@@ -119,8 +168,17 @@ const WALK_Y_FRAMES: u32 = 45;
 pub enum GenerateError {
     Manifest(content::ManifestError),
     Content(Vec<content::LintError>),
-    WeaponFile { path: PathBuf, message: String },
-    MissingTarget { weapon_id: String },
+    WeaponFile {
+        path: PathBuf,
+        message: String,
+    },
+    MissingTarget {
+        weapon_id: String,
+    },
+    /// T1.13 : la sonde d'un gabarit ennemi n'a pas trouvé le joueur 0.
+    MissingPlayer {
+        character_id: String,
+    },
 }
 
 impl std::fmt::Display for GenerateError {
@@ -141,6 +199,10 @@ impl std::fmt::Display for GenerateError {
                 f,
                 "arme « {weapon_id} » : impossible de trouver l'entité « target » (HitCount) en jouant {TEMPLATE_MAP} ; `games/testbed/assets/characters/target.ron` existe-t-il et déclare-t-il `counts_hits: true` ?"
             ),
+            GenerateError::MissingPlayer { character_id } => write!(
+                f,
+                "personnage « {character_id} » : sonde du gabarit ennemi sans joueur 0 (carte sans spawn de joueur ?)"
+            ),
         }
     }
 }
@@ -152,7 +214,7 @@ impl std::error::Error for GenerateError {}
 /// du registre) : ranged puis melee, chacune dans l'ordre du registre — déterministe, même
 /// résultat à chaque appel. N'écrit rien sur disque (voir `bin/alacod-gen.rs`).
 pub fn generate_game(game_dir: &Path) -> Result<Vec<GeneratedScenario>, GenerateError> {
-    let (registry, _manifest, errors) =
+    let (registry, manifest, errors) =
         content::load_and_lint(game_dir).map_err(GenerateError::Manifest)?;
     if !errors.is_empty() {
         return Err(GenerateError::Content(errors));
@@ -191,26 +253,256 @@ pub fn generate_game(game_dir: &Path) -> Result<Vec<GeneratedScenario>, Generate
         ));
     }
 
+    // T1.13 : `generate_template` du manifeste (jeu et carte propres), sinon le testbed.
+    let weapon_arena = match &manifest.generate_template {
+        Some(template) => WeaponArena {
+            game: manifest.name.clone(),
+            map: template.map.clone(),
+            mode: Some(content::EntryMode::Sandbox),
+        },
+        None => WeaponArena::testbed(),
+    };
+
     let mut out = Vec::with_capacity(drafts.len());
     for (id, kind, test) in drafts {
         // Sonde (test: None, net_id 0 non utilisé) : seule l'arme équipée influence le
         // nombre d'entités créées avant `target`, jamais `test`/`frames` (voir la doc du
         // module et de `discover_target_net_id`).
-        let probe = build_scenario(&id, kind, None, 0);
+        let probe = build_weapon_scenario(&weapon_arena, &id, kind, None, 0);
         let target_net_id =
             discover_target_net_id(&probe).ok_or_else(|| GenerateError::MissingTarget {
                 weapon_id: id.clone(),
             })?;
-        let scenario = build_scenario(&id, kind, test.as_ref(), target_net_id);
+        let scenario =
+            build_weapon_scenario(&weapon_arena, &id, kind, test.as_ref(), target_net_id);
         out.push(GeneratedScenario {
             file_name: format!("weapon_{id}.ron"),
-            weapon_id: id,
-            kind,
+            subject_id: id,
+            kind: GeneratedKind::Weapon(kind),
             scenario,
         });
     }
 
+    // T1.13 : personnages qui déclarent `test:` (opt-in), dans l'ordre du registre ; pour
+    // chacun, gabarit immobile puis mobile.
+    let arena = EnemyArena {
+        game: manifest.name.clone(),
+        map: match &manifest.generate_template {
+            Some(template) => template.map.clone(),
+            None => enemy_arena_map(&manifest.name, &manifest.entry.start_map),
+        },
+        // Même résolution que `game::jjrs` : `Waves` déclaré, ou mode absent et un dossier
+        // `Wave` présent ; un `generate_template` impose `Sandbox`.
+        waves: manifest.generate_template.is_none()
+            && match manifest.entry.mode {
+                Some(mode) => mode == content::manifest::EntryMode::Waves,
+                None => !registry.waves.is_empty(),
+            },
+        mode: manifest
+            .generate_template
+            .as_ref()
+            .map(|_| content::EntryMode::Sandbox),
+    };
+    for (id, entry) in &registry.characters {
+        if entry.test.is_none() {
+            continue;
+        }
+        let config: CharacterConfig = parse_ron_file(&assets_dir, &entry.file)?;
+        let Some(test) = config.test else {
+            continue;
+        };
+        let id = id.as_str().to_string();
+        let probe_scenario = build_enemy_scenario(
+            &arena,
+            &id,
+            Template::EnemyVsStillPlayer,
+            &test,
+            &EnemyProbe::default(),
+        );
+        let probe =
+            discover_enemy_probe(&probe_scenario).ok_or_else(|| GenerateError::MissingPlayer {
+                character_id: id.clone(),
+            })?;
+        for (template, active) in [
+            (Template::EnemyVsStillPlayer, test.still),
+            (Template::EnemyVsMovingPlayer, test.moving),
+        ] {
+            if !active {
+                continue;
+            }
+            out.push(GeneratedScenario {
+                file_name: format!("enemy_{id}_{}.ron", template.file_suffix()),
+                subject_id: id.clone(),
+                kind: GeneratedKind::Character(template),
+                scenario: build_enemy_scenario(&arena, &id, template, &test, &probe),
+            });
+        }
+    }
+
     Ok(out)
+}
+
+/// Jeu et carte d'un gabarit ennemi (T1.13).
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub struct EnemyArena {
+    pub game: String,
+    pub map: String,
+    /// Mode `Waves` : période de grâce au-delà de la durée du scénario (aucune vague).
+    pub waves: bool,
+    /// Mode imposé, comme [`WeaponArena::mode`].
+    pub mode: Option<content::EntryMode>,
+}
+
+/// Carte des gabarits ennemis d'un jeu : l'arène du testbed, la petite carte d'exemple de
+/// `zombies`, sinon la carte de départ du manifeste.
+pub fn enemy_arena_map(game: &str, start_map: &str) -> String {
+    match game {
+        "testbed" => TEMPLATE_MAP.to_string(),
+        "zombies" => "exemples/test_map.ldtk".to_string(),
+        _ => start_map.to_string(),
+    }
+}
+
+/// Ce qu'une sonde apprend de la carte d'un gabarit ennemi : position du spawn du joueur.
+#[derive(Debug, Clone, Copy, PartialEq, Default)]
+pub struct EnemyProbe {
+    pub player_x: Fixed,
+    pub player_y: Fixed,
+}
+
+/// Attentes par défaut d'un gabarit ennemi (T1.13, `docs/conventions.md` §28) : immobile →
+/// le joueur a été touché au moins une fois (moment clé `hit`, cumulatif : la santé du joueur
+/// se régénère, une santé à la dernière frame ne prouverait rien), mobile → le joueur est
+/// vivant à la dernière frame ; dans les deux cas, l'ennemi ne chevauche jamais un mur.
+pub fn enemy_default_expectations(template: Template, frames: u32) -> Vec<Expectation> {
+    let in_wall = Expectation::EnemyNeverInWall {
+        entity: EntityRef::Placed(0),
+        from: ENEMY_AT_FRAME + 1,
+        to: frames,
+    };
+    match template {
+        Template::EnemyVsStillPlayer => vec![
+            Expectation::Event {
+                kind: "hit".to_string(),
+                label_contains: Some("joueur 0 touché".to_string()),
+                by_frame: frames,
+            },
+            in_wall,
+        ],
+        Template::EnemyVsMovingPlayer => vec![
+            Expectation::PlayerAlive {
+                handle: 0,
+                at_frame: frames,
+            },
+            in_wall,
+        ],
+        Template::WeaponOnTarget => vec![],
+    }
+}
+
+/// Construit le scénario d'un gabarit ennemi (pur : la sonde est fournie par l'appelant).
+/// Attentes : celles du `test:` pour ce gabarit, sinon [`enemy_default_expectations`].
+pub fn build_enemy_scenario(
+    arena: &EnemyArena,
+    character_id: &str,
+    template: Template,
+    test: &CharacterTest,
+    probe: &EnemyProbe,
+) -> Scenario {
+    let frames = test.frames;
+    let explicit = match template {
+        Template::EnemyVsMovingPlayer => &test.expect_moving,
+        _ => &test.expect_still,
+    };
+    let expect = if explicit.is_empty() {
+        enemy_default_expectations(template, frames)
+    } else {
+        explicit.clone()
+    };
+    let inputs = match template {
+        Template::EnemyVsMovingPlayer => square_walk(INPUT_START_FRAME, frames),
+        _ => vec![],
+    };
+    Scenario {
+        game: arena.game.clone(),
+        map: arena.map.clone(),
+        map_seed: TEMPLATE_MAP_SEED,
+        frames,
+        players: vec![PlayerScript {
+            inputs,
+            bot: None,
+            tags: vec![],
+            immune_to: vec![],
+            modifiers: vec![],
+            weapon: None,
+            currency: None,
+            mutations: vec![],
+        }],
+        expect,
+        weapon_overrides: vec![],
+        wave_overrides: arena.waves.then_some(WaveOverride {
+            max_wave: None,
+            min_wave_delay_frames: None,
+            base_enemies: None,
+            enemies_per_wave: None,
+            grace_period_frames: Some(frames + 1),
+            max_concurrent_enemies: None,
+            spawn_batch_size: None,
+            spawn_interval_frames: None,
+        }),
+        invariants: Invariants::default(),
+        powerups: vec![],
+        powerup_drop_chance_override: Some(fixed_math::FIXED_ZERO),
+        floors: None,
+        clocks: None,
+        difficulty: None,
+        progression: None,
+        characters: vec![CharacterPlacement {
+            character: character_id.to_string(),
+            x: probe.player_x + Fixed::from_num(ENEMY_OFFSET_X),
+            y: probe.player_y,
+            at_frame: ENEMY_AT_FRAME,
+            variant: None,
+            team: None,
+        }],
+        mode: arena.mode,
+    }
+}
+
+/// Le joueur marche en carré (droite, bas, gauche, haut), [`SQUARE_SIDE_FRAMES`] frames par
+/// côté, de `from` à `to`, sans tirer ni viser.
+fn square_walk(from: u32, to: u32) -> Vec<Segment> {
+    const SIDES: [Button; 4] = [Button::Right, Button::Down, Button::Left, Button::Up];
+    let mut segments = Vec::new();
+    let mut frame = from;
+    let mut side = 0;
+    while frame < to {
+        let end = (frame + SQUARE_SIDE_FRAMES).min(to);
+        segments.push(Segment {
+            from: frame,
+            to: end,
+            buttons: vec![SIDES[side % SIDES.len()]],
+            pan: (0, 0),
+        });
+        frame = end;
+        side += 1;
+    }
+    segments
+}
+
+/// Sonde d'un gabarit ennemi : simule [`ENEMY_AT_FRAME`] frames (le joueur n'a pas encore
+/// bougé) et lit la position du joueur 0.
+pub fn discover_enemy_probe(scenario: &Scenario) -> Option<EnemyProbe> {
+    let mut app = crate::runner::run_until(scenario, ENEMY_AT_FRAME);
+    let world = app.world_mut();
+    world
+        .query::<(&Player, &fixed_math::FixedTransform3D)>()
+        .iter(world)
+        .find(|(player, _)| player.handle == 0)
+        .map(|(_, transform)| EnemyProbe {
+            player_x: transform.translation.x,
+            player_y: transform.translation.y,
+        })
 }
 
 /// Construit le [`Scenario`] du gabarit [`Template::WeaponOnTarget`] pour une arme donnée.
@@ -219,6 +511,47 @@ pub fn generate_game(game_dir: &Path) -> Result<Vec<GeneratedScenario>, Generate
 /// fabriqué). `test: None` -> scénario "invariants seulement" (pas d'attente `EntityHits`),
 /// mais qui doit quand même atteindre sa dernière frame (vérifié par le runner).
 pub fn build_scenario(
+    weapon_id: &str,
+    kind: WeaponKind,
+    test: Option<&WeaponTest>,
+    target_net_id: usize,
+) -> Scenario {
+    build_weapon_scenario(
+        &WeaponArena::testbed(),
+        weapon_id,
+        kind,
+        test,
+        target_net_id,
+    )
+}
+
+/// Jeu et carte du gabarit d'arme : le testbed (`arena.ldtk`), ou ceux d'un jeu qui déclare
+/// `generate_template` (T1.13). Les inputs du gabarit (visée [`AIM_AT_TARGET`], marche de la
+/// mêlée) sont réglés sur l'arène du testbed : la carte d'un `generate_template` place la cible
+/// au même décalage du spawn du joueur (+128, −48 en coordonnées LDtk).
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub struct WeaponArena {
+    pub game: String,
+    pub map: String,
+    /// Mode imposé (`Scenario::mode`) : `Sandbox` pour un `generate_template` (la carte du
+    /// gabarit est jouée telle quelle, même si `entry.mode` vaut `Floors`) ; `None` pour le
+    /// testbed (fichiers générés inchangés).
+    pub mode: Option<content::EntryMode>,
+}
+
+impl WeaponArena {
+    pub fn testbed() -> Self {
+        Self {
+            game: TEMPLATE_GAME.to_string(),
+            map: TEMPLATE_MAP.to_string(),
+            mode: None,
+        }
+    }
+}
+
+/// [`build_scenario`] dans une arène donnée.
+pub fn build_weapon_scenario(
+    arena: &WeaponArena,
     weapon_id: &str,
     kind: WeaponKind,
     test: Option<&WeaponTest>,
@@ -281,8 +614,8 @@ pub fn build_scenario(
     }
 
     Scenario {
-        game: TEMPLATE_GAME.to_string(),
-        map: TEMPLATE_MAP.to_string(),
+        game: arena.game.clone(),
+        map: arena.map.clone(),
         map_seed: TEMPLATE_MAP_SEED,
         frames,
         players: vec![PlayerScript {
@@ -306,6 +639,8 @@ pub fn build_scenario(
         progression: None,
         clocks: None,
         difficulty: None,
+        characters: vec![],
+        mode: arena.mode,
     }
 }
 
@@ -394,15 +729,26 @@ fn parse_ron_file<T: serde::de::DeserializeOwned>(
 }
 
 /// En-tête écrit en RON au-dessus de chaque scénario généré (voir `bin/alacod-gen.rs`).
-pub fn header_comment(weapon_id: &str, kind: WeaponKind) -> String {
-    format!(
-        "// Généré par `alacod-gen`, ne pas éditer à la main (crates/scenario/src/generate.rs).\n\
-         // Gabarit WeaponOnTarget (T2.10) : le joueur apparaît dans l'arène du testbed avec\n\
-         // uniquement « {weapon_id} » ({}) et {} `target`.\n",
-        kind.label(),
-        match kind {
-            WeaponKind::Ranged => "vise et tire sur",
-            WeaponKind::Melee => "marche jusqu'à et frappe",
-        }
-    )
+pub fn header_comment(subject_id: &str, kind: GeneratedKind) -> String {
+    match kind {
+        GeneratedKind::Weapon(kind) => format!(
+            "// Généré par `alacod-gen`, ne pas éditer à la main (crates/scenario/src/generate.rs).\n\
+             // Gabarit WeaponOnTarget (T2.10) : le joueur apparaît dans l'arène du testbed avec\n\
+             // uniquement « {subject_id} » ({}) et {} `target`.\n",
+            kind.label(),
+            match kind {
+                WeaponKind::Ranged => "vise et tire sur",
+                WeaponKind::Melee => "marche jusqu'à et frappe",
+            }
+        ),
+        GeneratedKind::Character(template) => format!(
+            "// Généré par `alacod-gen`, ne pas éditer à la main (crates/scenario/src/generate.rs).\n\
+             // Gabarit {template:?} (T1.13) : « {subject_id} » est placé à {ENEMY_OFFSET_X} unités à\n\
+             // droite du joueur (frame {ENEMY_AT_FRAME}) ; le joueur {}.\n",
+            match template {
+                Template::EnemyVsMovingPlayer => "marche en carré sans tirer",
+                _ => "ne fait rien",
+            }
+        ),
+    }
 }

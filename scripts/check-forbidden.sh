@@ -39,11 +39,11 @@ PATTERNS=(
     "Instant::now"
 )
 
-declare -A pattern_counts
-
-# Initialize counts
-for pattern in "${PATTERNS[@]}"; do
-    pattern_counts["$pattern"]=0
+# Compteurs par motif, même index que PATTERNS (D33 : pas de `declare -A`, inexistant sous
+# bash 3.2, le bash de macOS).
+pattern_counts=()
+for i in "${!PATTERNS[@]}"; do
+    pattern_counts[i]=0
 done
 
 # Search for forbidden patterns
@@ -53,11 +53,12 @@ for crate in "${CRATES[@]}"; do
         continue
     fi
 
-    for pattern in "${PATTERNS[@]}"; do
+    for i in "${!PATTERNS[@]}"; do
+        pattern="${PATTERNS[i]}"
         # Grep for the pattern, showing file and line number
         while IFS= read -r line; do
             echo "  $line"
-            ((pattern_counts["$pattern"]++)) || true
+            pattern_counts[i]=$((pattern_counts[i] + 1))
         done < <(grep -rn "$pattern" "$crate" --include="*.rs" 2>/dev/null || true)
     done
 done
@@ -66,8 +67,9 @@ done
 echo ""
 echo "=== Forbidden Pattern Check Summary ==="
 total_found=0
-for pattern in "${PATTERNS[@]}"; do
-    count=${pattern_counts["$pattern"]:-0}
+for i in "${!PATTERNS[@]}"; do
+    pattern="${PATTERNS[i]}"
+    count=${pattern_counts[i]:-0}
     total_found=$((total_found + count))
     printf "  %s: %d occurrences\n" "$pattern" "$count"
 done

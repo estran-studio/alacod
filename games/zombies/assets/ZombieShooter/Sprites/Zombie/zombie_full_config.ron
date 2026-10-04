@@ -61,4 +61,7 @@
         stationary: None,
         behaviors: Some([Melee("zombie_claws"), Chase(profile: "GroundBreaker")]),
     )),
+    // T1.13 (`docs/conventions.md` §28) : scénarios générés `enemy_<id>_still`/`_moving`
+    // (`make gen`), attentes par défaut.
+    test: Some((frames: 600)),
 )

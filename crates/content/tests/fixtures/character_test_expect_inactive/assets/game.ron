@@ -1,0 +1,5 @@
+(
+    name: "fixture-character_test_expect_inactive",
+    content_folders: [(path: "characters", kind: "Character")],
+    entry: (start_map: "unused", default_seed: 1),
+)

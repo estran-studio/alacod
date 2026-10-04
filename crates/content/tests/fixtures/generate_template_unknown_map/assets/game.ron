@@ -1,0 +1,7 @@
+// T1.13 : generate_template invalide.
+(
+    name: "fixture-generate_template_unknown_map",
+    content_folders: [(path: "characters", kind: "Character")],
+    entry: (start_map: "unused", default_seed: 1),
+    generate_template: (map: "maps/absente.ldtk", target: "grunt"),
+)

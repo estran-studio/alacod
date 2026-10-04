@@ -63,4 +63,14 @@
             ),
         },
     )),
+    // T1.13 (`docs/conventions.md` §28) : scénarios générés `enemy_<id>_still`/`_moving`
+    // (`make gen`). Immobile : le grunt n'attaque pas (`attack_range` 0, `Chase` seul), il
+    // rattrape le joueur (distance mesurée 30 dès f300) au lieu de le toucher.
+    test: Some((
+        frames: 600,
+        expect_still: [
+            EnemyDistance(entity: Placed(0), target: Player(0), max: Some(40.0), at_frame: 600),
+            EnemyNeverInWall(entity: Placed(0), from: 2, to: 600),
+        ],
+    )),
 )
