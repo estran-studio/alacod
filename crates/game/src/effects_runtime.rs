@@ -8,7 +8,7 @@
 //! `rollback_apply_accumulated_damage` (les dégâts de la frame sont appliqués, les `Death`
 //! posés) et **avant** `rollback_apply_bleedout`/`rollback_apply_death` : il voit les morts de
 //! la frame (tueur = `Death::last_hit_by`) et les dégâts subis dans la frame
-//! (`HealthRegen::last_damage_frame`). Un `Effects` placé avant `DeathManagement` ne verrait
+//! (`HealthRegen::last_damage_frame`, sinon un `DamageEvent` qui vise le porteur). Un `Effects` placé avant `DeathManagement` ne verrait
 //! jamais ces morts : les `FrameEvents` sont vidés au début de chaque frame et les entités
 //! mortes détruites dans la même frame. **La mort de la frame prime** : un porteur posé `Death`
 //! ou `Downed` dans la frame ne déclenche rien et n'est pas soigné.
@@ -184,12 +184,18 @@ pub fn apply_effects_system(
                 target_tags: target_tags.clone(),
             });
         }
-        let hurt_now = regen.is_some_and(|r| r.last_damage_frame == frame && frame > 0);
+        // Dégâts subis cette frame : `HealthRegen` les date quand le porteur en a un (dégâts
+        // réellement appliqués, immunités exclues) ; sinon un `DamageEvent` qui le vise.
+        let hit_event = damage
+            .as_ref()
+            .and_then(|events| events.iter().find(|e| e.target.0 == net_id.0));
+        let hurt_now = match regen {
+            Some(r) => r.last_damage_frame == frame && frame > 0,
+            None => hit_event.is_some(),
+        };
         if hurt_now {
             state.last_hit_frame = Some(frame);
-            let source_tags = damage
-                .as_ref()
-                .and_then(|events| events.iter().find(|e| e.target.0 == net_id.0))
+            let source_tags = hit_event
                 .and_then(|e| tags_by_net_id.get(&e.source.0).cloned())
                 .unwrap_or_default();
             triggers.push(Trigger::DamageTaken { source_tags });
@@ -362,5 +368,64 @@ impl Plugin for EffectsRuntimePlugin {
                     .before(crate::character::health::rollback_apply_bleedout)
                     .in_set(sim_core::system_set::RollbackSystemSet::DeathManagement),
             );
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use effects::{Condition, On};
+
+    fn fx(v: f32) -> Fixed {
+        Fixed::from_num(v)
+    }
+
+    /// Porteur touché cette frame (`HealthRegen` datée de la frame), effet
+    /// `OnDamageTaken` → `Heal(5)` ; `dead` : posé `Death` dans la même frame.
+    fn spawn_hurt_carrier(app: &mut App, net_id: usize, frame: u32, dead: bool) -> Entity {
+        let mut entity = app.world_mut().spawn((
+            GgrsNetId(net_id, "pilote".into()),
+            Effects(vec![Effect {
+                on: On::OnDamageTaken,
+                r#if: vec![Condition::HpBelow(fx(0.5))],
+                r#do: vec![Action::Heal(fx(5.0))],
+            }]),
+            EffectState::default(),
+            Health {
+                current: fx(if dead { 0.0 } else { 20.0 }),
+                max: fx(100.0),
+                invulnerable_until_frame: None,
+            },
+            Modifiers::default(),
+            HealthRegen {
+                last_damage_frame: frame,
+                regen_rate: fx(0.0),
+                regen_delay_frames: 0,
+            },
+            Rollback,
+        ));
+        if dead {
+            entity.insert(Death { last_hit_by: None });
+        }
+        entity.id()
+    }
+
+    #[test]
+    fn la_mort_de_la_frame_prime_sur_le_soin() {
+        let mut app = App::new();
+        app.init_resource::<bevy_ggrs::RollbackOrdered>()
+            .init_resource::<Assets<WeaponsConfig>>()
+            .insert_resource(FrameCount { frame: 50 })
+            .add_systems(Update, apply_effects_system);
+        let alive = spawn_hurt_carrier(&mut app, 1, 50, false);
+        let dead = spawn_hurt_carrier(&mut app, 2, 50, true);
+        app.update();
+        let health = |e: Entity| app.world().get::<Health>(e).unwrap().current;
+        assert_eq!(health(alive), fx(25.0), "touché sous 50 % : soigné de 5");
+        assert_eq!(
+            health(dead),
+            fx(0.0),
+            "mort dans la frame : aucun effet, pas de soin"
+        );
     }
 }

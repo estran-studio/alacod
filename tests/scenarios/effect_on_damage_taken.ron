@@ -1,0 +1,24 @@
+// T1.10 (effets v1, docs/conventions.md §27) : le joueur tire sur `pilote` (net_id 33, copie du
+// mannequin `dummy`, 200 points de vie) avec la machine_gun, comme `testbed_dummy_shoot`.
+// L'effet du personnage, `OnDamageTaken` + `HpBelow("0.5")` → `Heal("5")`, rend 5 points à
+// chaque coup encaissé sous 100 points. Jumeau sans effet : `effect_none` (même tir sur `dummy`).
+//
+// Mesuré : 16 coups de 8 ; à partir du 13e (96 points) chaque coup est suivi d'un soin de 5 :
+// 92 points à f280, contre 72 dans `effect_none`.
+//
+// À regarder : le joueur tire en continu vers le nord-ouest (f10-190, chargeur vide à f190) ; la
+// barre de vie du pilote descend puis ne baisse presque plus sous la moitié.
+Scenario(
+    powerup_drop_chance_override: "0.0",
+    game: "testbed",
+    map: "testbed/effets.ldtk",
+    frames: 300,
+    players: [
+        (inputs: [
+            (from: 10, to: 250, buttons: [Fire], pan: (-64, 48)),
+        ]),
+    ],
+    expect: [
+        EntityHealth(net_id: 33, min: Some(90.0), max: Some(94.0), at_frame: 280),
+    ],
+)
