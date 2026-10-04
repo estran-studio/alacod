@@ -185,7 +185,8 @@ pub enum Expectation {
     /// Un `GameEvent` de ce `kind` (et dont le label contient la sous-chaîne, si donnée) est survenu
     /// à une frame ≤ `by_frame`. Les `kind` possibles : "wave", "kill", "player", "hit", "reload",
     /// "weapon", "move", "melee", "death", "window", "door", "downed", "revived", "defeat",
-    /// "drop", "pickup" (T2.2, chantier B7), "portal", "floor" (T1.8, mode `Floors`).
+    /// "drop", "pickup" (T2.2, chantier B7), "portal", "floor" (T1.8, mode `Floors`),
+    /// "terrain" (T1.6, terrain de caverne creusé).
     Event {
         kind: String,
         #[serde(default, skip_serializing_if = "Option::is_none")]

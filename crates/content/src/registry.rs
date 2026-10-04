@@ -296,6 +296,10 @@ pub enum PatternEntry {
 #[derive(Debug, Clone, Deserialize)]
 pub enum ExpireActionEntry {
     Spawn(PatternEntry),
+    /// T1.6 : creuse le terrain d'une caverne au point de fin du projectile.
+    DestroyTerrain {
+        radius: FixedField,
+    },
 }
 
 /// Mirroir de `combat::projectile::ProjectileSpec`.

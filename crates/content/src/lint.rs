@@ -402,8 +402,10 @@ fn expire_references<'a>(
     patterns: &'a Patterns,
 ) -> Vec<&'a str> {
     let mut out = Vec::new();
-    for registry::ExpireActionEntry::Spawn(pattern) in on_expire {
-        pattern_projectiles(pattern, patterns, 0, &mut out);
+    for action in on_expire {
+        if let registry::ExpireActionEntry::Spawn(pattern) = action {
+            pattern_projectiles(pattern, patterns, 0, &mut out);
+        }
     }
     out
 }
@@ -463,8 +465,24 @@ fn lint_projectile_spec(
             );
         }
     }
-    for registry::ExpireActionEntry::Spawn(pattern) in &spec.on_expire {
-        lint_expire_pattern(at, pattern, table, patterns, 0, push);
+    for action in &spec.on_expire {
+        match action {
+            registry::ExpireActionEntry::Spawn(pattern) => {
+                lint_expire_pattern(at, pattern, table, patterns, 0, push)
+            }
+            // T1.6 : `on_expire: [DestroyTerrain(radius: "40")]`
+            registry::ExpireActionEntry::DestroyTerrain { radius } => {
+                if radius.get() <= Fixed::ZERO {
+                    push(
+                        LintErrorKind::OutOfRange,
+                        format!(
+                            "{at} : on_expire DestroyTerrain : radius = {} : doit être > 0",
+                            radius.get()
+                        ),
+                    );
+                }
+            }
+        }
     }
 }
 

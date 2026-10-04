@@ -317,3 +317,23 @@ fn followers_de_la_caverne_naviguent() {
         "les followers ne se rapprochent pas : {seen:?}"
     );
 }
+
+/// Critère T1.6 : `bench_cave` creuse au moins 50 fois (métrique `terrain_destroyed`).
+#[test]
+fn bench_cave_detruit_au_moins_50() {
+    if map_ldtk::RENDER_ENABLED {
+        return;
+    }
+    let path = concat!(
+        env!("CARGO_MANIFEST_DIR"),
+        "/../../tests/scenarios/bench_cave.ron"
+    );
+    let scenario = Scenario::from_ron(&std::fs::read_to_string(path).unwrap()).unwrap();
+    let outcome = run(&scenario);
+    assert!(outcome.failures.is_empty(), "{:?}", outcome.failures);
+    assert!(
+        outcome.metrics.terrain_destroyed >= 50,
+        "{} destructions",
+        outcome.metrics.terrain_destroyed
+    );
+}

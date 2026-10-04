@@ -86,6 +86,10 @@ pub struct Metrics {
     /// `run::FloorState::index`, `0` hors `Floors`) : niveaux terminés.
     #[serde(default)]
     pub final_floor: u32,
+    /// Destructions de terrain qui ont creusé au moins une case (T1.6, moments clés
+    /// `terrain`, une par `world::TerrainDestroyed`) : `bench_cave` en exige au moins 50.
+    #[serde(default)]
+    pub terrain_destroyed: u32,
 }
 
 /// Résultat d'un scénario.
@@ -869,6 +873,7 @@ pub fn run_with_options<F: FnOnce(&mut App)>(
         kills,
         players_alive,
         final_floor,
+        terrain_destroyed: events.iter().filter(|e| e.kind == "terrain").count() as u32,
     };
 
     let world = app.world_mut();
