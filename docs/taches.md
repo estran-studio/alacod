@@ -584,11 +584,13 @@ région des chantiers puis la campagne.
   groupée** sur l'état fusionné `5d8426e` : 106 scénarios, 95 traces inchangées, 11 bénies ; 472 tests de
   crates ; lint/fmt/scripts/gen/exemples OK ; p2p sha256 `39654b07…` identique à la référence ; bench strict
   au calme non fait pour les trois.
-- **Critère M0 §9.8, 200 graines** (nuit du 2026-10-04, `alacod-sim` de `7e8f541`, 4 `acheteur`, `test_map`,
-  4 lots parallèles sous charge 12-25) : 183 graines jouées avant l'arrêt des sims par le harnais (pression
-  mémoire), **183/183 atteignent la vague 5, 0 desync, 0 softlock**, 2 graines avec un mort (69, 139),
-  6 386 à 8 259 frames ; manquent 49, 50, 94-100, 147-150, 197-200 (à rejouer). `avant_poste` 20 graines :
-  20/20 vague 5, 0 desync, 0 softlock, 0 mort, 6 522 à 7 583 frames.
+- **Critère M0 §9.8, 200 graines sur `avant_poste`** (nuit du 2026-10-04, `alacod-sim` de `7e8f541`, 4
+  `acheteur`, carte par défaut du manifeste `maps/avant_poste.ldtk` — **pas `test_map`** : le critère
+  historique sur `test_map` reste à rejouer avec `--map exemples/test_map.ldtk`), 4 lots parallèles sous
+  charge 12-25 : 183 graines jouées avant l'arrêt des sims par le harnais (pression mémoire), **183/183
+  atteignent la vague 5, 0 desync, 0 softlock**, 2 graines avec un mort (69, 139), 6 386 à 8 259 frames ;
+  les 17 manquantes (49, 50, 94-100, 147-150, 197-200) rejouées le matin (résultat ci-dessous quand connu).
+  Lot séparé de 20 graines `avant_poste` : 20/20 vague 5, 0 desync, 0 softlock, 0 mort, 6 522 à 7 583 frames.
 - m1-v1a-statuts : **LIVRÉE le 2026-10-03** (tête `a5effb7`) — statuts Burn/Slow/Stun/Freeze
   (T1.3) + attentes `HasStatus`/`StatusStacks` ; 79 traces existantes inchangées (trace-diff
   identique sans `--ignore`), 8 scénarios testbed à bénir ; bundle c3 en attente de relais
