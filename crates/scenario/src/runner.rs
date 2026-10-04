@@ -1636,7 +1636,11 @@ fn check(world: &mut World, expectation: &Expectation) -> Result<(), String> {
                     .unwrap_or_default();
                 return Err(format!(
                     "statut « {status} » {} (porte {statuses:?})",
-                    if *present { "absent" } else { "encore présent" }
+                    if *present {
+                        "absent"
+                    } else {
+                        "encore présent"
+                    }
                 ));
             }
             Ok(())

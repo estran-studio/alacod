@@ -1085,12 +1085,7 @@ pub fn apply_projectile_on_hit_system(
     events: Res<FrameEvents<ProjectileHit>>,
     library: Res<StatusLibrary>,
     mut target_query: Query<
-        (
-            &GgrsNetId,
-            Entity,
-            &mut Modifiers,
-            Option<&mut Statuses>,
-        ),
+        (&GgrsNetId, Entity, &mut Modifiers, Option<&mut Statuses>),
         With<Rollback>,
     >,
     teams: Query<(&GgrsNetId, &Team), With<Rollback>>,
@@ -1125,10 +1120,7 @@ pub fn apply_projectile_on_hit_system(
                     warn!("statut « {status} » inconnu (voir `alacod lint`)");
                     continue;
                 };
-                let source = Some((
-                    event.source.clone(),
-                    team_of.get(&event.source.0).copied(),
-                ));
+                let source = Some((event.source.clone(), team_of.get(&event.source.0).copied()));
                 let target_statuses = match statuses.as_deref_mut() {
                     Some(existing) => existing,
                     None => {

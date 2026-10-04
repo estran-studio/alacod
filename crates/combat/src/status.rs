@@ -208,10 +208,18 @@ mod tests {
 
     fn library() -> StatusLibrary {
         let mut library = StatusLibrary::default();
-        library.statuses.insert("brulure".into(), spec(StatusDef::Burn));
-        library.statuses.insert("lenteur".into(), spec(StatusDef::Slow));
-        library.statuses.insert("etourdi".into(), spec(StatusDef::Stun));
-        library.statuses.insert("gel".into(), spec(StatusDef::Freeze));
+        library
+            .statuses
+            .insert("brulure".into(), spec(StatusDef::Burn));
+        library
+            .statuses
+            .insert("lenteur".into(), spec(StatusDef::Slow));
+        library
+            .statuses
+            .insert("etourdi".into(), spec(StatusDef::Stun));
+        library
+            .statuses
+            .insert("gel".into(), spec(StatusDef::Freeze));
         library
     }
 
@@ -237,7 +245,13 @@ mod tests {
     fn burn_tique_puis_expire() {
         let lib = library();
         let mut s = Statuses::default();
-        s.apply("brulure", &lib.statuses["brulure"], Some((net(7), None)), 100, 1);
+        s.apply(
+            "brulure",
+            &lib.statuses["brulure"],
+            Some((net(7), None)),
+            100,
+            1,
+        );
         assert_eq!(s.0[0].expires_at_frame, 220);
         let mut ticks = Vec::new();
         for frame in 101..=220 {
@@ -246,7 +260,11 @@ mod tests {
             }
         }
         let frames: Vec<u32> = ticks.iter().map(|(f, _)| *f).collect();
-        assert_eq!(frames, [130, 160, 190, 220], "un tick toutes les 30 frames, 4 en 120");
+        assert_eq!(
+            frames,
+            [130, 160, 190, 220],
+            "un tick toutes les 30 frames, 4 en 120"
+        );
         assert_eq!(ticks[0].1.source, Some(net(7)), "crédité à la source");
         assert_eq!(ticks[0].1.damage, fx(4.0));
         assert!(!s.has("brulure"), "expiré à f220");
@@ -256,14 +274,32 @@ mod tests {
     fn burn_empile_la_duree_au_plafond() {
         let lib = library();
         let mut s = Statuses::default();
-        s.apply("brulure", &lib.statuses["brulure"], Some((net(1), None)), 100, 1);
+        s.apply(
+            "brulure",
+            &lib.statuses["brulure"],
+            Some((net(1), None)),
+            100,
+            1,
+        );
         // À f160 : reste 60, + 120 = 180 (sous le plafond 240)
-        s.apply("brulure", &lib.statuses["brulure"], Some((net(2), None)), 160, 1);
+        s.apply(
+            "brulure",
+            &lib.statuses["brulure"],
+            Some((net(2), None)),
+            160,
+            1,
+        );
         assert_eq!(s.0[0].expires_at_frame, 340);
         assert_eq!(s.stacks("brulure"), 2);
         assert_eq!(s.0[0].source, Some(net(2)), "dernière source");
         // Troisième pose à f170 : 170 + 120 = 290 → plafond 240, piles plafonnées à 2
-        s.apply("brulure", &lib.statuses["brulure"], Some((net(2), None)), 170, 1);
+        s.apply(
+            "brulure",
+            &lib.statuses["brulure"],
+            Some((net(2), None)),
+            170,
+            1,
+        );
         assert_eq!(s.0[0].expires_at_frame, 410);
         assert_eq!(s.stacks("brulure"), 2);
         assert_eq!(s.0.len(), 1);
