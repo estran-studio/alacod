@@ -1,0 +1,5 @@
+(
+    name: "fixture-clock_repeat_zero",
+    content_folders: [(path: "clocks", kind: "Clock")],
+    entry: (start_map: "unused", default_seed: 1),
+)

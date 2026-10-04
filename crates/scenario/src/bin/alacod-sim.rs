@@ -200,6 +200,8 @@ fn main() {
             powerups: vec![],
             powerup_drop_chance_override: None,
             floors: floors.clone(),
+            clocks: None,
+            difficulty: None,
         };
 
         let stop_early = StopEarly {

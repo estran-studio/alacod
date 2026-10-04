@@ -24,6 +24,8 @@ fn buyers_finish_the_first_wave_when_awake_zombies_are_inaccessible() {
             powerups: vec![],
             powerup_drop_chance_override: None,
             floors: None,
+            clocks: None,
+            difficulty: None,
         };
         let outcome = run_with_options(
             &scenario,

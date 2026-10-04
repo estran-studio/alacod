@@ -38,6 +38,9 @@ pub struct RecordedSettings {
     pub powerup_drop_chance_override: Option<Fixed>,
     /// T1.8 : séquence de niveaux imposée (`Scenario::floors`).
     pub floors: Option<String>,
+    /// T1.9 : horloges et difficulté actives (`Scenario::clocks`, `Scenario::difficulty`).
+    pub clocks: Option<Vec<String>>,
+    pub difficulty: Option<bool>,
 }
 
 impl Default for RecordedSettings {
@@ -51,6 +54,8 @@ impl Default for RecordedSettings {
             powerups: vec![],
             powerup_drop_chance_override: None,
             floors: None,
+            clocks: None,
+            difficulty: None,
         }
     }
 }
@@ -65,6 +70,8 @@ impl RecordedSettings {
             powerups: scenario.powerups.clone(),
             powerup_drop_chance_override: scenario.powerup_drop_chance_override,
             floors: scenario.floors.clone(),
+            clocks: scenario.clocks.clone(),
+            difficulty: scenario.difficulty,
         }
     }
 }
@@ -135,6 +142,8 @@ impl InputRecorder {
             powerups: settings.powerups,
             powerup_drop_chance_override: settings.powerup_drop_chance_override,
             floors: settings.floors,
+            clocks: settings.clocks,
+            difficulty: settings.difficulty,
         };
         if let Some(map) = map {
             scenario.map = map.map_path.clone();
@@ -259,6 +268,8 @@ mod tests {
             }],
             powerup_drop_chance_override: Some(Fixed::ZERO),
             floors: Some("deux_niveaux".into()),
+            clocks: None,
+            difficulty: None,
         };
         let mut recorder = InputRecorder::new(settings.clone());
         recorder

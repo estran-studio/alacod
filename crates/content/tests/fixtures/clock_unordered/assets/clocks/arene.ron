@@ -1,0 +1,2 @@
+// T1.9 : échéances non croissantes.
+(scope: Floor, events: [(id: "tac", at: Seconds("2")), (id: "tic", at: Seconds("1"))])

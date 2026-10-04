@@ -89,6 +89,12 @@ impl Plugin for RunPlugin {
         // des autres modes restent identiques (voir la doc de `FloorState`).
         app.init_resource::<crate::floors::FloorState>();
         app.rollback_and_trace_resource_neutral::<crate::floors::FloorState>();
+        // T1.9 : horloges et difficulté. Ressource et files à checksum neutre : sans
+        // activation, `Clock` reste par défaut et les files vides (traces inchangées).
+        app.init_resource::<crate::clock::Clock>();
+        app.rollback_and_trace_resource_neutral::<crate::clock::Clock>();
+        app.add_frame_events_neutral::<crate::clock::ClockFired>();
+        app.add_frame_events_neutral::<crate::clock::FloorEntered>();
     }
 }
 

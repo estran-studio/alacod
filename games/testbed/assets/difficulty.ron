@@ -1,0 +1,3 @@
+// T1.9 : difficulté du testbed (conventions §23) : +50 % par étage, +50 % par minute passée
+// dans l'étage. Scénario `difficulty_scales` (santé des ennemis à l'apparition).
+(value: "1 + floor * 0.5 + floor_minutes * 0.5")

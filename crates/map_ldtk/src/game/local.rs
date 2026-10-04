@@ -49,6 +49,9 @@ pub struct LevelSpawnAssets<'w> {
     /// — qui ne sont posés qu'à `OnEnter(GameStarting)`, après l'apparition des personnages de
     /// la carte.
     pub map_config: Option<Res<'w, MapGenerationConfig>>,
+    /// T1.9 : difficulté (santé des personnages × difficulté de l'étage où ils apparaissent ;
+    /// 1 sans difficulté activée).
+    pub difficulty: game::clock::DifficultyReader<'w>,
 }
 
 /// Map et seed de génération de la partie.
@@ -191,7 +194,9 @@ fn spawn_characters_when_map_loaded(
         .filter(|(entity, _, _)| slots.slot_of(*entity) == 0)
         .map(|(_, transform, spawn)| (transform, spawn))
         .collect();
-    let placed = spawn_level_characters(&mut commands, &assets, &mut id_provider, spawns);
+    let difficulty = assets.difficulty.current();
+    let placed =
+        spawn_level_characters(&mut commands, &assets, &mut id_provider, spawns, difficulty);
     // T1.8 : premier niveau du mode `Floors` (ennemis placés, pour les kills du résumé).
     if plan.is_some() {
         floor_state.enemies_placed = placed;
@@ -205,6 +210,9 @@ pub(crate) fn spawn_level_characters(
     assets: &LevelSpawnAssets,
     id_provider: &mut ResMut<GgrsNetIdFactory>,
     mut spawns: Vec<(&GlobalTransform, &CharacterSpawnComponent)>,
+    // T1.9 : difficulté de l'étage où ces personnages apparaissent (voir
+    // `game::clock::DifficultyReader::at_floor`).
+    difficulty: bevy_fixed::fixed_math::Fixed,
 ) -> u32 {
     if spawns.is_empty() {
         return 0;
@@ -266,6 +274,7 @@ pub(crate) fn spawn_level_characters(
                     spawn.character
                 )
             });
+        let health_max = game::clock::scale(health_max, difficulty);
 
         spawn_enemy(
             spawn.character.clone(),

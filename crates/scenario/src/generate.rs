@@ -302,6 +302,8 @@ pub fn build_scenario(
         powerups: vec![],
         powerup_drop_chance_override: Some(bevy_fixed::fixed_math::FIXED_ZERO),
         floors: None,
+        clocks: None,
+        difficulty: None,
     }
 }
 

@@ -255,6 +255,13 @@ pub fn build_app(scenario: &Scenario, headless: bool, config: &PlayConfig) -> Ap
         });
 
     // T1.8 : séquence de niveaux imposée par le scénario (mode `Floors`, `Scenario::floors`).
+    // T1.9 : horloges et difficulté demandées par le scénario (`game::clock`).
+    if let Some(clocks) = &scenario.clocks {
+        app.insert_resource(game::clock::ClocksOverride(clocks.clone()));
+    }
+    if let Some(difficulty) = scenario.difficulty {
+        app.insert_resource(game::clock::DifficultyOverride(difficulty));
+    }
     if let Some(floors) = &scenario.floors {
         app.insert_resource(game::run_state::FloorsOverride(floors.clone()));
     }
@@ -1496,6 +1503,16 @@ fn check(world: &mut World, expectation: &Expectation) -> Result<(), String> {
             Ok(())
         }
         // T1.8 : index du niveau courant du mode `Floors` (ressource rollback `FloorState`).
+        Expectation::Clock { id, fired, .. } => {
+            let actual = world.resource::<run::Clock>().fired.contains(id);
+            if actual == *fired {
+                Ok(())
+            } else if actual {
+                Err(format!("événement d'horloge « {id} » déjà déclenché"))
+            } else {
+                Err(format!("événement d'horloge « {id} » pas encore déclenché"))
+            }
+        }
         Expectation::FloorIndex { index, .. } => {
             let actual = world.resource::<run::FloorState>().index;
             if actual != *index {
