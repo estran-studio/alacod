@@ -436,6 +436,7 @@ pub fn build_enemy_scenario(
             modifiers: vec![],
             weapon: None,
             currency: None,
+            mutations: vec![],
         }],
         expect,
         weapon_overrides: vec![],
@@ -455,6 +456,7 @@ pub fn build_enemy_scenario(
         floors: None,
         clocks: None,
         difficulty: None,
+        progression: None,
         characters: vec![CharacterPlacement {
             character: character_id.to_string(),
             x: probe.player_x + Fixed::from_num(ENEMY_OFFSET_X),
