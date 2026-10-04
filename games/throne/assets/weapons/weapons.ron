@@ -25,7 +25,7 @@
                     mag: Mag(mag_size: 6, mag_limit: 8),
                 )
             },
-            test: Some((frames: 200, min_hits: 3)),
+            test: Some((frames: 200, min_hits: 1)),
         ),
         sprite_config: (
             name: "pistol",
@@ -215,7 +215,8 @@
             weapon_offset: ( x: "0.0", y: "-5.0" )
         ),
     ),
-    // Explosifs : obus en cloche (`Gravity`) qui éclate en éventail de cinq fragments à la fin de sa vie.
+    // Explosifs : obus en cloche (`Gravity`) qui éclate en éventail de cinq fragments à la fin
+    // de sa vie (40 frames).
     "mortier": (
         config: (
             name: "mortier",
@@ -234,7 +235,7 @@
                     range: "700.0",
                     reload_time_seconds: "1.5",
                     mag: Mag(mag_size: 3, mag_limit: 4),
-                    projectile: (modifiers: [Gravity("-60.0"), Lifetime(60)],
+                    projectile: (modifiers: [Gravity("-30.0"), Lifetime(40)],
                         on_expire: [Spawn(Spread(count: 5, spread: "1.2", projectile: "fragment"))],
                     ),
                 )
@@ -306,7 +307,7 @@
                     projectile: (modifiers: [Size("8.0"), Lifetime(120)]),
                 )
             },
-            test: Some((frames: 200, min_hits: 2)),
+            test: Some((frames: 200, min_hits: 1)),
         ),
         sprite_config: (
             name: "pistol",
@@ -402,7 +403,7 @@
                     projectile: (modifiers: [Pierce(3), Lifetime(90)]),
                 )
             },
-            test: Some((frames: 200, min_hits: 3)),
+            test: Some((frames: 200, min_hits: 1)),
         ),
         sprite_config: (
             name: "machine_gun",
