@@ -311,12 +311,18 @@ Avant/après un refactoring de la simulation, comparer les traces : elles doiven
     `RunSummary`, `Event`, `BulletCount` et `HitsAtLeast` (T1.1, projectiles composables,
     `docs/conventions.md` §16), `FloorIndex` (T1.8, mode `Floors`, voir `docs/conventions.md`
     §17), `CellState` (T1.6, terrain d'une caverne, voir `docs/conventions.md` §21 ; champ
-    `surface` en T1.7, §26).
+    `surface` en T1.7, §26), `Gauge`, `Level`, `Mutations` (T1.10, progression et mutations,
+    `docs/conventions.md` §27).
   - Continues (vérifiées à chaque frame) : `NoDamageBetween` (santé du joueur ne diminue pas dans l'intervalle).
   - `weapon_overrides` modifie la taille et le nombre de chargeurs d'une arme pour un scénario ;
     `wave_overrides` la config de vagues ; `powerups` (T2.5) place un power-up à une position et
     une frame exactes (coordonnées en chaînes `Fixed`) ; `powerup_drop_chance_override` (T2.5) force la chance de drop de la table
     `items/powerups.ron` pour un scénario (preuve du chemin « drop à la mort »).
+  - T1.10 (§27) : `progression` impose une progression du jeu (opt-in, aucune sinon) ;
+    `PlayerScript::mutations` impose des mutations avant la première frame. Boutons de choix de
+    mutation `ChoiceA`/`ChoiceB`/`ChoiceC` = bits d'input 13/14/15 (`INPUT_CHOICE_A/B/C`,
+    touches 1/2/3) ; bits 0–12 : déplacement, recharge, mode, sprint, dash, modificateur,
+    interaction, mêlée, crash de debug, lâcher d'arme.
   - Format documenté dans `crates/game/src/replay.rs`.
 - `tests/scenarios/<nom>.trace` : trace d'état de référence. Toute différence fait échouer le test.
 - `tests/budgets.ron` : planchers de non-régression en frames simulées par seconde (défaut et

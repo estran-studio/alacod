@@ -6,9 +6,11 @@ Fiche : [m1-v1e-effets-mutations](../m1-v1e-effets-mutations.md). Branche
 
 ## État en cours
 
-- **Fait** : branche, fiche lue, décisions confirmées (amendements : `LintErrorKind::Unsupported`
-  ajouté, variantes ajoutées en dernier, `PlayerScript.mutations`, `Heal` borné directement,
-  `SpawnPattern` via les fonctions de T1.2, ordre `Effects` avant `DeathManagement` documenté).
-- **Prochaines étapes** : (1) runtime des effets (Effects/EffectState, déclencheurs, conditions,
-  actions, lint) ; (2) Progression, jauges, niveaux, mutations, choix par input ; (3) drop
-  d'armes par niveau ; scénarios, §27, vérifs, rapport.
+- **Fait** : étapes 1 à 3 (effets, progression et mutations, drop d'arme par niveau), sept
+  scénarios, attentes `Gauge`/`Level`/`Mutations`, lint et fixtures, §27, `CLAUDE.md`.
+- **Amendements** (en plus de ceux de départ) : système dans `DeathManagement` (accepté) ;
+  progression **opt-in** (`entry.progression`, `Scenario::progression`) et plusieurs fichiers
+  `progression/` (le testbed en a deux, `base` et `armes`) ; attentes en `handle` (comme
+  `Currency`) ; `Mutations.count` ; `OnLevelUp` à la frame qui suit le choix.
+- **Prochaine étape** : suite complète (scénarios sans bless, crates, lint, fmt, scripts, gen,
+  exemples), purge, merge `origin/main`, LIVRÉ.
