@@ -176,7 +176,10 @@ impl Plugin for BaseCharacterGamePlugin {
             (
                 // HANDLE ALL PLAYERS INPUT
                 // T1.7 : surfaces sous les pieds, avant les inputs (effet dans la frame)
-                (surface::surface_modifiers_system, apply_inputs)
+                (
+                    surface::surface_modifiers_system.run_if(surface::surfaces_active),
+                    apply_inputs,
+                )
                     .chain()
                     .in_set(RollbackSystemSet::Input),
                 // MOVEMENT CHARACTERS

@@ -47,6 +47,13 @@ pub fn apply_surface(modifiers: &mut Modifiers, wanted: Vec<Modifier>) -> bool {
     true
 }
 
+/// Condition d'exécution : grille non vide, ou qui vient de changer (passage d'un niveau à
+/// surfaces vers un niveau sans : une exécution pour retirer les restes). Coût nul sur une
+/// carte sans surface (`bench_horde`).
+pub fn surfaces_active(grid: Res<SurfaceGrid>) -> bool {
+    !grid.is_empty() || grid.is_changed()
+}
+
 /// Dans `RollbackSystemSet::Input`, avant `apply_inputs` : effet dans la frame. Sur une carte
 /// sans surface, ne fait que retirer d'éventuels restes (joueur passé d'un niveau `Floors` à
 /// surfaces vers un niveau sans) ; un personnage hors surface n'est jamais touché.
@@ -68,8 +75,13 @@ pub fn surface_modifiers_system(
 ) {
     let source = surface_modifier_source();
     if grid.is_empty() {
-        for (_, _, _, mut modifiers, _, _) in order_mut_iter!(characters) {
-            if modifiers.iter().any(|m| m.source == source) {
+        // Nettoyage indépendant par entité : pas besoin de l'ordre `GgrsNetId` (ni de son tri)
+        for (_, _, _, mut modifiers, _, _) in characters.iter_mut() {
+            if modifiers
+                .bypass_change_detection()
+                .iter()
+                .any(|m| m.source == source)
+            {
                 modifiers.remove_by_source(&source);
             }
         }
