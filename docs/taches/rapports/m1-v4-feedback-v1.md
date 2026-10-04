@@ -9,7 +9,7 @@ traces throne bénies). Fiche : `docs/taches/m1-v4-feedback-v1.md`.
 - **Fait** : code, tests, preuve sans écran, suite, conventions (§31 + une ligne au §9),
   captures hors écran (§5). Livré.
 - **Target** purgé après la suite (incremental et examples supprimés, une génération par
-  crate ; target 40G, /home 86G libres) ; captures hors dépôt (`alacod_tasks/<tâche>/d40/captures/`, vidéos dans
+  crate ; target 40G, /home 86G libres) ; quatre images clés versionnées (§5), captures complètes hors dépôt (`alacod_tasks/<tâche>/d40/captures/`, vidéos dans
   `target/videos/2984bbc/`).
 
 ## 1. Décisions (confirmées à orch, amendements acceptés)
@@ -106,6 +106,18 @@ vitesse, une image par frame de simulation).
   coup, 18 000 à 29 000 de f99 à f104 (secousse), qui décroît ensuite.
 - **`weapon_grenade`** : f114, **chiffre « 20 »** au-dessus de la cible touchée par
   l'explosion, secousse de surcharge visible.
+
+Images versionnées (`captures/m1-v4-feedback-v1/`) :
+
+- ![télégraphe de la ruée, f55](captures/m1-v4-feedback-v1/enemy_charge_f055_telegraphe.png)
+  `enemy_charge` f55 : cercle de télégraphe au point visé.
+- ![contact, f101](captures/m1-v4-feedback-v1/enemy_charge_f101_contact.png)
+  `enemy_charge` f101 : contact, chiffre « 15 », flash, caméra décalée (secousse ; hit stop en
+  cours).
+- ![explosion de grenade, f114](captures/m1-v4-feedback-v1/weapon_grenade_f114_explosion.png)
+  `weapon_grenade` f114 : chiffre « 20 » sur la cible, secousse de surcharge.
+- ![chiffres superposés, f175](captures/m1-v4-feedback-v1/weapon_grenade_f175_chiffres_superposes.png)
+  `weapon_grenade` f175 : les 8 éclats sur la même cible, chiffres empilés (limite, §6).
 
 ## 6. Écarts, non fait / incertain
 
