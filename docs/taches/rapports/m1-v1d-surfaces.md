@@ -1,7 +1,7 @@
 # Rapport — m1-v1d-surfaces : surfaces v1 (T1.7, chantier E4 v1)
 
 **SHA de tête : celui annoncé dans le LIVRÉ** (commit de ce rapport) ; base `origin/main`
-`9ee2be3` + T1.6 (`53e3acb`, livrée, pas encore poussée sur main au moment de la livraison).
+`22d6c73` (T1.6 mergée et ses 4 traces bénies), merge `02783cc`.
 Fiche : [m1-v1d-surfaces](../m1-v1d-surfaces.md). Branche `m1-v1d-surfaces` ; worktree
 `alacod_tasks/m0-v7-phase2-bots-finisent-le-clone/` ; agent : Claude Code (b1) ; date :
 2026-10-04 (nuit).
@@ -9,8 +9,8 @@ Fiche : [m1-v1d-surfaces](../m1-v1d-surfaces.md). Branche `m1-v1d-surfaces` ; wo
 ## État en cours
 
 - **Fait** : tout le périmètre de la fiche (voir « Fait »).
-- **Chiffres** : 87 traces existantes identiques sans bless ; 4 nouvelles traces T1.7 à bénir
-  (plus les 4 de T1.6) ; vitesses mesurées 1,25 / 2,0 / 2,5 px/frame.
+- **Chiffres** : 91 traces de main identiques sans bless (87 + les 4 de T1.6 bénies) ;
+  4 nouvelles traces T1.7 à bénir ; vitesses mesurées 1,25 / 2,0 / 2,5 px/frame.
 - **Prochaine étape** : LIVRÉ, attente de la vérification de l'orchestrateur.
 
 ## Fait
@@ -53,7 +53,9 @@ Commandes précédées de `source ../env.sh` et `export CARGO_BUILD_JOBS=3`, pro
 
 - **Scénarios** (`make test_scenarios`, sans bless, tête `c3a1692`) : 87 traces existantes
   identiques ; échecs uniquement « pas de trace de référence » pour les 8 nouveaux scénarios
-  (4 de T1.6 non encore bénis, 4 de T1.7). Aucune attente en échec.
+  (4 de T1.6 non encore bénis à ce moment, 4 de T1.7). Aucune attente en échec. Après le merge
+  de `22d6c73` : `explode_wall`, `bench_cave`, `weapon_grenade_creuse`, `weapon_foreuse`
+  rejoués contre leurs traces bénies, identiques.
 - `surface_walk` : sol 2,5 px/frame (f90 x -454.3) ; eau 125 px en 100 frames (f110 -425.6 →
   f210 -300.6, **rapport 0,5**) ; sable 80 px en 40 frames (f250 -235.2 → f290 -155.2,
   **rapport 0,8**) ; `CellState` des bandes (origine de carte x = -624). `surface_none` : même
@@ -72,7 +74,14 @@ Commandes précédées de `source ../env.sh` et `export CARGO_BUILD_JOBS=3`, pro
   condition d'exécution (coût nul) : les écarts suivent la charge. Le plancher de
   `bench_horde` (38) n'est atteint dans aucune variante cette nuit ; mesure stricte au calme à
   faire.
-- CRATES_PLACEHOLDER
+- `cargo test -q --profile headless -p scenario -p run -p combat -p game -p content -p map_ldtk
+  -p map -p sim_core -p stats -p bots -p effects -p behaviors -p world -p utils --no-fail-fast`
+  (tête `4ca71c8`) : **418 réussis, 1 échec, 9 ignorés** (45 blocs) ; l'échec est le test
+  `scenarios`, uniquement « pas de trace de référence » (mêmes 8 scénarios).
+- Après le merge `02783cc` : `make gen GAME=testbed` et `GAME=zombies` code 0, aucun fichier
+  modifié ; `make lint` sans erreur (deux jeux) ; `cargo fmt --all -- --check` vide ;
+  `check-forbidden.sh` 4 occurrences préexistantes ; `check-rollback-registration.sh` OK ;
+  `cargo build --profile headless --examples` code 0.
 
 ## Non fait / non vérifié
 
