@@ -3,6 +3,7 @@
 //! testée ; une phrase par effet : « <déclencheur>[, <conditions>] : <actions>. ».
 
 use bevy_fixed::fixed_math::Fixed;
+use sim_core::ammo::AmmoType;
 use sim_core::modifier::ModifierOp;
 use sim_core::stats::StatId;
 
@@ -53,6 +54,14 @@ fn modifier(stat: &StatId, op: ModifierOp, value: Fixed) -> String {
         }
         ModifierOp::Mul => format!("{stat} × {}", number(value)),
         ModifierOp::Set => format!("{stat} à {}", number(value)),
+    }
+}
+
+/// Nom d'une munition (`Custom` : son id).
+fn ammo_name(ammo: &AmmoType) -> String {
+    match ammo {
+        AmmoType::Custom(id) => id.clone(),
+        other => format!("{other:?}").to_lowercase(),
     }
 }
 
@@ -123,6 +132,7 @@ pub fn describe_action(action: &Action) -> String {
             )
         }
         Action::RefillAmmo => "munitions rechargées".into(),
+        Action::RefillAmmoOf(ammo) => format!("munitions {} rechargées", ammo_name(ammo)),
         Action::RepairAllWindows => "fenêtres réparées".into(),
         Action::KillAllWaveEnemies => "tous les ennemis de la vague tués".into(),
         Action::DestroyTerrain { radius } => format!("creuse la roche ({})", number(*radius)),
@@ -213,5 +223,9 @@ mod tests {
             r#do: vec![Action::GaugeAdd("rads".into(), fx(1.0))],
         };
         assert_eq!(describe_effect(&irradie), "À chaque ennemi tué : +1 rads.");
+        assert_eq!(
+            describe_action(&Action::RefillAmmoOf(AmmoType::Custom("lames".into()))),
+            "munitions lames rechargées"
+        );
     }
 }
