@@ -125,6 +125,12 @@ pub const INPUT_FORCE_CRASH: u16 = 1 << 11;
 /// `character::player::control::get_input_map`), bouton `DropWeapon` des scénarios (voir
 /// `game::replay::Button`).
 pub const INPUT_DROP_WEAPON: u16 = 1 << 12;
+/// Choix de mutation A/B/C (T1.10, `docs/conventions.md` §27) : touches `1`/`2`/`3`
+/// (`character::player::control::get_input_map`), boutons `ChoiceA`/`ChoiceB`/`ChoiceC` des
+/// scénarios (`game::replay::Button`). Sans effet hors d'un choix ouvert (`MutationChoice`).
+pub const INPUT_CHOICE_A: u16 = 1 << 13;
+pub const INPUT_CHOICE_B: u16 = 1 << 14;
+pub const INPUT_CHOICE_C: u16 = 1 << 15;
 
 #[repr(C)]
 #[derive(Copy, Clone, Debug, PartialEq, Eq, Default, Serialize, Deserialize)]

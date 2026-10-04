@@ -1,0 +1,11 @@
+// Fixture T1.10 (`lint::lint_effect`) : Tick(0) et Heal ≤ 0.
+(
+    name: "fixture-effect_out_of_range",
+    content_folders: [
+        (path: "characters/hero.ron", kind: "Character"),
+    ],
+    entry: (
+        start_map: "unused",
+        default_seed: 1,
+    ),
+)

@@ -1,0 +1,26 @@
+// T1.10 (effets v1, docs/conventions.md §27) : `Tick(120)` → `SpawnPattern`. Mutation `tireur`
+// imposée (`mutations`) : toutes les 120 frames depuis la pose de l'effet (f1, première frame
+// simulée), une couronne de 6 boules de feu (pattern `couronne`, table de `fireball_gun`) part
+// du joueur, qui ne fait rien.
+//
+// Mesuré : salves visibles à f122, f242, f362 (tick à f121, f241, f361 ; l'émetteur tire à la
+// frame suivante) ; entre deux, des boules meurent sur les murs d'`arena`.
+//
+// À regarder : trois couronnes de boules de feu autour du joueur immobile.
+Scenario(
+    powerup_drop_chance_override: "0.0",
+    game: "testbed",
+    map: "testbed/arena.ldtk",
+    frames: 380,
+    players: [
+        (mutations: ["tireur"], inputs: []),
+    ],
+    expect: [
+        BulletCount(count: 0, projectile: "fireball", at_frame: 121),
+        BulletCount(count: 6, projectile: "fireball", at_frame: 122),
+        BulletCount(count: 2, projectile: "fireball", at_frame: 241),
+        BulletCount(count: 8, projectile: "fireball", at_frame: 242),
+        BulletCount(count: 3, projectile: "fireball", at_frame: 361),
+        BulletCount(count: 9, projectile: "fireball", at_frame: 362),
+    ],
+)

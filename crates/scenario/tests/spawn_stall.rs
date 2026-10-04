@@ -37,6 +37,7 @@ fn empty_distance_range_spawns_after_deadline_without_desync() {
         powerups: vec![],
         powerup_drop_chance_override: None,
         floors: None,
+        progression: None,
         clocks: None,
         difficulty: None,
     };

@@ -220,6 +220,7 @@ pub fn build_app(scenario: &Scenario, headless: bool, config: &PlayConfig) -> Ap
                     modifiers: p.modifiers.clone(),
                     weapon: p.weapon.clone(),
                     currency: p.currency,
+                    mutations: p.mutations.clone(),
                 })
                 .collect(),
         ))
@@ -264,6 +265,10 @@ pub fn build_app(scenario: &Scenario, headless: bool, config: &PlayConfig) -> Ap
     }
     if let Some(floors) = &scenario.floors {
         app.insert_resource(game::run_state::FloorsOverride(floors.clone()));
+    }
+    // T1.10 : progression imposée par le scénario.
+    if let Some(progression) = &scenario.progression {
+        app.insert_resource(game::progression::ProgressionOverride(progression.clone()));
     }
 
     // Caméra forcée sur un joueur (play_scenario --follow)
@@ -530,6 +535,8 @@ struct PlayerOverride {
     weapon: Option<String>,
     /// T2.3, chantier C5 v1 (scénarios d'achat) : voir `game::replay::PlayerScript::currency`.
     currency: Option<u32>,
+    /// T1.10 : voir `game::replay::PlayerScript::mutations`.
+    mutations: Vec<String>,
 }
 
 #[derive(Resource)]
@@ -562,7 +569,13 @@ struct PlayerOverrides(Vec<PlayerOverride>);
 fn apply_player_overrides(
     overrides: Res<PlayerOverrides>,
     mut commands: Commands,
-    players: Query<(Entity, &Player, &Children)>,
+    players: Query<(
+        Entity,
+        &Player,
+        &Children,
+        Option<&game::effects_runtime::Effects>,
+    )>,
+    progression: Option<Res<game::progression::ProgressionTable>>,
     ranged_children: Query<(), With<Weapon>>,
     melee_children: Query<(), With<MeleeWeapon>>,
     global_assets: Option<Res<GlobalAsset>>,
@@ -580,6 +593,7 @@ fn apply_player_overrides(
             && o.modifiers.is_empty()
             && o.weapon.is_none()
             && o.currency.is_none()
+            && o.mutations.is_empty()
     }) {
         *applied = true;
         return;
@@ -590,7 +604,10 @@ fn apply_player_overrides(
     let Some(global_assets) = global_assets else {
         return; // arme choisie : attend GlobalAsset (comme apply_weapon_overrides)
     };
-    for (entity, player, children) in players.iter() {
+    if progression.is_none() && overrides.0.iter().any(|o| !o.mutations.is_empty()) {
+        return; // table des mutations pas encore résolue (`OnEnter(GameLoading)`)
+    }
+    for (entity, player, children, effects) in players.iter() {
         let Some(over) = overrides.0.get(player.handle) else {
             continue;
         };
@@ -679,6 +696,25 @@ fn apply_player_overrides(
         // raisonnement que `weapon` ci-dessus (voir sa doc).
         if let Some(amount) = over.currency {
             commands.entity(entity).insert(Currency::new(amount));
+        }
+        // T1.10 : mutations imposées, prises dans l'ordre (effets ajoutés à ceux du joueur).
+        if !over.mutations.is_empty() {
+            let table = progression.as_ref().expect("vérifié avant la boucle");
+            let mut all = effects.cloned().unwrap_or_default();
+            for id in &over.mutations {
+                let Some(mutation) = table.mutations.get(id) else {
+                    panic!(
+                        "PlayerScript::mutations : mutation inconnue « {id} » pour le joueur {}",
+                        player.handle
+                    );
+                };
+                all.0.extend(mutation.iter().cloned());
+            }
+            commands.entity(entity).insert((
+                all,
+                game::effects_runtime::EffectState::default(),
+                game::progression::Mutations(over.mutations.clone()),
+            ));
         }
     }
     *applied = true;
@@ -1561,6 +1597,65 @@ fn check(world: &mut World, expectation: &Expectation) -> Result<(), String> {
             Ok(())
         }
         // T2.3, chantier C5 v1 : scénarios `buy_door`/`buy_wall_weapon`/`buy_perk`.
+        Expectation::Gauge {
+            handle,
+            id,
+            min,
+            max,
+            ..
+        } => {
+            let Some(value) = player_gauge(world, *handle, id) else {
+                return Err(format!("joueur absent ou sans jauge « {id} »"));
+            };
+            if let Some(min_val) = min.map(fixed_math::Fixed::from_num) {
+                if value < min_val {
+                    return Err(format!("jauge {id} = {value} < min {min_val}"));
+                }
+            }
+            if let Some(max_val) = max.map(fixed_math::Fixed::from_num) {
+                if value > max_val {
+                    return Err(format!("jauge {id} = {value} > max {max_val}"));
+                }
+            }
+            Ok(())
+        }
+        Expectation::Level { handle, level, .. } => {
+            let Some(actual) = world
+                .query::<(&Player, &game::progression::Level)>()
+                .iter(world)
+                .find(|(player, _)| player.handle == *handle)
+                .map(|(_, level)| level.0)
+            else {
+                return Err("joueur absent ou sans niveau (progression inactive)".into());
+            };
+            if actual != *level {
+                return Err(format!("niveau {actual} ≠ {level}"));
+            }
+            Ok(())
+        }
+        Expectation::Mutations {
+            handle,
+            contains,
+            count,
+            ..
+        } => {
+            let taken: Vec<String> = world
+                .query::<(&Player, &game::progression::Mutations)>()
+                .iter(world)
+                .find(|(player, _)| player.handle == *handle)
+                .map(|(_, m)| m.0.clone())
+                .unwrap_or_default();
+            let missing: Vec<&String> = contains.iter().filter(|id| !taken.contains(id)).collect();
+            if !missing.is_empty() {
+                return Err(format!("mutations {taken:?} : manque {missing:?}"));
+            }
+            if let Some(count) = count {
+                if taken.len() != *count as usize {
+                    return Err(format!("mutations {taken:?} : {} ≠ {count}", taken.len()));
+                }
+            }
+            Ok(())
+        }
         Expectation::Currency {
             handle, min, max, ..
         } => {
@@ -1605,6 +1700,15 @@ fn check(world: &mut World, expectation: &Expectation) -> Result<(), String> {
 }
 
 /// Solde de monnaie du joueur `handle` (T2.3, chantier C5 v1). `None` si le joueur est absent.
+/// Valeur de la jauge `id` du joueur `handle` (T1.10).
+fn player_gauge(world: &mut World, handle: usize, id: &str) -> Option<fixed_math::Fixed> {
+    world
+        .query::<(&Player, &game::effects_runtime::Gauges)>()
+        .iter(world)
+        .find(|(player, _)| player.handle == handle)
+        .and_then(|(_, gauges)| gauges.0.get(id).map(|g| g.value))
+}
+
 fn player_currency(world: &mut World, handle: usize) -> Option<u32> {
     world
         .query::<(&Player, &Currency)>()

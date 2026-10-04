@@ -9,6 +9,7 @@ pub mod collision_grid;
 pub mod content_hot_reload;
 pub mod core;
 pub mod economy;
+pub mod effects_runtime;
 pub mod feedback;
 pub mod frame;
 pub mod frame_events;
@@ -18,6 +19,7 @@ pub mod jjrs;
 pub mod light;
 pub mod patterns;
 pub mod powerups;
+pub mod progression;
 pub mod recording;
 #[cfg(not(target_arch = "wasm32"))]
 pub mod remote;

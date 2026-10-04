@@ -1,0 +1,10 @@
+// Erreurs volontaires : per_kill 0, seuils décroissants, choices > pool, choice_frames 0,
+// weapon_drop_chance > 1.
+(
+    gauge: "rads",
+    per_kill: "0",
+    levels: ["4", "2"],
+    choices: 5,
+    choice_frames: 0,
+    weapon_drop_chance: "2.0",
+)

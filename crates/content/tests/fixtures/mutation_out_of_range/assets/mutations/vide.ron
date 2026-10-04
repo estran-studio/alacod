@@ -1,0 +1,2 @@
+// Erreurs volontaires : weight 0, max_stacks 0.
+(name: "Vide", weight: 0, max_stacks: 0, effects: [(on: OnKill, do: [Heal("10")])])

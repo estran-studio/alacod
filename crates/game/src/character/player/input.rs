@@ -25,9 +25,10 @@ use super::LocalPlayer;
 pub const FIXED_TIMESTEP: f32 = 1.0 / 60.0; // 60 FPS fixed timestep
 
 pub use combat::actors::{
-    BoxInput, CursorPosition, INPUT_DASH, INPUT_DOWN, INPUT_DROP_WEAPON, INPUT_FORCE_CRASH,
-    INPUT_INTERACTION, INPUT_LEFT, INPUT_MELEE_ATTACK, INPUT_MODIFIER, INPUT_RELOAD, INPUT_RIGHT,
-    INPUT_SPRINT, INPUT_SWITCH_WEAPON_MODE, INPUT_UP,
+    BoxInput, CursorPosition, INPUT_CHOICE_A, INPUT_CHOICE_B, INPUT_CHOICE_C, INPUT_DASH,
+    INPUT_DOWN, INPUT_DROP_WEAPON, INPUT_FORCE_CRASH, INPUT_INTERACTION, INPUT_LEFT,
+    INPUT_MELEE_ATTACK, INPUT_MODIFIER, INPUT_RELOAD, INPUT_RIGHT, INPUT_SPRINT,
+    INPUT_SWITCH_WEAPON_MODE, INPUT_UP,
 };
 
 const PAN_FACING_THRESHOLD: i16 = 5;
@@ -249,6 +250,16 @@ pub fn read_local_inputs(
 
         if action_state.pressed(&PlayerAction::DropWeapon) {
             input.buttons |= INPUT_DROP_WEAPON;
+        }
+
+        if action_state.pressed(&PlayerAction::ChoiceA) {
+            input.buttons |= INPUT_CHOICE_A;
+        }
+        if action_state.pressed(&PlayerAction::ChoiceB) {
+            input.buttons |= INPUT_CHOICE_B;
+        }
+        if action_state.pressed(&PlayerAction::ChoiceC) {
+            input.buttons |= INPUT_CHOICE_C;
         }
 
         // F12 to force crash (debug)

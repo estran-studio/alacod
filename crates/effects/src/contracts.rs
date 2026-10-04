@@ -22,6 +22,8 @@ pub enum On {
     OnGauge(String, GaugeThreshold),
     Tick(u32),
     OnEvent(String),
+    /// T1.10 : montée de niveau du porteur (C4, jauge de progression franchie).
+    OnLevelUp,
 }
 
 #[derive(Clone, PartialEq, Eq, PartialOrd, Ord, Debug, Hash, Serialize, Deserialize)]

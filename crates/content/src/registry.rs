@@ -111,6 +111,16 @@ string_id!(
     SurfaceName
 );
 string_id!(
+    /// Identifiant d'une progression (T1.10, kind `Progression`) : nom de fichier sans
+    /// extension (`progression/<id>.ron`).
+    ProgressionId
+);
+string_id!(
+    /// Identifiant d'une mutation (T1.10, kind `Mutation`) : nom de fichier sans extension
+    /// (`mutations/<id>.ron`).
+    MutationId
+);
+string_id!(
     /// Identifiant d'un pattern nommé (T1.2, kind `Pattern`) : nom de fichier sans extension
     /// (`patterns/<nom>.ron`), référencé par `ranged.pattern` d'un personnage et par
     /// `Named("<nom>")` dans un pattern.
@@ -199,6 +209,8 @@ pub struct CharacterEntry {
     pub downed_speed_mult: FixedField,
     /// Emplacements d'armes à distance (T2.2, chantier B7), pour la règle « > 0 ».
     pub weapon_slots: u32,
+    /// T1.10 : effets v1 du personnage (`docs/conventions.md` §27).
+    pub effects: Vec<effects::Effect>,
     /// T1.4 : règles de comportement (`ai.behaviors`, `None` : liste par défaut).
     pub behaviors: Option<Vec<BehaviorEntry>>,
     /// T1.4 : tags ignorés par le ciblage (`ai.targeting: Some(Nearest(ignore: [...]))`).
@@ -575,6 +587,80 @@ struct SurfaceFileSchema {
     acceleration: Option<FixedField>,
 }
 
+/// Progression (T1.10, chantier C4 v1, `docs/conventions.md` §27), `progression/<id>.ron` : jauge
+/// des joueurs (rads), seuils de niveau, choix de mutation, pool d'armes par niveau.
+#[derive(Debug, Clone)]
+pub struct ProgressionEntry {
+    pub id: ProgressionId,
+    pub file: PathBuf,
+    /// Id de la jauge posée sur chaque joueur (`"rads"`).
+    pub gauge: String,
+    /// Ajouté à la jauge du tueur à chaque ennemi tué par un joueur.
+    pub per_kill: Fixed,
+    /// Seuils de la jauge, croissants : niveau = nombre de seuils atteints.
+    pub levels: Vec<Fixed>,
+    /// Nombre de mutations proposées à chaque niveau.
+    pub choices: u32,
+    /// Frames avant que la première option soit prise d'office.
+    pub choice_frames: u32,
+    /// Pool de mutations ; vide = toutes les mutations du jeu.
+    pub mutations: Vec<String>,
+    pub weapon_pool: Vec<WeaponPoolEntry>,
+    /// Chance (`[0, 1]`) qu'un ennemi tué laisse tomber une arme du pool ; 0 par défaut.
+    pub weapon_drop_chance: Fixed,
+}
+
+/// Armes débloquées à partir de `level` (niveau max des joueurs).
+#[derive(Debug, Clone, Deserialize)]
+pub struct WeaponPoolEntry {
+    pub level: u32,
+    pub weapons: Vec<String>,
+}
+
+#[derive(Debug, Clone, Deserialize)]
+struct ProgressionFileSchema {
+    gauge: String,
+    per_kill: FixedField,
+    levels: Vec<FixedField>,
+    choices: u32,
+    choice_frames: u32,
+    #[serde(default)]
+    mutations: Vec<String>,
+    #[serde(default)]
+    weapon_pool: Vec<WeaponPoolEntry>,
+    #[serde(default)]
+    weapon_drop_chance: Option<FixedField>,
+}
+
+/// Mutation (T1.10, chantier C4 v1), `mutations/<id>.ron` : `( name, weight, tags, max_stacks,
+/// effects )`. Ses effets sont ajoutés aux `Effects` du joueur qui la choisit.
+#[derive(Debug, Clone)]
+pub struct MutationEntry {
+    pub id: MutationId,
+    pub file: PathBuf,
+    pub name: String,
+    pub weight: u32,
+    pub tags: Vec<String>,
+    pub max_stacks: u32,
+    pub effects: Vec<effects::Effect>,
+}
+
+#[derive(Debug, Clone, Deserialize)]
+struct MutationFileSchema {
+    name: String,
+    #[serde(default = "one")]
+    weight: u32,
+    #[serde(default)]
+    tags: Vec<String>,
+    #[serde(default = "one")]
+    max_stacks: u32,
+    effects: Vec<effects::Effect>,
+}
+
+fn one() -> u32 {
+    1
+}
+
 #[derive(Debug, Clone, Deserialize)]
 struct FloorsFileSchema {
     levels: Vec<String>,
@@ -714,6 +800,11 @@ pub struct Registry {
     pub surfaces: BTreeMap<SurfaceName, SurfaceEntry>,
     /// T1.2 : patterns nommés (kind `Pattern`).
     pub patterns: BTreeMap<PatternId, PatternFileEntry>,
+    /// T1.10 : progressions (kind `Progression`) ; la partie en joue au plus une, nommée par
+    /// `entry.progression` ou `Scenario::progression`.
+    pub progression: BTreeMap<ProgressionId, ProgressionEntry>,
+    /// T1.10 : mutations (kind `Mutation`).
+    pub mutations: BTreeMap<MutationId, MutationEntry>,
     /// T1.9 : horloges (kind `Clock`).
     pub clocks: BTreeMap<ClockId, ClockEntry>,
     /// T1.9 : difficulté (kind `Difficulty`, un fichier ; le dernier chargé gagne).
@@ -763,6 +854,8 @@ pub const KNOWN_KIND_NAMES: &[&str] = &[
     "Cave",
     "Surface",
     "Pattern",
+    "Progression",
+    "Mutation",
     "Clock",
     "Difficulty",
 ];
@@ -824,6 +917,8 @@ impl Registry {
                 "Cave" => load_caves(&assets_dir, decl, &mut registry, &mut errors),
                 "Surface" => load_surfaces(&assets_dir, decl, &mut registry, &mut errors),
                 "Pattern" => load_patterns(&assets_dir, decl, &mut registry, &mut errors),
+                "Progression" => load_progression(&assets_dir, decl, &mut registry, &mut errors),
+                "Mutation" => load_mutations(&assets_dir, decl, &mut registry, &mut errors),
                 "Clock" => load_clocks(&assets_dir, decl, &mut registry, &mut errors),
                 "Difficulty" => load_difficulty(&assets_dir, decl, &mut registry, &mut errors),
                 _ => unreachable!("filtré par `kinds.has` ci-dessus"),
@@ -924,6 +1019,9 @@ struct CharacterFileSchema {
     /// T1.4 : seuls `ai.behaviors` et `ai.targeting` sont lus.
     #[serde(default)]
     ai: Option<AiSchema>,
+    /// T1.10 : effets v1.
+    #[serde(default)]
+    effects: Vec<effects::Effect>,
     #[serde(default)]
     tags: Vec<String>,
     /// T1.5 : variantes et élites.
@@ -1360,6 +1458,7 @@ fn load_characters(
                 revive_frames: parsed.revive_frames,
                 downed_speed_mult: parsed.downed_speed_mult,
                 weapon_slots: parsed.weapon_slots,
+                effects: parsed.effects,
                 ignore_tags: parsed
                     .ai
                     .as_ref()
@@ -1940,6 +2039,124 @@ fn load_surfaces(
                 tags: parsed.tags,
                 move_speed: parsed.move_speed.get(),
                 acceleration: parsed.acceleration.map_or(Fixed::ONE, |a| a.get()),
+            },
+        );
+    }
+}
+
+/// Fichiers RON d'un dossier de contenu, parsés en `T` (`implicit_some`), avec leur id (nom de
+/// fichier sans extension) ; erreurs de lecture et de RON poussées dans `errors`.
+fn load_ron_files<T: serde::de::DeserializeOwned>(
+    assets_dir: &Path,
+    decl: &ContentFolderDecl,
+    errors: &mut Vec<LintError>,
+) -> Vec<(String, PathBuf, T)> {
+    let files = match discover_files(assets_dir, decl, "ron") {
+        Ok(f) => f,
+        Err(e) => {
+            errors.push(e);
+            return Vec::new();
+        }
+    };
+    let mut parsed_files = Vec::new();
+    for rel in files {
+        let text = match read_file(assets_dir, &rel) {
+            Ok(t) => t,
+            Err(e) => {
+                errors.push(e);
+                continue;
+            }
+        };
+        match ron::Options::default()
+            .with_default_extension(ron::extensions::Extensions::IMPLICIT_SOME)
+            .from_str::<T>(&text)
+        {
+            Ok(parsed) => {
+                let id = rel
+                    .file_stem()
+                    .and_then(|s| s.to_str())
+                    .unwrap_or_default()
+                    .to_string();
+                parsed_files.push((id, rel, parsed));
+            }
+            Err(e) => errors.push(LintError {
+                kind: LintErrorKind::Parse,
+                file: rel.display().to_string(),
+                message: format!("erreur RON : {e}"),
+            }),
+        }
+    }
+    parsed_files
+}
+
+/// T1.10 : mêmes règles que [`load_waves`] (id = nom de fichier sans extension).
+fn load_progression(
+    assets_dir: &Path,
+    decl: &ContentFolderDecl,
+    registry: &mut Registry,
+    errors: &mut Vec<LintError>,
+) {
+    for (id, rel, parsed) in load_ron_files::<ProgressionFileSchema>(assets_dir, decl, errors) {
+        let id = ProgressionId::from(id);
+        if let Some(existing) = registry.progression.get(&id) {
+            errors.push(LintError {
+                kind: LintErrorKind::DuplicateId,
+                file: rel.display().to_string(),
+                message: format!(
+                    "id de progression « {id} » déjà défini dans {}",
+                    existing.file.display()
+                ),
+            });
+            continue;
+        }
+        registry.progression.insert(
+            id.clone(),
+            ProgressionEntry {
+                id,
+                file: rel,
+                gauge: parsed.gauge,
+                per_kill: parsed.per_kill.get(),
+                levels: parsed.levels.iter().map(|l| l.get()).collect(),
+                choices: parsed.choices,
+                choice_frames: parsed.choice_frames,
+                mutations: parsed.mutations,
+                weapon_pool: parsed.weapon_pool,
+                weapon_drop_chance: parsed.weapon_drop_chance.map_or(Fixed::ZERO, |c| c.get()),
+            },
+        );
+    }
+}
+
+/// T1.10 : mêmes règles que [`load_waves`] (id = nom de fichier sans extension).
+fn load_mutations(
+    assets_dir: &Path,
+    decl: &ContentFolderDecl,
+    registry: &mut Registry,
+    errors: &mut Vec<LintError>,
+) {
+    for (id, rel, parsed) in load_ron_files::<MutationFileSchema>(assets_dir, decl, errors) {
+        let id = MutationId::from(id);
+        if let Some(existing) = registry.mutations.get(&id) {
+            errors.push(LintError {
+                kind: LintErrorKind::DuplicateId,
+                file: rel.display().to_string(),
+                message: format!(
+                    "id de mutation « {id} » déjà défini dans {}",
+                    existing.file.display()
+                ),
+            });
+            continue;
+        }
+        registry.mutations.insert(
+            id.clone(),
+            MutationEntry {
+                id,
+                file: rel,
+                name: parsed.name,
+                weight: parsed.weight,
+                tags: parsed.tags,
+                max_stacks: parsed.max_stacks,
+                effects: parsed.effects,
             },
         );
     }

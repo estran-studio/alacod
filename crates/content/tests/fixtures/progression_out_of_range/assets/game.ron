@@ -1,0 +1,12 @@
+// Fixture T1.10 (`lint::lint_progression`, `lint::lint_mutations`).
+(
+    name: "fixture-progression_out_of_range",
+    content_folders: [
+        (path: "progression.ron", kind: "Progression"),
+        (path: "mutations", kind: "Mutation"),
+    ],
+    entry: (
+        start_map: "unused",
+        default_seed: 1,
+    ),
+)

@@ -1,5 +1,5 @@
 //! Tests pour les nouvelles attentes (Health, EntityHealth, NoDamageBetween, EntityCount, Event,
-//! PlayerDowned, PlayerRevived, Defeat, EntityHits).
+//! PlayerDowned, PlayerRevived, Defeat, EntityHits ; Gauge, Level, Mutations de T1.10).
 
 use game::replay::Expectation;
 use scenario::{run, Scenario};
@@ -1004,6 +1004,68 @@ fn hits_at_least_lit_le_compteur_de_la_cible() {
                 .any(|f| f.contains(&attendu) && f.contains(raison)),
             "{attendu} devait échouer ({raison}) : {:?}",
             outcome.failures
+        );
+    }
+}
+
+/// T1.10 : `Gauge`, `Level`, `Mutations` passent sur `levelup_choice` (3 rads, niveau 1,
+/// `coriace` prise) et échouent chacune sur une valeur fausse.
+#[test]
+fn progression_expectations_pass_and_fail() {
+    if map_ldtk::RENDER_ENABLED {
+        return;
+    }
+
+    let mut scenario = load_scenario("levelup_choice");
+    scenario.frames = 200;
+    let gauge = |min: f32, max: f32| Expectation::Gauge {
+        handle: 0,
+        id: "rads".into(),
+        min: Some(min),
+        max: Some(max),
+        at_frame: 190,
+    };
+    let level = |level: u32| Expectation::Level {
+        handle: 0,
+        level,
+        at_frame: 190,
+    };
+    let mutations = |contains: &[&str], count: Option<u32>| Expectation::Mutations {
+        handle: 0,
+        contains: contains.iter().map(|s| s.to_string()).collect(),
+        count,
+        at_frame: 190,
+    };
+    scenario.expect = vec![
+        gauge(3.0, 3.0),
+        level(1),
+        mutations(&["coriace"], Some(1)),
+        // Fausses : une seule échec chacune
+        gauge(4.0, 9.0),
+        level(2),
+        mutations(&["vampire"], None),
+        mutations(&[], Some(0)),
+        Expectation::Gauge {
+            handle: 0,
+            id: "mana".into(),
+            min: None,
+            max: None,
+            at_frame: 190,
+        },
+    ];
+    let outcome = run(&scenario);
+    let failures = outcome.failures.join("\n");
+    assert_eq!(outcome.failures.len(), 5, "{failures}");
+    for needle in [
+        "jauge rads = 3 < min 4",
+        "niveau 1 ≠ 2",
+        "manque [\"vampire\"]",
+        "1 ≠ 0",
+        "sans jauge « mana »",
+    ] {
+        assert!(
+            failures.contains(needle),
+            "{needle} absent de :\n{failures}"
         );
     }
 }

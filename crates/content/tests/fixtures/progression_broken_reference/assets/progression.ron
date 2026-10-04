@@ -1,0 +1,10 @@
+// Erreurs volontaires : mutation et arme inconnues.
+(
+    gauge: "rads",
+    per_kill: "1",
+    levels: ["2"],
+    choices: 1,
+    choice_frames: 600,
+    mutations: ["absente"],
+    weapon_pool: [(level: 0, weapons: ["laser"])],
+)

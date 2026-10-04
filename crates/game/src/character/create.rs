@@ -206,6 +206,13 @@ pub fn create_character(
         });
     }
 
+    // T1.10 : effets du personnage (composants neutres, absents sans effet)
+    if !config.effects.is_empty() {
+        commands.entity(entity).insert((
+            crate::effects_runtime::Effects(config.effects.clone()),
+            crate::effects_runtime::EffectState::default(),
+        ));
+    }
     commands.entity(entity).insert(Rollback);
 
     entity

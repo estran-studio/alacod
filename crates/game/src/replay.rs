@@ -21,9 +21,10 @@
 //! Joué par `crates/scenario` ; écrit par l'enregistrement (`crate::recording`).
 
 use crate::character::player::input::{
-    BoxInput, InputSegment, ScriptedInputs, INPUT_DASH, INPUT_DOWN, INPUT_DROP_WEAPON,
-    INPUT_FORCE_CRASH, INPUT_INTERACTION, INPUT_LEFT, INPUT_MELEE_ATTACK, INPUT_MODIFIER,
-    INPUT_RELOAD, INPUT_RIGHT, INPUT_SPRINT, INPUT_SWITCH_WEAPON_MODE, INPUT_UP,
+    BoxInput, InputSegment, ScriptedInputs, INPUT_CHOICE_A, INPUT_CHOICE_B, INPUT_CHOICE_C,
+    INPUT_DASH, INPUT_DOWN, INPUT_DROP_WEAPON, INPUT_FORCE_CRASH, INPUT_INTERACTION, INPUT_LEFT,
+    INPUT_MELEE_ATTACK, INPUT_MODIFIER, INPUT_RELOAD, INPUT_RIGHT, INPUT_SPRINT,
+    INPUT_SWITCH_WEAPON_MODE, INPUT_UP,
 };
 use bevy_fixed::fixed_math::Fixed;
 pub use combat::weapons::expectations::{
@@ -83,6 +84,11 @@ pub struct Scenario {
     /// niveau de la séquence la remplace). `None` (défaut) : mode du manifeste.
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub floors: Option<String>,
+    /// Progression imposée (T1.10) : id d'un fichier du kind `Progression` du jeu, prioritaire
+    /// sur `entry.progression` du manifeste (`game::progression::ProgressionOverride`).
+    /// `None` (défaut) : celle du manifeste (aucune pour le testbed et zombies).
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub progression: Option<String>,
     /// Horloges actives (T1.9, ids du kind `Clock`, `game::clock::ClocksOverride`). `None`
     /// (défaut) : `entry.clocks` du manifeste, sinon aucune.
     #[serde(default, skip_serializing_if = "Option::is_none")]
@@ -264,6 +270,12 @@ pub struct PlayerScript {
     /// avec `CharacterConfig::starting_currency` (tous les scénarios existants).
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub currency: Option<u32>,
+    /// Mutations imposées (T1.10) : ids du kind `Mutation`, prises dans l'ordre avant la
+    /// première frame simulée (effets ajoutés à `Effects`, `Mutations` posé), comme
+    /// `modifiers` ci-dessus (`scenario::runner::apply_player_overrides`). Vide (défaut) :
+    /// aucune.
+    #[serde(default, skip_serializing_if = "Vec::is_empty")]
+    pub mutations: Vec<String>,
 }
 
 /// Un modificateur de scénario, posé sur un joueur après sa création
@@ -357,6 +369,10 @@ pub enum Button {
     DropWeapon,
     /// Touche de debug qui provoque un crash volontaire
     ForceCrash,
+    /// Choix de mutation A/B/C (T1.10). Voir `INPUT_CHOICE_A`.
+    ChoiceA,
+    ChoiceB,
+    ChoiceC,
 }
 
 impl Scenario {
@@ -442,7 +458,7 @@ pub fn box_input(buttons: &[Button], pan: (i16, i16)) -> BoxInput {
     input
 }
 
-const ALL_BUTTONS: [Button; 15] = [
+const ALL_BUTTONS: [Button; 18] = [
     Button::Up,
     Button::Down,
     Button::Left,
@@ -458,6 +474,9 @@ const ALL_BUTTONS: [Button; 15] = [
     Button::Melee,
     Button::DropWeapon,
     Button::ForceCrash,
+    Button::ChoiceA,
+    Button::ChoiceB,
+    Button::ChoiceC,
 ];
 
 fn button_bit(button: Button) -> u16 {
@@ -475,6 +494,9 @@ fn button_bit(button: Button) -> u16 {
         Button::Melee => INPUT_MELEE_ATTACK,
         Button::DropWeapon => INPUT_DROP_WEAPON,
         Button::ForceCrash => INPUT_FORCE_CRASH,
+        Button::ChoiceA => INPUT_CHOICE_A,
+        Button::ChoiceB => INPUT_CHOICE_B,
+        Button::ChoiceC => INPUT_CHOICE_C,
         Button::Fire | Button::SwitchWeapon => 0,
     }
 }

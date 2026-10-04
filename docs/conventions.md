@@ -581,6 +581,9 @@ testé unitairement) pour les deux variantes modifier-based ; les trois autres s
 directement par `game::powerups` (accès à `AmmoReserves`/`WindowHealth`/`Team`, inconnus
 d'`effects`).
 
+Depuis T1.10, le même `Action` sert aux **effets** (`Effect { on, if, do }` exécutés, nouvelles
+actions `Modifier`, `Heal`, `SpawnPattern`, `GaugeAdd`) : voir §27.
+
 **Sémantique CoD (décision)** : un power-up ramassé s'applique à **tous les joueurs** de la
 partie, jamais au seul joueur qui l'a ramassé — aucun des cinq power-ups de référence
 (Insta-Kill, Double Points, Max Ammo, Carpenter, Nuke) n'est individuel dans le jeu source.
@@ -1571,6 +1574,96 @@ un breacher qui traverse l'eau touche le joueur 205 frames après celui du coulo
 **v2 / hors périmètre.** Esquive (dash) et friction par surface, coût de flow field par surface,
 dangers (piques, fosses, barils, feu), neige et boue (contenu 1837), surfaces de caverne
 (`CaveConfig.surfaces`).
+
+## 27. Effets v1, jauges et mutations (T1.10, chantiers C1 v1 et C4 v1)
+
+Code : `effects::runtime` et `effects::progression` (règles pures, testées sans Bevy),
+`game::effects_runtime` (porteurs, `apply_effects_system`), `game::progression` (rads, niveaux,
+choix, drop d'arme), `content::lint::{lint_effect, lint_progression, lint_mutations}`.
+
+**Effet** : `Effect { on, if, do }` (§4.3) ; un porteur a `Effects(Vec<Effect>)` et `EffectState`
+(frame de pose de chaque effet, dernière frame touchée, déclencheurs reportés), rollback,
+checksum **neutre**. Posés par `CharacterConfig::effects` (champ optionnel), par une mutation
+prise, ou par `PlayerScript::mutations` ; un personnage sans effet n'a aucun composant (traces
+existantes inchangées).
+
+- **Déclencheurs v1** : `OnKill` (tueur = premier `HitBy` de `Death::last_hit_by`, joueur par son
+  handle, entité — dont un émetteur — par son net id), `OnDamageTaken` (frame où les dégâts
+  accumulés s'appliquent : `HealthRegen::last_damage_frame`, sinon un `DamageEvent` qui vise le
+  porteur), `Tick(n)` (toutes les `n` frames depuis la pose, jamais à la pose), `OnGauge(id,
+  Above(x))` (jauge franchie à la hausse, `avant < x ≤ après`, frame suivante), `OnLevelUp`
+  (nouveau variant, voir plus bas). Les autres (`OnHit`, `OnDodge`, `OnReload`, `OnRoomClear`,
+  `OnPickup`, `OnUse`, `OnEvent`) : lint `Unsupported` (« v2 »).
+- **Conditions v1** (ET) : `HpBelow(x)` (fraction de `Health.max`), `HasTag(t)` (porteur),
+  `TargetTag(t)` (victime d'`OnKill`, source d'`OnDamageTaken`), `NotHitFor(n)`. `Carrying`,
+  `SquadSize`, `TargetInRange` : lint `Unsupported`.
+- **Actions** : `Action` étendu (même enum que les power-ups, §14) de `Modifier { stat, op,
+  value }` (permanent, source `Named("effect:<net_id>:<index>")`), `Heal(x)` (borné à
+  `Health.max`, jamais sous la santé courante), `SpawnPattern { pattern, weapon }` (un `Emitter`
+  T1.2 sur le porteur, table `projectiles` de `weapon` ; ignoré si un émetteur joue déjà),
+  `GaugeAdd(id, x)`. `TimedModifier`/`CurrencyMultiplier` s'appliquent au **porteur seul**
+  (la règle « tous les joueurs » est celle des power-ups). `RefillAmmo`, `RepairAllWindows`,
+  `KillAllWaveEnemies`, `DestroyTerrain` : lint `Unsupported` dans un effet.
+
+**Ordre des sets (constaté, non modifié).** Les `FrameEvents` sont vidés au début de chaque frame
+et les morts sont détruits dans `DeathManagement` (`rollback_apply_death`, même frame) : un
+système dans `Effects` (avant `DeathManagement`) ne verrait **jamais** les kills. D'où :
+`apply_effects_system` dans `RollbackSystemSet::DeathManagement`, après
+`rollback_apply_accumulated_damage` (dégâts appliqués, `Death` posés) et avant
+`rollback_apply_bleedout`, puis `init_progression_players` → `progression_system` →
+`weapon_drop_on_death_system` (après `loot_drop_on_death_system` : le flux `loot` sert d'abord
+aux power-ups). Ordre interne : porteurs par `GgrsNetId`, puis index d'effet, puis ordre des `do`.
+**La mort de la frame prime** : un porteur posé `Death` ou `Downed` dans la frame ne déclenche
+rien et n'est pas soigné (test `la_mort_de_la_frame_prime_sur_le_soin`).
+
+**Progression (C4 v1)** : kind `Progression` (`progression/<id>.ron`), **opt-in** : la partie joue
+celle que nomme `Scenario::progression`, sinon `entry.progression` du manifeste, sinon aucune
+(testbed et zombies : aucune ; flux `loot` intact).
+```ron
+// games/testbed/assets/progression/base.ron — game.ron : (path: "progression", kind: "Progression")
+(gauge: "rads", per_kill: "1", levels: ["2", "4"], choices: 3, choice_frames: 600,
+ mutations: [],  // pool ; vide = toutes les mutations du jeu
+ weapon_pool: [(level: 0, weapons: ["pistol"]), (level: 1, weapons: ["shotgun"])],
+ weapon_drop_chance: "0.0")
+```
+Chaque joueur reçoit `Gauges` (la jauge `gauge`, bornée à `[0, max]`), `Level`, `Mutations`
+(rollback, neutres). Chaque mort attribuée au joueur ajoute `per_kill` ; niveau = nombre de seuils
+`levels` atteints (les `GaugeAdd` comptent aussi). Chaque niveau gagné ouvre un choix
+(`MutationChoice { options, since_frame, pending, armed }`, neutre) : `choices` mutations
+**distinctes** tirées dans le flux `loot` (pondérées par `weight`, `max_stacks` respecté, joueurs
+par `GgrsNetId`) ; un niveau gagné pendant un choix s'empile (`pending`). La simulation ne se met
+**jamais** en pause. Choix par les bits d'input 13–15 (`INPUT_CHOICE_A/B/C`, boutons `ChoiceA/B/C`,
+touches 1/2/3), seulement si aucun bouton de choix n'a été tenu depuis l'ouverture (`armed`) ;
+sans choix, la première option est prise à `since_frame + choice_frames`. La mutation prise
+ajoute ses effets, est notée dans `Mutations`, et **`OnLevelUp` se déclenche à la frame
+suivante** (pour tous les effets `OnLevelUp` du joueur, ceux de la nouvelle mutation compris).
+Pool épuisé : pas de choix, `OnLevelUp` directement. Moments clés `levelup`, `mutation`.
+
+**Mutation** : kind `Mutation` (`mutations/<id>.ron`) : `(name, weight: 1, tags, max_stacks: 1,
+effects: [Effect])`.
+
+**Drop d'arme** : chaque ennemi mort (ordre `GgrsNetId`) tire `weapon_drop_chance` (flux `loot`) ;
+gagné, une arme parmi celles du `weapon_pool` dont `level ≤` niveau **max** des joueurs (niveau
+mis à jour dans la même frame), posée par `spawn_weapon_pickup` (chargeur plein, gratuite). Chance
+0 : aucun tirage.
+
+**Lint** : déclencheur/condition/action `Unsupported`, `Tick(0)`, `Heal ≤ 0`, pattern ou arme de
+`SpawnPattern` inconnus, jauge d'`OnGauge`/`GaugeAdd` qui n'est celle d'aucune progression ;
+progression : `per_kill ≤ 0`, `levels` vides ou non strictement croissants, `choices` hors
+`[1, pool]`, `choice_frames` 0, chance hors `[0, 1]`, mutation ou arme inconnue ; mutation :
+`weight` 0, `max_stacks` 0, `effects` vide. Fixtures `effect_unsupported`, `effect_out_of_range`,
+`progression_out_of_range`, `progression_broken_reference`, `mutation_out_of_range`.
+
+**Scénarios** : attentes `Gauge(handle, id, min, max, at_frame)`, `Level(handle, level,
+at_frame)`, `Mutations(handle, contains, count, at_frame)` ; champs `Scenario::progression` et
+`PlayerScript::mutations`. Testbed : `effect_on_damage_taken` / `effect_none` (`pilote` contre
+`dummy` : 92 contre 72 points), `effect_on_kill` (`vampire`), `effect_tick` (`tireur`, couronnes
+f122/f242/f362), `levelup_choice` (`ChoiceC` → `coriace`), `levelup_timeout` (première option à
+f704), `weapon_pool_drop` (progression `armes`).
+
+**Hors périmètre** : écran de choix (T1.16), HUD des rads (T1.18), déclencheurs et conditions v2,
+objets passifs/actifs (M2), modificateurs de projectiles (M4), pause, `--progression` dans
+`alacod-sim`.
 
 ## Notes essentielles
 

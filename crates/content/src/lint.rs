@@ -33,6 +33,9 @@ pub enum LintErrorKind {
     OutOfRange,
     /// `content_folders[].kind` n'est pas un des kinds que `content` sait charger.
     UnknownKind,
+    /// T1.10 : contrat déclaré mais pas encore exécuté (déclencheur, condition ou action
+    /// d'effet « v2 ») : refusé plutôt qu'ignoré en silence.
+    Unsupported,
 }
 
 /// Une erreur de lint : `file` et `message` forment le texte affiché par `alacod lint`
@@ -67,6 +70,8 @@ pub fn run(registry: &Registry, manifest: &GameManifest) -> Vec<LintError> {
     lint_caves(registry, &mut errors);
     lint_surfaces(registry, &mut errors);
     lint_patterns(registry, &mut errors);
+    lint_progression(registry, &mut errors);
+    lint_mutations(registry, &mut errors);
     lint_forced_variants(registry, &mut errors);
     lint_clocks(registry, manifest, &mut errors);
     lint_difficulty(registry, manifest, &mut errors);
@@ -75,9 +80,106 @@ pub fn run(registry: &Registry, manifest: &GameManifest) -> Vec<LintError> {
     errors
 }
 
+/// T1.10 (`docs/conventions.md` §27) : un effet v1. `at` situe l'effet dans le message.
+pub(crate) fn lint_effect(
+    registry: &Registry,
+    at: &str,
+    effect: &effects::Effect,
+    push: &mut impl FnMut(LintErrorKind, String),
+) {
+    use effects::runtime::{condition_supported, trigger_supported};
+    if !trigger_supported(&effect.on) {
+        push(
+            LintErrorKind::Unsupported,
+            format!(
+                "{at} : déclencheur {:?} : pas encore exécuté (v2)",
+                effect.on
+            ),
+        );
+    }
+    if effect.on == effects::On::Tick(0) {
+        push(
+            LintErrorKind::OutOfRange,
+            format!("{at} : Tick(0) : doit être > 0"),
+        );
+    }
+    // Jauges : seule celle de la progression existe en v1
+    let gauge_known = |id: &str| registry.progression.values().any(|p| p.gauge == id);
+    if let effects::On::OnGauge(id, _) = &effect.on {
+        if !gauge_known(id) {
+            push(
+                LintErrorKind::BrokenReference,
+                format!("{at} : OnGauge : jauge « {id} » inconnue (pas la jauge de `progression`)"),
+            );
+        }
+    }
+    for condition in &effect.r#if {
+        if !condition_supported(condition) {
+            push(
+                LintErrorKind::Unsupported,
+                format!("{at} : condition {condition:?} : pas encore exécutée (v2)"),
+            );
+        }
+    }
+    for action in &effect.r#do {
+        match action {
+            effects::Action::Heal(amount) if *amount <= Fixed::ZERO => push(
+                LintErrorKind::OutOfRange,
+                format!("{at} : Heal = {amount} : doit être > 0"),
+            ),
+            effects::Action::GaugeAdd(id, _) if !gauge_known(id) => push(
+                LintErrorKind::BrokenReference,
+                format!(
+                    "{at} : GaugeAdd : jauge « {id} » inconnue (pas la jauge de `progression`)"
+                ),
+            ),
+            effects::Action::SpawnPattern { pattern, weapon } => {
+                if !registry
+                    .patterns
+                    .contains_key(&registry::PatternId::from(pattern.clone()))
+                {
+                    push(
+                        LintErrorKind::BrokenReference,
+                        format!("{at} : SpawnPattern : pattern « {pattern} » inconnu"),
+                    );
+                }
+                if !registry
+                    .weapons
+                    .contains_key(&registry::WeaponId::from(weapon.clone()))
+                {
+                    push(
+                        LintErrorKind::BrokenReference,
+                        format!("{at} : SpawnPattern : arme « {weapon} » inconnue"),
+                    );
+                }
+            }
+            effects::Action::RefillAmmo
+            | effects::Action::RepairAllWindows
+            | effects::Action::KillAllWaveEnemies
+            | effects::Action::DestroyTerrain { .. } => push(
+                LintErrorKind::Unsupported,
+                format!("{at} : action {action:?} : pas exécutée dans un effet (v2)"),
+            ),
+            _ => {}
+        }
+    }
+}
+
 fn lint_characters(registry: &Registry, errors: &mut Vec<LintError>) {
     for character in registry.characters.values() {
         let file = character.file.display().to_string();
+
+        // T1.10 : effets v1
+        for (index, effect) in character.effects.iter().enumerate() {
+            let at = format!("personnage « {} » : effects[{index}]", character.id);
+            lint_effect(registry, &at, effect, &mut |kind, message| {
+                errors.push(LintError {
+                    kind,
+                    file: file.clone(),
+                    message,
+                })
+            });
+        }
 
         // T1.4 : règles de comportement (`ai.behaviors`) et ciblage.
         lint_behaviors(registry, character, errors);
@@ -956,6 +1058,14 @@ fn lint_powerups(registry: &Registry, errors: &mut Vec<LintError>) {
                     "power-up « {} » : actions[{index}] (DestroyTerrain) : réservée aux projectiles (on_hit, on_expire)",
                     powerup.id
                 )),
+                // T1.10 : actions propres aux effets du porteur
+                effects::Action::Modifier { .. }
+                | effects::Action::Heal(_)
+                | effects::Action::SpawnPattern { .. }
+                | effects::Action::GaugeAdd(..) => push(format!(
+                    "power-up « {} » : actions[{index}] : action d'effet (T1.10), pas de power-up",
+                    powerup.id
+                )),
                 _ => {}
             }
         }
@@ -1663,5 +1773,134 @@ fn lint_entry_point(registry: &Registry, manifest: &GameManifest, errors: &mut V
             message: "champ entry.mode = Floors : aucun dossier de contenu « Floors » déclaré"
                 .to_string(),
         });
+    }
+}
+
+/// T1.10 (`docs/conventions.md` §27) : `progression.ron`.
+fn lint_progression(registry: &Registry, errors: &mut Vec<LintError>) {
+    for progression in registry.progression.values() {
+        let file = progression.file.display().to_string();
+        let mut push = |kind: LintErrorKind, message: String| {
+            errors.push(LintError {
+                kind,
+                file: file.clone(),
+                message: format!("progression « {} » : {message}", progression.id),
+            })
+        };
+        if progression.gauge.is_empty() {
+            push(LintErrorKind::OutOfRange, "gauge vide".into());
+        }
+        if progression.per_kill <= Fixed::ZERO {
+            push(
+                LintErrorKind::OutOfRange,
+                format!("per_kill = {} : doit être > 0", progression.per_kill),
+            );
+        }
+        if progression.levels.is_empty() {
+            push(LintErrorKind::OutOfRange, "levels vide".into());
+        }
+        let mut previous = Fixed::ZERO;
+        for (index, level) in progression.levels.iter().enumerate() {
+            if *level <= previous {
+                push(
+                    LintErrorKind::OutOfRange,
+                    format!("levels[{index}] = {level} : seuils strictement croissants et > 0"),
+                );
+            }
+            previous = *level;
+        }
+        if progression.choice_frames == 0 {
+            push(
+                LintErrorKind::OutOfRange,
+                "choice_frames = 0 : doit être > 0".into(),
+            );
+        }
+        for id in &progression.mutations {
+            if !registry
+                .mutations
+                .contains_key(&registry::MutationId::from(id.clone()))
+            {
+                push(
+                    LintErrorKind::BrokenReference,
+                    format!("mutations : mutation « {id} » inconnue"),
+                );
+            }
+        }
+        let pool = if progression.mutations.is_empty() {
+            registry.mutations.len()
+        } else {
+            progression.mutations.len()
+        };
+        if progression.choices == 0 || progression.choices as usize > pool {
+            push(
+                LintErrorKind::OutOfRange,
+                format!(
+                    "choices = {} : doit être entre 1 et la taille du pool ({pool})",
+                    progression.choices
+                ),
+            );
+        }
+        if progression.weapon_drop_chance < Fixed::ZERO
+            || progression.weapon_drop_chance > Fixed::ONE
+        {
+            push(
+                LintErrorKind::OutOfRange,
+                format!(
+                    "weapon_drop_chance = {} : doit être dans [0, 1]",
+                    progression.weapon_drop_chance
+                ),
+            );
+        }
+        for (index, entry) in progression.weapon_pool.iter().enumerate() {
+            for weapon in &entry.weapons {
+                if !registry
+                    .weapons
+                    .contains_key(&registry::WeaponId::from(weapon.clone()))
+                {
+                    push(
+                        LintErrorKind::BrokenReference,
+                        format!("weapon_pool[{index}] : arme « {weapon} » inconnue"),
+                    );
+                }
+            }
+        }
+    }
+}
+
+/// T1.10 (`docs/conventions.md` §27) : `mutations/<id>.ron`.
+fn lint_mutations(registry: &Registry, errors: &mut Vec<LintError>) {
+    for mutation in registry.mutations.values() {
+        let file = mutation.file.display().to_string();
+        let mut push = |kind: LintErrorKind, message: String| {
+            errors.push(LintError {
+                kind,
+                file: file.clone(),
+                message,
+            })
+        };
+        let at = format!("mutation « {} »", mutation.id);
+        if mutation.weight == 0 {
+            push(
+                LintErrorKind::OutOfRange,
+                format!("{at} : weight = 0 : doit être > 0"),
+            );
+        }
+        if mutation.max_stacks == 0 {
+            push(
+                LintErrorKind::OutOfRange,
+                format!("{at} : max_stacks = 0 : doit être > 0"),
+            );
+        }
+        if mutation.effects.is_empty() {
+            push(LintErrorKind::OutOfRange, format!("{at} : effects vide"));
+        }
+        for (index, effect) in mutation.effects.iter().enumerate() {
+            lint_effect(
+                registry,
+                &format!("{at} : effects[{index}]"),
+                effect,
+                &mut push,
+            );
+        }
     }
 }

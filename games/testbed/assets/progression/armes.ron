@@ -1,0 +1,22 @@
+// T1.10 : copie de `base.ron` avec drop d'arme certain (`weapon_drop_chance: "1.0"`) et un pool
+// d'armes réduit à `shotgun` au niveau 1, pour le scénario `weapon_pool_drop`. Texte de `base.ron` ci-dessous.
+//
+// T1.10 (chantier C4 v1, docs/conventions.md §27) : progression du testbed. **Inactive** par
+// défaut (`game.ron` ne la nomme pas dans `entry.progression`) : seuls les scénarios qui
+// l'imposent (`progression: "base"`) la jouent — `levelup_choice`, `levelup_timeout`.
+// Chaque kill d'un joueur rapporte 1 rad ; niveau 1 à 2 rads, niveau 2 à 4 ; trois mutations
+// proposées, la première prise d'office après 600 frames (10 s).
+(
+    gauge: "rads",
+    per_kill: "1",
+    levels: ["2", "4"],
+    choices: 3,
+    choice_frames: 600,
+    // Pool : toutes les mutations du testbed (`mutations/`).
+    mutations: [],
+    // Rien au niveau 0 : le premier kill (niveau 0) ne laisse rien tomber.
+    weapon_pool: [
+        (level: 1, weapons: ["shotgun"]),
+    ],
+    weapon_drop_chance: "1.0",
+)
