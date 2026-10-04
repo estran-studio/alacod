@@ -203,6 +203,7 @@ un seul problème en plus de `start_map: "unused"` commun à toutes), un test pa
 | personnage | `stats.<StatId> >= 0` (T1.2) | `OutOfRange` | `out_of_range_stat` |
 | personnage | `bleedout_frames`, `revive_frames`, `weapon_slots` > 0 ; `downed_speed_mult` dans ]0, 1] | `OutOfRange` | — |
 | arme | `firing_modes.<mode>.firing_rate > 0` ; gabarit `test:` (`frames > 0`, `min_hits <= max_hits`) | `OutOfRange` | — |
+| personnage | `test:` (T1.13, §28) : `frames > 0`, au moins un gabarit (`still`/`moving`), `expect_*` seulement d'un gabarit actif | `OutOfRange` | `character_test_frames_zero`, `character_test_no_template`, `character_test_expect_inactive` |
 | arme | `ammo_type` : variante inconnue (`Laser`) | `Parse` (nomme le champ) | `ammo_type_unknown` |
 | arme | `ammo_type: Custom("")` (nom vide) (T2.8) | `OutOfRange` | `ammo_type_empty_custom` |
 | arme, corps à corps | `friendly_fire` : valeur inconnue (enum fermé `Never`/`Always`/`Cursed`) (T2.8) | `Parse` (nomme le champ) | `friendly_fire_unknown` |
@@ -1571,6 +1572,60 @@ un breacher qui traverse l'eau touche le joueur 205 frames après celui du coulo
 **v2 / hors périmètre.** Esquive (dash) et friction par surface, coût de flow field par surface,
 dangers (piques, fosses, barils, feu), neige et boue (contenu 1837), surfaces de caverne
 (`CaveConfig.surfaces`).
+
+## 28. Générateur v1 et placement scripté (T1.13, voie V3)
+
+Code : `crates/scenario/src/generate.rs` (gabarits), `scenario::runner::
+apply_scenario_character_placements` (placement), `map_ldtk::game::local::spawn_character`
+(chemin commun avec les `CharacterSpawn` de carte), `game::character::config::CharacterTest`.
+
+**Placement scripté.** `Scenario.characters: [(character: "grunt", x: "120", y: "-40",
+at_frame: 5, variant: Some("blinde"), team: Some(Allies))]` (`variant`, `team` optionnels ;
+coordonnées monde en chaînes `Fixed`). À `frame == at_frame`, dans l'ordre de déclaration, le
+personnage est créé par **le même chemin qu'un `CharacterSpawn` de carte** : net id alloué à
+cette frame, santé F5 × difficulté (§23), variante imposée ou tirée (§25), équipe du placement,
+sinon `CharacterConfig.team`, sinon `Enemies`. Système dans `GgrsSchedule`,
+`RollbackSystemSet::EnemySpawning` (comme un spawn de vague, rejoué à l'identique par un
+rollback), avec une condition d'exécution : sans placement, il ne tourne pas, aucune trace
+existante ne change. Le réenregistrement le conserve (`RecordedSettings::characters`). C'est
+l'outil qui remplace « une arène LDtk par ennemi » ; les arènes de T1.4/T1.5 restent.
+
+**`EntityRef::Placed(n)`** : le personnage créé par le placement d'index `n`. Le runner le
+retrouve par un composant d'observation `ScriptedPlacement(n)` posé à la création, **hors
+rollback** (non enregistré : ni checksum ni trace), reposé quand un rollback rejoue le
+placement. Absent avant `at_frame` (une attente qui le vise échoue).
+
+**`test:` d'un personnage** (opt-in, aucun effet en jeu) : `test: Some((frames: 600, still:
+true, moving: true, expect_still: [...], expect_moving: [...]))` (`still`/`moving` vrais par
+défaut). `make gen` écrit un scénario par gabarit actif :
+`tests/scenarios/generated/<jeu>/enemy_<id>_still.ron` et `enemy_<id>_moving.ron`.
+
+- **Gabarits** : `EnemyVsStillPlayer` (le joueur, armes de départ, ne fait rien) et
+  `EnemyVsMovingPlayer` (il marche en carré, 90 frames par côté, en boucle, sans tirer). L'ennemi
+  est placé à 200 unités à droite du **spawn du joueur** à la frame 1 ; le spawn est lu par une
+  sonde d'une frame (`discover_enemy_probe`).
+- **Attentes par défaut** (liste vide) : immobile → moment clé `Event(kind: "hit", "joueur 0
+  touché")` avant la dernière frame (cumulatif : la santé du joueur se régénère, la fiche
+  proposait `Health` à la dernière frame, qui ne prouvait rien — constaté sur `charger`) et
+  `EnemyNeverInWall(Placed(0))` ; mobile →
+  `PlayerAlive` à la dernière frame et `EnemyNeverInWall(Placed(0))`. Une liste explicite
+  **remplace** les attentes par défaut de son gabarit (viser l'ennemi : `Placed(0)`).
+- **Où** : les gabarits ennemis jouent dans le jeu énuméré lui-même (le registre du testbed n'a
+  pas les personnages des autres jeux) : `testbed/arena.ldtk` pour le testbed,
+  `exemples/test_map.ldtk` pour `zombies`, sinon `entry.start_map`. Jeu en mode `Waves` :
+  `wave_overrides.grace_period_frames = frames + 1`, aucune vague ne s'ajoute à l'ennemi testé.
+
+**`generate_template`** (manifeste, ajout de l'orchestrateur pour `games/throne`) :
+`generate_template: (map: "maps/salle.ldtk", target: "cible")`. S'il est présent, les gabarits
+d'armes **et** d'ennemis du jeu jouent dans ce jeu, sur `map` ; sinon le testbed comme avant
+(`zombies` et `testbed` ne déclarent rien : leurs scénarios générés ne changent pas). Les inputs
+du gabarit d'arme (visée, marche de la mêlée) sont réglés sur l'arène du testbed : la carte place
+la cible (`target`, `counts_hits: true`) au même décalage du spawn du joueur, +128 et −48 en
+coordonnées LDtk. Lint : carte connue, cible connue avec `counts_hits: true`
+(`generate_template_unknown_map`, `generate_template_target_without_hits`).
+
+**Hors périmètre** : gabarits par statut (T1.3 absente de main), vidéos des gabarits,
+génération de cartes, bots dans les gabarits.
 
 ## Notes essentielles
 

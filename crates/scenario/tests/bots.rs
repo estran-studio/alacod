@@ -34,6 +34,7 @@ fn two_fonceurs(frames: u32) -> Scenario {
         floors: None,
         clocks: None,
         difficulty: None,
+        characters: vec![],
     }
 }
 

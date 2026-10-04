@@ -55,4 +55,7 @@
             Shoot(weapon: "fireball_gun", pattern: "ring_8", range: "260.0", cooldown_frames: 90),
         ]),
     )),
+    // T1.13 (`docs/conventions.md` §28) : scénarios générés `enemy_<id>_still`/`_moving`
+    // (`make gen`), attentes par défaut.
+    test: Some((frames: 600)),
 )

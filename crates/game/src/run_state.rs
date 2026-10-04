@@ -539,6 +539,7 @@ mod tests {
                 clocks: None,
                 difficulty: None,
             },
+            generate_template: None,
         }
     }
 

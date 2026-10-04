@@ -654,3 +654,42 @@ fn difficulty_non_positive_fixture_reports_value() {
     let (_, _, errors) = load_and_lint(&fixture_dir("difficulty_non_positive")).unwrap();
     assert_has_error(&errors, LintErrorKind::OutOfRange, "doit être > 0");
 }
+
+#[test]
+fn character_test_frames_zero_fixture_reports_frames() {
+    let (_, _, errors) = load_and_lint(&fixture_dir("character_test_frames_zero")).unwrap();
+    assert_has_error(&errors, LintErrorKind::OutOfRange, "test.frames = 0");
+}
+
+#[test]
+fn character_test_no_template_fixture_reports_templates() {
+    let (_, _, errors) = load_and_lint(&fixture_dir("character_test_no_template")).unwrap();
+    assert_has_error(&errors, LintErrorKind::OutOfRange, "aucun gabarit actif");
+}
+
+#[test]
+fn character_test_expect_inactive_fixture_reports_template() {
+    let (_, _, errors) = load_and_lint(&fixture_dir("character_test_expect_inactive")).unwrap();
+    assert_has_error(
+        &errors,
+        LintErrorKind::OutOfRange,
+        "expect_moving sans gabarit moving",
+    );
+}
+
+#[test]
+fn generate_template_unknown_map_fixture_reports_map() {
+    let (_, _, errors) = load_and_lint(&fixture_dir("generate_template_unknown_map")).unwrap();
+    assert_has_error(
+        &errors,
+        LintErrorKind::BrokenReference,
+        "generate_template.map",
+    );
+}
+
+#[test]
+fn generate_template_target_without_hits_fixture_reports_counts_hits() {
+    let (_, _, errors) =
+        load_and_lint(&fixture_dir("generate_template_target_without_hits")).unwrap();
+    assert_has_error(&errors, LintErrorKind::BrokenReference, "counts_hits: true");
+}

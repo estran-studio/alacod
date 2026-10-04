@@ -12,6 +12,10 @@ pub enum EntityRef {
     /// l'arène du testbed. Sert au `test.expect` d'une arme, où le `GgrsNetId` de `target`
     /// dépend de l'arme (voir `scenario::generate`).
     Target,
+    /// Le personnage créé par le placement scripté d'index `n` de `Scenario::characters`
+    /// (T1.13, `docs/conventions.md` §28) : sert au `test:` d'un personnage, dont le
+    /// `GgrsNetId` dépend du gabarit (voir `scenario::generate`). Absent avant `at_frame`.
+    Placed(usize),
 }
 
 /// Catégorie d'entités pour `EntityCount`.

@@ -13,6 +13,30 @@ use crate::{
 
 use super::health::HealthConfig;
 
+/// `test:` d'un personnage (T1.13) : `(frames: 600, still: true, moving: true, expect_still:
+/// [...], expect_moving: [...])`. Un gabarit actif sans attente explicite reçoit les attentes
+/// par défaut (voir `scenario::generate::enemy_default_expectations`). Validé par
+/// `content::lint` (`frames > 0`, au moins un gabarit, attentes seulement d'un gabarit actif).
+#[derive(Debug, Deserialize, Clone, PartialEq)]
+pub struct CharacterTest {
+    /// Durée de chaque scénario généré.
+    pub frames: u32,
+    /// Gabarit joueur immobile (défaut vrai).
+    #[serde(default = "enabled")]
+    pub still: bool,
+    /// Gabarit joueur mobile (défaut vrai).
+    #[serde(default = "enabled")]
+    pub moving: bool,
+    #[serde(default)]
+    pub expect_still: Vec<combat::weapons::expectations::Expectation>,
+    #[serde(default)]
+    pub expect_moving: Vec<combat::weapons::expectations::Expectation>,
+}
+
+fn enabled() -> bool {
+    true
+}
+
 #[derive(Debug, Deserialize, Clone)]
 pub struct CharacterSkin {
     pub layers: HashMap<String, String>,
@@ -87,6 +111,12 @@ pub struct CharacterConfig {
     /// existant.
     #[serde(default)]
     pub counts_hits: bool,
+
+    /// Scénarios générés de ce personnage (T1.13, `docs/conventions.md` §28, gabarits
+    /// `EnemyVsStillPlayer`/`EnemyVsMovingPlayer` de `scenario::generate`). Aucun effet en jeu ;
+    /// `None` : pas de scénario généré.
+    #[serde(default)]
+    pub test: Option<CharacterTest>,
 
     /// Surcharges de stats (T1.2, chantier B2) : appliquées par-dessus les valeurs de base
     /// dérivées des champs ci-dessus (voir `character::create::create_character`), qui

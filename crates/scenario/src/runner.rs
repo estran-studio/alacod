@@ -38,7 +38,8 @@ use utils::frame::FrameCount;
 use game::global_asset::GlobalAsset;
 use game::powerups::{spawn_powerup_pickup, PowerUpPickup, PowerUpsConfig};
 use game::replay::{
-    Expectation, ModifierSpec, PowerUpPlacement, RunStepExpectation, Scenario, WaveOverride,
+    CharacterPlacement, Expectation, ModifierSpec, PowerUpPlacement, RunStepExpectation, Scenario,
+    WaveOverride,
 };
 use game::weapons::melee::{self, MeleeWeapon, MeleeWeaponsConfig};
 use game::weapons::{spawn_weapon_for_player, Weapon, WeaponInventory, WeaponsConfig};
@@ -209,6 +210,18 @@ pub fn build_app(scenario: &Scenario, headless: bool, config: &PlayConfig) -> Ap
             apply_scenario_powerup_placements
                 .before(game::powerups::powerup_pickup_detect_system)
                 .in_set(game::system_set::RollbackSystemSet::Effects),
+        )
+        // T1.13 : placements scriptés de personnages (voir la doc de
+        // `apply_scenario_character_placements`).
+        .insert_resource(ScenarioCharacterPlacements(scenario.characters.clone()))
+        .add_systems(
+            GgrsSchedule,
+            apply_scenario_character_placements
+                .run_if(|placements: Res<ScenarioCharacterPlacements>| !placements.0.is_empty())
+                // Après les spawns du jeu de la même frame (ordre des net ids déterministe).
+                .after(game::waves::systems::wave_spawning_system)
+                .after(game::character::enemy::spawning::enemy_spawn_from_spawners_system)
+                .in_set(game::system_set::RollbackSystemSet::EnemySpawning),
         )
         .insert_resource(PlayerOverrides(
             scenario
@@ -451,6 +464,51 @@ fn apply_powerup_drop_chance_override(
 
 #[derive(Resource)]
 struct ScenarioPowerUpPlacements(Vec<PowerUpPlacement>);
+
+#[derive(Resource)]
+struct ScenarioCharacterPlacements(Vec<CharacterPlacement>);
+
+/// Index (dans `Scenario::characters`) du placement qui a créé ce personnage, pour
+/// `EntityRef::Placed`. Composant d'observation, **hors rollback** (non enregistré, donc hors
+/// checksum et hors trace) : reposé à l'identique quand un rollback rejoue le placement.
+#[derive(Component)]
+struct ScriptedPlacement(usize);
+
+/// Placements scriptés de personnages (T1.13, `Scenario::characters`, `docs/conventions.md`
+/// §28) : à `frame == at_frame`, dans l'ordre de déclaration, crée le personnage par le chemin
+/// des `CharacterSpawn` de carte (`map_ldtk::game::local::spawn_character`). Dans
+/// `GgrsSchedule`, `RollbackSystemSet::EnemySpawning`, comme un spawn de vague : rejoué à
+/// l'identique après un rollback (le net id est alloué à cette frame). Sans placement, le
+/// système ne tourne pas (condition d'exécution).
+fn apply_scenario_character_placements(
+    frame: Res<FrameCount>,
+    placements: Res<ScenarioCharacterPlacements>,
+    assets: map_ldtk::game::local::LevelSpawnAssets,
+    mut commands: Commands,
+    mut id_factory: ResMut<GgrsNetIdFactory>,
+) {
+    for (index, placement) in placements
+        .0
+        .iter()
+        .enumerate()
+        .filter(|(_, p)| p.at_frame == frame.frame)
+    {
+        let position = fixed_math::FixedVec3::new(placement.x, placement.y, fixed_math::FIXED_ZERO);
+        let spawned = map_ldtk::game::local::spawn_character(
+            &mut commands,
+            &assets,
+            &mut id_factory,
+            &placement.character,
+            position,
+            placement.team,
+            placement.variant.as_deref(),
+            assets.difficulty.current(),
+        );
+        if let Some(entity) = spawned {
+            commands.entity(entity).insert(ScriptedPlacement(index));
+        }
+    }
+}
 
 /// Placements scriptés de power-ups (T2.5, `Scenario::powerups`) : fait apparaître un
 /// power-up à une position et une frame exactes, sans dépendre d'une carte LDtk ni du
@@ -1305,6 +1363,9 @@ fn check(world: &mut World, expectation: &Expectation) -> Result<(), String> {
             let found = match entity {
                 game::replay::EntityRef::NetId(net_id) => entity_hit_count(world, *net_id),
                 game::replay::EntityRef::Target => target_hit_count(world),
+                placed @ game::replay::EntityRef::Placed(_) => resolve_entity(world, placed)
+                    .and_then(|entity| world.get::<GgrsNetId>(entity).map(|id| id.0))
+                    .and_then(|net_id| entity_hit_count(world, net_id)),
             };
             let Some(found) = found else {
                 return Err("entité absente ou sans compteur de coups (HitCount)".into());
@@ -1975,6 +2036,12 @@ fn resolve_entity(world: &mut World, entity: &game::replay::EntityRef) -> Option
             .iter(world)
             .min_by_key(|(_, id)| id.0)
             .map(|(entity, _)| entity),
+        game::replay::EntityRef::Placed(index) => world
+            .query_filtered::<(Entity, &GgrsNetId, &ScriptedPlacement), With<Rollback>>()
+            .iter(world)
+            .filter(|(_, _, placement)| placement.0 == *index)
+            .min_by_key(|(_, id, _)| id.0)
+            .map(|(entity, _, _)| entity),
     }
 }
 

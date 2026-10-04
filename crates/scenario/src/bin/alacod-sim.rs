@@ -202,6 +202,7 @@ fn main() {
             floors: floors.clone(),
             clocks: None,
             difficulty: None,
+            characters: vec![],
         };
 
         let stop_early = StopEarly {

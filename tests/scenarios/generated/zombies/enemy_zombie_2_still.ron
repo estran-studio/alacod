@@ -1,0 +1,39 @@
+// Généré par `alacod-gen`, ne pas éditer à la main (crates/scenario/src/generate.rs).
+// Gabarit EnemyVsStillPlayer (T1.13) : « zombie_2 » est placé à 200 unités à
+// droite du joueur (frame 1) ; le joueur ne fait rien.
+#![enable(implicit_some)]
+Scenario(
+    game: "zombies",
+    map: "exemples/test_map.ldtk",
+    map_seed: 123456,
+    frames: 600,
+    players: [
+        PlayerScript(
+            inputs: [],
+        ),
+    ],
+    expect: [
+        Event(
+            kind: "hit",
+            label_contains: "joueur 0 touché",
+            by_frame: 600,
+        ),
+        EnemyNeverInWall(
+            entity: Placed(0),
+            from: 2,
+            to: 600,
+        ),
+    ],
+    wave_overrides: WaveOverride(
+        grace_period_frames: 601,
+    ),
+    powerup_drop_chance_override: "0",
+    characters: [
+        CharacterPlacement(
+            character: "zombie_2",
+            x: "624",
+            y: "696",
+            at_frame: 1,
+        ),
+    ],
+)

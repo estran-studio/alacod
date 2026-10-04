@@ -68,9 +68,11 @@ pub fn run(registry: &Registry, manifest: &GameManifest) -> Vec<LintError> {
     lint_surfaces(registry, &mut errors);
     lint_patterns(registry, &mut errors);
     lint_forced_variants(registry, &mut errors);
+    lint_character_tests(registry, &mut errors);
     lint_clocks(registry, manifest, &mut errors);
     lint_difficulty(registry, manifest, &mut errors);
     lint_entry_point(registry, manifest, &mut errors);
+    lint_generate_template(registry, manifest, &mut errors);
 
     errors
 }
@@ -642,6 +644,35 @@ fn lint_weapon_test(
                     test.min_hits, max_hits
                 ),
             });
+        }
+    }
+}
+
+/// `test:` d'un personnage (T1.13, `docs/conventions.md` §28) : `frames > 0`, au moins un
+/// gabarit actif (`still`/`moving`), attentes explicites seulement pour un gabarit actif.
+fn lint_character_tests(registry: &Registry, errors: &mut Vec<LintError>) {
+    for character in registry.characters.values() {
+        let Some(test) = character.test else {
+            continue;
+        };
+        let mut push = |message: String| {
+            errors.push(LintError {
+                kind: LintErrorKind::OutOfRange,
+                file: character.file.display().to_string(),
+                message: format!("personnage « {} » : {message}", character.id),
+            });
+        };
+        if test.frames == 0 {
+            push("champ test.frames = 0 : doit être > 0".to_string());
+        }
+        if !test.still && !test.moving {
+            push("test : aucun gabarit actif (still et moving faux)".to_string());
+        }
+        if !test.still && test.expect_still > 0 {
+            push("test.expect_still sans gabarit still actif".to_string());
+        }
+        if !test.moving && test.expect_moving > 0 {
+            push("test.expect_moving sans gabarit moving actif".to_string());
         }
     }
 }
@@ -1623,6 +1654,47 @@ fn lint_surfaces(registry: &Registry, errors: &mut Vec<LintError>) {
                 "tags vide : au moins un tag".into(),
             );
         }
+    }
+}
+
+/// `generate_template` (T1.13, `docs/conventions.md` §28) : carte connue, cible connue qui
+/// compte les coups (`counts_hits: true`).
+fn lint_generate_template(
+    registry: &Registry,
+    manifest: &GameManifest,
+    errors: &mut Vec<LintError>,
+) {
+    let Some(template) = &manifest.generate_template else {
+        return;
+    };
+    let mut push = |message: String| {
+        errors.push(LintError {
+            kind: LintErrorKind::BrokenReference,
+            file: crate::manifest::MANIFEST_FILE_NAME.to_string(),
+            message,
+        });
+    };
+    let map_id = registry::map_id_from_path(&template.map);
+    if !registry.maps.contains_key(&map_id) {
+        push(format!(
+            "champ generate_template.map = « {} » : aucune carte chargée avec cet id (« {map_id} »)",
+            template.map
+        ));
+    }
+    match registry
+        .characters
+        .values()
+        .find(|character| character.id.as_str() == template.target)
+    {
+        None => push(format!(
+            "champ generate_template.target = « {} » : personnage inconnu",
+            template.target
+        )),
+        Some(character) if !character.counts_hits => push(format!(
+            "champ generate_template.target = « {} » : le personnage doit déclarer counts_hits: true",
+            template.target
+        )),
+        Some(_) => {}
     }
 }
 

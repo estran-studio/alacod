@@ -210,6 +210,20 @@ pub struct CharacterEntry {
     /// T1.5 : table de variantes (`variants`), dans l'ordre du fichier (doublons gardés pour
     /// la règle « nom en double »).
     pub variants: Option<VariantsEntry>,
+    /// T1.13 : `test:` (scénarios générés), pour `lint_character_test`.
+    pub test: Option<CharacterTestEntry>,
+    /// T1.13 : `counts_hits`, pour la cible de `generate_template`.
+    pub counts_hits: bool,
+}
+
+/// T1.13 : mirroir de `game::character::config::CharacterTest` (attentes comptées).
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub struct CharacterTestEntry {
+    pub frames: u32,
+    pub still: bool,
+    pub moving: bool,
+    pub expect_still: usize,
+    pub expect_moving: usize,
 }
 
 /// T1.5 : mirroir de `game::character::variant::VariantsConfig`.
@@ -929,6 +943,31 @@ struct CharacterFileSchema {
     /// T1.5 : variantes et élites.
     #[serde(default)]
     variants: Option<VariantsSchema>,
+    /// T1.13 : scénarios générés du personnage.
+    #[serde(default)]
+    test: Option<CharacterTestSchema>,
+    /// T1.13 : cible de `generate_template` (règle « `counts_hits` »).
+    #[serde(default)]
+    counts_hits: bool,
+}
+
+/// Mirroir RON de `game::character::config::CharacterTest` (comme `WeaponTestSchema`) : les
+/// attentes ne sont que comptées (`content` ne type pas `Expectation`).
+#[derive(Deserialize)]
+struct CharacterTestSchema {
+    frames: u32,
+    #[serde(default = "default_true")]
+    still: bool,
+    #[serde(default = "default_true")]
+    moving: bool,
+    #[serde(default)]
+    expect_still: Vec<serde::de::IgnoredAny>,
+    #[serde(default)]
+    expect_moving: Vec<serde::de::IgnoredAny>,
+}
+
+fn default_true() -> bool {
+    true
 }
 
 #[derive(Deserialize)]
@@ -1373,6 +1412,14 @@ fn load_characters(
                     chance: variants.chance,
                     table: variants.table.0,
                 }),
+                test: parsed.test.map(|test| CharacterTestEntry {
+                    frames: test.frames,
+                    still: test.still,
+                    moving: test.moving,
+                    expect_still: test.expect_still.len(),
+                    expect_moving: test.expect_moving.len(),
+                }),
+                counts_hits: parsed.counts_hits,
             },
         );
     }
