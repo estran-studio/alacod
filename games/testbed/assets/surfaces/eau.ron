@@ -1,0 +1,2 @@
+// T1.7 : eau peu profonde (couche LDtk `Surfaces`, valeur 1) : vitesse ×0,5.
+(intgrid_value: 1, tags: ["eau"], move_speed: "0.5")

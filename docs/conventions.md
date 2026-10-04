@@ -1187,7 +1187,9 @@ coordonnées de grille ci-dessus ; échoue hors de la grille (donc toujours hors
 **Présentation.** Le gabarit n'a pas de tuiles : un carré par case solide est dessiné depuis
 `CellGrid` (`cave_cells_visual_system`, rendu seulement), reconstruit quand la grille change.
 
-**Limites.** Pas de surfaces ni de tags de cases (T1.7), pas de bots sur caverne (T1.14). Dans
+**Surfaces** : couche séparée `world::SurfaceGrid` (§26), indépendante de `CellGrid`.
+
+**Limites.** Pas de surfaces de caverne (v2 de §26), pas de bots sur caverne (T1.14). Dans
 le testbed (pas de vagues), une caverne sans `characters` n'a pas d'ennemi : son portail
 `Floors` s'ouvre aussitôt.
 
@@ -1269,6 +1271,57 @@ d'un pixel gagne, et le zombie glisse hors du coin avant que le champ ne reprenn
 réintroduisait le mur ; le mouvement conserve vitesse, séparation et collision
 ordinaires. Le délai dépend des compteurs existants de `WaveState`, sans état caché
 ou nouveau type rollback.
+
+## 26. Surfaces (T1.7, chantier E4 v1)
+
+Code : `world::surface` (grille, table, traduction), `game::character::surface` (système),
+`map_ldtk::game::collider::surface_grid_of_levels` (lecture LDtk), `map_ldtk::loader::surface_table`.
+
+**Contenu.** Kind de dossier `Surface` (`content::registry::SurfaceEntry`) : un fichier RON par
+surface, id = nom de fichier sans extension.
+```ron
+// games/testbed/assets/surfaces/eau.ron — game.ron : (path: "surfaces", kind: "Surface")
+(intgrid_value: 1, tags: ["eau"], move_speed: "0.5")
+// glace : (intgrid_value: 3, tags: ["glace"], move_speed: "1.0", acceleration: Some("0.2"))
+```
+`move_speed` et `acceleration` (défaut `1.0`) sont des **facteurs abstraits** (`ModifierOp::Mul`)
+traduits selon le personnage : joueur → `MoveSpeed` et `Acceleration` ; ennemi au sol →
+`EnemyMoveSpeed` (pas d'accélération) ; ennemi volant (`MovementType::Flying`) → rien. Un facteur
+`1` ne pose aucun modificateur. Lint (`content::lint::lint_surfaces`) : `intgrid_value` > 0 et
+unique (`DuplicateId`), facteurs > 0, tags non vides (fixtures `surface_duplicate_value`,
+`surface_factor_non_positive`).
+
+**Source v1 : LDtk.** Couche IntGrid optionnelle **`Surfaces`** d'une carte (valeur IntGrid =
+`intgrid_value`, 0 = pas de surface), lue avec les murs (chargement et passage de niveau
+`Floors`). Une carte sans la couche laisse la grille vide. Cavernes avec surfaces : v2.
+
+**Grille.** `world::SurfaceGrid` : **creuse** (`BTreeMap<(i32, i32), SurfaceId>`), en cases de
+grille monde de 16 (+y vers le haut, même découpage que `CellGrid` mais sans origine imposée :
+une carte LDtk est placée n'importe où, alignée sur 16 depuis m0-v7). `SurfaceId` = valeur
+IntGrid (`u8` non nul) ; `world::SurfaceTable` (hors rollback, posée au chargement depuis le
+registre) donne la définition. Ressource rollback, checksum **neutre** (vide = 0) : traces des
+cartes sans surface inchangées. Indépendante de `CellGrid` (une case de roche creusée garde sa
+surface, ou n'en a aucune).
+
+**Application** (`surface_modifiers_system`, `RollbackSystemSet::Input`, avant `apply_inputs`,
+`order_mut_iter!`) : case sous les pieds = centre du collider avec son offset. Les
+modificateurs de source `ModifierSource::Named("surface")` présents sont comparés aux
+modificateurs voulus pour cette case ; s'ils diffèrent, `remove_by_source` puis pose, **sans
+`until`** ; sinon rien n'est écrit. Effet dans la frame, aucun état nouveau (`Modifiers` est
+déjà rollback). Carte sans surface : le système ne fait que retirer d'éventuels restes (joueur
+venu d'un niveau `Floors` à surfaces) ; un personnage hors surface n'est jamais touché.
+
+**Attente** `CellState(x, y, surface: "eau", at_frame)` : nom de la surface de la case (`"aucune"`
+= sans surface). `kind` y est optionnel (au moins un des deux).
+
+**Scénarios** (testbed) : `surface_walk` (couloir à bandes eau / sable / glace de
+`testbed/surfaces.ldtk` : 1,25 et 2,0 px/frame contre 2,5), `surface_none` (couloir nu, même
+input), `surface_ice` (glissade au demi-tour), `surface_enemy` (`testbed/surfaces_enemy.ldtk` :
+un breacher qui traverse l'eau touche le joueur 205 frames après celui du couloir nu).
+
+**v2 / hors périmètre.** Esquive (dash) et friction par surface, coût de flow field par surface,
+dangers (piques, fosses, barils, feu), neige et boue (contenu 1837), surfaces de caverne
+(`CaveConfig.surfaces`).
 
 ## Notes essentielles
 

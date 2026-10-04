@@ -23,17 +23,21 @@ pub fn create_wall_colliders_from_ldtk(
     mut id_factory: ResMut<GgrsNetIdFactory>,
     mut flow_field_cache: ResMut<FlowFieldCache>,
     slots: FloorSlots,
+    mut surfaces: ResMut<world::SurfaceGrid>,
 ) {
+    let level_data: Vec<_> = levels
+        .iter()
+        .filter(|(entity, _, _)| slots.slot_of(*entity) == 0)
+        .filter_map(|(entity, iid, transform)| {
+            let project = project_assets.get(projects.get(slots.world_of(entity)?).ok()?)?;
+            Some((iid, transform, project))
+        })
+        .collect();
+    // T1.7 : surfaces de la carte (vide sans couche `Surfaces`, remise à zéro à chaque partie)
+    *surfaces = surface_grid_of_levels(&level_data);
     spawn_level_walls(
         &mut commands,
-        levels
-            .iter()
-            .filter(|(entity, _, _)| slots.slot_of(*entity) == 0)
-            .filter_map(|(entity, iid, transform)| {
-                let project = project_assets.get(projects.get(slots.world_of(entity)?).ok()?)?;
-                Some((iid, transform, project))
-            })
-            .collect(),
+        level_data,
         &collision_settings,
         &mut id_factory,
         &mut flow_field_cache,
@@ -113,6 +117,42 @@ pub(crate) fn spawn_level_walls(
             flow_field_cache.intgrid_wall_cells.len()
         );
     }
+}
+
+/// Surfaces des niveaux donnés (T1.7, `docs/conventions.md` §26) : couche IntGrid optionnelle
+/// `Surfaces`, valeur non nulle = `SurfaceId`, en cases de grille monde (le niveau est aligné
+/// sur la grille de 16 depuis m0-v7 : `translation / 16` exact, y retourné comme les murs).
+/// Un niveau sans la couche n'ajoute rien.
+pub(crate) fn surface_grid_of_levels(
+    levels: &[(&LevelIid, &Transform, &LdtkProject)],
+) -> world::SurfaceGrid {
+    let mut grid = world::SurfaceGrid::default();
+    for (level_iid, level_transform, project) in levels {
+        let Some(layer) = project
+            .get_raw_level_by_iid(&level_iid.to_string())
+            .and_then(|level| level.layer_instances.as_ref())
+            .and_then(|layers| {
+                layers
+                    .iter()
+                    .find(|l| l.identifier == world::surface::LAYER_SURFACES)
+            })
+        else {
+            continue;
+        };
+        let size = layer.grid_size;
+        let (w, h) = (layer.c_wid, layer.c_hei);
+        let origin_x = (level_transform.translation.x as i32).div_euclid(size);
+        let origin_y = (level_transform.translation.y as i32).div_euclid(size);
+        for (i, &value) in layer.int_grid_csv.iter().enumerate() {
+            if value <= 0 || value > u8::MAX as i32 {
+                continue;
+            }
+            let (x, row) = (i as i32 % w, i as i32 / w);
+            grid.cells
+                .insert((origin_x + x, origin_y + h - 1 - row), value as u8);
+        }
+    }
+    grid
 }
 
 /// Murs d'une caverne recréés depuis `world::CellGrid` après une destruction (T1.6) : même

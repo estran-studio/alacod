@@ -64,6 +64,7 @@ pub fn run(registry: &Registry, manifest: &GameManifest) -> Vec<LintError> {
     lint_sprite_sheets(registry, &mut errors);
     lint_floors(registry, &mut errors);
     lint_caves(registry, &mut errors);
+    lint_surfaces(registry, &mut errors);
     lint_patterns(registry, &mut errors);
     lint_entry_point(registry, manifest, &mut errors);
 
@@ -1268,6 +1269,52 @@ fn lint_caves(registry: &Registry, errors: &mut Vec<LintError>) {
                     cave.id, cave.template
                 ),
             });
+        }
+    }
+}
+
+/// T1.7 : `intgrid_value` unique et > 0, facteurs > 0, tags non vides.
+fn lint_surfaces(registry: &Registry, errors: &mut Vec<LintError>) {
+    let mut values: BTreeMap<u8, &registry::SurfaceName> = BTreeMap::new();
+    for surface in registry.surfaces.values() {
+        let file = surface.file.display().to_string();
+        let mut push = |kind: LintErrorKind, message: String| {
+            errors.push(LintError {
+                kind,
+                file: file.clone(),
+                message: format!("surface « {} » : {message}", surface.id),
+            })
+        };
+        if surface.intgrid_value == 0 {
+            push(
+                LintErrorKind::OutOfRange,
+                "intgrid_value = 0 : doit être > 0 (0 = case sans surface)".into(),
+            );
+        } else if let Some(other) = values.insert(surface.intgrid_value, &surface.id) {
+            push(
+                LintErrorKind::DuplicateId,
+                format!(
+                    "intgrid_value = {} : déjà prise par la surface « {other} »",
+                    surface.intgrid_value
+                ),
+            );
+        }
+        for (name, factor) in [
+            ("move_speed", surface.move_speed),
+            ("acceleration", surface.acceleration),
+        ] {
+            if factor <= Fixed::ZERO {
+                push(
+                    LintErrorKind::OutOfRange,
+                    format!("{name} = {factor} : doit être > 0"),
+                );
+            }
+        }
+        if surface.tags.is_empty() {
+            push(
+                LintErrorKind::OutOfRange,
+                "tags vide : au moins un tag".into(),
+            );
         }
     }
 }

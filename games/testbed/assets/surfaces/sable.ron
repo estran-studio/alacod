@@ -1,0 +1,2 @@
+// T1.7 : sable (couche LDtk `Surfaces`, valeur 2) : vitesse ×0,8.
+(intgrid_value: 2, tags: ["sable"], move_speed: "0.8")

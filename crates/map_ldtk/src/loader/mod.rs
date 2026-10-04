@@ -22,6 +22,23 @@ use world::CaveConfig;
 #[derive(Resource, Debug, Clone, Default)]
 pub struct CaveSlots(pub BTreeMap<usize, (i32, CaveConfig)>);
 
+/// Table des surfaces (T1.7) depuis le registre de contenu : `intgrid_value` → définition.
+pub fn surface_table(registry: Option<&Registry>) -> world::SurfaceTable {
+    let mut table = world::SurfaceTable::default();
+    for surface in registry.iter().flat_map(|r| r.surfaces.values()) {
+        table.0.insert(
+            surface.intgrid_value,
+            world::SurfaceDef {
+                name: surface.id.to_string(),
+                tags: surface.tags.clone(),
+                move_speed: surface.move_speed,
+                acceleration: surface.acceleration,
+            },
+        );
+    }
+    table
+}
+
 /// Config de **chargement** d'une carte de la partie : une désignation `cave:<id>`
 /// (`docs/conventions.md` §21) devient le gabarit LDtk de la caverne et le mode
 /// `Cave(config)` ; toute autre carte garde `base.mode`. La ressource `MapGenerationConfig`
@@ -170,6 +187,8 @@ pub fn setup_generated_map(
     plan: Option<Res<FloorPlan>>,
     registry: Option<Res<Registry>>,
 ) {
+    // T1.7 : table des surfaces du jeu (valeur IntGrid → définition), hors rollback
+    commands.insert_resource(surface_table(registry.as_deref()));
     let mut caves = CaveSlots::default();
     let Some(plan) = plan else {
         let (load, cave) = resolve_map_config(&config, &config.map_path, registry.as_deref());

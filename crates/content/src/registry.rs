@@ -107,6 +107,10 @@ string_id!(
     CaveId
 );
 string_id!(
+    /// Identifiant d'une surface (T1.7, kind `Surface`) : nom de fichier sans extension.
+    SurfaceName
+);
+string_id!(
     /// Identifiant d'un pattern nommé (T1.2, kind `Pattern`) : nom de fichier sans extension
     /// (`patterns/<nom>.ron`), référencé par `ranged.pattern` d'un personnage et par
     /// `Named("<nom>")` dans un pattern.
@@ -413,6 +417,28 @@ pub struct CaveEntry {
     pub template: String,
 }
 
+/// Surface (T1.7, `docs/conventions.md` §26), un fichier RON par surface (`surfaces/<id>.ron`) :
+/// `(intgrid_value: 1, tags: ["eau"], move_speed: "0.5", acceleration: Some("1.0"))`. Facteurs
+/// abstraits (`Mul`) traduits vers la stat du personnage par `world::surface`.
+#[derive(Debug, Clone)]
+pub struct SurfaceEntry {
+    pub id: SurfaceName,
+    pub file: PathBuf,
+    pub intgrid_value: u8,
+    pub tags: Vec<String>,
+    pub move_speed: Fixed,
+    pub acceleration: Fixed,
+}
+
+#[derive(Debug, Clone, Deserialize)]
+struct SurfaceFileSchema {
+    intgrid_value: u8,
+    tags: Vec<String>,
+    move_speed: FixedField,
+    #[serde(default)]
+    acceleration: Option<FixedField>,
+}
+
 #[derive(Debug, Clone, Deserialize)]
 struct FloorsFileSchema {
     levels: Vec<String>,
@@ -514,6 +540,8 @@ pub struct Registry {
     pub floors: BTreeMap<FloorsConfigId, FloorsEntry>,
     /// T1.6 : cavernes générées (kind `Cave`).
     pub caves: BTreeMap<CaveId, CaveEntry>,
+    /// T1.7 : surfaces (kind `Surface`).
+    pub surfaces: BTreeMap<SurfaceName, SurfaceEntry>,
     /// T1.2 : patterns nommés (kind `Pattern`).
     pub patterns: BTreeMap<PatternId, PatternFileEntry>,
     /// T2.3, chantier C5 v1.
@@ -559,6 +587,7 @@ pub const KNOWN_KIND_NAMES: &[&str] = &[
     "SpriteSheet",
     "Floors",
     "Cave",
+    "Surface",
     "Pattern",
 ];
 
@@ -617,6 +646,7 @@ impl Registry {
                 "SpriteSheet" => load_sprite_sheets(&assets_dir, decl, &mut registry, &mut errors),
                 "Floors" => load_floors(&assets_dir, decl, &mut registry, &mut errors),
                 "Cave" => load_caves(&assets_dir, decl, &mut registry, &mut errors),
+                "Surface" => load_surfaces(&assets_dir, decl, &mut registry, &mut errors),
                 "Pattern" => load_patterns(&assets_dir, decl, &mut registry, &mut errors),
                 _ => unreachable!("filtré par `kinds.has` ci-dessus"),
             }
@@ -1537,6 +1567,73 @@ fn load_caves(
                 file: rel,
                 config,
                 template: template.clone(),
+            },
+        );
+    }
+}
+
+/// T1.7 : mêmes règles que [`load_waves`] (id = nom de fichier sans extension).
+fn load_surfaces(
+    assets_dir: &Path,
+    decl: &ContentFolderDecl,
+    registry: &mut Registry,
+    errors: &mut Vec<LintError>,
+) {
+    let files = match discover_files(assets_dir, decl, "ron") {
+        Ok(f) => f,
+        Err(e) => {
+            errors.push(e);
+            return;
+        }
+    };
+    for rel in files {
+        let text = match read_file(assets_dir, &rel) {
+            Ok(t) => t,
+            Err(e) => {
+                errors.push(e);
+                continue;
+            }
+        };
+        let parsed: SurfaceFileSchema = match ron::Options::default()
+            .with_default_extension(ron::extensions::Extensions::IMPLICIT_SOME)
+            .from_str(&text)
+        {
+            Ok(p) => p,
+            Err(e) => {
+                errors.push(LintError {
+                    kind: LintErrorKind::Parse,
+                    file: rel.display().to_string(),
+                    message: format!("erreur RON : {e}"),
+                });
+                continue;
+            }
+        };
+        let id = SurfaceName::from(
+            rel.file_stem()
+                .and_then(|s| s.to_str())
+                .unwrap_or_default()
+                .to_string(),
+        );
+        if let Some(existing) = registry.surfaces.get(&id) {
+            errors.push(LintError {
+                kind: LintErrorKind::DuplicateId,
+                file: rel.display().to_string(),
+                message: format!(
+                    "id de surface « {id} » déjà défini dans {}",
+                    existing.file.display()
+                ),
+            });
+            continue;
+        }
+        registry.surfaces.insert(
+            id.clone(),
+            SurfaceEntry {
+                id,
+                file: rel,
+                intgrid_value: parsed.intgrid_value,
+                tags: parsed.tags,
+                move_speed: parsed.move_speed.get(),
+                acceleration: parsed.acceleration.map_or(Fixed::ONE, |a| a.get()),
             },
         );
     }
