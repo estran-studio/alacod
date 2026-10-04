@@ -76,6 +76,11 @@ pub enum Action {
     /// du kind `Status`) sur le personnage touché par un projectile (`on_hit`). Dans un effet
     /// ou un power-up : refusée par le lint en v1 (pas de cible).
     ApplyStatus { status: String, stacks: u32 },
+    /// D40 : comme [`Self::RefillAmmo`], restreint à une munition : remplit le chargeur des
+    /// armes de cette munition et recharge la réserve de cette munition seulement (butin par
+    /// munition de `throne`). Power-up seulement (refusée dans un effet, comme `RefillAmmo`).
+    /// Ajoutée en dernier (après `ApplyStatus`) : les hashs des autres variantes ne bougent pas.
+    RefillAmmoOf(sim_core::ammo::AmmoType),
 }
 
 impl Action {
@@ -122,7 +127,8 @@ impl Action {
             | Action::Heal(_)
             | Action::SpawnPattern { .. }
             | Action::GaugeAdd(..)
-            | Action::ApplyStatus { .. } => None,
+            | Action::ApplyStatus { .. }
+            | Action::RefillAmmoOf(_) => None,
         }
     }
 }

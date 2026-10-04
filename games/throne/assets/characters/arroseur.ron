@@ -42,4 +42,7 @@
             Chase(profile: "Ground"),
         ]),
     )),
+    // `docs/conventions.md` §28 : scénarios générés `enemy_<id>_still`/`_moving`
+    // (`make gen GAME=throne`), attentes par défaut.
+    test: Some((frames: 600)),
 )

@@ -1,0 +1,45 @@
+// D40 (throne, conventions §14) : butin par munition, `RefillAmmoOf`. Le pilote tire à la
+// mitraillette (balles), puis recharge (1,5 s). `munitions_lames` ramassé pendant le rechargement
+// ne touche ni au chargeur ni à la réserve de balles, et n'annule pas le rechargement (l'arme
+// active n'est pas remplie). Le pilote tire de nouveau ; `munitions_balles` remplit alors
+// chargeur et réserve de balles. Carte gabarit de throne en mode `Sandbox` (le manifeste de
+// throne est en `Floors`).
+//
+// À regarder : le joueur tire une demi-seconde, recharge, un objet apparaît sous lui, le
+// rechargement va à son terme ; il tire encore, un second objet remplit tout.
+Scenario(
+    powerup_drop_chance_override: "0.0",
+    game: "throne",
+    map: "gabarit_armes.ldtk",
+    mode: Some(Sandbox),
+    frames: 240,
+    players: [
+        (inputs: [
+            (from: 10, to: 40, buttons: [Fire], pan: (-64, 48)),
+            (from: 50, to: 52, buttons: [Reload]),
+            (from: 160, to: 190, buttons: [Fire], pan: (-64, 48)),
+        ]),
+    ],
+    powerups: [
+        (id: "munitions_lames", x: "423.0", y: "695.0", at_frame: 100),
+        (id: "munitions_balles", x: "423.0", y: "695.0", at_frame: 210),
+    ],
+    expect: [
+        // Cinq coups dans [10, 40) : 30 - 5 = 25 ; rechargement entamé à f50 (fin à f145).
+        Ammo(handle: 0, ammo: 25, at_frame: 45),
+        // `munitions_lames` (f100) : chargeur et réserve de balles intacts, réserve de lames
+        // pleine (6 chargeurs de 8), rechargement non annulé.
+        Ammo(handle: 0, ammo: 25, at_frame: 110),
+        AmmoReserve(handle: 0, ammo_type: Custom("balles"), amount: 456, at_frame: 110),
+        AmmoReserve(handle: 0, ammo_type: Custom("lames"), amount: 48, at_frame: 110),
+        // Rechargement terminé : un chargeur entier (30) tiré de la réserve.
+        Ammo(handle: 0, ammo: 30, at_frame: 150),
+        AmmoReserve(handle: 0, ammo_type: Custom("balles"), amount: 426, at_frame: 150),
+        Ammo(handle: 0, ammo: 25, at_frame: 200),
+        // `munitions_balles` (f210) : chargeur plein, réserve de balles pleine
+        // (12 × 30 mitraillette + 16 × 6 revolver = 456).
+        Ammo(handle: 0, ammo: 30, at_frame: 220),
+        AmmoReserve(handle: 0, ammo_type: Custom("balles"), amount: 456, at_frame: 220),
+        PowerUpPickups(max: 0, at_frame: 220),
+    ],
+)

@@ -1,0 +1,13 @@
+// Fixture D40 : `RefillAmmoOf` vers une munition qu'aucune arme ne déclare (le jeu n'a pas
+// d'arme) : LintErrorKind::BrokenReference (`lint::lint_powerups`).
+(
+    drop_chance: "0.2",
+    powerups: {
+        "munitions_obus": (
+            weight: 10,
+            pickup_range: "30.0",
+            lifetime_frames: 1800,
+            actions: [RefillAmmoOf(Custom("obus"))],
+        ),
+    },
+)

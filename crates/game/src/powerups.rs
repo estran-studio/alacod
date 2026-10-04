@@ -318,27 +318,26 @@ pub fn apply_powerup_actions_system(
                         }
                     }
                 }
-                Action::RefillAmmo => {
+                Action::RefillAmmo | Action::RefillAmmoOf(_) => {
+                    // D40 : `RefillAmmoOf(munition)` restreint le remplissage aux armes et à la
+                    // réserve de cette munition ; `RefillAmmo` (sans filtre) est inchangé.
+                    let only = match action {
+                        Action::RefillAmmoOf(ammo) => Some(ammo),
+                        _ => None,
+                    };
                     for (net_id, _player, _dead, _modifiers, mut reserves, mut inventory) in
                         order_mut_iter!(players)
                     {
                         let mut capacities = BTreeMap::<sim_core::ammo::AmmoType, u32>::new();
-                        for (weapon_entity, _weapon) in &inventory.weapons {
+                        let mut active_refilled = false;
+                        for (index, (weapon_entity, _weapon)) in
+                            inventory.weapons.iter().enumerate()
+                        {
                             let Ok((weapon, mut modes_state)) =
                                 weapon_modes.get_mut(*weapon_entity)
                             else {
                                 continue;
                             };
-                            for (mode_name, mode_state) in modes_state.modes.iter_mut() {
-                                let Some(mode_config) = weapon.config.firing_modes.get(mode_name)
-                                else {
-                                    continue;
-                                };
-                                mode_state.mag_ammo = match mode_config.mag {
-                                    MagBulletConfig::Mag { mag_size, .. } => mag_size,
-                                    MagBulletConfig::Magless { bullet_limit } => bullet_limit,
-                                };
-                            }
                             // `default_mode_ammo_contribution` prend un `&WeaponAsset` (le
                             // type du registre) ; `weapon` ici est un `Weapon` (composant,
                             // mêmes champs) — clone ponctuel plutôt qu'élargir la signature
@@ -351,6 +350,20 @@ pub fn apply_powerup_actions_system(
                             };
                             let (ammo_type, full_amount) =
                                 crate::weapons::default_mode_ammo_contribution(&weapon_asset);
+                            if only.is_some_and(|only| *only != ammo_type) {
+                                continue;
+                            }
+                            active_refilled |= index == inventory.active_weapon_index;
+                            for (mode_name, mode_state) in modes_state.modes.iter_mut() {
+                                let Some(mode_config) = weapon.config.firing_modes.get(mode_name)
+                                else {
+                                    continue;
+                                };
+                                mode_state.mag_ammo = match mode_config.mag {
+                                    MagBulletConfig::Mag { mag_size, .. } => mag_size,
+                                    MagBulletConfig::Magless { bullet_limit } => bullet_limit,
+                                };
+                            }
                             let capacity = capacities.entry(ammo_type).or_default();
                             *capacity = capacity.saturating_add(full_amount);
                         }
@@ -361,12 +374,21 @@ pub fn apply_powerup_actions_system(
                             }
                         }
                         // Un rechargement entamé ne doit pas retirer un chargeur de la
-                        // réserve après le remplissage instantané.
-                        inventory.clear_reloading();
-                        info!(
-                            "ggrs{{f={} powerup_effect powerup={} target={} kind=refill_ammo}}",
-                            frame.frame, event.id, net_id.0
-                        );
+                        // réserve après le remplissage instantané (D40 : seulement si l'arme
+                        // active a été remplie ; toujours le cas pour `RefillAmmo`).
+                        if active_refilled || only.is_none() {
+                            inventory.clear_reloading();
+                        }
+                        match only {
+                            None => info!(
+                                "ggrs{{f={} powerup_effect powerup={} target={} kind=refill_ammo}}",
+                                frame.frame, event.id, net_id.0
+                            ),
+                            Some(ammo) => info!(
+                                "ggrs{{f={} powerup_effect powerup={} target={} kind=refill_ammo_of ammo={:?}}}",
+                                frame.frame, event.id, net_id.0, ammo
+                            ),
+                        }
                     }
                 }
                 Action::RepairAllWindows => {
@@ -862,6 +884,71 @@ mod tests {
                 }
             );
         }
+    }
+
+    /// D40 : `RefillAmmoOf(munition)` ne remplit que les armes et la réserve de cette
+    /// munition, et laisse le rechargement de l'arme active d'une autre munition.
+    #[test]
+    fn refill_ammo_of_ne_remplit_qu_une_munition() {
+        let obus = AmmoType::Custom("obus".to_string());
+        let balles = AmmoType::Custom("balles".to_string());
+        let mut world =
+            world_with_config(Action::RefillAmmoOf(obus.clone()), fixed_math::FIXED_ZERO);
+        let weapons: crate::weapons::WeaponsConfig = ron::from_str(include_str!(
+            "../../../games/testbed/assets/ZombieShooter/Sprites/Character/weapons.ron"
+        ))
+        .unwrap();
+        let mut inventory = WeaponInventory {
+            reloading_ending_frame: Some(100),
+            ..Default::default()
+        };
+        for (id, ammo) in [("machine_gun", balles.clone()), ("pistol", obus.clone())] {
+            let mut weapon = Weapon::from(weapons.0.get(id).unwrap().clone());
+            weapon.config.ammo_type = ammo;
+            let entity = world
+                .spawn((
+                    weapon.clone(),
+                    WeaponModesState {
+                        modes: BTreeMap::from([(
+                            "default".to_string(),
+                            crate::weapons::WeaponModeState::default(),
+                        )]),
+                    },
+                ))
+                .id();
+            inventory.weapons.push((entity, weapon));
+        }
+        let player = world
+            .spawn((
+                GgrsNetId(1, "player".to_string()),
+                Player::default(),
+                Modifiers::default(),
+                AmmoReserves::default(),
+                inventory,
+            ))
+            .id();
+        world
+            .resource_mut::<FrameEvents<PowerUpPickedUp>>()
+            .send(PowerUpPickedUp {
+                id: "test".to_string(),
+                picked_up_by: GgrsNetId(1, "player".to_string()),
+            });
+        world.run_system_once(apply_powerup_actions_system).unwrap();
+        let reserves = world.get::<AmmoReserves>(player).unwrap();
+        assert!(reserves.get(&obus) > 0);
+        assert_eq!(reserves.get(&balles), 0);
+        let inventory = world.get::<WeaponInventory>(player).unwrap();
+        // L'arme active (index 0, balles) n'est pas remplie : son rechargement continue.
+        assert!(inventory.is_reloading());
+        let mags: Vec<u32> = inventory
+            .weapons
+            .iter()
+            .map(|(entity, _)| {
+                world.get::<WeaponModesState>(*entity).unwrap().modes["default"].mag_ammo
+            })
+            .collect();
+        assert_eq!(mags[0], 0);
+        assert!(mags[1] > 0);
     }
 
     #[test]

@@ -367,6 +367,11 @@ fn t2_8_fixtures_have_a_single_problem() {
         ("powerup_frames_zero", LintErrorKind::OutOfRange),
         ("powerup_factor_non_positive", LintErrorKind::OutOfRange),
         ("powerup_weight_zero", LintErrorKind::OutOfRange),
+        // D40.
+        (
+            "powerup_refill_ammo_unknown",
+            LintErrorKind::BrokenReference,
+        ),
         (
             "powerup_drop_chance_out_of_range",
             LintErrorKind::OutOfRange,
@@ -823,4 +828,10 @@ fn generate_template_target_without_hits_fixture_reports_counts_hits() {
     let (_, _, errors) =
         load_and_lint(&fixture_dir("generate_template_target_without_hits")).unwrap();
     assert_has_error(&errors, LintErrorKind::BrokenReference, "counts_hits: true");
+}
+
+#[test]
+fn powerup_refill_ammo_unknown_fixture_reports_ammo() {
+    let (_, _, errors) = load_and_lint(&fixture_dir("powerup_refill_ammo_unknown")).unwrap();
+    assert_has_error(&errors, LintErrorKind::BrokenReference, "RefillAmmoOf");
 }

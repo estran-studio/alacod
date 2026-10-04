@@ -597,6 +597,9 @@ peut appliquer, la graine du futur système de déclencheurs/effets de `docs/pla
 actions ; les contrats de M1 sont décrits au §4.3. Cinq variantes : `TimedModifier { stat, op, value, frames }` (modificateur de stat
 temporaire, `frames` = durée relative à la frame de ramassage), `RefillAmmo`,
 `RepairAllWindows`, `KillAllWaveEnemies`, `CurrencyMultiplier { factor, frames }`.
+`RefillAmmoOf(munition)` (D40) : `RefillAmmo` restreint à une munition (armes et réserve de cette
+munition ; un rechargement en cours n'est annulé que si l'arme active est de cette munition) ;
+lint : munition déclarée par au moins une arme ; refusée dans un effet, comme `RefillAmmo`.
 `Action::as_modifier(frame, source)` est l'« applicateur déterministe » pur (sans ECS,
 testé unitairement) pour les deux variantes modifier-based ; les trois autres sont résolues
 directement par `game::powerups` (accès à `AmmoReserves`/`WindowHealth`/`Team`, inconnus
@@ -1848,10 +1851,11 @@ joueurs depuis lui), copie de `player` du testbed ; trois armes de départ (`mit
 (`lance_lames` : `Bounce`+`Pierce` ; `disque` : rafale, `Pierce`+`Lifetime`). Plus `arsenal`,
 l'arme des ennemis (sa table `projectiles` : `crachat`, `plomb`, `boule`). Mêlée
 (`weapons/melee.ron`) : `bare_hands` (joueur), `griffes`, `crocs`, `massue`. Chaque arme porte un
-`test:` (jauges calées sur la mesure) ; **`make gen GAME=throne` ne peut pas encore jouer ses
-scénarios** : le générateur joue tout dans l'arène du testbed, où les armes de `throne`
-n'existent pas (gabarit par jeu attendu de T1.13) ; les scénarios générés de `throne` ne sont pas
-versionnés en attendant.
+`test:` (jauges calées sur la mesure). **Gabarits** (§28, m1-throne-gen-et-d40) :
+`generate_template: (map: "gabarit_armes.ldtk", target: "cible")` — `make gen GAME=throne` joue
+les armes et les dix ennemis (`test:` sur chacun, gabarits immobile et mobile) dans `throne`, sur
+la carte gabarit (`cible` et `mannequin`, même disposition que l'arène du testbed), en mode
+`Sandbox` imposé ; scénarios versionnés sous `tests/scenarios/generated/throne/`.
 
 **Ennemis** (`characters/`, behaviors §22, variantes §25 ; aucun sprite) : mêlée `rat`
 (`Melee("griffes")`, variante `rapide`), `chien` (rapide et fragile, variantes `rapide` et
@@ -1866,9 +1870,9 @@ fuyard) ; `niveau_3` 64 × 44, 8 ennemis (tous les profils). `fill_ratio` 0,38 (
 testbed : les bots `prudent` vont en ligne droite). Pas de surface (impossible dans une caverne
 générée, §26 v2).
 
-**Butin** (`items/powerups.ron`, §14) : `munitions` (`RefillAmmo`, toutes munitions), `rage`
-(dégâts ×2), `vitesse` (×1,3), `drop_chance` 0,15. Pas de butin par munition ni de `weapon_pool`
-en phase 1.
+**Butin** (`items/powerups.ron`, §14) : `munitions_balles`, `munitions_obus`,
+`munitions_explosifs`, `munitions_energie`, `munitions_lames` (`RefillAmmoOf`, D40, poids 12
+chacun), `rage` (dégâts ×2), `vitesse` (×1,3), `drop_chance` 0,15. Pas de `weapon_pool`.
 
 **Assets** : tous des **placeholders** copiés du testbed (sprites du joueur et des armes, slash,
 sons, police, tilesets), enregistrés dans `games/throne/assets/assets.yaml` (licences reprises de
