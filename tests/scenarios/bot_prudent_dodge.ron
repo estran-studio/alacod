@@ -1,0 +1,24 @@
+// T1.14 : esquive des projectiles par le bot `prudent` v1 (docs/conventions.md §24, v1). Carte
+// `testbed/arena_tir.ldtk` (tourelle en anneau et archer de T1.2), graine 123456, un bot.
+// L'esquive (point d'approche minimale sur 30 frames, pas de côté perpendiculaire) remplace
+// son déplacement quand un projectile menace ; il continue de viser et de tirer.
+//
+// À regarder : le bot s'écarte des salves ; une seule balle le touche (f188, 8 points, régénérés
+// ensuite), puis plus rien jusqu'à la fin : santé pleine à f599. Jumeau sans esquive :
+// `bot_prudent_nododge` (56 points encaissés, santé 44 à f599).
+Scenario(
+    powerup_drop_chance_override: "0.0",
+    game: "testbed",
+    map: "testbed/arena_tir.ldtk",
+    map_seed: 123456,
+    frames: 600,
+    players: [
+        (bot: prudent),
+    ],
+    expect: [
+        // Santé finale pleine (le seul coup, à f188, est régénéré), contre 44 pour le jumeau
+        // sans esquive
+        Health(handle: 0, min: Some(100.0), max: Some(100.0), at_frame: 599),
+        NoDamageBetween(handle: 0, from_frame: 200, to_frame: 500),
+    ],
+)

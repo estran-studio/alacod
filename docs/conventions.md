@@ -918,8 +918,8 @@ ouvertes).
 
 **Limites connues.** Les `RoomBounds` des niveaux non courants existent aussi (mondes
 superposés) : les spawners de vagues (`ZombieSpawn`) ne sont pas pris en charge en `Floors`.
-Restart p2p : non supporté (comme `Waves`). Pas d'arrêt `--until-floor` dans `alacod-sim`
-(T1.14).
+Restart p2p : non supporté (comme `Waves`). `alacod-sim --until-floor <n>` (T1.14, §24 v1)
+arrête une graine au n-ième passage de portail.
 
 ## 18. Équilibrage par joueurs (F5)
 
@@ -1358,6 +1358,45 @@ d'un pixel gagne, et le zombie glisse hors du coin avant que le champ ne reprenn
 réintroduisait le mur ; le mouvement conserve vitesse, séparation et collision
 ordinaires. Le délai dépend des compteurs existants de `WaveState`, sans état caché
 ou nouveau type rollback.
+
+### v1 (T1.14)
+
+**Esquive** (`prudent`, `crates/bots/src/dodge.rs`, pure en `Fixed`) : `BotView.projectiles` =
+balles (`Bullet`, ordinaires ou composables) d'une équipe autre que celle des joueurs, à moins
+de 320 px, les 16 plus proches, triées par `GgrsNetId` (`view::projectile_views`) ;
+`BotView.body_radius` = demi-diagonale du collider du joueur. Un projectile qui **approche**
+(`rel · v < 0`) menace si le point d'approche minimale de sa trajectoire linéaire dans les 30
+prochaines frames est à moins de rayon du corps + taille du projectile + 8 px. Direction :
+perpendiculaire à sa vitesse, du côté qui s'éloigne du point d'approche (à gauche s'il arrive
+droit dessus), somme normalisée sur les menaces. Quand elle existe, elle remplace le
+déplacement de `prudent` ; visée et tir vers l'ennemi le plus proche sont conservés.
+
+**Gestion d'arme de `prudent`** (même règle que `chasseur`/`acheteur`) : recharge si le chargeur
+est vide et la réserve le permet ; sinon passe à une arme utilisable (`switch_weapon`) ; ne
+presse le tir d'une arme non automatique que détente relâchée (`WeaponState::is_firing` faux).
+`fonceur`, `immobile`, `chasseur`, `acheteur` : inchangés.
+
+**Complétion de niveau** : `prudent`/`fonceur` marchent vers l'ennemi le plus proche (la vue n'a
+pas de limite de portée : `nearest_enemy` ne vaut `None` que s'il n'en reste aucun), puis vers
+le portail ouvert ; ligne droite, sans pathfinding (le flow field 8 px reste réservé à
+`chasseur`/`acheteur` : suite possible). Approche du portail par `prudent` **freinée** : le jeu ne freine
+que si aucun bouton de déplacement n'est tenu et les boutons ne donnent que le signe de chaque
+axe, si bien qu'à pleine vitesse le bot tournait autour du portail sans entrer dans son rayon
+(24) ; à moins de 48 px, il relâche tout tant que sa vitesse dépasse 30, puis avance par petits
+pas (un axe dont l'écart est sous 6 px n'est pas pressé).
+
+**`alacod-sim`** : `--until-floor <n>` (exige `--floors`) arrête la graine quand
+`FloorState::index >= n` ; `--until-wave` ou `--until-floor` est obligatoire. `SimResult` gagne
+`floor_frames` (frame de chaque passage de portail), `damage_taken` (somme des baisses de santé
+des joueurs) et `dodges` (frames où l'esquive a remplacé le déplacement d'au moins un bot,
+compteur `bots::BotStats` hors rollback). Soft-lock `Floors` : sans passage de niveau ni ennemi
+en moins pendant 1 200 frames, arrêt avec `softlock` (instantané « précédent » à 600 frames).
+`scripts/scenario-metrics.py` : colonnes `Niveau` et `Frames/niveau`, `Esquives`, résumé
+« niveaux finis / graines ».
+
+**Scénarios** : `bot_prudent_dodge` (arena_tir), son jumeau `bot_prudent_nododge` (inputs de
+`prudent` sans esquive figés en `Scripted`), `bot_floors_three` (`trois_niveaux` = `floor_a`,
+`floor_d`, `floor_c`).
 
 ## 25. Variantes et élites (T1.5, chantier D2)
 
