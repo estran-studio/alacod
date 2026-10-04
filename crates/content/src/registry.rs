@@ -196,6 +196,8 @@ pub struct CharacterEntry {
     pub weapon_slots: u32,
     /// Tir à distance (T1.2, `ai.ranged`), pour les règles de référence et de plage.
     pub ranged: Option<RangedEntry>,
+    /// T1.10 : effets v1 du personnage (`docs/conventions.md` §27).
+    pub effects: Vec<effects::Effect>,
 }
 
 /// T1.2 : mirroir de `game::character::enemy::ai::state::RangedAttackRon` (champ `ranged` de
@@ -746,6 +748,9 @@ struct CharacterFileSchema {
     /// T1.2 : seul `ai.ranged` est lu (`None` : pas d'`ai`, ou `ai` sans `ranged`).
     #[serde(default)]
     ai: Option<AiSchema>,
+    /// T1.10 : effets v1.
+    #[serde(default)]
+    effects: Vec<effects::Effect>,
 }
 
 #[derive(Deserialize)]
@@ -1165,6 +1170,7 @@ fn load_characters(
                 downed_speed_mult: parsed.downed_speed_mult,
                 weapon_slots: parsed.weapon_slots,
                 ranged: parsed.ai.and_then(|ai| ai.ranged),
+                effects: parsed.effects,
             },
         );
     }

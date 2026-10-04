@@ -32,6 +32,9 @@ pub enum LintErrorKind {
     OutOfRange,
     /// `content_folders[].kind` n'est pas un des kinds que `content` sait charger.
     UnknownKind,
+    /// T1.10 : contrat déclaré mais pas encore exécuté (déclencheur, condition ou action
+    /// d'effet « v2 ») : refusé plutôt qu'ignoré en silence.
+    Unsupported,
 }
 
 /// Une erreur de lint : `file` et `message` forment le texte affiché par `alacod lint`
@@ -71,9 +74,90 @@ pub fn run(registry: &Registry, manifest: &GameManifest) -> Vec<LintError> {
     errors
 }
 
+/// T1.10 (`docs/conventions.md` §27) : un effet v1. `at` situe l'effet dans le message.
+pub(crate) fn lint_effect(
+    registry: &Registry,
+    at: &str,
+    effect: &effects::Effect,
+    push: &mut impl FnMut(LintErrorKind, String),
+) {
+    use effects::runtime::{condition_supported, trigger_supported};
+    if !trigger_supported(&effect.on) {
+        push(
+            LintErrorKind::Unsupported,
+            format!(
+                "{at} : déclencheur {:?} : pas encore exécuté (v2)",
+                effect.on
+            ),
+        );
+    }
+    if effect.on == effects::On::Tick(0) {
+        push(
+            LintErrorKind::OutOfRange,
+            format!("{at} : Tick(0) : doit être > 0"),
+        );
+    }
+    for condition in &effect.r#if {
+        if !condition_supported(condition) {
+            push(
+                LintErrorKind::Unsupported,
+                format!("{at} : condition {condition:?} : pas encore exécutée (v2)"),
+            );
+        }
+    }
+    for action in &effect.r#do {
+        match action {
+            effects::Action::Heal(amount) if *amount <= Fixed::ZERO => push(
+                LintErrorKind::OutOfRange,
+                format!("{at} : Heal = {amount} : doit être > 0"),
+            ),
+            effects::Action::SpawnPattern { pattern, weapon } => {
+                if !registry
+                    .patterns
+                    .contains_key(&registry::PatternId::from(pattern.clone()))
+                {
+                    push(
+                        LintErrorKind::BrokenReference,
+                        format!("{at} : SpawnPattern : pattern « {pattern} » inconnu"),
+                    );
+                }
+                if !registry
+                    .weapons
+                    .contains_key(&registry::WeaponId::from(weapon.clone()))
+                {
+                    push(
+                        LintErrorKind::BrokenReference,
+                        format!("{at} : SpawnPattern : arme « {weapon} » inconnue"),
+                    );
+                }
+            }
+            effects::Action::RefillAmmo
+            | effects::Action::RepairAllWindows
+            | effects::Action::KillAllWaveEnemies
+            | effects::Action::DestroyTerrain { .. } => push(
+                LintErrorKind::Unsupported,
+                format!("{at} : action {action:?} : pas exécutée dans un effet (v2)"),
+            ),
+            _ => {}
+        }
+    }
+}
+
 fn lint_characters(registry: &Registry, errors: &mut Vec<LintError>) {
     for character in registry.characters.values() {
         let file = character.file.display().to_string();
+
+        // T1.10 : effets v1
+        for (index, effect) in character.effects.iter().enumerate() {
+            let at = format!("personnage « {} » : effects[{index}]", character.id);
+            lint_effect(registry, &at, effect, &mut |kind, message| {
+                errors.push(LintError {
+                    kind,
+                    file: file.clone(),
+                    message,
+                })
+            });
+        }
 
         // T1.2 : tir à distance (`ai.ranged`).
         if let Some(ranged) = &character.ranged {
@@ -950,6 +1034,14 @@ fn lint_powerups(registry: &Registry, errors: &mut Vec<LintError>) {
                 // T1.6 : action positionnelle, sans sens pour un power-up (ramassé, pas tiré)
                 effects::Action::DestroyTerrain { .. } => push(format!(
                     "power-up « {} » : actions[{index}] (DestroyTerrain) : réservée aux projectiles (on_hit, on_expire)",
+                    powerup.id
+                )),
+                // T1.10 : actions propres aux effets du porteur
+                effects::Action::Modifier { .. }
+                | effects::Action::Heal(_)
+                | effects::Action::SpawnPattern { .. }
+                | effects::Action::GaugeAdd(..) => push(format!(
+                    "power-up « {} » : actions[{index}] : action d'effet (T1.10), pas de power-up",
                     powerup.id
                 )),
                 _ => {}
