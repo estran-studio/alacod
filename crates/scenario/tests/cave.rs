@@ -203,3 +203,64 @@ fn destruction_creuse_et_reconstruit_les_murs_en_synctest() {
     assert_eq!(final_grid, after, "grille finale = grille creusée");
     assert!(walls > 0);
 }
+
+/// Mode `Floors` : une caverne est un niveau valide d'une séquence (`floors/caverne.ron` du
+/// testbed : `floor_a`, `cave:petite`, `floor_b`). Mêmes inputs que `portal_next_floor` : le
+/// follower de `floor_a` meurt, le joueur entre dans le portail et passe dans la caverne
+/// (`CellGrid` remplie au passage) ; sans ennemi, le portail de la caverne s'ouvre aussitôt et
+/// mène à `floor_b`, où `CellGrid` redevient vide.
+#[test]
+fn caverne_dans_une_sequence_floors() {
+    if map_ldtk::RENDER_ENABLED {
+        return;
+    }
+    let mut scenario = Scenario::from_ron(&format!(
+        r#"(game: "testbed", floors: Some("caverne"), map_seed: {SEED}, frames: 300,
+            powerup_drop_chance_override: "0.0",
+            players: [(inputs: [
+                (from: 0, to: 200, buttons: [Fire], pan: (-64, 48)),
+                (from: 200, to: 230, buttons: [Right, Down], pan: (0, 0)),
+            ])])"#
+    ))
+    .expect("scénario Floors");
+    scenario.expect = vec![
+        Expectation::FloorIndex {
+            index: 0,
+            at_frame: 220,
+        },
+        Expectation::FloorIndex {
+            index: 2,
+            at_frame: 299,
+        },
+    ];
+    // Niveau courant -> la grille a-t-elle été vue remplie / vide pendant ce niveau
+    type Seen = Arc<Mutex<std::collections::BTreeMap<u32, (bool, bool)>>>;
+    let seen: Seen = Arc::default();
+    let probe = seen.clone();
+    let outcome = run_with(&scenario, move |app| {
+        app.add_systems(
+            Last,
+            move |grid: Res<CellGrid>, floor: Res<run::FloorState>| {
+                let mut seen = probe.lock().unwrap();
+                let entry = seen.entry(floor.index).or_default();
+                if grid.is_empty() {
+                    entry.1 = true;
+                } else {
+                    entry.0 = true;
+                }
+            },
+        );
+    });
+    assert!(outcome.failures.is_empty(), "{:?}", outcome.failures);
+    let seen = seen.lock().unwrap().clone();
+    assert_eq!(
+        seen.get(&1),
+        Some(&(true, false)),
+        "caverne : grille remplie ({seen:?})"
+    );
+    assert_eq!(
+        seen.get(&2),
+        Some(&(false, true)),
+        "floor_b : grille vide ({seen:?})"
+    );
+}
