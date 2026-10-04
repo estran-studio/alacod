@@ -1307,7 +1307,8 @@ fn enemy_variant_lit_la_variante() {
 }
 
 /// T1.3 : `HasStatus` et `StatusStacks` sur le scénario généré de l'arme `status_burn`
-/// (`target` brûlée, deux piles) : vrais sur les bonnes valeurs, faux sur les autres.
+/// (`target` brûlée par une première balle, une pile à f100) : vrais sur les bonnes valeurs,
+/// faux sur les autres.
 #[test]
 fn status_expectations_pass_and_fail() {
     if map_ldtk::RENDER_ENABLED {
@@ -1328,7 +1329,7 @@ fn status_expectations_pass_and_fail() {
             Expectation::StatusStacks {
                 entity: EntityRef::Target,
                 status: "brulure".into(),
-                stacks: 2,
+                stacks: 1,
                 at_frame: frame,
             },
             Expectation::HasStatus {
@@ -1352,10 +1353,10 @@ fn status_expectations_pass_and_fail() {
                 Expectation::StatusStacks {
                     entity: EntityRef::Target,
                     status: "brulure".into(),
-                    stacks: 1,
+                    stacks: 2,
                     at_frame: frame,
                 },
-                "2 piles ≠ 1",
+                "1 piles ≠ 2",
             ),
             (
                 Expectation::HasStatus {
