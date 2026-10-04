@@ -504,6 +504,8 @@ Deux champs de test (testbed) sont délibérément hors du checksum GGRS — les
 
 **Journal de preuve** : chaque effet écrit une ligne `info!("feedback f{frame} <effet> {net_id|kind}")` pour vérification sans écran.
 
+**Feedback v1** (T1.17) : hit stop, chiffres de dégâts, télégraphe au sol, surcharges par genre et par arme, flash sur les calques enfants et journal `FeedbackLog` (headless compris) : voir §31, qui fait foi sur ce paragraphe.
+
 ## 11. Munitions et inventaire d'armes (T2.2, chantier B7)
 
 **Type de munition** (`sim_core::ammo::AmmoType`) : enum ouvert (`Plomb`, `Balle`, `Cartouche`, `Energie`, `Special`, `Custom(String)`), comme `StatId`. Champ RON `ammo_type` sur `WeaponConfig` (`weapons.ron`), **obligatoire** pour toute arme à distance (pas de `#[serde(default)]` : une entrée sans `ammo_type` échoue au chargement RON, rapportée par `content::lint` comme n'importe quel autre littéral invalide). Contenu `zombies`/`testbed` : `pistol` → `Plomb`, `machine_gun` → `Balle`, `shotgun` → `Cartouche` (trois types distincts aujourd'hui, donc chaque arme a sa réserve propre en pratique). Exclu du hash manuel de `WeaponConfig` (comme `test`, voir §6 du fichier lui-même) : une vraie valeur de gameplay, mais dont la valeur observable vit dans `AmmoReserves` (rollback), pas dans ce champ de config statique — l'y inclure ferait dériver le checksum de tous les scénarios existants sans qu'aucun comportement ne change.
@@ -1886,6 +1888,65 @@ derrière un mur, les bots vont en ligne droite), 17/20 en phase 2 (voir ci-dess
 - Gabarit des scénarios générés d'armes préparé pour T1.13 : `gabarit_armes.ldtk` (copie de
   l'arène du testbed, `cible` à `counts_hits` à +128/−48 du spawn, `mannequin` ailleurs). Pas
   encore jouable : en mode `Floors`, un scénario de `throne` ignore sa carte.
+## 31. Feedback v1 (T1.17, voie V4)
+
+**Présentation seule.** Rien n'est rollback, rien n'entre dans le checksum ni dans les traces ;
+la simulation ne lit jamais ces composants ou ressources. Le hit stop **ne fige jamais la
+simulation** (rollback, p2p) : il gèle l'avance des animations et le suivi de caméra pendant
+`n` ticks de **rendu** (`animation::AnimationFreeze`, un tick par `Update`, avancé en `First`) ;
+`Time<Virtual>` n'est jamais touché (ggrs avance sur ce temps).
+
+**`ui/feedback.ron`** (type partagé `content::feedback::FeedbackSettings`, enveloppé par l'asset
+`game::feedback::FeedbackConfig`, lu tel quel par le lint) : `hit_flash` (frames, couleur :
+multiplicateur linéaire des calques, au-delà de 1.0 le sprite est surexposé, `(1, 1, 1)` est
+invisible), `shake` (frames, amplitude), `hit_stop_frames` (0 : aucun), `damage_numbers`,
+`telegraph.color` (RGBA), `by_kind: {DamageKind: …}` et `by_weapon: {"arme": …}` (surcharges
+`hit_stop_frames`/`hit_flash`/`shake`, champs optionnels), `sounds`. Résolution d'un coup
+(`FeedbackSettings::resolve`), champ par champ : arme, puis genre, puis valeur globale.
+Lint : frames > 0 (flash, secousse, surcharges comprises), amplitude ≥ 0, couleur du flash dans
+`[0, 4]`, couleur du télégraphe dans `[0, 1]`, armes de `by_weapon` déclarées par le jeu (à
+distance ou de corps à corps), sons présents.
+
+**Déclencheurs** (par frame simulée) : flash sur la cible de chaque `DamageEvent` et chiffre si
+`damage_numbers` ; au plus **une** secousse (cible = joueur local, ou tireur = joueur local quand
+la secousse vient d'une surcharge : impact lourd) et **un** hit stop (source ou cible = joueur
+local) par frame, le plus fort des coups de la frame.
+
+**Limite connue : l'arme d'un coup.** `DamageEvent` ne porte pas l'arme (il est tracé : lui
+ajouter un champ ferait bouger toutes les traces). L'arme retenue pour `by_weapon` est
+l'émetteur de la source (`Emitter.weapon`) s'il existe, sinon **l'arme active** de son
+inventaire au moment du coup (une balle tirée avant un changement d'arme est attribuée à la
+nouvelle) ; aucune pour la mêlée (tag `melee`). Les projectiles infligent aujourd'hui des
+dégâts `Physical` (`Fire` pour la brûlure) : `by_kind` sert surtout aux genres futurs, les
+explosifs se règlent par `by_weapon`.
+
+**Flash** : posé sur l'entité racine (`HitFlash`), appliqué aux **calques enfants** par
+`apply_layer_colors` (même parcours que la teinte des statuts, §19 ; le flash l'emporte tant
+qu'il dure). Avant T1.17, le flash cherchait un `Sprite` sur la racine, qui n'en a pas : il
+n'était jamais visible. La secousse retire son décalage du tick précédent avant d'appliquer le
+suivant (sans ça, les décalages s'additionnent quand la caméra ne suit plus, pendant un hit
+stop), et décroît sur sa durée.
+
+**Télégraphe au sol** (`telegraph_shape`, lecture seule de l'état) : phase `Telegraph` d'une
+`Charge` (T1.4) → cercle au point visé figé, rayon `attack_range` ; pas `Telegraph` d'un
+émetteur (`Emitter::telegraphing`, T1.2) → cercle autour du porteur, rayon la plus grande
+portée de sa table de projectiles. Contour au rayon complet, disque intérieur qui grandit
+jusqu'au déclenchement (gizmos).
+
+**Preuve sans écran** : `game::feedback::FeedbackLog` (ressource de présentation, plugin
+`FeedbackLogPlugin` actif aussi en headless) reçoit les indices `{genre, frame, net_id,
+position, valeur}` de chaque **nouvelle** frame simulée (`FrameCount` plus grand que la
+dernière frame journalisée : les frames rejouées par un rollback ne sont pas journalisées deux
+fois). Limites (présentation, sans conséquence) : un tick qui simule plusieurs frames ne voit
+que les événements de la dernière ; un coup prédit puis annulé par un rollback p2p reste
+journalisé. `scenario::events` en fait des moments clés `feedback` (« télégraphe 27 (30 frames,
+rayon 40) », « hit stop 26 (2 frames) », « secousse 26 (8 frames) » ; flash et chiffre, un par
+coup, n'en font pas) ; attente `Event(kind: "feedback", label_contains: …)`. Scénarios :
+`enemy_charge` (télégraphe de la ruée, hit stop et secousse au contact), `weapon_grenade`
+généré (hit stop et secousse de surcharge de la grenade).
+
+Hors périmètre : sons (D32), particules, écran de mort.
+
 ## Notes essentielles
 
 **À vérifier** : l'entité `CrateLocation` n'est pas lue actuellement (`WeaponLocation`/`SodaLocation` le sont depuis T2.3, voir §1 ci-dessus). Elle apparaît dans `crates/map_ldtk/src/map_const.rs` (constante) mais aucun bundle Bevy ne la traite (`entity/*.rs` ne la liste pas). Avant d'utiliser une carte avec une entité nouvellement lue, vérifier que `make test_scenarios` accepte un scénario `idle` dessus.

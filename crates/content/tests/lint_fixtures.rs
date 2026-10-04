@@ -424,7 +424,7 @@ fn feedback_amplitude_negative_fixture_reports_error() {
         load_and_lint(&fixture_dir("feedback_amplitude_negative")).unwrap();
     assert_has_error(&errors, LintErrorKind::OutOfRange, "amplitude");
     for amplitude in [0.0, 1.0] {
-        registry.feedback[0].shake_amplitude = amplitude;
+        registry.feedback[0].settings.shake.amplitude = amplitude;
         let errors = content::lint::run(&registry, &manifest);
         assert!(
             !errors.iter().any(|e| e.kind == LintErrorKind::OutOfRange),
@@ -440,6 +440,18 @@ fn feedback_missing_sound_fixture_reports_error() {
     assert!(!errors
         .iter()
         .any(|e| e.message.contains("sounds/present.ogg")));
+}
+
+#[test]
+fn feedback_t1_17_fixtures_report_their_field() {
+    let (_, _, errors) = load_and_lint(&fixture_dir("feedback_by_weapon_unknown")).unwrap();
+    assert_has_error(&errors, LintErrorKind::BrokenReference, "by_weapon « fantome »");
+    let (_, _, errors) = load_and_lint(&fixture_dir("feedback_override_out_of_range")).unwrap();
+    assert_has_error(
+        &errors,
+        LintErrorKind::OutOfRange,
+        "by_kind.Explosion.shake.frames",
+    );
 }
 
 #[test]
@@ -477,6 +489,9 @@ fn t3_4_fixtures_have_a_single_rule_failure() {
         ("feedback_frames_zero", LintErrorKind::OutOfRange, 2),
         ("feedback_amplitude_negative", LintErrorKind::OutOfRange, 1),
         ("feedback_missing_sound", LintErrorKind::BrokenReference, 1),
+        // T1.17
+        ("feedback_by_weapon_unknown", LintErrorKind::BrokenReference, 1),
+        ("feedback_override_out_of_range", LintErrorKind::OutOfRange, 1),
         (
             "starting_weapons_exceed_slots",
             LintErrorKind::OutOfRange,

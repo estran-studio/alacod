@@ -203,7 +203,12 @@ fn camera_control_system(
     player_query: Query<(Entity, &Transform, &Player, Option<&LocalPlayer>), Without<GameCamera>>,
     online_state: Res<OnlineState>,
     follow_override: Option<Res<CameraFollowOverride>>,
+    // T1.17 : hit stop, la caméra ne suit plus pendant le gel (présentation seule).
+    freeze: Option<Res<animation::AnimationFreeze>>,
 ) {
+    if freeze.is_some_and(|freeze| freeze.is_frozen()) {
+        return;
+    }
     // Get the primary window for dimensions
     // D31 : à la fermeture, la fenêtre peut disparaître avant le dernier passage du système.
     let Ok(window) = windows.single() else {

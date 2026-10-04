@@ -1132,12 +1132,16 @@ fn lint_powerups(registry: &Registry, errors: &mut Vec<LintError>) {
     }
 }
 
-/// Réglages de présentation : aucun état de simulation n'est modifié (T3.4).
+/// Réglages de présentation : aucun état de simulation n'est modifié (T3.4). T1.17 :
+/// valeurs de `FeedbackSettings::problems` (flash, secousse, télégraphe, surcharges
+/// `by_kind`/`by_weapon`) et armes de `by_weapon` connues du jeu (à distance ou de corps à
+/// corps).
 fn lint_feedback(registry: &Registry, errors: &mut Vec<LintError>) {
     let assets_dir = GameManifest::assets_dir(&registry.game_dir);
     for feedback in &registry.feedback {
         let file = feedback.file.display().to_string();
-        for (key, path) in &feedback.sounds {
+        let settings = &feedback.settings;
+        for (key, path) in &settings.sounds {
             if !assets_dir.join(path).is_file() {
                 errors.push(LintError {
                     kind: LintErrorKind::BrokenReference,
@@ -1148,25 +1152,25 @@ fn lint_feedback(registry: &Registry, errors: &mut Vec<LintError>) {
                 });
             }
         }
-        if feedback.shake_amplitude < 0.0 {
+        for problem in settings.problems() {
             errors.push(LintError {
                 kind: LintErrorKind::OutOfRange,
                 file: file.clone(),
-                message: format!(
-                    "feedback : champ shake.amplitude = {} : doit être >= 0",
-                    feedback.shake_amplitude
-                ),
+                message: format!("feedback : champ {} = {}", problem.field, problem.message),
             });
         }
-        for (field, frames) in [
-            ("hit_flash.frames", feedback.hit_flash_frames),
-            ("shake.frames", feedback.shake_frames),
-        ] {
-            if frames == 0 {
+        for weapon in settings.by_weapon.keys() {
+            let known = registry
+                .weapons
+                .contains_key(&registry::WeaponId::from(weapon.as_str()))
+                || registry
+                    .melee_weapons
+                    .contains_key(&registry::MeleeWeaponId::from(weapon.as_str()));
+            if !known {
                 errors.push(LintError {
-                    kind: LintErrorKind::OutOfRange,
+                    kind: LintErrorKind::BrokenReference,
                     file: file.clone(),
-                    message: format!("feedback : champ {field} = 0 : doit être > 0"),
+                    message: format!("feedback : by_weapon « {weapon} » : arme inconnue du jeu"),
                 });
             }
         }

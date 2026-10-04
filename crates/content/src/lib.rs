@@ -1,4 +1,5 @@
 pub mod expr;
+pub mod feedback;
 pub mod lint;
 pub mod manifest;
 pub mod registry;
