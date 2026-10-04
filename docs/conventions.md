@@ -1476,7 +1476,9 @@ l'état rollback de l'arme, sans compteur de pulsations caché dans le bot.
 
 Le déplacement du joueur résout un mouvement diagonal bloqué en faisant glisser X,
 puis en vérifiant Y à la position X obtenue. Vérifier les deux axes depuis la position
-initiale pouvait autoriser leur combinaison à entrer dans le coin d'un mur.
+initiale pouvait autoriser leur combinaison à entrer dans le coin d'un mur. Les ennemis glissent
+comme les joueurs (D39) : `move_enemies` et `move_characters` partagent
+`combat::collider::slide_axes`.
 
 En phase `Spawning`, après 600 frames sans spawn depuis le dernier spawn ou le début
 de phase, une plage de distance vide utilise le spawner le plus proche d'un joueur

@@ -689,37 +689,18 @@ pub fn move_enemies(
             if !check_wall_collision(&full_pos) {
                 fixed_transform.translation = full_pos;
             } else {
-                // Full movement blocked - try sliding along walls
-                let mut moved_x = false;
-                let mut moved_y = false;
+                // Full movement blocked - try sliding along walls: X, then Y from the X
+                // obtained (D39 : Y testé depuis le X de départ combinait deux mouvements
+                // libres séparément dans le coin d'un mur ; même règle que les joueurs).
                 let start_x = fixed_transform.translation.x;
                 let start_y = fixed_transform.translation.y;
-
-                // Try X only
-                if delta_x != fixed_math::FIXED_ZERO {
-                    let x_only_pos = fixed_math::FixedVec3::new(
-                        start_x.saturating_add(delta_x),
-                        start_y,
-                        fixed_transform.translation.z,
-                    );
-                    if !check_wall_collision(&x_only_pos) {
-                        fixed_transform.translation.x = x_only_pos.x;
-                        moved_x = true;
-                    }
-                }
-
-                // Try Y only (independent of X)
-                if delta_y != fixed_math::FIXED_ZERO {
-                    let y_only_pos = fixed_math::FixedVec3::new(
-                        start_x, // Use original X
-                        start_y.saturating_add(delta_y),
-                        fixed_transform.translation.z,
-                    );
-                    if !check_wall_collision(&y_only_pos) {
-                        fixed_transform.translation.y = y_only_pos.y;
-                        moved_y = true;
-                    }
-                }
+                let (slid, moved_x, moved_y) = crate::collider::slide_axes(
+                    fixed_transform.translation,
+                    delta_x,
+                    delta_y,
+                    &check_wall_collision,
+                );
+                fixed_transform.translation = slid;
 
                 // Detect wall-sliding: tried diagonal but only one axis succeeded
                 let was_trying_diagonal = delta_x.abs() > fixed_math::FIXED_ZERO
