@@ -1,0 +1,11 @@
+// `throne` (T1.9 + T1.11 phase 2, docs/conventions.md §23 et §29) : horloge d'étage (remise à
+// zéro à chaque caverne) : `alerte` à 45 s, `renfort` à 75 s puis toutes les 30 s. En v1 une
+// horloge ne fait que déclencher (moments clés, attente `Clock`) : aucune action n'y est
+// attachée (`OnEvent` des effets est v2) ; la pression qui monte vient de la difficulté.
+(
+    scope: Floor,
+    events: [
+        (id: "alerte", at: Seconds("45")),
+        (id: "renfort", at: Seconds("75"), repeat: Some(Seconds("30"))),
+    ],
+)

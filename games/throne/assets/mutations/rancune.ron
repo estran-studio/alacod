@@ -1,0 +1,10 @@
+// `throne` (T1.10 + T1.11 phase 2, docs/conventions.md §27 et §29) : chaque coup encaissé donne +50 % de dégâts pendant 2 s.
+(
+    name: "Rancune",
+    weight: 1,
+    tags: ["attaque"],
+    max_stacks: 1,
+    effects: [
+        (on: OnDamageTaken, do: [TimedModifier(stat: Damage, op: Mul, value: "1.5", frames: 120)]),
+    ],
+)

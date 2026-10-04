@@ -1,0 +1,10 @@
+// `throne` (T1.10 + T1.11 phase 2, docs/conventions.md §27 et §29) : toutes les 180 frames, une couronne de six éclats part du joueur (pattern `salve`, éclats du `lance_grenades`).
+(
+    name: "Tireur",
+    weight: 1,
+    tags: ["attaque"],
+    max_stacks: 1,
+    effects: [
+        (on: Tick(180), do: [SpawnPattern(pattern: "salve", weapon: "lance_grenades")]),
+    ],
+)

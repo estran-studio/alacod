@@ -1,0 +1,5 @@
+// `throne` (phase 2) : salve de la mutation `tireur` — une couronne de six éclats (table
+// `projectiles` du `lance_grenades`), une seule salve par déclenchement.
+Sequence([
+    Ring(count: 6, speed: "240.0", projectile: "eclat", every: 0),
+])
