@@ -250,6 +250,10 @@ make diff_log CID_1=alice CID_2=bob
       (`rollback_and_trace_resource_neutral`, T1.8 ; `rollback_and_trace_neutral::<C>` pour les
       composants, T1.2) : contribution 0 sans porteur, hash normal sinon. Ne jamais compenser par
       la parité, ne jamais passer en `no_checksum` pour « sauver » les traces.
+      Corollaire (T1.3, 2026-10-04) : un type **déjà** enregistré sous checksum sans porteur (ex.
+      `Statuses`/`BehaviorState` de T1.0a, en parité) ne doit **pas** passer en neutre quand on lui
+      donne enfin des porteurs : la parité se briserait et toutes les traces bougeraient dès la frame 0.
+      Le piège ne vaut que pour un type nouveau.
 - [ ] **`#[derive(Hash)]` sur un enum à une seule variante n'écrit pas le discriminant**
       (constaté par T1.6, 2026-10-04) : ajouter une **deuxième** variante à un tel enum sous
       checksum (ex. `ExpireAction::Spawn` + `DestroyTerrain`) fait soudain hacher le discriminant
