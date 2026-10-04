@@ -156,6 +156,7 @@ pub(crate) fn lint_effect(
                 }
             }
             effects::Action::RefillAmmo
+            | effects::Action::RefillAmmoOf(_)
             | effects::Action::RepairAllWindows
             | effects::Action::KillAllWaveEnemies
             | effects::Action::DestroyTerrain { .. } => push(
@@ -1048,8 +1049,18 @@ fn lint_powerups(registry: &Registry, errors: &mut Vec<LintError>) {
                 powerup.id
             ));
         }
+        // D40 : `RefillAmmoOf(munition)` vers une munition qu'aucune arme ne déclare.
+        let mut unknown_ammo = Vec::new();
         for (index, action) in powerup.actions.iter().enumerate() {
             match action {
+                effects::Action::RefillAmmoOf(ammo) => {
+                    if !registry.weapons.values().any(|weapon| weapon.ammo_type == *ammo) {
+                        unknown_ammo.push(format!(
+                            "power-up « {} » : actions[{index}] (RefillAmmoOf) : munition {ammo:?} déclarée par aucune arme",
+                            powerup.id
+                        ));
+                    }
+                }
                 // `frames: 0` : modificateur posé avec `until = frame de ramassage`, expiré
                 // aussitôt (voir `effects::Action::as_modifier`).
                 effects::Action::TimedModifier {
@@ -1099,6 +1110,13 @@ fn lint_powerups(registry: &Registry, errors: &mut Vec<LintError>) {
                 )),
                 _ => {}
             }
+        }
+        for message in unknown_ammo {
+            errors.push(LintError {
+                kind: LintErrorKind::BrokenReference,
+                file: file.clone(),
+                message,
+            });
         }
     }
 }

@@ -72,6 +72,11 @@ pub enum Action {
     SpawnPattern { pattern: String, weapon: String },
     /// T1.10 : ajoute `amount` à la jauge `id` du porteur (`Gauges`).
     GaugeAdd(String, Fixed),
+    /// D40 : comme [`Self::RefillAmmo`], restreint à une munition : remplit le chargeur des
+    /// armes de cette munition et recharge la réserve de cette munition seulement (butin par
+    /// munition de `throne`). Power-up seulement (refusée dans un effet, comme `RefillAmmo`).
+    /// Ajoutée en dernier : les hashs des autres variantes ne bougent pas.
+    RefillAmmoOf(sim_core::ammo::AmmoType),
 }
 
 impl Action {

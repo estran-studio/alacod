@@ -40,4 +40,7 @@
         behaviors: Some([Melee("griffes"), Chase(profile: "Ground"), Wander]),
         perception: Some((senses: [Sight("300.0")])),
     )),
+    // `docs/conventions.md` §28 : scénarios générés `enemy_<id>_still`/`_moving`
+    // (`make gen GAME=throne`), attentes par défaut.
+    test: Some((frames: 600)),
 )

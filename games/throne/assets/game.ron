@@ -34,4 +34,8 @@
         clocks: ["etage"],
         difficulty: true,
     ),
+    // `docs/conventions.md` §28-§29 : scénarios générés de throne (`make gen GAME=throne`) joués
+    // dans ce jeu, sur la carte gabarit (cible à +128/-48 LDtk du spawn, comme l'arène du
+    // testbed), en mode `Sandbox` imposé par le générateur.
+    generate_template: (map: "gabarit_armes.ldtk", target: "cible"),
 )

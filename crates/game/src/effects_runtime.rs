@@ -361,6 +361,7 @@ fn apply_action(
             ));
         }
         Action::RefillAmmo
+        | Action::RefillAmmoOf(_)
         | Action::RepairAllWindows
         | Action::KillAllWaveEnemies
         | Action::DestroyTerrain { .. } => {
