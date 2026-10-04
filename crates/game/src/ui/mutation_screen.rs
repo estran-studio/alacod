@@ -313,7 +313,7 @@ fn draw_mutation_screen(
         }
         let layout = handle.0.as_ref().and_then(|h| layouts.get(h));
         if let (Some(shown), Some(layout)) = (wanted, layout) {
-            let font = Some(asset_server.load(&layout.0.font));
+            let font = Some(asset_server.load(layout.0.font.clone()));
             spawn_screen(&mut commands, &view, &layout.0, font, shown);
         }
         return;
