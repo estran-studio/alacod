@@ -72,6 +72,7 @@ pub fn run(registry: &Registry, manifest: &GameManifest) -> Vec<LintError> {
     lint_patterns(registry, &mut errors);
     lint_progression(registry, &mut errors);
     lint_mutations(registry, &mut errors);
+    lint_statuses(registry, &mut errors);
     lint_forced_variants(registry, &mut errors);
     lint_character_tests(registry, &mut errors);
     lint_clocks(registry, manifest, &mut errors);
@@ -159,7 +160,8 @@ pub(crate) fn lint_effect(
             | effects::Action::RefillAmmoOf(_)
             | effects::Action::RepairAllWindows
             | effects::Action::KillAllWaveEnemies
-            | effects::Action::DestroyTerrain { .. } => push(
+            | effects::Action::DestroyTerrain { .. }
+            | effects::Action::ApplyStatus { .. } => push(
                 LintErrorKind::Unsupported,
                 format!("{at} : action {action:?} : pas exécutée dans un effet (v2)"),
             ),
@@ -378,6 +380,7 @@ fn lint_weapons(registry: &Registry, errors: &mut Vec<LintError>) {
         }
         lint_weapon_test(&weapon.id, &weapon.file, weapon.test.as_ref(), errors);
         lint_weapon_projectiles(weapon, &registry.patterns, errors);
+        lint_weapon_statuses(registry, weapon, errors);
         // D3 : `sprite_config.name` désigne une entrée de la table `SpriteSheet`. Vérifié
         // seulement si le jeu en déclare une : sans table, aucun sprite n'est chargé (les
         // fixtures de lint n'en ont pas).
@@ -565,7 +568,10 @@ fn lint_projectile_spec(
         }
         if !matches!(
             action,
-            effects::Action::TimedModifier { .. } | effects::Action::CurrencyMultiplier { .. }
+            effects::Action::TimedModifier { .. }
+                | effects::Action::CurrencyMultiplier { .. }
+                // T1.3 : statut posé sur la cible (référence vérifiée par `lint_weapon_statuses`)
+                | effects::Action::ApplyStatus { .. }
         ) {
             push(
                 LintErrorKind::OutOfRange,
@@ -1106,6 +1112,11 @@ fn lint_powerups(registry: &Registry, errors: &mut Vec<LintError>) {
                 | effects::Action::SpawnPattern { .. }
                 | effects::Action::GaugeAdd(..) => push(format!(
                     "power-up « {} » : actions[{index}] : action d'effet (T1.10), pas de power-up",
+                    powerup.id
+                )),
+                // T1.3 : un statut se pose sur un personnage touché (projectile)
+                effects::Action::ApplyStatus { .. } => push(format!(
+                    "power-up « {} » : actions[{index}] (ApplyStatus) : réservée aux projectiles (on_hit)",
                     powerup.id
                 )),
                 _ => {}
@@ -1991,6 +2002,93 @@ fn lint_mutations(registry: &Registry, errors: &mut Vec<LintError>) {
                 effect,
                 &mut push,
             );
+        }
+    }
+}
+
+/// T1.3 (`docs/conventions.md` §19) : `ApplyStatus` des `on_hit` d'une arme (modes et table
+/// `projectiles`) : statut connu, `stacks > 0`.
+fn lint_weapon_statuses(
+    registry: &Registry,
+    weapon: &registry::WeaponEntry,
+    errors: &mut Vec<LintError>,
+) {
+    let specs = weapon
+        .mode_projectiles
+        .iter()
+        .map(|(mode, spec)| (format!("mode « {mode} »"), spec.on_hit.clone()))
+        .chain(
+            weapon
+                .projectiles
+                .iter()
+                .map(|(id, def)| (format!("projectiles « {id} »"), def.on_hit.clone())),
+        );
+    for (at, on_hit) in specs {
+        for action in on_hit {
+            let effects::Action::ApplyStatus { status, stacks } = action else {
+                continue;
+            };
+            let file = weapon.file.display().to_string();
+            if !registry
+                .statuses
+                .contains_key(&registry::StatusId::from(status.clone()))
+            {
+                errors.push(LintError {
+                    kind: LintErrorKind::BrokenReference,
+                    file: file.clone(),
+                    message: format!(
+                        "arme « {} » : {at} : ApplyStatus : statut « {status} » inconnu",
+                        weapon.id
+                    ),
+                });
+            }
+            if stacks == 0 {
+                errors.push(LintError {
+                    kind: LintErrorKind::OutOfRange,
+                    file,
+                    message: format!(
+                        "arme « {} » : {at} : ApplyStatus « {status} » : stacks = 0 : doit être > 0",
+                        weapon.id
+                    ),
+                });
+            }
+        }
+    }
+}
+
+/// T1.3 (`docs/conventions.md` §19) : `statuses/<id>.ron`.
+fn lint_statuses(registry: &Registry, errors: &mut Vec<LintError>) {
+    use registry::StatusKindEntry;
+    for status in registry.statuses.values() {
+        let file = status.file.display().to_string();
+        let mut push = |message: String| {
+            errors.push(LintError {
+                kind: LintErrorKind::OutOfRange,
+                file: file.clone(),
+                message: format!("statut « {} » : {message}", status.id),
+            })
+        };
+        if status.frames == 0 {
+            push("frames = 0 : doit être > 0".into());
+        }
+        match status.kind {
+            StatusKindEntry::Burn => {
+                if status.damage <= Fixed::ZERO {
+                    push(format!("damage = {} : doit être > 0 (Burn)", status.damage));
+                }
+                if status.period == 0 {
+                    push("period = 0 : doit être > 0 (Burn)".into());
+                }
+            }
+            StatusKindEntry::Slow => {
+                if status.factor <= Fixed::ZERO || status.factor > Fixed::ONE {
+                    push(format!(
+                        "factor = {} : doit être dans ]0, 1] (Slow)",
+                        status.factor
+                    ));
+                }
+            }
+            StatusKindEntry::Stun | StatusKindEntry::Freeze => {}
         }
     }
 }

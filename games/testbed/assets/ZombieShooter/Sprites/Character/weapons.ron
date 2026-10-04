@@ -601,4 +601,181 @@
             weapon_offset: ( x: "0.0", y: "-5.0" )
         ),
     ),
+    // T1.3 (statuts, docs/conventions.md §19) : Burn : chaque balle brûle `target` (2 piles au plus ;
+    // deux balles touchent, vers f75 et f165, les autres « coups » comptés sont les ticks). Scénario généré `weapon_status_burn`
+    // (attentes `HasStatus`/`StatusStacks` sur `target`).
+    "status_burn": (
+        config: (
+            name: "status_burn",
+            default_firing_mode: "default",
+            ammo_type: Plomb,
+            firing_modes: {
+                "default": (
+                    firing_rate: "4.0",
+                    firing_mode: Manual(),
+                    spread: "0.0",
+                    recoil: "0.0",
+                    bullet_type: Standard(
+                        damage: "1.0",
+                        speed: "300.0",
+                    ),
+                    range: "900.0",
+                    reload_time_seconds: "1.0",
+                    mag: Mag(
+                        mag_size: 30,
+                        mag_limit: 4,
+                    ),
+                    projectile: (on_hit: [ApplyStatus(status: "brulure", stacks: 1)]),
+                )
+            },
+            test: Some((
+                frames: 200,
+                min_hits: 2,
+                expect: [
+                    HasStatus(entity: Target, status: "brulure", at_frame: 100),
+                    StatusStacks(entity: Target, status: "brulure", stacks: 1, at_frame: 100),
+                    // Deuxième balle vers f165 : durée empilée, deux piles
+                    StatusStacks(entity: Target, status: "brulure", stacks: 2, at_frame: 175),
+                ],
+            )),
+        ),
+        sprite_config: (
+            name: "pistol",
+            index: 3,
+            bullet_offset_right: ( x: "-5.0", y: "2.0" ),
+            bullet_offset_left: ( x: "0.0", y: "-2.0" ),
+            weapon_offset: ( x: "0.0", y: "-5.0" )
+        ),
+    ),
+    // T1.3 (statuts, docs/conventions.md §19) : Slow : chaque balle ralentit `target` (immobile : seule la présence se vérifie). Scénario généré `weapon_status_slow`
+    // (attentes `HasStatus`/`StatusStacks` sur `target`).
+    "status_slow": (
+        config: (
+            name: "status_slow",
+            default_firing_mode: "default",
+            ammo_type: Plomb,
+            firing_modes: {
+                "default": (
+                    firing_rate: "4.0",
+                    firing_mode: Manual(),
+                    spread: "0.0",
+                    recoil: "0.0",
+                    bullet_type: Standard(
+                        damage: "1.0",
+                        speed: "300.0",
+                    ),
+                    range: "900.0",
+                    reload_time_seconds: "1.0",
+                    mag: Mag(
+                        mag_size: 30,
+                        mag_limit: 4,
+                    ),
+                    projectile: (on_hit: [ApplyStatus(status: "lenteur", stacks: 1)]),
+                )
+            },
+            test: Some((
+                frames: 200,
+                min_hits: 2,
+                expect: [
+                    HasStatus(entity: Target, status: "lenteur", at_frame: 100),
+                    StatusStacks(entity: Target, status: "lenteur", stacks: 1, at_frame: 100),
+                ],
+            )),
+        ),
+        sprite_config: (
+            name: "pistol",
+            index: 3,
+            bullet_offset_right: ( x: "-5.0", y: "2.0" ),
+            bullet_offset_left: ( x: "0.0", y: "-2.0" ),
+            weapon_offset: ( x: "0.0", y: "-5.0" )
+        ),
+    ),
+    // T1.3 (statuts, docs/conventions.md §19) : Stun : chaque balle étourdit `target`. Scénario généré `weapon_status_stun`
+    // (attentes `HasStatus`/`StatusStacks` sur `target`).
+    "status_stun": (
+        config: (
+            name: "status_stun",
+            default_firing_mode: "default",
+            ammo_type: Plomb,
+            firing_modes: {
+                "default": (
+                    firing_rate: "4.0",
+                    firing_mode: Manual(),
+                    spread: "0.0",
+                    recoil: "0.0",
+                    bullet_type: Standard(
+                        damage: "1.0",
+                        speed: "300.0",
+                    ),
+                    range: "900.0",
+                    reload_time_seconds: "1.0",
+                    mag: Mag(
+                        mag_size: 30,
+                        mag_limit: 4,
+                    ),
+                    projectile: (on_hit: [ApplyStatus(status: "etourdi", stacks: 1)]),
+                )
+            },
+            test: Some((
+                frames: 200,
+                min_hits: 2,
+                expect: [
+                    HasStatus(entity: Target, status: "etourdi", at_frame: 100),
+                    StatusStacks(entity: Target, status: "etourdi", stacks: 1, at_frame: 100),
+                    // Posé vers f75 pour 60 frames : expiré avant la balle suivante (f165)
+                    HasStatus(entity: Target, status: "etourdi", present: false, at_frame: 150),
+                ],
+            )),
+        ),
+        sprite_config: (
+            name: "pistol",
+            index: 3,
+            bullet_offset_right: ( x: "-5.0", y: "2.0" ),
+            bullet_offset_left: ( x: "0.0", y: "-2.0" ),
+            weapon_offset: ( x: "0.0", y: "-5.0" )
+        ),
+    ),
+    // T1.3 (statuts, docs/conventions.md §19) : Freeze : chaque balle gèle `target`. Scénario généré `weapon_status_freeze`
+    // (attentes `HasStatus`/`StatusStacks` sur `target`).
+    "status_freeze": (
+        config: (
+            name: "status_freeze",
+            default_firing_mode: "default",
+            ammo_type: Plomb,
+            firing_modes: {
+                "default": (
+                    firing_rate: "4.0",
+                    firing_mode: Manual(),
+                    spread: "0.0",
+                    recoil: "0.0",
+                    bullet_type: Standard(
+                        damage: "1.0",
+                        speed: "300.0",
+                    ),
+                    range: "900.0",
+                    reload_time_seconds: "1.0",
+                    mag: Mag(
+                        mag_size: 30,
+                        mag_limit: 4,
+                    ),
+                    projectile: (on_hit: [ApplyStatus(status: "gel", stacks: 1)]),
+                )
+            },
+            test: Some((
+                frames: 200,
+                min_hits: 2,
+                expect: [
+                    HasStatus(entity: Target, status: "gel", at_frame: 100),
+                    StatusStacks(entity: Target, status: "gel", stacks: 1, at_frame: 100),
+                ],
+            )),
+        ),
+        sprite_config: (
+            name: "pistol",
+            index: 3,
+            bullet_offset_right: ( x: "-5.0", y: "2.0" ),
+            bullet_offset_left: ( x: "0.0", y: "-2.0" ),
+            weapon_offset: ( x: "0.0", y: "-5.0" )
+        ),
+    ),
 })

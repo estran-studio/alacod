@@ -133,6 +133,17 @@ fn effect_fixtures_report_unsupported_and_out_of_range() {
 }
 
 #[test]
+fn status_fixtures() {
+    let (_, _, errors) = load_and_lint(&fixture_dir("status_out_of_range")).unwrap();
+    assert_has_error(&errors, LintErrorKind::OutOfRange, "frames = 0");
+    assert_has_error(&errors, LintErrorKind::OutOfRange, "damage = 0");
+    assert_has_error(&errors, LintErrorKind::OutOfRange, "period = 0");
+    assert_has_error(&errors, LintErrorKind::OutOfRange, "factor = 2");
+    let (_, _, errors) = load_and_lint(&fixture_dir("status_unknown")).unwrap();
+    assert_has_error(&errors, LintErrorKind::BrokenReference, "« givre »");
+}
+
+#[test]
 fn progression_and_mutation_fixtures() {
     let (_, _, errors) = load_and_lint(&fixture_dir("progression_out_of_range")).unwrap();
     assert_has_error(&errors, LintErrorKind::OutOfRange, "per_kill = 0");
@@ -317,6 +328,8 @@ fn t2_8_fixtures_have_a_single_problem() {
             LintErrorKind::BrokenReference,
         ),
         ("mutation_out_of_range", LintErrorKind::OutOfRange),
+        ("status_out_of_range", LintErrorKind::OutOfRange),
+        ("status_unknown", LintErrorKind::BrokenReference),
     ];
     for (name, kind) in cases {
         let (_, _, errors) = load_and_lint(&fixture_dir(name)).unwrap();

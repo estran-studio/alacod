@@ -222,6 +222,8 @@ pub fn enemy_attack_system(
             // T1.4 : règles et état des behaviors nouveaux (voir `rules`).
             Option<&EnemyBehaviors>,
             Option<&BehaviorRuntime>,
+            // T1.3 : `Stun`/`Freeze` (§19) : ni tir ni corps à corps.
+            Option<&combat::status::Statuses>,
         ),
         With<Enemy>,
     >,
@@ -254,8 +256,12 @@ pub fn enemy_attack_system(
         inventory,
         enemy_behaviors,
         behavior_runtime,
+        statuses,
     ) in order_mut_iter!(enemy_query)
     {
+        if combat::status::incapacitated(statuses) {
+            continue;
+        }
         let enemy_pos = enemy_transform.translation.truncate();
 
         // T1.4 : un ennemi à behaviors nouveaux (`BehaviorRuntime`) n'exécute que sa règle

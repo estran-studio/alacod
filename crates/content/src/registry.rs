@@ -116,6 +116,11 @@ string_id!(
     ProgressionId
 );
 string_id!(
+    /// Identifiant d'un statut (T1.3, kind `Status`) : nom de fichier sans extension
+    /// (`statuses/<id>.ron`), référencé par `ApplyStatus { status, .. }`.
+    StatusId
+);
+string_id!(
     /// Identifiant d'une mutation (T1.10, kind `Mutation`) : nom de fichier sans extension
     /// (`mutations/<id>.ron`).
     MutationId
@@ -646,6 +651,41 @@ struct ProgressionFileSchema {
     weapon_drop_chance: Option<FixedField>,
 }
 
+/// Genre d'un statut (miroir de `combat::status::StatusDef`, T1.3 ; `content` ne dépend pas
+/// de `combat`).
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Deserialize)]
+pub enum StatusKindEntry {
+    Burn,
+    Slow,
+    Stun,
+    Freeze,
+}
+
+/// Statut (T1.3, `docs/conventions.md` §19), `statuses/<id>.ron` :
+/// `(kind: Burn, frames: 120, damage: "4", period: 30)`, `(kind: Slow, frames: 120, factor: "0.5")`.
+#[derive(Debug, Clone)]
+pub struct StatusContentEntry {
+    pub id: StatusId,
+    pub file: PathBuf,
+    pub kind: StatusKindEntry,
+    pub frames: u32,
+    pub damage: Fixed,
+    pub period: u32,
+    pub factor: Fixed,
+}
+
+#[derive(Debug, Clone, Deserialize)]
+struct StatusFileSchema {
+    kind: StatusKindEntry,
+    frames: u32,
+    #[serde(default)]
+    damage: Option<FixedField>,
+    #[serde(default)]
+    period: Option<u32>,
+    #[serde(default)]
+    factor: Option<FixedField>,
+}
+
 /// Mutation (T1.10, chantier C4 v1), `mutations/<id>.ron` : `( name, weight, tags, max_stacks,
 /// effects )`. Ses effets sont ajoutés aux `Effects` du joueur qui la choisit.
 #[derive(Debug, Clone)]
@@ -819,6 +859,8 @@ pub struct Registry {
     pub progression: BTreeMap<ProgressionId, ProgressionEntry>,
     /// T1.10 : mutations (kind `Mutation`).
     pub mutations: BTreeMap<MutationId, MutationEntry>,
+    /// T1.3 : statuts (kind `Status`).
+    pub statuses: BTreeMap<StatusId, StatusContentEntry>,
     /// T1.9 : horloges (kind `Clock`).
     pub clocks: BTreeMap<ClockId, ClockEntry>,
     /// T1.9 : difficulté (kind `Difficulty`, un fichier ; le dernier chargé gagne).
@@ -870,6 +912,7 @@ pub const KNOWN_KIND_NAMES: &[&str] = &[
     "Pattern",
     "Progression",
     "Mutation",
+    "Status",
     "Clock",
     "Difficulty",
 ];
@@ -933,6 +976,7 @@ impl Registry {
                 "Pattern" => load_patterns(&assets_dir, decl, &mut registry, &mut errors),
                 "Progression" => load_progression(&assets_dir, decl, &mut registry, &mut errors),
                 "Mutation" => load_mutations(&assets_dir, decl, &mut registry, &mut errors),
+                "Status" => load_statuses(&assets_dir, decl, &mut registry, &mut errors),
                 "Clock" => load_clocks(&assets_dir, decl, &mut registry, &mut errors),
                 "Difficulty" => load_difficulty(&assets_dir, decl, &mut registry, &mut errors),
                 _ => unreachable!("filtré par `kinds.has` ci-dessus"),
@@ -2169,6 +2213,41 @@ fn load_progression(
                 mutations: parsed.mutations,
                 weapon_pool: parsed.weapon_pool,
                 weapon_drop_chance: parsed.weapon_drop_chance.map_or(Fixed::ZERO, |c| c.get()),
+            },
+        );
+    }
+}
+
+/// T1.3 : mêmes règles que [`load_waves`] (id = nom de fichier sans extension).
+fn load_statuses(
+    assets_dir: &Path,
+    decl: &ContentFolderDecl,
+    registry: &mut Registry,
+    errors: &mut Vec<LintError>,
+) {
+    for (id, rel, parsed) in load_ron_files::<StatusFileSchema>(assets_dir, decl, errors) {
+        let id = StatusId::from(id);
+        if let Some(existing) = registry.statuses.get(&id) {
+            errors.push(LintError {
+                kind: LintErrorKind::DuplicateId,
+                file: rel.display().to_string(),
+                message: format!(
+                    "id de statut « {id} » déjà défini dans {}",
+                    existing.file.display()
+                ),
+            });
+            continue;
+        }
+        registry.statuses.insert(
+            id.clone(),
+            StatusContentEntry {
+                id,
+                file: rel,
+                kind: parsed.kind,
+                frames: parsed.frames,
+                damage: parsed.damage.map_or(Fixed::ZERO, |d| d.get()),
+                period: parsed.period.unwrap_or(0),
+                factor: parsed.factor.map_or(Fixed::ONE, |f| f.get()),
             },
         );
     }

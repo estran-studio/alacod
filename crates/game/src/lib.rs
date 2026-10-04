@@ -27,6 +27,7 @@ pub mod replay;
 pub mod rollback;
 pub mod run_state;
 pub mod state_trace;
+pub mod statuses;
 pub mod system_set;
 pub mod ui;
 pub mod waves;

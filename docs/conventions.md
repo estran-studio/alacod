@@ -994,6 +994,67 @@ expression `content::expr` en chaîne RON (ex. `health: "120.0 + (players - 1) *
   Tests unitaires : `content::expr` (désérialisation, résolution, erreurs) et `game::balance`
   (dépendance à `players`, erreurs = panic avec contexte).
 
+## 19. Statuts (T1.3, chantier B3)
+
+Code : `combat::status` (règles pures, `Statuses`, `StatusLibrary`), `combat::projectile`
+(`apply_projectile_on_hit_system`, `status_tick_system`, `status_motion_system`),
+`game::statuses` (bibliothèque depuis le registre), `content::lint::{lint_statuses,
+lint_weapon_statuses}`.
+
+**Contenu** : kind `Status` (`statuses/<id>.ron`), l'id nomme le statut, `kind` son genre
+(`StatusDef`) :
+```ron
+// games/testbed/assets/statuses/brulure.ron — game.ron : (path: "statuses", kind: "Status")
+(kind: Burn, frames: 120, damage: "4", period: 30)
+// lenteur : (kind: Slow, frames: 120, factor: "0.5") ; etourdi : (kind: Stun, frames: 60)
+// gel : (kind: Freeze, frames: 90)
+```
+Lint : `frames > 0` ; `Burn` : `damage > 0`, `period > 0` ; `Slow` : `factor` dans `]0, 1]`
+(fixtures `status_out_of_range`, `status_unknown`).
+
+**Pose** : `Action::ApplyStatus { status, stacks }` (dernier variant d'`effects::Action`) dans
+l'`on_hit` d'un projectile composable, exécutée sur le personnage touché par
+`apply_projectile_on_hit_system` (`RollbackSystemSet::Projectiles`). Statut inconnu ou `stacks`
+0 : lint. Dans un effet (T1.10) ou un power-up : lint (`Unsupported` / refus) — v1 n'a pas de
+cible pour un statut hors d'un coup. **Suite** : `OnDamageTaken` connaît sa source, un effet
+« riposte » pourrait y poser un statut (v2) ; `OnKill` n'a pas de cible vivante.
+
+**État** : composant `Statuses` (rollback + checksum, enregistrement de T1.0a **gardé tel quel** :
+les traces de référence l'incluent déjà sans porteur ; la variante neutre, essayée, changeait le
+checksum de toutes les frames de tous les scénarios). Un personnage n'en porte que si un statut
+lui a été posé, le composant est retiré quand le dernier expire : aucune trace existante, zombies
+compris, ne change. Entrée `StatusEntry { status, stacks, expires_at_frame, id, source,
+source_team, next_tick_frame }`, dans l'ordre de pose.
+
+**Règles** (pures, testées) :
+- `Burn` : un tick de `damage` toutes les `period` frames depuis la pose, tant que le tick tombe
+  au plus tard à l'expiration ; chaque tick est un `DamageEvent` de genre `Fire` (tags `status`,
+  `<id>`), **crédité à la source** (kill compris), résolu dans la même frame par le résolveur
+  unique (immunités, résistances, équipes ; source disparue : équipe relevée à la pose).
+  Réapplication : durée restante + durée de base, plafonnée à 2 × la base ; `stacks` =
+  applications actives, au plus 2.
+- `Slow` : modificateurs `MoveSpeed` et `EnemyMoveSpeed` `Mul factor`, source
+  `Named("status:<id>")`, jusqu'à l'expiration ; réapplication : rafraîchie.
+- `Stun` : ni déplacement ni tir ; réapplication : rafraîchie. Joueur : inputs ignorés **dans la
+  simulation** (`apply_inputs`, tir, mêlée ; visée gardée), jamais à la lecture des inputs (un
+  rejeu `Scripted` doit rester identique). Ennemi : aucune règle de comportement retenue (une
+  charge est interrompue), pas de déplacement (`move_enemies`), pas d'attaque, émetteur suspendu.
+- `Freeze` : `Stun`, plus vitesse **et recul** remis à zéro chaque frame (`status_motion_system`,
+  `Movement`, avant `move_characters`).
+
+**Ordre** : pose (`Projectiles`, après les coups de la frame) → `status_tick_system` (même set,
+juste après : ticks de `Burn` puis expiration, `expires_at_frame <= frame`, porteurs par
+`GgrsNetId`) → résolution des dégâts (`CollisionDamage`, même frame). Un statut posé à la frame
+`f` agit sur le déplacement à partir de `f + 1` (le set `Movement` est passé).
+
+**Visuel dérivé** (`game::feedback`, hors simulation) : les calques d'un porteur prennent la
+teinte de son statut le plus contraignant (gel, étourdi, brûlure, lenteur), relue chaque frame.
+
+**Attentes** : `HasStatus(entity, status, present: true, at_frame)`, `StatusStacks(entity,
+status, stacks, at_frame)` (`entity` : `NetId(n)` ou `Target`). **Testbed** : quatre statuts,
+quatre armes `status_burn`, `status_slow`, `status_stun`, `status_freeze` dont le `test:` utilise
+les deux attentes (scénarios générés `weapon_status_*`).
+
 ## 20. Patterns, émetteurs et tir ennemi (T1.2, chantier B5 v1)
 
 Code : `crates/combat/src/emitter.rs` (état `Emitter`, avancée pure testée, `emitter_system`),

@@ -94,6 +94,8 @@ pub fn behavior_select_system(
             &Health,
             Option<&RangedAttackState>,
             Has<Emitter>,
+            // T1.3 : `Stun`/`Freeze` (§19) : aucune règle retenue.
+            Option<&combat::status::Statuses>,
         ),
         With<Enemy>,
     >,
@@ -120,6 +122,7 @@ pub fn behavior_select_system(
         health,
         ranged_state,
         has_emitter,
+        statuses,
     ) in order_mut_iter!(enemy_query)
     {
         let position = transform.translation.truncate();
@@ -185,7 +188,11 @@ pub fn behavior_select_system(
             charge_ready: now >= runtime.charge_ready_at,
             previous: runtime.selected.map(|index| index as usize),
         };
-        let selected = select(&rules.rules, &ctx).map(|index| index as u32);
+        let selected = if combat::status::incapacitated(statuses) {
+            None
+        } else {
+            select(&rules.rules, &ctx).map(|index| index as u32)
+        };
         if selected != runtime.selected {
             runtime.since_frame = now;
             info!(

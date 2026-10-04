@@ -1,0 +1,2 @@
+// T1.3 : lenteur — vitesse de déplacement × 0,5 pendant 120 frames (réappliquée : rafraîchie).
+(kind: Slow, frames: 120, factor: "0.5")

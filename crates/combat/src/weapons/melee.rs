@@ -526,6 +526,8 @@ pub fn player_melee_attack_system(
             &Team,
             Option<&Tags>,
             Has<Downed>,
+            // T1.3 : `Stun`/`Freeze` (§19) : pas de mêlée.
+            Option<&crate::status::Statuses>,
         ),
         With<Rollback>,
     >,
@@ -550,12 +552,16 @@ pub fn player_melee_attack_system(
         team,
         opt_tags,
         is_downed,
+        statuses,
     ) in order_mut_iter!(player_query)
     {
         let (input, _status) = inputs[player.handle];
 
-        // Check if melee attack button is pressed — à terre (T1.3) : pas de mêlée.
-        let wants_melee_attack = !is_downed && (input.buttons & INPUT_MELEE_ATTACK != 0);
+        // Check if melee attack button is pressed — à terre (T1.3) : pas de mêlée ; étourdi
+        // ou gelé (statuts, T1.3 aussi) : pas de mêlée.
+        let wants_melee_attack = !is_downed
+            && !crate::status::incapacitated(statuses)
+            && (input.buttons & INPUT_MELEE_ATTACK != 0);
 
         // Find melee weapon in children
         let mut melee_weapon_opt: Option<&MeleeWeapon> = None;

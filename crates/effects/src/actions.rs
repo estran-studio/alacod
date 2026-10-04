@@ -72,10 +72,14 @@ pub enum Action {
     SpawnPattern { pattern: String, weapon: String },
     /// T1.10 : ajoute `amount` à la jauge `id` du porteur (`Gauges`).
     GaugeAdd(String, Fixed),
+    /// T1.3 (statuts, `docs/conventions.md` §19) : pose `stacks` fois le statut `status` (id
+    /// du kind `Status`) sur le personnage touché par un projectile (`on_hit`). Dans un effet
+    /// ou un power-up : refusée par le lint en v1 (pas de cible).
+    ApplyStatus { status: String, stacks: u32 },
     /// D40 : comme [`Self::RefillAmmo`], restreint à une munition : remplit le chargeur des
     /// armes de cette munition et recharge la réserve de cette munition seulement (butin par
     /// munition de `throne`). Power-up seulement (refusée dans un effet, comme `RefillAmmo`).
-    /// Ajoutée en dernier : les hashs des autres variantes ne bougent pas.
+    /// Ajoutée en dernier (après `ApplyStatus`) : les hashs des autres variantes ne bougent pas.
     RefillAmmoOf(sim_core::ammo::AmmoType),
 }
 
@@ -122,7 +126,9 @@ impl Action {
             | Action::Modifier { .. }
             | Action::Heal(_)
             | Action::SpawnPattern { .. }
-            | Action::GaugeAdd(..) => None,
+            | Action::GaugeAdd(..)
+            | Action::ApplyStatus { .. }
+            | Action::RefillAmmoOf(_) => None,
         }
     }
 }

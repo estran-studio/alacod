@@ -1,0 +1,2 @@
+// T1.3 : étourdi — ni déplacement ni tir pendant 60 frames (réappliqué : rafraîchi).
+(kind: Stun, frames: 60)
