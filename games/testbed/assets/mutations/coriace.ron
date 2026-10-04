@@ -1,0 +1,10 @@
+// T1.10 : à chaque niveau (dès sa prise), +50 points de vie max et 50 points de soin.
+(
+    name: "Coriace",
+    weight: 1,
+    tags: ["defense"],
+    max_stacks: 1,
+    effects: [
+        (on: OnLevelUp, do: [Modifier(stat: MaxHealth, op: Add, value: "50"), Heal("50")]),
+    ],
+)

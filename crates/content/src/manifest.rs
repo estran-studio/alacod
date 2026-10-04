@@ -51,6 +51,11 @@ pub struct EntryPoint {
     /// ici (ce module ne construit pas de registre).
     #[serde(default)]
     pub mode: Option<EntryMode>,
+    /// Progression active (T1.10, `docs/conventions.md` §27) : id d'un fichier du kind
+    /// `Progression`. Absent (défaut) : aucune progression, même si le jeu en déclare une
+    /// (le testbed la garde pour ses scénarios, qui l'imposent par `Scenario::progression`).
+    #[serde(default)]
+    pub progression: Option<String>,
 }
 
 #[derive(Resource, Debug, Clone, Deserialize, PartialEq, Eq)]

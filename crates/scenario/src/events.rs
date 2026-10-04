@@ -62,6 +62,9 @@ struct PlayerSnapshot {
     position: (i32, i32),
     /// À terre (T1.3, chantier B6) : `combat::downed::Downed` présent sur ce joueur.
     downed: bool,
+    /// T1.10 : niveau de progression et mutations prises.
+    level: u32,
+    mutations: Vec<String>,
 }
 
 #[derive(Default, Clone)]
@@ -172,6 +175,8 @@ fn detect_events(
         Option<&game::weapons::melee::MeleeAttackState>,
         &bevy_fixed::fixed_math::FixedTransform3D,
         Has<Downed>,
+        Option<&game::progression::Level>,
+        Option<&game::progression::Mutations>,
     )>,
     weapons: Query<(&WeaponState, &WeaponModesState)>,
     windows: Query<(&GgrsNetId, &WindowHealth)>,
@@ -211,8 +216,19 @@ fn detect_events(
     if events.summary.is_none() {
         events.summary = run.as_deref().and_then(|run| run.summary);
     }
-    for (player, health, inventory, ammo_reserves, dash, sprint, melee, transform, downed) in
-        &players
+    for (
+        player,
+        health,
+        inventory,
+        ammo_reserves,
+        dash,
+        sprint,
+        melee,
+        transform,
+        downed,
+        level,
+        mutations,
+    ) in &players
     {
         let mut snapshot = PlayerSnapshot {
             reloading: inventory.is_some_and(|i| i.reloading_ending_frame.is_some()),
@@ -226,6 +242,8 @@ fn detect_events(
                 transform.translation.y.to_num::<i32>(),
             ),
             downed,
+            level: level.map_or(0, |l| l.0),
+            mutations: mutations.map(|m| m.0.clone()).unwrap_or_default(),
             ..Default::default()
         };
         if let Some((entity, weapon)) = inventory.and_then(|i| i.weapons.get(i.active_weapon_index))
@@ -382,6 +400,22 @@ fn detect_events(
                 }
                 if !player.downed && previous.downed {
                     push("revived", format!("joueur {handle} réanimé"));
+                }
+                // T1.10 : progression
+                if player.level > previous.level {
+                    push(
+                        "levelup",
+                        format!("joueur {handle} passe niveau {}", player.level),
+                    );
+                }
+                if player.mutations.len() > previous.mutations.len() {
+                    push(
+                        "mutation",
+                        format!(
+                            "joueur {handle} prend la mutation {}",
+                            player.mutations.last().map_or("?", String::as_str)
+                        ),
+                    );
                 }
                 if player.weapon_index == previous.weapon_index
                     && player.ammo == 0

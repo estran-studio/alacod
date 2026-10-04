@@ -11,6 +11,7 @@ pub mod actions;
 pub use actions::{Action, CURRENCY_MULTIPLIER_STAT};
 
 pub mod contracts;
+pub mod progression;
 pub mod runtime;
 use bevy::prelude::{App, Plugin};
 pub use contracts::{Condition, Effect, GaugeThreshold, On};

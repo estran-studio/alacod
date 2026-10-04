@@ -111,23 +111,24 @@ type CarrierQuery<'w, 's> = Query<
     With<Rollback>,
 >;
 
-/// Voir la doc du module.
-#[allow(clippy::too_many_arguments)]
-pub fn apply_effects_system(
-    mut commands: Commands,
-    frame: Res<FrameCount>,
-    mut carriers: CarrierQuery,
-    dead: Query<(&GgrsNetId, &Death, Option<&Tags>), With<Rollback>>,
-    others: Query<(&GgrsNetId, Option<&Tags>, Option<&Player>), With<Rollback>>,
-    damage: Option<Res<FrameEvents<DamageEvent>>>,
-    assets: EffectAssets,
-) {
-    if carriers.is_empty() {
-        return;
-    }
-    let frame = frame.frame;
+/// Morts de la frame (`Death` posé par `rollback_apply_accumulated_damage`).
+pub type DeadQuery<'w, 's> =
+    Query<'w, 's, (&'static GgrsNetId, &'static Death, Option<&'static Tags>), With<Rollback>>;
+/// Toute entité rollback (tags, joueur) : tueurs et sources de dégâts.
+pub type OthersQuery<'w, 's> = Query<
+    'w,
+    's,
+    (
+        &'static GgrsNetId,
+        Option<&'static Tags>,
+        Option<&'static Player>,
+    ),
+    With<Rollback>,
+>;
 
-    // Tueur → tags des cibles tuées cette frame, dans l'ordre des net ids des victimes
+/// Tueur (net id) → tags des cibles tuées cette frame, dans l'ordre des net ids des victimes.
+/// Le tueur est le premier `HitBy` de `Death::last_hit_by` (un joueur par son handle).
+pub fn kills_by_killer(dead: &DeadQuery, others: &OthersQuery) -> BTreeMap<usize, Vec<Tags>> {
     let player_net_ids: BTreeMap<usize, usize> = others
         .iter()
         .filter_map(|(id, _, player)| player.map(|p| (p.handle, id.0)))
@@ -147,6 +148,26 @@ pub fn apply_effects_system(
                 .push(tags.cloned().unwrap_or_default());
         }
     }
+    kills
+}
+
+/// Voir la doc du module.
+#[allow(clippy::too_many_arguments)]
+pub fn apply_effects_system(
+    mut commands: Commands,
+    frame: Res<FrameCount>,
+    mut carriers: CarrierQuery,
+    dead: DeadQuery,
+    others: OthersQuery,
+    damage: Option<Res<FrameEvents<DamageEvent>>>,
+    assets: EffectAssets,
+) {
+    if carriers.is_empty() {
+        return;
+    }
+    let frame = frame.frame;
+
+    let kills = kills_by_killer(&dead, &others);
     let tags_by_net_id: BTreeMap<usize, Tags> = others
         .iter()
         .map(|(id, tags, _)| (id.0, tags.cloned().unwrap_or_default()))

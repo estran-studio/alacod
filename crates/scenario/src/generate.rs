@@ -293,6 +293,7 @@ pub fn build_scenario(
             modifiers: vec![],
             weapon: Some(weapon_id.to_string()),
             currency: None,
+            mutations: vec![],
         }],
         expect,
         weapon_overrides: vec![],
@@ -302,6 +303,7 @@ pub fn build_scenario(
         powerups: vec![],
         powerup_drop_chance_override: Some(bevy_fixed::fixed_math::FIXED_ZERO),
         floors: None,
+        progression: None,
     }
 }
 

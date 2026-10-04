@@ -35,6 +35,10 @@
         (path: "surfaces", kind: "Surface"),
         // T1.2 : patterns nommés des émetteurs (tourelle `ring_8`, archer `volee`).
         (path: "patterns", kind: "Pattern"),
+        // T1.10 : progression (rads, niveaux, mutations ; inactive par défaut, voir
+        // `progression.ron`) et mutations.
+        (path: "progression.ron", kind: "Progression"),
+        (path: "mutations", kind: "Mutation"),
     ],
     entry: (
         start_map: "testbed/arena.ldtk",

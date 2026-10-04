@@ -22,6 +22,10 @@ pub enum PlayerAction {
     Reload,
     MeleeAttack,
     DropWeapon,
+    /// Choix de mutation (T1.10) : touches 1/2/3.
+    ChoiceA,
+    ChoiceB,
+    ChoiceC,
 
     Modifier,
 
@@ -58,6 +62,9 @@ pub fn get_input_map() -> InputMap<PlayerAction> {
         (PlayerAction::Reload, KeyCode::KeyR),
         (PlayerAction::MeleeAttack, KeyCode::KeyF),
         (PlayerAction::DropWeapon, KeyCode::KeyG),
+        (PlayerAction::ChoiceA, KeyCode::Digit1),
+        (PlayerAction::ChoiceB, KeyCode::Digit2),
+        (PlayerAction::ChoiceC, KeyCode::Digit3),
         (PlayerAction::MoveCameraRight, KeyCode::ArrowRight),
         (PlayerAction::Sprint, KeyCode::ShiftLeft),
         (PlayerAction::Dash, KeyCode::KeyC),
