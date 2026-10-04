@@ -15,6 +15,7 @@ use std::collections::{BTreeMap, BTreeSet};
 use crate::expr::NumOrExpr;
 use crate::manifest::GameManifest;
 use crate::registry::{self, Registry};
+use sim_core::stats::StatId;
 
 /// Catégorie d'erreur de lint, pour les tests (correspondance sans dépendre du texte du
 /// message) et un futur regroupement en CLI.
@@ -64,6 +65,7 @@ pub fn run(registry: &Registry, manifest: &GameManifest) -> Vec<LintError> {
     lint_sprite_sheets(registry, &mut errors);
     lint_floors(registry, &mut errors);
     lint_patterns(registry, &mut errors);
+    lint_forced_variants(registry, &mut errors);
     lint_entry_point(registry, manifest, &mut errors);
 
     errors
@@ -75,6 +77,8 @@ fn lint_characters(registry: &Registry, errors: &mut Vec<LintError>) {
 
         // T1.4 : règles de comportement (`ai.behaviors`) et ciblage.
         lint_behaviors(registry, character, errors);
+        // T1.5 : variantes et élites.
+        lint_variants(character, errors);
 
         // Référence : starting_weapons -> WeaponId (T1.5 : les joueurs ne reçoivent plus
         // tout `weapons.ron`, seulement les armes déclarées ici).
@@ -1062,6 +1066,93 @@ fn lint_pattern_values(
             }
         }
         PatternEntry::Telegraph(_) | PatternEntry::Wait(_) => {}
+    }
+}
+
+/// T1.5 : `variants` d'un personnage (`docs/conventions.md` §25) : `chance` dans `[0, 1]`,
+/// `weight > 0`, nom en double, `skin` clé de `skins`, `MoveSpeed` refusé sur un personnage IA
+/// (sa vitesse est `EnemyMoveSpeed`). Une stat inconnue échoue déjà au chargement RON.
+fn lint_variants(character: &registry::CharacterEntry, errors: &mut Vec<LintError>) {
+    let Some(variants) = &character.variants else {
+        return;
+    };
+    let file = character.file.display().to_string();
+    let mut push = |kind: LintErrorKind, message: String| {
+        errors.push(LintError {
+            kind,
+            file: file.clone(),
+            message: format!("personnage « {} » : variants : {message}", character.id),
+        });
+    };
+    let chance = variants.chance.get();
+    if chance < Fixed::ZERO || chance > Fixed::from_num(1) {
+        push(
+            LintErrorKind::OutOfRange,
+            format!("chance = {chance} : doit être dans [0, 1]"),
+        );
+    }
+    let mut seen = BTreeSet::new();
+    for (name, variant) in &variants.table {
+        if !seen.insert(name.as_str()) {
+            push(
+                LintErrorKind::DuplicateId,
+                format!("variante « {name} » en double"),
+            );
+        }
+        if variant.weight == 0 {
+            push(
+                LintErrorKind::OutOfRange,
+                format!("variante « {name} » : weight = 0 : doit être > 0 (jamais tirée)"),
+            );
+        }
+        if let Some(skin) = &variant.skin {
+            if !character.skins.contains(skin) {
+                push(
+                    LintErrorKind::BrokenReference,
+                    format!(
+                        "variante « {name} » : skin « {skin} » absent de skins ({:?})",
+                        character.skins
+                    ),
+                );
+            }
+        }
+        if character.has_ai
+            && variant
+                .modifiers
+                .iter()
+                .any(|modifier| modifier.stat == StatId::MoveSpeed)
+        {
+            push(
+                LintErrorKind::OutOfRange,
+                format!(
+                    "variante « {name} » : MoveSpeed sur un personnage IA : sa vitesse est EnemyMoveSpeed"
+                ),
+            );
+        }
+    }
+}
+
+/// T1.5 : un `CharacterSpawn` LDtk qui impose une variante (`variant`) désigne un personnage
+/// connu qui déclare cette variante.
+fn lint_forced_variants(registry: &Registry, errors: &mut Vec<LintError>) {
+    for map in registry.maps.values() {
+        for (character_id, variant) in &map.forced_variants {
+            let character = registry
+                .characters
+                .get(&registry::CharacterId::from(character_id.clone()));
+            let known = character
+                .and_then(|c| c.variants.as_ref())
+                .is_some_and(|v| v.table.iter().any(|(name, _)| name == variant));
+            if !known {
+                errors.push(LintError {
+                    kind: LintErrorKind::BrokenReference,
+                    file: map.file.display().to_string(),
+                    message: format!(
+                        "CharacterSpawn « {character_id} » : variant « {variant} » inconnue (personnage inconnu ou sans cette variante)"
+                    ),
+                });
+            }
+        }
     }
 }
 

@@ -1,0 +1,25 @@
+// T1.5 (testbed, conventions §25) : tirage — le grunt sans champ `variant` (NetId 30) tire sa
+// variante (chance 0.5, puis poids 1/1) d'un RNG local de graine
+// `fnv1a("variants") ^ run_seed ^ net_id`. Graine de carte fixée à 777 : valeur mesurée
+// `blinde` (avec la graine par défaut 123456 de `variant_fast`, il n'en a aucune). Moment clé
+// `variant_spawn` émis à son apparition.
+// Carte `testbed/arena_variantes.ldtk` : grunt `rapide` imposé (NetId 33), grunt `blinde`
+// imposé (32), `grunt_plain` sans table (31), grunt sans champ, tiré (30) ; les trois premiers à ~167
+// unités du joueur 0 immobile, `Chase` seul. `variant_fast`, `variant_none` et
+// `variant_elite` jouent la même partie (même carte, même graine) et vérifient chacun leur
+// sujet : leurs trois traces sont identiques, c'est voulu.
+Scenario(
+    powerup_drop_chance_override: "0.0",
+    game: "testbed",
+    map: "testbed/arena_variantes.ldtk",
+    map_seed: 777,
+    frames: 160,
+    players: [
+        (inputs: []),
+    ],
+    expect: [
+        EnemyVariant(entity: NetId(30), variant: Some("blinde"), at_frame: 2),
+        EnemyVariant(entity: NetId(33), variant: Some("rapide"), at_frame: 2),
+        Event(kind: "variant_spawn", label_contains: Some("variante blinde (30)"), by_frame: 10),
+    ],
+)

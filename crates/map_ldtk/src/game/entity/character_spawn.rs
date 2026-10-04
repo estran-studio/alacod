@@ -20,7 +20,16 @@ pub fn character_spawn_component_from_field(
         .ok()
         .cloned()
         .filter(|s| !s.is_empty());
-    CharacterSpawnComponent { character, team }
+    let variant = entity_instance
+        .get_string_field(map_const::FIELD_VARIANT_NAME)
+        .ok()
+        .cloned()
+        .filter(|s| !s.is_empty());
+    CharacterSpawnComponent {
+        character,
+        team,
+        variant,
+    }
 }
 
 #[derive(Bundle, LdtkEntity)]

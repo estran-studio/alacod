@@ -89,13 +89,22 @@ fn get_character_spawns(
                 .ok()
                 .cloned()
                 .filter(|s| !s.is_empty());
+            let variant = x
+                .get_string_field(map_const::FIELD_VARIANT_NAME)
+                .ok()
+                .cloned()
+                .filter(|s| !s.is_empty());
             (
                 EntityLocation {
                     position,
                     size,
                     level_iid: "".to_string(),
                 },
-                CharacterSpawnConfig { character, team },
+                CharacterSpawnConfig {
+                    character,
+                    team,
+                    variant,
+                },
             )
         })
         .collect()

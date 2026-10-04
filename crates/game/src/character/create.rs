@@ -5,7 +5,7 @@ use bevy_kira_audio::prelude::*;
 use combat::damage::Defenses;
 use sim_core::modifier::Modifiers;
 use sim_core::stats::{StatId, Stats};
-use utils::net_id::GgrsNetIdFactory;
+use utils::net_id::{GgrsNetId, GgrsNetIdFactory};
 
 use crate::{
     character::{config::CharacterConfigHandles, movement::Velocity},
@@ -50,6 +50,11 @@ pub fn create_character(
     // Plus jamais lue depuis `config.base_health.max` (qui peut être une expression) —
     // aucune expression dans l'état rollback.
     health_max: fixed_math::Fixed,
+    // `GgrsNetId` déjà alloué par l'appelant (T1.5 : `enemy::create::spawn_enemy` en a
+    // besoin avant la création pour tirer la variante), sinon alloué ici. Même valeur dans les
+    // deux cas : c'est la seule allocation de `create_character`, et l'appelant n'alloue rien
+    // entre les deux.
+    net_id: Option<GgrsNetId>,
 ) -> Entity {
     let handle = global_assets.character_configs.get(&config_name).unwrap();
     let config = character_asset.get(handle).unwrap();
@@ -179,7 +184,7 @@ pub fn create_character(
         // temps — expiration, futurs statuts/perks — donc entre dans le `Checksum` GGRS).
         stats,
         Modifiers::default(),
-        id_factory.next(config_name),
+        net_id.unwrap_or_else(|| id_factory.next(config_name)),
     ));
 
     // T2.9 (testbed) : compteur de coups, seulement pour les personnages qui le déclarent

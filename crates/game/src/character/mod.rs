@@ -5,6 +5,7 @@ pub mod enemy;
 pub mod health;
 pub mod movement;
 pub mod player;
+pub mod variant;
 pub mod visuals;
 
 use animation::set_sprite_flip;
@@ -137,6 +138,9 @@ impl Plugin for BaseCharacterGamePlugin {
             // T1.4 : état des behaviors nouveaux (KeepDistance, Strafe, Charge, Flee, Wander),
             // checksum neutre, posé seulement sur les ennemis qui en listent un.
             .rollback_and_trace_neutral::<enemy::ai::state::BehaviorRuntime>()
+            // T1.5 : variante d'un personnage, checksum neutre (posée seulement si une
+            // variante est choisie, voir `variant`).
+            .rollback_and_trace_neutral::<variant::Variant>()
             // Ressource de présentation (curseur) glissée dans le rollback : rollback +
             // trace pour ne rien changer au snapshot, mais hors checksum (voir sa doc).
             .rollback_and_trace_copy_resource_no_checksum::<PointerWorldPosition>()
