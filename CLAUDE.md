@@ -250,6 +250,12 @@ make diff_log CID_1=alice CID_2=bob
       (`rollback_and_trace_resource_neutral`, T1.8 ; `rollback_and_trace_neutral::<C>` pour les
       composants, T1.2) : contribution 0 sans porteur, hash normal sinon. Ne jamais compenser par
       la parité, ne jamais passer en `no_checksum` pour « sauver » les traces.
+- [ ] **`#[derive(Hash)]` sur un enum à une seule variante n'écrit pas le discriminant**
+      (constaté par T1.6, 2026-10-04) : ajouter une **deuxième** variante à un tel enum sous
+      checksum (ex. `ExpireAction::Spawn` + `DestroyTerrain`) fait soudain hacher le discriminant
+      et déplace les traces de tout porteur dès la frame 0. Remède : `impl Hash` manuel où la
+      variante historique garde son hash d'avant (sans discriminant), la nouvelle en ajoute un ;
+      le documenter au § conventions de la tâche.
 - [ ] **Donnée dérivée non rollbackée** (ex. `CursorPosition`, lue la même frame par un système
       du `GgrsSchedule`) : réécrite **à chaque frame, avant tout `continue`/retour anticipé** du
       système qui l'écrit ; sinon c'est un état caché qu'une frame resimulée lit avec la valeur
