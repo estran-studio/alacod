@@ -1016,9 +1016,11 @@ l'`on_hit` d'un projectile composable, exécutée sur le personnage touché par
 cible pour un statut hors d'un coup. **Suite** : `OnDamageTaken` connaît sa source, un effet
 « riposte » pourrait y poser un statut (v2) ; `OnKill` n'a pas de cible vivante.
 
-**État** : composant `Statuses` (rollback, checksum **neutre** : un personnage n'en porte que si un
-statut lui a été posé, le composant est retiré quand le dernier expire ; aucune trace existante,
-zombies compris, ne change). Entrée `StatusEntry { status, stacks, expires_at_frame, id, source,
+**État** : composant `Statuses` (rollback + checksum, enregistrement de T1.0a **gardé tel quel** :
+les traces de référence l'incluent déjà sans porteur ; la variante neutre, essayée, changeait le
+checksum de toutes les frames de tous les scénarios). Un personnage n'en porte que si un statut
+lui a été posé, le composant est retiré quand le dernier expire : aucune trace existante, zombies
+compris, ne change. Entrée `StatusEntry { status, stacks, expires_at_frame, id, source,
 source_team, next_tick_frame }`, dans l'ordre de pose.
 
 **Règles** (pures, testées) :

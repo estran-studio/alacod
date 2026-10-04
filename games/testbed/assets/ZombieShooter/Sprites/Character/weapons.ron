@@ -601,7 +601,8 @@
             weapon_offset: ( x: "0.0", y: "-5.0" )
         ),
     ),
-    // T1.3 (statuts, docs/conventions.md §19) : Burn : chaque balle brûle `target` (2 piles au plus). Scénario généré `weapon_status_burn`
+    // T1.3 (statuts, docs/conventions.md §19) : Burn : chaque balle brûle `target` (2 piles au plus ;
+    // deux balles touchent, vers f75 et f165, les autres « coups » comptés sont les ticks). Scénario généré `weapon_status_burn`
     // (attentes `HasStatus`/`StatusStacks` sur `target`).
     "status_burn": (
         config: (
@@ -632,7 +633,9 @@
                 min_hits: 2,
                 expect: [
                     HasStatus(entity: Target, status: "brulure", at_frame: 100),
-                    StatusStacks(entity: Target, status: "brulure", stacks: 2, at_frame: 100),
+                    StatusStacks(entity: Target, status: "brulure", stacks: 1, at_frame: 100),
+                    // Deuxième balle vers f165 : durée empilée, deux piles
+                    StatusStacks(entity: Target, status: "brulure", stacks: 2, at_frame: 175),
                 ],
             )),
         ),
@@ -719,6 +722,8 @@
                 expect: [
                     HasStatus(entity: Target, status: "etourdi", at_frame: 100),
                     StatusStacks(entity: Target, status: "etourdi", stacks: 1, at_frame: 100),
+                    // Posé vers f75 pour 60 frames : expiré avant la balle suivante (f165)
+                    HasStatus(entity: Target, status: "etourdi", present: false, at_frame: 150),
                 ],
             )),
         ),

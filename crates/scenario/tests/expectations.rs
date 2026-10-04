@@ -1305,3 +1305,67 @@ fn enemy_variant_lit_la_variante() {
         ],
     );
 }
+
+/// T1.3 : `HasStatus` et `StatusStacks` sur le scénario généré de l'arme `status_burn`
+/// (`target` brûlée, deux piles) : vrais sur les bonnes valeurs, faux sur les autres.
+#[test]
+fn status_expectations_pass_and_fail() {
+    if map_ldtk::RENDER_ENABLED {
+        return;
+    }
+    use game::replay::EntityRef;
+    let scenario = load_scenario("generated/testbed/weapon_status_burn");
+    let frame = 100;
+    verifie_attentes(
+        scenario,
+        &[
+            Expectation::HasStatus {
+                entity: EntityRef::Target,
+                status: "brulure".into(),
+                present: true,
+                at_frame: frame,
+            },
+            Expectation::StatusStacks {
+                entity: EntityRef::Target,
+                status: "brulure".into(),
+                stacks: 2,
+                at_frame: frame,
+            },
+            Expectation::HasStatus {
+                entity: EntityRef::Target,
+                status: "gel".into(),
+                present: false,
+                at_frame: frame,
+            },
+        ],
+        &[
+            (
+                Expectation::HasStatus {
+                    entity: EntityRef::Target,
+                    status: "gel".into(),
+                    present: true,
+                    at_frame: frame,
+                },
+                "absent",
+            ),
+            (
+                Expectation::StatusStacks {
+                    entity: EntityRef::Target,
+                    status: "brulure".into(),
+                    stacks: 1,
+                    at_frame: frame,
+                },
+                "2 piles ≠ 1",
+            ),
+            (
+                Expectation::HasStatus {
+                    entity: EntityRef::NetId(999_999),
+                    status: "brulure".into(),
+                    present: true,
+                    at_frame: frame,
+                },
+                "entité absente",
+            ),
+        ],
+    );
+}

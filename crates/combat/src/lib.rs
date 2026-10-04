@@ -69,8 +69,10 @@ impl Plugin for CombatPlugin {
         ] {
             app.register_kinds(names.iter().map(|name| KindDecl::new(category, *name)));
         }
-        // T1.3 : checksum neutre (aucun personnage n'en porte sans statut posé, §19).
-        app.rollback_and_trace_neutral::<Statuses>();
+        // T1.3 (§19) : enregistrement de T1.0a gardé tel quel (rollback + checksum) : les traces
+        // de référence l'incluent déjà, sans porteur ; le passer en variante neutre changerait
+        // le checksum de toutes les frames de tous les scénarios.
+        app.rollback_and_trace::<Statuses>();
         app.init_resource::<StatusLibrary>();
     }
 }
