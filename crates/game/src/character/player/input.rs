@@ -630,36 +630,17 @@ pub fn move_characters(
             continue;
         }
 
-        // Full movement blocked by wall - try sliding
-        let mut moved_x = false;
-        let mut moved_y = false;
+        // Full movement blocked by wall - try sliding (X, then Y from the X obtained: D39,
+        // shared with enemies)
         let start_x = transform.translation.x;
         let start_y = transform.translation.y;
-
-        // Try X only
-        if delta_x != fixed_math::FIXED_ZERO {
-            let x_only_pos =
-                fixed_math::FixedVec3::new(start_x + delta_x, start_y, transform.translation.z);
-            if !check_hard_collision(&x_only_pos) {
-                transform.translation.x = x_only_pos.x;
-                moved_x = true;
-            }
-        }
-
-        // Try Y only
-        if delta_y != fixed_math::FIXED_ZERO {
-            // X may already have slid. Testing Y from the original X would allow
-            // two individually free moves to combine into a wall corner.
-            let y_only_pos = fixed_math::FixedVec3::new(
-                transform.translation.x,
-                start_y + delta_y,
-                transform.translation.z,
-            );
-            if !check_hard_collision(&y_only_pos) {
-                transform.translation.y = y_only_pos.y;
-                moved_y = true;
-            }
-        }
+        let (slid, mut moved_x, mut moved_y) = crate::collider::slide_axes(
+            transform.translation,
+            delta_x,
+            delta_y,
+            &check_hard_collision,
+        );
+        transform.translation = slid;
 
         // Opening assist: moving mainly along one axis and blocked, while a small side offset
         // (at most NUDGE_MAX) would clear the way (e.g. a door, 32 units high, entered a few
