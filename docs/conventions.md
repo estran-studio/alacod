@@ -1961,11 +1961,12 @@ position, valeur}` de chaque **nouvelle** frame simulée (`FrameCount` plus gran
 dernière frame journalisée : les frames rejouées par un rollback ne sont pas journalisées deux
 fois). Limites (présentation, sans conséquence) : un tick qui simule plusieurs frames ne voit
 que les événements de la dernière ; un coup prédit puis annulé par un rollback p2p reste
-journalisé. `scenario::events` en fait des moments clés `feedback` (« télégraphe 27 (30 frames,
-rayon 40) », « hit stop 26 (2 frames) », « secousse 26 (8 frames) » ; flash et chiffre, un par
-coup, n'en font pas) ; attente `Event(kind: "feedback", label_contains: …)`. Scénarios :
-`enemy_charge` (télégraphe de la ruée, hit stop et secousse au contact), `weapon_grenade`
-généré (hit stop et secousse de surcharge de la grenade).
+journalisé. `scenario::events` en fait des moments clés `feedback` (`<genre> <net_id> (…)` :
+« télégraphe 27 (29 frames, rayon 40) », « hit stop 22 (2 frames) », « secousse 22 (8 frames) » ;
+flash et chiffre, un par coup, n'en font pas) ; attente `Event(kind: "feedback",
+label_contains: …)`. Scénarios : `enemy_charge` (télégraphe de la ruée vu à f42, hit stop et
+secousse au contact à f100), `weapon_grenade` généré (`test.expect` de la grenade : secousse et
+hit stop de surcharge à la première explosion, f113). Ces attentes ne touchent pas aux traces.
 
 Hors périmètre : sons (D32), particules, écran de mort.
 
