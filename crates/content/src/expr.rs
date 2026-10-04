@@ -630,6 +630,44 @@ pub fn players_context(players: u32) -> BTreeMap<String, Fixed> {
     BTreeMap::from([("players".to_string(), Fixed::from_num(players))])
 }
 
+/// Identifiants du contexte de la difficulté (T1.9, kind `Difficulty`,
+/// `docs/conventions.md` §23) — les seuls admis dans `difficulty.ron` ; `players` reste le
+/// seul admis ailleurs (§18).
+pub const DIFFICULTY_IDENTIFIERS: &[&str] = &[
+    "players",
+    "floor",
+    "minutes",
+    "seconds",
+    "floor_minutes",
+    "floor_seconds",
+];
+
+/// Contexte d'évaluation de la difficulté : nombre de joueurs, index d'étage, temps de run et
+/// temps d'étage (en frames, convertis en secondes et minutes `Fixed`, 60 frames = 1 s).
+pub fn difficulty_context(
+    players: u32,
+    floor: u32,
+    run_frames: u32,
+    floor_frames: u32,
+) -> BTreeMap<String, Fixed> {
+    // Quotient puis reste : `Fixed::from_num(frames)` déborderait au-delà de 32 767 frames
+    // (≈ 9 min) ; saturé au-delà de la plage du format (≈ 9 h).
+    let per = |frames: u32, unit: u32| {
+        Fixed::saturating_from_num(frames / unit)
+            .saturating_add(Fixed::from_num(frames % unit) / Fixed::from_num(unit))
+    };
+    let seconds = |frames: u32| per(frames, 60);
+    let minutes = |frames: u32| per(frames, 3600);
+    BTreeMap::from([
+        ("players".to_string(), Fixed::from_num(players)),
+        ("floor".to_string(), Fixed::from_num(floor)),
+        ("seconds".to_string(), seconds(run_frames)),
+        ("minutes".to_string(), minutes(run_frames)),
+        ("floor_seconds".to_string(), seconds(floor_frames)),
+        ("floor_minutes".to_string(), minutes(floor_frames)),
+    ])
+}
+
 /// Un champ numérique d'asset qui accepte soit sa valeur littérale habituelle (entier RON
 /// nu pour un champ `u32`, `Fixed` en chaîne pour un champ `Fixed` — inchangée), soit une
 /// expression [`NumExpr`] évaluée une fois au lancement de la partie (F5, chantier m0-v11 :
@@ -1177,6 +1215,27 @@ impl Parser {
 
 #[cfg(test)]
 mod tests {
+
+    #[test]
+    fn contexte_de_difficulte() {
+        let ctx = difficulty_context(2, 3, 7200, 1800);
+        assert_eq!(ctx["players"], Fixed::from_num(2));
+        assert_eq!(ctx["floor"], Fixed::from_num(3));
+        assert_eq!(ctx["seconds"], Fixed::from_num(120));
+        assert_eq!(ctx["minutes"], Fixed::from_num(2));
+        assert_eq!(ctx["floor_seconds"], Fixed::from_num(30));
+        assert_eq!(ctx["floor_minutes"], Fixed::from_num(0.5));
+        // 10 minutes de run (36 000 frames) : pas de débordement.
+        let long = difficulty_context(1, 0, 36000, 0);
+        assert_eq!(long["minutes"], Fixed::from_num(10));
+        assert_eq!(long["seconds"], Fixed::from_num(600));
+        let expr = Expr::parse("1 + floor * 0.5 + floor_minutes * 0.5").unwrap();
+        assert_eq!(expr.try_eval_num(&ctx).unwrap(), Fixed::from_num(2.75));
+        for id in expr.identifiers() {
+            assert!(DIFFICULTY_IDENTIFIERS.contains(&id.as_str()));
+        }
+    }
+
     use super::*;
 
     fn ctx(values: &[(&str, f32)]) -> BTreeMap<String, Fixed> {

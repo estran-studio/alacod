@@ -87,6 +87,9 @@ struct Snapshot {
     weapon_pickups: BTreeMap<usize, String>,
     /// D21 : power-ups au sol (`game::powerups::PowerUpPickup`), `GgrsNetId` -> id.
     powerup_pickups: BTreeMap<usize, String>,
+    /// T1.9 : événements d'horloge déjà déclenchés (`run::Clock::fired`) ; un id nouveau =
+    /// moment clé `clock`.
+    clock_fired: std::collections::BTreeSet<String>,
     /// T1.5 : personnages à variante (`game::character::variant::Variant`), `GgrsNetId` ->
     /// nom ; une entrée nouvelle = moment clé `variant_spawn`.
     variants: BTreeMap<usize, String>,
@@ -167,7 +170,8 @@ fn detect_events(
     mut events: ResMut<GameEvents>,
     wave: Option<Res<WaveState>>,
     run: Option<Res<Run>>,
-    floor_state: Option<Res<run::FloorState>>,
+    // (étage, horloge) groupés : une fonction système accepte au plus 16 paramètres.
+    floor_and_clock: (Option<Res<run::FloorState>>, Option<Res<run::Clock>>),
     players: Query<(
         &Player,
         &Health,
@@ -201,6 +205,7 @@ fn detect_events(
     // T1.5 : variantes (moment clé `variant_spawn`).
     variants: Query<(&GgrsNetId, &game::character::variant::Variant)>,
 ) {
+    let (floor_state, clock) = floor_and_clock;
     let mut now = Snapshot::default();
     if let Some(wave) = &wave {
         now.wave = wave.current_wave;
@@ -284,6 +289,9 @@ fn detect_events(
     }
     for (id, variant) in &variants {
         now.variants.insert(id.0, variant.0.clone());
+    }
+    if let Some(clock) = &clock {
+        now.clock_fired = clock.fired.clone();
     }
     // Ramassages de cette frame, avec le handle du ramasseur (`picked_up_by` est son
     // `GgrsNetId`) : lu avant `events.previous.replace`, comme `currency_events` plus bas.
@@ -468,6 +476,10 @@ fn detect_events(
     }
     for (kind, label) in powerup_events(&before.powerup_pickups, &now.powerup_pickups, &picked) {
         push(kind, label);
+    }
+    // T1.9 : événements d'horloge déclenchés cette frame.
+    for id in now.clock_fired.difference(&before.clock_fired) {
+        push("clock", format!("horloge : {id}"));
     }
     // T1.5 : un personnage à variante qui apparaît.
     for (id, name) in &now.variants {

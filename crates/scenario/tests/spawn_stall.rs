@@ -38,6 +38,8 @@ fn empty_distance_range_spawns_after_deadline_without_desync() {
         powerup_drop_chance_override: None,
         floors: None,
         progression: None,
+        clocks: None,
+        difficulty: None,
     };
     let outcome = run_with_options(
         &scenario,

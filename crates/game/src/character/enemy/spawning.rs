@@ -64,6 +64,8 @@ pub fn enemy_spawn_from_spawners_system(
     balance: Res<crate::balance::ResolvedBalance>,
 
     mut id_factory: ResMut<GgrsNetIdFactory>,
+    // T1.9 : difficulté (santé × difficulté ; 1 sans difficulté activée).
+    difficulty: crate::clock::DifficultyReader,
 ) {
     // --- Step 0: Decrement cooldowns for all spawners first (deterministic order) ---
     // This ensures cooldowns are always decremented, even if spawner isn't selected
@@ -315,6 +317,7 @@ pub fn enemy_spawn_from_spawners_system(
             .unwrap_or_else(|| {
                 panic!("équilibrage F5 : pas de santé résolue pour le personnage « {enemy_type_name} »")
             });
+        let health_max = crate::clock::scale(health_max, difficulty.current());
 
         let _ = spawn_enemy(
             enemy_type_name,

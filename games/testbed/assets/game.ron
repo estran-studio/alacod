@@ -39,6 +39,10 @@
         // `progression/`) et mutations.
         (path: "progression", kind: "Progression"),
         (path: "mutations", kind: "Mutation"),
+        // T1.9 : horloges et difficulté, actives seulement si un scénario les demande
+        // (`clocks`, `difficulty`) : le mode du testbed n'en active aucune.
+        (path: "clocks", kind: "Clock"),
+        (path: "difficulty.ron", kind: "Difficulty"),
     ],
     entry: (
         start_map: "testbed/arena.ldtk",

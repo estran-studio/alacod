@@ -940,7 +940,10 @@ expression `content::expr` en chaîne RON (ex. `health: "120.0 + (players - 1) *
   joueurs de la session est connu : local `NUMBER_PLAYER`, p2p `max_player`, scénario = ses
   joueurs), en valeurs concrètes. **Jamais d'`Expr` dans l'état rollback** : seules les valeurs
   évaluées entrent dans la simulation (déterminisme : mêmes configs + même nombre de joueurs
-  partout ⇒ mêmes valeurs).
+  partout ⇒ mêmes valeurs). Exception encadrée (T1.9, §23) : l'expression de difficulté est
+  réévaluée **en simulation** chaque seconde, depuis l'asset immuable (`game::clock::
+  DifficultyConfig`, hors rollback) ; seul son résultat `Fixed` entre dans l'état rollback
+  (`run::Clock::difficulty`).
 - **Erreurs** : une expression invalide (parse, division par zéro, identifiant inconnu) fait
   échouer le chargement — jamais de valeur par défaut silencieuse.
 - **Traces** : les littéraux actuels restent valides et gardent leurs valeurs ; les 62 scénarios
@@ -1283,6 +1286,69 @@ profil inconnu (`Ground`, `Flying`, `Phasing`, `GroundBreaker`) ; `KeepDistance`
 personnage, une arène commune les ferait interagir), scénarios `enemy_keep_distance`,
 `enemy_charge`, `enemy_flee`, `enemy_wander`.
 
+## 23. Horloges et difficulté (T1.9, chantier F2)
+
+Code : `crates/run/src/clock.rs` (`Clock`, `ClockDef`, `due_events`, `ClockFired`,
+`FloorEntered`), `crates/game/src/clock.rs` (`resolve_clocks_system`, `clock_system`,
+`DifficultyReader`, `scale`), `content::expr::difficulty_context`.
+
+**Activation** : horloges et difficulté ne tournent que si une partie les demande — champs
+`clocks: Some(["arene"])` et `difficulty: Some(true)` d'un scénario (`ClocksOverride`,
+`DifficultyOverride`), ou `entry.clocks`/`entry.difficulty` du manifeste pour une partie jouée.
+Déclarer les kinds dans `game.ron` ne suffit pas. Sans activation, `Clock` reste à sa valeur par
+défaut (checksum **neutre**), aucun événement n'est émis, la difficulté vaut 1 : **aucune trace
+ne change**.
+
+**Horloges** (kind `Clock`, `clocks/<nom>.ron`) :
+```ron
+(
+    scope: Floor,   // ou Run
+    events: [
+        (id: "tic", at: Seconds("1")),
+        (id: "tac", at: Frames(120)),
+        (id: "renfort", at: Seconds("2"), repeat: Some(Seconds("2"))),
+    ],
+)
+```
+Échéance relative au début de la portée (`Run` : frame 0 ; `Floor` : entrée dans l'étage
+courant). Un événement répété a l'id `"<id>#<n>"` (`renfort#1` à 2 s, `renfort#2` à 4 s...), un
+événement simple son id. `clock_system` (`RollbackSystemSet::FrameCounter`, avant l'incrément,
+donc après le passage d'étage du set `Run`) : (1) si `FloorState::index` a changé, entrée
+d'étage — temps d'étage remis à zéro, ids des horloges de portée `Floor` oubliés,
+`FrameEvents<FloorEntered>` ; (2) événements échus par horloge (ordre des ids) puis par
+événement (ordre du fichier) : id inséré dans `Clock::fired`, `FrameEvents<ClockFired>`, log
+`ggrs{f=… clock id=…}` ; (3) difficulté. **`FloorEntered` n'est émis que si les horloges ou la
+difficulté sont activées** : T1.10 (`OnFloorEntered`) devra les activer implicitement. v1 ne fait
+que déclencher (les actions attachées sont T1.10).
+
+**Difficulté** (kind `Difficulty`, `difficulty.ron`) : `(value: "1 + floor * 0.5 + floor_minutes * 0.5")`,
+une expression `content::expr` aux identifiants `players`, `floor`, `minutes`, `seconds`
+(temps de run), `floor_minutes`, `floor_seconds` (temps d'étage) — **seulement pour ce kind**
+(`players` reste le seul ailleurs, §18). Réévaluée en simulation chaque seconde et à chaque
+entrée d'étage, depuis l'asset immuable (`DifficultyConfig`, hors rollback) ; le résultat seul
+est dans `Clock::difficulty`. Consommateurs v1 : **santé des ennemis à l'apparition** (vagues,
+spawners, `CharacterSpawn` : `health_max × difficulté`, évaluée à neuf pour l'étage où ils
+apparaissent — ceux d'un nouvel étage apparaissent dans la frame du passage, avant la
+réévaluation) et **dégâts infligés par les ennemis** (un seul point : le résolveur unique,
+`rollback_resolve_damage_events`, pour les `DamageEvent` de `source_team == Enemies`).
+`game::clock::scale` ne calcule rien quand la difficulté vaut exactement 1 (test : identique au
+bit près).
+
+**Attente et événement** : `Clock(id, fired: bool, at_frame)` ; moment clé `clock`
+(`scenario::events`, libellé `horloge : <id>`).
+
+**Lint** : horloges — ids d'événements uniques sur toutes les horloges (ils partagent
+`Clock::fired`), échéances croissantes dans un fichier, `repeat > 0`, `entry.clocks` vers une
+horloge connue ; difficulté — identifiants hors liste, valeur ≤ 0 pour `floor ∈ {0, 3}`,
+`minutes ∈ {0, 10}`, `players ∈ {1, 4}`, `entry.difficulty` sans fichier. Fixtures
+`clock_duplicate_id`, `clock_unordered`, `clock_repeat_zero`, `difficulty_unknown_identifier`,
+`difficulty_non_positive`.
+
+**Testbed** : horloge `arene`, `difficulty.ron`, séquence `deux_cibles` (`floor_a` puis
+`floor_cible_b`) ; scénarios `clock_events`, `clock_floor_reset` (séquence `deux_niveaux`),
+`difficulty_scales`. Dette D29 : les multiplicateurs par vague du clone zombies ne sont lus par
+personne.
+
 ## 24. Bots de validation (m0-v7 phase 2)
 
 Les profils RON `chasseur` et `acheteur` complètent `immobile`, `fonceur` et `prudent`.
@@ -1457,6 +1523,7 @@ table), carte `testbed/arena_variantes.ldtk` (grunt `rapide` imposé, grunt `bli
 `grunt_plain`, grunt tiré) ; scénarios `variant_fast`, `variant_none`, `variant_elite` (même
 partie, chacun son sujet : leurs trois traces sont identiques, c'est voulu) et `variant_draw`
 (autre graine de carte). `games/zombies` : aucune variante.
+
 ## 26. Surfaces (T1.7, chantier E4 v1)
 
 Code : `world::surface` (grille, table, traduction), `game::character::surface` (système),

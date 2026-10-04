@@ -89,6 +89,14 @@ pub struct Scenario {
     /// `None` (défaut) : celle du manifeste (aucune pour le testbed et zombies).
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub progression: Option<String>,
+    /// Horloges actives (T1.9, ids du kind `Clock`, `game::clock::ClocksOverride`). `None`
+    /// (défaut) : `entry.clocks` du manifeste, sinon aucune.
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub clocks: Option<Vec<String>>,
+    /// Difficulté active (T1.9, kind `Difficulty`, `game::clock::DifficultyOverride`).
+    /// `None` (défaut) : `entry.difficulty` du manifeste, sinon non.
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub difficulty: Option<bool>,
 }
 
 /// Placement scripté d'un power-up (T2.5) : fait apparaître le power-up `id` (clé de

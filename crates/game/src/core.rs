@@ -252,6 +252,8 @@ impl Plugin for CoreSetupPlugin {
                 crate::patterns::resolve_pattern_library_system,
                 // T1.10 : progression et mutations, hors rollback, voir `crate::progression`.
                 crate::progression::resolve_progression_system,
+                // T1.9 : horloges et difficulté activées, voir `crate::clock`.
+                crate::clock::resolve_clocks_system,
             ),
         );
 
@@ -270,7 +272,13 @@ impl Plugin for CoreSetupPlugin {
 
         app.add_systems(
             GgrsSchedule,
-            (increase_frame_system,).in_set(RollbackSystemSet::FrameCounter),
+            (
+                // T1.9 : l'horloge avance avant l'incrément (après le passage d'étage, set
+                // `Run`) ; sans horloge ni difficulté activée, elle ne fait rien.
+                crate::clock::clock_system.before(increase_frame_system),
+                increase_frame_system,
+            )
+                .in_set(RollbackSystemSet::FrameCounter),
         );
     }
 }

@@ -73,6 +73,8 @@ pub fn run(registry: &Registry, manifest: &GameManifest) -> Vec<LintError> {
     lint_progression(registry, &mut errors);
     lint_mutations(registry, &mut errors);
     lint_forced_variants(registry, &mut errors);
+    lint_clocks(registry, manifest, &mut errors);
+    lint_difficulty(registry, manifest, &mut errors);
     lint_entry_point(registry, manifest, &mut errors);
 
     errors
@@ -1211,6 +1213,129 @@ fn lint_pattern_values(
             }
         }
         PatternEntry::Telegraph(_) | PatternEntry::Wait(_) => {}
+    }
+}
+
+/// T1.9 : horloges (kind `Clock`, `docs/conventions.md` §23) : ids d'événements uniques sur
+/// toutes les horloges (ils partagent `Clock::fired`), échéances croissantes dans un fichier,
+/// `repeat > 0` ; `entry.clocks` ne cite que des horloges connues.
+fn lint_clocks(registry: &Registry, manifest: &GameManifest, errors: &mut Vec<LintError>) {
+    let mut seen: BTreeMap<&str, &str> = BTreeMap::new();
+    for clock in registry.clocks.values() {
+        let file = clock.file.display().to_string();
+        let mut push = |kind: LintErrorKind, message: String| {
+            errors.push(LintError {
+                kind,
+                file: file.clone(),
+                message: format!("horloge « {} » : {message}", clock.id),
+            });
+        };
+        let mut previous = 0u32;
+        for event in &clock.events {
+            if let Some(other) = seen.insert(event.id.as_str(), clock.id.as_str()) {
+                push(
+                    LintErrorKind::DuplicateId,
+                    format!(
+                        "événement « {} » en double (déjà dans « {other} »)",
+                        event.id
+                    ),
+                );
+            }
+            let at = event.at.frames();
+            if at < previous {
+                push(
+                    LintErrorKind::OutOfRange,
+                    format!(
+                        "événement « {} » : échéance {at} frames avant la précédente ({previous}) : les échéances doivent être croissantes",
+                        event.id
+                    ),
+                );
+            }
+            previous = previous.max(at);
+            if event.repeat.is_some_and(|repeat| repeat.frames() == 0) {
+                push(
+                    LintErrorKind::OutOfRange,
+                    format!("événement « {} » : repeat = 0 : doit être > 0", event.id),
+                );
+            }
+        }
+    }
+    for id in manifest.entry.clocks.iter().flatten() {
+        if !registry
+            .clocks
+            .contains_key(&registry::ClockId::from(id.clone()))
+        {
+            errors.push(LintError {
+                kind: LintErrorKind::BrokenReference,
+                file: crate::manifest::MANIFEST_FILE_NAME.to_string(),
+                message: format!("entry.clocks : horloge inconnue « {id} » (kind Clock)"),
+            });
+        }
+    }
+}
+
+/// T1.9 : difficulté (kind `Difficulty`) : l'expression ne cite que les identifiants de
+/// `content::expr::DIFFICULTY_IDENTIFIERS` et vaut > 0 pour `floor ∈ {0, 3}`,
+/// `minutes ∈ {0, 10}`, `players ∈ {1, 4}` ; `entry.difficulty` exige le kind.
+fn lint_difficulty(registry: &Registry, manifest: &GameManifest, errors: &mut Vec<LintError>) {
+    if manifest.entry.difficulty == Some(true) && registry.difficulty.is_none() {
+        errors.push(LintError {
+            kind: LintErrorKind::BrokenReference,
+            file: crate::manifest::MANIFEST_FILE_NAME.to_string(),
+            message: "entry.difficulty : aucun fichier de kind Difficulty".to_string(),
+        });
+    }
+    let Some(entry) = &registry.difficulty else {
+        return;
+    };
+    let file = entry.file.display().to_string();
+    let mut push = |kind: LintErrorKind, message: String| {
+        errors.push(LintError {
+            kind,
+            file: file.clone(),
+            message: format!("difficulté : {message}"),
+        });
+    };
+    let expr = match crate::expr::Expr::parse(&entry.value) {
+        Ok(expr) => expr,
+        Err(e) => {
+            push(
+                LintErrorKind::Parse,
+                format!("expression « {} » invalide : {e:?}", entry.value),
+            );
+            return;
+        }
+    };
+    for floor in [0, 3] {
+        for minutes in [0, 10] {
+            for players in [1, 4] {
+                let ctx = crate::expr::difficulty_context(players, floor, minutes * 3600, 0);
+                match expr.try_eval_num(&ctx) {
+                    Err(e) => {
+                        push(
+                            LintErrorKind::OutOfRange,
+                            format!(
+                                "« {} » : {e:?} (identifiants admis : {})",
+                                entry.value,
+                                crate::expr::DIFFICULTY_IDENTIFIERS.join(", ")
+                            ),
+                        );
+                        return;
+                    }
+                    Ok(value) if value <= Fixed::ZERO => {
+                        push(
+                            LintErrorKind::OutOfRange,
+                            format!(
+                                "« {} » vaut {value} pour floor = {floor}, minutes = {minutes}, players = {players} : doit être > 0",
+                                entry.value
+                            ),
+                        );
+                        return;
+                    }
+                    Ok(_) => {}
+                }
+            }
+        }
     }
 }
 

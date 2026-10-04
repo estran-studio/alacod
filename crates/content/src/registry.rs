@@ -127,6 +127,11 @@ string_id!(
     PatternId
 );
 string_id!(
+    /// Identifiant d'une horloge (T1.9, kind `Clock`) : nom de fichier sans extension
+    /// (`clocks/<nom>.ron`), demandé par `entry.clocks` ou le champ `clocks` d'un scénario.
+    ClockId
+);
+string_id!(
     /// Identifiant du fichier d'économie (T2.3, chantier C5 v1). Nom de fichier, sans
     /// extension (même règle que [`WaveConfigId`]) : un seul fichier par jeu en pratique,
     /// pas imposé par le chargement (comme `Wave`).
@@ -284,6 +289,71 @@ pub enum TargetingEntry {
         #[serde(default)]
         ignore: Vec<String>,
     },
+}
+
+/// T1.9 : horloge (`clocks/<nom>.ron`, kind `Clock`), mirroir de `run::clock::ClockDef`.
+#[derive(Debug, Clone)]
+pub struct ClockEntry {
+    pub id: ClockId,
+    pub file: PathBuf,
+    pub scope: ClockScopeEntry,
+    pub events: Vec<ClockEventEntry>,
+}
+
+/// T1.9 : mirroir de `run::clock::ClockFileSchema`.
+#[derive(Debug, Clone, Deserialize)]
+struct ClockFileSchema {
+    scope: ClockScopeEntry,
+    events: Vec<ClockEventEntry>,
+}
+
+/// T1.9 : mirroir de `run::clock::ClockScope`.
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Deserialize)]
+pub enum ClockScopeEntry {
+    Run,
+    Floor,
+}
+
+/// T1.9 : un événement d'horloge (mirroir de `run::clock::ClockEventDef`).
+#[derive(Debug, Clone, Deserialize)]
+pub struct ClockEventEntry {
+    pub id: String,
+    pub at: ClockTimeEntry,
+    #[serde(default)]
+    pub repeat: Option<ClockTimeEntry>,
+}
+
+/// T1.9 : mirroir de `run::clock::ClockTime`.
+#[derive(Debug, Clone, Copy, Deserialize)]
+pub enum ClockTimeEntry {
+    Frames(u32),
+    Seconds(FixedField),
+}
+
+impl ClockTimeEntry {
+    /// Durée en frames (60 par seconde, arrondie à la frame inférieure, négatif → 0).
+    pub fn frames(self) -> u32 {
+        match self {
+            ClockTimeEntry::Frames(frames) => frames,
+            ClockTimeEntry::Seconds(seconds) => seconds
+                .get()
+                .saturating_mul(Fixed::from_num(60))
+                .max(Fixed::ZERO)
+                .to_num::<u32>(),
+        }
+    }
+}
+
+/// T1.9 : difficulté (`difficulty.ron`, kind `Difficulty`) : une expression (`value`).
+#[derive(Debug, Clone)]
+pub struct DifficultyEntry {
+    pub file: PathBuf,
+    pub value: String,
+}
+
+#[derive(Debug, Clone, Deserialize)]
+struct DifficultyFileSchema {
+    value: String,
 }
 
 /// T1.2 : pattern nommé (`patterns/<nom>.ron`, kind `Pattern`).
@@ -735,6 +805,10 @@ pub struct Registry {
     pub progression: BTreeMap<ProgressionId, ProgressionEntry>,
     /// T1.10 : mutations (kind `Mutation`).
     pub mutations: BTreeMap<MutationId, MutationEntry>,
+    /// T1.9 : horloges (kind `Clock`).
+    pub clocks: BTreeMap<ClockId, ClockEntry>,
+    /// T1.9 : difficulté (kind `Difficulty`, un fichier ; le dernier chargé gagne).
+    pub difficulty: Option<DifficultyEntry>,
     /// T2.3, chantier C5 v1.
     pub economy: BTreeMap<EconomyId, EconomyEntry>,
     /// T2.3, chantier C5 v1.
@@ -782,6 +856,8 @@ pub const KNOWN_KIND_NAMES: &[&str] = &[
     "Pattern",
     "Progression",
     "Mutation",
+    "Clock",
+    "Difficulty",
 ];
 
 pub fn known_content_kinds() -> Kinds {
@@ -843,6 +919,8 @@ impl Registry {
                 "Pattern" => load_patterns(&assets_dir, decl, &mut registry, &mut errors),
                 "Progression" => load_progression(&assets_dir, decl, &mut registry, &mut errors),
                 "Mutation" => load_mutations(&assets_dir, decl, &mut registry, &mut errors),
+                "Clock" => load_clocks(&assets_dir, decl, &mut registry, &mut errors),
+                "Difficulty" => load_difficulty(&assets_dir, decl, &mut registry, &mut errors),
                 _ => unreachable!("filtré par `kinds.has` ci-dessus"),
             }
         }
@@ -1614,6 +1692,104 @@ fn load_waves(
 }
 
 /// T1.8 : mêmes règles que [`load_waves`] (id = nom de fichier sans extension).
+fn load_clocks(
+    assets_dir: &Path,
+    decl: &ContentFolderDecl,
+    registry: &mut Registry,
+    errors: &mut Vec<LintError>,
+) {
+    let files = match discover_files(assets_dir, decl, "ron") {
+        Ok(f) => f,
+        Err(e) => {
+            errors.push(e);
+            return;
+        }
+    };
+    for rel in files {
+        let text = match read_file(assets_dir, &rel) {
+            Ok(t) => t,
+            Err(e) => {
+                errors.push(e);
+                continue;
+            }
+        };
+        let parsed: ClockFileSchema = match ron::from_str(&text) {
+            Ok(p) => p,
+            Err(e) => {
+                errors.push(LintError {
+                    kind: LintErrorKind::Parse,
+                    file: rel.display().to_string(),
+                    message: format!("erreur RON : {e}"),
+                });
+                continue;
+            }
+        };
+        let id = ClockId::from(
+            rel.file_stem()
+                .and_then(|s| s.to_str())
+                .unwrap_or_default()
+                .to_string(),
+        );
+        if let Some(existing) = registry.clocks.get(&id) {
+            errors.push(LintError {
+                kind: LintErrorKind::DuplicateId,
+                file: rel.display().to_string(),
+                message: format!(
+                    "id d'horloge « {id} » déjà défini dans {}",
+                    existing.file.display()
+                ),
+            });
+            continue;
+        }
+        registry.clocks.insert(
+            id.clone(),
+            ClockEntry {
+                id,
+                file: rel,
+                scope: parsed.scope,
+                events: parsed.events,
+            },
+        );
+    }
+}
+
+fn load_difficulty(
+    assets_dir: &Path,
+    decl: &ContentFolderDecl,
+    registry: &mut Registry,
+    errors: &mut Vec<LintError>,
+) {
+    let files = match discover_files(assets_dir, decl, "ron") {
+        Ok(f) => f,
+        Err(e) => {
+            errors.push(e);
+            return;
+        }
+    };
+    for rel in files {
+        let text = match read_file(assets_dir, &rel) {
+            Ok(t) => t,
+            Err(e) => {
+                errors.push(e);
+                continue;
+            }
+        };
+        match ron::from_str::<DifficultyFileSchema>(&text) {
+            Ok(parsed) => {
+                registry.difficulty = Some(DifficultyEntry {
+                    file: rel,
+                    value: parsed.value,
+                })
+            }
+            Err(e) => errors.push(LintError {
+                kind: LintErrorKind::Parse,
+                file: rel.display().to_string(),
+                message: format!("erreur RON : {e}"),
+            }),
+        }
+    }
+}
+
 fn load_patterns(
     assets_dir: &Path,
     decl: &ContentFolderDecl,

@@ -202,6 +202,8 @@ fn main() {
             floors: floors.clone(),
             // T1.10 : progression du manifeste (pas d'option `--progression` en v1).
             progression: None,
+            clocks: None,
+            difficulty: None,
         };
 
         let stop_early = StopEarly {

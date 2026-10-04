@@ -9,12 +9,14 @@
 //! `Interactable`...) que ce crate ne connaît pas. Voir [`currency::RunPlugin`] et
 //! `game::run` (le module qui branche [`Run`]/[`RunModeRules`] sur la simulation).
 
+pub mod clock;
 pub mod currency;
 pub mod floors;
 pub mod modes;
 pub mod perks;
 pub mod run;
 
+pub use clock::{Clock, ClockFired, FloorEntered};
 pub use currency::{Currency, CurrencyEvent, RunPlugin};
 pub use floors::FloorState;
 pub use modes::{RunContext, RunModeRules};

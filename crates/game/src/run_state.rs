@@ -440,6 +440,8 @@ fn cleanup_rollback_world_system(
     // T1.8 : l'index de niveau repart de zéro (la nouvelle partie repose son portail au
     // chargement de la carte, `map_ldtk::game::floors`).
     commands.insert_resource(FloorState::default());
+    // T1.9 : horloges et difficulté de la partie suivante repartent de zéro.
+    commands.insert_resource(run::Clock::default());
     commands.insert_resource(FlowFieldCache::default());
     commands.insert_resource(RepairPointsTracking::default());
     // Compteur cumulatif interne à bevy_ggrs (voir la doc du module) : sans ce reset, le
@@ -535,6 +537,8 @@ mod tests {
                 default_seed: 1,
                 mode,
                 progression: None,
+                clocks: None,
+                difficulty: None,
             },
         }
     }
