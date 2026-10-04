@@ -86,7 +86,7 @@ Base à la livraison : _(complété au merge final d'`origin/main`)_.
   - `enemy_flee` : le joueur tire f10-30 ; `Chase` f20 ; `Flee` f61 et f151 ; distance
     ∈ [65, 82] à f61 puis ∈ [140, 175] à f151 (elle croît) ; `EnemyNeverInWall` 1-220.
   - `enemy_wander` : `Wander` f50 ; distance ∈ [185, 200] à f51 puis ∈ [215, 230] à f121
-    (il bouge) ; le joueur marche vers lui f120-220 → `Strafe` f235, retour `Wander` f280 ;
+    (il bouge) ; le joueur marche vers lui f120-220 → `Strafe` f231, retour `Wander` f280 ;
     `EnemyNeverInWall` 1-330.
 
 ## 2. Vérifié (résultats réels)
