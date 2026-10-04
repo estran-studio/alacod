@@ -9,7 +9,7 @@ Scenario(
     powerup_drop_chance_override: "0.0",
     game: "testbed",
     map: "testbed/progression.ldtk",
-    progression: "progression",
+    progression: "base",
     frames: 760,
     players: [
         (inputs: [

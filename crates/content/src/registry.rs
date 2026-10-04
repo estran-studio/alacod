@@ -112,7 +112,7 @@ string_id!(
 );
 string_id!(
     /// Identifiant d'une progression (T1.10, kind `Progression`) : nom de fichier sans
-    /// extension (`progression.ron`, un seul par jeu).
+    /// extension (`progression/<id>.ron`).
     ProgressionId
 );
 string_id!(
@@ -451,7 +451,7 @@ struct SurfaceFileSchema {
     acceleration: Option<FixedField>,
 }
 
-/// Progression (T1.10, chantier C4 v1, `docs/conventions.md` §27), `progression.ron` : jauge
+/// Progression (T1.10, chantier C4 v1, `docs/conventions.md` §27), `progression/<id>.ron` : jauge
 /// des joueurs (rads), seuils de niveau, choix de mutation, pool d'armes par niveau.
 #[derive(Debug, Clone)]
 pub struct ProgressionEntry {
@@ -630,7 +630,8 @@ pub struct Registry {
     pub surfaces: BTreeMap<SurfaceName, SurfaceEntry>,
     /// T1.2 : patterns nommés (kind `Pattern`).
     pub patterns: BTreeMap<PatternId, PatternFileEntry>,
-    /// T1.10 : progression (kind `Progression`, un fichier par jeu au plus, lint).
+    /// T1.10 : progressions (kind `Progression`) ; la partie en joue au plus une, nommée par
+    /// `entry.progression` ou `Scenario::progression`.
     pub progression: BTreeMap<ProgressionId, ProgressionEntry>,
     /// T1.10 : mutations (kind `Mutation`).
     pub mutations: BTreeMap<MutationId, MutationEntry>,

@@ -36,8 +36,8 @@
         // T1.2 : patterns nommés des émetteurs (tourelle `ring_8`, archer `volee`).
         (path: "patterns", kind: "Pattern"),
         // T1.10 : progression (rads, niveaux, mutations ; inactive par défaut, voir
-        // `progression.ron`) et mutations.
-        (path: "progression.ron", kind: "Progression"),
+        // `progression/`) et mutations.
+        (path: "progression", kind: "Progression"),
         (path: "mutations", kind: "Mutation"),
     ],
     entry: (

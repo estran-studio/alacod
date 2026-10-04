@@ -1,6 +1,6 @@
 // T1.10 (progression v1, docs/conventions.md §27) : rads → niveau → choix de mutation par input.
 // Carte `testbed/progression.ldtk` (copie d'`arena` : un `breacher` au sud-ouest, des `cible` de
-// 16 points ailleurs) ; progression du testbed imposée (`progression`, inactive sinon) : 1 rad
+// 16 points ailleurs) ; progression `base` du testbed imposée (`progression`, inactive sinon) : 1 rad
 // par kill, niveau 1 à 2 rads, trois mutations proposées.
 //
 // Mesuré : le joueur tue le breacher puis une cible (niveau 1 à f104, options tirées dans le
@@ -15,7 +15,7 @@ Scenario(
     powerup_drop_chance_override: "0.0",
     game: "testbed",
     map: "testbed/progression.ldtk",
-    progression: "progression",
+    progression: "base",
     frames: 300,
     players: [
         (inputs: [

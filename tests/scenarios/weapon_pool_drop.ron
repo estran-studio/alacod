@@ -1,0 +1,31 @@
+// T1.10 (progression v1, décision 8, docs/conventions.md §27) : drop d'arme à la mort, filtré par
+// niveau. Progression `armes` imposée (copie de `base` : `weapon_drop_chance` 1, pool réduit à
+// `shotgun` débloqué au niveau 1). Même script que `levelup_timeout`.
+//
+// Mesuré : premier kill (le breacher, niveau 0) : aucune arme débloquée, rien ne tombe ; le
+// deuxième kill fait passer niveau 1 à f104 et laisse tomber un `shotgun` dans la même frame
+// (le niveau est mis à jour avant le drop) ; un troisième kill à f155 en laisse un autre.
+//
+// À regarder : un fusil à pompe apparaît à l'endroit de chaque cible tuée après le premier kill.
+Scenario(
+    powerup_drop_chance_override: "0.0",
+    game: "testbed",
+    map: "testbed/progression.ldtk",
+    progression: "armes",
+    frames: 330,
+    players: [
+        (inputs: [
+            (from: 5, to: 120, buttons: [Fire], pan: (-64, -48)),
+            (from: 120, to: 170, buttons: [Fire], pan: (-64, 48)),
+            (from: 170, to: 220, buttons: [Fire], pan: (128, 48)),
+            (from: 220, to: 270, buttons: [Fire], pan: (128, -48)),
+            (from: 270, to: 320, buttons: [Fire], pan: (-64, -80)),
+        ]),
+    ],
+    expect: [
+        WeaponPickups(max: 0, at_frame: 103),
+        Event(kind: "drop", label_contains: "shotgun", by_frame: 110),
+        WeaponPickups(min: 1, max: 1, at_frame: 110),
+        WeaponPickups(min: 2, at_frame: 325),
+    ],
+)

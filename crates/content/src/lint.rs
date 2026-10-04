@@ -1469,18 +1469,6 @@ fn lint_entry_point(registry: &Registry, manifest: &GameManifest, errors: &mut V
 
 /// T1.10 (`docs/conventions.md` §27) : `progression.ron`.
 fn lint_progression(registry: &Registry, errors: &mut Vec<LintError>) {
-    if registry.progression.len() > 1 {
-        let files: Vec<String> = registry
-            .progression
-            .values()
-            .map(|p| p.file.display().to_string())
-            .collect();
-        errors.push(LintError {
-            kind: LintErrorKind::DuplicateId,
-            file: files[1].clone(),
-            message: format!("une seule progression par jeu, trouvé : {}", files.join(", ")),
-        });
-    }
     for progression in registry.progression.values() {
         let file = progression.file.display().to_string();
         let mut push = |kind: LintErrorKind, message: String| {
