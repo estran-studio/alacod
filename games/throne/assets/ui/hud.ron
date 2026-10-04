@@ -84,20 +84,20 @@
             color: Some("#9be22d"),
             font_size: Some(12.0),
         ),
-        // T1.18 : « Niv. 2 », au-dessus du texte de vie.
+        // T1.18 : « Niv. 2 », à droite du texte de vie.
         (
             kind: Text(source: "level", prefix: None),
             anchor: BottomLeft,
-            offset: (16.0, 48.0),
-            size: Some((120.0, 20.0)),
+            offset: (96.0, 28.0),
+            size: Some((100.0, 18.0)),
             color: Some("#9be22d"),
-            font_size: Some(16.0),
+            font_size: Some(14.0),
         ),
-        // T1.18 : statuts posés (« brulure ×2 · 3 s »), une ligne chacun, au-dessus du niveau.
+        // T1.18 : statuts posés (« brulure ×2 · 3 s »), une ligne chacun, au-dessus de la vie.
         (
             kind: Text(source: "statuses", prefix: None),
             anchor: BottomLeft,
-            offset: (16.0, 72.0),
+            offset: (16.0, 80.0),
             size: Some((200.0, 60.0)),
             color: Some("#e67e22"),
             font_size: Some(13.0),
