@@ -70,6 +70,19 @@ pub struct GameManifest {
     pub name: String,
     pub content_folders: Vec<ContentFolderDecl>,
     pub entry: EntryPoint,
+    /// T1.13 : carte et cible des scénarios générés de ce jeu (`scenario::generate`,
+    /// `docs/conventions.md` §28). Absent : les gabarits jouent dans le testbed.
+    #[serde(default)]
+    pub generate_template: Option<GenerateTemplate>,
+}
+
+/// `generate_template: (map: "maps/salle.ldtk", target: "cible")` (T1.13) : les gabarits
+/// d'armes et d'ennemis du jeu jouent dans ce jeu, sur `map` ; `target` est l'id du personnage
+/// (`counts_hits: true`) que vise le gabarit d'arme. Validé par `lint::lint_generate_template`.
+#[derive(Debug, Clone, Deserialize, PartialEq, Eq)]
+pub struct GenerateTemplate {
+    pub map: String,
+    pub target: String,
 }
 
 #[derive(Debug, Clone, PartialEq, Eq)]

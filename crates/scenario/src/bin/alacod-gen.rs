@@ -1,7 +1,9 @@
-//! `alacod-gen <games/jeu> [--play] [--bless]` (T2.10) : écrit un scénario par arme (à
+//! `alacod-gen <games/jeu> [--play] [--bless]` (T2.10, T1.13) : écrit un scénario par arme (à
 //! distance et de corps à corps) du registre de `<games/jeu>` dans
 //! `tests/scenarios/generated/<jeu>/weapon_<id>.ron` (gabarit `Template::WeaponOnTarget`,
-//! voir `crates/scenario/src/generate.rs`), et supprime ceux dont l'arme n'existe plus.
+//! voir `crates/scenario/src/generate.rs`), un par gabarit actif de chaque personnage qui
+//! déclare `test:` (`enemy_<id>_still.ron`, `enemy_<id>_moving.ron`), et supprime ceux dont le
+//! sujet n'existe plus.
 //!
 //! - `--play` : joue chaque scénario généré et affiche un tableau (arme, frames, coups sur la cible, attentes,
 //!   trace) ; code de sortie 1 si une attente échoue, si un scénario n'atteint pas sa
@@ -13,7 +15,7 @@
 use std::collections::BTreeSet;
 use std::path::{Path, PathBuf};
 
-use scenario::generate::{self, GeneratedScenario, WeaponKind};
+use scenario::generate::{self, GeneratedKind, GeneratedScenario, WeaponKind};
 
 fn main() {
     let args: Vec<String> = std::env::args().skip(1).collect();
@@ -51,7 +53,7 @@ fn main() {
         let path = out_dir.join(&g.file_name);
         let body = format!(
             "{}{}\n",
-            generate::header_comment(&g.weapon_id, g.kind),
+            generate::header_comment(&g.subject_id, g.kind),
             g.scenario.to_ron()
         );
         std::fs::write(&path, body)
@@ -60,13 +62,12 @@ fn main() {
     }
     remove_stale(&out_dir, &keep);
 
-    let ranged = generated
-        .iter()
-        .filter(|g| g.kind == WeaponKind::Ranged)
-        .count();
-    let melee = generated.len() - ranged;
+    let count = |kind: GeneratedKind| generated.iter().filter(|g| g.kind == kind).count();
+    let ranged = count(GeneratedKind::Weapon(WeaponKind::Ranged));
+    let melee = count(GeneratedKind::Weapon(WeaponKind::Melee));
+    let characters = generated.len() - ranged - melee;
     println!(
-        "alacod-gen : {} : {ranged} arme(s) à distance, {melee} de corps à corps -> {}",
+        "alacod-gen : {} : {ranged} arme(s) à distance, {melee} de corps à corps, {characters} gabarit(s) de personnage -> {}",
         game_dir.display(),
         out_dir.display(),
     );
@@ -87,7 +88,7 @@ fn main() {
 fn run_and_report(generated: &[GeneratedScenario], out_dir: &Path, bless: bool) -> bool {
     println!(
         "{:<20} {:>7} {:>7}  {:<8}  {}",
-        "arme", "frames", "coups", "attentes", "trace"
+        "sujet", "frames", "coups", "attentes", "trace"
     );
     let mut all_ok = true;
     for g in generated {
@@ -118,7 +119,7 @@ fn run_and_report(generated: &[GeneratedScenario], out_dir: &Path, bless: bool) 
 
         println!(
             "{:<20} {:>7} {:>7}  {:<8}  {}",
-            g.weapon_id,
+            g.file_name.trim_end_matches(".ron"),
             outcome.metrics.frames,
             outcome.entity_hits.values().sum::<u32>(),
             if expect_ok { "ok" } else { "échec" },
@@ -155,7 +156,7 @@ fn remove_stale(out_dir: &Path, keep: &BTreeSet<String>) {
             continue;
         }
         println!(
-            "alacod-gen : suppression de {} (arme disparue du registre)",
+            "alacod-gen : suppression de {} (sujet disparu du registre)",
             path.display()
         );
         let _ = std::fs::remove_file(&path);

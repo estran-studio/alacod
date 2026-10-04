@@ -46,4 +46,15 @@
             Chase(profile: "Ground"),
         ]),
     )),
+    // T1.13 (`docs/conventions.md` §28) : scénarios générés `enemy_<id>_still`/`_moving`
+    // (`make gen`). Immobile : `EnemyNeverInWall` borné à f540 — à f544, en reculant
+    // (`KeepDistance`), le collider du kiter chevauche un mur de `arena.ldtk` (constaté au
+    // calage, rapport m1-v3-generateur-v1).
+    test: Some((
+        frames: 600,
+        expect_still: [
+            Event(kind: "hit", label_contains: Some("joueur 0 touché"), by_frame: 600),
+            EnemyNeverInWall(entity: Placed(0), from: 2, to: 540),
+        ],
+    )),
 )

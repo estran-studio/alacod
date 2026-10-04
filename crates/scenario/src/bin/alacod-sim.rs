@@ -204,6 +204,7 @@ fn main() {
             progression: None,
             clocks: None,
             difficulty: None,
+            characters: vec![],
         };
 
         let stop_early = StopEarly {

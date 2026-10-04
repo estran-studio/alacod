@@ -40,6 +40,7 @@ fn empty_distance_range_spawns_after_deadline_without_desync() {
         progression: None,
         clocks: None,
         difficulty: None,
+        characters: vec![],
     };
     let outcome = run_with_options(
         &scenario,

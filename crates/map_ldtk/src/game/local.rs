@@ -238,65 +238,93 @@ pub(crate) fn spawn_level_characters(
             );
             continue;
         }
-        if !assets
-            .global_assets
-            .character_configs
-            .contains_key(&spawn.character)
-        {
-            warn!(
-                "CharacterSpawn : personnage inconnu « {}» (voir `alacod lint`), ignoré",
-                spawn.character
-            );
-            continue;
-        }
-
-        let character_config = assets
-            .global_assets
-            .character_configs
-            .get(&spawn.character)
-            .and_then(|handle| assets.character_asset.get(handle));
-        let team = spawn
-            .team
-            .as_deref()
-            .and_then(parse_team)
-            .or_else(|| character_config.and_then(|config| config.team))
-            .unwrap_or(Team::Enemies);
-
-        // F5 (chantier m0-v11) : santé max résolue au lancement (`game::balance`).
-        let health_max = assets
-            .balance
-            .health_max_by_character
-            .get(&spawn.character)
-            .copied()
-            .unwrap_or_else(|| {
-                panic!(
-                    "équilibrage F5 : pas de santé résolue pour le personnage « {} »",
-                    spawn.character
-                )
-            });
-        let health_max = game::clock::scale(health_max, difficulty);
-
-        spawn_enemy(
-            spawn.character.clone(),
-            fixed_math::vec3_to_fixed(transform.translation()),
+        let team = spawn.team.as_deref().and_then(parse_team);
+        if spawn_character(
             commands,
-            &assets.weapons_asset,
-            &assets.melee_weapons_asset,
-            &assets.character_asset,
-            &assets.global_assets,
-            &assets.collision_settings,
+            assets,
             id_provider,
+            &spawn.character,
+            fixed_math::vec3_to_fixed(transform.translation()),
             team,
-            health_max,
-            assets
-                .map_config
-                .as_ref()
-                .map_or(0, |config| config.seed as u32),
             spawn.variant.as_deref(),
-        );
-        placed += 1;
+            difficulty,
+        )
+        .is_some()
+        {
+            placed += 1;
+        }
     }
     placed
+}
+
+/// Crée un personnage comme un `CharacterSpawn` de carte (T1.13 : aussi le chemin des
+/// placements scriptés d'un scénario, `Scenario::characters`) : équipe `team`, sinon
+/// `CharacterConfig.team`, sinon `Team::Enemies` ; santé F5 × `difficulty` ; variante imposée
+/// ou tirée (`spawn_enemy`). Rend l'entité créée, `None` (rien créé) pour un personnage inconnu.
+#[allow(clippy::too_many_arguments)]
+pub fn spawn_character(
+    commands: &mut Commands,
+    assets: &LevelSpawnAssets,
+    id_provider: &mut ResMut<GgrsNetIdFactory>,
+    character: &str,
+    position: fixed_math::FixedVec3,
+    team: Option<Team>,
+    variant: Option<&str>,
+    difficulty: bevy_fixed::fixed_math::Fixed,
+) -> Option<Entity> {
+    if !assets
+        .global_assets
+        .character_configs
+        .contains_key(character)
+    {
+        warn!(
+            "CharacterSpawn : personnage inconnu « {}» (voir `alacod lint`), ignoré",
+            character
+        );
+        return None;
+    }
+
+    let character_config = assets
+        .global_assets
+        .character_configs
+        .get(character)
+        .and_then(|handle| assets.character_asset.get(handle));
+    let team = team
+        .or_else(|| character_config.and_then(|config| config.team))
+        .unwrap_or(Team::Enemies);
+
+    // F5 (chantier m0-v11) : santé max résolue au lancement (`game::balance`).
+    let health_max = assets
+        .balance
+        .health_max_by_character
+        .get(character)
+        .copied()
+        .unwrap_or_else(|| {
+            panic!(
+                "équilibrage F5 : pas de santé résolue pour le personnage « {} »",
+                character
+            )
+        });
+    let health_max = game::clock::scale(health_max, difficulty);
+
+    Some(spawn_enemy(
+        character.to_string(),
+        position,
+        commands,
+        &assets.weapons_asset,
+        &assets.melee_weapons_asset,
+        &assets.character_asset,
+        &assets.global_assets,
+        &assets.collision_settings,
+        id_provider,
+        team,
+        health_max,
+        assets
+            .map_config
+            .as_ref()
+            .map_or(0, |config| config.seed as u32),
+        variant,
+    ))
 }
 
 /// `WeaponLocation` (T2.3, chantier C5 v1) : fait apparaître, une fois au chargement de la
