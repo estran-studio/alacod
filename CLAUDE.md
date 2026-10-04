@@ -250,6 +250,11 @@ make diff_log CID_1=alice CID_2=bob
       (`rollback_and_trace_resource_neutral`, T1.8 ; `rollback_and_trace_neutral::<C>` pour les
       composants, T1.2) : contribution 0 sans porteur, hash normal sinon. Ne jamais compenser par
       la parité, ne jamais passer en `no_checksum` pour « sauver » les traces.
+- [ ] **Donnée dérivée non rollbackée** (ex. `CursorPosition`, lue la même frame par un système
+      du `GgrsSchedule`) : réécrite **à chaque frame, avant tout `continue`/retour anticipé** du
+      système qui l'écrit ; sinon c'est un état caché qu'une frame resimulée lit avec la valeur
+      d'une frame plus récente (desync du dash, scénario `dash_aim_change`, 2026-10-03). Les
+      scénarios à visée constante ne le voient pas : `fuzz_inputs` (`ALACOD_FUZZ=0:8`) oui.
 - [ ] Logs utilisent `GgrsNetId`/`player.handle` (pas `Entity`) pour comparaison
 - [ ] Trace logs suivent format `ggrs{{f={} system_name key=value...}}` pour diff_log
 
