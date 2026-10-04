@@ -135,7 +135,7 @@ passent par le callback du loader (`crates/map_ldtk/src/loader/mod.rs`) → `map
 Conflits textuels gardant les deux côtés : `BotView` (`hunter` + `portal`), doc
 d'`alacod-sim` (`--profiles`/`--progress` + `--floors`), `select_valid_spawners`
 (`ResolvedWaveConfig` + `allow_nearest`), `conventions.md` (§16-18 de main, bots de
-validation en §19), dépendance `run` en double dans `crates/bots/Cargo.toml`. Conflits
+validation en §24 — §19 est réservé aux statuts de c3, renuméroté par l'orchestrateur), dépendance `run` en double dans `crates/bots/Cargo.toml`. Conflits
 sémantiques avec F5 (m0-v11) : les bots v1 lisent prix, recharge et perks dans
 `ResolvedBalance` comme les handlers d'interaction ; `spawn_stall` force la plage vide dans
 `ResolvedBalance.waves`, déclaré `ambiguous_with_all` (`4769ad2`) ; champ `floors` dans les

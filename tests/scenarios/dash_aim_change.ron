@@ -1,0 +1,26 @@
+// La visée bouge pendant un dash. `CursorPosition` (la visée, non rollbackée) était écrite par
+// `apply_inputs` après les `continue` du dash : figée pendant celui-ci, alors que
+// `system_weapon_position` (simulation) en déduit la rotation de l'arme. Une frame resimulée par
+// le synctest lisait donc la visée d'une frame plus récente, la rotation de l'arme (au checksum)
+// divergeait et le jeu se figeait (desync). Elle est maintenant réécrite à chaque frame, dash compris.
+//
+// À regarder : dash vers la droite (f10-f13 lus, 15 frames de glissade), pendant lequel la visée
+// passe vers le bas puis vers la gauche ; l'arme suit la souris aussi pendant le dash, puis vise
+// vers le haut en tirant (f45-f65). Aucune divergence du synctest sur toute la partie.
+Scenario(
+    // Isoler ce scénario des drops aléatoires ; powerup_drop_on_kill teste ce chemin.
+    powerup_drop_chance_override: "0.0",
+    game: "zombies",
+    frames: 120,
+    players: [
+        (inputs: [
+            (from: 10, to: 13, buttons: [Right, Dash], pan: (100, 0)),
+            (from: 13, to: 24, buttons: [Right], pan: (0, 100)),
+            (from: 24, to: 40, buttons: [], pan: (-100, 0)),
+            (from: 40, to: 65, buttons: [Fire], pan: (0, -100)),
+        ]),
+    ],
+    expect: [
+        PlayerAlive(handle: 0, at_frame: 100),
+    ],
+)
