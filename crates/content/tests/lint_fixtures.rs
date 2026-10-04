@@ -113,6 +113,15 @@ fn floors_empty_fixture_reports_empty_levels() {
 }
 
 #[test]
+fn surface_fixtures_report_duplicate_value_and_non_positive_factors() {
+    let (_, _, errors) = load_and_lint(&fixture_dir("surface_duplicate_value")).unwrap();
+    assert_has_error(&errors, LintErrorKind::DuplicateId, "intgrid_value = 1");
+    let (_, _, errors) = load_and_lint(&fixture_dir("surface_factor_non_positive")).unwrap();
+    assert_has_error(&errors, LintErrorKind::OutOfRange, "move_speed = 0");
+    assert_has_error(&errors, LintErrorKind::OutOfRange, "acceleration = -1");
+}
+
+#[test]
 fn floors_unknown_map_fixture_reports_broken_level() {
     let (_, _, errors) = load_and_lint(&fixture_dir("floors_unknown_map")).unwrap();
     assert_has_error(
@@ -267,6 +276,9 @@ fn t2_8_fixtures_have_a_single_problem() {
         ),
         ("floors_empty", LintErrorKind::OutOfRange),
         ("floors_unknown_map", LintErrorKind::BrokenReference),
+        // T1.7.
+        ("surface_duplicate_value", LintErrorKind::DuplicateId),
+        ("surface_factor_non_positive", LintErrorKind::OutOfRange),
     ];
     for (name, kind) in cases {
         let (_, _, errors) = load_and_lint(&fixture_dir(name)).unwrap();

@@ -5,6 +5,7 @@ pub mod enemy;
 pub mod health;
 pub mod movement;
 pub mod player;
+pub mod surface;
 pub mod variant;
 pub mod visuals;
 
@@ -181,7 +182,13 @@ impl Plugin for BaseCharacterGamePlugin {
             GgrsSchedule,
             (
                 // HANDLE ALL PLAYERS INPUT
-                (apply_inputs,).in_set(RollbackSystemSet::Input),
+                // T1.7 : surfaces sous les pieds, avant les inputs (effet dans la frame)
+                (
+                    surface::surface_modifiers_system.run_if(surface::surfaces_active),
+                    apply_inputs,
+                )
+                    .chain()
+                    .in_set(RollbackSystemSet::Input),
                 // MOVEMENT CHARACTERS
                 (apply_friction, move_characters.after(apply_friction))
                     .in_set(RollbackSystemSet::Movement),

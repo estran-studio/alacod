@@ -1473,12 +1473,44 @@ fn check(world: &mut World, expectation: &Expectation) -> Result<(), String> {
             Ok(())
         }
         // T1.6 : case du terrain d'une caverne (ressource rollback `CellGrid`).
-        Expectation::CellState { x, y, kind, .. } => {
-            match world.resource::<world::CellGrid>().get(*x, *y) {
-                Some(actual) if actual == *kind => Ok(()),
-                Some(actual) => Err(format!("case ({x}, {y}) : {actual:?} (attendu {kind:?})")),
-                None => Err(format!("case ({x}, {y}) hors de la grille")),
+        Expectation::CellState {
+            x,
+            y,
+            kind,
+            surface,
+            ..
+        } => {
+            if let Some(kind) = kind {
+                match world.resource::<world::CellGrid>().get(*x, *y) {
+                    Some(actual) if actual == *kind => {}
+                    Some(actual) => {
+                        return Err(format!("case ({x}, {y}) : {actual:?} (attendu {kind:?})"))
+                    }
+                    None => return Err(format!("case ({x}, {y}) hors de la grille")),
+                }
             }
+            if let Some(surface) = surface {
+                // T1.7 : nom de la surface (`"aucune"` = case sans surface)
+                let actual = world
+                    .resource::<world::SurfaceGrid>()
+                    .get(*x, *y)
+                    .map(|id| {
+                        world
+                            .get_resource::<world::SurfaceTable>()
+                            .and_then(|t| t.0.get(&id).map(|d| d.name.clone()))
+                            .unwrap_or_else(|| format!("#{id}"))
+                    })
+                    .unwrap_or_else(|| "aucune".into());
+                if actual != *surface {
+                    return Err(format!(
+                        "case ({x}, {y}) : surface « {actual} » (attendu « {surface} »)"
+                    ));
+                }
+            }
+            if kind.is_none() && surface.is_none() {
+                return Err("CellState sans kind ni surface".into());
+            }
+            Ok(())
         }
         // T2.3, chantier C5 v1 : scénarios `buy_door`/`buy_wall_weapon`/`buy_perk`.
         Expectation::Currency {

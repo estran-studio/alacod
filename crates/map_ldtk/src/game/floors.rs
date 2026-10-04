@@ -361,7 +361,11 @@ pub fn floor_transition_system(
     assets: LevelSpawnAssets,
     data: FloorLevelData,
     mut entities: FloorTransitionEntities,
-    caves: (Res<crate::loader::CaveSlots>, ResMut<world::CellGrid>),
+    caves: (
+        Res<crate::loader::CaveSlots>,
+        ResMut<world::CellGrid>,
+        ResMut<world::SurfaceGrid>,
+    ),
 ) {
     if !run.is_playing() || !floor_state.portal_open {
         return;
@@ -408,18 +412,22 @@ pub fn floor_transition_system(
         false,
     );
 
-    // 4. Murs.
+    // 4. Murs (et surfaces, T1.7).
+    let level_data: Vec<_> = data
+        .levels
+        .iter()
+        .filter(|(entity, _, _)| data.slots.slot_of(*entity) == slot)
+        .filter_map(|(entity, iid, transform)| {
+            let world = data.slots.world_of(entity)?;
+            let project = data.project_assets.get(data.projects.get(world).ok()?)?;
+            Some((iid, transform, project))
+        })
+        .collect();
+    let (cave_slots, mut cell_grid, mut surfaces) = caves;
+    *surfaces = super::collider::surface_grid_of_levels(&level_data);
     spawn_level_walls(
         &mut commands,
-        data.levels
-            .iter()
-            .filter(|(entity, _, _)| data.slots.slot_of(*entity) == slot)
-            .filter_map(|(entity, iid, transform)| {
-                let world = data.slots.world_of(entity)?;
-                let project = data.project_assets.get(data.projects.get(world).ok()?)?;
-                Some((iid, transform, project))
-            })
-            .collect(),
+        level_data,
         &assets.collision_settings,
         &mut id_factory,
         &mut flow_field_cache,
@@ -427,7 +435,6 @@ pub fn floor_transition_system(
 
     // T1.6 : terrain du nouveau niveau (grille intacte d'une caverne, ou vide), cohérent
     // avec les murs IntGrid qui viennent d'être créés.
-    let (cave_slots, mut cell_grid) = caves;
     *cell_grid = super::cave::grid_for_slot(&cave_slots, slot);
 
     // 5. Joueurs : points de départ du nouveau niveau, par handle (repli : le plus petit

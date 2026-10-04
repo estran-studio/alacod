@@ -310,7 +310,8 @@ Avant/après un refactoring de la simulation, comparer les traces : elles doiven
     `EntityHits`, `EntityCount`, `Currency`, `Stat`, `PlayerDowned`, `RunState`,
     `RunSummary`, `Event`, `BulletCount` et `HitsAtLeast` (T1.1, projectiles composables,
     `docs/conventions.md` §16), `FloorIndex` (T1.8, mode `Floors`, voir `docs/conventions.md`
-    §17), `CellState` (T1.6, terrain d'une caverne, voir `docs/conventions.md` §21),
+    §17), `CellState` (T1.6, terrain d'une caverne, voir `docs/conventions.md` §21 ; champ
+    `surface` en T1.7, §26),
     `EnemyState` et `EnemyDistance` (T1.4, behaviors composables, `docs/conventions.md` §22),
     `EnemyVariant` (T1.5, variantes et élites, §25), `Clock` (T1.9, horloges, §23).
   - Continues (vérifiées à chaque frame) : `NoDamageBetween` (santé du joueur ne diminue pas dans l'intervalle),

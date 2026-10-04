@@ -53,7 +53,8 @@ fn cell_state_suit_la_grille_generee() {
             Expectation::CellState {
                 x,
                 y,
-                kind,
+                kind: Some(kind),
+                surface: None,
                 at_frame: 10,
             }
         })
@@ -69,13 +70,15 @@ fn cell_state_suit_la_grille_generee() {
             Expectation::CellState {
                 x,
                 y,
-                kind: CellKind::Floor,
+                kind: Some(CellKind::Floor),
+                surface: None,
                 at_frame: 10,
             },
             Expectation::CellState {
                 x: -1,
                 y: 0,
-                kind: CellKind::Wall,
+                kind: Some(CellKind::Wall),
+                surface: None,
                 at_frame: 10,
             },
         ],
@@ -157,13 +160,15 @@ fn destruction_creuse_et_reconstruit_les_murs_en_synctest() {
         Expectation::CellState {
             x,
             y,
-            kind: CellKind::Rock,
+            kind: Some(CellKind::Rock),
+            surface: None,
             at_frame: AT - 1,
         },
         Expectation::CellState {
             x,
             y,
-            kind: CellKind::Floor,
+            kind: Some(CellKind::Floor),
+            surface: None,
             at_frame: AT + 5,
         },
     ];
@@ -171,7 +176,8 @@ fn destruction_creuse_et_reconstruit_les_murs_en_synctest() {
     expect.push(Expectation::CellState {
         x: 0,
         y,
-        kind: CellKind::Wall,
+        kind: Some(CellKind::Wall),
+        surface: None,
         at_frame: AT + 5,
     });
     let seen: Arc<Mutex<(usize, CellGrid)>> = Arc::default();
@@ -357,13 +363,15 @@ fn foreuse_creuse_au_contact() {
         Expectation::CellState {
             x: 26,
             y: 15,
-            kind: CellKind::Rock,
+            kind: Some(CellKind::Rock),
+            surface: None,
             at_frame: 29,
         },
         Expectation::CellState {
             x: 26,
             y: 15,
-            kind: CellKind::Floor,
+            kind: Some(CellKind::Floor),
+            surface: None,
             at_frame: 150,
         },
         Expectation::Event {
