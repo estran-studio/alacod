@@ -22,7 +22,7 @@
                     ),
                     range: "700.0",
                     reload_time_seconds: "1.0",
-                    mag: Mag(mag_size: 6, mag_limit: 8),
+                    mag: Mag(mag_size: 6, mag_limit: 16),
                 )
             },
             test: Some((frames: 200, min_hits: 1)),
@@ -53,7 +53,7 @@
                     ),
                     range: "900.0",
                     reload_time_seconds: "1.5",
-                    mag: Mag(mag_size: 30, mag_limit: 8),
+                    mag: Mag(mag_size: 30, mag_limit: 12),
                 )
             },
             test: Some((frames: 200, min_hits: 3)),

@@ -1,0 +1,28 @@
+// `throne` (T1.0c + T1.11, docs/conventions.md §29) : deux bots `prudent` finissent la run (trois
+// étages de caverne : `niveau_1`, `niveau_2` avec les premiers tireurs, `niveau_3` avec tous les
+// profils) avant f9000.
+//
+// Mesuré (`alacod-sim --game throne --bots 2 --profiles prudent,prudent --floors run --seeds
+// 123456..123456 --until-floor 3`, butin compris) : passages à f655, f2166, f3385, aucun
+// dégât. Ici sans butin (`powerup_drop_chance_override` 0) : f655, f2166, f3399.
+//
+// À regarder : les deux bots nettoient chaque caverne puis passent le portail.
+Scenario(
+    powerup_drop_chance_override: "0.0",
+    game: "throne",
+    floors: Some("run"),
+    map_seed: 123456,
+    frames: 3420,
+    players: [
+        (bot: prudent),
+        (bot: prudent),
+    ],
+    expect: [
+        FloorIndex(index: 1, at_frame: 660),
+        FloorIndex(index: 2, at_frame: 2170),
+        FloorIndex(index: 2, at_frame: 3390),
+        FloorIndex(index: 3, at_frame: 3405),
+        PlayerAlive(handle: 0, at_frame: 3419),
+        PlayerAlive(handle: 1, at_frame: 3419),
+    ],
+)

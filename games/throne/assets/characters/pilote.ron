@@ -56,8 +56,9 @@
 
     },
 
-    // Armes de départ : le revolver (balles) et la mitraillette (balles) ; les autres armes
-    // se ramassent (butin, phase 2 : `weapon_pool` par niveau).
+    // Armes de départ : mitraillette et revolver (balles), lance-lames (lames, une deuxième
+    // munition : sans elle, les bots finissaient à sec avant le dernier ennemi, 3 graines sur
+    // 20) ; les autres armes se ramassent (phase 2 : `weapon_pool` par niveau).
     weapon_slots: 3,
-    starting_weapons: ["mitraillette", "revolver"],
+    starting_weapons: ["mitraillette", "revolver", "lance_lames"],
 )

@@ -1598,6 +1598,63 @@ f704), `weapon_pool_drop` (progression `armes`).
 objets passifs/actifs (M2), modificateurs de projectiles (M4), pause, `--progression` dans
 `alacod-sim`.
 
+## 29. Le jeu `throne` (T1.0c + T1.11, voie V2)
+
+`games/throne/` : le clone, **données seulement** (aucun code d'engine propre : `src/main.rs` est
+celui du testbed renommé). Membre du workspace, `make throne` (fenêtré), `make lint` le linte avec
+zombies et testbed. Une run = trois étages de caverne générés (mode `Floors`), sans vagues.
+
+**Manifeste** : `entry: (start_map: "cave:niveau_1", default_seed: 123456, mode: Floors)` ;
+séquence `floors/run.ron` = `cave:niveau_1`, `cave:niveau_2`, `cave:niveau_3` (même graine pour la
+séquence, §17 et §21). Kinds : `Character`, `Weapon`, `MeleeWeapon`, `Pattern`, `Cave`, `Floors`,
+`PowerUp`, `Economy`, `Ui`, `Camera`, `SpriteSheet`.
+
+**Joueur** : `characters/pilote.ron` déclare le personnage d'id `player` (le moteur crée tous les
+joueurs depuis lui), copie de `player` du testbed ; trois armes de départ (`mitraillette`,
+`revolver`, `lance_lames`).
+
+**Armes** (`weapons/weapons.ron`) : douze armes du joueur sur cinq munitions `Custom` —
+`balles` (`revolver`, `mitraillette`), `obus` (`fusil_a_pompe`, `canon_ricochet` : `Bounce`),
+`explosifs` (`lance_grenades` : `Bounce`+`Pierce`+`Lifetime`, explosion puis couronne d'éclats ;
+`roquette` : souffle en `on_expire` ; `mortier` : `Gravity`, éventail de fragments), `energie`
+(`laser` : `Pierce` ; `plasma` : `Size`+`Lifetime` ; `traqueur` : `Homing`), `lames`
+(`lance_lames` : `Bounce`+`Pierce` ; `disque` : rafale, `Pierce`+`Lifetime`). Plus `arsenal`,
+l'arme des ennemis (sa table `projectiles` : `crachat`, `plomb`, `boule`). Mêlée
+(`weapons/melee.ron`) : `bare_hands` (joueur), `griffes`, `crocs`, `massue`. Chaque arme porte un
+`test:` (jauges calées sur la mesure) ; **`make gen GAME=throne` ne peut pas encore jouer ses
+scénarios** : le générateur joue tout dans l'arène du testbed, où les armes de `throne`
+n'existent pas (gabarit par jeu attendu de T1.13) ; les scénarios générés de `throne` ne sont pas
+versionnés en attendant.
+
+**Ennemis** (`characters/`, behaviors §22, variantes §25 ; aucun sprite) : mêlée `rat`
+(`Melee("griffes")`, variante `rapide`), `chien` (rapide et fragile, variantes `rapide` et
+`blinde`), `brute` (`massue`, variante `blinde`), `rodeur` (`Wander` hors de vue, `Sight(300)`) ;
+tireurs `cracheur` (pattern `crachat` : `Aimed`), `arroseur` (`eventail` : `Spread`), `tourelle`
+(immobile, `couronne` : `Ring` après télégraphe) ; chargeur `buffle` (`Charge`) ; kiter
+`franc_tireur` (`KeepDistance` + `visee`) ; fuyard `pillard` (`Flee` sous 50 %).
+
+**Cavernes** (`caves/`, gabarit `caves/gabarit.ldtk`, tilesets `atlas/`) : `niveau_1` 48 × 32,
+4 ennemis (`rat`, `chien`, `rodeur`) ; `niveau_2` 56 × 40, 6 ennemis (premiers tireurs, chargeur,
+fuyard) ; `niveau_3` 64 × 44, 8 ennemis (tous les profils). `fill_ratio` 0,38 (plus ouvert que le
+testbed : les bots `prudent` vont en ligne droite). Pas de surface (impossible dans une caverne
+générée, §26 v2).
+
+**Butin** (`items/powerups.ron`, §14) : `munitions` (`RefillAmmo`, toutes munitions), `rage`
+(dégâts ×2), `vitesse` (×1,3), `drop_chance` 0,15. Pas de butin par munition ni de `weapon_pool`
+en phase 1.
+
+**Assets** : tous des **placeholders** copiés du testbed (sprites du joueur et des armes, slash,
+sons, police, tilesets), enregistrés dans `games/throne/assets/assets.yaml` (licences reprises de
+zombies, `statut: placeholder`).
+
+**Scénarios** : `throne_floor_1` (un bot `prudent` finit l'étage 1), `throne_three_floors` (deux
+bots finissent la run). Mesure : `alacod-sim --game throne --bots 2 --profiles prudent,prudent
+--floors run --seeds 1..20 --until-floor 3 --max-frames 12000` : 19/20 (graine 5 : le
+`pillard` en fuite reste derrière un mur, les bots vont en ligne droite).
+
+**Phase 2** (après T1.9 et T1.10) : huit mutations, progression (rads, `weapon_pool` par niveau),
+horloge de difficulté.
+
 ## Notes essentielles
 
 **À vérifier** : l'entité `CrateLocation` n'est pas lue actuellement (`WeaponLocation`/`SodaLocation` le sont depuis T2.3, voir §1 ci-dessus). Elle apparaît dans `crates/map_ldtk/src/map_const.rs` (constante) mais aucun bundle Bevy ne la traite (`entity/*.rs` ne la liste pas). Avant d'utiliser une carte avec une entité nouvellement lue, vérifier que `make test_scenarios` accepte un scénario `idle` dessus.
