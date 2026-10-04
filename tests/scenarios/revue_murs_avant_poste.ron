@@ -1,0 +1,35 @@
+// Revue M0 (R4, `docs/digests/revue-m0.md`) : carte `avant_poste` et graine de la partie
+// (`default_seed` 123456 de `games/zombies/assets/game.ron`), le joueur marche contre chaque
+// mur de la salle de départ. Seul autre scénario sur cette carte : `avant_poste_demo`, où le
+// joueur ne fait que trois cases.
+// À regarder : f10-200 vers l'ouest, arrêté contre le mur (x ≈ 282) ; f200-400 vers le nord
+// (y ≈ 764) ; f400-700 vers l'est, arrêté contre le mur (x ≈ 646) ; f700-900 vers le sud,
+// arrêté sous les fenêtres (y ≈ 608) ; f900-1000 sprint vers l'ouest ; f1000-1200 dash
+// vers le nord. Le joueur ne sort jamais de la salle.
+// Sert aussi au test de relance `restart_keeps_walls_solid` (`crates/scenario/tests/run.rs`).
+Scenario(
+    game: "zombies",
+    map: "maps/avant_poste.ldtk",
+    map_seed: 123456,
+    powerup_drop_chance_override: "0.0",
+    frames: 1200,
+    players: [
+        (
+            inputs: [
+                Segment(from: 10, to: 200, buttons: [Left], pan: (0, 0)),
+                Segment(from: 200, to: 400, buttons: [Up], pan: (0, 0)),
+                Segment(from: 400, to: 700, buttons: [Right], pan: (0, 0)),
+                Segment(from: 700, to: 900, buttons: [Down], pan: (0, 0)),
+                Segment(from: 900, to: 1000, buttons: [Left, Sprint], pan: (0, 0)),
+                Segment(from: 1000, to: 1200, buttons: [Up, Dash], pan: (0, 0)),
+            ],
+        ),
+    ],
+    expect: [
+        // Positions relevées sur main 1a39283 (map_probe) : chaque mur arrête le joueur.
+        PlayerPosition(handle: 0, x: 282, y: 696, tolerance: 1, at_frame: 200),
+        PlayerPosition(handle: 0, x: 282, y: 764, tolerance: 1, at_frame: 400),
+        PlayerPosition(handle: 0, x: 646, y: 764, tolerance: 1, at_frame: 700),
+        PlayerPosition(handle: 0, x: 646, y: 608, tolerance: 1, at_frame: 900),
+    ],
+)

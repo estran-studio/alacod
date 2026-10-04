@@ -26,7 +26,10 @@
 //! `bevy_ggrs::schedule_systems::run_ggrs_schedules`), `Run` elle-même, et les ressources
 //! rollback globales qui ne sont pas réinitialisées ailleurs par le chargement normal d'une
 //! partie (`FrameCount`, `GgrsNetIdFactory`, `WaveState`, `FlowFieldCache`,
-//! `RepairPointsTracking`). **`bevy_ggrs::RollbackOrdered`** (interne à bevy_ggrs, pas
+//! `RepairPointsTracking`). La grille dérivée des murs (`CollisionGrids`, non rollback) aussi :
+//! sa signature (nombre de murs, somme des `GgrsNetId`) est la même à la relance (mêmes murs,
+//! mêmes ids), elle ne se reconstruisait pas et gardait les `Entity` des murs détruits —
+//! plus aucun mur ne bloquait (revue M0, R4, test `restart_keeps_walls_solid`). **`bevy_ggrs::RollbackOrdered`** (interne à bevy_ggrs, pas
 //! passée par `RollbackTraceApp`) aussi : elle compte *tous* les `Rollback` jamais créés
 //! depuis le lancement du processus (pas juste la partie en cours, voir sa doc), et
 //! contribue au checksum via `EntityChecksumPlugin` — sans ce reset, la relance produit un
@@ -62,6 +65,7 @@ use crate::{
         enemy::{ai::navigation::FlowFieldCache, Enemy},
         player::{jjrs::PeerConfig, Player},
     },
+    collision_grid::CollisionGrids,
     core::{AppState, OnlineState},
     economy::{award_points_system, RepairPointsTracking},
     system_set::RollbackSystemSet,
@@ -444,6 +448,9 @@ fn cleanup_rollback_world_system(
     commands.insert_resource(run::Clock::default());
     commands.insert_resource(FlowFieldCache::default());
     commands.insert_resource(RepairPointsTracking::default());
+    // Revue M0 (R4) : sinon la grille des murs garde les `Entity` de la partie précédente
+    // (même signature à la relance, voir la doc du module).
+    commands.insert_resource(CollisionGrids::default());
     // Compteur cumulatif interne à bevy_ggrs (voir la doc du module) : sans ce reset, le
     // checksum de la frame 0 d'une partie relancée diffère de celui d'un boot frais, même à
     // état de jeu par ailleurs strictement identique.
