@@ -1,0 +1,6 @@
+// Fixture T1.12 (audit) : dossier de cavernes sans `gabarit.ldtk`.
+(
+    name: "fixture-cave_template_missing",
+    content_folders: [(path: "caves", kind: "Cave")],
+    entry: (start_map: "unused", default_seed: 1),
+)

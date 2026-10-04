@@ -1,0 +1,17 @@
+(
+    movement: (
+        max_speed: "0.0",
+    ),
+    asset_name_ref: "hero",
+    base_health: (
+        max: "100.0",
+    ),
+    starting_skin: "1",
+    skins: {
+        "1": (layers: {}),
+    },
+    // Erreurs volontaires : pattern « spirale » et arme « laser » inconnus.
+    effects: [
+        (on: Tick(60), do: [SpawnPattern(pattern: "spirale", weapon: "laser")]),
+    ],
+)

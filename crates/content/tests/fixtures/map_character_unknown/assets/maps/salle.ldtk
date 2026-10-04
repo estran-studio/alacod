@@ -1,0 +1,8 @@
+{"levels": [{"layerInstances": [{"entityInstances": [
+  {"__identifier": "CharacterSpawn", "fieldInstances": [
+    {"__identifier": "character", "__value": "hero"}
+  ]},
+  {"__identifier": "CharacterSpawn", "fieldInstances": [
+    {"__identifier": "character", "__value": "fantome"}
+  ]}
+]}]}]}

@@ -1,0 +1,9 @@
+// Fixture T1.12 (audit du lint des kinds de M1).
+(
+    name: "fixture-cave_unknown_character",
+    content_folders: [
+        (path: "characters", kind: "Character"),
+        (path: "caves", kind: "Cave"),
+    ],
+    entry: (start_map: "unused", default_seed: 1),
+)

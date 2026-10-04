@@ -236,6 +236,26 @@ un seul problème en plus de `start_map: "unused"` commun à toutes), un test pa
 | feuilles de sprites | image (`path`) de chaque feuille présente sous `assets/` (D3) | `BrokenReference` | `sprite_sheet_missing_image` |
 | feuilles de sprites | id répété dans `sprites/sprites.ron` (D3) | `DuplicateId` | `sprite_sheet_duplicate_key` |
 | arme | `sprite_config.name` absent de la table `SpriteSheet`, si le jeu en déclare une (D3) | `BrokenReference` | `weapon_sprite_unknown` |
+| `game.ron` | `entry.mode: Floors` sans dossier `Floors` (T1.8) | `BrokenReference` | `entry_mode_floors_without_floors` |
+| `game.ron` | `entry.clocks` vers une horloge inconnue ; `entry.difficulty` sans fichier `Difficulty` (T1.9, §23) | `BrokenReference` | `entry_clock_unknown`, `entry_difficulty_missing` |
+| `game.ron` | `entry.progression` vers une progression inconnue (T1.10, §27 ; audit T1.12) | `BrokenReference` | `entry_progression_unknown` |
+| `game.ron` | `generate_template` : carte connue, cible à `counts_hits` (T1.13, §28) | `BrokenReference` | `generate_template_unknown_map`, `generate_template_target_without_hits` |
+| arme | projectiles composables (T1.1, §16) : projectile de pattern absent de la table, cycle de `on_expire`, pattern temporel ou `Scatter` en `on_expire`, `Size > 0`, `0 < Homing <= 1`, modificateur répété, `on_hit` limité aux actions à cible | `BrokenReference`, `OutOfRange` | `projectile_broken_reference`, `projectile_cycle`, `projectile_temporal_pattern`, `pattern_scatter_on_expire` |
+| arme | `on_hit` `ApplyStatus` : statut inconnu, `stacks > 0` (T1.3, §19) | `BrokenReference`, `OutOfRange` | `status_unknown` |
+| pattern | `Named` inconnu ou cyclique ; `count > 0`, `spread >= 0`, `speed >= 0` (T1.2, §20) | `BrokenReference`, `OutOfRange` | `pattern_unknown_name` |
+| personnage | `ai.behaviors` `Shoot` : arme et pattern connus, projectiles du pattern dans la table de l'arme, `range > 0`, `cooldown_frames > 0` (T1.4, §22) | `BrokenReference`, `OutOfRange` | `behavior_shoot_unknown`, `ranged_projectile_missing`, `ranged_cooldown_zero` |
+| personnage | `Melee` : arme de corps à corps connue ; `Chase` : profil connu ; `KeepDistance` : `min < max` ; `Charge` : télégraphe > 0 ; `targeting.ignore` : tag porté par un personnage (T1.4) | `BrokenReference`, `OutOfRange` | `behavior_melee_unknown`, `behavior_unknown_profile`, `behavior_keep_distance_inverted`, `behavior_charge_zero`, `targeting_unknown_tag` |
+| personnage | `variants` : `chance` dans [0, 1], `weight > 0`, nom unique, skin connu, pas de `MoveSpeed` sur un IA (T1.5, §25) | `OutOfRange`, `DuplicateId`, `BrokenReference` | `variant_chance_out_of_range`, `variant_weight_zero`, `variant_duplicate`, `variant_skin_unknown`, `variant_move_speed_ai` |
+| personnage | `effects` (T1.10, §27) : déclencheur, condition ou action non exécutés (`Unsupported`), `Tick(0)`, `Heal <= 0`, pattern et arme de `SpawnPattern` connus, jauge d'`OnGauge`/`GaugeAdd` connue | `Unsupported`, `OutOfRange`, `BrokenReference` | `effect_unsupported`, `effect_out_of_range`, `effect_broken_reference`, `progression_broken_reference` |
+| carte | `CharacterSpawn` : personnage connu (audit T1.12) ; `variant` imposée déclarée par ce personnage (T1.5) | `BrokenReference` | `map_character_unknown`, `variant_ldtk_unknown` |
+| caverne | au moins 16 × 16, `fill_ratio` dans [0, 1], `min_floor_ratio` dans [0, 0.9], `birth`/`survive` <= 8 ; `characters` connus ; gabarit `gabarit.ldtk` présent (T1.6, §21) | `OutOfRange`, `BrokenReference` | `cave_out_of_range`, `cave_unknown_character`, `cave_template_missing` |
+| séquence `Floors` | `levels` non vide ; carte ou `cave:<id>` chargée (T1.8, §17) | `OutOfRange`, `BrokenReference` | `floors_empty`, `floors_unknown_map`, `floors_unknown_cave` |
+| surface | `intgrid_value > 0` et unique, facteurs > 0, tags non vides (T1.7, §26) | `DuplicateId`, `OutOfRange` | `surface_duplicate_value`, `surface_factor_non_positive` |
+| horloge, difficulté | ids d'événements uniques, échéances croissantes, `repeat > 0` ; expression : identifiants admis, valeur > 0 aux bornes (T1.9, §23) | `DuplicateId`, `OutOfRange`, `Parse` | `clock_duplicate_id`, `clock_unordered`, `clock_repeat_zero`, `difficulty_unknown_identifier`, `difficulty_non_positive` |
+| progression | `per_kill > 0`, `levels` croissants, `choices` dans [1, pool], `choice_frames > 0`, chance dans [0, 1] ; mutations et armes du pool connues (T1.10, §27) | `OutOfRange`, `BrokenReference` | `progression_out_of_range`, `progression_broken_reference` |
+| mutation | `weight > 0`, `max_stacks > 0`, `effects` non vide (+ règles des effets) (T1.10) | `OutOfRange` | `mutation_out_of_range` |
+| statut | `frames > 0` ; `Burn` : `damage > 0`, `period > 0` ; `Slow` : `factor` dans ]0, 1] (T1.3, §19) | `OutOfRange` | `status_out_of_range` |
+| power-up | action propre aux projectiles ou aux effets (`DestroyTerrain`, `ApplyStatus`, `Modifier`, `Heal`, `SpawnPattern`, `GaugeAdd`) | `OutOfRange` | `powerup_apply_status` |
 
 Les enums fermés (`FriendlyFire`, `ModifierOp`, `Action`) et les variantes nues inconnues des
 enums ouverts (`AmmoType`, `StatId`, qui n'acceptent un nom libre que sous `Custom("...")`)
@@ -1726,8 +1746,10 @@ mis à jour dans la même frame), posée par `spawn_weapon_pickup` (chargeur ple
 `SpawnPattern` inconnus, jauge d'`OnGauge`/`GaugeAdd` qui n'est celle d'aucune progression ;
 progression : `per_kill ≤ 0`, `levels` vides ou non strictement croissants, `choices` hors
 `[1, pool]`, `choice_frames` 0, chance hors `[0, 1]`, mutation ou arme inconnue ; mutation :
-`weight` 0, `max_stacks` 0, `effects` vide. Fixtures `effect_unsupported`, `effect_out_of_range`,
-`progression_out_of_range`, `progression_broken_reference`, `mutation_out_of_range`.
+`weight` 0, `max_stacks` 0, `effects` vide ; `entry.progression` vers une progression inconnue
+(audit T1.12). Fixtures `effect_unsupported`, `effect_out_of_range`, `effect_broken_reference`,
+`progression_out_of_range`, `progression_broken_reference`, `mutation_out_of_range`,
+`entry_progression_unknown`.
 
 **Scénarios** : attentes `Gauge(handle, id, min, max, at_frame)`, `Level(handle, level,
 at_frame)`, `Mutations(handle, contains, count, at_frame)` ; champs `Scenario::progression` et

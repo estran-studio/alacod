@@ -1,0 +1,12 @@
+// Erreur volontaire : un statut ne se pose pas par un power-up.
+(
+    drop_chance: "0.2",
+    powerups: {
+        "givre": (
+            weight: 10,
+            pickup_range: "30.0",
+            lifetime_frames: 1800,
+            actions: [ApplyStatus(status: "gel", stacks: 1)],
+        ),
+    },
+)

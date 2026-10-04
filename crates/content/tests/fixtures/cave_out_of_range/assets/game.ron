@@ -1,0 +1,8 @@
+// Fixture T1.12 (audit du lint des kinds de M1).
+(
+    name: "fixture-cave_out_of_range",
+    content_folders: [
+        (path: "caves", kind: "Cave"),
+    ],
+    entry: (start_map: "unused", default_seed: 1),
+)

@@ -1,0 +1,9 @@
+// Fixture T1.12 (audit du lint des kinds de M1).
+(
+    name: "fixture-behavior_shoot_unknown",
+    content_folders: [
+        (path: "characters", kind: "Character"),
+        (path: "weapons.ron", kind: "Weapon"),
+    ],
+    entry: (start_map: "unused", default_seed: 1),
+)
