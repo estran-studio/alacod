@@ -1904,6 +1904,36 @@ derrière un mur, les bots vont en ligne droite), 17/20 en phase 2 (voir ci-dess
 - Gabarit des scénarios générés d'armes préparé pour T1.13 : `gabarit_armes.ldtk` (copie de
   l'arène du testbed, `cible` à `counts_hits` à +128/−48 du spawn, `mannequin` ailleurs). Pas
   encore jouable : en mode `Floors`, un scénario de `throne` ignore sa carte.
+## 30. Écran de mutation et transition (T1.16, voie V4)
+
+Présentation seule : aucune trace ne change, la simulation ne fait jamais de pause.
+
+- **Modèle de vue** `game::ui::mutation_screen::MutationScreenView` (ressource `Update`, hors
+  rollback, aussi remplie en headless par `MutationScreenModelPlugin`) : dérivé en lecture seule
+  du `MutationChoice` du joueur affiché (`CameraFollowOverride`, sinon le joueur local de plus
+  petit handle) : `open`, `options` (id, nom `Mutation.name`, description), `frames_left`
+  (`since_frame + choice_frames − frame`), `total_frames`, `highlighted`. Fonctions pures
+  testées : `build_view`, `apply_navigation`, `confirm_bit`, `confirm_input`.
+- **Description** `effects::describe::describe_effect` : une phrase française par effet,
+  « <déclencheur>[, <conditions>] : <actions>. » (« Quand vous êtes touché, sous 40 % de vie :
+  vitesse × 1,4 pendant 3 s. »), virgule décimale, durées en secondes. Aucun champ de contenu
+  en plus ; une variante nouvelle de `On`/`Condition`/`Action` ajoute sa phrase (le `match` est
+  exhaustif).
+- **Entrées** : ←/→ (flèches, D-pad) déplacent la surbrillance (état UI local, en boucle) ; un
+  bouton `ChoiceA/B/C` tenu (1/2/3 ou script) la pose ; un nouveau choix la remet à 0. Valider
+  (Entrée, A) ajoute à l'input du joueur affiché le bit de la carte surlignée
+  (`read_local_inputs`) : seul chemin vers la simulation, le même que 1/2/3. Le D-pad et → gardent
+  aussi leur action de déplacement (la partie continue pendant le choix).
+- **Mise en page** `ui/mutation_screen.ron` (kind `Ui`, schéma `content::ui::MutationScreenLayout`
+  partagé par le lint et le jeu) : police, titre, taille des cartes, `slots` (centre de chaque
+  carte depuis le centre de l'écran), couleurs, barre de temps, aide. Lint : police présente sous
+  `assets/` (BrokenReference), exactement trois `slots` et tailles > 0 (OutOfRange). Absent : pas
+  d'écran (le choix se fait aux touches 1/2/3 ou d'office).
+- **Transition de niveau** `game::ui::floor_transition` : à chaque changement de
+  `FloorState::index` lu côté présentation (pas `FloorEntered`), voile noir qui s'éclaircit
+  linéairement en `floor_fade_seconds` (`camera.ron`, défaut 0,4) et caméra posée sur sa cible
+  pendant le fondu (`floor_recenter`, défaut vrai). La première lecture ne déclenche rien.
+
 ## Notes essentielles
 
 **À vérifier** : l'entité `CrateLocation` n'est pas lue actuellement (`WeaponLocation`/`SodaLocation` le sont depuis T2.3, voir §1 ci-dessus). Elle apparaît dans `crates/map_ldtk/src/map_const.rs` (constante) mais aucun bundle Bevy ne la traite (`entity/*.rs` ne la liste pas). Avant d'utiliser une carte avec une entité nouvellement lue, vérifier que `make test_scenarios` accepte un scénario `idle` dessus.
