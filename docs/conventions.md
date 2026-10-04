@@ -973,7 +973,7 @@ expression `content::expr` en chaîne RON (ex. `health: "120.0 + (players - 1) *
   Tests unitaires : `content::expr` (désérialisation, résolution, erreurs) et `game::balance`
   (dépendance à `players`, erreurs = panic avec contexte).
 
-## 19. Bots de validation (m0-v7 phase 2)
+## 24. Bots de validation (m0-v7 phase 2)
 
 Les profils RON `chasseur` et `acheteur` complètent `immobile`, `fonceur` et `prudent`.
 Les profils v0 gardent leurs décisions. `alacod-sim --bots 4 --seeds 1..20 --until-wave 5`
