@@ -35,6 +35,16 @@ const PRUDENT_MIN_DISTANCE: Fixed = Fixed::from_bits(180 << 16);
 /// dès que l'ennemi est à cette distance ou moins (donc aussi en avançant ou en reculant).
 const PRUDENT_MAX_DISTANCE: Fixed = Fixed::from_bits(320 << 16);
 
+/// `prudent` (T1.14) : approche du portail. Le jeu ne freine que si aucun bouton de
+/// déplacement n'est tenu, et les boutons ne donnent que le signe de chaque axe : en visant le
+/// portail à pleine vitesse, le bot le dépassait et tournait autour sans entrer dans son rayon
+/// (24). Sous [`PORTAL_BRAKE_DISTANCE`], il relâche tout tant que sa vitesse dépasse
+/// [`PORTAL_BRAKE_SPEED`], puis avance par petits pas ; un axe dont l'écart est sous
+/// [`PORTAL_DEAD_ZONE`] n'est pas pressé.
+const PORTAL_BRAKE_DISTANCE: Fixed = Fixed::from_bits(48 << 16);
+const PORTAL_BRAKE_SPEED: Fixed = Fixed::from_bits(30 << 16);
+const PORTAL_DEAD_ZONE: Fixed = Fixed::from_bits(6 << 16);
+
 /// Décide l'input d'un joueur local piloté par un bot, pour une frame.
 pub fn decide(profile: BotProfile, view: &BotView, rng: &mut RollbackRng) -> BoxInput {
     let _ = rng; // réservé aux profils futurs (voir la doc du module)
@@ -111,12 +121,28 @@ fn decide_prudent(view: &BotView) -> BoxInput {
             input.fire = view.trigger_ready;
         }
     } else if let Some(portal) = view.portal {
-        // T1.8 : plus d'ennemi, portail ouvert : y aller (niveau suivant).
-        set_direction_buttons(&mut input, portal - view.position);
+        // T1.8 : plus d'ennemi, portail ouvert : y aller (niveau suivant), en freinant (T1.14)
+        approach_portal(&mut input, view, portal);
     }
 
     manage_weapon(&mut input, view);
     input
+}
+
+/// Approche freinée du portail (`prudent`, T1.14, voir [`PORTAL_BRAKE_DISTANCE`]).
+fn approach_portal(input: &mut BoxInput, view: &BotView, portal: FixedVec2) {
+    let delta = portal - view.position;
+    if delta.length() < PORTAL_BRAKE_DISTANCE && view.velocity.length() > PORTAL_BRAKE_SPEED {
+        return; // aucun bouton : friction
+    }
+    let mut step = FixedVec2::ZERO;
+    if delta.x.abs() > PORTAL_DEAD_ZONE {
+        step.x = delta.x;
+    }
+    if delta.y.abs() > PORTAL_DEAD_ZONE {
+        step.y = delta.y;
+    }
+    set_direction_buttons(input, step);
 }
 
 /// `prudent` v1 (T1.14) : recharge si possible, sinon passe à une arme utilisable (même règle
@@ -202,7 +228,29 @@ mod tests {
             reload: false,
             switch_weapon: false,
             trigger_ready: true,
+            velocity: FixedVec2::ZERO,
         }
+    }
+
+    #[test]
+    fn prudent_freine_pres_du_portail() {
+        let mut v = view(FixedVec2::new(fx(0.0), fx(0.0)));
+        // Portail à 30 px, lancé à pleine vitesse : aucun bouton (friction)
+        v.portal = Some(FixedVec2::new(fx(30.0), fx(3.0)));
+        v.velocity = FixedVec2::new(fx(150.0), fx(0.0));
+        assert_eq!(decide(BotProfile::Prudent, &v, &mut rng()).buttons, 0);
+        // Arrêté : petit pas, l'axe sous la zone morte (3 < 6) n'est pas pressé
+        v.velocity = FixedVec2::ZERO;
+        let input = decide(BotProfile::Prudent, &v, &mut rng());
+        assert_ne!(input.buttons & INPUT_RIGHT, 0);
+        assert_eq!(input.buttons & (INPUT_UP | INPUT_DOWN), 0);
+        // Loin du portail : pas de freinage, même lancé
+        v.portal = Some(FixedVec2::new(fx(200.0), fx(0.0)));
+        v.velocity = FixedVec2::new(fx(150.0), fx(0.0));
+        assert_ne!(
+            decide(BotProfile::Prudent, &v, &mut rng()).buttons & INPUT_RIGHT,
+            0
+        );
     }
 
     #[test]

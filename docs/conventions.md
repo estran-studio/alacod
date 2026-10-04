@@ -1292,7 +1292,11 @@ presse le tir d'une arme non automatique que détente relâchée (`WeaponState::
 **Complétion de niveau** : `prudent`/`fonceur` marchent vers l'ennemi le plus proche (la vue n'a
 pas de limite de portée : `nearest_enemy` ne vaut `None` que s'il n'en reste aucun), puis vers
 le portail ouvert ; ligne droite, sans pathfinding (le flow field 8 px reste réservé à
-`chasseur`/`acheteur` : suite possible).
+`chasseur`/`acheteur` : suite possible). Approche du portail par `prudent` **freinée** : le jeu ne freine
+que si aucun bouton de déplacement n'est tenu et les boutons ne donnent que le signe de chaque
+axe, si bien qu'à pleine vitesse le bot tournait autour du portail sans entrer dans son rayon
+(24) ; à moins de 48 px, il relâche tout tant que sa vitesse dépasse 30, puis avance par petits
+pas (un axe dont l'écart est sous 6 px n'est pas pressé).
 
 **`alacod-sim`** : `--until-floor <n>` (exige `--floors`) arrête la graine quand
 `FloorState::index >= n` ; `--until-wave` ou `--until-floor` est obligatoire. `SimResult` gagne

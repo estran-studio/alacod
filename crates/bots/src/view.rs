@@ -74,6 +74,9 @@ pub struct BotView {
     /// Le tir peut repartir : arme automatique, ou détente relâchée (`WeaponState::is_firing`
     /// faux) pour `Manual`/`Shotgun`/`Burst`.
     pub trigger_ready: bool,
+    /// T1.14 : vitesse du joueur (`Velocity::main`, unités par seconde), pour freiner à
+    /// l'approche du portail.
+    pub velocity: FixedVec2,
 }
 
 /// Sélection des projectiles de la vue : `candidates` = (net id, équipe adverse ?, vue).

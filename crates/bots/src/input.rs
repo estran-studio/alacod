@@ -137,6 +137,7 @@ pub fn read_bot_inputs(
             &WeaponInventory,
             Option<&Collider>,
             Option<&combat::inventory::AmmoReserves>,
+            Option<&combat::actors::Velocity>,
         ),
         With<Rollback>,
     >,
@@ -171,7 +172,8 @@ pub fn read_bot_inputs(
     // `_net_id` : nécessaire en première position pour `order_iter!` (tri déterministe des
     // joueurs avant de consommer le flux RNG "bots"), pas utilisé ensuite (même convention que
     // `move_characters`, `crates/game/src/character/player/input.rs`).
-    for (_net_id, player, transform, health, inventory, collider, reserves) in order_iter!(players)
+    for (_net_id, player, transform, health, inventory, collider, reserves, velocity) in
+        order_iter!(players)
     {
         if !local_players.0.contains(&player.handle) {
             continue;
@@ -280,6 +282,7 @@ pub fn read_bot_inputs(
             reload: active_ammo == 0 && reloadable,
             switch_weapon,
             trigger_ready,
+            velocity: velocity.map_or(FixedVec2::ZERO, |v| v.main),
         };
 
         if profile == BotProfile::Prudent && crate::dodge::dodge(&view).is_some() {

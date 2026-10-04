@@ -91,6 +91,7 @@ mod tests {
             reload: false,
             switch_weapon: false,
             trigger_ready: true,
+            velocity: FixedVec2::ZERO,
         }
     }
 
