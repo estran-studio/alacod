@@ -310,7 +310,10 @@ fn t2_8_fixtures_have_a_single_problem() {
         ("effect_unsupported", LintErrorKind::Unsupported),
         ("effect_out_of_range", LintErrorKind::OutOfRange),
         ("progression_out_of_range", LintErrorKind::OutOfRange),
-        ("progression_broken_reference", LintErrorKind::BrokenReference),
+        (
+            "progression_broken_reference",
+            LintErrorKind::BrokenReference,
+        ),
         ("mutation_out_of_range", LintErrorKind::OutOfRange),
     ];
     for (name, kind) in cases {

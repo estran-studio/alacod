@@ -6,7 +6,10 @@ use bevy_fixed::fixed_math::Fixed;
 
 /// Niveau = nombre de seuils `levels` (croissants) atteints par `value`.
 pub fn level_for(levels: &[Fixed], value: Fixed) -> u32 {
-    levels.iter().take_while(|threshold| value >= **threshold).count() as u32
+    levels
+        .iter()
+        .take_while(|threshold| value >= **threshold)
+        .count() as u32
 }
 
 /// Une mutation candidate du pool (ordre stable : celui du registre, par id).

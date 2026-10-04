@@ -127,7 +127,9 @@ pub(crate) fn lint_effect(
             ),
             effects::Action::GaugeAdd(id, _) if !gauge_known(id) => push(
                 LintErrorKind::BrokenReference,
-                format!("{at} : GaugeAdd : jauge « {id} » inconnue (pas la jauge de `progression`)"),
+                format!(
+                    "{at} : GaugeAdd : jauge « {id} » inconnue (pas la jauge de `progression`)"
+                ),
             ),
             effects::Action::SpawnPattern { pattern, weapon } => {
                 if !registry
@@ -1683,7 +1685,10 @@ fn lint_progression(registry: &Registry, errors: &mut Vec<LintError>) {
             previous = *level;
         }
         if progression.choice_frames == 0 {
-            push(LintErrorKind::OutOfRange, "choice_frames = 0 : doit être > 0".into());
+            push(
+                LintErrorKind::OutOfRange,
+                "choice_frames = 0 : doit être > 0".into(),
+            );
         }
         for id in &progression.mutations {
             if !registry
@@ -1750,7 +1755,10 @@ fn lint_mutations(registry: &Registry, errors: &mut Vec<LintError>) {
         };
         let at = format!("mutation « {} »", mutation.id);
         if mutation.weight == 0 {
-            push(LintErrorKind::OutOfRange, format!("{at} : weight = 0 : doit être > 0"));
+            push(
+                LintErrorKind::OutOfRange,
+                format!("{at} : weight = 0 : doit être > 0"),
+            );
         }
         if mutation.max_stacks == 0 {
             push(
@@ -1762,7 +1770,12 @@ fn lint_mutations(registry: &Registry, errors: &mut Vec<LintError>) {
             push(LintErrorKind::OutOfRange, format!("{at} : effects vide"));
         }
         for (index, effect) in mutation.effects.iter().enumerate() {
-            lint_effect(registry, &format!("{at} : effects[{index}]"), effect, &mut push);
+            lint_effect(
+                registry,
+                &format!("{at} : effects[{index}]"),
+                effect,
+                &mut push,
+            );
         }
     }
 }

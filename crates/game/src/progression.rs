@@ -116,7 +116,11 @@ pub fn build_progression_table(registry: &Registry, wanted: Option<&str>) -> Pro
         .map(|(id, m)| (id.as_str().to_string(), m.effects.clone()))
         .collect();
     let active = wanted.and_then(|wanted| {
-        let Some(entry) = registry.progression.values().find(|p| p.id.as_str() == wanted) else {
+        let Some(entry) = registry
+            .progression
+            .values()
+            .find(|p| p.id.as_str() == wanted)
+        else {
             warn!("progression « {wanted} » absente du registre (voir `alacod lint`)");
             return None;
         };
@@ -386,7 +390,9 @@ pub fn weapon_drop_on_death_system(
         if rng.get_mut("loot").next_fixed() >= def.weapon_drop_chance || candidates.is_empty() {
             continue;
         }
-        let pick = rng.get_mut("loot").next_u32_range(0, candidates.len() as u32) as usize;
+        let pick = rng
+            .get_mut("loot")
+            .next_u32_range(0, candidates.len() as u32) as usize;
         let id = candidates[pick];
         let Some(asset) = weapons.0.get(id) else {
             warn!("weapon_pool : arme « {id} » inconnue (voir `alacod lint`)");

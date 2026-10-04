@@ -562,7 +562,12 @@ struct PlayerOverrides(Vec<PlayerOverride>);
 fn apply_player_overrides(
     overrides: Res<PlayerOverrides>,
     mut commands: Commands,
-    players: Query<(Entity, &Player, &Children, Option<&game::effects_runtime::Effects>)>,
+    players: Query<(
+        Entity,
+        &Player,
+        &Children,
+        Option<&game::effects_runtime::Effects>,
+    )>,
     progression: Option<Res<game::progression::ProgressionTable>>,
     ranged_children: Query<(), With<Weapon>>,
     melee_children: Query<(), With<MeleeWeapon>>,

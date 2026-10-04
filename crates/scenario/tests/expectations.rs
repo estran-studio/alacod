@@ -1063,7 +1063,10 @@ fn progression_expectations_pass_and_fail() {
         "1 ≠ 0",
         "sans jauge « mana »",
     ] {
-        assert!(failures.contains(needle), "{needle} absent de :\n{failures}");
+        assert!(
+            failures.contains(needle),
+            "{needle} absent de :\n{failures}"
+        );
     }
 }
 

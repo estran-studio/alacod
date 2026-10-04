@@ -347,7 +347,8 @@ pub enum Expectation {
         entity: EntityRef,
         from: u32,
         to: u32,
-    },    /// Jauge `id` (`game::effects_runtime::Gauges`, ex. les rads de la progression) du joueur
+    },
+    /// Jauge `id` (`game::effects_runtime::Gauges`, ex. les rads de la progression) du joueur
     /// `handle` dans `[min, max]` (T1.10, `docs/conventions.md` §27). Échoue si le joueur n'a
     /// pas cette jauge.
     Gauge {
