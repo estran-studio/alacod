@@ -330,7 +330,9 @@ pub fn apply_powerup_actions_system(
                     {
                         let mut capacities = BTreeMap::<sim_core::ammo::AmmoType, u32>::new();
                         let mut active_refilled = false;
-                        for (index, (weapon_entity, _weapon)) in inventory.weapons.iter().enumerate() {
+                        for (index, (weapon_entity, _weapon)) in
+                            inventory.weapons.iter().enumerate()
+                        {
                             let Ok((weapon, mut modes_state)) =
                                 weapon_modes.get_mut(*weapon_entity)
                             else {
@@ -890,7 +892,8 @@ mod tests {
     fn refill_ammo_of_ne_remplit_qu_une_munition() {
         let obus = AmmoType::Custom("obus".to_string());
         let balles = AmmoType::Custom("balles".to_string());
-        let mut world = world_with_config(Action::RefillAmmoOf(obus.clone()), fixed_math::FIXED_ZERO);
+        let mut world =
+            world_with_config(Action::RefillAmmoOf(obus.clone()), fixed_math::FIXED_ZERO);
         let weapons: crate::weapons::WeaponsConfig = ron::from_str(include_str!(
             "../../../games/testbed/assets/ZombieShooter/Sprites/Character/weapons.ron"
         ))
@@ -940,7 +943,9 @@ mod tests {
         let mags: Vec<u32> = inventory
             .weapons
             .iter()
-            .map(|(entity, _)| world.get::<WeaponModesState>(*entity).unwrap().modes["default"].mag_ammo)
+            .map(|(entity, _)| {
+                world.get::<WeaponModesState>(*entity).unwrap().modes["default"].mag_ammo
+            })
             .collect();
         assert_eq!(mags[0], 0);
         assert!(mags[1] > 0);

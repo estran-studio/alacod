@@ -297,7 +297,10 @@ fn t2_8_fixtures_have_a_single_problem() {
         ("powerup_factor_non_positive", LintErrorKind::OutOfRange),
         ("powerup_weight_zero", LintErrorKind::OutOfRange),
         // D40.
-        ("powerup_refill_ammo_unknown", LintErrorKind::BrokenReference),
+        (
+            "powerup_refill_ammo_unknown",
+            LintErrorKind::BrokenReference,
+        ),
         (
             "powerup_drop_chance_out_of_range",
             LintErrorKind::OutOfRange,
