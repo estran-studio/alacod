@@ -458,7 +458,10 @@ mod tests {
         assert_eq!(view.highlighted, 0);
         assert_eq!(view.options[0].name, "Nom vampire");
         assert_eq!(view.options[0].description, "Effet de vampire.");
-        assert_eq!(view.options[1].name, "tireur", "id inconnu : affiché tel quel");
+        assert_eq!(
+            view.options[1].name, "tireur",
+            "id inconnu : affiché tel quel"
+        );
         assert!(view.options[1].description.is_empty());
         assert!((view.time_fraction() - 0.95).abs() < 1e-6);
         let late = build_view(Some(&choice(104)), Some(0), 600, 900, &view, card);

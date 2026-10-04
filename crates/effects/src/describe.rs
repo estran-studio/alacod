@@ -104,7 +104,11 @@ pub fn describe_action(action: &Action) -> String {
             op,
             value,
             frames,
-        } => format!("{} pendant {} s", modifier(stat, *op, *value), seconds(*frames)),
+        } => format!(
+            "{} pendant {} s",
+            modifier(stat, *op, *value),
+            seconds(*frames)
+        ),
         Action::SpawnPattern { pattern, .. } => format!("une salve part de vous ({pattern})"),
         Action::GaugeAdd(id, amount) => format!("+{} {id}", number(*amount)),
         Action::ApplyStatus { status, stacks } if *stacks > 1 => {
@@ -112,7 +116,11 @@ pub fn describe_action(action: &Action) -> String {
         }
         Action::ApplyStatus { status, .. } => format!("pose {status}"),
         Action::CurrencyMultiplier { factor, frames } => {
-            format!("points × {} pendant {} s", number(*factor), seconds(*frames))
+            format!(
+                "points × {} pendant {} s",
+                number(*factor),
+                seconds(*frames)
+            )
         }
         Action::RefillAmmo => "munitions rechargées".into(),
         Action::RepairAllWindows => "fenêtres réparées".into(),

@@ -88,9 +88,9 @@ fn recenter_camera_on_floor_change(
     settings: Res<CameraSettings>,
     mut cameras: Query<(&GameCamera, &mut Transform)>,
 ) {
-    let fading = transition.started_at.is_some_and(|start| {
-        time.elapsed_secs() - start < settings.floor_fade_seconds
-    });
+    let fading = transition
+        .started_at
+        .is_some_and(|start| time.elapsed_secs() - start < settings.floor_fade_seconds);
     if !settings.floor_recenter || !(transition.just_changed || fading) {
         return;
     }
@@ -107,11 +107,9 @@ fn draw_floor_fade(
     transition: Res<FloorTransition>,
     mut overlays: Query<(Entity, &mut BackgroundColor), With<FloorFadeOverlay>>,
 ) {
-    let alpha = transition
-        .started_at
-        .map_or(0.0, |start| {
-            fade_alpha(time.elapsed_secs() - start, settings.floor_fade_seconds)
-        });
+    let alpha = transition.started_at.map_or(0.0, |start| {
+        fade_alpha(time.elapsed_secs() - start, settings.floor_fade_seconds)
+    });
     match (overlays.single_mut(), alpha > 0.0) {
         (Ok((_, mut color)), true) => color.0 = Color::BLACK.with_alpha(alpha),
         (Ok((entity, _)), false) => commands.entity(entity).despawn(),
