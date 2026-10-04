@@ -57,7 +57,11 @@ fn main() {
         .insert_resource(WaveDebugEnabled(true))
         .add_systems(
             OnEnter(AppState::GameLoading),
-            (setup_simple_background, system_game_loading),
+            (
+                setup_simple_background,
+                // `ResolvedBalance` est insérée par ce système (F5, m0-v11) : passer après.
+                system_game_loading.after(game::balance::resolve_balance_system),
+            ),
         )
         .add_systems(Update, panic_on_p_press)
         .run();
@@ -77,6 +81,8 @@ fn system_game_loading(
     character_asset: Res<Assets<CharacterConfig>>,
     weapons_asset: Res<Assets<WeaponsConfig>>,
     melee_weapons_asset: Res<Assets<MeleeWeaponsConfig>>,
+    // F5 (chantier m0-v11) : santé max résolue par `CoreSetupPlugin` sur `OnEnter(GameLoading)`.
+    balance: Res<game::balance::ResolvedBalance>,
 
     mut id_provider: ResMut<GgrsNetIdFactory>,
 
@@ -94,6 +100,14 @@ fn system_game_loading(
             fixed_math::new(0.0),
         );
 
+        let health_max = balance
+            .health_max_by_character
+            .get("player")
+            .copied()
+            .unwrap_or_else(|| {
+                panic!("équilibrage F5 : pas de santé résolue pour le personnage « player »")
+            });
+
         create_player(
             &mut commands,
             &global_assets,
@@ -106,6 +120,7 @@ fn system_game_loading(
             i,
             name,
             pubkey,
+            health_max,
             &mut id_provider,
         );
     }

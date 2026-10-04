@@ -242,6 +242,14 @@ make diff_log CID_1=alice CID_2=bob
 - [ ] Resource enregistrée avec l'extension `RollbackTraceApp` (`rollback_and_trace_resource`
       / `_debug_resource` / `_copy_resource`), jamais `rollback_resource_with_*` directement
       (un script CI le bloque, voir `scripts/check-rollback-registration.sh`)
+- [ ] **Parité des types vides** (mesuré le 2026-10-03, bevy_ggrs 0.22) : un type rollback
+      enregistré sous checksum mais porté par **aucune** entité ajoute une `ChecksumPart`
+      constante `hash(0u64)`, combinée par XOR → **un** nouveau type vide déplace toutes les
+      traces dès la frame 0, **deux** les laissent intactes. Un composant qui n'est posé que sur
+      de nouvelles entités (émetteur, statut, grille…) s'enregistre avec la variante **neutre**
+      (`rollback_and_trace_resource_neutral`, T1.8 ; `rollback_and_trace_neutral::<C>` pour les
+      composants, T1.2) : contribution 0 sans porteur, hash normal sinon. Ne jamais compenser par
+      la parité, ne jamais passer en `no_checksum` pour « sauver » les traces.
 - [ ] Logs utilisent `GgrsNetId`/`player.handle` (pas `Entity`) pour comparaison
 - [ ] Trace logs suivent format `ggrs{{f={} system_name key=value...}}` pour diff_log
 
