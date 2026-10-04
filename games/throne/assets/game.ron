@@ -18,6 +18,8 @@
         (path: "ui", kind: "Ui"),
         (path: "camera.ron", kind: "Camera"),
         (path: "sprites/sprites.ron", kind: "SpriteSheet"),
+        // Carte du gabarit des scénarios générés d'armes (T1.13, `cible` à +128/−48 du spawn).
+        (path: "gabarit_armes.ldtk", kind: "Map"),
         // Phase 2 (T1.9, T1.10) : progression, mutations, horloge d'étage, difficulté.
         (path: "progression", kind: "Progression"),
         (path: "mutations", kind: "Mutation"),
