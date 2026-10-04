@@ -1,0 +1,11 @@
+// Fixture T1.3 (`lint::lint_statuses`).
+(
+    name: "fixture-status_out_of_range",
+    content_folders: [
+        (path: "statuses", kind: "Status"),
+    ],
+    entry: (
+        start_map: "unused",
+        default_seed: 1,
+    ),
+)

@@ -37,7 +37,7 @@ pub mod status;
 pub use projectile::{
     ExpireAction, Pattern, Projectile, ProjectileDef, ProjectileModifier, ProjectileSpec,
 };
-pub use status::{StatusDef, StatusEntry, Statuses};
+pub use status::{StatusDef, StatusEntry, StatusLibrary, StatusSpec, Statuses};
 
 use bevy::prelude::{App, Plugin};
 use sim_core::kinds::{KindDecl, KindRegistry};
@@ -69,7 +69,11 @@ impl Plugin for CombatPlugin {
         ] {
             app.register_kinds(names.iter().map(|name| KindDecl::new(category, *name)));
         }
+        // T1.3 (§19) : enregistrement de T1.0a gardé tel quel (rollback + checksum) : les traces
+        // de référence l'incluent déjà, sans porteur ; le passer en variante neutre changerait
+        // le checksum de toutes les frames de tous les scénarios.
         app.rollback_and_trace::<Statuses>();
+        app.init_resource::<StatusLibrary>();
     }
 }
 

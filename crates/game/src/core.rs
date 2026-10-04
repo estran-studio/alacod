@@ -252,6 +252,8 @@ impl Plugin for CoreSetupPlugin {
                 crate::patterns::resolve_pattern_library_system,
                 // T1.10 : progression et mutations, hors rollback, voir `crate::progression`.
                 crate::progression::resolve_progression_system,
+                // T1.3 : statuts (kind `Status`), hors rollback, voir `crate::statuses`.
+                crate::statuses::resolve_status_library_system,
                 // T1.9 : horloges et difficulté activées, voir `crate::clock`.
                 crate::clock::resolve_clocks_system,
             ),

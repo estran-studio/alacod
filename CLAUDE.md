@@ -314,7 +314,7 @@ Avant/après un refactoring de la simulation, comparer les traces : elles doiven
     `surface` en T1.7, §26), `EnemyState` et `EnemyDistance` (T1.4, behaviors composables,
     `docs/conventions.md` §22), `EnemyVariant` (T1.5, variantes et élites, §25),
     `Clock` (T1.9, horloges, §23), `Gauge`, `Level`, `Mutations` (T1.10, progression et
-    mutations, §27).
+    mutations, §27), `HasStatus`, `StatusStacks` (T1.3, statuts, §19).
   - Continues (vérifiées à chaque frame) : `NoDamageBetween` (santé du joueur ne diminue pas dans l'intervalle),
     `EnemyContactBefore` et `EnemyNeverInWall` (T1.4, diagnostics de navigation, §22).
   - `weapon_overrides` modifie la taille et le nombre de chargeurs d'une arme pour un scénario ;
