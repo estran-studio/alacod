@@ -337,3 +337,41 @@ fn bench_cave_detruit_au_moins_50() {
         outcome.metrics.terrain_destroyed
     );
 }
+
+/// Chemin `on_hit` (T1.6) : la `foreuse` (sans `on_expire`) creuse au point d'impact de chaque
+/// mur touché (`ProjectileWallHit` → `DestroyTerrainRequest`). Depuis (23, 15), la première
+/// roche à l'est est (26, 15).
+#[test]
+fn foreuse_creuse_au_contact() {
+    if map_ldtk::RENDER_ENABLED {
+        return;
+    }
+    let mut scenario = Scenario::from_ron(&format!(
+        r#"(game: "testbed", map: "cave:petite", map_seed: {SEED}, frames: 200,
+            players: [(weapon: "foreuse", inputs: [
+                (from: 30, to: 32, buttons: [Fire], pan: (100, 0)),
+            ])])"#
+    ))
+    .expect("scénario foreuse");
+    scenario.expect = vec![
+        Expectation::CellState {
+            x: 26,
+            y: 15,
+            kind: CellKind::Rock,
+            at_frame: 29,
+        },
+        Expectation::CellState {
+            x: 26,
+            y: 15,
+            kind: CellKind::Floor,
+            at_frame: 150,
+        },
+        Expectation::Event {
+            kind: "terrain".into(),
+            label_contains: None,
+            by_frame: 150,
+        },
+    ];
+    let outcome = run(&scenario);
+    assert!(outcome.failures.is_empty(), "{:?}", outcome.failures);
+}

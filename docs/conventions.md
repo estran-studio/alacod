@@ -1225,9 +1225,23 @@ entités, niveau en (0, 0) monde (`world_y = -px_hei`). Tout le reste (colliders
 **Destruction.** `effects::Action::DestroyTerrain { radius }` (rayon en unités, `Fixed` en
 chaîne) : toute case `Rock` dont le centre est à **strictement** moins de `radius` de la
 position de l'action devient `Floor` ; `Wall` ne change jamais. Positionnelle : réservée aux
-projectiles (lint : refusée dans un power-up, `radius > 0` en `on_hit`). Les émetteurs posent
-une `world::DestroyTerrainRequest` (file `FrameEvents`, neutre) avant `World` ;
-`apply_destroy_terrain_system` l'applique et émet `TerrainDestroyed` (cases creusées).
+projectiles (lint : refusée dans un power-up, `radius > 0`). Deux usages :
+- `on_expire: [DestroyTerrain(radius: "40.0")]` (`combat::projectile::ExpireAction`) : au
+  point de fin du projectile, quelle qu'en soit la cause (arme testbed `grenade_creuse`, sans
+  rebond : elle s'arrête contre la roche et creuse) ;
+- `on_hit: [DestroyTerrain(radius: "24.0")]` : au point d'impact sur un mur. Un mur touché
+  émet `combat::projectile::ProjectileWallHit` (projectile, source, position au contact,
+  actions `on_hit`) dans la branche `register_wall()`, **seulement** pour un projectile qui
+  porte des actions `on_hit` (file neutre : vide, elle laisse les traces existantes intactes) ;
+  `projectile_wall_terrain_system` en tire les demandes.
+
+Les deux posent une `world::DestroyTerrainRequest` (file `FrameEvents` neutre) dans
+`Projectiles` ; `apply_destroy_terrain_system` (`World`) l'applique et émet `TerrainDestroyed`
+(cases creusées), moment clé `terrain` et métrique `terrain_destroyed` des scénarios.
+`ExpireAction` a un `Hash` manuel : `#[derive(Hash)]` d'un enum à une seule variante n'écrit pas
+le discriminant, ajouter une variante dérivée aurait déplacé le checksum de toute arme à
+`on_expire` dès la frame 0 (règle générale : ajouter une variante à un enum haché qui n'en avait
+qu'une change les traces).
 
 **Murs et navigation après destruction** (`map_ldtk::game::cave`, set `World`) : quand la frame
 a creusé, tous les `Wall` rollback (dans une caverne, ce sont ceux du niveau) sont détruits
@@ -1241,6 +1255,10 @@ avant la destruction les retrouve cohérents (test synctest
 retenir « la dernière grille appliquée ». Coût nul hors destruction ; un flow field vraiment
 incrémental n'est à faire que si `bench_cave` ne tient pas son budget. Rejeté : un collider par
 case (des milliers d'entités rollback au checksum).
+
+**Scénarios.** `explode_wall` (cratère observé par `CellState`), `bench_cave` (caverne `bench` :
+quatre joueurs à grenades, six followers, ≥ 50 destructions, plancher de 40 fps simulés dans
+`tests/budgets.ron`).
 
 **Attente** `CellState(x, y, kind, at_frame)` : nature de la case à la frame exacte, en
 coordonnées de grille ci-dessus ; échoue hors de la grille (donc toujours hors caverne).
