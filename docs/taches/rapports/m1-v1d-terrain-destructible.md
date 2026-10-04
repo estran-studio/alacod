@@ -1,7 +1,8 @@
 # Rapport — m1-v1d : terrain destructible et cavernes (T1.0b + T1.6)
 
-**SHA de tête : voir le commit du rapport** (`git log -1` de la branche) ; base `origin/main`
-`5946655` (T1.2 mergée), dernier merge de main : `d9a1ef3`.
+**SHA de tête : celui annoncé dans le LIVRÉ** (commit de ce rapport) ; base `origin/main`
+`9ee2be3` (merges de main : `92e4754`, `d9a1ef3` avec T1.2, puis `9ee2be3`, documentation
+seulement — les vérifications ci-dessous portent sur le code de `387ed0f`, inchangé depuis).
 Fiche : [m1-v1d-terrain-destructible](../m1-v1d-terrain-destructible.md). Branche
 `m1-v1d-terrain-destructible` (depuis `d3d25f3`, tête livrée de m0-v7 phase 2) ; worktree
 `alacod_tasks/m0-v7-phase2-bots-finisent-le-clone/` ; agent : Claude Code (b1) ;
