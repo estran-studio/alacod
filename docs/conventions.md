@@ -484,8 +484,8 @@ Deux champs de test (testbed) sont délibérément hors du checksum GGRS — les
 
 **Systèmes** : tous en `PostUpdate` (hors `GgrsSchedule`), lisant les événements de simulation dans `FrameEvents<T>` émis par `GgrsSchedule`. Les trois émetteurs sont :
 - `DamageEvent` pour les impacts (flash, secousse si joueur local)
-- Spawn de `Bullet` pour le son de tir (source = joueur local)
-- Changement `WeaponInventory.reloading_ending_frame` pour le son de rechargement
+- Spawn de `Bullet` pour le son de tir (source = joueur local) : un son par tir (tireur, frame de création), mémorisé pour ne pas repartir quand le rollback de la session locale recrée les balles des dernières frames (elles redeviennent `Added<Bullet>`), et coupé en fondu après 250 ms (`SHOT_SOUND_MAX` : `machine-gun.ogg` est un enregistrement de tir soutenu de 17 s, pas un coup unique ; à remplacer)
+- Passage de `WeaponInventory.reloading_ending_frame` de `None` à `Some` pour le son de rechargement : une fois par rechargement, comparé d'une image rendue à la suivante
 
 **Composants non-rollback** :
 - `HitFlash { until_frame, original_color }` : pose sur l'entité cible d'un `DamageEvent`, tinte le sprite en blanc jusqu'à `until_frame`.
