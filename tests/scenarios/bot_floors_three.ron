@@ -2,8 +2,9 @@
 // `floor_d`, `floor_c`) en mode `Floors` : ils tuent les ennemis de chaque niveau (tir, gestion
 // d'arme, esquive), puis marchent vers le portail ouvert.
 //
-// À regarder : passages de portail à f135, f388 et f796 (approche freinée du portail) ; les deux
-// bots restent en vie (5 points de dégâts encaissés en tout).
+// À regarder : passages de portail à f135, f390 et f792 (navigation par le champ depuis
+// m1-v3-bots-pathfinding ; f135, f388, f796 en ligne droite), approche freinée du portail ; les
+// deux bots restent en vie.
 Scenario(
     powerup_drop_chance_override: "0.0",
     game: "testbed",

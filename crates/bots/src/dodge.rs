@@ -92,6 +92,8 @@ mod tests {
             switch_weapon: false,
             trigger_ready: true,
             velocity: FixedVec2::ZERO,
+            enemy_visible: false,
+            route: None,
         }
     }
 

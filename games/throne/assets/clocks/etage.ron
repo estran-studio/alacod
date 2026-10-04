@@ -1,11 +1,12 @@
 // `throne` (T1.9 + T1.11 phase 2, docs/conventions.md §23 et §29) : horloge d'étage (remise à
-// zéro à chaque caverne) : `alerte` à 20 s, `renfort` à 40 s puis toutes les 20 s. En v1 une
+// zéro à chaque caverne) : `alerte` à 15 s, `renfort` à 30 s puis toutes les 15 s (un étage dure de 10 à 25 s avec deux bots
+// qui naviguent). En v1 une
 // horloge ne fait que déclencher (moments clés, attente `Clock`) : aucune action n'y est
 // attachée (`OnEvent` des effets est v2) ; la pression qui monte vient de la difficulté.
 (
     scope: Floor,
     events: [
-        (id: "alerte", at: Seconds("20")),
-        (id: "renfort", at: Seconds("40"), repeat: Some(Seconds("20"))),
+        (id: "alerte", at: Seconds("15")),
+        (id: "renfort", at: Seconds("30"), repeat: Some(Seconds("15"))),
     ],
 )

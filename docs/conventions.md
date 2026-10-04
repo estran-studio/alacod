@@ -1447,12 +1447,25 @@ presse le tir d'une arme non automatique que détente relâchée (`WeaponState::
 
 **Complétion de niveau** : `prudent`/`fonceur` marchent vers l'ennemi le plus proche (la vue n'a
 pas de limite de portée : `nearest_enemy` ne vaut `None` que s'il n'en reste aucun), puis vers
-le portail ouvert ; ligne droite, sans pathfinding (le flow field 8 px reste réservé à
-`chasseur`/`acheteur` : suite possible). Approche du portail par `prudent` **freinée** : le jeu ne freine
+le portail ouvert ; en ligne droite jusqu'à la navigation ci-dessous. Approche du portail par `prudent` **freinée** : le jeu ne freine
 que si aucun bouton de déplacement n'est tenu et les boutons ne donnent que le signe de chaque
 axe, si bien qu'à pleine vitesse le bot tournait autour du portail sans entrer dans son rayon
 (24) ; à moins de 48 px, il relâche tout tant que sa vitesse dépasse 30, puis avance par petits
 pas (un axe dont l'écart est sous 6 px n'est pas pressé).
+
+**Navigation de `prudent`/`fonceur`** (m1-v3-bots-pathfinding, suite de T1.14) : même calcul que
+`chasseur` (`crates/bots/src/navigation.rs`, Dijkstra multi-source sur une grille de 8 px, murs,
+fenêtres et portes, murs de caverne compris), dans un cache séparé (`DirectNavigation`), dérivé
+hors rollback dans `ReadInputs`. `BotView` gagne `enemy_visible` (aucun `Wall` entre le joueur
+et l'ennemi le plus proche) et `route` (pas suivant vers le poste de tir de l'ennemi le plus
+proche par le chemin, ou vers le point accessible le plus proche de lui ; sans ennemi, vers le
+portail, rayon 16 ; composante de moins de 2 px annulée, sinon un pas d'un pixel devient une
+diagonale contre un coin). Règles : l'esquive et le recul sous 180 restent prioritaires ;
+ennemi caché ou au-delà de la bande de `prudent` (ou caché pour `fonceur`) → `route` ; ennemi
+visible → ligne droite comme avant ; portail au-delà de 48 → `route`, puis l'approche freinée.
+Sans chemin (`route` absente), ligne droite en repli. Le champ n'est calculé que quand une règle
+s'en sert. Critère : `throne` 20/20 sur 20 graines (contre 17/20), `trois_niveaux` du testbed
+conservé.
 
 **`alacod-sim`** : `--until-floor <n>` (exige `--floors`) arrête la graine quand
 `FloorState::index >= n` ; `--until-wave` ou `--until-floor` est obligatoire. `SimResult` gagne

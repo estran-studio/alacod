@@ -3,9 +3,9 @@
 // mutations), horloge d'étage `etage`, difficulté. Les bots ne choisissent pas : la première
 // option est prise 600 frames après chaque niveau.
 //
-// Mesuré : niveau 1 à f528 (3 rads), étage 1 à f925, `sang_froid` à f1128 (528 + 600), niveau 2
-// à f1876, étage 2 à f2239 ; horloge remise à zéro à chaque étage : `alerte` à f2125 (925 +
-// 20 s) dans l'étage 1.
+// Mesuré (navigation par le champ, m1-v3-bots-pathfinding) : niveau 1 à f537 (3 rads), étage 1
+// à f808, `sang_froid` à f1137 (537 + 600), niveau 2 à f1575, étage 2 à f1908 ; horloge remise
+// à zéro à chaque étage : `alerte` à f1708 (808 + 15 s) dans l'étage 1.
 //
 // À regarder : le bot nettoie deux cavernes ; rien ne s'affiche au moment des choix (pas d'écran
 // de mutation avant T1.16).
@@ -13,21 +13,21 @@ Scenario(
     game: "throne",
     floors: Some("run"),
     map_seed: 123456,
-    frames: 2300,
+    frames: 1950,
     players: [
         (bot: prudent),
     ],
     expect: [
-        Event(kind: "levelup", by_frame: 530),
-        Level(handle: 0, level: 1, at_frame: 530),
-        Gauge(handle: 0, id: "rads", min: Some(3.0), at_frame: 530),
-        Mutations(handle: 0, count: 0, at_frame: 1127),
-        Mutations(handle: 0, count: 1, at_frame: 1130),
-        Event(kind: "mutation", by_frame: 1130),
-        Clock(id: "alerte", fired: false, at_frame: 2120),
-        Clock(id: "alerte", fired: true, at_frame: 2130),
-        Level(handle: 0, level: 2, at_frame: 1880),
-        FloorIndex(index: 2, at_frame: 2245),
-        PlayerAlive(handle: 0, at_frame: 2299),
+        Event(kind: "levelup", by_frame: 540),
+        Level(handle: 0, level: 1, at_frame: 540),
+        Gauge(handle: 0, id: "rads", min: Some(3.0), at_frame: 540),
+        Mutations(handle: 0, count: 0, at_frame: 1136),
+        Mutations(handle: 0, count: 1, at_frame: 1140),
+        Event(kind: "mutation", by_frame: 1140),
+        Level(handle: 0, level: 2, at_frame: 1580),
+        Clock(id: "alerte", fired: false, at_frame: 1705),
+        Clock(id: "alerte", fired: true, at_frame: 1712),
+        FloorIndex(index: 2, at_frame: 1912),
+        PlayerAlive(handle: 0, at_frame: 1949),
     ],
 )

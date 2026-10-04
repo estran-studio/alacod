@@ -81,6 +81,13 @@ impl Rect {
     }
 }
 
+/// Ligne de vue sans `Wall` entre `from` et `to`, directement sur la géométrie (sans champ).
+pub fn walls_clear(geometry: &[(Rect, bool)], from: FixedVec2, to: FixedVec2) -> bool {
+    !geometry
+        .iter()
+        .any(|(rect, wall)| *wall && rect.crosses(from, to))
+}
+
 pub fn cell(position: FixedVec2) -> GridPos {
     GridPos::new(
         (position.x / Fixed::from_num(CELL)).round().to_num(),
@@ -93,6 +100,11 @@ pub fn point(cell: GridPos) -> FixedVec2 {
         Fixed::from_num(cell.y * CELL),
     )
 }
+
+/// Navigation de `prudent`/`fonceur` (suite T1.14) : même calcul, cache séparé de celui de
+/// `chasseur`/`acheteur` pour qu'une partie mixte ne les invalide pas l'un l'autre.
+#[derive(Resource, Default)]
+pub struct DirectNavigation(pub BotNavigation);
 
 #[derive(Resource, Default)]
 pub struct BotNavigation {

@@ -59,6 +59,14 @@ use crate::view::{
     nearest_by_net_id, projectile_views, BotView, EnemyView, ProjectileView, WindowView,
 };
 use combat::collider::{Collider, ColliderShape};
+use game::character::enemy::ai::navigation::AgentBody;
+use game::collider::{Wall, Window};
+use map::game::entity::map::door::DoorComponent;
+
+use crate::navigation::{DirectNavigation, Rect};
+
+/// Rayon d'arrivée au portail pour la navigation (le portail se franchit à 24).
+const PORTAL_REACH: Fixed = Fixed::from_bits(16 << 16);
 use combat::weapons::Bullet;
 use sim_core::team::Team;
 
@@ -100,6 +108,7 @@ impl Plugin for BotsPlugin {
         ]);
 
         app.init_resource::<crate::navigation::BotNavigation>();
+        app.init_resource::<DirectNavigation>();
         app.add_systems(
             ReadInputs,
             crate::hunter::read_hunter_inputs
@@ -147,6 +156,20 @@ pub fn read_bot_inputs(
     weapons: Query<(&WeaponState, &WeaponModesState)>,
     enemies: Query<(&GgrsNetId, &FixedTransform3D), (With<Enemy>, With<Rollback>)>,
     windows: Query<(&GgrsNetId, &FixedTransform3D, &WindowHealth), With<Rollback>>,
+    // Navigation (suite T1.14) : murs, fenêtres et portes, comme `chasseur`
+    geometry: Query<
+        (
+            &GgrsNetId,
+            &FixedTransform3D,
+            &Collider,
+            Option<&Wall>,
+            Option<&Window>,
+            Option<&DoorComponent>,
+        ),
+        With<Rollback>,
+    >,
+    mut nav: ResMut<DirectNavigation>,
+    run: Option<Res<run::Run>>,
 ) {
     let Some(assignments) = assignments else {
         return;
@@ -168,6 +191,17 @@ pub fn read_bot_inputs(
     let windows_sorted = order_iter!(windows);
     let bullets_sorted = order_iter!(bullets);
     let mut dodged = false;
+    let mut geometry_rects: Option<Vec<(Rect, bool)>> = None;
+    // Navigation seulement en mode `Floors` : il faut y trouver chaque ennemi puis le portail.
+    // En vagues, les ennemis viennent aux joueurs (un zombie dehors est « caché » derrière les
+    // murs jusqu'à sa fenêtre) : `prudent`/`fonceur` y gardent leur comportement de T1.14.
+    let floors_mode = run
+        .as_deref()
+        .is_some_and(|run| matches!(run.mode, run::RunMode::Floors { .. }));
+    let enemy_points: Vec<(usize, FixedVec2)> = enemies_sorted
+        .iter()
+        .map(|(id, t)| (id.0, t.translation.truncate()))
+        .collect();
 
     // `_net_id` : nécessaire en première position pour `order_iter!` (tri déterministe des
     // joueurs avant de consommer le flux RNG "bots"), pas utilisé ensuite (même convention que
@@ -283,7 +317,36 @@ pub fn read_bot_inputs(
             switch_weapon,
             trigger_ready,
             velocity: velocity.map_or(FixedVec2::ZERO, |v| v.main),
+            // Hors navigation (autre mode que `Floors`) : comportement de T1.14, ennemi supposé
+            // visible, aucune route.
+            enemy_visible: true,
+            route: None,
         };
+
+        let mut view = view;
+        if floors_mode && matches!(profile, BotProfile::Prudent | BotProfile::Fonceur) {
+            if let Some(collider) = collider {
+                let rects = geometry_rects.get_or_insert_with(|| {
+                    order_iter!(geometry)
+                        .into_iter()
+                        .filter(|(_, _, _, wall, window, door)| {
+                            wall.is_some() || window.is_some() || door.is_some()
+                        })
+                        .map(|(_, t, c, wall, _, door)| {
+                            (
+                                Rect::collider(t.translation.truncate(), c),
+                                wall.is_some() || door.is_some(),
+                            )
+                        })
+                        .collect()
+                });
+                let body = AgentBody::from_collider(collider);
+                let (visible, route) =
+                    navigate(&mut nav.0, rects, &body, &enemy_points, &view, profile);
+                view.enemy_visible = visible;
+                view.route = route;
+            }
+        }
 
         if profile == BotProfile::Prudent && crate::dodge::dodge(&view).is_some() {
             dodged = true;
@@ -295,6 +358,77 @@ pub fn read_bot_inputs(
     if dodged {
         stats.dodges += 1;
     }
+}
+
+/// Ligne de vue vers l'ennemi le plus proche et direction du pas suivant (voir
+/// [`BotView::route`]) : vers l'ennemi le plus proche par le chemin (postes de tir du champ, puis
+/// le point accessible le plus proche s'il n'y en a pas), ou vers le portail sans ennemi.
+/// Dérivé hors rollback des colliders de la frame, comme pour `chasseur`.
+///
+/// Le champ n'est calculé que si le profil s'en sert (ennemi caché ; `prudent` : ennemi au-delà
+/// de sa bande ; portail au-delà de la zone de freinage). Une composante de moins de
+/// [`ROUTE_DEAD_ZONE`] est annulée : les boutons ne gardent que le signe, un écart d'un pixel
+/// ferait un pas en diagonale contre un coin de mur.
+fn navigate(
+    nav: &mut crate::navigation::BotNavigation,
+    geometry: &[(Rect, bool)],
+    body: &AgentBody,
+    enemies: &[(usize, FixedVec2)],
+    view: &BotView,
+    profile: BotProfile,
+) -> (bool, Option<FixedVec2>) {
+    let position = view.position;
+    if let Some(enemy) = view.nearest_enemy {
+        let visible = crate::navigation::walls_clear(geometry, position, enemy.position);
+        let needed = !visible
+            || (profile == BotProfile::Prudent
+                && enemy.distance > crate::decide::PRUDENT_MAX_DISTANCE);
+        if !needed {
+            return (visible, None);
+        }
+        nav.update_from(geometry, body, enemies, position);
+        let route = nav.chase(position).or_else(|| {
+            let mut candidates = enemies.to_vec();
+            candidates.sort_by_key(|(id, p)| (position.distance(p), *id));
+            candidates.into_iter().find_map(|(_, p)| {
+                nav.investigate(position, p)
+                    .filter(|direction| direction.length_squared() > Fixed::from_num(4))
+            })
+        });
+        return (visible, route.map(dead_zone));
+    }
+    let Some(portal) = view.portal else {
+        return (false, None);
+    };
+    if position.distance(&portal) < crate::decide::PORTAL_BRAKE_DISTANCE {
+        return (false, None);
+    }
+    nav.update_from(geometry, body, &[], position);
+    let route = nav
+        .approach(
+            position,
+            Rect {
+                min: portal,
+                max: portal,
+            },
+            PORTAL_REACH,
+        )
+        .map(|(direction, _)| dead_zone(direction));
+    (false, route)
+}
+
+/// Composante annulée sous laquelle une direction de route ne presse pas son axe.
+const ROUTE_DEAD_ZONE: Fixed = Fixed::from_bits(2 << 16);
+
+fn dead_zone(direction: FixedVec2) -> FixedVec2 {
+    let keep = |c: Fixed| {
+        if c.abs() < ROUTE_DEAD_ZONE {
+            Fixed::ZERO
+        } else {
+            c
+        }
+    };
+    FixedVec2::new(keep(direction.x), keep(direction.y))
 }
 
 /// Rayon d'un collider : cercle → rayon, rectangle → demi-diagonale.
