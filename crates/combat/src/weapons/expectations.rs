@@ -246,13 +246,19 @@ pub enum Expectation {
         index: u32,
         at_frame: u32,
     },
-    /// Nature de la case `(x, y)` du terrain (`world::CellGrid`, T1.6) à la frame exacte
-    /// `at_frame`. Coordonnées de grille monde (cases de 16, origine (0, 0), **+y vers le
-    /// haut**, `docs/conventions.md` §21). Échoue hors de la grille (vide hors caverne).
+    /// État de la case `(x, y)` à la frame exacte `at_frame`, en cases de grille monde (16
+    /// unités, **+y vers le haut**). `kind` (T1.6, `docs/conventions.md` §21) : nature du terrain
+    /// d'une caverne (`world::CellGrid`, échoue hors de la grille — donc toujours hors caverne).
+    /// `surface` (T1.7, §26) : nom de la surface de la case (`world::SurfaceGrid`, `"aucune"`
+    /// pour une case sans surface). Au moins un des deux ; `kind: Rock` reste valide (RON des
+    /// scénarios en `implicit_some`).
     CellState {
         x: i32,
         y: i32,
-        kind: world::CellKind,
+        #[serde(default, skip_serializing_if = "Option::is_none")]
+        kind: Option<world::CellKind>,
+        #[serde(default, skip_serializing_if = "Option::is_none")]
+        surface: Option<String>,
         at_frame: u32,
     },
     /// Solde de monnaie du joueur `handle` dans `[min, max]` (bornes inclusives, `None` =

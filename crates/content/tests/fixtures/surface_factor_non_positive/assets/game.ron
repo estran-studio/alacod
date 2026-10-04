@@ -1,0 +1,11 @@
+// Fixture T1.7 (`lint::lint_surfaces`).
+(
+    name: "fixture-surface_factor_non_positive",
+    content_folders: [
+        (path: "surfaces", kind: "Surface"),
+    ],
+    entry: (
+        start_map: "unused",
+        default_seed: 1,
+    ),
+)

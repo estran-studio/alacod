@@ -1,0 +1,24 @@
+// T1.7 (surfaces, docs/conventions.md §26) : un ennemi au sol ralenti par l'eau
+// (`EnemyMoveSpeed` ×0,5). Carte `testbed/surfaces_enemy.ldtk` : deux couloirs séparés par un
+// mur, un joueur immobile à gauche de chacun, un `breacher` (70 unités/s, portée d'attaque 40) à
+// 27 cases à droite. Couloir A (joueur 0) : eau sur les cases 10 à 24, entre le breacher et le
+// joueur ; couloir B (joueur 1) : sol nu.
+//
+// À regarder : les deux breachers partent ensemble ; celui du couloir B touche le joueur 1 à
+// f338 ; celui du couloir A ralentit de moitié dans l'eau (240 unités) et ne touche le joueur 0
+// qu'à f543, 205 frames plus tard.
+Scenario(
+    powerup_drop_chance_override: "0.0",
+    game: "testbed",
+    map: "testbed/surfaces_enemy.ldtk",
+    frames: 600,
+    players: [
+        (),
+        (),
+    ],
+    expect: [
+        Event(kind: "hit", label_contains: Some("joueur 1"), by_frame: 340),
+        NoDamageBetween(handle: 0, from_frame: 0, to_frame: 540),
+        Event(kind: "hit", label_contains: Some("joueur 0"), by_frame: 545),
+    ],
+)
