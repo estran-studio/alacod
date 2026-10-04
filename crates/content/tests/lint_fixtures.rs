@@ -610,3 +610,35 @@ fn variant_ldtk_unknown_fixture_reports_forced_variant() {
     let (_, _, errors) = load_and_lint(&fixture_dir("variant_ldtk_unknown")).unwrap();
     assert_has_error(&errors, LintErrorKind::BrokenReference, "variant « dore »");
 }
+
+// T1.9 : horloges et difficulté.
+
+#[test]
+fn clock_duplicate_id_fixture_reports_duplicate_event() {
+    let (_, _, errors) = load_and_lint(&fixture_dir("clock_duplicate_id")).unwrap();
+    assert_has_error(&errors, LintErrorKind::DuplicateId, "« tic » en double");
+}
+
+#[test]
+fn clock_unordered_fixture_reports_decreasing_deadline() {
+    let (_, _, errors) = load_and_lint(&fixture_dir("clock_unordered")).unwrap();
+    assert_has_error(&errors, LintErrorKind::OutOfRange, "croissantes");
+}
+
+#[test]
+fn clock_repeat_zero_fixture_reports_repeat() {
+    let (_, _, errors) = load_and_lint(&fixture_dir("clock_repeat_zero")).unwrap();
+    assert_has_error(&errors, LintErrorKind::OutOfRange, "repeat = 0");
+}
+
+#[test]
+fn difficulty_unknown_identifier_fixture_lists_allowed_identifiers() {
+    let (_, _, errors) = load_and_lint(&fixture_dir("difficulty_unknown_identifier")).unwrap();
+    assert_has_error(&errors, LintErrorKind::OutOfRange, "identifiants admis");
+}
+
+#[test]
+fn difficulty_non_positive_fixture_reports_value() {
+    let (_, _, errors) = load_and_lint(&fixture_dir("difficulty_non_positive")).unwrap();
+    assert_has_error(&errors, LintErrorKind::OutOfRange, "doit être > 0");
+}

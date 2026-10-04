@@ -1,0 +1,8 @@
+// T1.9 : séquence du scénario `difficulty_scales` : `floor_a` (le follower meurt, le portail
+// s'ouvre) puis `floor_cible_b` (un follower, santé × 1,5 à l'étage 1).
+(
+    levels: [
+        "testbed/floor_a.ldtk",
+        "testbed/floor_cible_b.ldtk",
+    ],
+)

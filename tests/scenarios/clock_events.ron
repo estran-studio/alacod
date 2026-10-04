@@ -1,0 +1,24 @@
+// T1.9 (testbed, conventions §23) : horloge `arene` (portée `Floor`) demandée par le
+// scénario (`clocks`), joueur immobile dans `arena` : `tic` à 1 s (f60), `tac` à 2 s (f120),
+// `renfort` à 2 s puis toutes les 2 s (`renfort#1` à f120, `renfort#2` à f240).
+//
+// À regarder : rien ne bouge ; les moments clés `clock` apparaissent dans la frise.
+Scenario(
+    powerup_drop_chance_override: "0.0",
+    game: "testbed",
+    map: "testbed/arena.ldtk",
+    clocks: Some(["arene"]),
+    frames: 200,
+    players: [
+        (inputs: []),
+    ],
+    expect: [
+        Clock(id: "tic", fired: false, at_frame: 59),
+        Clock(id: "tic", fired: true, at_frame: 61),
+        Clock(id: "tac", fired: false, at_frame: 119),
+        Clock(id: "tac", fired: true, at_frame: 121),
+        Clock(id: "renfort#1", fired: true, at_frame: 181),
+        Clock(id: "renfort#2", fired: false, at_frame: 181),
+        Event(kind: "clock", label_contains: Some("tic"), by_frame: 65),
+    ],
+)

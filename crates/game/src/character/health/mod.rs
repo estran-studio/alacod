@@ -144,6 +144,9 @@ pub fn rollback_resolve_damage_events(
         ),
         With<Rollback>,
     >,
+    // T1.9 : multiplicateur de difficulté des dégâts infligés par les ennemis (1 sans
+    // difficulté activée : aucun calcul, voir `crate::clock::scale`).
+    clock: Res<run::Clock>,
 ) {
     if events.is_empty() {
         return;
@@ -204,7 +207,13 @@ pub fn rollback_resolve_damage_events(
             &event.tags,
             defenses,
             event.kind.clone(),
-            event.amount,
+            // T1.9 : un seul point pour tous les dégâts d'ennemis (griffes, coups directs,
+            // charges, projectiles d'émetteurs) : ceux dont le tireur est de l'équipe Enemies.
+            if event.source_team == Team::Enemies {
+                crate::clock::scale(event.amount, clock.difficulty)
+            } else {
+                event.amount
+            },
             invulnerable,
         ) else {
             continue;

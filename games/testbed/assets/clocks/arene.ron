@@ -1,0 +1,11 @@
+// T1.9 : horloge de laboratoire (conventions §23), portée `Floor` (remise à zéro à chaque
+// étage du mode `Floors`) : `tic` à 1 s, `tac` à 2 s, `renfort` à 2 s puis toutes les 2 s
+// (`renfort#1`, `renfort#2`, ...). Scénarios `clock_events`, `clock_floor_reset`.
+(
+    scope: Floor,
+    events: [
+        (id: "tic", at: Seconds("1")),
+        (id: "tac", at: Frames(120)),
+        (id: "renfort", at: Seconds("2"), repeat: Some(Seconds("2"))),
+    ],
+)

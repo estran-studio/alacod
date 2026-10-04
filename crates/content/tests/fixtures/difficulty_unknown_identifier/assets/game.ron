@@ -1,0 +1,5 @@
+(
+    name: "fixture-difficulty_unknown_identifier",
+    content_folders: [(path: "difficulty.ron", kind: "Difficulty")],
+    entry: (start_map: "unused", default_seed: 1),
+)

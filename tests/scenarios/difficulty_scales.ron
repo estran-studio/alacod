@@ -1,0 +1,25 @@
+// T1.9 (testbed, conventions §23) : difficulté demandée par le scénario (`difficulty`),
+// `1 + floor * 0.5 + floor_minutes * 0.5`, appliquée à la santé des ennemis à leur
+// apparition. Séquence `deux_cibles` : le follower de `floor_a` (60 PV, difficulté 1) meurt,
+// le joueur franchit le portail ; celui de `floor_cible_b` apparaît à l'étage 1 avec
+// 60 × 1,5 = 90 PV.
+//
+// À regarder : comme `portal_next_floor` ; le follower du second étage est plus résistant.
+Scenario(
+    powerup_drop_chance_override: "0.0",
+    game: "testbed",
+    floors: Some("deux_cibles"),
+    difficulty: Some(true),
+    frames: 260,
+    players: [
+        (inputs: [
+            (from: 0, to: 200, buttons: [Fire], pan: (-64, 48)),
+            (from: 200, to: 230, buttons: [Right, Down], pan: (0, 0)),
+        ]),
+    ],
+    expect: [
+        EntityHealth(net_id: 0, min: 60.0, max: 60.0, at_frame: 2),
+        FloorIndex(index: 1, at_frame: 240),
+        EntityHealth(net_id: 0, min: 90.0, max: 90.0, at_frame: 240),
+    ],
+)

@@ -51,6 +51,13 @@ pub struct EntryPoint {
     /// ici (ce module ne construit pas de registre).
     #[serde(default)]
     pub mode: Option<EntryMode>,
+    /// T1.9 : horloges actives dans une partie jouée (ids du kind `Clock`). Absent : aucune
+    /// (un scénario les demande par son champ `clocks`).
+    #[serde(default)]
+    pub clocks: Option<Vec<String>>,
+    /// T1.9 : difficulté (kind `Difficulty`) active dans une partie jouée. Absent : non.
+    #[serde(default)]
+    pub difficulty: Option<bool>,
 }
 
 #[derive(Resource, Debug, Clone, Deserialize, PartialEq, Eq)]

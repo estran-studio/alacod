@@ -246,6 +246,14 @@ pub enum Expectation {
         index: u32,
         at_frame: u32,
     },
+    /// Événement d'horloge `id` déjà déclenché (`fired: true`) ou pas encore (`false`) dans
+    /// sa portée courante, à la frame exacte `at_frame` (T1.9, `run::Clock::fired`,
+    /// `docs/conventions.md` §23). Un événement répété a l'id `"<id>#<n>"`.
+    Clock {
+        id: String,
+        fired: bool,
+        at_frame: u32,
+    },
     /// Nature de la case `(x, y)` du terrain (`world::CellGrid`, T1.6) à la frame exacte
     /// `at_frame`. Coordonnées de grille monde (cases de 16, origine (0, 0), **+y vers le
     /// haut**, `docs/conventions.md` §21). Échoue hors de la grille (vide hors caverne).
@@ -380,6 +388,7 @@ impl Expectation {
             | Self::EnemyState { at_frame, .. }
             | Self::EnemyDistance { at_frame, .. }
             | Self::EnemyVariant { at_frame, .. }
+            | Self::Clock { at_frame, .. }
             | Self::RunState { at_frame, .. }
             | Self::RunSummary { at_frame, .. }
             | Self::FloorIndex { at_frame, .. }

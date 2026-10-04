@@ -472,7 +472,16 @@ pub fn floor_transition_system(
         .filter(|(entity, _, _)| data.slots.slot_of(*entity) == slot)
         .map(|(_, transform, spawn)| (transform, spawn))
         .collect();
-    let placed = spawn_level_characters(&mut commands, &assets, &mut id_factory, characters);
+    // T1.9 : difficulté du nouvel étage (évaluée à neuf : l'horloge ne le verra qu'en fin de
+    // frame).
+    let difficulty = assets.difficulty.at_floor(next);
+    let placed = spawn_level_characters(
+        &mut commands,
+        &assets,
+        &mut id_factory,
+        characters,
+        difficulty,
+    );
     let weapons = data
         .weapon_locations
         .iter()

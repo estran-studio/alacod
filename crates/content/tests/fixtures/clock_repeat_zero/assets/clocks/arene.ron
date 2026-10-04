@@ -1,0 +1,2 @@
+// T1.9 : repeat nul.
+(scope: Run, events: [(id: "renfort", at: Frames(60), repeat: Some(Frames(0)))])

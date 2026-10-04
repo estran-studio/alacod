@@ -34,6 +34,8 @@ pub struct SpawnAssets<'w> {
     pub weapons_asset: Res<'w, Assets<WeaponsConfig>>,
     pub melee_weapons_asset: Res<'w, Assets<MeleeWeaponsConfig>>,
     pub characters_asset: Res<'w, Assets<CharacterConfig>>,
+    /// T1.9 : difficulté (santé × difficulté ; 1 sans difficulté activée).
+    pub difficulty: crate::clock::DifficultyReader<'w>,
 }
 
 use super::{
@@ -318,6 +320,7 @@ pub fn wave_spawning_system(
             .unwrap_or_else(|| {
                 panic!("équilibrage F5 : pas de santé résolue pour le personnage « {enemy_type} »")
             });
+        let health_max = crate::clock::scale(health_max, spawn_assets.difficulty.current());
 
         // Spawn the enemy and get the entity
         let enemy_entity = spawn_enemy(

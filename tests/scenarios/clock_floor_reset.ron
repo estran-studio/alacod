@@ -1,0 +1,26 @@
+// T1.9 (testbed, conventions §23) : la portée `Floor` de l'horloge `arene` repart de zéro au
+// passage d'étage. Même partie que `portal_next_floor` (séquence `deux_niveaux`, le follower
+// meurt, le joueur franchit le portail vers f230) avec l'horloge demandée : `tic` déclenché à
+// l'étage 0, oublié juste après le passage, redéclenché une seconde plus tard.
+//
+// À regarder : comme `portal_next_floor` ; `tic` revient dans la frise après le portail.
+Scenario(
+    powerup_drop_chance_override: "0.0",
+    game: "testbed",
+    floors: Some("deux_niveaux"),
+    clocks: Some(["arene"]),
+    frames: 320,
+    players: [
+        (inputs: [
+            (from: 0, to: 200, buttons: [Fire], pan: (-64, 48)),
+            (from: 200, to: 230, buttons: [Right, Down], pan: (0, 0)),
+        ]),
+    ],
+    expect: [
+        Clock(id: "tic", fired: true, at_frame: 220),
+        FloorIndex(index: 0, at_frame: 220),
+        FloorIndex(index: 1, at_frame: 240),
+        Clock(id: "tic", fired: false, at_frame: 240),
+        Clock(id: "tic", fired: true, at_frame: 310),
+    ],
+)

@@ -1,0 +1,2 @@
+// T1.9 : id d'événement en double.
+(scope: Floor, events: [(id: "tic", at: Frames(60)), (id: "tic", at: Frames(120))])
