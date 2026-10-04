@@ -4,6 +4,7 @@ version = "0.1.0"
 edition = "2021"
 
 [dependencies]
+world = { path = "../world" }
 bevy = { version = "0.19.1", default-features = false }
 bevy_fixed = { path = "../bevy_fixed" }
 sim_core = { path = "../sim_core" }

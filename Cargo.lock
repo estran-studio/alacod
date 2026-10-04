@@ -4326,6 +4326,7 @@ dependencies = [
  "sim_core",
  "stats",
  "utils",
+ "world",
 ]
 
 [[package]]
@@ -4412,6 +4413,7 @@ dependencies = [
  "serde",
  "sim_core",
  "thiserror 2.0.21",
+ "world",
 ]
 
 [[package]]
@@ -5868,6 +5870,7 @@ dependencies = [
  "utils",
  "wasm-bindgen",
  "web-sys",
+ "world",
 ]
 
 [[package]]
@@ -7568,6 +7571,7 @@ dependencies = [
  "serde_json",
  "thiserror 2.0.21",
  "utils",
+ "world",
 ]
 
 [[package]]
@@ -7584,11 +7588,13 @@ dependencies = [
  "game",
  "map",
  "once_cell",
+ "ron 0.12.2",
  "run",
  "serde",
  "serde_json",
  "sim_core",
  "utils",
+ "world",
 ]
 
 [[package]]
@@ -9918,6 +9924,7 @@ dependencies = [
  "sim_core",
  "stats",
  "utils",
+ "world",
 ]
 
 [[package]]
@@ -13209,6 +13216,19 @@ dependencies = [
  "wayland-client",
  "wayland-protocols",
  "wayland-protocols-wlr",
+]
+
+[[package]]
+name = "world"
+version = "0.1.0"
+dependencies = [
+ "bevy 0.19.1",
+ "bevy_fixed",
+ "bevy_ggrs",
+ "ron 0.12.2",
+ "serde",
+ "sim_core",
+ "utils",
 ]
 
 [[package]]

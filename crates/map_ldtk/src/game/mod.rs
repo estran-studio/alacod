@@ -1,3 +1,4 @@
+pub mod cave;
 pub mod collider;
 pub mod entity;
 pub mod floors;

@@ -185,7 +185,8 @@ pub enum Expectation {
     /// Un `GameEvent` de ce `kind` (et dont le label contient la sous-chaîne, si donnée) est survenu
     /// à une frame ≤ `by_frame`. Les `kind` possibles : "wave", "kill", "player", "hit", "reload",
     /// "weapon", "move", "melee", "death", "window", "door", "downed", "revived", "defeat",
-    /// "drop", "pickup" (T2.2, chantier B7), "portal", "floor" (T1.8, mode `Floors`).
+    /// "drop", "pickup" (T2.2, chantier B7), "portal", "floor" (T1.8, mode `Floors`),
+    /// "terrain" (T1.6, terrain de caverne creusé).
     Event {
         kind: String,
         #[serde(default, skip_serializing_if = "Option::is_none")]
@@ -243,6 +244,15 @@ pub enum Expectation {
     /// Hors mode `Floors`, l'index vaut toujours `0`.
     FloorIndex {
         index: u32,
+        at_frame: u32,
+    },
+    /// Nature de la case `(x, y)` du terrain (`world::CellGrid`, T1.6) à la frame exacte
+    /// `at_frame`. Coordonnées de grille monde (cases de 16, origine (0, 0), **+y vers le
+    /// haut**, `docs/conventions.md` §21). Échoue hors de la grille (vide hors caverne).
+    CellState {
+        x: i32,
+        y: i32,
+        kind: world::CellKind,
         at_frame: u32,
     },
     /// Solde de monnaie du joueur `handle` dans `[min, max]` (bornes inclusives, `None` =
@@ -316,6 +326,7 @@ impl Expectation {
             | Self::RunState { at_frame, .. }
             | Self::RunSummary { at_frame, .. }
             | Self::FloorIndex { at_frame, .. }
+            | Self::CellState { at_frame, .. }
             | Self::Event {
                 by_frame: at_frame, ..
             }

@@ -1789,6 +1789,8 @@ impl Plugin for BaseWeaponGamePlugin {
             // déplacerait toutes les traces).
             .rollback_and_trace_neutral::<crate::emitter::Emitter>();
         app.add_frame_events::<crate::projectile::ProjectileHit>();
+        // T1.6 : mur touché (file neutre, vide sauf projectile à `on_hit`)
+        app.add_frame_events_neutral::<crate::projectile::ProjectileWallHit>();
 
         // Rollback components for melee weapons
         app.rollback_and_trace::<melee::MeleeWeapon>()
@@ -1831,6 +1833,7 @@ impl Plugin for BaseWeaponGamePlugin {
                 // Dans `Projectiles` plutôt qu'`Effects` : seul système de ce set à écrire
                 // `Modifiers`, sans ambiguïté d'ordre avec les power-ups (`game`).
                 crate::projectile::apply_projectile_on_hit_system,
+                crate::projectile::projectile_wall_terrain_system,
                 crate::projectile::projectile_expire_system,
                 crate::projectile::projectile_steering_system,
             )

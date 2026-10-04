@@ -28,6 +28,9 @@
         // `alacod-sim --floors`) ; le mode du testbed reste `Sandbox`, un scénario impose
         // une séquence par son champ `floors`.
         (path: "floors", kind: "Floors"),
+        // T1.6 : cavernes générées (`cave:<nom>` comme carte, docs/conventions.md §21) ; le
+        // dossier contient aussi le gabarit LDtk `gabarit.ldtk`.
+        (path: "caves", kind: "Cave"),
         // T1.2 : patterns nommés des émetteurs (tourelle `ring_8`, archer `volee`).
         (path: "patterns", kind: "Pattern"),
     ],

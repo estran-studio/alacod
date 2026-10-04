@@ -1158,6 +1158,118 @@ réintroduisait le mur ; le mouvement conserve vitesse, séparation et collision
 ordinaires. Le délai dépend des compteurs existants de `WaveState`, sans état caché
 ou nouveau type rollback.
 
+## 21. Terrain destructible et cavernes (T1.0b + T1.6, chantier E3)
+
+Code : crate `world` (grille, générateur, destruction, `WorldPlugin`),
+`crates/map_ldtk/src/generation/cave.rs` (niveau LDtk), `crates/map_ldtk/src/game/cave.rs`
+(branchement ECS), `crates/map_ldtk/src/loader/mod.rs` (`resolve_map_config`, `CaveSlots`).
+
+**Contenu.** Kind de dossier `Cave` (`content::registry::CaveEntry`) : un fichier RON par
+caverne, id = nom de fichier sans extension, champs de `world::CaveConfig` ; le dossier contient
+aussi le gabarit LDtk `gabarit.ldtk` (définitions de couches et d'entités ; ses tilesets sont
+relatifs au dossier des cavernes, `../testbed/atlas/...` dans le testbed : un chemin qui ne se
+résout pas bloque le chargement du niveau).
+```ron
+// games/testbed/assets/caves/petite.ron  — game.ron : (path: "caves", kind: "Cave")
+(width: 48, height: 32, fill_ratio: "0.45", iterations: 4, birth: 5, survive: 4,
+ min_floor_ratio: "0.3", enemy_spawns: 4)
+```
+
+**Désignation : `cave:<id>`** partout où une carte LDtk est attendue : `entry.start_map`,
+`Scenario.map`, `--map` d'`alacod-sim`, `levels` d'une séquence `Floors` (ex.
+`floors/caverne.ron` du testbed). Au chargement (`setup_generated_map`), la désignation devient
+le gabarit + `MapGenerationMode::Cave(config)` ; la ressource `MapGenerationConfig` garde
+`cave:<id>` (un enregistrement se rejoue tel quel). La graine est `map_seed`, comme `Basic`.
+
+**Lint** (`content::lint::lint_caves`, `lint_floors`, `lint_entry_point`) : au moins 16 × 16
+cases, `fill_ratio` dans `[0, 1]`, `min_floor_ratio` dans `[0, 0.9]`, `birth`/`survive` ≤ 8,
+gabarit présent (`BrokenReference`) ; `cave:<id>` inconnu dans `levels` ou `start_map` :
+`BrokenReference`.
+
+**Grille.** `world::CellGrid { width, height, cells }`, `CellKind { Floor, Wall, Rock }` :
+`Wall` indestructible (bordure), `Rock` destructible. Cases de **16** unités (`GRID_CELL_SIZE`
+de la navigation), origine (0, 0), **+y vers le haut** comme le monde et `GridPos` (la rangée 0
+est en bas, au contraire des rangées LDtk). Ressource rollback + checksum + trace, enregistrée
+en `rollback_and_trace_resource_neutral` : vide (défaut) hors caverne, contribution 0, traces
+des autres cartes inchangées. Debug compact (une chaîne par rangée : `.` sol, `#` mur,
+`r` roche). `world::Destructible` marque l'entité de niveau LDtk d'une caverne (pas une entité
+par case). `RollbackSystemSet::World` : entre `Projectiles` et `CollisionDamage`, donc avant la
+navigation (`EnemyAI`), qui voit une destruction dans la frame.
+
+**Générateur** (`world::cave::generate(seed, &config)`, pur, `RollbackRng`) :
+1. bordure `Wall`, intérieur `Rock` avec la probabilité `fill_ratio`, sinon `Floor` ;
+2. `iterations` passes (voisinage de Moore, hors grille = solide) : `Floor` → `Rock` si au moins
+   `birth` voisins solides ; `Rock` reste `Rock` si au moins `survive`, sinon `Floor` ;
+3. connexité : la plus grande composante 4-connexe de sol est gardée (égalité : la première au
+   balayage depuis le bas), les autres deviennent `Rock` ;
+4. ratio de sol hors de `[min_floor_ratio, 0.9]` : nouvel essai avec la suite du même RNG (64 au
+   plus). Testé sur 1 000 graines (connexité, bordure, ratio, spawns sur le sol).
+
+**Points d'intérêt** (`world::points_of_interest`), choisis parmi les cases **dégagées** (sol
+dont les 8 voisines sont du sol, `world::cave::is_open` : un corps de personnage de 20 × 20,
+décalé vers le bas, y apparaît sans toucher de mur — sinon chaque déplacement serait refusé) :
+`PlayerSpawn{index}` 0..3 = les plus proches du centre (distance au carré, puis y, puis x) ;
+`ZombieSpawn` × `enemy_spawns` = les plus éloignées du `PlayerSpawn` 0 en distance de grille
+(4-connexe), espacées d'au moins 8 cases (Tchebychev). Champ optionnel `characters: [...]`
+(vide par défaut) : un `CharacterSpawn` (équipe `enemies`) par point `ZombieSpawn`, personnages
+pris à tour de rôle (lint : personnages chargés) — un jeu sans vagues (testbed) peuple ainsi
+une caverne (`caves/bench.ron` : six `follower`).
+
+**Niveau LDtk.** Le callback du loader réécrit le niveau unique du gabarit
+(`generation::cave::build_cave_ldtk`) : dimensions, IntGrid `Walls` (1 = `Wall` ou `Rock`),
+entités, niveau en (0, 0) monde (`world_y = -px_hei`). Tout le reste (colliders fusionnés,
+`load_intgrid_walls`, spawns, mode `Floors`) suit le chemin LDtk ordinaire. Au
+`LdtkMapLoadingEvent`, `CellGrid` reçoit la même grille (emplacement 0) ; au passage d'un niveau
+`Floors`, la grille du nouvel emplacement (vide pour une carte ordinaire).
+
+**Destruction.** `effects::Action::DestroyTerrain { radius }` (rayon en unités, `Fixed` en
+chaîne) : toute case `Rock` dont le centre est à **strictement** moins de `radius` de la
+position de l'action devient `Floor` ; `Wall` ne change jamais. Positionnelle : réservée aux
+projectiles (lint : refusée dans un power-up, `radius > 0`). Deux usages :
+- `on_expire: [DestroyTerrain(radius: "40.0")]` (`combat::projectile::ExpireAction`) : au
+  point de fin du projectile, quelle qu'en soit la cause (arme testbed `grenade_creuse`, sans
+  rebond : elle s'arrête contre la roche et creuse) ;
+- `on_hit: [DestroyTerrain(radius: "24.0")]` : au point d'impact sur un mur. Un mur touché
+  émet `combat::projectile::ProjectileWallHit` (projectile, source, position au contact,
+  actions `on_hit`) dans la branche `register_wall()`, **seulement** pour un projectile qui
+  porte des actions `on_hit` (file neutre : vide, elle laisse les traces existantes intactes) ;
+  `projectile_wall_terrain_system` en tire les demandes.
+
+Les deux posent une `world::DestroyTerrainRequest` (file `FrameEvents` neutre) dans
+`Projectiles` ; `apply_destroy_terrain_system` (`World`) l'applique et émet `TerrainDestroyed`
+(cases creusées), moment clé `terrain` et métrique `terrain_destroyed` des scénarios.
+`ExpireAction` a un `Hash` manuel : `#[derive(Hash)]` d'un enum à une seule variante n'écrit pas
+le discriminant, ajouter une variante dérivée aurait déplacé le checksum de toute arme à
+`on_expire` dès la frame 0 (règle générale : ajouter une variante à un enum haché qui n'en avait
+qu'une change les traces).
+
+**Murs et navigation après destruction** (`map_ldtk::game::cave`, set `World`) : quand la frame
+a creusé, tous les `Wall` rollback (dans une caverne, ce sont ceux du niveau) sont détruits
+(`despawn_rollback`) et recréés depuis `CellGrid` par la même fusion gloutonne
+(`generate_collision_rectangles`), net ids `cave_wall_<frame>_<i>` ; les cases murées de la
+navigation sont rechargées (`FlowFieldCache::reload_walls`, seule exception à « immutable after
+load ») ; la signature des murs de `CollisionGrids` et `rebuild_blocked_cells` reconstruisent le
+reste au pas suivant. `CellGrid`, murs et `FlowFieldCache` sont rollback : un rejeu qui remonte
+avant la destruction les retrouve cohérents (test synctest
+`destruction_creuse_et_reconstruit_les_murs_en_synctest`). Aucun état hors rollback ne doit
+retenir « la dernière grille appliquée ». Coût nul hors destruction ; un flow field vraiment
+incrémental n'est à faire que si `bench_cave` ne tient pas son budget. Rejeté : un collider par
+case (des milliers d'entités rollback au checksum).
+
+**Scénarios.** `explode_wall` (cratère observé par `CellState`), `bench_cave` (caverne `bench` :
+quatre joueurs à grenades, six followers, ≥ 50 destructions, plancher de 40 fps simulés dans
+`tests/budgets.ron`).
+
+**Attente** `CellState(x, y, kind, at_frame)` : nature de la case à la frame exacte, en
+coordonnées de grille ci-dessus ; échoue hors de la grille (donc toujours hors caverne).
+
+**Présentation.** Le gabarit n'a pas de tuiles : un carré par case solide est dessiné depuis
+`CellGrid` (`cave_cells_visual_system`, rendu seulement), reconstruit quand la grille change.
+
+**Limites.** Pas de surfaces ni de tags de cases (T1.7), pas de bots sur caverne (T1.14). Dans
+le testbed (pas de vagues), une caverne sans `characters` n'a pas d'ennemi : son portail
+`Floors` s'ouvre aussitôt.
+
 ## Notes essentielles
 
 **À vérifier** : l'entité `CrateLocation` n'est pas lue actuellement (`WeaponLocation`/`SodaLocation` le sont depuis T2.3, voir §1 ci-dessus). Elle apparaît dans `crates/map_ldtk/src/map_const.rs` (constante) mais aucun bundle Bevy ne la traite (`entity/*.rs` ne la liste pas). Avant d'utiliser une carte avec une entité nouvellement lue, vérifier que `make test_scenarios` accepte un scénario `idle` dessus.

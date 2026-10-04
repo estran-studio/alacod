@@ -361,6 +361,7 @@ pub fn floor_transition_system(
     assets: LevelSpawnAssets,
     data: FloorLevelData,
     mut entities: FloorTransitionEntities,
+    caves: (Res<crate::loader::CaveSlots>, ResMut<world::CellGrid>),
 ) {
     if !run.is_playing() || !floor_state.portal_open {
         return;
@@ -423,6 +424,11 @@ pub fn floor_transition_system(
         &mut id_factory,
         &mut flow_field_cache,
     );
+
+    // T1.6 : terrain du nouveau niveau (grille intacte d'une caverne, ou vide), cohérent
+    // avec les murs IntGrid qui viennent d'être créés.
+    let (cave_slots, mut cell_grid) = caves;
+    *cell_grid = super::cave::grid_for_slot(&cave_slots, slot);
 
     // 5. Joueurs : points de départ du nouveau niveau, par handle (repli : le plus petit
     // index, pour un niveau qui en déclare moins que de joueurs).

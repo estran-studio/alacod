@@ -1,0 +1,10 @@
+// Séquence du mode `Floors` avec une caverne (T1.6, `docs/conventions.md` §21) : `floor_a`,
+// la caverne `petite` (sans ennemi dans le testbed : son portail s'ouvre aussitôt), puis
+// `floor_b`. Test `caverne_dans_une_sequence_floors` (crates/scenario/tests/cave.rs).
+(
+    levels: [
+        "testbed/floor_a.ldtk",
+        "cave:petite",
+        "testbed/floor_b.ldtk",
+    ],
+)

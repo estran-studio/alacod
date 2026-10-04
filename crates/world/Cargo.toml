@@ -1,0 +1,16 @@
+[package]
+name = "world"
+description = "Monde à cellules (T1.0b + T1.6, chantier E3) : grille CellGrid rollback, cavernes générées par automate cellulaire, destruction de terrain."
+version = "0.1.0"
+edition = "2021"
+
+[dependencies]
+bevy = { version = "0.19.1", default-features = false }
+bevy_ggrs = "0.22.0"
+bevy_fixed = { path = "../bevy_fixed" }
+sim_core = { path = "../sim_core" }
+utils = { path = "../utils" }
+serde = { version = "1.0", features = ["derive"] }
+
+[dev-dependencies]
+ron = "0.12"

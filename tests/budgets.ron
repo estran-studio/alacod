@@ -47,5 +47,8 @@
         // une fois une mesure propre disponible (voir le rapport de la tâche T2.1).
         "bench_bullets": (min_sim_fps: 70.0),
         "bench_horde": (min_sim_fps: 38.0),
+        // T1.6 : caverne destructible (quatre joueurs, six followers, ≥ 50 destructions) ; plancher
+        // par défaut, mesure sous charge (200 graines en parallèle, load 20) : 62,7 le 2026-10-04.
+        "bench_cave": (min_sim_fps: 40.0),
     },
 )

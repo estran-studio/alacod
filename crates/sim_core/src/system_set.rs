@@ -18,6 +18,10 @@ pub enum RollbackSystemSet {
     Weapon,
     /// Déplacement et collisions des projectiles (après `Weapon`, qui les fait naître).
     Projectiles,
+    /// Terrain (T1.6, crate `world`) : destructions de la frame appliquées à `CellGrid` et aux
+    /// murs, après les projectiles qui les déclenchent et avant la navigation (`EnemyAI`), qui
+    /// voit la destruction dans la même frame. Vide pour une carte LDtk ordinaire.
+    World,
     CollisionDamage,
     /// Résolution des effets déclenchés (dégâts appliqués, soins, buffs/debuffs posés).
     Effects,
@@ -38,13 +42,14 @@ impl RollbackSystemSet {
     /// n-uplet, sans limite d'arité). Chaque variante apparaît exactement une fois ;
     /// voir les tests de ce module pour la vérification automatique (pas de doublon,
     /// couverture complète, séquence conforme à cette liste).
-    pub const ORDER: [RollbackSystemSet; 15] = [
+    pub const ORDER: [RollbackSystemSet; 16] = [
         RollbackSystemSet::FrameStart,
         RollbackSystemSet::Input,
         RollbackSystemSet::Interaction,
         RollbackSystemSet::Movement,
         RollbackSystemSet::Weapon,
         RollbackSystemSet::Projectiles,
+        RollbackSystemSet::World,
         RollbackSystemSet::CollisionDamage,
         RollbackSystemSet::Effects,
         RollbackSystemSet::Status,
@@ -64,13 +69,14 @@ mod tests {
 
     /// Liste exhaustive indépendante de `ORDER`, dans l'ordre documenté par T0.2
     /// (`docs/taches.md`). Sert de référence aux trois tests ci-dessous.
-    const ALL: [RollbackSystemSet; 15] = [
+    const ALL: [RollbackSystemSet; 16] = [
         RollbackSystemSet::FrameStart,
         RollbackSystemSet::Input,
         RollbackSystemSet::Interaction,
         RollbackSystemSet::Movement,
         RollbackSystemSet::Weapon,
         RollbackSystemSet::Projectiles,
+        RollbackSystemSet::World,
         RollbackSystemSet::CollisionDamage,
         RollbackSystemSet::Effects,
         RollbackSystemSet::Status,

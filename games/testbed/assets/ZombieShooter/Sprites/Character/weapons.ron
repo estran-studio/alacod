@@ -482,6 +482,82 @@
             weapon_offset: ( x: "0.0", y: "-5.0" )
         ),
     ),
+    // T1.6 : grenade de terrassement (scénarios `explode_wall`, `bench_cave`) : sans
+    // rebond, elle s'arrête au premier mur et creuse la roche dans un rayon de 40 unités
+    // (`on_expire: [DestroyTerrain]`, docs/conventions.md §21) ; sans dégâts.
+    "grenade_creuse": (
+        config: (
+            name: "grenade_creuse",
+            default_firing_mode: "default",
+            ammo_type: Plomb,
+            firing_modes: {
+                "default": (
+                    firing_rate: "4.0",
+                    firing_mode: Manual(),
+                    spread: "0.0",
+                    recoil: "0.0",
+                    bullet_type: Standard(
+                        damage: "0.0",
+                        speed: "300.0",
+                    ),
+                    range: "600.0",
+                    reload_time_seconds: "1.0",
+                    mag: Mag(
+                        mag_size: 30,
+                        mag_limit: 20,
+                    ),
+                    projectile: (modifiers: [Lifetime(120)],
+                        on_expire: [DestroyTerrain(radius: "40.0")],
+                    ),
+                )
+            },
+        ),
+        sprite_config: (
+            name: "pistol",
+            index: 3,
+            bullet_offset_right: ( x: "-5.0", y: "2.0" ),
+            bullet_offset_left: ( x: "0.0", y: "-2.0" ),
+            weapon_offset: ( x: "0.0", y: "-5.0" )
+        ),
+    ),
+    // T1.6 : foreuse (test `foreuse_creuse_au_contact`) : rebondit trois fois et creuse un
+    // rayon de 24 unités à chaque mur touché (`on_hit: [DestroyTerrain]`, événement
+    // `ProjectileWallHit`, docs/conventions.md §21) ; sans `on_expire`, sans dégâts.
+    "foreuse": (
+        config: (
+            name: "foreuse",
+            default_firing_mode: "default",
+            ammo_type: Plomb,
+            firing_modes: {
+                "default": (
+                    firing_rate: "4.0",
+                    firing_mode: Manual(),
+                    spread: "0.0",
+                    recoil: "0.0",
+                    bullet_type: Standard(
+                        damage: "0.0",
+                        speed: "300.0",
+                    ),
+                    range: "600.0",
+                    reload_time_seconds: "1.0",
+                    mag: Mag(
+                        mag_size: 30,
+                        mag_limit: 20,
+                    ),
+                    projectile: (modifiers: [Bounce(3), Lifetime(120)],
+                        on_hit: [DestroyTerrain(radius: "24.0")],
+                    ),
+                )
+            },
+        ),
+        sprite_config: (
+            name: "pistol",
+            index: 3,
+            bullet_offset_right: ( x: "-5.0", y: "2.0" ),
+            bullet_offset_left: ( x: "0.0", y: "-2.0" ),
+            weapon_offset: ( x: "0.0", y: "-5.0" )
+        ),
+    ),
     // T1.2 : arme d'ennemi (tourelle, archer, `characters/turret.ron`/`archer.ron`) — sa
     // table `projectiles` fournit les projectiles des patterns d'émetteur (`patterns/`).
     // Tirée par un joueur (scénario généré `weapon_fireball_gun`) : balle ordinaire.

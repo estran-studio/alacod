@@ -7,11 +7,48 @@ use bevy_ecs_ldtk::prelude::*;
 use bevy_fixed::rng::RollbackRng;
 use std::sync::{Arc, Mutex};
 
-use map::generation::config::MapGenerationConfig;
+use map::generation::config::{MapGenerationConfig, MapGenerationMode};
 use map::generation::map_generation;
 
 use super::generation::{from_map, GeneratedMap};
 use crate::game::floors::{FloorPlan, FloorWorld};
+use content::registry::{cave_designation, Registry};
+use std::collections::BTreeMap;
+use world::CaveConfig;
+
+/// T1.6 : cavernes de la partie par emplacement de monde (`FloorWorld`, 0 pour la carte
+/// unique), avec leur graine. Hors rollback, figée au chargement comme `FloorPlan` ; vide si
+/// aucune carte n'est une caverne.
+#[derive(Resource, Debug, Clone, Default)]
+pub struct CaveSlots(pub BTreeMap<usize, (i32, CaveConfig)>);
+
+/// Config de **chargement** d'une carte de la partie : une désignation `cave:<id>`
+/// (`docs/conventions.md` §21) devient le gabarit LDtk de la caverne et le mode
+/// `Cave(config)` ; toute autre carte garde `base.mode`. La ressource `MapGenerationConfig`
+/// garde la désignation d'origine (enregistrements rejouables).
+pub fn resolve_map_config(
+    base: &MapGenerationConfig,
+    map: &str,
+    registry: Option<&Registry>,
+) -> (MapGenerationConfig, Option<CaveConfig>) {
+    let cave = cave_designation(map).map(|id| {
+        registry
+            .and_then(|r| r.caves.get(&id))
+            .unwrap_or_else(|| panic!("caverne « {id} » inconnue (voir `alacod lint`)"))
+    });
+    let config = MapGenerationConfig {
+        map_path: cave.map_or_else(|| map.to_string(), |c| c.template.clone()),
+        seed: base.seed,
+        max_width: base.max_width,
+        max_heigth: base.max_heigth,
+        max_room: base.max_room,
+        mode: cave.map_or_else(
+            || base.mode.clone(),
+            |c| MapGenerationMode::Cave(c.config.clone()),
+        ),
+    };
+    (config, cave.map(|c| c.config.clone()))
+}
 
 /// Config de génération transmise au loader LDtk (sérialisée dans ses settings).
 ///
@@ -37,6 +74,11 @@ pub fn get_asset_loader_generation() -> LdtkProjectLoader {
             let config: MapGenerationConfig =
                 serde_json::from_value(serde_json::Value::Object(config))
                     .expect("Failed to convert value to struct");
+
+            // T1.6 : une caverne réécrit le niveau unique du gabarit, sans assemblage de salles
+            if let MapGenerationMode::Cave(cave) = &config.mode {
+                return crate::generation::cave::build_cave_ldtk(&map_json, config.seed, cave);
+            }
 
             let context = from_map(&map_json, config);
             let mut generator = GeneratedMap::create(map_json);
@@ -126,22 +168,27 @@ pub fn setup_generated_map(
     settings: Res<MapLoaderSettings>,
     config: Res<MapGenerationConfig>,
     plan: Option<Res<FloorPlan>>,
+    registry: Option<Res<Registry>>,
 ) {
+    let mut caves = CaveSlots::default();
     let Some(plan) = plan else {
-        let world = load_map(&mut commands, &asset_server, &settings, config.as_ref());
+        let (load, cave) = resolve_map_config(&config, &config.map_path, registry.as_deref());
+        if let Some(cave) = cave {
+            caves.0.insert(0, (config.seed, cave));
+        }
+        let world = load_map(&mut commands, &asset_server, &settings, &load);
         commands.entity(world).insert(FloorWorld(0));
+        commands.insert_resource(caves);
         return;
     };
     for slot in plan.distinct_slots() {
-        let floor_config = MapGenerationConfig {
-            map_path: plan.levels[slot].clone(),
-            seed: config.seed,
-            max_width: config.max_width,
-            max_heigth: config.max_heigth,
-            max_room: config.max_room,
-            mode: config.mode,
-        };
+        let (floor_config, cave) =
+            resolve_map_config(&config, &plan.levels[slot], registry.as_deref());
+        if let Some(cave) = cave {
+            caves.0.insert(slot, (config.seed, cave));
+        }
         let world = load_map_snapshot(&mut commands, &asset_server, &floor_config);
         commands.entity(world).insert(FloorWorld(slot));
     }
+    commands.insert_resource(caves);
 }
