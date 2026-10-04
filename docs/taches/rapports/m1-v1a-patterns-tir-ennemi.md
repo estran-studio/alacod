@@ -1,7 +1,9 @@
 # Rapport m1-v1a-patterns — patterns, émetteurs et tir ennemi (T1.2)
 
-**Branche** `m1-v1a-patterns-tir-ennemi`, partie de `main` `58db32c` ; base à la livraison :
-_(complété au merge final d'`origin/main`)_.
+**Branche** `m1-v1a-patterns-tir-ennemi`, partie de `main` `58db32c` ; `origin/main`
+`23a43fc` mergé juste avant la livraison (merge `068dac8`, sans conflit : `CLAUDE.md`,
+checklist « piège de parité », et `examples/character_tester.rs`, aucun code de simulation).
+m0-v7 p2 n'était pas encore sur `origin/main` au moment de livrer.
 
 ## 1. Fait
 
@@ -122,11 +124,47 @@ handle du joueur), et `NO_PLAYER_HANDLE` (tir d'émetteur) n'apparaît dans aucu
 
 ## 2. Vérifié (résultats réels)
 
-_(complété après les exécutions finales)_
+Sur le commit d'implémentation `4a7bddb` (le merge final n'apporte aucun code de simulation).
+
+- **`make test_scenarios`** : 86 scénarios joués (82 existants + 4 nouveaux), **0 « trace
+  différente »** : les 82 traces existantes sont inchangées, sans bless ni preuve. Seuls
+  échecs : `enemy_ring`, `enemy_ring_quad`, `enemy_telegraph`, `weapon_fireball_gun` sur « pas
+  de trace de référence » (nouvelles traces, toutes leurs attentes passent) — **4 bless
+  demandés à l'orchestrateur**.
+- **Tests des crates** (`cargo test -q --profile headless -p scenario -p run -p combat -p game
+  -p content -p map_ldtk -p sim_core -p stats -p bots -p effects -p utils`) : tous verts hors
+  `scenarios` (ci-dessus) ; dont `combat` 66 (9 tests d'émetteur, test de contrat des kinds),
+  `lint_fixtures` 48 (4 nouvelles fixtures).
+- Tests unitaires de la fiche : `ring_every_seul_est_infini`,
+  `ring_every_dans_une_sequence_tourne_jusqu_a_la_fin`, `ring_sans_every_tire_une_fois_et_finit`,
+  `sequence_joue_les_etapes_instantanees_la_meme_frame`, `telegraph_retarde_et_se_lit`,
+  `wait_ne_tire_pas_et_n_est_pas_un_telegraphe`, `scatter_tire_dans_l_eventail_et_consomme_le_flux`,
+  **`meme_graine_meme_tir_a_un_et_quatre_joueurs`**, `named_se_resout_par_la_bibliotheque`,
+  `couronne_visant_vers_le_haut_ne_deborde_pas`. Helper d'apparition partagé : les trois
+  appelants passent par `weapons::spawn_bullet` (structure du code ; les balles joueur et les
+  projectiles nés gardent leurs traces, donc leurs valeurs, au bit près).
+- **`make lint`** : `games/zombies : aucune erreur` ; `games/testbed : aucune erreur (9
+  personnages, 12 armes, …, 8 cartes)` (kind `Pattern` déclaré par le testbed).
+- **`cargo fmt --all -- --check`** : propre (après `make fmt`).
+- **`check-forbidden.sh`** : 4 occurrences, identiques à main ; **`check-rollback-registration.sh`** :
+  OK. (`make scripts` cité par la fiche n'existe pas dans le Makefile : ce sont ces deux
+  scripts, README §4.)
+- **`make gen GAME=zombies`** : 10/10, attentes et traces `ok`, aucun fichier modifié.
+  **`make gen GAME=testbed`** : 17 armes `ok`/`ok` sans modification ; `fireball_gun` (nouvelle
+  arme) : attentes `ok`, trace `absente` → nouveau fichier
+  `tests/scenarios/generated/testbed/weapon_fireball_gun.ron` (4e nouvelle trace). Son `test:`
+  demande 2 coups (comme `rifle`/`proj_lifetime` : 2 coups mesurés en 200 frames).
+- **Bench** (mesuré pendant la suite, **machine non calme** : b1 jouait sa suite, charge ~5) :
+  `bench_bullets` 111,9 fps (budget 70), `bench_horde` 65,9 fps (budget 38) — dans le budget
+  même sous charge. Le run `ALACOD_BENCH_STRICT=1` machine calme n'a pas pu être fait.
 
 ## 3. Non fait / incertain
 
-_(complété)_
+- Bench strict (`ALACOD_BENCH_STRICT=1`) machine calme : non fait (machine partagée occupée) ;
+  chiffres ci-dessus mesurés sous charge.
+- p2p à deux clients : non rejoué ici (la recette de l'orchestrateur au merge).
+- Le gizmo de debug du télégraphe (« au plus ») n'est pas ajouté.
+- Pas de preuve `trace-diff` : aucune trace existante n'a changé.
 
 ## 4. Dettes, questions ouvertes
 
