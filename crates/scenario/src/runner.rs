@@ -220,6 +220,7 @@ pub fn build_app(scenario: &Scenario, headless: bool, config: &PlayConfig) -> Ap
                     modifiers: p.modifiers.clone(),
                     weapon: p.weapon.clone(),
                     currency: p.currency,
+                    mutations: p.mutations.clone(),
                 })
                 .collect(),
         ))
@@ -527,6 +528,8 @@ struct PlayerOverride {
     weapon: Option<String>,
     /// T2.3, chantier C5 v1 (scénarios d'achat) : voir `game::replay::PlayerScript::currency`.
     currency: Option<u32>,
+    /// T1.10 : voir `game::replay::PlayerScript::mutations`.
+    mutations: Vec<String>,
 }
 
 #[derive(Resource)]
