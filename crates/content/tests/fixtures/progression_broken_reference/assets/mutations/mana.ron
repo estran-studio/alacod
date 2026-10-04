@@ -1,0 +1,2 @@
+// Erreur volontaire : jauge « mana » inconnue (seule « rads » existe).
+(name: "Mana", effects: [(on: OnKill, do: [GaugeAdd("mana", "1")])])

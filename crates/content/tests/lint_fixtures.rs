@@ -122,6 +122,34 @@ fn surface_fixtures_report_duplicate_value_and_non_positive_factors() {
 }
 
 #[test]
+fn effect_fixtures_report_unsupported_and_out_of_range() {
+    let (_, _, errors) = load_and_lint(&fixture_dir("effect_unsupported")).unwrap();
+    assert_has_error(&errors, LintErrorKind::Unsupported, "OnHit");
+    assert_has_error(&errors, LintErrorKind::Unsupported, "SquadSize");
+    assert_has_error(&errors, LintErrorKind::Unsupported, "RefillAmmo");
+    let (_, _, errors) = load_and_lint(&fixture_dir("effect_out_of_range")).unwrap();
+    assert_has_error(&errors, LintErrorKind::OutOfRange, "Tick(0)");
+    assert_has_error(&errors, LintErrorKind::OutOfRange, "Heal = 0");
+}
+
+#[test]
+fn progression_and_mutation_fixtures() {
+    let (_, _, errors) = load_and_lint(&fixture_dir("progression_out_of_range")).unwrap();
+    assert_has_error(&errors, LintErrorKind::OutOfRange, "per_kill = 0");
+    assert_has_error(&errors, LintErrorKind::OutOfRange, "levels[1] = 2");
+    assert_has_error(&errors, LintErrorKind::OutOfRange, "choices = 5");
+    assert_has_error(&errors, LintErrorKind::OutOfRange, "choice_frames = 0");
+    assert_has_error(&errors, LintErrorKind::OutOfRange, "weapon_drop_chance = 2");
+    let (_, _, errors) = load_and_lint(&fixture_dir("progression_broken_reference")).unwrap();
+    assert_has_error(&errors, LintErrorKind::BrokenReference, "« absente »");
+    assert_has_error(&errors, LintErrorKind::BrokenReference, "« laser »");
+    assert_has_error(&errors, LintErrorKind::BrokenReference, "« mana »");
+    let (_, _, errors) = load_and_lint(&fixture_dir("mutation_out_of_range")).unwrap();
+    assert_has_error(&errors, LintErrorKind::OutOfRange, "weight = 0");
+    assert_has_error(&errors, LintErrorKind::OutOfRange, "max_stacks = 0");
+}
+
+#[test]
 fn floors_unknown_map_fixture_reports_broken_level() {
     let (_, _, errors) = load_and_lint(&fixture_dir("floors_unknown_map")).unwrap();
     assert_has_error(
@@ -279,6 +307,14 @@ fn t2_8_fixtures_have_a_single_problem() {
         // T1.7.
         ("surface_duplicate_value", LintErrorKind::DuplicateId),
         ("surface_factor_non_positive", LintErrorKind::OutOfRange),
+        ("effect_unsupported", LintErrorKind::Unsupported),
+        ("effect_out_of_range", LintErrorKind::OutOfRange),
+        ("progression_out_of_range", LintErrorKind::OutOfRange),
+        (
+            "progression_broken_reference",
+            LintErrorKind::BrokenReference,
+        ),
+        ("mutation_out_of_range", LintErrorKind::OutOfRange),
     ];
     for (name, kind) in cases {
         let (_, _, errors) = load_and_lint(&fixture_dir(name)).unwrap();

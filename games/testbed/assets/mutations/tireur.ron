@@ -1,0 +1,11 @@
+// T1.10 : toutes les 120 frames, une couronne de 6 boules de feu autour du joueur (pattern
+// `couronne`, table `projectiles` de `fireball_gun`). Scénario `effect_tick`.
+(
+    name: "Tireur",
+    weight: 1,
+    tags: ["attaque"],
+    max_stacks: 1,
+    effects: [
+        (on: Tick(120), do: [SpawnPattern(pattern: "couronne", weapon: "fireball_gun")]),
+    ],
+)

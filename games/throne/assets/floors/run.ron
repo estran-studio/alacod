@@ -1,0 +1,9 @@
+// `throne` (T1.0c, docs/conventions.md §17 et §29) : la run, trois étages de caverne générés
+// (même graine pour la séquence). Le portail s'ouvre quand l'étage est vidé.
+(
+    levels: [
+        "cave:niveau_1",
+        "cave:niveau_2",
+        "cave:niveau_3",
+    ],
+)

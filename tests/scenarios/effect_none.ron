@@ -1,0 +1,17 @@
+// T1.10 (effets v1) : jumeau d'`effect_on_damage_taken` sans effet — même tir sur le mannequin
+// `dummy` d'`arena.ldtk` (net_id 33, 200 points de vie, aucun `effects`). 16 coups de 8 :
+// 72 points à f280 (contre 92 pour `pilote`).
+Scenario(
+    powerup_drop_chance_override: "0.0",
+    game: "testbed",
+    map: "testbed/arena.ldtk",
+    frames: 300,
+    players: [
+        (inputs: [
+            (from: 10, to: 250, buttons: [Fire], pan: (-64, 48)),
+        ]),
+    ],
+    expect: [
+        EntityHealth(net_id: 33, min: Some(70.0), max: Some(74.0), at_frame: 280),
+    ],
+)

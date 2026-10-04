@@ -1,0 +1,1 @@
+(name: "Vampire", effects: [(on: OnKill, do: [Heal("10")])])

@@ -1,0 +1,5 @@
+// T1.10 : une seule couronne de 6 boules de feu (`every: 0` dans une séquence : une salve, puis
+// l'émetteur se termine). Tirée par la mutation `tireur` (`SpawnPattern`).
+Sequence([
+    Ring(count: 6, speed: "60.0", projectile: "fireball", every: 0),
+])

@@ -190,7 +190,7 @@ pub enum Expectation {
     /// à une frame ≤ `by_frame`. Les `kind` possibles : "wave", "kill", "player", "hit", "reload",
     /// "weapon", "move", "melee", "death", "window", "door", "downed", "revived", "defeat",
     /// "drop", "pickup" (T2.2, chantier B7), "portal", "floor" (T1.8, mode `Floors`),
-    /// "terrain" (T1.6, terrain de caverne creusé).
+    /// "terrain" (T1.6, terrain de caverne creusé), "levelup", "mutation" (T1.10).
     Event {
         kind: String,
         #[serde(default, skip_serializing_if = "Option::is_none")]
@@ -360,6 +360,36 @@ pub enum Expectation {
         from: u32,
         to: u32,
     },
+    /// Jauge `id` (`game::effects_runtime::Gauges`, ex. les rads de la progression) du joueur
+    /// `handle` dans `[min, max]` (T1.10, `docs/conventions.md` §27). Échoue si le joueur n'a
+    /// pas cette jauge.
+    Gauge {
+        handle: usize,
+        id: String,
+        #[serde(default, skip_serializing_if = "Option::is_none")]
+        min: Option<f32>,
+        #[serde(default, skip_serializing_if = "Option::is_none")]
+        max: Option<f32>,
+        at_frame: u32,
+    },
+    /// Niveau **exact** (`game::progression::Level`) du joueur `handle` (T1.10). Échoue sans
+    /// progression active.
+    Level {
+        handle: usize,
+        level: u32,
+        at_frame: u32,
+    },
+    /// Les mutations prises par le joueur `handle` (`game::progression::Mutations`) contiennent
+    /// toutes celles de `contains` et, si `count` est donné, sont exactement `count` (T1.10 ;
+    /// `count: 0` : aucune mutation prise, joueur sans `Mutations` compris).
+    Mutations {
+        handle: usize,
+        #[serde(default, skip_serializing_if = "Vec::is_empty")]
+        contains: Vec<String>,
+        #[serde(default, skip_serializing_if = "Option::is_none")]
+        count: Option<u32>,
+        at_frame: u32,
+    },
 }
 
 /// Cible d'une distance (`EnemyDistance`).
@@ -403,6 +433,9 @@ impl Expectation {
             | Self::RunSummary { at_frame, .. }
             | Self::FloorIndex { at_frame, .. }
             | Self::CellState { at_frame, .. }
+            | Self::Gauge { at_frame, .. }
+            | Self::Level { at_frame, .. }
+            | Self::Mutations { at_frame, .. }
             | Self::Event {
                 by_frame: at_frame, ..
             }

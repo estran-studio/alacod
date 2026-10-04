@@ -1,0 +1,21 @@
+// `throne` (T1.11 phase 2, docs/conventions.md §27 et §29) : la progression de la run, active
+// en partie jouée et dans les scénarios (`entry.progression: "run"`). Un rad par kill ; niveaux
+// à 3, 8 et 15 rads ; trois mutations proposées, la première prise d'office après 10 s (les bots
+// ne choisissent pas). Armes débloquées par niveau (niveau max des joueurs), lâchées par un
+// ennemi sur douze environ.
+(
+    gauge: "rads",
+    per_kill: "1",
+    levels: ["3", "8", "15"],
+    choices: 3,
+    choice_frames: 600,
+    // Pool : les huit mutations de `mutations/`.
+    mutations: [],
+    weapon_pool: [
+        (level: 0, weapons: ["revolver", "mitraillette"]),
+        (level: 1, weapons: ["fusil_a_pompe", "canon_ricochet", "lance_lames", "disque"]),
+        (level: 2, weapons: ["laser", "plasma", "traqueur"]),
+        (level: 3, weapons: ["lance_grenades", "roquette", "mortier"]),
+    ],
+    weapon_drop_chance: "0.08",
+)

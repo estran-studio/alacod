@@ -1,0 +1,10 @@
+// `throne` (T1.10 + T1.11 phase 2, docs/conventions.md §27 et §29) : touché sous 40 % de sa santé, +40 % de vitesse pendant 3 s.
+(
+    name: "Adrénaline",
+    weight: 1,
+    tags: ["mobilite"],
+    max_stacks: 1,
+    effects: [
+        (on: OnDamageTaken, if: [HpBelow("0.4")], do: [TimedModifier(stat: MoveSpeed, op: Mul, value: "1.4", frames: 180)]),
+    ],
+)

@@ -136,6 +136,9 @@ impl InputRecorder {
                 // Un enregistrement ne choisit jamais le solde de départ (T2.3) : le joueur
                 // garde `CharacterConfig::starting_currency`, comme avant ce champ.
                 currency: None,
+                // Un enregistrement n'impose aucune mutation (T1.10) : celles du joueur sont
+                // prises en jeu, par ses inputs de choix, rejoués tels quels.
+                mutations: vec![],
             })
             .collect();
 
@@ -153,6 +156,8 @@ impl InputRecorder {
             powerups: settings.powerups,
             powerup_drop_chance_override: settings.powerup_drop_chance_override,
             floors: settings.floors,
+            // T1.10 : la progression du manifeste (`entry.progression`) s'applique au rejeu.
+            progression: None,
             clocks: settings.clocks,
             difficulty: settings.difficulty,
             characters: settings.characters,

@@ -1,0 +1,10 @@
+// `throne` (T1.10 + T1.11 phase 2, docs/conventions.md §27 et §29) : chaque kill rapporte un rad de plus.
+(
+    name: "Irradié",
+    weight: 1,
+    tags: ["progression"],
+    max_stacks: 1,
+    effects: [
+        (on: OnKill, do: [GaugeAdd("rads", "1")]),
+    ],
+)

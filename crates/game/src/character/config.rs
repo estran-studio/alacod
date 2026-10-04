@@ -86,6 +86,11 @@ pub struct CharacterConfig {
     #[serde(default)]
     pub starting_weapons: Vec<String>,
 
+    /// Effets v1 du personnage (T1.10, `docs/conventions.md` §27) : `Effects`/`EffectState`
+    /// posés au spawn seulement si la liste n'est pas vide (aucun contenu existant n'en a).
+    #[serde(default)]
+    pub effects: Vec<effects::Effect>,
+
     /// Équipe par défaut d'un personnage spawné via `spawn_enemy` sans `team` explicite sur
     /// l'entité `CharacterSpawn` qui l'a créé (T2.9, testbed). `None` pour tout le contenu
     /// zombies existant (comportement inchangé : `Team::Enemies` en dur, voir

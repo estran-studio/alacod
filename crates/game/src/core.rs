@@ -147,6 +147,9 @@ impl Plugin for CoreSetupPlugin {
         // Terrain des cavernes (T1.6) : `CellGrid` et demandes de destruction, toutes neutres
         // au checksum (grille vide et files vides hors caverne : traces inchangées).
         app.add_plugins(world::WorldPlugin);
+        // Effets v1 (T1.10) : composants neutres, exécution dans `DeathManagement`.
+        app.add_plugins(crate::effects_runtime::EffectsRuntimePlugin);
+        app.add_plugins(crate::progression::ProgressionPlugin);
         app.add_plugins(crate::economy::EconomyPlugin);
         app.add_plugins(crate::interaction::InteractionPlugin);
         // Power-ups (T2.5, chantier C1 v0) : après `EconomyPlugin` (l'action
@@ -247,6 +250,8 @@ impl Plugin for CoreSetupPlugin {
                 // T1.2 : patterns nommés (kind `Pattern`), hors rollback, voir
                 // `crate::patterns`.
                 crate::patterns::resolve_pattern_library_system,
+                // T1.10 : progression et mutations, hors rollback, voir `crate::progression`.
+                crate::progression::resolve_progression_system,
                 // T1.9 : horloges et difficulté activées, voir `crate::clock`.
                 crate::clock::resolve_clocks_system,
             ),

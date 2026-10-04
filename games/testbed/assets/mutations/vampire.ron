@@ -1,0 +1,10 @@
+// T1.10 : chaque kill rend 10 points de vie (scénario `effect_on_kill`).
+(
+    name: "Vampire",
+    weight: 1,
+    tags: ["soin"],
+    max_stacks: 1,
+    effects: [
+        (on: OnKill, do: [Heal("10")]),
+    ],
+)

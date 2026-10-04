@@ -1,0 +1,30 @@
+// `throne` (T1.0c + T1.11, docs/conventions.md §29) : deux bots `prudent` finissent la run (trois
+// étages de caverne : `niveau_1`, `niveau_2` avec les premiers tireurs, `niveau_3` avec tous les
+// profils), avec tout ce que le manifeste active (butin, progression, horloge, difficulté).
+//
+// Mesuré (graine 123456, comme `alacod-sim --game throne --bots 2 --profiles prudent,prudent
+// --floors run --seeds 123456..123456 --until-floor 3`) : passages à f517, f1198, f1759
+// (navigation par le champ ; f655, f1436, f2120 en ligne droite) ; le joueur 1 monte niveau 1 à
+// f679 et prend `irradie` d'office à f1279, le joueur 0 n'atteint le niveau 1 qu'à f1481.
+//
+// À regarder : les deux bots nettoient chaque caverne puis passent le portail.
+Scenario(
+    game: "throne",
+    floors: Some("run"),
+    map_seed: 123456,
+    frames: 1780,
+    players: [
+        (bot: prudent),
+        (bot: prudent),
+    ],
+    expect: [
+        FloorIndex(index: 1, at_frame: 520),
+        FloorIndex(index: 2, at_frame: 1200),
+        FloorIndex(index: 2, at_frame: 1755),
+        FloorIndex(index: 3, at_frame: 1765),
+        Mutations(handle: 0, count: 0, at_frame: 1765),
+        Mutations(handle: 1, contains: ["irradie"], count: 1, at_frame: 1765),
+        PlayerAlive(handle: 0, at_frame: 1779),
+        PlayerAlive(handle: 1, at_frame: 1779),
+    ],
+)

@@ -1,0 +1,13 @@
+// `throne` (T1.11, docs/conventions.md §21 et §29) : deuxième étage : six ennemis, les premiers tireurs, un chargeur et un fuyard (`cave:niveau_2`).
+// Personnages posés à tour de rôle sur les 6 points `ZombieSpawn`.
+(
+    width: 56,
+    height: 40,
+    fill_ratio: "0.38",
+    iterations: 4,
+    birth: 5,
+    survive: 4,
+    min_floor_ratio: "0.3",
+    enemy_spawns: 6,
+    characters: ["rat", "cracheur", "chien", "arroseur", "pillard", "buffle"],
+)

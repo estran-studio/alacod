@@ -1,0 +1,10 @@
+// `throne` (T1.10 + T1.11 phase 2, docs/conventions.md §27 et §29) : à chaque niveau (dès sa prise), +25 de santé max et 25 de soin.
+(
+    name: "Coriace",
+    weight: 1,
+    tags: ["defense"],
+    max_stacks: 1,
+    effects: [
+        (on: OnLevelUp, do: [Modifier(stat: MaxHealth, op: Add, value: "25"), Heal("25")]),
+    ],
+)

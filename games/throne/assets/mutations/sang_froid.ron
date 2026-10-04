@@ -1,0 +1,10 @@
+// `throne` (T1.10 + T1.11 phase 2, docs/conventions.md §27 et §29) : toutes les 60 frames sans avoir été touché depuis 5 s, 3 points de soin.
+(
+    name: "Sang-froid",
+    weight: 1,
+    tags: ["soin"],
+    max_stacks: 1,
+    effects: [
+        (on: Tick(60), if: [NotHitFor(300)], do: [Heal("3")]),
+    ],
+)

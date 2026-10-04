@@ -1,0 +1,37 @@
+// Manifeste du jeu `throne` (T1.0c + T1.11, docs/conventions.md §29) : le clone, une run de
+// trois étages de caverne (mode `Floors`), sans vagues ; rads, niveaux et mutations, horloge
+// d'étage et difficulté (phase 2). Sprites, sons, interface et caméra
+// copiés du testbed (placeholders, voir `assets.yaml`).
+(
+    name: "throne",
+    content_folders: [
+        (path: "characters", kind: "Character"),
+        (path: "weapons/weapons.ron", kind: "Weapon"),
+        (path: "weapons/melee.ron", kind: "MeleeWeapon"),
+        (path: "patterns", kind: "Pattern"),
+        // Cavernes générées (`cave:<nom>`) ; le dossier contient aussi le gabarit LDtk
+        // `gabarit.ldtk` (tilesets dans `atlas/`).
+        (path: "caves", kind: "Cave"),
+        (path: "floors", kind: "Floors"),
+        (path: "items", kind: "PowerUp"),
+        (path: "economy/economy.ron", kind: "Economy"),
+        (path: "ui", kind: "Ui"),
+        (path: "camera.ron", kind: "Camera"),
+        (path: "sprites/sprites.ron", kind: "SpriteSheet"),
+        // Carte du gabarit des scénarios générés d'armes (T1.13, `cible` à +128/−48 du spawn).
+        (path: "gabarit_armes.ldtk", kind: "Map"),
+        // Phase 2 (T1.9, T1.10) : progression, mutations, horloge d'étage, difficulté.
+        (path: "progression", kind: "Progression"),
+        (path: "mutations", kind: "Mutation"),
+        (path: "clocks", kind: "Clock"),
+        (path: "difficulty.ron", kind: "Difficulty"),
+    ],
+    entry: (
+        start_map: "cave:niveau_1",
+        default_seed: 123456,
+        mode: Floors,
+        progression: "run",
+        clocks: ["etage"],
+        difficulty: true,
+    ),
+)

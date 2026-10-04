@@ -509,6 +509,8 @@ mod profile_tests {
             switch_weapon: false,
             trigger_ready: true,
             velocity: FixedVec2::ZERO,
+            enemy_visible: false,
+            route: None,
             hunter: Some(hunter),
         };
         for profile in [BotProfile::Chasseur, BotProfile::Acheteur] {
@@ -538,6 +540,8 @@ mod profile_tests {
             switch_weapon: false,
             trigger_ready: true,
             velocity: FixedVec2::ZERO,
+            enemy_visible: false,
+            route: None,
             hunter: Some(HunterView {
                 can_fire: true,
                 interact: true,

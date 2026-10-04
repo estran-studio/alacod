@@ -1,0 +1,10 @@
+// `throne` (T1.10 + T1.11 phase 2, docs/conventions.md §27 et §29) : tuer un champion (élite `blinde`) double les dégâts pendant 5 s.
+(
+    name: "Chasseur",
+    weight: 1,
+    tags: ["attaque"],
+    max_stacks: 1,
+    effects: [
+        (on: OnKill, if: [TargetTag("champion")], do: [TimedModifier(stat: Damage, op: Mul, value: "2.0", frames: 300)]),
+    ],
+)

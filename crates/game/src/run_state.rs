@@ -536,6 +536,7 @@ mod tests {
                 start_map: "exemples/test_map.ldtk".to_string(),
                 default_seed: 1,
                 mode,
+                progression: None,
                 clocks: None,
                 difficulty: None,
             },

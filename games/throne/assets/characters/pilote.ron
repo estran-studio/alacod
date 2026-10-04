@@ -1,0 +1,64 @@
+// `throne` (T1.0c, docs/conventions.md §29) : le personnage joueur, copie de `player` du
+// testbed (mêmes déplacements, collider, santé et régénération ; sprites `player`
+// réutilisés, placeholders). Le moteur crée toujours les joueurs depuis le personnage d'id
+// `player` (id = `asset_name_ref`) : ce fichier le déclare, sous le nom « pilote ».
+(
+    movement: (
+        acceleration: "150.0",
+        max_speed: "150.0",
+        friction: "10.0",
+        sprint_multiplier: "2.0",                // Double speed
+        sprint_acceleration_per_frame: "0.1",    // Reach full sprint in 10 frames
+        sprint_deceleration_per_frame: "0.2", 
+
+        dash_distance: "60.0",         // A substantial dash distance (tune based on your world scale)
+        dash_duration_frames: 15,      // Very quick dash (1/10th second)
+        dash_cooldown_frames: 180,     // Half-second cooldown
+    ),
+
+    asset_name_ref: "player",
+
+    collider: (
+        shape: Rectangle(
+            width: "20.",
+            height: "20.",
+        ),
+        offset: ( x: "0.0", y: "-6.0", z: "0.0" )
+    ),
+
+    scale: "1.0",
+
+    base_health: (
+        max: "100.0",
+        regen_rate: Some("10.0"),  // 1 HP per second
+        regen_delay_frames: Some(180),  // 3 seconds at 60 FPS
+    ),
+
+
+    starting_skin: "1",
+
+    skins: {
+        "1": (
+            layers: {
+                "shadow": "",
+                "body": "",
+                "shirt": ""
+            }
+        ),
+        "2": (
+            layers: {
+                "shadow": "",
+                "body": "",
+                "shirt": "",
+                "hair": ""
+            }
+        )
+
+    },
+
+    // Armes de départ : mitraillette et revolver (balles), lance-lames (lames, une deuxième
+    // munition : sans elle, les bots finissaient à sec avant le dernier ennemi, 3 graines sur
+    // 20) ; les autres armes se ramassent (phase 2 : `weapon_pool` par niveau).
+    weapon_slots: 3,
+    starting_weapons: ["mitraillette", "revolver", "lance_lames"],
+)

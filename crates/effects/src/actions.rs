@@ -58,6 +58,20 @@ pub enum Action {
     /// projectile l'emploie (`on_hit` sur un mur, `on_expire`) ; refusée dans un power-up
     /// (lint), sans position. Ajoutée en dernier : les hashs des autres variantes ne bougent pas.
     DestroyTerrain { radius: Fixed },
+    /// T1.10 (effets v1, `docs/conventions.md` §27) : modificateur **permanent** posé sur le
+    /// porteur de l'effet (source `effect:<porteur>:<index>`).
+    Modifier {
+        stat: StatId,
+        op: ModifierOp,
+        value: Fixed,
+    },
+    /// T1.10 : soigne le porteur de `amount` points, borné à sa santé maximale.
+    Heal(Fixed),
+    /// T1.10 : joue le pattern nommé `pattern` (kind `Pattern`, T1.2) depuis la position du
+    /// porteur, avec la table de projectiles de l'arme `weapon` (config d'armes du jeu).
+    SpawnPattern { pattern: String, weapon: String },
+    /// T1.10 : ajoute `amount` à la jauge `id` du porteur (`Gauges`).
+    GaugeAdd(String, Fixed),
 }
 
 impl Action {
@@ -99,7 +113,11 @@ impl Action {
             Action::RefillAmmo
             | Action::RepairAllWindows
             | Action::KillAllWaveEnemies
-            | Action::DestroyTerrain { .. } => None,
+            | Action::DestroyTerrain { .. }
+            | Action::Modifier { .. }
+            | Action::Heal(_)
+            | Action::SpawnPattern { .. }
+            | Action::GaugeAdd(..) => None,
         }
     }
 }

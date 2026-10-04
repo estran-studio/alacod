@@ -1,0 +1,38 @@
+// T1.10 (progression v1, docs/conventions.md §27) : rads → niveau → choix de mutation par input.
+// Carte `testbed/progression.ldtk` (copie d'`arena` : un `breacher` au sud-ouest, des `cible` de
+// 16 points ailleurs) ; progression `base` du testbed imposée (`progression`, inactive sinon) : 1 rad
+// par kill, niveau 1 à 2 rads, trois mutations proposées.
+//
+// Mesuré : le joueur tue le breacher puis une cible (niveau 1 à f104, options tirées dans le
+// flux `loot` : [vampire, tireur, coriace]) ; il presse `ChoiceC` de f134 à f138 → `coriace`
+// (OnLevelUp : +50 MaxHealth et soin 50, la frame suivant le choix) : MaxHealth 150, santé
+// 110,8 à f290 ; 3 rads (un kill de plus après le niveau). Même tirage que `levelup_timeout`
+// (même script jusqu'au choix), où la première option, `vampire`, est prise d'office.
+//
+// À regarder : le joueur tire au sud-ouest sur le breacher qui arrive, puis au nord-ouest ; sa
+// barre de vie dépasse 100 après le choix.
+Scenario(
+    powerup_drop_chance_override: "0.0",
+    game: "testbed",
+    map: "testbed/progression.ldtk",
+    progression: "base",
+    frames: 300,
+    players: [
+        (inputs: [
+            (from: 5, to: 120, buttons: [Fire], pan: (-64, -48)),
+            (from: 120, to: 134, buttons: [Fire], pan: (-64, 48)),
+            (from: 134, to: 138, buttons: [Fire, ChoiceC], pan: (-64, 48)),
+            (from: 138, to: 170, buttons: [Fire], pan: (-64, 48)),
+        ]),
+    ],
+    expect: [
+        Event(kind: "levelup", by_frame: 110),
+        Level(handle: 0, level: 1, at_frame: 110),
+        Mutations(handle: 0, count: 0, at_frame: 133),
+        Mutations(handle: 0, contains: ["coriace"], count: 1, at_frame: 140),
+        Event(kind: "mutation", label_contains: "coriace", by_frame: 140),
+        Stat(handle: 0, stat: MaxHealth, value: 150.0, at_frame: 290),
+        Health(handle: 0, min: Some(105.0), at_frame: 290),
+        Gauge(handle: 0, id: "rads", min: Some(3.0), max: Some(3.0), at_frame: 290),
+    ],
+)

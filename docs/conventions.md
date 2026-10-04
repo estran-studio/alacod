@@ -582,6 +582,9 @@ testé unitairement) pour les deux variantes modifier-based ; les trois autres s
 directement par `game::powerups` (accès à `AmmoReserves`/`WindowHealth`/`Team`, inconnus
 d'`effects`).
 
+Depuis T1.10, le même `Action` sert aux **effets** (`Effect { on, if, do }` exécutés, nouvelles
+actions `Modifier`, `Heal`, `SpawnPattern`, `GaugeAdd`) : voir §27.
+
 **Sémantique CoD (décision)** : un power-up ramassé s'applique à **tous les joueurs** de la
 partie, jamais au seul joueur qui l'a ramassé — aucun des cinq power-ups de référence
 (Insta-Kill, Double Points, Max Ammo, Carpenter, Nuke) n'est individuel dans le jeu source.
@@ -1447,12 +1450,25 @@ presse le tir d'une arme non automatique que détente relâchée (`WeaponState::
 
 **Complétion de niveau** : `prudent`/`fonceur` marchent vers l'ennemi le plus proche (la vue n'a
 pas de limite de portée : `nearest_enemy` ne vaut `None` que s'il n'en reste aucun), puis vers
-le portail ouvert ; ligne droite, sans pathfinding (le flow field 8 px reste réservé à
-`chasseur`/`acheteur` : suite possible). Approche du portail par `prudent` **freinée** : le jeu ne freine
+le portail ouvert ; en ligne droite jusqu'à la navigation ci-dessous. Approche du portail par `prudent` **freinée** : le jeu ne freine
 que si aucun bouton de déplacement n'est tenu et les boutons ne donnent que le signe de chaque
 axe, si bien qu'à pleine vitesse le bot tournait autour du portail sans entrer dans son rayon
 (24) ; à moins de 48 px, il relâche tout tant que sa vitesse dépasse 30, puis avance par petits
 pas (un axe dont l'écart est sous 6 px n'est pas pressé).
+
+**Navigation de `prudent`/`fonceur`** (m1-v3-bots-pathfinding, suite de T1.14) : même calcul que
+`chasseur` (`crates/bots/src/navigation.rs`, Dijkstra multi-source sur une grille de 8 px, murs,
+fenêtres et portes, murs de caverne compris), dans un cache séparé (`DirectNavigation`), dérivé
+hors rollback dans `ReadInputs`. `BotView` gagne `enemy_visible` (aucun `Wall` entre le joueur
+et l'ennemi le plus proche) et `route` (pas suivant vers le poste de tir de l'ennemi le plus
+proche par le chemin, ou vers le point accessible le plus proche de lui ; sans ennemi, vers le
+portail, rayon 16 ; composante de moins de 2 px annulée, sinon un pas d'un pixel devient une
+diagonale contre un coin). Règles : l'esquive et le recul sous 180 restent prioritaires ;
+ennemi caché ou au-delà de la bande de `prudent` (ou caché pour `fonceur`) → `route` ; ennemi
+visible → ligne droite comme avant ; portail au-delà de 48 → `route`, puis l'approche freinée.
+Sans chemin (`route` absente), ligne droite en repli. Le champ n'est calculé que quand une règle
+s'en sert. Critère : `throne` 20/20 sur 20 graines (contre 17/20), `trois_niveaux` du testbed
+conservé.
 
 **`alacod-sim`** : `--until-floor <n>` (exige `--floors`) arrête la graine quand
 `FloorState::index >= n` ; `--until-wave` ou `--until-floor` est obligatoire. `SimResult` gagne
@@ -1575,6 +1591,96 @@ un breacher qui traverse l'eau touche le joueur 205 frames après celui du coulo
 dangers (piques, fosses, barils, feu), neige et boue (contenu 1837), surfaces de caverne
 (`CaveConfig.surfaces`).
 
+## 27. Effets v1, jauges et mutations (T1.10, chantiers C1 v1 et C4 v1)
+
+Code : `effects::runtime` et `effects::progression` (règles pures, testées sans Bevy),
+`game::effects_runtime` (porteurs, `apply_effects_system`), `game::progression` (rads, niveaux,
+choix, drop d'arme), `content::lint::{lint_effect, lint_progression, lint_mutations}`.
+
+**Effet** : `Effect { on, if, do }` (§4.3) ; un porteur a `Effects(Vec<Effect>)` et `EffectState`
+(frame de pose de chaque effet, dernière frame touchée, déclencheurs reportés), rollback,
+checksum **neutre**. Posés par `CharacterConfig::effects` (champ optionnel), par une mutation
+prise, ou par `PlayerScript::mutations` ; un personnage sans effet n'a aucun composant (traces
+existantes inchangées).
+
+- **Déclencheurs v1** : `OnKill` (tueur = premier `HitBy` de `Death::last_hit_by`, joueur par son
+  handle, entité — dont un émetteur — par son net id), `OnDamageTaken` (frame où les dégâts
+  accumulés s'appliquent : `HealthRegen::last_damage_frame`, sinon un `DamageEvent` qui vise le
+  porteur), `Tick(n)` (toutes les `n` frames depuis la pose, jamais à la pose), `OnGauge(id,
+  Above(x))` (jauge franchie à la hausse, `avant < x ≤ après`, frame suivante), `OnLevelUp`
+  (nouveau variant, voir plus bas). Les autres (`OnHit`, `OnDodge`, `OnReload`, `OnRoomClear`,
+  `OnPickup`, `OnUse`, `OnEvent`) : lint `Unsupported` (« v2 »).
+- **Conditions v1** (ET) : `HpBelow(x)` (fraction de `Health.max`), `HasTag(t)` (porteur),
+  `TargetTag(t)` (victime d'`OnKill`, source d'`OnDamageTaken`), `NotHitFor(n)`. `Carrying`,
+  `SquadSize`, `TargetInRange` : lint `Unsupported`.
+- **Actions** : `Action` étendu (même enum que les power-ups, §14) de `Modifier { stat, op,
+  value }` (permanent, source `Named("effect:<net_id>:<index>")`), `Heal(x)` (borné à
+  `Health.max`, jamais sous la santé courante), `SpawnPattern { pattern, weapon }` (un `Emitter`
+  T1.2 sur le porteur, table `projectiles` de `weapon` ; ignoré si un émetteur joue déjà),
+  `GaugeAdd(id, x)`. `TimedModifier`/`CurrencyMultiplier` s'appliquent au **porteur seul**
+  (la règle « tous les joueurs » est celle des power-ups). `RefillAmmo`, `RepairAllWindows`,
+  `KillAllWaveEnemies`, `DestroyTerrain` : lint `Unsupported` dans un effet.
+
+**Ordre des sets (constaté, non modifié).** Les `FrameEvents` sont vidés au début de chaque frame
+et les morts sont détruits dans `DeathManagement` (`rollback_apply_death`, même frame) : un
+système dans `Effects` (avant `DeathManagement`) ne verrait **jamais** les kills. D'où :
+`apply_effects_system` dans `RollbackSystemSet::DeathManagement`, après
+`rollback_apply_accumulated_damage` (dégâts appliqués, `Death` posés) et avant
+`rollback_apply_bleedout`, puis `init_progression_players` → `progression_system` →
+`weapon_drop_on_death_system` (après `loot_drop_on_death_system` : le flux `loot` sert d'abord
+aux power-ups). Ordre interne : porteurs par `GgrsNetId`, puis index d'effet, puis ordre des `do`.
+**La mort de la frame prime** : un porteur posé `Death` ou `Downed` dans la frame ne déclenche
+rien et n'est pas soigné (test `la_mort_de_la_frame_prime_sur_le_soin`).
+
+**Progression (C4 v1)** : kind `Progression` (`progression/<id>.ron`), **opt-in** : la partie joue
+celle que nomme `Scenario::progression`, sinon `entry.progression` du manifeste, sinon aucune
+(testbed et zombies : aucune ; flux `loot` intact).
+```ron
+// games/testbed/assets/progression/base.ron — game.ron : (path: "progression", kind: "Progression")
+(gauge: "rads", per_kill: "1", levels: ["2", "4"], choices: 3, choice_frames: 600,
+ mutations: [],  // pool ; vide = toutes les mutations du jeu
+ weapon_pool: [(level: 0, weapons: ["pistol"]), (level: 1, weapons: ["shotgun"])],
+ weapon_drop_chance: "0.0")
+```
+Chaque joueur reçoit `Gauges` (la jauge `gauge`, bornée à `[0, max]`), `Level`, `Mutations`
+(rollback, neutres). Chaque mort attribuée au joueur ajoute `per_kill` ; niveau = nombre de seuils
+`levels` atteints (les `GaugeAdd` comptent aussi). Chaque niveau gagné ouvre un choix
+(`MutationChoice { options, since_frame, pending, armed }`, neutre) : `choices` mutations
+**distinctes** tirées dans le flux `loot` (pondérées par `weight`, `max_stacks` respecté, joueurs
+par `GgrsNetId`) ; un niveau gagné pendant un choix s'empile (`pending`). La simulation ne se met
+**jamais** en pause. Choix par les bits d'input 13–15 (`INPUT_CHOICE_A/B/C`, boutons `ChoiceA/B/C`,
+touches 1/2/3), seulement si aucun bouton de choix n'a été tenu depuis l'ouverture (`armed`) ;
+sans choix, la première option est prise à `since_frame + choice_frames`. La mutation prise
+ajoute ses effets, est notée dans `Mutations`, et **`OnLevelUp` se déclenche à la frame
+suivante** (pour tous les effets `OnLevelUp` du joueur, ceux de la nouvelle mutation compris).
+Pool épuisé : pas de choix, `OnLevelUp` directement. Moments clés `levelup`, `mutation`.
+
+**Mutation** : kind `Mutation` (`mutations/<id>.ron`) : `(name, weight: 1, tags, max_stacks: 1,
+effects: [Effect])`.
+
+**Drop d'arme** : chaque ennemi mort (ordre `GgrsNetId`) tire `weapon_drop_chance` (flux `loot`) ;
+gagné, une arme parmi celles du `weapon_pool` dont `level ≤` niveau **max** des joueurs (niveau
+mis à jour dans la même frame), posée par `spawn_weapon_pickup` (chargeur plein, gratuite). Chance
+0 : aucun tirage.
+
+**Lint** : déclencheur/condition/action `Unsupported`, `Tick(0)`, `Heal ≤ 0`, pattern ou arme de
+`SpawnPattern` inconnus, jauge d'`OnGauge`/`GaugeAdd` qui n'est celle d'aucune progression ;
+progression : `per_kill ≤ 0`, `levels` vides ou non strictement croissants, `choices` hors
+`[1, pool]`, `choice_frames` 0, chance hors `[0, 1]`, mutation ou arme inconnue ; mutation :
+`weight` 0, `max_stacks` 0, `effects` vide. Fixtures `effect_unsupported`, `effect_out_of_range`,
+`progression_out_of_range`, `progression_broken_reference`, `mutation_out_of_range`.
+
+**Scénarios** : attentes `Gauge(handle, id, min, max, at_frame)`, `Level(handle, level,
+at_frame)`, `Mutations(handle, contains, count, at_frame)` ; champs `Scenario::progression` et
+`PlayerScript::mutations`. Testbed : `effect_on_damage_taken` / `effect_none` (`pilote` contre
+`dummy` : 92 contre 72 points), `effect_on_kill` (`vampire`), `effect_tick` (`tireur`, couronnes
+f122/f242/f362), `levelup_choice` (`ChoiceC` → `coriace`), `levelup_timeout` (première option à
+f704), `weapon_pool_drop` (progression `armes`).
+
+**Hors périmètre** : écran de choix (T1.16), HUD des rads (T1.18), déclencheurs et conditions v2,
+objets passifs/actifs (M2), modificateurs de projectiles (M4), pause, `--progression` dans
+`alacod-sim`.
+
 ## 28. Générateur v1 et placement scripté (T1.13, voie V3)
 
 Code : `crates/scenario/src/generate.rs` (gabarits), `scenario::runner::
@@ -1636,6 +1742,85 @@ générés de `zombies` et `testbed` n'ont pas le champ.
 **Hors périmètre** : gabarits par statut (T1.3 absente de main), vidéos des gabarits,
 génération de cartes, bots dans les gabarits.
 
+## 29. Le jeu `throne` (T1.0c + T1.11, voie V2)
+
+`games/throne/` : le clone, **données seulement** (aucun code d'engine propre : `src/main.rs` est
+celui du testbed renommé). Membre du workspace, `make throne` (fenêtré), `make lint` le linte avec
+zombies et testbed. Une run = trois étages de caverne générés (mode `Floors`), sans vagues.
+
+**Manifeste** : `entry: (start_map: "cave:niveau_1", default_seed: 123456, mode: Floors)` ;
+séquence `floors/run.ron` = `cave:niveau_1`, `cave:niveau_2`, `cave:niveau_3` (même graine pour la
+séquence, §17 et §21). Kinds : `Character`, `Weapon`, `MeleeWeapon`, `Pattern`, `Cave`, `Floors`,
+`PowerUp`, `Economy`, `Ui`, `Camera`, `SpriteSheet`.
+
+**Joueur** : `characters/pilote.ron` déclare le personnage d'id `player` (le moteur crée tous les
+joueurs depuis lui), copie de `player` du testbed ; trois armes de départ (`mitraillette`,
+`revolver`, `lance_lames`).
+
+**Armes** (`weapons/weapons.ron`) : douze armes du joueur sur cinq munitions `Custom` —
+`balles` (`revolver`, `mitraillette`), `obus` (`fusil_a_pompe`, `canon_ricochet` : `Bounce`),
+`explosifs` (`lance_grenades` : `Bounce`+`Pierce`+`Lifetime`, explosion puis couronne d'éclats ;
+`roquette` : souffle en `on_expire` ; `mortier` : `Gravity`, éventail de fragments), `energie`
+(`laser` : `Pierce` ; `plasma` : `Size`+`Lifetime` ; `traqueur` : `Homing`), `lames`
+(`lance_lames` : `Bounce`+`Pierce` ; `disque` : rafale, `Pierce`+`Lifetime`). Plus `arsenal`,
+l'arme des ennemis (sa table `projectiles` : `crachat`, `plomb`, `boule`). Mêlée
+(`weapons/melee.ron`) : `bare_hands` (joueur), `griffes`, `crocs`, `massue`. Chaque arme porte un
+`test:` (jauges calées sur la mesure) ; **`make gen GAME=throne` ne peut pas encore jouer ses
+scénarios** : le générateur joue tout dans l'arène du testbed, où les armes de `throne`
+n'existent pas (gabarit par jeu attendu de T1.13) ; les scénarios générés de `throne` ne sont pas
+versionnés en attendant.
+
+**Ennemis** (`characters/`, behaviors §22, variantes §25 ; aucun sprite) : mêlée `rat`
+(`Melee("griffes")`, variante `rapide`), `chien` (rapide et fragile, variantes `rapide` et
+`blinde`), `brute` (`massue`, variante `blinde`), `rodeur` (`Wander` hors de vue, `Sight(300)`) ;
+tireurs `cracheur` (pattern `crachat` : `Aimed`), `arroseur` (`eventail` : `Spread`), `tourelle`
+(immobile, `couronne` : `Ring` après télégraphe) ; chargeur `buffle` (`Charge`) ; kiter
+`franc_tireur` (`KeepDistance` + `visee`) ; fuyard `pillard` (`Flee` sous 50 %).
+
+**Cavernes** (`caves/`, gabarit `caves/gabarit.ldtk`, tilesets `atlas/`) : `niveau_1` 48 × 32,
+4 ennemis (`rat`, `chien`, `rodeur`) ; `niveau_2` 56 × 40, 6 ennemis (premiers tireurs, chargeur,
+fuyard) ; `niveau_3` 64 × 44, 8 ennemis (tous les profils). `fill_ratio` 0,38 (plus ouvert que le
+testbed : les bots `prudent` vont en ligne droite). Pas de surface (impossible dans une caverne
+générée, §26 v2).
+
+**Butin** (`items/powerups.ron`, §14) : `munitions` (`RefillAmmo`, toutes munitions), `rage`
+(dégâts ×2), `vitesse` (×1,3), `drop_chance` 0,15. Pas de butin par munition ni de `weapon_pool`
+en phase 1.
+
+**Assets** : tous des **placeholders** copiés du testbed (sprites du joueur et des armes, slash,
+sons, police, tilesets), enregistrés dans `games/throne/assets/assets.yaml` (licences reprises de
+zombies, `statut: placeholder`).
+
+**Scénarios** : `throne_floor_1` (un bot `prudent` finit l'étage 1), `throne_three_floors` (deux
+bots finissent la run), joués avec tout ce que le manifeste active (butin compris). Mesure :
+`alacod-sim --game throne --bots 2 --profiles prudent,prudent --floors run --seeds 1..20
+--until-floor 3 --max-frames 12000` : 19/20 en phase 1 (graine 5 : le `pillard` en fuite reste
+derrière un mur, les bots vont en ligne droite), 17/20 en phase 2 (voir ci-dessous).
+
+**Phase 2 — progression, mutations, horloge, difficulté** (T1.9, T1.10 ; actives par le manifeste :
+`entry: (..., progression: "run", clocks: ["etage"], difficulty: true)`, donc en partie jouée
+**et** dans tous les scénarios de `throne`) :
+- `progression/run.ron` (§27) : un rad par kill, niveaux à 3, 8 et 15 rads, trois mutations
+  proposées, la première prise d'office après 600 frames (les bots ne choisissent pas) ;
+  `weapon_pool` : munitions de départ au niveau 0, obus et lames au 1, énergie au 2, explosifs au
+  3 ; `weapon_drop_chance` 0,08.
+- Huit mutations (`mutations/`, effets v1 seulement) : `coriace` (OnLevelUp : +25 MaxHealth,
+  soin 25), `vampire` (OnKill : soin 4), `tireur` (Tick(180) : salve de six éclats, pattern
+  `salve`), `adrenaline` (touché sous 40 % : vitesse ×1,4 pendant 3 s), `rancune` (touché :
+  dégâts ×1,5 pendant 2 s), `sang_froid` (Tick(60) sans coup depuis 5 s : soin 3), `chasseur`
+  (tuer un champion : dégâts ×2 pendant 5 s), `irradie` (OnKill : un rad de plus).
+- Horloge `clocks/etage.ron` (§23, portée `Floor`) : `alerte` à 20 s, `renfort` à 40 s puis
+  toutes les 20 s. **Aucune action n'y est attachée** (`OnEvent` des effets est v2) : moments clés
+  et attente `Clock` seulement.
+- `difficulty.ron` : `1 + floor * 0.25 + floor_minutes * 0.25` (santé des ennemis à l'apparition,
+  dégâts qu'ils infligent).
+- Scénarios : `throne_progression` (niveau, rads, mutation prise d'office, horloge),
+  `throne_mutation_choice` (inputs enregistrés d'un bot, `ChoiceB` → `chasseur`). Sur 20 graines
+  (deux bots) : 17/20 (graine 5 : le `pillard` ; graines 12 et 20 : bots coincés dans un recoin
+  en allant au portail en ligne droite — dette de pathfinding de `prudent`).
+- Gabarit des scénarios générés d'armes préparé pour T1.13 : `gabarit_armes.ldtk` (copie de
+  l'arène du testbed, `cible` à `counts_hits` à +128/−48 du spawn, `mannequin` ailleurs). Pas
+  encore jouable : en mode `Floors`, un scénario de `throne` ignore sa carte.
 ## Notes essentielles
 
 **À vérifier** : l'entité `CrateLocation` n'est pas lue actuellement (`WeaponLocation`/`SodaLocation` le sont depuis T2.3, voir §1 ci-dessus). Elle apparaît dans `crates/map_ldtk/src/map_const.rs` (constante) mais aucun bundle Bevy ne la traite (`entity/*.rs` ne la liste pas). Avant d'utiliser une carte avec une entité nouvellement lue, vérifier que `make test_scenarios` accepte un scénario `idle` dessus.

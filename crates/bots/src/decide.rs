@@ -33,7 +33,7 @@ const REPAIR_REACH: Fixed = Fixed::from_bits(40 << 16);
 const PRUDENT_MIN_DISTANCE: Fixed = Fixed::from_bits(180 << 16);
 /// `prudent` : au-dessus de cette distance, avance. Entre les deux, tient sa position. Tire
 /// dès que l'ennemi est à cette distance ou moins (donc aussi en avançant ou en reculant).
-const PRUDENT_MAX_DISTANCE: Fixed = Fixed::from_bits(320 << 16);
+pub(crate) const PRUDENT_MAX_DISTANCE: Fixed = Fixed::from_bits(320 << 16);
 
 /// `prudent` (T1.14) : approche du portail. Le jeu ne freine que si aucun bouton de
 /// déplacement n'est tenu, et les boutons ne donnent que le signe de chaque axe : en visant le
@@ -41,7 +41,7 @@ const PRUDENT_MAX_DISTANCE: Fixed = Fixed::from_bits(320 << 16);
 /// (24). Sous [`PORTAL_BRAKE_DISTANCE`], il relâche tout tant que sa vitesse dépasse
 /// [`PORTAL_BRAKE_SPEED`], puis avance par petits pas ; un axe dont l'écart est sous
 /// [`PORTAL_DEAD_ZONE`] n'est pas pressé.
-const PORTAL_BRAKE_DISTANCE: Fixed = Fixed::from_bits(48 << 16);
+pub(crate) const PORTAL_BRAKE_DISTANCE: Fixed = Fixed::from_bits(48 << 16);
 const PORTAL_BRAKE_SPEED: Fixed = Fixed::from_bits(30 << 16);
 const PORTAL_DEAD_ZONE: Fixed = Fixed::from_bits(6 << 16);
 
@@ -77,13 +77,15 @@ fn decide_fonceur(view: &BotView) -> BoxInput {
 
     if let Some(enemy) = view.nearest_enemy {
         aim_at(&mut input, view.position, enemy.position);
-        set_direction_buttons(&mut input, enemy.position - view.position);
+        // Ligne droite vers un ennemi visible ; caché derrière un mur : le chemin
+        let toward = enemy.position - view.position;
+        set_direction_buttons(&mut input, route_unless(view.enemy_visible, view, toward));
         if enemy.distance <= FONCEUR_THREAT_RANGE {
             input.fire = true;
         }
     } else if let Some(portal) = view.portal {
-        // T1.8 : plus d'ennemi, portail ouvert : y aller (niveau suivant).
-        set_direction_buttons(&mut input, portal - view.position);
+        // T1.8 : plus d'ennemi, portail ouvert : y aller (niveau suivant), par le chemin.
+        set_direction_buttons(&mut input, view.route.unwrap_or(portal - view.position));
     }
 
     maybe_reload(&mut input, view);
@@ -112,9 +114,11 @@ fn decide_prudent(view: &BotView) -> BoxInput {
 
         if enemy.distance < PRUDENT_MIN_DISTANCE {
             set_direction_buttons(&mut input, view.position - enemy.position); // s'éloigne
-        } else if enemy.distance > PRUDENT_MAX_DISTANCE {
-            set_direction_buttons(&mut input, enemy.position - view.position); // s'approche
-        } // sinon : garde sa position (dans la bande [MIN, MAX])
+        } else if !view.enemy_visible || enemy.distance > PRUDENT_MAX_DISTANCE {
+            // s'approche : par le chemin (ennemi caché, ou loin), ligne droite en repli
+            let toward = enemy.position - view.position;
+            set_direction_buttons(&mut input, route_unless(false, view, toward));
+        } // sinon : garde sa position (visible, dans la bande [MIN, MAX])
 
         if enemy.distance <= PRUDENT_MAX_DISTANCE {
             // T1.14 : relâcher entre deux tirs d'une arme non automatique
@@ -129,9 +133,26 @@ fn decide_prudent(view: &BotView) -> BoxInput {
     input
 }
 
-/// Approche freinée du portail (`prudent`, T1.14, voir [`PORTAL_BRAKE_DISTANCE`]).
+/// Direction de déplacement : `straight` si `direct`, sinon le pas suivant du champ de
+/// navigation ([`BotView::route`]), avec la ligne droite en repli quand il n'y a pas de chemin.
+fn route_unless(direct: bool, view: &BotView, straight: FixedVec2) -> FixedVec2 {
+    if direct {
+        straight
+    } else {
+        view.route.unwrap_or(straight)
+    }
+}
+
+/// Approche freinée du portail (`prudent`, T1.14, voir [`PORTAL_BRAKE_DISTANCE`]) : par le
+/// chemin tant qu'il est loin, freinée dans les derniers [`PORTAL_BRAKE_DISTANCE`].
 fn approach_portal(input: &mut BoxInput, view: &BotView, portal: FixedVec2) {
     let delta = portal - view.position;
+    if delta.length() >= PORTAL_BRAKE_DISTANCE {
+        if let Some(route) = view.route {
+            set_direction_buttons(input, route);
+            return;
+        }
+    }
     if delta.length() < PORTAL_BRAKE_DISTANCE && view.velocity.length() > PORTAL_BRAKE_SPEED {
         return; // aucun bouton : friction
     }
@@ -229,6 +250,8 @@ mod tests {
             switch_weapon: false,
             trigger_ready: true,
             velocity: FixedVec2::ZERO,
+            enemy_visible: true,
+            route: None,
         }
     }
 
@@ -250,6 +273,63 @@ mod tests {
         assert_ne!(
             decide(BotProfile::Prudent, &v, &mut rng()).buttons & INPUT_RIGHT,
             0
+        );
+    }
+
+    /// Navigation (suite T1.14) : ennemi caché derrière un mur → le pas du champ, pas la
+    /// ligne droite ; sans chemin, ligne droite en repli ; visible et dans la bande : immobile.
+    #[test]
+    fn ennemi_cache_suivre_le_chemin() {
+        let mut v = view(FixedVec2::new(fx(0.0), fx(0.0)));
+        // Ennemi à droite (dans la bande de prudent), caché ; le chemin part vers le haut
+        v.nearest_enemy = Some(EnemyView {
+            position: FixedVec2::new(fx(250.0), fx(0.0)),
+            distance: fx(250.0),
+        });
+        v.enemy_visible = false;
+        v.route = Some(FixedVec2::new(fx(0.0), fx(8.0)));
+        for profile in [BotProfile::Fonceur, BotProfile::Prudent] {
+            let input = decide(profile, &v, &mut rng());
+            assert_ne!(input.buttons & INPUT_UP, 0, "{profile:?} : suit le chemin");
+            assert_eq!(
+                input.buttons & INPUT_RIGHT,
+                0,
+                "{profile:?} : pas tout droit"
+            );
+        }
+        // Sans chemin : ligne droite en repli
+        v.route = None;
+        for profile in [BotProfile::Fonceur, BotProfile::Prudent] {
+            let input = decide(profile, &v, &mut rng());
+            assert_ne!(input.buttons & INPUT_RIGHT, 0, "{profile:?} : repli");
+        }
+        // Visible dans la bande : prudent tient sa position même avec un chemin
+        v.enemy_visible = true;
+        v.route = Some(FixedVec2::new(fx(0.0), fx(8.0)));
+        let input = decide(BotProfile::Prudent, &v, &mut rng());
+        assert_eq!(
+            input.buttons & (INPUT_UP | INPUT_DOWN | INPUT_LEFT | INPUT_RIGHT),
+            0
+        );
+    }
+
+    /// Portail loin : le chemin ; près (sous `PORTAL_BRAKE_DISTANCE`) : l'approche freinée.
+    #[test]
+    fn portail_par_le_chemin() {
+        let mut v = view(FixedVec2::new(fx(0.0), fx(0.0)));
+        v.portal = Some(FixedVec2::new(fx(200.0), fx(0.0)));
+        v.route = Some(FixedVec2::new(fx(0.0), fx(-8.0)));
+        for profile in [BotProfile::Fonceur, BotProfile::Prudent] {
+            let input = decide(profile, &v, &mut rng());
+            assert_ne!(input.buttons & INPUT_DOWN, 0, "{profile:?}");
+            assert_eq!(input.buttons & INPUT_RIGHT, 0, "{profile:?}");
+        }
+        v.portal = Some(FixedVec2::new(fx(30.0), fx(0.0)));
+        let input = decide(BotProfile::Prudent, &v, &mut rng());
+        assert_ne!(
+            input.buttons & INPUT_RIGHT,
+            0,
+            "freinage : petit pas direct"
         );
     }
 
