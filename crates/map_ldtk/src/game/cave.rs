@@ -43,6 +43,12 @@ impl Plugin for CavePlugin {
                 fill_cave_grid_on_load.run_if(on_message::<LdtkMapLoadingEvent>),
             )
             .add_systems(
+                Update,
+                cave_cells_visual_system
+                    .run_if(|| crate::RENDER_ENABLED)
+                    .run_if(resource_changed::<CellGrid>),
+            )
+            .add_systems(
                 GgrsSchedule,
                 rebuild_cave_walls_system
                     .after(world::plugin::apply_destroy_terrain_system)
@@ -132,4 +138,40 @@ fn solid_cells(grid: &CellGrid) -> BTreeSet<GridPos> {
             y: y as i32,
         })
         .collect()
+}
+
+/// Présentation minimale du terrain d'une caverne (rien en headless) : un carré par case
+/// solide, reconstruit quand `CellGrid` change (destruction, rejeu, chargement). Le gabarit
+/// n'a pas de tuiles d'autolayer : sans ces carrés, les murs seraient invisibles. Lit
+/// `CellGrid`, aucun état de rendu propre.
+#[derive(Component)]
+struct CaveCellVisual;
+
+fn cave_cells_visual_system(
+    mut commands: Commands,
+    grid: Res<CellGrid>,
+    visuals: Query<Entity, With<CaveCellVisual>>,
+) {
+    for entity in &visuals {
+        commands.entity(entity).despawn();
+    }
+    let size = world::CELL_SIZE as f32;
+    for y in 0..grid.height {
+        for x in 0..grid.width {
+            let color = match grid.get(x as i32, y as i32) {
+                Some(CellKind::Wall) => Color::srgb(0.18, 0.17, 0.2),
+                Some(CellKind::Rock) => Color::srgb(0.42, 0.33, 0.24),
+                _ => continue,
+            };
+            commands.spawn((
+                CaveCellVisual,
+                Sprite {
+                    color,
+                    custom_size: Some(Vec2::splat(size)),
+                    ..default()
+                },
+                Transform::from_xyz((x as f32 + 0.5) * size, (y as f32 + 0.5) * size, 1.0),
+            ));
+        }
+    }
 }
