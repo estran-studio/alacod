@@ -207,3 +207,30 @@ fn gabarits_attentes_par_defaut_et_explicites() {
     assert_eq!(still.expect.len(), 2);
     assert_eq!(still.wave_overrides.unwrap().grace_period_frames, Some(601));
 }
+
+#[test]
+fn placements_invalides_en_echec() {
+    if map_ldtk::RENDER_ENABLED {
+        return;
+    }
+    let mut scenario = two_placements();
+    scenario.characters[0].character = "absent".into();
+    scenario.characters[1].variant = Some("doree".into());
+    scenario.characters.push(CharacterPlacement {
+        at_frame: scenario.frames,
+        ..scenario.characters[1].clone()
+    });
+    let outcome = scenario::run(&scenario);
+    let has = |needle: &str| outcome.failures.iter().any(|f| f.contains(needle));
+    assert!(
+        has("personnage inconnu « absent »"),
+        "{:#?}",
+        outcome.failures
+    );
+    assert!(
+        has("variante « doree » inconnue"),
+        "{:#?}",
+        outcome.failures
+    );
+    assert!(has("at_frame 60 >= frames 60"), "{:#?}", outcome.failures);
+}

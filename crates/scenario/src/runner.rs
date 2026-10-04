@@ -214,6 +214,7 @@ pub fn build_app(scenario: &Scenario, headless: bool, config: &PlayConfig) -> Ap
         // T1.13 : placements scriptés de personnages (voir la doc de
         // `apply_scenario_character_placements`).
         .insert_resource(ScenarioCharacterPlacements(scenario.characters.clone()))
+        .init_resource::<PlacementErrors>()
         .add_systems(
             GgrsSchedule,
             apply_scenario_character_placements
@@ -468,6 +469,11 @@ struct ScenarioPowerUpPlacements(Vec<PowerUpPlacement>);
 #[derive(Resource)]
 struct ScenarioCharacterPlacements(Vec<CharacterPlacement>);
 
+/// Placements refusés (personnage ou variante inconnus), par index : rapportés en échec en fin
+/// de partie. Hors rollback ; un placement rejoué par un rollback n'ajoute pas de doublon.
+#[derive(Resource, Default)]
+struct PlacementErrors(BTreeMap<usize, String>);
+
 /// Index (dans `Scenario::characters`) du placement qui a créé ce personnage, pour
 /// `EntityRef::Placed`. Composant d'observation, **hors rollback** (non enregistré, donc hors
 /// checksum et hors trace) : reposé à l'identique quand un rollback rejoue le placement.
@@ -486,6 +492,7 @@ fn apply_scenario_character_placements(
     assets: map_ldtk::game::local::LevelSpawnAssets,
     mut commands: Commands,
     mut id_factory: ResMut<GgrsNetIdFactory>,
+    mut errors: ResMut<PlacementErrors>,
 ) {
     for (index, placement) in placements
         .0
@@ -493,6 +500,37 @@ fn apply_scenario_character_placements(
         .enumerate()
         .filter(|(_, p)| p.at_frame == frame.frame)
     {
+        let config = assets
+            .global_assets
+            .character_configs
+            .get(&placement.character)
+            .and_then(|handle| assets.character_asset.get(handle));
+        let Some(config) = config else {
+            errors.0.insert(
+                index,
+                format!(
+                    "placement {index} : personnage inconnu « {} »",
+                    placement.character
+                ),
+            );
+            continue;
+        };
+        if let Some(variant) = &placement.variant {
+            let known = config
+                .variants
+                .as_ref()
+                .is_some_and(|variants| variants.table.contains_key(variant));
+            if !known {
+                errors.0.insert(
+                    index,
+                    format!(
+                        "placement {index} : variante « {variant} » inconnue de « {} »",
+                        placement.character
+                    ),
+                );
+                continue;
+            }
+        }
         let position = fixed_math::FixedVec3::new(placement.x, placement.y, fixed_math::FIXED_ZERO);
         let spawned = map_ldtk::game::local::spawn_character(
             &mut commands,
@@ -793,6 +831,15 @@ pub fn run_with_options<F: FnOnce(&mut App)>(
     let mut wall_reported = vec![false; navigation.len()];
 
     let mut failures = Vec::new();
+    // T1.13 : un placement après la dernière frame ne serait jamais appliqué.
+    for (index, placement) in scenario.characters.iter().enumerate() {
+        if placement.at_frame >= scenario.frames {
+            failures.push(format!(
+                "placement {index} (« {} ») : at_frame {} >= frames {}",
+                placement.character, placement.at_frame, scenario.frames
+            ));
+        }
+    }
     let mut invariants = InvariantQueries::new(app.world_mut());
     // Dernière santé vue par attente `NoDamageBetween`, clé (handle, from_frame).
     let mut dernieres_santes: BTreeMap<(usize, u32), fixed_math::Fixed> = BTreeMap::new();
@@ -976,6 +1023,15 @@ pub fn run_with_options<F: FnOnce(&mut App)>(
             scenario.frames
         ));
     }
+
+    // T1.13 : placements refusés.
+    failures.extend(
+        app.world()
+            .resource::<PlacementErrors>()
+            .0
+            .values()
+            .cloned(),
+    );
 
     // Ajoute les mismatches de synctest aux failures
     let synctest_mismatches = app.world().resource::<SyncTestMismatches>();
