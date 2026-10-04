@@ -341,6 +341,14 @@ pub fn apply_inputs(
                 panic!("FORCED CRASH BY PLAYER {}", player.handle);
             }
 
+            // Visée : recalculée à chaque frame, AVANT tout `continue` (dash). `system_weapon_position`
+            // en déduit la rotation de l'arme dans la même frame ; le composant n'est pas rollbacké
+            // (donnée dérivée de l'input, jamais lue d'une frame à l'autre). Écrite après le dash,
+            // elle restait figée pendant celui-ci et une frame resimulée lisait la visée d'une
+            // frame plus récente : desync du synctest (scénario `dash_aim_change`).
+            cursor_position.x = input.pan_x as i32;
+            cursor_position.y = input.pan_y as i32;
+
             let was_dashing = dash_state.is_dashing;
             dash_state.update();
             if was_dashing && !dash_state.is_dashing {
@@ -419,9 +427,6 @@ pub fn apply_inputs(
             let direction = movement_direction(&input);
 
             *facing_direction = get_facing_direction(&input);
-
-            cursor_position.x = input.pan_x as i32;
-            cursor_position.y = input.pan_y as i32;
 
             if direction != fixed_math::FixedVec2::ZERO {
                 // Stats branchées (T1.2, chantier B2) : résolues (base + modificateurs

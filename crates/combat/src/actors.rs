@@ -139,10 +139,11 @@ pub struct BoxInput {
 
 /// Component for the weapon sprite's position relative to player
 ///
-/// Lu par `system_weapon_position` (rotation de l'arme, `GgrsSchedule`) mais écrit par
-/// `apply_inputs` seulement hors dash : il est donc de l'état rollback, enregistré par
-/// `BaseCharacterGamePlugin` (hors checksum, voir là).
-#[derive(Component, Clone, Copy, Debug, Default)]
+/// Donnée dérivée de l'input (`pan`), non rollbackée : `apply_inputs` la réécrit à chaque
+/// frame, avant tout retour anticipé (dash), et `system_weapon_position` la lit dans la même
+/// frame. Ne jamais la lire d'une frame à l'autre ni l'écrire après un `continue` : elle
+/// redeviendrait un état caché que le rollback ne restaure pas (scénario `dash_aim_change`).
+#[derive(Component, Clone, Copy, Default)]
 pub struct CursorPosition {
     pub x: i32,
     pub y: i32,
