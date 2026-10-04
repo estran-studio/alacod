@@ -2,13 +2,17 @@
 
 **Branche** `m1-v1c-variantes`, partie de la tête livrée de T1.4 `111cd99`
 (`m1-v1c-behaviors-composables`), même worktree et même target. Fiche :
-`docs/taches/m1-v1c-variantes.md` (main `a3a1876`). Base à la livraison : _(merge final)_.
+`docs/taches/m1-v1c-variantes.md` (main `a3a1876`). `origin/main` `22d6c73` (T1.6 terrain
+destructible mergée) mergé juste avant la livraison : conflits `CLAUDE.md`, `scenario::events`,
+`conventions.md` gardés des deux côtés. Base à la livraison : `origin/main` `22d6c73`. La
+branche contient aussi T1.4 (prérequis, pas encore mergée dans main au moment de livrer).
 
 ## État en cours
 
-- **Fait** : tout le périmètre de la fiche (§1), scénarios calés et verts.
-- **En cours** : vérification complète (suite, crates, lint, gen, exemples).
-- **Prochaines étapes** : merge `origin/main`, purge, rapport final, push, LIVRÉ.
+- **Fait** : tout le périmètre de la fiche (§1), vérifié sur l'état fusionné avec
+  `22d6c73` (§2). Livré.
+- **Reste à l'orchestrateur** : bless des 4 traces T1.5 (et des 4 de T1.4 quand T1.4 sera
+  mergée), bench strict, p2p, merge après T1.4.
 - **Chiffres connus** : grunt tiré (NetId 30) = aucune variante (graine 123456), `blinde`
   (graine 777) ; `rapide` EnemyMoveSpeed 90 (×1,5), `blinde` santé 120 (×2).
 
@@ -67,11 +71,31 @@
 
 ## 2. Vérifié (résultats réels)
 
-_(complété après la vérification finale)_
+Sur l'état fusionné avec `origin/main` `22d6c73` (91 traces de main, dont les 4 de T1.6) :
+
+- **`make test_scenarios`** (via la suite des crates) : 99 scénarios joués, **0 « trace
+  différente »**, **0 attente en échec** ; seuls sans trace : `variant_fast`, `variant_none`,
+  `variant_elite`, `variant_draw` (4 bless demandés) et les 4 de T1.4 (`enemy_keep_distance`,
+  `enemy_charge`, `enemy_flee`, `enemy_wander`, bénies au merge de T1.4). Aucune trace bénie par
+  moi. Même résultat avant le merge de T1.6 (95 scénarios, 87 traces de main).
+- **Tests des crates** (`scenario run combat game content map_ldtk map sim_core stats bots
+  effects utils behaviors world`) : tous verts hors `scenarios` (ci-dessus) — `game` 60 (dont
+  les 5 de `variant` : même graine + net id ⇒ même variante, `chance` 0/1, poids 0 jamais tiré,
+  variante imposée, modificateurs/source/santé), `lint_fixtures` 59 (6 nouvelles), `combat` 66,
+  `behaviors` 6, `scenario --test expectations` 40 (dont `enemy_variant_lit_la_variante`).
+- **`make lint`** : `games/zombies` et `games/testbed` sans erreur (15 personnages, 14 armes,
+  13 cartes). **`fmt`** propre ; **`check-forbidden`** 4 occurrences (identique à main) ;
+  **`check-rollback-registration`** OK.
+- **`make gen`** : zombies 10/10 et testbed 20/20 (`ok`/`ok`), aucun fichier généré modifié.
+- **Exemples racine** : `cargo build --examples --profile headless --no-default-features` OK.
 
 ## 3. Non fait / incertain
 
-_(complété)_
+- **Bench strict** et **p2p à deux clients** : non faits (machine chargée toute la nuit, charge
+  10 à 17 ; pour l'orchestrateur). Les variantes ne coûtent rien aux personnages sans table
+  (une lecture d'`Option` au spawn).
+- `peek_next()` demandé pour l'identifiant n'a pas été ajouté : remplacé par l'allocation dans
+  `spawn_enemy` passée à `create_character` (§1), qui supprime le risque au lieu de le tester.
 
 ## 4. Dettes, questions ouvertes
 
