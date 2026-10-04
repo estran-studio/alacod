@@ -172,17 +172,33 @@ impl PatternLibrary {
     }
 }
 
-/// Action déclenchée à la fin d'un projectile (`on_expire`). Une seule en v1.
-#[derive(Clone, PartialEq, Eq, Debug, Hash, Serialize, Deserialize)]
+/// Action déclenchée à la fin d'un projectile (`on_expire`). `Hash` manuel (voir plus bas).
+#[derive(Clone, PartialEq, Eq, Debug, Serialize, Deserialize)]
 pub enum ExpireAction {
     /// Fait naître le pattern au point de fin du projectile. Seuls les patterns instantanés
     /// sont joués (`Aimed`, `Spread`, `Ring` une seule fois, `Sequence` de ceux-ci) ;
     /// `Telegraph`/`Wait` appartiennent aux émetteurs (T1.2) et sont refusés par le lint.
     Spawn(Pattern),
     /// Creuse le terrain d'une caverne au point de fin (T1.6, `effects::Action::DestroyTerrain`
-    /// : `Rock` à moins de `radius` → `Floor`). Ajoutée en dernier : le hash des contenus
-    /// existants ne bouge pas.
+    /// : `Rock` à moins de `radius` → `Floor`).
     DestroyTerrain { radius: Fixed },
+}
+
+/// `#[derive(Hash)]` d'un enum à **une seule** variante n'écrit pas le discriminant : tant que
+/// `Spawn` était seule, son hash était celui du pattern. Ajouter une variante dérivée ferait
+/// écrire le discriminant et déplacerait le checksum de toute arme à `on_expire` (config
+/// hachée dès la frame 0, trace `weapon_grenade`). `Spawn` garde donc exactement son hash
+/// historique ; `DestroyTerrain` écrit un marqueur puis son rayon.
+impl std::hash::Hash for ExpireAction {
+    fn hash<H: std::hash::Hasher>(&self, state: &mut H) {
+        match self {
+            ExpireAction::Spawn(pattern) => pattern.hash(state),
+            ExpireAction::DestroyTerrain { radius } => {
+                "DestroyTerrain".hash(state);
+                radius.hash(state);
+            }
+        }
+    }
 }
 
 /// Comportement composable d'un projectile, tel que déclaré dans un mode de tir. Vide (tous
