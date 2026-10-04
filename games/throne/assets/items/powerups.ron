@@ -1,0 +1,36 @@
+// `throne` (T1.11, docs/conventions.md §14 et §29) : butin à la mort des ennemis (un ennemi sur
+// dix laisse un objet). Munitions, rage et vitesse ; pas de `Carpenter` ni de `Nuke` (pas de
+// fenêtres ni de vagues dans une caverne). `RefillAmmo` recharge toutes les munitions : un
+// butin par munition demanderait une action d'engine (dette du rapport).
+(
+    drop_chance: "0.1",
+    powerups: {
+        "munitions": (
+            name: "Munitions",
+            weight: 50,
+            pickup_range: "30.0",
+            lifetime_frames: 1800,
+            actions: [
+                RefillAmmo,
+            ],
+        ),
+        "rage": (
+            name: "Rage",
+            weight: 25,
+            pickup_range: "30.0",
+            lifetime_frames: 1800,
+            actions: [
+                TimedModifier(stat: Damage, op: Mul, value: "2.0", frames: 600),
+            ],
+        ),
+        "vitesse": (
+            name: "Vitesse",
+            weight: 25,
+            pickup_range: "30.0",
+            lifetime_frames: 1800,
+            actions: [
+                TimedModifier(stat: MoveSpeed, op: Mul, value: "1.3", frames: 600),
+            ],
+        ),
+    },
+)

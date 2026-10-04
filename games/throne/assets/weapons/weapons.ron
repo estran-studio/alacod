@@ -1,0 +1,456 @@
+// `throne` (T1.11, docs/conventions.md §29) : douze armes du joueur sur cinq munitions
+// (`Custom("balles")`, `obus`, `explosifs`, `energie`, `lames` : au moins deux armes chacune),
+// projectiles composables (T1.1 : `Bounce`, `Pierce`, `Size`, `Lifetime`, `Homing`, `Gravity`,
+// `on_expire: Spawn`), plus l'arsenal des ennemis (`arsenal`, projectiles de leurs patterns,
+// T1.2). Sprites réutilisés du testbed (placeholders, voir `assets.yaml`). Chaque arme porte un
+// gabarit `test:` (scénario généré, `make gen GAME=throne`).
+({    // Balles : revolver, coup par coup, précis.
+    "revolver": (
+        config: (
+            name: "revolver",
+            default_firing_mode: "default",
+            ammo_type: Custom("balles"),
+            firing_modes: {
+                "default": (
+                    firing_rate: "2.0",
+                    firing_mode: Manual(),
+                    spread: "0.0005",
+                    recoil: "1.0",
+                    bullet_type: Standard(
+                        damage: "15.0",
+                        speed: "400.0",
+                    ),
+                    range: "700.0",
+                    reload_time_seconds: "1.0",
+                    mag: Mag(mag_size: 6, mag_limit: 8),
+                )
+            },
+            test: Some((frames: 200, min_hits: 3)),
+        ),
+        sprite_config: (
+            name: "pistol",
+            index: 3,
+            bullet_offset_right: ( x: "-5.0", y: "2.0" ),
+            bullet_offset_left: ( x: "0.0", y: "-2.0" ),
+            weapon_offset: ( x: "0.0", y: "-5.0" )
+        ),
+    ),
+    // Balles : automatique, dispersion large.
+    "mitraillette": (
+        config: (
+            name: "mitraillette",
+            default_firing_mode: "default",
+            ammo_type: Custom("balles"),
+            firing_modes: {
+                "default": (
+                    firing_rate: "10.0",
+                    firing_mode: Automatic(),
+                    spread: "0.15",
+                    recoil: "1.0",
+                    bullet_type: Standard(
+                        damage: "8.0",
+                        speed: "300.0",
+                    ),
+                    range: "900.0",
+                    reload_time_seconds: "1.5",
+                    mag: Mag(mag_size: 30, mag_limit: 8),
+                )
+            },
+            test: Some((frames: 200, min_hits: 3)),
+        ),
+        sprite_config: (
+            name: "machine_gun",
+            index: 1,
+            bullet_offset_right: ( x: "12.0", y: "0.0" ),
+            bullet_offset_left: ( x: "12.0", y: "-0.0" ),
+            weapon_offset: ( x: "0.0", y: "-5.0" )
+        ),
+    ),
+    // Obus : huit plombs en éventail.
+    "fusil_a_pompe": (
+        config: (
+            name: "fusil_a_pompe",
+            default_firing_mode: "default",
+            ammo_type: Custom("obus"),
+            firing_modes: {
+                "default": (
+                    firing_rate: "1.0",
+                    firing_mode: Shotgun(pellet_count: 8, spread_angle: "0.4"),
+                    spread: "0.0",
+                    recoil: "1.0",
+                    bullet_type: Standard(
+                        damage: "12.0",
+                        speed: "250.0",
+                    ),
+                    range: "400.0",
+                    reload_time_seconds: "0.8",
+                    mag: Mag(mag_size: 4, mag_limit: 6),
+                )
+            },
+            test: Some((frames: 200, min_hits: 3)),
+        ),
+        sprite_config: (
+            name: "shotgun",
+            index: 0,
+            bullet_offset_right: ( x: "10.0", y: "-0" ),
+            bullet_offset_left: ( x: "10.0", y: "0" ),
+            weapon_offset: ( x: "0.0", y: "-5." )
+        ),
+    ),
+    // Obus : balle lourde qui rebondit trois fois sur les murs (`Bounce`).
+    "canon_ricochet": (
+        config: (
+            name: "canon_ricochet",
+            default_firing_mode: "default",
+            ammo_type: Custom("obus"),
+            firing_modes: {
+                "default": (
+                    firing_rate: "2.0",
+                    firing_mode: Manual(),
+                    spread: "0.0",
+                    recoil: "1.0",
+                    bullet_type: Standard(
+                        damage: "20.0",
+                        speed: "300.0",
+                    ),
+                    range: "900.0",
+                    reload_time_seconds: "1.2",
+                    mag: Mag(mag_size: 5, mag_limit: 6),
+                    projectile: (modifiers: [Bounce(3)]),
+                )
+            },
+            test: Some((frames: 200, min_hits: 3)),
+        ),
+        sprite_config: (
+            name: "shotgun",
+            index: 0,
+            bullet_offset_right: ( x: "10.0", y: "-0" ),
+            bullet_offset_left: ( x: "10.0", y: "0" ),
+            weapon_offset: ( x: "0.0", y: "-5." )
+        ),
+    ),
+    // Explosifs : grenade qui rebondit, roule à travers les personnages et explose à la fin de sa vie en huit éclats (`on_expire: Spawn`).
+    "lance_grenades": (
+        config: (
+            name: "lance_grenades",
+            default_firing_mode: "default",
+            ammo_type: Custom("explosifs"),
+            firing_modes: {
+                "default": (
+                    firing_rate: "1.0",
+                    firing_mode: Manual(),
+                    spread: "0.0",
+                    recoil: "1.0",
+                    bullet_type: Standard(
+                        damage: "0.0",
+                        speed: "200.0",
+                    ),
+                    range: "600.0",
+                    reload_time_seconds: "1.5",
+                    mag: Mag(mag_size: 4, mag_limit: 4),
+                    projectile: (modifiers: [Bounce(2), Pierce(8), Lifetime(50)],
+                        on_expire: [Spawn(Aimed(count: 1, spread: "0.0", projectile: "explosion"))],
+                    ),
+                )
+            },
+            projectiles: {
+                "explosion": (
+                    damage: "20.0",
+                    speed: "0.0",
+                    range: "1.0",
+                    modifiers: [Lifetime(0), Size("10.0"), Pierce(16)],
+                    on_expire: [Spawn(Ring(count: 8, speed: "240.0", projectile: "eclat", every: 0))],
+                ),
+                "eclat": (damage: "4.0", speed: "240.0", range: "96.0"),
+            },
+            test: Some((frames: 600, min_hits: 9)),
+        ),
+        sprite_config: (
+            name: "pistol",
+            index: 3,
+            bullet_offset_right: ( x: "-5.0", y: "2.0" ),
+            bullet_offset_left: ( x: "0.0", y: "-2.0" ),
+            weapon_offset: ( x: "0.0", y: "-5.0" )
+        ),
+    ),
+    // Explosifs : roquette rapide qui explose au contact ou au bout de 40 frames (`Lifetime`, `on_expire: Spawn`).
+    "roquette": (
+        config: (
+            name: "roquette",
+            default_firing_mode: "default",
+            ammo_type: Custom("explosifs"),
+            firing_modes: {
+                "default": (
+                    firing_rate: "1.0",
+                    firing_mode: Manual(),
+                    spread: "0.0",
+                    recoil: "1.0",
+                    bullet_type: Standard(
+                        damage: "10.0",
+                        speed: "360.0",
+                    ),
+                    range: "800.0",
+                    reload_time_seconds: "1.5",
+                    mag: Mag(mag_size: 3, mag_limit: 4),
+                    projectile: (modifiers: [Lifetime(40)],
+                        on_expire: [Spawn(Aimed(count: 1, spread: "0.0", projectile: "souffle"))],
+                    ),
+                )
+            },
+            projectiles: {
+                "souffle": (
+                    damage: "25.0",
+                    speed: "0.0",
+                    range: "1.0",
+                    modifiers: [Lifetime(0), Size("16.0"), Pierce(16)],
+                ),
+            },
+            test: Some((frames: 300, min_hits: 2)),
+        ),
+        sprite_config: (
+            name: "machine_gun",
+            index: 1,
+            bullet_offset_right: ( x: "12.0", y: "0.0" ),
+            bullet_offset_left: ( x: "12.0", y: "-0.0" ),
+            weapon_offset: ( x: "0.0", y: "-5.0" )
+        ),
+    ),
+    // Explosifs : obus en cloche (`Gravity`) qui éclate en éventail de cinq fragments à la fin de sa vie.
+    "mortier": (
+        config: (
+            name: "mortier",
+            default_firing_mode: "default",
+            ammo_type: Custom("explosifs"),
+            firing_modes: {
+                "default": (
+                    firing_rate: "1.0",
+                    firing_mode: Manual(),
+                    spread: "0.0",
+                    recoil: "1.0",
+                    bullet_type: Standard(
+                        damage: "15.0",
+                        speed: "300.0",
+                    ),
+                    range: "700.0",
+                    reload_time_seconds: "1.5",
+                    mag: Mag(mag_size: 3, mag_limit: 4),
+                    projectile: (modifiers: [Gravity("-60.0"), Lifetime(60)],
+                        on_expire: [Spawn(Spread(count: 5, spread: "1.2", projectile: "fragment"))],
+                    ),
+                )
+            },
+            projectiles: {
+                "fragment": (damage: "5.0", speed: "200.0", range: "80.0"),
+            },
+            test: Some((frames: 400, min_hits: 2)),
+        ),
+        sprite_config: (
+            name: "pistol",
+            index: 3,
+            bullet_offset_right: ( x: "-5.0", y: "2.0" ),
+            bullet_offset_left: ( x: "0.0", y: "-2.0" ),
+            weapon_offset: ( x: "0.0", y: "-5.0" )
+        ),
+    ),
+    // Énergie : rayon rapide qui traverse quatre personnages (`Pierce`).
+    "laser": (
+        config: (
+            name: "laser",
+            default_firing_mode: "default",
+            ammo_type: Custom("energie"),
+            firing_modes: {
+                "default": (
+                    firing_rate: "4.0",
+                    firing_mode: Manual(),
+                    spread: "0.0",
+                    recoil: "1.0",
+                    bullet_type: Standard(
+                        damage: "12.0",
+                        speed: "600.0",
+                    ),
+                    range: "900.0",
+                    reload_time_seconds: "1.0",
+                    mag: Mag(mag_size: 12, mag_limit: 6),
+                    projectile: (modifiers: [Pierce(4)]),
+                )
+            },
+            test: Some((frames: 200, min_hits: 3)),
+        ),
+        sprite_config: (
+            name: "machine_gun",
+            index: 1,
+            bullet_offset_right: ( x: "12.0", y: "0.0" ),
+            bullet_offset_left: ( x: "12.0", y: "-0.0" ),
+            weapon_offset: ( x: "0.0", y: "-5.0" )
+        ),
+    ),
+    // Énergie : boule lente et large (`Size`), courte vie (`Lifetime`).
+    "plasma": (
+        config: (
+            name: "plasma",
+            default_firing_mode: "default",
+            ammo_type: Custom("energie"),
+            firing_modes: {
+                "default": (
+                    firing_rate: "2.0",
+                    firing_mode: Manual(),
+                    spread: "0.0",
+                    recoil: "1.0",
+                    bullet_type: Standard(
+                        damage: "18.0",
+                        speed: "180.0",
+                    ),
+                    range: "600.0",
+                    reload_time_seconds: "1.2",
+                    mag: Mag(mag_size: 8, mag_limit: 6),
+                    projectile: (modifiers: [Size("8.0"), Lifetime(120)]),
+                )
+            },
+            test: Some((frames: 200, min_hits: 2)),
+        ),
+        sprite_config: (
+            name: "pistol",
+            index: 3,
+            bullet_offset_right: ( x: "-5.0", y: "2.0" ),
+            bullet_offset_left: ( x: "0.0", y: "-2.0" ),
+            weapon_offset: ( x: "0.0", y: "-5.0" )
+        ),
+    ),
+    // Énergie : projectile à tête chercheuse (`Homing`).
+    "traqueur": (
+        config: (
+            name: "traqueur",
+            default_firing_mode: "default",
+            ammo_type: Custom("energie"),
+            firing_modes: {
+                "default": (
+                    firing_rate: "3.0",
+                    firing_mode: Manual(),
+                    spread: "0.0",
+                    recoil: "1.0",
+                    bullet_type: Standard(
+                        damage: "10.0",
+                        speed: "300.0",
+                    ),
+                    range: "900.0",
+                    reload_time_seconds: "1.0",
+                    mag: Mag(mag_size: 10, mag_limit: 6),
+                    projectile: (modifiers: [Homing("0.1")]),
+                )
+            },
+            test: Some((frames: 200, min_hits: 2)),
+        ),
+        sprite_config: (
+            name: "pistol",
+            index: 3,
+            bullet_offset_right: ( x: "-5.0", y: "2.0" ),
+            bullet_offset_left: ( x: "0.0", y: "-2.0" ),
+            weapon_offset: ( x: "0.0", y: "-5.0" )
+        ),
+    ),
+    // Lames : lame qui ricoche deux fois et traverse un personnage.
+    "lance_lames": (
+        config: (
+            name: "lance_lames",
+            default_firing_mode: "default",
+            ammo_type: Custom("lames"),
+            firing_modes: {
+                "default": (
+                    firing_rate: "3.0",
+                    firing_mode: Manual(),
+                    spread: "0.0",
+                    recoil: "1.0",
+                    bullet_type: Standard(
+                        damage: "12.0",
+                        speed: "320.0",
+                    ),
+                    range: "700.0",
+                    reload_time_seconds: "1.0",
+                    mag: Mag(mag_size: 8, mag_limit: 6),
+                    projectile: (modifiers: [Bounce(2), Pierce(1)]),
+                )
+            },
+            test: Some((frames: 200, min_hits: 3)),
+        ),
+        sprite_config: (
+            name: "pistol",
+            index: 3,
+            bullet_offset_right: ( x: "-5.0", y: "2.0" ),
+            bullet_offset_left: ( x: "0.0", y: "-2.0" ),
+            weapon_offset: ( x: "0.0", y: "-5.0" )
+        ),
+    ),
+    // Lames : disque en rafale de trois, traverse trois personnages, vit 90 frames.
+    "disque": (
+        config: (
+            name: "disque",
+            default_firing_mode: "default",
+            ammo_type: Custom("lames"),
+            firing_modes: {
+                "default": (
+                    firing_rate: "2.0",
+                    firing_mode: Burst(pellets_per_shot: 3, cooldown_frames: 4),
+                    spread: "0.05",
+                    recoil: "1.0",
+                    bullet_type: Standard(
+                        damage: "8.0",
+                        speed: "280.0",
+                    ),
+                    range: "700.0",
+                    reload_time_seconds: "1.2",
+                    mag: Mag(mag_size: 12, mag_limit: 6),
+                    projectile: (modifiers: [Pierce(3), Lifetime(90)]),
+                )
+            },
+            test: Some((frames: 200, min_hits: 3)),
+        ),
+        sprite_config: (
+            name: "machine_gun",
+            index: 1,
+            bullet_offset_right: ( x: "12.0", y: "0.0" ),
+            bullet_offset_left: ( x: "12.0", y: "-0.0" ),
+            weapon_offset: ( x: "0.0", y: "-5.0" )
+        ),
+    ),
+    // Arsenal des ennemis (pas une arme du joueur, aucun ennemi ne la lâche) : sa table
+    // `projectiles` fournit les projectiles des patterns de tir (`patterns/`, règle `Shoot`).
+    // Tirée par un joueur (scénario généré) : balle ordinaire.
+    "arsenal": (
+        config: (
+            name: "arsenal",
+            default_firing_mode: "default",
+            ammo_type: Custom("balles"),
+            firing_modes: {
+                "default": (
+                    firing_rate: "4.0",
+                    firing_mode: Manual(),
+                    spread: "0.0",
+                    recoil: "0.0",
+                    bullet_type: Standard(
+                        damage: "10.0",
+                        speed: "300.0",
+                    ),
+                    range: "900.0",
+                    reload_time_seconds: "1.0",
+                    mag: Mag(mag_size: 30, mag_limit: 4),
+                )
+            },
+            projectiles: {
+                // Crachat visé (`cracheur`, `franc_tireur`).
+                "crachat": (damage: "6.0", speed: "150.0", range: "320.0"),
+                // Plombs en éventail (`arroseur`).
+                "plomb": (damage: "4.0", speed: "140.0", range: "260.0"),
+                // Couronne lente de la tourelle.
+                "boule": (damage: "8.0", speed: "90.0", range: "400.0"),
+            },
+            test: Some((frames: 200, min_hits: 2)),
+        ),
+        sprite_config: (
+            name: "pistol",
+            index: 3,
+            bullet_offset_right: ( x: "-5.0", y: "2.0" ),
+            bullet_offset_left: ( x: "0.0", y: "-2.0" ),
+            weapon_offset: ( x: "0.0", y: "-5.0" )
+        ),
+    ),
+})

@@ -1,0 +1,2 @@
+// `throne` (T1.11) : cinq plombs en éventail (`arroseur`).
+Spread(count: 5, spread: "0.8", projectile: "plomb")

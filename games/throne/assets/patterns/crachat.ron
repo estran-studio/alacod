@@ -1,0 +1,2 @@
+// `throne` (T1.11) : un crachat visé (`cracheur`), table `projectiles` d'`arsenal`.
+Aimed(count: 1, spread: "0.0", projectile: "crachat")

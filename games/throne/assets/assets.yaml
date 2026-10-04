@@ -1,0 +1,94 @@
+# Registre des licences des assets binaires de games/throne/assets/ (voie V6, même règles que
+# games/zombies/assets/assets.yaml). Créé par m1-v2-contenu-throne (T1.0c + T1.11) : `throne`
+# n'a encore **aucun asset propre** ; tous les fichiers ci-dessous sont des **placeholders**
+# copiés du testbed (eux-mêmes identiques à ceux de zombies), entrées reprises de
+# games/zombies/assets/assets.yaml (chemins `exemples/atlas/` devenus `atlas/`). Les ennemis
+# de throne n'ont aucun sprite (comme les personnages de laboratoire du testbed).
+
+- id: basic-zombie-shooter-blackhunterdev
+  fichiers:
+    - sprites/characters/player/Body/Body.png
+    - sprites/characters/player/Hair/Hair1.png
+    - sprites/characters/player/Hair/Hair2.png
+    - sprites/characters/player/Hair/Hair3.png
+    - sprites/characters/player/Hair/Hair4.png
+    - sprites/characters/player/Moustach/Moustach1.png
+    - sprites/characters/player/Moustach/Moustach2.png
+    - sprites/characters/player/Moustach/Moustach3.png
+    - sprites/characters/player/Moustach/Moustach4.png
+    - sprites/characters/player/Shirt/Shirt1.png
+    - sprites/characters/player/Shirt/Shirt2.png
+    - sprites/characters/player/Shirt/Shirt3.png
+    - sprites/characters/player/Shirt/Shirt4.png
+    - sprites/characters/shadow/Shadow.png
+    - sprites/weapons/Weapons.png
+  source: https://blackhunterdev.itch.io/basic-zombie-shooter-game-asset
+  auteur: blackHUNTERdev
+  licence: CC BY 4.0 (https://creativecommons.org/licenses/by/4.0/)
+  modifications: aucune (fichiers identiques au pack, preuves md5)
+  statut: placeholder (copie du testbed/zombies) — à remplacer par la voie V6
+
+- id: zombie-shooter-source-inconnue
+  fichiers:
+    - sprites/effects/slash/Slash_strip3.png
+  source: inconnue (ajoutés après coup, absents du pack blackHUNTERdev ; aucune page
+    source identifiée de façon fiable au 2026-10-02)
+  auteur: inconnu
+  licence: inconnue — à identifier ou remplacer (dette de la voie V6)
+  modifications: inconnues
+  statut: placeholder (copie du testbed/zombies) — à remplacer par la voie V6
+
+- id: sunnyland-ansimuz
+  fichiers:
+    - atlas/SunnyLand_by_Ansimuz-extended.png
+    - atlas/SunnyLand-player.png
+  source: https://ansimuz.itch.io/sunny-land-pixel-game-art
+  auteur: Ansimuz
+  licence: CC0 1.0 (https://creativecommons.org/publicdomain/zero/1.0/)
+  modifications: aucune (repris des assets d'exemple de bevy_ecs_ldtk)
+  statut: placeholder (copie du testbed/zombies) — à remplacer par la voie V6
+
+- id: pixel-poem-dungeon-tileset
+  fichiers:
+    - atlas/Dungeon_Tileset.png
+  source: https://pixel-poem.itch.io/dungeon-assetpuck
+  auteur: Pixel_Poem
+  licence: licence propre de l'auteur (pas CC0) — « This asset pack can be used
+    in free and commercial projects. You can modify it to suit your own needs.
+    Credit is not necessary, but appreciated. You may not redistribute it or
+    resell it. » L'auteur a explicitement autorisé en commentaire de la page
+    l'hébergement des sprites dans un dépôt open source (« Yes, you can. »).
+  modifications: aucune (fichier identique au pack, preuve md5)
+  note: licence hors CC0/CC-BY — à valider par l'équipe (dette de la voie V6)
+  statut: placeholder (copie du testbed/zombies) — à remplacer par la voie V6
+
+- id: sound-machine-gun-scottishperson
+  fichiers:
+    - sounds/machine-gun.ogg
+  source: https://pixabay.com/sound-effects/sound-effect-machine-gun-333524/
+  auteur: ScottishPerson
+  licence: Pixabay Content License (https://pixabay.com/service/license-summary/),
+    pas d'attribution requise
+  modifications: "ré-encodage ogg (conversion ffmpeg du mp3, durée identique : 17,6588 s)"
+  statut: placeholder (copie du testbed/zombies) — à remplacer par la voie V6
+
+- id: sound-machine-gun-reload-samsterbirdies
+  fichiers:
+    - sounds/machine-gun-reload.ogg
+  source: https://pixabay.com/sound-effects/technology-machine-gun-reload-81593/
+  auteur: SamsterBirdies (publié via le compte freesound_community)
+  licence: Pixabay Content License (https://pixabay.com/service/license-summary/),
+    pas d'attribution requise
+  modifications: "ré-encodage ogg (conversion ffmpeg du mp3, durée identique : 2,8212 s)"
+  statut: placeholder (copie du testbed/zombies) — à remplacer par la voie V6
+
+- id: fira-mono
+  fichiers:
+    - fonts/FiraMono-Medium.ttf
+    - fonts/FiraMono-LICENSE
+  source: https://github.com/mozilla/Fira (texte de licence embarqué dans le
+    dépôt, fichier fonts/FiraMono-LICENSE)
+  auteur: The Mozilla Foundation and Telefonica S.A.
+  licence: SIL Open Font License 1.1 (https://openfontlicense.org/)
+  modifications: aucune
+  statut: placeholder (copie du testbed/zombies) — à remplacer par la voie V6

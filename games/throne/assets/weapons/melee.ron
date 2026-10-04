@@ -1,0 +1,72 @@
+// `throne` (T1.11) : armes de corps à corps. `bare_hands` : arme de mêlée par défaut du joueur
+// (copie du testbed) ; `griffes`, `crocs`, `massue` : celles des ennemis (règle `Melee`).
+({
+    "bare_hands": (
+        config: (
+            name: "Bare Hands",
+            damage: "10.0",
+            range: "30.0",
+            attack_pattern: SingleStrike,
+            attack_duration_frames: 10,
+            cooldown_frames: 30,
+            knockback_force: "70.0",
+            stamina_cost: "5.0",
+        ),
+        sprite_config: (
+            name: "bare_hands",
+            index: 0,
+            weapon_offset: (x: "0.0", y: "0.0"),
+        ),
+    ),
+    "griffes": (
+        config: (
+            name: "Griffes",
+            damage: "3.0",
+            range: "30.0",
+            attack_pattern: SingleStrike,
+            attack_duration_frames: 12,
+            cooldown_frames: 45,
+            knockback_force: "40.0",
+            stamina_cost: "0.0",
+        ),
+        sprite_config: (
+            name: "griffes",
+            index: 0,
+            weapon_offset: (x: "0.0", y: "0.0"),
+        ),
+    ),
+    "crocs": (
+        config: (
+            name: "Crocs",
+            damage: "4.0",
+            range: "28.0",
+            attack_pattern: SingleStrike,
+            attack_duration_frames: 8,
+            cooldown_frames: 40,
+            knockback_force: "30.0",
+            stamina_cost: "0.0",
+        ),
+        sprite_config: (
+            name: "crocs",
+            index: 0,
+            weapon_offset: (x: "0.0", y: "0.0"),
+        ),
+    ),
+    "massue": (
+        config: (
+            name: "Massue",
+            damage: "8.0",
+            range: "36.0",
+            attack_pattern: SingleStrike,
+            attack_duration_frames: 20,
+            cooldown_frames: 75,
+            knockback_force: "90.0",
+            stamina_cost: "0.0",
+        ),
+        sprite_config: (
+            name: "massue",
+            index: 0,
+            weapon_offset: (x: "0.0", y: "0.0"),
+        ),
+    ),
+})

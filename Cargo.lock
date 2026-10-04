@@ -10997,6 +10997,24 @@ dependencies = [
 ]
 
 [[package]]
+name = "throne"
+version = "0.0.1"
+dependencies = [
+ "animation",
+ "bevy 0.19.1",
+ "bevy_ecs_ldtk",
+ "bevy_ecs_tilemap",
+ "bevy_fixed",
+ "bevy_ggrs",
+ "content",
+ "game",
+ "map",
+ "map_ldtk",
+ "serde_json",
+ "utils",
+]
+
+[[package]]
 name = "tiff"
 version = "0.11.3"
 source = "registry+https://github.com/rust-lang/crates.io-index"
