@@ -143,7 +143,7 @@ fn resolve_fixed(value: &NumOrExpr, players: u32, what: &str) -> Fixed {
     })
 }
 
-fn resolve_waves(config: &WaveConfig, players: u32) -> ResolvedWaveConfig {
+pub(crate) fn resolve_waves(config: &WaveConfig, players: u32) -> ResolvedWaveConfig {
     ResolvedWaveConfig {
         base_enemies: resolve_u32(
             &config.base_enemies,

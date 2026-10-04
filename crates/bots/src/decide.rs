@@ -42,6 +42,11 @@ pub fn decide(profile: BotProfile, view: &BotView, rng: &mut RollbackRng) -> Box
         BotProfile::Immobile => BoxInput::default(),
         BotProfile::Fonceur => decide_fonceur(view),
         BotProfile::Prudent => decide_prudent(view),
+        BotProfile::Chasseur | BotProfile::Acheteur => view
+            .hunter
+            .as_ref()
+            .map(crate::hunter::decide_hunter)
+            .unwrap_or_default(),
     }
 }
 
@@ -119,7 +124,7 @@ fn maybe_reload(input: &mut BoxInput, view: &BotView) {
 /// Visée : vecteur du joueur vers `target`, en unités monde (même convention que
 /// `game::replay::Segment::pan` et `read_local_inputs`, qui envoie `pointer_world_pos -
 /// player_pos`). Conversion Fixed → i16 directe (`to_num`, jamais via `f32`, CLAUDE.md règle 7).
-fn aim_at(input: &mut BoxInput, from: FixedVec2, target: FixedVec2) {
+pub(crate) fn aim_at(input: &mut BoxInput, from: FixedVec2, target: FixedVec2) {
     let delta = target - from;
     input.pan_x = clamp_to_i16(delta.x);
     input.pan_y = clamp_to_i16(delta.y);
@@ -128,7 +133,7 @@ fn aim_at(input: &mut BoxInput, from: FixedVec2, target: FixedVec2) {
 /// `BoxInput::buttons` n'a que 4 bits de direction (pas un vecteur analogique) : seul le signe
 /// de chaque composante de `direction` compte, la magnitude est ignorée (`apply_inputs`
 /// normalise ensuite). Direction nulle → aucun bouton.
-fn set_direction_buttons(input: &mut BoxInput, direction: FixedVec2) {
+pub(crate) fn set_direction_buttons(input: &mut BoxInput, direction: FixedVec2) {
     if direction.x > FIXED_ZERO {
         input.buttons |= INPUT_RIGHT;
     } else if direction.x < FIXED_ZERO {
@@ -162,6 +167,7 @@ mod tests {
             wave: 1,
             nearest_enemy: None,
             nearest_window: None,
+            hunter: None,
             portal: None,
         }
     }

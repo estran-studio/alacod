@@ -1,5 +1,373 @@
 # Rapport — m0-v7 : les bots finissent le clone
 
+**SHA du code validé sur 20 graines : `95630213fda21eab8a06918f32bb876b34a8b456`** (état
+fusionné avec `origin/main` `23a43fc`).
+Fiche : [m0-v7-bots-finisent-le-clone](../m0-v7-bots-finisent-le-clone.md).
+Branche : `m0-v7-phase2-bots-finisent-le-clone` ; agents : Codex (correctifs bots, tir,
+aggro, récupération, secours de spawn), puis Claude Code (graines 16/17, merge de main,
+ré-étalonnage des scénarios, preuve des traces, validation) ; date : 2026-10-03.
+
+## Phase 2 — Correctif
+
+Les profils `chasseur` et `acheteur` suivent des chemins physiques, tirent en marchant,
+changent d'arme et rechargent. L'acheteur utilise les interactions ordinaires pour les
+munitions, Juggernog et une porte abordable quand le combat est inaccessible ; les deux
+profils peuvent réanimer. Les décisions v0 et leurs traces restent inchangées.
+`alacod-sim` choisit quatre acheteurs par défaut, tout en conservant `--profiles` et le
+`--map` de m0-v8. L'option `--progress` observe la progression toutes les 1000 frames
+hors simulation, sans RNG ni état de décision supplémentaire.
+
+### Diagnostic et choix du correctif
+
+Le diagnostic de phase 1 est conservé ci-dessous avec ses huit dumps permanents.
+Les compteurs de vague sont cohérents dans ces cas : les derniers zombies sont vivants,
+physiquement bloqués aux fenêtres/murs, et les bots v0 cherchent en ligne droite ou
+épuisent leur mitrailleuse en gardant des munitions de shotgun. Le correctif donne aux
+nouveaux profils des postes de tir accessibles et récupère les waypoints invalides.
+
+La navigation réutilise `FlowField` et `GridPos` avec un Dijkstra multi-source,
+`BTreeMap`/`BTreeSet`, calculs `Fixed` et cibles triées par `GgrsNetId`. La grille de 8 px,
+le corps et son offset permettent les ouvertures physiques dont le centre tombe entre
+les tuiles de 16 px. Les fenêtres restent infranchissables pour le joueur mais permettent
+le tir ; murs et portes fermées bloquent aussi la visibilité. Les diagonales ne coupent
+pas les coins. Le champ se limite à la composante accessible du joueur ; les approches
+de portes, fenêtres et zones d'aggro sont partagées et conservées tant que leurs clés
+restent identiques. Sans poste de tir, une approche dans le rayon d'aggro réveille le
+zombie distant pour qu'il casse sa fenêtre. L’approche d’aggro ne concerne que les zombies Idle : un zombie déjà en Chasing
+ne doit pas retenir le bot dans son rayon sans poste de tir. Sans approche, réparer rapporte les points
+nécessaires à la première porte ; les choix de portes ordonnent prix, distance à l'ennemi
+et net_id.
+
+Ces caches sont dérivés dans `ReadInputs`, avec toutes leurs dépendances dans leurs
+clés, et non dans `GgrsSchedule`. Ils ne sont donc pas des ressources rollback : les
+inputs décidés sont capturés et leur rejeu scripté donne la même trace. Le registre
+rollback n'est pas étendu pour un état de décision caché.
+
+Une sonde intermédiaire a révélé un problème de collision du joueur : lorsque XY était
+bloqué, vérifier X et Y séparément depuis la position initiale pouvait autoriser leur
+combinaison dans un coin de mur. Le test de régression échoue avant le correctif et
+passe ensuite ; Y est désormais vérifié après le glissement X. La graine 1 passe ainsi
+de 494 violations `joueur_hors_mur` dans la sonde intermédiaire à zéro dans la victoire
+à f7069. Les traces v0 existantes ne rencontrent pas ce cas et restent identiques.
+
+Une première validation (`3cf851e`) a aussi plafonné sur la graine 4 en vague 3 : sept zombies
+aux fenêtres/murs, quatre bots immobiles, pistolets à 4–5 balles, zéro nouveau kill
+entre f19400 et f20000. Le mode Manual exige un relâchement entre deux pressions ;
+maintenir Fire ne redéclenchait pas le tir après le changement d'arme. Les profils v1
+lisent maintenant `WeaponState.is_firing` pour relâcher Manual, Shotgun et Burst,
+sans compteur caché ; Automatic garde la pression continue. Le test des quatre modes
+et le rejeu scripté couvrent cette correction. Dump intermédiaire permanent :
+[graine 4 avant correction du tir](m0-v7-bots-finisent-le-clone.phase2-stall.json).
+
+Les graines 11/12 ont ensuite exposé une autre attente (`791f620`) : aucun poste de
+tir accessible, zombie déjà Chasing mais approche d'aggro à distance nulle, ce qui
+supprimait portes et réparations. La graine 11 conservait un zombie et quatre bots
+à 100 de santé, avec des mitrailleuses pleines ; deux avaient 790/760 points pour une
+porte à 750. La graine 12 conservait deux zombies et des soldes 580–720, nécessitant
+encore des réparations pour sa porte à 750. L'approche d'aggro est désormais réservée
+aux Idle ; les zombies éveillés inaccessibles ne bloquent plus ces interactions. Si
+une autre surface possède le prompt près du but, le bot se rapproche encore ou essaie
+une autre interaction. Le test `hunter_doors` rejoue les graines 2, 11 et 12 en synctest et
+vérifie l'entrée en vague 2 avant f3500, avec quatre survivants et zéro failure.
+
+Une validation suivante (`c8cb176`) a plafonné sur la graine 2 : le dernier zombie
+Chasing visait un point presque confondu avec sa position, hors de sa case suivante.
+L'investigation vers le point accessible le plus proche l'a débloqué, mais la graine
+12 a révélé un autre zombie avec son waypoint dans le mur 222. Les bots avaient ouvert
+deux portes et manquaient de points pour la suivante ; tous les compteurs de vague
+restaient cohérents. Ce cas nécessite aussi une correction du guidage zombie.
+
+Après 600 frames sans kill ni spawn, en Spawning ou InProgress, un zombie de vague
+avec un waypoint sorti de sa case ou dans un mur vise un point physiquement libre
+dans la prochaine case. Une diagonale peut passer par une étape cardinale pour aligner
+le corps dans une ouverture. Chaque segment est vérifié à intervalles d'un pixel avec
+le collider et son offset ; les fenêtres intactes restent bloquantes. Le classement
+(étape, distance au waypoint, x, y) est déterministe. La vitesse et les collisions
+ordinaires restent appliquées. Le délai lit les compteurs existants de WaveState,
+sans nouveau registre rollback. Trois tests couvrent délai, point de frontière et
+alignement au coin de fenêtre, avec refus d'un trajet totalement bloqué.
+
+La nouvelle signature signalée sur avant_poste était distincte : phase `Spawning`,
+ennemis encore à générer, aucun spawner à distance euclidienne 150–600. Après 600 frames
+sans spawn (mesurées depuis le dernier spawn ou le début de phase), le système choisit
+le spawner le plus proche d'un joueur, égalités départagées par net_id. Les spawners
+normaux gardent la priorité ; nombre simultané, lots et intervalle restent appliqués.
+Le drapeau `WaveState.spawn_fallback`, rollback et tracé avec cette ressource, maintient
+ensuite la cadence normale dans cette vague et est remis à faux dans
+`prepare_next_wave`. Le hash conserve la contribution historique lorsque le drapeau
+est faux et ajoute une contribution lorsqu’il est vrai : le secours reste vérifié par
+checksum sans décaler toutes les traces existantes par un nouveau type enregistré.
+Une nouvelle vague doit atteindre son propre délai avant un nouveau secours.
+
+### Graines 16/17 : monde non aligné sur la grille (reprise par Claude Code)
+
+Avec le guidage de récupération (`c8cb176`/`318affc`), 18/20 graines passaient ; 16 et 17
+plafonnaient en vague 1 (dumps permanents :
+[graine 16](m0-v7-bots-finisent-le-clone.phase2-stall-16.json),
+[graine 17](m0-v7-bots-finisent-le-clone.phase2-stall-17.json)). Cause prouvée :
+`get_spawning_room` (`crates/map/src/generation/imp/basic.rs`) posait la salle de spawn à
+une position pixel tirée au hasard, et toutes les autres salles en dérivent par multiples
+de la taille de tuile : le monde entier héritait du même résidu (graine 16 : toutes les
+salles ≡ (14, 2) mod 16). Les rectangles de collision fusionnés débordaient alors sur une
+colonne et une rangée de cellules de plus que les cellules IntGrid enregistrées par la nav :
+367 cellules bloquées physiquement mais libres pour le flow field dans la grille de la
+graine 16 (`p` dans le dump), 0 cellule dans l'autre sens. Exemple mesuré : le mur 16×32
+en (694, 370), rectangle `{x: 8, y: 11, w: 1, h: 2}` de Level_2 dans la salle (558, 258),
+couvre physiquement les cellules (42..43, 22..24) alors que la nav n'enregistre que (43, 22)
+et (43, 23). Le flow field faisait passer les zombies dans ces cellules et des lamelles de
+2 px accrochaient le coin de leur corps de 20 px.
+
+Premier correctif écarté : ajouter les cellules des colliders de mur à `wall_cells` dans
+`rebuild_blocked_cells`. La nav ne promettait plus de passage physique, mais la graine 16
+plafonnait encore à 4000 frames (3 zombies sans chemin, enfermés dans des poches).
+
+Correctif retenu (`8785220`) : la position tirée est arrondie au multiple de tuile le plus
+proche, bornes ramenées aux multiples contenus dans l'intervalle (`snap_to_tile_grid`). Le
+flux RNG est inchangé, seul le placement bouge. Graines 16/17 seules à 20 000 frames :
+victoire vague 5 à f8060 et f7909, 0 desync. Le snap translate de 0 à 8 px par axe le
+monde de **toute** carte : toutes les cartes LDtk, arènes du testbed et avant_poste compris,
+passent par le callback du loader (`crates/map_ldtk/src/loader/mod.rs`) → `map_generation`
+→ `get_spawning_room`. D'où le changement des 82 traces et le ré-étalonnage ci-dessous.
+
+### Merge de main
+
+`origin/main` intégré deux fois : `d877a26` (`2a748bc`), puis `23a43fc` (`9563021`).
+Conflits textuels gardant les deux côtés : `BotView` (`hunter` + `portal`), doc
+d'`alacod-sim` (`--profiles`/`--progress` + `--floors`), `select_valid_spawners`
+(`ResolvedWaveConfig` + `allow_nearest`), `conventions.md` (§16-18 de main, bots de
+validation en §19), dépendance `run` en double dans `crates/bots/Cargo.toml`. Conflits
+sémantiques avec F5 (m0-v11) : les bots v1 lisent prix, recharge et perks dans
+`ResolvedBalance` comme les handlers d'interaction ; `spawn_stall` force la plage vide dans
+`ResolvedBalance.waves`, déclaré `ambiguous_with_all` (`4769ad2`) ; champ `floors` dans les
+`Scenario` des tests v1.
+
+### Attentes de scénarios ré-étalonnées (`07c2862`)
+
+Un seul commit, sans code ni trace. L'intention de chaque attente est conservée ; les
+valeurs exactes sont re-mesurées avec `ALACOD_EVENTS=1`. Cause commune : translation du
+monde de 0 à 8 px par axe.
+
+| Scénario | Avant → après | Mesuré |
+|---|---|---|
+| `downed_all_lose` | `PlayerDowned(1)@1200` → `@1400` ; `PlayerDead(0)`, `Defeat@1600` → `@1700` ; `frames` 1600 → 1700 | à terre f1296, mort et défaite f1570 (avant f1174/f1505) |
+| `run_lose_summary` | idem + `RunState(Ended(Defeat))`, `RunSummary@1600` → `@1700` ; `frames` 1600 → 1700 | idem |
+| `two_players_idle` | `PlayerDowned(1)`, `PlayerAlive(0)@1200` → `@1400` | joueur 1 à terre f1296, joueur 0 mort f1570 (après la fin, 1500) |
+| `shoot_around` | `PlayerDead(0)@1200` → `@1300` | mort f1241 (avant f906) |
+| `movement_melee` | positions (612.4, 695), (556.4, 695), (555, 695) → (613.4, 696), (557.4, 696), (556, 696) | +1/+1 : translation exacte |
+| `clone_quad` | soldes f4372 des bots 1440/1570/1290 → 1570/1720/1080 | victoire vague 5 conservée (f4323) |
+| `clone_duo` | visée des deux joueurs ré-enregistrée à partir de f1000 ; soldes 3630@2400, 3790@3700, 3800/1440@4668 → 3620, 3710, 3790/1450 | victoire à l'entrée en vague 5 à f4668, 13 kills, deux joueurs debout |
+
+`clone_duo` était bloqué avec les pans figés de T3.1 : les tirs ratent les nouveaux trajets,
+pas de victoire en 9336 frames (2 × 4668), joueur 1 mort f6880. Règle d'écriture, à
+rejouer à la prochaine translation : à partir de f1000, toutes les 15 frames, chaque joueur
+tire 2 frames vers le zombie vivant le plus proche s'il est à 400 px au plus (pan = delta
+monde arrondi, +y vers le haut). Les segments produits sont figés dans le `.ron`. Mise en
+scène f0-f986 inchangée (tir ami f40-42, réanimation, achats, Max Ammo, Nuke). L'écrivain
+temporaire est un test `#[ignore]` sur `run_with_options`, avec un système `ReadInputs`
+entre `read_local_inputs` et `record_local_inputs` ; il n'est pas commité.
+
+### Preuve des traces
+
+`preuve-snap` = `23a43fc` + `8785220` + `07c2862` (cherry-picks `976e68b`, `09ce982`),
+comparée à la tête `9563021`. Sur chaque côté :
+
+```bash
+make test_scenarios BLESS=1        # 3 réussis, 0 assertion en échec
+cp --parents $(find tests/scenarios -name '*.trace') ../<côté>-traces/
+git checkout -- tests/scenarios    # aucune trace commitée
+diff -r ../preuve-snap-traces ../tete-traces
+```
+
+Résultat : **77/82 identiques, 5 différentes**, toutes tardivement. Cause prouvée : le
+guidage de récupération des zombies (`navigation_recovery_due`,
+`crates/game/src/character/enemy/ai/pathing.rs`, `318affc`) s'arme après 600 frames sans
+kill ni spawn. Dans le monde translaté, des zombies de ces scénarios sans kill ont un point
+de steering bloqué ; avant le snap, ce cas n'arrivait sur aucune trace. Contre-épreuve : sur
+la tête, seuil temporairement porté de `>= 600` à `>= u32::MAX`, puis
+`ALACOD_BLESS=1 ALACOD_SCENARIO=<nom>` pour ces 5 scénarios. Les 5 traces deviennent
+identiques octet pour octet à `preuve-snap`. Fichier restauré, worktree propre.
+
+`sha256sum` des 82 traces de la tête (triées, chemins relatifs) : `../tete-traces.sha256`,
+lui-même de sha256 `a55280d9dcf245d37a8f3071d982443810db53b3b5dd5add76e2d81ae45b9e2b`.
+Les traces sont bénies par l'orchestrateur, qui recoupe avec ce fichier. La référence p2p
+(sha256 `55ec099d…`) change aussi, c'est attendu : l'orchestrateur la rejoue au merge.
+
+| Scénario | Tête vs preuve-snap | Cause |
+|---|---|---|
+| `ammo_burst` | identique | — |
+| `ammo_shared_reserve` | identique | — |
+| `avant_poste_demo` | identique | — |
+| `bench_bullets` | identique | — |
+| `bench_horde` | écart à partir de la ligne 663 | récupération du guidage zombie (seuil 600) |
+| `bots_four_mixed` | identique | — |
+| `bots_two_fonceurs` | identique | — |
+| `bullets_walls` | identique | — |
+| `buy_door` | identique | — |
+| `buy_perk` | identique | — |
+| `buy_wall_weapon` | identique | — |
+| `clone_duo` | identique | — |
+| `clone_quad` | identique | — |
+| `clone_solo` | identique | — |
+| `dash_wall` | identique | — |
+| `door_open` | identique | — |
+| `downed_all_lose` | écart à partir de la ligne 1142 | récupération du guidage zombie (seuil 600) |
+| `downed_bleedout` | identique | — |
+| `downed_revive` | identique | — |
+| `drop_pickup_swap` | identique | — |
+| `equilibrage_joueurs_duo` | identique | — |
+| `equilibrage_joueurs_quad` | identique | — |
+| `four_players_idle` | identique | — |
+| `four_players_shooting` | identique | — |
+| `friendly_fire_cursed` | identique | — |
+| `friendly_fire_never` | identique | — |
+| `generated/testbed/weapon_axe` | identique | — |
+| `generated/testbed/weapon_bare_hands` | identique | — |
+| `generated/testbed/weapon_club` | identique | — |
+| `generated/testbed/weapon_grenade` | identique | — |
+| `generated/testbed/weapon_knife` | identique | — |
+| `generated/testbed/weapon_machine_gun` | identique | — |
+| `generated/testbed/weapon_pistol` | identique | — |
+| `generated/testbed/weapon_proj_bounce` | identique | — |
+| `generated/testbed/weapon_proj_gravity` | identique | — |
+| `generated/testbed/weapon_proj_homing` | identique | — |
+| `generated/testbed/weapon_proj_lifetime` | identique | — |
+| `generated/testbed/weapon_proj_pierce` | identique | — |
+| `generated/testbed/weapon_proj_size` | identique | — |
+| `generated/testbed/weapon_rifle` | identique | — |
+| `generated/testbed/weapon_shotgun` | identique | — |
+| `generated/testbed/weapon_sword` | identique | — |
+| `generated/testbed/weapon_zombie_claws` | identique | — |
+| `generated/zombies/weapon_axe` | identique | — |
+| `generated/zombies/weapon_bare_hands` | identique | — |
+| `generated/zombies/weapon_club` | identique | — |
+| `generated/zombies/weapon_knife` | identique | — |
+| `generated/zombies/weapon_machine_gun` | identique | — |
+| `generated/zombies/weapon_pistol` | identique | — |
+| `generated/zombies/weapon_rifle` | identique | — |
+| `generated/zombies/weapon_shotgun` | identique | — |
+| `generated/zombies/weapon_sword` | identique | — |
+| `generated/zombies/weapon_zombie_claws` | identique | — |
+| `idle` | écart à partir de la ligne 1199 | récupération du guidage zombie (seuil 600) |
+| `immune_tag` | identique | — |
+| `movement_melee` | identique | — |
+| `points_on_kill` | identique | — |
+| `portal_next_floor` | identique | — |
+| `powerup_carpenter` | identique | — |
+| `powerup_double_points` | identique | — |
+| `powerup_drop_on_kill` | identique | — |
+| `powerup_insta_kill` | identique | — |
+| `powerup_max_ammo` | identique | — |
+| `powerup_nuke` | identique | — |
+| `remote_first_fight` | identique | — |
+| `run_lose_summary` | écart à partir de la ligne 1142 | récupération du guidage zombie (seuil 600) |
+| `shoot_around` | identique | — |
+| `shop_tour` | identique | — |
+| `stat_move_speed` | identique | — |
+| `testbed_ally_safe` | identique | — |
+| `testbed_arena_idle` | identique | — |
+| `testbed_civilian_blocks` | identique | — |
+| `testbed_corridor_idle` | identique | — |
+| `testbed_dummy_shoot` | identique | — |
+| `testbed_follower` | identique | — |
+| `testbed_target_hits` | identique | — |
+| `testbed_two_rooms_door_idle` | identique | — |
+| `testbed_window` | identique | — |
+| `two_players_idle` | écart à partir de la ligne 1142 | récupération du guidage zombie (seuil 600) |
+| `two_players_shooting` | identique | — |
+| `weapons_workout` | identique | — |
+| `window_repair` | identique | — |
+
+## Validation de phase 2
+
+Commande par graine `n`, après `source ../env.sh` et `export CARGO_BUILD_JOBS=4` :
+
+```bash
+cargo run -q -p scenario --profile headless --bin alacod-sim -- \
+  --game zombies --bots 4 --map exemples/test_map.ldtk \
+  --seeds "${n}..${n}" --until-wave 5 --max-frames 20000 --progress \
+  --json "../validation-seeds/${n}.json"
+```
+
+Le binaire est compilé une fois, copié sous son SHA dans `../validation-bin/<sha>/`, puis
+les graines indépendantes tournent par lots de quatre (`../validate-seeds.py`, qui ajoute
+`--save-scenario ../recordings-final`). Cette copie ne change pas pendant la validation.
+La carte est explicite : le `start_map` du manifeste est désormais avant_poste. Le JSON
+permanent ([validation](m0-v7-bots-finisent-le-clone.phase2-validation.json)) et le
+tableau ci-dessous concernent test_map, comme le digest M0. Les FPS sont observés sous
+charge concurrente (quatre simulations et d'autres tâches) et ne constituent pas un bench
+au calme.
+
+**Validation finale sur l'état fusionné `9563021` : 20/20 victoires (vague 5), 0 mort,
+0 desync, 0 plafond, 0 failure.** La même validation sur `8785220` (avant le merge de
+main) avait donné exactement les mêmes vague, frames, morts et kills pour les 20 graines.
+
+| Graine | Vague atteinte | Frames | Morts / 4 | Kills | Desync | Plafond | sim fps |
+|---:|---:|---:|---:|---:|---|---|---:|
+| 1 | 5 | 7425 | 0 | 52 | non | non | 13.7 |
+| 2 | 5 | 7426 | 0 | 53 | non | non | 12.2 |
+| 3 | 5 | 7114 | 0 | 53 | non | non | 18.4 |
+| 4 | 5 | 8507 | 0 | 49 | non | non | 12.8 |
+| 5 | 5 | 6953 | 0 | 51 | non | non | 19.3 |
+| 6 | 5 | 7751 | 0 | 52 | non | non | 17.6 |
+| 7 | 5 | 7997 | 0 | 53 | non | non | 12.9 |
+| 8 | 5 | 7250 | 0 | 50 | non | non | 19.0 |
+| 9 | 5 | 7690 | 0 | 52 | non | non | 39.6 |
+| 10 | 5 | 6877 | 0 | 51 | non | non | 14.8 |
+| 11 | 5 | 7293 | 0 | 52 | non | non | 20.1 |
+| 12 | 5 | 8624 | 0 | 52 | non | non | 11.2 |
+| 13 | 5 | 7720 | 0 | 52 | non | non | 17.5 |
+| 14 | 5 | 7352 | 0 | 50 | non | non | 12.3 |
+| 15 | 5 | 6887 | 0 | 50 | non | non | 18.6 |
+| 16 | 5 | 8060 | 0 | 52 | non | non | 21.7 |
+| 17 | 5 | 7909 | 0 | 51 | non | non | 14.0 |
+| 18 | 5 | 8030 | 0 | 53 | non | non | 17.5 |
+| 19 | 5 | 7582 | 0 | 51 | non | non | 22.7 |
+| 20 | 5 | 8034 | 0 | 54 | non | non | 15.0 |
+
+## Vérifié (phase 2)
+
+Toutes les commandes de compilation sont précédées de `source ../env.sh` et de
+`export CARGO_BUILD_JOBS=4`, dans le worktree de la tâche, sur la tête `9563021`.
+
+- Suite de scénarios : `make test_scenarios BLESS=1` (traces copiées puis restaurées)
+  sur la tête et sur `preuve-snap`, 82 scénarios, 3 tests réussis, 0 échec, 7 ignorés,
+  aucune attente en échec. Sans bless, seules les traces diffèrent (voir Preuve).
+- `cargo test -q --profile headless -p scenario --test hunter_doors` (graines 2, 11, 12
+  en synctest, vague 2 avant f3500, quatre survivants) : 1 réussi, 268 s ;
+  `--test spawn_stall` : 1 réussi.
+- `cargo test -q --profile headless -p scenario -p run -p combat -p game -p content
+  -p map_ldtk -p sim_core -p stats -p bots -p effects -p behaviors -p map --no-fail-fast` :
+  381 réussis, 1 échec, 8 ignorés (39 blocs). L'échec est le test `scenarios`, uniquement
+  sur les 82 traces non bénies ; aucune attente en échec.
+- `make lint` : `zombies` et `testbed` sans erreur.
+- `cargo fmt --all -- --check` : sortie vide, code 0 (`f2f7616` retire une ligne vide
+  finale de `pathing.rs`).
+- `./scripts/check-forbidden.sh` : code 0, quatre occurrences préexistantes, aucune nouvelle.
+- `./scripts/check-rollback-registration.sh` : OK. Aucun type rollback ajouté ou retiré
+  par la branche (diff contre la merge-base) : le piège de parité des types vides ne
+  s'applique pas.
+- `make gen GAME=zombies` : aucun fichier généré modifié, 10 armes avec attentes `ok` ;
+  code 2 parce que les 10 traces générées diffèrent (incluses dans les 82 à bénir).
+
+## Non fait / non vérifié (phase 2)
+
+- Critère des 200 graines et re-validation avant_poste : réservés à l'orchestrateur après
+  merge.
+- Aucune trace bénie ni commitée ; les 82 sont à bénir par l'orchestrateur (sha256 ci-dessus).
+- Pas de revue visuelle ni de test p2p dans cette reprise.
+- Aucun merge dans `main`, aucune modification de `docs/taches.md`.
+
+## Dettes / questions ouvertes (phase 2)
+
+- D20 marquée « fait dans m0-v7-bots-finisent-le-clone » (`2fb3390`).
+- Les scénarios scriptés à visée figée (`clone_duo` et ses pans) restent sensibles à toute
+  translation du monde : la règle d'écriture ci-dessus permet de les ré-enregistrer.
+- Le guidage de récupération change le comportement des zombies dans les scénarios sans
+  kill de plus de 600 frames (5 traces) : c'est voulu, mais à garder en tête quand une
+  trace d'`idle` bouge.
+
+# Phase 1 — rapport d'origine (conservé tel quel)
+
 **SHA de la tête avant commit du rapport : `e1aaf18fddc5339ed0c860aed11c0ac7ac829d03`.**
 Fiche : [m0-v7-bots-finisent-le-clone](../m0-v7-bots-finisent-le-clone.md).
 Branche : `m0-v7-bots-finisent-le-clone` ; agent : Codex ; date : 2026-10-02.

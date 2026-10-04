@@ -6,22 +6,22 @@
 // `combat::downed::Downed`), il meurt pour de vrai — `RunOutcome.defeat_at_frame` se fige à ce
 // moment (tous les joueurs à terre ou morts).
 //
-// À regarder : le joueur 1 tombe à terre en premier (f1174), puis le joueur 0 meurt, seul, plus
-// tard (f1505 : défaite la même frame). Le joueur 1, toujours à terre, finit par saigner à mort
-// à son tour (f2074, 1174 + 900) bien après la défaite — hors de la fenêtre de ce scénario
-// (`frames: 1600`), qui s'arrête dès la défaite constatée.
+// À regarder : le joueur 1 tombe à terre en premier (f1296), puis le joueur 0 meurt, seul, plus
+// tard (f1570 : défaite la même frame). Le joueur 1, toujours à terre, finit par saigner à mort
+// à son tour (f2196, 1296 + 900) bien après la défaite — hors de la fenêtre de ce scénario
+// (`frames: 1700`), qui s'arrête dès la défaite constatée.
 Scenario(
     // Isoler ce scénario des drops aléatoires ; powerup_drop_on_kill teste ce chemin.
     powerup_drop_chance_override: "0.0",
     game: "zombies",
-    frames: 1600,
+    frames: 1700,
     players: [
         (),
         (),
     ],
     expect: [
-        PlayerDowned(handle: 1, at_frame: 1200),
-        PlayerDead(handle: 0, at_frame: 1600),
-        Defeat(by_frame: 1600),
+        PlayerDowned(handle: 1, at_frame: 1400),
+        PlayerDead(handle: 0, at_frame: 1700),
+        Defeat(by_frame: 1700),
     ],
 )

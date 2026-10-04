@@ -16,7 +16,9 @@
 //! crate le ré-exporte pour que les appelants écrivent `bots::BotProfile` uniformément.
 
 pub mod decide;
+pub mod hunter;
 pub mod input;
+pub mod navigation;
 pub mod view;
 
 pub use decide::decide;

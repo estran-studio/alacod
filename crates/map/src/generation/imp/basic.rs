@@ -255,6 +255,23 @@ impl BasicMapGeneration {
     }
 }
 
+/// Rounds `v` to the nearest multiple of `size` while staying inside `[min, max]`.
+///
+/// The bounds are themselves pulled to the multiples contained in the interval
+/// whenever possible, so the clamp does not break the grid alignment; if the
+/// interval is narrower than one tile (degenerate config), falls back to a plain
+/// clamp.
+fn snap_to_tile_grid(v: i32, min: i32, max: i32, size: i32) -> i32 {
+    let snapped = (v + size / 2).div_euclid(size) * size;
+    let min_aligned = (min + size - 1).div_euclid(size) * size;
+    let max_aligned = max.div_euclid(size) * size;
+    if min_aligned <= max_aligned {
+        snapped.clamp(min_aligned, max_aligned)
+    } else {
+        snapped.clamp(min, max)
+    }
+}
+
 impl IMapGeneration for BasicMapGeneration {
     fn get_spawning_room(&mut self, rng: &mut RollbackRng) -> Room {
         let spawning_levels: Vec<&Rc<AvailableLevel>> = self
@@ -282,6 +299,26 @@ impl IMapGeneration for BasicMapGeneration {
         let y: i32 = rng.next_i32_range_inclusive(
             -self.context.config.max_heigth,
             self.context.config.max_heigth - spawning_room_def.level_size_p.1,
+        );
+
+        // Snap the spawn room position to the tile grid: every other room derives
+        // from it through multiples of the tile size (get_connecting_room_position),
+        // so an arbitrary position would shift the whole world by the same fractional
+        // residue. Merged collision rectangles (physics) would then straddle flow
+        // field cells without being registered in them: navigation routes enemies
+        // through physically blocked cells and 2px slivers catch the 20px bodies,
+        // softlocking the wave (validation seeds 16/17, m0-v7).
+        let x = snap_to_tile_grid(
+            x,
+            -self.context.config.max_width,
+            self.context.config.max_width - spawning_room_def.level_size_p.0,
+            self.context.tile_size.0,
+        );
+        let y = snap_to_tile_grid(
+            y,
+            -self.context.config.max_heigth,
+            self.context.config.max_heigth - spawning_room_def.level_size_p.1,
+            self.context.tile_size.1,
         );
 
         let spawning_room_def = Room::create(

@@ -973,6 +973,85 @@ expression `content::expr` en chaîne RON (ex. `health: "120.0 + (players - 1) *
   Tests unitaires : `content::expr` (désérialisation, résolution, erreurs) et `game::balance`
   (dépendance à `players`, erreurs = panic avec contexte).
 
+## 19. Bots de validation (m0-v7 phase 2)
+
+Les profils RON `chasseur` et `acheteur` complètent `immobile`, `fonceur` et `prudent`.
+Les profils v0 gardent leurs décisions. `alacod-sim --bots 4 --seeds 1..20 --until-wave 5`
+utilise quatre `acheteur` par défaut ; `--profiles` permet les deux générations.
+Pour comparer avec le digest M0, préciser `--map exemples/test_map.ldtk` : sans cet
+argument, le manifeste choisit maintenant `maps/avant_poste.ldtk`.
+
+`crates/bots/src/navigation.rs` réutilise `FlowField` et `GridPos` pour un Dijkstra
+multi-source vers des postes de tir autour des ennemis, sur une grille physique de 8 px.
+Le corps et son offset sont pris en compte ; murs, portes fermées et fenêtres, même cassées,
+bloquent le mouvement du joueur. Les fenêtres permettent le tir. Les cibles sont triées par
+`GgrsNetId`, et les diagonales ne coupent pas les coins. Le cache se reconstruit quand la
+position en grille d'un ennemi, les colliders ou le corps changent. Le calcul se limite
+à la composante physique accessible au joueur ; les champs d'approche restent en cache
+tant que leurs clés et cette composante sont identiques. Il est dérivé dans
+`ReadInputs`, hors simulation rollback, comme les inputs v0 : aucune décision ni RNG caché,
+aucune ressource de jeu supplémentaire dans la trace. Le rejeu en `Scripted` capture
+les inputs décidés et doit produire la même trace.
+
+`crates/bots/src/hunter.rs` choisit le tir visible, la distance de combat, le changement
+vers une arme approvisionnée, le rechargement et la réanimation. L'acheteur cherche aussi
+les munitions, Juggernog et une porte abordable quand le champ est inaccessible (prix,
+puis distance à l’ennemi, puis `GgrsNetId`). Les approches ponctuelles utilisent des
+champs multi-source dérivés et partagés sur la même grille. Sans poste de tir accessible,
+le bot s’approche jusqu’au rayon d’aggro d'un zombie `Idle` : il peut alors casser sa
+fenêtre. Un zombie déjà en `Chasing` ne doit pas retenir le bot dans ce rayon quand il
+n'existe toujours aucun poste de tir ; les portes et réparations restent possibles.
+Sans poste de tir ni approche d'aggro, il cherche le point physiquement accessible le
+plus proche du zombie. Cette investigation conserve la possibilité d'ouvrir une porte
+ou de réparer, même quand le zombie inaccessible est à moins de 150 px.
+Sans chemin d’approche, le bot répare aussi pour gagner les points de sa première porte.
+Les interactions passent par le bouton existant : les règles de solde, coût, cooldown et
+réanimation restent celles du jeu. Les unitaires couvrent navigation et décisions ;
+`crates/scenario/tests/bots.rs` vérifie le rejeu v0 et v1.
+Si une autre surface possède le prompt à portée du but choisi, le bot se rapproche
+encore du but ou essaie une autre interaction, au lieu de rester immobile sans agir.
+`crates/scenario/tests/hunter_doors.rs` vérifie que les quatre acheteurs finissent la
+première vague des graines 2, 11 et 12 sans cap ni décès.
+Les modes Manual, Shotgun et Burst relâchent le tir lorsque `WeaponState.is_firing`
+est vrai, puis pressent de nouveau ; Automatic peut maintenir le bouton. Ce choix lit
+l'état rollback de l'arme, sans compteur de pulsations caché dans le bot.
+
+Le déplacement du joueur résout un mouvement diagonal bloqué en faisant glisser X,
+puis en vérifiant Y à la position X obtenue. Vérifier les deux axes depuis la position
+initiale pouvait autoriser leur combinaison à entrer dans le coin d'un mur.
+
+En phase `Spawning`, après 600 frames sans spawn depuis le dernier spawn ou le début
+de phase, une plage de distance vide utilise le spawner le plus proche d'un joueur
+(égalité départagée par `GgrsNetId`). Les spawners dans la plage normale restent
+prioritaires. Le drapeau `WaveState.spawn_fallback`, rollback et tracé avec cette
+ressource, maintient ensuite la cadence normale pour cette vague et est remis à faux
+dans `prepare_next_wave`. Le hash de `WaveState` conserve l'ordre historique des champs
+et ajoute une contribution seulement si ce drapeau est actif, afin de conserver les
+traces des vagues qui n'en ont pas besoin. La limite d'ennemis
+simultanés et la taille des lots restent appliquées. Le test synctest
+`crates/scenario/tests/spawn_stall.rs` force une plage vide et vérifie trois spawns,
+sans desync, plutôt qu'un retour indéfini du système.
+
+En `Spawning` ou `InProgress`, après 600 frames sans kill ni spawn, les zombies de
+vague peuvent récupérer un point de steering sorti de sa case ou placé dans un mur.
+`ai/pathing.rs` échantillonne des points entiers à l'intérieur de la prochaine case,
+puis les étapes cardinales d'une diagonale, puis la case courante : un coin de mur
+peut couper toutes les routes directes, et un point de la case courante dégage le
+corps du coin avant le segment vers la case suivante. Le choix est stable (étape,
+distance au point initial, x, y), et le collider avec son offset doit rester libre
+sur chaque segment, vérifié à intervalles d'un pixel. Les fenêtres intactes restent
+bloquantes. Une étape intermédiaire doit permettre de rejoindre un point libre dans
+la case cible. Si la case cible n'offre aucun point libre pour le corps (un mur
+couvre toute la case), le glissement le long d'un axe du déplacement de case est
+essayé d'abord — une poche de coin est souvent ouverte latéralement (fenêtre cassée
+dans le mur sous le coin) quand la diagonale est pincée — puis la rotation du cap
+vers le waypoint par paliers de 45°, rotations proches d'abord, demi-tour en
+dernier. La première direction dont le segment reste libre sur 24 px à intervalles
+d'un pixel gagne, et le zombie glisse hors du coin avant que le champ ne reprenne. La direction récupérée évite le mélange de steering qui
+réintroduisait le mur ; le mouvement conserve vitesse, séparation et collision
+ordinaires. Le délai dépend des compteurs existants de `WaveState`, sans état caché
+ou nouveau type rollback.
+
 ## Notes essentielles
 
 **À vérifier** : l'entité `CrateLocation` n'est pas lue actuellement (`WeaponLocation`/`SodaLocation` le sont depuis T2.3, voir §1 ci-dessus). Elle apparaît dans `crates/map_ldtk/src/map_const.rs` (constante) mais aucun bundle Bevy ne la traite (`entity/*.rs` ne la liste pas). Avant d'utiliser une carte avec une entité nouvellement lue, vérifier que `make test_scenarios` accepte un scénario `idle` dessus.
@@ -984,4 +1063,3 @@ expression `content::expr` en chaîne RON (ex. `health: "120.0 + (players - 1) *
 **Fixed-point** : les valeurs `Fixed` s'écrivent en chaîne (`"100.0"`). Les entiers (`frames`, `GridPos`) ne sont pas interdits. Aucun `f32` ou `f64` dans les composants rollback. Voir `CLAUDE.md` Déterminisme, règle 1.
 
 **Tests et scénarios** : `make test_scenarios` vérifie que les scénarios passent en synctest (mode déterministe local). Tout changement de code dans `GgrsSchedule` peut casser les traces `.trace` ; rebase sur `main` chaque jour et revalidate en CI rapide. Les seules voies autorisées à changer les traces : V1 (simulation), justifié par `BLESS=1` en commit.
-

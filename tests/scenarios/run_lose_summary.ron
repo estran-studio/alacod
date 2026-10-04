@@ -13,23 +13,23 @@
 // `WavePhase::WaveComplete`) : `wave_reached_min`/`kills_min` ci-dessous sont donc des
 // bornes exactes pour ce scénario précis, pas seulement des minimums prudents.
 //
-// À regarder : comme `downed_all_lose` — joueur 1 à terre (f1174), joueur 0 meurt seul
-// (f1505, défaite la même frame). `Run.step` devient `Ended` à f1505 ;
+// À regarder : comme `downed_all_lose` — joueur 1 à terre (f1296), joueur 0 meurt seul
+// (f1570, défaite la même frame). `Run.step` devient `Ended` à f1570 ;
 // `finalize_run_summary_system` calcule `Run.summary` la frame suivante (même
 // `RollbackSystemSet::Run`, après le système qui pose `step` — voir `game::run_state`).
 Scenario(
     game: "zombies",
     powerup_drop_chance_override: "0.0",
-    frames: 1600,
+    frames: 1700,
     players: [
         (),
         (),
     ],
     expect: [
-        PlayerDowned(handle: 1, at_frame: 1200),
-        PlayerDead(handle: 0, at_frame: 1600),
-        Defeat(by_frame: 1600),
-        RunState(step: Ended(Defeat), at_frame: 1600),
-        RunSummary(wave_reached_min: 1, kills_min: 0, at_frame: 1600),
+        PlayerDowned(handle: 1, at_frame: 1400),
+        PlayerDead(handle: 0, at_frame: 1700),
+        Defeat(by_frame: 1700),
+        RunState(step: Ended(Defeat), at_frame: 1700),
+        RunSummary(wave_reached_min: 1, kills_min: 0, at_frame: 1700),
     ],
 )

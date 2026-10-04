@@ -176,6 +176,7 @@ pub fn update_enemy_targets(
 
 pub fn move_enemies(
     frame: Res<FrameCount>,
+    wave: Option<Res<crate::waves::WaveState>>,
     mut enemy_query: Query<
         (
             &GgrsNetId,
@@ -190,6 +191,7 @@ pub fn move_enemies(
             &mut WallSlideTracker,
             Option<&super::state::EnemyTarget>,
             &EnemyAiConfig,
+            Option<&crate::waves::WaveEnemy>,
         ),
         With<Enemy>,
     >,
@@ -276,6 +278,7 @@ pub fn move_enemies(
         mut wall_slide_tracker,
         enemy_target_opt,
         ai_config,
+        wave_enemy,
     ) in order_mut_iter!(enemy_query)
     {
         // T2.9 (testbed) : un ennemi stationnaire (`dummy`/`target`/`ally`/`civilian`)
@@ -340,6 +343,61 @@ pub fn move_enemies(
         // feet: steer toward points pushed away from walls accordingly
         let body = super::navigation::AgentBody::from_collider(enemy_collider);
 
+        // A pushed steering point can leave its intended cell or overlap a wall.
+        // Only recover wave actors after ten seconds without spawning/killing; ordinary
+        // movement and historical fixtures keep their original steering. All inputs are
+        // rollback state or geometry-derived caches, with no hidden timer.
+        let recovery_direction = wave
+            .as_deref()
+            .filter(|state| wave_enemy.is_some() && navigation_recovery_due(state, frame.frame))
+            .and_then(|_| {
+                use super::navigation::{GridPos, NavProfile};
+                let field = flow_field_cache.get_flow_field(NavProfile::GroundBreaker)?;
+                let current = GridPos::from_fixed(enemy_pos_v2);
+                let next = field.get_direction(current)?;
+                if next == current {
+                    return None;
+                }
+                let preferred =
+                    flow_field_cache.steering_point(next, NavProfile::GroundBreaker, &body);
+                let blocked = |point: fixed_math::FixedVec2, include_windows: bool| {
+                    let pos =
+                        fixed_math::FixedVec3::new(point.x, point.y, fixed_transform.translation.z);
+                    let aabb = crate::collision_grid::collider_aabb(&pos, enemy_collider);
+                    grids.walls.query_aabb(&aabb).into_iter().any(|entry| {
+                        wall_collider_query.get(entry.entity).is_ok_and(
+                            |(transform, collider, layer)| {
+                                collision_settings.layer_matrix[enemy_collision_layer.0][layer.0]
+                                    && is_colliding(
+                                        &pos,
+                                        enemy_collider,
+                                        &transform.translation,
+                                        collider,
+                                    )
+                            },
+                        )
+                    }) || (include_windows
+                        && grids.characters.query_aabb(&aabb).into_iter().any(|entry| {
+                            window_query.get(entry.entity).is_ok_and(
+                                |(_, transform, obstacle, collider)| {
+                                    obstacle.blocks_movement
+                                        && is_colliding(
+                                            &pos,
+                                            enemy_collider,
+                                            &transform.translation,
+                                            collider,
+                                        )
+                                },
+                            )
+                        }))
+                };
+                if GridPos::from_fixed(preferred) == next && !blocked(preferred, false) {
+                    return None;
+                }
+                recovery_point(enemy_pos_v2, next, preferred, |point| !blocked(point, true))
+                    .map(|point| (point - enemy_pos_v2).normalize_or_zero())
+            });
+
         // Calculate direction to actual target using flow field
         let direction_to_target_v2 = if let Some(flow_field) =
             flow_field_cache.get_flow_field(super::navigation::NavProfile::GroundBreaker)
@@ -375,7 +433,9 @@ pub fn move_enemies(
 
         // --- General Obstacle Avoidance Steering ---
         // Use FlowField's blocked cells for O(1) lookups instead of O(walls) collision checks
-        let direction_to_target_v2 = {
+        let direction_to_target_v2 = if let Some(direction) = recovery_direction {
+            direction
+        } else {
             use super::navigation::{GridPos, NavProfile};
 
             // Fast grid-based check using FlowField's precomputed blocked cells
@@ -779,5 +839,183 @@ pub fn move_enemies(
                 *facing_direction = FacingDirection::from_fixed_vector(velocity_component.main);
             }
         }
+    }
+}
+
+fn navigation_recovery_due(state: &crate::waves::WaveState, frame: u32) -> bool {
+    matches!(
+        state.phase,
+        crate::waves::WavePhase::Spawning | crate::waves::WavePhase::InProgress
+    ) && frame.saturating_sub(
+        state
+            .last_spawn_frame
+            .max(state.last_enemy_killed_frame)
+            .max(state.phase_start_frame),
+    ) >= 600
+}
+
+/// Stable integer samples inside the next tile, then the cardinal steps of a diagonal,
+/// then the current tile. A wall corner can make every route from the current position
+/// cross the wall, even for an axis-aligned cell move: an intermediate point in the
+/// current tile moves the offset body off the corner (for example below the wall's
+/// bottom edge) before the segment toward the next tile. Validate the whole straight
+/// segment at one-unit intervals, so recovering a waypoint cannot cross a wall/door.
+fn recovery_point(
+    from: fixed_math::FixedVec2,
+    next: super::navigation::GridPos,
+    preferred: fixed_math::FixedVec2,
+    clear: impl Fn(fixed_math::FixedVec2) -> bool,
+) -> Option<fixed_math::FixedVec2> {
+    use super::navigation::GRID_CELL_SIZE;
+    let mut candidates = Vec::new();
+    let current = super::navigation::GridPos::from_fixed(from);
+    let mut cells = vec![next];
+    if current.x != next.x && current.y != next.y {
+        cells.extend([
+            super::navigation::GridPos::new(current.x, next.y),
+            super::navigation::GridPos::new(next.x, current.y),
+        ]);
+    }
+    cells.push(current);
+    for (stage, cell) in cells.into_iter().enumerate() {
+        for x in 1..GRID_CELL_SIZE {
+            for y in 1..GRID_CELL_SIZE {
+                let point = fixed_math::FixedVec2::new(
+                    fixed_math::Fixed::from_num(cell.x * GRID_CELL_SIZE + x),
+                    fixed_math::Fixed::from_num(cell.y * GRID_CELL_SIZE + y),
+                );
+                candidates.push((stage, point.distance_squared(&preferred), x, y, point));
+            }
+        }
+    }
+    candidates.sort_by_key(|(stage, distance, x, y, _)| (*stage, *distance, *x, *y));
+    let segment_clear = |start: fixed_math::FixedVec2, end: fixed_math::FixedVec2| {
+        let delta = end - start;
+        let steps = delta
+            .x
+            .abs()
+            .max(delta.y.abs())
+            .ceil()
+            .to_num::<i32>()
+            .max(1);
+        (1..=steps).all(|step| {
+            clear(
+                start
+                    + delta * fixed_math::Fixed::from_num(step)
+                        / fixed_math::Fixed::from_num(steps),
+            )
+        })
+    };
+    let destinations: Vec<_> = candidates
+        .iter()
+        .filter(|(stage, _, _, _, point)| *stage == 0 && clear(*point))
+        .map(|(_, _, _, _, point)| *point)
+        .collect();
+    candidates.into_iter().find_map(|(stage, _, _, _, point)| {
+        (clear(point)
+            && segment_clear(from, point)
+            && (stage == 0 || destinations.iter().any(|end| segment_clear(point, *end))))
+        .then_some(point)
+    })
+}
+
+#[cfg(test)]
+mod recovery_tests {
+    use super::super::navigation::GridPos;
+    use super::*;
+
+    #[test]
+    fn recovery_deadline_uses_the_latest_progress_and_only_active_waves() {
+        let mut state = crate::waves::WaveState {
+            phase: crate::waves::WavePhase::Spawning,
+            phase_start_frame: 100,
+            last_spawn_frame: 200,
+            last_enemy_killed_frame: 300,
+            ..default()
+        };
+        assert!(!navigation_recovery_due(&state, 899));
+        assert!(navigation_recovery_due(&state, 900));
+        state.last_spawn_frame = 500;
+        assert!(!navigation_recovery_due(&state, 900));
+        state.phase = crate::waves::WavePhase::GracePeriod;
+        assert!(!navigation_recovery_due(&state, 2000));
+    }
+
+    #[test]
+    fn boundary_waypoint_returns_inside_next_cell_and_makes_progress() {
+        let from = fixed_math::FixedVec2::new(fixed_math::new(448.013), fixed_math::new(-208.003));
+        let point = recovery_point(
+            from,
+            GridPos::new(27, -13),
+            fixed_math::FixedVec2::new(fixed_math::new(448.0), fixed_math::new(-208.0)),
+            |_| true,
+        )
+        .unwrap();
+        assert_eq!(GridPos::from_fixed(point), GridPos::new(27, -13));
+        assert!(point.x < from.x - fixed_math::FIXED_ONE);
+    }
+
+    #[test]
+    fn window_corner_recovery_checks_offset_body_and_entire_segment() {
+        let (body, wall, wall_pos) = corner_fixture();
+        let clear =
+            |point: fixed_math::FixedVec2| !is_colliding(&point.extend(), &body, &wall_pos, &wall);
+        let from = fixed_math::FixedVec2::new(fixed_math::new(28.541), fixed_math::new(-128.344));
+        let preferred = fixed_math::FixedVec2::new(fixed_math::new(8.0), fixed_math::new(-128.0));
+        assert!(!clear(preferred));
+        let point = recovery_point(from, GridPos::new(0, -8), preferred, clear).unwrap();
+        assert_eq!(GridPos::from_fixed(point), GridPos::new(1, -8));
+        assert!(clear(point));
+        let second = recovery_point(point, GridPos::new(0, -8), preferred, clear).unwrap();
+        assert_eq!(GridPos::from_fixed(second), GridPos::new(0, -8));
+        assert!(clear(second));
+        assert!(recovery_point(from, GridPos::new(0, -8), preferred, |_| false).is_none());
+    }
+
+    #[test]
+    fn axis_aligned_move_recovers_via_the_current_tile_below_a_wall_corner() {
+        let (body, wall, wall_pos) = corner_fixture();
+        let clear =
+            |point: fixed_math::FixedVec2| !is_colliding(&point.extend(), &body, &wall_pos, &wall);
+        // Seed 12 : le corps est dans la même rangée que la case cible, le
+        // déplacement de case est horizontal et toute route directe rase le coin
+        // du mur. La case courante contient un point sous l'arête basse du mur.
+        let from = fixed_math::FixedVec2::new(fixed_math::new(28.457), fixed_math::new(-127.506));
+        let preferred = fixed_math::FixedVec2::new(fixed_math::new(8.0), fixed_math::new(-128.0));
+        assert_eq!(GridPos::from_fixed(from), GridPos::new(1, -8));
+        let point = recovery_point(from, GridPos::new(0, -8), preferred, clear).unwrap();
+        assert_eq!(GridPos::from_fixed(point), GridPos::new(1, -8));
+        assert!(clear(point));
+        assert!(point.y > from.y);
+        let second = recovery_point(point, GridPos::new(0, -8), preferred, clear).unwrap();
+        assert_eq!(GridPos::from_fixed(second), GridPos::new(0, -8));
+        assert!(clear(second));
+    }
+
+    fn corner_fixture() -> (Collider, Collider, fixed_math::FixedVec3) {
+        let body = Collider {
+            shape: crate::collider::ColliderShape::Rectangle {
+                width: fixed_math::new(20.0),
+                height: fixed_math::new(20.0),
+            },
+            offset: fixed_math::FixedVec3::new(
+                fixed_math::FIXED_ZERO,
+                fixed_math::new(-6.0),
+                fixed_math::FIXED_ZERO,
+            ),
+        };
+        let wall = Collider {
+            shape: crate::collider::ColliderShape::Rectangle {
+                width: fixed_math::new(16.0),
+                height: fixed_math::new(32.0),
+            },
+            offset: fixed_math::FixedVec3::ZERO,
+        };
+        let wall_pos = fixed_math::FixedVec3::new(
+            fixed_math::new(10.0),
+            fixed_math::new(-153.0),
+            fixed_math::FIXED_ZERO,
+        );
+        (body, wall, wall_pos)
     }
 }

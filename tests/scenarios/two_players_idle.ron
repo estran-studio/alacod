@@ -1,13 +1,13 @@
 // Deux joueurs locaux immobiles dans la même partie (session synctest à 2 joueurs).
 //
 // À regarder : la caméra suit le joueur 0. Chaque zombie va vers le joueur le plus proche par le
-// chemin : ils cassent la fenêtre du bas (f345) et attaquent d'abord le joueur 1, plus près
-// (f380), puis le joueur 0 (f494). À terre (T1.3, chantier B6) : le joueur 1, seul à 0 PV alors
+// chemin : ils cassent la fenêtre du bas (f381) et attaquent d'abord le joueur 1, plus près
+// (f459), puis le joueur 0 (f516). À terre (T1.3, chantier B6) : le joueur 1, seul à 0 PV alors
 // que le joueur 0 est encore debout, tombe à terre au lieu de mourir (voir PlayerDowned
 // ci-dessous, et la doc de `combat::downed::Downed`) ; personne ne le réanime (les deux joueurs
 // sont immobiles), il reste à terre pour le reste du scénario (`bleedout_frames: 900` du
-// personnage joueur dépasse la frame 1500 depuis sa chute). Le joueur 0 se fait encercler à son
-// tour, sans jamais tomber lui-même dans ces 1500 frames.
+// personnage joueur dépasse la frame 1500 depuis sa chute à f1296). Le joueur 0 se fait encercler
+// à son tour, sans jamais tomber lui-même dans ces 1500 frames (il meurt à f1570).
 Scenario(
     // Isoler ce scénario des drops aléatoires ; powerup_drop_on_kill teste ce chemin.
     powerup_drop_chance_override: "0.0",
@@ -23,7 +23,7 @@ Scenario(
         // La partie continue après qu'un joueur tombe à terre : le joueur 1 est à terre, le
         // joueur 0 est encore debout (T1.3 : un coéquipier debout empêche la mort, voir
         // health::rollback_apply_accumulated_damage).
-        PlayerDowned(handle: 1, at_frame: 1200),
-        PlayerAlive(handle: 0, at_frame: 1200),
+        PlayerDowned(handle: 1, at_frame: 1400),
+        PlayerAlive(handle: 0, at_frame: 1400),
     ],
 )

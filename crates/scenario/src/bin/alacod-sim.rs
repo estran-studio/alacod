@@ -2,11 +2,15 @@
 //! des métriques JSON.
 //!
 //! ```text
-//! alacod-sim --game zombies --bots 4 --profiles fonceur,fonceur,prudent,immobile \
+//! alacod-sim --game zombies --bots 4 --map exemples/test_map.ldtk \
 //!     --seeds 1..50 --until-wave 10 --max-frames 20000 \
 //!     [--floors <séquence>] [--save-scenario <dossier>] [--json <fichier>]
 //! ```
 //!
+//! - `--profiles a,b,...` : un profil par bot ; défaut : `acheteur` pour tous les bots.
+//!   Les profils v0 restent disponibles : `fonceur,fonceur,prudent,immobile`.
+//! - `--map <fichier.ldtk>` : carte explicite relative aux assets du jeu ; sinon `start_map`.
+//! - `--progress` : état de la vague toutes les 1000 frames, hors simulation.
 //! - `--floors <id>` (T1.8) : mode `Floors` avec la séquence `id` du dossier `Floors` du jeu ;
 //!   le JSON rapporte `floor`, le niveau atteint (pas d'arrêt anticipé par niveau : T1.14).
 //!
@@ -66,7 +70,7 @@ fn main() {
     let require = |name: &str| {
         opt(name).unwrap_or_else(|| {
             panic!(
-                "usage : alacod-sim --game <jeu> --bots <n> --profiles <a,b,...> \
+                "usage : alacod-sim --game <jeu> --bots <n> [--profiles <a,b,...>] \
                  --seeds <de>..<à> --until-wave <n> --max-frames <n> \
                  [--map <fichier.ldtk>] [--floors <séquence>] [--save-scenario <dossier>] [--json <fichier>] ({name} manquant)"
             )
@@ -75,12 +79,13 @@ fn main() {
 
     let game = opt("--game").unwrap_or_else(|| "zombies".into());
     let bots: usize = require("--bots").parse().expect("--bots : entier");
-    let profiles: Vec<BotProfile> = require("--profiles")
+    let profiles: Vec<BotProfile> = opt("--profiles")
+        .unwrap_or_else(|| vec!["acheteur"; bots].join(","))
         .split(',')
         .map(|name| {
             BotProfile::parse_name(name.trim()).unwrap_or_else(|| {
                 panic!(
-                    "--profiles : profil inconnu « {name} » (attendu : immobile, fonceur, prudent)"
+                    "--profiles : profil inconnu « {name} » (attendu : immobile, fonceur, prudent, chasseur, acheteur)"
                 )
             })
         })
@@ -172,6 +177,9 @@ fn main() {
             &run_scenario,
             |app| {
                 app.insert_resource(InputSource::Bot);
+                if args.iter().any(|arg| arg == "--progress") {
+                    app.add_systems(bevy::prelude::Last, print_progress);
+                }
             },
             Some(stop_early),
         );
@@ -235,6 +243,24 @@ fn main() {
              pas à masquer (voir le scénario sauvé avec --save-scenario et la frame en cause)"
         );
         std::process::exit(1);
+    }
+}
+
+fn print_progress(
+    frame: bevy::prelude::Res<utils::frame::FrameCount>,
+    wave: bevy::prelude::Res<game::waves::WaveState>,
+    nav: bevy::prelude::Res<bots::navigation::BotNavigation>,
+) {
+    if frame.frame > 0 && frame.frame % 1000 == 0 {
+        eprintln!(
+            "progress frame={} wave={} phase={:?} remaining={} kills={} nav_cells={}",
+            frame.frame,
+            wave.current_wave,
+            wave.phase,
+            wave.enemies_to_spawn,
+            wave.total_enemies_killed,
+            nav.field.costs.len()
+        );
     }
 }
 
