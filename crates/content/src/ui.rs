@@ -128,7 +128,11 @@ mod tests {
         ] {
             let hud: HudFileSchema = ron::from_str(text).expect("hud.ron");
             for widget in &hud.widgets {
-                assert!(HUD_SOURCES.contains(&widget.kind.source()), "{:?}", widget.kind);
+                assert!(
+                    HUD_SOURCES.contains(&widget.kind.source()),
+                    "{:?}",
+                    widget.kind
+                );
             }
         }
     }

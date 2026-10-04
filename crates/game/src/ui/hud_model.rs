@@ -252,7 +252,7 @@ impl Plugin for HudModelPlugin {
 
 /// Ce que [`update_hud_snapshot`] lit du joueur affiché.
 #[derive(SystemParam)]
-struct HudPlayerState<'w, 's> {
+pub(crate) struct HudPlayerState<'w, 's> {
     healths: Query<'w, 's, &'static Health, With<Player>>,
     currencies: Query<'w, 's, &'static run::currency::Currency>,
     inventories: Query<'w, 's, (&'static WeaponInventory, &'static AmmoReserves)>,
@@ -277,21 +277,22 @@ pub(crate) fn update_hud_snapshot(
     floor: Option<Res<FloorState>>,
 ) {
     let player = hud_player.entity();
-    let weapon = player
-        .and_then(|e| state.inventories.get(e).ok())
-        .and_then(|(inventory, reserves)| {
-            let (entity, weapon) = inventory.weapons.get(inventory.active_weapon_index)?;
-            let mode = state
-                .weapons
-                .get(*entity)
-                .ok()
-                .and_then(|(s, modes)| modes.modes.get(&s.active_mode).cloned());
-            Some((
-                weapon.config.name.clone(),
-                mode.map(|m| m.mag_ammo),
-                reserves.get(&weapon.config.ammo_type),
-            ))
-        });
+    let weapon =
+        player
+            .and_then(|e| state.inventories.get(e).ok())
+            .and_then(|(inventory, reserves)| {
+                let (entity, weapon) = inventory.weapons.get(inventory.active_weapon_index)?;
+                let mode = state
+                    .weapons
+                    .get(*entity)
+                    .ok()
+                    .and_then(|(s, modes)| modes.modes.get(&s.active_mode).cloned());
+                Some((
+                    weapon.config.name.clone(),
+                    mode.map(|m| m.mag_ammo),
+                    reserves.get(&weapon.config.ammo_type),
+                ))
+            });
     let (gauges, level, statuses) = player
         .and_then(|e| state.progress.get(e).ok())
         .unwrap_or((None, None, None));

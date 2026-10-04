@@ -23,8 +23,8 @@ use crate::economy::PerkMachine;
 use crate::global_asset::GlobalAsset;
 use crate::interaction::{point_to_collider_surface_distance_sq, Interactable, InteractionType};
 use crate::powerups::PowerUpsConfig;
-use crate::waves::state::WaveState;
 use crate::ui::hud_model::{player_source_text, HudPlayer, HudSnapshot};
+use crate::waves::state::WaveState;
 use crate::weapons::{WeaponInventory, WeaponPickup};
 
 /// HUD Root marker component

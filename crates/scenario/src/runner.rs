@@ -1835,7 +1835,9 @@ fn check(world: &mut World, expectation: &Expectation) -> Result<(), String> {
             if text.contains(contains.as_str()) {
                 Ok(())
             } else {
-                Err(format!("HUD {source} = « {text} » (attendu « {contains} »)"))
+                Err(format!(
+                    "HUD {source} = « {text} » (attendu « {contains} »)"
+                ))
             }
         }
         Expectation::Currency {

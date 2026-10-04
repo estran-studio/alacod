@@ -2690,8 +2690,7 @@ fn load_ui(
                     sounds: config.sounds,
                 });
             })
-        } else if rel.file_name().and_then(|name| name.to_str()) == Some(crate::ui::HUD_FILE_NAME)
-        {
+        } else if rel.file_name().and_then(|name| name.to_str()) == Some(crate::ui::HUD_FILE_NAME) {
             ron::from_str::<crate::ui::HudFileSchema>(&text).map(|hud| {
                 let sources = hud
                     .widgets
