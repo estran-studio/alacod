@@ -83,6 +83,20 @@ fn decide_fonceur(view: &BotView) -> BoxInput {
 fn decide_prudent(view: &BotView) -> BoxInput {
     let mut input = BoxInput::default();
 
+    // T1.14 (v1) : un projectile menace → l'esquive remplace le déplacement ; la visée et le
+    // tir vers l'ennemi le plus proche restent ceux de v0.
+    if let Some(away) = crate::dodge::dodge(view) {
+        set_direction_buttons(&mut input, away);
+        if let Some(enemy) = view.nearest_enemy {
+            aim_at(&mut input, view.position, enemy.position);
+            if enemy.distance <= PRUDENT_MAX_DISTANCE {
+                input.fire = view.trigger_ready;
+            }
+        }
+        manage_weapon(&mut input, view);
+        return input;
+    }
+
     if let Some(enemy) = view.nearest_enemy {
         aim_at(&mut input, view.position, enemy.position);
 
@@ -93,15 +107,29 @@ fn decide_prudent(view: &BotView) -> BoxInput {
         } // sinon : garde sa position (dans la bande [MIN, MAX])
 
         if enemy.distance <= PRUDENT_MAX_DISTANCE {
-            input.fire = true;
+            // T1.14 : relâcher entre deux tirs d'une arme non automatique
+            input.fire = view.trigger_ready;
         }
     } else if let Some(portal) = view.portal {
         // T1.8 : plus d'ennemi, portail ouvert : y aller (niveau suivant).
         set_direction_buttons(&mut input, portal - view.position);
     }
 
-    maybe_reload(&mut input, view);
+    manage_weapon(&mut input, view);
     input
+}
+
+/// `prudent` v1 (T1.14) : recharge si possible, sinon passe à une arme utilisable (même règle
+/// que `chasseur`/`acheteur`) — sans ça, une mitrailleuse vide sans réserve bloquait le bot
+/// devant le dernier ennemi d'un niveau.
+fn manage_weapon(input: &mut BoxInput, view: &BotView) {
+    if view.reload {
+        input.buttons |= INPUT_RELOAD;
+    } else if view.switch_weapon {
+        input.switch_weapon = true;
+    } else {
+        maybe_reload(input, view);
+    }
 }
 
 /// Marche vers `window` tant qu'elle est hors de portée de réparation, puis maintient
@@ -169,6 +197,11 @@ mod tests {
             nearest_window: None,
             hunter: None,
             portal: None,
+            projectiles: vec![],
+            body_radius: bevy_fixed::fixed_math::Fixed::from_num(10),
+            reload: false,
+            switch_weapon: false,
+            trigger_ready: true,
         }
     }
 

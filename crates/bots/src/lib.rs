@@ -16,6 +16,7 @@
 //! crate le ré-exporte pour que les appelants écrivent `bots::BotProfile` uniformément.
 
 pub mod decide;
+pub mod dodge;
 pub mod hunter;
 pub mod input;
 pub mod navigation;
@@ -23,5 +24,5 @@ pub mod view;
 
 pub use decide::decide;
 pub use game::replay::BotProfile;
-pub use input::{read_bot_inputs, BotAssignments, BotsPlugin};
-pub use view::{BotView, EnemyView, WindowView};
+pub use input::{read_bot_inputs, BotAssignments, BotStats, BotsPlugin};
+pub use view::{BotView, EnemyView, ProjectileView, WindowView};
