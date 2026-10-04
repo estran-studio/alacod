@@ -73,6 +73,8 @@ pub fn run(registry: &Registry, manifest: &GameManifest) -> Vec<LintError> {
     lint_progression(registry, &mut errors);
     lint_mutations(registry, &mut errors);
     lint_statuses(registry, &mut errors);
+    lint_map_characters(registry, &mut errors);
+    lint_entry_progression(registry, manifest, &mut errors);
     lint_forced_variants(registry, &mut errors);
     lint_character_tests(registry, &mut errors);
     lint_clocks(registry, manifest, &mut errors);
@@ -2072,5 +2074,52 @@ fn lint_statuses(registry: &Registry, errors: &mut Vec<LintError>) {
             }
             StatusKindEntry::Stun | StatusKindEntry::Freeze => {}
         }
+    }
+}
+
+/// T1.12 : chaque `CharacterSpawn` d'une carte désigne un personnage connu (champ `character`
+/// non vide). Avant, seuls ceux qui imposent une variante étaient vérifiés
+/// ([`lint_forced_variants`]).
+fn lint_map_characters(registry: &Registry, errors: &mut Vec<LintError>) {
+    for map in registry.maps.values() {
+        for character in &map.spawned_characters {
+            if !registry
+                .characters
+                .contains_key(&registry::CharacterId::from(character.clone()))
+            {
+                errors.push(LintError {
+                    kind: LintErrorKind::BrokenReference,
+                    file: map.file.display().to_string(),
+                    message: format!(
+                        "CharacterSpawn : personnage inconnu « {character} » (aucun personnage chargé avec cet id)"
+                    ),
+                });
+            }
+        }
+    }
+}
+
+/// T1.12 (audit) : `entry.progression` (T1.10) désigne une progression chargée. Le champ
+/// `progression` d'un scénario n'est pas du contenu : le runner l'ignore avec un avertissement
+/// s'il est inconnu (§27).
+fn lint_entry_progression(
+    registry: &Registry,
+    manifest: &GameManifest,
+    errors: &mut Vec<LintError>,
+) {
+    let Some(id) = &manifest.entry.progression else {
+        return;
+    };
+    if !registry
+        .progression
+        .contains_key(&registry::ProgressionId::from(id.clone()))
+    {
+        errors.push(LintError {
+            kind: LintErrorKind::BrokenReference,
+            file: crate::manifest::MANIFEST_FILE_NAME.to_string(),
+            message: format!(
+                "entry.progression : progression inconnue « {id} » (kind Progression)"
+            ),
+        });
     }
 }

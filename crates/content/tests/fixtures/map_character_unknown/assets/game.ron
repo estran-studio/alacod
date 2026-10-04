@@ -1,0 +1,9 @@
+// Fixture T1.12 (audit du lint des kinds de M1).
+(
+    name: "fixture-map_character_unknown",
+    content_folders: [
+        (path: "characters", kind: "Character"),
+        (path: "maps", kind: "Map"),
+    ],
+    entry: (start_map: "maps/salle.ldtk", default_seed: 1),
+)

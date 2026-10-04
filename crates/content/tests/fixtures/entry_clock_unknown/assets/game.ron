@@ -1,0 +1,8 @@
+// Fixture T1.12 (audit du lint des kinds de M1).
+(
+    name: "fixture-entry_clock_unknown",
+    content_folders: [
+        (path: "clocks", kind: "Clock"),
+    ],
+    entry: (start_map: "unused", default_seed: 1, clocks: ["absente"]),
+)

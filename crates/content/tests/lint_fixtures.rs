@@ -132,6 +132,77 @@ fn effect_fixtures_report_unsupported_and_out_of_range() {
     assert_has_error(&errors, LintErrorKind::OutOfRange, "Heal = 0");
 }
 
+/// T1.12 : fixtures de l'audit des kinds de M1 (références vérifiées sans fixture avant).
+#[test]
+fn m1_audit_fixtures() {
+    let cases: &[(&str, LintErrorKind, &[&str])] = &[
+        (
+            "behavior_shoot_unknown",
+            LintErrorKind::BrokenReference,
+            &[
+                "arme inconnue « lance_flammes »",
+                "pattern inconnu « spirale »",
+            ],
+        ),
+        (
+            "cave_unknown_character",
+            LintErrorKind::BrokenReference,
+            &["« fantome »"],
+        ),
+        (
+            "cave_out_of_range",
+            LintErrorKind::OutOfRange,
+            &["au moins 16 × 16", "fill_ratio = 1.5", "birth = 9"],
+        ),
+        (
+            "floors_unknown_cave",
+            LintErrorKind::BrokenReference,
+            &["aucune caverne chargée"],
+        ),
+        (
+            "entry_clock_unknown",
+            LintErrorKind::BrokenReference,
+            &["entry.clocks : horloge inconnue « absente »"],
+        ),
+        (
+            "entry_difficulty_missing",
+            LintErrorKind::BrokenReference,
+            &["entry.difficulty"],
+        ),
+        (
+            "effect_broken_reference",
+            LintErrorKind::BrokenReference,
+            &["pattern « spirale » inconnu", "arme « laser » inconnue"],
+        ),
+        (
+            "map_character_unknown",
+            LintErrorKind::BrokenReference,
+            &["personnage inconnu « fantome »"],
+        ),
+        (
+            "powerup_apply_status",
+            LintErrorKind::OutOfRange,
+            &["ApplyStatus"],
+        ),
+        (
+            "entry_progression_unknown",
+            LintErrorKind::BrokenReference,
+            &["progression inconnue « absente »"],
+        ),
+        (
+            "cave_template_missing",
+            LintErrorKind::BrokenReference,
+            &["gabarit LDtk"],
+        ),
+    ];
+    for (name, kind, needles) in cases {
+        let (_, _, errors) = load_and_lint(&fixture_dir(name)).unwrap();
+        for needle in *needles {
+            assert_has_error(&errors, *kind, needle);
+        }
+    }
+}
+
 #[test]
 fn status_fixtures() {
     let (_, _, errors) = load_and_lint(&fixture_dir("status_out_of_range")).unwrap();
@@ -328,6 +399,17 @@ fn t2_8_fixtures_have_a_single_problem() {
         ("mutation_out_of_range", LintErrorKind::OutOfRange),
         ("status_out_of_range", LintErrorKind::OutOfRange),
         ("status_unknown", LintErrorKind::BrokenReference),
+        ("behavior_shoot_unknown", LintErrorKind::BrokenReference),
+        ("cave_unknown_character", LintErrorKind::BrokenReference),
+        ("cave_out_of_range", LintErrorKind::OutOfRange),
+        ("floors_unknown_cave", LintErrorKind::BrokenReference),
+        ("entry_clock_unknown", LintErrorKind::BrokenReference),
+        ("entry_difficulty_missing", LintErrorKind::BrokenReference),
+        ("effect_broken_reference", LintErrorKind::BrokenReference),
+        ("map_character_unknown", LintErrorKind::BrokenReference),
+        ("powerup_apply_status", LintErrorKind::OutOfRange),
+        ("entry_progression_unknown", LintErrorKind::BrokenReference),
+        ("cave_template_missing", LintErrorKind::BrokenReference),
     ];
     for (name, kind) in cases {
         let (_, _, errors) = load_and_lint(&fixture_dir(name)).unwrap();

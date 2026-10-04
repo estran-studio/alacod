@@ -308,19 +308,27 @@ Avant/après un refactoring de la simulation, comparer les traces : elles doiven
 `crates/scenario` joue des parties scriptées en headless, dans le processus de test :
 - `tests/scenarios/<nom>.ron` : map, seed, un script d'inputs par joueur (segments de frames avec
   boutons et visée), nombre de frames, attentes à une frame donnée :
-  - Ponctuelles : `PlayerAlive`, `PlayerDead`, `WaveAtLeast`, `KillsAtLeast`, `WindowsBrokenAtLeast`,
-    `WindowHealth`, `DoorsOpenAtLeast`, `ActiveWeapon`, `Ammo`, `AmmoReserve`, `WeaponPickups`,
-    `PowerUpPickups` (T2.5), `PlayerPosition`, `BulletsInside`, `Health`, `EntityHealth`,
-    `EntityHits`, `EntityCount`, `Currency`, `Stat`, `PlayerDowned`, `RunState`,
-    `RunSummary`, `Event`, `BulletCount` et `HitsAtLeast` (T1.1, projectiles composables,
-    `docs/conventions.md` §16), `FloorIndex` (T1.8, mode `Floors`, voir `docs/conventions.md`
-    §17), `CellState` (T1.6, terrain d'une caverne, voir `docs/conventions.md` §21 ; champ
-    `surface` en T1.7, §26), `EnemyState` et `EnemyDistance` (T1.4, behaviors composables,
-    `docs/conventions.md` §22), `EnemyVariant` (T1.5, variantes et élites, §25),
-    `Clock` (T1.9, horloges, §23), `Gauge`, `Level`, `Mutations` (T1.10, progression et
-    mutations, §27), `HasStatus`, `StatusStacks` (T1.3, statuts, §19).
-  - Continues (vérifiées à chaque frame) : `NoDamageBetween` (santé du joueur ne diminue pas dans l'intervalle),
-    `EnemyContactBefore` et `EnemyNeverInWall` (T1.4, diagnostics de navigation, §22).
+  - Attentes (une seule liste, par tâche ; « continue » = vérifiée à chaque frame ; forme RON
+    dans le § de `docs/conventions.md` indiqué, liste à jour et auditée par T1.15) :
+    - M0 et M2 (avant M1) : `PlayerAlive`, `PlayerDead`, `WaveAtLeast`, `KillsAtLeast`,
+      `WindowsBrokenAtLeast`, `WindowHealth`, `DoorsOpenAtLeast`, `ActiveWeapon`, `Ammo`,
+      `AmmoReserve`, `WeaponPickups`, `PowerUpPickups` (T2.5, §14), `PlayerPosition`,
+      `BulletsInside`, `Health`, `EntityHealth`, `EntityHits`, `EntityCount`, `Currency`, `Stat`,
+      `PlayerDowned`, `PlayerRevived`, `Defeat`, `RunState`, `RunSummary`, `Event` ;
+      continue : `NoDamageBetween` (santé du joueur ne diminue pas dans l'intervalle).
+    - T1.1 projectiles composables (§16) : `BulletCount`, `HitsAtLeast`.
+    - T1.3 statuts (§19) : `HasStatus`, `StatusStacks`.
+    - T1.4 behaviors (§22) : `EnemyState`, `EnemyDistance` ; continues : `EnemyContactBefore`,
+      `EnemyNeverInWall`.
+    - T1.5 variantes (§25) : `EnemyVariant`.
+    - T1.6 cavernes (§21) : `CellState` (champ `surface` : T1.7, §26).
+    - T1.8 mode `Floors` (§17) : `FloorIndex`.
+    - T1.9 horloges (§23) : `Clock`.
+    - T1.10 progression et mutations (§27) : `Gauge`, `Level`, `Mutations`.
+    - Réenregistrement : le scénario rejoué depuis son enregistrement garde ses réglages
+      (`floors`, `clocks`, `difficulty`, `characters`, `mode`, `progression`, et chaque
+      `PlayerScript` sans ses inputs) ; ses attentes y restent vertes
+      (`m1_expectations_survive_rerecording`).
   - `weapon_overrides` modifie la taille et le nombre de chargeurs d'une arme pour un scénario ;
     `wave_overrides` la config de vagues ; `powerups` (T2.5) place un power-up à une position et
     une frame exactes (coordonnées en chaînes `Fixed`) ; `powerup_drop_chance_override` (T2.5) force la chance de drop de la table

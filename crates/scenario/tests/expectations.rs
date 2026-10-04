@@ -1370,3 +1370,75 @@ fn status_expectations_pass_and_fail() {
         ],
     );
 }
+
+/// T1.15 (audit) : `Clock` vrai et faux sur `clock_events` (horloge `arene` : `tic` à f60).
+#[test]
+fn clock_expectation_pass_and_fail() {
+    if map_ldtk::RENDER_ENABLED {
+        return;
+    }
+    let clock = |id: &str, fired: bool, at_frame: u32| Expectation::Clock {
+        id: id.into(),
+        fired,
+        at_frame,
+    };
+    verifie_attentes(
+        load_scenario("clock_events"),
+        &[clock("tic", false, 59), clock("tic", true, 61)],
+        &[
+            (clock("tic", true, 59), "pas encore déclenché"),
+            (clock("tic", false, 61), "déjà déclenché"),
+        ],
+    );
+}
+
+/// T1.15 (audit) : un scénario qui utilise une attente de M1, réenregistré par le runner
+/// (`ScenarioOutcome::recorded`, ce que `ALACOD_RECORD` et `alacod-sim --save-scenario`
+/// écrivent) puis rejoué avec ses attentes, donne la même trace et les mêmes attentes vertes.
+/// Couvre `BulletCount`, `HitsAtLeast` (grenade générée), `HasStatus`, `StatusStacks`
+/// (`weapon_status_burn`, `status_slow_enemy`), `EnemyState`, `EnemyDistance`
+/// (`enemy_keep_distance`), `EnemyContactBefore` (`enemy_charge`), `EnemyNeverInWall`
+/// (`enemy_wander`), `EnemyVariant` (`variant_fast`), `FloorIndex` (`portal_next_floor`),
+/// `Clock` (`clock_events`), `CellState` (`explode_wall`), `Gauge`, `Level`, `Mutations`
+/// (`levelup_choice`, `effect_on_kill` : mutation imposée).
+#[test]
+fn m1_expectations_survive_rerecording() {
+    if map_ldtk::RENDER_ENABLED {
+        return;
+    }
+    for name in [
+        "generated/testbed/weapon_grenade",
+        "generated/testbed/weapon_status_burn",
+        "status_slow_enemy",
+        "enemy_keep_distance",
+        "enemy_charge",
+        "enemy_wander",
+        "variant_fast",
+        "portal_next_floor",
+        "clock_events",
+        "explode_wall",
+        "levelup_choice",
+        "effect_on_kill",
+    ] {
+        let scenario = load_scenario(name);
+        let original = run(&scenario);
+        assert!(
+            original.failures.is_empty(),
+            "{name} : {:?}",
+            original.failures
+        );
+        let mut recorded = Scenario::from_ron(&original.recorded.to_ron()).unwrap();
+        recorded.frames = scenario.frames;
+        recorded.expect = scenario.expect.clone();
+        let replayed = run(&recorded);
+        assert!(
+            replayed.failures.is_empty(),
+            "{name} réenregistré : {:?}",
+            replayed.failures
+        );
+        assert_eq!(
+            original.trace, replayed.trace,
+            "{name} : le rejeu de l'enregistrement diverge"
+        );
+    }
+}

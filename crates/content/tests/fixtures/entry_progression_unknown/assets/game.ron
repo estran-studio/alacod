@@ -1,0 +1,6 @@
+// Fixture T1.12 (audit) : `entry.progression` vers une progression inconnue.
+(
+    name: "fixture-entry_progression_unknown",
+    content_folders: [],
+    entry: (start_map: "unused", default_seed: 1, progression: "absente"),
+)
