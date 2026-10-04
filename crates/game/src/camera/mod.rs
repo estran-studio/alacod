@@ -205,7 +205,10 @@ fn camera_control_system(
     follow_override: Option<Res<CameraFollowOverride>>,
 ) {
     // Get the primary window for dimensions
-    let window = windows.single().unwrap();
+    // D31 : à la fermeture, la fenêtre peut disparaître avant le dernier passage du système.
+    let Ok(window) = windows.single() else {
+        return;
+    };
     let window_size = Vec2::new(window.width(), window.height());
 
     // Get mouse position normalized to -1.0 to 1.0 range
@@ -416,7 +419,10 @@ fn player_indicator_system(
         commands.entity(entity).despawn();
     }
 
-    let window = windows.single().unwrap();
+    // D31 : à la fermeture, la fenêtre peut disparaître avant le dernier passage du système.
+    let Ok(window) = windows.single() else {
+        return;
+    };
     let (camera, camera_transform, projection) = if let Ok(cam) = camera_query.single() {
         cam
     } else {

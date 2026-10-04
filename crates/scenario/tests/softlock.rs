@@ -23,6 +23,7 @@ fn scenario(frames: u32) -> Scenario {
         clocks: None,
         difficulty: None,
         characters: vec![],
+        mode: None,
     }
 }
 

@@ -3,7 +3,7 @@
 //! d'entrée (carte de départ, graine par défaut).
 
 use bevy::prelude::Resource;
-use serde::Deserialize;
+use serde::{Deserialize, Serialize};
 use std::fmt;
 use std::path::{Path, PathBuf};
 
@@ -28,7 +28,7 @@ pub struct ContentFolderDecl {
 /// chargement RON, rapportée comme n'importe quelle autre erreur de parse — pas de lint
 /// dédié nécessaire. Converti en `run::run::RunMode` par `game::jjrs` (ce crate ne dépend
 /// pas de `run`, voir `docs/conventions.md` §13).
-#[derive(Debug, Clone, Copy, Deserialize, PartialEq, Eq)]
+#[derive(Debug, Clone, Copy, Serialize, Deserialize, PartialEq, Eq)]
 pub enum EntryMode {
     /// Le système de vagues actuel (`game::waves`). Exige un dossier de contenu `Wave`
     /// (validé par `lint::lint_entry_point`).

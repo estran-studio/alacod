@@ -8,7 +8,9 @@ use game::character::config::CharacterTest;
 use game::character::enemy::Enemy;
 use game::character::variant::Variant;
 use game::replay::{CharacterPlacement, EntityRef, Expectation, Scenario};
-use scenario::generate::{self, EnemyArena, EnemyProbe, Template, ENEMY_AT_FRAME};
+use scenario::generate::{
+    self, EnemyArena, EnemyProbe, Template, WeaponArena, WeaponKind, ENEMY_AT_FRAME,
+};
 use utils::net_id::GgrsNetId;
 
 const AT: u32 = 5;
@@ -18,6 +20,7 @@ fn testbed_arena() -> EnemyArena {
         game: "testbed".into(),
         map: "testbed/arena.ldtk".into(),
         waves: false,
+        mode: None,
     }
 }
 
@@ -233,4 +236,61 @@ fn placements_invalides_en_echec() {
         outcome.failures
     );
     assert!(has("at_frame 60 >= frames 60"), "{:#?}", outcome.failures);
+}
+
+/// Suite de T1.13 : `Scenario::mode` l'emporte sur `entry.mode` ; absent, rien ne change.
+#[test]
+fn mode_impose_par_le_scenario() {
+    if map_ldtk::RENDER_ENABLED {
+        return;
+    }
+    // `zombies` est en `Waves` : le scénario impose `Sandbox`.
+    let mut scenario = Scenario {
+        game: "zombies".into(),
+        map: "exemples/test_map.ldtk".into(),
+        frames: 5,
+        players: vec![Default::default()],
+        powerup_drop_chance_override: Some(bevy_fixed::fixed_math::FIXED_ZERO),
+        ..generate::build_scenario("pistol", WeaponKind::Ranged, None, 0)
+    };
+    scenario.mode = Some(content::EntryMode::Sandbox);
+    let mut app = scenario::runner::run_until(&scenario, 3);
+    assert_eq!(
+        app.world_mut().resource::<run::Run>().mode,
+        run::RunMode::Sandbox
+    );
+    scenario.mode = None;
+    let mut app = scenario::runner::run_until(&scenario, 3);
+    assert!(matches!(
+        app.world_mut().resource::<run::Run>().mode,
+        run::RunMode::Waves { .. }
+    ));
+
+    // `Floors` sans séquence : refusé par le runner.
+    scenario.mode = Some(content::EntryMode::Floors);
+    let outcome = scenario::run(&scenario);
+    assert!(
+        outcome
+            .failures
+            .iter()
+            .any(|f| f.contains("mode: Floors exige floors")),
+        "{:#?}",
+        outcome.failures
+    );
+}
+
+#[test]
+fn gabarits_generate_template_en_sandbox() {
+    let template = WeaponArena {
+        game: "throne".into(),
+        map: "maps/gabarit_armes.ldtk".into(),
+        mode: Some(content::EntryMode::Sandbox),
+    };
+    let scenario = generate::build_weapon_scenario(&template, "epee", WeaponKind::Melee, None, 0);
+    assert_eq!(scenario.mode, Some(content::EntryMode::Sandbox));
+    assert!(scenario.to_ron().contains("mode: Sandbox"));
+    // Testbed (pas de `generate_template`) : pas de champ, fichiers générés inchangés.
+    let testbed = generate::build_scenario("pistol", WeaponKind::Ranged, None, 0);
+    assert_eq!(testbed.mode, None);
+    assert!(!testbed.to_ron().contains("mode:"));
 }

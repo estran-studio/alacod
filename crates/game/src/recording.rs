@@ -46,6 +46,8 @@ pub struct RecordedSettings {
     pub difficulty: Option<bool>,
     /// T1.13 : placements scriptés de personnages (`Scenario::characters`).
     pub characters: Vec<CharacterPlacement>,
+    /// Mode de run imposé (`Scenario::mode`).
+    pub mode: Option<content::EntryMode>,
 }
 
 impl Default for RecordedSettings {
@@ -62,6 +64,7 @@ impl Default for RecordedSettings {
             clocks: None,
             difficulty: None,
             characters: vec![],
+            mode: None,
         }
     }
 }
@@ -79,6 +82,7 @@ impl RecordedSettings {
             clocks: scenario.clocks.clone(),
             difficulty: scenario.difficulty,
             characters: scenario.characters.clone(),
+            mode: scenario.mode,
         }
     }
 }
@@ -157,6 +161,7 @@ impl InputRecorder {
             clocks: settings.clocks,
             difficulty: settings.difficulty,
             characters: settings.characters,
+            mode: settings.mode,
         };
         if let Some(map) = map {
             scenario.map = map.map_path.clone();
@@ -284,6 +289,7 @@ mod tests {
             clocks: None,
             difficulty: None,
             characters: vec![],
+            mode: None,
         };
         let mut recorder = InputRecorder::new(settings.clone());
         recorder

@@ -1809,6 +1809,13 @@ la cible (`target`, `counts_hits: true`) au même décalage du spawn du joueur, 
 coordonnées LDtk. Lint : carte connue, cible connue avec `counts_hits: true`
 (`generate_template_unknown_map`, `generate_template_target_without_hits`).
 
+**`Scenario.mode`** (suite de T1.13, `m1-dettes-lot-1`) : `mode: Some(Sandbox | Waves |
+Floors)` l'emporte sur `entry.mode` du manifeste (le runner remplace `entry.mode` avant de
+l'insérer) ; absent, comportement d'avant. `Floors` exige `floors` (échec du runner sinon). Le
+générateur écrit `mode: Sandbox` dans les gabarits d'un jeu qui déclare `generate_template` (un
+jeu en `Floors`, comme `throne`, jouerait sinon sa séquence au lieu de la carte du gabarit) ; les
+générés de `zombies` et `testbed` n'ont pas le champ.
+
 **Hors périmètre** : gabarits par statut (T1.3 absente de main), vidéos des gabarits,
 génération de cartes, bots dans les gabarits.
 

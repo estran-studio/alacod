@@ -5,7 +5,9 @@ version = "0.2.0"
 edition = "2021"
 
 [dependencies]
-bevy = "0.19.1"
+# D35 : sans les features par défaut de Bevy (rendu, audio, UI) : `make lint` (`-p content`)
+# ne compile plus le rendu. Les crates qui en ont besoin les demandent elles-mêmes.
+bevy = { version = "0.19.1", default-features = false }
 
 serde = { version = "1.0", features = ["derive"] }
 
