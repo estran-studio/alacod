@@ -1,0 +1,222 @@
+[
+  {
+    "seed": 1,
+    "wave": 5,
+    "floor": 0,
+    "frames": 7425,
+    "deaths": 0,
+    "kills": 52,
+    "wall_seconds": 540.738661733,
+    "desync": false,
+    "sim_fps": 13.74345063388399
+  },
+  {
+    "seed": 2,
+    "wave": 5,
+    "floor": 0,
+    "frames": 7426,
+    "deaths": 0,
+    "kills": 53,
+    "wall_seconds": 610.38005429,
+    "desync": false,
+    "sim_fps": 12.17165147101374
+  },
+  {
+    "seed": 3,
+    "wave": 5,
+    "floor": 0,
+    "frames": 7114,
+    "deaths": 0,
+    "kills": 53,
+    "wall_seconds": 386.381026847,
+    "desync": false,
+    "sim_fps": 18.423083260368756
+  },
+  {
+    "seed": 4,
+    "wave": 5,
+    "floor": 0,
+    "frames": 8507,
+    "deaths": 0,
+    "kills": 49,
+    "wall_seconds": 663.033224209,
+    "desync": false,
+    "sim_fps": 12.840033870386135
+  },
+  {
+    "seed": 5,
+    "wave": 5,
+    "floor": 0,
+    "frames": 6953,
+    "deaths": 0,
+    "kills": 51,
+    "wall_seconds": 359.999185294,
+    "desync": false,
+    "sim_fps": 19.327077084467625
+  },
+  {
+    "seed": 6,
+    "wave": 5,
+    "floor": 0,
+    "frames": 7751,
+    "deaths": 0,
+    "kills": 52,
+    "wall_seconds": 439.805168053,
+    "desync": false,
+    "sim_fps": 17.63366568765318
+  },
+  {
+    "seed": 7,
+    "wave": 5,
+    "floor": 0,
+    "frames": 7997,
+    "deaths": 0,
+    "kills": 53,
+    "wall_seconds": 619.139675169,
+    "desync": false,
+    "sim_fps": 12.922369136625859
+  },
+  {
+    "seed": 8,
+    "wave": 5,
+    "floor": 0,
+    "frames": 7250,
+    "deaths": 0,
+    "kills": 50,
+    "wall_seconds": 382.236579667,
+    "desync": false,
+    "sim_fps": 18.97927637225038
+  },
+  {
+    "seed": 9,
+    "wave": 5,
+    "floor": 0,
+    "frames": 7690,
+    "deaths": 0,
+    "kills": 52,
+    "wall_seconds": 194.274188821,
+    "desync": false,
+    "sim_fps": 39.62861216516116
+  },
+  {
+    "seed": 10,
+    "wave": 5,
+    "floor": 0,
+    "frames": 6877,
+    "deaths": 0,
+    "kills": 51,
+    "wall_seconds": 464.725904947,
+    "desync": false,
+    "sim_fps": 14.805917142695678
+  },
+  {
+    "seed": 11,
+    "wave": 5,
+    "floor": 0,
+    "frames": 7293,
+    "deaths": 0,
+    "kills": 52,
+    "wall_seconds": 363.914440394,
+    "desync": false,
+    "sim_fps": 20.06356803905112
+  },
+  {
+    "seed": 12,
+    "wave": 5,
+    "floor": 0,
+    "frames": 8624,
+    "deaths": 0,
+    "kills": 52,
+    "wall_seconds": 767.458167483,
+    "desync": false,
+    "sim_fps": 11.24390245936927
+  },
+  {
+    "seed": 13,
+    "wave": 5,
+    "floor": 0,
+    "frames": 7720,
+    "deaths": 0,
+    "kills": 52,
+    "wall_seconds": 440.812233945,
+    "desync": false,
+    "sim_fps": 17.52293706694171
+  },
+  {
+    "seed": 14,
+    "wave": 5,
+    "floor": 0,
+    "frames": 7352,
+    "deaths": 0,
+    "kills": 50,
+    "wall_seconds": 597.626126826,
+    "desync": false,
+    "sim_fps": 12.307846645657962
+  },
+  {
+    "seed": 15,
+    "wave": 5,
+    "floor": 0,
+    "frames": 6887,
+    "deaths": 0,
+    "kills": 50,
+    "wall_seconds": 369.653976254,
+    "desync": false,
+    "sim_fps": 18.642275166669652
+  },
+  {
+    "seed": 16,
+    "wave": 5,
+    "floor": 0,
+    "frames": 8060,
+    "deaths": 0,
+    "kills": 52,
+    "wall_seconds": 371.809825233,
+    "desync": false,
+    "sim_fps": 21.692702531766585
+  },
+  {
+    "seed": 17,
+    "wave": 5,
+    "floor": 0,
+    "frames": 7909,
+    "deaths": 0,
+    "kills": 51,
+    "wall_seconds": 567.188292436,
+    "desync": false,
+    "sim_fps": 13.95116583349467
+  },
+  {
+    "seed": 18,
+    "wave": 5,
+    "floor": 0,
+    "frames": 8030,
+    "deaths": 0,
+    "kills": 53,
+    "wall_seconds": 460.301513231,
+    "desync": false,
+    "sim_fps": 17.454349684643425
+  },
+  {
+    "seed": 19,
+    "wave": 5,
+    "floor": 0,
+    "frames": 7582,
+    "deaths": 0,
+    "kills": 51,
+    "wall_seconds": 334.100411655,
+    "desync": false,
+    "sim_fps": 22.709114162813098
+  },
+  {
+    "seed": 20,
+    "wave": 5,
+    "floor": 0,
+    "frames": 8034,
+    "deaths": 0,
+    "kills": 54,
+    "wall_seconds": 534.458585643,
+    "desync": false,
+    "sim_fps": 15.04011758725971
+  }
+]

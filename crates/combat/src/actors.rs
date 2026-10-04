@@ -138,6 +138,11 @@ pub struct BoxInput {
 }
 
 /// Component for the weapon sprite's position relative to player
+///
+/// Donnée dérivée de l'input (`pan`), non rollbackée : `apply_inputs` la réécrit à chaque
+/// frame, avant tout retour anticipé (dash), et `system_weapon_position` la lit dans la même
+/// frame. Ne jamais la lire d'une frame à l'autre ni l'écrire après un `continue` : elle
+/// redeviendrait un état caché que le rollback ne restaure pas (scénario `dash_aim_change`).
 #[derive(Component, Clone, Copy, Default)]
 pub struct CursorPosition {
     pub x: i32,

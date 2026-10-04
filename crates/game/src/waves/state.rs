@@ -5,6 +5,7 @@
 use bevy::prelude::*;
 use bevy_fixed::fixed_math;
 use serde::{Deserialize, Serialize};
+use std::hash::{Hash, Hasher};
 
 // Note: We don't derive Reflect for WaveState because Fixed doesn't implement Reflect.
 // The rollback system uses Clone, which is sufficient.
@@ -28,7 +29,7 @@ pub enum WavePhase {
 /// Wave system state resource
 ///
 /// GGRS CRITICAL: Must be registered with `.rollback_and_trace_resource::<WaveState>()`
-#[derive(Resource, Debug, Clone, Hash, Serialize, Deserialize)]
+#[derive(Resource, Debug, Clone, Serialize, Deserialize)]
 pub struct WaveState {
     /// Current phase of the wave
     pub phase: WavePhase,
@@ -64,6 +65,34 @@ pub struct WaveState {
     pub current_health_multiplier: fixed_math::Fixed,
     /// Damage multiplier for current wave (1.0 = 100%)
     pub current_damage_multiplier: fixed_math::Fixed,
+    /// A distance stall has activated nearest-spawner recovery for this wave.
+    #[serde(default)]
+    pub spawn_fallback: bool,
+}
+
+impl Hash for WaveState {
+    fn hash<H: Hasher>(&self, state: &mut H) {
+        // Preserve the historical field order and checksum while recovery is inactive.
+        // Registering a new checksum component would shift every existing trace, even
+        // without instances. This flag lives in the already-registered rollback state
+        // and contributes to its checksum whenever recovery changes the spawn rules.
+        self.phase.hash(state);
+        self.current_wave.hash(state);
+        self.enemies_to_spawn.hash(state);
+        self.enemies_spawned_this_wave.hash(state);
+        self.wave_enemy_count.hash(state);
+        self.total_enemies_killed.hash(state);
+        self.wave_enemies_killed.hash(state);
+        self.wave_start_frame.hash(state);
+        self.last_spawn_frame.hash(state);
+        self.last_enemy_killed_frame.hash(state);
+        self.phase_start_frame.hash(state);
+        self.current_health_multiplier.hash(state);
+        self.current_damage_multiplier.hash(state);
+        if self.spawn_fallback {
+            "spawn_fallback".hash(state);
+        }
+    }
 }
 
 impl Default for WaveState {
@@ -82,6 +111,7 @@ impl Default for WaveState {
             phase_start_frame: 0,
             current_health_multiplier: fixed_math::FIXED_ONE,
             current_damage_multiplier: fixed_math::FIXED_ONE,
+            spawn_fallback: false,
         }
     }
 }
@@ -124,6 +154,7 @@ impl WaveState {
         self.enemies_to_spawn = enemy_count;
         self.enemies_spawned_this_wave = 0;
         self.wave_enemies_killed = 0;
+        self.spawn_fallback = false;
         self.current_health_multiplier = health_mult;
         self.current_damage_multiplier = damage_mult;
     }

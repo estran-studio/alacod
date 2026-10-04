@@ -30,6 +30,15 @@ else
 	VERSION := $(CURRENT_TAG)
 endif
 
+# Version compilée dans les binaires de test et d'outillage (`crates/game/build.rs` →
+# `env!("APP_VERSION")`, affichage et chemin des assets wasm seulement). Elle doit être STABLE :
+# avec `$(VERSION)` (tag + sha), chaque commit rebâtissait `game` et tout ce qui en dépend (le
+# binaire de test de `scenario`, 14 Go) et laissait une génération de plus dans le target.
+# `v0.0.0` = la valeur par défaut de build.rs : `make gen`, `cargo test` nu et `make
+# test_scenarios` partagent ainsi un seul build. Les cibles de jeu (`make zombies`, `make
+# release`) gardent `$(VERSION)`.
+TEST_VERSION ?= v0.0.0
+
 
 ifeq ($(PROFILE), dev)
 	export MODE_DIR := debug
@@ -129,7 +138,7 @@ gen:
 # Scénarios de jeu headless (tests/scenarios/*.ron), comparés à leur trace de référence.
 # BLESS=1 réécrit les traces de référence ; SCENARIO=<nom> n'en joue qu'un.
 test_scenarios:
-	ALACOD_BLESS=$(BLESS) ALACOD_SCENARIO=$(SCENARIO) APP_VERSION=$(VERSION) cargo test -p scenario --profile headless --test scenarios -- --nocapture
+	ALACOD_BLESS=$(BLESS) ALACOD_SCENARIO=$(SCENARIO) APP_VERSION=$(TEST_VERSION) cargo test -p scenario --profile headless --test scenarios -- --nocapture
 
 # Benchmarks : lance test_scenarios puis affiche les métriques de performance.
 bench:

@@ -41,6 +41,14 @@ use super::{
     tracking::WaveEnemy,
 };
 
+/// Ten seconds without a spawn: distance bounds must not freeze a wave forever.
+/// The deadline uses existing rollback state, including the start of each new wave.
+const SPAWN_STALL_FRAMES: u32 = 600;
+
+fn spawn_stalled(state: &WaveState, frame: u32) -> bool {
+    frame.saturating_sub(state.last_spawn_frame.max(state.phase_start_frame)) >= SPAWN_STALL_FRAMES
+}
+
 /// System that manages wave state transitions.
 ///
 /// Runs every frame to check conditions and advance the state machine.
@@ -239,11 +247,33 @@ pub fn wave_spawning_system(
     }
 
     // Select valid spawners based on distance
-    let valid_spawners = select_valid_spawners(&spawner_query, &player_positions, config);
+    let valid_spawners = select_valid_spawners(
+        &spawner_query,
+        &player_positions,
+        config,
+        spawn_stalled(&wave_state, current_frame) || wave_state.spawn_fallback,
+    );
 
     if valid_spawners.is_empty() {
         // No valid spawners - try again next frame
         return;
+    }
+
+    let using_fallback = valid_spawners.iter().all(|(_, _, _, transform)| {
+        let distance = player_positions
+            .iter()
+            .map(|p| transform.translation.truncate().distance(p))
+            .min()
+            .unwrap_or(fixed_math::Fixed::MAX);
+        distance < config.min_player_distance || distance > config.max_player_distance
+    });
+    if using_fallback {
+        let (id, _, _, _) = valid_spawners[0];
+        wave_state.spawn_fallback = true;
+        info!(
+            "ggrs{{f={} wave_spawn_fallback wave={} spawner={}}}",
+            current_frame, wave_state.current_wave, id.0
+        );
     }
 
     // Calculate batch size
@@ -333,6 +363,7 @@ fn select_valid_spawners<'a>(
     )>,
     player_positions: &[fixed_math::FixedVec2],
     config: &crate::balance::ResolvedWaveConfig,
+    allow_nearest: bool,
 ) -> Vec<(
     &'a GgrsNetId,
     Entity,
@@ -343,6 +374,7 @@ fn select_valid_spawners<'a>(
     spawners.sort_unstable_by_key(|(net_id, _, _, _)| net_id.0);
 
     let mut valid = Vec::new();
+    let mut nearest = None;
 
     for (net_id, entity, spawner_config, transform) in spawners {
         let spawner_pos = transform.translation.truncate();
@@ -354,6 +386,14 @@ fn select_valid_spawners<'a>(
             .min_by(|a, b| a.partial_cmp(b).unwrap_or(std::cmp::Ordering::Equal))
             .unwrap_or(fixed_math::Fixed::MAX);
 
+        // Sorting by net_id above also breaks equal-distance ties deterministically.
+        if nearest
+            .as_ref()
+            .is_none_or(|(distance, _)| min_distance < *distance)
+        {
+            nearest = Some((min_distance, (net_id, entity, spawner_config, transform)));
+        }
+
         // Check distance bounds
         if min_distance >= config.min_player_distance && min_distance <= config.max_player_distance
         {
@@ -361,6 +401,11 @@ fn select_valid_spawners<'a>(
         }
     }
 
+    if valid.is_empty() && allow_nearest && !player_positions.is_empty() {
+        if let Some((_, spawner)) = nearest {
+            valid.push(spawner);
+        }
+    }
     valid
 }
 
@@ -453,5 +498,118 @@ pub fn wave_enemy_death_tracking_system(
                 frame.frame, wave_state.total_enemies_killed, wave_state.wave_enemies_killed
             );
         }
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use bevy::ecs::system::RunSystemOnce;
+    use fixed_math::{Fixed, FixedTransform3D, FixedVec2};
+
+    fn select(
+        In((positions, fallback)): In<(Vec<FixedVec2>, bool)>,
+        query: Query<(
+            &GgrsNetId,
+            Entity,
+            &EnemySpawnerComponent,
+            &FixedTransform3D,
+        )>,
+    ) -> Vec<usize> {
+        select_valid_spawners(
+            &query,
+            &positions,
+            &crate::balance::resolve_waves(&crate::waves::WaveConfig::default(), 1),
+            fallback,
+        )
+        .iter()
+        .map(|s| s.0 .0)
+        .collect()
+    }
+
+    fn world(spawners: &[(usize, i32)]) -> World {
+        let mut world = World::new();
+        for &(id, x) in spawners {
+            let mut transform = FixedTransform3D::IDENTITY;
+            transform.translation.x = Fixed::from_num(x);
+            world.spawn((
+                GgrsNetId(id, "spawner".into()),
+                EnemySpawnerComponent::default(),
+                transform,
+            ));
+        }
+        world
+    }
+
+    #[test]
+    fn distant_or_too_close_spawners_recover_with_net_id_tie_break() {
+        for positions in [
+            vec![(9, 1000), (3, -1000), (1, 1400)],
+            vec![(9, 20), (3, -20)],
+        ] {
+            let mut w = world(&positions);
+            assert!(w
+                .run_system_once_with(select, (vec![FixedVec2::ZERO], false))
+                .unwrap()
+                .is_empty());
+            assert_eq!(
+                w.run_system_once_with(select, (vec![FixedVec2::ZERO], true))
+                    .unwrap(),
+                vec![3]
+            );
+            let mut reversed = positions;
+            reversed.reverse();
+            assert_eq!(
+                world(&reversed)
+                    .run_system_once_with(select, (vec![FixedVec2::ZERO], true))
+                    .unwrap(),
+                vec![3]
+            );
+        }
+    }
+
+    #[test]
+    fn normal_range_remains_preferred_after_deadline() {
+        let mut w = world(&[(1, 20), (9, 300), (3, 400), (4, 1000)]);
+        for fallback in [false, true] {
+            assert_eq!(
+                w.run_system_once_with(select, (vec![FixedVec2::ZERO], fallback))
+                    .unwrap(),
+                vec![3, 9]
+            );
+        }
+        assert!(w
+            .run_system_once_with(select, (vec![], true))
+            .unwrap()
+            .is_empty());
+        assert!(world(&[])
+            .run_system_once_with(select, (vec![FixedVec2::ZERO], true))
+            .unwrap()
+            .is_empty());
+    }
+
+    #[test]
+    fn deadline_resets_on_spawn_and_new_wave_and_survives_rollback() {
+        let state = WaveState {
+            phase: WavePhase::Spawning,
+            phase_start_frame: 180,
+            ..Default::default()
+        };
+        assert!(!spawn_stalled(&state, 779));
+        assert!(spawn_stalled(&state, 780));
+        let spawned = WaveState {
+            last_spawn_frame: 780,
+            ..state.clone()
+        };
+        assert!(!spawn_stalled(&spawned, 1379));
+        assert!(spawn_stalled(&spawned, 1380));
+        assert!(!spawn_stalled(&spawned, 779));
+        let next = WaveState {
+            phase_start_frame: 2000,
+            last_spawn_frame: 0,
+            ..spawned
+        };
+        assert!(!spawn_stalled(&next, 2599));
+        assert!(spawn_stalled(&next, 2600));
     }
 }

@@ -20,5 +20,7 @@ map = { path = "../map" }
 # T1.8 : position du portail ouvert du mode `Floors` (`run::FloorState`).
 run = { path = "../run" }
 
+combat = { path = "../combat" }
+
 [dev-dependencies]
 ron = "0.12"

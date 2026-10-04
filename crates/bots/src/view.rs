@@ -39,6 +39,8 @@ pub struct BotView {
     pub wave: u32,
     pub nearest_enemy: Option<EnemyView>,
     pub nearest_window: Option<WindowView>,
+    /// Navigation et interactions des profils v1 ; absent pour les profils v0.
+    pub hunter: Option<crate::hunter::HunterView>,
     /// Portail ouvert du mode `Floors` (T1.8, `run::FloorState`), `None` sinon (portail fermé,
     /// ou autre mode) : un bot sans ennemi s'y rend pour passer au niveau suivant.
     pub portal: Option<FixedVec2>,

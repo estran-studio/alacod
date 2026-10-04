@@ -8,7 +8,8 @@ use bevy::prelude::*;
 use bevy_common_assets::ron::RonAssetPlugin;
 use bevy_kira_audio::prelude::*;
 use serde::{Deserialize, Serialize};
-use std::collections::BTreeMap;
+use std::collections::{BTreeMap, BTreeSet};
+use std::time::Duration;
 use utils::{frame::FrameCount, net_id::GgrsNetId};
 
 use crate::character::player::{LocalPlayer, Player};
@@ -263,49 +264,111 @@ fn cleanup_expired_camera_shake(
     }
 }
 
-/// Système jouant le son de tir pour chaque nouvelle balle d'un joueur local.
+/// Un son de tir est coupé (en fondu) au bout de cette durée. `sounds/machine-gun.ogg` est un
+/// enregistrement de tir soutenu de 17 s, pas un coup unique : joué en entier à chaque balle, il
+/// se superposait des dizaines de fois. À retirer quand un échantillon de coup unique le remplace.
+const SHOT_SOUND_MAX: Duration = Duration::from_millis(250);
+const SHOT_SOUND_FADE: Duration = Duration::from_millis(40);
+/// Frames pendant lesquelles un tir déjà joué reste mémorisé (`ShotSounds::played`).
+const SHOT_SOUND_MEMORY_FRAMES: u32 = 120;
+
+/// État du système de son de tir (présentation, hors rollback).
+#[derive(Default)]
+struct ShotSounds {
+    /// Tirs déjà joués, par (tireur, frame de création). Le rollback de la session locale détruit
+    /// puis recrée les balles des dernières frames à chaque image rendue : elles redeviennent
+    /// `Added<Bullet>` et rejoueraient leur son. Une clé par tir et non par balle : un fusil à
+    /// pompe ne joue pas un son par plomb.
+    played: BTreeSet<(usize, u32)>,
+    /// Instances lancées avec leur échéance (secondes de `Time<Real>`), à couper en fondu.
+    playing: Vec<(Handle<AudioInstance>, f64)>,
+}
+
+/// Système jouant le son de tir pour chaque nouveau tir d'un joueur local.
+#[allow(clippy::too_many_arguments)]
 fn play_shot_sound_for_new_bullets(
     audio: Res<Audio>,
     asset_server: Res<AssetServer>,
+    mut instances: ResMut<Assets<AudioInstance>>,
+    time: Res<Time<Real>>,
     config: Option<Res<FeedbackConfigLoaded>>,
     local_players: Query<&GgrsNetId, With<LocalPlayer>>,
     new_bullets: Query<&crate::weapons::Bullet, Added<crate::weapons::Bullet>>,
     frame_count: Res<FrameCount>,
+    mut shots: Local<ShotSounds>,
 ) {
-    if let Some(cfg) = config {
-        if let Some(sound_path) = cfg.0.sounds.get("shot") {
-            let local_net_ids: Vec<_> = local_players.iter().map(|n| n.0).collect();
-
-            for bullet in new_bullets.iter() {
-                if local_net_ids.contains(&bullet.source.0) {
-                    info!("feedback f{} sound shot", frame_count.frame);
-                    audio.play(asset_server.load(sound_path));
-                }
+    let now = time.elapsed_secs_f64();
+    shots.playing.retain(|(handle, deadline)| {
+        if now < *deadline {
+            return true;
+        }
+        match instances.get_mut_untracked(handle) {
+            Some(instance) => {
+                instance.stop(AudioTween::linear(SHOT_SOUND_FADE));
+                false
             }
+            // L'instance n'existe pas encore (la lecture est traitée à l'image suivante) ;
+            // une seconde après l'échéance, elle est finie depuis longtemps.
+            None => now < *deadline + 1.0,
+        }
+    });
+
+    // Oublie les tirs anciens, et ceux d'une partie précédente (le compteur repart de 0).
+    let frame = frame_count.frame;
+    shots.played.retain(|&(_, created_at)| {
+        created_at <= frame && frame - created_at <= SHOT_SOUND_MEMORY_FRAMES
+    });
+
+    let Some(cfg) = config else {
+        return;
+    };
+    let Some(sound_path) = cfg.0.sounds.get("shot") else {
+        return;
+    };
+    let local_net_ids: Vec<_> = local_players.iter().map(|n| n.0).collect();
+
+    for bullet in new_bullets.iter() {
+        if local_net_ids.contains(&bullet.source.0)
+            && shots.played.insert((bullet.source.0, bullet.created_at))
+        {
+            info!("feedback f{} sound shot", frame);
+            let handle = audio.play(asset_server.load(sound_path)).handle();
+            shots
+                .playing
+                .push((handle, now + SHOT_SOUND_MAX.as_secs_f64()));
         }
     }
 }
 
 /// Système jouant le son de rechargement quand un joueur local commence à recharger.
+///
+/// Déclenché une fois, au passage « ne recharge pas » → « recharge » d'une image rendue à
+/// l'autre : `reloading_ending_frame` reste `Some` pendant tout le rechargement, et le jouer à
+/// chaque image superposait le même son des dizaines de fois.
 fn play_reload_sound_for_reload_events(
     audio: Res<Audio>,
     asset_server: Res<AssetServer>,
     config: Option<Res<FeedbackConfigLoaded>>,
     query: Query<(&crate::weapons::WeaponInventory, &GgrsNetId), With<LocalPlayer>>,
     frame_count: Res<FrameCount>,
+    mut reloading: Local<BTreeSet<usize>>,
 ) {
-    if let Some(cfg) = config {
-        if let Some(sound_path) = cfg.0.sounds.get("reload") {
-            for (inv, _net_id) in query.iter() {
-                // Détecter la transition None -> Some du reloading_ending_frame
-                // (pour l'instant, on ne déclenche que si reloading_ending_frame vient de devenir Some)
-                // Impossible de détecter le changement ici sans state tracking.
-                // Pour la v0, on relâche cette implémentation.
-                if inv.reloading_ending_frame.is_some() {
-                    info!("feedback f{} sound reload", frame_count.frame);
-                    audio.play(asset_server.load(sound_path));
-                }
-            }
-        }
+    let now: BTreeSet<usize> = query
+        .iter()
+        .filter(|(inv, _)| inv.reloading_ending_frame.is_some())
+        .map(|(_, net_id)| net_id.0)
+        .collect();
+    let started = now.difference(&reloading).count();
+    *reloading = now;
+
+    let Some(cfg) = config else {
+        return;
+    };
+    let Some(sound_path) = cfg.0.sounds.get("reload") else {
+        return;
+    };
+    for _ in 0..started {
+        info!("feedback f{} sound reload", frame_count.frame);
+        audio.play(asset_server.load(sound_path));
     }
 }

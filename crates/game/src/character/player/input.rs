@@ -341,6 +341,14 @@ pub fn apply_inputs(
                 panic!("FORCED CRASH BY PLAYER {}", player.handle);
             }
 
+            // Visée : recalculée à chaque frame, AVANT tout `continue` (dash). `system_weapon_position`
+            // en déduit la rotation de l'arme dans la même frame ; le composant n'est pas rollbacké
+            // (donnée dérivée de l'input, jamais lue d'une frame à l'autre). Écrite après le dash,
+            // elle restait figée pendant celui-ci et une frame resimulée lisait la visée d'une
+            // frame plus récente : desync du synctest (scénario `dash_aim_change`).
+            cursor_position.x = input.pan_x as i32;
+            cursor_position.y = input.pan_y as i32;
+
             let was_dashing = dash_state.is_dashing;
             dash_state.update();
             if was_dashing && !dash_state.is_dashing {
@@ -419,9 +427,6 @@ pub fn apply_inputs(
             let direction = movement_direction(&input);
 
             *facing_direction = get_facing_direction(&input);
-
-            cursor_position.x = input.pan_x as i32;
-            cursor_position.y = input.pan_y as i32;
 
             if direction != fixed_math::FixedVec2::ZERO {
                 // Stats branchées (T1.2, chantier B2) : résolues (base + modificateurs
@@ -632,8 +637,13 @@ pub fn move_characters(
 
         // Try Y only
         if delta_y != fixed_math::FIXED_ZERO {
-            let y_only_pos =
-                fixed_math::FixedVec3::new(start_x, start_y + delta_y, transform.translation.z);
+            // X may already have slid. Testing Y from the original X would allow
+            // two individually free moves to combine into a wall corner.
+            let y_only_pos = fixed_math::FixedVec3::new(
+                transform.translation.x,
+                start_y + delta_y,
+                transform.translation.z,
+            );
             if !check_hard_collision(&y_only_pos) {
                 transform.translation.y = y_only_pos.y;
                 moved_y = true;
@@ -716,5 +726,76 @@ pub fn update_animation_state(
         if current_state_name != new_state_name {
             state.0 = new_state_name.to_string();
         }
+    }
+}
+
+#[cfg(test)]
+mod movement_tests {
+    use super::*;
+    use crate::collider::{ColliderShape, Wall};
+    use bevy::ecs::system::RunSystemOnce;
+    use fixed_math::{Fixed, FixedTransform3D, FixedVec2, FixedVec3};
+
+    #[test]
+    fn sliding_on_both_axes_never_enters_a_wall_corner() {
+        let mut world = World::new();
+        world.init_resource::<bevy_ggrs::RollbackOrdered>();
+        world.init_resource::<crate::collision_grid::CollisionGrids>();
+        world.insert_resource(CollisionSettings::default());
+        let mut transform = FixedTransform3D::IDENTITY;
+        transform.translation =
+            FixedVec3::new(Fixed::from_num(-2), Fixed::from_num(2), Fixed::ZERO);
+        let body = Collider {
+            shape: ColliderShape::Rectangle {
+                width: Fixed::from_num(2),
+                height: Fixed::from_num(2),
+            },
+            offset: FixedVec3::ZERO,
+        };
+        let player = world
+            .spawn((
+                GgrsNetId(1, "player".into()),
+                Rollback,
+                Player::default(),
+                transform,
+                body.clone(),
+                CollisionLayer(3),
+                Velocity {
+                    main: FixedVec2::new(Fixed::from_num(120), Fixed::from_num(-120)),
+                    knockback: FixedVec2::ZERO,
+                },
+            ))
+            .id();
+        let wall_pos = FixedVec3::new(Fixed::from_num(16), Fixed::from_num(-16), Fixed::ZERO);
+        let wall = Collider {
+            shape: ColliderShape::Rectangle {
+                width: Fixed::from_num(32),
+                height: Fixed::from_num(32),
+            },
+            offset: FixedVec3::ZERO,
+        };
+        let mut wall_transform = FixedTransform3D::IDENTITY;
+        wall_transform.translation = wall_pos;
+        world.spawn((
+            GgrsNetId(2, "wall".into()),
+            Rollback,
+            Wall,
+            wall_transform,
+            wall.clone(),
+            CollisionLayer(4),
+        ));
+        world
+            .run_system_once(crate::collision_grid::maybe_rebuild_wall_grid)
+            .unwrap();
+        world.run_system_once(move_characters).unwrap();
+        let after = world.get::<FixedTransform3D>(player).unwrap();
+        assert!(
+            !is_colliding(&after.translation, &body, &wall_pos, &wall),
+            "two individually free axis moves must not combine into a collision"
+        );
+        assert!(
+            after.translation.x > Fixed::from_num(-2),
+            "the free axis still slides"
+        );
     }
 }

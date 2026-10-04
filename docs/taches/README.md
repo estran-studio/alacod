@@ -33,6 +33,14 @@ fermeture des notes, qui ne sont pas des tâches d'agent).
   `--profile headless` (le profil dev pèse 6 Go et n'est pas amorcé), `--no-default-features`
   pour les binaires de jeu (`zombies`, `testbed`). Jamais de compilation depuis un `target` vide,
   jamais dans `/tmp`, jamais de build avec rendu sauf `play_scenario --features render` (vidéos).
+- **Hygiène du target et du contexte (règle de William, 2026-10-03)** : à chaque début de tâche
+  et après chaque suite complète, ne garder qu'**une génération** par crate du workspace dans
+  `target/headless/build/<crate>/` (`ls -t … | tail -n +2 | xargs rm -rf`), supprimer
+  `incremental/` et `examples/`, vérifier `df -h /home` (≥ 40 Go libres : trois targets se
+  partagent le disque ; un binaire de test de `scenario` pèse 14 Go). Et **compacter son
+  contexte** : un point d'état de dix lignes (fait / en cours / prochaines étapes / chiffres)
+  dans `docs/taches/rapports/<branche>.md`, commité localement, pour qu'une compaction ou un
+  redémarrage de session ne perde rien ; relire la fiche après compaction.
 - Ne jamais utiliser `git stash` (pile partagée entre worktrees). Jamais de `git push` sur
   `main` : seule la branche de tâche est poussée, à la livraison (`git push -u origin <tâche>`,
   voir `PROMPT-KICKSTART.md`).

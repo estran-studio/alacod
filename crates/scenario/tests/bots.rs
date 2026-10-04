@@ -76,3 +76,22 @@ fn bot_run_replays_identically_once_recorded() {
         "le replay de l'enregistrement d'un run de bots diverge de l'original"
     );
 }
+
+/// Le cache physique v1 ne doit pas ajouter d'état rollback caché : le replay scripté
+/// reproduit les décisions de navigation, de tir et d'interaction au bit près.
+#[test]
+fn hunter_run_replays_identically_once_recorded() {
+    if map_ldtk::RENDER_ENABLED {
+        return;
+    }
+    let mut scenario = two_fonceurs(600);
+    scenario.players[0].bot = Some(BotProfile::Chasseur);
+    scenario.players[1].bot = Some(BotProfile::Acheteur);
+    let original = run(&scenario);
+    assert!(original.failures.is_empty(), "{:?}", original.failures);
+    let mut recorded = Scenario::from_ron(&original.recorded.to_ron()).unwrap();
+    recorded.frames = scenario.frames;
+    let replayed = run(&recorded);
+    assert!(replayed.failures.is_empty(), "{:?}", replayed.failures);
+    assert_eq!(original.trace, replayed.trace);
+}
