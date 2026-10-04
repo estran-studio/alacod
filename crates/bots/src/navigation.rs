@@ -94,6 +94,11 @@ pub fn point(cell: GridPos) -> FixedVec2 {
     )
 }
 
+/// Navigation de `prudent`/`fonceur` (suite T1.14) : même calcul, cache séparé de celui de
+/// `chasseur`/`acheteur` pour qu'une partie mixte ne les invalide pas l'un l'autre.
+#[derive(Resource, Default)]
+pub struct DirectNavigation(pub BotNavigation);
+
 #[derive(Resource, Default)]
 pub struct BotNavigation {
     nearest_goals: BTreeMap<GridPos, GridPos>,

@@ -77,6 +77,13 @@ pub struct BotView {
     /// T1.14 : vitesse du joueur (`Velocity::main`, unités par seconde), pour freiner à
     /// l'approche du portail.
     pub velocity: FixedVec2,
+    /// Ligne de vue sans mur (`Wall`) entre le joueur et l'ennemi le plus proche (faux sans
+    /// ennemi) : `prudent`/`fonceur` ne vont en ligne droite que vers un ennemi visible.
+    pub enemy_visible: bool,
+    /// Direction du pas suivant par le champ de navigation ([`crate::navigation`], grille de 8)
+    /// vers le but courant : poste de tir de l'ennemi le plus proche par le chemin, ou portail
+    /// ouvert sans ennemi. `None` : pas de chemin (repli : ligne droite).
+    pub route: Option<FixedVec2>,
 }
 
 /// Sélection des projectiles de la vue : `candidates` = (net id, équipe adverse ?, vue).
