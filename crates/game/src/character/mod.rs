@@ -134,6 +134,9 @@ impl Plugin for BaseCharacterGamePlugin {
             // T1.2 : tir à distance. Checksum neutre (aucun ennemi existant n'en porte, voir
             // `RollbackTraceApp::rollback_and_trace_neutral`).
             .rollback_and_trace_neutral::<enemy::ai::state::RangedAttackState>()
+            // T1.4 : état des behaviors nouveaux (KeepDistance, Strafe, Charge, Flee, Wander),
+            // checksum neutre, posé seulement sur les ennemis qui en listent un.
+            .rollback_and_trace_neutral::<enemy::ai::state::BehaviorRuntime>()
             // Ressource de présentation (curseur) glissée dans le rollback : rollback +
             // trace pour ne rien changer au snapshot, mais hors checksum (voir sa doc).
             .rollback_and_trace_copy_resource_no_checksum::<PointerWorldPosition>()
@@ -184,7 +187,11 @@ impl Plugin for BaseCharacterGamePlugin {
                 // (balles, mêlée, ennemis) — avant `DeathManagement`.
                 (
                     enemy_attack_damage_translate_system,
-                    rollback_resolve_damage_events.after(enemy_attack_damage_translate_system),
+                    // T1.4 : dégât de contact d'une ruée (`Charge`), même délai d'une frame.
+                    enemy::ai::rules::charge_damage_translate_system
+                        .after(enemy_attack_damage_translate_system),
+                    rollback_resolve_damage_events
+                        .after(enemy::ai::rules::charge_damage_translate_system),
                 )
                     .in_set(RollbackSystemSet::CollisionDamage),
                 // STATS (T1.2, chantier B2) : `Health.max`/`HealthRegen.regen_rate`
@@ -229,7 +236,10 @@ impl Plugin for BaseCharacterGamePlugin {
                 // Uses new behavior.rs systems with MonsterState/EnemyTarget
                 (
                     enemy_target_selection,
-                    update_enemy_targets.after(enemy_target_selection),
+                    // T1.4 : sélection par priorité des ennemis à behaviors nouveaux (les
+                    // autres n'ont pas d'état nouveau, voir `enemy::ai::rules`).
+                    enemy::ai::rules::behavior_select_system.after(enemy_target_selection),
+                    update_enemy_targets.after(enemy::ai::rules::behavior_select_system),
                     move_enemies.after(update_enemy_targets),
                     enemy_attack_system.after(move_enemies),
                 )

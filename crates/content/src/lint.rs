@@ -73,10 +73,8 @@ fn lint_characters(registry: &Registry, errors: &mut Vec<LintError>) {
     for character in registry.characters.values() {
         let file = character.file.display().to_string();
 
-        // T1.2 : tir à distance (`ai.ranged`).
-        if let Some(ranged) = &character.ranged {
-            lint_ranged(registry, character, ranged, errors);
-        }
+        // T1.4 : règles de comportement (`ai.behaviors`) et ciblage.
+        lint_behaviors(registry, character, errors);
 
         // Référence : starting_weapons -> WeaponId (T1.5 : les joueurs ne reçoivent plus
         // tout `weapons.ron`, seulement les armes déclarées ici).
@@ -1067,68 +1065,161 @@ fn lint_pattern_values(
     }
 }
 
-/// T1.2 : `ai.ranged` d'un personnage — arme et pattern connus, projectiles du pattern
-/// présents dans la table `projectiles` de l'arme, `cooldown_frames > 0`, `range > 0`.
-fn lint_ranged(
+/// Profils de `Chase` connus (même liste que `game::character::enemy::ai::state::CHASE_PROFILES`).
+const CHASE_PROFILES: &[&str] = &["Ground", "Flying", "Phasing", "GroundBreaker"];
+
+/// T1.4 : `ai.behaviors` et `ai.targeting` d'un personnage (`docs/conventions.md` §22) :
+/// liste non vide ; `Shoot` (arme et pattern connus, projectiles du pattern dans la table de
+/// l'arme, `cooldown_frames > 0`, `range > 0` — les règles `ranged` de T1.2) ; `Melee(arme)`
+/// connue ; `Chase` profil connu ; `KeepDistance` `min < max` ; `Charge` télégraphe > 0 ; tag
+/// d'`ignore` porté par au moins un personnage du jeu.
+fn lint_behaviors(
     registry: &Registry,
     character: &registry::CharacterEntry,
-    ranged: &registry::RangedEntry,
     errors: &mut Vec<LintError>,
 ) {
+    use registry::BehaviorEntry;
     let file = character.file.display().to_string();
     let mut push = |kind: LintErrorKind, message: String| {
         errors.push(LintError {
             kind,
             file: file.clone(),
-            message: format!("personnage « {} » : ai.ranged : {message}", character.id),
+            message: format!("personnage « {} » : ai.{message}", character.id),
         });
     };
-    let weapon = registry
-        .weapons
-        .get(&registry::WeaponId::from(ranged.weapon.clone()));
-    if weapon.is_none() {
-        push(
-            LintErrorKind::BrokenReference,
-            format!("arme inconnue « {} »", ranged.weapon),
-        );
-    }
-    match registry
-        .patterns
-        .get(&registry::PatternId::from(ranged.pattern.clone()))
-    {
-        None => push(
-            LintErrorKind::BrokenReference,
-            format!("pattern inconnu « {} » (kind Pattern)", ranged.pattern),
-        ),
-        Some(entry) => {
-            if let Some(weapon) = weapon {
-                let mut projectiles = Vec::new();
-                pattern_projectiles(&entry.pattern, &registry.patterns, 0, &mut projectiles);
-                for projectile in projectiles {
-                    if !weapon.projectiles.contains_key(projectile) {
-                        push(
-                            LintErrorKind::BrokenReference,
-                            format!(
-                                "pattern « {} » : projectile « {projectile} » absent de la table projectiles de l'arme « {} »",
-                                ranged.pattern, ranged.weapon
-                            ),
-                        );
-                    }
-                }
+    if !character.ignore_tags.is_empty() {
+        let known: BTreeSet<&str> = registry
+            .characters
+            .values()
+            .flat_map(|c| c.tags.iter().map(String::as_str))
+            .collect();
+        for tag in &character.ignore_tags {
+            if !known.contains(tag.as_str()) {
+                push(
+                    LintErrorKind::BrokenReference,
+                    format!(
+                        "targeting : tag ignoré inconnu « {tag} » (porté par aucun personnage)"
+                    ),
+                );
             }
         }
     }
-    if ranged.cooldown_frames == 0 {
+    let Some(rules) = &character.behaviors else {
+        return;
+    };
+    if rules.is_empty() {
         push(
             LintErrorKind::OutOfRange,
-            "cooldown_frames = 0 : doit être > 0".to_string(),
+            "behaviors : liste vide (absente = liste par défaut)".to_string(),
         );
     }
-    if ranged.range.get() <= Fixed::ZERO {
-        push(
-            LintErrorKind::OutOfRange,
-            format!("range = {} : doit être > 0", ranged.range.get()),
-        );
+    for rule in rules {
+        match rule {
+            BehaviorEntry::Shoot {
+                weapon,
+                pattern,
+                range,
+                cooldown_frames,
+            } => {
+                let weapon_entry = registry
+                    .weapons
+                    .get(&registry::WeaponId::from(weapon.clone()));
+                if weapon_entry.is_none() {
+                    push(
+                        LintErrorKind::BrokenReference,
+                        format!("behaviors : Shoot : arme inconnue « {weapon} »"),
+                    );
+                }
+                match registry
+                    .patterns
+                    .get(&registry::PatternId::from(pattern.clone()))
+                {
+                    None => push(
+                        LintErrorKind::BrokenReference,
+                        format!("behaviors : Shoot : pattern inconnu « {pattern} » (kind Pattern)"),
+                    ),
+                    Some(entry) => {
+                        if let Some(weapon_entry) = weapon_entry {
+                            let mut projectiles = Vec::new();
+                            pattern_projectiles(
+                                &entry.pattern,
+                                &registry.patterns,
+                                0,
+                                &mut projectiles,
+                            );
+                            for projectile in projectiles {
+                                if !weapon_entry.projectiles.contains_key(projectile) {
+                                    push(
+                                        LintErrorKind::BrokenReference,
+                                        format!(
+                                            "behaviors : Shoot : pattern « {pattern} » : projectile « {projectile} » absent de la table projectiles de l'arme « {weapon} »"
+                                        ),
+                                    );
+                                }
+                            }
+                        }
+                    }
+                }
+                if *cooldown_frames == 0 {
+                    push(
+                        LintErrorKind::OutOfRange,
+                        "behaviors : Shoot : cooldown_frames = 0 : doit être > 0".to_string(),
+                    );
+                }
+                if range.get() <= Fixed::ZERO {
+                    push(
+                        LintErrorKind::OutOfRange,
+                        format!(
+                            "behaviors : Shoot : range = {} : doit être > 0",
+                            range.get()
+                        ),
+                    );
+                }
+            }
+            BehaviorEntry::Melee(weapon) => {
+                if !registry
+                    .melee_weapons
+                    .contains_key(&registry::MeleeWeaponId::from(weapon.clone()))
+                {
+                    push(
+                        LintErrorKind::BrokenReference,
+                        format!("behaviors : Melee : arme de corps à corps inconnue « {weapon} »"),
+                    );
+                }
+            }
+            BehaviorEntry::Chase { profile } => {
+                if !CHASE_PROFILES.contains(&profile.as_str()) {
+                    push(
+                        LintErrorKind::BrokenReference,
+                        format!(
+                            "behaviors : Chase : profil inconnu « {profile} » (connus : {})",
+                            CHASE_PROFILES.join(", ")
+                        ),
+                    );
+                }
+            }
+            BehaviorEntry::KeepDistance { min, max } => {
+                if min.get() >= max.get() {
+                    push(
+                        LintErrorKind::OutOfRange,
+                        format!(
+                            "behaviors : KeepDistance : min = {} >= max = {} : la bande doit être non vide",
+                            min.get(),
+                            max.get()
+                        ),
+                    );
+                }
+            }
+            BehaviorEntry::Charge { telegraph } => {
+                if *telegraph == 0 {
+                    push(
+                        LintErrorKind::OutOfRange,
+                        "behaviors : Charge : telegraph = 0 : doit être > 0".to_string(),
+                    );
+                }
+            }
+            BehaviorEntry::Strafe | BehaviorEntry::Flee | BehaviorEntry::Wander => {}
+        }
     }
 }
 

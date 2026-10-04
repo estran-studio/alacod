@@ -192,6 +192,9 @@ pub fn move_enemies(
             &EnemyAiConfig,
             // T1.2 : un ennemi qui tire (émetteur posé) ne bouge pas.
             Has<combat::emitter::Emitter>,
+            // T1.4 : behaviors nouveaux (déplacement imposé, voir `rules::behavior_motion`).
+            Option<&super::state::BehaviorRuntime>,
+            Option<&super::state::EnemyBehaviors>,
         ),
         With<Enemy>,
     >,
@@ -279,6 +282,8 @@ pub fn move_enemies(
         enemy_target_opt,
         ai_config,
         emitting,
+        behavior_runtime,
+        enemy_behaviors,
     ) in order_mut_iter!(enemy_query)
     {
         // T2.9 (testbed) : un ennemi stationnaire (`dummy`/`target`/`ally`/`civilian`)
@@ -522,7 +527,25 @@ pub fn move_enemies(
             fixed_math::FIXED_ONE // Full speed
         };
 
-        let desired_move_velocity_v2 = base_velocity_v2 * speed_factor_fixed;
+        // T1.4 : un behavior nouveau retenu (`KeepDistance`, `Flee`, `Strafe`, `Wander`,
+        // `Charge`) impose sa direction et sa vitesse, sans ralentissement près du joueur ;
+        // sinon (tous les ennemis d'avant T1.4) le calcul d'origine, inchangé.
+        let motion = behavior_runtime
+            .zip(enemy_behaviors)
+            .and_then(|(runtime, rules)| {
+                super::rules::behavior_motion(
+                    rules,
+                    runtime,
+                    frame.frame,
+                    enemy_pos_v2,
+                    enemy_target_opt.and_then(|target| target.last_known_position),
+                    &flow_field_cache,
+                )
+            });
+        let desired_move_velocity_v2 = match &motion {
+            Some(motion) => motion.direction * movement_speed.saturating_mul(motion.speed_mult),
+            None => base_velocity_v2 * speed_factor_fixed,
+        };
 
         // Combine movement and separation for AI intent
         let final_movement_v2 = desired_move_velocity_v2 + separation_v2;

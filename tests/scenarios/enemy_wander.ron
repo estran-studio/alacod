@@ -1,0 +1,24 @@
+// T1.4 (testbed, conventions §22) : `drifter` = [Strafe, Wander], vue courte (`Sight(80)`), à
+// 167 unités du joueur 0 (carte `testbed/arena_ia_wander.ldtk`, ennemi NetId 27). Hors de vue :
+// `Wander` (direction tirée dans le flux RNG `behaviors` toutes les 60 frames, demi-vitesse) ;
+// le joueur marche vers lui de f120 à f220 : à moins de 80, `Strafe` (de côté), qui le fait
+// ressortir de la vue (retour à `Wander`). Jamais dans un mur.
+//
+// À regarder : l'ennemi erre, le joueur s'approche, l'ennemi s'écarte de côté.
+Scenario(
+    powerup_drop_chance_override: "0.0",
+    game: "testbed",
+    map: "testbed/arena_ia_wander.ldtk",
+    frames: 330,
+    players: [
+        (inputs: [(from: 120, to: 220, buttons: [Right])]),
+    ],
+    expect: [
+        EnemyState(entity: NetId(27), behavior: "Wander", at_frame: 50),
+        EnemyDistance(entity: NetId(27), target: Player(0), min: 185.0, max: 200.0, at_frame: 51),
+        EnemyDistance(entity: NetId(27), target: Player(0), min: 215.0, max: 230.0, at_frame: 121),
+        EnemyState(entity: NetId(27), behavior: "Strafe", at_frame: 235),
+        EnemyState(entity: NetId(27), behavior: "Wander", at_frame: 280),
+        EnemyNeverInWall(entity: NetId(27), from: 1, to: 330),
+    ],
+)

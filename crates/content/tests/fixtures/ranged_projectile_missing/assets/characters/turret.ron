@@ -12,11 +12,8 @@
     },
     ai: Some((
         stationary: Some(true),
-        ranged: Some((
-            weapon: "fireball_gun",
-            pattern: "ring_8",
-            range: "260.0",
-            cooldown_frames: 90,
-        )),
+        behaviors: Some([
+            Shoot(weapon: "fireball_gun", pattern: "ring_8", range: "260.0", cooldown_frames: 90),
+        ]),
     )),
 )

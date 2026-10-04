@@ -19,7 +19,7 @@ use crate::{
 use super::{
     ai::{
         pathing::{EnemyPath, PathfindingConfig, WallSlideTracker},
-        state::{EnemyAiConfig, EnemyTarget, MonsterState},
+        state::{EnemyAiConfig, EnemyBehaviors, EnemyTarget, MonsterState},
     },
     Enemy,
 };
@@ -79,13 +79,17 @@ pub fn spawn_enemy(
     // `health_max`).
     health_max: fixed_math::Fixed,
 ) -> Entity {
-    let ai_config = global_assets
+    let ai_ron = global_assets
         .character_configs
         .get(&enemy_type_name)
         .and_then(|handle| characters_asset.get(handle))
-        .and_then(|config| config.ai.as_ref())
+        .and_then(|config| config.ai.as_ref());
+    let ai_config = ai_ron
         .map(EnemyAiConfig::from)
         .unwrap_or_else(EnemyAiConfig::zombie);
+    // T1.4 : règles de comportement (liste du RON, sinon liste par défaut dérivée de la
+    // config : exactement le comportement d'avant T1.4).
+    let behaviors = EnemyBehaviors::from_config(ai_ron, &ai_config);
 
     let entity = create_character(
         commands,
@@ -103,19 +107,18 @@ pub fn spawn_enemy(
 
     let mut inventory = WeaponInventory::default();
 
-    // Give the enemy a melee weapon (zombie claws, fallback to bare hands) — sauf si son
-    // `attack_range` est nul (T2.9, testbed : `dummy`/`target`/`follower`/`ally`/`civilian`
-    // ne doivent jamais attaquer). `enemy_melee_attack_system`
-    // (`crates/game/src/weapons/melee.rs`) déclenche une attaque dès qu'un joueur entre dans
-    // la portée de l'ARME elle-même, indépendamment d'`EnemyAiConfig` : sans cette garde, un
-    // ennemi à `attack_range: "0"` continuerait de griffer via la griffe équipée. Aucun
-    // personnage zombie existant n'a un `attack_range` nul (`EnemyAiConfig::zombie()` = 40,
-    // voir aussi `EnemyAiConfig::default()`), donc inchangé pour le contenu existant.
-    if ai_config.attack_range > fixed_math::FIXED_ZERO {
+    // Arme de mêlée de la règle `Melee(arme)` (T1.4 : une donnée ; avant, `zombie_claws`
+    // codé en dur), repli `bare_hands` si l'arme manque au jeu (le lint la refuse). Sans règle
+    // `Melee` (T2.9 : `dummy`/`target`/`follower`/`ally`/`civilian`, `attack_range: "0"`),
+    // aucune arme : `enemy_melee_attack_system` (`crates/game/src/weapons/melee.rs`) attaque
+    // dès qu'un joueur entre dans la portée de l'ARME équipée, indépendamment de l'IA. La
+    // liste par défaut contient `Melee("zombie_claws")` exactement quand `attack_range > 0` :
+    // inchangé pour le contenu existant.
+    if let Some(melee_weapon) = behaviors.melee_weapon() {
         if let Some(melee_weapons_config) = melee_weapons_asset.get(&global_assets.melee_weapons) {
             if let Some(weapon) = melee_weapons_config
                 .0
-                .get("zombie_claws")
+                .get(melee_weapon)
                 .or_else(|| melee_weapons_config.0.get("bare_hands"))
             {
                 spawn_melee_weapon_for_character(commands, entity, weapon.clone(), id_factory);
@@ -169,6 +172,14 @@ pub fn spawn_enemy(
             .entity(entity)
             .insert(super::ai::state::RangedAttackState::default());
     }
+    // T1.4 : état des behaviors nouveaux, seulement s'ils sont listés (checksum neutre) ;
+    // les règles elles-mêmes sont statiques, hors rollback (comme `Team`).
+    if behaviors.needs_runtime() {
+        commands
+            .entity(entity)
+            .insert(super::ai::state::BehaviorRuntime::default());
+    }
+    commands.entity(entity).insert(behaviors);
 
     #[cfg(feature = "harmonium")]
     commands

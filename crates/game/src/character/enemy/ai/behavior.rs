@@ -19,15 +19,14 @@ use utils::{frame::FrameCount, net_id::GgrsNetId, order_iter, order_mut_iter};
 
 use crate::character::enemy::Enemy;
 use crate::character::health::DamageAccumulator;
-use crate::character::movement::Velocity;
 use crate::character::player::Player;
 use crate::frame_events::FrameEvents;
 
 use super::navigation::FlowFieldCache;
 use super::obstacle::{Obstacle, ObstacleAttackEvent};
 use super::state::{
-    AttackTarget, EnemyAiConfig, EnemyTarget, MonsterState, RangedAttack, RangedAttackState,
-    TargetType,
+    AttackTarget, BehaviorRuntime, EnemyAiConfig, EnemyBehaviors, EnemyTarget, MonsterState,
+    RangedAttack, RangedAttackState, TargetType,
 };
 use crate::character::health::Death;
 use crate::weapons::WeaponInventory;
@@ -59,6 +58,8 @@ pub fn enemy_target_selection(
             &EnemyAiConfig,
             &mut EnemyTarget,
             &mut MonsterState,
+            // T1.4 : `Targeting::Nearest { ignore }` (vide pour tout le contenu existant).
+            Option<&EnemyBehaviors>,
         ),
         With<Enemy>,
     >,
@@ -66,6 +67,7 @@ pub fn enemy_target_selection(
         (&GgrsNetId, &fixed_math::FixedTransform3D, Has<Downed>),
         (With<Player>, Without<Enemy>),
     >,
+    player_tags: Query<(&GgrsNetId, Option<&Tags>), With<Player>>,
 ) {
     // Collect and sort players for deterministic iteration
     let mut players: Vec<_> = player_query.iter().collect();
@@ -93,17 +95,36 @@ pub fn enemy_target_selection(
         })
         .collect();
 
-    for (_enemy_net_id, enemy_transform, ai_config, mut target, mut state) in
+    for (_enemy_net_id, enemy_transform, ai_config, mut target, mut state, enemy_behaviors) in
         order_mut_iter!(enemy_query)
     {
         let enemy_pos = enemy_transform.translation.truncate();
 
+        // T1.4 : joueurs ignorés par tag (`Targeting::Nearest { ignore }`) ; liste vide (tout
+        // le contenu d'avant T1.4) : aucun filtre, `players` tel quel.
+        let ignore = enemy_behaviors
+            .map(|behaviors| behaviors.ignore.as_slice())
+            .unwrap_or_default();
+        let filtered;
+        let players: &Vec<_> = if ignore.is_empty() {
+            &players
+        } else {
+            filtered = players
+                .iter()
+                .filter(|(id, _)| {
+                    !player_tags
+                        .iter()
+                        .find(|(player_id, _)| player_id == id)
+                        .is_some_and(|(_, tags)| super::rules::ignored(ignore, tags))
+                })
+                .copied()
+                .collect::<Vec<_>>();
+            &filtered
+        };
+
         // Don't retarget if attacking, stunned, or dead
         match *state {
-            MonsterState::Attacking { .. }
-            | MonsterState::Stunned { .. }
-            | MonsterState::Breaching { .. }
-            | MonsterState::Dead => continue,
+            MonsterState::Attacking { .. } | MonsterState::Dead => continue,
             _ => {}
         }
 
@@ -179,154 +200,6 @@ pub fn enemy_target_selection(
     }
 }
 
-/// System to move enemies using the flow field
-pub fn enemy_movement_system(
-    frame: Res<FrameCount>,
-    flow_field_cache: Res<FlowFieldCache>,
-    mut enemy_query: Query<
-        (
-            &GgrsNetId,
-            Entity,
-            &mut fixed_math::FixedTransform3D,
-            &mut Velocity,
-            &EnemyAiConfig,
-            &EnemyTarget,
-            &MonsterState,
-            &mut animation::FacingDirection,
-        ),
-        With<Enemy>,
-    >,
-    player_query: Query<&fixed_math::FixedTransform3D, (With<Player>, Without<Enemy>)>,
-) {
-    // Collect enemy positions for separation calculation
-    let enemy_positions: Vec<(Entity, fixed_math::FixedVec2)> = enemy_query
-        .iter()
-        .map(|(_, entity, transform, ..)| (entity, transform.translation.truncate()))
-        .collect();
-
-    let separation_distance = fixed_math::new(40.0);
-    let separation_force = fixed_math::new(2.0);
-    let slow_down_distance = fixed_math::new(50.0);
-    let optimal_attack_distance = fixed_math::new(30.0);
-
-    for (_net_id, entity, mut transform, mut velocity, ai_config, target, state, mut facing) in
-        order_mut_iter!(enemy_query)
-    {
-        let enemy_pos = transform.translation.truncate();
-
-        // Only move when chasing
-        if *state != MonsterState::Chasing {
-            velocity.main = fixed_math::FixedVec2::ZERO;
-            continue;
-        }
-
-        // Get movement direction from flow field
-        let nav_profile = ai_config.nav_profile();
-        let flow_field = match flow_field_cache.get_flow_field(nav_profile) {
-            Some(ff) => ff,
-            None => {
-                // Fallback: move directly toward last known position
-                if let Some(target_pos) = target.last_known_position {
-                    let direction = (target_pos - enemy_pos).normalize_or_zero();
-                    velocity.main = direction * fixed_math::new(50.0);
-                }
-                continue;
-            }
-        };
-
-        // Get direction from flow field
-        let direction = match flow_field.get_direction_vector(enemy_pos) {
-            Some(dir) => dir,
-            None => {
-                // Not in flow field, move toward target directly
-                if let Some(target_pos) = target.last_known_position {
-                    (target_pos - enemy_pos).normalize_or_zero()
-                } else {
-                    fixed_math::FixedVec2::ZERO
-                }
-            }
-        };
-
-        // Calculate base velocity
-        let base_speed = fixed_math::new(80.0); // TODO: Use character config
-        let mut desired_velocity = direction * base_speed;
-
-        // Apply separation from other enemies
-        let mut separation = fixed_math::FixedVec2::ZERO;
-        let mut separation_count = 0u32;
-
-        for (other_entity, other_pos) in &enemy_positions {
-            if *other_entity == entity {
-                continue;
-            }
-
-            let dist = enemy_pos.distance(other_pos);
-            if dist < separation_distance && dist > fixed_math::new(0.1) {
-                let repulsion = (enemy_pos - *other_pos).normalize_or_zero() / dist;
-                separation += repulsion;
-                separation_count += 1;
-            }
-        }
-
-        if separation_count > 0 {
-            separation =
-                (separation / fixed_math::Fixed::from_num(separation_count)) * separation_force;
-        }
-
-        // Slow down when near target
-        let distance_to_nearest_player = player_query
-            .iter()
-            .map(|pt| enemy_pos.distance(&pt.translation.truncate()))
-            .fold(
-                fixed_math::Fixed::MAX,
-                |acc, d| {
-                    if d < acc {
-                        d
-                    } else {
-                        acc
-                    }
-                },
-            );
-
-        let speed_factor = if distance_to_nearest_player < optimal_attack_distance {
-            fixed_math::FIXED_ZERO
-        } else if distance_to_nearest_player < slow_down_distance {
-            let range = slow_down_distance - optimal_attack_distance;
-            if range > fixed_math::FIXED_ZERO {
-                ((distance_to_nearest_player - optimal_attack_distance) / range)
-                    .clamp(fixed_math::FIXED_ZERO, fixed_math::FIXED_ONE)
-            } else {
-                fixed_math::FIXED_ONE
-            }
-        } else {
-            fixed_math::FIXED_ONE
-        };
-
-        desired_velocity = desired_velocity * speed_factor;
-        velocity.main = desired_velocity + separation;
-
-        // Apply movement
-        let total_velocity = velocity.main + velocity.knockback;
-        let timestep = fixed_math::new(1.0 / 60.0);
-
-        if total_velocity.length_squared() > fixed_math::new(0.01) {
-            transform.translation.x = transform
-                .translation
-                .x
-                .saturating_add(total_velocity.x * timestep);
-            transform.translation.y = transform
-                .translation
-                .y
-                .saturating_add(total_velocity.y * timestep);
-
-            // Update facing direction
-            if velocity.main.length_squared() > fixed_math::new(0.01) {
-                *facing = animation::FacingDirection::from_fixed_vector(velocity.main);
-            }
-        }
-    }
-}
-
 /// System to handle enemy attacks
 ///
 /// Tir à distance (T1.2, `EnemyAiConfig::ranged`) : voir [`ranged_attack`], joué avant le
@@ -346,6 +219,9 @@ pub fn enemy_attack_system(
             Option<&mut RangedAttackState>,
             Has<Emitter>,
             Option<&WeaponInventory>,
+            // T1.4 : règles et état des behaviors nouveaux (voir `rules`).
+            Option<&EnemyBehaviors>,
+            Option<&BehaviorRuntime>,
         ),
         With<Enemy>,
     >,
@@ -376,12 +252,32 @@ pub fn enemy_attack_system(
         ranged_state,
         has_emitter,
         inventory,
+        enemy_behaviors,
+        behavior_runtime,
     ) in order_mut_iter!(enemy_query)
     {
         let enemy_pos = enemy_transform.translation.truncate();
 
+        // T1.4 : un ennemi à behaviors nouveaux (`BehaviorRuntime`) n'exécute que sa règle
+        // retenue (`rules::behavior_select_system`) ; les autres — tout le contenu d'avant
+        // T1.4 — suivent exactement le chemin d'origine ci-dessous.
+        let runtime_rule: Option<Option<&str>> = behavior_runtime.map(|runtime| {
+            runtime
+                .selected
+                .and_then(|index| enemy_behaviors?.rules.get(index as usize))
+                .map(|rule| rule.name())
+        });
+        let shoot_allowed = runtime_rule.is_none_or(|rule| {
+            rule == Some("Shoot")
+                || ranged_state
+                    .as_ref()
+                    .is_some_and(|ranged| ranged.target.is_some())
+        });
+
         // Tir à distance (T1.2) : avant le corps à corps.
-        if let (Some(ranged), Some(mut ranged_state)) = (&ai_config.ranged, ranged_state) {
+        if let (true, Some(ranged), Some(mut ranged_state)) =
+            (shoot_allowed, &ai_config.ranged, ranged_state)
+        {
             let firing = ranged_attack(
                 &mut commands,
                 frame.frame,
@@ -403,6 +299,9 @@ pub fn enemy_attack_system(
             if firing {
                 continue;
             }
+        }
+        if runtime_rule.is_some_and(|rule| rule != Some("Melee")) {
+            continue;
         }
 
         match target.target_type {
@@ -777,25 +676,4 @@ pub fn enemy_attack_damage_translate_system(
             friendly_fire: ai_config.friendly_fire,
         });
     }
-}
-
-/// System to handle stunned state recovery
-pub fn enemy_stun_recovery_system(
-    frame: Res<FrameCount>,
-    mut enemy_query: Query<(&GgrsNetId, &mut MonsterState), With<Enemy>>,
-) {
-    for (_net_id, mut state) in order_mut_iter!(enemy_query) {
-        if let MonsterState::Stunned { recover_at_frame } = *state {
-            if frame.frame >= recover_at_frame {
-                *state = MonsterState::Idle;
-            }
-        }
-    }
-}
-
-/// Apply stun to an enemy
-pub fn apply_stun(state: &mut MonsterState, current_frame: u32, stun_duration: u32) {
-    *state = MonsterState::Stunned {
-        recover_at_frame: current_frame + stun_duration,
-    };
 }

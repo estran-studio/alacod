@@ -26,7 +26,9 @@ use crate::character::player::input::{
     INPUT_RELOAD, INPUT_RIGHT, INPUT_SPRINT, INPUT_SWITCH_WEAPON_MODE, INPUT_UP,
 };
 use bevy_fixed::fixed_math::Fixed;
-pub use combat::weapons::expectations::{EntityKind, EntityRef, Expectation, RunStepExpectation};
+pub use combat::weapons::expectations::{
+    DistanceTarget, EntityKind, EntityRef, Expectation, RunStepExpectation,
+};
 use serde::{Deserialize, Serialize};
 use sim_core::ammo::AmmoType;
 use sim_core::damage::FriendlyFire;

@@ -1,0 +1,46 @@
+// Personnage de laboratoire T1.4 (testbed, conventions §22) : lâche — sous la moitié de
+// sa santé (`flee_threshold: "0.5"`), `Flee` (recule par le champ de flux inversé) ; sinon la
+// griffe à portée (`Melee("zombie_claws")`), sinon `Chase`. Scénario `enemy_flee` (carte
+// `testbed/arena_ia_flee.ldtk`).
+(
+    movement: (
+        acceleration: "120.0",
+        max_speed: "60.0",
+        friction: "10.0",
+        sprint_multiplier: "1.0",
+        sprint_acceleration_per_frame: "0.0",
+        sprint_deceleration_per_frame: "0.0",
+
+        dash_distance: "0.0",
+        dash_duration_frames: 0,
+        dash_cooldown_frames: 0,
+    ),
+
+    asset_name_ref: "coward",
+
+    collider: (
+        shape: Rectangle(
+            width: "20.",
+            height: "20.",
+        ),
+        offset: ( x: "0.0", y: "-6.0", z: "0.0" )
+    ),
+
+    scale: "1.0",
+
+    base_health: (
+        max: "40.0",
+    ),
+
+    starting_skin: "1",
+    skins: {
+        "1": (layers: {}),
+    },
+
+    ai: Some((
+        aggro_range: Some("500.0"),
+        attack_range: Some("30.0"),
+        flee_threshold: Some("0.5"),
+        behaviors: Some([Flee, Melee("zombie_claws"), Chase(profile: "Ground")]),
+    )),
+)

@@ -170,18 +170,47 @@ pub struct CharacterEntry {
     pub downed_speed_mult: FixedField,
     /// Emplacements d'armes à distance (T2.2, chantier B7), pour la règle « > 0 ».
     pub weapon_slots: u32,
-    /// Tir à distance (T1.2, `ai.ranged`), pour les règles de référence et de plage.
-    pub ranged: Option<RangedEntry>,
+    /// T1.4 : règles de comportement (`ai.behaviors`, `None` : liste par défaut).
+    pub behaviors: Option<Vec<BehaviorEntry>>,
+    /// T1.4 : tags ignorés par le ciblage (`ai.targeting: Some(Nearest(ignore: [...]))`).
+    pub ignore_tags: Vec<String>,
+    /// Tags du personnage (`tags`), source des tags connus du jeu (règle `ignore`).
+    pub tags: Vec<String>,
 }
 
-/// T1.2 : mirroir de `game::character::enemy::ai::state::RangedAttackRon` (champ `ranged` de
-/// `ai`, voir `docs/conventions.md` §20).
+/// T1.4 : mirroir de `behaviors::Behavior` (`docs/conventions.md` §22) ; les `Fixed` passent
+/// par [`FixedField`].
 #[derive(Debug, Clone, Deserialize)]
-pub struct RangedEntry {
-    pub weapon: String,
-    pub pattern: String,
-    pub range: FixedField,
-    pub cooldown_frames: u32,
+pub enum BehaviorEntry {
+    Chase {
+        profile: String,
+    },
+    KeepDistance {
+        min: FixedField,
+        max: FixedField,
+    },
+    Strafe,
+    Charge {
+        telegraph: u32,
+    },
+    Shoot {
+        weapon: String,
+        pattern: String,
+        range: FixedField,
+        cooldown_frames: u32,
+    },
+    Melee(String),
+    Flee,
+    Wander,
+}
+
+/// T1.4 : mirroir de `behaviors::Targeting`.
+#[derive(Debug, Clone, Deserialize)]
+pub enum TargetingEntry {
+    Nearest {
+        #[serde(default)]
+        ignore: Vec<String>,
+    },
 }
 
 /// T1.2 : pattern nommé (`patterns/<nom>.ron`, kind `Pattern`).
@@ -674,15 +703,19 @@ struct CharacterFileSchema {
     /// T2.2, chantier B7 : voir `game::character::config::CharacterConfig::weapon_slots`.
     #[serde(default = "default_weapon_slots")]
     weapon_slots: u32,
-    /// T1.2 : seul `ai.ranged` est lu (`None` : pas d'`ai`, ou `ai` sans `ranged`).
+    /// T1.4 : seuls `ai.behaviors` et `ai.targeting` sont lus.
     #[serde(default)]
     ai: Option<AiSchema>,
+    #[serde(default)]
+    tags: Vec<String>,
 }
 
 #[derive(Deserialize)]
 struct AiSchema {
     #[serde(default)]
-    ranged: Option<RangedEntry>,
+    behaviors: Option<Vec<BehaviorEntry>>,
+    #[serde(default)]
+    targeting: Option<TargetingEntry>,
 }
 
 fn default_bleedout_frames() -> u32 {
@@ -1095,7 +1128,14 @@ fn load_characters(
                 revive_frames: parsed.revive_frames,
                 downed_speed_mult: parsed.downed_speed_mult,
                 weapon_slots: parsed.weapon_slots,
-                ranged: parsed.ai.and_then(|ai| ai.ranged),
+                ignore_tags: parsed
+                    .ai
+                    .as_ref()
+                    .and_then(|ai| ai.targeting.as_ref())
+                    .map(|TargetingEntry::Nearest { ignore }| ignore.clone())
+                    .unwrap_or_default(),
+                behaviors: parsed.ai.and_then(|ai| ai.behaviors),
+                tags: parsed.tags,
             },
         );
     }

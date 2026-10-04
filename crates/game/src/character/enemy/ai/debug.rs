@@ -320,9 +320,6 @@ pub fn draw_enemy_state_debug(
                 MonsterState::Idle => (Color::srgb(0.5, 0.5, 0.5), 5.0),
                 MonsterState::Chasing => (Color::srgb(1.0, 1.0, 0.0), 6.0),
                 MonsterState::Attacking { .. } => (Color::srgb(1.0, 0.0, 0.0), 8.0),
-                MonsterState::Stunned { .. } => (Color::srgb(0.0, 0.0, 1.0), 7.0),
-                MonsterState::Breaching { .. } => (Color::srgb(1.0, 0.5, 0.0), 7.0),
-                MonsterState::Fleeing => (Color::srgb(0.0, 1.0, 1.0), 6.0),
                 MonsterState::Dead => (Color::srgb(0.0, 0.0, 0.0), 5.0),
             };
             gizmos.circle_2d(Isometry2d::from_translation(indicator_pos), radius, color);

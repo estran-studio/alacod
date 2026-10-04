@@ -1,8 +1,7 @@
-// Personnage de laboratoire T1.2 (testbed) : archer qui poursuit le joueur (flow field,
-// comme `follower`) puis, à moins de 240 unités, s'arrête et joue la volée `volee`
-// (`patterns/volee.ron` : télégraphe, 3 flèches visées, attente, 4 flèches dispersées) avec
-// la table `projectiles` de `fireball_gun` ; refroidissement de 90 frames ensuite
-// (règle `Shoot`, conventions §20 et §22). Pas de corps à corps. Scénario `enemy_telegraph`.
+// Personnage de laboratoire T1.4 (testbed, conventions §22) : tireur qui garde ses
+// distances — `Shoot` (volée `volee` de `fireball_gun`) quand il peut tirer, sinon
+// `KeepDistance` (recule par le champ de flux inversé sous 120, jusqu'à 200), sinon `Chase`.
+// Scénario `enemy_keep_distance` (carte `testbed/arena_ia_keep.ldtk`).
 (
     movement: (
         acceleration: "120.0",
@@ -17,7 +16,7 @@
         dash_cooldown_frames: 0,
     ),
 
-    asset_name_ref: "archer",
+    asset_name_ref: "kiter",
 
     collider: (
         shape: Rectangle(
@@ -39,20 +38,11 @@
     },
 
     ai: Some((
-        movement_type: None,
         aggro_range: Some("500.0"),
         attack_range: Some("0.0"),
-        attack_cooldown_frames: None,
-        can_break: None,
-        attack_through: None,
-        ignores: None,
-        path_through_breakables: None,
-        flee_threshold: None,
-        attack_damage: None,
-        stationary: None,
-        // T1.4 : règles par priorité (conventions §22) ; `Shoot` remplace `ai.ranged` de T1.2.
         behaviors: Some([
             Shoot(weapon: "fireball_gun", pattern: "volee", range: "240.0", cooldown_frames: 90),
+            KeepDistance(min: "120.0", max: "200.0"),
             Chase(profile: "Ground"),
         ]),
     )),

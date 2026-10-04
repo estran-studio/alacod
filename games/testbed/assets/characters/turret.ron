@@ -1,5 +1,5 @@
 // Personnage de laboratoire T1.2 (testbed) : tourelle immobile qui tire à distance
-// (`ai.ranged`, conventions §20) — couronne `ring_8` (8 boules de feu toutes les 60 frames,
+// (règle `Shoot`, conventions §20 et §22) — couronne `ring_8` (8 boules de feu toutes les 60 frames,
 // `patterns/ring_8.ron`) avec la table `projectiles` de `fireball_gun`, dès qu'un joueur est
 // à moins de 260 unités. Pas de corps à corps (`attack_range: "0.0"`). Scénarios
 // `enemy_ring`, `enemy_ring_quad` (carte `testbed/arena_tir.ldtk`).
@@ -50,11 +50,9 @@
         flee_threshold: None,
         attack_damage: None,
         stationary: Some(true),
-        ranged: Some((
-            weapon: "fireball_gun",
-            pattern: "ring_8",
-            range: "260.0",
-            cooldown_frames: 90,
-        )),
+        // T1.4 : règles par priorité (conventions §22) ; `Shoot` remplace `ai.ranged` de T1.2.
+        behaviors: Some([
+            Shoot(weapon: "fireball_gun", pattern: "ring_8", range: "260.0", cooldown_frames: 90),
+        ]),
     )),
 )
