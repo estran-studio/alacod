@@ -1,0 +1,5 @@
+(
+    name: "fixture-mutation_screen_font_missing",
+    content_folders: [(path: "ui", kind: "Ui")],
+    entry: (start_map: "unused", default_seed: 1),
+)

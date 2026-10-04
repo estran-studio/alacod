@@ -913,6 +913,8 @@ pub struct Registry {
     pub ui_files: Vec<PathBuf>,
     /// Réglages typés du feedback (T3.4) parmi les fichiers Ui.
     pub feedback: Vec<FeedbackEntry>,
+    /// T1.16 : écrans de mutation (`ui/mutation_screen.ron`) parmi les fichiers Ui.
+    pub mutation_screens: Vec<(PathBuf, crate::ui::MutationScreenLayout)>,
     pub camera_files: Vec<PathBuf>,
     /// D3 : feuilles de sprites par id (kind `SpriteSheet`), source des sprites chargés par
     /// `game::global_asset` (avant D3 : une table de chemins écrite dans le code).
@@ -2652,7 +2654,8 @@ fn load_maps(
     }
 }
 
-/// Les réglages `feedback.ron` déclarés comme Ui ont un schéma typé (T3.4).
+/// Les réglages `feedback.ron` déclarés comme Ui ont un schéma typé (T3.4), comme
+/// `mutation_screen.ron` (T1.16, [`crate::ui::MutationScreenLayout`]).
 /// Les autres fichiers Ui gardent la validation syntaxique.
 fn load_ui(
     assets_dir: &Path,
@@ -2684,6 +2687,12 @@ fn load_ui(
                     shake_amplitude: config.shake.amplitude,
                     sounds: config.sounds,
                 });
+            })
+        } else if rel.file_name().and_then(|name| name.to_str())
+            == Some(crate::ui::MUTATION_SCREEN_FILE_NAME)
+        {
+            ron::from_str::<crate::ui::MutationScreenLayout>(&text).map(|layout| {
+                registry.mutation_screens.push((rel.clone(), layout));
             })
         } else {
             ron::from_str::<ron::Value>(&text).map(|_| ())

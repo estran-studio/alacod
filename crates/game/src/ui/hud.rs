@@ -262,7 +262,7 @@ fn anchor_justify(anchor: HudAnchor) -> Justify {
 }
 
 /// Police d'un texte du HUD : celle de `hud.ron` si déclarée, sinon celle de Bevy.
-fn hud_text_font(font: &Option<Handle<Font>>, size: f32) -> TextFont {
+pub(crate) fn hud_text_font(font: &Option<Handle<Font>>, size: f32) -> TextFont {
     match font {
         Some(font) => TextFont {
             font: font.clone().into(),
@@ -1002,7 +1002,7 @@ fn text_background(background: Option<Color>, text: &str) -> Color {
 }
 
 /// `#rrggbb` ou `#rrggbbaa` (T2.12 : alpha, pour les fonds).
-fn parse_color(hex: &str) -> Color {
+pub(crate) fn parse_color(hex: &str) -> Color {
     let hex = hex.trim_start_matches('#');
     match (hex.len(), u32::from_str_radix(hex, 16)) {
         (6, Ok(val)) => {
