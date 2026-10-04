@@ -117,9 +117,7 @@ impl FeedbackSettings {
             hit_flash: levels()
                 .find_map(|entry| entry.hit_flash)
                 .unwrap_or(self.hit_flash),
-            shake: levels()
-                .find_map(|entry| entry.shake)
-                .unwrap_or(self.shake),
+            shake: levels().find_map(|entry| entry.shake).unwrap_or(self.shake),
             shake_overridden: levels().any(|entry| entry.shake.is_some()),
         }
     }
@@ -253,8 +251,10 @@ mod tests {
         let mut s = settings();
         s.hit_flash.color.0 = 5.0;
         s.telegraph.color.3 = 1.5;
-        s.by_kind.get_mut(&DamageKind::Explosion).unwrap().shake =
-            Some(ShakeConfig { frames: 0, amplitude: -1.0 });
+        s.by_kind.get_mut(&DamageKind::Explosion).unwrap().shake = Some(ShakeConfig {
+            frames: 0,
+            amplitude: -1.0,
+        });
         let fields: Vec<_> = s.problems().into_iter().map(|p| p.field).collect();
         assert_eq!(
             fields,

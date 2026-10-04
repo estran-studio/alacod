@@ -456,8 +456,10 @@ fn apply_feedback_cues(
     if log.frame_cues.is_empty() {
         return;
     }
-    let entity_of: BTreeMap<usize, Entity> =
-        targets.iter().map(|(entity, net_id)| (net_id.0, entity)).collect();
+    let entity_of: BTreeMap<usize, Entity> = targets
+        .iter()
+        .map(|(entity, net_id)| (net_id.0, entity))
+        .collect();
     for cue in &log.frame_cues {
         info!(
             "feedback f{} {} {} ({})",

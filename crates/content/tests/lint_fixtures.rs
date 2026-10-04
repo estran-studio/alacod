@@ -527,7 +527,11 @@ fn feedback_missing_sound_fixture_reports_error() {
 #[test]
 fn feedback_t1_17_fixtures_report_their_field() {
     let (_, _, errors) = load_and_lint(&fixture_dir("feedback_by_weapon_unknown")).unwrap();
-    assert_has_error(&errors, LintErrorKind::BrokenReference, "by_weapon « fantome »");
+    assert_has_error(
+        &errors,
+        LintErrorKind::BrokenReference,
+        "by_weapon « fantome »",
+    );
     let (_, _, errors) = load_and_lint(&fixture_dir("feedback_override_out_of_range")).unwrap();
     assert_has_error(
         &errors,
@@ -572,8 +576,16 @@ fn t3_4_fixtures_have_a_single_rule_failure() {
         ("feedback_amplitude_negative", LintErrorKind::OutOfRange, 1),
         ("feedback_missing_sound", LintErrorKind::BrokenReference, 1),
         // T1.17
-        ("feedback_by_weapon_unknown", LintErrorKind::BrokenReference, 1),
-        ("feedback_override_out_of_range", LintErrorKind::OutOfRange, 1),
+        (
+            "feedback_by_weapon_unknown",
+            LintErrorKind::BrokenReference,
+            1,
+        ),
+        (
+            "feedback_override_out_of_range",
+            LintErrorKind::OutOfRange,
+            1,
+        ),
         (
             "starting_weapons_exceed_slots",
             LintErrorKind::OutOfRange,
