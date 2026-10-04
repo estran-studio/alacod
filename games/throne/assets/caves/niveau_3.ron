@@ -1,5 +1,8 @@
-// `throne` (T1.11, docs/conventions.md §21 et §29) : troisième étage : huit ennemis, tous les profils (`cave:niveau_3`).
-// Personnages posés à tour de rôle sur les 8 points `ZombieSpawn`.
+// `throne` (T1.11, docs/conventions.md §21 et §29) : troisième étage : huit ennemis (tous les profils) et le boss `roi_rat` (`cave:niveau_3`).
+// Personnages posés à tour de rôle sur les points `ZombieSpawn` (`characters[index % len]`).
+// m1-integration-scenarios : boss `roi_rat` ajouté en dernier avec un neuvième point : les huit
+// premiers points gardent leurs ennemis, le boss prend le neuvième (un seul exemplaire tant que la
+// caverne trouve neuf points espacés).
 (
     width: 64,
     height: 44,
@@ -8,6 +11,6 @@
     birth: 5,
     survive: 4,
     min_floor_ratio: "0.3",
-    enemy_spawns: 8,
-    characters: ["brute", "tourelle", "franc_tireur", "buffle", "arroseur", "cracheur", "chien", "rat"],
+    enemy_spawns: 9,
+    characters: ["brute", "tourelle", "franc_tireur", "buffle", "arroseur", "cracheur", "chien", "rat", "roi_rat"],
 )

@@ -1,0 +1,19 @@
+// `throne` vague 2 de M1 (m1-integration-scenarios, docs/conventions.md §29) : 1 bot(s)
+// `prudent` jouent la run complète (trois étages de caverne, `floors/run.ron`, boss `roi_rat` au
+// niveau 3), avec tout ce que le manifeste active. Joué en synctest par la suite : preuve de
+// déterminisme à 1 joueur(s).
+//
+// CALIBRER (mesure)
+Scenario(
+    game: "throne",
+    floors: Some("run"),
+    map_seed: 123456,
+    frames: 12000,
+    players: [
+        (bot: prudent),
+    ],
+    expect: [
+        Event(kind: "floor", by_frame: 12000),
+        // CALIBRER
+    ],
+)
