@@ -291,7 +291,11 @@ mod tests {
         for profile in [BotProfile::Fonceur, BotProfile::Prudent] {
             let input = decide(profile, &v, &mut rng());
             assert_ne!(input.buttons & INPUT_UP, 0, "{profile:?} : suit le chemin");
-            assert_eq!(input.buttons & INPUT_RIGHT, 0, "{profile:?} : pas tout droit");
+            assert_eq!(
+                input.buttons & INPUT_RIGHT,
+                0,
+                "{profile:?} : pas tout droit"
+            );
         }
         // Sans chemin : ligne droite en repli
         v.route = None;
@@ -322,7 +326,11 @@ mod tests {
         }
         v.portal = Some(FixedVec2::new(fx(30.0), fx(0.0)));
         let input = decide(BotProfile::Prudent, &v, &mut rng());
-        assert_ne!(input.buttons & INPUT_RIGHT, 0, "freinage : petit pas direct");
+        assert_ne!(
+            input.buttons & INPUT_RIGHT,
+            0,
+            "freinage : petit pas direct"
+        );
     }
 
     #[test]

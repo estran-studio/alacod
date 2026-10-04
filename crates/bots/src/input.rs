@@ -421,7 +421,13 @@ fn navigate(
 const ROUTE_DEAD_ZONE: Fixed = Fixed::from_bits(2 << 16);
 
 fn dead_zone(direction: FixedVec2) -> FixedVec2 {
-    let keep = |c: Fixed| if c.abs() < ROUTE_DEAD_ZONE { Fixed::ZERO } else { c };
+    let keep = |c: Fixed| {
+        if c.abs() < ROUTE_DEAD_ZONE {
+            Fixed::ZERO
+        } else {
+            c
+        }
+    };
     FixedVec2::new(keep(direction.x), keep(direction.y))
 }
 
