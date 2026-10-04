@@ -183,12 +183,16 @@ fn spawn_game_over_ui(commands: &mut Commands, text: &str, font: Handle<Font>) {
 /// Bouton et touche `R` : les deux posent `RunRequest::Restart` (en p2p, redirigé vers le
 /// lobby par `apply_run_request_system` — voir sa doc et celle de `RunRequest::Restart`).
 /// Bouton « Lobby » (T2.12) : `RunRequest::ToLobby`.
+/// La touche `R` ne compte que si l'écran de fin est affiché : c'est aussi la touche de
+/// rechargement, et ce système tourne pendant toute la partie (`InGame`) — avant la revue
+/// M0 (R5), recharger abandonnait la partie et la relançait.
 /// `ButtonInput<KeyCode>` existe aussi en headless (aucune fenêtre ne génère jamais
 /// d'évènement clavier, `just_pressed` ne déclenche donc jamais : sans danger pour les
 /// scénarios/tests, qui posent `RunRequest` directement).
 fn button_system(
     mut commands: Commands,
     keyboard: Res<ButtonInput<KeyCode>>,
+    screen: Query<(), With<GameOverUiRoot>>,
     mut interaction_query: Query<
         (&Interaction, &mut BackgroundColor, Has<LobbyButton>),
         (
@@ -197,7 +201,7 @@ fn button_system(
         ),
     >,
 ) {
-    if keyboard.just_pressed(KeyCode::KeyR) {
+    if keyboard.just_pressed(KeyCode::KeyR) && !screen.is_empty() {
         commands.insert_resource(RunRequest::Restart);
     }
 
@@ -217,5 +221,31 @@ fn button_system(
                 *color = BackgroundColor(BUTTON_COLOR);
             }
         }
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    fn press_r(screen_shown: bool) -> Option<RunRequest> {
+        let mut app = App::new();
+        app.init_resource::<ButtonInput<KeyCode>>()
+            .add_systems(Update, button_system);
+        if screen_shown {
+            app.world_mut().spawn(GameOverUiRoot);
+        }
+        app.world_mut()
+            .resource_mut::<ButtonInput<KeyCode>>()
+            .press(KeyCode::KeyR);
+        app.update();
+        app.world().get_resource::<RunRequest>().copied()
+    }
+
+    /// Revue M0 (R5) : `R` recharge pendant la partie, ne relance que depuis l'écran de fin.
+    #[test]
+    fn r_ne_relance_que_sur_l_ecran_de_fin() {
+        assert_eq!(press_r(false), None);
+        assert_eq!(press_r(true), Some(RunRequest::Restart));
     }
 }
