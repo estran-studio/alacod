@@ -1715,12 +1715,35 @@ sons, police, tilesets), enregistrés dans `games/throne/assets/assets.yaml` (li
 zombies, `statut: placeholder`).
 
 **Scénarios** : `throne_floor_1` (un bot `prudent` finit l'étage 1), `throne_three_floors` (deux
-bots finissent la run). Mesure : `alacod-sim --game throne --bots 2 --profiles prudent,prudent
---floors run --seeds 1..20 --until-floor 3 --max-frames 12000` : 19/20 (graine 5 : le
-`pillard` en fuite reste derrière un mur, les bots vont en ligne droite).
+bots finissent la run), joués avec tout ce que le manifeste active (butin compris). Mesure :
+`alacod-sim --game throne --bots 2 --profiles prudent,prudent --floors run --seeds 1..20
+--until-floor 3 --max-frames 12000` : 19/20 en phase 1 (graine 5 : le `pillard` en fuite reste
+derrière un mur, les bots vont en ligne droite), 17/20 en phase 2 (voir ci-dessous).
 
-**Phase 2** (après T1.9 et T1.10) : huit mutations, progression (rads, `weapon_pool` par niveau),
-horloge de difficulté.
+**Phase 2 — progression, mutations, horloge, difficulté** (T1.9, T1.10 ; actives par le manifeste :
+`entry: (..., progression: "run", clocks: ["etage"], difficulty: true)`, donc en partie jouée
+**et** dans tous les scénarios de `throne`) :
+- `progression/run.ron` (§27) : un rad par kill, niveaux à 3, 8 et 15 rads, trois mutations
+  proposées, la première prise d'office après 600 frames (les bots ne choisissent pas) ;
+  `weapon_pool` : munitions de départ au niveau 0, obus et lames au 1, énergie au 2, explosifs au
+  3 ; `weapon_drop_chance` 0,08.
+- Huit mutations (`mutations/`, effets v1 seulement) : `coriace` (OnLevelUp : +25 MaxHealth,
+  soin 25), `vampire` (OnKill : soin 4), `tireur` (Tick(180) : salve de six éclats, pattern
+  `salve`), `adrenaline` (touché sous 40 % : vitesse ×1,4 pendant 3 s), `rancune` (touché :
+  dégâts ×1,5 pendant 2 s), `sang_froid` (Tick(60) sans coup depuis 5 s : soin 3), `chasseur`
+  (tuer un champion : dégâts ×2 pendant 5 s), `irradie` (OnKill : un rad de plus).
+- Horloge `clocks/etage.ron` (§23, portée `Floor`) : `alerte` à 20 s, `renfort` à 40 s puis
+  toutes les 20 s. **Aucune action n'y est attachée** (`OnEvent` des effets est v2) : moments clés
+  et attente `Clock` seulement.
+- `difficulty.ron` : `1 + floor * 0.25 + floor_minutes * 0.25` (santé des ennemis à l'apparition,
+  dégâts qu'ils infligent).
+- Scénarios : `throne_progression` (niveau, rads, mutation prise d'office, horloge),
+  `throne_mutation_choice` (inputs enregistrés d'un bot, `ChoiceB` → `chasseur`). Sur 20 graines
+  (deux bots) : 17/20 (graine 5 : le `pillard` ; graines 12 et 20 : bots coincés dans un recoin
+  en allant au portail en ligne droite — dette de pathfinding de `prudent`).
+- Gabarit des scénarios générés d'armes préparé pour T1.13 : `gabarit_armes.ldtk` (copie de
+  l'arène du testbed, `cible` à `counts_hits` à +128/−48 du spawn, `mannequin` ailleurs). Pas
+  encore jouable : en mode `Floors`, un scénario de `throne` ignore sa carte.
 
 ## Notes essentielles
 
