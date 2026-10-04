@@ -1,0 +1,3 @@
+// T1.3 (statuts, docs/conventions.md §19) : brûlure — 4 points de feu toutes les 30 frames
+// pendant 120 frames ; réappliquée, la durée s'empile jusqu'à 240 (2 piles).
+(kind: Burn, frames: 120, damage: "4", period: 30)

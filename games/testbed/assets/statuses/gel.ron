@@ -1,0 +1,2 @@
+// T1.3 : gel — comme étourdi, et recul annulé, pendant 90 frames (réappliqué : rafraîchi).
+(kind: Freeze, frames: 90)

@@ -190,7 +190,12 @@ impl Plugin for BaseCharacterGamePlugin {
                     .chain()
                     .in_set(RollbackSystemSet::Input),
                 // MOVEMENT CHARACTERS
-                (apply_friction, move_characters.after(apply_friction))
+                (
+                    apply_friction,
+                    // T1.3 : `Stun`/`Freeze` annulent la vitesse (§19)
+                    combat::projectile::status_motion_system.after(apply_friction),
+                    move_characters.after(combat::projectile::status_motion_system),
+                )
                     .in_set(RollbackSystemSet::Movement),
                 // DÉGÂTS (T1.1, chantier B1) : traducteur de l'attaque d'ennemi (frame
                 // précédente, voir sa doc) puis résolveur unique

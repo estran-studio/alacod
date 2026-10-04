@@ -37,7 +37,7 @@ pub mod status;
 pub use projectile::{
     ExpireAction, Pattern, Projectile, ProjectileDef, ProjectileModifier, ProjectileSpec,
 };
-pub use status::{StatusDef, StatusEntry, Statuses};
+pub use status::{StatusDef, StatusEntry, StatusLibrary, StatusSpec, Statuses};
 
 use bevy::prelude::{App, Plugin};
 use sim_core::kinds::{KindDecl, KindRegistry};
@@ -69,7 +69,9 @@ impl Plugin for CombatPlugin {
         ] {
             app.register_kinds(names.iter().map(|name| KindDecl::new(category, *name)));
         }
-        app.rollback_and_trace::<Statuses>();
+        // T1.3 : checksum neutre (aucun personnage n'en porte sans statut posé, §19).
+        app.rollback_and_trace_neutral::<Statuses>();
+        app.init_resource::<StatusLibrary>();
     }
 }
 

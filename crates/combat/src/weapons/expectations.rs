@@ -368,6 +368,24 @@ pub enum Expectation {
         max: Option<f32>,
         at_frame: u32,
     },
+    /// L'entité `entity` porte le statut `status` (id du kind `Status`, `combat::status::
+    /// Statuses`) à `at_frame` (T1.3, `docs/conventions.md` §19) ; `present: false` vérifie
+    /// au contraire qu'elle ne le porte pas (expiré). Échoue si l'entité n'existe pas.
+    HasStatus {
+        entity: EntityRef,
+        status: String,
+        #[serde(default = "default_true")]
+        present: bool,
+        at_frame: u32,
+    },
+    /// Nombre **exact** de piles du statut `status` sur `entity` à `at_frame` (T1.3 ; 0 si le
+    /// statut n'est pas porté).
+    StatusStacks {
+        entity: EntityRef,
+        status: String,
+        stacks: u32,
+        at_frame: u32,
+    },
     /// Niveau **exact** (`game::progression::Level`) du joueur `handle` (T1.10). Échoue sans
     /// progression active.
     Level {
@@ -430,6 +448,8 @@ impl Expectation {
             | Self::FloorIndex { at_frame, .. }
             | Self::CellState { at_frame, .. }
             | Self::Gauge { at_frame, .. }
+            | Self::HasStatus { at_frame, .. }
+            | Self::StatusStacks { at_frame, .. }
             | Self::Level { at_frame, .. }
             | Self::Mutations { at_frame, .. }
             | Self::Event {
@@ -446,4 +466,8 @@ impl Expectation {
             Self::EnemyNeverInWall { to, .. } => *to,
         }
     }
+}
+
+fn default_true() -> bool {
+    true
 }

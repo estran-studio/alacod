@@ -324,6 +324,9 @@ pub fn apply_inputs(
             &CharacterConfigHandles,
             &Player,
             Has<Downed>,
+            // T1.3 : `Stun`/`Freeze` (§19) : inputs ignorés par la simulation (jamais à la
+            // lecture des inputs : un rejeu `Scripted` doit rester identique).
+            Option<&combat::status::Statuses>,
         ),
         With<Rollback>,
     >,
@@ -343,10 +346,19 @@ pub fn apply_inputs(
         config_handles,
         player,
         is_downed,
+        statuses,
     ) in order_mut_iter!(query)
     {
         if let Some(config) = character_configs.get(&config_handles.config) {
-            let (input, _input_status) = inputs[player.handle];
+            let (mut input, _input_status) = inputs[player.handle];
+            if combat::status::incapacitated(statuses) {
+                // Visée gardée, aucun bouton (ni déplacement, ni dash, ni interaction)
+                input = BoxInput {
+                    pan_x: input.pan_x,
+                    pan_y: input.pan_y,
+                    ..Default::default()
+                };
+            }
 
             if input.buttons & INPUT_FORCE_CRASH != 0 {
                 panic!("FORCED CRASH BY PLAYER {}", player.handle);

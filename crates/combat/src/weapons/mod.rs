@@ -1055,6 +1055,8 @@ pub fn weapon_rollback_system(
         &fixed_math::FixedTransform3D,
         &Player,
         Has<Downed>,
+        // T1.3 : `Stun`/`Freeze` (§19) : pas de tir.
+        Option<&crate::status::Statuses>,
         // Réserve de munitions partagée par type (T2.2, chantier B7) : consultée/consommée
         // au rechargement, à la place de l'ancien `WeaponModeState::mag_quantity`.
         &mut AmmoReserves,
@@ -1088,7 +1090,7 @@ pub fn weapon_rollback_system(
     // Process weapon firing for all players, in handle order: firing consumes RollbackRng
     // (spread) and GgrsNetIds (bullets), so the order must be the same on every client
     let mut players: Vec<_> = inventory_query.iter_mut().collect();
-    players.sort_by_key(|(.., player, _is_downed, _ammo_reserves)| player.handle);
+    players.sort_by_key(|(.., player, _is_downed, _statuses, _ammo_reserves)| player.handle);
 
     for (
         _entity,
@@ -1099,10 +1101,15 @@ pub fn weapon_rollback_system(
         transform,
         player,
         is_downed,
+        statuses,
         mut ammo_reserves,
     ) in players
     {
         let (input, _input_status) = inputs[player.handle];
+        // T1.3 : étourdi ou gelé : comme à terre, pas de tir
+        if crate::status::incapacitated(statuses) {
+            continue;
+        }
 
         // Do nothing if no weapons
         if inventory.weapons.is_empty() {
@@ -1833,6 +1840,9 @@ impl Plugin for BaseWeaponGamePlugin {
                 // Dans `Projectiles` plutôt qu'`Effects` : seul système de ce set à écrire
                 // `Modifiers`, sans ambiguïté d'ordre avec les power-ups (`game`).
                 crate::projectile::apply_projectile_on_hit_system,
+                // T1.3 : ticks de `Burn` et expiration des statuts (§19), avant
+                // `CollisionDamage` qui résout leurs dégâts dans la même frame.
+                crate::projectile::status_tick_system,
                 crate::projectile::projectile_wall_terrain_system,
                 crate::projectile::projectile_expire_system,
                 crate::projectile::projectile_steering_system,

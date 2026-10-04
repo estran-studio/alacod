@@ -363,7 +363,8 @@ fn apply_action(
         Action::RefillAmmo
         | Action::RepairAllWindows
         | Action::KillAllWaveEnemies
-        | Action::DestroyTerrain { .. } => {
+        | Action::DestroyTerrain { .. }
+        | Action::ApplyStatus { .. } => {
             warn!(
                 "effet de {} : action {:?} non exécutée en v1 (voir `alacod lint`)",
                 net_id, action

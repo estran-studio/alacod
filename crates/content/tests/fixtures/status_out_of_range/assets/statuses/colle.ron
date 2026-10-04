@@ -1,0 +1,2 @@
+// Erreur volontaire : facteur hors de ]0, 1].
+(kind: Slow, frames: 60, factor: "2.0")

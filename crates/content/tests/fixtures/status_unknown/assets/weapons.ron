@@ -1,0 +1,6 @@
+({
+    "glacier": (config: (ammo_type: Plomb, firing_modes: {"default": (
+        firing_rate: "1.0",
+        projectile: (on_hit: [ApplyStatus(status: "givre", stacks: 1)]),
+    )})),
+})

@@ -40,9 +40,11 @@ use bevy_ggrs::{Rollback, RollbackDespawnCommandExtension};
 use effects::Action;
 use serde::{Deserialize, Serialize};
 use sim_core::{
-    damage::{DamageEvent, DamageKind},
+    damage::{DamageEvent, DamageKind, FriendlyFire},
     frame_events::FrameEvents,
-    modifier::{ModifierSource, Modifiers},
+    modifier::{Modifier, ModifierOp, ModifierSource, Modifiers},
+    stats::StatId,
+    tag::Tags,
     team::Team,
 };
 use utils::{
@@ -51,6 +53,7 @@ use utils::{
     order_iter, order_mut_iter,
 };
 
+use crate::status::{StatusDef, StatusLibrary, Statuses};
 use crate::{
     actors::Health,
     collider::{is_colliding, Collider, CollisionLayer, CollisionSettings, Wall},
@@ -1075,10 +1078,22 @@ pub fn projectile_steering_system(
 /// `on_hit` : chaque action à modificateur (`Action::as_modifier`) est posée sur la cible
 /// touchée (si elle a des `Modifiers`), sous la source `projectile:<id>:<rang>`. Un nouveau
 /// coup du même projectile rafraîchit le modificateur au lieu de l'empiler.
+#[allow(clippy::too_many_arguments)]
 pub fn apply_projectile_on_hit_system(
+    mut commands: Commands,
     frame: Res<FrameCount>,
     events: Res<FrameEvents<ProjectileHit>>,
-    mut target_query: Query<(&GgrsNetId, &mut Modifiers), With<Rollback>>,
+    library: Res<StatusLibrary>,
+    mut target_query: Query<
+        (
+            &GgrsNetId,
+            Entity,
+            &mut Modifiers,
+            Option<&mut Statuses>,
+        ),
+        With<Rollback>,
+    >,
+    teams: Query<(&GgrsNetId, &Team), With<Rollback>>,
 ) {
     if events.is_empty() {
         return;
@@ -1091,20 +1106,124 @@ pub fn apply_projectile_on_hit_system(
     );
     let _enter = system_span.enter();
 
-    let mut by_net_id: BTreeMap<usize, Mut<Modifiers>> = target_query
-        .iter_mut()
-        .map(|(net_id, modifiers)| (net_id.0, modifiers))
-        .collect();
+    let team_of: BTreeMap<usize, Team> = teams.iter().map(|(id, team)| (id.0, *team)).collect();
+    // Statuts posés sur une cible qui n'en portait pas : un seul `insert` par cible, à la fin
+    let mut new_statuses: BTreeMap<usize, (Entity, Statuses)> = BTreeMap::new();
+    let mut by_net_id: BTreeMap<usize, (Entity, Mut<Modifiers>, Option<Mut<Statuses>>)> =
+        target_query
+            .iter_mut()
+            .map(|(net_id, entity, modifiers, statuses)| (net_id.0, (entity, modifiers, statuses)))
+            .collect();
     for event in events.iter() {
-        let Some(modifiers) = by_net_id.get_mut(&event.target.0) else {
+        let Some((entity, modifiers, statuses)) = by_net_id.get_mut(&event.target.0) else {
             continue;
         };
         for (rank, action) in event.actions.iter().enumerate() {
+            if let Action::ApplyStatus { status, stacks } = action {
+                // T1.3 (§19) : statut posé sur le personnage touché
+                let Some(spec) = library.statuses.get(status) else {
+                    warn!("statut « {status} » inconnu (voir `alacod lint`)");
+                    continue;
+                };
+                let source = Some((
+                    event.source.clone(),
+                    team_of.get(&event.source.0).copied(),
+                ));
+                let target_statuses = match statuses.as_deref_mut() {
+                    Some(existing) => existing,
+                    None => {
+                        &mut new_statuses
+                            .entry(event.target.0)
+                            .or_insert_with(|| (*entity, Statuses::default()))
+                            .1
+                    }
+                };
+                target_statuses.apply(status, spec, source, event.frame, *stacks);
+                info!(
+                    "ggrs{{f={} status target={} id={} stacks={}}}",
+                    event.frame,
+                    event.target,
+                    status,
+                    target_statuses.stacks(status)
+                );
+                if spec.kind == StatusDef::Slow {
+                    let until = target_statuses
+                        .0
+                        .iter()
+                        .find(|entry| entry.id == *status)
+                        .map(|entry| entry.expires_at_frame);
+                    let source = ModifierSource::Named(format!("status:{status}"));
+                    modifiers.remove_by_source(&source);
+                    for stat in [StatId::MoveSpeed, StatId::EnemyMoveSpeed] {
+                        modifiers.push(Modifier {
+                            stat,
+                            op: ModifierOp::Mul,
+                            value: spec.factor,
+                            source: source.clone(),
+                            until,
+                        });
+                    }
+                }
+                continue;
+            }
             let source = ModifierSource::Named(format!("projectile:{}:{rank}", event.projectile));
             if let Some(modifier) = action.as_modifier(event.frame, source.clone()) {
                 modifiers.remove_by_source(&source);
                 modifiers.push(modifier);
             }
+        }
+    }
+    for (_, (entity, statuses)) in new_statuses {
+        commands.entity(entity).insert(statuses);
+    }
+}
+
+/// Statuts (T1.3, `docs/conventions.md` §19) : ticks de `Burn` (un `DamageEvent` de genre
+/// `Fire` par tick, crédité à la source, résolu dans la même frame par le résolveur unique),
+/// puis retrait des statuts expirés ; un porteur sans statut perd le composant. Après
+/// [`apply_projectile_on_hit_system`] (une pose de la frame compte), avant
+/// `RollbackSystemSet::CollisionDamage`.
+pub fn status_tick_system(
+    mut commands: Commands,
+    frame: Res<FrameCount>,
+    library: Res<StatusLibrary>,
+    mut damage_events: ResMut<FrameEvents<DamageEvent>>,
+    mut carriers: Query<(&GgrsNetId, Entity, &mut Statuses), With<Rollback>>,
+) {
+    for (net_id, entity, mut statuses) in order_mut_iter!(carriers) {
+        for tick in statuses.tick(frame.frame, &library) {
+            let tags = Tags::parse(vec!["status".to_string(), tick.id.clone()]);
+            damage_events.send(DamageEvent {
+                source: tick.source.clone().unwrap_or_else(|| net_id.clone()),
+                target: net_id.clone(),
+                kind: DamageKind::Fire,
+                amount: tick.damage,
+                frame: frame.frame,
+                tags,
+                // Source inconnue : le tick touche quand même (règles d'équipe ignorées)
+                source_team: tick.source_team.unwrap_or(Team::Enemies),
+                friendly_fire: if tick.source_team.is_some() {
+                    FriendlyFire::Never
+                } else {
+                    FriendlyFire::Always
+                },
+            });
+        }
+        if statuses.0.is_empty() {
+            commands.entity(entity).remove::<Statuses>();
+        }
+    }
+}
+
+/// `Stun` et `Freeze` (T1.3, §19) : vitesse de déplacement remise à zéro chaque frame ;
+/// `Freeze` annule aussi le recul. Dans `RollbackSystemSet::Movement`, avant le déplacement.
+pub fn status_motion_system(mut query: Query<(&Statuses, &mut crate::actors::Velocity)>) {
+    for (statuses, mut velocity) in query.iter_mut() {
+        if statuses.incapacitated() {
+            velocity.main = FixedVec2::ZERO;
+        }
+        if statuses.frozen() {
+            velocity.knockback = FixedVec2::ZERO;
         }
     }
 }

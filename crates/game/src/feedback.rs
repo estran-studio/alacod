@@ -92,8 +92,56 @@ impl Plugin for FeedbackPlugin {
                 cleanup_expired_camera_shake.after(update_camera_shake_offset),
                 play_shot_sound_for_new_bullets,
                 play_reload_sound_for_reload_events,
+                // T1.3 : teinte des statuts, après le flash (qui remet le blanc)
+                tint_status_sprites.after(update_hit_flash_colors),
             ),
         );
+    }
+}
+
+/// Teinte d'un statut (T1.3, `docs/conventions.md` §19) : le plus contraignant gagne
+/// (gel, étourdi, brûlure, lenteur).
+fn status_tint(statuses: &combat::status::Statuses) -> Color {
+    use combat::status::StatusDef;
+    let has = |kind: StatusDef| statuses.0.iter().any(|entry| entry.status == kind);
+    if has(StatusDef::Freeze) {
+        Color::srgb(0.55, 0.8, 1.0)
+    } else if has(StatusDef::Stun) {
+        Color::srgb(1.0, 1.0, 0.45)
+    } else if has(StatusDef::Burn) {
+        Color::srgb(1.0, 0.55, 0.35)
+    } else if has(StatusDef::Slow) {
+        Color::srgb(0.6, 0.6, 0.9)
+    } else {
+        Color::WHITE
+    }
+}
+
+/// Visuel dérivé des statuts (T1.3) : les calques (sprites enfants) d'un porteur de
+/// `Statuses` prennent la teinte de son statut le plus contraignant, et reviennent au blanc
+/// quand le composant disparaît. Aucun état propre : relu chaque frame depuis la simulation.
+fn tint_status_sprites(
+    carriers: Query<(&combat::status::Statuses, &Children)>,
+    mut removed: RemovedComponents<combat::status::Statuses>,
+    children: Query<&Children>,
+    mut sprites: Query<&mut Sprite>,
+) {
+    for (statuses, layers) in &carriers {
+        let tint = status_tint(statuses);
+        for layer in layers.iter() {
+            if let Ok(mut sprite) = sprites.get_mut(layer) {
+                sprite.color = tint;
+            }
+        }
+    }
+    for entity in removed.read() {
+        if let Ok(layers) = children.get(entity) {
+            for layer in layers.iter() {
+                if let Ok(mut sprite) = sprites.get_mut(layer) {
+                    sprite.color = Color::WHITE;
+                }
+            }
+        }
     }
 }
 

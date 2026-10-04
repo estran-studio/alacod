@@ -1619,6 +1619,43 @@ fn check(world: &mut World, expectation: &Expectation) -> Result<(), String> {
             }
             Ok(())
         }
+        Expectation::HasStatus {
+            entity,
+            status,
+            present,
+            ..
+        } => {
+            let target = resolve_entity(world, entity).ok_or("entité absente")?;
+            let carried = world
+                .get::<combat::status::Statuses>(target)
+                .is_some_and(|statuses| statuses.has(status));
+            if carried != *present {
+                let statuses = world
+                    .get::<combat::status::Statuses>(target)
+                    .map(|s| s.0.iter().map(|e| e.id.clone()).collect::<Vec<_>>())
+                    .unwrap_or_default();
+                return Err(format!(
+                    "statut « {status} » {} (porte {statuses:?})",
+                    if *present { "absent" } else { "encore présent" }
+                ));
+            }
+            Ok(())
+        }
+        Expectation::StatusStacks {
+            entity,
+            status,
+            stacks,
+            ..
+        } => {
+            let target = resolve_entity(world, entity).ok_or("entité absente")?;
+            let found = world
+                .get::<combat::status::Statuses>(target)
+                .map_or(0, |statuses| statuses.stacks(status));
+            if found != *stacks {
+                return Err(format!("statut « {status} » : {found} piles ≠ {stacks}"));
+            }
+            Ok(())
+        }
         Expectation::Level { handle, level, .. } => {
             let Some(actual) = world
                 .query::<(&Player, &game::progression::Level)>()

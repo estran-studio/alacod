@@ -20,6 +20,7 @@ pub mod light;
 pub mod patterns;
 pub mod powerups;
 pub mod progression;
+pub mod statuses;
 pub mod recording;
 #[cfg(not(target_arch = "wasm32"))]
 pub mod remote;

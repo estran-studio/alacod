@@ -303,7 +303,8 @@ pub fn apply_powerup_actions_system(
                 | Action::Modifier { .. }
                 | Action::Heal(_)
                 | Action::SpawnPattern { .. }
-                | Action::GaugeAdd(..) => {}
+                | Action::GaugeAdd(..)
+                | Action::ApplyStatus { .. } => {}
                 Action::TimedModifier { .. } | Action::CurrencyMultiplier { .. } => {
                     for (net_id, _player, _dead, mut modifiers, _reserves, _inventory) in
                         order_mut_iter!(players)

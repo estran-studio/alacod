@@ -72,6 +72,10 @@ pub enum Action {
     SpawnPattern { pattern: String, weapon: String },
     /// T1.10 : ajoute `amount` à la jauge `id` du porteur (`Gauges`).
     GaugeAdd(String, Fixed),
+    /// T1.3 (statuts, `docs/conventions.md` §19) : pose `stacks` fois le statut `status` (id
+    /// du kind `Status`) sur le personnage touché par un projectile (`on_hit`). Dans un effet
+    /// ou un power-up : refusée par le lint en v1 (pas de cible).
+    ApplyStatus { status: String, stacks: u32 },
 }
 
 impl Action {
@@ -117,7 +121,8 @@ impl Action {
             | Action::Modifier { .. }
             | Action::Heal(_)
             | Action::SpawnPattern { .. }
-            | Action::GaugeAdd(..) => None,
+            | Action::GaugeAdd(..)
+            | Action::ApplyStatus { .. } => None,
         }
     }
 }

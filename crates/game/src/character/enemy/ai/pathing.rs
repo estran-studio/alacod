@@ -199,6 +199,8 @@ pub fn move_enemies(
                 Has<combat::emitter::Emitter>,
                 Option<&super::state::BehaviorRuntime>,
                 Option<&super::state::EnemyBehaviors>,
+                // T1.3 : `Stun`/`Freeze` (§19) : immobile.
+                Option<&combat::status::Statuses>,
             ),
         ),
         With<Enemy>,
@@ -287,14 +289,14 @@ pub fn move_enemies(
         enemy_target_opt,
         ai_config,
         wave_enemy,
-        (emitting, behavior_runtime, enemy_behaviors),
+        (emitting, behavior_runtime, enemy_behaviors, statuses),
     ) in order_mut_iter!(enemy_query)
     {
         // T2.9 (testbed) : un ennemi stationnaire (`dummy`/`target`/`ally`/`civilian`)
         // ignore la flow field et ne bouge jamais, quelle que soit sa cible. `false` par
         // défaut : aucun ennemi zombie existant n'est concerné. T1.2 : idem pendant un tir
         // à distance (télégraphe compris) ; aucun ennemi existant ne tire.
-        if ai_config.stationary || emitting {
+        if ai_config.stationary || emitting || combat::status::incapacitated(statuses) {
             velocity_component.main = fixed_math::FixedVec2::ZERO;
             continue;
         }

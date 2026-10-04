@@ -301,13 +301,19 @@ pub fn emitter_system(
         &Team,
         Option<&Tags>,
         &mut Emitter,
+        // T1.3 : `Stun`/`Freeze` (§19) : l'émetteur est suspendu (aucun pas, aucun tir).
+        Option<&crate::status::Statuses>,
     )>,
 ) {
     let system_span = span!(Level::INFO, "ggrs", f = frame.frame, s = "emitter");
     let _enter = system_span.enter();
 
     let no_tags = Tags::default();
-    for (net_id, entity, transform, team, tags, mut emitter) in order_mut_iter!(emitters) {
+    for (net_id, entity, transform, team, tags, mut emitter, statuses) in order_mut_iter!(emitters)
+    {
+        if crate::status::incapacitated(statuses) {
+            continue;
+        }
         // Le flux n'est créé (et consommé) que si un `Scatter` tire.
         let shots = emitter.tick(frame.frame, &mut || {
             rng_streams.get_mut(PATTERNS_RNG_STREAM).next_fixed()

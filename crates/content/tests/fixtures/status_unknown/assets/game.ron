@@ -1,0 +1,8 @@
+// Fixture T1.3 (`lint::lint_weapon_statuses`) : une arme pose un statut inconnu.
+(
+    name: "fixture-status_unknown",
+    content_folders: [
+        (path: "weapons.ron", kind: "Weapon"),
+    ],
+    entry: (start_map: "unused", default_seed: 1),
+)
