@@ -254,7 +254,7 @@ fn default_map_seed() -> i32 {
     123456
 }
 
-#[derive(Debug, Clone, Default, Serialize, Deserialize)]
+#[derive(Debug, Clone, PartialEq, Default, Serialize, Deserialize)]
 pub struct PlayerScript {
     #[serde(default)]
     pub inputs: Vec<Segment>,
@@ -309,7 +309,7 @@ pub struct PlayerScript {
 /// (`scenario::runner::apply_player_overrides`). Format RON :
 /// `(stat: MoveSpeed, op: Mul, value: "0.5")`. `until` absent = permanent (dure toute la
 /// partie, largement suffisant pour un scénario de test).
-#[derive(Debug, Clone, Serialize, Deserialize)]
+#[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
 pub struct ModifierSpec {
     pub stat: StatId,
     pub op: ModifierOp,
@@ -366,7 +366,7 @@ impl BotProfile {
 }
 
 /// Input maintenu sur les frames `from..to`.
-#[derive(Debug, Clone, Serialize, Deserialize)]
+#[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
 pub struct Segment {
     pub from: u32,
     pub to: u32,

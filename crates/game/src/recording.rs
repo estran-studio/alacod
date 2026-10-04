@@ -48,6 +48,13 @@ pub struct RecordedSettings {
     pub characters: Vec<CharacterPlacement>,
     /// Mode de run imposé (`Scenario::mode`).
     pub mode: Option<content::EntryMode>,
+    /// T1.10 : progression imposée (`Scenario::progression`).
+    pub progression: Option<String>,
+    /// Réglages de chaque joueur (index = handle) : `PlayerScript` du scénario d'origine, sans
+    /// inputs ni bot (arme, tags, immunités, modificateurs, solde, mutations). Audit T1.15 :
+    /// sans eux, un scénario réenregistré perdait l'arme imposée (scénarios générés) et les
+    /// mutations, et ses attentes ne tenaient plus.
+    pub players: Vec<PlayerScript>,
 }
 
 impl Default for RecordedSettings {
@@ -65,6 +72,8 @@ impl Default for RecordedSettings {
             difficulty: None,
             characters: vec![],
             mode: None,
+            progression: None,
+            players: vec![],
         }
     }
 }
@@ -83,6 +92,16 @@ impl RecordedSettings {
             difficulty: scenario.difficulty,
             characters: scenario.characters.clone(),
             mode: scenario.mode,
+            progression: scenario.progression.clone(),
+            players: scenario
+                .players
+                .iter()
+                .map(|player| PlayerScript {
+                    inputs: vec![],
+                    bot: None,
+                    ..player.clone()
+                })
+                .collect(),
         }
     }
 }
@@ -127,18 +146,9 @@ impl InputRecorder {
                 // Un enregistrement capture le BoxInput réellement envoyé à GGRS (bot ou pas :
                 // voir `bots::read_bot_inputs`), donc rejoue toujours en `Scripted` (T2.11).
                 bot: None,
-                tags: vec![],
-                immune_to: vec![],
-                modifiers: vec![],
-                // Un enregistrement ne choisit jamais l'arme (T2.10) : le joueur garde
-                // l'équipement de son personnage, comme avant ce champ.
-                weapon: None,
-                // Un enregistrement ne choisit jamais le solde de départ (T2.3) : le joueur
-                // garde `CharacterConfig::starting_currency`, comme avant ce champ.
-                currency: None,
-                // Un enregistrement n'impose aucune mutation (T1.10) : celles du joueur sont
-                // prises en jeu, par ses inputs de choix, rejoués tels quels.
-                mutations: vec![],
+                // Réglages du joueur dans le scénario d'origine (arme, tags, immunités,
+                // modificateurs, solde, mutations) ; aucun pour une partie jouée.
+                ..self.settings.players.get(handle).cloned().unwrap_or_default()
             })
             .collect();
 
@@ -156,8 +166,8 @@ impl InputRecorder {
             powerups: settings.powerups,
             powerup_drop_chance_override: settings.powerup_drop_chance_override,
             floors: settings.floors,
-            // T1.10 : la progression du manifeste (`entry.progression`) s'applique au rejeu.
-            progression: None,
+            // T1.10 : progression imposée par le scénario d'origine (sinon celle du manifeste).
+            progression: settings.progression,
             clocks: settings.clocks,
             difficulty: settings.difficulty,
             characters: settings.characters,
@@ -290,6 +300,12 @@ mod tests {
             difficulty: None,
             characters: vec![],
             mode: None,
+            progression: Some("base".into()),
+            players: vec![PlayerScript {
+                weapon: Some("pistol".into()),
+                mutations: vec!["vampire".into()],
+                ..Default::default()
+            }],
         };
         let mut recorder = InputRecorder::new(settings.clone());
         recorder
@@ -299,6 +315,9 @@ mod tests {
         assert_eq!(scenario.game, "testbed");
         assert_eq!(scenario.powerups, settings.powerups);
         assert_eq!(scenario.powerup_drop_chance_override, Some(Fixed::ZERO));
+        assert_eq!(scenario.progression.as_deref(), Some("base"));
+        assert_eq!(scenario.players[0].mutations, ["vampire"]);
+        assert_eq!(scenario.players[0].weapon.as_deref(), Some("pistol"));
         assert_eq!(RecordedSettings::from_scenario(&scenario), settings);
 
         // Partie jouée : réglages par défaut, comme avant D19.
