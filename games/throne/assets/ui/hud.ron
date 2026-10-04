@@ -11,9 +11,10 @@
             color: Some("#c0392b"),
             font_size: None,
         ),
-        // Wave number - top center
+        // Étage - en haut au centre
         (
-            kind: Text(source: "wave", prefix: Some("Vague ")),
+            // T1.18 : throne joue en étages (mode `Floors`), pas en vagues.
+            kind: Text(source: "floor", prefix: None),
             anchor: TopCenter,
             offset: (0.0, 12.0),
             size: None,
@@ -64,6 +65,52 @@
             size: None,
             color: Some("#ffffff"),
             font_size: Some(12.0),
+        ),
+        // T1.18 (§32) : barre de rads sous la barre de vie (fraction vers le prochain niveau).
+        (
+            kind: Bar(source: "rads"),
+            anchor: BottomLeft,
+            offset: (16.0, 6.0),
+            size: Some((200.0, 6.0)),
+            color: Some("#9be22d"),
+            font_size: None,
+        ),
+        // T1.18 : « 5 / 8 rads » à droite de la barre de rads.
+        (
+            kind: Text(source: "rads", prefix: None),
+            anchor: BottomLeft,
+            offset: (224.0, 2.0),
+            size: Some((140.0, 16.0)),
+            color: Some("#9be22d"),
+            font_size: Some(12.0),
+        ),
+        // T1.18 : « Niv. 2 », au-dessus du texte de vie.
+        (
+            kind: Text(source: "level", prefix: None),
+            anchor: BottomLeft,
+            offset: (16.0, 48.0),
+            size: Some((120.0, 20.0)),
+            color: Some("#9be22d"),
+            font_size: Some(16.0),
+        ),
+        // T1.18 : statuts posés (« brulure ×2 · 3 s »), une ligne chacun, au-dessus du niveau.
+        (
+            kind: Text(source: "statuses", prefix: None),
+            anchor: BottomLeft,
+            offset: (16.0, 72.0),
+            size: Some((200.0, 60.0)),
+            color: Some("#e67e22"),
+            font_size: Some(13.0),
+            background: Some("#000000a0"),
+        ),
+        // T1.18 : réserve de chaque munition (« balles 120 »), sous le nom de l'arme.
+        (
+            kind: Text(source: "ammo_by_type", prefix: None),
+            anchor: BottomRight,
+            offset: (16.0, 62.0),
+            size: Some((160.0, 90.0)),
+            color: Some("#dddddd"),
+            font_size: Some(13.0),
         ),
         // T2.12 : « À TERRE 12 s » / « Réanimation 40 % », au centre de l'écran.
         (

@@ -722,6 +722,8 @@ que le scénario ne pose le power-up), `powerup_nuke`, `powerup_drop_on_kill` (c
 Le HUD est décrit par `games/<jeu>/assets/ui/hud.ron` (`crates/game/src/ui/hud.rs`, liste des
 sources et des ancrages dans `CLAUDE.md` § HUD). Il ne fait que **lire** l'état à chaque
 `Update` : aucun système dans `GgrsSchedule`, aucun état rollback, aucune trace touchée.
+T1.18 : les sources du joueur passent par `game::ui::hud_model` (`HudSnapshot`) et la liste
+des sources est fermée et lintée (voir §32).
 
 Champs optionnels à la racine de `hud.ron`, à côté de `widgets` : `font`, `icons`, `names`.
 Par widget : `background`.
@@ -1933,6 +1935,31 @@ Présentation seule : aucune trace ne change, la simulation ne fait jamais de pa
   `FloorState::index` lu côté présentation (pas `FloorEntered`), voile noir qui s'éclaircit
   linéairement en `floor_fade_seconds` (`camera.ron`, défaut 0,4) et caméra posée sur sa cible
   pendant le fondu (`floor_recenter`, défaut vrai). La première lecture ne déclenche rien.
+
+## 32. HUD throne (T1.18, voie V4)
+
+Présentation seule : aucune trace ne change.
+
+- **Liste fermée** `content::ui::HUD_SOURCES` : `health`, `wave`, `ammo`, `weapon`, `enemies`,
+  `players`, `currency`, `perks`, `downed`, `powerups`, `prompt`, et (T1.18) `rads`, `level`,
+  `ammo_by_type`, `statuses`, `floor`. Le lint lit la source de chaque widget de `ui/hud.ron`
+  (`HudFileSchema`) : source inconnue = `UnknownKind` (fixture `hud_unknown_source`).
+- **Modèle** `game::ui::hud_model` : `hud_values(&HudPlayerInput) -> HudPlayerValues` (pure,
+  testée sans rendu) et `player_source_text(source, prefix, values)` ; `HudSnapshot { frame,
+  texts, bars, values }` mis à jour en `Update` par `HudModelPlugin`, **aussi en headless** ; le
+  rendu (`ui::hud`) lit le snapshot. Joueur affiché : `CameraFollowOverride`, sinon le joueur
+  local de plus petit handle.
+- **Textes** : `rads` « 5 / 8 rads » (jauge `gauge` de la progression active / seuil du prochain
+  niveau ; « 12 rads » au dernier niveau), barre = (valeur − seuil courant) / (seuil suivant −
+  seuil courant), pleine au dernier ; `level` « Niv. 2 » ; `ammo_by_type` une ligne par munition
+  `Custom` (« balles 120 », ordre des ids) ; `statuses` une ligne par statut dans l'ordre de pose
+  (« brulure ×2 · 3 s », secondes arrondies au-dessus) ; `floor` « Étage 3 » (index + 1, mode
+  `Floors` seulement). Sans valeur : texte vide, pas même le préfixe (D22).
+- **Attente** `HudText { source, contains, at_frame }` : le texte (sans préfixe) contient
+  `contains` ; lue dans `HudSnapshot`, hors simulation et hors trace.
+- **Contenu** : `games/throne/assets/ui/hud.ron` — étage en haut au centre (au lieu de la
+  vague), barre de rads sous la vie et son texte à droite, niveau et statuts au-dessus de la vie,
+  munitions par type sous le nom de l'arme. zombies et testbed inchangés.
 
 ## Notes essentielles
 

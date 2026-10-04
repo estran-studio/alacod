@@ -14,11 +14,9 @@ use sim_core::modifier::{ModifierSource, Modifiers};
 use utils::frame::FrameCount;
 use utils::net_id::GgrsNetId;
 
-use crate::camera::CameraFollowOverride;
 use crate::character::config::{CharacterConfig, CharacterConfigHandles};
 use crate::character::enemy::Enemy;
-use crate::character::health::Health;
-use crate::character::player::{LocalPlayer, Player};
+use crate::character::player::Player;
 use crate::collider::Collider;
 use crate::core::{AppState, SIM_FPS};
 use crate::economy::PerkMachine;
@@ -26,7 +24,8 @@ use crate::global_asset::GlobalAsset;
 use crate::interaction::{point_to_collider_surface_distance_sq, Interactable, InteractionType};
 use crate::powerups::PowerUpsConfig;
 use crate::waves::state::WaveState;
-use crate::weapons::{WeaponInventory, WeaponModesState, WeaponPickup, WeaponState};
+use crate::ui::hud_model::{player_source_text, HudPlayer, HudSnapshot};
+use crate::weapons::{WeaponInventory, WeaponPickup};
 
 /// HUD Root marker component
 #[derive(Component)]
@@ -37,6 +36,8 @@ pub struct HudRoot;
 pub struct HudBarWidget {
     pub source: String,
     pub full_width: f32,
+    /// Couleur du RON (`rads`) ; `health` garde son dégradé rouge → vert.
+    pub color: Color,
 }
 
 #[derive(Component)]
@@ -62,12 +63,10 @@ pub struct HudIconsWidget {
     pub font: Option<Handle<Font>>,
 }
 
-/// Les sources que le HUD sait lire ; une autre dans le RON déclenche un `warn!` au chargement.
-/// T2.12 : `perks`, `downed`, `powerups`, `prompt` (voir [`update_hud_v1_values`]).
-const SOURCES: &[&str] = &[
-    "health", "wave", "ammo", "weapon", "enemies", "players", "currency", "perks", "downed",
-    "powerups", "prompt",
-];
+/// Les sources que le HUD sait lire (liste fermée, lint `UnknownKind`) : une autre dans le RON
+/// déclenche aussi un `warn!` au chargement. T2.12 : `perks`, `downed`, `powerups`, `prompt` ;
+/// T1.18 (§32) : `rads`, `level`, `ammo_by_type`, `statuses`, `floor`.
+const SOURCES: &[&str] = content::ui::HUD_SOURCES;
 
 /// Position anchor for HUD widgets
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize)]
@@ -153,7 +152,12 @@ impl Plugin for HudPlugin {
                 Update,
                 spawn_hud_when_ready.run_if(in_state(AppState::InGame)),
             )
-            .add_systems(Update, update_hud_values.run_if(in_state(AppState::InGame)))
+            .add_systems(
+                Update,
+                update_hud_values
+                    .after(crate::ui::hud_model::update_hud_snapshot)
+                    .run_if(in_state(AppState::InGame)),
+            )
             .add_systems(
                 Update,
                 update_hud_v1_values.run_if(in_state(AppState::InGame)),
@@ -305,6 +309,7 @@ fn spawn_hud_widgets(
                         HudBarWidget {
                             source: source.clone(),
                             full_width: size.0,
+                            color,
                         },
                     ));
                 }
@@ -354,42 +359,13 @@ fn spawn_hud_widgets(
     });
 }
 
-/// Joueur dont le HUD affiche l'état (T2.12) : celui que la caméra suit de force
-/// (`CameraFollowOverride`, `play_scenario --follow <handle>`), sinon le joueur local de plus
-/// petit handle. Avant T2.12 : le premier `LocalPlayer` rendu par la query, arbitraire quand
-/// plusieurs joueurs sont locaux (scénarios, local multi-joueurs).
-#[derive(SystemParam)]
-struct HudPlayer<'w, 's> {
-    players: Query<'w, 's, (Entity, &'static Player, Has<LocalPlayer>)>,
-    follow_override: Option<Res<'w, CameraFollowOverride>>,
-}
-
-impl HudPlayer<'_, '_> {
-    fn entity(&self) -> Option<Entity> {
-        if let Some(handle) = self.follow_override.as_deref().map(|o| o.0) {
-            if let Some((entity, _, _)) = self.players.iter().find(|(_, p, _)| p.handle == handle) {
-                return Some(entity);
-            }
-        }
-        self.players
-            .iter()
-            .filter(|(_, _, local)| *local)
-            .min_by_key(|(_, player, _)| player.handle)
-            .map(|(entity, _, _)| entity)
-    }
-}
-
-/// Update HUD values from game state
+/// Met à jour le HUD : barres et textes du joueur depuis [`HudSnapshot`] (T1.18, calculé
+/// aussi en headless), `wave`/`enemies`/`players` depuis l'ECS.
 fn update_hud_values(
-    hud_player: HudPlayer,
-    healths: Query<&Health, With<Player>>,
-    // T2.3, chantier C5 v1 : solde de monnaie du joueur du HUD.
-    currency_query: Query<&run::currency::Currency>,
+    snapshot: Res<HudSnapshot>,
     all_players: Query<(), With<Player>>,
     enemies: Query<(), With<Enemy>>,
     wave_state: Res<WaveState>,
-    inventories: Query<(&WeaponInventory, &combat::inventory::AmmoReserves)>,
-    weapons_query: Query<(&WeaponState, &WeaponModesState)>,
     mut bar_widgets: Query<
         (&HudBarWidget, &mut Node, &mut BackgroundColor),
         Without<HudTextWidget>,
@@ -399,76 +375,31 @@ fn update_hud_values(
         Without<HudBarWidget>,
     >,
 ) {
-    let player = hud_player.entity();
-
-    // Gather game state
-    let health_info = player
-        .and_then(|e| healths.get(e).ok())
-        .map(|health| (health.current, health.max));
-
     let enemy_count = enemies.iter().count();
     let player_count = all_players.iter().count();
     let wave_num = wave_state.current_wave;
-    let currency = player.and_then(|e| currency_query.get(e).ok()).map(|c| c.0);
 
-    // L'arme active vient de `WeaponInventory` (rollback), comme dans `weapons/ui.rs`. La
-    // réserve (T2.2, `combat::inventory::AmmoReserves`) remplace l'ancien `mag_quantity`
-    // par arme pour l'affichage « chargeur / réserve ».
-    let weapon_info =
-        player
-            .and_then(|e| inventories.get(e).ok())
-            .and_then(|(inventory, reserves)| {
-                let (entity, weapon) = inventory.weapons.get(inventory.active_weapon_index)?;
-                let name = weapon.config.name.clone();
-                let reserve = reserves.get(&weapon.config.ammo_type);
-                let mode = weapons_query
-                    .get(*entity)
-                    .ok()
-                    .and_then(|(state, modes)| modes.modes.get(&state.active_mode).cloned());
-                Some((name, mode, reserve))
-            });
-
-    // Update bar widgets
     for (bar_widget, mut node, mut bg_color) in bar_widgets.iter_mut() {
-        match bar_widget.source.as_str() {
-            "health" => {
-                if let Some((current, max)) = health_info {
-                    let ratio = if max > fixed_math::FIXED_ZERO {
-                        (current.to_num::<f32>()) / (max.to_num::<f32>())
-                    } else {
-                        0.0
-                    };
-                    let ratio = ratio.clamp(0.0, 1.0);
-
-                    // Update bar width based on ratio
-                    node.width = Val::Px(bar_widget.full_width * ratio);
-
-                    // Color gradient: red to green
-                    let r = (1.0 - ratio).max(0.0);
-                    let g = ratio.max(0.0);
-                    *bg_color = BackgroundColor(Color::srgba(r, g, 0.0, 0.8));
-                }
-            }
-            _ => {
-                // Silently ignore unknown sources
-            }
-        }
+        let Some(ratio) = snapshot.bars.get(bar_widget.source.as_str()).copied() else {
+            // Sans valeur (joueur mort, progression inactive) : barre vide.
+            node.width = Val::Px(0.0);
+            continue;
+        };
+        node.width = Val::Px(bar_widget.full_width * ratio);
+        *bg_color = match bar_widget.source.as_str() {
+            // Dégradé rouge → vert
+            "health" => BackgroundColor(Color::srgba(1.0 - ratio, ratio, 0.0, 0.8)),
+            _ => BackgroundColor(bar_widget.color),
+        };
     }
 
-    let values = HudPlayerValues {
-        health: health_info.map(|(current, max)| (current.to_num::<i32>(), max.to_num::<i32>())),
-        currency,
-        weapon: weapon_info.map(|(name, mode, reserve)| (name, mode.map(|m| m.mag_ammo), reserve)),
-    };
-
-    // Update text widgets
     for (text_widget, mut text, mut background) in text_widgets.iter_mut() {
         let prefix_text = text_widget.prefix.clone();
         let new_text = match text_widget.source.as_str() {
             "wave" => format!("{}{}", prefix_text, wave_num),
             "enemies" => format!("{}{}", prefix_text, enemy_count),
             "players" => format!("{}{}", prefix_text, player_count),
-            source => match player_source_text(source, &prefix_text, &values) {
+            source => match player_source_text(source, &prefix_text, &snapshot.values) {
                 Some(text) => text,
                 // Sources T2.12 (`update_hud_v1_values`) et sources inconnues : pas touchées ici.
                 None => continue,
@@ -476,37 +407,6 @@ fn update_hud_values(
         };
         set_text(&mut text, &mut background, text_widget, new_text);
     }
-}
-
-/// Valeurs du joueur du HUD lues par [`update_hud_values`] ; `None` partout quand ce
-/// joueur n'existe plus (mort : son entité est détruite) ou n'a pas encore d'arme.
-#[derive(Debug, Default, Clone, PartialEq)]
-struct HudPlayerValues {
-    /// `(actuelle, max)`.
-    health: Option<(i32, i32)>,
-    currency: Option<u32>,
-    /// `(nom, munitions du chargeur du mode actif, réserve du type de munition)`.
-    weapon: Option<(String, Option<u32>, u32)>,
-}
-
-/// Texte d'une source du joueur (`health`, `ammo`, `weapon`, `currency`) ; `None` pour une
-/// autre source. D22 : sans valeur (joueur mort, pas d'arme), **rien**, pas même le préfixe :
-/// avant, le HUD d'un joueur mort affichait « $ » sans montant et « ? | ? » (comparaison de
-/// T3.2, f1120 d'`idle`). Même règle que les sources T2.12 (`perks`, `downed`…).
-fn player_source_text(source: &str, prefix: &str, values: &HudPlayerValues) -> Option<String> {
-    let value = match source {
-        "health" => values
-            .health
-            .map(|(current, max)| format!("{current}/{max}")),
-        "ammo" => values
-            .weapon
-            .as_ref()
-            .and_then(|(_, mag, reserve)| mag.map(|mag| format!("{mag} | {reserve}"))),
-        "weapon" => values.weapon.as_ref().map(|(name, _, _)| name.clone()),
-        "currency" => values.currency.map(|amount| amount.to_string()),
-        _ => return None,
-    };
-    Some(value.map_or_else(String::new, |value| format!("{prefix}{value}")))
 }
 
 // ---------------------------------------------------------------------------------------
@@ -1025,6 +925,7 @@ pub(crate) fn parse_color(hex: &str) -> Color {
 #[cfg(test)]
 mod tests {
     use super::*;
+    use crate::ui::hud_model::HudPlayerValues;
     use bevy_fixed::fixed_math::new as fx;
     use sim_core::modifier::{Modifier, ModifierOp};
     use sim_core::stats::StatId;
@@ -1132,6 +1033,7 @@ mod tests {
             health: Some((80, 100)),
             currency: Some(1500),
             weapon: Some(("pistol".to_string(), Some(6), 48)),
+            ..Default::default()
         };
         assert_eq!(
             player_source_text("currency", "$", &alive).as_deref(),

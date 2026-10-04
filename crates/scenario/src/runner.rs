@@ -1824,6 +1824,20 @@ fn check(world: &mut World, expectation: &Expectation) -> Result<(), String> {
             }
             Ok(())
         }
+        // T1.18 : texte d'une source du HUD (présentation, hors trace).
+        Expectation::HudText {
+            source, contains, ..
+        } => {
+            let Some(snapshot) = world.get_resource::<game::ui::hud_model::HudSnapshot>() else {
+                return Err("pas de HudSnapshot".into());
+            };
+            let text = snapshot.texts.get(source).map_or("", String::as_str);
+            if text.contains(contains.as_str()) {
+                Ok(())
+            } else {
+                Err(format!("HUD {source} = « {text} » (attendu « {contains} »)"))
+            }
+        }
         Expectation::Currency {
             handle, min, max, ..
         } => {

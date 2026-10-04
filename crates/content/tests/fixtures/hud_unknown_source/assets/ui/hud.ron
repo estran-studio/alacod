@@ -1,0 +1,21 @@
+// T1.18 : une source hors de la liste fermée (`mana`) → UnknownKind.
+(
+    widgets: [
+        (
+            kind: Bar(source: "health"),
+            anchor: BottomLeft,
+            offset: (16.0, 16.0),
+            size: Some((200.0, 12.0)),
+            color: Some("#c0392b"),
+            font_size: None,
+        ),
+        (
+            kind: Text(source: "mana", prefix: None),
+            anchor: TopLeft,
+            offset: (16.0, 12.0),
+            size: None,
+            color: None,
+            font_size: None,
+        ),
+    ],
+)
