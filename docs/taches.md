@@ -589,7 +589,9 @@ région des chantiers puis la campagne.
   historique sur `test_map` reste à rejouer avec `--map exemples/test_map.ldtk`), 4 lots parallèles sous
   charge 12-25 : 183 graines jouées avant l'arrêt des sims par le harnais (pression mémoire), **183/183
   atteignent la vague 5, 0 desync, 0 softlock**, 2 graines avec un mort (69, 139), 6 386 à 8 259 frames ;
-  les 17 manquantes (49, 50, 94-100, 147-150, 197-200) rejouées le matin (résultat ci-dessous quand connu).
+  les 17 manquantes (49, 50, 94-100, 147-150, 197-200) rejouées le matin : 17/17 vague 5, 0 desync, 0 softlock,
+  1 mort (graine 200). **Total : 200/200 atteignent la vague 5 sur `avant_poste`, 0 desync, 0 softlock, 3 graines
+  avec un mort.**
   Lot séparé de 20 graines `avant_poste` : 20/20 vague 5, 0 desync, 0 softlock, 0 mort, 6 522 à 7 583 frames.
 - m1-v1a-statuts : **LIVRÉE le 2026-10-03** (tête `a5effb7`) — statuts Burn/Slow/Stun/Freeze
   (T1.3) + attentes `HasStatus`/`StatusStacks` ; 79 traces existantes inchangées (trace-diff
