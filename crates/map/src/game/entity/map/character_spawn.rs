@@ -15,4 +15,7 @@ pub struct CharacterSpawnComponent {
     /// `players`/`enemies`/`allies`/`neutral` ; `None` (champ absent ou vide dans l'éditeur
     /// LDtk) retombe sur `CharacterConfig.team`, puis `Enemies`.
     pub team: Option<String>,
+    /// T1.5 : variante imposée (nom d'une entrée de la table `variants` du personnage) ;
+    /// `None` (champ absent ou vide) : tirage normal (`game::character::variant`).
+    pub variant: Option<String>,
 }

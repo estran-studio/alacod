@@ -84,6 +84,9 @@ struct Snapshot {
     weapon_pickups: BTreeMap<usize, String>,
     /// D21 : power-ups au sol (`game::powerups::PowerUpPickup`), `GgrsNetId` -> id.
     powerup_pickups: BTreeMap<usize, String>,
+    /// T1.5 : personnages à variante (`game::character::variant::Variant`), `GgrsNetId` ->
+    /// nom ; une entrée nouvelle = moment clé `variant_spawn`.
+    variants: BTreeMap<usize, String>,
     /// Issue de la partie (`run::run::Run::step` : `RunStep::Ended { outcome, .. }`), `None`
     /// tant qu'elle n'est pas finie (T2.4, chantier F1 ; D21 : victoire et abandon en plus
     /// de la défaite).
@@ -190,6 +193,8 @@ fn detect_events(
     currency_events: Res<FrameEvents<CurrencyEvent>>,
     // T1.6 : terrain creusé dans la frame (file neutre, absente hors jeu complet).
     terrain_events: Option<Res<FrameEvents<world::TerrainDestroyed>>>,
+    // T1.5 : variantes (moment clé `variant_spawn`).
+    variants: Query<(&GgrsNetId, &game::character::variant::Variant)>,
 ) {
     let mut now = Snapshot::default();
     if let Some(wave) = &wave {
@@ -258,6 +263,9 @@ fn detect_events(
     }
     for (id, pickup) in &powerup_pickups {
         now.powerup_pickups.insert(id.0, pickup.id.clone());
+    }
+    for (id, variant) in &variants {
+        now.variants.insert(id.0, variant.0.clone());
     }
     // Ramassages de cette frame, avec le handle du ramasseur (`picked_up_by` est son
     // `GgrsNetId`) : lu avant `events.previous.replace`, comme `currency_events` plus bas.
@@ -426,6 +434,12 @@ fn detect_events(
     }
     for (kind, label) in powerup_events(&before.powerup_pickups, &now.powerup_pickups, &picked) {
         push(kind, label);
+    }
+    // T1.5 : un personnage à variante qui apparaît.
+    for (id, name) in &now.variants {
+        if !before.variants.contains_key(id) {
+            push("variant_spawn", format!("variante {name} ({id})"));
+        }
     }
     if let Some((kind, label)) = outcome_event(before.outcome, now.outcome) {
         push(kind, label);

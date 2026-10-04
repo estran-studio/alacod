@@ -1359,6 +1359,62 @@ réintroduisait le mur ; le mouvement conserve vitesse, séparation et collision
 ordinaires. Le délai dépend des compteurs existants de `WaveState`, sans état caché
 ou nouveau type rollback.
 
+## 25. Variantes et élites (T1.5, chantier D2)
+
+Code : `crates/game/src/character/variant.rs` (`VariantsConfig`, `draw_variant`,
+`variant_health`, composant `Variant`), application dans `character::enemy::create::spawn_enemy`.
+
+**Contenu** : champ optionnel `variants` d'un personnage (`CharacterConfig`) :
+```ron
+variants: Some((
+    chance: "0.5",   // probabilité d'avoir une variante, [0, 1], défaut 1
+    table: {
+        "rapide": (weight: 1, modifiers: [(stat: EnemyMoveSpeed, op: Mul, value: "1.5")],
+                   tags: ["rapide"], skin: Some("rapide")),
+        "blinde": (modifiers: [(stat: MaxHealth, op: Mul, value: "2.0")], tags: ["champion"]),
+    },
+)),
+```
+`weight` (`u32`, défaut 1) pondère le tirage, dans l'ordre `BTreeMap` des noms ; `modifiers`
+au format §9 ; `tags` en **union** avec ceux du personnage (immunités §8, `ignore` de §22) ;
+`skin` (clé de `skins`) remplace `starting_skin`. Une **élite** est une variante ordinaire (tag
+`champion` + modificateurs) : aucun mécanisme à part, pas de points ×2.
+
+**Tirage** : au `spawn_enemy` de tout personnage qui déclare `variants` (vagues, spawners et
+`CharacterSpawn`), un `RollbackRng` **local** de graine `fnv1a("variants") ^ run_seed ^ net_id`
+(tronqués en `u32` ; `run_seed` = `RunSeed`, la graine de carte) : un tirage pour la
+`chance`, un pour le poids. Indépendant de l'ordre d'apparition et du moment de chargement de
+la carte ; **`RngStreams` n'est jamais touché** (y créer un flux changerait le hash de la
+ressource, donc toutes les traces). Le `GgrsNetId` du personnage est alloué par `spawn_enemy`
+avant `create_character` (même valeur que s'il l'était dedans : c'est sa seule allocation)
+pour que le tirage et le skin soient connus à la création. Un personnage **sans** `variants`
+ne tire rien et suit le chemin d'origine.
+
+**Variante imposée** : champ LDtk optionnel `variant` sur `CharacterSpawn` (§1) : rempli,
+aucun tirage, la variante est imposée ; vide ou absent, tirage normal.
+
+**Application** (seulement si une variante est choisie) : composant rollback `Variant(nom)`,
+checksum **neutre** (§20) ; `Modifiers` = ceux de la variante, source `Named("variant:<nom>")`,
+permanents ; `Tags` = union ; skin à la création. **Santé** : un ennemi n'a pas de stat de base
+`MaxHealth` (sa santé vient de F5, §18) : pour un personnage **à variantes** seulement,
+`spawn_enemy` pose la base `MaxHealth` = santé F5 et crée le personnage à la santé résolue par
+les modificateurs `MaxHealth` de la variante (`sync_health_from_stats` le maintient ensuite).
+La vitesse d'un ennemi est `EnemyMoveSpeed` (`MoveSpeed` est celle des joueurs).
+
+**Attente et événement** : `EnemyVariant(entity, variant: Some("rapide") | None, at_frame)` ;
+moment clé `variant_spawn` (`scenario::events`, libellé `variante <nom> (<net id>)`).
+
+**Lint** : `chance` hors `[0, 1]`, `weight = 0`, nom en double, `skin` absent de `skins`,
+`MoveSpeed` sur un personnage à `ai` (renvoie à `EnemyMoveSpeed`), stat inconnue (erreur de
+chargement), `variant` LDtk vers un personnage ou une variante inconnus (lecture des
+`CharacterSpawn` des `.ldtk`). Fixtures `variant_weight_zero`, `variant_chance_out_of_range`,
+`variant_skin_unknown`, `variant_move_speed_ai`, `variant_duplicate`, `variant_ldtk_unknown`.
+
+**Testbed** : `grunt` (`Chase`, variantes `rapide` et `blinde`), `grunt_plain` (le même sans
+table), carte `testbed/arena_variantes.ldtk` (grunt `rapide` imposé, grunt `blinde` imposé,
+`grunt_plain`, grunt tiré) ; scénarios `variant_fast`, `variant_none`, `variant_elite` (même
+partie, chacun son sujet : leurs trois traces sont identiques, c'est voulu) et `variant_draw`
+(autre graine de carte). `games/zombies` : aucune variante.
 ## 26. Surfaces (T1.7, chantier E4 v1)
 
 Code : `world::surface` (grille, table, traduction), `game::character::surface` (système),

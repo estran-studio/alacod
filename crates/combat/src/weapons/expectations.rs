@@ -280,6 +280,10 @@ pub enum Expectation {
         stat: StatId,
         value: f32,
         at_frame: u32,
+        /// T1.5 : la stat d'une entité (ex. un ennemi à variante, `EnemyMoveSpeed`) plutôt que
+        /// du joueur `handle` (alors ignoré). Absent : le joueur, comme avant.
+        #[serde(default, skip_serializing_if = "Option::is_none")]
+        entity: Option<EntityRef>,
     },
     /// Nombre **exact** de projectiles vivants (`weapons::Bullet`) à `at_frame` (T1.1,
     /// chantier B5 v1). `projectile` : seulement les projectiles composables de cet id
@@ -319,6 +323,14 @@ pub enum Expectation {
         min: Option<f32>,
         #[serde(default, skip_serializing_if = "Option::is_none")]
         max: Option<f32>,
+        at_frame: u32,
+    },
+    /// Variante du personnage `entity` à `at_frame` (T1.5, `docs/conventions.md` §25) :
+    /// `Some("rapide")`, ou `None` = aucune variante (pas de composant `Variant`). Échoue si
+    /// l'entité n'existe pas.
+    EnemyVariant {
+        entity: EntityRef,
+        variant: Option<String>,
         at_frame: u32,
     },
     /// Diagnostic de navigation (T1.4) : l'ennemi `entity` arrive à portée de mêlée
@@ -373,6 +385,7 @@ impl Expectation {
             | Self::HitsAtLeast { at_frame, .. }
             | Self::EnemyState { at_frame, .. }
             | Self::EnemyDistance { at_frame, .. }
+            | Self::EnemyVariant { at_frame, .. }
             | Self::RunState { at_frame, .. }
             | Self::RunSummary { at_frame, .. }
             | Self::FloorIndex { at_frame, .. }

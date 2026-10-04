@@ -1200,3 +1200,46 @@ fn enemy_never_in_wall_passe_en_salle_ouverte() {
         &[],
     );
 }
+
+/// T1.5 : `EnemyVariant` lit le composant `Variant` (imposé par le champ LDtk, ou absent) ;
+/// échoue sur une autre variante et sur une entité absente.
+#[test]
+fn enemy_variant_lit_la_variante() {
+    if map_ldtk::RENDER_ENABLED {
+        return;
+    }
+    use game::replay::EntityRef;
+    verifie_attentes(
+        load_scenario("variant_fast"),
+        &[
+            Expectation::EnemyVariant {
+                entity: EntityRef::NetId(33),
+                variant: Some("rapide".into()),
+                at_frame: 2,
+            },
+            Expectation::EnemyVariant {
+                entity: EntityRef::NetId(31),
+                variant: None,
+                at_frame: 2,
+            },
+        ],
+        &[
+            (
+                Expectation::EnemyVariant {
+                    entity: EntityRef::NetId(32),
+                    variant: Some("rapide".into()),
+                    at_frame: 2,
+                },
+                "variante blinde, rapide attendue",
+            ),
+            (
+                Expectation::EnemyVariant {
+                    entity: EntityRef::NetId(9999),
+                    variant: None,
+                    at_frame: 2,
+                },
+                "entité absente",
+            ),
+        ],
+    );
+}

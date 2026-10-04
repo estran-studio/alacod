@@ -10,4 +10,7 @@ pub struct CharacterSpawnConfig {
     /// `players`/`enemies`/`allies`/`neutral` ; `None` si le champ est absent ou vide dans
     /// l'éditeur LDtk (voir `crate::game::entity::map::character_spawn::CharacterSpawnComponent`).
     pub team: Option<String>,
+    /// T1.5 : variante imposée (`variant`), `None` si absente ou vide — traverse la
+    /// génération telle quelle, comme `team`.
+    pub variant: Option<String>,
 }

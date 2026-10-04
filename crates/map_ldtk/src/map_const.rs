@@ -37,6 +37,8 @@ pub const FIELD_CHARACTER_NAME: &str = "character";
 /// `crate::game::local::parse_team`) ; absent ou vide → `CharacterConfig.team`, sinon
 /// `Enemies`.
 pub const FIELD_TEAM_NAME: &str = "team";
+/// T1.5 : variante imposée d'un `CharacterSpawn` (`character::variant`, conventions §25).
+pub const FIELD_VARIANT_NAME: &str = "variant";
 
 /// Champ de l'entité `WeaponLocation` (T2.3, chantier C5 v1) : `WeaponId` du registre
 /// (`weapons.ron`). `FIELD_PRICE_NAME` (même champ que `DoorHorizontal`/`DoorVertical`,

@@ -1,0 +1,23 @@
+// T1.5 (testbed, conventions §25) : variante `rapide` imposée par le champ LDtk `variant` —
+// `EnemyMoveSpeed` ×1,5 (60 → 90) ; à f80, le grunt rapide est nettement plus près du joueur
+// que `grunt_plain`, parti de la même distance.
+// Carte `testbed/arena_variantes.ldtk` : grunt `rapide` imposé (NetId 33), grunt `blinde`
+// imposé (32), `grunt_plain` sans table (31), grunt sans champ, tiré (30) ; tous à ~167
+// unités du joueur 0 immobile, `Chase` seul. `variant_fast`, `variant_none` et
+// `variant_elite` jouent la même partie (même carte, même graine) et vérifient chacun leur
+// sujet : leurs trois traces sont identiques, c'est voulu.
+Scenario(
+    powerup_drop_chance_override: "0.0",
+    game: "testbed",
+    map: "testbed/arena_variantes.ldtk",
+    frames: 160,
+    players: [
+        (inputs: []),
+    ],
+    expect: [
+        EnemyVariant(entity: NetId(33), variant: Some("rapide"), at_frame: 2),
+        Stat(handle: 0, stat: EnemyMoveSpeed, value: 90.0, at_frame: 2, entity: Some(NetId(33))),
+        EnemyDistance(entity: NetId(33), target: Player(0), min: 50.0, max: 65.0, at_frame: 80),
+        EnemyDistance(entity: NetId(31), target: Player(0), min: 90.0, max: 105.0, at_frame: 80),
+    ],
+)

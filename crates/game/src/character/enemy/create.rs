@@ -78,12 +78,17 @@ pub fn spawn_enemy(
     // Santé max résolue (F5, chantier m0-v11) : voir `create_character` (paramètre
     // `health_max`).
     health_max: fixed_math::Fixed,
+    // Variantes (T1.5) : graine de run (la graine de carte : `RngStreams::run_seed` en jeu,
+    // `MapGenerationConfig::seed` au chargement de la carte, même valeur) et variante imposée (champ LDtk `variant`
+    // d'un `CharacterSpawn`, `None` ailleurs). Sans table `variants`, ignorés.
+    run_seed: u32,
+    forced_variant: Option<&str>,
 ) -> Entity {
-    let ai_ron = global_assets
+    let character_config = global_assets
         .character_configs
         .get(&enemy_type_name)
-        .and_then(|handle| characters_asset.get(handle))
-        .and_then(|config| config.ai.as_ref());
+        .and_then(|handle| characters_asset.get(handle));
+    let ai_ron = character_config.and_then(|config| config.ai.as_ref());
     let ai_config = ai_ron
         .map(EnemyAiConfig::from)
         .unwrap_or_else(EnemyAiConfig::zombie);
@@ -91,19 +96,61 @@ pub fn spawn_enemy(
     // config : exactement le comportement d'avant T1.4).
     let behaviors = EnemyBehaviors::from_config(ai_ron, &ai_config);
 
+    // Variantes (T1.5, `character::variant`) : seulement pour un personnage qui déclare une
+    // table. Le `GgrsNetId` est alloué ici (même valeur que dans `create_character`, voir son
+    // paramètre `net_id`) parce que le tirage en dépend et que la variante choisit le skin
+    // avant la création. Sans table : chemin d'origine, inchangé (traces).
+    let mut stat_defaults: Vec<(StatId, fixed_math::Fixed)> = enemy_stat_defaults().to_vec();
+    let mut net_id = None;
+    let mut variant_net_id = 0;
+    let mut chosen: Option<(String, &crate::character::variant::VariantDef)> = None;
+    let mut spawn_health = health_max;
+    if let Some(variants) = character_config.and_then(|config| config.variants.as_ref()) {
+        let id = id_factory.next(enemy_type_name.clone());
+        if let Some(name) =
+            crate::character::variant::draw_variant(variants, forced_variant, run_seed, id.0 as u64)
+        {
+            let def = &variants.table[&name];
+            spawn_health =
+                crate::character::variant::variant_health(health_max, &def.modifiers(&name), 0);
+            chosen = Some((name, def));
+        }
+        // Base `MaxHealth` = santé F5, pour que `sync_health_from_stats` applique le
+        // modificateur de la variante (un ennemi n'a pas cette stat de base sinon).
+        stat_defaults.push((StatId::MaxHealth, health_max));
+        variant_net_id = id.0;
+        net_id = Some(id);
+    }
+    let skin = chosen.as_ref().and_then(|(_, def)| def.skin.clone());
+
     let entity = create_character(
         commands,
         global_assets,
         characters_asset,
         enemy_type_name,
-        None,
+        skin,
         (LinearRgba::RED).into(),
         position,
         CollisionLayer(collision_settings.enemy_layer),
         id_factory,
-        &enemy_stat_defaults(),
-        health_max,
+        &stat_defaults,
+        spawn_health,
+        net_id,
     );
+    if let Some((name, def)) = &chosen {
+        let mut tags = character_config
+            .map(|config| config.tags.clone())
+            .unwrap_or_default();
+        for tag in def.tags.iter() {
+            tags.insert(tag.clone());
+        }
+        commands.entity(entity).insert((
+            sim_core::modifier::Modifiers(def.modifiers(name)),
+            tags,
+            crate::character::variant::Variant(name.clone()),
+        ));
+        info!("ggrs{{variant net_id={} name={}}}", variant_net_id, name);
+    }
 
     let mut inventory = WeaponInventory::default();
 

@@ -328,6 +328,9 @@ pub fn enemy_spawn_from_spawners_system(
             &mut id_factory,
             Team::Enemies,
             health_max,
+            // Graine de run (T1.5 : tirage des variantes), lue sans toucher aux flux.
+            rng_streams.run_seed,
+            None,
         );
 
         state.cooldown_remaining = config.max_cooldown;

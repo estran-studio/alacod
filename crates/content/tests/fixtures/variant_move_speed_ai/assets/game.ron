@@ -1,0 +1,5 @@
+(
+    name: "fixture-variant_move_speed_ai",
+    content_folders: [(path: "characters", kind: "Character")],
+    entry: (start_map: "unused", default_seed: 1),
+)

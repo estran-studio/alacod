@@ -200,6 +200,43 @@ pub struct CharacterEntry {
     pub ignore_tags: Vec<String>,
     /// Tags du personnage (`tags`), source des tags connus du jeu (règle `ignore`).
     pub tags: Vec<String>,
+    /// T1.5 : `ai` présent (personnage IA : la règle `MoveSpeed` → `EnemyMoveSpeed`).
+    pub has_ai: bool,
+    /// T1.5 : table de variantes (`variants`), dans l'ordre du fichier (doublons gardés pour
+    /// la règle « nom en double »).
+    pub variants: Option<VariantsEntry>,
+}
+
+/// T1.5 : mirroir de `game::character::variant::VariantsConfig`.
+#[derive(Debug, Clone)]
+pub struct VariantsEntry {
+    pub chance: FixedField,
+    pub table: Vec<(String, VariantEntry)>,
+}
+
+/// T1.5 : mirroir de `game::character::variant::VariantDef`.
+#[derive(Debug, Clone, Deserialize)]
+pub struct VariantEntry {
+    #[serde(default = "default_variant_weight")]
+    pub weight: u32,
+    #[serde(default)]
+    pub modifiers: Vec<VariantModifierEntry>,
+    #[serde(default)]
+    pub tags: Vec<String>,
+    #[serde(default)]
+    pub skin: Option<String>,
+}
+
+fn default_variant_weight() -> u32 {
+    1
+}
+
+/// T1.5 : un modificateur de variante (format §9 ; une stat inconnue échoue au chargement).
+#[derive(Debug, Clone, Deserialize)]
+pub struct VariantModifierEntry {
+    pub stat: StatId,
+    pub op: ModifierOp,
+    pub value: FixedField,
 }
 
 /// T1.4 : mirroir de `behaviors::Behavior` (`docs/conventions.md` §22) ; les `Fixed` passent
@@ -477,6 +514,40 @@ struct FloorsFileSchema {
 pub struct MapEntry {
     pub id: MapId,
     pub file: PathBuf,
+    /// T1.5 : `CharacterSpawn` qui imposent une variante (`(personnage, variante)`, champs LDtk
+    /// `character`/`variant` des niveaux internes du `.ldtk`), pour le lint des références.
+    pub forced_variants: Vec<(String, String)>,
+}
+
+/// T1.5 : `CharacterSpawn` à champ `variant` rempli dans un `.ldtk` (niveaux internes). Une
+/// carte illisible en JSON ne donne rien (le chargement LDtk du jeu la rapportera).
+fn ldtk_forced_variants(text: &str) -> Vec<(String, String)> {
+    let Ok(json) = serde_json::from_str::<serde_json::Value>(text) else {
+        return Vec::new();
+    };
+    let field = |entity: &serde_json::Value, name: &str| -> Option<String> {
+        entity["fieldInstances"]
+            .as_array()?
+            .iter()
+            .find(|f| f["__identifier"] == name)?["__value"]
+            .as_str()
+            .filter(|value| !value.is_empty())
+            .map(str::to_string)
+    };
+    let mut out = Vec::new();
+    for level in json["levels"].as_array().into_iter().flatten() {
+        for layer in level["layerInstances"].as_array().into_iter().flatten() {
+            for entity in layer["entityInstances"].as_array().into_iter().flatten() {
+                if entity["__identifier"] != "CharacterSpawn" {
+                    continue;
+                }
+                if let Some(variant) = field(entity, "variant") {
+                    out.push((field(entity, "character").unwrap_or_default(), variant));
+                }
+            }
+        }
+    }
+    out
 }
 
 /// T2.3, chantier C5 v1 : `games/<jeu>/assets/economy/economy.ron`. Lint (T2.8,
@@ -777,6 +848,20 @@ struct CharacterFileSchema {
     ai: Option<AiSchema>,
     #[serde(default)]
     tags: Vec<String>,
+    /// T1.5 : variantes et élites.
+    #[serde(default)]
+    variants: Option<VariantsSchema>,
+}
+
+#[derive(Deserialize)]
+struct VariantsSchema {
+    #[serde(default = "default_variant_chance")]
+    chance: FixedField,
+    table: KeyedEntries<VariantEntry>,
+}
+
+fn default_variant_chance() -> FixedField {
+    FixedField(Fixed::from_num(1))
 }
 
 #[derive(Deserialize)]
@@ -1203,8 +1288,13 @@ fn load_characters(
                     .and_then(|ai| ai.targeting.as_ref())
                     .map(|TargetingEntry::Nearest { ignore }| ignore.clone())
                     .unwrap_or_default(),
+                has_ai: parsed.ai.is_some(),
                 behaviors: parsed.ai.and_then(|ai| ai.behaviors),
                 tags: parsed.tags,
+                variants: parsed.variants.map(|variants| VariantsEntry {
+                    chance: variants.chance,
+                    table: variants.table.0,
+                }),
             },
         );
     }
@@ -1994,7 +2084,17 @@ fn load_maps(
             });
             continue;
         }
-        registry.maps.insert(id.clone(), MapEntry { id, file: rel });
+        let forced_variants = read_file(assets_dir, &rel)
+            .map(|text| ldtk_forced_variants(&text))
+            .unwrap_or_default();
+        registry.maps.insert(
+            id.clone(),
+            MapEntry {
+                id,
+                file: rel,
+                forced_variants,
+            },
+        );
     }
 }
 

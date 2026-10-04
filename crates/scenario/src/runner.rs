@@ -1276,6 +1276,20 @@ fn check(world: &mut World, expectation: &Expectation) -> Result<(), String> {
                 found.unwrap_or("aucun")
             )),
         },
+        Expectation::EnemyVariant {
+            entity, variant, ..
+        } => {
+            let found = enemy_variant(world, entity)?;
+            if found == *variant {
+                Ok(())
+            } else {
+                Err(format!(
+                    "variante {}, {} attendue",
+                    found.as_deref().unwrap_or("aucune"),
+                    variant.as_deref().unwrap_or("aucune")
+                ))
+            }
+        }
         Expectation::EnemyDistance {
             entity,
             target,
@@ -1504,10 +1518,16 @@ fn check(world: &mut World, expectation: &Expectation) -> Result<(), String> {
             handle,
             stat,
             value,
+            entity,
             ..
         } => {
-            let Some(resolved) = player_stat(world, *handle, stat) else {
-                return Err(format!("joueur absent ou sans stat {stat:?}"));
+            let resolved = match entity {
+                Some(entity) => resolve_entity(world, entity)
+                    .and_then(|target| entity_stat(world, target, stat)),
+                None => player_stat(world, *handle, stat),
+            };
+            let Some(resolved) = resolved else {
+                return Err(format!("joueur ou entité absent, ou sans stat {stat:?}"));
             };
             let expected = fixed_math::Fixed::from_num(*value);
             if resolved == expected {
@@ -1539,6 +1559,11 @@ fn player_stat(world: &mut World, handle: usize, stat: &StatId) -> Option<fixed_
         .iter(world)
         .find(|(player, _)| player.handle == handle)
         .map(|(_, entity)| entity)?;
+    entity_stat(world, entity, stat)
+}
+
+/// Stat résolue d'une entité (base `Stats` + `Modifiers` actifs).
+fn entity_stat(world: &mut World, entity: Entity, stat: &StatId) -> Option<fixed_math::Fixed> {
     let base = world.get::<Stats>(entity)?.get(stat)?;
     let frame = world.resource::<FrameCount>().frame;
     Some(match world.get::<Modifiers>(entity) {
@@ -1912,6 +1937,20 @@ fn enemy_rule(
         .map_err(|_| "entité sans règles de comportement (pas un ennemi)".to_string())?;
     let shooting = emitting || ranged.is_some_and(|ranged| ranged.target.is_some());
     Ok(current_rule(rules, runtime, state, target, shooting))
+}
+
+/// `EnemyVariant` (T1.5) : variante du personnage (`None` sans composant `Variant`).
+fn enemy_variant(
+    world: &mut World,
+    entity: &game::replay::EntityRef,
+) -> Result<Option<String>, String> {
+    use game::character::variant::Variant;
+    let target = resolve_entity(world, entity).ok_or("entité absente")?;
+    Ok(world
+        .query::<&Variant>()
+        .get(world, target)
+        .ok()
+        .map(|variant| variant.0.clone()))
 }
 
 /// Position monde d'une entité.

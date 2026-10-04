@@ -75,6 +75,7 @@ pub fn create_player(
         // n'ont pas de sens ici, voir la doc du paramètre.
         &[],
         health_max,
+        None,
     );
 
     // `Team` est un composant statique, non enregistré en rollback (voir sa doc dans

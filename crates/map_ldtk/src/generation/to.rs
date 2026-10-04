@@ -426,20 +426,28 @@ impl IMapGenerator for GeneratedMap {
         character_spawns: &Vec<(EntityLocation, CharacterSpawnConfig)>,
     ) {
         for (location, config) in character_spawns.iter() {
+            let mut fields = vec![
+                (
+                    map_const::FIELD_CHARACTER_NAME,
+                    FieldValue::String(Some(config.character.clone())),
+                ),
+                (
+                    map_const::FIELD_TEAM_NAME,
+                    FieldValue::String(config.team.clone()),
+                ),
+            ];
+            // T1.5 : seulement si rempli (les cartes d'avant T1.5 gardent leurs entités).
+            if let Some(variant) = &config.variant {
+                fields.push((
+                    map_const::FIELD_VARIANT_NAME,
+                    FieldValue::String(Some(variant.clone())),
+                ));
+            }
             self.add_entity_to_level(
                 rng,
                 location,
                 map_const::ENTITY_CHARACTER_SPAWN_LOCATION,
-                vec![
-                    (
-                        map_const::FIELD_CHARACTER_NAME,
-                        FieldValue::String(Some(config.character.clone())),
-                    ),
-                    (
-                        map_const::FIELD_TEAM_NAME,
-                        FieldValue::String(config.team.clone()),
-                    ),
-                ],
+                fields,
             );
         }
     }
