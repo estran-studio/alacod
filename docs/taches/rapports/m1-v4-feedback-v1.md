@@ -6,9 +6,11 @@ traces throne bénies). Fiche : `docs/taches/m1-v4-feedback-v1.md`.
 
 ## État en cours
 
-- **Fait** : code, tests, preuve sans écran, suite, conventions (§31 + une ligne au §9).
-- **En attente** : captures hors écran (`play_scenario --features render`), au « feu vert
-  render » d'orch, seul sur la machine ; puis purge et livraison.
+- **Fait** : code, tests, preuve sans écran, suite, conventions (§31 + une ligne au §9),
+  captures hors écran (§5). Livré.
+- **Target** purgé après la suite (incremental et examples supprimés, une génération par
+  crate ; target 40G, /home 86G libres) ; captures hors dépôt (`alacod_tasks/<tâche>/d40/captures/`, vidéos dans
+  `target/videos/2984bbc/`).
 
 ## 1. Décisions (confirmées à orch, amendements acceptés)
 
@@ -90,10 +92,31 @@ aux traces) :
 test `scenarios` **vert** (tous les scénarios, générés zombies/testbed/throne compris, 793 s),
 **sans bless** : le feedback est bien hors simulation et hors trace.
 
-## 5. Écarts, non fait / incertain
+## 5. Captures hors écran
 
-- Captures hors écran : en attente du feu vert render.
+`play_scenario --features render` (`--profile headless`, au feu vert render d'orch, seul sur la
+machine), `--capture --every 1` : `enemy_charge` (201 images) et `weapon_grenade` (601 images) ;
+vidéos `target/videos/2984bbc/enemy_charge.mp4` et `weapon_grenade.mp4` (30 images/s : demi-
+vitesse, une image par frame de simulation).
+
+- **`enemy_charge`** : f55, **cercle de télégraphe** rouge au point visé (le joueur), contour
+  de rayon 40 et disque intérieur qui grandit ; f101, **chiffre « 15 »** au-dessus du joueur,
+  **joueur surexposé** (flash sur les calques), **caméra décalée** (secousse : l'arène se
+  déplace d'environ 12 px). Différence d'image : 100 à 200 pixels changés par frame avant le
+  coup, 18 000 à 29 000 de f99 à f104 (secousse), qui décroît ensuite.
+- **`weapon_grenade`** : f114, **chiffre « 20 »** au-dessus de la cible touchée par
+  l'explosion, secousse de surcharge visible.
+
+## 6. Écarts, non fait / incertain
+
+- Le **gel des animations** pendant le hit stop (2 ticks) n'est pas isolable sur les captures :
+  la secousse, au même moment, change bien plus de pixels. Prouvé par le journal et par
+  l'unitaire d'`AnimationFreeze`, pas à l'image.
+- **Chiffres superposés** : les 8 éclats d'une grenade qui touchent la même cible à la même
+  frame affichent 8 « 4 » au même endroit (illisible, f175). Petite suite possible : décaler
+  les chiffres d'une même cible dans une frame, ou les cumuler. Non corrigé (recompilation du
+  rendu, machine rendue à orch).
 - Le hit stop est **local** (ticks de rendu de cette machine) : deux joueurs en p2p ne gèlent pas
   au même instant réel ; c'est voulu (présentation).
 - Chiffres de dégâts : police `fonts/FiraMono-Medium.ttf` (présente dans les trois jeux),
-  taille 10, montée 30 px/s sur 0,7 s ; non vus sans capture.
+  taille 10, montée 30 px/s sur 0,7 s.
