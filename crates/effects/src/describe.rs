@@ -123,6 +123,13 @@ pub fn describe_action(action: &Action) -> String {
             )
         }
         Action::RefillAmmo => "munitions rechargées".into(),
+        Action::RefillAmmoOf(ammo) => format!(
+            "munitions {} rechargées",
+            match ammo {
+                sim_core::ammo::AmmoType::Custom(id) => id.clone(),
+                other => format!("{other:?}").to_lowercase(),
+            }
+        ),
         Action::RepairAllWindows => "fenêtres réparées".into(),
         Action::KillAllWaveEnemies => "tous les ennemis de la vague tués".into(),
         Action::DestroyTerrain { radius } => format!("creuse la roche ({})", number(*radius)),
