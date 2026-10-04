@@ -18,8 +18,10 @@ Scenario(
         ]),
     ],
     expect: [
-        EntityHealth(net_id: 0, min: 60.0, max: 60.0, at_frame: 2),
+        // Étage 0 : follower `NetId(27)`, difficulté 1 → 60 PV.
+        EntityHealth(net_id: 27, min: 60.0, max: 60.0, at_frame: 2),
         FloorIndex(index: 1, at_frame: 240),
-        EntityHealth(net_id: 0, min: 90.0, max: 90.0, at_frame: 240),
+        // Étage 1 : follower `NetId(79)`, né au passage d'étage, difficulté 1,5 → 90 PV.
+        EntityHealth(net_id: 79, min: 90.0, max: 90.0, at_frame: 240),
     ],
 )
