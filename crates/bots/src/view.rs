@@ -78,7 +78,8 @@ pub struct BotView {
     /// l'approche du portail.
     pub velocity: FixedVec2,
     /// Ligne de vue sans mur (`Wall`) entre le joueur et l'ennemi le plus proche (faux sans
-    /// ennemi) : `prudent`/`fonceur` ne vont en ligne droite que vers un ennemi visible.
+    /// ennemi) : `prudent`/`fonceur` ne vont en ligne droite que vers un ennemi visible. Vrai
+    /// quand la navigation ne tourne pas (hors mode `Floors`) : comportement de T1.14.
     pub enemy_visible: bool,
     /// Direction du pas suivant par le champ de navigation ([`crate::navigation`], grille de 8)
     /// vers le but courant : poste de tir de l'ennemi le plus proche par le chemin, ou portail

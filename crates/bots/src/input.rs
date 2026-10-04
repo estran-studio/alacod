@@ -317,7 +317,9 @@ pub fn read_bot_inputs(
             switch_weapon,
             trigger_ready,
             velocity: velocity.map_or(FixedVec2::ZERO, |v| v.main),
-            enemy_visible: false,
+            // Hors navigation (autre mode que `Floors`) : comportement de T1.14, ennemi supposé
+            // visible, aucune route.
+            enemy_visible: true,
             route: None,
         };
 
