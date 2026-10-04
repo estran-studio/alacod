@@ -7,8 +7,9 @@
 
 ## État en cours
 
-- **Fait** : les deux sujets, preuve des traces changées, vérifications (§4).
-- **En attente** : compilation des exemples racine (feu vert d'orch), purge, merge `origin/main`, livraison.
+- **Fait** : les deux sujets, preuve des traces changées, vérifications (§4). Livré.
+- **Target** purgé après la suite (incremental et examples supprimés, une génération par crate ;
+  target 38G, /home 93G libres) ; dumps supprimés.
 - **Reste à l'orchestrateur** : bénir les **38 traces neuves** (37 générées de throne et
   `throne_ammo_pickup`, retirées du dépôt par le dernier commit, copie dans
   `alacod_tasks/<tâche>/d40/traces_neuves/`) et les **2 traces changées** (`throne_progression`,
@@ -91,7 +92,7 @@ changement de tirage.
   modifié.
 - **`fmt`** propre (commit dédié) ; **`check_forbidden`** 4 occurrences (identique) ;
   **`check_rollback_registration`** OK.
-- **Exemples racine** : en attente du feu vert d'orch.
+- **Exemples racine** compilés (`cargo build --profile headless --examples`).
 
 ## 5. Écarts, non fait / incertain
 
