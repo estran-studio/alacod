@@ -21,7 +21,7 @@ Scenario(
         EnemyNeverInWall(
             entity: Placed(0),
             from: 2,
-            to: 540,
+            to: 600,
         ),
     ],
     powerup_drop_chance_override: "0",

@@ -218,3 +218,100 @@ fn circle_rect_collision_fixed(
     // Compare FixedWide < FixedWide
     distance_sq_fw < radius_sq_fw
 }
+
+/// Glissement le long des murs quand le déplacement complet `(dx, dy)` depuis `start` est
+/// bloqué (D39, `docs/conventions.md` §24) : X seul d'abord, puis Y **depuis la position X
+/// obtenue** (depuis `start` si X est bloqué). Tester Y depuis le X de départ laisserait deux
+/// mouvements libres séparément se combiner dans le coin d'un mur. Rend la position finale et
+/// les axes effectivement parcourus. Partagée par les joueurs (`move_characters`) et les
+/// ennemis (`move_enemies`).
+pub fn slide_axes(
+    start: fixed_math::FixedVec3,
+    dx: fixed_math::Fixed,
+    dy: fixed_math::Fixed,
+    blocked: impl Fn(&fixed_math::FixedVec3) -> bool,
+) -> (fixed_math::FixedVec3, bool, bool) {
+    let mut pos = start;
+    let mut moved_x = false;
+    let mut moved_y = false;
+    if dx != fixed_math::FIXED_ZERO {
+        let x_only = fixed_math::FixedVec3::new(start.x.saturating_add(dx), start.y, start.z);
+        if !blocked(&x_only) {
+            pos.x = x_only.x;
+            moved_x = true;
+        }
+    }
+    if dy != fixed_math::FIXED_ZERO {
+        let y_only = fixed_math::FixedVec3::new(pos.x, start.y.saturating_add(dy), start.z);
+        if !blocked(&y_only) {
+            pos.y = y_only.y;
+            moved_y = true;
+        }
+    }
+    (pos, moved_x, moved_y)
+}
+
+#[cfg(test)]
+mod slide_tests {
+    use super::*;
+
+    fn rect(w: i32, h: i32) -> Collider {
+        Collider {
+            shape: ColliderShape::Rectangle {
+                width: fixed_math::Fixed::from_num(w),
+                height: fixed_math::Fixed::from_num(h),
+            },
+            offset: fixed_math::FixedVec3::ZERO,
+        }
+    }
+
+    fn v(x: f32, y: f32) -> fixed_math::FixedVec3 {
+        fixed_math::FixedVec3::new(
+            fixed_math::new(x),
+            fixed_math::new(y),
+            fixed_math::FIXED_ZERO,
+        )
+    }
+
+    /// Mur 48 × 16 centré en (616, 632) (le coin de `enemy_kiter_still`), corps 20 × 20.
+    fn in_wall(p: &fixed_math::FixedVec3) -> bool {
+        is_colliding(p, &rect(20, 20), &v(616.0, 632.0), &rect(48, 16))
+    }
+
+    #[test]
+    fn coin_de_mur_plus_de_penetration() {
+        // Juste au nord-ouest du coin : X seul et Y seul sont libres depuis le départ, la
+        // diagonale ne l'est pas.
+        let start = v(581.0, 650.5);
+        let (dx, dy) = (fixed_math::new(1.5), fixed_math::new(-1.0));
+        assert!(in_wall(&v(582.5, 649.5)));
+        assert!(!in_wall(&v(582.5, 650.5)) && !in_wall(&v(581.0, 649.5)));
+        let (pos, moved_x, moved_y) = slide_axes(start, dx, dy, in_wall);
+        assert!(!in_wall(&pos), "{pos:?}");
+        assert!(moved_x && !moved_y);
+        assert_eq!(pos, v(582.5, 650.5));
+    }
+
+    #[test]
+    fn couloir_droit_et_x_bloque() {
+        // Mur à droite : X bloqué, Y glisse depuis le départ (repli Y seul).
+        let wall = |p: &fixed_math::FixedVec3| {
+            is_colliding(p, &rect(20, 20), &v(30.0, 0.0), &rect(20, 200))
+        };
+        let (pos, moved_x, moved_y) = slide_axes(
+            v(10.0, 0.0),
+            fixed_math::new(2.0),
+            fixed_math::new(3.0),
+            wall,
+        );
+        assert_eq!((pos, moved_x, moved_y), (v(10.0, 3.0), false, true));
+        // Rien ne bloque : X puis Y, même résultat que les deux axes indépendants d'avant.
+        let (pos, moved_x, moved_y) = slide_axes(
+            v(0.0, 0.0),
+            fixed_math::new(2.0),
+            fixed_math::new(-3.0),
+            |_| false,
+        );
+        assert_eq!((pos, moved_x, moved_y), (v(2.0, -3.0), true, true));
+    }
+}
