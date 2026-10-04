@@ -169,6 +169,7 @@ pub fn read_bot_inputs(
         With<Rollback>,
     >,
     mut nav: ResMut<DirectNavigation>,
+    run: Option<Res<run::Run>>,
 ) {
     let Some(assignments) = assignments else {
         return;
@@ -191,6 +192,12 @@ pub fn read_bot_inputs(
     let bullets_sorted = order_iter!(bullets);
     let mut dodged = false;
     let mut geometry_rects: Option<Vec<(Rect, bool)>> = None;
+    // Navigation seulement en mode `Floors` : il faut y trouver chaque ennemi puis le portail.
+    // En vagues, les ennemis viennent aux joueurs (un zombie dehors est « caché » derrière les
+    // murs jusqu'à sa fenêtre) : `prudent`/`fonceur` y gardent leur comportement de T1.14.
+    let floors_mode = run
+        .as_deref()
+        .is_some_and(|run| matches!(run.mode, run::RunMode::Floors { .. }));
     let enemy_points: Vec<(usize, FixedVec2)> = enemies_sorted
         .iter()
         .map(|(id, t)| (id.0, t.translation.truncate()))
@@ -315,7 +322,7 @@ pub fn read_bot_inputs(
         };
 
         let mut view = view;
-        if matches!(profile, BotProfile::Prudent | BotProfile::Fonceur) {
+        if floors_mode && matches!(profile, BotProfile::Prudent | BotProfile::Fonceur) {
             if let Some(collider) = collider {
                 let rects = geometry_rects.get_or_insert_with(|| {
                     order_iter!(geometry)
