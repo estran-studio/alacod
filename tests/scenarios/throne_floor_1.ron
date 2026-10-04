@@ -1,0 +1,22 @@
+// `throne` (T1.0c, docs/conventions.md §29) : un bot `prudent` finit le premier étage de la run
+// (`cave:niveau_1` : rat, chien, rodeur) et passe le portail.
+//
+// Mesuré (`alacod-sim --game throne --bots 1 --profiles prudent --floors run --seeds
+// 123456..123456 --until-floor 1`) : portail franchi à f925, aucun dégât.
+//
+// À regarder : le bot traverse la caverne, tue les quatre ennemis, puis rejoint le portail.
+Scenario(
+    powerup_drop_chance_override: "0.0",
+    game: "throne",
+    floors: Some("run"),
+    map_seed: 123456,
+    frames: 940,
+    players: [
+        (bot: prudent),
+    ],
+    expect: [
+        FloorIndex(index: 0, at_frame: 900),
+        FloorIndex(index: 1, at_frame: 930),
+        PlayerAlive(handle: 0, at_frame: 939),
+    ],
+)

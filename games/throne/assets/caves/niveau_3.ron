@@ -1,0 +1,13 @@
+// `throne` (T1.11, docs/conventions.md §21 et §29) : troisième étage : huit ennemis, tous les profils (`cave:niveau_3`).
+// Personnages posés à tour de rôle sur les 8 points `ZombieSpawn`.
+(
+    width: 64,
+    height: 44,
+    fill_ratio: "0.38",
+    iterations: 4,
+    birth: 5,
+    survive: 4,
+    min_floor_ratio: "0.3",
+    enemy_spawns: 8,
+    characters: ["brute", "tourelle", "franc_tireur", "buffle", "arroseur", "cracheur", "chien", "rat"],
+)

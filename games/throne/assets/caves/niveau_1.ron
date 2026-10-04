@@ -1,0 +1,13 @@
+// `throne` (T1.11, docs/conventions.md §21 et §29) : premier étage : petite caverne, quatre ennemis de mêlée (`cave:niveau_1`).
+// Personnages posés à tour de rôle sur les 4 points `ZombieSpawn`.
+(
+    width: 48,
+    height: 32,
+    fill_ratio: "0.38",
+    iterations: 4,
+    birth: 5,
+    survive: 4,
+    min_floor_ratio: "0.3",
+    enemy_spawns: 4,
+    characters: ["rat", "chien", "rodeur"],
+)

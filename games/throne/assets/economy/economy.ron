@@ -1,0 +1,7 @@
+// `throne` (T1.0c) : économie minimale (points au kill et au coup), aucun achat en phase 1.
+(
+    kill_points: 60,
+    hit_points: 10,
+    repair_points: 10,
+    nuke_points: 400,
+)
