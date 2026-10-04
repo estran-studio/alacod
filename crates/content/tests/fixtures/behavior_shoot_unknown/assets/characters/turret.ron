@@ -1,0 +1,20 @@
+(
+    movement: (
+        max_speed: "0.0",
+    ),
+    asset_name_ref: "turret",
+    base_health: (
+        max: "100.0",
+    ),
+    starting_skin: "1",
+    skins: {
+        "1": (layers: {}),
+    },
+    // Erreurs volontaires : arme et pattern inconnus.
+    ai: Some((
+        stationary: Some(true),
+        behaviors: Some([
+            Shoot(weapon: "lance_flammes", pattern: "spirale", range: "200.0", cooldown_frames: 60),
+        ]),
+    )),
+)

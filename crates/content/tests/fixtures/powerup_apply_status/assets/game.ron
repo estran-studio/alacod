@@ -1,0 +1,8 @@
+// Fixture T1.12 (audit du lint des kinds de M1).
+(
+    name: "fixture-powerup_apply_status",
+    content_folders: [
+        (path: "items", kind: "PowerUp"),
+    ],
+    entry: (start_map: "unused", default_seed: 1),
+)

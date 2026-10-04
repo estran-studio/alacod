@@ -727,6 +727,34 @@ pub struct MapEntry {
     /// T1.5 : `CharacterSpawn` qui imposent une variante (`(personnage, variante)`, champs LDtk
     /// `character`/`variant` des niveaux internes du `.ldtk`), pour le lint des références.
     pub forced_variants: Vec<(String, String)>,
+    /// T1.12 : personnage de chaque `CharacterSpawn` des niveaux internes (champ `character`),
+    /// pour la règle « personnage connu ».
+    pub spawned_characters: Vec<String>,
+}
+
+/// T1.12 : champ `character` de chaque `CharacterSpawn` d'un `.ldtk` (niveaux internes), dans
+/// l'ordre du fichier ; vide si la carte est illisible en JSON.
+fn ldtk_character_spawns(text: &str) -> Vec<String> {
+    let Ok(json) = serde_json::from_str::<serde_json::Value>(text) else {
+        return Vec::new();
+    };
+    let mut out = Vec::new();
+    for level in json["levels"].as_array().into_iter().flatten() {
+        for layer in level["layerInstances"].as_array().into_iter().flatten() {
+            for entity in layer["entityInstances"].as_array().into_iter().flatten() {
+                if entity["__identifier"] != "CharacterSpawn" {
+                    continue;
+                }
+                let character = entity["fieldInstances"]
+                    .as_array()
+                    .and_then(|fields| fields.iter().find(|f| f["__identifier"] == "character"))
+                    .and_then(|f| f["__value"].as_str())
+                    .unwrap_or_default();
+                out.push(character.to_string());
+            }
+        }
+    }
+    out
 }
 
 /// T1.5 : `CharacterSpawn` à champ `variant` rempli dans un `.ldtk` (niveaux internes). Une
@@ -2581,8 +2609,14 @@ fn load_maps(
             });
             continue;
         }
-        let forced_variants = read_file(assets_dir, &rel)
-            .map(|text| ldtk_forced_variants(&text))
+        let text = read_file(assets_dir, &rel).ok();
+        let forced_variants = text
+            .as_deref()
+            .map(ldtk_forced_variants)
+            .unwrap_or_default();
+        let spawned_characters = text
+            .as_deref()
+            .map(ldtk_character_spawns)
             .unwrap_or_default();
         registry.maps.insert(
             id.clone(),
@@ -2590,6 +2624,7 @@ fn load_maps(
                 id,
                 file: rel,
                 forced_variants,
+                spawned_characters,
             },
         );
     }

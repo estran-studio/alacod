@@ -1,0 +1,3 @@
+// Erreurs volontaires : trop petite, fill_ratio > 1, birth > 8.
+(width: 4, height: 4, fill_ratio: "1.5", iterations: 4, birth: 9, survive: 4,
+ min_floor_ratio: "0.3", enemy_spawns: 2)
