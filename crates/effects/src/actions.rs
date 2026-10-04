@@ -52,6 +52,12 @@ pub enum Action {
     /// `CurrencyMultiplier` actifs en même temps se cumulent multiplicativement (limitation
     /// documentée, v0 minimal : pas de règle de non-stacking).
     CurrencyMultiplier { factor: Fixed, frames: u32 },
+    /// Creuse le terrain d'une caverne (T1.6, `docs/conventions.md` §21) : toute case `Rock`
+    /// dont le centre est à moins de `radius` unités de la position de l'action devient
+    /// `Floor`, `Wall` ne change jamais (`world::destroy_terrain`). Positionnelle : un
+    /// projectile l'emploie (`on_hit` sur un mur, `on_expire`) ; refusée dans un power-up
+    /// (lint), sans position. Ajoutée en dernier : les hashs des autres variantes ne bougent pas.
+    DestroyTerrain { radius: Fixed },
 }
 
 impl Action {
@@ -90,7 +96,10 @@ impl Action {
                 source,
                 until: Some(frame.saturating_add(*frames)),
             }),
-            Action::RefillAmmo | Action::RepairAllWindows | Action::KillAllWaveEnemies => None,
+            Action::RefillAmmo
+            | Action::RepairAllWindows
+            | Action::KillAllWaveEnemies
+            | Action::DestroyTerrain { .. } => None,
         }
     }
 }

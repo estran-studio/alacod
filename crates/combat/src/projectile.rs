@@ -172,13 +172,33 @@ impl PatternLibrary {
     }
 }
 
-/// Action déclenchée à la fin d'un projectile (`on_expire`). Une seule en v1.
-#[derive(Clone, PartialEq, Eq, Debug, Hash, Serialize, Deserialize)]
+/// Action déclenchée à la fin d'un projectile (`on_expire`). `Hash` manuel (voir plus bas).
+#[derive(Clone, PartialEq, Eq, Debug, Serialize, Deserialize)]
 pub enum ExpireAction {
     /// Fait naître le pattern au point de fin du projectile. Seuls les patterns instantanés
     /// sont joués (`Aimed`, `Spread`, `Ring` une seule fois, `Sequence` de ceux-ci) ;
     /// `Telegraph`/`Wait` appartiennent aux émetteurs (T1.2) et sont refusés par le lint.
     Spawn(Pattern),
+    /// Creuse le terrain d'une caverne au point de fin (T1.6, `effects::Action::DestroyTerrain`
+    /// : `Rock` à moins de `radius` → `Floor`).
+    DestroyTerrain { radius: Fixed },
+}
+
+/// `#[derive(Hash)]` d'un enum à **une seule** variante n'écrit pas le discriminant : tant que
+/// `Spawn` était seule, son hash était celui du pattern. Ajouter une variante dérivée ferait
+/// écrire le discriminant et déplacerait le checksum de toute arme à `on_expire` (config
+/// hachée dès la frame 0, trace `weapon_grenade`). `Spawn` garde donc exactement son hash
+/// historique ; `DestroyTerrain` écrit un marqueur puis son rayon.
+impl std::hash::Hash for ExpireAction {
+    fn hash<H: std::hash::Hasher>(&self, state: &mut H) {
+        match self {
+            ExpireAction::Spawn(pattern) => pattern.hash(state),
+            ExpireAction::DestroyTerrain { radius } => {
+                "DestroyTerrain".hash(state);
+                radius.hash(state);
+            }
+        }
+    }
 }
 
 /// Comportement composable d'un projectile, tel que déclaré dans un mode de tir. Vide (tous
@@ -403,6 +423,43 @@ pub struct ProjectileHit {
     pub target: GgrsNetId,
     pub actions: Vec<Action>,
     pub frame: u32,
+}
+
+/// Mur touché par un projectile composable (T1.6) : émis dans la branche `register_wall()` de
+/// [`projectile_collision_system`], seulement pour un projectile qui porte des actions
+/// `on_hit` (les autres n'ont rien à y appliquer ; file neutre : vide, elle laisse les traces
+/// existantes intactes). Position = position du projectile au contact (dans le mur).
+#[derive(Clone, Debug, Hash, PartialEq, Eq)]
+pub struct ProjectileWallHit {
+    pub projectile: String,
+    pub source: GgrsNetId,
+    pub x: Fixed,
+    pub y: Fixed,
+    pub actions: Vec<Action>,
+    pub frame: u32,
+}
+
+/// Actions de terrain des projectiles (T1.6) : chaque `DestroyTerrain` d'un mur touché
+/// (`on_hit`) devient une `world::DestroyTerrainRequest` au point d'impact, appliquée ensuite
+/// dans `RollbackSystemSet::World`. Les `DestroyTerrain` d'`on_expire` sont émises par
+/// [`projectile_expire_system`].
+pub fn projectile_wall_terrain_system(
+    wall_hits: Res<FrameEvents<ProjectileWallHit>>,
+    requests: Option<ResMut<FrameEvents<world::DestroyTerrainRequest>>>,
+) {
+    let Some(mut requests) = requests else {
+        return;
+    };
+    for hit in wall_hits.iter() {
+        for action in &hit.actions {
+            if let Action::DestroyTerrain { radius } = action {
+                requests.send(world::DestroyTerrainRequest::new(
+                    FixedVec2::new(hit.x, hit.y),
+                    *radius,
+                ));
+            }
+        }
+    }
 }
 
 // ---------------------------------------------------------------------------------------
@@ -737,6 +794,7 @@ pub fn projectile_collision_system(
     grids: Res<CollisionGrids>,
     mut damage_events: ResMut<FrameEvents<DamageEvent>>,
     mut hit_events: ResMut<FrameEvents<ProjectileHit>>,
+    mut wall_hit_events: ResMut<FrameEvents<ProjectileWallHit>>,
     mut projectile_query: Query<
         (
             &GgrsNetId,
@@ -852,6 +910,16 @@ pub fn projectile_collision_system(
         if !collides_at(&transform.translation) {
             continue;
         }
+        if !projectile.on_hit.is_empty() {
+            wall_hit_events.send(ProjectileWallHit {
+                projectile: projectile.id.clone(),
+                source: bullet.source.clone(),
+                x: transform.translation.x,
+                y: transform.translation.y,
+                actions: projectile.on_hit.clone(),
+                frame: frame.frame,
+            });
+        }
         if projectile.register_wall() {
             let (flip_x, flip_y) = bounce_axes(old_pos, bullet.velocity, collides_at);
             bullet.velocity = reflect(bullet.velocity, flip_x, flip_y);
@@ -889,6 +957,8 @@ pub fn projectile_expire_system(
     target_query: TargetQuery,
     // T1.2 : résolution des `Named` de `on_expire` (absente : aucun pattern nommé).
     library: Option<Res<PatternLibrary>>,
+    // T1.6 : `on_expire: [DestroyTerrain]` (absente hors jeu complet : ignorée).
+    mut terrain_requests: Option<ResMut<FrameEvents<world::DestroyTerrainRequest>>>,
 ) {
     let system_span = span!(
         Level::INFO,
@@ -922,6 +992,14 @@ pub fn projectile_expire_system(
         };
         for action in &projectile.on_expire {
             match action {
+                ExpireAction::DestroyTerrain { radius } => {
+                    if let Some(requests) = terrain_requests.as_mut() {
+                        requests.send(world::DestroyTerrainRequest::new(
+                            transform.translation.truncate(),
+                            *radius,
+                        ));
+                    }
+                }
                 ExpireAction::Spawn(pattern) => {
                     let pattern = match resolve_pattern(library.as_deref(), pattern) {
                         Ok(pattern) => pattern,

@@ -297,6 +297,8 @@ pub fn apply_powerup_actions_system(
         }
         for action in &def.actions {
             match action {
+                // Positionnelle (projectiles, T1.6) : refusée par le lint dans un power-up
+                Action::DestroyTerrain { .. } => {}
                 Action::TimedModifier { .. } | Action::CurrencyMultiplier { .. } => {
                     for (net_id, _player, _dead, mut modifiers, _reserves, _inventory) in
                         order_mut_iter!(players)

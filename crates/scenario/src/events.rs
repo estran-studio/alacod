@@ -191,6 +191,8 @@ fn detect_events(
     // événement borné à sa frame d'émission (`FrameEvents`, vidé au `FrameStart` suivant),
     // encore valide ici (`Last` tourne après la dernière frame GGRS simulée cet `Update`).
     currency_events: Res<FrameEvents<CurrencyEvent>>,
+    // T1.6 : terrain creusé dans la frame (file neutre, absente hors jeu complet).
+    terrain_events: Option<Res<FrameEvents<world::TerrainDestroyed>>>,
     // T1.5 : variantes (moment clé `variant_spawn`).
     variants: Query<(&GgrsNetId, &game::character::variant::Variant)>,
 ) {
@@ -465,6 +467,12 @@ fn detect_events(
                 format!("joueur {} : achat refusé ({})", event.handle, event.reason),
             ),
         }
+    }
+    for event in terrain_events.iter().flat_map(|events| events.iter()) {
+        push(
+            "terrain",
+            format!("terrain creusé : {} case(s)", event.cells.len()),
+        );
     }
 }
 

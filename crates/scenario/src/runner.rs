@@ -86,6 +86,10 @@ pub struct Metrics {
     /// `run::FloorState::index`, `0` hors `Floors`) : niveaux terminés.
     #[serde(default)]
     pub final_floor: u32,
+    /// Destructions de terrain qui ont creusé au moins une case (T1.6, moments clés
+    /// `terrain`, une par `world::TerrainDestroyed`) : `bench_cave` en exige au moins 50.
+    #[serde(default)]
+    pub terrain_destroyed: u32,
 }
 
 /// Résultat d'un scénario.
@@ -921,6 +925,7 @@ pub fn run_with_options<F: FnOnce(&mut App)>(
         kills,
         players_alive,
         final_floor,
+        terrain_destroyed: events.iter().filter(|e| e.kind == "terrain").count() as u32,
     };
 
     let world = app.world_mut();
@@ -1449,6 +1454,14 @@ fn check(world: &mut World, expectation: &Expectation) -> Result<(), String> {
                 return Err(format!("FloorIndex {actual} (attendu {index})"));
             }
             Ok(())
+        }
+        // T1.6 : case du terrain d'une caverne (ressource rollback `CellGrid`).
+        Expectation::CellState { x, y, kind, .. } => {
+            match world.resource::<world::CellGrid>().get(*x, *y) {
+                Some(actual) if actual == *kind => Ok(()),
+                Some(actual) => Err(format!("case ({x}, {y}) : {actual:?} (attendu {kind:?})")),
+                None => Err(format!("case ({x}, {y}) hors de la grille")),
+            }
         }
         // T2.3, chantier C5 v1 : scénarios `buy_door`/`buy_wall_weapon`/`buy_perk`.
         Expectation::Currency {

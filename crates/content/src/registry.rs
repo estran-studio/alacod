@@ -102,6 +102,11 @@ string_id!(
     FloorsConfigId
 );
 string_id!(
+    /// Identifiant d'une caverne (T1.6, kind `Cave`) : nom de fichier sans extension, désigné
+    /// comme carte par `cave:<id>` (voir [`cave_designation`]).
+    CaveId
+);
+string_id!(
     /// Identifiant d'un pattern nommé (T1.2, kind `Pattern`) : nom de fichier sans extension
     /// (`patterns/<nom>.ron`), référencé par `ranged.pattern` d'un personnage et par
     /// `Named("<nom>")` dans un pattern.
@@ -139,6 +144,21 @@ pub fn map_id_from_path(path: &str) -> MapId {
         .and_then(|s| s.to_str())
         .unwrap_or(path);
     MapId::from(stem.to_string())
+}
+
+/// Préfixe qui désigne une caverne là où une carte LDtk est attendue (`entry.start_map`,
+/// `Scenario.map`, `--map`, `levels` d'une séquence `Floors`) : `cave:<id>` (T1.6,
+/// `docs/conventions.md` §21).
+pub const CAVE_PREFIX: &str = "cave:";
+
+/// Nom du gabarit LDtk d'un dossier `Cave` (définitions de couches et d'entités, niveau
+/// réécrit en mémoire par la génération).
+pub const CAVE_TEMPLATE_FILE: &str = "gabarit.ldtk";
+
+/// `Some(id)` si `map` désigne une caverne (`cave:<id>`).
+pub fn cave_designation(map: &str) -> Option<CaveId> {
+    map.strip_prefix(CAVE_PREFIX)
+        .map(|id| CaveId::from(id.to_string()))
 }
 
 // ---------------------------------------------------------------------------------------
@@ -342,6 +362,10 @@ pub enum PatternEntry {
 #[derive(Debug, Clone, Deserialize)]
 pub enum ExpireActionEntry {
     Spawn(PatternEntry),
+    /// T1.6 : creuse le terrain d'une caverne au point de fin du projectile.
+    DestroyTerrain {
+        radius: FixedField,
+    },
 }
 
 /// Mirroir de `combat::projectile::ProjectileSpec`.
@@ -442,6 +466,17 @@ pub struct FloorsEntry {
     pub file: PathBuf,
     /// Cartes LDtk des niveaux, dans l'ordre de jeu.
     pub levels: Vec<String>,
+}
+
+/// Caverne générée (T1.6, `docs/conventions.md` §21), un fichier RON par caverne
+/// (`caves/<id>.ron`, champs de [`world::CaveConfig`]). Le dossier contient aussi le gabarit
+/// LDtk [`CAVE_TEMPLATE_FILE`] ; `template` est son chemin relatif à `assets/`.
+#[derive(Debug, Clone)]
+pub struct CaveEntry {
+    pub id: CaveId,
+    pub file: PathBuf,
+    pub config: world::CaveConfig,
+    pub template: String,
 }
 
 #[derive(Debug, Clone, Deserialize)]
@@ -577,6 +612,8 @@ pub struct Registry {
     pub maps: BTreeMap<MapId, MapEntry>,
     /// T1.8 : séquences de niveaux du mode `Floors` (kind `Floors`).
     pub floors: BTreeMap<FloorsConfigId, FloorsEntry>,
+    /// T1.6 : cavernes générées (kind `Cave`).
+    pub caves: BTreeMap<CaveId, CaveEntry>,
     /// T1.2 : patterns nommés (kind `Pattern`).
     pub patterns: BTreeMap<PatternId, PatternFileEntry>,
     /// T2.3, chantier C5 v1.
@@ -621,6 +658,7 @@ pub const KNOWN_KIND_NAMES: &[&str] = &[
     "PowerUp",
     "SpriteSheet",
     "Floors",
+    "Cave",
     "Pattern",
 ];
 
@@ -678,6 +716,7 @@ impl Registry {
                 "PowerUp" => load_powerups(&assets_dir, decl, &mut registry, &mut errors),
                 "SpriteSheet" => load_sprite_sheets(&assets_dir, decl, &mut registry, &mut errors),
                 "Floors" => load_floors(&assets_dir, decl, &mut registry, &mut errors),
+                "Cave" => load_caves(&assets_dir, decl, &mut registry, &mut errors),
                 "Pattern" => load_patterns(&assets_dir, decl, &mut registry, &mut errors),
                 _ => unreachable!("filtré par `kinds.has` ci-dessus"),
             }
@@ -1563,6 +1602,71 @@ fn load_floors(
                 id,
                 file: rel,
                 levels: parsed.levels,
+            },
+        );
+    }
+}
+
+/// T1.6 : mêmes règles que [`load_waves`] (id = nom de fichier sans extension) ; le gabarit
+/// est cherché dans le dossier déclaré (`<path>/gabarit.ldtk`).
+fn load_caves(
+    assets_dir: &Path,
+    decl: &ContentFolderDecl,
+    registry: &mut Registry,
+    errors: &mut Vec<LintError>,
+) {
+    let files = match discover_files(assets_dir, decl, "ron") {
+        Ok(f) => f,
+        Err(e) => {
+            errors.push(e);
+            return;
+        }
+    };
+    let template = format!("{}/{CAVE_TEMPLATE_FILE}", decl.path.trim_end_matches('/'));
+
+    for rel in files {
+        let text = match read_file(assets_dir, &rel) {
+            Ok(t) => t,
+            Err(e) => {
+                errors.push(e);
+                continue;
+            }
+        };
+        let config: world::CaveConfig = match ron::from_str(&text) {
+            Ok(p) => p,
+            Err(e) => {
+                errors.push(LintError {
+                    kind: LintErrorKind::Parse,
+                    file: rel.display().to_string(),
+                    message: format!("erreur RON : {e}"),
+                });
+                continue;
+            }
+        };
+        let id = CaveId::from(
+            rel.file_stem()
+                .and_then(|s| s.to_str())
+                .unwrap_or_default()
+                .to_string(),
+        );
+        if let Some(existing) = registry.caves.get(&id) {
+            errors.push(LintError {
+                kind: LintErrorKind::DuplicateId,
+                file: rel.display().to_string(),
+                message: format!(
+                    "id de caverne « {id} » déjà défini dans {}",
+                    existing.file.display()
+                ),
+            });
+            continue;
+        }
+        registry.caves.insert(
+            id.clone(),
+            CaveEntry {
+                id,
+                file: rel,
+                config,
+                template: template.clone(),
             },
         );
     }

@@ -5,6 +5,7 @@ edition = "2021"
 description = "Parties scriptées et déterministes : tests de comportement et de régression headless"
 
 [dependencies]
+world = { path = "../world" }
 bevy = "0.19.1"
 bevy_ggrs = "0.22.0"
 serde = { version = "1.0", features = ["derive"] }

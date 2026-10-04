@@ -1,0 +1,12 @@
+// T1.6 : petite caverne du testbed (`cave:petite`), 48 × 32 cases de 16 unités.
+// Automate cellulaire : voir docs/conventions.md §21.
+(
+    width: 48,
+    height: 32,
+    fill_ratio: "0.45",
+    iterations: 4,
+    birth: 5,
+    survive: 4,
+    min_floor_ratio: "0.3",
+    enemy_spawns: 4,
+)

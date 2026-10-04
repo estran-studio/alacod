@@ -310,8 +310,9 @@ Avant/après un refactoring de la simulation, comparer les traces : elles doiven
     `EntityHits`, `EntityCount`, `Currency`, `Stat`, `PlayerDowned`, `RunState`,
     `RunSummary`, `Event`, `BulletCount` et `HitsAtLeast` (T1.1, projectiles composables,
     `docs/conventions.md` §16), `FloorIndex` (T1.8, mode `Floors`, voir `docs/conventions.md`
-    §17), `EnemyState` et `EnemyDistance` (T1.4, behaviors composables, `docs/conventions.md`
-    §22), `EnemyVariant` (T1.5, variantes et élites, §25).
+    §17), `CellState` (T1.6, terrain d'une caverne, voir `docs/conventions.md` §21),
+    `EnemyState` et `EnemyDistance` (T1.4, behaviors composables, `docs/conventions.md` §22),
+    `EnemyVariant` (T1.5, variantes et élites, §25).
   - Continues (vérifiées à chaque frame) : `NoDamageBetween` (santé du joueur ne diminue pas dans l'intervalle),
     `EnemyContactBefore` et `EnemyNeverInWall` (T1.4, diagnostics de navigation, §22).
   - `weapon_overrides` modifie la taille et le nombre de chargeurs d'une arme pour un scénario ;

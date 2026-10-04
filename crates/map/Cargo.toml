@@ -10,6 +10,7 @@ bevy_ecs_ldtk = { version = "0.15", default-features = false, features = ["deriv
 
 bevy_fixed = { path = "../bevy_fixed"}
 utils = { path = "../utils"}
+world = { path = "../world" }
 
 thiserror = "2.0.12"
 

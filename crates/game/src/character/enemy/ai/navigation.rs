@@ -540,6 +540,14 @@ impl FlowFieldCache {
             level_offset.y
         );
     }
+
+    /// Remplace les cases murées IntGrid (T1.6, terrain destructible) : seule exception à
+    /// « immutable after load ». Appelée après une destruction de terrain dans une caverne ;
+    /// `rebuild_blocked_cells` et la détection d'obstacles du prochain pas reconstruisent
+    /// alors le flow field en entier.
+    pub fn reload_walls(&mut self, cells: BTreeSet<GridPos>) {
+        self.intgrid_wall_cells = cells;
+    }
 }
 
 /// Convert LDtk grid position to FlowField GridPos

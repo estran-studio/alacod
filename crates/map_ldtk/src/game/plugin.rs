@@ -107,6 +107,9 @@ impl Plugin for LdtkMapLoadingPlugin {
                 .chain(),
         );
         app.add_plugins(super::floors::FloorsPlugin);
+        // T1.6 : terrain destructible des cavernes (`CellGrid` au chargement, murs et
+        // navigation après destruction).
+        app.add_plugins(super::cave::CavePlugin);
         // Deterministic order at the end of map loading: door level iids, then map entity
         // ids (this system also sends LdtkMapLoadingEvent), then walls, then players (see
         // MapNetIdAssignment)
