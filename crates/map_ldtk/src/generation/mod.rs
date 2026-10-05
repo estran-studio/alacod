@@ -59,6 +59,7 @@ mod tests {
     fn avant_poste_cartes_distinctes_sans_chevauchement() {
         let path = get_crate_root_path!("../../games/zombies/assets/maps/avant_poste.ldtk");
         let mut signatures = std::collections::BTreeSet::new();
+        let mut chevauchements = vec![];
         for seed in 1..=20 {
             let map = generate(&path, seed);
             let rooms = &map.generated_rooms;
@@ -71,11 +72,9 @@ mod tests {
                     let (ax, ay, aw, ah) = a.world_rect();
                     let (bx, by, bw, bh) = b.world_rect();
                     let disjoint = ax + aw <= bx || bx + bw <= ax || ay + ah <= by || by + bh <= ay;
-                    assert!(
-                        disjoint,
-                        "graine {seed} : {} et {} se chevauchent",
-                        a.template, b.template
-                    );
+                    if !disjoint {
+                        chevauchements.push(format!("graine {seed} : {} / {}", a.template, b.template));
+                    }
                 }
             }
             // La signature ignore la translation de la salle de départ (tirée par la graine
@@ -92,7 +91,9 @@ mod tests {
         }
         if std::env::var("ALACOD_MAP_SIGNATURES").is_ok_and(|v| v == "1") {
             println!("cartes distinctes : {}", signatures.len());
+            println!("chevauchements : {}", chevauchements.len());
         }
+        assert!(chevauchements.is_empty(), "salles chevauchantes : {chevauchements:?}");
         assert!(
             signatures.len() > 1,
             "les 20 graines produisent toutes la même carte"
