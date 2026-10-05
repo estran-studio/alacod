@@ -3,31 +3,33 @@
 // profils), avec tout ce que le manifeste active (butin, progression, horloge, difficulté).
 //
 // Mesuré (graine 123456, comme `alacod-sim --game throne --bots 2 --profiles prudent,prudent
-// --floors run --seeds 123456..123456 --until-floor 3`) : passages à f517, f1190, f2330
-// (navigation par le champ) ; le joueur 1 monte niveau 1 à f683 et niveau 2 à f1644
-// (`irradie`, `chasseur`), le joueur 0 niveau 1 à f964 (`rancune`). D40 : le butin de f434
-// est `munitions_lames` (même tirage que l'ancien `munitions`) ; il ne remplit plus les balles
-// ni n'annule le rechargement de la mitraillette, le troisième étage arrive plus tard
-// (f1759 avant D40).
+// --floors run --seeds 123456..123456 --until-floor 3`) : étages à f517, f1531, f5109 ; mutations
+// du joueur 0 `irradie` (f1429), `tireur` (f2258), `adrenaline` (f3110), du joueur 1 `rancune`
+// (f1493) ; alerte de l'horloge à f1417 ; portail du niveau 3 à f4925 après la mort du boss.
+// **Duo de la vague 2 de M1** (m1-integration-scenarios) : gardé sous ce nom. Avant le correctif
+// « une caverne = un asset », les trois étages étaient `niveau_1` (étage 3 à f2330).
 //
 // À regarder : les deux bots nettoient chaque caverne puis passent le portail.
 Scenario(
     game: "throne",
     floors: Some("run"),
     map_seed: 123456,
-    frames: 2350,
+    frames: 5200,
     players: [
         (bot: prudent),
         (bot: prudent),
     ],
     expect: [
         FloorIndex(index: 1, at_frame: 520),
-        FloorIndex(index: 2, at_frame: 1195),
-        FloorIndex(index: 2, at_frame: 2325),
-        FloorIndex(index: 3, at_frame: 2335),
-        Mutations(handle: 0, contains: ["rancune"], count: 1, at_frame: 2335),
-        Mutations(handle: 1, contains: ["irradie", "chasseur"], count: 2, at_frame: 2335),
-        PlayerAlive(handle: 0, at_frame: 2349),
-        PlayerAlive(handle: 1, at_frame: 2349),
+        FloorIndex(index: 2, at_frame: 1535),
+        FloorIndex(index: 2, at_frame: 5100),
+        FloorIndex(index: 3, at_frame: 5115),
+        Event(kind: "floor", label_contains: Some("niveau 3"), by_frame: 9000),
+        Event(kind: "levelup", by_frame: 829),
+        Clock(id: "alerte", fired: true, at_frame: 1420),
+        Mutations(handle: 0, contains: ["irradie", "tireur", "adrenaline"], count: Some(3), at_frame: 5115),
+        Mutations(handle: 1, contains: ["rancune"], count: Some(1), at_frame: 5115),
+        PlayerAlive(handle: 0, at_frame: 5199),
+        PlayerAlive(handle: 1, at_frame: 5199),
     ],
 )

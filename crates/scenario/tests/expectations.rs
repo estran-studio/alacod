@@ -1394,7 +1394,8 @@ fn clock_expectation_pass_and_fail() {
 
 /// T1.18 (§32) : `HudText` lit le HUD du joueur affiché (`HudSnapshot`, aussi en headless) sur
 /// `throne_progression` (scénario inchangé, attentes ajoutées ici) : étage, munitions par type,
-/// niveau 1 à f540 puis 2 à f1580, rads ; échoue sur un texte absent.
+/// niveau 1 à f540 puis 2 à f1591, rads ; échoue sur un texte absent. m1-integration-scenarios :
+/// l'étage 1 est enfin `niveau_2` (le bot y est encore à f1912 : « Étage 2 », plus « Étage 3 »).
 #[test]
 fn hud_text_sur_throne_progression() {
     if map_ldtk::RENDER_ENABLED {
@@ -1413,8 +1414,8 @@ fn hud_text_sur_throne_progression() {
             hud("level", "Niv. 0", 60),
             hud("rads", "rads", 60),
             hud("level", "Niv. 1", 540),
-            hud("level", "Niv. 2", 1580),
-            hud("floor", "Étage 3", 1912),
+            hud("level", "Niv. 2", 1595),
+            hud("floor", "Étage 2", 1912),
         ],
         &[
             (hud("level", "Niv. 2", 540), "attendu « Niv. 2 »"),

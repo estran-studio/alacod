@@ -1,0 +1,1702 @@
+{
+ "1_bots": [
+  {
+   "seed": 1,
+   "wave": 0,
+   "floor": 2,
+   "frames": 4427,
+   "deaths": 1,
+   "kills": 0,
+   "wall_seconds": 60.727879313,
+   "desync": false,
+   "sim_fps": 73.2059366736498,
+   "floor_frames": [
+    921,
+    3123
+   ],
+   "damage_taken": 211,
+   "dodges": 580
+  },
+  {
+   "seed": 2,
+   "wave": 0,
+   "floor": 2,
+   "frames": 3699,
+   "deaths": 1,
+   "kills": 0,
+   "wall_seconds": 64.911025571,
+   "desync": false,
+   "sim_fps": 57.253560310662856,
+   "floor_frames": [
+    803,
+    2306
+   ],
+   "damage_taken": 131,
+   "dodges": 647
+  },
+  {
+   "seed": 3,
+   "wave": 0,
+   "floor": 0,
+   "frames": 2422,
+   "deaths": 0,
+   "kills": 0,
+   "wall_seconds": 32.626349326,
+   "desync": false,
+   "sim_fps": 74.89620060877891,
+   "damage_taken": 0,
+   "softlock": {
+    "observations": [
+     "plafond atteint : phase NotStarted, 0 ennemis de vague présents, 0 encore à générer",
+     "0 ennemis sans chemin depuis leur case exacte vers une cible du flow field",
+     "0 ennemis dont le point visé par le flow field chevauche un mur physique avec leur collider",
+     "aucun kill entre les frames 1822 et 2422"
+    ],
+    "enemies": []
+   }
+  },
+  {
+   "seed": 4,
+   "wave": 0,
+   "floor": 2,
+   "frames": 3773,
+   "deaths": 1,
+   "kills": 0,
+   "wall_seconds": 55.194801997,
+   "desync": false,
+   "sim_fps": 68.72983566435164,
+   "floor_frames": [
+    1243,
+    2650
+   ],
+   "damage_taken": 193,
+   "dodges": 607
+  },
+  {
+   "seed": 5,
+   "wave": 0,
+   "floor": 2,
+   "frames": 3371,
+   "deaths": 1,
+   "kills": 0,
+   "wall_seconds": 56.117543203,
+   "desync": false,
+   "sim_fps": 60.36811685296303,
+   "floor_frames": [
+    875,
+    2508
+   ],
+   "damage_taken": 202,
+   "dodges": 611
+  },
+  {
+   "seed": 6,
+   "wave": 0,
+   "floor": 2,
+   "frames": 5819,
+   "deaths": 1,
+   "kills": 0,
+   "wall_seconds": 88.233126865,
+   "desync": false,
+   "sim_fps": 66.14025588962728,
+   "floor_frames": [
+    1680,
+    3092
+   ],
+   "damage_taken": 309,
+   "dodges": 838
+  },
+  {
+   "seed": 7,
+   "wave": 0,
+   "floor": 2,
+   "frames": 4076,
+   "deaths": 1,
+   "kills": 0,
+   "wall_seconds": 58.606605186,
+   "desync": false,
+   "sim_fps": 69.86605498158936,
+   "floor_frames": [
+    752,
+    3247
+   ],
+   "damage_taken": 149,
+   "dodges": 534
+  },
+  {
+   "seed": 8,
+   "wave": 0,
+   "floor": 2,
+   "frames": 5520,
+   "deaths": 0,
+   "kills": 0,
+   "wall_seconds": 107.904233486,
+   "desync": false,
+   "sim_fps": 51.31265086967512,
+   "floor_frames": [
+    883,
+    1879
+   ],
+   "damage_taken": 245,
+   "dodges": 722,
+   "softlock": {
+    "observations": [
+     "plafond atteint : phase NotStarted, 0 ennemis de vague présents, 0 encore à générer",
+     "1 ennemis sans chemin depuis leur case exacte vers une cible du flow field",
+     "0 ennemis dont le point visé par le flow field chevauche un mur physique avec leur collider",
+     "aucun kill entre les frames 4920 et 5520"
+    ],
+    "enemies": [
+     [
+      520,
+      [
+       12,
+       3
+      ],
+      "145"
+     ]
+    ]
+   }
+  },
+  {
+   "seed": 9,
+   "wave": 0,
+   "floor": 1,
+   "frames": 1968,
+   "deaths": 1,
+   "kills": 0,
+   "wall_seconds": 28.09789994,
+   "desync": false,
+   "sim_fps": 70.96238232964261,
+   "floor_frames": [
+    1103
+   ],
+   "damage_taken": 94,
+   "dodges": 226
+  },
+  {
+   "seed": 10,
+   "wave": 0,
+   "floor": 1,
+   "frames": 3692,
+   "deaths": 0,
+   "kills": 0,
+   "wall_seconds": 90.370334798,
+   "desync": false,
+   "sim_fps": 40.97261982583556,
+   "floor_frames": [
+    1230
+   ],
+   "damage_taken": 37,
+   "dodges": 173,
+   "softlock": {
+    "observations": [
+     "plafond atteint : phase NotStarted, 0 ennemis de vague présents, 0 encore à générer",
+     "1 ennemis sans chemin depuis leur case exacte vers une cible du flow field",
+     "0 ennemis dont le point visé par le flow field chevauche un mur physique avec leur collider",
+     "aucun kill entre les frames 3092 et 3692"
+    ],
+    "enemies": [
+     [
+      281,
+      [
+       27,
+       20
+      ],
+      "18"
+     ]
+    ]
+   }
+  },
+  {
+   "seed": 11,
+   "wave": 0,
+   "floor": 2,
+   "frames": 3615,
+   "deaths": 1,
+   "kills": 0,
+   "wall_seconds": 85.555688725,
+   "desync": false,
+   "sim_fps": 42.44199275940428,
+   "floor_frames": [
+    759,
+    1809
+   ],
+   "damage_taken": 159,
+   "dodges": 602
+  },
+  {
+   "seed": 12,
+   "wave": 0,
+   "floor": 2,
+   "frames": 3479,
+   "deaths": 1,
+   "kills": 0,
+   "wall_seconds": 49.224828138,
+   "desync": false,
+   "sim_fps": 71.09917342932472,
+   "floor_frames": [
+    1235,
+    2410
+   ],
+   "damage_taken": 133,
+   "dodges": 515
+  },
+  {
+   "seed": 13,
+   "wave": 0,
+   "floor": 2,
+   "frames": 3336,
+   "deaths": 1,
+   "kills": 0,
+   "wall_seconds": 55.581650519,
+   "desync": false,
+   "sim_fps": 60.33476421633618,
+   "floor_frames": [
+    853,
+    2160
+   ],
+   "damage_taken": 182,
+   "dodges": 603
+  },
+  {
+   "seed": 14,
+   "wave": 0,
+   "floor": 2,
+   "frames": 4055,
+   "deaths": 1,
+   "kills": 0,
+   "wall_seconds": 71.674386717,
+   "desync": false,
+   "sim_fps": 56.81146544650352,
+   "floor_frames": [
+    1246,
+    2316
+   ],
+   "damage_taken": 186,
+   "dodges": 649
+  },
+  {
+   "seed": 15,
+   "wave": 0,
+   "floor": 2,
+   "frames": 4919,
+   "deaths": 1,
+   "kills": 0,
+   "wall_seconds": 64.078879441,
+   "desync": false,
+   "sim_fps": 77.10084634677568,
+   "floor_frames": [
+    995,
+    3145
+   ],
+   "damage_taken": 247,
+   "dodges": 979
+  },
+  {
+   "seed": 16,
+   "wave": 0,
+   "floor": 0,
+   "frames": 1695,
+   "deaths": 0,
+   "kills": 0,
+   "wall_seconds": 20.745196159,
+   "desync": false,
+   "sim_fps": 82.69516779963443,
+   "damage_taken": 4,
+   "softlock": {
+    "observations": [
+     "plafond atteint : phase NotStarted, 0 ennemis de vague présents, 0 encore à générer",
+     "0 ennemis sans chemin depuis leur case exacte vers une cible du flow field",
+     "0 ennemis dont le point visé par le flow field chevauche un mur physique avec leur collider",
+     "aucun kill entre les frames 1095 et 1695"
+    ],
+    "enemies": []
+   }
+  },
+  {
+   "seed": 17,
+   "wave": 0,
+   "floor": 2,
+   "frames": 3393,
+   "deaths": 1,
+   "kills": 0,
+   "wall_seconds": 44.33566643,
+   "desync": false,
+   "sim_fps": 76.99624415722633,
+   "floor_frames": [
+    675,
+    1611
+   ],
+   "damage_taken": 222,
+   "dodges": 668
+  },
+  {
+   "seed": 18,
+   "wave": 0,
+   "floor": 2,
+   "frames": 4915,
+   "deaths": 1,
+   "kills": 0,
+   "wall_seconds": 66.945892197,
+   "desync": false,
+   "sim_fps": 73.69900110572875,
+   "floor_frames": [
+    1214,
+    3131
+   ],
+   "damage_taken": 201,
+   "dodges": 808
+  },
+  {
+   "seed": 19,
+   "wave": 0,
+   "floor": 1,
+   "frames": 3557,
+   "deaths": 0,
+   "kills": 0,
+   "wall_seconds": 81.159384277,
+   "desync": false,
+   "sim_fps": 43.94421465899499,
+   "floor_frames": [
+    1318
+   ],
+   "damage_taken": 61,
+   "dodges": 188,
+   "softlock": {
+    "observations": [
+     "plafond atteint : phase NotStarted, 0 ennemis de vague présents, 0 encore à générer",
+     "1 ennemis sans chemin depuis leur case exacte vers une cible du flow field",
+     "0 ennemis dont le point visé par le flow field chevauche un mur physique avec leur collider",
+     "aucun kill entre les frames 2957 et 3557"
+    ],
+    "enemies": [
+     [
+      246,
+      [
+       10,
+       37
+      ],
+      "37.5"
+     ]
+    ]
+   }
+  },
+  {
+   "seed": 20,
+   "wave": 0,
+   "floor": 2,
+   "frames": 4421,
+   "deaths": 0,
+   "kills": 0,
+   "wall_seconds": 57.605939487,
+   "desync": false,
+   "sim_fps": 77.03757454066407,
+   "floor_frames": [
+    908,
+    2244
+   ],
+   "damage_taken": 182,
+   "dodges": 560,
+   "softlock": {
+    "observations": [
+     "plafond atteint : phase NotStarted, 0 ennemis de vague présents, 0 encore à générer",
+     "2 ennemis sans chemin depuis leur case exacte vers une cible du flow field",
+     "0 ennemis dont le point visé par le flow field chevauche un mur physique avec leur collider",
+     "aucun kill entre les frames 3821 et 4421"
+    ],
+    "enemies": [
+     [
+      497,
+      [
+       50,
+       3
+      ],
+      "103.5"
+     ],
+     [
+      503,
+      [
+       3,
+       3
+      ],
+      "16"
+     ]
+    ]
+   }
+  }
+ ],
+ "2_bots": [
+  {
+   "seed": 1,
+   "wave": 0,
+   "floor": 2,
+   "frames": 4893,
+   "deaths": 0,
+   "kills": 0,
+   "wall_seconds": 79.250010778,
+   "desync": false,
+   "sim_fps": 61.94273273741633,
+   "floor_frames": [
+    468,
+    2082
+   ],
+   "damage_taken": 149,
+   "dodges": 504,
+   "softlock": {
+    "observations": [
+     "plafond atteint : phase NotStarted, 0 ennemis de vague présents, 0 encore à générer",
+     "1 ennemis sans chemin depuis leur case exacte vers une cible du flow field",
+     "0 ennemis dont le point visé par le flow field chevauche un mur physique avec leur collider",
+     "aucun kill entre les frames 4293 et 4893"
+    ],
+    "enemies": [
+     [
+      657,
+      [
+       3,
+       11
+      ],
+      "153"
+     ]
+    ]
+   }
+  },
+  {
+   "seed": 2,
+   "wave": 0,
+   "floor": 2,
+   "frames": 5111,
+   "deaths": 1,
+   "kills": 0,
+   "wall_seconds": 94.887652935,
+   "desync": false,
+   "sim_fps": 54.0387020984826,
+   "floor_frames": [
+    655,
+    1944
+   ],
+   "damage_taken": 193,
+   "dodges": 737,
+   "softlock": {
+    "observations": [
+     "plafond atteint : phase NotStarted, 0 ennemis de vague présents, 0 encore à générer",
+     "1 ennemis sans chemin depuis leur case exacte vers une cible du flow field",
+     "0 ennemis dont le point visé par le flow field chevauche un mur physique avec leur collider",
+     "aucun kill entre les frames 4511 et 5111"
+    ],
+    "enemies": [
+     [
+      595,
+      [
+       51,
+       39
+      ],
+      "169"
+     ]
+    ]
+   }
+  },
+  {
+   "seed": 3,
+   "wave": 0,
+   "floor": 3,
+   "frames": 4487,
+   "deaths": 0,
+   "kills": 0,
+   "wall_seconds": 80.41214573,
+   "desync": false,
+   "sim_fps": 56.00530356140397,
+   "floor_frames": [
+    1129,
+    1784,
+    4487
+   ],
+   "damage_taken": 254,
+   "dodges": 895
+  },
+  {
+   "seed": 4,
+   "wave": 0,
+   "floor": 2,
+   "frames": 4614,
+   "deaths": 0,
+   "kills": 0,
+   "wall_seconds": 88.634792108,
+   "desync": false,
+   "sim_fps": 52.229028167953764,
+   "floor_frames": [
+    761,
+    1949
+   ],
+   "damage_taken": 152,
+   "dodges": 815,
+   "softlock": {
+    "observations": [
+     "plafond atteint : phase NotStarted, 0 ennemis de vague présents, 0 encore à générer",
+     "1 ennemis sans chemin depuis leur case exacte vers une cible du flow field",
+     "0 ennemis dont le point visé par le flow field chevauche un mur physique avec leur collider",
+     "aucun kill entre les frames 4014 et 4614"
+    ],
+    "enemies": [
+     [
+      612,
+      [
+       50,
+       2
+      ],
+      "1"
+     ]
+    ]
+   }
+  },
+  {
+   "seed": 5,
+   "wave": 0,
+   "floor": 2,
+   "frames": 5610,
+   "deaths": 1,
+   "kills": 0,
+   "wall_seconds": 126.336363084,
+   "desync": false,
+   "sim_fps": 45.81534957789795,
+   "floor_frames": [
+    850,
+    1927
+   ],
+   "damage_taken": 360,
+   "dodges": 860,
+   "softlock": {
+    "observations": [
+     "plafond atteint : phase NotStarted, 0 ennemis de vague présents, 0 encore à générer",
+     "1 ennemis sans chemin depuis leur case exacte vers une cible du flow field",
+     "0 ennemis dont le point visé par le flow field chevauche un mur physique avec leur collider",
+     "aucun kill entre les frames 5010 et 5610"
+    ],
+    "enemies": [
+     [
+      617,
+      [
+       60,
+       18
+      ],
+      "113"
+     ]
+    ]
+   }
+  },
+  {
+   "seed": 6,
+   "wave": 0,
+   "floor": 2,
+   "frames": 4579,
+   "deaths": 0,
+   "kills": 0,
+   "wall_seconds": 93.601533485,
+   "desync": false,
+   "sim_fps": 49.68082400443963,
+   "floor_frames": [
+    1230,
+    2153
+   ],
+   "damage_taken": 149,
+   "dodges": 623,
+   "softlock": {
+    "observations": [
+     "plafond atteint : phase NotStarted, 0 ennemis de vague présents, 0 encore à générer",
+     "2 ennemis sans chemin depuis leur case exacte vers une cible du flow field",
+     "0 ennemis dont le point visé par le flow field chevauche un mur physique avec leur collider",
+     "aucun kill entre les frames 3979 et 4579"
+    ],
+    "enemies": [
+     [
+      591,
+      [
+       17,
+       4
+      ],
+      "140"
+     ],
+     [
+      601,
+      [
+       59,
+       11
+      ],
+      "145"
+     ]
+    ]
+   }
+  },
+  {
+   "seed": 7,
+   "wave": 0,
+   "floor": 2,
+   "frames": 4268,
+   "deaths": 0,
+   "kills": 0,
+   "wall_seconds": 157.386299808,
+   "desync": false,
+   "sim_fps": 27.184084019752333,
+   "floor_frames": [
+    959,
+    2110
+   ],
+   "damage_taken": 203,
+   "dodges": 702,
+   "softlock": {
+    "observations": [
+     "plafond atteint : phase NotStarted, 0 ennemis de vague présents, 0 encore à générer",
+     "3 ennemis sans chemin depuis leur case exacte vers une cible du flow field",
+     "0 ennemis dont le point visé par le flow field chevauche un mur physique avec leur collider",
+     "aucun kill entre les frames 3668 et 4268"
+    ],
+    "enemies": [
+     [
+      708,
+      [
+       44,
+       38
+      ],
+      "20"
+     ],
+     [
+      714,
+      [
+       58,
+       31
+      ],
+      "149"
+     ],
+     [
+      720,
+      [
+       46,
+       41
+      ],
+      "356"
+     ]
+    ]
+   }
+  },
+  {
+   "seed": 8,
+   "wave": 0,
+   "floor": 2,
+   "frames": 4479,
+   "deaths": 0,
+   "kills": 0,
+   "wall_seconds": 94.707223509,
+   "desync": false,
+   "sim_fps": 47.46054202375977,
+   "floor_frames": [
+    533,
+    2117
+   ],
+   "damage_taken": 301,
+   "dodges": 869,
+   "softlock": {
+    "observations": [
+     "plafond atteint : phase NotStarted, 0 ennemis de vague présents, 0 encore à générer",
+     "2 ennemis sans chemin depuis leur case exacte vers une cible du flow field",
+     "0 ennemis dont le point visé par le flow field chevauche un mur physique avec leur collider",
+     "aucun kill entre les frames 3879 et 4479"
+    ],
+    "enemies": [
+     [
+      687,
+      [
+       50,
+       4
+      ],
+      "4"
+     ],
+     [
+      693,
+      [
+       12,
+       3
+      ],
+      "193"
+     ]
+    ]
+   }
+  },
+  {
+   "seed": 9,
+   "wave": 0,
+   "floor": 2,
+   "frames": 5057,
+   "deaths": 1,
+   "kills": 0,
+   "wall_seconds": 91.064622828,
+   "desync": false,
+   "sim_fps": 55.69511077185542,
+   "floor_frames": [
+    919,
+    1872
+   ],
+   "damage_taken": 278,
+   "dodges": 745,
+   "softlock": {
+    "observations": [
+     "plafond atteint : phase NotStarted, 0 ennemis de vague présents, 0 encore à générer",
+     "2 ennemis sans chemin depuis leur case exacte vers une cible du flow field",
+     "0 ennemis dont le point visé par le flow field chevauche un mur physique avec leur collider",
+     "aucun kill entre les frames 4457 et 5057"
+    ],
+    "enemies": [
+     [
+      601,
+      [
+       26,
+       11
+      ],
+      "124"
+     ],
+     [
+      606,
+      [
+       61,
+       30
+      ],
+      "209"
+     ]
+    ]
+   }
+  },
+  {
+   "seed": 10,
+   "wave": 0,
+   "floor": 2,
+   "frames": 5568,
+   "deaths": 0,
+   "kills": 0,
+   "wall_seconds": 111.933966685,
+   "desync": false,
+   "sim_fps": 49.86241428742282,
+   "floor_frames": [
+    592,
+    2245
+   ],
+   "damage_taken": 292,
+   "dodges": 1360,
+   "softlock": {
+    "observations": [
+     "plafond atteint : phase NotStarted, 0 ennemis de vague présents, 0 encore à générer",
+     "1 ennemis sans chemin depuis leur case exacte vers une cible du flow field",
+     "0 ennemis dont le point visé par le flow field chevauche un mur physique avec leur collider",
+     "aucun kill entre les frames 4968 et 5568"
+    ],
+    "enemies": [
+     [
+      701,
+      [
+       5,
+       11
+      ],
+      "145"
+     ]
+    ]
+   }
+  },
+  {
+   "seed": 11,
+   "wave": 0,
+   "floor": 2,
+   "frames": 5056,
+   "deaths": 0,
+   "kills": 0,
+   "wall_seconds": 80.690468173,
+   "desync": false,
+   "sim_fps": 62.905693271714746,
+   "floor_frames": [
+    689,
+    1593
+   ],
+   "damage_taken": 76,
+   "dodges": 327,
+   "softlock": {
+    "observations": [
+     "plafond atteint : phase NotStarted, 0 ennemis de vague présents, 0 encore à générer",
+     "1 ennemis sans chemin depuis leur case exacte vers une cible du flow field",
+     "0 ennemis dont le point visé par le flow field chevauche un mur physique avec leur collider",
+     "aucun kill entre les frames 4456 et 5056"
+    ],
+    "enemies": [
+     [
+      504,
+      [
+       51,
+       39
+      ],
+      "89"
+     ]
+    ]
+   }
+  },
+  {
+   "seed": 12,
+   "wave": 0,
+   "floor": 2,
+   "frames": 4187,
+   "deaths": 1,
+   "kills": 0,
+   "wall_seconds": 54.998515654,
+   "desync": false,
+   "sim_fps": 76.63256624056619,
+   "floor_frames": [
+    814,
+    1873
+   ],
+   "damage_taken": 221,
+   "dodges": 657,
+   "softlock": {
+    "observations": [
+     "plafond atteint : phase NotStarted, 0 ennemis de vague présents, 0 encore à générer",
+     "5 ennemis sans chemin depuis leur case exacte vers une cible du flow field",
+     "0 ennemis dont le point visé par le flow field chevauche un mur physique avec leur collider",
+     "aucun kill entre les frames 3587 et 4187"
+    ],
+    "enemies": [
+     [
+      575,
+      [
+       38,
+       4
+      ],
+      "47"
+     ],
+     [
+      576,
+      [
+       40,
+       5
+      ],
+      "44"
+     ],
+     [
+      578,
+      [
+       40,
+       5
+      ],
+      "67"
+     ],
+     [
+      584,
+      [
+       39,
+       5
+      ],
+      "428"
+     ],
+     [
+      586,
+      [
+       61,
+       14
+      ],
+      "169"
+     ]
+    ]
+   }
+  },
+  {
+   "seed": 13,
+   "wave": 0,
+   "floor": 2,
+   "frames": 4007,
+   "deaths": 0,
+   "kills": 0,
+   "wall_seconds": 80.293636673,
+   "desync": false,
+   "sim_fps": 50.04636490271787,
+   "floor_frames": [
+    675,
+    1613
+   ],
+   "damage_taken": 173,
+   "dodges": 588,
+   "softlock": {
+    "observations": [
+     "plafond atteint : phase NotStarted, 0 ennemis de vague présents, 0 encore à générer",
+     "2 ennemis sans chemin depuis leur case exacte vers une cible du flow field",
+     "0 ennemis dont le point visé par le flow field chevauche un mur physique avec leur collider",
+     "aucun kill entre les frames 3407 et 4007"
+    ],
+    "enemies": [
+     [
+      561,
+      [
+       5,
+       5
+      ],
+      "156"
+     ],
+     [
+      563,
+      [
+       3,
+       11
+      ],
+      "9"
+     ]
+    ]
+   }
+  },
+  {
+   "seed": 14,
+   "wave": 0,
+   "floor": 3,
+   "frames": 5991,
+   "deaths": 0,
+   "kills": 0,
+   "wall_seconds": 115.558841639,
+   "desync": false,
+   "sim_fps": 51.93347638577545,
+   "floor_frames": [
+    1282,
+    2509,
+    5991
+   ],
+   "damage_taken": 138,
+   "dodges": 682
+  },
+  {
+   "seed": 15,
+   "wave": 0,
+   "floor": 3,
+   "frames": 5421,
+   "deaths": 0,
+   "kills": 0,
+   "wall_seconds": 109.83863593,
+   "desync": false,
+   "sim_fps": 49.455607149177595,
+   "floor_frames": [
+    1204,
+    2440,
+    5421
+   ],
+   "damage_taken": 248,
+   "dodges": 930
+  },
+  {
+   "seed": 16,
+   "wave": 0,
+   "floor": 2,
+   "frames": 4644,
+   "deaths": 1,
+   "kills": 0,
+   "wall_seconds": 87.027049584,
+   "desync": false,
+   "sim_fps": 53.506499823279455,
+   "floor_frames": [
+    1000,
+    2025
+   ],
+   "damage_taken": 282,
+   "dodges": 893,
+   "softlock": {
+    "observations": [
+     "plafond atteint : phase NotStarted, 0 ennemis de vague présents, 0 encore à générer",
+     "2 ennemis sans chemin depuis leur case exacte vers une cible du flow field",
+     "0 ennemis dont le point visé par le flow field chevauche un mur physique avec leur collider",
+     "aucun kill entre les frames 4044 et 4644"
+    ],
+    "enemies": [
+     [
+      596,
+      [
+       47,
+       30
+      ],
+      "78"
+     ],
+     [
+      606,
+      [
+       51,
+       4
+      ],
+      "82"
+     ]
+    ]
+   }
+  },
+  {
+   "seed": 17,
+   "wave": 0,
+   "floor": 2,
+   "frames": 5059,
+   "deaths": 0,
+   "kills": 0,
+   "wall_seconds": 97.983071632,
+   "desync": false,
+   "sim_fps": 51.761129391846474,
+   "floor_frames": [
+    664,
+    2131
+   ],
+   "damage_taken": 177,
+   "dodges": 766,
+   "softlock": {
+    "observations": [
+     "plafond atteint : phase NotStarted, 0 ennemis de vague présents, 0 encore à générer",
+     "1 ennemis sans chemin depuis leur case exacte vers une cible du flow field",
+     "0 ennemis dont le point visé par le flow field chevauche un mur physique avec leur collider",
+     "aucun kill entre les frames 4459 et 5059"
+    ],
+    "enemies": [
+     [
+      665,
+      [
+       20,
+       19
+      ],
+      "68"
+     ]
+    ]
+   }
+  },
+  {
+   "seed": 18,
+   "wave": 0,
+   "floor": 2,
+   "frames": 4641,
+   "deaths": 2,
+   "kills": 0,
+   "wall_seconds": 87.376839531,
+   "desync": false,
+   "sim_fps": 53.26371961677137,
+   "floor_frames": [
+    827,
+    1726
+   ],
+   "damage_taken": 265,
+   "dodges": 843
+  },
+  {
+   "seed": 19,
+   "wave": 0,
+   "floor": 1,
+   "frames": 2982,
+   "deaths": 0,
+   "kills": 0,
+   "wall_seconds": 55.766857762,
+   "desync": false,
+   "sim_fps": 53.803553382714576,
+   "floor_frames": [
+    1003
+   ],
+   "damage_taken": 18,
+   "dodges": 216,
+   "softlock": {
+    "observations": [
+     "plafond atteint : phase NotStarted, 0 ennemis de vague présents, 0 encore à générer",
+     "1 ennemis sans chemin depuis leur case exacte vers une cible du flow field",
+     "0 ennemis dont le point visé par le flow field chevauche un mur physique avec leur collider",
+     "aucun kill entre les frames 2382 et 2982"
+    ],
+    "enemies": [
+     [
+      294,
+      [
+       10,
+       37
+      ],
+      "29.5"
+     ]
+    ]
+   }
+  },
+  {
+   "seed": 20,
+   "wave": 0,
+   "floor": 2,
+   "frames": 5313,
+   "deaths": 1,
+   "kills": 0,
+   "wall_seconds": 172.839598529,
+   "desync": false,
+   "sim_fps": 30.784150540780768,
+   "floor_frames": [
+    638,
+    2190
+   ],
+   "damage_taken": 154,
+   "dodges": 709,
+   "softlock": {
+    "observations": [
+     "plafond atteint : phase NotStarted, 0 ennemis de vague présents, 0 encore à générer",
+     "2 ennemis sans chemin depuis leur case exacte vers une cible du flow field",
+     "0 ennemis dont le point visé par le flow field chevauche un mur physique avec leur collider",
+     "aucun kill entre les frames 4713 et 5313"
+    ],
+    "enemies": [
+     [
+      624,
+      [
+       50,
+       3
+      ],
+      "225"
+     ],
+     [
+      630,
+      [
+       33,
+       37
+      ],
+      "484"
+     ]
+    ]
+   }
+  }
+ ],
+ "4_bots": [
+  {
+   "seed": 1,
+   "wave": 0,
+   "floor": 3,
+   "frames": 3766,
+   "deaths": 0,
+   "kills": 0,
+   "wall_seconds": 110.73519415,
+   "desync": false,
+   "sim_fps": 34.091676937915004,
+   "floor_frames": [
+    470,
+    1553,
+    3766
+   ],
+   "damage_taken": 179,
+   "dodges": 833
+  },
+  {
+   "seed": 2,
+   "wave": 0,
+   "floor": 2,
+   "frames": 3279,
+   "deaths": 0,
+   "kills": 0,
+   "wall_seconds": 106.22159101,
+   "desync": false,
+   "sim_fps": 30.95706463746125,
+   "floor_frames": [
+    527,
+    1287
+   ],
+   "damage_taken": 120,
+   "dodges": 442,
+   "softlock": {
+    "observations": [
+     "plafond atteint : phase NotStarted, 0 ennemis de vague présents, 0 encore à générer",
+     "2 ennemis sans chemin depuis leur case exacte vers une cible du flow field",
+     "0 ennemis dont le point visé par le flow field chevauche un mur physique avec leur collider",
+     "aucun kill entre les frames 2679 et 3279"
+    ],
+    "enemies": [
+     [
+      687,
+      [
+       51,
+       39
+      ],
+      "217"
+     ],
+     [
+      693,
+      [
+       19,
+       25
+      ],
+      "12"
+     ]
+    ]
+   }
+  },
+  {
+   "seed": 3,
+   "wave": 0,
+   "floor": 3,
+   "frames": 2890,
+   "deaths": 0,
+   "kills": 0,
+   "wall_seconds": 92.58342635,
+   "desync": false,
+   "sim_fps": 31.31584727197648,
+   "floor_frames": [
+    569,
+    1200,
+    2890
+   ],
+   "damage_taken": 214,
+   "dodges": 759
+  },
+  {
+   "seed": 4,
+   "wave": 0,
+   "floor": 2,
+   "frames": 3643,
+   "deaths": 0,
+   "kills": 0,
+   "wall_seconds": 89.431287592,
+   "desync": false,
+   "sim_fps": 40.87715206584447,
+   "floor_frames": [
+    404,
+    1197
+   ],
+   "damage_taken": 180,
+   "dodges": 879,
+   "softlock": {
+    "observations": [
+     "plafond atteint : phase NotStarted, 0 ennemis de vague présents, 0 encore à générer",
+     "2 ennemis sans chemin depuis leur case exacte vers une cible du flow field",
+     "0 ennemis dont le point visé par le flow field chevauche un mur physique avec leur collider",
+     "aucun kill entre les frames 3043 et 3643"
+    ],
+    "enemies": [
+     [
+      695,
+      [
+       33,
+       16
+      ],
+      "124"
+     ],
+     [
+      700,
+      [
+       50,
+       2
+      ],
+      "105"
+     ]
+    ]
+   }
+  },
+  {
+   "seed": 5,
+   "wave": 0,
+   "floor": 3,
+   "frames": 3462,
+   "deaths": 0,
+   "kills": 0,
+   "wall_seconds": 115.817428776,
+   "desync": false,
+   "sim_fps": 29.975416140656236,
+   "floor_frames": [
+    741,
+    1261,
+    3462
+   ],
+   "damage_taken": 146,
+   "dodges": 426
+  },
+  {
+   "seed": 6,
+   "wave": 0,
+   "floor": 3,
+   "frames": 5054,
+   "deaths": 0,
+   "kills": 0,
+   "wall_seconds": 204.270315778,
+   "desync": false,
+   "sim_fps": 24.7816507404467,
+   "floor_frames": [
+    748,
+    1629,
+    5054
+   ],
+   "damage_taken": 161,
+   "dodges": 756
+  },
+  {
+   "seed": 7,
+   "wave": 0,
+   "floor": 2,
+   "frames": 4568,
+   "deaths": 1,
+   "kills": 0,
+   "wall_seconds": 128.867410086,
+   "desync": false,
+   "sim_fps": 35.5455536313338,
+   "floor_frames": [
+    646,
+    1245
+   ],
+   "damage_taken": 267,
+   "dodges": 849,
+   "softlock": {
+    "observations": [
+     "plafond atteint : phase NotStarted, 0 ennemis de vague présents, 0 encore à générer",
+     "1 ennemis sans chemin depuis leur case exacte vers une cible du flow field",
+     "0 ennemis dont le point visé par le flow field chevauche un mur physique avec leur collider",
+     "aucun kill entre les frames 3968 et 4568"
+    ],
+    "enemies": [
+     [
+      734,
+      [
+       58,
+       31
+      ],
+      "1"
+     ]
+    ]
+   }
+  },
+  {
+   "seed": 8,
+   "wave": 0,
+   "floor": 2,
+   "frames": 4422,
+   "deaths": 0,
+   "kills": 0,
+   "wall_seconds": 132.508186654,
+   "desync": false,
+   "sim_fps": 33.44824127061763,
+   "floor_frames": [
+    565,
+    1843
+   ],
+   "damage_taken": 155,
+   "dodges": 973,
+   "softlock": {
+    "observations": [
+     "plafond atteint : phase NotStarted, 0 ennemis de vague présents, 0 encore à générer",
+     "2 ennemis sans chemin depuis leur case exacte vers une cible du flow field",
+     "0 ennemis dont le point visé par le flow field chevauche un mur physique avec leur collider",
+     "aucun kill entre les frames 3822 et 4422"
+    ],
+    "enemies": [
+     [
+      845,
+      [
+       40,
+       32
+      ],
+      "108"
+     ],
+     [
+      851,
+      [
+       12,
+       3
+      ],
+      "41"
+     ]
+    ]
+   }
+  },
+  {
+   "seed": 9,
+   "wave": 0,
+   "floor": 3,
+   "frames": 4624,
+   "deaths": 0,
+   "kills": 0,
+   "wall_seconds": 146.902495008,
+   "desync": false,
+   "sim_fps": 31.539152921128142,
+   "floor_frames": [
+    533,
+    1630,
+    4624
+   ],
+   "damage_taken": 147,
+   "dodges": 606
+  },
+  {
+   "seed": 10,
+   "wave": 0,
+   "floor": 3,
+   "frames": 3518,
+   "deaths": 0,
+   "kills": 0,
+   "wall_seconds": 106.444622659,
+   "desync": false,
+   "sim_fps": 33.131544765569004,
+   "floor_frames": [
+    669,
+    1791,
+    3518
+   ],
+   "damage_taken": 72,
+   "dodges": 518
+  },
+  {
+   "seed": 11,
+   "wave": 0,
+   "floor": 3,
+   "frames": 3107,
+   "deaths": 0,
+   "kills": 0,
+   "wall_seconds": 75.584085207,
+   "desync": false,
+   "sim_fps": 41.235900090578404,
+   "floor_frames": [
+    253,
+    855,
+    3107
+   ],
+   "damage_taken": 261,
+   "dodges": 1020
+  },
+  {
+   "seed": 12,
+   "wave": 0,
+   "floor": 1,
+   "frames": 2777,
+   "deaths": 0,
+   "kills": 0,
+   "wall_seconds": 48.544453378,
+   "desync": false,
+   "sim_fps": 57.472351937856914,
+   "floor_frames": [
+    878
+   ],
+   "damage_taken": 5,
+   "dodges": 48,
+   "softlock": {
+    "observations": [
+     "plafond atteint : phase NotStarted, 0 ennemis de vague présents, 0 encore à générer",
+     "1 ennemis sans chemin depuis leur case exacte vers une cible du flow field",
+     "0 ennemis dont le point visé par le flow field chevauche un mur physique avec leur collider",
+     "aucun kill entre les frames 2177 et 2777"
+    ],
+    "enemies": [
+     [
+      432,
+      [
+       34,
+       24
+      ],
+      "2"
+     ]
+    ]
+   }
+  },
+  {
+   "seed": 13,
+   "wave": 0,
+   "floor": 2,
+   "frames": 4289,
+   "deaths": 0,
+   "kills": 0,
+   "wall_seconds": 82.926534303,
+   "desync": false,
+   "sim_fps": 51.88807925628685,
+   "floor_frames": [
+    629,
+    1178
+   ],
+   "damage_taken": 232,
+   "dodges": 788,
+   "softlock": {
+    "observations": [
+     "plafond atteint : phase NotStarted, 0 ennemis de vague présents, 0 encore à générer",
+     "1 ennemis sans chemin depuis leur case exacte vers une cible du flow field",
+     "0 ennemis dont le point visé par le flow field chevauche un mur physique avec leur collider",
+     "aucun kill entre les frames 3689 et 4289"
+    ],
+    "enemies": [
+     [
+      709,
+      [
+       5,
+       5
+      ],
+      "124"
+     ]
+    ]
+   }
+  },
+  {
+   "seed": 14,
+   "wave": 0,
+   "floor": 3,
+   "frames": 3330,
+   "deaths": 0,
+   "kills": 0,
+   "wall_seconds": 64.386907977,
+   "desync": false,
+   "sim_fps": 51.905568560243935,
+   "floor_frames": [
+    748,
+    1439,
+    3330
+   ],
+   "damage_taken": 109,
+   "dodges": 655
+  },
+  {
+   "seed": 15,
+   "wave": 0,
+   "floor": 3,
+   "frames": 4460,
+   "deaths": 0,
+   "kills": 0,
+   "wall_seconds": 122.87843098,
+   "desync": false,
+   "sim_fps": 36.38106749829284,
+   "floor_frames": [
+    975,
+    1990,
+    4460
+   ],
+   "damage_taken": 244,
+   "dodges": 917
+  },
+  {
+   "seed": 16,
+   "wave": 0,
+   "floor": 3,
+   "frames": 3406,
+   "deaths": 0,
+   "kills": 0,
+   "wall_seconds": 96.442940833,
+   "desync": false,
+   "sim_fps": 35.409994500571166,
+   "floor_frames": [
+    742,
+    1776,
+    3406
+   ],
+   "damage_taken": 198,
+   "dodges": 716
+  },
+  {
+   "seed": 17,
+   "wave": 0,
+   "floor": 3,
+   "frames": 4111,
+   "deaths": 0,
+   "kills": 0,
+   "wall_seconds": 91.35906821,
+   "desync": false,
+   "sim_fps": 45.15194870357993,
+   "floor_frames": [
+    555,
+    1989,
+    4111
+   ],
+   "damage_taken": 169,
+   "dodges": 573
+  },
+  {
+   "seed": 18,
+   "wave": 0,
+   "floor": 2,
+   "frames": 4125,
+   "deaths": 0,
+   "kills": 0,
+   "wall_seconds": 90.403429696,
+   "desync": false,
+   "sim_fps": 45.788917468291295,
+   "floor_frames": [
+    435,
+    1325
+   ],
+   "damage_taken": 79,
+   "dodges": 680,
+   "softlock": {
+    "observations": [
+     "plafond atteint : phase NotStarted, 0 ennemis de vague présents, 0 encore à générer",
+     "1 ennemis sans chemin depuis leur case exacte vers une cible du flow field",
+     "0 ennemis dont le point visé par le flow field chevauche un mur physique avec leur collider",
+     "aucun kill entre les frames 3525 et 4125"
+    ],
+    "enemies": [
+     [
+      760,
+      [
+       60,
+       19
+      ],
+      "65"
+     ]
+    ]
+   }
+  },
+  {
+   "seed": 19,
+   "wave": 0,
+   "floor": 1,
+   "frames": 2315,
+   "deaths": 0,
+   "kills": 0,
+   "wall_seconds": 53.950297784,
+   "desync": false,
+   "sim_fps": 43.077621929327506,
+   "floor_frames": [
+    634
+   ],
+   "damage_taken": 20,
+   "dodges": 158,
+   "softlock": {
+    "observations": [
+     "plafond atteint : phase NotStarted, 0 ennemis de vague présents, 0 encore à générer",
+     "1 ennemis sans chemin depuis leur case exacte vers une cible du flow field",
+     "0 ennemis dont le point visé par le flow field chevauche un mur physique avec leur collider",
+     "aucun kill entre les frames 1715 et 2315"
+    ],
+    "enemies": [
+     [
+      362,
+      [
+       10,
+       37
+      ],
+      "13.5"
+     ]
+    ]
+   }
+  },
+  {
+   "seed": 20,
+   "wave": 0,
+   "floor": 2,
+   "frames": 4244,
+   "deaths": 1,
+   "kills": 0,
+   "wall_seconds": 70.168822524,
+   "desync": false,
+   "sim_fps": 60.66852084959311,
+   "floor_frames": [
+    508,
+    1460
+   ],
+   "damage_taken": 152,
+   "dodges": 834,
+   "softlock": {
+    "observations": [
+     "plafond atteint : phase NotStarted, 0 ennemis de vague présents, 0 encore à générer",
+     "2 ennemis sans chemin depuis leur case exacte vers une cible du flow field",
+     "0 ennemis dont le point visé par le flow field chevauche un mur physique avec leur collider",
+     "aucun kill entre les frames 3644 et 4244"
+    ],
+    "enemies": [
+     [
+      757,
+      [
+       50,
+       3
+      ],
+      "177"
+     ],
+     [
+      763,
+      [
+       12,
+       23
+      ],
+      "108"
+     ]
+    ]
+   }
+  }
+ ]
+}

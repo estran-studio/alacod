@@ -328,9 +328,15 @@ impl CoreSetupPlugin {
             asset_plugin.file_path = asset_root.clone();
         }
 
+        // Une caverne = un asset (m1-integration-scenarios) : source `cave://`, enregistrée
+        // avant `AssetPlugin` sur la même racine.
+        let cave_source = crate::cave_assets::CaveAssetSourcePlugin {
+            file_path: asset_plugin.file_path.clone(),
+        };
         let plugins = DefaultPlugins
             .set(ImagePlugin::default_nearest())
             .set(asset_plugin)
+            .add_before::<AssetPlugin>(cave_source)
             .disable::<LogPlugin>();
 
         if !self.0.headless {

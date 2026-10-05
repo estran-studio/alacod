@@ -3,7 +3,10 @@
 // projectiles composables (T1.1 : `Bounce`, `Pierce`, `Size`, `Lifetime`, `Homing`, `Gravity`,
 // `on_expire: Spawn`), plus l'arsenal des ennemis (`arsenal`, projectiles de leurs patterns,
 // T1.2). Sprites réutilisés du testbed (placeholders, voir `assets.yaml`). Chaque arme porte un
-// gabarit `test:` (scénario généré, `make gen GAME=throne`).
+// gabarit `test:` (scénario généré, `make gen GAME=throne`). m1-integration-scenarios : réserves
+// des trois armes de départ du pilote doublées (`mag_limit` de `revolver`, `mitraillette`,
+// `lance_lames`) pour une run de trois vraies cavernes (mesuré : ce n'était pas la cause des
+// soft-locks des bots, voir le rapport).
 ({    // Balles : revolver, coup par coup, précis.
     "revolver": (
         config: (
@@ -22,7 +25,7 @@
                     ),
                     range: "700.0",
                     reload_time_seconds: "1.0",
-                    mag: Mag(mag_size: 6, mag_limit: 16),
+                    mag: Mag(mag_size: 6, mag_limit: 32),
                 )
             },
             test: Some((frames: 200, min_hits: 1)),
@@ -53,7 +56,7 @@
                     ),
                     range: "900.0",
                     reload_time_seconds: "1.5",
-                    mag: Mag(mag_size: 30, mag_limit: 12),
+                    mag: Mag(mag_size: 30, mag_limit: 24),
                 )
             },
             test: Some((frames: 200, min_hits: 3)),
@@ -376,7 +379,7 @@
                     ),
                     range: "700.0",
                     reload_time_seconds: "1.0",
-                    mag: Mag(mag_size: 8, mag_limit: 6),
+                    mag: Mag(mag_size: 8, mag_limit: 12),
                     projectile: (modifiers: [Bounce(2), Pierce(1)]),
                 )
             },

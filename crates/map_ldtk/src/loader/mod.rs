@@ -40,8 +40,11 @@ pub fn surface_table(registry: Option<&Registry>) -> world::SurfaceTable {
 }
 
 /// Config de **chargement** d'une carte de la partie : une désignation `cave:<id>`
-/// (`docs/conventions.md` §21) devient le gabarit LDtk de la caverne et le mode
-/// `Cave(config)` ; toute autre carte garde `base.mode`. La ressource `MapGenerationConfig`
+/// (`docs/conventions.md` §21) devient le chemin d'asset propre à la caverne
+/// (`cave://<dossier>/<id>.ldtk`, servi avec le gabarit du dossier :
+/// `game::cave_assets`) et le mode `Cave(config)` ; toute autre carte garde `base.mode`.
+/// Un chemin par caverne : avec le gabarit pour chemin commun, l'`AssetServer` rendait la
+/// première caverne chargée à tous les étages d'une séquence `Floors`. La ressource `MapGenerationConfig`
 /// garde la désignation d'origine (enregistrements rejouables).
 pub fn resolve_map_config(
     base: &MapGenerationConfig,
@@ -49,22 +52,26 @@ pub fn resolve_map_config(
     registry: Option<&Registry>,
 ) -> (MapGenerationConfig, Option<CaveConfig>) {
     let cave = cave_designation(map).map(|id| {
-        registry
+        let entry = registry
             .and_then(|r| r.caves.get(&id))
-            .unwrap_or_else(|| panic!("caverne « {id} » inconnue (voir `alacod lint`)"))
+            .unwrap_or_else(|| panic!("caverne « {id} » inconnue (voir `alacod lint`)"));
+        (id, entry)
     });
     let config = MapGenerationConfig {
-        map_path: cave.map_or_else(|| map.to_string(), |c| c.template.clone()),
+        map_path: cave.as_ref().map_or_else(
+            || map.to_string(),
+            |(id, c)| game::cave_assets::cave_asset_path(&c.template, id.as_str()),
+        ),
         seed: base.seed,
         max_width: base.max_width,
         max_heigth: base.max_heigth,
         max_room: base.max_room,
-        mode: cave.map_or_else(
+        mode: cave.as_ref().map_or_else(
             || base.mode.clone(),
-            |c| MapGenerationMode::Cave(c.config.clone()),
+            |(_, c)| MapGenerationMode::Cave(c.config.clone()),
         ),
     };
-    (config, cave.map(|c| c.config.clone()))
+    (config, cave.map(|(_, c)| c.config.clone()))
 }
 
 /// Config de génération transmise au loader LDtk (sérialisée dans ses settings).
@@ -94,7 +101,9 @@ pub fn get_asset_loader_generation() -> LdtkProjectLoader {
 
             // T1.6 : une caverne réécrit le niveau unique du gabarit, sans assemblage de salles
             if let MapGenerationMode::Cave(cave) = &config.mode {
-                return crate::generation::cave::build_cave_ldtk(&map_json, config.seed, cave);
+                let id =
+                    game::cave_assets::cave_id_of_asset_path(&config.map_path).unwrap_or_default();
+                return crate::generation::cave::build_cave_ldtk(&map_json, &id, config.seed, cave);
             }
 
             let context = from_map(&map_json, config);
