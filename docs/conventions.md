@@ -1568,6 +1568,10 @@ conservé.
 des joueurs) et `dodges` (frames où l'esquive a remplacé le déplacement d'au moins un bot,
 compteur `bots::BotStats` hors rollback). Soft-lock `Floors` : sans passage de niveau ni ennemi
 en moins pendant 1 200 frames, arrêt avec `softlock` (instantané « précédent » à 600 frames).
+D43/D44 (m1-d43-d44-fin-de-partie) : la simulation s'arrête aussi dès que la partie est terminée
+(`StopEarly::stop_when_run_ended`, `run_end` dans le JSON, colonne « fin ») ; la progression du
+soft-lock compte aussi la santé totale des ennemis qui baisse et tout changement d'état d'un
+joueur (`runner::FloorsProgress`).
 `scripts/scenario-metrics.py` : colonnes `Niveau` et `Frames/niveau`, `Esquives`, résumé
 « niveaux finis / graines ».
 

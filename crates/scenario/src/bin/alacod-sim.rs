@@ -56,6 +56,9 @@ struct SimResult {
     floor_frames: Vec<u32>,
     /// T1.14 : dégâts subis par les joueurs (somme des baisses de santé).
     damage_taken: u32,
+    /// D43 : issue de la partie (`"Defeat"`, `"Victory"`…) et sa frame, si elle est terminée.
+    #[serde(skip_serializing_if = "Option::is_none")]
+    run_end: Option<(String, u32)>,
     /// T1.14 : frames où l'esquive a remplacé le déplacement d'au moins un bot `prudent`.
     #[serde(skip_serializing_if = "is_zero")]
     dodges: u32,
@@ -212,6 +215,8 @@ fn main() {
             until_wave,
             until_floor,
             stop_when_all_players_dead: true,
+            // D43 : une partie terminée (défaite ou victoire) n'est plus jouée jusqu'au plafond
+            stop_when_run_ended: true,
         };
         let dodges = std::sync::Arc::new(std::sync::atomic::AtomicU32::new(0));
         let dodges_probe = dodges.clone();
@@ -258,8 +263,14 @@ fn main() {
         let sim_fps = outcome.metrics.sim_fps;
         let desync_flag = if desync { "  DESYNC" } else { "" };
         let floor = outcome.metrics.final_floor;
+        // D43 : fin de la graine (issue de la partie, soft-lock, ou objectif / plafond)
+        let end = match (&outcome.metrics.run_end, &outcome.softlock) {
+            (Some((issue, at)), _) => format!("{issue} f{at}"),
+            (None, Some(_)) => "soft-lock".to_string(),
+            (None, None) => "objectif".to_string(),
+        };
         eprintln!(
-            "seed {seed:>6} : vague {wave:>2}  niveau {floor:>2}  frames {frames_reached:>6}  morts {deaths}/{bots}  kills {kills:>3}  {sim_fps:>6.1} fps  {wall_seconds:>5.2}s{desync_flag}"
+            "seed {seed:>6} : vague {wave:>2}  niveau {floor:>2}  frames {frames_reached:>6}  morts {deaths}/{bots}  kills {kills:>3}  {sim_fps:>6.1} fps  {wall_seconds:>5.2}s  fin {end}{desync_flag}"
         );
 
         results.push(SimResult {
@@ -279,6 +290,7 @@ fn main() {
                 .map(|e| e.frame)
                 .collect(),
             damage_taken: outcome.metrics.damage_taken,
+            run_end: outcome.metrics.run_end.clone(),
             dodges: dodges.load(std::sync::atomic::Ordering::Relaxed),
             failures: outcome.failures,
             softlock: outcome.softlock,
