@@ -1230,6 +1230,10 @@ décalé vers le bas, y apparaît sans toucher de mur — sinon chaque déplacem
 (vide par défaut) : un `CharacterSpawn` (équipe `enemies`) par point `ZombieSpawn`, personnages
 pris à tour de rôle (lint : personnages chargés) — un jeu sans vagues (testbed) peuple ainsi
 une caverne (`caves/bench.ron` : six `follower`).
+Dégagement des `ZombieSpawn` (D41, m1-d41-spawns-degages) : `CaveConfig::spawn_clearance` cases
+(`world::is_open_within`), calculé par le registre depuis le plus grand corps **en jeu** (collider
+× `scale`) de `characters` (`content::registry::spawn_clearance_for` : 1 jusqu'à 24 px du centre,
+une case de plus par 16 px) ; 1 pour tout le contenu actuel (points inchangés).
 
 **Niveau LDtk.** Le callback du loader réécrit le niveau unique du gabarit
 (`generation::cave::build_cave_ldtk`) : dimensions, IntGrid `Walls` (1 = `Wall` ou `Rock`),
