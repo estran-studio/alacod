@@ -3,21 +3,22 @@
 // joue (butin, progression, horloge, difficulté) : le jeu tel qu'il est.
 //
 // Mesuré (graine 123456, comme `alacod-sim --game throne --bots 1 --profiles prudent --floors
-// run --seeds 123456..123456 --until-floor 1`) : niveau 1 à f537, portail franchi à f808
-// (navigation par le champ, m1-v3-bots-pathfinding ; f925 en ligne droite).
+// run --seeds 123456..123456 --until-floor 1`) : niveau 1 à f537, portail ouvert à f648, franchi à
+// f853 (approche pilotée en vitesse, m1-v3-bots-portail : vitesse de croisière 120 et arrivée
+// freinée ; avant : f808 par le champ, f925 en ligne droite).
 //
 // À regarder : le bot traverse la caverne, tue les quatre ennemis, puis rejoint le portail.
 Scenario(
     game: "throne",
     floors: Some("run"),
     map_seed: 123456,
-    frames: 830,
+    frames: 880,
     players: [
         (bot: prudent),
     ],
     expect: [
-        FloorIndex(index: 0, at_frame: 800),
-        FloorIndex(index: 1, at_frame: 815),
-        PlayerAlive(handle: 0, at_frame: 829),
+        FloorIndex(index: 0, at_frame: 850),
+        FloorIndex(index: 1, at_frame: 860),
+        PlayerAlive(handle: 0, at_frame: 879),
     ],
 )

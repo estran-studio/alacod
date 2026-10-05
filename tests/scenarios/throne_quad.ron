@@ -3,11 +3,12 @@
 // active (butin, progression, horloge, difficulté) et le boss `roi_rat` au niveau 3. Joué en
 // synctest par la suite : preuve de déterminisme à quatre joueurs.
 //
-// Mesuré (graine 123456, comme `alacod-sim --game throne --bots 4 --profiles
-// prudent,prudent,prudent,prudent --floors run --seeds 123456..123456 --until-floor 3`) : étages à
-// f662, f1380, f3313 ; boss (NetId 706, 540 PV avec la difficulté) entamé vers f2000, mort vers
-// f2558, portail du niveau 3 à f3146 ; la boucle infinie recharge le niveau 3 avec un nouveau boss
-// (NetId 1496, 630 PV) à f3312. Le joueur 2 ne monte jamais de niveau.
+// Mesuré (graine 123456, approche du portail pilotée en vitesse, m1-v3-bots-portail) : étages à
+// f697, f1512, f3761 ; boss (NetId 697, 540 PV avec la difficulté) arrivé à f1511, à 100 PV à
+// f2900, mort à f2935, portail du niveau 3 à f3392 ; la boucle infinie recharge le niveau 3 avec un
+// nouveau boss (NetId 1492, 630 PV) à f3760. Le joueur 2 tombe à terre à f2303 (mort par
+// saignement à f4103, après la fin du scénario). (Avant : étages à f662, f1380, f3313, boss NetId
+// 706 mort vers f2558, NetId 1496 au rechargement.)
 //
 // À regarder : quatre bots nettoient trois cavernes de plus en plus grandes ; au troisième, le roi
 // des rats (plus gros) tire en couronne depuis le coin le plus éloigné, charge, puis tombe.
@@ -15,7 +16,7 @@ Scenario(
     game: "throne",
     floors: Some("run"),
     map_seed: 123456,
-    frames: 3400,
+    frames: 3800,
     players: [
         (bot: prudent),
         (bot: prudent),
@@ -23,21 +24,21 @@ Scenario(
         (bot: prudent),
     ],
     expect: [
-        FloorIndex(index: 1, at_frame: 670),
-        FloorIndex(index: 2, at_frame: 1390),
-        FloorIndex(index: 2, at_frame: 3300),
-        FloorIndex(index: 3, at_frame: 3320),
-        Event(kind: "floor", label_contains: Some("niveau 3"), by_frame: 9000),
-        Event(kind: "levelup", by_frame: 814),
-        Event(kind: "mutation", by_frame: 1414),
-        Clock(id: "alerte", fired: true, at_frame: 2290),
-        // Le boss : entier à son arrivée, presque mort à f2400, remplacé au rechargement.
-        EntityHealth(net_id: 706, min: Some(540.0), at_frame: 1400),
-        EntityHealth(net_id: 706, max: Some(100.0), at_frame: 2400),
-        EntityHealth(net_id: 1496, min: Some(630.0), at_frame: 3320),
-        PlayerAlive(handle: 0, at_frame: 3399),
-        PlayerAlive(handle: 1, at_frame: 3399),
-        PlayerAlive(handle: 2, at_frame: 3399),
-        PlayerAlive(handle: 3, at_frame: 3399),
+        FloorIndex(index: 1, at_frame: 700),
+        FloorIndex(index: 2, at_frame: 1515),
+        FloorIndex(index: 2, at_frame: 3755),
+        FloorIndex(index: 3, at_frame: 3765),
+        Event(kind: "floor", label_contains: Some("niveau 3"), by_frame: 3765),
+        Event(kind: "levelup", by_frame: 829),
+        Event(kind: "mutation", by_frame: 1429),
+        Clock(id: "alerte", fired: true, at_frame: 2415),
+        // Le boss : entier à son arrivée, presque mort à f2900, remplacé au rechargement.
+        EntityHealth(net_id: 697, min: Some(540.0), at_frame: 1515),
+        EntityHealth(net_id: 697, max: Some(100.0), at_frame: 2900),
+        EntityHealth(net_id: 1492, min: Some(630.0), at_frame: 3765),
+        PlayerAlive(handle: 0, at_frame: 3799),
+        PlayerAlive(handle: 1, at_frame: 3799),
+        PlayerDowned(handle: 2, at_frame: 3799),
+        PlayerAlive(handle: 3, at_frame: 3799),
     ],
 )
