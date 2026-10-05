@@ -8,9 +8,11 @@
 
 - **Fait** : décisions confirmées (dix lignes, amendements acceptés) ; boss `roi_rat` ;
   **correctif d'engine** « une caverne = un asset » (décision (a) d'orch, commit à part `38c9a29`)
-  et test de cohérence murs ⇔ terrain ; preuve du correctif seul (§3).
-- **En cours** : jouabilité des étages 2 et 3 enfin chargés (calibrage), scénarios, 20 graines,
-  vidéos, digest.
+  et test de cohérence murs ⇔ terrain ; preuve (§3, §6) ; calibrage et 20 graines à 1, 2 et 4
+  (§5) ; scénarios `throne_solo`/`throne_duo`/`throne_quad` ; vidéos ; digest brouillon
+  `docs/digests/m1-fin-de-vague-2.md`.
+- **Reste à l'orchestrateur** : bless des traces throne (§6), 200 graines, revue humaine, report
+  au journal de la correction (§1) et des dettes D41/D42 (§7).
 
 ## 1. Correction d'un résultat antérieur
 
@@ -121,6 +123,60 @@ ennemis restants des soft-locks) : `docs/digests/m1-fin-de-vague-2.sim.json`.
 - **Solo** : 0/20 (Nuclear Throne seul est dur par nature, et les deux soft-locks au portail de
   l'étage 0, graines 3 et 16, sont un défaut de bots : dumps dans
   `docs/taches/rapports/m1-integration-scenarios/`).
+
+## 6. Scénarios, preuve des traces, vidéos
+
+**Scénarios** (graine 123456, synctest) :
+
+| Scénario | Joueurs | Mesuré | Attentes |
+|---|---:|---|---|
+| `throne_solo` | 1 | étages 1 à f808, 2 à f2816 ; mort et défaite à f3640 | **état mesuré, pas la cible** (0/20 en solo ; à refaire passer avec les correctifs de bots de b1) : `FloorIndex` 1 et 2, `levelup`, mutations `sang_froid` + `coriace`, alerte, `PlayerAlive` f3600, `PlayerDead` f3650, `Defeat` |
+| `throne_duo` = `throne_three_floors` (gardé sous ce nom) | 2 | étages f517, f1531, f5109 | `FloorIndex` 1 à 3, `Event(floor « niveau 3 », by 9000)`, `levelup`, alerte, mutations des deux joueurs, `PlayerAlive` ×2 |
+| `throne_quad` | 4 | étages f662, f1380, f3313 ; boss 706 (540 PV) mort vers f2558 ; nouveau boss 1496 (630 PV) au rechargement f3312 | `FloorIndex` 1 à 3, `Event(floor, by 9000)`, `levelup`, `mutation`, alerte, **`EntityHealth` du boss** (entier à f1400, ≤ 100 à f2400, le suivant entier à f3320), `PlayerAlive` ×4 |
+
+`RunSummary(floor_reached_min: 3)` de la fiche est remplacé par `FloorIndex(3)` + `Event(floor)`
+(accord d'orch) : en `Floors`, la partie ne finit que par la défaite, `Run.summary` n'existe pas
+tant qu'un joueur vit. Recalés : `throne_ammo_pickup` (réserves 912/96 au lieu de 456/48),
+`throne_progression` (niveau 2 à f1591 ; l'étage 1 est maintenant `niveau_2`, dont le bot ne sort
+qu'à f2816, après la fin du scénario).
+
+**Traces** (suite sans bless sur l'état final) : **toutes les traces `throne` changent, aucune
+autre** ; aucune attente en échec.
+
+| Traces | Nombre | Cause (prouvée) |
+|---|---:|---|
+| gabarits générés `enemy_*` (10 ennemis × 2) et `weapon_lance_lames`, `weapon_mitraillette`, `weapon_revolver` | 23 | **réserves de départ ×2** seules : rejoués avec le `weapons.ron` de `main`, les 37 gabarits existants retrouvent leur trace bénie à l'identique |
+| `throne_ammo_pickup` | 1 | réserves ×2 seules (même vérification : trace identique avec l'ancien `weapons.ron`) |
+| `throne_floor_1`, `throne_mutation_choice`, `throne_progression`, `throne_three_floors` | 4 | correctif d'engine (§3 : premières différences à l'entrée de l'étage 1, désormais `niveau_2`), puis réserves ×2 (ligne 1), butin, boss et ordre des ennemis de `niveau_3` |
+| `throne_solo`, `throne_quad`, `enemy_roi_rat_still`, `enemy_roi_rat_moving` | 4 | nouvelles |
+
+Zombies et testbed : aucune trace ne change ; `make gen` zombies et testbed sans modification.
+
+**Vidéos** (`146d09c`, `make videos SCENARIO=throne_solo,throne_three_floors,throne_quad`, `make
+views SCENARIO=throne_quad`) : `docs/digests/videos/throne_solo.mp4` (2,8 Mo),
+`throne_three_floors.mp4` (4,3 Mo), `throne_quad.mp4` (3,3 Mo), avec leurs `events.json` ;
+`montage.mp4` (6,9 Mo) et `throne_quad.vues.mp4` (14,3 Mo) en lien seulement
+(`target/videos/146d09c/`). Une image de chaque :
+
+- ![throne_solo f3600](m1-integration-scenarios/throne_solo_f3600.png) `throne_solo` f3600 :
+  le bot seul dans la troisième caverne, 26/125 PV, cercle de télégraphe d'un tireur.
+- ![throne_three_floors f4000](m1-integration-scenarios/throne_three_floors_f4000.png)
+  `throne_three_floors` f4000 : le duo dans `niveau_3`, un ennemi restant (portail à f4925).
+- ![throne_quad f2300](m1-integration-scenarios/throne_quad_f2300.png) `throne_quad` f2300 :
+  le quatuor contre le roi des rats.
+
+## 6 bis. Vérifié
+
+- **Tests des crates** (`scenario run combat game content map_ldtk map sim_core stats bots
+  effects utils behaviors world animation`, `--include-ignored`, hors test `scenarios`) : **542
+  verts**, 1 échec : le doctest `rust,ignore` de `game::waves` (préexistant). Dont `cave_floors`
+  (nouveau), `cave` (7), `floors` (2), `cave_assets` et `generation::cave` (unitaires).
+- **Test `scenarios`** sur l'état final : 0 attente en échec ; traces : uniquement `throne` (§6).
+- **`make lint`** : zombies, testbed, throne sans erreur. **`make gen`** : throne 39/39 `ok`
+  (traces différentes, §6), zombies 16/16 et testbed 36/36 sans modification.
+- **`fmt`** (commit dédié), **`check_forbidden`** 4 occurrences (identique),
+  **`check_rollback_registration`** OK, **exemples** compilés, `play_scenario --features
+  render` reconstruit (feu vert render).
 
 ## 7. Dettes et limites trouvées (à reporter par l'orchestrateur)
 
