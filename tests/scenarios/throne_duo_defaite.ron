@@ -1,0 +1,22 @@
+// D43 (m1-d43-d44-fin-de-partie) : défaite en mode `Floors` à deux joueurs. Deux bots `prudent`
+// sur la graine 28 : l'un tombe à terre, l'autre meurt sans pouvoir le relever ; la défaite est
+// déclarée dès que tous les joueurs restants sont à terre (`rollback_check_defeat`), pendant que
+// le dernier saigne encore. Joué en synctest.
+//
+// CALIBRER (mesure)
+//
+// À regarder : les deux bots dans la troisième caverne ; l'un tombe, l'autre meurt, « DÉFAITE ».
+Scenario(
+    game: "throne",
+    floors: Some("run"),
+    map_seed: 28,
+    frames: 2800,
+    players: [
+        (bot: prudent),
+        (bot: prudent),
+    ],
+    expect: [
+        Defeat(by_frame: 2743),
+        // CALIBRER
+    ],
+)
