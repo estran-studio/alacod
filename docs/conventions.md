@@ -4,6 +4,45 @@ Référence pour ceux qui créent du contenu (cartes LDtk, sprites RON) et ceux 
 
 **Utilité** : lire cette page quand on crée une carte, importe des sprites, ou ajoute un effet/comportement/statut. Chaque section renvoie aux fichiers à lire pour comprendre le pattern.
 
+**Numérotation du 2026-10-05** (m1-relecture-conventions) : « Feedback (présentation, T2.13) », ancien second §9 placé après le §10, devient le **§7** (il n'y avait pas de §7) et vient après le §6 ; §8 Combat, §9 Stats et §10 Blesser une trace gardent leur numéro, l'ancre `{#section7}` du §8 disparaît. Les fiches et rapports antérieurs qui citent « §9 » pour le feedback visent l'actuel §7 ; ceux qui citent « §7 » pour les stats ou « §8 » pour la preuve visent l'actuel §9 et l'actuel §10 (numérotation de M0).
+
+**Sommaire**
+
+- §1. Cartes LDtk
+- §2. Sprites et animations
+- §3. Le dossier de jeu
+- §4. Ajouter un vocabulaire à l'engine : checklist
+- §5. Commandes make
+- §6. CI lente (nuit) — T2.14
+- §7. Feedback (présentation, T2.13)
+- §8. Combat : équipes et dégâts (T1.1, chantier B1)
+- §9. Stats et modificateurs (T1.2, chantier B2)
+- §10. Blesser une trace : la preuve
+- §11. Munitions et inventaire d'armes (T2.2, chantier B7)
+- §12. Monnaie et achats (T2.3, chantier C5 v1)
+- §13. État de run et mode `Waves` (T2.4, chantier F1)
+- §14. Power-ups (T2.5, chantier C1 v0)
+- §15. HUD : icônes, noms et sources (T2.12)
+- §16. Projectiles composables (T1.1, chantier B5 v1)
+- §17. Mode `Floors` (T1.8, chantier F1)
+- §18. Équilibrage par joueurs (F5)
+- §19. Statuts (T1.3, chantier B3)
+- §20. Patterns, émetteurs et tir ennemi (T1.2, chantier B5 v1)
+- §21. Terrain destructible et cavernes (T1.0b + T1.6, chantier E3)
+- §22. Behaviors composables (T1.4, chantier D1)
+- §23. Horloges et difficulté (T1.9, chantier F2)
+- §24. Bots de validation (m0-v7 phase 2)
+- §25. Variantes et élites (T1.5, chantier D2)
+- §26. Surfaces (T1.7, chantier E4 v1)
+- §27. Effets v1, jauges et mutations (T1.10, chantiers C1 v1 et C4 v1)
+- §28. Générateur v1 et placement scripté (T1.13, voie V3)
+- §29. Le jeu `throne` (T1.0c + T1.11, voie V2)
+- §30. Écran de mutation et transition (T1.16, voie V4)
+- §31. Feedback v1 (T1.17, voie V4)
+- §32. HUD throne (T1.18, voie V4)
+- §33. Restart en ligne (D14)
+- Notes essentielles
+
 ## 1. Cartes LDtk
 
 **Version** : LDtk 1.5.3 (`jsonVersion` dans le fichier). Consulter `games/zombies/assets/exemples/test_map.ldtk`.
@@ -425,7 +464,44 @@ NIGHTLY_SEEDS=1..100 NIGHTLY_BOTS=4 NIGHTLY_WAVE=15 NIGHTLY_P2P=2,4,8 NIGHTLY_VI
 
 ---
 
-## 8. Combat : équipes et dégâts (T1.1, chantier B1) {#section7}
+## 7. Feedback (présentation, T2.13)
+
+**Configuration RON** : fichier `games/<jeu>/assets/ui/feedback.ron` charge les paramètres de flash, secousse et sons.
+
+```ron
+(
+    hit_flash: (
+        frames: 4,                  // Durée du flash blanc (frames de simulation)
+        color: (1.0, 1.0, 1.0),     // Couleur d'éclaircissement (RGB)
+    ),
+    shake: (
+        frames: 8,                  // Durée de la secousse
+        amplitude: 4.0,             // Amplitude du décalage en pixels
+    ),
+    sounds: {
+        "shot": "sounds/machine-gun.ogg",
+        "reload": "sounds/machine-gun-reload.ogg",
+        // Les clés absentes désactivent le son correspondant
+    },
+)
+```
+
+**Systèmes** : tous en `PostUpdate` (hors `GgrsSchedule`), lisant les événements de simulation dans `FrameEvents<T>` émis par `GgrsSchedule`. Les trois émetteurs sont :
+- `DamageEvent` pour les impacts (flash, secousse si joueur local)
+- Spawn de `Bullet` pour le son de tir (source = joueur local) : un son par tir (tireur, frame de création), mémorisé pour ne pas repartir quand le rollback de la session locale recrée les balles des dernières frames (elles redeviennent `Added<Bullet>`), et coupé en fondu après 250 ms (`SHOT_SOUND_MAX` : `machine-gun.ogg` est un enregistrement de tir soutenu de 17 s, pas un coup unique ; à remplacer)
+- Passage de `WeaponInventory.reloading_ending_frame` de `None` à `Some` pour le son de rechargement : une fois par rechargement, comparé d'une image rendue à la suivante
+
+**Composants non-rollback** :
+- `HitFlash { until_frame, original_color }` : pose sur l'entité cible d'un `DamageEvent`, tinte le sprite en blanc jusqu'à `until_frame`.
+- `CameraShake { until_frame, amplitude }` : pose sur la caméra quand un joueur local prend des dégâts.
+
+**Déterminisme** : la secousse applique un motif déterministe (décalage indexé par `FrameCount`) pour la reproductibilité des captures (`--capture` de `play_scenario`). Jamais de source aléatoire (`rand`, temps réel).
+
+**Journal de preuve** : chaque effet écrit une ligne `info!("feedback f{frame} <effet> {net_id|kind}")` pour vérification sans écran.
+
+**Feedback v1** (T1.17) : hit stop, chiffres de dégâts, télégraphe au sol, surcharges par genre et par arme, flash sur les calques enfants et journal `FeedbackLog` (headless compris) : voir §31, qui fait foi sur ce paragraphe.
+
+## 8. Combat : équipes et dégâts (T1.1, chantier B1)
 
 **Équipe** (`sim_core::team::Team` : `Players`, `Enemies`, `Allies`, `Neutral`) : composant statique posé une fois à la création (`character::create::create_character`, via `Team::Players`/`Team::Enemies` en dur ; `Allies`/`Neutral` réservés aux chantiers futurs). Hors rollback (jamais muté en T1.1 ; voir la doc du composant pour la justification). `Allies` compte comme la même équipe que `Players` pour le tir ami ; `Enemies` est sa propre équipe. `Neutral` bloque toujours un coup (comme un mur) mais ne subit jamais de dégât.
 
@@ -488,43 +564,6 @@ Deux champs de test (testbed) sont délibérément hors du checksum GGRS — les
 
 - **`HitCount`** (`crates/game/src/character/health/mod.rs`, T2.9) : compteur de coups reçus, posé à la création uniquement si `CharacterConfig::counts_hits` (`crates/game/src/character/create.rs`, faux par défaut — aucun personnage zombie/joueur ne le pose ; seul `target` de `games/testbed` le déclare, `crates/scenario/src/generate.rs`). Enregistré via `rollback_and_trace_no_checksum::<HitCount>()` (`crates/game/src/character/mod.rs`) : rollback et trace, mais hors checksum. Il sert aux attentes `EntityHits` des scénarios (`crates/combat/src/weapons/expectations.rs`) ; aucune décision de jeu ne le lit.
 - **`EnemyAiConfig::stationary`** (`crates/game/src/character/enemy/ai/state.rs`, T2.9) : immobilité totale d'un ennemi de testbed (`dummy`/`target`/`ally`/`civilian`), exclue du `Hash` manuel du composant. Aucun contenu zombie ne la pose ; hacher un champ de plus déplacerait le checksum de toute entité `Enemy` sans aucun changement de gameplay (vérifié empiriquement à l'époque : sans l'impl manuel, `idle.ron` diverge dès f181).
-
-## 9. Feedback (présentation, T2.13)
-
-**Configuration RON** : fichier `games/<jeu>/assets/ui/feedback.ron` charge les paramètres de flash, secousse et sons.
-
-```ron
-(
-    hit_flash: (
-        frames: 4,                  // Durée du flash blanc (frames de simulation)
-        color: (1.0, 1.0, 1.0),     // Couleur d'éclaircissement (RGB)
-    ),
-    shake: (
-        frames: 8,                  // Durée de la secousse
-        amplitude: 4.0,             // Amplitude du décalage en pixels
-    ),
-    sounds: {
-        "shot": "sounds/machine-gun.ogg",
-        "reload": "sounds/machine-gun-reload.ogg",
-        // Les clés absentes désactivent le son correspondant
-    },
-)
-```
-
-**Systèmes** : tous en `PostUpdate` (hors `GgrsSchedule`), lisant les événements de simulation dans `FrameEvents<T>` émis par `GgrsSchedule`. Les trois émetteurs sont :
-- `DamageEvent` pour les impacts (flash, secousse si joueur local)
-- Spawn de `Bullet` pour le son de tir (source = joueur local) : un son par tir (tireur, frame de création), mémorisé pour ne pas repartir quand le rollback de la session locale recrée les balles des dernières frames (elles redeviennent `Added<Bullet>`), et coupé en fondu après 250 ms (`SHOT_SOUND_MAX` : `machine-gun.ogg` est un enregistrement de tir soutenu de 17 s, pas un coup unique ; à remplacer)
-- Passage de `WeaponInventory.reloading_ending_frame` de `None` à `Some` pour le son de rechargement : une fois par rechargement, comparé d'une image rendue à la suivante
-
-**Composants non-rollback** :
-- `HitFlash { until_frame, original_color }` : pose sur l'entité cible d'un `DamageEvent`, tinte le sprite en blanc jusqu'à `until_frame`.
-- `CameraShake { until_frame, amplitude }` : pose sur la caméra quand un joueur local prend des dégâts.
-
-**Déterminisme** : la secousse applique un motif déterministe (décalage indexé par `FrameCount`) pour la reproductibilité des captures (`--capture` de `play_scenario`). Jamais de source aléatoire (`rand`, temps réel).
-
-**Journal de preuve** : chaque effet écrit une ligne `info!("feedback f{frame} <effet> {net_id|kind}")` pour vérification sans écran.
-
-**Feedback v1** (T1.17) : hit stop, chiffres de dégâts, télégraphe au sol, surcharges par genre et par arme, flash sur les calques enfants et journal `FeedbackLog` (headless compris) : voir §31, qui fait foi sur ce paragraphe.
 
 ## 11. Munitions et inventaire d'armes (T2.2, chantier B7)
 
