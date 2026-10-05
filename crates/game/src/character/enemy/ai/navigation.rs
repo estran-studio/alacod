@@ -116,6 +116,12 @@ pub enum NavProfile {
     Phasing,
 }
 
+/// Le seul champ de flux construit et suivi par le déplacement des ennemis (D38 : tous les
+/// profils utilisent ce champ ; un champ par profil reste à faire). Lu aussi par le diagnostic
+/// de soft-lock (`scenario::softlock`, D42) : il doit regarder le champ réellement suivi, pas
+/// celui du profil déclaré.
+pub const MOVEMENT_FLOW_PROFILE: NavProfile = NavProfile::GroundBreaker;
+
 impl NavProfile {
     /// Returns true if this profile can pass through the given obstacle type
     pub fn can_pass(&self, obstacle_type: ObstacleType) -> bool {
@@ -676,7 +682,7 @@ pub fn update_flow_field_system(
     cache.target_ids = target_ids;
 
     // Use GroundBreaker profile so zombies can pathfind through breakable obstacles (windows)
-    let flow_field = build_flow_field(&targets, NavProfile::GroundBreaker, &cache, &config);
+    let flow_field = build_flow_field(&targets, MOVEMENT_FLOW_PROFILE, &cache, &config);
 
     // Log flow field stats only on significant rebuilds
     trace!(
@@ -688,7 +694,7 @@ pub fn update_flow_field_system(
         cache.wall_cells.len()
     );
 
-    cache.layers.insert(NavProfile::GroundBreaker, flow_field);
+    cache.layers.insert(MOVEMENT_FLOW_PROFILE, flow_field);
 }
 
 /// Rebuild the blocked cell cache from IntGrid data and current obstacle positions

@@ -363,15 +363,14 @@ pub fn move_enemies(
             .as_deref()
             .filter(|state| wave_enemy.is_some() && navigation_recovery_due(state, frame.frame))
             .and_then(|_| {
-                use super::navigation::{GridPos, NavProfile};
-                let field = flow_field_cache.get_flow_field(NavProfile::GroundBreaker)?;
+                use super::navigation::{GridPos, MOVEMENT_FLOW_PROFILE};
+                let field = flow_field_cache.get_flow_field(MOVEMENT_FLOW_PROFILE)?;
                 let current = GridPos::from_fixed(enemy_pos_v2);
                 let next = field.get_direction(current)?;
                 if next == current {
                     return None;
                 }
-                let preferred =
-                    flow_field_cache.steering_point(next, NavProfile::GroundBreaker, &body);
+                let preferred = flow_field_cache.steering_point(next, MOVEMENT_FLOW_PROFILE, &body);
                 let blocked = |point: fixed_math::FixedVec2, include_windows: bool| {
                     let pos =
                         fixed_math::FixedVec3::new(point.x, point.y, fixed_transform.translation.z);
@@ -412,11 +411,11 @@ pub fn move_enemies(
 
         // Calculate direction to actual target using flow field
         let direction_to_target_v2 = if let Some(flow_field) =
-            flow_field_cache.get_flow_field(super::navigation::NavProfile::GroundBreaker)
+            flow_field_cache.get_flow_field(super::navigation::MOVEMENT_FLOW_PROFILE)
         {
             // Always use flow field for navigation - it handles pathfinding around walls
             match flow_field_cache.flow_direction(
-                super::navigation::NavProfile::GroundBreaker,
+                super::navigation::MOVEMENT_FLOW_PROFILE,
                 enemy_pos_v2,
                 &body,
             ) {
@@ -727,8 +726,8 @@ pub fn move_enemies(
                     let speed = velocity_component.main.length();
 
                     // Try flow field neighbor directions first
-                    if let Some(flow_field) = flow_field_cache
-                        .get_flow_field(super::navigation::NavProfile::GroundBreaker)
+                    if let Some(flow_field) =
+                        flow_field_cache.get_flow_field(super::navigation::MOVEMENT_FLOW_PROFILE)
                     {
                         let neighbor_dirs = flow_field.get_neighbor_directions(enemy_pos_v2);
                         for dir in neighbor_dirs {
@@ -781,8 +780,8 @@ pub fn move_enemies(
                     let mut escaped = false;
 
                     // First, try directions from neighboring flow field cells (sorted by cost)
-                    if let Some(flow_field) = flow_field_cache
-                        .get_flow_field(super::navigation::NavProfile::GroundBreaker)
+                    if let Some(flow_field) =
+                        flow_field_cache.get_flow_field(super::navigation::MOVEMENT_FLOW_PROFILE)
                     {
                         let neighbor_dirs = flow_field.get_neighbor_directions(enemy_pos_v2);
                         for dir in neighbor_dirs {
