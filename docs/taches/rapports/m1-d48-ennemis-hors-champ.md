@@ -3,7 +3,7 @@
 ## État en cours
 
 - Fait et vérifié (ci-dessous). Branche depuis `f80b82b`, merge d'origin/main `775cb8a` ; target
-  purgé après la suite. **Rien de béni** : une trace change, `throne_defaite_boss` (preuve plus bas).
+  purgé après la suite. **Rien de béni** : `throne_defaite_boss` est remplacé (graine 25, plus bas), sa trace est à bénir.
 
 ## Diagnostic
 
@@ -103,9 +103,23 @@ Les deux ennemis **naissent** hors de leur champ ; aucun n'y entre en se dépla�
   (59, 23) ; l'attribution à tour de rôle décale les personnages.
 - Effet : la défaite arrive à f3520 au lieu de f3676 ; l'attente `RunState(Playing, 3676)` et
   celles de la première mise à terre (relevées sur l'ancien placement) ne tiennent plus.
-- À décider par l'orchestrateur : rebénir avec de nouvelles attentes relevées sur la branche
-  (le scénario reste une défaite, plus tôt), ou choisir une graine de défaite « boss » hors de la
-  liste. Je n'ai rien béni ni réécrit.
+- Décision d'orch : ne pas rebénir la graine 124 (ses inputs jouent contre des apparitions qui
+  n'existent plus), la remplacer par une graine de défaite « boss » **non touchée** par D48.
+
+## `throne_defaite_boss` remplacé : graine 25
+
+- Choix parmi les 12 rejeux de m1-analyse-200-throne : première mise à terre par le roi_rat
+  pour 25, 31, 62, 124 et 144 ; 31, 124 et 144 sont touchées par D48, 25 et 62 non (ni points
+  d'ennemis ni portail sur aucun des trois étages). 25 : le boss domine le plus nettement.
+- Enregistrée avec `alacod-sim` de la branche (`--save-scenario`) : même issue qu'avec `61ac539`
+  (`floor_frames` [932, 2921], défaite f4590, un mort).
+- Relevé (trace détaillée de la branche, un rejeu) : troisième étage à f2921 ; joueur 0 à terre
+  à **f3808** ; dégâts reçus dans les 300 frames d'avant : roi_rat 47, franc_tireur 12, tourelle
+  8 ; joueur 1 seul, mort à f4591.
+- Attentes : `FloorIndex(2, 3810)`, `PlayerDowned(0, 3810)`, `AmmoReserve` balles 432 et 432 à
+  f3810, `EntityCount(Enemy, 5..5, 3810)`, `EntityHealth(roi_rat #750, 44, 3810)`,
+  `RunState(Playing, 4590)`, `Defeat(4591)`, `RunState(Ended(Defeat), 4592)` : **toutes vertes**
+  sur la branche ; la trace diffère dès la ligne 1 (autre graine) : à bénir par l'orchestrateur.
 
 ## Non fait
 
