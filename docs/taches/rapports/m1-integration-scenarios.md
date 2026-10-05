@@ -94,7 +94,33 @@ Chase]`, `attack_range` 40, dégâts 15, `scale` 1.4, `test: (frames: 600)` (gab
 
 ## 5. Jouabilité des étages 2 et 3, calibrage
 
-(à compléter)
+`alacod-sim --game throne --bots N --profiles prudent,… --floors run --seeds 1..20
+--until-floor 3 --max-frames 15000` (« fini » = étage 3 atteint ; SL = soft-lock détecté :
+1 200 frames sans kill ni étage). **Les anciens 20/20 portaient sur trois fois `niveau_1`.**
+
+| Réglage | 1 bot | 2 bots | 4 bots |
+|---|---|---|---|
+| avant le correctif (journal, trois fois `niveau_1`) | — | 20/20 | — |
+| correctif + boss 20 × 20 + butin relevé (`drop_chance` 0,15 → 0,25, `munitions_balles` 12 → 36, `munitions_lames` 12 → 24) | 0/20 (7 SL, 13 morts) | 1/20 (19 SL) | 11/20 (9 SL) |
+| + réserves de départ ×2 (`mag_limit` des trois armes du pilote) | 0/20 (10 SL, 10 morts) | 1/20 (19 SL) | 11/20 (9 SL) |
+| + tourelle en dernier dans `niveau_3` (**final**) | 0/20 (6 SL, 14 morts) | **3/20** (16 SL, 1 défaite) | **11/20** (9 SL) |
+
+**0 desync** dans toutes les séries (synctest). Résultats finaux complets (par graine, avec les
+ennemis restants des soft-locks) : `docs/digests/m1-fin-de-vague-2.sim.json`.
+
+- **Munitions : ce n'était pas la cause.** Avec les réserves doublées, mêmes étages graine par
+  graine qu'avant, alors que les bots ont des centaines de balles au moment du blocage (le
+  butin relevé et les réserves ×2 sont gardés : réalistes pour trois vraies cavernes).
+- **La cause est la limite des bots « cible hors de vue »** : presque toujours 1 ou 2 ennemis
+  restants sur les points les plus éloignés du départ — d'abord la tourelle (seul ennemi fixe,
+  mise en dernier pour cela), puis des ennemis lents ou à distance (brute, tireurs) que le bot
+  `prudent` ne va pas chercher dans une caverne de 64 × 44. Corrigé côté bots par b1
+  (m1-v3-bots-portail), qui mesure sur cette branche ; ces chiffres sont sa référence.
+- `fill_ratio` : 0,34 contre 0,38 sur `niveau_3` ne change pas la tendance (premières graines :
+  blocages au même étage) ; non modifié.
+- **Solo** : 0/20 (Nuclear Throne seul est dur par nature, et les deux soft-locks au portail de
+  l'étage 0, graines 3 et 16, sont un défaut de bots : dumps dans
+  `docs/taches/rapports/m1-integration-scenarios/`).
 
 ## 7. Dettes et limites trouvées (à reporter par l'orchestrateur)
 

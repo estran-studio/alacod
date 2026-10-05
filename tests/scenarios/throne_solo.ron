@@ -2,9 +2,11 @@
 // joue la run (trois cavernes, `floors/run.ron`, boss `roi_rat` au niveau 3) avec tout ce que le
 // manifeste active. Joué en synctest par la suite : preuve de déterminisme à un joueur.
 //
-// **Le bot seul ne finit pas la run** (0/20 graines, comme sur celle-ci) : la fiche demandait le
-// niveau 3 et le joueur vivant, ce scénario fixe ce qui se passe vraiment — deux cavernes
-// nettoyées, mort dans la troisième (limite des bots, rapport m1-integration-scenarios).
+// **État mesuré, pas la cible** : le bot seul ne finit pas la run (0/20 graines, comme sur
+// celle-ci). La fiche demande le niveau 3 et le joueur vivant ; ce scénario fixe ce qui se passe
+// aujourd'hui — deux cavernes nettoyées, mort dans la troisième (limite des bots, rapport
+// m1-integration-scenarios). Les correctifs de bots de b1 (m1-v3-bots-portail) devront le
+// refaire passer vers la cible, avec nouvelles attentes et trace rebénie avec preuve.
 //
 // Mesuré (graine 123456) : niveau 1 à f537 (`sang_froid` à f1137), étage 1 à f808, niveau 2 à
 // f1591 (`coriace` à f2191), alerte de l'horloge à f1708, étage 2 à f2816, mort et défaite à f3640.
