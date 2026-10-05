@@ -1908,6 +1908,36 @@ derrière un mur, les bots vont en ligne droite), 17/20 en phase 2 (voir ci-dess
 - Gabarit des scénarios générés d'armes préparé pour T1.13 : `gabarit_armes.ldtk` (copie de
   l'arène du testbed, `cible` à `counts_hits` à +128/−48 du spawn, `mannequin` ailleurs). Pas
   encore jouable : en mode `Floors`, un scénario de `throne` ignore sa carte.
+## 33. Restart en ligne (D14)
+
+« Rejouer » à la fin d'une partie p2p (chemin `--matchbox`) relance une partie avec les mêmes
+pairs, sans saisie de lobby et **sans message réseau** : l'accord vient du déterminisme
+(`game::jjrs::restart`).
+
+- **Compteur** `OnlineGames` (hors rollback) : parties **en ligne** jouées depuis la dernière
+  entrée normale dans `LobbyOnline` (remis à 0 à cette entrée, +1 à `OnEnter(InGame)` en ligne).
+  Les parties locales jouées avant la connexion ne comptent pas : les pairs ont donc le même
+  compteur.
+- **Rejouer** (`RunRequest::Restart` en ligne, `allumette_url` vide) : pas d'abandon (comme le
+  restart local), `OnlineRestart { game: n }` puis `LobbyOnline`. Le socket de la partie est
+  fermé à `OnExit(InGame)` ; le nouveau s'ouvre sur la salle `{lobby}-r{n}` (jamais la salle
+  d'origine : aucun pair fantôme) ; `wait_for_players` et la création de session sont ceux du
+  premier lancement.
+- **Graine** de la partie relancée : `restart_seed(seed, n)` (`seed ^ fnv1a("restart") ^ n`,
+  replié sur 32 bits) depuis la graine de carte ; le restart **local** garde la même graine.
+- **Désaccord** : sans les pairs dans la salle de restart au bout de 30 s
+  (`RESTART_TIMEOUT_SECS`), retour à la salle `{lobby}` d'origine et compteur à 0, comme
+  « Lobby ». Le départ d'un pair après la fin de partie n'affiche plus « GAME DISCONNECTED »
+  (l'écran de fin reste) ; l'overlay de déconnexion disparaît à la sortie de la partie.
+- **Allumette** (`--allumette`) : pas en v1 (l'API joint un lobby par `game_id`, pas par nom ; le
+  créateur bloque jusqu'à 60 s) : « Rejouer » y reste redirigé vers le lobby (dette).
+- **Preuve** : `ALACOD_RESTART_AT_FRAME=r` (avec `ALACOD_STATE_TRACE`/`ALACOD_EXIT_AT_FRAME`) :
+  trace de la partie 1 écrite dans `<fichier>-g1` à la frame `r`, `RunRequest::Restart` posé
+  60 frames plus tard, partie 2 écrite dans `<fichier>-g2` à `ALACOD_EXIT_AT_FRAME` (compté depuis
+  son début). `scripts/p2p-restart.sh` : deux clients, traces identiques partie par partie, partie 2
+  différente de la 1 (graine dérivée) ; un client local dont les deux parties sont identiques
+  (même graine : la sortie de partie remet tout à zéro).
+
 ## Notes essentielles
 
 **À vérifier** : l'entité `CrateLocation` n'est pas lue actuellement (`WeaponLocation`/`SodaLocation` le sont depuis T2.3, voir §1 ci-dessus). Elle apparaît dans `crates/map_ldtk/src/map_const.rs` (constante) mais aucun bundle Bevy ne la traite (`entity/*.rs` ne la liste pas). Avant d'utiliser une carte avec une entité nouvellement lue, vérifier que `make test_scenarios` accepte un scénario `idle` dessus.

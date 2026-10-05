@@ -19,6 +19,10 @@ use crate::{
     jjrs::{
         GggrsSessionConfiguration, GggrsSessionConfigurationState, GgrsPlayer, GgrsSessionBuilding,
     },
+    jjrs::restart::{
+        restart_room, restart_seed, restart_timed_out, OnlineGames, OnlineRestart,
+        RESTART_TIMEOUT_SECS,
+    },
     run_state::resolve_run_mode_with_floors,
 };
 
@@ -40,6 +44,9 @@ fn default_ice_server() -> RtcIceServerConfig {
 pub fn start_matchbox_socket(
     mut commands: Commands,
     ggrs_config: Res<GggrsSessionConfiguration>,
+    // D14 : restart en ligne → salle `{lobby}-r{n}` (voir `jjrs::restart`).
+    restart: Option<ResMut<OnlineRestart>>,
+    time: Res<Time<Real>>,
     // Mode allumette (natif uniquement) : ressource remplie par
     // `jjrs::allumette::start_allumette_flow`, chaîné avant ce système.
     #[cfg(not(target_arch = "wasm32"))] allumette: Option<Res<AllumetteConfig>>,
@@ -48,6 +55,14 @@ pub fn start_matchbox_socket(
     // au lieu de `{matchbox_url}/{lobby}` et du STUN en dur. Le builder matchbox
     // n'accepte qu'un seul `RtcIceServerConfig` : on prend la première entrée.
     // Sinon, chemin `--matchbox` historique, inchangé.
+    let room = match restart {
+        Some(mut restart) => {
+            restart.since = Some(time.elapsed_secs());
+            info!("restart en ligne : partie {}", restart.game + 1);
+            restart_room(&ggrs_config.lobby, restart.game)
+        }
+        None => ggrs_config.lobby.clone(),
+    };
     #[cfg(not(target_arch = "wasm32"))]
     let (url, ice_server) = match allumette.as_deref() {
         Some(config) => (
@@ -63,13 +78,13 @@ pub fn start_matchbox_socket(
                 .unwrap_or_else(default_ice_server),
         ),
         None => (
-            format!("{}/{}", ggrs_config.matchbox_url, ggrs_config.lobby),
+            format!("{}/{}", ggrs_config.matchbox_url, room),
             default_ice_server(),
         ),
     };
     #[cfg(target_arch = "wasm32")]
     let (url, ice_server) = (
-        format!("{}/{}", ggrs_config.matchbox_url, ggrs_config.lobby),
+        format!("{}/{}", ggrs_config.matchbox_url, room),
         default_ice_server(),
     );
 
@@ -80,19 +95,52 @@ pub fn start_matchbox_socket(
 
     commands.insert_resource(MatchboxSocket::from(socket));
 
-    info!("start p2p connection with CID={}", ggrs_config.cid);
+    info!("start p2p connection with CID={} (salle {room})", ggrs_config.cid);
 }
 
+/// Ouvre un socket matchbox sur `{matchbox_url}/{room}` (chemin `--matchbox`).
+fn open_matchbox_socket(commands: &mut Commands, matchbox_url: &str, room: &str) {
+    let socket = WebRtcSocketBuilder::new(format!("{matchbox_url}/{room}"))
+        .ice_server(default_ice_server())
+        .add_channel(ChannelConfig::reliable())
+        .build();
+    commands.insert_resource(MatchboxSocket::from(socket));
+}
+
+#[allow(clippy::too_many_arguments)]
 pub fn wait_for_players(
     mut commands: Commands,
     mut app_state: ResMut<NextState<AppState>>,
-    mut socket: ResMut<MatchboxSocket>,
+    socket: Option<ResMut<MatchboxSocket>>,
     ggrs_config: Res<GggrsSessionConfiguration>,
     online_state: Res<OnlineState>,
     session_state: Res<GggrsSessionConfigurationState>,
+    restart: Option<Res<OnlineRestart>>,
+    time: Res<Time<Real>>,
+    mut games: ResMut<OnlineGames>,
 ) {
     if !matches!(online_state.as_ref(), OnlineState::Online) {
         return;
+    }
+    let Some(mut socket) = socket else {
+        return;
+    };
+
+    // D14 : personne dans la salle de restart après le délai → salle d'origine, compteur à
+    // zéro (comme un « Lobby »).
+    if let Some(restart) = restart.as_deref() {
+        if socket.players().len() < ggrs_config.connection.max_player
+            && restart_timed_out(restart.since, time.elapsed_secs())
+        {
+            warn!(
+                "restart en ligne : pairs absents de la salle {} après {RESTART_TIMEOUT_SECS} s, retour au lobby",
+                restart_room(&ggrs_config.lobby, restart.game)
+            );
+            commands.remove_resource::<OnlineRestart>();
+            games.0 = 0;
+            open_matchbox_socket(&mut commands, &ggrs_config.matchbox_url, &ggrs_config.lobby);
+            return;
+        }
     }
 
     // regularly call update_peers to update the list of connected peers
@@ -204,6 +252,7 @@ pub fn system_after_map_loaded(
     manifest: Option<Res<GameManifest>>,
     registry: Option<Res<Registry>>,
     floors_override: Option<Res<crate::run_state::FloorsOverride>>,
+    restart: Option<Res<OnlineRestart>>,
 ) {
     if !matches!(online_state.as_ref(), OnlineState::Online) {
         return;
@@ -238,12 +287,20 @@ pub fn system_after_map_loaded(
         Some(config) => RunSeed(config.seed as u32),
         None => RunSeed(12345), // Graine par défaut si la map n'est pas configurée
     };
+    // D14 : partie relancée en ligne → graine dérivée du numéro de partie, identique chez
+    // tous les pairs (même compteur). Le restart est consommé.
+    let run_seed = match restart.as_deref() {
+        Some(restart) => {
+            commands.remove_resource::<OnlineRestart>();
+            RunSeed(restart_seed(run_seed.0, restart.game))
+        }
+        None => run_seed,
+    };
     let rng_streams = RngStreams::new(run_seed.0);
 
     // État de run (T2.4, chantier F1) : voir la doc de `jjrs::local::system_after_map_loaded_local`
-    // (même raisonnement). Restart n'est pas supporté en p2p pour ce chantier (voir
-    // `run_state::RunRequest::Restart`) : ce système ne tourne donc qu'une fois par
-    // session p2p, jamais pour une relance.
+    // (même raisonnement). D14 : une relance en ligne recrée le socket et la session, et
+    // repasse donc ici (graine dérivée ci-dessus).
     let run_players: Vec<usize> = session_building
         .players
         .iter()

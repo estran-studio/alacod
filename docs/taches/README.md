@@ -137,6 +137,11 @@ docker compose -f docker-compose.ci.yaml down
 (script bash : en zsh les `wait $pid` d'une variable non éclatée échouent). Attendu :
 « traces identiques », 599 lignes.
 
+**Restart en ligne** (D14, §33 ; quand la session, le lobby ou la sortie de partie changent) :
+`./scripts/p2p-restart.sh` (démarre et arrête `signaling` lui-même). Attendu : « p2p partie 1 :
+traces identiques », « p2p partie 2 : traces identiques », « partie 2 différente de la partie 1 »,
+« local : partie 2 identique à la partie 1 » ; code de sortie 0.
+
 ## 5. Traces et preuve (protocole `docs/conventions.md` §8)
 
 Chaque scénario a une trace de référence (`.trace` : hash de l'état rollback par frame).

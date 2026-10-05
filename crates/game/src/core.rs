@@ -233,6 +233,21 @@ impl Plugin for CoreSetupPlugin {
                     .run_if(not(resource_exists::<crate::run_state::LocalLobbyHold>)),
             ),
         );
+        // D14 (§33) : restart en ligne — compteur de parties en ligne (remis à zéro à chaque
+        // entrée normale dans `LobbyOnline`), socket de la partie fermé à sa sortie.
+        app.init_resource::<crate::jjrs::restart::OnlineGames>()
+            .add_systems(
+                OnEnter(AppState::LobbyOnline),
+                crate::jjrs::restart::reset_online_games,
+            )
+            .add_systems(
+                OnEnter(AppState::InGame),
+                crate::jjrs::restart::count_online_game,
+            )
+            .add_systems(
+                OnExit(AppState::InGame),
+                crate::jjrs::restart::drop_matchbox_socket,
+            );
         // System for ggrs that register the session when the map is correctly loaded
         app.add_systems(
             OnEnter(AppState::GameStarting),
