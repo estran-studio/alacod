@@ -11,6 +11,8 @@ impl Plugin for DisconnectedUiPlugin {
             handle_disconnect_event.run_if(in_state(AppState::InGame)),
         );
         app.add_systems(Update, button_system.run_if(in_state(AppState::InGame)));
+        // D14 : l'overlay ne survit pas à la partie (restart en ligne, retour au lobby).
+        app.add_systems(OnExit(AppState::InGame), despawn_disconnect_ui);
     }
 }
 
@@ -24,9 +26,19 @@ fn handle_disconnect_event(
     mut commands: Commands,
     mut events: MessageReader<GameDisconnectedEvent>,
     q_existing_ui: Query<Entity, With<DisconnectedUiRoot>>,
+    run: Option<Res<run::Run>>,
 ) {
     // Check if UI is already visible to avoid duplicates if multiple events fire
     if !q_existing_ui.is_empty() {
+        return;
+    }
+    // D14 : partie terminée, l'autre joueur a choisi « Rejouer » ou « Lobby » : son départ
+    // n'est pas une déconnexion à signaler (l'écran de fin reste).
+    if run
+        .as_deref()
+        .is_some_and(|run| matches!(run.step, run::RunStep::Ended { .. }))
+    {
+        events.clear();
         return;
     }
 
@@ -131,5 +143,11 @@ fn button_system(
                 *color = BackgroundColor(Color::srgb(0.3, 0.3, 0.3));
             }
         }
+    }
+}
+
+fn despawn_disconnect_ui(mut commands: Commands, roots: Query<Entity, With<DisconnectedUiRoot>>) {
+    for root in &roots {
+        commands.entity(root).despawn();
     }
 }
