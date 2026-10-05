@@ -37,7 +37,12 @@ pub fn cave_grid(seed: i32, config: &CaveConfig) -> CellGrid {
 /// à `-(world_y + px_hei)`).
 pub fn build_cave_ldtk(template: &LdtkJson, id: &str, seed: i32, config: &CaveConfig) -> LdtkJson {
     let grid = cave_grid(seed, config);
-    let points = world::points_of_interest(&grid, CAVE_PLAYER_SPAWNS, config.enemy_spawns);
+    let points = world::points_of_interest(
+        &grid,
+        CAVE_PLAYER_SPAWNS,
+        config.enemy_spawns,
+        config.spawn_clearance,
+    );
     let (w, h) = (grid.width as i32, grid.height as i32);
 
     let mut ldtk = template.clone();
