@@ -297,3 +297,86 @@ fn to_lobby_changes_app_state() {
         "RunRequest::ToLobby n'a pas fait quitter InGame vers LobbyLocal"
     );
 }
+
+/// Revue M0 (R4, `docs/digests/revue-m0.md`) : après « Rejouer », le joueur traversait les
+/// murs. `combat::collision_grid::CollisionGrids::walls` n'était reconstruite que si la
+/// signature des murs (nombre, somme des `GgrsNetId`) changeait ; une relance recrée les
+/// mêmes murs avec les mêmes ids (fabrique remise à zéro), donc la grille gardait les
+/// `Entity` des murs détruits et plus rien ne bloquait. `restart_replays_identically_*`
+/// ne le voyait pas : dans `idle`, le joueur ne touche jamais un mur.
+#[test]
+fn restart_keeps_walls_solid() {
+    if map_ldtk::RENDER_ENABLED {
+        eprintln!(
+            "test ignoré : compilé avec le rendu des tilemaps (utiliser --no-default-features)"
+        );
+        return;
+    }
+    let path = concat!(
+        env!("CARGO_MANIFEST_DIR"),
+        "/../../tests/scenarios/revue_murs_avant_poste.ron"
+    );
+    let source = std::fs::read_to_string(path).expect("revue_murs_avant_poste.ron");
+    let scenario = Scenario::from_ron(&source).expect("scénario valide");
+    let mut app = build_app(
+        &scenario,
+        true,
+        &PlayConfig {
+            follow_handle: None,
+        },
+    );
+    app.finish();
+    app.cleanup();
+
+    // Première partie : 400 frames (ouest contre le mur, puis nord contre le mur).
+    let frames = 400;
+    run_until_defeat_or(&mut app, frames);
+    assert_eq!(frame(&app), frames, "première partie interrompue");
+    let first_position = player_position(&mut app);
+    let first_run_trace: Vec<String> = app
+        .world()
+        .resource::<StateTraceRecorder>()
+        .lines_until(frames - 1)
+        .map(str::to_string)
+        .collect();
+
+    app.world_mut().insert_resource(RunRequest::Restart);
+    wait_for_fresh_in_game(&mut app, 20_000);
+    let frame_at_restart = frame(&app);
+    for _ in 0..frames - frame_at_restart {
+        app.update();
+    }
+    let second_position = player_position(&mut app);
+    assert_eq!(
+        first_position, second_position,
+        "après relance, le joueur ne s'arrête plus au même endroit (murs traversés ?)"
+    );
+    let second_run_trace: Vec<String> = app
+        .world()
+        .resource::<StateTraceRecorder>()
+        .lines_until(frames - 1)
+        .map(str::to_string)
+        .collect();
+    // Frames 0..frames-1 : la dernière frame n'est pas encore tracée à l'arrêt de la
+    // première partie.
+    assert_eq!(first_run_trace.len(), (frames - 1) as usize);
+    assert_eq!(
+        first_run_trace, second_run_trace,
+        "trace divergente après relance"
+    );
+}
+
+fn player_position(app: &mut App) -> (f32, f32) {
+    use bevy_fixed::fixed_math::FixedTransform3D;
+    use game::character::player::Player;
+    let world = app.world_mut();
+    let mut query = world.query::<(&Player, &FixedTransform3D)>();
+    let (_, transform) = query
+        .iter(world)
+        .find(|(p, _)| p.handle == 0)
+        .expect("joueur 0");
+    (
+        transform.translation.x.to_num::<f32>(),
+        transform.translation.y.to_num::<f32>(),
+    )
+}
