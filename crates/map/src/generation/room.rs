@@ -198,12 +198,24 @@ mod tests {
     #[test]
     fn chevauchement_exclut_les_salles_adjacentes() {
         let a = room(0, 0, 160, 160);
-        assert!(!a.is_overlapping(&room(160, 0, 160, 160)), "voisine à l'est");
-        assert!(!a.is_overlapping(&room(-160, 0, 160, 160)), "voisine à l'ouest");
+        assert!(
+            !a.is_overlapping(&room(160, 0, 160, 160)),
+            "voisine à l'est"
+        );
+        assert!(
+            !a.is_overlapping(&room(-160, 0, 160, 160)),
+            "voisine à l'ouest"
+        );
         assert!(!a.is_overlapping(&room(0, 160, 160, 160)), "voisine au sud");
-        assert!(!a.is_overlapping(&room(0, -160, 160, 160)), "voisine au nord");
+        assert!(
+            !a.is_overlapping(&room(0, -160, 160, 160)),
+            "voisine au nord"
+        );
         assert!(!a.is_overlapping(&room(160, 160, 160, 160)), "coin");
-        assert!(a.is_overlapping(&room(144, 0, 160, 160)), "une colonne commune");
+        assert!(
+            a.is_overlapping(&room(144, 0, 160, 160)),
+            "une colonne commune"
+        );
         assert!(a.is_overlapping(&room(32, 32, 32, 32)), "incluse");
         assert!(room(32, 32, 32, 32).is_overlapping(&a), "symétrie");
         assert!(a.is_overlapping(&a.clone()), "même place");

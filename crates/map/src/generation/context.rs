@@ -324,11 +324,7 @@ mod tests {
         assert_eq!(attendu, compat(&spawn_milieu));
         assert_eq!(attendu, compat(&spawn_dernier));
         // A.E (0) s'apparie aux deux W (S.0, B.0) ; A.S (1) à S.N (1).
-        assert!(attendu.contains(&(
-            "A".into(),
-            0,
-            vec![("B".into(), 0), ("S".into(), 0)]
-        )));
+        assert!(attendu.contains(&("A".into(), 0, vec![("B".into(), 0), ("S".into(), 0)])));
         assert!(attendu.contains(&("A".into(), 1, vec![("S".into(), 1)])));
     }
 }

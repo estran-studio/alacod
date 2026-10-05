@@ -73,7 +73,8 @@ mod tests {
                     let (bx, by, bw, bh) = b.world_rect();
                     let disjoint = ax + aw <= bx || bx + bw <= ax || ay + ah <= by || by + bh <= ay;
                     if !disjoint {
-                        chevauchements.push(format!("graine {seed} : {} / {}", a.template, b.template));
+                        chevauchements
+                            .push(format!("graine {seed} : {} / {}", a.template, b.template));
                     }
                 }
             }
@@ -93,7 +94,10 @@ mod tests {
             println!("cartes distinctes : {}", signatures.len());
             println!("chevauchements : {}", chevauchements.len());
         }
-        assert!(chevauchements.is_empty(), "salles chevauchantes : {chevauchements:?}");
+        assert!(
+            chevauchements.is_empty(),
+            "salles chevauchantes : {chevauchements:?}"
+        );
         assert!(
             signatures.len() > 1,
             "les 20 graines produisent toutes la même carte"

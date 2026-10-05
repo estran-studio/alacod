@@ -213,13 +213,21 @@ fn floors_cave_without_enemies_fixture() {
         .filter(|e| e.message.contains("caverne sans ennemi"))
         .collect();
     assert_eq!(d36.len(), 2, "{errors:#?}");
-    assert_has_error(&errors, LintErrorKind::OutOfRange, "« cave:vide » : caverne sans ennemi");
+    assert_has_error(
+        &errors,
+        LintErrorKind::OutOfRange,
+        "« cave:vide » : caverne sans ennemi",
+    );
     assert_has_error(
         &errors,
         LintErrorKind::OutOfRange,
         "« cave:sans_points » : caverne sans ennemi",
     );
-    assert_eq!(errors.len(), 2, "aucune autre erreur attendue : {errors:#?}");
+    assert_eq!(
+        errors.len(),
+        2,
+        "aucune autre erreur attendue : {errors:#?}"
+    );
 }
 
 #[test]
