@@ -1,8 +1,10 @@
 // `throne` (T1.11, docs/conventions.md §21 et §29) : troisième étage : huit ennemis (tous les profils) et le boss `roi_rat` (`cave:niveau_3`).
 // Personnages posés à tour de rôle sur les points `ZombieSpawn` (`characters[index % len]`).
-// m1-integration-scenarios : boss `roi_rat` ajouté en dernier avec un neuvième point : les huit
-// premiers points gardent leurs ennemis, le boss prend le neuvième (un seul exemplaire tant que la
-// caverne trouve neuf points espacés).
+// m1-integration-scenarios : boss `roi_rat` **en tête** (point 0, le plus éloigné du départ,
+// toujours présent) et `enemy_spawns` 9 : exactement un boss sur toute graine (au plus neuf
+// points). Le mettre en dernier ne marchait pas : la graine 123456 ne trouve que huit points
+// espacés (`ZOMBIE_SPAWN_SPACING`) et le neuvième, le boss, n'apparaissait jamais. Quand la caverne
+// n'a que huit points, le dernier de la liste (`rat`) manque.
 (
     width: 64,
     height: 44,
@@ -12,5 +14,5 @@
     survive: 4,
     min_floor_ratio: "0.3",
     enemy_spawns: 9,
-    characters: ["brute", "tourelle", "franc_tireur", "buffle", "arroseur", "cracheur", "chien", "rat", "roi_rat"],
+    characters: ["roi_rat", "brute", "tourelle", "franc_tireur", "buffle", "arroseur", "cracheur", "chien", "rat"],
 )

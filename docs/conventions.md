@@ -1872,7 +1872,7 @@ fuyard) ; `niveau_3` 64 × 44, 8 ennemis (tous les profils). `fill_ratio` 0,38 (
 testbed : les bots `prudent` vont en ligne droite). Pas de surface (impossible dans une caverne
 générée, §26 v2).
 
-**Boss** (m1-integration-scenarios) : `roi_rat`, en données seulement (360 PV, tag `champion`, `[Shoot(couronne), Charge, Chase]`, sans phases : D4, M2), dernier de `niveau_3.characters` avec `enemy_spawns` 9 : un exemplaire au neuvième point ; le portail exige sa mort comme celle des autres, et la boucle infinie du dernier niveau en recrée un à chaque rechargement.
+**Boss** (m1-integration-scenarios) : `roi_rat`, en données seulement (360 PV, tag `champion`, `[Shoot(couronne), Charge, Chase]`, sans phases : D4, M2), premier de `niveau_3.characters` avec `enemy_spawns` 9 : un exemplaire au point 0 (le plus éloigné du départ, toujours présent ; en dernier, il manquait quand la caverne ne trouve que huit points espacés) ; le portail exige sa mort comme celle des autres, et la boucle infinie du dernier niveau en recrée un à chaque rechargement.
 
 **Butin** (`items/powerups.ron`, §14) : `munitions_balles`, `munitions_obus`,
 `munitions_explosifs`, `munitions_energie`, `munitions_lames` (`RefillAmmoOf`, D40, poids 12

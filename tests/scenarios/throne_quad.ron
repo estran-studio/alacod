@@ -8,7 +8,7 @@ Scenario(
     game: "throne",
     floors: Some("run"),
     map_seed: 123456,
-    frames: 9000,
+    frames: 2200,
     players: [
         (bot: prudent),
         (bot: prudent),
@@ -16,7 +16,7 @@ Scenario(
         (bot: prudent),
     ],
     expect: [
-        Event(kind: "floor", by_frame: 9000),
+        Event(kind: "floor", by_frame: 2200),
         // CALIBRER
     ],
 )

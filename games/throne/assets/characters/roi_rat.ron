@@ -2,7 +2,7 @@
 // en données seulement (pas de phases : D4, M2). Santé de douze rats, tir en couronne à distance,
 // ruée télégraphiée, sinon poursuite (première règle applicable, §22). Tag `champion` posé
 // directement (la variante `champion` ne s'impose pas sans LDtk). Placé une fois par
-// `caves/niveau_3.ron` (dernier de `characters`, `enemy_spawns` 9).
+// `caves/niveau_3.ron` (premier de `characters` : point 0, toujours présent).
 (
     movement: (
         acceleration: "120.0",
@@ -19,10 +19,13 @@
 
     asset_name_ref: "roi_rat",
 
+    // Corps de 20 × 20 comme les autres ennemis, malgré `scale` 1.4 (visuel) : la navigation
+    // suppose des agents d'au plus 20 px (`FlowFieldCache::is_too_narrow`) ; avec 28 px le boss
+    // restait figé sur son point d'apparition dans les cavernes (mesuré, voir le rapport).
     collider: (
         shape: Rectangle(
-            width: "28.",
-            height: "28.",
+            width: "20.",
+            height: "20.",
         ),
         offset: ( x: "0.0", y: "-6.0", z: "0.0" )
     ),
