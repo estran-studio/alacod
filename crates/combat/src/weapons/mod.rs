@@ -1802,7 +1802,9 @@ impl Plugin for BaseWeaponGamePlugin {
         // Rollback components for melee weapons
         app.rollback_and_trace::<melee::MeleeWeapon>()
             .rollback_and_trace::<melee::MeleeAttackState>()
-            .rollback_and_trace::<melee::MeleeHold>()
+            // D38 : type nouveau, sans porteur hors fuite : variante neutre (parité des types
+            // vides, CLAUDE.md), sinon toutes les traces bougent dès la frame 0.
+            .rollback_and_trace_neutral::<melee::MeleeHold>()
             .rollback_and_trace::<melee::MeleeHitbox>();
 
         app.add_systems(

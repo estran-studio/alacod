@@ -107,8 +107,10 @@ impl From<MeleeWeaponAsset> for MeleeWeapon {
 
 /// D38 : l'ennemi ne lance pas de nouvelle attaque au corps à corps (il finit celle en
 /// cours). Posé par `game` tant que la règle retenue de l'ennemi est `Flee` (un ennemi qui fuit
-/// n'attaque plus dès qu'un joueur entre à portée), retiré ensuite. Rollback et tracé ; absent
-/// de tout ennemi qui ne fuit pas : neutre pour le checksum du contenu sans `Flee`.
+/// n'attaque plus dès qu'un joueur entre à portée), retiré ensuite. Rollback et tracé, en
+/// variante **neutre** (`rollback_and_trace_neutral`) : type nouveau, absent de tout ennemi qui
+/// ne fuit pas ; enregistré en variante normale, il déplacerait toutes les traces (parité des
+/// types vides, CLAUDE.md).
 #[derive(Component, Reflect, Default, Clone, Debug, Hash, Serialize, Deserialize)]
 pub struct MeleeHold;
 
