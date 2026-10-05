@@ -95,6 +95,7 @@ mod tests {
             enemy_visible: false,
             route: None,
             enemy_still: false,
+            enemy_shootable: true,
             revive: None,
             loot: None,
         }

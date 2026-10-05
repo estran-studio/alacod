@@ -387,6 +387,7 @@ pub fn read_bot_inputs(
             enemy_visible: true,
             route: None,
             enemy_still: false,
+            enemy_shootable: true,
             revive: None,
             loot: None,
         };
@@ -416,6 +417,15 @@ pub fn read_bot_inputs(
                 let (visible, route) =
                     navigate(&mut nav.0, rects, &body, &enemy_points, &view, profile);
                 view.enemy_visible = visible;
+                view.enemy_shootable = visible
+                    || view.nearest_enemy.is_some_and(|enemy| {
+                        crate::navigation::walls_clear_with(
+                            rects,
+                            position,
+                            enemy.position,
+                            Fixed::ZERO,
+                        )
+                    });
                 view.route = route;
             }
         }

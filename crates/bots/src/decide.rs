@@ -202,12 +202,13 @@ fn decide_prudent(view: &BotView) -> BoxInput {
 
 /// m1-v3-bots-softlocks : `prudent` ne tire pas vers un ennemi caché (mode `Floors`) : il vidait
 /// ses chargeurs dans la roche. Sauf un ennemi immobile de près (à moins de
-/// [`STILL_TARGET_DISTANCE`] : tourelle, boss coincé contre la roche, graine 43) : la ligne de
-/// tir élargie de 4 px le dit caché alors que les balles le touchent ; de plus loin, les
-/// chargeurs partaient encore dans la roche (graine 76).
+/// [`STILL_TARGET_DISTANCE`]) que la ligne brute, sans marge, atteint : boss coincé contre la
+/// roche (graine 43), caché avec la marge de 4 px alors que les balles le touchent. Une
+/// tourelle derrière la roche (graine 76) reste sans tir : les chargeurs y partaient.
 fn line_of_fire(view: &BotView) -> bool {
     view.enemy_visible
         || (view.enemy_still
+            && view.enemy_shootable
             && view
                 .nearest_enemy
                 .is_some_and(|enemy| enemy.distance <= STILL_TARGET_DISTANCE))
@@ -331,6 +332,7 @@ mod tests {
             enemy_visible: true,
             route: None,
             enemy_still: false,
+            enemy_shootable: true,
             revive: None,
             loot: None,
         }
@@ -557,7 +559,12 @@ mod tests {
         });
         assert!(
             decide(BotProfile::Prudent, &v, &mut rng()).fire,
-            "caché mais immobile, de près (boss coincé, graine 43) : tire"
+            "caché mais immobile, de près, ligne brute libre (boss coincé, graine 43) : tire"
+        );
+        v.enemy_shootable = false;
+        assert!(
+            !decide(BotProfile::Prudent, &v, &mut rng()).fire,
+            "immobile derrière la roche (tourelle, graine 76) : pas de tir"
         );
     }
 

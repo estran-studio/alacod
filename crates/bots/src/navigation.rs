@@ -97,9 +97,19 @@ impl Rect {
 /// Ligne de tir sans `Wall` entre `from` et `to` (murs élargis de [`SHOT_MARGIN`]),
 /// directement sur la géométrie (sans champ).
 pub fn walls_clear(geometry: &[(Rect, bool)], from: FixedVec2, to: FixedVec2) -> bool {
+    walls_clear_with(geometry, from, to, SHOT_MARGIN)
+}
+
+/// [`walls_clear`] avec une marge donnée (`Fixed::ZERO` : la ligne brute, m1-v3-bots-softlocks).
+pub fn walls_clear_with(
+    geometry: &[(Rect, bool)],
+    from: FixedVec2,
+    to: FixedVec2,
+    margin: Fixed,
+) -> bool {
     !geometry
         .iter()
-        .any(|(rect, wall)| *wall && rect.grown(SHOT_MARGIN).crosses(from, to))
+        .any(|(rect, wall)| *wall && rect.grown(margin).crosses(from, to))
 }
 
 pub fn cell(position: FixedVec2) -> GridPos {

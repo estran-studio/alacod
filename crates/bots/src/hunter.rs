@@ -512,6 +512,7 @@ mod profile_tests {
             enemy_visible: false,
             route: None,
             enemy_still: false,
+            enemy_shootable: true,
             revive: None,
             loot: None,
             hunter: Some(hunter),
@@ -546,6 +547,7 @@ mod profile_tests {
             enemy_visible: false,
             route: None,
             enemy_still: false,
+            enemy_shootable: true,
             revive: None,
             loot: None,
             hunter: Some(HunterView {

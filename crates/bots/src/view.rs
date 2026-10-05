@@ -100,6 +100,10 @@ pub struct BotView {
     /// tirer de loin (dispersion : il vidait ses munitions, ou touchait si rarement que la
     /// partie n'avançait plus). Faux hors navigation (hors mode `Floors`).
     pub enemy_still: bool,
+    /// m1-v3-bots-softlocks : ligne sans `Wall` jusqu'à l'ennemi le plus proche **sans** la
+    /// marge de [`crate::navigation::SHOT_MARGIN`] (un boss coincé contre la roche, graine 43,
+    /// est « caché » avec la marge alors que les balles le touchent). Vrai hors navigation.
+    pub enemy_shootable: bool,
     /// m1-v3-bots-reanimation : coéquipier à terre à relever (saignement urgent, moins de
     /// [`crate::input::REVIVE_URGENT_FRAMES`] avant la mort, et aucun ennemi visible à moins de
     /// [`crate::input::REVIVE_SAFE_DISTANCE`]) ; `prudent`/`fonceur` y vont en priorité.
