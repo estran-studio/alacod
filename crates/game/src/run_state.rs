@@ -26,7 +26,8 @@
 //! `bevy_ggrs::schedule_systems::run_ggrs_schedules`), `Run` elle-même, et les ressources
 //! rollback globales qui ne sont pas réinitialisées ailleurs par le chargement normal d'une
 //! partie (`FrameCount`, `GgrsNetIdFactory`, `WaveState`, `FlowFieldCache`,
-//! `RepairPointsTracking`). **`bevy_ggrs::RollbackOrdered`** (interne à bevy_ggrs, pas
+//! `RepairPointsTracking`), et la donnée dérivée `CollisionGrids` (D14 : sa grille de murs
+//! n'est reconstruite que si la signature des murs change). **`bevy_ggrs::RollbackOrdered`** (interne à bevy_ggrs, pas
 //! passée par `RollbackTraceApp`) aussi : elle compte *tous* les `Rollback` jamais créés
 //! depuis le lancement du processus (pas juste la partie en cours, voir sa doc), et
 //! contribue au checksum via `EntityChecksumPlugin` — sans ce reset, la relance produit un
@@ -475,6 +476,12 @@ fn cleanup_rollback_world_system(
     commands.insert_resource(run::Clock::default());
     commands.insert_resource(FlowFieldCache::default());
     commands.insert_resource(RepairPointsTracking::default());
+    // D14 : grilles de collision dérivées (hors rollback). La grille des murs n'est
+    // reconstruite que si la signature (nombre, somme des `GgrsNetId`) des murs change : une
+    // partie relancée recrée les mêmes murs, mêmes net ids, donc même signature — sans ce
+    // reset, la grille gardait les `Entity` des murs détruits et la partie 2 ne voyait plus
+    // de murs (divergence f304 du restart local, `scripts/p2p-restart.sh`).
+    commands.insert_resource(crate::collision_grid::CollisionGrids::default());
     // Compteur cumulatif interne à bevy_ggrs (voir la doc du module) : sans ce reset, le
     // checksum de la frame 0 d'une partie relancée diffère de celui d'un boot frais, même à
     // état de jeu par ailleurs strictement identique.

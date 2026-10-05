@@ -422,6 +422,25 @@ fn next_game_after_restart(
     }
 }
 
+/// Avec `ALACOD_STATE_TRACE_FULL=1` : écrit aussi `<fichier>.full`, le détail des dernières
+/// frames enregistrées (`history`, dernière version de chaque frame `< end`), pour trouver
+/// l'état qui diffère entre deux traces (`scripts/trace-diff.py`).
+fn write_full_history(path: &std::path::Path, trace: &StateTraceRecorder, end: u32) {
+    if !trace.full {
+        return;
+    }
+    let mut last: BTreeMap<u32, &str> = BTreeMap::new();
+    for (frame, line) in &trace.history {
+        if *frame < end {
+            last.insert(*frame, line);
+        }
+    }
+    let out: String = last.values().map(|line| format!("{line}\n")).collect();
+    let mut name = path.as_os_str().to_owned();
+    name.push(".full");
+    std::fs::write(PathBuf::from(name), out).expect("écriture de la trace détaillée");
+}
+
 /// Fichier de la trace de la partie `game` : `<fichier>-g{game}` en mode restart.
 fn trace_path(path: &std::path::Path, restart: bool, game: u32) -> PathBuf {
     if restart {
@@ -468,6 +487,7 @@ fn write_trace_at_exit_frame(
                 .map(|line| format!("{line}\n"))
                 .collect();
             std::fs::write(&path, out).expect("écriture de la trace d'état");
+            write_full_history(&path, &trace, restart_at);
             info!("trace d'état de la partie 1 écrite dans {path:?}");
             file.first_written = true;
             return;
@@ -489,6 +509,7 @@ fn write_trace_at_exit_frame(
     }
     let path = trace_path(&file.path, restart, file.game);
     std::fs::write(&path, out).expect("écriture de la trace d'état");
+    write_full_history(&path, &trace, file.exit_at_frame);
     info!("trace d'état écrite dans {path:?}");
     file.written = true;
     exit.write(AppExit::Success);
