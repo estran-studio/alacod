@@ -17,9 +17,12 @@ sur les traces de référence (`.trace`). D'où les règles :
 2. **Chaque voie possède des fichiers** (§2). On ne modifie pas un fichier d'une autre voie ; si on
    en a besoin, on l'écrit dans la fiche de la tâche et on attend le merge, ou on le fait passer par
    la tâche de contrats de la vague suivante.
-3. **Une seule voie change les traces existantes** : la voie simulation (V1). Les autres prouvent
-   qu'elles ne changent pas le gameplay : `make test_scenarios` vert **sans** `BLESS`. Un refactor
-   qui garde les traces identiques est un refactor prouvé.
+3. **Les traces existantes ne changent qu'avec une preuve** (`docs/conventions.md` §10), bénies par
+   l'orchestrateur. La voie simulation (V1) est celle qui les change le plus souvent ; une tâche de
+   toute autre voie doit d'abord prouver qu'elle ne change pas le gameplay : `make test_scenarios`
+   vert **sans** `BLESS` (un refactor qui garde les traces identiques est un refactor prouvé), et
+   si une trace bouge quand même, la preuve du §10 (règle corrigée le 2026-10-05 : V2, V3 et V4 ont
+   béni des traces avec preuve pendant M1).
 4. **Les déplacements de fichiers et les types partagés** ne se font qu'à la frontière des vagues,
    dans une tâche de contrats courte et sérielle (T0.x, T1.0, T2.0…). Jamais pendant une vague.
 5. **Ordre de merge fixe par vague** : outillage (V3) → données (V2) → simulation (V1) → présentation
@@ -707,6 +710,45 @@ région des chantiers puis la campagne.
 - m1-d43-defaite-scriptee : **mergée le 2026-10-05** (b0) — `throne_duo_defaite` rejoué avec deux joueurs scriptés
   immobiles (défaite f967, robuste graines 1–3) : le scénario de D43 dépendait des bots et ne produisait plus de
   défaite avec les correctifs de b1.
+- m1-assembleur-d45-d47 : **mergée le 2026-10-05** (D45, D46, D47, b0) — `.nth(r)` aux trois choix de l'assembleur
+  (`.skip(r).last()` rendait toujours le dernier élément), chevauchement testé avant `is_outside` (connexion fermée en
+  `DeadEnd`, `is_overlapping` en `<=`), saut des `Spawn` retiré (boucle infinie si un `Spawn` n'était pas premier) ;
+  `GeneratedRoom.template`/`world_rect()` ; **correction de la première livraison : « 7 → 19 cartes » était faux**, la
+  signature comptait l'ordre de placement — sur `avant_poste` les graines 1..20 donnent **5 cartes avant comme après**,
+  les mêmes graine par graine (vérifié dans la partie réelle : mêmes gabarits aux mêmes positions, seule la numérotation
+  `Level_N` change) ; 20 graines à 4 acheteurs avant/après identiques JSON compris (20/20 vague 5, 0 mort, 0 desync) ;
+  **la variété des cartes viendra des gabarits alternatifs du `.ldtk`, pas de l'assembleur** ; une trace bénie
+  (`avant_poste_demo`, entités de salle dès la frame 0, déroulé identique : f3600, vague 6, 15 tués) ; vérifiée groupée sur l'état fusionné `92a75dd` (+ `cargo fmt` `ad37615` sur deux fichiers de tests de b0) : suite sans bless = exactement `avant_poste_demo` (ligne 1) et `throne_three_floors` (ligne 4004) différentes ; suite verte après bless (176 scénarios distincts), 579 tests de crates, lint des trois jeux, fmt, scripts, `make gen` des trois jeux sans modification, exemples, `check -p throne` ; p2p N=2 traces identiques entre clients, sha256 `6e297852…` = **nouvelle référence** (la recette joue `avant_poste`, dont l'ordre de placement des salles change avec D45 ; ancienne `39654b07…`) ; D45–D47 fermées.
+- m1-d36-et-analyse-depart : **mergée le 2026-10-05** (D36, b0) — `CaveConfig.transit` (serde default, omis si faux :
+  aucune trace ne change), lint « caverne sans ennemi en `Floors` » (fixture `floors_cave_without_enemies`, 2 erreurs),
+  testbed `petite` en `transit: true` ; décision §21 : `on_hit: [DestroyTerrain]` ne creuse que sur un mur, `on_expire`
+  pour creuser à tout impact ; `alacod-sim` relève `doors_opened` et `players_end` (solde, à terre, position,
+  `in_spawn_room`) ; **analyse à 4 acheteurs réfutée** : sur 20 graines `avant_poste`, portes ouvertes à toutes
+  (6 à 12 événements), 49/80 joueurs hors `Depart` à la vague 5, 0 mort, 0 soft-lock — l'hypothèse « les bots restent
+  dans Depart » ne vaut que pour le mélange `fonceur,fonceur,prudent,immobile` ; limite réelle notée au digest m0 : 5
+  cartes sur 20 graines ; vérification groupée ci-dessus ; D36 fermée.
+- m1-relecture-conventions : **mergée le 2026-10-05** (doc seule, b0) — relecture d'ensemble de `docs/conventions.md`
+  contre le code de `main` : numérotation continue 1 à 33 (l'ancien second §9 « Feedback » devient le §7 manquant, §8/§9/§10
+  inchangés, ancre `{#section7}` retirée, sommaire et note de correspondance en tête), 516 références `§N` inventoriées
+  (aucune vers un numéro inexistant), 14 renvois faux corrigés dans les commentaires de code et de contenu (stats §7 → §9,
+  preuve §8 → §10, feedback §9 → §7), 29 sections corrigées (identifiants déplacés, listes incomplètes — 20 kinds —,
+  « à venir » livrés depuis, valeurs périmées de throne, mesures caduques renvoyées au journal), Notes essentielles en renvois ;
+  bilan `CLAUDE.md` : 43 attentes = 43 variantes, 11 cibles make présentes ; diff `CLAUDE.md` proposé dans le rapport
+  et **appliqué par l'orchestrateur** (`92a75dd`) ; trois écarts décidés par l'orchestrateur (exception `variant_health`
+  documentée ; toute voie peut bénir avec la preuve du §10 — §1 règle 3 corrigée ; nightly copie les MP4) ; points de fond
+  de `CLAUDE.md` (section « Système IA (En Refonte) » périmée, exemple d'arme sans `firing_modes`) laissés à William.
+- m1-dettes-doc-lot-2 : **mergée le 2026-10-05** (doc et commentaires, b0) — les trois décisions ci-dessus appliquées
+  (§9, Notes essentielles, §6 chemin des vidéos ; `scripts/nightly.sh` copie `target/videos/<commit>[-dirty]/*.mp4`
+  dans `nightly/<commit>/videos/`, sans échec sans vidéo), six commentaires de code périmés corrigés (six émetteurs de
+  `DamageEvent`, restart p2p livré, `Floors` livré, chemin `crates/combat`, en-tête de `powerups.ron` aux vrais poids,
+  commentaire de `make gen`), `docs/taches/README.md` §8 → §10 ; seuls des commentaires changent dans les `.rs`, le RON
+  et le `Makefile` ; vérification groupée ci-dessus.
+- m1-v3-bots-reanimation : **mergée le 2026-10-05** (bots, b1) — `prudent`/`fonceur` relèvent un coéquipier à terre
+  seulement quand son saignement est urgent (`revive_urgent` : moins de 600 frames) et sans ennemi visible à moins de
+  150 px, en `Floors` comme en vagues, en tirant pendant l'approche ; `ReviveView` ; **seule `throne_three_floors`
+  bouge** (preuve par inputs : premier input différent du joueur 1 à f3998, 600 frames avant la mort par saignement
+  f4599 de l'ancienne trace ; joueur 0 relevé à f4264, les deux finissent vivants) ; `clone_quad`, `bots_four_mixed`,
+  `throne_duo_defaite` inchangés ; mesure sur `4e8fe93` : 2 bots 13 → 14/20, 4 bots 20/20 ; vérification groupée ci-dessus.
 - **Critère M0 §9.8, 200 graines sur `avant_poste`** (nuit du 2026-10-04, `alacod-sim` de `7e8f541`, 4
   `acheteur`, carte par défaut du manifeste `maps/avant_poste.ldtk` — **pas `test_map`** : le critère
   historique sur `test_map` reste à rejouer avec `--map exemples/test_map.ldtk`), 4 lots parallèles sous
@@ -716,6 +758,15 @@ région des chantiers puis la campagne.
   1 mort (graine 200). **Total : 200/200 atteignent la vague 5 sur `avant_poste`, 0 desync, 0 softlock, 3 graines
   avec un mort.**
   Lot séparé de 20 graines `avant_poste` : 20/20 vague 5, 0 desync, 0 softlock, 0 mort, 6 522 à 7 583 frames.
+- **Critère M1 §9.8, 200 graines `throne` à 2 bots `prudent`** (2026-10-05, 10 h 15 à 12 h 11, `alacod-sim` de
+  `61ac539` : bots-portail inclus, réanimation pas encore mergée ; `--floors run --until-floor 3 --max-frames
+  15000`, 4 lots parallèles) : **149/200 finissent les trois étages, 0 desync, 12 soft-locks, 39 défaites**
+  (toutes au troisième étage, celui du boss `roi_rat`, 37 avec un mort sur deux ; durée médiane au
+  troisième étage 1 612 frames avant la défaite contre 3 536 pour le finir) ; 47 des 149 runs finies ont eu
+  un mort relevé ; 3 307 à 8 326 frames (médiane 5 515). Soft-locks (relevé D42, classement b0) : boss
+  vivant 23, 43, 76, 118 ; `brute` 162, 200 ; `tourelle`/`franc_tireur` 63, 149 ; `arroseur` 111 ;
+  `pillard` 139 ; portail ouvert non pris 53, 81. Données : `alacod_tasks/m1-200-throne/` (hors dépôt).
+  Suites : m1-v3-bots-softlocks (b1) et m1-analyse-200-throne (b0) ; 4 bots à jouer ensuite.
 
 - Ce fichier est la source de vérité des tâches : une ligne de statut par tâche (`à faire`, `en
   cours (branche)`, `mergée (commit)`), tenue par l'agent qui prend la tâche.
@@ -811,6 +862,11 @@ coller le préambule puis la fiche dans son prompt.
 | 2026-10-05 | m1-d43-d44-fin-de-partie « fin de partie et soft-lock » (D43 + D44, b0, outillage, aucune trace existante touchée : diagnostic D43 = la règle `rollback_check_defeat` est correcte en Waves et Floors à 1 et 2 joueurs (tous les joueurs présents à terre ou morts ⇒ Defeat ; saignement 1 800 frames ⇒ Death) ; les cas de b1 étaient (a) une run déjà `Ended Defeat` que `alacod-sim` ne détectait pas (il attendait qu'aucun joueur n'existe) et (b) un joueur à terre avec un coéquipier debout qui ne le relève pas (bot) ; correctif : `StopEarly` à `Run.step == Ended`, `run_end` (Defeat/Victory/None) + frame dans le JSON, colonne « fin » ; D44 : `FloorsProgress` compte la santé totale des ennemis qui baisse et les changements d'état des joueurs comme progression (1 200 frames repartent) ; scénario `throne_duo_defaite` (graine 28 : joueur 0 à terre f2481, joueur 1 mort f2744, défaite la même frame) ; §24 une ligne) | 20 graines avec l'outil corrigé : 1 bot 3/20 finies, 12 défaites, 5 soft-locks ; 2 bots 9/20 (contre 3), 11 soft-locks ; 4 bots 17/20 (contre 11), 3 soft-locks ; 0 desync — l'écart vient de l'outil (combats lents non coupés, défaites comptées à part) ; vérifiée sur l'état fusionné `037270a` : 195 scénarios, 1 trace bénie, 0 différente ; 570 tests de crates ; lint des trois jeux, fmt, scripts, `make gen` des trois jeux sans modification, exemples, `check -p throne` ; p2p N=2 sha256 `39654b07…` ; D43, D44 fermées. Merge `037270a` (b0). |
 | 2026-10-05 | m1-v3-bots-portail « bots : portail, ligne de tir, ennemi immobile » (b1 : (a) `decide::approach_portal` pilotée en vitesse — vitesse voulue vers la route ou le portail, chaque axe pressé selon l'écart, plus de vitesse transverse ni d'orbite (le freinage à 48 puis 112 px ne faisait que déplacer le problème) ; (b) `walls_clear` et postes de tir avec marge `SHOT_MARGIN` 4 px (une ligne de vue fine frôlant un coin de roche passait pour dégagée alors que les balles s'y arrêtaient) ; (c) ennemi immobile (tourelle, vitesse de base nulle) au-delà de 200 px : `prudent` se rapproche à 120 px par le chemin sans recul (`close_in`, Floors seulement) ; 46 tests bots ; §24) | mesure sur main `f242633` (ancien `alacod-sim`) : 1 bot 0/20 → 1/20 (soft-locks 8 → 3), 2 bots 3/20 → 7/20 (17 → 11), 4 bots 11/20 → 18/20 ; six scénarios à bots recalés (preuve par inputs : première différence d'input 5 frames avant la première ligne de trace différente), `HudText` de `throne_progression` recalé ; vérifiée sur l'état fusionné `9b900fe` : suite sans bless = exactement les 6 annoncées + `throne_duo_defaite` (nouveau depuis D43, bot `prudent`) ; 195 scénarios verts après bless ; 573 tests de crates ; lint des trois jeux, fmt, scripts, `make gen` des trois jeux sans modification, exemples, `check -p throne` ; p2p N=2 sha256 `39654b07…`. Merge `9b900fe` (b1). |
 | 2026-10-05 | m1-d43-defaite-scriptee (b0 : `throne_duo_defaite` ne dépend plus d'aucun bot — deux joueurs scriptés immobiles, throne, séquence `run`, graine 28 : joueur 0 à terre f853 (saigne jusqu'à f2653), joueur 1 mort f967, `Ended(Defeat)` f966 ; attentes `FloorIndex`, `RunState`, `PlayerDowned`, `PlayerAlive`, `Defeat(by_frame 967)` ; graines 1–3 donnent aussi une défaite) | rebénie sur l'état fusionné `6b8f147` ; suite 195 scénarios verts, tests `scenario` 81/81. Merge `6b8f147` (b0). |
+| 2026-10-05 | m1-assembleur-d45-d47 « assembleur : élu réel, chevauchement, Spawn » (D45–D47, b0 : `.nth(r)`, chevauchement → `DeadEnd`, `is_overlapping` en `<=`, saut des `Spawn` retiré, `GeneratedRoom.template`/`world_rect()`, tests ; « 7 → 19 cartes » corrigé en 5 = 5 sur `avant_poste` (l'ordre de placement seul change), 20 graines à 4 acheteurs identiques avant/après) | vérifiée groupée sur l'état fusionné `92a75dd` (+ `cargo fmt` `ad37615` sur deux fichiers de tests de b0) : suite sans bless = exactement `avant_poste_demo` (ligne 1) et `throne_three_floors` (ligne 4004) différentes ; suite verte après bless (176 scénarios distincts), 579 tests de crates, lint des trois jeux, fmt, scripts, `make gen` des trois jeux sans modification, exemples, `check -p throne` ; p2p N=2 traces identiques entre clients, sha256 `6e297852…` = **nouvelle référence** (la recette joue `avant_poste`, dont l'ordre de placement des salles change avec D45 ; ancienne `39654b07…`) ; une trace bénie `avant_poste_demo` avec la preuve du rapport (entités de salle dès f0, déroulé identique). Merges `bc4a257` (via D36), fmt `ad37615`, bless `1e204e5` (b0). |
+| 2026-10-05 | m1-d36-et-analyse-depart « lint caverne sans ennemi, transit, analyse Depart » (D36, b0 : `CaveConfig.transit`, fixture `floors_cave_without_enemies`, §21 `DestroyTerrain` sur personnage = choix documenté, `alacod-sim` `doors_opened`/`players_end` ; analyse à 4 acheteurs : hypothèse « bots dans Depart » réfutée, 49/80 hors Depart, portes ouvertes à toutes les graines) | vérification groupée (même ligne), 0 trace déplacée par cette tâche. Merge `bc4a257` (b0). |
+| 2026-10-05 | m1-relecture-conventions « relecture d'ensemble de conventions.md et CLAUDE.md » (doc, b0 : numérotation 1 à 33, Feedback → §7, sommaire, 14 renvois de code corrigés, 29 sections corrigées contre le code, bilan CLAUDE.md 43/43 attentes, diff CLAUDE.md appliqué par orch `92a75dd`, 3 écarts décidés) | doc seule ; vérification groupée (même ligne) couvre les commentaires `///`. Merge `a3464d5` (via lot-2) (b0). |
+| 2026-10-05 | m1-dettes-doc-lot-2 « suites de la relecture » (b0 : exception `variant_health` §9, bless par toute voie avec preuve (Notes essentielles), nightly copie les MP4, six commentaires périmés, en-tête `powerups.ron`, commentaire `make gen`, README §10) | commentaires seuls dans le code (`git diff -U0` vérifié), `bash -n nightly.sh` ; vérification groupée (même ligne). Merge `a3464d5` (b0). |
+| 2026-10-05 | m1-v3-bots-reanimation « bots : relever un coéquipier en urgence » (b1 : `ReviveView`, `revive_urgent` < 600 frames et aucun ennemi visible < 150 px, prudent/fonceur, tir pendant l'approche ; preuve par inputs f3998 ; 2 bots 13 → 14/20, 4 bots 20/20 sur `4e8fe93`) | vérification groupée (même ligne) ; une trace bénie `throne_three_floors` (f4003, les deux vivants) ; `clone_quad` identique. Merge `9cd6c39`, bless `1e204e5` (b1). |
 Orchestration : Fable crée les worktrees (`scripts/task-new.sh` du meta-repo), lance un agent par
 tâche avec le modèle le moins cher (Haiku d'abord, Sonnet si une tâche échoue deux fois), vérifie
 la branche (`make test_scenarios`, `cargo test`, lecture du diff), fusionne dans `main`
