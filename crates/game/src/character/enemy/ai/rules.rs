@@ -476,8 +476,8 @@ mod tests {
             fixed_math::new(100.0),
             fixed_math::FIXED_ZERO,
         ));
-        let first = behavior_motion(&drifter, &runtime, 110, at, target, &cache, super::navigation::MOVEMENT_FLOW_KEY).unwrap();
-        let second = behavior_motion(&drifter, &runtime, 150, at, target, &cache, super::navigation::MOVEMENT_FLOW_KEY).unwrap();
+        let first = behavior_motion(&drifter, &runtime, 110, at, target, &cache, crate::character::enemy::ai::navigation::MOVEMENT_FLOW_KEY).unwrap();
+        let second = behavior_motion(&drifter, &runtime, 150, at, target, &cache, crate::character::enemy::ai::navigation::MOVEMENT_FLOW_KEY).unwrap();
         // Perpendiculaire à la cible (axe x) : le long de y, sens opposés.
         assert_eq!(first.direction.x, fixed_math::FIXED_ZERO);
         assert!(first.direction.y > fixed_math::FIXED_ZERO);
@@ -498,13 +498,13 @@ mod tests {
             },
             ..Default::default()
         };
-        let telegraph = behavior_motion(&charger, &runtime, 10, at, None, &cache, super::navigation::MOVEMENT_FLOW_KEY).unwrap();
+        let telegraph = behavior_motion(&charger, &runtime, 10, at, None, &cache, crate::character::enemy::ai::navigation::MOVEMENT_FLOW_KEY).unwrap();
         assert_eq!(telegraph.speed_mult, fixed_math::FIXED_ZERO);
         runtime.charge = ChargePhase::Rush {
             until: 90,
             target: frozen,
         };
-        let rush = behavior_motion(&charger, &runtime, 40, at, None, &cache, super::navigation::MOVEMENT_FLOW_KEY).unwrap();
+        let rush = behavior_motion(&charger, &runtime, 40, at, None, &cache, crate::character::enemy::ai::navigation::MOVEMENT_FLOW_KEY).unwrap();
         assert_eq!(rush.speed_mult, fixed_math::Fixed::from_num(3));
         assert!(rush.direction.x > fixed_math::new(0.99));
     }
