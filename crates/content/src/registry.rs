@@ -231,6 +231,9 @@ pub struct CharacterEntry {
     pub test: Option<CharacterTestEntry>,
     /// T1.13 : `counts_hits`, pour la cible de `generate_template`.
     pub counts_hits: bool,
+    /// D41 : étendue du corps **en jeu** (collider × `scale`, comme `create_character`) : la plus
+    /// grande distance du centre du personnage à un bord de son collider, en px. 0 sans collider.
+    pub body_extent: Fixed,
 }
 
 /// T1.13 : mirroir de `game::character::config::CharacterTest` (attentes comptées).
@@ -1013,7 +1016,38 @@ impl Registry {
             }
         }
 
+        apply_cave_spawn_clearance(&mut registry);
         (registry, errors)
+    }
+}
+
+/// Dégagement (en cases) qu'exige un corps d'étendue `extent` px autour d'un point
+/// d'apparition (D41) : le centre d'une case est à 8 px de son bord, chaque case de dégagement
+/// ajoute 16 px ; au moins 1 (`world::is_open`).
+pub fn spawn_clearance_for(extent: Fixed) -> u32 {
+    let half_cell = Fixed::from_num(world::CELL_SIZE / 2);
+    let cell = Fixed::from_num(world::CELL_SIZE);
+    let mut clearance = 1u32;
+    while half_cell + cell * Fixed::from_num(clearance) < extent {
+        clearance += 1;
+    }
+    clearance
+}
+
+/// D41 : `CaveConfig::spawn_clearance` de chaque caverne = le dégagement du plus grand corps en
+/// jeu parmi ses `characters` (au moins celui déclaré ; un id inconnu est rapporté par le lint).
+/// Après le chargement de tous les kinds : l'ordre des dossiers du manifeste n'importe pas.
+fn apply_cave_spawn_clearance(registry: &mut Registry) {
+    for cave in registry.caves.values_mut() {
+        let needed = cave
+            .config
+            .characters
+            .iter()
+            .filter_map(|id| registry.characters.get(&CharacterId::from(id.as_str())))
+            .map(|character| spawn_clearance_for(character.body_extent))
+            .max()
+            .unwrap_or(1);
+        cave.config.spawn_clearance = cave.config.spawn_clearance.max(needed);
     }
 }
 
@@ -1121,6 +1155,76 @@ struct CharacterFileSchema {
     /// T1.13 : cible de `generate_template` (règle « `counts_hits` »).
     #[serde(default)]
     counts_hits: bool,
+    /// D41 : corps (dégagement des points d'apparition des cavernes). Écrit sans `Some(...)`
+    /// dans les RON de personnages (`collider: (...)`, comme `CharacterConfig`).
+    #[serde(default, deserialize_with = "present")]
+    collider: Option<ColliderSchema>,
+    #[serde(default = "default_scale")]
+    scale: FixedField,
+}
+
+/// Champ optionnel écrit nu dans le RON (`champ: (...)` et non `champ: Some((...))`).
+fn present<'de, D, T>(deserializer: D) -> Result<Option<T>, D::Error>
+where
+    D: Deserializer<'de>,
+    T: Deserialize<'de>,
+{
+    T::deserialize(deserializer).map(Some)
+}
+
+fn default_scale() -> FixedField {
+    FixedField(Fixed::ONE)
+}
+
+/// Mirroir RON de `game::collider::Collider` (seules les dimensions servent).
+#[derive(Deserialize)]
+struct ColliderSchema {
+    shape: ColliderShapeSchema,
+    #[serde(default)]
+    offset: OffsetSchema,
+}
+
+#[derive(Deserialize)]
+enum ColliderShapeSchema {
+    Rectangle {
+        width: FixedField,
+        height: FixedField,
+    },
+    Circle {
+        radius: FixedField,
+    },
+}
+
+#[derive(Deserialize)]
+struct OffsetSchema {
+    x: FixedField,
+    y: FixedField,
+    #[serde(rename = "z", default)]
+    _z: serde::de::IgnoredAny,
+}
+
+impl Default for OffsetSchema {
+    fn default() -> Self {
+        Self {
+            x: FixedField(Fixed::ZERO),
+            y: FixedField(Fixed::ZERO),
+            _z: serde::de::IgnoredAny,
+        }
+    }
+}
+
+impl ColliderSchema {
+    /// Plus grande distance du centre à un bord, offset compris, à l'échelle `scale`.
+    fn extent(&self, scale: Fixed) -> Fixed {
+        let (half_w, half_h) = match &self.shape {
+            ColliderShapeSchema::Rectangle { width, height } => {
+                (width.0 / Fixed::from_num(2), height.0 / Fixed::from_num(2))
+            }
+            ColliderShapeSchema::Circle { radius } => (radius.0, radius.0),
+        };
+        let (ox, oy) = (self.offset.x.0.abs(), self.offset.y.0.abs());
+        (half_w + ox).max(half_h + oy).saturating_mul(scale)
+    }
 }
 
 /// Mirroir RON de `game::character::config::CharacterTest` (comme `WeaponTestSchema`) : les
@@ -1573,6 +1677,11 @@ fn load_characters(
                     expect_moving: test.expect_moving.len(),
                 }),
                 counts_hits: parsed.counts_hits,
+                body_extent: parsed
+                    .collider
+                    .as_ref()
+                    .map(|collider| collider.extent(parsed.scale.0))
+                    .unwrap_or(Fixed::ZERO),
             },
         );
     }
@@ -2752,5 +2861,39 @@ mod tests {
             map_id_from_path("testbed/testbed_empty.ldtk").as_str(),
             "testbed_empty"
         );
+    }
+}
+
+/// D41 : dégagement des points d'apparition selon le corps en jeu.
+#[cfg(test)]
+mod spawn_clearance_tests {
+    use super::*;
+
+    fn extent_of(ron_collider: &str, scale: f64) -> Fixed {
+        let collider: ColliderSchema = ron::from_str(ron_collider).unwrap();
+        collider.extent(Fixed::from_num(scale))
+    }
+
+    #[test]
+    fn etendue_en_jeu_avec_offset_et_echelle() {
+        let corps = r#"(shape: Rectangle(width: "20.", height: "20."), offset: (x: "0.0", y: "-6.0", z: "0.0"))"#;
+        // Zombie / ennemi de 20 px : 10 + 6.
+        assert_eq!(extent_of(corps, 1.0), Fixed::from_num(16));
+        // Boss : 20 × 1.4 = 28 px en jeu, 16 × 1.4 = 22.4.
+        assert!((extent_of(corps, 1.4).to_num::<f64>() - 22.4).abs() < 0.01);
+        let gros = r#"(shape: Rectangle(width: "28.", height: "28."), offset: (x: "0.0", y: "-6.0", z: "0.0"))"#;
+        // 28 × 1.4 = 39 px en jeu : (14 + 6) × 1.4 = 28.
+        assert!((extent_of(gros, 1.4).to_num::<f64>() - 28.0).abs() < 0.01);
+    }
+
+    #[test]
+    fn degagement_selon_l_etendue() {
+        assert_eq!(spawn_clearance_for(Fixed::ZERO), 1);
+        assert_eq!(spawn_clearance_for(Fixed::from_num(16)), 1);
+        assert_eq!(spawn_clearance_for(Fixed::from_num(24)), 1);
+        assert_eq!(spawn_clearance_for(Fixed::from_num(22.4)), 1);
+        assert_eq!(spawn_clearance_for(Fixed::from_num(28)), 2);
+        assert_eq!(spawn_clearance_for(Fixed::from_num(40)), 2);
+        assert_eq!(spawn_clearance_for(Fixed::from_num(41)), 3);
     }
 }
