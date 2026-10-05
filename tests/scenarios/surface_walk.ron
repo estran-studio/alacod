@@ -1,12 +1,14 @@
 // T1.7 (surfaces, docs/conventions.md §26) : carte `testbed/surfaces.ldtk`, couloir A (joueur 0)
-// avec des bandes de surfaces : eau (×0,5) cases 11-20, sable (×0,8) 21-30, glace (accélération
+// avec des bandes de surfaces : eau (×0,5) cases 11-20, sable (×0,8) 21-30, glace (adhérence
 // ×0,2) 31-40. Le joueur 0 marche à droite de f10 à f310 ; le joueur 1 reste immobile dans le
 // couloir B, nu. Origine de la carte en x = -624 (graine de carte 123456) : eau
 // [-448, -288), sable [-288, -128), glace [-128, 32).
 //
-// À regarder : vitesse de croisière 2,5 px/frame jusqu'à l'eau (f90 : -454.3) ; dans l'eau
-// 1,25 px/frame (f110 -> f210 : -425.6 -> -300.6, 125 px en 100 frames, rapport 0,5) ; sur le
-// sable 2,0 px/frame (f250 -> f290 : -235.2 -> -155.2, 80 px en 40 frames, rapport 0,8).
+// À regarder : vitesse de croisière 2,5 px/frame jusqu'à l'eau (f60 : -458.0) ; dans l'eau
+// 1,25 px/frame (f80 -> f180 : -426.4 -> -301.4, 125 px en 100 frames, rapport 0,5) ; sur le
+// sable 2,0 px/frame (f200 -> f260 : -269.7 -> -149.7, 120 px en 60 frames, rapport 0,8).
+// Chaque changement de bande se fait en 1 ou 2 frames (freinage à 3000 px/s²). Sur la glace, la
+// vitesse maximale revient (2,5 px/frame) et le joueur glisse à l'arrêt (15 frames au lieu de 3).
 // Référence sans surface : `surface_none` (mêmes frames, 2,5 px/frame).
 Scenario(
     powerup_drop_chance_override: "0.0",
@@ -25,11 +27,11 @@ Scenario(
         CellState(x: -8, y: 15, surface: "glace", at_frame: 5),
         CellState(x: -28, y: 11, surface: "aucune", at_frame: 5),
         // Sol, puis eau (×0,5), puis sable (×0,8)
-        PlayerPosition(handle: 0, x: -454.3, y: 248, tolerance: 1, at_frame: 90),
-        PlayerPosition(handle: 0, x: -425.6, y: 248, tolerance: 1, at_frame: 110),
-        PlayerPosition(handle: 0, x: -300.6, y: 248, tolerance: 1, at_frame: 210),
-        PlayerPosition(handle: 0, x: -235.2, y: 248, tolerance: 1, at_frame: 250),
-        PlayerPosition(handle: 0, x: -155.2, y: 248, tolerance: 1, at_frame: 290),
+        PlayerPosition(handle: 0, x: -458.0, y: 248, tolerance: 1, at_frame: 60),
+        PlayerPosition(handle: 0, x: -426.4, y: 248, tolerance: 1, at_frame: 80),
+        PlayerPosition(handle: 0, x: -301.4, y: 248, tolerance: 1, at_frame: 180),
+        PlayerPosition(handle: 0, x: -269.7, y: 248, tolerance: 1, at_frame: 200),
+        PlayerPosition(handle: 0, x: -149.7, y: 248, tolerance: 1, at_frame: 260),
         PlayerPosition(handle: 1, x: -568, y: 184, tolerance: 1, at_frame: 290),
     ],
 )

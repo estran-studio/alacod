@@ -460,7 +460,7 @@ stats: {
 },
 ```
 
-**Lecture branchée** : `character::player::input::apply_inputs` (accélération, multiplicateur de sprint, vitesse max), `character::enemy::ai::pathing::move_enemies` (vitesse, séparation, ralentissement, distance d'attaque optimale — la granularité de la grille spatiale de séparation reste la constante globale de `PathfindingConfig`, seulement pour le partitionnement, voir le commentaire dans `move_enemies`), `weapons::weapon_rollback_system`/`spawn_bullet_rollback` (cadence de tir, temps de rechargement, dégâts et portée d'une balle, multipliés par les stats du porteur) et `character::health::sync_health_from_stats` (`Health.max` et `HealthRegen.regen_rate`, recalculés chaque frame après l'expiration des modificateurs — `current` est borné à `max` s'il le dépasse, jamais relevé automatiquement). `character::player::input::apply_friction` et les champs de dash (`dash_distance`, `dash_duration_frames`, `dash_cooldown_frames`, `sprint_acceleration_per_frame`/`sprint_deceleration_per_frame`) restent des lectures directes de `CharacterConfig` : ils ne sont pas dans la liste de stats de la tâche T1.2.
+**Lecture branchée** : `character::player::input::apply_inputs` (accélération, multiplicateur de sprint, vitesse max — aussi la vitesse de sortie du dash, §30), `character::enemy::ai::pathing::move_enemies` (vitesse, séparation, ralentissement, distance d'attaque optimale — la granularité de la grille spatiale de séparation reste la constante globale de `PathfindingConfig`, seulement pour le partitionnement, voir le commentaire dans `move_enemies`), `weapons::weapon_rollback_system`/`spawn_bullet_rollback` (cadence de tir, temps de rechargement, dégâts et portée d'une balle, multipliés par les stats du porteur) et `character::health::sync_health_from_stats` (`Health.max` et `HealthRegen.regen_rate`, recalculés chaque frame après l'expiration des modificateurs — `current` est borné à `max` s'il le dépasse, jamais relevé automatiquement). Le freinage (`movement.deceleration`, multiplié par l'adhérence `Acceleration` résolue / `movement.acceleration`, §30) et les champs de dash (`dash_distance`, `dash_duration_frames`, `dash_cooldown_frames`, `dash_iframes`, `dash_buffer_frames`) et de sprint (`sprint_acceleration_per_frame`/`sprint_deceleration_per_frame`) restent des lectures directes de `CharacterConfig` : ils ne sont pas dans la liste de stats de la tâche T1.2.
 
 **Scénario de preuve** (`tests/scenarios/stat_move_speed.ron`) : deux joueurs avancent avec le même script d'inputs, l'un avec un modificateur `(stat: MoveSpeed, op: Mul, value: "0.5")` posé après création (`PlayerScript::modifiers`, comme `tags`/`immune_to`, appliqué par `scenario::runner::apply_player_overrides`), l'autre sans — `PlayerPosition` aux mêmes frames pour les deux, lecture directe de l'écart.
 
@@ -1637,7 +1637,8 @@ surface, id = nom de fichier sans extension.
 // glace : (intgrid_value: 3, tags: ["glace"], move_speed: "1.0", acceleration: Some("0.2"))
 ```
 `move_speed` et `acceleration` (défaut `1.0`) sont des **facteurs abstraits** (`ModifierOp::Mul`)
-traduits selon le personnage : joueur → `MoveSpeed` et `Acceleration` ; ennemi au sol →
+traduits selon le personnage : joueur → `MoveSpeed` et `Acceleration` (qui règle aussi son
+freinage : l'adhérence, §30) ; ennemi au sol →
 `EnemyMoveSpeed` (pas d'accélération) ; ennemi volant (`MovementType::Flying`) → rien. Un facteur
 `1` ne pose aucun modificateur. Lint (`content::lint::lint_surfaces`) : `intgrid_value` > 0 et
 unique (`DuplicateId`), facteurs > 0, tags non vides (fixtures `surface_duplicate_value`,
@@ -1668,10 +1669,12 @@ venu d'un niveau `Floors` à surfaces) ; un personnage hors surface n'est jamais
 
 **Scénarios** (testbed) : `surface_walk` (couloir à bandes eau / sable / glace de
 `testbed/surfaces.ldtk` : 1,25 et 2,0 px/frame contre 2,5), `surface_none` (couloir nu, même
-input), `surface_ice` (glissade au demi-tour), `surface_enemy` (`testbed/surfaces_enemy.ldtk` :
-un breacher qui traverse l'eau touche le joueur 205 frames après celui du couloir nu).
+input), `surface_ice` (glissade au demi-tour : 30 frames contre 6 sur le sol), `surface_enemy`
+(`testbed/surfaces_enemy.ldtk` : un breacher qui traverse l'eau touche le joueur 205 frames
+après celui du couloir nu).
 
-**v2 / hors périmètre.** Esquive (dash) et friction par surface, coût de flow field par surface,
+**v2 / hors périmètre.** Dash par surface (il couvre la même distance sur la glace), freinage
+réglé à part de l'accélération par surface (l'adhérence règle les deux), coût de flow field par surface,
 dangers (piques, fosses, barils, feu), neige et boue (contenu 1837), surfaces de caverne
 (`CaveConfig.surfaces`).
 
@@ -1908,6 +1911,77 @@ derrière un mur, les bots vont en ligne droite), 17/20 en phase 2 (voir ci-dess
 - Gabarit des scénarios générés d'armes préparé pour T1.13 : `gabarit_armes.ldtk` (copie de
   l'arène du testbed, `cible` à `counts_hits` à +128/−48 du spawn, `mannequin` ailleurs). Pas
   encore jouable : en mode `Floors`, un scénario de `throne` ignore sa carte.
+
+## 30. Course et esquive (dash)
+
+Code : `game::character::movement` (`MovementConfig`, `run_velocity`, `approach_axis`, `grip`),
+`combat::actors::DashState` et `dash_step` (règles pures, testées sans Bevy),
+`game::character::player::input::apply_inputs` (visée, dash puis course, un seul système).
+Réglage des joueurs : `player_config.ron` (zombies, testbed), `characters/pilote.ron` (throne).
+Les ennemis ne lisent que `max_speed` (leur IA fait le reste) ; le champ `friction` n'existe plus.
+
+**Course.** Chaque axe va vers la vitesse visée (direction des touches normalisée × `MoveSpeed`
+résolue × sprint ; nulle sans touche) : il accélère de `acceleration` (px/s²) vers une cible plus
+rapide dans le même sens, freine de `deceleration` (px/s², absent = `acceleration`) vers une cible
+plus lente, nulle ou opposée, sans jamais la dépasser. Par axe plutôt qu'en norme : arithmétique
+`Fixed` exacte, sans racine, et un demi-tour sur un axe ne freine pas l'autre ; relâcher un axe le
+freine même si l'autre est tenu. Réglage (150 px/s, 3000/3000) : pleine vitesse (2,5 px par frame)
+en 3 frames, arrêt en 3, demi-tour en 6. Tenir une touche `n` frames déplace de **2,5 × `n` px**
+(l'accélération et le freinage se compensent) : c'est la règle de calcul des positions attendues.
+
+**Adhérence.** `grip` = stat `Acceleration` résolue / `movement.acceleration` (1 sans
+modificateur) multiplie aussi le freinage : la glace (§26, ×0,2) met 15 frames à lancer ou arrêter
+le joueur, 30 au demi-tour.
+
+**Dash.** Part sur l'appui (front montant de `Dash` : tenir le bouton ne relance rien) et avance
+dès cette frame ; direction : touches, sinon visée, sinon regard, inversée par `Modifier`. Il
+couvre exactement `dash_distance` px en `dash_duration_frames` frames, par un pas qui décroît
+linéairement de `2·d/n − course` jusqu'à la vitesse de course (`dash_step`) : on sort du dash en
+courant, sans arrêt sec ni glissade ; sans touche à la sortie, la course freine (+2,5 px). Le pas
+est une vitesse appliquée par `move_characters` : un dash s'arrête aux murs. `dash_cooldown_frames`
+est compté depuis le départ. Un appui refusé (dash ou cooldown en cours) est gardé
+`dash_buffer_frames` frames, celle de l'appui comprise, et part à la première frame permise.
+Pendant le dash : pas de tir (le bouton de dash tenu, lui, ne bloque plus rien), aucun
+ralentissement par les ennemis (on traverse la horde). À terre, étourdi ou gelé (T1.3, §19) : pas
+de dash, pas même d'un appui gardé d'avant le statut (il vieillit et s'oublie). Un dash en cours
+quand le statut tombe ne bouge plus (vitesse annulée par `status_motion_system`), mais ses frames,
+ses i-frames et son cooldown s'écoulent. Réglage : 64 px en 8 frames (13,5 px la première),
+cooldown 24, i-frames 6, buffer 8.
+
+**I-frames.** Les `dash_iframes` premières frames du dash, celle de l'appui comprise :
+`Health.invulnerable_until_frame` (déjà rollback) prend le maximum de sa valeur et de
+`frame + dash_iframes − 1`. `Health::is_invulnerable_at(frame)` est le seul test : balles et
+projectiles composables **traversent** le joueur (ni dégât ni arrêt, `Pierce` non consommé) ; les
+hitbox de mêlée ne le voient pas (ni dégât ni recul, et il n'est pas marqué touché : une hitbox
+encore active après les i-frames le touche) ; tout autre dégât est annulé au résolveur
+(`rollback_resolve_damage_events`, sauf `DamageKind::True`). `Homing` et `Aimed` le visent
+toujours.
+
+**Scénarios** : `dash_wall` (64 px, puis butée contre le mur), `movement_melee` (sprint, dash
+dans la direction des touches, appui refusé pendant le cooldown, appui gardé qui part à la fin du
+cooldown), `surface_ice` (demi-tour sur la glace et sur le sol), `stat_move_speed`,
+`dash_iframes` (un joueur plaqué contre un mur dashe dedans sous un tir ami continu, une balle
+toutes les 2 frames : `NoDamageBetween` sur les 6 i-frames, coups juste avant et juste après ;
+`dash_iframes: 0` le fait échouer, 3 coups de plus), `dash_stun_buffer` (un appui gardé pendant le
+cooldown ne part pas une fois le joueur étourdi : la balle perçante tirée à bout portant le touche
+à la frame où le dash fautif l'aurait rendu invulnérable ; sans la garde, 10 PV de plus),
+`dash_aim_change` (la visée change pendant le dash, synctest).
+
+**Recalage des scénarios (2026-10-04).** La course a changé toutes les trajectoires : positions
+attendues recalculées (`at_frame N` = état après N frames, segments `from..to` à fin exclue, délai
+d'input de 5 frames, 2,5 px par frame de touche), marches raccourcies quand elles visaient un
+interactable (achats, réparation), générateur recalé (`WALK_*_FRAMES`). La visée des parties de
+référence du clone (`clone_solo`, `clone_duo`, `clone_quad`) a été **ré-enregistrée** en headless à
+partir de f1000 (outil temporaire, non versionné) : toutes les 15 frames, chaque joueur concerné
+tire vers le zombie vivant le plus proche (égalité : plus petit `GgrsNetId`) s'il est à 400 px au
+plus (joueur 3 du quad : 1000), pendant 15 frames (solo) ou 2 (duo, quad) ; `pan` = écart monde
+arrondi, +y vers le haut. Mêmes attentes qualitatives (vagues, kills, victoire, joueurs debout),
+soldes et frames recalés. Les bots joués en direct (`bot:`) gardent leurs scénarios, frames
+recalées (portails, niveaux, mutations) ; ceux dont les inputs sont des enregistrements de bot figés
+en `Scripted` ont été **réenregistrés** par la même commande `alacod-sim --save-scenario`
+(`throne_mutation_choice`, avec `ChoiceB` réinséré à la frame de son choix ; `bot_prudent_nododge`,
+avec le même diff temporaire qui désactive l'esquive).
+
 ## Notes essentielles
 
 **À vérifier** : l'entité `CrateLocation` n'est pas lue actuellement (`WeaponLocation`/`SodaLocation` le sont depuis T2.3, voir §1 ci-dessus). Elle apparaît dans `crates/map_ldtk/src/map_const.rs` (constante) mais aucun bundle Bevy ne la traite (`entity/*.rs` ne la liste pas). Avant d'utiliser une carte avec une entité nouvellement lue, vérifier que `make test_scenarios` accepte un scénario `idle` dessus.

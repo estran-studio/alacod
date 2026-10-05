@@ -1,12 +1,14 @@
-// T1.7 (surfaces, docs/conventions.md §26) : glace (accélération ×0,2, vitesse maximale
+// T1.7 (surfaces, docs/conventions.md §26) : glace (adhérence ×0,2, vitesse maximale
 // inchangée) sur `testbed/surfaces.ldtk`. Les deux joueurs reçoivent le même input : marche à
-// droite de f10 à f315, puis demi-tour (gauche) jusqu'à f440. À f315, le joueur 0 est sur la
-// glace du couloir A (x -104.7, glace [-128, 32)), le joueur 1 sur le sol du couloir B.
+// droite de f10 à f315, puis demi-tour (gauche) jusqu'à f440, joué 5 frames plus tard (délai
+// d'input). À f315, le joueur 0 est sur la glace du couloir A (x -18.2, glace [-128, 32)), le
+// joueur 1 sur le sol du couloir B.
 //
-// À regarder : sur le sol, le joueur 1 freine et repart à gauche en ~60 frames (x maximal
-// ≈ 194 vers f375, puis 118.1 à f440). Sur la glace, le joueur 0 glisse : il avance encore de
-// 26 px entre f360 et f375 (sur le sol : 7,5 px) et ne s'arrête que vers f425 (x ≈ 61),
-// après être sorti de la glace en f388.
+// À regarder : sur le sol, le joueur 1 fait demi-tour en 6 frames et ne dépasse que de 2,5 px
+// sa dernière position à pleine vitesse (x maximal 194.3 à f323). Sur la glace, le joueur 0 met
+// 30 frames : il glisse encore de 17 px vers la droite (x maximal 11.8 à f335), puis ne retrouve
+// sa pleine vitesse à gauche qu'à f351 (-10.7), quand le joueur 1 court déjà depuis 24 frames.
+// Il quitte la glace pour le sable vers f398 (x -128, 2,0 px/frame).
 Scenario(
     powerup_drop_chance_override: "0.0",
     game: "testbed",
@@ -24,15 +26,17 @@ Scenario(
     ],
     expect: [
         CellState(x: -7, y: 15, surface: "glace", at_frame: 5),
-        PlayerPosition(handle: 0, x: -104.7, y: 248, tolerance: 1, at_frame: 315),
-        PlayerPosition(handle: 1, x: 108.1, y: 184, tolerance: 1, at_frame: 315),
-        // Sur la glace : la glissade continue
-        PlayerPosition(handle: 0, x: -15.6, y: 248, tolerance: 1, at_frame: 360),
-        PlayerPosition(handle: 0, x: 10.3, y: 248, tolerance: 1, at_frame: 375),
-        PlayerPosition(handle: 0, x: 60.9, y: 248, tolerance: 1, at_frame: 430),
-        // Sur le sol : demi-tour presque fini, déjà reparti à gauche
-        PlayerPosition(handle: 1, x: 186.4, y: 184, tolerance: 1, at_frame: 360),
-        PlayerPosition(handle: 1, x: 193.9, y: 184, tolerance: 1, at_frame: 375),
-        PlayerPosition(handle: 1, x: 141.2, y: 184, tolerance: 1, at_frame: 430),
+        PlayerPosition(handle: 0, x: -18.2, y: 248, tolerance: 1, at_frame: 315),
+        PlayerPosition(handle: 1, x: 179.3, y: 184, tolerance: 1, at_frame: 315),
+        // Sur le sol : arrêté en 3 frames, reparti à gauche à pleine vitesse 3 frames après
+        PlayerPosition(handle: 1, x: 194.3, y: 184, tolerance: 1, at_frame: 323),
+        PlayerPosition(handle: 1, x: 166.8, y: 184, tolerance: 1, at_frame: 335),
+        PlayerPosition(handle: 1, x: 126.8, y: 184, tolerance: 1, at_frame: 351),
+        PlayerPosition(handle: 1, x: -70.6, y: 184, tolerance: 1, at_frame: 430),
+        // Sur la glace : la glissade continue, puis le joueur repart lentement
+        PlayerPosition(handle: 0, x: 0.8, y: 248, tolerance: 1, at_frame: 323),
+        PlayerPosition(handle: 0, x: 11.8, y: 248, tolerance: 1, at_frame: 335),
+        PlayerPosition(handle: 0, x: -10.7, y: 248, tolerance: 1, at_frame: 351),
+        PlayerPosition(handle: 0, x: -192.2, y: 248, tolerance: 1, at_frame: 430),
     ],
 )

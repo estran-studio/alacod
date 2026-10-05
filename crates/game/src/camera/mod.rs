@@ -50,7 +50,8 @@ pub struct CameraSettings {
     pub free_move_speed: f32,
     // The edge size for mouse detection in free mode (0.0 to 1.0)
     pub edge_margin: f32,
-    // How quickly the camera interpolates to target positions
+    // How quickly the camera catches up with its target (1/s): it closes 1 - e^(-lerp_speed·t)
+    // of the gap in t seconds, whatever the frame rate (12: 63 % in 83 ms)
     pub lerp_speed: f32,
     // Maximum zoom out in players lock mode
     pub max_zoom_out: f32,
@@ -76,7 +77,7 @@ impl Default for CameraSettings {
         Self {
             free_move_speed: 500.0,
             edge_margin: 0.05,
-            lerp_speed: 5.0,
+            lerp_speed: 12.0,
             max_zoom_out: 15.0,
             min_zoom: 5.0,
             default_player_zoom: 5.0, // Default zoom when in player mode
@@ -384,7 +385,9 @@ fn camera_control_system(
 
     // Smoothly interpolate camera position
     let current_pos = camera_transform.translation.truncate();
-    let lerp_factor = settings.lerp_speed * time.delta().as_secs_f32();
+    // Exponential smoothing: frame-rate independent, never overshoots (a linear factor
+    // `lerp_speed * dt` went past 1 at low frame rates)
+    let lerp_factor = 1.0 - (-settings.lerp_speed * time.delta().as_secs_f32()).exp();
 
     // Explicitly apply lerp to both X and Y components
     let new_x = current_pos.x + (camera.target_position.x - current_pos.x) * lerp_factor;

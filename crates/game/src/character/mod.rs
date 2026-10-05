@@ -55,8 +55,8 @@ use crate::{
         player::{
             control::PlayerAction,
             input::{
-                apply_friction, apply_inputs, move_characters, read_local_inputs,
-                update_animation_state, PointerWorldPosition,
+                apply_inputs, move_characters, read_local_inputs, update_animation_state,
+                PointerWorldPosition,
             },
             Player,
         },
@@ -191,9 +191,8 @@ impl Plugin for BaseCharacterGamePlugin {
                     .in_set(RollbackSystemSet::Input),
                 // MOVEMENT CHARACTERS
                 (
-                    apply_friction,
                     // T1.3 : `Stun`/`Freeze` annulent la vitesse (§19)
-                    combat::projectile::status_motion_system.after(apply_friction),
+                    combat::projectile::status_motion_system,
                     move_characters.after(combat::projectile::status_motion_system),
                 )
                     .in_set(RollbackSystemSet::Movement),

@@ -16,9 +16,10 @@ Makefile) **ne résout pas en DNS** : ne pas compter dessus.
   commit** chez les deux (le checksum GGRS détecte toute différence de simulation : `Desync
   detected` dans le log).
 - Première compilation : `cargo build -p zombies --profile headless` (20 à 40 min sur un portable ;
-  le profil `headless` est le profil **optimisé** : `make zombies` tout nu compile en `dev` et rend
-  ~15 fps, dette D30). Le binaire lit `games/zombies` par le chemin capturé à la compilation :
-  on ne copie pas le binaire d'une machine à l'autre, chacun compile.
+  le profil `headless` est le profil **optimisé** ; `make zombies` tout nu compile en `dev`,
+  optimisé lui aussi depuis movement-feel : `opt-level = 1` pour le workspace, `3` pour les
+  dépendances, dette D30 ; avant, ~15 fps). Le binaire lit `games/zombies` par le chemin
+  capturé à la compilation : on ne copie pas le binaire d'une machine à l'autre, chacun compile.
 - Réseau : les deux sur le même tailnet Tailscale (inviter l'ami), ou le même LAN. Sans ça, il
   faut ouvrir le port TCP 3536 vers la machine du serveur de signaling et donner l'IP publique ;
   la liaison de jeu (UDP via STUN) passe sur la plupart des NAT résidentiels, sans garantie.
@@ -53,7 +54,7 @@ plein. Un joueur à 0 PV tombe à terre et peut être réanimé par l'autre.
 | Lobby plein mais rien ne bouge, puis sortie | WebRTC bloqué (NAT) | passer par Tailscale, ou même LAN |
 | `Desync detected on frame …` dans le log | commits ou contenu différents | `git rev-parse HEAD` et `git status` identiques chez les deux, recompiler |
 | Panic à la fermeture de la fenêtre | dette D31 (`Query<&Window>`), sans effet sur la partie | ignorer |
-| ~15 fps | profil `dev` | relancer avec `--profile headless` |
+| ~15 fps | binaire `dev` compilé avant movement-feel (D30) | recompiler, ou relancer avec `--profile headless` |
 
 Plan B sans réseau p2p : une seule machine, un seul clavier (`make zombies`), ou en local
 `--players localhost` avec des bots (`--bots N` sur `alacod-sim` seulement, pas dans le jeu

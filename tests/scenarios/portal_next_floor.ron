@@ -1,8 +1,9 @@
 // T1.8 (mode `Floors`) : séquence `deux_niveaux` du testbed (`floor_a` puis `floor_b`).
 // Le joueur tire sur le `follower` de `floor_a` qui vient à lui ; une fois le follower mort,
-// le portail s'ouvre (f62) au centre des points de départ ; le joueur y marche et passe au
-// niveau 1 (`floor_b`, f230), où il reste immobile : le `breacher` le met à terre (f2543),
-// défaite et résumé.
+// le portail s'ouvre (f62) au centre des points de départ ; le joueur y marche (6 frames de
+// touche à partir de f220, jouées f225-230 avec le délai d'input) et passe au niveau 1
+// (`floor_b`, f230), où il reste immobile : le `breacher` le met à terre (f2544), défaite et
+// résumé.
 //
 // À regarder : tir vers le haut à gauche, le follower meurt ; le carré violet du portail
 // apparaît au centre de la salle ; le joueur y entre et le niveau 1 se charge (même salle,
@@ -16,7 +17,7 @@ Scenario(
     players: [
         (inputs: [
             (from: 0, to: 200, buttons: [Fire], pan: (-64, 48)),
-            (from: 200, to: 230, buttons: [Right, Down], pan: (0, 0)),
+            (from: 220, to: 226, buttons: [Right, Down], pan: (0, 0)),
         ]),
     ],
     expect: [

@@ -23,9 +23,15 @@ opt-level = 'z'
 lto = true
 codegen-units = 1
 
-# Workaround for macOS 26 (Sequoia) objc2-foundation issue
-# Disable debug assertions in objc2 to avoid runtime panics
-# See: https://github.com/madsmtm/objc2/issues/765
+# `cargo run -p zombies` / `make zombies` : notre code un peu optimisé, dépendances (bevy)
+# optimisées, la pratique Bevy. Sans optimisation le jeu tournait à ~15 fps rendus (dette D30) ;
+# le premier build après un `cargo clean` est plus long, les suivants ne recompilent que nos crates.
+[profile.dev]
+opt-level = 1
+
+[profile.dev.package."*"]
+opt-level = 3
+
 # Tests et replays headless : dépendances optimisées, notre code un peu optimisé,
 # sans LTO pour garder des temps de compilation raisonnables.
 [profile.headless]
@@ -36,6 +42,9 @@ debug = "line-tables-only"
 [profile.headless.package."*"]
 opt-level = 3
 
+# Workaround for macOS 26 (Sequoia) objc2-foundation issue
+# Disable debug assertions in objc2 to avoid runtime panics
+# See: https://github.com/madsmtm/objc2/issues/765
 [profile.dev.package.objc2]
 debug-assertions = false
 

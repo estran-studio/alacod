@@ -12,7 +12,7 @@ Scenario(
     frames: 1100,
     players: [
         (inputs: [
-            (from: 10, to: 22, buttons: [Right]),
+            (from: 10, to: 29, buttons: [Right]),
             (from: 10, to: 120, buttons: [Down]),
             (from: 340, to: 550, buttons: [Interaction]),
             // La fenêtre est recassée : le joueur tente de sortir par elle

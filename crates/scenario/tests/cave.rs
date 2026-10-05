@@ -225,7 +225,7 @@ fn caverne_dans_une_sequence_floors() {
             powerup_drop_chance_override: "0.0",
             players: [(inputs: [
                 (from: 0, to: 200, buttons: [Fire], pan: (-64, 48)),
-                (from: 200, to: 230, buttons: [Right, Down], pan: (0, 0)),
+                (from: 220, to: 226, buttons: [Right, Down], pan: (0, 0)),
             ])])"#
     ))
     .expect("scénario Floors");

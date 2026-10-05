@@ -1,2 +1,3 @@
-// T1.7 : glace (couche LDtk `Surfaces`, valeur 3) : accélération ×0,2, le joueur glisse.
+// T1.7 : glace (couche LDtk `Surfaces`, valeur 3) : accélération ×0,2, freinage compris
+// (adhérence) : le joueur glisse.
 (intgrid_value: 3, tags: ["glace"], move_speed: "1.0", acceleration: Some("0.2"))

@@ -1,7 +1,7 @@
 ((
     free_move_speed: 500.0,
     edge_margin: 0.05,
-    lerp_speed: 5.0,
+    lerp_speed: 12.0, // Suit le joueur de près (63 % de l'écart en 83 ms)
     max_zoom_out: 3.0,
     min_zoom: 0.6,
     default_player_zoom: 1.0, // Default zoom when in player mode

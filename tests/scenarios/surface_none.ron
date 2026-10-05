@@ -2,8 +2,8 @@
 // droite de f10 à f310), joué par le joueur 1 dans le couloir B de `testbed/surfaces.ldtk`, sans
 // surface : 2,5 px/frame tout du long, aucun modificateur posé.
 //
-// À regarder : le joueur 1 traverse la carte à vitesse constante (f90 -454.3, f210 -154.4,
-// f290 45.6), là où le joueur 0 de `surface_walk` en est à -300.6 et -155.2.
+// À regarder : le joueur 1 traverse la carte à vitesse constante (f60 -458.0, f180 -158.1,
+// f260 41.9), là où le joueur 0 de `surface_walk` en est à -301.4 et -149.7.
 Scenario(
     powerup_drop_chance_override: "0.0",
     game: "testbed",
@@ -14,10 +14,10 @@ Scenario(
         (inputs: [(from: 10, to: 310, buttons: [Right], pan: (0, 0))]),
     ],
     expect: [
-        PlayerPosition(handle: 1, x: -454.3, y: 184, tolerance: 1, at_frame: 90),
-        PlayerPosition(handle: 1, x: -404.3, y: 184, tolerance: 1, at_frame: 110),
-        PlayerPosition(handle: 1, x: -154.4, y: 184, tolerance: 1, at_frame: 210),
-        PlayerPosition(handle: 1, x: -54.4, y: 184, tolerance: 1, at_frame: 250),
-        PlayerPosition(handle: 1, x: 45.6, y: 184, tolerance: 1, at_frame: 290),
+        PlayerPosition(handle: 1, x: -458.0, y: 184, tolerance: 1, at_frame: 60),
+        PlayerPosition(handle: 1, x: -408.0, y: 184, tolerance: 1, at_frame: 80),
+        PlayerPosition(handle: 1, x: -158.1, y: 184, tolerance: 1, at_frame: 180),
+        PlayerPosition(handle: 1, x: -108.1, y: 184, tolerance: 1, at_frame: 200),
+        PlayerPosition(handle: 1, x: 41.9, y: 184, tolerance: 1, at_frame: 260),
     ],
 )

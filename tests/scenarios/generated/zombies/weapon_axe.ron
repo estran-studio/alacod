@@ -10,9 +10,9 @@ Scenario(
     players: [
         PlayerScript(
             inputs: [
-                Segment(from: 10, to: 82, buttons: [Right], pan: (128, 48)),
-                Segment(from: 102, to: 147, buttons: [Up], pan: (128, 48)),
-                Segment(from: 167, to: 400, buttons: [Melee], pan: (128, 48)),
+                Segment(from: 10, to: 61, buttons: [Right], pan: (128, 48)),
+                Segment(from: 66, to: 85, buttons: [Up], pan: (128, 48)),
+                Segment(from: 90, to: 400, buttons: [Melee], pan: (128, 48)),
             ],
             weapon: "axe",
         ),

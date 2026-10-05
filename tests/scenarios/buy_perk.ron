@@ -1,9 +1,10 @@
 // Le joueur (solde 3000) marche jusqu'à la machine à perk de la salle de départ
 // (SodaLocation "juggernog", games/zombies/assets/exemples/test_map_shop.ldtk) et l'achète.
 //
-// À regarder : le joueur monte puis se déplace un peu à gauche vers la machine (f10-93),
-// achète Juggernog en interagissant (f93-108) : sa vie maximum double (100 -> 200) et sa
-// vie actuelle remonte immédiatement de la même différence (200/200), son solde tombe à 500.
+// À regarder : le joueur monte jusqu'au mur (f10-65) puis se déplace un peu à gauche vers la
+// machine (f65-74, 22,5 px), achète Juggernog en interagissant (f93-108) : sa vie maximum
+// double (100 -> 200) et sa vie actuelle remonte immédiatement de la même différence
+// (200/200), son solde tombe à 500.
 Scenario(
     // Isoler ce scénario des drops aléatoires ; powerup_drop_on_kill teste ce chemin.
     powerup_drop_chance_override: "0.0",
@@ -14,7 +15,7 @@ Scenario(
         (
             inputs: [
                 (from: 10, to: 65, buttons: [Up]),
-                (from: 65, to: 93, buttons: [Left]),
+                (from: 65, to: 74, buttons: [Left]),
                 (from: 93, to: 108, buttons: [Interaction]),
             ],
             currency: 3000,

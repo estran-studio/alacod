@@ -1,5 +1,5 @@
 use animation::AnimationState;
-use animation::{ActiveLayers, FacingDirection};
+use animation::FacingDirection;
 use bevy::window::PrimaryWindow;
 use bevy::{platform::collections::hash_map::HashMap, prelude::*};
 use bevy_fixed::fixed_math;
@@ -14,10 +14,10 @@ use utils::{frame::FrameCount, net_id::GgrsNetId, order_mut_iter};
 
 use crate::character::config::{CharacterConfig, CharacterConfigHandles};
 use crate::character::dash::DashState;
-use crate::character::movement::{SprintState, Velocity};
+use crate::character::health::Health;
+use crate::character::movement::{grip, run_velocity, SprintState, Velocity};
 use crate::character::player::{control::PlayerAction, Player};
 use crate::collider::{is_colliding, Collider, CollisionLayer, CollisionSettings};
-use crate::weapons::WeaponInventory;
 
 use super::jjrs::PeerConfig;
 use super::LocalPlayer;
@@ -303,8 +303,49 @@ pub fn read_local_inputs(
     commands.insert_resource(LocalInputs::<PeerConfig>(local_inputs));
 }
 
+/// Direction d'un dash : celle des touches ; sans touche, la visée ; sans visée, le regard.
+/// Inversée par `INPUT_MODIFIER` (dash arrière).
+fn dash_direction(input: &BoxInput, facing: FacingDirection) -> fixed_math::FixedVec2 {
+    let move_direction = movement_direction(input);
+    let look_direction = fixed_math::FixedVec2::new(
+        fixed_math::Fixed::from_num(input.pan_x),
+        fixed_math::Fixed::from_num(input.pan_y),
+    );
+    let direction = if move_direction != fixed_math::FixedVec2::ZERO {
+        move_direction.normalize_or_zero()
+    } else if look_direction.length_squared() > fixed_math::FIXED_ONE {
+        look_direction.normalize_or_zero()
+    } else {
+        facing_vector(facing).normalize_or_zero()
+    };
+    if input.buttons & INPUT_MODIFIER != 0 {
+        -direction
+    } else {
+        direction
+    }
+}
+
+/// Composantes -1/0/1 d'une direction de regard (non normalisée, comme les touches).
+fn facing_vector(facing: FacingDirection) -> fixed_math::FixedVec2 {
+    let (x, y) = match facing {
+        FacingDirection::Right => (1, 0),
+        FacingDirection::UpRight => (1, 1),
+        FacingDirection::Up => (0, 1),
+        FacingDirection::UpLeft => (-1, 1),
+        FacingDirection::Left => (-1, 0),
+        FacingDirection::DownLeft => (-1, -1),
+        FacingDirection::Down => (0, -1),
+        FacingDirection::DownRight => (1, -1),
+    };
+    fixed_math::FixedVec2::new(
+        fixed_math::Fixed::from_num(x),
+        fixed_math::Fixed::from_num(y),
+    )
+}
+
 pub fn apply_inputs(
     _commands: Commands,
+    frame: Res<FrameCount>,
     inputs: Res<PlayerInputs<PeerConfig>>,
     character_configs: Res<Assets<CharacterConfig>>,
     stats: StatReader,
@@ -312,11 +353,8 @@ pub fn apply_inputs(
         (
             &GgrsNetId,
             Entity,
-            &WeaponInventory,
-            &mut fixed_math::FixedTransform3D,
             &mut DashState,
             &mut Velocity,
-            &mut ActiveLayers,
             &mut FacingDirection,
             &mut CursorPosition,
             &mut SprintState,
@@ -327,18 +365,17 @@ pub fn apply_inputs(
             // T1.3 : `Stun`/`Freeze` (§19) : inputs ignorés par la simulation (jamais à la
             // lecture des inputs : un rejeu `Scripted` doit rester identique).
             Option<&combat::status::Statuses>,
+            Option<&mut Health>,
         ),
         With<Rollback>,
     >,
 ) {
+    let dt = fixed_math::new(FIXED_TIMESTEP);
     for (
         _net_id,
         entity,
-        _inventory,
-        transform,
         mut dash_state,
         mut velocity,
-        _active_layers,
         mut facing_direction,
         mut cursor_position,
         mut sprint_state,
@@ -347,177 +384,108 @@ pub fn apply_inputs(
         player,
         is_downed,
         statuses,
+        health,
     ) in order_mut_iter!(query)
     {
-        if let Some(config) = character_configs.get(&config_handles.config) {
-            let (mut input, _input_status) = inputs[player.handle];
-            if combat::status::incapacitated(statuses) {
-                // Visée gardée, aucun bouton (ni déplacement, ni dash, ni interaction)
-                input = BoxInput {
-                    pan_x: input.pan_x,
-                    pan_y: input.pan_y,
-                    ..Default::default()
-                };
-            }
-
-            if input.buttons & INPUT_FORCE_CRASH != 0 {
-                panic!("FORCED CRASH BY PLAYER {}", player.handle);
-            }
-
-            // Visée : recalculée à chaque frame, AVANT tout `continue` (dash). `system_weapon_position`
-            // en déduit la rotation de l'arme dans la même frame ; le composant n'est pas rollbacké
-            // (donnée dérivée de l'input, jamais lue d'une frame à l'autre). Écrite après le dash,
-            // elle restait figée pendant celui-ci et une frame resimulée lisait la visée d'une
-            // frame plus récente : desync du synctest (scénario `dash_aim_change`).
-            cursor_position.x = input.pan_x as i32;
-            cursor_position.y = input.pan_y as i32;
-
-            let was_dashing = dash_state.is_dashing;
-            dash_state.update();
-            if was_dashing && !dash_state.is_dashing {
-                // End of the dash: stop instead of coasting at dash speed
-                velocity.main = fixed_math::FixedVec2::ZERO;
-            }
-
-            // Update interaction input state
-            interaction_input.is_holding = (input.buttons & INPUT_INTERACTION) != 0;
-
-            // While dashing, the dash is a velocity applied by move_characters, which handles
-            // collisions (a dash stops at walls instead of going through them)
-            if dash_state.is_dashing {
-                let dash_duration =
-                    fixed_math::Fixed::from_num(config.movement.dash_duration_frames.max(1));
-                let distance_per_frame = dash_state.dash_total_distance / dash_duration;
-                velocity.main = dash_state.dash_direction * distance_per_frame
-                    / fixed_math::new(FIXED_TIMESTEP);
-                continue;
-            }
-
-            // Check if player is trying to dash — à terre (T1.3) : pas de dash.
-            if !is_downed && (input.buttons & INPUT_DASH != 0) && dash_state.can_dash() {
-                let move_direction = movement_direction(&input);
-                let look_direction = fixed_math::FixedVec2::new(
-                    fixed_math::Fixed::from_num(input.pan_x),
-                    fixed_math::Fixed::from_num(input.pan_y),
-                );
-
-                let is_reverse_dash = (input.buttons & INPUT_MODIFIER) != 0;
-
-                // Dash where the player is moving; if not moving, where they aim; otherwise
-                // where they face
-                let mut dash_direction = if move_direction != fixed_math::FixedVec2::ZERO {
-                    move_direction.normalize_or_zero()
-                } else if look_direction.length_squared() > fixed_math::FIXED_ONE {
-                    look_direction.normalize_or_zero()
-                } else {
-                    fixed_math::FixedVec2::new(
-                        fixed_math::new(facing_direction.to_int() as f32),
-                        fixed_math::new(0.0),
-                    )
-                };
-
-                if is_reverse_dash {
-                    dash_direction = -dash_direction;
-                }
-
-                // Start dash with current position
-                dash_state.start_dash(
-                    dash_direction,
-                    transform.translation,
-                    config.movement.dash_distance,
-                    config.movement.dash_duration_frames,
-                );
-                dash_state.set_cooldown(config.movement.dash_cooldown_frames);
-
-                // Zero out velocity to prevent normal movement physics
-                velocity.main = fixed_math::FixedVec2::ZERO;
-                continue;
-            }
-
-            // À terre (T1.3) : pas de sprint (la vitesse réduite vient du modificateur
-            // `downed`, voir `combat::downed::Downed`, pas de ce multiplicateur-ci).
-            let is_sprinting = !is_downed && (input.buttons & INPUT_SPRINT != 0);
-            sprint_state.is_sprinting = is_sprinting;
-
-            if is_sprinting {
-                sprint_state.sprint_factor += config.movement.sprint_acceleration_per_frame;
-                sprint_state.sprint_factor = sprint_state.sprint_factor.min(fixed_math::FIXED_ONE);
-            } else {
-                sprint_state.sprint_factor -= config.movement.sprint_deceleration_per_frame;
-                sprint_state.sprint_factor = sprint_state.sprint_factor.max(fixed_math::FIXED_ZERO);
-            }
-
-            let direction = movement_direction(&input);
-
-            *facing_direction = get_facing_direction(&input);
-
-            if direction != fixed_math::FixedVec2::ZERO {
-                // Stats branchées (T1.2, chantier B2) : résolues (base + modificateurs
-                // actifs) à la place des constantes `config.movement.*` — `StatReader`
-                // retombe sur la valeur de config si l'entité n'a pas la stat (garde
-                // défensive, voir sa doc), donc identique à avant sans modificateur actif.
-                let sprint_mult_stat = stats.get(
-                    entity,
-                    &StatId::SprintMultiplier,
-                    config.movement.sprint_multiplier,
-                );
-                let sprint_multiplier = fixed_math::FIXED_ONE
-                    + (sprint_mult_stat - fixed_math::FIXED_ONE) * sprint_state.sprint_factor;
-
-                let acceleration =
-                    stats.get(entity, &StatId::Acceleration, config.movement.acceleration);
-                // Using FIXED_TIMESTEP instead of time.delta()
-                let move_delta = direction.normalize_or_zero()
-                    * acceleration
-                    * sprint_multiplier
-                    * fixed_math::new(FIXED_TIMESTEP);
-                velocity.main += move_delta;
-
-                let move_speed = stats.get(entity, &StatId::MoveSpeed, config.movement.max_speed);
-                let max_speed = move_speed * sprint_multiplier;
-                velocity.main = velocity.main.clamp_length_max(max_speed);
-            }
+        let Some(config) = character_configs.get(&config_handles.config) else {
+            continue;
+        };
+        let movement = &config.movement;
+        let (mut input, _input_status) = inputs[player.handle];
+        let incapacitated = combat::status::incapacitated(statuses);
+        if incapacitated {
+            // Visée gardée, aucun bouton (ni déplacement, ni dash, ni interaction)
+            input = BoxInput {
+                pan_x: input.pan_x,
+                pan_y: input.pan_y,
+                ..Default::default()
+            };
         }
-    }
-}
 
-pub fn apply_friction(
-    inputs: Res<PlayerInputs<PeerConfig>>,
-    movement_configs: Res<Assets<CharacterConfig>>,
-    mut query: Query<
-        (
-            &GgrsNetId,
-            &mut Velocity,
-            &CharacterConfigHandles,
-            &Player,
-            &DashState,
-        ),
-        With<Rollback>,
-    >,
-) {
-    for (_net_id, mut velocity, config_handles, player, dash_state) in order_mut_iter!(query) {
-        // The dash velocity is constant for its whole duration
-        if dash_state.is_dashing {
+        if input.buttons & INPUT_FORCE_CRASH != 0 {
+            panic!("FORCED CRASH BY PLAYER {}", player.handle);
+        }
+
+        // Visée : recalculée à chaque frame, AVANT tout `continue` (dash). `system_weapon_position`
+        // en déduit la rotation de l'arme dans la même frame ; le composant n'est pas rollbacké
+        // (donnée dérivée de l'input, jamais lue d'une frame à l'autre). Écrite après le dash,
+        // elle restait figée pendant celui-ci et une frame resimulée lisait la visée d'une
+        // frame plus récente : desync du synctest (scénario `dash_aim_change`).
+        cursor_position.x = input.pan_x as i32;
+        cursor_position.y = input.pan_y as i32;
+
+        // Update interaction input state
+        interaction_input.is_holding = (input.buttons & INPUT_INTERACTION) != 0;
+
+        // Stats branchées (T1.2, chantier B2) : résolues (base + modificateurs actifs) à la
+        // place des constantes `config.movement.*` — `StatReader` retombe sur la valeur de
+        // config si l'entité n'a pas la stat (garde défensive, voir sa doc).
+        let move_speed = stats.get(entity, &StatId::MoveSpeed, movement.max_speed);
+
+        // Dash : part sur l'appui (ou un appui gardé `dash_buffer_frames` frames), avance dès
+        // cette frame et sort à la vitesse de course. À terre ou étourdi (T1.3) : pas de dash,
+        // même d'un appui gardé d'avant le statut.
+        dash_state.begin_frame();
+        let requested =
+            dash_state.read_button(input.buttons & INPUT_DASH != 0, movement.dash_buffer_frames);
+        if requested && !is_downed && !incapacitated && dash_state.can_dash() {
+            dash_state.start_dash(
+                dash_direction(&input, *facing_direction),
+                movement.dash_distance,
+                movement.dash_duration_frames,
+                move_speed * dt,
+                movement.dash_cooldown_frames,
+            );
+            // Invulnérable les `dash_iframes` premières frames, celle-ci comprise
+            // (`rollback_resolve_damage_events` compare la frame du coup à cette borne)
+            if let (Some(mut health), true) = (health, movement.dash_iframes > 0) {
+                let until = frame.frame + movement.dash_iframes - 1;
+                health.invulnerable_until_frame = Some(
+                    health
+                        .invulnerable_until_frame
+                        .map_or(until, |current| current.max(until)),
+                );
+            }
+        } else {
+            dash_state.age_buffer();
+        }
+        // Pendant le dash, son pas est une vitesse appliquée par move_characters, qui gère
+        // les collisions (un dash s'arrête aux murs au lieu de les traverser)
+        if let Some(step) = dash_state.take_step() {
+            velocity.main = dash_state.dash_direction * (step / dt);
             continue;
         }
-        if let Some(config) = movement_configs.get(&config_handles.config) {
-            let (input, _input_status) = inputs[player.handle];
 
-            let moving = input.buttons & INPUT_RIGHT != 0
-                || input.buttons & INPUT_LEFT != 0
-                || input.buttons & INPUT_UP != 0
-                || input.buttons & INPUT_DOWN != 0;
+        // À terre (T1.3) : pas de sprint (la vitesse réduite vient du modificateur
+        // `downed`, voir `combat::downed::Downed`, pas de ce multiplicateur-ci).
+        let is_sprinting = !is_downed && (input.buttons & INPUT_SPRINT != 0);
+        sprint_state.is_sprinting = is_sprinting;
 
-            if !moving && velocity.main.length_squared() > 0.1 {
-                velocity.main = velocity.main
-                    * (fixed_math::FIXED_ONE
-                        - config.movement.friction * fixed_math::new(FIXED_TIMESTEP))
-                    .max(fixed_math::FIXED_ZERO);
-                if velocity.main.length_squared() < 1.0 {
-                    velocity.main = fixed_math::FixedVec2::ZERO;
-                }
-            }
+        if is_sprinting {
+            sprint_state.sprint_factor += movement.sprint_acceleration_per_frame;
+            sprint_state.sprint_factor = sprint_state.sprint_factor.min(fixed_math::FIXED_ONE);
+        } else {
+            sprint_state.sprint_factor -= movement.sprint_deceleration_per_frame;
+            sprint_state.sprint_factor = sprint_state.sprint_factor.max(fixed_math::FIXED_ZERO);
         }
+
+        *facing_direction = get_facing_direction(&input);
+
+        // Course : chaque axe va vers la vitesse visée (touches × vitesse max, sprint compris ;
+        // nulle sans touche) en accélérant ou en freinant (`movement::run_velocity`).
+        // L'adhérence (stat `Acceleration` résolue / config, ex. glace) règle les deux.
+        let sprint_mult_stat = stats.get(
+            entity,
+            &StatId::SprintMultiplier,
+            movement.sprint_multiplier,
+        );
+        let sprint_multiplier = fixed_math::FIXED_ONE
+            + (sprint_mult_stat - fixed_math::FIXED_ONE) * sprint_state.sprint_factor;
+        let acceleration = stats.get(entity, &StatId::Acceleration, movement.acceleration);
+        let deceleration = movement.deceleration() * grip(acceleration, movement.acceleration);
+        let target =
+            movement_direction(&input).normalize_or_zero() * (move_speed * sprint_multiplier);
+        velocity.main = run_velocity(velocity.main, target, acceleration * dt, deceleration * dt);
     }
 }
 
@@ -529,6 +497,7 @@ pub fn move_characters(
             &mut Velocity,
             &Collider,
             &CollisionLayer,
+            Option<&DashState>,
         ),
         (With<Rollback>, With<Player>),
     >,
@@ -544,7 +513,7 @@ pub fn move_characters(
         (With<Collider>, Without<Player>, With<Rollback>),
     >,
 ) {
-    for (_net_id, mut transform, mut velocity, player_collider, collision_layer) in
+    for (_net_id, mut transform, mut velocity, player_collider, collision_layer, dash_state) in
         order_mut_iter!(query)
     {
         let total_velocity = velocity.main + velocity.knockback;
@@ -616,8 +585,14 @@ pub fn move_characters(
             count
         };
 
-        // Apply slowdown based on enemy collisions (more enemies = slower)
-        let enemy_count = count_enemy_collisions(&transform.translation);
+        // Apply slowdown based on enemy collisions (more enemies = slower). None during a
+        // dash: it goes through the horde
+        let dashing = dash_state.is_some_and(|dash| dash.is_dashing);
+        let enemy_count = if dashing {
+            0
+        } else {
+            count_enemy_collisions(&transform.translation)
+        };
         let slowdown = if enemy_count > 0 {
             // Each enemy reduces speed by 20%, min 30% speed
             let factor = fixed_math::FIXED_ONE

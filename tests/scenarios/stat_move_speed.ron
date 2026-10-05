@@ -4,12 +4,11 @@
 // avec le modificateur, le joueur 1 sans : comparer les deux `PlayerPosition` à la même
 // frame donne l'écart directement (même x de départ, f9, juste avant le premier input).
 //
-// À regarder : les deux joueurs avancent vers la droite (f10-100). Le joueur 0 (modifié,
-// Mult 0.5) parcourt 88 px (423.0 -> 511.1) contre 139 px pour le joueur 1, non modifié,
-// même script (423.0 -> 561.7). Pas exactement moitié moins : les deux accélèrent au même
-// rythme (stat `Acceleration`, non modifiée) avant d'atteindre leur vitesse de croisière,
-// deux fois plus basse seulement pour le joueur 0 — la rampe d'accélération, commune aux
-// deux, pèse relativement plus sur le trajet du joueur 0.
+// À regarder : les deux joueurs avancent vers la droite (touches f10-59, mouvement f15-67 avec
+// le délai d'input). Le joueur 0 (modifié, Mult 0.5) parcourt 62,5 px (424 -> 486,5) contre
+// 125 px pour le joueur 1, non modifié, même script (424 -> 549) : exactement moitié moins,
+// la course prend sa vitesse et s'arrête en 3 frames (`movement::run_velocity`), dans les
+// mêmes proportions aux deux vitesses. Arrêtés tous les deux à f100.
 Scenario(
     // Isoler ce scénario des drops aléatoires ; powerup_drop_on_kill teste ce chemin.
     powerup_drop_chance_override: "0.0",
@@ -17,7 +16,7 @@ Scenario(
     players: [
         (
             inputs: [
-                (from: 10, to: 100, buttons: [Right]),
+                (from: 10, to: 60, buttons: [Right]),
             ],
             modifiers: [
                 (stat: MoveSpeed, op: Mul, value: "0.5"),
@@ -25,14 +24,14 @@ Scenario(
         ),
         (
             inputs: [
-                (from: 10, to: 100, buttons: [Right]),
+                (from: 10, to: 60, buttons: [Right]),
             ],
         ),
     ],
     expect: [
-        PlayerPosition(handle: 0, x: 423.0, y: 695.0, tolerance: 1, at_frame: 9),
-        PlayerPosition(handle: 1, x: 423.0, y: 663.0, tolerance: 1, at_frame: 9),
-        PlayerPosition(handle: 0, x: 511.1, y: 695.0, tolerance: 1, at_frame: 100),
-        PlayerPosition(handle: 1, x: 561.7, y: 663.0, tolerance: 1, at_frame: 100),
+        PlayerPosition(handle: 0, x: 424.0, y: 696.0, tolerance: 1, at_frame: 9),
+        PlayerPosition(handle: 1, x: 424.0, y: 664.0, tolerance: 1, at_frame: 9),
+        PlayerPosition(handle: 0, x: 486.5, y: 696.0, tolerance: 1, at_frame: 100),
+        PlayerPosition(handle: 1, x: 549.0, y: 664.0, tolerance: 1, at_frame: 100),
     ],
 )

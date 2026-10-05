@@ -3,31 +3,31 @@
 // profils), avec tout ce que le manifeste active (butin, progression, horloge, difficulté).
 //
 // Mesuré (graine 123456, comme `alacod-sim --game throne --bots 2 --profiles prudent,prudent
-// --floors run --seeds 123456..123456 --until-floor 3`) : passages à f517, f1190, f2330
-// (navigation par le champ) ; le joueur 1 monte niveau 1 à f683 et niveau 2 à f1644
-// (`irradie`, `chasseur`), le joueur 0 niveau 1 à f964 (`rancune`). D40 : le butin de f434
-// est `munitions_lames` (même tirage que l'ancien `munitions`) ; il ne remplit plus les balles
-// ni n'annule le rechargement de la mitraillette, le troisième étage arrive plus tard
-// (f1759 avant D40).
+// --floors run --seeds 123456..123456 --until-floor 3`) : passages à f624, f1131, f1784 (course
+// de movement-feel, conventions §30 ; f517, f1190, f2330 avec l'ancienne course) ; le joueur 0
+// monte niveau 1 à f421, prend `sang_froid` d'office à f1021 et monte niveau 2 à f1315, le
+// joueur 1 reste au niveau 0. D40 (butin par munition) ne change rien à cette run-ci : ses deux
+// butins de munitions (`munitions_lames` à f1030, `munitions_obus` à f1553) restent au sol
+// jusqu'au portail ; seul leur nom change, les passages sont les mêmes avant et après D40.
 //
 // À regarder : les deux bots nettoient chaque caverne puis passent le portail.
 Scenario(
     game: "throne",
     floors: Some("run"),
     map_seed: 123456,
-    frames: 2350,
+    frames: 1800,
     players: [
         (bot: prudent),
         (bot: prudent),
     ],
     expect: [
-        FloorIndex(index: 1, at_frame: 520),
-        FloorIndex(index: 2, at_frame: 1195),
-        FloorIndex(index: 2, at_frame: 2325),
-        FloorIndex(index: 3, at_frame: 2335),
-        Mutations(handle: 0, contains: ["rancune"], count: 1, at_frame: 2335),
-        Mutations(handle: 1, contains: ["irradie", "chasseur"], count: 2, at_frame: 2335),
-        PlayerAlive(handle: 0, at_frame: 2349),
-        PlayerAlive(handle: 1, at_frame: 2349),
+        FloorIndex(index: 1, at_frame: 630),
+        FloorIndex(index: 2, at_frame: 1140),
+        FloorIndex(index: 2, at_frame: 1780),
+        FloorIndex(index: 3, at_frame: 1790),
+        Mutations(handle: 0, contains: ["sang_froid"], count: 1, at_frame: 1790),
+        Mutations(handle: 1, count: 0, at_frame: 1790),
+        PlayerAlive(handle: 0, at_frame: 1799),
+        PlayerAlive(handle: 1, at_frame: 1799),
     ],
 )

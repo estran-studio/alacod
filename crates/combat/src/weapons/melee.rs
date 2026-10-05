@@ -19,7 +19,7 @@ use utils::{
 };
 
 use crate::{
-    actors::{Enemy, PeerConfig, Player, Velocity, INPUT_MELEE_ATTACK},
+    actors::{Enemy, Health, PeerConfig, Player, Velocity, INPUT_MELEE_ATTACK},
     collider::{is_colliding, Collider, ColliderShape, CollisionLayer, CollisionSettings},
 };
 use sim_core::frame_events::FrameEvents;
@@ -368,7 +368,10 @@ pub fn update_melee_hitboxes(
 /// `character::health::rollback_resolve_damage_events`) au lieu d'écrire
 /// `DamageAccumulator` directement ; le recul (`Velocity.knockback`) reste appliqué ici,
 /// inconditionnellement une fois la cible acceptée (T1.1 ne conditionne pas le recul aux
-/// résistances/immunités/invulnérabilité, qui ne concernent que le *montant* du dégât).
+/// résistances/immunités, qui ne concernent que le *montant* du dégât). Une cible
+/// invulnérable (i-frames du dash, `Health::is_invulnerable_at`) n'est pas acceptée : ni
+/// dégât ni recul, et pas marquée touchée, donc une hitbox encore active à la fin des
+/// i-frames la touche.
 pub fn melee_hitbox_collision_system(
     frame: Res<FrameCount>,
     mut damage_events: ResMut<FrameEvents<DamageEvent>>,
@@ -390,6 +393,7 @@ pub fn melee_hitbox_collision_system(
             &Collider,
             &Team,
             Option<&mut Velocity>,
+            Option<&Health>,
         ),
         (Without<MeleeHitbox>, With<Rollback>),
     >,
@@ -434,6 +438,7 @@ pub fn melee_hitbox_collision_system(
                 target_collider,
                 target_team,
                 opt_velocity_mut,
+                opt_health,
             )) = target_query.get_mut(target_entry.entity)
             else {
                 continue;
@@ -457,6 +462,11 @@ pub fn melee_hitbox_collision_system(
                 hitbox.friendly_fire,
                 &hitbox.tags,
             ) {
+                continue;
+            }
+
+            // I-frames du dash : la hitbox ne voit pas la cible
+            if opt_health.is_some_and(|health| health.is_invulnerable_at(frame.frame)) {
                 continue;
             }
 

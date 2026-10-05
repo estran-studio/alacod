@@ -1,11 +1,11 @@
 // Tour d'achat sur la carte jouable test_map.ldtk (T2.6) : un joueur avec 6000 points achète
 // l'arme murale de la salle de départ puis le perk de la salle de départ.
 //
-// À regarder : le joueur monte puis se déplace à gauche vers l'arme murale de départ (f10-110),
-// achète le pistolet (500 points, f110-130) : le pistolet devient son arme active, son solde
-// tombe à 5500. Il continue à gauche vers la machine à perk Juggernog (f130-160) et l'achète
-// (2500 points, f160-200) : sa vie maximum double (100 -> 200), sa vie courante suit, son solde
-// tombe à 3000.
+// À regarder : le joueur monte jusqu'au mur (f10-60) puis se déplace à gauche vers l'arme
+// murale de départ (f60-84, 60 px), achète le pistolet (500 points, f110-130) : le pistolet
+// devient son arme active, son solde tombe à 5500. Il continue à gauche vers la machine à perk
+// Juggernog (f130-139, 22,5 px) et l'achète (2500 points, f160-200) : sa vie maximum double
+// (100 -> 200), sa vie courante suit, son solde tombe à 3000.
 Scenario(
     // Isoler ce scénario des drops aléatoires ; powerup_drop_on_kill teste ce chemin.
     powerup_drop_chance_override: "0.0",
@@ -16,9 +16,9 @@ Scenario(
         (
             inputs: [
                 (from: 10, to: 60, buttons: [Up]),
-                (from: 60, to: 110, buttons: [Left]),
+                (from: 60, to: 84, buttons: [Left]),
                 (from: 110, to: 130, buttons: [Interaction]),
-                (from: 130, to: 160, buttons: [Left]),
+                (from: 130, to: 139, buttons: [Left]),
                 (from: 160, to: 200, buttons: [Interaction]),
             ],
             // Exclusivité (voir PlayerScript::weapon et buy_wall_weapon.ron) : le joueur

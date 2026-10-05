@@ -1,8 +1,10 @@
-// Dashs vers le mur gauche de la pièce : le premier (56 px) s'arrête avant le mur, le second
-// (après le cooldown de 180 frames) s'arrête contre le mur au lieu de le traverser.
+// Dashs vers le mur gauche de la pièce : le premier (64 px en 8 frames) s'arrête avant le mur,
+// le second s'arrête contre le mur au lieu de le traverser.
 //
-// À regarder : premier dash vers la gauche (f16), le joueur s'arrête net ; second dash (f206) : il
-// bute contre le mur, à côté de la fenêtre, sans entrer dedans.
+// À regarder : premier dash vers la gauche (appui f10, joué f15 avec le délai d'input) : il part
+// dès la frame de l'appui, ralentit jusqu'à la vitesse de course (f22) puis s'arrête net, touches
+// relâchées, 2,5 px plus loin (f25, x 357,5) ; second dash (f205) : il bute contre le mur à la
+// frame suivante (x 332,1), à côté de la fenêtre, sans entrer dedans.
 Scenario(
     // Isoler ce scénario des drops aléatoires ; powerup_drop_on_kill teste ce chemin.
     powerup_drop_chance_override: "0.0",
@@ -15,10 +17,10 @@ Scenario(
         ]),
     ],
     expect: [
-        // Le dash suit la direction du déplacement (Gauche), 56 px
-        PlayerPosition(handle: 0, x: 367, y: 695, tolerance: 1, at_frame: 40),
+        // Le dash suit la direction du déplacement (Gauche) : 64 px, puis 2,5 px de freinage
+        PlayerPosition(handle: 0, x: 357.5, y: 696, tolerance: 1, at_frame: 40),
         // Le second dash s'arrête contre le mur (il le traversait quand la position était imposée)
-        PlayerPosition(handle: 0, x: 331, y: 695, tolerance: 1, at_frame: 230),
-        PlayerPosition(handle: 0, x: 331, y: 695, tolerance: 1, at_frame: 300),
+        PlayerPosition(handle: 0, x: 332.1, y: 696, tolerance: 1, at_frame: 230),
+        PlayerPosition(handle: 0, x: 332.1, y: 696, tolerance: 1, at_frame: 300),
     ],
 )

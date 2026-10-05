@@ -195,9 +195,7 @@ pub fn rollback_resolve_damage_events(
         if downed {
             continue;
         }
-        let invulnerable = opt_health
-            .and_then(|h| h.invulnerable_until_frame)
-            .is_some_and(|until| event.frame <= until);
+        let invulnerable = opt_health.is_some_and(|h| h.is_invulnerable_at(event.frame));
         let defenses = opt_defenses.unwrap_or(&default_defenses);
 
         let Some(amount) = resolve_damage(

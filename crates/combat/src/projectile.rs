@@ -781,15 +781,18 @@ type TargetQuery<'w, 's> = Query<
         &'static fixed_math::FixedTransform3D,
         &'static Collider,
         &'static Team,
+        &'static Health,
     ),
-    (With<Health>, Without<Bullet>, With<Rollback>),
+    (Without<Bullet>, With<Rollback>),
 >;
 
 /// Collisions des projectiles composables. Personnages d'abord (tous ceux en contact cette
 /// frame, par `GgrsNetId`, tant que `Pierce` le permet ; jamais deux fois le même), puis
 /// murs (`Bounce` : vitesse réfléchie et retour à la position d'avant le déplacement ; sinon
 /// fin). Mêmes filtres que les balles ordinaires : murs par `layer_matrix`, personnages par
-/// `team_allows_hit` (`Team::Neutral` arrête le projectile sans être blessé).
+/// `team_allows_hit` (`Team::Neutral` arrête le projectile sans être blessé). Un personnage
+/// invulnérable (i-frames du dash, `Health::is_invulnerable_at`) est traversé sans être
+/// touché ; `Homing` et `Aimed` le visent toujours.
 #[allow(clippy::type_complexity)]
 pub fn projectile_collision_system(
     frame: Res<FrameCount>,
@@ -842,7 +845,7 @@ pub fn projectile_collision_system(
         // Personnages : tous les candidats en contact, par GgrsNetId.
         let mut characters: Vec<GgrsNetId> = Vec::new();
         for entry in grids.characters.query_aabb(&swept) {
-            let Ok((target_id, target_transform, target_collider, target_team)) =
+            let Ok((target_id, target_transform, target_collider, target_team, target_health)) =
                 target_query.get(entry.entity)
             else {
                 continue;
@@ -853,6 +856,7 @@ pub fn projectile_collision_system(
                 bullet.friendly_fire,
                 &bullet.tags,
             ) || !projectile.can_hit(target_id)
+                || target_health.is_invulnerable_at(frame.frame)
             {
                 continue;
             }
@@ -986,7 +990,7 @@ pub fn projectile_expire_system(
             &projectile,
             order_iter!(target_query)
                 .into_iter()
-                .map(|(id, t, _, team)| (id, t, team)),
+                .map(|(id, t, _, team, _)| (id, t, team)),
         );
         let parent = Parent {
             bullet,
@@ -1067,7 +1071,7 @@ pub fn projectile_steering_system(
                 projectile,
                 order_iter!(target_query)
                     .into_iter()
-                    .map(|(id, t, _, team)| (id, t, team)),
+                    .map(|(id, t, _, team, _)| (id, t, team)),
             ) {
                 bullet.velocity = steer_towards(bullet.velocity, to_target, force);
             }

@@ -41,15 +41,30 @@ pub struct Velocity {
     pub knockback: fixed_math::FixedVec2,
 }
 
+/// Esquive (dash) d'un joueur : part sur l'appui (front montant du bouton), avance dès la
+/// frame de l'appui, couvre exactement `dash_distance` px en `dash_duration` frames avec une
+/// vitesse qui décroît jusqu'à celle de la course (on sort du dash en courant, voir
+/// [`dash_step`]). Un appui qui tombe pendant le dash ou le cooldown est gardé
+/// `dash_buffer_frames` frames (`MovementConfig`) puis part dès que possible.
 #[derive(Component, Default, Clone, Debug, Hash)]
 pub struct DashState {
+    /// Dash en cours, de la frame de l'appui à sa dernière frame (lu par les armes : pas de
+    /// tir pendant un dash, et par les collisions : pas de ralentissement par les ennemis).
     pub is_dashing: bool,
     pub dash_direction: fixed_math::FixedVec2,
+    /// Frames du dash pas encore jouées.
     pub dash_frames_remaining: u32,
     pub dash_cooldown_remaining: u32,
-    pub dash_distance_per_frame: fixed_math::Fixed, // Distance to move each frame
-    pub dash_start_position: fixed_math::FixedVec3, // Starting position for the dash
-    pub dash_total_distance: fixed_math::Fixed,     // Total distance for current dash
+    /// Durée (frames) du dash en cours.
+    pub dash_duration: u32,
+    /// Distance (px) du dash en cours.
+    pub dash_distance: fixed_math::Fixed,
+    /// Pas (px par frame) de la dernière frame du dash en cours : celui de la course.
+    pub dash_end_step: fixed_math::Fixed,
+    /// Appui en attente : frames pendant lesquelles il peut encore lancer un dash.
+    pub dash_buffer_remaining: u32,
+    /// Bouton tenu à la frame précédente : tenir le bouton ne relance pas de dash.
+    pub dash_held: bool,
 }
 
 impl DashState {
@@ -57,46 +72,102 @@ impl DashState {
         !self.is_dashing && self.dash_cooldown_remaining == 0
     }
 
+    /// Début de frame : avance le cooldown et termine le dash dont la dernière frame a été
+    /// jouée à la frame précédente.
+    pub fn begin_frame(&mut self) {
+        self.dash_cooldown_remaining = self.dash_cooldown_remaining.saturating_sub(1);
+        if self.is_dashing && self.dash_frames_remaining == 0 {
+            self.is_dashing = false;
+        }
+    }
+
+    /// Lit le bouton de la frame : vrai si un dash est demandé (appui de cette frame, ou
+    /// appui gardé depuis moins de `buffer_frames` frames). La frame de l'appui compte dans
+    /// le buffer : à 0, seul l'appui lui-même lance un dash.
+    pub fn read_button(&mut self, held: bool, buffer_frames: u32) -> bool {
+        if held && !self.dash_held {
+            self.dash_buffer_remaining = buffer_frames.max(1);
+        }
+        self.dash_held = held;
+        self.dash_buffer_remaining > 0
+    }
+
+    /// Fin de frame sans dash lancé : l'appui en attente vieillit d'une frame.
+    pub fn age_buffer(&mut self) {
+        self.dash_buffer_remaining = self.dash_buffer_remaining.saturating_sub(1);
+    }
+
+    /// Lance un dash de `distance` px en `duration_frames` frames qui sort à `end_step` px
+    /// par frame (la course), et arme le cooldown (compté depuis cette frame).
     pub fn start_dash(
         &mut self,
         direction: fixed_math::FixedVec2,
-        start_position: fixed_math::FixedVec3,
-        total_distance: fixed_math::Fixed,
+        distance: fixed_math::Fixed,
         duration_frames: u32,
+        end_step: fixed_math::Fixed,
+        cooldown_frames: u32,
     ) {
-        // Ensure duration is at least 1 to prevent division by zero
-        let safe_duration = duration_frames.max(1);
-
+        let duration = duration_frames.max(1);
         self.is_dashing = true;
         self.dash_direction = direction.normalize_or_zero();
-        self.dash_frames_remaining = safe_duration;
-        self.dash_start_position = start_position;
-        self.dash_total_distance = total_distance;
-        self.dash_distance_per_frame = total_distance / fixed_math::new(safe_duration as f32);
-    }
-
-    pub fn update(&mut self) {
-        if self.is_dashing {
-            self.dash_frames_remaining = self.dash_frames_remaining.saturating_sub(1);
-            if self.dash_frames_remaining == 0 {
-                self.is_dashing = false;
-            }
-        }
-
-        if self.dash_cooldown_remaining > 0 {
-            self.dash_cooldown_remaining = self.dash_cooldown_remaining.saturating_sub(1);
-        }
-    }
-
-    pub fn set_cooldown(&mut self, cooldown_frames: u32) {
+        self.dash_frames_remaining = duration;
+        self.dash_duration = duration;
+        self.dash_distance = distance;
+        self.dash_end_step = end_step;
+        self.dash_buffer_remaining = 0;
         self.dash_cooldown_remaining = cooldown_frames;
     }
+
+    /// Pas (px) du dash pour cette frame, `None` hors dash ou une fois ses frames jouées.
+    pub fn take_step(&mut self) -> Option<fixed_math::Fixed> {
+        if !self.is_dashing || self.dash_frames_remaining == 0 {
+            return None;
+        }
+        let k = self.dash_duration - self.dash_frames_remaining;
+        self.dash_frames_remaining -= 1;
+        Some(dash_step(
+            self.dash_distance,
+            self.dash_duration,
+            self.dash_end_step,
+            k,
+        ))
+    }
+}
+
+/// Pas (px) de la frame `k` (de 0 à `frames - 1`) d'un dash de `distance` px en `frames`
+/// frames : décroissance linéaire de `2·distance/frames − end` jusqu'à `end` (px par frame,
+/// la vitesse de course à la sortie), donc une somme de `distance` px quelle que soit `end`.
+/// `end` est bornée à `distance/frames` : au pire le dash est plat, jamais accéléré.
+pub fn dash_step(
+    distance: fixed_math::Fixed,
+    frames: u32,
+    end: fixed_math::Fixed,
+    k: u32,
+) -> fixed_math::Fixed {
+    if frames <= 1 {
+        return distance;
+    }
+    let mean = distance / fixed_math::Fixed::from_num(frames);
+    let end = end.clamp(fixed_math::FIXED_ZERO, mean);
+    let start = mean + mean - end;
+    start
+        + (end - start) * fixed_math::Fixed::from_num(k.min(frames - 1))
+            / fixed_math::Fixed::from_num(frames - 1)
 }
 #[derive(Component, Clone, Debug, Serialize, Default, Deserialize, Hash)]
 pub struct Health {
     pub current: fixed_math::Fixed,
     pub max: fixed_math::Fixed,
     pub invulnerable_until_frame: Option<u32>, // Optional invulnerability window
+}
+
+impl Health {
+    /// Invulnérable à `frame` (i-frames du dash, borne comprise) : aucun coup ne la touche,
+    /// les balles et projectiles la traversent, les hitbox de mêlée ne la voient pas.
+    pub fn is_invulnerable_at(&self, frame: u32) -> bool {
+        self.invulnerable_until_frame
+            .is_some_and(|until| frame <= until)
+    }
 }
 
 impl fmt::Display for Health {
@@ -157,3 +228,124 @@ pub struct CursorPosition {
 
 pub type BoxConfig = bevy_ggrs::GgrsConfig<BoxInput>;
 pub type PeerConfig = bevy_ggrs::GgrsConfig<BoxInput, bevy_matchbox::prelude::PeerId>;
+
+#[cfg(test)]
+mod dash_tests {
+    use super::*;
+    use fixed_math::{Fixed, FixedVec2};
+
+    fn px(v: f32) -> Fixed {
+        Fixed::from_num(v)
+    }
+
+    /// Joue un dash lancé à la frame 0 : (pas de chaque frame où il avance, frame de fin).
+    fn play(state: &mut DashState, frames: u32) -> Vec<Fixed> {
+        let mut steps = Vec::new();
+        for _ in 0..frames {
+            state.begin_frame();
+            if let Some(step) = state.take_step() {
+                steps.push(step);
+            }
+        }
+        steps
+    }
+
+    #[test]
+    fn profil_decroissant_somme_exacte() {
+        let steps: Vec<Fixed> = (0..8).map(|k| dash_step(px(64.0), 8, px(2.5), k)).collect();
+        let total: Fixed = steps.iter().copied().sum();
+        assert!((total - px(64.0)).abs() < px(0.001), "total {total}");
+        assert_eq!(steps[0], px(13.5));
+        assert_eq!(steps[7], px(2.5));
+        assert!(
+            steps.windows(2).all(|w| w[1] < w[0]),
+            "décroissant : {steps:?}"
+        );
+    }
+
+    #[test]
+    fn profil_plat_si_la_course_est_plus_rapide() {
+        // Sortie plus rapide que la moyenne du dash : bornée, le dash ne s'accélère jamais
+        for k in 0..4 {
+            assert_eq!(dash_step(px(40.0), 4, px(25.0), k), px(10.0));
+        }
+        assert_eq!(dash_step(px(40.0), 1, px(2.0), 0), px(40.0));
+    }
+
+    #[test]
+    fn avance_des_la_frame_de_l_appui_puis_sort_en_courant() {
+        let mut state = DashState::default();
+        state.begin_frame();
+        assert!(state.read_button(true, 8));
+        assert!(state.can_dash());
+        state.start_dash(FixedVec2::new(px(1.0), px(0.0)), px(64.0), 8, px(2.5), 24);
+        // Frame 0 : premier pas, le plus long
+        assert_eq!(state.take_step(), Some(px(13.5)));
+        let rest = play(&mut state, 7);
+        assert_eq!(rest.len(), 7);
+        assert_eq!(rest[6], px(2.5));
+        assert!(state.is_dashing, "dernière frame jouée, encore en dash");
+        state.begin_frame();
+        assert!(!state.is_dashing, "fin à la frame suivante");
+        assert_eq!(state.take_step(), None);
+    }
+
+    #[test]
+    fn tenir_le_bouton_ne_relance_pas() {
+        let mut state = DashState::default();
+        assert!(state.read_button(true, 1));
+        state.start_dash(FixedVec2::new(px(1.0), px(0.0)), px(64.0), 8, px(2.5), 24);
+        for _ in 0..40 {
+            state.begin_frame();
+            state.take_step();
+            assert!(!state.read_button(true, 1), "tenu : pas de nouvel appui");
+            state.age_buffer();
+        }
+        state.begin_frame();
+        assert!(!state.read_button(false, 1));
+        state.age_buffer();
+        state.begin_frame();
+        assert!(state.read_button(true, 1), "relâché puis appuyé");
+    }
+
+    #[test]
+    fn appui_garde_pendant_le_cooldown() {
+        let mut state = DashState::default();
+        assert!(state.read_button(true, 8));
+        state.start_dash(FixedVec2::new(px(1.0), px(0.0)), px(64.0), 8, px(2.5), 24);
+        state.take_step();
+        // Frames 1 à 17 : bouton relâché ; appui à la frame 18, 6 frames avant la fin du
+        // cooldown (frame 24) : gardé, part à la frame 24
+        let mut started_at = None;
+        for frame in 1..40u32 {
+            state.begin_frame();
+            let requested = state.read_button(frame == 18, 8);
+            if requested && state.can_dash() {
+                started_at = Some(frame);
+                break;
+            }
+            state.take_step();
+            state.age_buffer();
+        }
+        assert_eq!(started_at, Some(24));
+    }
+
+    #[test]
+    fn appui_trop_tot_oublie() {
+        let mut state = DashState::default();
+        assert!(state.read_button(true, 8));
+        state.start_dash(FixedVec2::new(px(1.0), px(0.0)), px(64.0), 8, px(2.5), 24);
+        state.take_step();
+        // Appui à la frame 10 : 14 frames avant la fin du cooldown, plus que le buffer (8)
+        for frame in 1..40u32 {
+            state.begin_frame();
+            let requested = state.read_button(frame == 10, 8);
+            assert!(
+                !(requested && state.can_dash()),
+                "appui oublié, aucun dash à la frame {frame}"
+            );
+            state.take_step();
+            state.age_buffer();
+        }
+    }
+}

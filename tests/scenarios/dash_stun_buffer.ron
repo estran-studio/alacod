@@ -1,0 +1,46 @@
+// Dash gardé et étourdissement (course de movement-feel, conventions §30) : un appui de dash
+// gardé (buffer de 8 frames) ne part pas pendant un étourdissement (T1.3, §19), comme à terre.
+// Avant le correctif, il partait dès la fin du cooldown malgré l'étourdissement : le joueur
+// restait sur place (vitesse annulée par `status_motion_system`) mais gagnait les i-frames du
+// dash. Le joueur 1 dashe vers le mur sud (appui f10, dash à f16), puis réappuie pendant le
+// cooldown en tirant `status_stun` (f27) : tir ami `Always` et rien n'exclut le tireur, sa balle
+// l'étourdit lui-même aussitôt (f33, 1 PV). Le joueur 0 descend, dashe sur lui contre le mur
+// (f34, les joueurs ne se bloquent pas) et tire `proj_pierce` à bout portant (f42) : Pierce(2),
+// la balle traverse le joueur 0 et touche le joueur 1 quel que soit l'écart aléatoire du tir.
+//
+// À regarder : le joueur 1, étourdi dès f33, ne dashe pas à f40 quand son cooldown finit ; la
+// balle du joueur 0 le touche à f42 (99 -> 89 PV). Sans le correctif, il dashait sur place à
+// f40 et la balle le traversait (99 PV).
+Scenario(
+    powerup_drop_chance_override: "0.0",
+    game: "testbed",
+    map: "testbed/arena.ldtk",
+    frames: 70,
+    players: [
+        (weapon: "proj_pierce", inputs: [
+            (from: 0, to: 12, buttons: [Down]),
+            (from: 28, to: 29, buttons: [Down, Dash]),
+            (from: 29, to: 36, buttons: [Down]),
+            (from: 36, to: 37, buttons: [Fire], pan: (0, 100)),
+        ]),
+        (weapon: "status_stun", inputs: [
+            (from: 10, to: 11, buttons: [Down, Dash]),
+            (from: 27, to: 28, buttons: [Dash, Fire], pan: (100, 0)),
+        ]),
+    ],
+    weapon_overrides: [
+        (weapon: "proj_pierce", friendly_fire: Always),
+        (weapon: "status_stun", friendly_fire: Always),
+    ],
+    expect: [
+        // Mise en place : les deux joueurs l'un sur l'autre contre le mur sud
+        PlayerPosition(handle: 0, x: 424, y: 608.6, tolerance: 0.1, at_frame: 41),
+        PlayerPosition(handle: 1, x: 424, y: 608.1, tolerance: 0.1, at_frame: 41),
+        // Le joueur 1 étourdi par sa propre balle (1 PV), pendant le dash qu'il aurait lancé
+        Health(handle: 1, min: 99.0, max: 99.0, at_frame: 41),
+        HasStatus(entity: NetId(31), status: "etourdi", at_frame: 45),
+        // Pas de dash, pas d'i-frames : la balle du joueur 0 le touche (sans le correctif : 99)
+        Health(handle: 1, min: 89.0, max: 89.0, at_frame: 42),
+        Health(handle: 1, min: 89.0, max: 89.0, at_frame: 60),
+    ],
+)

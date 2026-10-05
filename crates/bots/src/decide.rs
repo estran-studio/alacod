@@ -35,12 +35,13 @@ const PRUDENT_MIN_DISTANCE: Fixed = Fixed::from_bits(180 << 16);
 /// dès que l'ennemi est à cette distance ou moins (donc aussi en avançant ou en reculant).
 pub(crate) const PRUDENT_MAX_DISTANCE: Fixed = Fixed::from_bits(320 << 16);
 
-/// `prudent` (T1.14) : approche du portail. Le jeu ne freine que si aucun bouton de
-/// déplacement n'est tenu, et les boutons ne donnent que le signe de chaque axe : en visant le
-/// portail à pleine vitesse, le bot le dépassait et tournait autour sans entrer dans son rayon
+/// `prudent` (T1.14) : approche du portail. Les boutons ne donnent que le signe de chaque
+/// axe : en visant le portail à pleine vitesse avec l'ancienne course (freinage seulement sans
+/// aucun bouton tenu, lent), le bot le dépassait et tournait autour sans entrer dans son rayon
 /// (24). Sous [`PORTAL_BRAKE_DISTANCE`], il relâche tout tant que sa vitesse dépasse
 /// [`PORTAL_BRAKE_SPEED`], puis avance par petits pas ; un axe dont l'écart est sous
-/// [`PORTAL_DEAD_ZONE`] n'est pas pressé.
+/// [`PORTAL_DEAD_ZONE`] n'est pas pressé. La course actuelle s'arrête en 3 frames
+/// (`game::character::movement::run_velocity`) : ce freinage reste une garde.
 pub(crate) const PORTAL_BRAKE_DISTANCE: Fixed = Fixed::from_bits(48 << 16);
 const PORTAL_BRAKE_SPEED: Fixed = Fixed::from_bits(30 << 16);
 const PORTAL_DEAD_ZONE: Fixed = Fixed::from_bits(6 << 16);
@@ -154,7 +155,7 @@ fn approach_portal(input: &mut BoxInput, view: &BotView, portal: FixedVec2) {
         }
     }
     if delta.length() < PORTAL_BRAKE_DISTANCE && view.velocity.length() > PORTAL_BRAKE_SPEED {
-        return; // aucun bouton : friction
+        return; // aucun bouton : freinage
     }
     let mut step = FixedVec2::ZERO;
     if delta.x.abs() > PORTAL_DEAD_ZONE {
@@ -258,7 +259,7 @@ mod tests {
     #[test]
     fn prudent_freine_pres_du_portail() {
         let mut v = view(FixedVec2::new(fx(0.0), fx(0.0)));
-        // Portail à 30 px, lancé à pleine vitesse : aucun bouton (friction)
+        // Portail à 30 px, lancé à pleine vitesse : aucun bouton (freinage)
         v.portal = Some(FixedVec2::new(fx(30.0), fx(3.0)));
         v.velocity = FixedVec2::new(fx(150.0), fx(0.0));
         assert_eq!(decide(BotProfile::Prudent, &v, &mut rng()).buttons, 0);

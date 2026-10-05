@@ -1,11 +1,14 @@
 // Déplacements spéciaux et corps à corps d'un joueur seul : sprint, dash (dans la direction du
-// déplacement, sinon de la visée, sinon du regard ; cooldown de 180 frames), sprint en tirant (le
-// sprint empêche de tirer), puis attaques au corps à corps répétées quand les zombies arrivent.
+// déplacement, sinon de la visée, sinon du regard ; 64 px en 8 frames, cooldown de 24 frames
+// entre deux départs, un appui pendant le cooldown gardé 8 frames), sprint en tirant (le sprint
+// empêche de tirer), puis attaques au corps à corps répétées quand les zombies arrivent.
 //
-// À regarder : sprint vers la droite (f16-76), nettement plus rapide que la marche. À f96,
-// Gauche + Dash : le dash part vers la gauche (56 px). Les dashs de f150 et f160 sont refusés
-// (cooldown). Sprint en tirant vers le haut (f226-256) : aucun tir. Attaques au corps à corps toutes
-// les 40 frames à partir de f386 (arc de slash vers le bas).
+// À regarder : sprint vers la droite (f15-41), nettement plus rapide que la marche. À f95,
+// Gauche + Dash : le dash part vers la gauche (66,5 px avec l'arrêt). L'appui de f105 est
+// refusé (cooldown, trop tôt pour être gardé) : le joueur ne bouge pas. Celui de f117 est
+// gardé et part dès la fin du cooldown (f119), vers la visée (droite) : le joueur revient à son
+// point de départ. Sprint en tirant vers le haut (f225-255) : aucun tir. Attaques au corps à
+// corps toutes les 40 frames à partir de f385 (arc de slash vers le bas).
 Scenario(
     // Isoler ce scénario des drops aléatoires ; powerup_drop_on_kill teste ce chemin.
     powerup_drop_chance_override: "0.0",
@@ -13,10 +16,10 @@ Scenario(
     frames: 900,
     players: [
         (inputs: [
-            (from: 10, to: 70, buttons: [Right, Sprint]),
+            (from: 10, to: 37, buttons: [Right, Sprint]),
             (from: 90, to: 93, buttons: [Left, Dash]),
-            (from: 150, to: 153, buttons: [Left, Dash]),
-            (from: 160, to: 163, buttons: [Left, Dash]),
+            (from: 100, to: 101, buttons: [Dash]),
+            (from: 112, to: 117, buttons: [Dash], pan: (100, 0)),
             (from: 220, to: 250, buttons: [Sprint, Fire], pan: (0, 100)),
             (from: 380, to: 383, buttons: [Melee], pan: (0, -60)),
             (from: 420, to: 423, buttons: [Melee], pan: (0, -60)),
@@ -27,11 +30,14 @@ Scenario(
         ]),
     ],
     expect: [
-        // Le sprint accélère : 189 px en 85 frames (la marche en fait ~90)
-        PlayerPosition(handle: 0, x: 613.4, y: 696, tolerance: 1, at_frame: 95),
-        // Dash de 56 px dans la direction du déplacement (gauche)
-        PlayerPosition(handle: 0, x: 557.4, y: 696, tolerance: 1, at_frame: 115),
-        // Dashs refusés pendant le cooldown : le joueur n'a presque pas bougé
-        PlayerPosition(handle: 0, x: 556, y: 696, tolerance: 2, at_frame: 170),
+        // Le sprint accélère : 132 px en 27 frames de touche (la marche en fait 70)
+        PlayerPosition(handle: 0, x: 556.1, y: 696, tolerance: 1, at_frame: 90),
+        // Dash de 64 px dans la direction du déplacement (gauche), puis 2,5 px de freinage
+        PlayerPosition(handle: 0, x: 489.6, y: 696, tolerance: 1, at_frame: 110),
+        // Appui refusé pendant le cooldown : le joueur n'a pas bougé
+        PlayerPosition(handle: 0, x: 489.6, y: 696, tolerance: 1, at_frame: 119),
+        // Appui gardé : le dash part à f119, première frame permise (13,5 px dès cette frame)
+        PlayerPosition(handle: 0, x: 503.1, y: 696, tolerance: 1, at_frame: 120),
+        PlayerPosition(handle: 0, x: 556.1, y: 696, tolerance: 1, at_frame: 140),
     ],
 )

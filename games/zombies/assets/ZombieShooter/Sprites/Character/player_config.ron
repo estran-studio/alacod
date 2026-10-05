@@ -1,15 +1,23 @@
 (
     movement: (
-        acceleration: "150.0",
+        // Course nerveuse : 150 px/s atteints en 3 frames (3000 px/s² = 50 px/s de plus par
+        // frame), arrêt en 3 frames, demi-tour en 6. `acceleration` est aussi l'adhérence :
+        // une surface qui la divise par 5 (glace) divise aussi le freinage, on glisse.
+        acceleration: "3000.0",
         max_speed: "150.0",
-        friction: "10.0",
+        deceleration: "3000.0",
         sprint_multiplier: "2.0",                // Double speed
         sprint_acceleration_per_frame: "0.1",    // Reach full sprint in 10 frames
-        sprint_deceleration_per_frame: "0.2", 
+        sprint_deceleration_per_frame: "0.2",
 
-        dash_distance: "60.0",         // A substantial dash distance (tune based on your world scale)
-        dash_duration_frames: 15,      // Very quick dash (1/10th second)
-        dash_cooldown_frames: 180,     // Half-second cooldown
+        // Dash : part à l'appui, 64 px en 8 frames, de 13,5 px par frame à la vitesse de
+        // course (on en sort en courant) ; invulnérable les 6 premières frames, traverse la
+        // horde sans ralentir. Un appui pendant un dash ou le cooldown est gardé 8 frames.
+        dash_distance: "64.0",
+        dash_duration_frames: 8,
+        dash_cooldown_frames: 24,      // 0,4 s entre deux départs
+        dash_iframes: 6,
+        dash_buffer_frames: 8,
     ),
 
     asset_name_ref: "player",

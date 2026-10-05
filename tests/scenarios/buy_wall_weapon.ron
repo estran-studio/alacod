@@ -2,9 +2,9 @@
 // salle de départ (WeaponLocation "shotgun", 500, games/zombies/assets/exemples/
 // test_map_shop.ldtk) et l'achète.
 //
-// À regarder : le joueur monte puis se déplace à gauche vers le mur d'armes (f10-115),
-// achète le fusil à pompe en interagissant (f115-130) : le fusil devient son arme active, son
-// solde tombe à 100.
+// À regarder : le joueur monte jusqu'au mur (f10-65) puis se déplace à gauche vers le mur
+// d'armes (f65-88, 57,5 px), achète le fusil à pompe en interagissant (f115-130) : le fusil
+// devient son arme active, son solde tombe à 100.
 Scenario(
     // Isoler ce scénario des drops aléatoires ; powerup_drop_on_kill teste ce chemin.
     powerup_drop_chance_override: "0.0",
@@ -15,7 +15,7 @@ Scenario(
         (
             inputs: [
                 (from: 10, to: 65, buttons: [Up]),
-                (from: 65, to: 115, buttons: [Left]),
+                (from: 65, to: 88, buttons: [Left]),
                 (from: 115, to: 130, buttons: [Interaction]),
             ],
             // Exclusivité T2.10 (voir PlayerScript::weapon) : le joueur n'a PAS déjà le

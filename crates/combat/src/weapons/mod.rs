@@ -4,8 +4,8 @@ pub mod expectations;
 use self::melee::MeleeAttackState;
 use crate::{
     actors::{
-        CursorPosition, DashState, Health, PeerConfig, Player, SprintState, INPUT_DASH,
-        INPUT_DROP_WEAPON, INPUT_RELOAD, INPUT_SPRINT, INPUT_SWITCH_WEAPON_MODE,
+        CursorPosition, DashState, Health, PeerConfig, Player, SprintState, INPUT_DROP_WEAPON,
+        INPUT_RELOAD, INPUT_SPRINT, INPUT_SWITCH_WEAPON_MODE,
     },
     collider::{is_colliding, Collider, ColliderShape, CollisionLayer, CollisionSettings, Wall},
     downed::Downed,
@@ -1135,11 +1135,9 @@ pub fn weapon_rollback_system(
             continue;
         }
 
-        if sprint_state.is_sprinting
-            || dash_state.is_dashing
-            || input.buttons & INPUT_SPRINT != 0
-            || input.buttons & INPUT_DASH != 0
-        {
+        // Pas de tir pendant un dash ; le bouton de dash tenu, lui, ne bloque rien (le dash
+        // part sur l'appui, voir `DashState`)
+        if sprint_state.is_sprinting || dash_state.is_dashing || input.buttons & INPUT_SPRINT != 0 {
             continue;
         }
 
@@ -1517,7 +1515,8 @@ enum BulletTarget {
 ///   politique bloque (allié, tir ami `Never`) n'est pas un candidat du tout : la balle le
 ///   traverse comme s'il n'était pas là. `Team::Neutral` est toujours un candidat valide
 ///   (elle bloque le tir) ; `combat::damage::resolve_damage` décidera ensuite qu'elle ne
-///   subit aucun dégât.
+///   subit aucun dégât. Un personnage invulnérable (i-frames du dash,
+///   `Health::is_invulnerable_at`) n'est pas un candidat non plus : la balle le traverse.
 ///
 /// Émet un `DamageEvent` (résolu par `character::health::rollback_resolve_damage_events`,
 /// `RollbackSystemSet::CollisionDamage`) au lieu d'écrire `DamageAccumulator` directement.
@@ -1550,8 +1549,14 @@ pub fn bullet_rollback_collision_system(
         (With<Wall>, With<Rollback>),
     >,
     target_query: Query<
-        (&fixed_math::FixedTransform3D, &Collider, &GgrsNetId, &Team),
-        (With<Health>, Without<Bullet>, With<Rollback>),
+        (
+            &fixed_math::FixedTransform3D,
+            &Collider,
+            &GgrsNetId,
+            &Team,
+            &Health,
+        ),
+        (Without<Bullet>, With<Rollback>),
     >,
 ) {
     let system_span = span!(
@@ -1611,7 +1616,7 @@ pub fn bullet_rollback_collision_system(
         }
 
         for char_entry in grids.characters.query_aabb(&swept_aabb) {
-            let Ok((target_transform, target_collider, target_net_id, target_team)) =
+            let Ok((target_transform, target_collider, target_net_id, target_team, target_health)) =
                 target_query.get(char_entry.entity)
             else {
                 continue;
@@ -1621,7 +1626,8 @@ pub fn bullet_rollback_collision_system(
                 *target_team,
                 bullet.friendly_fire,
                 &bullet.tags,
-            ) {
+            ) || target_health.is_invulnerable_at(frame.frame)
+            {
                 continue;
             }
             if is_colliding(

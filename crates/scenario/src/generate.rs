@@ -144,23 +144,18 @@ const AIM_AT_TARGET: (i16, i16) = (128, 48);
 /// 10 unités de `target`, largement dans la portée de n'importe quelle arme de corps à corps
 /// (`club`, la plus courte des deux avec `test:`, a une portée de 40).
 ///
-/// Les deux arrêts sont nécessaires, pas seulement esthétiques : `apply_friction`
-/// (`crates/game/src/character/player/input.rs`) ne freine que quand **aucun** bouton de
-/// déplacement n'est tenu, pas seulement celui de l'axe qu'on relâche. Sans le premier arrêt,
-/// la vitesse horizontale accumulée pendant `Right` continue de pousser le joueur pendant tout
-/// `Up` (les deux boutons comptent comme « en mouvement ») ; sans le second, la vitesse
-/// verticale continue de le pousser pendant toute la tenue de l'attaque, l'éloignant de
-/// `target` au lieu de l'y laisser. `WALK_PAUSE_FRAMES` (~20 frames) laisse la friction
-/// (`friction: "10.0"`) dissiper la vitesse avant de changer d'axe ou d'attaquer.
-///
-/// Durées calées empiriquement sur `movement.acceleration`/`max_speed` du joueur
-/// (`150.0`/`150.0`, testbed/zombies) : position finale mesurée à moins de 10 unités de
-/// `target` (voir le rapport de la tâche T2.10), confirmée par les coups comptés
-/// (`alacod-gen --play`, `club`/`sword`). Un changement de ces constantes de mouvement
-/// (`player_config.ron`) invaliderait ce calage.
-const WALK_X_FRAMES: u32 = 72;
-const WALK_PAUSE_FRAMES: u32 = 20;
-const WALK_Y_FRAMES: u32 = 45;
+/// Calage sur la course du joueur (`player_config.ron` : `max_speed` 150, `acceleration` et
+/// `deceleration` 3000, voir `character::movement::run_velocity`) : 3 frames pour atteindre
+/// 2,5 px par frame, 3 frames pour s'arrêter une fois la touche relâchée, chaque axe pour son
+/// compte. Tenir une touche `n` frames déplace donc de 2,5 × `n` px (accélération et freinage
+/// se compensent) : 51 frames pour 128, 19 pour 48. Les pauses ne sont plus nécessaires au
+/// calage (un axe relâché freine même si l'autre est tenu) ; elles laissent le joueur
+/// s'arrêter (3 frames, plus une marge) avant l'axe suivant puis avant l'attaque, pour un
+/// chemin lisible sur la vidéo. Un changement de ces constantes de mouvement invaliderait ce
+/// calage (vérifié par les coups comptés, `alacod-gen --play`, `club`/`sword`).
+const WALK_X_FRAMES: u32 = 51;
+const WALK_PAUSE_FRAMES: u32 = 5;
+const WALK_Y_FRAMES: u32 = 19;
 
 /// Erreurs de génération : contenu invalide, fichier d'arme illisible, ou `target`
 /// introuvable (voir la doc du module).
@@ -569,11 +564,7 @@ pub fn build_weapon_scenario(
             let x_end = INPUT_START_FRAME + WALK_X_FRAMES;
             let y_start = x_end + WALK_PAUSE_FRAMES;
             let y_end = y_start + WALK_Y_FRAMES;
-            // Deuxième pause (même durée) : sans elle, la vitesse verticale accumulée
-            // pendant `Up` continuerait à déplacer le joueur (par inertie, la friction ne
-            // s'applique que quand aucun bouton de déplacement n'est tenu) tout au long de
-            // la tenue de `Melee`, l'éloignant de `target` au lieu de l'y laisser (voir le
-            // rapport de la tâche T2.10 pour la trace qui a révélé ce dépassement).
+            // Deuxième pause (même durée) : le joueur est arrêté quand il commence à frapper
             let attack_start = y_end + WALK_PAUSE_FRAMES;
             assert!(
                 frames > attack_start,
