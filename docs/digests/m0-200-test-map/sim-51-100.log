@@ -1,0 +1,92 @@
+alacod-sim : zombies, 4 bots (acheteur,acheteur,acheteur,acheteur), graines 51..=100, jusqu'à la vague Some(5) / au niveau None ou 20000 frames, carte exemples/test_map.ldtk
+ALSA lib confmisc.c:855:(parse_card) cannot find card '0'
+ALSA lib conf.c:5208:(_snd_config_evaluate) function snd_func_card_inum returned error: No such file or directory
+ALSA lib confmisc.c:422:(snd_func_concat) error evaluating strings
+ALSA lib conf.c:5208:(_snd_config_evaluate) function snd_func_concat returned error: No such file or directory
+ALSA lib confmisc.c:1342:(snd_func_refer) error evaluating name
+ALSA lib conf.c:5208:(_snd_config_evaluate) function snd_func_refer returned error: No such file or directory
+ALSA lib conf.c:5731:(snd_config_expand) Evaluate error: No such file or directory
+ALSA lib pcm.c:2721:(snd_pcm_open_noupdate) Unknown PCM default
+found a spawn level: bd5a1298-7517-0f8a-b961-539d034c5d24663b
+found a spawn level: bd5a1298-7517-0f8a-b961-539d034c5d24663b
+found a spawn level: bd5a1298-7517-0f8a-b961-539d034c5d24663b
+found a spawn level: bd5a1298-7517-0f8a-b961-539d034c5d24663b
+found a spawn level: bd5a1298-7517-0f8a-b961-539d034c5d24663b
+found a spawn level: bd5a1298-7517-0f8a-b961-539d034c5d24663b
+found a spawn level: bd5a1298-7517-0f8a-b961-539d034c5d24663b
+found a spawn level: bd5a1298-7517-0f8a-b961-539d034c5d24663b
+found a spawn level: bd5a1298-7517-0f8a-b961-539d034c5d24663b
+found a spawn level: bd5a1298-7517-0f8a-b961-539d034c5d24663b
+progress frame=1000 wave=1 phase=InProgress remaining=0 kills=7 nav_cells=909
+progress frame=2000 wave=2 phase=Spawning remaining=8 kills=8 nav_cells=909
+progress frame=3000 wave=2 phase=InProgress remaining=0 kills=17 nav_cells=909
+progress frame=4000 wave=3 phase=Spawning remaining=10 kills=18 nav_cells=1249
+progress frame=5000 wave=3 phase=InProgress remaining=0 kills=31 nav_cells=1249
+progress frame=6000 wave=4 phase=Spawning remaining=16 kills=32 nav_cells=2165
+progress frame=7000 wave=4 phase=InProgress remaining=0 kills=47 nav_cells=2165
+progress frame=8000 wave=4 phase=WaveComplete remaining=0 kills=52 nav_cells=0
+seed     51 : vague  5  niveau  0  frames   8003  morts 0/4  kills  52     9.6 fps  833.44s  fin objectif
+ALSA lib confmisc.c:855:(parse_card) cannot find card '0'
+ALSA lib conf.c:5208:(_snd_config_evaluate) function snd_func_card_inum returned error: No such file or directory
+ALSA lib confmisc.c:422:(snd_func_concat) error evaluating strings
+ALSA lib conf.c:5208:(_snd_config_evaluate) function snd_func_concat returned error: No such file or directory
+ALSA lib confmisc.c:1342:(snd_func_refer) error evaluating name
+ALSA lib conf.c:5208:(_snd_config_evaluate) function snd_func_refer returned error: No such file or directory
+ALSA lib conf.c:5731:(snd_config_expand) Evaluate error: No such file or directory
+ALSA lib pcm.c:2721:(snd_pcm_open_noupdate) Unknown PCM default
+found a spawn level: 6ca31d2d-5ca8-97e7-b41a-c1f574b147ad665c
+found a spawn level: 6ca31d2d-5ca8-97e7-b41a-c1f574b147ad665c
+found a spawn level: 6ca31d2d-5ca8-97e7-b41a-c1f574b147ad665c
+found a spawn level: 6ca31d2d-5ca8-97e7-b41a-c1f574b147ad665c
+found a spawn level: 6ca31d2d-5ca8-97e7-b41a-c1f574b147ad665c
+progress frame=1000 wave=1 phase=InProgress remaining=0 kills=6 nav_cells=1005
+progress frame=2000 wave=2 phase=Spawning remaining=8 kills=7 nav_cells=1249
+progress frame=3000 wave=2 phase=WaveComplete remaining=0 kills=19 nav_cells=0
+progress frame=4000 wave=3 phase=Spawning remaining=6 kills=21 nav_cells=1589
+progress frame=5000 wave=3 phase=WaveComplete remaining=0 kills=33 nav_cells=0
+progress frame=6000 wave=4 phase=Spawning remaining=7 kills=41 nav_cells=0
+progress frame=7000 wave=4 phase=WaveComplete remaining=0 kills=51 nav_cells=0
+seed     52 : vague  5  niveau  0  frames   7180  morts 0/4  kills  51    23.4 fps  307.15s  fin objectif
+ALSA lib confmisc.c:855:(parse_card) cannot find card '0'
+ALSA lib conf.c:5208:(_snd_config_evaluate) function snd_func_card_inum returned error: No such file or directory
+ALSA lib confmisc.c:422:(snd_func_concat) error evaluating strings
+ALSA lib conf.c:5208:(_snd_config_evaluate) function snd_func_concat returned error: No such file or directory
+ALSA lib confmisc.c:1342:(snd_func_refer) error evaluating name
+ALSA lib conf.c:5208:(_snd_config_evaluate) function snd_func_refer returned error: No such file or directory
+ALSA lib conf.c:5731:(snd_config_expand) Evaluate error: No such file or directory
+ALSA lib pcm.c:2721:(snd_pcm_open_noupdate) Unknown PCM default
+found a spawn level: 1bec27c2-4439-2044-aed3-304de6163236667d
+found a spawn level: 1bec27c2-4439-2044-aed3-304de6163236667d
+found a spawn level: 1bec27c2-4439-2044-aed3-304de6163236667d
+found a spawn level: 1bec27c2-4439-2044-aed3-304de6163236667d
+found a spawn level: 1bec27c2-4439-2044-aed3-304de6163236667d
+found a spawn level: 1bec27c2-4439-2044-aed3-304de6163236667d
+found a spawn level: 1bec27c2-4439-2044-aed3-304de6163236667d
+found a spawn level: 1bec27c2-4439-2044-aed3-304de6163236667d
+progress frame=1000 wave=1 phase=InProgress remaining=0 kills=7 nav_cells=665
+progress frame=2000 wave=2 phase=Spawning remaining=7 kills=8 nav_cells=1249
+progress frame=3000 wave=2 phase=WaveComplete remaining=0 kills=19 nav_cells=0
+progress frame=4000 wave=3 phase=Spawning remaining=8 kills=21 nav_cells=0
+progress frame=5000 wave=3 phase=WaveComplete remaining=0 kills=33 nav_cells=0
+progress frame=6000 wave=4 phase=Spawning remaining=8 kills=39 nav_cells=1493
+progress frame=7000 wave=4 phase=WaveComplete remaining=0 kills=51 nav_cells=0
+seed     53 : vague  5  niveau  0  frames   7284  morts 0/4  kills  51    12.9 fps  563.00s  fin objectif
+ALSA lib confmisc.c:855:(parse_card) cannot find card '0'
+ALSA lib conf.c:5208:(_snd_config_evaluate) function snd_func_card_inum returned error: No such file or directory
+ALSA lib confmisc.c:422:(snd_func_concat) error evaluating strings
+ALSA lib conf.c:5208:(_snd_config_evaluate) function snd_func_concat returned error: No such file or directory
+ALSA lib confmisc.c:1342:(snd_func_refer) error evaluating name
+ALSA lib conf.c:5208:(_snd_config_evaluate) function snd_func_refer returned error: No such file or directory
+ALSA lib conf.c:5731:(snd_config_expand) Evaluate error: No such file or directory
+ALSA lib pcm.c:2721:(snd_pcm_open_noupdate) Unknown PCM default
+found a spawn level: cb353257-2bca-a8a1-a98c-9ea6577b1cbf669e
+found a spawn level: cb353257-2bca-a8a1-a98c-9ea6577b1cbf669e
+found a spawn level: cb353257-2bca-a8a1-a98c-9ea6577b1cbf669e
+found a spawn level: cb353257-2bca-a8a1-a98c-9ea6577b1cbf669e
+found a spawn level: cb353257-2bca-a8a1-a98c-9ea6577b1cbf669e
+found a spawn level: cb353257-2bca-a8a1-a98c-9ea6577b1cbf669e
+found a spawn level: cb353257-2bca-a8a1-a98c-9ea6577b1cbf669e
+found a spawn level: cb353257-2bca-a8a1-a98c-9ea6577b1cbf669e
+found a spawn level: cb353257-2bca-a8a1-a98c-9ea6577b1cbf669e
+progress frame=1000 wave=1 phase=InProgress remaining=0 kills=7 nav_cells=0
+progress frame=2000 wave=1 phase=WaveComplete remaining=0 kills=8 nav_cells=0
