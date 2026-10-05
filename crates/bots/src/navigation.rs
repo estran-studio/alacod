@@ -528,8 +528,14 @@ mod tests {
         let mut nav = BotNavigation::default();
         nav.update(&[(rect(-64, -64, 0, 0), true)], &body(), &[]);
         assert!(nav.body_clear(vec(40, 40), vec(80, 40)), "loin de la roche");
-        assert!(!nav.body_clear(vec(40, 40), vec(-30, -20)), "à travers la roche");
-        assert!(!nav.body_clear(vec(10, 16), vec(10, 60)), "posé contre la roche");
+        assert!(
+            !nav.body_clear(vec(40, 40), vec(-30, -20)),
+            "à travers la roche"
+        );
+        assert!(
+            !nav.body_clear(vec(10, 16), vec(10, 60)),
+            "posé contre la roche"
+        );
     }
     #[test]
     fn wall_detour_and_no_corner_cutting() {

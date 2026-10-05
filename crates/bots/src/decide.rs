@@ -183,7 +183,16 @@ fn decide_prudent(view: &BotView) -> BoxInput {
         } else if !view.enemy_visible || close_in || enemy.distance > PRUDENT_MAX_DISTANCE {
             // s'approche : par le chemin (ennemi caché, ou loin), ligne droite en repli
             let toward = enemy.position - view.position;
-            set_direction_buttons(&mut input, route_unless(false, view, toward));
+            match view.route {
+                // m1-v3-bots-softlocks (throne_quad, graine 123456, 4 bots) : vers un ennemi
+                // caché, la route suivie au signe faisait dépasser chaque case visée (élan) ;
+                // le bot allait et venait dans un couloir sans prendre la sortie : pilotage en
+                // vitesse, comme vers le portail.
+                Some(route) if !view.enemy_visible => {
+                    steer(&mut input, view, route, PORTAL_CRUISE_SPEED)
+                }
+                _ => set_direction_buttons(&mut input, route_unless(false, view, toward)),
+            }
         } // sinon : garde sa position (visible, dans la bande [MIN, MAX])
 
         if enemy.distance <= PRUDENT_MAX_DISTANCE {
@@ -234,6 +243,14 @@ fn approach_portal(input: &mut BoxInput, view: &BotView, portal: FixedVec2) {
     // (m1-v3-bots-softlocks, `input::navigate`).
     let direction = view.route.unwrap_or(delta);
     let speed = (distance * Fixed::from_num(2)).min(PORTAL_CRUISE_SPEED);
+    steer(input, view, direction, speed);
+}
+
+/// Pilotage en vitesse (m1-v3-bots-portail) : chaque axe est pressé dans le sens de l'écart
+/// entre la vitesse voulue (`direction` × `speed`) et la vitesse actuelle, s'il dépasse
+/// [`PORTAL_STEER_DEAD_ZONE`] : le corps garde son élan, viser le pas suivant à pleine vitesse le
+/// fait dépasser.
+fn steer(input: &mut BoxInput, view: &BotView, direction: FixedVec2, speed: Fixed) {
     let error = direction.normalize_or_zero() * speed - view.velocity;
     let mut step = FixedVec2::ZERO;
     if error.x.abs() > PORTAL_STEER_DEAD_ZONE {
@@ -522,7 +539,11 @@ mod tests {
         v.portal = Some(FixedVec2::new(fx(-26.0), fx(4.0)));
         let input = decide(BotProfile::Prudent, &v, &mut rng());
         assert_ne!(input.buttons & INPUT_LEFT, 0);
-        assert_eq!(input.buttons & INPUT_UP, 0, "sans route : tout droit, dans la roche");
+        assert_eq!(
+            input.buttons & INPUT_UP,
+            0,
+            "sans route : tout droit, dans la roche"
+        );
         v.route = Some(FixedVec2::new(fx(-2.0), fx(12.0)));
         let input = decide(BotProfile::Prudent, &v, &mut rng());
         assert_ne!(input.buttons & INPUT_UP, 0, "contourne par le chemin");
@@ -545,7 +566,11 @@ mod tests {
         assert!(input.fire, "visible : tire");
         v.enemy_visible = false;
         let input = decide(BotProfile::Prudent, &v, &mut rng());
-        assert_eq!(input.buttons & (INPUT_LEFT | INPUT_DOWN), 0, "caché : pas de recul");
+        assert_eq!(
+            input.buttons & (INPUT_LEFT | INPUT_DOWN),
+            0,
+            "caché : pas de recul"
+        );
         assert_ne!(input.buttons & INPUT_UP, 0, "caché : par le chemin");
         assert!(!input.fire, "caché : pas de tir");
         v.enemy_still = true;
@@ -583,6 +608,25 @@ mod tests {
             assert_ne!(input.buttons & INPUT_LEFT, 0, "{profile:?} : vers le butin");
             assert_eq!(input.buttons & INPUT_RIGHT, 0, "{profile:?}");
         }
+    }
+
+    /// m1-v3-bots-softlocks (throne_quad) : ennemi caché, route vers le haut, le bot file encore
+    /// vers le bas : il presse haut (freine puis repart) ; à la vitesse voulue, rien à corriger.
+    #[test]
+    fn vers_un_ennemi_cache_la_route_est_pilotee_en_vitesse() {
+        let mut v = view(FixedVec2::new(fx(0.0), fx(0.0)));
+        v.nearest_enemy = Some(EnemyView {
+            position: FixedVec2::new(fx(700.0), fx(200.0)),
+            distance: fx(728.0),
+        });
+        v.enemy_visible = false;
+        v.route = Some(FixedVec2::new(fx(0.0), fx(9.0)));
+        v.velocity = FixedVec2::new(fx(0.0), fx(-110.0));
+        let input = decide(BotProfile::Prudent, &v, &mut rng());
+        assert_ne!(input.buttons & INPUT_UP, 0);
+        assert_eq!(input.buttons & (INPUT_LEFT | INPUT_RIGHT), 0);
+        v.velocity = FixedVec2::new(fx(0.0), fx(120.0));
+        assert_eq!(decide(BotProfile::Prudent, &v, &mut rng()).buttons, 0);
     }
 
     #[test]

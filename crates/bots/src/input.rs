@@ -194,7 +194,10 @@ pub fn read_bot_inputs(
             With<Rollback>,
         >,
         Res<utils::frame::FrameCount>,
-        Query<(&GgrsNetId, &FixedTransform3D), (With<game::powerups::PowerUpPickup>, With<Rollback>)>,
+        Query<
+            (&GgrsNetId, &FixedTransform3D),
+            (With<game::powerups::PowerUpPickup>, With<Rollback>),
+        >,
     ),
 ) {
     let Some(assignments) = assignments else {
@@ -347,9 +350,10 @@ pub fn read_bot_inputs(
             .unwrap_or((0, false, true));
         let usable = active_ammo > 0 || reloadable;
         // m1-v3-bots-softlocks : plus aucune réserve pour aucune arme (chargeurs seulement).
-        let dry = inventory.weapons.iter().all(|(_, weapon)| {
-            reserves.map_or(0, |r| r.get(&weapon.config.ammo_type)) == 0
-        });
+        let dry = inventory
+            .weapons
+            .iter()
+            .all(|(_, weapon)| reserves.map_or(0, |r| r.get(&weapon.config.ammo_type)) == 0);
         let switch_weapon = !usable && ammunition.iter().any(|(a, r, _)| *a > 0 || *r);
 
         let view = BotView {
@@ -477,7 +481,8 @@ pub fn read_bot_inputs(
             let threat = view
                 .nearest_enemy
                 .is_some_and(|enemy| enemy.distance <= REVIVE_SAFE_DISTANCE && view.enemy_visible);
-            if let (false, Some(collider), Some(rects)) = (threat, collider, geometry_rects.as_ref())
+            if let (false, Some(collider), Some(rects)) =
+                (threat, collider, geometry_rects.as_ref())
             {
                 view.loot = loot_step(
                     &mut nav.0,
