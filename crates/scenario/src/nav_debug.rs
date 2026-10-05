@@ -62,8 +62,9 @@ fn arrow(from: GridPos, to: GridPos) -> char {
 /// Avec `arrows`, les cases atteignables montrent la direction du flow field.
 pub fn nav_ascii(world: &mut World, arrows: bool) -> String {
     let cache = world.resource::<FlowFieldCache>().clone();
+    // Le champ historique (zombies, ennemis de 20 px) : la carte ASCII n'en montre qu'un.
     let field = cache
-        .get_flow_field(NavProfile::GroundBreaker)
+        .get_flow_field(game::character::enemy::ai::navigation::MOVEMENT_FLOW_KEY)
         .cloned()
         .unwrap_or_default();
 

@@ -9,7 +9,8 @@
 // refaire passer vers la cible, avec nouvelles attentes et trace rebénie avec preuve.
 //
 // Mesuré (graine 123456) : niveau 1 à f537 (`sang_froid` à f1137), étage 1 à f808, niveau 2 à
-// f1591 (`coriace` à f2191), alerte de l'horloge à f1708, étage 2 à f2816, mort et défaite à f3640.
+// f1591 (`coriace` à f2191), alerte de l'horloge à f1708, étage 2 à f2816, mort et défaite à f3560
+// (f3640 avant m1-navigation-profils-tailles : le pillard ne griffe plus en fuyant, D38).
 //
 // À regarder : le bot nettoie deux cavernes puis tombe dans la troisième.
 Scenario(
@@ -26,8 +27,8 @@ Scenario(
         Event(kind: "levelup", by_frame: 537),
         Mutations(handle: 0, contains: ["sang_froid", "coriace"], count: Some(2), at_frame: 2200),
         Clock(id: "alerte", fired: true, at_frame: 1710),
-        PlayerAlive(handle: 0, at_frame: 3600),
+        PlayerAlive(handle: 0, at_frame: 3550),
         PlayerDead(handle: 0, at_frame: 3650),
-        Defeat(by_frame: 3640),
+        Defeat(by_frame: 3560),
     ],
 )

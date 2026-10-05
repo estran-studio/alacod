@@ -1318,9 +1318,9 @@ v1). Applicabilité implicite :
 | `Shoot { weapon, pattern, range, cooldown_frames }` | séquence de tir en cours, ou cible vivante et debout à moins de `range`, refroidissement écoulé | `ranged_attack` (§20) ; se compile vers `EnemyAiConfig::ranged` |
 | `Charge { telegraph }` | charge en cours, ou cible entre `attack_range` et 3 × `attack_range`, refroidissement écoulé | `telegraph` frames immobile, ruée en ligne droite vers la position **figée** de la cible à 3 × la vitesse jusqu'au contact (`attack_range`) ou 60 frames, murs respectés ; dégât de contact `attack_damage` (émis la frame suivante, `CollisionDamage`, tags `melee`+`charge`) ; refroidissement `attack_cooldown_frames` |
 | `KeepDistance { min, max }` | cible à moins de `min`, ou déjà retenue et cible à moins de `max` (hystérésis) | recule : case voisine du champ de flux de **coût le plus élevé** (départage par `GridPos`), repli à l'opposé de la cible |
-| `Flee` | santé ≤ `flee_threshold` × max | recule comme `KeepDistance` |
+| `Flee` | santé ≤ `flee_threshold` × max | recule comme `KeepDistance` ; **pas d'attaque au corps à corps** tant que retenue (D38 : marqueur `MeleeHold`, rollback neutre, lu à la frame suivante) |
 | `Strafe` | cible à moins de `Sight` | perpendiculaire à la cible, sens alterné toutes les 45 frames depuis l'entrée dans la règle |
-| `Chase { profile }` | cible connue | `move_enemies` d'origine (v1 : seul le champ `GroundBreaker` est construit, tous les profils l'utilisent) |
+| `Chase { profile }` | cible connue | `move_enemies` d'origine, sur le champ de flux de la **clé** de l'ennemi (D41 + D38, m1-navigation-profils-tailles) : `NavKey { profil (EnemyAiConfig::nav_profile), gabarit (Small ≤ 20 px de corps en jeu, Large au-delà : centre à une case des murs) }`, construite seulement pour les ennemis qui se déplacent ; un profil qui voit les mêmes obstacles que `GroundBreaker` sur la carte (pas de fenêtre ni de barricade) partage son champ (`FlowFieldCache::canonical`) |
 | `Wander` | toujours (règle de fond) | direction tirée dans le flux RNG `"behaviors"` toutes les 60 frames (consommé seulement par `Wander`, ordre `GgrsNetId`), demi-vitesse |
 
 Une règle absente n'existe pas pour ce personnage. Les déplacements imposés (`KeepDistance`,
