@@ -2,10 +2,10 @@
 
 Branche partie de `m1-v4-ecran-mutation` (6af9763), `origin/main` mergé.
 
-## État en cours
+## État
 
-Suite headless verte (ci-dessous) ; reste les captures de `throne_progression` (build render
-après le « feu vert render » d'orch).
+Livrée : suite headless verte, aucune trace déplacée, captures faites ; `origin/main` (26f1496,
+D40) remergé et revérifié.
 
 ## Fait
 
@@ -41,3 +41,33 @@ après le « feu vert render » d'orch).
 
 Premier essai : une erreur de compilation (`HudPlayerState` privé dans une signature de système
 ordonnée depuis `ui::hud`), corrigée (`pub(crate)`).
+
+Après merge d'`origin/main` 26f1496 (D40 : `RefillAmmoOf`, `throne_progression` rebénie) : phrase
+`RefillAmmoOf` ajoutée à `describe` (« munitions lames rechargées », même texte que la correction
+d'orch sur T1.16) ; `effects`, `game ui::`, `content`, `hud_text_sur_throne_progression`,
+`make test_scenarios` (aucune trace déplacée), `make lint`, `cargo fmt --check` : verts ;
+`make gen GAME=throne` désormais **vert**.
+
+## Captures
+
+`play_scenario --capture` (`--profile headless --features render`, toutes les 4 frames), avant le
+merge de D40 (le HUD ne dépend pas du butin), images dans `m1-v4-hud-throne/` :
+
+- `throne_progression_f540.png` : niveau 1 (« Niv. 1 », « 3 / 8 rads », barre de rads vide :
+  repart du seuil du niveau 1), « Étage 1 » en haut, « balles 396 / lames 48 » en bas à droite ;
+  l'écran de mutation (T1.16) s'ouvre aussi pour le bot.
+- `f1140` : choix pris d'office (Sang-froid), écran fermé.
+- `f1400` : « 6 / 8 rads », barre de rads aux trois cinquièmes, « Étage 2 ».
+- `f1580` : niveau 2 ; `f1912` : « Étage 3 » pendant le fondu de transition (T1.16).
+
+Corrigé après la première série : « Niv. » chevauchait la ligne de debug de la frame (`Wave 0 |
+--- | …`, `FrameDebugUIPlugin`) ; déplacé à droite du texte de vie, recapturé (les assets sont lus
+au lancement : pas de recompilation).
+
+## À valider à l'écran (William)
+
+- Disposition du coin bas-gauche (vie, niveau, rads, statuts) ; aucun statut n'apparaît dans
+  `throne_progression` (le joueur n'en reçoit pas) : la source `statuses` n'est vue que par les
+  tests.
+- La ligne de debug de la frame (« Wave 0 | … ») et le texte de caméra restent affichés en
+  throne : hors de cette tâche.
