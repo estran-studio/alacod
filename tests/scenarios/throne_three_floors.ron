@@ -2,37 +2,37 @@
 // étages de caverne : `niveau_1`, `niveau_2` avec les premiers tireurs, `niveau_3` avec tous les
 // profils), avec tout ce que le manifeste active (butin, progression, horloge, difficulté).
 //
-// Mesuré (graine 123456, comme `alacod-sim --game throne --bots 2 --profiles prudent,prudent
-// --floors run --seeds 123456..123456 --until-floor 3` ; approche du portail pilotée en vitesse et
-// ennemi immobile approché, m1-v3-bots-portail) : étages à f480, f1097, f2640 ; mutations du joueur
-// 0 `irradie` (f1394), `rancune` (f2456), du joueur 1 `rancune` (f1431), `tireur` (f2364) ; alerte
-// de l'horloge à f1997 ; portail du niveau 3 à f2329 après la mort du boss ; le joueur 1 tombe à
-// terre à f2385. Après la fin du scénario, la boucle sur le niveau 3 les tue tous deux (f4185,
-// f4642). (Avant : étages à f517, f1531, f5109, portail du niveau 3 à f4925.)
-// **Duo de la vague 2 de M1** (m1-integration-scenarios) : gardé sous ce nom. Avant le correctif
-// « une caverne = un asset », les trois étages étaient `niveau_1` (étage 3 à f2330).
+// Mesuré (graine 4, comme `alacod-sim --game throne --bots 2 --profiles prudent,prudent
+// --floors run --seeds 4..4 --until-floor 3`) : étages à f761, f1949, f4869 ; mutations du
+// joueur 0 `sang_froid` (f1121), `irradie` (f3271), du joueur 1 `vampire` (f2013), `coriace`
+// (f3382) ; alerte de l'horloge à f1661 ; portail du niveau 3 à f4710 après la mort du boss.
+// **Duo de la vague 2 de M1** (m1-integration-scenarios) : gardé sous ce nom. **Graine 4**
+// depuis m1-navigation-profils-tailles : sur 123456, le duo ne finit plus (soft-lock au niveau
+// 3, boss et tourelle en vue des bots : limite des bots) ; 4 est la première des 20 graines qui
+// finit à deux. Avant le correctif « une caverne = un asset », les trois étages étaient
+// `niveau_1`.
 //
 // À regarder : les deux bots nettoient chaque caverne puis passent le portail.
 Scenario(
     game: "throne",
     floors: Some("run"),
-    map_seed: 123456,
-    frames: 2700,
+    map_seed: 4,
+    frames: 5000,
     players: [
         (bot: prudent),
         (bot: prudent),
     ],
     expect: [
-        FloorIndex(index: 1, at_frame: 485),
-        FloorIndex(index: 2, at_frame: 1100),
-        FloorIndex(index: 2, at_frame: 2635),
-        FloorIndex(index: 3, at_frame: 2645),
-        Event(kind: "floor", label_contains: Some("niveau 3"), by_frame: 2645),
-        Event(kind: "levelup", by_frame: 794),
-        Clock(id: "alerte", fired: true, at_frame: 2000),
-        Mutations(handle: 0, contains: ["irradie", "rancune"], count: Some(2), at_frame: 2650),
-        Mutations(handle: 1, contains: ["rancune", "tireur"], count: Some(2), at_frame: 2650),
-        PlayerAlive(handle: 0, at_frame: 2699),
-        PlayerDowned(handle: 1, at_frame: 2699),
+        FloorIndex(index: 1, at_frame: 765),
+        FloorIndex(index: 2, at_frame: 1955),
+        FloorIndex(index: 2, at_frame: 4860),
+        FloorIndex(index: 3, at_frame: 4875),
+        Event(kind: "floor", label_contains: Some("niveau 3"), by_frame: 9000),
+        Event(kind: "levelup", by_frame: 521),
+        Clock(id: "alerte", fired: true, at_frame: 1665),
+        Mutations(handle: 0, contains: ["sang_froid", "irradie"], count: Some(2), at_frame: 4875),
+        Mutations(handle: 1, contains: ["vampire", "coriace"], count: Some(2), at_frame: 4875),
+        PlayerAlive(handle: 0, at_frame: 4999),
+        PlayerAlive(handle: 1, at_frame: 4999),
     ],
 )

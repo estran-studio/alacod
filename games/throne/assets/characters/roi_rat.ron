@@ -19,9 +19,11 @@
 
     asset_name_ref: "roi_rat",
 
-    // Corps de 20 × 20 comme les autres ennemis, malgré `scale` 1.4 (visuel) : la navigation
-    // suppose des agents d'au plus 20 px (`FlowFieldCache::is_too_narrow`) ; avec 28 px le boss
-    // restait figé sur son point d'apparition dans les cavernes (mesuré, voir le rapport).
+    // Corps de 20 × 20 **avant** `scale` 1.4, soit 28 × 28 en jeu (`create_character` met le
+    // collider à l'échelle) : gabarit grand de la navigation (D41, `AgentSize::Large` : centre
+    // à une case des murs, couloirs de trois cases). Un corps de 28 avant échelle (39 px en
+    // jeu) déborde sur la roche depuis un point d'apparition dégagé d'une seule case et reste
+    // figé (mesuré : voir le rapport m1-navigation-profils-tailles).
     collider: (
         shape: Rectangle(
             width: "20.",

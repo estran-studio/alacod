@@ -258,6 +258,8 @@ impl Plugin for BaseCharacterGamePlugin {
                     update_enemy_targets.after(enemy::ai::rules::behavior_select_system),
                     move_enemies.after(update_enemy_targets),
                     enemy_attack_system.after(move_enemies),
+                    // D38 : pas d'attaque au corps à corps en fuyant (lu à la frame suivante).
+                    enemy::ai::rules::melee_hold_system.after(enemy_attack_system),
                 )
                     .in_set(RollbackSystemSet::EnemyAI),
                 // OBSTACLE DAMAGE PROCESSING
