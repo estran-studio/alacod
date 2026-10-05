@@ -35,12 +35,7 @@ pub fn cave_grid(seed: i32, config: &CaveConfig) -> CellGrid {
 /// `ZombieSpawn` ; les autres niveaux du gabarit sont retirés. Le niveau est placé en (0, 0)
 /// monde, l'origine de `CellGrid` (`world_y = -px_hei` : bevy_ecs_ldtk place le bas du niveau
 /// à `-(world_y + px_hei)`).
-pub fn build_cave_ldtk(
-    template: &LdtkJson,
-    id: &str,
-    seed: i32,
-    config: &CaveConfig,
-) -> LdtkJson {
+pub fn build_cave_ldtk(template: &LdtkJson, id: &str, seed: i32, config: &CaveConfig) -> LdtkJson {
     let grid = cave_grid(seed, config);
     let points = world::points_of_interest(&grid, CAVE_PLAYER_SPAWNS, config.enemy_spawns);
     let (w, h) = (grid.width as i32, grid.height as i32);

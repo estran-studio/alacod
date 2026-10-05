@@ -101,8 +101,8 @@ pub fn get_asset_loader_generation() -> LdtkProjectLoader {
 
             // T1.6 : une caverne réécrit le niveau unique du gabarit, sans assemblage de salles
             if let MapGenerationMode::Cave(cave) = &config.mode {
-                let id = game::cave_assets::cave_id_of_asset_path(&config.map_path)
-                    .unwrap_or_default();
+                let id =
+                    game::cave_assets::cave_id_of_asset_path(&config.map_path).unwrap_or_default();
                 return crate::generation::cave::build_cave_ldtk(&map_json, &id, config.seed, cave);
             }
 
