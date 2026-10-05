@@ -105,6 +105,13 @@ pub struct BotView {
     /// [`crate::input::REVIVE_SAFE_DISTANCE`]) ; `prudent`/`fonceur` y vont en priorité.
     /// `None` : personne à relever, ou menace immédiate.
     pub revive: Option<ReviveView>,
+    /// m1-v3-bots-softlocks : direction du pas suivant vers le butin le plus proche
+    /// (`PowerUpPickup`, ramassé au passage, effet pour tous les joueurs), quand plus aucune
+    /// arme n'a de réserve (mode `Floors`, aucun ennemi visible à moins de
+    /// [`crate::input::REVIVE_SAFE_DISTANCE`]) : sans ça, les bots finissaient à sec devant le
+    /// boss ou la tourelle (graines 23, 43, 76). `None` : réserves, pas de butin accessible, ou
+    /// menace immédiate.
+    pub loot: Option<FixedVec2>,
 }
 
 /// Sélection des projectiles de la vue : `candidates` = (net id, équipe adverse ?, vue).

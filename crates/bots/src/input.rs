@@ -181,7 +181,8 @@ pub fn read_bot_inputs(
     run: Option<Res<run::Run>>,
     // m1-v3-bots-reanimation : surfaces d'interaction (la réanimation et la sélection du jeu),
     // saignement des joueurs à terre, frame courante.
-    (interactables, frame): (
+    // m1-v3-bots-softlocks : butin au sol (ramassé au passage).
+    (interactables, frame, pickups): (
         Query<
             (
                 &GgrsNetId,
@@ -193,6 +194,7 @@ pub fn read_bot_inputs(
             With<Rollback>,
         >,
         Res<utils::frame::FrameCount>,
+        Query<(&GgrsNetId, &FixedTransform3D), (With<game::powerups::PowerUpPickup>, With<Rollback>)>,
     ),
 ) {
     let Some(assignments) = assignments else {
@@ -219,6 +221,11 @@ pub fn read_bot_inputs(
     // Navigation seulement en mode `Floors` : il faut y trouver chaque ennemi puis le portail.
     // En vagues, les ennemis viennent aux joueurs (un zombie dehors est « caché » derrière les
     // murs jusqu'à sa fenêtre) : `prudent`/`fonceur` y gardent leur comportement de T1.14.
+    // m1-v3-bots-softlocks : butin au sol, dans l'ordre `GgrsNetId`.
+    let loot_points: Vec<(usize, FixedVec2)> = order_iter!(pickups)
+        .into_iter()
+        .map(|(id, t)| (id.0, t.translation.truncate()))
+        .collect();
     let floors_mode = run
         .as_deref()
         .is_some_and(|run| matches!(run.mode, run::RunMode::Floors { .. }));
@@ -339,6 +346,10 @@ pub fn read_bot_inputs(
             .copied()
             .unwrap_or((0, false, true));
         let usable = active_ammo > 0 || reloadable;
+        // m1-v3-bots-softlocks : plus aucune réserve pour aucune arme (chargeurs seulement).
+        let dry = inventory.weapons.iter().all(|(_, weapon)| {
+            reserves.map_or(0, |r| r.get(&weapon.config.ammo_type)) == 0
+        });
         let switch_weapon = !usable && ammunition.iter().any(|(a, r, _)| *a > 0 || *r);
 
         let view = BotView {
@@ -377,6 +388,7 @@ pub fn read_bot_inputs(
             route: None,
             enemy_still: false,
             revive: None,
+            loot: None,
         };
 
         let mut view = view;
@@ -443,6 +455,31 @@ pub fn read_bot_inputs(
             }
         }
 
+        // m1-v3-bots-softlocks : à sec (plus de réserve), aller ramasser le butin, en `Floors`,
+        // sans menace immédiate (même règle que la réanimation).
+        if floors_mode
+            && matches!(profile, BotProfile::Prudent | BotProfile::Fonceur)
+            && downed.is_none()
+            && view.revive.is_none()
+            && dry
+            && !loot_points.is_empty()
+        {
+            let threat = view
+                .nearest_enemy
+                .is_some_and(|enemy| enemy.distance <= REVIVE_SAFE_DISTANCE && view.enemy_visible);
+            if let (false, Some(collider), Some(rects)) = (threat, collider, geometry_rects.as_ref())
+            {
+                view.loot = loot_step(
+                    &mut nav.0,
+                    rects,
+                    &AgentBody::from_collider(collider),
+                    &enemy_points,
+                    position,
+                    &loot_points,
+                );
+            }
+        }
+
         if profile == BotProfile::Prudent && crate::dodge::dodge(&view).is_some() {
             dodged = true;
         }
@@ -496,10 +533,19 @@ fn navigate(
     let Some(portal) = view.portal else {
         return (false, None);
     };
-    if position.distance(&portal) < crate::decide::PORTAL_BRAKE_DISTANCE {
+    nav.update_from(geometry, body, &[], position);
+    // m1-v3-bots-softlocks (graines 53, 81) : sous la zone de freinage, ligne droite vers le
+    // portail, sauf si le corps y touche un obstacle (ancre contre la roche) : le chemin, sinon
+    // le bot pousse dans la roche (graine 81 : la petite composante qui le dégagerait tombe sous
+    // la zone morte du pilotage ; graine 53 : coincé dans un coin, ligne des centres libre).
+    if position.distance(&portal) < crate::decide::PORTAL_BRAKE_DISTANCE
+        && nav.body_clear(position, portal)
+    {
         return (false, None);
     }
-    nav.update_from(geometry, body, &[], position);
+    // Aucune case libre pour le corps à moins de `PORTAL_REACH` de l'ancre (ancre contre la
+    // roche, graines 53, 81) : la case accessible la plus proche de l'ancre, au lieu de la ligne
+    // droite dans la roche (m1-v3-bots-softlocks).
     let route = nav
         .approach(
             position,
@@ -509,7 +555,9 @@ fn navigate(
             },
             PORTAL_REACH,
         )
-        .map(|(direction, _)| dead_zone(direction));
+        .map(|(direction, _)| direction)
+        .or_else(|| nav.investigate(position, portal))
+        .map(dead_zone);
     (false, route)
 }
 
@@ -571,6 +619,28 @@ fn revive_step(
         });
     }
     None
+}
+
+/// Portée visée pour ramasser un butin (sous le `pickup_range` de 30 px de `throne`).
+const LOOT_REACH: Fixed = Fixed::from_bits(16 << 16);
+
+/// m1-v3-bots-softlocks : pas suivant vers le butin accessible le plus proche (distance, puis
+/// `GgrsNetId`), par le chemin.
+fn loot_step(
+    nav: &mut crate::navigation::BotNavigation,
+    geometry: &[(Rect, bool)],
+    body: &AgentBody,
+    enemies: &[(usize, FixedVec2)],
+    position: FixedVec2,
+    loot: &[(usize, FixedVec2)],
+) -> Option<FixedVec2> {
+    nav.update_from(geometry, body, enemies, position);
+    let mut targets = loot.to_vec();
+    targets.sort_by_key(|(id, p)| (position.distance(p), *id));
+    targets.into_iter().find_map(|(_, p)| {
+        nav.approach(position, Rect { min: p, max: p }, LOOT_REACH)
+            .map(|(direction, _)| dead_zone(direction))
+    })
 }
 
 /// Composante annulée sous laquelle une direction de route ne presse pas son axe.

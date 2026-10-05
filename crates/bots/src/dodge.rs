@@ -96,6 +96,7 @@ mod tests {
             route: None,
             enemy_still: false,
             revive: None,
+            loot: None,
         }
     }
 
