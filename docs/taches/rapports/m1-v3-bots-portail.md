@@ -6,9 +6,9 @@ mergée temporairement et jamais livrée ; correctifs reportés sur cette branch
 
 ## État
 
-Livrée : `origin/main` b22d4ab (intégration de b0 : cave://, boss, calibrage) mergé ; mesure 1/2/4
-bots sur ce contenu ; six scénarios à bots en mode `Floors` remesurés (attentes vertes, traces à
-bénir par orch, preuve ci-dessous) ; aucune autre trace ne bouge.
+Livrée : `origin/main` f242633 (intégration de b0 — cave://, boss, calibrage — puis lot navigation
+D38) mergé ; mesure 1/2/4 bots sur ce contenu ; six scénarios à bots en mode `Floors` remesurés
+(attentes vertes, traces à bénir par orch, preuve ci-dessous) ; aucune autre trace ne bouge.
 
 ## Diagnostic et correctifs (`crates/bots`, navigation seulement en mode `Floors`)
 
@@ -48,15 +48,17 @@ Tests unitaires : `prudent_freine_pres_du_portail`, `prudent_annule_la_vitesse_t
 | 2 bots graine 123456 | soft-lock f4569, tourelle à 1 PV | étage 3 à f3810 |
 | 2 bots graine 7 | orbite autour du portail (étage 0) | étages 0 et 1 franchis ; soft-lock étage 2 : munitions épuisées |
 
-## Mesure sur main (b22d4ab), 20 graines, `--floors run --until-floor 3 --max-frames 15000`
+## Mesure sur main (f242633), 20 graines, `--floors run --until-floor 3 --max-frames 15000`
 
 « Avant » = `alacod-sim` d'`origin/main` ; « après » = cette branche mergée ; mêmes assets.
 
 | bots | étage 3 avant | étage 3 après | soft-locks avant → après | tous morts avant → après |
 |---|---|---|---|---|
-| 1 | 0/20 | 1/20 | 6 → 4 | 14 → 15 |
-| 2 | 3/20 | 6/20 | 16 → 11 | 1 → 3 |
+| 1 | 0/20 | 1/20 | 8 → 3 | 12 → 16 |
+| 2 | 3/20 | **7/20** | 17 → 11 | 0 → 2 |
 | 4 | 11/20 | **18/20** | 9 → 2 | 0 → 0 |
+
+(Sur b22d4ab, avant le lot navigation de b0 : 0 → 1, 3 → 6, 11 → 18.)
 
 Aucun soft-lock « portail ouvert » après ; aucun « sans munitions » dominant (les réglages de b0
 l'ont traité). Seul, le bot meurt (difficulté) ; plus aucun blocage à l'étage 0.
@@ -81,7 +83,7 @@ précède de 5 frames la première ligne de trace qui diffère, dans chaque conf
 | scénario(s) | 1re différence d'input | 1re ligne de trace différente | cause |
 |---|---|---|---|
 | `throne_floor_1`, `throne_progression`, `throne_solo` (1 bot) | f403 : « Fire » → « Down, Left, Fire » | f408 | ennemi immobile : approche au lieu de garder la bande |
-| `throne_three_floors` (2 bots) | f128, joueur 1 : « Down, Left » → « Up, Left » | f133 | idem (pas de recul devant l'immobile) |
+| `throne_three_floors` (2 bots, graine 4) | f75, joueur 0 : « Fire » → « Up, Left, Fire » | f80 | idem |
 | `throne_quad` (4 bots) | f128, les quatre joueurs | f133 | idem |
 | `bot_floors_three` (testbed, 2 bots) | f0 : « Down, Right, Fire » → « Fire » | f5 | ennemi immobile au départ : plus de recul |
 
@@ -92,11 +94,12 @@ Nouvelles valeurs mesurées (graine 123456) :
 - `throne_progression` : étage 1 f853, niveau 2 f1651, alerte f1753.
 - `throne_solo` : étage 1 f853, étage 2 f2237 (avant f2816), **vivant** à f3699 (avant : mort et
   défaite à f3640) ; attentes `PlayerDead`/`Defeat` retirées.
-- `throne_three_floors` (2 bots) : étages f480, f1097, **f2640** (avant f5109) ; `frames` 5200 → 2700
-  (la boucle sur le niveau 3 les tue ensuite, f4185 et f4642) ; joueur 1 à terre à f2385.
-- `throne_quad` (4 bots) : étages f697, f1512, f3761 (avant f662, f1380, f3313) ; boss NetId 697
-  (540 PV) à f1511, mort à f2935 ; nouveau boss NetId 1492 à f3760 ; joueur 2 à terre à f2303 ;
-  `frames` 3400 → 3800.
+- `throne_three_floors` (2 bots, graine 4 depuis le lot navigation de b0) : étages f663, f1594,
+  f4794 (avant f761, f1949, f4869) ; joueur 0 à terre à f2799, mort par saignement à f4599 ; le
+  joueur 1 passe seul le portail du niveau 3 (f4504).
+- `throne_quad` (4 bots) : étages f697, f1512, **f2742** (avant f662, f1380, f3167) ; boss NetId 697
+  (540 PV) à f1511, 220 PV à f2200, mort à f2408 ; nouveau boss NetId 1306 à f2741 ; les quatre
+  vivants à f3399.
 
 ## Dettes (à reporter par orch)
 
@@ -112,6 +115,8 @@ Nouvelles valeurs mesurées (graine 123456) :
 
 ## Vérifié
 
-`CARGO_BUILD_JOBS=2`, profil `headless` : tests de `bots` (44 + nouveaux : portail piloté en
-vitesse, vitesse transverse, ennemi immobile, ligne de tir avec marge) ; les six scénarios : attentes
-vertes, trace seule différente ; suite complète : voir ci-dessous.
+`CARGO_BUILD_JOBS=2`, profil `headless`, sur main f242633 mergé : tests de `bots` (dont portail
+piloté en vitesse, vitesse transverse, ennemi immobile, ligne de tir avec marge) ; `make
+test_scenarios` : seuls les six scénarios ci-dessus échouent, sur leur trace seulement (toutes les
+attentes vertes) ; un test de `softlock.rs` ajouté sur main (instantané sans le champ `floor`)
+corrigé.
