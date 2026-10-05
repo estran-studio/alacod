@@ -12,6 +12,6 @@ Scenario(
         (bot: prudent),
     ],
     expect: [
-        EntityCount(kind: Enemy, count: 0, at_frame: 1499),
+        EntityCount(kind: Enemy, max: Some(0), at_frame: 1499),
     ],
 )
