@@ -1414,7 +1414,7 @@ fn hud_text_sur_throne_progression() {
             hud("level", "Niv. 0", 60),
             hud("rads", "rads", 60),
             hud("level", "Niv. 1", 540),
-            hud("level", "Niv. 2", 1595),
+            hud("level", "Niv. 2", 1655),
             hud("floor", "Étage 2", 1912),
         ],
         &[
