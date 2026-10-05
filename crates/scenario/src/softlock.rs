@@ -4,6 +4,7 @@
 
 use bevy::prelude::*;
 use bevy_fixed::fixed_math::FixedTransform3D;
+use bots::navigation::{walls_clear, Rect};
 use combat::{downed::Downed, inventory::AmmoReserves};
 use game::{
     character::{
@@ -23,7 +24,6 @@ use game::{
 };
 use map::game::entity::map::{door::DoorComponent, window::WindowHealth};
 use run::{currency::Currency, Run};
-use bots::navigation::{walls_clear, Rect};
 use serde::Serialize;
 use utils::{frame::FrameCount, net_id::GgrsNetId};
 
@@ -73,7 +73,11 @@ impl SoftlockDump {
                         "joueur {} le plus proche à {} ({})",
                         p.handle,
                         p.distance,
-                        if p.line_of_sight { "en vue" } else { "hors de vue" }
+                        if p.line_of_sight {
+                            "en vue"
+                        } else {
+                            "hors de vue"
+                        }
                     ),
                     None => "aucun joueur vivant".to_string(),
                 }
@@ -281,7 +285,7 @@ pub fn snapshot(world: &mut World) -> Snapshot {
             let here = t.translation.truncate();
             let nearest_player = alive_players
                 .iter()
-                .map(|(handle, net_id, p)| (here.distance(*p), *handle, *net_id, *p))
+                .map(|(handle, net_id, p)| (here.distance(p), *handle, *net_id, *p))
                 .min_by_key(|(distance, handle, ..)| (*distance, *handle))
                 .map(|(distance, handle, net_id, p)| NearestPlayer {
                     handle,
@@ -442,7 +446,10 @@ mod tests {
             "{:?}",
             dump.observations
         );
-        assert!(!dump.observations.iter().any(|o| o.contains("hors du champ")));
+        assert!(!dump
+            .observations
+            .iter()
+            .any(|o| o.contains("hors du champ")));
     }
 
     #[test]
@@ -461,8 +468,19 @@ mod tests {
             ),
         );
         let obs = &dump.observations;
-        assert!(obs.contains(&"1 ennemis hors du champ de flux GroundBreaker depuis leur case exacte".to_string()), "{obs:?}");
+        assert!(
+            obs.contains(
+                &"1 ennemis hors du champ de flux GroundBreaker depuis leur case exacte"
+                    .to_string()
+            ),
+            "{obs:?}"
+        );
         assert!(obs.contains(&"restant : tourelle #544 case (57, 40), 1 PV, joueur 1 le plus proche à 176 (hors de vue)".to_string()), "{obs:?}");
-        assert!(obs.contains(&"restant : tourelle #544 case (57, 40), 1 PV, aucun joueur vivant".to_string()), "{obs:?}");
+        assert!(
+            obs.contains(
+                &"restant : tourelle #544 case (57, 40), 1 PV, aucun joueur vivant".to_string()
+            ),
+            "{obs:?}"
+        );
     }
 }

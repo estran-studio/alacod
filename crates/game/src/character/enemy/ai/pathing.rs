@@ -370,8 +370,7 @@ pub fn move_enemies(
                 if next == current {
                     return None;
                 }
-                let preferred =
-                    flow_field_cache.steering_point(next, MOVEMENT_FLOW_PROFILE, &body);
+                let preferred = flow_field_cache.steering_point(next, MOVEMENT_FLOW_PROFILE, &body);
                 let blocked = |point: fixed_math::FixedVec2, include_windows: bool| {
                     let pos =
                         fixed_math::FixedVec3::new(point.x, point.y, fixed_transform.translation.z);
@@ -727,8 +726,8 @@ pub fn move_enemies(
                     let speed = velocity_component.main.length();
 
                     // Try flow field neighbor directions first
-                    if let Some(flow_field) = flow_field_cache
-                        .get_flow_field(super::navigation::MOVEMENT_FLOW_PROFILE)
+                    if let Some(flow_field) =
+                        flow_field_cache.get_flow_field(super::navigation::MOVEMENT_FLOW_PROFILE)
                     {
                         let neighbor_dirs = flow_field.get_neighbor_directions(enemy_pos_v2);
                         for dir in neighbor_dirs {
@@ -781,8 +780,8 @@ pub fn move_enemies(
                     let mut escaped = false;
 
                     // First, try directions from neighboring flow field cells (sorted by cost)
-                    if let Some(flow_field) = flow_field_cache
-                        .get_flow_field(super::navigation::MOVEMENT_FLOW_PROFILE)
+                    if let Some(flow_field) =
+                        flow_field_cache.get_flow_field(super::navigation::MOVEMENT_FLOW_PROFILE)
                     {
                         let neighbor_dirs = flow_field.get_neighbor_directions(enemy_pos_v2);
                         for dir in neighbor_dirs {
