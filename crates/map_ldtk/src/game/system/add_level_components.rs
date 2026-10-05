@@ -40,6 +40,13 @@ pub fn add_room_component_to_ldtk_level(
                     .expect("level should have non-nullable title string field");
 
                 let room_config = RoomConfig { spawn: *is_spawn };
+                // Prototype m1-proto-etage-salles : type de salle (champ de niveau `room_kind`,
+                // recopié du gabarit par l'assembleur), absent des cartes existantes.
+                if let Ok(Some(kind)) = level_data.get_maybe_string_field("room_kind") {
+                    commands
+                        .entity(entity)
+                        .insert(crate::game::rooms_proto::RoomKindTag(kind.clone()));
+                }
 
                 commands.entity(entity).insert((
                     RoomComponent {

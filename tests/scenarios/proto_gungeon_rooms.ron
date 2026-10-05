@@ -1,0 +1,17 @@
+// Prototype jetable m1-proto-etage-salles (voie B) : étage de trois salles typées assemblé par
+// `Basic` depuis `testbed/gungeon_proto.ldtk` (départ, combat avec deux `follower`,
+// récompense). Un bot `prudent` entre dans la salle de combat : ses portes se ferment
+// (`RoomLocks`), puis se rouvrent quand les deux ennemis sont morts.
+Scenario(
+    powerup_drop_chance_override: "0.0",
+    game: "testbed",
+    map: "testbed/gungeon_proto.ldtk",
+    map_seed: 1,
+    frames: 1500,
+    players: [
+        (bot: prudent),
+    ],
+    expect: [
+        EntityCount(kind: Enemy, count: 0, at_frame: 1499),
+    ],
+)
