@@ -480,6 +480,7 @@ mod tests {
             closed_doors: vec![],
             windows: vec![],
             navigation: String::new(),
+            floor: None,
         }
     }
 
