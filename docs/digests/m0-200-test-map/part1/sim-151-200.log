@@ -287,3 +287,7 @@ found a spawn level: be05a933-dcf6-2fdd-6f98-2bf62e170e8b748a
 progress frame=1000 wave=1 phase=InProgress remaining=0 kills=4 nav_cells=665
 progress frame=2000 wave=2 phase=GracePeriod remaining=11 kills=8 nav_cells=0
 progress frame=3000 wave=2 phase=WaveComplete remaining=0 kills=19 nav_cells=0
+progress frame=4000 wave=3 phase=Spawning remaining=12 kills=19 nav_cells=1249
+progress frame=5000 wave=3 phase=InProgress remaining=0 kills=32 nav_cells=1249
+progress frame=6000 wave=4 phase=Spawning remaining=16 kills=35 nav_cells=1249
+progress frame=7000 wave=4 phase=InProgress remaining=0 kills=49 nav_cells=1249
