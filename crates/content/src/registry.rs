@@ -1186,8 +1186,13 @@ struct ColliderSchema {
 
 #[derive(Deserialize)]
 enum ColliderShapeSchema {
-    Rectangle { width: FixedField, height: FixedField },
-    Circle { radius: FixedField },
+    Rectangle {
+        width: FixedField,
+        height: FixedField,
+    },
+    Circle {
+        radius: FixedField,
+    },
 }
 
 #[derive(Deserialize)]

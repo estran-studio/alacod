@@ -52,7 +52,10 @@ pub struct CaveConfig {
     /// 1 par défaut (les 8 voisines, [`is_open`]). **Calculé** par le registre de contenu
     /// (`content::registry`) depuis le plus grand corps en jeu de `characters` ; un agent qui
     /// déborde d'une case et demie (plus de 24 px du centre de la case) en demande 2.
-    #[serde(default = "default_spawn_clearance", skip_serializing_if = "is_default_spawn_clearance")]
+    #[serde(
+        default = "default_spawn_clearance",
+        skip_serializing_if = "is_default_spawn_clearance"
+    )]
     pub spawn_clearance: u32,
 }
 
@@ -280,7 +283,9 @@ pub fn points_of_interest(
             .iter()
             .map(|&(x, y)| (dist[(y * grid.width + x) as usize], x, y))
             .filter(|(d, _, _)| *d != u32::MAX)
-            .filter(|(_, x, y)| enemy_clearance <= 1 || is_open_within(grid, *x, *y, enemy_clearance))
+            .filter(|(_, x, y)| {
+                enemy_clearance <= 1 || is_open_within(grid, *x, *y, enemy_clearance)
+            })
             .collect();
         candidates.sort_by_key(|&(d, x, y)| (std::cmp::Reverse(d), y, x));
         for (_, x, y) in candidates {
@@ -418,7 +423,10 @@ mod tests {
         let grid = generate(123456, &config);
         let base = points_of_interest(&grid, 4, config.enemy_spawns, 1);
         let large = points_of_interest(&grid, 4, config.enemy_spawns, 2);
-        assert_eq!(base.player_spawns, large.player_spawns, "joueurs : un seul dégagement");
+        assert_eq!(
+            base.player_spawns, large.player_spawns,
+            "joueurs : un seul dégagement"
+        );
         assert!(!large.zombie_spawns.is_empty());
         for &(x, y) in &large.zombie_spawns {
             assert!(is_open_within(&grid, x, y, 2), "({x}, {y})");
