@@ -83,6 +83,20 @@ fn decide_fonceur(view: &BotView) -> BoxInput {
         }
     }
 
+    // m1-v3-bots-reanimation : relever un coéquipier à terre d'abord, en se défendant.
+    if let Some(revive) = view.revive {
+        set_direction_buttons(&mut input, revive.direction);
+        if revive.interact {
+            input.buttons |= INPUT_INTERACTION;
+        }
+        if let Some(enemy) = view.nearest_enemy {
+            aim_at(&mut input, view.position, enemy.position);
+            input.fire = enemy.distance <= FONCEUR_THREAT_RANGE;
+        }
+        maybe_reload(&mut input, view);
+        return input;
+    }
+
     if let Some(enemy) = view.nearest_enemy {
         aim_at(&mut input, view.position, enemy.position);
         // Ligne droite vers un ennemi visible ; caché derrière un mur : le chemin
@@ -107,6 +121,22 @@ fn decide_prudent(view: &BotView) -> BoxInput {
     // tir vers l'ennemi le plus proche restent ceux de v0.
     if let Some(away) = crate::dodge::dodge(view) {
         set_direction_buttons(&mut input, away);
+        if let Some(enemy) = view.nearest_enemy {
+            aim_at(&mut input, view.position, enemy.position);
+            if enemy.distance <= PRUDENT_MAX_DISTANCE {
+                input.fire = view.trigger_ready;
+            }
+        }
+        manage_weapon(&mut input, view);
+        return input;
+    }
+
+    // m1-v3-bots-reanimation : relever un coéquipier à terre d'abord, en se défendant.
+    if let Some(revive) = view.revive {
+        set_direction_buttons(&mut input, revive.direction);
+        if revive.interact {
+            input.buttons |= INPUT_INTERACTION;
+        }
         if let Some(enemy) = view.nearest_enemy {
             aim_at(&mut input, view.position, enemy.position);
             if enemy.distance <= PRUDENT_MAX_DISTANCE {
@@ -261,6 +291,7 @@ mod tests {
             enemy_visible: true,
             route: None,
             enemy_still: false,
+            revive: None,
         }
     }
 
@@ -323,6 +354,41 @@ mod tests {
         assert_ne!(input.buttons & INPUT_UP, 0);
         v.nearest_enemy = enemy_at(100.0);
         assert_eq!(decide(BotProfile::Prudent, &v, &mut rng()).buttons, 0);
+    }
+
+    /// m1-v3-bots-reanimation : un coéquipier à terre à relever passe avant la chasse et la
+    /// garde de position : déplacement vers lui, Interaction tenue à portée, tir conservé.
+    #[test]
+    fn prudent_et_fonceur_relevent_un_coequipier() {
+        use crate::view::ReviveView;
+        let mut v = view(FixedVec2::new(fx(0.0), fx(0.0)));
+        v.nearest_enemy = Some(EnemyView {
+            position: FixedVec2::new(fx(250.0), fx(0.0)),
+            distance: fx(250.0),
+        });
+        v.revive = Some(ReviveView {
+            direction: FixedVec2::new(fx(0.0), fx(8.0)),
+            interact: false,
+        });
+        for profile in [BotProfile::Prudent, BotProfile::Fonceur] {
+            let input = decide(profile, &v, &mut rng());
+            assert_ne!(input.buttons & INPUT_UP, 0, "{profile:?} : vers le coéquipier");
+            assert_eq!(input.buttons & INPUT_INTERACTION, 0);
+        }
+        assert!(decide(BotProfile::Prudent, &v, &mut rng()).fire, "prudent tire encore");
+        v.revive = Some(ReviveView {
+            direction: FixedVec2::ZERO,
+            interact: true,
+        });
+        for profile in [BotProfile::Prudent, BotProfile::Fonceur] {
+            let input = decide(profile, &v, &mut rng());
+            assert_ne!(input.buttons & INPUT_INTERACTION, 0, "{profile:?} : relève");
+            assert_eq!(
+                input.buttons & (INPUT_UP | INPUT_DOWN | INPUT_LEFT | INPUT_RIGHT),
+                0,
+                "{profile:?} : immobile pendant la réanimation"
+            );
+        }
     }
 
     /// Navigation (suite T1.14) : ennemi caché derrière un mur → le pas du champ, pas la

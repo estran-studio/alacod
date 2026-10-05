@@ -56,7 +56,8 @@ use utils::order_iter;
 
 use crate::decide::decide;
 use crate::view::{
-    nearest_by_net_id, projectile_views, BotView, EnemyView, ProjectileView, WindowView,
+    nearest_by_net_id, projectile_views, BotView, EnemyView, ProjectileView, ReviveView,
+    WindowView,
 };
 use combat::collider::{Collider, ColliderShape};
 use game::character::enemy::ai::navigation::AgentBody;
@@ -147,6 +148,7 @@ pub fn read_bot_inputs(
             Option<&Collider>,
             Option<&combat::inventory::AmmoReserves>,
             Option<&combat::actors::Velocity>,
+            Option<&combat::downed::Downed>,
         ),
         With<Rollback>,
     >,
@@ -178,6 +180,16 @@ pub fn read_bot_inputs(
     >,
     mut nav: ResMut<DirectNavigation>,
     run: Option<Res<run::Run>>,
+    // m1-v3-bots-reanimation : surfaces d'interaction (la réanimation et la sélection du jeu).
+    interactables: Query<
+        (
+            &GgrsNetId,
+            &FixedTransform3D,
+            &sim_core::interaction::Interactable,
+            Option<&Collider>,
+        ),
+        With<Rollback>,
+    >,
 ) {
     let Some(assignments) = assignments else {
         return;
@@ -226,7 +238,22 @@ pub fn read_bot_inputs(
     // `_net_id` : nécessaire en première position pour `order_iter!` (tri déterministe des
     // joueurs avant de consommer le flux RNG "bots"), pas utilisé ensuite (même convention que
     // `move_characters`, `crates/game/src/character/player/input.rs`).
-    for (_net_id, player, transform, health, inventory, collider, reserves, velocity) in
+    // Réanimation (m1-v3-bots-reanimation) : toutes les surfaces (id, rectangle, portée) et
+    // les joueurs à terre parmi elles, dans l'ordre `GgrsNetId`.
+    let surfaces: Vec<(usize, Rect, Fixed, bool)> = order_iter!(interactables)
+        .into_iter()
+        .map(|(id, t, interactable, c)| {
+            let p = t.translation.truncate();
+            (
+                id.0,
+                c.map_or(Rect { min: p, max: p }, |c| Rect::collider(p, c)),
+                interactable.interaction_range,
+                interactable.interaction_type == sim_core::interaction::InteractionType::Revive,
+            )
+        })
+        .collect();
+
+    for (_net_id, player, transform, health, inventory, collider, reserves, velocity, downed) in
         order_iter!(players)
     {
         if !local_players.0.contains(&player.handle) {
@@ -342,6 +369,7 @@ pub fn read_bot_inputs(
             enemy_visible: true,
             route: None,
             enemy_still: false,
+            revive: None,
         };
 
         let mut view = view;
@@ -370,6 +398,41 @@ pub fn read_bot_inputs(
                     navigate(&mut nav.0, rects, &body, &enemy_points, &view, profile);
                 view.enemy_visible = visible;
                 view.route = route;
+            }
+        }
+
+        // m1-v3-bots-reanimation : relever un coéquipier à terre en l'absence de menace
+        // immédiate (même règle que `chasseur`/`acheteur`), en `Floors` comme en vagues.
+        if matches!(profile, BotProfile::Prudent | BotProfile::Fonceur)
+            && downed.is_none()
+            && surfaces.iter().any(|(.., revive)| *revive)
+        {
+            let threat = view.nearest_enemy.is_some_and(|enemy| {
+                enemy.distance <= REVIVE_SAFE_DISTANCE && view.enemy_visible
+            });
+            if let (false, Some(collider)) = (threat, collider) {
+                let rects = geometry_rects.get_or_insert_with(|| {
+                    order_iter!(geometry)
+                        .into_iter()
+                        .filter(|(_, _, _, wall, window, door)| {
+                            wall.is_some() || window.is_some() || door.is_some()
+                        })
+                        .map(|(_, t, c, wall, _, door)| {
+                            (
+                                Rect::collider(t.translation.truncate(), c),
+                                wall.is_some() || door.is_some(),
+                            )
+                        })
+                        .collect()
+                });
+                view.revive = revive_step(
+                    &mut nav.0,
+                    rects,
+                    &AgentBody::from_collider(collider),
+                    &enemy_points,
+                    position,
+                    &surfaces,
+                );
             }
         }
 
@@ -441,6 +504,55 @@ fn navigate(
         )
         .map(|(direction, _)| dead_zone(direction));
     (false, route)
+}
+
+/// Aucun ennemi visible à moins de cette distance : un bot `prudent`/`fonceur` peut relever un
+/// coéquipier à terre (même seuil que `chasseur`/`acheteur`, `crate::hunter`).
+pub const REVIVE_SAFE_DISTANCE: Fixed = Fixed::from_bits(150 << 16);
+
+/// Pas vers le joueur à terre le plus proche (rectangle de son collider, puis `GgrsNetId`) que
+/// le chemin atteint ; à portée, Interaction tenue seulement si le jeu sélectionnerait bien
+/// cette surface (la plus proche à portée), sinon on s'approche encore — comme `chasseur`.
+fn revive_step(
+    nav: &mut crate::navigation::BotNavigation,
+    geometry: &[(Rect, bool)],
+    body: &AgentBody,
+    enemies: &[(usize, FixedVec2)],
+    position: FixedVec2,
+    surfaces: &[(usize, Rect, Fixed, bool)],
+) -> Option<ReviveView> {
+    nav.update_from(geometry, body, enemies, position);
+    let mut targets: Vec<_> = surfaces.iter().filter(|(.., revive)| *revive).collect();
+    targets.sort_by_key(|(id, rect, ..)| (rect.distance(position), *id));
+    for (id, rect, reach, _) in targets {
+        let reach = (*reach - Fixed::from_num(8)).max(Fixed::ZERO);
+        let Some((mut direction, _)) = nav.approach(position, *rect, reach) else {
+            continue;
+        };
+        let mut interact = false;
+        if direction == FixedVec2::ZERO {
+            let selected = surfaces
+                .iter()
+                .filter_map(|(other, r, range, _)| {
+                    let d = r.distance(position);
+                    (d <= *range).then_some((d, *other))
+                })
+                .min();
+            interact = selected.is_some_and(|(_, selected)| selected == *id);
+            if !interact {
+                let closer = (rect.distance(position) - Fixed::from_num(8)).max(Fixed::ZERO);
+                let Some((closer_direction, _)) = nav.approach(position, *rect, closer) else {
+                    continue;
+                };
+                direction = closer_direction;
+            }
+        }
+        return Some(ReviveView {
+            direction: dead_zone(direction),
+            interact,
+        });
+    }
+    None
 }
 
 /// Composante annulée sous laquelle une direction de route ne presse pas son axe.
