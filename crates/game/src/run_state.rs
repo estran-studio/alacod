@@ -42,8 +42,9 @@
 //! valeurs quand `game::jjrs::{local, p2p}` recrée `Run`/`RunSeed`/`RngStreams`/`Session` au
 //! prochain `OnEnter(AppState::GameStarting)`.
 //!
-//! **Restart en p2p** : non supporté par ce chantier (voir la doc de
-//! [`RunRequest::Restart`]) — redirigé vers `ToLobby`.
+//! **Restart en p2p** : livré par D14 (`jjrs::restart`, `docs/conventions.md` §33) avec
+//! `--matchbox` ; seul `--allumette` reste redirigé vers `ToLobby` (voir la doc de
+//! [`RunRequest::Restart`]).
 
 use bevy::prelude::*;
 use bevy_ggrs::{GgrsSchedule, Rollback, RollbackOrdered, Session};

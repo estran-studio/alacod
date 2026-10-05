@@ -125,6 +125,9 @@ pub fn draw_variant(
 /// `MaxHealth` de la variante (sinon `sync_health_from_stats` relève le maximum mais laisse la
 /// santé courante à sa valeur de base).
 pub fn variant_health(base: Fixed, modifiers: &[Modifier], frame: u32) -> Fixed {
+    // Exception assumée à « `StatReader` seul lit les stats » (`docs/conventions.md` §9) : au
+    // spawn, `Stats`/`Modifiers` n'existent pas encore sur l'entité, donc on résout ici les
+    // modificateurs `MaxHealth` de la variante sur la santé de base.
     sim_core::modifier::resolve(
         base,
         modifiers.iter().filter(|m| m.stat == StatId::MaxHealth),
