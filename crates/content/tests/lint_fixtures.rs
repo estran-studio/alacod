@@ -205,6 +205,16 @@ fn m1_audit_fixtures() {
 
 /// D36 : une caverne sans ennemi dans une séquence `Floors` est refusée (pas de personnage, ou
 /// pas de point d'apparition), sauf `transit: true` ; une caverne peuplée passe.
+/// D48 : une caverne peuplée d'un corps grand dont aucun point d'apparition n'est atteint par le
+/// champ de flux du gabarit grand (graine de contrôle) est refusée ; une caverne ouverte passe.
+#[test]
+fn cave_spawns_unreachable_fixture() {
+    let (registry, _, errors) = load_and_lint(&fixture_dir("cave_spawns_unreachable")).unwrap();
+    assert!(registry.caves.values().all(|cave| cave.config.nav_large));
+    assert_has_error(&errors, LintErrorKind::OutOfRange, "« fermee » : graine de contrôle");
+    assert_eq!(errors.len(), 1, "seule « fermee » est refusée : {errors:#?}");
+}
+
 #[test]
 fn floors_cave_without_enemies_fixture() {
     let (_, _, errors) = load_and_lint(&fixture_dir("floors_cave_without_enemies")).unwrap();
@@ -436,6 +446,7 @@ fn t2_8_fixtures_have_a_single_problem() {
         ("cave_out_of_range", LintErrorKind::OutOfRange),
         ("floors_unknown_cave", LintErrorKind::BrokenReference),
         ("floors_cave_without_enemies", LintErrorKind::OutOfRange),
+        ("cave_spawns_unreachable", LintErrorKind::OutOfRange),
         ("entry_clock_unknown", LintErrorKind::BrokenReference),
         ("entry_difficulty_missing", LintErrorKind::BrokenReference),
         ("effect_broken_reference", LintErrorKind::BrokenReference),
@@ -941,6 +952,51 @@ fn degagement_des_cavernes_du_contenu_reel() {
                 "{}",
                 boss.body_extent
             );
+        }
+    }
+}
+
+/// D48 (m1-d48-ennemis-hors-champ) : sur les trois cavernes de throne et 1 000 graines, chaque
+/// point `ZombieSpawn` est atteint par le champ de flux du gabarit de **chaque** personnage de la
+/// caverne (`world::nav::nav_distances` depuis les points des joueurs) : aucun ennemi ne naît
+/// dans une poche hors de son champ (graine 43 : roi_rat, gabarit grand ; graine 162 : brute,
+/// couloir d'une case). Le boss rend `niveau_3` grand (`nav_large`), pas les deux autres.
+#[test]
+fn points_ennemis_des_cavernes_de_throne_dans_le_champ_de_chaque_gabarit() {
+    let dir = PathBuf::from(env!("CARGO_MANIFEST_DIR")).join("../../games/throne");
+    let (registry, _, _) = load_and_lint(&dir).unwrap();
+    for name in ["niveau_1", "niveau_2", "niveau_3"] {
+        let cave = &registry.caves[&content::registry::CaveId::from(name.to_string())];
+        let config = &cave.config;
+        assert_eq!(config.nav_large, name == "niveau_3", "{name} : nav_large");
+        let larges: Vec<bool> = config
+            .characters
+            .iter()
+            .map(|id| registry.characters[&content::registry::CharacterId::from(id.as_str())].body_large)
+            .collect();
+        for seed in 1..=1000u64 {
+            let grid = world::generate(seed, config);
+            let points = world::points_of_interest(
+                &grid,
+                4,
+                config.enemy_spawns,
+                config.spawn_clearance,
+                config.nav_large,
+            );
+            assert!(!points.zombie_spawns.is_empty(), "{name} graine {seed} : aucun point");
+            for large in [false, true] {
+                if !larges.contains(&large) {
+                    continue;
+                }
+                let dist = world::nav::nav_distances(&grid, &points.player_spawns, large);
+                for &(x, y) in &points.zombie_spawns {
+                    assert_ne!(
+                        dist[(y * grid.width + x) as usize],
+                        u32::MAX,
+                        "{name} graine {seed} : point ({x}, {y}) hors du champ (grand : {large})"
+                    );
+                }
+            }
         }
     }
 }

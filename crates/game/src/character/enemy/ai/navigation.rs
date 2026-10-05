@@ -471,12 +471,13 @@ impl FlowFieldCache {
     /// toute case voisine (8-voisinage) d'un obstacle (D41 : le centre reste à une case des
     /// murs).
     pub fn is_blocked_for(&self, pos: &GridPos, key: NavKey) -> bool {
-        self.is_blocked(pos, key.profile)
-            || (key.size == AgentSize::Large
-                && pos
-                    .neighbors_8()
-                    .iter()
-                    .any(|n| self.is_blocked(n, key.profile)))
+        // D48 : règle partagée avec l'accessibilité des points de caverne (`world::nav`).
+        world::nav::blocked_for(
+            |x, y| self.is_blocked(&GridPos::new(x, y), key.profile),
+            pos.x,
+            pos.y,
+            key.size == AgentSize::Large,
+        )
     }
 
     /// Couloir trop étroit pour un agent de clé `key` : celui d'une case pour un gabarit petit
@@ -542,9 +543,11 @@ impl FlowFieldCache {
     /// A cell blocked on two opposite sides is a 1-cell corridor: an agent wider than a
     /// cell (zombies are 20 px, cells 16 px) cannot stand in it.
     pub fn is_too_narrow(&self, pos: &GridPos, profile: NavProfile) -> bool {
-        let blocked =
-            |dx: i32, dy: i32| self.is_blocked(&GridPos::new(pos.x + dx, pos.y + dy), profile);
-        (blocked(-1, 0) && blocked(1, 0)) || (blocked(0, -1) && blocked(0, 1))
+        world::nav::too_narrow(
+            |x, y| self.is_blocked(&GridPos::new(x, y), profile),
+            pos.x,
+            pos.y,
+        )
     }
 
     /// Point to steer toward in a cell: its center, pushed away from each adjacent blocked
@@ -1049,8 +1052,14 @@ fn build_flow_field(
             let (dx, dy) = (neighbor.x - current.x, neighbor.y - current.y);
             let diagonal = dx != 0 && dy != 0;
             if diagonal
-                && (cache.is_blocked_for(&GridPos::new(current.x + dx, current.y), key)
-                    || cache.is_blocked_for(&GridPos::new(current.x, current.y + dy), key))
+                && world::nav::diagonal_cuts_corner(
+                    |x, y| cache.is_blocked(&GridPos::new(x, y), profile),
+                    current.x,
+                    current.y,
+                    dx,
+                    dy,
+                    key.size == AgentSize::Large,
+                )
             {
                 continue;
             }
@@ -1218,5 +1227,66 @@ mod nav_key_tests {
             cache.canonical(NavKey::new(NavProfile::GroundBreaker, AgentSize::Large)),
             NavKey::new(NavProfile::GroundBreaker, AgentSize::Large)
         );
+    }
+}
+
+/// D48 : l'accessibilité des points de caverne (`world::nav::nav_distances`) et le champ de flux
+/// atteignent exactement les mêmes cases, pour les deux gabarits, sur les cavernes de `throne`.
+#[cfg(test)]
+mod cave_nav_tests {
+    use super::*;
+    use world::{CaveConfig, CellKind};
+
+    fn cave(name: &str) -> CaveConfig {
+        let path = format!(
+            "{}/../../games/throne/assets/caves/{name}.ron",
+            env!("CARGO_MANIFEST_DIR")
+        );
+        ron::from_str(&std::fs::read_to_string(path).unwrap()).unwrap()
+    }
+
+    #[test]
+    fn champ_de_flux_et_points_de_caverne_meme_accessibilite() {
+        for name in ["niveau_1", "niveau_2", "niveau_3"] {
+            let config = cave(name);
+            for seed in 1..=20u64 {
+                let grid = world::generate(seed, &config);
+                let mut cache = FlowFieldCache::new();
+                for y in 0..grid.height {
+                    for x in 0..grid.width {
+                        if grid.get(x as i32, y as i32).is_some_and(CellKind::is_solid) {
+                            cache.wall_cells.insert(GridPos::new(x as i32, y as i32));
+                        }
+                    }
+                }
+                let points = world::points_of_interest(&grid, 4, 0, 1, false);
+                let targets: Vec<GridPos> = points
+                    .player_spawns
+                    .iter()
+                    .map(|&(x, y)| GridPos::new(x as i32, y as i32))
+                    .collect();
+                for size in [AgentSize::Small, AgentSize::Large] {
+                    let key = NavKey::new(NavProfile::GroundBreaker, size);
+                    let field =
+                        build_flow_field(&targets, key, &cache, &FlowFieldConfig::default());
+                    let dist = world::nav::nav_distances(
+                        &grid,
+                        &points.player_spawns,
+                        size == AgentSize::Large,
+                    );
+                    for y in 0..grid.height {
+                        for x in 0..grid.width {
+                            let in_field =
+                                field.costs.contains_key(&GridPos::new(x as i32, y as i32));
+                            let reached = dist[(y * grid.width + x) as usize] != u32::MAX;
+                            assert_eq!(
+                                in_field, reached,
+                                "{name} graine {seed} {size:?} case ({x}, {y})"
+                            );
+                        }
+                    }
+                }
+            }
+        }
     }
 }

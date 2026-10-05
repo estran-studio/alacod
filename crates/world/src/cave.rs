@@ -62,6 +62,12 @@ pub struct CaveConfig {
     /// vide ou `enemy_spawns` nul) dans une séquence `Floors`. Hors simulation (lint seul).
     #[serde(default, skip_serializing_if = "std::ops::Not::not")]
     pub transit: bool,
+    /// Gabarit de navigation grand (D48) : le plus grand corps en jeu de `characters` dépasse
+    /// 20 px de large ou de haut (`AgentSize::Large` de `game`). **Calculé** par le registre de
+    /// contenu, comme `spawn_clearance` ; les points `ZombieSpawn` doivent être atteints par le
+    /// champ de flux de ce gabarit ([`points_of_interest`]).
+    #[serde(default, skip_serializing_if = "std::ops::Not::not")]
+    pub nav_large: bool,
 }
 
 fn default_spawn_clearance() -> u32 {
@@ -261,12 +267,17 @@ pub fn is_open_within(grid: &CellGrid, x: u32, y: u32, radius: u32) -> bool {
 /// Les `players` cases **dégagées** ([`is_open`]) les plus proches du centre (distance
 /// euclidienne au carré, puis y, puis x), puis les `ZombieSpawn`, dégagées de
 /// `enemy_clearance` cases ([`is_open_within`], D41 : `CaveConfig::spawn_clearance`) ; avec 1,
-/// exactement les points d'avant.
+/// exactement les points d'avant. D48 : un point d'ennemi doit aussi être atteint par le champ de
+/// flux du gabarit `enemy_large` depuis les points des joueurs ([`crate::nav::nav_distances`]) :
+/// une poche ouverte mais reliée par un couloir trop étroit pour ce gabarit garderait l'ennemi
+/// hors de son champ, immobile et hors d'atteinte des bots (graines 43 et 162 de throne).
+/// L'ordre des candidats ne change pas (distance de grille).
 pub fn points_of_interest(
     grid: &CellGrid,
     players: usize,
     enemy_spawns: u32,
     enemy_clearance: u32,
+    enemy_large: bool,
 ) -> CavePoints {
     let (w, h) = (grid.width as i64, grid.height as i64);
     let mut floor: Vec<(u32, u32)> = (0..grid.height)
@@ -284,10 +295,12 @@ pub fn points_of_interest(
     let mut zombie_spawns: Vec<(u32, u32)> = Vec::new();
     if let Some(&origin) = player_spawns.first() {
         let dist = floor_distances(grid, origin);
+        let nav = crate::nav::nav_distances(grid, &player_spawns, enemy_large);
         let mut candidates: Vec<(u32, u32, u32)> = floor
             .iter()
             .map(|&(x, y)| (dist[(y * grid.width + x) as usize], x, y))
             .filter(|(d, _, _)| *d != u32::MAX)
+            .filter(|(_, x, y)| nav[(y * grid.width + x) as usize] != u32::MAX)
             .filter(|(_, x, y)| {
                 enemy_clearance <= 1 || is_open_within(grid, *x, *y, enemy_clearance)
             })
@@ -328,6 +341,7 @@ mod tests {
             characters: vec![],
             spawn_clearance: 1,
             transit: false,
+            nav_large: false,
         }
     }
 
@@ -357,7 +371,7 @@ mod tests {
                 (min..=MAX_FLOOR_RATIO).contains(&ratio),
                 "graine {seed} : ratio {ratio}"
             );
-            let points = points_of_interest(&grid, 4, config.enemy_spawns, config.spawn_clearance);
+            let points = points_of_interest(&grid, 4, config.enemy_spawns, config.spawn_clearance, config.nav_large);
             assert_eq!(points.player_spawns.len(), 4, "graine {seed}");
             assert!(!points.zombie_spawns.is_empty(), "graine {seed}");
             for (x, y) in points.player_spawns.iter().chain(&points.zombie_spawns) {
@@ -383,7 +397,7 @@ mod tests {
     fn zombie_spawns_espaces_et_loin_du_joueur() {
         let config = petite();
         let grid = generate(3, &config);
-        let points = points_of_interest(&grid, 4, config.enemy_spawns, config.spawn_clearance);
+        let points = points_of_interest(&grid, 4, config.enemy_spawns, config.spawn_clearance, config.nav_large);
         let dist = floor_distances(&grid, points.player_spawns[0]);
         let far = points
             .zombie_spawns
@@ -427,8 +441,8 @@ mod tests {
     fn degagement_des_points_ennemis() {
         let config = petite();
         let grid = generate(123456, &config);
-        let base = points_of_interest(&grid, 4, config.enemy_spawns, 1);
-        let large = points_of_interest(&grid, 4, config.enemy_spawns, 2);
+        let base = points_of_interest(&grid, 4, config.enemy_spawns, 1, false);
+        let large = points_of_interest(&grid, 4, config.enemy_spawns, 2, false);
         assert_eq!(
             base.player_spawns, large.player_spawns,
             "joueurs : un seul dégagement"

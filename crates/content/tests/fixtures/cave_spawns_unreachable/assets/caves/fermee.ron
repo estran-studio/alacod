@@ -1,0 +1,2 @@
+(width: 20, height: 20, fill_ratio: "0.5", iterations: 4, birth: 5, survive: 4,
+ min_floor_ratio: "0.2", enemy_spawns: 2, characters: ["gros"])

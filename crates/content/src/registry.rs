@@ -234,6 +234,9 @@ pub struct CharacterEntry {
     /// D41 : étendue du corps **en jeu** (collider × `scale`, comme `create_character`) : la plus
     /// grande distance du centre du personnage à un bord de son collider, en px. 0 sans collider.
     pub body_extent: Fixed,
+    /// D48 : corps en jeu de plus de 20 px de large ou de haut, le gabarit `Large` de la
+    /// navigation (`game::…::navigation::AgentSize::of`, `SMALL_AGENT_MAX`).
+    pub body_large: bool,
 }
 
 /// T1.13 : mirroir de `game::character::config::CharacterTest` (attentes comptées).
@@ -1048,6 +1051,13 @@ fn apply_cave_spawn_clearance(registry: &mut Registry) {
             .max()
             .unwrap_or(1);
         cave.config.spawn_clearance = cave.config.spawn_clearance.max(needed);
+        // D48 : gabarit de navigation du plus grand corps (points atteints par son champ).
+        cave.config.nav_large |= cave
+            .config
+            .characters
+            .iter()
+            .filter_map(|id| registry.characters.get(&CharacterId::from(id.as_str())))
+            .any(|character| character.body_large);
     }
 }
 
@@ -1225,7 +1235,23 @@ impl ColliderSchema {
         let (ox, oy) = (self.offset.x.0.abs(), self.offset.y.0.abs());
         (half_w + ox).max(half_h + oy).saturating_mul(scale)
     }
+
+    /// D48 : gabarit de navigation grand, la règle de `AgentSize::of` (`game`) : largeur ou
+    /// hauteur du collider à l'échelle `scale` au-delà de [`SMALL_AGENT_MAX`] px (l'offset ne
+    /// change pas la largeur).
+    fn is_large(&self, scale: Fixed) -> bool {
+        let (w, h) = match &self.shape {
+            ColliderShapeSchema::Rectangle { width, height } => (width.0, height.0),
+            ColliderShapeSchema::Circle { radius } => (radius.0 * Fixed::from_num(2), radius.0 * Fixed::from_num(2)),
+        };
+        let max = Fixed::from_num(SMALL_AGENT_MAX);
+        w.saturating_mul(scale) > max || h.saturating_mul(scale) > max
+    }
 }
+
+/// Largeur maximale (px) d'un corps du gabarit de navigation petit : `SMALL_AGENT_MAX` de
+/// `game::character::enemy::ai::navigation` (`content` ne dépend pas de `game`).
+pub const SMALL_AGENT_MAX: i32 = 20;
 
 /// Mirroir RON de `game::character::config::CharacterTest` (comme `WeaponTestSchema`) : les
 /// attentes ne sont que comptées (`content` ne type pas `Expectation`).
@@ -1682,6 +1708,10 @@ fn load_characters(
                     .as_ref()
                     .map(|collider| collider.extent(parsed.scale.0))
                     .unwrap_or(Fixed::ZERO),
+                body_large: parsed
+                    .collider
+                    .as_ref()
+                    .is_some_and(|collider| collider.is_large(parsed.scale.0)),
             },
         );
     }
