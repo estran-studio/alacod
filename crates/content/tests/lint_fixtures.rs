@@ -203,6 +203,33 @@ fn m1_audit_fixtures() {
     }
 }
 
+/// D36 : une caverne sans ennemi dans une séquence `Floors` est refusée (pas de personnage, ou
+/// pas de point d'apparition), sauf `transit: true` ; une caverne peuplée passe.
+#[test]
+fn floors_cave_without_enemies_fixture() {
+    let (_, _, errors) = load_and_lint(&fixture_dir("floors_cave_without_enemies")).unwrap();
+    let d36: Vec<_> = errors
+        .iter()
+        .filter(|e| e.message.contains("caverne sans ennemi"))
+        .collect();
+    assert_eq!(d36.len(), 2, "{errors:#?}");
+    assert_has_error(
+        &errors,
+        LintErrorKind::OutOfRange,
+        "« cave:vide » : caverne sans ennemi",
+    );
+    assert_has_error(
+        &errors,
+        LintErrorKind::OutOfRange,
+        "« cave:sans_points » : caverne sans ennemi",
+    );
+    assert_eq!(
+        errors.len(),
+        2,
+        "aucune autre erreur attendue : {errors:#?}"
+    );
+}
+
 #[test]
 fn status_fixtures() {
     let (_, _, errors) = load_and_lint(&fixture_dir("status_out_of_range")).unwrap();
@@ -408,6 +435,7 @@ fn t2_8_fixtures_have_a_single_problem() {
         ("cave_unknown_character", LintErrorKind::BrokenReference),
         ("cave_out_of_range", LintErrorKind::OutOfRange),
         ("floors_unknown_cave", LintErrorKind::BrokenReference),
+        ("floors_cave_without_enemies", LintErrorKind::OutOfRange),
         ("entry_clock_unknown", LintErrorKind::BrokenReference),
         ("entry_difficulty_missing", LintErrorKind::BrokenReference),
         ("effect_broken_reference", LintErrorKind::BrokenReference),

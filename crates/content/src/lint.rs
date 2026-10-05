@@ -1734,6 +1734,22 @@ fn lint_floors(registry: &Registry, errors: &mut Vec<LintError>) {
         }
         for level in &floors.levels {
             if let Some(cave) = registry::cave_designation(level) {
+                // D36 : une caverne sans ennemi ouvre son portail aussitôt (et en boucle si elle
+                // est le dernier niveau) ; `transit: true` déclare ce passage voulu.
+                if let Some(entry) = registry.caves.get(&cave) {
+                    let c = &entry.config;
+                    if !c.transit && (c.characters.is_empty() || c.enemy_spawns == 0) {
+                        errors.push(LintError {
+                            kind: LintErrorKind::OutOfRange,
+                            file: file.clone(),
+                            message: format!(
+                                "séquence de niveaux « {} » : champ levels : « {level} » : caverne sans ennemi (characters vide ou enemy_spawns = 0) : son portail s'ouvre aussitôt ; transit: true dans {} si c'est voulu",
+                                floors.id,
+                                entry.file.display()
+                            ),
+                        });
+                    }
+                }
                 if !registry.caves.contains_key(&cave) {
                     errors.push(LintError {
                         kind: LintErrorKind::BrokenReference,

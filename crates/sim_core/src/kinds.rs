@@ -56,7 +56,7 @@ impl Kinds {
 }
 
 /// Extension d'`App` pour qu'un plugin déclare ses kinds au montage (`Plugin::build`).
-/// Voir `crates/game/src/weapons/mod.rs` (`BaseWeaponGamePlugin`) et
+/// Voir `crates/combat/src/weapons/mod.rs` (`BaseWeaponGamePlugin`) et
 /// `crates/game/src/character/mod.rs` (`BaseCharacterGamePlugin`) pour des exemples
 /// d'enregistrement des kinds existants (armes, ennemis).
 pub trait KindRegistry {

@@ -1,0 +1,3 @@
+// Erreur volontaire : « vide » n'a pas d'ennemi ; « sans_points » a des personnages mais aucun
+// point d'apparition ; « transit » est exemptée ; « peuplee » est correcte.
+(levels: ["cave:vide", "cave:sans_points", "cave:transit", "cave:peuplee"])

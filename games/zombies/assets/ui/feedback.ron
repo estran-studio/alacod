@@ -1,4 +1,4 @@
-// Feedback (présentation seule, docs/conventions.md §9 et §31). `hit_flash.color` multiplie
+// Feedback (présentation seule, docs/conventions.md §7 et §31). `hit_flash.color` multiplie
 // la couleur des calques : au-delà de 1.0 le sprite est surexposé ((1, 1, 1) serait invisible).
 // `hit_stop_frames` : frames de rendu gelées (animations, caméra) quand un joueur local touche
 // ou est touché ; la simulation continue.

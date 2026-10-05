@@ -1,4 +1,4 @@
-//! Feedback v1 (T2.13, étendu en T1.17, `docs/conventions.md` §9 et §31) : flash à l'impact,
+//! Feedback v1 (T2.13, étendu en T1.17, `docs/conventions.md` §7 et §31) : flash à l'impact,
 //! secousse de caméra, hit stop, chiffres de dégâts, cercle de télégraphe, sons.
 //!
 //! **Présentation seule** : rien ici n'est rollback, rien n'entre dans le checksum ni dans les

@@ -111,6 +111,13 @@ soit la vague ne peut plus se terminer. C'est un softlock au sens du critère de
 et la cause n'est pas encore diagnostiquée. Le fps de simulation (22 à 52) est celui du synctest
 dans le cloud.
 
+> Note (m1-d36-et-analyse-depart, 2026-10-05) : ce tableau joue le mélange
+> `fonceur,fonceur,prudent,immobile`, **sans acheteur** : aucun bot n'ouvre de porte et les
+> survivants finissent dans Depart, la carte ne compte pas. Le critère M0 joue `--bots 4` sans
+> `--profiles` (quatre `acheteur`) : sur 20 graines, portes ouvertes à toutes, 49/80 joueurs hors
+> de Depart à la vague 5. Limite qui reste : avant_poste ne donne que 5 cartes sur les
+> graines 1..20 (m1-assembleur-d45-d47) ; la variété devra venir du `.ldtk`.
+
 ## Vidéos
 
 Rendues sur `4f0d550` (`make videos SCENARIO="clone_solo clone_duo clone_quad"`, 960×540, une

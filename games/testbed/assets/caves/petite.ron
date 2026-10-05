@@ -9,4 +9,7 @@
     survive: 4,
     min_floor_ratio: "0.3",
     enemy_spawns: 4,
+    // D36 : caverne de transit sans ennemi voulue (`floors/caverne.ron`, test
+    // `caverne_dans_une_sequence_floors` : son portail s'ouvre aussitôt).
+    transit: true,
 )
