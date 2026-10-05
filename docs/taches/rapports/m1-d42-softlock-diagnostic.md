@@ -5,7 +5,8 @@
 
 ## État en cours
 
-- **Fait** : code et tests unitaires écrits ; compilation au feu vert d'orch.
+- **Fait** : code, tests, vérification (§3). Livré. Target non purgé (petite tâche,
+  compilation incrémentale sur celui de m1-integration-scenarios, purgé à sa livraison).
 
 ## 1. Le défaut
 
@@ -37,4 +38,16 @@ les vraies causes (corps de 28 px, D41 ; bots qui ne chassent pas).
 
 ## 3. Vérifié
 
-(au feu vert)
+- `softlock::tests` : 2/2.
+- **Cas réel** (`alacod-sim --game throne --bots 2 --profiles prudent,prudent --floors run
+  --seeds 1..1 --until-floor 3`, état de m1-integration-scenarios) : mêmes 4 893 frames qu'avant
+  (le refactor ne change rien) ; observations : « 0 ennemis hors du champ de flux GroundBreaker
+  depuis leur case exacte », « restant : tourelle #657 case (3, 11), 153 PV, joueur 1 le plus
+  proche à 307.89304 (en vue) » — avant : « 1 ennemis sans chemin ». Le bot voit la tourelle et
+  ne tire pas à cette distance : utile à b1 (m1-v3-bots-portail).
+- **Suite des crates** (`--include-ignored`, 15 crates) : 555 verts ; `scenarios` : **mêmes 32
+  traces throne** différentes que `b30d980` (à bénir pour m1-integration-scenarios), aucune
+  autre, 0 attente en échec ; doctest de `game::waves` (préexistant) ; et
+  `hud_text_sur_throne_progression` (test de T1.18 venu de `main`, écrit sur l'ancien
+  `throne_progression`) : corrigé sur m1-integration-scenarios (`a66b3a4`), mergé ici.
+- `make lint` des trois jeux sans erreur, `fmt` propre, `check_forbidden` 4 (identique), `check_rollback_registration` OK.
