@@ -81,8 +81,8 @@ seul) ; la source de la première mise à terre n'est pas départagée entre tir
    seul (`deaths`, `run_end`), 54 à 4 828 frames de solitude sur les 12 rejeux, 2 défaites
    (85, 131) où le premier bot tombe dès le deuxième étage et n'est jamais relevé. Effet attendu :
    chaque défaite devient au moins un combat à deux plus long ; la part convertie se mesure en
-   rejouant les 200 graines. Coût : la réanimation de b1 est faite (vérification groupée d'orch) :
-   reste une relance des 200 graines pour mesurer.
+   rejouant les 200 graines. Coût : fait, la réanimation de b1 est mergée dans `main` (`f80b82b`,
+   m1-v3-bots-reanimation) ; reste une relance des 200 graines pour mesurer.
 2. **Bots (b1) — tirer juste et changer d'arme.** Preuve : 74 % de balles perdues au troisième
    étage, mitraillette seule dans 12/12, armes et power-ups ignorés au sol ; les tireurs à distance
    causent la première mise à terre dans 7/12. Effet attendu : plus de dégâts par seconde sur les

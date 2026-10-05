@@ -33,9 +33,11 @@
   `throne_defaite_coequipier` (131) : toutes les attentes vertes ; seule manque la trace de
   référence (`pas de trace de référence`), à bénir par l'orchestrateur. Placés dans
   `tests/scenarios/` (le seul dossier que lit la suite) et non `games/throne/assets/scenarios/`
-  (inexistant). Joués sur la base de la branche, **pas** revérifiés sur `main` après merge (pas
-  de feu vert de compilation) : un changement de simulation dans `main` depuis `61ac539` les
-  casserait comme toute trace. Durée : 30 à 37 s chacun en headless.
+  (inexistant). Joués sur la base de la branche, **pas** rejoués sur `main` après merge (pas de
+  feu vert de compilation). De `61ac539` à `f80b82b`, ce qui touche la simulation de throne :
+  `crates/bots` (sans effet, inputs enregistrés), l'assembleur `map::generation::imp::basic`
+  (cartes à gabarits, pas les cavernes), `world::CaveConfig::transit` (sérialisé seulement s'il
+  est vrai) et des commentaires : ils devraient rester verts ; à confirmer au bless. Durée : 30 à 37 s chacun en headless.
 
 ## Non fait
 
