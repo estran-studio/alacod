@@ -101,7 +101,14 @@ Nouvelles valeurs mesurées (graine 123456) :
   (540 PV) à f1511, 220 PV à f2200, mort à f2408 ; nouveau boss NetId 1306 à f2741 ; les quatre
   vivants à f3399.
 
-## Dettes (à reporter par orch)
+## Dettes D43/D44
+
+Constatées ici, traitées depuis par b0 (outil : `alacod-sim` s'arrête à la fin de run, le soft-lock
+`Floors` compte les dégâts infligés). Les chiffres de ce rapport sont mesurés avec l'`alacod-sim`
+de main **f242633**, avant ce changement d'outil : ils ne se comparent pas directement à ceux mesurés
+après.
+
+### Description d'origine
 
 - **D43** — dernier joueur vivant à terre sans personne pour le relever : la partie ne finit ni
   gagnée ni perdue pendant le saignement. Mesuré dans `throne` (Floors) : un joueur à terre saigne
@@ -120,3 +127,9 @@ piloté en vitesse, vitesse transverse, ennemi immobile, ligne de tir avec marge
 test_scenarios` : seuls les six scénarios ci-dessus échouent, sur leur trace seulement (toutes les
 attentes vertes) ; un test de `softlock.rs` ajouté sur main (instantané sans le champ `floor`)
 corrigé.
+
+Suite sur main f242633 mergé : `make test_scenarios` (six traces à bénir, attentes vertes) ; tests
+des crates (dont `hud_text_sur_throne_progression`, recalé : niveau 2 à f1651) ; `make lint` ;
+`cargo fmt --check` (après `cargo fmt`) ; `check-forbidden` ; `check-rollback-registration` ;
+`make gen` testbed, zombies, throne : rien de régénéré ; `cargo check -p throne` ; exemples : verts.
+Puis merge d'`origin/main` (D41, sans conflit) : tests de `bots` et build d'`alacod-sim` verts.
