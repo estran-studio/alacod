@@ -372,10 +372,17 @@ mod tests {
         });
         for profile in [BotProfile::Prudent, BotProfile::Fonceur] {
             let input = decide(profile, &v, &mut rng());
-            assert_ne!(input.buttons & INPUT_UP, 0, "{profile:?} : vers le coéquipier");
+            assert_ne!(
+                input.buttons & INPUT_UP,
+                0,
+                "{profile:?} : vers le coéquipier"
+            );
             assert_eq!(input.buttons & INPUT_INTERACTION, 0);
         }
-        assert!(decide(BotProfile::Prudent, &v, &mut rng()).fire, "prudent tire encore");
+        assert!(
+            decide(BotProfile::Prudent, &v, &mut rng()).fire,
+            "prudent tire encore"
+        );
         v.revive = Some(ReviveView {
             direction: FixedVec2::ZERO,
             interact: true,
@@ -394,7 +401,10 @@ mod tests {
     #[test]
     fn reanimation_seulement_en_urgence() {
         use crate::input::revive_urgent;
-        assert!(!revive_urgent(2000, 1000), "1000 frames de marge : se battre");
+        assert!(
+            !revive_urgent(2000, 1000),
+            "1000 frames de marge : se battre"
+        );
         assert!(revive_urgent(1600, 1000), "600 : urgent");
         assert!(revive_urgent(1200, 1000));
         assert!(revive_urgent(900, 1000), "déjà échu");

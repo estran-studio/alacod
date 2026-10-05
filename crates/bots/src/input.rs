@@ -56,8 +56,7 @@ use utils::order_iter;
 
 use crate::decide::decide;
 use crate::view::{
-    nearest_by_net_id, projectile_views, BotView, EnemyView, ProjectileView, ReviveView,
-    WindowView,
+    nearest_by_net_id, projectile_views, BotView, EnemyView, ProjectileView, ReviveView, WindowView,
 };
 use combat::collider::{Collider, ColliderShape};
 use game::character::enemy::ai::navigation::AgentBody;
@@ -250,9 +249,7 @@ pub fn read_bot_inputs(
         .into_iter()
         .map(|(id, t, interactable, c, downed)| {
             let p = t.translation.truncate();
-            let urgent = downed.is_some_and(|d| {
-                revive_urgent(d.bleedout_at_frame, frame.frame)
-            });
+            let urgent = downed.is_some_and(|d| revive_urgent(d.bleedout_at_frame, frame.frame));
             (
                 id.0,
                 c.map_or(Rect { min: p, max: p }, |c| Rect::collider(p, c)),
@@ -417,9 +414,9 @@ pub fn read_bot_inputs(
             && downed.is_none()
             && surfaces.iter().any(|(.., revive)| *revive)
         {
-            let threat = view.nearest_enemy.is_some_and(|enemy| {
-                enemy.distance <= REVIVE_SAFE_DISTANCE && view.enemy_visible
-            });
+            let threat = view
+                .nearest_enemy
+                .is_some_and(|enemy| enemy.distance <= REVIVE_SAFE_DISTANCE && view.enemy_visible);
             if let (false, Some(collider)) = (threat, collider) {
                 let rects = geometry_rects.get_or_insert_with(|| {
                     order_iter!(geometry)
