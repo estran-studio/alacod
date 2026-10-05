@@ -716,10 +716,6 @@ région des chantiers puis la campagne.
   1 mort (graine 200). **Total : 200/200 atteignent la vague 5 sur `avant_poste`, 0 desync, 0 softlock, 3 graines
   avec un mort.**
   Lot séparé de 20 graines `avant_poste` : 20/20 vague 5, 0 desync, 0 softlock, 0 mort, 6 522 à 7 583 frames.
-- m1-v1a-statuts : **LIVRÉE le 2026-10-03** (tête `a5effb7`) — statuts Burn/Slow/Stun/Freeze
-  (T1.3) + attentes `HasStatus`/`StatusStacks` ; 79 traces existantes inchangées (trace-diff
-  identique sans `--ignore`), 8 scénarios testbed à bénir ; bundle c3 en attente de relais
-  Syncthing (`1867_lore/tmp/`), vérification de l'orchestrateur ensuite.
 
 - Ce fichier est la source de vérité des tâches : une ligne de statut par tâche (`à faire`, `en
   cours (branche)`, `mergée (commit)`), tenue par l'agent qui prend la tâche.
