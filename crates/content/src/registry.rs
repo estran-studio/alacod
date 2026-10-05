@@ -913,6 +913,8 @@ pub struct Registry {
     pub feedback: Vec<FeedbackEntry>,
     /// T1.16 : écrans de mutation (`ui/mutation_screen.ron`) parmi les fichiers Ui.
     pub mutation_screens: Vec<(PathBuf, crate::ui::MutationScreenLayout)>,
+    /// T1.18 : sources des widgets de chaque `ui/hud.ron`.
+    pub hud_sources: Vec<(PathBuf, Vec<String>)>,
     pub camera_files: Vec<PathBuf>,
     /// D3 : feuilles de sprites par id (kind `SpriteSheet`), source des sprites chargés par
     /// `game::global_asset` (avant D3 : une table de chemins écrite dans le code).
@@ -2662,6 +2664,15 @@ fn load_ui(
                     file: rel.clone(),
                     settings,
                 });
+            })
+        } else if rel.file_name().and_then(|name| name.to_str()) == Some(crate::ui::HUD_FILE_NAME) {
+            ron::from_str::<crate::ui::HudFileSchema>(&text).map(|hud| {
+                let sources = hud
+                    .widgets
+                    .iter()
+                    .map(|w| w.kind.source().to_string())
+                    .collect();
+                registry.hud_sources.push((rel.clone(), sources));
             })
         } else if rel.file_name().and_then(|name| name.to_str())
             == Some(crate::ui::MUTATION_SCREEN_FILE_NAME)
