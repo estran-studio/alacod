@@ -11,6 +11,8 @@
   et test de cohérence murs ⇔ terrain ; preuve (§3, §6) ; calibrage et 20 graines à 1, 2 et 4
   (§5) ; scénarios `throne_solo`/`throne_duo`/`throne_quad` ; vidéos ; digest brouillon
   `docs/digests/m1-fin-de-vague-2.md`.
+- **Target** purgé (incremental et examples ; target 41G, /home 78G libres) ; sims et dumps dans
+  `alacod_tasks/<tâche>/d40/cal/`, vidéos complètes dans `target/videos/146d09c/`.
 - **Reste à l'orchestrateur** : bless des traces throne (§6), 200 graines, revue humaine, report
   au journal de la correction (§1) et des dettes D41/D42 (§7).
 
