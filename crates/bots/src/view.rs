@@ -4,6 +4,15 @@
 
 use bevy_fixed::fixed_math::{Fixed, FixedVec2};
 
+/// Réanimation d'un coéquipier à terre (m1-v3-bots-reanimation, même règle que
+/// `chasseur`/`acheteur`) : direction du pas suivant vers lui, et Interaction tenue une fois à
+/// portée (quand c'est bien lui que le jeu sélectionnerait).
+#[derive(Debug, Clone, Copy, PartialEq)]
+pub struct ReviveView {
+    pub direction: FixedVec2,
+    pub interact: bool,
+}
+
 /// Ennemi le plus proche du joueur, vu par un bot.
 #[derive(Debug, Clone, Copy, PartialEq)]
 pub struct EnemyView {
@@ -91,6 +100,11 @@ pub struct BotView {
     /// tirer de loin (dispersion : il vidait ses munitions, ou touchait si rarement que la
     /// partie n'avançait plus). Faux hors navigation (hors mode `Floors`).
     pub enemy_still: bool,
+    /// m1-v3-bots-reanimation : coéquipier à terre à relever (saignement urgent, moins de
+    /// [`crate::input::REVIVE_URGENT_FRAMES`] avant la mort, et aucun ennemi visible à moins de
+    /// [`crate::input::REVIVE_SAFE_DISTANCE`]) ; `prudent`/`fonceur` y vont en priorité.
+    /// `None` : personne à relever, ou menace immédiate.
+    pub revive: Option<ReviveView>,
 }
 
 /// Sélection des projectiles de la vue : `candidates` = (net id, équipe adverse ?, vue).
