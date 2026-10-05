@@ -34,6 +34,9 @@ const PRUDENT_MIN_DISTANCE: Fixed = Fixed::from_bits(180 << 16);
 /// `prudent` : au-dessus de cette distance, avance. Entre les deux, tient sa position. Tire
 /// dès que l'ennemi est à cette distance ou moins (donc aussi en avançant ou en reculant).
 pub(crate) const PRUDENT_MAX_DISTANCE: Fixed = Fixed::from_bits(320 << 16);
+/// Distance d'approche d'un ennemi immobile (voir [`BotView::close_in`]) : dans la bande de
+/// `prudent` (au-dessus de [`PRUDENT_MIN_DISTANCE`], sous laquelle il recule).
+pub(crate) const STILL_TARGET_DISTANCE: Fixed = Fixed::from_bits(200 << 16);
 
 /// `prudent` (T1.14) : approche du portail. Le jeu ne freine que si aucun bouton de
 /// déplacement n'est tenu, et les boutons ne donnent que le signe de chaque axe : en visant le
@@ -121,7 +124,7 @@ fn decide_prudent(view: &BotView) -> BoxInput {
 
         if enemy.distance < PRUDENT_MIN_DISTANCE {
             set_direction_buttons(&mut input, view.position - enemy.position); // s'éloigne
-        } else if !view.enemy_visible || enemy.distance > PRUDENT_MAX_DISTANCE {
+        } else if !view.enemy_visible || view.close_in || enemy.distance > PRUDENT_MAX_DISTANCE {
             // s'approche : par le chemin (ennemi caché, ou loin), ligne droite en repli
             let toward = enemy.position - view.position;
             set_direction_buttons(&mut input, route_unless(false, view, toward));
@@ -259,6 +262,7 @@ mod tests {
             velocity: FixedVec2::ZERO,
             enemy_visible: true,
             route: None,
+            close_in: false,
         }
     }
 
@@ -299,6 +303,24 @@ mod tests {
             0,
             "lent : la route"
         );
+    }
+
+    /// m1-v3-bots-portail : ennemi immobile visible à 300 (dans la bande de 320) : avec
+    /// `close_in`, `prudent` suit le chemin pour s'en rapprocher, et tire toujours.
+    #[test]
+    fn prudent_se_rapproche_d_un_ennemi_immobile() {
+        let mut v = view(FixedVec2::new(fx(0.0), fx(0.0)));
+        v.nearest_enemy = Some(EnemyView {
+            position: FixedVec2::new(fx(300.0), fx(0.0)),
+            distance: fx(300.0),
+        });
+        v.route = Some(FixedVec2::new(fx(0.0), fx(8.0)));
+        let still = decide(BotProfile::Prudent, &v, &mut rng());
+        assert_eq!(still.buttons & INPUT_UP, 0, "sans close_in : garde sa position");
+        v.close_in = true;
+        let input = decide(BotProfile::Prudent, &v, &mut rng());
+        assert_ne!(input.buttons & INPUT_UP, 0, "close_in : suit le chemin");
+        assert!(input.fire);
     }
 
     /// Navigation (suite T1.14) : ennemi caché derrière un mur → le pas du champ, pas la

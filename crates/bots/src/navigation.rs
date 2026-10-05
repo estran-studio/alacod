@@ -19,6 +19,13 @@ use game::collider::{Collider, ColliderShape};
 
 const CELL: i32 = 8;
 
+/// Marge d'une ligne de tir (m1-v3-bots-portail) : une balle a une épaisseur et l'arme une
+/// dispersion. Une ligne qui frôle un coin de roche passait pour « visible » alors que les
+/// balles s'y arrêtaient : le bot restait à tirer sans fin sur une tourelle dans un recoin
+/// (throne, 2 bots, graine 123456). Les murs sont élargis de cette marge pour les tests de
+/// ligne de tir ([`walls_clear`], [`BotNavigation::visible`]).
+pub const SHOT_MARGIN: Fixed = Fixed::from_bits(4 << 16);
+
 #[derive(Clone, Copy, Debug, PartialEq, Eq)]
 pub struct Rect {
     pub min: FixedVec2,
@@ -36,6 +43,12 @@ impl Rect {
         Self {
             min: center - half,
             max: center + half,
+        }
+    }
+    fn grown(self, margin: Fixed) -> Self {
+        Self {
+            min: self.min - FixedVec2::new(margin, margin),
+            max: self.max + FixedVec2::new(margin, margin),
         }
     }
     fn expanded(self, body: &AgentBody) -> Self {
@@ -81,11 +94,12 @@ impl Rect {
     }
 }
 
-/// Ligne de vue sans `Wall` entre `from` et `to`, directement sur la géométrie (sans champ).
+/// Ligne de tir sans `Wall` entre `from` et `to` (murs élargis de [`SHOT_MARGIN`]),
+/// directement sur la géométrie (sans champ).
 pub fn walls_clear(geometry: &[(Rect, bool)], from: FixedVec2, to: FixedVec2) -> bool {
     !geometry
         .iter()
-        .any(|(rect, wall)| *wall && rect.crosses(from, to))
+        .any(|(rect, wall)| *wall && rect.grown(SHOT_MARGIN).crosses(from, to))
 }
 
 pub fn cell(position: FixedVec2) -> GridPos {
@@ -278,8 +292,12 @@ impl BotNavigation {
                 .as_ref()
                 .is_none_or(|cells| cells.contains(&p))
     }
+    /// Ligne de tir (murs élargis de [`SHOT_MARGIN`], comme [`walls_clear`]).
     pub fn visible(&self, from: FixedVec2, to: FixedVec2) -> bool {
-        !self.walls.iter().any(|rect| rect.crosses(from, to))
+        !self
+            .walls
+            .iter()
+            .any(|rect| rect.grown(SHOT_MARGIN).crosses(from, to))
     }
     pub fn clear(&self, from: FixedVec2, to: FixedVec2) -> bool {
         !self.obstacles.iter().any(|rect| {
@@ -563,6 +581,19 @@ mod tests {
         );
         assert!(nav.chase(vec(0, -80)).is_some());
     }
+    /// m1-v3-bots-portail : une ligne qui frôle un coin de mur (à 2 px) n'est pas une ligne de
+    /// tir ; à 8 px, si.
+    #[test]
+    fn ligne_de_tir_avec_marge() {
+        let wall = [(rect(0, 0, 32, 32), true)];
+        assert!(!walls_clear(&wall, vec(-40, 34), vec(80, 34)), "frôle à 2 px");
+        assert!(walls_clear(&wall, vec(-40, 40), vec(80, 40)), "8 px de marge");
+        let mut nav = BotNavigation::default();
+        nav.update(&wall, &body(), &[]);
+        assert!(!nav.visible(vec(-40, 34), vec(80, 34)));
+        assert!(nav.visible(vec(-40, 40), vec(80, 40)));
+    }
+
     #[test]
     fn segment_crossing_rejects_corner_and_accepts_negative_coordinates() {
         let obstacle = rect(-16, -16, 0, 0);

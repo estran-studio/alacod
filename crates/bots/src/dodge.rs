@@ -94,6 +94,7 @@ mod tests {
             velocity: FixedVec2::ZERO,
             enemy_visible: false,
             route: None,
+            close_in: false,
         }
     }
 
