@@ -66,6 +66,7 @@ pub fn run(registry: &Registry, manifest: &GameManifest) -> Vec<LintError> {
     lint_powerups(registry, &mut errors);
     lint_feedback(registry, &mut errors);
     lint_mutation_screens(registry, &mut errors);
+    lint_hud_sources(registry, &mut errors);
     lint_sprite_sheets(registry, &mut errors);
     lint_floors(registry, &mut errors);
     lint_caves(registry, &mut errors);
@@ -1174,6 +1175,25 @@ fn lint_feedback(registry: &Registry, errors: &mut Vec<LintError>) {
                     kind: LintErrorKind::BrokenReference,
                     file: file.clone(),
                     message: format!("feedback : by_weapon « {weapon} » : arme inconnue du jeu"),
+                });
+            }
+        }
+    }
+}
+
+/// T1.18 (§32) : chaque widget de `ui/hud.ron` lit une source de la liste fermée
+/// [`crate::ui::HUD_SOURCES`].
+fn lint_hud_sources(registry: &Registry, errors: &mut Vec<LintError>) {
+    for (rel, sources) in &registry.hud_sources {
+        for source in sources {
+            if !crate::ui::HUD_SOURCES.contains(&source.as_str()) {
+                errors.push(LintError {
+                    kind: LintErrorKind::UnknownKind,
+                    file: rel.display().to_string(),
+                    message: format!(
+                        "hud : source inconnue « {source} » (connues : {})",
+                        crate::ui::HUD_SOURCES.join(", ")
+                    ),
                 });
             }
         }

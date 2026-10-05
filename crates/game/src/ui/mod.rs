@@ -4,6 +4,7 @@ pub mod disconnected;
 pub mod floor_transition;
 pub mod game_over;
 pub mod hud;
+pub mod hud_model;
 pub mod lobby;
 pub mod mutation_screen;
 
@@ -16,6 +17,8 @@ impl Plugin for GameUiPlugin {
         app.add_plugins(game_over::GameOverUiPlugin);
         // T1.16 : modèle de vue de l'écran de mutation, aussi en headless.
         app.add_plugins(mutation_screen::MutationScreenModelPlugin);
+        // T1.18 : valeurs du HUD du joueur affiché (`HudSnapshot`), aussi en headless.
+        app.add_plugins(hud_model::HudModelPlugin);
     }
 }
 
