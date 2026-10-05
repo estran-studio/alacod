@@ -63,7 +63,9 @@ impl Plugin for RoomsProtoPlugin {
             .rollback_and_trace_resource_neutral::<RoomLocks>()
             .add_systems(
                 GgrsSchedule,
-                room_lock_system.in_set(RollbackSystemSet::Run),
+                room_lock_system
+                    .after(super::floors::floor_transition_system)
+                    .in_set(RollbackSystemSet::Run),
             );
     }
 }
@@ -88,7 +90,7 @@ pub fn room_lock_system(
     mut locks: ResMut<RoomLocks>,
     rooms: Query<(&LevelId, &RoomBounds, &RoomKindTag)>,
     doors: Query<(&GgrsNetId, Entity, &FixedTransform3D, &DoorShape, Has<Collider>), With<DoorComponent>>,
-    enemies: Query<&FixedTransform3D, With<Enemy>>,
+    mut enemies: Query<(&FixedTransform3D, &mut combat::actors::Velocity), With<Enemy>>,
     players: Query<&FixedTransform3D, (With<Player>, Without<combat::downed::Downed>)>,
 ) {
     let mut typed: Vec<(&LevelId, &RoomBounds, &RoomKindTag)> = rooms.iter().collect();
@@ -120,7 +122,7 @@ pub fn room_lock_system(
         let step = locks.rooms.get(&level_id.0).copied().unwrap_or_default();
         let enemies_inside = enemies
             .iter()
-            .filter(|t| inside(bounds, t.translation.truncate(), 0.0))
+            .filter(|(t, _)| inside(bounds, t.translation.truncate(), 0.0))
             .count();
         let next = match step {
             RoomStep::Dormant
@@ -152,6 +154,15 @@ pub fn room_lock_system(
             }
             step => step,
         };
+        // Activation par salle : tant qu'une salle de combat dort, ses ennemis ne bougent pas
+        // (vitesse annulée après l'IA ; le déplacement de la frame suivante l'applique).
+        if next == RoomStep::Dormant {
+            for (t, mut velocity) in enemies.iter_mut() {
+                if inside(bounds, t.translation.truncate(), 0.0) {
+                    velocity.main = fixed_math::FixedVec2::ZERO;
+                }
+            }
+        }
         if next != RoomStep::Dormant {
             locks.rooms.insert(level_id.0.clone(), next);
         }

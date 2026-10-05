@@ -1243,7 +1243,7 @@
  "levels": [
   {
    "identifier": "ProtoDepart",
-   "iid": "c1d70813-b7f8-48b6-aedf-a7381dcf45e2",
+   "iid": "4ccbb261-2708-4927-adac-c7b32d5c507a",
    "uid": 0,
    "worldX": 0,
    "worldY": 0,
@@ -1305,7 +1305,7 @@
      "__pxTotalOffsetY": 0,
      "__tilesetDefUid": null,
      "__tilesetRelPath": null,
-     "iid": "240a2433-f5fb-494e-b81e-af4a74d0a11b",
+     "iid": "d5b35576-a4b4-4a1b-a381-fd01cad1ce3b",
      "levelId": 0,
      "layerDefUid": 19,
      "pxOffsetX": 0,
@@ -1336,7 +1336,7 @@
         "h": 16
        },
        "__smartColor": "#56CC3C",
-       "iid": "947eaf76-971e-43dd-ac7f-c6835b3aac4f",
+       "iid": "f38601f1-6eef-47a2-8b44-0ed70cb6776d",
        "width": 16,
        "height": 16,
        "defUid": 29,
@@ -1376,7 +1376,7 @@
         "h": 32
        },
        "__smartColor": "#F0A20E",
-       "iid": "2f9b10af-9d70-4d5c-8a93-82240f560b89",
+       "iid": "a881984d-2135-46f3-95c6-e91248ee83b9",
        "width": 16,
        "height": 32,
        "defUid": 40,
@@ -1419,7 +1419,7 @@
      "__pxTotalOffsetY": 0,
      "__tilesetDefUid": null,
      "__tilesetRelPath": null,
-     "iid": "38088a7f-398a-4fd2-b92a-10a6b3753bbf",
+     "iid": "2aeed109-17a7-4ded-8a7e-ba99e9d72e0a",
      "levelId": 0,
      "layerDefUid": 25,
      "pxOffsetX": 0,
@@ -1509,7 +1509,7 @@
      "__pxTotalOffsetY": 0,
      "__tilesetDefUid": 1,
      "__tilesetRelPath": "atlas/SunnyLand_by_Ansimuz-extended.png",
-     "iid": "cd20bee8-9b0c-4f0d-a3ae-1b1f4055e786",
+     "iid": "dc6db8e6-ce25-4e4f-88ea-ea7370371b51",
      "levelId": 0,
      "layerDefUid": 3,
      "pxOffsetX": 0,
@@ -1592,7 +1592,7 @@
   },
   {
    "identifier": "ProtoCombat",
-   "iid": "5110c536-6838-4cba-8021-727d25cb4b15",
+   "iid": "5febfac2-b994-4e90-8f9f-ac3bfea9f1e2",
    "uid": 1,
    "worldX": 0,
    "worldY": 0,
@@ -1647,7 +1647,7 @@
      "__pxTotalOffsetY": 0,
      "__tilesetDefUid": null,
      "__tilesetRelPath": null,
-     "iid": "e8a9e041-1659-427d-a286-3b982448cc51",
+     "iid": "4711be61-d18a-40db-a504-8cb00f566069",
      "levelId": 1,
      "layerDefUid": 19,
      "pxOffsetX": 0,
@@ -1678,7 +1678,7 @@
         "h": 32
        },
        "__smartColor": "#F0A20E",
-       "iid": "9335858d-8995-4eac-8616-d52346e01e70",
+       "iid": "a8d1c7ff-1275-4c84-a337-f628e01069b4",
        "width": 16,
        "height": 32,
        "defUid": 40,
@@ -1711,7 +1711,7 @@
        "__identifier": "DoorVertical",
        "__grid": [
         7,
-        3
+        1
        ],
        "__pivot": [
         0,
@@ -1726,13 +1726,13 @@
         "h": 32
        },
        "__smartColor": "#F0A20E",
-       "iid": "a48120ed-624e-4573-8056-f4b92646483c",
+       "iid": "83078ff0-00d1-4787-8ad7-390b5bcd6fc4",
        "width": 16,
        "height": 32,
        "defUid": 40,
        "px": [
         112,
-        48
+        16
        ],
        "fieldInstances": [
         {
@@ -1758,8 +1758,8 @@
       {
        "__identifier": "CharacterSpawn",
        "__grid": [
-        3,
-        2
+        6,
+        3
        ],
        "__pivot": [
         0,
@@ -1774,26 +1774,26 @@
         "h": 16
        },
        "__smartColor": "#3050C0",
-       "iid": "bd563cb6-3681-4a9b-ba6d-9bcc31103c46",
+       "iid": "763df67a-ff2e-47e8-8881-fe312fd8b48d",
        "width": 16,
        "height": 16,
        "defUid": 44,
        "px": [
-        48,
-        32
+        96,
+        48
        ],
        "fieldInstances": [
         {
          "__identifier": "character",
          "__type": "String",
-         "__value": "follower",
+         "__value": "dummy",
          "__tile": null,
          "defUid": 45,
          "realEditorValues": [
           {
            "id": "V_String",
            "params": [
-            "follower"
+            "dummy"
            ]
           }
          ]
@@ -1820,8 +1820,8 @@
       {
        "__identifier": "CharacterSpawn",
        "__grid": [
-        4,
-        5
+        6,
+        4
        ],
        "__pivot": [
         0,
@@ -1836,26 +1836,26 @@
         "h": 16
        },
        "__smartColor": "#3050C0",
-       "iid": "4b7e445a-5f04-4bb2-846b-7c6c1d06bcd5",
+       "iid": "50a53834-e9c5-4f24-8470-87f24a30d15f",
        "width": 16,
        "height": 16,
        "defUid": 44,
        "px": [
-        64,
-        80
+        96,
+        64
        ],
        "fieldInstances": [
         {
          "__identifier": "character",
          "__type": "String",
-         "__value": "follower",
+         "__value": "dummy",
          "__tile": null,
          "defUid": 45,
          "realEditorValues": [
           {
            "id": "V_String",
            "params": [
-            "follower"
+            "dummy"
            ]
           }
          ]
@@ -1893,7 +1893,7 @@
      "__pxTotalOffsetY": 0,
      "__tilesetDefUid": null,
      "__tilesetRelPath": null,
-     "iid": "b5fe6adc-e291-4320-a798-87b54fb2804b",
+     "iid": "52dc844d-be9b-442d-bf21-21a852b6979d",
      "levelId": 1,
      "layerDefUid": 25,
      "pxOffsetX": 0,
@@ -1918,16 +1918,8 @@
       0,
       0,
       0,
-      0,
-      0,
-      0,
-      0,
-      0,
-      0,
-      0,
-      0,
-      0,
       1,
+      0,
       0,
       0,
       0,
@@ -1942,7 +1934,15 @@
       0,
       0,
       0,
+      0,
       1,
+      0,
+      0,
+      0,
+      0,
+      0,
+      0,
+      0,
       0,
       0,
       0,
@@ -1983,7 +1983,7 @@
      "__pxTotalOffsetY": 0,
      "__tilesetDefUid": 1,
      "__tilesetRelPath": "atlas/SunnyLand_by_Ansimuz-extended.png",
-     "iid": "6d81d4e7-c5fc-460d-a467-71289b26c4d1",
+     "iid": "50c7cd7a-bbeb-4641-a594-be0aa2cea799",
      "levelId": 1,
      "layerDefUid": 3,
      "pxOffsetX": 0,
@@ -2008,13 +2008,6 @@
       0,
       0,
       0,
-      1,
-      1,
-      0,
-      0,
-      0,
-      0,
-      0,
       0,
       1,
       0,
@@ -2031,8 +2024,15 @@
       0,
       0,
       0,
+      1,
       0,
       0,
+      0,
+      0,
+      0,
+      0,
+      0,
+      1,
       1,
       0,
       0,
@@ -2066,7 +2066,7 @@
   },
   {
    "identifier": "ProtoRecompense",
-   "iid": "ef255c5c-500e-4a32-a7a1-38f4f92f1ea3",
+   "iid": "222e1140-ef1b-40ad-97ae-52bfe9fade0e",
    "uid": 2,
    "worldX": 0,
    "worldY": 0,
@@ -2121,7 +2121,7 @@
      "__pxTotalOffsetY": 0,
      "__tilesetDefUid": null,
      "__tilesetRelPath": null,
-     "iid": "7930d5e6-880c-4b59-b61e-89fb2aaa4503",
+     "iid": "b862ecdc-8d87-4a93-a207-b3025841d1ff",
      "levelId": 2,
      "layerDefUid": 19,
      "pxOffsetX": 0,
@@ -2137,7 +2137,7 @@
        "__identifier": "DoorVertical",
        "__grid": [
         0,
-        3
+        1
        ],
        "__pivot": [
         0,
@@ -2152,13 +2152,13 @@
         "h": 32
        },
        "__smartColor": "#F0A20E",
-       "iid": "bd8c3e88-8410-43c5-876f-5f76bb6531d4",
+       "iid": "85ffde69-5fd8-4c3f-8257-4a064d1bb87a",
        "width": 16,
        "height": 32,
        "defUid": 40,
        "px": [
         0,
-        48
+        16
        ],
        "fieldInstances": [
         {
@@ -2195,7 +2195,7 @@
      "__pxTotalOffsetY": 0,
      "__tilesetDefUid": null,
      "__tilesetRelPath": null,
-     "iid": "e470ea8a-e28a-4e1c-8e6a-8ec8830af805",
+     "iid": "c3179e17-dbe5-4981-8459-cc39c8521339",
      "levelId": 2,
      "layerDefUid": 25,
      "pxOffsetX": 0,
@@ -2213,22 +2213,6 @@
       0,
       0,
       0,
-      0,
-      0,
-      0,
-      0,
-      0,
-      0,
-      0,
-      0,
-      0,
-      0,
-      0,
-      0,
-      0,
-      0,
-      0,
-      0,
       1,
       0,
       0,
@@ -2238,6 +2222,22 @@
       0,
       0,
       1,
+      0,
+      0,
+      0,
+      0,
+      0,
+      0,
+      0,
+      0,
+      0,
+      0,
+      0,
+      0,
+      0,
+      0,
+      0,
+      0,
       0,
       0,
       0,
@@ -2285,7 +2285,7 @@
      "__pxTotalOffsetY": 0,
      "__tilesetDefUid": 1,
      "__tilesetRelPath": "atlas/SunnyLand_by_Ansimuz-extended.png",
-     "iid": "f01d1eb2-4f3c-440a-912a-6260e21f7eca",
+     "iid": "0312511d-671f-4fdc-a941-a05f651b4a82",
      "levelId": 2,
      "layerDefUid": 3,
      "pxOffsetX": 0,
@@ -2303,15 +2303,7 @@
       1,
       1,
       1,
-      1,
       0,
-      0,
-      0,
-      0,
-      0,
-      0,
-      1,
-      1,
       0,
       0,
       0,
@@ -2327,7 +2319,15 @@
       0,
       0,
       1,
+      1,
       0,
+      0,
+      0,
+      0,
+      0,
+      0,
+      1,
+      1,
       0,
       0,
       0,
