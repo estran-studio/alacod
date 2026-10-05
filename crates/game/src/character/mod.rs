@@ -77,7 +77,7 @@ impl Plugin for BaseCharacterGamePlugin {
         app.add_plugins(InputManagerPlugin::<PlayerAction>::default());
         // Stats et modificateurs (T1.2, chantier B2) : enregistre `Stats`/`Modifiers` en
         // rollback et l'expiration des modificateurs (`RollbackSystemSet::Status`). Voir
-        // `docs/conventions.md` §7.
+        // `docs/conventions.md` §9.
         app.add_plugins(StatsPlugin);
         app.init_resource::<PointerWorldPosition>();
 

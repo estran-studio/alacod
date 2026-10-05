@@ -1,4 +1,4 @@
-//! Réglages de `ui/feedback.ron` (T2.13, étendus en T1.17, `docs/conventions.md` §9 et §31).
+//! Réglages de `ui/feedback.ron` (T2.13, étendus en T1.17, `docs/conventions.md` §7 et §31).
 //!
 //! Présentation seule : aucun de ces champs n'entre dans la simulation ni dans le checksum.
 //! Le type vit ici (et non dans `game`) pour que le lint et le jeu lisent exactement la même

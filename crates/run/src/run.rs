@@ -1,7 +1,7 @@
 //! État de run (T2.4, chantier F1, `docs/plan-engine.md` §5 F1) : ressource rollback qui
 //! représente la partie en cours — graine, mode, étape, joueurs — indépendamment du mode
-//! (`Waves` aujourd'hui, le système de vagues actuel ; `Floors`/`Campaign` viendront en
-//! M1/M2). Remplace `combat::downed::RunOutcome` (T1.3) : la défaite n'est plus une
+//! (`Waves`, le système de vagues ; `Sandbox` ; `Floors`, séquence de niveaux livrée par T1.8,
+//! `docs/conventions.md` §17 ; `Campaign` viendra en M2). Remplace `combat::downed::RunOutcome` (T1.3) : la défaite n'est plus une
 //! ressource à part, c'est une valeur de [`RunStep`].
 //!
 //! [`Run`] est créée une seule fois par session, au démarrage (`game::jjrs::{local, p2p}`,
@@ -18,8 +18,8 @@ use serde::{Deserialize, Serialize};
 
 /// Mode de la partie : quelles conditions de fin, quel résumé (voir
 /// [`crate::modes::RunModeRules`]). `Waves` est le système de vagues actuel
-/// (`game::waves`) ; les autres modes (`Floors`, `Campaign`...) viendront en M1/M2
-/// (`docs/plan-engine.md` §5 F1) — ce sont eux qui donneront un sens aux `flags` de [`Run`].
+/// (`game::waves`) ; `Floors` (T1.8, `docs/conventions.md` §17) est livré, `Campaign` viendra en
+/// M2 (`docs/plan-engine.md` §5 F1) — c'est lui qui donnera un sens aux `flags` de [`Run`].
 #[derive(Debug, Clone, PartialEq, Eq, Hash, Serialize, Deserialize)]
 pub enum RunMode {
     /// `config` : id de la config de vagues utilisée (nom de fichier sans extension,

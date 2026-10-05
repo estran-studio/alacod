@@ -106,7 +106,7 @@ pub struct ScenarioOutcome {
     /// Trace d'état, une ligne par frame (voir `game::state_trace`).
     pub trace: Vec<String>,
     /// Trace détaillée de toutes les frames (hash + détail), si `ALACOD_DUMP_TRACE` était
-    /// défini pour ce run (outil de preuve permanent, T1.2, `docs/conventions.md` §8).
+    /// défini pour ce run (outil de preuve permanent, T1.2, `docs/conventions.md` §10).
     /// `None` sinon. `crates/scenario/tests/scenarios.rs` écrit ces lignes dans
     /// `<dossier>/<scénario>.full` quand elles sont présentes.
     pub full_trace: Option<Vec<String>>,
@@ -191,7 +191,7 @@ pub fn build_app(scenario: &Scenario, headless: bool, config: &PlayConfig) -> Ap
         .insert_resource(WaveDebugEnabled(true))
         // ALACOD_DIAG=1 : trace détaillée, pour nommer le composant qui diverge en synctest
         // ALACOD_DUMP_TRACE=<dossier> : outil de preuve permanent (T1.2), voir
-        // `docs/conventions.md` §8 et `crates/scenario/tests/scenarios.rs` (qui écrit
+        // `docs/conventions.md` §10 et `crates/scenario/tests/scenarios.rs` (qui écrit
         // `<dossier>/<scénario>.full` depuis `ScenarioOutcome::full_trace`).
         .add_plugins(StateTraceRecorderPlugin {
             full: std::env::var("ALACOD_DIAG").is_ok_and(|v| v == "1"),

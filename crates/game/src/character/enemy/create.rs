@@ -27,7 +27,7 @@ use super::{
 /// Quatre des cinq stats d'ennemi (T1.2, chantier B2) posées à la création, avant les
 /// surcharges `CharacterConfig::stats` du RON de ce type d'ennemi : la valeur de base vient
 /// de `PathfindingConfig::default()`, la même constante partagée que lisait jusqu'ici
-/// `move_enemies` (`docs/conventions.md` §7). Un type d'ennemi qui ne déclare rien dans
+/// `move_enemies` (`docs/conventions.md` §9). Un type d'ennemi qui ne déclare rien dans
 /// `stats:` se comporte donc exactement comme avant ce chantier.
 ///
 /// La cinquième, `EnemyMoveSpeed`, n'est pas ici : sa valeur de base est

@@ -61,7 +61,7 @@ pub struct StateTraceRecorder {
     /// Lignes complètes (hash puis détail), pour **toutes** les frames simulées, sans la
     /// limite de `history` (`HISTORY_LEN`) : peuplé seulement quand
     /// [`StateTraceRecorderPlugin::dump`] est actif (outil de preuve permanent, T1.2 —
-    /// voir `docs/conventions.md` §8 « Blesser une trace : la preuve »). `None` sinon,
+    /// voir `docs/conventions.md` §10 « Blesser une trace : la preuve »). `None` sinon,
     /// pour ne rien coûter en usage normal (tests de scénario, jeu).
     dump: Option<BTreeMap<u32, String>>,
 }
@@ -210,7 +210,7 @@ pub struct StateTraceRecorderPlugin {
     /// elle-même (un dossier, typiquement `ALACOD_DUMP_TRACE`) n'est pas utilisée par ce
     /// plugin : c'est l'appelant (`crates/scenario/tests/scenarios.rs`) qui sait dans quel
     /// fichier — `<dossier>/<scénario>.full` — écrire ces lignes une fois le scénario
-    /// terminé (voir `docs/conventions.md` §8 « Blesser une trace : la preuve »).
+    /// terminé (voir `docs/conventions.md` §10 « Blesser une trace : la preuve »).
     pub dump: Option<PathBuf>,
 }
 

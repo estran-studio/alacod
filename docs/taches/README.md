@@ -79,7 +79,7 @@ de `scripts/task-new.sh`, pas de worktree ni d'`env.sh`. Ce qui change :
   rollback par `app.rollback_and_trace_resource::<T>()` / `rollback_and_trace_component::<T>()`
   (`crates/utils/src/rollback.rs`), logs avec `GgrsNetId` (jamais `Entity`).
 - `docs/conventions.md` : §1 entités LDtk, §2 RON (`Fixed` en chaînes : `"1.5"`), §3 manifeste
-  `game.ron` et kinds de contenu, §8 protocole de preuve, sections « Run », « Power-ups », checklist
+  `game.ron` et kinds de contenu, §10 protocole de preuve, sections « Run », « Power-ups », checklist
   d'un nouveau vocabulaire.
 - `docs/taches.md` : la tâche (§5) et le journal §10 (ce que les tâches précédentes ont décidé).
 - `docs/plan-engine.md` §5 : le chantier (lettre) dont la tâche dépend.
@@ -142,7 +142,7 @@ docker compose -f docker-compose.ci.yaml down
 traces identiques », « p2p partie 2 : traces identiques », « partie 2 différente de la partie 1 »,
 « local : partie 2 identique à la partie 1 » ; code de sortie 0.
 
-## 5. Traces et preuve (protocole `docs/conventions.md` §8)
+## 5. Traces et preuve (protocole `docs/conventions.md` §10)
 
 Chaque scénario a une trace de référence (`.trace` : hash de l'état rollback par frame).
 `make test_scenarios` échoue si elle change. **Une trace ne se réécrit que pour un changement
