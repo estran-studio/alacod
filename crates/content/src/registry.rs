@@ -1155,11 +1155,21 @@ struct CharacterFileSchema {
     /// T1.13 : cible de `generate_template` (règle « `counts_hits` »).
     #[serde(default)]
     counts_hits: bool,
-    /// D41 : corps (dégagement des points d'apparition des cavernes).
-    #[serde(default)]
+    /// D41 : corps (dégagement des points d'apparition des cavernes). Écrit sans `Some(...)`
+    /// dans les RON de personnages (`collider: (...)`, comme `CharacterConfig`).
+    #[serde(default, deserialize_with = "present")]
     collider: Option<ColliderSchema>,
     #[serde(default = "default_scale")]
     scale: FixedField,
+}
+
+/// Champ optionnel écrit nu dans le RON (`champ: (...)` et non `champ: Some((...))`).
+fn present<'de, D, T>(deserializer: D) -> Result<Option<T>, D::Error>
+where
+    D: Deserializer<'de>,
+    T: Deserialize<'de>,
+{
+    T::deserialize(deserializer).map(Some)
 }
 
 fn default_scale() -> FixedField {

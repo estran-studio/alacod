@@ -894,3 +894,25 @@ fn powerup_refill_ammo_unknown_fixture_reports_ammo() {
     let (_, _, errors) = load_and_lint(&fixture_dir("powerup_refill_ammo_unknown")).unwrap();
     assert_has_error(&errors, LintErrorKind::BrokenReference, "RefillAmmoOf");
 }
+
+/// D41 (m1-d41-spawns-degages) : sur le contenu réel, toutes les cavernes gardent un
+/// dégagement de 1 (points d'apparition inchangés) ; le boss de throne (collider 20, `scale`
+/// 1.4 : 28 px en jeu) s'étend à 22,4 px du centre.
+#[test]
+fn degagement_des_cavernes_du_contenu_reel() {
+    for game in ["throne", "testbed", "zombies"] {
+        let dir = PathBuf::from(env!("CARGO_MANIFEST_DIR")).join(format!("../../games/{game}"));
+        let (registry, _, _) = load_and_lint(&dir).unwrap();
+        for (id, cave) in &registry.caves {
+            assert_eq!(cave.config.spawn_clearance, 1, "{game} : caverne {id}");
+        }
+        if game == "throne" {
+            let boss = &registry.characters[&content::registry::CharacterId::from("roi_rat")];
+            assert!(
+                (boss.body_extent.to_num::<f64>() - 22.4).abs() < 0.01,
+                "{}",
+                boss.body_extent
+            );
+        }
+    }
+}
