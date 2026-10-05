@@ -315,9 +315,10 @@ impl Plugin for StateTracePlugin {
             path: path.into(),
             exit_at_frame,
             written: false,
-            restart_at_frame: std::env::var("ALACOD_RESTART_AT_FRAME")
-                .ok()
-                .map(|v| v.parse().expect("ALACOD_RESTART_AT_FRAME doit être un entier")),
+            restart_at_frame: std::env::var("ALACOD_RESTART_AT_FRAME").ok().map(|v| {
+                v.parse()
+                    .expect("ALACOD_RESTART_AT_FRAME doit être un entier")
+            }),
             game: 1,
             first_written: false,
             restart_requested: false,
@@ -474,7 +475,10 @@ fn write_trace_at_exit_frame(
     match step {
         TraceStep::Nothing => return,
         TraceStep::Restart => {
-            info!("ALACOD_RESTART_AT_FRAME : RunRequest::Restart à la frame {}", frame.frame);
+            info!(
+                "ALACOD_RESTART_AT_FRAME : RunRequest::Restart à la frame {}",
+                frame.frame
+            );
             commands.insert_resource(crate::run_state::RunRequest::Restart);
             file.restart_requested = true;
             return;
@@ -522,25 +526,50 @@ mod restart_tests {
     #[test]
     fn deux_parties() {
         // Sans restart : inchangé.
-        assert_eq!(trace_step(599, 600, None, 1, false, false), TraceStep::Nothing);
-        assert_eq!(trace_step(600, 600, None, 1, false, false), TraceStep::WriteAndExit);
+        assert_eq!(
+            trace_step(599, 600, None, 1, false, false),
+            TraceStep::Nothing
+        );
+        assert_eq!(
+            trace_step(600, 600, None, 1, false, false),
+            TraceStep::WriteAndExit
+        );
         // Partie 1 : -g1 à 600, restart 60 frames plus tard, jamais d'arrêt.
         let step = |frame, first, requested| trace_step(frame, 400, Some(600), 1, first, requested);
-        assert_eq!(step(450, false, false), TraceStep::Nothing, "exit ignoré en partie 1");
+        assert_eq!(
+            step(450, false, false),
+            TraceStep::Nothing,
+            "exit ignoré en partie 1"
+        );
         assert_eq!(step(600, false, false), TraceStep::WriteFirst);
         assert_eq!(step(620, true, false), TraceStep::Nothing);
         assert_eq!(step(660, true, false), TraceStep::Restart);
         assert_eq!(step(661, true, true), TraceStep::Nothing);
         // Partie 2 : exit relatif à son début.
-        assert_eq!(trace_step(399, 400, Some(600), 2, true, true), TraceStep::Nothing);
-        assert_eq!(trace_step(400, 400, Some(600), 2, true, true), TraceStep::WriteAndExit);
+        assert_eq!(
+            trace_step(399, 400, Some(600), 2, true, true),
+            TraceStep::Nothing
+        );
+        assert_eq!(
+            trace_step(400, 400, Some(600), 2, true, true),
+            TraceStep::WriteAndExit
+        );
     }
 
     #[test]
     fn suffixe_des_fichiers() {
         let path = std::path::Path::new("/tmp/p2p-0.trace");
-        assert_eq!(trace_path(path, false, 1), PathBuf::from("/tmp/p2p-0.trace"));
-        assert_eq!(trace_path(path, true, 1), PathBuf::from("/tmp/p2p-0.trace-g1"));
-        assert_eq!(trace_path(path, true, 2), PathBuf::from("/tmp/p2p-0.trace-g2"));
+        assert_eq!(
+            trace_path(path, false, 1),
+            PathBuf::from("/tmp/p2p-0.trace")
+        );
+        assert_eq!(
+            trace_path(path, true, 1),
+            PathBuf::from("/tmp/p2p-0.trace-g1")
+        );
+        assert_eq!(
+            trace_path(path, true, 2),
+            PathBuf::from("/tmp/p2p-0.trace-g2")
+        );
     }
 }

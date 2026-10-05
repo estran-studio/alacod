@@ -16,12 +16,12 @@ use crate::jjrs::allumette::AllumetteConfig;
 use crate::{
     character::player::jjrs::PeerConfig,
     core::{AppState, OnlineState},
-    jjrs::{
-        GggrsSessionConfiguration, GggrsSessionConfigurationState, GgrsPlayer, GgrsSessionBuilding,
-    },
     jjrs::restart::{
         restart_room, restart_seed, restart_timed_out, OnlineGames, OnlineRestart,
         RESTART_TIMEOUT_SECS,
+    },
+    jjrs::{
+        GggrsSessionConfiguration, GggrsSessionConfigurationState, GgrsPlayer, GgrsSessionBuilding,
     },
     run_state::resolve_run_mode_with_floors,
 };
@@ -95,7 +95,10 @@ pub fn start_matchbox_socket(
 
     commands.insert_resource(MatchboxSocket::from(socket));
 
-    info!("start p2p connection with CID={} (salle {room})", ggrs_config.cid);
+    info!(
+        "start p2p connection with CID={} (salle {room})",
+        ggrs_config.cid
+    );
 }
 
 /// Ouvre un socket matchbox sur `{matchbox_url}/{room}` (chemin `--matchbox`).
