@@ -65,6 +65,7 @@ pub fn run(registry: &Registry, manifest: &GameManifest) -> Vec<LintError> {
     lint_perks(registry, &mut errors);
     lint_powerups(registry, &mut errors);
     lint_feedback(registry, &mut errors);
+    lint_mutation_screens(registry, &mut errors);
     lint_sprite_sheets(registry, &mut errors);
     lint_floors(registry, &mut errors);
     lint_caves(registry, &mut errors);
@@ -1134,12 +1135,16 @@ fn lint_powerups(registry: &Registry, errors: &mut Vec<LintError>) {
     }
 }
 
-/// Réglages de présentation : aucun état de simulation n'est modifié (T3.4).
+/// Réglages de présentation : aucun état de simulation n'est modifié (T3.4). T1.17 :
+/// valeurs de `FeedbackSettings::problems` (flash, secousse, télégraphe, surcharges
+/// `by_kind`/`by_weapon`) et armes de `by_weapon` connues du jeu (à distance ou de corps à
+/// corps).
 fn lint_feedback(registry: &Registry, errors: &mut Vec<LintError>) {
     let assets_dir = GameManifest::assets_dir(&registry.game_dir);
     for feedback in &registry.feedback {
         let file = feedback.file.display().to_string();
-        for (key, path) in &feedback.sounds {
+        let settings = &feedback.settings;
+        for (key, path) in &settings.sounds {
             if !assets_dir.join(path).is_file() {
                 errors.push(LintError {
                     kind: LintErrorKind::BrokenReference,
@@ -1150,25 +1155,73 @@ fn lint_feedback(registry: &Registry, errors: &mut Vec<LintError>) {
                 });
             }
         }
-        if feedback.shake_amplitude < 0.0 {
+        for problem in settings.problems() {
+            errors.push(LintError {
+                kind: LintErrorKind::OutOfRange,
+                file: file.clone(),
+                message: format!("feedback : champ {} = {}", problem.field, problem.message),
+            });
+        }
+        for weapon in settings.by_weapon.keys() {
+            let known = registry
+                .weapons
+                .contains_key(&registry::WeaponId::from(weapon.as_str()))
+                || registry
+                    .melee_weapons
+                    .contains_key(&registry::MeleeWeaponId::from(weapon.as_str()));
+            if !known {
+                errors.push(LintError {
+                    kind: LintErrorKind::BrokenReference,
+                    file: file.clone(),
+                    message: format!("feedback : by_weapon « {weapon} » : arme inconnue du jeu"),
+                });
+            }
+        }
+    }
+}
+
+/// T1.16 : l'écran de mutation (`ui/mutation_screen.ron`, présentation seule) a sa police
+/// sous `assets/`, exactement trois emplacements de carte (un par bit `ChoiceA/B/C`) et des
+/// tailles positives.
+fn lint_mutation_screens(registry: &Registry, errors: &mut Vec<LintError>) {
+    let assets_dir = GameManifest::assets_dir(&registry.game_dir);
+    for (rel, layout) in &registry.mutation_screens {
+        let file = rel.display().to_string();
+        if !assets_dir.join(&layout.font).is_file() {
+            errors.push(LintError {
+                kind: LintErrorKind::BrokenReference,
+                file: file.clone(),
+                message: format!(
+                    "mutation_screen : champ font = « {} » : fichier absent de assets/",
+                    layout.font
+                ),
+            });
+        }
+        if layout.slots.len() != crate::ui::MUTATION_SCREEN_SLOTS {
             errors.push(LintError {
                 kind: LintErrorKind::OutOfRange,
                 file: file.clone(),
                 message: format!(
-                    "feedback : champ shake.amplitude = {} : doit être >= 0",
-                    feedback.shake_amplitude
+                    "mutation_screen : champ slots : {} emplacements, il en faut {}",
+                    layout.slots.len(),
+                    crate::ui::MUTATION_SCREEN_SLOTS
                 ),
             });
         }
-        for (field, frames) in [
-            ("hit_flash.frames", feedback.hit_flash_frames),
-            ("shake.frames", feedback.shake_frames),
+        for (field, value) in [
+            ("card_size.0", layout.card_size.0),
+            ("card_size.1", layout.card_size.1),
+            ("bar_size.0", layout.bar_size.0),
+            ("bar_size.1", layout.bar_size.1),
+            ("title_size", layout.title_size),
+            ("name_size", layout.name_size),
+            ("text_size", layout.text_size),
         ] {
-            if frames == 0 {
+            if value <= 0.0 {
                 errors.push(LintError {
                     kind: LintErrorKind::OutOfRange,
                     file: file.clone(),
-                    message: format!("feedback : champ {field} = 0 : doit être > 0"),
+                    message: format!("mutation_screen : champ {field} = {value} : doit être > 0"),
                 });
             }
         }

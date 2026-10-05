@@ -330,6 +330,16 @@ Scenario(
             hits: 11,
             at_frame: 175,
         ),
+        Event(
+            kind: "feedback",
+            label_contains: "secousse 35 (16 frames)",
+            by_frame: 113,
+        ),
+        Event(
+            kind: "feedback",
+            label_contains: "hit stop 35 (6 frames)",
+            by_frame: 113,
+        ),
     ],
     powerup_drop_chance_override: "0",
 )

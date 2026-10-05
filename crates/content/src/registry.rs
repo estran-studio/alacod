@@ -858,10 +858,8 @@ pub struct PowerUpDropChanceEntry {
 #[derive(Debug, Clone)]
 pub struct FeedbackEntry {
     pub file: PathBuf,
-    pub hit_flash_frames: u32,
-    pub shake_frames: u32,
-    pub shake_amplitude: f32,
-    pub sounds: BTreeMap<String, String>,
+    /// Même type que l'asset du jeu (`game::feedback::FeedbackConfig`), T1.17.
+    pub settings: crate::feedback::FeedbackSettings,
 }
 
 /// Registre de contenu d'un jeu, chargé depuis son manifeste (`GameManifest`). Voir le
@@ -913,6 +911,8 @@ pub struct Registry {
     pub ui_files: Vec<PathBuf>,
     /// Réglages typés du feedback (T3.4) parmi les fichiers Ui.
     pub feedback: Vec<FeedbackEntry>,
+    /// T1.16 : écrans de mutation (`ui/mutation_screen.ron`) parmi les fichiers Ui.
+    pub mutation_screens: Vec<(PathBuf, crate::ui::MutationScreenLayout)>,
     pub camera_files: Vec<PathBuf>,
     /// D3 : feuilles de sprites par id (kind `SpriteSheet`), source des sprites chargés par
     /// `game::global_asset` (avant D3 : une table de chemins écrite dans le code).
@@ -1419,26 +1419,6 @@ struct PowerUpEntrySchema {
     lifetime_frames: u32,
     #[serde(default)]
     actions: Vec<effects::Action>,
-}
-
-#[derive(Deserialize)]
-struct FeedbackFileSchema {
-    hit_flash: HitFlashSchema,
-    shake: ShakeSchema,
-    sounds: BTreeMap<String, String>,
-}
-
-#[derive(Deserialize)]
-struct HitFlashSchema {
-    frames: u32,
-    #[serde(rename = "color")]
-    _color: (f32, f32, f32),
-}
-
-#[derive(Deserialize)]
-struct ShakeSchema {
-    frames: u32,
-    amplitude: f32,
 }
 
 // ---------------------------------------------------------------------------------------
@@ -2652,7 +2632,8 @@ fn load_maps(
     }
 }
 
-/// Les réglages `feedback.ron` déclarés comme Ui ont un schéma typé (T3.4).
+/// Les réglages `feedback.ron` déclarés comme Ui ont un schéma typé (T3.4), comme
+/// `mutation_screen.ron` (T1.16, [`crate::ui::MutationScreenLayout`]).
 /// Les autres fichiers Ui gardent la validation syntaxique.
 fn load_ui(
     assets_dir: &Path,
@@ -2676,14 +2657,17 @@ fn load_ui(
             }
         };
         let parsed = if rel.file_name().and_then(|name| name.to_str()) == Some("feedback.ron") {
-            ron::from_str::<FeedbackFileSchema>(&text).map(|config| {
+            ron::from_str::<crate::feedback::FeedbackSettings>(&text).map(|settings| {
                 registry.feedback.push(FeedbackEntry {
                     file: rel.clone(),
-                    hit_flash_frames: config.hit_flash.frames,
-                    shake_frames: config.shake.frames,
-                    shake_amplitude: config.shake.amplitude,
-                    sounds: config.sounds,
+                    settings,
                 });
+            })
+        } else if rel.file_name().and_then(|name| name.to_str())
+            == Some(crate::ui::MUTATION_SCREEN_FILE_NAME)
+        {
+            ron::from_str::<crate::ui::MutationScreenLayout>(&text).map(|layout| {
+                registry.mutation_screens.push((rel.clone(), layout));
             })
         } else {
             ron::from_str::<ron::Value>(&text).map(|_| ())

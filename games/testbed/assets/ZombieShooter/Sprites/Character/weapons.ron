@@ -471,6 +471,10 @@
                     BulletCount(count: 8, projectile: Some("eclat"), at_frame: 113),
                     BulletCount(count: 0, projectile: Some("eclat"), at_frame: 174),
                     HitsAtLeast(entity: Target, hits: 11, at_frame: 175),
+                    // T1.17 : la première explosion (f113) déclenche la secousse et le hit stop
+                    // de surcharge (`by_weapon: "grenade"` de `ui/feedback.ron`).
+                    Event(kind: "feedback", label_contains: Some("secousse 35 (16 frames)"), by_frame: 113),
+                    Event(kind: "feedback", label_contains: Some("hit stop 35 (6 frames)"), by_frame: 113),
                 ],
             )),
         ),

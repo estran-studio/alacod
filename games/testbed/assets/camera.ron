@@ -11,4 +11,7 @@
     use_edge_detection: true,
     // En ligne, mode de suivi : LocalPlayer (défaut, suit mon joueur) ou AllPlayers (cadre tout le monde)
     online_follow: LocalPlayer,
+    // T1.16 (§30) : fondu au noir (secondes) et recentrage de la caméra à chaque niveau.
+    floor_fade_seconds: 0.4,
+    floor_recenter: true,
 ))
