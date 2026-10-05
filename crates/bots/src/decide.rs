@@ -41,7 +41,14 @@ pub(crate) const PRUDENT_MAX_DISTANCE: Fixed = Fixed::from_bits(320 << 16);
 /// (24). Sous [`PORTAL_BRAKE_DISTANCE`], il relâche tout tant que sa vitesse dépasse
 /// [`PORTAL_BRAKE_SPEED`], puis avance par petits pas ; un axe dont l'écart est sous
 /// [`PORTAL_DEAD_ZONE`] n'est pas pressé.
+///
+/// m1-v3-bots-portail : le freinage ne commençait qu'à 48, trop tard à pleine vitesse (≈ 140) :
+/// la glissade l'emmenait au-delà de 48 et la route le relançait à fond — le bot tournait autour
+/// du portail à 50–100 sans jamais y entrer (throne, solo, graines 3 et 16). Sous
+/// [`PORTAL_SLOW_DISTANCE`], il relâche donc tout dès que sa vitesse dépasse
+/// [`PORTAL_BRAKE_SPEED`], puis reprend la route par petits pas.
 pub(crate) const PORTAL_BRAKE_DISTANCE: Fixed = Fixed::from_bits(48 << 16);
+const PORTAL_SLOW_DISTANCE: Fixed = Fixed::from_bits(112 << 16);
 const PORTAL_BRAKE_SPEED: Fixed = Fixed::from_bits(30 << 16);
 const PORTAL_DEAD_ZONE: Fixed = Fixed::from_bits(6 << 16);
 
@@ -147,14 +154,14 @@ fn route_unless(direct: bool, view: &BotView, straight: FixedVec2) -> FixedVec2 
 /// chemin tant qu'il est loin, freinée dans les derniers [`PORTAL_BRAKE_DISTANCE`].
 fn approach_portal(input: &mut BoxInput, view: &BotView, portal: FixedVec2) {
     let delta = portal - view.position;
+    if delta.length() < PORTAL_SLOW_DISTANCE && view.velocity.length() > PORTAL_BRAKE_SPEED {
+        return; // aucun bouton : friction
+    }
     if delta.length() >= PORTAL_BRAKE_DISTANCE {
         if let Some(route) = view.route {
             set_direction_buttons(input, route);
             return;
         }
-    }
-    if delta.length() < PORTAL_BRAKE_DISTANCE && view.velocity.length() > PORTAL_BRAKE_SPEED {
-        return; // aucun bouton : friction
     }
     let mut step = FixedVec2::ZERO;
     if delta.x.abs() > PORTAL_DEAD_ZONE {
@@ -273,6 +280,24 @@ mod tests {
         assert_ne!(
             decide(BotProfile::Prudent, &v, &mut rng()).buttons & INPUT_RIGHT,
             0
+        );
+    }
+
+    /// m1-v3-bots-portail : à 80 px du portail (au-delà de l'ancienne zone de 48), lancé à
+    /// pleine vitesse : freine (aucun bouton) au lieu de suivre la route et d'orbiter ; à
+    /// l'arrêt : reprend la route.
+    #[test]
+    fn prudent_freine_avant_la_zone_du_portail() {
+        let mut v = view(FixedVec2::new(fx(0.0), fx(0.0)));
+        v.portal = Some(FixedVec2::new(fx(80.0), fx(0.0)));
+        v.route = Some(FixedVec2::new(fx(0.0), fx(8.0)));
+        v.velocity = FixedVec2::new(fx(100.0), fx(100.0));
+        assert_eq!(decide(BotProfile::Prudent, &v, &mut rng()).buttons, 0);
+        v.velocity = FixedVec2::new(fx(10.0), fx(0.0));
+        assert_ne!(
+            decide(BotProfile::Prudent, &v, &mut rng()).buttons & INPUT_UP,
+            0,
+            "lent : la route"
         );
     }
 
