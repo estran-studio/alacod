@@ -116,11 +116,72 @@ pub enum NavProfile {
     Phasing,
 }
 
-/// Le seul champ de flux construit et suivi par le déplacement des ennemis (D38 : tous les
-/// profils utilisent ce champ ; un champ par profil reste à faire). Lu aussi par le diagnostic
-/// de soft-lock (`scenario::softlock`, D42) : il doit regarder le champ réellement suivi, pas
-/// celui du profil déclaré.
+/// Profil du champ de flux par défaut : celui des zombies et de tout ennemi de gabarit petit
+/// qui traverse les obstacles cassables. Lu par le diagnostic de soft-lock pour l'en-tête
+/// (`scenario::softlock`, D42).
 pub const MOVEMENT_FLOW_PROFILE: NavProfile = NavProfile::GroundBreaker;
+
+/// Gabarit d'un agent pour la navigation (D41) : le dégagement qu'il lui faut autour des murs.
+#[derive(Clone, Copy, Debug, PartialEq, Eq, Hash, PartialOrd, Ord, Default)]
+pub enum AgentSize {
+    /// Corps d'au plus [`SMALL_AGENT_MAX`] de large (zombies, ennemis de 20 px) : le champ
+    /// historique, un couloir de deux cases suffit (`FlowFieldCache::is_too_narrow`).
+    #[default]
+    Small,
+    /// Corps plus large (boss) : centre à au moins une case de tout obstacle, couloirs de
+    /// trois cases.
+    Large,
+}
+
+/// Largeur (ou hauteur) de corps au-delà de laquelle un agent est [`AgentSize::Large`].
+pub const SMALL_AGENT_MAX: i32 = 20;
+
+impl AgentSize {
+    pub fn of(body: &AgentBody) -> Self {
+        let max = fixed_math::Fixed::from_num(SMALL_AGENT_MAX);
+        if body.left + body.right > max || body.down + body.up > max {
+            AgentSize::Large
+        } else {
+            AgentSize::Small
+        }
+    }
+}
+
+/// Clé d'un champ de flux (D41 + D38) : profil d'obstacles et gabarit de l'agent. Un ennemi
+/// suit le champ de **sa** clé ; seules les clés d'ennemis qui se déplacent sont construites.
+///
+/// `Hash` écrit à la main : une clé de gabarit petit se hache exactement comme son profil seul
+/// (`FlowFieldCache` est sous checksum ; avant ce chantier, `layers` était indexé par
+/// `NavProfile`) : un cache qui ne porte que le champ historique garde le même checksum.
+#[derive(Clone, Copy, Debug, PartialEq, Eq, PartialOrd, Ord)]
+pub struct NavKey {
+    pub profile: NavProfile,
+    pub size: AgentSize,
+}
+
+impl std::hash::Hash for NavKey {
+    fn hash<H: std::hash::Hasher>(&self, state: &mut H) {
+        self.profile.hash(state);
+        if self.size != AgentSize::Small {
+            self.size.hash(state);
+        }
+    }
+}
+
+impl NavKey {
+    pub const fn new(profile: NavProfile, size: AgentSize) -> Self {
+        Self { profile, size }
+    }
+
+    /// Clé d'un agent : son profil (`EnemyAiConfig::nav_profile`) et le gabarit de son corps.
+    pub fn for_agent(profile: NavProfile, body: &AgentBody) -> Self {
+        Self::new(profile, AgentSize::of(body))
+    }
+}
+
+/// Le champ historique, toujours construit (zombies, ennemis de 20 px qui cassent les
+/// fenêtres).
+pub const MOVEMENT_FLOW_KEY: NavKey = NavKey::new(MOVEMENT_FLOW_PROFILE, AgentSize::Small);
 
 impl NavProfile {
     /// Returns true if this profile can pass through the given obstacle type
@@ -351,8 +412,9 @@ pub struct FlowFieldCache {
     pub last_update_frame: u32,
     /// Update interval in frames
     pub update_interval: u32,
-    /// Cached flow fields per navigation profile
-    pub layers: BTreeMap<NavProfile, FlowField>,
+    /// Champs de flux par clé (profil, gabarit) **canonique** (voir
+    /// [`FlowFieldCache::canonical`]) ; [`MOVEMENT_FLOW_KEY`] est toujours présent.
+    pub layers: BTreeMap<NavKey, FlowField>,
     /// Blocked cells per obstacle type (for building flow fields)
     pub blocked_cells: BTreeMap<ObstacleType, BTreeSet<GridPos>>,
     /// All permanently blocked cells (walls) - computed from IntGrid + dynamic walls
@@ -382,9 +444,45 @@ impl FlowFieldCache {
         }
     }
 
-    /// Get the flow field for a specific navigation profile
-    pub fn get_flow_field(&self, profile: NavProfile) -> Option<&FlowField> {
-        self.layers.get(&profile)
+    /// Clé du champ réellement construit pour `key` : un profil qui, sur la carte courante,
+    /// voit exactement les mêmes obstacles que [`MOVEMENT_FLOW_PROFILE`] (aucune cellule d'un
+    /// obstacle que l'un passe et l'autre pas : pas de fenêtre ni de barricade pour `Ground`)
+    /// partage son champ. Ainsi un ennemi `Ground` dans une caverne suit le champ historique,
+    /// et seules les cartes à obstacles cassables construisent un champ `Ground` à part.
+    pub fn canonical(&self, key: NavKey) -> NavKey {
+        let same_obstacles = self.blocked_cells.iter().all(|(obstacle_type, cells)| {
+            cells.is_empty()
+                || key.profile.can_pass(*obstacle_type)
+                    == MOVEMENT_FLOW_PROFILE.can_pass(*obstacle_type)
+        });
+        if same_obstacles {
+            NavKey::new(MOVEMENT_FLOW_PROFILE, key.size)
+        } else {
+            key
+        }
+    }
+
+    /// Champ de flux à suivre pour un agent de clé `key`.
+    pub fn get_flow_field(&self, key: NavKey) -> Option<&FlowField> {
+        self.layers.get(&self.canonical(key))
+    }
+
+    /// Case bloquée pour un agent de clé `key` : obstacle du profil, et pour un gabarit grand,
+    /// toute case voisine (8-voisinage) d'un obstacle (D41 : le centre reste à une case des
+    /// murs).
+    pub fn is_blocked_for(&self, pos: &GridPos, key: NavKey) -> bool {
+        self.is_blocked(pos, key.profile)
+            || (key.size == AgentSize::Large
+                && pos
+                    .neighbors_8()
+                    .iter()
+                    .any(|n| self.is_blocked(n, key.profile)))
+    }
+
+    /// Couloir trop étroit pour un agent de clé `key` : celui d'une case pour un gabarit petit
+    /// ([`Self::is_too_narrow`]) ; un gabarit grand l'exclut déjà par [`Self::is_blocked_for`].
+    pub fn is_too_narrow_for(&self, pos: &GridPos, key: NavKey) -> bool {
+        key.size == AgentSize::Small && self.is_too_narrow(pos, key.profile)
     }
 
     /// Check if a cell is blocked for a given navigation profile
@@ -414,17 +512,17 @@ impl FlowFieldCache {
 
     /// Net id of the target (player) the flow field leads to from `pos`: the closest one
     /// along the path.
-    pub fn nearest_target(&self, profile: NavProfile, pos: fixed_math::FixedVec2) -> Option<usize> {
+    pub fn nearest_target(&self, key: NavKey, pos: fixed_math::FixedVec2) -> Option<usize> {
         let owner = *self
-            .get_flow_field(profile)?
+            .get_flow_field(key)?
             .owners
             .get(&GridPos::from_fixed(pos))?;
         self.target_ids.get(owner).copied()
     }
 
     /// Cells of the flow field path from `from`, up to `steps` cells ahead.
-    pub fn path_ahead(&self, profile: NavProfile, from: GridPos, steps: usize) -> Vec<GridPos> {
-        let Some(field) = self.get_flow_field(profile) else {
+    pub fn path_ahead(&self, key: NavKey, from: GridPos, steps: usize) -> Vec<GridPos> {
+        let Some(field) = self.get_flow_field(key) else {
             return vec![];
         };
         let mut path = Vec::with_capacity(steps);
@@ -493,11 +591,12 @@ impl FlowFieldCache {
     /// point (see [`Self::steering_point`]). `None` outside the field.
     pub fn flow_direction(
         &self,
-        profile: NavProfile,
+        key: NavKey,
         pos: fixed_math::FixedVec2,
         body: &AgentBody,
     ) -> Option<fixed_math::FixedVec2> {
-        let field = self.get_flow_field(profile)?;
+        let field = self.get_flow_field(key)?;
+        let profile = key.profile;
         let next = field.get_direction(GridPos::from_fixed(pos))?;
         let direction = self.steering_point(next, profile, body) - pos;
         if direction.length_squared() > fixed_math::FixedWide::ZERO {
@@ -624,6 +723,8 @@ pub fn update_flow_field_system(
     // Portes fermées : une porte ouverte n'a plus de collider
     door_query: Query<(&GgrsNetId, &fixed_math::FixedTransform3D, &Collider), With<DoorComponent>>,
     obstacle_query: Query<(&fixed_math::FixedTransform3D, &Collider, &Obstacle), With<Rollback>>,
+    // D41 + D38 : clés des ennemis qui se déplacent (un ennemi immobile ne suit aucun champ)
+    agents: Query<(&super::state::EnemyAiConfig, &Collider), With<crate::character::enemy::Enemy>>,
     mut cache: ResMut<FlowFieldCache>,
 ) {
     // Check if we need to update (rate limit)
@@ -669,9 +770,23 @@ pub fn update_flow_field_system(
     let obstacles_changed =
         cache.wall_cells != previous_walls || cache.blocked_cells != previous_blocked;
 
+    // Clés à construire (canoniques, voir `FlowFieldCache::canonical`) : le champ historique,
+    // plus celles des ennemis présents qui se déplacent. Avec le seul contenu de gabarit petit
+    // et sans obstacle qui distingue les profils, il n'y a que [`MOVEMENT_FLOW_KEY`] : même
+    // cache et même checksum qu'avant ce chantier.
+    let mut keys: BTreeSet<NavKey> = BTreeSet::from([MOVEMENT_FLOW_KEY]);
+    for (ai, collider) in &agents {
+        if !ai.stationary {
+            let key = NavKey::for_agent(ai.nav_profile(), &AgentBody::from_collider(collider));
+            keys.insert(cache.canonical(key));
+        }
+    }
+    let keys_changed = !keys.iter().eq(cache.layers.keys());
+
     if targets == cache.targets
         && target_ids == cache.target_ids
         && !obstacles_changed
+        && !keys_changed
         && !cache.layers.is_empty()
     {
         return;
@@ -681,20 +796,22 @@ pub fn update_flow_field_system(
     cache.targets = targets.clone();
     cache.target_ids = target_ids;
 
-    // Use GroundBreaker profile so zombies can pathfind through breakable obstacles (windows)
-    let flow_field = build_flow_field(&targets, MOVEMENT_FLOW_PROFILE, &cache, &config);
+    let layers: BTreeMap<NavKey, FlowField> = keys
+        .iter()
+        .map(|key| (*key, build_flow_field(&targets, *key, &cache, &config)))
+        .collect();
 
     // Log flow field stats only on significant rebuilds
     trace!(
-        "FlowField: targets={}, first=({},{}), reachable={}, walls={}",
+        "FlowField: targets={}, first=({},{}), fields={}, walls={}",
         targets.len(),
         target_pos.x,
         target_pos.y,
-        flow_field.directions.len(),
+        layers.len(),
         cache.wall_cells.len()
     );
 
-    cache.layers.insert(MOVEMENT_FLOW_PROFILE, flow_field);
+    cache.layers = layers;
 }
 
 /// Rebuild the blocked cell cache from IntGrid data and current obstacle positions
@@ -820,10 +937,11 @@ pub fn get_collider_cells(pos: fixed_math::FixedVec2, collider: &Collider) -> Ve
 /// (cost, cell), and cells are only improved by a strictly lower cost.
 fn build_flow_field(
     targets: &[GridPos],
-    profile: NavProfile,
+    key: NavKey,
     cache: &FlowFieldCache,
     config: &FlowFieldConfig,
 ) -> FlowField {
+    let profile = key.profile;
     use std::cmp::Reverse;
     use std::collections::BinaryHeap;
 
@@ -866,7 +984,7 @@ fn build_flow_field(
     for x in min_x..=max_x {
         for y in min_y..=max_y {
             let p = GridPos::new(x, y);
-            if cache.is_blocked(&p, profile) {
+            if cache.is_blocked_for(&p, key) {
                 wall_distance.insert(p, 0);
                 frontier.push_back((p, 0));
             }
@@ -922,7 +1040,7 @@ fn build_flow_field(
             }
 
             // Check if blocked for this profile, or too narrow for an agent
-            if cache.is_blocked(&neighbor, profile) || cache.is_too_narrow(&neighbor, profile) {
+            if cache.is_blocked_for(&neighbor, key) || cache.is_too_narrow_for(&neighbor, key) {
                 continue;
             }
 
@@ -931,8 +1049,8 @@ fn build_flow_field(
             let (dx, dy) = (neighbor.x - current.x, neighbor.y - current.y);
             let diagonal = dx != 0 && dy != 0;
             if diagonal
-                && (cache.is_blocked(&GridPos::new(current.x + dx, current.y), profile)
-                    || cache.is_blocked(&GridPos::new(current.x, current.y + dy), profile))
+                && (cache.is_blocked_for(&GridPos::new(current.x + dx, current.y), key)
+                    || cache.is_blocked_for(&GridPos::new(current.x, current.y + dy), key))
             {
                 continue;
             }
@@ -1014,6 +1132,91 @@ mod retreat_tests {
         assert_eq!(
             field.retreat_direction(GridPos::new(10, 10).to_fixed()),
             None
+        );
+    }
+}
+
+/// D41 + D38 : clés de champ (profil, gabarit).
+#[cfg(test)]
+mod nav_key_tests {
+    use super::*;
+    use std::hash::{Hash, Hasher};
+
+    fn body(width: f32, height: f32) -> AgentBody {
+        AgentBody::from_collider(&Collider {
+            shape: ColliderShape::Rectangle {
+                width: fixed_math::new(width),
+                height: fixed_math::new(height),
+            },
+            offset: fixed_math::FixedVec3::new(
+                fixed_math::FIXED_ZERO,
+                fixed_math::new(-6.0),
+                fixed_math::FIXED_ZERO,
+            ),
+        })
+    }
+
+    fn hash_of(value: impl Hash) -> u64 {
+        let mut hasher = std::collections::hash_map::DefaultHasher::new();
+        value.hash(&mut hasher);
+        hasher.finish()
+    }
+
+    #[test]
+    fn gabarit_selon_le_corps() {
+        assert_eq!(AgentSize::of(&body(20.0, 20.0)), AgentSize::Small);
+        assert_eq!(AgentSize::of(&body(28.0, 28.0)), AgentSize::Large);
+        assert_eq!(AgentSize::of(&body(20.0, 24.0)), AgentSize::Large);
+    }
+
+    #[test]
+    fn cle_petite_hachee_comme_son_profil() {
+        // Checksum : un cache qui ne porte que le champ historique ne change pas.
+        assert_eq!(hash_of(MOVEMENT_FLOW_KEY), hash_of(MOVEMENT_FLOW_PROFILE));
+        let mut old: BTreeMap<NavProfile, u8> = BTreeMap::new();
+        old.insert(NavProfile::GroundBreaker, 7);
+        let mut new: BTreeMap<NavKey, u8> = BTreeMap::new();
+        new.insert(MOVEMENT_FLOW_KEY, 7);
+        assert_eq!(hash_of(&old), hash_of(&new));
+        assert_ne!(
+            hash_of(NavKey::new(NavProfile::GroundBreaker, AgentSize::Large)),
+            hash_of(MOVEMENT_FLOW_KEY)
+        );
+    }
+
+    #[test]
+    fn grand_gabarit_reste_a_une_case_des_murs() {
+        let mut cache = FlowFieldCache::new();
+        cache.wall_cells.insert(GridPos::new(0, 0));
+        let large = NavKey::new(NavProfile::GroundBreaker, AgentSize::Large);
+        assert!(!cache.is_blocked_for(&GridPos::new(1, 1), MOVEMENT_FLOW_KEY));
+        assert!(cache.is_blocked_for(&GridPos::new(1, 1), large));
+        assert!(!cache.is_blocked_for(&GridPos::new(2, 0), large));
+        // Couloir de trois cases (murs en x = 0 et x = 4) : praticable au centre pour un grand.
+        for y in -3..=3 {
+            cache.wall_cells.insert(GridPos::new(0, y));
+            cache.wall_cells.insert(GridPos::new(4, y));
+        }
+        assert!(!cache.is_blocked_for(&GridPos::new(2, 0), large));
+        assert!(!cache.is_too_narrow_for(&GridPos::new(2, 0), large));
+        assert!(cache.is_blocked_for(&GridPos::new(1, 0), large));
+    }
+
+    #[test]
+    fn ground_partage_le_champ_historique_sans_fenetre() {
+        let mut cache = FlowFieldCache::new();
+        let ground = NavKey::new(NavProfile::Ground, AgentSize::Small);
+        assert_eq!(cache.canonical(ground), MOVEMENT_FLOW_KEY);
+        cache
+            .blocked_cells
+            .entry(ObstacleType::Window)
+            .or_default()
+            .insert(GridPos::new(3, 3));
+        assert_eq!(cache.canonical(ground), ground);
+        // Un gabarit grand garde sa taille dans la clé canonique.
+        assert_eq!(
+            cache.canonical(NavKey::new(NavProfile::GroundBreaker, AgentSize::Large)),
+            NavKey::new(NavProfile::GroundBreaker, AgentSize::Large)
         );
     }
 }

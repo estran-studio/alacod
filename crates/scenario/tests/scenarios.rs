@@ -573,7 +573,7 @@ fn nav_probe() {
     let world = app.world_mut();
     let cache = world.resource::<FlowFieldCache>().clone();
     let field = cache
-        .get_flow_field(NavProfile::GroundBreaker)
+        .get_flow_field(game::character::enemy::ai::navigation::MOVEMENT_FLOW_KEY)
         .cloned()
         .unwrap_or_default();
     let mut q = world.query_filtered::<(

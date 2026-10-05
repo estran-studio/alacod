@@ -10,7 +10,7 @@ use game::{
     character::{
         enemy::{
             ai::{
-                navigation::{AgentBody, MOVEMENT_FLOW_PROFILE},
+                navigation::{AgentBody, NavKey, MOVEMENT_FLOW_KEY},
                 EnemyAiConfig, EnemyTarget, FlowFieldCache, GridPos, MonsterState,
             },
             Enemy,
@@ -42,13 +42,13 @@ impl SoftlockDump {
             "plafond atteint : phase {:?}, {} ennemis de vague présents, {} encore à générer",
             final_state.wave.phase, remaining, final_state.wave.enemies_to_spawn
         )];
-        // D42 : le chemin se lit dans le champ que le déplacement suit réellement
-        // (`MOVEMENT_FLOW_PROFILE`), pas dans celui du profil déclaré par l'ennemi (D38).
+        // D42 : le chemin se lit dans le champ que le déplacement de chaque ennemi suit
+        // réellement (sa clé profil + gabarit, canonique : D41 + D38).
         if final_state.enemies.is_empty() {
             // Rien à diagnostiquer côté chemins.
         } else if final_state.flow_field.is_none() {
             observations.push(format!(
-                "chemins non calculés : aucun champ de flux {MOVEMENT_FLOW_PROFILE:?} (celui que suit le déplacement)"
+                "chemins non calculés : aucun champ de flux construit"
             ));
         } else {
             let uncovered = final_state
@@ -57,7 +57,8 @@ impl SoftlockDump {
                 .filter(|e| e.path_cost.is_none())
                 .count();
             observations.push(format!(
-                "{uncovered} ennemis hors du champ de flux {MOVEMENT_FLOW_PROFILE:?} depuis leur case exacte"
+                "{uncovered} ennemis hors de leur champ de flux depuis leur case exacte (champs : {})",
+                final_state.flow_field.as_deref().unwrap_or_default()
             ));
         }
         for enemy in &final_state.enemies {
@@ -111,9 +112,9 @@ pub struct Snapshot {
     pub wave: WaveState,
     pub run_step: Option<String>,
     pub enemies: Vec<EnemySnapshot>,
-    /// Champ de flux lu pour les chemins (D42) : celui que suit le déplacement
-    /// (`MOVEMENT_FLOW_PROFILE`) ; `None` : non calculé (aucun champ construit), les
-    /// `path_cost` absents ne disent alors rien.
+    /// Champs de flux construits (clés canoniques, D41 + D38), ex. `GroundBreaker`,
+    /// `GroundBreaker/Large` ; `None` : non calculé (aucun champ construit), les `path_cost`
+    /// absents ne disent alors rien.
     pub flow_field: Option<String>,
     /// Joueurs encore présents, y compris à terre (signalés explicitement).
     pub players: Vec<PlayerSnapshot>,
@@ -237,10 +238,22 @@ pub fn snapshot(world: &mut World) -> Snapshot {
         .map(|(id, player, t, _)| (player.handle, id.0, t.translation.truncate()))
         .collect();
     alive_players.sort_by_key(|(handle, ..)| *handle);
-    let flow_field = world
-        .resource::<FlowFieldCache>()
-        .get_flow_field(MOVEMENT_FLOW_PROFILE)
-        .map(|_| format!("{MOVEMENT_FLOW_PROFILE:?}"));
+    let flow_field = {
+        let cache = world.resource::<FlowFieldCache>();
+        (!cache.layers.is_empty()).then(|| {
+            cache
+                .layers
+                .keys()
+                .map(|key| match key.size {
+                    game::character::enemy::ai::navigation::AgentSize::Small => {
+                        format!("{:?}", key.profile)
+                    }
+                    size => format!("{:?}/{size:?}", key.profile),
+                })
+                .collect::<Vec<_>>()
+                .join(", ")
+        })
+    };
     let mut enemies: Vec<_> = world
         .query_filtered::<(
             &GgrsNetId,
@@ -256,11 +269,17 @@ pub fn snapshot(world: &mut World) -> Snapshot {
         .map(|(id, entity, t, health, wave, state, target, ai)| {
             let cache = world.resource::<FlowFieldCache>();
             let cell = GridPos::from_fixed(t.translation.truncate());
-            let field = cache.get_flow_field(MOVEMENT_FLOW_PROFILE);
             let collider = world.get::<Collider>(entity);
+            let key = match (ai, collider) {
+                (Some(ai), Some(c)) => {
+                    NavKey::for_agent(ai.nav_profile(), &AgentBody::from_collider(c))
+                }
+                _ => MOVEMENT_FLOW_KEY,
+            };
+            let field = cache.get_flow_field(key);
             let steering = collider.and_then(|c| {
                 field?.get_direction(cell).map(|next| {
-                    cache.steering_point(next, MOVEMENT_FLOW_PROFILE, &AgentBody::from_collider(c))
+                    cache.steering_point(next, key.profile, &AgentBody::from_collider(c))
                 })
             });
             let candidate =
@@ -470,7 +489,7 @@ mod tests {
         let obs = &dump.observations;
         assert!(
             obs.contains(
-                &"1 ennemis hors du champ de flux GroundBreaker depuis leur case exacte"
+                &"1 ennemis hors de leur champ de flux depuis leur case exacte (champs : GroundBreaker)"
                     .to_string()
             ),
             "{obs:?}"

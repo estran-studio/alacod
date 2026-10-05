@@ -24,7 +24,7 @@ use sim_core::{
 use utils::{frame::FrameCount, net_id::GgrsNetId, order_iter, order_mut_iter};
 
 use super::{
-    navigation::{FlowFieldCache, MOVEMENT_FLOW_PROFILE},
+    navigation::{FlowFieldCache, NavKey},
     state::{
         BehaviorRuntime, ChargePhase, EnemyAiConfig, EnemyBehaviors, EnemyTarget, MonsterState,
         RangedAttackState, TargetType,
@@ -289,6 +289,8 @@ pub fn behavior_motion(
     position: fixed_math::FixedVec2,
     target: Option<fixed_math::FixedVec2>,
     flow_field_cache: &FlowFieldCache,
+    // D41 + D38 : champ de l'ennemi (profil, gabarit), pour le recul.
+    nav_key: NavKey,
 ) -> Option<BehaviorMotion> {
     let rule = runtime
         .selected
@@ -300,7 +302,7 @@ pub fn behavior_motion(
     match rule {
         Behavior::KeepDistance { .. } | Behavior::Flee => {
             let retreat = flow_field_cache
-                .get_flow_field(MOVEMENT_FLOW_PROFILE)
+                .get_flow_field(nav_key)
                 .and_then(|field| field.retreat_direction(position))
                 .or_else(|| target.map(|t| (position - t).normalize_or_zero()));
             Some(match retreat {
@@ -439,8 +441,8 @@ mod tests {
             fixed_math::new(100.0),
             fixed_math::FIXED_ZERO,
         ));
-        let first = behavior_motion(&drifter, &runtime, 110, at, target, &cache).unwrap();
-        let second = behavior_motion(&drifter, &runtime, 150, at, target, &cache).unwrap();
+        let first = behavior_motion(&drifter, &runtime, 110, at, target, &cache, super::navigation::MOVEMENT_FLOW_KEY).unwrap();
+        let second = behavior_motion(&drifter, &runtime, 150, at, target, &cache, super::navigation::MOVEMENT_FLOW_KEY).unwrap();
         // Perpendiculaire à la cible (axe x) : le long de y, sens opposés.
         assert_eq!(first.direction.x, fixed_math::FIXED_ZERO);
         assert!(first.direction.y > fixed_math::FIXED_ZERO);
@@ -461,13 +463,13 @@ mod tests {
             },
             ..Default::default()
         };
-        let telegraph = behavior_motion(&charger, &runtime, 10, at, None, &cache).unwrap();
+        let telegraph = behavior_motion(&charger, &runtime, 10, at, None, &cache, super::navigation::MOVEMENT_FLOW_KEY).unwrap();
         assert_eq!(telegraph.speed_mult, fixed_math::FIXED_ZERO);
         runtime.charge = ChargePhase::Rush {
             until: 90,
             target: frozen,
         };
-        let rush = behavior_motion(&charger, &runtime, 40, at, None, &cache).unwrap();
+        let rush = behavior_motion(&charger, &runtime, 40, at, None, &cache, super::navigation::MOVEMENT_FLOW_KEY).unwrap();
         assert_eq!(rush.speed_mult, fixed_math::Fixed::from_num(3));
         assert!(rush.direction.x > fixed_math::new(0.99));
     }

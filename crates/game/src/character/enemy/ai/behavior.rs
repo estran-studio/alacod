@@ -129,9 +129,17 @@ pub fn enemy_target_selection(
         }
 
         // Target the player the flow field leads to (the closest one along the path), so the
-        // enemy chases and attacks the same player; fall back to the closest in straight line
+        // enemy chases and attacks the same player; fall back to the closest in straight line.
+        // Champ du profil de l'ennemi (D38), gabarit petit : le joueur visé dépend des obstacles
+        // que l'ennemi passe, pas de sa taille.
         let path_player = flow_field_cache
-            .nearest_target(super::navigation::NavProfile::GroundBreaker, enemy_pos)
+            .nearest_target(
+                super::navigation::NavKey::new(
+                    ai_config.nav_profile(),
+                    super::navigation::AgentSize::Small,
+                ),
+                enemy_pos,
+            )
             .and_then(|net_id| players.iter().find(|(id, _)| id.0 == net_id))
             .map(|(id, transform)| {
                 let pos = transform.translation.truncate();
@@ -168,8 +176,10 @@ pub fn enemy_target_selection(
         if closest_player.is_some() {
             let here = super::navigation::GridPos::from_fixed(enemy_pos);
             let mut ahead = vec![here];
+            // Fenêtre sur le chemin : lue dans le champ qui traverse les cassables (seuls les
+            // ennemis qui la cassent la cherchent).
             ahead.extend(flow_field_cache.path_ahead(
-                super::navigation::NavProfile::GroundBreaker,
+                super::navigation::MOVEMENT_FLOW_KEY,
                 here,
                 3,
             ));

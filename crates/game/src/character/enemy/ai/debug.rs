@@ -93,7 +93,10 @@ pub fn draw_flow_field_debug(
         return;
     }
 
-    let flow_field = match cache.get_flow_field(ff_debug.profile) {
+    let flow_field = match cache.get_flow_field(super::navigation::NavKey::new(
+        ff_debug.profile,
+        super::navigation::AgentSize::Small,
+    )) {
         Some(ff) => ff,
         None => return,
     };
