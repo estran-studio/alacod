@@ -252,4 +252,5 @@ Diff proposé (`git apply` depuis la racine de `alacod`) :
 +  (`perks`), couleur et étiquette lues dans `icons` (voir `docs/conventions.md` §15).
  
  #### Sources de données
+ 
 ```
