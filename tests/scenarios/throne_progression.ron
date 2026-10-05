@@ -4,10 +4,12 @@
 // option est prise 600 frames après chaque niveau.
 //
 // Mesuré (navigation par le champ, m1-v3-bots-pathfinding) : niveau 1 à f537 (3 rads), étage 1
-// à f808, `sang_froid` à f1137 (537 + 600), niveau 2 à f1575, étage 2 à f1908 ; horloge remise
-// à zéro à chaque étage : `alerte` à f1708 (808 + 15 s) dans l'étage 1.
+// à f808, `sang_froid` à f1137 (537 + 600), niveau 2 à f1591 ; horloge remise à zéro à chaque
+// étage : `alerte` à f1708 (808 + 15 s) dans l'étage 1. m1-integration-scenarios : l'étage 1 est
+// enfin `niveau_2` (avant : `niveau_1` une deuxième fois, étage 2 à f1908) ; le bot n'en sort
+// qu'à f2816, après la fin du scénario.
 //
-// À regarder : le bot nettoie deux cavernes ; rien ne s'affiche au moment des choix (pas d'écran
+// À regarder : le bot nettoie la première caverne et entame la deuxième ; rien ne s'affiche au moment des choix (pas d'écran
 // de mutation avant T1.16).
 Scenario(
     game: "throne",
@@ -24,10 +26,10 @@ Scenario(
         Mutations(handle: 0, count: 0, at_frame: 1136),
         Mutations(handle: 0, count: 1, at_frame: 1140),
         Event(kind: "mutation", by_frame: 1140),
-        Level(handle: 0, level: 2, at_frame: 1580),
+        Level(handle: 0, level: 2, at_frame: 1595),
         Clock(id: "alerte", fired: false, at_frame: 1705),
         Clock(id: "alerte", fired: true, at_frame: 1712),
-        FloorIndex(index: 2, at_frame: 1912),
+        FloorIndex(index: 1, at_frame: 1912),
         PlayerAlive(handle: 0, at_frame: 1949),
     ],
 )

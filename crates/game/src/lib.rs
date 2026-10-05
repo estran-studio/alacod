@@ -2,6 +2,7 @@ pub mod args;
 pub mod audio;
 pub mod balance;
 pub mod camera;
+pub mod cave_assets;
 pub mod character;
 pub mod clock;
 pub mod collider;

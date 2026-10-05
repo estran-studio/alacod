@@ -19,9 +19,11 @@ pub const LAYER_WALLS: &str = "Walls";
 /// Nombre de `PlayerSpawn` posés (index 0..4, un par joueur possible).
 pub const CAVE_PLAYER_SPAWNS: usize = 4;
 
-/// Identifiant stable du niveau de caverne (trié par iid au chargement des murs).
-pub fn cave_level_iid(seed: i32) -> String {
-    format!("cave-{seed}")
+/// Identifiant stable du niveau de caverne (trié par iid au chargement des murs). Contient l'id
+/// de la caverne (m1-integration-scenarios) : les cavernes d'une même séquence `Floors`
+/// partagent la graine, leurs niveaux ne doivent pas partager l'iid.
+pub fn cave_level_iid(id: &str, seed: i32) -> String {
+    format!("cave-{id}-{seed}")
 }
 
 /// Grille de la caverne pour une graine de scénario (`map_seed`, même source que `Basic`).
@@ -33,7 +35,7 @@ pub fn cave_grid(seed: i32, config: &CaveConfig) -> CellGrid {
 /// `ZombieSpawn` ; les autres niveaux du gabarit sont retirés. Le niveau est placé en (0, 0)
 /// monde, l'origine de `CellGrid` (`world_y = -px_hei` : bevy_ecs_ldtk place le bas du niveau
 /// à `-(world_y + px_hei)`).
-pub fn build_cave_ldtk(template: &LdtkJson, seed: i32, config: &CaveConfig) -> LdtkJson {
+pub fn build_cave_ldtk(template: &LdtkJson, id: &str, seed: i32, config: &CaveConfig) -> LdtkJson {
     let grid = cave_grid(seed, config);
     let points = world::points_of_interest(&grid, CAVE_PLAYER_SPAWNS, config.enemy_spawns);
     let (w, h) = (grid.width as i32, grid.height as i32);
@@ -44,7 +46,7 @@ pub fn build_cave_ldtk(template: &LdtkJson, seed: i32, config: &CaveConfig) -> L
         .first()
         .cloned()
         .expect("gabarit de caverne sans niveau");
-    level.iid = cave_level_iid(seed);
+    level.iid = cave_level_iid(id, seed);
     level.identifier = "Cave".into();
     level.px_wid = w * CELL_SIZE;
     level.px_hei = h * CELL_SIZE;
@@ -68,7 +70,7 @@ pub fn build_cave_ldtk(template: &LdtkJson, seed: i32, config: &CaveConfig) -> L
                 map_const::FIELD_PLAYER_SPAWN_INDEX_NAME,
                 FieldValue::Int(Some(index as i32)),
             )],
-            format!("cave-{seed}-player-{index}"),
+            format!("{}-player-{index}", level.iid),
         ));
     }
     for (index, &(x, y)) in points.zombie_spawns.iter().enumerate() {
@@ -78,7 +80,7 @@ pub fn build_cave_ldtk(template: &LdtkJson, seed: i32, config: &CaveConfig) -> L
             map_const::ENTITY_ZOMBIE_SPAWN_LOCATION,
             cell,
             vec![],
-            format!("cave-{seed}-zombie-{index}"),
+            format!("{}-zombie-{index}", level.iid),
         ));
         if !config.characters.is_empty() {
             let character = &config.characters[index % config.characters.len()];
@@ -96,7 +98,7 @@ pub fn build_cave_ldtk(template: &LdtkJson, seed: i32, config: &CaveConfig) -> L
                         FieldValue::String(Some("enemies".into())),
                     ),
                 ],
-                format!("cave-{seed}-character-{index}"),
+                format!("{}-character-{index}", level.iid),
             ));
         }
     }
@@ -204,7 +206,7 @@ mod tests {
         ))
         .unwrap();
         let config = petite();
-        let ldtk = build_cave_ldtk(&template, 123456, &config);
+        let ldtk = build_cave_ldtk(&template, "petite", 123456, &config);
         assert_eq!(ldtk.levels.len(), 1);
         let level = &ldtk.levels[0];
         assert_eq!((level.px_wid, level.px_hei), (48 * 16, 32 * 16));
@@ -244,7 +246,13 @@ mod tests {
             );
         }
         assert_eq!(
-            build_cave_ldtk(&template, 123456, &config).levels[0].iid,
+            build_cave_ldtk(&template, "petite", 123456, &config).levels[0].iid,
+            level.iid
+        );
+        // Deux cavernes de même graine : deux niveaux distincts.
+        assert_eq!(level.iid, "cave-petite-123456");
+        assert_ne!(
+            build_cave_ldtk(&template, "autre", 123456, &config).levels[0].iid,
             level.iid
         );
     }
