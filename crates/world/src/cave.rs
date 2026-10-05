@@ -57,6 +57,11 @@ pub struct CaveConfig {
         skip_serializing_if = "is_default_spawn_clearance"
     )]
     pub spawn_clearance: u32,
+    /// Caverne de **transit**, sans ennemi voulu (D36) : en mode `Floors`, son portail s'ouvre
+    /// aussitôt. Sans ce marqueur, `alacod lint` refuse une caverne sans ennemi (`characters`
+    /// vide ou `enemy_spawns` nul) dans une séquence `Floors`. Hors simulation (lint seul).
+    #[serde(default, skip_serializing_if = "std::ops::Not::not")]
+    pub transit: bool,
 }
 
 fn default_spawn_clearance() -> u32 {
@@ -322,6 +327,7 @@ mod tests {
             enemy_spawns: 4,
             characters: vec![],
             spawn_clearance: 1,
+            transit: false,
         }
     }
 

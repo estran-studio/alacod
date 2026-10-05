@@ -342,6 +342,22 @@ END_TIME=$(date +%s)
 DURATION=$((END_TIME - START_TIME))
 log_step "Video generation done (${DURATION}s)"
 
+# Copie des MP4 dans l'artefact (`nightly/<commit>/videos/`, envoyé en entier par
+# `.github/workflows/nightly.yaml`) : `make videos` écrit dans `target/videos/<commit>/` à la
+# racine du dépôt (`scripts/scenario-video`, commit court, suffixe `-dirty` possible), hors de
+# `NIGHTLY_DIR`. `*.vues.mp4` est couvert par le motif ; aucune vidéo n'est pas une erreur.
+VIDEOS_SRC_ROOT="$(git rev-parse --show-toplevel)/target/videos"
+mkdir -p "${NIGHTLY_DIR}/videos"
+VIDEOS_COPIED=0
+for VIDEOS_SRC in "${VIDEOS_SRC_ROOT}/${COMMIT}" "${VIDEOS_SRC_ROOT}/${COMMIT}-dirty"; do
+    [ -d "${VIDEOS_SRC}" ] || continue
+    for MP4 in "${VIDEOS_SRC}"/*.mp4; do
+        [ -f "${MP4}" ] || continue
+        cp "${MP4}" "${NIGHTLY_DIR}/videos/" && VIDEOS_COPIED=$((VIDEOS_COPIED + 1))
+    done
+done
+log_step "Videos copied to artifact: ${VIDEOS_COPIED}"
+
 # ============================================================================
 # STEP E: REVIEW PAGE
 # ============================================================================

@@ -162,12 +162,13 @@ impl BasicMapGeneration {
             } else {
                 // get the connection def
                 let connection_def = {
+                    // D45 : `.nth(r)` (et non `.skip(r).last()`, qui rendait toujours la dernière
+                    // connexion libre quel que soit le tirage).
                     let connection = previous_room
                         .connections
                         .iter()
                         .filter(|i| i.to.is_none())
-                        .skip(rng.next_u32_range(0, free_connection_len as u32) as usize)
-                        .last()
+                        .nth(rng.next_u32_range(0, free_connection_len as u32) as usize)
                         .unwrap();
 
                     previous_room_def.connections.get(connection.index).unwrap()
@@ -182,14 +183,14 @@ impl BasicMapGeneration {
                     debug!("no compatible levels marking as DeadEnd");
                     continue;
                 } else {
+                    // D45 : `.nth(r)`, même correction (toujours le dernier gabarit compatible avant).
                     let compatible_level = connection_def
                         .compatiable_levels
                         .iter()
-                        .skip(
+                        .nth(
                             rng.next_u32_range(0, connection_def.compatiable_levels.len() as u32)
                                 as usize,
                         )
-                        .last()
                         .unwrap();
 
                     let compatible_level_def = self
@@ -218,6 +219,22 @@ impl BasicMapGeneration {
                         map!(LEVEL_PROPERTIES_SPAWN_NAME => Value::Bool(false)),
                     );
 
+                    // D46 : une salle qui chevaucherait une salle déjà placée ferme la connexion
+                    // (comme une sortie de carte) au lieu d'être posée par-dessus.
+                    let overlapping = self
+                        .map
+                        .rooms
+                        .iter()
+                        .any(|placed| new_room.is_overlapping(placed));
+                    let previous_room = self.map.rooms.get_mut(previous_room_index).unwrap();
+                    if overlapping {
+                        previous_room
+                            .connections
+                            .get_mut(connection_def.index)
+                            .unwrap()
+                            .to = Some(ConnectionTo::DeadEnd);
+                        continue;
+                    }
                     if new_room.is_outside(&self.context.config) {
                         previous_room
                             .connections
@@ -281,10 +298,10 @@ impl IMapGeneration for BasicMapGeneration {
             .filter(|i| i.level_type == LevelType::Spawn)
             .collect();
 
+        // D45 : `.nth(r)` (toujours le dernier gabarit de départ avant).
         let spawning_room_def = spawning_levels
             .iter()
-            .skip(rng.next_u32_range_inclusive(0, (spawning_levels.len() - 1) as u32) as usize)
-            .last();
+            .nth(rng.next_u32_range_inclusive(0, (spawning_levels.len() - 1) as u32) as usize);
 
         if spawning_room_def.is_none() {
             panic!("no spawning room found");

@@ -84,7 +84,29 @@ changent rien graine par graine). En solo, deux soft-locks au portail ouvert de 
 
 ### 200 graines
 
-**À remplir par l'orchestrateur.**
+Jouées par l'orchestrateur le 2026-10-05 sur `main` `61ac539` (bots de m1-v3-bots-portail inclus ;
+réanimation de m1-v3-bots-reanimation pas encore mergée), 2 bots `prudent`, 4 lots parallèles :
+
+```
+alacod-sim --game throne --bots 2 --profiles prudent,prudent --floors run --seeds 1..200 \
+  --until-floor 3 --max-frames 15000 --progress --json
+```
+
+| | finies (3 étages) | desync | soft-locks | défaites | frames (min / médiane / max) |
+|---|---:|---:|---:|---:|---|
+| 2 bots `prudent` | **149/200** | **0** | 12 | 39 | 3 307 / 5 515 / 8 326 |
+
+- Les 39 défaites sont **toutes au troisième étage** (index 2, le boss `roi_rat`), 37 avec un
+  mort sur deux ; médiane de 1 612 frames dans l'étage avant la défaite, contre 3 536 pour le
+  finir. Dégâts subis et entrée dans l'étage comparables aux victoires : la cause est à établir
+  (m1-analyse-200-throne, b0).
+- Les 12 soft-locks (relevé D42) : boss vivant (23, 43, 76, 118), `brute` (162, 200),
+  `tourelle`/`franc_tireur` (63, 149), `arroseur` (111), `pillard` (139), portail ouvert non pris
+  (53, 81) : défauts de bots, pris par m1-v3-bots-softlocks (b1).
+- 47 des 149 runs finies ont eu un mort relevé.
+- 4 bots : à jouer après les merges du 2026-10-05.
+
+Données hors dépôt : `alacod_tasks/m1-200-throne/` (JSON, logs, binaire).
 
 ## Vidéos
 
@@ -114,20 +136,19 @@ Critères de sortie du plan (`docs/plan-engine.md` §9.8) :
 |---|---|
 | Lint et tests verts sur `main` | **oui** jusqu'à `963f2d2` (journal) ; cette branche : lint des trois jeux vert, traces throne à rebénir (voir rapport m1-integration-scenarios) |
 | Tous les scénarios du clone en synctest à 2 et à 4 | **oui** : `throne_three_floors` (2) et `throne_quad` (4) verts en synctest, plus `throne_solo` (1) |
-| Les bots finissent le clone sur 200 graines sans softlock ni desync | **à remplir par l'orchestrateur** |
+| Les bots finissent le clone sur 200 graines sans softlock ni desync | **en partie** (2026-10-05, 2 bots) : 0 desync, 149/200 finies, **12 soft-locks** et 39 défaites au boss ; soft-locks chez b1, défaites analysées par b0 |
 | Bench dans les budgets | **non vérifié** : bench strict au calme non fait depuis T1.6 (journal) |
 | Vidéos publiées | **en partie** : générées, copiées dans le dépôt ; pas de publication automatique |
-| Doc des conventions à jour | à jour pour chaque tâche livrée (§29 boss, §31 feedback…), sans relecture d'ensemble |
+| Doc des conventions à jour | **oui** : relecture d'ensemble m1-relecture-conventions (2026-10-05 : numérotation 1 à 33, 29 sections corrigées contre le code, `CLAUDE.md` corrigé), suites dans m1-dettes-doc-lot-2 |
 | Notes du jalon précédent fermées | **à confirmer par l’orchestrateur** (revue de M0, T3.3) ; la revue de M1 reste à faire |
 
-**Bots** (le critère qui bloque) : 3/20 à deux et 11/20 à quatre sur les vraies cavernes, 0 desync.
-Correctifs en cours chez b1 (portail du bot seul, cible fixe hors de vue, rapprochement d'un
-ennemi immobile).
+**Bots** (le critère qui bloque) : après m1-v3-bots-portail, 149/200 à deux bots, 0 desync, 12
+soft-locks (voir « 200 graines »). Suites : m1-v3-bots-softlocks (b1, objectif 0 soft-lock),
+m1-analyse-200-throne (b0, pourquoi les bots meurent au boss).
 
 Autres manques :
 - Phases de boss (D4) : reportées à M2 ; `roi_rat` n'a qu'une liste de behaviors.
-- Navigation des grands agents (D41) : le boss a un corps de 20 px comme les autres.
-- Diagnostic de soft-lock faux pour les ennemis `Ground` (D42).
 - `grunt` du testbed sans attaque (reste de D40, décision de William).
-- Restart p2p (reporté de M0, T1.x à porter).
-- HUD throne (T1.18) : en cours à la rédaction.
+- Fermés depuis la rédaction : D41 (m1-navigation-profils-tailles, m1-d41-spawns-degages), D42
+  (m1-d42-softlock-diagnostic), restart p2p (m1-restart-p2p), HUD throne (T1.18 mergée), D36,
+  D45 à D47 (assembleur).

@@ -111,7 +111,7 @@ format natif de LDtk (tabulations, tableaux de nombres sur une ligne) pour un di
 Toute entité ajoutée à `test_map.ldtk` crée des entités rollback : les traces de tous les
 scénarios sur cette carte changent dès la frame 0. Vérifier avec `scripts/trace-diff.py` que
 seules les nouvelles entités et la numérotation `GgrsNetId` bougent, puis
-`BLESS=1 make test_scenarios` avec la justification dans le commit (`docs/conventions.md` §8).
+`BLESS=1 make test_scenarios` avec la justification dans le commit (`docs/conventions.md` §10).
 
 ## Vérifier
 

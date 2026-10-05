@@ -237,7 +237,7 @@ fn scenarios() {
         failures.extend(outcome.failures.iter().map(|f| format!("{name}: {f}")));
         metrics_map.insert(name.clone(), outcome.metrics.clone());
 
-        // Outil de preuve permanent (T1.2, `docs/conventions.md` §8) : dump la trace
+        // Outil de preuve permanent (T1.2, `docs/conventions.md` §10) : dump la trace
         // détaillée de toutes les frames dans `<ALACOD_DUMP_TRACE>/<name>.full`, comparée
         // ensuite avec `scripts/trace-diff.py` (ex. entre `main` et cette branche, pour
         // prouver qu'aucune valeur de stat ne diverge des constantes qu'elle remplace).

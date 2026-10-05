@@ -1,0 +1,10 @@
+// Fixture D36 : caverne sans ennemi dans une séquence `Floors`.
+(
+    name: "fixture-floors_cave_without_enemies",
+    content_folders: [
+        (path: "characters", kind: "Character"),
+        (path: "caves", kind: "Cave"),
+        (path: "floors", kind: "Floors"),
+    ],
+    entry: (start_map: "cave:peuplee", default_seed: 1),
+)
