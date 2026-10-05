@@ -197,10 +197,11 @@ pub fn populate_level_connections(available_levels: &mut Vec<AvailableLevel>) {
             while ii + i < available_levels.len() {
                 let mut yy = 0;
 
-                if available_levels[ii + i].level_type == LevelType::Spawn {
-                    continue;
-                }
-
+                // D47 : plus de saut des gabarits `Spawn` ici. Le `continue` sans `ii += 1`
+                // bouclait à l'infini dès qu'un `Spawn` n'était pas premier ; et le saut ne valait
+                // que dans un sens (un `Spawn` en tête restait compatible avec tout). Toutes les
+                // cartes ont leur unique `Spawn` en tête : l'appariement est inchangé pour elles,
+                // et ne dépend plus de l'ordre des gabarits.
                 while yy < available_levels[ii + i].connections.len() {
                     let other_level = &available_levels[ii + i];
 
@@ -248,4 +249,86 @@ pub struct MapGenerationContext {
 #[derive(Default)]
 pub struct MapGenerationData {
     // TODO change for trait to be able to replace for unit test
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    fn locations() -> EntityLocations {
+        EntityLocations {
+            doors: vec![],
+            sodas: vec![],
+            player_spawns: vec![],
+            zombie_spawns: vec![],
+            crates: vec![],
+            weapons: vec![],
+            windows: vec![],
+            character_spawns: vec![],
+        }
+    }
+
+    fn level(id: &str, level_type: LevelType, sides: &[Side]) -> AvailableLevel {
+        AvailableLevel {
+            level_id: id.into(),
+            level_size: (10, 10),
+            level_size_p: (160, 160),
+            level_type,
+            connections: sides
+                .iter()
+                .enumerate()
+                .map(|(index, side)| Connection {
+                    index,
+                    size: 2,
+                    side: *side,
+                    starting_at: 4,
+                    level_id: id.into(),
+                    compatiable_levels: vec![],
+                })
+                .collect(),
+            entity_locations: locations(),
+        }
+    }
+
+    fn compat(levels: &[AvailableLevel]) -> Vec<(String, usize, Vec<(String, usize)>)> {
+        let mut out: Vec<_> = levels
+            .iter()
+            .flat_map(|l| {
+                l.connections.iter().map(|c| {
+                    let mut v = c.compatiable_levels.clone();
+                    v.sort();
+                    (l.level_id.clone(), c.index, v)
+                })
+            })
+            .collect();
+        out.sort();
+        out
+    }
+
+    /// D47 : un gabarit `Spawn` qui n'est pas premier ne fait plus boucler l'appariement, et
+    /// l'appariement ne dépend plus de l'ordre des gabarits.
+    #[test]
+    fn appariement_independant_de_la_place_du_spawn() {
+        let a = || level("A", LevelType::Normal, &[Side::E, Side::S]);
+        let s = || level("S", LevelType::Spawn, &[Side::W, Side::N]);
+        let b = || level("B", LevelType::Normal, &[Side::W]);
+
+        let mut spawn_premier = vec![s(), a(), b()];
+        populate_level_connections(&mut spawn_premier);
+        let mut spawn_milieu = vec![a(), s(), b()];
+        populate_level_connections(&mut spawn_milieu);
+        let mut spawn_dernier = vec![a(), b(), s()];
+        populate_level_connections(&mut spawn_dernier);
+
+        let attendu = compat(&spawn_premier);
+        assert_eq!(attendu, compat(&spawn_milieu));
+        assert_eq!(attendu, compat(&spawn_dernier));
+        // A.E (0) s'apparie aux deux W (S.0, B.0) ; A.S (1) à S.N (1).
+        assert!(attendu.contains(&(
+            "A".into(),
+            0,
+            vec![("B".into(), 0), ("S".into(), 0)]
+        )));
+        assert!(attendu.contains(&("A".into(), 1, vec![("S".into(), 1)])));
+    }
 }

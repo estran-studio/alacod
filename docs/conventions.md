@@ -249,7 +249,7 @@ un seul problème en plus de `start_map: "unused"` commun à toutes), un test pa
 | personnage | `effects` (T1.10, §27) : déclencheur, condition ou action non exécutés (`Unsupported`), `Tick(0)`, `Heal <= 0`, pattern et arme de `SpawnPattern` connus, jauge d'`OnGauge`/`GaugeAdd` connue | `Unsupported`, `OutOfRange`, `BrokenReference` | `effect_unsupported`, `effect_out_of_range`, `effect_broken_reference`, `progression_broken_reference` |
 | carte | `CharacterSpawn` : personnage connu (audit T1.12) ; `variant` imposée déclarée par ce personnage (T1.5) | `BrokenReference` | `map_character_unknown`, `variant_ldtk_unknown` |
 | caverne | au moins 16 × 16, `fill_ratio` dans [0, 1], `min_floor_ratio` dans [0, 0.9], `birth`/`survive` <= 8 ; `characters` connus ; gabarit `gabarit.ldtk` présent (T1.6, §21) | `OutOfRange`, `BrokenReference` | `cave_out_of_range`, `cave_unknown_character`, `cave_template_missing` |
-| séquence `Floors` | `levels` non vide ; carte ou `cave:<id>` chargée (T1.8, §17) | `OutOfRange`, `BrokenReference` | `floors_empty`, `floors_unknown_map`, `floors_unknown_cave` |
+| séquence `Floors` | `levels` non vide ; carte ou `cave:<id>` chargée (T1.8, §17) ; caverne sans ennemi (`characters` vide ou `enemy_spawns` nul) refusée sauf `transit: true` (D36, §21) | `OutOfRange`, `BrokenReference` | `floors_empty`, `floors_unknown_map`, `floors_unknown_cave`, `floors_cave_without_enemies` |
 | surface | `intgrid_value > 0` et unique, facteurs > 0, tags non vides (T1.7, §26) | `DuplicateId`, `OutOfRange` | `surface_duplicate_value`, `surface_factor_non_positive` |
 | horloge, difficulté | ids d'événements uniques, échéances croissantes, `repeat > 0` ; expression : identifiants admis, valeur > 0 aux bornes (T1.9, §23) | `DuplicateId`, `OutOfRange`, `Parse` | `clock_duplicate_id`, `clock_unordered`, `clock_repeat_zero`, `difficulty_unknown_identifier`, `difficulty_non_positive` |
 | progression | `per_kill > 0`, `levels` croissants, `choices` dans [1, pool], `choice_frames > 0`, chance dans [0, 1] ; mutations et armes du pool connues (T1.10, §27) | `OutOfRange`, `BrokenReference` | `progression_out_of_range`, `progression_broken_reference` |
@@ -1200,7 +1200,13 @@ le gabarit + `MapGenerationMode::Cave(config)` ; la ressource `MapGenerationConf
 **Lint** (`content::lint::lint_caves`, `lint_floors`, `lint_entry_point`) : au moins 16 × 16
 cases, `fill_ratio` dans `[0, 1]`, `min_floor_ratio` dans `[0, 0.9]`, `birth`/`survive` ≤ 8,
 gabarit présent (`BrokenReference`) ; `cave:<id>` inconnu dans `levels` ou `start_map` :
-`BrokenReference`.
+`BrokenReference`. D36 : dans `levels` d'une séquence `Floors`, une caverne **sans ennemi**
+(`characters` vide ou `enemy_spawns = 0`) est refusée (`OutOfRange`) : le portail d'un niveau
+`Floors` s'ouvre quand il ne reste aucun ennemi, donc aussitôt (et en boucle si c'est le dernier
+niveau). Un passage voulu se déclare `transit: true` dans le RON de la caverne (champ de
+`CaveConfig`, lint seul, non sérialisé quand il est faux) : `caves/petite.ron` du testbed
+(séquence `floors/caverne.ron`). Les cartes LDtk d'une séquence ne sont pas contrôlées (il
+faudrait lire leurs entités `CharacterSpawn`).
 
 **Grille.** `world::CellGrid { width, height, cells }`, `CellKind { Floor, Wall, Rock }` :
 `Wall` indestructible (bordure), `Rock` destructible. Cases de **16** unités (`GRID_CELL_SIZE`
@@ -1254,6 +1260,14 @@ projectiles (lint : refusée dans un power-up, `radius > 0`). Deux usages :
   actions `on_hit`) dans la branche `register_wall()`, **seulement** pour un projectile qui
   porte des actions `on_hit` (file neutre : vide, elle laisse les traces existantes intactes) ;
   `projectile_wall_terrain_system` en tire les demandes.
+
+**Décision (D36) : `on_hit: [DestroyTerrain]` ne creuse que sur un mur.** Un projectile qui
+touche un **personnage** émet `ProjectileHit`, dont `apply_projectile_on_hit_system` n'exécute
+que `ApplyStatus` : `DestroyTerrain` y est ignoré, volontairement. Le terrain réagit au contact
+du terrain ; creuser au point d'impact sur un personnage ouvrirait la roche autour de chaque
+ennemi touché. Pour creuser à tout impact (mur ou personnage), utiliser `on_expire:
+[DestroyTerrain]` : il part du point de fin du projectile, quelle qu'en soit la cause (un
+projectile qui s'arrête sur un personnage expire là).
 
 Les deux posent une `world::DestroyTerrainRequest` (file `FrameEvents` neutre) dans
 `Projectiles` ; `apply_destroy_terrain_system` (`World`) l'applique et émet `TerrainDestroyed`
