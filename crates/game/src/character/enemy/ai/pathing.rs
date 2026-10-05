@@ -412,37 +412,32 @@ pub fn move_enemies(
             });
 
         // Calculate direction to actual target using flow field
-        let direction_to_target_v2 = if let Some(flow_field) =
-            flow_field_cache.get_flow_field(nav_key)
-        {
-            // Always use flow field for navigation - it handles pathfinding around walls
-            match flow_field_cache.flow_direction(
-                nav_key,
-                enemy_pos_v2,
-                &body,
-            ) {
-                Some(dir) => dir,
-                None => {
-                    // Outside flow field coverage - find nearest covered cell
-                    // and move toward it instead of directly toward player
-                    // (moving directly toward player often pushes into walls)
-                    match flow_field.find_nearest_covered_cell(enemy_pos_v2, 10) {
-                        Some(dir) => dir,
-                        None => {
-                            // No flow field nearby at all - try neighbor directions as fallback
-                            let neighbors = flow_field.get_neighbor_directions(enemy_pos_v2);
-                            neighbors.into_iter().next().unwrap_or_else(|| {
-                                // Last resort: direct movement (but this should rarely happen)
-                                (actual_target - enemy_pos_v2).normalize_or_zero()
-                            })
+        let direction_to_target_v2 =
+            if let Some(flow_field) = flow_field_cache.get_flow_field(nav_key) {
+                // Always use flow field for navigation - it handles pathfinding around walls
+                match flow_field_cache.flow_direction(nav_key, enemy_pos_v2, &body) {
+                    Some(dir) => dir,
+                    None => {
+                        // Outside flow field coverage - find nearest covered cell
+                        // and move toward it instead of directly toward player
+                        // (moving directly toward player often pushes into walls)
+                        match flow_field.find_nearest_covered_cell(enemy_pos_v2, 10) {
+                            Some(dir) => dir,
+                            None => {
+                                // No flow field nearby at all - try neighbor directions as fallback
+                                let neighbors = flow_field.get_neighbor_directions(enemy_pos_v2);
+                                neighbors.into_iter().next().unwrap_or_else(|| {
+                                    // Last resort: direct movement (but this should rarely happen)
+                                    (actual_target - enemy_pos_v2).normalize_or_zero()
+                                })
+                            }
                         }
                     }
                 }
-            }
-        } else {
-            // No flow field yet, move directly toward target
-            (actual_target - enemy_pos_v2).normalize_or_zero()
-        };
+            } else {
+                // No flow field yet, move directly toward target
+                (actual_target - enemy_pos_v2).normalize_or_zero()
+            };
 
         // --- General Obstacle Avoidance Steering ---
         // Use FlowField's blocked cells for O(1) lookups instead of O(walls) collision checks
@@ -730,9 +725,7 @@ pub fn move_enemies(
                     let speed = velocity_component.main.length();
 
                     // Try flow field neighbor directions first
-                    if let Some(flow_field) =
-                        flow_field_cache.get_flow_field(nav_key)
-                    {
+                    if let Some(flow_field) = flow_field_cache.get_flow_field(nav_key) {
                         let neighbor_dirs = flow_field.get_neighbor_directions(enemy_pos_v2);
                         for dir in neighbor_dirs {
                             // Determine slide axis (which axis succeeded)
@@ -784,9 +777,7 @@ pub fn move_enemies(
                     let mut escaped = false;
 
                     // First, try directions from neighboring flow field cells (sorted by cost)
-                    if let Some(flow_field) =
-                        flow_field_cache.get_flow_field(nav_key)
-                    {
+                    if let Some(flow_field) = flow_field_cache.get_flow_field(nav_key) {
                         let neighbor_dirs = flow_field.get_neighbor_directions(enemy_pos_v2);
                         for dir in neighbor_dirs {
                             let dx = dir.x * move_magnitude;
