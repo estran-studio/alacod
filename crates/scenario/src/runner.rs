@@ -948,10 +948,9 @@ pub fn run_with_options<F: FnOnce(&mut App)>(
     // T1.14 + D44 : progrès en `Floors` pour le soft-lock (état observé, frame du dernier
     // progrès) ; `None` avant la première observation.
     let mut floors_progress: Option<(FloorsProgress, u32)> = None;
-    let mut q_enemy_health = app.world_mut().query_filtered::<
-        &game::character::health::Health,
-        With<game::character::enemy::Enemy>,
-    >();
+    let mut q_enemy_health = app
+        .world_mut()
+        .query_filtered::<&game::character::health::Health, With<game::character::enemy::Enemy>>();
     let mut q_player_state = app
         .world_mut()
         .query::<(&Player, Has<combat::downed::Downed>)>();
@@ -1060,10 +1059,7 @@ pub fn run_with_options<F: FnOnce(&mut App)>(
                 let all_dead =
                     stop.stop_when_all_players_dead && q_players.iter(app.world()).count() == 0;
                 let run_ended = stop.stop_when_run_ended
-                    && matches!(
-                        app.world().resource::<Run>().step,
-                        RunStep::Ended { .. }
-                    );
+                    && matches!(app.world().resource::<Run>().step, RunStep::Ended { .. });
                 if wave_reached || floor_reached || all_dead || run_ended {
                     stopped_early = true;
                 } else if stop.until_floor.is_some() {
@@ -1079,7 +1075,9 @@ pub fn run_with_options<F: FnOnce(&mut App)>(
                         enemies: q_enemies.iter(world).count(),
                         enemy_health: q_enemy_health
                             .iter(world)
-                            .fold(fixed_math::FIXED_ZERO, |sum, h| sum.saturating_add(h.current)),
+                            .fold(fixed_math::FIXED_ZERO, |sum, h| {
+                                sum.saturating_add(h.current)
+                            }),
                         players,
                     };
                     match &mut floors_progress {
