@@ -68,6 +68,23 @@ struct SimResult {
     /// d'arrêt volontaire.
     #[serde(skip_serializing_if = "Option::is_none")]
     softlock: Option<scenario::softlock::SoftlockDump>,
+    /// Analyse Depart (m1-d36-et-analyse-depart) : portes ouvertes (moments clés `door`).
+    doors_opened: u32,
+    /// État de chaque joueur à l'arrêt de la graine (objectif atteint, fin de partie ou
+    /// plafond) : solde, position, présence dans la salle de départ.
+    players_end: Vec<PlayerEnd>,
+}
+
+/// Hors simulation : relu dans `Last` à chaque frame, la dernière valeur est rapportée.
+#[derive(Serialize, Clone, Debug)]
+struct PlayerEnd {
+    handle: usize,
+    currency: u32,
+    downed: bool,
+    x: f32,
+    y: f32,
+    /// Dans la salle de départ (`RoomConfig::spawn`) ; `None` hors de toute salle connue.
+    in_spawn_room: Option<bool>,
 }
 
 fn is_zero(value: &u32) -> bool {
@@ -220,6 +237,8 @@ fn main() {
         };
         let dodges = std::sync::Arc::new(std::sync::atomic::AtomicU32::new(0));
         let dodges_probe = dodges.clone();
+        let players_end = std::sync::Arc::new(std::sync::Mutex::new(Vec::<PlayerEnd>::new()));
+        let players_end_probe = players_end.clone();
 
         let wall_start = Instant::now();
         // `InputSource::Bot` : aucun joueur scripté ici, contrairement aux scénarios RON qui
@@ -234,6 +253,39 @@ fn main() {
                     bevy::prelude::Last,
                     move |stats: bevy::prelude::Res<bots::BotStats>| {
                         dodges_probe.store(stats.dodges, std::sync::atomic::Ordering::Relaxed);
+                    },
+                );
+                app.add_systems(
+                    bevy::prelude::Last,
+                    move |players: bevy::prelude::Query<(
+                        &combat::actors::Player,
+                        &bevy_fixed::fixed_math::FixedTransform3D,
+                        Option<&run::currency::Currency>,
+                        bevy::prelude::Has<combat::downed::Downed>,
+                    )>,
+                          rooms: bevy::prelude::Query<(
+                        &map::game::entity::map::room::RoomComponent,
+                        &map::game::entity::map::room::RoomBounds,
+                    )>| {
+                        let mut snapshot: Vec<PlayerEnd> = players
+                            .iter()
+                            .map(|(player, transform, currency, downed)| {
+                                let pos = transform.translation.truncate();
+                                PlayerEnd {
+                                    handle: player.handle,
+                                    currency: currency.map_or(0, |c| c.0),
+                                    downed,
+                                    x: pos.x.to_num::<f32>(),
+                                    y: pos.y.to_num::<f32>(),
+                                    in_spawn_room: rooms
+                                        .iter()
+                                        .find(|(_, bounds)| bounds.contains(pos))
+                                        .map(|(room, _)| room.config.spawn),
+                                }
+                            })
+                            .collect();
+                        snapshot.sort_by_key(|p| p.handle);
+                        *players_end_probe.lock().unwrap() = snapshot;
                     },
                 );
                 if args.iter().any(|arg| arg == "--progress") {
@@ -294,6 +346,8 @@ fn main() {
             dodges: dodges.load(std::sync::atomic::Ordering::Relaxed),
             failures: outcome.failures,
             softlock: outcome.softlock,
+            doors_opened: outcome.events.iter().filter(|e| e.kind == "door").count() as u32,
+            players_end: players_end.lock().unwrap().clone(),
         });
     }
 
