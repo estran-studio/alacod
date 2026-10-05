@@ -100,9 +100,10 @@ pub struct BotView {
     /// tirer de loin (dispersion : il vidait ses munitions, ou touchait si rarement que la
     /// partie n'avançait plus). Faux hors navigation (hors mode `Floors`).
     pub enemy_still: bool,
-    /// m1-v3-bots-reanimation : coéquipier à terre à relever (aucun ennemi à moins de
-    /// [`crate::input::REVIVE_SAFE_DISTANCE`], ou ennemi caché) ; `prudent`/`fonceur` y vont
-    /// en priorité. `None` : personne à relever, ou menace immédiate.
+    /// m1-v3-bots-reanimation : coéquipier à terre à relever (saignement urgent, moins de
+    /// [`crate::input::REVIVE_URGENT_FRAMES`] avant la mort, et aucun ennemi visible à moins de
+    /// [`crate::input::REVIVE_SAFE_DISTANCE`]) ; `prudent`/`fonceur` y vont en priorité.
+    /// `None` : personne à relever, ou menace immédiate.
     pub revive: Option<ReviveView>,
 }
 

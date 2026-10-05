@@ -180,16 +180,21 @@ pub fn read_bot_inputs(
     >,
     mut nav: ResMut<DirectNavigation>,
     run: Option<Res<run::Run>>,
-    // m1-v3-bots-reanimation : surfaces d'interaction (la réanimation et la sélection du jeu).
-    interactables: Query<
-        (
-            &GgrsNetId,
-            &FixedTransform3D,
-            &sim_core::interaction::Interactable,
-            Option<&Collider>,
-        ),
-        With<Rollback>,
-    >,
+    // m1-v3-bots-reanimation : surfaces d'interaction (la réanimation et la sélection du jeu),
+    // saignement des joueurs à terre, frame courante.
+    (interactables, frame): (
+        Query<
+            (
+                &GgrsNetId,
+                &FixedTransform3D,
+                &sim_core::interaction::Interactable,
+                Option<&Collider>,
+                Option<&combat::downed::Downed>,
+            ),
+            With<Rollback>,
+        >,
+        Res<utils::frame::FrameCount>,
+    ),
 ) {
     let Some(assignments) = assignments else {
         return;
@@ -238,17 +243,22 @@ pub fn read_bot_inputs(
     // `_net_id` : nécessaire en première position pour `order_iter!` (tri déterministe des
     // joueurs avant de consommer le flux RNG "bots"), pas utilisé ensuite (même convention que
     // `move_characters`, `crates/game/src/character/player/input.rs`).
-    // Réanimation (m1-v3-bots-reanimation) : toutes les surfaces (id, rectangle, portée) et
-    // les joueurs à terre parmi elles, dans l'ordre `GgrsNetId`.
+    // Réanimation (m1-v3-bots-reanimation) : toutes les surfaces (id, rectangle, portée) et,
+    // parmi elles, les joueurs à terre dont le saignement est **urgent** (moins de
+    // `REVIVE_URGENT_FRAMES` avant la mort), dans l'ordre `GgrsNetId`.
     let surfaces: Vec<(usize, Rect, Fixed, bool)> = order_iter!(interactables)
         .into_iter()
-        .map(|(id, t, interactable, c)| {
+        .map(|(id, t, interactable, c, downed)| {
             let p = t.translation.truncate();
+            let urgent = downed.is_some_and(|d| {
+                revive_urgent(d.bleedout_at_frame, frame.frame)
+            });
             (
                 id.0,
                 c.map_or(Rect { min: p, max: p }, |c| Rect::collider(p, c)),
                 interactable.interaction_range,
-                interactable.interaction_type == sim_core::interaction::InteractionType::Revive,
+                interactable.interaction_type == sim_core::interaction::InteractionType::Revive
+                    && urgent,
             )
         })
         .collect();
@@ -509,6 +519,17 @@ fn navigate(
 /// Aucun ennemi visible à moins de cette distance : un bot `prudent`/`fonceur` peut relever un
 /// coéquipier à terre (même seuil que `chasseur`/`acheteur`, `crate::hunter`).
 pub const REVIVE_SAFE_DISTANCE: Fixed = Fixed::from_bits(150 << 16);
+
+/// `prudent`/`fonceur` ne relèvent un coéquipier que si son saignement est urgent (moins de 600
+/// frames, 10 s, avant la mort) : ils continuent sinon de se battre, et un joueur humain ou un
+/// `chasseur` a le temps de le relever (le scénario de référence `clone_quad` : le joueur scripté
+/// relève à f355 ; une réanimation plus tôt par un bot changeait toute la partie).
+pub const REVIVE_URGENT_FRAMES: u32 = 600;
+
+/// Le saignement qui finit à `bleedout_at_frame` est urgent à la frame `frame`.
+pub fn revive_urgent(bleedout_at_frame: u32, frame: u32) -> bool {
+    bleedout_at_frame.saturating_sub(frame) <= REVIVE_URGENT_FRAMES
+}
 
 /// Pas vers le joueur à terre le plus proche (rectangle de son collider, puis `GgrsNetId`) que
 /// le chemin atteint ; à portée, Interaction tenue seulement si le jeu sélectionnerait bien

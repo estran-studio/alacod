@@ -391,6 +391,15 @@ mod tests {
         }
     }
 
+    #[test]
+    fn reanimation_seulement_en_urgence() {
+        use crate::input::revive_urgent;
+        assert!(!revive_urgent(2000, 1000), "1000 frames de marge : se battre");
+        assert!(revive_urgent(1600, 1000), "600 : urgent");
+        assert!(revive_urgent(1200, 1000));
+        assert!(revive_urgent(900, 1000), "déjà échu");
+    }
+
     /// Navigation (suite T1.14) : ennemi caché derrière un mur → le pas du champ, pas la
     /// ligne droite ; sans chemin, ligne droite en repli ; visible et dans la bande : immobile.
     #[test]
