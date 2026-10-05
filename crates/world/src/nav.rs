@@ -24,11 +24,7 @@ pub const NEIGHBOURS_8: [(i32, i32); 8] = [
 /// Case bloquée pour l'agent : la case elle-même, ou, pour un gabarit grand (centre à au moins
 /// une case de tout obstacle), l'une de ses 8 voisines.
 pub fn blocked_for(blocked: impl Fn(i32, i32) -> bool, x: i32, y: i32, large: bool) -> bool {
-    blocked(x, y)
-        || (large
-            && NEIGHBOURS_8
-                .iter()
-                .any(|&(dx, dy)| blocked(x + dx, y + dy)))
+    blocked(x, y) || (large && NEIGHBOURS_8.iter().any(|&(dx, dy)| blocked(x + dx, y + dy)))
 }
 
 /// Couloir d'une case : bloqué des deux côtés sur un axe. Exclu pour un gabarit petit (un
@@ -91,6 +87,37 @@ pub fn nav_distances(grid: &CellGrid, sources: &[(u32, u32)], large: bool) -> Ve
     dist
 }
 
+/// Case de portail d'un niveau de caverne (D48, graine 53 de throne : barycentre des points des
+/// joueurs dans un mur) : `target` si le champ de flux du gabarit l'atteint depuis `sources`, sinon
+/// la case de sol atteinte la plus proche (distance euclidienne au carré, puis y, puis x) ; `None`
+/// si aucune case n'est atteinte.
+pub fn nearest_reached_cell(
+    grid: &CellGrid,
+    sources: &[(u32, u32)],
+    target: (i32, i32),
+    large: bool,
+) -> Option<(u32, u32)> {
+    let dist = nav_distances(grid, sources, large);
+    let reached = |x: u32, y: u32| {
+        dist[(y * grid.width + x) as usize] != u32::MAX
+            && grid
+                .get(x as i32, y as i32)
+                .is_some_and(|kind| !kind.is_solid())
+    };
+    if target.0 >= 0 && target.1 >= 0 && grid.get(target.0, target.1).is_some() {
+        if reached(target.0 as u32, target.1 as u32) {
+            return Some((target.0 as u32, target.1 as u32));
+        }
+    }
+    (0..grid.height)
+        .flat_map(|y| (0..grid.width).map(move |x| (x, y)))
+        .filter(|&(x, y)| reached(x, y))
+        .min_by_key(|&(x, y)| {
+            let (dx, dy) = (x as i64 - target.0 as i64, y as i64 - target.1 as i64);
+            (dx * dx + dy * dy, y, x)
+        })
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;
@@ -145,7 +172,34 @@ mod tests {
         let small = nav_distances(&g, &[(8, 2)], false);
         let large = nav_distances(&g, &[(8, 2)], true);
         assert_ne!(small[i(2, 2)], u32::MAX);
-        assert_eq!(large[i(2, 2)], u32::MAX, "passage de deux cases fermé au gabarit grand");
+        assert_eq!(
+            large[i(2, 2)],
+            u32::MAX,
+            "passage de deux cases fermé au gabarit grand"
+        );
         assert_ne!(large[i(8, 2)], u32::MAX);
+    }
+
+    /// Portail : une cible dans la roche est ramenée sur la case atteinte la plus proche ; une
+    /// cible atteinte reste telle quelle.
+    #[test]
+    fn portail_ramene_sur_une_case_atteinte() {
+        let g = grid(&[
+            "#########",
+            "#...#...#",
+            "#...#...#",
+            "#.......#",
+            "#########",
+        ]);
+        let sources = [(2, 2), (6, 2)];
+        // (4, 3) est de la roche ; (3, 3) et (5, 3) à égale distance : la plus petite x gagne.
+        assert_eq!(
+            nearest_reached_cell(&g, &sources, (4, 3), false),
+            Some((3, 3))
+        );
+        assert_eq!(
+            nearest_reached_cell(&g, &sources, (2, 3), false),
+            Some((2, 3))
+        );
     }
 }

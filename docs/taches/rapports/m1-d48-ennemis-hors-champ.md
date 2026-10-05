@@ -2,16 +2,11 @@
 
 ## État en cours
 
-- Fait : diagnostic des graines 43 et 162 (rejeux `alacod-sim-f80b82b` sauvés, puis scénario
-  avec trace détaillée tronquée, un rejeu à la fois) ; code écrit, **pas encore compilé**
-  (attente du feu vert d'orch) : `world::nav` (règles partagées, `nav_distances`),
-  `points_of_interest(…, enemy_large)`, `CaveConfig::nav_large` dérivé par le registre,
-  `FlowFieldCache` branché sur `world::nav`, lint des graines de contrôle + fixture
-  `cave_spawns_unreachable` (à calibrer), test 1 000 graines × 3 cavernes, test de cohérence
-  champ/points, `alacod-sim --log`, doc §21 et §24.
-- Prochaines étapes : compilation, tests, calibrage de la fixture, suite complète (traces
-  throne qui bougent + preuve §10), rejeu des graines 43 et 162 avec le binaire de la branche,
-  20 graines sans `--log` identiques.
+- Fait : diagnostic (43, 162), correction des apparitions et du portail (ajout d'orch : graine 53),
+  `--log`, tests, suite complète des scénarios **sans aucune trace changée**, rejeux 43, 162 et
+  53 finis avec le binaire de la branche, 20 graines JSON identiques sans `--log`, lint mesuré.
+- Reste : tests des crates (en cours), `make gen` des trois jeux, scripts, exemples, merge
+  d'origin/main, purge.
 
 ## Diagnostic
 

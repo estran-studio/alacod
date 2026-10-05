@@ -1242,7 +1242,9 @@ impl ColliderSchema {
     fn is_large(&self, scale: Fixed) -> bool {
         let (w, h) = match &self.shape {
             ColliderShapeSchema::Rectangle { width, height } => (width.0, height.0),
-            ColliderShapeSchema::Circle { radius } => (radius.0 * Fixed::from_num(2), radius.0 * Fixed::from_num(2)),
+            ColliderShapeSchema::Circle { radius } => {
+                (radius.0 * Fixed::from_num(2), radius.0 * Fixed::from_num(2))
+            }
         };
         let max = Fixed::from_num(SMALL_AGENT_MAX);
         w.saturating_mul(scale) > max || h.saturating_mul(scale) > max

@@ -205,14 +205,25 @@ fn m1_audit_fixtures() {
 
 /// D36 : une caverne sans ennemi dans une séquence `Floors` est refusée (pas de personnage, ou
 /// pas de point d'apparition), sauf `transit: true` ; une caverne peuplée passe.
-/// D48 : une caverne peuplée d'un corps grand dont aucun point d'apparition n'est atteint par le
-/// champ de flux du gabarit grand (graine de contrôle) est refusée ; une caverne ouverte passe.
+/// D48 : une caverne peuplée dont une graine de contrôle n'a aucun point d'apparition atteint par
+/// le champ de flux de son gabarit est refusée ; une caverne ouverte passe. (L'automate ne produit
+/// pas de caverne fermée au seul gabarit grand sur les graines de contrôle — balayage de tailles,
+/// remplissages et seuils : aucune — ; l'exclusion propre à la navigation est couverte par les
+/// tests de `world::nav` sur grilles construites et par le test des 1 000 graines de throne.)
 #[test]
 fn cave_spawns_unreachable_fixture() {
     let (registry, _, errors) = load_and_lint(&fixture_dir("cave_spawns_unreachable")).unwrap();
     assert!(registry.caves.values().all(|cave| cave.config.nav_large));
-    assert_has_error(&errors, LintErrorKind::OutOfRange, "« fermee » : graine de contrôle");
-    assert_eq!(errors.len(), 1, "seule « fermee » est refusée : {errors:#?}");
+    assert_has_error(
+        &errors,
+        LintErrorKind::OutOfRange,
+        "« fermee » : graine de contrôle",
+    );
+    assert_eq!(
+        errors.len(),
+        1,
+        "seule « fermee » est refusée : {errors:#?}"
+    );
 }
 
 #[test]
@@ -972,7 +983,9 @@ fn points_ennemis_des_cavernes_de_throne_dans_le_champ_de_chaque_gabarit() {
         let larges: Vec<bool> = config
             .characters
             .iter()
-            .map(|id| registry.characters[&content::registry::CharacterId::from(id.as_str())].body_large)
+            .map(|id| {
+                registry.characters[&content::registry::CharacterId::from(id.as_str())].body_large
+            })
             .collect();
         for seed in 1..=1000u64 {
             let grid = world::generate(seed, config);
@@ -983,7 +996,10 @@ fn points_ennemis_des_cavernes_de_throne_dans_le_champ_de_chaque_gabarit() {
                 config.spawn_clearance,
                 config.nav_large,
             );
-            assert!(!points.zombie_spawns.is_empty(), "{name} graine {seed} : aucun point");
+            assert!(
+                !points.zombie_spawns.is_empty(),
+                "{name} graine {seed} : aucun point"
+            );
             for large in [false, true] {
                 if !larges.contains(&large) {
                     continue;

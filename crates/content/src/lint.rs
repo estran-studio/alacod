@@ -1845,8 +1845,13 @@ fn lint_caves(registry: &Registry, errors: &mut Vec<LintError>) {
         if c.enemy_spawns > 0 && !c.characters.is_empty() && c.width >= 16 && c.height >= 16 {
             for seed in 1..=CAVE_CONTROL_SEEDS {
                 let grid = world::generate(seed, c);
-                let points =
-                    world::points_of_interest(&grid, 4, c.enemy_spawns, c.spawn_clearance, c.nav_large);
+                let points = world::points_of_interest(
+                    &grid,
+                    4,
+                    c.enemy_spawns,
+                    c.spawn_clearance,
+                    c.nav_large,
+                );
                 if points.zombie_spawns.is_empty() {
                     errors.push(LintError {
                         kind: LintErrorKind::OutOfRange,

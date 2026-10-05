@@ -371,7 +371,13 @@ mod tests {
                 (min..=MAX_FLOOR_RATIO).contains(&ratio),
                 "graine {seed} : ratio {ratio}"
             );
-            let points = points_of_interest(&grid, 4, config.enemy_spawns, config.spawn_clearance, config.nav_large);
+            let points = points_of_interest(
+                &grid,
+                4,
+                config.enemy_spawns,
+                config.spawn_clearance,
+                config.nav_large,
+            );
             assert_eq!(points.player_spawns.len(), 4, "graine {seed}");
             assert!(!points.zombie_spawns.is_empty(), "graine {seed}");
             for (x, y) in points.player_spawns.iter().chain(&points.zombie_spawns) {
@@ -397,7 +403,13 @@ mod tests {
     fn zombie_spawns_espaces_et_loin_du_joueur() {
         let config = petite();
         let grid = generate(3, &config);
-        let points = points_of_interest(&grid, 4, config.enemy_spawns, config.spawn_clearance, config.nav_large);
+        let points = points_of_interest(
+            &grid,
+            4,
+            config.enemy_spawns,
+            config.spawn_clearance,
+            config.nav_large,
+        );
         let dist = floor_distances(&grid, points.player_spawns[0]);
         let far = points
             .zombie_spawns
