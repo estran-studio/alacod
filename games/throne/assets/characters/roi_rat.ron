@@ -19,13 +19,15 @@
 
     asset_name_ref: "roi_rat",
 
-    // Corps de 28 × 28 : gabarit grand de la navigation (D41, `AgentSize::Large` : centre à une
-    // case des murs, couloirs de trois cases). Avant m1-navigation-profils-tailles, la
-    // navigation ne connaissait que les agents de 20 px et le boss restait figé.
+    // Corps de 20 × 20 **avant** `scale` 1.4, soit 28 × 28 en jeu (`create_character` met le
+    // collider à l'échelle) : gabarit grand de la navigation (D41, `AgentSize::Large` : centre
+    // à une case des murs, couloirs de trois cases). Un corps de 28 avant échelle (39 px en
+    // jeu) déborde sur la roche depuis un point d'apparition dégagé d'une seule case et reste
+    // figé (mesuré : voir le rapport m1-navigation-profils-tailles).
     collider: (
         shape: Rectangle(
-            width: "28.",
-            height: "28.",
+            width: "20.",
+            height: "20.",
         ),
         offset: ( x: "0.0", y: "-6.0", z: "0.0" )
     ),
