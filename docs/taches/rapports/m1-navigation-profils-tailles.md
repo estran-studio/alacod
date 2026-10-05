@@ -106,3 +106,8 @@ au boss la possibilité de venir au contact et retire la griffe des fuyards.
 - Tests des crates : unitaires `game`/`combat`/`scenario` verts (dont `nav_key_tests`,
   `softlock::tests`) ; suite : 560 verts, échecs : `scenarios` (traces du §4, à bénir) et le
   doctest `game::waves` (préexistant). Scénarios recalés (§5) : attentes vertes.
+- `make gen` : zombies 16/16 et testbed 36/36 sans différence ; throne 39/39 attentes vertes,
+  2 traces différentes (`enemy_roi_rat_*`, §4) ; aucun fichier généré modifié.
+- `make lint` des trois jeux sans erreur, `fmt`, `check_forbidden` 4 (identique),
+  `check_rollback_registration` OK, exemples compilés.
+- Target purgé (incremental et examples).
