@@ -1,32 +1,35 @@
-// D43 (m1-d43-d44-fin-de-partie) : défaite en mode `Floors` à deux joueurs. Deux bots `prudent`
-// sur la graine 28 : l'un tombe à terre, l'autre meurt sans pouvoir le relever ; la défaite est
-// déclarée dès que tous les joueurs restants sont à terre (`rollback_check_defeat`), pendant que
-// le dernier saigne encore. Joué en synctest.
+// D43 (m1-d43-d44-fin-de-partie, réécrit dans m1-d43-defaite-scriptee) : défaite en mode `Floors`
+// à deux joueurs, **sans bot** (deux joueurs scriptés immobiles) : le scénario ne dépend d'aucun
+// profil de bot (les correctifs et la réanimation des bots changeaient son issue). Les ennemis
+// de mêlée du premier étage (`cave:niveau_1` : rat, chien, rodeur) viennent frapper les deux
+// joueurs à leur point d'apparition ; le joueur 0 tombe à terre, le joueur 1 meurt sans pouvoir
+// le relever ; la défaite est déclarée dès que tous les joueurs restants sont à terre ou morts
+// (`rollback_check_defeat`), pendant que le joueur 0 saigne encore. Joué en synctest.
 //
-// Mesuré (graine 28, comme `alacod-sim --game throne --bots 2 --profiles prudent,prudent
-// --floors run --seeds 28..28 --until-floor 3` : « fin Defeat ») : étages à f530 et f1836 ; le
-// joueur 0 tombe à terre à f2481 (saignement jusqu'à f4281) ; le joueur 1 meurt à f2744 : défaite
-// la même frame, le joueur 0 encore à terre. Avant D43, `alacod-sim` continuait jusqu'à un faux
-// soft-lock.
+// Mesuré (graine 28) : joueur 0 à terre à f853 (saignement jusqu'à f2653) ; joueur 1 mort à
+// f967, `Run.step = Ended { Defeat, at_frame: 966 }` ; le joueur 0 est encore à terre après.
 //
-// À regarder : les deux bots dans la troisième caverne ; l'un tombe, l'autre meurt, « DÉFAITE ».
+// À regarder : les deux joueurs immobiles dans la première caverne ; l'un tombe, l'autre meurt,
+// « DÉFAITE ».
 Scenario(
     game: "throne",
     floors: Some("run"),
     map_seed: 28,
-    frames: 2780,
+    frames: 1000,
+    // Isoler ce scénario des drops aléatoires.
+    powerup_drop_chance_override: "0.0",
     players: [
-        (bot: prudent),
-        (bot: prudent),
+        (),
+        (),
     ],
     expect: [
-        FloorIndex(index: 2, at_frame: 1840),
-        RunState(step: Playing, at_frame: 2743),
-        PlayerDowned(handle: 0, at_frame: 2500),
-        PlayerAlive(handle: 1, at_frame: 2743),
-        Defeat(by_frame: 2744),
-        RunState(step: Ended(Defeat), at_frame: 2745),
+        FloorIndex(index: 0, at_frame: 960),
+        RunState(step: Playing, at_frame: 966),
+        PlayerDowned(handle: 0, at_frame: 870),
+        PlayerAlive(handle: 1, at_frame: 966),
+        Defeat(by_frame: 967),
+        RunState(step: Ended(Defeat), at_frame: 968),
         // Défaite déclarée pendant que le dernier joueur saigne encore
-        PlayerDowned(handle: 0, at_frame: 2770),
+        PlayerDowned(handle: 0, at_frame: 990),
     ],
 )
