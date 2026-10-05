@@ -4,7 +4,9 @@
 // toujours présent) et `enemy_spawns` 9 : exactement un boss sur toute graine (au plus neuf
 // points). Le mettre en dernier ne marchait pas : la graine 123456 ne trouve que huit points
 // espacés (`ZOMBIE_SPAWN_SPACING`) et le neuvième, le boss, n'apparaissait jamais. Quand la caverne
-// n'a que huit points, le dernier de la liste (`rat`) manque.
+// n'a que huit points, le dernier de la liste manque : la tourelle (seul ennemi fixe), mise en
+// dernier exprès — sur un point éloigné, les bots ne venaient pas l'achever (limite des bots,
+// m1-integration-scenarios).
 (
     width: 64,
     height: 44,
@@ -14,5 +16,5 @@
     survive: 4,
     min_floor_ratio: "0.3",
     enemy_spawns: 9,
-    characters: ["roi_rat", "brute", "tourelle", "franc_tireur", "buffle", "arroseur", "cracheur", "chien", "rat"],
+    characters: ["roi_rat", "brute", "franc_tireur", "buffle", "arroseur", "cracheur", "chien", "rat", "tourelle"],
 )
