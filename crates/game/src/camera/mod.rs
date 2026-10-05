@@ -69,6 +69,21 @@ pub struct CameraSettings {
     // En ligne, mode de suivi : LocalPlayer (défaut, suit mon joueur) ou AllPlayers (cadre tout le monde).
     // N'affecte que OnlineState::Online ; en Offline c'est CameraMode qui décide.
     pub online_follow: OnlineFollowMode,
+    /// T1.16 (§30) : durée du fondu au noir à chaque changement de niveau (mode `Floors`),
+    /// en secondes ; `0` : pas de fondu.
+    #[serde(default = "default_floor_fade_seconds")]
+    pub floor_fade_seconds: f32,
+    /// T1.16 : la caméra saute sur sa cible au changement de niveau au lieu d'y glisser.
+    #[serde(default = "default_true")]
+    pub floor_recenter: bool,
+}
+
+fn default_floor_fade_seconds() -> f32 {
+    0.4
+}
+
+fn default_true() -> bool {
+    true
 }
 
 impl Default for CameraSettings {
@@ -85,6 +100,8 @@ impl Default for CameraSettings {
             indicator_edge_distance: 20.0,
             use_edge_detection: true,
             online_follow: OnlineFollowMode::LocalPlayer,
+            floor_fade_seconds: default_floor_fade_seconds(),
+            floor_recenter: true,
         }
     }
 }
@@ -194,7 +211,7 @@ fn camera_input_system(
 }
 
 // Main camera control system
-fn camera_control_system(
+pub(crate) fn camera_control_system(
     time: Res<Time>,
     settings: Res<CameraSettings>,
     windows: Query<&Window>,

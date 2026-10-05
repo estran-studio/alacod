@@ -3,6 +3,7 @@ pub mod feedback;
 pub mod lint;
 pub mod manifest;
 pub mod registry;
+pub mod ui;
 pub mod value;
 
 pub use expr::{BoolExpr, Context, Expr, Kind, NumExpr, ParseError, Value};

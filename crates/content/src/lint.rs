@@ -65,6 +65,7 @@ pub fn run(registry: &Registry, manifest: &GameManifest) -> Vec<LintError> {
     lint_perks(registry, &mut errors);
     lint_powerups(registry, &mut errors);
     lint_feedback(registry, &mut errors);
+    lint_mutation_screens(registry, &mut errors);
     lint_sprite_sheets(registry, &mut errors);
     lint_floors(registry, &mut errors);
     lint_caves(registry, &mut errors);
@@ -1173,6 +1174,54 @@ fn lint_feedback(registry: &Registry, errors: &mut Vec<LintError>) {
                     kind: LintErrorKind::BrokenReference,
                     file: file.clone(),
                     message: format!("feedback : by_weapon « {weapon} » : arme inconnue du jeu"),
+                });
+            }
+        }
+    }
+}
+
+/// T1.16 : l'écran de mutation (`ui/mutation_screen.ron`, présentation seule) a sa police
+/// sous `assets/`, exactement trois emplacements de carte (un par bit `ChoiceA/B/C`) et des
+/// tailles positives.
+fn lint_mutation_screens(registry: &Registry, errors: &mut Vec<LintError>) {
+    let assets_dir = GameManifest::assets_dir(&registry.game_dir);
+    for (rel, layout) in &registry.mutation_screens {
+        let file = rel.display().to_string();
+        if !assets_dir.join(&layout.font).is_file() {
+            errors.push(LintError {
+                kind: LintErrorKind::BrokenReference,
+                file: file.clone(),
+                message: format!(
+                    "mutation_screen : champ font = « {} » : fichier absent de assets/",
+                    layout.font
+                ),
+            });
+        }
+        if layout.slots.len() != crate::ui::MUTATION_SCREEN_SLOTS {
+            errors.push(LintError {
+                kind: LintErrorKind::OutOfRange,
+                file: file.clone(),
+                message: format!(
+                    "mutation_screen : champ slots : {} emplacements, il en faut {}",
+                    layout.slots.len(),
+                    crate::ui::MUTATION_SCREEN_SLOTS
+                ),
+            });
+        }
+        for (field, value) in [
+            ("card_size.0", layout.card_size.0),
+            ("card_size.1", layout.card_size.1),
+            ("bar_size.0", layout.bar_size.0),
+            ("bar_size.1", layout.bar_size.1),
+            ("title_size", layout.title_size),
+            ("name_size", layout.name_size),
+            ("text_size", layout.text_size),
+        ] {
+            if value <= 0.0 {
+                errors.push(LintError {
+                    kind: LintErrorKind::OutOfRange,
+                    file: file.clone(),
+                    message: format!("mutation_screen : champ {field} = {value} : doit être > 0"),
                 });
             }
         }
