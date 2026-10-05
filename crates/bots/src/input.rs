@@ -155,7 +155,12 @@ pub fn read_bot_inputs(
     mut stats: ResMut<BotStats>,
     weapons: Query<(&WeaponState, &WeaponModesState)>,
     enemies: Query<
-        (&GgrsNetId, &FixedTransform3D, Option<&sim_core::stats::Stats>),
+        (
+            &GgrsNetId,
+            &FixedTransform3D,
+            Option<&sim_core::stats::Stats>,
+            Option<&combat::actors::Velocity>,
+        ),
         (With<Enemy>, With<Rollback>),
     >,
     windows: Query<(&GgrsNetId, &FixedTransform3D, &WindowHealth), With<Rollback>>,
@@ -203,17 +208,19 @@ pub fn read_bot_inputs(
         .is_some_and(|run| matches!(run.mode, run::RunMode::Floors { .. }));
     let enemy_points: Vec<(usize, FixedVec2)> = enemies_sorted
         .iter()
-        .map(|(id, t, _)| (id.0, t.translation.truncate()))
+        .map(|(id, t, _, _)| (id.0, t.translation.truncate()))
         .collect();
-    // Ennemis immobiles (`MoveSpeed` de base nulle : tourelles), voir `BotView::close_in`.
+    // Ennemis immobiles (tourelle : `MoveSpeed` de base nulle ; ennemi coincé : vitesse
+    // nulle), voir `BotView::enemy_still`.
     let still_points: Vec<FixedVec2> = enemies_sorted
         .iter()
-        .filter(|(_, _, stats)| {
+        .filter(|(_, _, stats, velocity)| {
             stats
                 .and_then(|s| s.get(&sim_core::stats::StatId::MoveSpeed))
                 .is_some_and(|speed| speed <= Fixed::ZERO)
+                || velocity.is_some_and(|v| v.main.length() < Fixed::ONE)
         })
-        .map(|(_, t, _)| t.translation.truncate())
+        .map(|(_, t, _, _)| t.translation.truncate())
         .collect();
 
     // `_net_id` : nécessaire en première position pour `order_iter!` (tri déterministe des
@@ -236,7 +243,7 @@ pub fn read_bot_inputs(
         let position = transform.translation.truncate();
 
         let nearest_enemy =
-            nearest_by_net_id(enemies_sorted.iter().map(|(id, enemy_transform, _)| {
+            nearest_by_net_id(enemies_sorted.iter().map(|(id, enemy_transform, _, _)| {
                 let enemy_position = enemy_transform.translation.truncate();
                 let distance = position.distance(&enemy_position);
                 (
@@ -334,7 +341,7 @@ pub fn read_bot_inputs(
             // visible, aucune route.
             enemy_visible: true,
             route: None,
-            close_in: false,
+            enemy_still: false,
         };
 
         let mut view = view;
@@ -355,11 +362,10 @@ pub fn read_bot_inputs(
                         .collect()
                 });
                 let body = AgentBody::from_collider(collider);
-                view.close_in = profile == BotProfile::Prudent
-                    && view.nearest_enemy.is_some_and(|enemy| {
-                        enemy.distance > crate::decide::STILL_TARGET_DISTANCE
-                            && still_points.contains(&enemy.position)
-                    });
+                view.enemy_still = profile == BotProfile::Prudent
+                    && view
+                        .nearest_enemy
+                        .is_some_and(|enemy| still_points.contains(&enemy.position));
                 let (visible, route) =
                     navigate(&mut nav.0, rects, &body, &enemy_points, &view, profile);
                 view.enemy_visible = visible;
@@ -400,7 +406,7 @@ fn navigate(
     if let Some(enemy) = view.nearest_enemy {
         let visible = crate::navigation::walls_clear(geometry, position, enemy.position);
         let needed = !visible
-            || view.close_in
+            || (view.enemy_still && enemy.distance > crate::decide::STILL_TARGET_DISTANCE)
             || (profile == BotProfile::Prudent
                 && enemy.distance > crate::decide::PRUDENT_MAX_DISTANCE);
         if !needed {

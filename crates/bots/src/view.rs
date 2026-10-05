@@ -86,10 +86,11 @@ pub struct BotView {
     /// ouvert sans ennemi. `None` : pas de chemin (repli : ligne droite).
     pub route: Option<FixedVec2>,
     /// m1-v3-bots-portail : l'ennemi le plus proche est immobile (`MoveSpeed` de base nulle :
-    /// tourelle) et à plus de [`crate::decide::STILL_TARGET_DISTANCE`] : `prudent` s'en
-    /// rapproche par le chemin au lieu de tirer de loin (dispersion : il vidait ses munitions
-    /// sans l'achever). Faux hors navigation (hors mode `Floors`).
-    pub close_in: bool,
+    /// tourelle ; ou `Velocity::main` nulle : ennemi coincé dans un recoin). `prudent` s'en
+    /// rapproche jusqu'à [`crate::decide::STILL_TARGET_DISTANCE`] sans reculer, au lieu de
+    /// tirer de loin (dispersion : il vidait ses munitions, ou touchait si rarement que la
+    /// partie n'avançait plus). Faux hors navigation (hors mode `Floors`).
+    pub enemy_still: bool,
 }
 
 /// Sélection des projectiles de la vue : `candidates` = (net id, équipe adverse ?, vue).
