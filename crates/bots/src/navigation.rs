@@ -586,8 +586,14 @@ mod tests {
     #[test]
     fn ligne_de_tir_avec_marge() {
         let wall = [(rect(0, 0, 32, 32), true)];
-        assert!(!walls_clear(&wall, vec(-40, 34), vec(80, 34)), "frôle à 2 px");
-        assert!(walls_clear(&wall, vec(-40, 40), vec(80, 40)), "8 px de marge");
+        assert!(
+            !walls_clear(&wall, vec(-40, 34), vec(80, 34)),
+            "frôle à 2 px"
+        );
+        assert!(
+            walls_clear(&wall, vec(-40, 40), vec(80, 40)),
+            "8 px de marge"
+        );
         let mut nav = BotNavigation::default();
         nav.update(&wall, &body(), &[]);
         assert!(!nav.visible(vec(-40, 34), vec(80, 34)));
