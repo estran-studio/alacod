@@ -61,6 +61,7 @@ fn objectif_atteint_a_la_frame_plafond_sans_dump() {
             until_floor: None,
             until_wave: Some(1),
             stop_when_all_players_dead: true,
+            stop_when_run_ended: false,
         }),
     );
     assert!(outcome.failures.is_empty(), "{:?}", outcome.failures);

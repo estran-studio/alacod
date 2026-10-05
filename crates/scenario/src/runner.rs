@@ -95,6 +95,10 @@ pub struct Metrics {
     /// updates, arrondie.
     #[serde(default)]
     pub damage_taken: u32,
+    /// D43 : issue de la partie si `Run.step` est `Ended` à la dernière frame simulée
+    /// (`"Defeat"`, `"Victory"`…), avec sa frame ; absent si la partie est encore en cours.
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub run_end: Option<(String, u32)>,
 }
 
 /// Résultat d'un scénario.
@@ -621,6 +625,33 @@ pub struct StopEarly {
     pub until_floor: Option<u32>,
     /// S'arrête dès qu'aucun joueur n'est vivant (à partir de la première frame simulée).
     pub stop_when_all_players_dead: bool,
+    /// D43 : s'arrête dès que la partie est terminée (`Run.step` = `Ended`, défaite ou
+    /// victoire) : un dernier joueur à terre en défaite déjà déclarée n'est plus pris pour un
+    /// soft-lock pendant son saignement.
+    pub stop_when_run_ended: bool,
+}
+
+/// D44 : état observé pour le soft-lock `Floors`. Il y a progression quand le niveau change, ou
+/// qu'un ennemi disparaît, ou que la santé totale des ennemis baisse (dégâts infligés, même
+/// sans kill : combat lent contre un boss), ou qu'un joueur change d'état (à terre, relevé,
+/// mort).
+#[derive(Debug, Clone, PartialEq)]
+pub struct FloorsProgress {
+    pub floor: u32,
+    pub enemies: usize,
+    pub enemy_health: fixed_math::Fixed,
+    /// Par joueur présent (handle), à terre ou non ; un joueur mort disparaît de la liste.
+    pub players: Vec<(usize, bool)>,
+}
+
+impl FloorsProgress {
+    /// `true` si `now` marque une progression par rapport à `self` (voir le type).
+    pub fn progressed(&self, now: &FloorsProgress) -> bool {
+        now.floor != self.floor
+            || now.enemies < self.enemies
+            || now.enemy_health < self.enemy_health
+            || now.players != self.players
+    }
 }
 
 /// Soft-lock `Floors` (T1.14) : frames sans passage de niveau ni ennemi en moins.
@@ -914,8 +945,15 @@ pub fn run_with_options<F: FnOnce(&mut App)>(
         .query::<(&Player, &game::character::health::Health)>();
     let mut player_health: BTreeMap<usize, fixed_math::Fixed> = BTreeMap::new();
     let mut damage_taken = fixed_math::FIXED_ZERO;
-    // T1.14 : progrès en `Floors` (niveau, ennemis restants) pour le soft-lock
-    let mut floors_progress: (u32, usize, u32) = (0, usize::MAX, 0); // (niveau, ennemis, frame)
+    // T1.14 + D44 : progrès en `Floors` pour le soft-lock (état observé, frame du dernier
+    // progrès) ; `None` avant la première observation.
+    let mut floors_progress: Option<(FloorsProgress, u32)> = None;
+    let mut q_enemy_health = app
+        .world_mut()
+        .query_filtered::<&game::character::health::Health, With<game::character::enemy::Enemy>>();
+    let mut q_player_state = app
+        .world_mut()
+        .query::<(&Player, Has<combat::downed::Downed>)>();
     let mut floors_softlocked = false;
 
     let max_updates = MAX_LOADING_UPDATES + scenario.frames;
@@ -1020,23 +1058,43 @@ pub fn run_with_options<F: FnOnce(&mut App)>(
                 let floor_reached = stop.until_floor.is_some_and(|n| floor_index >= n);
                 let all_dead =
                     stop.stop_when_all_players_dead && q_players.iter(app.world()).count() == 0;
-                if wave_reached || floor_reached || all_dead {
+                let run_ended = stop.stop_when_run_ended
+                    && matches!(app.world().resource::<Run>().step, RunStep::Ended { .. });
+                if wave_reached || floor_reached || all_dead || run_ended {
                     stopped_early = true;
                 } else if stop.until_floor.is_some() {
-                    // Soft-lock `Floors` : ni passage de niveau ni ennemi en moins
-                    let enemies = q_enemies.iter(app.world()).count();
-                    let (last_floor, last_enemies, since) = floors_progress;
-                    if floor_index != last_floor || enemies < last_enemies {
-                        floors_progress = (floor_index, enemies, frame);
-                    } else {
-                        floors_progress.1 = enemies;
-                        let stalled = frame.saturating_sub(since);
-                        if stalled == FLOORS_SOFTLOCK_FRAMES / 2 {
-                            previous_snapshot = Some(crate::softlock::snapshot(app.world_mut()));
+                    // Soft-lock `Floors` : aucune progression (voir `FloorsProgress`)
+                    let world = app.world();
+                    let mut players: Vec<(usize, bool)> = q_player_state
+                        .iter(world)
+                        .map(|(player, downed)| (player.handle, downed))
+                        .collect();
+                    players.sort_unstable();
+                    let now = FloorsProgress {
+                        floor: floor_index,
+                        enemies: q_enemies.iter(world).count(),
+                        enemy_health: q_enemy_health
+                            .iter(world)
+                            .fold(fixed_math::FIXED_ZERO, |sum, h| {
+                                sum.saturating_add(h.current)
+                            }),
+                        players,
+                    };
+                    match &mut floors_progress {
+                        Some((last, since)) if !last.progressed(&now) => {
+                            // Pas de progression : on garde l'état de référence, mais une
+                            // santé qui remonte (régénération) devient la nouvelle référence
+                            last.enemy_health = last.enemy_health.max(now.enemy_health);
+                            let stalled = frame.saturating_sub(*since);
+                            if stalled == FLOORS_SOFTLOCK_FRAMES / 2 {
+                                previous_snapshot =
+                                    Some(crate::softlock::snapshot(app.world_mut()));
+                            }
+                            if stalled >= FLOORS_SOFTLOCK_FRAMES {
+                                floors_softlocked = true;
+                            }
                         }
-                        if stalled >= FLOORS_SOFTLOCK_FRAMES {
-                            floors_softlocked = true;
-                        }
+                        _ => floors_progress = Some((now, frame)),
                     }
                 }
             }
@@ -1139,6 +1197,10 @@ pub fn run_with_options<F: FnOnce(&mut App)>(
         final_floor,
         terrain_destroyed: events.iter().filter(|e| e.kind == "terrain").count() as u32,
         damage_taken: damage_taken.to_num::<f64>().round() as u32,
+        run_end: match &app.world().resource::<Run>().step {
+            RunStep::Ended { at_frame, outcome } => Some((format!("{outcome:?}"), *at_frame)),
+            _ => None,
+        },
     };
 
     let world = app.world_mut();
@@ -2387,4 +2449,40 @@ fn enemy_in_wall(world: &mut World, entity: &game::replay::EntityRef) -> bool {
                 wall_collider,
             )
         })
+}
+
+/// D44 : progression du soft-lock `Floors`.
+#[cfg(test)]
+mod floors_progress_tests {
+    use super::*;
+
+    fn state(enemies: usize, health: f32, players: &[(usize, bool)]) -> FloorsProgress {
+        FloorsProgress {
+            floor: 2,
+            enemies,
+            enemy_health: fixed_math::new(health),
+            players: players.to_vec(),
+        }
+    }
+
+    #[test]
+    fn degats_sans_kill_et_changements_d_etat_comptent() {
+        let base = state(2, 600.0, &[(0, false), (1, false)]);
+        // Rien ne change : pas de progression
+        assert!(!base.progressed(&base.clone()));
+        // Combat lent contre un boss : dégâts sans kill
+        assert!(base.progressed(&state(2, 590.0, &[(0, false), (1, false)])));
+        // Un joueur tombe à terre, puis meurt (disparaît)
+        assert!(base.progressed(&state(2, 600.0, &[(0, true), (1, false)])));
+        assert!(base.progressed(&state(2, 600.0, &[(1, false)])));
+        // Un ennemi en moins, un niveau de plus
+        assert!(base.progressed(&state(1, 600.0, &[(0, false), (1, false)])));
+        let next_floor = FloorsProgress {
+            floor: 3,
+            ..base.clone()
+        };
+        assert!(base.progressed(&next_floor));
+        // Santé des ennemis qui remonte (régénération) : pas une progression
+        assert!(!base.progressed(&state(2, 610.0, &[(0, false), (1, false)])));
+    }
 }

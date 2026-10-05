@@ -1,0 +1,32 @@
+// D43 (m1-d43-d44-fin-de-partie) : défaite en mode `Floors` à deux joueurs. Deux bots `prudent`
+// sur la graine 28 : l'un tombe à terre, l'autre meurt sans pouvoir le relever ; la défaite est
+// déclarée dès que tous les joueurs restants sont à terre (`rollback_check_defeat`), pendant que
+// le dernier saigne encore. Joué en synctest.
+//
+// Mesuré (graine 28, comme `alacod-sim --game throne --bots 2 --profiles prudent,prudent
+// --floors run --seeds 28..28 --until-floor 3` : « fin Defeat ») : étages à f530 et f1836 ; le
+// joueur 0 tombe à terre à f2481 (saignement jusqu'à f4281) ; le joueur 1 meurt à f2744 : défaite
+// la même frame, le joueur 0 encore à terre. Avant D43, `alacod-sim` continuait jusqu'à un faux
+// soft-lock.
+//
+// À regarder : les deux bots dans la troisième caverne ; l'un tombe, l'autre meurt, « DÉFAITE ».
+Scenario(
+    game: "throne",
+    floors: Some("run"),
+    map_seed: 28,
+    frames: 2780,
+    players: [
+        (bot: prudent),
+        (bot: prudent),
+    ],
+    expect: [
+        FloorIndex(index: 2, at_frame: 1840),
+        RunState(step: Playing, at_frame: 2743),
+        PlayerDowned(handle: 0, at_frame: 2500),
+        PlayerAlive(handle: 1, at_frame: 2743),
+        Defeat(by_frame: 2744),
+        RunState(step: Ended(Defeat), at_frame: 2745),
+        // Défaite déclarée pendant que le dernier joueur saigne encore
+        PlayerDowned(handle: 0, at_frame: 2770),
+    ],
+)
