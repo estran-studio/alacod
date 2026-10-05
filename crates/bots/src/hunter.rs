@@ -511,6 +511,7 @@ mod profile_tests {
             velocity: FixedVec2::ZERO,
             enemy_visible: false,
             route: None,
+            enemy_still: false,
             hunter: Some(hunter),
         };
         for profile in [BotProfile::Chasseur, BotProfile::Acheteur] {
@@ -542,6 +543,7 @@ mod profile_tests {
             velocity: FixedVec2::ZERO,
             enemy_visible: false,
             route: None,
+            enemy_still: false,
             hunter: Some(HunterView {
                 can_fire: true,
                 interact: true,

@@ -3,9 +3,10 @@
 // mutations), horloge d'étage `etage`, difficulté. Les bots ne choisissent pas : la première
 // option est prise 600 frames après chaque niveau.
 //
-// Mesuré (navigation par le champ, m1-v3-bots-pathfinding) : niveau 1 à f537 (3 rads), étage 1
-// à f808, `sang_froid` à f1137 (537 + 600), niveau 2 à f1591 ; horloge remise à zéro à chaque
-// étage : `alerte` à f1708 (808 + 15 s) dans l'étage 1. m1-integration-scenarios : l'étage 1 est
+// Mesuré (approche du portail pilotée en vitesse, m1-v3-bots-portail) : niveau 1 à f537 (3 rads),
+// étage 1 à f853, `sang_froid` à f1137 (537 + 600), niveau 2 à f1651 ; horloge remise à zéro à
+// chaque étage : `alerte` à f1753 (853 + 15 s) dans l'étage 1. (Avant, par le champ : étage 1 à
+// f808, niveau 2 à f1591, `alerte` à f1708.) m1-integration-scenarios : l'étage 1 est
 // enfin `niveau_2` (avant : `niveau_1` une deuxième fois, étage 2 à f1908) ; le bot n'en sort
 // qu'à f2816, après la fin du scénario.
 //
@@ -26,9 +27,9 @@ Scenario(
         Mutations(handle: 0, count: 0, at_frame: 1136),
         Mutations(handle: 0, count: 1, at_frame: 1140),
         Event(kind: "mutation", by_frame: 1140),
-        Level(handle: 0, level: 2, at_frame: 1595),
-        Clock(id: "alerte", fired: false, at_frame: 1705),
-        Clock(id: "alerte", fired: true, at_frame: 1712),
+        Level(handle: 0, level: 2, at_frame: 1655),
+        Clock(id: "alerte", fired: false, at_frame: 1750),
+        Clock(id: "alerte", fired: true, at_frame: 1756),
         FloorIndex(index: 1, at_frame: 1912),
         PlayerAlive(handle: 0, at_frame: 1949),
     ],
