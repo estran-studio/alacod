@@ -84,6 +84,16 @@ pub struct Snapshot {
     pub closed_doors: Vec<DoorSnapshot>,
     pub windows: Vec<WindowSnapshot>,
     pub navigation: String,
+    /// Mode `Floors` : index, portail (ouvert, ancre et sa case), `None` hors `Floors`.
+    pub floor: Option<FloorSnapshot>,
+}
+
+#[derive(Debug, Serialize)]
+pub struct FloorSnapshot {
+    pub index: u32,
+    pub portal_open: bool,
+    pub anchor: Option<(String, String)>,
+    pub anchor_cell: Option<(i32, i32)>,
 }
 
 #[derive(Debug, Serialize)]
@@ -141,6 +151,8 @@ pub struct PlayerSnapshot {
     pub active_weapon: Option<String>,
     pub mag_ammo: Option<u32>,
     pub reserves: Vec<(String, u32)>,
+    /// Dernier input local posé pour ce joueur (bots : leur décision de la frame).
+    pub last_input: Option<String>,
 }
 
 #[derive(Debug, Serialize)]
@@ -274,6 +286,10 @@ pub fn snapshot(world: &mut World) -> Snapshot {
                                 .collect()
                         })
                         .unwrap_or_default(),
+                    last_input: world
+                        .get_resource::<bevy_ggrs::LocalInputs<game::character::player::jjrs::PeerConfig>>()
+                        .and_then(|inputs| inputs.0.get(&player.handle))
+                        .map(|input| format!("{input:?}")),
                 }
             },
         )
@@ -309,5 +325,17 @@ pub fn snapshot(world: &mut World) -> Snapshot {
         closed_doors,
         windows,
         navigation: crate::nav_debug::nav_ascii(world, true),
+        floor: world
+            .get_resource::<run::FloorState>()
+            .filter(|state| state.anchor.is_some())
+            .map(|state| FloorSnapshot {
+                index: state.index,
+                portal_open: state.portal_open,
+                anchor: state.anchor.map(|(x, y)| (x.to_string(), y.to_string())),
+                anchor_cell: state.anchor_vec().map(|p| {
+                    let cell = GridPos::from_fixed(p);
+                    (cell.x, cell.y)
+                }),
+            }),
     }
 }
