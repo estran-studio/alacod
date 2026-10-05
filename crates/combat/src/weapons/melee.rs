@@ -105,6 +105,13 @@ impl From<MeleeWeaponAsset> for MeleeWeapon {
     }
 }
 
+/// D38 : l'ennemi ne lance pas de nouvelle attaque au corps à corps (il finit celle en
+/// cours). Posé par `game` tant que la règle retenue de l'ennemi est `Flee` (un ennemi qui fuit
+/// n'attaque plus dès qu'un joueur entre à portée), retiré ensuite. Rollback et tracé ; absent
+/// de tout ennemi qui ne fuit pas : neutre pour le checksum du contenu sans `Flee`.
+#[derive(Component, Reflect, Default, Clone, Debug, Hash, Serialize, Deserialize)]
+pub struct MeleeHold;
+
 // MELEE ATTACK STATE
 #[derive(Component, Reflect, Default, Clone, Debug, Hash, Serialize, Deserialize)]
 pub struct MeleeAttackState {
@@ -631,6 +638,7 @@ pub fn enemy_melee_attack_system(
             &mut MeleeAttackState,
             &Team,
             Option<&Tags>,
+            Has<MeleeHold>,
         ),
         (With<Enemy>, With<Rollback>),
     >,
@@ -645,8 +653,17 @@ pub fn enemy_melee_attack_system(
     );
     let _enter = system_span.enter();
 
-    for (net_id, entity, transform, facing_direction, children, mut attack_state, team, opt_tags) in
-        order_mut_iter!(enemy_query)
+    for (
+        net_id,
+        entity,
+        transform,
+        facing_direction,
+        children,
+        mut attack_state,
+        team,
+        opt_tags,
+        held,
+    ) in order_mut_iter!(enemy_query)
     {
         // Find melee weapon in children
         let mut melee_weapon_opt: Option<&MeleeWeapon> = None;
@@ -670,7 +687,7 @@ pub fn enemy_melee_attack_system(
                         attack_state.end_attack(frame.frame);
                     }
                 }
-            } else if attack_state.can_attack(frame.frame, config.cooldown_frames) {
+            } else if !held && attack_state.can_attack(frame.frame, config.cooldown_frames) {
                 // Check if any player is in range
                 let mut player_in_range = false;
 

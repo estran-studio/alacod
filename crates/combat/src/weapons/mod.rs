@@ -1802,6 +1802,7 @@ impl Plugin for BaseWeaponGamePlugin {
         // Rollback components for melee weapons
         app.rollback_and_trace::<melee::MeleeWeapon>()
             .rollback_and_trace::<melee::MeleeAttackState>()
+            .rollback_and_trace::<melee::MeleeHold>()
             .rollback_and_trace::<melee::MeleeHitbox>();
 
         app.add_systems(

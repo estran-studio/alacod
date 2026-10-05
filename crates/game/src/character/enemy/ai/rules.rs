@@ -36,6 +36,41 @@ use crate::{
     weapons::Bullet,
 };
 
+/// D38 : pose `combat::weapons::melee::MeleeHold` sur un ennemi tant que sa règle retenue est
+/// `Flee` (il ne lance plus d'attaque au corps à corps en fuyant), le retire ensuite. Lu par
+/// `enemy_melee_attack_system` à la frame suivante (set `Weapon`, avant `EnemyAI`).
+/// `RollbackSystemSet::EnemyAI`, en dernier (après `enemy_attack_system`).
+#[allow(clippy::type_complexity)]
+pub fn melee_hold_system(
+    mut commands: Commands,
+    enemies: Query<
+        (
+            &GgrsNetId,
+            Entity,
+            &EnemyBehaviors,
+            &BehaviorRuntime,
+            Has<combat::weapons::melee::MeleeHold>,
+        ),
+        With<Enemy>,
+    >,
+) {
+    for (_, entity, rules, runtime, held) in order_iter!(enemies) {
+        let fleeing = runtime
+            .selected
+            .and_then(|index| rules.rules.get(index as usize))
+            .is_some_and(|rule| matches!(rule, Behavior::Flee));
+        if fleeing && !held {
+            commands
+                .entity(entity)
+                .insert(combat::weapons::melee::MeleeHold);
+        } else if !fleeing && held {
+            commands
+                .entity(entity)
+                .remove::<combat::weapons::melee::MeleeHold>();
+        }
+    }
+}
+
 /// Nom du flux RNG de `Wander` : aucun autre système ne le consomme.
 pub const BEHAVIORS_RNG_STREAM: &str = "behaviors";
 /// `Wander` : nouvelle direction toutes les `WANDER_PERIOD` frames.
