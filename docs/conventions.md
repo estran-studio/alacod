@@ -727,6 +727,8 @@ que le scénario ne pose le power-up), `powerup_nuke`, `powerup_drop_on_kill` (c
 Le HUD est décrit par `games/<jeu>/assets/ui/hud.ron` (`crates/game/src/ui/hud.rs`, liste des
 sources et des ancrages dans `CLAUDE.md` § HUD). Il ne fait que **lire** l'état à chaque
 `Update` : aucun système dans `GgrsSchedule`, aucun état rollback, aucune trace touchée.
+T1.18 : les sources du joueur passent par `game::ui::hud_model` (`HudSnapshot`) et la liste
+des sources est fermée et lintée (voir §32).
 
 Champs optionnels à la racine de `hud.ron`, à côté de `widgets` : `font`, `icons`, `names`.
 Par widget : `background`.
@@ -2000,6 +2002,60 @@ secousse au contact à f100), `weapon_grenade` généré (`test.expect` de la gr
 hit stop de surcharge à la première explosion, f113). Ces attentes ne touchent pas aux traces.
 
 Hors périmètre : sons (D32), particules, écran de mort.
+## 32. HUD throne (T1.18, voie V4)
+
+Présentation seule : aucune trace ne change.
+
+- **Liste fermée** `content::ui::HUD_SOURCES` : `health`, `wave`, `ammo`, `weapon`, `enemies`,
+  `players`, `currency`, `perks`, `downed`, `powerups`, `prompt`, et (T1.18) `rads`, `level`,
+  `ammo_by_type`, `statuses`, `floor`. Le lint lit la source de chaque widget de `ui/hud.ron`
+  (`HudFileSchema`) : source inconnue = `UnknownKind` (fixture `hud_unknown_source`).
+- **Modèle** `game::ui::hud_model` : `hud_values(&HudPlayerInput) -> HudPlayerValues` (pure,
+  testée sans rendu) et `player_source_text(source, prefix, values)` ; `HudSnapshot { frame,
+  texts, bars, values }` mis à jour en `Update` par `HudModelPlugin`, **aussi en headless** ; le
+  rendu (`ui::hud`) lit le snapshot. Joueur affiché : `CameraFollowOverride`, sinon le joueur
+  local de plus petit handle.
+- **Textes** : `rads` « 5 / 8 rads » (jauge `gauge` de la progression active / seuil du prochain
+  niveau ; « 12 rads » au dernier niveau), barre = (valeur − seuil courant) / (seuil suivant −
+  seuil courant), pleine au dernier ; `level` « Niv. 2 » ; `ammo_by_type` une ligne par munition
+  `Custom` (« balles 120 », ordre des ids) ; `statuses` une ligne par statut dans l'ordre de pose
+  (« brulure ×2 · 3 s », secondes arrondies au-dessus) ; `floor` « Étage 3 » (index + 1, mode
+  `Floors` seulement). Sans valeur : texte vide, pas même le préfixe (D22).
+- **Attente** `HudText { source, contains, at_frame }` : le texte (sans préfixe) contient
+  `contains` ; lue dans `HudSnapshot`, hors simulation et hors trace.
+- **Contenu** : `games/throne/assets/ui/hud.ron` — étage en haut au centre (au lieu de la
+  vague), barre de rads sous la vie et son texte à droite, niveau et statuts au-dessus de la vie,
+  munitions par type sous le nom de l'arme. zombies et testbed inchangés.
+
+## 33. Restart en ligne (D14)
+
+« Rejouer » à la fin d'une partie p2p (chemin `--matchbox`) relance une partie avec les mêmes
+pairs, sans saisie de lobby et **sans message réseau** : l'accord vient du déterminisme
+(`game::jjrs::restart`).
+
+- **Compteur** `OnlineGames` (hors rollback) : parties **en ligne** jouées depuis la dernière
+  entrée normale dans `LobbyOnline` (remis à 0 à cette entrée, +1 à `OnEnter(InGame)` en ligne).
+  Les parties locales jouées avant la connexion ne comptent pas : les pairs ont donc le même
+  compteur.
+- **Rejouer** (`RunRequest::Restart` en ligne, `allumette_url` vide) : pas d'abandon (comme le
+  restart local), `OnlineRestart { game: n }` puis `LobbyOnline`. Le socket de la partie est
+  fermé à `OnExit(InGame)` ; le nouveau s'ouvre sur la salle `{lobby}-r{n}` (jamais la salle
+  d'origine : aucun pair fantôme) ; `wait_for_players` et la création de session sont ceux du
+  premier lancement.
+- **Graine** de la partie relancée : `restart_seed(seed, n)` (`seed ^ fnv1a("restart") ^ n`,
+  replié sur 32 bits) depuis la graine de carte ; le restart **local** garde la même graine.
+- **Désaccord** : sans les pairs dans la salle de restart au bout de 30 s
+  (`RESTART_TIMEOUT_SECS`), retour à la salle `{lobby}` d'origine et compteur à 0, comme
+  « Lobby ». Le départ d'un pair après la fin de partie n'affiche plus « GAME DISCONNECTED »
+  (l'écran de fin reste) ; l'overlay de déconnexion disparaît à la sortie de la partie.
+- **Allumette** (`--allumette`) : pas en v1 (l'API joint un lobby par `game_id`, pas par nom ; le
+  créateur bloque jusqu'à 60 s) : « Rejouer » y reste redirigé vers le lobby (dette).
+- **Preuve** : `ALACOD_RESTART_AT_FRAME=r` (avec `ALACOD_STATE_TRACE`/`ALACOD_EXIT_AT_FRAME`) :
+  trace de la partie 1 écrite dans `<fichier>-g1` à la frame `r`, `RunRequest::Restart` posé
+  60 frames plus tard, partie 2 écrite dans `<fichier>-g2` à `ALACOD_EXIT_AT_FRAME` (compté depuis
+  son début). `scripts/p2p-restart.sh` : deux clients, traces identiques partie par partie, partie 2
+  différente de la 1 (graine dérivée) ; un client local dont les deux parties sont identiques
+  (même graine : la sortie de partie remet tout à zéro).
 
 ## Notes essentielles
 

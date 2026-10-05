@@ -1392,6 +1392,37 @@ fn clock_expectation_pass_and_fail() {
     );
 }
 
+/// T1.18 (§32) : `HudText` lit le HUD du joueur affiché (`HudSnapshot`, aussi en headless) sur
+/// `throne_progression` (scénario inchangé, attentes ajoutées ici) : étage, munitions par type,
+/// niveau 1 à f540 puis 2 à f1580, rads ; échoue sur un texte absent.
+#[test]
+fn hud_text_sur_throne_progression() {
+    if map_ldtk::RENDER_ENABLED {
+        return;
+    }
+    let hud = |source: &str, contains: &str, at_frame: u32| Expectation::HudText {
+        source: source.into(),
+        contains: contains.into(),
+        at_frame,
+    };
+    verifie_attentes(
+        load_scenario("throne_progression"),
+        &[
+            hud("floor", "Étage 1", 60),
+            hud("ammo_by_type", "balles", 60),
+            hud("level", "Niv. 0", 60),
+            hud("rads", "rads", 60),
+            hud("level", "Niv. 1", 540),
+            hud("level", "Niv. 2", 1580),
+            hud("floor", "Étage 3", 1912),
+        ],
+        &[
+            (hud("level", "Niv. 2", 540), "attendu « Niv. 2 »"),
+            (hud("statuses", "brulure", 60), "attendu « brulure »"),
+        ],
+    );
+}
+
 /// T1.15 (audit) : un scénario qui utilise une attente de M1, réenregistré par le runner
 /// (`ScenarioOutcome::recorded`, ce que `ALACOD_RECORD` et `alacod-sim --save-scenario`
 /// écrivent) puis rejoué avec ses attentes, donne la même trace et les mêmes attentes vertes.

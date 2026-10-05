@@ -325,6 +325,7 @@ Avant/après un refactoring de la simulation, comparer les traces : elles doiven
     - T1.8 mode `Floors` (§17) : `FloorIndex`.
     - T1.9 horloges (§23) : `Clock`.
     - T1.10 progression et mutations (§27) : `Gauge`, `Level`, `Mutations`.
+    - T1.18 HUD throne (§32) : `HudText` (texte d'une source du HUD, présentation, hors trace).
     - Réenregistrement : le scénario rejoué depuis son enregistrement garde ses réglages
       (`floors`, `clocks`, `difficulty`, `characters`, `mode`, `progression`, et chaque
       `PlayerScript` sans ses inputs) ; ses attentes y restent vertes
@@ -509,7 +510,7 @@ masqué quand le texte est vide). Format détaillé : `docs/conventions.md` §15
 
 #### Types de widgets
 
-- `Bar(source)` : barre (seule la source `health` la remplit).
+- `Bar(source)` : barre (`health`, dégradé rouge → vert ; `rads`, T1.18, couleur du RON).
 - `Text(source, prefix)` : texte, `prefix` devant la valeur. Pour les sources T2.12 (`perks`,
   `downed`, `powerups`, `prompt`), une valeur vide n'affiche rien, pas même le préfixe.
 - `Icons(source)` (T2.12) : rangée de carrés de côté `size.1`, un par entrée de la source
@@ -517,7 +518,10 @@ masqué quand le texte est vide). Format détaillé : `docs/conventions.md` §15
 
 #### Sources de données
 
-Chaque widget est lié à une source. Une source inconnue provoque un `warn!` au chargement, le widget reste vide.
+Chaque widget est lié à une source de la liste fermée `content::ui::HUD_SOURCES` : une source
+inconnue est une erreur de lint (`UnknownKind`, T1.18) et un `warn!` au chargement.
+Les sources du joueur sont calculées par `game::ui::hud_model` (`hud_values`, pure) dans
+`HudSnapshot`, aussi en headless (attente `HudText`).
 
 - `health` : ratio et texte du joueur local (`current/max`). Les barres utilisent la ratio pour la largeur et interpolent rouge→vert. Les textes affichent la valeur.
 - `wave` : numéro de la vague actuelle (WaveState::current_wave).
@@ -543,6 +547,14 @@ Chaque widget est lié à une source. Une source inconnue provoque un `warn!` au
   « Ouvrir — $750 », « Acheter fusil à pompe — $1000 », « Munitions … — $500 » (arme déjà
   possédée), « Ramasser … », « Juggernog — $2500 » / « — possédé », « Réanimer »,
   « Réparer » (fenêtre abîmée) ; vide sinon, et vide pour un joueur à terre.
+- `rads` (T1.18, §32) : jauge de la progression active, « 5 / 8 rads » (valeur / seuil du
+  prochain niveau ; « 12 rads » au dernier) ; en barre, fraction depuis le seuil du niveau
+  courant ; vide sans progression.
+- `level` (T1.18) : « Niv. 2 » ; vide sans progression.
+- `ammo_by_type` (T1.18) : réserve de chaque munition `Custom`, une ligne par type
+  (« balles 120 »).
+- `statuses` (T1.18) : statuts posés, une ligne chacun (« brulure ×2 · 3 s »).
+- `floor` (T1.18) : « Étage 3 » (index + 1), en mode `Floors` seulement.
 
 Le joueur affiché est celui que la caméra suit de force (`--follow <handle>` de
 `play_scenario`), sinon le joueur local de plus petit handle. Les cercles de portée restent
