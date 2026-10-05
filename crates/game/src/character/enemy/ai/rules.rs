@@ -24,7 +24,7 @@ use sim_core::{
 use utils::{frame::FrameCount, net_id::GgrsNetId, order_iter, order_mut_iter};
 
 use super::{
-    navigation::{FlowFieldCache, NavProfile},
+    navigation::{FlowFieldCache, MOVEMENT_FLOW_PROFILE},
     state::{
         BehaviorRuntime, ChargePhase, EnemyAiConfig, EnemyBehaviors, EnemyTarget, MonsterState,
         RangedAttackState, TargetType,
@@ -300,7 +300,7 @@ pub fn behavior_motion(
     match rule {
         Behavior::KeepDistance { .. } | Behavior::Flee => {
             let retreat = flow_field_cache
-                .get_flow_field(NavProfile::GroundBreaker)
+                .get_flow_field(MOVEMENT_FLOW_PROFILE)
                 .and_then(|field| field.retreat_direction(position))
                 .or_else(|| target.map(|t| (position - t).normalize_or_zero()));
             Some(match retreat {
