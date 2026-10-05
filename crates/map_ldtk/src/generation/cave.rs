@@ -42,6 +42,7 @@ pub fn build_cave_ldtk(template: &LdtkJson, id: &str, seed: i32, config: &CaveCo
         CAVE_PLAYER_SPAWNS,
         config.enemy_spawns,
         config.spawn_clearance,
+        config.nav_large,
     );
     let (w, h) = (grid.width as i32, grid.height as i32);
 

@@ -1838,8 +1838,39 @@ fn lint_caves(registry: &Registry, errors: &mut Vec<LintError>) {
                 ),
             });
         }
+        // D48 : une caverne peuplée doit offrir des points d'apparition atteints par le champ de
+        // flux de son gabarit (`nav_large`, dérivé du plus grand corps de `characters`) ; vérifié
+        // sur les graines de contrôle 1 à 5 (4 points de joueurs, `CAVE_PLAYER_SPAWNS` de
+        // `map_ldtk`).
+        if c.enemy_spawns > 0 && !c.characters.is_empty() && c.width >= 16 && c.height >= 16 {
+            for seed in 1..=CAVE_CONTROL_SEEDS {
+                let grid = world::generate(seed, c);
+                let points = world::points_of_interest(
+                    &grid,
+                    4,
+                    c.enemy_spawns,
+                    c.spawn_clearance,
+                    c.nav_large,
+                );
+                if points.zombie_spawns.is_empty() {
+                    errors.push(LintError {
+                        kind: LintErrorKind::OutOfRange,
+                        file: file.clone(),
+                        message: format!(
+                            "caverne « {} » : graine de contrôle {seed} : aucun point d'apparition d'ennemi atteint par le champ de flux du gabarit {} (plus grand corps de characters) : caverne trop fermée",
+                            cave.id,
+                            if c.nav_large { "grand" } else { "petit" }
+                        ),
+                    });
+                    break;
+                }
+            }
+        }
     }
 }
+
+/// D48 : graines de contrôle du lint des cavernes (points d'apparition atteignables).
+const CAVE_CONTROL_SEEDS: u64 = 5;
 
 /// T1.7 : `intgrid_value` unique et > 0, facteurs > 0, tags non vides.
 fn lint_surfaces(registry: &Registry, errors: &mut Vec<LintError>) {

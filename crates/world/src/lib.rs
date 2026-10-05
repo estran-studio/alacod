@@ -9,6 +9,7 @@
 pub mod cave;
 pub mod destroy;
 pub mod grid;
+pub mod nav;
 pub mod plugin;
 pub mod surface;
 

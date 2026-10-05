@@ -749,6 +749,34 @@ région des chantiers puis la campagne.
   bouge** (preuve par inputs : premier input différent du joueur 1 à f3998, 600 frames avant la mort par saignement
   f4599 de l'ancienne trace ; joueur 0 relevé à f4264, les deux finissent vivants) ; `clone_quad`, `bots_four_mixed`,
   `throne_duo_defaite` inchangés ; mesure sur `4e8fe93` : 2 bots 13 → 14/20, 4 bots 20/20 ; vérification groupée ci-dessus.
+- m1-analyse-200-throne : **mergée le 2026-10-05** (analyse, b0) — digest `docs/digests/m1-200-graines-throne.md` :
+  sur les 200 graines à 2 bots (`61ac539`), **les 39 défaites sont toutes au troisième étage** (`niveau_3`, boss) et
+  finissent toutes avec un survivant seul (les bots de `61ac539` ne réanimaient pas) ; par étage : 0 échec à l'étage 1,
+  3 soft-locks à l'étage 2, 39 défaites + 9 soft-locks sur 197 arrivées au 3e (24 %) ; 12 rejeux détaillés (trace
+  détaillée, un à la fois : deux en parallèle ont saturé la mémoire) : première mise à terre 779 à 1 229 frames après
+  l'entrée (victoires : 3 536 pour finir l'étage), causée par les tireurs (7/12, `arroseur` surtout) ou le boss (5/12),
+  **pas de pénurie** (≥ 432 balles en réserve), **57 à 80 % des balles consommées sans dégât** (médiane 74 %), mitraillette
+  seule dans 12/12, armes et power-ups au sol ignorés ; par blocs de 20 graines la réussite va de 12 à 17/20 (une
+  mesure à 20 graines a ± 3 de marge : les anciens 20 graines du journal ne se comparent pas) ; trois correctifs
+  proposés : réanimation (mergée, à mesurer), tir juste + changement/ramassage d'armes (b1), contenu de `niveau_3`
+  (pente de difficulté 0,25 → 0,15 ou un tireur en moins, **après** les deux premiers) ; trois scénarios figés
+  `throne_defaite_{tireurs,boss,coequipier}` (graines 103, 124, 131, inputs enregistrés, attentes à la première mise
+  à terre et à la défaite) ; dette D49 (`alacod-sim` sans subscriber de log) ; vérifiée sur l'état fusionné : suite
+  sans bless = 0 trace différente + exactement les 3 nouveaux sans référence, suite verte après bless, fmt, scripts
+  (code de simulation inchangé : pas de crates/lint/gen/p2p). Merge, bless `d152071`.
+- m1-d48-ennemis-hors-champ : **mergée le 2026-10-05** (D48 + D49, b0) — diagnostic par rejeu : dans les deux graines
+  des soft-locks de b1 (43 boss `Large` en (57, 4) ; 162 `brute` en (9, 4)), l'ennemi **naît** dans une poche hors du
+  champ de flux de son gabarit (couloir d'une case : `too_narrow` ; passage étroit pour `Large`), il n'y entre pas en
+  se déplaçant ; correction : module `world::nav` (règles de passage partagées avec `FlowFieldCache` : `blocked_for`,
+  `too_narrow`, coin coupé ; `nav_distances`, `nearest_reached_cell`), points d'ennemis de caverne atteints par le champ
+  du plus grand gabarit (`CaveConfig.nav_large` dérivé par le registre, sérialisé si vrai), **ancre de portail** ramenée
+  sur la case atteinte la plus proche (graine 53 : ancre dans un mur ; 27 ancres corrigées sur 3 000), lint + fixture
+  `cave_spawns_unreachable` (13 à 27 ms par jeu) ; tests : cohérence champ réel / `nav_distances` à la case près
+  (3 cavernes × 20 graines × 2 gabarits), points d'ennemis et ancres atteignables 1 000 × 3 ; les graines 43, 162 et 53
+  finissent les trois étages ; sur 1..200, 53 graines touchées en `niveau_3` et 4 portails ; `alacod-sim --log` (D49,
+  sans `--log` 20 graines JSON identiques) ; `throne_defaite_boss` ré-enregistré sur la graine 25 (la 124 était touchée :
+  ses inputs enregistrés ne prouvaient plus la « cause boss ») ; vérifiée sur l'état fusionné : suite sans bless = exactement `throne_defaite_boss` différente (dès la ligne 1 : autre graine), suite verte après bless, 586 tests de crates, lint des trois jeux, fmt, scripts, `make gen` des trois jeux sans modification, exemples, `check -p throne` ; p2p N=2 traces identiques, sha256 `6e297852…` (référence inchangée) ; D48, D49 fermées ; D50 ouverte (pénurie de
+  munitions `throne`, graine 76, b1).
 - **Critère M0 §9.8, 200 graines sur `avant_poste`** (nuit du 2026-10-04, `alacod-sim` de `7e8f541`, 4
   `acheteur`, carte par défaut du manifeste `maps/avant_poste.ldtk` — **pas `test_map`** : le critère
   historique sur `test_map` reste à rejouer avec `--map exemples/test_map.ldtk`), 4 lots parallèles sous
@@ -867,6 +895,8 @@ coller le préambule puis la fiche dans son prompt.
 | 2026-10-05 | m1-relecture-conventions « relecture d'ensemble de conventions.md et CLAUDE.md » (doc, b0 : numérotation 1 à 33, Feedback → §7, sommaire, 14 renvois de code corrigés, 29 sections corrigées contre le code, bilan CLAUDE.md 43/43 attentes, diff CLAUDE.md appliqué par orch `92a75dd`, 3 écarts décidés) | doc seule ; vérification groupée (même ligne) couvre les commentaires `///`. Merge `a3464d5` (via lot-2) (b0). |
 | 2026-10-05 | m1-dettes-doc-lot-2 « suites de la relecture » (b0 : exception `variant_health` §9, bless par toute voie avec preuve (Notes essentielles), nightly copie les MP4, six commentaires périmés, en-tête `powerups.ron`, commentaire `make gen`, README §10) | commentaires seuls dans le code (`git diff -U0` vérifié), `bash -n nightly.sh` ; vérification groupée (même ligne). Merge `a3464d5` (b0). |
 | 2026-10-05 | m1-v3-bots-reanimation « bots : relever un coéquipier en urgence » (b1 : `ReviveView`, `revive_urgent` < 600 frames et aucun ennemi visible < 150 px, prudent/fonceur, tir pendant l'approche ; preuve par inputs f3998 ; 2 bots 13 → 14/20, 4 bots 20/20 sur `4e8fe93`) | vérification groupée (même ligne) ; une trace bénie `throne_three_floors` (f4003, les deux vivants) ; `clone_quad` identique. Merge `9cd6c39`, bless `1e204e5` (b1). |
+| 2026-10-05 | m1-analyse-200-throne « pourquoi les bots perdent sur throne » (analyse, b0 : 39 défaites toutes au 3e étage avec survivant seul, tireurs 7/12 et boss 5/12 à la première mise à terre, pas de pénurie, 74 % de balles perdues, mitraillette seule ; soft-locks classés ; 3 correctifs proposés ; scénarios figés `throne_defaite_*` ; D49) | vérifiée sur l'état fusionné : suite sans bless 0 différente + 3 sans référence, suite verte après bless, fmt, scripts ; 3 traces nouvelles bénies `d152071`. Merge (b0). |
+| 2026-10-05 | m1-d48-ennemis-hors-champ « un ennemi n'est jamais hors de son champ de flux ; alacod-sim --log » (D48 + D49, b0 : `world::nav` partagé avec le champ de flux, points d'ennemis et ancres de portail par connexité, `nav_large`, lint + fixture, tests 1 000 × 3 et cohérence à la case près ; graines 43, 162, 53 finissent ; `throne_defaite_boss` → graine 25) | vérifiée sur l'état fusionné : suite sans bless = exactement `throne_defaite_boss` différente (dès la ligne 1 : autre graine), suite verte après bless, 586 tests de crates, lint des trois jeux, fmt, scripts, `make gen` des trois jeux sans modification, exemples, `check -p throne` ; p2p N=2 traces identiques, sha256 `6e297852…` (référence inchangée) ; trace `throne_defaite_boss` bénie (ré-enregistrement, relevé du rapport). Merge, bless (b0). |
 Orchestration : Fable crée les worktrees (`scripts/task-new.sh` du meta-repo), lance un agent par
 tâche avec le modèle le moins cher (Haiku d'abord, Sonnet si une tâche échoue deux fois), vérifie
 la branche (`make test_scenarios`, `cargo test`, lecture du diff), fusionne dans `main`

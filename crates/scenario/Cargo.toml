@@ -23,6 +23,8 @@ sim_core = { path = "../sim_core" }
 stats = { path = "../stats" }
 run = { path = "../run" }
 utils = { path = "../utils" }
+# D49 : `alacod-sim --log` (même version que `utils`, aucune crate nouvelle).
+tracing-subscriber = { version = "0.3.18", features = ["fmt", "env-filter"] }
 
 [features]
 # Rendu des tilemaps, requis pour afficher un scénario (play_scenario). Les tests

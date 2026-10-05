@@ -1,0 +1,3 @@
+// D48 : trop de roche (0,65) : aucun point d'apparition atteint sur les graines de contrôle.
+(width: 24, height: 24, fill_ratio: "0.65", iterations: 4, birth: 5, survive: 4,
+ min_floor_ratio: "0.1", enemy_spawns: 2, characters: ["gros"])

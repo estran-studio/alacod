@@ -11,6 +11,10 @@
 //!   Les profils v0 restent disponibles : `fonceur,fonceur,prudent,immobile`.
 //! - `--map <fichier.ldtk>` : carte explicite relative aux assets du jeu ; sinon `start_map`.
 //! - `--progress` : état de la vague toutes les 1000 frames, hors simulation.
+//! - `--log` (D49) : journaux du jeu (`info!` de la simulation : dégâts, mises à terre, butin,
+//!   projectiles…) sur stderr, filtrés par `RUST_LOG` (défaut `info`), sans horodatage ni
+//!   couleur (comparables d'une exécution à l'autre). Sans `--log`, aucun subscriber : sorties et
+//!   JSON inchangés.
 //! - `--floors <id>` (T1.8) : mode `Floors` avec la séquence `id` du dossier `Floors` du jeu ;
 //!   le JSON rapporte `floor`, le niveau atteint (pas d'arrêt anticipé par niveau : T1.14).
 //!
@@ -115,6 +119,18 @@ fn stop_condition(
 
 fn main() {
     let args: Vec<String> = std::env::args().skip(1).collect();
+    // D49 : `--log` installe le subscriber que le binaire n'avait pas (`RUST_LOG` restait muet).
+    if args.iter().any(|arg| arg == "--log") {
+        tracing_subscriber::fmt()
+            .with_writer(std::io::stderr)
+            .without_time()
+            .with_ansi(false)
+            .with_env_filter(
+                tracing_subscriber::EnvFilter::try_from_default_env()
+                    .unwrap_or_else(|_| tracing_subscriber::EnvFilter::new("info")),
+            )
+            .init();
+    }
     let opt = |name: &str| -> Option<String> {
         args.iter().position(|a| a == name).map(|i| {
             args.get(i + 1)
@@ -127,7 +143,7 @@ fn main() {
             panic!(
                 "usage : alacod-sim --game <jeu> --bots <n> [--profiles <a,b,...>] \
                  --seeds <de>..<à> (--until-wave <n> | --floors <séquence> --until-floor <n>) \
-                 --max-frames <n> [--map <fichier.ldtk>] [--save-scenario <dossier>] [--json <fichier>] ({name} manquant)"
+                 --max-frames <n> [--map <fichier.ldtk>] [--save-scenario <dossier>] [--json <fichier>] [--log] ({name} manquant)"
             )
         })
     };

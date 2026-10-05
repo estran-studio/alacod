@@ -1,0 +1,11 @@
+// Fixture D48 : caverne peuplée d'un corps grand (> 20 px) dont aucun point d'apparition n'est
+// atteint par le champ de flux de son gabarit sur les graines de contrôle (trop fermée), et une
+// caverne ouverte qui passe.
+(
+    name: "fixture-cave_spawns_unreachable",
+    content_folders: [
+        (path: "characters", kind: "Character"),
+        (path: "caves", kind: "Cave"),
+    ],
+    entry: (start_map: "cave:ouverte", default_seed: 1),
+)

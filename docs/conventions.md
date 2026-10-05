@@ -1300,6 +1300,18 @@ Dégagement des `ZombieSpawn` (D41, m1-d41-spawns-degages) : `CaveConfig::spawn_
 (`world::is_open_within`), calculé par le registre depuis le plus grand corps **en jeu** (collider
 × `scale`) de `characters` (`content::registry::spawn_clearance_for` : 1 jusqu'à 24 px du centre,
 une case de plus par 16 px) ; 1 pour tout le contenu actuel (points inchangés).
+Accessibilité des `ZombieSpawn` (D48, m1-d48-ennemis-hors-champ) : un point n'est retenu que si
+le champ de flux du gabarit de navigation du plus grand corps de `characters` l'atteint depuis
+les points des joueurs (`world::nav::nav_distances`). Les règles de passage (`blocked_for`,
+`too_narrow`, coin coupé en diagonale) sont **les mêmes fonctions** que le champ de flux de
+`game` (`world::nav`, appelées par `FlowFieldCache`) ; un test compare les deux sur les cavernes
+de `throne`. `CaveConfig::nav_large`, calculé par le registre (collider × `scale` de plus de
+20 px en largeur ou en hauteur, le seuil d'`AgentSize::Large`), choisit le gabarit. Sans cette
+règle, une poche ouverte mais reliée par un couloir d'une case (petit gabarit) ou de deux cases
+(grand) gardait l'ennemi hors de son champ, immobile et hors d'atteinte des bots (soft-locks des
+graines 43 et 162 de `throne`). L'ordre des candidats reste la distance de grille. Lint : une
+caverne peuplée dont une des graines de contrôle 1 à 5 n'a aucun point atteignable est refusée
+(fixture `cave_spawns_unreachable`).
 
 **Niveau LDtk.** Le callback du loader réécrit le niveau unique du gabarit
 (`generation::cave::build_cave_ldtk`) : dimensions, IntGrid `Walls` (1 = `Wall` ou `Rock`),
@@ -1653,6 +1665,9 @@ m1-integration-scenarios) ; mesures actuelles : journal de `docs/taches.md`
 des joueurs) et `dodges` (frames où l'esquive a remplacé le déplacement d'au moins un bot,
 compteur `bots::BotStats` hors rollback). Soft-lock `Floors` : sans passage de niveau ni ennemi
 en moins pendant 1 200 frames, arrêt avec `softlock` (instantané « précédent » à 600 frames).
+`--log` (D49) : installe un subscriber de journaux sur stderr (`RUST_LOG`, défaut `info`, sans
+horodatage ni couleur) ; sans lui, `alacod-sim` n'a aucun subscriber et `RUST_LOG` ne produit
+rien. Sorties et JSON inchangés sans `--log`.
 D43/D44 (m1-d43-d44-fin-de-partie) : la simulation s'arrête aussi dès que la partie est terminée
 (`StopEarly::stop_when_run_ended`, `run_end` dans le JSON, colonne « fin ») ; la progression du
 soft-lock compte aussi la santé totale des ennemis qui baisse et tout changement d'état d'un

@@ -1,0 +1,14 @@
+(
+    movement: (
+        max_speed: "0.0",
+    ),
+    asset_name_ref: "gros",
+    base_health: (
+        max: "100.0",
+    ),
+    starting_skin: "1",
+    skins: {
+        "1": (layers: {}),
+    },
+    collider: (shape: Rectangle(width: "24.0", height: "24.0"), offset: (x: "0.0", y: "0.0", z: "0.0")),
+)
