@@ -28,18 +28,18 @@ Scenario(
         // Cinq coups dans [10, 40) : 30 - 5 = 25 ; rechargement entamé à f50 (fin à f145).
         Ammo(handle: 0, ammo: 25, at_frame: 45),
         // `munitions_lames` (f100) : chargeur et réserve de balles intacts, réserve de lames
-        // pleine (6 chargeurs de 8), rechargement non annulé.
+        // pleine (12 chargeurs de 8), rechargement non annulé.
         Ammo(handle: 0, ammo: 25, at_frame: 110),
-        AmmoReserve(handle: 0, ammo_type: Custom("balles"), amount: 456, at_frame: 110),
-        AmmoReserve(handle: 0, ammo_type: Custom("lames"), amount: 48, at_frame: 110),
+        AmmoReserve(handle: 0, ammo_type: Custom("balles"), amount: 912, at_frame: 110),
+        AmmoReserve(handle: 0, ammo_type: Custom("lames"), amount: 96, at_frame: 110),
         // Rechargement terminé : un chargeur entier (30) tiré de la réserve.
         Ammo(handle: 0, ammo: 30, at_frame: 150),
-        AmmoReserve(handle: 0, ammo_type: Custom("balles"), amount: 426, at_frame: 150),
+        AmmoReserve(handle: 0, ammo_type: Custom("balles"), amount: 882, at_frame: 150),
         Ammo(handle: 0, ammo: 25, at_frame: 200),
         // `munitions_balles` (f210) : chargeur plein, réserve de balles pleine
-        // (12 × 30 mitraillette + 16 × 6 revolver = 456).
+        // (24 × 30 mitraillette + 32 × 6 revolver = 912 ; réserves doublées par m1-integration-scenarios).
         Ammo(handle: 0, ammo: 30, at_frame: 220),
-        AmmoReserve(handle: 0, ammo_type: Custom("balles"), amount: 456, at_frame: 220),
+        AmmoReserve(handle: 0, ammo_type: Custom("balles"), amount: 912, at_frame: 220),
         PowerUpPickups(max: 0, at_frame: 220),
     ],
 )

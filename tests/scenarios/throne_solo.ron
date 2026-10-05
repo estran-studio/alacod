@@ -1,19 +1,31 @@
-// `throne` vague 2 de M1 (m1-integration-scenarios, docs/conventions.md §29) : 1 bot(s)
-// `prudent` jouent la run complète (trois étages de caverne, `floors/run.ron`, boss `roi_rat` au
-// niveau 3), avec tout ce que le manifeste active. Joué en synctest par la suite : preuve de
-// déterminisme à 1 joueur(s).
+// `throne` vague 2 de M1 (m1-integration-scenarios, docs/conventions.md §29) : un bot `prudent`
+// joue la run (trois cavernes, `floors/run.ron`, boss `roi_rat` au niveau 3) avec tout ce que le
+// manifeste active. Joué en synctest par la suite : preuve de déterminisme à un joueur.
 //
-// CALIBRER (mesure)
+// **Le bot seul ne finit pas la run** (0/20 graines, comme sur celle-ci) : la fiche demandait le
+// niveau 3 et le joueur vivant, ce scénario fixe ce qui se passe vraiment — deux cavernes
+// nettoyées, mort dans la troisième (limite des bots, rapport m1-integration-scenarios).
+//
+// Mesuré (graine 123456) : niveau 1 à f537 (`sang_froid` à f1137), étage 1 à f808, niveau 2 à
+// f1591 (`coriace` à f2191), alerte de l'horloge à f1708, étage 2 à f2816, mort et défaite à f3640.
+//
+// À regarder : le bot nettoie deux cavernes puis tombe dans la troisième.
 Scenario(
     game: "throne",
     floors: Some("run"),
     map_seed: 123456,
-    frames: 12000,
+    frames: 3700,
     players: [
         (bot: prudent),
     ],
     expect: [
-        Event(kind: "floor", by_frame: 12000),
-        // CALIBRER
+        FloorIndex(index: 1, at_frame: 810),
+        FloorIndex(index: 2, at_frame: 2820),
+        Event(kind: "levelup", by_frame: 537),
+        Mutations(handle: 0, contains: ["sang_froid", "coriace"], count: Some(2), at_frame: 2200),
+        Clock(id: "alerte", fired: true, at_frame: 1710),
+        PlayerAlive(handle: 0, at_frame: 3600),
+        PlayerDead(handle: 0, at_frame: 3650),
+        Defeat(by_frame: 3640),
     ],
 )
