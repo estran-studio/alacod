@@ -144,7 +144,8 @@ fn decide_prudent(view: &BotView) -> BoxInput {
         if let Some(enemy) = view.nearest_enemy {
             aim_at(&mut input, view.position, enemy.position);
             if enemy.distance <= PRUDENT_MAX_DISTANCE {
-                input.fire = view.trigger_ready && line_of_fire(view) && in_range(view, enemy.distance);
+                input.fire =
+                    view.trigger_ready && line_of_fire(view) && in_range(view, enemy.distance);
             }
         }
         manage_weapon(&mut input, view);
@@ -160,7 +161,8 @@ fn decide_prudent(view: &BotView) -> BoxInput {
         if let Some(enemy) = view.nearest_enemy {
             aim_at(&mut input, view.position, enemy.position);
             if enemy.distance <= PRUDENT_MAX_DISTANCE {
-                input.fire = view.trigger_ready && line_of_fire(view) && in_range(view, enemy.distance);
+                input.fire =
+                    view.trigger_ready && line_of_fire(view) && in_range(view, enemy.distance);
             }
         }
         manage_weapon(&mut input, view);
@@ -176,7 +178,8 @@ fn decide_prudent(view: &BotView) -> BoxInput {
         if let Some(enemy) = view.nearest_enemy {
             aim_at(&mut input, view.position, enemy.position);
             if enemy.distance <= PRUDENT_MAX_DISTANCE {
-                input.fire = view.trigger_ready && line_of_fire(view) && in_range(view, enemy.distance);
+                input.fire =
+                    view.trigger_ready && line_of_fire(view) && in_range(view, enemy.distance);
             }
         }
         manage_weapon(&mut input, view);
@@ -659,11 +662,20 @@ mod tests {
             distance: fx(200.0),
         });
         for profile in [BotProfile::Prudent, BotProfile::Fonceur] {
-            assert!(decide(profile, &v, &mut rng()).fire, "{profile:?} : sans portée connue");
+            assert!(
+                decide(profile, &v, &mut rng()).fire,
+                "{profile:?} : sans portée connue"
+            );
             v.fire_range = Some(fx(150.0));
-            assert!(!decide(profile, &v, &mut rng()).fire, "{profile:?} : hors de portée");
+            assert!(
+                !decide(profile, &v, &mut rng()).fire,
+                "{profile:?} : hors de portée"
+            );
             v.fire_range = Some(fx(300.0));
-            assert!(decide(profile, &v, &mut rng()).fire, "{profile:?} : à portée");
+            assert!(
+                decide(profile, &v, &mut rng()).fire,
+                "{profile:?} : à portée"
+            );
             v.fire_range = None;
         }
     }

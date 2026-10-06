@@ -3,9 +3,10 @@
 // mutations), horloge d'étage `etage`, difficulté. Les bots ne choisissent pas : la première
 // option est prise 600 frames après chaque niveau.
 //
-// Mesuré (D51 : dispersion de la config enfin appliquée) : niveau 1 à f363 (3 rads), étage 1 à
-// f578, `sang_froid` à f963 (363 + 600), niveau 2 à f1284 ; horloge remise à zéro à chaque
-// étage : `alerte` à f1478 (578 + 15 s) dans l'étage 1 ; étage 2 à f1591. (Avant,
+// Mesuré (m1-v3-bots-armes) : niveau 1 à f363 (3 rads), étage 1 à f558, niveau 2 à f959,
+// `sang_froid` à f963 (363 + 600), `tireur` à f1563 ; horloge remise à zéro à chaque étage :
+// `alerte` à f1458 (558 + 15 s) dans l'étage 1 ; étage 2 à f1643. (D51 : étage 1 à f578, niveau 2
+// à f1284, `alerte` à f1478, étage 2 à f1591.) (Avant,
 // m1-v3-bots-softlocks : niveau 1 à f547, étage 1 à f937, niveau 2 à f1716, `alerte` à f1837,
 // l'étage 2 après la fin du scénario.) m1-integration-scenarios : l'étage 1 est enfin `niveau_2`.
 //
@@ -26,10 +27,10 @@ Scenario(
         Mutations(handle: 0, count: 0, at_frame: 962),
         Mutations(handle: 0, count: 1, at_frame: 966),
         Event(kind: "mutation", by_frame: 966),
-        Level(handle: 0, level: 2, at_frame: 1290),
-        Clock(id: "alerte", fired: false, at_frame: 1470),
-        Clock(id: "alerte", fired: true, at_frame: 1485),
-        FloorIndex(index: 1, at_frame: 1585),
+        Level(handle: 0, level: 2, at_frame: 965),
+        Clock(id: "alerte", fired: false, at_frame: 1450),
+        Clock(id: "alerte", fired: true, at_frame: 1465),
+        FloorIndex(index: 1, at_frame: 1635),
         FloorIndex(index: 2, at_frame: 1912),
         PlayerAlive(handle: 0, at_frame: 1949),
     ],

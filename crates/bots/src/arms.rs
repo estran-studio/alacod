@@ -106,14 +106,15 @@ pub fn better_weapon(
         .iter()
         .map(|w| expected_dps(w, distance, radius))
         .collect();
-    let (best, best_score) = scores
-        .iter()
-        .copied()
-        .enumerate()
-        .fold(None, |acc: Option<(usize, Fixed)>, (i, s)| match acc {
-            Some((_, b)) if b >= s => acc,
-            _ => Some((i, s)),
-        })?;
+    let (best, best_score) =
+        scores
+            .iter()
+            .copied()
+            .enumerate()
+            .fold(None, |acc: Option<(usize, Fixed)>, (i, s)| match acc {
+                Some((_, b)) if b >= s => acc,
+                _ => Some((i, s)),
+            })?;
     let current = scores.get(active).copied().unwrap_or(Fixed::ZERO);
     (best != active
         && best_score > Fixed::ZERO
@@ -148,8 +149,8 @@ impl WeaponChoices {
                 return true;
             }
         }
-        let held = choice
-            .is_some_and(|(_, since)| frame.saturating_sub(since) < SWITCH_HOLD_FRAMES);
+        let held =
+            choice.is_some_and(|(_, since)| frame.saturating_sub(since) < SWITCH_HOLD_FRAMES);
         if held {
             return false;
         }
@@ -255,7 +256,10 @@ mod tests {
         // Déjà la meilleure : rien.
         assert_eq!(better_weapon(&armes, 2, fx(500.0), r), None);
         // Aucune arme utile : rien.
-        let aucune = [WeaponView { usable: false, ..laser() }];
+        let aucune = [WeaponView {
+            usable: false,
+            ..laser()
+        }];
         assert_eq!(better_weapon(&aucune, 0, fx(300.0), r), None);
     }
 
@@ -265,7 +269,10 @@ mod tests {
     fn ramasser_une_arme_meilleure_ou_un_emplacement_libre() {
         assert!(!worth_picking(&laser(), Some(&mitraillette()), false));
         assert!(worth_picking(&laser(), Some(&mitraillette()), true));
-        let vide = WeaponView { usable: false, ..mitraillette() };
+        let vide = WeaponView {
+            usable: false,
+            ..mitraillette()
+        };
         assert!(worth_picking(&lance_lames(), Some(&vide), false));
         assert!(worth_picking(&laser(), None, false));
     }

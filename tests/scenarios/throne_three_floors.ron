@@ -3,11 +3,13 @@
 // profils), avec tout ce que le manifeste active (butin, progression, horloge, difficulté).
 //
 // Mesuré (graine 4, comme `alacod-sim --game throne --bots 2 --profiles prudent,prudent
-// --floors run --seeds 4..4 --until-floor 3` ; D51 : dispersion de la config enfin appliquée) :
-// étages à f298, f1048, f3042 ; mutations du joueur 0 `vampire` (f1191), `irradie` (f2074),
-// `chasseur` (f3752), du joueur 1 `coriace` (f1044), `tireur` (f4127) ; alerte de l'horloge à
-// f1948 (étage 2) ; personne à terre, les deux vivants. (Avant, m1-v3-bots-softlocks : étages à
-// f275, f1490, f4162.)
+// --floors run --seeds 4..4 --until-floor 3` ; m1-v3-bots-armes : choix d'arme, tir à portée,
+// ramassage) : étages à f298, f1048, f3239 (l'objectif de la run, étage 3, est atteint) ;
+// mutations du joueur 0 `vampire` (f1191), `irradie` (f1995), `chasseur` (f3589), du joueur 1
+// `coriace` (f1044) ; le joueur 1 tombe à f2317 (étage 2) et n'est pas relevé : mort de saignement
+// à f4117 ; le joueur 0 meurt à f4223 dans la quatrième caverne (la boucle recharge `niveau_3`).
+// **Régression notée** : avant (D51), personne à terre, les deux vivants à f4999 (étages à f298,
+// f1048, f3042) ; les témoins de m1-v3-bots-armes (`--until-floor 3`) s'arrêtent à l'étage 3.
 // **Duo de la vague 2 de M1** (m1-integration-scenarios) : gardé sous ce nom. **Graine 4**
 // depuis m1-navigation-profils-tailles : sur 123456, le duo ne finit plus (soft-lock au niveau
 // 3, boss et tourelle en vue des bots : limite des bots) ; 4 est la première des 20 graines qui
@@ -27,14 +29,14 @@ Scenario(
     expect: [
         FloorIndex(index: 1, at_frame: 300),
         FloorIndex(index: 2, at_frame: 1050),
-        FloorIndex(index: 2, at_frame: 3040),
-        FloorIndex(index: 3, at_frame: 3045),
-        Event(kind: "floor", label_contains: Some("niveau 3"), by_frame: 3045),
+        FloorIndex(index: 2, at_frame: 3235),
+        FloorIndex(index: 3, at_frame: 3245),
+        Event(kind: "floor", label_contains: Some("niveau 3"), by_frame: 3245),
         Event(kind: "levelup", by_frame: 445),
         Clock(id: "alerte", fired: true, at_frame: 1950),
-        Mutations(handle: 0, contains: ["vampire", "irradie"], count: Some(2), at_frame: 2080),
-        Mutations(handle: 1, contains: ["coriace", "tireur"], count: Some(2), at_frame: 4130),
-        PlayerAlive(handle: 0, at_frame: 4999),
-        PlayerAlive(handle: 1, at_frame: 4999),
+        Mutations(handle: 0, contains: ["vampire", "irradie"], count: Some(2), at_frame: 2000),
+        PlayerDowned(handle: 1, at_frame: 2320),
+        PlayerDead(handle: 1, at_frame: 4120),
+        PlayerDead(handle: 0, at_frame: 4225),
     ],
 )

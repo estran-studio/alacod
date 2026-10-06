@@ -36,24 +36,22 @@
 
 use std::collections::BTreeMap;
 
+use crate::arms::{self, WeaponChoices, WeaponView};
 use bevy::prelude::*;
 use bevy_fixed::fixed_math::{Fixed, FixedTransform3D, FixedVec2};
 use bevy_fixed::rng::{fnv1a, RngStreams, RollbackRng};
 use bevy_ggrs::{LocalInputs, LocalPlayers, ReadInputs, Rollback};
+use game::character::config::{CharacterConfig, CharacterConfigHandles};
 use game::character::enemy::Enemy;
 use game::character::health::Health;
 use game::character::player::input::{read_local_inputs, BoxInput};
 use game::character::player::jjrs::PeerConfig;
 use game::character::player::Player;
+use game::global_asset::GlobalAsset;
 use game::recording::record_local_inputs;
 use game::replay::BotProfile;
 use game::waves::WaveState;
-use game::weapons::{
-    WeaponInventory, WeaponModesState, WeaponPickup, WeaponState, WeaponsConfig,
-};
-use game::character::config::{CharacterConfig, CharacterConfigHandles};
-use game::global_asset::GlobalAsset;
-use crate::arms::{self, WeaponChoices, WeaponView};
+use game::weapons::{WeaponInventory, WeaponModesState, WeaponPickup, WeaponState, WeaponsConfig};
 use map::game::entity::map::window::WindowHealth;
 use sim_core::kinds::{KindDecl, KindRegistry};
 use utils::net_id::GgrsNetId;
@@ -595,7 +593,10 @@ pub fn read_bot_inputs(
                     .iter()
                     .filter(|(_, p, name, w)| {
                         near(p)
-                            && !inventory.weapons.iter().any(|(_, owned)| &owned.config.name == name)
+                            && !inventory
+                                .weapons
+                                .iter()
+                                .any(|(_, owned)| &owned.config.name == name)
                             && arms::worth_picking(w, arms_views.get(active), free_slot)
                     })
                     .map(|(id, ..)| *id)
@@ -729,8 +730,12 @@ fn revive_step(
     let mut targets: Vec<_> = surfaces.iter().filter(|(.., revive)| *revive).collect();
     targets.sort_by_key(|(id, rect, ..)| (rect.distance(position), *id));
     targets.into_iter().find_map(|(id, rect, reach, _)| {
-        surface_step(nav, position, surfaces, *id, *rect, *reach)
-            .map(|(direction, interact)| ReviveView { direction, interact })
+        surface_step(nav, position, surfaces, *id, *rect, *reach).map(|(direction, interact)| {
+            ReviveView {
+                direction,
+                interact,
+            }
+        })
     })
 }
 
@@ -772,7 +777,6 @@ const LOOT_REACH: Fixed = Fixed::from_bits(16 << 16);
 /// m1-v3-bots-armes : rayon de détour pour ramasser (power-up, arme au sol).
 const LOOT_RADIUS: Fixed = Fixed::from_bits(96 << 16);
 
-
 /// Arme sans mode lisible : inutilisable.
 const NO_WEAPON: WeaponView = WeaponView {
     usable: false,
@@ -782,8 +786,6 @@ const NO_WEAPON: WeaponView = WeaponView {
     range: Fixed::ZERO,
     spread: Fixed::ZERO,
 };
-
-
 
 /// m1-v3-bots-softlocks + m1-v3-bots-armes : pas suivant vers le butin accessible le plus proche
 /// (distance, puis `GgrsNetId`) : un power-up (ramassé au passage, `LOOT_REACH`) ou une arme au sol
@@ -803,19 +805,24 @@ fn pickup_step(
     let mut targets: Vec<(Fixed, usize, Option<(Rect, Fixed)>)> = powerups
         .iter()
         .map(|(id, p)| (position.distance(p), *id, None))
-        .chain(surfaces.iter().filter(|(id, ..)| wanted.contains(id)).map(
-            |(id, rect, reach, _)| (rect.distance(position), *id, Some((*rect, *reach))),
-        ))
+        .chain(
+            surfaces
+                .iter()
+                .filter(|(id, ..)| wanted.contains(id))
+                .map(|(id, rect, reach, _)| (rect.distance(position), *id, Some((*rect, *reach)))),
+        )
         .collect();
     targets.sort_by_key(|(d, id, _)| (*d, *id));
-    targets.into_iter().find_map(|(_, id, surface)| match surface {
-        None => {
-            let p = powerups.iter().find(|(pid, _)| *pid == id)?.1;
-            nav.approach(position, Rect { min: p, max: p }, LOOT_REACH)
-                .map(|(direction, _)| (dead_zone(direction), false))
-        }
-        Some((rect, reach)) => surface_step(nav, position, surfaces, id, rect, reach),
-    })
+    targets
+        .into_iter()
+        .find_map(|(_, id, surface)| match surface {
+            None => {
+                let p = powerups.iter().find(|(pid, _)| *pid == id)?.1;
+                nav.approach(position, Rect { min: p, max: p }, LOOT_REACH)
+                    .map(|(direction, _)| (dead_zone(direction), false))
+            }
+            Some((rect, reach)) => surface_step(nav, position, surfaces, id, rect, reach),
+        })
 }
 
 /// Composante annulée sous laquelle une direction de route ne presse pas son axe.

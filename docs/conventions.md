@@ -1687,6 +1687,22 @@ joueur (`runner::FloorsProgress`).
 `prudent` sans esquive figés en `Scripted`), `bot_floors_three` (`trois_niveaux` = `floor_a`,
 `floor_d`, `floor_c`).
 
+**Armes des bots** (m1-v3-bots-armes, `crates/bots/src/arms.rs`, mode `Floors`, `prudent` et
+`fonceur`) : chaque arme portée est notée par ses dégâts attendus par seconde sur la cible
+courante, lus dans la config du mode de tir : dégâts par projectile × projectiles par tir
+(plombs, rafale) × cadence × part qui touche, nuls hors portée ou sans munitions. Part qui touche
+= `min(1, 2 × rayon / (distance × spread))` (angle uniforme sur la pleine largeur `spread`, §16 ;
+`spread_angle` pour le fusil). Exemples (cible de rayon 12, armes de `throne`) : à 300 px,
+mitraillette ≈ 43/s, lance-lames 36, laser 48 ; à 500 px, mitraillette ≈ 26 (test
+`arms::tests::degats_attendus_avec_la_dispersion`). Changement d'arme : seulement pour un gain
+≥ 1,5 × (ou si l'arme en main ne fait rien), pas avant 120 frames après le choix précédent
+(`WeaponChoices`, hors rollback, frame de simulation, vidée à chaque entrée en partie) ;
+`switch_weapon` pressé jusqu'à l'emplacement visé. Pas de tir au-delà de la portée de l'arme en
+main (`BotView::fire_range`). Ramassage, sans ennemi visible à moins de 150 px : power-up à moins
+de 96 px (partout à sec), arme au sol à moins de 96 px si elle bat l'arme en main à 250 px
+(emplacements pleins : c'est elle qui tombe) ou si un emplacement est libre. Pas de cas « boss »
+ni d'anticipation (m1-v3-bots-lead).
+
 ## 25. Variantes et élites (T1.5, chantier D2)
 
 Code : `crates/game/src/character/variant.rs` (`VariantsConfig`, `draw_variant`,
