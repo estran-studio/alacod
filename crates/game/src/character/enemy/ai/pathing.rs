@@ -636,6 +636,10 @@ pub fn move_enemies(
             // requête sur `CollisionGrids::walls` au lieu de la boucle sur tous les murs —
             // l'ancienne optimisation `max_check_dist` (sauter les murs à plus de 100 unités)
             // est maintenant inutile, la grille ne renvoie déjà que les murs proches de `pos`.
+            // m0-graine-100-fenetre : un pas qui ne fait que réduire un recouvrement déjà
+            // présent au départ passe (`step_blocked_by`) : un ennemi incrusté dans un mur ou une
+            // fenêtre peut s'en dégager au lieu de rester figé.
+            let start = fixed_transform.translation;
             let check_wall_collision = |pos: &fixed_math::FixedVec3| -> bool {
                 let aabb = crate::collision_grid::collider_aabb(pos, enemy_collider);
                 for wall_entry in grids.walls.query_aabb(&aabb) {
@@ -647,7 +651,8 @@ pub fn move_enemies(
                     if !collision_settings.layer_matrix[enemy_collision_layer.0][wall_layer.0] {
                         continue;
                     }
-                    if is_colliding(
+                    if crate::collider::step_blocked_by(
+                        &start,
                         pos,
                         enemy_collider,
                         &wall_transform.translation,
@@ -666,7 +671,8 @@ pub fn move_enemies(
                     window_query.get(entry.entity).is_ok_and(
                         |(_, window_transform, obstacle, window_collider)| {
                             obstacle.blocks_movement
-                                && is_colliding(
+                                && crate::collider::step_blocked_by(
+                                    &start,
                                     pos,
                                     enemy_collider,
                                     &window_transform.translation,
