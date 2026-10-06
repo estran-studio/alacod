@@ -97,9 +97,19 @@ impl Rect {
 /// Ligne de tir sans `Wall` entre `from` et `to` (murs élargis de [`SHOT_MARGIN`]),
 /// directement sur la géométrie (sans champ).
 pub fn walls_clear(geometry: &[(Rect, bool)], from: FixedVec2, to: FixedVec2) -> bool {
+    walls_clear_with(geometry, from, to, SHOT_MARGIN)
+}
+
+/// [`walls_clear`] avec une marge donnée (`Fixed::ZERO` : la ligne brute, m1-v3-bots-softlocks).
+pub fn walls_clear_with(
+    geometry: &[(Rect, bool)],
+    from: FixedVec2,
+    to: FixedVec2,
+    margin: Fixed,
+) -> bool {
     !geometry
         .iter()
-        .any(|(rect, wall)| *wall && rect.grown(SHOT_MARGIN).crosses(from, to))
+        .any(|(rect, wall)| *wall && rect.grown(margin).crosses(from, to))
 }
 
 pub fn cell(position: FixedVec2) -> GridPos {
@@ -298,6 +308,15 @@ impl BotNavigation {
             .walls
             .iter()
             .any(|rect| rect.grown(SHOT_MARGIN).crosses(from, to))
+    }
+    /// Le corps (obstacles élargis du gabarit, marge de 1 px comprise) va de `from` à `to` en
+    /// ligne droite sans toucher d'obstacle, et ne touche rien à son départ
+    /// (m1-v3-bots-softlocks : bot coincé dans un coin de roche près du portail, graine 53).
+    pub fn body_clear(&self, from: FixedVec2, to: FixedVec2) -> bool {
+        !self
+            .obstacles
+            .iter()
+            .any(|rect| rect.contains(from) || rect.crosses(from, to))
     }
     pub fn clear(&self, from: FixedVec2, to: FixedVec2) -> bool {
         !self.obstacles.iter().any(|rect| {
@@ -501,6 +520,22 @@ mod tests {
             min: vec(x0, y0),
             max: vec(x1, y1),
         }
+    }
+    /// m1-v3-bots-softlocks (graine 53) : corps posé dans le coin d'une roche (contact sur x et
+    /// sur y) : pas de ligne droite, même vers un point dont la ligne des centres passerait.
+    #[test]
+    fn body_clear_refuses_a_body_in_contact() {
+        let mut nav = BotNavigation::default();
+        nav.update(&[(rect(-64, -64, 0, 0), true)], &body(), &[]);
+        assert!(nav.body_clear(vec(40, 40), vec(80, 40)), "loin de la roche");
+        assert!(
+            !nav.body_clear(vec(40, 40), vec(-30, -20)),
+            "à travers la roche"
+        );
+        assert!(
+            !nav.body_clear(vec(10, 16), vec(10, 60)),
+            "posé contre la roche"
+        );
     }
     #[test]
     fn wall_detour_and_no_corner_cutting() {

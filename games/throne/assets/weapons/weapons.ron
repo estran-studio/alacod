@@ -342,15 +342,17 @@
                     projectile: (modifiers: [Homing("0.1")]),
                 )
             },
-            // Tête chercheuse : le projectile vise le personnage touchable le plus proche, pas
-            // la cible. Dans le gabarit, le mannequin (552, 648) est à la même distance du
-            // joueur que la cible (552, 744) mais plus près du point de sortie du canon : c'est
-            // lui qui prend les coups (5 coups de 10 en 200 frames). `GgrsNetId` 34 : fixé par
-            // le gabarit (`make gen GAME=throne`).
+            // Tête chercheuse : le projectile tourne vers le personnage touchable le plus proche
+            // (force 0,1). Dans le gabarit, le mannequin (552, 648) est à la même distance du
+            // joueur que la cible (552, 744). Depuis D51 (dispersion de la config appliquée :
+            // `spread` 0, tir exactement dans la visée), la balle part droit sur la cible et la
+            // déviation de 0,1 ne la détourne pas : les 8 coups de 200 frames sont pour la cible,
+            // le mannequin (`GgrsNetId` 34, fixé par le gabarit) reste intact. Avant D51 (±0,5 rad
+            // de dispersion), il prenait les coups (5 coups de 10).
             test: Some((
                 frames: 200,
-                min_hits: 0,
-                expect: [EntityHealth(net_id: 34, max: Some(160.0), at_frame: 200)],
+                min_hits: 8,
+                expect: [EntityHealth(net_id: 34, min: Some(200.0), at_frame: 200)],
             )),
         ),
         sprite_config: (

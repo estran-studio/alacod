@@ -91,7 +91,21 @@ fn decide_fonceur(view: &BotView) -> BoxInput {
         }
         if let Some(enemy) = view.nearest_enemy {
             aim_at(&mut input, view.position, enemy.position);
-            input.fire = enemy.distance <= FONCEUR_THREAT_RANGE;
+            input.fire = enemy.distance <= FONCEUR_THREAT_RANGE && in_range(view, enemy.distance);
+        }
+        maybe_reload(&mut input, view);
+        return input;
+    }
+
+    // m1-v3-bots-softlocks : à sec, ramasser le butin, en se défendant.
+    if let Some(loot) = view.loot {
+        set_direction_buttons(&mut input, loot);
+        if view.loot_interact {
+            input.buttons |= INPUT_INTERACTION;
+        }
+        if let Some(enemy) = view.nearest_enemy {
+            aim_at(&mut input, view.position, enemy.position);
+            input.fire = enemy.distance <= FONCEUR_THREAT_RANGE && in_range(view, enemy.distance);
         }
         maybe_reload(&mut input, view);
         return input;
@@ -103,14 +117,20 @@ fn decide_fonceur(view: &BotView) -> BoxInput {
         let toward = enemy.position - view.position;
         set_direction_buttons(&mut input, route_unless(view.enemy_visible, view, toward));
         if enemy.distance <= FONCEUR_THREAT_RANGE {
-            input.fire = true;
+            input.fire = in_range(view, enemy.distance);
         }
     } else if let Some(portal) = view.portal {
         // T1.8 : plus d'ennemi, portail ouvert : y aller (niveau suivant), par le chemin.
         set_direction_buttons(&mut input, view.route.unwrap_or(portal - view.position));
     }
 
-    maybe_reload(&mut input, view);
+    // m1-v3-bots-armes : en `Floors` (`fire_range` connu), `fonceur` change d'arme comme
+    // `prudent` (choix par la config, `input::WeaponChoices`) ; ailleurs, inchangé.
+    if view.fire_range.is_some() {
+        manage_weapon(&mut input, view);
+    } else {
+        maybe_reload(&mut input, view);
+    }
     input
 }
 
@@ -124,7 +144,8 @@ fn decide_prudent(view: &BotView) -> BoxInput {
         if let Some(enemy) = view.nearest_enemy {
             aim_at(&mut input, view.position, enemy.position);
             if enemy.distance <= PRUDENT_MAX_DISTANCE {
-                input.fire = view.trigger_ready;
+                input.fire =
+                    view.trigger_ready && line_of_fire(view) && in_range(view, enemy.distance);
             }
         }
         manage_weapon(&mut input, view);
@@ -140,7 +161,25 @@ fn decide_prudent(view: &BotView) -> BoxInput {
         if let Some(enemy) = view.nearest_enemy {
             aim_at(&mut input, view.position, enemy.position);
             if enemy.distance <= PRUDENT_MAX_DISTANCE {
-                input.fire = view.trigger_ready;
+                input.fire =
+                    view.trigger_ready && line_of_fire(view) && in_range(view, enemy.distance);
+            }
+        }
+        manage_weapon(&mut input, view);
+        return input;
+    }
+
+    // m1-v3-bots-softlocks : à sec (plus de réserve), ramasser le butin, en se défendant.
+    if let Some(loot) = view.loot {
+        set_direction_buttons(&mut input, loot);
+        if view.loot_interact {
+            input.buttons |= INPUT_INTERACTION;
+        }
+        if let Some(enemy) = view.nearest_enemy {
+            aim_at(&mut input, view.position, enemy.position);
+            if enemy.distance <= PRUDENT_MAX_DISTANCE {
+                input.fire =
+                    view.trigger_ready && line_of_fire(view) && in_range(view, enemy.distance);
             }
         }
         manage_weapon(&mut input, view);
@@ -151,17 +190,30 @@ fn decide_prudent(view: &BotView) -> BoxInput {
         aim_at(&mut input, view.position, enemy.position);
 
         let close_in = view.enemy_still && enemy.distance > STILL_TARGET_DISTANCE;
-        if enemy.distance < PRUDENT_MIN_DISTANCE && !view.enemy_still {
+        // m1-v3-bots-softlocks : ni recul ni tir vers un ennemi caché (mode `Floors`) : le bot
+        // reculait dans la roche en vidant ses chargeurs sur elle (soft-locks des graines 63,
+        // 111, 139, 149 ; munitions épuisées devant le boss, graines 23, 43, 76).
+        if enemy.distance < PRUDENT_MIN_DISTANCE && !view.enemy_still && view.enemy_visible {
             set_direction_buttons(&mut input, view.position - enemy.position); // s'éloigne
         } else if !view.enemy_visible || close_in || enemy.distance > PRUDENT_MAX_DISTANCE {
             // s'approche : par le chemin (ennemi caché, ou loin), ligne droite en repli
             let toward = enemy.position - view.position;
-            set_direction_buttons(&mut input, route_unless(false, view, toward));
+            match view.route {
+                // m1-v3-bots-softlocks (throne_quad, graine 123456, 4 bots) : vers un ennemi
+                // caché, la route suivie au signe faisait dépasser chaque case visée (élan) ;
+                // le bot allait et venait dans un couloir sans prendre la sortie : pilotage en
+                // vitesse, comme vers le portail.
+                Some(route) if !view.enemy_visible => {
+                    steer(&mut input, view, route, PORTAL_CRUISE_SPEED)
+                }
+                _ => set_direction_buttons(&mut input, route_unless(false, view, toward)),
+            }
         } // sinon : garde sa position (visible, dans la bande [MIN, MAX])
 
         if enemy.distance <= PRUDENT_MAX_DISTANCE {
-            // T1.14 : relâcher entre deux tirs d'une arme non automatique
-            input.fire = view.trigger_ready;
+            // T1.14 : relâcher entre deux tirs d'une arme non automatique ; jamais sans ligne
+            // de tir (m1-v3-bots-softlocks)
+            input.fire = view.trigger_ready && line_of_fire(view) && in_range(view, enemy.distance);
         }
     } else if let Some(portal) = view.portal {
         // T1.8 : plus d'ennemi, portail ouvert : y aller (niveau suivant), en freinant (T1.14)
@@ -170,6 +222,26 @@ fn decide_prudent(view: &BotView) -> BoxInput {
 
     manage_weapon(&mut input, view);
     input
+}
+
+/// m1-v3-bots-armes : la cible est à portée de l'arme en main (`BotView::fire_range`, `range` de
+/// la config) ; sans portée connue (hors `Floors`), toujours vrai.
+fn in_range(view: &BotView, distance: Fixed) -> bool {
+    view.fire_range.is_none_or(|range| distance <= range)
+}
+
+/// m1-v3-bots-softlocks : `prudent` ne tire pas vers un ennemi caché (mode `Floors`) : il vidait
+/// ses chargeurs dans la roche. Sauf un ennemi immobile de près (à moins de
+/// [`STILL_TARGET_DISTANCE`]) que la ligne brute, sans marge, atteint : boss coincé contre la
+/// roche (graine 43), caché avec la marge de 4 px alors que les balles le touchent. Une
+/// tourelle derrière la roche (graine 76) reste sans tir : les chargeurs y partaient.
+fn line_of_fire(view: &BotView) -> bool {
+    view.enemy_visible
+        || (view.enemy_still
+            && view.enemy_shootable
+            && view
+                .nearest_enemy
+                .is_some_and(|enemy| enemy.distance <= STILL_TARGET_DISTANCE))
 }
 
 /// Direction de déplacement : `straight` si `direct`, sinon le pas suivant du champ de
@@ -183,16 +255,23 @@ fn route_unless(direct: bool, view: &BotView, straight: FixedVec2) -> FixedVec2 
 }
 
 /// Approche du portail pilotée en vitesse (`prudent`, voir [`PORTAL_BRAKE_DISTANCE`]) : par le
-/// chemin tant qu'il est loin, droit vers le portail dans les derniers [`PORTAL_BRAKE_DISTANCE`].
+/// chemin tant qu'il est loin, droit vers le portail dans les derniers [`PORTAL_BRAKE_DISTANCE`]
+/// sauf si un mur coupe la ligne droite (le chemin alors).
 fn approach_portal(input: &mut BoxInput, view: &BotView, portal: FixedVec2) {
     let delta = portal - view.position;
     let distance = delta.length();
-    let direction = if distance >= PORTAL_BRAKE_DISTANCE {
-        view.route.unwrap_or(delta)
-    } else {
-        delta
-    };
+    // La route n'existe sous `PORTAL_BRAKE_DISTANCE` que si un mur coupe la ligne droite
+    // (m1-v3-bots-softlocks, `input::navigate`).
+    let direction = view.route.unwrap_or(delta);
     let speed = (distance * Fixed::from_num(2)).min(PORTAL_CRUISE_SPEED);
+    steer(input, view, direction, speed);
+}
+
+/// Pilotage en vitesse (m1-v3-bots-portail) : chaque axe est pressé dans le sens de l'écart
+/// entre la vitesse voulue (`direction` × `speed`) et la vitesse actuelle, s'il dépasse
+/// [`PORTAL_STEER_DEAD_ZONE`] : le corps garde son élan, viser le pas suivant à pleine vitesse le
+/// fait dépasser.
+fn steer(input: &mut BoxInput, view: &BotView, direction: FixedVec2, speed: Fixed) {
     let error = direction.normalize_or_zero() * speed - view.velocity;
     let mut step = FixedVec2::ZERO;
     if error.x.abs() > PORTAL_STEER_DEAD_ZONE {
@@ -291,7 +370,11 @@ mod tests {
             enemy_visible: true,
             route: None,
             enemy_still: false,
+            enemy_shootable: true,
             revive: None,
+            loot: None,
+            loot_interact: false,
+            fire_range: None,
         }
     }
 
@@ -458,13 +541,155 @@ mod tests {
             assert_ne!(input.buttons & INPUT_DOWN, 0, "{profile:?}");
             assert_eq!(input.buttons & INPUT_RIGHT, 0, "{profile:?}");
         }
+        // Près, ligne droite libre (`input::navigate` ne donne pas de route) : pas direct
         v.portal = Some(FixedVec2::new(fx(30.0), fx(0.0)));
+        v.route = None;
         let input = decide(BotProfile::Prudent, &v, &mut rng());
         assert_ne!(
             input.buttons & INPUT_RIGHT,
             0,
             "freinage : petit pas direct"
         );
+    }
+
+    /// m1-v3-bots-softlocks (graine 81) : portail à 26 px à gauche, 4 px plus haut, roche entre
+    /// les deux. Tout droit, la composante verticale (sous la zone morte du pilotage) tombe : le
+    /// bot pousserait dans la roche. La route (donnée seulement quand un mur coupe la ligne
+    /// droite) le fait monter (y > 0) pour contourner.
+    #[test]
+    fn portail_contre_la_roche_par_le_chemin() {
+        let mut v = view(FixedVec2::new(fx(0.0), fx(0.0)));
+        v.portal = Some(FixedVec2::new(fx(-26.0), fx(4.0)));
+        let input = decide(BotProfile::Prudent, &v, &mut rng());
+        assert_ne!(input.buttons & INPUT_LEFT, 0);
+        assert_eq!(
+            input.buttons & INPUT_UP,
+            0,
+            "sans route : tout droit, dans la roche"
+        );
+        v.route = Some(FixedVec2::new(fx(-2.0), fx(12.0)));
+        let input = decide(BotProfile::Prudent, &v, &mut rng());
+        assert_ne!(input.buttons & INPUT_UP, 0, "contourne par le chemin");
+        assert_eq!(input.buttons & INPUT_LEFT, 0);
+    }
+
+    /// m1-v3-bots-softlocks (graine 139) : ennemi caché à 169 px (sous `PRUDENT_MIN_DISTANCE`),
+    /// en haut à droite. Visible, `prudent` recule et tire ; caché, il ne recule pas (il reculait
+    /// dans la roche), ne tire pas (chargeurs vidés dans la roche) et va le chercher par le chemin.
+    #[test]
+    fn prudent_ni_recul_ni_tir_vers_un_ennemi_cache() {
+        let mut v = view(FixedVec2::new(fx(0.0), fx(0.0)));
+        v.nearest_enemy = Some(EnemyView {
+            position: FixedVec2::new(fx(167.0), fx(30.0)),
+            distance: fx(169.0),
+        });
+        v.route = Some(FixedVec2::new(fx(0.0), fx(8.0)));
+        let input = decide(BotProfile::Prudent, &v, &mut rng());
+        assert_ne!(input.buttons & INPUT_LEFT, 0, "visible : recule");
+        assert!(input.fire, "visible : tire");
+        v.enemy_visible = false;
+        let input = decide(BotProfile::Prudent, &v, &mut rng());
+        assert_eq!(
+            input.buttons & (INPUT_LEFT | INPUT_DOWN),
+            0,
+            "caché : pas de recul"
+        );
+        assert_ne!(input.buttons & INPUT_UP, 0, "caché : par le chemin");
+        assert!(!input.fire, "caché : pas de tir");
+        v.enemy_still = true;
+        assert!(
+            !decide(BotProfile::Prudent, &v, &mut rng()).fire,
+            "caché, immobile mais loin (graine 76) : pas de tir"
+        );
+        v.nearest_enemy = Some(EnemyView {
+            position: FixedVec2::new(fx(85.0), fx(0.0)),
+            distance: fx(85.0),
+        });
+        assert!(
+            decide(BotProfile::Prudent, &v, &mut rng()).fire,
+            "caché mais immobile, de près, ligne brute libre (boss coincé, graine 43) : tire"
+        );
+        v.enemy_shootable = false;
+        assert!(
+            !decide(BotProfile::Prudent, &v, &mut rng()).fire,
+            "immobile derrière la roche (tourelle, graine 76) : pas de tir"
+        );
+    }
+
+    /// m1-v3-bots-softlocks (graines 23, 43, 76) : à sec, `prudent` et `fonceur` vont au butin
+    /// (pas suivant de `BotView::loot`) au lieu de garder leur position devant l'ennemi.
+    #[test]
+    fn a_sec_prudent_et_fonceur_vont_au_butin() {
+        let mut v = view(FixedVec2::new(fx(0.0), fx(0.0)));
+        v.nearest_enemy = Some(EnemyView {
+            position: FixedVec2::new(fx(250.0), fx(0.0)),
+            distance: fx(250.0),
+        });
+        v.loot = Some(FixedVec2::new(fx(-8.0), fx(0.0)));
+        for profile in [BotProfile::Prudent, BotProfile::Fonceur] {
+            let input = decide(profile, &v, &mut rng());
+            assert_ne!(input.buttons & INPUT_LEFT, 0, "{profile:?} : vers le butin");
+            assert_eq!(input.buttons & INPUT_RIGHT, 0, "{profile:?}");
+        }
+    }
+
+    /// m1-v3-bots-softlocks (throne_quad) : ennemi caché, route vers le haut, le bot file encore
+    /// vers le bas : il presse haut (freine puis repart) ; à la vitesse voulue, rien à corriger.
+    #[test]
+    fn vers_un_ennemi_cache_la_route_est_pilotee_en_vitesse() {
+        let mut v = view(FixedVec2::new(fx(0.0), fx(0.0)));
+        v.nearest_enemy = Some(EnemyView {
+            position: FixedVec2::new(fx(700.0), fx(200.0)),
+            distance: fx(728.0),
+        });
+        v.enemy_visible = false;
+        v.route = Some(FixedVec2::new(fx(0.0), fx(9.0)));
+        v.velocity = FixedVec2::new(fx(0.0), fx(-110.0));
+        let input = decide(BotProfile::Prudent, &v, &mut rng());
+        assert_ne!(input.buttons & INPUT_UP, 0);
+        assert_eq!(input.buttons & (INPUT_LEFT | INPUT_RIGHT), 0);
+        v.velocity = FixedVec2::new(fx(0.0), fx(120.0));
+        assert_eq!(decide(BotProfile::Prudent, &v, &mut rng()).buttons, 0);
+    }
+
+    /// m1-v3-bots-armes : pas de tir au-delà de la portée de l'arme en main (`fire_range`) ;
+    /// sans portée connue (hors `Floors`), comme avant.
+    #[test]
+    fn tir_seulement_a_portee_de_l_arme() {
+        let mut v = view(FixedVec2::new(fx(0.0), fx(0.0)));
+        v.nearest_enemy = Some(EnemyView {
+            position: FixedVec2::new(fx(200.0), fx(0.0)),
+            distance: fx(200.0),
+        });
+        for profile in [BotProfile::Prudent, BotProfile::Fonceur] {
+            assert!(
+                decide(profile, &v, &mut rng()).fire,
+                "{profile:?} : sans portée connue"
+            );
+            v.fire_range = Some(fx(150.0));
+            assert!(
+                !decide(profile, &v, &mut rng()).fire,
+                "{profile:?} : hors de portée"
+            );
+            v.fire_range = Some(fx(300.0));
+            assert!(
+                decide(profile, &v, &mut rng()).fire,
+                "{profile:?} : à portée"
+            );
+            v.fire_range = None;
+        }
+    }
+
+    /// m1-v3-bots-armes : à portée d'une arme au sol choisie, Interaction tenue.
+    #[test]
+    fn ramasser_une_arme_tient_interaction() {
+        let mut v = view(FixedVec2::new(fx(0.0), fx(0.0)));
+        v.loot = Some(FixedVec2::ZERO);
+        v.loot_interact = true;
+        for profile in [BotProfile::Prudent, BotProfile::Fonceur] {
+            let input = decide(profile, &v, &mut rng());
+            assert_ne!(input.buttons & INPUT_INTERACTION, 0, "{profile:?}");
+        }
     }
 
     #[test]

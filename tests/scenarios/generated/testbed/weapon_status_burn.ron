@@ -124,7 +124,7 @@ Scenario(
         StatusStacks(
             entity: Target,
             status: "brulure",
-            stacks: 1,
+            stacks: 2,
             at_frame: 100,
         ),
         StatusStacks(

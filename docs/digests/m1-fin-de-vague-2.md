@@ -105,6 +105,7 @@ alacod-sim --game throne --bots 2 --profiles prudent,prudent --floors run --seed
   (53, 81) : défauts de bots, pris par m1-v3-bots-softlocks (b1).
 - 47 des 149 runs finies ont eu un mort relevé.
 - 4 bots : à jouer après les merges du 2026-10-05.
+- **Remesure du 2026-10-06 sur `ed8a274`** (D48, D51, soft-locks, armes) : **198/200, 0 soft-lock, 0 desync**, 2 défaites (graines 73, 100), médiane 3 361 frames.
 
 Données hors dépôt : `alacod_tasks/m1-200-throne/` (JSON, logs, binaire).
 
@@ -136,7 +137,7 @@ Critères de sortie du plan (`docs/plan-engine.md` §9.8) :
 |---|---|
 | Lint et tests verts sur `main` | **oui** jusqu'à `963f2d2` (journal) ; cette branche : lint des trois jeux vert, traces throne à rebénir (voir rapport m1-integration-scenarios) |
 | Tous les scénarios du clone en synctest à 2 et à 4 | **oui** : `throne_three_floors` (2) et `throne_quad` (4) verts en synctest, plus `throne_solo` (1) |
-| Les bots finissent le clone sur 200 graines sans softlock ni desync | **en partie** (2026-10-05, 2 bots) : 0 desync, 149/200 finies, **12 soft-locks** et 39 défaites au boss ; soft-locks chez b1, défaites analysées par b0 |
+| Les bots finissent le clone sur 200 graines sans softlock ni desync | **oui à 2 bots** (2026-10-06, `main` `ed8a274`) : **198/200, 0 soft-lock, 0 desync**, 2 défaites (149/200 et 12 soft-locks la veille ; D48, D51 et les correctifs de bots entre les deux) ; **4 bots : 200/200, 0 soft-lock, 0 desync** |
 | Bench dans les budgets | **non vérifié** : bench strict au calme non fait depuis T1.6 (journal) |
 | Vidéos publiées | **en partie** : générées, copiées dans le dépôt ; pas de publication automatique |
 | Doc des conventions à jour | **oui** : relecture d'ensemble m1-relecture-conventions (2026-10-05 : numérotation 1 à 33, 29 sections corrigées contre le code, `CLAUDE.md` corrigé), suites dans m1-dettes-doc-lot-2 |

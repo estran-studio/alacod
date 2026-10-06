@@ -461,16 +461,19 @@
                     range: "96.0",
                 ),
             },
-            // Le 1er tir explose en f111 (8 éclats en vol en f113) ; le 2e rebondit sur le mur
-            // du haut (f160), traverse `target` (Pierce) et explose sur elle (f172) : ses 8
-            // éclats la touchent tous en f174 (calage : rapport de la tâche T1.1).
+            // Le 1er tir explose en f111 (8 éclats en vol en f113). Depuis D51 (dispersion de la
+            // config appliquée, `spread` 0 : tir exactement dans la visée), chaque grenade va
+            // droit sur `target` et y explose : 3 coups par grenade (f113-117, f173-177...),
+            // 4 coups en f175, 8 éclats de la deuxième explosion encore en vol en f174, 27 coups
+            // en 600 frames. Avant D51, le 2e tir rebondissait sur le mur du haut (f160) et ses 8
+            // éclats touchaient tous la cible en f174 (calage : rapport de la tâche T1.1).
             test: Some((
                 frames: 600,
                 min_hits: 20,
                 expect: [
                     BulletCount(count: 8, projectile: Some("eclat"), at_frame: 113),
-                    BulletCount(count: 0, projectile: Some("eclat"), at_frame: 174),
-                    HitsAtLeast(entity: Target, hits: 11, at_frame: 175),
+                    BulletCount(count: 8, projectile: Some("eclat"), at_frame: 174),
+                    HitsAtLeast(entity: Target, hits: 4, at_frame: 175),
                     // T1.17 : la première explosion (f113) déclenche la secousse et le hit stop
                     // de surcharge (`by_weapon: "grenade"` de `ui/feedback.ron`).
                     Event(kind: "feedback", label_contains: Some("secousse 35 (16 frames)"), by_frame: 113),
@@ -637,8 +640,10 @@
                 min_hits: 2,
                 expect: [
                     HasStatus(entity: Target, status: "brulure", at_frame: 100),
-                    StatusStacks(entity: Target, status: "brulure", stacks: 1, at_frame: 100),
-                    // Deuxième balle vers f165 : durée empilée, deux piles
+                    // D51 (dispersion de la config appliquée) : toutes les balles portent (f41,
+                    // f57...) : deux piles dès f100, gardées en f175. Avant D51 : une pile à f100,
+                    // la deuxième balle vers f165.
+                    StatusStacks(entity: Target, status: "brulure", stacks: 2, at_frame: 100),
                     StatusStacks(entity: Target, status: "brulure", stacks: 2, at_frame: 175),
                 ],
             )),
@@ -726,8 +731,11 @@
                 expect: [
                     HasStatus(entity: Target, status: "etourdi", at_frame: 100),
                     StatusStacks(entity: Target, status: "etourdi", stacks: 1, at_frame: 100),
-                    // Posé vers f75 pour 60 frames : expiré avant la balle suivante (f165)
-                    HasStatus(entity: Target, status: "etourdi", present: false, at_frame: 150),
+                    // D51 (dispersion de la config appliquée) : toutes les balles portent, une
+                    // toutes les 16 frames (f41, f57... f185) : l'étourdissement de 60 frames est
+                    // rafraîchi avant d'expirer. Avant D51 : posé vers f75, expiré avant la balle
+                    // suivante (f165).
+                    HasStatus(entity: Target, status: "etourdi", present: true, at_frame: 150),
                 ],
             )),
         ),

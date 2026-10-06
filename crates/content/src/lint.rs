@@ -382,6 +382,21 @@ fn lint_weapons(registry: &Registry, errors: &mut Vec<LintError>) {
                 });
             }
         }
+        // D51 : `spread` (radians, pleine largeur : angle dans [−spread/2, spread/2]) entre 0
+        // et π ; au-delà, une balle partirait vers l'arrière.
+        for (mode, spread) in &weapon.spreads {
+            let spread = spread.get();
+            if spread < Fixed::ZERO || spread > bevy_fixed::fixed_math::FIXED_PI {
+                errors.push(LintError {
+                    kind: LintErrorKind::OutOfRange,
+                    file: weapon.file.display().to_string(),
+                    message: format!(
+                        "arme « {} » : mode « {} » : champ spread = {} : doit être entre 0 et π (radians)",
+                        weapon.id, mode, spread
+                    ),
+                });
+            }
+        }
         lint_weapon_test(&weapon.id, &weapon.file, weapon.test.as_ref(), errors);
         lint_weapon_projectiles(weapon, &registry.patterns, errors);
         lint_weapon_statuses(registry, weapon, errors);

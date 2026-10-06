@@ -10,6 +10,8 @@
 // Vagues 2/3/4 à f1071/f2374/f3620 ; kills f2012-2254, f3286-3500, f4362-4548.
 // Victoire à l'entrée en vague 5 f4668 : 13 kills, deux joueurs debout,
 // soldes finaux 3790/1450. La vague 5 elle-même n'est pas combattue (règle Waves).
+// D51 (dispersion de la config enfin appliquée) : mêmes inputs, d'autres balles portent ; vague 5
+// atteinte à f4474, 13 kills, soldes 3780/1460 à f4668 (3730 à f2400, 3770 à f3700).
 Scenario(
     game: "zombies",
     map: "exemples/test_map.ldtk",
@@ -279,10 +281,10 @@ Scenario(
         WaveAtLeast(wave: 4, at_frame: 3700),
         WaveAtLeast(wave: 5, at_frame: 4668),
         Currency(handle: 0, min: 3400, max: 3400, at_frame: 1100),
-        Currency(handle: 0, min: 3620, max: 3620, at_frame: 2400),
-        Currency(handle: 0, min: 3710, max: 3710, at_frame: 3700),
-        Currency(handle: 0, min: 3790, max: 3790, at_frame: 4668),
-        Currency(handle: 1, min: 1450, max: 1450, at_frame: 4668),
+        Currency(handle: 0, min: 3730, max: 3730, at_frame: 2400),
+        Currency(handle: 0, min: 3770, max: 3770, at_frame: 3700),
+        Currency(handle: 0, min: 3780, max: 3780, at_frame: 4668),
+        Currency(handle: 1, min: 1460, max: 1460, at_frame: 4668),
         KillsAtLeast(kills: 13, at_frame: 4668),
         PlayerAlive(handle: 0, at_frame: 4668),
         PlayerAlive(handle: 1, at_frame: 4668),

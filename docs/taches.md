@@ -777,6 +777,58 @@ région des chantiers puis la campagne.
   sans `--log` 20 graines JSON identiques) ; `throne_defaite_boss` ré-enregistré sur la graine 25 (la 124 était touchée :
   ses inputs enregistrés ne prouvaient plus la « cause boss ») ; vérifiée sur l'état fusionné : suite sans bless = exactement `throne_defaite_boss` différente (dès la ligne 1 : autre graine), suite verte après bless, 586 tests de crates, lint des trois jeux, fmt, scripts, `make gen` des trois jeux sans modification, exemples, `check -p throne` ; p2p N=2 traces identiques, sha256 `6e297852…` (référence inchangée) ; D48, D49 fermées ; D50 ouverte (pénurie de
   munitions `throne`, graine 76, b1).
+- m1-v3-bots-softlocks : **mergée le 2026-10-05** (bots, b1) — les 12 soft-locks des 200 graines classés par rejeu :
+  recul dans la roche devant un ennemi caché (6), à sec contre le boss ou une tourelle (3-4), portail non pris (2) ;
+  cinq correctifs dans `crates/bots` : `prudent` ne recule ni ne tire vers un ennemi caché ; tir vers un ennemi immobile
+  caché seulement à moins de 120 px et si la ligne brute (sans marge) est libre ; portail par le chemin quand le corps
+  touche un obstacle (filet sans témoin depuis D48, couvert par ses tests) ; à sec, aller ramasser le butin
+  (`view.loot`) ; vers un ennemi caché, route suivie en **pilotage en vitesse** (`steer`, partagé avec le portail :
+  oscillation de navigation préexistante révélée par la nouvelle trajectoire, soft-lock de `throne_quad` à 4 bots) ;
+  **pénurie de munitions prouvée** (graine 76 : aucun butin au sol de f3180 à f12661, bots à sec dès f11280 → D50) ;
+  mesure sur la base commune `main` `ddb9789` (D48) : témoins 1..20 à 2 bots **12 → 16/20, défaites 7 → 4, soft-locks
+  1 → 0** ; 4 bots 20/20 → 20/20 ; les 5 graines des 200 encore en soft-lock après D48 (63, 111, 118, 139, 149) → **0
+  soft-lock** (111, 118, 149 finissent ; 63, 139 deviennent des défaites ; 162 passe d'étage 3 à défaite) ; 0 desync ;
+  six scénarios à bots recalés avec preuve par inputs (un `Fire` retiré vers un ennemi caché : f21 → trace f26 en
+  solo, f19 → f24 en quad, f3 → f8 graine 4 ; recul devenu approche f134 → f139 au testbed), `throne_quad` prouve
+  désormais l'ouverture du portail du niveau 3, scénario figé `throne_softlock_recul` (graine 139) ; `clone_quad`,
+  `bots_four_mixed`, zombies et vagues intacts ; vérifiée sur l'état fusionné : suite sans bless = exactement les 6 traces à bots différentes (`bot_floors_three` l.140, `throne_floor_1`/`throne_progression`/`throne_solo` l.27, `throne_quad` l.25, `throne_three_floors` l.9) + `throne_softlock_recul` sans référence, suite verte après bless, 591 tests de crates, lint des trois jeux, fmt, scripts, `make gen` des trois jeux sans modification, exemples, `check -p throne` ; p2p N=2 traces identiques, sha256 `6e297852…` (référence inchangée).
+- m1-d51-dispersion-ignoree : **mergée le 2026-10-06** (D51, **bug moteur**, b1) — `FiringModeConfig.spread` n'était
+  jamais appliqué : la branche « tir simple » multipliait l'écart aléatoire par `FIXED_ONE`, toutes les armes simples
+  dispersaient à ±0,5 rad (revolver 0,0005, laser et lames 0, disque 0,05 comme la mitraillette 0,15 ; ~8 % des balles
+  touchaient à 300 px) ; `single_shot_direction(aim, random, spread)` (spread 0 = visée exacte, un tirage RNG par
+  balle : flux inchangés), tests, lint 0 ≤ spread ≤ π (fixture), §16/§29 ; **aucune conversion de contenu** (tout est en
+  radians ; le mode « rafale » à 1 rad garde l'ancien comportement) ; mesures avant → après (`ddfc190`) : zombies 20
+  graines 4 acheteurs 20/20 → 20/20 (vague 5 à 7 078 → 7 031 frames, kills 1 040 → 1 049), **throne 2 bots témoins
+  16 → 20/20, défaites 4 → 0**, 4 bots 20/20, balles perdues au 3e étage 66/77/81 % → 62/56/54 % ; **84 traces bougent,
+  93 inchangées** (liste dans le rapport : mêlée, fusil, ennemis, surfaces, boutique, inactifs) ; attentes remesurées
+  une par une avec preuve : `clone_quad` garde l'attente M0 (vague 5, 13 tués, 4 debout) atteinte à f4602 au lieu de
+  f4372 ; `throne_defaite_{tireurs,boss,coequipier}` **supprimés** (0 défaite à 2 bots sur les graines 1..50 : à
+  recréer après le rééquilibrage) ; `throne_solo` : le bot seul meurt au 3e étage ; mécaniques (`effect_*`,
+  `levelup_*`, `status_*`, `shoot_around`, `four_players_shooting`, `weapon_pool_drop`), tests de crates (`bench_cave`
+  seuil 35 pour 39 mesurées) et jauges `test:` de 6 armes générées recalibrés ; **à décider avec William** : le
+  troisième étage de throne est devenu facile (0 défaite sur 50 graines) → rééquilibrage (D50, arroseur, pente) ; vérifiée sur l'état fusionné : suite sans bless = 84 scénarios différents (40 dès la ligne 16 = f15, cinq frames après le premier tir simple de f10 ; 0 sans référence), 84 bless sans échec, suite verte, 594 tests de crates, lint des trois jeux, fmt, scripts, `make gen` ×3 en bless (32 traces générées) puis sans bless, exemples, `check -p throne` ; p2p N=2 traces identiques, sha256 `6e297852…` inchangé (la recette ne tire pas au tir simple).
+- m1-v3-bots-armes : **mergée le 2026-10-06** (bots, b1) — `crates/bots/src/arms.rs` : score d'une arme par la config
+  (dégâts × projectiles × cadence × part des projectiles qui touchent ≈ min(1, 2r/(d × spread)), nul hors portée ou
+  sans munitions), `WeaponChoices` (hystérésis 120 frames, gain ≥ 1,5 ×, indexé par frame de simulation, vidé à
+  chaque entrée en partie, déterministe et testé), tir à portée de l'arme en main, ramassage à 96 px sans ennemi
+  visible à moins de 150 px (power-up toujours ; arme si meilleure ou emplacement libre), en `Floors` seulement ;
+  **mesure neutre** (base `main` D51) : témoins 2 bots 20/20 → 20/20, 4 bots 20/20 → 20/20, balles perdues au 3e
+  étage 62/56/54 % → 56/57/61 % — **depuis D51 la mitraillette est réellement la meilleure arme à la portée de
+  `prudent`** (le « mitraillette seule dans 12/12 » du digest venait du bug de dispersion), les pertes restantes
+  viennent des cibles mobiles → m1-v3-bots-lead ; décision orch (a) : livré tel quel (règles justes, utiles dès que les
+  armes au sol ou la pénurie D50 comptent) ; six traces à bots bénies avec preuve par inputs (détour vers un butin sans
+  ennemi en vue : f470 solo, f335 quad, f965 graine 4 ; `SwitchWeapon` à f0 au testbed) ; régression notée hors
+  objectif : `throne_three_floors` atteint l'étage 3 (f3239) mais les deux bots meurent dans la 4e caverne ;
+  `throne_solo` finit vivant ; conventions §24 « Armes des bots » ; vérifiée sur l'état fusionné : suite sans bless = exactement les 6 traces à bots différentes (`bot_floors_three` l.22, `throne_floor_1`/`throne_progression`/`throne_solo` l.476, `throne_quad` l.341, `throne_three_floors` l.971), suite verte après bless, 601 tests de crates, lint des trois jeux, fmt, scripts, `make gen` ×3 sans modification, exemples, `check -p throne` ; p2p N=2 traces identiques, sha256 `6e297852…` inchangé.
+- m1-v3-bots-lead : **rapport versé le 2026-10-06** (b1, règle **non livrée**) — anticipation de la cible mesurée en deux
+  variantes sur `main` `ed8a274` : variante 1 (`Velocity.main`, horizon 1 s) **pire** (balles perdues médiane 57 → 61 %,
+  deux défaites à 2 bots) ; variante 2 (déplacement réel entre deux frames, horizon 0,5 s) médiane **inchangée** 57 %
+  (moyenne 58 → 53 %), 2 bots 20/20, 4 bots 20/20, plus rapide ; critère « baisse nette » non atteint → rapport seul,
+  code des deux variantes en archive (`archive/m1-v3-bots-lead-v2`) ; trois graines font une médiane fragile : remesure
+  sur plus de graines possible plus tard.
+- m1-d26-doublons-generes : **mergée le 2026-10-06** (D26, b1, outillage) — champ de manifeste `generate` (défaut vrai, hors
+  simulation), `generate: false` sur les copies d'armes de mêlée du testbed ; 6 scénarios générés en double supprimés
+  (`weapon_{axe,bare_hands,club,knife,sword,zombie_claws}`), chacun couvert par `generated/zombies` ; gain 17 s ; vérifiée sur l'état fusionné : suite sans bless = 0 trace différente (les 6 suppressions seulement), 602 tests de crates, lint des trois jeux, fmt, scripts, `make gen` ×3 sans modification, exemples, `check -p throne`, p2p `6e297852…`.
 - **Critère M0 §9.8, 200 graines sur `avant_poste`** (nuit du 2026-10-04, `alacod-sim` de `7e8f541`, 4
   `acheteur`, carte par défaut du manifeste `maps/avant_poste.ldtk` — **pas `test_map`** : le critère
   historique sur `test_map` reste à rejouer avec `--map exemples/test_map.ldtk`), 4 lots parallèles sous
@@ -786,6 +838,14 @@ région des chantiers puis la campagne.
   1 mort (graine 200). **Total : 200/200 atteignent la vague 5 sur `avant_poste`, 0 desync, 0 softlock, 3 graines
   avec un mort.**
   Lot séparé de 20 graines `avant_poste` : 20/20 vague 5, 0 desync, 0 softlock, 0 mort, 6 522 à 7 583 frames.
+- **Critère M1 §9.8, 200 graines `throne` à 2 bots `prudent`, sur `main` `ed8a274`** (2026-10-06, 11 h 15 à 12 h 55,
+  `alacod-sim` d'`ed8a274` : D48, D51, m1-v3-bots-softlocks et m1-v3-bots-armes inclus ; 3 lots parallèles) :
+  **198/200 finissent les trois étages, 0 desync, 0 soft-lock**, 2 défaites au 3e étage (graines 73, 100), 11 runs
+  finies avec un mort relevé ; 2 430 à 4 950 frames (médiane 3 361). Avant (même mesure sur `61ac539`, 2026-10-05) :
+  149/200, 12 soft-locks, 39 défaites. **Le critère « sans soft-lock ni desync » est atteint à 2 bots.** Revers : le
+  troisième étage est devenu facile depuis D51 (rééquilibrage à décider avec William). Données :
+  `alacod_tasks/m1-200-throne/ed8a274/`. **4 bots** (même binaire, 12 h 55 à 14 h 41) : **200/200, 0 soft-lock, 0 desync,
+  aucun mort** ; 1 745 à 3 298 frames (médiane 2 385). **Critère M1 §9.8 des bots atteint à 2 et à 4 bots.**
 - **Critère M1 §9.8, 200 graines `throne` à 2 bots `prudent`** (2026-10-05, 10 h 15 à 12 h 11, `alacod-sim` de
   `61ac539` : bots-portail inclus, réanimation pas encore mergée ; `--floors run --until-floor 3 --max-frames
   15000`, 4 lots parallèles) : **149/200 finissent les trois étages, 0 desync, 12 soft-locks, 39 défaites**
@@ -897,6 +957,11 @@ coller le préambule puis la fiche dans son prompt.
 | 2026-10-05 | m1-v3-bots-reanimation « bots : relever un coéquipier en urgence » (b1 : `ReviveView`, `revive_urgent` < 600 frames et aucun ennemi visible < 150 px, prudent/fonceur, tir pendant l'approche ; preuve par inputs f3998 ; 2 bots 13 → 14/20, 4 bots 20/20 sur `4e8fe93`) | vérification groupée (même ligne) ; une trace bénie `throne_three_floors` (f4003, les deux vivants) ; `clone_quad` identique. Merge `9cd6c39`, bless `1e204e5` (b1). |
 | 2026-10-05 | m1-analyse-200-throne « pourquoi les bots perdent sur throne » (analyse, b0 : 39 défaites toutes au 3e étage avec survivant seul, tireurs 7/12 et boss 5/12 à la première mise à terre, pas de pénurie, 74 % de balles perdues, mitraillette seule ; soft-locks classés ; 3 correctifs proposés ; scénarios figés `throne_defaite_*` ; D49) | vérifiée sur l'état fusionné : suite sans bless 0 différente + 3 sans référence, suite verte après bless, fmt, scripts ; 3 traces nouvelles bénies `d152071`. Merge (b0). |
 | 2026-10-05 | m1-d48-ennemis-hors-champ « un ennemi n'est jamais hors de son champ de flux ; alacod-sim --log » (D48 + D49, b0 : `world::nav` partagé avec le champ de flux, points d'ennemis et ancres de portail par connexité, `nav_large`, lint + fixture, tests 1 000 × 3 et cohérence à la case près ; graines 43, 162, 53 finissent ; `throne_defaite_boss` → graine 25) | vérifiée sur l'état fusionné : suite sans bless = exactement `throne_defaite_boss` différente (dès la ligne 1 : autre graine), suite verte après bless, 586 tests de crates, lint des trois jeux, fmt, scripts, `make gen` des trois jeux sans modification, exemples, `check -p throne` ; p2p N=2 traces identiques, sha256 `6e297852…` (référence inchangée) ; trace `throne_defaite_boss` bénie (ré-enregistrement, relevé du rapport). Merge, bless (b0). |
+| 2026-10-05 | m1-v3-bots-softlocks « bots : zéro soft-lock sur les 200 graines » (b1 : 12 soft-locks classés par rejeu, 5 correctifs `crates/bots` — pas de recul ni de tir vers un ennemi caché, tir sur immobile caché < 120 px ligne brute libre, portail par le chemin, ramasser à sec, route en pilotage en vitesse — ; pénurie prouvée graine 76 (D50) ; témoins 2 bots 12 → 16/20, défaites 7 → 4, soft-locks 1 → 0, 4 bots 20/20 ; 5 graines des 200 → 0 soft-lock ; preuves par inputs ; `throne_softlock_recul`) | vérifiée sur l'état fusionné : suite sans bless = exactement les 6 traces à bots différentes (`bot_floors_three` l.140, `throne_floor_1`/`throne_progression`/`throne_solo` l.27, `throne_quad` l.25, `throne_three_floors` l.9) + `throne_softlock_recul` sans référence, suite verte après bless, 591 tests de crates, lint des trois jeux, fmt, scripts, `make gen` des trois jeux sans modification, exemples, `check -p throne` ; p2p N=2 traces identiques, sha256 `6e297852…` (référence inchangée) ; 7 traces bénies. Merge, bless (b1). |
+| 2026-10-06 | m1-d51-dispersion-ignoree « la dispersion des tirs simples applique enfin spread » (D51, bug moteur, b1 : `single_shot_direction`, lint, §16/§29 ; zombies inchangé 20/20 ; throne 2 bots 16 → 20/20, défaites 4 → 0 ; balles perdues 66-81 % → 54-62 % ; attentes de ~30 scénarios et tests remesurées avec preuve, `clone_quad` M0 tenu à f4602, `throne_defaite_*` supprimés, jauges `test:` recalibrées) | vérifiée sur l'état fusionné : suite sans bless = 84 scénarios différents (40 dès la ligne 16 = f15, cinq frames après le premier tir simple de f10 ; 0 sans référence), 84 bless sans échec, suite verte, 594 tests de crates, lint des trois jeux, fmt, scripts, `make gen` ×3 en bless (32 traces générées) puis sans bless, exemples, `check -p throne` ; p2p N=2 traces identiques, sha256 `6e297852…` inchangé (la recette ne tire pas au tir simple) ; 84 + 32 traces bénies. Merge, bless (b1). |
+| 2026-10-06 | m1-v3-bots-armes « tirer juste, changer d'arme, ramasser » (bots, b1 : score d'arme par la config avec précision, `WeaponChoices` déterministe, tir à portée, ramassage ; mesure neutre 20/20 → 20/20, balles perdues ≈ égales : la mitraillette est la meilleure arme à la portée de prudent depuis D51 ; décision (a) livrer, lead en tâche à part) | vérifiée sur l'état fusionné : suite sans bless = exactement les 6 traces à bots différentes (`bot_floors_three` l.22, `throne_floor_1`/`throne_progression`/`throne_solo` l.476, `throne_quad` l.341, `throne_three_floors` l.971), suite verte après bless, 601 tests de crates, lint des trois jeux, fmt, scripts, `make gen` ×3 sans modification, exemples, `check -p throne` ; p2p N=2 traces identiques, sha256 `6e297852…` inchangé ; 6 traces bénies. Merge, bless (b1). |
+| 2026-10-06 | m1-v3-bots-lead « anticiper la cible » (b1 : deux variantes mesurées, aucune n'améliore nettement la médiane des balles perdues ; règle non livrée, rapport seul, code en archive) | doc seule (un fichier), aucune trace. Merge (b1). |
+| 2026-10-06 | m1-d26-doublons-generes « scénarios générés en double » (D26, b1 : prémisse corrigée, `generate: false`, 6 doublons supprimés, gain 17 s) | vérifiée sur l'état fusionné : suite sans bless = 0 trace différente (les 6 suppressions seulement), 602 tests de crates, lint des trois jeux, fmt, scripts, `make gen` ×3 sans modification, exemples, `check -p throne`, p2p `6e297852…`. Merge (b1). |
 Orchestration : Fable crée les worktrees (`scripts/task-new.sh` du meta-repo), lance un agent par
 tâche avec le modèle le moins cher (Haiku d'abord, Sonnet si une tâche échoue deux fois), vérifie
 la branche (`make test_scenarios`, `cargo test`, lecture du diff), fusionne dans `main`

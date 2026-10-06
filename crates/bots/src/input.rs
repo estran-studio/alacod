@@ -36,19 +36,22 @@
 
 use std::collections::BTreeMap;
 
+use crate::arms::{self, WeaponChoices, WeaponView};
 use bevy::prelude::*;
 use bevy_fixed::fixed_math::{Fixed, FixedTransform3D, FixedVec2};
 use bevy_fixed::rng::{fnv1a, RngStreams, RollbackRng};
 use bevy_ggrs::{LocalInputs, LocalPlayers, ReadInputs, Rollback};
+use game::character::config::{CharacterConfig, CharacterConfigHandles};
 use game::character::enemy::Enemy;
 use game::character::health::Health;
 use game::character::player::input::{read_local_inputs, BoxInput};
 use game::character::player::jjrs::PeerConfig;
 use game::character::player::Player;
+use game::global_asset::GlobalAsset;
 use game::recording::record_local_inputs;
 use game::replay::BotProfile;
 use game::waves::WaveState;
-use game::weapons::{WeaponInventory, WeaponModesState, WeaponState};
+use game::weapons::{WeaponInventory, WeaponModesState, WeaponPickup, WeaponState, WeaponsConfig};
 use map::game::entity::map::window::WindowHealth;
 use sim_core::kinds::{KindDecl, KindRegistry};
 use utils::net_id::GgrsNetId;
@@ -109,6 +112,11 @@ impl Plugin for BotsPlugin {
 
         app.init_resource::<crate::navigation::BotNavigation>();
         app.init_resource::<DirectNavigation>();
+        app.init_resource::<WeaponChoices>();
+        app.add_systems(
+            OnEnter(game::core::AppState::InGame),
+            |mut choices: ResMut<WeaponChoices>| choices.0.clear(),
+        );
         app.add_systems(
             ReadInputs,
             crate::hunter::read_hunter_inputs
@@ -148,6 +156,7 @@ pub fn read_bot_inputs(
             Option<&combat::inventory::AmmoReserves>,
             Option<&combat::actors::Velocity>,
             Option<&combat::downed::Downed>,
+            Option<&CharacterConfigHandles>,
         ),
         With<Rollback>,
     >,
@@ -161,6 +170,7 @@ pub fn read_bot_inputs(
             &FixedTransform3D,
             Option<&sim_core::stats::Stats>,
             Option<&combat::actors::Velocity>,
+            Option<&Collider>,
         ),
         (With<Enemy>, With<Rollback>),
     >,
@@ -181,7 +191,19 @@ pub fn read_bot_inputs(
     run: Option<Res<run::Run>>,
     // m1-v3-bots-reanimation : surfaces d'interaction (la réanimation et la sélection du jeu),
     // saignement des joueurs à terre, frame courante.
-    (interactables, frame): (
+    // m1-v3-bots-softlocks : butin au sol (ramassé au passage).
+    // m1-v3-bots-armes : armes au sol, leur config, gabarit des personnages (emplacements),
+    // mémoire des choix d'arme.
+    (
+        interactables,
+        frame,
+        pickups,
+        ground_weapons,
+        global_asset,
+        weapon_assets,
+        character_configs,
+        mut weapon_choices,
+    ): (
         Query<
             (
                 &GgrsNetId,
@@ -193,6 +215,15 @@ pub fn read_bot_inputs(
             With<Rollback>,
         >,
         Res<utils::frame::FrameCount>,
+        Query<
+            (&GgrsNetId, &FixedTransform3D),
+            (With<game::powerups::PowerUpPickup>, With<Rollback>),
+        >,
+        Query<(&GgrsNetId, &FixedTransform3D, &WeaponPickup), With<Rollback>>,
+        Option<Res<GlobalAsset>>,
+        Res<Assets<WeaponsConfig>>,
+        Res<Assets<CharacterConfig>>,
+        ResMut<WeaponChoices>,
     ),
 ) {
     let Some(assignments) = assignments else {
@@ -219,24 +250,51 @@ pub fn read_bot_inputs(
     // Navigation seulement en mode `Floors` : il faut y trouver chaque ennemi puis le portail.
     // En vagues, les ennemis viennent aux joueurs (un zombie dehors est « caché » derrière les
     // murs jusqu'à sa fenêtre) : `prudent`/`fonceur` y gardent leur comportement de T1.14.
+    // m1-v3-bots-softlocks : butin au sol, dans l'ordre `GgrsNetId`.
+    let loot_points: Vec<(usize, FixedVec2)> = order_iter!(pickups)
+        .into_iter()
+        .map(|(id, t)| (id.0, t.translation.truncate()))
+        .collect();
+    // m1-v3-bots-armes : armes au sol (sans prix : lâchées, pas murales), mode par défaut de leur
+    // config, dans l'ordre `GgrsNetId`.
+    let weapons_config = global_asset
+        .as_deref()
+        .and_then(|global| weapon_assets.get(&global.weapons));
+    let ground: Vec<(usize, FixedVec2, String, WeaponView)> = order_iter!(ground_weapons)
+        .into_iter()
+        .filter(|(_, _, pickup)| pickup.price.is_none())
+        .filter_map(|(id, t, pickup)| {
+            let asset = weapons_config?.0.get(&pickup.weapon_id)?;
+            let mode = asset
+                .config
+                .firing_modes
+                .get(&asset.config.default_firing_mode)?;
+            Some((
+                id.0,
+                t.translation.truncate(),
+                pickup.weapon_id.clone(),
+                WeaponView::from_config(mode, true),
+            ))
+        })
+        .collect();
     let floors_mode = run
         .as_deref()
         .is_some_and(|run| matches!(run.mode, run::RunMode::Floors { .. }));
     let enemy_points: Vec<(usize, FixedVec2)> = enemies_sorted
         .iter()
-        .map(|(id, t, _, _)| (id.0, t.translation.truncate()))
+        .map(|(id, t, _, _, _)| (id.0, t.translation.truncate()))
         .collect();
     // Ennemis immobiles (tourelle : `MoveSpeed` de base nulle ; ennemi coincé : vitesse
     // nulle), voir `BotView::enemy_still`.
     let still_points: Vec<FixedVec2> = enemies_sorted
         .iter()
-        .filter(|(_, _, stats, velocity)| {
+        .filter(|(_, _, stats, velocity, _)| {
             stats
                 .and_then(|s| s.get(&sim_core::stats::StatId::MoveSpeed))
                 .is_some_and(|speed| speed <= Fixed::ZERO)
                 || velocity.is_some_and(|v| v.main.length() < Fixed::ONE)
         })
-        .map(|(_, t, _, _)| t.translation.truncate())
+        .map(|(_, t, _, _, _)| t.translation.truncate())
         .collect();
 
     // `_net_id` : nécessaire en première position pour `order_iter!` (tri déterministe des
@@ -260,8 +318,18 @@ pub fn read_bot_inputs(
         })
         .collect();
 
-    for (_net_id, player, transform, health, inventory, collider, reserves, velocity, downed) in
-        order_iter!(players)
+    for (
+        _net_id,
+        player,
+        transform,
+        health,
+        inventory,
+        collider,
+        reserves,
+        velocity,
+        downed,
+        config_handles,
+    ) in order_iter!(players)
     {
         if !local_players.0.contains(&player.handle) {
             continue;
@@ -277,7 +345,7 @@ pub fn read_bot_inputs(
         let position = transform.translation.truncate();
 
         let nearest_enemy =
-            nearest_by_net_id(enemies_sorted.iter().map(|(id, enemy_transform, _, _)| {
+            nearest_by_net_id(enemies_sorted.iter().map(|(id, enemy_transform, _, _, _)| {
                 let enemy_position = enemy_transform.translation.truncate();
                 let distance = position.distance(&enemy_position);
                 (
@@ -339,6 +407,11 @@ pub fn read_bot_inputs(
             .copied()
             .unwrap_or((0, false, true));
         let usable = active_ammo > 0 || reloadable;
+        // m1-v3-bots-softlocks : plus aucune réserve pour aucune arme (chargeurs seulement).
+        let dry = inventory
+            .weapons
+            .iter()
+            .all(|(_, weapon)| reserves.map_or(0, |r| r.get(&weapon.config.ammo_type)) == 0);
         let switch_weapon = !usable && ammunition.iter().any(|(a, r, _)| *a > 0 || *r);
 
         let view = BotView {
@@ -376,7 +449,11 @@ pub fn read_bot_inputs(
             enemy_visible: true,
             route: None,
             enemy_still: false,
+            enemy_shootable: true,
             revive: None,
+            loot: None,
+            loot_interact: false,
+            fire_range: None,
         };
 
         let mut view = view;
@@ -404,6 +481,15 @@ pub fn read_bot_inputs(
                 let (visible, route) =
                     navigate(&mut nav.0, rects, &body, &enemy_points, &view, profile);
                 view.enemy_visible = visible;
+                view.enemy_shootable = visible
+                    || view.nearest_enemy.is_some_and(|enemy| {
+                        crate::navigation::walls_clear_with(
+                            rects,
+                            position,
+                            enemy.position,
+                            Fixed::ZERO,
+                        )
+                    });
                 view.route = route;
             }
         }
@@ -440,6 +526,96 @@ pub fn read_bot_inputs(
                     position,
                     &surfaces,
                 );
+            }
+        }
+
+        if floors_mode
+            && matches!(profile, BotProfile::Prudent | BotProfile::Fonceur)
+            && downed.is_none()
+        {
+            // m1-v3-bots-armes : armes portées vues par leur config (mode courant), portée de
+            // l'arme en main, choix d'arme (`arms`, hystérésis par `WeaponChoices`).
+            let arms_views: Vec<WeaponView> = inventory
+                .weapons
+                .iter()
+                .zip(&ammunition)
+                .map(|((entity, weapon), (ammo, reloadable, _))| {
+                    weapons
+                        .get(*entity)
+                        .ok()
+                        .and_then(|(state, _)| weapon.config.firing_modes.get(&state.active_mode))
+                        .map_or(NO_WEAPON, |mode| {
+                            WeaponView::from_config(mode, *ammo > 0 || *reloadable)
+                        })
+                })
+                .collect();
+            let active = inventory.active_weapon_index;
+            view.fire_range = Some(arms_views.get(active).map_or(Fixed::ZERO, |w| w.range));
+            if let Some(enemy) = view.nearest_enemy {
+                let radius = enemies_sorted
+                    .iter()
+                    .find(|(_, t, ..)| t.translation.truncate() == enemy.position)
+                    .and_then(|(.., c)| c.map(collider_radius))
+                    .unwrap_or(arms::TARGET_RADIUS);
+                if weapon_choices.step(
+                    player.handle,
+                    frame.frame,
+                    &arms_views,
+                    active,
+                    enemy.distance,
+                    radius,
+                ) {
+                    view.switch_weapon = true;
+                }
+            }
+
+            // m1-v3-bots-softlocks + m1-v3-bots-armes : ramasser, sans menace immédiate (même
+            // règle que la réanimation) : un power-up à moins de `LOOT_RADIUS` (n'importe où à
+            // sec), une arme au sol à moins de `LOOT_RADIUS` si elle fait mieux que l'arme en
+            // main (qui tomberait au sol, emplacements pleins) ou si un emplacement est libre.
+            let threat = view
+                .nearest_enemy
+                .is_some_and(|enemy| enemy.distance <= REVIVE_SAFE_DISTANCE && view.enemy_visible);
+            if let (None, false, Some(collider), Some(rects)) =
+                (view.revive, threat, collider, geometry_rects.as_ref())
+            {
+                let near = |p: &FixedVec2| position.distance(p) <= LOOT_RADIUS;
+                let powerups: Vec<(usize, FixedVec2)> = loot_points
+                    .iter()
+                    .filter(|(_, p)| dry || near(p))
+                    .copied()
+                    .collect();
+                let slots = config_handles
+                    .and_then(|handles| character_configs.get(&handles.config))
+                    .map_or(0, |config| config.weapon_slots as usize);
+                let free_slot = inventory.weapons.len() < slots;
+                let wanted: Vec<usize> = ground
+                    .iter()
+                    .filter(|(_, p, name, w)| {
+                        near(p)
+                            && !inventory
+                                .weapons
+                                .iter()
+                                .any(|(_, owned)| &owned.config.name == name)
+                            && arms::worth_picking(w, arms_views.get(active), free_slot)
+                    })
+                    .map(|(id, ..)| *id)
+                    .collect();
+                if !powerups.is_empty() || !wanted.is_empty() {
+                    if let Some((direction, interact)) = pickup_step(
+                        &mut nav.0,
+                        rects,
+                        &AgentBody::from_collider(collider),
+                        &enemy_points,
+                        position,
+                        &powerups,
+                        &wanted,
+                        &surfaces,
+                    ) {
+                        view.loot = Some(direction);
+                        view.loot_interact = interact;
+                    }
+                }
             }
         }
 
@@ -496,10 +672,19 @@ fn navigate(
     let Some(portal) = view.portal else {
         return (false, None);
     };
-    if position.distance(&portal) < crate::decide::PORTAL_BRAKE_DISTANCE {
+    nav.update_from(geometry, body, &[], position);
+    // m1-v3-bots-softlocks (graines 53, 81) : sous la zone de freinage, ligne droite vers le
+    // portail, sauf si le corps y touche un obstacle (ancre contre la roche) : le chemin, sinon
+    // le bot pousse dans la roche (graine 81 : la petite composante qui le dégagerait tombe sous
+    // la zone morte du pilotage ; graine 53 : coincé dans un coin, ligne des centres libre).
+    if position.distance(&portal) < crate::decide::PORTAL_BRAKE_DISTANCE
+        && nav.body_clear(position, portal)
+    {
         return (false, None);
     }
-    nav.update_from(geometry, body, &[], position);
+    // Aucune case libre pour le corps à moins de `PORTAL_REACH` de l'ancre (ancre contre la
+    // roche, graines 53, 81) : la case accessible la plus proche de l'ancre, au lieu de la ligne
+    // droite dans la roche (m1-v3-bots-softlocks).
     let route = nav
         .approach(
             position,
@@ -509,7 +694,9 @@ fn navigate(
             },
             PORTAL_REACH,
         )
-        .map(|(direction, _)| dead_zone(direction));
+        .map(|(direction, _)| direction)
+        .or_else(|| nav.investigate(position, portal))
+        .map(dead_zone);
     (false, route)
 }
 
@@ -542,35 +729,100 @@ fn revive_step(
     nav.update_from(geometry, body, enemies, position);
     let mut targets: Vec<_> = surfaces.iter().filter(|(.., revive)| *revive).collect();
     targets.sort_by_key(|(id, rect, ..)| (rect.distance(position), *id));
-    for (id, rect, reach, _) in targets {
-        let reach = (*reach - Fixed::from_num(8)).max(Fixed::ZERO);
-        let Some((mut direction, _)) = nav.approach(position, *rect, reach) else {
-            continue;
-        };
-        let mut interact = false;
-        if direction == FixedVec2::ZERO {
-            let selected = surfaces
-                .iter()
-                .filter_map(|(other, r, range, _)| {
-                    let d = r.distance(position);
-                    (d <= *range).then_some((d, *other))
-                })
-                .min();
-            interact = selected.is_some_and(|(_, selected)| selected == *id);
-            if !interact {
-                let closer = (rect.distance(position) - Fixed::from_num(8)).max(Fixed::ZERO);
-                let Some((closer_direction, _)) = nav.approach(position, *rect, closer) else {
-                    continue;
-                };
-                direction = closer_direction;
+    targets.into_iter().find_map(|(id, rect, reach, _)| {
+        surface_step(nav, position, surfaces, *id, *rect, *reach).map(|(direction, interact)| {
+            ReviveView {
+                direction,
+                interact,
             }
+        })
+    })
+}
+
+/// Pas vers une surface d'interaction `id` (rectangle `rect`, portée `reach`) : approche à
+/// portée − 8 par le chemin ; à portée, Interaction seulement si le jeu sélectionnerait bien
+/// cette surface (la plus proche à portée), sinon approche encore. Réanimation
+/// (m1-v3-bots-reanimation) et arme au sol (m1-v3-bots-armes).
+fn surface_step(
+    nav: &mut crate::navigation::BotNavigation,
+    position: FixedVec2,
+    surfaces: &[(usize, Rect, Fixed, bool)],
+    id: usize,
+    rect: Rect,
+    reach: Fixed,
+) -> Option<(FixedVec2, bool)> {
+    let reach = (reach - Fixed::from_num(8)).max(Fixed::ZERO);
+    let (mut direction, _) = nav.approach(position, rect, reach)?;
+    let mut interact = false;
+    if direction == FixedVec2::ZERO {
+        let selected = surfaces
+            .iter()
+            .filter_map(|(other, r, range, _)| {
+                let d = r.distance(position);
+                (d <= *range).then_some((d, *other))
+            })
+            .min();
+        interact = selected.is_some_and(|(_, selected)| selected == id);
+        if !interact {
+            let closer = (rect.distance(position) - Fixed::from_num(8)).max(Fixed::ZERO);
+            direction = nav.approach(position, rect, closer)?.0;
         }
-        return Some(ReviveView {
-            direction: dead_zone(direction),
-            interact,
-        });
     }
-    None
+    Some((dead_zone(direction), interact))
+}
+
+/// Portée visée pour ramasser un butin (sous le `pickup_range` de 30 px de `throne`).
+const LOOT_REACH: Fixed = Fixed::from_bits(16 << 16);
+
+/// m1-v3-bots-armes : rayon de détour pour ramasser (power-up, arme au sol).
+const LOOT_RADIUS: Fixed = Fixed::from_bits(96 << 16);
+
+/// Arme sans mode lisible : inutilisable.
+const NO_WEAPON: WeaponView = WeaponView {
+    usable: false,
+    damage: Fixed::ZERO,
+    projectiles: 0,
+    rate: Fixed::ZERO,
+    range: Fixed::ZERO,
+    spread: Fixed::ZERO,
+};
+
+/// m1-v3-bots-softlocks + m1-v3-bots-armes : pas suivant vers le butin accessible le plus proche
+/// (distance, puis `GgrsNetId`) : un power-up (ramassé au passage, `LOOT_REACH`) ou une arme au sol
+/// (`wanted`, surface d'interaction : Interaction tenue à portée, voir [`surface_step`]).
+#[allow(clippy::too_many_arguments)]
+fn pickup_step(
+    nav: &mut crate::navigation::BotNavigation,
+    geometry: &[(Rect, bool)],
+    body: &AgentBody,
+    enemies: &[(usize, FixedVec2)],
+    position: FixedVec2,
+    powerups: &[(usize, FixedVec2)],
+    wanted: &[usize],
+    surfaces: &[(usize, Rect, Fixed, bool)],
+) -> Option<(FixedVec2, bool)> {
+    nav.update_from(geometry, body, enemies, position);
+    let mut targets: Vec<(Fixed, usize, Option<(Rect, Fixed)>)> = powerups
+        .iter()
+        .map(|(id, p)| (position.distance(p), *id, None))
+        .chain(
+            surfaces
+                .iter()
+                .filter(|(id, ..)| wanted.contains(id))
+                .map(|(id, rect, reach, _)| (rect.distance(position), *id, Some((*rect, *reach)))),
+        )
+        .collect();
+    targets.sort_by_key(|(d, id, _)| (*d, *id));
+    targets
+        .into_iter()
+        .find_map(|(_, id, surface)| match surface {
+            None => {
+                let p = powerups.iter().find(|(pid, _)| *pid == id)?.1;
+                nav.approach(position, Rect { min: p, max: p }, LOOT_REACH)
+                    .map(|(direction, _)| (dead_zone(direction), false))
+            }
+            Some((rect, reach)) => surface_step(nav, position, surfaces, id, rect, reach),
+        })
 }
 
 /// Composante annulée sous laquelle une direction de route ne presse pas son axe.

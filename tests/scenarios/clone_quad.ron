@@ -9,12 +9,16 @@
 // f3863-4203. À f4372 : quatre joueurs debout, soldes 1570/1720/1080/3400 (Nuke compris),
 // 13 kills, Run toujours Playing : aucune Defeat (une fin de Run est irréversible).
 // Visée du joueur 3 enregistrée en headless par tranches de 15 frames.
+// D51 (dispersion de la config enfin appliquée, m1-d51-dispersion-ignoree) : attente M0 gardée
+// (vague 5, 13 kills, quatre joueurs debout), atteinte à f4602 au lieu de f4372 ; vagues 2/3/4/5 à
+// f871/f2039/f3544/f4602 ; 2 zombies (au lieu de 3) restent pour la Nuke de f750 ; soldes
+// 1310/1660/1350/3480 à f4602.
 Scenario(
     game: "zombies",
     map: "exemples/test_map.ldtk",
     map_seed: 123456,
     powerup_drop_chance_override: "0.0",
-    frames: 4372,
+    frames: 4602,
     wave_overrides: (
         min_wave_delay_frames: 120,
         base_enemies: 2,
@@ -150,7 +154,7 @@ Scenario(
         Ammo(handle: 3, ammo: 5, at_frame: 680),
         Ammo(handle: 3, ammo: 6, at_frame: 710),
         PowerUpPickups(max: 0, at_frame: 710),
-        EntityCount(kind: Enemy, min: 3, max: 3, at_frame: 740),
+        EntityCount(kind: Enemy, min: 2, max: 2, at_frame: 740),
         EntityCount(kind: Enemy, max: 0, at_frame: 760),
         PowerUpPickups(max: 0, at_frame: 760),
         PlayerDowned(handle: 0, at_frame: 110),
@@ -163,24 +167,24 @@ Scenario(
         WaveAtLeast(wave: 1, at_frame: 600),
         WaveAtLeast(wave: 2, at_frame: 900),
         WaveAtLeast(wave: 3, at_frame: 2100),
-        WaveAtLeast(wave: 4, at_frame: 3200),
-        WaveAtLeast(wave: 5, at_frame: 4372),
-        KillsAtLeast(kills: 13, at_frame: 4372),
+        WaveAtLeast(wave: 4, at_frame: 3544),
+        WaveAtLeast(wave: 5, at_frame: 4602),
+        KillsAtLeast(kills: 13, at_frame: 4602),
         // Les trois bots gagnent des points ; le joueur scripté garde 3000 après achats, + 400 du
         // Nuke (D17).
-        Currency(handle: 0, min: 1570, max: 1570, at_frame: 4372),
-        Currency(handle: 1, min: 1720, max: 1720, at_frame: 4372),
-        Currency(handle: 2, min: 1080, max: 1080, at_frame: 4372),
-        Currency(handle: 3, min: 3400, max: 3400, at_frame: 4372),
-        PlayerAlive(handle: 0, at_frame: 4372),
-        PlayerAlive(handle: 1, at_frame: 4372),
-        PlayerAlive(handle: 2, at_frame: 4372),
-        PlayerAlive(handle: 3, at_frame: 4372),
-        Health(handle: 0, min: 1.0, at_frame: 4372),
-        Health(handle: 1, min: 1.0, at_frame: 4372),
-        Health(handle: 2, min: 1.0, at_frame: 4372),
-        Health(handle: 3, min: 1.0, at_frame: 4372),
-        EntityCount(kind: Player, min: 4, max: 4, at_frame: 4372),
-        RunState(step: Playing, at_frame: 4372),
+        Currency(handle: 0, min: 1310, max: 1310, at_frame: 4602),
+        Currency(handle: 1, min: 1660, max: 1660, at_frame: 4602),
+        Currency(handle: 2, min: 1350, max: 1350, at_frame: 4602),
+        Currency(handle: 3, min: 3480, max: 3480, at_frame: 4602),
+        PlayerAlive(handle: 0, at_frame: 4602),
+        PlayerAlive(handle: 1, at_frame: 4602),
+        PlayerAlive(handle: 2, at_frame: 4602),
+        PlayerAlive(handle: 3, at_frame: 4602),
+        Health(handle: 0, min: 1.0, at_frame: 4602),
+        Health(handle: 1, min: 1.0, at_frame: 4602),
+        Health(handle: 2, min: 1.0, at_frame: 4602),
+        Health(handle: 3, min: 1.0, at_frame: 4602),
+        EntityCount(kind: Player, min: 4, max: 4, at_frame: 4602),
+        RunState(step: Playing, at_frame: 4602),
     ],
 )

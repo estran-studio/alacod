@@ -928,6 +928,14 @@ avec `test:` et son scénario généré (`make gen GAME=testbed`,
 `tests/scenarios/generated/testbed/`).
 
 
+**Dispersion du tir** (D51, m1-d51-dispersion-ignoree) : `spread` d'un mode de tir
+(`FiringModeConfig`) est en **radians, pleine largeur** : chaque balle d'un tir simple (tout mode
+sauf `Shotgun`) part à `(r − ½) × spread` de la direction visée, `r` tiré dans le flux RNG
+`weapons` (un tirage par balle), donc dans `[−spread/2, spread/2]` ; `spread` = 0 : tir exact
+(`combat::weapons::single_shot_direction`). `Shotgun` garde son `spread_angle` (même formule par
+plomb). Lint : `0 <= spread <= π` (fixture `weapon_spread_out_of_range`). Avant D51, l'angle
+valait `(r − ½) × 1` (±0,5 rad) pour **toute** arme simple : `spread` n'était jamais appliqué.
+
 Patterns joués **dans le temps** (`Telegraph`, `Wait`, `Ring.every`, `Scatter`, `Named`),
 émetteurs et tir ennemi : voir §20 (T1.2).
 
@@ -1679,6 +1687,22 @@ joueur (`runner::FloorsProgress`).
 `prudent` sans esquive figés en `Scripted`), `bot_floors_three` (`trois_niveaux` = `floor_a`,
 `floor_d`, `floor_c`).
 
+**Armes des bots** (m1-v3-bots-armes, `crates/bots/src/arms.rs`, mode `Floors`, `prudent` et
+`fonceur`) : chaque arme portée est notée par ses dégâts attendus par seconde sur la cible
+courante, lus dans la config du mode de tir : dégâts par projectile × projectiles par tir
+(plombs, rafale) × cadence × part qui touche, nuls hors portée ou sans munitions. Part qui touche
+= `min(1, 2 × rayon / (distance × spread))` (angle uniforme sur la pleine largeur `spread`, §16 ;
+`spread_angle` pour le fusil). Exemples (cible de rayon 12, armes de `throne`) : à 300 px,
+mitraillette ≈ 43/s, lance-lames 36, laser 48 ; à 500 px, mitraillette ≈ 26 (test
+`arms::tests::degats_attendus_avec_la_dispersion`). Changement d'arme : seulement pour un gain
+≥ 1,5 × (ou si l'arme en main ne fait rien), pas avant 120 frames après le choix précédent
+(`WeaponChoices`, hors rollback, frame de simulation, vidée à chaque entrée en partie) ;
+`switch_weapon` pressé jusqu'à l'emplacement visé. Pas de tir au-delà de la portée de l'arme en
+main (`BotView::fire_range`). Ramassage, sans ennemi visible à moins de 150 px : power-up à moins
+de 96 px (partout à sec), arme au sol à moins de 96 px si elle bat l'arme en main à 250 px
+(emplacements pleins : c'est elle qui tombe) ou si un emplacement est libre. Pas de cas « boss »
+ni d'anticipation (m1-v3-bots-lead).
+
 ## 25. Variantes et élites (T1.5, chantier D2)
 
 Code : `crates/game/src/character/variant.rs` (`VariantsConfig`, `draw_variant`,
@@ -1962,7 +1986,9 @@ joueurs depuis lui), copie de `player` du testbed ; trois armes de départ (`mit
 `explosifs` (`lance_grenades` : `Bounce`+`Pierce`+`Lifetime`, explosion puis couronne d'éclats ;
 `roquette` : souffle en `on_expire` ; `mortier` : `Gravity`, éventail de fragments), `energie`
 (`laser` : `Pierce` ; `plasma` : `Size`+`Lifetime` ; `traqueur` : `Homing`), `lames`
-(`lance_lames` : `Bounce`+`Pierce` ; `disque` : rafale, `Pierce`+`Lifetime`). Plus `arsenal`,
+(`lance_lames` : `Bounce`+`Pierce` ; `disque` : rafale, `Pierce`+`Lifetime`). Leurs `spread`
+(mitraillette 0,15, disque 0,05, revolver 0,0005, les autres 0) ne sont appliqués que depuis D51
+(§16) : avant, toutes tiraient à ±0,5 rad ; aucune valeur n'a été recalée à cette occasion. Plus `arsenal`,
 l'arme des ennemis (sa table `projectiles` : `crachat`, `plomb`, `boule`). Mêlée
 (`weapons/melee.ron`) : `bare_hands` (joueur), `griffes`, `crocs`, `massue`. Chaque arme à distance porte un
 `test:` (jauges calées sur la mesure ; les armes de mêlée sont générées sans). **Gabarits** (§28, m1-throne-gen-et-d40) :

@@ -100,11 +100,28 @@ pub struct BotView {
     /// tirer de loin (dispersion : il vidait ses munitions, ou touchait si rarement que la
     /// partie n'avançait plus). Faux hors navigation (hors mode `Floors`).
     pub enemy_still: bool,
+    /// m1-v3-bots-softlocks : ligne sans `Wall` jusqu'à l'ennemi le plus proche **sans** la
+    /// marge de [`crate::navigation::SHOT_MARGIN`] (un boss coincé contre la roche, graine 43,
+    /// est « caché » avec la marge alors que les balles le touchent). Vrai hors navigation.
+    pub enemy_shootable: bool,
     /// m1-v3-bots-reanimation : coéquipier à terre à relever (saignement urgent, moins de
     /// [`crate::input::REVIVE_URGENT_FRAMES`] avant la mort, et aucun ennemi visible à moins de
     /// [`crate::input::REVIVE_SAFE_DISTANCE`]) ; `prudent`/`fonceur` y vont en priorité.
     /// `None` : personne à relever, ou menace immédiate.
     pub revive: Option<ReviveView>,
+    /// m1-v3-bots-softlocks : direction du pas suivant vers le butin le plus proche
+    /// (`PowerUpPickup`, ramassé au passage, effet pour tous les joueurs), quand plus aucune
+    /// arme n'a de réserve (mode `Floors`, aucun ennemi visible à moins de
+    /// [`crate::input::REVIVE_SAFE_DISTANCE`]) : sans ça, les bots finissaient à sec devant le
+    /// boss ou la tourelle (graines 23, 43, 76). `None` : réserves, pas de butin accessible, ou
+    /// menace immédiate.
+    pub loot: Option<FixedVec2>,
+    /// m1-v3-bots-armes : à portée d'une arme au sol choisie (voir [`Self::loot`]) : tenir
+    /// Interaction (le jeu ramasse la surface la plus proche à portée, vérifiée par l'appelant).
+    pub loot_interact: bool,
+    /// m1-v3-bots-armes : portée de l'arme en main (`range` du mode courant) : pas de tir au-delà.
+    /// `None` hors mode `Floors` (comportement inchangé).
+    pub fire_range: Option<Fixed>,
 }
 
 /// Sélection des projectiles de la vue : `candidates` = (net id, équipe adverse ?, vue).

@@ -512,7 +512,11 @@ mod profile_tests {
             enemy_visible: false,
             route: None,
             enemy_still: false,
+            enemy_shootable: true,
             revive: None,
+            loot: None,
+            loot_interact: false,
+            fire_range: None,
             hunter: Some(hunter),
         };
         for profile in [BotProfile::Chasseur, BotProfile::Acheteur] {
@@ -545,7 +549,11 @@ mod profile_tests {
             enemy_visible: false,
             route: None,
             enemy_still: false,
+            enemy_shootable: true,
             revive: None,
+            loot: None,
+            loot_interact: false,
+            fire_range: None,
             hunter: Some(HunterView {
                 can_fire: true,
                 interact: true,
