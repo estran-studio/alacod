@@ -7,10 +7,10 @@
 // fixe ce qui se passe aujourd'hui sur cette graine — deux cavernes nettoyées, le bot encore en vie
 // dans la troisième (celle du boss) à la fin du scénario.
 //
-// Mesuré (graine 123456, approche du portail pilotée en vitesse, m1-v3-bots-portail) : niveau 1 à
-// f537 (`sang_froid` à f1137), étage 1 à f853, niveau 2 à f1651 (`coriace` à f2251), alerte de
-// l'horloge à f1753, étage 2 à f2237, vivant à f3699. (Avant : étage 1 à f808, étage 2 à f2816,
-// mort et défaite à f3560.)
+// Mesuré (graine 123456, m1-v3-bots-softlocks : `prudent` ne recule ni ne tire vers un ennemi
+// caché) : niveau 1 à f547 (`sang_froid` à f1147), étage 1 à f937, niveau 2 à f1716 (`coriace` à
+// f2316), alerte de l'horloge à f1837, étage 2 à f3124, vivant à f3699. (Avant,
+// m1-v3-bots-portail : étage 1 à f853, niveau 2 à f1651, étage 2 à f2237.)
 //
 // À regarder : le bot nettoie deux cavernes puis affronte la troisième.
 Scenario(
@@ -22,12 +22,12 @@ Scenario(
         (bot: prudent),
     ],
     expect: [
-        FloorIndex(index: 1, at_frame: 860),
-        FloorIndex(index: 1, at_frame: 2230),
-        FloorIndex(index: 2, at_frame: 2240),
-        Event(kind: "levelup", by_frame: 537),
-        Mutations(handle: 0, contains: ["sang_froid", "coriace"], count: Some(2), at_frame: 2255),
-        Clock(id: "alerte", fired: true, at_frame: 1756),
+        FloorIndex(index: 1, at_frame: 945),
+        FloorIndex(index: 1, at_frame: 3120),
+        FloorIndex(index: 2, at_frame: 3130),
+        Event(kind: "levelup", by_frame: 550),
+        Mutations(handle: 0, contains: ["sang_froid", "coriace"], count: Some(2), at_frame: 2320),
+        Clock(id: "alerte", fired: true, at_frame: 1840),
         PlayerAlive(handle: 0, at_frame: 3699),
     ],
 )

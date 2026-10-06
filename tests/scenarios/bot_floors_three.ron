@@ -2,15 +2,15 @@
 // `floor_d`, `floor_c`) en mode `Floors` : ils tuent les ennemis de chaque niveau (tir, gestion
 // d'arme, esquive), puis marchent vers le portail ouvert.
 //
-// À regarder : passages de portail à f56, f484 et f765 (approche du portail pilotée en vitesse,
-// m1-v3-bots-portail ; avant : f135, f390, f792 par le champ, f135, f388, f796 en ligne droite) ;
-// les deux bots restent en vie.
+// À regarder : passages de portail à f56, f484 et f892 (m1-v3-bots-softlocks : ni recul ni tir
+// vers un ennemi caché ; avant, m1-v3-bots-portail : f56, f484, f765) ; les deux bots restent en
+// vie.
 Scenario(
     powerup_drop_chance_override: "0.0",
     game: "testbed",
     floors: Some("trois_niveaux"),
     map_seed: 123456,
-    frames: 820,
+    frames: 920,
     players: [
         (bot: prudent),
         (bot: prudent),
@@ -20,9 +20,9 @@ Scenario(
         FloorIndex(index: 1, at_frame: 60),
         FloorIndex(index: 1, at_frame: 480),
         FloorIndex(index: 2, at_frame: 490),
-        FloorIndex(index: 2, at_frame: 760),
-        FloorIndex(index: 3, at_frame: 770),
-        PlayerAlive(handle: 0, at_frame: 819),
-        PlayerAlive(handle: 1, at_frame: 819),
+        FloorIndex(index: 2, at_frame: 885),
+        FloorIndex(index: 3, at_frame: 895),
+        PlayerAlive(handle: 0, at_frame: 919),
+        PlayerAlive(handle: 1, at_frame: 919),
     ],
 )

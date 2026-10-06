@@ -3,12 +3,12 @@
 // profils), avec tout ce que le manifeste active (butin, progression, horloge, difficulté).
 //
 // Mesuré (graine 4, comme `alacod-sim --game throne --bots 2 --profiles prudent,prudent
-// --floors run --seeds 4..4 --until-floor 3` ; approche du portail pilotée en vitesse et ennemi
-// immobile approché, m1-v3-bots-portail) : étages à f663, f1594, f4794 ; mutations du joueur 0
-// `tireur` (f2674), du joueur 1 `coriace` (f1546), `adrenaline` (f2146) ; alerte de l'horloge à
-// f1563 ; joueur 0 à terre à f2799, relevé par le joueur 1 à f4264 quand son saignement devient
-// urgent (m1-v3-bots-reanimation ; avant : mort par saignement à f4599) ; étage 3 à f4874, les
-// deux vivants. (Avant, sur ce contenu : étages à f761, f1949, f4869.)
+// --floors run --seeds 4..4 --until-floor 3` ; m1-v3-bots-softlocks : `prudent` ne recule ni ne
+// tire vers un ennemi caché, qu'il suit piloté en vitesse) : étages à f275, f1490, f4162 ;
+// mutations du joueur 0 `coriace` (f1183), `chasseur` (f2928), du joueur 1 `vampire` (f1437),
+// `rancune` (f4313) ; alerte de l'horloge à f1175 ; personne à terre, les deux vivants. (Avant,
+// m1-v3-bots-reanimation : étages à f663, f1594, f4874, joueur 0 à terre à f2799 et relevé à
+// f4264 ; la réanimation reste couverte par les tests de `crates/bots`.)
 // **Duo de la vague 2 de M1** (m1-integration-scenarios) : gardé sous ce nom. **Graine 4**
 // depuis m1-navigation-profils-tailles : sur 123456, le duo ne finit plus (soft-lock au niveau
 // 3, boss et tourelle en vue des bots : limite des bots) ; 4 est la première des 20 graines qui
@@ -26,17 +26,15 @@ Scenario(
         (bot: prudent),
     ],
     expect: [
-        FloorIndex(index: 1, at_frame: 670),
-        FloorIndex(index: 2, at_frame: 1600),
-        FloorIndex(index: 2, at_frame: 4870),
-        FloorIndex(index: 3, at_frame: 4880),
-        Event(kind: "floor", label_contains: Some("niveau 3"), by_frame: 4880),
-        Event(kind: "levelup", by_frame: 946),
-        Clock(id: "alerte", fired: true, at_frame: 1565),
-        Mutations(handle: 0, contains: ["tireur"], count: Some(1), at_frame: 2700),
-        Mutations(handle: 1, contains: ["coriace", "adrenaline"], count: Some(2), at_frame: 4200),
-        PlayerDowned(handle: 0, at_frame: 2800),
-        PlayerRevived(handle: 0, by_frame: 4265),
+        FloorIndex(index: 1, at_frame: 280),
+        FloorIndex(index: 2, at_frame: 1495),
+        FloorIndex(index: 2, at_frame: 4155),
+        FloorIndex(index: 3, at_frame: 4170),
+        Event(kind: "floor", label_contains: Some("niveau 3"), by_frame: 4170),
+        Event(kind: "levelup", by_frame: 585),
+        Clock(id: "alerte", fired: true, at_frame: 1180),
+        Mutations(handle: 0, contains: ["coriace", "chasseur"], count: Some(2), at_frame: 2930),
+        Mutations(handle: 1, contains: ["vampire", "rancune"], count: Some(2), at_frame: 4320),
         PlayerAlive(handle: 0, at_frame: 4999),
         PlayerAlive(handle: 1, at_frame: 4999),
     ],
