@@ -14,7 +14,7 @@
 use std::collections::BTreeMap;
 
 use bevy::prelude::Resource;
-use bevy_fixed::fixed_math::Fixed;
+use bevy_fixed::fixed_math::{Fixed, FixedVec2};
 use game::weapons::{BulletType, FiringMode, FiringModeConfig};
 
 /// Pas de nouveau choix d'arme avant ce nombre de frames après le précédent.
@@ -38,14 +38,17 @@ pub struct WeaponView {
     pub range: Fixed,
     /// Pleine largeur angulaire de la gerbe, radians : `spread_angle` d'un fusil, `spread` sinon.
     pub spread: Fixed,
+    /// Vitesse d'un projectile (`bullet_type`), unités/s : temps de vol de l'anticipation
+    /// (m1-v3-bots-lead).
+    pub speed: Fixed,
 }
 
 impl WeaponView {
     pub fn from_config(config: &FiringModeConfig, usable: bool) -> Self {
-        let damage = match config.bullet_type {
-            BulletType::Standard { damage, .. }
-            | BulletType::Explosive { damage, .. }
-            | BulletType::Piercing { damage, .. } => damage,
+        let (damage, speed) = match config.bullet_type {
+            BulletType::Standard { damage, speed }
+            | BulletType::Explosive { damage, speed, .. }
+            | BulletType::Piercing { damage, speed, .. } => (damage, speed),
         };
         let (projectiles, spread) = match config.firing_mode {
             FiringMode::Shotgun {
@@ -64,6 +67,7 @@ impl WeaponView {
             rate: config.firing_rate,
             range: config.range,
             spread,
+            speed,
         }
     }
 }
@@ -164,6 +168,28 @@ impl WeaponChoices {
     }
 }
 
+/// m1-v3-bots-lead : temps de vol plafonné de l'anticipation (au-delà, la cible a le temps de
+/// changer de direction ; viser trop loin envoie la balle dans la roche).
+pub const LEAD_MAX_SECONDS: Fixed = Fixed::ONE;
+
+/// m1-v3-bots-lead : point visé pour toucher une cible en `target` qui se déplace à `velocity`
+/// (unités/s) avec un projectile à `bullet_speed` : `target + velocity × t`, `t = distance /
+/// bullet_speed` (une itération), plafonné à [`LEAD_MAX_SECONDS`]. Cible immobile, vitesse de
+/// projectile nulle : la cible elle-même. La ligne de tir vers ce point est vérifiée par
+/// l'appelant (repli sur la cible).
+pub fn lead_point(
+    target: FixedVec2,
+    velocity: FixedVec2,
+    distance: Fixed,
+    bullet_speed: Fixed,
+) -> FixedVec2 {
+    if velocity == FixedVec2::ZERO || bullet_speed <= Fixed::ZERO {
+        return target;
+    }
+    let t = (distance / bullet_speed).min(LEAD_MAX_SECONDS);
+    target + velocity * t
+}
+
 /// Distance de référence (« portée moyenne ») d'une arme au sol comparée à l'arme en main.
 pub const PICKUP_REFERENCE_DISTANCE: Fixed = Fixed::from_bits(250 << 16);
 
@@ -191,6 +217,7 @@ mod tests {
             rate: fx(rate),
             range: fx(range),
             spread: fx(spread),
+            speed: fx(300.0),
         }
     }
 
@@ -211,6 +238,7 @@ mod tests {
             rate: fx(1.0),
             range: fx(400.0),
             spread: fx(0.4),
+            speed: fx(250.0),
         }
     }
 
@@ -308,5 +336,33 @@ mod tests {
         assert_eq!(a, b);
         a.0.clear();
         assert_eq!(joue(&mut a), suite, "mémoire vidée : repart de zéro");
+    }
+
+    /// m1-v3-bots-lead : cible immobile → la cible ; en translation à 60 px/s, à 300 px, balle à
+    /// 300 px/s → t = 1 s → 60 px devant ; plafond à 1 s (à 600 px, toujours 60 px) ; mêmes
+    /// entrées, même point.
+    #[test]
+    fn anticipation() {
+        let cible = FixedVec2::new(fx(300.0), fx(0.0));
+        assert_eq!(lead_point(cible, FixedVec2::ZERO, fx(300.0), fx(300.0)), cible);
+        let v = FixedVec2::new(fx(0.0), fx(60.0));
+        assert_eq!(
+            lead_point(cible, v, fx(150.0), fx(300.0)),
+            FixedVec2::new(fx(300.0), fx(30.0))
+        );
+        assert_eq!(
+            lead_point(cible, v, fx(300.0), fx(300.0)),
+            FixedVec2::new(fx(300.0), fx(60.0))
+        );
+        assert_eq!(
+            lead_point(cible, v, fx(600.0), fx(300.0)),
+            FixedVec2::new(fx(300.0), fx(60.0)),
+            "plafond d'une seconde"
+        );
+        assert_eq!(lead_point(cible, v, fx(300.0), Fixed::ZERO), cible);
+        assert_eq!(
+            lead_point(cible, v, fx(300.0), fx(300.0)),
+            lead_point(cible, v, fx(300.0), fx(300.0))
+        );
     }
 }

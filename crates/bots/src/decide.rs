@@ -90,7 +90,7 @@ fn decide_fonceur(view: &BotView) -> BoxInput {
             input.buttons |= INPUT_INTERACTION;
         }
         if let Some(enemy) = view.nearest_enemy {
-            aim_at(&mut input, view.position, enemy.position);
+            aim_at(&mut input, view.position, view.aim.unwrap_or(enemy.position));
             input.fire = enemy.distance <= FONCEUR_THREAT_RANGE && in_range(view, enemy.distance);
         }
         maybe_reload(&mut input, view);
@@ -104,7 +104,7 @@ fn decide_fonceur(view: &BotView) -> BoxInput {
             input.buttons |= INPUT_INTERACTION;
         }
         if let Some(enemy) = view.nearest_enemy {
-            aim_at(&mut input, view.position, enemy.position);
+            aim_at(&mut input, view.position, view.aim.unwrap_or(enemy.position));
             input.fire = enemy.distance <= FONCEUR_THREAT_RANGE && in_range(view, enemy.distance);
         }
         maybe_reload(&mut input, view);
@@ -112,7 +112,7 @@ fn decide_fonceur(view: &BotView) -> BoxInput {
     }
 
     if let Some(enemy) = view.nearest_enemy {
-        aim_at(&mut input, view.position, enemy.position);
+        aim_at(&mut input, view.position, view.aim.unwrap_or(enemy.position));
         // Ligne droite vers un ennemi visible ; caché derrière un mur : le chemin
         let toward = enemy.position - view.position;
         set_direction_buttons(&mut input, route_unless(view.enemy_visible, view, toward));
@@ -142,7 +142,7 @@ fn decide_prudent(view: &BotView) -> BoxInput {
     if let Some(away) = crate::dodge::dodge(view) {
         set_direction_buttons(&mut input, away);
         if let Some(enemy) = view.nearest_enemy {
-            aim_at(&mut input, view.position, enemy.position);
+            aim_at(&mut input, view.position, view.aim.unwrap_or(enemy.position));
             if enemy.distance <= PRUDENT_MAX_DISTANCE {
                 input.fire =
                     view.trigger_ready && line_of_fire(view) && in_range(view, enemy.distance);
@@ -159,7 +159,7 @@ fn decide_prudent(view: &BotView) -> BoxInput {
             input.buttons |= INPUT_INTERACTION;
         }
         if let Some(enemy) = view.nearest_enemy {
-            aim_at(&mut input, view.position, enemy.position);
+            aim_at(&mut input, view.position, view.aim.unwrap_or(enemy.position));
             if enemy.distance <= PRUDENT_MAX_DISTANCE {
                 input.fire =
                     view.trigger_ready && line_of_fire(view) && in_range(view, enemy.distance);
@@ -176,7 +176,7 @@ fn decide_prudent(view: &BotView) -> BoxInput {
             input.buttons |= INPUT_INTERACTION;
         }
         if let Some(enemy) = view.nearest_enemy {
-            aim_at(&mut input, view.position, enemy.position);
+            aim_at(&mut input, view.position, view.aim.unwrap_or(enemy.position));
             if enemy.distance <= PRUDENT_MAX_DISTANCE {
                 input.fire =
                     view.trigger_ready && line_of_fire(view) && in_range(view, enemy.distance);
@@ -187,7 +187,7 @@ fn decide_prudent(view: &BotView) -> BoxInput {
     }
 
     if let Some(enemy) = view.nearest_enemy {
-        aim_at(&mut input, view.position, enemy.position);
+        aim_at(&mut input, view.position, view.aim.unwrap_or(enemy.position));
 
         let close_in = view.enemy_still && enemy.distance > STILL_TARGET_DISTANCE;
         // m1-v3-bots-softlocks : ni recul ni tir vers un ennemi caché (mode `Floors`) : le bot
@@ -375,6 +375,7 @@ mod tests {
             loot: None,
             loot_interact: false,
             fire_range: None,
+            aim: None,
         }
     }
 
@@ -689,6 +690,26 @@ mod tests {
         for profile in [BotProfile::Prudent, BotProfile::Fonceur] {
             let input = decide(profile, &v, &mut rng());
             assert_ne!(input.buttons & INPUT_INTERACTION, 0, "{profile:?}");
+        }
+    }
+
+    /// m1-v3-bots-lead : `prudent` et `fonceur` visent le point anticipé (`BotView::aim`) quand
+    /// il existe, l'ennemi sinon ; deux vues identiques donnent la même visée (déterminisme).
+    #[test]
+    fn visee_anticipee() {
+        let mut v = view(FixedVec2::new(fx(0.0), fx(0.0)));
+        v.nearest_enemy = Some(EnemyView {
+            position: FixedVec2::new(fx(200.0), fx(0.0)),
+            distance: fx(200.0),
+        });
+        for profile in [BotProfile::Prudent, BotProfile::Fonceur] {
+            v.aim = None;
+            let input = decide(profile, &v, &mut rng());
+            assert_eq!((input.pan_x, input.pan_y), (200, 0), "{profile:?} : l'ennemi");
+            v.aim = Some(FixedVec2::new(fx(200.0), fx(40.0)));
+            let input = decide(profile, &v, &mut rng());
+            assert_eq!((input.pan_x, input.pan_y), (200, 40), "{profile:?} : le point anticipé");
+            assert_eq!(decide(profile, &v, &mut rng()), input, "{profile:?} : déterministe");
         }
     }
 

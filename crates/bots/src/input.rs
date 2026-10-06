@@ -454,6 +454,7 @@ pub fn read_bot_inputs(
             loot: None,
             loot_interact: false,
             fire_range: None,
+            aim: None,
         };
 
         let mut view = view;
@@ -614,6 +615,50 @@ pub fn read_bot_inputs(
                     ) {
                         view.loot = Some(direction);
                         view.loot_interact = interact;
+                    }
+                }
+            }
+        }
+
+        // m1-v3-bots-lead : anticiper l'ennemi le plus proche (sa vitesse, celle du projectile de
+        // l'arme en main), partout ; pas au-delà de la portée ; repli sur l'ennemi si un mur coupe
+        // la ligne vers le point anticipé.
+        if matches!(profile, BotProfile::Prudent | BotProfile::Fonceur) {
+            if let Some(enemy) = view.nearest_enemy {
+                let velocity = enemies_sorted
+                    .iter()
+                    .find(|(_, t, ..)| t.translation.truncate() == enemy.position)
+                    .and_then(|(_, _, _, v, _)| v.map(|v| v.main))
+                    .unwrap_or(FixedVec2::ZERO);
+                let held = inventory
+                    .weapons
+                    .get(inventory.active_weapon_index)
+                    .and_then(|(entity, weapon)| {
+                        let (state, _) = weapons.get(*entity).ok()?;
+                        weapon.config.firing_modes.get(&state.active_mode)
+                    })
+                    .map(|mode| WeaponView::from_config(mode, true));
+                if let Some(held) = held.filter(|w| enemy.distance <= w.range) {
+                    let lead =
+                        arms::lead_point(enemy.position, velocity, enemy.distance, held.speed);
+                    if lead != enemy.position {
+                        let rects = geometry_rects.get_or_insert_with(|| {
+                            order_iter!(geometry)
+                                .into_iter()
+                                .filter(|(_, _, _, wall, window, door)| {
+                                    wall.is_some() || window.is_some() || door.is_some()
+                                })
+                                .map(|(_, t, c, wall, _, door)| {
+                                    (
+                                        Rect::collider(t.translation.truncate(), c),
+                                        wall.is_some() || door.is_some(),
+                                    )
+                                })
+                                .collect()
+                        });
+                        if crate::navigation::walls_clear(rects, position, lead) {
+                            view.aim = Some(lead);
+                        }
                     }
                 }
             }
@@ -785,6 +830,7 @@ const NO_WEAPON: WeaponView = WeaponView {
     rate: Fixed::ZERO,
     range: Fixed::ZERO,
     spread: Fixed::ZERO,
+    speed: Fixed::ZERO,
 };
 
 /// m1-v3-bots-softlocks + m1-v3-bots-armes : pas suivant vers le butin accessible le plus proche

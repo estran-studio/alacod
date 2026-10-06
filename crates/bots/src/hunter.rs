@@ -517,6 +517,7 @@ mod profile_tests {
             loot: None,
             loot_interact: false,
             fire_range: None,
+            aim: None,
             hunter: Some(hunter),
         };
         for profile in [BotProfile::Chasseur, BotProfile::Acheteur] {
@@ -554,6 +555,7 @@ mod profile_tests {
             loot: None,
             loot_interact: false,
             fire_range: None,
+            aim: None,
             hunter: Some(HunterView {
                 can_fire: true,
                 interact: true,

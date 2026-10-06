@@ -122,6 +122,10 @@ pub struct BotView {
     /// m1-v3-bots-armes : portée de l'arme en main (`range` du mode courant) : pas de tir au-delà.
     /// `None` hors mode `Floors` (comportement inchangé).
     pub fire_range: Option<Fixed>,
+    /// m1-v3-bots-lead : point visé sur l'ennemi le plus proche, anticipé d'après sa vitesse et
+    /// celle du projectile de l'arme en main (`arms::lead_point`), s'il est en ligne de tir et à
+    /// portée. `None` : viser l'ennemi (cible immobile, pas de vitesse connue, ou repli).
+    pub aim: Option<FixedVec2>,
 }
 
 /// Sélection des projectiles de la vue : `candidates` = (net id, équipe adverse ?, vue).

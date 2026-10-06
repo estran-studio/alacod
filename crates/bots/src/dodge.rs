@@ -100,6 +100,7 @@ mod tests {
             loot: None,
             loot_interact: false,
             fire_range: None,
+            aim: None,
         }
     }
 
