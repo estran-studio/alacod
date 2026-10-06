@@ -713,6 +713,14 @@ fn sprite_sheet_missing_image_fixture_reports_missing_png() {
     assert_only_one_besides_start_map(&errors);
 }
 
+/// D51 : `spread` doit rester dans [0, π] radians.
+#[test]
+fn weapon_spread_out_of_range_fixture_reports_spread() {
+    let (_, _, errors) = load_and_lint(&fixture_dir("weapon_spread_out_of_range")).unwrap();
+    assert_has_error(&errors, LintErrorKind::OutOfRange, "spread");
+    assert_only_one_besides_start_map(&errors);
+}
+
 #[test]
 fn weapon_sprite_unknown_fixture_reports_unknown_sheet() {
     let (_, _, errors) = load_and_lint(&fixture_dir("weapon_sprite_unknown")).unwrap();

@@ -928,6 +928,14 @@ avec `test:` et son scénario généré (`make gen GAME=testbed`,
 `tests/scenarios/generated/testbed/`).
 
 
+**Dispersion du tir** (D51, m1-d51-dispersion-ignoree) : `spread` d'un mode de tir
+(`FiringModeConfig`) est en **radians, pleine largeur** : chaque balle d'un tir simple (tout mode
+sauf `Shotgun`) part à `(r − ½) × spread` de la direction visée, `r` tiré dans le flux RNG
+`weapons` (un tirage par balle), donc dans `[−spread/2, spread/2]` ; `spread` = 0 : tir exact
+(`combat::weapons::single_shot_direction`). `Shotgun` garde son `spread_angle` (même formule par
+plomb). Lint : `0 <= spread <= π` (fixture `weapon_spread_out_of_range`). Avant D51, l'angle
+valait `(r − ½) × 1` (±0,5 rad) pour **toute** arme simple : `spread` n'était jamais appliqué.
+
 Patterns joués **dans le temps** (`Telegraph`, `Wait`, `Ring.every`, `Scatter`, `Named`),
 émetteurs et tir ennemi : voir §20 (T1.2).
 
@@ -1962,7 +1970,9 @@ joueurs depuis lui), copie de `player` du testbed ; trois armes de départ (`mit
 `explosifs` (`lance_grenades` : `Bounce`+`Pierce`+`Lifetime`, explosion puis couronne d'éclats ;
 `roquette` : souffle en `on_expire` ; `mortier` : `Gravity`, éventail de fragments), `energie`
 (`laser` : `Pierce` ; `plasma` : `Size`+`Lifetime` ; `traqueur` : `Homing`), `lames`
-(`lance_lames` : `Bounce`+`Pierce` ; `disque` : rafale, `Pierce`+`Lifetime`). Plus `arsenal`,
+(`lance_lames` : `Bounce`+`Pierce` ; `disque` : rafale, `Pierce`+`Lifetime`). Leurs `spread`
+(mitraillette 0,15, disque 0,05, revolver 0,0005, les autres 0) ne sont appliqués que depuis D51
+(§16) : avant, toutes tiraient à ±0,5 rad ; aucune valeur n'a été recalée à cette occasion. Plus `arsenal`,
 l'arme des ennemis (sa table `projectiles` : `crachat`, `plomb`, `boule`). Mêlée
 (`weapons/melee.ron`) : `bare_hands` (joueur), `griffes`, `crocs`, `massue`. Chaque arme à distance porte un
 `test:` (jauges calées sur la mesure ; les armes de mêlée sont générées sans). **Gabarits** (§28, m1-throne-gen-et-d40) :

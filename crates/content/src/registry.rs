@@ -395,6 +395,9 @@ pub struct WeaponEntry {
     pub file: PathBuf,
     /// Cadence de tir par mode (`firing_modes`), pour la règle « cadence > 0 ».
     pub firing_rates: BTreeMap<String, FixedField>,
+    /// Dispersion par mode (`spread`, radians, pleine largeur), pour la règle « 0 <= spread <= π »
+    /// (D51). Absent de la RON (fixtures) : 0.
+    pub spreads: BTreeMap<String, FixedField>,
     /// Gabarit de scénario généré (T2.10, champ `test:` de `WeaponConfig`), pour le lint
     /// (`frames > 0`, `min_hits <= max_hits`). `None` : pas de `test:`, aucune règle à
     /// vérifier (l'arme obtient quand même un scénario généré, invariants seulement).
@@ -1403,9 +1406,16 @@ struct WeaponConfigSchema {
     projectiles: BTreeMap<String, ProjectileDefEntry>,
 }
 
+fn zero_spread() -> FixedField {
+    FixedField(Fixed::ZERO)
+}
+
 #[derive(Deserialize)]
 struct FiringModeSchema {
     firing_rate: FixedField,
+    /// D51 : voir `WeaponEntry::spreads` (absent : 0, aucune règle violée).
+    #[serde(default = "zero_spread")]
+    spread: FixedField,
     /// T1.1 : voir `WeaponEntry::mode_projectiles`.
     #[serde(default)]
     projectile: ProjectileSpecEntry,
@@ -1768,9 +1778,11 @@ fn load_weapons(
             }
             let test = entry.config.test.as_ref().map(WeaponTestRange::from);
             let mut firing_rates = BTreeMap::new();
+            let mut spreads = BTreeMap::new();
             let mut mode_projectiles = BTreeMap::new();
             for (mode, cfg) in entry.config.firing_modes {
                 firing_rates.insert(mode.clone(), cfg.firing_rate);
+                spreads.insert(mode.clone(), cfg.spread);
                 mode_projectiles.insert(mode, cfg.projectile);
             }
             let mut sounds = Vec::new();
@@ -1790,6 +1802,7 @@ fn load_weapons(
                     id,
                     file: rel.clone(),
                     firing_rates,
+                    spreads,
                     test,
                     ammo_type: entry.config.ammo_type,
                     sounds,

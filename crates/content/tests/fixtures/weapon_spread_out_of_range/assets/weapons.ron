@@ -1,0 +1,14 @@
+// Fixture D51 : `spread` hors de [0, π] (4 radians : une balle partirait vers l'arrière) :
+// LintErrorKind::OutOfRange (`lint::lint_weapons`).
+({
+    "rifle": (
+        config: (
+            name: "rifle",
+            default_firing_mode: "default",
+            ammo_type: Balle,
+            firing_modes: {
+                "default": (firing_rate: "5.0", spread: "4.0"),
+            },
+        ),
+    ),
+})
