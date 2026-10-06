@@ -835,6 +835,13 @@ région des chantiers puis la campagne.
   1 mort (graine 200). **Total : 200/200 atteignent la vague 5 sur `avant_poste`, 0 desync, 0 softlock, 3 graines
   avec un mort.**
   Lot séparé de 20 graines `avant_poste` : 20/20 vague 5, 0 desync, 0 softlock, 0 mort, 6 522 à 7 583 frames.
+- **Critère M1 §9.8, 200 graines `throne` à 2 bots `prudent`, sur `main` `ed8a274`** (2026-10-06, 11 h 15 à 12 h 55,
+  `alacod-sim` d'`ed8a274` : D48, D51, m1-v3-bots-softlocks et m1-v3-bots-armes inclus ; 3 lots parallèles) :
+  **198/200 finissent les trois étages, 0 desync, 0 soft-lock**, 2 défaites au 3e étage (graines 73, 100), 11 runs
+  finies avec un mort relevé ; 2 430 à 4 950 frames (médiane 3 361). Avant (même mesure sur `61ac539`, 2026-10-05) :
+  149/200, 12 soft-locks, 39 défaites. **Le critère « sans soft-lock ni desync » est atteint à 2 bots.** Revers : le
+  troisième étage est devenu facile depuis D51 (rééquilibrage à décider avec William). Données :
+  `alacod_tasks/m1-200-throne/ed8a274/`. 4 bots en cours.
 - **Critère M1 §9.8, 200 graines `throne` à 2 bots `prudent`** (2026-10-05, 10 h 15 à 12 h 11, `alacod-sim` de
   `61ac539` : bots-portail inclus, réanimation pas encore mergée ; `--floors run --until-floor 3 --max-frames
   15000`, 4 lots parallèles) : **149/200 finissent les trois étages, 0 desync, 12 soft-locks, 39 défaites**
