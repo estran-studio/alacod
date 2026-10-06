@@ -2,6 +2,11 @@
 
 ## État en cours
 
+- **Fini** le 2026-10-06 vers 18 h : 200/200 graines jouées, 199 à la vague 5, 0 desync, 1 soft-lock
+  (graine 100, confiée à b1 : `m0-graine-100-fenetre`), 0 mort. Digest
+  `docs/digests/m0-200-graines-test-map.md`, JSON fusionné et journaux dans
+  `docs/digests/m0-200-test-map/` (412 Ko).
+
 - Lancé le 2026-10-05 en local (orch : la session cloud n'a jamais livré), binaire
   `alacod_tasks/m1-200-throne/alacod-sim-f80b82b` (aucune compilation), deux lots de 100 graines
   en parallèle, sorties dans `alacod_tasks/m0-200-test-map/`. Branche depuis origin/main `ddb9789`.
