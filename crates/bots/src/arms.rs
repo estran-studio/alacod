@@ -11,6 +11,9 @@
 //! l'arme en main (ou si celle-ci ne fait rien), et pas avant [`SWITCH_HOLD_FRAMES`] après son
 //! dernier choix (`input::WeaponChoices`) : un changement coûte le temps de `switch_weapon`.
 
+use std::collections::BTreeMap;
+
+use bevy::prelude::Resource;
 use bevy_fixed::fixed_math::Fixed;
 use game::weapons::{BulletType, FiringMode, FiringModeConfig};
 
@@ -118,6 +121,48 @@ pub fn better_weapon(
     .then_some(best)
 }
 
+/// Mémoire des choix d'arme de chaque bot : handle → (index visé, frame de simulation du choix).
+/// Hors rollback comme la navigation : les bots produisent des inputs, pas de l'état de
+/// simulation ; déterministe (frame `FrameCount`, jamais d'horloge), vidée à chaque entrée en
+/// partie (`OnEnter(AppState::InGame)` : première partie et chaque restart, D14).
+#[derive(Resource, Debug, Default, Clone, PartialEq)]
+pub struct WeaponChoices(pub BTreeMap<usize, (usize, u32)>);
+
+impl WeaponChoices {
+    /// Un pas de choix pour le bot `handle` à la frame `frame` : `true` s'il doit presser
+    /// `switch_weapon`. Un choix en cours (index visé ≠ arme en main, toujours utile) se poursuit
+    /// (le jeu cycle d'un emplacement par appui, 20 frames entre deux) ; sinon, pas de nouveau
+    /// choix avant [`SWITCH_HOLD_FRAMES`] après le précédent, puis [`better_weapon`].
+    pub fn step(
+        &mut self,
+        handle: usize,
+        frame: u32,
+        weapons: &[WeaponView],
+        active: usize,
+        distance: Fixed,
+        radius: Fixed,
+    ) -> bool {
+        let choice = self.0.get(&handle).copied();
+        if let Some((target, _)) = choice {
+            if target != active && weapons.get(target).is_some_and(|w| w.usable) {
+                return true;
+            }
+        }
+        let held = choice
+            .is_some_and(|(_, since)| frame.saturating_sub(since) < SWITCH_HOLD_FRAMES);
+        if held {
+            return false;
+        }
+        match better_weapon(weapons, active, distance, radius) {
+            Some(best) => {
+                self.0.insert(handle, (best, frame));
+                true
+            }
+            None => false,
+        }
+    }
+}
+
 /// Distance de référence (« portée moyenne ») d'une arme au sol comparée à l'arme en main.
 pub const PICKUP_REFERENCE_DISTANCE: Fixed = Fixed::from_bits(250 << 16);
 
@@ -223,5 +268,38 @@ mod tests {
         let vide = WeaponView { usable: false, ..mitraillette() };
         assert!(worth_picking(&lance_lames(), Some(&vide), false));
         assert!(worth_picking(&laser(), None, false));
+    }
+
+    /// Hystérésis en temps et déterminisme : un choix à f100 (vers le laser à 500 px), poursuivi
+    /// tant que l'arme en main n'est pas la bonne ; pas de nouveau choix avant f220 ; deux suites
+    /// identiques donnent les mêmes choix ; une mémoire vidée (nouvelle partie) repart de zéro.
+    #[test]
+    fn choix_deterministes_et_tenus() {
+        let armes = [mitraillette(), lance_lames(), laser()];
+        let (d, r) = (fx(500.0), fx(12.0));
+        let joue = |memoire: &mut WeaponChoices| {
+            let mut appuis = Vec::new();
+            for (frame, active, distance) in [
+                (100, 0, d),
+                (121, 1, d),
+                (142, 2, d),
+                (150, 2, fx(100.0)),
+                (219, 2, fx(100.0)),
+                (220, 2, fx(100.0)),
+            ] {
+                appuis.push(memoire.step(0, frame, &armes, active, distance, r));
+            }
+            appuis
+        };
+        let mut a = WeaponChoices::default();
+        let mut b = WeaponChoices::default();
+        let suite = joue(&mut a);
+        // Choix f100, poursuivi f121 (encore sur le lance-lames), atteint f142 ; de près, la
+        // mitraillette (80) bat le laser (48) mais seulement après la tenue (f220).
+        assert_eq!(suite, [true, true, false, false, false, true]);
+        assert_eq!(joue(&mut b), suite, "même suite, mêmes choix");
+        assert_eq!(a, b);
+        a.0.clear();
+        assert_eq!(joue(&mut a), suite, "mémoire vidée : repart de zéro");
     }
 }

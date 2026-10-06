@@ -53,7 +53,7 @@ use game::weapons::{
 };
 use game::character::config::{CharacterConfig, CharacterConfigHandles};
 use game::global_asset::GlobalAsset;
-use crate::arms::{self, WeaponView};
+use crate::arms::{self, WeaponChoices, WeaponView};
 use map::game::entity::map::window::WindowHealth;
 use sim_core::kinds::{KindDecl, KindRegistry};
 use utils::net_id::GgrsNetId;
@@ -115,6 +115,10 @@ impl Plugin for BotsPlugin {
         app.init_resource::<crate::navigation::BotNavigation>();
         app.init_resource::<DirectNavigation>();
         app.init_resource::<WeaponChoices>();
+        app.add_systems(
+            OnEnter(game::core::AppState::InGame),
+            |mut choices: ResMut<WeaponChoices>| choices.0.clear(),
+        );
         app.add_systems(
             ReadInputs,
             crate::hunter::read_hunter_inputs
@@ -555,27 +559,15 @@ pub fn read_bot_inputs(
                     .find(|(_, t, ..)| t.translation.truncate() == enemy.position)
                     .and_then(|(.., c)| c.map(collider_radius))
                     .unwrap_or(arms::TARGET_RADIUS);
-                let choice = weapon_choices.0.get(&player.handle).copied();
-                match choice {
-                    Some((target, _))
-                        if target != active
-                            && arms_views.get(target).is_some_and(|w| w.usable) =>
-                    {
-                        view.switch_weapon = true;
-                    }
-                    _ => {
-                        let held = choice.is_some_and(|(_, since)| {
-                            frame.frame.saturating_sub(since) < arms::SWITCH_HOLD_FRAMES
-                        });
-                        if !held {
-                            if let Some(best) =
-                                arms::better_weapon(&arms_views, active, enemy.distance, radius)
-                            {
-                                weapon_choices.0.insert(player.handle, (best, frame.frame));
-                                view.switch_weapon = true;
-                            }
-                        }
-                    }
+                if weapon_choices.step(
+                    player.handle,
+                    frame.frame,
+                    &arms_views,
+                    active,
+                    enemy.distance,
+                    radius,
+                ) {
+                    view.switch_weapon = true;
                 }
             }
 
@@ -791,12 +783,7 @@ const NO_WEAPON: WeaponView = WeaponView {
     spread: Fixed::ZERO,
 };
 
-/// m1-v3-bots-armes : mémoire des choix d'arme de chaque bot (handle → index visé, frame du
-/// choix), hors rollback comme la navigation : hystérésis de [`arms::SWITCH_HOLD_FRAMES`] et
-/// `switch_weapon` pressé (le jeu cycle d'un emplacement par appui, 20 frames entre deux) jusqu'à
-/// l'index visé.
-#[derive(Resource, Default)]
-pub struct WeaponChoices(pub BTreeMap<usize, (usize, u32)>);
+
 
 /// m1-v3-bots-softlocks + m1-v3-bots-armes : pas suivant vers le butin accessible le plus proche
 /// (distance, puis `GgrsNetId`) : un power-up (ramassé au passage, `LOOT_REACH`) ou une arme au sol
