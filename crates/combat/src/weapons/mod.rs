@@ -1896,10 +1896,16 @@ mod tests {
         for random in [fx(0.0), fx(0.1), fx(0.5), fx(0.9), fx(0.999)] {
             let d = single_shot_direction(aim, random, spread);
             let angle = d.y.to_num::<f64>().atan2(d.x.to_num::<f64>());
-            assert!(angle.abs() <= 0.075 + 1e-3, "tirage {random} : angle {angle}");
+            assert!(
+                angle.abs() <= 0.075 + 1e-3,
+                "tirage {random} : angle {angle}"
+            );
         }
         let d = single_shot_direction(aim, fx(0.0), spread);
         let angle = d.y.to_num::<f64>().atan2(d.x.to_num::<f64>());
-        assert!((angle + 0.075).abs() < 2e-3, "tirage 0 : −spread/2, obtenu {angle}");
+        assert!(
+            (angle + 0.075).abs() < 2e-3,
+            "tirage 0 : −spread/2, obtenu {angle}"
+        );
     }
 }
