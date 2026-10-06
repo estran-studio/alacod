@@ -1700,8 +1700,15 @@ mitraillette ≈ 43/s, lance-lames 36, laser 48 ; à 500 px, mitraillette ≈ 26
 `switch_weapon` pressé jusqu'à l'emplacement visé. Pas de tir au-delà de la portée de l'arme en
 main (`BotView::fire_range`). Ramassage, sans ennemi visible à moins de 150 px : power-up à moins
 de 96 px (partout à sec), arme au sol à moins de 96 px si elle bat l'arme en main à 250 px
-(emplacements pleins : c'est elle qui tombe) ou si un emplacement est libre. Pas de cas « boss »
-ni d'anticipation (m1-v3-bots-lead).
+(emplacements pleins : c'est elle qui tombe) ou si un emplacement est libre. Pas de cas « boss ».
+
+**Anticipation** (m1-v3-bots-lead, `arms::lead_point`, `prudent` et `fonceur`, tous modes) : le bot
+vise `ennemi + vitesse × t`, `t = distance / vitesse du projectile de l'arme en main` (une
+itération), plafonné à 1 s ; vitesse de l'ennemi = son `Velocity::main` de la frame (lu sans
+écriture, aucune mémoire hors rollback). Pas d'anticipation sur un ennemi immobile ni au-delà de la
+portée ; si un mur coupe la ligne vers le point anticipé, le bot vise l'ennemi (`BotView::aim`).
+Limite : `Velocity::main` ne voit ni le recul (`knockback`) ni un blocage contre un mur dans la
+frame (vitesse voulue, pas déplacement réel).
 
 ## 25. Variantes et élites (T1.5, chantier D2)
 
