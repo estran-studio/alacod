@@ -6,8 +6,9 @@ n'améliore pas la médiane des balles perdues (critère de la fiche, décision 
 
 ## État en cours
 
-Fini. Deux variantes mesurées, aucune livrée. Code conservé sur la branche locale d'archive
-`m1-v3-bots-lead-essai` (8f42009, variante 2 ; la variante 1 est son parent bd4dad3), non poussée.
+Fini. Deux variantes mesurées, aucune livrée. Code conservé sur la branche d'archive
+`archive/m1-v3-bots-lead-v2` (origin, 8f42009 : variante 2 ; la variante 1 est son parent
+bd4dad3).
 Rien à compiler ni à bénir : la branche ne touche que ce rapport. Target purgé.
 
 ## Ce qui a été essayé (`crates/bots`, `prudent` et `fonceur`, tous modes)
@@ -55,7 +56,7 @@ digest (trace détaillée, un dump à la fois, au moins 8 Go disponibles avant c
 - Variante 2 : le déplacement réel corrige ce biais (la graine 103 gagne 14 points), mais les
   ennemis de `throne` changent souvent de cap (ils chassent un joueur qui bouge, contournent la
   roche) : sur trois graines, le gain n'est pas régulier. Trois graines donnent une médiane fragile ;
-  une mesure sur plus de graines (code d'archive prêt) pourrait départager, si l'orchestrateur le
+  une mesure sur plus de graines (code prêt sur `archive/m1-v3-bots-lead-v2`) pourrait départager, si l'orchestrateur le
   juge utile.
 - Ce qui reste perdu sans anticipation : la dispersion de la mitraillette (à 250 px, la gerbe de
   ±19 px couvre ≈ 64 % d'une cible de ±12 px, m1-v3-bots-armes) et les cibles qui changent de cap.
