@@ -1008,8 +1008,8 @@ fn hits_at_least_lit_le_compteur_de_la_cible() {
     }
 }
 
-/// T1.10 : `Gauge`, `Level`, `Mutations` passent sur `levelup_choice` (3 rads, niveau 1,
-/// `coriace` prise) et échouent chacune sur une valeur fausse.
+/// T1.10 : `Gauge`, `Level`, `Mutations` passent sur `levelup_choice` (2 rads depuis D51,
+/// niveau 1, `coriace` prise) et échouent chacune sur une valeur fausse.
 #[test]
 fn progression_expectations_pass_and_fail() {
     if map_ldtk::RENDER_ENABLED {
@@ -1037,7 +1037,7 @@ fn progression_expectations_pass_and_fail() {
         at_frame: 190,
     };
     scenario.expect = vec![
-        gauge(3.0, 3.0),
+        gauge(2.0, 2.0),
         level(1),
         mutations(&["coriace"], Some(1)),
         // Fausses : une seule échec chacune
@@ -1057,7 +1057,7 @@ fn progression_expectations_pass_and_fail() {
     let failures = outcome.failures.join("\n");
     assert_eq!(outcome.failures.len(), 5, "{failures}");
     for needle in [
-        "jauge rads = 3 < min 4",
+        "jauge rads = 2 < min 4",
         "niveau 1 ≠ 2",
         "manque [\"vampire\"]",
         "1 ≠ 0",

@@ -3,10 +3,10 @@
 // 16 points ailleurs) ; progression `base` du testbed imposée (`progression`, inactive sinon) : 1 rad
 // par kill, niveau 1 à 2 rads, trois mutations proposées.
 //
-// Mesuré : le joueur tue le breacher puis une cible (niveau 1 à f104, options tirées dans le
-// flux `loot` : [vampire, tireur, coriace]) ; il presse `ChoiceC` de f134 à f138 → `coriace`
-// (OnLevelUp : +50 MaxHealth et soin 50, la frame suivant le choix) : MaxHealth 150, santé
-// 110,8 à f290 ; 3 rads (un kill de plus après le niveau). Même tirage que `levelup_timeout`
+// Mesuré (D51 : dispersion de la config enfin appliquée) : le joueur tue le breacher (f66) puis une
+// cible (niveau 1 à f147, options tirées dans le flux `loot`) ; il presse `ChoiceC` de f150 à
+// f154 → `coriace` (OnLevelUp : +50 MaxHealth et soin 50, la frame suivant le choix) :
+// MaxHealth 150 à f290 ; 2 rads (avant D51 : niveau 1 à f104, choix f134-f138, 3 rads). Même tirage que `levelup_timeout`
 // (même script jusqu'au choix), où la première option, `vampire`, est prise d'office.
 //
 // À regarder : le joueur tire au sud-ouest sur le breacher qui arrive, puis au nord-ouest ; sa
@@ -33,6 +33,6 @@ Scenario(
         Event(kind: "mutation", label_contains: "coriace", by_frame: 156),
         Stat(handle: 0, stat: MaxHealth, value: 150.0, at_frame: 290),
         Health(handle: 0, min: Some(105.0), at_frame: 290),
-        Gauge(handle: 0, id: "rads", min: Some(3.0), max: Some(3.0), at_frame: 290),
+        Gauge(handle: 0, id: "rads", min: Some(2.0), max: Some(2.0), at_frame: 290),
     ],
 )
