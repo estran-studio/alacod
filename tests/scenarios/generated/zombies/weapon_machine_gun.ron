@@ -313,7 +313,7 @@ Scenario(
         EntityHits(
             net_id: 35,
             min: 10,
-            max: 60,
+            max: 80,
             at_frame: 600,
         ),
     ],

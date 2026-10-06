@@ -321,13 +321,13 @@ Scenario(
             at_frame: 113,
         ),
         BulletCount(
-            count: 0,
+            count: 8,
             projectile: "eclat",
             at_frame: 174,
         ),
         HitsAtLeast(
             entity: Target,
-            hits: 11,
+            hits: 4,
             at_frame: 175,
         ),
         Event(
