@@ -841,7 +841,8 @@ région des chantiers puis la campagne.
   finies avec un mort relevé ; 2 430 à 4 950 frames (médiane 3 361). Avant (même mesure sur `61ac539`, 2026-10-05) :
   149/200, 12 soft-locks, 39 défaites. **Le critère « sans soft-lock ni desync » est atteint à 2 bots.** Revers : le
   troisième étage est devenu facile depuis D51 (rééquilibrage à décider avec William). Données :
-  `alacod_tasks/m1-200-throne/ed8a274/`. 4 bots en cours.
+  `alacod_tasks/m1-200-throne/ed8a274/`. **4 bots** (même binaire, 12 h 55 à 14 h 41) : **200/200, 0 soft-lock, 0 desync,
+  aucun mort** ; 1 745 à 3 298 frames (médiane 2 385). **Critère M1 §9.8 des bots atteint à 2 et à 4 bots.**
 - **Critère M1 §9.8, 200 graines `throne` à 2 bots `prudent`** (2026-10-05, 10 h 15 à 12 h 11, `alacod-sim` de
   `61ac539` : bots-portail inclus, réanimation pas encore mergée ; `--floors run --until-floor 3 --max-frames
   15000`, 4 lots parallèles) : **149/200 finissent les trois étages, 0 desync, 12 soft-locks, 39 défaites**
