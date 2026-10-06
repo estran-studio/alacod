@@ -98,6 +98,8 @@ mod tests {
             enemy_shootable: true,
             revive: None,
             loot: None,
+            loot_interact: false,
+            fire_range: None,
         }
     }
 

@@ -91,7 +91,7 @@ fn decide_fonceur(view: &BotView) -> BoxInput {
         }
         if let Some(enemy) = view.nearest_enemy {
             aim_at(&mut input, view.position, enemy.position);
-            input.fire = enemy.distance <= FONCEUR_THREAT_RANGE;
+            input.fire = enemy.distance <= FONCEUR_THREAT_RANGE && in_range(view, enemy.distance);
         }
         maybe_reload(&mut input, view);
         return input;
@@ -100,9 +100,12 @@ fn decide_fonceur(view: &BotView) -> BoxInput {
     // m1-v3-bots-softlocks : à sec, ramasser le butin, en se défendant.
     if let Some(loot) = view.loot {
         set_direction_buttons(&mut input, loot);
+        if view.loot_interact {
+            input.buttons |= INPUT_INTERACTION;
+        }
         if let Some(enemy) = view.nearest_enemy {
             aim_at(&mut input, view.position, enemy.position);
-            input.fire = enemy.distance <= FONCEUR_THREAT_RANGE;
+            input.fire = enemy.distance <= FONCEUR_THREAT_RANGE && in_range(view, enemy.distance);
         }
         maybe_reload(&mut input, view);
         return input;
@@ -114,14 +117,20 @@ fn decide_fonceur(view: &BotView) -> BoxInput {
         let toward = enemy.position - view.position;
         set_direction_buttons(&mut input, route_unless(view.enemy_visible, view, toward));
         if enemy.distance <= FONCEUR_THREAT_RANGE {
-            input.fire = true;
+            input.fire = in_range(view, enemy.distance);
         }
     } else if let Some(portal) = view.portal {
         // T1.8 : plus d'ennemi, portail ouvert : y aller (niveau suivant), par le chemin.
         set_direction_buttons(&mut input, view.route.unwrap_or(portal - view.position));
     }
 
-    maybe_reload(&mut input, view);
+    // m1-v3-bots-armes : en `Floors` (`fire_range` connu), `fonceur` change d'arme comme
+    // `prudent` (choix par la config, `input::WeaponChoices`) ; ailleurs, inchangé.
+    if view.fire_range.is_some() {
+        manage_weapon(&mut input, view);
+    } else {
+        maybe_reload(&mut input, view);
+    }
     input
 }
 
@@ -135,7 +144,7 @@ fn decide_prudent(view: &BotView) -> BoxInput {
         if let Some(enemy) = view.nearest_enemy {
             aim_at(&mut input, view.position, enemy.position);
             if enemy.distance <= PRUDENT_MAX_DISTANCE {
-                input.fire = view.trigger_ready && line_of_fire(view);
+                input.fire = view.trigger_ready && line_of_fire(view) && in_range(view, enemy.distance);
             }
         }
         manage_weapon(&mut input, view);
@@ -151,7 +160,7 @@ fn decide_prudent(view: &BotView) -> BoxInput {
         if let Some(enemy) = view.nearest_enemy {
             aim_at(&mut input, view.position, enemy.position);
             if enemy.distance <= PRUDENT_MAX_DISTANCE {
-                input.fire = view.trigger_ready && line_of_fire(view);
+                input.fire = view.trigger_ready && line_of_fire(view) && in_range(view, enemy.distance);
             }
         }
         manage_weapon(&mut input, view);
@@ -161,10 +170,13 @@ fn decide_prudent(view: &BotView) -> BoxInput {
     // m1-v3-bots-softlocks : à sec (plus de réserve), ramasser le butin, en se défendant.
     if let Some(loot) = view.loot {
         set_direction_buttons(&mut input, loot);
+        if view.loot_interact {
+            input.buttons |= INPUT_INTERACTION;
+        }
         if let Some(enemy) = view.nearest_enemy {
             aim_at(&mut input, view.position, enemy.position);
             if enemy.distance <= PRUDENT_MAX_DISTANCE {
-                input.fire = view.trigger_ready && line_of_fire(view);
+                input.fire = view.trigger_ready && line_of_fire(view) && in_range(view, enemy.distance);
             }
         }
         manage_weapon(&mut input, view);
@@ -198,7 +210,7 @@ fn decide_prudent(view: &BotView) -> BoxInput {
         if enemy.distance <= PRUDENT_MAX_DISTANCE {
             // T1.14 : relâcher entre deux tirs d'une arme non automatique ; jamais sans ligne
             // de tir (m1-v3-bots-softlocks)
-            input.fire = view.trigger_ready && line_of_fire(view);
+            input.fire = view.trigger_ready && line_of_fire(view) && in_range(view, enemy.distance);
         }
     } else if let Some(portal) = view.portal {
         // T1.8 : plus d'ennemi, portail ouvert : y aller (niveau suivant), en freinant (T1.14)
@@ -207,6 +219,12 @@ fn decide_prudent(view: &BotView) -> BoxInput {
 
     manage_weapon(&mut input, view);
     input
+}
+
+/// m1-v3-bots-armes : la cible est à portée de l'arme en main (`BotView::fire_range`, `range` de
+/// la config) ; sans portée connue (hors `Floors`), toujours vrai.
+fn in_range(view: &BotView, distance: Fixed) -> bool {
+    view.fire_range.is_none_or(|range| distance <= range)
 }
 
 /// m1-v3-bots-softlocks : `prudent` ne tire pas vers un ennemi caché (mode `Floors`) : il vidait
@@ -352,6 +370,8 @@ mod tests {
             enemy_shootable: true,
             revive: None,
             loot: None,
+            loot_interact: false,
+            fire_range: None,
         }
     }
 
@@ -627,6 +647,37 @@ mod tests {
         assert_eq!(input.buttons & (INPUT_LEFT | INPUT_RIGHT), 0);
         v.velocity = FixedVec2::new(fx(0.0), fx(120.0));
         assert_eq!(decide(BotProfile::Prudent, &v, &mut rng()).buttons, 0);
+    }
+
+    /// m1-v3-bots-armes : pas de tir au-delà de la portée de l'arme en main (`fire_range`) ;
+    /// sans portée connue (hors `Floors`), comme avant.
+    #[test]
+    fn tir_seulement_a_portee_de_l_arme() {
+        let mut v = view(FixedVec2::new(fx(0.0), fx(0.0)));
+        v.nearest_enemy = Some(EnemyView {
+            position: FixedVec2::new(fx(200.0), fx(0.0)),
+            distance: fx(200.0),
+        });
+        for profile in [BotProfile::Prudent, BotProfile::Fonceur] {
+            assert!(decide(profile, &v, &mut rng()).fire, "{profile:?} : sans portée connue");
+            v.fire_range = Some(fx(150.0));
+            assert!(!decide(profile, &v, &mut rng()).fire, "{profile:?} : hors de portée");
+            v.fire_range = Some(fx(300.0));
+            assert!(decide(profile, &v, &mut rng()).fire, "{profile:?} : à portée");
+            v.fire_range = None;
+        }
+    }
+
+    /// m1-v3-bots-armes : à portée d'une arme au sol choisie, Interaction tenue.
+    #[test]
+    fn ramasser_une_arme_tient_interaction() {
+        let mut v = view(FixedVec2::new(fx(0.0), fx(0.0)));
+        v.loot = Some(FixedVec2::ZERO);
+        v.loot_interact = true;
+        for profile in [BotProfile::Prudent, BotProfile::Fonceur] {
+            let input = decide(profile, &v, &mut rng());
+            assert_ne!(input.buttons & INPUT_INTERACTION, 0, "{profile:?}");
+        }
     }
 
     #[test]

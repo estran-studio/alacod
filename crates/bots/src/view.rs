@@ -116,6 +116,12 @@ pub struct BotView {
     /// boss ou la tourelle (graines 23, 43, 76). `None` : réserves, pas de butin accessible, ou
     /// menace immédiate.
     pub loot: Option<FixedVec2>,
+    /// m1-v3-bots-armes : à portée d'une arme au sol choisie (voir [`Self::loot`]) : tenir
+    /// Interaction (le jeu ramasse la surface la plus proche à portée, vérifiée par l'appelant).
+    pub loot_interact: bool,
+    /// m1-v3-bots-armes : portée de l'arme en main (`range` du mode courant) : pas de tir au-delà.
+    /// `None` hors mode `Floors` (comportement inchangé).
+    pub fire_range: Option<Fixed>,
 }
 
 /// Sélection des projectiles de la vue : `candidates` = (net id, équipe adverse ?, vue).
