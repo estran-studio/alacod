@@ -3,10 +3,10 @@
 // 18 PV) est caché derrière la roche à 169 px, sous `PRUDENT_MIN_DISTANCE` (180) ; les bots
 // reculaient (dans la roche) et tiraient sur elle. Avec le correctif (ni recul ni tir vers un
 // ennemi caché : ils vont le chercher par le chemin, pilotés en vitesse), l'étage 2 est atteint
-// à f2237.
+// à f2237 ; depuis D51 (dispersion de la config enfin appliquée), à f1304.
 //
 // Mesuré (`alacod-sim --game throne --bots 2 --profiles prudent,prudent --floors run --seeds
-// 139..139 --until-floor 3`) : étages à f866, f2237.
+// 139..139 --until-floor 3`) : étages à f505, f1304 (D51).
 //
 // À regarder : à l'étage 1, les bots contournent la roche vers le dernier ennemi au lieu de
 // reculer.
@@ -14,13 +14,13 @@ Scenario(
     game: "throne",
     floors: Some("run"),
     map_seed: 139,
-    frames: 2250,
+    frames: 1320,
     players: [
         (bot: prudent),
         (bot: prudent),
     ],
     expect: [
-        FloorIndex(index: 1, at_frame: 870),
-        FloorIndex(index: 2, at_frame: 2240),
+        FloorIndex(index: 1, at_frame: 510),
+        FloorIndex(index: 2, at_frame: 1310),
     ],
 )

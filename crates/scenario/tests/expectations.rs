@@ -1326,10 +1326,12 @@ fn status_expectations_pass_and_fail() {
                 present: true,
                 at_frame: frame,
             },
+            // D51 (dispersion de la config appliquée) : toutes les balles portent, deux piles
+            // dès f100 (avant : une).
             Expectation::StatusStacks {
                 entity: EntityRef::Target,
                 status: "brulure".into(),
-                stacks: 1,
+                stacks: 2,
                 at_frame: frame,
             },
             Expectation::HasStatus {
@@ -1353,10 +1355,10 @@ fn status_expectations_pass_and_fail() {
                 Expectation::StatusStacks {
                     entity: EntityRef::Target,
                     status: "brulure".into(),
-                    stacks: 2,
+                    stacks: 3,
                     at_frame: frame,
                 },
-                "1 piles ≠ 2",
+                "2 piles ≠ 3",
             ),
             (
                 Expectation::HasStatus {
@@ -1394,9 +1396,8 @@ fn clock_expectation_pass_and_fail() {
 
 /// T1.18 (§32) : `HudText` lit le HUD du joueur affiché (`HudSnapshot`, aussi en headless) sur
 /// `throne_progression` (scénario inchangé, attentes ajoutées ici) : étage, munitions par type,
-/// niveau 1 à f550 puis 2 à f1720 (m1-v3-bots-softlocks), rads ; échoue sur un texte absent.
-/// m1-integration-scenarios : l'étage 1 est enfin `niveau_2` (le bot y est encore à f1912 :
-/// « Étage 2 », plus « Étage 3 »).
+/// niveau 1 à f365 puis 2 à f1290 (D51), rads ; échoue sur un texte absent. Depuis D51, le bot
+/// est au deuxième étage à f1912 (« Étage 3 »).
 #[test]
 fn hud_text_sur_throne_progression() {
     if map_ldtk::RENDER_ENABLED {
@@ -1414,9 +1415,9 @@ fn hud_text_sur_throne_progression() {
             hud("ammo_by_type", "balles", 60),
             hud("level", "Niv. 0", 60),
             hud("rads", "rads", 60),
-            hud("level", "Niv. 1", 550),
-            hud("level", "Niv. 2", 1720),
-            hud("floor", "Étage 2", 1912),
+            hud("level", "Niv. 1", 365),
+            hud("level", "Niv. 2", 1290),
+            hud("floor", "Étage 3", 1912),
         ],
         &[
             (hud("level", "Niv. 2", 540), "attendu « Niv. 2 »"),

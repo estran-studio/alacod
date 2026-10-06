@@ -37,8 +37,11 @@ Scenario(
         Ammo(handle: 3, ammo: 30, at_frame: 285),
         // Les balles des quatre joueurs s'arrêtent sur les murs de la pièce. Le mur gauche a une
         // fenêtre à hauteur du joueur 3, et les fenêtres laissent passer les balles (matrice de
-        // collision) : une balle peut donc sortir par là, d'où la marge à gauche
+        // collision) : une balle peut donc sortir par là, d'où la marge à gauche. Depuis D51
+        // (la dispersion de la config, 0,15, est enfin appliquée), le joueur 3 vise juste et
+        // toutes ses balles sortent par cette fenêtre : à f150 elles sont à x = −77 à −198 ; la
+        // marge gauche de f150 couvre leur portée (900).
         BulletsInside(x_min: -64, x_max: 655, y_min: 0, y_max: 767, at_frame: 60),
-        BulletsInside(x_min: -64, x_max: 655, y_min: 0, y_max: 767, at_frame: 150),
+        BulletsInside(x_min: -900, x_max: 655, y_min: 0, y_max: 767, at_frame: 150),
     ],
 )

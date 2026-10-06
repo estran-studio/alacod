@@ -4,15 +4,15 @@
 //
 // **État mesuré, pas la cible** : le bot seul finit rarement la run (1/20 graines après
 // m1-v3-bots-portail, 0/20 avant). La fiche demande le niveau 3 et le joueur vivant ; ce scénario
-// fixe ce qui se passe aujourd'hui sur cette graine — deux cavernes nettoyées, le bot encore en vie
-// dans la troisième (celle du boss) à la fin du scénario.
+// fixe ce qui se passe aujourd'hui sur cette graine — deux cavernes nettoyées, puis le bot meurt
+// dans la troisième (celle du boss).
 //
-// Mesuré (graine 123456, m1-v3-bots-softlocks : `prudent` ne recule ni ne tire vers un ennemi
-// caché) : niveau 1 à f547 (`sang_froid` à f1147), étage 1 à f937, niveau 2 à f1716 (`coriace` à
-// f2316), alerte de l'horloge à f1837, étage 2 à f3124, vivant à f3699. (Avant,
-// m1-v3-bots-portail : étage 1 à f853, niveau 2 à f1651, étage 2 à f2237.)
+// Mesuré (graine 123456, D51 : dispersion de la config enfin appliquée) : niveau 1 à f363
+// (`sang_froid` à f963), étage 1 à f578, niveau 2 à f1284 (`coriace` à f1884), alerte de
+// l'horloge à f1478, étage 2 à f1591, mort dans la troisième caverne à f2908. (Avant,
+// m1-v3-bots-softlocks : étage 1 à f937, étage 2 à f3124, vivant à f3699.)
 //
-// À regarder : le bot nettoie deux cavernes puis affronte la troisième.
+// À regarder : le bot nettoie deux cavernes puis affronte la troisième, où il tombe.
 Scenario(
     game: "throne",
     floors: Some("run"),
@@ -22,12 +22,13 @@ Scenario(
         (bot: prudent),
     ],
     expect: [
-        FloorIndex(index: 1, at_frame: 945),
-        FloorIndex(index: 1, at_frame: 3120),
-        FloorIndex(index: 2, at_frame: 3130),
-        Event(kind: "levelup", by_frame: 550),
-        Mutations(handle: 0, contains: ["sang_froid", "coriace"], count: Some(2), at_frame: 2320),
-        Clock(id: "alerte", fired: true, at_frame: 1840),
-        PlayerAlive(handle: 0, at_frame: 3699),
+        FloorIndex(index: 1, at_frame: 585),
+        FloorIndex(index: 1, at_frame: 1585),
+        FloorIndex(index: 2, at_frame: 1600),
+        Event(kind: "levelup", by_frame: 365),
+        Mutations(handle: 0, contains: ["sang_froid", "coriace"], count: Some(2), at_frame: 1890),
+        Clock(id: "alerte", fired: true, at_frame: 1485),
+        PlayerAlive(handle: 0, at_frame: 2900),
+        PlayerDead(handle: 0, at_frame: 2910),
     ],
 )

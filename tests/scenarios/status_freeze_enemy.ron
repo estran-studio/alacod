@@ -3,7 +3,8 @@
 // à f338 quand personne ne tire (`surface_enemy`). Ici le joueur 1 tire toutes les 8 frames avec
 // `status_freeze` (gel de 90 frames, rafraîchi à chaque balle) : le breacher reste gelé sur place
 // tant que les balles arrivent ; pendant le rechargement (f483-f551) le gel expire, il repart et
-// ne touche le joueur qu'à f625. Le joueur 0 (couloir A, eau) ne fait rien.
+// ne touche le joueur qu'à f625. Depuis D51 (dispersion de la config appliquée), toutes les balles
+// portent : le breacher ne touche le joueur 1 qu'à f1108. Le joueur 0 (couloir A, eau) ne fait rien.
 //
 // À regarder : le breacher du couloir B s'arrête net, teinté bleu, puis repart pendant le
 // rechargement.
@@ -11,7 +12,7 @@ Scenario(
     powerup_drop_chance_override: "0.0",
     game: "testbed",
     map: "testbed/surfaces_enemy.ldtk",
-    frames: 640,
+    frames: 1120,
     players: [
         (),
         (weapon: "status_freeze", inputs: [
@@ -106,7 +107,7 @@ Scenario(
     ],
     expect: [
         HasStatus(entity: NetId(20), status: "gel", at_frame: 300),
-        NoDamageBetween(handle: 1, from_frame: 0, to_frame: 620),
-        Event(kind: "hit", label_contains: Some("joueur 1"), by_frame: 630),
+        NoDamageBetween(handle: 1, from_frame: 0, to_frame: 1100),
+        Event(kind: "hit", label_contains: Some("joueur 1"), by_frame: 1110),
     ],
 )

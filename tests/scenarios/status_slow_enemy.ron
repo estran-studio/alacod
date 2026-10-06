@@ -1,14 +1,15 @@
 // T1.3 (statuts, docs/conventions.md §19) : `Slow` ralentit un ennemi qui avance. Même carte et
 // même script que `status_freeze_enemy`, avec `status_slow` (vitesse × 0,5 pendant 120 frames,
-// rafraîchie à chaque balle) : le `breacher` du couloir B (net_id 20) touche le joueur 1 à f410,
-// contre f338 sans tir (`surface_enemy`).
+// rafraîchie à chaque balle) : le `breacher` du couloir B (net_id 20) touche le joueur 1,
+// contre f338 sans tir (`surface_enemy`) ; f591 depuis D51 (dispersion de la config appliquée :
+// toutes les balles portent ; avant : f410).
 //
 // À regarder : le breacher du couloir B avance à mi-vitesse, teinté violet.
 Scenario(
     powerup_drop_chance_override: "0.0",
     game: "testbed",
     map: "testbed/surfaces_enemy.ldtk",
-    frames: 420,
+    frames: 600,
     players: [
         (),
         (weapon: "status_slow", inputs: [
@@ -104,7 +105,7 @@ Scenario(
     expect: [
         HasStatus(entity: NetId(20), status: "lenteur", at_frame: 300),
         StatusStacks(entity: NetId(20), status: "lenteur", stacks: 1, at_frame: 300),
-        NoDamageBetween(handle: 1, from_frame: 0, to_frame: 400),
-        Event(kind: "hit", label_contains: Some("joueur 1"), by_frame: 415),
+        NoDamageBetween(handle: 1, from_frame: 0, to_frame: 580),
+        Event(kind: "hit", label_contains: Some("joueur 1"), by_frame: 595),
     ],
 )

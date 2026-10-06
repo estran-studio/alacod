@@ -4,13 +4,10 @@
 // synctest par la suite : preuve de déterminisme à quatre joueurs.
 //
 // Mesuré (graine 123456, comme `alacod-sim --game throne --bots 4 --profiles
-// prudent,prudent,prudent,prudent --floors run --seeds 123456..123456 --until-floor 3` ;
-// m1-v3-bots-softlocks : `prudent` ne recule ni ne tire vers un ennemi caché, qu'il suit piloté
-// en vitesse) : étages à f489, f1120, f2590 ; portail du niveau 3 (boss `roi_rat` mort) ouvert à
-// f2588 ; joueur 0 à terre à f2145, relevé ; les quatre vivants à la fin. (Avant,
-// m1-v3-bots-portail : étages à f697, f1512, f2742, boss mort à f2408. Sur la branche avant le
-// pilotage en vitesse de la route : soft-lock à l'étage 2, f3807 — les bots allaient et venaient
-// dans un couloir, élan.)
+// prudent,prudent,prudent,prudent --floors run --seeds 123456..123456 --until-floor 3` ; D51 :
+// dispersion de la config enfin appliquée) : étages à f428, f829, f2182 ; portail du niveau 3
+// (boss `roi_rat` mort) ouvert à f1959 ; alerte à f1729 (étage 2) ; les quatre vivants à la fin.
+// (Avant, m1-v3-bots-softlocks : étages à f489, f1120, f2590.)
 //
 // À regarder : quatre bots nettoient trois cavernes de plus en plus grandes ; au troisième, le roi
 // des rats (plus gros) quitte le coin le plus éloigné, tire en couronne, charge, puis tombe.
@@ -26,15 +23,15 @@ Scenario(
         (bot: prudent),
     ],
     expect: [
-        FloorIndex(index: 1, at_frame: 495),
-        FloorIndex(index: 2, at_frame: 1125),
-        FloorIndex(index: 2, at_frame: 2585),
-        FloorIndex(index: 3, at_frame: 2595),
-        Event(kind: "portal", label_contains: Some("niveau 2"), by_frame: 2590),
-        Event(kind: "floor", label_contains: Some("niveau 3"), by_frame: 2595),
-        Event(kind: "levelup", by_frame: 800),
-        Event(kind: "mutation", by_frame: 1400),
-        Clock(id: "alerte", fired: true, at_frame: 2025),
+        FloorIndex(index: 1, at_frame: 430),
+        FloorIndex(index: 2, at_frame: 835),
+        FloorIndex(index: 2, at_frame: 2180),
+        FloorIndex(index: 3, at_frame: 2185),
+        Event(kind: "portal", label_contains: Some("niveau 2"), by_frame: 1960),
+        Event(kind: "floor", label_contains: Some("niveau 3"), by_frame: 2185),
+        Event(kind: "levelup", by_frame: 705),
+        Event(kind: "mutation", by_frame: 1305),
+        Clock(id: "alerte", fired: true, at_frame: 1735),
         PlayerAlive(handle: 0, at_frame: 3399),
         PlayerAlive(handle: 1, at_frame: 3399),
         PlayerAlive(handle: 2, at_frame: 3399),
