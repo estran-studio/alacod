@@ -52,3 +52,11 @@ d'échec et de réussite des 200 ; puis 200 graines pour le retenu) :
 **Recommandation** : D50 d'abord (un soft-lock prouvé, indépendant du niveau des bots), puis (2)
 plutôt que (3) si les défaites au boss restent au-dessus de ~10 % après les correctifs de bots :
 (2) vise la cause mesurée (tireurs) sans changer les deux premiers étages ni toutes les traces.
+- **Référence de la mesure** : binaire `alacod-sim-f80b82b` (`main` `f80b82b`), donc **avant D51
+  et m1-v3-bots-armes** (41 commits de retard sur `main` `ed8a274` au 2026-10-06). b1 a mesuré
+  `zombies` inchangé après D51 (20/20 sur 20 graines) : le résultat reste valable pour M0, mais
+  il porte sur `f80b82b`.
+- **Reprises** : la session s'est fermée dans la nuit du 5 au 6 (simulation arrêtée avec elle,
+  pas par la mémoire) ; reprise le 2026-10-06 à 11 h 15 en une seule file : 157 graines déjà
+  jouées (1 à 100, 102 à 150), reste 151 à 200 puis 101 (pour son JSON). Point provisoire : seule
+  la graine 100 échoue (soft-lock vague 1).
