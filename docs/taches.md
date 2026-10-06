@@ -846,6 +846,10 @@ région des chantiers puis la campagne.
   1 mort (graine 200). **Total : 200/200 atteignent la vague 5 sur `avant_poste`, 0 desync, 0 softlock, 3 graines
   avec un mort.**
   Lot séparé de 20 graines `avant_poste` : 20/20 vague 5, 0 desync, 0 softlock, 0 mort, 6 522 à 7 583 frames.
+- **Bench strict M1** (orch, 2026-10-06, `a8b813e`, 12 cœurs, charge 1,8–2,7 avec une sim de b1 puis sans) :
+  `bench_bullets` 99,1 / 115,7 / 116,6 fps (plancher 70) ; `bench_cave` 167,3 / 161,9 / 161,3 (plancher 40) ;
+  **`bench_horde` 37,9 / 37,0 / 35,8 puis 36,2 / 35,6 machine calme — sous le plancher de 38** (66,7 à 81,5 au calme
+  pendant M0) → D53, m1-d53-bench-horde (b0). Critère « bench dans les budgets » de M1 : **non atteint**.
 - **Critère M1 §9.8, 200 graines `throne` à 2 bots `prudent`, sur `main` `ed8a274`** (2026-10-06, 11 h 15 à 12 h 55,
   `alacod-sim` d'`ed8a274` : D48, D51, m1-v3-bots-softlocks et m1-v3-bots-armes inclus ; 3 lots parallèles) :
   **198/200 finissent les trois étages, 0 desync, 0 soft-lock**, 2 défaites au 3e étage (graines 73, 100), 11 runs
