@@ -169,8 +169,40 @@ impl WeaponChoices {
 }
 
 /// m1-v3-bots-lead : temps de vol plafonné de l'anticipation (au-delà, la cible a le temps de
-/// changer de direction ; viser trop loin envoie la balle dans la roche).
-pub const LEAD_MAX_SECONDS: Fixed = Fixed::ONE;
+/// changer de direction ; viser trop loin envoie la balle dans la roche). Variante 2 : 0,5 s (la
+/// variante 1, 1 s avec `Velocity::main`, perdait plus de balles).
+pub const LEAD_MAX_SECONDS: Fixed = Fixed::from_bits(1 << 15);
+
+/// Frames par seconde de la simulation (vitesse = déplacement par frame × 60).
+const FRAMES_PER_SECOND: i32 = 60;
+
+/// m1-v3-bots-lead : dernière position vue de chaque ennemi (`GgrsNetId` → position, frame de
+/// simulation), hors rollback comme [`WeaponChoices`] : la vitesse anticipée est le **déplacement
+/// réel** entre deux frames (pas `Velocity::main`, la vitesse voulue par l'IA, qui ignore recul et
+/// blocage contre un mur). Vidée à chaque entrée en partie (`OnEnter(AppState::InGame)`).
+#[derive(Resource, Debug, Default, Clone, PartialEq)]
+pub struct EnemyTracks(pub BTreeMap<usize, (FixedVec2, u32)>);
+
+impl EnemyTracks {
+    /// Note la position de l'ennemi `id` à `frame` et rend sa vitesse (unités/s) depuis la
+    /// dernière position vue : 0 au premier relevé ou si la frame n'avance pas.
+    pub fn track(&mut self, id: usize, position: FixedVec2, frame: u32) -> FixedVec2 {
+        let velocity = match self.0.get(&id) {
+            Some(&(previous, seen)) if frame > seen => {
+                let frames = Fixed::from_num((frame - seen) as i32);
+                (position - previous) * (Fixed::from_num(FRAMES_PER_SECOND) / frames)
+            }
+            _ => FixedVec2::ZERO,
+        };
+        self.0.insert(id, (position, frame));
+        velocity
+    }
+
+    /// Oublie les ennemis absents de `alive` (morts, autre étage).
+    pub fn retain(&mut self, alive: &[usize]) {
+        self.0.retain(|id, _| alive.contains(id));
+    }
+}
 
 /// m1-v3-bots-lead : point visé pour toucher une cible en `target` qui se déplace à `velocity`
 /// (unités/s) avec un projectile à `bullet_speed` : `target + velocity × t`, `t = distance /
@@ -338,8 +370,8 @@ mod tests {
         assert_eq!(joue(&mut a), suite, "mémoire vidée : repart de zéro");
     }
 
-    /// m1-v3-bots-lead : cible immobile → la cible ; en translation à 60 px/s, à 300 px, balle à
-    /// 300 px/s → t = 1 s → 60 px devant ; plafond à 1 s (à 600 px, toujours 60 px) ; mêmes
+    /// m1-v3-bots-lead : cible immobile → la cible ; en translation à 60 px/s, balle à 300 px/s :
+    /// à 75 px, t = 0,25 s → 15 px devant ; plafond à 0,5 s (à 300 et 600 px, 30 px) ; mêmes
     /// entrées, même point.
     #[test]
     fn anticipation() {
@@ -347,22 +379,48 @@ mod tests {
         assert_eq!(lead_point(cible, FixedVec2::ZERO, fx(300.0), fx(300.0)), cible);
         let v = FixedVec2::new(fx(0.0), fx(60.0));
         assert_eq!(
-            lead_point(cible, v, fx(150.0), fx(300.0)),
-            FixedVec2::new(fx(300.0), fx(30.0))
+            lead_point(cible, v, fx(75.0), fx(300.0)),
+            FixedVec2::new(fx(300.0), fx(15.0))
         );
         assert_eq!(
             lead_point(cible, v, fx(300.0), fx(300.0)),
-            FixedVec2::new(fx(300.0), fx(60.0))
+            FixedVec2::new(fx(300.0), fx(30.0)),
+            "plafond d'une demi-seconde"
         );
         assert_eq!(
             lead_point(cible, v, fx(600.0), fx(300.0)),
-            FixedVec2::new(fx(300.0), fx(60.0)),
-            "plafond d'une seconde"
+            FixedVec2::new(fx(300.0), fx(30.0))
         );
         assert_eq!(lead_point(cible, v, fx(300.0), Fixed::ZERO), cible);
         assert_eq!(
             lead_point(cible, v, fx(300.0), fx(300.0)),
             lead_point(cible, v, fx(300.0), fx(300.0))
         );
+    }
+
+    /// m1-v3-bots-lead : vitesse = déplacement réel entre deux relevés (× 60 / frames écoulées) ;
+    /// 0 au premier relevé ; deux mémoires sur la même suite → mêmes vitesses ; `retain` oublie
+    /// les absents.
+    #[test]
+    fn vitesse_par_deplacement() {
+        let suite = |t: &mut EnemyTracks| {
+            [
+                t.track(7, FixedVec2::new(fx(100.0), fx(0.0)), 10),
+                t.track(7, FixedVec2::new(fx(101.0), fx(0.0)), 11),
+                t.track(7, FixedVec2::new(fx(105.0), fx(0.0)), 13),
+                t.track(7, FixedVec2::new(fx(105.0), fx(0.0)), 13),
+            ]
+        };
+        let mut a = EnemyTracks::default();
+        let v = suite(&mut a);
+        assert_eq!(v[0], FixedVec2::ZERO, "premier relevé");
+        assert_eq!(v[1], FixedVec2::new(fx(60.0), fx(0.0)), "1 px en 1 frame = 60 px/s");
+        assert_eq!(v[2], FixedVec2::new(fx(120.0), fx(0.0)), "4 px en 2 frames = 120 px/s");
+        assert_eq!(v[3], FixedVec2::ZERO, "même frame : pas de vitesse");
+        let mut b = EnemyTracks::default();
+        assert_eq!(suite(&mut b), v);
+        assert_eq!(a, b);
+        a.retain(&[]);
+        assert!(a.0.is_empty());
     }
 }

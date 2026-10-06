@@ -36,7 +36,7 @@
 
 use std::collections::BTreeMap;
 
-use crate::arms::{self, WeaponChoices, WeaponView};
+use crate::arms::{self, EnemyTracks, WeaponChoices, WeaponView};
 use bevy::prelude::*;
 use bevy_fixed::fixed_math::{Fixed, FixedTransform3D, FixedVec2};
 use bevy_fixed::rng::{fnv1a, RngStreams, RollbackRng};
@@ -113,9 +113,13 @@ impl Plugin for BotsPlugin {
         app.init_resource::<crate::navigation::BotNavigation>();
         app.init_resource::<DirectNavigation>();
         app.init_resource::<WeaponChoices>();
+        app.init_resource::<EnemyTracks>();
         app.add_systems(
             OnEnter(game::core::AppState::InGame),
-            |mut choices: ResMut<WeaponChoices>| choices.0.clear(),
+            |mut choices: ResMut<WeaponChoices>, mut tracks: ResMut<EnemyTracks>| {
+                choices.0.clear();
+                tracks.0.clear();
+            },
         );
         app.add_systems(
             ReadInputs,
@@ -203,6 +207,7 @@ pub fn read_bot_inputs(
         weapon_assets,
         character_configs,
         mut weapon_choices,
+        mut enemy_tracks,
     ): (
         Query<
             (
@@ -224,6 +229,7 @@ pub fn read_bot_inputs(
         Res<Assets<WeaponsConfig>>,
         Res<Assets<CharacterConfig>>,
         ResMut<WeaponChoices>,
+        ResMut<EnemyTracks>,
     ),
 ) {
     let Some(assignments) = assignments else {
@@ -277,6 +283,23 @@ pub fn read_bot_inputs(
             ))
         })
         .collect();
+    // m1-v3-bots-lead : vitesse réelle de chaque ennemi (déplacement depuis le relevé précédent),
+    // dans l'ordre `GgrsNetId`.
+    let enemy_velocities: Vec<(usize, FixedVec2)> = enemies_sorted
+        .iter()
+        .map(|(id, t, ..)| {
+            (
+                id.0,
+                enemy_tracks.track(id.0, t.translation.truncate(), frame.frame),
+            )
+        })
+        .collect();
+    enemy_tracks.retain(
+        &enemy_velocities
+            .iter()
+            .map(|(id, _)| *id)
+            .collect::<Vec<_>>(),
+    );
     let floors_mode = run
         .as_deref()
         .is_some_and(|run| matches!(run.mode, run::RunMode::Floors { .. }));
@@ -627,9 +650,9 @@ pub fn read_bot_inputs(
             if let Some(enemy) = view.nearest_enemy {
                 let velocity = enemies_sorted
                     .iter()
-                    .find(|(_, t, ..)| t.translation.truncate() == enemy.position)
-                    .and_then(|(_, _, _, v, _)| v.map(|v| v.main))
-                    .unwrap_or(FixedVec2::ZERO);
+                    .zip(&enemy_velocities)
+                    .find(|((_, t, ..), _)| t.translation.truncate() == enemy.position)
+                    .map_or(FixedVec2::ZERO, |(_, (_, v))| *v);
                 let held = inventory
                     .weapons
                     .get(inventory.active_weapon_index)
