@@ -4,8 +4,12 @@
 // `prudent` enregistrés avec l'esquive désactivée (diff local temporaire, non commité, voir le
 // rapport m1-v3-bots-v1), figés ici en `Scripted`. Le scénario ne dépend d'aucun réglage caché.
 //
-// À regarder : le joueur tient sa distance et tire sans jamais s'écarter des projectiles ; il
-// encaisse 56 points de dégâts en 600 frames (contre 8 avec l'esquive).
+// À regarder : le joueur tient sa distance et tire sans jamais s'écarter des projectiles ; santé
+// 9 à f599 (contre 100 avec l'esquive).
+//
+// m0-graine-100-fenetre : l'archer naît incrusté de 2 px dans les murs à sa droite ; figé
+// jusque-là (une seule volée, f2), il s'en dégage maintenant et tire une volée toutes les ~141
+// frames (f143, f284, f425) : santé finale 44 → 9.
 Scenario(
     game: "testbed",
     map: "testbed/arena_tir.ldtk",
@@ -89,6 +93,6 @@ Scenario(
         ),
     ],
     expect: [
-        Health(handle: 0, min: Some(44.0), max: Some(44.0), at_frame: 599),
+        Health(handle: 0, min: Some(9.0), max: Some(9.0), at_frame: 599),
     ],
 )
