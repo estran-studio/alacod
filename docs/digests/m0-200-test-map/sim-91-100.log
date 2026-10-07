@@ -1,0 +1,182 @@
+alacod-sim : zombies, 4 bots (acheteur,acheteur,acheteur,acheteur), graines 91..=100, jusqu'à la vague Some(5) / au niveau None ou 20000 frames, carte exemples/test_map.ldtk
+found a spawn level: 20c3b9e0-a3bf-5e12-e649-916ebb14028c6b63
+found a spawn level: 20c3b9e0-a3bf-5e12-e649-916ebb14028c6b63
+found a spawn level: 20c3b9e0-a3bf-5e12-e649-916ebb14028c6b63
+found a spawn level: 20c3b9e0-a3bf-5e12-e649-916ebb14028c6b63
+found a spawn level: 20c3b9e0-a3bf-5e12-e649-916ebb14028c6b63
+found a spawn level: 20c3b9e0-a3bf-5e12-e649-916ebb14028c6b63
+found a spawn level: 20c3b9e0-a3bf-5e12-e649-916ebb14028c6b63
+found a spawn level: 20c3b9e0-a3bf-5e12-e649-916ebb14028c6b63
+found a spawn level: 20c3b9e0-a3bf-5e12-e649-916ebb14028c6b63
+found a spawn level: 20c3b9e0-a3bf-5e12-e649-916ebb14028c6b63
+progress frame=1000 wave=1 phase=InProgress remaining=0 kills=6 nav_cells=665
+progress frame=2000 wave=2 phase=Spawning remaining=7 kills=8 nav_cells=1249
+progress frame=3000 wave=2 phase=WaveComplete remaining=0 kills=18 nav_cells=0
+progress frame=4000 wave=3 phase=Spawning remaining=7 kills=23 nav_cells=1493
+progress frame=5000 wave=3 phase=WaveComplete remaining=0 kills=34 nav_cells=0
+progress frame=6000 wave=4 phase=Spawning remaining=8 kills=39 nav_cells=1493
+progress frame=7000 wave=4 phase=WaveComplete remaining=0 kills=52 nav_cells=0
+seed     91 : vague  5  niveau  0  frames   7543  morts 0/4  kills  52    14.1 fps  535.56s  fin objectif
+found a spawn level: d00cc475-8b50-e66f-e102-ffc72c79ed156b84
+found a spawn level: d00cc475-8b50-e66f-e102-ffc72c79ed156b84
+found a spawn level: d00cc475-8b50-e66f-e102-ffc72c79ed156b84
+found a spawn level: d00cc475-8b50-e66f-e102-ffc72c79ed156b84
+found a spawn level: d00cc475-8b50-e66f-e102-ffc72c79ed156b84
+found a spawn level: d00cc475-8b50-e66f-e102-ffc72c79ed156b84
+found a spawn level: d00cc475-8b50-e66f-e102-ffc72c79ed156b84
+progress frame=1000 wave=1 phase=InProgress remaining=0 kills=4 nav_cells=665
+progress frame=2000 wave=1 phase=WaveComplete remaining=0 kills=7 nav_cells=0
+progress frame=3000 wave=2 phase=InProgress remaining=0 kills=16 nav_cells=1153
+progress frame=4000 wave=3 phase=Spawning remaining=12 kills=18 nav_cells=1825
+progress frame=5000 wave=3 phase=InProgress remaining=0 kills=31 nav_cells=0
+progress frame=6000 wave=4 phase=Spawning remaining=16 kills=32 nav_cells=0
+progress frame=7000 wave=4 phase=InProgress remaining=0 kills=46 nav_cells=2069
+seed     92 : vague  5  niveau  0  frames   7919  morts 0/4  kills  50    22.3 fps  354.78s  fin objectif
+found a spawn level: 7f55cf0a-72e1-6ecc-dbbb-6e1f9dded79e6ba5
+found a spawn level: 7f55cf0a-72e1-6ecc-dbbb-6e1f9dded79e6ba5
+found a spawn level: 7f55cf0a-72e1-6ecc-dbbb-6e1f9dded79e6ba5
+found a spawn level: 7f55cf0a-72e1-6ecc-dbbb-6e1f9dded79e6ba5
+found a spawn level: 7f55cf0a-72e1-6ecc-dbbb-6e1f9dded79e6ba5
+found a spawn level: 7f55cf0a-72e1-6ecc-dbbb-6e1f9dded79e6ba5
+found a spawn level: 7f55cf0a-72e1-6ecc-dbbb-6e1f9dded79e6ba5
+found a spawn level: 7f55cf0a-72e1-6ecc-dbbb-6e1f9dded79e6ba5
+found a spawn level: 7f55cf0a-72e1-6ecc-dbbb-6e1f9dded79e6ba5
+found a spawn level: 7f55cf0a-72e1-6ecc-dbbb-6e1f9dded79e6ba5
+progress frame=1000 wave=1 phase=WaveComplete remaining=0 kills=8 nav_cells=0
+progress frame=2000 wave=2 phase=Spawning remaining=6 kills=9 nav_cells=1921
+progress frame=3000 wave=2 phase=WaveComplete remaining=0 kills=19 nav_cells=0
+progress frame=4000 wave=3 phase=Spawning remaining=3 kills=27 nav_cells=2165
+progress frame=5000 wave=3 phase=WaveComplete remaining=0 kills=33 nav_cells=0
+progress frame=6000 wave=4 phase=Spawning remaining=10 kills=36 nav_cells=2409
+progress frame=7000 wave=4 phase=WaveComplete remaining=0 kills=51 nav_cells=0
+seed     93 : vague  5  niveau  0  frames   7399  morts 0/4  kills  51    11.8 fps  627.60s  fin objectif
+found a spawn level: 2e9ed99f-5a72-f729-d674-dc780f43c2276bc6
+found a spawn level: 2e9ed99f-5a72-f729-d674-dc780f43c2276bc6
+found a spawn level: 2e9ed99f-5a72-f729-d674-dc780f43c2276bc6
+found a spawn level: 2e9ed99f-5a72-f729-d674-dc780f43c2276bc6
+found a spawn level: 2e9ed99f-5a72-f729-d674-dc780f43c2276bc6
+found a spawn level: 2e9ed99f-5a72-f729-d674-dc780f43c2276bc6
+found a spawn level: 2e9ed99f-5a72-f729-d674-dc780f43c2276bc6
+found a spawn level: 2e9ed99f-5a72-f729-d674-dc780f43c2276bc6
+progress frame=1000 wave=1 phase=WaveComplete remaining=0 kills=8 nav_cells=0
+progress frame=2000 wave=2 phase=Spawning remaining=7 kills=8 nav_cells=1153
+progress frame=3000 wave=2 phase=WaveComplete remaining=0 kills=20 nav_cells=0
+progress frame=4000 wave=3 phase=Spawning remaining=4 kills=26 nav_cells=1153
+progress frame=5000 wave=3 phase=WaveComplete remaining=0 kills=35 nav_cells=0
+progress frame=6000 wave=4 phase=Spawning remaining=8 kills=42 nav_cells=0
+progress frame=7000 wave=4 phase=InProgress remaining=0 kills=53 nav_cells=1153
+seed     94 : vague  5  niveau  0  frames   7638  morts 0/4  kills  54    18.8 fps  406.91s  fin objectif
+found a spawn level: dde7e434-4203-7f86-d12d-4ad080a8acb06be7
+found a spawn level: dde7e434-4203-7f86-d12d-4ad080a8acb06be7
+found a spawn level: dde7e434-4203-7f86-d12d-4ad080a8acb06be7
+found a spawn level: dde7e434-4203-7f86-d12d-4ad080a8acb06be7
+found a spawn level: dde7e434-4203-7f86-d12d-4ad080a8acb06be7
+found a spawn level: dde7e434-4203-7f86-d12d-4ad080a8acb06be7
+found a spawn level: dde7e434-4203-7f86-d12d-4ad080a8acb06be7
+found a spawn level: dde7e434-4203-7f86-d12d-4ad080a8acb06be7
+found a spawn level: dde7e434-4203-7f86-d12d-4ad080a8acb06be7
+found a spawn level: dde7e434-4203-7f86-d12d-4ad080a8acb06be7
+progress frame=1000 wave=1 phase=InProgress remaining=0 kills=4 nav_cells=0
+progress frame=2000 wave=2 phase=Spawning remaining=11 kills=6 nav_cells=0
+progress frame=3000 wave=2 phase=WaveComplete remaining=0 kills=18 nav_cells=0
+progress frame=4000 wave=3 phase=Spawning remaining=7 kills=21 nav_cells=1249
+progress frame=5000 wave=3 phase=WaveComplete remaining=0 kills=32 nav_cells=0
+progress frame=6000 wave=4 phase=Spawning remaining=10 kills=37 nav_cells=0
+progress frame=7000 wave=4 phase=WaveComplete remaining=0 kills=51 nav_cells=0
+seed     95 : vague  5  niveau  0  frames   7502  morts 0/4  kills  51    13.2 fps  570.44s  fin objectif
+found a spawn level: 8d30eec9-2994-07e3-cbe6-b928f20d97396c08
+found a spawn level: 8d30eec9-2994-07e3-cbe6-b928f20d97396c08
+found a spawn level: 8d30eec9-2994-07e3-cbe6-b928f20d97396c08
+found a spawn level: 8d30eec9-2994-07e3-cbe6-b928f20d97396c08
+found a spawn level: 8d30eec9-2994-07e3-cbe6-b928f20d97396c08
+found a spawn level: 8d30eec9-2994-07e3-cbe6-b928f20d97396c08
+found a spawn level: 8d30eec9-2994-07e3-cbe6-b928f20d97396c08
+found a spawn level: 8d30eec9-2994-07e3-cbe6-b928f20d97396c08
+found a spawn level: 8d30eec9-2994-07e3-cbe6-b928f20d97396c08
+progress frame=1000 wave=1 phase=InProgress remaining=0 kills=6 nav_cells=0
+progress frame=2000 wave=1 phase=WaveComplete remaining=0 kills=8 nav_cells=0
+progress frame=3000 wave=2 phase=InProgress remaining=0 kills=15 nav_cells=1153
+progress frame=4000 wave=3 phase=GracePeriod remaining=16 kills=20 nav_cells=0
+progress frame=5000 wave=3 phase=Spawning remaining=2 kills=28 nav_cells=1825
+progress frame=6000 wave=3 phase=WaveComplete remaining=0 kills=36 nav_cells=0
+progress frame=7000 wave=4 phase=Spawning remaining=5 kills=45 nav_cells=2497
+progress frame=8000 wave=4 phase=WaveComplete remaining=0 kills=55 nav_cells=0
+seed     96 : vague  5  niveau  0  frames   8206  morts 0/4  kills  55    14.1 fps  580.43s  fin objectif
+found a spawn level: 3c79f95e-1125-9040-c69f-2781637281c26c29
+found a spawn level: 3c79f95e-1125-9040-c69f-2781637281c26c29
+found a spawn level: 3c79f95e-1125-9040-c69f-2781637281c26c29
+found a spawn level: 3c79f95e-1125-9040-c69f-2781637281c26c29
+found a spawn level: 3c79f95e-1125-9040-c69f-2781637281c26c29
+found a spawn level: 3c79f95e-1125-9040-c69f-2781637281c26c29
+found a spawn level: 3c79f95e-1125-9040-c69f-2781637281c26c29
+found a spawn level: 3c79f95e-1125-9040-c69f-2781637281c26c29
+progress frame=1000 wave=1 phase=InProgress remaining=0 kills=5 nav_cells=0
+progress frame=2000 wave=2 phase=Spawning remaining=10 kills=6 nav_cells=665
+progress frame=3000 wave=2 phase=WaveComplete remaining=0 kills=18 nav_cells=0
+progress frame=4000 wave=3 phase=Spawning remaining=12 kills=18 nav_cells=1249
+progress frame=5000 wave=3 phase=WaveComplete remaining=0 kills=34 nav_cells=0
+progress frame=6000 wave=4 phase=Spawning remaining=14 kills=35 nav_cells=2409
+progress frame=7000 wave=4 phase=WaveComplete remaining=0 kills=52 nav_cells=0
+seed     97 : vague  5  niveau  0  frames   7525  morts 0/4  kills  52    17.4 fps  432.54s  fin objectif
+found a spawn level: ebc303f3-f8b6-189d-c158-95d9d4d76c4b6c4a
+found a spawn level: ebc303f3-f8b6-189d-c158-95d9d4d76c4b6c4a
+found a spawn level: ebc303f3-f8b6-189d-c158-95d9d4d76c4b6c4a
+found a spawn level: ebc303f3-f8b6-189d-c158-95d9d4d76c4b6c4a
+found a spawn level: ebc303f3-f8b6-189d-c158-95d9d4d76c4b6c4a
+found a spawn level: ebc303f3-f8b6-189d-c158-95d9d4d76c4b6c4a
+found a spawn level: ebc303f3-f8b6-189d-c158-95d9d4d76c4b6c4a
+found a spawn level: ebc303f3-f8b6-189d-c158-95d9d4d76c4b6c4a
+found a spawn level: ebc303f3-f8b6-189d-c158-95d9d4d76c4b6c4a
+progress frame=1000 wave=1 phase=InProgress remaining=0 kills=4 nav_cells=0
+progress frame=2000 wave=2 phase=GracePeriod remaining=10 kills=6 nav_cells=0
+progress frame=3000 wave=2 phase=WaveComplete remaining=0 kills=16 nav_cells=0
+progress frame=4000 wave=3 phase=Spawning remaining=8 kills=19 nav_cells=1825
+progress frame=5000 wave=3 phase=InProgress remaining=0 kills=31 nav_cells=1825
+progress frame=6000 wave=4 phase=Spawning remaining=16 kills=33 nav_cells=1825
+progress frame=7000 wave=4 phase=InProgress remaining=0 kills=49 nav_cells=2069
+seed     98 : vague  5  niveau  0  frames   7724  morts 0/4  kills  51    17.8 fps  435.10s  fin objectif
+found a spawn level: 9b0c0e88-e047-a0fa-bc11-432463c56d46c6b
+found a spawn level: 9b0c0e88-e047-a0fa-bc11-432463c56d46c6b
+found a spawn level: 9b0c0e88-e047-a0fa-bc11-432463c56d46c6b
+found a spawn level: 9b0c0e88-e047-a0fa-bc11-432463c56d46c6b
+found a spawn level: 9b0c0e88-e047-a0fa-bc11-432463c56d46c6b
+found a spawn level: 9b0c0e88-e047-a0fa-bc11-432463c56d46c6b
+found a spawn level: 9b0c0e88-e047-a0fa-bc11-432463c56d46c6b
+found a spawn level: 9b0c0e88-e047-a0fa-bc11-432463c56d46c6b
+found a spawn level: 9b0c0e88-e047-a0fa-bc11-432463c56d46c6b
+progress frame=1000 wave=1 phase=InProgress remaining=0 kills=6 nav_cells=0
+progress frame=2000 wave=2 phase=Spawning remaining=11 kills=7 nav_cells=0
+progress frame=3000 wave=2 phase=WaveComplete remaining=0 kills=19 nav_cells=0
+progress frame=4000 wave=3 phase=Spawning remaining=9 kills=20 nav_cells=1249
+progress frame=5000 wave=3 phase=WaveComplete remaining=0 kills=33 nav_cells=0
+progress frame=6000 wave=4 phase=Spawning remaining=11 kills=39 nav_cells=1589
+progress frame=7000 wave=4 phase=WaveComplete remaining=0 kills=53 nav_cells=0
+seed     99 : vague  5  niveau  0  frames   7539  morts 0/4  kills  53    15.7 fps  480.45s  fin objectif
+found a spawn level: 4a55191d-c7d8-2957-b6ca-728ab7a1415d6c8c
+found a spawn level: 4a55191d-c7d8-2957-b6ca-728ab7a1415d6c8c
+found a spawn level: 4a55191d-c7d8-2957-b6ca-728ab7a1415d6c8c
+found a spawn level: 4a55191d-c7d8-2957-b6ca-728ab7a1415d6c8c
+found a spawn level: 4a55191d-c7d8-2957-b6ca-728ab7a1415d6c8c
+found a spawn level: 4a55191d-c7d8-2957-b6ca-728ab7a1415d6c8c
+progress frame=1000 wave=1 phase=InProgress remaining=0 kills=5 nav_cells=0
+progress frame=2000 wave=1 phase=InProgress remaining=0 kills=5 nav_cells=0
+progress frame=3000 wave=1 phase=InProgress remaining=0 kills=5 nav_cells=0
+progress frame=4000 wave=1 phase=InProgress remaining=0 kills=5 nav_cells=0
+progress frame=5000 wave=1 phase=InProgress remaining=0 kills=5 nav_cells=0
+progress frame=6000 wave=1 phase=InProgress remaining=0 kills=5 nav_cells=0
+progress frame=7000 wave=1 phase=InProgress remaining=0 kills=5 nav_cells=0
+progress frame=8000 wave=1 phase=InProgress remaining=0 kills=5 nav_cells=0
+progress frame=9000 wave=1 phase=InProgress remaining=0 kills=5 nav_cells=0
+progress frame=10000 wave=1 phase=InProgress remaining=0 kills=5 nav_cells=0
+progress frame=11000 wave=1 phase=InProgress remaining=0 kills=5 nav_cells=0
+progress frame=12000 wave=1 phase=InProgress remaining=0 kills=5 nav_cells=0
+progress frame=13000 wave=1 phase=InProgress remaining=0 kills=5 nav_cells=0
+progress frame=14000 wave=1 phase=InProgress remaining=0 kills=5 nav_cells=0
+progress frame=15000 wave=1 phase=InProgress remaining=0 kills=5 nav_cells=0
+progress frame=16000 wave=1 phase=InProgress remaining=0 kills=5 nav_cells=0
+progress frame=17000 wave=1 phase=InProgress remaining=0 kills=5 nav_cells=0
+progress frame=18000 wave=1 phase=InProgress remaining=0 kills=5 nav_cells=0
+progress frame=19000 wave=1 phase=InProgress remaining=0 kills=5 nav_cells=0
+progress frame=20000 wave=1 phase=InProgress remaining=0 kills=5 nav_cells=0
+seed    100 : vague  1  niveau  0  frames  20000  morts 0/4  kills   5    92.6 fps  216.15s  fin soft-lock
+alacod-sim : 10 graine(s) en 4640.0s

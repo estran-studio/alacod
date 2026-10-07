@@ -826,6 +826,17 @@ région des chantiers puis la campagne.
   (moyenne 58 → 53 %), 2 bots 20/20, 4 bots 20/20, plus rapide ; critère « baisse nette » non atteint → rapport seul,
   code des deux variantes en archive (`archive/m1-v3-bots-lead-v2`) ; trois graines font une médiane fragile : remesure
   sur plus de graines possible plus tard.
+- m1-d26-doublons-generes : **mergée le 2026-10-06** (D26, b1, outillage) — champ de manifeste `generate` (défaut vrai, hors
+  simulation), `generate: false` sur les copies d'armes de mêlée du testbed ; 6 scénarios générés en double supprimés
+  (`weapon_{axe,bare_hands,club,knife,sword,zombie_claws}`), chacun couvert par `generated/zombies` ; gain 17 s ; vérifiée sur l'état fusionné : suite sans bless = 0 trace différente (les 6 suppressions seulement), 602 tests de crates, lint des trois jeux, fmt, scripts, `make gen` ×3 sans modification, exemples, `check -p throne`, p2p `6e297852…`.
+- **Critère M0 §9.8 rejoué sur `test_map`** (m0-200-graines-test-map, b0, 2026-10-05/06, en local après l'échec de la
+  session cloud — 44/200 puis conteneur redémarré —, une sim à la fois ; `alacod-sim` de `f80b82b`, donc avant D51 et
+  les correctifs de bots, 4 `acheteur`, `--map exemples/test_map.ldtk --until-wave 5`) : **199/200 atteignent la
+  vague 5, 0 desync, 1 soft-lock, 0 mort** ; 6 737 / 7 637 / 9 280 frames ; seule la **graine 100** bloque (vague 1 :
+  zombie incrusté dans une fenêtre intacte, acheteurs enfermés sans solde suffisant) → m0-graine-100-fenetre (b1) :
+  sur `main` actuel la graine atteint la vague 5 (f7158), et le mécanisme est corrigé à part. Avec les 200/200
+  d'`avant_poste`, le critère M0 des bots est tenu sur les deux cartes à cette exception près. Digest
+  `docs/digests/m0-200-graines-test-map.md`, données `docs/digests/m0-200-test-map/`.
 - **Critère M0 §9.8, 200 graines sur `avant_poste`** (nuit du 2026-10-04, `alacod-sim` de `7e8f541`, 4
   `acheteur`, carte par défaut du manifeste `maps/avant_poste.ldtk` — **pas `test_map`** : le critère
   historique sur `test_map` reste à rejouer avec `--map exemples/test_map.ldtk`), 4 lots parallèles sous
@@ -835,13 +846,18 @@ région des chantiers puis la campagne.
   1 mort (graine 200). **Total : 200/200 atteignent la vague 5 sur `avant_poste`, 0 desync, 0 softlock, 3 graines
   avec un mort.**
   Lot séparé de 20 graines `avant_poste` : 20/20 vague 5, 0 desync, 0 softlock, 0 mort, 6 522 à 7 583 frames.
+- **Bench strict M1** (orch, 2026-10-06, `a8b813e`, 12 cœurs, charge 1,8–2,7 avec une sim de b1 puis sans) :
+  `bench_bullets` 99,1 / 115,7 / 116,6 fps (plancher 70) ; `bench_cave` 167,3 / 161,9 / 161,3 (plancher 40) ;
+  **`bench_horde` 37,9 / 37,0 / 35,8 puis 36,2 / 35,6 machine calme — sous le plancher de 38** (66,7 à 81,5 au calme
+  pendant M0) → D53, m1-d53-bench-horde (b0). Critère « bench dans les budgets » de M1 : **non atteint**.
 - **Critère M1 §9.8, 200 graines `throne` à 2 bots `prudent`, sur `main` `ed8a274`** (2026-10-06, 11 h 15 à 12 h 55,
   `alacod-sim` d'`ed8a274` : D48, D51, m1-v3-bots-softlocks et m1-v3-bots-armes inclus ; 3 lots parallèles) :
   **198/200 finissent les trois étages, 0 desync, 0 soft-lock**, 2 défaites au 3e étage (graines 73, 100), 11 runs
   finies avec un mort relevé ; 2 430 à 4 950 frames (médiane 3 361). Avant (même mesure sur `61ac539`, 2026-10-05) :
   149/200, 12 soft-locks, 39 défaites. **Le critère « sans soft-lock ni desync » est atteint à 2 bots.** Revers : le
   troisième étage est devenu facile depuis D51 (rééquilibrage à décider avec William). Données :
-  `alacod_tasks/m1-200-throne/ed8a274/`. 4 bots en cours.
+  `alacod_tasks/m1-200-throne/ed8a274/`. **4 bots** (même binaire, 12 h 55 à 14 h 41) : **200/200, 0 soft-lock, 0 desync,
+  aucun mort** ; 1 745 à 3 298 frames (médiane 2 385). **Critère M1 §9.8 des bots atteint à 2 et à 4 bots.**
 - **Critère M1 §9.8, 200 graines `throne` à 2 bots `prudent`** (2026-10-05, 10 h 15 à 12 h 11, `alacod-sim` de
   `61ac539` : bots-portail inclus, réanimation pas encore mergée ; `--floors run --until-floor 3 --max-frames
   15000`, 4 lots parallèles) : **149/200 finissent les trois étages, 0 desync, 12 soft-locks, 39 défaites**
@@ -957,6 +973,8 @@ coller le préambule puis la fiche dans son prompt.
 | 2026-10-06 | m1-d51-dispersion-ignoree « la dispersion des tirs simples applique enfin spread » (D51, bug moteur, b1 : `single_shot_direction`, lint, §16/§29 ; zombies inchangé 20/20 ; throne 2 bots 16 → 20/20, défaites 4 → 0 ; balles perdues 66-81 % → 54-62 % ; attentes de ~30 scénarios et tests remesurées avec preuve, `clone_quad` M0 tenu à f4602, `throne_defaite_*` supprimés, jauges `test:` recalibrées) | vérifiée sur l'état fusionné : suite sans bless = 84 scénarios différents (40 dès la ligne 16 = f15, cinq frames après le premier tir simple de f10 ; 0 sans référence), 84 bless sans échec, suite verte, 594 tests de crates, lint des trois jeux, fmt, scripts, `make gen` ×3 en bless (32 traces générées) puis sans bless, exemples, `check -p throne` ; p2p N=2 traces identiques, sha256 `6e297852…` inchangé (la recette ne tire pas au tir simple) ; 84 + 32 traces bénies. Merge, bless (b1). |
 | 2026-10-06 | m1-v3-bots-armes « tirer juste, changer d'arme, ramasser » (bots, b1 : score d'arme par la config avec précision, `WeaponChoices` déterministe, tir à portée, ramassage ; mesure neutre 20/20 → 20/20, balles perdues ≈ égales : la mitraillette est la meilleure arme à la portée de prudent depuis D51 ; décision (a) livrer, lead en tâche à part) | vérifiée sur l'état fusionné : suite sans bless = exactement les 6 traces à bots différentes (`bot_floors_three` l.22, `throne_floor_1`/`throne_progression`/`throne_solo` l.476, `throne_quad` l.341, `throne_three_floors` l.971), suite verte après bless, 601 tests de crates, lint des trois jeux, fmt, scripts, `make gen` ×3 sans modification, exemples, `check -p throne` ; p2p N=2 traces identiques, sha256 `6e297852…` inchangé ; 6 traces bénies. Merge, bless (b1). |
 | 2026-10-06 | m1-v3-bots-lead « anticiper la cible » (b1 : deux variantes mesurées, aucune n'améliore nettement la médiane des balles perdues ; règle non livrée, rapport seul, code en archive) | doc seule (un fichier), aucune trace. Merge (b1). |
+| 2026-10-06 | m1-d26-doublons-generes « scénarios générés en double » (D26, b1 : prémisse corrigée, `generate: false`, 6 doublons supprimés, gain 17 s) | vérifiée sur l'état fusionné : suite sans bless = 0 trace différente (les 6 suppressions seulement), 602 tests de crates, lint des trois jeux, fmt, scripts, `make gen` ×3 sans modification, exemples, `check -p throne`, p2p `6e297852…`. Merge (b1). |
+| 2026-10-06 | m0-200-graines-test-map « critère M0 rejoué sur test_map » (b0, calcul seul : 199/200 vague 5, 0 desync, 1 soft-lock graine 100, 0 mort ; binaire f80b82b) | docs et données seulement (aucun code). Merge (b0). |
 Orchestration : Fable crée les worktrees (`scripts/task-new.sh` du meta-repo), lance un agent par
 tâche avec le modèle le moins cher (Haiku d'abord, Sonnet si une tâche échoue deux fois), vérifie
 la branche (`make test_scenarios`, `cargo test`, lecture du diff), fusionne dans `main`

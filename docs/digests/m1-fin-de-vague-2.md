@@ -137,8 +137,8 @@ Critères de sortie du plan (`docs/plan-engine.md` §9.8) :
 |---|---|
 | Lint et tests verts sur `main` | **oui** jusqu'à `963f2d2` (journal) ; cette branche : lint des trois jeux vert, traces throne à rebénir (voir rapport m1-integration-scenarios) |
 | Tous les scénarios du clone en synctest à 2 et à 4 | **oui** : `throne_three_floors` (2) et `throne_quad` (4) verts en synctest, plus `throne_solo` (1) |
-| Les bots finissent le clone sur 200 graines sans softlock ni desync | **oui à 2 bots** (2026-10-06, `main` `ed8a274`) : **198/200, 0 soft-lock, 0 desync**, 2 défaites (149/200 et 12 soft-locks la veille ; D48, D51 et les correctifs de bots entre les deux) ; 4 bots en cours |
-| Bench dans les budgets | **non vérifié** : bench strict au calme non fait depuis T1.6 (journal) |
+| Les bots finissent le clone sur 200 graines sans softlock ni desync | **oui à 2 bots** (2026-10-06, `main` `ed8a274`) : **198/200, 0 soft-lock, 0 desync**, 2 défaites (149/200 et 12 soft-locks la veille ; D48, D51 et les correctifs de bots entre les deux) ; **4 bots : 200/200, 0 soft-lock, 0 desync** |
+| Bench dans les budgets | **non** (2026-10-06) : `bench_bullets` et `bench_cave` dans leur budget, **`bench_horde` 36 fps au calme sous le plancher de 38** (67 à 81 pendant M0) : D53, bissection en cours |
 | Vidéos publiées | **en partie** : générées, copiées dans le dépôt ; pas de publication automatique |
 | Doc des conventions à jour | **oui** : relecture d'ensemble m1-relecture-conventions (2026-10-05 : numérotation 1 à 33, 29 sections corrigées contre le code, `CLAUDE.md` corrigé), suites dans m1-dettes-doc-lot-2 |
 | Notes du jalon précédent fermées | **à confirmer par l’orchestrateur** (revue de M0, T3.3) ; la revue de M1 reste à faire |
