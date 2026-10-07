@@ -9,7 +9,7 @@ identiques à celles bénies sur `main`.
 
 ## État en cours
 
-Vérifié, prêt à livrer. Code dans `crates/bots` seulement.
+Vérifié, livré. Code dans `crates/bots` seulement. Suite complète verte hors les 7 traces citées ; target purgé.
 
 ## Graine 19 (throne, 2 bots) : soft-lock à l'étage 1
 
@@ -145,4 +145,11 @@ Toutes ces traces sont à bénir par orch.
 
 ## Suite
 
-À compléter après la suite complète.
+`make test_scenarios` : attentes vertes ; seules les 7 traces du tableau diffèrent. Le reste est
+vert :
+
+- tests des crates (dont `bots` 61/61, hors scénarios) ;
+- `make lint`, fmt, scripts interdits et enregistrement rollback ;
+- `make gen` ×3 (aucun fichier modifié) ;
+- `cargo check -p throne` ;
+- exemples.
