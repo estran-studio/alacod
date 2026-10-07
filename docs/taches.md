@@ -858,6 +858,18 @@ région des chantiers puis la campagne.
   (non datée) : réparation d'une fenêtre sur un zombie → D52 ; effet de bord prouvé : l'archer d'`arena_tir` naissait
   incrusté de 2 px dans deux murs et restait figé, il se dégage à f0 (5 traces, `bot_prudent_nododge` 44 → 9 PV) ;
   `test_map` 1..10 identiques, aucune trace `clone_*`/`equilibrage_*`/`bots_four_mixed` ne bouge ; vérifiée sur l'état fusionné : suite sans bless = exactement les 5 traces d'`arena_tir` différentes (dès la ligne 1 : pas de dégagement de l'archer à f0) + le nouveau scénario sans référence, suite verte après bless, 603 tests de crates, lint ×3, fmt, scripts, `make gen` ×3 sans modification, exemples, `check -p throne`, p2p `6e297852…`.
+- m1-fusion-revue-m0-suite : **mergée le 2026-10-07** (b0, sur décision de William) — `revue-m0-suite` dans `main` :
+  **movement-feel** (course nerveuse : accélération des joueurs 150 → 3000 px/s², dash à i-frames 64 px en 8 frames,
+  cooldown 24, 6 i-frames, appui gardé 8 frames ; caméra indépendante du framerate ; profil `dev` optimisé, D30),
+  correctifs de la revue M0 **R4** (déjà sur `main`, test `restart_keeps_walls_solid` et scénario
+  `revue_murs_avant_poste` gardés) et **R5** (la touche R ne relance plus la partie), carnet `docs/digests/revue-m0.md` ;
+  132 conflits résolus (`decide.rs` et `run_state.rs` de `main`, conventions §34 « Course et esquive », D41 de la
+  branche → D54) ; preuve §10 : à f0 seuls `DashState` et `Stats.Acceleration` diffèrent, `four_players_shooting` et
+  `testbed_dummy_shoot` identiques ensuite, `throne_mutation_choice` diverge à f5 par la vitesse du joueur ; attentes
+  M0 tenues (`clone_*` : vague 5, 13 kills), scénarios à bots remesurés ; mesures `main` → fusion : zombies 20/20 → 20/20
+  (médiane 7 076 → 6 383 frames), throne 4 bots 20/20 → 20/20, **throne 2 bots 20/20 → 19/20** (soft-lock graine 19 :
+  bots réglés pour l'ancienne course → m1-bots-apres-movement-feel, b1) ; bench : horde/bullets/cave inchangés,
+  `bots_four_mixed` −4 à −8 % (simulation différente) ; vérifiée sur l'état fusionné : suite sans bless = exactement 117 traces différentes (0 sans référence), bless, suite verte (186 scénarios), 615 tests de crates, lint ×3, fmt, scripts, `make gen` ×3 (bless puis sans modification), exemples, `check -p throne` ; p2p N=2 traces identiques, sha256 `0c2ad16f…` = **nouvelle référence** (course nerveuse ; ancienne `6e297852…`).
 - **Critère M0 §9.8, 200 graines sur `avant_poste`** (nuit du 2026-10-04, `alacod-sim` de `7e8f541`, 4
   `acheteur`, carte par défaut du manifeste `maps/avant_poste.ldtk` — **pas `test_map`** : le critère
   historique sur `test_map` reste à rejouer avec `--map exemples/test_map.ldtk`), 4 lots parallèles sous
@@ -999,6 +1011,7 @@ coller le préambule puis la fiche dans son prompt.
 | 2026-10-06 | m1-d53-bench-horde « bench_horde divisé par deux pendant M1 » (D53, b0 : bissection, profil, correctif sans changer la simulation ; 40 → 59 fps au calme) | vérifiée sur l'état fusionné : suite sans bless 0 trace différente, 602 tests de crates, lint ×3, fmt, scripts, `make gen` ×3 sans modification, exemples, `check -p throne`, p2p `6e297852…`. Merge (b0). |
 | 2026-10-06 | m1-cloture-videos-digest « vidéos d'après D51 et digest final de M1 » (b0 : 6 vidéos, captures sans overlay de debug, digest final, points de revue humaine) | vérifiée sur l'état fusionné : suite sans bless 0 trace différente, 602 tests de crates, lint ×3, fmt, scripts, `make gen` ×3 sans modification, exemples, `check -p throne`, p2p `6e297852…`. Merge (b0). |
 | 2026-10-06 | m0-graine-100-fenetre « un ennemi incrusté peut se dégager » (b1 : `step_blocked_by`, scénario de la graine 100, archer d'`arena_tir` libéré ; bots non fautifs ; D52 ouverte) | vérifiée sur l'état fusionné : suite sans bless = exactement les 5 traces d'`arena_tir` différentes (dès la ligne 1 : pas de dégagement de l'archer à f0) + le nouveau scénario sans référence, suite verte après bless, 603 tests de crates, lint ×3, fmt, scripts, `make gen` ×3 sans modification, exemples, `check -p throne`, p2p `6e297852…` ; 6 traces bénies. Merge, bless (b1). |
+| 2026-10-07 | m1-fusion-revue-m0-suite « revue M0 et movement-feel dans main » (b0 : 132 conflits, R4/R5, §34, D54 ; attentes M0 tenues ; throne 2 bots 19/20 → b1) | vérifiée sur l'état fusionné : suite sans bless = exactement 117 traces différentes (0 sans référence), bless, suite verte (186 scénarios), 615 tests de crates, lint ×3, fmt, scripts, `make gen` ×3 (bless puis sans modification), exemples, `check -p throne` ; p2p N=2 traces identiques, sha256 `0c2ad16f…` = **nouvelle référence** (course nerveuse ; ancienne `6e297852…`) ; 117 traces bénies. Merge, bless (b0). |
 Orchestration : Fable crée les worktrees (`scripts/task-new.sh` du meta-repo), lance un agent par
 tâche avec le modèle le moins cher (Haiku d'abord, Sonnet si une tâche échoue deux fois), vérifie
 la branche (`make test_scenarios`, `cargo test`, lecture du diff), fusionne dans `main`
