@@ -878,6 +878,19 @@ fn recovery_point(
     clear: impl Fn(fixed_math::FixedVec2) -> bool,
 ) -> Option<fixed_math::FixedVec2> {
     use super::navigation::GRID_CELL_SIZE;
+    // D53 : `clear` interroge les grilles de collision (requêtes qui allouent) ; un même point
+    // revient (candidat, extrémité de segment, destination) : résultat mémorisé pour l'appel.
+    // Le résultat de `recovery_point` est inchangé (même ordre, même prédicat).
+    let memo = std::cell::RefCell::new(std::collections::BTreeMap::new());
+    let clear = |point: fixed_math::FixedVec2| -> bool {
+        let key = (point.x.to_bits(), point.y.to_bits());
+        if let Some(known) = memo.borrow().get(&key) {
+            return *known;
+        }
+        let value = clear(point);
+        memo.borrow_mut().insert(key, value);
+        value
+    };
     let mut candidates = Vec::new();
     let current = super::navigation::GridPos::from_fixed(from);
     let mut cells = vec![next];
@@ -917,15 +930,23 @@ fn recovery_point(
             )
         })
     };
-    let destinations: Vec<_> = candidates
-        .iter()
-        .filter(|(stage, _, _, _, point)| *stage == 0 && clear(*point))
-        .map(|(_, _, _, _, point)| *point)
-        .collect();
-    candidates.into_iter().find_map(|(stage, _, _, _, point)| {
+    // D53 : les destinations (points libres de la case suivante) ne servent qu'aux étapes
+    // suivantes ; calculées au premier besoin (les candidats de l'étape 0 passent d'abord, et
+    // le premier qui convient termine la recherche).
+    let destinations = std::cell::OnceCell::new();
+    let destinations = || {
+        destinations.get_or_init(|| {
+            candidates
+                .iter()
+                .filter(|(stage, _, _, _, point)| *stage == 0 && clear(*point))
+                .map(|(_, _, _, _, point)| *point)
+                .collect::<Vec<_>>()
+        })
+    };
+    candidates.iter().find_map(|&(stage, _, _, _, point)| {
         (clear(point)
             && segment_clear(from, point)
-            && (stage == 0 || destinations.iter().any(|end| segment_clear(point, *end))))
+            && (stage == 0 || destinations().iter().any(|end| segment_clear(point, *end))))
         .then_some(point)
     })
 }
