@@ -17,9 +17,8 @@ calcul dans cette clôture.
   à 2 bots, puis 2 sur 200) : **rééquilibrage à décider avec William**.
 - **Bench** : `bench_horde` était tombé à 36 fps au calme (plancher 38) ; D53 trouve la cause (snap de
   la salle de spawn qui fait entrer le bench dans le guidage de récupération) et la corrige sans changer
-  la simulation : 59 fps au calme. Vérification au calme du critère : orch.
-- Reste pour sortir de M1 : la revue humaine (section « Pour la revue humaine »), la vérification du
-  bench au calme sur `main`, les notes de M0.
+  la simulation : 58,7 / 59,6 fps au calme, critère du bench atteint.
+- Reste pour sortir de M1 : la revue humaine (section « Pour la revue humaine ») et les notes de M0.
 
 ## Ce que le clone sait faire
 
@@ -114,8 +113,9 @@ alacod-sim --game throne --bots N --profiles prudent,… --floors run --seeds 1.
 Bench strict au calme (orch, 2026-10-06, `a8b813e`) : `bench_bullets` 99 à 117 fps (plancher 70),
 `bench_cave` 161 à 167 (plancher 40), **`bench_horde` 36 fps, sous son plancher de 38** (67 à 81 au
 calme pendant M0). Cause et correctif : m1-d53-bench-horde (bissection jusqu'à `8785220`, guidage de
-récupération) ; mesure au calme sur la branche : `bench_horde` 40 → 59 fps, les trois autres
-inchangés. À revérifier au calme sur `main` après le merge.
+récupération) ; mesure au calme le 2026-10-06 (charge 1,4 à 1,9, avant/après en alternance) :
+`bench_horde` 39,8 / 40,8 → **58,7 / 59,6** fps (plancher 38), `bench_bullets` ≈ 135, `bench_cave`
+≈ 195, `bots_four_mixed` ≈ 107, inchangés. **Critère du bench atteint** (journal, m1-d53-bench-horde).
 
 ## Vidéos
 
@@ -146,7 +146,7 @@ Critères de sortie du plan (`docs/plan-engine.md` §9.8) :
 | Lint et tests verts sur `main` | **oui** (journal, dernière vérification sur l'état fusionné) |
 | Tous les scénarios du clone en synctest à 2 et à 4 | **oui** : `throne_three_floors` (2), `throne_quad` (4), `throne_solo` (1), `clone_*` |
 | Les bots finissent le clone sur 200 graines sans softlock ni desync | **oui** (2026-10-06, `ed8a274`) : 198/200 à 2 bots, 200/200 à 4 bots, 0 soft-lock, 0 desync |
-| Bench dans les budgets | **à vérifier au calme par orch** après D53 (`bench_horde` 59 fps au calme sur la branche D53) |
+| Bench dans les budgets | **oui, au calme le 2026-10-06 après D53** : `bench_horde` 58,7 / 59,6 fps (plancher 38), `bench_bullets` ≈ 135, `bench_cave` ≈ 195, `bots_four_mixed` ≈ 107 (journal, m1-d53-bench-horde) |
 | Vidéos publiées | **en partie** : rendues d'après D51 et copiées dans le dépôt (section « Vidéos ») ; pas de publication automatique |
 | Doc des conventions à jour | **oui** : relecture d'ensemble (m1-relecture-conventions), suites dans m1-dettes-doc-lot-2, chaque tâche depuis |
 | Notes du jalon précédent fermées | **revue humaine de M0 en attente de William** |
