@@ -19,6 +19,11 @@ toutes les armes, `zombies` compris.
    avec leurs `events.json` (remplacer les anciennes, même nom) ; plus gros : lien seulement. Vérifier
    chaque MP4 (durée = frames / 30 à `--every 2`, non vide) ; mettre à jour le commentaire
    `// À regarder :` d'un scénario si ce qu'on y voit a changé (frames), sans toucher ses attentes.
+1 bis. **Captures propres** (constat de William sur les vidéos du 2026-10-05) : la ligne « Wave | Spawned |
+   Kills » (overlay `WaveDebugPlugin`, forcé par `WaveDebugEnabled(true)` dans `crates/scenario/src/runner.rs`)
+   et le texte de debug caméra en haut ne doivent pas apparaître dans les vidéos d'un jeu en mode `Floors`
+   (ni, idéalement, dans aucune vidéo de digest) : masquer l'overlay de vagues hors mode `Waves` et le texte
+   de debug pendant `--capture`, sans toucher la simulation (traces identiques). Vérifier sur une image extraite.
 2. **Digest final** : retirer « brouillon » ; réécrire « En bref », « Les chiffres » (20 graines du
    brouillon gardées comme historique ; 200 graines : 149/200 le 2026-10-05 puis **198/200** le
    2026-10-06, 4 bots : chiffre du journal quand il y est, sinon « en cours »), le tableau « Ce que le
