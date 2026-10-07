@@ -251,6 +251,57 @@ pub fn slide_axes(
     (pos, moved_x, moved_y)
 }
 
+/// Demi-étendues de la boîte englobante (AABB) d'un collider.
+fn half_extents(collider: &Collider) -> (fixed_math::Fixed, fixed_math::Fixed) {
+    match collider.shape {
+        ColliderShape::Rectangle { width, height } => {
+            (width / fixed_math::new(2.0), height / fixed_math::new(2.0))
+        }
+        ColliderShape::Circle { radius } => (radius, radius),
+    }
+}
+
+/// m0-graine-100-fenetre : aire de recouvrement des boîtes englobantes de deux colliders (0
+/// sans recouvrement) : mesure de pénétration pour [`step_blocked_by`].
+pub fn overlap_area(
+    pos_a: &fixed_math::FixedVec3,
+    collider_a: &Collider,
+    pos_b: &fixed_math::FixedVec3,
+    collider_b: &Collider,
+) -> fixed_math::Fixed {
+    let a = *pos_a + collider_a.offset;
+    let b = *pos_b + collider_b.offset;
+    let (ahw, ahh) = half_extents(collider_a);
+    let (bhw, bhh) = half_extents(collider_b);
+    let ox = (a.x + ahw).min(b.x + bhw) - (a.x - ahw).max(b.x - bhw);
+    let oy = (a.y + ahh).min(b.y + bhh) - (a.y - ahh).max(b.y - bhh);
+    if ox <= fixed_math::FIXED_ZERO || oy <= fixed_math::FIXED_ZERO {
+        fixed_math::FIXED_ZERO
+    } else {
+        ox.saturating_mul(oy)
+    }
+}
+
+/// m0-graine-100-fenetre : un pas de `from` à `to` est bloqué par l'obstacle `(pos_b,
+/// collider_b)` s'il le chevauche à l'arrivée, **sauf** s'il le chevauchait déjà au départ et que
+/// le recouvrement diminue strictement (sortie d'un recouvrement). Sans cette exception, un corps
+/// incrusté dans un obstacle (zombie contre une fenêtre, graine 100 de `test_map`) ne peut plus
+/// faire aucun pas, même pour s'éloigner.
+pub fn step_blocked_by(
+    from: &fixed_math::FixedVec3,
+    to: &fixed_math::FixedVec3,
+    collider: &Collider,
+    pos_b: &fixed_math::FixedVec3,
+    collider_b: &Collider,
+) -> bool {
+    if !is_colliding(to, collider, pos_b, collider_b) {
+        return false;
+    }
+    !is_colliding(from, collider, pos_b, collider_b)
+        || overlap_area(to, collider, pos_b, collider_b)
+            >= overlap_area(from, collider, pos_b, collider_b)
+}
+
 #[cfg(test)]
 mod slide_tests {
     use super::*;
@@ -313,5 +364,50 @@ mod slide_tests {
             |_| false,
         );
         assert_eq!((pos, moved_x, moved_y), (v(2.0, -3.0), true, true));
+    }
+
+    /// m0-graine-100-fenetre : zombie 20 × 20 (décalage y −6) incrusté de 3,2 px dans une
+    /// fenêtre 16 × 16 (la situation de la graine 100) : avec le test d'arrivée seul, aucun pas
+    /// n'est possible ; avec `step_blocked_by`, s'éloigner passe, s'enfoncer reste bloqué.
+    #[test]
+    fn sortie_d_un_recouvrement() {
+        let zombie = Collider {
+            shape: ColliderShape::Rectangle {
+                width: fixed_math::new(20.0),
+                height: fixed_math::new(20.0),
+            },
+            offset: fixed_math::FixedVec3::new(
+                fixed_math::FIXED_ZERO,
+                fixed_math::new(-6.0),
+                fixed_math::FIXED_ZERO,
+            ),
+        };
+        let fenetre = rect(16, 16);
+        let w = v(440.0, 400.0);
+        let start = v(425.2, 402.2);
+        assert!(is_colliding(&start, &zombie, &w, &fenetre), "incrusté");
+        let ouest = v(424.2, 402.2);
+        let est = v(426.2, 402.2);
+        // Test d'arrivée seul : même vers l'ouest, encore en recouvrement, bloqué.
+        assert!(is_colliding(&ouest, &zombie, &w, &fenetre));
+        assert!(
+            !step_blocked_by(&start, &ouest, &zombie, &w, &fenetre),
+            "s'éloigner"
+        );
+        assert!(
+            step_blocked_by(&start, &est, &zombie, &w, &fenetre),
+            "s'enfoncer"
+        );
+        // Sans recouvrement au départ, entrer reste bloqué.
+        let libre = v(400.0, 402.2);
+        assert!(step_blocked_by(&libre, &start, &zombie, &w, &fenetre));
+        assert!(
+            overlap_area(&ouest, &zombie, &w, &fenetre)
+                < overlap_area(&start, &zombie, &w, &fenetre)
+        );
+        assert_eq!(
+            overlap_area(&libre, &zombie, &w, &fenetre),
+            fixed_math::FIXED_ZERO
+        );
     }
 }

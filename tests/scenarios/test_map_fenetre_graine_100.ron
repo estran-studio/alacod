@@ -1,0 +1,42 @@
+// m0-graine-100-fenetre : un `zombie_full` placé exactement là où celui de la graine 100 de
+// `test_map` (binaire f80b82b, 4 acheteurs) est resté figé de f790 à f20 000 : (425,2 ; 402,2),
+// son collider (20 × 20, décalage y −6) incrusté de 3,2 px dans la fenêtre intacte 41 (440, 400,
+// 16 × 16), la fenêtre derrière lui (sa case suivante est à l'ouest, vers le joueur). Avant le
+// correctif, aucun pas n'était accepté (même pour s'éloigner : la position d'arrivée chevauchait
+// encore la fenêtre) : le zombie restait sur place. Avec `step_blocked_by` (un pas qui réduit un
+// recouvrement déjà présent passe), il s'en dégage et marche vers le joueur.
+//
+// Mesuré (main + correctif) : distance au joueur 524 px à f2, 397 à f100, 162 à f300, 31 à f599 ;
+// fenêtre 39 cassée à f377, joueur touché à f483.
+//
+// À regarder : le zombie collé à la fenêtre de la salle du nord s'en écarte puis descend vers la
+// salle de départ.
+Scenario(
+    game: "zombies",
+    map: "exemples/test_map.ldtk",
+    map_seed: 100,
+    frames: 600,
+    players: [
+        (inputs: []),
+    ],
+    wave_overrides: WaveOverride(
+        grace_period_frames: 601,
+    ),
+    powerup_drop_chance_override: "0",
+    characters: [
+        CharacterPlacement(
+            character: "zombie_full",
+            x: "425.2041",
+            y: "402.23216",
+            at_frame: 1,
+        ),
+    ],
+    expect: [
+        // Il s'éloigne de la fenêtre puis avance vers le joueur (525 px au départ ; avant le
+        // correctif, 525,37 px de f2 à f599).
+        EnemyDistance(entity: Placed(0), target: Player(0), max: 450.0, at_frame: 100),
+        EnemyDistance(entity: Placed(0), target: Player(0), max: 200.0, at_frame: 300),
+        Event(kind: "window", label_contains: Some("cassée"), by_frame: 380),
+        Event(kind: "hit", label_contains: Some("joueur 0 touché"), by_frame: 490),
+    ],
+)

@@ -4,8 +4,9 @@
 // son déplacement quand un projectile menace ; il continue de viser et de tirer.
 //
 // À regarder : le bot s'écarte des salves ; une seule balle le touche (f188, 8 points, régénérés
-// ensuite), puis plus rien jusqu'à la fin : santé pleine à f599. Jumeau sans esquive :
-// `bot_prudent_nododge` (56 points encaissés, santé 44 à f599).
+// ensuite), puis plus rien jusqu'à la fin, malgré les volées de l'archer à f143, f284, f425 et
+// f566 (m0-graine-100-fenetre : il ne reste plus figé dans le mur) : santé pleine à f599. Jumeau
+// sans esquive : `bot_prudent_nododge` (santé 9 à f599).
 Scenario(
     powerup_drop_chance_override: "0.0",
     game: "testbed",
@@ -16,7 +17,7 @@ Scenario(
         (bot: prudent),
     ],
     expect: [
-        // Santé finale pleine (le seul coup, à f188, est régénéré), contre 44 pour le jumeau
+        // Santé finale pleine (le seul coup, à f188, est régénéré), contre 9 pour le jumeau
         // sans esquive
         Health(handle: 0, min: Some(100.0), max: Some(100.0), at_frame: 599),
         NoDamageBetween(handle: 0, from_frame: 200, to_frame: 500),
