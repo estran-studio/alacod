@@ -151,3 +151,25 @@ dans le pool) ; une partie entrée depuis le hub.
 - **Sauvegarde en wasm** (G1) : stockage du navigateur ou export ; aucune décision.
 - **Dettes à fermer avant** : les notes de la revue de M1, D40 (`grunt`), et la règle des
   points d'apparition pour les gros agents (D41, faite).
+
+## Risques techniques relevés à la relecture (b1, 2026-10-06, à discuter avec William)
+
+1. **Obstacles qui se ferment sur un corps** (T2.9 verrouillage, T2.11 tables/fosses, T2.15 gabarits) : verrouiller
+   une porte « sur les présents » est le cas de D52 (un obstacle se ferme sur un corps qui le chevauche) ; les tables
+   renversées créent des murs en pleine salle ; les gabarits multiplient les points de spawn tracés à la main
+   (l'archer d'`arena_tir` naissait à 2 px d'un mur). `step_blocked_by` (m0-graine-100-fenetre) libère un ennemi
+   incrusté, rien n'existe pour le joueur. **Proposition** : en vague 0, une règle commune « on ne ferme pas un
+   obstacle sur un corps » (attendre ou pousser) ; un lint de gabarit « spawn/collider ∩ mur » ; une attente fiable
+   « personne dans un mur » (la sonde `EnemyNeverInWall` signale aussi des non-ennemis).
+2. **Budget de perf mesuré trop tard** (T2.1) : `bench_horde` est resté sous son plancher jusqu'à D53 sans qu'on le
+   voie ; 500 balles qui rebondissent, des blanks et plusieurs salles chargées sous synctest à 4 joueurs, c'est un
+   ordre de grandeur de plus. **Proposition** : un bench brut dès la vague 0 (500 projectiles du testbed en salle
+   fermée, 1 et 4 joueurs en synctest) qui fixe le budget et dit tôt s'il faut une grille dédiée aux balles ou des
+   balles hors ECS.
+3. **État rollback qui grossit et traces qui bougent à chaque contrat** : cinq contrats « neutres » en série
+   (`RoomState`, `Inventory`, `BossPhases`, `ArenaScript`…) = cinq occasions du piège de parité du checksum ; les
+   mémoires hors rollback des bots (navigation, `WeaponChoices`, `EnemyTracks`, futur explorateur K2) doivent toutes
+   être vidées à `OnEnter(InGame)` et rester déterministes (desync invisible en synctest local). **Proposition** :
+   une convention avant T2.0a (variante neutre obligatoire, test « enregistré sans porteur = trace identique » par
+   contrat, liste des mémoires hors rollback et de leur remise à zéro) ; prévoir dans les estimations le coût des
+   preuves §10 (un correctif de déplacement partagé a fait bouger 5 traces du testbed).
