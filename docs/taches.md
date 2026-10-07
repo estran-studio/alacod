@@ -843,6 +843,12 @@ région des chantiers puis la campagne.
   correctif sans changer la simulation (tests de collision mémorisés, destinations calculées au premier besoin) ;
   **mesure au calme A/B : `bench_horde` 39,8 / 40,8 → 58,7 / 59,6 fps** (plancher 38), `bench_bullets` ≈ 135,
   `bench_cave` ≈ 195, `bots_four_mixed` ≈ 107 inchangés ; **critère M1 « bench dans les budgets » atteint** ; vérifiée sur l'état fusionné : suite sans bless 0 trace différente, 602 tests de crates, lint ×3, fmt, scripts, `make gen` ×3 sans modification, exemples, `check -p throne`, p2p `6e297852…`.
+- m1-cloture-videos-digest : **mergée le 2026-10-06** (b0, vidéos et digest) — vidéos d'après D51 rendues sur `0638b01`
+  (`throne_solo`, `throne_three_floors`, `throne_quad`, `clone_solo`, `clone_duo` dans `docs/digests/videos/` ;
+  `clone_quad`, montage et vues de `throne_quad` en lien), captures propres (overlay de vagues seulement en mode
+  `Waves`, `CameraDebugUiEnabled`, coupés par `runner::capture` : présentation seule), commentaires « À regarder » des
+  `clone_*` recalés (frames seulement) ; **digest `docs/digests/m1-fin-de-vague-2.md` final** avec la section « Pour la
+  revue humaine » ; vidéos aussi publiées pour William sur une page privée ; vérifiée sur l'état fusionné : suite sans bless 0 trace différente, 602 tests de crates, lint ×3, fmt, scripts, `make gen` ×3 sans modification, exemples, `check -p throne`, p2p `6e297852…`. **Critère « vidéos publiées » de M1 atteint.**
 - **Critère M0 §9.8, 200 graines sur `avant_poste`** (nuit du 2026-10-04, `alacod-sim` de `7e8f541`, 4
   `acheteur`, carte par défaut du manifeste `maps/avant_poste.ldtk` — **pas `test_map`** : le critère
   historique sur `test_map` reste à rejouer avec `--map exemples/test_map.ldtk`), 4 lots parallèles sous
@@ -982,6 +988,7 @@ coller le préambule puis la fiche dans son prompt.
 | 2026-10-06 | m1-d26-doublons-generes « scénarios générés en double » (D26, b1 : prémisse corrigée, `generate: false`, 6 doublons supprimés, gain 17 s) | vérifiée sur l'état fusionné : suite sans bless = 0 trace différente (les 6 suppressions seulement), 602 tests de crates, lint des trois jeux, fmt, scripts, `make gen` ×3 sans modification, exemples, `check -p throne`, p2p `6e297852…`. Merge (b1). |
 | 2026-10-06 | m0-200-graines-test-map « critère M0 rejoué sur test_map » (b0, calcul seul : 199/200 vague 5, 0 desync, 1 soft-lock graine 100, 0 mort ; binaire f80b82b) | docs et données seulement (aucun code). Merge (b0). |
 | 2026-10-06 | m1-d53-bench-horde « bench_horde divisé par deux pendant M1 » (D53, b0 : bissection, profil, correctif sans changer la simulation ; 40 → 59 fps au calme) | vérifiée sur l'état fusionné : suite sans bless 0 trace différente, 602 tests de crates, lint ×3, fmt, scripts, `make gen` ×3 sans modification, exemples, `check -p throne`, p2p `6e297852…`. Merge (b0). |
+| 2026-10-06 | m1-cloture-videos-digest « vidéos d'après D51 et digest final de M1 » (b0 : 6 vidéos, captures sans overlay de debug, digest final, points de revue humaine) | vérifiée sur l'état fusionné : suite sans bless 0 trace différente, 602 tests de crates, lint ×3, fmt, scripts, `make gen` ×3 sans modification, exemples, `check -p throne`, p2p `6e297852…`. Merge (b0). |
 Orchestration : Fable crée les worktrees (`scripts/task-new.sh` du meta-repo), lance un agent par
 tâche avec le modèle le moins cher (Haiku d'abord, Sonnet si une tâche échoue deux fois), vérifie
 la branche (`make test_scenarios`, `cargo test`, lecture du diff), fusionne dans `main`
