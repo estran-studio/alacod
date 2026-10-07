@@ -3,8 +3,9 @@
 // `shotgun` débloqué au niveau 1). Même script que `levelup_timeout`.
 //
 // Mesuré : premier kill (le breacher, niveau 0) : aucune arme débloquée, rien ne tombe ; le
-// deuxième kill fait passer niveau 1 à f104 et laisse tomber un `shotgun` dans la même frame
-// (le niveau est mis à jour avant le drop) ; un troisième kill à f155 en laisse un autre.
+// deuxième kill fait passer niveau 1 à f147 et laisse tomber un `shotgun` dans la même frame
+// (le niveau est mis à jour avant le drop) ; deux autres kills (f206, f297) en laissent chacun un.
+// (Avant D51, dispersion de la config enfin appliquée : niveau 1 à f104, troisième kill à f155.)
 //
 // À regarder : un fusil à pompe apparaît à l'endroit de chaque cible tuée après le premier kill.
 Scenario(
@@ -23,9 +24,9 @@ Scenario(
         ]),
     ],
     expect: [
-        WeaponPickups(max: 0, at_frame: 103),
-        Event(kind: "drop", label_contains: "shotgun", by_frame: 110),
-        WeaponPickups(min: 1, max: 1, at_frame: 110),
+        WeaponPickups(max: 0, at_frame: 146),
+        Event(kind: "drop", label_contains: "shotgun", by_frame: 150),
+        WeaponPickups(min: 1, max: 1, at_frame: 150),
         WeaponPickups(min: 2, at_frame: 325),
     ],
 )

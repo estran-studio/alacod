@@ -1,0 +1,21 @@
+// Écran de mutation (T1.16, docs/conventions.md §30) : présentation seule, lue par
+// `game::ui::mutation_screen`. Positions en pixels depuis le centre de l'écran (y vers le bas).
+// Trois emplacements, un par bit ChoiceA/B/C (lint) ; la police doit exister sous assets/.
+(
+    font: "fonts/present.ttf",
+    title: "Mutation — choisissez",
+    title_offset: (0.0, -130.0),
+    title_size: 24.0,
+    card_size: (230.0, 170.0),
+    slots: [(-125.0, 0.0), (125.0, 0.0)],
+    name_size: 19.0,
+    text_size: 13.0,
+    card_color: "#141414e6",
+    highlight_color: "#f1c40f",
+    text_color: "#ffffff",
+    bar_offset: (0.0, 110.0),
+    bar_size: (480.0, 6.0),
+    bar_color: "#f1c40f",
+    hint: "← → choisir · A / Entrée valider · 1 2 3",
+    hint_offset: (0.0, 135.0),
+)

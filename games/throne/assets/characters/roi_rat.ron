@@ -1,0 +1,62 @@
+// `throne` (m1-integration-scenarios, docs/conventions.md §29) : boss simple du troisième étage,
+// en données seulement (pas de phases : D4, M2). Santé de douze rats, tir en couronne à distance,
+// ruée télégraphiée, sinon poursuite (première règle applicable, §22). Tag `champion` posé
+// directement (la variante `champion` ne s'impose pas sans LDtk). Placé une fois par
+// `caves/niveau_3.ron` (premier de `characters` : point 0, toujours présent).
+(
+    movement: (
+        acceleration: "120.0",
+        max_speed: "45.0",
+        friction: "10.0",
+        sprint_multiplier: "1.0",
+        sprint_acceleration_per_frame: "0.0",
+        sprint_deceleration_per_frame: "0.0",
+
+        dash_distance: "0.0",
+        dash_duration_frames: 0,
+        dash_cooldown_frames: 0,
+    ),
+
+    asset_name_ref: "roi_rat",
+
+    // Corps de 20 × 20 **avant** `scale` 1.4, soit 28 × 28 en jeu (`create_character` met le
+    // collider à l'échelle) : gabarit grand de la navigation (D41, `AgentSize::Large` : centre
+    // à une case des murs, couloirs de trois cases). Un corps de 28 avant échelle (39 px en
+    // jeu) déborde sur la roche depuis un point d'apparition dégagé d'une seule case et reste
+    // figé (mesuré : voir le rapport m1-navigation-profils-tailles).
+    collider: (
+        shape: Rectangle(
+            width: "20.",
+            height: "20.",
+        ),
+        offset: ( x: "0.0", y: "-6.0", z: "0.0" )
+    ),
+
+    scale: "1.4",
+
+    base_health: (
+        max: "360.0",
+    ),
+
+    starting_skin: "1",
+    skins: {
+        "1": (layers: {}),
+    },
+
+    tags: ["champion"],
+
+    ai: Some((
+        aggro_range: Some("500.0"),
+        attack_range: Some("40.0"),
+        attack_cooldown_frames: Some(90),
+        attack_damage: Some("15.0"),
+        behaviors: Some([
+            Shoot(weapon: "arsenal", pattern: "couronne", range: "260.0", cooldown_frames: 120),
+            Charge(telegraph: 30),
+            Chase(profile: "Ground"),
+        ]),
+    )),
+    // `docs/conventions.md` §28 : scénarios générés `enemy_<id>_still`/`_moving`
+    // (`make gen GAME=throne`), attentes par défaut.
+    test: Some((frames: 600)),
+)

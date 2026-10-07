@@ -130,7 +130,7 @@ Scenario(
         HasStatus(
             entity: Target,
             status: "etourdi",
-            present: false,
+            present: true,
             at_frame: 150,
         ),
     ],

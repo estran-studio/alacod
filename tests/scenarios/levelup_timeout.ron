@@ -21,9 +21,9 @@ Scenario(
         ]),
     ],
     expect: [
-        Level(handle: 0, level: 1, at_frame: 110),
-        Mutations(handle: 0, count: 0, at_frame: 703),
-        Mutations(handle: 0, contains: ["vampire"], count: 1, at_frame: 704),
-        Event(kind: "mutation", label_contains: "vampire", by_frame: 710),
+        Level(handle: 0, level: 1, at_frame: 150),
+        Mutations(handle: 0, count: 0, at_frame: 746),
+        Mutations(handle: 0, contains: ["vampire"], count: 1, at_frame: 747),
+        Event(kind: "mutation", label_contains: "vampire", by_frame: 750),
     ],
 )

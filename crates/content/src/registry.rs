@@ -231,6 +231,12 @@ pub struct CharacterEntry {
     pub test: Option<CharacterTestEntry>,
     /// T1.13 : `counts_hits`, pour la cible de `generate_template`.
     pub counts_hits: bool,
+    /// D41 : étendue du corps **en jeu** (collider × `scale`, comme `create_character`) : la plus
+    /// grande distance du centre du personnage à un bord de son collider, en px. 0 sans collider.
+    pub body_extent: Fixed,
+    /// D48 : corps en jeu de plus de 20 px de large ou de haut, le gabarit `Large` de la
+    /// navigation (`game::…::navigation::AgentSize::of`, `SMALL_AGENT_MAX`).
+    pub body_large: bool,
 }
 
 /// T1.13 : mirroir de `game::character::config::CharacterTest` (attentes comptées).
@@ -389,6 +395,9 @@ pub struct WeaponEntry {
     pub file: PathBuf,
     /// Cadence de tir par mode (`firing_modes`), pour la règle « cadence > 0 ».
     pub firing_rates: BTreeMap<String, FixedField>,
+    /// Dispersion par mode (`spread`, radians, pleine largeur), pour la règle « 0 <= spread <= π »
+    /// (D51). Absent de la RON (fixtures) : 0.
+    pub spreads: BTreeMap<String, FixedField>,
     /// Gabarit de scénario généré (T2.10, champ `test:` de `WeaponConfig`), pour le lint
     /// (`frames > 0`, `min_hits <= max_hits`). `None` : pas de `test:`, aucune règle à
     /// vérifier (l'arme obtient quand même un scénario généré, invariants seulement).
@@ -858,10 +867,8 @@ pub struct PowerUpDropChanceEntry {
 #[derive(Debug, Clone)]
 pub struct FeedbackEntry {
     pub file: PathBuf,
-    pub hit_flash_frames: u32,
-    pub shake_frames: u32,
-    pub shake_amplitude: f32,
-    pub sounds: BTreeMap<String, String>,
+    /// Même type que l'asset du jeu (`game::feedback::FeedbackConfig`), T1.17.
+    pub settings: crate::feedback::FeedbackSettings,
 }
 
 /// Registre de contenu d'un jeu, chargé depuis son manifeste (`GameManifest`). Voir le
@@ -913,6 +920,10 @@ pub struct Registry {
     pub ui_files: Vec<PathBuf>,
     /// Réglages typés du feedback (T3.4) parmi les fichiers Ui.
     pub feedback: Vec<FeedbackEntry>,
+    /// T1.16 : écrans de mutation (`ui/mutation_screen.ron`) parmi les fichiers Ui.
+    pub mutation_screens: Vec<(PathBuf, crate::ui::MutationScreenLayout)>,
+    /// T1.18 : sources des widgets de chaque `ui/hud.ron`.
+    pub hud_sources: Vec<(PathBuf, Vec<String>)>,
     pub camera_files: Vec<PathBuf>,
     /// D3 : feuilles de sprites par id (kind `SpriteSheet`), source des sprites chargés par
     /// `game::global_asset` (avant D3 : une table de chemins écrite dans le code).
@@ -1011,7 +1022,45 @@ impl Registry {
             }
         }
 
+        apply_cave_spawn_clearance(&mut registry);
         (registry, errors)
+    }
+}
+
+/// Dégagement (en cases) qu'exige un corps d'étendue `extent` px autour d'un point
+/// d'apparition (D41) : le centre d'une case est à 8 px de son bord, chaque case de dégagement
+/// ajoute 16 px ; au moins 1 (`world::is_open`).
+pub fn spawn_clearance_for(extent: Fixed) -> u32 {
+    let half_cell = Fixed::from_num(world::CELL_SIZE / 2);
+    let cell = Fixed::from_num(world::CELL_SIZE);
+    let mut clearance = 1u32;
+    while half_cell + cell * Fixed::from_num(clearance) < extent {
+        clearance += 1;
+    }
+    clearance
+}
+
+/// D41 : `CaveConfig::spawn_clearance` de chaque caverne = le dégagement du plus grand corps en
+/// jeu parmi ses `characters` (au moins celui déclaré ; un id inconnu est rapporté par le lint).
+/// Après le chargement de tous les kinds : l'ordre des dossiers du manifeste n'importe pas.
+fn apply_cave_spawn_clearance(registry: &mut Registry) {
+    for cave in registry.caves.values_mut() {
+        let needed = cave
+            .config
+            .characters
+            .iter()
+            .filter_map(|id| registry.characters.get(&CharacterId::from(id.as_str())))
+            .map(|character| spawn_clearance_for(character.body_extent))
+            .max()
+            .unwrap_or(1);
+        cave.config.spawn_clearance = cave.config.spawn_clearance.max(needed);
+        // D48 : gabarit de navigation du plus grand corps (points atteints par son champ).
+        cave.config.nav_large |= cave
+            .config
+            .characters
+            .iter()
+            .filter_map(|id| registry.characters.get(&CharacterId::from(id.as_str())))
+            .any(|character| character.body_large);
     }
 }
 
@@ -1119,7 +1168,95 @@ struct CharacterFileSchema {
     /// T1.13 : cible de `generate_template` (règle « `counts_hits` »).
     #[serde(default)]
     counts_hits: bool,
+    /// D41 : corps (dégagement des points d'apparition des cavernes). Écrit sans `Some(...)`
+    /// dans les RON de personnages (`collider: (...)`, comme `CharacterConfig`).
+    #[serde(default, deserialize_with = "present")]
+    collider: Option<ColliderSchema>,
+    #[serde(default = "default_scale")]
+    scale: FixedField,
 }
+
+/// Champ optionnel écrit nu dans le RON (`champ: (...)` et non `champ: Some((...))`).
+fn present<'de, D, T>(deserializer: D) -> Result<Option<T>, D::Error>
+where
+    D: Deserializer<'de>,
+    T: Deserialize<'de>,
+{
+    T::deserialize(deserializer).map(Some)
+}
+
+fn default_scale() -> FixedField {
+    FixedField(Fixed::ONE)
+}
+
+/// Mirroir RON de `game::collider::Collider` (seules les dimensions servent).
+#[derive(Deserialize)]
+struct ColliderSchema {
+    shape: ColliderShapeSchema,
+    #[serde(default)]
+    offset: OffsetSchema,
+}
+
+#[derive(Deserialize)]
+enum ColliderShapeSchema {
+    Rectangle {
+        width: FixedField,
+        height: FixedField,
+    },
+    Circle {
+        radius: FixedField,
+    },
+}
+
+#[derive(Deserialize)]
+struct OffsetSchema {
+    x: FixedField,
+    y: FixedField,
+    #[serde(rename = "z", default)]
+    _z: serde::de::IgnoredAny,
+}
+
+impl Default for OffsetSchema {
+    fn default() -> Self {
+        Self {
+            x: FixedField(Fixed::ZERO),
+            y: FixedField(Fixed::ZERO),
+            _z: serde::de::IgnoredAny,
+        }
+    }
+}
+
+impl ColliderSchema {
+    /// Plus grande distance du centre à un bord, offset compris, à l'échelle `scale`.
+    fn extent(&self, scale: Fixed) -> Fixed {
+        let (half_w, half_h) = match &self.shape {
+            ColliderShapeSchema::Rectangle { width, height } => {
+                (width.0 / Fixed::from_num(2), height.0 / Fixed::from_num(2))
+            }
+            ColliderShapeSchema::Circle { radius } => (radius.0, radius.0),
+        };
+        let (ox, oy) = (self.offset.x.0.abs(), self.offset.y.0.abs());
+        (half_w + ox).max(half_h + oy).saturating_mul(scale)
+    }
+
+    /// D48 : gabarit de navigation grand, la règle de `AgentSize::of` (`game`) : largeur ou
+    /// hauteur du collider à l'échelle `scale` au-delà de [`SMALL_AGENT_MAX`] px (l'offset ne
+    /// change pas la largeur).
+    fn is_large(&self, scale: Fixed) -> bool {
+        let (w, h) = match &self.shape {
+            ColliderShapeSchema::Rectangle { width, height } => (width.0, height.0),
+            ColliderShapeSchema::Circle { radius } => {
+                (radius.0 * Fixed::from_num(2), radius.0 * Fixed::from_num(2))
+            }
+        };
+        let max = Fixed::from_num(SMALL_AGENT_MAX);
+        w.saturating_mul(scale) > max || h.saturating_mul(scale) > max
+    }
+}
+
+/// Largeur maximale (px) d'un corps du gabarit de navigation petit : `SMALL_AGENT_MAX` de
+/// `game::character::enemy::ai::navigation` (`content` ne dépend pas de `game`).
+pub const SMALL_AGENT_MAX: i32 = 20;
 
 /// Mirroir RON de `game::character::config::CharacterTest` (comme `WeaponTestSchema`) : les
 /// attentes ne sont que comptées (`content` ne type pas `Expectation`).
@@ -1269,9 +1406,16 @@ struct WeaponConfigSchema {
     projectiles: BTreeMap<String, ProjectileDefEntry>,
 }
 
+fn zero_spread() -> FixedField {
+    FixedField(Fixed::ZERO)
+}
+
 #[derive(Deserialize)]
 struct FiringModeSchema {
     firing_rate: FixedField,
+    /// D51 : voir `WeaponEntry::spreads` (absent : 0, aucune règle violée).
+    #[serde(default = "zero_spread")]
+    spread: FixedField,
     /// T1.1 : voir `WeaponEntry::mode_projectiles`.
     #[serde(default)]
     projectile: ProjectileSpecEntry,
@@ -1419,26 +1563,6 @@ struct PowerUpEntrySchema {
     lifetime_frames: u32,
     #[serde(default)]
     actions: Vec<effects::Action>,
-}
-
-#[derive(Deserialize)]
-struct FeedbackFileSchema {
-    hit_flash: HitFlashSchema,
-    shake: ShakeSchema,
-    sounds: BTreeMap<String, String>,
-}
-
-#[derive(Deserialize)]
-struct HitFlashSchema {
-    frames: u32,
-    #[serde(rename = "color")]
-    _color: (f32, f32, f32),
-}
-
-#[derive(Deserialize)]
-struct ShakeSchema {
-    frames: u32,
-    amplitude: f32,
 }
 
 // ---------------------------------------------------------------------------------------
@@ -1591,6 +1715,15 @@ fn load_characters(
                     expect_moving: test.expect_moving.len(),
                 }),
                 counts_hits: parsed.counts_hits,
+                body_extent: parsed
+                    .collider
+                    .as_ref()
+                    .map(|collider| collider.extent(parsed.scale.0))
+                    .unwrap_or(Fixed::ZERO),
+                body_large: parsed
+                    .collider
+                    .as_ref()
+                    .is_some_and(|collider| collider.is_large(parsed.scale.0)),
             },
         );
     }
@@ -1645,9 +1778,11 @@ fn load_weapons(
             }
             let test = entry.config.test.as_ref().map(WeaponTestRange::from);
             let mut firing_rates = BTreeMap::new();
+            let mut spreads = BTreeMap::new();
             let mut mode_projectiles = BTreeMap::new();
             for (mode, cfg) in entry.config.firing_modes {
                 firing_rates.insert(mode.clone(), cfg.firing_rate);
+                spreads.insert(mode.clone(), cfg.spread);
                 mode_projectiles.insert(mode, cfg.projectile);
             }
             let mut sounds = Vec::new();
@@ -1667,6 +1802,7 @@ fn load_weapons(
                     id,
                     file: rel.clone(),
                     firing_rates,
+                    spreads,
                     test,
                     ammo_type: entry.config.ammo_type,
                     sounds,
@@ -2652,7 +2788,8 @@ fn load_maps(
     }
 }
 
-/// Les réglages `feedback.ron` déclarés comme Ui ont un schéma typé (T3.4).
+/// Les réglages `feedback.ron` déclarés comme Ui ont un schéma typé (T3.4), comme
+/// `mutation_screen.ron` (T1.16, [`crate::ui::MutationScreenLayout`]).
 /// Les autres fichiers Ui gardent la validation syntaxique.
 fn load_ui(
     assets_dir: &Path,
@@ -2676,14 +2813,26 @@ fn load_ui(
             }
         };
         let parsed = if rel.file_name().and_then(|name| name.to_str()) == Some("feedback.ron") {
-            ron::from_str::<FeedbackFileSchema>(&text).map(|config| {
+            ron::from_str::<crate::feedback::FeedbackSettings>(&text).map(|settings| {
                 registry.feedback.push(FeedbackEntry {
                     file: rel.clone(),
-                    hit_flash_frames: config.hit_flash.frames,
-                    shake_frames: config.shake.frames,
-                    shake_amplitude: config.shake.amplitude,
-                    sounds: config.sounds,
+                    settings,
                 });
+            })
+        } else if rel.file_name().and_then(|name| name.to_str()) == Some(crate::ui::HUD_FILE_NAME) {
+            ron::from_str::<crate::ui::HudFileSchema>(&text).map(|hud| {
+                let sources = hud
+                    .widgets
+                    .iter()
+                    .map(|w| w.kind.source().to_string())
+                    .collect();
+                registry.hud_sources.push((rel.clone(), sources));
+            })
+        } else if rel.file_name().and_then(|name| name.to_str())
+            == Some(crate::ui::MUTATION_SCREEN_FILE_NAME)
+        {
+            ron::from_str::<crate::ui::MutationScreenLayout>(&text).map(|layout| {
+                registry.mutation_screens.push((rel.clone(), layout));
             })
         } else {
             ron::from_str::<ron::Value>(&text).map(|_| ())
@@ -2757,5 +2906,39 @@ mod tests {
             map_id_from_path("testbed/testbed_empty.ldtk").as_str(),
             "testbed_empty"
         );
+    }
+}
+
+/// D41 : dégagement des points d'apparition selon le corps en jeu.
+#[cfg(test)]
+mod spawn_clearance_tests {
+    use super::*;
+
+    fn extent_of(ron_collider: &str, scale: f64) -> Fixed {
+        let collider: ColliderSchema = ron::from_str(ron_collider).unwrap();
+        collider.extent(Fixed::from_num(scale))
+    }
+
+    #[test]
+    fn etendue_en_jeu_avec_offset_et_echelle() {
+        let corps = r#"(shape: Rectangle(width: "20.", height: "20."), offset: (x: "0.0", y: "-6.0", z: "0.0"))"#;
+        // Zombie / ennemi de 20 px : 10 + 6.
+        assert_eq!(extent_of(corps, 1.0), Fixed::from_num(16));
+        // Boss : 20 × 1.4 = 28 px en jeu, 16 × 1.4 = 22.4.
+        assert!((extent_of(corps, 1.4).to_num::<f64>() - 22.4).abs() < 0.01);
+        let gros = r#"(shape: Rectangle(width: "28.", height: "28."), offset: (x: "0.0", y: "-6.0", z: "0.0"))"#;
+        // 28 × 1.4 = 39 px en jeu : (14 + 6) × 1.4 = 28.
+        assert!((extent_of(gros, 1.4).to_num::<f64>() - 28.0).abs() < 0.01);
+    }
+
+    #[test]
+    fn degagement_selon_l_etendue() {
+        assert_eq!(spawn_clearance_for(Fixed::ZERO), 1);
+        assert_eq!(spawn_clearance_for(Fixed::from_num(16)), 1);
+        assert_eq!(spawn_clearance_for(Fixed::from_num(24)), 1);
+        assert_eq!(spawn_clearance_for(Fixed::from_num(22.4)), 1);
+        assert_eq!(spawn_clearance_for(Fixed::from_num(28)), 2);
+        assert_eq!(spawn_clearance_for(Fixed::from_num(40)), 2);
+        assert_eq!(spawn_clearance_for(Fixed::from_num(41)), 3);
     }
 }

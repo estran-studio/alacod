@@ -90,8 +90,10 @@
                     )
                 )
             },
-            // Voir le commentaire `test:` de `pistol` ci-dessus (même gabarit).
-            test: Some((frames: 600, min_hits: 10, max_hits: Some(60))),
+            // Voir le commentaire `test:` de `pistol` ci-dessus (même gabarit). D51 (dispersion
+            // de la config, 0,15, enfin appliquée) : 66 coups observés (avant : sous 60), plafond
+            // relevé à 80.
+            test: Some((frames: 600, min_hits: 10, max_hits: Some(80))),
         ),
         sprite_config: (
             name: "machine_gun",

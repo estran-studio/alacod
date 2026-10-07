@@ -3,31 +3,35 @@
 // mutations), horloge d'étage `etage`, difficulté. Les bots ne choisissent pas : la première
 // option est prise 600 frames après chaque niveau.
 //
-// Mesuré (course de movement-feel, conventions §30) : niveau 1 à f748 (3 rads), étage 1 à f936,
-// `sang_froid` à f1348 (748 + 600), niveau 2 à f1670, étage 2 à f1845 ; horloge remise à zéro à
-// chaque étage : `alerte` à f1836 (936 + 15 s) dans l'étage 1.
+// Mesuré (m1-v3-bots-armes) : niveau 1 à f363 (3 rads), étage 1 à f558, niveau 2 à f959,
+// `sang_froid` à f963 (363 + 600), `tireur` à f1563 ; horloge remise à zéro à chaque étage :
+// `alerte` à f1458 (558 + 15 s) dans l'étage 1 ; étage 2 à f1643. (D51 : étage 1 à f578, niveau 2
+// à f1284, `alerte` à f1478, étage 2 à f1591.) (Avant,
+// m1-v3-bots-softlocks : niveau 1 à f547, étage 1 à f937, niveau 2 à f1716, `alerte` à f1837,
+// l'étage 2 après la fin du scénario.) m1-integration-scenarios : l'étage 1 est enfin `niveau_2`.
 //
-// À regarder : le bot nettoie deux cavernes ; rien ne s'affiche au moment des choix (pas d'écran
+// À regarder : le bot nettoie la première caverne et entame la deuxième ; rien ne s'affiche au moment des choix (pas d'écran
 // de mutation avant T1.16).
 Scenario(
     game: "throne",
     floors: Some("run"),
     map_seed: 123456,
-    frames: 1870,
+    frames: 1950,
     players: [
         (bot: prudent),
     ],
     expect: [
-        Event(kind: "levelup", by_frame: 750),
-        Level(handle: 0, level: 1, at_frame: 750),
-        Gauge(handle: 0, id: "rads", min: Some(3.0), at_frame: 750),
-        Mutations(handle: 0, count: 0, at_frame: 1347),
-        Mutations(handle: 0, count: 1, at_frame: 1351),
-        Event(kind: "mutation", by_frame: 1351),
-        Level(handle: 0, level: 2, at_frame: 1675),
-        Clock(id: "alerte", fired: false, at_frame: 1833),
-        Clock(id: "alerte", fired: true, at_frame: 1840),
-        FloorIndex(index: 2, at_frame: 1850),
-        PlayerAlive(handle: 0, at_frame: 1869),
+        Event(kind: "levelup", by_frame: 365),
+        Level(handle: 0, level: 1, at_frame: 365),
+        Gauge(handle: 0, id: "rads", min: Some(3.0), at_frame: 365),
+        Mutations(handle: 0, count: 0, at_frame: 962),
+        Mutations(handle: 0, count: 1, at_frame: 966),
+        Event(kind: "mutation", by_frame: 966),
+        Level(handle: 0, level: 2, at_frame: 965),
+        Clock(id: "alerte", fired: false, at_frame: 1450),
+        Clock(id: "alerte", fired: true, at_frame: 1465),
+        FloorIndex(index: 1, at_frame: 1635),
+        FloorIndex(index: 2, at_frame: 1912),
+        PlayerAlive(handle: 0, at_frame: 1949),
     ],
 )

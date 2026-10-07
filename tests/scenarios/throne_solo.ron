@@ -1,0 +1,34 @@
+// `throne` vague 2 de M1 (m1-integration-scenarios, docs/conventions.md §29) : un bot `prudent`
+// joue la run (trois cavernes, `floors/run.ron`, boss `roi_rat` au niveau 3) avec tout ce que le
+// manifeste active. Joué en synctest par la suite : preuve de déterminisme à un joueur.
+//
+// **État mesuré, pas la cible** : le bot seul finit rarement la run (1/20 graines après
+// m1-v3-bots-portail, 0/20 avant). La fiche demande le niveau 3 et le joueur vivant ; ce scénario
+// fixe ce qui se passe aujourd'hui sur cette graine — deux cavernes nettoyées, le bot encore en vie
+// dans la troisième (celle du boss) à la fin du scénario.
+//
+// Mesuré (graine 123456, m1-v3-bots-armes) : niveau 1 à f363 (`sang_froid` à f963), étage 1 à
+// f558, niveau 2 à f959 (`tireur` à f1563), alerte de l'horloge à f1458, étage 2 à f1643, niveau 3
+// à f2622 (`coriace` à f3222), vivant à f3699. (D51 : étage 2 à f1591, mort dans la troisième
+// caverne à f2908.) (Avant,
+// m1-v3-bots-softlocks : étage 1 à f937, étage 2 à f3124, vivant à f3699.)
+//
+// À regarder : le bot nettoie deux cavernes puis affronte la troisième.
+Scenario(
+    game: "throne",
+    floors: Some("run"),
+    map_seed: 123456,
+    frames: 3700,
+    players: [
+        (bot: prudent),
+    ],
+    expect: [
+        FloorIndex(index: 1, at_frame: 565),
+        FloorIndex(index: 1, at_frame: 1635),
+        FloorIndex(index: 2, at_frame: 1650),
+        Event(kind: "levelup", by_frame: 365),
+        Mutations(handle: 0, contains: ["sang_froid", "tireur"], count: Some(2), at_frame: 1570),
+        Clock(id: "alerte", fired: true, at_frame: 1465),
+        PlayerAlive(handle: 0, at_frame: 3699),
+    ],
+)

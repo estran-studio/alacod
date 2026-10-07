@@ -77,7 +77,7 @@ impl Plugin for BaseCharacterGamePlugin {
         app.add_plugins(InputManagerPlugin::<PlayerAction>::default());
         // Stats et modificateurs (T1.2, chantier B2) : enregistre `Stats`/`Modifiers` en
         // rollback et l'expiration des modificateurs (`RollbackSystemSet::Status`). Voir
-        // `docs/conventions.md` §7.
+        // `docs/conventions.md` §9.
         app.add_plugins(StatsPlugin);
         app.init_resource::<PointerWorldPosition>();
 
@@ -257,6 +257,8 @@ impl Plugin for BaseCharacterGamePlugin {
                     update_enemy_targets.after(enemy::ai::rules::behavior_select_system),
                     move_enemies.after(update_enemy_targets),
                     enemy_attack_system.after(move_enemies),
+                    // D38 : pas d'attaque au corps à corps en fuyant (lu à la frame suivante).
+                    enemy::ai::rules::melee_hold_system.after(enemy_attack_system),
                 )
                     .in_set(RollbackSystemSet::EnemyAI),
                 // OBSTACLE DAMAGE PROCESSING

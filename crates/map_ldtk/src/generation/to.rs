@@ -28,9 +28,22 @@ use crate::map_const::{self, LAYER_ENTITY};
 pub struct GeneratedRoom {
     level: Level,
     ldtk: Rc<LdtkJson>,
+    /// Gabarit LDtk d'origine (`level.identifier` est remplacé par l'iid de la salle) :
+    /// signature des cartes générées (D45, tests de diversité).
+    pub template: String,
 }
 
 impl GeneratedRoom {
+    /// Rectangle monde de la salle (`world_x`, `world_y`, largeur, hauteur) en pixels.
+    pub fn world_rect(&self) -> (i32, i32, i32, i32) {
+        (
+            self.level.world_x,
+            self.level.world_y,
+            self.level.px_wid,
+            self.level.px_hei,
+        )
+    }
+
     pub fn create(ldtk_json: Rc<LdtkJson>, room: &Room) -> Self {
         let mut level = ldtk_json
             .levels
@@ -73,6 +86,7 @@ impl GeneratedRoom {
         GeneratedRoom {
             level,
             ldtk: ldtk_json,
+            template: room.level_def.level_id.clone(),
         }
     }
 }

@@ -126,8 +126,9 @@ lint:
 
 .PHONY: lint
 
-# Générateur de scénarios (T2.10, crates/scenario/src/generate.rs) : un scénario par arme du
-# registre de GAME dans tests/scenarios/generated/GAME/, joué et affiché en tableau
+# Générateur de scénarios (alacod-gen ; v0 T2.10, v1 T1.13, crates/scenario/src/generate.rs) :
+# un scénario par arme du registre de GAME et deux par ennemi à `test:` (immobile, mobile), dans
+# tests/scenarios/generated/GAME/, joué et affiché en tableau
 # (attentes, trace). Code de sortie 1 si une attente échoue, un scénario n'atteint pas sa
 # dernière frame, ou une trace diffère de la référence. GEN_BLESS=1 les blesse au lieu de
 # les comparer : make gen GAME=zombies GEN_BLESS=1.

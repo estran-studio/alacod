@@ -113,16 +113,18 @@ pub fn new_health(max: fixed_math::Fixed) -> Health {
     }
 }
 
-/// Lit `FrameEvents<DamageEvent>` (émis par les trois émetteurs : collision de balles,
-/// collision de mêlée, attaque d'ennemi) dans l'ordre d'émission et applique
+/// Lit `FrameEvents<DamageEvent>` (émis par six émetteurs : collision de balles, collision de
+/// mêlée, attaque d'ennemi, collision de projectile composable (B5), brûlure des statuts (T1.3),
+/// charge d'ennemi (T1.4) ; `docs/conventions.md` §8) dans l'ordre d'émission et applique
 /// `combat::damage::resolve_damage` (équipe, tir ami, tags, résistances, immunités,
 /// invulnérabilité — `Health.invulnerable_until_frame` enfin honoré) ; accumule le
 /// résultat dans `DamageAccumulator` (`HitBy`/`last_hit_by` pour l'attribution des kills,
-/// comme avant T1.1). Seul point d'écriture de `DamageAccumulator` : les trois émetteurs
+/// comme avant T1.1). Seul point d'écriture de `DamageAccumulator` : les émetteurs
 /// n'y touchent plus directement (T1.1, chantier B1).
 ///
 /// `RollbackSystemSet::CollisionDamage`, après les émetteurs (`Weapon`, `Projectiles`, et
-/// le traducteur `enemy_attack_damage_translate_system`), avant `DeathManagement`.
+/// les traducteurs `enemy_attack_damage_translate_system`/`charge_damage_translate_system`),
+/// avant `DeathManagement`.
 pub fn rollback_resolve_damage_events(
     frame: Res<FrameCount>,
     events: Res<FrameEvents<DamageEvent>>,

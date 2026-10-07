@@ -91,7 +91,7 @@ Les branches d'origine `fix-revue-m0` et `movement-feel` sont aussi poussées.
      R4 (`f9f0d8e`) et le restart p2p (D14). Garder le test `restart_keeps_walls_solid`, le
      scénario `revue_murs_avant_poste` et R5 (`game_over.rs`), que `main` n'a pas.
    - Scénarios `.ron` en conflit : movement-feel les a recalés (positions, frames) et `main`
-     les a modifiés aussi. Les recaler sur l'état fusionné (méthode `docs/conventions.md` §30).
+     les a modifiés aussi. Les recaler sur l'état fusionné (méthode `docs/conventions.md` §34).
    - Traces : conflit = les deux côtés ont re-béni. Prendre n'importe quelle version, puis
      preuve README §5 **contre le nouveau `main`** et bless sur l'état fusionné, justifié dans
      le commit.

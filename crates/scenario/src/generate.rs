@@ -216,6 +216,15 @@ pub fn generate_game(game_dir: &Path) -> Result<Vec<GeneratedScenario>, Generate
     }
 
     let assets_dir = content::GameManifest::assets_dir(game_dir);
+    // D26 : dossiers déclarés `generate: false` (copies d'un autre jeu) : aucune définition qui
+    // en vient ne reçoit de scénario généré.
+    let not_generated: Vec<PathBuf> = manifest
+        .content_folders
+        .iter()
+        .filter(|folder| !folder.generate)
+        .map(|folder| PathBuf::from(&folder.path))
+        .collect();
+    let generated = |file: &Path| !not_generated.iter().any(|folder| file.starts_with(folder));
     let mut weapons_cache: BTreeMap<PathBuf, WeaponsConfig> = BTreeMap::new();
     let mut melee_cache: BTreeMap<PathBuf, MeleeWeaponsConfig> = BTreeMap::new();
 
@@ -224,6 +233,9 @@ pub fn generate_game(game_dir: &Path) -> Result<Vec<GeneratedScenario>, Generate
     let mut drafts: Vec<(String, WeaponKind, Option<WeaponTest>)> = Vec::new();
 
     for (id, entry) in &registry.weapons {
+        if !generated(&entry.file) {
+            continue;
+        }
         let asset = read_weapon_asset(&assets_dir, &entry.file, id.as_str(), &mut weapons_cache)?
             .ok_or_else(|| GenerateError::WeaponFile {
             path: entry.file.clone(),
@@ -236,6 +248,9 @@ pub fn generate_game(game_dir: &Path) -> Result<Vec<GeneratedScenario>, Generate
         ));
     }
     for (id, entry) in &registry.melee_weapons {
+        if !generated(&entry.file) {
+            continue;
+        }
         let asset = read_melee_asset(&assets_dir, &entry.file, id.as_str(), &mut melee_cache)?
             .ok_or_else(|| GenerateError::WeaponFile {
                 path: entry.file.clone(),
@@ -299,7 +314,7 @@ pub fn generate_game(game_dir: &Path) -> Result<Vec<GeneratedScenario>, Generate
             .map(|_| content::EntryMode::Sandbox),
     };
     for (id, entry) in &registry.characters {
-        if entry.test.is_none() {
+        if entry.test.is_none() || !generated(&entry.file) {
             continue;
         }
         let config: CharacterConfig = parse_ron_file(&assets_dir, &entry.file)?;

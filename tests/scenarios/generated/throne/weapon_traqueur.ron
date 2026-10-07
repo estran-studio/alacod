@@ -112,12 +112,12 @@ Scenario(
     expect: [
         EntityHits(
             net_id: 35,
-            min: 0,
+            min: 8,
             at_frame: 200,
         ),
         EntityHealth(
             net_id: 34,
-            max: 160.0,
+            min: 200.0,
             at_frame: 200,
         ),
     ],

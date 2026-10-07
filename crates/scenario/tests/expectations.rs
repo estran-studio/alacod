@@ -1008,8 +1008,8 @@ fn hits_at_least_lit_le_compteur_de_la_cible() {
     }
 }
 
-/// T1.10 : `Gauge`, `Level`, `Mutations` passent sur `levelup_choice` (3 rads, niveau 1,
-/// `coriace` prise) et échouent chacune sur une valeur fausse.
+/// T1.10 : `Gauge`, `Level`, `Mutations` passent sur `levelup_choice` (2 rads depuis D51,
+/// niveau 1, `coriace` prise) et échouent chacune sur une valeur fausse.
 #[test]
 fn progression_expectations_pass_and_fail() {
     if map_ldtk::RENDER_ENABLED {
@@ -1037,7 +1037,7 @@ fn progression_expectations_pass_and_fail() {
         at_frame: 190,
     };
     scenario.expect = vec![
-        gauge(3.0, 3.0),
+        gauge(2.0, 2.0),
         level(1),
         mutations(&["coriace"], Some(1)),
         // Fausses : une seule échec chacune
@@ -1057,7 +1057,7 @@ fn progression_expectations_pass_and_fail() {
     let failures = outcome.failures.join("\n");
     assert_eq!(outcome.failures.len(), 5, "{failures}");
     for needle in [
-        "jauge rads = 3 < min 4",
+        "jauge rads = 2 < min 4",
         "niveau 1 ≠ 2",
         "manque [\"vampire\"]",
         "1 ≠ 0",
@@ -1326,10 +1326,12 @@ fn status_expectations_pass_and_fail() {
                 present: true,
                 at_frame: frame,
             },
+            // D51 (dispersion de la config appliquée) : toutes les balles portent, deux piles
+            // dès f100 (avant : une).
             Expectation::StatusStacks {
                 entity: EntityRef::Target,
                 status: "brulure".into(),
-                stacks: 1,
+                stacks: 2,
                 at_frame: frame,
             },
             Expectation::HasStatus {
@@ -1353,10 +1355,10 @@ fn status_expectations_pass_and_fail() {
                 Expectation::StatusStacks {
                     entity: EntityRef::Target,
                     status: "brulure".into(),
-                    stacks: 2,
+                    stacks: 3,
                     at_frame: frame,
                 },
-                "1 piles ≠ 2",
+                "2 piles ≠ 3",
             ),
             (
                 Expectation::HasStatus {
@@ -1388,6 +1390,38 @@ fn clock_expectation_pass_and_fail() {
         &[
             (clock("tic", true, 59), "pas encore déclenché"),
             (clock("tic", false, 61), "déjà déclenché"),
+        ],
+    );
+}
+
+/// T1.18 (§32) : `HudText` lit le HUD du joueur affiché (`HudSnapshot`, aussi en headless) sur
+/// `throne_progression` (scénario inchangé, attentes ajoutées ici) : étage, munitions par type,
+/// niveau 1 à f365 puis 2 à f1290 (D51), rads ; échoue sur un texte absent. Depuis D51, le bot
+/// est au deuxième étage à f1912 (« Étage 3 »).
+#[test]
+fn hud_text_sur_throne_progression() {
+    if map_ldtk::RENDER_ENABLED {
+        return;
+    }
+    let hud = |source: &str, contains: &str, at_frame: u32| Expectation::HudText {
+        source: source.into(),
+        contains: contains.into(),
+        at_frame,
+    };
+    verifie_attentes(
+        load_scenario("throne_progression"),
+        &[
+            hud("floor", "Étage 1", 60),
+            hud("ammo_by_type", "balles", 60),
+            hud("level", "Niv. 0", 60),
+            hud("rads", "rads", 60),
+            hud("level", "Niv. 1", 365),
+            hud("level", "Niv. 2", 1290),
+            hud("floor", "Étage 3", 1912),
+        ],
+        &[
+            (hud("level", "Niv. 2", 540), "attendu « Niv. 2 »"),
+            (hud("statuses", "brulure", 60), "attendu « brulure »"),
         ],
     );
 }

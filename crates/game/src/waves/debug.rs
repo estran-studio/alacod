@@ -40,11 +40,17 @@ fn update_wave_debug_text(
     wave_state: Res<WaveState>,
     wave_mode: Res<WaveModeEnabled>,
     debug_enabled: Res<WaveDebugEnabled>,
+    run: Option<Res<run::Run>>,
     mut query: Query<(&mut Text, &mut Visibility), With<WaveDebugText>>,
 ) {
+    // m1-cloture-videos-digest : l'overlay de vagues n'a de sens qu'en mode `Waves` (le runner
+    // de scénarios active `WaveModeEnabled` partout) ; présentation seule.
+    let waves_run = run
+        .as_deref()
+        .is_none_or(|run| matches!(run.mode, run::RunMode::Waves { .. }));
     for (mut text, mut visibility) in &mut query {
-        // Hide if debug disabled or wave mode disabled
-        if !debug_enabled.0 || !wave_mode.0 {
+        // Hide if debug disabled, wave mode disabled, or the run is not a wave run
+        if !debug_enabled.0 || !wave_mode.0 || !waves_run {
             *visibility = Visibility::Hidden;
             continue;
         }

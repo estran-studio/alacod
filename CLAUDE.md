@@ -138,7 +138,7 @@ fn my_system(mut rng: ResMut<RollbackRng>) {
 let fixed_val = Fixed::from_num(some_fixed_wide.to_num::<f32>());
 
 // ✅ CORRECT - Rester en fixed-point
-let fixed_val = Fixed::from_fixed_wide(some_fixed_wide);
+let fixed_val = Fixed::from_num(some_fixed_wide); // conversion fixe → fixe, sans f32
 ```
 
 #### 8. Logging Déterministe (pour comparaison des traces)
@@ -158,6 +158,9 @@ info!("Spawned hitbox for {}", net_id);
 info!("Player {} attacked", player.handle);  // Handle GGRS
 info!("Frame {}: damage {} applied", frame.frame, damage);  // Valeurs de jeu
 ```
+
+**Pourquoi?** On compare les logs entre clients avec `diff` pour détecter les desyncs.
+Si les logs contiennent des Entity IDs, le diff montrera des différences même si la simulation est synchronisée.
 
 #### 9. Despawn différé des entités rollback
 
@@ -180,10 +183,7 @@ commands.entity(entity).despawn_rollback();
 (`RollbackDespawned`) sont exclues des queries, des snapshots, du checksum et de la trace :
 la simulation se comporte exactement comme avec un despawn immédiat.
 
-**Pourquoi?** On compare les logs entre clients avec `diff` pour détecter les desyncs.
-Si les logs contiennent des Entity IDs, le diff montrera des différences même si la simulation est synchronisée.
-
-#### 9. Format GGRS Trace Logs (pour diff_log Makefile)
+#### 10. Format GGRS Trace Logs (pour diff_log Makefile)
 
 Les logs utilisés pour comparaison entre clients doivent suivre un format précis compatible avec `make diff_log`.
 
@@ -230,6 +230,10 @@ make diff_log CID_1=alice CID_2=bob
 
 ### Checklist pour Nouveau Système GGRS
 
+Le déroulé d'un nouveau vocabulaire (scénario → kind → composants → rollback → RNG → FrameEvents →
+traces → vidéo → doc) est dans `docs/conventions.md` §4 ; la checklist ci-dessous (règles GGRS et
+pièges) s'applique à chaque système et fait foi pour l'enregistrement rollback.
+
 - [ ] Query a `&GgrsNetId` en PREMIER si itération affecte l'état
 - [ ] Utilise `order_iter!` ou `order_mut_iter!` pour itérer
 - [ ] Trie par `net_id.0` (pas `entity.to_bits()`) avant traitement
@@ -275,7 +279,7 @@ make diff_log CID_1=alice CID_2=bob
 #### Événements dans la simulation
 **Jamais de `Message` bevy (`MessageReader`/`MessageWriter`) dans `GgrsSchedule`** : ils ne sont pas
 dans les snapshots et leurs curseurs ne sont pas rollbackés. Utiliser `FrameEvents<T>`
-(`crates/game/src/frame_events.rs`, `app.add_frame_events::<T>()`) : file vidée au début de chaque
+(`crates/sim_core/src/frame_events.rs`, réexporté par `game::frame_events` ; `app.add_frame_events::<T>()`) : file vidée au début de chaque
 frame (`RollbackSystemSet::FrameStart`), lue par les systèmes ordonnés après l'émetteur.
 
 Les visuels (portes, barres de vie, game over) se **dérivent de l'état** dans `Update`, jamais
@@ -325,6 +329,7 @@ Avant/après un refactoring de la simulation, comparer les traces : elles doiven
     - T1.8 mode `Floors` (§17) : `FloorIndex`.
     - T1.9 horloges (§23) : `Clock`.
     - T1.10 progression et mutations (§27) : `Gauge`, `Level`, `Mutations`.
+    - T1.18 HUD throne (§32) : `HudText` (texte d'une source du HUD, présentation, hors trace).
     - Réenregistrement : le scénario rejoué depuis son enregistrement garde ses réglages
       (`floors`, `clocks`, `difficulty`, `characters`, `mode`, `progression`, et chaque
       `PlayerScript` sans ses inputs) ; ses attentes y restent vertes
@@ -397,10 +402,10 @@ Rejouer avec `make play_scenario SCENARIO=<nom>` (avec rendu). Pour regénérer 
 
 **Test à N joueurs via matchbox** (serveur de signaling allumette) :
 ```bash
-make test_multiplayer N=4
+make test_multiplayer TARGET=ldtk_map_explorer N=4
 ```
 
-La cible généralise le nombre de joueurs : `make test_multiplayer N=2` (défaut) lance 2 instances (alice et bob), `N=4` en lance 4 (alice, bob, charlie, diana), etc. Toutes les instances :
+`TARGET` (sans défaut) choisit le binaire lancé en `$(TARGET)_matchbox`. La cible généralise le nombre de joueurs : `make test_multiplayer N=2` (défaut) lance 2 instances (alice et bob), `N=4` en lance 4 (alice, bob, charlie, diana), etc. Toutes les instances :
 - rejoignent le **même** lobby (`LOBBY`, `test` par défaut) : c'est là que les pairs se trouvent ;
 - reçoivent `NUMBER_PLAYER=N` et `PLAYERS="localhost remote…"` (un `remote` par pair) ;
 - se lancent à `TIMEOUT` secondes d'intervalle (défaut 10 s), le temps des connexions.
@@ -413,7 +418,7 @@ Après que tous les clients terminent :
 Pour utiliser un serveur allumette local (si disponible dans `docker-compose.yaml`) :
 ```bash
 docker compose up -d  # lance le serveur de signaling
-make test_multiplayer N=4 MATCHBOX_URL=http://localhost:3536  # URL personnalisée
+make test_multiplayer TARGET=ldtk_map_explorer N=4 MATCHBOX_URL=http://localhost:3536  # URL personnalisée
 ```
 
 Défaut : `MATCHBOX_URL=wss://allumette.bascanada.org` (serveur cloud).
@@ -509,15 +514,18 @@ masqué quand le texte est vide). Format détaillé : `docs/conventions.md` §15
 
 #### Types de widgets
 
-- `Bar(source)` : barre (seule la source `health` la remplit).
+- `Bar(source)` : barre (`health`, dégradé rouge → vert ; `rads`, T1.18, couleur du RON).
 - `Text(source, prefix)` : texte, `prefix` devant la valeur. Pour les sources T2.12 (`perks`,
   `downed`, `powerups`, `prompt`), une valeur vide n'affiche rien, pas même le préfixe.
 - `Icons(source)` (T2.12) : rangée de carrés de côté `size.1`, un par entrée de la source
-  (`perks`), couleur et étiquette lues dans `icons` (voir `docs/conventions.md` § HUD).
+  (`perks`), couleur et étiquette lues dans `icons` (voir `docs/conventions.md` §15).
 
 #### Sources de données
 
-Chaque widget est lié à une source. Une source inconnue provoque un `warn!` au chargement, le widget reste vide.
+Chaque widget est lié à une source de la liste fermée `content::ui::HUD_SOURCES` : une source
+inconnue est une erreur de lint (`UnknownKind`, T1.18) et un `warn!` au chargement.
+Les sources du joueur sont calculées par `game::ui::hud_model` (`hud_values`, pure) dans
+`HudSnapshot`, aussi en headless (attente `HudText`).
 
 - `health` : ratio et texte du joueur local (`current/max`). Les barres utilisent la ratio pour la largeur et interpolent rouge→vert. Les textes affichent la valeur.
 - `wave` : numéro de la vague actuelle (WaveState::current_wave).
@@ -543,6 +551,14 @@ Chaque widget est lié à une source. Une source inconnue provoque un `warn!` au
   « Ouvrir — $750 », « Acheter fusil à pompe — $1000 », « Munitions … — $500 » (arme déjà
   possédée), « Ramasser … », « Juggernog — $2500 » / « — possédé », « Réanimer »,
   « Réparer » (fenêtre abîmée) ; vide sinon, et vide pour un joueur à terre.
+- `rads` (T1.18, §32) : jauge de la progression active, « 5 / 8 rads » (valeur / seuil du
+  prochain niveau ; « 12 rads » au dernier) ; en barre, fraction depuis le seuil du niveau
+  courant ; vide sans progression.
+- `level` (T1.18) : « Niv. 2 » ; vide sans progression.
+- `ammo_by_type` (T1.18) : réserve de chaque munition `Custom`, une ligne par type
+  (« balles 120 »).
+- `statuses` (T1.18) : statuts posés, une ligne chacun (« brulure ×2 · 3 s »).
+- `floor` (T1.18) : « Étage 3 » (index + 1), en mode `Floors` seulement.
 
 Le joueur affiché est celui que la caméra suit de force (`--follow <handle>` de
 `play_scenario`), sinon le joueur local de plus petit handle. Les cercles de portée restent

@@ -321,14 +321,24 @@ Scenario(
             at_frame: 113,
         ),
         BulletCount(
-            count: 0,
+            count: 8,
             projectile: "eclat",
             at_frame: 174,
         ),
         HitsAtLeast(
             entity: Target,
-            hits: 11,
+            hits: 4,
             at_frame: 175,
+        ),
+        Event(
+            kind: "feedback",
+            label_contains: "secousse 35 (16 frames)",
+            by_frame: 113,
+        ),
+        Event(
+            kind: "feedback",
+            label_contains: "hit stop 35 (6 frames)",
+            by_frame: 113,
         ),
     ],
     powerup_drop_chance_override: "0",

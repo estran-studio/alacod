@@ -100,14 +100,17 @@ impl Room {
         their_room.set_connection(their_connection_index, self, my_connection_index);
     }
 
+    /// D46 : deux salles se chevauchent si leurs rectangles partagent une surface ; deux salles
+    /// **adjacentes** (bords qui se touchent, le cas de toute connexion) ne se chevauchent pas
+    /// (`<=` ; avec `<`, toute salle voisine aurait été déclarée en chevauchement).
     pub fn is_overlapping(&self, other: &Room) -> bool {
         // find if we are overlapping
-        let left_of_other = self.position.0 + self.level_def.level_size_p.0 < other.position.0;
-        let left_of_self = other.position.0 + other.level_def.level_size_p.0 < self.position.0;
+        let left_of_other = self.position.0 + self.level_def.level_size_p.0 <= other.position.0;
+        let left_of_self = other.position.0 + other.level_def.level_size_p.0 <= self.position.0;
 
         // Check if one square is above the other
-        let above_other = self.position.1 + self.level_def.level_size_p.1 < other.position.1;
-        let above_self = other.position.1 + other.level_def.level_size_p.1 < self.position.1;
+        let above_other = self.position.1 + self.level_def.level_size_p.1 <= other.position.1;
+        let above_self = other.position.1 + other.level_def.level_size_p.1 <= self.position.1;
 
         // If neither square is to the left or above the other, they overlap
         !(left_of_other || left_of_self || above_other || above_self)
@@ -155,5 +158,66 @@ impl Room {
                 )
             }
         }
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use crate::generation::context::LevelType;
+
+    fn room(x: i32, y: i32, w: i32, h: i32) -> Room {
+        let level = AvailableLevel {
+            level_id: "L".into(),
+            level_size: (w as usize / 16, h as usize / 16),
+            level_size_p: (w, h),
+            level_type: LevelType::Normal,
+            connections: vec![],
+            entity_locations: EntityLocations {
+                doors: vec![],
+                sodas: vec![],
+                player_spawns: vec![],
+                zombie_spawns: vec![],
+                crates: vec![],
+                weapons: vec![],
+                windows: vec![],
+                character_spawns: vec![],
+            },
+        };
+        Room {
+            level_iid: "iid".into(),
+            position: Position(x, y),
+            connections: vec![],
+            entity_locations: level.entity_locations.clone(),
+            level_def: Rc::new(level),
+            properties: HashMap::new(),
+        }
+    }
+
+    /// D46 : des salles voisines (bord commun) ne se chevauchent pas ; une surface commune, si.
+    #[test]
+    fn chevauchement_exclut_les_salles_adjacentes() {
+        let a = room(0, 0, 160, 160);
+        assert!(
+            !a.is_overlapping(&room(160, 0, 160, 160)),
+            "voisine à l'est"
+        );
+        assert!(
+            !a.is_overlapping(&room(-160, 0, 160, 160)),
+            "voisine à l'ouest"
+        );
+        assert!(!a.is_overlapping(&room(0, 160, 160, 160)), "voisine au sud");
+        assert!(
+            !a.is_overlapping(&room(0, -160, 160, 160)),
+            "voisine au nord"
+        );
+        assert!(!a.is_overlapping(&room(160, 160, 160, 160)), "coin");
+        assert!(
+            a.is_overlapping(&room(144, 0, 160, 160)),
+            "une colonne commune"
+        );
+        assert!(a.is_overlapping(&room(32, 32, 32, 32)), "incluse");
+        assert!(room(32, 32, 32, 32).is_overlapping(&a), "symétrie");
+        assert!(a.is_overlapping(&a.clone()), "même place");
     }
 }

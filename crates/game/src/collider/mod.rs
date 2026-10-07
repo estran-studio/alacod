@@ -13,8 +13,8 @@ use bevy_ggrs::{GgrsSchedule, Rollback};
 use bevy_light_2d::light::PointLight2d;
 
 pub use combat::collider::{
-    is_colliding, slide_axes, Collider, ColliderConfig, ColliderShape, CollisionLayer,
-    CollisionSettings, Wall, Window,
+    is_colliding, overlap_area, slide_axes, step_blocked_by, Collider, ColliderConfig,
+    ColliderShape, CollisionLayer, CollisionSettings, Wall, Window,
 };
 use utils::net_id::GgrsNetId;
 

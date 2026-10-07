@@ -1,4 +1,4 @@
-// I-frames du dash (course de movement-feel, conventions §30) : les 6 premières frames d'un dash
+// I-frames du dash (course de movement-feel, conventions §34) : les 6 premières frames d'un dash
 // rendent le joueur invulnérable, les balles le traversent. Le joueur 1 descend se plaquer contre
 // le mur sud de la salle de départ (y 608,2) ; le joueur 0 descend à 33 px au-dessus de lui
 // (y 641) et lui tire dessus à bout portant (tir ami `Always`, mitrailleuse à 30 coups/s : une

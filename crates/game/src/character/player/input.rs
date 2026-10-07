@@ -174,6 +174,7 @@ pub fn read_local_inputs(
     frame: Res<FrameCount>,
     scripted: Option<Res<ScriptedInputs>>,
     remote: Option<Res<RemoteInputs>>,
+    mutation_screen: Option<Res<crate::ui::mutation_screen::MutationScreenView>>,
 ) {
     let mut local_inputs = HashMap::new();
 
@@ -260,6 +261,13 @@ pub fn read_local_inputs(
         }
         if action_state.pressed(&PlayerAction::ChoiceC) {
             input.buttons |= INPUT_CHOICE_C;
+        }
+        // T1.16 : valider sur l'écran de mutation = le bit de la carte surlignée.
+        if action_state.pressed(&PlayerAction::ChoiceConfirm) {
+            input.buttons |= crate::ui::mutation_screen::confirm_input(
+                mutation_screen.as_deref(),
+                player.handle,
+            );
         }
 
         // F12 to force crash (debug)

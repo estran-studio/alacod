@@ -1,0 +1,40 @@
+// `throne` vague 2 de M1 (m1-integration-scenarios, docs/conventions.md §29) : quatre bots
+// `prudent` jouent la run complète (trois cavernes, `floors/run.ron`), avec tout ce que le manifeste
+// active (butin, progression, horloge, difficulté) et le boss `roi_rat` au niveau 3. Joué en
+// synctest par la suite : preuve de déterminisme à quatre joueurs.
+//
+// Mesuré (graine 123456, comme `alacod-sim --game throne --bots 4 --profiles
+// prudent,prudent,prudent,prudent --floors run --seeds 123456..123456 --until-floor 3` ;
+// m1-v3-bots-armes) : étages à f433, f854, f1902 ; portail du niveau 3 (boss `roi_rat` mort) ouvert
+// à f1633 ; alerte à f1754 (étage 2) ; quatrième caverne à f3255 ; les quatre vivants à la fin.
+// (D51 : étages à f428, f829, f2182 ; m1-v3-bots-softlocks : f489, f1120, f2590.)
+//
+// À regarder : quatre bots nettoient trois cavernes de plus en plus grandes ; au troisième, le roi
+// des rats (plus gros) quitte le coin le plus éloigné, tire en couronne, charge, puis tombe.
+Scenario(
+    game: "throne",
+    floors: Some("run"),
+    map_seed: 123456,
+    frames: 3400,
+    players: [
+        (bot: prudent),
+        (bot: prudent),
+        (bot: prudent),
+        (bot: prudent),
+    ],
+    expect: [
+        FloorIndex(index: 1, at_frame: 440),
+        FloorIndex(index: 2, at_frame: 860),
+        FloorIndex(index: 2, at_frame: 1900),
+        FloorIndex(index: 3, at_frame: 1905),
+        Event(kind: "portal", label_contains: Some("niveau 2"), by_frame: 1635),
+        Event(kind: "floor", label_contains: Some("niveau 3"), by_frame: 1905),
+        Event(kind: "levelup", by_frame: 525),
+        Event(kind: "mutation", by_frame: 1125),
+        Clock(id: "alerte", fired: true, at_frame: 1760),
+        PlayerAlive(handle: 0, at_frame: 3399),
+        PlayerAlive(handle: 1, at_frame: 3399),
+        PlayerAlive(handle: 2, at_frame: 3399),
+        PlayerAlive(handle: 3, at_frame: 3399),
+    ],
+)

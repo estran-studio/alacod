@@ -44,6 +44,26 @@ use utils::{
     rollback::RollbackTraceApp,
 };
 
+/// Direction d'une balle de tir simple (toutes les armes sauf `FiringMode::Shotgun`) : `aim_dir`
+/// tourné de `(random − ½) × spread`, donc dans `[−spread/2, spread/2]` ; `spread` = 0 → tir
+/// exactement dans la direction visée. Un seul tirage RNG par balle (`random`, flux `weapons`).
+/// D51 : avant, l'angle valait `(random − ½) × 1` quel que soit `spread` (±0,5 rad pour toutes les
+/// armes simples).
+pub fn single_shot_direction(
+    aim_dir: fixed_math::FixedVec2,
+    random: fixed_math::Fixed,
+    spread: fixed_math::Fixed,
+) -> fixed_math::FixedVec2 {
+    // `from_angle(0)` n'est pas l'identité exacte en `Fixed` (cos ≈ 1,00002) : spread 0 = visée
+    // exacte.
+    if spread == fixed_math::Fixed::ZERO {
+        return aim_dir;
+    }
+    let offset_from_center = random.saturating_sub(fixed_math::FIXED_HALF);
+    let angle = offset_from_center.saturating_mul(spread);
+    fixed_math::FixedMat2::from_angle(angle).mul_vec2(aim_dir)
+}
+
 // COMPONENTS
 #[derive(Debug, Clone, Copy, Hash, Serialize, Deserialize, PartialEq)]
 pub enum FiringMode {
@@ -1400,14 +1420,11 @@ pub fn weapon_rollback_system(
                             }
                             _ => {
                                 let random_fixed_val = rng_streams.get_mut("weapons").next_fixed();
-                                let offset_from_center =
-                                    random_fixed_val.saturating_sub(fixed_math::FIXED_HALF);
-                                let pellet_angle_fixed =
-                                    offset_from_center.saturating_mul(fixed_math::FIXED_ONE);
-
-                                let fixed_spread_rotation =
-                                    fixed_math::FixedMat2::from_angle(pellet_angle_fixed);
-                                let direction = fixed_spread_rotation.mul_vec2(aim_dir);
+                                let direction = single_shot_direction(
+                                    aim_dir,
+                                    random_fixed_val,
+                                    weapon_config.spread,
+                                );
 
                                 spawn_bullet_rollback(
                                     &mut commands,
@@ -1808,6 +1825,9 @@ impl Plugin for BaseWeaponGamePlugin {
         // Rollback components for melee weapons
         app.rollback_and_trace::<melee::MeleeWeapon>()
             .rollback_and_trace::<melee::MeleeAttackState>()
+            // D38 : type nouveau, sans porteur hors fuite : variante neutre (parité des types
+            // vides, CLAUDE.md), sinon toutes les traces bougent dès la frame 0.
+            .rollback_and_trace_neutral::<melee::MeleeHold>()
             .rollback_and_trace::<melee::MeleeHitbox>();
 
         app.add_systems(
@@ -1855,6 +1875,43 @@ impl Plugin for BaseWeaponGamePlugin {
             )
                 .chain()
                 .in_set(RollbackSystemSet::Projectiles),
+        );
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use bevy_fixed::fixed_math::{new as fx, Fixed, FixedVec2};
+
+    /// D51 : `spread` 0 → la direction visée exactement, quel que soit le tirage.
+    #[test]
+    fn dispersion_nulle_tir_exact() {
+        let aim = FixedVec2::new(fx(1.0), fx(0.0));
+        for random in [fx(0.0), fx(0.25), fx(0.5), fx(0.999)] {
+            assert_eq!(single_shot_direction(aim, random, Fixed::ZERO), aim);
+        }
+    }
+
+    /// D51 : l'angle reste dans `[−spread/2, spread/2]` (bornes atteintes aux tirages extrêmes) ;
+    /// avant le correctif, il couvrait ±0,5 rad pour toute arme.
+    #[test]
+    fn dispersion_dans_la_demi_largeur() {
+        let aim = FixedVec2::new(fx(1.0), fx(0.0));
+        let spread = fx(0.15);
+        for random in [fx(0.0), fx(0.1), fx(0.5), fx(0.9), fx(0.999)] {
+            let d = single_shot_direction(aim, random, spread);
+            let angle = d.y.to_num::<f64>().atan2(d.x.to_num::<f64>());
+            assert!(
+                angle.abs() <= 0.075 + 1e-3,
+                "tirage {random} : angle {angle}"
+            );
+        }
+        let d = single_shot_direction(aim, fx(0.0), spread);
+        let angle = d.y.to_num::<f64>().atan2(d.x.to_num::<f64>());
+        assert!(
+            (angle + 0.075).abs() < 2e-3,
+            "tirage 0 : −spread/2, obtenu {angle}"
         );
     }
 }

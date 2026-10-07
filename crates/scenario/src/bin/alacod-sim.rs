@@ -11,6 +11,10 @@
 //!   Les profils v0 restent disponibles : `fonceur,fonceur,prudent,immobile`.
 //! - `--map <fichier.ldtk>` : carte explicite relative aux assets du jeu ; sinon `start_map`.
 //! - `--progress` : état de la vague toutes les 1000 frames, hors simulation.
+//! - `--log` (D49) : journaux du jeu (`info!` de la simulation : dégâts, mises à terre, butin,
+//!   projectiles…) sur stderr, filtrés par `RUST_LOG` (défaut `info`), sans horodatage ni
+//!   couleur (comparables d'une exécution à l'autre). Sans `--log`, aucun subscriber : sorties et
+//!   JSON inchangés.
 //! - `--floors <id>` (T1.8) : mode `Floors` avec la séquence `id` du dossier `Floors` du jeu ;
 //!   le JSON rapporte `floor`, le niveau atteint (pas d'arrêt anticipé par niveau : T1.14).
 //!
@@ -56,6 +60,9 @@ struct SimResult {
     floor_frames: Vec<u32>,
     /// T1.14 : dégâts subis par les joueurs (somme des baisses de santé).
     damage_taken: u32,
+    /// D43 : issue de la partie (`"Defeat"`, `"Victory"`…) et sa frame, si elle est terminée.
+    #[serde(skip_serializing_if = "Option::is_none")]
+    run_end: Option<(String, u32)>,
     /// T1.14 : frames où l'esquive a remplacé le déplacement d'au moins un bot `prudent`.
     #[serde(skip_serializing_if = "is_zero")]
     dodges: u32,
@@ -65,6 +72,23 @@ struct SimResult {
     /// d'arrêt volontaire.
     #[serde(skip_serializing_if = "Option::is_none")]
     softlock: Option<scenario::softlock::SoftlockDump>,
+    /// Analyse Depart (m1-d36-et-analyse-depart) : portes ouvertes (moments clés `door`).
+    doors_opened: u32,
+    /// État de chaque joueur à l'arrêt de la graine (objectif atteint, fin de partie ou
+    /// plafond) : solde, position, présence dans la salle de départ.
+    players_end: Vec<PlayerEnd>,
+}
+
+/// Hors simulation : relu dans `Last` à chaque frame, la dernière valeur est rapportée.
+#[derive(Serialize, Clone, Debug)]
+struct PlayerEnd {
+    handle: usize,
+    currency: u32,
+    downed: bool,
+    x: f32,
+    y: f32,
+    /// Dans la salle de départ (`RoomConfig::spawn`) ; `None` hors de toute salle connue.
+    in_spawn_room: Option<bool>,
 }
 
 fn is_zero(value: &u32) -> bool {
@@ -95,6 +119,18 @@ fn stop_condition(
 
 fn main() {
     let args: Vec<String> = std::env::args().skip(1).collect();
+    // D49 : `--log` installe le subscriber que le binaire n'avait pas (`RUST_LOG` restait muet).
+    if args.iter().any(|arg| arg == "--log") {
+        tracing_subscriber::fmt()
+            .with_writer(std::io::stderr)
+            .without_time()
+            .with_ansi(false)
+            .with_env_filter(
+                tracing_subscriber::EnvFilter::try_from_default_env()
+                    .unwrap_or_else(|_| tracing_subscriber::EnvFilter::new("info")),
+            )
+            .init();
+    }
     let opt = |name: &str| -> Option<String> {
         args.iter().position(|a| a == name).map(|i| {
             args.get(i + 1)
@@ -107,7 +143,7 @@ fn main() {
             panic!(
                 "usage : alacod-sim --game <jeu> --bots <n> [--profiles <a,b,...>] \
                  --seeds <de>..<à> (--until-wave <n> | --floors <séquence> --until-floor <n>) \
-                 --max-frames <n> [--map <fichier.ldtk>] [--save-scenario <dossier>] [--json <fichier>] ({name} manquant)"
+                 --max-frames <n> [--map <fichier.ldtk>] [--save-scenario <dossier>] [--json <fichier>] [--log] ({name} manquant)"
             )
         })
     };
@@ -212,9 +248,13 @@ fn main() {
             until_wave,
             until_floor,
             stop_when_all_players_dead: true,
+            // D43 : une partie terminée (défaite ou victoire) n'est plus jouée jusqu'au plafond
+            stop_when_run_ended: true,
         };
         let dodges = std::sync::Arc::new(std::sync::atomic::AtomicU32::new(0));
         let dodges_probe = dodges.clone();
+        let players_end = std::sync::Arc::new(std::sync::Mutex::new(Vec::<PlayerEnd>::new()));
+        let players_end_probe = players_end.clone();
 
         let wall_start = Instant::now();
         // `InputSource::Bot` : aucun joueur scripté ici, contrairement aux scénarios RON qui
@@ -229,6 +269,39 @@ fn main() {
                     bevy::prelude::Last,
                     move |stats: bevy::prelude::Res<bots::BotStats>| {
                         dodges_probe.store(stats.dodges, std::sync::atomic::Ordering::Relaxed);
+                    },
+                );
+                app.add_systems(
+                    bevy::prelude::Last,
+                    move |players: bevy::prelude::Query<(
+                        &combat::actors::Player,
+                        &bevy_fixed::fixed_math::FixedTransform3D,
+                        Option<&run::currency::Currency>,
+                        bevy::prelude::Has<combat::downed::Downed>,
+                    )>,
+                          rooms: bevy::prelude::Query<(
+                        &map::game::entity::map::room::RoomComponent,
+                        &map::game::entity::map::room::RoomBounds,
+                    )>| {
+                        let mut snapshot: Vec<PlayerEnd> = players
+                            .iter()
+                            .map(|(player, transform, currency, downed)| {
+                                let pos = transform.translation.truncate();
+                                PlayerEnd {
+                                    handle: player.handle,
+                                    currency: currency.map_or(0, |c| c.0),
+                                    downed,
+                                    x: pos.x.to_num::<f32>(),
+                                    y: pos.y.to_num::<f32>(),
+                                    in_spawn_room: rooms
+                                        .iter()
+                                        .find(|(_, bounds)| bounds.contains(pos))
+                                        .map(|(room, _)| room.config.spawn),
+                                }
+                            })
+                            .collect();
+                        snapshot.sort_by_key(|p| p.handle);
+                        *players_end_probe.lock().unwrap() = snapshot;
                     },
                 );
                 if args.iter().any(|arg| arg == "--progress") {
@@ -258,8 +331,14 @@ fn main() {
         let sim_fps = outcome.metrics.sim_fps;
         let desync_flag = if desync { "  DESYNC" } else { "" };
         let floor = outcome.metrics.final_floor;
+        // D43 : fin de la graine (issue de la partie, soft-lock, ou objectif / plafond)
+        let end = match (&outcome.metrics.run_end, &outcome.softlock) {
+            (Some((issue, at)), _) => format!("{issue} f{at}"),
+            (None, Some(_)) => "soft-lock".to_string(),
+            (None, None) => "objectif".to_string(),
+        };
         eprintln!(
-            "seed {seed:>6} : vague {wave:>2}  niveau {floor:>2}  frames {frames_reached:>6}  morts {deaths}/{bots}  kills {kills:>3}  {sim_fps:>6.1} fps  {wall_seconds:>5.2}s{desync_flag}"
+            "seed {seed:>6} : vague {wave:>2}  niveau {floor:>2}  frames {frames_reached:>6}  morts {deaths}/{bots}  kills {kills:>3}  {sim_fps:>6.1} fps  {wall_seconds:>5.2}s  fin {end}{desync_flag}"
         );
 
         results.push(SimResult {
@@ -279,9 +358,12 @@ fn main() {
                 .map(|e| e.frame)
                 .collect(),
             damage_taken: outcome.metrics.damage_taken,
+            run_end: outcome.metrics.run_end.clone(),
             dodges: dodges.load(std::sync::atomic::Ordering::Relaxed),
             failures: outcome.failures,
             softlock: outcome.softlock,
+            doors_opened: outcome.events.iter().filter(|e| e.kind == "door").count() as u32,
+            players_end: players_end.lock().unwrap().clone(),
         });
     }
 

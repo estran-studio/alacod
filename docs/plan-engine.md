@@ -44,7 +44,7 @@ plan), **H** Hades, **Z** CoD Zombies, **1837**.
 | Tir joueur : modes, chargeurs, rechargement, dispersion | ● | | ● | ● | | ● | ● | ✅ `weapons` |
 | Corps à corps : patterns, hitbox, recul | ● | | ● | | ● | ● | ● | ✅ `weapons/melee` |
 | Parade et renvoi de projectiles | | | | | ● | | ● | ❌ |
-| Esquive avec invulnérabilité, variantes par classe | ● | | | | ● | | ● | 🟡 dash à i-frames, course nerveuse (movement-feel, `docs/conventions.md` §30) ; charges et variantes en données à faire (B6) |
+| Esquive avec invulnérabilité, variantes par classe | ● | | | | ● | | ● | 🟡 dash à i-frames, course nerveuse (movement-feel, `docs/conventions.md` §34) ; charges et variantes en données à faire (B6) |
 | Projectiles composables (rebond, perce, guidé, division, orbite, taille, durée) | ● | ● | ● | | ● | | ● | 🟡 trois types fixes |
 | Patterns de tir ennemis (anneau, spirale, visé, salve, séquence) | ● | ● | ● | ● | ● | | ● | ❌ les ennemis n'ont que la mêlée |
 | Équipes, tir ami configurable, dégâts typés, résistances, immunités | ● | ● | ● | ● | ● | ● | ● | ❌ couches de collision seulement |

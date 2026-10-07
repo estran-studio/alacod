@@ -41,7 +41,7 @@ pub fn create_character(
 
     // Stats de base additionnelles, posées avant les surcharges `CharacterConfig::stats`
     // du RON (qui gagnent toujours) : sert à `enemy::create::spawn_enemy` pour les cinq
-    // stats d'ennemi (T1.2, `docs/conventions.md` §7) qui n'ont pas de champ dédié dans
+    // stats d'ennemi (T1.2, `docs/conventions.md` §9) qui n'ont pas de champ dédié dans
     // `CharacterConfig` (elles viennent de `PathfindingConfig::default()`, pas du RON du
     // personnage). Vide pour un joueur (`player::create::create_player`).
     extra_stat_defaults: &[(StatId, fixed_math::Fixed)],
@@ -115,7 +115,7 @@ pub fn create_character(
 
     let health = new_health(health_max);
 
-    // Stats de base (T1.2, chantier B2, `docs/conventions.md` §7) : dérivées des champs
+    // Stats de base (T1.2, chantier B2, `docs/conventions.md` §9) : dérivées des champs
     // existants de `CharacterConfig`, puis `extra_stat_defaults` (ennemis), puis
     // `config.stats` du RON en dernier — RON gagne toujours. Aucun de ces défauts ne
     // change la simulation d'un personnage qui ne déclare pas `stats:` : c'est exactement

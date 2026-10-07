@@ -1,0 +1,35 @@
+// D43 (m1-d43-d44-fin-de-partie, réécrit dans m1-d43-defaite-scriptee) : défaite en mode `Floors`
+// à deux joueurs, **sans bot** (deux joueurs scriptés immobiles) : le scénario ne dépend d'aucun
+// profil de bot (les correctifs et la réanimation des bots changeaient son issue). Les ennemis
+// de mêlée du premier étage (`cave:niveau_1` : rat, chien, rodeur) viennent frapper les deux
+// joueurs à leur point d'apparition ; le joueur 0 tombe à terre, le joueur 1 meurt sans pouvoir
+// le relever ; la défaite est déclarée dès que tous les joueurs restants sont à terre ou morts
+// (`rollback_check_defeat`), pendant que le joueur 0 saigne encore. Joué en synctest.
+//
+// Mesuré (graine 28) : joueur 0 à terre à f853 (saignement jusqu'à f2653) ; joueur 1 mort à
+// f967, `Run.step = Ended { Defeat, at_frame: 966 }` ; le joueur 0 est encore à terre après.
+//
+// À regarder : les deux joueurs immobiles dans la première caverne ; l'un tombe, l'autre meurt,
+// « DÉFAITE ».
+Scenario(
+    game: "throne",
+    floors: Some("run"),
+    map_seed: 28,
+    frames: 1000,
+    // Isoler ce scénario des drops aléatoires.
+    powerup_drop_chance_override: "0.0",
+    players: [
+        (),
+        (),
+    ],
+    expect: [
+        FloorIndex(index: 0, at_frame: 960),
+        RunState(step: Playing, at_frame: 966),
+        PlayerDowned(handle: 0, at_frame: 870),
+        PlayerAlive(handle: 1, at_frame: 966),
+        Defeat(by_frame: 967),
+        RunState(step: Ended(Defeat), at_frame: 968),
+        // Défaite déclarée pendant que le dernier joueur saigne encore
+        PlayerDowned(handle: 0, at_frame: 990),
+    ],
+)

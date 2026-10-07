@@ -9,6 +9,11 @@
 //!   atteinte (requis : la trace n'est écrite qu'à ce moment). La trace compte alors `n - 1`
 //!   lignes, pas `n` : la toute dernière frame n'a pas le temps d'être enregistrée avant
 //!   l'arrêt (voir [`write_trace_at_exit_frame`]).
+//! - `ALACOD_RESTART_AT_FRAME=<r>` (D14, §33) : deux parties. À la frame `r` de la première,
+//!   écrit sa trace dans `<fichier>-g1`, puis pose `RunRequest::Restart`
+//!   [`RESTART_GRACE_FRAMES`] frames plus tard (le temps que le pair atteigne lui aussi `r`) ;
+//!   la seconde partie écrit `<fichier>-g2` à `ALACOD_EXIT_AT_FRAME` (compté depuis son début)
+//!   et quitte.
 //!
 //! Deux runs avec les mêmes inputs et les mêmes seeds doivent produire le même
 //! fichier. En synctest, une frame resimulée remplace sa ligne précédente.
@@ -56,7 +61,7 @@ pub struct StateTraceRecorder {
     /// Lignes complètes (hash puis détail), pour **toutes** les frames simulées, sans la
     /// limite de `history` (`HISTORY_LEN`) : peuplé seulement quand
     /// [`StateTraceRecorderPlugin::dump`] est actif (outil de preuve permanent, T1.2 —
-    /// voir `docs/conventions.md` §8 « Blesser une trace : la preuve »). `None` sinon,
+    /// voir `docs/conventions.md` §10 « Blesser une trace : la preuve »). `None` sinon,
     /// pour ne rien coûter en usage normal (tests de scénario, jeu).
     dump: Option<BTreeMap<u32, String>>,
 }
@@ -74,6 +79,16 @@ pub struct Divergence {
 }
 
 impl StateTraceRecorder {
+    /// Oublie tout ce qui a été enregistré (nouvelle partie, D14).
+    pub fn clear(&mut self) {
+        self.frames.clear();
+        self.divergences.clear();
+        self.history.clear();
+        if let Some(dump) = self.dump.as_mut() {
+            dump.clear();
+        }
+    }
+
     /// Lignes des frames `0..end`, dans l'ordre.
     pub fn lines_until(&self, end: u32) -> impl Iterator<Item = &str> {
         self.frames.range(..end).map(|(_, line)| line.as_str())
@@ -195,7 +210,7 @@ pub struct StateTraceRecorderPlugin {
     /// elle-même (un dossier, typiquement `ALACOD_DUMP_TRACE`) n'est pas utilisée par ce
     /// plugin : c'est l'appelant (`crates/scenario/tests/scenarios.rs`) qui sait dans quel
     /// fichier — `<dossier>/<scénario>.full` — écrire ces lignes une fois le scénario
-    /// terminé (voir `docs/conventions.md` §8 « Blesser une trace : la preuve »).
+    /// terminé (voir `docs/conventions.md` §10 « Blesser une trace : la preuve »).
     pub dump: Option<PathBuf>,
 }
 
@@ -219,12 +234,60 @@ impl Plugin for StateTraceRecorderPlugin {
 #[derive(SystemSet, Debug, Clone, PartialEq, Eq, Hash)]
 pub struct ExitRequests;
 
+/// Frames jouées après l'écriture de `<fichier>-g1` avant de poser `RunRequest::Restart`.
+pub const RESTART_GRACE_FRAMES: u32 = 60;
+
 /// Destination fichier de la trace (variables d'environnement).
 #[derive(Resource)]
 struct StateTraceFile {
     path: PathBuf,
     exit_at_frame: u32,
     written: bool,
+    /// D14 : `ALACOD_RESTART_AT_FRAME`.
+    restart_at_frame: Option<u32>,
+    /// Partie courante (1, puis 2 après le restart).
+    game: u32,
+    /// `<fichier>-g1` écrit, `RunRequest::Restart` posé.
+    first_written: bool,
+    restart_requested: bool,
+}
+
+/// Ce que [`write_trace_at_exit_frame`] fait à cette frame (pur, D14).
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+enum TraceStep {
+    Nothing,
+    /// Écrire la trace de la partie `game` (suffixe `-g{game}` si restart) et quitter.
+    WriteAndExit,
+    /// Écrire `-g1` (restart à venir).
+    WriteFirst,
+    /// Poser `RunRequest::Restart`.
+    Restart,
+}
+
+fn trace_step(
+    frame: u32,
+    exit_at_frame: u32,
+    restart_at_frame: Option<u32>,
+    game: u32,
+    first_written: bool,
+    restart_requested: bool,
+) -> TraceStep {
+    match restart_at_frame {
+        Some(restart_at) if game == 1 => {
+            if !first_written && frame >= restart_at {
+                TraceStep::WriteFirst
+            } else if first_written
+                && !restart_requested
+                && frame >= restart_at + RESTART_GRACE_FRAMES
+            {
+                TraceStep::Restart
+            } else {
+                TraceStep::Nothing
+            }
+        }
+        _ if frame >= exit_at_frame => TraceStep::WriteAndExit,
+        _ => TraceStep::Nothing,
+    }
 }
 
 /// Trace d'état pilotée par les variables d'environnement (voir le module).
@@ -252,8 +315,19 @@ impl Plugin for StateTracePlugin {
             path: path.into(),
             exit_at_frame,
             written: false,
+            restart_at_frame: std::env::var("ALACOD_RESTART_AT_FRAME").ok().map(|v| {
+                v.parse()
+                    .expect("ALACOD_RESTART_AT_FRAME doit être un entier")
+            }),
+            game: 1,
+            first_written: false,
+            restart_requested: false,
         })
-        .add_systems(Last, write_trace_at_exit_frame.in_set(ExitRequests));
+        .add_systems(Last, write_trace_at_exit_frame.in_set(ExitRequests))
+        .add_systems(
+            OnExit(crate::core::AppState::InGame),
+            next_game_after_restart,
+        );
     }
 }
 
@@ -338,14 +412,91 @@ fn record_state(world: &mut World) {
     recorder.frames.insert(frame, hash_line);
 }
 
+/// D14 : à la sortie de la première partie (restart demandé), la trace repart de zéro.
+fn next_game_after_restart(
+    mut file: ResMut<StateTraceFile>,
+    mut trace: ResMut<StateTraceRecorder>,
+) {
+    if file.restart_requested && file.game == 1 {
+        file.game = 2;
+        trace.clear();
+    }
+}
+
+/// Avec `ALACOD_STATE_TRACE_FULL=1` : écrit aussi `<fichier>.full`, le détail des dernières
+/// frames enregistrées (`history`, dernière version de chaque frame `< end`), pour trouver
+/// l'état qui diffère entre deux traces (`scripts/trace-diff.py`).
+fn write_full_history(path: &std::path::Path, trace: &StateTraceRecorder, end: u32) {
+    if !trace.full {
+        return;
+    }
+    let mut last: BTreeMap<u32, &str> = BTreeMap::new();
+    for (frame, line) in &trace.history {
+        if *frame < end {
+            last.insert(*frame, line);
+        }
+    }
+    let out: String = last.values().map(|line| format!("{line}\n")).collect();
+    let mut name = path.as_os_str().to_owned();
+    name.push(".full");
+    std::fs::write(PathBuf::from(name), out).expect("écriture de la trace détaillée");
+}
+
+/// Fichier de la trace de la partie `game` : `<fichier>-g{game}` en mode restart.
+fn trace_path(path: &std::path::Path, restart: bool, game: u32) -> PathBuf {
+    if restart {
+        let mut name = path.as_os_str().to_owned();
+        name.push(format!("-g{game}"));
+        PathBuf::from(name)
+    } else {
+        path.to_path_buf()
+    }
+}
+
 fn write_trace_at_exit_frame(
+    mut commands: Commands,
     frame: Res<FrameCount>,
     trace: Res<StateTraceRecorder>,
     mut file: ResMut<StateTraceFile>,
     mut exit: MessageWriter<AppExit>,
 ) {
-    if file.written || frame.frame < file.exit_at_frame {
+    if file.written {
         return;
+    }
+    let step = trace_step(
+        frame.frame,
+        file.exit_at_frame,
+        file.restart_at_frame,
+        file.game,
+        file.first_written,
+        file.restart_requested,
+    );
+    let restart = file.restart_at_frame.is_some();
+    match step {
+        TraceStep::Nothing => return,
+        TraceStep::Restart => {
+            info!(
+                "ALACOD_RESTART_AT_FRAME : RunRequest::Restart à la frame {}",
+                frame.frame
+            );
+            commands.insert_resource(crate::run_state::RunRequest::Restart);
+            file.restart_requested = true;
+            return;
+        }
+        TraceStep::WriteFirst => {
+            let restart_at = file.restart_at_frame.unwrap_or(0);
+            let path = trace_path(&file.path, true, 1);
+            let out: String = trace
+                .lines_until(restart_at)
+                .map(|line| format!("{line}\n"))
+                .collect();
+            std::fs::write(&path, out).expect("écriture de la trace d'état");
+            write_full_history(&path, &trace, restart_at);
+            info!("trace d'état de la partie 1 écrite dans {path:?}");
+            file.first_written = true;
+            return;
+        }
+        TraceStep::WriteAndExit => {}
     }
     // La toute dernière frame demandée (`exit_at_frame - 1`) manque systématiquement :
     // `record_state` vit dans `SaveWorld`, et la `SaveGameState` de cette dernière frame
@@ -360,8 +511,65 @@ fn write_trace_at_exit_frame(
         out.push_str(line);
         out.push('\n');
     }
-    std::fs::write(&file.path, out).expect("écriture de la trace d'état");
-    info!("trace d'état écrite dans {:?}", file.path);
+    let path = trace_path(&file.path, restart, file.game);
+    std::fs::write(&path, out).expect("écriture de la trace d'état");
+    write_full_history(&path, &trace, file.exit_at_frame);
+    info!("trace d'état écrite dans {path:?}");
     file.written = true;
     exit.write(AppExit::Success);
+}
+
+#[cfg(test)]
+mod restart_tests {
+    use super::*;
+
+    #[test]
+    fn deux_parties() {
+        // Sans restart : inchangé.
+        assert_eq!(
+            trace_step(599, 600, None, 1, false, false),
+            TraceStep::Nothing
+        );
+        assert_eq!(
+            trace_step(600, 600, None, 1, false, false),
+            TraceStep::WriteAndExit
+        );
+        // Partie 1 : -g1 à 600, restart 60 frames plus tard, jamais d'arrêt.
+        let step = |frame, first, requested| trace_step(frame, 400, Some(600), 1, first, requested);
+        assert_eq!(
+            step(450, false, false),
+            TraceStep::Nothing,
+            "exit ignoré en partie 1"
+        );
+        assert_eq!(step(600, false, false), TraceStep::WriteFirst);
+        assert_eq!(step(620, true, false), TraceStep::Nothing);
+        assert_eq!(step(660, true, false), TraceStep::Restart);
+        assert_eq!(step(661, true, true), TraceStep::Nothing);
+        // Partie 2 : exit relatif à son début.
+        assert_eq!(
+            trace_step(399, 400, Some(600), 2, true, true),
+            TraceStep::Nothing
+        );
+        assert_eq!(
+            trace_step(400, 400, Some(600), 2, true, true),
+            TraceStep::WriteAndExit
+        );
+    }
+
+    #[test]
+    fn suffixe_des_fichiers() {
+        let path = std::path::Path::new("/tmp/p2p-0.trace");
+        assert_eq!(
+            trace_path(path, false, 1),
+            PathBuf::from("/tmp/p2p-0.trace")
+        );
+        assert_eq!(
+            trace_path(path, true, 1),
+            PathBuf::from("/tmp/p2p-0.trace-g1")
+        );
+        assert_eq!(
+            trace_path(path, true, 2),
+            PathBuf::from("/tmp/p2p-0.trace-g2")
+        );
+    }
 }

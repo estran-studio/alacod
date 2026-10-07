@@ -15,6 +15,7 @@
 //! (`bots` dépend de `game`, `sim_core`, `bevy_fixed`, `utils`, `map` — jamais l'inverse). Ce
 //! crate le ré-exporte pour que les appelants écrivent `bots::BotProfile` uniformément.
 
+pub mod arms;
 pub mod decide;
 pub mod dodge;
 pub mod hunter;

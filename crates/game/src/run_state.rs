@@ -26,10 +26,8 @@
 //! `bevy_ggrs::schedule_systems::run_ggrs_schedules`), `Run` elle-même, et les ressources
 //! rollback globales qui ne sont pas réinitialisées ailleurs par le chargement normal d'une
 //! partie (`FrameCount`, `GgrsNetIdFactory`, `WaveState`, `FlowFieldCache`,
-//! `RepairPointsTracking`). La grille dérivée des murs (`CollisionGrids`, non rollback) aussi :
-//! sa signature (nombre de murs, somme des `GgrsNetId`) est la même à la relance (mêmes murs,
-//! mêmes ids), elle ne se reconstruisait pas et gardait les `Entity` des murs détruits —
-//! plus aucun mur ne bloquait (revue M0, R4, test `restart_keeps_walls_solid`). **`bevy_ggrs::RollbackOrdered`** (interne à bevy_ggrs, pas
+//! `RepairPointsTracking`), et la donnée dérivée `CollisionGrids` (D14 : sa grille de murs
+//! n'est reconstruite que si la signature des murs change). **`bevy_ggrs::RollbackOrdered`** (interne à bevy_ggrs, pas
 //! passée par `RollbackTraceApp`) aussi : elle compte *tous* les `Rollback` jamais créés
 //! depuis le lancement du processus (pas juste la partie en cours, voir sa doc), et
 //! contribue au checksum via `EntityChecksumPlugin` — sans ce reset, la relance produit un
@@ -44,8 +42,9 @@
 //! valeurs quand `game::jjrs::{local, p2p}` recrée `Run`/`RunSeed`/`RngStreams`/`Session` au
 //! prochain `OnEnter(AppState::GameStarting)`.
 //!
-//! **Restart en p2p** : non supporté par ce chantier (voir la doc de
-//! [`RunRequest::Restart`]) — redirigé vers `ToLobby`.
+//! **Restart en p2p** : livré par D14 (`jjrs::restart`, `docs/conventions.md` §33) avec
+//! `--matchbox` ; seul `--allumette` reste redirigé vers `ToLobby` (voir la doc de
+//! [`RunRequest::Restart`]).
 
 use bevy::prelude::*;
 use bevy_ggrs::{GgrsSchedule, Rollback, RollbackOrdered, Session};
@@ -65,7 +64,6 @@ use crate::{
         enemy::{ai::navigation::FlowFieldCache, Enemy},
         player::{jjrs::PeerConfig, Player},
     },
-    collision_grid::CollisionGrids,
     core::{AppState, OnlineState},
     economy::{award_points_system, RepairPointsTracking},
     system_set::RollbackSystemSet,
@@ -147,10 +145,9 @@ pub fn floor_levels(mode: &RunMode, registry: Option<&Registry>) -> Option<Vec<S
 #[derive(Resource, Debug, Clone, Copy, PartialEq, Eq)]
 pub enum RunRequest {
     /// Rejoue la même configuration (même carte, même graine, mêmes joueurs) sans
-    /// relancer le binaire. **Local seulement** : en p2p (`OnlineState::Online`), ce
-    /// chantier ne resynchronise pas une nouvelle session entre pairs à partir d'un
-    /// signal local — `apply_run_request_system` traite alors `Restart` comme
-    /// `ToLobby` (le bouton « renvoie au lobby », comme demandé par la tâche).
+    /// relancer le binaire. En p2p (D14, §33) : nouvelle session avec les mêmes pairs dans
+    /// la salle `{lobby}-r{n}`, graine dérivée du numéro de partie (`jjrs::restart`), sans
+    /// message réseau ; en allumette, pas encore : traité comme `ToLobby`.
     Restart,
     /// Retour au lobby (`LobbyLocal`/`LobbyOnline` selon `OnlineState`).
     ToLobby,
@@ -178,13 +175,32 @@ struct RunRequestPlan {
     abandon: bool,
     /// Retour au lobby **local** : il attend une action du joueur ([`LocalLobbyHold`]).
     hold_local_lobby: bool,
-    /// `Restart` demandé en p2p, traité comme `ToLobby` (voir [`RunRequest::Restart`]).
+    /// `Restart` demandé en p2p sans restart en ligne possible (allumette), traité comme
+    /// `ToLobby` (voir [`RunRequest::Restart`]).
     restart_redirected: bool,
+    /// D14 : `Restart` en ligne : `LobbyOnline` avec `jjrs::restart::OnlineRestart`.
+    online_restart: bool,
 }
 
-fn plan_run_request(request: RunRequest, online: bool, playing: bool) -> RunRequestPlan {
-    let restart_redirected = request == RunRequest::Restart && online;
-    if request == RunRequest::ToLobby || restart_redirected {
+/// `restart_online` : le restart en ligne est possible (chemin `--matchbox`, D14).
+fn plan_run_request(
+    request: RunRequest,
+    online: bool,
+    playing: bool,
+    restart_online: bool,
+) -> RunRequestPlan {
+    let restart_redirected = request == RunRequest::Restart && online && !restart_online;
+    if request == RunRequest::Restart && online && restart_online {
+        // D14 : même règle que le restart local (pas d'abandon), mais via une nouvelle
+        // session en ligne.
+        RunRequestPlan {
+            next: AppState::LobbyOnline,
+            abandon: false,
+            hold_local_lobby: false,
+            restart_redirected: false,
+            online_restart: true,
+        }
+    } else if request == RunRequest::ToLobby || restart_redirected {
         RunRequestPlan {
             next: if online {
                 AppState::LobbyOnline
@@ -194,6 +210,7 @@ fn plan_run_request(request: RunRequest, online: bool, playing: bool) -> RunRequ
             abandon: playing,
             hold_local_lobby: !online,
             restart_redirected,
+            online_restart: false,
         }
     } else {
         // Restart local : `MapGenerationConfig`/`GggrsSessionConfiguration`/
@@ -204,6 +221,7 @@ fn plan_run_request(request: RunRequest, online: bool, playing: bool) -> RunRequ
             abandon: false,
             hold_local_lobby: false,
             restart_redirected: false,
+            online_restart: false,
         }
     }
 }
@@ -361,6 +379,7 @@ pub fn finalize_run_summary_system(
 /// ressources) est déclenchée par la transition d'état elle-même
 /// (`OnExit(AppState::InGame)`, voir [`cleanup_rollback_world_system`] et la doc du
 /// module), pas ici.
+#[allow(clippy::too_many_arguments)]
 fn apply_run_request_system(
     mut commands: Commands,
     request: Option<Res<RunRequest>>,
@@ -372,15 +391,25 @@ fn apply_run_request_system(
     enemies: Query<(), With<Enemy>>,
     currencies: Query<(&GgrsNetId, &Currency), With<Player>>,
     mut run: ResMut<Run>,
+    ggrs_config: Option<Res<crate::jjrs::GggrsSessionConfiguration>>,
+    online_games: Res<crate::jjrs::restart::OnlineGames>,
 ) {
     let Some(request) = request else {
         return;
     };
 
     let online = matches!(*online_state, OnlineState::Online);
-    let plan = plan_run_request(*request, online, run.is_playing());
+    // D14 : restart en ligne sur le chemin `--matchbox` seulement (pas en allumette).
+    let restart_online = ggrs_config.is_some_and(|c| c.allumette_url.is_empty());
+    let plan = plan_run_request(*request, online, run.is_playing(), restart_online);
     if plan.restart_redirected {
-        warn!("RunRequest::Restart demandé en p2p : non supporté, retour au lobby à la place (voir la doc de RunRequest::Restart)");
+        warn!("RunRequest::Restart demandé en allumette : non supporté, retour au lobby à la place (voir la doc de RunRequest::Restart)");
+    }
+    if plan.online_restart {
+        commands.insert_resource(crate::jjrs::restart::OnlineRestart {
+            game: online_games.0,
+            since: None,
+        });
     }
     if plan.abandon {
         run.step = RunStep::Ended {
@@ -448,9 +477,12 @@ fn cleanup_rollback_world_system(
     commands.insert_resource(run::Clock::default());
     commands.insert_resource(FlowFieldCache::default());
     commands.insert_resource(RepairPointsTracking::default());
-    // Revue M0 (R4) : sinon la grille des murs garde les `Entity` de la partie précédente
-    // (même signature à la relance, voir la doc du module).
-    commands.insert_resource(CollisionGrids::default());
+    // D14 : grilles de collision dérivées (hors rollback). La grille des murs n'est
+    // reconstruite que si la signature (nombre, somme des `GgrsNetId`) des murs change : une
+    // partie relancée recrée les mêmes murs, mêmes net ids, donc même signature — sans ce
+    // reset, la grille gardait les `Entity` des murs détruits et la partie 2 ne voyait plus
+    // de murs (divergence f304 du restart local, `scripts/p2p-restart.sh`).
+    commands.insert_resource(crate::collision_grid::CollisionGrids::default());
     // Compteur cumulatif interne à bevy_ggrs (voir la doc du module) : sans ce reset, le
     // checksum de la frame 0 d'une partie relancée diffère de celui d'un boot frais, même à
     // état de jeu par ailleurs strictement identique.
@@ -467,30 +499,50 @@ mod tests {
     #[test]
     fn to_lobby_en_local_abandonne_et_fait_attendre_le_lobby() {
         // D13 : partie en cours quittée vers le lobby local.
-        let plan = plan_run_request(RunRequest::ToLobby, false, true);
+        let plan = plan_run_request(RunRequest::ToLobby, false, true, true);
         assert_eq!(plan.next, AppState::LobbyLocal);
         assert!(plan.abandon);
         assert!(plan.hold_local_lobby);
         // Depuis l'écran de fin (partie déjà terminée) : pas d'abandon, mais le lobby
         // local attend quand même le joueur.
-        let plan = plan_run_request(RunRequest::ToLobby, false, false);
+        let plan = plan_run_request(RunRequest::ToLobby, false, false, true);
         assert!(!plan.abandon && plan.hold_local_lobby);
     }
 
     #[test]
-    fn to_lobby_et_restart_en_ligne_vont_au_lobby_en_ligne_sans_attente_locale() {
+    fn to_lobby_et_restart_allumette_vont_au_lobby_en_ligne_sans_attente_locale() {
         for request in [RunRequest::ToLobby, RunRequest::Restart] {
-            let plan = plan_run_request(request, true, true);
+            let plan = plan_run_request(request, true, true, false);
             assert_eq!(plan.next, AppState::LobbyOnline);
             assert!(plan.abandon);
             assert!(!plan.hold_local_lobby);
+            assert!(!plan.online_restart);
             assert_eq!(plan.restart_redirected, request == RunRequest::Restart);
         }
     }
 
     #[test]
+    fn restart_en_ligne_rouvre_une_session_sans_abandon() {
+        // D14 : chemin `--matchbox`.
+        let plan = plan_run_request(RunRequest::Restart, true, true, true);
+        assert_eq!(
+            plan,
+            RunRequestPlan {
+                next: AppState::LobbyOnline,
+                abandon: false,
+                hold_local_lobby: false,
+                restart_redirected: false,
+                online_restart: true,
+            }
+        );
+        // « Lobby » en ligne : inchangé.
+        let plan = plan_run_request(RunRequest::ToLobby, true, false, true);
+        assert!(!plan.online_restart && plan.next == AppState::LobbyOnline);
+    }
+
+    #[test]
     fn restart_local_relance_sans_lobby_ni_abandon() {
-        let plan = plan_run_request(RunRequest::Restart, false, true);
+        let plan = plan_run_request(RunRequest::Restart, false, true, true);
         assert_eq!(
             plan,
             RunRequestPlan {
@@ -498,6 +550,7 @@ mod tests {
                 abandon: false,
                 hold_local_lobby: false,
                 restart_redirected: false,
+                online_restart: false,
             }
         );
     }

@@ -21,6 +21,16 @@ pub struct ContentFolderDecl {
     /// fichiers de l'extension attendue par `kind` (non récursif, voir `registry.rs`).
     pub path: String,
     pub kind: String,
+    /// m1-d26-doublons-generes (D26) : `false` : `alacod-gen` ne génère aucun scénario pour les
+    /// définitions de ce dossier (copie de celles d'un autre jeu, déjà couvertes par ses
+    /// scénarios générés) ; elles restent dans le registre et le jeu. Défaut `true`. Hors
+    /// simulation.
+    #[serde(default = "generate_by_default")]
+    pub generate: bool,
+}
+
+fn generate_by_default() -> bool {
+    true
 }
 
 /// Mode de run déclaré par le manifeste (T2.4, chantier F1, `docs/plan-engine.md` §5 F1).
@@ -167,6 +177,24 @@ mod tests {
         assert_eq!(manifest.content_folders.len(), 2);
         assert_eq!(manifest.entry.default_seed, 123);
         assert_eq!(manifest.entry.mode, None);
+    }
+
+    /// D26 : `generate` vaut `true` par défaut ; `generate: false` se lit tel quel.
+    #[test]
+    fn parses_generate_flag() {
+        let ron_text = r#"
+        (
+            name: "demo",
+            content_folders: [
+                (path: "weapons.ron", kind: "Weapon"),
+                (path: "melee.ron", kind: "MeleeWeapon", generate: false),
+            ],
+            entry: (start_map: "carte.ldtk", default_seed: 1),
+        )
+        "#;
+        let manifest: GameManifest = ron::from_str(ron_text).unwrap();
+        assert!(manifest.content_folders[0].generate);
+        assert!(!manifest.content_folders[1].generate);
     }
 
     /// T2.4 : `entry.mode` absent reste `None` (résolu par `game::jjrs`, pas ici) ;

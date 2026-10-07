@@ -1,4 +1,4 @@
-// Dash gardé et étourdissement (course de movement-feel, conventions §30) : un appui de dash
+// Dash gardé et étourdissement (course de movement-feel, conventions §34) : un appui de dash
 // gardé (buffer de 8 frames) ne part pas pendant un étourdissement (T1.3, §19), comme à terre.
 // Avant le correctif, il partait dès la fin du cooldown malgré l'étourdissement : le joueur
 // restait sur place (vitesse annulée par `status_motion_system`) mais gagnait les i-frames du

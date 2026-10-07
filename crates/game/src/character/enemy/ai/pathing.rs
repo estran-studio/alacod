@@ -354,6 +354,8 @@ pub fn move_enemies(
         // Enemies are wider than a flow field cell and their collider is offset toward the
         // feet: steer toward points pushed away from walls accordingly
         let body = super::navigation::AgentBody::from_collider(enemy_collider);
+        // D41 + D38 : champ du profil et du gabarit de l'ennemi.
+        let nav_key = super::navigation::NavKey::for_agent(ai_config.nav_profile(), &body);
 
         // A pushed steering point can leave its intended cell or overlap a wall.
         // Only recover wave actors after ten seconds without spawning/killing; ordinary
@@ -363,15 +365,14 @@ pub fn move_enemies(
             .as_deref()
             .filter(|state| wave_enemy.is_some() && navigation_recovery_due(state, frame.frame))
             .and_then(|_| {
-                use super::navigation::{GridPos, NavProfile};
-                let field = flow_field_cache.get_flow_field(NavProfile::GroundBreaker)?;
+                use super::navigation::GridPos;
+                let field = flow_field_cache.get_flow_field(nav_key)?;
                 let current = GridPos::from_fixed(enemy_pos_v2);
                 let next = field.get_direction(current)?;
                 if next == current {
                     return None;
                 }
-                let preferred =
-                    flow_field_cache.steering_point(next, NavProfile::GroundBreaker, &body);
+                let preferred = flow_field_cache.steering_point(next, nav_key.profile, &body);
                 let blocked = |point: fixed_math::FixedVec2, include_windows: bool| {
                     let pos =
                         fixed_math::FixedVec3::new(point.x, point.y, fixed_transform.translation.z);
@@ -411,49 +412,45 @@ pub fn move_enemies(
             });
 
         // Calculate direction to actual target using flow field
-        let direction_to_target_v2 = if let Some(flow_field) =
-            flow_field_cache.get_flow_field(super::navigation::NavProfile::GroundBreaker)
-        {
-            // Always use flow field for navigation - it handles pathfinding around walls
-            match flow_field_cache.flow_direction(
-                super::navigation::NavProfile::GroundBreaker,
-                enemy_pos_v2,
-                &body,
-            ) {
-                Some(dir) => dir,
-                None => {
-                    // Outside flow field coverage - find nearest covered cell
-                    // and move toward it instead of directly toward player
-                    // (moving directly toward player often pushes into walls)
-                    match flow_field.find_nearest_covered_cell(enemy_pos_v2, 10) {
-                        Some(dir) => dir,
-                        None => {
-                            // No flow field nearby at all - try neighbor directions as fallback
-                            let neighbors = flow_field.get_neighbor_directions(enemy_pos_v2);
-                            neighbors.into_iter().next().unwrap_or_else(|| {
-                                // Last resort: direct movement (but this should rarely happen)
-                                (actual_target - enemy_pos_v2).normalize_or_zero()
-                            })
+        let direction_to_target_v2 =
+            if let Some(flow_field) = flow_field_cache.get_flow_field(nav_key) {
+                // Always use flow field for navigation - it handles pathfinding around walls
+                match flow_field_cache.flow_direction(nav_key, enemy_pos_v2, &body) {
+                    Some(dir) => dir,
+                    None => {
+                        // Outside flow field coverage - find nearest covered cell
+                        // and move toward it instead of directly toward player
+                        // (moving directly toward player often pushes into walls)
+                        match flow_field.find_nearest_covered_cell(enemy_pos_v2, 10) {
+                            Some(dir) => dir,
+                            None => {
+                                // No flow field nearby at all - try neighbor directions as fallback
+                                let neighbors = flow_field.get_neighbor_directions(enemy_pos_v2);
+                                neighbors.into_iter().next().unwrap_or_else(|| {
+                                    // Last resort: direct movement (but this should rarely happen)
+                                    (actual_target - enemy_pos_v2).normalize_or_zero()
+                                })
+                            }
                         }
                     }
                 }
-            }
-        } else {
-            // No flow field yet, move directly toward target
-            (actual_target - enemy_pos_v2).normalize_or_zero()
-        };
+            } else {
+                // No flow field yet, move directly toward target
+                (actual_target - enemy_pos_v2).normalize_or_zero()
+            };
 
         // --- General Obstacle Avoidance Steering ---
         // Use FlowField's blocked cells for O(1) lookups instead of O(walls) collision checks
         let direction_to_target_v2 = if let Some(direction) = recovery_direction {
             direction
         } else {
-            use super::navigation::{GridPos, NavProfile};
+            use super::navigation::GridPos;
 
-            // Fast grid-based check using FlowField's precomputed blocked cells
+            // Fast grid-based check using FlowField's precomputed blocked cells (obstacles du
+            // profil de l'ennemi, D38)
             let is_cell_blocked = |test_pos: fixed_math::FixedVec2| -> bool {
                 let grid_pos = GridPos::from_fixed(test_pos);
-                flow_field_cache.is_blocked(&grid_pos, NavProfile::GroundBreaker)
+                flow_field_cache.is_blocked(&grid_pos, nav_key.profile)
             };
 
             // Check if moving forward would hit a blocked cell
@@ -603,6 +600,7 @@ pub fn move_enemies(
                     enemy_pos_v2,
                     enemy_target_opt.and_then(|target| target.last_known_position),
                     &flow_field_cache,
+                    nav_key,
                 )
             });
         let desired_move_velocity_v2 = match &motion {
@@ -638,6 +636,10 @@ pub fn move_enemies(
             // requête sur `CollisionGrids::walls` au lieu de la boucle sur tous les murs —
             // l'ancienne optimisation `max_check_dist` (sauter les murs à plus de 100 unités)
             // est maintenant inutile, la grille ne renvoie déjà que les murs proches de `pos`.
+            // m0-graine-100-fenetre : un pas qui ne fait que réduire un recouvrement déjà
+            // présent au départ passe (`step_blocked_by`) : un ennemi incrusté dans un mur ou une
+            // fenêtre peut s'en dégager au lieu de rester figé.
+            let start = fixed_transform.translation;
             let check_wall_collision = |pos: &fixed_math::FixedVec3| -> bool {
                 let aabb = crate::collision_grid::collider_aabb(pos, enemy_collider);
                 for wall_entry in grids.walls.query_aabb(&aabb) {
@@ -649,7 +651,8 @@ pub fn move_enemies(
                     if !collision_settings.layer_matrix[enemy_collision_layer.0][wall_layer.0] {
                         continue;
                     }
-                    if is_colliding(
+                    if crate::collider::step_blocked_by(
+                        &start,
                         pos,
                         enemy_collider,
                         &wall_transform.translation,
@@ -668,7 +671,8 @@ pub fn move_enemies(
                     window_query.get(entry.entity).is_ok_and(
                         |(_, window_transform, obstacle, window_collider)| {
                             obstacle.blocks_movement
-                                && is_colliding(
+                                && crate::collider::step_blocked_by(
+                                    &start,
                                     pos,
                                     enemy_collider,
                                     &window_transform.translation,
@@ -727,9 +731,7 @@ pub fn move_enemies(
                     let speed = velocity_component.main.length();
 
                     // Try flow field neighbor directions first
-                    if let Some(flow_field) = flow_field_cache
-                        .get_flow_field(super::navigation::NavProfile::GroundBreaker)
-                    {
+                    if let Some(flow_field) = flow_field_cache.get_flow_field(nav_key) {
                         let neighbor_dirs = flow_field.get_neighbor_directions(enemy_pos_v2);
                         for dir in neighbor_dirs {
                             // Determine slide axis (which axis succeeded)
@@ -781,9 +783,7 @@ pub fn move_enemies(
                     let mut escaped = false;
 
                     // First, try directions from neighboring flow field cells (sorted by cost)
-                    if let Some(flow_field) = flow_field_cache
-                        .get_flow_field(super::navigation::NavProfile::GroundBreaker)
-                    {
+                    if let Some(flow_field) = flow_field_cache.get_flow_field(nav_key) {
                         let neighbor_dirs = flow_field.get_neighbor_directions(enemy_pos_v2);
                         for dir in neighbor_dirs {
                             let dx = dir.x * move_magnitude;
@@ -878,6 +878,19 @@ fn recovery_point(
     clear: impl Fn(fixed_math::FixedVec2) -> bool,
 ) -> Option<fixed_math::FixedVec2> {
     use super::navigation::GRID_CELL_SIZE;
+    // D53 : `clear` interroge les grilles de collision (requêtes qui allouent) ; un même point
+    // revient (candidat, extrémité de segment, destination) : résultat mémorisé pour l'appel.
+    // Le résultat de `recovery_point` est inchangé (même ordre, même prédicat).
+    let memo = std::cell::RefCell::new(std::collections::BTreeMap::new());
+    let clear = |point: fixed_math::FixedVec2| -> bool {
+        let key = (point.x.to_bits(), point.y.to_bits());
+        if let Some(known) = memo.borrow().get(&key) {
+            return *known;
+        }
+        let value = clear(point);
+        memo.borrow_mut().insert(key, value);
+        value
+    };
     let mut candidates = Vec::new();
     let current = super::navigation::GridPos::from_fixed(from);
     let mut cells = vec![next];
@@ -917,15 +930,23 @@ fn recovery_point(
             )
         })
     };
-    let destinations: Vec<_> = candidates
-        .iter()
-        .filter(|(stage, _, _, _, point)| *stage == 0 && clear(*point))
-        .map(|(_, _, _, _, point)| *point)
-        .collect();
-    candidates.into_iter().find_map(|(stage, _, _, _, point)| {
+    // D53 : les destinations (points libres de la case suivante) ne servent qu'aux étapes
+    // suivantes ; calculées au premier besoin (les candidats de l'étape 0 passent d'abord, et
+    // le premier qui convient termine la recherche).
+    let destinations = std::cell::OnceCell::new();
+    let destinations = || {
+        destinations.get_or_init(|| {
+            candidates
+                .iter()
+                .filter(|(stage, _, _, _, point)| *stage == 0 && clear(*point))
+                .map(|(_, _, _, _, point)| *point)
+                .collect::<Vec<_>>()
+        })
+    };
+    candidates.iter().find_map(|&(stage, _, _, _, point)| {
         (clear(point)
             && segment_clear(from, point)
-            && (stage == 0 || destinations.iter().any(|end| segment_clear(point, *end))))
+            && (stage == 0 || destinations().iter().any(|end| segment_clear(point, *end))))
         .then_some(point)
     })
 }

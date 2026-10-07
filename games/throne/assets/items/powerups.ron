@@ -1,14 +1,14 @@
 // `throne` (T1.11, docs/conventions.md §14 et §29) : butin à la mort des ennemis (un ennemi sur
-// sept environ laisse un objet). Munitions (une par munition, `RefillAmmoOf`, D40), rage et
+// quatre laisse un objet, `drop_chance` 0,25 ; poids total 146). Munitions (une par munition, `RefillAmmoOf`, D40), rage et
 // vitesse ; pas de `Carpenter` ni de `Nuke` (pas de fenêtres ni de vagues dans une caverne).
 (
-    drop_chance: "0.15",
+    drop_chance: "0.25",
     powerups: {
-        // D40 : butin par munition (une par munition des armes de throne), poids 12 chacun :
-        // même chance totale (60) que l'ancien « munitions » (`RefillAmmo`, toutes les munitions).
+        // D40 : butin par munition (une par munition des armes de throne) : poids 36 (balles),
+        // 12 (obus, explosifs, énergie) et 24 (lames), 96 en tout ; rage et vitesse 25 chacune.
         "munitions_balles": (
             name: "Munitions : Balles",
-            weight: 12,
+            weight: 36,
             pickup_range: "30.0",
             lifetime_frames: 1800,
             actions: [
@@ -44,7 +44,7 @@
         ),
         "munitions_lames": (
             name: "Munitions : Lames",
-            weight: 12,
+            weight: 24,
             pickup_range: "30.0",
             lifetime_frames: 1800,
             actions: [

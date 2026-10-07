@@ -203,6 +203,54 @@ fn m1_audit_fixtures() {
     }
 }
 
+/// D36 : une caverne sans ennemi dans une séquence `Floors` est refusée (pas de personnage, ou
+/// pas de point d'apparition), sauf `transit: true` ; une caverne peuplée passe.
+/// D48 : une caverne peuplée dont une graine de contrôle n'a aucun point d'apparition atteint par
+/// le champ de flux de son gabarit est refusée ; une caverne ouverte passe. (L'automate ne produit
+/// pas de caverne fermée au seul gabarit grand sur les graines de contrôle — balayage de tailles,
+/// remplissages et seuils : aucune — ; l'exclusion propre à la navigation est couverte par les
+/// tests de `world::nav` sur grilles construites et par le test des 1 000 graines de throne.)
+#[test]
+fn cave_spawns_unreachable_fixture() {
+    let (registry, _, errors) = load_and_lint(&fixture_dir("cave_spawns_unreachable")).unwrap();
+    assert!(registry.caves.values().all(|cave| cave.config.nav_large));
+    assert_has_error(
+        &errors,
+        LintErrorKind::OutOfRange,
+        "« fermee » : graine de contrôle",
+    );
+    assert_eq!(
+        errors.len(),
+        1,
+        "seule « fermee » est refusée : {errors:#?}"
+    );
+}
+
+#[test]
+fn floors_cave_without_enemies_fixture() {
+    let (_, _, errors) = load_and_lint(&fixture_dir("floors_cave_without_enemies")).unwrap();
+    let d36: Vec<_> = errors
+        .iter()
+        .filter(|e| e.message.contains("caverne sans ennemi"))
+        .collect();
+    assert_eq!(d36.len(), 2, "{errors:#?}");
+    assert_has_error(
+        &errors,
+        LintErrorKind::OutOfRange,
+        "« cave:vide » : caverne sans ennemi",
+    );
+    assert_has_error(
+        &errors,
+        LintErrorKind::OutOfRange,
+        "« cave:sans_points » : caverne sans ennemi",
+    );
+    assert_eq!(
+        errors.len(),
+        2,
+        "aucune autre erreur attendue : {errors:#?}"
+    );
+}
+
 #[test]
 fn status_fixtures() {
     let (_, _, errors) = load_and_lint(&fixture_dir("status_out_of_range")).unwrap();
@@ -408,6 +456,8 @@ fn t2_8_fixtures_have_a_single_problem() {
         ("cave_unknown_character", LintErrorKind::BrokenReference),
         ("cave_out_of_range", LintErrorKind::OutOfRange),
         ("floors_unknown_cave", LintErrorKind::BrokenReference),
+        ("floors_cave_without_enemies", LintErrorKind::OutOfRange),
+        ("cave_spawns_unreachable", LintErrorKind::OutOfRange),
         ("entry_clock_unknown", LintErrorKind::BrokenReference),
         ("entry_difficulty_missing", LintErrorKind::BrokenReference),
         ("effect_broken_reference", LintErrorKind::BrokenReference),
@@ -506,7 +556,7 @@ fn feedback_amplitude_negative_fixture_reports_error() {
         load_and_lint(&fixture_dir("feedback_amplitude_negative")).unwrap();
     assert_has_error(&errors, LintErrorKind::OutOfRange, "amplitude");
     for amplitude in [0.0, 1.0] {
-        registry.feedback[0].shake_amplitude = amplitude;
+        registry.feedback[0].settings.shake.amplitude = amplitude;
         let errors = content::lint::run(&registry, &manifest);
         assert!(
             !errors.iter().any(|e| e.kind == LintErrorKind::OutOfRange),
@@ -522,6 +572,22 @@ fn feedback_missing_sound_fixture_reports_error() {
     assert!(!errors
         .iter()
         .any(|e| e.message.contains("sounds/present.ogg")));
+}
+
+#[test]
+fn feedback_t1_17_fixtures_report_their_field() {
+    let (_, _, errors) = load_and_lint(&fixture_dir("feedback_by_weapon_unknown")).unwrap();
+    assert_has_error(
+        &errors,
+        LintErrorKind::BrokenReference,
+        "by_weapon « fantome »",
+    );
+    let (_, _, errors) = load_and_lint(&fixture_dir("feedback_override_out_of_range")).unwrap();
+    assert_has_error(
+        &errors,
+        LintErrorKind::OutOfRange,
+        "by_kind.Explosion.shake.frames",
+    );
 }
 
 #[test]
@@ -559,6 +625,17 @@ fn t3_4_fixtures_have_a_single_rule_failure() {
         ("feedback_frames_zero", LintErrorKind::OutOfRange, 2),
         ("feedback_amplitude_negative", LintErrorKind::OutOfRange, 1),
         ("feedback_missing_sound", LintErrorKind::BrokenReference, 1),
+        // T1.17
+        (
+            "feedback_by_weapon_unknown",
+            LintErrorKind::BrokenReference,
+            1,
+        ),
+        (
+            "feedback_override_out_of_range",
+            LintErrorKind::OutOfRange,
+            1,
+        ),
         (
             "starting_weapons_exceed_slots",
             LintErrorKind::OutOfRange,
@@ -572,6 +649,38 @@ fn t3_4_fixtures_have_a_single_rule_failure() {
             .collect();
         assert_eq!(others.len(), count, "{name}: {errors:#?}");
         assert!(others.iter().all(|e| e.kind == kind), "{name}: {errors:#?}");
+    }
+}
+
+/// T1.16 : écran de mutation (`ui/mutation_screen.ron`) — police absente, deux emplacements ;
+/// T1.18 : source de HUD inconnue ;
+/// une seule erreur par fixture en plus du start_map commun.
+#[test]
+fn mutation_screen_fixtures() {
+    for (name, kind, needle) in [
+        (
+            "mutation_screen_font_missing",
+            LintErrorKind::BrokenReference,
+            "champ font = « fonts/absente.ttf »",
+        ),
+        (
+            "mutation_screen_two_slots",
+            LintErrorKind::OutOfRange,
+            "2 emplacements, il en faut 3",
+        ),
+        (
+            "hud_unknown_source",
+            LintErrorKind::UnknownKind,
+            "hud : source inconnue « mana »",
+        ),
+    ] {
+        let (_, _, errors) = load_and_lint(&fixture_dir(name)).unwrap();
+        assert_has_error(&errors, kind, needle);
+        let others: Vec<_> = errors
+            .iter()
+            .filter(|e| !e.message.contains("entry.start_map"))
+            .collect();
+        assert_eq!(others.len(), 1, "{name}: {errors:#?}");
     }
 }
 
@@ -601,6 +710,14 @@ fn sprite_sheet_missing_file_fixture_reports_missing_layer_sheet() {
 fn sprite_sheet_missing_image_fixture_reports_missing_png() {
     let (_, _, errors) = load_and_lint(&fixture_dir("sprite_sheet_missing_image")).unwrap();
     assert_has_error(&errors, LintErrorKind::BrokenReference, "sprites/hero.png");
+    assert_only_one_besides_start_map(&errors);
+}
+
+/// D51 : `spread` doit rester dans [0, π] radians.
+#[test]
+fn weapon_spread_out_of_range_fixture_reports_spread() {
+    let (_, _, errors) = load_and_lint(&fixture_dir("weapon_spread_out_of_range")).unwrap();
+    assert_has_error(&errors, LintErrorKind::OutOfRange, "spread");
     assert_only_one_besides_start_map(&errors);
 }
 
@@ -834,4 +951,76 @@ fn generate_template_target_without_hits_fixture_reports_counts_hits() {
 fn powerup_refill_ammo_unknown_fixture_reports_ammo() {
     let (_, _, errors) = load_and_lint(&fixture_dir("powerup_refill_ammo_unknown")).unwrap();
     assert_has_error(&errors, LintErrorKind::BrokenReference, "RefillAmmoOf");
+}
+
+/// D41 (m1-d41-spawns-degages) : sur le contenu réel, toutes les cavernes gardent un
+/// dégagement de 1 (points d'apparition inchangés) ; le boss de throne (collider 20, `scale`
+/// 1.4 : 28 px en jeu) s'étend à 22,4 px du centre.
+#[test]
+fn degagement_des_cavernes_du_contenu_reel() {
+    for game in ["throne", "testbed", "zombies"] {
+        let dir = PathBuf::from(env!("CARGO_MANIFEST_DIR")).join(format!("../../games/{game}"));
+        let (registry, _, _) = load_and_lint(&dir).unwrap();
+        for (id, cave) in &registry.caves {
+            assert_eq!(cave.config.spawn_clearance, 1, "{game} : caverne {id}");
+        }
+        if game == "throne" {
+            let boss = &registry.characters[&content::registry::CharacterId::from("roi_rat")];
+            assert!(
+                (boss.body_extent.to_num::<f64>() - 22.4).abs() < 0.01,
+                "{}",
+                boss.body_extent
+            );
+        }
+    }
+}
+
+/// D48 (m1-d48-ennemis-hors-champ) : sur les trois cavernes de throne et 1 000 graines, chaque
+/// point `ZombieSpawn` est atteint par le champ de flux du gabarit de **chaque** personnage de la
+/// caverne (`world::nav::nav_distances` depuis les points des joueurs) : aucun ennemi ne naît
+/// dans une poche hors de son champ (graine 43 : roi_rat, gabarit grand ; graine 162 : brute,
+/// couloir d'une case). Le boss rend `niveau_3` grand (`nav_large`), pas les deux autres.
+#[test]
+fn points_ennemis_des_cavernes_de_throne_dans_le_champ_de_chaque_gabarit() {
+    let dir = PathBuf::from(env!("CARGO_MANIFEST_DIR")).join("../../games/throne");
+    let (registry, _, _) = load_and_lint(&dir).unwrap();
+    for name in ["niveau_1", "niveau_2", "niveau_3"] {
+        let cave = &registry.caves[&content::registry::CaveId::from(name.to_string())];
+        let config = &cave.config;
+        assert_eq!(config.nav_large, name == "niveau_3", "{name} : nav_large");
+        let larges: Vec<bool> = config
+            .characters
+            .iter()
+            .map(|id| {
+                registry.characters[&content::registry::CharacterId::from(id.as_str())].body_large
+            })
+            .collect();
+        for seed in 1..=1000u64 {
+            let grid = world::generate(seed, config);
+            let points = world::points_of_interest(
+                &grid,
+                4,
+                config.enemy_spawns,
+                config.spawn_clearance,
+                config.nav_large,
+            );
+            assert!(
+                !points.zombie_spawns.is_empty(),
+                "{name} graine {seed} : aucun point"
+            );
+            for large in [false, true] {
+                if !larges.contains(&large) {
+                    continue;
+                }
+                let dist = world::nav::nav_distances(&grid, &points.player_spawns, large);
+                for &(x, y) in &points.zombie_spawns {
+                    assert_ne!(
+                        dist[(y * grid.width + x) as usize],
+                        u32::MAX,
+                        "{name} graine {seed} : point ({x}, {y}) hors du champ (grand : {large})"
+                    );
+                }
+            }
+        }
+    }
 }

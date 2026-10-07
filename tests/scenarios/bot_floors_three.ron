@@ -2,25 +2,26 @@
 // `floor_d`, `floor_c`) en mode `Floors` : ils tuent les ennemis de chaque niveau (tir, gestion
 // d'arme, esquive), puis marchent vers le portail ouvert.
 //
-// À regarder : passages de portail à f173, f292 et f622 (course de movement-feel, conventions
-// §30 ; f135, f390, f792 avec l'ancienne course), approche freinée du portail ; les deux bots
-// restent en vie.
+// À regarder : passages de portail à f41, f259 et f548 (m1-v3-bots-armes : choix d'arme, tir à
+// portée, ramassage ; avant, D51 : f34, f195, f638) ; les deux bots restent en vie.
 Scenario(
     powerup_drop_chance_override: "0.0",
     game: "testbed",
     floors: Some("trois_niveaux"),
     map_seed: 123456,
-    frames: 650,
+    frames: 660,
     players: [
         (bot: prudent),
         (bot: prudent),
     ],
     expect: [
-        FloorIndex(index: 0, at_frame: 170),
-        FloorIndex(index: 1, at_frame: 180),
-        FloorIndex(index: 2, at_frame: 300),
-        FloorIndex(index: 3, at_frame: 649),
-        PlayerAlive(handle: 0, at_frame: 649),
-        PlayerAlive(handle: 1, at_frame: 649),
+        FloorIndex(index: 0, at_frame: 35),
+        FloorIndex(index: 1, at_frame: 45),
+        FloorIndex(index: 1, at_frame: 255),
+        FloorIndex(index: 2, at_frame: 265),
+        FloorIndex(index: 2, at_frame: 540),
+        FloorIndex(index: 3, at_frame: 555),
+        PlayerAlive(handle: 0, at_frame: 659),
+        PlayerAlive(handle: 1, at_frame: 659),
     ],
 )

@@ -48,6 +48,34 @@ pub struct CaveConfig {
     /// ainsi une caverne (bench `bench_cave`).
     #[serde(default, skip_serializing_if = "Vec::is_empty")]
     pub characters: Vec<String>,
+    /// Dégagement des points `ZombieSpawn`, en cases autour du point (D41, m1-d41-spawns-degages) :
+    /// 1 par défaut (les 8 voisines, [`is_open`]). **Calculé** par le registre de contenu
+    /// (`content::registry`) depuis le plus grand corps en jeu de `characters` ; un agent qui
+    /// déborde d'une case et demie (plus de 24 px du centre de la case) en demande 2.
+    #[serde(
+        default = "default_spawn_clearance",
+        skip_serializing_if = "is_default_spawn_clearance"
+    )]
+    pub spawn_clearance: u32,
+    /// Caverne de **transit**, sans ennemi voulu (D36) : en mode `Floors`, son portail s'ouvre
+    /// aussitôt. Sans ce marqueur, `alacod lint` refuse une caverne sans ennemi (`characters`
+    /// vide ou `enemy_spawns` nul) dans une séquence `Floors`. Hors simulation (lint seul).
+    #[serde(default, skip_serializing_if = "std::ops::Not::not")]
+    pub transit: bool,
+    /// Gabarit de navigation grand (D48) : le plus grand corps en jeu de `characters` dépasse
+    /// 20 px de large ou de haut (`AgentSize::Large` de `game`). **Calculé** par le registre de
+    /// contenu, comme `spawn_clearance` ; les points `ZombieSpawn` doivent être atteints par le
+    /// champ de flux de ce gabarit ([`points_of_interest`]).
+    #[serde(default, skip_serializing_if = "std::ops::Not::not")]
+    pub nav_large: bool,
+}
+
+fn default_spawn_clearance() -> u32 {
+    1
+}
+
+fn is_default_spawn_clearance(value: &u32) -> bool {
+    *value == 1
 }
 
 /// Graine 64 bits repliée sur l'état 32 bits de `RollbackRng`.
@@ -224,14 +252,33 @@ pub struct CavePoints {
 /// Case de sol dont les 8 voisines sont aussi du sol : un corps de personnage (20 × 20, décalé
 /// vers le bas) y apparaît sans chevaucher de mur, sinon chaque déplacement serait refusé.
 pub fn is_open(grid: &CellGrid, x: u32, y: u32) -> bool {
-    (-1..=1).all(|dy| {
-        (-1..=1).all(|dx| grid.get(x as i32 + dx, y as i32 + dy) == Some(CellKind::Floor))
+    is_open_within(grid, x, y, 1)
+}
+
+/// Case de sol dont toutes les cases à `radius` cases ou moins (distance de Tchebychev) sont du
+/// sol : [`is_open`] pour `radius` 1 ; un corps plus grand en demande davantage (D41).
+pub fn is_open_within(grid: &CellGrid, x: u32, y: u32, radius: u32) -> bool {
+    let r = radius as i32;
+    (-r..=r).all(|dy| {
+        (-r..=r).all(|dx| grid.get(x as i32 + dx, y as i32 + dy) == Some(CellKind::Floor))
     })
 }
 
 /// Les `players` cases **dégagées** ([`is_open`]) les plus proches du centre (distance
-/// euclidienne au carré, puis y, puis x), puis les `ZombieSpawn` (cases dégagées elles aussi).
-pub fn points_of_interest(grid: &CellGrid, players: usize, enemy_spawns: u32) -> CavePoints {
+/// euclidienne au carré, puis y, puis x), puis les `ZombieSpawn`, dégagées de
+/// `enemy_clearance` cases ([`is_open_within`], D41 : `CaveConfig::spawn_clearance`) ; avec 1,
+/// exactement les points d'avant. D48 : un point d'ennemi doit aussi être atteint par le champ de
+/// flux du gabarit `enemy_large` depuis les points des joueurs ([`crate::nav::nav_distances`]) :
+/// une poche ouverte mais reliée par un couloir trop étroit pour ce gabarit garderait l'ennemi
+/// hors de son champ, immobile et hors d'atteinte des bots (graines 43 et 162 de throne).
+/// L'ordre des candidats ne change pas (distance de grille).
+pub fn points_of_interest(
+    grid: &CellGrid,
+    players: usize,
+    enemy_spawns: u32,
+    enemy_clearance: u32,
+    enemy_large: bool,
+) -> CavePoints {
     let (w, h) = (grid.width as i64, grid.height as i64);
     let mut floor: Vec<(u32, u32)> = (0..grid.height)
         .flat_map(|y| (0..grid.width).map(move |x| (x, y)))
@@ -248,10 +295,15 @@ pub fn points_of_interest(grid: &CellGrid, players: usize, enemy_spawns: u32) ->
     let mut zombie_spawns: Vec<(u32, u32)> = Vec::new();
     if let Some(&origin) = player_spawns.first() {
         let dist = floor_distances(grid, origin);
+        let nav = crate::nav::nav_distances(grid, &player_spawns, enemy_large);
         let mut candidates: Vec<(u32, u32, u32)> = floor
             .iter()
             .map(|&(x, y)| (dist[(y * grid.width + x) as usize], x, y))
             .filter(|(d, _, _)| *d != u32::MAX)
+            .filter(|(_, x, y)| nav[(y * grid.width + x) as usize] != u32::MAX)
+            .filter(|(_, x, y)| {
+                enemy_clearance <= 1 || is_open_within(grid, *x, *y, enemy_clearance)
+            })
             .collect();
         candidates.sort_by_key(|&(d, x, y)| (std::cmp::Reverse(d), y, x));
         for (_, x, y) in candidates {
@@ -287,6 +339,9 @@ mod tests {
             min_floor_ratio: Fixed::from_num(0.3),
             enemy_spawns: 4,
             characters: vec![],
+            spawn_clearance: 1,
+            transit: false,
+            nav_large: false,
         }
     }
 
@@ -316,7 +371,13 @@ mod tests {
                 (min..=MAX_FLOOR_RATIO).contains(&ratio),
                 "graine {seed} : ratio {ratio}"
             );
-            let points = points_of_interest(&grid, 4, config.enemy_spawns);
+            let points = points_of_interest(
+                &grid,
+                4,
+                config.enemy_spawns,
+                config.spawn_clearance,
+                config.nav_large,
+            );
             assert_eq!(points.player_spawns.len(), 4, "graine {seed}");
             assert!(!points.zombie_spawns.is_empty(), "graine {seed}");
             for (x, y) in points.player_spawns.iter().chain(&points.zombie_spawns) {
@@ -342,7 +403,13 @@ mod tests {
     fn zombie_spawns_espaces_et_loin_du_joueur() {
         let config = petite();
         let grid = generate(3, &config);
-        let points = points_of_interest(&grid, 4, config.enemy_spawns);
+        let points = points_of_interest(
+            &grid,
+            4,
+            config.enemy_spawns,
+            config.spawn_clearance,
+            config.nav_large,
+        );
         let dist = floor_distances(&grid, points.player_spawns[0]);
         let far = points
             .zombie_spawns
@@ -378,5 +445,46 @@ mod tests {
         )
         .unwrap();
         assert_eq!(config, petite());
+    }
+
+    /// D41 : un dégagement de 2 cases ne garde que des points entourés de 5 × 5 cases de sol ;
+    /// le dégagement 1 (défaut) donne exactement les points d'avant (`is_open`).
+    #[test]
+    fn degagement_des_points_ennemis() {
+        let config = petite();
+        let grid = generate(123456, &config);
+        let base = points_of_interest(&grid, 4, config.enemy_spawns, 1, false);
+        let large = points_of_interest(&grid, 4, config.enemy_spawns, 2, false);
+        assert_eq!(
+            base.player_spawns, large.player_spawns,
+            "joueurs : un seul dégagement"
+        );
+        assert!(!large.zombie_spawns.is_empty());
+        for &(x, y) in &large.zombie_spawns {
+            assert!(is_open_within(&grid, x, y, 2), "({x}, {y})");
+        }
+        assert!(base
+            .zombie_spawns
+            .iter()
+            .all(|&(x, y)| is_open(&grid, x, y)));
+        // Le dégagement 2 exclut au moins un point que le dégagement 1 accepte (petite caverne
+        // dense), sinon le test ne prouve rien.
+        let all_open_1: Vec<_> = (0..grid.height)
+            .flat_map(|y| (0..grid.width).map(move |x| (x, y)))
+            .filter(|&(x, y)| is_open(&grid, x, y))
+            .collect();
+        assert!(all_open_1
+            .iter()
+            .any(|&(x, y)| !is_open_within(&grid, x, y, 2)));
+    }
+
+    #[test]
+    fn degagement_absent_du_ron_vaut_un() {
+        let config: CaveConfig = ron::from_str(
+            r#"(width: 48, height: 32, fill_ratio: "0.45", iterations: 4, birth: 5,
+                survive: 4, min_floor_ratio: "0.3", enemy_spawns: 4)"#,
+        )
+        .unwrap();
+        assert_eq!(config.spawn_clearance, 1);
     }
 }

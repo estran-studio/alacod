@@ -1,0 +1,4052 @@
+[
+  {
+    "frame": 0,
+    "kind": "player",
+    "label": "joueur 0 apparaît"
+  },
+  {
+    "frame": 0,
+    "kind": "player",
+    "label": "joueur 1 apparaît"
+  },
+  {
+    "frame": 92,
+    "kind": "points",
+    "label": "joueur 1 gagne 10 points (hit)"
+  },
+  {
+    "frame": 92,
+    "kind": "feedback",
+    "label": "hit stop 82 (2 frames)"
+  },
+  {
+    "frame": 97,
+    "kind": "points",
+    "label": "joueur 1 gagne 10 points (hit)"
+  },
+  {
+    "frame": 97,
+    "kind": "feedback",
+    "label": "hit stop 82 (2 frames)"
+  },
+  {
+    "frame": 115,
+    "kind": "points",
+    "label": "joueur 0 gagne 10 points (hit)"
+  },
+  {
+    "frame": 115,
+    "kind": "feedback",
+    "label": "hit stop 76 (2 frames)"
+  },
+  {
+    "frame": 120,
+    "kind": "points",
+    "label": "joueur 0 gagne 10 points (hit)"
+  },
+  {
+    "frame": 120,
+    "kind": "feedback",
+    "label": "hit stop 76 (2 frames)"
+  },
+  {
+    "frame": 125,
+    "kind": "points",
+    "label": "joueur 0 gagne 10 points (hit)"
+  },
+  {
+    "frame": 125,
+    "kind": "feedback",
+    "label": "hit stop 76 (2 frames)"
+  },
+  {
+    "frame": 132,
+    "kind": "points",
+    "label": "joueur 1 gagne 10 points (hit)"
+  },
+  {
+    "frame": 132,
+    "kind": "feedback",
+    "label": "hit stop 82 (2 frames)"
+  },
+  {
+    "frame": 135,
+    "kind": "points",
+    "label": "joueur 0 gagne 10 points (hit)"
+  },
+  {
+    "frame": 135,
+    "kind": "points",
+    "label": "joueur 0 gagne 60 points (kill)"
+  },
+  {
+    "frame": 135,
+    "kind": "feedback",
+    "label": "hit stop 76 (2 frames)"
+  },
+  {
+    "frame": 147,
+    "kind": "drop",
+    "label": "arme mitraillette tombée au sol (114)"
+  },
+  {
+    "frame": 147,
+    "kind": "powerup",
+    "label": "power-up munitions_obus au sol (113)"
+  },
+  {
+    "frame": 147,
+    "kind": "points",
+    "label": "joueur 1 gagne 10 points (hit)"
+  },
+  {
+    "frame": 147,
+    "kind": "points",
+    "label": "joueur 1 gagne 60 points (kill)"
+  },
+  {
+    "frame": 147,
+    "kind": "feedback",
+    "label": "hit stop 82 (2 frames)"
+  },
+  {
+    "frame": 174,
+    "kind": "points",
+    "label": "joueur 0 gagne 10 points (hit)"
+  },
+  {
+    "frame": 174,
+    "kind": "feedback",
+    "label": "hit stop 80 (2 frames)"
+  },
+  {
+    "frame": 197,
+    "kind": "points",
+    "label": "joueur 1 gagne 10 points (hit)"
+  },
+  {
+    "frame": 197,
+    "kind": "feedback",
+    "label": "hit stop 80 (2 frames)"
+  },
+  {
+    "frame": 202,
+    "kind": "points",
+    "label": "joueur 1 gagne 10 points (hit)"
+  },
+  {
+    "frame": 202,
+    "kind": "feedback",
+    "label": "hit stop 80 (2 frames)"
+  },
+  {
+    "frame": 207,
+    "kind": "points",
+    "label": "joueur 0 gagne 10 points (hit)"
+  },
+  {
+    "frame": 207,
+    "kind": "feedback",
+    "label": "hit stop 80 (2 frames)"
+  },
+  {
+    "frame": 208,
+    "kind": "points",
+    "label": "joueur 1 gagne 10 points (hit)"
+  },
+  {
+    "frame": 208,
+    "kind": "points",
+    "label": "joueur 1 gagne 60 points (kill)"
+  },
+  {
+    "frame": 208,
+    "kind": "feedback",
+    "label": "hit stop 80 (2 frames)"
+  },
+  {
+    "frame": 219,
+    "kind": "weapon",
+    "label": "joueur 1 : chargeur vide (mitraillette)"
+  },
+  {
+    "frame": 220,
+    "kind": "reload",
+    "label": "joueur 1 recharge (mitraillette default)"
+  },
+  {
+    "frame": 261,
+    "kind": "weapon",
+    "label": "joueur 0 : chargeur vide (mitraillette)"
+  },
+  {
+    "frame": 262,
+    "kind": "reload",
+    "label": "joueur 0 recharge (mitraillette default)"
+  },
+  {
+    "frame": 265,
+    "kind": "points",
+    "label": "joueur 0 gagne 10 points (hit)"
+  },
+  {
+    "frame": 265,
+    "kind": "feedback",
+    "label": "hit stop 78 (2 frames)"
+  },
+  {
+    "frame": 269,
+    "kind": "points",
+    "label": "joueur 0 gagne 10 points (hit)"
+  },
+  {
+    "frame": 269,
+    "kind": "feedback",
+    "label": "hit stop 78 (2 frames)"
+  },
+  {
+    "frame": 274,
+    "kind": "portal",
+    "label": "portail ouvert (niveau 0)"
+  },
+  {
+    "frame": 274,
+    "kind": "points",
+    "label": "joueur 0 gagne 10 points (hit)"
+  },
+  {
+    "frame": 274,
+    "kind": "points",
+    "label": "joueur 0 gagne 60 points (kill)"
+  },
+  {
+    "frame": 274,
+    "kind": "feedback",
+    "label": "hit stop 78 (2 frames)"
+  },
+  {
+    "frame": 298,
+    "kind": "floor",
+    "label": "niveau 1"
+  },
+  {
+    "frame": 298,
+    "kind": "pickup",
+    "label": "arme mitraillette ramassée (114)"
+  },
+  {
+    "frame": 298,
+    "kind": "powerup",
+    "label": "power-up munitions_obus expiré (113)"
+  },
+  {
+    "frame": 310,
+    "kind": "reload",
+    "label": "joueur 1 a rechargé : 30 (882 en réserve)"
+  },
+  {
+    "frame": 352,
+    "kind": "reload",
+    "label": "joueur 0 a rechargé : 29 (882 en réserve)"
+  },
+  {
+    "frame": 353,
+    "kind": "reload",
+    "label": "joueur 0 recharge (mitraillette default)"
+  },
+  {
+    "frame": 401,
+    "kind": "points",
+    "label": "joueur 1 gagne 10 points (hit)"
+  },
+  {
+    "frame": 401,
+    "kind": "feedback",
+    "label": "hit stop 232 (2 frames)"
+  },
+  {
+    "frame": 405,
+    "kind": "points",
+    "label": "joueur 1 gagne 10 points (hit)"
+  },
+  {
+    "frame": 405,
+    "kind": "feedback",
+    "label": "hit stop 232 (2 frames)"
+  },
+  {
+    "frame": 415,
+    "kind": "points",
+    "label": "joueur 1 gagne 10 points (hit)"
+  },
+  {
+    "frame": 415,
+    "kind": "feedback",
+    "label": "hit stop 232 (2 frames)"
+  },
+  {
+    "frame": 423,
+    "kind": "points",
+    "label": "joueur 1 gagne 10 points (hit)"
+  },
+  {
+    "frame": 423,
+    "kind": "feedback",
+    "label": "hit stop 232 (2 frames)"
+  },
+  {
+    "frame": 432,
+    "kind": "points",
+    "label": "joueur 1 gagne 10 points (hit)"
+  },
+  {
+    "frame": 432,
+    "kind": "feedback",
+    "label": "hit stop 232 (2 frames)"
+  },
+  {
+    "frame": 438,
+    "kind": "points",
+    "label": "joueur 1 gagne 10 points (hit)"
+  },
+  {
+    "frame": 438,
+    "kind": "feedback",
+    "label": "hit stop 232 (2 frames)"
+  },
+  {
+    "frame": 443,
+    "kind": "reload",
+    "label": "joueur 0 a rechargé : 29 (852 en réserve)"
+  },
+  {
+    "frame": 444,
+    "kind": "levelup",
+    "label": "joueur 1 passe niveau 1"
+  },
+  {
+    "frame": 444,
+    "kind": "powerup",
+    "label": "power-up rage au sol (257)"
+  },
+  {
+    "frame": 444,
+    "kind": "points",
+    "label": "joueur 1 gagne 10 points (hit)"
+  },
+  {
+    "frame": 444,
+    "kind": "points",
+    "label": "joueur 1 gagne 60 points (kill)"
+  },
+  {
+    "frame": 444,
+    "kind": "feedback",
+    "label": "hit stop 232 (2 frames)"
+  },
+  {
+    "frame": 501,
+    "kind": "points",
+    "label": "joueur 1 gagne 10 points (hit)"
+  },
+  {
+    "frame": 501,
+    "kind": "feedback",
+    "label": "hit stop 227 (2 frames)"
+  },
+  {
+    "frame": 505,
+    "kind": "points",
+    "label": "joueur 1 gagne 10 points (hit)"
+  },
+  {
+    "frame": 505,
+    "kind": "feedback",
+    "label": "hit stop 227 (2 frames)"
+  },
+  {
+    "frame": 520,
+    "kind": "points",
+    "label": "joueur 1 gagne 10 points (hit)"
+  },
+  {
+    "frame": 520,
+    "kind": "feedback",
+    "label": "hit stop 227 (2 frames)"
+  },
+  {
+    "frame": 525,
+    "kind": "points",
+    "label": "joueur 1 gagne 10 points (hit)"
+  },
+  {
+    "frame": 525,
+    "kind": "points",
+    "label": "joueur 1 gagne 60 points (kill)"
+  },
+  {
+    "frame": 525,
+    "kind": "feedback",
+    "label": "hit stop 227 (2 frames)"
+  },
+  {
+    "frame": 536,
+    "kind": "points",
+    "label": "joueur 0 gagne 10 points (hit)"
+  },
+  {
+    "frame": 536,
+    "kind": "feedback",
+    "label": "hit stop 234 (2 frames)"
+  },
+  {
+    "frame": 541,
+    "kind": "points",
+    "label": "joueur 0 gagne 10 points (hit)"
+  },
+  {
+    "frame": 541,
+    "kind": "feedback",
+    "label": "hit stop 234 (2 frames)"
+  },
+  {
+    "frame": 542,
+    "kind": "weapon",
+    "label": "joueur 1 : chargeur vide (mitraillette)"
+  },
+  {
+    "frame": 543,
+    "kind": "reload",
+    "label": "joueur 1 recharge (mitraillette default)"
+  },
+  {
+    "frame": 556,
+    "kind": "points",
+    "label": "joueur 0 gagne 10 points (hit)"
+  },
+  {
+    "frame": 556,
+    "kind": "feedback",
+    "label": "hit stop 234 (2 frames)"
+  },
+  {
+    "frame": 565,
+    "kind": "points",
+    "label": "joueur 1 gagne 10 points (hit)"
+  },
+  {
+    "frame": 565,
+    "kind": "feedback",
+    "label": "hit stop 231 (2 frames)"
+  },
+  {
+    "frame": 567,
+    "kind": "points",
+    "label": "joueur 0 gagne 10 points (hit)"
+  },
+  {
+    "frame": 567,
+    "kind": "feedback",
+    "label": "hit stop 234 (2 frames)"
+  },
+  {
+    "frame": 569,
+    "kind": "points",
+    "label": "joueur 1 gagne 10 points (hit)"
+  },
+  {
+    "frame": 569,
+    "kind": "feedback",
+    "label": "hit stop 231 (2 frames)"
+  },
+  {
+    "frame": 570,
+    "kind": "points",
+    "label": "joueur 0 gagne 10 points (hit)"
+  },
+  {
+    "frame": 570,
+    "kind": "feedback",
+    "label": "hit stop 236 (2 frames)"
+  },
+  {
+    "frame": 575,
+    "kind": "points",
+    "label": "joueur 0 gagne 10 points (hit)"
+  },
+  {
+    "frame": 575,
+    "kind": "feedback",
+    "label": "hit stop 236 (2 frames)"
+  },
+  {
+    "frame": 580,
+    "kind": "points",
+    "label": "joueur 0 gagne 10 points (hit)"
+  },
+  {
+    "frame": 580,
+    "kind": "feedback",
+    "label": "hit stop 236 (2 frames)"
+  },
+  {
+    "frame": 587,
+    "kind": "points",
+    "label": "joueur 0 gagne 10 points (hit)"
+  },
+  {
+    "frame": 587,
+    "kind": "feedback",
+    "label": "hit stop 236 (2 frames)"
+  },
+  {
+    "frame": 591,
+    "kind": "levelup",
+    "label": "joueur 0 passe niveau 1"
+  },
+  {
+    "frame": 591,
+    "kind": "points",
+    "label": "joueur 0 gagne 10 points (hit)"
+  },
+  {
+    "frame": 591,
+    "kind": "points",
+    "label": "joueur 0 gagne 60 points (kill)"
+  },
+  {
+    "frame": 591,
+    "kind": "feedback",
+    "label": "hit stop 236 (2 frames)"
+  },
+  {
+    "frame": 611,
+    "kind": "feedback",
+    "label": "télégraphe 231 (29 frames, rayon 40)"
+  },
+  {
+    "frame": 613,
+    "kind": "points",
+    "label": "joueur 0 gagne 10 points (hit)"
+  },
+  {
+    "frame": 613,
+    "kind": "feedback",
+    "label": "hit stop 231 (2 frames)"
+  },
+  {
+    "frame": 618,
+    "kind": "points",
+    "label": "joueur 0 gagne 10 points (hit)"
+  },
+  {
+    "frame": 618,
+    "kind": "feedback",
+    "label": "hit stop 231 (2 frames)"
+  },
+  {
+    "frame": 623,
+    "kind": "points",
+    "label": "joueur 0 gagne 10 points (hit)"
+  },
+  {
+    "frame": 623,
+    "kind": "feedback",
+    "label": "hit stop 231 (2 frames)"
+  },
+  {
+    "frame": 629,
+    "kind": "points",
+    "label": "joueur 0 gagne 10 points (hit)"
+  },
+  {
+    "frame": 629,
+    "kind": "feedback",
+    "label": "hit stop 231 (2 frames)"
+  },
+  {
+    "frame": 633,
+    "kind": "reload",
+    "label": "joueur 1 a rechargé : 29 (852 en réserve)"
+  },
+  {
+    "frame": 634,
+    "kind": "reload",
+    "label": "joueur 1 recharge (mitraillette default)"
+  },
+  {
+    "frame": 637,
+    "kind": "points",
+    "label": "joueur 0 gagne 10 points (hit)"
+  },
+  {
+    "frame": 637,
+    "kind": "feedback",
+    "label": "hit stop 231 (2 frames)"
+  },
+  {
+    "frame": 646,
+    "kind": "points",
+    "label": "joueur 0 gagne 10 points (hit)"
+  },
+  {
+    "frame": 646,
+    "kind": "feedback",
+    "label": "hit stop 231 (2 frames)"
+  },
+  {
+    "frame": 650,
+    "kind": "points",
+    "label": "joueur 0 gagne 10 points (hit)"
+  },
+  {
+    "frame": 650,
+    "kind": "feedback",
+    "label": "hit stop 231 (2 frames)"
+  },
+  {
+    "frame": 665,
+    "kind": "weapon",
+    "label": "joueur 0 : chargeur vide (mitraillette)"
+  },
+  {
+    "frame": 666,
+    "kind": "reload",
+    "label": "joueur 0 recharge (mitraillette default)"
+  },
+  {
+    "frame": 682,
+    "kind": "points",
+    "label": "joueur 0 gagne 10 points (hit)"
+  },
+  {
+    "frame": 682,
+    "kind": "feedback",
+    "label": "hit stop 229 (2 frames)"
+  },
+  {
+    "frame": 724,
+    "kind": "reload",
+    "label": "joueur 1 a rechargé : 29 (822 en réserve)"
+  },
+  {
+    "frame": 754,
+    "kind": "hit",
+    "label": "joueur 0 touché"
+  },
+  {
+    "frame": 754,
+    "kind": "feedback",
+    "label": "secousse 66 (8 frames)"
+  },
+  {
+    "frame": 754,
+    "kind": "feedback",
+    "label": "hit stop 66 (2 frames)"
+  },
+  {
+    "frame": 756,
+    "kind": "reload",
+    "label": "joueur 0 a rechargé : 29 (822 en réserve)"
+  },
+  {
+    "frame": 757,
+    "kind": "reload",
+    "label": "joueur 0 recharge (mitraillette default)"
+  },
+  {
+    "frame": 757,
+    "kind": "points",
+    "label": "joueur 0 gagne 10 points (hit)"
+  },
+  {
+    "frame": 757,
+    "kind": "feedback",
+    "label": "hit stop 231 (2 frames)"
+  },
+  {
+    "frame": 771,
+    "kind": "points",
+    "label": "joueur 1 gagne 10 points (hit)"
+  },
+  {
+    "frame": 771,
+    "kind": "feedback",
+    "label": "hit stop 231 (2 frames)"
+  },
+  {
+    "frame": 811,
+    "kind": "feedback",
+    "label": "secousse 66 (8 frames)"
+  },
+  {
+    "frame": 811,
+    "kind": "feedback",
+    "label": "hit stop 66 (2 frames)"
+  },
+  {
+    "frame": 812,
+    "kind": "feedback",
+    "label": "secousse 66 (8 frames)"
+  },
+  {
+    "frame": 812,
+    "kind": "feedback",
+    "label": "hit stop 66 (2 frames)"
+  },
+  {
+    "frame": 847,
+    "kind": "reload",
+    "label": "joueur 0 a rechargé : 29 (792 en réserve)"
+  },
+  {
+    "frame": 847,
+    "kind": "points",
+    "label": "joueur 0 gagne 10 points (hit)"
+  },
+  {
+    "frame": 847,
+    "kind": "feedback",
+    "label": "hit stop 231 (2 frames)"
+  },
+  {
+    "frame": 853,
+    "kind": "points",
+    "label": "joueur 0 gagne 10 points (hit)"
+  },
+  {
+    "frame": 853,
+    "kind": "feedback",
+    "label": "hit stop 231 (2 frames)"
+  },
+  {
+    "frame": 859,
+    "kind": "points",
+    "label": "joueur 0 gagne 10 points (hit)"
+  },
+  {
+    "frame": 859,
+    "kind": "feedback",
+    "label": "hit stop 231 (2 frames)"
+  },
+  {
+    "frame": 865,
+    "kind": "points",
+    "label": "joueur 0 gagne 10 points (hit)"
+  },
+  {
+    "frame": 865,
+    "kind": "points",
+    "label": "joueur 0 gagne 60 points (kill)"
+  },
+  {
+    "frame": 865,
+    "kind": "feedback",
+    "label": "hit stop 231 (2 frames)"
+  },
+  {
+    "frame": 867,
+    "kind": "feedback",
+    "label": "secousse 66 (8 frames)"
+  },
+  {
+    "frame": 867,
+    "kind": "feedback",
+    "label": "hit stop 66 (2 frames)"
+  },
+  {
+    "frame": 868,
+    "kind": "feedback",
+    "label": "secousse 66 (8 frames)"
+  },
+  {
+    "frame": 868,
+    "kind": "feedback",
+    "label": "hit stop 66 (2 frames)"
+  },
+  {
+    "frame": 871,
+    "kind": "points",
+    "label": "joueur 0 gagne 10 points (hit)"
+  },
+  {
+    "frame": 871,
+    "kind": "feedback",
+    "label": "hit stop 234 (2 frames)"
+  },
+  {
+    "frame": 877,
+    "kind": "points",
+    "label": "joueur 0 gagne 10 points (hit)"
+  },
+  {
+    "frame": 877,
+    "kind": "feedback",
+    "label": "hit stop 234 (2 frames)"
+  },
+  {
+    "frame": 883,
+    "kind": "points",
+    "label": "joueur 0 gagne 10 points (hit)"
+  },
+  {
+    "frame": 883,
+    "kind": "feedback",
+    "label": "hit stop 234 (2 frames)"
+  },
+  {
+    "frame": 890,
+    "kind": "powerup",
+    "label": "power-up munitions_lames au sol (356)"
+  },
+  {
+    "frame": 890,
+    "kind": "points",
+    "label": "joueur 0 gagne 10 points (hit)"
+  },
+  {
+    "frame": 890,
+    "kind": "points",
+    "label": "joueur 0 gagne 60 points (kill)"
+  },
+  {
+    "frame": 890,
+    "kind": "feedback",
+    "label": "hit stop 234 (2 frames)"
+  },
+  {
+    "frame": 910,
+    "kind": "points",
+    "label": "joueur 0 gagne 10 points (hit)"
+  },
+  {
+    "frame": 910,
+    "kind": "feedback",
+    "label": "hit stop 229 (2 frames)"
+  },
+  {
+    "frame": 916,
+    "kind": "points",
+    "label": "joueur 0 gagne 10 points (hit)"
+  },
+  {
+    "frame": 916,
+    "kind": "feedback",
+    "label": "hit stop 229 (2 frames)"
+  },
+  {
+    "frame": 922,
+    "kind": "points",
+    "label": "joueur 0 gagne 10 points (hit)"
+  },
+  {
+    "frame": 922,
+    "kind": "feedback",
+    "label": "hit stop 229 (2 frames)"
+  },
+  {
+    "frame": 929,
+    "kind": "points",
+    "label": "joueur 0 gagne 10 points (hit)"
+  },
+  {
+    "frame": 929,
+    "kind": "feedback",
+    "label": "hit stop 229 (2 frames)"
+  },
+  {
+    "frame": 932,
+    "kind": "weapon",
+    "label": "joueur 1 : chargeur vide (mitraillette)"
+  },
+  {
+    "frame": 933,
+    "kind": "reload",
+    "label": "joueur 1 recharge (mitraillette default)"
+  },
+  {
+    "frame": 935,
+    "kind": "points",
+    "label": "joueur 0 gagne 10 points (hit)"
+  },
+  {
+    "frame": 935,
+    "kind": "feedback",
+    "label": "hit stop 229 (2 frames)"
+  },
+  {
+    "frame": 942,
+    "kind": "portal",
+    "label": "portail ouvert (niveau 1)"
+  },
+  {
+    "frame": 942,
+    "kind": "powerup",
+    "label": "power-up vitesse au sol (373)"
+  },
+  {
+    "frame": 942,
+    "kind": "points",
+    "label": "joueur 0 gagne 10 points (hit)"
+  },
+  {
+    "frame": 942,
+    "kind": "points",
+    "label": "joueur 0 gagne 60 points (kill)"
+  },
+  {
+    "frame": 942,
+    "kind": "feedback",
+    "label": "hit stop 229 (2 frames)"
+  },
+  {
+    "frame": 1023,
+    "kind": "reload",
+    "label": "joueur 1 a rechargé : 30 (792 en réserve)"
+  },
+  {
+    "frame": 1044,
+    "kind": "mutation",
+    "label": "joueur 1 prend la mutation coriace"
+  },
+  {
+    "frame": 1046,
+    "kind": "hit",
+    "label": "joueur 1 touché"
+  },
+  {
+    "frame": 1048,
+    "kind": "floor",
+    "label": "niveau 2"
+  },
+  {
+    "frame": 1048,
+    "kind": "powerup",
+    "label": "power-up rage expiré (257)"
+  },
+  {
+    "frame": 1048,
+    "kind": "powerup",
+    "label": "power-up munitions_lames expiré (356)"
+  },
+  {
+    "frame": 1048,
+    "kind": "powerup",
+    "label": "power-up vitesse expiré (373)"
+  },
+  {
+    "frame": 1162,
+    "kind": "points",
+    "label": "joueur 0 gagne 10 points (hit)"
+  },
+  {
+    "frame": 1162,
+    "kind": "feedback",
+    "label": "hit stop 496 (2 frames)"
+  },
+  {
+    "frame": 1171,
+    "kind": "points",
+    "label": "joueur 0 gagne 10 points (hit)"
+  },
+  {
+    "frame": 1171,
+    "kind": "feedback",
+    "label": "hit stop 496 (2 frames)"
+  },
+  {
+    "frame": 1177,
+    "kind": "points",
+    "label": "joueur 0 gagne 10 points (hit)"
+  },
+  {
+    "frame": 1177,
+    "kind": "feedback",
+    "label": "hit stop 496 (2 frames)"
+  },
+  {
+    "frame": 1181,
+    "kind": "points",
+    "label": "joueur 0 gagne 10 points (hit)"
+  },
+  {
+    "frame": 1181,
+    "kind": "feedback",
+    "label": "hit stop 496 (2 frames)"
+  },
+  {
+    "frame": 1183,
+    "kind": "weapon",
+    "label": "joueur 0 : chargeur vide (mitraillette)"
+  },
+  {
+    "frame": 1184,
+    "kind": "reload",
+    "label": "joueur 0 recharge (mitraillette default)"
+  },
+  {
+    "frame": 1184,
+    "kind": "points",
+    "label": "joueur 0 gagne 10 points (hit)"
+  },
+  {
+    "frame": 1184,
+    "kind": "feedback",
+    "label": "hit stop 497 (2 frames)"
+  },
+  {
+    "frame": 1186,
+    "kind": "points",
+    "label": "joueur 0 gagne 10 points (hit)"
+  },
+  {
+    "frame": 1186,
+    "kind": "feedback",
+    "label": "hit stop 497 (2 frames)"
+  },
+  {
+    "frame": 1191,
+    "kind": "mutation",
+    "label": "joueur 0 prend la mutation vampire"
+  },
+  {
+    "frame": 1192,
+    "kind": "points",
+    "label": "joueur 0 gagne 10 points (hit)"
+  },
+  {
+    "frame": 1192,
+    "kind": "feedback",
+    "label": "hit stop 497 (2 frames)"
+  },
+  {
+    "frame": 1196,
+    "kind": "points",
+    "label": "joueur 0 gagne 10 points (hit)"
+  },
+  {
+    "frame": 1196,
+    "kind": "points",
+    "label": "joueur 0 gagne 60 points (kill)"
+  },
+  {
+    "frame": 1196,
+    "kind": "feedback",
+    "label": "hit stop 497 (2 frames)"
+  },
+  {
+    "frame": 1247,
+    "kind": "points",
+    "label": "joueur 1 gagne 10 points (hit)"
+  },
+  {
+    "frame": 1247,
+    "kind": "feedback",
+    "label": "hit stop 494 (2 frames)"
+  },
+  {
+    "frame": 1258,
+    "kind": "points",
+    "label": "joueur 1 gagne 10 points (hit)"
+  },
+  {
+    "frame": 1258,
+    "kind": "feedback",
+    "label": "hit stop 494 (2 frames)"
+  },
+  {
+    "frame": 1264,
+    "kind": "points",
+    "label": "joueur 1 gagne 10 points (hit)"
+  },
+  {
+    "frame": 1264,
+    "kind": "feedback",
+    "label": "hit stop 494 (2 frames)"
+  },
+  {
+    "frame": 1274,
+    "kind": "reload",
+    "label": "joueur 0 a rechargé : 29 (762 en réserve)"
+  },
+  {
+    "frame": 1275,
+    "kind": "reload",
+    "label": "joueur 0 recharge (mitraillette default)"
+  },
+  {
+    "frame": 1289,
+    "kind": "points",
+    "label": "joueur 1 gagne 10 points (hit)"
+  },
+  {
+    "frame": 1289,
+    "kind": "feedback",
+    "label": "hit stop 496 (2 frames)"
+  },
+  {
+    "frame": 1297,
+    "kind": "points",
+    "label": "joueur 0 gagne 10 points (hit)"
+  },
+  {
+    "frame": 1297,
+    "kind": "feedback",
+    "label": "hit stop 496 (2 frames)"
+  },
+  {
+    "frame": 1299,
+    "kind": "points",
+    "label": "joueur 1 gagne 10 points (hit)"
+  },
+  {
+    "frame": 1299,
+    "kind": "feedback",
+    "label": "hit stop 496 (2 frames)"
+  },
+  {
+    "frame": 1314,
+    "kind": "points",
+    "label": "joueur 1 gagne 10 points (hit)"
+  },
+  {
+    "frame": 1314,
+    "kind": "feedback",
+    "label": "hit stop 496 (2 frames)"
+  },
+  {
+    "frame": 1319,
+    "kind": "points",
+    "label": "joueur 1 gagne 10 points (hit)"
+  },
+  {
+    "frame": 1319,
+    "kind": "feedback",
+    "label": "hit stop 496 (2 frames)"
+  },
+  {
+    "frame": 1326,
+    "kind": "points",
+    "label": "joueur 1 gagne 10 points (hit)"
+  },
+  {
+    "frame": 1326,
+    "kind": "feedback",
+    "label": "hit stop 496 (2 frames)"
+  },
+  {
+    "frame": 1332,
+    "kind": "points",
+    "label": "joueur 1 gagne 10 points (hit)"
+  },
+  {
+    "frame": 1332,
+    "kind": "feedback",
+    "label": "hit stop 496 (2 frames)"
+  },
+  {
+    "frame": 1337,
+    "kind": "points",
+    "label": "joueur 1 gagne 10 points (hit)"
+  },
+  {
+    "frame": 1337,
+    "kind": "feedback",
+    "label": "hit stop 496 (2 frames)"
+  },
+  {
+    "frame": 1351,
+    "kind": "feedback",
+    "label": "télégraphe 503 (30 frames, rayon 400)"
+  },
+  {
+    "frame": 1357,
+    "kind": "weapon",
+    "label": "joueur 1 : chargeur vide (mitraillette)"
+  },
+  {
+    "frame": 1358,
+    "kind": "reload",
+    "label": "joueur 1 recharge (mitraillette default)"
+  },
+  {
+    "frame": 1359,
+    "kind": "points",
+    "label": "joueur 1 gagne 10 points (hit)"
+  },
+  {
+    "frame": 1359,
+    "kind": "feedback",
+    "label": "hit stop 496 (2 frames)"
+  },
+  {
+    "frame": 1365,
+    "kind": "reload",
+    "label": "joueur 0 a rechargé : 29 (732 en réserve)"
+  },
+  {
+    "frame": 1367,
+    "kind": "points",
+    "label": "joueur 1 gagne 10 points (hit)"
+  },
+  {
+    "frame": 1367,
+    "kind": "feedback",
+    "label": "hit stop 496 (2 frames)"
+  },
+  {
+    "frame": 1374,
+    "kind": "points",
+    "label": "joueur 1 gagne 10 points (hit)"
+  },
+  {
+    "frame": 1374,
+    "kind": "feedback",
+    "label": "hit stop 496 (2 frames)"
+  },
+  {
+    "frame": 1385,
+    "kind": "points",
+    "label": "joueur 1 gagne 10 points (hit)"
+  },
+  {
+    "frame": 1385,
+    "kind": "feedback",
+    "label": "hit stop 496 (2 frames)"
+  },
+  {
+    "frame": 1395,
+    "kind": "levelup",
+    "label": "joueur 0 passe niveau 2"
+  },
+  {
+    "frame": 1395,
+    "kind": "drop",
+    "label": "arme traqueur tombée au sol (562)"
+  },
+  {
+    "frame": 1395,
+    "kind": "powerup",
+    "label": "power-up vitesse au sol (561)"
+  },
+  {
+    "frame": 1395,
+    "kind": "points",
+    "label": "joueur 0 gagne 10 points (hit)"
+  },
+  {
+    "frame": 1395,
+    "kind": "points",
+    "label": "joueur 0 gagne 60 points (kill)"
+  },
+  {
+    "frame": 1395,
+    "kind": "feedback",
+    "label": "hit stop 496 (2 frames)"
+  },
+  {
+    "frame": 1418,
+    "kind": "points",
+    "label": "joueur 0 gagne 10 points (hit)"
+  },
+  {
+    "frame": 1418,
+    "kind": "feedback",
+    "label": "hit stop 501 (2 frames)"
+  },
+  {
+    "frame": 1436,
+    "kind": "points",
+    "label": "joueur 0 gagne 10 points (hit)"
+  },
+  {
+    "frame": 1436,
+    "kind": "feedback",
+    "label": "hit stop 507 (2 frames)"
+  },
+  {
+    "frame": 1448,
+    "kind": "reload",
+    "label": "joueur 1 a rechargé : 29 (762 en réserve)"
+  },
+  {
+    "frame": 1449,
+    "kind": "reload",
+    "label": "joueur 1 recharge (mitraillette default)"
+  },
+  {
+    "frame": 1450,
+    "kind": "feedback",
+    "label": "télégraphe 494 (20 frames, rayon 400)"
+  },
+  {
+    "frame": 1472,
+    "kind": "feedback",
+    "label": "télégraphe 503 (30 frames, rayon 400)"
+  },
+  {
+    "frame": 1478,
+    "kind": "points",
+    "label": "joueur 1 gagne 10 points (hit)"
+  },
+  {
+    "frame": 1478,
+    "kind": "feedback",
+    "label": "hit stop 503 (2 frames)"
+  },
+  {
+    "frame": 1509,
+    "kind": "points",
+    "label": "joueur 0 gagne 10 points (hit)"
+  },
+  {
+    "frame": 1509,
+    "kind": "feedback",
+    "label": "hit stop 501 (2 frames)"
+  },
+  {
+    "frame": 1516,
+    "kind": "points",
+    "label": "joueur 0 gagne 10 points (hit)"
+  },
+  {
+    "frame": 1516,
+    "kind": "feedback",
+    "label": "hit stop 501 (2 frames)"
+  },
+  {
+    "frame": 1528,
+    "kind": "points",
+    "label": "joueur 0 gagne 10 points (hit)"
+  },
+  {
+    "frame": 1528,
+    "kind": "feedback",
+    "label": "hit stop 501 (2 frames)"
+  },
+  {
+    "frame": 1538,
+    "kind": "points",
+    "label": "joueur 0 gagne 10 points (hit)"
+  },
+  {
+    "frame": 1538,
+    "kind": "feedback",
+    "label": "hit stop 501 (2 frames)"
+  },
+  {
+    "frame": 1539,
+    "kind": "reload",
+    "label": "joueur 1 a rechargé : 29 (732 en réserve)"
+  },
+  {
+    "frame": 1543,
+    "kind": "points",
+    "label": "joueur 0 gagne 10 points (hit)"
+  },
+  {
+    "frame": 1543,
+    "kind": "points",
+    "label": "joueur 0 gagne 60 points (kill)"
+  },
+  {
+    "frame": 1543,
+    "kind": "feedback",
+    "label": "hit stop 501 (2 frames)"
+  },
+  {
+    "frame": 1563,
+    "kind": "points",
+    "label": "joueur 0 gagne 10 points (hit)"
+  },
+  {
+    "frame": 1563,
+    "kind": "feedback",
+    "label": "hit stop 507 (2 frames)"
+  },
+  {
+    "frame": 1577,
+    "kind": "points",
+    "label": "joueur 1 gagne 10 points (hit)"
+  },
+  {
+    "frame": 1577,
+    "kind": "points",
+    "label": "joueur 1 gagne 10 points (hit)"
+  },
+  {
+    "frame": 1577,
+    "kind": "feedback",
+    "label": "hit stop 503 (2 frames)"
+  },
+  {
+    "frame": 1583,
+    "kind": "points",
+    "label": "joueur 1 gagne 10 points (hit)"
+  },
+  {
+    "frame": 1583,
+    "kind": "feedback",
+    "label": "hit stop 494 (2 frames)"
+  },
+  {
+    "frame": 1584,
+    "kind": "points",
+    "label": "joueur 1 gagne 10 points (hit)"
+  },
+  {
+    "frame": 1584,
+    "kind": "feedback",
+    "label": "hit stop 507 (2 frames)"
+  },
+  {
+    "frame": 1589,
+    "kind": "points",
+    "label": "joueur 1 gagne 10 points (hit)"
+  },
+  {
+    "frame": 1589,
+    "kind": "feedback",
+    "label": "hit stop 494 (2 frames)"
+  },
+  {
+    "frame": 1591,
+    "kind": "feedback",
+    "label": "télégraphe 494 (20 frames, rayon 400)"
+  },
+  {
+    "frame": 1593,
+    "kind": "feedback",
+    "label": "télégraphe 503 (30 frames, rayon 400)"
+  },
+  {
+    "frame": 1595,
+    "kind": "weapon",
+    "label": "joueur 0 : chargeur vide (mitraillette)"
+  },
+  {
+    "frame": 1595,
+    "kind": "points",
+    "label": "joueur 1 gagne 10 points (hit)"
+  },
+  {
+    "frame": 1595,
+    "kind": "feedback",
+    "label": "hit stop 494 (2 frames)"
+  },
+  {
+    "frame": 1596,
+    "kind": "reload",
+    "label": "joueur 0 recharge (mitraillette default)"
+  },
+  {
+    "frame": 1603,
+    "kind": "points",
+    "label": "joueur 1 gagne 10 points (hit)"
+  },
+  {
+    "frame": 1603,
+    "kind": "feedback",
+    "label": "hit stop 494 (2 frames)"
+  },
+  {
+    "frame": 1604,
+    "kind": "points",
+    "label": "joueur 0 gagne 10 points (hit)"
+  },
+  {
+    "frame": 1604,
+    "kind": "feedback",
+    "label": "hit stop 507 (2 frames)"
+  },
+  {
+    "frame": 1608,
+    "kind": "points",
+    "label": "joueur 1 gagne 10 points (hit)"
+  },
+  {
+    "frame": 1608,
+    "kind": "feedback",
+    "label": "hit stop 494 (2 frames)"
+  },
+  {
+    "frame": 1615,
+    "kind": "points",
+    "label": "joueur 1 gagne 10 points (hit)"
+  },
+  {
+    "frame": 1615,
+    "kind": "feedback",
+    "label": "hit stop 494 (2 frames)"
+  },
+  {
+    "frame": 1619,
+    "kind": "points",
+    "label": "joueur 0 gagne 10 points (hit)"
+  },
+  {
+    "frame": 1619,
+    "kind": "points",
+    "label": "joueur 1 gagne 10 points (hit)"
+  },
+  {
+    "frame": 1619,
+    "kind": "feedback",
+    "label": "hit stop 494 (2 frames)"
+  },
+  {
+    "frame": 1623,
+    "kind": "points",
+    "label": "joueur 0 gagne 10 points (hit)"
+  },
+  {
+    "frame": 1623,
+    "kind": "feedback",
+    "label": "hit stop 492 (2 frames)"
+  },
+  {
+    "frame": 1626,
+    "kind": "points",
+    "label": "joueur 1 gagne 10 points (hit)"
+  },
+  {
+    "frame": 1626,
+    "kind": "feedback",
+    "label": "hit stop 494 (2 frames)"
+  },
+  {
+    "frame": 1630,
+    "kind": "points",
+    "label": "joueur 0 gagne 10 points (hit)"
+  },
+  {
+    "frame": 1630,
+    "kind": "feedback",
+    "label": "hit stop 492 (2 frames)"
+  },
+  {
+    "frame": 1631,
+    "kind": "points",
+    "label": "joueur 1 gagne 10 points (hit)"
+  },
+  {
+    "frame": 1631,
+    "kind": "feedback",
+    "label": "hit stop 494 (2 frames)"
+  },
+  {
+    "frame": 1636,
+    "kind": "points",
+    "label": "joueur 1 gagne 10 points (hit)"
+  },
+  {
+    "frame": 1636,
+    "kind": "feedback",
+    "label": "hit stop 494 (2 frames)"
+  },
+  {
+    "frame": 1644,
+    "kind": "hit",
+    "label": "joueur 1 touché"
+  },
+  {
+    "frame": 1644,
+    "kind": "feedback",
+    "label": "secousse 71 (8 frames)"
+  },
+  {
+    "frame": 1644,
+    "kind": "feedback",
+    "label": "hit stop 71 (2 frames)"
+  },
+  {
+    "frame": 1646,
+    "kind": "points",
+    "label": "joueur 1 gagne 10 points (hit)"
+  },
+  {
+    "frame": 1646,
+    "kind": "feedback",
+    "label": "hit stop 492 (2 frames)"
+  },
+  {
+    "frame": 1654,
+    "kind": "points",
+    "label": "joueur 1 gagne 10 points (hit)"
+  },
+  {
+    "frame": 1654,
+    "kind": "feedback",
+    "label": "hit stop 492 (2 frames)"
+  },
+  {
+    "frame": 1658,
+    "kind": "points",
+    "label": "joueur 1 gagne 10 points (hit)"
+  },
+  {
+    "frame": 1658,
+    "kind": "feedback",
+    "label": "hit stop 492 (2 frames)"
+  },
+  {
+    "frame": 1662,
+    "kind": "points",
+    "label": "joueur 1 gagne 10 points (hit)"
+  },
+  {
+    "frame": 1662,
+    "kind": "feedback",
+    "label": "hit stop 492 (2 frames)"
+  },
+  {
+    "frame": 1666,
+    "kind": "points",
+    "label": "joueur 1 gagne 10 points (hit)"
+  },
+  {
+    "frame": 1666,
+    "kind": "feedback",
+    "label": "hit stop 492 (2 frames)"
+  },
+  {
+    "frame": 1673,
+    "kind": "points",
+    "label": "joueur 1 gagne 10 points (hit)"
+  },
+  {
+    "frame": 1673,
+    "kind": "points",
+    "label": "joueur 1 gagne 60 points (kill)"
+  },
+  {
+    "frame": 1673,
+    "kind": "feedback",
+    "label": "hit stop 492 (2 frames)"
+  },
+  {
+    "frame": 1678,
+    "kind": "points",
+    "label": "joueur 1 gagne 10 points (hit)"
+  },
+  {
+    "frame": 1678,
+    "kind": "feedback",
+    "label": "hit stop 494 (2 frames)"
+  },
+  {
+    "frame": 1685,
+    "kind": "points",
+    "label": "joueur 1 gagne 10 points (hit)"
+  },
+  {
+    "frame": 1685,
+    "kind": "feedback",
+    "label": "hit stop 494 (2 frames)"
+  },
+  {
+    "frame": 1686,
+    "kind": "reload",
+    "label": "joueur 0 a rechargé : 29 (702 en réserve)"
+  },
+  {
+    "frame": 1687,
+    "kind": "reload",
+    "label": "joueur 0 recharge (mitraillette default)"
+  },
+  {
+    "frame": 1692,
+    "kind": "points",
+    "label": "joueur 1 gagne 10 points (hit)"
+  },
+  {
+    "frame": 1692,
+    "kind": "feedback",
+    "label": "hit stop 494 (2 frames)"
+  },
+  {
+    "frame": 1699,
+    "kind": "points",
+    "label": "joueur 1 gagne 10 points (hit)"
+  },
+  {
+    "frame": 1699,
+    "kind": "feedback",
+    "label": "hit stop 494 (2 frames)"
+  },
+  {
+    "frame": 1707,
+    "kind": "points",
+    "label": "joueur 1 gagne 10 points (hit)"
+  },
+  {
+    "frame": 1707,
+    "kind": "feedback",
+    "label": "hit stop 494 (2 frames)"
+  },
+  {
+    "frame": 1710,
+    "kind": "points",
+    "label": "joueur 0 gagne 10 points (hit)"
+  },
+  {
+    "frame": 1710,
+    "kind": "feedback",
+    "label": "hit stop 507 (2 frames)"
+  },
+  {
+    "frame": 1712,
+    "kind": "points",
+    "label": "joueur 1 gagne 10 points (hit)"
+  },
+  {
+    "frame": 1712,
+    "kind": "feedback",
+    "label": "hit stop 494 (2 frames)"
+  },
+  {
+    "frame": 1713,
+    "kind": "weapon",
+    "label": "joueur 1 : chargeur vide (mitraillette)"
+  },
+  {
+    "frame": 1714,
+    "kind": "reload",
+    "label": "joueur 1 recharge (mitraillette default)"
+  },
+  {
+    "frame": 1714,
+    "kind": "feedback",
+    "label": "télégraphe 503 (30 frames, rayon 400)"
+  },
+  {
+    "frame": 1717,
+    "kind": "points",
+    "label": "joueur 1 gagne 10 points (hit)"
+  },
+  {
+    "frame": 1717,
+    "kind": "feedback",
+    "label": "hit stop 494 (2 frames)"
+  },
+  {
+    "frame": 1721,
+    "kind": "points",
+    "label": "joueur 1 gagne 10 points (hit)"
+  },
+  {
+    "frame": 1721,
+    "kind": "feedback",
+    "label": "hit stop 494 (2 frames)"
+  },
+  {
+    "frame": 1727,
+    "kind": "points",
+    "label": "joueur 1 gagne 10 points (hit)"
+  },
+  {
+    "frame": 1727,
+    "kind": "feedback",
+    "label": "hit stop 494 (2 frames)"
+  },
+  {
+    "frame": 1732,
+    "kind": "feedback",
+    "label": "télégraphe 494 (20 frames, rayon 400)"
+  },
+  {
+    "frame": 1733,
+    "kind": "hit",
+    "label": "joueur 0 touché"
+  },
+  {
+    "frame": 1733,
+    "kind": "points",
+    "label": "joueur 1 gagne 10 points (hit)"
+  },
+  {
+    "frame": 1733,
+    "kind": "feedback",
+    "label": "secousse 66 (8 frames)"
+  },
+  {
+    "frame": 1733,
+    "kind": "feedback",
+    "label": "hit stop 494 (2 frames)"
+  },
+  {
+    "frame": 1766,
+    "kind": "feedback",
+    "label": "télégraphe 494 (29 frames, rayon 40)"
+  },
+  {
+    "frame": 1777,
+    "kind": "reload",
+    "label": "joueur 0 a rechargé : 30 (672 en réserve)"
+  },
+  {
+    "frame": 1804,
+    "kind": "reload",
+    "label": "joueur 1 a rechargé : 29 (702 en réserve)"
+  },
+  {
+    "frame": 1805,
+    "kind": "reload",
+    "label": "joueur 1 recharge (mitraillette default)"
+  },
+  {
+    "frame": 1809,
+    "kind": "points",
+    "label": "joueur 0 gagne 10 points (hit)"
+  },
+  {
+    "frame": 1809,
+    "kind": "feedback",
+    "label": "hit stop 507 (2 frames)"
+  },
+  {
+    "frame": 1814,
+    "kind": "points",
+    "label": "joueur 0 gagne 10 points (hit)"
+  },
+  {
+    "frame": 1814,
+    "kind": "points",
+    "label": "joueur 1 gagne 10 points (hit)"
+  },
+  {
+    "frame": 1814,
+    "kind": "feedback",
+    "label": "hit stop 507 (2 frames)"
+  },
+  {
+    "frame": 1820,
+    "kind": "points",
+    "label": "joueur 0 gagne 10 points (hit)"
+  },
+  {
+    "frame": 1820,
+    "kind": "feedback",
+    "label": "hit stop 507 (2 frames)"
+  },
+  {
+    "frame": 1825,
+    "kind": "points",
+    "label": "joueur 0 gagne 10 points (hit)"
+  },
+  {
+    "frame": 1825,
+    "kind": "feedback",
+    "label": "secousse 66 (8 frames)"
+  },
+  {
+    "frame": 1825,
+    "kind": "feedback",
+    "label": "hit stop 507 (2 frames)"
+  },
+  {
+    "frame": 1830,
+    "kind": "points",
+    "label": "joueur 0 gagne 10 points (hit)"
+  },
+  {
+    "frame": 1830,
+    "kind": "points",
+    "label": "joueur 0 gagne 60 points (kill)"
+  },
+  {
+    "frame": 1830,
+    "kind": "feedback",
+    "label": "hit stop 507 (2 frames)"
+  },
+  {
+    "frame": 1833,
+    "kind": "feedback",
+    "label": "secousse 71 (8 frames)"
+  },
+  {
+    "frame": 1833,
+    "kind": "feedback",
+    "label": "hit stop 71 (2 frames)"
+  },
+  {
+    "frame": 1835,
+    "kind": "feedback",
+    "label": "télégraphe 503 (30 frames, rayon 400)"
+  },
+  {
+    "frame": 1841,
+    "kind": "points",
+    "label": "joueur 0 gagne 10 points (hit)"
+  },
+  {
+    "frame": 1841,
+    "kind": "feedback",
+    "label": "hit stop 503 (2 frames)"
+  },
+  {
+    "frame": 1861,
+    "kind": "feedback",
+    "label": "secousse 71 (8 frames)"
+  },
+  {
+    "frame": 1861,
+    "kind": "feedback",
+    "label": "hit stop 71 (2 frames)"
+  },
+  {
+    "frame": 1873,
+    "kind": "feedback",
+    "label": "télégraphe 494 (20 frames, rayon 400)"
+  },
+  {
+    "frame": 1895,
+    "kind": "reload",
+    "label": "joueur 1 a rechargé : 29 (672 en réserve)"
+  },
+  {
+    "frame": 1896,
+    "kind": "points",
+    "label": "joueur 1 gagne 10 points (hit)"
+  },
+  {
+    "frame": 1896,
+    "kind": "feedback",
+    "label": "hit stop 494 (2 frames)"
+  },
+  {
+    "frame": 1902,
+    "kind": "points",
+    "label": "joueur 1 gagne 10 points (hit)"
+  },
+  {
+    "frame": 1902,
+    "kind": "feedback",
+    "label": "hit stop 494 (2 frames)"
+  },
+  {
+    "frame": 1906,
+    "kind": "feedback",
+    "label": "secousse 71 (8 frames)"
+  },
+  {
+    "frame": 1906,
+    "kind": "feedback",
+    "label": "hit stop 71 (2 frames)"
+  },
+  {
+    "frame": 1908,
+    "kind": "points",
+    "label": "joueur 1 gagne 10 points (hit)"
+  },
+  {
+    "frame": 1908,
+    "kind": "feedback",
+    "label": "hit stop 494 (2 frames)"
+  },
+  {
+    "frame": 1915,
+    "kind": "points",
+    "label": "joueur 1 gagne 10 points (hit)"
+  },
+  {
+    "frame": 1915,
+    "kind": "feedback",
+    "label": "hit stop 494 (2 frames)"
+  },
+  {
+    "frame": 1921,
+    "kind": "points",
+    "label": "joueur 1 gagne 10 points (hit)"
+  },
+  {
+    "frame": 1921,
+    "kind": "feedback",
+    "label": "hit stop 494 (2 frames)"
+  },
+  {
+    "frame": 1923,
+    "kind": "feedback",
+    "label": "télégraphe 494 (29 frames, rayon 40)"
+  },
+  {
+    "frame": 1927,
+    "kind": "points",
+    "label": "joueur 1 gagne 10 points (hit)"
+  },
+  {
+    "frame": 1927,
+    "kind": "feedback",
+    "label": "hit stop 494 (2 frames)"
+  },
+  {
+    "frame": 1933,
+    "kind": "points",
+    "label": "joueur 1 gagne 10 points (hit)"
+  },
+  {
+    "frame": 1933,
+    "kind": "feedback",
+    "label": "hit stop 494 (2 frames)"
+  },
+  {
+    "frame": 1939,
+    "kind": "points",
+    "label": "joueur 1 gagne 10 points (hit)"
+  },
+  {
+    "frame": 1939,
+    "kind": "feedback",
+    "label": "hit stop 494 (2 frames)"
+  },
+  {
+    "frame": 1945,
+    "kind": "points",
+    "label": "joueur 1 gagne 10 points (hit)"
+  },
+  {
+    "frame": 1945,
+    "kind": "feedback",
+    "label": "hit stop 494 (2 frames)"
+  },
+  {
+    "frame": 1948,
+    "kind": "clock",
+    "label": "horloge : alerte"
+  },
+  {
+    "frame": 1951,
+    "kind": "points",
+    "label": "joueur 1 gagne 10 points (hit)"
+  },
+  {
+    "frame": 1951,
+    "kind": "feedback",
+    "label": "hit stop 494 (2 frames)"
+  },
+  {
+    "frame": 1955,
+    "kind": "feedback",
+    "label": "secousse 71 (8 frames)"
+  },
+  {
+    "frame": 1955,
+    "kind": "feedback",
+    "label": "hit stop 71 (2 frames)"
+  },
+  {
+    "frame": 1956,
+    "kind": "points",
+    "label": "joueur 1 gagne 10 points (hit)"
+  },
+  {
+    "frame": 1956,
+    "kind": "feedback",
+    "label": "hit stop 494 (2 frames)"
+  },
+  {
+    "frame": 1956,
+    "kind": "feedback",
+    "label": "télégraphe 503 (30 frames, rayon 400)"
+  },
+  {
+    "frame": 1963,
+    "kind": "points",
+    "label": "joueur 1 gagne 10 points (hit)"
+  },
+  {
+    "frame": 1963,
+    "kind": "feedback",
+    "label": "hit stop 494 (2 frames)"
+  },
+  {
+    "frame": 1969,
+    "kind": "points",
+    "label": "joueur 1 gagne 10 points (hit)"
+  },
+  {
+    "frame": 1969,
+    "kind": "feedback",
+    "label": "hit stop 494 (2 frames)"
+  },
+  {
+    "frame": 1976,
+    "kind": "points",
+    "label": "joueur 1 gagne 10 points (hit)"
+  },
+  {
+    "frame": 1976,
+    "kind": "feedback",
+    "label": "hit stop 494 (2 frames)"
+  },
+  {
+    "frame": 1982,
+    "kind": "points",
+    "label": "joueur 1 gagne 10 points (hit)"
+  },
+  {
+    "frame": 1982,
+    "kind": "feedback",
+    "label": "hit stop 494 (2 frames)"
+  },
+  {
+    "frame": 1989,
+    "kind": "points",
+    "label": "joueur 0 gagne 10 points (hit)"
+  },
+  {
+    "frame": 1989,
+    "kind": "points",
+    "label": "joueur 1 gagne 10 points (hit)"
+  },
+  {
+    "frame": 1989,
+    "kind": "feedback",
+    "label": "hit stop 505 (2 frames)"
+  },
+  {
+    "frame": 1994,
+    "kind": "points",
+    "label": "joueur 0 gagne 10 points (hit)"
+  },
+  {
+    "frame": 1994,
+    "kind": "feedback",
+    "label": "hit stop 505 (2 frames)"
+  },
+  {
+    "frame": 1995,
+    "kind": "mutation",
+    "label": "joueur 0 prend la mutation irradie"
+  },
+  {
+    "frame": 1995,
+    "kind": "points",
+    "label": "joueur 1 gagne 10 points (hit)"
+  },
+  {
+    "frame": 1995,
+    "kind": "feedback",
+    "label": "hit stop 494 (2 frames)"
+  },
+  {
+    "frame": 1999,
+    "kind": "points",
+    "label": "joueur 0 gagne 10 points (hit)"
+  },
+  {
+    "frame": 1999,
+    "kind": "feedback",
+    "label": "hit stop 505 (2 frames)"
+  },
+  {
+    "frame": 2002,
+    "kind": "points",
+    "label": "joueur 1 gagne 10 points (hit)"
+  },
+  {
+    "frame": 2002,
+    "kind": "feedback",
+    "label": "hit stop 494 (2 frames)"
+  },
+  {
+    "frame": 2004,
+    "kind": "points",
+    "label": "joueur 0 gagne 10 points (hit)"
+  },
+  {
+    "frame": 2004,
+    "kind": "feedback",
+    "label": "hit stop 505 (2 frames)"
+  },
+  {
+    "frame": 2009,
+    "kind": "points",
+    "label": "joueur 1 gagne 10 points (hit)"
+  },
+  {
+    "frame": 2009,
+    "kind": "feedback",
+    "label": "hit stop 494 (2 frames)"
+  },
+  {
+    "frame": 2010,
+    "kind": "points",
+    "label": "joueur 0 gagne 10 points (hit)"
+  },
+  {
+    "frame": 2010,
+    "kind": "feedback",
+    "label": "hit stop 505 (2 frames)"
+  },
+  {
+    "frame": 2014,
+    "kind": "feedback",
+    "label": "télégraphe 494 (20 frames, rayon 400)"
+  },
+  {
+    "frame": 2015,
+    "kind": "points",
+    "label": "joueur 1 gagne 10 points (hit)"
+  },
+  {
+    "frame": 2015,
+    "kind": "points",
+    "label": "joueur 0 gagne 10 points (hit)"
+  },
+  {
+    "frame": 2015,
+    "kind": "feedback",
+    "label": "hit stop 494 (2 frames)"
+  },
+  {
+    "frame": 2021,
+    "kind": "points",
+    "label": "joueur 0 gagne 10 points (hit)"
+  },
+  {
+    "frame": 2021,
+    "kind": "feedback",
+    "label": "hit stop 505 (2 frames)"
+  },
+  {
+    "frame": 2022,
+    "kind": "points",
+    "label": "joueur 1 gagne 10 points (hit)"
+  },
+  {
+    "frame": 2022,
+    "kind": "feedback",
+    "label": "hit stop 494 (2 frames)"
+  },
+  {
+    "frame": 2027,
+    "kind": "points",
+    "label": "joueur 0 gagne 10 points (hit)"
+  },
+  {
+    "frame": 2027,
+    "kind": "feedback",
+    "label": "hit stop 505 (2 frames)"
+  },
+  {
+    "frame": 2028,
+    "kind": "points",
+    "label": "joueur 1 gagne 10 points (hit)"
+  },
+  {
+    "frame": 2028,
+    "kind": "feedback",
+    "label": "hit stop 494 (2 frames)"
+  },
+  {
+    "frame": 2033,
+    "kind": "points",
+    "label": "joueur 0 gagne 10 points (hit)"
+  },
+  {
+    "frame": 2033,
+    "kind": "feedback",
+    "label": "hit stop 505 (2 frames)"
+  },
+  {
+    "frame": 2034,
+    "kind": "points",
+    "label": "joueur 1 gagne 10 points (hit)"
+  },
+  {
+    "frame": 2034,
+    "kind": "feedback",
+    "label": "hit stop 494 (2 frames)"
+  },
+  {
+    "frame": 2039,
+    "kind": "points",
+    "label": "joueur 1 gagne 10 points (hit)"
+  },
+  {
+    "frame": 2039,
+    "kind": "points",
+    "label": "joueur 0 gagne 10 points (hit)"
+  },
+  {
+    "frame": 2039,
+    "kind": "feedback",
+    "label": "secousse 66 (8 frames)"
+  },
+  {
+    "frame": 2039,
+    "kind": "feedback",
+    "label": "hit stop 494 (2 frames)"
+  },
+  {
+    "frame": 2044,
+    "kind": "feedback",
+    "label": "télégraphe 494 (29 frames, rayon 40)"
+  },
+  {
+    "frame": 2045,
+    "kind": "points",
+    "label": "joueur 1 gagne 10 points (hit)"
+  },
+  {
+    "frame": 2045,
+    "kind": "points",
+    "label": "joueur 0 gagne 10 points (hit)"
+  },
+  {
+    "frame": 2045,
+    "kind": "feedback",
+    "label": "hit stop 494 (2 frames)"
+  },
+  {
+    "frame": 2051,
+    "kind": "points",
+    "label": "joueur 1 gagne 10 points (hit)"
+  },
+  {
+    "frame": 2051,
+    "kind": "points",
+    "label": "joueur 0 gagne 10 points (hit)"
+  },
+  {
+    "frame": 2051,
+    "kind": "feedback",
+    "label": "hit stop 494 (2 frames)"
+  },
+  {
+    "frame": 2056,
+    "kind": "points",
+    "label": "joueur 0 gagne 10 points (hit)"
+  },
+  {
+    "frame": 2056,
+    "kind": "feedback",
+    "label": "hit stop 505 (2 frames)"
+  },
+  {
+    "frame": 2057,
+    "kind": "points",
+    "label": "joueur 1 gagne 10 points (hit)"
+  },
+  {
+    "frame": 2057,
+    "kind": "feedback",
+    "label": "hit stop 494 (2 frames)"
+  },
+  {
+    "frame": 2062,
+    "kind": "points",
+    "label": "joueur 0 gagne 10 points (hit)"
+  },
+  {
+    "frame": 2062,
+    "kind": "feedback",
+    "label": "hit stop 505 (2 frames)"
+  },
+  {
+    "frame": 2063,
+    "kind": "points",
+    "label": "joueur 1 gagne 10 points (hit)"
+  },
+  {
+    "frame": 2063,
+    "kind": "feedback",
+    "label": "hit stop 494 (2 frames)"
+  },
+  {
+    "frame": 2067,
+    "kind": "points",
+    "label": "joueur 0 gagne 10 points (hit)"
+  },
+  {
+    "frame": 2067,
+    "kind": "feedback",
+    "label": "hit stop 505 (2 frames)"
+  },
+  {
+    "frame": 2069,
+    "kind": "weapon",
+    "label": "joueur 1 : chargeur vide (mitraillette)"
+  },
+  {
+    "frame": 2069,
+    "kind": "points",
+    "label": "joueur 1 gagne 10 points (hit)"
+  },
+  {
+    "frame": 2069,
+    "kind": "feedback",
+    "label": "hit stop 494 (2 frames)"
+  },
+  {
+    "frame": 2070,
+    "kind": "reload",
+    "label": "joueur 1 recharge (mitraillette default)"
+  },
+  {
+    "frame": 2073,
+    "kind": "points",
+    "label": "joueur 0 gagne 10 points (hit)"
+  },
+  {
+    "frame": 2073,
+    "kind": "feedback",
+    "label": "hit stop 505 (2 frames)"
+  },
+  {
+    "frame": 2075,
+    "kind": "points",
+    "label": "joueur 1 gagne 10 points (hit)"
+  },
+  {
+    "frame": 2075,
+    "kind": "feedback",
+    "label": "hit stop 494 (2 frames)"
+  },
+  {
+    "frame": 2077,
+    "kind": "feedback",
+    "label": "télégraphe 503 (30 frames, rayon 400)"
+  },
+  {
+    "frame": 2079,
+    "kind": "points",
+    "label": "joueur 0 gagne 10 points (hit)"
+  },
+  {
+    "frame": 2079,
+    "kind": "feedback",
+    "label": "hit stop 505 (2 frames)"
+  },
+  {
+    "frame": 2084,
+    "kind": "feedback",
+    "label": "secousse 71 (8 frames)"
+  },
+  {
+    "frame": 2084,
+    "kind": "feedback",
+    "label": "hit stop 71 (2 frames)"
+  },
+  {
+    "frame": 2085,
+    "kind": "points",
+    "label": "joueur 0 gagne 10 points (hit)"
+  },
+  {
+    "frame": 2085,
+    "kind": "feedback",
+    "label": "hit stop 505 (2 frames)"
+  },
+  {
+    "frame": 2090,
+    "kind": "points",
+    "label": "joueur 0 gagne 10 points (hit)"
+  },
+  {
+    "frame": 2090,
+    "kind": "feedback",
+    "label": "hit stop 505 (2 frames)"
+  },
+  {
+    "frame": 2096,
+    "kind": "points",
+    "label": "joueur 0 gagne 10 points (hit)"
+  },
+  {
+    "frame": 2096,
+    "kind": "feedback",
+    "label": "hit stop 505 (2 frames)"
+  },
+  {
+    "frame": 2102,
+    "kind": "points",
+    "label": "joueur 0 gagne 10 points (hit)"
+  },
+  {
+    "frame": 2102,
+    "kind": "feedback",
+    "label": "hit stop 505 (2 frames)"
+  },
+  {
+    "frame": 2108,
+    "kind": "points",
+    "label": "joueur 0 gagne 10 points (hit)"
+  },
+  {
+    "frame": 2108,
+    "kind": "feedback",
+    "label": "hit stop 505 (2 frames)"
+  },
+  {
+    "frame": 2114,
+    "kind": "points",
+    "label": "joueur 0 gagne 10 points (hit)"
+  },
+  {
+    "frame": 2114,
+    "kind": "points",
+    "label": "joueur 0 gagne 60 points (kill)"
+  },
+  {
+    "frame": 2114,
+    "kind": "feedback",
+    "label": "hit stop 505 (2 frames)"
+  },
+  {
+    "frame": 2119,
+    "kind": "weapon",
+    "label": "joueur 0 : chargeur vide (mitraillette)"
+  },
+  {
+    "frame": 2125,
+    "kind": "reload",
+    "label": "joueur 0 recharge (mitraillette default)"
+  },
+  {
+    "frame": 2151,
+    "kind": "points",
+    "label": "joueur 0 gagne 10 points (hit)"
+  },
+  {
+    "frame": 2151,
+    "kind": "feedback",
+    "label": "hit stop 503 (2 frames)"
+  },
+  {
+    "frame": 2155,
+    "kind": "feedback",
+    "label": "télégraphe 494 (20 frames, rayon 400)"
+  },
+  {
+    "frame": 2160,
+    "kind": "reload",
+    "label": "joueur 1 a rechargé : 29 (642 en réserve)"
+  },
+  {
+    "frame": 2160,
+    "kind": "points",
+    "label": "joueur 1 gagne 10 points (hit)"
+  },
+  {
+    "frame": 2160,
+    "kind": "feedback",
+    "label": "hit stop 494 (2 frames)"
+  },
+  {
+    "frame": 2161,
+    "kind": "reload",
+    "label": "joueur 1 recharge (mitraillette default)"
+  },
+  {
+    "frame": 2167,
+    "kind": "feedback",
+    "label": "secousse 66 (8 frames)"
+  },
+  {
+    "frame": 2167,
+    "kind": "feedback",
+    "label": "hit stop 66 (2 frames)"
+  },
+  {
+    "frame": 2169,
+    "kind": "feedback",
+    "label": "secousse 66 (8 frames)"
+  },
+  {
+    "frame": 2169,
+    "kind": "feedback",
+    "label": "hit stop 66 (2 frames)"
+  },
+  {
+    "frame": 2187,
+    "kind": "feedback",
+    "label": "secousse 71 (8 frames)"
+  },
+  {
+    "frame": 2187,
+    "kind": "feedback",
+    "label": "hit stop 71 (2 frames)"
+  },
+  {
+    "frame": 2198,
+    "kind": "feedback",
+    "label": "télégraphe 503 (30 frames, rayon 400)"
+  },
+  {
+    "frame": 2215,
+    "kind": "reload",
+    "label": "joueur 0 a rechargé : 30 (642 en réserve)"
+  },
+  {
+    "frame": 2251,
+    "kind": "reload",
+    "label": "joueur 1 a rechargé : 29 (612 en réserve)"
+  },
+  {
+    "frame": 2251,
+    "kind": "points",
+    "label": "joueur 0 gagne 10 points (hit)"
+  },
+  {
+    "frame": 2251,
+    "kind": "points",
+    "label": "joueur 1 gagne 10 points (hit)"
+  },
+  {
+    "frame": 2251,
+    "kind": "feedback",
+    "label": "hit stop 503 (2 frames)"
+  },
+  {
+    "frame": 2256,
+    "kind": "points",
+    "label": "joueur 0 gagne 10 points (hit)"
+  },
+  {
+    "frame": 2256,
+    "kind": "feedback",
+    "label": "hit stop 503 (2 frames)"
+  },
+  {
+    "frame": 2257,
+    "kind": "points",
+    "label": "joueur 1 gagne 10 points (hit)"
+  },
+  {
+    "frame": 2257,
+    "kind": "feedback",
+    "label": "hit stop 494 (2 frames)"
+  },
+  {
+    "frame": 2261,
+    "kind": "points",
+    "label": "joueur 0 gagne 10 points (hit)"
+  },
+  {
+    "frame": 2261,
+    "kind": "feedback",
+    "label": "hit stop 503 (2 frames)"
+  },
+  {
+    "frame": 2263,
+    "kind": "points",
+    "label": "joueur 1 gagne 10 points (hit)"
+  },
+  {
+    "frame": 2263,
+    "kind": "feedback",
+    "label": "hit stop 494 (2 frames)"
+  },
+  {
+    "frame": 2267,
+    "kind": "points",
+    "label": "joueur 0 gagne 10 points (hit)"
+  },
+  {
+    "frame": 2267,
+    "kind": "feedback",
+    "label": "hit stop 503 (2 frames)"
+  },
+  {
+    "frame": 2269,
+    "kind": "points",
+    "label": "joueur 1 gagne 10 points (hit)"
+  },
+  {
+    "frame": 2269,
+    "kind": "feedback",
+    "label": "hit stop 494 (2 frames)"
+  },
+  {
+    "frame": 2271,
+    "kind": "points",
+    "label": "joueur 0 gagne 10 points (hit)"
+  },
+  {
+    "frame": 2271,
+    "kind": "feedback",
+    "label": "hit stop 503 (2 frames)"
+  },
+  {
+    "frame": 2275,
+    "kind": "points",
+    "label": "joueur 1 gagne 10 points (hit)"
+  },
+  {
+    "frame": 2275,
+    "kind": "feedback",
+    "label": "hit stop 494 (2 frames)"
+  },
+  {
+    "frame": 2277,
+    "kind": "points",
+    "label": "joueur 0 gagne 10 points (hit)"
+  },
+  {
+    "frame": 2277,
+    "kind": "points",
+    "label": "joueur 0 gagne 60 points (kill)"
+  },
+  {
+    "frame": 2277,
+    "kind": "feedback",
+    "label": "hit stop 503 (2 frames)"
+  },
+  {
+    "frame": 2281,
+    "kind": "points",
+    "label": "joueur 1 gagne 10 points (hit)"
+  },
+  {
+    "frame": 2281,
+    "kind": "feedback",
+    "label": "secousse 71 (8 frames)"
+  },
+  {
+    "frame": 2281,
+    "kind": "feedback",
+    "label": "hit stop 494 (2 frames)"
+  },
+  {
+    "frame": 2287,
+    "kind": "points",
+    "label": "joueur 1 gagne 10 points (hit)"
+  },
+  {
+    "frame": 2287,
+    "kind": "feedback",
+    "label": "hit stop 494 (2 frames)"
+  },
+  {
+    "frame": 2293,
+    "kind": "points",
+    "label": "joueur 1 gagne 10 points (hit)"
+  },
+  {
+    "frame": 2293,
+    "kind": "feedback",
+    "label": "hit stop 494 (2 frames)"
+  },
+  {
+    "frame": 2296,
+    "kind": "feedback",
+    "label": "télégraphe 494 (20 frames, rayon 400)"
+  },
+  {
+    "frame": 2299,
+    "kind": "points",
+    "label": "joueur 1 gagne 10 points (hit)"
+  },
+  {
+    "frame": 2299,
+    "kind": "feedback",
+    "label": "hit stop 494 (2 frames)"
+  },
+  {
+    "frame": 2305,
+    "kind": "points",
+    "label": "joueur 1 gagne 10 points (hit)"
+  },
+  {
+    "frame": 2305,
+    "kind": "feedback",
+    "label": "hit stop 494 (2 frames)"
+  },
+  {
+    "frame": 2311,
+    "kind": "points",
+    "label": "joueur 1 gagne 10 points (hit)"
+  },
+  {
+    "frame": 2311,
+    "kind": "feedback",
+    "label": "hit stop 494 (2 frames)"
+  },
+  {
+    "frame": 2317,
+    "kind": "downed",
+    "label": "joueur 1 tombe à terre"
+  },
+  {
+    "frame": 2317,
+    "kind": "points",
+    "label": "joueur 1 gagne 10 points (hit)"
+  },
+  {
+    "frame": 2317,
+    "kind": "points",
+    "label": "joueur 1 gagne 60 points (kill)"
+  },
+  {
+    "frame": 2317,
+    "kind": "feedback",
+    "label": "secousse 71 (8 frames)"
+  },
+  {
+    "frame": 2317,
+    "kind": "feedback",
+    "label": "hit stop 494 (2 frames)"
+  },
+  {
+    "frame": 2318,
+    "kind": "feedback",
+    "label": "secousse 71 (8 frames)"
+  },
+  {
+    "frame": 2318,
+    "kind": "feedback",
+    "label": "hit stop 71 (2 frames)"
+  },
+  {
+    "frame": 2545,
+    "kind": "feedback",
+    "label": "télégraphe 499 (20 frames, rayon 400)"
+  },
+  {
+    "frame": 2662,
+    "kind": "points",
+    "label": "joueur 0 gagne 10 points (hit)"
+  },
+  {
+    "frame": 2662,
+    "kind": "feedback",
+    "label": "hit stop 499 (2 frames)"
+  },
+  {
+    "frame": 2667,
+    "kind": "points",
+    "label": "joueur 0 gagne 10 points (hit)"
+  },
+  {
+    "frame": 2667,
+    "kind": "feedback",
+    "label": "hit stop 499 (2 frames)"
+  },
+  {
+    "frame": 2673,
+    "kind": "points",
+    "label": "joueur 0 gagne 10 points (hit)"
+  },
+  {
+    "frame": 2673,
+    "kind": "feedback",
+    "label": "hit stop 499 (2 frames)"
+  },
+  {
+    "frame": 2678,
+    "kind": "points",
+    "label": "joueur 0 gagne 10 points (hit)"
+  },
+  {
+    "frame": 2678,
+    "kind": "feedback",
+    "label": "hit stop 499 (2 frames)"
+  },
+  {
+    "frame": 2684,
+    "kind": "points",
+    "label": "joueur 0 gagne 10 points (hit)"
+  },
+  {
+    "frame": 2684,
+    "kind": "feedback",
+    "label": "hit stop 499 (2 frames)"
+  },
+  {
+    "frame": 2686,
+    "kind": "feedback",
+    "label": "télégraphe 499 (20 frames, rayon 400)"
+  },
+  {
+    "frame": 2690,
+    "kind": "points",
+    "label": "joueur 0 gagne 10 points (hit)"
+  },
+  {
+    "frame": 2690,
+    "kind": "feedback",
+    "label": "hit stop 499 (2 frames)"
+  },
+  {
+    "frame": 2697,
+    "kind": "points",
+    "label": "joueur 0 gagne 10 points (hit)"
+  },
+  {
+    "frame": 2697,
+    "kind": "feedback",
+    "label": "hit stop 499 (2 frames)"
+  },
+  {
+    "frame": 2703,
+    "kind": "points",
+    "label": "joueur 0 gagne 10 points (hit)"
+  },
+  {
+    "frame": 2703,
+    "kind": "feedback",
+    "label": "hit stop 499 (2 frames)"
+  },
+  {
+    "frame": 2710,
+    "kind": "points",
+    "label": "joueur 0 gagne 10 points (hit)"
+  },
+  {
+    "frame": 2710,
+    "kind": "feedback",
+    "label": "hit stop 499 (2 frames)"
+  },
+  {
+    "frame": 2717,
+    "kind": "points",
+    "label": "joueur 0 gagne 10 points (hit)"
+  },
+  {
+    "frame": 2717,
+    "kind": "feedback",
+    "label": "hit stop 499 (2 frames)"
+  },
+  {
+    "frame": 2724,
+    "kind": "points",
+    "label": "joueur 0 gagne 10 points (hit)"
+  },
+  {
+    "frame": 2724,
+    "kind": "feedback",
+    "label": "hit stop 499 (2 frames)"
+  },
+  {
+    "frame": 2731,
+    "kind": "points",
+    "label": "joueur 0 gagne 10 points (hit)"
+  },
+  {
+    "frame": 2731,
+    "kind": "feedback",
+    "label": "hit stop 499 (2 frames)"
+  },
+  {
+    "frame": 2739,
+    "kind": "points",
+    "label": "joueur 0 gagne 10 points (hit)"
+  },
+  {
+    "frame": 2739,
+    "kind": "feedback",
+    "label": "hit stop 499 (2 frames)"
+  },
+  {
+    "frame": 2747,
+    "kind": "points",
+    "label": "joueur 0 gagne 10 points (hit)"
+  },
+  {
+    "frame": 2747,
+    "kind": "feedback",
+    "label": "hit stop 499 (2 frames)"
+  },
+  {
+    "frame": 2753,
+    "kind": "points",
+    "label": "joueur 0 gagne 10 points (hit)"
+  },
+  {
+    "frame": 2753,
+    "kind": "feedback",
+    "label": "hit stop 499 (2 frames)"
+  },
+  {
+    "frame": 2759,
+    "kind": "weapon",
+    "label": "joueur 0 : chargeur vide (mitraillette)"
+  },
+  {
+    "frame": 2760,
+    "kind": "reload",
+    "label": "joueur 0 recharge (mitraillette default)"
+  },
+  {
+    "frame": 2762,
+    "kind": "points",
+    "label": "joueur 0 gagne 10 points (hit)"
+  },
+  {
+    "frame": 2762,
+    "kind": "feedback",
+    "label": "hit stop 499 (2 frames)"
+  },
+  {
+    "frame": 2776,
+    "kind": "points",
+    "label": "joueur 0 gagne 10 points (hit)"
+  },
+  {
+    "frame": 2776,
+    "kind": "feedback",
+    "label": "hit stop 499 (2 frames)"
+  },
+  {
+    "frame": 2784,
+    "kind": "points",
+    "label": "joueur 0 gagne 10 points (hit)"
+  },
+  {
+    "frame": 2784,
+    "kind": "feedback",
+    "label": "hit stop 499 (2 frames)"
+  },
+  {
+    "frame": 2798,
+    "kind": "points",
+    "label": "joueur 0 gagne 10 points (hit)"
+  },
+  {
+    "frame": 2798,
+    "kind": "feedback",
+    "label": "hit stop 499 (2 frames)"
+  },
+  {
+    "frame": 2827,
+    "kind": "feedback",
+    "label": "télégraphe 499 (20 frames, rayon 400)"
+  },
+  {
+    "frame": 2848,
+    "kind": "clock",
+    "label": "horloge : renfort#1"
+  },
+  {
+    "frame": 2850,
+    "kind": "reload",
+    "label": "joueur 0 a rechargé : 30 (612 en réserve)"
+  },
+  {
+    "frame": 2920,
+    "kind": "points",
+    "label": "joueur 0 gagne 10 points (hit)"
+  },
+  {
+    "frame": 2920,
+    "kind": "feedback",
+    "label": "hit stop 499 (2 frames)"
+  },
+  {
+    "frame": 2926,
+    "kind": "points",
+    "label": "joueur 0 gagne 10 points (hit)"
+  },
+  {
+    "frame": 2926,
+    "kind": "feedback",
+    "label": "hit stop 499 (2 frames)"
+  },
+  {
+    "frame": 2938,
+    "kind": "points",
+    "label": "joueur 0 gagne 10 points (hit)"
+  },
+  {
+    "frame": 2938,
+    "kind": "feedback",
+    "label": "hit stop 499 (2 frames)"
+  },
+  {
+    "frame": 2945,
+    "kind": "points",
+    "label": "joueur 0 gagne 10 points (hit)"
+  },
+  {
+    "frame": 2945,
+    "kind": "feedback",
+    "label": "hit stop 499 (2 frames)"
+  },
+  {
+    "frame": 2952,
+    "kind": "points",
+    "label": "joueur 0 gagne 10 points (hit)"
+  },
+  {
+    "frame": 2952,
+    "kind": "feedback",
+    "label": "hit stop 499 (2 frames)"
+  },
+  {
+    "frame": 2959,
+    "kind": "points",
+    "label": "joueur 0 gagne 10 points (hit)"
+  },
+  {
+    "frame": 2959,
+    "kind": "feedback",
+    "label": "hit stop 499 (2 frames)"
+  },
+  {
+    "frame": 2966,
+    "kind": "points",
+    "label": "joueur 0 gagne 10 points (hit)"
+  },
+  {
+    "frame": 2966,
+    "kind": "feedback",
+    "label": "hit stop 499 (2 frames)"
+  },
+  {
+    "frame": 2968,
+    "kind": "feedback",
+    "label": "télégraphe 499 (20 frames, rayon 400)"
+  },
+  {
+    "frame": 2974,
+    "kind": "points",
+    "label": "joueur 0 gagne 10 points (hit)"
+  },
+  {
+    "frame": 2974,
+    "kind": "feedback",
+    "label": "hit stop 499 (2 frames)"
+  },
+  {
+    "frame": 2981,
+    "kind": "points",
+    "label": "joueur 0 gagne 10 points (hit)"
+  },
+  {
+    "frame": 2981,
+    "kind": "feedback",
+    "label": "hit stop 499 (2 frames)"
+  },
+  {
+    "frame": 2989,
+    "kind": "portal",
+    "label": "portail ouvert (niveau 2)"
+  },
+  {
+    "frame": 2989,
+    "kind": "levelup",
+    "label": "joueur 0 passe niveau 3"
+  },
+  {
+    "frame": 2989,
+    "kind": "points",
+    "label": "joueur 0 gagne 10 points (hit)"
+  },
+  {
+    "frame": 2989,
+    "kind": "points",
+    "label": "joueur 0 gagne 60 points (kill)"
+  },
+  {
+    "frame": 2989,
+    "kind": "feedback",
+    "label": "hit stop 499 (2 frames)"
+  },
+  {
+    "frame": 3195,
+    "kind": "powerup",
+    "label": "power-up vitesse expiré (561)"
+  },
+  {
+    "frame": 3239,
+    "kind": "floor",
+    "label": "niveau 3"
+  },
+  {
+    "frame": 3239,
+    "kind": "pickup",
+    "label": "arme traqueur ramassée (562)"
+  },
+  {
+    "frame": 3239,
+    "kind": "variant_spawn",
+    "label": "variante rapide (982)"
+  },
+  {
+    "frame": 3338,
+    "kind": "points",
+    "label": "joueur 0 gagne 10 points (hit)"
+  },
+  {
+    "frame": 3338,
+    "kind": "feedback",
+    "label": "hit stop 982 (2 frames)"
+  },
+  {
+    "frame": 3349,
+    "kind": "points",
+    "label": "joueur 0 gagne 10 points (hit)"
+  },
+  {
+    "frame": 3349,
+    "kind": "feedback",
+    "label": "hit stop 982 (2 frames)"
+  },
+  {
+    "frame": 3351,
+    "kind": "points",
+    "label": "joueur 0 gagne 10 points (hit)"
+  },
+  {
+    "frame": 3351,
+    "kind": "feedback",
+    "label": "hit stop 982 (2 frames)"
+  },
+  {
+    "frame": 3356,
+    "kind": "points",
+    "label": "joueur 0 gagne 10 points (hit)"
+  },
+  {
+    "frame": 3356,
+    "kind": "feedback",
+    "label": "hit stop 982 (2 frames)"
+  },
+  {
+    "frame": 3360,
+    "kind": "points",
+    "label": "joueur 0 gagne 10 points (hit)"
+  },
+  {
+    "frame": 3360,
+    "kind": "points",
+    "label": "joueur 0 gagne 60 points (kill)"
+  },
+  {
+    "frame": 3360,
+    "kind": "feedback",
+    "label": "hit stop 982 (2 frames)"
+  },
+  {
+    "frame": 3373,
+    "kind": "weapon",
+    "label": "joueur 0 : chargeur vide (mitraillette)"
+  },
+  {
+    "frame": 3374,
+    "kind": "reload",
+    "label": "joueur 0 recharge (mitraillette default)"
+  },
+  {
+    "frame": 3464,
+    "kind": "reload",
+    "label": "joueur 0 a rechargé : 29 (582 en réserve)"
+  },
+  {
+    "frame": 3465,
+    "kind": "reload",
+    "label": "joueur 0 recharge (mitraillette default)"
+  },
+  {
+    "frame": 3487,
+    "kind": "points",
+    "label": "joueur 0 gagne 10 points (hit)"
+  },
+  {
+    "frame": 3487,
+    "kind": "feedback",
+    "label": "hit stop 981 (2 frames)"
+  },
+  {
+    "frame": 3555,
+    "kind": "reload",
+    "label": "joueur 0 a rechargé : 29 (552 en réserve)"
+  },
+  {
+    "frame": 3561,
+    "kind": "feedback",
+    "label": "télégraphe 988 (30 frames, rayon 400)"
+  },
+  {
+    "frame": 3577,
+    "kind": "points",
+    "label": "joueur 0 gagne 10 points (hit)"
+  },
+  {
+    "frame": 3577,
+    "kind": "feedback",
+    "label": "hit stop 981 (2 frames)"
+  },
+  {
+    "frame": 3587,
+    "kind": "points",
+    "label": "joueur 0 gagne 10 points (hit)"
+  },
+  {
+    "frame": 3587,
+    "kind": "feedback",
+    "label": "hit stop 981 (2 frames)"
+  },
+  {
+    "frame": 3589,
+    "kind": "mutation",
+    "label": "joueur 0 prend la mutation chasseur"
+  },
+  {
+    "frame": 3593,
+    "kind": "points",
+    "label": "joueur 0 gagne 10 points (hit)"
+  },
+  {
+    "frame": 3593,
+    "kind": "feedback",
+    "label": "hit stop 981 (2 frames)"
+  },
+  {
+    "frame": 3597,
+    "kind": "points",
+    "label": "joueur 0 gagne 10 points (hit)"
+  },
+  {
+    "frame": 3597,
+    "kind": "feedback",
+    "label": "hit stop 981 (2 frames)"
+  },
+  {
+    "frame": 3604,
+    "kind": "points",
+    "label": "joueur 0 gagne 10 points (hit)"
+  },
+  {
+    "frame": 3604,
+    "kind": "feedback",
+    "label": "hit stop 981 (2 frames)"
+  },
+  {
+    "frame": 3610,
+    "kind": "points",
+    "label": "joueur 0 gagne 10 points (hit)"
+  },
+  {
+    "frame": 3610,
+    "kind": "feedback",
+    "label": "hit stop 981 (2 frames)"
+  },
+  {
+    "frame": 3616,
+    "kind": "points",
+    "label": "joueur 0 gagne 10 points (hit)"
+  },
+  {
+    "frame": 3616,
+    "kind": "feedback",
+    "label": "hit stop 981 (2 frames)"
+  },
+  {
+    "frame": 3623,
+    "kind": "points",
+    "label": "joueur 0 gagne 10 points (hit)"
+  },
+  {
+    "frame": 3623,
+    "kind": "feedback",
+    "label": "hit stop 981 (2 frames)"
+  },
+  {
+    "frame": 3628,
+    "kind": "points",
+    "label": "joueur 0 gagne 10 points (hit)"
+  },
+  {
+    "frame": 3628,
+    "kind": "feedback",
+    "label": "hit stop 981 (2 frames)"
+  },
+  {
+    "frame": 3636,
+    "kind": "points",
+    "label": "joueur 0 gagne 10 points (hit)"
+  },
+  {
+    "frame": 3636,
+    "kind": "feedback",
+    "label": "hit stop 981 (2 frames)"
+  },
+  {
+    "frame": 3648,
+    "kind": "points",
+    "label": "joueur 0 gagne 10 points (hit)"
+  },
+  {
+    "frame": 3648,
+    "kind": "feedback",
+    "label": "hit stop 992 (2 frames)"
+  },
+  {
+    "frame": 3652,
+    "kind": "points",
+    "label": "joueur 0 gagne 10 points (hit)"
+  },
+  {
+    "frame": 3652,
+    "kind": "feedback",
+    "label": "hit stop 992 (2 frames)"
+  },
+  {
+    "frame": 3657,
+    "kind": "points",
+    "label": "joueur 0 gagne 10 points (hit)"
+  },
+  {
+    "frame": 3657,
+    "kind": "feedback",
+    "label": "hit stop 992 (2 frames)"
+  },
+  {
+    "frame": 3661,
+    "kind": "points",
+    "label": "joueur 0 gagne 10 points (hit)"
+  },
+  {
+    "frame": 3661,
+    "kind": "feedback",
+    "label": "hit stop 988 (2 frames)"
+  },
+  {
+    "frame": 3676,
+    "kind": "points",
+    "label": "joueur 0 gagne 10 points (hit)"
+  },
+  {
+    "frame": 3676,
+    "kind": "feedback",
+    "label": "hit stop 988 (2 frames)"
+  },
+  {
+    "frame": 3682,
+    "kind": "feedback",
+    "label": "télégraphe 988 (30 frames, rayon 400)"
+  },
+  {
+    "frame": 3684,
+    "kind": "points",
+    "label": "joueur 0 gagne 10 points (hit)"
+  },
+  {
+    "frame": 3684,
+    "kind": "feedback",
+    "label": "hit stop 988 (2 frames)"
+  },
+  {
+    "frame": 3708,
+    "kind": "points",
+    "label": "joueur 0 gagne 10 points (hit)"
+  },
+  {
+    "frame": 3708,
+    "kind": "feedback",
+    "label": "hit stop 986 (2 frames)"
+  },
+  {
+    "frame": 3716,
+    "kind": "points",
+    "label": "joueur 0 gagne 10 points (hit)"
+  },
+  {
+    "frame": 3716,
+    "kind": "feedback",
+    "label": "hit stop 986 (2 frames)"
+  },
+  {
+    "frame": 3719,
+    "kind": "feedback",
+    "label": "télégraphe 979 (20 frames, rayon 400)"
+  },
+  {
+    "frame": 3723,
+    "kind": "points",
+    "label": "joueur 0 gagne 10 points (hit)"
+  },
+  {
+    "frame": 3723,
+    "kind": "feedback",
+    "label": "hit stop 986 (2 frames)"
+  },
+  {
+    "frame": 3729,
+    "kind": "weapon",
+    "label": "joueur 0 : chargeur vide (mitraillette)"
+  },
+  {
+    "frame": 3730,
+    "kind": "reload",
+    "label": "joueur 0 recharge (mitraillette default)"
+  },
+  {
+    "frame": 3730,
+    "kind": "points",
+    "label": "joueur 0 gagne 10 points (hit)"
+  },
+  {
+    "frame": 3730,
+    "kind": "feedback",
+    "label": "hit stop 986 (2 frames)"
+  },
+  {
+    "frame": 3736,
+    "kind": "points",
+    "label": "joueur 0 gagne 10 points (hit)"
+  },
+  {
+    "frame": 3736,
+    "kind": "feedback",
+    "label": "hit stop 986 (2 frames)"
+  },
+  {
+    "frame": 3743,
+    "kind": "points",
+    "label": "joueur 0 gagne 10 points (hit)"
+  },
+  {
+    "frame": 3743,
+    "kind": "feedback",
+    "label": "hit stop 986 (2 frames)"
+  },
+  {
+    "frame": 3749,
+    "kind": "points",
+    "label": "joueur 0 gagne 10 points (hit)"
+  },
+  {
+    "frame": 3749,
+    "kind": "points",
+    "label": "joueur 0 gagne 60 points (kill)"
+  },
+  {
+    "frame": 3749,
+    "kind": "feedback",
+    "label": "hit stop 986 (2 frames)"
+  },
+  {
+    "frame": 3772,
+    "kind": "points",
+    "label": "joueur 0 gagne 10 points (hit)"
+  },
+  {
+    "frame": 3772,
+    "kind": "feedback",
+    "label": "hit stop 988 (2 frames)"
+  },
+  {
+    "frame": 3790,
+    "kind": "feedback",
+    "label": "télégraphe 988 (30 frames, rayon 400)"
+  },
+  {
+    "frame": 3820,
+    "kind": "reload",
+    "label": "joueur 0 a rechargé : 29 (522 en réserve)"
+  },
+  {
+    "frame": 3821,
+    "kind": "reload",
+    "label": "joueur 0 recharge (mitraillette default)"
+  },
+  {
+    "frame": 3831,
+    "kind": "feedback",
+    "label": "télégraphe 981 (29 frames, rayon 40)"
+  },
+  {
+    "frame": 3844,
+    "kind": "points",
+    "label": "joueur 0 gagne 10 points (hit)"
+  },
+  {
+    "frame": 3844,
+    "kind": "feedback",
+    "label": "hit stop 977 (2 frames)"
+  },
+  {
+    "frame": 3858,
+    "kind": "hit",
+    "label": "joueur 0 touché"
+  },
+  {
+    "frame": 3858,
+    "kind": "feedback",
+    "label": "secousse 66 (8 frames)"
+  },
+  {
+    "frame": 3858,
+    "kind": "feedback",
+    "label": "hit stop 66 (2 frames)"
+  },
+  {
+    "frame": 3859,
+    "kind": "feedback",
+    "label": "secousse 66 (8 frames)"
+  },
+  {
+    "frame": 3859,
+    "kind": "feedback",
+    "label": "hit stop 66 (2 frames)"
+  },
+  {
+    "frame": 3860,
+    "kind": "feedback",
+    "label": "télégraphe 979 (20 frames, rayon 400)"
+  },
+  {
+    "frame": 3861,
+    "kind": "feedback",
+    "label": "secousse 66 (8 frames)"
+  },
+  {
+    "frame": 3861,
+    "kind": "feedback",
+    "label": "hit stop 66 (2 frames)"
+  },
+  {
+    "frame": 3883,
+    "kind": "feedback",
+    "label": "secousse 66 (8 frames)"
+  },
+  {
+    "frame": 3883,
+    "kind": "feedback",
+    "label": "hit stop 66 (2 frames)"
+  },
+  {
+    "frame": 3890,
+    "kind": "feedback",
+    "label": "secousse 71 (8 frames)"
+  },
+  {
+    "frame": 3890,
+    "kind": "feedback",
+    "label": "hit stop 71 (2 frames)"
+  },
+  {
+    "frame": 3898,
+    "kind": "feedback",
+    "label": "secousse 71 (8 frames)"
+  },
+  {
+    "frame": 3898,
+    "kind": "feedback",
+    "label": "hit stop 71 (2 frames)"
+  },
+  {
+    "frame": 3911,
+    "kind": "reload",
+    "label": "joueur 0 a rechargé : 29 (492 en réserve)"
+  },
+  {
+    "frame": 3911,
+    "kind": "feedback",
+    "label": "télégraphe 988 (30 frames, rayon 400)"
+  },
+  {
+    "frame": 3912,
+    "kind": "feedback",
+    "label": "secousse 71 (8 frames)"
+  },
+  {
+    "frame": 3912,
+    "kind": "feedback",
+    "label": "hit stop 71 (2 frames)"
+  },
+  {
+    "frame": 3917,
+    "kind": "points",
+    "label": "joueur 0 gagne 10 points (hit)"
+  },
+  {
+    "frame": 3917,
+    "kind": "feedback",
+    "label": "secousse 66 (8 frames)"
+  },
+  {
+    "frame": 3917,
+    "kind": "feedback",
+    "label": "hit stop 992 (2 frames)"
+  },
+  {
+    "frame": 3919,
+    "kind": "points",
+    "label": "joueur 0 gagne 10 points (hit)"
+  },
+  {
+    "frame": 3919,
+    "kind": "feedback",
+    "label": "hit stop 990 (2 frames)"
+  },
+  {
+    "frame": 3924,
+    "kind": "points",
+    "label": "joueur 0 gagne 10 points (hit)"
+  },
+  {
+    "frame": 3924,
+    "kind": "feedback",
+    "label": "hit stop 990 (2 frames)"
+  },
+  {
+    "frame": 3929,
+    "kind": "points",
+    "label": "joueur 0 gagne 10 points (hit)"
+  },
+  {
+    "frame": 3929,
+    "kind": "feedback",
+    "label": "hit stop 990 (2 frames)"
+  },
+  {
+    "frame": 3935,
+    "kind": "points",
+    "label": "joueur 0 gagne 10 points (hit)"
+  },
+  {
+    "frame": 3935,
+    "kind": "feedback",
+    "label": "hit stop 990 (2 frames)"
+  },
+  {
+    "frame": 3941,
+    "kind": "points",
+    "label": "joueur 0 gagne 10 points (hit)"
+  },
+  {
+    "frame": 3941,
+    "kind": "feedback",
+    "label": "hit stop 990 (2 frames)"
+  },
+  {
+    "frame": 3947,
+    "kind": "points",
+    "label": "joueur 0 gagne 10 points (hit)"
+  },
+  {
+    "frame": 3947,
+    "kind": "feedback",
+    "label": "hit stop 990 (2 frames)"
+  },
+  {
+    "frame": 3953,
+    "kind": "points",
+    "label": "joueur 0 gagne 10 points (hit)"
+  },
+  {
+    "frame": 3953,
+    "kind": "feedback",
+    "label": "hit stop 990 (2 frames)"
+  },
+  {
+    "frame": 3960,
+    "kind": "points",
+    "label": "joueur 0 gagne 10 points (hit)"
+  },
+  {
+    "frame": 3960,
+    "kind": "feedback",
+    "label": "hit stop 990 (2 frames)"
+  },
+  {
+    "frame": 3967,
+    "kind": "points",
+    "label": "joueur 0 gagne 10 points (hit)"
+  },
+  {
+    "frame": 3967,
+    "kind": "feedback",
+    "label": "hit stop 990 (2 frames)"
+  },
+  {
+    "frame": 3972,
+    "kind": "feedback",
+    "label": "télégraphe 981 (29 frames, rayon 40)"
+  },
+  {
+    "frame": 3975,
+    "kind": "points",
+    "label": "joueur 0 gagne 10 points (hit)"
+  },
+  {
+    "frame": 3975,
+    "kind": "feedback",
+    "label": "hit stop 990 (2 frames)"
+  },
+  {
+    "frame": 3982,
+    "kind": "points",
+    "label": "joueur 0 gagne 10 points (hit)"
+  },
+  {
+    "frame": 3982,
+    "kind": "feedback",
+    "label": "hit stop 990 (2 frames)"
+  },
+  {
+    "frame": 3989,
+    "kind": "points",
+    "label": "joueur 0 gagne 10 points (hit)"
+  },
+  {
+    "frame": 3989,
+    "kind": "feedback",
+    "label": "hit stop 990 (2 frames)"
+  },
+  {
+    "frame": 3996,
+    "kind": "points",
+    "label": "joueur 0 gagne 10 points (hit)"
+  },
+  {
+    "frame": 3996,
+    "kind": "feedback",
+    "label": "hit stop 990 (2 frames)"
+  },
+  {
+    "frame": 4004,
+    "kind": "points",
+    "label": "joueur 0 gagne 10 points (hit)"
+  },
+  {
+    "frame": 4004,
+    "kind": "feedback",
+    "label": "hit stop 990 (2 frames)"
+  },
+  {
+    "frame": 4012,
+    "kind": "points",
+    "label": "joueur 0 gagne 10 points (hit)"
+  },
+  {
+    "frame": 4012,
+    "kind": "feedback",
+    "label": "hit stop 990 (2 frames)"
+  },
+  {
+    "frame": 4020,
+    "kind": "points",
+    "label": "joueur 0 gagne 10 points (hit)"
+  },
+  {
+    "frame": 4020,
+    "kind": "feedback",
+    "label": "hit stop 990 (2 frames)"
+  },
+  {
+    "frame": 4028,
+    "kind": "points",
+    "label": "joueur 0 gagne 10 points (hit)"
+  },
+  {
+    "frame": 4028,
+    "kind": "feedback",
+    "label": "hit stop 990 (2 frames)"
+  },
+  {
+    "frame": 4033,
+    "kind": "points",
+    "label": "joueur 0 gagne 10 points (hit)"
+  },
+  {
+    "frame": 4033,
+    "kind": "feedback",
+    "label": "hit stop 990 (2 frames)"
+  },
+  {
+    "frame": 4039,
+    "kind": "points",
+    "label": "joueur 0 gagne 10 points (hit)"
+  },
+  {
+    "frame": 4039,
+    "kind": "feedback",
+    "label": "hit stop 990 (2 frames)"
+  },
+  {
+    "frame": 4045,
+    "kind": "points",
+    "label": "joueur 0 gagne 10 points (hit)"
+  },
+  {
+    "frame": 4045,
+    "kind": "feedback",
+    "label": "hit stop 990 (2 frames)"
+  },
+  {
+    "frame": 4050,
+    "kind": "points",
+    "label": "joueur 0 gagne 10 points (hit)"
+  },
+  {
+    "frame": 4050,
+    "kind": "feedback",
+    "label": "hit stop 990 (2 frames)"
+  },
+  {
+    "frame": 4056,
+    "kind": "points",
+    "label": "joueur 0 gagne 10 points (hit)"
+  },
+  {
+    "frame": 4056,
+    "kind": "feedback",
+    "label": "hit stop 981 (2 frames)"
+  },
+  {
+    "frame": 4061,
+    "kind": "points",
+    "label": "joueur 0 gagne 10 points (hit)"
+  },
+  {
+    "frame": 4061,
+    "kind": "feedback",
+    "label": "hit stop 981 (2 frames)"
+  },
+  {
+    "frame": 4066,
+    "kind": "points",
+    "label": "joueur 0 gagne 10 points (hit)"
+  },
+  {
+    "frame": 4066,
+    "kind": "feedback",
+    "label": "hit stop 990 (2 frames)"
+  },
+  {
+    "frame": 4070,
+    "kind": "points",
+    "label": "joueur 0 gagne 10 points (hit)"
+  },
+  {
+    "frame": 4070,
+    "kind": "feedback",
+    "label": "hit stop 981 (2 frames)"
+  },
+  {
+    "frame": 4073,
+    "kind": "feedback",
+    "label": "secousse 66 (8 frames)"
+  },
+  {
+    "frame": 4073,
+    "kind": "feedback",
+    "label": "hit stop 66 (2 frames)"
+  },
+  {
+    "frame": 4075,
+    "kind": "points",
+    "label": "joueur 0 gagne 10 points (hit)"
+  },
+  {
+    "frame": 4075,
+    "kind": "feedback",
+    "label": "hit stop 981 (2 frames)"
+  },
+  {
+    "frame": 4079,
+    "kind": "points",
+    "label": "joueur 0 gagne 10 points (hit)"
+  },
+  {
+    "frame": 4079,
+    "kind": "feedback",
+    "label": "hit stop 981 (2 frames)"
+  },
+  {
+    "frame": 4083,
+    "kind": "points",
+    "label": "joueur 0 gagne 10 points (hit)"
+  },
+  {
+    "frame": 4083,
+    "kind": "feedback",
+    "label": "hit stop 981 (2 frames)"
+  },
+  {
+    "frame": 4085,
+    "kind": "weapon",
+    "label": "joueur 0 : chargeur vide (mitraillette)"
+  },
+  {
+    "frame": 4086,
+    "kind": "reload",
+    "label": "joueur 0 recharge (mitraillette default)"
+  },
+  {
+    "frame": 4089,
+    "kind": "points",
+    "label": "joueur 0 gagne 10 points (hit)"
+  },
+  {
+    "frame": 4089,
+    "kind": "feedback",
+    "label": "hit stop 981 (2 frames)"
+  },
+  {
+    "frame": 4113,
+    "kind": "feedback",
+    "label": "télégraphe 979 (20 frames, rayon 400)"
+  },
+  {
+    "frame": 4117,
+    "kind": "death",
+    "label": "joueur 1 meurt"
+  },
+  {
+    "frame": 4131,
+    "kind": "feedback",
+    "label": "télégraphe 981 (29 frames, rayon 40)"
+  },
+  {
+    "frame": 4139,
+    "kind": "clock",
+    "label": "horloge : alerte"
+  },
+  {
+    "frame": 4163,
+    "kind": "feedback",
+    "label": "secousse 66 (8 frames)"
+  },
+  {
+    "frame": 4163,
+    "kind": "feedback",
+    "label": "hit stop 66 (2 frames)"
+  },
+  {
+    "frame": 4176,
+    "kind": "reload",
+    "label": "joueur 0 a rechargé : 29 (462 en réserve)"
+  },
+  {
+    "frame": 4177,
+    "kind": "reload",
+    "label": "joueur 0 recharge (mitraillette default)"
+  },
+  {
+    "frame": 4180,
+    "kind": "points",
+    "label": "joueur 0 gagne 10 points (hit)"
+  },
+  {
+    "frame": 4180,
+    "kind": "feedback",
+    "label": "hit stop 981 (2 frames)"
+  },
+  {
+    "frame": 4183,
+    "kind": "feedback",
+    "label": "secousse 66 (8 frames)"
+  },
+  {
+    "frame": 4183,
+    "kind": "feedback",
+    "label": "hit stop 66 (2 frames)"
+  },
+  {
+    "frame": 4223,
+    "kind": "death",
+    "label": "joueur 0 meurt"
+  },
+  {
+    "frame": 4223,
+    "kind": "defeat",
+    "label": "défaite : tous les joueurs sont à terre ou morts"
+  }
+]

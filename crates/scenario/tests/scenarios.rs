@@ -237,7 +237,7 @@ fn scenarios() {
         failures.extend(outcome.failures.iter().map(|f| format!("{name}: {f}")));
         metrics_map.insert(name.clone(), outcome.metrics.clone());
 
-        // Outil de preuve permanent (T1.2, `docs/conventions.md` §8) : dump la trace
+        // Outil de preuve permanent (T1.2, `docs/conventions.md` §10) : dump la trace
         // détaillée de toutes les frames dans `<ALACOD_DUMP_TRACE>/<name>.full`, comparée
         // ensuite avec `scripts/trace-diff.py` (ex. entre `main` et cette branche, pour
         // prouver qu'aucune valeur de stat ne diverge des constantes qu'elle remplace).
@@ -573,7 +573,7 @@ fn nav_probe() {
     let world = app.world_mut();
     let cache = world.resource::<FlowFieldCache>().clone();
     let field = cache
-        .get_flow_field(NavProfile::GroundBreaker)
+        .get_flow_field(game::character::enemy::ai::navigation::MOVEMENT_FLOW_KEY)
         .cloned()
         .unwrap_or_default();
     let mut q = world.query_filtered::<(

@@ -228,6 +228,37 @@ impl Plugin for FloorsPlugin {
     }
 }
 
+/// Position du portail d'un niveau : le barycentre des `PlayerSpawn` (`run::floors::barycenter`).
+/// D48 (graine 53 de throne) : sur une caverne, le barycentre peut tomber dans la roche, hors de
+/// portée du joueur (rayon de franchissement 24 px) ; il est alors ramené au centre de la case
+/// la plus proche que le champ de flux du gabarit des joueurs atteint depuis leurs points
+/// (`world::nav::nearest_reached_cell`). Inchangé quand sa case est atteinte, et hors caverne.
+fn portal_anchor(
+    caves: Option<&crate::loader::CaveSlots>,
+    slot: usize,
+    points: &[FixedVec2],
+) -> Option<(bevy_fixed::fixed_math::Fixed, bevy_fixed::fixed_math::Fixed)> {
+    let anchor = barycenter(points)?;
+    let Some(caves) = caves.filter(|caves| caves.0.contains_key(&slot)) else {
+        return Some(anchor);
+    };
+    let grid = super::cave::grid_for_slot(caves, slot);
+    let sources: Vec<(u32, u32)> = points
+        .iter()
+        .map(|p| world::CellGrid::cell_of(*p))
+        .filter(|&(x, y)| x >= 0 && y >= 0)
+        .map(|(x, y)| (x as u32, y as u32))
+        .collect();
+    let target = world::CellGrid::cell_of(FixedVec2::new(anchor.0, anchor.1));
+    match world::nav::nearest_reached_cell(&grid, &sources, target, false) {
+        Some((x, y)) if (x as i32, y as i32) != target => {
+            let center = world::CellGrid::cell_center(x, y);
+            Some((center.x, center.y))
+        }
+        _ => Some(anchor),
+    }
+}
+
 /// Premier niveau : position du portail (barycentre des `PlayerSpawn` de l'emplacement 0),
 /// posée au chargement de la carte, avant la première frame (comme `Run`). Les ennemis placés
 /// sont comptés par `local::spawn_characters_when_map_loaded`.
@@ -235,6 +266,7 @@ fn init_floor_state_when_map_loaded(
     mut floor_state: ResMut<FloorState>,
     player_spawns: Query<(Entity, &GlobalTransform, &PlayerSpawnConfig)>,
     slots: FloorSlots,
+    caves: Option<Res<crate::loader::CaveSlots>>,
 ) {
     let points: Vec<FixedVec2> = player_spawns
         .iter()
@@ -243,7 +275,7 @@ fn init_floor_state_when_map_loaded(
         .collect();
     floor_state.index = 0;
     floor_state.portal_open = false;
-    floor_state.anchor = barycenter(&points);
+    floor_state.anchor = portal_anchor(caves.as_deref(), 0, &points);
     info!(
         "Floors : niveau 0, portail en {:?}, {} ennemi(s)",
         floor_state.anchor, floor_state.enemies_placed
@@ -276,6 +308,8 @@ pub fn floor_portal_open_system(
 #[derive(SystemParam)]
 pub struct FloorLevelData<'w, 's> {
     slots: FloorSlots<'w, 's>,
+    /// D48 : grilles des cavernes, pour ramener le portail sur une case atteinte.
+    caves: Option<Res<'w, crate::loader::CaveSlots>>,
     registry: Res<'w, LdtkMapEntityLoadingRegistry>,
     levels: Query<'w, 's, (Entity, &'static LevelIid, &'static Transform)>,
     projects: Query<'w, 's, &'static LdtkProjectHandle>,
@@ -513,7 +547,7 @@ pub fn floor_transition_system(
     // 7. État du mode.
     floor_state.index = next;
     floor_state.portal_open = false;
-    floor_state.anchor = barycenter(&anchor_points);
+    floor_state.anchor = portal_anchor(data.caves.as_deref(), slot, &anchor_points);
     floor_state.enemies_placed = floor_state.enemies_placed.saturating_add(placed);
     info!(
         "ggrs{{f={} floor_loaded floor={} despawned={} enemies={}}}",
@@ -644,5 +678,52 @@ mod tests {
         assert_eq!(p.slot_for_floor(3), 3);
         // Boucle infinie sur le dernier niveau.
         assert_eq!(p.slot_for_floor(10), 3);
+    }
+}
+
+/// D48 (graine 53 de throne) : sur les trois cavernes de throne et 1 000 graines, l'ancre du
+/// portail est le centre d'une case que le champ de flux du gabarit des joueurs atteint depuis
+/// leurs points (barycentre gardé tel quel quand sa case l'est).
+#[cfg(test)]
+mod portal_anchor_tests {
+    use super::*;
+    use crate::loader::CaveSlots;
+    use world::CellGrid;
+
+    #[test]
+    fn ancre_du_portail_atteinte_sur_les_cavernes_de_throne() {
+        let mut corrected = 0;
+        for name in ["niveau_1", "niveau_2", "niveau_3"] {
+            let path = format!(
+                "{}/../../games/throne/assets/caves/{name}.ron",
+                env!("CARGO_MANIFEST_DIR")
+            );
+            let config: world::CaveConfig =
+                ron::from_str(&std::fs::read_to_string(path).unwrap()).unwrap();
+            for seed in 1..=1000i32 {
+                let mut caves = CaveSlots::default();
+                caves.0.insert(0, (seed, config.clone()));
+                let grid = super::super::cave::grid_for_slot(&caves, 0);
+                let players = world::points_of_interest(&grid, 4, 0, 1, false).player_spawns;
+                let points: Vec<FixedVec2> = players
+                    .iter()
+                    .map(|&(x, y)| CellGrid::cell_center(x, y))
+                    .collect();
+                let (ax, ay) = portal_anchor(Some(&caves), 0, &points).unwrap();
+                let cell = CellGrid::cell_of(FixedVec2::new(ax, ay));
+                let dist = world::nav::nav_distances(&grid, &players, false);
+                assert!(
+                    cell.0 >= 0
+                        && cell.1 >= 0
+                        && dist[(cell.1 as u32 * grid.width + cell.0 as u32) as usize] != u32::MAX
+                        && grid.get(cell.0, cell.1).is_some_and(|k| !k.is_solid()),
+                    "{name} graine {seed} : portail en {cell:?} hors d'atteinte"
+                );
+                if Some((ax, ay)) != barycenter(&points) {
+                    corrected += 1;
+                }
+            }
+        }
+        println!("ancres ramenées : {corrected} / 3000");
     }
 }

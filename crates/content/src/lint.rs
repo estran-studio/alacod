@@ -65,6 +65,8 @@ pub fn run(registry: &Registry, manifest: &GameManifest) -> Vec<LintError> {
     lint_perks(registry, &mut errors);
     lint_powerups(registry, &mut errors);
     lint_feedback(registry, &mut errors);
+    lint_mutation_screens(registry, &mut errors);
+    lint_hud_sources(registry, &mut errors);
     lint_sprite_sheets(registry, &mut errors);
     lint_floors(registry, &mut errors);
     lint_caves(registry, &mut errors);
@@ -376,6 +378,21 @@ fn lint_weapons(registry: &Registry, errors: &mut Vec<LintError>) {
                         weapon.id,
                         mode,
                         rate.get()
+                    ),
+                });
+            }
+        }
+        // D51 : `spread` (radians, pleine largeur : angle dans [−spread/2, spread/2]) entre 0
+        // et π ; au-delà, une balle partirait vers l'arrière.
+        for (mode, spread) in &weapon.spreads {
+            let spread = spread.get();
+            if spread < Fixed::ZERO || spread > bevy_fixed::fixed_math::FIXED_PI {
+                errors.push(LintError {
+                    kind: LintErrorKind::OutOfRange,
+                    file: weapon.file.display().to_string(),
+                    message: format!(
+                        "arme « {} » : mode « {} » : champ spread = {} : doit être entre 0 et π (radians)",
+                        weapon.id, mode, spread
                     ),
                 });
             }
@@ -1134,12 +1151,16 @@ fn lint_powerups(registry: &Registry, errors: &mut Vec<LintError>) {
     }
 }
 
-/// Réglages de présentation : aucun état de simulation n'est modifié (T3.4).
+/// Réglages de présentation : aucun état de simulation n'est modifié (T3.4). T1.17 :
+/// valeurs de `FeedbackSettings::problems` (flash, secousse, télégraphe, surcharges
+/// `by_kind`/`by_weapon`) et armes de `by_weapon` connues du jeu (à distance ou de corps à
+/// corps).
 fn lint_feedback(registry: &Registry, errors: &mut Vec<LintError>) {
     let assets_dir = GameManifest::assets_dir(&registry.game_dir);
     for feedback in &registry.feedback {
         let file = feedback.file.display().to_string();
-        for (key, path) in &feedback.sounds {
+        let settings = &feedback.settings;
+        for (key, path) in &settings.sounds {
             if !assets_dir.join(path).is_file() {
                 errors.push(LintError {
                     kind: LintErrorKind::BrokenReference,
@@ -1150,25 +1171,92 @@ fn lint_feedback(registry: &Registry, errors: &mut Vec<LintError>) {
                 });
             }
         }
-        if feedback.shake_amplitude < 0.0 {
+        for problem in settings.problems() {
+            errors.push(LintError {
+                kind: LintErrorKind::OutOfRange,
+                file: file.clone(),
+                message: format!("feedback : champ {} = {}", problem.field, problem.message),
+            });
+        }
+        for weapon in settings.by_weapon.keys() {
+            let known = registry
+                .weapons
+                .contains_key(&registry::WeaponId::from(weapon.as_str()))
+                || registry
+                    .melee_weapons
+                    .contains_key(&registry::MeleeWeaponId::from(weapon.as_str()));
+            if !known {
+                errors.push(LintError {
+                    kind: LintErrorKind::BrokenReference,
+                    file: file.clone(),
+                    message: format!("feedback : by_weapon « {weapon} » : arme inconnue du jeu"),
+                });
+            }
+        }
+    }
+}
+
+/// T1.18 (§32) : chaque widget de `ui/hud.ron` lit une source de la liste fermée
+/// [`crate::ui::HUD_SOURCES`].
+fn lint_hud_sources(registry: &Registry, errors: &mut Vec<LintError>) {
+    for (rel, sources) in &registry.hud_sources {
+        for source in sources {
+            if !crate::ui::HUD_SOURCES.contains(&source.as_str()) {
+                errors.push(LintError {
+                    kind: LintErrorKind::UnknownKind,
+                    file: rel.display().to_string(),
+                    message: format!(
+                        "hud : source inconnue « {source} » (connues : {})",
+                        crate::ui::HUD_SOURCES.join(", ")
+                    ),
+                });
+            }
+        }
+    }
+}
+
+/// T1.16 : l'écran de mutation (`ui/mutation_screen.ron`, présentation seule) a sa police
+/// sous `assets/`, exactement trois emplacements de carte (un par bit `ChoiceA/B/C`) et des
+/// tailles positives.
+fn lint_mutation_screens(registry: &Registry, errors: &mut Vec<LintError>) {
+    let assets_dir = GameManifest::assets_dir(&registry.game_dir);
+    for (rel, layout) in &registry.mutation_screens {
+        let file = rel.display().to_string();
+        if !assets_dir.join(&layout.font).is_file() {
+            errors.push(LintError {
+                kind: LintErrorKind::BrokenReference,
+                file: file.clone(),
+                message: format!(
+                    "mutation_screen : champ font = « {} » : fichier absent de assets/",
+                    layout.font
+                ),
+            });
+        }
+        if layout.slots.len() != crate::ui::MUTATION_SCREEN_SLOTS {
             errors.push(LintError {
                 kind: LintErrorKind::OutOfRange,
                 file: file.clone(),
                 message: format!(
-                    "feedback : champ shake.amplitude = {} : doit être >= 0",
-                    feedback.shake_amplitude
+                    "mutation_screen : champ slots : {} emplacements, il en faut {}",
+                    layout.slots.len(),
+                    crate::ui::MUTATION_SCREEN_SLOTS
                 ),
             });
         }
-        for (field, frames) in [
-            ("hit_flash.frames", feedback.hit_flash_frames),
-            ("shake.frames", feedback.shake_frames),
+        for (field, value) in [
+            ("card_size.0", layout.card_size.0),
+            ("card_size.1", layout.card_size.1),
+            ("bar_size.0", layout.bar_size.0),
+            ("bar_size.1", layout.bar_size.1),
+            ("title_size", layout.title_size),
+            ("name_size", layout.name_size),
+            ("text_size", layout.text_size),
         ] {
-            if frames == 0 {
+            if value <= 0.0 {
                 errors.push(LintError {
                     kind: LintErrorKind::OutOfRange,
                     file: file.clone(),
-                    message: format!("feedback : champ {field} = 0 : doit être > 0"),
+                    message: format!("mutation_screen : champ {field} = {value} : doit être > 0"),
                 });
             }
         }
@@ -1661,6 +1749,22 @@ fn lint_floors(registry: &Registry, errors: &mut Vec<LintError>) {
         }
         for level in &floors.levels {
             if let Some(cave) = registry::cave_designation(level) {
+                // D36 : une caverne sans ennemi ouvre son portail aussitôt (et en boucle si elle
+                // est le dernier niveau) ; `transit: true` déclare ce passage voulu.
+                if let Some(entry) = registry.caves.get(&cave) {
+                    let c = &entry.config;
+                    if !c.transit && (c.characters.is_empty() || c.enemy_spawns == 0) {
+                        errors.push(LintError {
+                            kind: LintErrorKind::OutOfRange,
+                            file: file.clone(),
+                            message: format!(
+                                "séquence de niveaux « {} » : champ levels : « {level} » : caverne sans ennemi (characters vide ou enemy_spawns = 0) : son portail s'ouvre aussitôt ; transit: true dans {} si c'est voulu",
+                                floors.id,
+                                entry.file.display()
+                            ),
+                        });
+                    }
+                }
                 if !registry.caves.contains_key(&cave) {
                     errors.push(LintError {
                         kind: LintErrorKind::BrokenReference,
@@ -1749,8 +1853,39 @@ fn lint_caves(registry: &Registry, errors: &mut Vec<LintError>) {
                 ),
             });
         }
+        // D48 : une caverne peuplée doit offrir des points d'apparition atteints par le champ de
+        // flux de son gabarit (`nav_large`, dérivé du plus grand corps de `characters`) ; vérifié
+        // sur les graines de contrôle 1 à 5 (4 points de joueurs, `CAVE_PLAYER_SPAWNS` de
+        // `map_ldtk`).
+        if c.enemy_spawns > 0 && !c.characters.is_empty() && c.width >= 16 && c.height >= 16 {
+            for seed in 1..=CAVE_CONTROL_SEEDS {
+                let grid = world::generate(seed, c);
+                let points = world::points_of_interest(
+                    &grid,
+                    4,
+                    c.enemy_spawns,
+                    c.spawn_clearance,
+                    c.nav_large,
+                );
+                if points.zombie_spawns.is_empty() {
+                    errors.push(LintError {
+                        kind: LintErrorKind::OutOfRange,
+                        file: file.clone(),
+                        message: format!(
+                            "caverne « {} » : graine de contrôle {seed} : aucun point d'apparition d'ennemi atteint par le champ de flux du gabarit {} (plus grand corps de characters) : caverne trop fermée",
+                            cave.id,
+                            if c.nav_large { "grand" } else { "petit" }
+                        ),
+                    });
+                    break;
+                }
+            }
+        }
     }
 }
+
+/// D48 : graines de contrôle du lint des cavernes (points d'apparition atteignables).
+const CAVE_CONTROL_SEEDS: u64 = 5;
 
 /// T1.7 : `intgrid_value` unique et > 0, facteurs > 0, tags non vides.
 fn lint_surfaces(registry: &Registry, errors: &mut Vec<LintError>) {

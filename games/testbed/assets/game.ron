@@ -12,7 +12,12 @@
         (path: "ZombieShooter/Sprites/Character/player_config.ron", kind: "Character"),
         (path: "characters", kind: "Character"),
         (path: "ZombieShooter/Sprites/Character/weapons.ron", kind: "Weapon"),
-        (path: "weapons/melee/melee_weapons.ron", kind: "MeleeWeapon"),
+        // D26 (m1-d26-doublons-generes) : copie des armes de mêlée de `games/zombies` (mêmes
+        // définitions hors `test:`), déjà couvertes par `generated/zombies/weapon_*` joués dans
+        // l'arène du testbed : pas de scénario généré en double. Les armes à distance partagées
+        // (`machine_gun`, `pistol`, `rifle`, `shotgun`) restent générées : elles vivent dans le
+        // même `weapons.ron` que les armes propres au testbed (une seule table d'armes par jeu).
+        (path: "weapons/melee/melee_weapons.ron", kind: "MeleeWeapon", generate: false),
         (path: "testbed", kind: "Map"),
         (path: "ui", kind: "Ui"),
         (path: "camera.ron", kind: "Camera"),
