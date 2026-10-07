@@ -849,6 +849,15 @@ région des chantiers puis la campagne.
   `Waves`, `CameraDebugUiEnabled`, coupés par `runner::capture` : présentation seule), commentaires « À regarder » des
   `clone_*` recalés (frames seulement) ; **digest `docs/digests/m1-fin-de-vague-2.md` final** avec la section « Pour la
   revue humaine » ; vidéos aussi publiées pour William sur une page privée ; vérifiée sur l'état fusionné : suite sans bless 0 trace différente, 602 tests de crates, lint ×3, fmt, scripts, `make gen` ×3 sans modification, exemples, `check -p throne`, p2p `6e297852…`. **Critère « vidéos publiées » de M1 atteint.**
+- m0-graine-100-fenetre : **mergée le 2026-10-06** (b1, moteur) — seul échec du critère M0 sur `test_map` : à la graine
+  100, un `zombie_full` chevauchait de 3,2 px une fenêtre fermée derrière lui et ne pouvait plus faire **aucun** pas
+  (tout pas dont l'arrivée chevauche un obstacle était rejeté), ni la frapper (pas sur son chemin) ; les acheteurs,
+  enfermés sans solde pour ouvrir une porte, attendaient à raison ; correctif `combat::collider::step_blocked_by` : un
+  pas qui **réduit strictement** un recouvrement déjà présent (aire AABB) passe, le reste est inchangé ; test unitaire et
+  scénario `test_map_fenetre_graine_100` (figé avant, atteint le joueur à f483 après) ; voie d'incrustation probable
+  (non datée) : réparation d'une fenêtre sur un zombie → D52 ; effet de bord prouvé : l'archer d'`arena_tir` naissait
+  incrusté de 2 px dans deux murs et restait figé, il se dégage à f0 (5 traces, `bot_prudent_nododge` 44 → 9 PV) ;
+  `test_map` 1..10 identiques, aucune trace `clone_*`/`equilibrage_*`/`bots_four_mixed` ne bouge ; vérifiée sur l'état fusionné : suite sans bless = exactement les 5 traces d'`arena_tir` différentes (dès la ligne 1 : pas de dégagement de l'archer à f0) + le nouveau scénario sans référence, suite verte après bless, 603 tests de crates, lint ×3, fmt, scripts, `make gen` ×3 sans modification, exemples, `check -p throne`, p2p `6e297852…`.
 - **Critère M0 §9.8, 200 graines sur `avant_poste`** (nuit du 2026-10-04, `alacod-sim` de `7e8f541`, 4
   `acheteur`, carte par défaut du manifeste `maps/avant_poste.ldtk` — **pas `test_map`** : le critère
   historique sur `test_map` reste à rejouer avec `--map exemples/test_map.ldtk`), 4 lots parallèles sous
@@ -989,6 +998,7 @@ coller le préambule puis la fiche dans son prompt.
 | 2026-10-06 | m0-200-graines-test-map « critère M0 rejoué sur test_map » (b0, calcul seul : 199/200 vague 5, 0 desync, 1 soft-lock graine 100, 0 mort ; binaire f80b82b) | docs et données seulement (aucun code). Merge (b0). |
 | 2026-10-06 | m1-d53-bench-horde « bench_horde divisé par deux pendant M1 » (D53, b0 : bissection, profil, correctif sans changer la simulation ; 40 → 59 fps au calme) | vérifiée sur l'état fusionné : suite sans bless 0 trace différente, 602 tests de crates, lint ×3, fmt, scripts, `make gen` ×3 sans modification, exemples, `check -p throne`, p2p `6e297852…`. Merge (b0). |
 | 2026-10-06 | m1-cloture-videos-digest « vidéos d'après D51 et digest final de M1 » (b0 : 6 vidéos, captures sans overlay de debug, digest final, points de revue humaine) | vérifiée sur l'état fusionné : suite sans bless 0 trace différente, 602 tests de crates, lint ×3, fmt, scripts, `make gen` ×3 sans modification, exemples, `check -p throne`, p2p `6e297852…`. Merge (b0). |
+| 2026-10-06 | m0-graine-100-fenetre « un ennemi incrusté peut se dégager » (b1 : `step_blocked_by`, scénario de la graine 100, archer d'`arena_tir` libéré ; bots non fautifs ; D52 ouverte) | vérifiée sur l'état fusionné : suite sans bless = exactement les 5 traces d'`arena_tir` différentes (dès la ligne 1 : pas de dégagement de l'archer à f0) + le nouveau scénario sans référence, suite verte après bless, 603 tests de crates, lint ×3, fmt, scripts, `make gen` ×3 sans modification, exemples, `check -p throne`, p2p `6e297852…` ; 6 traces bénies. Merge, bless (b1). |
 Orchestration : Fable crée les worktrees (`scripts/task-new.sh` du meta-repo), lance un agent par
 tâche avec le modèle le moins cher (Haiku d'abord, Sonnet si une tâche échoue deux fois), vérifie
 la branche (`make test_scenarios`, `cargo test`, lecture du diff), fusionne dans `main`
