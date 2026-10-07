@@ -6,7 +6,8 @@
 // à f2237 ; depuis D51 (dispersion de la config enfin appliquée), à f1304.
 //
 // Mesuré (`alacod-sim --game throne --bots 2 --profiles prudent,prudent --floors run --seeds
-// 139..139 --until-floor 3`) : étages à f505, f1304 (D51).
+// 139..139 --until-floor 3`) : étages à f505, f1304 (D51) ; m1-fusion-revue-m0-suite (course
+// nerveuse) : étages à f631, f1845 (portails ouverts à f453 et f1432), 1320 → 1860 frames.
 //
 // À regarder : à l'étage 1, les bots contournent la roche vers le dernier ennemi au lieu de
 // reculer.
@@ -14,13 +15,13 @@ Scenario(
     game: "throne",
     floors: Some("run"),
     map_seed: 139,
-    frames: 1320,
+    frames: 1860,
     players: [
         (bot: prudent),
         (bot: prudent),
     ],
     expect: [
-        FloorIndex(index: 1, at_frame: 510),
-        FloorIndex(index: 2, at_frame: 1310),
+        FloorIndex(index: 1, at_frame: 640),
+        FloorIndex(index: 2, at_frame: 1855),
     ],
 )

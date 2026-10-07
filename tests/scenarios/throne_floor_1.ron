@@ -5,7 +5,8 @@
 // Mesuré (graine 123456, comme `alacod-sim --game throne --bots 1 --profiles prudent --floors
 // run --seeds 123456..123456 --until-floor 1`) : niveau 1 à f363, portail ouvert à f386, franchi à
 // f558 (m1-v3-bots-armes ; avant, D51 : franchi à f578 ; m1-v3-bots-softlocks : niveau 1 à f547,
-// portail à f590, franchi à f937).
+// portail à f590, franchi à f937). m1-fusion-revue-m0-suite (course nerveuse) : niveau 1 à f314, portail ouvert à
+// f338, franchi à f511.
 //
 // À regarder : le bot traverse la caverne, tue les quatre ennemis, puis rejoint le portail.
 Scenario(
@@ -17,7 +18,7 @@ Scenario(
         (bot: prudent),
     ],
     expect: [
-        FloorIndex(index: 0, at_frame: 550),
+        FloorIndex(index: 0, at_frame: 505),
         FloorIndex(index: 1, at_frame: 565),
         PlayerAlive(handle: 0, at_frame: 599),
     ],

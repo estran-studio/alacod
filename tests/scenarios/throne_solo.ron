@@ -12,6 +12,9 @@
 // à f2622 (`coriace` à f3222), vivant à f3699. (D51 : étage 2 à f1591, mort dans la troisième
 // caverne à f2908.) (Avant,
 // m1-v3-bots-softlocks : étage 1 à f937, étage 2 à f3124, vivant à f3699.)
+// m1-fusion-revue-m0-suite (course nerveuse) : niveau 1 à f314 (`sang_froid` à f914), étage 1 à
+// f511, niveau 2 à f1010 (`coriace` à f1610), alerte à f1411, étage 2 à f1519, niveau 3 à f2333
+// (`irradie` à f2933), vivant à f3699.
 //
 // À regarder : le bot nettoie deux cavernes puis affronte la troisième.
 Scenario(
@@ -24,10 +27,10 @@ Scenario(
     ],
     expect: [
         FloorIndex(index: 1, at_frame: 565),
-        FloorIndex(index: 1, at_frame: 1635),
+        FloorIndex(index: 1, at_frame: 1515),
         FloorIndex(index: 2, at_frame: 1650),
         Event(kind: "levelup", by_frame: 365),
-        Mutations(handle: 0, contains: ["sang_froid", "tireur"], count: Some(2), at_frame: 1570),
+        Mutations(handle: 0, contains: ["sang_froid", "coriace"], count: Some(2), at_frame: 1615),
         Clock(id: "alerte", fired: true, at_frame: 1465),
         PlayerAlive(handle: 0, at_frame: 3699),
     ],

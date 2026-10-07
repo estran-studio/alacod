@@ -13,6 +13,8 @@
 // soldes finaux 3790/1450. La vague 5 elle-même n'est pas combattue (règle Waves).
 // D51 (dispersion de la config enfin appliquée) : mêmes inputs, d'autres balles portent ; vague 5
 // atteinte à f4474, 13 kills, soldes 3780/1460 à f4668 (3730 à f2400, 3770 à f3700).
+// m1-fusion-revue-m0-suite : inputs de `main` (D51), marche recalée pour la course nerveuse de
+// movement-feel (Left f460-484 et f530-539, au lieu de f460-510 et f530-560) ; attentes tenues.
 Scenario(
     game: "zombies",
     map: "exemples/test_map.ldtk",
@@ -39,9 +41,9 @@ Scenario(
                 Segment(from: 70, to: 160, buttons: [Fire], pan: (0, -100)),
                 Segment(from: 170, to: 400, buttons: [Interaction], pan: (0, -100)),
                 Segment(from: 410, to: 460, buttons: [Up], pan: (0, 0)),
-                Segment(from: 460, to: 510, buttons: [Left], pan: (0, 0)),
+                Segment(from: 460, to: 484, buttons: [Left], pan: (0, 0)),
                 Segment(from: 510, to: 530, buttons: [Interaction], pan: (0, 0)),
-                Segment(from: 530, to: 560, buttons: [Left], pan: (0, 0)),
+                Segment(from: 530, to: 539, buttons: [Left], pan: (0, 0)),
                 Segment(from: 560, to: 600, buttons: [Interaction], pan: (0, 0)),
                 Segment(from: 650, to: 652, buttons: [SwitchWeapon], pan: (0, 0)),
                 Segment(from: 750, to: 780, buttons: [Fire], pan: (0, -100)),

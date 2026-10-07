@@ -10,6 +10,10 @@
 // m0-graine-100-fenetre : l'archer naît incrusté de 2 px dans les murs à sa droite ; figé
 // jusque-là (une seule volée, f2), il s'en dégage maintenant et tire une volée toutes les ~141
 // frames (f143, f284, f425) : santé finale 44 → 9.
+//
+// m1-fusion-revue-m0-suite : mêmes inputs figés, rejoués avec la course nerveuse de movement-feel
+// (déplacements plus vifs, autres trajectoires) : santé finale 9 → 59, toujours sous les 100 du
+// jumeau avec esquive (`bot_prudent_dodge`).
 Scenario(
     game: "testbed",
     map: "testbed/arena_tir.ldtk",
@@ -93,6 +97,6 @@ Scenario(
         ),
     ],
     expect: [
-        Health(handle: 0, min: Some(9.0), max: Some(9.0), at_frame: 599),
+        Health(handle: 0, min: Some(59.0), max: Some(59.0), at_frame: 599),
     ],
 )
