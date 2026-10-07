@@ -10,31 +10,6 @@
     "label": "joueur 1 apparaît"
   },
   {
-    "frame": 0,
-    "kind": "drop",
-    "label": "arme pistol tombée au sol (113)"
-  },
-  {
-    "frame": 0,
-    "kind": "drop",
-    "label": "arme pistol tombée au sol (114)"
-  },
-  {
-    "frame": 0,
-    "kind": "drop",
-    "label": "arme machine_gun tombée au sol (115)"
-  },
-  {
-    "frame": 0,
-    "kind": "drop",
-    "label": "arme rifle tombée au sol (116)"
-  },
-  {
-    "frame": 0,
-    "kind": "drop",
-    "label": "arme shotgun tombée au sol (117)"
-  },
-  {
     "frame": 1,
     "kind": "wave",
     "label": "vague 1 : préparation"
@@ -45,9 +20,159 @@
     "label": "joueur 1 touché"
   },
   {
+    "frame": 77,
+    "kind": "feedback",
+    "label": "secousse 108 (8 frames)"
+  },
+  {
+    "frame": 77,
+    "kind": "feedback",
+    "label": "hit stop 108 (2 frames)"
+  },
+  {
+    "frame": 83,
+    "kind": "feedback",
+    "label": "secousse 108 (8 frames)"
+  },
+  {
+    "frame": 83,
+    "kind": "feedback",
+    "label": "hit stop 108 (2 frames)"
+  },
+  {
+    "frame": 89,
+    "kind": "feedback",
+    "label": "secousse 108 (8 frames)"
+  },
+  {
+    "frame": 89,
+    "kind": "feedback",
+    "label": "hit stop 108 (2 frames)"
+  },
+  {
+    "frame": 95,
+    "kind": "feedback",
+    "label": "secousse 108 (8 frames)"
+  },
+  {
+    "frame": 95,
+    "kind": "feedback",
+    "label": "hit stop 108 (2 frames)"
+  },
+  {
+    "frame": 101,
+    "kind": "feedback",
+    "label": "secousse 108 (8 frames)"
+  },
+  {
+    "frame": 101,
+    "kind": "feedback",
+    "label": "hit stop 108 (2 frames)"
+  },
+  {
+    "frame": 107,
+    "kind": "feedback",
+    "label": "secousse 108 (8 frames)"
+  },
+  {
+    "frame": 107,
+    "kind": "feedback",
+    "label": "hit stop 108 (2 frames)"
+  },
+  {
+    "frame": 113,
+    "kind": "feedback",
+    "label": "secousse 108 (8 frames)"
+  },
+  {
+    "frame": 113,
+    "kind": "feedback",
+    "label": "hit stop 108 (2 frames)"
+  },
+  {
+    "frame": 119,
+    "kind": "feedback",
+    "label": "secousse 108 (8 frames)"
+  },
+  {
+    "frame": 119,
+    "kind": "feedback",
+    "label": "hit stop 108 (2 frames)"
+  },
+  {
+    "frame": 125,
+    "kind": "feedback",
+    "label": "secousse 108 (8 frames)"
+  },
+  {
+    "frame": 125,
+    "kind": "feedback",
+    "label": "hit stop 108 (2 frames)"
+  },
+  {
+    "frame": 131,
+    "kind": "feedback",
+    "label": "secousse 108 (8 frames)"
+  },
+  {
+    "frame": 131,
+    "kind": "feedback",
+    "label": "hit stop 108 (2 frames)"
+  },
+  {
+    "frame": 137,
+    "kind": "feedback",
+    "label": "secousse 108 (8 frames)"
+  },
+  {
+    "frame": 137,
+    "kind": "feedback",
+    "label": "hit stop 108 (2 frames)"
+  },
+  {
+    "frame": 143,
+    "kind": "feedback",
+    "label": "secousse 108 (8 frames)"
+  },
+  {
+    "frame": 143,
+    "kind": "feedback",
+    "label": "hit stop 108 (2 frames)"
+  },
+  {
     "frame": 149,
     "kind": "downed",
     "label": "joueur 1 tombe à terre"
+  },
+  {
+    "frame": 149,
+    "kind": "feedback",
+    "label": "secousse 108 (8 frames)"
+  },
+  {
+    "frame": 149,
+    "kind": "feedback",
+    "label": "hit stop 108 (2 frames)"
+  },
+  {
+    "frame": 155,
+    "kind": "feedback",
+    "label": "secousse 108 (8 frames)"
+  },
+  {
+    "frame": 155,
+    "kind": "feedback",
+    "label": "hit stop 108 (2 frames)"
+  },
+  {
+    "frame": 161,
+    "kind": "feedback",
+    "label": "secousse 108 (8 frames)"
+  },
+  {
+    "frame": 161,
+    "kind": "feedback",
+    "label": "hit stop 108 (2 frames)"
   },
   {
     "frame": 355,
@@ -90,9 +215,44 @@
     "label": "fenêtre 28 cassée"
   },
   {
-    "frame": 818,
+    "frame": 801,
+    "kind": "powerup_pickup",
+    "label": "power-up max_ammo ramassé par joueur 0"
+  },
+  {
+    "frame": 819,
     "kind": "hit",
     "label": "joueur 1 touché"
+  },
+  {
+    "frame": 819,
+    "kind": "feedback",
+    "label": "secousse 108 (8 frames)"
+  },
+  {
+    "frame": 819,
+    "kind": "feedback",
+    "label": "hit stop 108 (2 frames)"
+  },
+  {
+    "frame": 876,
+    "kind": "feedback",
+    "label": "secousse 108 (8 frames)"
+  },
+  {
+    "frame": 876,
+    "kind": "feedback",
+    "label": "hit stop 108 (2 frames)"
+  },
+  {
+    "frame": 933,
+    "kind": "feedback",
+    "label": "secousse 108 (8 frames)"
+  },
+  {
+    "frame": 933,
+    "kind": "feedback",
+    "label": "hit stop 108 (2 frames)"
   },
   {
     "frame": 951,
@@ -103,6 +263,21 @@
     "frame": 951,
     "kind": "kill",
     "label": "zombie tué (3 au total)"
+  },
+  {
+    "frame": 951,
+    "kind": "powerup_pickup",
+    "label": "power-up nuke ramassé par joueur 0"
+  },
+  {
+    "frame": 951,
+    "kind": "points",
+    "label": "joueur 0 gagne 400 points (nuke)"
+  },
+  {
+    "frame": 951,
+    "kind": "points",
+    "label": "joueur 1 gagne 400 points (nuke)"
   },
   {
     "frame": 986,
@@ -125,19 +300,29 @@
     "label": "vague 2 : tous les zombies sont là"
   },
   {
-    "frame": 1784,
+    "frame": 1810,
     "kind": "points",
     "label": "joueur 1 gagne 10 points (hit)"
+  },
+  {
+    "frame": 1810,
+    "kind": "feedback",
+    "label": "hit stop 164 (2 frames)"
+  },
+  {
+    "frame": 1824,
+    "kind": "points",
+    "label": "joueur 0 gagne 10 points (hit)"
+  },
+  {
+    "frame": 1824,
+    "kind": "feedback",
+    "label": "hit stop 164 (2 frames)"
   },
   {
     "frame": 1831,
     "kind": "weapon",
     "label": "joueur 0 : chargeur vide (pistol)"
-  },
-  {
-    "frame": 1831,
-    "kind": "hit",
-    "label": "joueur 1 touché"
   },
   {
     "frame": 1831,
@@ -155,9 +340,49 @@
     "label": "joueur 1 recharge (pistol default)"
   },
   {
-    "frame": 1837,
+    "frame": 1833,
+    "kind": "hit",
+    "label": "joueur 1 touché"
+  },
+  {
+    "frame": 1833,
+    "kind": "feedback",
+    "label": "secousse 108 (8 frames)"
+  },
+  {
+    "frame": 1833,
+    "kind": "feedback",
+    "label": "hit stop 108 (2 frames)"
+  },
+  {
+    "frame": 1835,
     "kind": "points",
     "label": "joueur 1 gagne 10 points (hit)"
+  },
+  {
+    "frame": 1835,
+    "kind": "feedback",
+    "label": "hit stop 164 (2 frames)"
+  },
+  {
+    "frame": 1851,
+    "kind": "kill",
+    "label": "zombie tué (4 au total)"
+  },
+  {
+    "frame": 1851,
+    "kind": "points",
+    "label": "joueur 0 gagne 10 points (hit)"
+  },
+  {
+    "frame": 1851,
+    "kind": "points",
+    "label": "joueur 0 gagne 60 points (kill)"
+  },
+  {
+    "frame": 1851,
+    "kind": "feedback",
+    "label": "hit stop 164 (2 frames)"
   },
   {
     "frame": 1892,
@@ -170,9 +395,44 @@
     "label": "joueur 1 a rechargé : 5 (42 en réserve)"
   },
   {
+    "frame": 1893,
+    "kind": "feedback",
+    "label": "secousse 108 (8 frames)"
+  },
+  {
+    "frame": 1893,
+    "kind": "feedback",
+    "label": "hit stop 108 (2 frames)"
+  },
+  {
     "frame": 1896,
     "kind": "points",
     "label": "joueur 1 gagne 10 points (hit)"
+  },
+  {
+    "frame": 1896,
+    "kind": "feedback",
+    "label": "hit stop 158 (2 frames)"
+  },
+  {
+    "frame": 1899,
+    "kind": "feedback",
+    "label": "secousse 108 (8 frames)"
+  },
+  {
+    "frame": 1899,
+    "kind": "feedback",
+    "label": "hit stop 108 (2 frames)"
+  },
+  {
+    "frame": 1912,
+    "kind": "points",
+    "label": "joueur 0 gagne 10 points (hit)"
+  },
+  {
+    "frame": 1912,
+    "kind": "feedback",
+    "label": "hit stop 158 (2 frames)"
   },
   {
     "frame": 1939,
@@ -180,19 +440,49 @@
     "label": "joueur 1 gagne 10 points (hit)"
   },
   {
-    "frame": 1956,
-    "kind": "kill",
-    "label": "zombie tué (4 au total)"
+    "frame": 1939,
+    "kind": "feedback",
+    "label": "hit stop 158 (2 frames)"
   },
   {
-    "frame": 1956,
+    "frame": 1950,
+    "kind": "feedback",
+    "label": "secousse 108 (8 frames)"
+  },
+  {
+    "frame": 1950,
+    "kind": "feedback",
+    "label": "hit stop 108 (2 frames)"
+  },
+  {
+    "frame": 1955,
+    "kind": "kill",
+    "label": "zombie tué (5 au total)"
+  },
+  {
+    "frame": 1955,
     "kind": "points",
     "label": "joueur 0 gagne 10 points (hit)"
   },
   {
-    "frame": 1956,
+    "frame": 1955,
     "kind": "points",
     "label": "joueur 0 gagne 60 points (kill)"
+  },
+  {
+    "frame": 1955,
+    "kind": "feedback",
+    "label": "hit stop 158 (2 frames)"
+  },
+  {
+    "frame": 1956,
+    "kind": "feedback",
+    "label": "secousse 108 (8 frames)"
+  },
+  {
+    "frame": 1956,
+    "kind": "feedback",
+    "label": "hit stop 108 (2 frames)"
   },
   {
     "frame": 1969,
@@ -200,34 +490,64 @@
     "label": "joueur 1 gagne 10 points (hit)"
   },
   {
+    "frame": 1969,
+    "kind": "feedback",
+    "label": "hit stop 160 (2 frames)"
+  },
+  {
+    "frame": 1983,
+    "kind": "points",
+    "label": "joueur 0 gagne 10 points (hit)"
+  },
+  {
+    "frame": 1983,
+    "kind": "feedback",
+    "label": "hit stop 160 (2 frames)"
+  },
+  {
     "frame": 1999,
     "kind": "points",
     "label": "joueur 1 gagne 10 points (hit)"
   },
   {
-    "frame": 2012,
-    "kind": "points",
-    "label": "joueur 0 gagne 10 points (hit)"
+    "frame": 1999,
+    "kind": "feedback",
+    "label": "hit stop 160 (2 frames)"
   },
   {
-    "frame": 2029,
+    "frame": 2013,
     "kind": "kill",
-    "label": "zombie tué (5 au total)"
+    "label": "zombie tué (6 au total)"
   },
   {
-    "frame": 2029,
-    "kind": "points",
-    "label": "joueur 1 gagne 10 points (hit)"
-  },
-  {
-    "frame": 2029,
-    "kind": "points",
-    "label": "joueur 1 gagne 60 points (kill)"
-  },
-  {
-    "frame": 2042,
+    "frame": 2013,
     "kind": "points",
     "label": "joueur 0 gagne 10 points (hit)"
+  },
+  {
+    "frame": 2013,
+    "kind": "points",
+    "label": "joueur 0 gagne 60 points (kill)"
+  },
+  {
+    "frame": 2013,
+    "kind": "feedback",
+    "label": "secousse 108 (8 frames)"
+  },
+  {
+    "frame": 2013,
+    "kind": "feedback",
+    "label": "hit stop 160 (2 frames)"
+  },
+  {
+    "frame": 2051,
+    "kind": "points",
+    "label": "joueur 0 gagne 10 points (hit)"
+  },
+  {
+    "frame": 2051,
+    "kind": "feedback",
+    "label": "hit stop 162 (2 frames)"
   },
   {
     "frame": 2056,
@@ -250,24 +570,24 @@
     "label": "joueur 1 recharge (pistol default)"
   },
   {
-    "frame": 2059,
-    "kind": "points",
-    "label": "joueur 1 gagne 10 points (hit)"
-  },
-  {
-    "frame": 2073,
-    "kind": "kill",
-    "label": "zombie tué (6 au total)"
-  },
-  {
-    "frame": 2073,
+    "frame": 2076,
     "kind": "points",
     "label": "joueur 0 gagne 10 points (hit)"
   },
   {
-    "frame": 2073,
-    "kind": "points",
-    "label": "joueur 0 gagne 60 points (kill)"
+    "frame": 2076,
+    "kind": "feedback",
+    "label": "hit stop 162 (2 frames)"
+  },
+  {
+    "frame": 2084,
+    "kind": "feedback",
+    "label": "secousse 108 (8 frames)"
+  },
+  {
+    "frame": 2084,
+    "kind": "feedback",
+    "label": "hit stop 108 (2 frames)"
   },
   {
     "frame": 2117,
@@ -285,358 +605,588 @@
     "label": "joueur 1 gagne 10 points (hit)"
   },
   {
-    "frame": 2164,
-    "kind": "points",
-    "label": "joueur 1 gagne 10 points (hit)"
+    "frame": 2120,
+    "kind": "feedback",
+    "label": "hit stop 162 (2 frames)"
   },
   {
-    "frame": 2224,
-    "kind": "points",
-    "label": "joueur 1 gagne 10 points (hit)"
-  },
-  {
-    "frame": 2236,
+    "frame": 2134,
     "kind": "wave",
     "label": "vague 2 : vague terminée"
   },
   {
-    "frame": 2236,
+    "frame": 2134,
     "kind": "kill",
     "label": "zombie tué (7 au total)"
   },
   {
-    "frame": 2236,
+    "frame": 2134,
     "kind": "points",
     "label": "joueur 0 gagne 10 points (hit)"
   },
   {
-    "frame": 2236,
+    "frame": 2134,
     "kind": "points",
     "label": "joueur 0 gagne 60 points (kill)"
   },
   {
-    "frame": 2356,
+    "frame": 2134,
+    "kind": "feedback",
+    "label": "hit stop 162 (2 frames)"
+  },
+  {
+    "frame": 2254,
     "kind": "wave",
     "label": "vague 3 : préparation"
   },
   {
-    "frame": 2956,
+    "frame": 2854,
     "kind": "wave",
     "label": "vague 3 : arrivée des zombies"
   },
   {
-    "frame": 2957,
+    "frame": 2855,
     "kind": "wave",
     "label": "vague 3 : tous les zombies sont là"
   },
   {
-    "frame": 3001,
+    "frame": 2986,
     "kind": "weapon",
     "label": "joueur 0 : chargeur vide (pistol)"
   },
   {
-    "frame": 3001,
+    "frame": 2986,
     "kind": "weapon",
     "label": "joueur 1 : chargeur vide (pistol)"
   },
   {
-    "frame": 3002,
+    "frame": 2987,
     "kind": "reload",
     "label": "joueur 0 recharge (pistol default)"
   },
   {
-    "frame": 3002,
+    "frame": 2987,
     "kind": "reload",
     "label": "joueur 1 recharge (pistol default)"
   },
   {
-    "frame": 3062,
+    "frame": 3047,
     "kind": "reload",
     "label": "joueur 0 a rechargé : 5 (30 en réserve)"
   },
   {
-    "frame": 3062,
+    "frame": 3047,
     "kind": "reload",
     "label": "joueur 1 a rechargé : 5 (30 en réserve)"
   },
   {
-    "frame": 3226,
-    "kind": "weapon",
-    "label": "joueur 0 : chargeur vide (pistol)"
-  },
-  {
-    "frame": 3226,
-    "kind": "weapon",
-    "label": "joueur 1 : chargeur vide (pistol)"
-  },
-  {
-    "frame": 3227,
-    "kind": "reload",
-    "label": "joueur 0 recharge (pistol default)"
-  },
-  {
-    "frame": 3227,
-    "kind": "reload",
-    "label": "joueur 1 recharge (pistol default)"
-  },
-  {
-    "frame": 3231,
-    "kind": "points",
-    "label": "joueur 1 gagne 10 points (hit)"
-  },
-  {
-    "frame": 3233,
+    "frame": 3116,
     "kind": "hit",
     "label": "joueur 1 touché"
   },
   {
-    "frame": 3240,
-    "kind": "points",
-    "label": "joueur 0 gagne 10 points (hit)"
+    "frame": 3116,
+    "kind": "feedback",
+    "label": "secousse 108 (8 frames)"
   },
   {
-    "frame": 3287,
-    "kind": "reload",
-    "label": "joueur 0 a rechargé : 5 (24 en réserve)"
+    "frame": 3116,
+    "kind": "feedback",
+    "label": "hit stop 108 (2 frames)"
   },
   {
-    "frame": 3287,
-    "kind": "reload",
-    "label": "joueur 1 a rechargé : 5 (24 en réserve)"
-  },
-  {
-    "frame": 3290,
+    "frame": 3125,
     "kind": "points",
     "label": "joueur 1 gagne 10 points (hit)"
   },
   {
-    "frame": 3301,
-    "kind": "points",
-    "label": "joueur 0 gagne 10 points (hit)"
+    "frame": 3125,
+    "kind": "feedback",
+    "label": "hit stop 209 (2 frames)"
   },
   {
-    "frame": 3335,
+    "frame": 3145,
+    "kind": "feedback",
+    "label": "secousse 108 (8 frames)"
+  },
+  {
+    "frame": 3145,
+    "kind": "feedback",
+    "label": "hit stop 108 (2 frames)"
+  },
+  {
+    "frame": 3154,
     "kind": "points",
     "label": "joueur 1 gagne 10 points (hit)"
   },
   {
-    "frame": 3344,
+    "frame": 3154,
+    "kind": "feedback",
+    "label": "hit stop 209 (2 frames)"
+  },
+  {
+    "frame": 3167,
+    "kind": "points",
+    "label": "joueur 0 gagne 10 points (hit)"
+  },
+  {
+    "frame": 3167,
+    "kind": "feedback",
+    "label": "hit stop 207 (2 frames)"
+  },
+  {
+    "frame": 3173,
+    "kind": "feedback",
+    "label": "secousse 108 (8 frames)"
+  },
+  {
+    "frame": 3173,
+    "kind": "feedback",
+    "label": "hit stop 108 (2 frames)"
+  },
+  {
+    "frame": 3184,
+    "kind": "points",
+    "label": "joueur 1 gagne 10 points (hit)"
+  },
+  {
+    "frame": 3184,
+    "kind": "feedback",
+    "label": "hit stop 207 (2 frames)"
+  },
+  {
+    "frame": 3195,
+    "kind": "points",
+    "label": "joueur 0 gagne 10 points (hit)"
+  },
+  {
+    "frame": 3195,
+    "kind": "feedback",
+    "label": "hit stop 207 (2 frames)"
+  },
+  {
+    "frame": 3202,
+    "kind": "feedback",
+    "label": "secousse 108 (8 frames)"
+  },
+  {
+    "frame": 3202,
+    "kind": "feedback",
+    "label": "hit stop 108 (2 frames)"
+  },
+  {
+    "frame": 3205,
+    "kind": "feedback",
+    "label": "secousse 108 (8 frames)"
+  },
+  {
+    "frame": 3205,
+    "kind": "feedback",
+    "label": "hit stop 108 (2 frames)"
+  },
+  {
+    "frame": 3211,
+    "kind": "weapon",
+    "label": "joueur 0 : chargeur vide (pistol)"
+  },
+  {
+    "frame": 3211,
+    "kind": "weapon",
+    "label": "joueur 1 : chargeur vide (pistol)"
+  },
+  {
+    "frame": 3212,
+    "kind": "reload",
+    "label": "joueur 0 recharge (pistol default)"
+  },
+  {
+    "frame": 3212,
+    "kind": "reload",
+    "label": "joueur 1 recharge (pistol default)"
+  },
+  {
+    "frame": 3214,
     "kind": "kill",
     "label": "zombie tué (8 au total)"
   },
   {
-    "frame": 3344,
-    "kind": "points",
-    "label": "joueur 0 gagne 10 points (hit)"
-  },
-  {
-    "frame": 3344,
-    "kind": "points",
-    "label": "joueur 0 gagne 60 points (kill)"
-  },
-  {
-    "frame": 3364,
+    "frame": 3214,
     "kind": "points",
     "label": "joueur 1 gagne 10 points (hit)"
   },
   {
-    "frame": 3394,
+    "frame": 3214,
+    "kind": "points",
+    "label": "joueur 1 gagne 60 points (kill)"
+  },
+  {
+    "frame": 3214,
+    "kind": "feedback",
+    "label": "hit stop 207 (2 frames)"
+  },
+  {
+    "frame": 3225,
+    "kind": "points",
+    "label": "joueur 0 gagne 10 points (hit)"
+  },
+  {
+    "frame": 3225,
+    "kind": "feedback",
+    "label": "hit stop 209 (2 frames)"
+  },
+  {
+    "frame": 3230,
+    "kind": "feedback",
+    "label": "secousse 108 (8 frames)"
+  },
+  {
+    "frame": 3230,
+    "kind": "feedback",
+    "label": "hit stop 108 (2 frames)"
+  },
+  {
+    "frame": 3262,
+    "kind": "feedback",
+    "label": "secousse 108 (8 frames)"
+  },
+  {
+    "frame": 3262,
+    "kind": "feedback",
+    "label": "hit stop 108 (2 frames)"
+  },
+  {
+    "frame": 3272,
+    "kind": "reload",
+    "label": "joueur 0 a rechargé : 5 (24 en réserve)"
+  },
+  {
+    "frame": 3272,
+    "kind": "reload",
+    "label": "joueur 1 a rechargé : 5 (24 en réserve)"
+  },
+  {
+    "frame": 3275,
     "kind": "kill",
     "label": "zombie tué (9 au total)"
   },
   {
-    "frame": 3394,
+    "frame": 3275,
     "kind": "points",
     "label": "joueur 1 gagne 10 points (hit)"
   },
   {
-    "frame": 3394,
+    "frame": 3275,
     "kind": "points",
     "label": "joueur 1 gagne 60 points (kill)"
   },
   {
-    "frame": 3424,
+    "frame": 3275,
+    "kind": "feedback",
+    "label": "hit stop 209 (2 frames)"
+  },
+  {
+    "frame": 3287,
+    "kind": "points",
+    "label": "joueur 0 gagne 10 points (hit)"
+  },
+  {
+    "frame": 3287,
+    "kind": "feedback",
+    "label": "hit stop 211 (2 frames)"
+  },
+  {
+    "frame": 3319,
     "kind": "points",
     "label": "joueur 1 gagne 10 points (hit)"
   },
   {
-    "frame": 3451,
-    "kind": "weapon",
-    "label": "joueur 0 : chargeur vide (pistol)"
+    "frame": 3319,
+    "kind": "feedback",
+    "label": "secousse 108 (8 frames)"
   },
   {
-    "frame": 3451,
-    "kind": "weapon",
-    "label": "joueur 1 : chargeur vide (pistol)"
+    "frame": 3319,
+    "kind": "feedback",
+    "label": "hit stop 211 (2 frames)"
   },
   {
-    "frame": 3452,
-    "kind": "reload",
-    "label": "joueur 0 recharge (pistol default)"
-  },
-  {
-    "frame": 3452,
-    "kind": "reload",
-    "label": "joueur 1 recharge (pistol default)"
-  },
-  {
-    "frame": 3454,
+    "frame": 3349,
     "kind": "points",
     "label": "joueur 1 gagne 10 points (hit)"
   },
   {
-    "frame": 3512,
-    "kind": "reload",
-    "label": "joueur 0 a rechargé : 5 (18 en réserve)"
+    "frame": 3349,
+    "kind": "feedback",
+    "label": "hit stop 211 (2 frames)"
   },
   {
-    "frame": 3512,
-    "kind": "reload",
-    "label": "joueur 1 a rechargé : 5 (18 en réserve)"
+    "frame": 3376,
+    "kind": "feedback",
+    "label": "secousse 108 (8 frames)"
   },
   {
-    "frame": 3515,
-    "kind": "points",
-    "label": "joueur 1 gagne 10 points (hit)"
+    "frame": 3376,
+    "kind": "feedback",
+    "label": "hit stop 108 (2 frames)"
   },
   {
-    "frame": 3524,
+    "frame": 3379,
     "kind": "wave",
     "label": "vague 3 : vague terminée"
   },
   {
-    "frame": 3524,
+    "frame": 3379,
     "kind": "kill",
     "label": "zombie tué (10 au total)"
   },
   {
-    "frame": 3524,
-    "kind": "points",
-    "label": "joueur 0 gagne 10 points (hit)"
-  },
-  {
-    "frame": 3524,
-    "kind": "points",
-    "label": "joueur 0 gagne 60 points (kill)"
-  },
-  {
-    "frame": 3644,
-    "kind": "wave",
-    "label": "vague 4 : préparation"
-  },
-  {
-    "frame": 4244,
-    "kind": "wave",
-    "label": "vague 4 : arrivée des zombies"
-  },
-  {
-    "frame": 4245,
-    "kind": "wave",
-    "label": "vague 4 : tous les zombies sont là"
-  },
-  {
-    "frame": 4293,
-    "kind": "kill",
-    "label": "zombie tué (11 au total)"
-  },
-  {
-    "frame": 4293,
+    "frame": 3379,
     "kind": "points",
     "label": "joueur 1 gagne 10 points (hit)"
   },
   {
-    "frame": 4293,
+    "frame": 3379,
     "kind": "points",
     "label": "joueur 1 gagne 60 points (kill)"
   },
   {
-    "frame": 4364,
-    "kind": "points",
-    "label": "joueur 1 gagne 10 points (hit)"
+    "frame": 3379,
+    "kind": "feedback",
+    "label": "hit stop 211 (2 frames)"
   },
   {
-    "frame": 4381,
+    "frame": 3436,
     "kind": "weapon",
     "label": "joueur 0 : chargeur vide (pistol)"
   },
   {
-    "frame": 4381,
+    "frame": 3436,
     "kind": "weapon",
     "label": "joueur 1 : chargeur vide (pistol)"
   },
   {
-    "frame": 4382,
+    "frame": 3437,
     "kind": "reload",
     "label": "joueur 0 recharge (pistol default)"
   },
   {
-    "frame": 4382,
+    "frame": 3437,
     "kind": "reload",
     "label": "joueur 1 recharge (pistol default)"
   },
   {
-    "frame": 4392,
-    "kind": "points",
-    "label": "joueur 0 gagne 10 points (hit)"
+    "frame": 3497,
+    "kind": "reload",
+    "label": "joueur 0 a rechargé : 5 (18 en réserve)"
   },
   {
-    "frame": 4403,
+    "frame": 3497,
+    "kind": "reload",
+    "label": "joueur 1 a rechargé : 5 (18 en réserve)"
+  },
+  {
+    "frame": 3499,
+    "kind": "wave",
+    "label": "vague 4 : préparation"
+  },
+  {
+    "frame": 4099,
+    "kind": "wave",
+    "label": "vague 4 : arrivée des zombies"
+  },
+  {
+    "frame": 4100,
+    "kind": "wave",
+    "label": "vague 4 : tous les zombies sont là"
+  },
+  {
+    "frame": 4221,
     "kind": "hit",
     "label": "joueur 1 touché"
   },
   {
-    "frame": 4442,
-    "kind": "reload",
-    "label": "joueur 0 a rechargé : 5 (12 en réserve)"
+    "frame": 4221,
+    "kind": "feedback",
+    "label": "secousse 108 (8 frames)"
   },
   {
-    "frame": 4442,
-    "kind": "reload",
-    "label": "joueur 1 a rechargé : 5 (12 en réserve)"
+    "frame": 4221,
+    "kind": "feedback",
+    "label": "hit stop 108 (2 frames)"
   },
   {
-    "frame": 4444,
+    "frame": 4235,
+    "kind": "kill",
+    "label": "zombie tué (11 au total)"
+  },
+  {
+    "frame": 4235,
+    "kind": "points",
+    "label": "joueur 1 gagne 10 points (hit)"
+  },
+  {
+    "frame": 4235,
+    "kind": "points",
+    "label": "joueur 1 gagne 60 points (kill)"
+  },
+  {
+    "frame": 4235,
+    "kind": "feedback",
+    "label": "hit stop 252 (2 frames)"
+  },
+  {
+    "frame": 4240,
+    "kind": "feedback",
+    "label": "secousse 108 (8 frames)"
+  },
+  {
+    "frame": 4240,
+    "kind": "feedback",
+    "label": "hit stop 108 (2 frames)"
+  },
+  {
+    "frame": 4246,
+    "kind": "points",
+    "label": "joueur 0 gagne 10 points (hit)"
+  },
+  {
+    "frame": 4246,
+    "kind": "feedback",
+    "label": "hit stop 250 (2 frames)"
+  },
+  {
+    "frame": 4250,
+    "kind": "feedback",
+    "label": "secousse 108 (8 frames)"
+  },
+  {
+    "frame": 4250,
+    "kind": "feedback",
+    "label": "hit stop 108 (2 frames)"
+  },
+  {
+    "frame": 4264,
+    "kind": "points",
+    "label": "joueur 1 gagne 10 points (hit)"
+  },
+  {
+    "frame": 4264,
+    "kind": "feedback",
+    "label": "hit stop 250 (2 frames)"
+  },
+  {
+    "frame": 4294,
+    "kind": "points",
+    "label": "joueur 1 gagne 10 points (hit)"
+  },
+  {
+    "frame": 4294,
+    "kind": "feedback",
+    "label": "hit stop 250 (2 frames)"
+  },
+  {
+    "frame": 4297,
+    "kind": "feedback",
+    "label": "secousse 108 (8 frames)"
+  },
+  {
+    "frame": 4297,
+    "kind": "feedback",
+    "label": "hit stop 108 (2 frames)"
+  },
+  {
+    "frame": 4307,
+    "kind": "feedback",
+    "label": "secousse 108 (8 frames)"
+  },
+  {
+    "frame": 4307,
+    "kind": "feedback",
+    "label": "hit stop 108 (2 frames)"
+  },
+  {
+    "frame": 4324,
     "kind": "kill",
     "label": "zombie tué (12 au total)"
   },
   {
-    "frame": 4444,
+    "frame": 4324,
     "kind": "points",
     "label": "joueur 1 gagne 10 points (hit)"
   },
   {
-    "frame": 4444,
+    "frame": 4324,
     "kind": "points",
     "label": "joueur 1 gagne 60 points (kill)"
   },
   {
-    "frame": 4490,
-    "kind": "points",
-    "label": "joueur 1 gagne 10 points (hit)"
+    "frame": 4324,
+    "kind": "feedback",
+    "label": "hit stop 250 (2 frames)"
   },
   {
-    "frame": 4518,
+    "frame": 4351,
+    "kind": "weapon",
+    "label": "joueur 0 : chargeur vide (pistol)"
+  },
+  {
+    "frame": 4351,
+    "kind": "weapon",
+    "label": "joueur 1 : chargeur vide (pistol)"
+  },
+  {
+    "frame": 4352,
+    "kind": "reload",
+    "label": "joueur 0 recharge (pistol default)"
+  },
+  {
+    "frame": 4352,
+    "kind": "reload",
+    "label": "joueur 1 recharge (pistol default)"
+  },
+  {
+    "frame": 4354,
     "kind": "wave",
     "label": "vague 4 : vague terminée"
   },
   {
-    "frame": 4518,
+    "frame": 4354,
     "kind": "kill",
     "label": "zombie tué (13 au total)"
   },
   {
-    "frame": 4518,
+    "frame": 4354,
     "kind": "points",
     "label": "joueur 1 gagne 10 points (hit)"
   },
   {
-    "frame": 4518,
+    "frame": 4354,
     "kind": "points",
     "label": "joueur 1 gagne 60 points (kill)"
   },
   {
-    "frame": 4638,
+    "frame": 4354,
+    "kind": "feedback",
+    "label": "hit stop 254 (2 frames)"
+  },
+  {
+    "frame": 4412,
+    "kind": "reload",
+    "label": "joueur 0 a rechargé : 5 (12 en réserve)"
+  },
+  {
+    "frame": 4412,
+    "kind": "reload",
+    "label": "joueur 1 a rechargé : 5 (12 en réserve)"
+  },
+  {
+    "frame": 4474,
     "kind": "wave",
     "label": "vague 5 : préparation"
+  },
+  {
+    "frame": 4474,
+    "kind": "victory",
+    "label": "victoire : condition du mode atteinte"
   }
 ]

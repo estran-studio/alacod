@@ -119,23 +119,34 @@ récupération) ; mesure au calme le 2026-10-06 (charge 1,4 à 1,9, avant/après
 
 ## Vidéos
 
-Rendues sur `146d09c` (`make videos SCENARIO=throne_solo,throne_three_floors,throne_quad`, puis
-`make views SCENARIO=throne_quad`, 960 × 540, une image toutes les deux frames). Les vidéos de
-moins de 5 Mo sont copiées dans `docs/digests/videos/` avec leurs moments clés :
+Rendues le 2026-10-06 sur `0638b01` (`main` `c074576` + cette branche : D51, D53 et les correctifs de bots
+inclus), **captures propres** (plus de ligne « Wave | Spawned | Kills » hors mode `Waves` ni de texte de
+debug caméra, m1-cloture-videos-digest) : `make videos SCENARIO=throne_solo,throne_three_floors,throne_quad,clone_solo,clone_duo,clone_quad`
+puis `make views SCENARIO=throne_quad`, 960 × 540, une image toutes les deux frames encodée à 30 images/s (durée = frames / 60 s, vérifiée sur
+chaque fichier). Les vidéos de moins de 5 Mo sont
+dans `docs/digests/videos/` avec leurs moments clés (`.events.json`) ; elles remplacent celles de
+`146d09c` (throne) et `4f0d550` (clone), d'avant D51.
 
-| Vidéo | Durée | Taille | Source |
+| Vidéo | Durée | Taille | Fichier |
 |---|---:|---:|---|
-| [`throne_solo.mp4`](videos/throne_solo.mp4) | 61,7 s | 2,8 Mo | `target/videos/146d09c/throne_solo.mp4` |
-| [`throne_three_floors.mp4`](videos/throne_three_floors.mp4) (duo) | 86,7 s | 4,3 Mo | `target/videos/146d09c/throne_three_floors.mp4` |
-| [`throne_quad.mp4`](videos/throne_quad.mp4) | 56,7 s | 3,3 Mo | `target/videos/146d09c/throne_quad.mp4` |
-| `montage.mp4` | — | 6,9 Mo | **lien seulement** (> 5 Mo) : `target/videos/146d09c/montage.mp4` |
-| `throne_quad.vues.mp4` (quatre vues `--follow`) | 56,7 s | 14,3 Mo | **lien seulement** : `target/videos/146d09c/throne_quad.vues.mp4`, `make views SCENARIO=throne_quad` |
+| [`throne_solo.mp4`](videos/throne_solo.mp4) | 61,7 s | 2,6 Mo | dépôt |
+| [`throne_three_floors.mp4`](videos/throne_three_floors.mp4) (duo) | 83,3 s | 4,0 Mo | dépôt |
+| [`throne_quad.mp4`](videos/throne_quad.mp4) | 56,7 s | 3,5 Mo | dépôt |
+| [`clone_solo.mp4`](videos/clone_solo.mp4) | 50,8 s | 1,3 Mo | dépôt |
+| [`clone_duo.mp4`](videos/clone_duo.mp4) | 77,8 s | 2,2 Mo | dépôt |
+| `clone_quad.mp4` | 76,7 s | 5,2 Mo | **lien seulement** : `target/videos/0638b01/clone_quad.mp4` |
+| `montage.mp4` (six en grille) | 83,3 s | 7,2 Mo | **lien seulement** : `target/videos/0638b01/montage.mp4` |
+| `throne_quad.vues.mp4` (quatre vues `--follow`) | 56,7 s | 13,7 Mo | **lien seulement** : `target/videos/0638b01/throne_quad.vues.mp4` |
 
-À voir en priorité : le troisième étage du quatuor (le roi des rats tire en couronne depuis le
-coin le plus éloigné, mort vers f2558, nouveau boss au rechargement f3312) ; la mort du bot seul
-dans la troisième caverne (f3640, cercles de télégraphe et chiffres de dégâts de T1.17) ; les
-trois cavernes de tailles différentes du duo (48 × 32, 56 × 40, 64 × 44), qui étaient la même
-avant le correctif.
+À voir en priorité :
+- `throne_quad` : trois cavernes de plus en plus grandes ; au troisième étage (f1902), le roi des rats
+  tombe et le portail du niveau 3 s'ouvre à f3035 ; quatrième caverne à f3255, les quatre bots vivants.
+- `throne_three_floors` (duo) : le joueur 1 tombe à f2317 au deuxième étage et n'est pas relevé ; le
+  joueur 0 atteint le troisième étage (f3239) puis meurt dans la quatrième caverne (f4223) : la
+  régression notée par m1-v3-bots-armes, visible à l'image.
+- `throne_solo` : le bot seul nettoie deux cavernes (étages à f558 et f1643), finit vivant à f3699.
+- `clone_*` : depuis D51, les balles des armes simples partent dans l'axe (revolver, pistolet) ; vagues
+  2/3/4 de `clone_solo` à f771/f1556/f2292, victoire à l'entrée en vague 5 f3017.
 
 ## Ce qui manque pour M1
 

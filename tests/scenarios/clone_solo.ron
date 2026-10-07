@@ -1,8 +1,9 @@
 // T3.1 : partie solo du clone, achats puis combat sur la carte assemblée.
 // À regarder : pistolet acheté f116 (-500), Juggernog f166 (-2500, 200 PV) ;
 // rafale f300-330 (25 balles restantes), Max Ammo f400 (30 balles) ; premier coup
-// reçu f619, Nuke f650 (3 zombies supprimés, +400 points D17). Vagues 2/3/4 à f771/f1623/f2313 ;
-// combat à la mitraillette f1075-1503, f1930-2193 et f2620-2897, solde croissant.
+// reçu f619, Nuke f650 (3 zombies supprimés, +400 points D17). Vagues 2/3/4 à f771/f1556/f2292 ;
+// combat à la mitraillette, kills f1217-1436, f2063-2172 et f2782-2897 (après D51, vidéo
+// m1-cloture-videos-digest), solde croissant.
 // Victoire à l'entrée en vague 5 f3017 : résumé de 13 kills, joueur encore debout.
 // La visée du combat est enregistrée en headless par tranches de 15 frames.
 // Le mode Waves termine dès l'entrée en vague 5, avant son combat (règle actuelle).

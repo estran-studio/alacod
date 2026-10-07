@@ -7,7 +7,8 @@
 // À f986, retour au pistolet Never pour le combat. Visée des deux joueurs enregistrée tous
 // les 15 frames à partir de f1000 (zombie le plus proche à 400 px, deux frames de tir),
 // ré-enregistrée en m0-v7 après l'alignement de la salle de spawn sur la grille.
-// Vagues 2/3/4 à f1071/f2374/f3620 ; kills f2012-2254, f3286-3500, f4362-4548.
+// Vagues 2/3/4 à f1071/f2254/f3499 ; kills f1851-2134, f3214-3379, f4235-4354 (après D51,
+// vidéo m1-cloture-videos-digest).
 // Victoire à l'entrée en vague 5 f4668 : 13 kills, deux joueurs debout,
 // soldes finaux 3790/1450. La vague 5 elle-même n'est pas combattue (règle Waves).
 // D51 (dispersion de la config enfin appliquée) : mêmes inputs, d'autres balles portent ; vague 5

@@ -1,5 +1,5 @@
 // T3.1 : deux fonceurs, un prudent et le joueur 3 scripté.
-// À regarder : tirs du joueur 3 au rifle Always f20-102 ; joueur 0 à terre f90,
+// À regarder : tirs du joueur 3 au rifle Always f20-102 ; joueur 0 à terre f69 (f90 avant D51),
 // rapprochement f120-160, réanimation f355. Le rifle n'est plus utilisé ensuite.
 // Joueur 3 : pistolet acheté f526 (-500), Juggernog f586 (-2500, 200 PV),
 // tir f650-652, Max Ammo placé f700 (5 -> 6 balles), Nuke f750 (3 kills f751, +400 points
