@@ -2197,6 +2197,10 @@ pub fn capture(scenario: &Scenario, config: CaptureConfig) -> AppExit {
         follow_handle: config.follow_handle,
     };
     let mut app = build_app(scenario, false, &play_config);
+    // m1-cloture-videos-digest : captures propres, sans overlay de vagues ni texte de debug
+    // caméra (présentation seule : la simulation et la trace ne lisent ni l'un ni l'autre).
+    app.insert_resource(WaveDebugEnabled(false))
+        .insert_resource(game::camera::ui::CameraDebugUiEnabled(false));
     app.insert_resource(bevy::time::TimeUpdateStrategy::ManualDuration(
         std::time::Duration::from_nanos(1_000_000_000 / game::core::SIM_FPS),
     ))

@@ -7,6 +7,17 @@ use crate::camera::{CameraMode, GameCamera};
 #[derive(Component)]
 struct CameraDebugText;
 
+/// Affichage du texte de debug caméra (m1-cloture-videos-digest : coupé par les captures de
+/// scénarios, `scenario::runner::capture`). Présentation seule.
+#[derive(Resource)]
+pub struct CameraDebugUiEnabled(pub bool);
+
+impl Default for CameraDebugUiEnabled {
+    fn default() -> Self {
+        Self(true)
+    }
+}
+
 // Setup system for camera debug UI
 fn setup_camera_debug_ui(mut commands: Commands, asset_server: Res<AssetServer>) {
     let font = asset_server.load("fonts/FiraMono-Medium.ttf");
@@ -31,12 +42,20 @@ fn setup_camera_debug_ui(mut commands: Commands, asset_server: Res<AssetServer>)
 // Update system for camera debug text
 fn update_camera_debug_text(
     camera_query: Query<(&GameCamera, &Projection)>,
-    mut text_query: Query<&mut Text, With<CameraDebugText>>,
+    enabled: Res<CameraDebugUiEnabled>,
+    mut text_query: Query<(&mut Text, &mut Visibility), With<CameraDebugText>>,
 ) {
+    for (_, mut visibility) in &mut text_query {
+        *visibility = if enabled.0 {
+            Visibility::Inherited
+        } else {
+            Visibility::Hidden
+        };
+    }
     // Get camera component and projection
     if let Ok((camera, projection)) = camera_query.single() {
         // Get the text component
-        if let Ok(mut text) = text_query.single_mut() {
+        if let Ok((mut text, _)) = text_query.single_mut() {
             // Format mode as a string
             let mode_str = match camera.mode {
                 CameraMode::PlayerLock => "PlayerLock",
@@ -65,7 +84,8 @@ pub struct CameraDebugUIPlugin;
 
 impl Plugin for CameraDebugUIPlugin {
     fn build(&self, app: &mut App) {
-        app.add_systems(Startup, setup_camera_debug_ui)
+        app.init_resource::<CameraDebugUiEnabled>()
+            .add_systems(Startup, setup_camera_debug_ui)
             .add_systems(Update, update_camera_debug_text);
     }
 }

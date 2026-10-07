@@ -1,26 +1,25 @@
-# M1 `throne` — digest de fin de vague 2 (brouillon)
+# M1 `throne` — digest de fin de vague 2
 
-**Brouillon** écrit par m1-integration-scenarios (agent local b0), sur la branche
-`m1-integration-scenarios` (base `main` après T1.17). Chiffres mesurés dans cette session sur la
-machine de William, sauf mention « journal » (mesures de l'orchestrateur, `docs/taches.md` §10).
-La ligne « 200 graines » et la revue humaine restent à remplir par l'orchestrateur et William.
+Digest final de la vague 2 de M1 (rédaction : m1-integration-scenarios, puis m1-cloture-videos-digest,
+agent local b0). Chiffres du journal (`docs/taches.md` §9 et §10) sauf mention contraire ; aucun nouveau
+calcul dans cette clôture.
 
 ## En bref
 
-- Le clone joue la run de `throne` : trois cavernes générées par graine (enfin trois cavernes
-  **différentes**, voir plus bas), portail à l'étage vidé, boss `roi_rat` au troisième étage,
-  rads, niveaux et mutations, horloge d'étage, butin par munition. `throne_duo`
-  (= `throne_three_floors`) et `throne_quad` finissent la run sur la graine 123456 ; `throne_solo`
-  fixe l'état mesuré (le bot seul meurt au troisième étage). Les trois sont joués en synctest.
-- **Correction d'un résultat antérieur** : jusqu'à cette vague, les trois étages de la run
-  chargeaient tous `niveau_1` (défaut d'engine : un seul asset pour toutes les cavernes).
-  **Les anciens 20/20 portaient sur trois fois `niveau_1`.** Corrigé (« une caverne = un
-  asset »), avec un second bug caché (terrain et murs de deux cartes différentes aux étages 2
-  et 3).
-- Sur les vraies cavernes, les bots finissent **3/20 à deux et 11/20 à quatre** (0/20 seul),
-  **0 desync** : ils ne vont pas chercher un ennemi qui ne vient pas à eux. Correctifs de bots en
-  cours (b1, m1-v3-bots-portail).
-- Ce qui reste pour sortir de M1 : bots (200 graines), revue humaine, fermeture des notes.
+- Le clone joue la run de `throne` : trois cavernes générées par graine (trois cavernes **différentes**
+  depuis « une caverne = un asset »), portail à l'étage vidé, boss `roi_rat` au troisième étage, rads,
+  niveaux et mutations, horloge d'étage, butin par munition, HUD, écran de mutation, restart en ligne.
+- **Critère des bots atteint** (`main` `ed8a274`, 2026-10-06) : **198/200 à 2 bots, 0 soft-lock,
+  0 desync** (2 défaites au troisième étage), **200/200 à 4 bots**. La veille, sur `61ac539` :
+  149/200, 12 soft-locks, 39 défaites. Entre les deux : D48 (ennemis et portail hors champ), D51
+  (dispersion des tirs ignorée, bug moteur), les correctifs de bots (soft-locks, armes, réanimation).
+- **Revers** : depuis D51, le troisième étage est devenu facile pour les bots (0 défaite sur 50 graines
+  à 2 bots, puis 2 sur 200) : **rééquilibrage à décider avec William**.
+- **Bench** : `bench_horde` était tombé à 36 fps au calme (plancher 38) ; D53 trouve la cause (snap de
+  la salle de spawn qui fait entrer le bench dans le guidage de récupération) et la corrige sans changer
+  la simulation : 59 fps au calme. Vérification au calme du critère : orch.
+- Reste pour sortir de M1 : la revue humaine (section « Pour la revue humaine »), la vérification du
+  bench au calme sur `main`, les notes de M0.
 
 ## Ce que le clone sait faire
 
@@ -45,19 +44,26 @@ Une ligne par chantier du plan (`docs/taches.md` §6) livré pendant M1, avec sa
 | Bots v1 | T1.14, m1-v3-bots-pathfinding | `prudent` esquive et navigue par le champ, `alacod-sim --until-floor` |
 | I2 feedback v1 | T1.17 | hit stop, secousse, flash, télégraphe au sol, chiffres ; `FeedbackLog` (preuve sans écran) |
 | Écran de mutation | T1.16 | choix à trois cartes, input scriptable (journal) |
-| HUD throne | T1.18 | en cours chez b1 à la rédaction (journal) |
-| Dettes | m1-dettes-lot-1, m1-d39 | D31, D33, D35, D37, D39 fermées ; D40 à moitié |
+| HUD throne | T1.18 | rads, niveau, munitions par type, statuts, cibles du HUD lintées |
+| Dettes | m1-dettes-lot-1, m1-d39, m1-d36-et-analyse-depart, m1-assembleur-d45-d47, m1-dettes-doc-lot-2, m1-d26-doublons-generes | D26, D31, D33, D35, D36, D37, D39, D45 à D47 fermées ; D40 à moitié (`grunt`) |
 | Scénarios du clone, boss, une caverne = un asset | m1-integration-scenarios | `throne_solo`, `throne_duo`, `throne_quad`, boss `roi_rat` ; chaque caverne chargée depuis son propre asset (`cave://`) |
+| Navigation par profil et gabarit | m1-navigation-profils-tailles, m1-d41-spawns-degages | champ de flux par profil et par gabarit (petit, grand) ; points d'apparition dégagés selon le corps en jeu (D41) |
+| Diagnostic de soft-lock | m1-d42-softlock-diagnostic, m1-d43-d44-fin-de-partie | relevé D42 sur le vrai champ, `alacod-sim` s'arrête à la fin de run, défaite déclarée |
+| Ennemis jamais hors champ, portail atteignable | m1-d48-ennemis-hors-champ | règles de passage partagées (`world::nav`) ; points d'ennemis et ancre de portail atteints par le champ du gabarit ; `alacod-sim --log` (D49) |
+| Dispersion des tirs | m1-d51-dispersion-ignoree | **bug moteur** : `spread` n'était jamais appliqué aux tirs simples (±0,5 rad pour toutes les armes) ; ressenti de toutes les armes changé, `zombies` compris |
+| Restart en ligne | m1-restart-p2p | « Rejouer » à la fin d'une partie en ligne avec les mêmes pairs (D14) |
+| Bots v1 suite | m1-v3-bots-portail, m1-v3-bots-reanimation, m1-v3-bots-softlocks, m1-v3-bots-armes | portail piloté en vitesse, réanimation du coéquipier, zéro soft-lock, choix et ramassage d'armes ; anticipation de la cible mesurée mais **non livrée** (m1-v3-bots-lead) |
+| Performance | m1-d53-bench-horde | guidage de récupération des zombies sans tests de collision inutiles (`bench_horde` 40 → 59 fps au calme) |
 
 ## Les chiffres
 
 ### Tests
 
-Voir le rapport de m1-integration-scenarios (§6) : suite des crates, `scenarios`, lint des trois
-jeux, `make gen` ; les traces `throne` changent toutes (étages 2 et 3 enfin joués, réserves de
-départ) et sont à rebénir par l'orchestrateur avec la preuve du rapport.
+Le journal fait foi (`docs/taches.md` §10) : à la dernière vérification sur l'état fusionné
+(m1-d26-doublons-generes), 602 tests de crates, la suite des scénarios verte, lint des trois jeux,
+fmt, scripts, `make gen` des trois jeux sans modification, exemples, p2p N=2 identique (`6e297852…`).
 
-### `alacod-sim` : 20 graines, jusqu'au troisième étage
+### Historique : 20 graines au moment du brouillon (m1-integration-scenarios)
 
 ```
 cargo run -q -p scenario --profile headless --bin alacod-sim -- --game throne --bots N \
@@ -84,30 +90,32 @@ changent rien graine par graine). En solo, deux soft-locks au portail ouvert de 
 
 ### 200 graines
 
-Jouées par l'orchestrateur le 2026-10-05 sur `main` `61ac539` (bots de m1-v3-bots-portail inclus ;
-réanimation de m1-v3-bots-reanimation pas encore mergée), 2 bots `prudent`, 4 lots parallèles :
-
 ```
-alacod-sim --game throne --bots 2 --profiles prudent,prudent --floors run --seeds 1..200 \
+alacod-sim --game throne --bots N --profiles prudent,… --floors run --seeds 1..200 \
   --until-floor 3 --max-frames 15000 --progress --json
 ```
 
-| | finies (3 étages) | desync | soft-locks | défaites | frames (min / médiane / max) |
-|---|---:|---:|---:|---:|---|
-| 2 bots `prudent` | **149/200** | **0** | 12 | 39 | 3 307 / 5 515 / 8 326 |
+| Date, `main` | Bots | Finies (3 étages) | Desync | Soft-locks | Défaites | Frames (min / méd. / max) |
+|---|---:|---:|---:|---:|---:|---|
+| 2026-10-05, `61ac539` | 2 | 149/200 | 0 | 12 | 39 | 3 307 / 5 515 / 8 326 |
+| 2026-10-06, `ed8a274` | 2 | **198/200** | **0** | **0** | 2 (graines 73, 100) | 2 430 / 3 361 / 4 950 |
+| 2026-10-06, `ed8a274` | 4 | **200/200** | **0** | **0** | 0 | 1 745 / 2 385 / 3 298 |
 
-- Les 39 défaites sont **toutes au troisième étage** (index 2, le boss `roi_rat`), 37 avec un
-  mort sur deux ; médiane de 1 612 frames dans l'étage avant la défaite, contre 3 536 pour le
-  finir. Dégâts subis et entrée dans l'étage comparables aux victoires : la cause est à établir
-  (m1-analyse-200-throne, b0).
-- Les 12 soft-locks (relevé D42) : boss vivant (23, 43, 76, 118), `brute` (162, 200),
-  `tourelle`/`franc_tireur` (63, 149), `arroseur` (111), `pillard` (139), portail ouvert non pris
-  (53, 81) : défauts de bots, pris par m1-v3-bots-softlocks (b1).
-- 47 des 149 runs finies ont eu un mort relevé.
-- 4 bots : à jouer après les merges du 2026-10-05.
-- **Remesure du 2026-10-06 sur `ed8a274`** (D48, D51, soft-locks, armes) : **198/200, 0 soft-lock, 0 desync**, 2 défaites (graines 73, 100), médiane 3 361 frames.
+- Le 2026-10-05 : les 39 défaites étaient toutes au troisième étage (boss `roi_rat`), première mise à
+  terre par les tireurs ou le boss puis survivant seul (digest `m1-200-graines-throne.md`, b0) ; les 12
+  soft-locks (relevé D42) ont été classés par rejeu (m1-v3-bots-softlocks, b1) : recul dans la roche
+  devant un ennemi caché, à sec contre le boss ou une tourelle, portail non pris, ennemi né hors de son
+  champ (D48).
+- Le 2026-10-06 : 11 runs finies avec un mort relevé à 2 bots ; aucun mort à 4 bots.
+- Données hors dépôt : `alacod_tasks/m1-200-throne/` et `alacod_tasks/m1-200-throne/ed8a274/`.
 
-Données hors dépôt : `alacod_tasks/m1-200-throne/` (JSON, logs, binaire).
+### Bench
+
+Bench strict au calme (orch, 2026-10-06, `a8b813e`) : `bench_bullets` 99 à 117 fps (plancher 70),
+`bench_cave` 161 à 167 (plancher 40), **`bench_horde` 36 fps, sous son plancher de 38** (67 à 81 au
+calme pendant M0). Cause et correctif : m1-d53-bench-horde (bissection jusqu'à `8785220`, guidage de
+récupération) ; mesure au calme sur la branche : `bench_horde` 40 → 59 fps, les trois autres
+inchangés. À revérifier au calme sur `main` après le merge.
 
 ## Vidéos
 
@@ -135,21 +143,41 @@ Critères de sortie du plan (`docs/plan-engine.md` §9.8) :
 
 | Critère | État |
 |---|---|
-| Lint et tests verts sur `main` | **oui** jusqu'à `963f2d2` (journal) ; cette branche : lint des trois jeux vert, traces throne à rebénir (voir rapport m1-integration-scenarios) |
-| Tous les scénarios du clone en synctest à 2 et à 4 | **oui** : `throne_three_floors` (2) et `throne_quad` (4) verts en synctest, plus `throne_solo` (1) |
-| Les bots finissent le clone sur 200 graines sans softlock ni desync | **oui à 2 bots** (2026-10-06, `main` `ed8a274`) : **198/200, 0 soft-lock, 0 desync**, 2 défaites (149/200 et 12 soft-locks la veille ; D48, D51 et les correctifs de bots entre les deux) ; **4 bots : 200/200, 0 soft-lock, 0 desync** |
-| Bench dans les budgets | **non** (2026-10-06) : `bench_bullets` et `bench_cave` dans leur budget, **`bench_horde` 36 fps au calme sous le plancher de 38** (67 à 81 pendant M0) : D53, bissection en cours |
-| Vidéos publiées | **en partie** : générées, copiées dans le dépôt ; pas de publication automatique |
-| Doc des conventions à jour | **oui** : relecture d'ensemble m1-relecture-conventions (2026-10-05 : numérotation 1 à 33, 29 sections corrigées contre le code, `CLAUDE.md` corrigé), suites dans m1-dettes-doc-lot-2 |
-| Notes du jalon précédent fermées | **à confirmer par l’orchestrateur** (revue de M0, T3.3) ; la revue de M1 reste à faire |
-
-**Bots** (le critère qui bloque) : après m1-v3-bots-portail, 149/200 à deux bots, 0 desync, 12
-soft-locks (voir « 200 graines »). Suites : m1-v3-bots-softlocks (b1, objectif 0 soft-lock),
-m1-analyse-200-throne (b0, pourquoi les bots meurent au boss).
+| Lint et tests verts sur `main` | **oui** (journal, dernière vérification sur l'état fusionné) |
+| Tous les scénarios du clone en synctest à 2 et à 4 | **oui** : `throne_three_floors` (2), `throne_quad` (4), `throne_solo` (1), `clone_*` |
+| Les bots finissent le clone sur 200 graines sans softlock ni desync | **oui** (2026-10-06, `ed8a274`) : 198/200 à 2 bots, 200/200 à 4 bots, 0 soft-lock, 0 desync |
+| Bench dans les budgets | **à vérifier au calme par orch** après D53 (`bench_horde` 59 fps au calme sur la branche D53) |
+| Vidéos publiées | **en partie** : rendues d'après D51 et copiées dans le dépôt (section « Vidéos ») ; pas de publication automatique |
+| Doc des conventions à jour | **oui** : relecture d'ensemble (m1-relecture-conventions), suites dans m1-dettes-doc-lot-2, chaque tâche depuis |
+| Notes du jalon précédent fermées | **revue humaine de M0 en attente de William** |
 
 Autres manques :
-- Phases de boss (D4) : reportées à M2 ; `roi_rat` n'a qu'une liste de behaviors.
-- `grunt` du testbed sans attaque (reste de D40, décision de William).
-- Fermés depuis la rédaction : D41 (m1-navigation-profils-tailles, m1-d41-spawns-degages), D42
-  (m1-d42-softlock-diagnostic), restart p2p (m1-restart-p2p), HUD throne (T1.18 mergée), D36,
-  D45 à D47 (assembleur).
+- **Rééquilibrage du troisième étage à décider** avec William : 2 défaites sur 200 à 2 bots depuis
+  D51 (39 sur 200 avant). Leviers préparés (rapport m0-200-graines-test-map) : munitions garanties
+  (D50), un tireur de moins dans `niveau_3`, pente de difficulté.
+- **D50** (pénurie de munitions, graine 76) : prouvée avant D51, **non reproduite sur la graine 76 après
+  D51** ; à rejuger.
+- **D4** : phases de boss reportées à M2 ; `roi_rat` n'a qu'une liste de behaviors.
+- **D40b** : `grunt` du testbed sans attaque (décision de William).
+- Anticipation de la cible par les bots : mesurée, non livrée (m1-v3-bots-lead).
+
+
+## Pour la revue humaine
+
+À jouer, pas seulement à regarder. Commande (solo, local) : `make throne` (= `cargo run -p throne
+--features native -- --local-port 7000 --players localhost`) ; le clone `zombies` : `make zombies`.
+
+1. **Ressenti des armes après D51** : chaque arme tire enfin avec sa propre dispersion (revolver et
+   laser précis, mitraillette 0,15 rad, rafale large). Les douze armes de throne se distinguent-elles ?
+   Les armes de `zombies` aussi ont changé (même correctif).
+2. **Difficulté du troisième étage** (`niveau_3`, boss `roi_rat`) : trop facile depuis D51 selon les
+   bots (2 défaites sur 200) ; à juger en jouant, avant de choisir un levier (munitions garanties, un
+   tireur de moins, pente de difficulté).
+3. **Écran de mutation** (à chaque niveau) : touches 1, 2, 3 ; lisibilité des trois cartes, durée avant
+   le choix d'office.
+4. **HUD** : rads, niveau, munitions par type, statuts ; lisible pendant un combat ?
+5. **Restart** : touche `R` ou bouton de fin de partie ; en ligne, « Rejouer » avec les mêmes pairs.
+6. **Feedback** : hit stop, secousse, flash, télégraphe au sol des chargeurs et des tourelles,
+   chiffres de dégâts : trop, pas assez ?
+7. **Cavernes** : trois tailles, portail au barycentre des points des joueurs (ramené sur une case
+   atteignable depuis D48) ; un ennemi qu'on ne trouve pas, un portail qu'on ne voit pas ?
