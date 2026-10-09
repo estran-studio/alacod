@@ -409,6 +409,24 @@ pub enum Expectation {
         count: Option<u32>,
         at_frame: u32,
     },
+    /// Phase courante du boss `entity` (`behaviors::BossState::phase`, M2-T0c,
+    /// `docs/conventions.md` §37) à la frame exacte `at_frame` ; échoue sans `BossState`.
+    BossPhase {
+        entity: EntityRef,
+        phase: u32,
+        at_frame: u32,
+    },
+    /// Le profil de méta-progression du joueur local `handle` (`meta::Profiles`, scénario
+    /// `profile: true`, M2-T0c, §38) possède le déblocage `unlock` et/ou au moins `min` de la
+    /// monnaie `id` (`currency: Some((id, min))`) ; évaluée après la fin de run.
+    ProfileHas {
+        handle: usize,
+        #[serde(default, skip_serializing_if = "Option::is_none")]
+        unlock: Option<String>,
+        #[serde(default, skip_serializing_if = "Option::is_none")]
+        currency: Option<(String, u64)>,
+        at_frame: u32,
+    },
     /// Le texte de la source `source` du HUD (`game::ui::hud_model::HudSnapshot`, joueur
     /// affiché, sans préfixe) contient `contains` à la frame exacte `at_frame` (T1.18,
     /// `docs/conventions.md` §32). Présentation : lu hors simulation, hors trace.
@@ -466,6 +484,8 @@ impl Expectation {
             | Self::Level { at_frame, .. }
             | Self::Mutations { at_frame, .. }
             | Self::HudText { at_frame, .. }
+            | Self::BossPhase { at_frame, .. }
+            | Self::ProfileHas { at_frame, .. }
             | Self::Event {
                 by_frame: at_frame, ..
             }

@@ -192,6 +192,8 @@ fn lint_characters(registry: &Registry, errors: &mut Vec<LintError>) {
 
         // T1.4 : règles de comportement (`ai.behaviors`) et ciblage.
         lint_behaviors(registry, character, errors);
+        // M2-T0c : boss à phases.
+        lint_boss(registry, character, errors);
         // T1.5 : variantes et élites.
         lint_variants(character, errors);
 
@@ -1624,6 +1626,158 @@ fn lint_behaviors(
             "behaviors : liste vide (absente = liste par défaut)".to_string(),
         );
     }
+    lint_rules(registry, rules, &mut push);
+}
+
+/// M2-T0c (`docs/conventions.md` §37) : un boss a au moins une phase ; seule la dernière peut
+/// ne pas avoir de fin (`until`), toutes les autres en ont une ; `HealthBelow` dans `]0, 1]`,
+/// `AfterFrames` > 0 ; une phase non vide (règles, `on_enter` ou frise) ; frise : `repeat` > 0 et
+/// `at` < `repeat`, événements non vides ; règles et actions comme dans un personnage (références,
+/// plages ; un `SpawnPattern` désigne un pattern et une arme connus).
+fn lint_boss(
+    registry: &Registry,
+    character: &registry::CharacterEntry,
+    errors: &mut Vec<LintError>,
+) {
+    let Some(boss) = &character.boss else {
+        return;
+    };
+    let file = character.file.display().to_string();
+    let last = boss.phases.len().saturating_sub(1);
+    let mut push = |kind: LintErrorKind, message: String| {
+        errors.push(LintError {
+            kind,
+            file: file.clone(),
+            message: format!("personnage « {} » : boss.{message}", character.id),
+        });
+    };
+    if boss.phases.is_empty() {
+        push(
+            LintErrorKind::OutOfRange,
+            "phases : liste vide (au moins une phase)".to_string(),
+        );
+    }
+    for (index, phase) in boss.phases.iter().enumerate() {
+        let at = format!("phases[{index}]");
+        match (&phase.until, index == last) {
+            (None, false) => push(
+                LintErrorKind::OutOfRange,
+                format!("{at} : until absent sur une phase qui n'est pas la dernière"),
+            ),
+            (Some(registry::PhaseEndEntry::HealthBelow(ratio)), _) => {
+                let ratio = ratio.get();
+                if ratio <= Fixed::ZERO || ratio > Fixed::ONE {
+                    push(
+                        LintErrorKind::OutOfRange,
+                        format!("{at} : HealthBelow = {ratio} : doit être dans ]0, 1]"),
+                    );
+                }
+            }
+            (Some(registry::PhaseEndEntry::AfterFrames(0)), _) => push(
+                LintErrorKind::OutOfRange,
+                format!("{at} : AfterFrames = 0 : doit être > 0"),
+            ),
+            _ => {}
+        }
+        if phase.behaviors.is_empty() && phase.on_enter.is_empty() && phase.timeline.is_none() {
+            push(
+                LintErrorKind::OutOfRange,
+                format!("{at} : phase vide (ni behaviors, ni on_enter, ni timeline)"),
+            );
+        }
+        lint_rules(registry, &phase.behaviors, &mut |kind, message| {
+            push(kind, format!("{at}.{message}"))
+        });
+        let mut actions: Vec<&effects::Action> = phase.on_enter.iter().collect();
+        if let Some(timeline) = &phase.timeline {
+            if timeline.events.is_empty() {
+                push(
+                    LintErrorKind::OutOfRange,
+                    format!("{at} : timeline sans événement"),
+                );
+            }
+            if timeline.repeat == Some(0) {
+                push(
+                    LintErrorKind::OutOfRange,
+                    format!("{at} : timeline.repeat = 0 : doit être > 0"),
+                );
+            }
+            for event in &timeline.events {
+                if timeline
+                    .repeat
+                    .is_some_and(|period| period > 0 && event.at >= period)
+                {
+                    push(
+                        LintErrorKind::OutOfRange,
+                        format!(
+                            "{at} : événement at = {} >= repeat : il ne se déclencherait jamais",
+                            event.at
+                        ),
+                    );
+                }
+                if event.r#do.is_empty() {
+                    push(
+                        LintErrorKind::OutOfRange,
+                        format!("{at} : événement at = {} sans action", event.at),
+                    );
+                }
+                actions.extend(event.r#do.iter());
+            }
+        }
+        for action in actions {
+            match action {
+                effects::Action::SpawnPattern { pattern, weapon } => {
+                    if !registry
+                        .patterns
+                        .contains_key(&registry::PatternId::from(pattern.clone()))
+                    {
+                        push(
+                            LintErrorKind::BrokenReference,
+                            format!("{at} : SpawnPattern : pattern « {pattern} » inconnu"),
+                        );
+                    }
+                    if !registry
+                        .weapons
+                        .contains_key(&registry::WeaponId::from(weapon.clone()))
+                    {
+                        push(
+                            LintErrorKind::BrokenReference,
+                            format!("{at} : SpawnPattern : arme « {weapon} » inconnue"),
+                        );
+                    }
+                }
+                effects::Action::TimedModifier { frames: 0, .. } => push(
+                    LintErrorKind::OutOfRange,
+                    format!("{at} : TimedModifier frames = 0 : doit être > 0"),
+                ),
+                effects::Action::Heal(amount) if *amount <= Fixed::ZERO => push(
+                    LintErrorKind::OutOfRange,
+                    format!("{at} : Heal = {amount} : doit être > 0"),
+                ),
+                effects::Action::RefillAmmo
+                | effects::Action::RefillAmmoOf(_)
+                | effects::Action::RepairAllWindows
+                | effects::Action::KillAllWaveEnemies
+                | effects::Action::DestroyTerrain { .. }
+                | effects::Action::ApplyStatus { .. }
+                | effects::Action::GaugeAdd(..)
+                | effects::Action::CurrencyMultiplier { .. } => push(
+                    LintErrorKind::Unsupported,
+                    format!("{at} : action {action:?} : pas exécutée par un boss (effets v2)"),
+                ),
+                _ => {}
+            }
+        }
+    }
+}
+
+/// Règles d'une liste de behaviors (personnage ou phase de boss) : références et plages.
+fn lint_rules(
+    registry: &Registry,
+    rules: &[registry::BehaviorEntry],
+    push: &mut impl FnMut(LintErrorKind, String),
+) {
+    use registry::BehaviorEntry;
     for rule in rules {
         match rule {
             BehaviorEntry::Shoot {

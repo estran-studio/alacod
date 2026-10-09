@@ -201,6 +201,8 @@ pub fn move_enemies(
                 Option<&super::state::EnemyBehaviors>,
                 // T1.3 : `Stun`/`Freeze` (§19) : immobile.
                 Option<&combat::status::Statuses>,
+                // M2-T0c : phase courante d'un boss.
+                Option<&behaviors::BossState>,
             ),
         ),
         With<Enemy>,
@@ -289,7 +291,7 @@ pub fn move_enemies(
         enemy_target_opt,
         ai_config,
         wave_enemy,
-        (emitting, behavior_runtime, enemy_behaviors, statuses),
+        (emitting, behavior_runtime, enemy_behaviors, statuses, boss),
     ) in order_mut_iter!(enemy_query)
     {
         // T2.9 (testbed) : un ennemi stationnaire (`dummy`/`target`/`ally`/`civilian`)
@@ -594,7 +596,7 @@ pub fn move_enemies(
             .zip(enemy_behaviors)
             .and_then(|(runtime, rules)| {
                 super::rules::behavior_motion(
-                    rules,
+                    rules.active(boss.map_or(0, |b| b.phase)),
                     runtime,
                     frame.frame,
                     enemy_pos_v2,

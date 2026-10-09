@@ -13,6 +13,8 @@ serde_json = "1.0"
 ron = "0.12"
 
 bevy_fixed = { path = "../bevy_fixed" }
+behaviors = { path = "../behaviors" }
+meta = { path = "../meta" }
 bots = { path = "../bots" }
 combat = { path = "../combat" }
 content = { path = "../content" }

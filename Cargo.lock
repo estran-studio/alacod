@@ -802,6 +802,7 @@ version = "0.1.0"
 dependencies = [
  "bevy 0.19.1",
  "bevy_fixed",
+ "effects",
  "ron 0.12.2",
  "serde",
  "sim_core",
@@ -5857,6 +5858,7 @@ dependencies = [
  "lazy_static",
  "leafwing-input-manager",
  "map",
+ "meta",
  "once_cell",
  "pathfinding",
  "ron 0.12.2",
@@ -7684,6 +7686,16 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "5de893c32cde5f383baa4c04c5d6dbdd735cfd4a794b0debdb2bb1b421da5ff4"
 dependencies = [
  "autocfg",
+]
+
+[[package]]
+name = "meta"
+version = "0.1.0"
+dependencies = [
+ "bevy 0.19.1",
+ "ron 0.12.2",
+ "run",
+ "serde",
 ]
 
 [[package]]
@@ -9909,6 +9921,7 @@ dependencies = [
 name = "scenario"
 version = "0.1.0"
 dependencies = [
+ "behaviors",
  "bevy 0.19.1",
  "bevy_fixed",
  "bevy_ggrs",
@@ -9918,6 +9931,7 @@ dependencies = [
  "game",
  "map",
  "map_ldtk",
+ "meta",
  "ron 0.12.2",
  "run",
  "serde",

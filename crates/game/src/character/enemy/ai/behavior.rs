@@ -234,6 +234,8 @@ pub fn enemy_attack_system(
             Option<&BehaviorRuntime>,
             // T1.3 : `Stun`/`Freeze` (§19) : ni tir ni corps à corps.
             Option<&combat::status::Statuses>,
+            // M2-T0c : phase courante d'un boss.
+            Option<&behaviors::BossState>,
         ),
         With<Enemy>,
     >,
@@ -267,6 +269,7 @@ pub fn enemy_attack_system(
         enemy_behaviors,
         behavior_runtime,
         statuses,
+        boss,
     ) in order_mut_iter!(enemy_query)
     {
         if combat::status::incapacitated(statuses) {
@@ -280,7 +283,11 @@ pub fn enemy_attack_system(
         let runtime_rule: Option<Option<&str>> = behavior_runtime.map(|runtime| {
             runtime
                 .selected
-                .and_then(|index| enemy_behaviors?.rules.get(index as usize))
+                .and_then(|index| {
+                    enemy_behaviors?
+                        .active(boss.map_or(0, |b| b.phase))
+                        .get(index as usize)
+                })
                 .map(|rule| rule.name())
         });
         let shoot_allowed = runtime_rule.is_none_or(|rule| {

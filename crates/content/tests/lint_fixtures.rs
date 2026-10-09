@@ -1024,3 +1024,34 @@ fn points_ennemis_des_cavernes_de_throne_dans_le_champ_de_chaque_gabarit() {
         }
     }
 }
+
+// M2-T0c (docs/conventions.md §37) : boss.
+#[test]
+fn boss_fixtures_report_their_rule() {
+    for (fixture, kind, expected) in [
+        (
+            "boss_health_out_of_range",
+            LintErrorKind::OutOfRange,
+            "HealthBelow = 1.5",
+        ),
+        ("boss_phase_empty", LintErrorKind::OutOfRange, "phase vide"),
+        (
+            "boss_missing_until",
+            LintErrorKind::OutOfRange,
+            "until absent",
+        ),
+        (
+            "boss_unknown_pattern",
+            LintErrorKind::BrokenReference,
+            "pattern « fantome » inconnu",
+        ),
+        (
+            "boss_timeline_after_repeat",
+            LintErrorKind::OutOfRange,
+            ">= repeat",
+        ),
+    ] {
+        let (_, _, errors) = load_and_lint(&fixture_dir(fixture)).unwrap();
+        assert_has_error(&errors, kind, expected);
+    }
+}

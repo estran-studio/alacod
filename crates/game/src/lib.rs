@@ -1,6 +1,7 @@
 pub mod args;
 pub mod audio;
 pub mod balance;
+pub mod boss;
 pub mod camera;
 pub mod cave_assets;
 pub mod character;
@@ -20,6 +21,7 @@ pub mod jjrs;
 pub mod light;
 pub mod patterns;
 pub mod powerups;
+pub mod profile;
 pub mod progression;
 pub mod recording;
 #[cfg(not(target_arch = "wasm32"))]

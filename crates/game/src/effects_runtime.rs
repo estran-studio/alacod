@@ -277,7 +277,7 @@ pub fn apply_effects_system(
 }
 
 #[allow(clippy::too_many_arguments)]
-fn apply_action(
+pub(crate) fn apply_action(
     action: &Action,
     net_id: &GgrsNetId,
     index: usize,

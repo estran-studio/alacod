@@ -9,6 +9,7 @@ bevy = { version = "0.19.1", default-features = false }
 sim_core = { path = "../sim_core" }
 bevy_fixed = { path = "../bevy_fixed" }
 utils = { path = "../utils" }
+effects = { path = "../effects" }
 serde = { version = "1.0", features = ["derive"] }
 
 [dev-dependencies]

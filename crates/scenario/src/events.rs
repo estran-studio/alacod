@@ -149,8 +149,14 @@ pub struct GameEventsPlugin;
 
 impl Plugin for GameEventsPlugin {
     fn build(&self, app: &mut App) {
-        app.init_resource::<GameEvents>()
-            .add_systems(Last, (detect_events, feedback_events.after(detect_events)));
+        app.init_resource::<GameEvents>().add_systems(
+            Last,
+            (
+                detect_events,
+                feedback_events.after(detect_events),
+                boss_events.after(detect_events),
+            ),
+        );
     }
 }
 
@@ -183,6 +189,27 @@ fn feedback_events(log: Option<Res<game::feedback::FeedbackLog>>, mut events: Re
             frame: cue.frame,
             kind: "feedback",
             label,
+        });
+    }
+}
+
+/// Moments clés `boss_phase` (M2-T0c) : un boss change de phase (`behaviors::BossPhaseChanged`,
+/// borné à sa frame d'émission comme `CurrencyEvent`).
+fn boss_events(
+    changes: Option<Res<FrameEvents<behaviors::BossPhaseChanged>>>,
+    mut events: ResMut<GameEvents>,
+) {
+    let Some(changes) = changes else {
+        return;
+    };
+    for change in changes.iter() {
+        events.events.push(GameEvent {
+            frame: change.frame,
+            kind: "boss_phase",
+            label: format!(
+                "boss {} : phase {} → {}",
+                change.net_id, change.from, change.to
+            ),
         });
     }
 }
