@@ -2291,7 +2291,7 @@ fn load_caves(
 /// T1.7 : mêmes règles que [`load_waves`] (id = nom de fichier sans extension).
 /// M2-E1 : `rooms/<id>.ron` (kind `Room`), un type de salle par fichier ; id = nom de fichier.
 fn load_rooms(
-    assets_dir: &Path,
+    assets_dir: &ContentFiles,
     decl: &ContentFolderDecl,
     registry: &mut Registry,
     errors: &mut Vec<LintError>,
