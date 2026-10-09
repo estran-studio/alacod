@@ -77,6 +77,36 @@ struct SimResult {
     /// État de chaque joueur à l'arrêt de la graine (objectif atteint, fin de partie ou
     /// plafond) : solde, position, présence dans la salle de départ.
     players_end: Vec<PlayerEnd>,
+    /// Revue M0 (S5) : une entrée par vague commencée (équilibrage des premières vagues).
+    waves: Vec<WaveStat>,
+}
+
+/// Revue M0 (S5) : relevé d'une vague, hors simulation (lu dans `Last` à chaque frame).
+/// `start` : première frame de la vague (`WaveState::current_wave` change) ; `cleared` :
+/// première frame en `WaveComplete`, `None` si la graine s'arrête avant ; `spawning` :
+/// première frame d'apparition (hors préparation) ; `damage` : baisses
+/// de santé des joueurs pendant la vague ; `downs` : mises à terre ; `deaths` : joueurs
+/// disparus (entité détruite) pendant la vague.
+#[derive(Serialize, Clone, Debug, Default)]
+struct WaveStat {
+    wave: u32,
+    enemies: u32,
+    start: u32,
+    spawning: Option<u32>,
+    cleared: Option<u32>,
+    damage: u32,
+    downs: u32,
+    deaths: u32,
+}
+
+/// Accumulateur du relevé par vague (hors simulation).
+#[derive(Default)]
+struct WaveProbe {
+    last_frame: u32,
+    waves: Vec<WaveStat>,
+    health: std::collections::BTreeMap<usize, bevy_fixed::fixed_math::Fixed>,
+    downed: std::collections::BTreeSet<usize>,
+    damage: bevy_fixed::fixed_math::Fixed,
 }
 
 /// Hors simulation : relu dans `Last` à chaque frame, la dernière valeur est rapportée.
@@ -255,6 +285,8 @@ fn main() {
         let dodges_probe = dodges.clone();
         let players_end = std::sync::Arc::new(std::sync::Mutex::new(Vec::<PlayerEnd>::new()));
         let players_end_probe = players_end.clone();
+        let wave_probe = std::sync::Arc::new(std::sync::Mutex::new(WaveProbe::default()));
+        let wave_probe_sys = wave_probe.clone();
 
         let wall_start = Instant::now();
         // `InputSource::Bot` : aucun joueur scripté ici, contrairement aux scénarios RON qui
@@ -302,6 +334,77 @@ fn main() {
                             .collect();
                         snapshot.sort_by_key(|p| p.handle);
                         *players_end_probe.lock().unwrap() = snapshot;
+                    },
+                );
+                // Revue M0 (S5) : relevé par vague (début, fin, dégâts, mises à terre, morts)
+                app.add_systems(
+                    bevy::prelude::Last,
+                    move |wave: Option<bevy::prelude::Res<game::waves::WaveState>>,
+                          frame: Option<bevy::prelude::Res<utils::frame::FrameCount>>,
+                          players: bevy::prelude::Query<(
+                        &combat::actors::Player,
+                        &combat::actors::Health,
+                        bevy::prelude::Has<combat::downed::Downed>,
+                    )>| {
+                        let (Some(wave), Some(frame)) = (wave, frame) else {
+                            return;
+                        };
+                        let mut probe = wave_probe_sys.lock().unwrap();
+                        if wave.current_wave == 0 || frame.frame <= probe.last_frame {
+                            return;
+                        }
+                        probe.last_frame = frame.frame;
+                        if probe.waves.last().map(|w| w.wave) != Some(wave.current_wave) {
+                            probe.damage = bevy_fixed::fixed_math::FIXED_ZERO;
+                            probe.waves.push(WaveStat {
+                                wave: wave.current_wave,
+                                start: frame.frame,
+                                ..Default::default()
+                            });
+                        }
+                        let mut seen = std::collections::BTreeSet::new();
+                        let mut damage = probe.damage;
+                        let mut downs = 0;
+                        for (player, health, downed) in players.iter() {
+                            seen.insert(player.handle);
+                            if let Some(previous) =
+                                probe.health.insert(player.handle, health.current)
+                            {
+                                if health.current < previous {
+                                    damage += previous - health.current;
+                                }
+                            }
+                            if downed && probe.downed.insert(player.handle) {
+                                downs += 1;
+                            } else if !downed {
+                                probe.downed.remove(&player.handle);
+                            }
+                        }
+                        let gone: Vec<usize> = probe
+                            .health
+                            .keys()
+                            .copied()
+                            .filter(|handle| !seen.contains(handle))
+                            .collect();
+                        for handle in &gone {
+                            probe.health.remove(handle);
+                            probe.downed.remove(handle);
+                        }
+                        probe.damage = damage;
+                        let stat = probe.waves.last_mut().unwrap();
+                        stat.enemies = wave.wave_enemy_count;
+                        stat.damage = damage.to_num::<f64>().round() as u32;
+                        stat.downs += downs;
+                        stat.deaths += gone.len() as u32;
+                        if stat.spawning.is_none() && wave.phase == game::waves::WavePhase::Spawning
+                        {
+                            stat.spawning = Some(wave.wave_start_frame);
+                        }
+                        if stat.cleared.is_none()
+                            && wave.phase == game::waves::WavePhase::WaveComplete
+                        {
+                            stat.cleared = Some(frame.frame);
+                        }
                     },
                 );
                 if args.iter().any(|arg| arg == "--progress") {
@@ -364,6 +467,7 @@ fn main() {
             softlock: outcome.softlock,
             doors_opened: outcome.events.iter().filter(|e| e.kind == "door").count() as u32,
             players_end: players_end.lock().unwrap().clone(),
+            waves: std::mem::take(&mut wave_probe.lock().unwrap().waves),
         });
     }
 
