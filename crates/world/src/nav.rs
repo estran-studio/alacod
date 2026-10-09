@@ -171,6 +171,24 @@ mod tests {
         assert_ne!(small[i(6, 3)], u32::MAX);
     }
 
+    /// D55 (graine 19 de throne) : deux coins opposés ne laissent qu'une case de passage entre la
+    /// poche de gauche et le reste ; un corps de 20 px y reste accroché, la poche est hors du champ.
+    #[test]
+    fn chicane_de_deux_coins_opposes_coupe_la_poche() {
+        let g = grid(&[
+            "###########",
+            "#...#.....#",
+            "#.........#",
+            "#....#....#",
+            "###########",
+        ]);
+        let small = nav_distances(&g, &[(8, 2)], false);
+        let i = |x: u32, y: u32| (y * g.width + x) as usize;
+        assert_ne!(small[i(5, 2)], u32::MAX);
+        assert_eq!(small[i(4, 2)], u32::MAX, "case de départ de la chicane");
+        assert_eq!(small[i(2, 2)], u32::MAX, "poche derrière la chicane");
+    }
+
     /// Un gabarit grand n'atteint que les cases dont les 8 voisines sont libres ; un petit passe
     /// un couloir de deux cases.
     #[test]
