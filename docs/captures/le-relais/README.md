@@ -333,3 +333,9 @@ Les bonus au sol ont aussi un repère vert et leur nom, dérivés de l'état cou
 la présentation. Il s'agit de repères provisoires, sans nouveaux assets raster.
 
 Les 3 tests de génération ont également été rejoués : succès, 200 graines contrôlées.
+
+Enregistrements de revue conservés avant le remplacement du brouillard :
+`revue-portes.ron` correspond au commit 33dae97 ; `revue-fog.ron` correspond au
+prototype à rectangles du commit cdf6846, rejeté par William. Les rejouer avec leur
+version de carte/code respective. Le nouveau plan est approuvé dans
+`docs/digests/le-relais-brouillard.md`.
