@@ -8,6 +8,10 @@ use serde_json::{json, Value};
 
 const ROLE: &str = "building_role";
 const MARGIN: i32 = 6;
+const ROOM_W: i32 = 24;
+const ROOM_H: i32 = 20;
+const MAP_W: i32 = 82;
+const MAP_H: i32 = 70;
 type Cell = (i32, i32);
 
 #[derive(Debug, Clone)]
@@ -94,9 +98,9 @@ pub fn building_plan(template: &LdtkJson, seed: i32) -> Result<BuildingPlan, Str
         .ok_or("building without modules")?;
     if levels
         .iter()
-        .any(|l| l["pxWid"] != 192 || l["pxHei"] != 160)
+        .any(|l| l["pxWid"] != 384 || l["pxHei"] != 320)
     {
-        return Err("building modules must be 12 × 10 cells of 16 px".into());
+        return Err("building modules must be 24 × 20 cells of 16 px".into());
     }
     let group = |role: &str| -> Vec<usize> {
         levels
@@ -252,7 +256,7 @@ pub fn build_building_ldtk(template: &LdtkJson, seed: i32) -> Result<LdtkJson, S
     let plan = building_plan(template, seed)?;
     let mut data = serde_json::to_value(template).map_err(|e| e.to_string())?;
     let modules = data["levels"].as_array().unwrap().clone();
-    let (w, h) = (46_i32, 40_i32);
+    let (w, h) = (MAP_W, MAP_H);
     let mut walls = vec![0_i32; (w * h) as usize];
     for y in 0..h {
         for x in 0..w {
@@ -262,7 +266,12 @@ pub fn build_building_ldtk(template: &LdtkJson, seed: i32) -> Result<LdtkJson, S
         }
     }
     let mut entities = Vec::new();
-    let origin = |cell: Cell| (MARGIN + cell.0 * 11, MARGIN + cell.1 * 9);
+    let origin = |cell: Cell| {
+        (
+            MARGIN + cell.0 * (ROOM_W - 1),
+            MARGIN + cell.1 * (ROOM_H - 1),
+        )
+    };
     for (i, room) in plan.rooms.iter().enumerate() {
         let module = modules
             .iter()
@@ -278,12 +287,12 @@ pub fn build_building_ldtk(template: &LdtkJson, seed: i32) -> Result<LdtkJson, S
             .ok_or("module without Walls")?["intGridCsv"]
             .as_array()
             .ok_or("module without wall grid")?;
-        if grid.len() != 120 {
+        if grid.len() != 480 {
             return Err("invalid building module wall grid".into());
         }
-        for y in 0..10 {
-            for x in 0..12 {
-                if grid[y * 12 + x] == 1 {
+        for y in 0..20 {
+            for x in 0..24 {
+                if grid[y * 24 + x] == 1 {
                     walls[((oy + y as i32) * w + ox + x as i32) as usize] = 1;
                 }
             }
@@ -335,10 +344,10 @@ pub fn build_building_ldtk(template: &LdtkJson, seed: i32) -> Result<LdtkJson, S
         let cb = plan.rooms[b].cell;
         if ca.0 != cb.0 {
             let (x, y) = origin((ca.0.min(cb.0), ca.1));
-            opening("DoorVertical", x + 11, y + 4);
+            opening("DoorVertical", x + 23, y + 9);
         } else {
             let (x, y) = origin((ca.0, ca.1.min(cb.1)));
-            opening("DoorHorizontal", x + 4, y + 9);
+            opening("DoorHorizontal", x + 10, y + 19);
         }
     }
     let occupied: BTreeSet<_> = plan.rooms.iter().map(|r| r.cell).collect();
@@ -349,40 +358,64 @@ pub fn build_building_ldtk(template: &LdtkJson, seed: i32) -> Result<LdtkJson, S
                 continue;
             }
             if i == 0 && dx == -1 {
-                opening("WindowHorizontal", x, y + 1);
-                opening("WindowHorizontal", x, y + 7);
-                opening("DoorVertical", x, y + 4);
+                opening("WindowHorizontal", x, y + 3);
+                opening("WindowHorizontal", x, y + 15);
+                opening("DoorVertical", x, y + 9);
             } else if pick(&mut rng, 3) != 0 {
-                let offset = if pick(&mut rng, 2) == 0 { 2 } else { 6 };
+                let offset = if pick(&mut rng, 2) == 0 { 4 } else { 14 };
                 if dx != 0 {
                     opening(
                         "WindowHorizontal",
-                        x + if dx < 0 { 0 } else { 11 },
+                        x + if dx < 0 { 0 } else { 23 },
                         y + offset,
                     );
                 } else {
-                    opening("WindowVertical", x + offset, y + if dy < 0 { 0 } else { 9 });
+                    opening(
+                        "WindowVertical",
+                        x + offset,
+                        y + if dy < 0 { 0 } else { 19 },
+                    );
                 }
             }
         }
     }
-    for (x, y) in [
-        (3, 3),
-        (w / 2, 3),
-        (w - 4, 3),
-        (w - 4, h / 2),
-        (w - 4, h - 4),
-        (w / 2, h - 4),
-        (3, h - 4),
-        (3, h / 2),
-    ] {
+    // Each exterior source belongs to a physical defence room, including enclosed rooms.
+    // Choose a clear outside point beside the closest exposed facade.
+    let facades: Vec<_> = plan
+        .rooms
+        .iter()
+        .flat_map(|room| {
+            let (x, y) = origin(room.cell);
+            [(-1, 0), (1, 0), (0, -1), (0, 1)]
+                .into_iter()
+                .filter(|&(dx, dy)| !occupied.contains(&(room.cell.0 + dx, room.cell.1 + dy)))
+                .map(move |(dx, dy)| {
+                    if dx != 0 {
+                        (x + if dx < 0 { -3 } else { 26 }, y + 9)
+                    } else {
+                        (x + 10, y + if dy < 0 { -3 } else { 22 })
+                    }
+                })
+        })
+        .collect();
+    for (i, room) in plan.rooms.iter().enumerate() {
+        let (ox, oy) = origin(room.cell);
+        let &(x, y) = facades
+            .iter()
+            .min_by_key(|&&(x, y)| (x - (ox + 12)).abs() + (y - (oy + 10)).abs())
+            .unwrap();
         entities.push(make_entity(
             &data,
             "ZombieSpawn",
             x,
             y,
-            vec![],
-            format!("building-{seed}-spawn-{}", entities.len()),
+            vec![
+                ("active_x", json!((ox + 1) * 16)),
+                ("active_y", json!((oy + 1) * 16)),
+                ("active_width", json!((ROOM_W - 2) * 16)),
+                ("active_height", json!((ROOM_H - 2) * 16)),
+            ],
+            format!("building-{seed}-spawn-{i}"),
         ));
     }
     let mut level = modules[0].clone();
@@ -398,6 +431,10 @@ pub fn build_building_ldtk(template: &LdtkJson, seed: i32) -> Result<LdtkJson, S
         .as_array_mut()
         .unwrap()
         .retain(|f| f["__identifier"] != ROLE);
+    data["defs"]["levelFields"]
+        .as_array_mut()
+        .unwrap()
+        .retain(|f| f["identifier"] != ROLE);
     for layer in level["layerInstances"].as_array_mut().unwrap() {
         layer["__cWid"] = json!(w);
         layer["__cHei"] = json!(h);
@@ -543,7 +580,7 @@ mod tests {
     fn rejects_missing_roles_and_wrong_module_dimensions() {
         let mut t = template();
         t.levels[0].px_wid = 208;
-        assert!(building_plan(&t, 1).unwrap_err().contains("12 × 10"));
+        assert!(building_plan(&t, 1).unwrap_err().contains("24 × 20"));
         let mut t = template();
         for level in &mut t.levels {
             level
@@ -573,12 +610,66 @@ mod tests {
                 .unwrap()["entityInstances"]
                 .as_array()
                 .unwrap();
+            for entity in es.iter().filter(|e| e["__identifier"] == "ZombieSpawn") {
+                let instance = serde_json::from_value(entity.clone()).unwrap();
+                let config =
+                    crate::game::entity::enemy_spawn::enemy_spawner_component_from_field(&instance);
+                let (min, size) = config
+                    .activation_area
+                    .expect("generated room binding must be loaded");
+                assert!(size.x > bevy_fixed::fixed_math::Fixed::ZERO);
+                assert!(config.defends(min + size / bevy_fixed::fixed_math::Fixed::from_num(2)));
+            }
+            let purchases: Vec<_> = es
+                .iter()
+                .filter(|e| {
+                    matches!(
+                        e["__identifier"].as_str(),
+                        Some("WeaponLocation" | "SodaLocation")
+                    )
+                })
+                .collect();
+            for (i, item) in purchases.iter().enumerate() {
+                let x = item["__grid"][0].as_i64().unwrap() as i32;
+                let y = item["__grid"][1].as_i64().unwrap() as i32;
+                // Reserve 48 × 48 px for the station, rather than only its LDtk point.
+                for yy in y - 1..=y + 1 {
+                    for xx in x - 1..=x + 1 {
+                        assert_ne!(
+                            grid[(yy * MAP_W + xx) as usize],
+                            1,
+                            "station overlaps wall, seed {seed}"
+                        );
+                    }
+                }
+                for other in purchases.iter().skip(i + 1) {
+                    let dx = x - other["__grid"][0].as_i64().unwrap() as i32;
+                    let dy = y - other["__grid"][1].as_i64().unwrap() as i32;
+                    assert!(
+                        dx.abs() >= 4 || dy.abs() >= 4,
+                        "overlapping stations, seed {seed}"
+                    );
+                }
+                for door in es
+                    .iter()
+                    .filter(|e| e["__identifier"].as_str().unwrap().starts_with("Door"))
+                {
+                    let dx = door["__grid"][0].as_i64().unwrap() as i32;
+                    let dy = door["__grid"][1].as_i64().unwrap() as i32;
+                    let dw = door["width"].as_i64().unwrap() as i32 / 16;
+                    let dh = door["height"].as_i64().unwrap() as i32 / 16;
+                    assert!(
+                        x + 2 <= dx || x - 1 >= dx + dw || y + 2 <= dy || y - 1 >= dy + dh,
+                        "station blocks door, seed {seed}"
+                    );
+                }
+            }
             for ground_breaker in [true, false] {
                 let mut blocked: BTreeSet<Cell> = grid
                     .iter()
                     .enumerate()
                     .filter(|(_, v)| **v == 1)
-                    .map(|(i, _)| ((i % 46) as i32, (i / 46) as i32))
+                    .map(|(i, _)| ((i % MAP_W as usize) as i32, (i / MAP_W as usize) as i32))
                     .collect();
                 for e in es.iter().filter(|e| {
                     e["__identifier"]
@@ -616,8 +707,8 @@ mod tests {
                 let mut queue = VecDeque::from([start]);
                 while let Some((x, y)) = queue.pop_front() {
                     for c in [(x - 1, y), (x + 1, y), (x, y - 1), (x, y + 1)] {
-                        if (0..92).contains(&c.0)
-                            && (0..80).contains(&c.1)
+                        if (0..MAP_W * 2).contains(&c.0)
+                            && (0..MAP_H * 2).contains(&c.1)
                             && !forbidden.contains(&c)
                             && seen.insert(c)
                         {
@@ -647,8 +738,8 @@ mod tests {
                 if !ground_breaker {
                     for room in building_plan(&t, seed).unwrap().rooms {
                         let c = (
-                            (MARGIN + room.cell.0 * 11 + 3) * 2 + 1,
-                            (MARGIN + room.cell.1 * 9 + 3) * 2 + 1,
+                            (MARGIN + room.cell.0 * (ROOM_W - 1) + 3) * 2 + 1,
+                            (MARGIN + room.cell.1 * (ROOM_H - 1) + 3) * 2 + 1,
                         );
                         assert!(
                             seen.contains(&c),

@@ -103,3 +103,31 @@ locale par partie, visible dans le titre et rejouable avec --seed. En ligne la
 graine reste fixe. Radio/évacuation non interactives, sprites provisoires ;
 validation du ressenti sur plusieurs plans encore attendue. Détails, cartes et
 relevés : `docs/captures/le-relais/README.md`.
+
+### S2/S8 — retour négatif et correction, 2026-10-09
+
+William : « La carte est microscopique, les items sont n'importe où dans le
+chemin et s'overlap parfois. Les zombies spawn dans les spawner qui ne sont
+pas dans une salle qui a des joueurs dedans. » La réussite des vingt bots de
+la première composition n'était pas une validation humaine. Capture 3334 frames,
+graine -212843839, contenu/code c47cc45 : `docs/captures/le-relais/revue-composition.ron`.
+
+Correction : largeur et hauteur des modules doublées (384 × 320 px), achats au
+point (7,2), réservation 48 × 48 px hors des axes de portes. Repères LDtk de
+weapons/départs/spawners masqués en jeu ; sprite de soda conservé car il est son
+seul rendu. Chaque source extérieure reçoit la zone de la pièce qu'elle défend ;
+seules les pièces occupées activent leurs sources. Quand tous les joueurs sont
+dehors, secours de proximité. Contrats M2 de salles/objets inchangés.
+
+Contrôles géométriques, lecture des zones et espacement des achats sur 200
+graines passent ; quatre tests de sélection passent, notamment joueurs déplacés
+ou répartis entre pièces, y compris secours. La trace historique bots_four_mixed
+et le replay passent sans bless. Inspection du rendu à la graine 1 :
+`docs/captures/le-relais/rendu-corrige.png`. Validation humaine de la correction
+encore attendue ; radio/évacuation toujours sans interaction.
+
+Mesure de la correction : 20/20 à l'entrée en V5 avec quatre acheteurs, 0 mort/
+mis à terre/desync/failure, 9 dégâts, médiane f6298,5 (min5891, max12006). La V3 de
+la graine9 dure 4857 frames (81 s) ; la graine13 termine à f12006. La cadence de
+secours en cour reste susceptible d'étirer les parties. Relevés séparés dans
+`docs/captures/le-relais/releves-correction.json` ; ressenti à valider par William.

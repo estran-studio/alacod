@@ -134,3 +134,21 @@ Les vingt essais de combat atteignent V5, sans mort/mise à terre/desync/failure
 mesuré du premier spawn à sa fin dure 1434 frames (23,9 s). Le manifeste démarre
 désormais sur les modules du Relais. Validation humaine sur plusieurs plans
 encore attendue ; tests de réseau et combat au-delà de l'entrée en V5 non faits.
+
+## Correction après le retour de William
+
+La première composition a été refusée en jeu : modules trop petits, achats
+mal placés/chevauchés, sources actives sans joueur dans la pièce. Les modules
+sont désormais 24 × 20 tuiles (384 × 320 px), avec station (7,2), réservée sur
+48 × 48 px et écartée des portes. Les repères techniques de départ/spawn et le
+sprite en double de WeaponLocation ne sont plus visibles. Le sprite SodaLocation
+est conservé : c'est le seul rendu de la machine à perk actuelle.
+
+Un binding de quatre entiers LDtk associe chaque source dehors à une zone de
+pièce ; la sélection des vagues ne retient que les zones occupées. Le secours de
+proximité s'applique quand tout le groupe est dehors. Ce binding reste séparé des
+contrats M2 ; pas de nouvelle ressource rollback. Le champ statique est cloné et
+hashé dans EnemySpawnerComponent, avec checksum historique conservé si absent.
+Les trois tests de génération et quatre de sélection passent, ainsi que la trace
+historique bots_four_mixed et le replay sans bless. La variété reste de 184 plans
+sur 200 graines. Les dimensions, diagrammes et exports LDtk sont mis à jour.

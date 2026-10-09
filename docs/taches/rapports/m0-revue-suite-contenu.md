@@ -326,3 +326,38 @@ OK ; forbidden : quatre occurrences préexistantes, aucune nouvelle. Suite compl
 p2p, wasm, bench et validation humaine de plusieurs plans non rejoués pour cette
 passe. Aucun push ; aucun bless. Objectifs radio/évacuation et habillage visuel
 restent à construire.
+
+## S2/S8 — correction après refus en jeu, 2026-10-09
+
+William refuse la première composition : microscopique, achats dans les passages
+ou chevauchés, sources sans joueur dans leur pièce. Capture 3334 frames / graine
+-212843839, à rejouer avec le commit c47cc45 (contenu changé depuis).
+
+Modules 384 × 320 px (surface ×4), carte 1312 × 1120 px. Stations (7,2), réservation
+48 × 48 px, hors des portes et séparées. Sprites des repères WeaponLocation,
+PlayerSpawn et ZombieSpawn retirés ; les armes gardent leur rendu réel et les
+sodas leur sprite LDtk (seul rendu actuel de la machine).
+
+Chaque pièce reçoit une source extérieure liée à sa zone via quatre champs Int
+LDtk ; sélection des vagues limitée aux zones occupées, secours de proximité si
+le groupe entier est dehors. Une pièce sans façade reçoit la source extérieure
+la plus proche. Pas de contrat M2 de salles/objets modifié ; champ statique cloné
+et hashé dans EnemySpawnerComponent, checksum historique préservé si absent.
+
+Vérifié : trois tests de génération (200 graines, espacement des achats, accès,
+lecture effective des zones depuis les champs LDtk et reproductibilité), quatre
+tests de sélection des vagues (joueur déplacé, joueurs répartis, secours, anciens
+spawners). Toujours 184 plans fonctionnels / 200. Trace bots_four_mixed et replay
+inchangés, sans bless. Source reproduite à l'octet par le script. Compilation
+rendu, lint zombies, fmt, diff check et contrôle des registrations : OK ; quatre
+forbidden patterns préexistants, aucune nouvelle occurrence.
+
+Vingt graines / quatre acheteurs : 20/20 à l'entrée en V5, 0 mort/down/desync/
+failure, aucun soft-lock rapporté, 9 dégâts cumulés, 118 portes ouvertes. Médiane
+V5 f6298,5 (min5891, max12006). Combat le plus long : 4857 frames (81 s), graine9 /
+V3 ; graine13 à V5 f12006. Le secours quand les bots sortent peut prolonger la
+cadence : ne pas conclure que tous les parcours ont un bon rythme. Captures,
+exports et relevés : docs/captures/le-relais/README.md. Rendu inspecté par
+computer-use à la graine1 ; capture rendue-corrigée jointe. Validation humaine de
+la correction attendue, objectifs interactifs toujours absents. Suite complète,
+p2p, wasm et bench non rejoués ici. Aucun push ni bless.

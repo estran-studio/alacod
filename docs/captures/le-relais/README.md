@@ -2,11 +2,11 @@
 
 La version du 2026-10-09 assemble **5 à 8 pièces parmi 14 modules LDtk**.
 Les pièces choisies, portes, raccourcis, achats et fenêtres changent par graine.
-Les huit spawners restent dehors ; deux fenêtres et une sortie sont garanties
+Les spawners restent dehors et sont liés aux pièces ; deux fenêtres et une sortie sont garanties
 à l'accueil. Chaque porte coûte 750 points. L'atelier est à au plus deux portes
 et la radio à deux à quatre portes. La radio et l'évacuation ne sont pas encore
-interactives. Les modules ont tous la même emprise (192 × 160 px), avec obstacles
-différents ; le bâtiment produit occupe une carte de 736 × 640 px.
+interactives. Les modules ont tous la même emprise (384 × 320 px), avec obstacles
+différents ; le bâtiment produit occupe une carte de 1312 × 1120 px.
 
 ![Trois cartes issues du générateur](plans-proceduraux.svg)
 
@@ -34,21 +34,62 @@ variantes de sprites ou de modules ayant le même rôle. Ils vérifient le graph
 les distances à la radio, la reproductibilité et le passage des corps de zombies
 de chaque spawner jusqu'à l'accueil lorsque les portes restent fermées.
 
+## Correction après la partie de William
+
+![Rendu de l’accueil agrandi, graine 1](rendu-corrige.png)
+
+
+Retour : carte trop petite, achats dans les passages/chevauchés, apparitions
+sans tenir compte de la pièce occupée. Les modules passent à 384 × 320 px,
+soit quatre fois la surface d'une pièce. Un emplacement de 48 × 48 px est
+réservé aux achats au point (7,2), à l'écart de l'axe des portes ; les tests
+vérifient les murs, les portes et l'écart entre stations sur 200 graines.
+Les repères LDtk WeaponLocation, PlayerSpawn et ZombieSpawn ne sont plus dessinés
+en jeu. L'arme conserve son rendu réel ; le soda garde son sprite LDtk, car la
+machine créée par la simulation n'a pas de second sprite.
+
+Chaque pièce possède une source extérieure associée par active_x/active_y/
+active_width/active_height (coordonnées mondiales LDtk en pixels). Une source s'active quand au moins un
+joueur se trouve dans cette pièce, sans attendre le seuil de distance de
+l'ancien système. Une pièce intérieure sans façade utilise la source extérieure
+la plus proche. Le secours de distance reste limité aux pièces occupées ; si
+tous les joueurs sont dehors, le secours de proximité peut reprendre les apparitions pour éviter de
+bloquer la vague. Les cartes sans ces champs
+gardent leur sélection historique. Aucun contrat de salles/objets M2 modifié.
+
+La géométrie et la lecture des bindings passent sur 200 graines ; les quatre
+tests de sélection de vagues passent (déplacement de joueur, joueurs répartis,
+secours et comportement historique). La trace bots_four_mixed et le replay
+restent inchangés. Les mesures de combat précédentes ci-dessous concernent la
+petite version et ne constituent pas une validation humaine de celle-ci.
+
+## Mesure de la correction
+
+Quatre acheteurs, graines 1..20, jusqu'à l'entrée en V5, plafond 20000 frames :
+**20/20**, 0 mort, 0 mise à terre, 0 desync, 0 failure, aucun soft-lock rapporté.
+Dégâts cumulés : **9**. V5 f5891–f12006, médiane f6298,5 ; 118 portes achetées.
+La V3 de la graine 9 dure 4857 frames du premier spawn à sa fin (81 s) ; la graine
+13 atteint V5 f12006. Les bots sortant du bâtiment peuvent déclencher le secours
+des sources et étirer la cadence : ces résultats ne prouvent pas un rythme uniforme
+ou une validation humaine de la défense intérieure. Voir les
+[relevés de cette correction](releves-correction.json). Le combat de V5, le réseau
+et la boucle radio/évacuation ne sont pas validés par cette mesure.
+
 ## Modifier les modules dans LDtk
 
 Chaque niveau source porte un `building_role` : `Accueil`, `Radio`, `Atelier`,
 `Infirmerie`, `Reserve` ou `Passage`. Le niveau doit garder une grille de 16 px,
-12 colonnes et 10 lignes, les couches Walls/LevelConnection/Entities et son mur
+24 colonnes et 20 lignes, les couches Walls/LevelConnection/Entities et son mur
 périphérique. Les rôles Accueil, Radio et Atelier sont obligatoires. Fournir au
 moins six modules parmi Atelier/Infirmerie/Reserve/Passage ; le tirage n'utilise
 pas deux fois le même module. Les PlayerSpawn sont conservés seulement dans
 l'accueil ; WeaponLocation et SodaLocation sont copiés de toutes les pièces.
 
-Garder dégagés les accès de façade : milieu des murs latéraux à la ligne 4,
-et milieu des murs haut/bas à la colonne 4 (portes de 48 px). Les fenêtres
-latérales prennent deux cases aux lignes 2 ou 6, et celles du haut/bas aux
-colonnes 2 ou 6. L'accueil réserve en plus deux fenêtres à gauche aux lignes
-1 et 7. Le générateur choisit les ouvertures et les spawners ; ne pas ajouter
+Garder dégagés les accès de façade : milieu des murs latéraux à la ligne 9,
+et milieu des murs haut/bas à la colonne 10 (portes de 48 px). Les fenêtres
+latérales prennent deux cases aux lignes 4 ou 14, et celles du haut/bas aux
+colonnes 4 ou 14. L'accueil réserve en plus deux fenêtres à gauche aux lignes
+3 et 15. Le générateur choisit les ouvertures et les spawners ; ne pas ajouter
 ces entités dans les modules. Après un déplacement d'obstacle ou de départ,
 rejouer les tests de `generation::building` et les sims : le lint général ne
 prouve pas qu'un corps peut circuler.
@@ -58,7 +99,7 @@ SunnyLand du projet. Une migration du tileset demande aussi de mettre à jour
 le cache de tuiles produit par le générateur.
 
 
-## Combat de la version composée (2026-10-09)
+## Historique : combat de la première version composée (2026-10-09)
 
 Quatre bots `acheteur`, graines 1..20, arrêt à l'entrée en V5, plafond 20000
 frames : **20/20 en V5**, 0 mort, 0 mise à terre, 0 desync, 0 failure, aucun
@@ -219,3 +260,13 @@ APP_VERSION=x target/headless/alacod-sim --game zombies --bots 4 \
 La suite historique complète n’a pas été relancée pour cette passe de contenu :
 le manifeste et les cartes de ses scénarios ne changent pas. Aucun bless de
 trace, aucun changement Rust moteur, aucune nouvelle texture externe.
+
+## Capture du retour négatif
+
+`revue-composition.ron` enregistre 3334 frames de la première carte composée,
+graine -212843839. Elle correspond au code et contenu du commit `c47cc45`,
+avant la correction des dimensions et des sources ; la rejouer sur la version
+corrigée ne doit pas être pris pour une preuve de replay identique. William
+juge la carte microscopique, les achats mal placés/chevauchés et les sources
+actives dans des pièces sans joueur. Ce retour invalide l'idée que la réussite
+des vingt bots suffisait à valider la conception en jeu.

@@ -382,7 +382,16 @@ fn select_valid_spawners<'a>(
     let mut valid = Vec::new();
     let mut nearest = None;
 
+    let occupied_defence_room = spawners.iter().any(|(_, _, config, _)| {
+        config.activation_area.is_some() && player_positions.iter().any(|&p| config.defends(p))
+    });
     for (net_id, entity, spawner_config, transform) in spawners {
+        if spawner_config.activation_area.is_some()
+            && !player_positions.iter().any(|&p| spawner_config.defends(p))
+            && (occupied_defence_room || !allow_nearest)
+        {
+            continue;
+        }
         let spawner_pos = transform.translation.truncate();
 
         // Find minimum distance to any player
@@ -401,7 +410,9 @@ fn select_valid_spawners<'a>(
         }
 
         // Check distance bounds
-        if min_distance >= config.min_player_distance && min_distance <= config.max_player_distance
+        if (spawner_config.activation_area.is_some() && occupied_defence_room)
+            || (min_distance >= config.min_player_distance
+                && min_distance <= config.max_player_distance)
         {
             valid.push((net_id, entity, spawner_config, transform));
         }
@@ -570,6 +581,55 @@ mod tests {
                     .run_system_once_with(select, (vec![FixedVec2::ZERO], true))
                     .unwrap(),
                 vec![3]
+            );
+        }
+    }
+
+    #[test]
+    fn exterior_sources_follow_occupied_rooms_even_during_fallback() {
+        let mut w = world(&[(1, 80), (2, 300)]);
+        for (id, mut config) in w
+            .query::<(&GgrsNetId, &mut EnemySpawnerComponent)>()
+            .iter_mut(&mut w)
+        {
+            config.activation_area = Some((
+                FixedVec2::new(
+                    Fixed::from_num(if id.0 == 1 { -50 } else { 500 }),
+                    Fixed::from_num(-50),
+                ),
+                FixedVec2::new(Fixed::from_num(100), Fixed::from_num(100)),
+            ));
+        }
+        for fallback in [false, true] {
+            assert_eq!(
+                w.run_system_once_with(select, (vec![FixedVec2::ZERO], fallback))
+                    .unwrap(),
+                vec![1]
+            );
+            assert_eq!(
+                w.run_system_once_with(
+                    select,
+                    (
+                        vec![FixedVec2::new(Fixed::from_num(550), Fixed::ZERO)],
+                        fallback
+                    )
+                )
+                .unwrap(),
+                vec![2]
+            );
+            assert_eq!(
+                w.run_system_once_with(
+                    select,
+                    (
+                        vec![
+                            FixedVec2::ZERO,
+                            FixedVec2::new(Fixed::from_num(550), Fixed::ZERO)
+                        ],
+                        fallback
+                    )
+                )
+                .unwrap(),
+                vec![1, 2]
             );
         }
     }

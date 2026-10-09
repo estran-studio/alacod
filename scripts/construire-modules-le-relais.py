@@ -20,6 +20,13 @@ role_def.update(identifier='building_role', uid=1024, __type='String', type='F_S
                 editorDisplayMode='NameAndValue', editorAlwaysShow=True,
                 doc='Opt-in building module: Accueil, Radio, Atelier, Infirmerie, Reserve, Passage')
 p['defs']['levelFields'].append(role_def)
+for definition in p['defs']['entities']:
+    if definition['identifier']=='ZombieSpawn':
+        sample=next(f for e in p['defs']['entities'] for f in e['fieldDefs'] if f['__type']=='Int')
+        for n,name in enumerate(['active_x','active_y','active_width','active_height']):
+            field=copy.deepcopy(sample)
+            field.update(identifier=name,uid=1025+n,defaultOverride={'id':'V_Int','params':[0]})
+            definition['fieldDefs'].append(field)
 modules = [
     ('Accueil_vestibule', 'Accueil', [(8,2,2,2)], ('pistol',500)),
     ('Accueil_repli', 'Accueil', [(8,6,2,1)], ('pistol',500)),
@@ -40,14 +47,14 @@ levels = []
 for i, (name, role, obstacles, purchase) in enumerate(modules):
     level = copy.deepcopy(base)
     level.update(identifier=name, iid=str(uuid.uuid5(uuid.NAMESPACE_URL, name)), uid=200+i,
-                 pxWid=192, pxHei=160, worldX=(i%7)*208, worldY=(i//7)*176, __neighbours=[])
+                 pxWid=384, pxHei=320, worldX=(i%7)*400, worldY=(i//7)*336, __neighbours=[])
     level['fieldInstances'][0].update(__value=role=='Accueil', realEditorValues=[])
     level['fieldInstances'].append({'__identifier':'building_role','__type':'String',
         '__value':role,'__tile':None,'defUid':1024,'realEditorValues':[]})
-    walls = [int(x in (0,11) or y in (0,9)) for y in range(10) for x in range(12)]
+    walls = [int(x in (0,23) or y in (0,19)) for y in range(20) for x in range(24)]
     for x,y,w,h in obstacles:
-        for yy in range(y,y+h):
-            for xx in range(x,x+w):walls[yy*12+xx]=1
+        for yy in range(y*2,y*2+h*2):
+            for xx in range(x*2,x*2+w*2):walls[yy*24+xx]=1
     entities = []
     def entity(kind,x,y,fields):
         e = copy.deepcopy(samples[kind])
@@ -57,25 +64,25 @@ for i, (name, role, obstacles, purchase) in enumerate(modules):
             f.update(__value=fields[f['__identifier']],realEditorValues=[])
         entities.append(e)
     if role=='Accueil':
-        for index,(x,y) in enumerate([(3,3),(6,3),(3,6),(6,6)]):entity('PlayerSpawn',x,y,{'index':index})
+        for index,(x,y) in enumerate([(6,6),(12,6),(6,12),(12,12)]):entity('PlayerSpawn',x,y,{'index':index})
     if purchase:
         name_id,price=purchase
-        if price:entity('WeaponLocation',3,2,{'weapon':name_id,'price':price})
-        else:entity('SodaLocation',3,2,{'perk':name_id})
+        if price:entity('WeaponLocation',7,2,{'weapon':name_id,'price':price})
+        else:entity('SodaLocation',7,2,{'perk':name_id})
     for layer in level['layerInstances']:
         layer.update(iid=str(uuid.uuid5(uuid.NAMESPACE_URL,name+layer['__identifier'])),levelId=level['uid'],
-                     __cWid=12,__cHei=10,entityInstances=[],gridTiles=[],autoLayerTiles=[],intGridCsv=[])
+                     __cWid=24,__cHei=20,entityInstances=[],gridTiles=[],autoLayerTiles=[],intGridCsv=[])
         if layer['__identifier']=='Entities':layer['entityInstances']=entities
-        elif layer['__identifier']=='LevelConnection':layer['intGridCsv']=[0]*120
+        elif layer['__identifier']=='LevelConnection':layer['intGridCsv']=[0]*480
         else:
             layer['intGridCsv']=walls
-            for y in range(10):
-                for x in range(12):
-                    sx,sy=(256,96) if walls[y*12+x] else (320,272)
+            for y in range(20):
+                for x in range(24):
+                    sx,sy=(256,96) if walls[y*24+x] else (320,272)
                     layer['autoLayerTiles'].append({'px':[x*16,y*16],'src':[sx,sy],'f':0,
                                                    't':sy//16*23+sx//16,'d':[5,0],'a':1})
     levels.append(level)
-p.update(levels=levels,nextUid=1025)
+p.update(levels=levels,nextUid=1029)
 s=json.dumps(p,ensure_ascii=False,indent='\t')+'\n'
 s=re.sub(r'\[\s*-?\d+(?:\s*,\s*-?\d+)*\s*\]',lambda m:'['+', '.join(re.findall(r'-?\d+',m.group()))+']',s)
 out=ASSETS/'maps/le_relais_modules.ldtk';out.write_text(s);print(out)
