@@ -967,7 +967,7 @@ pub fn system_weapon_position(
     }
 }
 
-/// Lâche l'arme active au sol (T2.2, chantier B7) : `INPUT_DROP_WEAPON`, touche `G`
+/// Lâche l'arme active au sol (T2.2, chantier B7) : `INPUT_DROP_WEAPON`, touche `L`
 /// (`Devices`), bouton `DropWeapon` des scénarios. Sans effet si le joueur n'a pas d'arme à
 /// distance ou est à terre (T1.3, comme les autres actions volontaires — dash, sprint,
 /// interaction). Tourne avant `weapon_rollback_system` (voir `BaseWeaponGamePlugin`) : un

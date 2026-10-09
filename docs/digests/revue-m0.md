@@ -131,3 +131,16 @@ mis à terre/desync/failure, 9 dégâts, médiane f6298,5 (min5891, max12006). L
 la graine9 dure 4857 frames (81 s) ; la graine13 termine à f12006. La cadence de
 secours en cour reste susceptible d'étirer les parties. Relevés séparés dans
 `docs/captures/le-relais/releves-correction.json` ; ressenti à valider par William.
+
+### R6 — lâcher accidentel près de H, 2026-10-09
+
+William perd toutes ses armes en voulant ouvrir une porte, puis les ramasse.
+La capture `revue-correction.ron` contient DropWeapon aux frames822–832,
+910–928 et1044–1053 ; log : machine_gun f827, pistol f915, shotgun f1049.
+L'entrée correspond à G (voisine de H), non à une interaction de porte.
+William approuve déplacer le lâcher et exiger un nouvel appui par arme :
+**L** remplace G ; lecture Devices sur `just_pressed`. Maintenir L ne vide plus
+successivement l'inventaire. H reste maintenue pour portes, ramassage et réparation.
+Les entrées scriptées et replays restent inchangées, comme la simulation des armes.
+Test de lecture réelle : un appui, 120 lectures maintenues sans répétition,
+relâchement/réappui, interaction H maintenue pendant tout le test : OK.

@@ -55,7 +55,7 @@ m'apprend rien ; une hésitation dite, oui.
 | Interagir (acheter, ouvrir, réparer, réanimer) | **H** |
 | Recharger | **R** (ne doit plus relancer la partie : R5) |
 | Arme suivante / mode de tir | **Tab** / **Z** |
-| Mêlée / lâcher l'arme | **F** / **G** |
+| Mêlée / lâcher l'arme | **F** / **L** (un nouvel appui par arme) |
 | Mutation (throne) | **1 2 3**, ou flèches + **Entrée** |
 | Caméra verrouillée / libre | **P** / **O** |
 

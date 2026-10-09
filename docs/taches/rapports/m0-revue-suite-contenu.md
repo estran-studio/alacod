@@ -361,3 +361,20 @@ exports et relevés : docs/captures/le-relais/README.md. Rendu inspecté par
 computer-use à la graine1 ; capture rendue-corrigée jointe. Validation humaine de
 la correction attendue, objectifs interactifs toujours absents. Suite complète,
 p2p, wasm et bench non rejoués ici. Aucun push ni bless.
+
+## R6 — éviter le lâcher accidentel, 2026-10-09
+
+William approuve déplacer G, voisine de H, et exiger un nouvel appui par arme.
+Lâcher désormais sur L ; `Devices` utilise `just_pressed` au lieu de `pressed`.
+H reste l'interaction maintenue. Le protocole BoxInput, les entrées scriptées,
+les replays et la simulation du lâcher ne changent pas. La dernière arme peut
+encore être lâchée volontairement ; aucune nouvelle restriction d'inventaire.
+
+Test de `read_local_inputs` : appui initial envoyé, maintien sur 120 lectures
+sans nouveau lâcher, relâchement/réappui envoyé, H maintenue toujours transmise :
+OK. Scénario drop_pickup_swap passe avec sa trace historique, sans bless.
+Documentation des touches mise à jour. Capture du problème (2220 frames,
+graine -195224172) : docs/captures/le-relais/revue-correction.ron, enregistrée
+avec 0a9da9e avant changement de touche, entrées scriptées toujours compatibles.
+Fmt, diff check et contrôle des registrations : OK. Compilation avec rendu et
+relance effectuées ; validation humaine de L encore attendue. Aucun push/bless.
