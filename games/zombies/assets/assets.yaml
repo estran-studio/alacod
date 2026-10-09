@@ -132,6 +132,7 @@
     - exemples/test_map.ldtk
     - exemples/test_map_shop.ldtk
     - maps/avant_poste.ldtk
+    - maps/le_relais_prototype.ldtk
   source: contenu du projet — avant_poste.ldtk a été générée par la voie V6
     (tâche m0-v8-carte-zombies, script gen_map.py hors dépôt) à partir de la
     structure de exemples/test_map.ldtk (couches Walls/LevelConnection/Entities,
@@ -139,5 +140,7 @@
   auteur: "équipe alacod (avant_poste : William Quintal + agent V6)"
   licence: interne au projet (pas de contenu tiers ; les tilesets référencés
     — SunnyLand et Dungeon_asset — sont enregistrés ci-dessus)
-  modifications: aucune par rapport aux conventions de test_map.ldtk ; relPath
-    des tilesets préfixés de ../exemples/ (la carte vit dans maps/)
+  modifications: avant_poste respecte les conventions de test_map.ldtk ; relPath
+    des tilesets préfixés de ../exemples/ (les cartes vivent dans maps/).
+    le_relais_prototype reprend les définitions d’avant_poste avec cinq nouveaux
+    plans de collision, placements et cache de tuiles SunnyLand provisoire.
