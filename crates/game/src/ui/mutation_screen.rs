@@ -285,8 +285,16 @@ impl Plugin for MutationScreenPlugin {
     }
 }
 
-fn load_mutation_screen(asset_server: Res<AssetServer>, mut handle: ResMut<MutationScreenHandle>) {
-    handle.0 = Some(asset_server.load("ui/mutation_screen.ron"));
+fn load_mutation_screen(
+    asset_server: Res<AssetServer>,
+    registry: Res<Registry>,
+    mut handle: ResMut<MutationScreenHandle>,
+) {
+    // Games without mutation UI (zombies) must not request a nonexistent asset.
+    handle.0 = registry
+        .mutation_screens
+        .first()
+        .map(|(path, _)| asset_server.load(path.to_string_lossy().replace('\\', "/")));
 }
 
 fn despawn_mutation_screen(mut commands: Commands, roots: Query<Entity, With<MutationScreenRoot>>) {

@@ -1,3 +1,5 @@
+#[cfg(target_arch = "wasm32")]
+pub mod browser;
 pub mod local;
 pub mod p2p;
 pub mod restart;

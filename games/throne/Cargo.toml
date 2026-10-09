@@ -2,6 +2,7 @@
 name = "throne"
 version = "0.0.1"
 edition = "2021"
+build = "../../scripts/embed-game-content.rs"
 
 [dependencies]
 bevy = { version = "0.19.1", default-features = false, features = [

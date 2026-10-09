@@ -144,12 +144,30 @@ jobs:
         with:
           node-version: '20'
 
+      - name: Prepare Cloudflare Pages and R2 release
+        run: |
+          rm -rf website/build
+          cp -a build website/build
+          npm ci --prefix website
+          node scripts/prepare-cloudflare.mjs
+
+      - name: Upload immutable WASM to R2
+        working-directory: website
+        env:
+          CLOUDFLARE_API_TOKEN: ${{ secrets.CLOUDFLARE_API_TOKEN }}
+          CLOUDFLARE_ACCOUNT_ID: ${{ secrets.CLOUDFLARE_ACCOUNT_ID }}
+        run: |
+          node -e 'for (const u of require("./.cloudflare-upload.json").uploads) console.log(`${u.key}\t${u.file}`)' |
+          while IFS=$'\t' read -r key file; do
+            npx --yes wrangler@4.149.0 r2 object put "alacod-game-builds/$key" --remote --file "$file" --content-type application/wasm --cache-control 'public, max-age=31536000, immutable'
+          done
+
       - name: Publish to Cloudflare Pages
-        uses: cloudflare/wrangler-action@v3
-        with:
-          apiToken: ${{ secrets.CLOUDFLARE_API_TOKEN }}
-          accountId: ${{ secrets.CLOUDFLARE_ACCOUNT_ID }}
-          command: pages deploy ./build --project-name=alacod
+        working-directory: website
+        env:
+          CLOUDFLARE_API_TOKEN: ${{ secrets.CLOUDFLARE_API_TOKEN }}
+          CLOUDFLARE_ACCOUNT_ID: ${{ secrets.CLOUDFLARE_ACCOUNT_ID }}
+        run: npx --yes wrangler@4.149.0 pages deploy .cloudflare-dist --project-name alacod --branch main
 
       - name: Cleanup build artifacts
         if: always()

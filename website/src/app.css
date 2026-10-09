@@ -40,3 +40,39 @@ body,
 .font-metal-mania {
   font-family: 'Metal Mania', cursive;
 }
+
+/* Les nouvelles pages reprennent les couleurs et composants du thème historique. */
+#main > .section-wrap { margin: 1rem; padding: 1.5rem; border-radius: var(--radius-container); background: var(--color-surface-800); }
+.section-wrap h1 { font-family: var(--heading-font-family); font-size: 2.75rem; line-height: 1.2; margin-bottom: 1rem; }
+.section-wrap h2 { font-family: var(--heading-font-family); font-size: 1.75rem; margin: 1rem 0; }
+.section-wrap h3 { font-family: var(--heading-font-family); font-size: 1.35rem; margin: .5rem 0; }
+.section-wrap p { line-height: 1.65; margin-bottom: 1rem; }
+.eyebrow, .index, .meta { font-size: .85rem; opacity: .8; }
+.eyebrow { display: block; margin-bottom: .5rem; }
+.button { display: inline-flex; align-items: center; justify-content: center; padding: .65rem 1rem; border-radius: var(--radius-base); background: var(--color-primary-500); color: var(--color-primary-contrast-500); text-decoration: none; }
+.button:hover { background: var(--color-primary-600); }
+.text-link { display: inline-block; margin-top: .75rem; }
+.game-grid, .three-columns { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 1.5rem; }
+.three-columns { grid-template-columns: repeat(3, minmax(0, 1fr)); }
+.game-preview { overflow: hidden; border: 1px solid var(--color-surface-700); border-radius: var(--radius-container); background: var(--color-surface-900); }
+.preview-art { position: relative; aspect-ratio: 16/9; overflow: hidden; background: var(--color-surface-800); }
+.preview-art img { width: 100%; height: 100%; object-fit: cover; }
+.game-tag { position: absolute; bottom: .75rem; left: .75rem; padding: .3rem .6rem; background: var(--color-surface-950); color: var(--color-surface-50); border-radius: var(--radius-base); font-size: .75rem; }
+.cave-art { display: grid; place-items: center; height: 100%; background: linear-gradient(135deg, var(--color-primary-900), var(--color-surface-800)); font-family: var(--heading-font-family); font-size: 3rem; color: var(--color-secondary-400); }
+.game-preview-body { padding: 1.5rem; }
+.feature-list { list-style: disc; padding-left: 1.25rem; margin: 1rem 0; }
+.game-actions { display: flex; flex-wrap: wrap; align-items: center; gap: .75rem; margin: 1rem 0; }
+.notice, .play-panel { padding: 1rem; border: 1px solid var(--color-surface-700); border-radius: var(--radius-container); margin-bottom: 1rem; }
+.play-controls { display: flex; flex-wrap: wrap; justify-content: space-between; align-items: center; gap: 1rem; margin: 1rem 0; }
+.play-frame { display: block; width: 100%; height: min(72vh, 800px); min-height: 350px; border: 0; background: #000; border-radius: var(--radius-container); }
+.controls-list, .steps { padding-left: 1.5rem; margin: 1rem 0; list-style: decimal; }
+.controls-list { list-style: disc; }
+.steps li { padding: .5rem 0; }
+.roadmap article { padding: 1rem 0; border-bottom: 1px solid var(--color-surface-700); }
+.pill { display: inline-block; padding: .2rem .5rem; border-radius: var(--radius-base); background: var(--color-secondary-500); color: var(--color-secondary-contrast-500); font-size: .8rem; }
+.pill.muted { background: var(--color-surface-700); color: inherit; }
+@media (max-width: 767px) {
+    #main > .section-wrap { margin: .75rem; padding: 1rem; }
+    .section-wrap h1 { font-size: 2rem; }
+    .game-grid, .three-columns { grid-template-columns: 1fr; }
+}

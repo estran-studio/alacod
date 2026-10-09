@@ -1,0 +1,18 @@
+# Add this table alongside Docker's own rules; do not flush the full ruleset.
+add table inet allumette_host
+flush table inet allumette_host
+table inet allumette_host {
+ chain input {
+  type filter hook input priority 0; policy drop;
+  ct state established,related accept
+  iifname "lo" accept
+  # Preserve the VPS DHCP lease renewal.
+  udp sport 67 udp dport 68 accept
+  udp sport 547 udp dport 546 accept
+  ip protocol icmp accept
+  meta l4proto ipv6-icmp accept
+  tcp dport { 22, 80, 443, 3478 } accept
+  udp dport 3478 accept
+  udp dport 49160-49260 accept
+ }
+}
