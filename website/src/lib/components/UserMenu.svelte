@@ -8,11 +8,15 @@
 	let openState = $state(false);
 </script>
 
-<Navigation.Tile label={showLabel ? "Account" : ""} onclick={() => (openState = true)}>
+<Navigation.Tile label={showLabel ? 'Account' : ''} onclick={() => (openState = true)}>
 	<User />
 </Navigation.Tile>
 
-<Modal bind:open={openState} contentBase="card p-4 space-y-4 shadow-xl w-full max-w-sm bg-surface-100 dark:bg-surface-900">
+<Modal
+	open={openState}
+	onOpenChange={(details) => (openState = details.open)}
+	contentBase="card p-4 space-y-4 shadow-xl w-full max-w-sm bg-surface-100 dark:bg-surface-900"
+>
 	{#snippet content()}
 		<header class="flex justify-between items-center">
 			<h2 class="h3">Account</h2>
