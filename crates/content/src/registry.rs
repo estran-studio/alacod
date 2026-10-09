@@ -770,6 +770,15 @@ fn ldtk_room_kinds(text: &str) -> Vec<(String, String)> {
         .collect()
 }
 
+/// Objet (M2-T0b, `docs/conventions.md` §36), un fichier RON par objet (`items/<id>.ron` dans un
+/// dossier de kind `Item`, champs de [`items::ItemDef`]) ; id = nom de fichier.
+#[derive(Debug, Clone)]
+pub struct ItemEntry {
+    pub id: String,
+    pub file: PathBuf,
+    pub def: items::ItemDef,
+}
+
 /// Type de salle (M2-E1, `docs/conventions.md` §35), un fichier RON par type
 /// (`rooms/<id>.ron`, champs de [`world::RoomKindDef`]) : `(locks: true)`.
 #[derive(Debug, Clone)]
@@ -923,6 +932,8 @@ pub struct Registry {
     pub floors: BTreeMap<FloorsConfigId, FloorsEntry>,
     /// T1.6 : cavernes générées (kind `Cave`).
     pub caves: BTreeMap<CaveId, CaveEntry>,
+    /// M2-T0b : objets (kind `Item`).
+    pub items: BTreeMap<String, ItemEntry>,
     /// M2-E1 : types de salles (kind `Room`).
     pub rooms: BTreeMap<String, RoomEntry>,
     /// T1.7 : surfaces (kind `Surface`).
@@ -988,6 +999,7 @@ pub const KNOWN_KIND_NAMES: &[&str] = &[
     "Floors",
     "Cave",
     "Room",
+    "Item",
     "Surface",
     "Pattern",
     "Progression",
@@ -1053,6 +1065,7 @@ impl Registry {
                 "Floors" => load_floors(&assets_dir, decl, &mut registry, &mut errors),
                 "Cave" => load_caves(&assets_dir, decl, &mut registry, &mut errors),
                 "Room" => load_rooms(&assets_dir, decl, &mut registry, &mut errors),
+                "Item" => load_items(&assets_dir, decl, &mut registry, &mut errors),
                 "Surface" => load_surfaces(&assets_dir, decl, &mut registry, &mut errors),
                 "Pattern" => load_patterns(&assets_dir, decl, &mut registry, &mut errors),
                 "Progression" => load_progression(&assets_dir, decl, &mut registry, &mut errors),
@@ -2275,6 +2288,31 @@ fn load_caves(
 }
 
 /// T1.7 : mêmes règles que [`load_waves`] (id = nom de fichier sans extension).
+/// M2-T0b : `items/<id>.ron` (kind `Item`), un objet par fichier ; id = nom de fichier.
+fn load_items(
+    assets_dir: &Path,
+    decl: &ContentFolderDecl,
+    registry: &mut Registry,
+    errors: &mut Vec<LintError>,
+) {
+    for (id, rel, def) in load_ron_files::<items::ItemDef>(assets_dir, decl, errors) {
+        if let Some(existing) = registry.items.get(&id) {
+            errors.push(LintError {
+                kind: LintErrorKind::DuplicateId,
+                file: rel.display().to_string(),
+                message: format!(
+                    "id d'objet « {id} » déjà défini dans {}",
+                    existing.file.display()
+                ),
+            });
+            continue;
+        }
+        registry
+            .items
+            .insert(id.clone(), ItemEntry { id, file: rel, def });
+    }
+}
+
 /// M2-E1 : `rooms/<id>.ron` (kind `Room`), un type de salle par fichier ; id = nom de fichier.
 fn load_rooms(
     assets_dir: &Path,

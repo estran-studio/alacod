@@ -77,6 +77,7 @@ pub fn run(registry: &Registry, manifest: &GameManifest) -> Vec<LintError> {
     lint_statuses(registry, &mut errors);
     lint_map_characters(registry, &mut errors);
     lint_room_kinds(registry, &mut errors);
+    lint_items(registry, &mut errors);
     lint_entry_progression(registry, manifest, &mut errors);
     lint_forced_variants(registry, &mut errors);
     lint_character_tests(registry, &mut errors);
@@ -2227,6 +2228,73 @@ fn lint_statuses(registry: &Registry, errors: &mut Vec<LintError>) {
                 }
             }
             StatusKindEntry::Stun | StatusKindEntry::Freeze => {}
+        }
+    }
+}
+
+/// M2-T0b (`docs/conventions.md` §36) : objets. Charge d'un actif > 0, `pickup_range` > 0,
+/// modificateur sans valeur nulle inutile ignoré ; effets : T0b n'exécute que `OnUse` d'un
+/// objet **actif**, avec `TimedModifier`/`Modifier` (le reste est un contrat, refusé jusqu'aux
+/// effets v2) ; un actif sans effet ni modificateur ne fait rien.
+fn lint_items(registry: &Registry, errors: &mut Vec<LintError>) {
+    for item in registry.items.values() {
+        let file = item.file.display().to_string();
+        let mut push = |kind: LintErrorKind, message: String| {
+            errors.push(LintError {
+                kind,
+                file: file.clone(),
+                message,
+            })
+        };
+        let id = &item.id;
+        if let items::ItemKind::Active(charge) = item.def.kind {
+            if charge.required() == 0 {
+                push(
+                    LintErrorKind::OutOfRange,
+                    format!("objet « {id} » : charge {charge:?} : doit être > 0"),
+                );
+            }
+        }
+        if item.def.pickup_range <= Fixed::ZERO {
+            push(
+                LintErrorKind::OutOfRange,
+                format!(
+                    "objet « {id} » : pickup_range = {} : doit être > 0",
+                    item.def.pickup_range
+                ),
+            );
+        }
+        let active = matches!(item.def.kind, items::ItemKind::Active(_));
+        if item.def.kind == items::ItemKind::Consumable
+            && (!item.def.modifiers.is_empty() || !item.def.effects.is_empty())
+        {
+            push(
+                LintErrorKind::Unsupported,
+                format!("objet « {id} » : un consommable n'a ni modificateurs ni effets (compteur seul)"),
+            );
+        }
+        for (index, effect) in item.def.effects.iter().enumerate() {
+            let at = format!("objet « {id} » : effects[{index}]");
+            if !active || effect.on != effects::On::OnUse {
+                push(
+                    LintErrorKind::Unsupported,
+                    format!("{at} : seul OnUse d'un objet actif est exécuté (effets v2)"),
+                );
+                continue;
+            }
+            for action in &effect.r#do {
+                match action {
+                    effects::Action::TimedModifier { frames: 0, .. } => push(
+                        LintErrorKind::OutOfRange,
+                        format!("{at} : TimedModifier frames = 0 : doit être > 0"),
+                    ),
+                    effects::Action::TimedModifier { .. } | effects::Action::Modifier { .. } => {}
+                    other => push(
+                        LintErrorKind::Unsupported,
+                        format!("{at} : action {other:?} : pas exécutée par un objet (effets v2)"),
+                    ),
+                }
+            }
         }
     }
 }

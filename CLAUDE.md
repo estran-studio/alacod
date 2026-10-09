@@ -329,6 +329,7 @@ Avant/après un refactoring de la simulation, comparer les traces : elles doiven
     - T1.8 mode `Floors` (§17) : `FloorIndex`.
     - T1.9 horloges (§23) : `Clock`.
     - T1.10 progression et mutations (§27) : `Gauge`, `Level`, `Mutations`.
+    - M2-E1 salles (§35) : `RoomState` ; M2-T0b objets (§36) : `HasItem`, `ItemCharge`, `Consumable`.
     - T1.18 HUD throne (§32) : `HudText` (texte d'une source du HUD, présentation, hors trace).
     - Réenregistrement : le scénario rejoué depuis son enregistrement garde ses réglages
       (`floors`, `clocks`, `difficulty`, `characters`, `mode`, `progression`, et chaque
@@ -344,7 +345,8 @@ Avant/après un refactoring de la simulation, comparer les traces : elles doiven
     `PlayerScript::mutations` impose des mutations avant la première frame. Boutons de choix de
     mutation `ChoiceA`/`ChoiceB`/`ChoiceC` = bits d'input 13/14/15 (`INPUT_CHOICE_A/B/C`,
     touches 1/2/3) ; bits 0–12 : déplacement, recharge, mode, sprint, dash, modificateur,
-    interaction, mêlée, crash de debug, lâcher d'arme.
+    interaction, mêlée, crash de debug, lâcher d'arme ; bits 16/17 (M2-T0b, input `u32`) :
+    `UseActive` (objet actif) et `Blank`.
   - Format documenté dans `crates/game/src/replay.rs`.
 - `tests/scenarios/<nom>.trace` : trace d'état de référence. Toute différence fait échouer le test.
 - `tests/budgets.ron` : planchers de non-régression en frames simulées par seconde (défaut et

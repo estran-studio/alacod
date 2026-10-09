@@ -155,6 +155,7 @@ impl Plugin for GameEventsPlugin {
                 detect_events,
                 feedback_events.after(detect_events),
                 room_events.after(detect_events),
+                item_events.after(detect_events),
             ),
         );
     }
@@ -189,6 +190,24 @@ fn feedback_events(log: Option<Res<game::feedback::FeedbackLog>>, mut events: Re
             frame: cue.frame,
             kind: "feedback",
             label,
+        });
+    }
+}
+
+/// Moments clés `item_pickup` (M2-T0b) : un objet ramassé (`items::ItemPicked`, borné à sa
+/// frame d'émission comme `CurrencyEvent`).
+fn item_events(
+    picked: Option<Res<FrameEvents<items::ItemPicked>>>,
+    mut events: ResMut<GameEvents>,
+) {
+    let Some(picked) = picked else {
+        return;
+    };
+    for pick in picked.iter() {
+        events.events.push(GameEvent {
+            frame: pick.frame,
+            kind: "item_pickup",
+            label: format!("joueur {} ramasse {}", pick.player_handle, pick.item_id),
         });
     }
 }
