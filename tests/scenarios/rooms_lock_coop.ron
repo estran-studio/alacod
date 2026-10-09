@@ -1,0 +1,34 @@
+// M2-E1 (docs/conventions.md §35) : en coop, le joueur resté dehors est téléporté à l'entrée
+// quand la salle se verrouille (Gungeon : personne n'est laissé derrière la porte fermée).
+// Carte testbed/salles.ldtk (deux `dummy` dans la salle de combat).
+//
+// À regarder : le joueur 0 entre dans la salle de combat (f30-90), le joueur 1 reste immobile
+// dans la salle de départ. Quand la salle se verrouille (f~85), le joueur 1 apparaît à
+// l'intérieur, devant la porte d'entrée, à côté du joueur 0 ; les quatre portes sont fermées.
+// Les deux tirent ensuite, la salle est nettoyée et les portes se rouvrent.
+Scenario(
+    powerup_drop_chance_override: "0.0",
+    game: "testbed",
+    map: "testbed/salles.ldtk",
+    map_seed: 1,
+    frames: 600,
+    players: [
+        (inputs: [
+            (from: 30, to: 90, buttons: [Right]),
+            (from: 90, to: 500, buttons: [Fire], pan: (64, 0)),
+        ]),
+        (inputs: [
+            (from: 90, to: 500, buttons: [Fire], pan: (64, 0)),
+        ]),
+    ],
+    expect: [
+        // Joueur 1 encore dans le départ (x < -816) tant que rien n'est verrouillé.
+        PlayerPosition(handle: 1, x: -904.0, y: -600.0, tolerance: 8, at_frame: 60),
+        RoomState(kind: "combat", state: Locked, doors_closed: Some(4), at_frame: 100),
+        // Téléporté à l'entrée : 40 px dans la salle, devant la porte (y de la porte).
+        PlayerPosition(handle: 1, x: -776.0, y: -576.0, tolerance: 6, at_frame: 100),
+        RoomState(kind: "combat", state: Cleared, doors_closed: Some(0), at_frame: 560),
+        PlayerAlive(handle: 0, at_frame: 599),
+        PlayerAlive(handle: 1, at_frame: 599),
+    ],
+)

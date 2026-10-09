@@ -820,6 +820,34 @@ fn map_probe() {
             d.0, d.1, d.2, d.3, d.4
         );
     }
+    // M2-E1 : salles typées (bornes, type, état) et ennemis (position, dormant ou non).
+    for (id, bounds, kind) in world
+        .query::<(
+            &map::game::entity::map::level_id::LevelId,
+            &map::game::entity::map::room::RoomBounds,
+            &world::RoomKind,
+        )>()
+        .iter(world)
+    {
+        println!(
+            "salle {} pos=({}, {}) taille=({}, {}) état={:?}",
+            kind.0,
+            bounds.position.x.to_num::<f32>(),
+            bounds.position.y.to_num::<f32>(),
+            bounds.size.x.to_num::<f32>(),
+            bounds.size.y.to_num::<f32>(),
+            world.resource::<world::RoomStates>().get(&id.0)
+        );
+    }
+    let mut enemies: Vec<_> = world
+        .query_filtered::<(&GgrsNetId, &FixedTransform3D, Has<world::RoomDormant>), With<game::character::enemy::Enemy>>()
+        .iter(world)
+        .map(|(id, t, dormant)| (id.0, pos(t), dormant))
+        .collect();
+    enemies.sort_by_key(|e| e.0);
+    for e in enemies {
+        println!("ennemi {} {:?} dormant={}", e.0, e.1, e.2);
+    }
     let mut interactables: Vec<_> = world
         .query::<(
             &GgrsNetId,

@@ -106,7 +106,8 @@ pub fn update_enemy_targets(
             &mut EnemyPath,
             Option<&super::state::EnemyTarget>,
         ),
-        With<Enemy>,
+        // M2-E1 : un ennemi d'une salle dormante saute son tour (`world::RoomDormant`).
+        (With<Enemy>, Without<world::RoomDormant>),
     >,
     frame: Res<FrameCount>,
     config: Res<PathfindingConfig>,
@@ -203,7 +204,8 @@ pub fn move_enemies(
                 Option<&combat::status::Statuses>,
             ),
         ),
-        With<Enemy>,
+        // M2-E1 : un ennemi d'une salle dormante saute son tour (`world::RoomDormant`).
+        (With<Enemy>, Without<world::RoomDormant>),
     >,
     player_query: Query<&fixed_math::FixedTransform3D, (With<Player>, Without<Enemy>)>,
     character_configs: Res<Assets<CharacterConfig>>,
