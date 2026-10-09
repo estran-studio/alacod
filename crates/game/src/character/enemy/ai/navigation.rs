@@ -389,16 +389,6 @@ impl AgentBody {
     }
 }
 
-/// D55 : le pas orthogonal `from` → `from + step` traverse une chicane : sur l'axe
-/// perpendiculaire, `from` est bloquée d'un côté et la case d'arrivée du côté opposé. Les deux
-/// coins sont alors distants d'une seule case, trop peu pour un corps de plus de 16 px.
-pub fn chicane_step(blocked: impl Fn(i32, i32) -> bool, from: GridPos, step: (i32, i32)) -> bool {
-    let (px, py) = (-step.1, step.0);
-    let to = GridPos::new(from.x + step.0, from.y + step.1);
-    (blocked(from.x + px, from.y + py) && blocked(to.x - px, to.y - py))
-        || (blocked(from.x - px, from.y - py) && blocked(to.x + px, to.y + py))
-}
-
 /// Level grid information for coordinate conversion
 #[derive(Clone, Default, Debug, Hash)]
 pub struct LevelGridInfo {
@@ -1087,10 +1077,13 @@ fn build_flow_field(
             // un en bas de l'autre) ne laisse qu'une case (16 px) de passage à l'endroit où le
             // corps le franchit : infranchissable pour un corps de plus de 16 px.
             if !diagonal
-                && chicane_step(
+                && key.size == AgentSize::Small
+                && world::nav::chicane_step(
                     |x, y| cache.is_blocked(&GridPos::new(x, y), profile),
-                    current,
-                    (dx, dy),
+                    current.x,
+                    current.y,
+                    dx,
+                    dy,
                 )
             {
                 continue;
@@ -1194,10 +1187,10 @@ mod steering_corner_tests {
         let walls: std::collections::BTreeSet<(i32, i32)> =
             [(10, 38), (11, 36), (12, 36)].into_iter().collect();
         let blocked = |x, y| walls.contains(&(x, y));
-        assert!(chicane_step(blocked, GridPos::new(10, 37), (1, 0)));
-        assert!(chicane_step(blocked, GridPos::new(11, 37), (-1, 0)));
-        assert!(!chicane_step(blocked, GridPos::new(11, 37), (1, 0)));
-        assert!(!chicane_step(blocked, GridPos::new(10, 37), (0, 1)));
+        assert!(world::nav::chicane_step(blocked, 10, 37, 1, 0));
+        assert!(world::nav::chicane_step(blocked, 11, 37, -1, 0));
+        assert!(!world::nav::chicane_step(blocked, 11, 37, 1, 0));
+        assert!(!world::nav::chicane_step(blocked, 10, 37, 0, 1));
     }
 
     /// Sans mur orthogonal, le coin diagonal repousse toujours sur les deux axes.
