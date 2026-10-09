@@ -820,6 +820,31 @@ fn map_probe() {
             d.0, d.1, d.2, d.3, d.4
         );
     }
+    let mut interactables: Vec<_> = world
+        .query::<(
+            &GgrsNetId,
+            &FixedTransform3D,
+            &Interactable,
+            Option<&Collider>,
+        )>()
+        .iter(world)
+        .map(|(id, t, i, c)| {
+            (
+                id.0,
+                pos(t),
+                i.interaction_type,
+                i.interaction_range.to_num::<f32>(),
+                c.is_some(),
+            )
+        })
+        .collect();
+    interactables.sort_by_key(|i| i.0);
+    for i in interactables {
+        println!(
+            "interactif {} {:?} {:?} portée={} collider={}",
+            i.0, i.1, i.2, i.3, i.4
+        );
+    }
 }
 
 /// Diagnostic : GgrsNetId des entités rollback à une frame (`ALACOD_IDS=<scénario>:<frame>`).

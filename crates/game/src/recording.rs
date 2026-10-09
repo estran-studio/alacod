@@ -236,10 +236,13 @@ impl Plugin for RecordingPlugin {
         app.insert_resource(InputRecorder::new(RecordedSettings::default()))
             .add_systems(ReadInputs, record_local_inputs.after(read_local_inputs))
             // Après l'arrêt demandé par la trace d'état : l'app s'arrête à la fin de l'update
-            // qui émet AppExit, le message doit être lu dans le même update
+            // qui émet AppExit, le message doit être lu dans le même update. Idem pour la
+            // fermeture de la fenêtre : `exit_on_all_closed` émet AppExit dans `Last` (R7)
             .add_systems(
                 Last,
-                write_recording_on_exit.after(crate::state_trace::ExitRequests),
+                write_recording_on_exit
+                    .after(crate::state_trace::ExitRequests)
+                    .after(bevy::window::ExitSystems),
             );
     }
 }
