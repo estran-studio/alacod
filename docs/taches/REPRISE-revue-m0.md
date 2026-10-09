@@ -30,6 +30,27 @@ Depuis `movement-feel`, le profil `dev` est optimisé (D30 fermée) : `make zomb
 6. `docs/jouer-a-deux.md` : la recette p2p.
 7. `docs/taches/dettes.md` : dettes connues, à ne pas re-signaler.
 
+## État au 2026-10-09 (deuxième Mac) — à lire en premier
+
+- **Revue solo terminée côté William** : R4, R5 et R7 corrigés et validés en jeu, movement-feel
+  validé (S3). Ses points à faire sont dans `docs/digests/revue-m0.md` § « Bilan de la revue
+  solo » (S4–S8, R10) : ce sont des tâches M1 à ouvrir, pas des correctifs de cette branche.
+- Nouveaux commits : `22776e5` **R7** (l'enregistrement n'était pas écrit à la fermeture de la
+  fenêtre : `write_recording_on_exit` ordonné après `bevy::window::ExitSystems`), puis le carnet
+  et `map_probe` qui liste les `Interactable`. Enregistrements dans `docs/captures/revue-m0/`.
+- Méthode de revue à voix haute : OBS (écran + micro, source « Capture de fenêtre ») puis
+  `/Applications/MacWhisper.app/Contents/MacOS/mw transcribe <vidéo> --language fr --format srt`,
+  images avec `ffmpeg -ss <s> -i <vidéo> -frames:v 1`.
+- **Reste à faire, dans l'ordre** : §3 point 4 (partie à deux, si William la veut encore), point 5
+  (fusion de `origin/main`), point 6 (vérification complète : seule `make test_scenarios` a tourné
+  sur `8ac2c0b` ; après R7, non relancée), points 7-8 (rapport, ligne `LIVRÉ`).
+- **Orchestration** : le serveur où tournait la session orchestratrice (`upgrade-bevy-0-19-1`) ne
+  répond plus. Tout ce qu'il faut pour la reprendre est dans le dépôt : `docs/taches.md` (journal,
+  voies, ordre de merge), `docs/taches/README.md` (protocole), `docs/taches/PROMPT-KICKSTART.md`
+  (prompt d'un agent de développement), `docs/taches/dettes.md`, les fiches `docs/taches/*.md` et
+  les rapports `docs/taches/rapports/`. Les chemins `/home/wq/Project/bascanada/alacod_root/…` du
+  kickstart sont ceux de la machine Linux : les adapter au clone utilisé.
+
 ## 2. Ce que contient `revue-m0-suite`
 
 Base : `main` `26f1496`. Commits :

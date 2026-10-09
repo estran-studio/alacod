@@ -36,7 +36,21 @@ cette branche), M1 (tâche à ouvrir par l'orchestrateur).
 | S7 | sensation | « Son des armes trop fort » (phrase de 00:00:15, mal transcrite, précisée par William le 2026-10-09) | `revue_mouvement` | — | — | M1 : mixage (volume des tirs par rapport au reste) | noté |
 | R10 | bug ? | « Impossible d'acheter un soda, il chevauche les fusils » (précision de William, 2026-10-09). Transcription : « Je sais pas comment acheter les trucs de pack-à-punch, ils ont tous l'air d'être en dessous des armes, on peut juste en sélectionner un. » Il n'y a pas de pack-a-punch dans M0 ; dans `avant_poste.ldtk`, les deux `SodaLocation` (Jug, Cellier) ne sont pas sous des armes. À la même minute, le prompt affiché est « [H] Munitions mitrailleuse — $750 » avec le shotgun en main. **Contre-constat** : dans cette partie, aucune machine à soda n'existe : le log n'a pas de ligne « Map is loaded with N soda locations », et `map_probe` (`ALACOD_MAP_PROBE=revue_mouvement:3900`, sonde étendue aux `Interactable`) ne trouve que 2 armes murales, (376, 760) et (872, 760), et aucun `Perk`. Les 4 salles placées par la graine 123456 ne sont pas Jug ni Cellier, les seules qui ont une `SodaLocation`. Reste à savoir ce qui a été pris pour un soda (sprite d'arme murale ?) ou dans quelle autre partie | `revue_mouvement`, vidéo 00:01:05 | non reproduit | gêne | demander à William où (capture) ; lié à S2/R8 (salles tirées par la graine) | ouvert |
 | R11 | ? | « Il y a un bug justement » (vidéo 00:00:21, fin de la vague 1, rien de visible sur l'image) ; William : remarque générale, « il faudrait peaufiner un peu » | `revue_mouvement` | à préciser | — | à préciser avec William | ouvert |
+| S8 | sensation / contenu | « Une meilleure carte » ; « il n'y a pas de spawn de zombies dans les autres salles ». Constat dans `avant_poste.ldtk` : les 5 `ZombieSpawn` sont tous dans `Depart`, aucune des 8 autres salles n'en a ; ouvrir une porte n'apporte donc aucune menace nouvelle. Précise S2 | session `revue_relance` (2026-10-09) | oui (données) | gêne | M1 : refaire la carte (spawners par salle, fenêtres sur les salles ouvertes, disposition) ; lié à S2 et R8 | noté |
+| — | constat | **R4 et R5 validés par William en jeu** (2026-10-09, session `revue_relance`, non filmée) : R rechargé en pleine partie sans relance (log : `sound reload` f578, aucune relance avant la mort) ; mort f1158 (`outcome=Defeat`, vague 1), « Rejouer », murs solides après relance ; « pas de problème » | `revue_relance` | — | — | — | constat |
 | — | constat | Fonctionnement vérifié par William en jeu après R4/R5 : interactions (portes, achats), le reste « fonctionne correctement » | partie 2 | — | — | — | constat |
+
+## Bilan de la revue solo (William, 2026-10-09)
+
+Validation de son côté terminée : R4, R5, R7 corrigés et vérifiés en jeu ; movement-feel validé
+(S3). Les points à faire en M1 sont, dans ses mots : équilibrage des vagues (S5), des armes
+(S4), son des armes trop fort (S7), indications sonores des vagues (S6), une meilleure carte avec
+des spawns dans les autres salles (S2, S8), le soda « impossible à acheter » (R10, non reproduit).
+Restent ouverts sans décision : R2, R3, R6 (touches), R8 (graine fixe), R9.
+
+Les deux enregistrements sont rangés dans `docs/captures/revue-m0/` (hors `tests/scenarios/` :
+le test des scénarios exige une trace pour chaque `.ron` du dossier). Les vidéos OBS restent sur
+le MacBook de William (`~/Movies/2026-10-09 00-33-22.mov`).
 
 ## Partie à deux
 
@@ -60,4 +74,5 @@ cette branche), M1 (tâche à ouvrir par l'orchestrateur).
 
 | Fichier | Sujet | Frames | Joueurs | Usage |
 |---|---|---|---|---|
-| `tests/scenarios/revue_mouvement.ron` | movement-feel, vagues 1-3 (vidéo OBS `2026-10-09 00-33-22.mov`, 86 s) | 5304 | 1 | sans attentes, non béni ; source de S3–S6, R10, R11 |
+| `docs/captures/revue-m0/revue_mouvement.ron` | movement-feel, vagues 1-3 (vidéo OBS `2026-10-09 00-33-22.mov`, 86 s) | 5304 | 1 | sans attentes, non béni ; source de S3–S7, R10, R11 |
+| `docs/captures/revue-m0/revue_relance.ron` | R5 puis mort et « Rejouer » (R4) ; l'enregistreur ne garde que la partie relancée | 1293 | 1 | sans attentes, non béni |
