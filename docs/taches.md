@@ -493,25 +493,115 @@ V1e en dernier) → V4.
 Scénarios du clone (trois niveaux à 1, 2 et 4 ; un boss simple par timeline), bots sur 200 graines,
 vidéos, revue humaine, fermeture des notes. Calendrier indicatif : **cinq semaines**.
 
-## 7. M2 : `gungeon`, par voies (à détailler à la sortie de M1)
+## 7. M2 : `gungeon` (Enter the Gungeon)
 
-- **Vague 0** : contrats de salles (`RoomKind`, `RoomState`, `Entrance`), d'objets (`ItemKind`,
-  `Inventory` à emplacements), de boss (`Phase`, `Timeline`), de profil (`Profile`) ; `crates/meta`.
-- **V1a combat** : B5 v2 (blanks, rebonds sur murs, patterns en spirale et en éventail), B6 (roulade
-  à i-frames, charges, variantes en données).
-- **V1b effets et objets** : C1 v2 (tous les déclencheurs), C2 (genres, emplacements, actifs à
-  cooldown par salles, consommables, synergies), C4 (coffres, clés, pools, rareté), C5 (boutique).
-- **V1c ennemis** : D4 (phases, timelines, arènes à tenir), D1 v2 (formations simples).
-- **V1d monde** : E1 (salles typées, verrouillage sur les présents, activation), E2 (grammaire
-  d'étage sur gabarits LDtk, minicarte, transition), E4 v2 (tables, barils, fosses).
-- **V1e run et méta** : G1 (profil et sauvegarde), G2 (hub : la Brèche), F1 (`Floors` à salles).
-- **V2** : contenu `gungeon` (vingt armes, vingt objets, dix ennemis, un boss, quinze gabarits de
-  salles), lint.
-- **V3** : K2 v1 (bot explorateur qui finit un étage), générateur v2 (objets et salles), bench à
-  500 balles en salle verrouillée, attentes `RoomState`, `Inventory`, `BossPhase`, `ProfileHas`.
-- **V4** : I1 v1 (le test comparatif d'UI de deux jours, puis HUD, pause, inventaire, minicarte),
-  I2 v2.
-- Calendrier indicatif : **huit semaines** (XL).
+**But** (plan §6) : étages de salles typées et verrouillées, bullet hell, roulade à i-frames, blanks,
+coffres, clés, boutique, objets passifs et actifs, synergies, boss à phases et arène à tenir, hub et
+déblocages. Détaillé le 2026-10-09 (orch, nouvelle machine Debian `orca`), à l'ouverture de M2 :
+M1 n'attend plus que la revue humaine de `throne` (`docs/taches/m1-revue-humaine.md`, William).
+
+**Acquis à réutiliser** : la voie B du prototype `m1-proto-etage-salles` (rapport
+`docs/taches/rapports/m1-proto-etage-salles.md` : un étage = une carte assemblée par `Basic`,
+verrouillage = poser/retirer le collider des portes, le champ de flux suit) ; le dash à i-frames de
+movement-feel (§34) est déjà la roulade, B6 n'ajoute que charges et variantes en données ;
+`Floors` reste la transition d'un étage à l'autre.
+
+**Exécution** : sessions Claude Code `b0` et `b1` sur la machine `orca`, worktree et target amorcé
+par `/home/debian/orca/task-new.sh <branche>` (copie du target nightly), livraison par
+`SendMessage` à l'orchestrateur. Les chemins `/home/wq/...` de `docs/taches/README.md` sont ceux de
+l'ancienne machine.
+
+### Vague 0 : contrats (en parallèle, chacun dans sa crate)
+
+- **M2-E1 Salles typées et verrouillées** (b1, `m2-e1-salles`, 4-5 j) : contrats `RoomKind`,
+  `RoomState` (Dormant / Locked / Cleared, ressource neutre), `room_kind` au registre et au lint ;
+  verrouillage sur les présents, activation des ennemis par salle, porte jamais refermée sur un
+  occupant, coéquipiers absents téléportés ; attente `RoomState`, moment clé `room`. Aucune trace
+  existante ne bouge. *Contrat de salles et chantier E1 en une tâche : le prototype a montré qu'ils
+  ne se séparent pas.*
+- **M2-T0b Contrats d'objets** (V1, 2 j) : `ItemKind` (passif, actif, consommable), `Inventory` à
+  emplacements (rollback, neutre), pickup au sol générique, `ActiveCharge` (par salles nettoyées ou
+  par dégâts) ; kinds au registre ; `crates/items`.
+- **M2-T0c Contrats de boss et de profil** (V1, 2 j) : `Phase` (seuil de PV ou timer), `Timeline`
+  (actions datées), `BossState` ; `crates/meta` avec `Profile` (RON versionné, écrit hors
+  simulation à partir de `RunSummary`, un par pubkey allumette — décision §7 n° 8).
+- **M2-T0d Contenu `games/gungeon/` squelette** (V2, 1 j) : `game.ron`, un personnage, une arme, un
+  ennemi, un étage de trois salles (départ, combat, boss vide) sur la carte du prototype : le clone
+  démarre.
+
+### Vague 1 (parallèle)
+
+**V1a combat**
+- M2-T1 Projectiles v2 (B5 v2, 3 j) : rebond sur les murs (déjà `Bounce`) pour les ennemis,
+  patterns `Spiral`, `Fan`, `Burst` (séquences seedées), **blank** (efface les balles ennemies
+  dans un rayon, charges par étage). Acceptation : un scénario par pattern, `bench_bullets` à 500
+  balles en salle verrouillée dans le budget.
+- M2-T2 Esquive v2 (B6, 2 j) : charges de dash, variantes en données (distance, durée, i-frames,
+  effet : bousculade, sur place), sauter par-dessus les balles (i-frames contre projectiles
+  seulement). Acceptation : `dash_*` existants identiques ou bénis avec preuve.
+
+**V1b effets et objets**
+- M2-T3 Effets v2 (C1 v2, 3 j) : déclencheurs `OnRoomClear`, `OnDash`, `OnBlank`, `OnReload`,
+  `OnPickup`, `OnFloorStart` ; conditions ; cooldowns et charges.
+- M2-T4 Objets et synergies (C2, 4 j) : passifs (modificateurs), actifs à cooldown par salles,
+  consommables, synergie (paire d'objets → effet ajouté).
+- M2-T5 Butin, coffres, clés (C4, 3 j) : pools pondérés seedés par rareté, coffres verrouillés
+  (clé consommée), récompense à la sortie de salle (`OnRoomClear`), tables par étage.
+- M2-T6 Boutique (C5, 2 j) : salle `Shop`, objets à prix, monnaie `shells` au sol.
+
+**V1c ennemis**
+- M2-T7 Boss à phases et arène (D4, 4 j) : phases par seuil, timeline de patterns, salle de boss
+  verrouillée, arène à tenir (horloge, vagues internes). Acceptation : `BossPhase` attendu, boss
+  battu par les bots.
+- M2-T8 Formations simples (D1 v2, 2 j) : escouades qui se placent en arc, tir alterné.
+
+**V1d monde**
+- M2-T9 Défauts de l'assembleur (E2 préalable, 1 j, **déplace les cartes générées**) : choix par
+  `.skip(r).last()` toujours le dernier, `Room::is_overlapping` jamais appelé, boucle infinie si un
+  gabarit `Spawn` n'est pas le premier, identifiant de gabarit perdu. Preuve §5 sur `avant_poste` et
+  les salles du testbed.
+- M2-T10 Grammaire d'étage (E2, 6-8 j) : contraintes de types (départ, boss au bout, boutique,
+  coffre, secret), distances, branches, minicarte (état dérivé), plusieurs étages par run
+  (`Floors` d'étages assemblés). Acceptation : unitaires sur 1 000 graines (connexité, types
+  présents, pas de chevauchement), perf d'un étage de 15 à 20 salles.
+- M2-T11 Surfaces v2 (E4 v2, 2 j) : fosses (chute = dégât + retour au bord), tables renversables
+  (couverture), barils explosifs.
+
+**V1e run et méta**
+- M2-T12 Profil et déblocages (G1, 3 j) : `Profile` écrit en fin de run, monnaie méta, déblocages
+  qui enrichissent les pools de C4.
+- M2-T13 Hub (G2, 3 j) : carte de hub (la Brèche), PNJ marchand de déblocages, entrée en run.
+
+**V2 données**
+- M2-T14 Contenu `gungeon` (6 j) : vingt armes, vingt objets, dix ennemis, un boss, quinze gabarits
+  de salles, `test:` sur chaque définition ; lint vert, scénarios générés verts.
+- M2-T15 Lint des nouveaux kinds (2 j).
+
+**V3 outillage**
+- M2-T16 Bot explorateur (K2 v1, 4 j) : visite les salles, nettoie, prend le butin, va au boss ;
+  `alacod sim --until-floor`. Acceptation : 200 graines sans soft-lock ni desync.
+- M2-T17 Générateur v2 et attentes (3 j) : gabarits par objet et par salle ; attentes `RoomState`,
+  `Inventory`, `BossPhase`, `ProfileHas`.
+
+**V4 présentation**
+- M2-T18 Test comparatif d'UI (I1, décision §7 n° 4, 2 j) puis HUD gungeon : blanks, clés, objets,
+  actif et sa charge, minicarte.
+- M2-T19 Feedback v2 (I2 v2, 2 j) : télégraphes de patterns, flash du blank, ralenti de fin de boss.
+
+**Ordre de merge** : vague 0 (E1, objets, boss/profil, squelette) → V3 → V2 → V1 (V1a, V1d avec
+M2-T9 seule à déplacer toutes les cartes générées, V1b, V1c, V1e) → V4.
+
+### Vague 2 : intégration
+Scénarios du clone (un étage complet à 1, 2 et 4), bots sur 200 graines, bench à 500 balles en salle
+verrouillée, vidéos, revue humaine, fermeture des notes. Calendrier indicatif : **huit semaines**.
+
+### Hors M2, gardé en file (revue M0 du 2026-10-09, `docs/digests/revue-m0.md`)
+Points de William sur `zombies`, à planifier avec lui (sensations, pas des correctifs moteur) :
+équilibrage des vagues (S5) et des armes (S4), volume des tirs (S7), sons de début et fin de vague
+(S6), une meilleure carte avec des spawners dans les autres salles (S2, S8), le soda « impossible à
+acheter » (R10, non reproduit). Ouverts sans décision : R2, R3, R6 (touches), R8 (graine fixe), R9
+(RNG : bits de poids fort). Dette moteur ouverte par le merge de m1-bots-apres-movement-feel :
+**D55** (ennemi accroché à un coin de mur) → `m1-d55-coin-de-mur` (b0).
 
 ## 8. M3 à M6
 
