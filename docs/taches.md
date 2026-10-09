@@ -596,7 +596,7 @@ Scénarios du clone (un étage complet à 1, 2 et 4), bots sur 200 graines, benc
 verrouillée, vidéos, revue humaine, fermeture des notes. Calendrier indicatif : **huit semaines**.
 
 ### Hors M2, gardé en file (revue M0 du 2026-10-09, `docs/digests/revue-m0.md`)
-Points de William sur `zombies`, à planifier avec lui (sensations, pas des correctifs moteur) :
+Points de William sur `zombies` (sensations, pas des correctifs moteur), **pris par William lui-même en parallèle de M2** sur son ordinateur, branche `m0-revue-suite-contenu` (prompt : `docs/taches/m0-revue-suite-contenu.md`) :
 équilibrage des vagues (S5) et des armes (S4), volume des tirs (S7), sons de début et fin de vague
 (S6), une meilleure carte avec des spawners dans les autres salles (S2, S8), le soda « impossible à
 acheter » (R10, non reproduit). Ouverts sans décision : R2, R3, R6 (touches), R8 (graine fixe), R9
