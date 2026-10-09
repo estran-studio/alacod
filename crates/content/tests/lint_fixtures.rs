@@ -1033,3 +1033,30 @@ fn points_ennemis_des_cavernes_de_throne_dans_le_champ_de_chaque_gabarit() {
         }
     }
 }
+
+// M2-T0b (docs/conventions.md §36) : objets.
+#[test]
+fn item_charge_zero_fixture_reports_out_of_range() {
+    let (_, _, errors) = load_and_lint(&fixture_dir("item_charge_zero")).unwrap();
+    assert_has_error(
+        &errors,
+        LintErrorKind::OutOfRange,
+        "objet « fiole » : charge",
+    );
+}
+
+#[test]
+fn item_effect_unsupported_fixture_reports_unsupported() {
+    let (_, _, errors) = load_and_lint(&fixture_dir("item_effect_unsupported")).unwrap();
+    assert_has_error(
+        &errors,
+        LintErrorKind::Unsupported,
+        "seul OnUse d'un objet actif",
+    );
+}
+
+#[test]
+fn item_unknown_stat_fixture_reports_parse_error() {
+    let (_, _, errors) = load_and_lint(&fixture_dir("item_unknown_stat")).unwrap();
+    assert_has_error(&errors, LintErrorKind::Parse, "Vitesse");
+}

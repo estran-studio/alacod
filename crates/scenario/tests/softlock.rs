@@ -17,6 +17,7 @@ fn scenario(frames: u32) -> Scenario {
         wave_overrides: None,
         invariants: Default::default(),
         powerups: vec![],
+        items: vec![],
         powerup_drop_chance_override: None,
         floors: None,
         progression: None,

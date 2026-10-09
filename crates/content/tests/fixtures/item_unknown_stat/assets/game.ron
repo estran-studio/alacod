@@ -1,0 +1,8 @@
+// Fixture M2-T0b : stat inconnue dans un modificateur (Parse)
+(
+    name: "fixture-item_unknown_stat",
+    content_folders: [
+        (path: "objets", kind: "Item"),
+    ],
+    entry: (start_map: "maps/salle.ldtk", default_seed: 1),
+)

@@ -220,6 +220,15 @@ pub fn build_app(scenario: &Scenario, headless: bool, config: &PlayConfig) -> Ap
                 .before(game::powerups::powerup_pickup_detect_system)
                 .in_set(game::system_set::RollbackSystemSet::Effects),
         )
+        // M2-T0b : placements scriptés d'objets
+        .insert_resource(ScenarioItemPlacements(scenario.items.clone()))
+        .add_systems(
+            GgrsSchedule,
+            apply_scenario_item_placements
+                .after(apply_scenario_powerup_placements)
+                .before(game::items::item_consumable_pickup_system)
+                .in_set(game::system_set::RollbackSystemSet::Effects),
+        )
         // T1.13 : placements scriptés de personnages (voir la doc de
         // `apply_scenario_character_placements`).
         .insert_resource(ScenarioCharacterPlacements(scenario.characters.clone()))
@@ -608,6 +617,47 @@ fn apply_scenario_powerup_placements(
             expires_at_frame,
             &mut id_factory,
         );
+    }
+}
+
+/// Inventaire (copie) du joueur `handle` : `Ok(None)` s'il n'en porte pas (rien ramassé).
+fn player_inventory(world: &mut World, handle: usize) -> Result<Option<items::Inventory>, String> {
+    world
+        .query::<(&Player, Option<&items::Inventory>)>()
+        .iter(world)
+        .find(|(player, _)| player.handle == handle)
+        .map(|(_, inventory)| inventory.cloned())
+        .ok_or_else(|| format!("joueur {handle} absent"))
+}
+
+/// Placements scriptés d'objets (M2-T0b, `Scenario::items`) : même principe que
+/// [`apply_scenario_powerup_placements`], dans `RollbackSystemSet::Effects` avant le ramassage.
+#[derive(Resource)]
+struct ScenarioItemPlacements(Vec<game::replay::ItemPlacement>);
+
+fn apply_scenario_item_placements(
+    frame: Res<FrameCount>,
+    placements: Res<ScenarioItemPlacements>,
+    table: Res<items::ItemTable>,
+    mut commands: Commands,
+    mut id_factory: ResMut<GgrsNetIdFactory>,
+) {
+    for placement in &placements.0 {
+        if frame.frame != placement.at_frame {
+            continue;
+        }
+        let position = fixed_math::FixedVec3::new(placement.x, placement.y, fixed_math::FIXED_ZERO);
+        if game::items::spawn_item_pickup(
+            &mut commands,
+            &table,
+            placement.id.clone(),
+            position,
+            &mut id_factory,
+        )
+        .is_none()
+        {
+            warn!("placement d'objet : « {} » inconnu", placement.id);
+        }
     }
 }
 
@@ -1885,6 +1935,38 @@ fn check(world: &mut World, expectation: &Expectation) -> Result<(), String> {
                 }
             }
             Ok(())
+        }
+        // M2-T0b : inventaire du joueur (`items::Inventory`, absent tant que rien n'est ramassé).
+        Expectation::HasItem { handle, id, .. } => {
+            let inventory = player_inventory(world, *handle)?;
+            if inventory.as_ref().is_some_and(|i| i.has(id)) {
+                Ok(())
+            } else {
+                Err(format!(
+                    "joueur {handle} ne tient pas « {id} » ({inventory:?})"
+                ))
+            }
+        }
+        Expectation::ItemCharge { handle, charge, .. } => {
+            let inventory = player_inventory(world, *handle)?;
+            match inventory.and_then(|i| i.active) {
+                Some(slot) if slot.charge == *charge => Ok(()),
+                Some(slot) => Err(format!(
+                    "charge de « {} » : {} (attendu {charge})",
+                    slot.item, slot.charge
+                )),
+                None => Err(format!("joueur {handle} sans objet actif")),
+            }
+        }
+        Expectation::Consumable {
+            handle, id, count, ..
+        } => {
+            let actual = player_inventory(world, *handle)?.map_or(0, |i| i.consumable(id));
+            if actual == *count {
+                Ok(())
+            } else {
+                Err(format!("{actual} « {id} » (attendu {count})"))
+            }
         }
         // M2-E1 : état d'une salle typée (ressource rollback `RoomStates`).
         Expectation::RoomState {

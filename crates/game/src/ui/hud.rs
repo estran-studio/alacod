@@ -669,6 +669,8 @@ fn prompt_for(
             damaged: window.is_some_and(|w| w.current < w.max),
         },
         InteractionType::Revive => Prompt::Revive,
+        // M2-T0b : pas de prompt d'objet avant le HUD de M2 (V4).
+        InteractionType::Item => return String::new(),
         InteractionType::Weapon => {
             let Some(pickup) = pickup else {
                 return String::new();

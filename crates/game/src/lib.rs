@@ -16,6 +16,7 @@ pub mod frame;
 pub mod frame_events;
 pub mod global_asset;
 pub mod interaction;
+pub mod items;
 pub mod jjrs;
 pub mod light;
 pub mod patterns;

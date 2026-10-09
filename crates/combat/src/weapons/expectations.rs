@@ -417,6 +417,26 @@ pub enum Expectation {
         contains: String,
         at_frame: u32,
     },
+    /// Le joueur `handle` tient l'objet `id` (passif ou actif, `items::Inventory`) à la frame
+    /// exacte `at_frame` (M2-T0b, `docs/conventions.md` §36).
+    HasItem {
+        handle: usize,
+        id: String,
+        at_frame: u32,
+    },
+    /// Charge exacte de l'objet actif tenu par le joueur `handle` ; échoue sans actif.
+    ItemCharge {
+        handle: usize,
+        charge: u32,
+        at_frame: u32,
+    },
+    /// Nombre exact de consommables `id` du joueur `handle` (0 si l'inventaire est absent).
+    Consumable {
+        handle: usize,
+        id: String,
+        count: u32,
+        at_frame: u32,
+    },
     /// État de la `nth` salle de type `kind` (`room_kind`, salles triées par position x puis y,
     /// `world::RoomStates`, M2-E1, `docs/conventions.md` §35) à la frame exacte `at_frame` ;
     /// échoue si la carte n'a pas assez de salles de ce type. `doors_closed` (optionnel) : le
@@ -480,6 +500,9 @@ impl Expectation {
             | Self::Mutations { at_frame, .. }
             | Self::HudText { at_frame, .. }
             | Self::RoomState { at_frame, .. }
+            | Self::HasItem { at_frame, .. }
+            | Self::ItemCharge { at_frame, .. }
+            | Self::Consumable { at_frame, .. }
             | Self::Event {
                 by_frame: at_frame, ..
             }
