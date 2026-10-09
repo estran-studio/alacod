@@ -1,0 +1,3 @@
+// Salle de combat : se verrouille quand un joueur debout y entre et qu'un ennemi y vit, se
+// rouvre quand elle est vide ; ses ennemis dorment tant qu'elle n'est pas activée.
+(locks: true)

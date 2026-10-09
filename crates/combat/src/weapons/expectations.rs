@@ -417,6 +417,19 @@ pub enum Expectation {
         contains: String,
         at_frame: u32,
     },
+    /// État de la `nth` salle de type `kind` (`room_kind`, salles triées par position x puis y,
+    /// `world::RoomStates`, M2-E1, `docs/conventions.md` §35) à la frame exacte `at_frame` ;
+    /// échoue si la carte n'a pas assez de salles de ce type. `doors_closed` (optionnel) : le
+    /// nombre de portes fermées (avec collider) de **toute** la carte.
+    RoomState {
+        kind: String,
+        #[serde(default)]
+        nth: usize,
+        state: world::RoomState,
+        #[serde(default, skip_serializing_if = "Option::is_none")]
+        doors_closed: Option<u32>,
+        at_frame: u32,
+    },
 }
 
 /// Cible d'une distance (`EnemyDistance`).
@@ -466,6 +479,7 @@ impl Expectation {
             | Self::Level { at_frame, .. }
             | Self::Mutations { at_frame, .. }
             | Self::HudText { at_frame, .. }
+            | Self::RoomState { at_frame, .. }
             | Self::Event {
                 by_frame: at_frame, ..
             }

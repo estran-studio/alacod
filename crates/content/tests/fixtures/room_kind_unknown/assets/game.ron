@@ -1,0 +1,10 @@
+// Fixture M2-E1 : un gabarit de salle (`RoomTemplate`) dont `room_kind` n'est pas un type du
+// dossier `Room` (UnknownKind).
+(
+    name: "fixture-room_kind_unknown",
+    content_folders: [
+        (path: "rooms", kind: "Room"),
+        (path: "maps", kind: "Map"),
+    ],
+    entry: (start_map: "maps/salle.ldtk", default_seed: 1),
+)

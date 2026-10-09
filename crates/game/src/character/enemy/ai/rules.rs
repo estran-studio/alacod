@@ -132,7 +132,8 @@ pub fn behavior_select_system(
             // T1.3 : `Stun`/`Freeze` (§19) : aucune règle retenue.
             Option<&combat::status::Statuses>,
         ),
-        With<Enemy>,
+        // M2-E1 : un ennemi d'une salle dormante saute son tour (`world::RoomDormant`).
+        (With<Enemy>, Without<world::RoomDormant>),
     >,
     player_query: Query<
         (
