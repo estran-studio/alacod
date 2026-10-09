@@ -21,7 +21,7 @@
 //! Joué par `crates/scenario` ; écrit par l'enregistrement (`crate::recording`).
 
 use crate::character::player::input::{
-    BoxInput, InputSegment, ScriptedInputs, INPUT_CHOICE_A, INPUT_CHOICE_B, INPUT_CHOICE_C,
+    BoxInput, InputSegment, ScriptedInputs, INPUT_BLANK, INPUT_CHOICE_A, INPUT_CHOICE_B, INPUT_CHOICE_C, INPUT_USE_ACTIVE,
     INPUT_DASH, INPUT_DOWN, INPUT_DROP_WEAPON, INPUT_FORCE_CRASH, INPUT_INTERACTION, INPUT_LEFT,
     INPUT_MELEE_ATTACK, INPUT_MODIFIER, INPUT_RELOAD, INPUT_RIGHT, INPUT_SPRINT,
     INPUT_SWITCH_WEAPON_MODE, INPUT_UP,
@@ -400,6 +400,10 @@ pub enum Button {
     ChoiceA,
     ChoiceB,
     ChoiceC,
+    /// Utilise l'objet actif tenu (M2-T0b). Voir `INPUT_USE_ACTIVE`.
+    UseActive,
+    /// Blank (M2-T0b, contrat : compteur et input). Voir `INPUT_BLANK`.
+    Blank,
 }
 
 impl Scenario {
@@ -485,7 +489,7 @@ pub fn box_input(buttons: &[Button], pan: (i16, i16)) -> BoxInput {
     input
 }
 
-const ALL_BUTTONS: [Button; 18] = [
+const ALL_BUTTONS: [Button; 20] = [
     Button::Up,
     Button::Down,
     Button::Left,
@@ -504,9 +508,11 @@ const ALL_BUTTONS: [Button; 18] = [
     Button::ChoiceA,
     Button::ChoiceB,
     Button::ChoiceC,
+    Button::UseActive,
+    Button::Blank,
 ];
 
-fn button_bit(button: Button) -> u16 {
+fn button_bit(button: Button) -> u32 {
     match button {
         Button::Up => INPUT_UP,
         Button::Down => INPUT_DOWN,
@@ -524,6 +530,8 @@ fn button_bit(button: Button) -> u16 {
         Button::ChoiceA => INPUT_CHOICE_A,
         Button::ChoiceB => INPUT_CHOICE_B,
         Button::ChoiceC => INPUT_CHOICE_C,
+        Button::UseActive => INPUT_USE_ACTIVE,
+        Button::Blank => INPUT_BLANK,
         Button::Fire | Button::SwitchWeapon => 0,
     }
 }
