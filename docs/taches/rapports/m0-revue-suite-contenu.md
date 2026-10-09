@@ -290,3 +290,39 @@ Relevés par graine et limites : `docs/captures/le-relais/README.md`. Assets
 existants, textures provisoires ; registre des assets mis à jour. Manifeste
 conservé sur avant_poste. Pas de bless ni de nouvelle suite historique complète
 pour cette passe. Pas de push ; validation humaine du bâtiment encore attendue.
+
+## S2/S8 — composition des pièces (2026-10-09, suite)
+
+William choisit l'assemblage procédural pour augmenter la variété roguelike.
+Quatorze modules LDtk fournissent cinq à huit pièces par partie ; connexions,
+zéro à deux raccourcis, équipements, obstacles et fenêtres varient. Huit spawners
+restent dehors. Atelier garanti à au plus deux portes, radio à deux à quatre ;
+la radio et l'évacuation restent sans interactions. Carte par défaut désormais
+`maps/le_relais_modules.ldtk`. Les parties locales tirent une nouvelle graine
+hors simulation, l'affichent dans le titre et l'enregistrent ; `--seed` la rejoue.
+En ligne, graine fixe du manifeste (négociation non implémentée).
+
+Générateur dédié activé par `building_role` dans le LDtk ; pas de changement du
+Basic, des contrats M2 de salles/objets ou du RNG global. Hook de chargement et
+exemple map_generation utilisent la même composition, avant rollback. Assets
+existants, sol SunnyLand provisoire ; dimensions de modules fixes. Script source
+reproduit le LDtk à l'octet. Trois sorties générées et diagramme pour revue dans
+`docs/captures/le-relais/`.
+
+Vérifié : trois tests de génération passent, **184 signatures sur 200 graines**
+en ignorant translation, rotation et réflexion. Chaque spawner rejoint le départ
+portes fermées ; côté joueur, toutes les salles, achats et départs sont accessibles
+portes ouvertes, fenêtres bloquantes, corps 20 × 20 px sur grille 8 px. Modules
+invalides rejetés pour rôle requis manquant ou dimensions incorrectes.
+
+Combat : quatre acheteurs, graines 1..20, **20/20 atteignent l'entrée en V5**,
+0 mort, 0 mise à terre, 0 desync, 0 failure, aucun soft-lock rapporté ; 175 dégâts
+cumulés, médiane V5 f7197,5 (min6748, max7709). Plus longue phase spawn-fin :
+1434 frames (graine2, V3). Relevés et limites dans le README de capture.
+
+Le scénario historique bots_four_mixed et le replay passent sans bless. Compilation
+avec rendu, lint des trois jeux, fmt et diff check passent. Vérification rollback :
+OK ; forbidden : quatre occurrences préexistantes, aucune nouvelle. Suite complète,
+p2p, wasm, bench et validation humaine de plusieurs plans non rejoués pour cette
+passe. Aucun push ; aucun bless. Objectifs radio/évacuation et habillage visuel
+restent à construire.

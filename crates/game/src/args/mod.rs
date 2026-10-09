@@ -24,6 +24,7 @@ pub mod web;
 /// Parsed arguments for game configuration
 #[derive(Clone, Debug)]
 pub struct GameArgs {
+    pub seed: Option<i32>,
     pub local_port: u16,
     pub number_player: usize,
     pub players: Vec<PlayerConfig>,
@@ -104,6 +105,7 @@ pub fn get_args() -> GameArgs {
         }
 
         GameArgs {
+            seed: args.seed,
             local_port: args.local_port.unwrap_or(0),
             number_player: args.number_player.unwrap_or(0),
             players,
@@ -155,6 +157,7 @@ pub fn get_args() -> GameArgs {
             });
 
         GameArgs {
+            seed: None,
             local_port: 0,
             number_player: canvas_config.number_player.unwrap_or(1),
             players,
@@ -174,6 +177,10 @@ pub fn get_args() -> GameArgs {
 
 /// Configure la partie depuis la ligne de commande (natif) ou le canvas (web).
 pub struct BaseArgsPlugin;
+
+/// Launch preference only; not a rollback resource. Recorded from MapGenerationConfig.
+#[derive(Resource, Clone, Copy, Default)]
+pub struct LaunchSeed(pub Option<i32>);
 
 impl Plugin for BaseArgsPlugin {
     fn build(&self, app: &mut App) {
@@ -195,6 +202,7 @@ pub struct GameArgsPlugin(pub GameArgs);
 impl Plugin for GameArgsPlugin {
     fn build(&self, app: &mut App) {
         let args = self.0.clone();
+        app.insert_resource(LaunchSeed(args.seed));
         app.insert_resource(DebugAiConfig {
             enabled: args.debug_ai,
         });

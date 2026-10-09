@@ -1241,6 +1241,7 @@ pub fn run(scenario: &Scenario) -> ScenarioOutcome {
 
 fn game_args(player_count: usize) -> GameArgs {
     GameArgs {
+        seed: None,
         check_distance: game::args::check_distance_from_env(),
         local_port: 0,
         number_player: player_count,

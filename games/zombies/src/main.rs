@@ -65,9 +65,34 @@ fn main() {
             map_path: manifest.entry.start_map.clone(),
             seed: manifest.entry.default_seed,
         }))
+        .add_systems(
+            OnEnter(game::core::AppState::LobbyLocal),
+            choose_local_seed.before(map_ldtk::game::local::configure_map),
+        )
         // Enable wave-based spawning mode (CoD Zombies style)
         .insert_resource(WaveModeEnabled(wave_mode))
         // Enable wave debug UI (toggle with F3)
         .insert_resource(WaveDebugEnabled(true))
         .run();
+}
+
+/// A fresh local run chooses a seed outside simulation; --seed reproduces a recorded run.
+/// Online games retain the shared manifest seed until seed negotiation is implemented.
+fn choose_local_seed(
+    mut map: ResMut<LdtkGameMap>,
+    explicit: Res<game::args::LaunchSeed>,
+    mut windows: Query<&mut Window>,
+) {
+    map.seed = explicit.0.unwrap_or_else(|| {
+        let mut bytes = [0u8; 4];
+        getrandom::getrandom(&mut bytes).expect("unable to choose a local map seed");
+        i32::from_le_bytes(bytes)
+    });
+    info!(
+        "Le Relais — graine {} (rejouer avec --seed {})",
+        map.seed, map.seed
+    );
+    for mut window in &mut windows {
+        window.title = format!("Alacod Zombies — graine {}", map.seed);
+    }
 }

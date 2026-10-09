@@ -1,4 +1,99 @@
-# Le Relais — petit bâtiment à défendre
+# Le Relais — composition procédurale
+
+La version du 2026-10-09 assemble **5 à 8 pièces parmi 14 modules LDtk**.
+Les pièces choisies, portes, raccourcis, achats et fenêtres changent par graine.
+Les huit spawners restent dehors ; deux fenêtres et une sortie sont garanties
+à l'accueil. Chaque porte coûte 750 points. L'atelier est à au plus deux portes
+et la radio à deux à quatre portes. La radio et l'évacuation ne sont pas encore
+interactives. Les modules ont tous la même emprise (192 × 160 px), avec obstacles
+différents ; le bâtiment produit occupe une carte de 736 × 640 px.
+
+![Trois cartes issues du générateur](plans-proceduraux.svg)
+
+Les [modules éditables](../../../games/zombies/assets/maps/le_relais_modules.ldtk)
+se reconstruisent avec `python3 scripts/construire-modules-le-relais.py`.
+Les [cartes de référence](cartes/) sont des sorties du même générateur Rust
+que le jeu, pour les graines 1, 17 et 42. Elles s'ouvrent directement dans LDtk.
+Pour produire une autre carte :
+
+```sh
+APP_VERSION=x cargo run --example map_generation --profile headless --no-default-features -- games/zombies/assets/maps/le_relais_modules.ldtk /tmp/relais.ldtk 17
+```
+
+Les chemins des tilesets d'une sortie déplacée doivent être rendus relatifs à
+son nouveau dossier (les trois références ci-dessus le font déjà).
+
+Le jeu local choisit une nouvelle graine avant la simulation à chaque partie.
+Le titre de fenêtre indique la graine ; `--seed 17` permet de la rejouer.
+Les enregistrements capturent cette graine. Le réseau conserve la graine du
+manifeste ; la négociation d'une graine aléatoire en ligne reste à faire.
+
+Les tests sur 200 graines trouvent **184 plans fonctionnels distincts**, après
+normalisation des translations, rotations et réflexions, sans compter les
+variantes de sprites ou de modules ayant le même rôle. Ils vérifient le graphe,
+les distances à la radio, la reproductibilité et le passage des corps de zombies
+de chaque spawner jusqu'à l'accueil lorsque les portes restent fermées.
+
+## Modifier les modules dans LDtk
+
+Chaque niveau source porte un `building_role` : `Accueil`, `Radio`, `Atelier`,
+`Infirmerie`, `Reserve` ou `Passage`. Le niveau doit garder une grille de 16 px,
+12 colonnes et 10 lignes, les couches Walls/LevelConnection/Entities et son mur
+périphérique. Les rôles Accueil, Radio et Atelier sont obligatoires. Fournir au
+moins six modules parmi Atelier/Infirmerie/Reserve/Passage ; le tirage n'utilise
+pas deux fois le même module. Les PlayerSpawn sont conservés seulement dans
+l'accueil ; WeaponLocation et SodaLocation sont copiés de toutes les pièces.
+
+Garder dégagés les accès de façade : milieu des murs latéraux à la ligne 4,
+et milieu des murs haut/bas à la colonne 4 (portes de 48 px). Les fenêtres
+latérales prennent deux cases aux lignes 2 ou 6, et celles du haut/bas aux
+colonnes 2 ou 6. L'accueil réserve en plus deux fenêtres à gauche aux lignes
+1 et 7. Le générateur choisit les ouvertures et les spawners ; ne pas ajouter
+ces entités dans les modules. Après un déplacement d'obstacle ou de départ,
+rejouer les tests de `generation::building` et les sims : le lint général ne
+prouve pas qu'un corps peut circuler.
+
+Les ouvertures et le terrain extérieur emploient les defs et le tileset
+SunnyLand du projet. Une migration du tileset demande aussi de mettre à jour
+le cache de tuiles produit par le générateur.
+
+
+## Combat de la version composée (2026-10-09)
+
+Quatre bots `acheteur`, graines 1..20, arrêt à l'entrée en V5, plafond 20000
+frames : **20/20 en V5**, 0 mort, 0 mise à terre, 0 desync, 0 failure, aucun
+soft-lock rapporté. Dégâts cumulés : 175 (prototype précédent : 134). V5 entre
+f6748 et f7709, médiane f7197,5. Phase de combat la plus longue (premier spawn
+à WaveComplete) : 1434 frames, graine 2 / V3, soit 23,9 s à 60 Hz.
+Cela ne teste pas le combat de V5, une stratégie humaine ou la négociation réseau.
+
+[Relevés complets par vague et graine](releves-proceduraux.json).
+
+| Graine | Frame V5 | Dégâts | Portes ouvertes |
+| --- | ---: | ---: | ---: |
+| 1 | 7167 | 20 | 4 |
+| 2 | 7483 | 10 | 5 |
+| 3 | 7657 | 18 | 5 |
+| 4 | 7709 | 13 | 7 |
+| 5 | 6764 | 0 | 5 |
+| 6 | 7228 | 20 | 7 |
+| 7 | 6954 | 30 | 5 |
+| 8 | 6992 | 0 | 5 |
+| 9 | 7274 | 0 | 5 |
+| 10 | 6871 | 0 | 6 |
+| 11 | 6894 | 8 | 5 |
+| 12 | 7351 | 0 | 7 |
+| 13 | 6952 | 0 | 5 |
+| 14 | 7388 | 10 | 3 |
+| 15 | 6834 | 18 | 5 |
+| 16 | 7040 | 0 | 8 |
+| 17 | 7639 | 0 | 5 |
+| 18 | 7623 | 18 | 7 |
+| 19 | 6748 | 10 | 7 |
+| 20 | 7318 | 0 | 9 |
+
+## Historique : premier bâtiment compact
+
 
 William choisit le 2026-10-09 un bâtiment compact à sécuriser, avec les zombies
 qui arrivent de l'extérieur. Carte de travail :

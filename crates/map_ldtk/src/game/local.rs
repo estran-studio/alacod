@@ -89,7 +89,7 @@ impl Plugin for LdtkLocalGamePlugin {
     }
 }
 
-fn configure_map(
+pub fn configure_map(
     mut commands: Commands,
     map: Res<LdtkGameMap>,
     mut ggrs_state: ResMut<GggrsSessionConfigurationState>,

@@ -4,6 +4,9 @@ use clap::Parser;
 
 #[derive(Parser)]
 pub struct Opt {
+    /// Reproducible map seed (local games).
+    #[clap(long, allow_hyphen_values = true)]
+    pub seed: Option<i32>,
     #[clap(short, long)]
     pub matchbox: Option<String>,
     /// URL de base HTTP du serveur allumette (authentification par challenge Ed25519,

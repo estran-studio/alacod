@@ -133,6 +133,7 @@
     - exemples/test_map_shop.ldtk
     - maps/avant_poste.ldtk
     - maps/le_relais_prototype.ldtk
+    - maps/le_relais_modules.ldtk
   source: contenu du projet — avant_poste.ldtk a été générée par la voie V6
     (tâche m0-v8-carte-zombies, script gen_map.py hors dépôt) à partir de la
     structure de exemples/test_map.ldtk (couches Walls/LevelConnection/Entities,
@@ -145,3 +146,6 @@
     le_relais_prototype reprend les définitions d’avant_poste avec quatre
     orientations d’un bâtiment de cinq pièces, spawners extérieurs, placements
     et cache de tuiles SunnyLand provisoire (scripts/construire-le-relais.py).
+
+    le_relais_modules contient quatorze salles assemblées par la graine avant la
+    simulation (scripts/construire-modules-le-relais.py).
