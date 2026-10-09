@@ -39,6 +39,17 @@ pub fn surface_table(registry: Option<&Registry>) -> world::SurfaceTable {
     table
 }
 
+/// Types de salles (M2-E1) depuis le registre de contenu : `rooms/<id>.ron` → définition.
+pub fn room_kind_table(registry: Option<&Registry>) -> world::RoomKindTable {
+    world::RoomKindTable(
+        registry
+            .iter()
+            .flat_map(|r| r.rooms.values())
+            .map(|room| (room.id.clone(), room.def))
+            .collect(),
+    )
+}
+
 /// Config de **chargement** d'une carte de la partie : une désignation `cave:<id>`
 /// (`docs/conventions.md` §21) devient le chemin d'asset propre à la caverne
 /// (`cave://<dossier>/<id>.ldtk`, servi avec le gabarit du dossier :
@@ -198,6 +209,8 @@ pub fn setup_generated_map(
 ) {
     // T1.7 : table des surfaces du jeu (valeur IntGrid → définition), hors rollback
     commands.insert_resource(surface_table(registry.as_deref()));
+    // M2-E1 : types de salles du jeu (kind `Room`), hors rollback
+    commands.insert_resource(room_kind_table(registry.as_deref()));
     let mut caves = CaveSlots::default();
     let Some(plan) = plan else {
         let (load, cave) = resolve_map_config(&config, &config.map_path, registry.as_deref());

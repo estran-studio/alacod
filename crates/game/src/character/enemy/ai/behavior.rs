@@ -61,7 +61,8 @@ pub fn enemy_target_selection(
             // T1.4 : `Targeting::Nearest { ignore }` (vide pour tout le contenu existant).
             Option<&EnemyBehaviors>,
         ),
-        With<Enemy>,
+        // M2-E1 : un ennemi d'une salle dormante saute son tour (`world::RoomDormant`).
+        (With<Enemy>, Without<world::RoomDormant>),
     >,
     player_query: Query<
         (&GgrsNetId, &fixed_math::FixedTransform3D, Has<Downed>),
@@ -235,7 +236,8 @@ pub fn enemy_attack_system(
             // T1.3 : `Stun`/`Freeze` (§19) : ni tir ni corps à corps.
             Option<&combat::status::Statuses>,
         ),
-        With<Enemy>,
+        // M2-E1 : un ennemi d'une salle dormante saute son tour (`world::RoomDormant`).
+        (With<Enemy>, Without<world::RoomDormant>),
     >,
     player_query: Query<
         (
