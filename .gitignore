@@ -12,3 +12,4 @@
 logs/
 build.zip
 __pycache__/
+rustc-ice-*.txt
