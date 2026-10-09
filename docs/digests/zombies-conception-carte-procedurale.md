@@ -182,3 +182,26 @@ garde avant_poste. Génération native sur 20 graines : 10 salles à chaque fois
 20 plans distincts hors translation, aucun chevauchement. Le pilote révèle le
 problème de sélection des spawners du mode vagues décrit ci-dessus ; la série
 de combat sur 20 graines n'est pas validée. Aucun code moteur modifié.
+
+## Direction choisie : sécuriser un petit bâtiment
+
+William corrige la direction le 2026-10-09 : les zombies doivent venir de dehors
+et l'équipe défendre l'intérieur d'un bâtiment compact. Il approuve cinq pièces
+avec fenêtres barricadées, portes et sortie tardive dans la cour.
+
+Le prototype est remplacé par quatre orientations d'un même bâtiment de cinq
+pièces. Les huit spawners sont tous à l'extérieur, dans une bande continue qui
+leur permet de rejoindre les fenêtres de l'accueil même portes fermées. Pièces
+et cour sont dans un seul niveau LDtk ; le générateur choisit un plan complet.
+Cette disposition vérifie la boucle de défense avant l'assemblage procédural des
+pièces. Le pilote atteint V5 (7236 frames, 27 kills, 15 dégâts, aucune mort ni
+failure ni desync). Résultats à jour et aperçu : `docs/captures/le-relais/README.md`.
+Le sélecteur de vagues n'a pas été modifié : la topologie extérieure résout le
+blocage du premier prototype. Les objectifs interactifs et une variété stratégique
+plus forte restent à implémenter.
+
+Campagne complète du bâtiment : 20/20 graines à quatre acheteurs atteignent V5,
+0 mort/mise à terre/desync/failure, 134 dégâts cumulés. Entrée V5 médiane f6940.
+La graine 11 atteint V5 à f18713 après une V3 de 12754 frames : ce retard de
+navigation mérite une revue humaine. Le ressenti de ce nouveau bâtiment n’est
+pas encore validé. Le manifeste conserve avant_poste et la graine fixe.

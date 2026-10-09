@@ -142,5 +142,6 @@
     — SunnyLand et Dungeon_asset — sont enregistrés ci-dessus)
   modifications: avant_poste respecte les conventions de test_map.ldtk ; relPath
     des tilesets préfixés de ../exemples/ (les cartes vivent dans maps/).
-    le_relais_prototype reprend les définitions d’avant_poste avec cinq nouveaux
-    plans de collision, placements et cache de tuiles SunnyLand provisoire.
+    le_relais_prototype reprend les définitions d’avant_poste avec quatre
+    orientations d’un bâtiment de cinq pièces, spawners extérieurs, placements
+    et cache de tuiles SunnyLand provisoire (scripts/construire-le-relais.py).

@@ -265,3 +265,28 @@ synctest et hashes comparés aux références vertes. Commande par cas :
 Formatage final et `git diff --check` : OK. Liste des 34 références contrôlée exactement
 contre l'inventaire des différences, en excluant les quatre scènes isolées après
 leur premier passage. Aucun fichier de code ni de contenu supplémentaire dans le bless.
+
+## S2/S8 — Le Relais, bâtiment à défendre (2026-10-09)
+
+Direction approuvée par William : petit bâtiment avec zombies à l’extérieur,
+fenêtres barricadées et portes intérieures. `maps/le_relais_prototype.ldtk`
+contient quatre orientations d’un bâtiment de cinq pièces, huit fenêtres,
+huit spawners extérieurs et six portes. Toutes les pièces et la cour sont
+dans un seul niveau LDtk par partie ; l’assemblage variable des pièces, les
+objectifs interactifs et le renouvellement de la graine restent à construire.
+Script reproductible : `scripts/construire-le-relais.py`.
+
+Le premier prototype était bloqué par des spawns derrière des portes fermées.
+Le nouveau laisse les zombies circuler dehors jusqu’aux fenêtres de l’accueil,
+même portes fermées. Aucun code moteur changé. Vérifications effectuées :
+lint zombies, dégagement des départs, flood-fill de corps 20 × 20 px sur grille
+8 px, génération sur 20 graines (quatre plans, cinq occurrences chacun), puis
+20 parties de quatre acheteurs jusqu’à l’entrée en V5 : **20/20**, 0 mort,
+0 mise à terre, 0 desync, 0 failure d’invariant, 134 dégâts cumulés. Médiane
+V5 f6940 ; graine 11 f18713 après une V3 de 12754 frames, à revoir humainement
+pour sa stagnation prolongée. Aucun arrêt pour soft-lock rapporté.
+
+Relevés par graine et limites : `docs/captures/le-relais/README.md`. Assets
+existants, textures provisoires ; registre des assets mis à jour. Manifeste
+conservé sur avant_poste. Pas de bless ni de nouvelle suite historique complète
+pour cette passe. Pas de push ; validation humaine du bâtiment encore attendue.
