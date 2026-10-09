@@ -208,7 +208,7 @@ Partie solo B lancée pour William via le binaire avec rendu déjà compilé,
 `ALACOD_RECORD=…/revue_s5_b_2026-10-09.ron`. Capture écrite à la fermeture, 5277 frames.
 V1 ≈ 14,4 s (861 frames), V2 ≈ 22,7 s (1359 frames), V3 commencée ; transitions du
 log, resimulations dédupliquées. Ce ne sont pas des parties à inputs identiques à la
-revue antérieure (~22 / ~30 s). Ressenti humain encore attendu.
+revue antérieure (~22 / ~30 s). William valide ensuite B le 2026-10-09 : « ça marche très bien, plus équilibré ».
 
 
 Premier passage complet : 186 scénarios joués ; code 101 (38 références de traces
@@ -250,7 +250,7 @@ avec justification « changement de gameplay voulu : S5 B » et cette preuve.
 
 ### Non fait / restant
 
-- Ressenti de William : encore attendu ; S5 n'est pas déclarée validée humainement.
+- Ressenti de William : B validée le 2026-10-09 après une nouvelle partie (« plus équilibré »).
 - S4, S6, S7, S2/S8, R10 et décisions R2/R3/R6/R8 : non traités dans cette passe S5.
 - Livraison : tests complets des dix crates et génération des trois jeux non relancés
   ici (aucune arme modifiée) ; p2p et bench strict au calme non vérifiés ici, conformément
