@@ -144,3 +144,21 @@ successivement l'inventaire. H reste maintenue pour portes, ramassage et répara
 Les entrées scriptées et replays restent inchangées, comme la simulation des armes.
 Test de lecture réelle : un appui, 120 lectures maintenues sans répétition,
 relâchement/réappui, interaction H maintenue pendant tout le test : OK.
+
+### S2/S8 — pas de porte achetable vers une absence de salle, 2026-10-09
+
+William : une porte sans salle voisine doit être condamnée visuellement et ne
+pas s'ouvrir ; critique les sorties achetables et demande si les niveaux LDtk
+sont réellement utilisés comme prévu. La sortie extérieure de l'accueil est
+retirée, son emplacement redevient un mur. Seules les arêtes entre deux salles
+produisent des portes. Contrôle sur 200 graines : chaque porte correspond au
+graphe, toutes les pièces accessibles après ouverture, pas de fuite extérieure
+par les portes, accès des zombies maintenu.
+
+Réponse sur l'architecture : 14 niveaux sources, mais fusion en un seul niveau
+final. Le moteur ne voit pas un LevelId/RoomBounds par pièce : prototype de
+composition, pas encore l'architecture complète prévue. La migration doit
+conserver les niveaux, leurs connexions et l'appartenance des sources, avec un
+extérieur qui ne recouvre pas les bounds intérieures. Pas de contrat M2 modifié
+pour cette correction. Capture du retour : revue-touche-l.ron, graine1398560232,
+3281 frames, à rejouer avec 97eaf04 (avant changement de contenu).

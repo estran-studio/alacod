@@ -152,3 +152,18 @@ hashé dans EnemySpawnerComponent, avec checksum historique conservé si absent.
 Les trois tests de génération et quatre de sélection passent, ainsi que la trace
 historique bots_four_mixed et le replay sans bless. La variété reste de 184 plans
 sur 200 graines. Les dimensions, diagrammes et exports LDtk sont mis à jour.
+
+## Limite d'architecture explicitée à William
+
+Les niveaux LDtk sont aujourd'hui des modules d'auteur ; le générateur les
+fusionne en un niveau au chargement. Cela ne conserve pas un LevelId/RoomBounds
+par pièce et ne correspond pas encore au découpage de salles prévu par le moteur.
+La migration doit garder les niveaux placés par le graphe, leurs connecteurs
+appariés et les sources associées, avec un extérieur sans bounds recouvrant les
+pièces. Les connecteurs sans voisin doivent être fermés visuellement.
+
+La porte extérieure de l'accueil est supprimée dans la passe immédiate : mur
+plein à sa place. Toute porte restante relie deux pièces du graphe. Le contrôle
+sur 200 graines vérifie aussi qu'ouvrir toutes les portes ne permet pas au joueur
+de rejoindre l'extérieur (fenêtres bloquantes), tandis que les zombies continuent
+d'atteindre l'accueil. Le runtime reste un niveau unique ; migration non réalisée.

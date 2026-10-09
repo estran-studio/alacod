@@ -2,8 +2,9 @@
 
 La version du 2026-10-09 assemble **5 à 8 pièces parmi 14 modules LDtk**.
 Les pièces choisies, portes, raccourcis, achats et fenêtres changent par graine.
-Les spawners restent dehors et sont liés aux pièces ; deux fenêtres et une sortie sont garanties
-à l'accueil. Chaque porte coûte 750 points. L'atelier est à au plus deux portes
+Les spawners restent dehors et sont liés aux pièces ; deux fenêtres sont garanties
+à l'accueil. Seules les connexions entre deux pièces ont une porte ;
+les façades sans voisin sont des murs ou des fenêtres. Chaque porte coûte 750 points. L'atelier est à au plus deux portes
 et la radio à deux à quatre portes. La radio et l'évacuation ne sont pas encore
 interactives. Les modules ont tous la même emprise (384 × 320 px), avec obstacles
 différents ; le bâtiment produit occupe une carte de 1312 × 1120 px.
@@ -36,7 +37,7 @@ de chaque spawner jusqu'à l'accueil lorsque les portes restent fermées.
 
 ## Correction après la partie de William
 
-![Rendu de l’accueil agrandi, graine 1](rendu-corrige.png)
+![Historique : accueil agrandi, graine 1, avant retrait de la porte extérieure](rendu-corrige.png)
 
 
 Retour : carte trop petite, achats dans les passages/chevauchés, apparitions
@@ -63,7 +64,7 @@ secours et comportement historique). La trace bots_four_mixed et le replay
 restent inchangés. Les mesures de combat précédentes ci-dessous concernent la
 petite version et ne constituent pas une validation humaine de celle-ci.
 
-## Mesure de la correction
+## Historique : mesure avant retrait de la sortie extérieure
 
 Quatre acheteurs, graines 1..20, jusqu'à l'entrée en V5, plafond 20000 frames :
 **20/20**, 0 mort, 0 mise à terre, 0 desync, 0 failure, aucun soft-lock rapporté.
@@ -86,7 +87,7 @@ pas deux fois le même module. Les PlayerSpawn sont conservés seulement dans
 l'accueil ; WeaponLocation et SodaLocation sont copiés de toutes les pièces.
 
 Garder dégagés les accès de façade : milieu des murs latéraux à la ligne 9,
-et milieu des murs haut/bas à la colonne 10 (portes de 48 px). Les fenêtres
+et milieu des murs haut/bas à la colonne 10 (portes de 32 px). Les fenêtres
 latérales prennent deux cases aux lignes 4 ou 14, et celles du haut/bas aux
 colonnes 4 ou 14. L'accueil réserve en plus deux fenêtres à gauche aux lignes
 3 et 15. Le générateur choisit les ouvertures et les spawners ; ne pas ajouter
@@ -270,3 +271,41 @@ corrigée ne doit pas être pris pour une preuve de replay identique. William
 juge la carte microscopique, les achats mal placés/chevauchés et les sources
 actives dans des pièces sans joueur. Ce retour invalide l'idée que la réussite
 des vingt bots suffisait à valider la conception en jeu.
+
+## Portes et niveaux LDtk : correction et limite du prototype
+
+William demande qu'une porte ouvrable relie obligatoirement deux salles.
+La porte de sortie de l'accueil est retirée : son emplacement reste un mur
+plein avec les tuiles de mur, sans prix ni interaction. Aucun asset tiers ajouté.
+Les seuls DoorVertical/DoorHorizontal produits correspondent aux arêtes du plan
+entre deux pièces voisines. Les fenêtres restent les entrées des zombies.
+Sur 200 graines : nombre et positions de portes conformes au graphe ; toutes
+les pièces accessibles après ouverture ; extérieur inaccessible aux joueurs
+par ces portes (fenêtres bloquantes) ; zombies toujours capables de rejoindre
+l'accueil depuis chaque source extérieure.
+
+**Architecture actuelle : quatorze niveaux sources LDtk, un niveau final.**
+Le générateur copie les cellules et achats des modules dans une seule carte.
+Le graphe de pièces et les zones de sources sont propres à ce prototype ; le
+moteur ne possède pas un LevelId/RoomBounds par pièce de ce bâtiment. Cela ne
+réalise pas encore l'assemblage prévu de niveaux LDtk conservés au chargement.
+
+Migration à faire : conserver un niveau par salle choisie et le positionner
+par le plan ; utiliser les connexions de niveaux et l'appariement des portes ;
+fermer les connecteurs sans voisin avec des murs/variantes condamnées ; lier les
+sources extérieures à la salle défendue ; représenter l'extérieur sans RoomBounds
+recouvrant les pièces intérieures. Vérifier ensuite le chargement, les achats,
+les associations LevelId et les parcours sur plusieurs graines. Cette correction
+ne modifie pas les contrats M2 de salles/objets et ne prétend pas avoir réalisé
+cette migration.
+
+Capture du retour sur les portes : `revue-touche-l.ron`, 3281 frames, graine
+1398560232, contenu du commit 97eaf04 avant retrait de la sortie. La relire avec
+ce commit ; les captures antérieures peuvent diverger avec le contenu modifié.
+
+Essais après retrait de la sortie : quatre acheteurs sur les graines 1 et 9,
+entrée en V5 f6660 et f6625, 0 mort/down/desync/failure. Relevés :
+[releves-portes.json](releves-portes.json). Les vingt graines complètes ci-dessus
+concernent la version précédente ; elles n'ont pas toutes été rejouées pour
+cette suppression. Les tests géométriques couvrent les 200 graines de la version
+actuelle. Compilation avec rendu, lint zombies, fmt et diff check passent.

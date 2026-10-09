@@ -378,3 +378,29 @@ graine -195224172) : docs/captures/le-relais/revue-correction.ron, enregistrée
 avec 0a9da9e avant changement de touche, entrées scriptées toujours compatibles.
 Fmt, diff check et contrôle des registrations : OK. Compilation avec rendu et
 relance effectuées ; validation humaine de L encore attendue. Aucun push/bless.
+
+## S2/S8 — portes sans salle et usage des niveaux, 2026-10-09
+
+William demande de condamner les portes sans salle voisine et de clarifier
+l'assemblage LDtk. Sortie payante de l'accueil supprimée : mur plein à sa place,
+avec les tuiles de mur existantes, sans Door/interaction/prix. Les seules portes
+produites relient deux pièces du graphe. Exports et diagramme mis à jour.
+
+Trois tests de génération passent sur 200 graines : correspondance exacte des
+portes au graphe, pièces accessibles toutes portes ouvertes, extérieur inaccessible
+par les portes, sources des zombies toujours reliées à l'accueil. Combat : quatre
+acheteurs, graines1 et9, 2/2 à l'entrée en V5 f6660/f6625, 0 mort/down/desync/failure.
+Relevés séparés dans releves-portes.json ; les vingt graines de la passe précédente
+ne sont pas une preuve sur cette version. Compilation rendu, lint zombies, fmt,
+diff check OK. Aucun bless ; suites historiques complètes et réseau non rejoués.
+
+Architecture explicitée : 14 niveaux LDtk sources, fusion en un niveau final.
+Le moteur ne voit pas LevelId/RoomBounds par pièce. Cela ne respecte pas encore
+le découpage de niveaux prévu ; migration à faire en conservant les niveaux,
+leurs connecteurs/portes appariées et associations de sources, avec l'extérieur
+séparé des bounds intérieures. Contrats M2 inchangés dans cette passe. Ne pas
+présenter la correction des portes comme cette migration.
+
+Capture du retour : revue-touche-l.ron, 3281frames / graine1398560232, à rejouer
+sur 97eaf04 avant modification du contenu. Relance corrigée préparée pour William.
+Aucun push ; validation humaine et migration multi-niveaux encore attendues.

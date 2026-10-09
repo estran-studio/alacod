@@ -360,7 +360,6 @@ pub fn build_building_ldtk(template: &LdtkJson, seed: i32) -> Result<LdtkJson, S
             if i == 0 && dx == -1 {
                 opening("WindowHorizontal", x, y + 3);
                 opening("WindowHorizontal", x, y + 15);
-                opening("DoorVertical", x, y + 9);
             } else if pick(&mut rng, 3) != 0 {
                 let offset = if pick(&mut rng, 2) == 0 { 4 } else { 14 };
                 if dx != 0 {
@@ -620,6 +619,39 @@ mod tests {
                 assert!(size.x > bevy_fixed::fixed_math::Fixed::ZERO);
                 assert!(config.defends(min + size / bevy_fixed::fixed_math::Fixed::from_num(2)));
             }
+            let plan = building_plan(&t, seed).unwrap();
+            let doors: Vec<_> = es
+                .iter()
+                .filter(|e| e["__identifier"].as_str().unwrap().starts_with("Door"))
+                .collect();
+            assert_eq!(
+                doors.len(),
+                plan.doors.len(),
+                "only room-to-room doors are permitted, seed {seed}"
+            );
+            for &(a, b) in &plan.doors {
+                let ca = plan.rooms[a].cell;
+                let cb = plan.rooms[b].cell;
+                let (kind, x, y) = if ca.0 != cb.0 {
+                    (
+                        "DoorVertical",
+                        MARGIN + ca.0.min(cb.0) * (ROOM_W - 1) + 23,
+                        MARGIN + ca.1 * (ROOM_H - 1) + 9,
+                    )
+                } else {
+                    (
+                        "DoorHorizontal",
+                        MARGIN + ca.0 * (ROOM_W - 1) + 10,
+                        MARGIN + ca.1.min(cb.1) * (ROOM_H - 1) + 19,
+                    )
+                };
+                assert!(
+                    doors
+                        .iter()
+                        .any(|e| e["__identifier"] == kind && e["__grid"] == json!([x, y])),
+                    "missing room-to-room door, seed {seed}"
+                );
+            }
             let purchases: Vec<_> = es
                 .iter()
                 .filter(|e| {
@@ -736,6 +768,16 @@ mod tests {
                 );
                 }
                 if !ground_breaker {
+                    for entity in es.iter().filter(|e| e["__identifier"] == "ZombieSpawn") {
+                        let cell = (
+                            entity["px"][0].as_i64().unwrap() as i32 / 8 + 1,
+                            entity["px"][1].as_i64().unwrap() as i32 / 8 + 1,
+                        );
+                        assert!(
+                            !seen.contains(&cell),
+                            "player can escape to exterior after opening doors, seed {seed}"
+                        );
+                    }
                     for room in building_plan(&t, seed).unwrap().rooms {
                         let c = (
                             (MARGIN + room.cell.0 * (ROOM_W - 1) + 3) * 2 + 1,
