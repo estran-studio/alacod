@@ -12,3 +12,5 @@
 logs/
 build.zip
 __pycache__/
+/website/static/builds/
+/deploy/allumette/.env

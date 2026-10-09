@@ -1,0 +1,43 @@
+# Linux VPS only: coturn advertises the public IP and binds relay UDP ports directly.
+services:
+  proxy:
+    image: caddy:2.10.2-alpine
+    restart: unless-stopped
+    ports:
+      - "80:80"
+      - "443:443"
+    environment:
+      ALLUMETTE_DOMAIN: ${ALLUMETTE_DOMAIN:-allumette.estran.studio}
+    volumes:
+      - ./Caddyfile:/etc/caddy/Caddyfile:ro
+      - caddy_data:/data
+      - caddy_config:/config
+    depends_on:
+      - allumette
+  allumette:
+    # Set this to a built and tested immutable image/tag or digest from the Allumette repo.
+    image: ${ALLUMETTE_IMAGE:?Set ALLUMETTE_IMAGE to your tested image}
+    restart: unless-stopped
+    environment:
+      HOST: 0.0.0.0:3536
+      JWT_SECRET: ${JWT_SECRET:?Set JWT_SECRET}
+      TURN_SECRET: ${TURN_SECRET:?Set TURN_SECRET}
+      TURN_URLS: turn:${TURN_DOMAIN:-turn.estran.studio}:3478?transport=udp,turn:${TURN_DOMAIN:-turn.estran.studio}:3478?transport=tcp
+      STUN_URL: stun:${TURN_DOMAIN:-turn.estran.studio}:3478
+      RUST_LOG: allumette_server=warn
+    expose:
+      - "3536"
+  turn:
+    image: coturn/coturn:4.6.3
+    restart: unless-stopped
+    network_mode: host
+    environment:
+      TURN_SECRET: ${TURN_SECRET:?Set TURN_SECRET}
+      TURN_DOMAIN: ${TURN_DOMAIN:-turn.estran.studio}
+      VPS_PUBLIC_IP: ${VPS_PUBLIC_IP:?Set VPS_PUBLIC_IP}
+    volumes:
+      - ./start-turn.sh:/usr/local/bin/start-turn.sh:ro
+    entrypoint: ["/bin/sh", "/usr/local/bin/start-turn.sh"]
+volumes:
+  caddy_data:
+  caddy_config:

@@ -25,6 +25,7 @@ use sim_core::modifier::ModifierOp;
 use sim_core::stats::StatId;
 
 use crate::expr::NumOrExpr;
+use crate::files::ContentFiles;
 use crate::lint::{LintError, LintErrorKind};
 use crate::manifest::{ContentFolderDecl, GameManifest, MANIFEST_FILE_NAME};
 use crate::value::FixedField;
@@ -875,6 +876,8 @@ pub struct FeedbackEntry {
 /// module pour les garanties (BTreeMap partout, chargement "best effort").
 #[derive(Resource, Debug, Clone, Default)]
 pub struct Registry {
+    /// Optional browser inventory; native registries retain filesystem validation.
+    pub embedded_files: Option<crate::files::EmbeddedFiles>,
     pub game_dir: PathBuf,
     pub characters: BTreeMap<CharacterId, CharacterEntry>,
     pub weapons: BTreeMap<WeaponId, WeaponEntry>,
@@ -972,9 +975,42 @@ impl Registry {
     /// (références, plages de valeurs) sont du ressort de `lint::run`, appelé séparément
     /// sur le résultat.
     pub fn build(game_dir: &Path, manifest: &GameManifest) -> (Registry, Vec<LintError>) {
-        let assets_dir = GameManifest::assets_dir(game_dir);
+        Self::build_with_files(
+            game_dir,
+            manifest,
+            ContentFiles::native(GameManifest::assets_dir(game_dir)),
+            None,
+        )
+    }
+
+    pub fn build_embedded(
+        manifest: &GameManifest,
+        files: crate::files::EmbeddedFiles,
+    ) -> (Registry, Vec<LintError>) {
+        Self::build_with_files(
+            Path::new(""),
+            manifest,
+            ContentFiles::embedded(files),
+            Some(files),
+        )
+    }
+
+    pub fn asset_exists(&self, path: impl AsRef<Path>) -> bool {
+        match self.embedded_files {
+            Some(files) => ContentFiles::embedded(files).contains(path),
+            None => ContentFiles::native(GameManifest::assets_dir(&self.game_dir)).contains(path),
+        }
+    }
+
+    fn build_with_files(
+        game_dir: &Path,
+        manifest: &GameManifest,
+        assets_dir: ContentFiles,
+        embedded_files: Option<crate::files::EmbeddedFiles>,
+    ) -> (Registry, Vec<LintError>) {
         let mut registry = Registry {
             game_dir: game_dir.to_path_buf(),
+            embedded_files,
             ..Default::default()
         };
         let mut errors = Vec::new();
@@ -1075,46 +1111,24 @@ fn apply_cave_spawn_clearance(registry: &mut Registry) {
 /// feuilles de sprite) ; le manifeste déclare alors des fichiers individuels plutôt que le
 /// dossier entier (voir `games/zombies/assets/game.ron`).
 fn discover_files(
-    assets_dir: &Path,
+    assets_dir: &ContentFiles,
     decl: &ContentFolderDecl,
     ext: &str,
 ) -> Result<Vec<PathBuf>, LintError> {
-    let abs = assets_dir.join(&decl.path);
-
-    if abs.is_file() {
-        return Ok(vec![PathBuf::from(&decl.path)]);
-    }
-
-    if abs.is_dir() {
-        let read_dir = std::fs::read_dir(&abs).map_err(|e| LintError {
+    assets_dir
+        .discover(Path::new(&decl.path), ext)
+        .map_err(|e| LintError {
             kind: LintErrorKind::Parse,
             file: decl.path.clone(),
-            message: format!("dossier illisible : {e}"),
-        })?;
-
-        let mut files: Vec<PathBuf> = read_dir
-            .filter_map(|entry| entry.ok())
-            .map(|entry| entry.path())
-            .filter(|p| p.is_file() && p.extension().and_then(|e| e.to_str()) == Some(ext))
-            .filter_map(|p| p.file_name().map(|n| Path::new(&decl.path).join(n)))
-            .collect();
-        files.sort();
-        return Ok(files);
-    }
-
-    Err(LintError {
-        kind: LintErrorKind::Parse,
-        file: decl.path.clone(),
-        message: "fichier ou dossier introuvable (content_folders)".to_string(),
-    })
+            message: format!("fichier ou dossier illisible (content_folders) : {e}"),
+        })
 }
 
-fn read_file(assets_dir: &Path, rel: &Path) -> Result<String, LintError> {
-    let abs = assets_dir.join(rel);
-    std::fs::read_to_string(&abs).map_err(|e| LintError {
+fn read_file(assets_dir: &ContentFiles, rel: &Path) -> Result<String, LintError> {
+    assets_dir.read(rel).map_err(|e| LintError {
         kind: LintErrorKind::Parse,
         file: rel.display().to_string(),
-        message: format!("lecture impossible ({}) : {e}", abs.display()),
+        message: format!("lecture impossible : {e}"),
     })
 }
 
@@ -1627,7 +1641,7 @@ impl<'de, V: Deserialize<'de>> Deserialize<'de> for KeyedEntries<V> {
 // ---------------------------------------------------------------------------------------
 
 fn load_characters(
-    assets_dir: &Path,
+    assets_dir: &ContentFiles,
     decl: &ContentFolderDecl,
     registry: &mut Registry,
     errors: &mut Vec<LintError>,
@@ -1730,7 +1744,7 @@ fn load_characters(
 }
 
 fn load_weapons(
-    assets_dir: &Path,
+    assets_dir: &ContentFiles,
     decl: &ContentFolderDecl,
     registry: &mut Registry,
     errors: &mut Vec<LintError>,
@@ -1816,7 +1830,7 @@ fn load_weapons(
 }
 
 fn load_melee_weapons(
-    assets_dir: &Path,
+    assets_dir: &ContentFiles,
     decl: &ContentFolderDecl,
     registry: &mut Registry,
     errors: &mut Vec<LintError>,
@@ -1877,7 +1891,7 @@ fn load_melee_weapons(
 }
 
 fn load_waves(
-    assets_dir: &Path,
+    assets_dir: &ContentFiles,
     decl: &ContentFolderDecl,
     registry: &mut Registry,
     errors: &mut Vec<LintError>,
@@ -1948,7 +1962,7 @@ fn load_waves(
 
 /// T1.8 : mêmes règles que [`load_waves`] (id = nom de fichier sans extension).
 fn load_clocks(
-    assets_dir: &Path,
+    assets_dir: &ContentFiles,
     decl: &ContentFolderDecl,
     registry: &mut Registry,
     errors: &mut Vec<LintError>,
@@ -2009,7 +2023,7 @@ fn load_clocks(
 }
 
 fn load_difficulty(
-    assets_dir: &Path,
+    assets_dir: &ContentFiles,
     decl: &ContentFolderDecl,
     registry: &mut Registry,
     errors: &mut Vec<LintError>,
@@ -2046,7 +2060,7 @@ fn load_difficulty(
 }
 
 fn load_patterns(
-    assets_dir: &Path,
+    assets_dir: &ContentFiles,
     decl: &ContentFolderDecl,
     registry: &mut Registry,
     errors: &mut Vec<LintError>,
@@ -2107,7 +2121,7 @@ fn load_patterns(
 }
 
 fn load_floors(
-    assets_dir: &Path,
+    assets_dir: &ContentFiles,
     decl: &ContentFolderDecl,
     registry: &mut Registry,
     errors: &mut Vec<LintError>,
@@ -2170,7 +2184,7 @@ fn load_floors(
 /// T1.6 : mêmes règles que [`load_waves`] (id = nom de fichier sans extension) ; le gabarit
 /// est cherché dans le dossier déclaré (`<path>/gabarit.ldtk`).
 fn load_caves(
-    assets_dir: &Path,
+    assets_dir: &ContentFiles,
     decl: &ContentFolderDecl,
     registry: &mut Registry,
     errors: &mut Vec<LintError>,
@@ -2234,7 +2248,7 @@ fn load_caves(
 
 /// T1.7 : mêmes règles que [`load_waves`] (id = nom de fichier sans extension).
 fn load_surfaces(
-    assets_dir: &Path,
+    assets_dir: &ContentFiles,
     decl: &ContentFolderDecl,
     registry: &mut Registry,
     errors: &mut Vec<LintError>,
@@ -2302,7 +2316,7 @@ fn load_surfaces(
 /// Fichiers RON d'un dossier de contenu, parsés en `T` (`implicit_some`), avec leur id (nom de
 /// fichier sans extension) ; erreurs de lecture et de RON poussées dans `errors`.
 fn load_ron_files<T: serde::de::DeserializeOwned>(
-    assets_dir: &Path,
+    assets_dir: &ContentFiles,
     decl: &ContentFolderDecl,
     errors: &mut Vec<LintError>,
 ) -> Vec<(String, PathBuf, T)> {
@@ -2346,7 +2360,7 @@ fn load_ron_files<T: serde::de::DeserializeOwned>(
 
 /// T1.10 : mêmes règles que [`load_waves`] (id = nom de fichier sans extension).
 fn load_progression(
-    assets_dir: &Path,
+    assets_dir: &ContentFiles,
     decl: &ContentFolderDecl,
     registry: &mut Registry,
     errors: &mut Vec<LintError>,
@@ -2384,7 +2398,7 @@ fn load_progression(
 
 /// T1.3 : mêmes règles que [`load_waves`] (id = nom de fichier sans extension).
 fn load_statuses(
-    assets_dir: &Path,
+    assets_dir: &ContentFiles,
     decl: &ContentFolderDecl,
     registry: &mut Registry,
     errors: &mut Vec<LintError>,
@@ -2419,7 +2433,7 @@ fn load_statuses(
 
 /// T1.10 : mêmes règles que [`load_waves`] (id = nom de fichier sans extension).
 fn load_mutations(
-    assets_dir: &Path,
+    assets_dir: &ContentFiles,
     decl: &ContentFolderDecl,
     registry: &mut Registry,
     errors: &mut Vec<LintError>,
@@ -2455,7 +2469,7 @@ fn load_mutations(
 /// T2.3, chantier C5 v1 : mêmes règles que [`load_waves`] (id = nom de fichier sans
 /// extension, un fichier par jeu en pratique mais pas imposé).
 fn load_economy(
-    assets_dir: &Path,
+    assets_dir: &ContentFiles,
     decl: &ContentFolderDecl,
     registry: &mut Registry,
     errors: &mut Vec<LintError>,
@@ -2525,7 +2539,7 @@ fn load_economy(
 /// T2.3, chantier C5 v1 : table de perks (même forme que [`load_weapons`], une entrée par
 /// clé du fichier).
 fn load_perks(
-    assets_dir: &Path,
+    assets_dir: &ContentFiles,
     decl: &ContentFolderDecl,
     registry: &mut Registry,
     errors: &mut Vec<LintError>,
@@ -2597,7 +2611,7 @@ fn load_perks(
 /// ou entre deux fichiers) est un `DuplicateId`, la première entrée est gardée. L'image de
 /// chaque feuille lisible est relevée pour le lint (fichier présent sous `assets/`).
 fn load_sprite_sheets(
-    assets_dir: &Path,
+    assets_dir: &ContentFiles,
     decl: &ContentFolderDecl,
     registry: &mut Registry,
     errors: &mut Vec<LintError>,
@@ -2647,7 +2661,7 @@ fn load_sprite_sheets(
                 .layers
                 .iter()
                 .filter_map(|(layer, sheet)| {
-                    let text = std::fs::read_to_string(assets_dir.join(sheet)).ok()?;
+                    let text = assets_dir.read(Path::new(sheet)).ok()?;
                     let sheet: SheetImageSchema = ron::from_str(&text).ok()?;
                     Some((layer.clone(), sheet.path))
                 })
@@ -2674,7 +2688,7 @@ fn load_sprite_sheets(
 /// `load_perks`), et `registry.powerup_drop_chance` retient le dernier fichier traité (voir
 /// sa doc).
 fn load_powerups(
-    assets_dir: &Path,
+    assets_dir: &ContentFiles,
     decl: &ContentFolderDecl,
     registry: &mut Registry,
     errors: &mut Vec<LintError>,
@@ -2741,7 +2755,7 @@ fn load_powerups(
 }
 
 fn load_maps(
-    assets_dir: &Path,
+    assets_dir: &ContentFiles,
     decl: &ContentFolderDecl,
     registry: &mut Registry,
     errors: &mut Vec<LintError>,
@@ -2792,7 +2806,7 @@ fn load_maps(
 /// `mutation_screen.ron` (T1.16, [`crate::ui::MutationScreenLayout`]).
 /// Les autres fichiers Ui gardent la validation syntaxique.
 fn load_ui(
-    assets_dir: &Path,
+    assets_dir: &ContentFiles,
     decl: &ContentFolderDecl,
     registry: &mut Registry,
     errors: &mut Vec<LintError>,
@@ -2851,7 +2865,7 @@ fn load_ui(
 /// `Camera` : seule la validité syntaxique RON est vérifiée (pas de schéma typé,
 /// ces fichiers ne sont référencés par id par aucun autre contenu aujourd'hui).
 fn load_generic_ron(
-    assets_dir: &Path,
+    assets_dir: &ContentFiles,
     decl: &ContentFolderDecl,
     into: &mut Vec<PathBuf>,
     errors: &mut Vec<LintError>,

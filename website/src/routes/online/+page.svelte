@@ -1,68 +1,34 @@
 <script lang="ts">
-	import { AllumetteLobbies, friendsList } from '@bascanada/allumette-web';
-	import { goto } from '$app/navigation';
-	import { get } from 'svelte/store';
-	import applications from '$lib/game/applications.json';
-
-	const onlineGames = applications.filter((app) => app.online);
-
-	interface LobbyPlayer {
-		publicKey: string;
-		is_you: boolean;
-	}
-
-	interface JoinLobbyEvent {
-		lobbyId: string;
-		token: string;
-		players: LobbyPlayer[];
-		isPrivate: boolean;
-		gameId: string;
-	}
-
-	function handleJoinLobby({ lobbyId, token, players, isPrivate, gameId }: JoinLobbyEvent) {
-		console.log('Starting game with:', { lobbyId, token, players, isPrivate, gameId });
-
-		// Validate that gameId is provided
-		if (!gameId) {
-			console.error('No gameId provided by AllumetteLobbies component');
-			alert('Error: No game selected. Please select a game before joining a lobby.');
-			return;
+	import { onMount } from 'svelte';
+	import { games, getReleases, type Releases } from '$lib/game/catalog';
+	let releases: Releases = $state({ schemaVersion: 1, games: {} });
+	let error = $state('');
+	onMount(async () => {
+		try {
+			releases = await getReleases();
+		} catch (e) {
+			error = e instanceof Error ? e.message : 'Catalogue indisponible.';
 		}
-
-		// Verify gameId exists in available games
-		const gameExists = onlineGames.some((game) => game.id === gameId);
-		if (!gameExists) {
-			console.error(`Invalid gameId: ${gameId}`);
-			alert(`Error: Game '${gameId}' not found.`);
-			return;
-		}
-
-		// Build player data with pubkeys and resolved names from friend list
-		const friends = get(friendsList) || [];
-		const playerData = players.map((p) => {
-			// Try to find name in friend list
-			const friend = friends.find((f) => f.publicKey === p.publicKey);
-			const name = p.is_you ? 'You' : (friend?.name || `Player-${p.publicKey.substring(0, 8)}`);
-			return {
-				pubkey: p.publicKey,
-				name: name,
-				is_local: p.is_you
-			};
-		});
-
-		const params = new URLSearchParams();
-		params.set('online', 'true');
-		params.set('id', gameId);
-		params.set('lobby', token);
-		params.set('size', players.length.toString());
-		params.set('players', encodeURIComponent(JSON.stringify(playerData)));
-
-		goto(`/play?${params.toString()}`);
-	}
+	});
 </script>
 
-<div class="h-full w-full overflow-hidden relative">
-	<div class="h-full w-full overflow-y-auto p-4">
-		<AllumetteLobbies onJoinLobby={handleJoinLobby} availableGames={onlineGames} />
+<svelte:head><title>Jouer avec des amis — Alacod</title></svelte:head>
+<section class="section-wrap page-intro">
+	<span class="eyebrow">MULTIJOUEUR / ALLUMETTE</span>
+	<h1>La prochaine partie,<br /><span>ensemble.</span></h1>
+	<p>Allumette réunit les joueurs dans un salon et permet les connexions P2P, avec un relais lorsque la liaison directe ne passe pas.</p>
+</section>
+<section class="section-wrap">
+	<div class="play-panel">
+		<h2>Les salons web se préparent</h2>
+		<p style="margin:20px 0">
+			Nous vérifions les invitations, les versions compatibles et les connexions entre réseaux différents avant d’ouvrir les parties en
+			ligne.
+		</p>
+		{#if error}<p role="alert">{error}</p>{/if}{#each games as game}<p>
+				{game.name} · {releases.games[game.id]?.online
+					? 'Version réseau en validation — salons bientôt disponibles'
+					: 'Multijoueur web en préparation'}
+			</p>{/each}<a class="button primary" href="/games" style="margin-top:24px">Découvrir les versions solo ↗</a>
 	</div>
-</div>
+</section>

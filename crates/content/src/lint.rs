@@ -337,7 +337,6 @@ fn lint_characters(registry: &Registry, errors: &mut Vec<LintError>) {
 }
 
 fn lint_weapons(registry: &Registry, errors: &mut Vec<LintError>) {
-    let assets_dir = GameManifest::assets_dir(&registry.game_dir);
     for weapon in registry.weapons.values() {
         // T2.8 : `Custom` est la porte d'un type de munition propre au jeu ; un nom vide (ou
         // fait d'espaces) ne désigne rien et partagerait la réserve de toute autre arme
@@ -357,7 +356,7 @@ fn lint_weapons(registry: &Registry, errors: &mut Vec<LintError>) {
         // T2.8 : un son d'arme doit exister sous `assets/` (référence vers un fichier, pas
         // vers un id de contenu).
         for sound in &weapon.sounds {
-            if !assets_dir.join(&sound.path).is_file() {
+            if !registry.asset_exists(&sound.path) {
                 errors.push(LintError {
                     kind: LintErrorKind::BrokenReference,
                     file: weapon.file.display().to_string(),
@@ -717,11 +716,10 @@ fn lint_expire_pattern(
 /// D3 : chaque fichier d'une entrée `SpriteSheet` (animation, feuille de chaque calque,
 /// image de chaque feuille) doit exister sous `assets/`.
 fn lint_sprite_sheets(registry: &Registry, errors: &mut Vec<LintError>) {
-    let assets_dir = GameManifest::assets_dir(&registry.game_dir);
     for sheet in registry.sprite_sheets.values() {
         let file = sheet.file.display().to_string();
         let mut check = |field: String, path: &str| {
-            if !assets_dir.join(path).is_file() {
+            if !registry.asset_exists(path) {
                 errors.push(LintError {
                     kind: LintErrorKind::BrokenReference,
                     file: file.clone(),
@@ -1156,12 +1154,11 @@ fn lint_powerups(registry: &Registry, errors: &mut Vec<LintError>) {
 /// `by_kind`/`by_weapon`) et armes de `by_weapon` connues du jeu (à distance ou de corps à
 /// corps).
 fn lint_feedback(registry: &Registry, errors: &mut Vec<LintError>) {
-    let assets_dir = GameManifest::assets_dir(&registry.game_dir);
     for feedback in &registry.feedback {
         let file = feedback.file.display().to_string();
         let settings = &feedback.settings;
         for (key, path) in &settings.sounds {
-            if !assets_dir.join(path).is_file() {
+            if !registry.asset_exists(path) {
                 errors.push(LintError {
                     kind: LintErrorKind::BrokenReference,
                     file: file.clone(),
@@ -1219,10 +1216,9 @@ fn lint_hud_sources(registry: &Registry, errors: &mut Vec<LintError>) {
 /// sous `assets/`, exactement trois emplacements de carte (un par bit `ChoiceA/B/C`) et des
 /// tailles positives.
 fn lint_mutation_screens(registry: &Registry, errors: &mut Vec<LintError>) {
-    let assets_dir = GameManifest::assets_dir(&registry.game_dir);
     for (rel, layout) in &registry.mutation_screens {
         let file = rel.display().to_string();
-        if !assets_dir.join(&layout.font).is_file() {
+        if !registry.asset_exists(&layout.font) {
             errors.push(LintError {
                 kind: LintErrorKind::BrokenReference,
                 file: file.clone(),
@@ -1840,10 +1836,7 @@ fn lint_caves(registry: &Registry, errors: &mut Vec<LintError>) {
                 });
             }
         }
-        if !GameManifest::assets_dir(&registry.game_dir)
-            .join(&cave.template)
-            .is_file()
-        {
+        if !registry.asset_exists(&cave.template) {
             errors.push(LintError {
                 kind: LintErrorKind::BrokenReference,
                 file: file.clone(),
