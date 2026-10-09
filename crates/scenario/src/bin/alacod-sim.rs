@@ -398,7 +398,7 @@ fn main() {
                         stat.deaths += gone.len() as u32;
                         if stat.spawning.is_none() && wave.phase == game::waves::WavePhase::Spawning
                         {
-                            stat.spawning = Some(wave.wave_start_frame);
+                            stat.spawning = Some(frame.frame);
                         }
                         if stat.cleared.is_none()
                             && wave.phase == game::waves::WavePhase::WaveComplete
