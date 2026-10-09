@@ -622,6 +622,10 @@ pub struct FloorsEntry {
     pub file: PathBuf,
     /// Cartes LDtk des niveaux, dans l'ordre de jeu.
     pub levels: Vec<String>,
+    /// M2-T0d : le dernier niveau vidé de ses ennemis termine la partie par une **victoire**
+    /// (au lieu d'ouvrir un portail qui boucle) : `gungeon`, étage dont le boss est le dernier
+    /// ennemi. Faux par défaut (throne, testbed : boucle infinie au dernier niveau).
+    pub victory_at_end: bool,
 }
 
 /// Caverne générée (T1.6, `docs/conventions.md` §21), un fichier RON par caverne
@@ -769,6 +773,9 @@ fn one() -> u32 {
 #[derive(Debug, Clone, Deserialize)]
 struct FloorsFileSchema {
     levels: Vec<String>,
+    /// M2-T0d : voir [`FloorsEntry::victory_at_end`].
+    #[serde(default)]
+    victory_at_end: bool,
 }
 
 #[derive(Debug, Clone)]
@@ -2276,6 +2283,7 @@ fn load_floors(
                 id,
                 file: rel,
                 levels: parsed.levels,
+                victory_at_end: parsed.victory_at_end,
             },
         );
     }

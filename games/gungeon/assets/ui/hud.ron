@@ -1,0 +1,146 @@
+(
+    // T2.12 : police de tous les textes du HUD (la police par défaut n'a pas d'accents).
+    font: Some("fonts/FiraMono-Medium.ttf"),
+    widgets: [
+        // Health bar - bottom left, 200x12 pixels
+        (
+            kind: Bar(source: "health"),
+            anchor: BottomLeft,
+            offset: (16.0, 16.0),
+            size: Some((200.0, 12.0)),
+            color: Some("#c0392b"),
+            font_size: None,
+        ),
+        // Étage - en haut au centre
+        (
+            // T1.18 : throne joue en étages (mode `Floors`), pas en vagues.
+            kind: Text(source: "floor", prefix: None),
+            anchor: TopCenter,
+            offset: (0.0, 12.0),
+            size: None,
+            color: Some("#ffffff"),
+            font_size: Some(20.0),
+        ),
+        // Ammo count - bottom right
+        (
+            kind: Text(source: "ammo", prefix: None),
+            anchor: BottomRight,
+            offset: (16.0, 16.0),
+            size: None,
+            color: Some("#ffffff"),
+            font_size: Some(18.0),
+        ),
+        // Weapon name - bottom right, below ammo
+        (
+            kind: Text(source: "weapon", prefix: None),
+            anchor: BottomRight,
+            offset: (16.0, 40.0),
+            size: None,
+            color: Some("#ffaa00"),
+            font_size: Some(14.0),
+        ),
+        // Enemy count - top right
+        (
+            kind: Text(source: "enemies", prefix: Some("Ennemis ")),
+            anchor: TopRight,
+            offset: (16.0, 12.0),
+            size: None,
+            color: Some("#ffffff"),
+            font_size: Some(14.0),
+        ),
+        // Player count - top left
+        (
+            kind: Text(source: "players", prefix: Some("Joueurs ")),
+            anchor: TopLeft,
+            offset: (16.0, 12.0),
+            size: None,
+            color: Some("#ffffff"),
+            font_size: Some(14.0),
+        ),
+        // Health text - bottom left, above the bar
+        (
+            kind: Text(source: "health", prefix: None),
+            anchor: BottomLeft,
+            offset: (16.0, 30.0),
+            size: None,
+            color: Some("#ffffff"),
+            font_size: Some(12.0),
+        ),
+        // T1.18 (§32) : barre de rads sous la barre de vie (fraction vers le prochain niveau).
+        (
+            kind: Bar(source: "rads"),
+            anchor: BottomLeft,
+            offset: (16.0, 6.0),
+            size: Some((200.0, 6.0)),
+            color: Some("#9be22d"),
+            font_size: None,
+        ),
+        // T1.18 : « 5 / 8 rads » à droite de la barre de rads.
+        (
+            kind: Text(source: "rads", prefix: None),
+            anchor: BottomLeft,
+            offset: (224.0, 2.0),
+            size: Some((140.0, 16.0)),
+            color: Some("#9be22d"),
+            font_size: Some(12.0),
+        ),
+        // T1.18 : « Niv. 2 », à droite du texte de vie.
+        (
+            kind: Text(source: "level", prefix: None),
+            anchor: BottomLeft,
+            offset: (96.0, 28.0),
+            size: Some((100.0, 18.0)),
+            color: Some("#9be22d"),
+            font_size: Some(14.0),
+        ),
+        // T1.18 : statuts posés (« brulure ×2 · 3 s »), une ligne chacun, au-dessus de la vie.
+        (
+            kind: Text(source: "statuses", prefix: None),
+            anchor: BottomLeft,
+            offset: (16.0, 80.0),
+            size: Some((200.0, 60.0)),
+            color: Some("#e67e22"),
+            font_size: Some(13.0),
+            background: Some("#000000a0"),
+        ),
+        // T1.18 : réserve de chaque munition (« balles 120 »), sous le nom de l'arme.
+        (
+            kind: Text(source: "ammo_by_type", prefix: None),
+            anchor: BottomRight,
+            offset: (16.0, 62.0),
+            size: Some((160.0, 90.0)),
+            color: Some("#dddddd"),
+            font_size: Some(13.0),
+        ),
+        // T2.12 : « À TERRE 12 s » / « Réanimation 40 % », au centre de l'écran.
+        (
+            kind: Text(source: "downed", prefix: None),
+            anchor: Center,
+            offset: (0.0, -150.0),
+            size: Some((360.0, 70.0)),
+            color: Some("#e74c3c"),
+            font_size: Some(28.0),
+            background: Some("#000000a0"),
+        ),
+        // T2.12 : power-ups actifs, une ligne par power-up.
+        (
+            kind: Text(source: "powerups", prefix: None),
+            anchor: TopRight,
+            offset: (16.0, 34.0),
+            size: Some((220.0, 80.0)),
+            color: Some("#2ecc71"),
+            font_size: Some(16.0),
+            background: Some("#000000a0"),
+        ),
+        // T2.12 : prompt d'interaction (remplace l'ancien texte d'`interaction.rs`).
+        (
+            kind: Text(source: "prompt", prefix: Some("[H] ")),
+            anchor: BottomCenter,
+            offset: (0.0, 110.0),
+            size: Some((480.0, 24.0)),
+            color: Some("#f1c40f"),
+            font_size: Some(18.0),
+            background: Some("#000000a0"),
+        ),
+    ],
+)
