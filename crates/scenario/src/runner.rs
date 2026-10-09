@@ -147,6 +147,18 @@ pub struct PlayConfig {
     pub follow_handle: Option<usize>,
 }
 
+/// Dossier temporaire des profils d'un scénario `profile: true` (vidé à la création).
+fn scenario_profile_dir() -> PathBuf {
+    static COUNTER: std::sync::atomic::AtomicUsize = std::sync::atomic::AtomicUsize::new(0);
+    let dir = std::env::temp_dir().join(format!(
+        "alacod-scenario-profiles-{}-{}",
+        std::process::id(),
+        COUNTER.fetch_add(1, std::sync::atomic::Ordering::Relaxed)
+    ));
+    let _ = std::fs::remove_dir_all(&dir);
+    dir
+}
+
 /// App de la partie décrite par le scénario (même partie que `zombies`).
 /// Avec `headless: false`, la partie est affichée (voir le binaire `play_scenario`).
 pub fn build_app(scenario: &Scenario, headless: bool, config: &PlayConfig) -> App {
@@ -181,6 +193,11 @@ pub fn build_app(scenario: &Scenario, headless: bool, config: &PlayConfig) -> Ap
         // `GameManifest` (`entry.mode`) au démarrage de session — présente ici comme dans
         // `games/<jeu>/src/main.rs` (voir `game::run_state::resolve_run_mode`).
         .insert_resource(manifest)
+        // M2-T0c : un scénario n'écrit aucun profil, sauf `profile: true` (dossier temporaire
+        // propre à ce scénario, jamais le profil de l'utilisateur).
+        .insert_resource(game::profile::ProfileSettings {
+            dir: scenario.profile.then(scenario_profile_dir),
+        })
         .add_plugins(core_plugin)
         .add_plugins(LdtkRoguePlugin)
         .add_plugins(LdtkLocalGamePlugin(LdtkGameMap {
@@ -2011,6 +2028,51 @@ fn check(world: &mut World, expectation: &Expectation) -> Result<(), String> {
             }
             Ok(())
         }
+        // M2-T0c : phase d'un boss (`behaviors::BossState`).
+        Expectation::BossPhase { entity, phase, .. } => {
+            let target = resolve_entity(world, entity).ok_or("entité absente")?;
+            let actual = world
+                .get::<behaviors::BossState>(target)
+                .ok_or("entité sans BossState (pas un boss)")?
+                .phase;
+            if actual == *phase {
+                Ok(())
+            } else {
+                Err(format!("phase {actual} (attendu {phase})"))
+            }
+        }
+        // M2-T0c : profil de méta-progression (hors simulation).
+        Expectation::ProfileHas {
+            handle,
+            unlock,
+            currency,
+            ..
+        } => {
+            let id = meta::local_id(*handle);
+            let Some(profile) = world
+                .get_resource::<meta::Profiles>()
+                .and_then(|profiles| profiles.0.get(&id))
+            else {
+                return Err(format!(
+                    "pas de profil « {id} » (scénario sans `profile: true` ?)"
+                ));
+            };
+            if let Some(unlock) = unlock {
+                if !profile.has_unlock(unlock) {
+                    return Err(format!("profil « {id} » sans déblocage « {unlock} »"));
+                }
+            }
+            if let Some((currency, min)) = currency {
+                let actual = profile.currency(currency);
+                if actual < *min {
+                    return Err(format!("profil « {id} » : {currency} = {actual} < {min}"));
+                }
+            }
+            if unlock.is_none() && currency.is_none() {
+                return Err("ProfileHas sans unlock ni currency".into());
+            }
+            Ok(())
+        }
         // T1.18 : texte d'une source du HUD (présentation, hors trace).
         Expectation::HudText {
             source, contains, ..
@@ -2481,12 +2543,21 @@ fn enemy_rule(
         &EnemyTarget,
         Option<&RangedAttackState>,
         Has<combat::emitter::Emitter>,
+        Option<&behaviors::BossState>,
     )>();
-    let (rules, runtime, state, target, ranged, emitting) = query
-        .get(world, target_entity)
-        .map_err(|_| "entité sans règles de comportement (pas un ennemi)".to_string())?;
+    let (rules, runtime, state, target, ranged, emitting, boss) =
+        query
+            .get(world, target_entity)
+            .map_err(|_| "entité sans règles de comportement (pas un ennemi)".to_string())?;
     let shooting = emitting || ranged.is_some_and(|ranged| ranged.target.is_some());
-    Ok(current_rule(rules, runtime, state, target, shooting))
+    Ok(current_rule(
+        rules,
+        runtime,
+        state,
+        target,
+        shooting,
+        boss.map_or(0, |b| b.phase),
+    ))
 }
 
 /// `EnemyVariant` (T1.5) : variante du personnage (`None` sans composant `Variant`).

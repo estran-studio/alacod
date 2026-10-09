@@ -12,7 +12,7 @@
 //! (checksum neutre), mis à jour par [`behavior_select_system`] ; leur déplacement est
 //! appliqué par `move_enemies` via [`behavior_motion`].
 
-use behaviors::{select, Behavior, SelectionContext};
+use behaviors::{select, Behavior, BossState, SelectionContext};
 use bevy::prelude::*;
 use bevy_fixed::{fixed_math, rng::RngStreams};
 use combat::{actors::Health, downed::Downed, emitter::Emitter};
@@ -50,14 +50,19 @@ pub fn melee_hold_system(
             &EnemyBehaviors,
             &BehaviorRuntime,
             Has<combat::weapons::melee::MeleeHold>,
+            Option<&BossState>,
         ),
         With<Enemy>,
     >,
 ) {
-    for (_, entity, rules, runtime, held) in order_iter!(enemies) {
+    for (_, entity, rules, runtime, held, boss) in order_iter!(enemies) {
         let fleeing = runtime
             .selected
-            .and_then(|index| rules.rules.get(index as usize))
+            .and_then(|index| {
+                rules
+                    .active(boss.map_or(0, |b| b.phase))
+                    .get(index as usize)
+            })
             .is_some_and(|rule| matches!(rule, Behavior::Flee));
         if fleeing && !held {
             commands
@@ -92,11 +97,12 @@ pub fn current_rule(
     state: &MonsterState,
     target: &EnemyTarget,
     shooting: bool,
+    phase: u32,
 ) -> Option<&'static str> {
     if let Some(runtime) = runtime {
         return runtime
             .selected
-            .and_then(|index| rules.rules.get(index as usize))
+            .and_then(|index| rules.active(phase).get(index as usize))
             .map(Behavior::name);
     }
     if shooting && rules.has("Shoot") {
@@ -131,6 +137,8 @@ pub fn behavior_select_system(
             Has<Emitter>,
             // T1.3 : `Stun`/`Freeze` (§19) : aucune règle retenue.
             Option<&combat::status::Statuses>,
+            // M2-T0c : phase courante d'un boss (règles de la phase).
+            Option<&BossState>,
         ),
         // M2-E1 : un ennemi d'une salle dormante saute son tour (`world::RoomDormant`).
         (With<Enemy>, Without<world::RoomDormant>),
@@ -159,8 +167,10 @@ pub fn behavior_select_system(
         ranged_state,
         has_emitter,
         statuses,
+        boss,
     ) in order_mut_iter!(enemy_query)
     {
+        let phase_rules = rules.active(boss.map_or(0, |b| b.phase));
         let position = transform.translation.truncate();
 
         // Ouïe : un tir de joueur né cette frame à portée rend le tireur connu.
@@ -227,7 +237,7 @@ pub fn behavior_select_system(
         let selected = if combat::status::incapacitated(statuses) {
             None
         } else {
-            select(&rules.rules, &ctx).map(|index| index as u32)
+            select(phase_rules, &ctx).map(|index| index as u32)
         };
         if selected != runtime.selected {
             runtime.since_frame = now;
@@ -236,13 +246,13 @@ pub fn behavior_select_system(
                 now,
                 net_id,
                 selected
-                    .and_then(|index| rules.rules.get(index as usize))
+                    .and_then(|index| phase_rules.get(index as usize))
                     .map(Behavior::name)
                     .unwrap_or("none")
             );
         }
         runtime.selected = selected;
-        let rule = selected.and_then(|index| rules.rules.get(index as usize));
+        let rule = selected.and_then(|index| phase_rules.get(index as usize));
 
         // Charge : télégraphe, ruée, contact, refroidissement.
         match (rule, runtime.charge.clone()) {
@@ -319,7 +329,7 @@ pub struct BehaviorMotion {
 /// Déplacement du behavior retenu (appelé par `move_enemies` pour les ennemis à
 /// [`BehaviorRuntime`]). `target` : position de la cible connue.
 pub fn behavior_motion(
-    rules: &EnemyBehaviors,
+    rules: &[Behavior],
     runtime: &BehaviorRuntime,
     now: u32,
     position: fixed_math::FixedVec2,
@@ -330,7 +340,7 @@ pub fn behavior_motion(
 ) -> Option<BehaviorMotion> {
     let rule = runtime
         .selected
-        .and_then(|index| rules.rules.get(index as usize))?;
+        .and_then(|index| rules.get(index as usize))?;
     let still = || BehaviorMotion {
         direction: fixed_math::FixedVec2::ZERO,
         speed_mult: fixed_math::FIXED_ZERO,
@@ -443,12 +453,12 @@ mod tests {
         ]);
         let mut target = EnemyTarget::default();
         assert_eq!(
-            current_rule(&zombie, None, &MonsterState::Idle, &target, false),
+            current_rule(&zombie, None, &MonsterState::Idle, &target, false, 0),
             None
         );
         target.target = Some(GgrsNetId(1, String::new()));
         assert_eq!(
-            current_rule(&zombie, None, &MonsterState::Chasing, &target, false),
+            current_rule(&zombie, None, &MonsterState::Chasing, &target, false, 0),
             Some("Chase")
         );
         let attacking = MonsterState::Attacking {
@@ -458,7 +468,7 @@ mod tests {
             last_attack_frame: 3,
         };
         assert_eq!(
-            current_rule(&zombie, None, &attacking, &target, false),
+            current_rule(&zombie, None, &attacking, &target, false, 0),
             Some("Melee")
         );
     }
@@ -478,7 +488,7 @@ mod tests {
             fixed_math::FIXED_ZERO,
         ));
         let first = behavior_motion(
-            &drifter,
+            &drifter.rules,
             &runtime,
             110,
             at,
@@ -488,7 +498,7 @@ mod tests {
         )
         .unwrap();
         let second = behavior_motion(
-            &drifter,
+            &drifter.rules,
             &runtime,
             150,
             at,
@@ -518,7 +528,7 @@ mod tests {
             ..Default::default()
         };
         let telegraph = behavior_motion(
-            &charger,
+            &charger.rules,
             &runtime,
             10,
             at,
@@ -533,7 +543,7 @@ mod tests {
             target: frozen,
         };
         let rush = behavior_motion(
-            &charger,
+            &charger.rules,
             &runtime,
             40,
             at,

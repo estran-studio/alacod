@@ -219,6 +219,8 @@ pub struct CharacterEntry {
     pub effects: Vec<effects::Effect>,
     /// T1.4 : règles de comportement (`ai.behaviors`, `None` : liste par défaut).
     pub behaviors: Option<Vec<BehaviorEntry>>,
+    /// M2-T0c : boss à phases (`boss`).
+    pub boss: Option<BossEntry>,
     /// T1.4 : tags ignorés par le ciblage (`ai.targeting: Some(Nearest(ignore: [...]))`).
     pub ignore_tags: Vec<String>,
     /// Tags du personnage (`tags`), source des tags connus du jeu (règle `ignore`).
@@ -306,6 +308,45 @@ pub enum BehaviorEntry {
     Melee(String),
     Flee,
     Wander,
+}
+
+/// M2-T0c : mirroirs de `behaviors::boss` (`docs/conventions.md` §37) ; les `Fixed` passent par
+/// [`FixedField`], les actions sont le type réel `effects::Action`.
+#[derive(Debug, Clone, Deserialize)]
+pub enum PhaseEndEntry {
+    HealthBelow(FixedField),
+    AfterFrames(u32),
+}
+
+#[derive(Debug, Clone, Deserialize)]
+pub struct TimelineEventEntry {
+    pub at: u32,
+    #[serde(rename = "do")]
+    pub r#do: Vec<effects::Action>,
+}
+
+#[derive(Debug, Clone, Default, Deserialize)]
+pub struct TimelineEntry {
+    pub events: Vec<TimelineEventEntry>,
+    #[serde(default)]
+    pub repeat: Option<u32>,
+}
+
+#[derive(Debug, Clone, Default, Deserialize)]
+pub struct PhaseEntry {
+    #[serde(default)]
+    pub until: Option<PhaseEndEntry>,
+    #[serde(default)]
+    pub behaviors: Vec<BehaviorEntry>,
+    #[serde(default)]
+    pub on_enter: Vec<effects::Action>,
+    #[serde(default)]
+    pub timeline: Option<TimelineEntry>,
+}
+
+#[derive(Debug, Clone, Default, Deserialize)]
+pub struct BossEntry {
+    pub phases: Vec<PhaseEntry>,
 }
 
 /// T1.4 : mirroir de `behaviors::Targeting`.
@@ -1226,6 +1267,9 @@ struct CharacterFileSchema {
     /// T1.10 : effets v1.
     #[serde(default)]
     effects: Vec<effects::Effect>,
+    /// M2-T0c : boss à phases.
+    #[serde(default)]
+    boss: Option<BossEntry>,
     #[serde(default)]
     tags: Vec<String>,
     /// T1.5 : variantes et élites.
@@ -1763,6 +1807,7 @@ fn load_characters(
                 downed_speed_mult: parsed.downed_speed_mult,
                 weapon_slots: parsed.weapon_slots,
                 effects: parsed.effects,
+                boss: parsed.boss,
                 ignore_tags: parsed
                     .ai
                     .as_ref()
@@ -2301,10 +2346,9 @@ fn load_caves(
     }
 }
 
-/// T1.7 : mêmes règles que [`load_waves`] (id = nom de fichier sans extension).
 /// M2-T0b : `items/<id>.ron` (kind `Item`), un objet par fichier ; id = nom de fichier.
 fn load_items(
-    assets_dir: &Path,
+    assets_dir: &ContentFiles,
     decl: &ContentFolderDecl,
     registry: &mut Registry,
     errors: &mut Vec<LintError>,
@@ -2329,7 +2373,7 @@ fn load_items(
 
 /// M2-E1 : `rooms/<id>.ron` (kind `Room`), un type de salle par fichier ; id = nom de fichier.
 fn load_rooms(
-    assets_dir: &Path,
+    assets_dir: &ContentFiles,
     decl: &ContentFolderDecl,
     registry: &mut Registry,
     errors: &mut Vec<LintError>,
@@ -2352,6 +2396,7 @@ fn load_rooms(
     }
 }
 
+/// T1.7 : mêmes règles que [`load_waves`] (id = nom de fichier sans extension).
 fn load_surfaces(
     assets_dir: &ContentFiles,
     decl: &ContentFolderDecl,

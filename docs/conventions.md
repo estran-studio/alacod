@@ -44,6 +44,8 @@ Référence pour ceux qui créent du contenu (cartes LDtk, sprites RON) et ceux 
 - §34. Course et esquive (dash)
 - §35. Salles typées et verrouillées (M2-E1, chantier E1)
 - §36. Objets et inventaire (M2-T0b, chantier C2)
+- §37. Boss à phases (M2-T0c, chantier D4)
+- §38. Profil de méta-progression (M2-T0c, chantier G1)
 - Notes essentielles
 
 ## 1. Cartes LDtk
@@ -2386,6 +2388,95 @@ position et une frame exactes (comme `powerups`). Attentes : `HasItem(handle, id
 `ItemCharge(handle, charge)` (échoue sans actif), `Consumable(handle, id, count)`. Moment clé
 `item_pickup`. Scénarios : `item_passive`, `item_active_rooms` (carte de M2-E1), `item_consumable_race`,
 `item_passive_race`. Objets du testbed : `bottes`, `fiole` (`Active(Rooms(1))`), `key`.
+---
+
+## 37. Boss à phases (M2-T0c, chantier D4)
+
+Contrats : `behaviors::boss` (`BossDef`, `Phase`, `PhaseEnd`, `Timeline`, `BossState`,
+`BossPhaseChanged`, fonctions pures `BossDef::next_phase` et `Timeline::due`) ; exécution :
+`game::boss` ; contenu : champ `boss` d'un personnage RON ; lint : `content::lint::lint_boss`.
+
+```ron
+boss: Some((phases: [
+    (until: Some(HealthBelow("0.5")),            // HealthBelow(ratio ]0, 1]) | AfterFrames(n > 0)
+     behaviors: [Chase(profile: "Ground")],       // remplace les règles de l'ennemi (vide : inchangées)
+     on_enter: [Heal("5.0")],                     // effects::Action, à l'entrée (y compris la phase 0)
+     timeline: Some((events: [(at: 10, do: [SpawnPattern(pattern: "volee", weapon: "fireball_gun")])],
+                     repeat: Some(150)))),        // frise rejouée toutes les 150 frames ; None : une fois
+    (timeline: Some((events: [(at: 0, do: [SpawnPattern(pattern: "couronne", weapon: "fireball_gun")])],
+                     repeat: Some(90)))),         // dernière phase : pas de `until`
+]))
+```
+Les options d'un personnage s'écrivent `Some(...)` (pas d'`implicit_some`).
+
+**Transitions.** `boss_phase_system` (`RollbackSystemSet::EnemySpawning`, après les dégâts de la
+frame, avant l'IA) date l'entrée dans la phase 0 au premier tick, puis ne fait **qu'une transition
+par frame**, dans l'ordre du RON : `HealthBelow` quand santé/santé max est **strictement** sous le
+ratio, `AfterFrames` quand `frame - entrée >= n`. À l'entrée : `on_enter` puis, à chaque frame,
+les événements dus de la frise. La frise n'a pas de curseur : `due(frame - entrée)` (modulo
+`repeat`) se déduit de l'état, donc identique après un rollback. Trace
+`ggrs{f=… boss_phase net_id=… from=… to=…}` ; `FrameEvents<BossPhaseChanged>` (neutre).
+
+**Règles par phase.** `EnemyBehaviors::phase_rules` (statique) garde la liste de chaque phase ; l'IA
+lit `EnemyBehaviors::active(BossState::phase)` (sélection, déplacement imposé, attaque,
+`melee_hold`, attente `EnemyState`). **Limite** : la table de tir d'une règle `Shoot` (`ai.ranged`)
+est fixée à la config de l'ennemi, pas à la phase ; en phase, un tir passe par la frise
+(`SpawnPattern`).
+
+**Actions.** Même exécuteur que les effets de personnage (`effects_runtime::apply_action`) avec un
+`EffectState` jetable : `GaugeAdd` n'a pas d'effet durable sur un boss ; `SpawnPattern` est ignoré
+(avertissement) tant qu'un émetteur joue déjà. Le lint refuse en plus `RefillAmmo*`,
+`RepairAllWindows`, `KillAllWaveEnemies`, `DestroyTerrain`, `ApplyStatus`, `CurrencyMultiplier`.
+
+**État.** `BossState { phase, entered, started }` : composant rollback, checksum et trace en
+variante **neutre** (seuls les boss en portent). `BossPlan` (la définition) est statique.
+
+**Lint.** Au moins une phase ; seule la dernière peut ne pas avoir de `until` ; `HealthBelow` dans
+`]0, 1]`, `AfterFrames` > 0 ; phase non vide ; frise : `repeat` > 0, `at` < `repeat`, événements non
+vides ; règles et `SpawnPattern` (pattern et arme connus) comme dans un personnage. Fixtures
+`boss_health_out_of_range`, `boss_phase_empty`, `boss_missing_until`, `boss_unknown_pattern`,
+`boss_timeline_after_repeat`.
+
+**Scénarios.** Attente `BossPhase(entity: Placed(0), phase: 1, at_frame: 100)` (échoue sans
+`BossState` ou si l'entité est morte) ; moment clé `boss_phase` (« boss 36 : phase 0 → 1 »).
+Personnage `testbed/assets/characters/gardien.ron` (120 PV, immobile : volée `volee` puis couronne
+sous 50 %), scénario `boss_two_phases` (phase 1 à f90, mort à f133).
+
+---
+
+## 38. Profil de méta-progression (M2-T0c, chantier G1)
+
+Crate `meta` (hors simulation, dépend de `run`) et glue `game::profile`. Décision §7 n° 8 : RON
+versionné, un profil par joueur, écrit hors simulation.
+
+```ron
+(version: 1, id: "local-0", currencies: {"essence": 11}, unlocks: ["first_run", "first_victory"],
+ stats: {"runs": 1, "kills": 0, "frames": 50, "wave_best": 1, "floor_best": 0, "victories": 1})
+```
+**Format.** `meta::Profile { version, id, currencies, unlocks, stats }` (`BTreeMap`/`BTreeSet`).
+`Profile::from_ron` migre par `version` (v0 = sans champ : devient v1 ; version plus récente que le
+jeu : `ProfileError::TooNew`, fichier non touché). Écriture atomique (`meta::save` : fichier
+temporaire puis renommage) ; un fichier illisible est signalé et jamais écrasé.
+
+**Dossier.** `ALACOD_PROFILE_DIR`, sinon `$XDG_DATA_HOME/alacod/profiles`, sinon
+`~/.local/share/alacod/profiles` ; en headless (`ALACOD_HEADLESS`) rien n'est écrit sans
+`ALACOD_PROFILE_DIR`. Identifiant : `local-<handle>` (la pubkey allumette n'est pas encore connue
+ici).
+
+**Écriture.** `game::profile::write_profiles_at_run_end` (`Update`, jamais `GgrsSchedule`) : quand
+`Run` passe `Ended` avec un `RunSummary`, `Profile::apply_run` crédite chaque joueur local (sans
+`LocalPlayer`, tous les joueurs de la run) puis le fichier est écrit, une fois par run. Règles
+provisoires (M2-T12) : stats cumulées (`runs`, `kills`, `frames`, `victories`, meilleures
+`wave_best`/`floor_best`), essence = 1 par run + 1 par kill + 10 par victoire, déblocages
+`first_run`/`first_victory`. Lecture au lancement dans la ressource `meta::Profiles` ; **la
+simulation ne la lit jamais** dans cette tâche.
+
+**Scénarios.** Un scénario n'écrit rien, sauf `profile: true` (dossier temporaire propre au
+scénario). Attente `ProfileHas(handle: 0, unlock: "first_run", currency: ("essence", 11),
+at_frame: 60)` (déblocage et/ou monnaie minimale ; évaluée après la fin de run). Scénario
+`profile_run_end` (`idle` de zombies avec `wave_overrides: (max_wave: 1)` : victoire immédiate).
+
+---
 
 ## Notes essentielles
 

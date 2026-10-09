@@ -1,0 +1,11 @@
+(
+    movement: (max_speed: "0.0"),
+    asset_name_ref: "boss",
+    collider: (shape: Rectangle(width: "20.", height: "20."), offset: (x: "0.0", y: "0.0", z: "0.0")),
+    scale: "1.0",
+    base_health: (max: "100.0"),
+    starting_skin: "1",
+    skins: {"1": (layers: {})},
+    ai: Some((aggro_range: Some("100.0"), attack_range: Some("0.0"), stationary: Some(true))),
+    boss: Some((phases: [(on_enter: [Heal("1.0")]), (on_enter: [Heal("2.0")])])),
+)

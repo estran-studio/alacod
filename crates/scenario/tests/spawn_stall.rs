@@ -36,6 +36,7 @@ fn empty_distance_range_spawns_after_deadline_without_desync() {
         invariants: Default::default(),
         powerups: vec![],
         items: vec![],
+        profile: false,
         powerup_drop_chance_override: None,
         floors: None,
         progression: None,

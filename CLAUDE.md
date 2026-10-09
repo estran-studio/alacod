@@ -330,6 +330,7 @@ Avant/après un refactoring de la simulation, comparer les traces : elles doiven
     - T1.9 horloges (§23) : `Clock`.
     - T1.10 progression et mutations (§27) : `Gauge`, `Level`, `Mutations`.
     - M2-E1 salles (§35) : `RoomState` ; M2-T0b objets (§36) : `HasItem`, `ItemCharge`, `Consumable`.
+    - M2-T0c boss (§37) : `BossPhase` ; profil (§38) : `ProfileHas`.
     - T1.18 HUD throne (§32) : `HudText` (texte d'une source du HUD, présentation, hors trace).
     - Réenregistrement : le scénario rejoué depuis son enregistrement garde ses réglages
       (`floors`, `clocks`, `difficulty`, `characters`, `mode`, `progression`, et chaque

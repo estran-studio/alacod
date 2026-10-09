@@ -156,6 +156,7 @@ impl Plugin for GameEventsPlugin {
                 feedback_events.after(detect_events),
                 room_events.after(detect_events),
                 item_events.after(detect_events),
+                boss_events.after(detect_events),
             ),
         );
     }
@@ -232,6 +233,27 @@ fn room_events(
             frame: change.frame,
             kind: "room",
             label: format!("salle {} {what}", change.kind),
+        });
+    }
+}
+
+/// Moments clés `boss_phase` (M2-T0c) : un boss change de phase (`behaviors::BossPhaseChanged`,
+/// borné à sa frame d'émission comme `CurrencyEvent`).
+fn boss_events(
+    changes: Option<Res<FrameEvents<behaviors::BossPhaseChanged>>>,
+    mut events: ResMut<GameEvents>,
+) {
+    let Some(changes) = changes else {
+        return;
+    };
+    for change in changes.iter() {
+        events.events.push(GameEvent {
+            frame: change.frame,
+            kind: "boss_phase",
+            label: format!(
+                "boss {} : phase {} → {}",
+                change.net_id, change.from, change.to
+            ),
         });
     }
 }
