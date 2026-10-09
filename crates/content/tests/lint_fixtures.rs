@@ -180,6 +180,14 @@ fn m1_audit_fixtures() {
             &["personnage inconnu « fantome »"],
         ),
         (
+            "room_kind_unknown",
+            LintErrorKind::UnknownKind,
+            &[
+                "room_kind « boss » inconnu",
+                "types de salle chargés : combat",
+            ],
+        ),
+        (
             "powerup_apply_status",
             LintErrorKind::OutOfRange,
             &["ApplyStatus"],
@@ -462,6 +470,7 @@ fn t2_8_fixtures_have_a_single_problem() {
         ("entry_difficulty_missing", LintErrorKind::BrokenReference),
         ("effect_broken_reference", LintErrorKind::BrokenReference),
         ("map_character_unknown", LintErrorKind::BrokenReference),
+        ("room_kind_unknown", LintErrorKind::UnknownKind),
         ("powerup_apply_status", LintErrorKind::OutOfRange),
         ("entry_progression_unknown", LintErrorKind::BrokenReference),
         ("cave_template_missing", LintErrorKind::BrokenReference),

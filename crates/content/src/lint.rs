@@ -76,6 +76,7 @@ pub fn run(registry: &Registry, manifest: &GameManifest) -> Vec<LintError> {
     lint_mutations(registry, &mut errors);
     lint_statuses(registry, &mut errors);
     lint_map_characters(registry, &mut errors);
+    lint_room_kinds(registry, &mut errors);
     lint_entry_progression(registry, manifest, &mut errors);
     lint_forced_variants(registry, &mut errors);
     lint_character_tests(registry, &mut errors);
@@ -2219,6 +2220,30 @@ fn lint_statuses(registry: &Registry, errors: &mut Vec<LintError>) {
                 }
             }
             StatusKindEntry::Stun | StatusKindEntry::Freeze => {}
+        }
+    }
+}
+
+/// M2-E1 (`docs/conventions.md` §35) : le champ de niveau `room_kind` d'un gabarit de salle
+/// (`RoomTemplate`) désigne un type du dossier `Room` ; un type inconnu est une erreur.
+fn lint_room_kinds(registry: &Registry, errors: &mut Vec<LintError>) {
+    for map in registry.maps.values() {
+        for (level, kind) in &map.room_kinds {
+            if !registry.rooms.contains_key(kind) {
+                let known: Vec<_> = registry.rooms.keys().map(String::as_str).collect();
+                errors.push(LintError {
+                    kind: LintErrorKind::UnknownKind,
+                    file: map.file.display().to_string(),
+                    message: format!(
+                        "RoomTemplate « {level} » : room_kind « {kind} » inconnu (types de salle chargés : {})",
+                        if known.is_empty() {
+                            "aucun, dossier de kind Room absent".to_string()
+                        } else {
+                            known.join(", ")
+                        }
+                    ),
+                });
+            }
         }
     }
 }

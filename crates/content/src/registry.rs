@@ -740,6 +740,44 @@ pub struct MapEntry {
     /// T1.12 : personnage de chaque `CharacterSpawn` des niveaux internes (champ `character`),
     /// pour la règle « personnage connu ».
     pub spawned_characters: Vec<String>,
+    /// M2-E1 : `(niveau, room_kind)` de chaque niveau LDtk interne dont le champ de niveau
+    /// `room_kind` est rempli (gabarits de salles typées, `docs/conventions.md` §35), pour le
+    /// lint « type de salle connu ».
+    pub room_kinds: Vec<(String, String)>,
+}
+
+/// M2-E1 : champ de niveau `room_kind` (non vide) de chaque niveau d'un `.ldtk`, avec
+/// l'identifiant du niveau, dans l'ordre du fichier ; vide si la carte est illisible en JSON.
+fn ldtk_room_kinds(text: &str) -> Vec<(String, String)> {
+    let Ok(json) = serde_json::from_str::<serde_json::Value>(text) else {
+        return Vec::new();
+    };
+    json["levels"]
+        .as_array()
+        .into_iter()
+        .flatten()
+        .filter_map(|level| {
+            let kind = level["fieldInstances"]
+                .as_array()?
+                .iter()
+                .find(|f| f["__identifier"] == "room_kind")?["__value"]
+                .as_str()
+                .filter(|value| !value.is_empty())?;
+            Some((
+                level["identifier"].as_str().unwrap_or_default().to_string(),
+                kind.to_string(),
+            ))
+        })
+        .collect()
+}
+
+/// Type de salle (M2-E1, `docs/conventions.md` §35), un fichier RON par type
+/// (`rooms/<id>.ron`, champs de [`world::RoomKindDef`]) : `(locks: true)`.
+#[derive(Debug, Clone)]
+pub struct RoomEntry {
+    pub id: String,
+    pub file: PathBuf,
+    pub def: world::RoomKindDef,
 }
 
 /// T1.12 : champ `character` de chaque `CharacterSpawn` d'un `.ldtk` (niveaux internes), dans
@@ -888,6 +926,8 @@ pub struct Registry {
     pub floors: BTreeMap<FloorsConfigId, FloorsEntry>,
     /// T1.6 : cavernes générées (kind `Cave`).
     pub caves: BTreeMap<CaveId, CaveEntry>,
+    /// M2-E1 : types de salles (kind `Room`).
+    pub rooms: BTreeMap<String, RoomEntry>,
     /// T1.7 : surfaces (kind `Surface`).
     pub surfaces: BTreeMap<SurfaceName, SurfaceEntry>,
     /// T1.2 : patterns nommés (kind `Pattern`).
@@ -950,6 +990,7 @@ pub const KNOWN_KIND_NAMES: &[&str] = &[
     "SpriteSheet",
     "Floors",
     "Cave",
+    "Room",
     "Surface",
     "Pattern",
     "Progression",
@@ -1047,6 +1088,7 @@ impl Registry {
                 "SpriteSheet" => load_sprite_sheets(&assets_dir, decl, &mut registry, &mut errors),
                 "Floors" => load_floors(&assets_dir, decl, &mut registry, &mut errors),
                 "Cave" => load_caves(&assets_dir, decl, &mut registry, &mut errors),
+                "Room" => load_rooms(&assets_dir, decl, &mut registry, &mut errors),
                 "Surface" => load_surfaces(&assets_dir, decl, &mut registry, &mut errors),
                 "Pattern" => load_patterns(&assets_dir, decl, &mut registry, &mut errors),
                 "Progression" => load_progression(&assets_dir, decl, &mut registry, &mut errors),
@@ -2247,6 +2289,31 @@ fn load_caves(
 }
 
 /// T1.7 : mêmes règles que [`load_waves`] (id = nom de fichier sans extension).
+/// M2-E1 : `rooms/<id>.ron` (kind `Room`), un type de salle par fichier ; id = nom de fichier.
+fn load_rooms(
+    assets_dir: &Path,
+    decl: &ContentFolderDecl,
+    registry: &mut Registry,
+    errors: &mut Vec<LintError>,
+) {
+    for (id, rel, def) in load_ron_files::<world::RoomKindDef>(assets_dir, decl, errors) {
+        if let Some(existing) = registry.rooms.get(&id) {
+            errors.push(LintError {
+                kind: LintErrorKind::DuplicateId,
+                file: rel.display().to_string(),
+                message: format!(
+                    "id de type de salle « {id} » déjà défini dans {}",
+                    existing.file.display()
+                ),
+            });
+            continue;
+        }
+        registry
+            .rooms
+            .insert(id.clone(), RoomEntry { id, file: rel, def });
+    }
+}
+
 fn load_surfaces(
     assets_dir: &ContentFiles,
     decl: &ContentFolderDecl,
@@ -2790,6 +2857,7 @@ fn load_maps(
             .as_deref()
             .map(ldtk_character_spawns)
             .unwrap_or_default();
+        let room_kinds = text.as_deref().map(ldtk_room_kinds).unwrap_or_default();
         registry.maps.insert(
             id.clone(),
             MapEntry {
@@ -2797,6 +2865,7 @@ fn load_maps(
                 file: rel,
                 forced_variants,
                 spawned_characters,
+                room_kinds,
             },
         );
     }

@@ -20,3 +20,4 @@ __pycache__/
 /website/.cloudflare-dist/
 /website/.cloudflare-upload.json
 /website/.wrangler/
+rustc-ice-*.txt

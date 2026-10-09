@@ -1,0 +1,4 @@
+// Types de salles (M2-E1, kind `Room`, docs/conventions.md §35) : un fichier par type, id =
+// nom de fichier. Valeur du champ de niveau LDtk `room_kind` des gabarits de salles.
+// `locks: false` : un lieu comme un autre (ni verrouillage ni ennemis dormants).
+(locks: false)

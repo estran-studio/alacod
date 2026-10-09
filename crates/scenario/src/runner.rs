@@ -1886,6 +1886,49 @@ fn check(world: &mut World, expectation: &Expectation) -> Result<(), String> {
             }
             Ok(())
         }
+        // M2-E1 : état d'une salle typée (ressource rollback `RoomStates`).
+        Expectation::RoomState {
+            kind,
+            nth,
+            state,
+            doors_closed,
+            ..
+        } => {
+            let mut rooms: Vec<_> = world
+                .query::<(
+                    &map::game::entity::map::level_id::LevelId,
+                    &map::game::entity::map::room::RoomBounds,
+                    &world::RoomKind,
+                )>()
+                .iter(world)
+                .filter(|(_, _, k)| &k.0 == kind)
+                .map(|(id, bounds, _)| (bounds.position.x, bounds.position.y, id.0.clone()))
+                .collect();
+            rooms.sort();
+            let Some((_, _, id)) = rooms.get(*nth) else {
+                return Err(format!(
+                    "{} salle(s) de type « {kind} » (index {nth} demandé)",
+                    rooms.len()
+                ));
+            };
+            let actual = world.resource::<world::RoomStates>().get(id);
+            if actual != *state {
+                return Err(format!(
+                    "salle {kind}#{nth} : {actual:?} (attendu {state:?})"
+                ));
+            }
+            if let Some(expected) = doors_closed {
+                let closed = world
+                    .query_filtered::<Has<game::collider::Collider>, With<map::game::entity::map::door::DoorComponent>>()
+                    .iter(world)
+                    .filter(|closed| *closed)
+                    .count() as u32;
+                if closed != *expected {
+                    return Err(format!("{closed} portes fermées (attendu {expected})"));
+                }
+            }
+            Ok(())
+        }
         // T1.18 : texte d'une source du HUD (présentation, hors trace).
         Expectation::HudText {
             source, contains, ..
