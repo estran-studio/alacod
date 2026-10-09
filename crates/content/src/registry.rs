@@ -2304,7 +2304,7 @@ fn load_caves(
 /// T1.7 : mêmes règles que [`load_waves`] (id = nom de fichier sans extension).
 /// M2-T0b : `items/<id>.ron` (kind `Item`), un objet par fichier ; id = nom de fichier.
 fn load_items(
-    assets_dir: &Path,
+    assets_dir: &ContentFiles,
     decl: &ContentFolderDecl,
     registry: &mut Registry,
     errors: &mut Vec<LintError>,
