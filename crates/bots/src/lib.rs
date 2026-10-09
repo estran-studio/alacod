@@ -21,6 +21,7 @@ pub mod dodge;
 pub mod hunter;
 pub mod input;
 pub mod navigation;
+pub mod stuck;
 pub mod view;
 
 pub use decide::decide;

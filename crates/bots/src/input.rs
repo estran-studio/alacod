@@ -37,6 +37,7 @@
 use std::collections::BTreeMap;
 
 use crate::arms::{self, WeaponChoices, WeaponView};
+use crate::stuck::EnemyMoves;
 use bevy::prelude::*;
 use bevy_fixed::fixed_math::{Fixed, FixedTransform3D, FixedVec2};
 use bevy_fixed::rng::{fnv1a, RngStreams, RollbackRng};
@@ -113,9 +114,13 @@ impl Plugin for BotsPlugin {
         app.init_resource::<crate::navigation::BotNavigation>();
         app.init_resource::<DirectNavigation>();
         app.init_resource::<WeaponChoices>();
+        app.init_resource::<EnemyMoves>();
         app.add_systems(
             OnEnter(game::core::AppState::InGame),
-            |mut choices: ResMut<WeaponChoices>| choices.0.clear(),
+            |mut choices: ResMut<WeaponChoices>, mut moves: ResMut<EnemyMoves>| {
+                choices.0.clear();
+                moves.0.clear();
+            },
         );
         app.add_systems(
             ReadInputs,
@@ -203,6 +208,7 @@ pub fn read_bot_inputs(
         weapon_assets,
         character_configs,
         mut weapon_choices,
+        mut enemy_moves,
     ): (
         Query<
             (
@@ -224,6 +230,8 @@ pub fn read_bot_inputs(
         Res<Assets<WeaponsConfig>>,
         Res<Assets<CharacterConfig>>,
         ResMut<WeaponChoices>,
+        // m1-bots-apres-movement-feel : déplacement réel des ennemis (coincés)
+        ResMut<EnemyMoves>,
     ),
 ) {
     let Some(assignments) = assignments else {
@@ -285,14 +293,17 @@ pub fn read_bot_inputs(
         .map(|(id, t, _, _, _)| (id.0, t.translation.truncate()))
         .collect();
     // Ennemis immobiles (tourelle : `MoveSpeed` de base nulle ; ennemi coincé : vitesse
-    // nulle), voir `BotView::enemy_still`.
+    // nulle, ou sur place depuis `STUCK_FRAMES` malgré une vitesse voulue, m1-bots-apres-
+    // movement-feel), voir `BotView::enemy_still`.
+    enemy_moves.observe(frame.frame, &enemy_points);
     let still_points: Vec<FixedVec2> = enemies_sorted
         .iter()
-        .filter(|(_, _, stats, velocity, _)| {
+        .filter(|(id, _, stats, velocity, _)| {
             stats
                 .and_then(|s| s.get(&sim_core::stats::StatId::MoveSpeed))
                 .is_some_and(|speed| speed <= Fixed::ZERO)
                 || velocity.is_some_and(|v| v.main.length() < Fixed::ONE)
+                || enemy_moves.stuck(id.0, frame.frame)
         })
         .map(|(_, t, _, _, _)| t.translation.truncate())
         .collect();

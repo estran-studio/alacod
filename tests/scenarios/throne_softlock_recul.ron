@@ -8,6 +8,8 @@
 // Mesuré (`alacod-sim --game throne --bots 2 --profiles prudent,prudent --floors run --seeds
 // 139..139 --until-floor 3`) : étages à f505, f1304 (D51) ; m1-fusion-revue-m0-suite (course
 // nerveuse) : étages à f631, f1845 (portails ouverts à f453 et f1432), 1320 → 1860 frames.
+// m1-bots-apres-movement-feel (pilotage en 8 directions, ennemi coincé) : étages à f473, f1413
+// (portails à f417 et f1350) ; attentes inchangées.
 //
 // À regarder : à l'étage 1, les bots contournent la roche vers le dernier ennemi au lieu de
 // reculer.
