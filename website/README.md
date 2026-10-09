@@ -36,7 +36,7 @@ Si le composant Rust WASM ne se télécharge pas mais que rust-src est installé
 nightly peut utiliser `WEB_BUILD_STD=1` (reconstruction de std, compilations plus longues).
 
 Pour la distribution, compiler en release et vérifier les tailles après optimisation.
-Une taille supérieure à 25 MiB par fichier impose un autre stockage que Pages (R2 prévu),
+Une taille supérieure à 25 MiB par fichier impose un autre stockage que Pages (R2 intégré),
 pas simplement une compression HTTP. Le script signale les fichiers concernés.
 Le registre embarque seulement les définitions texte et l'inventaire des chemins : images,
 cartes et sons utilisés par Bevy restent chargés sous `/builds/<id>/<jeu>/assets`.
@@ -58,3 +58,10 @@ sont ignorés par git; ne pas committer des entrées de release pointant vers un
 Le plan et son journal sont dans `docs/plan-site-public-beta.md` (racine). Le contrat de
 lancement et le déploiement VPS préparé sont dans `docs/contrat-lancement-web.md` et
 `deploy/allumette`. Aucun DNS ou service public n'est modifié par les builds locaux.
+
+## Publier avec Wrangler
+
+Le projet Pages existant `alacod` et le bucket R2 `alacod-game-builds` servent le
+site et les builds sous la même origine. Configuration : `wrangler.jsonc`; staging
+via `node scripts/prepare-cloudflare.mjs` depuis la racine. Procédure et recette
+dans [deploy/cloudflare.md](../deploy/cloudflare.md).

@@ -14,3 +14,9 @@ build.zip
 __pycache__/
 /website/static/builds/
 /deploy/allumette/.env
+!/website/vendor/
+!/website/vendor/**
+**/node_modules/
+/website/.cloudflare-dist/
+/website/.cloudflare-upload.json
+/website/.wrangler/

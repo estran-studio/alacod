@@ -504,3 +504,109 @@ Validation : vérification Svelte et build de production; sept pages dans Chrome
 aucune erreur JavaScript ni débordement horizontal desktop/mobile. Les captures
 d’accueil ont été actualisées. Les captures de gameplay précédentes restent des
 preuves du lancement solo avant cet ajustement de présentation.
+
+### Intégration Allumette et VPS — 2026-10-09
+
+Les bases ont été commitées sur `main` avant l’intégration : Alacod `6af4e60`,
+Allumette `e7e9f06`. La tranche suivante ajoute des salons privés multijeux,
+readiness, invitations et tickets de session dans Allumette, un SDK navigateur
+indépendant, le parcours à deux joueurs du site et l’adaptateur de lancement WASM.
+Ces changements restent en cours de validation et non commités.
+
+Le VPS fourni par William est maintenant provisionné : Docker/Compose, Allumette,
+Caddy HTTPS/WSS, coturn, pare-feu et démarrage automatique. Les DNS Allumette et
+TURN sont configurés en DNS-only. Voir [configuration et recette VPS](../deploy/allumette/README.md).
+HTTPS, auth invitée, CORS, STUN et allocations TURN sont vérifiés. Tests : 40 Rust
+Allumette, quatre SDK; compilation native/WASM des deux clones et Svelte passent.
+
+Le data channel WebRTC ne s’établit pas encore entre les deux Chrome automatisés,
+même avec TURN; le même environnement échoue sur un test direct sans engine.
+Ne pas activer le catalogue public online sur la seule preuve des allocations.
+La configuration locale `preview` sert uniquement à la recette. Restent :
+isoler le transport, prouver deux parties successives sur deux machines, publier
+les builds et le site sur Cloudflare, puis compléter la recette des amis.
+
+### Connexion WebRTC débloquée — 2026-10-09
+
+Le test minimal depuis Chromium 154 sur Debian 13 établit un data channel TURN
+et échange un message et un acquittement. Les candidats sélectionnés sont `relay`
+des deux côtés; configuration complète, UDP seul et TCP seul passent. La recette
+reproductible est dans Allumette : `tools/webrtc-smoke`.
+
+Le Mac échoue également sur un test direct sans engine ni serveur; sa route vers
+le VPS passe par un tunnel `utun4` et des requêtes STUN/TURN expirent. Comparer
+hors VPN reste nécessaire pour attribuer précisément la cause locale. Aucune
+preuve ne justifie d’attribuer cet échec au serveur Allumette.
+
+Le parcours complet fonctionne depuis deux contextes Chromium isolés sur le VPS,
+avec le signaling HTTPS/WSS déployé et TURN forcé : **Zombies et Throne**, deux
+sessions successives chacun, quelques entrées clavier, retour au salon puis
+fermeture du salon. Aucune erreur JavaScript, requête HTTP en échec ou désync
+observée. Le mapping identités/PeerId est présent; les deux joueurs apparaissent
+dans le jeu. Cette recette démontre l’interopérabilité observée des versions
+Matchbox client/serveur, mais ne couvre pas encore deux réseaux distincts.
+
+La recette a révélé un panic Matchbox lors du retour au salon : le socket GGRS
+envoyait après fermeture du canal. `BrowserChannel` garde les envois/réceptions
+sur le runtime navigateur et demande le retour au salon si le canal est fermé.
+Les deux clones ont été reconstruits et le même scénario repasse sans panic.
+La compilation native passe également.
+
+Le pipeline `scripts/build-web-games.mjs` a été exécuté de bout en bout pour les
+deux clones : lint du contenu, compilation WASM, bindgen, optimisation et manifests.
+Build de recette : `rtc-fix-20261009`; `online: true` est activé dans le catalogue
+local de recette uniquement. Le catalogue dans HEAD demeure vide. Les fichiers
+WASM de développement restent autour de 97–98 MiB : distribution publique à
+terminer avant une bêta. Le guide [tools/web-smoke](../tools/web-smoke/README.md)
+permet de rejouer le parcours. [Captures](captures/multijoueur/README.md).
+
+**Prochaine reprise :** comparer le Mac hors tunnel, valider sur deux ordinateurs
+et deux réseaux, mesurer les builds release et finaliser leur distribution R2,
+publier le site Cloudflare sur `alacod.estran.studio`, puis faire la recette des amis.
+La preuve sur un seul hôte avec GPU logiciel ne mesure pas les performances
+utilisateur. Les changements d’intégration restent non commités dans les deux dépôts.
+
+### Publication Cloudflare demandée — 2026-10-09
+
+Le site est maintenant publié avec Wrangler 4.149.0 dans le projet Pages
+**existant** `alacod`, branche `main` : https://alacod.pages.dev . Déploiement
+`3d966a62-2801-4689-8ffb-d19f9d2d37b3`. Le build `rtc-fix-20261009` est livré
+pour Zombies et Throne, solo et online activés pour la recette bêta demandée.
+Le bucket privé R2 `alacod-game-builds` contient les deux WASM; une Pages Function
+les sert en stream sous les URLs de même origine. Les autres fichiers restent
+sur Pages. Les objets sont immuables et conservés pour les rollbacks.
+
+Vérifications publiques : routes et modules 200, WASM correctement typés, ranges
+206 et ETag/304; quatre tests HTTP de la Function et Svelte passent. Le solo
+des deux clones passe depuis le Mac, sans erreur JS/HTTP ni appel Allumette.
+Le parcours multijoueur des deux clones passe depuis deux Chromium Linux sur
+l’adresse publique, avec TURN forcé, deux sessions successives, retours et
+fermeture du salon, sans erreur JS/HTTP ni désync observée. Le test a été adapté
+aux redirections Pages `/loader.html` → `/loader`; les paramètres sont préservés.
+
+Allumette autorise désormais aussi `https://alacod.pages.dev` dans son CORS.
+L’association Pages `alacod.estran.studio` a été créée; le certificat/activation
+attend le CNAME `alacod` → `alacod.pages.dev`, proxy activé. L’OAuth Wrangler
+actuel ne permet pas de gérer DNS (403); William a reçu la demande de record.
+La publication sur Pages est déjà utilisable indépendamment de cette activation.
+
+Reprise : confirmer DNS/TLS du domaine personnalisé, tester sur les deux appareils
+et deux réseaux, comparer le Mac hors tunnel si nécessaire, optimiser les builds
+release et aligner les workflows CI sur la distribution R2. La publication est
+faite depuis le working tree non commité; aucun push Git n’a été effectué.
+Procédure, preuves et rollback dans [deploy/cloudflare.md](../deploy/cloudflare.md).
+
+### Retour de recette de William — MacBook, 2026-10-09
+
+William confirme que le multijoueur fonctionne très bien entre deux onglets sur
+son MacBook, avec un proxy SOCKS5 utilisé pour accéder à Internet via son routeur.
+Il s’agit d’un retour utilisateur, complémentaire aux tests automatisés Linux.
+Le type de candidats ICE sélectionnés et le chemin réel des données WebRTC n’ont
+pas été mesurés dans cette recette; ne pas attribuer le succès au proxy ni conclure
+que les données passent nécessairement par lui.
+
+Ce résultat valide ce parcours sur le MacBook et cette configuration réseau.
+L’échec initial du Mac de développement reste propre à l’environnement testé;
+un proxy ou tunnel ne suffit donc pas à prédire un échec WebRTC. Prochaine recette :
+les deux appareils ensemble, puis un appareil sur un autre réseau, par exemple
+un partage cellulaire, avec retour au salon et deuxième session.

@@ -178,6 +178,10 @@ pub struct BaseArgsPlugin;
 impl Plugin for BaseArgsPlugin {
     fn build(&self, app: &mut App) {
         let args = get_args();
+        #[cfg(target_arch = "wasm32")]
+        if let Some(session) = crate::jjrs::browser::session() {
+            app.insert_resource(session);
+        }
 
         #[cfg(not(target_arch = "wasm32"))]
         app.add_plugins(utils::logs::NativeLogPlugin(args.cid.clone()));

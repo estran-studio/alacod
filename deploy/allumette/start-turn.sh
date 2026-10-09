@@ -5,6 +5,8 @@ umask 077
 # Keep the shared secret in a private runtime file rather than a command argument/log.
 cat > /tmp/allumette-turn.conf <<CONFIG
 listening-port=3478
+listening-ip=${VPS_PUBLIC_IP}
+relay-ip=${VPS_PUBLIC_IP}
 external-ip=${VPS_PUBLIC_IP}
 realm=${TURN_DOMAIN}
 fingerprint
@@ -16,7 +18,8 @@ no-tls
 no-dtls
 no-cli
 no-multicast-peers
-no-loopback-peers
+denied-peer-ip=127.0.0.0-127.255.255.255
+denied-peer-ip=::1
 denied-peer-ip=10.0.0.0-10.255.255.255
 denied-peer-ip=172.16.0.0-172.31.255.255
 denied-peer-ip=192.168.0.0-192.168.255.255

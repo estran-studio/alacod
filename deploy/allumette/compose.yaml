@@ -3,6 +3,11 @@ services:
   proxy:
     image: caddy:2.10.2-alpine
     restart: unless-stopped
+    logging:
+      driver: json-file
+      options:
+        max-size: "10m"
+        max-file: "3"
     ports:
       - "80:80"
       - "443:443"
@@ -18,6 +23,11 @@ services:
     # Set this to a built and tested immutable image/tag or digest from the Allumette repo.
     image: ${ALLUMETTE_IMAGE:?Set ALLUMETTE_IMAGE to your tested image}
     restart: unless-stopped
+    logging:
+      driver: json-file
+      options:
+        max-size: "10m"
+        max-file: "3"
     environment:
       HOST: 0.0.0.0:3536
       JWT_SECRET: ${JWT_SECRET:?Set JWT_SECRET}
@@ -25,11 +35,17 @@ services:
       TURN_URLS: turn:${TURN_DOMAIN:-turn.estran.studio}:3478?transport=udp,turn:${TURN_DOMAIN:-turn.estran.studio}:3478?transport=tcp
       STUN_URL: stun:${TURN_DOMAIN:-turn.estran.studio}:3478
       RUST_LOG: allumette_server=warn
+      ALLOWED_ORIGINS: ${ALLOWED_ORIGINS:-https://alacod.estran.studio}
     expose:
       - "3536"
   turn:
     image: coturn/coturn:4.6.3
     restart: unless-stopped
+    logging:
+      driver: json-file
+      options:
+        max-size: "10m"
+        max-file: "3"
     network_mode: host
     environment:
       TURN_SECRET: ${TURN_SECRET:?Set TURN_SECRET}
