@@ -31,7 +31,7 @@ cette branche), M1 (tâche à ouvrir par l'orchestrateur).
 | S2 | sensation | « La carte ne fait aucun sens » (`avant_poste`, générée par `gen_map.py` hors dépôt en m0-v8 ; 4 salles sur 9 placées avec la graine 123456) | partie 2 | — | — | à préciser avec William, puis tâche M1 (carte faite à la main dans LDtk ?) | noté |
 | S3 | sensation | movement-feel : « les mouvements marchent assez bien » (course, dash). Premier retour humain sur movement-feel ; i-frames non commentées | `revue_mouvement` (2026-10-09, vidéo OBS 00:01:14) | — | — | aucune (validé) ; à confirmer sur une partie plus longue | noté |
 | S4 | sensation | Équilibrage des armes (confirmé par William le 2026-10-09) : shotgun « super fort », pistolet inutile, mitraillette forte mais « tellement imprécise » (trop de spread) | `revue_mouvement`, vidéo 00:00:37–00:01:01, vagues 1-2 | — | — | M1 : passe d'équilibrage des armes (`weapons/`, spread, dégâts, cadence) | noté |
-| S5 | sensation | Équilibrage des vagues « bien trop [dur] en partant » (confirmé par William le 2026-10-09 ; « sonores » était une erreur de transcription). Mesure : vague 1 (7 zombies) vidée en ~22 s, vague 2 (12) en ~30 s | `revue_mouvement`, vidéo 00:00:43 | — | — | Passe de contenu S5 : référence 4 acheteurs × 20 graines mesurée ; options A/B proposées, détails dans `docs/taches/rapports/m0-revue-suite-contenu.md` | choix de William attendu ; aucun réglage appliqué |
+| S5 | sensation | Équilibrage des vagues « bien trop [dur] en partant » (confirmé par William le 2026-10-09 ; « sonores » était une erreur de transcription). Mesure : vague 1 (7 zombies) vidée en ~22 s, vague 2 (12) en ~30 s | `revue_mouvement`, vidéo 00:00:43 | — | — | Passe de contenu S5 : référence 4 acheteurs × 20 graines mesurée ; options A/B proposées, détails dans `docs/taches/rapports/m0-revue-suite-contenu.md` | B choisie et appliquée : 20/20 V5, 0 mort/dégât/desync/soft-lock ; retour solo attendu |
 | S6 | sensation | Feedback : « pas trop d'indications sonores par rapport aux vagues » (début et fin de vague silencieux) | `revue_mouvement`, vidéo 00:00:32 | — | — | M1 : son de début et de fin de vague (présentation) | noté |
 | S7 | sensation | « Son des armes trop fort » (phrase de 00:00:15, mal transcrite, précisée par William le 2026-10-09) | `revue_mouvement` | — | — | M1 : mixage (volume des tirs par rapport au reste) | noté |
 | R10 | bug ? | « Impossible d'acheter un soda, il chevauche les fusils » (précision de William, 2026-10-09). Transcription : « Je sais pas comment acheter les trucs de pack-à-punch, ils ont tous l'air d'être en dessous des armes, on peut juste en sélectionner un. » Il n'y a pas de pack-a-punch dans M0 ; dans `avant_poste.ldtk`, les deux `SodaLocation` (Jug, Cellier) ne sont pas sous des armes. À la même minute, le prompt affiché est « [H] Munitions mitrailleuse — $750 » avec le shotgun en main. **Contre-constat** : dans cette partie, aucune machine à soda n'existe : le log n'a pas de ligne « Map is loaded with N soda locations », et `map_probe` (`ALACOD_MAP_PROBE=revue_mouvement:3900`, sonde étendue aux `Interactable`) ne trouve que 2 armes murales, (376, 760) et (872, 760), et aucun `Perk`. Les 4 salles placées par la graine 123456 ne sont pas Jug ni Cellier, les seules qui ont une `SodaLocation`. Reste à savoir ce qui a été pris pour un soda (sprite d'arme murale ?) ou dans quelle autre partie | `revue_mouvement`, vidéo 00:01:05 | non reproduit | gêne | demander à William où (capture) ; lié à S2/R8 (salles tirées par la graine) | ouvert |
@@ -76,3 +76,18 @@ le MacBook de William (`~/Movies/2026-10-09 00-33-22.mov`).
 |---|---|---|---|---|
 | `docs/captures/revue-m0/revue_mouvement.ron` | movement-feel, vagues 1-3 (vidéo OBS `2026-10-09 00-33-22.mov`, 86 s) | 5304 | 1 | sans attentes, non béni ; source de S3–S7, R10, R11 |
 | `docs/captures/revue-m0/revue_relance.ron` | R5 puis mort et « Rejouer » (R4) ; l'enregistreur ne garde que la partie relancée | 1293 | 1 | sans attentes, non béni |
+
+
+## Essai S5 — option B (2026-10-09)
+
+William a choisi B : 3–5 zombies au départ, +2 par vague, une apparition toutes les
+2 s, au plus 4 vivants. Mesure automatisée avant/après : 20/20 graines à quatre
+acheteurs atteignent V5, 0 mort/dégât/desync/soft-lock ; détails dans
+`docs/taches/rapports/m0-revue-suite-contenu.md`.
+
+Partie solo lancée avec rendu et enregistrement ; fermeture enregistrée correctement :
+`docs/captures/revue-m0/revue_s5_b_2026-10-09.ron`, **5277 frames** (≈ 88 s), un joueur.
+V1 : apparition f180, fin f1041 (861 frames, ≈ 14,4 s) ; V2 : apparition f1821,
+fin f3180 (1359 frames, ≈ 22,7 s) ; V3 commencée f3960. Source : transitions du
+journal de jeu, doublons de resimulation retirés. Retour de ressenti de William attendu ;
+S5 reste à valider en jeu.

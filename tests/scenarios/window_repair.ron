@@ -10,6 +10,14 @@ Scenario(
     powerup_drop_chance_override: "0.0",
     game: "zombies",
     frames: 1100,
+    // S5 : figer le rythme de cette mise en scène de mécanique.
+    // Les assertions restent indépendantes de l'équilibrage des parties.
+    wave_overrides: (
+        base_enemies: 6,
+        enemies_per_wave: 4,
+        max_concurrent_enemies: 8,
+        spawn_interval_frames: 60,
+    ),
     players: [
         (inputs: [
             (from: 10, to: 29, buttons: [Right]),
