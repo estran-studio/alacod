@@ -47,6 +47,23 @@ Sur `revue-m0-suite` (`8ac2c0b`) :
   scénarios** joués (184 de movement-feel + `revue_murs_avant_poste`), aucune trace différente,
   543,3 s.
 
+## Session du 2026-10-09 (deuxième Mac, `revue-m0-suite`)
+
+- **R7 corrigé** (`22776e5`, `crates/game/src/recording.rs`) : `write_recording_on_exit` n'était
+  ordonné qu'après `state_trace::ExitRequests` ; `exit_on_all_closed` émet `AppExit` dans
+  `ExitSystems` (`Last`), sans ordre garanti avec lui. Vérifié en jeu : avant, lancement avec
+  `ALACOD_RECORD` et fenêtre fermée → aucun fichier (reproduit le 2026-10-08) ; après, trois
+  fermetures → trois fichiers écrits (5304, 290 et 1293 frames). Hors simulation ; la suite de
+  scénarios n'a **pas** été relancée après ce commit.
+- **R4 et R5 validés par William en jeu** (session `revue_relance`, log : rechargement f578 sans
+  relance, défaite f1158, relance, murs solides).
+- **Revue à voix haute** (OBS + `mw` de MacWhisper) : S3–S8, R10, R11 au carnet. R10 (soda
+  chevauchant les fusils) non reproduit : aucune machine à soda dans la partie, `map_probe` étendu
+  aux `Interactable` pour le montrer. S8 : les 5 `ZombieSpawn` d'`avant_poste` sont tous dans
+  `Depart`.
+- `cargo build -p zombies --profile headless` à froid sur ce Mac (M1 Pro) : 15 min ;
+  `cargo fmt --all -- --check` propre.
+
 ## Non fait / non vérifié
 
 - Tests des crates (README §4, deuxième commande), `make lint`, `make gen`, `make check` :
