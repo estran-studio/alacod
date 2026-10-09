@@ -13,13 +13,13 @@ Session de William, 2026-10-09 ; base `ae87ae0`, branche `m0-revue-suite-contenu
 - `cargo fmt --all -- --check` : réussi ; contrôles forbidden : 4 avertissements
   préexistants ; contrôle rollback registration : OK.
 - William a choisi B : `base_enemies=3`, `enemies_per_wave=2`, plafond 4 vivants,
-  intervalle 120 frames ; mesure après terminée (20/20 V5) ; vérification des scénarios en cours. Aucune intervention dans M2.
+  intervalle 120 frames ; mesure après terminée (20/20 V5) ; 186 scénarios verts après bless. Aucune intervention dans M2.
 - D29 confirmé : les multiplicateurs de santé **et** de dégâts des vagues sont calculés
   et tracés, mais ne sont pas lus pour appliquer la santé ou les attaques des zombies.
 - Mesure avant S5 : terminée, quatre acheteurs, graines 1..20, carte `avant_poste`,
   arrêt à l'entrée en vague 5, plafond 20 000 frames ; quatre lots indépendants de cinq.
-- Prochaine étape : terminer la mesure après, la preuve et le bless ; partie solo
-  enregistrée pour William. P2p et bench : non vérifiés ici.
+- Partie solo enregistrée (5277 frames), retour de ressenti de William attendu.
+  P2p et bench : non vérifiés ici ; pas de livraison distante demandée à ce stade.
 
 Commande de chaque lot (bornes inclusives) :
 
@@ -200,7 +200,7 @@ et mêmes dumps côté branche ; `scripts/trace-diff.py` compare les états dét
   attentes/invariants/synctest verts (codes 0). Ces deux traces ne nécessitent pas de bless.
 
 Lint : `APP_VERSION=x make lint`, code 0 ; zombies, testbed et throne sans erreur.
-Vérification de tous les scénarios et bless : en cours. Aucun changement de simulation
+Vérification complète avec bless : 186 scénarios verts, code 0 (voir bilan ci-dessous). Aucun changement de simulation
 Rust ; seule la config S5 et les conditions explicites de huit tests sont modifiées.
 
 
@@ -227,3 +227,41 @@ préexistants, rollback registration OK. Dumps temporaires supprimés après pre
 (10 fichiers, 5,67 Gio) ; checkout de référence retiré, logs de diff conservés.
 L'enregistrement solo garde explicitement les quatre valeurs B dans `wave_overrides`
 (inputs inchangés), pour conserver les vagues de cet essai lors d'un futur réglage.
+
+
+## Bilan de vérification S5
+
+`BLESS=1 make test_scenarios TEST_VERSION=x` : **code 0**, 186 scénarios avec attentes,
+invariants et synctest verts ; 3 tests Rust réussis, 0 échec, 7 ignorés ; 780,83 s.
+`TEST_VERSION=x` conserve la version de compilation utilisée pour les mesures et les
+preuves (`APP_VERSION=x`), sans recompilation inutile ; ce champ est de présentation.
+
+**34 traces modifiées, 152 inchangées.** La liste correspond exactement aux 38 différences
+initiales, moins les quatre scènes (`idle`, `shoot_around`, `window_repair`,
+`downed_all_lose`) qui avaient encore leurs valeurs implicites lors du diagnostic.
+Les trois clones et les huit scènes historiques gardent leurs traces. Tous les tests
+de testbed et throne restent inchangés. Les références des six ennemis zombies générés
+changent car ces scénarios héritent aussi de la préparation de vagues du jeu.
+Les scènes de mécanique ont été explicitement isolées, pas affaiblies : mêmes inputs,
+frames et assertions. La vraie partie et la mesure à quatre acheteurs utilisent B.
+
+Les 34 fichiers de traces sont consignés dans le commit de bless séparé du réglage,
+avec justification « changement de gameplay voulu : S5 B » et cette preuve.
+
+### Non fait / restant
+
+- Ressenti de William : encore attendu ; S5 n'est pas déclarée validée humainement.
+- S4, S6, S7, S2/S8, R10 et décisions R2/R3/R6/R8 : non traités dans cette passe S5.
+- Livraison : tests complets des dix crates et génération des trois jeux non relancés
+  ici (aucune arme modifiée) ; p2p et bench strict au calme non vérifiés ici, conformément
+  au prompt. Aucun push de livraison.
+- Dette D29 conservée ; pas de modification du moteur de M2, du RNG ou des dégâts.
+
+
+Comparaison finale aux nouvelles références (sans bless) : `two_players_shooting`,
+`bots_four_mixed`, `enemy_zombie_full_moving` passés, codes 0 ; attentes, invariants,
+synctest et hashes comparés aux références vertes. Commande par cas :
+`ALACOD_SCENARIO=<cas> APP_VERSION=x cargo test -p scenario --profile headless --test scenarios scenarios -- --nocapture`.
+Formatage final et `git diff --check` : OK. Liste des 34 références contrôlée exactement
+contre l'inventaire des différences, en excluant les quatre scènes isolées après
+leur premier passage. Aucun fichier de code ni de contenu supplémentaire dans le bless.
