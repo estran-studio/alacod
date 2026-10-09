@@ -162,3 +162,13 @@ conserver les niveaux, leurs connexions et l'appartenance des sources, avec un
 extérieur qui ne recouvre pas les bounds intérieures. Pas de contrat M2 modifié
 pour cette correction. Capture du retour : revue-touche-l.ron, graine1398560232,
 3281 frames, à rejouer avec 97eaf04 (avant changement de contenu).
+
+### 2026-10-09 — salles fermées cachées (demande William)
+
+Présentation opt-in `RoomFog` : pièce noire tant qu'elle n'est pas reliée à une salle
+visible par une porte ouverte. Révélation commune aux joueurs, calculée depuis l'état
+courant, cohérente avec le rollback. Le Relais utilise ses limites physiques conservées
+par le générateur, sans migration multi-niveaux LDtk. Rendu graine 1 vérifié (capture
+`docs/captures/le-relais/fog-piece-fermee.png`) ; test de logique fermé/ouvert/chaîne/
+rollback/plusieurs joueurs réussi. Ouverture interactive à valider par William.
+Bonus au sol : repère vert avec nom ajouté après le Nuke invisible observé.

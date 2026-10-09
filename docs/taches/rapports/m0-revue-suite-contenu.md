@@ -404,3 +404,17 @@ présenter la correction des portes comme cette migration.
 Capture du retour : revue-touche-l.ron, 3281frames / graine1398560232, à rejouer
 sur 97eaf04 avant modification du contenu. Relance corrigée préparée pour William.
 Aucun push ; validation humaine et migration multi-niveaux encore attendues.
+
+## Présentation — brouillard des pièces et bonus (9 octobre 2026)
+
+- Ajout d'un masque de salle opt-in, dérivé des joueurs, emplacements de départ et
+  portes sans collider (ouvertes). Pas de nouvel état rollback ni de changement des
+  règles d'achat, de spawn ou de combat. Révélation partagée entre joueurs.
+- Le Relais fournit les limites via ses rectangles conservés dans LDtk. Toujours un
+  niveau final fusionné : cette intégration n'est pas la migration multi-niveaux.
+- Bonus auparavant invisibles : repère vert et libellé au sol, présentation seulement.
+- Vérifié : compilation rendue, test de révélation (portes fermées, chaîne ouverte,
+  rollback fermé, plusieurs joueurs), fmt/diff-check ; rendu initial graine 1 capturé.
+- Non vérifié : ouverture interactive en partie, p2p, suite complète des scénarios.
+- Génération revalidée : 3 tests réussis, dont les contrôles de géométrie et de
+  connexions sur 200 graines (11,01 s).

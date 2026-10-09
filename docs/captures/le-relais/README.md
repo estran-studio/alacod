@@ -309,3 +309,27 @@ entrée en V5 f6660 et f6625, 0 mort/down/desync/failure. Relevés :
 concernent la version précédente ; elles n'ont pas toutes été rejouées pour
 cette suppression. Les tests géométriques couvrent les 200 graines de la version
 actuelle. Compilation avec rendu, lint zombies, fmt et diff check passent.
+
+### Brouillard des salles et bonus au sol — 9 octobre 2026
+
+La présentation peut masquer une salle via le composant opt-in `RoomFog` (limites
+monde). Le Relais le renseigne depuis ses limites de défense conservées dans LDtk ;
+les autres cartes sans ces limites ne changent pas. Ce pont ne migre pas les niveaux
+fusionnés vers des niveaux LDtk distincts.
+
+La salle de départ et les salles contenant un joueur sont visibles. Les connexions
+par portes ouvertes propagent la révélation à tous les joueurs. Le masque opaque
+couvre sol, objets et personnages ; les faces des murs et portes restent visibles.
+Il est dérivé dans Update, sans mémoire de découverte ni modification du checksum :
+un rollback refermant une porte remet le masque. Les portes du mode zombie restant
+ouvertes après achat, les salles découvertes restent visibles ensuite.
+
+`fog-piece-fermee.png` : rendu vérifié graine 1, accueil visible et pièce voisine noire.
+Test unitaire : fermé, ouverture simple, chaîne de deux portes, retour à l'état fermé,
+révélation partagée entre joueurs. Compilation du jeu réussie. L'ouverture en jeu
+reste à valider manuellement ; pas de vérification p2p ni de suite complète ici.
+
+Les bonus au sol ont aussi un repère vert et leur nom, dérivés de l'état courant dans
+la présentation. Il s'agit de repères provisoires, sans nouveaux assets raster.
+
+Les 3 tests de génération ont également été rejoués : succès, 200 graines contrôlées.
