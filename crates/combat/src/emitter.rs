@@ -66,6 +66,14 @@ pub struct RingRepeat {
     pub fired: u32,
 }
 
+/// Étape multi-salves en cours (`Spiral`, `Burst`, M2-T1) : prochaine salve `fired` de l'étape
+/// `step`, jouée quand l'attente en cours (`wait_left`) s'achève.
+#[derive(Clone, Debug, Hash, PartialEq, Eq)]
+pub struct MultiVolley {
+    pub step: u32,
+    pub fired: u32,
+}
+
 /// État rollback d'un émetteur (enregistré par
 /// `utils::rollback::RollbackTraceApp::rollback_and_trace_neutral` : aucune entité
 /// existante n'en porte, les traces existantes ne bougent pas).
@@ -100,6 +108,9 @@ pub struct Emitter {
     /// L'étape bloquante en cours est un `Telegraph`.
     pub telegraph: bool,
     pub rings: Vec<RingRepeat>,
+    /// `Spiral`/`Burst` en cours. Haché **seulement s'il existe** : un `None` haché
+    /// déplacerait le checksum de tous les émetteurs d'avant M2-T1.
+    pub multi: Option<MultiVolley>,
     /// Séquence terminée : retiré par [`emitter_system`] cette frame.
     pub finished: bool,
 }
@@ -118,6 +129,9 @@ impl std::hash::Hash for Emitter {
         self.wait_left.hash(state);
         self.telegraph.hash(state);
         self.rings.hash(state);
+        if let Some(multi) = &self.multi {
+            multi.hash(state);
+        }
         self.finished.hash(state);
     }
 }
@@ -138,8 +152,20 @@ impl std::fmt::Debug for Emitter {
             .field("wait_left", &self.wait_left)
             .field("telegraph", &self.telegraph)
             .field("rings", &self.rings)
+            .field("multi", &self.multi)
             .field("finished", &self.finished)
             .finish()
+    }
+}
+
+/// (nombre de salves, frames entre deux salves) d'une étape multi-salves.
+fn multi_shape(step: &Pattern) -> (u32, u32) {
+    match step {
+        Pattern::Spiral { shots, every, .. } => (*shots, *every),
+        Pattern::Burst {
+            count, interval, ..
+        } => (*count, *interval),
+        _ => (1, 0),
     }
 }
 
@@ -182,6 +208,7 @@ impl Emitter {
             wait_left: 0,
             telegraph: false,
             rings: Vec::new(),
+            multi: None,
             finished: false,
         }
     }
@@ -194,8 +221,42 @@ impl Emitter {
 
     /// Salve d'une étape instantanée. `random` tire une valeur dans `[0, 1)` (flux
     /// `"patterns"`) : appelée seulement par `Scatter`.
-    fn salvo(&self, step: &Pattern, random: &mut impl FnMut() -> Fixed) -> Vec<Shot> {
+    fn salvo(&self, step: &Pattern, k: u32, random: &mut impl FnMut() -> Fixed) -> Vec<Shot> {
         match step {
+            Pattern::Spiral {
+                count,
+                step: turn,
+                speed,
+                projectile,
+                ..
+            } => {
+                let arm = if *count == 0 {
+                    Fixed::ZERO
+                } else {
+                    fixed_math::FIXED_TAU / Fixed::from_num(*count)
+                };
+                let start = angle_of(self.aim) + turn.saturating_mul(Fixed::from_num(k));
+                (0..*count)
+                    .map(|i| Shot {
+                        projectile: projectile.clone(),
+                        direction: direction_of(start + arm.saturating_mul(Fixed::from_num(i))),
+                        speed: (*speed > Fixed::ZERO).then_some(*speed),
+                    })
+                    .collect()
+            }
+            Pattern::Burst {
+                per_burst,
+                spread,
+                projectile,
+                ..
+            } => crate::projectile::fan_angles(angle_of(self.aim), *per_burst, *spread)
+                .into_iter()
+                .map(|angle| Shot {
+                    projectile: projectile.clone(),
+                    direction: direction_of(angle),
+                    speed: None,
+                })
+                .collect(),
             Pattern::Scatter {
                 count,
                 spread,
@@ -238,7 +299,27 @@ impl Emitter {
         };
         if !blocked {
             self.telegraph = false;
-            while let Some(step) = steps.get(self.next_step as usize) {
+            // Reprise d'une étape multi-salves : la salve due, puis soit une nouvelle attente
+            // (le reste de la séquence attend), soit la fin de l'étape.
+            let mut stalled = false;
+            if let Some(multi) = self.multi.take() {
+                if let Some(step) = steps.get(multi.step as usize) {
+                    shots.extend(self.salvo(step, multi.fired, random));
+                    let (total, wait) = multi_shape(step);
+                    if multi.fired + 1 < total {
+                        self.multi = Some(MultiVolley {
+                            step: multi.step,
+                            fired: multi.fired + 1,
+                        });
+                        self.wait_left = wait;
+                        stalled = true;
+                    }
+                }
+            }
+            while !stalled {
+                let Some(step) = steps.get(self.next_step as usize) else {
+                    break;
+                };
                 let index = self.next_step;
                 self.next_step += 1;
                 match step {
@@ -249,18 +330,30 @@ impl Emitter {
                             break;
                         }
                     }
+                    Pattern::Spiral { .. } | Pattern::Burst { .. } => {
+                        shots.extend(self.salvo(step, 0, random));
+                        let (total, wait) = multi_shape(step);
+                        if total > 1 && wait > 0 {
+                            self.multi = Some(MultiVolley {
+                                step: index,
+                                fired: 1,
+                            });
+                            self.wait_left = wait;
+                            break;
+                        }
+                    }
                     Pattern::Ring { every, .. } if *every > 0 => {
-                        shots.extend(self.salvo(step, random));
+                        shots.extend(self.salvo(step, 0, random));
                         self.rings.push(RingRepeat {
                             step: index,
                             next_frame: frame.saturating_add(*every),
                             fired: 1,
                         });
                     }
-                    _ => shots.extend(self.salvo(step, random)),
+                    _ => shots.extend(self.salvo(step, 0, random)),
                 }
             }
-            if self.next_step as usize >= steps.len() && self.wait_left == 0 && !self.infinite {
+            if self.next_step as usize >= steps.len() && self.wait_left == 0 && self.multi.is_none() && !self.infinite {
                 self.finished = true;
                 return shots;
             }
@@ -271,7 +364,7 @@ impl Emitter {
         for ring in &mut rings {
             if frame >= ring.next_frame {
                 if let Some(step) = steps.get(ring.step as usize) {
-                    shots.extend(self.salvo(step, random));
+                    shots.extend(self.salvo(step, 0, random));
                     if let Pattern::Ring { every, .. } = step {
                         ring.next_frame = ring.next_frame.saturating_add(*every);
                     }
@@ -614,5 +707,132 @@ mod tests {
             .patterns
             .insert("a".into(), Arc::new(Pattern::Named("a".into())));
         assert!(library.resolve(&Pattern::Named("a".into())).is_err());
+    }
+
+    // --- M2-T1 : Spiral, Fan, Burst ---
+
+    fn spiral(count: u32, step: f32, shots: u32, every: u32) -> Pattern {
+        Pattern::Spiral {
+            count,
+            step: fixed_math::new(step),
+            shots,
+            every,
+            speed: fixed_math::new(100.0),
+            projectile: "p".into(),
+        }
+    }
+
+    fn angles(e: &mut Emitter, frame: u32) -> Vec<Fixed> {
+        let mut never = || -> Fixed { panic!("aucun Scatter ici") };
+        e.tick(frame, &mut never)
+            .iter()
+            .map(|shot| angle_of(shot.direction))
+            .collect()
+    }
+
+    #[test]
+    fn spirale_tourne_de_step_par_salve_et_garde_ses_bras() {
+        let mut e = emitter(spiral(3, 0.5, 3, 10));
+        let counts = run(&mut e, 40);
+        let salvos: Vec<usize> = counts
+            .iter()
+            .enumerate()
+            .filter(|(_, n)| **n > 0)
+            .map(|(i, _)| i + 1)
+            .collect();
+        // Trois salves de trois bras, espacées de 10 frames, puis fin.
+        assert_eq!(salvos, vec![1, 11, 21]);
+        assert!(counts.iter().all(|n| *n == 0 || *n == 3));
+        assert!(e.finished);
+        assert!(e.multi.is_none());
+
+        let mut e = emitter(spiral(2, 0.5, 2, 5));
+        let first = angles(&mut e, 1);
+        let mut second = Vec::new();
+        for f in 2..=6 {
+            let a = angles(&mut e, f);
+            if !a.is_empty() {
+                second = a;
+            }
+        }
+        // Écart d'angle ramené dans ]-π, π] (`angle_of` rend un angle dans cet intervalle).
+        let delta = |a: Fixed, b: Fixed| {
+            let mut d = b - a;
+            if d < -fixed_math::FIXED_TAU / Fixed::from_num(2) {
+                d += fixed_math::FIXED_TAU;
+            }
+            d
+        };
+        let half = fixed_math::new(0.5);
+        for (a, b) in first.iter().zip(&second) {
+            assert!((delta(*a, *b) - half).abs() < fixed_math::new(0.01), "{a} -> {b}");
+        }
+        // Bras opposés : écart π entre les deux tirs d'une salve.
+        assert!((first[1] - first[0] - fixed_math::FIXED_TAU / Fixed::from_num(2)).abs() < fixed_math::new(0.01));
+    }
+
+    #[test]
+    fn salves_espacees_de_interval_et_eventail_exact() {
+        let burst = Pattern::Burst {
+            count: 3,
+            per_burst: 3,
+            interval: 4,
+            spread: fixed_math::new(0.4),
+            projectile: "p".into(),
+        };
+        let mut e = emitter(Pattern::Sequence(vec![burst, Pattern::Wait(2)]));
+        let counts = run(&mut e, 20);
+        let salvos: Vec<usize> = counts
+            .iter()
+            .enumerate()
+            .filter(|(_, n)| **n > 0)
+            .map(|(i, _)| i + 1)
+            .collect();
+        assert_eq!(salvos, vec![1, 5, 9]);
+        assert!(counts.iter().all(|n| *n == 0 || *n == 3));
+        // Finit après le Wait qui suit la dernière salve (frame 9 + 2).
+        assert!(e.finished);
+
+        let mut e = emitter(Pattern::Burst {
+            count: 1,
+            per_burst: 3,
+            interval: 1,
+            spread: fixed_math::new(0.4),
+            projectile: "p".into(),
+        });
+        let a = angles(&mut e, 1);
+        assert_eq!(a.len(), 3);
+        assert!(a[0] < Fixed::ZERO && a[1].abs() < fixed_math::new(0.001) && a[2] > Fixed::ZERO);
+        assert!((a[2] - a[0] - fixed_math::new(0.4)).abs() < fixed_math::new(0.001));
+    }
+
+    #[test]
+    fn fan_est_instantane_et_sans_hasard() {
+        let fan = Pattern::Fan {
+            count: 5,
+            spread: fixed_math::new(1.0),
+            speed: fixed_math::new(80.0),
+            projectile: "p".into(),
+        };
+        let mut e = emitter(fan);
+        let shots = e.tick(1, &mut || -> Fixed { panic!("pas de hasard") });
+        assert_eq!(shots.len(), 5);
+        assert!(shots.iter().all(|s| s.speed == Some(fixed_math::new(80.0))));
+        assert!(e.finished);
+    }
+
+    #[test]
+    fn spirale_ne_change_pas_le_hash_d_un_emetteur_sans_etape_multiple() {
+        use std::hash::{Hash, Hasher};
+        let h = |e: &Emitter| {
+            let mut hasher = std::collections::hash_map::DefaultHasher::new();
+            e.hash(&mut hasher);
+            hasher.finish()
+        };
+        let a = emitter(ring(8, 0));
+        let mut b = emitter(ring(8, 0));
+        assert_eq!(h(&a), h(&b));
+        b.multi = Some(MultiVolley { step: 0, fired: 1 });
+        assert_ne!(h(&a), h(&b));
     }
 }

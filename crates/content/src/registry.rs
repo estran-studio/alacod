@@ -512,6 +512,30 @@ pub enum PatternEntry {
     },
     /// T1.2 : pattern nommé du kind `Pattern`.
     Named(String),
+    /// M2-T1 : éventail exact (`speed` 0 : celle du projectile).
+    Fan {
+        count: u32,
+        spread: FixedField,
+        speed: FixedField,
+        projectile: String,
+    },
+    /// M2-T1 : spirale, émetteurs seulement.
+    Spiral {
+        count: u32,
+        step: FixedField,
+        shots: u32,
+        every: u32,
+        speed: FixedField,
+        projectile: String,
+    },
+    /// M2-T1 : salves, émetteurs seulement.
+    Burst {
+        count: u32,
+        per_burst: u32,
+        interval: u32,
+        spread: FixedField,
+        projectile: String,
+    },
 }
 
 /// Mirroir de `combat::projectile::ExpireAction`.
