@@ -129,6 +129,19 @@ pub struct FloorsOverride(pub String);
 
 /// Cartes des niveaux du mode `Floors` (T1.8) : la séquence `config` du registre. `None`
 /// si le mode n'est pas `Floors` ou que la séquence est inconnue (le lint l'aurait refusée).
+/// `victory_at_end` de la séquence `Floors` du mode (M2-T0d) ; faux hors `Floors`.
+pub fn floors_victory_at_end(mode: &RunMode, registry: Option<&Registry>) -> bool {
+    let RunMode::Floors { config } = mode else {
+        return false;
+    };
+    registry
+        .and_then(|r| {
+            r.floors
+                .get(&content::registry::FloorsConfigId::from(config.clone()))
+        })
+        .is_some_and(|entry| entry.victory_at_end)
+}
+
 pub fn floor_levels(mode: &RunMode, registry: Option<&Registry>) -> Option<Vec<String>> {
     let RunMode::Floors { config } = mode else {
         return None;
@@ -398,6 +411,14 @@ fn apply_run_request_system(
         return;
     };
 
+    #[cfg(target_arch = "wasm32")]
+    if crate::jjrs::browser::session().is_some() {
+        // The host ends the current session and obtains a fresh admission ticket.
+        // Never derive a restart room by appending characters to a JWT.
+        commands.remove_resource::<RunRequest>();
+        crate::jjrs::browser::alacod_return_to_lobby();
+        return;
+    }
     let online = matches!(*online_state, OnlineState::Online);
     // D14 : restart en ligne sur le chemin `--matchbox` seulement (pas en allumette).
     let restart_online = ggrs_config.is_some_and(|c| c.allumette_url.is_empty());

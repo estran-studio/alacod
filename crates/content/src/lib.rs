@@ -1,5 +1,6 @@
 pub mod expr;
 pub mod feedback;
+pub mod files;
 pub mod lint;
 pub mod manifest;
 pub mod registry;
@@ -23,6 +24,23 @@ pub fn load_and_lint(
 ) -> Result<(Registry, GameManifest, Vec<LintError>), ManifestError> {
     let manifest = GameManifest::load(game_dir)?;
     let (registry, mut errors) = Registry::build(game_dir, &manifest);
+    errors.extend(lint::run(&registry, &manifest));
+    Ok((registry, manifest, errors))
+}
+
+/// Load browser content without accessing the host filesystem. The same registry and
+/// semantic lint run on both platforms; binary assets remain HTTP resources.
+pub fn load_embedded(
+    files: files::EmbeddedFiles,
+) -> Result<(Registry, GameManifest, Vec<LintError>), ManifestError> {
+    let text = files::ContentFiles::embedded(files)
+        .read(std::path::Path::new("game.ron"))
+        .map_err(|e| ManifestError::Io {
+            path: "game.ron".into(),
+            message: e.to_string(),
+        })?;
+    let manifest = GameManifest::parse(&text, "game.ron".into())?;
+    let (registry, mut errors) = Registry::build_embedded(&manifest, files);
     errors.extend(lint::run(&registry, &manifest));
     Ok((registry, manifest, errors))
 }

@@ -1,0 +1,8 @@
+// Fixture M2-T0c : SpawnPattern vers un pattern et une arme inconnus (BrokenReference)
+(
+    name: "fixture-boss_unknown_pattern",
+    content_folders: [
+        (path: "characters", kind: "Character"),
+    ],
+    entry: (start_map: "maps/salle.ldtk", default_seed: 1),
+)

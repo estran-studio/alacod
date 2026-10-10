@@ -46,10 +46,10 @@ RUN rustup target add wasm32-unknown-unknown
 RUN cargo install -f wasm-bindgen-cli --version 0.2.129
 
 # Install wasm-opt (binaryen)
-RUN wget https://github.com/WebAssembly/binaryen/releases/download/version_119/binaryen-version_119-x86_64-linux.tar.gz && \
-    tar -xzf binaryen-version_119-x86_64-linux.tar.gz && \
-    cp binaryen-version_119/bin/wasm-opt /usr/local/bin/ && \
-    rm -rf binaryen-version_119 binaryen-version_119-x86_64-linux.tar.gz
+RUN wget https://github.com/WebAssembly/binaryen/releases/download/version_124/binaryen-version_124-x86_64-linux.tar.gz && \
+    tar -xzf binaryen-version_124-x86_64-linux.tar.gz && \
+    cp binaryen-version_124/bin/wasm-opt /usr/local/bin/ && \
+    rm -rf binaryen-version_124 binaryen-version_124-x86_64-linux.tar.gz
 
 # Set up sccache
 ENV RUSTC_WRAPPER=sccache

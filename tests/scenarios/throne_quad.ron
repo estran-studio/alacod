@@ -11,7 +11,10 @@
 // m1-fusion-revue-m0-suite (course nerveuse) : étages à f440, f1062, f1930 ; portail du niveau 2
 // ouvert à f1799, du niveau 3 (boss mort) à f3071 ; premier niveau à f751, première mutation à
 // f1351 ; alerte à f2830, dans l'étage 3 (l'étage 2 dure moins de 15 s) ; quatrième caverne à
-// f3190 ; les quatre vivants à la fin.
+// f3190 ; les quatre vivants à la fin. m1-bots-apres-movement-feel (pilotage en 8 directions, ennemi coincé) : étages à
+// f262, f944, f2260 ; portail du niveau 2 ouvert à f2120, du niveau 3 (boss mort) à f3219 ;
+// premier niveau à f352, première mutation à f952 ; alerte à f1844 (étage 2) ; quatrième
+// caverne à f3289 ; les quatre vivants à la fin.
 //
 // À regarder : quatre bots nettoient trois cavernes de plus en plus grandes ; au troisième, le roi
 // des rats (plus gros) quitte le coin le plus éloigné, tire en couronne, charge, puis tombe.
@@ -29,13 +32,13 @@ Scenario(
     expect: [
         FloorIndex(index: 1, at_frame: 445),
         FloorIndex(index: 2, at_frame: 1065),
-        FloorIndex(index: 2, at_frame: 1900),
-        FloorIndex(index: 3, at_frame: 1935),
-        Event(kind: "portal", label_contains: Some("niveau 2"), by_frame: 1800),
-        Event(kind: "floor", label_contains: Some("niveau 3"), by_frame: 1935),
+        FloorIndex(index: 2, at_frame: 2250),
+        FloorIndex(index: 3, at_frame: 2270),
+        Event(kind: "portal", label_contains: Some("niveau 2"), by_frame: 2125),
+        Event(kind: "floor", label_contains: Some("niveau 3"), by_frame: 2270),
         Event(kind: "levelup", by_frame: 755),
         Event(kind: "mutation", by_frame: 1355),
-        Clock(id: "alerte", fired: true, at_frame: 2835),
+        Clock(id: "alerte", fired: true, at_frame: 1850),
         PlayerAlive(handle: 0, at_frame: 3399),
         PlayerAlive(handle: 1, at_frame: 3399),
         PlayerAlive(handle: 2, at_frame: 3399),

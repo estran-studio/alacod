@@ -1,0 +1,33 @@
+// M2-T0b (docs/conventions.md §36) : un actif chargé par une salle nettoyée (M2-E1), puis
+// utilisé. Carte testbed/salles.ldtk (départ, combat avec deux `dummy`, récompense). L'actif
+// `fiole` (Active(Rooms(1)) : +100 % de dégâts 300 frames à l'usage) est posé sur le joueur à f5.
+//
+// À regarder : f10 le joueur ramasse la fiole (charge 0) ; f30-90 il entre dans la salle de
+// combat (verrouillée f85) et tire ; quand les deux ennemis sont morts (f~480) la salle est
+// nettoyée : la fiole est chargée (1) ; f510 il l'utilise (UseActive) : charge 0 et dégâts ×2 jusqu'à f~810.
+Scenario(
+    powerup_drop_chance_override: "0.0",
+    game: "testbed",
+    map: "testbed/salles.ldtk",
+    map_seed: 1,
+    frames: 850,
+    items: [(id: "fiole", x: "-904.0", y: "-584.0", at_frame: 5)],
+    players: [
+        (inputs: [
+            (from: 10, to: 13, buttons: [Interaction]),
+            (from: 30, to: 90, buttons: [Right]),
+            (from: 90, to: 500, buttons: [Fire], pan: (64, 0)),
+            (from: 510, to: 513, buttons: [UseActive]),
+        ]),
+    ],
+    expect: [
+        HasItem(handle: 0, id: "fiole", at_frame: 30),
+        ItemCharge(handle: 0, charge: 0, at_frame: 400),
+        RoomState(kind: "combat", state: Cleared, at_frame: 500),
+        ItemCharge(handle: 0, charge: 1, at_frame: 505),
+        Stat(handle: 0, stat: Damage, value: 1.0, at_frame: 505),
+        ItemCharge(handle: 0, charge: 0, at_frame: 530),
+        Stat(handle: 0, stat: Damage, value: 2.0, at_frame: 530),
+        Stat(handle: 0, stat: Damage, value: 1.0, at_frame: 830),
+    ],
+)

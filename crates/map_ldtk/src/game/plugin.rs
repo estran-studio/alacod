@@ -110,6 +110,8 @@ impl Plugin for LdtkMapLoadingPlugin {
         // T1.6 : terrain destructible des cavernes (`CellGrid` au chargement, murs et
         // navigation après destruction).
         app.add_plugins(super::cave::CavePlugin);
+        // M2-E1 : salles typées et verrouillées (inerte sans champ de niveau `room_kind`).
+        app.add_plugins(super::rooms::RoomsPlugin);
         // Deterministic order at the end of map loading: door level iids, then map entity
         // ids (this system also sends LdtkMapLoadingEvent), then walls, then players (see
         // MapNetIdAssignment)
@@ -436,19 +438,26 @@ pub(crate) fn spawn_map_items<'a>(
                 // Get the DoorGridPosition if available
                 let door_grid_position = item.door_grid_position.clone();
 
+                let door_collider = Collider {
+                    shape: game::collider::ColliderShape::Rectangle {
+                        width: fixed_math::Fixed::from_num(width),
+                        height: fixed_math::Fixed::from_num(height),
+                    },
+                    offset: fixed_math::FixedVec3::ZERO,
+                };
                 cmd.insert((
                     Wall,
                     DoorComponent {
                         config: door_config.clone(),
                     },
-                    Collider {
-                        shape: game::collider::ColliderShape::Rectangle {
-                            width: fixed_math::Fixed::from_num(width),
-                            height: fixed_math::Fixed::from_num(height),
-                        },
-                        offset: fixed_math::FixedVec3::ZERO,
-                    },
+                    door_collider.clone(),
                     CollisionLayer(collision_settings.wall_layer),
+                    // M2-E1 : de quoi refermer la porte (salles verrouillées ; statique, hors
+                    // rollback : la même valeur pour toute la partie).
+                    super::rooms::DoorShape {
+                        collider: door_collider,
+                        layer: CollisionLayer(collision_settings.wall_layer),
+                    },
                 ));
 
                 // Add grid position if available

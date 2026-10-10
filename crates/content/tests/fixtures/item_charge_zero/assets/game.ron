@@ -1,0 +1,8 @@
+// Fixture M2-T0b : un actif dont la charge est 0 (OutOfRange)
+(
+    name: "fixture-item_charge_zero",
+    content_folders: [
+        (path: "objets", kind: "Item"),
+    ],
+    entry: (start_map: "maps/salle.ldtk", default_seed: 1),
+)

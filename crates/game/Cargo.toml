@@ -24,6 +24,8 @@ combat = { path = "../combat"}
 content = { path = "../content"}
 run = { path = "../run"}
 world = { path = "../world" }
+items = { path = "../items" }
+meta = { path = "../meta" }
 effects = { path = "../effects"}
 behaviors = { path = "../behaviors"}
 map = { path = "../map"}

@@ -95,7 +95,8 @@ pub struct BotView {
     /// ouvert sans ennemi. `None` : pas de chemin (repli : ligne droite).
     pub route: Option<FixedVec2>,
     /// m1-v3-bots-portail : l'ennemi le plus proche est immobile (`MoveSpeed` de base nulle :
-    /// tourelle ; ou `Velocity::main` nulle : ennemi coincé dans un recoin). `prudent` s'en
+    /// tourelle ; ou `Velocity::main` nulle, ou sur place depuis [`crate::stuck::STUCK_FRAMES`]
+    /// : ennemi coincé dans un recoin, m1-bots-apres-movement-feel). `prudent` s'en
     /// rapproche jusqu'à [`crate::decide::STILL_TARGET_DISTANCE`] sans reculer, au lieu de
     /// tirer de loin (dispersion : il vidait ses munitions, ou touchait si rarement que la
     /// partie n'avançait plus). Faux hors navigation (hors mode `Floors`).

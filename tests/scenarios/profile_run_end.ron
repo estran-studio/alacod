@@ -1,0 +1,22 @@
+// M2-T0c (docs/conventions.md §38) : le profil de méta-progression est écrit hors simulation à la
+// fin de la run, depuis `RunSummary`. Même partie que le test T3.1 : `idle` (zombies) avec la
+// limite de vagues à 1, qui donne une victoire en quelques frames. `profile: true` écrit les
+// profils dans un dossier temporaire (jamais celui de l'utilisateur).
+//
+// À regarder : rien de spécial à l'écran (écran de victoire) ; le profil `local-0` gagne les
+// déblocages `first_run` et `first_victory` et 11 d'essence (1 par run + 10 par victoire).
+Scenario(
+    powerup_drop_chance_override: "0.0",
+    game: "zombies",
+    frames: 60,
+    profile: true,
+    wave_overrides: (max_wave: 1),
+    players: [
+        (),
+    ],
+    expect: [
+        RunState(step: Ended(Victory), at_frame: 50),
+        ProfileHas(handle: 0, unlock: "first_run", at_frame: 60),
+        ProfileHas(handle: 0, unlock: "first_victory", currency: ("essence", 11), at_frame: 60),
+    ],
+)

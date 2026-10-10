@@ -1,0 +1,12 @@
+[Unit]
+Description=Allumette host firewall (preserves Docker rules)
+After=network-pre.target
+Before=allumette-stack.service
+
+[Service]
+Type=oneshot
+RemainAfterExit=yes
+ExecStart=/usr/sbin/nft -f /etc/allumette-host.nft
+
+[Install]
+WantedBy=multi-user.target

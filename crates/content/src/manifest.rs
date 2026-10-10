@@ -143,9 +143,13 @@ impl GameManifest {
             path: path.clone(),
             message: e.to_string(),
         })?;
+        Self::parse(&text, path)
+    }
+
+    pub fn parse(text: &str, path: PathBuf) -> Result<Self, ManifestError> {
         ron::Options::default()
             .with_default_extension(ron::extensions::Extensions::IMPLICIT_SOME)
-            .from_str(&text)
+            .from_str(text)
             .map_err(|e| ManifestError::Parse {
                 path,
                 message: e.to_string(),

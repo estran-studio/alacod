@@ -1,0 +1,29 @@
+// M2-E1 (docs/conventions.md §35) : les ennemis d'une salle de combat dormante restent
+// immobiles. Carte testbed/salles_poursuivants.ldtk : deux `follower` (ils poursuivent
+// d'ordinaire le joueur à travers la porte ouverte) dans la salle de combat.
+//
+// À regarder : le joueur ne bouge pas (f1-150) ; les deux ennemis restent où ils sont, sans
+// s'approcher de la porte ouverte. Il avance (f150-230) : la salle se verrouille (f~205), les
+// ennemis se réveillent et viennent le chercher (ils n'attaquent pas).
+Scenario(
+    powerup_drop_chance_override: "0.0",
+    game: "testbed",
+    map: "testbed/salles_poursuivants.ldtk",
+    map_seed: 1,
+    frames: 450,
+    players: [
+        (inputs: [
+            (from: 150, to: 230, buttons: [Right]),
+        ]),
+    ],
+    expect: [
+        // Dormants : toujours à leur point de départ (≈ 192 px du joueur).
+        RoomState(kind: "combat", state: Dormant, doors_closed: Some(0), at_frame: 140),
+        EnemyDistance(entity: NetId(28), target: Player(0), min: 185.0, at_frame: 140),
+        EnemyDistance(entity: NetId(29), target: Player(0), min: 185.0, at_frame: 140),
+        // Réveillés : verrouillée, et les ennemis ont rejoint le joueur.
+        RoomState(kind: "combat", state: Locked, doors_closed: Some(4), at_frame: 300),
+        EnemyDistance(entity: NetId(28), target: Player(0), max: 60.0, at_frame: 440),
+        EnemyDistance(entity: NetId(29), target: Player(0), max: 60.0, at_frame: 440),
+    ],
+)

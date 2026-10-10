@@ -19,7 +19,7 @@ LOG_DIR := ./logs
 LOG_PREFFIX := game_run
 FILTERED_LOG_DIR := ./logs/filtered
 GREP_FILTER := 'ggrs{'
-MATCHBOX_URL := wss://allumette.bascanada.org
+MATCHBOX_URL := wss://allumette.estran.studio
 
 
 ifeq ($(CURRENT_TAG),)
@@ -115,7 +115,7 @@ check_rollback_registration:
 
 # Lint du contenu (crates/content, T1.5) : références cassées, ids dupliqués, valeurs hors
 # plage, kinds inconnus, littéraux nus dans des champs Fixed. Sans lancer le moteur.
-# Code de sortie 1 (messages sur stderr) si un des deux jeux a une erreur.
+# Code de sortie 1 (messages sur stderr) si un des jeux a une erreur.
 lint:
 	@echo "alacod lint games/zombies"
 	cargo run -q -p content --bin alacod --profile headless -- lint games/zombies
@@ -123,6 +123,8 @@ lint:
 	cargo run -q -p content --bin alacod --profile headless -- lint games/testbed
 	@echo "alacod lint games/throne"
 	cargo run -q -p content --bin alacod --profile headless -- lint games/throne
+	@echo "alacod lint games/gungeon"
+	cargo run -q -p content --bin alacod --profile headless -- lint games/gungeon
 
 .PHONY: lint
 
@@ -238,7 +240,7 @@ character_tester:
 character_tester_matchbox:
 	APP_VERSION=$(VERSION) cargo run --example character_tester $(ARGS) --features native -- --number-player $(NUMBER_PLAYER) --matchbox $(MATCHBOX_URL) --lobby $(LOBBY) --players $(PLAYERS) --cid $(CID) --name $(NAME)
 
-# Lance un jeu du dossier games/ en local (un joueur) : make zombies / make testbed / make throne
+# Lance un jeu du dossier games/ en local (un joueur) : make zombies / testbed / throne / gungeon
 zombies:
 	APP_VERSION=$(VERSION) cargo run -p zombies $(ARGS) --features native -- $(GARGS) --local-port 7000 --players localhost
 
@@ -247,6 +249,9 @@ testbed:
 
 throne:
 	APP_VERSION=$(VERSION) cargo run -p throne $(ARGS) --features native -- $(GARGS) --local-port 7000 --players localhost
+
+gungeon:
+	APP_VERSION=$(VERSION) cargo run -p gungeon $(ARGS) --features native -- $(GARGS) --local-port 7000 --players localhost
 
 ldtk_map_explorer:
 	APP_VERSION=$(VERSION) cargo run -p zombies $(ARGS) --features native -- $(GARGS) --local-port 7000 --players localhost
@@ -283,7 +288,8 @@ ifeq ($(PROFILE), prod)
 endif
 
 
-build_wasm_apps: cp_asset build_map_preview_web build_character_tester_web build_ldtk_map_explorer_web
+build_wasm_apps:
+	WEB_BUILD_ID=$(VERSION) WEB_PROFILE=$(if $(filter prod,$(PROFILE)),release,dev) node scripts/build-web-games.mjs zombies throne
 
 build_website: build_wasm_apps
 	cd website && npm ci && APP_VERSION=$(VERSION) npm run build
@@ -370,3 +376,8 @@ nightly_quick:
 	bash scripts/nightly.sh --quick
 
 .PHONY: nightly nightly_quick
+
+# Immutable clone builds and release catalog (solo opt-in for previews).
+.PHONY: build_web_games
+build_web_games:
+	node scripts/build-web-games.mjs $(WEB_GAMES)

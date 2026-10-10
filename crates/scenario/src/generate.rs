@@ -462,6 +462,8 @@ pub fn build_enemy_scenario(
         }),
         invariants: Invariants::default(),
         powerups: vec![],
+        items: vec![],
+        profile: false,
         powerup_drop_chance_override: Some(fixed_math::FIXED_ZERO),
         floors: None,
         clocks: None,
@@ -640,6 +642,8 @@ pub fn build_weapon_scenario(
         invariants: Invariants::default(),
         // Isoler les essais d'armes des drops : ils ont leur propre scénario de preuve.
         powerups: vec![],
+        items: vec![],
+        profile: false,
         powerup_drop_chance_override: Some(bevy_fixed::fixed_math::FIXED_ZERO),
         floors: None,
         progression: None,

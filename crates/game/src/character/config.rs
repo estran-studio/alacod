@@ -91,6 +91,11 @@ pub struct CharacterConfig {
     #[serde(default)]
     pub effects: Vec<effects::Effect>,
 
+    /// Boss à phases (M2-T0c, `docs/conventions.md` §37) : `BossPlan`/`BossState` posés au spawn
+    /// seulement si présent (aucun contenu existant n'en a).
+    #[serde(default)]
+    pub boss: Option<behaviors::BossDef>,
+
     /// Équipe par défaut d'un personnage spawné via `spawn_enemy` sans `team` explicite sur
     /// l'entité `CharacterSpawn` qui l'a créé (T2.9, testbed). `None` pour tout le contenu
     /// zombies existant (comportement inchangé : `Team::Enemies` en dur, voir

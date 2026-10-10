@@ -1,0 +1,5 @@
+// `throne` (T1.11) : visée de 30 frames puis deux crachats serrés (`franc_tireur`).
+Sequence([
+    Telegraph(30),
+    Aimed(count: 2, spread: "0.1", projectile: "crachat"),
+])

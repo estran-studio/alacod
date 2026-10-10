@@ -69,7 +69,10 @@ pub fn read_canvas_data_system() -> CanvasConfig {
         }
     }
 
-    info!("Read config from canvas: {:?}", config);
+    info!(
+        "Read browser game configuration ({} players)",
+        config.number_player.unwrap_or(1)
+    );
 
     return config;
 }

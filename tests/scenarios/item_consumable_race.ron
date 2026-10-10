@@ -1,0 +1,28 @@
+// M2-T0b (docs/conventions.md §36) : un consommable (`key`) ramassé au contact ; deux joueurs à
+// portée la même frame : le plus petit `GgrsNetId` (joueur 0) l'emporte. Carte
+// testbed/salles.ldtk (joueurs en (-904, -584) et (-904, -600)).
+//
+// À regarder : une clé apparaît entre les deux joueurs (f5) : elle disparaît aussitôt, le joueur
+// 0 en a une. Une seconde clé, posée sur le joueur 1 seul (f20), est pour lui.
+Scenario(
+    powerup_drop_chance_override: "0.0",
+    game: "testbed",
+    map: "testbed/salles.ldtk",
+    map_seed: 1,
+    frames: 60,
+    items: [
+        (id: "key", x: "-904.0", y: "-592.0", at_frame: 5),
+        (id: "key", x: "-904.0", y: "-615.0", at_frame: 20),
+    ],
+    players: [
+        (inputs: []),
+        (inputs: []),
+    ],
+    expect: [
+        Consumable(handle: 0, id: "key", count: 0, at_frame: 4),
+        Consumable(handle: 0, id: "key", count: 1, at_frame: 15),
+        Consumable(handle: 1, id: "key", count: 0, at_frame: 15),
+        Consumable(handle: 1, id: "key", count: 1, at_frame: 40),
+        Consumable(handle: 0, id: "key", count: 1, at_frame: 40),
+    ],
+)

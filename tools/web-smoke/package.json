@@ -1,0 +1,12 @@
+{
+  "name": "alacod-web-smoke",
+  "private": true,
+  "type": "module",
+  "scripts": {
+    "test:online": "node online.mjs",
+    "test:solo": "node solo.mjs"
+  },
+  "devDependencies": {
+    "playwright-core": "1.64.0"
+  }
+}

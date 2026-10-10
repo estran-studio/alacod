@@ -106,7 +106,8 @@ pub fn update_enemy_targets(
             &mut EnemyPath,
             Option<&super::state::EnemyTarget>,
         ),
-        With<Enemy>,
+        // M2-E1 : un ennemi d'une salle dormante saute son tour (`world::RoomDormant`).
+        (With<Enemy>, Without<world::RoomDormant>),
     >,
     frame: Res<FrameCount>,
     config: Res<PathfindingConfig>,
@@ -201,9 +202,12 @@ pub fn move_enemies(
                 Option<&super::state::EnemyBehaviors>,
                 // T1.3 : `Stun`/`Freeze` (§19) : immobile.
                 Option<&combat::status::Statuses>,
+                // M2-T0c : phase courante d'un boss.
+                Option<&behaviors::BossState>,
             ),
         ),
-        With<Enemy>,
+        // M2-E1 : un ennemi d'une salle dormante saute son tour (`world::RoomDormant`).
+        (With<Enemy>, Without<world::RoomDormant>),
     >,
     player_query: Query<&fixed_math::FixedTransform3D, (With<Player>, Without<Enemy>)>,
     character_configs: Res<Assets<CharacterConfig>>,
@@ -289,7 +293,7 @@ pub fn move_enemies(
         enemy_target_opt,
         ai_config,
         wave_enemy,
-        (emitting, behavior_runtime, enemy_behaviors, statuses),
+        (emitting, behavior_runtime, enemy_behaviors, statuses, boss),
     ) in order_mut_iter!(enemy_query)
     {
         // T2.9 (testbed) : un ennemi stationnaire (`dummy`/`target`/`ally`/`civilian`)
@@ -594,7 +598,7 @@ pub fn move_enemies(
             .zip(enemy_behaviors)
             .and_then(|(runtime, rules)| {
                 super::rules::behavior_motion(
-                    rules,
+                    rules.active(boss.map_or(0, |b| b.phase)),
                     runtime,
                     frame.frame,
                     enemy_pos_v2,

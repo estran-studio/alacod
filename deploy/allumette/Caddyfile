@@ -1,0 +1,8 @@
+{$ALLUMETTE_DOMAIN} {
+    # API responses and SSE never belong in a CDN cache.
+    header Cache-Control "no-store"
+    # No access log: signaling URLs currently carry identity JWTs.
+    reverse_proxy allumette:3536 {
+        flush_interval -1
+    }
+}

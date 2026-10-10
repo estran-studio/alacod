@@ -1,0 +1,3 @@
+// `gungeon` (M2-T0d) : consommable, un compteur `blank` (le contrat de T0b : compteur et input
+// seulement ; l'effet du blank vient de M2-T1).
+(name: "Blank", kind: Consumable, rarity: Common)

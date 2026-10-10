@@ -1,0 +1,21 @@
+// M2-T0d (docs/conventions.md §3 et §35) : le clone `gungeon` démarre. Un joueur immobile dans la
+// salle de départ d'un étage de trois salles typées (départ, combat avec deux `bullet_kin`, boss
+// `gatling`), mode `Floors` à un étage.
+//
+// À regarder : le joueur est vivant dans la salle de départ ; les ennemis de la salle de combat et
+// le boss dorment (ils ne bougent pas, aucune porte fermée).
+Scenario(
+    powerup_drop_chance_override: "0.0",
+    game: "gungeon",
+    frames: 120,
+    players: [
+        (inputs: []),
+    ],
+    expect: [
+        PlayerAlive(handle: 0, at_frame: 100),
+        RoomState(kind: "depart", state: Dormant, at_frame: 100),
+        RoomState(kind: "combat", state: Dormant, doors_closed: Some(0), at_frame: 100),
+        RoomState(kind: "boss", state: Dormant, at_frame: 100),
+        EntityCount(kind: Enemy, min: 3, max: 3, at_frame: 100),
+    ],
+)

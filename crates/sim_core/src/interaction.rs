@@ -39,5 +39,9 @@ pub enum InteractionType {
     /// `economy::PerkMachine` (`map_ldtk::game::local::spawn_soda_locations_when_map_loaded`,
     /// entité LDtk `SodaLocation`) ; consommé par `game::interaction::handle_perk_purchase_interaction`.
     Perk,
+    /// Ramasser un objet passif ou actif au sol (M2-T0b, `docs/conventions.md` §36). Posé avec
+    /// `Interactable` sur une entité `items::ItemPickup` (`game::items::spawn_item_pickup`) ;
+    /// consommé par `game::items::handle_item_interaction`.
+    Item,
     // Future: Crate, etc.
 }

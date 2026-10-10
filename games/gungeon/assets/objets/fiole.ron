@@ -1,0 +1,11 @@
+// `gungeon` (M2-T0d) : actif chargé par deux salles nettoyées ; à l'usage (`UseActive`), +100 %
+// de dégâts pendant 300 frames.
+(
+    name: "Fiole de rage",
+    kind: Active(Rooms(2)),
+    effects: [
+        (on: OnUse, do: [TimedModifier(stat: Damage, op: Pct, value: "1.0", frames: 300)]),
+    ],
+    tags: ["offensif"],
+    rarity: Uncommon,
+)

@@ -70,14 +70,14 @@ impl MutationScreenView {
 }
 
 /// Bit `ChoiceA/B/C` de la carte `index` (`None` au-delà de trois).
-pub fn confirm_bit(index: usize) -> Option<u16> {
+pub fn confirm_bit(index: usize) -> Option<u32> {
     [INPUT_CHOICE_A, INPUT_CHOICE_B, INPUT_CHOICE_C]
         .get(index)
         .copied()
 }
 
 /// Carte désignée par un bouton `ChoiceA/B/C` tenu (le plus petit si plusieurs).
-pub fn held_choice(buttons: u16) -> Option<usize> {
+pub fn held_choice(buttons: u32) -> Option<usize> {
     [INPUT_CHOICE_A, INPUT_CHOICE_B, INPUT_CHOICE_C]
         .iter()
         .position(|bit| buttons & bit != 0)
@@ -167,7 +167,7 @@ pub fn registry_card(registry: &Registry, id: &str) -> Option<(String, String)> 
 
 /// Bit à ajouter à l'input du joueur `handle` quand il valide (A / Entrée) : celui de la carte
 /// surlignée, si l'écran affiche son choix.
-pub fn confirm_input(view: Option<&MutationScreenView>, handle: usize) -> u16 {
+pub fn confirm_input(view: Option<&MutationScreenView>, handle: usize) -> u32 {
     view.filter(|view| view.open && view.handle == Some(handle))
         .and_then(|view| confirm_bit(view.highlighted))
         .unwrap_or(0)
@@ -285,8 +285,16 @@ impl Plugin for MutationScreenPlugin {
     }
 }
 
-fn load_mutation_screen(asset_server: Res<AssetServer>, mut handle: ResMut<MutationScreenHandle>) {
-    handle.0 = Some(asset_server.load("ui/mutation_screen.ron"));
+fn load_mutation_screen(
+    asset_server: Res<AssetServer>,
+    registry: Res<Registry>,
+    mut handle: ResMut<MutationScreenHandle>,
+) {
+    // Games without mutation UI (zombies) must not request a nonexistent asset.
+    handle.0 = registry
+        .mutation_screens
+        .first()
+        .map(|(path, _)| asset_server.load(path.to_string_lossy().replace('\\', "/")));
 }
 
 fn despawn_mutation_screen(mut commands: Commands, roots: Query<Entity, With<MutationScreenRoot>>) {

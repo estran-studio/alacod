@@ -264,6 +264,8 @@ fn main() {
             wave_overrides: None,
             invariants: Default::default(),
             powerups: vec![],
+            items: vec![],
+            profile: false,
             powerup_drop_chance_override: None,
             floors: floors.clone(),
             // T1.10 : progression du manifeste (pas d'option `--progression` en v1).

@@ -51,6 +51,12 @@ impl Plugin for WorldPlugin {
             .init_resource::<crate::surface::SurfaceGrid>()
             .rollback_and_trace_resource_neutral::<crate::surface::SurfaceGrid>()
             .init_resource::<crate::surface::SurfaceTable>()
+            // M2-E1 : salles typées (vides hors carte avec `room_kind` : neutres)
+            .init_resource::<crate::rooms::RoomStates>()
+            .rollback_and_trace_resource_neutral::<crate::rooms::RoomStates>()
+            .rollback_and_trace_neutral::<crate::rooms::RoomDormant>()
+            .init_resource::<crate::rooms::RoomKindTable>()
+            .add_frame_events_neutral::<crate::rooms::RoomChanged>()
             .add_frame_events_neutral::<DestroyTerrainRequest>()
             .add_frame_events_neutral::<TerrainDestroyed>()
             .add_systems(

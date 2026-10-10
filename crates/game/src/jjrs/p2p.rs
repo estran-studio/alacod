@@ -49,6 +49,9 @@ pub fn start_matchbox_socket(
     time: Res<Time<Real>>,
     // Mode allumette (natif uniquement) : ressource remplie par
     // `jjrs::allumette::start_allumette_flow`, chaîné avant ce système.
+    #[cfg(target_arch = "wasm32")] browser_session: Option<
+        Res<crate::jjrs::browser::BrowserSession>,
+    >,
     #[cfg(not(target_arch = "wasm32"))] allumette: Option<Res<AllumetteConfig>>,
 ) {
     // Mode allumette : URL ws(s)://hôte/JWT et ICE reçus de l'API (`/ice-servers`),
@@ -84,7 +87,10 @@ pub fn start_matchbox_socket(
     };
     #[cfg(target_arch = "wasm32")]
     let (url, ice_server) = (
-        format!("{}/{}", ggrs_config.matchbox_url, room),
+        browser_session
+            .as_ref()
+            .map(|s| s.signaling_url.clone())
+            .unwrap_or_else(|| format!("{}/{}", ggrs_config.matchbox_url, room)),
         default_ice_server(),
     );
 
@@ -188,6 +194,31 @@ pub fn wait_for_players(
         num_players
     );
 
+    #[cfg(target_arch = "wasm32")]
+    let browser_mapping = if crate::jjrs::browser::session().is_some() {
+        let Some(mapping) = crate::jjrs::browser::participants() else {
+            return;
+        };
+        let Some(local_id) = socket.id() else {
+            return;
+        };
+        if players.iter().any(|p| {
+            let id = match p {
+                PlayerType::Local => local_id.to_string(),
+                PlayerType::Remote(id) => id.to_string(),
+                _ => return true,
+            };
+            !mapping
+                .iter()
+                .any(|m| m.peer_id.as_deref() == Some(id.as_str()))
+        }) {
+            return;
+        }
+        Some((mapping, local_id))
+    } else {
+        None
+    };
+
     // Build GgrsSessionBuilding by matching socket players with config players
     // Socket players: Local player first, then Remote players
     // Config players: In order from frontend (may have is_local flag)
@@ -227,6 +258,25 @@ pub fn wait_for_players(
             ),
         };
 
+        #[cfg(target_arch = "wasm32")]
+        let (name, pubkey, is_local) = if let Some((mapping, local_id)) = &browser_mapping {
+            let id = match player_type {
+                PlayerType::Local => local_id.to_string(),
+                PlayerType::Remote(id) => id.to_string(),
+                _ => unreachable!(),
+            };
+            let member = mapping
+                .iter()
+                .find(|m| m.peer_id.as_deref() == Some(id.as_str()))
+                .unwrap();
+            (
+                member.username.clone(),
+                member.player_id.clone(),
+                matches!(player_type, PlayerType::Local),
+            )
+        } else {
+            (name, pubkey, is_local)
+        };
         ggrs_players.push(GgrsPlayer {
             handle: i,
             is_local,
@@ -281,6 +331,15 @@ pub fn system_after_map_loaded(
             .expect("failed to add player");
     }
 
+    #[cfg(target_arch = "wasm32")]
+    let ggrs_session = if crate::jjrs::browser::session().is_some() {
+        session_builder.start_p2p_session(crate::jjrs::browser::BrowserChannel::new(channel))
+    } else {
+        session_builder.start_p2p_session(channel)
+    }
+    .expect("failed to start session");
+
+    #[cfg(not(target_arch = "wasm32"))]
     let ggrs_session = session_builder
         .start_p2p_session(channel)
         .expect("failed to start session");

@@ -1,0 +1,15 @@
+[package]
+name = "items"
+description = "Contrats d'objets (M2-T0b, chantier C2) : ItemDef, ActiveCharge, Inventory rollback neutre, ItemPickup au sol. Simulation, sans rendu."
+version = "0.1.0"
+edition = "2021"
+
+[dependencies]
+bevy = { version = "0.19.1", default-features = false }
+bevy_fixed = { path = "../bevy_fixed" }
+sim_core = { path = "../sim_core" }
+effects = { path = "../effects" }
+serde = { version = "1.0", features = ["derive"] }
+
+[dev-dependencies]
+ron = "0.12"

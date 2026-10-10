@@ -1,0 +1,30 @@
+// M2-T0c (docs/conventions.md §37) : un boss à deux phases. Le `gardien` (120 PV, immobile,
+// testbed/assets/characters/gardien.ron) est placé à f5 à 100 px à droite du joueur 0 (carte
+// testbed/arena.ldtk). Phase 0 : la volée `volee` toutes les 150 frames ; sous 50 % de
+// santé : phase 1, la couronne `couronne` toutes les 90 frames.
+//
+// À regarder : le boss tire une volée de flèches (télégraphe f18) ; le joueur tire sur lui (f30-) ; à la
+// perte de la moitié de ses PV il passe en phase 1 (moment clé `boss_phase`) : il tire alors
+// une couronne de boules de feu (f~91). Il meurt vers f133.
+Scenario(
+    powerup_drop_chance_override: "0.0",
+    game: "testbed",
+    map: "testbed/arena.ldtk",
+    frames: 600,
+    characters: [(character: "gardien", x: "520.0", y: "696.0", at_frame: 5)],
+    players: [
+        (inputs: [
+            (from: 30, to: 500, buttons: [Fire], pan: (100, 0)),
+        ]),
+    ],
+    expect: [
+        BossPhase(entity: Placed(0), phase: 0, at_frame: 20),
+        // La volée de la phase 0 (télégraphe f18, flèches ensuite).
+        BossPhase(entity: Placed(0), phase: 0, at_frame: 80),
+        // Sous 50 % de santé (f90) : phase 1, la couronne part aussitôt.
+        BossPhase(entity: Placed(0), phase: 1, at_frame: 100),
+        BulletCount(count: 6, projectile: "fireball", team: Some(Enemies), at_frame: 93),
+        // Le boss meurt (f133) : plus d'entité à interroger.
+        EntityCount(kind: Enemy, max: Some(5), at_frame: 590),
+    ],
+)

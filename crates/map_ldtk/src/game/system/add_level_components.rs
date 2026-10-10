@@ -41,6 +41,16 @@ pub fn add_room_component_to_ldtk_level(
 
                 let room_config = RoomConfig { spawn: *is_spawn };
 
+                // M2-E1 : type de salle (champ de niveau `room_kind`, recopié du gabarit par
+                // l'assembleur), absent des cartes sans salles typées.
+                if let Ok(Some(kind)) = level_data.get_maybe_string_field("room_kind") {
+                    if !kind.is_empty() {
+                        commands
+                            .entity(entity)
+                            .insert(world::RoomKind(kind.clone()));
+                    }
+                }
+
                 commands.entity(entity).insert((
                     RoomComponent {
                         config: room_config,

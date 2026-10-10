@@ -1,0 +1,11 @@
+// Actif chargé par une salle nettoyée : à l'usage (`UseActive`), +100 % de dégâts pendant
+// 300 frames (modificateur temporaire de source `item:fiole`).
+(
+    name: "Fiole de rage",
+    kind: Active(Rooms(1)),
+    effects: [
+        (on: OnUse, do: [TimedModifier(stat: Damage, op: Pct, value: "1.0", frames: 300)]),
+    ],
+    tags: ["offensif"],
+    rarity: Uncommon,
+)

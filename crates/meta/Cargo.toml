@@ -1,0 +1,13 @@
+[package]
+name = "meta"
+description = "Méta-progression (M2-T0c, chantier G1) : Profile RON versionné, écrit hors simulation à la fin d'une run depuis RunSummary. Jamais lu par la simulation."
+version = "0.1.0"
+edition = "2021"
+
+[dependencies]
+bevy = { version = "0.19.1", default-features = false }
+run = { path = "../run" }
+serde = { version = "1.0", features = ["derive"] }
+ron = "0.12"
+
+[dev-dependencies]

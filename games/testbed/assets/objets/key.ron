@@ -1,0 +1,6 @@
+// Consommable : un compteur `key` dans l'inventaire (ramassé au contact).
+(
+    name: "Clé",
+    kind: Consumable,
+    rarity: Common,
+)

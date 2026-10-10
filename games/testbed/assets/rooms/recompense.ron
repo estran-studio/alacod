@@ -1,0 +1,2 @@
+// Salle de récompense : jamais verrouillée.
+(locks: false)

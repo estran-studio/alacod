@@ -1,0 +1,35 @@
+// M2-T0d (docs/conventions.md §35-§36) : nettoyer la salle de combat de `gungeon`. Joueur scripté :
+// ramasse les bottes (passif, Interaction) et une clé (au contact) dans la salle de départ, entre
+// dans la salle de combat (verrouillage), tire sur les deux `bullet_kin` (cornérés à l'est de la
+// salle par leur `KeepDistance`, positions mesurées f250 : (277, -143)), la salle se rouvre.
+//
+// À regarder : f10-15 le joueur prend les bottes, f38 la clé ; f30-80 il avance et entre dans la salle
+// de combat (f75 : les quatre portes se ferment) ; il tire ; les deux ennemis meurent ; les portes
+// se rouvrent ; le boss dort toujours.
+Scenario(
+    powerup_drop_chance_override: "0.0",
+    game: "gungeon",
+    frames: 700,
+    items: [
+        (id: "bottes", x: "88.0", y: "-120.0", at_frame: 5),
+        (id: "key", x: "120.0", y: "-120.0", at_frame: 5),
+    ],
+    players: [
+        (inputs: [
+            (from: 10, to: 13, buttons: [Interaction]),
+            (from: 30, to: 80, buttons: [Right]),
+            (from: 80, to: 130, buttons: [Fire], pan: (44, -9)),
+            (from: 130, to: 600, buttons: [Fire], pan: (42, -32)),
+        ]),
+    ],
+    expect: [
+        HasItem(handle: 0, id: "bottes", at_frame: 20),
+        Consumable(handle: 0, id: "key", count: 1, at_frame: 60),
+        RoomState(kind: "combat", state: Dormant, doors_closed: Some(0), at_frame: 29),
+        RoomState(kind: "combat", state: Locked, doors_closed: Some(4), at_frame: 100),
+        RoomState(kind: "combat", state: Cleared, doors_closed: Some(0), at_frame: 650),
+        RoomState(kind: "boss", state: Dormant, at_frame: 650),
+        EntityCount(kind: Enemy, min: 1, max: 1, at_frame: 650),
+        PlayerAlive(handle: 0, at_frame: 699),
+    ],
+)

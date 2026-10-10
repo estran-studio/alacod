@@ -1,0 +1,23 @@
+// M2-T0b (docs/conventions.md §36) : ramasser un passif. Carte testbed/salles.ldtk ; l'objet
+// `bottes` (+25 % de vitesse, testbed/assets/objets/bottes.ron) est posé sur le joueur à f5.
+//
+// À regarder : à f10 le joueur appuie sur Interaction : l'objet disparaît, la vitesse passe de
+// la valeur de base à +25 % (source de modificateur `item:bottes`).
+Scenario(
+    powerup_drop_chance_override: "0.0",
+    game: "testbed",
+    map: "testbed/salles.ldtk",
+    map_seed: 1,
+    frames: 60,
+    items: [(id: "bottes", x: "-904.0", y: "-584.0", at_frame: 5)],
+    players: [
+        (inputs: [
+            (from: 10, to: 13, buttons: [Interaction]),
+        ]),
+    ],
+    expect: [
+        Stat(handle: 0, stat: MoveSpeed, value: 150.0, at_frame: 8),
+        HasItem(handle: 0, id: "bottes", at_frame: 30),
+        Stat(handle: 0, stat: MoveSpeed, value: 187.5, at_frame: 30),
+    ],
+)

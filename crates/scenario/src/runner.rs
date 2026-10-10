@@ -147,6 +147,18 @@ pub struct PlayConfig {
     pub follow_handle: Option<usize>,
 }
 
+/// Dossier temporaire des profils d'un scénario `profile: true` (vidé à la création).
+fn scenario_profile_dir() -> PathBuf {
+    static COUNTER: std::sync::atomic::AtomicUsize = std::sync::atomic::AtomicUsize::new(0);
+    let dir = std::env::temp_dir().join(format!(
+        "alacod-scenario-profiles-{}-{}",
+        std::process::id(),
+        COUNTER.fetch_add(1, std::sync::atomic::Ordering::Relaxed)
+    ));
+    let _ = std::fs::remove_dir_all(&dir);
+    dir
+}
+
 /// App de la partie décrite par le scénario (même partie que `zombies`).
 /// Avec `headless: false`, la partie est affichée (voir le binaire `play_scenario`).
 pub fn build_app(scenario: &Scenario, headless: bool, config: &PlayConfig) -> App {
@@ -181,6 +193,11 @@ pub fn build_app(scenario: &Scenario, headless: bool, config: &PlayConfig) -> Ap
         // `GameManifest` (`entry.mode`) au démarrage de session — présente ici comme dans
         // `games/<jeu>/src/main.rs` (voir `game::run_state::resolve_run_mode`).
         .insert_resource(manifest)
+        // M2-T0c : un scénario n'écrit aucun profil, sauf `profile: true` (dossier temporaire
+        // propre à ce scénario, jamais le profil de l'utilisateur).
+        .insert_resource(game::profile::ProfileSettings {
+            dir: scenario.profile.then(scenario_profile_dir),
+        })
         .add_plugins(core_plugin)
         .add_plugins(LdtkRoguePlugin)
         .add_plugins(LdtkLocalGamePlugin(LdtkGameMap {
@@ -218,6 +235,15 @@ pub fn build_app(scenario: &Scenario, headless: bool, config: &PlayConfig) -> Ap
             GgrsSchedule,
             apply_scenario_powerup_placements
                 .before(game::powerups::powerup_pickup_detect_system)
+                .in_set(game::system_set::RollbackSystemSet::Effects),
+        )
+        // M2-T0b : placements scriptés d'objets
+        .insert_resource(ScenarioItemPlacements(scenario.items.clone()))
+        .add_systems(
+            GgrsSchedule,
+            apply_scenario_item_placements
+                .after(apply_scenario_powerup_placements)
+                .before(game::items::item_consumable_pickup_system)
                 .in_set(game::system_set::RollbackSystemSet::Effects),
         )
         // T1.13 : placements scriptés de personnages (voir la doc de
@@ -608,6 +634,47 @@ fn apply_scenario_powerup_placements(
             expires_at_frame,
             &mut id_factory,
         );
+    }
+}
+
+/// Inventaire (copie) du joueur `handle` : `Ok(None)` s'il n'en porte pas (rien ramassé).
+fn player_inventory(world: &mut World, handle: usize) -> Result<Option<items::Inventory>, String> {
+    world
+        .query::<(&Player, Option<&items::Inventory>)>()
+        .iter(world)
+        .find(|(player, _)| player.handle == handle)
+        .map(|(_, inventory)| inventory.cloned())
+        .ok_or_else(|| format!("joueur {handle} absent"))
+}
+
+/// Placements scriptés d'objets (M2-T0b, `Scenario::items`) : même principe que
+/// [`apply_scenario_powerup_placements`], dans `RollbackSystemSet::Effects` avant le ramassage.
+#[derive(Resource)]
+struct ScenarioItemPlacements(Vec<game::replay::ItemPlacement>);
+
+fn apply_scenario_item_placements(
+    frame: Res<FrameCount>,
+    placements: Res<ScenarioItemPlacements>,
+    table: Res<items::ItemTable>,
+    mut commands: Commands,
+    mut id_factory: ResMut<GgrsNetIdFactory>,
+) {
+    for placement in &placements.0 {
+        if frame.frame != placement.at_frame {
+            continue;
+        }
+        let position = fixed_math::FixedVec3::new(placement.x, placement.y, fixed_math::FIXED_ZERO);
+        if game::items::spawn_item_pickup(
+            &mut commands,
+            &table,
+            placement.id.clone(),
+            position,
+            &mut id_factory,
+        )
+        .is_none()
+        {
+            warn!("placement d'objet : « {} » inconnu", placement.id);
+        }
     }
 }
 
@@ -1887,6 +1954,126 @@ fn check(world: &mut World, expectation: &Expectation) -> Result<(), String> {
             }
             Ok(())
         }
+        // M2-T0b : inventaire du joueur (`items::Inventory`, absent tant que rien n'est ramassé).
+        Expectation::HasItem { handle, id, .. } => {
+            let inventory = player_inventory(world, *handle)?;
+            if inventory.as_ref().is_some_and(|i| i.has(id)) {
+                Ok(())
+            } else {
+                Err(format!(
+                    "joueur {handle} ne tient pas « {id} » ({inventory:?})"
+                ))
+            }
+        }
+        Expectation::ItemCharge { handle, charge, .. } => {
+            let inventory = player_inventory(world, *handle)?;
+            match inventory.and_then(|i| i.active) {
+                Some(slot) if slot.charge == *charge => Ok(()),
+                Some(slot) => Err(format!(
+                    "charge de « {} » : {} (attendu {charge})",
+                    slot.item, slot.charge
+                )),
+                None => Err(format!("joueur {handle} sans objet actif")),
+            }
+        }
+        Expectation::Consumable {
+            handle, id, count, ..
+        } => {
+            let actual = player_inventory(world, *handle)?.map_or(0, |i| i.consumable(id));
+            if actual == *count {
+                Ok(())
+            } else {
+                Err(format!("{actual} « {id} » (attendu {count})"))
+            }
+        }
+        // M2-E1 : état d'une salle typée (ressource rollback `RoomStates`).
+        Expectation::RoomState {
+            kind,
+            nth,
+            state,
+            doors_closed,
+            ..
+        } => {
+            let mut rooms: Vec<_> = world
+                .query::<(
+                    &map::game::entity::map::level_id::LevelId,
+                    &map::game::entity::map::room::RoomBounds,
+                    &world::RoomKind,
+                )>()
+                .iter(world)
+                .filter(|(_, _, k)| &k.0 == kind)
+                .map(|(id, bounds, _)| (bounds.position.x, bounds.position.y, id.0.clone()))
+                .collect();
+            rooms.sort();
+            let Some((_, _, id)) = rooms.get(*nth) else {
+                return Err(format!(
+                    "{} salle(s) de type « {kind} » (index {nth} demandé)",
+                    rooms.len()
+                ));
+            };
+            let actual = world.resource::<world::RoomStates>().get(id);
+            if actual != *state {
+                return Err(format!(
+                    "salle {kind}#{nth} : {actual:?} (attendu {state:?})"
+                ));
+            }
+            if let Some(expected) = doors_closed {
+                let closed = world
+                    .query_filtered::<Has<game::collider::Collider>, With<map::game::entity::map::door::DoorComponent>>()
+                    .iter(world)
+                    .filter(|closed| *closed)
+                    .count() as u32;
+                if closed != *expected {
+                    return Err(format!("{closed} portes fermées (attendu {expected})"));
+                }
+            }
+            Ok(())
+        }
+        // M2-T0c : phase d'un boss (`behaviors::BossState`).
+        Expectation::BossPhase { entity, phase, .. } => {
+            let target = resolve_entity(world, entity).ok_or("entité absente")?;
+            let actual = world
+                .get::<behaviors::BossState>(target)
+                .ok_or("entité sans BossState (pas un boss)")?
+                .phase;
+            if actual == *phase {
+                Ok(())
+            } else {
+                Err(format!("phase {actual} (attendu {phase})"))
+            }
+        }
+        // M2-T0c : profil de méta-progression (hors simulation).
+        Expectation::ProfileHas {
+            handle,
+            unlock,
+            currency,
+            ..
+        } => {
+            let id = meta::local_id(*handle);
+            let Some(profile) = world
+                .get_resource::<meta::Profiles>()
+                .and_then(|profiles| profiles.0.get(&id))
+            else {
+                return Err(format!(
+                    "pas de profil « {id} » (scénario sans `profile: true` ?)"
+                ));
+            };
+            if let Some(unlock) = unlock {
+                if !profile.has_unlock(unlock) {
+                    return Err(format!("profil « {id} » sans déblocage « {unlock} »"));
+                }
+            }
+            if let Some((currency, min)) = currency {
+                let actual = profile.currency(currency);
+                if actual < *min {
+                    return Err(format!("profil « {id} » : {currency} = {actual} < {min}"));
+                }
+            }
+            if unlock.is_none() && currency.is_none() {
+                return Err("ProfileHas sans unlock ni currency".into());
+            }
+            Ok(())
+        }
         // T1.18 : texte d'une source du HUD (présentation, hors trace).
         Expectation::HudText {
             source, contains, ..
@@ -2357,12 +2544,21 @@ fn enemy_rule(
         &EnemyTarget,
         Option<&RangedAttackState>,
         Has<combat::emitter::Emitter>,
+        Option<&behaviors::BossState>,
     )>();
-    let (rules, runtime, state, target, ranged, emitting) = query
-        .get(world, target_entity)
-        .map_err(|_| "entité sans règles de comportement (pas un ennemi)".to_string())?;
+    let (rules, runtime, state, target, ranged, emitting, boss) =
+        query
+            .get(world, target_entity)
+            .map_err(|_| "entité sans règles de comportement (pas un ennemi)".to_string())?;
     let shooting = emitting || ranged.is_some_and(|ranged| ranged.target.is_some());
-    Ok(current_rule(rules, runtime, state, target, shooting))
+    Ok(current_rule(
+        rules,
+        runtime,
+        state,
+        target,
+        shooting,
+        boss.map_or(0, |b| b.phase),
+    ))
 }
 
 /// `EnemyVariant` (T1.5) : variante du personnage (`None` sans composant `Variant`).

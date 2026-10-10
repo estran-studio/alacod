@@ -1,0 +1,20 @@
+// `gungeon` (M2-T0d) : seule arme de mêlée, celle du joueur par défaut (copie de `throne`).
+({
+    "bare_hands": (
+        config: (
+            name: "Bare Hands",
+            damage: "10.0",
+            range: "30.0",
+            attack_pattern: SingleStrike,
+            attack_duration_frames: 10,
+            cooldown_frames: 30,
+            knockback_force: "70.0",
+            stamina_cost: "5.0",
+        ),
+        sprite_config: (
+            name: "bare_hands",
+            index: 0,
+            weapon_offset: (x: "0.0", y: "0.0"),
+        ),
+    ),
+})

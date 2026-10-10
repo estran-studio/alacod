@@ -1,0 +1,39 @@
+// M2-T0d (docs/conventions.md §35, §37) : le boss de `gungeon`. Joueur scripté : nettoie la salle de
+// combat comme `gungeon_clear` (f231), monte vers l'ouverture est (y -80), entre dans la salle du
+// boss (verrouillage), tire sur le `gatling` (immobile en (376, -104)), qui passe en phase 1 sous
+// 50 % de santé (moment clé `boss_phase`) puis meurt : l'étage est vidé, victoire (`RunState`).
+//
+// À regarder : après le combat, le joueur avance vers l'est ; la salle du boss se verrouille ; le
+// `gatling` tire des visées puis, sous 50 % de santé, des couronnes ; il meurt, les portes se
+// rouvrent, écran de victoire.
+Scenario(
+    powerup_drop_chance_override: "0.0",
+    game: "gungeon",
+    frames: 700,
+    items: [
+        (id: "bottes", x: "88.0", y: "-120.0", at_frame: 5),
+    ],
+    players: [
+        (inputs: [
+            (from: 10, to: 13, buttons: [Interaction]),
+            (from: 30, to: 80, buttons: [Right]),
+            (from: 80, to: 130, buttons: [Fire], pan: (44, -9)),
+            (from: 130, to: 240, buttons: [Fire], pan: (42, -32)),
+            (from: 245, to: 255, buttons: [Up]),
+            (from: 255, to: 300, buttons: [Right]),
+            (from: 310, to: 600, buttons: [Fire], pan: (0, -25)),
+        ]),
+    ],
+    expect: [
+        RoomState(kind: "combat", state: Cleared, at_frame: 240),
+        // Verrouillée à f291 : ses deux portes (celles de la salle de combat, rouvertes, se referment avec leur jumelle).
+        RoomState(kind: "boss", state: Locked, at_frame: 320, doors_closed: Some(2)),
+        BossPhase(entity: NetId(31), phase: 0, at_frame: 330),
+        // Sous 50 % de santé : phase 1 (f448) ; le boss meurt à f568.
+        BossPhase(entity: NetId(31), phase: 1, at_frame: 500),
+        RoomState(kind: "boss", state: Cleared, at_frame: 600),
+        // Étage vidé = victoire (`victory_at_end`, f569).
+        RunState(step: Ended(Victory), at_frame: 650),
+        PlayerAlive(handle: 0, at_frame: 690),
+    ],
+)

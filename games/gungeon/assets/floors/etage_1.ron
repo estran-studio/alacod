@@ -1,0 +1,7 @@
+// `gungeon` (M2-T0d, docs/conventions.md §17 et §35) : la séquence `Floors` à un étage — l'étage
+// assemblé de trois salles. `victory_at_end` : le dernier niveau vidé (le boss est le dernier
+// ennemi) termine la partie par une victoire au lieu d'ouvrir un portail.
+(
+    levels: ["maps/etage_1.ldtk"],
+    victory_at_end: true,
+)

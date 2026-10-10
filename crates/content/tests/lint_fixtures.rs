@@ -180,6 +180,14 @@ fn m1_audit_fixtures() {
             &["personnage inconnu « fantome »"],
         ),
         (
+            "room_kind_unknown",
+            LintErrorKind::UnknownKind,
+            &[
+                "room_kind « boss » inconnu",
+                "types de salle chargés : combat",
+            ],
+        ),
+        (
             "powerup_apply_status",
             LintErrorKind::OutOfRange,
             &["ApplyStatus"],
@@ -462,6 +470,7 @@ fn t2_8_fixtures_have_a_single_problem() {
         ("entry_difficulty_missing", LintErrorKind::BrokenReference),
         ("effect_broken_reference", LintErrorKind::BrokenReference),
         ("map_character_unknown", LintErrorKind::BrokenReference),
+        ("room_kind_unknown", LintErrorKind::UnknownKind),
         ("powerup_apply_status", LintErrorKind::OutOfRange),
         ("entry_progression_unknown", LintErrorKind::BrokenReference),
         ("cave_template_missing", LintErrorKind::BrokenReference),
@@ -1022,5 +1031,63 @@ fn points_ennemis_des_cavernes_de_throne_dans_le_champ_de_chaque_gabarit() {
                 }
             }
         }
+    }
+}
+
+// M2-T0b (docs/conventions.md §36) : objets.
+#[test]
+fn item_charge_zero_fixture_reports_out_of_range() {
+    let (_, _, errors) = load_and_lint(&fixture_dir("item_charge_zero")).unwrap();
+    assert_has_error(
+        &errors,
+        LintErrorKind::OutOfRange,
+        "objet « fiole » : charge",
+    );
+}
+
+#[test]
+fn item_effect_unsupported_fixture_reports_unsupported() {
+    let (_, _, errors) = load_and_lint(&fixture_dir("item_effect_unsupported")).unwrap();
+    assert_has_error(
+        &errors,
+        LintErrorKind::Unsupported,
+        "seul OnUse d'un objet actif",
+    );
+}
+
+#[test]
+fn item_unknown_stat_fixture_reports_parse_error() {
+    let (_, _, errors) = load_and_lint(&fixture_dir("item_unknown_stat")).unwrap();
+    assert_has_error(&errors, LintErrorKind::Parse, "Vitesse");
+}
+
+// M2-T0c (docs/conventions.md §37) : boss.
+#[test]
+fn boss_fixtures_report_their_rule() {
+    for (fixture, kind, expected) in [
+        (
+            "boss_health_out_of_range",
+            LintErrorKind::OutOfRange,
+            "HealthBelow = 1.5",
+        ),
+        ("boss_phase_empty", LintErrorKind::OutOfRange, "phase vide"),
+        (
+            "boss_missing_until",
+            LintErrorKind::OutOfRange,
+            "until absent",
+        ),
+        (
+            "boss_unknown_pattern",
+            LintErrorKind::BrokenReference,
+            "pattern « fantome » inconnu",
+        ),
+        (
+            "boss_timeline_after_repeat",
+            LintErrorKind::OutOfRange,
+            ">= repeat",
+        ),
+    ] {
+        let (_, _, errors) = load_and_lint(&fixture_dir(fixture)).unwrap();
+        assert_has_error(&errors, kind, expected);
     }
 }

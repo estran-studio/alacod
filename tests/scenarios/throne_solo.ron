@@ -14,7 +14,9 @@
 // m1-v3-bots-softlocks : étage 1 à f937, étage 2 à f3124, vivant à f3699.)
 // m1-fusion-revue-m0-suite (course nerveuse) : niveau 1 à f314 (`sang_froid` à f914), étage 1 à
 // f511, niveau 2 à f1010 (`coriace` à f1610), alerte à f1411, étage 2 à f1519, niveau 3 à f2333
-// (`irradie` à f2933), vivant à f3699.
+// (`irradie` à f2933), vivant à f3699. m1-bots-apres-movement-feel (pilotage en 8 directions, ennemi coincé) : niveau 1 à
+// f304 (`sang_froid` à f904), étage 1 à f616, niveau 2 à f1162 (`coriace` à f1762), étage 2 à
+// f1491, alerte à f2391, niveau 3 à f2721 (`irradie` à f3321), vivant à f3699.
 //
 // À regarder : le bot nettoie deux cavernes puis affronte la troisième.
 Scenario(
@@ -26,12 +28,12 @@ Scenario(
         (bot: prudent),
     ],
     expect: [
-        FloorIndex(index: 1, at_frame: 565),
-        FloorIndex(index: 1, at_frame: 1515),
-        FloorIndex(index: 2, at_frame: 1650),
+        FloorIndex(index: 1, at_frame: 625),
+        FloorIndex(index: 1, at_frame: 1485),
+        FloorIndex(index: 2, at_frame: 1500),
         Event(kind: "levelup", by_frame: 365),
-        Mutations(handle: 0, contains: ["sang_froid", "coriace"], count: Some(2), at_frame: 1615),
-        Clock(id: "alerte", fired: true, at_frame: 1465),
+        Mutations(handle: 0, contains: ["sang_froid", "coriace"], count: Some(2), at_frame: 1770),
+        Clock(id: "alerte", fired: true, at_frame: 2395),
         PlayerAlive(handle: 0, at_frame: 3699),
     ],
 )

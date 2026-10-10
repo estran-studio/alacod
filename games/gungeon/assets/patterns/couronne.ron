@@ -1,0 +1,6 @@
+// `throne` (T1.11) : télégraphe de 20 frames puis une couronne de huit boules lentes
+// (`tourelle`) ; une salve par tir, la règle `Shoot` espace les salves (`cooldown_frames`).
+Sequence([
+    Telegraph(20),
+    Ring(count: 8, speed: "60.0", projectile: "boule", every: 0),
+])

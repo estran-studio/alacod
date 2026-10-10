@@ -472,6 +472,10 @@ pub struct EnemyBehaviors {
     pub hearing: Option<fixed_math::Fixed>,
     /// `Targeting::Nearest { ignore }` : joueurs portant un de ces tags ignorés.
     pub ignore: Vec<sim_core::tag::Tag>,
+    /// M2-T0c : règles de chaque phase d'un boss (`behaviors::BossDef::phases`), vide hors
+    /// boss ; une phase sans règle (liste vide) garde `rules`. Statique, hors rollback : la
+    /// phase courante est `behaviors::BossState::phase` (rollback), voir [`Self::active`].
+    pub phase_rules: Vec<Vec<Behavior>>,
 }
 
 impl EnemyBehaviors {
@@ -495,7 +499,17 @@ impl EnemyBehaviors {
             rules,
             hearing,
             ignore,
+            phase_rules: Vec::new(),
         }
+    }
+
+    /// Règles actives en phase `phase` d'un boss (`0` hors boss : toujours les règles de
+    /// base).
+    pub fn active(&self, phase: u32) -> &[Behavior] {
+        self.phase_rules
+            .get(phase as usize)
+            .filter(|rules| !rules.is_empty())
+            .map_or(self.rules.as_slice(), Vec::as_slice)
     }
 
     pub fn has(&self, name: &str) -> bool {
@@ -512,16 +526,19 @@ impl EnemyBehaviors {
 
     /// Un behavior nouveau (T1.4) à état est listé : l'ennemi porte [`BehaviorRuntime`].
     pub fn needs_runtime(&self) -> bool {
-        self.rules.iter().any(|rule| {
-            matches!(
-                rule,
-                Behavior::KeepDistance { .. }
-                    | Behavior::Strafe
-                    | Behavior::Charge { .. }
-                    | Behavior::Flee
-                    | Behavior::Wander
-            )
-        })
+        self.rules
+            .iter()
+            .chain(self.phase_rules.iter().flatten())
+            .any(|rule| {
+                matches!(
+                    rule,
+                    Behavior::KeepDistance { .. }
+                        | Behavior::Strafe
+                        | Behavior::Charge { .. }
+                        | Behavior::Flee
+                        | Behavior::Wander
+                )
+            })
     }
 }
 
@@ -585,6 +602,24 @@ pub enum TargetType {
 
 #[cfg(test)]
 mod tests {
+    /// M2-T0c : règles par phase d'un boss ; une phase sans règle garde celles de l'ennemi.
+    #[test]
+    fn regles_par_phase() {
+        use behaviors::Behavior;
+        let behaviors = EnemyBehaviors {
+            rules: vec![Behavior::Wander],
+            phase_rules: vec![vec![], vec![Behavior::Flee]],
+            ..Default::default()
+        };
+        assert_eq!(behaviors.active(0), &[Behavior::Wander]);
+        assert_eq!(behaviors.active(1), &[Behavior::Flee]);
+        // phase hors liste (ou hors boss) : règles de base
+        assert_eq!(behaviors.active(5), &[Behavior::Wander]);
+        assert_eq!(EnemyBehaviors::default().active(3), &[] as &[Behavior]);
+        // Flee n'est que dans la phase 1 : l'ennemi porte tout de même l'état à l'exécution
+        assert!(behaviors.needs_runtime());
+    }
+
     use super::*;
 
     fn chase(profile: &str) -> Behavior {

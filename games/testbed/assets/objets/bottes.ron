@@ -1,0 +1,9 @@
+// Objets (M2-T0b, kind `Item`, docs/conventions.md §36) : un fichier par objet, id = nom de
+// fichier. Passif : +25 % de vitesse tant qu'il est tenu (source de modificateur `item:bottes`).
+(
+    name: "Bottes",
+    kind: Passive,
+    modifiers: [(stat: MoveSpeed, op: Pct, value: "0.25")],
+    tags: ["mobilite"],
+    rarity: Common,
+)

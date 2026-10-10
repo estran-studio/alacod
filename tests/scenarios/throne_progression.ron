@@ -11,7 +11,10 @@
 // l'étage 2 après la fin du scénario.) m1-integration-scenarios : l'étage 1 est enfin `niveau_2`.
 // m1-fusion-revue-m0-suite (course nerveuse) : niveau 1 à f314, étage 1 à f511, `sang_froid` à
 // f914 (314 + 600), niveau 2 à f1010, `alerte` à f1411 (511 + 15 s), étage 2 à f1519, `coriace`
-// à f1610.
+// à f1610. m1-bots-apres-movement-feel (pilotage en 8 directions, ennemi coincé) : niveau 1 à
+// f304, étage 1 à f616, `sang_froid` à f904, niveau 2 à f1162, étage 2 à f1491 (avant la fin
+// des 15 s de l'étage 1 : l'horloge repart), `coriace` à f1762, `alerte` à f2391 (1491 + 15 s,
+// étage 2) ; 1950 → 2400 frames pour garder l'alerte.
 //
 // À regarder : le bot nettoie la première caverne et entame la deuxième ; rien ne s'affiche au moment des choix (pas d'écran
 // de mutation avant T1.16).
@@ -19,7 +22,7 @@ Scenario(
     game: "throne",
     floors: Some("run"),
     map_seed: 123456,
-    frames: 1950,
+    frames: 2400,
     players: [
         (bot: prudent),
     ],
@@ -27,14 +30,14 @@ Scenario(
         Event(kind: "levelup", by_frame: 365),
         Level(handle: 0, level: 1, at_frame: 365),
         Gauge(handle: 0, id: "rads", min: Some(3.0), at_frame: 365),
-        Mutations(handle: 0, count: 0, at_frame: 912),
-        Mutations(handle: 0, count: 1, at_frame: 916),
-        Event(kind: "mutation", by_frame: 916),
-        Level(handle: 0, level: 2, at_frame: 1015),
-        Clock(id: "alerte", fired: false, at_frame: 1405),
-        Clock(id: "alerte", fired: true, at_frame: 1415),
-        FloorIndex(index: 1, at_frame: 1515),
-        FloorIndex(index: 2, at_frame: 1912),
-        PlayerAlive(handle: 0, at_frame: 1949),
+        Mutations(handle: 0, count: 0, at_frame: 900),
+        Mutations(handle: 0, count: 1, at_frame: 910),
+        Event(kind: "mutation", by_frame: 910),
+        Level(handle: 0, level: 2, at_frame: 1170),
+        Clock(id: "alerte", fired: false, at_frame: 2385),
+        Clock(id: "alerte", fired: true, at_frame: 2395),
+        FloorIndex(index: 1, at_frame: 1485),
+        FloorIndex(index: 2, at_frame: 1500),
+        PlayerAlive(handle: 0, at_frame: 2399),
     ],
 )

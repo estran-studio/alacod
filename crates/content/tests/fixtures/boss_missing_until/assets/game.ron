@@ -1,0 +1,8 @@
+// Fixture M2-T0c : phase intermédiaire sans until (OutOfRange)
+(
+    name: "fixture-boss_missing_until",
+    content_folders: [
+        (path: "characters", kind: "Character"),
+    ],
+    entry: (start_map: "maps/salle.ldtk", default_seed: 1),
+)

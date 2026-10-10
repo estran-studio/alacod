@@ -4,5 +4,6 @@ pub mod entity;
 pub mod floors;
 pub mod local;
 pub mod plugin;
+pub mod rooms;
 pub mod system;
 pub mod utility;

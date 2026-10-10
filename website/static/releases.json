@@ -1,0 +1,17 @@
+{
+  "schemaVersion": 1,
+  "games": {
+    "zombies": {
+      "buildId": "rtc-fix-20261009",
+      "manifest": "/builds/rtc-fix-20261009/zombies/build.json",
+      "solo": true,
+      "online": true
+    },
+    "throne": {
+      "buildId": "rtc-fix-20261009",
+      "manifest": "/builds/rtc-fix-20261009/throne/build.json",
+      "solo": true,
+      "online": true
+    }
+  }
+}
