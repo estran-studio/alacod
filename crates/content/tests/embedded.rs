@@ -29,7 +29,7 @@ fn inventory(root: &Path, dir: &Path, result: &mut Vec<(&'static str, Option<&'s
 
 #[test]
 fn real_clones_have_identical_native_and_browser_registries() {
-    for game in ["zombies", "throne"] {
+    for game in ["zombies", "throne", "gungeon"] {
         let dir = Path::new(env!("CARGO_MANIFEST_DIR"))
             .join("../../games")
             .join(game);

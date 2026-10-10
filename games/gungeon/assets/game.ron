@@ -1,0 +1,36 @@
+// Manifeste du jeu `gungeon` (M2-T0d, docs/conventions.md §3 et §35-§38) : le clone de
+// squelette de Gungeon, sur les contrats de la vague 0 de M2. Un étage de trois salles typées
+// (départ, combat, boss) assemblé par `Basic` (voie B), en mode `Floors` à un étage : défaite à
+// la mort, victoire quand l'étage est vidé (le boss est le dernier ennemi, `victory_at_end`).
+// Sprites, sons, interface et caméra copiés de `throne` (placeholders, voir `assets.yaml`).
+(
+    name: "gungeon",
+    content_folders: [
+        (path: "characters", kind: "Character"),
+        (path: "weapons/weapons.ron", kind: "Weapon"),
+        (path: "weapons/melee.ron", kind: "MeleeWeapon"),
+        (path: "patterns", kind: "Pattern"),
+        (path: "floors", kind: "Floors"),
+        // Table de power-ups (copie de `throne` ; aucun drop dans l'étage squelette).
+        (path: "items", kind: "PowerUp"),
+        // M2-T0b : objets (passif, actif, consommables `key` et `blank`).
+        (path: "objets", kind: "Item"),
+        // M2-E1 : types de salles du champ de niveau `room_kind`.
+        (path: "rooms", kind: "Room"),
+        (path: "economy/economy.ron", kind: "Economy"),
+        (path: "ui", kind: "Ui"),
+        (path: "camera.ron", kind: "Camera"),
+        (path: "sprites/sprites.ron", kind: "SpriteSheet"),
+        // L'étage assemblé et la carte gabarit des scénarios générés d'armes (`cible` à
+        // +128/−48 du spawn).
+        (path: "maps", kind: "Map"),
+    ],
+    entry: (
+        start_map: "maps/etage_1.ldtk",
+        default_seed: 123456,
+        mode: Floors,
+    ),
+    // `docs/conventions.md` §28 : scénarios générés de gungeon (`make gen GAME=gungeon`) joués
+    // sur la carte gabarit, en mode `Sandbox` imposé par le générateur.
+    generate_template: (map: "maps/gabarit_armes.ldtk", target: "cible"),
+)

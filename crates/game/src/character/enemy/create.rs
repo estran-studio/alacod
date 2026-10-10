@@ -94,7 +94,12 @@ pub fn spawn_enemy(
         .unwrap_or_else(EnemyAiConfig::zombie);
     // T1.4 : règles de comportement (liste du RON, sinon liste par défaut dérivée de la
     // config : exactement le comportement d'avant T1.4).
-    let behaviors = EnemyBehaviors::from_config(ai_ron, &ai_config);
+    let mut behaviors = EnemyBehaviors::from_config(ai_ron, &ai_config);
+    // M2-T0c : règles de chaque phase d'un boss (la phase courante est `BossState`, rollback).
+    let boss = character_config.and_then(|config| config.boss.clone());
+    if let Some(boss) = &boss {
+        behaviors.phase_rules = boss.phases.iter().map(|p| p.behaviors.clone()).collect();
+    }
 
     // Variantes (T1.5, `character::variant`) : seulement pour un personnage qui déclare une
     // table. Le `GgrsNetId` est alloué ici (même valeur que dans `create_character`, voir son
@@ -227,6 +232,11 @@ pub fn spawn_enemy(
             .insert(super::ai::state::BehaviorRuntime::default());
     }
     commands.entity(entity).insert(behaviors);
+    if let Some(boss) = boss {
+        commands
+            .entity(entity)
+            .insert((crate::boss::BossPlan(boss), behaviors::BossState::default()));
+    }
 
     #[cfg(feature = "harmonium")]
     commands

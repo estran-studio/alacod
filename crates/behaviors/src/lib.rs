@@ -7,6 +7,9 @@
 //! Kinds : catégories snake_case, noms Rust exacts (PascalCase). Les ids de profils, patterns
 //! et armes sont des chaînes de contenu, pour ne dépendre ni de game ni du crate qui exécutera
 //! un pattern.
+pub mod boss;
+pub use boss::{BossDef, BossPhaseChanged, BossState, Phase, PhaseEnd, Timeline, TimelineEvent};
+
 use bevy::prelude::{App, Component, Plugin};
 use bevy_fixed::fixed_math::Fixed;
 use serde::{Deserialize, Serialize};

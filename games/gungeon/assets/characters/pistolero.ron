@@ -1,0 +1,71 @@
+// `gungeon` (M2-T0d, docs/conventions.md §34 et §3) : le personnage joueur (le moteur crée toujours
+// les joueurs depuis le personnage d'id `player` = `asset_name_ref`), sous le nom « pistolero ».
+// Course nerveuse et roulade (dash) à i-frames de §34 : 64 px en 8 frames, invulnérable les 6
+// premières ; mêmes sprites que `throne` (placeholders, voir `assets.yaml`). Arme : le pistolet.
+(
+    movement: (
+        // Course nerveuse : 150 px/s atteints en 3 frames (3000 px/s² = 50 px/s de plus par
+        // frame), arrêt en 3 frames, demi-tour en 6. `acceleration` est aussi l'adhérence :
+        // une surface qui la divise par 5 (glace) divise aussi le freinage, on glisse.
+        acceleration: "3000.0",
+        max_speed: "150.0",
+        deceleration: "3000.0",
+        sprint_multiplier: "2.0",                // Double speed
+        sprint_acceleration_per_frame: "0.1",    // Reach full sprint in 10 frames
+        sprint_deceleration_per_frame: "0.2",
+
+        // Dash : part à l'appui, 64 px en 8 frames, de 13,5 px par frame à la vitesse de
+        // course (on en sort en courant) ; invulnérable les 6 premières frames, traverse la
+        // horde sans ralentir. Un appui pendant un dash ou le cooldown est gardé 8 frames.
+        dash_distance: "64.0",
+        dash_duration_frames: 8,
+        dash_cooldown_frames: 24,      // 0,4 s entre deux départs
+        dash_iframes: 6,
+        dash_buffer_frames: 8,
+    ),
+
+    asset_name_ref: "player",
+
+    collider: (
+        shape: Rectangle(
+            width: "20.",
+            height: "20.",
+        ),
+        offset: ( x: "0.0", y: "-6.0", z: "0.0" )
+    ),
+
+    scale: "1.0",
+
+    base_health: (
+        max: "100.0",
+        regen_rate: Some("10.0"),  // 1 HP per second
+        regen_delay_frames: Some(180),  // 3 seconds at 60 FPS
+    ),
+
+
+    starting_skin: "1",
+
+    skins: {
+        "1": (
+            layers: {
+                "shadow": "",
+                "body": "",
+                "shirt": ""
+            }
+        ),
+        "2": (
+            layers: {
+                "shadow": "",
+                "body": "",
+                "shirt": "",
+                "hair": ""
+            }
+        )
+
+    },
+
+    // Un seul emplacement d'arme à distance : le pistolet (munitions « infinies », voir
+    // `weapons/weapons.ron`).
+    weapon_slots: 1,
+    starting_weapons: ["pistolet"],
+)

@@ -1,0 +1,8 @@
+// Fixture M2-T0c : événement de frise at >= repeat (OutOfRange)
+(
+    name: "fixture-boss_timeline_after_repeat",
+    content_folders: [
+        (path: "characters", kind: "Character"),
+    ],
+    entry: (start_map: "maps/salle.ldtk", default_seed: 1),
+)

@@ -40,7 +40,10 @@ use game::{
         health::Death,
         player::Player,
     },
-    run_state::{finalize_run_summary_system, floor_levels, resolve_run_mode_with_floors},
+    run_state::{
+        finalize_run_summary_system, floor_levels, floors_victory_at_end,
+        resolve_run_mode_with_floors,
+    },
     system_set::RollbackSystemSet,
 };
 use map::game::entity::{
@@ -80,6 +83,9 @@ pub struct FloorPlan {
     pub config: String,
     /// Cartes des niveaux, dans l'ordre de jeu (chemins relatifs aux assets).
     pub levels: Vec<String>,
+    /// M2-T0d : le dernier niveau vidé termine la partie par une victoire (voir
+    /// `content::registry::FloorsEntry::victory_at_end`).
+    pub victory_at_end: bool,
 }
 
 impl FloorPlan {
@@ -181,13 +187,19 @@ pub fn compute_floor_plan(
         floors_override.as_deref().map(|o| o.0.as_str()),
     );
     let levels = floor_levels(&mode, registry.as_deref()).filter(|levels| !levels.is_empty());
+    let mode_for_victory = mode.clone();
     match (mode, levels) {
         (run::RunMode::Floors { config }, Some(levels)) => {
             info!(
                 "mode Floors : séquence « {config} », {} niveau(x) : {levels:?}",
                 levels.len()
             );
-            commands.insert_resource(FloorPlan { config, levels });
+            let victory_at_end = floors_victory_at_end(&mode_for_victory, registry.as_deref());
+            commands.insert_resource(FloorPlan {
+                config,
+                levels,
+                victory_at_end,
+            });
         }
         (run::RunMode::Floors { config }, None) => {
             warn!("mode Floors : séquence « {config} » inconnue ou vide (voir `alacod lint`), carte unique");
@@ -287,7 +299,8 @@ fn init_floor_state_when_map_loaded(
 /// en cours.
 pub fn floor_portal_open_system(
     frame: Res<FrameCount>,
-    run: Res<Run>,
+    mut run: ResMut<Run>,
+    plan: Res<FloorPlan>,
     mut floor_state: ResMut<FloorState>,
     enemies: Query<(), With<Enemy>>,
 ) {
@@ -296,6 +309,19 @@ pub fn floor_portal_open_system(
     }
     let alive = enemies.iter().count();
     if portal_should_open(&floor_state, alive) {
+        // M2-T0d : séquence `victory_at_end`, dernier niveau vidé (le boss était le dernier
+        // ennemi) : victoire, pas de portail. Le résumé est posé par `finalize_run_summary_system`.
+        if plan.victory_at_end && floor_state.index as usize + 1 >= plan.levels.len() {
+            info!(
+                "ggrs{{f={} floors_victory floor={}}}",
+                frame.frame, floor_state.index
+            );
+            run.step = run::RunStep::Ended {
+                at_frame: frame.frame,
+                outcome: run::RunEnd::Victory,
+            };
+            return;
+        }
         floor_state.portal_open = true;
         info!(
             "ggrs{{f={} floor_portal_open floor={}}}",
@@ -664,6 +690,7 @@ mod tests {
         FloorPlan {
             config: "test".to_string(),
             levels: levels.iter().map(|l| l.to_string()).collect(),
+            victory_at_end: false,
         }
     }
 

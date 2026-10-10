@@ -75,6 +75,10 @@ pub struct Scenario {
     /// `powerups`, pour les objets de `items/*.ron` ([`ItemPlacement`]).
     #[serde(default, skip_serializing_if = "Vec::is_empty")]
     pub items: Vec<ItemPlacement>,
+    /// Écrit les profils de méta-progression à la fin de la run, dans un dossier temporaire
+    /// (M2-T0c, `docs/conventions.md` §38) ; faux par défaut : un scénario n'écrit rien.
+    #[serde(default, skip_serializing_if = "std::ops::Not::not")]
+    pub profile: bool,
     /// Force `PowerUpsConfig::drop_chance` pour ce scénario (T2.5), pour prouver le chemin
     /// « drop à la mort » sans dépendre du tirage réel du jeu (scénario
     /// `powerup_drop_on_kill`) — voir `scenario::runner::apply_powerup_drop_chance_override`.

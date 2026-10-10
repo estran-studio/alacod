@@ -1,0 +1,8 @@
+// `gungeon` (M2-T0d, docs/conventions.md §36) : passif, +25 % de vitesse (source `item:bottes`).
+(
+    name: "Bottes",
+    kind: Passive,
+    modifiers: [(stat: MoveSpeed, op: Pct, value: "0.25")],
+    tags: ["mobilite"],
+    rarity: Common,
+)

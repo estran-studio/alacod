@@ -1,0 +1,24 @@
+// Feedback (présentation seule, docs/conventions.md §7 et §31). `hit_flash.color` multiplie
+// la couleur des calques : au-delà de 1.0 le sprite est surexposé ((1, 1, 1) serait invisible).
+// `hit_stop_frames` : frames de rendu gelées (animations, caméra) quand un joueur local touche
+// ou est touché ; la simulation continue.
+(
+    hit_flash: (
+        frames: 4,
+        color: (2.5, 2.5, 2.5),
+    ),
+    shake: (
+        frames: 8,
+        amplitude: 12.0,
+    ),
+    hit_stop_frames: 2,
+    damage_numbers: true,
+    telegraph: (color: (1.0, 0.3, 0.2, 0.8)),
+    // Surcharges par arme (prioritaires sur `by_kind`) : les explosifs secouent aussi quand le
+    // joueur local touche (secousse de surcharge).
+    by_weapon: {},
+    sounds: {
+        "shot": "sounds/machine-gun.ogg",
+        "reload": "sounds/machine-gun-reload.ogg",
+    },
+)

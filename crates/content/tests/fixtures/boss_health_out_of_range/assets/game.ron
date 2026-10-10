@@ -1,0 +1,8 @@
+// Fixture M2-T0c : seuil HealthBelow hors ]0, 1] (OutOfRange)
+(
+    name: "fixture-boss_health_out_of_range",
+    content_folders: [
+        (path: "characters", kind: "Character"),
+    ],
+    entry: (start_map: "maps/salle.ldtk", default_seed: 1),
+)
