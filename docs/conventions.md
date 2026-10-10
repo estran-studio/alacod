@@ -42,6 +42,8 @@ Référence pour ceux qui créent du contenu (cartes LDtk, sprites RON) et ceux 
 - §32. HUD throne (T1.18, voie V4)
 - §33. Restart en ligne (D14)
 - §34. Course et esquive (dash)
+- §35. Salles typées et verrouillées (M2-E1, chantier E1)
+- §36. Objets et inventaire (M2-T0b, chantier C2)
 - Notes essentielles
 
 ## 1. Cartes LDtk
@@ -202,7 +204,7 @@ mélangent encore plusieurs kinds dans un même dossier historique
 de sprite) : dans ce cas le manifeste déclare le **fichier** précis plutôt que le dossier
 entier (voir `games/zombies/assets/game.ron`). Les kinds connus (20) : `Character`, `Weapon`,
 `MeleeWeapon`, `Wave`, `Map`, `Ui`, `Camera`, `Economy`, `Perk`, `PowerUp`, `SpriteSheet` (D3),
-`Floors`, `Cave`, `Surface`, `Pattern`, `Progression`, `Mutation`, `Status`, `Clock`, `Difficulty`
+`Floors`, `Cave`, `Room`, `Item`, `Surface`, `Pattern`, `Progression`, `Mutation`, `Status`, `Clock`, `Difficulty`
 (`content::registry::KNOWN_KIND_NAMES`, qui fait foi) ; un
 autre kind produit une erreur de lint (« kind inconnu ») plutôt qu'un échec RON générique.
 
@@ -2269,6 +2271,121 @@ recalées (portails, niveaux, mutations) ; ceux dont les inputs sont des enregis
 en `Scripted` ont été **réenregistrés** par la même commande `alacod-sim --save-scenario`
 (`throne_mutation_choice`, avec `ChoiceB` réinséré à la frame de son choix ; `bot_prudent_nododge`,
 avec le même diff temporaire qui désactive l'esquive).
+
+## 35. Salles typées et verrouillées (M2-E1, chantier E1)
+
+Voie B du prototype `m1-proto-etage-salles` : **un étage = un monde LDtk assemblé de salles**
+(l'assembleur `Basic`, inchangé), chaque salle étant un gabarit typé. Code : contrats dans la
+crate `world` (`world::rooms`, aucune dépendance au rendu), branchement ECS dans
+`map_ldtk::game::rooms` (portes, bornes de salle), contenu dans `content::registry`
+(`RoomEntry`) et `content::lint` (`lint_room_kinds`).
+
+**Type de salle (liste ouverte).** Champ de niveau LDtk `room_kind` (chaîne) d'un gabarit, recopié
+tel quel par l'assembleur (`fieldInstances` du gabarit) et posé en `world::RoomKind` sur l'entité
+du niveau (`add_level_components.rs`, à côté de `RoomBounds`/`LevelId`). Les types sont les
+fichiers d'un dossier de contenu de kind `Room` (`rooms/<id>.ron`, id = nom de fichier) :
+```ron
+// games/testbed/assets/rooms/combat.ron  — game.ron : (path: "rooms", kind: "Room")
+(locks: true)   // verrouille et endort ses ennemis ; `locks: false` (défaut) : un lieu comme un autre
+```
+Types du testbed : `depart`, `combat` (`locks: true`), `recompense`. `boss`, `boutique`… s'ajoutent
+par un fichier, sans code. Une carte sans `room_kind` n'a aucune salle typée : **aucun système du
+module ne fait rien** (traces existantes inchangées).
+
+**Lint.** `RoomTemplate` : le `room_kind` d'un niveau d'une carte du dossier `Map` doit être un
+type chargé ; inconnu → `UnknownKind` (« RoomTemplate « SalleX » : room_kind « y » inconnu »).
+Fixture `room_kind_unknown`.
+
+**État rollback.** `world::RoomStates { doors_opened, rooms: BTreeMap<LevelId, RoomState> }`,
+`RoomState { Dormant, Locked, Cleared }` (une salle absente de la table est `Dormant`), ressource
+**neutre** (`rollback_and_trace_resource_neutral` : vide hors carte typée, contribution 0).
+`world::RoomDormant` (marqueur sur les ennemis d'une salle dormante) : composant neutre.
+`world::RoomChanged` (`FrameEvents`, neutre) : un changement d'état (frame, salle, type, avant,
+après), pour les récompenses `OnRoomClear` à venir. `RoomKindTable` (types du jeu) et `DoorShape`
+(collider de porte pour la refermer) sont statiques, hors rollback.
+
+**Comportement** (`room_lock_system`, `RollbackSystemSet::Run`, après la transition d'étage ;
+`room_dormancy_system`, `EnemySpawning`, avant l'IA) :
+1. Au premier tick d'une carte typée, les portes posées au bord (à moins de 24 px) d'une salle
+   typée s'ouvrent (collider et `Interactable` retirés) : une porte de salle est ouverte par défaut.
+2. Une salle dont le type verrouille passe `Dormant → Locked` quand un joueur **debout** est à plus
+   de 24 px de ses bords et qu'un ennemi y vit : ses portes et leurs jumelles (au bord de la salle
+   voisine) se referment (le champ de flux les voit comme des murs) ; puis `Locked → Cleared` quand
+   plus aucun ennemi n'y vit : elles se rouvrent pour de bon.
+3. **Jamais sur un occupant** : si un joueur ou un ennemi chevauche l'une des portes à refermer,
+   aucune ne se ferme ; le verrouillage est réévalué à chaque frame (différé, trace
+   `room_lock_deferred`).
+4. **Coop** : au verrouillage, les joueurs hors de la salle (debout ou à terre) sont téléportés
+   à l'entrée : 40 px dans la salle devant la porte la plus proche du joueur qui a déclenché le
+   verrouillage (tangente du bord, 14 px d'écart, `GgrsNetId` croissant), vitesse annulée.
+5. **Ennemis dormants** : tant qu'une salle verrouillante est `Dormant`, ses ennemis portent
+   `RoomDormant` ; sélection de cible, comportements, déplacement et attaque
+   (`enemy_target_selection`, `behavior_select_system`, `update_enemy_targets`, `move_enemies`,
+   `enemy_attack_system`) les sautent (`Without<RoomDormant>`). Annuler leur vitesse ne suffisait
+   pas : `move_enemies` écrit la position.
+
+**Limites connues (E2 et suite).** Les portes d'une salle sont repérées par leur position (marge
+de 24 px), pas par un lien explicite ; deux salles qui se touchent par un coin partagent
+d'éventuelles portes voisines. Le mode `Floors` ne remet pas `RoomStates` à zéro au changement
+d'étage. Pas de récompense, de minicarte ni de grammaire d'étage (E2).
+
+**Scénarios et attentes.** `RoomState(kind: "combat", nth: 0, state: Locked, doors_closed:
+Some(4), at_frame: 100)` : état de la `nth` salle du type (triées par position x puis y) et,
+optionnel, nombre de portes fermées de la carte. Moment clé `room` (« salle combat verrouillée »,
+« … nettoyée »). Cartes `testbed/salles.ldtk` (deux `dummy`) et `salles_poursuivants.ldtk` (deux
+`follower`), produites par `docs/taches/rapports/m2-e1-salles.make_salles.py` depuis
+`two_rooms_door.ldtk` ; scénarios `rooms_lock_solo`, `rooms_dormant`, `rooms_lock_coop`,
+`rooms_door_occupied`. Diagnostic : `ALACOD_MAP_PROBE=<scénario>:<frame>` affiche aussi les salles
+(état) et les ennemis (position, dormant).
+
+## 36. Objets et inventaire (M2-T0b, chantier C2)
+
+Contrats : crate `items` (simulation, sans rendu) ; runtime : `game::items` ; contenu :
+`content::registry::ItemEntry` et `content::lint::lint_items`.
+
+**Contenu.** Kind de dossier `Item` : un fichier RON par objet (`objets/<id>.ron`, id = nom de
+fichier), champs de `items::ItemDef` :
+```ron
+(name: "Bottes", kind: Passive,                       // Passive | Active(charge) | Consumable
+ modifiers: [(stat: MoveSpeed, op: Pct, value: "0.25")],   // permanents, source `item:<id>`
+ effects: [],                                          // effets T1.10 tels quels (voir ci-dessous)
+ tags: ["mobilite"], rarity: Common,                  // Common | Uncommon | Rare | Epic | Legendary
+ pickup_range: "24.0")                                 // défaut 24
+// actif : kind: Active(Rooms(1)) | Active(Damage(200)) | Active(Frames(600))
+//   effects: [(on: OnUse, do: [TimedModifier(stat: Damage, op: Pct, value: "1.0", frames: 300)])]
+```
+`ActiveCharge` : `Rooms(n)` salles nettoyées (`world::RoomChanged` vers `Cleared`, §35),
+`Damage(n)` dégâts infligés par le porteur (`DamageEvent`, partie entière), `Frames(n)`. L'actif est
+prêt quand sa charge atteint `n` (plafonnée).
+
+**Lint.** Id dupliqué (`DuplicateId`), RON ou stat inconnue (`Parse`), charge 0 et `pickup_range`
+≤ 0 (`OutOfRange`), consommable avec modificateurs ou effets et tout effet autre que `OnUse` d'un
+actif avec `TimedModifier`/`Modifier` (`Unsupported` : contrats des effets v2, M2-T3).
+
+**Inventaire.** `items::Inventory { passives (ordre de ramassage), active: Option<ActiveSlot
+{ item, charge }>, consumables: BTreeMap<id, n> }`, composant rollback **neutre**, posé au
+**premier ramassage** (jamais sur un joueur qui n'a rien ramassé : contribution 0, traces
+inchangées). `ItemPickup { item_id }` : objet au sol (rollback, neutre, `GgrsNetId`). `ItemTable`
+(statique, hors rollback) est posée au chargement depuis le registre
+(`map_ldtk::loader::item_table`). `ItemPicked` : `FrameEvents` neutre (moment clé `item_pickup`).
+
+**Comportement** (`game::items`). Consommable : ramassé au contact (portée de l'objet), le plus petit
+`GgrsNetId` à portée l'emporte. Passif/actif : `Interactable { Item }` (`InteractionType::Item`), ramassé
+par Interaction ; un passif ajoute ses modificateurs à `Modifiers` ; un actif remplace l'actif tenu
+(qui tombe aux pieds, charge perdue) avec une charge 0. Charge (`item_charge_system`, après `Run` : lit
+les `RoomChanged` de la frame). Usage : bit `INPUT_USE_ACTIVE` avec l'actif chargé : les effets `OnUse`
+s'appliquent, la charge retombe à 0.
+
+**Input élargi (u16 → u32).** `BoxInput.buttons` passe de 16 à 32 bits (`BoxInput` : 8 → 12 octets en
+mémoire, alignement 4) : `INPUT_USE_ACTIVE` (bit 16, touche Espace, bouton `UseActive`) et `INPUT_BLANK`
+(bit 17, touche Q, bouton `Blank` ; contrat seul, l'effet vient de M2-T1). Les enregistrements ne
+stockent que des noms de boutons : ils se rejouent à l'identique.
+
+**Scénarios.** `items: [(id: "bottes", x: "-904.0", y: "-584.0", at_frame: 5)]` place un objet à une
+position et une frame exactes (comme `powerups`). Attentes : `HasItem(handle, id)`,
+`ItemCharge(handle, charge)` (échoue sans actif), `Consumable(handle, id, count)`. Moment clé
+`item_pickup`. Scénarios : `item_passive`, `item_active_rooms` (carte de M2-E1), `item_consumable_race`,
+`item_passive_race`. Objets du testbed : `bottes`, `fiole` (`Active(Rooms(1))`), `key`.
 
 ## Notes essentielles
 

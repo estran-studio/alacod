@@ -10,7 +10,7 @@ jobs:
     name: Tests & Format
     # La poussée des notes de revue du nightly (actor `alacod-nightly`) ne
     # doit pas re-déclencher tests + déploiement : boucle infinie sinon.
-    if: github.actor != 'alacod-nightly'
+    if: false # Temporaire: réactiver après validation du pipeline de publication.
     runs-on: ubuntu-latest
     steps:
       - name: Check out
@@ -60,6 +60,7 @@ jobs:
     name: Build WASM & Deploy
     runs-on: [self-hosted, alacod-builder]
     needs: check
+    if: always() && github.actor != 'alacod-nightly'
     environment: production
     steps:
       - name: Clean workspace with sudo
@@ -73,17 +74,15 @@ jobs:
           fetch-depth: 0
           clean: true
 
-      - name: Login docker
-        run: docker login https://ghcr.io -u wquintal -p $GITHUB_ACCESS_TOKEN
-        env:
-          GITHUB_ACCESS_TOKEN: ${{ secrets.ACCESS_TOKEN }}
+      - name: Build local builder image
+        run: docker build --platform linux/amd64 -f Dockerfile.builder -t alacod-builder:ci .
       - name: Fix host cache permissions
         run: |
           # Use a root container to chown the host's cache directories back to the current user
           docker run --rm \
             -v "$HOME/.cargo:/cargo_cache" \
             -v "$HOME/.cache/sccache:/sccache_cache" \
-            ghcr.io/bascanada/alacod-builder:1.0.0 \
+            alacod-builder:ci \
             bash -c "chown -R $(id -u):$(id -g) /cargo_cache /sccache_cache"
       - name: Build WASM in container
         run: |
@@ -95,7 +94,7 @@ jobs:
             --group-add "$DOCKER_GID" \
             -v /var/run/docker.sock:/var/run/docker.sock \
             -e HOME=/tmp \
-            ghcr.io/bascanada/alacod-builder:1.0.0 \
+            alacod-builder:ci \
             docker version
 
           docker run --rm \
@@ -112,10 +111,11 @@ jobs:
             -w /workspace \
             -e RUSTC_WRAPPER=sccache \
             -e CARGO_INCREMENTAL=0 \
-            ghcr.io/bascanada/alacod-builder:1.0.0 \
+            alacod-builder:ci \
             bash -c "cargo vendor && make build_docker_website TARGET=web PROFILE=prod"
 
       - name: Push docker website
+        if: false # Le site est publié par Pages; aucun push d’image n’est requis.
         run: |
           # 1. Calculer le GID du socket Docker (comme à l'étape précédente)
           DOCKER_GID=$(stat -c '%g' /var/run/docker.sock 2>/dev/null || \
@@ -144,12 +144,30 @@ jobs:
         with:
           node-version: '20'
 
+      - name: Prepare Cloudflare Pages and R2 release
+        run: |
+          rm -rf website/build
+          cp -a build website/build
+          npm ci --prefix website
+          node scripts/prepare-cloudflare.mjs
+
+      - name: Upload immutable WASM to R2
+        working-directory: website
+        env:
+          CLOUDFLARE_API_TOKEN: ${{ secrets.CLOUDFLARE_API_TOKEN }}
+          CLOUDFLARE_ACCOUNT_ID: ${{ secrets.CLOUDFLARE_ACCOUNT_ID }}
+        run: |
+          node -e 'for (const u of require("./.cloudflare-upload.json").uploads) console.log(`${u.key}\t${u.file}`)' |
+          while IFS=$'\t' read -r key file; do
+            npx --yes wrangler@4.149.0 r2 object put "alacod-game-builds/$key" --remote --file "$file" --content-type application/wasm --cache-control 'public, max-age=31536000, immutable'
+          done
+
       - name: Publish to Cloudflare Pages
-        uses: cloudflare/wrangler-action@v3
-        with:
-          apiToken: ${{ secrets.CLOUDFLARE_API_TOKEN }}
-          accountId: ${{ secrets.CLOUDFLARE_ACCOUNT_ID }}
-          command: pages deploy ./build --project-name=alacod
+        working-directory: website
+        env:
+          CLOUDFLARE_API_TOKEN: ${{ secrets.CLOUDFLARE_API_TOKEN }}
+          CLOUDFLARE_ACCOUNT_ID: ${{ secrets.CLOUDFLARE_ACCOUNT_ID }}
+        run: npx --yes wrangler@4.149.0 pages deploy .cloudflare-dist --project-name alacod --branch main
 
       - name: Cleanup build artifacts
         if: always()

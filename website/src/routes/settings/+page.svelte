@@ -4,7 +4,7 @@
 	import type { Settings } from './settingsStore.js';
 	import { toaster } from '$lib/toaster.js';
 
-	let settings: Settings = { allumetteServerUrl: '', matchboxServer: '' };
+	let settings: Settings = { allumetteServerUrl: '', matchboxServer: '', telemetryEnabled: false, telemetryUrl: '', telemetryAuth: '' };
 
 	const unsubscribe = settingsStore.subscribe((value) => {
 		settings = { ...value };
@@ -84,7 +84,13 @@
 						<label class="label" for="telemetryUrl">
 							<span>Telemetry URL</span>
 						</label>
-						<input class="input" type="text" id="telemetryUrl" bind:value={settings.telemetryUrl} placeholder="http://localhost:5080/api/..." />
+						<input
+							class="input"
+							type="text"
+							id="telemetryUrl"
+							bind:value={settings.telemetryUrl}
+							placeholder="http://localhost:5080/api/..."
+						/>
 						<p class="text-sm text-slate-500">The endpoint URL for OpenObserve</p>
 					</div>
 
@@ -105,10 +111,3 @@
 		</form>
 	</section>
 </div>
-
-<style>
-	.range {
-		accent-color: var(--color-secondary-contrast-500);
-		width: 100%;
-	}
-</style>

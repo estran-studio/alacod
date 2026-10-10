@@ -1,0 +1,34 @@
+// M2-E1 (docs/conventions.md §35) : une porte n'est jamais refermée sur un occupant. Carte
+// testbed/salles.ldtk.
+//
+// À regarder : le joueur 0 entre dans la salle de combat (f30-90) ; le joueur 1 s'arrête dans
+// l'embrasure de la porte (f~78). La salle reste ouverte tant que le joueur 1 est dans la porte
+// (aucune porte ne se ferme, pas même celle qui est libre) ; quand il avance (f150-200), la
+// salle se verrouille à la frame suivante, derrière lui.
+Scenario(
+    powerup_drop_chance_override: "0.0",
+    game: "testbed",
+    map: "testbed/salles.ldtk",
+    map_seed: 1,
+    frames: 300,
+    players: [
+        (inputs: [
+            (from: 30, to: 90, buttons: [Right]),
+        ]),
+        (inputs: [
+            (from: 5, to: 17, buttons: [Up]),
+            (from: 30, to: 65, buttons: [Right]),
+            (from: 150, to: 200, buttons: [Right]),
+        ]),
+    ],
+    expect: [
+        // Joueur 0 est dans la salle, des ennemis y vivent, mais le joueur 1 occupe la porte.
+        PlayerPosition(handle: 1, x: -816.5, y: -570.0, tolerance: 4, at_frame: 140),
+        RoomState(kind: "combat", state: Dormant, doors_closed: Some(0), at_frame: 140),
+        RoomState(kind: "combat", state: Locked, doors_closed: Some(4), at_frame: 280),
+        // Une fois passé, le joueur 1 est dans la salle, derrière la porte fermée.
+        PlayerPosition(handle: 1, x: -714.0, y: -570.0, tolerance: 6, at_frame: 280),
+        PlayerAlive(handle: 0, at_frame: 299),
+        PlayerAlive(handle: 1, at_frame: 299),
+    ],
+)

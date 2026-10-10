@@ -21,10 +21,10 @@
 //! Joué par `crates/scenario` ; écrit par l'enregistrement (`crate::recording`).
 
 use crate::character::player::input::{
-    BoxInput, InputSegment, ScriptedInputs, INPUT_CHOICE_A, INPUT_CHOICE_B, INPUT_CHOICE_C,
-    INPUT_DASH, INPUT_DOWN, INPUT_DROP_WEAPON, INPUT_FORCE_CRASH, INPUT_INTERACTION, INPUT_LEFT,
-    INPUT_MELEE_ATTACK, INPUT_MODIFIER, INPUT_RELOAD, INPUT_RIGHT, INPUT_SPRINT,
-    INPUT_SWITCH_WEAPON_MODE, INPUT_UP,
+    BoxInput, InputSegment, ScriptedInputs, INPUT_BLANK, INPUT_CHOICE_A, INPUT_CHOICE_B,
+    INPUT_CHOICE_C, INPUT_DASH, INPUT_DOWN, INPUT_DROP_WEAPON, INPUT_FORCE_CRASH,
+    INPUT_INTERACTION, INPUT_LEFT, INPUT_MELEE_ATTACK, INPUT_MODIFIER, INPUT_RELOAD, INPUT_RIGHT,
+    INPUT_SPRINT, INPUT_SWITCH_WEAPON_MODE, INPUT_UP, INPUT_USE_ACTIVE,
 };
 use bevy_fixed::fixed_math::Fixed;
 pub use combat::weapons::expectations::{
@@ -71,6 +71,10 @@ pub struct Scenario {
     /// `scenario::runner::apply_scenario_powerup_placements`.
     #[serde(default, skip_serializing_if = "Vec::is_empty")]
     pub powerups: Vec<PowerUpPlacement>,
+    /// Placements scriptés d'objets (M2-T0b, `docs/conventions.md` §36) : même principe que
+    /// `powerups`, pour les objets de `items/*.ron` ([`ItemPlacement`]).
+    #[serde(default, skip_serializing_if = "Vec::is_empty")]
+    pub items: Vec<ItemPlacement>,
     /// Force `PowerUpsConfig::drop_chance` pour ce scénario (T2.5), pour prouver le chemin
     /// « drop à la mort » sans dépendre du tirage réel du jeu (scénario
     /// `powerup_drop_on_kill`) — voir `scenario::runner::apply_powerup_drop_chance_override`.
@@ -134,6 +138,16 @@ pub struct CharacterPlacement {
 /// spawn d'ennemi de vague — voir `scenario::runner::apply_scenario_powerup_placements`.
 #[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
 pub struct PowerUpPlacement {
+    pub id: String,
+    pub x: Fixed,
+    pub y: Fixed,
+    pub at_frame: u32,
+}
+
+/// Placement scripté d'un objet (M2-T0b) : fait apparaître l'objet `id` (fichier de `items/`) à
+/// la position `(x, y)` du monde, à la frame `at_frame` exacte.
+#[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
+pub struct ItemPlacement {
     pub id: String,
     pub x: Fixed,
     pub y: Fixed,
@@ -400,6 +414,10 @@ pub enum Button {
     ChoiceA,
     ChoiceB,
     ChoiceC,
+    /// Utilise l'objet actif tenu (M2-T0b). Voir `INPUT_USE_ACTIVE`.
+    UseActive,
+    /// Blank (M2-T0b, contrat : compteur et input). Voir `INPUT_BLANK`.
+    Blank,
 }
 
 impl Scenario {
@@ -485,7 +503,7 @@ pub fn box_input(buttons: &[Button], pan: (i16, i16)) -> BoxInput {
     input
 }
 
-const ALL_BUTTONS: [Button; 18] = [
+const ALL_BUTTONS: [Button; 20] = [
     Button::Up,
     Button::Down,
     Button::Left,
@@ -504,9 +522,11 @@ const ALL_BUTTONS: [Button; 18] = [
     Button::ChoiceA,
     Button::ChoiceB,
     Button::ChoiceC,
+    Button::UseActive,
+    Button::Blank,
 ];
 
-fn button_bit(button: Button) -> u16 {
+fn button_bit(button: Button) -> u32 {
     match button {
         Button::Up => INPUT_UP,
         Button::Down => INPUT_DOWN,
@@ -524,6 +544,8 @@ fn button_bit(button: Button) -> u16 {
         Button::ChoiceA => INPUT_CHOICE_A,
         Button::ChoiceB => INPUT_CHOICE_B,
         Button::ChoiceC => INPUT_CHOICE_C,
+        Button::UseActive => INPUT_USE_ACTIVE,
+        Button::Blank => INPUT_BLANK,
         Button::Fire | Button::SwitchWeapon => 0,
     }
 }

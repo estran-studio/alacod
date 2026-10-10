@@ -1,0 +1,37 @@
+// M2-E1 (docs/conventions.md §35) : verrouillage et réouverture d'une salle de combat, solo.
+// Carte testbed/salles.ldtk : départ, combat (deux `dummy` immobiles), récompense, assemblées par
+// `Basic` ; les types viennent du champ de niveau `room_kind` et de `rooms/*.ron`.
+//
+// À regarder : le joueur reste dans la salle de départ (f10-30) pendant que la salle de
+// combat attend, porte ouverte, puis il avance (f30-90) :
+// quand il a passé la porte, la salle se verrouille (quatre portes fermées : la sienne et sa
+// jumelle, de chaque côté) ; il tire (f90-500) ; quand les deux ennemis sont morts, les
+// portes se rouvrent.
+Scenario(
+    powerup_drop_chance_override: "0.0",
+    game: "testbed",
+    map: "testbed/salles.ldtk",
+    map_seed: 1,
+    frames: 600,
+    players: [
+        (inputs: [
+            (from: 30, to: 90, buttons: [Right]),
+            (from: 90, to: 500, buttons: [Fire], pan: (64, 0)),
+        ]),
+    ],
+    expect: [
+        RoomState(kind: "combat", state: Dormant, doors_closed: Some(0), at_frame: 20),
+        EntityCount(kind: Enemy, min: 2, max: 2, at_frame: 20),
+        // Un départ ne se verrouille jamais.
+        RoomState(kind: "depart", state: Dormant, at_frame: 20),
+        RoomState(kind: "depart", state: Dormant, at_frame: 300),
+        // Verrouillée (f85) : quatre portes fermées, deux ennemis vivants.
+        RoomState(kind: "combat", state: Locked, doors_closed: Some(4), at_frame: 100),
+        EntityCount(kind: Enemy, min: 1, at_frame: 100),
+        // Nettoyée (f479) : les quatre portes rouvertes, plus d'ennemis.
+        RoomState(kind: "combat", state: Cleared, doors_closed: Some(0), at_frame: 500),
+        DoorsOpenAtLeast(doors: 4, at_frame: 500),
+        EntityCount(kind: Enemy, max: Some(0), at_frame: 599),
+        PlayerAlive(handle: 0, at_frame: 599),
+    ],
+)

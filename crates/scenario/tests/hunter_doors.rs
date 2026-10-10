@@ -22,6 +22,7 @@ fn buyers_finish_the_first_wave_when_awake_zombies_are_inaccessible() {
             wave_overrides: None,
             invariants: Default::default(),
             powerups: vec![],
+            items: vec![],
             powerup_drop_chance_override: None,
             floors: None,
             progression: None,

@@ -149,8 +149,15 @@ pub struct GameEventsPlugin;
 
 impl Plugin for GameEventsPlugin {
     fn build(&self, app: &mut App) {
-        app.init_resource::<GameEvents>()
-            .add_systems(Last, (detect_events, feedback_events.after(detect_events)));
+        app.init_resource::<GameEvents>().add_systems(
+            Last,
+            (
+                detect_events,
+                feedback_events.after(detect_events),
+                room_events.after(detect_events),
+                item_events.after(detect_events),
+            ),
+        );
     }
 }
 
@@ -183,6 +190,48 @@ fn feedback_events(log: Option<Res<game::feedback::FeedbackLog>>, mut events: Re
             frame: cue.frame,
             kind: "feedback",
             label,
+        });
+    }
+}
+
+/// Moments clés `item_pickup` (M2-T0b) : un objet ramassé (`items::ItemPicked`, borné à sa
+/// frame d'émission comme `CurrencyEvent`).
+fn item_events(
+    picked: Option<Res<FrameEvents<items::ItemPicked>>>,
+    mut events: ResMut<GameEvents>,
+) {
+    let Some(picked) = picked else {
+        return;
+    };
+    for pick in picked.iter() {
+        events.events.push(GameEvent {
+            frame: pick.frame,
+            kind: "item_pickup",
+            label: format!("joueur {} ramasse {}", pick.player_handle, pick.item_id),
+        });
+    }
+}
+
+/// Moments clés `room` (M2-E1, `docs/conventions.md` §35) : un changement d'état de salle
+/// (`world::RoomChanged`, borné à la frame d'émission comme `CurrencyEvent`) : « salle combat
+/// verrouillée », « salle combat nettoyée ».
+fn room_events(
+    changes: Option<Res<FrameEvents<world::RoomChanged>>>,
+    mut events: ResMut<GameEvents>,
+) {
+    let Some(changes) = changes else {
+        return;
+    };
+    for change in changes.iter() {
+        let what = match change.to {
+            world::RoomState::Dormant => "endormie",
+            world::RoomState::Locked => "verrouillée",
+            world::RoomState::Cleared => "nettoyée",
+        };
+        events.events.push(GameEvent {
+            frame: change.frame,
+            kind: "room",
+            label: format!("salle {} {what}", change.kind),
         });
     }
 }

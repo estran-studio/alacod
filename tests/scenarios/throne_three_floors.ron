@@ -14,6 +14,10 @@
 // mutations du joueur 0 `sang_froid` (f933), `irradie` (f1987), `chasseur` (f4314), du joueur 1
 // `vampire` (f1609), `sang_froid` (f4651) ; alerte à f2133 ; **personne à terre**, les deux
 // vivants à f4999 (la régression de m1-v3-bots-armes ne se reproduit pas).
+// m1-bots-apres-movement-feel (pilotage en 8 directions, ennemi coincé) : étages à f288, f1022, f2873
+// (objectif tenu), quatrième caverne à f4473 ; mutations du joueur 0 `sang_froid` (f873),
+// `irradie` (f3014), du joueur 1 `sang_froid` (f1084), `chasseur` (f2139), `irradie` (f4480) ;
+// alerte à f1922 ; personne à terre, les deux vivants à f4999.
 // **Duo de la vague 2 de M1** (m1-integration-scenarios) : gardé sous ce nom. **Graine 4**
 // depuis m1-navigation-profils-tailles : sur 123456, le duo ne finit plus (soft-lock au niveau
 // 3, boss et tourelle en vue des bots : limite des bots) ; 4 est la première des 20 graines qui
@@ -33,12 +37,12 @@ Scenario(
     expect: [
         FloorIndex(index: 1, at_frame: 510),
         FloorIndex(index: 2, at_frame: 1240),
-        FloorIndex(index: 2, at_frame: 3530),
-        FloorIndex(index: 3, at_frame: 3545),
-        Event(kind: "floor", label_contains: Some("niveau 3"), by_frame: 3545),
+        FloorIndex(index: 2, at_frame: 2860),
+        FloorIndex(index: 3, at_frame: 2885),
+        Event(kind: "floor", label_contains: Some("niveau 3"), by_frame: 2885),
         Event(kind: "levelup", by_frame: 445),
         Clock(id: "alerte", fired: true, at_frame: 2140),
-        Mutations(handle: 0, contains: ["sang_froid", "irradie"], count: Some(2), at_frame: 2000),
+        Mutations(handle: 0, contains: ["sang_froid", "irradie"], count: Some(2), at_frame: 3020),
         PlayerAlive(handle: 0, at_frame: 4999),
         PlayerAlive(handle: 1, at_frame: 4999),
     ],

@@ -398,6 +398,14 @@ fn apply_run_request_system(
         return;
     };
 
+    #[cfg(target_arch = "wasm32")]
+    if crate::jjrs::browser::session().is_some() {
+        // The host ends the current session and obtains a fresh admission ticket.
+        // Never derive a restart room by appending characters to a JWT.
+        commands.remove_resource::<RunRequest>();
+        crate::jjrs::browser::alacod_return_to_lobby();
+        return;
+    }
     let online = matches!(*online_state, OnlineState::Online);
     // D14 : restart en ligne sur le chemin `--matchbox` seulement (pas en allumette).
     let restart_online = ggrs_config.is_some_and(|c| c.allumette_url.is_empty());

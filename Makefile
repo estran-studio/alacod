@@ -19,7 +19,7 @@ LOG_DIR := ./logs
 LOG_PREFFIX := game_run
 FILTERED_LOG_DIR := ./logs/filtered
 GREP_FILTER := 'ggrs{'
-MATCHBOX_URL := wss://allumette.bascanada.org
+MATCHBOX_URL := wss://allumette.estran.studio
 
 
 ifeq ($(CURRENT_TAG),)
@@ -283,7 +283,8 @@ ifeq ($(PROFILE), prod)
 endif
 
 
-build_wasm_apps: cp_asset build_map_preview_web build_character_tester_web build_ldtk_map_explorer_web
+build_wasm_apps:
+	WEB_BUILD_ID=$(VERSION) WEB_PROFILE=$(if $(filter prod,$(PROFILE)),release,dev) node scripts/build-web-games.mjs zombies throne
 
 build_website: build_wasm_apps
 	cd website && npm ci && APP_VERSION=$(VERSION) npm run build
@@ -370,3 +371,8 @@ nightly_quick:
 	bash scripts/nightly.sh --quick
 
 .PHONY: nightly nightly_quick
+
+# Immutable clone builds and release catalog (solo opt-in for previews).
+.PHONY: build_web_games
+build_web_games:
+	node scripts/build-web-games.mjs $(WEB_GAMES)

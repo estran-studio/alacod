@@ -36,6 +36,10 @@
         // T1.6 : cavernes générées (`cave:<nom>` comme carte, docs/conventions.md §21) ; le
         // dossier contient aussi le gabarit LDtk `gabarit.ldtk`.
         (path: "caves", kind: "Cave"),
+        // M2-E1 : types de salles (champ de niveau LDtk `room_kind`, docs/conventions.md §35).
+        (path: "rooms", kind: "Room"),
+        // M2-T0b : objets (passifs, actifs, consommables ; docs/conventions.md §36).
+        (path: "objets", kind: "Item"),
         // T1.7 : surfaces (couche IntGrid `Surfaces` des cartes, docs/conventions.md §26).
         (path: "surfaces", kind: "Surface"),
         // T1.2 : patterns nommés des émetteurs (tourelle `ring_8`, archer `volee`).
