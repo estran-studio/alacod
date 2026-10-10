@@ -489,3 +489,13 @@ sans conflit ou comme une validation p2p.
 - Relevé final de 20 graines avec 4 acheteurs jusqu'à V5 : en cours au premier push de
   revue, en quatre lots indépendants. Les résultats seront ajoutés dans un commit de
   validation ; ne pas confondre les anciennes mesures de carte avec ce relevé final.
+
+### Alerte avant fusion — audit final en cours
+
+L'audit de la carte finale découvre un plafond sur la graine **17** : vague 4,
+20 000 frames, 31 kills, 0 mort. La CLI signale `fin soft-lock`. Le critère
+20/20 jusqu'à V5 n'est donc pas satisfait : **branche publiée pour revue, pas encore
+validée pour fusion**. Un diagnostic indépendant est lancé à 14 000 frames pour
+examiner la progression, les chemins et les munitions. Ne pas attribuer ce plafond
+au brouillard sans preuve : cet audit est exécuté sans rendu. Les captures et les
+186 scénarios réussis ne couvrent pas à eux seuls cette carte procédurale.
