@@ -51,6 +51,18 @@ pub fn diagonal_cuts_corner(
     blocked_for(&blocked, x + dx, y, large) || blocked_for(&blocked, x, y + dy, large)
 }
 
+/// D55 : le pas orthogonal `(x, y)` → `(x + dx, y + dy)` traverse une chicane : sur l'axe
+/// perpendiculaire, la case de départ est bloquée d'un côté et celle d'arrivée du côté opposé. Les
+/// deux coins sont distants d'une seule case (16 px), trop peu pour un corps de plus de 16 px :
+/// le collider accroche un coin sans jamais glisser (graine 19 de throne). Pour un gabarit petit
+/// (20 px) ; un gabarit grand écarte déjà ces cases par [`blocked_for`].
+pub fn chicane_step(blocked: impl Fn(i32, i32) -> bool, x: i32, y: i32, dx: i32, dy: i32) -> bool {
+    let (px, py) = (-dy, dx);
+    let (tx, ty) = (x + dx, y + dy);
+    (blocked(x + px, y + py) && blocked(tx - px, ty - py))
+        || (blocked(x - px, y - py) && blocked(tx + px, ty + py))
+}
+
 /// Distances de navigation (en pas, 8-connexité) depuis `sources` sur une grille de caverne, avec
 /// les règles du champ de flux : roche et bordure bloquent, [`impassable`], pas de coin coupé.
 /// Les sources (les points des joueurs) comptent même bloquées, comme les cibles du champ.
@@ -78,6 +90,9 @@ pub fn nav_distances(grid: &CellGrid, sources: &[(u32, u32)], large: bool) -> Ve
                 continue;
             }
             if dx != 0 && dy != 0 && diagonal_cuts_corner(blocked, x, y, dx, dy, large) {
+                continue;
+            }
+            if (dx == 0 || dy == 0) && !large && chicane_step(blocked, x, y, dx, dy) {
                 continue;
             }
             dist[index(nx, ny)] = d + 1;
@@ -154,6 +169,24 @@ mod tests {
         assert_eq!(small[i(4, 2)], u32::MAX, "couloir (4, 2) d'une case");
         assert_eq!(small[i(2, 2)], u32::MAX, "poche derrière le couloir");
         assert_ne!(small[i(6, 3)], u32::MAX);
+    }
+
+    /// D55 (graine 19 de throne) : deux coins opposés ne laissent qu'une case de passage entre la
+    /// poche de gauche et le reste ; un corps de 20 px y reste accroché, la poche est hors du champ.
+    #[test]
+    fn chicane_de_deux_coins_opposes_coupe_la_poche() {
+        let g = grid(&[
+            "###########",
+            "#...#.....#",
+            "#.........#",
+            "#....#....#",
+            "###########",
+        ]);
+        let small = nav_distances(&g, &[(8, 2)], false);
+        let i = |x: u32, y: u32| (y * g.width + x) as usize;
+        assert_ne!(small[i(5, 2)], u32::MAX);
+        assert_eq!(small[i(4, 2)], u32::MAX, "case de départ de la chicane");
+        assert_eq!(small[i(2, 2)], u32::MAX, "poche derrière la chicane");
     }
 
     /// Un gabarit grand n'atteint que les cases dont les 8 voisines sont libres ; un petit passe
