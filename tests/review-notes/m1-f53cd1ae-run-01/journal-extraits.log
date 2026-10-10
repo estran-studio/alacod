@@ -1,0 +1,17 @@
+2026-10-10T16:38:22.297735Z  INFO game::progression: ggrs{f=694 levelup player=0 level=1 gauge=3}
+2026-10-10T16:38:28.268475Z  INFO game::progression: ggrs{f=1052 mutation player=0 id=sang_froid options=["sang_froid", "chasseur", "coriace"]}
+2026-10-10T16:38:29.798230Z  INFO map_ldtk::game::floors: ggrs{f=1144 floor_portal_open floor=0}
+2026-10-10T16:38:35.347845Z  INFO map_ldtk::game::floors: ggrs{f=1477 floor_transition from=0 to=1 slot=1 player=0 net_id=73}
+2026-10-10T16:38:49.481006Z  INFO game::progression: ggrs{f=2325 levelup player=0 level=2 gauge=8}
+2026-10-10T16:38:51.181024Z  INFO game::progression: ggrs{f=2427 mutation player=0 id=chasseur options=["coriace", "chasseur", "vampire"]}
+2026-10-10T16:38:57.898142Z  INFO map_ldtk::game::floors: ggrs{f=2830 floor_portal_open floor=1}
+2026-10-10T16:39:02.530733Z  INFO map_ldtk::game::floors: ggrs{f=3108 floor_transition from=1 to=2 slot=2 player=0 net_id=73}
+2026-10-10T16:39:26.032008Z  INFO game::progression: ggrs{f=4518 levelup player=0 level=3 gauge=15}
+2026-10-10T16:39:27.165312Z  INFO game::progression: ggrs{f=4586 mutation player=0 id=tireur options=["irradie", "tireur", "rancune"]}
+2026-10-10T16:39:35.897801Z  INFO ggrs{f=5110 s="apply_damage"}: game::character::health: (roi_rat-436) receive 16 dmg health is -8
+2026-10-10T16:39:59.898348Z  INFO map_ldtk::game::floors: ggrs{f=6550 floor_portal_open floor=2}
+2026-10-10T16:40:03.323295Z  INFO map_ldtk::game::floors: ggrs{f=6755 floor_transition from=2 to=3 slot=2 player=0 net_id=73}
+2026-10-10T16:40:50.794124Z  INFO ggrs{f=9604 s="apply_damage"}: game::character::health: (roi_rat-1068) receive 12 dmg health is -2
+2026-10-10T16:41:12.951103Z  INFO map_ldtk::game::floors: ggrs{f=10933 floor_portal_open floor=3}
+2026-10-10T16:41:20.276469Z  INFO map_ldtk::game::floors: ggrs{f=11373 floor_transition from=3 to=4 slot=2 player=0 net_id=73}
+2026-10-10T16:41:28.752574Z  INFO game::recording: session enregistrée dans "/tmp/alacod-m1-ced52082-solo-01.ron" (11882 frames)

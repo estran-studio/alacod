@@ -1,0 +1,56 @@
+
+running 1 test
+found a spawn level: cave-niveau_1-123456
+found a spawn level: cave-niveau_2-123456
+found a spawn level: cave-niveau_3-123456
+found a spawn level: cave-niveau_1-123456
+found a spawn level: cave-niveau_2-123456
+found a spawn level: cave-niveau_3-123456
+found a spawn level: cave-niveau_1-123456
+found a spawn level: cave-niveau_2-123456
+found a spawn level: cave-niveau_3-123456
+test nav_stats has been running for over 60 seconds
+zombie  78 apparu f0     attaque fenêtre -       contact joueur f980    bloqué max    2 frames  sprite dans un mur    0 frames (max  1.0 px) bloqué vers (398,295)
+zombie  80 apparu f0     attaque fenêtre -       contact joueur -       bloqué max    2 frames  sprite dans un mur    0 frames (max  0.0 px) bloqué vers (413,296)
+zombie  82 apparu f0     attaque fenêtre -       contact joueur -       bloqué max    0 frames  sprite dans un mur    0 frames (max  0.0 px)
+zombie  84 apparu f0     attaque fenêtre -       contact joueur f297    bloqué max    0 frames  sprite dans un mur    0 frames (max  0.0 px)
+zombie 216 apparu f1478  attaque fenêtre -       contact joueur f1846   bloqué max    0 frames  sprite dans un mur    0 frames (max  1.3 px)
+zombie 218 apparu f1478  attaque fenêtre -       contact joueur -       bloqué max    0 frames  sprite dans un mur    0 frames (max  0.0 px)
+zombie 220 apparu f1478  attaque fenêtre -       contact joueur -       bloqué max   91 frames  sprite dans un mur  602 frames (max  6.0 px) à f2325 (582,64) bloqué vers (474,64)
+zombie 222 apparu f1478  attaque fenêtre -       contact joueur -       bloqué max    0 frames  sprite dans un mur    3 frames (max  3.5 px) à f1996 (580,124)
+zombie 223 apparu f1478  attaque fenêtre -       contact joueur f1619   bloqué max    0 frames  sprite dans un mur    0 frames (max  0.0 px)
+zombie 225 apparu f1478  attaque fenêtre -       contact joueur f2042   bloqué max    0 frames  sprite dans un mur    0 frames (max  0.0 px)
+zombie 427 apparu f3109  attaque fenêtre -       contact joueur -       bloqué max    0 frames  sprite dans un mur    0 frames (max  0.0 px)
+zombie 429 apparu f3109  attaque fenêtre -       contact joueur f3984   bloqué max    0 frames  sprite dans un mur    0 frames (max  0.0 px)
+zombie 431 apparu f3109  attaque fenêtre -       contact joueur f4027   bloqué max    0 frames  sprite dans un mur    0 frames (max  0.0 px)
+zombie 433 apparu f3109  attaque fenêtre -       contact joueur -       bloqué max    0 frames  sprite dans un mur    0 frames (max  0.0 px)
+zombie 434 apparu f3109  attaque fenêtre -       contact joueur f3413   bloqué max    0 frames  sprite dans un mur    0 frames (max  0.0 px)
+zombie 436 apparu f3109  attaque fenêtre -       contact joueur f3214   bloqué max    0 frames  sprite dans un mur    0 frames (max  0.0 px)
+zombie 438 apparu f3109  attaque fenêtre -       contact joueur f3381   bloqué max    1 frames  sprite dans un mur    0 frames (max  0.0 px) bloqué vers (808,192)
+zombie 440 apparu f3109  attaque fenêtre -       contact joueur f6127   bloqué max  166 frames  sprite dans un mur    0 frames (max  0.0 px) bloqué vers (952,504)
+zombie 442 apparu f3109  attaque fenêtre -       contact joueur f3259   bloqué max    0 frames  sprite dans un mur    0 frames (max  0.0 px)
+zombie 1059 apparu f6756  attaque fenêtre -       contact joueur -       bloqué max    0 frames  sprite dans un mur    0 frames (max  0.0 px)
+zombie 1061 apparu f6756  attaque fenêtre -       contact joueur -       bloqué max    0 frames  sprite dans un mur    0 frames (max  0.0 px)
+zombie 1063 apparu f6756  attaque fenêtre -       contact joueur f9094   bloqué max    0 frames  sprite dans un mur    0 frames (max  0.6 px)
+zombie 1065 apparu f6756  attaque fenêtre -       contact joueur -       bloqué max    0 frames  sprite dans un mur    0 frames (max  0.6 px)
+zombie 1066 apparu f6756  attaque fenêtre -       contact joueur f6888   bloqué max    0 frames  sprite dans un mur    0 frames (max  0.3 px)
+zombie 1068 apparu f6756  attaque fenêtre -       contact joueur f7752   bloqué max    2 frames  sprite dans un mur    0 frames (max  1.9 px) bloqué vers (667,294)
+zombie 1070 apparu f6756  attaque fenêtre -       contact joueur f7238   bloqué max    0 frames  sprite dans un mur   96 frames (max  6.0 px) à f9131 (170,204)
+zombie 1072 apparu f6756  attaque fenêtre -       contact joueur f10149  bloqué max   61 frames  sprite dans un mur    0 frames (max  0.0 px) bloqué vers (952,504)
+zombie 1074 apparu f6756  attaque fenêtre -       contact joueur f7864   bloqué max    0 frames  sprite dans un mur    0 frames (max  0.0 px)
+zombie 1813 apparu f11374 attaque fenêtre -       contact joueur -       bloqué max    0 frames  sprite dans un mur    0 frames (max  0.0 px)
+zombie 1815 apparu f11374 attaque fenêtre -       contact joueur -       bloqué max    0 frames  sprite dans un mur    0 frames (max  0.0 px)
+zombie 1817 apparu f11374 attaque fenêtre -       contact joueur -       bloqué max    0 frames  sprite dans un mur    0 frames (max  0.2 px)
+zombie 1819 apparu f11374 attaque fenêtre -       contact joueur -       bloqué max    0 frames  sprite dans un mur    0 frames (max  0.0 px)
+zombie 1820 apparu f11374 attaque fenêtre -       contact joueur -       bloqué max    0 frames  sprite dans un mur    0 frames (max  0.0 px)
+zombie 1822 apparu f11374 attaque fenêtre -       contact joueur -       bloqué max    0 frames  sprite dans un mur    0 frames (max  0.0 px)
+zombie 1824 apparu f11374 attaque fenêtre -       contact joueur f11686  bloqué max    0 frames  sprite dans un mur    0 frames (max  0.0 px)
+zombie 1826 apparu f11374 attaque fenêtre -       contact joueur -       bloqué max   38 frames  sprite dans un mur    0 frames (max  0.0 px) bloqué vers (952,504)
+zombie 1828 apparu f11374 attaque fenêtre -       contact joueur f11853  bloqué max    0 frames  sprite dans un mur    0 frames (max  0.0 px)
+répartition : {"en attaque": 31, "longe un mur": 670}
+cases où les sprites longent un mur : [((36, 4), 602), ((10, 14), 35), ((10, 13), 17), ((10, 12), 13), ((36, 7), 3)]
+/tmp/alacod-m1-ced52082-solo-01-diagnostic jusqu'à f11882 : 37 zombies, 20 au contact d'un joueur, 8 bloqués, sprite dans un mur 701/42635 frames-zombie (1.6 %)
+test nav_stats ... ok
+
+test result: ok. 1 passed; 0 failed; 0 ignored; 0 measured; 9 filtered out; finished in 113.38s
+
