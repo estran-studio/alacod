@@ -10,7 +10,7 @@ jobs:
     name: Tests & Format
     # La poussée des notes de revue du nightly (actor `alacod-nightly`) ne
     # doit pas re-déclencher tests + déploiement : boucle infinie sinon.
-    if: false # Temporaire: réactiver après validation du pipeline de publication.
+    if: github.actor != 'alacod-nightly'
     runs-on: ubuntu-latest
     steps:
       - name: Check out
@@ -60,7 +60,7 @@ jobs:
     name: Build WASM & Deploy
     runs-on: [self-hosted, alacod-builder]
     needs: check
-    if: always() && github.actor != 'alacod-nightly'
+    if: github.actor != 'alacod-nightly'
     environment: production
     steps:
       - name: Clean workspace with sudo
