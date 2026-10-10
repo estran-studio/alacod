@@ -40,6 +40,20 @@ endif
 TEST_VERSION ?= v0.0.0
 
 
+# Édition de liens dynamique de Bevy (outillage-build) : `--features game/dev-dylib` passé à
+# toutes les commandes cargo de développement natif (profils dev et headless), jamais en release
+# (PROFILE=prod), pour le web (TARGET=web), en CI (variable CI) ni avec DYLIB=0. La règle vit dans
+# scripts/dev-features.sh, partagée avec les scripts. Toutes les commandes cargo d'une même
+# arborescence doivent passer les mêmes features, sinon Bevy est compilé deux fois.
+export ALACOD_PROFILE := $(PROFILE)
+export ALACOD_TARGET := $(TARGET)
+DEV_FEATURES := $(shell ./scripts/dev-features.sh features)
+ifneq ($(DEV_FEATURES),)
+	# Binaires lancés à la main (target/headless/alacod-sim…) : trouvent libbevy_dylib.so.
+	export LD_LIBRARY_PATH := $(shell ./scripts/dev-features.sh libpath):$(LD_LIBRARY_PATH)
+	export DYLD_LIBRARY_PATH := $(shell ./scripts/dev-features.sh libpath):$(DYLD_LIBRARY_PATH)
+endif
+
 ifeq ($(PROFILE), dev)
 	export MODE_DIR := debug
 	# ?= : un CARGO_TARGET_DIR déjà dans l'environnement (worktree de tâche) est respecté
@@ -101,7 +115,19 @@ format_fix:
 
 test: test_scenarios
 	@echo "Running tests with profile"
-	cargo test
+	cargo test $(DEV_FEATURES)
+
+# Tests des crates du workspace (vérification standard, docs/taches/README.md §4), mêmes features
+# que test_scenarios : un seul build de Bevy.
+test_crates:
+	cargo test -q --profile headless -p scenario -p run -p combat -p game -p content -p map_ldtk -p sim_core -p stats -p bots -p effects -p world --no-fail-fast $(DEV_FEATURES)
+
+.PHONY: test_crates sweep
+
+# Purge du target (scripts/target-sweep.sh) : incremental/ et générations périmées des crates du
+# workspace. À lancer entre deux commandes cargo. SWEEP=1 sur test_scenarios la lance à la fin.
+sweep:
+	./scripts/target-sweep.sh
 
 check_forbidden:
 	@echo "Checking for forbidden patterns..."
@@ -134,14 +160,15 @@ lint:
 # les comparer : make gen GAME=zombies GEN_BLESS=1.
 GAME ?= zombies
 gen:
-	cargo run -q -p scenario --bin alacod-gen --profile headless -- games/$(GAME) --play $(if $(filter 1,$(GEN_BLESS)),--bless)
+	cargo run -q -p scenario --bin alacod-gen --profile headless $(DEV_FEATURES) -- games/$(GAME) --play $(if $(filter 1,$(GEN_BLESS)),--bless)
 
 .PHONY: gen
 
 # Scénarios de jeu headless (tests/scenarios/*.ron), comparés à leur trace de référence.
 # BLESS=1 réécrit les traces de référence ; SCENARIO=<nom> n'en joue qu'un.
 test_scenarios:
-	ALACOD_BLESS=$(BLESS) ALACOD_SCENARIO=$(SCENARIO) APP_VERSION=$(TEST_VERSION) cargo test -p scenario --profile headless --test scenarios -- --nocapture
+	ALACOD_BLESS=$(BLESS) ALACOD_SCENARIO=$(SCENARIO) APP_VERSION=$(TEST_VERSION) cargo test -p scenario --profile headless $(DEV_FEATURES) --test scenarios -- --nocapture
+	$(if $(filter 1,$(SWEEP)),./scripts/target-sweep.sh)
 
 # Benchmarks : lance test_scenarios puis affiche les métriques de performance.
 bench:
@@ -159,7 +186,7 @@ WAVE ?= 3
 MAX_FRAMES ?= 20000
 sim:
 	mkdir -p $(CARGO_TARGET_DIR)/metrics
-	cargo run -q -p scenario --bin alacod-sim --profile headless -- --game zombies --bots $(BOTS) --profiles $(PROFILES) --seeds $(SEEDS) --until-wave $(WAVE) --max-frames $(MAX_FRAMES) --json $(CARGO_TARGET_DIR)/metrics/sim-$$(git rev-parse --short HEAD).json
+	cargo run -q -p scenario --bin alacod-sim --profile headless $(DEV_FEATURES) -- --game zombies --bots $(BOTS) --profiles $(PROFILES) --seeds $(SEEDS) --until-wave $(WAVE) --max-frames $(MAX_FRAMES) --json $(CARGO_TARGET_DIR)/metrics/sim-$$(git rev-parse --short HEAD).json
 	./scripts/scenario-metrics.py
 
 # Vidéos des scénarios (target/videos/<commit>/) : une par scénario + montage en grille.
@@ -186,7 +213,7 @@ review_videos:
 # HEADLESS=1 : sans fenêtre, bien plus rapide.
 remote:
 ifeq ($(HEADLESS), 1)
-	ALACOD_HEADLESS=1 ALACOD_REMOTE=1 APP_VERSION=$(VERSION) cargo run --profile headless -p zombies --no-default-features -- --local-port 7000 --players localhost
+	ALACOD_HEADLESS=1 ALACOD_REMOTE=1 APP_VERSION=$(VERSION) cargo run --profile headless -p zombies --no-default-features $(DEV_FEATURES) -- --local-port 7000 --players localhost
 else
 	ALACOD_REMOTE=1 $(MAKE) ldtk_map_explorer
 endif
@@ -198,7 +225,7 @@ record_session:
 
 # Affiche un scénario avec rendu : make play_scenario SCENARIO=shoot_around
 play_scenario:
-	APP_VERSION=$(VERSION) cargo run -p scenario --features render --bin play_scenario -- tests/scenarios/$(SCENARIO).ron
+	APP_VERSION=$(VERSION) cargo run -p scenario --features render $(DEV_FEATURES) --bin play_scenario -- tests/scenarios/$(SCENARIO).ron
 
 
 # Env
@@ -240,19 +267,19 @@ character_tester_matchbox:
 
 # Lance un jeu du dossier games/ en local (un joueur) : make zombies / make testbed / make throne
 zombies:
-	APP_VERSION=$(VERSION) cargo run -p zombies $(ARGS) --features native -- $(GARGS) --local-port 7000 --players localhost
+	APP_VERSION=$(VERSION) cargo run -p zombies $(ARGS) --features native $(DEV_FEATURES) -- $(GARGS) --local-port 7000 --players localhost
 
 testbed:
-	APP_VERSION=$(VERSION) cargo run -p testbed $(ARGS) --features native -- $(GARGS) --local-port 7000 --players localhost
+	APP_VERSION=$(VERSION) cargo run -p testbed $(ARGS) --features native $(DEV_FEATURES) -- $(GARGS) --local-port 7000 --players localhost
 
 throne:
-	APP_VERSION=$(VERSION) cargo run -p throne $(ARGS) --features native -- $(GARGS) --local-port 7000 --players localhost
+	APP_VERSION=$(VERSION) cargo run -p throne $(ARGS) --features native $(DEV_FEATURES) -- $(GARGS) --local-port 7000 --players localhost
 
 ldtk_map_explorer:
-	APP_VERSION=$(VERSION) cargo run -p zombies $(ARGS) --features native -- $(GARGS) --local-port 7000 --players localhost
+	APP_VERSION=$(VERSION) cargo run -p zombies $(ARGS) --features native $(DEV_FEATURES) -- $(GARGS) --local-port 7000 --players localhost
 
 ldtk_map_explorer_matchbox:
-	APP_VERSION=$(VERSION) cargo run -p zombies $(ARGS) --features native -- --number-player $(NUMBER_PLAYER) --matchbox $(MATCHBOX_URL) --lobby $(LOBBY) --players $(PLAYERS) --cid $(CID) --name $(NAME)
+	APP_VERSION=$(VERSION) cargo run -p zombies $(ARGS) --features native $(DEV_FEATURES) -- --number-player $(NUMBER_PLAYER) --matchbox $(MATCHBOX_URL) --lobby $(LOBBY) --players $(PLAYERS) --cid $(CID) --name $(NAME)
 
 host_website:
 	cd website && APP_VERSION=$(VERSION) npm run dev

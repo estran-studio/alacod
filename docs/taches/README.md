@@ -26,21 +26,42 @@ fermeture des notes, qui ne sont pas des tâches d'agent).
 - Avant **toute** commande cargo/make dans le worktree :
   ```bash
   cd /home/wq/Project/bascanada/alacod_tasks/<tâche>/alacod
-  source ../env.sh            # CARGO_TARGET_DIR de la tâche
+  source ../env.sh            # CARGO_TARGET_DIR de la tâche, CARGO_INCREMENTAL=0, port de signaling
   export CARGO_BUILD_JOBS=4
   ```
 - Machine : 15 Go de RAM partagés. **Une seule compilation à la fois**, toujours
   `--profile headless` (le profil dev pèse 6 Go et n'est pas amorcé), `--no-default-features`
   pour les binaires de jeu (`zombies`, `testbed`). Jamais de compilation depuis un `target` vide,
   jamais dans `/tmp`, jamais de build avec rendu sauf `play_scenario --features render` (vidéos).
-- **Hygiène du target et du contexte (règle de William, 2026-10-03)** : à chaque début de tâche
-  et après chaque suite complète, ne garder qu'**une génération** par crate du workspace dans
-  `target/headless/build/<crate>/` (`ls -t … | tail -n +2 | xargs rm -rf`), supprimer
-  `incremental/` et `examples/`, vérifier `df -h /home` (≥ 40 Go libres : trois targets se
-  partagent le disque ; un binaire de test de `scenario` pèse 14 Go). Et **compacter son
-  contexte** : un point d'état de dix lignes (fait / en cours / prochaines étapes / chiffres)
+- **Bevy en bibliothèque partagée (outillage-build, 2026-10-10).** En développement natif (profils
+  `dev` et `headless`), les commandes `make` passent `--features game/dev-dylib`
+  (`bevy/dynamic_linking`) : les binaires (14 binaires de test de `scenario`, `alacod-sim`,
+  `alacod-gen`, `play_scenario`…) ne portent plus Bevy, ils pèsent ~0,3 Go au lieu de ~1,1 Go, et
+  `libbevy_dylib.so` (0,8 Go) est partagée. La règle est dans `scripts/dev-features.sh` (une seule
+  source de vérité : Makefile, `scenario-video`, `p2p-restart.sh`). **Jamais** en release
+  (`PROFILE=prod`), pour le web (`TARGET=web`, `scripts/build-web-games.mjs`), en CI (variable `CI`,
+  donc aussi le runner nightly) ni avec `DYLIB=0` : ces builds restent statiques, identiques à ceux
+  d'avant. Règle d'or : **toutes les commandes cargo d'une même arborescence passent les mêmes
+  features**, sinon Bevy est compilé deux fois (+25 Go). Pour une commande cargo à la main :
+  `cargo test -p scenario --profile headless $(./scripts/dev-features.sh features) …`, ou mieux
+  `make test_crates` (la ligne du § 4). Un binaire lancé à la main (hors `cargo run`/`make`) a
+  besoin de `LD_LIBRARY_PATH=$(./scripts/dev-features.sh libpath)` (macOS : `DYLD_LIBRARY_PATH`).
+- **Hygiène du target et du contexte (règle de William, 2026-10-03, automatisée 2026-10-10)** :
+  `make sweep` (ou `SWEEP=1 make test_scenarios`) lance `scripts/target-sweep.sh` : supprime
+  `incremental/` et ne garde que la dernière génération de chaque artefact des crates du workspace.
+  À lancer **entre** deux commandes cargo (jamais pendant : un build en cours perd ses fichiers).
+  Vérifier `df -h /home` (≥ 40 Go libres : trois targets se partagent le disque). Et **compacter
+  son contexte** : un point d'état de dix lignes (fait / en cours / prochaines étapes / chiffres)
   dans `docs/taches/rapports/<branche>.md`, commité localement, pour qu'une compaction ou un
   redémarrage de session ne perde rien ; relire la fiche après compaction.
+- **Boucle d'édition : `CARGO_INCREMENTAL=1`** (mesuré : 16 s au lieu de 261 s pour une ligne dans
+  `crates/game`, ~+5 Go de `incremental/`, effacés par `make sweep`). Pour une série d'éditions,
+  `export CARGO_INCREMENTAL=1` après `source ../env.sh` ; le remettre à 0 pour les mesures de
+  durée et avant `sweep`. Aucune trace ne bouge (scénario rejoué, 3 réussis).
+- **sccache** : `RUSTC_WRAPPER=sccache` (dans `env.sh` si installé, pas global ; `SCCACHE_DIR`
+  `~/.cache/sccache`, `SCCACHE_CACHE_SIZE=20G`). Il ne rend que pour **reconstruire dans le même
+  chemin de target** (build complet 325 s au lieu de 2845 s) : entre deux worktrees (target de chemins
+  différents) 0 hit. Les crates `bin`/`proc-macro`/`dylib` ne sont pas cachées.
 - Ne jamais utiliser `git stash` (pile partagée entre worktrees). Jamais de `git push` sur
   `main` : seule la branche de tâche est poussée, à la livraison (`git push -u origin <tâche>`,
   voir `PROMPT-KICKSTART.md`).
@@ -107,7 +128,7 @@ de `scripts/task-new.sh`, pas de worktree ni d'`env.sh`. Ce qui change :
 
 ```bash
 make test_scenarios                       # tous les scénarios (traces comparées aux .trace) ; SCENARIO=<nom> pour un seul
-cargo test -q --profile headless -p scenario -p run -p combat -p game -p content -p map_ldtk -p sim_core -p stats -p bots -p effects --no-fail-fast
+make test_crates                          # cargo test des crates du workspace, mêmes features que test_scenarios
 make lint                                 # alacod lint games/zombies et games/testbed : « aucune erreur »
 cargo fmt --all -- --check                # rien à afficher ; sinon `make fmt`
 ./scripts/check-forbidden.sh              # avertissements préexistants tolérés, aucun nouveau
@@ -127,14 +148,16 @@ docker compose -f docker-compose.ci.yaml up -d signaling && sleep 3
 cargo build -q -p zombies --profile headless --no-default-features
 for i in 0 1; do
   ALACOD_HEADLESS=1 ALACOD_STATE_TRACE=/tmp/p2p-$i.trace ALACOD_EXIT_AT_FRAME=600 APP_VERSION=x \
-  cargo run -q -p zombies --profile headless --no-default-features -- --matchbox ws://127.0.0.1:3536 \
+  cargo run -q -p zombies --profile headless --no-default-features -- --matchbox ws://127.0.0.1:${MATCHBOX_PORT:-3536} \
     --lobby test-$$ --number-player 2 --players localhost remote --cid client_$i --name client_$i \
     > /tmp/p2p-$i.log 2>&1 &
 done; wait
 cmp /tmp/p2p-0.trace /tmp/p2p-1.trace && echo "p2p : traces identiques"
 docker compose -f docker-compose.ci.yaml down
 ```
-(script bash : en zsh les `wait $pid` d'une variable non éclatée échouent). Attendu :
+Un port de signaling par session (`MATCHBOX_PORT` et `COMPOSE_PROJECT_NAME` dans `env.sh` : b0 3536,
+orch 3546, b1 3556) : `docker compose -f docker-compose.ci.yaml up -d signaling` les lit, inutile
+de se prévenir. (script bash : en zsh les `wait $pid` d'une variable non éclatée échouent). Attendu :
 « traces identiques », 599 lignes.
 
 **Restart en ligne** (D14, §33 ; quand la session, le lobby ou la sortie de partie changent) :
