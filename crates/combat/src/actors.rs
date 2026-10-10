@@ -180,33 +180,40 @@ impl fmt::Display for Health {
     }
 }
 
-pub const INPUT_UP: u16 = 1 << 0;
-pub const INPUT_DOWN: u16 = 1 << 1;
-pub const INPUT_LEFT: u16 = 1 << 2;
-pub const INPUT_RIGHT: u16 = 1 << 3;
-pub const INPUT_RELOAD: u16 = 1 << 4;
-pub const INPUT_SWITCH_WEAPON_MODE: u16 = 1 << 5;
-pub const INPUT_SPRINT: u16 = 1 << 6;
-pub const INPUT_DASH: u16 = 1 << 7;
-pub const INPUT_MODIFIER: u16 = 1 << 8;
-pub const INPUT_INTERACTION: u16 = 1 << 9;
-pub const INPUT_MELEE_ATTACK: u16 = 1 << 10;
-pub const INPUT_FORCE_CRASH: u16 = 1 << 11;
+pub const INPUT_UP: u32 = 1 << 0;
+pub const INPUT_DOWN: u32 = 1 << 1;
+pub const INPUT_LEFT: u32 = 1 << 2;
+pub const INPUT_RIGHT: u32 = 1 << 3;
+pub const INPUT_RELOAD: u32 = 1 << 4;
+pub const INPUT_SWITCH_WEAPON_MODE: u32 = 1 << 5;
+pub const INPUT_SPRINT: u32 = 1 << 6;
+pub const INPUT_DASH: u32 = 1 << 7;
+pub const INPUT_MODIFIER: u32 = 1 << 8;
+pub const INPUT_INTERACTION: u32 = 1 << 9;
+pub const INPUT_MELEE_ATTACK: u32 = 1 << 10;
+pub const INPUT_FORCE_CRASH: u32 = 1 << 11;
 /// Lâche l'arme active au sol (T2.2, chantier B7). Touche `G` (`Devices`, voir
 /// `character::player::control::get_input_map`), bouton `DropWeapon` des scénarios (voir
 /// `game::replay::Button`).
-pub const INPUT_DROP_WEAPON: u16 = 1 << 12;
+pub const INPUT_DROP_WEAPON: u32 = 1 << 12;
 /// Choix de mutation A/B/C (T1.10, `docs/conventions.md` §27) : touches `1`/`2`/`3`
 /// (`character::player::control::get_input_map`), boutons `ChoiceA`/`ChoiceB`/`ChoiceC` des
 /// scénarios (`game::replay::Button`). Sans effet hors d'un choix ouvert (`MutationChoice`).
-pub const INPUT_CHOICE_A: u16 = 1 << 13;
-pub const INPUT_CHOICE_B: u16 = 1 << 14;
-pub const INPUT_CHOICE_C: u16 = 1 << 15;
+pub const INPUT_CHOICE_A: u32 = 1 << 13;
+pub const INPUT_CHOICE_B: u32 = 1 << 14;
+pub const INPUT_CHOICE_C: u32 = 1 << 15;
+/// Utilise l'objet actif tenu (M2-T0b, `docs/conventions.md` §36) : touche Espace, bouton
+/// `UseActive` des scénarios. Input élargi de `u16` à `u32` pour ce bit (les 16 premiers étaient
+/// pris).
+pub const INPUT_USE_ACTIVE: u32 = 1 << 16;
+/// Blank (M2-T0b) : touche `Q`, bouton `Blank` des scénarios. Contrat seul : compteur de
+/// consommable et input, l'effet vient de M2-T1.
+pub const INPUT_BLANK: u32 = 1 << 17;
 
 #[repr(C)]
 #[derive(Copy, Clone, Debug, PartialEq, Eq, Default, Serialize, Deserialize)]
 pub struct BoxInput {
-    pub buttons: u16,
+    pub buttons: u32,
     pub pan_x: i16,
     pub pan_y: i16,
 

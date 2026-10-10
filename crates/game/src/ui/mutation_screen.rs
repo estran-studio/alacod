@@ -70,14 +70,14 @@ impl MutationScreenView {
 }
 
 /// Bit `ChoiceA/B/C` de la carte `index` (`None` au-delà de trois).
-pub fn confirm_bit(index: usize) -> Option<u16> {
+pub fn confirm_bit(index: usize) -> Option<u32> {
     [INPUT_CHOICE_A, INPUT_CHOICE_B, INPUT_CHOICE_C]
         .get(index)
         .copied()
 }
 
 /// Carte désignée par un bouton `ChoiceA/B/C` tenu (le plus petit si plusieurs).
-pub fn held_choice(buttons: u16) -> Option<usize> {
+pub fn held_choice(buttons: u32) -> Option<usize> {
     [INPUT_CHOICE_A, INPUT_CHOICE_B, INPUT_CHOICE_C]
         .iter()
         .position(|bit| buttons & bit != 0)
@@ -167,7 +167,7 @@ pub fn registry_card(registry: &Registry, id: &str) -> Option<(String, String)> 
 
 /// Bit à ajouter à l'input du joueur `handle` quand il valide (A / Entrée) : celui de la carte
 /// surlignée, si l'écran affiche son choix.
-pub fn confirm_input(view: Option<&MutationScreenView>, handle: usize) -> u16 {
+pub fn confirm_input(view: Option<&MutationScreenView>, handle: usize) -> u32 {
     view.filter(|view| view.open && view.handle == Some(handle))
         .and_then(|view| confirm_bit(view.highlighted))
         .unwrap_or(0)

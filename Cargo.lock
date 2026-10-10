@@ -4409,6 +4409,7 @@ dependencies = [
  "bevy_fixed",
  "clap 4.6.7",
  "effects",
+ "items",
  "ron 0.12.2",
  "serde",
  "serde_json",
@@ -5854,6 +5855,7 @@ dependencies = [
  "getrandom 0.2.17",
  "ggrs",
  "harmonium_bevy",
+ "items",
  "lazy_static",
  "leafwing-input-manager",
  "map",
@@ -7132,6 +7134,18 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "a6cb138bb79a146c1bd460005623e142ef0181e3d0219cb493e02f7d08a35695"
 
 [[package]]
+name = "items"
+version = "0.1.0"
+dependencies = [
+ "bevy 0.19.1",
+ "bevy_fixed",
+ "effects",
+ "ron 0.12.2",
+ "serde",
+ "sim_core",
+]
+
+[[package]]
 name = "itertools"
 version = "0.11.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -7587,6 +7601,7 @@ dependencies = [
  "combat",
  "content",
  "game",
+ "items",
  "map",
  "once_cell",
  "ron 0.12.2",
@@ -9916,6 +9931,7 @@ dependencies = [
  "combat",
  "content",
  "game",
+ "items",
  "map",
  "map_ldtk",
  "ron 0.12.2",

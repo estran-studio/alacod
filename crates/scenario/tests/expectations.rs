@@ -1476,3 +1476,43 @@ fn m1_expectations_survive_rerecording() {
         );
     }
 }
+
+/// M2-T0b (§36) : `HasItem`, `ItemCharge` et `Consumable` sur `item_passive_race` (le joueur 0
+/// ramasse les bottes, le joueur 1 n'a rien) ; échouent sur un objet absent, sans actif et sur un
+/// mauvais compte.
+#[test]
+fn objets_attentes() {
+    if map_ldtk::RENDER_ENABLED {
+        return;
+    }
+    let has = |handle: usize, id: &str| Expectation::HasItem {
+        handle,
+        id: id.into(),
+        at_frame: 30,
+    };
+    verifie_attentes(
+        load_scenario("item_passive_race"),
+        &[has(0, "bottes")],
+        &[
+            (has(1, "bottes"), "ne tient pas"),
+            (has(0, "fiole"), "ne tient pas"),
+            (
+                Expectation::ItemCharge {
+                    handle: 0,
+                    charge: 0,
+                    at_frame: 30,
+                },
+                "sans objet actif",
+            ),
+            (
+                Expectation::Consumable {
+                    handle: 0,
+                    id: "key".into(),
+                    count: 1,
+                    at_frame: 30,
+                },
+                "attendu 1",
+            ),
+        ],
+    );
+}

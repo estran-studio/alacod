@@ -39,6 +39,17 @@ pub fn surface_table(registry: Option<&Registry>) -> world::SurfaceTable {
     table
 }
 
+/// Objets (M2-T0b) depuis le registre de contenu : `items/<id>.ron` → définition.
+pub fn item_table(registry: Option<&Registry>) -> items::ItemTable {
+    items::ItemTable(
+        registry
+            .iter()
+            .flat_map(|r| r.items.values())
+            .map(|item| (item.id.clone(), item.def.clone()))
+            .collect(),
+    )
+}
+
 /// Types de salles (M2-E1) depuis le registre de contenu : `rooms/<id>.ron` → définition.
 pub fn room_kind_table(registry: Option<&Registry>) -> world::RoomKindTable {
     world::RoomKindTable(
@@ -211,6 +222,8 @@ pub fn setup_generated_map(
     commands.insert_resource(surface_table(registry.as_deref()));
     // M2-E1 : types de salles du jeu (kind `Room`), hors rollback
     commands.insert_resource(room_kind_table(registry.as_deref()));
+    // M2-T0b : objets du jeu (kind `Item`), hors rollback
+    commands.insert_resource(item_table(registry.as_deref()));
     let mut caves = CaveSlots::default();
     let Some(plan) = plan else {
         let (load, cave) = resolve_map_config(&config, &config.map_path, registry.as_deref());

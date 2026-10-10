@@ -158,6 +158,7 @@ impl Plugin for CoreSetupPlugin {
         // besoin d'ordre entre plugins ici — seulement une dépendance de lecture, listée
         // après par lisibilité).
         app.add_plugins(crate::powerups::PowerUpsPlugin);
+        app.add_plugins(crate::items::ItemsPlugin);
         // Feedback v1 (T1.17) : journal de présentation (`FeedbackLog`), rempli aussi en
         // headless pour prouver le feedback sans écran ; le rendu est dans `PresentationPlugin`.
         app.add_plugins(crate::feedback::FeedbackLogPlugin);

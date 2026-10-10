@@ -9,6 +9,7 @@ bevy_fixed = { path = "../bevy_fixed" }
 sim_core = { path = "../sim_core" }
 effects = { path = "../effects" }
 world = { path = "../world" }
+items = { path = "../items" }
 bevy = { version = "0.19.1", default-features = false }
 serde = { version = "1.0", features = ["derive"] }
 thiserror = "2"
