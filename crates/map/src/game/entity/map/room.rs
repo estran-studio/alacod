@@ -22,8 +22,3 @@ impl RoomBounds {
             && point.y <= self.position.y + self.size.y
     }
 }
-
-/// Opt-in presentation bounds for rooms hidden behind unopened doors.
-/// Not simulation state: visibility is derived from players and open doors.
-#[derive(Component, Clone, Copy, Debug, Default)]
-pub struct RoomFog(pub Option<RoomBounds>);

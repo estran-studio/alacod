@@ -339,3 +339,24 @@ Enregistrements de revue conservés avant le remplacement du brouillard :
 prototype à rectangles du commit cdf6846, rejeté par William. Les rejouer avec leur
 version de carte/code respective. Le nouveau plan est approuvé dans
 `docs/digests/le-relais-brouillard.md`.
+
+### Brouillard d'exploration v2 — plan approuvé
+
+Les rectangles par pièce sont retirés. Une texture unique couvre toute la carte ;
+la vue suit les joueurs, les murs, les portes et les fenêtres. L'inconnu est opaque,
+le décor déjà exploré hors de vue est assombri, et les sprites dynamiques sont cachés
+hors du champ visible. Mémoire partagée, alimentée seulement par les frames confirmées.
+
+Captures automatiques du replay `revue-fog.ron`, graine 1 :
+
+- `fog-v2-porte-fermee.png`, frame 600 : porte fermée lisible et pièce derrière opaque.
+- `fog-v2-porte-ouverte.png`, frame 1200 : vue au travers du passage après l'achat à
+  la frame 1023 (événement `joueur 0 paie 750 (door)`).
+- `fog-v2-exterieur.png`, frame 2400 : vue limitée à travers la fenêtre ; le reste de
+  l'extérieur est noir ou assombri si déjà exploré.
+
+La compilation et les captures fonctionnent ; le ressenti doit encore être revu par
+William. Les limites par pièce ne sont plus dérivées des spawners ; le plan des salles
+et les extrémités exactes des portes sont conservés dans `fog_layout`. La migration
+vers plusieurs niveaux LDtk n'est toujours pas réalisée. Réglages source :
+`games/zombies/assets/ui/fog.ron`, puis `python3 scripts/construire-modules-le-relais.py`.

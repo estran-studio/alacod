@@ -27,7 +27,7 @@ pub mod recording;
 pub mod remote;
 pub mod replay;
 pub mod rollback;
-mod room_fog;
+pub mod room_fog;
 pub mod run_state;
 pub mod state_trace;
 pub mod statuses;

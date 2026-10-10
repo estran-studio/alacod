@@ -20,6 +20,11 @@ role_def.update(identifier='building_role', uid=1024, __type='String', type='F_S
                 editorDisplayMode='NameAndValue', editorAlwaysShow=True,
                 doc='Opt-in building module: Accueil, Radio, Atelier, Infirmerie, Reserve, Passage')
 p['defs']['levelFields'].append(role_def)
+fog_def = copy.deepcopy(role_def)
+fog_def.update(identifier='fog_settings', uid=1029, editorAlwaysShow=False,
+               editorShowInWorld=False, doc='Opt-in presentation visibility settings (RON)')
+p['defs']['levelFields'].append(fog_def)
+fog_settings = (ASSETS / 'ui/fog.ron').read_text()
 for definition in p['defs']['entities']:
     if definition['identifier']=='ZombieSpawn':
         sample=next(f for e in p['defs']['entities'] for f in e['fieldDefs'] if f['__type']=='Int')
@@ -48,6 +53,8 @@ for i, (name, role, obstacles, purchase) in enumerate(modules):
     level = copy.deepcopy(base)
     level.update(identifier=name, iid=str(uuid.uuid5(uuid.NAMESPACE_URL, name)), uid=200+i,
                  pxWid=384, pxHei=320, worldX=(i%7)*400, worldY=(i//7)*336, __neighbours=[])
+    level['fieldInstances'].append({'__identifier':'fog_settings','__type':'String',
+        '__value':fog_settings,'__tile':None,'defUid':1029,'realEditorValues':[]})
     level['fieldInstances'][0].update(__value=role=='Accueil', realEditorValues=[])
     level['fieldInstances'].append({'__identifier':'building_role','__type':'String',
         '__value':role,'__tile':None,'defUid':1024,'realEditorValues':[]})
@@ -82,7 +89,7 @@ for i, (name, role, obstacles, purchase) in enumerate(modules):
                     layer['autoLayerTiles'].append({'px':[x*16,y*16],'src':[sx,sy],'f':0,
                                                    't':sy//16*23+sx//16,'d':[5,0],'a':1})
     levels.append(level)
-p.update(levels=levels,nextUid=1029)
+p.update(levels=levels,nextUid=1030)
 s=json.dumps(p,ensure_ascii=False,indent='\t')+'\n'
 s=re.sub(r'\[\s*-?\d+(?:\s*,\s*-?\d+)*\s*\]',lambda m:'['+', '.join(re.findall(r'-?\d+',m.group()))+']',s)
 out=ASSETS/'maps/le_relais_modules.ldtk';out.write_text(s);print(out)

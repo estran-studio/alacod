@@ -172,3 +172,15 @@ par le générateur, sans migration multi-niveaux LDtk. Rendu graine 1 vérifié
 `docs/captures/le-relais/fog-piece-fermee.png`) ; test de logique fermé/ouvert/chaîne/
 rollback/plusieurs joueurs réussi. Ouverture interactive à valider par William.
 Bonus au sol : repère vert avec nom ajouté après le Nuke invisible observé.
+
+### 2026-10-09 — remplacement du brouillard après rejet du prototype
+
+William rejette les rectangles noirs (extérieur dévoilé, portes parfois recouvertes),
+approuve `le-relais-brouillard.md`, puis demande la publication pour revue par son
+orchestration. Brouillard global calculé depuis la vue des joueurs et les occluders,
+avec mémoire confirmée partagée, texture unique, transition de révélation et masquage
+des sprites dynamiques/indices hors de vue. Les métadonnées explicites du générateur
+remplacent les limites des spawners et la déduction des portes par proximité.
+Captures du replay : fermé f600, achat porte f1023, ouverture f1200, extérieur f2400.
+La validation humaine de la nouvelle finition visuelle reste à faire ; rapport de
+livraison pour les vérifications automatiques et les conflits avec origin/main.

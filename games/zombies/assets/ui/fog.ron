@@ -1,0 +1,9 @@
+// Opt-in exploration visibility; embedded in LDtk by construire-modules-le-relais.py.
+(
+    enabled: true,
+    view_tiles: 20,
+    window_tiles: 8,
+    transition_seconds: 0.2,
+    edge_pixels: 8.0,
+    explored_opacity: 0.72,
+)

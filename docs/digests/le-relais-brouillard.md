@@ -94,5 +94,22 @@ de case des joueurs et aux changements des occluders, puis interpoler dans le re
 
 ## État
 
-Plan proposé après le retour de William. Aucune de ces étapes n'est encore réalisée.
-La version actuelle à rectangles reste un prototype rejeté pour le rendu final.
+Plan approuvé par William, implémenté sur `m0-revue-suite-contenu`.
+
+La première version à rectangles est remplacée par une texture RGBA unique en
+coordonnées monde, couvrant l'ensemble de la grille. Le champ de vision est calculé
+par parcours supercover (coins opaques), avec mémoire confirmée, révélation de 200 ms
+et adoucissement borné aux cases visibles. Les connexions exactes sont conservées
+comme métadonnées LDtk, sans migration vers plusieurs niveaux de rendu.
+
+Portées initiales : 20 tuiles ; après une fenêtre, 8 tuiles maximum, en restant dans
+la portée générale. Les occluders sont les murs IntGrid du Relais et les portes
+fermées. Le mobilier de cette carte dessiné dans Walls bloque donc encore la vue ;
+une grille distincte peut le rendre transparent s'il est requalifié en obstacle bas.
+La texture est une solution CPU, sans shader spécifique ni animation de brume.
+
+Les captures du replay `revue-fog.ron` montrent la porte fermée à la frame 600,
+l'achat à la frame 1023, puis la vue au travers de la porte à la frame 1200 et les
+fenêtres vers l'extérieur. Les chiffres et bonus sont filtrés par la vue courante.
+Le ressenti visuel reste à valider par William. Le p2p et le WASM ne sont pas validés
+pour ce changement ; voir le rapport de livraison pour les autres contrôles.

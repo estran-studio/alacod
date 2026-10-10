@@ -2281,3 +2281,45 @@ avec le même diff temporaire qui désactive l'esquive).
 **Fixed-point** : voir §2 et `CLAUDE.md` (Déterminisme, règles 1 et 7).
 
 **Tests et scénarios** : `make test_scenarios` vérifie que les scénarios passent en synctest (mode déterministe local). Tout changement de code dans `GgrsSchedule` peut casser les traces `.trace` ; rebase sur `main` chaque jour et revalider en CI rapide (preuve d'un bless : §10). Une tâche de toute voie peut bénir des traces, **avec la preuve du §10**, bénies par l'orchestrateur (`BLESS=1`, justification dans le commit) ; V1 (simulation) est la voie qui les change le plus souvent.
+
+### Brouillard d'exploration opt-in (revue M0, Le Relais)
+
+`game::room_fog::FogMap` est une ressource de présentation immuable décrivant une grille
+LDtk de visibilité : dimensions, origine monde, murs, fenêtres, identifiants de pièces
+et portes avec leurs deux extrémités. Elle n'est ni un état de salle M2 ni un état de
+combat. La présence de `settings.enabled = true` active le rendu ; sans métadonnées,
+les autres jeux conservent leur affichage.
+
+Pour `zombies`, régler `games/zombies/assets/ui/fog.ron`, puis lancer
+`python3 scripts/construire-modules-le-relais.py`. Ce script conserve les réglages RON
+comme champ `fog_settings` des gabarits ; le générateur produit le champ `fog_layout`
+avec les limites exactes de la carte assemblée et ses connexions. Les rectangles de
+défense des spawners ne servent pas au champ de vision. La génération reste à un
+niveau final fusionné : ne pas confondre ces identifiants avec des `LevelId` distincts.
+
+Le champ de vision utilise les murs et l'état des portes. Les fenêtres laissent passer
+la vue avec une portée limitée ; les obstacles bas ne sont pas déduits de leur seule
+collision de mouvement. Dans Le Relais, les cases IntGrid `Walls` sont des occluders
+pleins, y compris le mobilier actuellement dessiné dans cette couche. Pour du mobilier
+bas transparent à la vue, fournir une grille de visibilité différente de celle-ci.
+
+L'observation `capture_vision` est installée seulement par `PresentationPlugin` dans
+`GgrsSchedule` : lecture des positions Fixed et des portes, écriture d'un historique
+**hors simulation**, sans RNG, dégâts, composants rollback ni effet sur les checksums.
+Une resimulation invalide les échantillons prédits ultérieurs. Seules les frames
+`ConfirmedFrameCount` alimentent la mémoire explorée. Le calcul de visibilité et la
+texture RGBA se font hors GgrsSchedule ; une fermeture masque immédiatement et seule
+la révélation est interpolée. La mémoire et les assets sont nettoyés en fin de partie.
+
+Les sprites dynamiques et leurs enfants sont filtrés hors de vue, avec conservation
+de leur alpha propre. Les bonus au sol, leurs noms, les chiffres de dégâts,
+télégraphes et prompts d'interaction lisent aussi la visibilité courante. Ne pas
+restaurer `Visibility` sur les armes : cela pourrait rendre visible une arme inactive.
+Le HUD écran reste hors du masque. Toute extension des effets visuels doit respecter
+ce filtrage si elle affiche des informations sur une entité cachée.
+
+Les connexions des portes déterminent quelles pièces sont accessibles à l'exploration,
+sans les révéler entièrement. Le champ de vision révèle ensuite les seules cases en
+vue. Ce filtre empêche une vue par une fenêtre extérieure de dévoiler les objets d'une
+pièce encore fermée. Lorsqu'une partie d'une porte est en vue, sa face complète reste
+lisible dans les cases de mur du passage ; cela ne révèle aucune case intérieure.

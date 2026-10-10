@@ -434,6 +434,95 @@ pub fn build_building_ldtk(template: &LdtkJson, seed: i32) -> Result<LdtkJson, S
         .as_array_mut()
         .unwrap()
         .retain(|f| f["identifier"] != ROLE);
+    // Presentation metadata preserves authored room identities and portal endpoints.
+    // Visibility is opt-in from the game config embedded in its LDtk module library.
+    if let Some(text) = modules[0]["fieldInstances"]
+        .as_array()
+        .unwrap()
+        .iter()
+        .find(|f| f["__identifier"] == "fog_settings")
+        .and_then(|f| f["__value"].as_str())
+    {
+        use game::room_fog::{FogDoor, FogMap, FogRoom, FogSettings};
+        let settings: FogSettings =
+            ron::from_str(text).map_err(|e| format!("fog_settings: {e}"))?;
+        let room_id = |i: usize| format!("building-{seed}-room-{i}");
+        let fog = FogMap {
+            width: w as usize,
+            height: h as usize,
+            tile_size: 16,
+            origin: [0, -h * 16],
+            walls: walls.iter().map(|&v| v == 1).collect(),
+            settings,
+            rooms: plan
+                .rooms
+                .iter()
+                .enumerate()
+                .map(|(i, r)| {
+                    let (x, y) = origin(r.cell);
+                    FogRoom {
+                        id: room_id(i),
+                        rect: [x + 1, y + 1, ROOM_W - 2, ROOM_H - 2],
+                    }
+                })
+                .collect(),
+            doors: plan
+                .doors
+                .iter()
+                .map(|&(a, b)| {
+                    let ca = plan.rooms[a].cell;
+                    let cb = plan.rooms[b].cell;
+                    let rect = if ca.0 != cb.0 {
+                        let (x, y) = origin((ca.0.min(cb.0), ca.1));
+                        [x + 23, y + 9, 1, 2]
+                    } else {
+                        let (x, y) = origin((ca.0, ca.1.min(cb.1)));
+                        [x + 10, y + 19, 2, 1]
+                    };
+                    FogDoor {
+                        rooms: [room_id(a), room_id(b)],
+                        rect,
+                    }
+                })
+                .collect(),
+            windows: entities
+                .iter()
+                .filter(|e| {
+                    e["__identifier"]
+                        .as_str()
+                        .is_some_and(|k| k.starts_with("Window"))
+                })
+                .map(|e| {
+                    [
+                        e["__grid"][0].as_i64().unwrap() as i32,
+                        e["__grid"][1].as_i64().unwrap() as i32,
+                        e["width"].as_i64().unwrap() as i32 / 16,
+                        e["height"].as_i64().unwrap() as i32 / 16,
+                    ]
+                })
+                .collect(),
+        };
+        fog.validate().map_err(str::to_string)?;
+        let uid = data["nextUid"].as_i64().unwrap();
+        let mut def = data["defs"]["levelFields"]
+            .as_array()
+            .unwrap()
+            .iter()
+            .find(|f| f["identifier"] == "fog_settings")
+            .unwrap()
+            .clone();
+        def["identifier"] = json!("fog_layout");
+        def["uid"] = json!(uid);
+        data["defs"]["levelFields"]
+            .as_array_mut()
+            .unwrap()
+            .push(def);
+        data["nextUid"] = json!(uid + 1);
+        level["fieldInstances"].as_array_mut().unwrap().push(json!({
+            "__identifier":"fog_layout","__type":"String","__value":serde_json::to_string(&fog).unwrap(),
+            "__tile":null,"defUid":uid,"realEditorValues":[]
+        }));
+    }
     for layer in level["layerInstances"].as_array_mut().unwrap() {
         layer["__cWid"] = json!(w);
         layer["__cHei"] = json!(h);
@@ -609,6 +698,32 @@ mod tests {
                 .unwrap()["entityInstances"]
                 .as_array()
                 .unwrap();
+            let fog_text = l["fieldInstances"]
+                .as_array()
+                .unwrap()
+                .iter()
+                .find(|f| f["__identifier"] == "fog_layout")
+                .unwrap()["__value"]
+                .as_str()
+                .unwrap();
+            let fog: game::room_fog::FogMap = serde_json::from_str(fog_text).unwrap();
+            fog.validate().unwrap();
+            let plan = building_plan(&t, seed).unwrap();
+            assert_eq!(fog.rooms.len(), plan.rooms.len());
+            assert_eq!(fog.doors.len(), plan.doors.len());
+            assert_eq!(
+                fog.walls,
+                grid.iter()
+                    .map(|v| v.as_i64().unwrap() == 1)
+                    .collect::<Vec<_>>()
+            );
+            for portal in &fog.doors {
+                assert!(es.iter().any(|e| e["__identifier"]
+                    .as_str()
+                    .is_some_and(|k| k.starts_with("Door"))
+                    && e["__grid"][0] == portal.rect[0]
+                    && e["__grid"][1] == portal.rect[1]));
+            }
             for entity in es.iter().filter(|e| e["__identifier"] == "ZombieSpawn") {
                 let instance = serde_json::from_value(entity.clone()).unwrap();
                 let config =

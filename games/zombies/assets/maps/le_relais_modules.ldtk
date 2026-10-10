@@ -11,7 +11,7 @@
 	"iid": "ab6b0200-b0a0-11ee-bca1-dd7a22611e78",
 	"jsonVersion": "1.5.3",
 	"appBuildId": 473703,
-	"nextUid": 1029,
+	"nextUid": 1030,
 	"identifierStyle": "Capitalize",
 	"toc": [],
 	"worldLayout": "Free",
@@ -1341,6 +1341,43 @@
 				"allowedRefsEntityUid": null,
 				"allowedRefTags": [],
 				"tilesetUid": null
+			},
+			{
+				"identifier": "fog_settings",
+				"doc": "Opt-in presentation visibility settings (RON)",
+				"__type": "String",
+				"uid": 1029,
+				"type": "F_String",
+				"isArray": false,
+				"canBeNull": false,
+				"arrayMinLength": null,
+				"arrayMaxLength": null,
+				"editorDisplayMode": "NameAndValue",
+				"editorDisplayScale": 1,
+				"editorDisplayPos": "Above",
+				"editorLinkStyle": "StraightArrow",
+				"editorDisplayColor": null,
+				"editorAlwaysShow": false,
+				"editorShowInWorld": false,
+				"editorCutLongValues": true,
+				"editorTextSuffix": null,
+				"editorTextPrefix": null,
+				"useForSmartColor": false,
+				"exportToToc": false,
+				"searchable": false,
+				"min": null,
+				"max": null,
+				"regex": null,
+				"acceptFileTypes": null,
+				"defaultOverride": null,
+				"textLanguageMode": null,
+				"symmetricalRef": false,
+				"autoChainRef": true,
+				"allowOutOfLevelRef": true,
+				"allowedRefs": "OnlySame",
+				"allowedRefsEntityUid": null,
+				"allowedRefTags": [],
+				"tilesetUid": null
 			}
 		]
 	},
@@ -1371,6 +1408,14 @@
 					"__value": true,
 					"__tile": null,
 					"defUid": 26,
+					"realEditorValues": []
+				},
+				{
+					"__identifier": "fog_settings",
+					"__type": "String",
+					"__value": "// Opt-in exploration visibility; embedded in LDtk by construire-modules-le-relais.py.\n(\n    enabled: true,\n    view_tiles: 20,\n    window_tiles: 8,\n    transition_seconds: 0.2,\n    edge_pixels: 8.0,\n    explored_opacity: 0.72,\n)\n",
+					"__tile": null,
+					"defUid": 1029,
 					"realEditorValues": []
 				},
 				{
@@ -5495,6 +5540,14 @@
 					"realEditorValues": []
 				},
 				{
+					"__identifier": "fog_settings",
+					"__type": "String",
+					"__value": "// Opt-in exploration visibility; embedded in LDtk by construire-modules-le-relais.py.\n(\n    enabled: true,\n    view_tiles: 20,\n    window_tiles: 8,\n    transition_seconds: 0.2,\n    edge_pixels: 8.0,\n    explored_opacity: 0.72,\n)\n",
+					"__tile": null,
+					"defUid": 1029,
+					"realEditorValues": []
+				},
+				{
 					"__identifier": "building_role",
 					"__type": "String",
 					"__value": "Accueil",
@@ -9616,6 +9669,14 @@
 					"realEditorValues": []
 				},
 				{
+					"__identifier": "fog_settings",
+					"__type": "String",
+					"__value": "// Opt-in exploration visibility; embedded in LDtk by construire-modules-le-relais.py.\n(\n    enabled: true,\n    view_tiles: 20,\n    window_tiles: 8,\n    transition_seconds: 0.2,\n    edge_pixels: 8.0,\n    explored_opacity: 0.72,\n)\n",
+					"__tile": null,
+					"defUid": 1029,
+					"realEditorValues": []
+				},
+				{
 					"__identifier": "building_role",
 					"__type": "String",
 					"__value": "Radio",
@@ -13573,6 +13634,14 @@
 					"realEditorValues": []
 				},
 				{
+					"__identifier": "fog_settings",
+					"__type": "String",
+					"__value": "// Opt-in exploration visibility; embedded in LDtk by construire-modules-le-relais.py.\n(\n    enabled: true,\n    view_tiles: 20,\n    window_tiles: 8,\n    transition_seconds: 0.2,\n    edge_pixels: 8.0,\n    explored_opacity: 0.72,\n)\n",
+					"__tile": null,
+					"defUid": 1029,
+					"realEditorValues": []
+				},
+				{
 					"__identifier": "building_role",
 					"__type": "String",
 					"__value": "Radio",
@@ -17527,6 +17596,14 @@
 					"__value": false,
 					"__tile": null,
 					"defUid": 26,
+					"realEditorValues": []
+				},
+				{
+					"__identifier": "fog_settings",
+					"__type": "String",
+					"__value": "// Opt-in exploration visibility; embedded in LDtk by construire-modules-le-relais.py.\n(\n    enabled: true,\n    view_tiles: 20,\n    window_tiles: 8,\n    transition_seconds: 0.2,\n    edge_pixels: 8.0,\n    explored_opacity: 0.72,\n)\n",
+					"__tile": null,
+					"defUid": 1029,
 					"realEditorValues": []
 				},
 				{
@@ -21527,6 +21604,14 @@
 					"realEditorValues": []
 				},
 				{
+					"__identifier": "fog_settings",
+					"__type": "String",
+					"__value": "// Opt-in exploration visibility; embedded in LDtk by construire-modules-le-relais.py.\n(\n    enabled: true,\n    view_tiles: 20,\n    window_tiles: 8,\n    transition_seconds: 0.2,\n    edge_pixels: 8.0,\n    explored_opacity: 0.72,\n)\n",
+					"__tile": null,
+					"defUid": 1029,
+					"realEditorValues": []
+				},
+				{
 					"__identifier": "building_role",
 					"__type": "String",
 					"__value": "Atelier",
@@ -25521,6 +25606,14 @@
 					"__value": false,
 					"__tile": null,
 					"defUid": 26,
+					"realEditorValues": []
+				},
+				{
+					"__identifier": "fog_settings",
+					"__type": "String",
+					"__value": "// Opt-in exploration visibility; embedded in LDtk by construire-modules-le-relais.py.\n(\n    enabled: true,\n    view_tiles: 20,\n    window_tiles: 8,\n    transition_seconds: 0.2,\n    edge_pixels: 8.0,\n    explored_opacity: 0.72,\n)\n",
+					"__tile": null,
+					"defUid": 1029,
 					"realEditorValues": []
 				},
 				{
@@ -29521,6 +29614,14 @@
 					"realEditorValues": []
 				},
 				{
+					"__identifier": "fog_settings",
+					"__type": "String",
+					"__value": "// Opt-in exploration visibility; embedded in LDtk by construire-modules-le-relais.py.\n(\n    enabled: true,\n    view_tiles: 20,\n    window_tiles: 8,\n    transition_seconds: 0.2,\n    edge_pixels: 8.0,\n    explored_opacity: 0.72,\n)\n",
+					"__tile": null,
+					"defUid": 1029,
+					"realEditorValues": []
+				},
+				{
 					"__identifier": "building_role",
 					"__type": "String",
 					"__value": "Infirmerie",
@@ -33510,6 +33611,14 @@
 					"realEditorValues": []
 				},
 				{
+					"__identifier": "fog_settings",
+					"__type": "String",
+					"__value": "// Opt-in exploration visibility; embedded in LDtk by construire-modules-le-relais.py.\n(\n    enabled: true,\n    view_tiles: 20,\n    window_tiles: 8,\n    transition_seconds: 0.2,\n    edge_pixels: 8.0,\n    explored_opacity: 0.72,\n)\n",
+					"__tile": null,
+					"defUid": 1029,
+					"realEditorValues": []
+				},
+				{
 					"__identifier": "building_role",
 					"__type": "String",
 					"__value": "Infirmerie",
@@ -37496,6 +37605,14 @@
 					"__value": false,
 					"__tile": null,
 					"defUid": 26,
+					"realEditorValues": []
+				},
+				{
+					"__identifier": "fog_settings",
+					"__type": "String",
+					"__value": "// Opt-in exploration visibility; embedded in LDtk by construire-modules-le-relais.py.\n(\n    enabled: true,\n    view_tiles: 20,\n    window_tiles: 8,\n    transition_seconds: 0.2,\n    edge_pixels: 8.0,\n    explored_opacity: 0.72,\n)\n",
+					"__tile": null,
+					"defUid": 1029,
 					"realEditorValues": []
 				},
 				{
@@ -41496,6 +41613,14 @@
 					"realEditorValues": []
 				},
 				{
+					"__identifier": "fog_settings",
+					"__type": "String",
+					"__value": "// Opt-in exploration visibility; embedded in LDtk by construire-modules-le-relais.py.\n(\n    enabled: true,\n    view_tiles: 20,\n    window_tiles: 8,\n    transition_seconds: 0.2,\n    edge_pixels: 8.0,\n    explored_opacity: 0.72,\n)\n",
+					"__tile": null,
+					"defUid": 1029,
+					"realEditorValues": []
+				},
+				{
 					"__identifier": "building_role",
 					"__type": "String",
 					"__value": "Reserve",
@@ -45485,6 +45610,14 @@
 					"realEditorValues": []
 				},
 				{
+					"__identifier": "fog_settings",
+					"__type": "String",
+					"__value": "// Opt-in exploration visibility; embedded in LDtk by construire-modules-le-relais.py.\n(\n    enabled: true,\n    view_tiles: 20,\n    window_tiles: 8,\n    transition_seconds: 0.2,\n    edge_pixels: 8.0,\n    explored_opacity: 0.72,\n)\n",
+					"__tile": null,
+					"defUid": 1029,
+					"realEditorValues": []
+				},
+				{
 					"__identifier": "building_role",
 					"__type": "String",
 					"__value": "Passage",
@@ -49442,6 +49575,14 @@
 					"realEditorValues": []
 				},
 				{
+					"__identifier": "fog_settings",
+					"__type": "String",
+					"__value": "// Opt-in exploration visibility; embedded in LDtk by construire-modules-le-relais.py.\n(\n    enabled: true,\n    view_tiles: 20,\n    window_tiles: 8,\n    transition_seconds: 0.2,\n    edge_pixels: 8.0,\n    explored_opacity: 0.72,\n)\n",
+					"__tile": null,
+					"defUid": 1029,
+					"realEditorValues": []
+				},
+				{
 					"__identifier": "building_role",
 					"__type": "String",
 					"__value": "Passage",
@@ -53396,6 +53537,14 @@
 					"__value": false,
 					"__tile": null,
 					"defUid": 26,
+					"realEditorValues": []
+				},
+				{
+					"__identifier": "fog_settings",
+					"__type": "String",
+					"__value": "// Opt-in exploration visibility; embedded in LDtk by construire-modules-le-relais.py.\n(\n    enabled: true,\n    view_tiles: 20,\n    window_tiles: 8,\n    transition_seconds: 0.2,\n    edge_pixels: 8.0,\n    explored_opacity: 0.72,\n)\n",
+					"__tile": null,
+					"defUid": 1029,
 					"realEditorValues": []
 				},
 				{

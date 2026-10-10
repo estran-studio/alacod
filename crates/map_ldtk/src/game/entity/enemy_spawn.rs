@@ -27,23 +27,10 @@ pub fn enemy_spawner_component_from_field(
     config
 }
 
-pub fn room_fog_from_field(
-    entity_instance: &EntityInstance,
-) -> map::game::entity::map::room::RoomFog {
-    use map::game::entity::map::room::{RoomBounds, RoomFog};
-    RoomFog(
-        enemy_spawner_component_from_field(entity_instance)
-            .activation_area
-            .map(|(position, size)| RoomBounds { position, size }),
-    )
-}
-
 #[derive(Bundle, LdtkEntity)]
 pub struct EnemySpawnBundle {
     #[with(enemy_spawner_component_from_field)]
     spawner: EnemySpawnerComponent,
-    #[with(room_fog_from_field)]
-    fog: map::game::entity::map::room::RoomFog,
     rollback_marker: MapRollbackMarker,
 }
 
@@ -52,7 +39,6 @@ impl Default for EnemySpawnBundle {
         Self {
             rollback_marker: MapRollbackMarker("enemy_spawn".into()),
             spawner: EnemySpawnerComponent::default(),
-            fog: Default::default(),
         }
     }
 }

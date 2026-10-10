@@ -452,6 +452,8 @@ fn apply_feedback_cues(
     targets: Query<(Entity, &GgrsNetId)>,
     mut cameras: Query<(Entity, Option<&mut CameraShake>), With<crate::camera::GameCamera>>,
     mut freeze: ResMut<animation::AnimationFreeze>,
+    fog: Res<crate::room_fog::FogView>,
+    fog_map: Option<Res<crate::room_fog::FogMap>>,
 ) {
     if log.frame_cues.is_empty() {
         return;
@@ -502,6 +504,9 @@ fn apply_feedback_cues(
             }
             FeedbackKind::HitStop => freeze.freeze_for(cue.value as u32),
             FeedbackKind::Number => {
+                if !fog.sees(fog_map.as_deref(), cue.position) {
+                    continue;
+                }
                 commands.spawn((
                     DamageNumber {
                         born_secs: time.elapsed_secs_f64(),
@@ -617,6 +622,8 @@ fn animate_damage_numbers(
     mut commands: Commands,
     time: Res<Time<Real>>,
     mut numbers: Query<(Entity, &DamageNumber, &mut Transform, &mut TextColor)>,
+    fog: Res<crate::room_fog::FogView>,
+    fog_map: Option<Res<crate::room_fog::FogMap>>,
 ) {
     let now = time.elapsed_secs_f64();
     for (entity, number, mut transform, mut color) in numbers.iter_mut() {
@@ -626,7 +633,12 @@ fn animate_damage_numbers(
             continue;
         }
         transform.translation.y += DAMAGE_NUMBER_RISE * time.delta_secs();
-        color.0 = color.0.with_alpha(1.0 - (age / DAMAGE_NUMBER_SECS) as f32);
+        let alpha = if fog.sees(fog_map.as_deref(), transform.translation.truncate()) {
+            1.0 - (age / DAMAGE_NUMBER_SECS) as f32
+        } else {
+            0.0
+        };
+        color.0 = color.0.with_alpha(alpha);
     }
 }
 
@@ -644,6 +656,8 @@ fn draw_telegraphs(
         Option<&EnemyAiConfig>,
     )>,
     mut started: Local<BTreeMap<usize, u32>>,
+    fog: Res<crate::room_fog::FogView>,
+    fog_map: Option<Res<crate::room_fog::FogMap>>,
 ) {
     let (r, g, b, a) = config
         .map(|config| config.0.telegraph.color)
@@ -655,6 +669,9 @@ fn draw_telegraphs(
             transform.translation.x.to_num::<f32>(),
             transform.translation.y.to_num::<f32>(),
         );
+        if !fog.sees(fog_map.as_deref(), position) {
+            continue;
+        }
         let charge = runtime.zip(ai_config).map(|(r, ai)| (&r.charge, ai));
         let Some(shape) = telegraph_shape(frame.frame, position, emitter, charge) else {
             continue;

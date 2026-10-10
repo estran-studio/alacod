@@ -418,3 +418,74 @@ Aucun push ; validation humaine et migration multi-niveaux encore attendues.
 - Non vérifié : ouverture interactive en partie, p2p, suite complète des scénarios.
 - Génération revalidée : 3 tests réussis, dont les contrôles de géométrie et de
   connexions sur 200 graines (11,01 s).
+
+## Livraison pour revue d'orchestration — brouillard v2 (2026-10-10)
+
+William approuve le plan `docs/digests/le-relais-brouillard.md`, demande de committer
+le reste avant l'implémentation, puis de publier la branche pour revue. Les parties
+précédentes et le plan sont conservés dans `c2cde80`.
+
+Le prototype à rectangles est remplacé par un champ de vision partagé sur toute la
+carte (intérieur et extérieur). Murs et portes fermées occultent ; fenêtres à portée
+limitée ; portes ouvertes autorisant l'exploration de la salle voisine sans la
+révéler entièrement. Les pièces encore fermées restent opaques même si un rayon
+pourrait traverser des fenêtres extérieures. La face d'une porte en vue reste lisible
+sans révéler le sol derrière. Une texture RGBA unique suit les coordonnées monde et
+le zoom, avec révélation sur 200 ms, bord doux borné à la vue et mémoire assombrie.
+
+Les identifiants et extrémités exactes des portes sont exportés dans `fog_layout`.
+Les spawners ne déterminent plus la visibilité. Les snapshots de présentation sont
+observés en Fixed/entiers dans GgrsSchedule, sans modifier la simulation. La mémoire
+n'utilise que les frames confirmées ; les échantillons prédits invalidés sont retirés
+au rollback. Sprites dynamiques et enfants, bonus/noms, barres de vie, chiffres,
+télégraphes et prompts hors de vue sont filtrés. Nettoyage de la mémoire et des assets
+à la fin d'une partie. Réglages source : `games/zombies/assets/ui/fog.ron` puis
+`python3 scripts/construire-modules-le-relais.py` pour les intégrer aux gabarits.
+
+Preuve rendue : replay de 9107 frames, graine 1, capturé automatiquement. Voir
+`docs/captures/le-relais/fog-v2-porte-fermee.png` (f600),
+`fog-v2-porte-ouverte.png` (f1200, achat constaté f1023) et
+`fog-v2-exterieur.png` (f2400). La finition visuelle est proposée pour revue humaine.
+
+Limites : pas de migration vers plusieurs niveaux LDtk ; masque CPU et vue à la
+résolution des cases, pas de shader de brume ; les meubles actuellement dessinés dans
+Walls bloquent la vue. P2P et WASM non vérifiés pour ce changement.
+
+### Intégration avec origin/main
+
+La branche conserve sa base M0 et n'a pas fusionné main. Au fetch de livraison,
+`origin/main` vaut `7142a7dc1e23ecf5173942079baabee8b1a264ed`, avec 38 commits
+supplémentaires depuis notre base. Le contrôle `git merge-tree --write-tree HEAD
+origin/main` relève deux conflits existants avant le brouillard v2 :
+
+- `crates/combat/src/actors.rs` : garder les flags d'input `u32` de main et la
+  documentation de notre touche `L` pour déposer une arme.
+- `crates/game/src/character/player/control.rs` : garder DropWeapon sur `L`, ainsi que
+  les nouveaux bindings UseActive sur Space et Blank sur Q de main.
+
+Après cette intégration, rejouer les contrôles sur le résultat fusionné, notamment les
+traces adaptées aux nouveaux contrats d'input de main. Aucune référence n'est bénie
+pour faire passer le brouillard. Ne pas traiter cette publication comme une fusion
+sans conflit ou comme une validation p2p.
+
+### Vérifications de la version publiée pour revue
+
+- Lint des trois jeux, fmt, diff-check et contrôle des enregistrements rollback : OK.
+  Check-forbidden : les 4 occurrences préexistantes restent présentes (3 HashSet,
+  1 commentaire rand), aucune nouvelle occurrence.
+- Suite élargie des 10 crates exécutée : tests unitaires/intégration et 186 fichiers de
+  scénarios passent, sauf le fixture `spawn_stall` qui supposait encore une cadence
+  d'avant S5. Correction isolée dans `1da148d4` : cadence du **test** fixée à 30 frames,
+  sans changement de celle du jeu (120). Ce test rejoué passe (4,81 s).
+- Les 186 fichiers produisent 181 noms distincts dans le journal de métriques ; toutes
+  leurs attentes et références passent. Aucune référence bénie pour le brouillard.
+- 8 tests ciblés finaux de brouillard : OK (0,25 s), dont 1000 calculs sur une grille
+  82 × 70 avec quatre points de vue, mémoire confirmée, rollback, sprites enfants,
+  nettoyage de partie, fenêtres face à une pièce fermée et porte sur deux tuiles.
+  Ce temps n'est pas une mesure de rendu GPU.
+- `make gen` zombies, testbed et throne : OK, aucun fichier généré/référence modifié.
+- Binaire zombies, CLI alacod-sim et lecteur de scénarios avec rendu : compilés.
+  Capture finale du replay de 9107 frames : termine sans panic.
+- Relevé final de 20 graines avec 4 acheteurs jusqu'à V5 : en cours au premier push de
+  revue, en quatre lots indépendants. Les résultats seront ajoutés dans un commit de
+  validation ; ne pas confondre les anciennes mesures de carte avec ce relevé final.

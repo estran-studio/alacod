@@ -63,6 +63,29 @@ pub(crate) fn spawn_level_walls(
             .get_raw_level_by_iid(&level_iid.to_string())
             .expect("spawned level should exist in the loaded project");
 
+        // Immutable presentation data; never registered with rollback or used by combat.
+        if let Some(field) = level_data
+            .field_instances
+            .iter()
+            .find(|f| f.identifier == "fog_layout")
+        {
+            if let bevy_ecs_ldtk::ldtk::FieldValue::String(Some(text)) = &field.value {
+                match serde_json::from_str::<game::room_fog::FogMap>(text) {
+                    Ok(mut fog) => {
+                        fog.origin = [
+                            level_transform.translation.x as i32,
+                            level_transform.translation.y as i32,
+                        ];
+                        if let Err(error) = fog.validate() {
+                            error!("fog_layout: {error}");
+                        } else {
+                            commands.insert_resource(fog);
+                        }
+                    }
+                    Err(error) => error!("fog_layout: {error}"),
+                }
+            }
+        }
         // Find the collision layer (assuming it's named "Collision" or similar)
         if let Some(collision_layer) = level_data.layer_instances.as_ref().and_then(|layers| {
             layers.iter().find(|layer| {
