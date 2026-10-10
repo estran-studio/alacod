@@ -556,7 +556,8 @@ impl FlowFieldCache {
     /// passage; along a wall it keeps the agent (and its larger sprite) off the wall.
     /// A blocked diagonal neighbor (wall corner, edge of an opening) pushes away by half a
     /// cell on both axes: the agent is centered *before* entering an opening, instead of
-    /// entering at an angle and clipping its edge.
+    /// entering at an angle and clipping its edge. The diagonal push of an axis is skipped when
+    /// the orthogonal neighbor on the side it pushes toward is blocked (D55).
     pub fn steering_point(
         &self,
         cell: GridPos,
@@ -583,8 +584,16 @@ impl FlowFieldCache {
         }
         for (dx, dy) in [(-1, -1), (1, -1), (-1, 1), (1, 1)] {
             if blocked(dx, dy) && !blocked(dx, 0) && !blocked(0, dy) {
-                point.x -= half_cell * fixed_math::Fixed::from_num(dx);
-                point.y -= half_cell * fixed_math::Fixed::from_num(dy);
+                // D55 : la poussée d'un axe qui rapproche d'un mur orthogonal est annulée
+                // (le mur de ce côté a déjà repoussé le point de tout le corps) ; sinon les
+                // deux poussées se compensent et le point retombe dans le mur : l'ennemi
+                // accroche le coin sans pouvoir glisser.
+                if !blocked(-dx, 0) {
+                    point.x -= half_cell * fixed_math::Fixed::from_num(dx);
+                }
+                if !blocked(0, -dy) {
+                    point.y -= half_cell * fixed_math::Fixed::from_num(dy);
+                }
             }
         }
         point
@@ -1064,6 +1073,22 @@ fn build_flow_field(
                 continue;
             }
 
+            // D55 : un pas orthogonal entre deux coins de mur opposés (un en haut d'un côté,
+            // un en bas de l'autre) ne laisse qu'une case (16 px) de passage à l'endroit où le
+            // corps le franchit : infranchissable pour un corps de plus de 16 px.
+            if !diagonal
+                && key.size == AgentSize::Small
+                && world::nav::chicane_step(
+                    |x, y| cache.is_blocked(&GridPos::new(x, y), profile),
+                    current.x,
+                    current.y,
+                    dx,
+                    dy,
+                )
+            {
+                continue;
+            }
+
             let step = if diagonal {
                 config.diagonal_cost
             } else {
@@ -1118,6 +1143,64 @@ mod tests {
         assert!(!NavProfile::Flying.can_pass(ObstacleType::Wall));
         assert!(NavProfile::Phasing.can_pass(ObstacleType::Window));
         assert!(!NavProfile::Phasing.can_pass(ObstacleType::Wall));
+    }
+}
+
+/// D55 : un coin en diagonale ne repousse pas le point visé vers un mur orthogonal.
+#[cfg(test)]
+mod steering_corner_tests {
+    use super::*;
+
+    fn body_rat() -> AgentBody {
+        AgentBody::from_collider(&Collider {
+            shape: ColliderShape::Rectangle {
+                width: fixed_math::new(20.0),
+                height: fixed_math::new(20.0),
+            },
+            offset: fixed_math::FixedVec3::new(
+                fixed_math::FIXED_ZERO,
+                fixed_math::new(-6.0),
+                fixed_math::FIXED_ZERO,
+            ),
+        })
+    }
+
+    /// Graine 19 de throne : mur sous la case (11,37), coin bloqué en haut à gauche (10,38).
+    /// Le point visé doit garder le collider (bas à `y - 16`) au-dessus du mur (haut à 592).
+    #[test]
+    fn le_point_vise_ne_retombe_pas_dans_le_mur() {
+        let mut cache = FlowFieldCache::default();
+        for x in 11..=12 {
+            cache.wall_cells.insert(GridPos::new(x, 36));
+        }
+        cache.wall_cells.insert(GridPos::new(10, 38));
+        let body = body_rat();
+        let point = cache.steering_point(GridPos::new(11, 37), NavProfile::Ground, &body);
+        assert!(point.y - body.down >= fixed_math::new(592.0), "{point:?}");
+        // La poussée en x par le coin reste appliquée.
+        assert_eq!(point.x, fixed_math::new(192.0));
+    }
+
+    /// Le pas (10,37) → (11,37) de la graine 19 est une chicane ; un pas libre ne l'est pas.
+    #[test]
+    fn chicane_entre_deux_coins_opposes() {
+        let walls: std::collections::BTreeSet<(i32, i32)> =
+            [(10, 38), (11, 36), (12, 36)].into_iter().collect();
+        let blocked = |x, y| walls.contains(&(x, y));
+        assert!(world::nav::chicane_step(blocked, 10, 37, 1, 0));
+        assert!(world::nav::chicane_step(blocked, 11, 37, -1, 0));
+        assert!(!world::nav::chicane_step(blocked, 11, 37, 1, 0));
+        assert!(!world::nav::chicane_step(blocked, 10, 37, 0, 1));
+    }
+
+    /// Sans mur orthogonal, le coin diagonal repousse toujours sur les deux axes.
+    #[test]
+    fn le_coin_seul_repousse_sur_les_deux_axes() {
+        let mut cache = FlowFieldCache::default();
+        cache.wall_cells.insert(GridPos::new(10, 38));
+        let point = cache.steering_point(GridPos::new(11, 37), NavProfile::Ground, &body_rat());
+        assert_eq!(point.x, fixed_math::new(192.0));
+        assert_eq!(point.y, fixed_math::new(592.0));
     }
 }
 
