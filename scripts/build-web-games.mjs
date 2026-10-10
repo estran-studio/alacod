@@ -49,9 +49,14 @@ for (const game of games) {
     if (existsSync(staging)) rmSync(staging, { recursive: true });
   }
   const base = `/builds/${buildId}/${game}`;
-  // A successful build is not a beta validation. Keep online disabled until external
-  // WebRTC tests pass; SOLO only exposed in explicitly opted-in local/preview builds.
-  releases.games[game] = { buildId, manifest: `${base}/build.json`, solo: process.env.WEB_ENABLE_SOLO === '1', online: false };
+  // Keep new builds hidden from solo/online play unless the caller has validated and
+  // explicitly opted this release into the beta catalog.
+  releases.games[game] = {
+    buildId,
+    manifest: `${base}/build.json`,
+    solo: process.env.WEB_ENABLE_SOLO === '1',
+    online: process.env.WEB_ENABLE_ONLINE === '1',
+  };
 }
 writeFileSync(`${releasesPath}.tmp`, JSON.stringify(releases, null, 2) + '\n');
 renameSync(`${releasesPath}.tmp`, releasesPath);
