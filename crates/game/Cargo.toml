@@ -65,6 +65,11 @@ features = [
 debug_ui = ["bevy-inspector-egui"]
 # Enable lighting system (disabled by default for wasm to improve performance)
 lighting = ["bevy_light_2d"]
+# Édition de liens dynamique de Bevy (outillage-build) : `bevy_dylib` en bibliothèque partagée,
+# les binaires ne portent plus Bevy (1,1 Go chacun en statique) et l'édition de liens est courte.
+# Jamais activée par défaut, jamais en release, en CI ni pour le web : seul le `Makefile` la passe
+# (`--features game/dev-dylib`), voir `docs/taches/README.md` §1. Aucun effet sur la simulation.
+dev-dylib = ["bevy/dynamic_linking"]
 # Musique générative (harmonium). Désactivée tant que harmonium_bevy n'est pas porté à bevy 0.19
 harmonium = ["dep:harmonium_bevy"]
 

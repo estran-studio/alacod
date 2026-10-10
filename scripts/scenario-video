@@ -35,7 +35,18 @@ fi
 # Compile play_scenario dans le dépôt (ou worktree) $1 ; affiche le chemin du binaire.
 build_player() {
     local repo="$1"
-    (cd "$repo" && cargo build -q --profile headless -p scenario --features render --bin play_scenario >&2)
+    # Bevy dynamique (outillage-build, scripts/dev-features.sh) quand la référence compilée a la
+    # feature (`compare` compile aussi d'anciens commits, sans) ; le binaire a alors besoin de
+    # libbevy_dylib.so (LD_LIBRARY_PATH, exporté ici pour tous les lancements de capture).
+    local dev=""
+    if grep -q 'dev-dylib' "$repo/crates/game/Cargo.toml" 2>/dev/null; then
+        dev="$("$ROOT/scripts/dev-features.sh" features)"
+    fi
+    (cd "$repo" && cargo build -q --profile headless -p scenario --features render $dev --bin play_scenario >&2)
+    local libs
+    libs="$("$ROOT/scripts/dev-features.sh" libpath)"
+    export LD_LIBRARY_PATH="$libs${LD_LIBRARY_PATH:+:$LD_LIBRARY_PATH}"
+    export DYLD_LIBRARY_PATH="$libs${DYLD_LIBRARY_PATH:+:$DYLD_LIBRARY_PATH}"
     echo "${CARGO_TARGET_DIR:-$ROOT/target}/headless/play_scenario"
 }
 

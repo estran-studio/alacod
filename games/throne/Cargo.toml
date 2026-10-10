@@ -23,6 +23,8 @@ bevy_fixed = { path = "../../crates/bevy_fixed" }
 animation = { path = "../../crates/animation" }
 
 [features]
+# Bevy en bibliothèque partagée (voir `game`) : transmis à `game`.
+dev-dylib = ["game/dev-dylib"]
 default = ["lighting", "render"]
 
 # Rendu des tilemaps. Les builds headless (tests, replays) compilent sans.
