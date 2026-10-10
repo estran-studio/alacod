@@ -46,6 +46,7 @@ Référence pour ceux qui créent du contenu (cartes LDtk, sprites RON) et ceux 
 - §36. Objets et inventaire (M2-T0b, chantier C2)
 - §37. Boss à phases (M2-T0c, chantier D4)
 - §38. Profil de méta-progression (M2-T0c, chantier G1)
+- §39. Le jeu `gungeon` (M2-T0d, squelette)
 - Notes essentielles
 
 ## 1. Cartes LDtk
@@ -2475,6 +2476,49 @@ simulation ne la lit jamais** dans cette tâche.
 scénario). Attente `ProfileHas(handle: 0, unlock: "first_run", currency: ("essence", 11),
 at_frame: 60)` (déblocage et/ou monnaie minimale ; évaluée après la fin de run). Scénario
 `profile_run_end` (`idle` de zombies avec `wave_overrides: (max_wave: 1)` : victoire immédiate).
+
+---
+
+## 39. Le jeu `gungeon` (M2-T0d, squelette)
+
+Dossier `games/gungeon/` (binaire `gungeon`, `make gungeon`, copié de `throne` puis élagué),
+manifeste `assets/game.ron`. Il montre les contrats de la vague 0 de M2 ensemble : salles typées
+(§35), objets (§36), boss (§37) ; le profil (§38) s'écrit à la fin de la run.
+
+**Contenu.**
+- `characters/` : `pistolero` (le joueur, id moteur `player`, course nerveuse et roulade à i-frames
+  du §34), `bullet_kin` (ennemi tireur : `Shoot` du pattern `visee`, `KeepDistance`, `Chase`),
+  `gatling` (boss immobile à deux phases, frise `SpawnPattern`), `cible` (cible des scénarios
+  générés d'armes).
+- `weapons/weapons.ron` : `pistolet` (le moteur n'a pas de munition infinie : réserve de 9999
+  chargeurs de 12, rechargement rapide ; `Automatic` : tenir la gâchette tire en continu) et
+  `arsenal` (projectiles des patterns ennemis) ; `patterns/` : `visee` (`Aimed`), `couronne`.
+- `objets/` (kind `Item`) : `bottes` (passif), `fiole` (actif `Rooms(2)`), `key` et `blank`
+  (consommables, compteurs seulement). `rooms/` (kind `Room`) : `depart`, `combat` et `boss`
+  (verrouillantes : `locks: true`).
+- `maps/etage_1.ldtk` : l'étage, trois salles `Depart`, `Combat` (deux `bullet_kin`) et `Boss`
+  (`gatling`) assemblées par `Basic` (voie B), produit par
+  `docs/taches/rapports/m2-t0d-squelette-gungeon.make_etage.py` (qui appelle le script de M2-E1) ;
+  `maps/gabarit_armes.ldtk` : gabarit des scénarios générés.
+- `floors/etage_1.ron` : séquence `Floors` à un étage avec **`victory_at_end: true`** (nouveau champ
+  optionnel, faux par défaut : throne et le testbed bouclent toujours sur le dernier niveau) : le
+  dernier niveau vidé de ses ennemis (le boss est le dernier) termine la partie par une victoire
+  (`floors_victory`, `FloorPlan::victory_at_end`, `floor_portal_open_system`), au lieu d'ouvrir un
+  portail. Défaite à la mort (universelle).
+- Sprites, sons, interface et caméra : placeholders copiés de `throne` (`assets.yaml`), aucun asset
+  nouveau ; le butin de power-ups est désactivé (`drop_chance: "0.0"`).
+
+**Scénarios.** `gungeon_start` (le clone démarre : joueur vivant, trois salles dormantes, trois
+ennemis), `gungeon_clear` (bottes par Interaction, clé au contact, verrouillage à f75, nettoyage à
+f231, réouverture), `gungeon_boss` (salle du boss verrouillée f291, phase 1 f448, boss mort f568,
+victoire f569), plus les scénarios générés de `make gen GAME=gungeon`
+(`tests/scenarios/generated/gungeon/`). Un joueur scripté vise des positions mesurées (les
+`bullet_kin` se cornent à l'est de leur salle par `KeepDistance`) ; les bots ne conviennent pas
+encore (conçus pour les zombies et leurs fenêtres).
+
+**Vérifications.** `make lint` couvre `games/gungeon` ; le test `content/tests/embedded.rs` compare
+registre natif et registre embarqué pour `zombies`, `throne` et `gungeon` ; le jeu n'est pas encore
+dans les scripts de build web (`zombies` et `throne` seulement).
 
 ---
 

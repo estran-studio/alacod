@@ -60,6 +60,4 @@
             ),
         ],
     )),
-    // `docs/conventions.md` §28 : scénarios générés `enemy_<id>_still`/`_moving` (`make gen`).
-    test: Some((frames: 600)),
 )
