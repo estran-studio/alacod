@@ -1,0 +1,5 @@
+{"levels": [
+  {"identifier": "Depart", "fieldInstances": [{"__identifier": "room_kind", "__value": "depart"}], "layerInstances": []},
+  {"identifier": "Combat", "fieldInstances": [{"__identifier": "room_kind", "__value": "combat"}], "layerInstances": []},
+  {"identifier": "Boss", "fieldInstances": [{"__identifier": "room_kind", "__value": "boss"}], "layerInstances": []}
+]}

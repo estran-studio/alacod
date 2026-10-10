@@ -1,0 +1,1 @@
+(templates: "maps/salles.ldtk", grammar: (rooms: (9, 4), required: {"boss": 1}, min_boss_distance: 6))

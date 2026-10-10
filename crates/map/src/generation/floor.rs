@@ -25,7 +25,6 @@
 use std::collections::BTreeMap;
 
 use bevy_fixed::rng::RollbackRng;
-use serde::{Deserialize, Serialize};
 use serde_json::Value;
 
 use super::{
@@ -35,44 +34,7 @@ use super::{
     LEVEL_PROPERTIES_SPAWN_NAME,
 };
 
-fn default_start() -> String {
-    "depart".to_string()
-}
-fn default_boss() -> String {
-    "boss".to_string()
-}
-fn default_filler() -> String {
-    "combat".to_string()
-}
-fn default_attempts() -> u32 {
-    64
-}
-
-/// Exigences d'un étage (RON : fichier du kind de contenu `FloorGrammar`).
-#[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
-pub struct FloorGrammar {
-    /// Nombre de salles de l'étage, bornes incluses (départ, boss et salles requises comprises).
-    pub rooms: (usize, usize),
-    /// Salles requises par type, **boss compris** (`"boss": 1`) : `{"boss": 1, "boutique": 1,
-    /// "recompense": 1}`. Le type du boss est exactement une salle.
-    #[serde(default)]
-    pub required: BTreeMap<String, usize>,
-    /// Type de la salle de départ (gabarit `spawn: true`).
-    #[serde(default = "default_start")]
-    pub start: String,
-    /// Type du boss (une seule connexion, à distance maximale du départ).
-    #[serde(default = "default_boss")]
-    pub boss: String,
-    /// Type des salles de remplissage.
-    #[serde(default = "default_filler")]
-    pub filler: String,
-    /// Distance minimale (en salles) du départ au boss.
-    #[serde(default)]
-    pub min_boss_distance: usize,
-    /// Tentatives au plus avant d'échouer.
-    #[serde(default = "default_attempts")]
-    pub max_attempts: u32,
-}
+pub use world::FloorGrammar;
 
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub enum FloorError {

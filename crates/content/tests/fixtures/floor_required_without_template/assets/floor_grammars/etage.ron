@@ -1,0 +1,1 @@
+(templates: "maps/salles.ldtk", grammar: (rooms: (4, 8), required: {"boss": 1, "boutique": 1}))

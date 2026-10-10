@@ -8,6 +8,7 @@
 
 pub mod cave;
 pub mod destroy;
+pub mod floor_grammar;
 pub mod grid;
 pub mod nav;
 pub mod plugin;
@@ -16,6 +17,7 @@ pub mod surface;
 
 pub use cave::{generate, is_open_within, points_of_interest, CaveConfig, CavePoints};
 pub use destroy::destroy_terrain;
+pub use floor_grammar::FloorGrammar;
 pub use grid::{CellGrid, CellKind, Destructible, CELL_SIZE};
 pub use plugin::{DestroyTerrainRequest, TerrainDestroyed, WorldPlugin};
 pub use rooms::{

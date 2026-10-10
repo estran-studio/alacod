@@ -1,0 +1,10 @@
+// Fixture M2-T10 : floor_bounds_inverted (grammaire d'étage incohérente ou sans gabarit).
+(
+    name: "fixture-floor_bounds_inverted",
+    content_folders: [
+        (path: "rooms", kind: "Room"),
+        (path: "maps", kind: "Map"),
+        (path: "floor_grammars", kind: "FloorGrammar"),
+    ],
+    entry: (start_map: "floor:etage", default_seed: 1),
+)

@@ -202,6 +202,16 @@ fn m1_audit_fixtures() {
             LintErrorKind::BrokenReference,
             &["gabarit LDtk"],
         ),
+        (
+            "floor_bounds_inverted",
+            LintErrorKind::OutOfRange,
+            &["minimum supérieur au maximum", "min_boss_distance = 6"],
+        ),
+        (
+            "floor_required_without_template",
+            LintErrorKind::BrokenReference,
+            &["type de salle « boutique » sans gabarit"],
+        ),
     ];
     for (name, kind, needles) in cases {
         let (_, _, errors) = load_and_lint(&fixture_dir(name)).unwrap();
