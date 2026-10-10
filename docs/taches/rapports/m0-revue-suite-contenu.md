@@ -524,7 +524,7 @@ changements moteur plus récents de main.
 ### Bilan final des vingt graines (2026-10-10)
 
 Audit terminé sur les graines 1..20, quatre acheteurs, plafond de 20 000 frames :
-**19/20 atteignent V5**, 0 mort, 0 mise à terre, 0 dégât encaissé, 0 desync et
+**19/20 atteignent V5**, 0 mort, 0 mise à terre, 175 dégâts encaissés, 0 desync et
 0 failure de scénario. La graine 17 reste à V4 : **1 plafond de progression**,
 confirmé par le diagnostic indépendant. Le critère M0 « V5 sur 20 graines,
 0 soft-lock » reste donc non satisfait.

@@ -189,7 +189,7 @@ livraison pour les vérifications automatiques et les conflits avec origin/main.
 
 Brouillard v2 publié pour revue : 186 fichiers de scénarios passent, 8 tests de
 brouillard passent, générateurs des trois jeux sans différence, replay de 9107
-frames capturé. Audit final Le Relais : **19/20 V5**, 0 desync, 0 mort, 0 dégât ;
+frames capturé. Audit final Le Relais : **19/20 V5**, 0 desync, 0 mort, 175 dégâts encaissés ;
 graine 17 plafonnée V4 à 20 000 frames. Diagnostic : dernier zombie devant la
 fenêtre #23, bots chargés en munitions, absence de kill persistante. Cause à
 confirmer/corriger avant merge. Deux conflits avec main (actors/control), p2p
