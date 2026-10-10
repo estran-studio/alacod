@@ -499,3 +499,40 @@ validée pour fusion**. Un diagnostic indépendant est lancé à 14 000 frames p
 examiner la progression, les chemins et les munitions. Ne pas attribuer ce plafond
 au brouillard sans preuve : cet audit est exécuté sans rendu. Les captures et les
 186 scénarios réussis ne couvrent pas à eux seuls cette carte procédurale.
+
+Diagnostic indépendant reproduit à 14 000 frames : `diagnostic-graine-17.json`
+dans `docs/captures/le-relais/`. Un seul zombie reste (#652, case (67, -24), 50 PV),
+ciblant la fenêtre #23 (1 PV), avec un coût de chemin de 204. Les bots sont groupés
+en (65, -27), chacun à 100 PV, mitrailleuse chargée (30) et 240 balles en réserve.
+Aucun kill entre f13400 et f14000 ; dernier kill f6853. Aucun point de steering
+chevauche un mur selon le diagnostic. Ces faits ne démontrent pas encore la cause
+(réparation/attaque de fenêtre, déplacement ou décision des bots).
+
+Reproduction sans rendu :
+
+```sh
+APP_VERSION=x target/headless/alacod-sim --game zombies --bots 4 \
+  --profiles acheteur,acheteur,acheteur,acheteur --seeds 17..17 \
+  --until-wave 5 --max-frames 14000 --map maps/le_relais_modules.ldtk \
+  --json /tmp/le-relais-graine-17.json
+```
+
+La correction de ce cas reste à traiter avant fusion ; ne pas bénir de trace pour
+masquer un plafond. Revoir également le cas sur le résultat fusionné avec les
+changements moteur plus récents de main.
+
+### Bilan final des vingt graines (2026-10-10)
+
+Audit terminé sur les graines 1..20, quatre acheteurs, plafond de 20 000 frames :
+**19/20 atteignent V5**, 0 mort, 0 mise à terre, 0 dégât encaissé, 0 desync et
+0 failure de scénario. La graine 17 reste à V4 : **1 plafond de progression**,
+confirmé par le diagnostic indépendant. Le critère M0 « V5 sur 20 graines,
+0 soft-lock » reste donc non satisfait.
+
+Les réussites atteignent V5 en 6007 à 7007 frames (médiane : 6433). Le plafond
+de la graine 17 est de 20 000 frames. Relevé complet :
+`docs/captures/le-relais/releves-final.json`, avec les stats par vague et les
+instantanés de plafond ; diagnostic plus court : `diagnostic-graine-17.json`.
+Les temps/FPS ont été mesurés avec quatre processus concurrents et ne constituent
+pas un benchmark de rendu. Branche disponible pour revue ; correction du plafond,
+résolution des deux conflits et validation du résultat fusionné requises avant merge.

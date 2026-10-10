@@ -360,3 +360,19 @@ William. Les limites par pièce ne sont plus dérivées des spawners ; le plan d
 et les extrémités exactes des portes sont conservés dans `fog_layout`. La migration
 vers plusieurs niveaux LDtk n'est toujours pas réalisée. Réglages source :
 `games/zombies/assets/ui/fog.ron`, puis `python3 scripts/construire-modules-le-relais.py`.
+
+### Audit final de progression (2026-10-10)
+
+Audit terminé sur les graines 1..20, quatre acheteurs, plafond de 20 000 frames :
+**19/20 atteignent V5**, 0 mort, 0 mise à terre, 0 dégât encaissé, 0 desync et
+0 failure de scénario. La graine 17 reste à V4 : **1 plafond de progression**,
+confirmé par le diagnostic indépendant. Le critère M0 « V5 sur 20 graines,
+0 soft-lock » reste donc non satisfait.
+
+Les réussites atteignent V5 en 6007 à 7007 frames (médiane : 6433). Le plafond
+de la graine 17 est de 20 000 frames. Relevé complet :
+`docs/captures/le-relais/releves-final.json`, avec les stats par vague et les
+instantanés de plafond ; diagnostic plus court : `diagnostic-graine-17.json`.
+Les temps/FPS ont été mesurés avec quatre processus concurrents et ne constituent
+pas un benchmark de rendu. Branche disponible pour revue ; correction du plafond,
+résolution des deux conflits et validation du résultat fusionné requises avant merge.

@@ -184,3 +184,13 @@ remplacent les limites des spawners et la déduction des portes par proximité.
 Captures du replay : fermé f600, achat porte f1023, ouverture f1200, extérieur f2400.
 La validation humaine de la nouvelle finition visuelle reste à faire ; rapport de
 livraison pour les vérifications automatiques et les conflits avec origin/main.
+
+### 2026-10-10 — publication et limite de progression
+
+Brouillard v2 publié pour revue : 186 fichiers de scénarios passent, 8 tests de
+brouillard passent, générateurs des trois jeux sans différence, replay de 9107
+frames capturé. Audit final Le Relais : **19/20 V5**, 0 desync, 0 mort, 0 dégât ;
+graine 17 plafonnée V4 à 20 000 frames. Diagnostic : dernier zombie devant la
+fenêtre #23, bots chargés en munitions, absence de kill persistante. Cause à
+confirmer/corriger avant merge. Deux conflits avec main (actors/control), p2p
+et WASM non vérifiés. Rapport et relevés complets disponibles sur la branche.
