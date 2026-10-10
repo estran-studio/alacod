@@ -532,7 +532,7 @@ l'ancienne machine.
 ### Vague 1 (parallèle)
 
 **V1a combat**
-- M2-T1 Projectiles v2 (B5 v2, 3 j) : rebond sur les murs (déjà `Bounce`) pour les ennemis,
+- M2-T1 Projectiles v2 (B5 v2, 3 j ; fiche `docs/taches/m2-t1-projectiles-v2-blank.md`, b0) : rebond sur les murs (déjà `Bounce`) pour les ennemis,
   patterns `Spiral`, `Fan`, `Burst` (séquences seedées), **blank** (efface les balles ennemies
   dans un rayon, charges par étage). Acceptation : un scénario par pattern, `bench_bullets` à 500
   balles en salle verrouillée dans le budget.
