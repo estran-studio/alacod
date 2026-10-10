@@ -63,7 +63,7 @@ impl Default for RecordedSettings {
     /// Une partie jouée (`ALACOD_RECORD`, contrôle remote) : aucun réglage de scénario.
     fn default() -> Self {
         Self {
-            // TODO(T1.5) : lire le jeu courant depuis son manifeste, pas en dur
+            // Legacy fallback for callers without a live manifest; native() refreshes it.
             game: "zombies".into(),
             weapon_overrides: vec![],
             wave_overrides: None,
@@ -120,6 +120,13 @@ pub struct InputRecorder {
     pub path: Option<PathBuf>,
     /// Reportés dans le scénario enregistré (D19).
     settings: RecordedSettings,
+    /// Native sessions refresh settings on entry, while scenario settings stay explicit.
+    native: bool,
+    started: bool,
+    run_number: u32,
+    base_path: Option<PathBuf>,
+    archive_failed: bool,
+    initial_map: Option<(String, i32)>,
 }
 
 impl InputRecorder {
@@ -129,6 +136,20 @@ impl InputRecorder {
             frames: BTreeMap::new(),
             path: std::env::var("ALACOD_RECORD").ok().map(PathBuf::from),
             settings,
+            native: false,
+            started: false,
+            run_number: 0,
+            base_path: None,
+            archive_failed: false,
+            initial_map: None,
+        }
+    }
+
+    /// Live settings are captured when the session has finished loading.
+    pub fn native() -> Self {
+        Self {
+            native: true,
+            ..Self::new(RecordedSettings::default())
         }
     }
 
@@ -186,7 +207,10 @@ impl InputRecorder {
             characters: settings.characters,
             mode: settings.mode,
         };
-        if let Some(map) = map {
+        if let Some((path, seed)) = &self.initial_map {
+            scenario.map = path.clone();
+            scenario.map_seed = *seed;
+        } else if let Some(map) = map {
             scenario.map = map.map_path.clone();
             scenario.map_seed = map.seed;
         }
@@ -239,9 +263,12 @@ pub struct RecordingPlugin;
 
 impl Plugin for RecordingPlugin {
     fn build(&self, app: &mut App) {
-        // Une partie jouée n'a aucun réglage de scénario ; `scenario::runner` remplace cette
-        // ressource par `InputRecorder::new(RecordedSettings::from_scenario(..))` (D19).
-        app.insert_resource(InputRecorder::new(RecordedSettings::default()))
+        // `scenario::runner` replaces this with explicit settings before loading.
+        app.insert_resource(InputRecorder::native())
+            .add_systems(
+                ReadInputs,
+                start_native_recording.before(record_local_inputs),
+            )
             .add_systems(ReadInputs, record_local_inputs.after(read_local_inputs))
             // Après l'arrêt demandé par la trace d'état : l'app s'arrête à la fin de l'update
             // qui émet AppExit, le message doit être lu dans le même update. Idem pour la
@@ -252,6 +279,90 @@ impl Plugin for RecordingPlugin {
                     .after(crate::state_trace::ExitRequests)
                     .after(bevy::window::ExitSystems),
             );
+    }
+}
+
+/// Capture effective settings before the first input. Preserve the previous run on
+/// restart and use a new filename (`run-r2.ron`, ...), rather than mixing frame-zero
+/// inputs with the previous run's tail. This is presentation/bookkeeping only.
+fn start_native_recording(
+    mut recorder: ResMut<InputRecorder>,
+    frame: Res<FrameCount>,
+    manifest: Option<Res<content::manifest::GameManifest>>,
+    run: Option<Res<run::Run>>,
+    clocks: Option<Res<crate::clock::ClockSchedule>>,
+    difficulty: Option<Res<crate::clock::DifficultyConfig>>,
+    progression: Res<crate::progression::ProgressionTable>,
+    map: Option<Res<MapGenerationConfig>>,
+) {
+    if !recorder.native || (recorder.started && frame.frame != 0) {
+        return;
+    }
+    let (Some(manifest), Some(run)) = (manifest, run) else {
+        return;
+    };
+    if recorder.started && recorder.frame_count() > 0 {
+        if let Some(path) = &recorder.path {
+            if let Err(error) = write_recording(&recorder, None, path) {
+                error!("écriture de l'enregistrement {path:?} : {error}; enregistrement suspendu pour préserver la partie précédente");
+                // Don't overwrite old inputs with the restarted run if archiving failed.
+                recorder.archive_failed = true;
+                return;
+            }
+        }
+    }
+    recorder.run_number += 1;
+    if recorder.started {
+        recorder.path = recorder.base_path.as_ref().map(|base| {
+            let mut filename = base.file_stem().unwrap_or_default().to_os_string();
+            filename.push(format!("-r{}", recorder.run_number));
+            let mut path = base.with_file_name(filename);
+            if let Some(extension) = base.extension() {
+                path.set_extension(extension);
+            }
+            path
+        });
+    } else {
+        recorder.base_path = recorder.path.clone();
+    }
+    recorder.started = true;
+    recorder.archive_failed = false;
+    recorder.frames.clear();
+    recorder.initial_map = map.map(|m| (m.map_path.clone(), m.seed));
+    recorder.settings = live_settings(
+        &manifest,
+        &run,
+        clocks.as_deref(),
+        difficulty.is_some(),
+        &progression,
+    );
+}
+
+fn live_settings(
+    manifest: &content::manifest::GameManifest,
+    run: &run::Run,
+    clocks: Option<&crate::clock::ClockSchedule>,
+    difficulty: bool,
+    progression: &crate::progression::ProgressionTable,
+) -> RecordedSettings {
+    use run::RunMode;
+    let (mode, floors) = match &run.mode {
+        RunMode::Floors { config } => (content::EntryMode::Floors, Some(config.clone())),
+        RunMode::Waves { .. } => (content::EntryMode::Waves, None),
+        RunMode::Sandbox => (content::EntryMode::Sandbox, None),
+    };
+    RecordedSettings {
+        game: manifest.name.clone(),
+        floors,
+        mode: Some(mode),
+        clocks: Some(
+            clocks
+                .map(|c| c.clocks.iter().map(|(id, _)| id.clone()).collect())
+                .unwrap_or_default(),
+        ),
+        difficulty: Some(difficulty),
+        progression: progression.active.as_ref().map(|p| p.id.clone()),
+        ..Default::default()
     }
 }
 
@@ -268,6 +379,9 @@ pub fn record_local_inputs(
     let Some(local_inputs) = local_inputs else {
         return;
     };
+    if recorder.archive_failed {
+        return;
+    }
     recorder.frames.insert(
         frame.frame,
         local_inputs.0.iter().map(|(h, i)| (*h, *i)).collect(),
@@ -344,5 +458,59 @@ mod tests {
         assert!(played.powerups.is_empty() && played.weapon_overrides.is_empty());
         assert_eq!(played.wave_overrides, None);
         assert_eq!(played.powerup_drop_chance_override, None);
+    }
+    #[test]
+    fn native_restart_archives_previous_inputs_and_resets_the_frame_range() {
+        let path = std::env::temp_dir().join(format!(
+            "alacod-recording-restart-{}.ron",
+            std::process::id()
+        ));
+        let mut app = App::new();
+        let mut recorder = InputRecorder::native();
+        recorder.path = Some(path.clone());
+        let manifest =
+            content::manifest::GameManifest::load(std::path::Path::new("../../games/throne"))
+                .unwrap();
+        app.insert_resource(recorder)
+            .insert_resource(FrameCount::default())
+            .insert_resource(manifest)
+            .insert_resource(run::Run::new(
+                123456,
+                run::RunMode::Floors {
+                    config: "run".into(),
+                },
+                vec![0],
+                0,
+            ))
+            .insert_resource(crate::progression::ProgressionTable::default())
+            .insert_resource(MapGenerationConfig {
+                map_path: "cave:niveau_1".into(),
+                seed: 123456,
+                ..Default::default()
+            })
+            .add_systems(Update, start_native_recording);
+        app.update();
+        {
+            let mut recorder = app.world_mut().resource_mut::<InputRecorder>();
+            recorder
+                .frames
+                .insert(20, [(0, BoxInput::default())].into_iter().collect());
+        }
+        app.update(); // frame 0 of a second native run
+        let previous = Scenario::from_ron(&std::fs::read_to_string(&path).unwrap()).unwrap();
+        assert_eq!(previous.game, "throne");
+        assert_eq!(previous.map, "cave:niveau_1");
+        assert_eq!(previous.map_seed, 123456);
+        assert_eq!(previous.frames, 21);
+        let recorder = app.world().resource::<InputRecorder>();
+        assert_eq!(recorder.frame_count(), 0);
+        assert_eq!(
+            recorder.path,
+            Some(path.with_file_name(format!(
+                "alacod-recording-restart-{}-r2.ron",
+                std::process::id()
+            )))
+        );
+        std::fs::remove_file(path).unwrap();
     }
 }

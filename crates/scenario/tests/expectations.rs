@@ -1516,3 +1516,40 @@ fn objets_attentes() {
         ],
     );
 }
+
+/// Live sessions must capture the same effective throne settings as scripted sessions,
+/// and the recorded inputs must reproduce every frame, not just a few final expectations.
+#[test]
+fn throne_native_recording_roundtrip() {
+    if map_ldtk::RENDER_ENABLED {
+        return;
+    }
+    let mut scenario = load_scenario("throne_floor_1");
+    scenario.frames = 400;
+    scenario.expect.clear();
+    let original = scenario::runner::run_with(&scenario, |app| {
+        let mut recorder = game::recording::InputRecorder::native();
+        recorder.path = None;
+        app.insert_resource(recorder);
+    });
+    assert!(original.failures.is_empty(), "{:?}", original.failures);
+    let settings = &original.recorded;
+    assert_eq!(settings.game, "throne");
+    assert_eq!(settings.mode, Some(content::EntryMode::Floors));
+    assert_eq!(settings.floors.as_deref(), Some("run"));
+    assert_eq!(
+        settings.clocks.as_deref(),
+        Some(["etage".to_string()].as_slice())
+    );
+    assert_eq!(settings.difficulty, Some(true));
+    assert_eq!(settings.progression.as_deref(), Some("run"));
+    assert_eq!(settings.map_seed, 123456);
+    let recorded = Scenario::from_ron(&settings.to_ron()).unwrap();
+    let replayed = run(&recorded);
+    assert!(replayed.failures.is_empty(), "{:?}", replayed.failures);
+    assert_eq!(
+        original.trace, replayed.trace,
+        "live recording replay differs"
+    );
+}
+
