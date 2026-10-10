@@ -4,10 +4,10 @@
 Sources : [carnet de revue](../../tests/review-notes/m1-f53cd1ae.md),
 [preuves de la run](../../tests/review-notes/m1-f53cd1ae-run-01/README.md).
 
-Plan proposé à la demande de William, priorité performance. Il ne constitue pas une
-décision de gravité, une autorisation d'appliquer des correctifs, ni le verdict de sortie M1.
-Les changements de code/contenu devront être explicitement demandés ; commits distincts
-avec scénarios verts et preuve de traces si une trace bouge. Aucun changement à dettes.md.
+Plan accepté par William le 2026-10-10 : « Parfait revalue la taches et si toute est bon tu peux ty lancer ».
+Cet accord autorise les correctifs ci-dessous, dont les choix de mutations entre étages.
+Il ne remplace pas les décisions de gravité ni le verdict humain de sortie M1.
+Commits distincts avec scénarios verts et preuve de traces si une trace bouge ; aucun changement à dettes.md.
 
 ## 1. Performance : mesure et correction en premier
 
@@ -68,13 +68,12 @@ de recul, les tailles de corps et les scénarios du clone ; preuve de traces obl
 pour tout changement de mouvement. Critère : aucune immobilisation persistante due au
 coin dans le cas reproduit, et sprites lisibles près de la roche.
 
-## 3. Mutations : choix entre les étages, proposition à trancher
+## 3. Mutations : choix entre les étages, accepté le 2026-10-10
 
 Le choix s'ouvre actuellement à LevelUp, sans pause ; capture f720 avec un ennemi vivant.
 Recommandation : conserver l'acquisition des niveaux/rads pendant le combat et présenter
 les choix en attente à un moment sûr entre les étages, avant le prochain combat.
-Alternative à décider par William : pause synchronisée pendant le choix.
-Il faut décider ce comportement avant de l'implémenter, notamment pour le duo/en ligne.
+L’accord du 2026-10-10 retient cette recommandation, également pour le duo/en ligne.
 
 Critères : aucun choix masquant un combat actif pour la solution entre étages ; aucun
 niveau/choix perdu si plusieurs sont gagnés ; progression du duo cohérente et transition

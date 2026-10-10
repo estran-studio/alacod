@@ -21,6 +21,8 @@ pub mod items;
 pub mod jjrs;
 pub mod light;
 pub mod patterns;
+#[cfg(not(target_arch = "wasm32"))]
+pub mod performance;
 pub mod powerups;
 pub mod profile;
 pub mod progression;

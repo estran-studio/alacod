@@ -990,14 +990,36 @@ fn build_flow_field(
     };
     let in_bounds = |p: &GridPos| p.x >= min_x && p.x <= max_x && p.y >= min_y && p.y <= max_y;
 
-    // Distance (in cells, 8-neighborhood) to the nearest blocked cell, up to 2
-    let mut wall_distance: BTreeMap<GridPos, u8> = BTreeMap::new();
+    // Cache geometry once per build. Dijkstra used to repeat BTreeSet lookups for
+    // every edge (especially the nine-cell clearance of large actors).
+    // The halo preserves tests at the boundary; nothing is retained between frames.
+    let width = (max_x - min_x + 1) as usize;
+    let height = (max_y - min_y + 1) as usize;
+    let index = |p: GridPos| (p.y - min_y) as usize * width + (p.x - min_x) as usize;
+    let halo_width = width + 2;
+    let raw_index =
+        |x: i32, y: i32| (y - min_y + 1) as usize * halo_width + (x - min_x + 1) as usize;
+    let mut raw = vec![false; halo_width * (height + 2)];
+    for x in min_x - 1..=max_x + 1 {
+        for y in min_y - 1..=max_y + 1 {
+            raw[raw_index(x, y)] = cache.is_blocked(&GridPos::new(x, y), profile);
+        }
+    }
+    let blocked = |x, y| raw[raw_index(x, y)];
+    let mut clearance = vec![false; width * height];
+    let mut narrow = vec![false; width * height];
+    let mut breakable = vec![false; width * height];
+    let mut wall_distance = vec![u8::MAX; width * height];
     let mut frontier: VecDeque<(GridPos, u8)> = VecDeque::new();
     for x in min_x..=max_x {
         for y in min_y..=max_y {
             let p = GridPos::new(x, y);
-            if cache.is_blocked_for(&p, key) {
-                wall_distance.insert(p, 0);
+            let i = index(p);
+            clearance[i] = world::nav::blocked_for(blocked, x, y, key.size == AgentSize::Large);
+            narrow[i] = key.size == AgentSize::Small && world::nav::too_narrow(blocked, x, y);
+            breakable[i] = cache.is_breakable_obstacle(&p, profile);
+            if clearance[i] {
+                wall_distance[i] = 0;
                 frontier.push_back((p, 0));
             }
         }
@@ -1007,15 +1029,15 @@ fn build_flow_field(
             continue;
         }
         for n in p.neighbors_8() {
-            if in_bounds(&n) && !wall_distance.contains_key(&n) {
-                wall_distance.insert(n, d + 1);
+            if in_bounds(&n) && wall_distance[index(n)] == u8::MAX {
+                wall_distance[index(n)] = d + 1;
                 frontier.push_back((n, d + 1));
             }
         }
     }
-    let penalty = |p: &GridPos| match wall_distance.get(p) {
-        Some(1) => config.wall_penalty[0],
-        Some(2) => config.wall_penalty[1],
+    let penalty = |p: GridPos| match wall_distance[index(p)] {
+        1 => config.wall_penalty[0],
+        2 => config.wall_penalty[1],
         _ => 0,
     };
 
@@ -1040,19 +1062,16 @@ fn build_flow_field(
             continue; // stale heap entry
         }
 
-        let neighbors = if config.use_8_directions {
-            current.neighbors_8().to_vec()
-        } else {
-            current.neighbors_4().to_vec()
-        };
-
-        for neighbor in neighbors {
+        // Orthogonal neighbors are the first four entries, in the historical order.
+        let neighbors = current.neighbors_8();
+        let count = if config.use_8_directions { 8 } else { 4 };
+        for &neighbor in &neighbors[..count] {
             if !in_bounds(&neighbor) {
                 continue;
             }
 
             // Check if blocked for this profile, or too narrow for an agent
-            if cache.is_blocked_for(&neighbor, key) || cache.is_too_narrow_for(&neighbor, key) {
+            if clearance[index(neighbor)] || narrow[index(neighbor)] {
                 continue;
             }
 
@@ -1061,14 +1080,18 @@ fn build_flow_field(
             let (dx, dy) = (neighbor.x - current.x, neighbor.y - current.y);
             let diagonal = dx != 0 && dy != 0;
             if diagonal
-                && world::nav::diagonal_cuts_corner(
-                    |x, y| cache.is_blocked(&GridPos::new(x, y), profile),
-                    current.x,
-                    current.y,
-                    dx,
-                    dy,
-                    key.size == AgentSize::Large,
-                )
+                && [
+                    GridPos::new(current.x + dx, current.y),
+                    GridPos::new(current.x, current.y + dy),
+                ]
+                .iter()
+                .any(|p| {
+                    if in_bounds(p) {
+                        clearance[index(*p)]
+                    } else {
+                        cache.is_blocked_for(p, key)
+                    }
+                })
             {
                 continue;
             }
@@ -1078,13 +1101,7 @@ fn build_flow_field(
             // corps le franchit : infranchissable pour un corps de plus de 16 px.
             if !diagonal
                 && key.size == AgentSize::Small
-                && world::nav::chicane_step(
-                    |x, y| cache.is_blocked(&GridPos::new(x, y), profile),
-                    current.x,
-                    current.y,
-                    dx,
-                    dy,
-                )
+                && world::nav::chicane_step(blocked, current.x, current.y, dx, dy)
             {
                 continue;
             }
@@ -1094,12 +1111,12 @@ fn build_flow_field(
             } else {
                 config.straight_cost
             };
-            let breakable = if cache.is_breakable_obstacle(&neighbor, profile) {
+            let breakable = if breakable[index(neighbor)] {
                 config.breakable_penalty
             } else {
                 0
             };
-            let new_cost = cost + step + penalty(&neighbor) + breakable;
+            let new_cost = cost + step + penalty(neighbor) + breakable;
             if flow_field
                 .costs
                 .get(&neighbor)
@@ -1367,6 +1384,247 @@ mod cave_nav_tests {
                                 "{name} graine {seed} {size:?} case ({x}, {y})"
                             );
                         }
+                    }
+                }
+            }
+        }
+    }
+}
+
+#[cfg(test)]
+fn build_flow_field_legacy(
+    targets: &[GridPos],
+    key: NavKey,
+    cache: &FlowFieldCache,
+    config: &FlowFieldConfig,
+) -> FlowField {
+    let profile = key.profile;
+    use std::cmp::Reverse;
+    use std::collections::BinaryHeap;
+
+    let mut flow_field = FlowField::default();
+
+    // Search inside the map (walls bounding box + margin) instead of a radius around the
+    // target: every spawner of the map must be covered
+    let margin = config.max_search_radius.min(8);
+    let bounds = cache
+        .wall_cells
+        .iter()
+        .fold(None, |acc: Option<(i32, i32, i32, i32)>, p| {
+            Some(match acc {
+                None => (p.x, p.x, p.y, p.y),
+                Some((x0, x1, y0, y1)) => (x0.min(p.x), x1.max(p.x), y0.min(p.y), y1.max(p.y)),
+            })
+        });
+    let (min_x, max_x, min_y, max_y) = match bounds {
+        Some((x0, x1, y0, y1)) => (
+            targets.iter().map(|t| t.x).fold(x0, i32::min) - margin,
+            targets.iter().map(|t| t.x).fold(x1, i32::max) + margin,
+            targets.iter().map(|t| t.y).fold(y0, i32::min) - margin,
+            targets.iter().map(|t| t.y).fold(y1, i32::max) + margin,
+        ),
+        None => {
+            let first = targets.first().copied().unwrap_or_default();
+            (
+                first.x - config.max_search_radius,
+                first.x + config.max_search_radius,
+                first.y - config.max_search_radius,
+                first.y + config.max_search_radius,
+            )
+        }
+    };
+    let in_bounds = |p: &GridPos| p.x >= min_x && p.x <= max_x && p.y >= min_y && p.y <= max_y;
+
+    // Distance (in cells, 8-neighborhood) to the nearest blocked cell, up to 2
+    let mut wall_distance: BTreeMap<GridPos, u8> = BTreeMap::new();
+    let mut frontier: VecDeque<(GridPos, u8)> = VecDeque::new();
+    for x in min_x..=max_x {
+        for y in min_y..=max_y {
+            let p = GridPos::new(x, y);
+            if cache.is_blocked_for(&p, key) {
+                wall_distance.insert(p, 0);
+                frontier.push_back((p, 0));
+            }
+        }
+    }
+    while let Some((p, d)) = frontier.pop_front() {
+        if d >= 2 {
+            continue;
+        }
+        for n in p.neighbors_8() {
+            if in_bounds(&n) && !wall_distance.contains_key(&n) {
+                wall_distance.insert(n, d + 1);
+                frontier.push_back((n, d + 1));
+            }
+        }
+    }
+    let penalty = |p: &GridPos| match wall_distance.get(p) {
+        Some(1) => config.wall_penalty[0],
+        Some(2) => config.wall_penalty[1],
+        _ => 0,
+    };
+
+    // Every target is a source of cost 0 (a cell shared by two targets goes to the first)
+    let mut heap: BinaryHeap<Reverse<(u32, GridPos)>> = BinaryHeap::new();
+    for (index, target) in targets.iter().enumerate() {
+        if flow_field.costs.contains_key(target) {
+            continue;
+        }
+        flow_field.directions.insert(*target, *target);
+        flow_field.costs.insert(*target, 0);
+        flow_field.owners.insert(*target, index);
+        heap.push(Reverse((0, *target)));
+    }
+
+    while let Some(Reverse((cost, current))) = heap.pop() {
+        if flow_field
+            .costs
+            .get(&current)
+            .is_some_and(|best| cost > *best)
+        {
+            continue; // stale heap entry
+        }
+
+        let neighbors = if config.use_8_directions {
+            current.neighbors_8().to_vec()
+        } else {
+            current.neighbors_4().to_vec()
+        };
+
+        for neighbor in neighbors {
+            if !in_bounds(&neighbor) {
+                continue;
+            }
+
+            // Check if blocked for this profile, or too narrow for an agent
+            if cache.is_blocked_for(&neighbor, key) || cache.is_too_narrow_for(&neighbor, key) {
+                continue;
+            }
+
+            // A diagonal step must not cut a corner: both orthogonal cells must be free,
+            // otherwise the enemy collider hits the wall corner and gets stuck
+            let (dx, dy) = (neighbor.x - current.x, neighbor.y - current.y);
+            let diagonal = dx != 0 && dy != 0;
+            if diagonal
+                && world::nav::diagonal_cuts_corner(
+                    |x, y| cache.is_blocked(&GridPos::new(x, y), profile),
+                    current.x,
+                    current.y,
+                    dx,
+                    dy,
+                    key.size == AgentSize::Large,
+                )
+            {
+                continue;
+            }
+
+            // D55 : un pas orthogonal entre deux coins de mur opposés (un en haut d'un côté,
+            // un en bas de l'autre) ne laisse qu'une case (16 px) de passage à l'endroit où le
+            // corps le franchit : infranchissable pour un corps de plus de 16 px.
+            if !diagonal
+                && key.size == AgentSize::Small
+                && world::nav::chicane_step(
+                    |x, y| cache.is_blocked(&GridPos::new(x, y), profile),
+                    current.x,
+                    current.y,
+                    dx,
+                    dy,
+                )
+            {
+                continue;
+            }
+
+            let step = if diagonal {
+                config.diagonal_cost
+            } else {
+                config.straight_cost
+            };
+            let breakable = if cache.is_breakable_obstacle(&neighbor, profile) {
+                config.breakable_penalty
+            } else {
+                0
+            };
+            let new_cost = cost + step + penalty(&neighbor) + breakable;
+            if flow_field
+                .costs
+                .get(&neighbor)
+                .is_some_and(|best| new_cost >= *best)
+            {
+                continue;
+            }
+
+            // Direction points TOWARD target (so we store 'current' as the next step)
+            flow_field.directions.insert(neighbor, current);
+            flow_field.costs.insert(neighbor, new_cost);
+            let owner = flow_field.owners[&current];
+            flow_field.owners.insert(neighbor, owner);
+            heap.push(Reverse((new_cost, neighbor)));
+        }
+    }
+
+    flow_field
+}
+
+#[cfg(test)]
+mod optimized_flow_tests {
+    use super::*;
+    use std::hash::{Hash, Hasher};
+
+    // Exact state equivalence, not just reachability: direction ties and owners matter
+    // for multiplayer target selection and for the rollback checksum.
+    #[test]
+    fn optimized_geometry_matches_legacy_flow_fields() {
+        for seed in 0i32..24 {
+            let mut cache = FlowFieldCache::new();
+            for x in -2..=12 {
+                for y in -2..=10 {
+                    if x == -2
+                        || x == 12
+                        || y == -2
+                        || y == 10
+                        || (x * 19 + y * 31 + seed * 13).rem_euclid(17) < 3
+                    {
+                        cache.wall_cells.insert(GridPos::new(x, y));
+                    }
+                }
+            }
+            cache.blocked_cells.insert(
+                ObstacleType::Window,
+                [GridPos::new(5, 4), GridPos::new(5, 5)]
+                    .into_iter()
+                    .collect(),
+            );
+            cache.blocked_cells.insert(
+                ObstacleType::Water,
+                [GridPos::new(3, 6), GridPos::new(4, 6)]
+                    .into_iter()
+                    .collect(),
+            );
+            let targets = [GridPos::new(1, 1), GridPos::new(9, 7), GridPos::new(1, 1)];
+            for profile in [
+                NavProfile::Ground,
+                NavProfile::GroundBreaker,
+                NavProfile::Flying,
+                NavProfile::Phasing,
+            ] {
+                for size in [AgentSize::Small, AgentSize::Large] {
+                    for diagonals in [false, true] {
+                        let config = FlowFieldConfig {
+                            use_8_directions: diagonals,
+                            ..Default::default()
+                        };
+                        let key = NavKey::new(profile, size);
+                        let old = build_flow_field_legacy(&targets, key, &cache, &config);
+                        let new = build_flow_field(&targets, key, &cache, &config);
+                        assert_eq!(new.costs, old.costs, "seed {seed}, {key:?}");
+                        assert_eq!(new.directions, old.directions, "seed {seed}, {key:?}");
+                        assert_eq!(new.owners, old.owners, "seed {seed}, {key:?}");
+                        let hash = |field: &FlowField| {
+                            let mut h = std::collections::hash_map::DefaultHasher::new();
+                            field.hash(&mut h);
+                            h.finish()
+                        };
+                        assert_eq!(hash(&new), hash(&old));
                     }
                 }
             }

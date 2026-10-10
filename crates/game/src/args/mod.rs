@@ -38,17 +38,27 @@ pub struct GameArgs {
     pub telemetry: bool,
     pub telemetry_url: String,
     pub telemetry_auth: String,
-    /// Distance de vérification du synctest GGRS (`ALACOD_CHECK_DISTANCE`, 2 par défaut) :
+    /// Distance de vérification du synctest GGRS (`ALACOD_CHECK_DISTANCE`) :
     /// nombre de frames rejouées et comparées à chaque frame.
     pub check_distance: usize,
 }
 
 /// `ALACOD_CHECK_DISTANCE`, ou 2 (le minimum pour que GGRS compare des checksums).
 pub fn check_distance_from_env() -> usize {
+    check_distance_with_default(2)
+}
+
+/// Local play simulates once; scenario tests retain rollback verification by default.
+/// Explicit `ALACOD_CHECK_DISTANCE=2` also enables verification in the native client.
+pub fn play_check_distance_from_env() -> usize {
+    check_distance_with_default(0)
+}
+
+fn check_distance_with_default(default: usize) -> usize {
     std::env::var("ALACOD_CHECK_DISTANCE")
         .ok()
         .and_then(|v| v.parse::<usize>().ok())
-        .unwrap_or(2)
+        .unwrap_or(default)
 }
 
 pub fn get_args() -> GameArgs {
@@ -116,7 +126,7 @@ pub fn get_args() -> GameArgs {
             telemetry: args.telemetry,
             telemetry_url: args.telemetry_url,
             telemetry_auth: args.telemetry_auth,
-            check_distance: check_distance_from_env(),
+            check_distance: play_check_distance_from_env(),
         }
     }
     #[cfg(target_arch = "wasm32")]
@@ -167,7 +177,7 @@ pub fn get_args() -> GameArgs {
             telemetry: canvas_config.telemetry,
             telemetry_url: canvas_config.telemetry_url,
             telemetry_auth: canvas_config.telemetry_auth,
-            check_distance: check_distance_from_env(),
+            check_distance: play_check_distance_from_env(),
         }
     }
 }

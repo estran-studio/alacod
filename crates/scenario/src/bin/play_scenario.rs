@@ -2,6 +2,7 @@
 //! (ou `make play_scenario SCENARIO=<nom>`).
 //!
 //! Options :
+//! - `--log` : active les logs, filtrés par `RUST_LOG` (mesures de performance).
 //! - `--capture <dossier> [--every N]` : capture une image toutes les N frames de simulation
 //!   (utilisé par `scripts/scenario-video`).
 //! - `--follow <handle>` : force la caméra à suivre le joueur avec ce handle GGRS
@@ -11,8 +12,18 @@ use scenario::runner::{capture, play, CaptureConfig, PlayConfig};
 
 fn main() {
     let args: Vec<String> = std::env::args().skip(1).collect();
+    // Same logging control as alacod-sim, for measuring native playthrough overhead.
+    if args.iter().any(|arg| arg == "--log") {
+        tracing_subscriber::fmt()
+            .with_env_filter(
+                tracing_subscriber::EnvFilter::try_from_default_env()
+                    .unwrap_or_else(|_| tracing_subscriber::EnvFilter::new("info")),
+            )
+            .with_ansi(false)
+            .init();
+    }
     let path = args.first().expect(
-        "usage : play_scenario <fichier.ron> [--capture <dossier>] [--every N] [--follow <handle>]",
+        "usage : play_scenario <fichier.ron> [--capture <dossier>] [--every N] [--follow <handle>] [--log]",
     );
     let option = |name: &str| {
         args.iter().position(|a| a == name).map(|i| {

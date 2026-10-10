@@ -374,6 +374,10 @@ pub struct PresentationPlugin;
 impl Plugin for PresentationPlugin {
     fn build(&self, app: &mut App) {
         app.add_plugins(FrameTimeDiagnosticsPlugin::default());
+        #[cfg(not(target_arch = "wasm32"))]
+        if let Some(path) = std::env::var_os("ALACOD_PERF_CSV") {
+            app.add_plugins(crate::performance::PerformanceCapturePlugin(path.into()));
+        }
         app.add_plugins(ZLightPlugin);
         app.add_plugins(ZAudioPlugin);
         app.add_plugins(FrameDebugUIPlugin);
