@@ -1,0 +1,23 @@
+// M2-T0b (docs/conventions.md §36) : deux joueurs interagissent avec le même passif à la même
+// frame ; le plus petit `GgrsNetId` (joueur 0) le ramasse, l'autre n'a rien. Carte
+// testbed/salles.ldtk.
+//
+// À regarder : les bottes tombent entre les deux joueurs (f5) ; f10 les deux appuient sur
+// Interaction : seul le joueur 0 est plus rapide (+25 %), le joueur 1 reste à la vitesse de base.
+Scenario(
+    powerup_drop_chance_override: "0.0",
+    game: "testbed",
+    map: "testbed/salles.ldtk",
+    map_seed: 1,
+    frames: 60,
+    items: [(id: "bottes", x: "-904.0", y: "-592.0", at_frame: 5)],
+    players: [
+        (inputs: [(from: 10, to: 13, buttons: [Interaction])]),
+        (inputs: [(from: 10, to: 13, buttons: [Interaction])]),
+    ],
+    expect: [
+        HasItem(handle: 0, id: "bottes", at_frame: 30),
+        Stat(handle: 0, stat: MoveSpeed, value: 187.5, at_frame: 30),
+        Stat(handle: 1, stat: MoveSpeed, value: 150.0, at_frame: 30),
+    ],
+)

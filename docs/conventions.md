@@ -43,6 +43,7 @@ Référence pour ceux qui créent du contenu (cartes LDtk, sprites RON) et ceux 
 - §33. Restart en ligne (D14)
 - §34. Course et esquive (dash)
 - §35. Salles typées et verrouillées (M2-E1, chantier E1)
+- §36. Objets et inventaire (M2-T0b, chantier C2)
 - Notes essentielles
 
 ## 1. Cartes LDtk
@@ -203,7 +204,7 @@ mélangent encore plusieurs kinds dans un même dossier historique
 de sprite) : dans ce cas le manifeste déclare le **fichier** précis plutôt que le dossier
 entier (voir `games/zombies/assets/game.ron`). Les kinds connus (20) : `Character`, `Weapon`,
 `MeleeWeapon`, `Wave`, `Map`, `Ui`, `Camera`, `Economy`, `Perk`, `PowerUp`, `SpriteSheet` (D3),
-`Floors`, `Cave`, `Room`, `Surface`, `Pattern`, `Progression`, `Mutation`, `Status`, `Clock`, `Difficulty`
+`Floors`, `Cave`, `Room`, `Item`, `Surface`, `Pattern`, `Progression`, `Mutation`, `Status`, `Clock`, `Difficulty`
 (`content::registry::KNOWN_KIND_NAMES`, qui fait foi) ; un
 autre kind produit une erreur de lint (« kind inconnu ») plutôt qu'un échec RON générique.
 
@@ -2336,6 +2337,55 @@ optionnel, nombre de portes fermées de la carte. Moment clé `room` (« salle c
 `two_rooms_door.ldtk` ; scénarios `rooms_lock_solo`, `rooms_dormant`, `rooms_lock_coop`,
 `rooms_door_occupied`. Diagnostic : `ALACOD_MAP_PROBE=<scénario>:<frame>` affiche aussi les salles
 (état) et les ennemis (position, dormant).
+
+## 36. Objets et inventaire (M2-T0b, chantier C2)
+
+Contrats : crate `items` (simulation, sans rendu) ; runtime : `game::items` ; contenu :
+`content::registry::ItemEntry` et `content::lint::lint_items`.
+
+**Contenu.** Kind de dossier `Item` : un fichier RON par objet (`objets/<id>.ron`, id = nom de
+fichier), champs de `items::ItemDef` :
+```ron
+(name: "Bottes", kind: Passive,                       // Passive | Active(charge) | Consumable
+ modifiers: [(stat: MoveSpeed, op: Pct, value: "0.25")],   // permanents, source `item:<id>`
+ effects: [],                                          // effets T1.10 tels quels (voir ci-dessous)
+ tags: ["mobilite"], rarity: Common,                  // Common | Uncommon | Rare | Epic | Legendary
+ pickup_range: "24.0")                                 // défaut 24
+// actif : kind: Active(Rooms(1)) | Active(Damage(200)) | Active(Frames(600))
+//   effects: [(on: OnUse, do: [TimedModifier(stat: Damage, op: Pct, value: "1.0", frames: 300)])]
+```
+`ActiveCharge` : `Rooms(n)` salles nettoyées (`world::RoomChanged` vers `Cleared`, §35),
+`Damage(n)` dégâts infligés par le porteur (`DamageEvent`, partie entière), `Frames(n)`. L'actif est
+prêt quand sa charge atteint `n` (plafonnée).
+
+**Lint.** Id dupliqué (`DuplicateId`), RON ou stat inconnue (`Parse`), charge 0 et `pickup_range`
+≤ 0 (`OutOfRange`), consommable avec modificateurs ou effets et tout effet autre que `OnUse` d'un
+actif avec `TimedModifier`/`Modifier` (`Unsupported` : contrats des effets v2, M2-T3).
+
+**Inventaire.** `items::Inventory { passives (ordre de ramassage), active: Option<ActiveSlot
+{ item, charge }>, consumables: BTreeMap<id, n> }`, composant rollback **neutre**, posé au
+**premier ramassage** (jamais sur un joueur qui n'a rien ramassé : contribution 0, traces
+inchangées). `ItemPickup { item_id }` : objet au sol (rollback, neutre, `GgrsNetId`). `ItemTable`
+(statique, hors rollback) est posée au chargement depuis le registre
+(`map_ldtk::loader::item_table`). `ItemPicked` : `FrameEvents` neutre (moment clé `item_pickup`).
+
+**Comportement** (`game::items`). Consommable : ramassé au contact (portée de l'objet), le plus petit
+`GgrsNetId` à portée l'emporte. Passif/actif : `Interactable { Item }` (`InteractionType::Item`), ramassé
+par Interaction ; un passif ajoute ses modificateurs à `Modifiers` ; un actif remplace l'actif tenu
+(qui tombe aux pieds, charge perdue) avec une charge 0. Charge (`item_charge_system`, après `Run` : lit
+les `RoomChanged` de la frame). Usage : bit `INPUT_USE_ACTIVE` avec l'actif chargé : les effets `OnUse`
+s'appliquent, la charge retombe à 0.
+
+**Input élargi (u16 → u32).** `BoxInput.buttons` passe de 16 à 32 bits (`BoxInput` : 8 → 12 octets en
+mémoire, alignement 4) : `INPUT_USE_ACTIVE` (bit 16, touche Espace, bouton `UseActive`) et `INPUT_BLANK`
+(bit 17, touche Q, bouton `Blank` ; contrat seul, l'effet vient de M2-T1). Les enregistrements ne
+stockent que des noms de boutons : ils se rejouent à l'identique.
+
+**Scénarios.** `items: [(id: "bottes", x: "-904.0", y: "-584.0", at_frame: 5)]` place un objet à une
+position et une frame exactes (comme `powerups`). Attentes : `HasItem(handle, id)`,
+`ItemCharge(handle, charge)` (échoue sans actif), `Consumable(handle, id, count)`. Moment clé
+`item_pickup`. Scénarios : `item_passive`, `item_active_rooms` (carte de M2-E1), `item_consumable_race`,
+`item_passive_race`. Objets du testbed : `bottes`, `fiole` (`Active(Rooms(1))`), `key`.
 
 ## Notes essentielles
 
