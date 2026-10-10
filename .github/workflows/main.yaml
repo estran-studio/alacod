@@ -112,7 +112,7 @@ jobs:
             -e RUSTC_WRAPPER=sccache \
             -e CARGO_INCREMENTAL=0 \
             alacod-builder:ci \
-            bash -c "cargo vendor && make build_docker_website TARGET=web PROFILE=prod"
+            bash -c "cargo vendor && WEB_ENABLE_SOLO=1 WEB_ENABLE_ONLINE=1 make build_docker_website TARGET=web PROFILE=prod"
 
       - name: Push docker website
         if: false # Le site est publié par Pages; aucun push d’image n’est requis.
