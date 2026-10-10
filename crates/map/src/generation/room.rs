@@ -183,6 +183,7 @@ mod tests {
                 windows: vec![],
                 character_spawns: vec![],
             },
+            room_kind: None,
         };
         Room {
             level_iid: "iid".into(),

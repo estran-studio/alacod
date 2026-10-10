@@ -21,21 +21,21 @@ use serde_json::Value;
 use utils::map;
 
 // private struct to store data during the map generation
-struct Map {
+pub(super) struct Map {
     // index of the last room that we iterate on
-    last_generated_room_index: Option<usize>,
+    pub(super) last_generated_room_index: Option<usize>,
     // list of the room i have generated
-    rooms: Vec<Room>,
+    pub(super) rooms: Vec<Room>,
     // index of all the item in the rooms vector that still possively have open connection
-    rooms_possible: Vec<usize>,
+    pub(super) rooms_possible: Vec<usize>,
     // Track the depth/distance from spawn for each room (by index)
-    room_depths: Vec<usize>,
+    pub(super) room_depths: Vec<usize>,
 }
 
 pub struct BasicMapGeneration {
-    context: MapGenerationContext,
+    pub(super) context: MapGenerationContext,
     data: MapGenerationData,
-    map: Map,
+    pub(super) map: Map,
 }
 
 impl BasicMapGeneration {

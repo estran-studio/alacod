@@ -286,6 +286,11 @@ fn to_available_level(level: &Level, tile_size: &(i32, i32)) -> AvailableLevel {
         ),
         level_type,
         entity_locations: extract_entity_locations(level, tile_size),
+        // M2-T10 : champ de niveau `room_kind` (M2-E1), lu par la grammaire d'étage.
+        room_kind: get_level_field(level, "room_kind").and_then(|value| match value {
+            FieldValue::String(Some(kind)) if !kind.is_empty() => Some(kind),
+            _ => None,
+        }),
     };
 
     let mut connections = vec![];

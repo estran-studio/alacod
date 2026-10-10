@@ -3,6 +3,7 @@ mod imp;
 pub mod config;
 pub mod context;
 pub mod entity;
+pub mod floor;
 pub mod position;
 pub mod room;
 
