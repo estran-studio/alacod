@@ -556,11 +556,11 @@ l'ancienne machine.
 - M2-T8 Formations simples (D1 v2, 2 j) : escouades qui se placent en arc, tir alterné.
 
 **V1d monde**
-- M2-T9 Défauts de l'assembleur (E2 préalable, 1 j, **déplace les cartes générées**) : choix par
+- ~~M2-T9 Défauts de l'assembleur~~ : **déjà fait en M1** (`m1-assembleur-d45-d47` : D45 `.nth(r)`, D46 chevauchement, D47 appariement du spawn ; constaté le 2026-10-10). Texte d'origine : (E2 préalable, 1 j, **déplace les cartes générées**) : choix par
   `.skip(r).last()` toujours le dernier, `Room::is_overlapping` jamais appelé, boucle infinie si un
   gabarit `Spawn` n'est pas le premier, identifiant de gabarit perdu. Preuve §5 sur `avant_poste` et
   les salles du testbed.
-- M2-T10 Grammaire d'étage (E2, 6-8 j) : contraintes de types (départ, boss au bout, boutique,
+- M2-T10 Grammaire d'étage (E2, 6-8 j ; fiche `docs/taches/m2-t10-grammaire-etage.md`, b1) : contraintes de types (départ, boss au bout, boutique,
   coffre, secret), distances, branches, minicarte (état dérivé), plusieurs étages par run
   (`Floors` d'étages assemblés). Acceptation : unitaires sur 1 000 graines (connexité, types
   présents, pas de chevauchement), perf d'un étage de 15 à 20 salles.
