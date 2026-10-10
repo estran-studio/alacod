@@ -3,7 +3,8 @@
 # n'a encore **aucun asset propre** ; tous les fichiers ci-dessous sont des **placeholders**
 # copiés du testbed (eux-mêmes identiques à ceux de zombies), entrées reprises de
 # games/zombies/assets/assets.yaml (chemins `exemples/atlas/` devenus `atlas/`). Les ennemis
-# de throne n'ont aucun sprite (comme les personnages de laboratoire du testbed).
+# de throne utilisent désormais les sprites zombie provisoires pour la revue M1 ;
+# les personnages de laboratoire conservent leurs skins sans sprite.
 
 - id: basic-zombie-shooter-blackhunterdev
   fichiers:
@@ -22,6 +23,8 @@
     - sprites/characters/player/Shirt/Shirt4.png
     - sprites/characters/shadow/Shadow.png
     - sprites/weapons/Weapons.png
+    - sprites/enemies/zombie/Zombie.png
+    - sprites/enemies/zombie/ZombieHard.png
   source: https://blackhunterdev.itch.io/basic-zombie-shooter-game-asset
   auteur: blackHUNTERdev
   licence: CC BY 4.0 (https://creativecommons.org/licenses/by/4.0/)

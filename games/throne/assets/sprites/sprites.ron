@@ -32,4 +32,82 @@
         animation: "sprites/effects/slash/slash_animation.ron",
         layers: { "body": "sprites/effects/slash/slash_sheet.ron" },
     ),
+    // Visuels provisoires CC BY 4.0 repris de zombies pour la revue humaine M1.
+    "rat": (
+        animation: "sprites/enemies/zombie/zombie_animation.ron",
+        layers: {
+            "body": "sprites/enemies/zombie/zombie_sheet.ron",
+            "shadow": "sprites/characters/shadow/shadow_sheet.ron",
+        },
+    ),
+    "chien": (
+        animation: "sprites/enemies/zombie/zombie_animation.ron",
+        layers: {
+            "body": "sprites/enemies/zombie/zombie_sheet.ron",
+            "shadow": "sprites/characters/shadow/shadow_sheet.ron",
+        },
+    ),
+    "rodeur": (
+        animation: "sprites/enemies/zombie/zombie_animation.ron",
+        layers: {
+            "body": "sprites/enemies/zombie/zombie_sheet.ron",
+            "shadow": "sprites/characters/shadow/shadow_sheet.ron",
+        },
+    ),
+    "pillard": (
+        animation: "sprites/enemies/zombie/zombie_animation.ron",
+        layers: {
+            "body": "sprites/enemies/zombie/zombie_sheet.ron",
+            "shadow": "sprites/characters/shadow/shadow_sheet.ron",
+        },
+    ),
+    "cracheur": (
+        animation: "sprites/enemies/zombie/zombie_animation.ron",
+        layers: {
+            "body": "sprites/enemies/zombie/zombie_sheet.ron",
+            "shadow": "sprites/characters/shadow/shadow_sheet.ron",
+        },
+    ),
+    "franc_tireur": (
+        animation: "sprites/enemies/zombie/zombie_animation.ron",
+        layers: {
+            "body": "sprites/enemies/zombie/zombie_sheet.ron",
+            "shadow": "sprites/characters/shadow/shadow_sheet.ron",
+        },
+    ),
+    "arroseur": (
+        animation: "sprites/enemies/zombie/zombie_animation.ron",
+        layers: {
+            "body": "sprites/enemies/zombie/zombie_sheet.ron",
+            "shadow": "sprites/characters/shadow/shadow_sheet.ron",
+        },
+    ),
+    "tourelle": (
+        animation: "sprites/enemies/zombie/zombie_animation.ron",
+        layers: {
+            "body": "sprites/enemies/zombie/zombie_hard_sheet.ron",
+            "shadow": "sprites/characters/shadow/shadow_sheet.ron",
+        },
+    ),
+    "brute": (
+        animation: "sprites/enemies/zombie/zombie_animation.ron",
+        layers: {
+            "body": "sprites/enemies/zombie/zombie_hard_sheet.ron",
+            "shadow": "sprites/characters/shadow/shadow_sheet.ron",
+        },
+    ),
+    "buffle": (
+        animation: "sprites/enemies/zombie/zombie_animation.ron",
+        layers: {
+            "body": "sprites/enemies/zombie/zombie_hard_sheet.ron",
+            "shadow": "sprites/characters/shadow/shadow_sheet.ron",
+        },
+    ),
+    "roi_rat": (
+        animation: "sprites/enemies/zombie/zombie_animation.ron",
+        layers: {
+            "body": "sprites/enemies/zombie/zombie_hard_sheet.ron",
+            "shadow": "sprites/characters/shadow/shadow_sheet.ron",
+        },
+    ),
 })
