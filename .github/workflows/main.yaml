@@ -4,6 +4,17 @@ on:
   push:
     branches:
       - main
+  # Le build WASM et le déploiement tournent sur le runner auto-hébergé (machine orca, partagée
+  # avec les sessions de dev : ~12 Go de RAM par build) : jamais à chaque push, seulement à la
+  # main (Actions > Build & Deploy > Run workflow) ou la nuit, avant le Nightly CI (03:03 UTC).
+  workflow_dispatch:
+  schedule:
+    - cron: '30 0 * * *'
+
+# Un nouveau déploiement annule celui en cours (même code, le plus récent gagne).
+concurrency:
+  group: build-deploy-${{ github.event_name == 'push' && github.sha || 'deploy' }}
+  cancel-in-progress: true
 
 jobs:
   check:
@@ -60,7 +71,8 @@ jobs:
     name: Build WASM & Deploy
     runs-on: [self-hosted, alacod-builder]
     needs: check
-    if: github.actor != 'alacod-nightly'
+    # Pas sur un push (voir `on:`) : à la main ou la nuit.
+    if: github.actor != 'alacod-nightly' && github.event_name != 'push'
     environment: production
     steps:
       - name: Clean workspace with sudo

@@ -34,8 +34,8 @@
         (path: "items", kind: "PowerUp"),
     ],
     entry: (
-        // m0-v8 (V6) : la carte avant_poste devient la carte par défaut des parties.
-        start_map: "maps/avant_poste.ldtk",
+        // S2/S8 : bâtiment composé à partir des modules LDtk du Relais.
+        start_map: "maps/le_relais_modules.ldtk",
         default_seed: 123456,
         mode: Waves,
     ),

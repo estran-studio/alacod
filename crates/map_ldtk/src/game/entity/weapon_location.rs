@@ -36,15 +36,12 @@ pub fn weapon_location_component_from_field(
 pub struct WeaponLocationBundle {
     #[with(weapon_location_component_from_field)]
     location: WeaponLocationComponent,
-    #[sprite_sheet]
-    sprite_sheet: Sprite,
 }
 
 impl Default for WeaponLocationBundle {
     fn default() -> Self {
         Self {
             location: WeaponLocationComponent::default(),
-            sprite_sheet: Sprite::default(),
         }
     }
 }

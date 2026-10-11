@@ -13630,6 +13630,7 @@ dependencies = [
  "bevy_ggrs",
  "content",
  "game",
+ "getrandom 0.2.17",
  "map",
  "map_ldtk",
  "serde_json",
