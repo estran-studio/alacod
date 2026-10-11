@@ -1553,3 +1553,70 @@ fn throne_native_recording_roundtrip() {
     );
 }
 
+/// Regression from William's run: pillard 220 pressed into the wall while fleeing.
+/// Retain historical mutation timing to isolate navigation from the intermission change.
+#[test]
+fn throne_recorded_pillard_leaves_the_wall_corner() {
+    use bevy::prelude::*;
+    use bevy_fixed::fixed_math::{Fixed, FixedTransform3D};
+    use std::sync::{
+        atomic::{AtomicBool, Ordering},
+        Arc,
+    };
+    if map_ldtk::RENDER_ENABLED {
+        return;
+    }
+    let mut fixture = Scenario::from_ron(include_str!(
+        "../../../tests/review-notes/m1-f53cd1ae-run-01/original.ron"
+    ))
+    .unwrap();
+    fixture.game = "throne".into();
+    fixture.floors = Some("run".into());
+    fixture.mode = Some(content::EntryMode::Floors);
+    fixture.clocks = Some(vec!["etage".into()]);
+    fixture.difficulty = Some(true);
+    fixture.progression = Some("run".into());
+    fixture.frames = 2325;
+    let observed = Arc::new(AtomicBool::new(false));
+    let result = scenario::runner::run_with(&fixture, |app| {
+        let observed = observed.clone();
+        app.add_systems(
+            Update,
+            move |frame: Res<utils::frame::FrameCount>,
+                  enemies: Query<
+                (
+                    &utils::net_id::GgrsNetId,
+                    &FixedTransform3D,
+                    &combat::actors::Velocity,
+                ),
+                With<game::character::enemy::Enemy>,
+            >| {
+                if frame.frame != 2325 {
+                    return;
+                }
+                let (_, transform, velocity) = enemies
+                    .iter()
+                    .find(|(id, ..)| id.0 == 220)
+                    .expect("recorded pillard 220");
+                let p = transform.translation;
+                // Its 32px provisional sprite also stays outside the two recorded walls.
+                assert!(
+                    p.x + Fixed::from_num(16) <= Fixed::from_num(592),
+                    "sprite in right wall: {p:?}"
+                );
+                assert!(
+                    p.y - Fixed::from_num(16) >= Fixed::from_num(48),
+                    "sprite in bottom wall: {p:?}"
+                );
+                assert_eq!(
+                    velocity.main,
+                    bevy_fixed::fixed_math::FixedVec2::ZERO,
+                    "fleeing actor still pushing against the corner"
+                );
+                observed.store(true, Ordering::Relaxed);
+            },
+        );
+    });
+    assert!(result.failures.is_empty(), "{:?}", result.failures);
+    assert!(observed.load(Ordering::Relaxed));
+}

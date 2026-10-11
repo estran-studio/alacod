@@ -605,6 +605,7 @@ pub fn move_enemies(
                     enemy_target_opt.and_then(|target| target.last_known_position),
                     &flow_field_cache,
                     nav_key,
+                    &body,
                 )
             });
         let desired_move_velocity_v2 = match &motion {

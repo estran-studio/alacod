@@ -1,0 +1,53 @@
+[
+  {
+    "scenario": "enemy_flee",
+    "first_frame": 133,
+    "changed": [
+      {
+        "entity_or_resource": "GgrsNetId(27, \"coward\")",
+        "components": [
+          {
+            "type": "combat::actors::Velocity",
+            "before": "Velocity { main: FixedVec2 { x: 42.42096, y: -42.43011 }, knockback: FixedVec2 { x: 0, y: 0 } }",
+            "after": "Velocity { main: FixedVec2 { x: 53.86871, y: -26.4212 }, knockback: FixedVec2 { x: 0, y: 0 } }"
+          },
+          {
+            "type": "bevy_fixed::fixed_math::FixedTransform3D",
+            "before": "FixedTransform3D { translation: FixedVec3 { x: 497.31439, y: 622.6905, z: 3 }, rotation: FixedMat3 { x_axis: FixedVec3 { x: 1, y: 0, z: 0 }, y_axis: FixedVec3 { x: 0, y: 1, z: 0 }, z_axis: FixedVec3 { x: 0, y: 0, z: 1 } }, scale: FixedVec3 { x: 1, y: 1, z: 1 } }",
+            "after": "FixedTransform3D { translation: FixedVec3 { x: 497.50514, y: 622.95726, z: 3 }, rotation: FixedMat3 { x_axis: FixedVec3 { x: 1, y: 0, z: 0 }, y_axis: FixedVec3 { x: 0, y: 1, z: 0 }, z_axis: FixedVec3 { x: 0, y: 0, z: 1 } }, scale: FixedVec3 { x: 1, y: 1, z: 1 } }"
+          }
+        ]
+      }
+    ]
+  },
+  {
+    "scenario": "enemy_keep_distance",
+    "first_frame": 218,
+    "changed": [
+      {
+        "entity_or_resource": "GgrsNetId(27, \"kiter\")",
+        "components": [
+          {
+            "type": "combat::actors::Velocity",
+            "before": "Velocity { main: FixedVec2 { x: 20.09216, y: -56.53564 }, knockback: FixedVec2 { x: 0, y: 0 } }",
+            "after": "Velocity { main: FixedVec2 { x: 29.69513, y: -52.13562 }, knockback: FixedVec2 { x: 0, y: 0 } }"
+          },
+          {
+            "type": "animation::FacingDirection",
+            "before": "Down",
+            "after": "DownRight"
+          },
+          {
+            "type": "bevy_fixed::fixed_math::FixedTransform3D",
+            "before": "FixedTransform3D { translation: FixedVec3 { x: 495.82872, y: 622.99208, z: 3 }, rotation: FixedMat3 { x_axis: FixedVec3 { x: 1, y: 0, z: 0 }, y_axis: FixedVec3 { x: 0, y: 1, z: 0 }, z_axis: FixedVec3 { x: 0, y: 0, z: 1 } }, scale: FixedVec3 { x: 1, y: 1, z: 1 } }",
+            "after": "FixedTransform3D { translation: FixedVec3 { x: 495.98874, y: 623.06538, z: 3 }, rotation: FixedMat3 { x_axis: FixedVec3 { x: 1, y: 0, z: 0 }, y_axis: FixedVec3 { x: 0, y: 1, z: 0 }, z_axis: FixedVec3 { x: 0, y: 0, z: 1 } }, scale: FixedVec3 { x: 1, y: 1, z: 1 } }"
+          }
+        ]
+      }
+    ]
+  },
+  {
+    "scenario": "enemy_pillard_moving",
+    "identical_frames": 599
+  }
+]

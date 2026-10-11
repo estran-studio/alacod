@@ -24,7 +24,7 @@ use sim_core::{
 use utils::{frame::FrameCount, net_id::GgrsNetId, order_iter, order_mut_iter};
 
 use super::{
-    navigation::{FlowFieldCache, NavKey},
+    navigation::{AgentBody, FlowFieldCache, NavKey},
     state::{
         BehaviorRuntime, ChargePhase, EnemyAiConfig, EnemyBehaviors, EnemyTarget, MonsterState,
         RangedAttackState, TargetType,
@@ -337,6 +337,7 @@ pub fn behavior_motion(
     flow_field_cache: &FlowFieldCache,
     // D41 + D38 : champ de l'ennemi (profil, gabarit), pour le recul.
     nav_key: NavKey,
+    body: &AgentBody,
 ) -> Option<BehaviorMotion> {
     let rule = runtime
         .selected
@@ -348,9 +349,16 @@ pub fn behavior_motion(
     match rule {
         Behavior::KeepDistance { .. } | Behavior::Flee => {
             let retreat = flow_field_cache
-                .get_flow_field(nav_key)
-                .and_then(|field| field.retreat_direction(position))
-                .or_else(|| target.map(|t| (position - t).normalize_or_zero()));
+                .retreat_direction(nav_key, position, body)
+                .or_else(|| {
+                    // Before a field exists, retain the startup behavior. With a field,
+                    // a local maximum is a safe stop, not a vector into the rock.
+                    flow_field_cache
+                        .get_flow_field(nav_key)
+                        .is_none()
+                        .then(|| target.map(|t| (position - t).normalize_or_zero()))
+                        .flatten()
+                });
             Some(match retreat {
                 Some(direction) => BehaviorMotion {
                     direction,
@@ -495,6 +503,12 @@ mod tests {
             target,
             &cache,
             crate::character::enemy::ai::navigation::MOVEMENT_FLOW_KEY,
+            &AgentBody {
+                left: fixed_math::new(10.0),
+                right: fixed_math::new(10.0),
+                up: fixed_math::new(4.0),
+                down: fixed_math::new(16.0),
+            },
         )
         .unwrap();
         let second = behavior_motion(
@@ -505,6 +519,12 @@ mod tests {
             target,
             &cache,
             crate::character::enemy::ai::navigation::MOVEMENT_FLOW_KEY,
+            &AgentBody {
+                left: fixed_math::new(10.0),
+                right: fixed_math::new(10.0),
+                up: fixed_math::new(4.0),
+                down: fixed_math::new(16.0),
+            },
         )
         .unwrap();
         // Perpendiculaire à la cible (axe x) : le long de y, sens opposés.
@@ -535,6 +555,12 @@ mod tests {
             None,
             &cache,
             crate::character::enemy::ai::navigation::MOVEMENT_FLOW_KEY,
+            &AgentBody {
+                left: fixed_math::new(10.0),
+                right: fixed_math::new(10.0),
+                up: fixed_math::new(4.0),
+                down: fixed_math::new(16.0),
+            },
         )
         .unwrap();
         assert_eq!(telegraph.speed_mult, fixed_math::FIXED_ZERO);
@@ -550,6 +576,12 @@ mod tests {
             None,
             &cache,
             crate::character::enemy::ai::navigation::MOVEMENT_FLOW_KEY,
+            &AgentBody {
+                left: fixed_math::new(10.0),
+                right: fixed_math::new(10.0),
+                up: fixed_math::new(4.0),
+                down: fixed_math::new(16.0),
+            },
         )
         .unwrap();
         assert_eq!(rush.speed_mult, fixed_math::Fixed::from_num(3));

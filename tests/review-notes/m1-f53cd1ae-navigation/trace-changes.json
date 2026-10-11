@@ -1,0 +1,128 @@
+[
+  {
+    "scenario": "enemy_flee",
+    "trace": "tests/scenarios/enemy_flee.trace",
+    "first_changed_line": 134,
+    "first_before": "133 000000000000000051a8c321e4b07f40 28",
+    "first_after": "133 0000000000000000501fafa2271a0b3d 28",
+    "before_lines": 219,
+    "after_lines": 219
+  },
+  {
+    "scenario": "enemy_keep_distance",
+    "trace": "tests/scenarios/enemy_keep_distance.trace",
+    "first_changed_line": 219,
+    "first_before": "218 0000000000000000fa4f73bd2cc45430 35",
+    "first_after": "218 00000000000000002a2e2c116170f021 35",
+    "before_lines": 259,
+    "after_lines": 259
+  },
+  {
+    "scenario": "enemy_bullet_kin_moving",
+    "trace": "tests/scenarios/generated/gungeon/enemy_bullet_kin_moving.trace",
+    "first_changed_line": 57,
+    "first_before": "56 00000000000000006e76ea5e05b9c3cb 29",
+    "first_after": "56 0000000000000000146d57a81eb8a776 29",
+    "before_lines": 599,
+    "after_lines": 599
+  },
+  {
+    "scenario": "enemy_bullet_kin_still",
+    "trace": "tests/scenarios/generated/gungeon/enemy_bullet_kin_still.trace",
+    "first_changed_line": 195,
+    "first_before": "194 0000000000000000af5f1fc39d341b78 29",
+    "first_after": "194 000000000000000084a8b5c18f28a5be 29",
+    "before_lines": 599,
+    "after_lines": 599
+  },
+  {
+    "scenario": "enemy_kiter_moving",
+    "trace": "tests/scenarios/generated/testbed/enemy_kiter_moving.trace",
+    "first_changed_line": 58,
+    "first_before": "57 0000000000000000329298d85420b68e 44",
+    "first_after": "57 00000000000000009305db1817571643 44",
+    "before_lines": 599,
+    "after_lines": 599
+  },
+  {
+    "scenario": "enemy_kiter_still",
+    "trace": "tests/scenarios/generated/testbed/enemy_kiter_still.trace",
+    "first_changed_line": 235,
+    "first_before": "234 0000000000000000a439f4a7b3df0fda 42",
+    "first_after": "234 0000000000000000a71964ce96a90097 42",
+    "before_lines": 599,
+    "after_lines": 599
+  },
+  {
+    "scenario": "enemy_franc_tireur_moving",
+    "trace": "tests/scenarios/generated/throne/enemy_franc_tireur_moving.trace",
+    "first_changed_line": 57,
+    "first_before": "56 0000000000000000dc15bf7ce17dad51 39",
+    "first_after": "56 000000000000000091131855867469f3 39",
+    "before_lines": 599,
+    "after_lines": 599
+  },
+  {
+    "scenario": "enemy_franc_tireur_still",
+    "trace": "tests/scenarios/generated/throne/enemy_franc_tireur_still.trace",
+    "first_changed_line": 195,
+    "first_before": "194 0000000000000000e698371311aae8de 39",
+    "first_after": "194 0000000000000000aa7a8be1f95899a1 39",
+    "before_lines": 599,
+    "after_lines": 599
+  },
+  {
+    "scenario": "gungeon_boss",
+    "trace": "tests/scenarios/gungeon_boss.trace",
+    "first_changed_line": 109,
+    "first_before": "108 00000000000000004432b2d915e71511 36",
+    "first_after": "108 0000000000000000f0a65a843b64b7ce 36",
+    "before_lines": 699,
+    "after_lines": 699
+  },
+  {
+    "scenario": "gungeon_clear",
+    "trace": "tests/scenarios/gungeon_clear.trace",
+    "first_changed_line": 109,
+    "first_before": "108 0000000000000000a092420fe63fe56b 36",
+    "first_after": "108 0000000000000000b3fa36c4ba1a3048 36",
+    "before_lines": 699,
+    "after_lines": 699
+  },
+  {
+    "scenario": "throne_progression",
+    "trace": "tests/scenarios/throne_progression.trace",
+    "first_changed_line": 1059,
+    "first_before": "1058 000000000000000037e81e758844bc80 111",
+    "first_after": "1058 0000000000000000a3de1834bafc488a 111",
+    "before_lines": 2399,
+    "after_lines": 2499
+  },
+  {
+    "scenario": "throne_softlock_recul",
+    "trace": "tests/scenarios/throne_softlock_recul.trace",
+    "first_changed_line": 640,
+    "first_before": "639 0000000000000000c7e241ab54a74efc 140",
+    "first_after": "639 000000000000000068f319e22d87d34d 140",
+    "before_lines": 1859,
+    "after_lines": 1859
+  },
+  {
+    "scenario": "throne_solo",
+    "trace": "tests/scenarios/throne_solo.trace",
+    "first_changed_line": 1059,
+    "first_before": "1058 000000000000000037e81e758844bc80 111",
+    "first_after": "1058 0000000000000000a3de1834bafc488a 111",
+    "before_lines": 3699,
+    "after_lines": 3699
+  },
+  {
+    "scenario": "throne_three_floors",
+    "trace": "tests/scenarios/throne_three_floors.trace",
+    "first_changed_line": 392,
+    "first_before": "391 000000000000000010fa605d44dfb909 110",
+    "first_after": "391 00000000000000004ecbb1e74adfcdda 110",
+    "before_lines": 4999,
+    "after_lines": 4999
+  }
+]

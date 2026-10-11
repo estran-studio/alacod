@@ -6,6 +6,7 @@ pub mod behavior;
 pub mod debug;
 pub mod navigation;
 pub mod obstacle;
+mod retreat;
 pub mod rules;
 pub mod state;
 

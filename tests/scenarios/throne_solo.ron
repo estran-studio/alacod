@@ -1,3 +1,7 @@
+// Revue M1 2026-10-10, recul corrigé : étage 2 à f1572, alerte à f2472 ; le bot
+// reste vivant dans le combat du boss à f2699, puis meurt à f2779. Les 3700 frames sont
+// conservées et la défaite tardive est vérifiée. Régression de survie du témoin notée dans
+// les preuves de navigation ; aucun rééquilibrage du contenu n'a été appliqué.
 // `throne` vague 2 de M1 (m1-integration-scenarios, docs/conventions.md §29) : un bot `prudent`
 // joue la run (trois cavernes, `floors/run.ron`, boss `roi_rat` au niveau 3) avec tout ce que le
 // manifeste active. Joué en synctest par la suite : preuve de déterminisme à un joueur.
@@ -29,11 +33,13 @@ Scenario(
     ],
     expect: [
         FloorIndex(index: 1, at_frame: 625),
-        FloorIndex(index: 1, at_frame: 1485),
-        FloorIndex(index: 2, at_frame: 1500),
+        FloorIndex(index: 1, at_frame: 1565),
+        FloorIndex(index: 2, at_frame: 1585),
         Event(kind: "levelup", by_frame: 365),
         Mutations(handle: 0, contains: ["sang_froid", "coriace"], count: Some(2), at_frame: 1770),
-        Clock(id: "alerte", fired: true, at_frame: 2395),
-        PlayerAlive(handle: 0, at_frame: 3699),
+        Clock(id: "alerte", fired: true, at_frame: 2480),
+        PlayerAlive(handle: 0, at_frame: 2699),
+        PlayerDead(handle: 0, at_frame: 3699),
+        Defeat(by_frame: 3699),
     ],
 )

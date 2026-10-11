@@ -1,3 +1,4 @@
+// Revue M1 2026-10-10, recul corrigé : étage 3 à f2783 ; sang_froid puis chasseur (f3908), deux joueurs vivants à f4999.
 // `throne` (T1.0c + T1.11, docs/conventions.md §29) : deux bots `prudent` finissent la run (trois
 // étages de caverne : `niveau_1`, `niveau_2` avec les premiers tireurs, `niveau_3` avec tous les
 // profils), avec tout ce que le manifeste active (butin, progression, horloge, difficulté).
@@ -37,12 +38,12 @@ Scenario(
     expect: [
         FloorIndex(index: 1, at_frame: 510),
         FloorIndex(index: 2, at_frame: 1240),
-        FloorIndex(index: 2, at_frame: 2860),
-        FloorIndex(index: 3, at_frame: 2885),
-        Event(kind: "floor", label_contains: Some("niveau 3"), by_frame: 2885),
+        FloorIndex(index: 2, at_frame: 2770),
+        FloorIndex(index: 3, at_frame: 2795),
+        Event(kind: "floor", label_contains: Some("niveau 3"), by_frame: 2795),
         Event(kind: "levelup", by_frame: 445),
         Clock(id: "alerte", fired: true, at_frame: 2140),
-        Mutations(handle: 0, contains: ["sang_froid", "irradie"], count: Some(2), at_frame: 3020),
+        Mutations(handle: 0, contains: ["sang_froid", "chasseur"], count: Some(2), at_frame: 4000),
         PlayerAlive(handle: 0, at_frame: 4999),
         PlayerAlive(handle: 1, at_frame: 4999),
     ],
