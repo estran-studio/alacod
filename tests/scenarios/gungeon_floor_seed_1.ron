@@ -1,0 +1,16 @@
+// M2-T10 (docs/conventions.md §40) : l'étage de `gungeon` assemblé par la grammaire, graine 1.
+Scenario(
+    powerup_drop_chance_override: "0.0",
+    game: "gungeon",
+    floors: Some("grammaire"),
+    map_seed: 1,
+    frames: 1500,
+    players: [
+        (bot: prudent),
+        (bot: prudent),
+    ],
+    expect: [
+        PlayerAlive(handle: 0, at_frame: 60),
+        RoomState(kind: "boss", state: Dormant, at_frame: 60),
+    ],
+)

@@ -93,6 +93,10 @@ impl FloorPlan {
     /// (une carte répétée réutilise le même monde, ses entités sont recréées à chaque passage).
     pub fn slot_of_level(&self, level: usize) -> usize {
         let path = &self.levels[level];
+        // M2-T10 : chaque étage de grammaire est son propre monde (graine dérivée par emplacement)
+        if content::registry::floor_designation(path).is_some() {
+            return level;
+        }
         self.levels.iter().position(|p| p == path).unwrap_or(level)
     }
 

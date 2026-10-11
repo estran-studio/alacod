@@ -1,0 +1,3 @@
+// Type de salle `recompense` (M2-T10, docs/conventions.md §35 et §40) : pas de verrou, les
+// récompenses viennent de T3/T5.
+(locks: false)

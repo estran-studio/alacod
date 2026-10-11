@@ -1,0 +1,6 @@
+// `gungeon` (M2-T10) : deux étages assemblés (graine dérivée par étage) ; le portail s'ouvre à la
+// mort du boss du premier, la victoire est celle du second.
+(
+    levels: ["floor:etage", "floor:etage"],
+    victory_at_end: true,
+)

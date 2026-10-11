@@ -1,0 +1,9 @@
+// Grammaire d'étage de 15 à 20 salles (M2-T10) : la mesure de perf `bench_floor`.
+(
+    templates: "maps/salles.ldtk",
+    grammar: (
+        rooms: (15, 20),
+        required: {"boss": 1, "recompense": 1, "boutique": 1},
+        min_boss_distance: 4,
+    ),
+)
