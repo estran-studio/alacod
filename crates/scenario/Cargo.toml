@@ -30,6 +30,8 @@ utils = { path = "../utils" }
 tracing-subscriber = { version = "0.3.18", features = ["fmt", "env-filter"] }
 
 [features]
+# Bevy en bibliothèque partagée (voir `game`) : transmis à `game`.
+dev-dylib = ["game/dev-dylib"]
 # Rendu des tilemaps, requis pour afficher un scénario (play_scenario). Les tests
 # headless compilent sans.
 render = ["map_ldtk/render"]

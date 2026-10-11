@@ -9,7 +9,9 @@ services:
       context: .
       dockerfile: ci/matchbox.Dockerfile
     ports:
-      - "3536:3536"
+      # Un port hôte par session (MATCHBOX_PORT, défaut 3536) et un nom de projet par session
+      # (COMPOSE_PROJECT_NAME) : deux sessions ne se prennent pas le signaling (README §1).
+      - "${MATCHBOX_PORT:-3536}:3536"
   allumette:
     profiles: ["allumette"]
     build:

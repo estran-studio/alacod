@@ -7,6 +7,7 @@ ARG APP_VERSION
 WORKDIR /app
 
 COPY package*.json ./
+COPY vendor ./vendor
 
 RUN npm ci
 
