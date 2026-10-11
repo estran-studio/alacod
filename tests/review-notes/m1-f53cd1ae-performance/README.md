@@ -85,3 +85,8 @@ Résultat de la validation : **204 scénarios verts, 204 traces de référence i
 sans bless, à vérification 2. Aucun avertissement de budget. Les tests de rejeu et de
 chemin du dossier de métriques passent également. La progression est restée historique
 pendant cette validation, puis `BetweenFloors` a été restauré dans le chantier suivant.
+
+Le client active automatiquement la distance 2 lorsque `ALACOD_STATE_TRACE` est
+demandé : GGRS ne sauvegarde aucun état à distance 0, donc l'export diagnostique
+a besoin des snapshots. `ALACOD_CHECK_DISTANCE` explicite garde la priorité.
+Cette exception ne touche pas la cadence normale mesurée à distance 0.
