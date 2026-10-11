@@ -156,6 +156,7 @@ impl Plugin for GameEventsPlugin {
                 feedback_events.after(detect_events),
                 room_events.after(detect_events),
                 item_events.after(detect_events),
+                blank_events.after(detect_events),
                 boss_events.after(detect_events),
             ),
         );
@@ -209,6 +210,26 @@ fn item_events(
             frame: pick.frame,
             kind: "item_pickup",
             label: format!("joueur {} ramasse {}", pick.player_handle, pick.item_id),
+        });
+    }
+}
+
+/// Moments clés `blank` (M2-T1) : un blank utilisé (`items::BlankUsed`).
+fn blank_events(
+    used: Option<Res<FrameEvents<items::BlankUsed>>>,
+    mut events: ResMut<GameEvents>,
+) {
+    let Some(used) = used else {
+        return;
+    };
+    for blank in used.iter() {
+        events.events.push(GameEvent {
+            frame: blank.frame,
+            kind: "blank",
+            label: format!(
+                "joueur {} utilise un blank ({} balles effacées)",
+                blank.player_handle, blank.cleared
+            ),
         });
     }
 }
