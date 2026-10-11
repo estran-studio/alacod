@@ -971,6 +971,15 @@ fn bullet_lines() {
                 )
             })
             .collect();
-        println!("f{frame} n={} {ps:?} joueurs={players:?}", ps.len());
+        let inv: Vec<String> = world
+            .query_filtered::<(
+                Option<&items::Inventory>,
+                Option<&game::items::BlankState>,
+                Option<&sim_core::team::Team>,
+            ), With<game::character::player::Player>>()
+            .iter(world)
+            .map(|(i, b, t)| format!("{:?}/{:?}/{:?}", i.map(|i| &i.consumables), b, t))
+            .collect();
+        println!("f{frame} n={} {ps:?} joueurs={players:?} inv={inv:?}", ps.len());
     }
 }
