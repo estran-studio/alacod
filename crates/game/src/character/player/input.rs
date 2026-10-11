@@ -163,6 +163,17 @@ impl InputSource {
     }
 }
 
+/// `ALACOD_PRESS_BLANK_AT=<frame>` (diagnostic, avec `ALACOD_INPUT=neutral`) : tous les joueurs
+/// locaux appuient sur Blank à cette frame (preuve p2p du blank, `docs/conventions.md` §41).
+fn press_blank_at() -> Option<u32> {
+    static AT: std::sync::OnceLock<Option<u32>> = std::sync::OnceLock::new();
+    *AT.get_or_init(|| {
+        std::env::var("ALACOD_PRESS_BLANK_AT")
+            .ok()
+            .map(|v| v.parse().expect("ALACOD_PRESS_BLANK_AT doit être un entier"))
+    })
+}
+
 pub fn read_local_inputs(
     mut commands: Commands,
     input_source: Res<InputSource>,
@@ -310,9 +321,13 @@ pub fn read_local_inputs(
     // GGRS exige un input par joueur local à chaque frame : un joueur mort
     // (entité despawn) ou pas encore créé envoie un input neutre.
     for handle in &local_players.0 {
-        local_inputs
+        let input = local_inputs
             .entry(*handle)
             .or_insert_with(BoxInput::default);
+        // M2-T1 : preuve p2p d'un blank sans clavier (`ALACOD_INPUT=neutral`).
+        if *input_source == InputSource::Neutral && press_blank_at() == Some(frame.frame) {
+            input.buttons |= INPUT_BLANK;
+        }
     }
 
     commands.insert_resource(LocalInputs::<PeerConfig>(local_inputs));

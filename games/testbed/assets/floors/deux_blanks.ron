@@ -1,0 +1,9 @@
+// M2-T1 (docs/conventions.md §41) : comme `deux_niveaux`, avec les blanks remontés à deux au début de
+// chaque étage (scénario `blank_floor_refill`).
+(
+    levels: [
+        "testbed/floor_a.ldtk",
+        "testbed/floor_b.ldtk",
+    ],
+    consumables_per_floor: {"blank": 2},
+)
