@@ -1,0 +1,5 @@
+(
+    name: "fixture-character_starting_consumable_unknown",
+    content_folders: [(path: "characters", kind: "Character")],
+    entry: (start_map: "unused", default_seed: 1),
+)

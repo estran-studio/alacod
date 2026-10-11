@@ -4,7 +4,7 @@
 // 50 % de santé (moment clé `boss_phase`) puis meurt : l'étage est vidé, victoire (`RunState`).
 //
 // À regarder : après le combat, le joueur avance vers l'est ; la salle du boss se verrouille ; le
-// `gatling` tire des visées puis, sous 50 % de santé, des couronnes ; il meurt, les portes se
+// `gatling` tire des éventails (`Fan`) puis, sous 50 % de santé, des spirales (`Spiral`) ; le joueur répond par deux blanks (M2-T1) qui effacent les balles proches ; il meurt, les portes se
 // rouvrent, écran de victoire.
 Scenario(
     powerup_drop_chance_override: "0.0",
@@ -21,7 +21,12 @@ Scenario(
             (from: 130, to: 240, buttons: [Fire], pan: (42, -32)),
             (from: 245, to: 255, buttons: [Up]),
             (from: 255, to: 300, buttons: [Right]),
-            (from: 310, to: 600, buttons: [Fire], pan: (0, -25)),
+            (from: 310, to: 455, buttons: [Fire], pan: (0, -25)),
+            // M2-T1 : un blank contre la spirale de la phase 1 (f455), un second (f500).
+            (from: 455, to: 456, buttons: [Fire, Blank], pan: (0, -25)),
+            (from: 456, to: 500, buttons: [Fire], pan: (0, -25)),
+            (from: 500, to: 501, buttons: [Fire, Blank], pan: (0, -25)),
+            (from: 501, to: 600, buttons: [Fire], pan: (0, -25)),
         ]),
     ],
     expect: [

@@ -1,0 +1,1 @@
+(name: "Vide", kind: Passive, blank: Some((radius: "100.0", iframes: 0)))

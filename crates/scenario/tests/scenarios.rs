@@ -980,6 +980,11 @@ fn bullet_lines() {
             .iter(world)
             .map(|(i, b, t)| format!("{:?}/{:?}/{:?}", i.map(|i| &i.consumables), b, t))
             .collect();
-        println!("f{frame} n={} {ps:?} joueurs={players:?} inv={inv:?}", ps.len());
+        let hp: Vec<f32> = world
+            .query_filtered::<&game::character::health::Health, With<game::character::player::Player>>()
+            .iter(world)
+            .map(|h| h.current.to_num::<f32>())
+            .collect();
+        println!("f{frame} n={} {ps:?} joueurs={players:?} inv={inv:?} hp={hp:?}", ps.len());
     }
 }
