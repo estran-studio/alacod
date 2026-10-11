@@ -2520,6 +2520,74 @@ encore (conçus pour les zombies et leurs fenêtres).
 registre natif et registre embarqué pour `zombies`, `throne` et `gungeon` ; le jeu n'est pas encore
 dans les scripts de build web (`zombies` et `throne` seulement).
 
+## 41. Projectiles v2 et blank (M2-T1, chantier B5 v2)
+
+Code : `combat::projectile::Pattern` (variantes), `combat::emitter` (état multi-salves),
+`items::{BlankSpec, BlankUsed}`, `game::items::{blank_system, BlankState, FloorStartConsumables}`,
+`content::lint` (règles), contenu `gungeon` et `testbed`.
+
+**Patterns ajoutés** (en **fin** d'enum `Pattern` : le hash des variantes d'avant ne bouge pas) :
+
+| Variante | Effet | Où |
+|---|---|---|
+| `Fan(count, spread, speed, projectile)` | `count` tirs répartis **exactement** sur `spread` radians (bornes comprises), centrés sur la visée, sans hasard (à la différence de `Scatter`) ; `speed` > 0 remplace celle du projectile, 0 = celle de la définition | émetteur **et** `on_expire` |
+| `Spiral(count, step, shots, every, speed, projectile)` | `shots` salves espacées de `every` frames, chacune de `count` bras régulièrement répartis sur le cercle ; la salve `k` tourne de `k × step` radians par rapport à la visée figée | émetteur seulement |
+| `Burst(count, per_burst, interval, spread, projectile)` | `count` salves de `per_burst` tirs en éventail de `spread`, espacées de `interval` frames | émetteur seulement |
+
+Une étape multi-salves (`Spiral`, `Burst`) **bloque la séquence** comme un `Wait` : la salve 0 part tout de
+suite, la suivante `every`/`interval` frames plus tard, l'étape suivante après la dernière salve (une salve
+de fond `Ring.every` continue de tirer). L'état d'avancement est `Emitter::multi` (`MultiVolley { step,
+fired }`), dans l'état rollback de l'émetteur ; il n'est **haché que s'il existe** (hacher un `None`
+déplacerait le checksum de tous les émetteurs d'avant ; test `spirale_ne_change_pas_le_hash…`). Aucun hasard :
+le flux RNG `patterns` n'est pas consommé. Frames mesurées (`pattern_spiral`) : émetteur posé à f6, télégraphe
+de 10 frames, salves à f17, f23, … (une salve toutes les `every` frames).
+
+**Lint.** `count`, `per_burst`, `shots` > 0 ; `every` > 0 (`Spiral`) et `interval` > 0 (`Burst`) ; `spread`,
+`speed` ≥ 0 ; `Spiral`/`Burst` refusés en `on_expire` (même au travers d'un `Named`), `Fan` admis. Fixtures
+`pattern_spiral_on_expire`, `pattern_burst_interval_zero`.
+
+**Balles ennemies qui rebondissent.** `Bounce(n)` joue pour un projectile de n'importe quelle équipe (la
+chaîne `projectile_collision_system` ne regarde pas l'équipe pour les murs) : aucun correctif nécessaire,
+prouvé par `enemy_bullet_bounce`. `gungeon` : `salve` de `bullet_kin` tire des `ricochet` (`Bounce(2)`).
+
+**Blank.** Le consommable `blank` porte `blank: Some((radius: "140.0", iframes: 10))` (`items::BlankSpec`
+dans `objets/blank.ron`, lint : consommable seulement, `radius` > 0). Au **front montant** de `Blank`
+(`INPUT_BLANK`, touche Q), `blank_system` (`RollbackSystemSet::Effects`, après l'usage d'actif) :
+1. consomme un exemplaire du premier objet porteur de `blank` que le joueur possède (ordre des ids) ;
+2. efface (`despawn_rollback`) toute balle dont l'équipe de tir n'est ni celle du joueur ni
+   `Allies`/`Neutral`, dans `radius` du joueur (jamais celles des joueurs) ;
+3. rend le joueur invulnérable `iframes` frames (`Health::invulnerable_until_frame`, comme le dash) ;
+4. émet `FrameEvents<BlankUsed { frame, player_handle, x, y, radius, cleared }>` (neutre ; lu par la
+   présentation et par `OnBlank` de M2-T3) et la trace `ggrs{f=… blank net_id=… item=… cleared=…}`.
+Sans blank en inventaire (ou sans inventaire) : rien. **Mémoire du front montant** :
+`BlankState { held, floor }`, composant rollback **neutre**, posé sur un joueur dès qu'il a un `Inventory`
+(avec `held` = l'état de l'input cette frame : aucun faux front à la pose), réécrit à chaque frame
+**avant** tout retour anticipé (piège « donnée dérivée non rollbackée »). Seuls `gungeon` et les scénarios
+qui donnent un inventaire en portent : les traces des autres jeux ne bougent pas.
+
+**Consommables de départ et d'étage (données).** `CharacterConfig::starting_consumables: {"blank": 2}`
+crée l'`Inventory` du joueur à la création (vide par défaut : aucun inventaire). `Floors` :
+`consumables_per_floor: {"blank": 2}` dans `floors/<id>.ron` remonte chaque compteur **à au moins** `n` au
+début de chaque étage suivant (ressource hors rollback `FloorStartConsumables`, posée par `map_ldtk` au
+chargement ; `BlankState::floor` retient l'étage servi). Lint : id consommable connu (`BrokenReference`,
+fixture `character_starting_consumable_unknown`).
+
+**Présentation.** `game::items::BlankPresentationPlugin` (`PresentationPlugin`, absent en headless) : onde (cercle
+qui s'étend jusqu'au rayon puis s'estompe, 24 frames) dérivée de `BlankUsed` dans `Update` (ressource
+`LastBlank`, jamais lue par la simulation). Moment clé `blank` (scénarios, vidéos). HUD : pas de source
+« compteur de blanks » dans `HUD_SOURCES` : à M2-T18.
+
+**Scénarios.** Testbed (`arena.ldtk`, tourelles `tourelle_spirale|eventail|salve|ricochet|anneau`) :
+`pattern_spiral` (salves f17-f47), `pattern_fan` (5 flèches f17), `pattern_burst` (2 flèches à f17, f25, f33),
+`enemy_bullet_bounce` (rebond sur le mur sud vers f63), `blank_clears_bullets` (12 boules ennemies effacées
+à f36, 2 balles du joueur gardées, compteur 2 → 1), `blank_empty` (sans blank, rien), `bench_bullets_room`
+(535 balles ennemies vivantes, salle verrouillée, plancher `budgets.ron`). Piège de script : **des segments
+d'input qui se chevauchent ne se combinent pas** (le premier gagne) : couper les segments (`Fire` seul,
+puis `Fire, Blank` une frame, puis `Fire`). Diagnostic : test ignoré `bullet_lines`
+(`ALACOD_BULLET_LINES=<scénario>:<de>:<à>` : balles, joueurs, inventaire, santé frame par frame).
+`gungeon` : `bullet_kin` joue `salve`, le boss `gatling` `eventail` (phase 0) puis `spirale` (phase 1,
+projectile `etincelle`), le pistolero a deux blanks (`gungeon_boss` en utilise deux contre la spirale).
+
 ---
 
 ## Notes essentielles
