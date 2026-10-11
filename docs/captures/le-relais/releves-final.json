@@ -1,0 +1,2679 @@
+[
+  {
+    "seed": 1,
+    "wave": 5,
+    "floor": 0,
+    "frames": 6660,
+    "deaths": 0,
+    "kills": 26,
+    "wall_seconds": 261.589343375,
+    "desync": false,
+    "sim_fps": 25.50729576951346,
+    "damage_taken": 0,
+    "doors_opened": 4,
+    "players_end": [
+      {
+        "handle": 0,
+        "currency": 690,
+        "downed": false,
+        "x": 122.26564,
+        "y": -647.37964,
+        "in_spawn_room": true
+      },
+      {
+        "handle": 1,
+        "currency": 630,
+        "downed": false,
+        "x": 122.093506,
+        "y": -651.1226,
+        "in_spawn_room": true
+      },
+      {
+        "handle": 2,
+        "currency": 700,
+        "downed": false,
+        "x": 122.96117,
+        "y": -649.0795,
+        "in_spawn_room": true
+      },
+      {
+        "handle": 3,
+        "currency": 410,
+        "downed": false,
+        "x": 122.86955,
+        "y": -649.16284,
+        "in_spawn_room": true
+      }
+    ],
+    "waves": [
+      {
+        "wave": 1,
+        "enemies": 3,
+        "start": 1,
+        "spawning": 181,
+        "cleared": 582,
+        "damage": 0,
+        "downs": 0,
+        "deaths": 0
+      },
+      {
+        "wave": 2,
+        "enemies": 7,
+        "start": 1182,
+        "spawning": 1362,
+        "cleared": 2326,
+        "damage": 0,
+        "downs": 0,
+        "deaths": 0
+      },
+      {
+        "wave": 3,
+        "enemies": 7,
+        "start": 2926,
+        "spawning": 3106,
+        "cleared": 4047,
+        "damage": 0,
+        "downs": 0,
+        "deaths": 0
+      },
+      {
+        "wave": 4,
+        "enemies": 9,
+        "start": 4647,
+        "spawning": 4827,
+        "cleared": 6060,
+        "damage": 0,
+        "downs": 0,
+        "deaths": 0
+      },
+      {
+        "wave": 5,
+        "enemies": 11,
+        "start": 6660,
+        "spawning": null,
+        "cleared": null,
+        "damage": 0,
+        "downs": 0,
+        "deaths": 0
+      }
+    ]
+  },
+  {
+    "seed": 2,
+    "wave": 5,
+    "floor": 0,
+    "frames": 6374,
+    "deaths": 0,
+    "kills": 28,
+    "wall_seconds": 198.752607584,
+    "desync": false,
+    "sim_fps": 32.110046122114696,
+    "damage_taken": 0,
+    "doors_opened": 5,
+    "players_end": [
+      {
+        "handle": 0,
+        "currency": 800,
+        "downed": false,
+        "x": 553.6837,
+        "y": -607.7505,
+        "in_spawn_room": true
+      },
+      {
+        "handle": 1,
+        "currency": 570,
+        "downed": false,
+        "x": 122.47218,
+        "y": -455.65192,
+        "in_spawn_room": true
+      },
+      {
+        "handle": 2,
+        "currency": 50,
+        "downed": false,
+        "x": 630.57306,
+        "y": -687.25934,
+        "in_spawn_room": true
+      },
+      {
+        "handle": 3,
+        "currency": 120,
+        "downed": false,
+        "x": 289.3534,
+        "y": -372.34796,
+        "in_spawn_room": true
+      }
+    ],
+    "waves": [
+      {
+        "wave": 1,
+        "enemies": 3,
+        "start": 1,
+        "spawning": 181,
+        "cleared": 499,
+        "damage": 0,
+        "downs": 0,
+        "deaths": 0
+      },
+      {
+        "wave": 2,
+        "enemies": 5,
+        "start": 1099,
+        "spawning": 1279,
+        "cleared": 1872,
+        "damage": 0,
+        "downs": 0,
+        "deaths": 0
+      },
+      {
+        "wave": 3,
+        "enemies": 9,
+        "start": 2472,
+        "spawning": 2652,
+        "cleared": 3682,
+        "damage": 0,
+        "downs": 0,
+        "deaths": 0
+      },
+      {
+        "wave": 4,
+        "enemies": 11,
+        "start": 4282,
+        "spawning": 4462,
+        "cleared": 5774,
+        "damage": 0,
+        "downs": 0,
+        "deaths": 0
+      },
+      {
+        "wave": 5,
+        "enemies": 11,
+        "start": 6374,
+        "spawning": null,
+        "cleared": null,
+        "damage": 0,
+        "downs": 0,
+        "deaths": 0
+      }
+    ]
+  },
+  {
+    "seed": 3,
+    "wave": 5,
+    "floor": 0,
+    "frames": 6077,
+    "deaths": 0,
+    "kills": 26,
+    "wall_seconds": 182.470797083,
+    "desync": false,
+    "sim_fps": 33.345049376794314,
+    "damage_taken": 0,
+    "doors_opened": 4,
+    "players_end": [
+      {
+        "handle": 0,
+        "currency": 400,
+        "downed": false,
+        "x": 263.9671,
+        "y": -423.0356,
+        "in_spawn_room": true
+      },
+      {
+        "handle": 1,
+        "currency": 380,
+        "downed": false,
+        "x": 267.49573,
+        "y": -419.5449,
+        "in_spawn_room": true
+      },
+      {
+        "handle": 2,
+        "currency": 630,
+        "downed": false,
+        "x": 275.83484,
+        "y": -361.6072,
+        "in_spawn_room": true
+      },
+      {
+        "handle": 3,
+        "currency": 380,
+        "downed": false,
+        "x": 335.28635,
+        "y": -118.69191,
+        "in_spawn_room": true
+      }
+    ],
+    "waves": [
+      {
+        "wave": 1,
+        "enemies": 4,
+        "start": 1,
+        "spawning": 181,
+        "cleared": 638,
+        "damage": 0,
+        "downs": 0,
+        "deaths": 0
+      },
+      {
+        "wave": 2,
+        "enemies": 5,
+        "start": 1238,
+        "spawning": 1418,
+        "cleared": 1977,
+        "damage": 0,
+        "downs": 0,
+        "deaths": 0
+      },
+      {
+        "wave": 3,
+        "enemies": 8,
+        "start": 2577,
+        "spawning": 2757,
+        "cleared": 3645,
+        "damage": 0,
+        "downs": 0,
+        "deaths": 0
+      },
+      {
+        "wave": 4,
+        "enemies": 9,
+        "start": 4245,
+        "spawning": 4425,
+        "cleared": 5477,
+        "damage": 0,
+        "downs": 0,
+        "deaths": 0
+      },
+      {
+        "wave": 5,
+        "enemies": 11,
+        "start": 6077,
+        "spawning": null,
+        "cleared": null,
+        "damage": 0,
+        "downs": 0,
+        "deaths": 0
+      }
+    ]
+  },
+  {
+    "seed": 4,
+    "wave": 5,
+    "floor": 0,
+    "frames": 6272,
+    "deaths": 0,
+    "kills": 28,
+    "wall_seconds": 229.091623834,
+    "desync": false,
+    "sim_fps": 27.407587434552678,
+    "damage_taken": 0,
+    "doors_opened": 8,
+    "players_end": [
+      {
+        "handle": 0,
+        "currency": 90,
+        "downed": false,
+        "x": 820.4737,
+        "y": -494.47546,
+        "in_spawn_room": true
+      },
+      {
+        "handle": 1,
+        "currency": 10,
+        "downed": false,
+        "x": 798.9711,
+        "y": -524.1076,
+        "in_spawn_room": true
+      },
+      {
+        "handle": 2,
+        "currency": 330,
+        "downed": false,
+        "x": 820.6504,
+        "y": -471.51196,
+        "in_spawn_room": true
+      },
+      {
+        "handle": 3,
+        "currency": 290,
+        "downed": false,
+        "x": 821.2133,
+        "y": -472.50558,
+        "in_spawn_room": true
+      }
+    ],
+    "waves": [
+      {
+        "wave": 1,
+        "enemies": 3,
+        "start": 1,
+        "spawning": 181,
+        "cleared": 503,
+        "damage": 0,
+        "downs": 0,
+        "deaths": 0
+      },
+      {
+        "wave": 2,
+        "enemies": 5,
+        "start": 1103,
+        "spawning": 1283,
+        "cleared": 1854,
+        "damage": 0,
+        "downs": 0,
+        "deaths": 0
+      },
+      {
+        "wave": 3,
+        "enemies": 9,
+        "start": 2454,
+        "spawning": 2634,
+        "cleared": 3644,
+        "damage": 0,
+        "downs": 0,
+        "deaths": 0
+      },
+      {
+        "wave": 4,
+        "enemies": 11,
+        "start": 4244,
+        "spawning": 4424,
+        "cleared": 5672,
+        "damage": 0,
+        "downs": 0,
+        "deaths": 0
+      },
+      {
+        "wave": 5,
+        "enemies": 12,
+        "start": 6272,
+        "spawning": null,
+        "cleared": null,
+        "damage": 0,
+        "downs": 0,
+        "deaths": 0
+      }
+    ]
+  },
+  {
+    "seed": 5,
+    "wave": 5,
+    "floor": 0,
+    "frames": 6508,
+    "deaths": 0,
+    "kills": 29,
+    "wall_seconds": 137.891060417,
+    "desync": false,
+    "sim_fps": 47.28411398063813,
+    "damage_taken": 0,
+    "doors_opened": 4,
+    "players_end": [
+      {
+        "handle": 0,
+        "currency": 620,
+        "downed": false,
+        "x": 321.46042,
+        "y": -567.50903,
+        "in_spawn_room": true
+      },
+      {
+        "handle": 1,
+        "currency": 870,
+        "downed": false,
+        "x": 316.67038,
+        "y": -567.6565,
+        "in_spawn_room": true
+      },
+      {
+        "handle": 2,
+        "currency": 710,
+        "downed": false,
+        "x": 317.5424,
+        "y": -566.8557,
+        "in_spawn_room": true
+      },
+      {
+        "handle": 3,
+        "currency": 1260,
+        "downed": false,
+        "x": 323.0103,
+        "y": -568.2888,
+        "in_spawn_room": true
+      }
+    ],
+    "waves": [
+      {
+        "wave": 1,
+        "enemies": 4,
+        "start": 1,
+        "spawning": 181,
+        "cleared": 625,
+        "damage": 0,
+        "downs": 0,
+        "deaths": 0
+      },
+      {
+        "wave": 2,
+        "enemies": 5,
+        "start": 1225,
+        "spawning": 1405,
+        "cleared": 2026,
+        "damage": 0,
+        "downs": 0,
+        "deaths": 0
+      },
+      {
+        "wave": 3,
+        "enemies": 9,
+        "start": 2626,
+        "spawning": 2806,
+        "cleared": 3865,
+        "damage": 0,
+        "downs": 0,
+        "deaths": 0
+      },
+      {
+        "wave": 4,
+        "enemies": 11,
+        "start": 4465,
+        "spawning": 4645,
+        "cleared": 5908,
+        "damage": 0,
+        "downs": 0,
+        "deaths": 0
+      },
+      {
+        "wave": 5,
+        "enemies": 12,
+        "start": 6508,
+        "spawning": null,
+        "cleared": null,
+        "damage": 0,
+        "downs": 0,
+        "deaths": 0
+      }
+    ]
+  },
+  {
+    "seed": 6,
+    "wave": 5,
+    "floor": 0,
+    "frames": 6007,
+    "deaths": 0,
+    "kills": 25,
+    "wall_seconds": 262.258425834,
+    "desync": false,
+    "sim_fps": 22.947715085704026,
+    "damage_taken": 0,
+    "doors_opened": 6,
+    "players_end": [
+      {
+        "handle": 0,
+        "currency": 140,
+        "downed": false,
+        "x": 266.0984,
+        "y": -442.18494,
+        "in_spawn_room": true
+      },
+      {
+        "handle": 1,
+        "currency": 510,
+        "downed": false,
+        "x": 123.51587,
+        "y": -642.1917,
+        "in_spawn_room": true
+      },
+      {
+        "handle": 2,
+        "currency": 80,
+        "downed": false,
+        "x": 820.37573,
+        "y": -551.68475,
+        "in_spawn_room": true
+      },
+      {
+        "handle": 3,
+        "currency": 700,
+        "downed": false,
+        "x": 123.23601,
+        "y": -643.2846,
+        "in_spawn_room": true
+      }
+    ],
+    "waves": [
+      {
+        "wave": 1,
+        "enemies": 4,
+        "start": 1,
+        "spawning": 181,
+        "cleared": 633,
+        "damage": 0,
+        "downs": 0,
+        "deaths": 0
+      },
+      {
+        "wave": 2,
+        "enemies": 5,
+        "start": 1233,
+        "spawning": 1413,
+        "cleared": 1996,
+        "damage": 0,
+        "downs": 0,
+        "deaths": 0
+      },
+      {
+        "wave": 3,
+        "enemies": 7,
+        "start": 2596,
+        "spawning": 2776,
+        "cleared": 3592,
+        "damage": 0,
+        "downs": 0,
+        "deaths": 0
+      },
+      {
+        "wave": 4,
+        "enemies": 9,
+        "start": 4192,
+        "spawning": 4372,
+        "cleared": 5407,
+        "damage": 0,
+        "downs": 0,
+        "deaths": 0
+      },
+      {
+        "wave": 5,
+        "enemies": 11,
+        "start": 6007,
+        "spawning": null,
+        "cleared": null,
+        "damage": 0,
+        "downs": 0,
+        "deaths": 0
+      }
+    ]
+  },
+  {
+    "seed": 7,
+    "wave": 5,
+    "floor": 0,
+    "frames": 7007,
+    "deaths": 0,
+    "kills": 30,
+    "wall_seconds": 283.370311083,
+    "desync": false,
+    "sim_fps": 24.749002752687844,
+    "damage_taken": 0,
+    "doors_opened": 7,
+    "players_end": [
+      {
+        "handle": 0,
+        "currency": 820,
+        "downed": false,
+        "x": 123.146164,
+        "y": -328.69473,
+        "in_spawn_room": true
+      },
+      {
+        "handle": 1,
+        "currency": 880,
+        "downed": false,
+        "x": 259.77795,
+        "y": -335.89758,
+        "in_spawn_room": true
+      },
+      {
+        "handle": 2,
+        "currency": 1080,
+        "downed": false,
+        "x": 307.33466,
+        "y": -334.35254,
+        "in_spawn_room": true
+      },
+      {
+        "handle": 3,
+        "currency": 220,
+        "downed": false,
+        "x": 366.89023,
+        "y": -310.3798,
+        "in_spawn_room": true
+      }
+    ],
+    "waves": [
+      {
+        "wave": 1,
+        "enemies": 5,
+        "start": 1,
+        "spawning": 181,
+        "cleared": 767,
+        "damage": 0,
+        "downs": 0,
+        "deaths": 0
+      },
+      {
+        "wave": 2,
+        "enemies": 6,
+        "start": 1367,
+        "spawning": 1547,
+        "cleared": 2270,
+        "damage": 0,
+        "downs": 0,
+        "deaths": 0
+      },
+      {
+        "wave": 3,
+        "enemies": 9,
+        "start": 2870,
+        "spawning": 3050,
+        "cleared": 4239,
+        "damage": 0,
+        "downs": 0,
+        "deaths": 0
+      },
+      {
+        "wave": 4,
+        "enemies": 10,
+        "start": 4839,
+        "spawning": 5019,
+        "cleared": 6407,
+        "damage": 0,
+        "downs": 0,
+        "deaths": 0
+      },
+      {
+        "wave": 5,
+        "enemies": 11,
+        "start": 7007,
+        "spawning": null,
+        "cleared": null,
+        "damage": 0,
+        "downs": 0,
+        "deaths": 0
+      }
+    ]
+  },
+  {
+    "seed": 8,
+    "wave": 5,
+    "floor": 0,
+    "frames": 6135,
+    "deaths": 0,
+    "kills": 26,
+    "wall_seconds": 210.894374083,
+    "desync": false,
+    "sim_fps": 29.12234749763373,
+    "damage_taken": 0,
+    "doors_opened": 7,
+    "players_end": [
+      {
+        "handle": 0,
+        "currency": 730,
+        "downed": false,
+        "x": 123.896774,
+        "y": -477.17365,
+        "in_spawn_room": true
+      },
+      {
+        "handle": 1,
+        "currency": 70,
+        "downed": false,
+        "x": 821.3435,
+        "y": -568.6444,
+        "in_spawn_room": true
+      },
+      {
+        "handle": 2,
+        "currency": 170,
+        "downed": false,
+        "x": 213.33662,
+        "y": -609.4564,
+        "in_spawn_room": true
+      },
+      {
+        "handle": 3,
+        "currency": 90,
+        "downed": false,
+        "x": 541.54944,
+        "y": -570.61005,
+        "in_spawn_room": true
+      }
+    ],
+    "waves": [
+      {
+        "wave": 1,
+        "enemies": 3,
+        "start": 1,
+        "spawning": 181,
+        "cleared": 537,
+        "damage": 0,
+        "downs": 0,
+        "deaths": 0
+      },
+      {
+        "wave": 2,
+        "enemies": 6,
+        "start": 1137,
+        "spawning": 1317,
+        "cleared": 2000,
+        "damage": 0,
+        "downs": 0,
+        "deaths": 0
+      },
+      {
+        "wave": 3,
+        "enemies": 8,
+        "start": 2600,
+        "spawning": 2780,
+        "cleared": 3708,
+        "damage": 0,
+        "downs": 0,
+        "deaths": 0
+      },
+      {
+        "wave": 4,
+        "enemies": 9,
+        "start": 4308,
+        "spawning": 4488,
+        "cleared": 5535,
+        "damage": 0,
+        "downs": 0,
+        "deaths": 0
+      },
+      {
+        "wave": 5,
+        "enemies": 13,
+        "start": 6135,
+        "spawning": null,
+        "cleared": null,
+        "damage": 0,
+        "downs": 0,
+        "deaths": 0
+      }
+    ]
+  },
+  {
+    "seed": 9,
+    "wave": 5,
+    "floor": 0,
+    "frames": 6625,
+    "deaths": 0,
+    "kills": 28,
+    "wall_seconds": 153.080156125,
+    "desync": false,
+    "sim_fps": 43.34913158254023,
+    "damage_taken": 0,
+    "doors_opened": 4,
+    "players_end": [
+      {
+        "handle": 0,
+        "currency": 610,
+        "downed": false,
+        "x": 309.86536,
+        "y": -577.91016,
+        "in_spawn_room": true
+      },
+      {
+        "handle": 1,
+        "currency": 1360,
+        "downed": false,
+        "x": 307.193,
+        "y": -581.2228,
+        "in_spawn_room": true
+      },
+      {
+        "handle": 2,
+        "currency": 530,
+        "downed": false,
+        "x": 433.50922,
+        "y": -631.38,
+        "in_spawn_room": true
+      },
+      {
+        "handle": 3,
+        "currency": 1190,
+        "downed": false,
+        "x": 313.75143,
+        "y": -581.2443,
+        "in_spawn_room": true
+      }
+    ],
+    "waves": [
+      {
+        "wave": 1,
+        "enemies": 4,
+        "start": 1,
+        "spawning": 181,
+        "cleared": 631,
+        "damage": 0,
+        "downs": 0,
+        "deaths": 0
+      },
+      {
+        "wave": 2,
+        "enemies": 5,
+        "start": 1231,
+        "spawning": 1411,
+        "cleared": 1974,
+        "damage": 0,
+        "downs": 0,
+        "deaths": 0
+      },
+      {
+        "wave": 3,
+        "enemies": 8,
+        "start": 2574,
+        "spawning": 2754,
+        "cleared": 3950,
+        "damage": 0,
+        "downs": 0,
+        "deaths": 0
+      },
+      {
+        "wave": 4,
+        "enemies": 11,
+        "start": 4550,
+        "spawning": 4730,
+        "cleared": 6025,
+        "damage": 0,
+        "downs": 0,
+        "deaths": 0
+      },
+      {
+        "wave": 5,
+        "enemies": 11,
+        "start": 6625,
+        "spawning": null,
+        "cleared": null,
+        "damage": 0,
+        "downs": 0,
+        "deaths": 0
+      }
+    ]
+  },
+  {
+    "seed": 10,
+    "wave": 5,
+    "floor": 0,
+    "frames": 6378,
+    "deaths": 0,
+    "kills": 28,
+    "wall_seconds": 173.327739416,
+    "desync": false,
+    "sim_fps": 36.8543860885739,
+    "damage_taken": 0,
+    "doors_opened": 5,
+    "players_end": [
+      {
+        "handle": 0,
+        "currency": 970,
+        "downed": false,
+        "x": 778.59436,
+        "y": -595.4631,
+        "in_spawn_room": true
+      },
+      {
+        "handle": 1,
+        "currency": 520,
+        "downed": false,
+        "x": 780.9771,
+        "y": -606.95776,
+        "in_spawn_room": true
+      },
+      {
+        "handle": 2,
+        "currency": 40,
+        "downed": false,
+        "x": 779.5884,
+        "y": -600.199,
+        "in_spawn_room": true
+      },
+      {
+        "handle": 3,
+        "currency": 820,
+        "downed": false,
+        "x": 685.3586,
+        "y": -580.6892,
+        "in_spawn_room": true
+      }
+    ],
+    "waves": [
+      {
+        "wave": 1,
+        "enemies": 4,
+        "start": 1,
+        "spawning": 181,
+        "cleared": 640,
+        "damage": 0,
+        "downs": 0,
+        "deaths": 0
+      },
+      {
+        "wave": 2,
+        "enemies": 6,
+        "start": 1240,
+        "spawning": 1420,
+        "cleared": 2128,
+        "damage": 0,
+        "downs": 0,
+        "deaths": 0
+      },
+      {
+        "wave": 3,
+        "enemies": 7,
+        "start": 2728,
+        "spawning": 2908,
+        "cleared": 3696,
+        "damage": 0,
+        "downs": 0,
+        "deaths": 0
+      },
+      {
+        "wave": 4,
+        "enemies": 11,
+        "start": 4296,
+        "spawning": 4476,
+        "cleared": 5778,
+        "damage": 0,
+        "downs": 0,
+        "deaths": 0
+      },
+      {
+        "wave": 5,
+        "enemies": 12,
+        "start": 6378,
+        "spawning": null,
+        "cleared": null,
+        "damage": 0,
+        "downs": 0,
+        "deaths": 0
+      }
+    ]
+  },
+  {
+    "seed": 11,
+    "wave": 5,
+    "floor": 0,
+    "frames": 6801,
+    "deaths": 0,
+    "kills": 31,
+    "wall_seconds": 255.044423709,
+    "desync": false,
+    "sim_fps": 26.71605640074692,
+    "damage_taken": 0,
+    "doors_opened": 6,
+    "players_end": [
+      {
+        "handle": 0,
+        "currency": 670,
+        "downed": false,
+        "x": 122.59732,
+        "y": -448.43896,
+        "in_spawn_room": true
+      },
+      {
+        "handle": 1,
+        "currency": 1250,
+        "downed": false,
+        "x": 122.58789,
+        "y": -448.49097,
+        "in_spawn_room": true
+      },
+      {
+        "handle": 2,
+        "currency": 820,
+        "downed": false,
+        "x": 123.23314,
+        "y": -449.26083,
+        "in_spawn_room": true
+      },
+      {
+        "handle": 3,
+        "currency": 1320,
+        "downed": false,
+        "x": 123.1877,
+        "y": -463.04315,
+        "in_spawn_room": true
+      }
+    ],
+    "waves": [
+      {
+        "wave": 1,
+        "enemies": 5,
+        "start": 1,
+        "spawning": 181,
+        "cleared": 789,
+        "damage": 0,
+        "downs": 0,
+        "deaths": 0
+      },
+      {
+        "wave": 2,
+        "enemies": 7,
+        "start": 1389,
+        "spawning": 1569,
+        "cleared": 2372,
+        "damage": 0,
+        "downs": 0,
+        "deaths": 0
+      },
+      {
+        "wave": 3,
+        "enemies": 9,
+        "start": 2972,
+        "spawning": 3152,
+        "cleared": 4216,
+        "damage": 0,
+        "downs": 0,
+        "deaths": 0
+      },
+      {
+        "wave": 4,
+        "enemies": 10,
+        "start": 4816,
+        "spawning": 4996,
+        "cleared": 6201,
+        "damage": 0,
+        "downs": 0,
+        "deaths": 0
+      },
+      {
+        "wave": 5,
+        "enemies": 11,
+        "start": 6801,
+        "spawning": null,
+        "cleared": null,
+        "damage": 0,
+        "downs": 0,
+        "deaths": 0
+      }
+    ]
+  },
+  {
+    "seed": 12,
+    "wave": 5,
+    "floor": 0,
+    "frames": 6135,
+    "deaths": 0,
+    "kills": 25,
+    "wall_seconds": 212.749941583,
+    "desync": false,
+    "sim_fps": 28.86799059161366,
+    "damage_taken": 0,
+    "doors_opened": 6,
+    "players_end": [
+      {
+        "handle": 0,
+        "currency": 410,
+        "downed": false,
+        "x": 122.33838,
+        "y": -175.13797,
+        "in_spawn_room": true
+      },
+      {
+        "handle": 1,
+        "currency": 460,
+        "downed": false,
+        "x": 122.313446,
+        "y": -160.67282,
+        "in_spawn_room": true
+      },
+      {
+        "handle": 2,
+        "currency": 540,
+        "downed": false,
+        "x": 123.053085,
+        "y": -159.1394,
+        "in_spawn_room": true
+      },
+      {
+        "handle": 3,
+        "currency": 20,
+        "downed": false,
+        "x": 821.31116,
+        "y": -271.51263,
+        "in_spawn_room": true
+      }
+    ],
+    "waves": [
+      {
+        "wave": 1,
+        "enemies": 4,
+        "start": 1,
+        "spawning": 181,
+        "cleared": 639,
+        "damage": 0,
+        "downs": 0,
+        "deaths": 0
+      },
+      {
+        "wave": 2,
+        "enemies": 5,
+        "start": 1239,
+        "spawning": 1419,
+        "cleared": 2023,
+        "damage": 0,
+        "downs": 0,
+        "deaths": 0
+      },
+      {
+        "wave": 3,
+        "enemies": 7,
+        "start": 2623,
+        "spawning": 2803,
+        "cleared": 3621,
+        "damage": 0,
+        "downs": 0,
+        "deaths": 0
+      },
+      {
+        "wave": 4,
+        "enemies": 9,
+        "start": 4221,
+        "spawning": 4401,
+        "cleared": 5535,
+        "damage": 0,
+        "downs": 0,
+        "deaths": 0
+      },
+      {
+        "wave": 5,
+        "enemies": 11,
+        "start": 6135,
+        "spawning": null,
+        "cleared": null,
+        "damage": 0,
+        "downs": 0,
+        "deaths": 0
+      }
+    ]
+  },
+  {
+    "seed": 13,
+    "wave": 5,
+    "floor": 0,
+    "frames": 6837,
+    "deaths": 0,
+    "kills": 28,
+    "wall_seconds": 264.623850041,
+    "desync": false,
+    "sim_fps": 25.859512830673864,
+    "damage_taken": 0,
+    "doors_opened": 4,
+    "players_end": [
+      {
+        "handle": 0,
+        "currency": 1100,
+        "downed": false,
+        "x": 1189.7875,
+        "y": -471.175,
+        "in_spawn_room": true
+      },
+      {
+        "handle": 1,
+        "currency": 760,
+        "downed": false,
+        "x": 1189.2717,
+        "y": -473.33743,
+        "in_spawn_room": true
+      },
+      {
+        "handle": 2,
+        "currency": 1250,
+        "downed": false,
+        "x": 1189.3718,
+        "y": -473.27032,
+        "in_spawn_room": true
+      },
+      {
+        "handle": 3,
+        "currency": 1350,
+        "downed": false,
+        "x": 1189.9686,
+        "y": -471.20914,
+        "in_spawn_room": true
+      }
+    ],
+    "waves": [
+      {
+        "wave": 1,
+        "enemies": 5,
+        "start": 1,
+        "spawning": 181,
+        "cleared": 939,
+        "damage": 0,
+        "downs": 0,
+        "deaths": 0
+      },
+      {
+        "wave": 2,
+        "enemies": 5,
+        "start": 1539,
+        "spawning": 1719,
+        "cleared": 2431,
+        "damage": 0,
+        "downs": 0,
+        "deaths": 0
+      },
+      {
+        "wave": 3,
+        "enemies": 7,
+        "start": 3031,
+        "spawning": 3211,
+        "cleared": 4191,
+        "damage": 0,
+        "downs": 0,
+        "deaths": 0
+      },
+      {
+        "wave": 4,
+        "enemies": 11,
+        "start": 4791,
+        "spawning": 4971,
+        "cleared": 6237,
+        "damage": 0,
+        "downs": 0,
+        "deaths": 0
+      },
+      {
+        "wave": 5,
+        "enemies": 12,
+        "start": 6837,
+        "spawning": null,
+        "cleared": null,
+        "damage": 0,
+        "downs": 0,
+        "deaths": 0
+      }
+    ]
+  },
+  {
+    "seed": 14,
+    "wave": 5,
+    "floor": 0,
+    "frames": 6320,
+    "deaths": 0,
+    "kills": 27,
+    "wall_seconds": 219.204375875,
+    "desync": false,
+    "sim_fps": 28.861715446327537,
+    "damage_taken": 0,
+    "doors_opened": 6,
+    "players_end": [
+      {
+        "handle": 0,
+        "currency": 1560,
+        "downed": false,
+        "x": 785.9451,
+        "y": -562.77356,
+        "in_spawn_room": true
+      },
+      {
+        "handle": 1,
+        "currency": 800,
+        "downed": false,
+        "x": 820.3196,
+        "y": -492.50125,
+        "in_spawn_room": true
+      },
+      {
+        "handle": 2,
+        "currency": 210,
+        "downed": false,
+        "x": 798.938,
+        "y": -548.48975,
+        "in_spawn_room": true
+      },
+      {
+        "handle": 3,
+        "currency": 220,
+        "downed": false,
+        "x": 818.4333,
+        "y": -489.94806,
+        "in_spawn_room": true
+      }
+    ],
+    "waves": [
+      {
+        "wave": 1,
+        "enemies": 5,
+        "start": 1,
+        "spawning": 181,
+        "cleared": 777,
+        "damage": 0,
+        "downs": 0,
+        "deaths": 0
+      },
+      {
+        "wave": 2,
+        "enemies": 5,
+        "start": 1377,
+        "spawning": 1557,
+        "cleared": 2156,
+        "damage": 0,
+        "downs": 0,
+        "deaths": 0
+      },
+      {
+        "wave": 3,
+        "enemies": 7,
+        "start": 2756,
+        "spawning": 2936,
+        "cleared": 3741,
+        "damage": 0,
+        "downs": 0,
+        "deaths": 0
+      },
+      {
+        "wave": 4,
+        "enemies": 10,
+        "start": 4341,
+        "spawning": 4521,
+        "cleared": 5720,
+        "damage": 0,
+        "downs": 0,
+        "deaths": 0
+      },
+      {
+        "wave": 5,
+        "enemies": 12,
+        "start": 6320,
+        "spawning": null,
+        "cleared": null,
+        "damage": 0,
+        "downs": 0,
+        "deaths": 0
+      }
+    ]
+  },
+  {
+    "seed": 15,
+    "wave": 5,
+    "floor": 0,
+    "frames": 6362,
+    "deaths": 0,
+    "kills": 28,
+    "wall_seconds": 210.556277292,
+    "desync": false,
+    "sim_fps": 30.252867699395452,
+    "damage_taken": 0,
+    "doors_opened": 6,
+    "players_end": [
+      {
+        "handle": 0,
+        "currency": 870,
+        "downed": false,
+        "x": 636.65546,
+        "y": -713.637,
+        "in_spawn_room": true
+      },
+      {
+        "handle": 1,
+        "currency": 20,
+        "downed": false,
+        "x": 547.1751,
+        "y": -815.0624,
+        "in_spawn_room": true
+      },
+      {
+        "handle": 2,
+        "currency": 750,
+        "downed": false,
+        "x": 712.08307,
+        "y": -572.9453,
+        "in_spawn_room": true
+      },
+      {
+        "handle": 3,
+        "currency": 660,
+        "downed": false,
+        "x": 821.29425,
+        "y": -463.26184,
+        "in_spawn_room": true
+      }
+    ],
+    "waves": [
+      {
+        "wave": 1,
+        "enemies": 3,
+        "start": 1,
+        "spawning": 181,
+        "cleared": 526,
+        "damage": 0,
+        "downs": 0,
+        "deaths": 0
+      },
+      {
+        "wave": 2,
+        "enemies": 7,
+        "start": 1126,
+        "spawning": 1306,
+        "cleared": 2130,
+        "damage": 0,
+        "downs": 0,
+        "deaths": 0
+      },
+      {
+        "wave": 3,
+        "enemies": 7,
+        "start": 2730,
+        "spawning": 2910,
+        "cleared": 3735,
+        "damage": 0,
+        "downs": 0,
+        "deaths": 0
+      },
+      {
+        "wave": 4,
+        "enemies": 11,
+        "start": 4335,
+        "spawning": 4515,
+        "cleared": 5762,
+        "damage": 0,
+        "downs": 0,
+        "deaths": 0
+      },
+      {
+        "wave": 5,
+        "enemies": 13,
+        "start": 6362,
+        "spawning": null,
+        "cleared": null,
+        "damage": 0,
+        "downs": 0,
+        "deaths": 0
+      }
+    ]
+  },
+  {
+    "seed": 16,
+    "wave": 5,
+    "floor": 0,
+    "frames": 6777,
+    "deaths": 0,
+    "kills": 26,
+    "wall_seconds": 317.877810584,
+    "desync": false,
+    "sim_fps": 21.352475595075656,
+    "damage_taken": 0,
+    "doors_opened": 8,
+    "players_end": [
+      {
+        "handle": 0,
+        "currency": 250,
+        "downed": false,
+        "x": 122.08519,
+        "y": -663.1775,
+        "in_spawn_room": true
+      },
+      {
+        "handle": 1,
+        "currency": 610,
+        "downed": false,
+        "x": 123.199356,
+        "y": -665.68115,
+        "in_spawn_room": true
+      },
+      {
+        "handle": 2,
+        "currency": 300,
+        "downed": false,
+        "x": 122.19075,
+        "y": -677.9114,
+        "in_spawn_room": true
+      },
+      {
+        "handle": 3,
+        "currency": 470,
+        "downed": false,
+        "x": 122.0305,
+        "y": -665.03076,
+        "in_spawn_room": true
+      }
+    ],
+    "waves": [
+      {
+        "wave": 1,
+        "enemies": 4,
+        "start": 1,
+        "spawning": 181,
+        "cleared": 627,
+        "damage": 0,
+        "downs": 0,
+        "deaths": 0
+      },
+      {
+        "wave": 2,
+        "enemies": 6,
+        "start": 1227,
+        "spawning": 1407,
+        "cleared": 2134,
+        "damage": 0,
+        "downs": 0,
+        "deaths": 0
+      },
+      {
+        "wave": 3,
+        "enemies": 7,
+        "start": 2734,
+        "spawning": 2914,
+        "cleared": 4386,
+        "damage": 0,
+        "downs": 0,
+        "deaths": 0
+      },
+      {
+        "wave": 4,
+        "enemies": 9,
+        "start": 4986,
+        "spawning": 5166,
+        "cleared": 6177,
+        "damage": 0,
+        "downs": 0,
+        "deaths": 0
+      },
+      {
+        "wave": 5,
+        "enemies": 12,
+        "start": 6777,
+        "spawning": null,
+        "cleared": null,
+        "damage": 0,
+        "downs": 0,
+        "deaths": 0
+      }
+    ]
+  },
+  {
+    "seed": 17,
+    "wave": 4,
+    "floor": 0,
+    "frames": 20000,
+    "deaths": 0,
+    "kills": 31,
+    "wall_seconds": 362.354047292,
+    "desync": false,
+    "sim_fps": 55.232995729952044,
+    "damage_taken": 175,
+    "softlock": {
+      "observations": [
+        "plafond atteint : phase InProgress, 1 ennemis de vague présents, 0 encore à générer",
+        "0 ennemis hors de leur champ de flux depuis leur case exacte (champs : GroundBreaker)",
+        "restant : zombie_full #652 case (67, -24), 50 PV, joueur 0 le plus proche à 43.3324 (hors de vue)",
+        "0 ennemis dont le point visé par le flow field chevauche un mur physique avec leur collider",
+        "aucun kill entre les frames 19400 et 20000"
+      ],
+      "previous": {
+        "frame": 19400,
+        "wave": {
+          "phase": "InProgress",
+          "current_wave": 4,
+          "enemies_to_spawn": 0,
+          "enemies_spawned_this_wave": 11,
+          "wave_enemy_count": 11,
+          "total_enemies_killed": 31,
+          "wave_enemies_killed": 10,
+          "wave_start_frame": 5546,
+          "last_spawn_frame": 6746,
+          "last_enemy_killed_frame": 6853,
+          "phase_start_frame": 6747,
+          "current_health_multiplier": "1.15001",
+          "current_damage_multiplier": "1.09",
+          "spawn_fallback": true
+        },
+        "run_step": "Playing { since_frame: 0 }",
+        "enemies": [
+          {
+            "net_id": 652,
+            "character": "zombie_full",
+            "position": {
+              "x": "1072.04733",
+              "y": "-383.97238",
+              "cell": [
+                67,
+                -24
+              ]
+            },
+            "health": "50",
+            "wave_enemy": true,
+            "state": {
+              "Attacking": {
+                "target": {
+                  "Obstacle": {
+                    "net_id": [
+                      23,
+                      "window"
+                    ]
+                  }
+                },
+                "last_attack_frame": 19374
+              }
+            },
+            "target": {
+              "target": [
+                23,
+                "window"
+              ],
+              "target_type": "Obstacle",
+              "last_known_position": {
+                "x": "1072",
+                "y": "-408"
+              }
+            },
+            "nav_profile": "GroundBreaker",
+            "path_cost": 204,
+            "nearest_player": {
+              "handle": 0,
+              "net_id": 60,
+              "distance": "43.3324",
+              "line_of_sight": false
+            },
+            "next_cell": [
+              66,
+              -25
+            ],
+            "steering_point": {
+              "x": "1072",
+              "y": "-384",
+              "cell": [
+                67,
+                -24
+              ]
+            },
+            "steering_point_blockers": []
+          }
+        ],
+        "flow_field": "GroundBreaker",
+        "players": [
+          {
+            "net_id": 60,
+            "handle": 0,
+            "position": {
+              "x": "1054.86003",
+              "y": "-423.75043",
+              "cell": [
+                65,
+                -27
+              ]
+            },
+            "health": "200",
+            "downed": null,
+            "currency": 460,
+            "active_weapon": "machine_gun",
+            "mag_ammo": 30,
+            "reserves": [
+              [
+                "Plomb",
+                48
+              ],
+              [
+                "Balle",
+                240
+              ],
+              [
+                "Cartouche",
+                0
+              ]
+            ],
+            "last_input": null
+          },
+          {
+            "net_id": 65,
+            "handle": 1,
+            "position": {
+              "x": "1051.09885",
+              "y": "-425.30388",
+              "cell": [
+                65,
+                -27
+              ]
+            },
+            "health": "100",
+            "downed": null,
+            "currency": 1640,
+            "active_weapon": "machine_gun",
+            "mag_ammo": 30,
+            "reserves": [
+              [
+                "Plomb",
+                48
+              ],
+              [
+                "Balle",
+                240
+              ],
+              [
+                "Cartouche",
+                0
+              ]
+            ],
+            "last_input": null
+          },
+          {
+            "net_id": 70,
+            "handle": 2,
+            "position": {
+              "x": "1051.41296",
+              "y": "-425.34134",
+              "cell": [
+                65,
+                -27
+              ]
+            },
+            "health": "100",
+            "downed": null,
+            "currency": 900,
+            "active_weapon": "machine_gun",
+            "mag_ammo": 30,
+            "reserves": [
+              [
+                "Plomb",
+                48
+              ],
+              [
+                "Balle",
+                240
+              ],
+              [
+                "Cartouche",
+                0
+              ]
+            ],
+            "last_input": null
+          },
+          {
+            "net_id": 75,
+            "handle": 3,
+            "position": {
+              "x": "1051.28818",
+              "y": "-425.65144",
+              "cell": [
+                65,
+                -27
+              ]
+            },
+            "health": "100",
+            "downed": null,
+            "currency": 1100,
+            "active_weapon": "machine_gun",
+            "mag_ammo": 30,
+            "reserves": [
+              [
+                "Plomb",
+                48
+              ],
+              [
+                "Balle",
+                240
+              ],
+              [
+                "Cartouche",
+                0
+              ]
+            ],
+            "last_input": null
+          }
+        ],
+        "closed_doors": [],
+        "windows": [
+          {
+            "net_id": 14,
+            "position": {
+              "x": "104",
+              "y": "-656",
+              "cell": [
+                6,
+                -41
+              ]
+            },
+            "health": 3
+          },
+          {
+            "net_id": 15,
+            "position": {
+              "x": "104",
+              "y": "-464",
+              "cell": [
+                6,
+                -29
+              ]
+            },
+            "health": 3
+          },
+          {
+            "net_id": 16,
+            "position": {
+              "x": "104",
+              "y": "-336",
+              "cell": [
+                6,
+                -21
+              ]
+            },
+            "health": 3
+          },
+          {
+            "net_id": 17,
+            "position": {
+              "x": "176",
+              "y": "-104",
+              "cell": [
+                11,
+                -7
+              ]
+            },
+            "health": 3
+          },
+          {
+            "net_id": 18,
+            "position": {
+              "x": "336",
+              "y": "-712",
+              "cell": [
+                21,
+                -45
+              ]
+            },
+            "health": 3
+          },
+          {
+            "net_id": 19,
+            "position": {
+              "x": "544",
+              "y": "-712",
+              "cell": [
+                34,
+                -45
+              ]
+            },
+            "health": 3
+          },
+          {
+            "net_id": 20,
+            "position": {
+              "x": "544",
+              "y": "-408",
+              "cell": [
+                34,
+                -26
+              ]
+            },
+            "health": 3
+          },
+          {
+            "net_id": 21,
+            "position": {
+              "x": "840",
+              "y": "-944",
+              "cell": [
+                52,
+                -59
+              ]
+            },
+            "health": 3
+          },
+          {
+            "net_id": 22,
+            "position": {
+              "x": "1072",
+              "y": "-1016",
+              "cell": [
+                67,
+                -64
+              ]
+            },
+            "health": 3
+          },
+          {
+            "net_id": 23,
+            "position": {
+              "x": "1072",
+              "y": "-408",
+              "cell": [
+                67,
+                -26
+              ]
+            },
+            "health": 1
+          },
+          {
+            "net_id": 24,
+            "position": {
+              "x": "1208",
+              "y": "-944",
+              "cell": [
+                75,
+                -59
+              ]
+            },
+            "health": 3
+          }
+        ],
+        "navigation": "légende : # mur (pathfinding + physique)  p mur physique seul  n mur pathfinding seul\nW fenêtre intacte  w fenêtre cassée  D porte fermée  d porte ouverte  S spawner  Z zombie  P joueur\n. atteignable par le flow field (ou direction 8/2/4/6/7/9/1/3)   (espace) libre mais NON atteignable\nx -1..82, y -71..0 (cellules de 16 px), cible GridPos { x: 65, y: -27 }, 5078 cellules atteignables\n                                                                                    \n ################################################################################## \n #33333333333333333333333333333333333333333333333333333333333333333211111111111111# \n #33333333333333333333333333333333333333333333333333333333333333333211111111111111# \n #66666666666666666666666666666633333333333333333333333333333333333211111111111111# \n #99999999999999999999999999999933333333333333333333333333333333333211111111111111# \n #99899999999999999999999999999333333333333333333333333333333333333211111111111111# \n #99877####WW##################333333333333333333333333333333333333211111111111111# \n #99877#3369841111111111333211#333333333333333333333333333333333333211111111111111# \n #99877#6699874111211444633211#333333333333333333333333333333333333211111111111111# \n #99877#9999877444211777933211#333333333333333333333333333333333333211111111111111# \n #99877#9999877773211####33211#333333333333333333333333333333333333211111111111111# \n #99877#9999877333211####33211#333333333333333333333333333333333333211111111111111# \n #99877#3333333333211####33211#333333333333333333333333333333333333211111111111111# \n #99877#3333333333211####33211#333333333333333333333333333333333333211111111111111# \n #99877#3333333333211111113211#333333333333333333333333333333333333211111111111111# \n #99877#3333333333211111111111#33S333333333333333333333333333333333211111111111111# \n #99877#3333333333211111111111#333333333333333333333333333333333333211111111111111# \n #99877#3333333333211111111111#333333333333333333333333333333333333211111111111111# \n #99877#3333333333211111111111#333333333333333333333333333333333333211111111111111# \n #99877#3333333333211111111111#333333333333333333333333333333333333211111111111111# \n #99877W3333333333211111111111#333333333333333333333333333333333333211111111111111# \n #99877W3333333333211111111111#333333333333333333333333333333333333211111111111111# \n #99877#6666666333211444444444#666666666666666666666666666666666633211144444444444# \n #99877#9999999633214777777777#9999999999999999999999999999999999632Z1477777777777# \n #99877#9999999963247777777777#999999999999999999999999999999999996214777777777877# \n #93211##########3d###############WW###############################WW########99877# \n #33321#3333333333333333333211#3333333333333333333211#333333333336P411111111#99877# \n #33332#3333333333333333333211#3333333333333333333211#3333333333698744444411#99877# \n #33333W3333333333333333333211#3333333333333333333211#6666666666998777777744#99877# \n #66666W3333333333333333333211#3333333333333333333211#9999999999877####88777#99877# \n #99998#3333333333333333333211#6666666666666633333211#9999999999877####99877#99877# \n #99987#3333333333333333333211#9999999999999933333211#9999999999877####99877#99877# \n #99877#3333333333333333333321#9999998999999333333321#9999999999877####99877#99877# \n #99877#3333333333333333333332#333399877####333333332#9999999999877111119877#99877# \n #33211#6666666666666666666333d333333211####666666666d9999999999877111111877#99S77# \n #33211#99999999999999999996666333333233333399999999999999999999874444444447#99877# \n #33211#9999999999998999999998#3333333333333399999998#9999999999877777777777#99877# \n #33211#999999999999877####987#6666666666666699999987#9999999999877777777777#99877# \n #33211#999999999999877####987#9999999999999999999877#9999999999877777777777#99877# \n #33212#9999999999998773336987#9999999999999999999877#9999999999877777777777#99877# \n #33216W9999999999998733336987#9999999999999999999877#9999999999877777777777#99877# \n #33219W9999999999998766669987#9999999999999999999877#9999999999877777777777#99877# \n #33211#9999999999998999999877#9999999999999999999877#9999999999877777777777#99877# \n #33211#9999999999998999999877#9999999999999999999877#9999999999877777777777#99877# \n #33211##############WW###########WW###########################9d############99877# \n #332333333333333333333333333333369841111111111133211#3333333369841111111111#99877# \n #333333333333333333333333333333699874111111111333211#3333333699874111111111#99877# \n #666666666666666S6666666666666699987744S444444333211#6666666999877444444444#99877# \n #999999999999999999999999999999999877777777773333211#9999999999877777777777#99877# \n #999999999999999999999999999999999877777777733333211#9999999999877777777777#99877# \n #999999999999999999999999999999999877777777333333211#9999999999877777777777#99877# \n #999999999999999999999999999999999877777777333333211#9999999999877777777777#99877# \n #999999999999999999999999999999999877777773333333211#9999999999877777777777#99877# \n #999999999999999999999999999999999877777773333333211#9999999999877777777777#99877# \n #999999999999999999999999999999999877777733333333211#9999999999877777777777#99877# \n #999999999999999999999999999999999877777333333333211#9999999999877777777777#99877# \n #999999999999999999999999999999999877773333333333321#9999999999877######987#99877# \n #999999999999999999999999999999999877733333333333332#9999999999877######987#99877# \n #999999999999999999999999999999999877666666666666666W9999999999877111111987W49877# \n #999999999999999999999999999999999879999999999999999W9999999999877111111987W79877# \n #999999999999999999999999999999999879999999999999998#9999999999874444444447#99877# \n #999999999999999999999999999999999899999999999999987#9999999999877777777777#99877# \n #999999999999999999999999999999999899999999999999877#9999999999877777777777#99877# \n #999999999999999999999999999999999999999999999999877##############WW########99877# \n #99999999999999999999999999999999999999999999999987711133333333336874111111399877# \n #99999999999999999999999999999999999999999999999987711133333333369877411111399877# \n #9999999999999999999999999999999999999999999999998744446666666S699877744444669877# \n #99999999999999999999999999999999999999999999999987777799999999999877777777999877# \n #99999999999999999999999999999999999999999999999987777799999999999877777777999877# \n ################################################################################## \n                                                                                    \n",
+        "floor": null
+      },
+      "final_state": {
+        "frame": 20000,
+        "wave": {
+          "phase": "InProgress",
+          "current_wave": 4,
+          "enemies_to_spawn": 0,
+          "enemies_spawned_this_wave": 11,
+          "wave_enemy_count": 11,
+          "total_enemies_killed": 31,
+          "wave_enemies_killed": 10,
+          "wave_start_frame": 5546,
+          "last_spawn_frame": 6746,
+          "last_enemy_killed_frame": 6853,
+          "phase_start_frame": 6747,
+          "current_health_multiplier": "1.15001",
+          "current_damage_multiplier": "1.09",
+          "spawn_fallback": true
+        },
+        "run_step": "Playing { since_frame: 0 }",
+        "enemies": [
+          {
+            "net_id": 652,
+            "character": "zombie_full",
+            "position": {
+              "x": "1072.04733",
+              "y": "-383.97238",
+              "cell": [
+                67,
+                -24
+              ]
+            },
+            "health": "50",
+            "wave_enemy": true,
+            "state": {
+              "Attacking": {
+                "target": {
+                  "Obstacle": {
+                    "net_id": [
+                      23,
+                      "window"
+                    ]
+                  }
+                },
+                "last_attack_frame": 19974
+              }
+            },
+            "target": {
+              "target": [
+                23,
+                "window"
+              ],
+              "target_type": "Obstacle",
+              "last_known_position": {
+                "x": "1072",
+                "y": "-408"
+              }
+            },
+            "nav_profile": "GroundBreaker",
+            "path_cost": 204,
+            "nearest_player": {
+              "handle": 0,
+              "net_id": 60,
+              "distance": "43.3324",
+              "line_of_sight": false
+            },
+            "next_cell": [
+              66,
+              -25
+            ],
+            "steering_point": {
+              "x": "1072",
+              "y": "-384",
+              "cell": [
+                67,
+                -24
+              ]
+            },
+            "steering_point_blockers": []
+          }
+        ],
+        "flow_field": "GroundBreaker",
+        "players": [
+          {
+            "net_id": 60,
+            "handle": 0,
+            "position": {
+              "x": "1054.86003",
+              "y": "-423.75043",
+              "cell": [
+                65,
+                -27
+              ]
+            },
+            "health": "200",
+            "downed": null,
+            "currency": 560,
+            "active_weapon": "machine_gun",
+            "mag_ammo": 30,
+            "reserves": [
+              [
+                "Plomb",
+                48
+              ],
+              [
+                "Balle",
+                240
+              ],
+              [
+                "Cartouche",
+                0
+              ]
+            ],
+            "last_input": null
+          },
+          {
+            "net_id": 65,
+            "handle": 1,
+            "position": {
+              "x": "1051.09885",
+              "y": "-425.30388",
+              "cell": [
+                65,
+                -27
+              ]
+            },
+            "health": "100",
+            "downed": null,
+            "currency": 1640,
+            "active_weapon": "machine_gun",
+            "mag_ammo": 30,
+            "reserves": [
+              [
+                "Plomb",
+                48
+              ],
+              [
+                "Balle",
+                240
+              ],
+              [
+                "Cartouche",
+                0
+              ]
+            ],
+            "last_input": null
+          },
+          {
+            "net_id": 70,
+            "handle": 2,
+            "position": {
+              "x": "1051.41296",
+              "y": "-425.34134",
+              "cell": [
+                65,
+                -27
+              ]
+            },
+            "health": "100",
+            "downed": null,
+            "currency": 900,
+            "active_weapon": "machine_gun",
+            "mag_ammo": 30,
+            "reserves": [
+              [
+                "Plomb",
+                48
+              ],
+              [
+                "Balle",
+                240
+              ],
+              [
+                "Cartouche",
+                0
+              ]
+            ],
+            "last_input": null
+          },
+          {
+            "net_id": 75,
+            "handle": 3,
+            "position": {
+              "x": "1051.28818",
+              "y": "-425.65144",
+              "cell": [
+                65,
+                -27
+              ]
+            },
+            "health": "100",
+            "downed": null,
+            "currency": 1100,
+            "active_weapon": "machine_gun",
+            "mag_ammo": 30,
+            "reserves": [
+              [
+                "Plomb",
+                48
+              ],
+              [
+                "Balle",
+                240
+              ],
+              [
+                "Cartouche",
+                0
+              ]
+            ],
+            "last_input": null
+          }
+        ],
+        "closed_doors": [],
+        "windows": [
+          {
+            "net_id": 14,
+            "position": {
+              "x": "104",
+              "y": "-656",
+              "cell": [
+                6,
+                -41
+              ]
+            },
+            "health": 3
+          },
+          {
+            "net_id": 15,
+            "position": {
+              "x": "104",
+              "y": "-464",
+              "cell": [
+                6,
+                -29
+              ]
+            },
+            "health": 3
+          },
+          {
+            "net_id": 16,
+            "position": {
+              "x": "104",
+              "y": "-336",
+              "cell": [
+                6,
+                -21
+              ]
+            },
+            "health": 3
+          },
+          {
+            "net_id": 17,
+            "position": {
+              "x": "176",
+              "y": "-104",
+              "cell": [
+                11,
+                -7
+              ]
+            },
+            "health": 3
+          },
+          {
+            "net_id": 18,
+            "position": {
+              "x": "336",
+              "y": "-712",
+              "cell": [
+                21,
+                -45
+              ]
+            },
+            "health": 3
+          },
+          {
+            "net_id": 19,
+            "position": {
+              "x": "544",
+              "y": "-712",
+              "cell": [
+                34,
+                -45
+              ]
+            },
+            "health": 3
+          },
+          {
+            "net_id": 20,
+            "position": {
+              "x": "544",
+              "y": "-408",
+              "cell": [
+                34,
+                -26
+              ]
+            },
+            "health": 3
+          },
+          {
+            "net_id": 21,
+            "position": {
+              "x": "840",
+              "y": "-944",
+              "cell": [
+                52,
+                -59
+              ]
+            },
+            "health": 3
+          },
+          {
+            "net_id": 22,
+            "position": {
+              "x": "1072",
+              "y": "-1016",
+              "cell": [
+                67,
+                -64
+              ]
+            },
+            "health": 3
+          },
+          {
+            "net_id": 23,
+            "position": {
+              "x": "1072",
+              "y": "-408",
+              "cell": [
+                67,
+                -26
+              ]
+            },
+            "health": 1
+          },
+          {
+            "net_id": 24,
+            "position": {
+              "x": "1208",
+              "y": "-944",
+              "cell": [
+                75,
+                -59
+              ]
+            },
+            "health": 3
+          }
+        ],
+        "navigation": "légende : # mur (pathfinding + physique)  p mur physique seul  n mur pathfinding seul\nW fenêtre intacte  w fenêtre cassée  D porte fermée  d porte ouverte  S spawner  Z zombie  P joueur\n. atteignable par le flow field (ou direction 8/2/4/6/7/9/1/3)   (espace) libre mais NON atteignable\nx -1..82, y -71..0 (cellules de 16 px), cible GridPos { x: 65, y: -27 }, 5078 cellules atteignables\n                                                                                    \n ################################################################################## \n #33333333333333333333333333333333333333333333333333333333333333333211111111111111# \n #33333333333333333333333333333333333333333333333333333333333333333211111111111111# \n #66666666666666666666666666666633333333333333333333333333333333333211111111111111# \n #99999999999999999999999999999933333333333333333333333333333333333211111111111111# \n #99899999999999999999999999999333333333333333333333333333333333333211111111111111# \n #99877####WW##################333333333333333333333333333333333333211111111111111# \n #99877#3369841111111111333211#333333333333333333333333333333333333211111111111111# \n #99877#6699874111211444633211#333333333333333333333333333333333333211111111111111# \n #99877#9999877444211777933211#333333333333333333333333333333333333211111111111111# \n #99877#9999877773211####33211#333333333333333333333333333333333333211111111111111# \n #99877#9999877333211####33211#333333333333333333333333333333333333211111111111111# \n #99877#3333333333211####33211#333333333333333333333333333333333333211111111111111# \n #99877#3333333333211####33211#333333333333333333333333333333333333211111111111111# \n #99877#3333333333211111113211#333333333333333333333333333333333333211111111111111# \n #99877#3333333333211111111111#33S333333333333333333333333333333333211111111111111# \n #99877#3333333333211111111111#333333333333333333333333333333333333211111111111111# \n #99877#3333333333211111111111#333333333333333333333333333333333333211111111111111# \n #99877#3333333333211111111111#333333333333333333333333333333333333211111111111111# \n #99877#3333333333211111111111#333333333333333333333333333333333333211111111111111# \n #99877W3333333333211111111111#333333333333333333333333333333333333211111111111111# \n #99877W3333333333211111111111#333333333333333333333333333333333333211111111111111# \n #99877#6666666333211444444444#666666666666666666666666666666666633211144444444444# \n #99877#9999999633214777777777#9999999999999999999999999999999999632Z1477777777777# \n #99877#9999999963247777777777#999999999999999999999999999999999996214777777777877# \n #93211##########3d###############WW###############################WW########99877# \n #33321#3333333333333333333211#3333333333333333333211#333333333336P411111111#99877# \n #33332#3333333333333333333211#3333333333333333333211#3333333333698744444411#99877# \n #33333W3333333333333333333211#3333333333333333333211#6666666666998777777744#99877# \n #66666W3333333333333333333211#3333333333333333333211#9999999999877####88777#99877# \n #99998#3333333333333333333211#6666666666666633333211#9999999999877####99877#99877# \n #99987#3333333333333333333211#9999999999999933333211#9999999999877####99877#99877# \n #99877#3333333333333333333321#9999998999999333333321#9999999999877####99877#99877# \n #99877#3333333333333333333332#333399877####333333332#9999999999877111119877#99877# \n #33211#6666666666666666666333d333333211####666666666d9999999999877111111877#99S77# \n #33211#99999999999999999996666333333233333399999999999999999999874444444447#99877# \n #33211#9999999999998999999998#3333333333333399999998#9999999999877777777777#99877# \n #33211#999999999999877####987#6666666666666699999987#9999999999877777777777#99877# \n #33211#999999999999877####987#9999999999999999999877#9999999999877777777777#99877# \n #33212#9999999999998773336987#9999999999999999999877#9999999999877777777777#99877# \n #33216W9999999999998733336987#9999999999999999999877#9999999999877777777777#99877# \n #33219W9999999999998766669987#9999999999999999999877#9999999999877777777777#99877# \n #33211#9999999999998999999877#9999999999999999999877#9999999999877777777777#99877# \n #33211#9999999999998999999877#9999999999999999999877#9999999999877777777777#99877# \n #33211##############WW###########WW###########################9d############99877# \n #332333333333333333333333333333369841111111111133211#3333333369841111111111#99877# \n #333333333333333333333333333333699874111111111333211#3333333699874111111111#99877# \n #666666666666666S6666666666666699987744S444444333211#6666666999877444444444#99877# \n #999999999999999999999999999999999877777777773333211#9999999999877777777777#99877# \n #999999999999999999999999999999999877777777733333211#9999999999877777777777#99877# \n #999999999999999999999999999999999877777777333333211#9999999999877777777777#99877# \n #999999999999999999999999999999999877777777333333211#9999999999877777777777#99877# \n #999999999999999999999999999999999877777773333333211#9999999999877777777777#99877# \n #999999999999999999999999999999999877777773333333211#9999999999877777777777#99877# \n #999999999999999999999999999999999877777733333333211#9999999999877777777777#99877# \n #999999999999999999999999999999999877777333333333211#9999999999877777777777#99877# \n #999999999999999999999999999999999877773333333333321#9999999999877######987#99877# \n #999999999999999999999999999999999877733333333333332#9999999999877######987#99877# \n #999999999999999999999999999999999877666666666666666W9999999999877111111987W49877# \n #999999999999999999999999999999999879999999999999999W9999999999877111111987W79877# \n #999999999999999999999999999999999879999999999999998#9999999999874444444447#99877# \n #999999999999999999999999999999999899999999999999987#9999999999877777777777#99877# \n #999999999999999999999999999999999899999999999999877#9999999999877777777777#99877# \n #999999999999999999999999999999999999999999999999877##############WW########99877# \n #99999999999999999999999999999999999999999999999987711133333333336874111111399877# \n #99999999999999999999999999999999999999999999999987711133333333369877411111399877# \n #9999999999999999999999999999999999999999999999998744446666666S699877744444669877# \n #99999999999999999999999999999999999999999999999987777799999999999877777777999877# \n #99999999999999999999999999999999999999999999999987777799999999999877777777999877# \n ################################################################################## \n                                                                                    \n",
+        "floor": null
+      }
+    },
+    "doors_opened": 4,
+    "players_end": [
+      {
+        "handle": 0,
+        "currency": 560,
+        "downed": false,
+        "x": 1054.86,
+        "y": -423.75043,
+        "in_spawn_room": true
+      },
+      {
+        "handle": 1,
+        "currency": 1640,
+        "downed": false,
+        "x": 1051.0989,
+        "y": -425.3039,
+        "in_spawn_room": true
+      },
+      {
+        "handle": 2,
+        "currency": 900,
+        "downed": false,
+        "x": 1051.413,
+        "y": -425.34134,
+        "in_spawn_room": true
+      },
+      {
+        "handle": 3,
+        "currency": 1100,
+        "downed": false,
+        "x": 1051.2882,
+        "y": -425.65143,
+        "in_spawn_room": true
+      }
+    ],
+    "waves": [
+      {
+        "wave": 1,
+        "enemies": 5,
+        "start": 1,
+        "spawning": 181,
+        "cleared": 733,
+        "damage": 0,
+        "downs": 0,
+        "deaths": 0
+      },
+      {
+        "wave": 2,
+        "enemies": 7,
+        "start": 1333,
+        "spawning": 1513,
+        "cleared": 2341,
+        "damage": 0,
+        "downs": 0,
+        "deaths": 0
+      },
+      {
+        "wave": 3,
+        "enemies": 9,
+        "start": 2941,
+        "spawning": 3121,
+        "cleared": 4767,
+        "damage": 125,
+        "downs": 0,
+        "deaths": 0
+      },
+      {
+        "wave": 4,
+        "enemies": 11,
+        "start": 5367,
+        "spawning": 5547,
+        "cleared": null,
+        "damage": 50,
+        "downs": 0,
+        "deaths": 0
+      }
+    ]
+  },
+  {
+    "seed": 18,
+    "wave": 5,
+    "floor": 0,
+    "frames": 6433,
+    "deaths": 0,
+    "kills": 28,
+    "wall_seconds": 217.580798,
+    "desync": false,
+    "sim_fps": 29.59935115081332,
+    "damage_taken": 0,
+    "doors_opened": 6,
+    "players_end": [
+      {
+        "handle": 0,
+        "currency": 30,
+        "downed": false,
+        "x": 821.2081,
+        "y": -239.49976,
+        "in_spawn_room": true
+      },
+      {
+        "handle": 1,
+        "currency": 950,
+        "downed": false,
+        "x": 734.95935,
+        "y": -260.07098,
+        "in_spawn_room": true
+      },
+      {
+        "handle": 2,
+        "currency": 780,
+        "downed": false,
+        "x": 632.8881,
+        "y": -246.69835,
+        "in_spawn_room": true
+      },
+      {
+        "handle": 3,
+        "currency": 100,
+        "downed": false,
+        "x": 122.04097,
+        "y": -454.76324,
+        "in_spawn_room": true
+      }
+    ],
+    "waves": [
+      {
+        "wave": 1,
+        "enemies": 5,
+        "start": 1,
+        "spawning": 181,
+        "cleared": 772,
+        "damage": 0,
+        "downs": 0,
+        "deaths": 0
+      },
+      {
+        "wave": 2,
+        "enemies": 6,
+        "start": 1372,
+        "spawning": 1552,
+        "cleared": 2260,
+        "damage": 0,
+        "downs": 0,
+        "deaths": 0
+      },
+      {
+        "wave": 3,
+        "enemies": 8,
+        "start": 2860,
+        "spawning": 3040,
+        "cleared": 3978,
+        "damage": 0,
+        "downs": 0,
+        "deaths": 0
+      },
+      {
+        "wave": 4,
+        "enemies": 9,
+        "start": 4578,
+        "spawning": 4758,
+        "cleared": 5833,
+        "damage": 0,
+        "downs": 0,
+        "deaths": 0
+      },
+      {
+        "wave": 5,
+        "enemies": 11,
+        "start": 6433,
+        "spawning": null,
+        "cleared": null,
+        "damage": 0,
+        "downs": 0,
+        "deaths": 0
+      }
+    ]
+  },
+  {
+    "seed": 19,
+    "wave": 5,
+    "floor": 0,
+    "frames": 6550,
+    "deaths": 0,
+    "kills": 28,
+    "wall_seconds": 237.1264755,
+    "desync": false,
+    "sim_fps": 27.653288115157,
+    "damage_taken": 0,
+    "doors_opened": 6,
+    "players_end": [
+      {
+        "handle": 0,
+        "currency": 720,
+        "downed": false,
+        "x": 820.8484,
+        "y": -776.08044,
+        "in_spawn_room": true
+      },
+      {
+        "handle": 1,
+        "currency": 380,
+        "downed": false,
+        "x": 821.5801,
+        "y": -775.5997,
+        "in_spawn_room": true
+      },
+      {
+        "handle": 2,
+        "currency": 310,
+        "downed": false,
+        "x": 821.9532,
+        "y": -775.58276,
+        "in_spawn_room": true
+      },
+      {
+        "handle": 3,
+        "currency": 0,
+        "downed": false,
+        "x": 697.91223,
+        "y": -687.44434,
+        "in_spawn_room": true
+      }
+    ],
+    "waves": [
+      {
+        "wave": 1,
+        "enemies": 3,
+        "start": 1,
+        "spawning": 181,
+        "cleared": 519,
+        "damage": 0,
+        "downs": 0,
+        "deaths": 0
+      },
+      {
+        "wave": 2,
+        "enemies": 7,
+        "start": 1119,
+        "spawning": 1299,
+        "cleared": 2133,
+        "damage": 0,
+        "downs": 0,
+        "deaths": 0
+      },
+      {
+        "wave": 3,
+        "enemies": 7,
+        "start": 2733,
+        "spawning": 2913,
+        "cleared": 3702,
+        "damage": 0,
+        "downs": 0,
+        "deaths": 0
+      },
+      {
+        "wave": 4,
+        "enemies": 11,
+        "start": 4302,
+        "spawning": 4482,
+        "cleared": 5950,
+        "damage": 0,
+        "downs": 0,
+        "deaths": 0
+      },
+      {
+        "wave": 5,
+        "enemies": 13,
+        "start": 6550,
+        "spawning": null,
+        "cleared": null,
+        "damage": 0,
+        "downs": 0,
+        "deaths": 0
+      }
+    ]
+  },
+  {
+    "seed": 20,
+    "wave": 5,
+    "floor": 0,
+    "frames": 6832,
+    "deaths": 0,
+    "kills": 31,
+    "wall_seconds": 205.643376666,
+    "desync": false,
+    "sim_fps": 33.26015172269381,
+    "damage_taken": 0,
+    "doors_opened": 7,
+    "players_end": [
+      {
+        "handle": 0,
+        "currency": 140,
+        "downed": false,
+        "x": 638.02313,
+        "y": -666.6571,
+        "in_spawn_room": true
+      },
+      {
+        "handle": 1,
+        "currency": 50,
+        "downed": false,
+        "x": 192.43657,
+        "y": -116.41075,
+        "in_spawn_room": true
+      },
+      {
+        "handle": 2,
+        "currency": 1130,
+        "downed": false,
+        "x": 571.42505,
+        "y": -808.1237,
+        "in_spawn_room": true
+      },
+      {
+        "handle": 3,
+        "currency": 30,
+        "downed": false,
+        "x": 351.46445,
+        "y": -155.70827,
+        "in_spawn_room": true
+      }
+    ],
+    "waves": [
+      {
+        "wave": 1,
+        "enemies": 5,
+        "start": 1,
+        "spawning": 181,
+        "cleared": 762,
+        "damage": 0,
+        "downs": 0,
+        "deaths": 0
+      },
+      {
+        "wave": 2,
+        "enemies": 7,
+        "start": 1362,
+        "spawning": 1542,
+        "cleared": 2368,
+        "damage": 0,
+        "downs": 0,
+        "deaths": 0
+      },
+      {
+        "wave": 3,
+        "enemies": 9,
+        "start": 2968,
+        "spawning": 3148,
+        "cleared": 4217,
+        "damage": 0,
+        "downs": 0,
+        "deaths": 0
+      },
+      {
+        "wave": 4,
+        "enemies": 10,
+        "start": 4817,
+        "spawning": 4997,
+        "cleared": 6232,
+        "damage": 0,
+        "downs": 0,
+        "deaths": 0
+      },
+      {
+        "wave": 5,
+        "enemies": 13,
+        "start": 6832,
+        "spawning": null,
+        "cleared": null,
+        "damage": 0,
+        "downs": 0,
+        "deaths": 0
+      }
+    ]
+  }
+]

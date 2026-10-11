@@ -1,3 +1,4 @@
+pub mod building;
 pub mod cave;
 mod from;
 mod to;

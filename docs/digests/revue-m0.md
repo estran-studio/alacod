@@ -25,18 +25,18 @@ cette branche), M1 (tâche à ouvrir par l'orchestrateur).
 | R5 | bug | La touche R (rechargement) abandonne la partie et la relance : `ui::game_over::button_system` lit `just_pressed(KeyR)` pendant tout `InGame`, pas seulement sur l'écran de fin. Six relances d'affilée dans le log, aucune frame jouée entre elles | partie 1 et suivantes | oui : test `r_ne_relance_que_sur_l_ecran_de_fin` | bloque | correctif (R ne relance que si l'écran de fin est affiché) + test | **corrigé sur `main`** (m1-fusion-revue-m0-suite) |
 | R6 | bug | Touches réelles (`character/player/control.rs`) différentes de celles annoncées pour la revue : interagir = **H** (pas E), dash = **C** (pas espace), arme suivante = Tab ; les flèches haut/bas/gauche déplacent la **caméra**, mais flèche droite déplace le joueur **et** la caméra (liée deux fois). Aucune doc joueur des touches | mise en route | oui | gêne | doc des touches (présentation) ; choix des touches et des flèches : à William (sensation/design) | ouvert |
 | R7 | bug ? | Partie solo 2 (log `game_run_7pV4I7`, f0-8066, fenêtre fermée normalement) : aucun `tests/scenarios/revue_solo1.ron` écrit, aucune ligne « session enregistrée » dans le log. L'enregistreur est bien dans le jeu fenêtré (`core.rs:263`) ; reste à savoir si `ALACOD_RECORD` était dans la commande | partie 2 | à vérifier | gêne | Reproduit le 2026-10-08 (lancement avec `ALACOD_RECORD`, fenêtre fermée : rien d'écrit). Cause : `write_recording_on_exit` (`Last`) n'était ordonné qu'après `state_trace::ExitRequests`, pas après `bevy::window::ExitSystems`, où `exit_on_all_closed` émet `AppExit` à la fermeture de la fenêtre ; selon l'ordre, le message n'était pas encore là et le jeu s'arrêtait sans écrire. Correctif : `.after(bevy::window::ExitSystems)`. Vérifié en jeu le 2026-10-09 : `revue_mouvement.ron` écrit à la fermeture (5304 frames) | corrigé (non commité) |
-| R8 | design | Toute partie locale utilise la graine fixe `default_seed` 123456 (`games/zombies/assets/game.ron`) : même carte et même suite de power-ups à chaque partie. Simulation du flux `loot` (graine 123456) : DP, DP, Carpenter, DP, DP, DP, DP, DP, Insta-Kill… — exactement la partie 2 (6 Double Points sur 7 drops) | parties 1 et 2 | oui (déterministe) | gêne | à William : graine tirée au hasard par partie (hors simulation, partagée par la session) sauf `--seed`, ou garder la graine fixe | ouvert |
+| R8 | design | Toute partie locale utilise la graine fixe `default_seed` 123456 (`games/zombies/assets/game.ron`) : même carte et même suite de power-ups à chaque partie. Simulation du flux `loot` (graine 123456) : DP, DP, Carpenter, DP, DP, DP, DP, DP, Insta-Kill… — exactement la partie 2 (6 Double Points sur 7 drops) | parties 1 et 2 | oui (déterministe) | gêne | choix de William appliqué : nouvelle graine locale hors simulation, titre + enregistrement, `--seed` pour rejouer ; réseau encore fixe | implémenté local ; validation humaine attendue |
 | R9 | détail | `RollbackRng` est un LCG mod 2³² et `next_u32_range` prend `next_u32() % n` : bits de poids faible de période courte (les 4 derniers bits ont une période de 16). Distribution à long terme correcte (simulée : DP 25,0 % pour 25 % attendus), mais suites courtes corrélées | — | — | détail | M1 : prendre les bits de poids fort (change toutes les traces qui tirent un entier : preuve requise) | ouvert |
 | S1 | sensation | « Le gameplay est vraiment mauvais » (William, après la partie 2 : 38 kills, mort en vague 4 vers f8066 ≈ 2 min 15) | partie 2 | — | — | à préciser avec William, puis tâches M1 | noté |
-| S2 | sensation | « La carte ne fait aucun sens » (`avant_poste`, générée par `gen_map.py` hors dépôt en m0-v8 ; 4 salles sur 9 placées avec la graine 123456) | partie 2 | — | — | à préciser avec William, puis tâche M1 (carte faite à la main dans LDtk ?) | noté |
+| S2 | sensation | « La carte ne fait aucun sens » (`avant_poste`, générée par `gen_map.py` hors dépôt en m0-v8 ; 4 salles sur 9 placées avec la graine 123456) | partie 2 | — | — | à préciser avec William, puis tâche M1 (carte faite à la main dans LDtk ?) | prototype composé ; validation humaine attendue |
 | S3 | sensation | movement-feel : « les mouvements marchent assez bien » (course, dash). Premier retour humain sur movement-feel ; i-frames non commentées | `revue_mouvement` (2026-10-09, vidéo OBS 00:01:14) | — | — | aucune (validé) ; à confirmer sur une partie plus longue | noté |
 | S4 | sensation | Équilibrage des armes (confirmé par William le 2026-10-09) : shotgun « super fort », pistolet inutile, mitraillette forte mais « tellement imprécise » (trop de spread) | `revue_mouvement`, vidéo 00:00:37–00:01:01, vagues 1-2 | — | — | M1 : passe d'équilibrage des armes (`weapons/`, spread, dégâts, cadence) | noté |
-| S5 | sensation | Équilibrage des vagues « bien trop [dur] en partant » (confirmé par William le 2026-10-09 ; « sonores » était une erreur de transcription). Mesure : vague 1 (7 zombies) vidée en ~22 s, vague 2 (12) en ~30 s | `revue_mouvement`, vidéo 00:00:43 | — | — | M1 : courbe de difficulté des premières vagues (`waves/wave_config.ron`) | noté |
+| S5 | sensation | Équilibrage des vagues « bien trop [dur] en partant » (confirmé par William le 2026-10-09 ; « sonores » était une erreur de transcription). Mesure : vague 1 (7 zombies) vidée en ~22 s, vague 2 (12) en ~30 s | `revue_mouvement`, vidéo 00:00:43 | — | — | Passe de contenu S5 : référence 4 acheteurs × 20 graines mesurée ; options A/B proposées, détails dans `docs/taches/rapports/m0-revue-suite-contenu.md` | B validée par William le 2026-10-09 : « plus équilibré » ; 20/20 V5, 0 mort/dégât/desync/soft-lock |
 | S6 | sensation | Feedback : « pas trop d'indications sonores par rapport aux vagues » (début et fin de vague silencieux) | `revue_mouvement`, vidéo 00:00:32 | — | — | M1 : son de début et de fin de vague (présentation) | noté |
 | S7 | sensation | « Son des armes trop fort » (phrase de 00:00:15, mal transcrite, précisée par William le 2026-10-09) | `revue_mouvement` | — | — | M1 : mixage (volume des tirs par rapport au reste) | noté |
 | R10 | bug ? | « Impossible d'acheter un soda, il chevauche les fusils » (précision de William, 2026-10-09). Transcription : « Je sais pas comment acheter les trucs de pack-à-punch, ils ont tous l'air d'être en dessous des armes, on peut juste en sélectionner un. » Il n'y a pas de pack-a-punch dans M0 ; dans `avant_poste.ldtk`, les deux `SodaLocation` (Jug, Cellier) ne sont pas sous des armes. À la même minute, le prompt affiché est « [H] Munitions mitrailleuse — $750 » avec le shotgun en main. **Contre-constat** : dans cette partie, aucune machine à soda n'existe : le log n'a pas de ligne « Map is loaded with N soda locations », et `map_probe` (`ALACOD_MAP_PROBE=revue_mouvement:3900`, sonde étendue aux `Interactable`) ne trouve que 2 armes murales, (376, 760) et (872, 760), et aucun `Perk`. Les 4 salles placées par la graine 123456 ne sont pas Jug ni Cellier, les seules qui ont une `SodaLocation`. Reste à savoir ce qui a été pris pour un soda (sprite d'arme murale ?) ou dans quelle autre partie | `revue_mouvement`, vidéo 00:01:05 | non reproduit | gêne | demander à William où (capture) ; lié à S2/R8 (salles tirées par la graine) | ouvert |
 | R11 | ? | « Il y a un bug justement » (vidéo 00:00:21, fin de la vague 1, rien de visible sur l'image) ; William : remarque générale, « il faudrait peaufiner un peu » | `revue_mouvement` | à préciser | — | à préciser avec William | ouvert |
-| S8 | sensation / contenu | « Une meilleure carte » ; « il n'y a pas de spawn de zombies dans les autres salles ». Constat dans `avant_poste.ldtk` : les 5 `ZombieSpawn` sont tous dans `Depart`, aucune des 8 autres salles n'en a ; ouvrir une porte n'apporte donc aucune menace nouvelle. Précise S2 | session `revue_relance` (2026-10-09) | oui (données) | gêne | M1 : refaire la carte (spawners par salle, fenêtres sur les salles ouvertes, disposition) ; lié à S2 et R8 | noté |
+| S8 | sensation / contenu | « Une meilleure carte » ; « il n'y a pas de spawn de zombies dans les autres salles ». Constat dans `avant_poste.ldtk` : les 5 `ZombieSpawn` sont tous dans `Depart`, aucune des 8 autres salles n'en a ; ouvrir une porte n'apporte donc aucune menace nouvelle. Précise S2 | session `revue_relance` (2026-10-09) | oui (données) | gêne | M1 : refaire la carte (spawners par salle, fenêtres sur les salles ouvertes, disposition) ; lié à S2 et R8 | prototype composé ; validation humaine attendue |
 | — | constat | **R4 et R5 validés par William en jeu** (2026-10-09, session `revue_relance`, non filmée) : R rechargé en pleine partie sans relance (log : `sound reload` f578, aucune relance avant la mort) ; mort f1158 (`outcome=Defeat`, vague 1), « Rejouer », murs solides après relance ; « pas de problème » | `revue_relance` | — | — | — | constat |
 | — | constat | Fonctionnement vérifié par William en jeu après R4/R5 : interactions (portes, achats), le reste « fonctionne correctement » | partie 2 | — | — | — | constat |
 
@@ -76,3 +76,121 @@ le MacBook de William (`~/Movies/2026-10-09 00-33-22.mov`).
 |---|---|---|---|---|
 | `docs/captures/revue-m0/revue_mouvement.ron` | movement-feel, vagues 1-3 (vidéo OBS `2026-10-09 00-33-22.mov`, 86 s) | 5304 | 1 | sans attentes, non béni ; source de S3–S7, R10, R11 |
 | `docs/captures/revue-m0/revue_relance.ron` | R5 puis mort et « Rejouer » (R4) ; l'enregistreur ne garde que la partie relancée | 1293 | 1 | sans attentes, non béni |
+
+
+## Essai S5 — option B (2026-10-09)
+
+William a choisi B : 3–5 zombies au départ, +2 par vague, une apparition toutes les
+2 s, au plus 4 vivants. Mesure automatisée avant/après : 20/20 graines à quatre
+acheteurs atteignent V5, 0 mort/dégât/desync/soft-lock ; détails dans
+`docs/taches/rapports/m0-revue-suite-contenu.md`.
+
+Partie solo lancée avec rendu et enregistrement ; fermeture enregistrée correctement :
+`docs/captures/revue-m0/revue_s5_b_2026-10-09.ron`, **5277 frames** (≈ 88 s), un joueur.
+V1 : apparition f180, fin f1041 (861 frames, ≈ 14,4 s) ; V2 : apparition f1821,
+fin f3180 (1359 frames, ≈ 22,7 s) ; V3 commencée f3960. Source : transitions du
+journal de jeu, doublons de resimulation retirés. Après une nouvelle partie, William valide
+le réglage B le 2026-10-09 : « ça marche très bien, plus équilibré ». S5 validée en jeu.
+
+### S2/S8 — variété du Relais, 2026-10-09
+
+William choisit l'assemblage de pièces. Cinq à huit salles parmi quatorze modules
+LDtk, achats et connexions variables ; zombies dehors. 184 plans distincts sur
+200 graines après normalisation. Vingt graines avec quatre acheteurs : 20/20 à
+l'entrée en V5, aucune mort/mise à terre/desync/failure, 175 dégâts cumulés ;
+médiane f7197,5, max f7709. La carte devient le départ du jeu ; nouvelle graine
+locale par partie, visible dans le titre et rejouable avec --seed. En ligne la
+graine reste fixe. Radio/évacuation non interactives, sprites provisoires ;
+validation du ressenti sur plusieurs plans encore attendue. Détails, cartes et
+relevés : `docs/captures/le-relais/README.md`.
+
+### S2/S8 — retour négatif et correction, 2026-10-09
+
+William : « La carte est microscopique, les items sont n'importe où dans le
+chemin et s'overlap parfois. Les zombies spawn dans les spawner qui ne sont
+pas dans une salle qui a des joueurs dedans. » La réussite des vingt bots de
+la première composition n'était pas une validation humaine. Capture 3334 frames,
+graine -212843839, contenu/code c47cc45 : `docs/captures/le-relais/revue-composition.ron`.
+
+Correction : largeur et hauteur des modules doublées (384 × 320 px), achats au
+point (7,2), réservation 48 × 48 px hors des axes de portes. Repères LDtk de
+weapons/départs/spawners masqués en jeu ; sprite de soda conservé car il est son
+seul rendu. Chaque source extérieure reçoit la zone de la pièce qu'elle défend ;
+seules les pièces occupées activent leurs sources. Quand tous les joueurs sont
+dehors, secours de proximité. Contrats M2 de salles/objets inchangés.
+
+Contrôles géométriques, lecture des zones et espacement des achats sur 200
+graines passent ; quatre tests de sélection passent, notamment joueurs déplacés
+ou répartis entre pièces, y compris secours. La trace historique bots_four_mixed
+et le replay passent sans bless. Inspection du rendu à la graine 1 :
+`docs/captures/le-relais/rendu-corrige.png`. Validation humaine de la correction
+encore attendue ; radio/évacuation toujours sans interaction.
+
+Mesure de la correction : 20/20 à l'entrée en V5 avec quatre acheteurs, 0 mort/
+mis à terre/desync/failure, 9 dégâts, médiane f6298,5 (min5891, max12006). La V3 de
+la graine9 dure 4857 frames (81 s) ; la graine13 termine à f12006. La cadence de
+secours en cour reste susceptible d'étirer les parties. Relevés séparés dans
+`docs/captures/le-relais/releves-correction.json` ; ressenti à valider par William.
+
+### R6 — lâcher accidentel près de H, 2026-10-09
+
+William perd toutes ses armes en voulant ouvrir une porte, puis les ramasse.
+La capture `revue-correction.ron` contient DropWeapon aux frames822–832,
+910–928 et1044–1053 ; log : machine_gun f827, pistol f915, shotgun f1049.
+L'entrée correspond à G (voisine de H), non à une interaction de porte.
+William approuve déplacer le lâcher et exiger un nouvel appui par arme :
+**L** remplace G ; lecture Devices sur `just_pressed`. Maintenir L ne vide plus
+successivement l'inventaire. H reste maintenue pour portes, ramassage et réparation.
+Les entrées scriptées et replays restent inchangées, comme la simulation des armes.
+Test de lecture réelle : un appui, 120 lectures maintenues sans répétition,
+relâchement/réappui, interaction H maintenue pendant tout le test : OK.
+
+### S2/S8 — pas de porte achetable vers une absence de salle, 2026-10-09
+
+William : une porte sans salle voisine doit être condamnée visuellement et ne
+pas s'ouvrir ; critique les sorties achetables et demande si les niveaux LDtk
+sont réellement utilisés comme prévu. La sortie extérieure de l'accueil est
+retirée, son emplacement redevient un mur. Seules les arêtes entre deux salles
+produisent des portes. Contrôle sur 200 graines : chaque porte correspond au
+graphe, toutes les pièces accessibles après ouverture, pas de fuite extérieure
+par les portes, accès des zombies maintenu.
+
+Réponse sur l'architecture : 14 niveaux sources, mais fusion en un seul niveau
+final. Le moteur ne voit pas un LevelId/RoomBounds par pièce : prototype de
+composition, pas encore l'architecture complète prévue. La migration doit
+conserver les niveaux, leurs connexions et l'appartenance des sources, avec un
+extérieur qui ne recouvre pas les bounds intérieures. Pas de contrat M2 modifié
+pour cette correction. Capture du retour : revue-touche-l.ron, graine1398560232,
+3281 frames, à rejouer avec 97eaf04 (avant changement de contenu).
+
+### 2026-10-09 — salles fermées cachées (demande William)
+
+Présentation opt-in `RoomFog` : pièce noire tant qu'elle n'est pas reliée à une salle
+visible par une porte ouverte. Révélation commune aux joueurs, calculée depuis l'état
+courant, cohérente avec le rollback. Le Relais utilise ses limites physiques conservées
+par le générateur, sans migration multi-niveaux LDtk. Rendu graine 1 vérifié (capture
+`docs/captures/le-relais/fog-piece-fermee.png`) ; test de logique fermé/ouvert/chaîne/
+rollback/plusieurs joueurs réussi. Ouverture interactive à valider par William.
+Bonus au sol : repère vert avec nom ajouté après le Nuke invisible observé.
+
+### 2026-10-09 — remplacement du brouillard après rejet du prototype
+
+William rejette les rectangles noirs (extérieur dévoilé, portes parfois recouvertes),
+approuve `le-relais-brouillard.md`, puis demande la publication pour revue par son
+orchestration. Brouillard global calculé depuis la vue des joueurs et les occluders,
+avec mémoire confirmée partagée, texture unique, transition de révélation et masquage
+des sprites dynamiques/indices hors de vue. Les métadonnées explicites du générateur
+remplacent les limites des spawners et la déduction des portes par proximité.
+Captures du replay : fermé f600, achat porte f1023, ouverture f1200, extérieur f2400.
+La validation humaine de la nouvelle finition visuelle reste à faire ; rapport de
+livraison pour les vérifications automatiques et les conflits avec origin/main.
+
+### 2026-10-10 — publication et limite de progression
+
+Brouillard v2 publié pour revue : 186 fichiers de scénarios passent, 8 tests de
+brouillard passent, générateurs des trois jeux sans différence, replay de 9107
+frames capturé. Audit final Le Relais : **19/20 V5**, 0 desync, 0 mort, 175 dégâts encaissés ;
+graine 17 plafonnée V4 à 20 000 frames. Diagnostic : dernier zombie devant la
+fenêtre #23, bots chargés en munitions, absence de kill persistante. Cause à
+confirmer/corriger avant merge. Deux conflits avec main (actors/control), p2p
+et WASM non vérifiés. Rapport et relevés complets disponibles sur la branche.
