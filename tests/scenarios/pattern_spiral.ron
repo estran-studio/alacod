@@ -1,0 +1,27 @@
+// M2-T1 (docs/conventions.md §41) : la spirale. La `tourelle_spirale` (immobile, testbed) est placée à f5 à 100 px à droite du joueur 0
+// (carte testbed/arena.ldtk) : `Shoot` pose l'émetteur à f6, télégraphe de 10 frames (f7-f16), puis
+// `Spiral(count: 3, shots: 6, every: 6, step: 0.3)` = six salves de trois boules à f17, f23, f29, f35, f41 et
+// f47, chaque salve tournée de 0,3 rad (aucun hasard : le flux RNG `patterns` n'est pas consommé). Le bras
+// qui vise le joueur le touche vers f45 (une boule de moins ensuite).
+//
+// À regarder : trois bras de boules de feu qui tournent en spirale autour de la tourelle ; 18 boules en tout,
+// nées en six temps.
+Scenario(
+    powerup_drop_chance_override: "0.0",
+    game: "testbed",
+    map: "testbed/arena.ldtk",
+    frames: 120,
+    characters: [(character: "tourelle_spirale", x: "520.0", y: "696.0", at_frame: 5)],
+    players: [
+        (inputs: []),
+    ],
+    expect: [
+        BulletCount(count: 0, projectile: Some("fireball"), at_frame: 16),
+        BulletCount(count: 3, projectile: Some("fireball"), team: Some(Enemies), at_frame: 17),
+        BulletCount(count: 3, projectile: Some("fireball"), at_frame: 22),
+        BulletCount(count: 6, projectile: Some("fireball"), at_frame: 23),
+        BulletCount(count: 15, projectile: Some("fireball"), at_frame: 41),
+        BulletCount(count: 17, projectile: Some("fireball"), at_frame: 47),
+        PlayerAlive(handle: 0, at_frame: 120),
+    ],
+)

@@ -214,6 +214,24 @@ fn lint_characters(registry: &Registry, errors: &mut Vec<LintError>) {
             }
         }
 
+        // M2-T1 : consommables de départ -> objets consommables du kind `Item`.
+        for id in character.starting_consumables.keys() {
+            let known = registry
+                .items
+                .get(id)
+                .is_some_and(|item| item.def.kind == items::ItemKind::Consumable);
+            if !known {
+                errors.push(LintError {
+                    kind: LintErrorKind::BrokenReference,
+                    file: file.clone(),
+                    message: format!(
+                        "personnage « {} » : champ starting_consumables : « {id} » n'est pas un objet consommable (kind Item)",
+                        character.id
+                    ),
+                });
+            }
+        }
+
         if character.starting_weapons.len() > character.weapon_slots as usize {
             errors.push(LintError {
                 kind: LintErrorKind::OutOfRange,
@@ -1969,6 +1987,22 @@ fn lint_floors(registry: &Registry, errors: &mut Vec<LintError>) {
                 ),
             });
         }
+        for id in floors.consumables_per_floor.keys() {
+            let known = registry
+                .items
+                .get(id)
+                .is_some_and(|item| item.def.kind == items::ItemKind::Consumable);
+            if !known {
+                errors.push(LintError {
+                    kind: LintErrorKind::BrokenReference,
+                    file: file.clone(),
+                    message: format!(
+                        "séquence de niveaux « {} » : champ consumables_per_floor : « {id} » n'est pas un objet consommable (kind Item)",
+                        floors.id
+                    ),
+                });
+            }
+        }
         for level in &floors.levels {
             if let Some(cave) = registry::cave_designation(level) {
                 // D36 : une caverne sans ennemi ouvre son portail aussitôt (et en boucle si elle
@@ -2480,6 +2514,20 @@ fn lint_items(registry: &Registry, errors: &mut Vec<LintError>) {
                     item.def.pickup_range
                 ),
             );
+        }
+        if let Some(blank) = item.def.blank {
+            if item.def.kind != items::ItemKind::Consumable {
+                push(
+                    LintErrorKind::Unsupported,
+                    format!("objet « {id} » : `blank` n'a de sens que pour un consommable"),
+                );
+            }
+            if blank.radius <= Fixed::ZERO {
+                push(
+                    LintErrorKind::OutOfRange,
+                    format!("objet « {id} » : blank.radius = {} : doit être > 0", blank.radius),
+                );
+            }
         }
         let active = matches!(item.def.kind, items::ItemKind::Active(_));
         if item.def.kind == items::ItemKind::Consumable

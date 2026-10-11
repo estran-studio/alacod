@@ -215,6 +215,8 @@ pub struct CharacterEntry {
     pub downed_speed_mult: FixedField,
     /// Emplacements d'armes à distance (T2.2, chantier B7), pour la règle « > 0 ».
     pub weapon_slots: u32,
+    /// M2-T1 : consommables de départ (`{"blank": 2}`), références vérifiées par le lint.
+    pub starting_consumables: BTreeMap<String, u32>,
     /// T1.10 : effets v1 du personnage (`docs/conventions.md` §27).
     pub effects: Vec<effects::Effect>,
     /// T1.4 : règles de comportement (`ai.behaviors`, `None` : liste par défaut).
@@ -650,6 +652,9 @@ pub struct FloorsEntry {
     /// (au lieu d'ouvrir un portail qui boucle) : `gungeon`, étage dont le boss est le dernier
     /// ennemi. Faux par défaut (throne, testbed : boucle infinie au dernier niveau).
     pub victory_at_end: bool,
+    /// M2-T1 : consommables remontés à `n` au début de chaque étage (le blank de `gungeon` :
+    /// `{"blank": 2}`) ; l'étage 0 est servi par `starting_consumables` du personnage.
+    pub consumables_per_floor: BTreeMap<String, u32>,
 }
 
 /// Caverne générée (T1.6, `docs/conventions.md` §21), un fichier RON par caverne
@@ -800,6 +805,9 @@ struct FloorsFileSchema {
     /// M2-T0d : voir [`FloorsEntry::victory_at_end`].
     #[serde(default)]
     victory_at_end: bool,
+    /// M2-T1 : voir [`FloorsEntry::consumables_per_floor`].
+    #[serde(default)]
+    consumables_per_floor: BTreeMap<String, u32>,
 }
 
 #[derive(Debug, Clone)]
@@ -1292,6 +1300,9 @@ struct CharacterFileSchema {
     /// T2.2, chantier B7 : voir `game::character::config::CharacterConfig::weapon_slots`.
     #[serde(default = "default_weapon_slots")]
     weapon_slots: u32,
+    /// M2-T1 : voir `game::character::config::CharacterConfig::starting_consumables`.
+    #[serde(default)]
+    starting_consumables: BTreeMap<String, u32>,
     /// T1.4 : seuls `ai.behaviors` et `ai.targeting` sont lus.
     #[serde(default)]
     ai: Option<AiSchema>,
@@ -1837,6 +1848,7 @@ fn load_characters(
                 revive_frames: parsed.revive_frames,
                 downed_speed_mult: parsed.downed_speed_mult,
                 weapon_slots: parsed.weapon_slots,
+                starting_consumables: parsed.starting_consumables,
                 effects: parsed.effects,
                 boss: parsed.boss,
                 ignore_tags: parsed
@@ -2308,6 +2320,7 @@ fn load_floors(
                 file: rel,
                 levels: parsed.levels,
                 victory_at_end: parsed.victory_at_end,
+                consumables_per_floor: parsed.consumables_per_floor,
             },
         );
     }

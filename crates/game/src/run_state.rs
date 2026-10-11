@@ -142,6 +142,23 @@ pub fn floors_victory_at_end(mode: &RunMode, registry: Option<&Registry>) -> boo
         .is_some_and(|entry| entry.victory_at_end)
 }
 
+/// `consumables_per_floor` de la séquence `Floors` du mode (M2-T1) ; vide hors `Floors`.
+pub fn floors_consumables_per_floor(
+    mode: &RunMode,
+    registry: Option<&Registry>,
+) -> std::collections::BTreeMap<String, u32> {
+    let RunMode::Floors { config } = mode else {
+        return Default::default();
+    };
+    registry
+        .and_then(|r| {
+            r.floors
+                .get(&content::registry::FloorsConfigId::from(config.clone()))
+        })
+        .map(|entry| entry.consumables_per_floor.clone())
+        .unwrap_or_default()
+}
+
 pub fn floor_levels(mode: &RunMode, registry: Option<&Registry>) -> Option<Vec<String>> {
     let RunMode::Floors { config } = mode else {
         return None;

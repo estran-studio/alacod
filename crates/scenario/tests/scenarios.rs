@@ -931,3 +931,46 @@ fn bullets_probe() {
     }
     println!("balles : au plus {max_alive} en vol, x {min_x:.1}..{max_x:.1}, y max {max_y:.1}");
 }
+
+/// Diagnostic (M2-T1) : à chaque frame, le nombre de balles et leur position
+/// (`ALACOD_BULLET_LINES=<scénario>:<de>:<à>`), pour calibrer les attentes `BulletCount`.
+#[test]
+#[ignore]
+fn bullet_lines() {
+    use bevy::prelude::*;
+    use bevy_fixed::fixed_math::FixedTransform3D;
+    use game::weapons::Bullet;
+    use utils::frame::FrameCount;
+    let spec = std::env::var("ALACOD_BULLET_LINES").unwrap_or_else(|_| "pattern_spiral:0:60".into());
+    let p: Vec<&str> = spec.split(':').collect();
+    let (from, to): (u32, u32) = (p[1].parse().unwrap(), p[2].parse().unwrap());
+    let source = std::fs::read_to_string(scenarios_dir().join(format!("{}.ron", p[0]))).unwrap();
+    let mut app = scenario::runner::run_until(&Scenario::from_ron(&source).unwrap(), from);
+    while app.world().resource::<FrameCount>().frame < to {
+        app.update();
+        let world = app.world_mut();
+        let frame = world.resource::<FrameCount>().frame;
+        let mut ps: Vec<(i32, i32)> = world
+            .query_filtered::<&FixedTransform3D, With<Bullet>>()
+            .iter(world)
+            .map(|t| {
+                (
+                    t.translation.x.to_num::<f32>().round() as i32,
+                    t.translation.y.to_num::<f32>().round() as i32,
+                )
+            })
+            .collect();
+        ps.sort();
+        let players: Vec<(i32, i32)> = world
+            .query_filtered::<&FixedTransform3D, With<game::character::player::Player>>()
+            .iter(world)
+            .map(|t| {
+                (
+                    t.translation.x.to_num::<f32>().round() as i32,
+                    t.translation.y.to_num::<f32>().round() as i32,
+                )
+            })
+            .collect();
+        println!("f{frame} n={} {ps:?} joueurs={players:?}", ps.len());
+    }
+}

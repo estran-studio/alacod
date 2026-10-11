@@ -1,0 +1,25 @@
+// M2-T1 (docs/conventions.md §41) : le rebond d'une balle ennemie. La `tourelle_ricochet` (placée à f5
+// à 40 px au nord du joueur 0, testbed/arena.ldtk) tire à f7 une balle `ricochet` (`Bounce(2)`,
+// `Pierce(8)`) : elle traverse le joueur, atteint le mur sud vers f63 (y ≈ 604), s'y réfléchit
+// (vitesse inversée) et remonte. Sans `Bounce` elle mourrait au mur (même chemin, elle ne dépasse pas
+// 150 px sur 900 de portée). La tourelle retire une seconde balle vers f99.
+//
+// À regarder : une seule balle ennemie descend, traverse le joueur, rebondit sur le mur du bas et
+// remonte vers la tourelle.
+Scenario(
+    powerup_drop_chance_override: "0.0",
+    game: "testbed",
+    map: "testbed/arena.ldtk",
+    frames: 110,
+    characters: [(character: "tourelle_ricochet", x: "424.0", y: "736.0", at_frame: 5)],
+    players: [
+        (inputs: []),
+    ],
+    expect: [
+        BulletCount(count: 1, projectile: Some("ricochet"), team: Some(Enemies), at_frame: 50),
+        // Après le mur (f63) : encore en vol, elle remonte.
+        BulletCount(count: 1, projectile: Some("ricochet"), team: Some(Enemies), at_frame: 80),
+        BulletCount(count: 1, projectile: Some("ricochet"), at_frame: 95),
+        PlayerAlive(handle: 0, at_frame: 110),
+    ],
+)

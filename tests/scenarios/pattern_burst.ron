@@ -1,0 +1,22 @@
+// M2-T1 (docs/conventions.md §41) : les salves. La `tourelle_salve` (placée à f5, 100 px à droite du joueur 0) joue
+// `Burst(count: 3, per_burst: 2, interval: 8)` après un télégraphe de 10 frames : trois salves de deux
+// flèches, à f17, f25 et f33.
+//
+// À regarder : deux flèches, puis deux autres 8 frames plus tard, puis deux encore.
+Scenario(
+    powerup_drop_chance_override: "0.0",
+    game: "testbed",
+    map: "testbed/arena.ldtk",
+    frames: 70,
+    characters: [(character: "tourelle_salve", x: "520.0", y: "696.0", at_frame: 5)],
+    players: [
+        (inputs: []),
+    ],
+    expect: [
+        BulletCount(count: 0, projectile: Some("arrow"), at_frame: 16),
+        BulletCount(count: 2, projectile: Some("arrow"), team: Some(Enemies), at_frame: 17),
+        BulletCount(count: 4, projectile: Some("arrow"), at_frame: 25),
+        BulletCount(count: 6, projectile: Some("arrow"), at_frame: 33),
+        PlayerAlive(handle: 0, at_frame: 70),
+    ],
+)
