@@ -24,3 +24,12 @@ Validation :
 
 Aucun décalage ajouté aux inputs : le test compare la trace frame par frame. Le fichier
 humain original reste intact dans [run 01](../m1-f53cd1ae-run-01/README.md).
+
+Smoke natif Mac rendu : `ALACOD_RESTART_AT_FRAME=30`, puis sortie à f60
+dans la seconde partie, avec `ALACOD_STATE_TRACE` et `ALACOD_RECORD`. Les deux
+fichiers RON conservent bien throne/Floors/run/etage/difficulté/graine 123456.
+L'ancienne session continue jusqu'à sa fermeture effective (92 inputs), puis
+la seconde enregistre 60 inputs distincts. Les exports GGRS contiennent 29 et
+59 lignes, conformément à la dernière sauvegarde manquante documentée dans
+state_trace.rs. Les quatre fichiers sont joints ; aucune validation humaine
+du bouton restart n'est déduite de ce smoke automatique.

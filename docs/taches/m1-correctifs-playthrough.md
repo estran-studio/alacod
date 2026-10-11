@@ -95,3 +95,20 @@ Après le lot performance, refaire le passage dense avec William ; après les de
 correctifs de jeu, deuxième run humaine incluant restart et les points restants de la
 fiche. En ligne si possible. Recueillir les gravités et décisions mot pour mot, puis
 écrire le rapport de sortie M1 avec les lignes de dettes proposées à orch.
+
+## État après implémentation — 2026-10-10
+
+- Performance : `41d3859d`, exception des snapshots diagnostiques `50257691` ;
+  [mesures](../../tests/review-notes/m1-f53cd1ae-performance/README.md),
+  204 scénarios verts et traces identiques pour l'optimisation pure.
+- Enregistreur : `57de6173`, aller-retour exact et archive de restart ;
+  [preuves](../../tests/review-notes/m1-f53cd1ae-recording/README.md).
+- Recul : `faa5120c`, [régression et traces](../../tests/review-notes/m1-f53cd1ae-navigation/README.md).
+- Mutations entre étages : `12a35292`,
+  [duo sûr et traces](../../tests/review-notes/m1-f53cd1ae-mutations/README.md).
+
+La comparaison release, les timestamps GPU et la charge M2 à 500 balles ne sont pas
+mesurés ici. Le passage humain diagnostique est fluide à la cadence applicative ;
+le p95 strict de 16,7 ms reste légèrement dépassé (17,27 ms). La confirmation humaine
+de la seconde run et les décisions de sortie M1 restent à recueillir dans le
+[rapport](rapports/m1-revue-humaine.md).
