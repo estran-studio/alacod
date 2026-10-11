@@ -597,6 +597,8 @@
                 "fireball": (damage: "8.0", speed: "90.0", range: "400.0"),
                 // Volée de l'archer (`volee`).
                 "arrow": (damage: "5.0", speed: "120.0", range: "320.0"),
+                // M2-T1 : brume inoffensive, lente (banc `bench_bullets_room`, `tourelle_anneau`).
+                "brume": (damage: "0.0", speed: "60.0", range: "700.0"),
                 // M2-T1 : balle ennemie perçante qui rebondit deux fois (`tourelle_ricochet`).
                 "ricochet": (damage: "5.0", speed: "150.0", range: "900.0", modifiers: [Bounce(2), Pierce(8)]),
             },
