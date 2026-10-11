@@ -1,3 +1,5 @@
+// Revue M1 2026-10-10 : choix reportés après nettoyage ; attentes de timing
+// et mutations retestées. Les mesures historiques ci-dessous précèdent cette politique.
 // Revue M1 2026-10-10, recul avec marges : étage 2 à f1572, alerte à f2472.
 // `throne` phase 2 (T1.9 + T1.10 + T1.11, docs/conventions.md §23, §27, §29) : un bot `prudent`
 // joue la run avec tout ce que le manifeste active — progression `run` (rads, niveaux,
@@ -23,7 +25,7 @@ Scenario(
     game: "throne",
     floors: Some("run"),
     map_seed: 123456,
-    frames: 2500,
+    frames: 3720,
     players: [
         (bot: prudent),
     ],
@@ -31,14 +33,14 @@ Scenario(
         Event(kind: "levelup", by_frame: 365),
         Level(handle: 0, level: 1, at_frame: 365),
         Gauge(handle: 0, id: "rads", min: Some(3.0), at_frame: 365),
-        Mutations(handle: 0, count: 0, at_frame: 900),
-        Mutations(handle: 0, count: 1, at_frame: 910),
-        Event(kind: "mutation", by_frame: 910),
-        Level(handle: 0, level: 2, at_frame: 1170),
-        Clock(id: "alerte", fired: false, at_frame: 2465),
-        Clock(id: "alerte", fired: true, at_frame: 2480),
-        FloorIndex(index: 1, at_frame: 1565),
-        FloorIndex(index: 2, at_frame: 1585),
-        PlayerAlive(handle: 0, at_frame: 2399),
+        Mutations(handle: 0, count: 0, at_frame: 1105),
+        Mutations(handle: 0, count: 1, at_frame: 1115),
+        Event(kind: "mutation", by_frame: 1115),
+        Level(handle: 0, level: 2, at_frame: 1890),
+        Clock(id: "alerte", fired: false, at_frame: 3700),
+        Clock(id: "alerte", fired: true, at_frame: 3715),
+        FloorIndex(index: 1, at_frame: 2800),
+        FloorIndex(index: 2, at_frame: 2815),
+        PlayerAlive(handle: 0, at_frame: 3719),
     ],
 )

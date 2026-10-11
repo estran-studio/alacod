@@ -661,6 +661,15 @@ struct SurfaceFileSchema {
     acceleration: Option<FixedField>,
 }
 
+/// When earned mutation choices are presented. Existing games keep immediate choices.
+#[derive(Debug, Clone, Copy, Default, PartialEq, Eq, Deserialize)]
+pub enum MutationTiming {
+    #[default]
+    Immediate,
+    /// Floors only: after the portal opens, before entering the next floor.
+    BetweenFloors,
+}
+
 /// Progression (T1.10, chantier C4 v1, `docs/conventions.md` §27), `progression/<id>.ron` : jauge
 /// des joueurs (rads), seuils de niveau, choix de mutation, pool d'armes par niveau.
 #[derive(Debug, Clone)]
@@ -677,6 +686,7 @@ pub struct ProgressionEntry {
     pub choices: u32,
     /// Frames avant que la première option soit prise d'office.
     pub choice_frames: u32,
+    pub choice_timing: MutationTiming,
     /// Pool de mutations ; vide = toutes les mutations du jeu.
     pub mutations: Vec<String>,
     pub weapon_pool: Vec<WeaponPoolEntry>,
@@ -698,6 +708,8 @@ struct ProgressionFileSchema {
     levels: Vec<FixedField>,
     choices: u32,
     choice_frames: u32,
+    #[serde(default)]
+    choice_timing: MutationTiming,
     #[serde(default)]
     mutations: Vec<String>,
     #[serde(default)]
@@ -2546,6 +2558,7 @@ fn load_progression(
                 levels: parsed.levels.iter().map(|l| l.get()).collect(),
                 choices: parsed.choices,
                 choice_frames: parsed.choice_frames,
+                choice_timing: parsed.choice_timing,
                 mutations: parsed.mutations,
                 weapon_pool: parsed.weapon_pool,
                 weapon_drop_chance: parsed.weapon_drop_chance.map_or(Fixed::ZERO, |c| c.get()),

@@ -149,6 +149,8 @@ pub fn rollback_resolve_damage_events(
     // T1.9 : multiplicateur de difficulté des dégâts infligés par les ennemis (1 sans
     // difficulté activée : aucun calcul, voir `crate::clock::scale`).
     clock: Res<run::Clock>,
+    progression: Res<crate::progression::ProgressionTable>,
+    floor: Option<Res<run::FloorState>>,
 ) {
     if events.is_empty() {
         return;
@@ -195,6 +197,13 @@ pub fn rollback_resolve_damage_events(
         // (fonction pure, sans accès ECS) : ce résolveur est déjà le seul point qui lit à la
         // fois l'événement et l'état de la cible.
         if downed {
+            continue;
+        }
+        // Deferred choices happen in a safe intermission. Residual status/terrain
+        // damage must not kill a player while they read the mutation cards.
+        if *target_team == Team::Players
+            && crate::progression::safe_intermission(&progression, floor.as_deref())
+        {
             continue;
         }
         let invulnerable = opt_health.is_some_and(|h| h.is_invulnerable_at(event.frame));

@@ -414,6 +414,18 @@ pub fn floor_transition_system(
     mut commands: Commands,
     frame: Res<FrameCount>,
     run: Res<Run>,
+    progression: Res<game::progression::ProgressionTable>,
+    choices: Query<
+        (),
+        (
+            With<game::character::player::Player>,
+            Without<game::character::health::Death>,
+            Or<(
+                With<game::progression::MutationChoice>,
+                With<game::progression::PendingMutations>,
+            )>,
+        ),
+    >,
     plan: Res<FloorPlan>,
     mut floor_state: ResMut<FloorState>,
     mut id_factory: ResMut<GgrsNetIdFactory>,
@@ -428,6 +440,16 @@ pub fn floor_transition_system(
     ),
 ) {
     if !run.is_playing() || !floor_state.portal_open {
+        return;
+    }
+    // Only deferred floor progression waits here; immediate choices in other games
+    // preserve their historical transition behavior.
+    if !choices.is_empty()
+        && progression
+            .active
+            .as_ref()
+            .is_some_and(|p| p.choice_timing == content::registry::MutationTiming::BetweenFloors)
+    {
         return;
     }
     let crossing = order_iter!(entities.players)

@@ -1,3 +1,5 @@
+// Revue M1 2026-10-10 : choix reportés après nettoyage ; attentes de timing
+// et mutations retestées. Les mesures historiques ci-dessous précèdent cette politique.
 // Revue M1 2026-10-10, recul corrigé : étage 2 à f1572, alerte à f2472 ; le bot
 // reste vivant dans le combat du boss à f2699, puis meurt à f2779. Les 3700 frames sont
 // conservées et la défaite tardive est vérifiée. Régression de survie du témoin notée dans
@@ -27,19 +29,18 @@ Scenario(
     game: "throne",
     floors: Some("run"),
     map_seed: 123456,
-    frames: 3700,
+    frames: 3800,
     players: [
         (bot: prudent),
     ],
     expect: [
-        FloorIndex(index: 1, at_frame: 625),
-        FloorIndex(index: 1, at_frame: 1565),
-        FloorIndex(index: 2, at_frame: 1585),
+        FloorIndex(index: 1, at_frame: 1115),
+        FloorIndex(index: 1, at_frame: 2800),
+        FloorIndex(index: 2, at_frame: 2815),
         Event(kind: "levelup", by_frame: 365),
-        Mutations(handle: 0, contains: ["sang_froid", "coriace"], count: Some(2), at_frame: 1770),
-        Clock(id: "alerte", fired: true, at_frame: 2480),
+        Mutations(handle: 0, contains: ["chasseur", "vampire"], count: Some(2), at_frame: 2815),
+        Clock(id: "alerte", fired: true, at_frame: 3715),
         PlayerAlive(handle: 0, at_frame: 2699),
-        PlayerDead(handle: 0, at_frame: 3699),
-        Defeat(by_frame: 3699),
+        PlayerAlive(handle: 0, at_frame: 3799),
     ],
 )

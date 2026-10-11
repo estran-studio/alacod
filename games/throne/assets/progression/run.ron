@@ -9,6 +9,8 @@
     levels: ["3", "8", "15"],
     choices: 3,
     choice_frames: 600,
+    // Human review 2026-10-10: earn levels during combat, choose safely before the next floor.
+    choice_timing: BetweenFloors,
     // Pool : les huit mutations de `mutations/`.
     mutations: [],
     weapon_pool: [

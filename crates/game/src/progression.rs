@@ -17,14 +17,17 @@
 //!    `Mutations` la note, et `OnLevelUp` se déclenche à la frame suivante ;
 //! 3. niveau = seuils `levels` atteints ; chaque niveau gagné ouvre un choix (tirage de
 //!    `choices` mutations dans le flux `loot`, joueurs par `GgrsNetId`) ou s'empile
-//!    (`pending`) sur le choix déjà ouvert. La simulation ne se met jamais en pause.
+//!    (`pending`) sur le choix déjà ouvert. `choice_timing: BetweenFloors` les met en
+//!    attente pendant le combat, puis les présente après l'ouverture du portail ; la
+//!    transition attend tous les choix et le joueur est protégé pendant cet interlude.
+//!    La simulation ne se met jamais en pause.
 
 use std::collections::BTreeMap;
 
 use bevy::prelude::*;
 use bevy_fixed::fixed_math::Fixed;
 use bevy_fixed::rng::RngStreams;
-use bevy_ggrs::{PlayerInputs, Rollback};
+use bevy_ggrs::{PlayerInputs, Rollback, RollbackDespawnCommandExtension};
 use combat::actors::{INPUT_CHOICE_A, INPUT_CHOICE_B, INPUT_CHOICE_C};
 use content::manifest::GameManifest;
 use content::registry::Registry;
@@ -55,6 +58,7 @@ pub struct ProgressionDef {
     pub levels: Vec<Fixed>,
     pub choices: u32,
     pub choice_frames: u32,
+    pub choice_timing: content::registry::MutationTiming,
     /// Pool tiré au `LevelUp` (ordre des ids).
     pub pool: Vec<Candidate>,
     /// Pool d'armes par niveau (`level`, armes), drop à la mort.
@@ -88,6 +92,11 @@ pub struct MutationChoice {
     /// Aucun bouton de choix tenu depuis l'ouverture (voir `resolve_choice`).
     pub armed: bool,
 }
+
+/// Earned levels whose choices wait for the intermission. Absent when empty, so
+/// games with immediate progression retain their checksum.
+#[derive(Component, Clone, Debug, Default, PartialEq, Eq, Hash)]
+pub struct PendingMutations(pub u32);
 
 /// `OnEnter(AppState::GameLoading)` : résout la progression active et les mutations depuis le
 /// registre (comme `crate::patterns`).
@@ -141,6 +150,7 @@ pub fn build_progression_table(registry: &Registry, wanted: Option<&str>) -> Pro
             levels: entry.levels.clone(),
             choices: entry.choices,
             choice_frames: entry.choice_frames,
+            choice_timing: entry.choice_timing,
             pool,
             weapon_pool: entry
                 .weapon_pool
@@ -206,10 +216,21 @@ type ProgressionPlayers<'w, 's> = Query<
         &'static mut Effects,
         &'static mut EffectState,
         Option<&'static mut MutationChoice>,
+        Option<&'static PendingMutations>,
         Has<Death>,
     ),
     With<Rollback>,
 >;
+
+/// Floor clear is a safe reading period for games that defer mutation choices.
+/// Derived entirely from rollback floor state and immutable content configuration.
+pub fn safe_intermission(table: &ProgressionTable, floor: Option<&run::FloorState>) -> bool {
+    table
+        .active
+        .as_ref()
+        .is_some_and(|def| def.choice_timing == content::registry::MutationTiming::BetweenFloors)
+        && floor.is_some_and(|floor| floor.portal_open)
+}
 
 /// Voir la doc du module.
 #[allow(clippy::too_many_arguments)]
@@ -222,12 +243,26 @@ pub fn progression_system(
     mut players: ProgressionPlayers,
     dead: DeadQuery,
     others: OthersQuery,
+    run: Option<Res<run::Run>>,
+    floor: Option<Res<run::FloorState>>,
+    enemies: Query<(), (With<crate::character::enemy::Enemy>, Without<Death>)>,
+    projectiles: Query<(&GgrsNetId, Entity, &sim_core::team::Team), With<crate::weapons::Bullet>>,
+    melee: Query<(&GgrsNetId, Entity, &combat::weapons::melee::MeleeHitbox)>,
 ) {
     let Some(def) = &table.active else {
         return;
     };
     let frame = frame.frame;
     let kills = kills_by_killer(&dead, &others);
+    let between_floors = def.choice_timing == content::registry::MutationTiming::BetweenFloors
+        && run
+            .as_ref()
+            .is_some_and(|r| matches!(r.mode, run::RunMode::Floors { .. }));
+    let intermission = between_floors
+        && run.as_ref().is_some_and(|r| r.is_playing())
+        && floor.as_ref().is_some_and(|f| f.portal_open)
+        && enemies.is_empty();
+    let mut clear_hostile_projectiles = false;
 
     for (
         net_id,
@@ -239,12 +274,14 @@ pub fn progression_system(
         mut effects,
         mut state,
         choice,
+        deferred,
         dead_now,
     ) in order_mut_iter!(players)
     {
         if dead_now {
             continue;
         }
+        let mut deferred = deferred.map_or(0, |pending| pending.0);
         // 1. Rads des kills de la frame
         let killed = kills.get(&net_id.0).map_or(0, Vec::len);
         for _ in 0..killed {
@@ -300,10 +337,31 @@ pub fn progression_system(
                 frame, player.handle, reached, value
             );
             level.0 = reached;
-            match choice.as_mut() {
-                Some(open) => open.pending += gained,
-                None => choice = open_choice(def, &mutations, &mut state, &mut rng, frame, gained),
+            if between_floors {
+                deferred += gained;
+            } else {
+                match choice.as_mut() {
+                    Some(open) => open.pending += gained,
+                    None => {
+                        choice = open_choice(def, &mutations, &mut state, &mut rng, frame, gained)
+                    }
+                }
             }
+        }
+        if intermission && deferred > 0 {
+            match choice.as_mut() {
+                Some(open) => open.pending += deferred,
+                None => {
+                    choice = open_choice(def, &mutations, &mut state, &mut rng, frame, deferred)
+                }
+            }
+            deferred = 0;
+            clear_hostile_projectiles = true;
+        }
+        if deferred > 0 {
+            commands.entity(entity).insert(PendingMutations(deferred));
+        } else {
+            commands.entity(entity).remove::<PendingMutations>();
         }
 
         // Écriture du choix
@@ -313,6 +371,19 @@ pub fn progression_system(
             }
             None => {
                 commands.entity(entity).remove::<MutationChoice>();
+            }
+        }
+    }
+    if clear_hostile_projectiles {
+        // The last enemy can leave bullets in flight. A choice must be safe to read.
+        for (_, entity, team) in utils::order_iter!(projectiles) {
+            if *team == sim_core::team::Team::Enemies {
+                commands.entity(entity).despawn_rollback();
+            }
+        }
+        for (_, entity, hitbox) in utils::order_iter!(melee) {
+            if hitbox.owner_team == sim_core::team::Team::Enemies {
+                commands.entity(entity).despawn_rollback();
             }
         }
     }
@@ -424,6 +495,7 @@ impl Plugin for ProgressionPlugin {
             .rollback_and_trace_neutral::<Level>()
             .rollback_and_trace_neutral::<Mutations>()
             .rollback_and_trace_neutral::<MutationChoice>()
+            .rollback_and_trace_neutral::<PendingMutations>()
             .add_systems(
                 bevy_ggrs::GgrsSchedule,
                 (

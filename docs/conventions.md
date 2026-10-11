@@ -1885,6 +1885,16 @@ ajoute ses effets, est notée dans `Mutations`, et **`OnLevelUp` se déclenche �
 suivante** (pour tous les effets `OnLevelUp` du joueur, ceux de la nouvelle mutation compris).
 Pool épuisé : pas de choix, `OnLevelUp` directement. Moments clés `levelup`, `mutation`.
 
+`choice_timing: Immediate` est le défaut. `BetweenFloors` (revue humaine M1) conserve
+les niveaux gagnés pendant le combat dans `PendingMutations` (rollback neutre, absent
+quand vide), puis ouvre les choix après nettoyage de l'étage et ouverture du portail.
+Le portail attend que tous les joueurs vivants aient résolu leurs choix ; les projectiles
+hostiles restants sont supprimés et les dégâts des joueurs sont ignorés pendant cet
+interlude. Le timeout par choix reste actif, les horloges continuent. Le tirage `loot`
+est différé avec le choix, donc ses options et les combats suivants peuvent changer.
+Cette politique ne s'applique qu'au mode `Floors` ; les autres modes gardent le choix
+immédiat. `throne` l'active dans `progression/run.ron`.
+
 **Mutation** : kind `Mutation` (`mutations/<id>.ron`) : `(name, weight: 1, tags, max_stacks: 1,
 effects: [Effect])`.
 

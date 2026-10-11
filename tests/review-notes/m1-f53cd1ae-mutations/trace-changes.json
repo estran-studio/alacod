@@ -1,0 +1,58 @@
+[
+  {
+    "scenario": "throne_floor_1",
+    "first_changed_line": 304,
+    "first_before": "303 000000000000000099d7e86fe0b9fd58 83",
+    "first_after": "303 0000000000000000c9f60b887dc5cebf 83",
+    "before_lines": 639,
+    "after_lines": 1119
+  },
+  {
+    "scenario": "throne_mutation_choice",
+    "first_changed_line": 533,
+    "first_before": "532 00000000000000006a041363bacdac1b 92",
+    "first_after": "532 000000000000000052a6e2d065240482 92",
+    "before_lines": 949,
+    "after_lines": 949
+  },
+  {
+    "scenario": "throne_progression",
+    "first_changed_line": 304,
+    "first_before": "303 000000000000000099d7e86fe0b9fd58 83",
+    "first_after": "303 0000000000000000c9f60b887dc5cebf 83",
+    "before_lines": 2499,
+    "after_lines": 3719
+  },
+  {
+    "scenario": "throne_quad",
+    "first_changed_line": 352,
+    "first_before": "351 0000000000000000fa966a5e1e8af0c5 134",
+    "first_after": "351 0000000000000000909bfe0c1bef0e1c 134",
+    "before_lines": 3399,
+    "after_lines": 3399
+  },
+  {
+    "scenario": "throne_softlock_recul",
+    "first_changed_line": 868,
+    "first_before": "867 0000000000000000f3f963dd9b6e3479 128",
+    "first_after": "867 0000000000000000169d773e7bffb6bf 129",
+    "before_lines": 1859,
+    "after_lines": 1999
+  },
+  {
+    "scenario": "throne_solo",
+    "first_changed_line": 304,
+    "first_before": "303 000000000000000099d7e86fe0b9fd58 83",
+    "first_after": "303 0000000000000000c9f60b887dc5cebf 83",
+    "before_lines": 3699,
+    "after_lines": 3799
+  },
+  {
+    "scenario": "throne_three_floors",
+    "first_changed_line": 273,
+    "first_before": "272 0000000000000000e8b5a3ba332b4bca 84",
+    "first_after": "272 00000000000000001cd4db6ffad9e83e 84",
+    "before_lines": 4999,
+    "after_lines": 4999
+  }
+]

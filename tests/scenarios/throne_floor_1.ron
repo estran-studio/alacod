@@ -1,3 +1,5 @@
+// Revue M1 2026-10-10 : choix reportés après nettoyage ; attentes de timing
+// et mutations retestées. Les mesures historiques ci-dessous précèdent cette politique.
 // `throne` (T1.0c, docs/conventions.md §29) : un bot `prudent` finit le premier étage de la run
 // (`cave:niveau_1` : rat, chien, rodeur) et passe le portail. Tout ce que le manifeste active
 // joue (butin, progression, horloge, difficulté) : le jeu tel qu'il est.
@@ -15,13 +17,13 @@ Scenario(
     game: "throne",
     floors: Some("run"),
     map_seed: 123456,
-    frames: 640,
+    frames: 1120,
     players: [
         (bot: prudent),
     ],
     expect: [
-        FloorIndex(index: 0, at_frame: 610),
-        FloorIndex(index: 1, at_frame: 625),
-        PlayerAlive(handle: 0, at_frame: 639),
+        FloorIndex(index: 0, at_frame: 1105),
+        FloorIndex(index: 1, at_frame: 1115),
+        PlayerAlive(handle: 0, at_frame: 1119),
     ],
 )

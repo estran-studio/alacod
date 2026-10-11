@@ -366,6 +366,7 @@ mod tests {
             levels: vec![fx(3.0), fx(8.0)],
             choices: 3,
             choice_frames: 600,
+            choice_timing: content::registry::MutationTiming::Immediate,
             pool: Vec::new(),
             weapon_pool: Vec::new(),
             weapon_drop_chance: Fixed::ZERO,

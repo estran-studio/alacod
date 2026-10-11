@@ -1,0 +1,89 @@
+{
+  "throne_floor_1": [
+    "f  304 levelup joueur 0 passe niveau 1",
+    "f  507 portal  portail ouvert (niveau 0)",
+    "f  901 clock   horloge : alerte",
+    "f 1108 floor   niveau 1",
+    "f 1108 mutation joueur 0 prend la mutation chasseur"
+  ],
+  "throne_mutation_choice": [
+    "f  533 levelup joueur 0 passe niveau 1",
+    "f  539 portal  portail ouvert (niveau 0)",
+    "f  784 mutation joueur 0 prend la mutation vampire",
+    "f  901 clock   horloge : alerte",
+    "f  935 floor   niveau 1"
+  ],
+  "throne_progression": [
+    "f  304 levelup joueur 0 passe niveau 1",
+    "f  507 portal  portail ouvert (niveau 0)",
+    "f  901 clock   horloge : alerte",
+    "f 1108 floor   niveau 1",
+    "f 1108 mutation joueur 0 prend la mutation chasseur",
+    "f 1884 levelup joueur 0 passe niveau 2",
+    "f 2008 clock   horloge : alerte",
+    "f 2204 portal  portail ouvert (niveau 1)",
+    "f 2805 floor   niveau 2",
+    "f 2805 mutation joueur 0 prend la mutation vampire",
+    "f 3601 levelup joueur 0 passe niveau 3",
+    "f 3705 clock   horloge : alerte"
+  ],
+  "throne_quad": [
+    "f  248 portal  portail ouvert (niveau 0)",
+    "f  262 floor   niveau 1",
+    "f  352 levelup joueur 3 passe niveau 1",
+    "f  587 levelup joueur 2 passe niveau 1",
+    "f  895 portal  portail ouvert (niveau 1)",
+    "f 1162 clock   horloge : alerte",
+    "f 1496 floor   niveau 2",
+    "f 1496 mutation joueur 2 prend la mutation vampire",
+    "f 1496 mutation joueur 3 prend la mutation rancune",
+    "f 1627 levelup joueur 0 passe niveau 1",
+    "f 2396 clock   horloge : alerte",
+    "f 2561 portal  portail ouvert (niveau 2)",
+    "f 3162 floor   niveau 3",
+    "f 3162 mutation joueur 0 prend la mutation coriace"
+  ],
+  "throne_softlock_recul": [
+    "f  417 portal  portail ouvert (niveau 0)",
+    "f  473 floor   niveau 1",
+    "f  868 levelup joueur 0 passe niveau 1",
+    "f  873 levelup joueur 1 passe niveau 1",
+    "f 1294 portal  portail ouvert (niveau 1)",
+    "f 1373 clock   horloge : alerte",
+    "f 1895 floor   niveau 2",
+    "f 1895 mutation joueur 0 prend la mutation irradie",
+    "f 1895 mutation joueur 1 prend la mutation adrenaline"
+  ],
+  "throne_solo": [
+    "f  304 levelup joueur 0 passe niveau 1",
+    "f  507 portal  portail ouvert (niveau 0)",
+    "f  901 clock   horloge : alerte",
+    "f 1108 floor   niveau 1",
+    "f 1108 mutation joueur 0 prend la mutation chasseur",
+    "f 1884 levelup joueur 0 passe niveau 2",
+    "f 2008 clock   horloge : alerte",
+    "f 2204 portal  portail ouvert (niveau 1)",
+    "f 2805 floor   niveau 2",
+    "f 2805 mutation joueur 0 prend la mutation vampire",
+    "f 3601 levelup joueur 0 passe niveau 3",
+    "f 3705 clock   horloge : alerte"
+  ],
+  "throne_three_floors": [
+    "f  273 portal  portail ouvert (niveau 0)",
+    "f  273 levelup joueur 0 passe niveau 1",
+    "f  874 floor   niveau 1",
+    "f  874 mutation joueur 0 prend la mutation adrenaline",
+    "f 1313 levelup joueur 1 passe niveau 1",
+    "f 1435 portal  portail ouvert (niveau 1)",
+    "f 1774 clock   horloge : alerte",
+    "f 2036 floor   niveau 2",
+    "f 2036 mutation joueur 1 prend la mutation coriace",
+    "f 2369 levelup joueur 0 passe niveau 2",
+    "f 2936 clock   horloge : alerte",
+    "f 3816 portal  portail ouvert (niveau 2)",
+    "f 3836 clock   horloge : renfort#1",
+    "f 4417 floor   niveau 3",
+    "f 4417 mutation joueur 0 prend la mutation coriace",
+    "f 4552 levelup joueur 0 passe niveau 3"
+  ]
+}

@@ -1416,8 +1416,8 @@ fn hud_text_sur_throne_progression() {
             hud("level", "Niv. 0", 60),
             hud("rads", "rads", 60),
             hud("level", "Niv. 1", 365),
-            hud("level", "Niv. 2", 1290),
-            hud("floor", "Étage 3", 1912),
+            hud("level", "Niv. 2", 1890),
+            hud("floor", "Étage 3", 2815),
         ],
         &[
             (hud("level", "Niv. 2", 540), "attendu « Niv. 2 »"),
@@ -1553,6 +1553,166 @@ fn throne_native_recording_roundtrip() {
     );
 }
 
+#[test]
+fn throne_mutations_wait_for_clear_and_every_duo_choice_before_transition() {
+    use bevy::prelude::*;
+    use std::sync::{
+        atomic::{AtomicBool, Ordering},
+        Arc,
+    };
+    if map_ldtk::RENDER_ENABLED {
+        return;
+    }
+    fn earn_three_levels(
+        frame: Res<utils::frame::FrameCount>,
+        mut players: Query<
+            (
+                &utils::net_id::GgrsNetId,
+                &mut game::effects_runtime::Gauges,
+            ),
+            With<game::character::player::Player>,
+        >,
+    ) {
+        if frame.frame == 10 {
+            for (_, mut gauges) in utils::order_mut_iter!(players) {
+                gauges.add("rads", bevy_fixed::fixed_math::Fixed::from_num(15));
+            }
+        }
+    }
+    fn residual_damage_during_choice(
+        frame: Res<utils::frame::FrameCount>,
+        floor: Res<run::FloorState>,
+        players: Query<
+            (&utils::net_id::GgrsNetId,),
+            (
+                With<game::character::player::Player>,
+                With<game::progression::MutationChoice>,
+            ),
+        >,
+        mut damage: ResMut<sim_core::frame_events::FrameEvents<sim_core::damage::DamageEvent>>,
+    ) {
+        if !floor.portal_open {
+            return;
+        }
+        for (id,) in utils::order_iter!(players) {
+            damage.send(sim_core::damage::DamageEvent {
+                source: id.clone(),
+                target: id.clone(),
+                kind: sim_core::damage::DamageKind::True,
+                amount: bevy_fixed::fixed_math::Fixed::from_num(100),
+                frame: frame.frame,
+                tags: Default::default(),
+                source_team: sim_core::team::Team::Enemies,
+                friendly_fire: sim_core::damage::FriendlyFire::Always,
+            });
+        }
+    }
+    let queued = Arc::new(AtomicBool::new(false));
+    let opened = Arc::new(AtomicBool::new(false));
+    let completed = Arc::new(AtomicBool::new(false));
+    let mut fixture = load_scenario("throne_floor_1");
+    fixture.players.push(fixture.players[0].clone());
+    fixture.frames = 3200;
+    fixture.expect = vec![
+        Expectation::Level {
+            handle: 0,
+            level: 3,
+            at_frame: 12,
+        },
+        Expectation::Level {
+            handle: 1,
+            level: 3,
+            at_frame: 12,
+        },
+        Expectation::Mutations {
+            handle: 0,
+            contains: vec![],
+            count: Some(0),
+            at_frame: 100,
+        },
+        Expectation::Mutations {
+            handle: 1,
+            contains: vec![],
+            count: Some(0),
+            at_frame: 100,
+        },
+    ];
+    let result = scenario::runner::run_with(&fixture, |app| {
+        let queued = queued.clone();
+        let opened = opened.clone();
+        let completed = completed.clone();
+        // Select the deferred policy for this intermission contract test.
+        app.world_mut()
+            .resource_mut::<content::registry::Registry>()
+            .progression
+            .get_mut(&content::registry::ProgressionId::from("run".to_string()))
+            .unwrap()
+            .choice_timing = content::registry::MutationTiming::BetweenFloors;
+        app.add_systems(
+            bevy_ggrs::GgrsSchedule,
+            earn_three_levels
+                .after(game::effects_runtime::apply_effects_system)
+                .before(game::progression::progression_system)
+                .in_set(game::system_set::RollbackSystemSet::DeathManagement),
+        );
+        app.add_systems(
+            bevy_ggrs::GgrsSchedule,
+            residual_damage_during_choice
+                .after(game::character::enemy::ai::rules::charge_damage_translate_system)
+                .before(game::character::health::rollback_resolve_damage_events)
+                .in_set(game::system_set::RollbackSystemSet::CollisionDamage),
+        );
+        app.add_systems(
+            Update,
+            move |floor: Option<Res<run::FloorState>>,
+                  enemies: Query<(), With<game::character::enemy::Enemy>>,
+                  players: Query<
+                (
+                    &game::progression::Level,
+                    &game::progression::Mutations,
+                    Option<&game::progression::MutationChoice>,
+                    Option<&game::progression::PendingMutations>,
+                ),
+                With<game::character::player::Player>,
+            >| {
+                let Some(floor) = floor else {
+                    return;
+                };
+                if floor.index == 0 {
+                    for (level, mutations, choice, pending) in &players {
+                        if level.0 == 3 && !enemies.is_empty() {
+                            assert!(choice.is_none(), "choice opened during combat");
+                            assert_eq!(mutations.0.len(), 0);
+                            assert_eq!(pending.map(|p| p.0), Some(3));
+                            queued.store(true, Ordering::Relaxed);
+                        }
+                        if choice.is_some() {
+                            assert!(floor.portal_open);
+                            assert!(enemies.is_empty());
+                            opened.store(true, Ordering::Relaxed);
+                        }
+                    }
+                } else if !completed.load(Ordering::Relaxed) {
+                    assert_eq!(players.iter().count(), 2);
+                    for (_, mutations, choice, pending) in &players {
+                        assert_eq!(
+                            mutations.0.len(),
+                            3,
+                            "floor crossed with a lost/pending choice"
+                        );
+                        assert!(choice.is_none() && pending.is_none());
+                    }
+                    completed.store(true, Ordering::Relaxed);
+                }
+            },
+        );
+    });
+    assert!(result.failures.is_empty(), "{:?}", result.failures);
+    assert!(queued.load(Ordering::Relaxed));
+    assert!(opened.load(Ordering::Relaxed));
+    assert!(completed.load(Ordering::Relaxed));
+}
+
 /// Regression from William's run: pillard 220 pressed into the wall while fleeing.
 /// Retain historical mutation timing to isolate navigation from the intermission change.
 #[test]
@@ -1579,6 +1739,12 @@ fn throne_recorded_pillard_leaves_the_wall_corner() {
     fixture.frames = 2325;
     let observed = Arc::new(AtomicBool::new(false));
     let result = scenario::runner::run_with(&fixture, |app| {
+        app.world_mut()
+            .resource_mut::<content::registry::Registry>()
+            .progression
+            .get_mut(&content::registry::ProgressionId::from("run".to_string()))
+            .unwrap()
+            .choice_timing = content::registry::MutationTiming::Immediate;
         let observed = observed.clone();
         app.add_systems(
             Update,
@@ -1619,4 +1785,56 @@ fn throne_recorded_pillard_leaves_the_wall_corner() {
     });
     assert!(result.failures.is_empty(), "{:?}", result.failures);
     assert!(observed.load(Ordering::Relaxed));
+}
+
+/// Deferring choices changes progression at the earned level, never earlier combat.
+/// Optional full dumps support the trace proof without rewriting content on disk.
+#[test]
+fn throne_deferred_choice_trace_starts_at_the_earned_level() {
+    if map_ldtk::RENDER_ENABLED {
+        return;
+    }
+    let mut fixture = load_scenario("throne_floor_1");
+    fixture.frames = 400;
+    fixture.expect.clear();
+    let proof = std::env::var_os("ALACOD_DUMP_TRACE").map(std::path::PathBuf::from);
+    let execute = |timing| {
+        scenario::runner::run_with(&fixture, |app| {
+            app.world_mut()
+                .resource_mut::<content::registry::Registry>()
+                .progression
+                .get_mut(&content::registry::ProgressionId::from("run".to_string()))
+                .unwrap()
+                .choice_timing = timing;
+            if proof.is_some() {
+                app.world_mut()
+                    .resource_mut::<game::state_trace::StateTraceRecorder>()
+                    .full = true;
+            }
+        })
+    };
+    let immediate = execute(content::registry::MutationTiming::Immediate);
+    let deferred = execute(content::registry::MutationTiming::BetweenFloors);
+    assert!(immediate.failures.is_empty());
+    assert!(deferred.failures.is_empty());
+    assert_eq!(immediate.trace.len(), deferred.trace.len());
+    assert_eq!(
+        immediate
+            .trace
+            .iter()
+            .zip(&deferred.trace)
+            .position(|(a, b)| a != b),
+        Some(303),
+        "choice deferral must not change combat before the first earned level"
+    );
+    if let Some(dir) = proof {
+        std::fs::create_dir_all(&dir).unwrap();
+        for (name, result) in [("immediate", immediate), ("between-floors", deferred)] {
+            std::fs::write(
+                dir.join(format!("{name}.full")),
+                result.full_trace.unwrap().join("\n") + "\n",
+            )
+            .unwrap();
+        }
+    }
 }
