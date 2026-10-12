@@ -2522,6 +2522,52 @@ dans les scripts de build web (`zombies` et `throne` seulement).
 
 ---
 
+## 40. Grammaire d'étage (M2-T10, chantier E2)
+
+Un étage de salles typées, assemblé à partir de gabarits LDtk. Code : `world::FloorGrammar`
+(donnée), `map::generation::floor` (planificateur), `map::generation::imp::floor`
+(`FloorMapGeneration`, mode `MapGenerationMode::Floor(grammaire)` à côté de `Basic` et `Cave`).
+`Basic` est inchangé (traces `zombies`/testbed identiques).
+
+**Contenu.** Kind de dossier `FloorGrammar` : un fichier RON par grammaire, id = nom de fichier,
+désignée comme carte par `floor:<id>` (`entry.start_map`, `Scenario.map`, `levels` d'une séquence
+`Floors`) :
+
+```ron
+// floor_grammars/etage.ron — game.ron : (path: "floor_grammars", kind: "FloorGrammar")
+(templates: "maps/salles.ldtk", grammar: (
+    rooms: (8, 12),                                    // départ, boss et requises compris
+    required: {"boss": 1, "boutique": 1, "recompense": 1},
+    min_boss_distance: 3,                              // en salles
+    // start: "depart", boss: "boss", filler: "combat", max_attempts: 64 (défauts)
+))
+```
+
+`templates` est la carte LDtk dont chaque niveau est un gabarit, typé par son champ de niveau
+`room_kind` (§35). Le départ est un gabarit `spawn: true`.
+
+**Algorithme** (déterministe, `RollbackRng` de génération ; listes ordonnées, aucun `HashMap`) :
+départ au centre ; remplissage par croissance aléatoire (tirage uniforme parmi les poses valides :
+parent, connexion libre, gabarit compatible du bon type, sans chevauchement ni sortie de carte) ;
+boss posé sur une salle de profondeur maximale, avec un gabarit à **une seule connexion**
+(cul-de-sac, donc strictement le plus loin du départ) ; salles requises sur des salles de
+profondeur ≤ celle du boss − 2 ; contrôle indépendant `validate_plan`. Échec : nouvelle tentative
+avec une graine dérivée (`next_u32` du générateur principal), au plus `max_attempts`, puis
+`FloorError::Exhausted` explicite (jamais de boucle infinie ; `NoTemplate` si un type n'a aucun
+gabarit).
+
+**Mesure** (1 000 graines, gabarits 10×10 tuiles du test) : génération moyenne 184 µs, max 11,8 ms,
+1,05 tentative en moyenne, tailles 8 à 12 réparties uniformément.
+
+**Lint** : `rooms` min > max ou < 2, `max_attempts` 0, `required` à 0 ou contenant le départ,
+plus d'un boss, départ + boss + requises > max, `min_boss_distance` impossible (`OutOfRange`) ;
+carte `templates` absente, type nécessaire (départ, boss, remplissage, requis) sans niveau de ce
+`room_kind`, séquence `Floors` ou `start_map` vers une grammaire inconnue (`BrokenReference`).
+Fixtures : `floor_bounds_inverted`, `floor_required_without_template`.
+
+**Piège.** Le chemin d'asset des gabarits est commun à tous les étages d'une séquence `Floors` : un
+chemin par étage sera nécessaire (étape 2), comme `cave://` pour les cavernes (§21).
+
 ## Notes essentielles
 
 **`CrateLocation`** : collectée mais non utilisée, voir §1 (entités et vérification par un scénario `idle`).

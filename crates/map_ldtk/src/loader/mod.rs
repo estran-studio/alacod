@@ -12,7 +12,7 @@ use map::generation::map_generation;
 
 use super::generation::{from_map, GeneratedMap};
 use crate::game::floors::{FloorPlan, FloorWorld};
-use content::registry::{cave_designation, Registry};
+use content::registry::{cave_designation, floor_designation, Registry};
 use std::collections::BTreeMap;
 use world::CaveConfig;
 
@@ -79,19 +79,27 @@ pub fn resolve_map_config(
             .unwrap_or_else(|| panic!("caverne « {id} » inconnue (voir `alacod lint`)"));
         (id, entry)
     });
+    // M2-T10 : `floor:<id>` assemble un étage depuis les gabarits de la grammaire
+    let floor = floor_designation(map).map(|id| {
+        registry
+            .and_then(|r| r.floor_grammars.get(&id))
+            .unwrap_or_else(|| panic!("grammaire d'étage « {id} » inconnue (voir `alacod lint`)"))
+    });
     let config = MapGenerationConfig {
-        map_path: cave.as_ref().map_or_else(
-            || map.to_string(),
-            |(id, c)| game::cave_assets::cave_asset_path(&c.template, id.as_str()),
-        ),
+        map_path: match (&cave, floor) {
+            (Some((id, c)), _) => game::cave_assets::cave_asset_path(&c.template, id.as_str()),
+            (None, Some(f)) => f.templates.clone(),
+            (None, None) => map.to_string(),
+        },
         seed: base.seed,
         max_width: base.max_width,
         max_heigth: base.max_heigth,
         max_room: base.max_room,
-        mode: cave.as_ref().map_or_else(
-            || base.mode.clone(),
-            |(_, c)| MapGenerationMode::Cave(c.config.clone()),
-        ),
+        mode: match (&cave, floor) {
+            (Some((_, c)), _) => MapGenerationMode::Cave(c.config.clone()),
+            (None, Some(f)) => MapGenerationMode::Floor(f.grammar.clone()),
+            (None, None) => base.mode.clone(),
+        },
     };
     (config, cave.map(|(_, c)| c.config.clone()))
 }

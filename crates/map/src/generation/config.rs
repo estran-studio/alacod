@@ -10,6 +10,9 @@ pub enum MapGenerationMode {
     /// dans le gabarit LDtk désigné par `map_path` (`map_ldtk::generation::cave`). La graine
     /// est `seed`, comme pour `Basic`.
     Cave(world::CaveConfig),
+    /// M2-T10 : étage assemblé par une grammaire (`generation::floor`) : types de salles
+    /// requis, boss en cul-de-sac à distance maximale. `Basic` reste inchangé.
+    Floor(super::floor::FloorGrammar),
 }
 
 #[derive(Debug, Resource, Serialize, Deserialize)]

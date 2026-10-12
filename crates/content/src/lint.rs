@@ -70,6 +70,7 @@ pub fn run(registry: &Registry, manifest: &GameManifest) -> Vec<LintError> {
     lint_sprite_sheets(registry, &mut errors);
     lint_floors(registry, &mut errors);
     lint_caves(registry, &mut errors);
+    lint_floor_grammars(registry, &mut errors);
     lint_surfaces(registry, &mut errors);
     lint_patterns(registry, &mut errors);
     lint_progression(registry, &mut errors);
@@ -1929,6 +1930,19 @@ fn lint_floors(registry: &Registry, errors: &mut Vec<LintError>) {
                 }
                 continue;
             }
+            if let Some(grammar) = registry::floor_designation(level) {
+                if !registry.floor_grammars.contains_key(&grammar) {
+                    errors.push(LintError {
+                        kind: LintErrorKind::BrokenReference,
+                        file: file.clone(),
+                        message: format!(
+                            "séquence de niveaux « {} » : champ levels : « {level} » : aucune grammaire d'étage chargée avec cet id (« {grammar} »)",
+                            floors.id
+                        ),
+                    });
+                }
+                continue;
+            }
             let map_id = registry::map_id_from_path(level);
             if !registry.maps.contains_key(&map_id) {
                 errors.push(LintError {
@@ -1937,6 +1951,46 @@ fn lint_floors(registry: &Registry, errors: &mut Vec<LintError>) {
                     message: format!(
                         "séquence de niveaux « {} » : champ levels : « {level} » : aucune carte chargée avec cet id (« {map_id} »)",
                         floors.id
+                    ),
+                });
+            }
+        }
+    }
+}
+
+/// M2-T10 (`docs/conventions.md` §40) : une grammaire d'étage est cohérente (bornes, exigences)
+/// et satisfiable avec ses gabarits : la carte `templates` est chargée et chaque type nécessaire
+/// (départ, boss, remplissage, requis) a au moins un niveau de ce `room_kind`.
+fn lint_floor_grammars(registry: &Registry, errors: &mut Vec<LintError>) {
+    for entry in registry.floor_grammars.values() {
+        let file = entry.file.display().to_string();
+        for problem in entry.grammar.problems() {
+            errors.push(LintError {
+                kind: LintErrorKind::OutOfRange,
+                file: file.clone(),
+                message: format!("grammaire d'étage « {} » : {problem}", entry.id),
+            });
+        }
+        let map_id = registry::map_id_from_path(&entry.templates);
+        let Some(map) = registry.maps.get(&map_id) else {
+            errors.push(LintError {
+                kind: LintErrorKind::BrokenReference,
+                file,
+                message: format!(
+                    "grammaire d'étage « {} » : champ templates : « {} » : aucune carte chargée avec cet id (« {map_id} »)",
+                    entry.id, entry.templates
+                ),
+            });
+            continue;
+        };
+        for kind in entry.grammar.kinds_needed() {
+            if !map.room_kinds.iter().any(|(_, k)| k == kind) {
+                errors.push(LintError {
+                    kind: LintErrorKind::BrokenReference,
+                    file: file.clone(),
+                    message: format!(
+                        "grammaire d'étage « {} » : type de salle « {kind} » sans gabarit dans {} (room_kind)",
+                        entry.id, entry.templates
                     ),
                 });
             }
@@ -2125,9 +2179,13 @@ fn lint_generate_template(
 
 fn lint_entry_point(registry: &Registry, manifest: &GameManifest, errors: &mut Vec<LintError>) {
     let start_map_id = registry::map_id_from_path(&manifest.entry.start_map);
-    let start_is_known = match registry::cave_designation(&manifest.entry.start_map) {
-        Some(cave) => registry.caves.contains_key(&cave),
-        None => registry.maps.contains_key(&start_map_id),
+    let start_is_known = match (
+        registry::cave_designation(&manifest.entry.start_map),
+        registry::floor_designation(&manifest.entry.start_map),
+    ) {
+        (Some(cave), _) => registry.caves.contains_key(&cave),
+        (None, Some(floor)) => registry.floor_grammars.contains_key(&floor),
+        (None, None) => registry.maps.contains_key(&start_map_id),
     };
     if !start_is_known {
         errors.push(LintError {
