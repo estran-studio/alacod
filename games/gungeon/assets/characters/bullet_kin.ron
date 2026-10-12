@@ -1,5 +1,5 @@
 // `gungeon` (M2-T0d) : ennemi tireur simple — tient le joueur entre 120 et 200 unités
-// (`KeepDistance`) et tire (pattern `visee`, `Aimed`).
+// (`KeepDistance`) et tire (pattern `salve`, `Burst` de balles qui rebondissent, M2-T1).
 (
     movement: (
         acceleration: "120.0",
@@ -38,7 +38,7 @@
         aggro_range: Some("500.0"),
         attack_range: Some("0.0"),
         behaviors: Some([
-            Shoot(weapon: "arsenal", pattern: "visee", range: "240.0", cooldown_frames: 90),
+            Shoot(weapon: "arsenal", pattern: "salve", range: "240.0", cooldown_frames: 90),
             KeepDistance(min: "120.0", max: "200.0"),
             Chase(profile: "Ground"),
         ]),

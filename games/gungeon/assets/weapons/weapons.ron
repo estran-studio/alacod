@@ -63,6 +63,10 @@
                 "plomb": (damage: "4.0", speed: "140.0", range: "260.0"),
                 // Couronne lente de la tourelle.
                 "boule": (damage: "8.0", speed: "90.0", range: "400.0"),
+                // Étincelle de la spirale du boss (`spirale`, M2-T1) : légère, il y en a beaucoup.
+                "etincelle": (damage: "3.0", speed: "80.0", range: "350.0"),
+                // Balle qui rebondit deux fois sur les murs (`salve` de `bullet_kin`, M2-T1).
+                "ricochet": (damage: "6.0", speed: "150.0", range: "500.0", modifiers: [Bounce(2)]),
             },
             test: Some((frames: 200, min_hits: 2)),
         ),

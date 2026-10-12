@@ -94,6 +94,16 @@ fn default_pickup_range() -> Fixed {
     Fixed::from_num(24)
 }
 
+/// Effet d'un consommable `blank` (M2-T1, `docs/conventions.md` §41) : l'appui sur `Blank`
+/// consomme un exemplaire, efface les balles ennemies dans `radius` (unités monde) autour du
+/// joueur et le rend invulnérable `iframes` frames (0 : aucune).
+#[derive(Clone, Copy, Debug, PartialEq, Eq, Hash, Serialize, Deserialize)]
+pub struct BlankSpec {
+    pub radius: Fixed,
+    #[serde(default)]
+    pub iframes: u32,
+}
+
 /// Un objet de `items/<id>.ron` (id = nom de fichier).
 #[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
 pub struct ItemDef {
@@ -113,6 +123,10 @@ pub struct ItemDef {
     /// Portée de ramassage au contact d'un consommable, ou d'interaction (unités monde).
     #[serde(default = "default_pickup_range")]
     pub pickup_range: Fixed,
+    /// M2-T1 : le consommable est un **blank** (voir [`BlankSpec`]) ; le blank utilisé est le
+    /// premier objet de la table (ordre des ids) qui porte cette donnée et que le joueur possède.
+    #[serde(default)]
+    pub blank: Option<BlankSpec>,
 }
 
 /// Les objets du jeu par identifiant. Hors rollback (donnée de contenu), posée au chargement
@@ -161,6 +175,19 @@ pub struct ItemPicked {
     pub frame: u32,
     pub player_handle: usize,
     pub item_id: String,
+}
+
+/// Un blank utilisé (`FrameEvents`, neutre) : lu par la présentation (onde) et, plus tard, par
+/// `OnBlank` des effets (M2-T3).
+#[derive(Clone, Debug, PartialEq, Eq, Hash)]
+pub struct BlankUsed {
+    pub frame: u32,
+    pub player_handle: usize,
+    pub x: Fixed,
+    pub y: Fixed,
+    pub radius: Fixed,
+    /// Balles ennemies effacées.
+    pub cleared: u32,
 }
 
 #[cfg(test)]

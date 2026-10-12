@@ -1,0 +1,4 @@
+// `gungeon` (M2-T1, docs/conventions.md §41) : spirale de trois bras (`Spiral`), huit salves
+// espacées de 8 frames (64 frames, moins que la répétition de la frise du boss `gatling`, 90),
+// chacune tournée de 0,35 rad ; phase 2 du boss.
+Spiral(count: 3, step: "0.35", shots: 8, every: 8, speed: "0.0", projectile: "etincelle")

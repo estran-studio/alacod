@@ -1,0 +1,28 @@
+// Bench de performance (M2-T1, `docs/conventions.md` §41) : des centaines de balles ENNEMIES vivantes
+// dans une salle verrouillée (§35). Deux `tourelle_anneau` (couronne continue de 12 boules lentes toutes les
+// 20 frames, `Ring` seul = infini) sont posées dans la salle de combat de `testbed/salles.ldtk` (deux
+// `dummy` y vivent) ; le joueur entre (f30-90) : la salle se verrouille, les tourelles s'éveillent et
+// remplissent la salle de balles pendant le reste des 600 frames. Mesure `bullet_rollback_collision` et
+// `projectile_collision_system` (collisions des balles composables contre les murs et les personnages).
+//
+// À regarder : trois étoiles de boules de brume qui remplissent la salle et s'écrasent sur ses murs.
+Scenario(
+    powerup_drop_chance_override: "0.0",
+    game: "testbed",
+    map: "testbed/salles.ldtk",
+    map_seed: 1,
+    frames: 600,
+    characters: [
+        (character: "tourelle_anneau", x: "-770.0", y: "-600.0", at_frame: 5),
+        (character: "tourelle_anneau", x: "-730.0", y: "-600.0", at_frame: 5),
+        (character: "tourelle_anneau", x: "-750.0", y: "-540.0", at_frame: 5),
+    ],
+    players: [
+        (inputs: [
+            (from: 30, to: 90, buttons: [Right]),
+        ]),
+    ],
+    expect: [
+        RoomState(kind: "combat", state: Locked, at_frame: 150),
+    ],
+)
