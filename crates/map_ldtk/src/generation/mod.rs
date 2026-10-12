@@ -113,7 +113,7 @@ mod tests {
         use map::generation::config::MapGenerationMode;
         use world::FloorGrammar;
         let path = get_crate_root_path!("../../games/gungeon/assets/maps/salles.ldtk");
-        for (file, bounds) in [("etage", (8, 12)), ("grand", (15, 20))] {
+        for (file, bounds) in [("etage", (8, 12)), ("grand", (15, 20)), ("court", (3, 3))] {
             let ron_path = get_crate_root_path!("../../games/gungeon/assets/floor_grammars/");
             let text = std::fs::read_to_string(format!("{ron_path}{file}.ron")).unwrap();
             #[derive(serde::Deserialize)]
@@ -123,7 +123,9 @@ mod tests {
             let grammar = ron::from_str::<File>(&text).unwrap().grammar;
             assert_eq!(grammar.rooms, bounds);
             let started = std::time::Instant::now();
-            for seed in 1..=200 {
+            let derived = |s: i32| s.wrapping_add(0x3C6E_F372);
+            let seeds: Vec<i32> = (1..=200).chain((1..=200).map(derived)).collect();
+            for seed in seeds.into_iter().take(if file == "court" { 400 } else { 200 }) {
                 let data: LdtkJson = load_ldtk_json_file(&path).unwrap();
                 let config = MapGenerationConfig {
                     seed,
