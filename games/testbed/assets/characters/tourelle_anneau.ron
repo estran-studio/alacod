@@ -47,7 +47,7 @@
         stationary: Some(true),
         // T1.4 : règles par priorité (conventions §22) ; `Shoot` remplace `ai.ranged` de T1.2.
         behaviors: Some([
-            Shoot(weapon: "fireball_gun", pattern: "anneau", range: "400.0", cooldown_frames: 90),
+            Shoot(weapon: "tourelle_gun", pattern: "anneau", range: "400.0", cooldown_frames: 90),
         ]),
     )),
 )
