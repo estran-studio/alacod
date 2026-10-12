@@ -2720,3 +2720,11 @@ Add, 1)` : la valeur de `Stat(Damage)` compte les exécutions.
 `effect_on_floor_start` (aussi la recharge `PerFloor`), `effect_cooldown`, `effect_charges`
 (recharge `PerRoom`), `item_passive_effect` (`OnKill` d'un objet). Pas de scénario `effect_on_blank`
 (M2-T1 non mergée).
+
+**Règle d'engine : `add_frame_events_transient`** (M2-T3). Un événement émis dans des parties
+existantes et lu seulement dans la même frame (`DashStarted`, `ReloadFinished`) s'enregistre avec
+`add_frame_events_transient::<T>()` : file hors checksum et hors snapshot, vidée au `FrameStart`.
+Les lecteurs sont ordonnés `.after` l'émetteur (ici le système d'effets v2, après `Run`, donc
+après `Input` et `Weapon`) ; un lecteur placé avant verrait la file de la frame précédente. La
+variante neutre ne convient pas : sa file non vide est hachée et déplace les traces existantes
+dès qu'un dash ou un rechargement a lieu.

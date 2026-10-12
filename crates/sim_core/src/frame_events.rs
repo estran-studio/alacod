@@ -66,10 +66,14 @@ pub trait FrameEventsAppExt {
     where
         T: Clone + Send + Sync + PartialEq + std::hash::Hash + std::fmt::Debug + 'static;
 
-    /// File **hors checksum et hors snapshot** : émise et lue dans la même frame, vidée au
-    /// `FrameStart` suivant, donc rien à restaurer après un rollback. Pour un événement émis
-    /// dans des parties existantes (esquive, rechargement) : même vide ou non, il ne déplace
-    /// aucune trace (M2-T3, `add_frame_events_neutral` hacherait la file non vide).
+    /// File **hors checksum et hors snapshot**, vidée au `FrameStart` suivant.
+    ///
+    /// À utiliser pour un événement produit **et** consommé dans la même frame, par des
+    /// lecteurs ordonnés `.after` l'émetteur (jamais lu par un système placé avant lui : il y
+    /// verrait la file de la frame précédente). Rien à restaurer après un rollback, puisque la
+    /// file est vidée avant toute lecture. Pas la variante neutre : sa file **non vide** est
+    /// hachée, donc un événement émis dans des parties existantes (esquive, rechargement,
+    /// M2-T3) déplacerait leurs traces dès la première émission.
     fn add_frame_events_transient<T>(&mut self) -> &mut Self
     where
         T: Clone + Send + Sync + 'static;

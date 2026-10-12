@@ -37,6 +37,14 @@ Branche `m2-t3-effets-v2` depuis `main` (6c712e25). Conventions : §42.
 - **Limites partagées** entre deux exemplaires du même objet (clé `item:<id>:<index>`).
 - Effet d'objet `Modifier` : un modificateur **permanent** par exécution (il s'empile) ; utiliser
   `charges` pour un bonus unique.
+- **Nouvelle règle d'engine : `add_frame_events_transient`** (`sim_core::frame_events`). Pour
+  `DashStarted` et `ReloadFinished` : file hors checksum et hors snapshot, vidée au `FrameStart`,
+  lue dans la même frame par un lecteur `.after` l'émetteur (le système v2, après `Run`). La
+  variante neutre hachait la file non vide : 50 traces avaient bougé à la première suite.
+- Le second système d'effets ne pose plus les effets (`listed_effects(.., pose: false)`) : il les
+  posait une frame avant le système v1 et déplaçait `throne_solo` (mutation à la frame 903).
+- `gungeon_floor_start` : `OnFloorStart` sur les étages assemblés (T10), dégâts 1 puis 2 à f900.
+  L'attente `BossPhase` de `gungeon_two_floors` n'y est pas reprise (l'id de l'ennemi change).
 - Une panne de disque (0 Go) a coûté un build : `scenario` demande ~10 Go de build seul.
 
 ## Mesures
