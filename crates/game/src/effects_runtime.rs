@@ -231,10 +231,13 @@ fn listed_effects<'a>(
     net_id: &GgrsNetId,
     state: &mut EffectState,
     frame: u32,
+    pose: bool,
 ) -> Vec<Listed<'a>> {
     let mut listed = Vec::new();
     if let Some(effects) = effects {
-        while state.posed.len() < effects.0.len() {
+        // Seul le système v1 pose les effets : le second (après `Run`) ne doit pas avancer la
+        // frame de pose d'un effet ajouté dans la frame (mutation), sinon `Tick` et la trace bougent.
+        while pose && state.posed.len() < effects.0.len() {
             state.posed.push(frame);
         }
         for (index, effect) in effects.0.iter().enumerate() {
@@ -243,7 +246,7 @@ fn listed_effects<'a>(
                 source: effect_source(net_id, index),
                 index,
                 effect,
-                posed: state.posed[index],
+                posed: state.posed.get(index).copied().unwrap_or(frame),
             });
         }
     }
@@ -432,7 +435,15 @@ pub fn apply_effects_system(
             None => &mut local,
         };
         // Pose des effets nouveaux (frame de pose de `Tick`)
-        let listed = listed_effects(effects, inventory, table.as_deref(), net_id, state, frame);
+        let listed = listed_effects(
+            effects,
+            inventory,
+            table.as_deref(),
+            net_id,
+            state,
+            frame,
+            true,
+        );
         let pending = std::mem::take(&mut state.pending);
         if dead_now || downed {
             continue;
@@ -569,7 +580,15 @@ pub fn apply_triggered_effects_system(
             Some(state) => state,
             None => &mut local,
         };
-        let listed = listed_effects(effects, inventory, table.as_deref(), net_id, state, frame);
+        let listed = listed_effects(
+            effects,
+            inventory,
+            table.as_deref(),
+            net_id,
+            state,
+            frame,
+            false,
+        );
         if listed.is_empty() {
             continue;
         }
@@ -791,8 +810,8 @@ impl Plugin for EffectsRuntimePlugin {
         app.rollback_and_trace_neutral::<Effects>()
             .rollback_and_trace_neutral::<EffectState>()
             .rollback_and_trace_neutral::<Gauges>()
-            .add_frame_events_neutral::<DashStarted>()
-            .add_frame_events_neutral::<ReloadFinished>()
+            .add_frame_events_transient::<DashStarted>()
+            .add_frame_events_transient::<ReloadFinished>()
             .add_systems(
                 bevy_ggrs::GgrsSchedule,
                 apply_triggered_effects_system
