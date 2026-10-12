@@ -369,7 +369,7 @@ pub fn item_use_active_system(
 pub struct FloorStartConsumables(pub BTreeMap<String, u32>);
 
 /// Mémoire du blank d'un joueur (M2-T1), rollback **neutre**, posée par [`blank_system`] sur un
-/// joueur qui a un `Inventory` : `held` = Blank était tenu à la frame précédente (front montant :
+/// joueur qui a un `Inventory` et un motif d'en avoir (appui, blank, recharge d'étage) : `held` = Blank était tenu à la frame précédente (front montant :
 /// un Blank tenu ne vide pas l'inventaire), `floor` = étage dont les consommables ont été servis.
 /// Réécrit à chaque frame, avant tout retour anticipé (piège « donnée dérivée non rollbackée »).
 #[derive(Component, Clone, Debug, Default, PartialEq, Eq, Hash)]
@@ -411,21 +411,34 @@ pub fn blank_system(
         utils::order_mut_iter!(players)
     {
         let pressed = inputs[player.handle].0.buttons & INPUT_BLANK != 0;
-        let Some(mut state) = state else {
-            // Première frame avec inventaire : aucun front montant, l'étage courant est servi.
-            commands.entity(entity).insert(BlankState {
-                held: pressed,
-                floor: floor_index,
-            });
-            continue;
+        // Pas de mémoire tant que rien ne la justifie (appui, blank en poche, recharge d'étage) :
+        // un joueur avec `Inventory` mais sans blank ne change pas la trace (parité des types).
+        let has_blank = table
+            .0
+            .iter()
+            .any(|(id, def)| def.blank.is_some() && inventory.consumable(id) > 0);
+        let (held, served_floor) = match &state {
+            Some(state) => (state.held, state.floor),
+            None if pressed || has_blank || !refill.0.is_empty() => (false, floor_index),
+            None => continue,
         };
-        let rising = pressed && !state.held;
-        state.held = pressed;
-        if state.floor != floor_index {
-            state.floor = floor_index;
+        let rising = pressed && !held;
+        if served_floor != floor_index {
             for (id, n) in &refill.0 {
                 let count = inventory.consumables.entry(id.clone()).or_default();
                 *count = (*count).max(*n);
+            }
+        }
+        match state {
+            Some(mut state) => {
+                state.held = pressed;
+                state.floor = floor_index;
+            }
+            None => {
+                commands.entity(entity).insert(BlankState {
+                    held: pressed,
+                    floor: floor_index,
+                });
             }
         }
         if !rising {
