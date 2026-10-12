@@ -37,7 +37,7 @@ Branche `m2-t1-projectiles-v2-blank`. Conventions : `docs/conventions.md` §41.
   `check-forbidden.sh` : avertissements préexistants.
 - p2p `gungeon`, 2 clients, un blank à f100 (`ALACOD_PRESS_BLANK_AT=100`) : traces identiques (399 lignes).
   Mesuré avant la fusion d'origin/main, non refait après.
-- `make gen` ×4 : voir le message de livraison.
+- `make gen` ×4 : zombies, throne, gungeon verts ; testbed : le scénario généré `weapon_tourelle_gun` (nouvelle arme) n’avait pas de trace, bénie (`GEN_BLESS=1`, seul fichier ajouté), puis `make gen GAME=testbed` vert.
 
 ## 3. Les 15 traces rebénies et leur cause
 
