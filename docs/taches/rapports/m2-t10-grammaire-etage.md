@@ -45,4 +45,16 @@ Branche `m2-t10-grammaire-etage`. Conventions : `docs/conventions.md` §40.
 
 ## Vérifications
 
-Voir la section finale (suite complète, p2p, fmt, lint).
+- `make test_scenarios` complet (profil headless) : vert, **aucune trace existante modifiée**
+  (zombies, testbed, throne, `gungeon_start/clear/boss` inchangés) ; nouvelles traces bénies :
+  `gungeon_floor_seed_{1,23,123}`, `gungeon_two_floors`, `bench_floor`.
+- `cargo test --profile headless` sur run, combat, game, content, map_ldtk, sim_core, stats, bots,
+  effects, world, map : vert (dont `gungeon_etages_de_grammaire`, 1 000 graines).
+- `make lint` ×4 jeux (zombies, testbed, throne, gungeon) : sans erreur ; `cargo fmt --all -- --check` propre.
+- p2p à deux clients sur `gungeon` (signaling local, port 3556), 900 frames : traces identiques
+  (899 lignes), aucun desync. Le chemin `Floors` + grammaire n'a pas d'option de ligne de commande
+  (la séquence vient du scénario, `FloorsOverride`) : il est vérifié en synctest (rollback) par les
+  scénarios `gungeon_floor_seed_*`/`gungeon_two_floors`/`bench_floor`, pas en p2p réel.
+- Piège rappelé : `entry.mode: Floors` prend la **première** séquence par ordre d'id ; les séquences
+  de la grammaire sont nommées `etages_*` pour que `etage_1` (T0d) reste la défaut. Le bot
+  explorateur (atteindre le boss) est T16, hors périmètre.
