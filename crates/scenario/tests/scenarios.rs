@@ -830,8 +830,9 @@ fn map_probe() {
         .iter(world)
     {
         println!(
-            "salle {} pos=({}, {}) taille=({}, {}) état={:?}",
+            "salle {} iid={} pos=({}, {}) taille=({}, {}) état={:?}",
             kind.0,
+            id.0,
             bounds.position.x.to_num::<f32>(),
             bounds.position.y.to_num::<f32>(),
             bounds.size.x.to_num::<f32>(),
