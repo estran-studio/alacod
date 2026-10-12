@@ -197,6 +197,52 @@ impl GeneratedMap {
         }
     }
 
+    /// M2-T10 (mode `Floor`) : mure les ouvertures des salles qu'aucune salle voisine ne prolonge.
+    /// Un étage de grammaire place des gabarits à plusieurs ouvertures dont certaines restent
+    /// libres : sans cela, le joueur sortirait de l'étage. Une ouverture est une case de la couche
+    /// `LevelConnection` au bord du niveau ; son côté est utilisé si la salle a un voisin de cette
+    /// direction (`neighbours`). `Basic` ne l'appelle pas.
+    pub fn close_unused_openings(&mut self) {
+        for room in &mut self.generated_rooms {
+            let used: Vec<String> = room
+                .level
+                .neighbours
+                .iter()
+                .map(|n| n.dir.clone())
+                .collect();
+            let Some(layers) = room.level.layer_instances.as_mut() else {
+                continue;
+            };
+            let Some(opening_cells) = layers
+                .iter()
+                .find(|l| l.identifier == map_const::LAYER_CONNECTION)
+                .map(|l| (l.c_wid, l.c_hei, l.int_grid_csv.clone()))
+            else {
+                continue;
+            };
+            let (w, h, openings) = opening_cells;
+            let Some(walls) = layers.iter_mut().find(|l| l.identifier == "Walls") else {
+                continue;
+            };
+            for (dir, cells) in [
+                ("n", (0..w).map(|x| (x, 0)).collect::<Vec<_>>()),
+                ("s", (0..w).map(|x| (x, h - 1)).collect()),
+                ("w", (0..h).map(|y| (0, y)).collect()),
+                ("e", (0..h).map(|y| (w - 1, y)).collect()),
+            ] {
+                if used.iter().any(|d| d == dir) {
+                    continue;
+                }
+                for (x, y) in cells {
+                    let i = (y * w + x) as usize;
+                    if openings.get(i).copied().unwrap_or(0) == 1 {
+                        walls.int_grid_csv[i] = 1;
+                    }
+                }
+            }
+        }
+    }
+
     pub fn get_generated_map(&self) -> LdtkJson {
         let mut new_map: LdtkJson = (*self.ldtk_json).clone();
 

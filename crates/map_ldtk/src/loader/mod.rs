@@ -72,6 +72,7 @@ pub fn resolve_map_config(
     base: &MapGenerationConfig,
     map: &str,
     registry: Option<&Registry>,
+    slot: usize,
 ) -> (MapGenerationConfig, Option<CaveConfig>) {
     let cave = cave_designation(map).map(|id| {
         let entry = registry
@@ -88,10 +89,16 @@ pub fn resolve_map_config(
     let config = MapGenerationConfig {
         map_path: match (&cave, floor) {
             (Some((id, c)), _) => game::cave_assets::cave_asset_path(&c.template, id.as_str()),
-            (None, Some(f)) => f.templates.clone(),
+            (None, Some(f)) => game::cave_assets::floor_asset_path(&f.templates, slot),
             (None, None) => map.to_string(),
         },
-        seed: base.seed,
+        // M2-T10 : graine dérivée par emplacement d'étage (l'emplacement 0 garde la graine de la run)
+        seed: if floor.is_some() {
+            base.seed
+                .wrapping_add((slot as i32).wrapping_mul(0x3C6E_F372))
+        } else {
+            base.seed
+        },
         max_width: base.max_width,
         max_heigth: base.max_heigth,
         max_room: base.max_room,
@@ -145,7 +152,11 @@ pub fn get_asset_loader_generation() -> LdtkProjectLoader {
             let context = from_map(&map_json, config);
             let mut generator = GeneratedMap::create(map_json);
 
+            let is_floor = matches!(context.config.mode, MapGenerationMode::Floor(_));
             map_generation(context, &mut generator).unwrap();
+            if is_floor {
+                generator.close_unused_openings();
+            }
 
             generator.get_generated_map()
         })),
@@ -240,7 +251,7 @@ pub fn setup_generated_map(
     commands.insert_resource(item_table(registry.as_deref()));
     let mut caves = CaveSlots::default();
     let Some(plan) = plan else {
-        let (load, cave) = resolve_map_config(&config, &config.map_path, registry.as_deref());
+        let (load, cave) = resolve_map_config(&config, &config.map_path, registry.as_deref(), 0);
         if let Some(cave) = cave {
             caves.0.insert(0, (config.seed, cave));
         }
@@ -251,7 +262,7 @@ pub fn setup_generated_map(
     };
     for slot in plan.distinct_slots() {
         let (floor_config, cave) =
-            resolve_map_config(&config, &plan.levels[slot], registry.as_deref());
+            resolve_map_config(&config, &plan.levels[slot], registry.as_deref(), slot);
         if let Some(cave) = cave {
             caves.0.insert(slot, (config.seed, cave));
         }

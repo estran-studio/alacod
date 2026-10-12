@@ -52,13 +52,13 @@ fn physical_path(path: &Path) -> PathBuf {
 
 /// Lecteur de la source `cave://`, au-dessus du lecteur par défaut de la plateforme (fichiers,
 /// ou HTTP en wasm) sur la même racine que les autres assets.
-struct CaveTemplateReader(Box<dyn ErasedAssetReader>);
+struct CaveTemplateReader(Box<dyn ErasedAssetReader>, fn(&Path) -> PathBuf);
 
 impl AssetReader for CaveTemplateReader {
     async fn read<'a>(&'a self, path: &'a Path) -> Result<impl Reader + 'a, AssetReaderError> {
         // Le lecteur sous-jacent emprunte le chemin qu'on lui passe : on lit tout (le gabarit
         // pèse quelques dizaines de Ko) pour rendre un lecteur qui possède ses octets.
-        let physical = physical_path(path);
+        let physical = (self.1)(path);
         let mut reader = self.0.read(&physical).await?;
         let mut bytes = Vec::new();
         reader
@@ -98,7 +98,63 @@ impl Plugin for CaveAssetSourcePlugin {
         app.register_asset_source(
             CAVE_ASSET_SOURCE,
             AssetSourceBuilder::new(move || {
-                Box::new(CaveTemplateReader(default_reader())) as Box<dyn ErasedAssetReader>
+                Box::new(CaveTemplateReader(default_reader(), physical_path))
+                    as Box<dyn ErasedAssetReader>
+            }),
+        );
+    }
+}
+
+/// Nom de la source d'assets des étages de grammaire (M2-T10, `docs/conventions.md` §40).
+pub const FLOOR_ASSET_SOURCE: &str = "floor";
+
+/// Chemin d'asset de l'étage d'emplacement `slot` dont la carte de gabarits est `templates`
+/// (ex. `maps/salles.ldtk`, 1 → `floor://maps/salles@1.ldtk`). Comme les cavernes, **un étage = un
+/// asset** : l'`AssetServer` dédoublonne par chemin, et deux étages de même grammaire recevraient
+/// sinon le même monde.
+pub fn floor_asset_path(templates: &str, slot: usize) -> String {
+    let path = Path::new(templates);
+    let stem = path
+        .file_stem()
+        .map(|stem| stem.to_string_lossy().into_owned())
+        .unwrap_or_default();
+    let dir = path
+        .parent()
+        .map(|dir| dir.to_string_lossy().into_owned())
+        .unwrap_or_default();
+    if dir.is_empty() {
+        format!("{FLOOR_ASSET_SOURCE}://{stem}@{slot}.ldtk")
+    } else {
+        format!("{FLOOR_ASSET_SOURCE}://{dir}/{stem}@{slot}.ldtk")
+    }
+}
+
+/// Fichier réellement lu pour un chemin de [`floor_asset_path`] : la carte de gabarits (le
+/// suffixe `@<emplacement>` retiré) ; tout autre fichier tel quel.
+fn floor_physical_path(path: &Path) -> PathBuf {
+    let is_ldtk = path.extension().is_some_and(|ext| ext == "ldtk");
+    let stem = path.file_stem().map(|s| s.to_string_lossy().into_owned());
+    match (is_ldtk, stem.as_deref().and_then(|s| s.rsplit_once('@'))) {
+        (true, Some((base, slot))) if slot.chars().all(|c| c.is_ascii_digit()) => {
+            path.with_file_name(format!("{base}.ldtk"))
+        }
+        _ => path.to_path_buf(),
+    }
+}
+
+/// Enregistre la source `floor://` (comme [`CaveAssetSourcePlugin`], avant `AssetPlugin`).
+pub struct FloorAssetSourcePlugin {
+    pub file_path: String,
+}
+
+impl Plugin for FloorAssetSourcePlugin {
+    fn build(&self, app: &mut App) {
+        let mut default_reader = AssetSource::get_default_reader(self.file_path.clone());
+        app.register_asset_source(
+            FLOOR_ASSET_SOURCE,
+            AssetSourceBuilder::new(move || {
+                Box::new(CaveTemplateReader(default_reader(), floor_physical_path))
+                    as Box<dyn ErasedAssetReader>
             }),
         );
     }
@@ -125,6 +181,26 @@ mod tests {
         );
         assert_eq!(
             physical_path(Path::new("atlas/roche.png")),
+            Path::new("atlas/roche.png")
+        );
+    }
+
+    #[test]
+    fn chemin_virtuel_par_etage() {
+        assert_eq!(
+            floor_asset_path("maps/salles.ldtk", 1),
+            "floor://maps/salles@1.ldtk"
+        );
+        assert_eq!(
+            floor_physical_path(Path::new("maps/salles@1.ldtk")),
+            Path::new("maps/salles.ldtk")
+        );
+        assert_eq!(
+            floor_physical_path(Path::new("maps/salles.ldtk")),
+            Path::new("maps/salles.ldtk")
+        );
+        assert_eq!(
+            floor_physical_path(Path::new("atlas/roche.png")),
             Path::new("atlas/roche.png")
         );
     }

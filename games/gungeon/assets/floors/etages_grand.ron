@@ -1,0 +1,5 @@
+// `gungeon` (M2-T10) : un étage de 15 à 20 salles, pour `bench_floor`.
+(
+    levels: ["floor:grand"],
+    victory_at_end: true,
+)

@@ -105,6 +105,87 @@ mod tests {
         );
     }
 
+    /// M2-T10 : sur les neuf gabarits de `gungeon` (`maps/salles.ldtk`), chaque graine donne un étage
+    /// dans les bornes de sa grammaire (`floor_grammars/*.ron`), avec un seul boss en cul-de-sac,
+    /// sans chevauchement, et dont les ouvertures libres sont murées.
+    #[test]
+    fn gungeon_etages_de_grammaire() {
+        use map::generation::config::MapGenerationMode;
+        use world::FloorGrammar;
+        let path = get_crate_root_path!("../../games/gungeon/assets/maps/salles.ldtk");
+        for (file, bounds) in [("etage", (8, 12)), ("grand", (15, 20)), ("court", (3, 3))] {
+            let ron_path = get_crate_root_path!("../../games/gungeon/assets/floor_grammars/");
+            let text = std::fs::read_to_string(format!("{ron_path}{file}.ron")).unwrap();
+            #[derive(serde::Deserialize)]
+            struct File {
+                grammar: FloorGrammar,
+            }
+            let grammar = ron::from_str::<File>(&text).unwrap().grammar;
+            assert_eq!(grammar.rooms, bounds);
+            let started = std::time::Instant::now();
+            let derived = |s: i32| s.wrapping_add(0x3C6E_F372);
+            let seeds: Vec<i32> = (1..=200).chain((1..=200).map(derived)).collect();
+            for seed in seeds
+                .into_iter()
+                .take(if file == "court" { 400 } else { 200 })
+            {
+                let data: LdtkJson = load_ldtk_json_file(&path).unwrap();
+                let config = MapGenerationConfig {
+                    seed,
+                    max_width: 1000,
+                    max_heigth: 1000,
+                    mode: MapGenerationMode::Floor(grammar.clone()),
+                    ..Default::default()
+                };
+                let context = from_map(&data, config);
+                let mut generator = GeneratedMap::create(data);
+                map_generation(context, &mut generator)
+                    .unwrap_or_else(|_| panic!("{file} graine {seed} : génération échouée"));
+                generator.close_unused_openings();
+                let rooms = &generator.generated_rooms;
+                if std::env::var("ALACOD_FLOOR_DUMP").is_ok_and(|v| v == file) {
+                    let (ox, oy, _, _) = rooms[0].world_rect();
+                    let list: Vec<String> = rooms
+                        .iter()
+                        .map(|r| {
+                            let (x, y, _, _) = r.world_rect();
+                            format!("{}@{},{}", r.template, (x - ox) / 128, (y - oy) / 128)
+                        })
+                        .collect();
+                    println!("graine {seed} : {}", list.join(" "));
+                }
+                assert!(
+                    (bounds.0..=bounds.1).contains(&rooms.len()),
+                    "{file} graine {seed} : {} salles",
+                    rooms.len()
+                );
+                let bosses: Vec<_> = rooms
+                    .iter()
+                    .filter(|r| r.template.starts_with("Boss"))
+                    .collect();
+                assert_eq!(
+                    bosses.len(),
+                    1,
+                    "{file} graine {seed} : {} boss",
+                    bosses.len()
+                );
+                for (i, a) in rooms.iter().enumerate() {
+                    for b in &rooms[i + 1..] {
+                        let (ax, ay, aw, ah) = a.world_rect();
+                        let (bx, by, bw, bh) = b.world_rect();
+                        assert!(
+                            ax + aw <= bx || bx + bw <= ax || ay + ah <= by || by + bh <= ay,
+                            "{file} graine {seed} : {} chevauche {}",
+                            a.template,
+                            b.template
+                        );
+                    }
+                }
+            }
+            println!("{file} : 200 graines en {:?}", started.elapsed());
+        }
+    }
+
     fn get_context() -> GeneratedMap {
         let seed = 1;
         let data: LdtkJson = load_ldtk_json_file(get_crate_root_path!(

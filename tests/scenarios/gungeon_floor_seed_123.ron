@@ -1,0 +1,38 @@
+// M2-T10 (docs/conventions.md §40) : l'étage `court` de `gungeon` (départ,
+// combat en T, boss à l'est) assemblé par la grammaire, graine 123. Joueur scripté : traverse la salle de
+// départ vers l'est, nettoie la salle de combat (verrouillée, trois `bullet_kin`), entre dans la salle
+// du boss (verrouillage), tire sur le `gatling` jusqu'à sa mort : victoire. Les graines 23 et 123 donnent la
+// même forme : le même script passe. Le bot explorateur est T16 : l'atteinte du boss est scriptée.
+//
+// À regarder : f59 la salle de combat se verrouille ; f310 elle se rouvre ; f380 la salle du boss se
+// verrouille ; le boss meurt f513 phase 1, f644 mort, écran de victoire.
+Scenario(
+    powerup_drop_chance_override: "0.0",
+    game: "gungeon",
+    floors: Some("etages_court"),
+    map_seed: 123,
+    frames: 800,
+    players: [
+        (inputs: [
+            (from: 10, to: 70, buttons: [Right]),
+            (from: 80, to: 160, buttons: [Fire], pan: (-34, -31)),
+            (from: 160, to: 240, buttons: [Fire], pan: (-34, 27)),
+            (from: 240, to: 330, buttons: [Fire], pan: (25, 27)),
+            (from: 340, to: 380, buttons: [Right]),
+            (from: 385, to: 700, buttons: [Fire], pan: (70, 6)),
+        ]),
+    ],
+    expect: [
+        RoomState(kind: "depart", state: Dormant, at_frame: 5),
+        RoomState(kind: "combat", state: Dormant, doors_closed: Some(0), at_frame: 29),
+        RoomState(kind: "boss", state: Dormant, at_frame: 29),
+        EntityCount(kind: Enemy, min: 4, max: 4, at_frame: 29),
+        RoomState(kind: "combat", state: Locked, at_frame: 100),
+        RoomState(kind: "combat", state: Cleared, doors_closed: Some(0), at_frame: 340),
+        RoomState(kind: "boss", state: Locked, at_frame: 450),
+        BossPhase(entity: NetId(40), phase: 1, at_frame: 550),
+        RoomState(kind: "boss", state: Cleared, at_frame: 750),
+        RunState(step: Ended(Victory), at_frame: 790),
+        PlayerAlive(handle: 0, at_frame: 799),
+    ],
+)
