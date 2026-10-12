@@ -22,9 +22,8 @@ use bevy::prelude::*;
 use bevy_fixed::fixed_math::{self, FixedVec2};
 use bevy_ggrs::{GgrsSchedule, PlayerInputs, Rollback, RollbackDespawnCommandExtension};
 use combat::actors::{INPUT_BLANK, INPUT_USE_ACTIVE};
-use effects::Action;
 use combat::weapons::Bullet;
-use sim_core::team::Team;
+use effects::Action;
 use items::{
     item_source, ActiveSlot, BlankUsed, Inventory, ItemKind, ItemPicked, ItemPickup, ItemTable,
 };
@@ -32,6 +31,7 @@ use sim_core::damage::DamageEvent;
 use sim_core::frame_events::{FrameEvents, FrameEventsAppExt};
 use sim_core::interaction::{Interactable, InteractionType};
 use sim_core::modifier::{ModifierSource, Modifiers};
+use sim_core::team::Team;
 use std::collections::{BTreeMap, BTreeSet};
 use utils::{
     frame::FrameCount,
@@ -537,7 +537,10 @@ impl Plugin for BlankPresentationPlugin {
     fn build(&self, app: &mut App) {
         app.init_resource::<LastBlank>().add_systems(
             Update,
-            (track_blank_system, draw_blank_wave_system.after(track_blank_system)),
+            (
+                track_blank_system,
+                draw_blank_wave_system.after(track_blank_system),
+            ),
         );
     }
 }

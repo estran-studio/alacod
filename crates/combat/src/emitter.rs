@@ -353,7 +353,11 @@ impl Emitter {
                     _ => shots.extend(self.salvo(step, 0, random)),
                 }
             }
-            if self.next_step as usize >= steps.len() && self.wait_left == 0 && self.multi.is_none() && !self.infinite {
+            if self.next_step as usize >= steps.len()
+                && self.wait_left == 0
+                && self.multi.is_none()
+                && !self.infinite
+            {
                 self.finished = true;
                 return shots;
             }
@@ -765,10 +769,16 @@ mod tests {
         };
         let half = fixed_math::new(0.5);
         for (a, b) in first.iter().zip(&second) {
-            assert!((delta(*a, *b) - half).abs() < fixed_math::new(0.01), "{a} -> {b}");
+            assert!(
+                (delta(*a, *b) - half).abs() < fixed_math::new(0.01),
+                "{a} -> {b}"
+            );
         }
         // Bras opposés : écart π entre les deux tirs d'une salve.
-        assert!((first[1] - first[0] - fixed_math::FIXED_TAU / Fixed::from_num(2)).abs() < fixed_math::new(0.01));
+        assert!(
+            (first[1] - first[0] - fixed_math::FIXED_TAU / Fixed::from_num(2)).abs()
+                < fixed_math::new(0.01)
+        );
     }
 
     #[test]

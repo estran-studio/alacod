@@ -215,10 +215,7 @@ fn item_events(
 }
 
 /// Moments clés `blank` (M2-T1) : un blank utilisé (`items::BlankUsed`).
-fn blank_events(
-    used: Option<Res<FrameEvents<items::BlankUsed>>>,
-    mut events: ResMut<GameEvents>,
-) {
+fn blank_events(used: Option<Res<FrameEvents<items::BlankUsed>>>, mut events: ResMut<GameEvents>) {
     let Some(used) = used else {
         return;
     };

@@ -108,6 +108,11 @@ string_id!(
     CaveId
 );
 string_id!(
+    /// Identifiant d'une grammaire d'étage (M2-T10, kind `FloorGrammar`) : nom de fichier sans
+    /// extension, désignée comme carte par `floor:<id>` (voir [`floor_designation`]).
+    FloorGrammarId
+);
+string_id!(
     /// Identifiant d'une surface (T1.7, kind `Surface`) : nom de fichier sans extension.
     SurfaceName
 );
@@ -184,6 +189,17 @@ pub const CAVE_TEMPLATE_FILE: &str = "gabarit.ldtk";
 pub fn cave_designation(map: &str) -> Option<CaveId> {
     map.strip_prefix(CAVE_PREFIX)
         .map(|id| CaveId::from(id.to_string()))
+}
+
+/// Préfixe qui désigne un étage assemblé par une grammaire là où une carte LDtk est attendue
+/// (`entry.start_map`, `Scenario.map`, `levels` d'une séquence `Floors`) : `floor:<id>` (M2-T10,
+/// `docs/conventions.md` §40).
+pub const FLOOR_PREFIX: &str = "floor:";
+
+/// `Some(id)` si `map` désigne un étage de grammaire (`floor:<id>`).
+pub fn floor_designation(map: &str) -> Option<FloorGrammarId> {
+    map.strip_prefix(FLOOR_PREFIX)
+        .map(|id| FloorGrammarId::from(id.to_string()))
 }
 
 // ---------------------------------------------------------------------------------------
@@ -668,6 +684,24 @@ pub struct CaveEntry {
     pub template: String,
 }
 
+/// Grammaire d'étage (M2-T10, `docs/conventions.md` §40), un fichier RON par grammaire
+/// (`floor_grammars/<id>.ron`) : `(templates: "gungeon/salles.ldtk", grammar: (rooms: (8, 12), ...))`.
+/// `templates` est la carte LDtk (chemin relatif à `assets/`) dont les niveaux sont les gabarits
+/// de salle, typés par leur champ `room_kind`.
+#[derive(Debug, Clone)]
+pub struct FloorGrammarEntry {
+    pub id: FloorGrammarId,
+    pub file: PathBuf,
+    pub templates: String,
+    pub grammar: world::FloorGrammar,
+}
+
+#[derive(Debug, Clone, serde::Deserialize)]
+struct FloorGrammarFileSchema {
+    templates: String,
+    grammar: world::FloorGrammar,
+}
+
 /// Surface (T1.7, `docs/conventions.md` §26), un fichier RON par surface (`surfaces/<id>.ron`) :
 /// `(intgrid_value: 1, tags: ["eau"], move_speed: "0.5", acceleration: Some("1.0"))`. Facteurs
 /// abstraits (`Mul`) traduits vers la stat du personnage par `world::surface`.
@@ -1015,6 +1049,8 @@ pub struct Registry {
     pub floors: BTreeMap<FloorsConfigId, FloorsEntry>,
     /// T1.6 : cavernes générées (kind `Cave`).
     pub caves: BTreeMap<CaveId, CaveEntry>,
+    /// M2-T10 : grammaires d'étage (kind `FloorGrammar`).
+    pub floor_grammars: BTreeMap<FloorGrammarId, FloorGrammarEntry>,
     /// M2-T0b : objets (kind `Item`).
     pub items: BTreeMap<String, ItemEntry>,
     /// M2-E1 : types de salles (kind `Room`).
@@ -1081,6 +1117,7 @@ pub const KNOWN_KIND_NAMES: &[&str] = &[
     "SpriteSheet",
     "Floors",
     "Cave",
+    "FloorGrammar",
     "Room",
     "Item",
     "Surface",
@@ -1180,6 +1217,9 @@ impl Registry {
                 "SpriteSheet" => load_sprite_sheets(&assets_dir, decl, &mut registry, &mut errors),
                 "Floors" => load_floors(&assets_dir, decl, &mut registry, &mut errors),
                 "Cave" => load_caves(&assets_dir, decl, &mut registry, &mut errors),
+                "FloorGrammar" => {
+                    load_floor_grammars(&assets_dir, decl, &mut registry, &mut errors)
+                }
                 "Room" => load_rooms(&assets_dir, decl, &mut registry, &mut errors),
                 "Item" => load_items(&assets_dir, decl, &mut registry, &mut errors),
                 "Surface" => load_surfaces(&assets_dir, decl, &mut registry, &mut errors),
@@ -2386,6 +2426,39 @@ fn load_caves(
                 file: rel,
                 config,
                 template: template.clone(),
+            },
+        );
+    }
+}
+
+/// M2-T10 : `floor_grammars/<id>.ron` (kind `FloorGrammar`), une grammaire par fichier ; id = nom
+/// de fichier sans extension.
+fn load_floor_grammars(
+    assets_dir: &ContentFiles,
+    decl: &ContentFolderDecl,
+    registry: &mut Registry,
+    errors: &mut Vec<LintError>,
+) {
+    for (id, rel, def) in load_ron_files::<FloorGrammarFileSchema>(assets_dir, decl, errors) {
+        let id = FloorGrammarId::from(id);
+        if let Some(existing) = registry.floor_grammars.get(&id) {
+            errors.push(LintError {
+                kind: LintErrorKind::DuplicateId,
+                file: rel.display().to_string(),
+                message: format!(
+                    "id de grammaire d'étage « {id} » déjà défini dans {}",
+                    existing.file.display()
+                ),
+            });
+            continue;
+        }
+        registry.floor_grammars.insert(
+            id.clone(),
+            FloorGrammarEntry {
+                id,
+                file: rel,
+                templates: def.templates,
+                grammar: def.grammar,
             },
         );
     }

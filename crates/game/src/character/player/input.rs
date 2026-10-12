@@ -168,9 +168,10 @@ impl InputSource {
 fn press_blank_at() -> Option<u32> {
     static AT: std::sync::OnceLock<Option<u32>> = std::sync::OnceLock::new();
     *AT.get_or_init(|| {
-        std::env::var("ALACOD_PRESS_BLANK_AT")
-            .ok()
-            .map(|v| v.parse().expect("ALACOD_PRESS_BLANK_AT doit être un entier"))
+        std::env::var("ALACOD_PRESS_BLANK_AT").ok().map(|v| {
+            v.parse()
+                .expect("ALACOD_PRESS_BLANK_AT doit être un entier")
+        })
     })
 }
 
@@ -260,7 +261,7 @@ pub fn read_local_inputs(
             input.buttons |= INPUT_MELEE_ATTACK;
         }
 
-        if action_state.pressed(&PlayerAction::DropWeapon) {
+        if action_state.just_pressed(&PlayerAction::DropWeapon) {
             input.buttons |= INPUT_DROP_WEAPON;
         }
 
@@ -744,6 +745,58 @@ mod movement_tests {
     use crate::collider::{ColliderShape, Wall};
     use bevy::ecs::system::RunSystemOnce;
     use fixed_math::{Fixed, FixedTransform3D, FixedVec2, FixedVec3};
+
+    #[test]
+    fn held_drop_sends_one_request_and_rearms_after_release() {
+        let mut world = World::new();
+        world.insert_resource(InputSource::Devices);
+        world.insert_resource(LocalPlayers(vec![0]));
+        world.insert_resource(FrameCount::default());
+        let mut actions = ActionState::<PlayerAction>::default();
+        actions.press(&PlayerAction::DropWeapon);
+        actions.press(&PlayerAction::Interaction);
+        let player = world
+            .spawn((
+                actions,
+                Transform::default(),
+                Player::default(),
+                LocalPlayer {},
+            ))
+            .id();
+        world.run_system_once(read_local_inputs).unwrap();
+        assert_ne!(
+            world.resource::<LocalInputs<PeerConfig>>().0[&0].buttons & INPUT_DROP_WEAPON,
+            0
+        );
+        let instant = bevy::time::Time::<bevy::time::Real>::default().startup();
+        for _ in 0..120 {
+            let mut entity = world.entity_mut(player);
+            let mut actions = entity.get_mut::<ActionState<PlayerAction>>().unwrap();
+            actions.tick(instant, instant);
+            actions.press(&PlayerAction::DropWeapon);
+            drop(actions);
+            world.run_system_once(read_local_inputs).unwrap();
+            let buttons = world.resource::<LocalInputs<PeerConfig>>().0[&0].buttons;
+            assert_eq!(buttons & INPUT_DROP_WEAPON, 0, "held drop must not repeat");
+            assert_ne!(
+                buttons & INPUT_INTERACTION,
+                0,
+                "holding interaction remains supported"
+            );
+        }
+        {
+            let mut entity = world.entity_mut(player);
+            let mut actions = entity.get_mut::<ActionState<PlayerAction>>().unwrap();
+            actions.release(&PlayerAction::DropWeapon);
+            actions.tick(instant, instant);
+            actions.press(&PlayerAction::DropWeapon);
+        }
+        world.run_system_once(read_local_inputs).unwrap();
+        assert_ne!(
+            world.resource::<LocalInputs<PeerConfig>>().0[&0].buttons & INPUT_DROP_WEAPON,
+            0
+        );
+    }
 
     #[test]
     fn sliding_on_both_axes_never_enters_a_wall_corner() {

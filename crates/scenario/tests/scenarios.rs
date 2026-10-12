@@ -941,7 +941,8 @@ fn bullet_lines() {
     use bevy_fixed::fixed_math::FixedTransform3D;
     use game::weapons::Bullet;
     use utils::frame::FrameCount;
-    let spec = std::env::var("ALACOD_BULLET_LINES").unwrap_or_else(|_| "pattern_spiral:0:60".into());
+    let spec =
+        std::env::var("ALACOD_BULLET_LINES").unwrap_or_else(|_| "pattern_spiral:0:60".into());
     let p: Vec<&str> = spec.split(':').collect();
     let (from, to): (u32, u32) = (p[1].parse().unwrap(), p[2].parse().unwrap());
     let source = std::fs::read_to_string(scenarios_dir().join(format!("{}.ron", p[0]))).unwrap();
@@ -985,6 +986,9 @@ fn bullet_lines() {
             .iter(world)
             .map(|h| h.current.to_num::<f32>())
             .collect();
-        println!("f{frame} n={} {ps:?} joueurs={players:?} inv={inv:?} hp={hp:?}", ps.len());
+        println!(
+            "f{frame} n={} {ps:?} joueurs={players:?} inv={inv:?} hp={hp:?}",
+            ps.len()
+        );
     }
 }

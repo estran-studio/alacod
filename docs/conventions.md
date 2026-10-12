@@ -592,7 +592,7 @@ Deux champs de test (testbed) sont délibérément hors du checksum GGRS — les
 
 **Emplacements** (`CharacterConfig::weapon_slots: u32`, `#[serde(default)]` = 2, validé par `content::lint` : `> 0` et `starting_weapons.len() <= weapon_slots`) : nombre d'armes à distance qu'un personnage peut porter. À l'exécution, borne le **ramassage** (voir plus bas) ; la création donne toutes les `starting_weapons`, le lint refuse désormais une liste trop longue (T3.4, D7). `zombies` et `testbed` déclarent `weapon_slots: 3` sur le joueur : ses trois armes de départ étaient déjà créées, aucune n'était perdue.
 
-**Lâcher** (`INPUT_DROP_WEAPON`, touche `G`, bouton `DropWeapon` des scénarios ; `weapons::weapon_drop_system`, avant `weapon_rollback_system` dans `GgrsSchedule`) : l'arme active est retirée de `WeaponInventory.weapons`, son entité despawn (`despawn_rollback`), et une entité rollback `weapons::WeaponPickup { weapon_id, mag_ammo }` apparaît au sol à la position du joueur — `mag_ammo` est celui du **mode actif** au moment du dépôt (un seul nombre, pas un par mode). Le rechargement en cours, s'il y en avait un, est annulé (`WeaponInventory::clear_reloading`) : l'arme qui rechargeait n'existe plus.
+**Lâcher** (entrée clavier sur nouvel appui uniquement : relâcher puis rappuyer pour une autre arme ; `INPUT_DROP_WEAPON`, touche `L`, bouton `DropWeapon` des scénarios ; `weapons::weapon_drop_system`, avant `weapon_rollback_system` dans `GgrsSchedule`) : l'arme active est retirée de `WeaponInventory.weapons`, son entité despawn (`despawn_rollback`), et une entité rollback `weapons::WeaponPickup { weapon_id, mag_ammo }` apparaît au sol à la position du joueur — `mag_ammo` est celui du **mode actif** au moment du dépôt (un seul nombre, pas un par mode). Le rechargement en cours, s'il y en avait un, est annulé (`WeaponInventory::clear_reloading`) : l'arme qui rechargeait n'existe plus.
 
 **Ramasser** (`INPUT_INTERACTION`, `InteractionType::Weapon`, `interaction::handle_weapon_pickup_interaction`) : équipe l'arme (devient active), restaure son chargeur (`WeaponPickup::mag_ammo`, via `spawn_weapon_for_player`, paramètre `initial_mag_ammo`). En dessous de `weapon_slots`, elle s'ajoute ; à `weapon_slots` ou au-delà, elle **remplace** l'arme active, qui tombe au sol à son tour (même mécanisme, `weapons::spawn_weapon_pickup`). La réserve de munitions n'est jamais transférée : seul le chargeur voyage avec l'arme, la réserve reste attachée au joueur.
 
@@ -2590,6 +2590,52 @@ projectile `etincelle`), le pistolero a deux blanks (`gungeon_boss` en utilise d
 
 ---
 
+## 40. Grammaire d'étage (M2-T10, chantier E2)
+
+Un étage de salles typées, assemblé à partir de gabarits LDtk. Code : `world::FloorGrammar`
+(donnée), `map::generation::floor` (planificateur), `map::generation::imp::floor`
+(`FloorMapGeneration`, mode `MapGenerationMode::Floor(grammaire)` à côté de `Basic` et `Cave`).
+`Basic` est inchangé (traces `zombies`/testbed identiques).
+
+**Contenu.** Kind de dossier `FloorGrammar` : un fichier RON par grammaire, id = nom de fichier,
+désignée comme carte par `floor:<id>` (`entry.start_map`, `Scenario.map`, `levels` d'une séquence
+`Floors`) :
+
+```ron
+// floor_grammars/etage.ron — game.ron : (path: "floor_grammars", kind: "FloorGrammar")
+(templates: "maps/salles.ldtk", grammar: (
+    rooms: (8, 12),                                    // départ, boss et requises compris
+    required: {"boss": 1, "boutique": 1, "recompense": 1},
+    min_boss_distance: 3,                              // en salles
+    // start: "depart", boss: "boss", filler: "combat", max_attempts: 64 (défauts)
+))
+```
+
+`templates` est la carte LDtk dont chaque niveau est un gabarit, typé par son champ de niveau
+`room_kind` (§35). Le départ est un gabarit `spawn: true`.
+
+**Algorithme** (déterministe, `RollbackRng` de génération ; listes ordonnées, aucun `HashMap`) :
+départ au centre ; remplissage par croissance aléatoire (tirage uniforme parmi les poses valides :
+parent, connexion libre, gabarit compatible du bon type, sans chevauchement ni sortie de carte) ;
+boss posé sur une salle de profondeur maximale, avec un gabarit à **une seule connexion**
+(cul-de-sac, donc strictement le plus loin du départ) ; salles requises sur des salles de
+profondeur ≤ celle du boss − 2 ; contrôle indépendant `validate_plan`. Échec : nouvelle tentative
+avec une graine dérivée (`next_u32` du générateur principal), au plus `max_attempts`, puis
+`FloorError::Exhausted` explicite (jamais de boucle infinie ; `NoTemplate` si un type n'a aucun
+gabarit).
+
+**Mesure** (1 000 graines, gabarits 10×10 tuiles du test) : génération moyenne 184 µs, max 11,8 ms,
+1,05 tentative en moyenne, tailles 8 à 12 réparties uniformément.
+
+**Lint** : `rooms` min > max ou < 2, `max_attempts` 0, `required` à 0 ou contenant le départ,
+plus d'un boss, départ + boss + requises > max, `min_boss_distance` impossible (`OutOfRange`) ;
+carte `templates` absente, type nécessaire (départ, boss, remplissage, requis) sans niveau de ce
+`room_kind`, séquence `Floors` ou `start_map` vers une grammaire inconnue (`BrokenReference`).
+Fixtures : `floor_bounds_inverted`, `floor_required_without_template`.
+
+**Piège.** Le chemin d'asset des gabarits est commun à tous les étages d'une séquence `Floors` : un
+chemin par étage sera nécessaire (étape 2), comme `cave://` pour les cavernes (§21).
+
 ## Notes essentielles
 
 **`CrateLocation`** : collectée mais non utilisée, voir §1 (entités et vérification par un scénario `idle`).
@@ -2601,3 +2647,45 @@ projectile `etincelle`), le pistolero a deux blanks (`gungeon_boss` en utilise d
 **Fixed-point** : voir §2 et `CLAUDE.md` (Déterminisme, règles 1 et 7).
 
 **Tests et scénarios** : `make test_scenarios` vérifie que les scénarios passent en synctest (mode déterministe local). Tout changement de code dans `GgrsSchedule` peut casser les traces `.trace` ; rebase sur `main` chaque jour et revalider en CI rapide (preuve d'un bless : §10). Une tâche de toute voie peut bénir des traces, **avec la preuve du §10**, bénies par l'orchestrateur (`BLESS=1`, justification dans le commit) ; V1 (simulation) est la voie qui les change le plus souvent.
+
+### Brouillard d'exploration opt-in (revue M0, Le Relais)
+
+`game::room_fog::FogMap` est une ressource de présentation immuable décrivant une grille
+LDtk de visibilité : dimensions, origine monde, murs, fenêtres, identifiants de pièces
+et portes avec leurs deux extrémités. Elle n'est ni un état de salle M2 ni un état de
+combat. La présence de `settings.enabled = true` active le rendu ; sans métadonnées,
+les autres jeux conservent leur affichage.
+
+Pour `zombies`, régler `games/zombies/assets/ui/fog.ron`, puis lancer
+`python3 scripts/construire-modules-le-relais.py`. Ce script conserve les réglages RON
+comme champ `fog_settings` des gabarits ; le générateur produit le champ `fog_layout`
+avec les limites exactes de la carte assemblée et ses connexions. Les rectangles de
+défense des spawners ne servent pas au champ de vision. La génération reste à un
+niveau final fusionné : ne pas confondre ces identifiants avec des `LevelId` distincts.
+
+Le champ de vision utilise les murs et l'état des portes. Les fenêtres laissent passer
+la vue avec une portée limitée ; les obstacles bas ne sont pas déduits de leur seule
+collision de mouvement. Dans Le Relais, les cases IntGrid `Walls` sont des occluders
+pleins, y compris le mobilier actuellement dessiné dans cette couche. Pour du mobilier
+bas transparent à la vue, fournir une grille de visibilité différente de celle-ci.
+
+L'observation `capture_vision` est installée seulement par `PresentationPlugin` dans
+`GgrsSchedule` : lecture des positions Fixed et des portes, écriture d'un historique
+**hors simulation**, sans RNG, dégâts, composants rollback ni effet sur les checksums.
+Une resimulation invalide les échantillons prédits ultérieurs. Seules les frames
+`ConfirmedFrameCount` alimentent la mémoire explorée. Le calcul de visibilité et la
+texture RGBA se font hors GgrsSchedule ; une fermeture masque immédiatement et seule
+la révélation est interpolée. La mémoire et les assets sont nettoyés en fin de partie.
+
+Les sprites dynamiques et leurs enfants sont filtrés hors de vue, avec conservation
+de leur alpha propre. Les bonus au sol, leurs noms, les chiffres de dégâts,
+télégraphes et prompts d'interaction lisent aussi la visibilité courante. Ne pas
+restaurer `Visibility` sur les armes : cela pourrait rendre visible une arme inactive.
+Le HUD écran reste hors du masque. Toute extension des effets visuels doit respecter
+ce filtrage si elle affiche des informations sur une entité cachée.
+
+Les connexions des portes déterminent quelles pièces sont accessibles à l'exploration,
+sans les révéler entièrement. Le champ de vision révèle ensuite les seules cases en
+vue. Ce filtre empêche une vue par une fenêtre extérieure de dévoiler les objets d'une
+pièce encore fermée. Lorsqu'une partie d'une porte est en vue, sa face complète reste
+lisible dans les cases de mur du passage ; cela ne révèle aucune case intérieure.

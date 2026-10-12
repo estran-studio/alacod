@@ -14,6 +14,14 @@ Scenario(
     map: "exemples/test_map.ldtk",
     map_seed: 123456,
     frames: 600,
+    // S5 : figer le rythme de cette mise en scène de mécanique.
+    // Les assertions restent indépendantes de l'équilibrage des parties.
+    wave_overrides: (
+        base_enemies: 6,
+        enemies_per_wave: 4,
+        max_concurrent_enemies: 8,
+        spawn_interval_frames: 60,
+    ),
     players: [
         PlayerScript(
             inputs: [
