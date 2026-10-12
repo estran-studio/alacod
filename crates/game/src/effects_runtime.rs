@@ -444,6 +444,11 @@ pub fn apply_effects_system(
             frame,
             true,
         );
+        // Porteur v2 sans `Effects` ni effet d'objet : rien à faire, et surtout pas d'`EffectState`
+        // (il entrerait dans la trace d'un joueur qui n'en avait pas, v1 inchangé).
+        if effects.is_none() && listed.is_empty() {
+            continue;
+        }
         let pending = std::mem::take(&mut state.pending);
         if dead_now || downed {
             continue;
