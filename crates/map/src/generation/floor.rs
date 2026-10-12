@@ -49,7 +49,10 @@ impl std::fmt::Display for FloorError {
         match self {
             Self::NoTemplate(kind) => write!(f, "aucun gabarit de type « {kind} »"),
             Self::Exhausted { attempts } => {
-                write!(f, "grammaire d'étage non satisfaite en {attempts} tentatives")
+                write!(
+                    f,
+                    "grammaire d'étage non satisfaite en {attempts} tentatives"
+                )
             }
         }
     }
@@ -157,7 +160,10 @@ impl Attempt<'_> {
             properties: Default::default(),
         };
         !probe.is_outside(&self.context.config)
-            && !self.placed.iter().any(|placed| probe.is_overlapping(&placed.room))
+            && !self
+                .placed
+                .iter()
+                .any(|placed| probe.is_overlapping(&placed.room))
     }
 
     /// Tire une pose parmi `candidates` et la place ; `false` s'il n'y en a aucune.
@@ -270,8 +276,9 @@ fn try_attempt(
             continue;
         }
         for _ in 0..*count {
-            let candidates =
-                attempt.candidates(kind, false, &|p| p.depth + 2 <= boss_depth && p.kind != grammar.boss);
+            let candidates = attempt.candidates(kind, false, &|p| {
+                p.depth + 2 <= boss_depth && p.kind != grammar.boss
+            });
             if !attempt.place(kind, candidates) {
                 return None;
             }
@@ -299,7 +306,11 @@ pub fn validate_plan(grammar: &FloorGrammar, rooms: &[PlannedRoom]) -> Result<()
             return Err(format!("type « {kind} » : {} sur {required}", count(kind)));
         }
     }
-    let boss: Vec<_> = rooms.iter().enumerate().filter(|(_, r)| r.kind == grammar.boss).collect();
+    let boss: Vec<_> = rooms
+        .iter()
+        .enumerate()
+        .filter(|(_, r)| r.kind == grammar.boss)
+        .collect();
     let [(boss_index, boss_room)] = boss.as_slice() else {
         return Err(format!("{} boss au lieu d'un", boss.len()));
     };
@@ -362,7 +373,10 @@ pub fn plan_floor(
     for attempt in 1..=grammar.max_attempts {
         let seed = rng.next_u32();
         if let Some(rooms) = try_attempt(grammar, context, seed) {
-            bevy::log::debug!("grammaire d'étage : {} salles en {attempt} tentative(s)", rooms.len());
+            bevy::log::debug!(
+                "grammaire d'étage : {} salles en {attempt} tentative(s)",
+                rooms.len()
+            );
             return Ok(FloorPlan {
                 rooms,
                 attempts: attempt,
@@ -409,7 +423,11 @@ mod tests {
             level_id: id.into(),
             level_size: (10, 10),
             level_size_p: (160, 160),
-            level_type: if spawn { LevelType::Spawn } else { LevelType::Normal },
+            level_type: if spawn {
+                LevelType::Spawn
+            } else {
+                LevelType::Normal
+            },
             connections: sides
                 .iter()
                 .enumerate()
@@ -439,11 +457,21 @@ mod tests {
             level("combat_couloir_ns", "combat", false, &[Side::N, Side::S]),
             level("combat_coude_ne", "combat", false, &[Side::N, Side::E]),
             level("combat_coude_sw", "combat", false, &[Side::S, Side::W]),
-            level("combat_t_nes", "combat", false, &[Side::N, Side::E, Side::S]),
+            level(
+                "combat_t_nes",
+                "combat",
+                false,
+                &[Side::N, Side::E, Side::S],
+            ),
         ];
         for kind in ["boss", "boutique", "recompense"] {
             for side in ALL {
-                levels.push(level(&format!("{kind}_{}", side.to_dir_str()), kind, false, &[side]));
+                levels.push(level(
+                    &format!("{kind}_{}", side.to_dir_str()),
+                    kind,
+                    false,
+                    &[side],
+                ));
             }
         }
         levels
@@ -484,7 +512,14 @@ mod tests {
     fn signature(plan: &FloorPlan) -> Vec<(String, i32, i32, String)> {
         plan.rooms
             .iter()
-            .map(|p| (p.kind.clone(), p.room.position.0, p.room.position.1, p.room.level_iid.clone()))
+            .map(|p| {
+                (
+                    p.kind.clone(),
+                    p.room.position.0,
+                    p.room.position.1,
+                    p.room.level_iid.clone(),
+                )
+            })
             .collect()
     }
 
@@ -533,7 +568,11 @@ mod tests {
         };
         assert_eq!(run(7), run(7));
         let distinct: std::collections::BTreeSet<_> = (0..50).map(run).collect();
-        assert!(distinct.len() > 40, "{} étages distincts sur 50", distinct.len());
+        assert!(
+            distinct.len() > 40,
+            "{} étages distincts sur 50",
+            distinct.len()
+        );
     }
 
     #[test]

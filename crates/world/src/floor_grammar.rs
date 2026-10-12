@@ -73,16 +73,22 @@ impl FloorGrammar {
         let (min, max) = self.rooms;
         let mut out = Vec::new();
         if min > max {
-            out.push(format!("rooms = ({min}, {max}) : minimum supérieur au maximum"));
+            out.push(format!(
+                "rooms = ({min}, {max}) : minimum supérieur au maximum"
+            ));
         }
         if min < 2 {
-            out.push(format!("rooms = ({min}, {max}) : au moins 2 salles (départ et boss)"));
+            out.push(format!(
+                "rooms = ({min}, {max}) : au moins 2 salles (départ et boss)"
+            ));
         }
         if self.max_attempts == 0 {
             out.push("max_attempts = 0 : au moins une tentative".to_string());
         }
         if let Some((kind, 0)) = self.required.iter().find(|(_, n)| **n == 0) {
-            out.push(format!("required : « {kind} » demandé 0 fois (retirer l'entrée)"));
+            out.push(format!(
+                "required : « {kind} » demandé 0 fois (retirer l'entrée)"
+            ));
         }
         if self.required.contains_key(&self.start) {
             out.push(format!(
