@@ -1,22 +1,48 @@
-# M2-T10 — Grammaire d'étage (étape 1)
+# M2-T10 — Grammaire d'étage
 
 Branche `m2-t10-grammaire-etage`. Conventions : `docs/conventions.md` §40.
 
-## Livré (étape 1)
+## Étape 1 (livrée, mergée c3c32183)
 
 - `MapGenerationMode::Floor(FloorGrammar)` ; `Basic` intact.
 - `world::FloorGrammar` (données), `map::generation::floor` (planificateur, `validate_plan`),
   `FloorMapGeneration` (rejoue le plan par `get_next_room`).
 - Champ `room_kind` dans `AvailableLevel` (lu depuis LDtk).
 - Kind de contenu `FloorGrammar`, désignation `floor:<id>`, lint + 2 fixtures.
+- 1 000 graines : moyenne 183,5 µs, max 11,8 ms, 1,05 tentative en moyenne ; tailles 8:189, 9:204,
+  10:202, 11:198, 12:207. Chaque plan passe `validate_plan`.
 
-## Mesures (test `mille_graines_respectent_la_grammaire`)
+## Étape 2
 
-1 000 graines : moyenne 183,5 µs, max 11,8 ms, 1,05 tentative en moyenne ; tailles 8:189, 9:204,
-10:202, 11:198, 12:207. Chaque plan passe `validate_plan` (connexité, types requis, boss à distance
-maximale et cul-de-sac, aucun chevauchement, bornes). Déterminisme : même graine → même étage.
+- **Gabarits** : 9 gabarits gungeon (`maps/salles.ldtk`), script `m2-t10-grammaire-etage.make_salles.py`.
+  Test `gungeon_etages_de_grammaire` : 200 graines × grammaires `etage` (8–12) et `grand` (15–20), plus
+  `court` (3 salles, 400 graines dont les graines dérivées du 2ᵉ emplacement) : bornes, un boss, aucun
+  chevauchement.
+- **`Floors` d'étages assemblés** : `floor://` (un chemin d'asset par étage), graine dérivée par
+  emplacement, ouvertures libres murées, séquences `etages_*`.
+- **Deux défauts de `Floors` trouvés par `gungeon_two_floors`** (invisibles tant qu'un seul étage avait
+  des salles typées) : (1) les salles de l'étage 2, déjà chargées et superposées à celles de l'étage 1, se
+  verrouillaient et se vidaient en même temps ; (2) les portes de l'étage 2 naissaient fermées et le
+  joueur restait bloqué. Corrigés : `rooms::CurrentRooms` (salles de l'emplacement courant) et
+  `RoomStates::doors_opened` remis à faux à la transition.
+- **Piège** : `entry.mode: Floors` prend la première séquence par ordre d'id. Mes premiers noms
+  (`deux_etages`, `grammaire`) passaient avant `etage_1` et changeaient tous les scénarios gungeon
+  (22 ennemis au lieu de 3). Renommées `etages_*`.
+- **Scénarios** : `gungeon_floor_seed_{1,23,123}` (étage `court`, boss atteint par script, victoire à
+  f645), `gungeon_two_floors` (portail f645, étage 2 à f752, victoire f1425, `FloorIndex`),
+  `bench_floor` (étage `grand`, deux bots `fonceur`).
+- **Atteinte du boss scriptée.** Sur l'étage `etage` complet, les bots `prudent` nettoient une salle puis
+  s'arrêtent ; les `fonceur` nettoient cinq salles en 1 168 frames mais ne vont jamais vers le boss
+  (dormant) en 6 000 frames. Sur `grand`, ils y arrivent (boss tué à f2549). Le bot explorateur est T16,
+  hors périmètre.
 
-## Reste (étape 2)
+## Mesures (machine partagée, profil headless)
 
-Gabarits gungeon et script LDtk, `Floors` multi-étages (un chemin d'asset par étage), `bench_floor`,
-scénarios `gungeon_floor_seed_<n>` et `gungeon_two_floors`, p2p.
+- `bench_floor` : 18,5 sim fps, 3 000 frames en 163 s, 282 entités et 37 ennemis au plus ; 12
+  verrouillages et ouvertures de salle (reconstruction du champ de flux à chaque porte) sans à-coup
+  visible dans les fps ; plancher `tests/budgets.ron` : 9.
+- `gungeon_floor_seed_1` (4 ennemis) : 30 sim fps sur la même machine.
+
+## Vérifications
+
+Voir la section finale (suite complète, p2p, fmt, lint).
