@@ -56,4 +56,11 @@ f~540) ; `item_passive_effect` 1, 2 (f100), 3 (f140).
 
 ## Vérifications
 
-À compléter en fin de tâche (suite complète, crates, lint ×4, fmt, p2p).
+- `make test_scenarios` (arbre fusionné avec main 40886510, après les corrections) : EXIT 0,
+  **0 trace différente**. La première suite en avait 50 (événements neutres hachés quand non vides),
+  la deuxième 9 (`gungeon_boss`/`gungeon_clear` : un `EffectState` inséré sur un joueur sans
+  `Effects` ; 7 traces de mes propres scénarios, rebénies après le changement de checksum).
+- `make test_crates` : vert. `make lint` ×4 : vert. `cargo fmt --all -- --check` : propre.
+- p2p gungeon, 2 clients (port 3556, 900 frames) : traces identiques (899 lignes), 0 desync,
+  conteneur arrêté. La grammaire d'étage reste non jouée en p2p réel (D59).
+- `make sweep` : target 68 → 55 Go. `OnBlank` : contrat et lint seulement, à brancher au merge de M2-T1.
