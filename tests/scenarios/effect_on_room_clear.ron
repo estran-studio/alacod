@@ -1,0 +1,28 @@
+// M2-T3 (effets v2, docs/conventions.md §42) : `OnRoomClear` d'un objet tenu. Carte
+// testbed/salles.ldtk (départ, combat avec deux `dummy`, récompense) ; l'`anneau_salle` (passif :
+// +1 de dégâts à chaque salle nettoyée où se trouve le porteur) est posé sur le joueur à f5.
+//
+// À regarder : f10 le joueur ramasse l'anneau ; f30-90 il entre dans la salle de combat
+// (verrouillée) et tire ; quand les deux ennemis sont morts la salle est nettoyée et les dégâts
+// du joueur passent de 1 à 2.
+Scenario(
+    powerup_drop_chance_override: "0.0",
+    game: "testbed",
+    map: "testbed/salles.ldtk",
+    map_seed: 1,
+    frames: 600,
+    items: [(id: "anneau_salle", x: "-904.0", y: "-584.0", at_frame: 5)],
+    players: [
+        (inputs: [
+            (from: 10, to: 13, buttons: [Interaction]),
+            (from: 30, to: 90, buttons: [Right]),
+            (from: 90, to: 500, buttons: [Fire], pan: (64, 0)),
+        ]),
+    ],
+    expect: [
+        HasItem(handle: 0, id: "anneau_salle", at_frame: 30),
+        Stat(handle: 0, stat: Damage, value: 1.0, at_frame: 400),
+        RoomState(kind: "combat", state: Cleared, at_frame: 500),
+        Stat(handle: 0, stat: Damage, value: 2.0, at_frame: 510),
+    ],
+)

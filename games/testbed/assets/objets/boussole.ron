@@ -1,0 +1,10 @@
+// M2-T3 : passif d'essai (`effect_on_floor_start`) : +1 de dégâts à chaque début d'étage, et
+// +10 au premier rechargement de chaque étage (charge rendue à chaque étage).
+(
+    name: "Boussole",
+    kind: Passive,
+    effects: [
+        (on: OnFloorStart, do: [Modifier(stat: Damage, op: Add, value: "1")]),
+        (on: OnReload, charges: Some(1), recharge: Some(PerFloor), do: [Modifier(stat: Damage, op: Add, value: "10")]),
+    ],
+)

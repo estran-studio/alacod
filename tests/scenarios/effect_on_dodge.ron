@@ -1,0 +1,26 @@
+// M2-T3 (effets v2, docs/conventions.md §42) : `OnDodge` d'un objet tenu. Carte
+// testbed/salles.ldtk ; les `semelles` (passif : +1 de dégâts à chaque début de dash) sont
+// posées sur le joueur à f5.
+//
+// À regarder : f10 le joueur ramasse les semelles ; il fait deux dashs (f30 et f120, assez
+// espacés pour le cooldown du dash) : les dégâts passent de 1 à 2 puis 3.
+Scenario(
+    powerup_drop_chance_override: "0.0",
+    game: "testbed",
+    map: "testbed/salles.ldtk",
+    map_seed: 1,
+    frames: 200,
+    items: [(id: "semelles", x: "-904.0", y: "-584.0", at_frame: 5)],
+    players: [
+        (inputs: [
+            (from: 10, to: 13, buttons: [Interaction]),
+            (from: 30, to: 33, buttons: [Right, Dash]),
+            (from: 120, to: 123, buttons: [Right, Dash]),
+        ]),
+    ],
+    expect: [
+        Stat(handle: 0, stat: Damage, value: 1.0, at_frame: 25),
+        Stat(handle: 0, stat: Damage, value: 2.0, at_frame: 80),
+        Stat(handle: 0, stat: Damage, value: 3.0, at_frame: 190),
+    ],
+)

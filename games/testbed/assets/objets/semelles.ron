@@ -1,0 +1,8 @@
+// M2-T3 : passif d'essai (`effect_on_dodge`) : chaque début de dash ajoute +1 de dégâts.
+(
+    name: "Semelles",
+    kind: Passive,
+    effects: [
+        (on: OnDodge, do: [Modifier(stat: Damage, op: Add, value: "1")]),
+    ],
+)

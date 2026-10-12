@@ -8,6 +8,7 @@ use bevy_ggrs::{LocalInputs, LocalPlayers};
 use combat::downed::Downed;
 use leafwing_input_manager::prelude::*;
 use serde::{Deserialize, Serialize};
+use sim_core::frame_events::FrameEvents;
 use sim_core::stats::StatId;
 use stats::StatReader;
 use utils::{frame::FrameCount, net_id::GgrsNetId, order_mut_iter};
@@ -364,6 +365,7 @@ pub fn apply_inputs(
     inputs: Res<PlayerInputs<PeerConfig>>,
     character_configs: Res<Assets<CharacterConfig>>,
     stats: StatReader,
+    mut dash_started: Option<ResMut<FrameEvents<sim_core::triggers::DashStarted>>>,
     mut query: Query<
         (
             &GgrsNetId,
@@ -451,6 +453,12 @@ pub fn apply_inputs(
                 move_speed * dt,
                 movement.dash_cooldown_frames,
             );
+            if let Some(events) = dash_started.as_mut() {
+                events.send(sim_core::triggers::DashStarted {
+                    frame: frame.frame,
+                    player_handle: player.handle,
+                });
+            }
             // Invulnérable les `dash_iframes` premières frames, celle-ci comprise
             // (`rollback_resolve_damage_events` compare la frame du coup à cette borne)
             if let (Some(mut health), true) = (health, movement.dash_iframes > 0) {

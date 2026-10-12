@@ -1103,6 +1103,7 @@ pub fn weapon_rollback_system(
     stats: StatReader,
 
     mut id_factory: ResMut<GgrsNetIdFactory>,
+    mut reload_finished: Option<ResMut<FrameEvents<sim_core::triggers::ReloadFinished>>>,
 ) {
     let system_span = span!(Level::INFO, "ggrs", f = frame.frame, s = "weapon");
     let _enter = system_span.enter(); // Enter the span
@@ -1205,6 +1206,12 @@ pub fn weapon_rollback_system(
                         if ammo_reserves.get(&weapon.config.ammo_type) >= needed {
                             ammo_reserves.take(&weapon.config.ammo_type, needed);
                             mode_state.reload();
+                            if let Some(events) = reload_finished.as_mut() {
+                                events.send(sim_core::triggers::ReloadFinished {
+                                    frame: frame.frame,
+                                    player_handle: player.handle,
+                                });
+                            }
                         }
                     }
                     inventory.clear_reloading();

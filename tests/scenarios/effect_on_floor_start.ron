@@ -1,0 +1,35 @@
+// M2-T3 (effets v2, docs/conventions.md §42) : `OnFloorStart` et recharge `PerFloor`. Séquence
+// `deux_niveaux` du testbed ; la `boussole` (passif : +1 de dégâts à chaque début d'étage, et +10
+// au rechargement, une charge rendue à chaque étage) est posée sur le joueur à f5.
+//
+// À regarder : f10 le joueur ramasse la boussole ; il tue le follower de `floor_a` (f14-200),
+// recharge (f205, +10 vers f290), passe le portail (f~370) : +1 au début de l'étage 1 (dégâts 12) ;
+// il tire, recharge à nouveau (f410) : la charge est revenue avec l'étage, +10 (dégâts 22 vers f540).
+Scenario(
+    powerup_drop_chance_override: "0.0",
+    game: "testbed",
+    floors: Some("deux_niveaux"),
+    frames: 800,
+    items: [(id: "boussole", x: "424.0", y: "696.0", at_frame: 5)],
+    players: [
+        (inputs: [
+            (from: 0, to: 9, buttons: [Fire], pan: (-64, 48)),
+            (from: 10, to: 13, buttons: [Interaction]),
+            (from: 14, to: 200, buttons: [Fire], pan: (-64, 48)),
+            (from: 205, to: 208, buttons: [Reload]),
+            (from: 360, to: 366, buttons: [Right, Down], pan: (0, 0)),
+            (from: 390, to: 400, buttons: [Fire], pan: (64, 0)),
+            (from: 410, to: 413, buttons: [Reload]),
+        ]),
+    ],
+    expect: [
+        Stat(handle: 0, stat: Damage, value: 1.0, at_frame: 250),
+        // Rechargement de l'étage 0 : +10 ; pas de +1 au départ (l'objet est ramassé en cours d'étage)
+        Stat(handle: 0, stat: Damage, value: 11.0, at_frame: 350),
+        FloorIndex(index: 1, at_frame: 450),
+        // Début de l'étage 1 : +1
+        Stat(handle: 0, stat: Damage, value: 12.0, at_frame: 450),
+        // Rechargement de l'étage 1 : la charge est revenue avec l'étage, +10
+        Stat(handle: 0, stat: Damage, value: 22.0, at_frame: 700),
+    ],
+)

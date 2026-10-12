@@ -1,0 +1,8 @@
+// M2-T3 : passif d'essai (`item_passive_effect`) : +1 de dégâts à chaque ennemi tué par le porteur.
+(
+    name: "Porte-bonheur",
+    kind: Passive,
+    effects: [
+        (on: OnKill, do: [Modifier(stat: Damage, op: Add, value: "1")]),
+    ],
+)

@@ -1,0 +1,11 @@
+// Fixture M2-T3 (`lint::lint_effect`) : cooldown = 0, charges = 0, recharge sans charges.
+(
+    name: "fixture-effect_limits_invalid",
+    content_folders: [
+        (path: "characters/hero.ron", kind: "Character"),
+    ],
+    entry: (
+        start_map: "unused",
+        default_seed: 1,
+    ),
+)

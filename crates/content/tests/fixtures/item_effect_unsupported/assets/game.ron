@@ -1,4 +1,4 @@
-// Fixture M2-T0b : un effet d'objet non exécuté en T0b : OnKill (Unsupported)
+// Fixture M2-T0b/M2-T3 : OnUse sur un passif et OnBlank (contrat) : Unsupported
 (
     name: "fixture-item_effect_unsupported",
     content_folders: [
