@@ -2,7 +2,7 @@
 Scenario(
     powerup_drop_chance_override: "0.0",
     game: "gungeon",
-    floors: Some("grammaire"),
+    floors: Some("etages_grammaire"),
     map_seed: 1,
     frames: 1500,
     players: [
