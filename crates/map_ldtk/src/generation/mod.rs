@@ -125,7 +125,10 @@ mod tests {
             let started = std::time::Instant::now();
             let derived = |s: i32| s.wrapping_add(0x3C6E_F372);
             let seeds: Vec<i32> = (1..=200).chain((1..=200).map(derived)).collect();
-            for seed in seeds.into_iter().take(if file == "court" { 400 } else { 200 }) {
+            for seed in seeds
+                .into_iter()
+                .take(if file == "court" { 400 } else { 200 })
+            {
                 let data: LdtkJson = load_ldtk_json_file(&path).unwrap();
                 let config = MapGenerationConfig {
                     seed,
@@ -156,8 +159,16 @@ mod tests {
                     "{file} graine {seed} : {} salles",
                     rooms.len()
                 );
-                let bosses: Vec<_> = rooms.iter().filter(|r| r.template.starts_with("Boss")).collect();
-                assert_eq!(bosses.len(), 1, "{file} graine {seed} : {} boss", bosses.len());
+                let bosses: Vec<_> = rooms
+                    .iter()
+                    .filter(|r| r.template.starts_with("Boss"))
+                    .collect();
+                assert_eq!(
+                    bosses.len(),
+                    1,
+                    "{file} graine {seed} : {} boss",
+                    bosses.len()
+                );
                 for (i, a) in rooms.iter().enumerate() {
                     for b in &rooms[i + 1..] {
                         let (ax, ay, aw, ah) = a.world_rect();

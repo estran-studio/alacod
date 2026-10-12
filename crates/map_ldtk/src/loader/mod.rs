@@ -94,7 +94,8 @@ pub fn resolve_map_config(
         },
         // M2-T10 : graine dérivée par emplacement d'étage (l'emplacement 0 garde la graine de la run)
         seed: if floor.is_some() {
-            base.seed.wrapping_add((slot as i32).wrapping_mul(0x3C6E_F372))
+            base.seed
+                .wrapping_add((slot as i32).wrapping_mul(0x3C6E_F372))
         } else {
             base.seed
         },

@@ -98,7 +98,8 @@ impl Plugin for CaveAssetSourcePlugin {
         app.register_asset_source(
             CAVE_ASSET_SOURCE,
             AssetSourceBuilder::new(move || {
-                Box::new(CaveTemplateReader(default_reader(), physical_path)) as Box<dyn ErasedAssetReader>
+                Box::new(CaveTemplateReader(default_reader(), physical_path))
+                    as Box<dyn ErasedAssetReader>
             }),
         );
     }

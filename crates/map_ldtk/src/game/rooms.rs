@@ -86,7 +86,16 @@ const ENTRANCE_SPACING: i32 = 14;
 /// se verrouilleraient et se videraient en même temps que celles où se tient le joueur.
 #[derive(SystemParam)]
 pub struct CurrentRooms<'w, 's> {
-    rooms: Query<'w, 's, (Entity, &'static LevelId, &'static RoomBounds, &'static RoomKind)>,
+    rooms: Query<
+        'w,
+        's,
+        (
+            Entity,
+            &'static LevelId,
+            &'static RoomBounds,
+            &'static RoomKind,
+        ),
+    >,
     slots: super::floors::FloorSlots<'w, 's>,
     plan: Option<Res<'w, super::floors::FloorPlan>>,
     state: Option<Res<'w, run::FloorState>>,
@@ -101,16 +110,16 @@ impl CurrentRooms<'_, '_> {
             .map(|(plan, state)| plan.slot_for_floor(state.index));
         self.rooms
             .iter()
-            .filter(move |(entity, ..)| current.is_none_or(|slot| self.slots.slot_of(*entity) == slot))
+            .filter(move |(entity, ..)| {
+                current.is_none_or(|slot| self.slots.slot_of(*entity) == slot)
+            })
             .map(|(_, id, bounds, kind)| (id, bounds, kind))
     }
 }
 
 /// Salles typées triées par position (x, y) puis identifiant : ordre stable, indépendant des
 /// `Entity`.
-fn sorted_rooms<'a>(
-    rooms: &'a CurrentRooms,
-) -> Vec<(&'a LevelId, &'a RoomBounds, &'a RoomKind)> {
+fn sorted_rooms<'a>(rooms: &'a CurrentRooms) -> Vec<(&'a LevelId, &'a RoomBounds, &'a RoomKind)> {
     let mut typed: Vec<_> = rooms.iter().collect();
     typed.sort_by(|a, b| {
         (a.1.position.x, a.1.position.y, &a.0 .0).cmp(&(b.1.position.x, b.1.position.y, &b.0 .0))

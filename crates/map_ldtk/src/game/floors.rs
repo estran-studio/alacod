@@ -420,6 +420,7 @@ pub fn floor_transition_system(
     run: Res<Run>,
     plan: Res<FloorPlan>,
     mut floor_state: ResMut<FloorState>,
+    mut room_states: Option<ResMut<world::RoomStates>>,
     mut id_factory: ResMut<GgrsNetIdFactory>,
     mut flow_field_cache: ResMut<FlowFieldCache>,
     assets: LevelSpawnAssets,
@@ -574,7 +575,11 @@ pub fn floor_transition_system(
         .collect();
     spawn_level_soda_locations(&mut commands, &mut id_factory, sodas);
 
-    // 7. État du mode.
+    // 7. État du mode. Les portes du nouvel étage naissent fermées : les portes de salle
+    // s'ouvrent de nouveau au prochain tick (`rooms::room_lock_system`).
+    if let Some(states) = room_states.as_mut() {
+        states.doors_opened = false;
+    }
     floor_state.index = next;
     floor_state.portal_open = false;
     floor_state.anchor = portal_anchor(data.caves.as_deref(), slot, &anchor_points);
