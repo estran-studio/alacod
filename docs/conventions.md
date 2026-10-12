@@ -2560,10 +2560,21 @@ dans `objets/blank.ron`, lint : consommable seulement, `radius` > 0). Au **front
 4. émet `FrameEvents<BlankUsed { frame, player_handle, x, y, radius, cleared }>` (neutre ; lu par la
    présentation et par `OnBlank` de M2-T3) et la trace `ggrs{f=… blank net_id=… item=… cleared=…}`.
 Sans blank en inventaire (ou sans inventaire) : rien. **Mémoire du front montant** :
-`BlankState { held, floor }`, composant rollback **neutre**, posé sur un joueur dès qu'il a un `Inventory`
-(avec `held` = l'état de l'input cette frame : aucun faux front à la pose), réécrit à chaque frame
+`BlankState { held, floor }`, composant rollback **neutre**, posé sur un joueur qui a un `Inventory`
+**et** un motif d'en avoir (Blank appuyé, blank en poche, ou recharge d'étage dans le contenu) : un joueur
+avec inventaire mais sans blank (objets du testbed) ne le porte pas, donc sa trace ne bouge pas (une
+première version le posait sur tout inventaire et déplaçait 4 traces du testbed). Réécrit à chaque frame
 **avant** tout retour anticipé (piège « donnée dérivée non rollbackée »). Seuls `gungeon` et les scénarios
-qui donnent un inventaire en portent : les traces des autres jeux ne bougent pas.
+qui donnent un blank en portent : les traces des autres jeux ne bougent pas.
+
+**Piège des tables de projectiles.** Les `projectiles:` d'une arme sont dans l'état hashé de ses porteurs :
+ajouter un projectile à une arme existante déplace les traces de tous ses porteurs (une première version
+l'avait fait sur `fireball_gun` : 33 traces). Les tourelles de motifs du testbed ont donc leur propre arme
+`tourelle_gun` (copie de `fireball_gun` + `brume`, `ricochet`).
+
+**Preuve p2p.** `ALACOD_PRESS_BLANK_AT=<frame>` (`player/input.rs`, `press_blank_at`) ajoute `INPUT_BLANK` à
+l'input neutre de cette frame : permet de jouer un blank dans un test p2p sans clavier
+(`ALACOD_INPUT=neutral`).
 
 **Consommables de départ et d'étage (données).** `CharacterConfig::starting_consumables: {"blank": 2}`
 crée l'`Inventory` du joueur à la création (vide par défaut : aucun inventaire). `Floors` :
