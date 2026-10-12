@@ -21,6 +21,7 @@
 //! Les colliders des portes sont déjà rollback (`Collider`, `CollisionLayer`) ; le champ de flux
 //! suit tout seul (une porte avec collider est un mur, `rebuild_blocked_cells`).
 
+use bevy::ecs::system::SystemParam;
 use bevy::prelude::*;
 use bevy_fixed::fixed_math::{Fixed, FixedVec2};
 use bevy_ggrs::GgrsSchedule;
@@ -79,11 +80,46 @@ const ENTRANCE_DEPTH: i32 = 40;
 /// Écart entre deux joueurs téléportés au même point d'entrée.
 const ENTRANCE_SPACING: i32 = 14;
 
+/// Salles typées de l'étage courant. En mode `Floors`, chaque emplacement est un monde LDtk
+/// chargé dès le départ (M2-T10 : deux étages assemblés se superposent dans l'espace) : seules
+/// les salles de l'emplacement de l'étage en cours comptent, sinon les salles d'un autre étage
+/// se verrouilleraient et se videraient en même temps que celles où se tient le joueur.
+#[derive(SystemParam)]
+pub struct CurrentRooms<'w, 's> {
+    rooms: Query<
+        'w,
+        's,
+        (
+            Entity,
+            &'static LevelId,
+            &'static RoomBounds,
+            &'static RoomKind,
+        ),
+    >,
+    slots: super::floors::FloorSlots<'w, 's>,
+    plan: Option<Res<'w, super::floors::FloorPlan>>,
+    state: Option<Res<'w, run::FloorState>>,
+}
+
+impl CurrentRooms<'_, '_> {
+    fn iter(&self) -> impl Iterator<Item = (&LevelId, &RoomBounds, &RoomKind)> {
+        let current = self
+            .plan
+            .as_ref()
+            .zip(self.state.as_ref())
+            .map(|(plan, state)| plan.slot_for_floor(state.index));
+        self.rooms
+            .iter()
+            .filter(move |(entity, ..)| {
+                current.is_none_or(|slot| self.slots.slot_of(*entity) == slot)
+            })
+            .map(|(_, id, bounds, kind)| (id, bounds, kind))
+    }
+}
+
 /// Salles typées triées par position (x, y) puis identifiant : ordre stable, indépendant des
 /// `Entity`.
-fn sorted_rooms<'a>(
-    rooms: &'a Query<(&LevelId, &RoomBounds, &RoomKind)>,
-) -> Vec<(&'a LevelId, &'a RoomBounds, &'a RoomKind)> {
+fn sorted_rooms<'a>(rooms: &'a CurrentRooms) -> Vec<(&'a LevelId, &'a RoomBounds, &'a RoomKind)> {
     let mut typed: Vec<_> = rooms.iter().collect();
     typed.sort_by(|a, b| {
         (a.1.position.x, a.1.position.y, &a.0 .0).cmp(&(b.1.position.x, b.1.position.y, &b.0 .0))
@@ -107,7 +143,7 @@ pub fn room_dormancy_system(
     mut commands: Commands,
     states: Res<RoomStates>,
     table: Res<RoomKindTable>,
-    rooms: Query<(&LevelId, &RoomBounds, &RoomKind)>,
+    rooms: CurrentRooms,
     enemies: Query<
         (
             &GgrsNetId,
@@ -123,7 +159,7 @@ pub fn room_dormancy_system(
         .filter(|(id, _, kind)| table.locks(&kind.0) && states.get(&id.0) == RoomState::Dormant)
         .map(|(_, bounds, _)| bounds)
         .collect();
-    if rooms.is_empty() {
+    if rooms.iter().next().is_none() {
         return;
     }
     for (_, entity, transform, is_dormant) in order_iter!(enemies) {
@@ -146,7 +182,7 @@ pub fn room_lock_system(
     table: Res<RoomKindTable>,
     mut states: ResMut<RoomStates>,
     mut changed: ResMut<FrameEvents<RoomChanged>>,
-    rooms: Query<(&LevelId, &RoomBounds, &RoomKind)>,
+    rooms: CurrentRooms,
     doors: Query<
         (
             &GgrsNetId,

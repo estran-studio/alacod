@@ -336,10 +336,14 @@ impl CoreSetupPlugin {
         let cave_source = crate::cave_assets::CaveAssetSourcePlugin {
             file_path: asset_plugin.file_path.clone(),
         };
+        let floor_source = crate::cave_assets::FloorAssetSourcePlugin {
+            file_path: asset_plugin.file_path.clone(),
+        };
         let plugins = DefaultPlugins
             .set(ImagePlugin::default_nearest())
             .set(asset_plugin)
             .add_before::<AssetPlugin>(cave_source)
+            .add_before::<AssetPlugin>(floor_source)
             .disable::<LogPlugin>();
 
         if !self.0.headless {

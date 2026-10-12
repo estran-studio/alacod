@@ -1,0 +1,49 @@
+// M2-T10 (docs/conventions.md §40) : deux étages assemblés par la grammaire `court` (séquence
+// `etages_court_deux`, graine 123 : les deux étages ont la même forme, départ, combat en T, boss à
+// l'est). Joueur scripté : vide le premier étage comme `gungeon_floor_seed_123`, tue son boss,
+// retourne au portail (au centre de la salle de départ) et refait le même parcours au second étage.
+// Chaque étage est son propre monde (graine dérivée par emplacement) ; les salles de l'autre étage
+// ne se verrouillent pas, les portes du second naissent ouvertes. Le bot explorateur est T16.
+//
+// À regarder : f645 le portail s'ouvre ; f752 le joueur est au second étage (index 1, ennemis
+// endormis) ; f828 la salle de combat se verrouille, f1091 elle se rouvre ; f1159 le boss ; f1293
+// phase 1 ; f1425 victoire.
+Scenario(
+    powerup_drop_chance_override: "0.0",
+    game: "gungeon",
+    floors: Some("etages_court_deux"),
+    map_seed: 123,
+    frames: 1500,
+    players: [
+        (inputs: [
+            // Étage 1 : comme `gungeon_floor_seed_123`, puis retour au portail (salle de départ).
+            (from: 10, to: 70, buttons: [Right]),
+            (from: 80, to: 160, buttons: [Fire], pan: (-34, -31)),
+            (from: 160, to: 240, buttons: [Fire], pan: (-34, 27)),
+            (from: 240, to: 330, buttons: [Fire], pan: (25, 27)),
+            (from: 340, to: 380, buttons: [Right]),
+            (from: 385, to: 660, buttons: [Fire], pan: (70, 6)),
+            (from: 665, to: 755, buttons: [Left]),
+            // Étage 2 (arrivée f752, 20 px plus à l'ouest qu'au départ de l'étage 1).
+            (from: 770, to: 840, buttons: [Right]),
+            (from: 850, to: 920, buttons: [Fire], pan: (-34, -31)),
+            (from: 920, to: 1000, buttons: [Fire], pan: (-34, 27)),
+            (from: 1000, to: 1090, buttons: [Fire], pan: (25, 27)),
+            (from: 1120, to: 1160, buttons: [Right]),
+            (from: 1165, to: 1480, buttons: [Fire], pan: (70, 6)),
+        ]),
+    ],
+    expect: [
+        FloorIndex(index: 0, at_frame: 600),
+        FloorIndex(index: 1, at_frame: 900),
+        RoomState(kind: "combat", state: Dormant, at_frame: 800),
+        RoomState(kind: "boss", state: Dormant, at_frame: 800),
+        EntityCount(kind: Enemy, min: 4, max: 4, at_frame: 800),
+        RoomState(kind: "combat", state: Locked, at_frame: 900),
+        RoomState(kind: "combat", state: Cleared, at_frame: 1120),
+        RoomState(kind: "boss", state: Locked, at_frame: 1200),
+        BossPhase(entity: NetId(137), phase: 1, at_frame: 1350),
+        RunState(step: Ended(Victory), at_frame: 1480),
+        PlayerAlive(handle: 0, at_frame: 1499),
+    ],
+)

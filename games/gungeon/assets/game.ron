@@ -11,6 +11,8 @@
         (path: "weapons/melee.ron", kind: "MeleeWeapon"),
         (path: "patterns", kind: "Pattern"),
         (path: "floors", kind: "Floors"),
+        // M2-T10 : grammaires d'étage (`floor:<id>`), gabarits dans `maps/salles.ldtk`.
+        (path: "floor_grammars", kind: "FloorGrammar"),
         // Table de power-ups (copie de `throne` ; aucun drop dans l'étage squelette).
         (path: "items", kind: "PowerUp"),
         // M2-T0b : objets (passif, actif, consommables `key` et `blank`).

@@ -1,0 +1,23 @@
+// M2-T10 (docs/conventions.md §40) : mesure de perf d'un grand étage assemblé (grammaire `grand`,
+// 15 à 20 salles de `gungeon`), deux joueurs `fonceur` qui nettoient les salles de combat une à une.
+// Chaque verrouillage ou ouverture de porte reconstruit le champ de flux : le plancher de
+// `tests/budgets.ron` veille à ce que la reconstruction ne s'effondre pas avec la taille de l'étage.
+//
+// À regarder : les joueurs traversent les salles du départ vers l'extérieur ; chaque salle de
+// combat se verrouille puis se rouvre.
+Scenario(
+    powerup_drop_chance_override: "0.0",
+    game: "gungeon",
+    floors: Some("etages_grand"),
+    map_seed: 1,
+    frames: 3000,
+    players: [
+        (bot: fonceur),
+        (bot: fonceur),
+    ],
+    expect: [
+        PlayerAlive(handle: 0, at_frame: 60),
+        PlayerAlive(handle: 1, at_frame: 60),
+        RoomState(kind: "boss", state: Dormant, at_frame: 60),
+    ],
+)

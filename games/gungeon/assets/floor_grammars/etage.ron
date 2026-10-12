@@ -1,0 +1,11 @@
+// Grammaire d'étage de `gungeon` (M2-T10, docs/conventions.md §40) : de 8 à 12 salles, un départ,
+// un boss en cul-de-sac à distance maximale (au moins 3 salles du départ), une récompense, une
+// boutique, le reste en salles de combat. Gabarits : maps/salles.ldtk.
+(
+    templates: "maps/salles.ldtk",
+    grammar: (
+        rooms: (8, 12),
+        required: {"boss": 1, "recompense": 1, "boutique": 1},
+        min_boss_distance: 3,
+    ),
+)

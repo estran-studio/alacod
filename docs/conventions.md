@@ -2565,8 +2565,42 @@ carte `templates` absente, type nécessaire (départ, boss, remplissage, requis)
 `room_kind`, séquence `Floors` ou `start_map` vers une grammaire inconnue (`BrokenReference`).
 Fixtures : `floor_bounds_inverted`, `floor_required_without_template`.
 
-**Piège.** Le chemin d'asset des gabarits est commun à tous les étages d'une séquence `Floors` : un
-chemin par étage sera nécessaire (étape 2), comme `cave://` pour les cavernes (§21).
+**Étapes 2 : `Floors` d'étages assemblés.** Une séquence `Floors` peut lister des `floor:<id>`
+(`levels: ["floor:etage", "floor:etage"]`). Chaque entrée est **son propre monde** (emplacement) :
+
+- *Un chemin d'asset par étage* : `floor://<emplacement>/<gabarits>` (`game::cave_assets`, comme
+  `cave://` §21), lu physiquement dans le fichier des gabarits ; sans cela l'`AssetServer` rendrait
+  le premier étage chargé à tous (`FloorPlan::slot_of_level` ne fusionne pas les entrées `floor:`).
+- *Graine dérivée par emplacement* : `graine_de_la_run + emplacement × 0x3C6E_F372` (wrapping) ;
+  l'emplacement 0 garde la graine de la run. Les ids réseau sont triés par contenu comme partout.
+- *Ouvertures libres murées* (`GeneratedMap::close_unused_openings`) : une ouverture sans voisin
+  reste ouverte en `Basic` ; dans un étage de grammaire elle est refermée.
+- *Salles de l'étage courant seulement* : les mondes de tous les emplacements existent dès le
+  départ et se superposent dans l'espace ; `rooms::CurrentRooms` ne présente aux systèmes de salle
+  que l'emplacement de l'étage en cours. Sans cela les salles de l'étage 2 se verrouillaient et se
+  vidaient pendant l'étage 1. Les portes du nouvel étage sont rouvertes à la transition
+  (`RoomStates::doors_opened` remis à faux).
+- Portail à la mort du boss (barycentre des `PlayerSpawn`, donc au centre de la salle de départ),
+  `victory_at_end` sur le dernier étage.
+
+**Piège : la séquence par défaut.** `entry.mode: Floors` prend la **première séquence par ordre
+d'id** du dossier `Floors` (`run_state::resolve_run_mode_with_floors`). Ajouter un fichier qui
+passe avant l'ancien change la partie par défaut : les séquences de grammaire de `gungeon` sont
+nommées `etages_*` pour que `etage_1` (T0d) reste la première. Même piège pour tout nouveau jeu.
+
+**Gungeon.** Gabarits `games/gungeon/assets/maps/salles.ldtk` (9 gabarits de 8×8 tuiles, script
+`docs/taches/rapports/m2-t10-grammaire-etage.make_salles.py`) : `Depart`, `CombatEW/NS/T/Croix`,
+`Recompense`, `Boutique`, `BossW/N`. Grammaires `etage` (8–12 salles), `grand` (15–20) et `court`
+(3 salles : départ, combat, boss) ; séquences `etages_grammaire`, `etages_grand`, `etages_court`,
+`etages_court_deux`. T0d (`etage_1`) reste la séquence par défaut : les traces `gungeon_*` d'avant
+ne bougent pas, la grammaire est activée par `floors: Some("etages_...")`.
+
+**Scénarios.** `gungeon_floor_seed_{1,23,123}` : étage `court` (même forme, départ, combat en T,
+boss à l'est, pour ces trois graines : relevé par `ALACOD_FLOOR_DUMP=court` du test
+`gungeon_etages_de_grammaire`), joueur scripté jusqu'à la mort du boss. `gungeon_two_floors` :
+graine 123, deux étages `court` de même forme, `FloorIndex`. `bench_floor` : étage `grand`, deux
+bots `fonceur` (plancher dans `tests/budgets.ron`). L'atteinte du boss est scriptée : les bots
+nettoient les salles de combat mais ne vont pas vers une salle dormante (bot explorateur : T16).
 
 ## Notes essentielles
 
