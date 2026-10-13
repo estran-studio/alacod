@@ -812,6 +812,31 @@ fn pattern_scatter_on_expire_fixture_reports_emitter_only_pattern() {
 }
 
 #[test]
+fn pattern_spiral_on_expire_fixture_reports_multi_volley_pattern() {
+    let (_, _, errors) = load_and_lint(&fixture_dir("pattern_spiral_on_expire")).unwrap();
+    assert_has_error(&errors, LintErrorKind::OutOfRange, "Spiral");
+}
+
+#[test]
+fn pattern_burst_interval_zero_fixture_reports_interval() {
+    let (_, _, errors) = load_and_lint(&fixture_dir("pattern_burst_interval_zero")).unwrap();
+    assert_has_error(&errors, LintErrorKind::OutOfRange, "interval = 0");
+}
+
+#[test]
+fn item_blank_not_consumable_fixture_reports_unsupported() {
+    let (_, _, errors) = load_and_lint(&fixture_dir("item_blank_not_consumable")).unwrap();
+    assert_has_error(&errors, LintErrorKind::Unsupported, "blank");
+}
+
+#[test]
+fn character_starting_consumable_unknown_fixture_reports_broken_reference() {
+    let (_, _, errors) =
+        load_and_lint(&fixture_dir("character_starting_consumable_unknown")).unwrap();
+    assert_has_error(&errors, LintErrorKind::BrokenReference, "« fantome »");
+}
+
+#[test]
 fn ranged_projectile_missing_fixture_reports_projectile_absent_from_weapon_table() {
     let (_, _, errors) = load_and_lint(&fixture_dir("ranged_projectile_missing")).unwrap();
     assert_has_error(&errors, LintErrorKind::BrokenReference, "« ember »");

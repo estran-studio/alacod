@@ -1,6 +1,6 @@
 // `gungeon` (M2-T0d, docs/conventions.md §37) : boss « vide » à deux phases (contrats de M2-T0c),
-// immobile : phase 0, une visée (`visee`) toutes les 150 frames ; sous 50 % de santé, phase 1 :
-// une couronne (`couronne`) toutes les 90 frames. Les tirs passent par la frise
+// immobile : phase 0, un éventail (`eventail`, `Fan`) toutes les 150 frames ; sous 50 % de santé, phase 1 :
+// une spirale (`spirale`, `Spiral`) toutes les 90 frames. Les tirs passent par la frise
 // (`SpawnPattern` avec la table de projectiles de l'`arsenal`). Le contenu réel (attaques,
 // phases supplémentaires, arène à tenir) viendra avec M2-T7.
 (
@@ -48,13 +48,13 @@
             (
                 until: Some(HealthBelow("0.5")),
                 timeline: Some((
-                    events: [(at: 10, do: [SpawnPattern(pattern: "visee", weapon: "arsenal")])],
+                    events: [(at: 10, do: [SpawnPattern(pattern: "eventail", weapon: "arsenal")])],
                     repeat: Some(150),
                 )),
             ),
             (
                 timeline: Some((
-                    events: [(at: 0, do: [SpawnPattern(pattern: "couronne", weapon: "arsenal")])],
+                    events: [(at: 0, do: [SpawnPattern(pattern: "spirale", weapon: "arsenal")])],
                     repeat: Some(90),
                 )),
             ),

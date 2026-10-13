@@ -1,0 +1,20 @@
+// M2-T1 (docs/conventions.md §41) : l'éventail exact. La `tourelle_eventail` (placée à f5, 100 px à droite du joueur 0) joue
+// `Fan(count: 5, spread: 1.0)` après un télégraphe de 10 frames : cinq flèches réparties exactement sur
+// 1 radian autour de la visée, sans hasard (à la différence de `Scatter`), toutes à la même frame.
+//
+// À regarder : cinq flèches en éventail serré vers le joueur, parties ensemble.
+Scenario(
+    powerup_drop_chance_override: "0.0",
+    game: "testbed",
+    map: "testbed/arena.ldtk",
+    frames: 60,
+    characters: [(character: "tourelle_eventail", x: "520.0", y: "696.0", at_frame: 5)],
+    players: [
+        (inputs: []),
+    ],
+    expect: [
+        BulletCount(count: 0, projectile: Some("arrow"), at_frame: 16),
+        BulletCount(count: 5, projectile: Some("arrow"), team: Some(Enemies), at_frame: 17),
+        PlayerAlive(handle: 0, at_frame: 60),
+    ],
+)

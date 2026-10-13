@@ -1,0 +1,2 @@
+// M2-T1 : une balle ennemie perçante qui rebondit sur les murs (`ricochet`) ; tourelle `tourelle_ricochet`.
+Aimed(count: 1, spread: "0.0", projectile: "ricochet")

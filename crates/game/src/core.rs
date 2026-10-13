@@ -386,6 +386,7 @@ impl Plugin for PresentationPlugin {
         app.add_plugins(crate::character::CharacterPresentationPlugin);
         app.add_plugins(crate::ui::weapon_visuals::WeaponPresentationPlugin);
         app.add_plugins(crate::feedback::FeedbackPlugin);
+        app.add_plugins(crate::items::BlankPresentationPlugin);
         app.add_plugins(crate::powerup_visuals::PowerUpVisualPlugin);
         app.add_plugins(crate::room_fog::RoomFogPlugin);
         app.add_plugins(crate::ui::hud::HudPlugin);

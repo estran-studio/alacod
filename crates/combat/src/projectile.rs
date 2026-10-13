@@ -108,6 +108,36 @@ pub enum Pattern {
     /// Pattern nommé du contenu (`patterns/<nom>.ron`, kind `Pattern`), résolu par
     /// [`PatternLibrary`] (nom inconnu : erreur de lint, jamais de panique en jeu).
     Named(String),
+    // M2-T1 : encore en fin d'enum (hash des variantes précédentes inchangé).
+    /// Éventail de `count` tirs répartis exactement sur `spread` radians (bornes comprises,
+    /// sans hasard, à la différence de `Scatter`), centré sur la visée ; `speed` > 0 remplace
+    /// celle de la définition du projectile.
+    Fan {
+        count: u32,
+        spread: Fixed,
+        speed: Fixed,
+        projectile: String,
+    },
+    /// Spirale (émetteurs seulement) : `shots` salves espacées de `every` frames, chacune de
+    /// `count` bras régulièrement répartis sur le cercle ; la salve `k` tourne de `k * step`
+    /// radians par rapport à la visée. `speed` > 0 remplace celle de la définition.
+    Spiral {
+        count: u32,
+        step: Fixed,
+        shots: u32,
+        every: u32,
+        speed: Fixed,
+        projectile: String,
+    },
+    /// Salves (émetteurs seulement) : `count` salves de `per_burst` tirs en éventail de
+    /// `spread` radians centré sur la visée, espacées de `interval` frames.
+    Burst {
+        count: u32,
+        per_burst: u32,
+        interval: u32,
+        spread: Fixed,
+        projectile: String,
+    },
 }
 
 impl Pattern {
@@ -116,7 +146,11 @@ impl Pattern {
     /// `on_expire`). `Named` n'est pas résolu ici.
     pub fn has_emitter_only_step(&self) -> bool {
         match self {
-            Pattern::Telegraph(_) | Pattern::Wait(_) | Pattern::Scatter { .. } => true,
+            Pattern::Telegraph(_)
+            | Pattern::Wait(_)
+            | Pattern::Scatter { .. }
+            | Pattern::Spiral { .. }
+            | Pattern::Burst { .. } => true,
             Pattern::Sequence(children) => children.iter().any(Pattern::has_emitter_only_step),
             _ => false,
         }
@@ -641,6 +675,20 @@ fn collect_shots(
                 });
             }
         }
+        Pattern::Fan {
+            count,
+            spread,
+            speed,
+            projectile,
+        } => {
+            for angle in fan_angles(angle_of(forward), *count, *spread) {
+                shots.push(Shot {
+                    projectile: projectile.clone(),
+                    direction: direction_of(angle),
+                    speed: (*speed > Fixed::ZERO).then_some(*speed),
+                });
+            }
+        }
         Pattern::Sequence(patterns) => {
             for child in patterns {
                 collect_shots(child, forward, aim, shots);
@@ -648,7 +696,12 @@ fn collect_shots(
         }
         // Temporels et aléatoires : réservés aux émetteurs (T1.2, `crate::emitter`),
         // refusés en `on_expire` par le lint. `Named` est résolu avant (`PatternLibrary`).
-        Pattern::Telegraph(_) | Pattern::Wait(_) | Pattern::Scatter { .. } | Pattern::Named(_) => {}
+        Pattern::Telegraph(_)
+        | Pattern::Wait(_)
+        | Pattern::Scatter { .. }
+        | Pattern::Spiral { .. }
+        | Pattern::Burst { .. }
+        | Pattern::Named(_) => {}
     }
 }
 

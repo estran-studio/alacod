@@ -199,6 +199,12 @@ pub fn compute_floor_plan(
                 levels.len()
             );
             let victory_at_end = floors_victory_at_end(&mode_for_victory, registry.as_deref());
+            commands.insert_resource(game::items::FloorStartConsumables(
+                game::run_state::floors_consumables_per_floor(
+                    &mode_for_victory,
+                    registry.as_deref(),
+                ),
+            ));
             commands.insert_resource(FloorPlan {
                 config,
                 levels,
@@ -210,6 +216,10 @@ pub fn compute_floor_plan(
             commands.remove_resource::<FloorPlan>();
         }
         _ => commands.remove_resource::<FloorPlan>(),
+    }
+    // Hors du mode `Floors` : rien à remonter au changement d'étage.
+    if !matches!(&mode_for_victory, run::RunMode::Floors { .. }) {
+        commands.insert_resource(game::items::FloorStartConsumables::default());
     }
 }
 

@@ -1,3 +1,10 @@
-// `gungeon` (M2-T0d) : consommable, un compteur `blank` (le contrat de T0b : compteur et input
-// seulement ; l'effet du blank vient de M2-T1).
-(name: "Blank", kind: Consumable, rarity: Common)
+// `gungeon` (M2-T1, docs/conventions.md §41) : consommable `blank`. L'appui sur `Blank` (touche Q) en
+// consomme un exemplaire, efface les balles ennemies dans 140 unités autour du joueur (jamais celles
+// des joueurs) et le rend invulnérable 10 frames. Le pistolero en a deux au départ
+// (`starting_consumables`) et retrouve deux blanks au début de chaque étage (`consumables_per_floor`).
+(
+    name: "Blank",
+    kind: Consumable,
+    rarity: Common,
+    blank: Some((radius: "140.0", iframes: 10)),
+)

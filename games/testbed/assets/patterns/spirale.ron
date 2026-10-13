@@ -1,0 +1,6 @@
+// M2-T1 : spirale à trois bras (`Spiral`) : six salves de trois boules, une toutes les 6 frames,
+// chaque salve tournée de 0,3 rad ; tourelle `tourelle_spirale`.
+Sequence([
+    Telegraph(10),
+    Spiral(count: 3, step: "0.3", shots: 6, every: 6, speed: "100.0", projectile: "fireball"),
+])

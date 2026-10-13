@@ -1,0 +1,2 @@
+// M2-T1 : Burst sans espacement.
+Burst(count: 3, per_burst: 2, interval: 0, spread: "0.2", projectile: "eclat")
