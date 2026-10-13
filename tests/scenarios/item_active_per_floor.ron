@@ -1,0 +1,40 @@
+// M2-T4 : un actif limité par étage. L'`eclat` (Active(Frames(5)), `uses_per_floor: 2`) ajoute +1 de
+// dégâts à chaque usage. Étage 0 : trois appuis (f30, f50, f70), le troisième est refusé (dégâts 3) ;
+// le joueur tue le follower, passe le portail (f~370) ; étage 1 : deux usages de plus (f420, f440),
+// le troisième (f460) est refusé (dégâts 5).
+//
+// À regarder : même partie que `portal_next_floor` ; trois appuis par étage, deux effets.
+Scenario(
+    powerup_drop_chance_override: "0.0",
+    game: "testbed",
+    floors: Some("deux_niveaux"),
+    frames: 520,
+    items: [(id: "eclat", x: "424.0", y: "696.0", at_frame: 5)],
+    players: [
+        (inputs: [
+            (from: 0, to: 9, buttons: [Fire], pan: (-64, 48)),
+            (from: 10, to: 11, buttons: [Interaction]),
+            (from: 14, to: 30, buttons: [Fire], pan: (-64, 48)),
+            (from: 30, to: 31, buttons: [Fire, UseActive], pan: (-64, 48)),
+            (from: 31, to: 50, buttons: [Fire], pan: (-64, 48)),
+            (from: 50, to: 51, buttons: [Fire, UseActive], pan: (-64, 48)),
+            (from: 51, to: 70, buttons: [Fire], pan: (-64, 48)),
+            (from: 70, to: 71, buttons: [Fire, UseActive], pan: (-64, 48)),
+            (from: 71, to: 200, buttons: [Fire], pan: (-64, 48)),
+            (from: 360, to: 366, buttons: [Right, Down], pan: (0, 0)),
+            (from: 420, to: 421, buttons: [UseActive]),
+            (from: 440, to: 441, buttons: [UseActive]),
+            (from: 460, to: 461, buttons: [UseActive]),
+        ]),
+    ],
+    expect: [
+        Stat(handle: 0, stat: Damage, value: 1.0, at_frame: 25),
+        Stat(handle: 0, stat: Damage, value: 2.0, at_frame: 40),
+        Stat(handle: 0, stat: Damage, value: 3.0, at_frame: 60),
+        Stat(handle: 0, stat: Damage, value: 3.0, at_frame: 100),
+        FloorIndex(index: 1, at_frame: 410),
+        Stat(handle: 0, stat: Damage, value: 4.0, at_frame: 430),
+        Stat(handle: 0, stat: Damage, value: 5.0, at_frame: 450),
+        Stat(handle: 0, stat: Damage, value: 5.0, at_frame: 500),
+    ],
+)

@@ -1,0 +1,6 @@
+// M2-T4 : passif d'essai des synergies (`synergy_pair`) : sans effet seul.
+(
+    name: "Manche",
+    kind: Passive,
+    tags: ["synergie"],
+)

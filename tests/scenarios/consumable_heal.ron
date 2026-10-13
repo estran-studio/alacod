@@ -1,0 +1,21 @@
+// M2-T4 : un consommable à effets `OnUse` s'applique au ramassage. La `tourelle_spirale` (placée à f5,
+// 100 px à droite du joueur immobile) le touche de ses boules de feu ; une `ration` (Heal 5) est
+// posée à ses pieds à f100 : le joueur la ramasse au contact, sa santé remonte, rien n'entre
+// dans l'inventaire.
+//
+// À regarder : la barre de vie descend sous la spirale, remonte d'un coup à f100 (ration).
+Scenario(
+    powerup_drop_chance_override: "0.0",
+    game: "testbed",
+    map: "testbed/arena.ldtk",
+    frames: 140,
+    items: [(id: "ration", x: "424.0", y: "696.0", at_frame: 100)],
+    characters: [(character: "tourelle_spirale", x: "520.0", y: "696.0", at_frame: 5)],
+    players: [(inputs: [])],
+    expect: [
+        Health(handle: 0, min: 92.0, max: 92.0, at_frame: 99),
+        Health(handle: 0, min: 97.0, max: 97.0, at_frame: 104),
+        Health(handle: 0, min: 97.0, max: 97.0, at_frame: 139),
+        Consumable(handle: 0, id: "ration", count: 0, at_frame: 130),
+    ],
+)

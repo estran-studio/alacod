@@ -894,6 +894,16 @@ pub struct ItemEntry {
     pub def: items::ItemDef,
 }
 
+/// Synergie (M2-T4, `docs/conventions.md` §44), un fichier RON par synergie
+/// (`synergies/<id>.ron` dans un dossier de kind `Synergy`, champs de [`items::SynergyDef`]) ;
+/// id = nom de fichier.
+#[derive(Debug, Clone)]
+pub struct SynergyEntry {
+    pub id: String,
+    pub file: PathBuf,
+    pub def: items::SynergyDef,
+}
+
 /// Type de salle (M2-E1, `docs/conventions.md` §35), un fichier RON par type
 /// (`rooms/<id>.ron`, champs de [`world::RoomKindDef`]) : `(locks: true)`.
 #[derive(Debug, Clone)]
@@ -1053,6 +1063,8 @@ pub struct Registry {
     pub floor_grammars: BTreeMap<FloorGrammarId, FloorGrammarEntry>,
     /// M2-T0b : objets (kind `Item`).
     pub items: BTreeMap<String, ItemEntry>,
+    /// M2-T4 : synergies d'objets (kind `Synergy`).
+    pub synergies: BTreeMap<String, SynergyEntry>,
     /// M2-E1 : types de salles (kind `Room`).
     pub rooms: BTreeMap<String, RoomEntry>,
     /// T1.7 : surfaces (kind `Surface`).
@@ -1127,6 +1139,7 @@ pub const KNOWN_KIND_NAMES: &[&str] = &[
     "Status",
     "Clock",
     "Difficulty",
+    "Synergy",
 ];
 
 pub fn known_content_kinds() -> Kinds {
@@ -1222,6 +1235,7 @@ impl Registry {
                 }
                 "Room" => load_rooms(&assets_dir, decl, &mut registry, &mut errors),
                 "Item" => load_items(&assets_dir, decl, &mut registry, &mut errors),
+                "Synergy" => load_synergies(&assets_dir, decl, &mut registry, &mut errors),
                 "Surface" => load_surfaces(&assets_dir, decl, &mut registry, &mut errors),
                 "Pattern" => load_patterns(&assets_dir, decl, &mut registry, &mut errors),
                 "Progression" => load_progression(&assets_dir, decl, &mut registry, &mut errors),
@@ -2486,6 +2500,31 @@ fn load_items(
         registry
             .items
             .insert(id.clone(), ItemEntry { id, file: rel, def });
+    }
+}
+
+/// M2-T4 : `synergies/<id>.ron` (kind `Synergy`), une synergie par fichier ; id = nom de fichier.
+fn load_synergies(
+    assets_dir: &ContentFiles,
+    decl: &ContentFolderDecl,
+    registry: &mut Registry,
+    errors: &mut Vec<LintError>,
+) {
+    for (id, rel, def) in load_ron_files::<items::SynergyDef>(assets_dir, decl, errors) {
+        if let Some(existing) = registry.synergies.get(&id) {
+            errors.push(LintError {
+                kind: LintErrorKind::DuplicateId,
+                file: rel.display().to_string(),
+                message: format!(
+                    "id de synergie « {id} » déjà défini dans {}",
+                    existing.file.display()
+                ),
+            });
+            continue;
+        }
+        registry
+            .synergies
+            .insert(id.clone(), SynergyEntry { id, file: rel, def });
     }
 }
 
