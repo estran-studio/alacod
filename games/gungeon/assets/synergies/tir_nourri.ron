@@ -1,0 +1,6 @@
+// `gungeon` (M2-T4) : la cartouchière et l'étendard ensemble ajoutent +25 % de cadence de tir.
+(
+    name: "Tir nourri",
+    requires: ["cartouchiere", "etendard"],
+    modifiers: [(stat: FireRate, op: Pct, value: "0.25")],
+)

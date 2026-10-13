@@ -1,0 +1,7 @@
+// `gungeon` (M2-T4, docs/conventions.md §44) : le trèfle et l'amulette ensemble ajoutent +10 de
+// vie max (modificateur `synergy:tresor_de_poche`).
+(
+    name: "Trésor de poche",
+    requires: ["trefle", "amulette"],
+    modifiers: [(stat: MaxHealth, op: Add, value: "10")],
+)

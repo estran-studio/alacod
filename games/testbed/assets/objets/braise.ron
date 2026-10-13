@@ -1,0 +1,6 @@
+// M2-T4 : actif d'essai des synergies (`synergy_lost`) : chargé en 5 frames, sans effet à l'usage.
+(
+    name: "Braise",
+    kind: Active(Frames(5)),
+    tags: ["synergie"],
+)
