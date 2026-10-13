@@ -545,7 +545,7 @@ l'ancienne machine.
   `OnPickup`, `OnFloorStart` ; conditions ; cooldowns et charges.
 - M2-T4 Objets et synergies (C2, 4 j ; fiche `docs/taches/m2-t4-objets-synergies.md`, b1) : passifs (modificateurs), actifs à cooldown par salles,
   consommables, synergie (paire d'objets → effet ajouté).
-- M2-T5 Butin, coffres, clés (C4, 3 j) : pools pondérés seedés par rareté, coffres verrouillés
+- M2-T5 Butin, coffres, clés (C4, 3 j ; fiche `docs/taches/m2-t5-butin-coffres.md`, b1) : pools pondérés seedés par rareté, coffres verrouillés
   (clé consommée), récompense à la sortie de salle (`OnRoomClear`), tables par étage.
 - M2-T6 Boutique (C5, 2 j) : salle `Shop`, objets à prix, monnaie `shells` au sol.
 
