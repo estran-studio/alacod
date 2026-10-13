@@ -553,7 +553,7 @@ l'ancienne machine.
 - M2-T7 Boss à phases et arène (D4, 4 j ; fiche `docs/taches/m2-t7-boss-arene.md`, cloud) : phases par seuil, timeline de patterns, salle de boss
   verrouillée, arène à tenir (horloge, vagues internes). Acceptation : `BossPhase` attendu, boss
   battu par les bots.
-- M2-T8 Formations simples (D1 v2, 2 j) : escouades qui se placent en arc, tir alterné.
+- M2-T8 Formations simples (D1 v2, 2 j ; fiche `docs/taches/m2-t8-formations.md`, b0 après M2-T2) : escouades qui se placent en arc, tir alterné.
 
 **V1d monde**
 - ~~M2-T9 Défauts de l'assembleur~~ : **déjà fait en M1** (`m1-assembleur-d45-d47` : D45 `.nth(r)`, D46 chevauchement, D47 appariement du spawn ; constaté le 2026-10-10). Texte d'origine : (E2 préalable, 1 j, **déplace les cartes générées**) : choix par
