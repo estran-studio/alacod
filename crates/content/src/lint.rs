@@ -79,6 +79,7 @@ pub fn run(registry: &Registry, manifest: &GameManifest) -> Vec<LintError> {
     lint_map_characters(registry, &mut errors);
     lint_room_kinds(registry, &mut errors);
     lint_items(registry, &mut errors);
+    lint_synergies(registry, &mut errors);
     lint_entry_progression(registry, manifest, &mut errors);
     lint_forced_variants(registry, &mut errors);
     lint_character_tests(registry, &mut errors);
@@ -2646,31 +2647,81 @@ fn lint_items(registry: &Registry, errors: &mut Vec<LintError>) {
             }
         }
         let active = matches!(item.def.kind, items::ItemKind::Active(_));
-        if item.def.kind == items::ItemKind::Consumable
-            && (!item.def.modifiers.is_empty() || !item.def.effects.is_empty())
-        {
+        let consumable = item.def.kind == items::ItemKind::Consumable;
+        if consumable && !item.def.modifiers.is_empty() {
             push(
                 LintErrorKind::Unsupported,
-                format!("objet « {id} » : un consommable n'a ni modificateurs ni effets (compteur seul)"),
+                format!("objet « {id} » : un consommable n'a pas de modificateurs (compteur, ou effets OnUse instantanés)"),
             );
+        }
+        // M2-T4 : limites et coût d'un actif
+        if item.def.uses_per_floor == Some(0) {
+            push(
+                LintErrorKind::OutOfRange,
+                format!("objet « {id} » : uses_per_floor = 0 : doit être > 0 (ou absent)"),
+            );
+        }
+        if item.def.uses_per_floor.is_some() && !active {
+            push(
+                LintErrorKind::Unsupported,
+                format!("objet « {id} » : `uses_per_floor` n'a de sens que pour un actif"),
+            );
+        }
+        if let Some((cost_item, count)) = &item.def.cost {
+            if !active {
+                push(
+                    LintErrorKind::Unsupported,
+                    format!("objet « {id} » : `cost` n'a de sens que pour un actif"),
+                );
+            }
+            if *count == 0 {
+                push(
+                    LintErrorKind::OutOfRange,
+                    format!(
+                        "objet « {id} » : cost = ({cost_item:?}, 0) : la quantité doit être > 0"
+                    ),
+                );
+            }
+            match registry.items.get(cost_item) {
+                None => push(
+                    LintErrorKind::BrokenReference,
+                    format!("objet « {id} » : cost : objet « {cost_item} » inconnu"),
+                ),
+                Some(target) if target.def.kind != items::ItemKind::Consumable => push(
+                    LintErrorKind::Unsupported,
+                    format!("objet « {id} » : cost : « {cost_item} » n'est pas un consommable"),
+                ),
+                Some(_) => {}
+            }
         }
         for (index, effect) in item.def.effects.iter().enumerate() {
             let at = format!("objet « {id} » : effects[{index}]");
+            if consumable && effect.on != effects::On::OnUse {
+                push(
+                    LintErrorKind::Unsupported,
+                    format!(
+                        "{at} : un consommable n'a que des effets OnUse (appliqués au ramassage)"
+                    ),
+                );
+                continue;
+            }
             if effect.on != effects::On::OnUse {
                 // M2-T3 : effet porté par le porteur tant que l'objet est tenu (même règles
                 // qu'un effet de personnage)
                 lint_effect(registry, &at, effect, &mut push);
                 continue;
             }
-            if !active {
+            if !active && !consumable {
                 push(
                     LintErrorKind::Unsupported,
-                    format!("{at} : OnUse n'a de sens que pour un objet actif"),
+                    format!("{at} : OnUse n'a de sens que pour un objet actif ou un consommable"),
                 );
                 continue;
             }
             for action in &effect.r#do {
                 match action {
+                    // M2-T4 : soin instantané d'un actif ou d'un consommable
+                    effects::Action::Heal(_) => {}
                     effects::Action::TimedModifier { frames: 0, .. } => push(
                         LintErrorKind::OutOfRange,
                         format!("{at} : TimedModifier frames = 0 : doit être > 0"),
@@ -2682,6 +2733,65 @@ fn lint_items(registry: &Registry, errors: &mut Vec<LintError>) {
                     ),
                 }
             }
+        }
+    }
+}
+
+/// M2-T4 (`docs/conventions.md` §44) : synergies. Au moins deux objets distincts et connus,
+/// pas deux synergies pour le même ensemble, pas d'effet `OnUse`.
+fn lint_synergies(registry: &Registry, errors: &mut Vec<LintError>) {
+    let mut seen: BTreeMap<BTreeSet<&str>, &str> = BTreeMap::new();
+    for synergy in registry.synergies.values() {
+        let file = synergy.file.display().to_string();
+        let mut push = |kind: LintErrorKind, message: String| {
+            errors.push(LintError {
+                kind,
+                file: file.clone(),
+                message,
+            })
+        };
+        let id = &synergy.id;
+        let set: BTreeSet<&str> = synergy.def.requires.iter().map(String::as_str).collect();
+        if set.len() < 2 {
+            push(
+                LintErrorKind::OutOfRange,
+                format!(
+                    "synergie « {id} » : requires = {:?} : au moins deux objets distincts",
+                    synergy.def.requires
+                ),
+            );
+        }
+        for required in &synergy.def.requires {
+            match registry.items.get(required) {
+                None => push(
+                    LintErrorKind::BrokenReference,
+                    format!("synergie « {id} » : objet « {required} » inconnu"),
+                ),
+                Some(item) if item.def.kind == items::ItemKind::Consumable => push(
+                    LintErrorKind::Unsupported,
+                    format!("synergie « {id} » : « {required} » est un consommable (passifs et actif seulement)"),
+                ),
+                Some(_) => {}
+            }
+        }
+        if let Some(first) = seen.get(&set) {
+            push(
+                LintErrorKind::DuplicateId,
+                format!("synergie « {id} » : même ensemble d'objets que « {first} »"),
+            );
+        } else {
+            seen.insert(set, id);
+        }
+        for (index, effect) in synergy.def.effects.iter().enumerate() {
+            let at = format!("synergie « {id} » : effects[{index}]");
+            if effect.on == effects::On::OnUse {
+                push(
+                    LintErrorKind::Unsupported,
+                    format!("{at} : OnUse n'a de sens que pour un objet actif"),
+                );
+                continue;
+            }
+            lint_effect(registry, &at, effect, &mut push);
         }
     }
 }

@@ -1,0 +1,9 @@
+// Fixture M2-T4 : synergie à un seul objet (OutOfRange)
+(
+    name: "fixture-synergy_single_item",
+    content_folders: [
+        (path: "objets", kind: "Item"),
+        (path: "synergies", kind: "Synergy"),
+    ],
+    entry: (start_map: "maps/salle.ldtk", default_seed: 1),
+)

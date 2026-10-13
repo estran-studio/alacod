@@ -1,0 +1,31 @@
+// M2-T4 : une synergie avec l'actif disparaît quand l'actif est remplacé. La `lame` (passif) et la
+// `braise` (actif) forment `lame_braise` (+2 de dégâts) ; le joueur ramasse ensuite la `fiole`, qui
+// remplace la braise (elle tombe au sol) : le modificateur `synergy:lame_braise` est retiré.
+//
+// À regarder : f10 braise, f30 lame (dégâts 3), f50 fiole : dégâts 1 (la braise est au sol).
+Scenario(
+    powerup_drop_chance_override: "0.0",
+    game: "testbed",
+    map: "testbed/arena.ldtk",
+    frames: 100,
+    items: [
+        (id: "braise", x: "424.0", y: "696.0", at_frame: 1),
+        (id: "lame", x: "424.0", y: "696.0", at_frame: 20),
+        (id: "fiole", x: "424.0", y: "696.0", at_frame: 40),
+    ],
+    players: [
+        (inputs: [
+            (from: 10, to: 11, buttons: [Interaction]),
+            (from: 30, to: 31, buttons: [Interaction]),
+            (from: 50, to: 51, buttons: [Interaction]),
+        ]),
+    ],
+    expect: [
+        Stat(handle: 0, stat: Damage, value: 1.0, at_frame: 25),
+        HasItem(handle: 0, id: "braise", at_frame: 45),
+        Stat(handle: 0, stat: Damage, value: 3.0, at_frame: 45),
+        HasItem(handle: 0, id: "fiole", at_frame: 70),
+        Stat(handle: 0, stat: Damage, value: 1.0, at_frame: 70),
+        Stat(handle: 0, stat: Damage, value: 1.0, at_frame: 99),
+    ],
+)

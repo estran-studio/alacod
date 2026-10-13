@@ -2864,3 +2864,55 @@ la ruée du `charger` touche dans la même fenêtre).
 **Contenu** : `gungeon/characters/pistolero.ron` : deux charges (une rendue toutes les 60 frames),
 i-frames contre projectiles seulement. Les traces `gungeon` ne bougent qu'à cause de ce nouveau
 composant (voir le rapport).
+
+## 44. Objets v2 et synergies (M2-T4, chantier C2)
+
+**Synergies.** Kind de contenu `Synergy` (dossier `synergies/`, `(path: "synergies", kind: "Synergy")`
+dans `game.ron`), un fichier RON par synergie, id = nom de fichier, champs de `items::SynergyDef` :
+`name`, `requires: [ids]` (deux objets distincts ou plus : passifs ou actif), `modifiers` et `effects`
+(mêmes formes que `ItemDef`). Table `items::SynergyTable` (ressource hors rollback, posée au chargement
+de la carte par `map_ldtk`, comme `ItemTable`).
+
+Active **tant que tous** les objets requis sont tenus (`Inventory::has` : un passif ou l'actif
+courant), retirée dès qu'un manque (l'actif remplacé tombe au sol). **État dérivé de l'`Inventory` à
+chaque frame, aucun composant ni hash en plus** :
+- `modifiers` : `game::items::synergy_modifiers_system` (`Effects`, après `blank_system`) pose les
+  modificateurs de source `synergy:<id>` quand la synergie devient active, les retire (`remove_by_source`)
+  quand elle cesse ; synergies par id, joueurs par `GgrsNetId`. Un joueur sans `Inventory` n'a pas de synergie.
+- `effects` : `game::effects_runtime::listed_effects` ajoute, après les effets des objets, ceux des
+  synergies actives (par id) sous la clé `synergy:<id>:<index>` (limites, `Tick`, source de modificateur
+  `synergy:<id>:<index>`, comme les effets d'objet). Un effet de synergie suit `lint_effect` ; `OnUse` y est
+  refusé. Le ramassage qui complète la paire déclenche déjà un `OnPickup` de la synergie (même frame).
+
+**Actifs v2** (`ItemDef`, champs optionnels, v1 exact sans eux) :
+- `uses_per_floor: Some(n)` : au plus `n` usages par étage du mode `Floors` (hors `Floors`, par partie).
+  Mémoire dans `ActiveSlot::uses = Some((étage, usages))` : les usages d'un autre étage ne comptent plus,
+  aucun reset à écrire. **`uses` n'entre dans le hash que s'il est posé** (`impl Hash` manuel d'`ActiveSlot`,
+  comme `Effect` en §42) : le hash d'un actif v1 est celui d'avant. Un usage refusé garde la charge.
+- `cost: Some((item, n))` : l'usage prélève `n` exemplaires du consommable `item` ; sans le stock, il est
+  refusé (charge conservée). Lint : `item` connu et consommable, `n > 0`.
+- `OnUse` accepte maintenant `Heal` (en plus de `Modifier` et `TimedModifier`) : `game::items::apply_instant_effects`.
+
+**Consommables à effets.** Un consommable dont `effects` n'est pas vide (uniquement `OnUse`, lint) **s'applique
+au ramassage** et n'entre pas dans l'inventaire : aucun bouton d'usage n'existe pour un consommable générique
+(pas de nouveau bit d'input, accord d'orch). Actions : `Heal`, `Modifier`, `TimedModifier`. Un consommable
+sans effet reste un compteur (`key`, `blank`, `obus`). Pas de refus de ramassage à pleine santé (le soin est
+simplement borné).
+
+**Lint** : synergie à objet inconnu (`BrokenReference`), à moins de deux objets distincts (`OutOfRange`),
+à un consommable (`Unsupported`), deux synergies pour le même ensemble (`DuplicateId`), `OnUse` dans une
+synergie ; `uses_per_floor = 0` (`OutOfRange`), `uses_per_floor`/`cost` sur un non-actif, `cost` vers un
+objet inconnu ou non consommable. Fixtures `synergy_unknown_item`, `synergy_single_item`,
+`synergy_duplicate_set`, `item_uses_per_floor_zero`, `item_cost_not_consumable`.
+
+**Contenu.** `gungeon` : synergies `tresor_de_poche` (`trefle` + `amulette` : +10 de vie max) et
+`tir_nourri` (`cartouchiere` + `etendard` : +25 % de cadence) ; actif `pierre_de_soin` (`Rooms(1)`, soin 20,
+`uses_per_floor: 2`) ; consommable `ration` (soin 15 au ramassage). Pas de « bouclier temporaire » :
+`StatId::Armor` n'est lue par aucun système (un actif sur cette stat serait sans effet), à reprendre quand
+la réduction de dégâts existera. `testbed` : objets d'essai `lame`, `manche`, `braise`, `eclat`, `canon`,
+`obus`, `ration`, synergies `lame_manche` (modificateur +2 et effet `OnPickup` +4) et `lame_braise` (+2).
+
+**Scénarios** : `synergy_pair` (bonus avec les deux objets, absent avec un seul : dégâts 1 puis 7),
+`synergy_lost` (actif remplacé : dégâts 3 puis 1), `item_active_per_floor` (trois appuis par étage, deux
+effets, sur `deux_niveaux`), `item_active_cost` (obus 3 → 1, second usage refusé), `consumable_heal`
+(santé 92 → 97 au ramassage). Aucune trace existante ne bouge : types neutres, champs optionnels hors hash.

@@ -1,0 +1,33 @@
+// M2-T4 : un actif qui coûte un consommable. Le `canon` (+1 de dégâts à l'usage) coûte deux `obus` ;
+// trois obus sont ramassés au contact (f1 à f3). Premier appui (f30) : trois obus, +1 de dégâts,
+// il en reste un ; deuxième appui (f50) : refusé (stock insuffisant), la charge est conservée.
+//
+// À regarder : le compteur d'obus passe de 3 à 1 au premier usage, rien ne bouge au second.
+Scenario(
+    powerup_drop_chance_override: "0.0",
+    game: "testbed",
+    map: "testbed/arena.ldtk",
+    frames: 80,
+    items: [
+        (id: "obus", x: "424.0", y: "696.0", at_frame: 1),
+        (id: "obus", x: "424.0", y: "696.0", at_frame: 2),
+        (id: "obus", x: "424.0", y: "696.0", at_frame: 3),
+        (id: "canon", x: "424.0", y: "696.0", at_frame: 5),
+    ],
+    players: [
+        (inputs: [
+            (from: 10, to: 11, buttons: [Interaction]),
+            (from: 30, to: 31, buttons: [UseActive]),
+            (from: 50, to: 51, buttons: [UseActive]),
+        ]),
+    ],
+    expect: [
+        Consumable(handle: 0, id: "obus", count: 3, at_frame: 25),
+        Stat(handle: 0, stat: Damage, value: 1.0, at_frame: 25),
+        Consumable(handle: 0, id: "obus", count: 1, at_frame: 40),
+        Stat(handle: 0, stat: Damage, value: 2.0, at_frame: 40),
+        Consumable(handle: 0, id: "obus", count: 1, at_frame: 79),
+        Stat(handle: 0, stat: Damage, value: 2.0, at_frame: 79),
+        ItemCharge(handle: 0, charge: 5, at_frame: 79),
+    ],
+)
