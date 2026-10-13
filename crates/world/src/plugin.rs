@@ -56,6 +56,12 @@ impl Plugin for WorldPlugin {
             .rollback_and_trace_resource_neutral::<crate::rooms::RoomStates>()
             .rollback_and_trace_neutral::<crate::rooms::RoomDormant>()
             .init_resource::<crate::rooms::RoomKindTable>()
+            // M2-T11 (§46) : objets de décor et fosses, composants neutres (portés seulement
+            // par les tables, les barils et les joueurs d'une carte à fosses).
+            .init_resource::<crate::props::PropTable>()
+            .rollback_and_trace_neutral::<crate::props::TableState>()
+            .rollback_and_trace_neutral::<crate::props::BarrelState>()
+            .rollback_and_trace_neutral::<crate::props::PitSafePosition>()
             .add_frame_events_neutral::<crate::rooms::RoomChanged>()
             .add_frame_events_neutral::<DestroyTerrainRequest>()
             .add_frame_events_neutral::<TerrainDestroyed>()
