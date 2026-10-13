@@ -550,7 +550,7 @@ l'ancienne machine.
 - M2-T6 Boutique (C5, 2 j) : salle `Shop`, objets à prix, monnaie `shells` au sol.
 
 **V1c ennemis**
-- M2-T7 Boss à phases et arène (D4, 4 j) : phases par seuil, timeline de patterns, salle de boss
+- M2-T7 Boss à phases et arène (D4, 4 j ; fiche `docs/taches/m2-t7-boss-arene.md`, cloud) : phases par seuil, timeline de patterns, salle de boss
   verrouillée, arène à tenir (horloge, vagues internes). Acceptation : `BossPhase` attendu, boss
   battu par les bots.
 - M2-T8 Formations simples (D1 v2, 2 j) : escouades qui se placent en arc, tir alterné.
@@ -564,7 +564,7 @@ l'ancienne machine.
   coffre, secret), distances, branches, minicarte (état dérivé), plusieurs étages par run
   (`Floors` d'étages assemblés). Acceptation : unitaires sur 1 000 graines (connexité, types
   présents, pas de chevauchement), perf d'un étage de 15 à 20 salles.
-- M2-T11 Surfaces v2 (E4 v2, 2 j) : fosses (chute = dégât + retour au bord), tables renversables
+- M2-T11 Surfaces v2 (E4 v2, 2 j ; fiche `docs/taches/m2-t11-surfaces-v2.md`, cloud) : fosses (chute = dégât + retour au bord), tables renversables
   (couverture), barils explosifs.
 
 **V1e run et méta**
@@ -578,7 +578,7 @@ l'ancienne machine.
 - M2-T15 Lint des nouveaux kinds (2 j).
 
 **V3 outillage**
-- M2-T16 Bot explorateur (K2 v1, 4 j) : visite les salles, nettoie, prend le butin, va au boss ;
+- M2-T16 Bot explorateur (K2 v1, 4 j ; fiche `docs/taches/m2-t16-bot-explorateur.md`, cloud) : visite les salles, nettoie, prend le butin, va au boss ;
   `alacod sim --until-floor`. Acceptation : 200 graines sans soft-lock ni desync.
 - M2-T17 Générateur v2 et attentes (3 j) : gabarits par objet et par salle ; attentes `RoomState`,
   `Inventory`, `BossPhase`, `ProfileHas`.
