@@ -351,7 +351,10 @@ pub fn read_hunter_inputs(
                         }
                         // An unreachable enemy is no immediate threat. Repairing also earns
                         // the ordinary points needed to open the first paid door.
-                        InteractionType::Window if enemies.is_empty() || chase.is_none() => {
+                        InteractionType::Window
+                            if (enemies.is_empty() || chase.is_none())
+                                && !last_enemy_at_window(pos, &enemies) =>
+                        {
                             window.filter(|w| w.current < w.max).map(|_| (4, 0))
                         }
                         _ => None,
@@ -414,6 +417,17 @@ pub fn read_hunter_inputs(
     }
 }
 
+/// Distance (unités monde) à laquelle un zombie frappe une fenêtre depuis son côté.
+const WINDOW_ATTACKER_REACH: i32 = 48;
+
+/// D58 : le dernier ennemi de la vague est collé à la fenêtre `window`. La réparer à chaque coup
+/// l'empêche d'entrer (la fenêtre repasse à 1 PV, il la frappe de nouveau) et la vague ne finit
+/// jamais, les réparations rapportant des points en boucle (graine 17 du Relais). Le bot la
+/// laisse céder : le zombie entre et les bots le tuent.
+fn last_enemy_at_window(window: FixedVec2, enemies: &[(usize, FixedVec2)]) -> bool {
+    matches!(enemies, [(_, enemy)] if window.distance(enemy) <= Fixed::from_num(WINDOW_ATTACKER_REACH))
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;
@@ -445,6 +459,19 @@ mod tests {
             assert_eq!(pulses, [true, false, true, false]);
         }
         assert!(fire_trigger_ready(FiringMode::Automatic {}, true));
+    }
+    #[test]
+    fn last_enemy_at_window_stops_repairs() {
+        let window = FixedVec2::new(Fixed::from_num(100), Fixed::ZERO);
+        let near = (1, FixedVec2::new(Fixed::from_num(120), Fixed::ZERO));
+        let far = (2, FixedVec2::new(Fixed::from_num(400), Fixed::ZERO));
+        assert!(last_enemy_at_window(window, &[near]));
+        assert!(!last_enemy_at_window(window, &[far]));
+        assert!(
+            !last_enemy_at_window(window, &[near, far]),
+            "pas le dernier"
+        );
+        assert!(!last_enemy_at_window(window, &[]));
     }
     #[test]
     fn hunts_while_firing_and_reloads() {
