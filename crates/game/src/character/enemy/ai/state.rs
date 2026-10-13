@@ -516,6 +516,29 @@ impl EnemyBehaviors {
         self.rules.iter().any(|rule| rule.name() == name)
     }
 
+    /// M2-T7 (tir par phase) : table de tir de la première règle `Shoot` des règles **propres**
+    /// à la phase `phase` d'un boss ; `None` si la phase n'a pas de règle (ou pas de `Shoot`) :
+    /// l'appelant garde alors `EnemyAiConfig::ranged` (comportement d'avant).
+    pub fn phase_shoot(&self, phase: u32) -> Option<RangedAttack> {
+        self.phase_rules
+            .get(phase as usize)?
+            .iter()
+            .find_map(|rule| match rule {
+                Behavior::Shoot {
+                    weapon,
+                    pattern,
+                    range,
+                    cooldown_frames,
+                } => Some(RangedAttack {
+                    weapon: weapon.clone(),
+                    pattern: pattern.clone(),
+                    range: *range,
+                    cooldown_frames: *cooldown_frames,
+                }),
+                _ => None,
+            })
+    }
+
     /// Arme de la première règle `Melee`.
     pub fn melee_weapon(&self) -> Option<&str> {
         self.rules.iter().find_map(|rule| match rule {

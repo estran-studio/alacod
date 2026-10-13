@@ -56,7 +56,7 @@ pub fn room_kind_table(registry: Option<&Registry>) -> world::RoomKindTable {
         registry
             .iter()
             .flat_map(|r| r.rooms.values())
-            .map(|room| (room.id.clone(), room.def))
+            .map(|room| (room.id.clone(), room.def.clone()))
             .collect(),
     )
 }

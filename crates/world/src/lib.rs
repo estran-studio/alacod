@@ -21,7 +21,7 @@ pub use floor_grammar::FloorGrammar;
 pub use grid::{CellGrid, CellKind, Destructible, CELL_SIZE};
 pub use plugin::{DestroyTerrainRequest, TerrainDestroyed, WorldPlugin};
 pub use rooms::{
-    entrance_point, inside_box, RoomChanged, RoomDormant, RoomKind, RoomKindDef, RoomKindTable,
-    RoomState, RoomStates,
+    entrance_point, inside_box, room_rng_stream, ArenaClocks, ArenaDef, ArenaWave, RoomChanged,
+    RoomDormant, RoomKind, RoomKindDef, RoomKindTable, RoomState, RoomStates,
 };
 pub use surface::{SurfaceDef, SurfaceGrid, SurfaceId, SurfaceTable, Walker};

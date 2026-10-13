@@ -31,13 +31,16 @@ use utils::frame::FrameCount;
 use utils::net_id::GgrsNetId;
 use utils::order_iter;
 use world::{
-    entrance_point, inside_box, RoomChanged, RoomDormant, RoomKind, RoomKindTable, RoomState,
-    RoomStates,
+    entrance_point, inside_box, room_rng_stream, ArenaClocks, RoomChanged, RoomDormant, RoomKind,
+    RoomKindTable, RoomState, RoomStates,
 };
 
 use combat::actors::Velocity;
 use combat::downed::Downed;
+use game::boss::ReinforcementRequest;
+use game::character::enemy::ai::navigation::{FlowFieldCache, GridPos};
 use game::character::enemy::Enemy;
+use game::character::health::Death;
 use game::character::player::Player;
 use game::collider::{is_colliding, Collider, CollisionLayer};
 use game::interaction::Interactable;
@@ -65,6 +68,19 @@ impl Plugin for RoomsPlugin {
                 room_lock_system
                     .after(super::floors::floor_transition_system)
                     .in_set(RollbackSystemSet::Run),
+                // M2-T7 : vagues internes d'une arène, après son verrouillage de la frame.
+                arena_waves_system
+                    .after(room_lock_system)
+                    .in_set(RollbackSystemSet::Run),
+                // M2-T7 : renforts d'une frise de boss, dans la frame de la demande.
+                boss_reinforcements_system
+                    .after(game::boss::boss_phase_system)
+                    .in_set(RollbackSystemSet::EnemySpawning),
+                // M2-T7 : la mort d'un boss vide sa salle (despawn dans la même frame).
+                boss_room_clear_system
+                    .after(game::boss::boss_defeated_system)
+                    .before(game::character::health::rollback_apply_death)
+                    .in_set(RollbackSystemSet::DeathManagement),
             ),
         );
     }
@@ -181,6 +197,7 @@ pub fn room_lock_system(
     frame: Res<FrameCount>,
     table: Res<RoomKindTable>,
     mut states: ResMut<RoomStates>,
+    mut arena_clocks: ResMut<ArenaClocks>,
     mut changed: ResMut<FrameEvents<RoomChanged>>,
     rooms: CurrentRooms,
     doors: Query<
@@ -198,6 +215,7 @@ pub fn room_lock_system(
             &GgrsNetId,
             &bevy_fixed::fixed_math::FixedTransform3D,
             Option<&Collider>,
+            Entity,
         ),
         (With<Enemy>, Without<Player>),
     >,
@@ -236,9 +254,11 @@ pub fn room_lock_system(
             continue;
         }
         let step = states.get(&level_id.0);
+        // M2-T7 : une arène se verrouille vide et ne se rouvre qu'à la fin de son horloge.
+        let arena = table.arena(&kind.0);
         let enemies_inside = enemies
             .iter()
-            .filter(|(_, t, _)| {
+            .filter(|(_, t, _, _)| {
                 inside_box(
                     bounds.position,
                     bounds.size,
@@ -248,7 +268,7 @@ pub fn room_lock_system(
             })
             .count();
         match step {
-            RoomState::Dormant if enemies_inside > 0 => {
+            RoomState::Dormant if enemies_inside > 0 || arena.is_some() => {
                 // Joueurs debout dans la salle, par `GgrsNetId` croissant : le premier est celui
                 // dont l'entrée verrouille (porte d'entrée = la sienne la plus proche).
                 let mut standing: Vec<(usize, FixedVec2)> = players
@@ -293,7 +313,7 @@ pub fn room_lock_system(
                                 )
                             })
                         };
-                    enemies.iter().any(|(_, t, c)| overlaps(t, c))
+                    enemies.iter().any(|(_, t, c, _)| overlaps(t, c))
                         || players.iter().any(|(_, t, c, _, _)| overlaps(t, c))
                 });
                 if occupied {
@@ -359,6 +379,9 @@ pub fn room_lock_system(
                 }
 
                 states.rooms.insert(level_id.0.clone(), RoomState::Locked);
+                if arena.is_some() {
+                    arena_clocks.0.insert(level_id.0.clone(), frame.frame);
+                }
                 changed.send(RoomChanged {
                     frame: frame.frame,
                     room: level_id.0.clone(),
@@ -369,6 +392,53 @@ pub fn room_lock_system(
                 info!(
                     "ggrs{{f={} room_state room={} kind={} state=Locked enemies={}}}",
                     frame.frame, index, kind.0, enemies_inside
+                );
+            }
+            RoomState::Locked if arena.is_some() => {
+                // Fin de l'horloge de l'arène, un joueur en vie : les survivants meurent, la
+                // salle se rouvre.
+                let Some(arena) = arena else { continue };
+                let started = arena_clocks
+                    .0
+                    .get(&level_id.0)
+                    .copied()
+                    .unwrap_or(frame.frame);
+                if frame.frame.saturating_sub(started) < arena.clock || players.is_empty() {
+                    continue;
+                }
+                for (id, t, _, entity) in order_iter!(enemies) {
+                    if inside_box(
+                        bounds.position,
+                        bounds.size,
+                        t.translation.truncate(),
+                        Fixed::ZERO,
+                    ) {
+                        info!(
+                            "ggrs{{f={} arena_kill room={} net_id={}}}",
+                            frame.frame, index, id.0
+                        );
+                        commands.entity(entity).insert(Death { last_hit_by: None });
+                    }
+                }
+                for (_, entity, t, _, closed) in order_iter!(doors) {
+                    if closed && door_near(bounds, t.translation.truncate()) {
+                        commands
+                            .entity(entity)
+                            .remove::<(Collider, CollisionLayer)>();
+                    }
+                }
+                arena_clocks.0.remove(&level_id.0);
+                states.rooms.insert(level_id.0.clone(), RoomState::Cleared);
+                changed.send(RoomChanged {
+                    frame: frame.frame,
+                    room: level_id.0.clone(),
+                    kind: kind.0.clone(),
+                    from: RoomState::Locked,
+                    to: RoomState::Cleared,
+                });
+                info!(
+                    "ggrs{{f={} room_state room={} kind={} state=Cleared arena=held}}",
+                    frame.frame, index, kind.0
                 );
             }
             RoomState::Locked if enemies_inside == 0 => {

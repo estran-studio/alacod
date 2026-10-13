@@ -191,6 +191,11 @@ pub(crate) fn lint_effect(
                 LintErrorKind::Unsupported,
                 format!("{at} : action {action:?} : pas exécutée dans un effet (v2)"),
             ),
+            // M2-T7 : actions de frise de boss
+            effects::Action::SpawnEnemies { .. } | effects::Action::Telegraph(_) => push(
+                LintErrorKind::Unsupported,
+                format!("{at} : action {action:?} : réservée à la frise d'un boss (§45)"),
+            ),
             _ => {}
         }
     }
@@ -1195,6 +1200,13 @@ fn lint_powerups(registry: &Registry, errors: &mut Vec<LintError>) {
                     "power-up « {} » : actions[{index}] (ApplyStatus) : réservée aux projectiles (on_hit)",
                     powerup.id
                 )),
+                // M2-T7 : actions de frise de boss
+                effects::Action::SpawnEnemies { .. } | effects::Action::Telegraph(_) => {
+                    push(format!(
+                        "power-up « {} » : actions[{index}] : réservée à la frise d'un boss (§45)",
+                        powerup.id
+                    ))
+                }
                 _ => {}
             }
         }
@@ -1795,6 +1807,25 @@ fn lint_boss(
             push(kind, format!("{at}.{message}"))
         });
         let mut actions: Vec<&effects::Action> = phase.on_enter.iter().collect();
+        // M2-T7 : un `Telegraph` précède un `SpawnPattern` de la même liste.
+        let mut lists: Vec<&[effects::Action]> = vec![&phase.on_enter];
+        if let Some(timeline) = &phase.timeline {
+            lists.extend(timeline.events.iter().map(|event| event.r#do.as_slice()));
+        }
+        for list in lists {
+            for (k, action) in list.iter().enumerate() {
+                if matches!(action, effects::Action::Telegraph(_))
+                    && !list[k + 1..]
+                        .iter()
+                        .any(|next| matches!(next, effects::Action::SpawnPattern { .. }))
+                {
+                    push(
+                        LintErrorKind::OutOfRange,
+                        format!("{at} : Telegraph sans SpawnPattern après lui dans la même liste"),
+                    );
+                }
+            }
+        }
         if let Some(timeline) = &phase.timeline {
             if timeline.events.is_empty() {
                 push(
@@ -1859,6 +1890,28 @@ fn lint_boss(
                 effects::Action::Heal(amount) if *amount <= Fixed::ZERO => push(
                     LintErrorKind::OutOfRange,
                     format!("{at} : Heal = {amount} : doit être > 0"),
+                ),
+                // M2-T7 : renforts et télégraphe (§45)
+                effects::Action::SpawnEnemies { id, count } => {
+                    if !registry
+                        .characters
+                        .contains_key(&registry::CharacterId::from(id.clone()))
+                    {
+                        push(
+                            LintErrorKind::BrokenReference,
+                            format!("{at} : SpawnEnemies : personnage « {id} » inconnu"),
+                        );
+                    }
+                    if *count == 0 {
+                        push(
+                            LintErrorKind::OutOfRange,
+                            format!("{at} : SpawnEnemies « {id} » : count = 0 : doit être > 0"),
+                        );
+                    }
+                }
+                effects::Action::Telegraph(0) => push(
+                    LintErrorKind::OutOfRange,
+                    format!("{at} : Telegraph(0) : doit être > 0"),
                 ),
                 effects::Action::RefillAmmo
                 | effects::Action::RefillAmmoOf(_)

@@ -81,6 +81,15 @@ pub enum Action {
     /// munition de `throne`). Power-up seulement (refusée dans un effet, comme `RefillAmmo`).
     /// Ajoutée en dernier (après `ApplyStatus`) : les hashs des autres variantes ne bougent pas.
     RefillAmmoOf(sim_core::ammo::AmmoType),
+    /// M2-T7 (`docs/conventions.md` §45) : **frise de boss seulement** (le lint la refuse
+    /// ailleurs). Fait apparaître `count` personnages `id` dans la salle du boss, à des
+    /// positions tirées du flux RNG de la salle (`room:<niveau>`). Ajoutée en fin d'enum : le
+    /// hash des variantes d'avant ne bouge pas.
+    SpawnEnemies { id: String, count: u32 },
+    /// M2-T7 : **frise de boss seulement**. Télégraphe de `n` frames posé devant le prochain
+    /// `SpawnPattern` du même événement (l'émetteur joue `Sequence([Telegraph(n), pattern])`) :
+    /// l'état est celui de l'émetteur, aucun type nouveau.
+    Telegraph(u32),
 }
 
 impl Action {
