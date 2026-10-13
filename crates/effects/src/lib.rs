@@ -15,7 +15,7 @@ pub mod describe;
 pub mod progression;
 pub mod runtime;
 use bevy::prelude::{App, Plugin};
-pub use contracts::{Condition, Effect, GaugeThreshold, On};
+pub use contracts::{Condition, Effect, GaugeThreshold, On, Recharge};
 use sim_core::kinds::{KindDecl, KindRegistry};
 
 pub struct EffectsPlugin;

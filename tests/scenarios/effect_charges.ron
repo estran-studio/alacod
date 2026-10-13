@@ -1,0 +1,36 @@
+// M2-T3 (effets v2, docs/conventions.md §42) : charges d'un effet, rendues par salle. La
+// `bandoulier_comptee` (+1 de dégâts au rechargement, une seule charge, rendue à chaque salle
+// nettoyée) est posée à f5. Carte testbed/salles.ldtk.
+//
+// À regarder : un premier rechargement (f50, terminé vers f190) donne +1 (dégâts 2) ; un second
+// (f280) est refusé (plus de charge : toujours 2) ; le joueur nettoie la salle de combat (la
+// charge revient) ; un rechargement après la salle donne +1 (dégâts 3, mesuré à f800).
+Scenario(
+    powerup_drop_chance_override: "0.0",
+    game: "testbed",
+    map: "testbed/salles.ldtk",
+    map_seed: 1,
+    frames: 1300,
+    items: [(id: "bandoulier_comptee", x: "-904.0", y: "-584.0", at_frame: 5)],
+    players: [
+        (inputs: [
+            (from: 10, to: 13, buttons: [Interaction]),
+            (from: 20, to: 25, buttons: [Fire], pan: (0, -64)),
+            (from: 50, to: 53, buttons: [Reload]),
+            (from: 270, to: 275, buttons: [Fire], pan: (0, -64)),
+            (from: 280, to: 283, buttons: [Reload]),
+            (from: 460, to: 520, buttons: [Right]),
+            (from: 520, to: 930, buttons: [Fire], pan: (64, 0)),
+            (from: 960, to: 965, buttons: [Fire], pan: (64, 0)),
+            (from: 980, to: 983, buttons: [Reload]),
+        ]),
+    ],
+    expect: [
+        Stat(handle: 0, stat: Damage, value: 1.0, at_frame: 100),
+        Stat(handle: 0, stat: Damage, value: 2.0, at_frame: 250),
+        // Deuxième rechargement (f280) : plus de charge, rien
+        Stat(handle: 0, stat: Damage, value: 2.0, at_frame: 450),
+        RoomState(kind: "combat", state: Cleared, at_frame: 1000),
+        Stat(handle: 0, stat: Damage, value: 3.0, at_frame: 1250),
+    ],
+)

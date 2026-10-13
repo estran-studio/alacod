@@ -8,6 +8,7 @@ use bevy_ggrs::{LocalInputs, LocalPlayers};
 use combat::downed::Downed;
 use leafwing_input_manager::prelude::*;
 use serde::{Deserialize, Serialize};
+use sim_core::frame_events::FrameEvents;
 use sim_core::stats::StatId;
 use stats::StatReader;
 use utils::{frame::FrameCount, net_id::GgrsNetId, order_mut_iter};
@@ -381,6 +382,7 @@ pub fn apply_inputs(
     inputs: Res<PlayerInputs<PeerConfig>>,
     character_configs: Res<Assets<CharacterConfig>>,
     stats: StatReader,
+    mut dash_started: Option<ResMut<FrameEvents<sim_core::triggers::DashStarted>>>,
     mut query: Query<
         (
             &GgrsNetId,
@@ -481,6 +483,12 @@ pub fn apply_inputs(
                 move_speed * dt,
                 dash.cooldown_frames,
             );
+            if let Some(events) = dash_started.as_mut() {
+                events.send(sim_core::triggers::DashStarted {
+                    frame: frame.frame,
+                    player_handle: player.handle,
+                });
+            }
             if let Some(extra) = dash_extra.as_deref_mut() {
                 if dash.charges.is_some() {
                     extra.spend_charge(dash.recharge_frames);

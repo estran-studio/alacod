@@ -1,0 +1,27 @@
+// M2-T3 (effets v2, docs/conventions.md §42) : effet d'un objet passif tenu. Carte
+// testbed/progression.ldtk (comme `effect_on_kill`) ; le `porte_bonheur` (passif : +1 de dégâts
+// à chaque ennemi tué par le porteur) est posé sur le joueur à f2.
+//
+// À regarder : f10 le joueur ramasse le porte-bonheur, puis tire sur les ennemis qui arrivent ;
+// ses dégâts montent de 1 à chaque ennemi tué (source de modificateur `item:porte_bonheur:0`).
+Scenario(
+    powerup_drop_chance_override: "0.0",
+    game: "testbed",
+    map: "testbed/progression.ldtk",
+    frames: 300,
+    items: [(id: "porte_bonheur", x: "424.0", y: "696.0", at_frame: 2)],
+    players: [
+        (inputs: [
+            (from: 10, to: 13, buttons: [Interaction]),
+            (from: 15, to: 120, buttons: [Fire], pan: (-64, -48)),
+            (from: 120, to: 280, buttons: [Fire], pan: (-64, 48)),
+        ]),
+    ],
+    expect: [
+        HasItem(handle: 0, id: "porte_bonheur", at_frame: 30),
+        Stat(handle: 0, stat: Damage, value: 1.0, at_frame: 60),
+        // Deux ennemis tués vers f100 et f130 : +1 chacun
+        Stat(handle: 0, stat: Damage, value: 2.0, at_frame: 110),
+        Stat(handle: 0, stat: Damage, value: 3.0, at_frame: 200),
+    ],
+)

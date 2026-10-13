@@ -128,7 +128,7 @@ de `scripts/task-new.sh`, pas de worktree ni d'`env.sh`. Ce qui change :
 
 ```bash
 make test_scenarios                       # tous les scénarios (traces comparées aux .trace) ; SCENARIO=<nom> pour un seul
-make test_crates                          # cargo test des crates du workspace, mêmes features que test_scenarios
+make test_crates                          # cargo test des crates du workspace, mêmes features que test_scenarios (sans la suite `scenarios`)
 make lint                                 # alacod lint games/zombies et games/testbed : « aucune erreur »
 cargo fmt --all -- --check                # rien à afficher ; sinon `make fmt`
 ./scripts/check-forbidden.sh              # avertissements préexistants tolérés, aucun nouveau

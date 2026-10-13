@@ -1,0 +1,54 @@
+// M2-T3 (docs/conventions.md §42) : `OnFloorStart` sur les étages assemblés de `gungeon_two_floors`.
+// Le joueur ramasse l'étendard (+1 de dégâts à chaque début d'étage) au départ du premier étage,
+// puis rejoue le même parcours. Ramassé en cours d'étage, il ne se déclenche pas sur le premier
+// (comme la boussole de `effect_on_floor_start`) ; l'arrivée au second étage (f752) pose +1.
+//
+// À regarder : l'étendard est ramassé f3 ; f752 le joueur arrive au second étage (dégâts de base 1, puis 2).
+Scenario(
+    powerup_drop_chance_override: "0.0",
+    items: [(id: "etendard", x: "0.0", y: "0.0", at_frame: 1)],
+    game: "gungeon",
+    floors: Some("etages_court_deux"),
+    map_seed: 123,
+    frames: 1500,
+    players: [
+        (inputs: [
+            // Étage 1 : comme `gungeon_floor_seed_123`, puis retour au portail (salle de départ).
+            (from: 3, to: 6, buttons: [Interaction]),
+            (from: 10, to: 70, buttons: [Right]),
+            // M2-T1 : la salve de `bullet_kin` tire trois volées ; un blank efface les deux premières (f101), un second la troisième (f213).
+            (from: 96, to: 97, buttons: [Fire, Blank], pan: (-34, -31)),
+            (from: 80, to: 160, buttons: [Fire], pan: (-34, -31)),
+            (from: 208, to: 209, buttons: [Fire, Blank], pan: (-34, 27)),
+            (from: 160, to: 240, buttons: [Fire], pan: (-34, 27)),
+            (from: 240, to: 330, buttons: [Fire], pan: (25, 27)),
+            (from: 340, to: 380, buttons: [Right]),
+            (from: 385, to: 660, buttons: [Fire], pan: (70, 6)),
+            (from: 665, to: 755, buttons: [Left]),
+            // Étage 2 (arrivée f752, 20 px plus à l'ouest qu'au départ de l'étage 1).
+            (from: 770, to: 840, buttons: [Right]),
+            // Étage 2 : mêmes deux blanks (+772 frames), remontés à deux au début de l'étage.
+            (from: 868, to: 869, buttons: [Fire, Blank], pan: (-34, -31)),
+            (from: 850, to: 920, buttons: [Fire], pan: (-34, -31)),
+            (from: 980, to: 981, buttons: [Fire, Blank], pan: (-34, 27)),
+            (from: 920, to: 1000, buttons: [Fire], pan: (-34, 27)),
+            (from: 1000, to: 1090, buttons: [Fire], pan: (25, 27)),
+            (from: 1120, to: 1160, buttons: [Right]),
+            (from: 1165, to: 1480, buttons: [Fire], pan: (70, 6)),
+        ]),
+    ],
+    expect: [
+        Stat(handle: 0, stat: Damage, value: 1.0, at_frame: 600),
+        FloorIndex(index: 0, at_frame: 600),
+        FloorIndex(index: 1, at_frame: 900),
+        Stat(handle: 0, stat: Damage, value: 2.0, at_frame: 900),
+        RoomState(kind: "combat", state: Dormant, at_frame: 800),
+        RoomState(kind: "boss", state: Dormant, at_frame: 800),
+        EntityCount(kind: Enemy, min: 4, max: 4, at_frame: 800),
+        RoomState(kind: "combat", state: Locked, at_frame: 900),
+        RoomState(kind: "combat", state: Cleared, at_frame: 1120),
+        RoomState(kind: "boss", state: Locked, at_frame: 1200),
+        RunState(step: Ended(Victory), at_frame: 1480),
+        PlayerAlive(handle: 0, at_frame: 1499),
+    ],
+)

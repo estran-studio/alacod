@@ -1,0 +1,11 @@
+// `gungeon` (M2-T3, docs/conventions.md §42) : passif, soigne 10 points quand la salle du porteur
+// est nettoyée, une fois par étage (une charge, rendue à chaque début d'étage).
+(
+    name: "Trèfle",
+    kind: Passive,
+    effects: [
+        (on: OnRoomClear, charges: Some(1), recharge: Some(PerFloor), do: [Heal("10")]),
+    ],
+    tags: ["soin"],
+    rarity: Uncommon,
+)

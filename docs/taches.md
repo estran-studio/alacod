@@ -543,14 +543,14 @@ l'ancienne machine.
 **V1b effets et objets**
 - M2-T3 Effets v2 (C1 v2, 3 j ; fiche `docs/taches/m2-t3-effets-v2.md`, b1) : déclencheurs `OnRoomClear`, `OnDash`, `OnBlank`, `OnReload`,
   `OnPickup`, `OnFloorStart` ; conditions ; cooldowns et charges.
-- M2-T4 Objets et synergies (C2, 4 j) : passifs (modificateurs), actifs à cooldown par salles,
+- M2-T4 Objets et synergies (C2, 4 j ; fiche `docs/taches/m2-t4-objets-synergies.md`, b1) : passifs (modificateurs), actifs à cooldown par salles,
   consommables, synergie (paire d'objets → effet ajouté).
 - M2-T5 Butin, coffres, clés (C4, 3 j) : pools pondérés seedés par rareté, coffres verrouillés
   (clé consommée), récompense à la sortie de salle (`OnRoomClear`), tables par étage.
 - M2-T6 Boutique (C5, 2 j) : salle `Shop`, objets à prix, monnaie `shells` au sol.
 
 **V1c ennemis**
-- M2-T7 Boss à phases et arène (D4, 4 j) : phases par seuil, timeline de patterns, salle de boss
+- M2-T7 Boss à phases et arène (D4, 4 j ; fiche `docs/taches/m2-t7-boss-arene.md`, cloud) : phases par seuil, timeline de patterns, salle de boss
   verrouillée, arène à tenir (horloge, vagues internes). Acceptation : `BossPhase` attendu, boss
   battu par les bots.
 - M2-T8 Formations simples (D1 v2, 2 j) : escouades qui se placent en arc, tir alterné.
@@ -564,7 +564,7 @@ l'ancienne machine.
   coffre, secret), distances, branches, minicarte (état dérivé), plusieurs étages par run
   (`Floors` d'étages assemblés). Acceptation : unitaires sur 1 000 graines (connexité, types
   présents, pas de chevauchement), perf d'un étage de 15 à 20 salles.
-- M2-T11 Surfaces v2 (E4 v2, 2 j) : fosses (chute = dégât + retour au bord), tables renversables
+- M2-T11 Surfaces v2 (E4 v2, 2 j ; fiche `docs/taches/m2-t11-surfaces-v2.md`, cloud) : fosses (chute = dégât + retour au bord), tables renversables
   (couverture), barils explosifs.
 
 **V1e run et méta**
@@ -578,7 +578,7 @@ l'ancienne machine.
 - M2-T15 Lint des nouveaux kinds (2 j).
 
 **V3 outillage**
-- M2-T16 Bot explorateur (K2 v1, 4 j) : visite les salles, nettoie, prend le butin, va au boss ;
+- M2-T16 Bot explorateur (K2 v1, 4 j ; fiche `docs/taches/m2-t16-bot-explorateur.md`, cloud) : visite les salles, nettoie, prend le butin, va au boss ;
   `alacod sim --until-floor`. Acceptation : 200 graines sans soft-lock ni desync.
 - M2-T17 Générateur v2 et attentes (3 j) : gabarits par objet et par salle ; attentes `RoomState`,
   `Inventory`, `BossPhase`, `ProfileHas`.
@@ -1118,6 +1118,7 @@ coller le préambule puis la fiche dans son prompt.
 | 2026-10-13 | d56-d57-visee-telegraphe « arme des ennemis orientée, télégraphe du boss borné » (revue M1 de William ; b1 : `game::ui::weapon_visuals::aim_enemy_weapons` en PostUpdate après la synchro des transforms, vise `Emitter.aim` pendant un pattern sinon `EnemyPath.target_position`, n'écrit que le `Transform` bevy et le `flip_y` ; `Emitter::telegraphed_range` (portée max des étapes jusqu'à la prochaine étape bloquante) et `telegraph_shape` borné par `Shoot.range` : roi_rat 400 → 260 px) | `d56-d57-visee-telegraphe` (`c09a0aef`) | Claude (b1) | Présentation seule (`PresentationPlugin`, absent en headless ; méthodes de `Emitter` en lecture). b1 : traces `enemy_roi_rat_moving`, `enemy_cracheur_moving`, `boss_two_phases` inchangées, tests combat/game. Orch : fmt, lint ×4, 197 tests combat/game, relecture ; suite non rejouée (aucune ligne de simulation). Capture avant/après impossible sur orca (pas de GPU) : à voir en jeu par William. Merge `98a81bf3` (orch). |
 | 2026-10-13 | m2-t1-projectiles-v2-blank « projectiles v2 et blank » (M2-T1, b0 : patterns `Spiral`, `Fan`, `Burst` en fin d'enum, état dans l'émetteur ; `Bounce` des balles ennemies ; blank sur front montant (`BlankState` rollback, variante neutre), `despawn_rollback` des balles hostiles du rayon, i-frames, `FrameEvents<BlankUsed>`, recharge `consumables_per_floor` ; contenu gungeon (patterns nommés sur `bullet_kin` et le boss, blanks de départ) ; scénarios `pattern_*`, `enemy_bullet_bounce`, `blank_*`, `bench_bullets_room` ; conventions §41) | `m2-t1-projectiles-v2-blank` (`6599ea89`) | Claude (b0) | Traces réenregistrées, toutes `gungeon` (+ nouvelle `generated/testbed/weapon_tourelle_gun`) ; preuve §5 par orch : différences à la frame 0 limitées à Inventory/BlankState du joueur, WeaponInventory/EnemyAiConfig de `bullet_kin`, Weapon de l'arsenal. Les 5 scénarios d'étage T10 cassés par la fusion (mort f226 sous la salve) corrigés par b0 sans toucher aux attentes : deux blanks scriptés par étage, `consumables_per_floor: {"blank": 2}` sur `etages_court_deux`, NetId du boss 137 → 195 dans `gungeon_two_floors`. Vérifié par orch sur `6599ea89` : suite complète sans bless verte, test_crates, lint ×4, fmt, check_forbidden, rollback-registration, gen ×4 ; p2p zombies et gungeon `f50a943c…` identiques (inputs neutres, blank non joué en p2p). Merge `432167ae` (orch). |
 | 2026-10-13 | d58-bots-boucle-reparation « boucle de réparation des bots » (D58, b1 : `crates/bots/src/hunter.rs`, un bot acheteur ne répare plus une fenêtre quand le dernier ennemi de la vague est à 48 px de portée d'attaque, `last_enemy_at_window`) | `d58-bots-boucle-reparation` (`4a8e14a4`) | Claude (b1) | b1 : alacod-sim zombies, 4 acheteurs, Relais, graine 17 en V5 à f7383 (avant : soft-lock V4) ; graines 1..20 : 20/20 en V5, 0 mort, 0 desync ; 5 scénarios de bots verts, traces inchangées (aucun scénario n'utilise `acheteur`). Limite : un seul ennemi restant couvert. D60 ajoutée (compare_video et scénarios générés). Orch : relecture, fmt, 62 tests `bots` sur la fusion avec main `7f61e5c5`. Merge `08e69675` (orch). |
+| 2026-10-13 | m2-t3-effets-v2 « effets v2 » (M2-T3, b1 : déclencheurs `OnRoomClear` (salle du porteur), `OnDodge`, `OnReload`, `OnPickup`, `OnFloorStart`, `OnBlank` ; conditions `Carrying`, `SquadSize` (`TargetInRange` reste un contrat) ; `cooldown`/`charges`/`recharge` (`PerRoom`, `PerFloor`) dans `EffectState::limits`, hash v1 conservé sans ces champs ; effets passifs d'objets lus dans l'`Inventory` (clé `item:<id>:<index>`) ; `add_frame_events_transient` pour `DashStarted`/`ReloadFinished` (hors checksum et snapshot, lus la même frame après l'émetteur) ; contenu gungeon (`trefle`, `cartouchiere`, `amulette`, `etendard`) et 8 objets testbed ; 9 scénarios `effect_*`/`item_passive_effect`, `gungeon_floor_start` ; conventions §42) | `m2-t3-effets-v2` (`c4a1e447`) | Claude (b1) | Aucune trace existante modifiée (nouvelles traces seules). Vérifié par orch sur la fusion avec main `f13035d6` : suite complète sans bless verte, test_crates (hors `scenarios`, déjà jouée), lint ×4, fmt, check_forbidden, rollback-registration, gen ×4 ; p2p zombies `ab466a88…` et gungeon `f50a943c…` identiques. Suite à 159 min en journée contre ~75 la nuit : charge de la machine (main au nightly du même jour : 168 min), pas une régression. Merge `61cccdbf` (orch). |
 Orchestration : Fable crée les worktrees (`scripts/task-new.sh` du meta-repo), lance un agent par
 tâche avec le modèle le moins cher (Haiku d'abord, Sonnet si une tâche échoue deux fois), vérifie
 la branche (`make test_scenarios`, `cargo test`, lecture du diff), fusionne dans `main`

@@ -107,6 +107,25 @@ pub(crate) fn lint_effect(
             ),
         );
     }
+    // M2-T3 : limites d'exécution
+    if effect.cooldown == Some(0) {
+        push(
+            LintErrorKind::OutOfRange,
+            format!("{at} : cooldown = 0 : doit être > 0 (ou absent)"),
+        );
+    }
+    if effect.charges == Some(0) {
+        push(
+            LintErrorKind::OutOfRange,
+            format!("{at} : charges = 0 : doit être > 0 (ou absent)"),
+        );
+    }
+    if effect.recharge.is_some() && effect.charges.is_none() {
+        push(
+            LintErrorKind::OutOfRange,
+            format!("{at} : recharge sans charges : sans effet (déclarer `charges`)"),
+        );
+    }
     if effect.on == effects::On::Tick(0) {
         push(
             LintErrorKind::OutOfRange,
@@ -2578,9 +2597,9 @@ fn lint_statuses(registry: &Registry, errors: &mut Vec<LintError>) {
 }
 
 /// M2-T0b (`docs/conventions.md` §36) : objets. Charge d'un actif > 0, `pickup_range` > 0,
-/// modificateur sans valeur nulle inutile ignoré ; effets : T0b n'exécute que `OnUse` d'un
-/// objet **actif**, avec `TimedModifier`/`Modifier` (le reste est un contrat, refusé jusqu'aux
-/// effets v2) ; un actif sans effet ni modificateur ne fait rien.
+/// modificateur sans valeur nulle inutile ignoré ; effets : `OnUse` d'un objet **actif** avec
+/// `TimedModifier`/`Modifier` (T0b) ; tout autre déclencheur suit les règles d'un effet de
+/// personnage (`lint_effect`, M2-T3) ; un actif sans effet ni modificateur ne fait rien.
 fn lint_items(registry: &Registry, errors: &mut Vec<LintError>) {
     for item in registry.items.values() {
         let file = item.file.display().to_string();
@@ -2637,10 +2656,16 @@ fn lint_items(registry: &Registry, errors: &mut Vec<LintError>) {
         }
         for (index, effect) in item.def.effects.iter().enumerate() {
             let at = format!("objet « {id} » : effects[{index}]");
-            if !active || effect.on != effects::On::OnUse {
+            if effect.on != effects::On::OnUse {
+                // M2-T3 : effet porté par le porteur tant que l'objet est tenu (même règles
+                // qu'un effet de personnage)
+                lint_effect(registry, &at, effect, &mut push);
+                continue;
+            }
+            if !active {
                 push(
                     LintErrorKind::Unsupported,
-                    format!("{at} : seul OnUse d'un objet actif est exécuté (effets v2)"),
+                    format!("{at} : OnUse n'a de sens que pour un objet actif"),
                 );
                 continue;
             }
@@ -2653,7 +2678,7 @@ fn lint_items(registry: &Registry, errors: &mut Vec<LintError>) {
                     effects::Action::TimedModifier { .. } | effects::Action::Modifier { .. } => {}
                     other => push(
                         LintErrorKind::Unsupported,
-                        format!("{at} : action {other:?} : pas exécutée par un objet (effets v2)"),
+                        format!("{at} : action {other:?} : pas exécutée par OnUse d'un objet"),
                     ),
                 }
             }

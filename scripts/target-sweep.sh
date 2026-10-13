@@ -8,7 +8,7 @@
 # - dans `<profil>/build/<crate>/` des **crates du workspace** (crates/*, games/*, alacod), ne garde
 #   que la dernière génération de chaque artefact : un dossier `<hash>` est périmé si un autre
 #   dossier du même crate produit les mêmes artefacts (mêmes noms une fois le suffixe `-<hash>`
-#   retiré : `scenarios`, `libgame`, `alacod_sim`…) et a été écrit plus récemment. Les binaires de
+#   retiré s'il existe : `scenarios`, `libgame`, `alacod_sim`…) et a été écrit plus récemment. Les binaires de
 #   test (1 Go chacun en statique, 0,3 Go en dynamique) sont ainsi dédoublonnés, une version
 #   statique ET une version dynamique du même test ne coexistent pas.
 # - ne touche jamais aux crates tierces (plusieurs versions légitimes d'un même crate) ni aux
@@ -75,7 +75,9 @@ for profile in sorted(os.listdir(target)):
             out = os.path.join(cdir, h, "out")
             if not os.path.isdir(out):
                 continue
-            names = sorted(suffix.sub("", n) for n in os.listdir(out) if suffix.search(n))
+            # Ancienne disposition : `scenarios-<hash>` ; build-dir de cargo récent : `scenarios`
+            # sans suffixe (le hash est le nom du dossier). Les deux se groupent par nom nu.
+            names = sorted(suffix.sub("", n) for n in os.listdir(out))
             if not names:
                 continue
             mtime = max(os.lstat(os.path.join(out, n)).st_mtime for n in os.listdir(out))

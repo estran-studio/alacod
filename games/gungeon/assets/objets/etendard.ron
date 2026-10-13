@@ -1,0 +1,11 @@
+// `gungeon` (M2-T3, docs/conventions.md §42) : passif, +1 de dégâts à chaque début d'étage
+// (`OnFloorStart`, étages assemblés par la grammaire d'étage comprises).
+(
+    name: "Étendard",
+    kind: Passive,
+    effects: [
+        (on: OnFloorStart, do: [Modifier(stat: Damage, op: Add, value: "1")]),
+    ],
+    tags: ["dégâts"],
+    rarity: Uncommon,
+)

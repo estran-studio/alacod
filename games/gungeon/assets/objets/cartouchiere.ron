@@ -1,0 +1,11 @@
+// `gungeon` (M2-T3) : passif, +50 % de cadence de tir pendant 3 s après un rechargement, au plus
+// une fois toutes les 10 s.
+(
+    name: "Cartouchière",
+    kind: Passive,
+    effects: [
+        (on: OnReload, cooldown: Some(600), do: [TimedModifier(stat: FireRate, op: Pct, value: "0.5", frames: 180)]),
+    ],
+    tags: ["offensif"],
+    rarity: Common,
+)

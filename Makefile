@@ -118,9 +118,10 @@ test: test_scenarios
 	cargo test $(DEV_FEATURES)
 
 # Tests des crates du workspace (vérification standard, docs/taches/README.md §4), mêmes features
-# que test_scenarios : un seul build de Bevy.
+# que test_scenarios : un seul build de Bevy. Le test `scenarios` (la suite complète, 1 à 3 h sur
+# orca) est sauté : `make test_scenarios` le joue déjà ; `--exact` ne saute que ce nom-là.
 test_crates:
-	cargo test -q --profile headless -p scenario -p run -p combat -p game -p content -p map_ldtk -p sim_core -p stats -p bots -p effects -p world --no-fail-fast $(DEV_FEATURES)
+	cargo test -q --profile headless -p scenario -p run -p combat -p game -p content -p map_ldtk -p sim_core -p stats -p bots -p effects -p world --no-fail-fast $(DEV_FEATURES) -- --exact --skip scenarios
 
 .PHONY: test_crates sweep
 

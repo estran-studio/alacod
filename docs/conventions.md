@@ -2735,6 +2735,79 @@ vue. Ce filtre empêche une vue par une fenêtre extérieure de dévoiler les ob
 pièce encore fermée. Lorsqu'une partie d'une porte est en vue, sa face complète reste
 lisible dans les cases de mur du passage ; cela ne révèle aucune case intérieure.
 
+## 42. Effets v2 : déclencheurs, conditions, cooldowns et charges (M2-T3, chantier C1 v2)
+
+Suite de §27 (effets v1) et §36 (objets). Code : contrats `effects::{On, Condition, Effect,
+Recharge}`, règles pures `effects::runtime` (`responds_to`, `conditions_hold`, `Limits`,
+`limits_allow/consume/recharge`), exécution `game::effects_runtime`
+(`apply_effects_system` v1, `apply_triggered_effects_system` v2).
+
+**Déclencheurs exécutés** (le lint refuse les autres) :
+
+| Déclencheur | Source lue | Système / ordre |
+|---|---|---|
+| `OnRoomClear` | `FrameEvents<RoomChanged>` vers `Cleared`, **si le porteur est dans les bornes de cette salle** (iid de l'événement) | v2, après `Run` |
+| `OnDodge` | `FrameEvents<sim_core::triggers::DashStarted>` (émis par `apply_inputs` au début du dash) | v2 |
+| `OnReload` | `FrameEvents<sim_core::triggers::ReloadFinished>` (émis par `weapon_rollback_system` quand le chargeur est **réellement rempli** ; le délai de pompe d'une arme sans chargeur n'en émet pas) | v2 |
+| `OnPickup` | `FrameEvents<ItemPicked>` du porteur (objet ramassé, **le sien compris**) | v2 |
+| `OnFloorStart` | changement de `FloorState::index` vu par le porteur ; le premier étage compte pour un effet présent aux frames 0–1 (un effet vu plus tard, par exemple un objet ramassé en cours d'étage, ne se déclenche qu'au **prochain** étage) | v2 |
+| `OnBlank` | `FrameEvents<BlankUsed>` (M2-T1) du porteur (`player_handle`) | v2, **après `blank_system`** (qui émet dans `Effects`) |
+
+Les nouveaux variants (`OnFloorStart`, `OnBlank`) sont en **fin d'enum** `On`. Le système v2 tourne
+`.after(RollbackSystemSet::Run).after(item_charge_system).after(blank_system).before(FrameCounter)` : `RoomChanged`
+est émis dans `Run` et vidé au `FrameStart` suivant, les autres événements dans des sets plus tôt
+de la même frame. Les événements `DashStarted`/`ReloadFinished` sont des `FrameEvents` neutres
+(file vide : contribution 0 au checksum).
+
+**Conditions** : `Carrying(item)` (objets tenus, passifs et actif) et `SquadSize(n)` (au moins `n`
+joueurs en vie, ni `Death` ni `Downed`) sont exécutées. `TargetInRange` reste un contrat (aucune
+position de cible dans les déclencheurs) : le lint la refuse.
+
+**Cooldown et charges** : champs optionnels de l'effet, `cooldown: Some(frames)` (délai minimal entre
+deux exécutions), `charges: Some(n)` (exécutions avant épuisement), `recharge: Some(PerRoom |
+PerFloor)` (retour de **toutes** les charges à la salle nettoyée ou au début d'étage ; `PerRoom`
+suit `RoomChanged` de n'importe quelle salle du porteur, `PerFloor` le changement d'index).
+Sans ces champs l'effet est celui de la v1. La condition est évaluée **avant** les limites (une
+condition fausse ne consomme rien) ; une exécution consomme la charge et arme le cooldown.
+Lint : `cooldown = 0`, `charges = 0`, `recharge` sans `charges` sont refusés.
+État : `EffectState::limits` (clé `effect:<index>` ou `item:<id>:<index>`).
+
+**Pas de trace qui bouge** : `Effect` et `EffectState` ont un `impl Hash` manuel qui écrit les champs
+v2 **seulement s'ils ne sont pas vides** ; un porteur sans effet v2 garde le hash d'avant
+(`effet_v1_garde_son_hash`, `effect_state_sans_champ_v2_garde_le_hash_de_t1_10`).
+
+**Effets des objets (choix : lecture dans l'`Inventory`)**. Un objet passif ou actif tenu applique
+ses `effects` (hors `OnUse`, exécuté par `game::items`) au porteur : les systèmes lisent
+l'`Inventory` à chaque frame au lieu de copier les effets dans `Effects` au ramassage. Raisons :
+un objet perdu (actif remplacé) n'a rien à retirer ; pas de composant en plus sur le joueur (donc
+pas de hash qui bouge pour les joueurs sans objet à effets) ; l'index d'effet est celui du
+`ItemDef`, stable. Le porteur qui n'a pas d'`EffectState` en reçoit un au premier effet exécuté.
+Source des modificateurs d'un effet d'objet : `item:<id>:<index>` (distincte de `item:<id>`,
+celle des `modifiers` de l'objet). Ordre : porteurs par `GgrsNetId`, effets du personnage par
+index puis ceux des objets (passifs dans l'ordre de ramassage, puis l'actif). Deux exemplaires du
+même objet partagent leurs limites (clé identique). Un `Tick` d'objet compte depuis la première
+frame où le système voit l'objet. Lint : un effet d'objet suit `lint_effect` ; `OnUse` n'a de sens
+que sur un actif.
+
+**Contenu** : `gungeon` : `trefle` (soin à la salle nettoyée, une fois par étage), `cartouchiere`
+(cadence après un rechargement, cooldown 600), `amulette` (vie max et soin au ramassage, une charge).
+`testbed` : neuf objets d'essai (dont `sceau`, `OnBlank`) (`anneau_salle`, `semelles`, `semelles_lentes`, `bandoulier`,
+`bandoulier_comptee`, `talisman`, `boussole`, `porte_bonheur`), dont l'effet est un `Modifier(Damage,
+Add, 1)` : la valeur de `Stat(Damage)` compte les exécutions.
+
+**Scénarios** : `effect_on_room_clear`, `effect_on_dodge`, `effect_on_reload`, `effect_on_pickup`,
+`effect_on_floor_start` (aussi la recharge `PerFloor`), `effect_cooldown`, `effect_charges`
+(recharge `PerRoom`), `item_passive_effect` (`OnKill` d'un objet), `effect_on_blank` (passif
+`sceau` : +1 de dégâts à chaque Blank utilisée, `testbed`).
+
+**Règle d'engine : `add_frame_events_transient`** (M2-T3). Un événement émis dans des parties
+existantes et lu seulement dans la même frame (`DashStarted`, `ReloadFinished`) s'enregistre avec
+`add_frame_events_transient::<T>()` : file hors checksum et hors snapshot, vidée au `FrameStart`.
+Les lecteurs sont ordonnés `.after` l'émetteur (ici le système d'effets v2, après `Run`, donc
+après `Input` et `Weapon`) ; un lecteur placé avant verrait la file de la frame précédente. La
+variante neutre ne convient pas : sa file non vide est hachée et déplace les traces existantes
+dès qu'un dash ou un rechargement a lieu.
+
 ## 43. Esquive v2 (M2-T2, chantier B6)
 
 Code : `combat::actors::DashExtra` (état), `game::character::movement` (`DashConfig`, `DashEffect`,
