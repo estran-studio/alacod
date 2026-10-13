@@ -536,7 +536,7 @@ l'ancienne machine.
   patterns `Spiral`, `Fan`, `Burst` (séquences seedées), **blank** (efface les balles ennemies
   dans un rayon, charges par étage). Acceptation : un scénario par pattern, `bench_bullets` à 500
   balles en salle verrouillée dans le budget.
-- M2-T2 Esquive v2 (B6, 2 j) : charges de dash, variantes en données (distance, durée, i-frames,
+- M2-T2 Esquive v2 (B6, 2 j ; fiche `docs/taches/m2-t2-esquive-v2.md`, b0) : charges de dash, variantes en données (distance, durée, i-frames,
   effet : bousculade, sur place), sauter par-dessus les balles (i-frames contre projectiles
   seulement). Acceptation : `dash_*` existants identiques ou bénis avec preuve.
 
