@@ -6,13 +6,13 @@ Espace = objet actif, Q = blank. M2 est déjà lancée : vague 0 mergée, T10 en
 
 ## Verdict de sortie M1
 
-**Non à ce stade : revue humaine incomplète.** Une run solo humaine est archivée
-(11882 frames, graine 123456), avec deux passages jusqu'à `roi_rat` ; une deuxième
-run humaine, le restart et les jugements/décisions ci-dessous restent à recueillir.
+**Non à ce stade : revue humaine incomplète.** Deux enregistrements solo avec commandes sont archivés
+(11882 puis 39026 frames, graine 123456). La première comporte deux passages jusqu'à
+`roi_rat` ; résultat et constats de la seconde, restart et décisions restent à consigner.
 Les validations automatiques des correctifs ne remplacent pas ce dernier critère.
 Ce qui empêche de prononcer la sortie de M1 :
 
-- Deuxième run humaine encore sans constats et sans résultat consigné.
+- Deuxième run enregistrée, encore sans constats humains et sans résultat extrait.
 - Confirmation du ressenti après correctifs, restart humain et avis des huit points encore incomplets.
 - Décisions D28/D29/D34/D40b/D50/D54, difficulté du troisième étage et relecture du plan M2 encore absentes.
 
@@ -109,3 +109,14 @@ ARGS="--profile headless"` ; `ALACOD_RECORD=/tmp/alacod-m1-12a35292-solo-02.ron`
 `ALACOD_PERF_CSV=/tmp/alacod-m1-12a35292-solo-02.csv`, `RUST_LOG=warn`.
 Ce lancement ne vaut pas une deuxième run humaine terminée. Les résultats et
 les décisions seront ajoutés après le retour de William.
+
+## Mise à jour du 2026-10-13
+
+Le lancement du 2026-10-11 est maintenant archivé comme
+[deuxième run avec commandes](../../../tests/review-notes/m1-f53cd1ae-run-02/README.md),
+39026 frames, 2025 segments d'inputs. Le lancement précédent 02 était sans commandes.
+Sur 2466 mises à jour natives avec balles présentes : p95 17,29 ms, p99 17,70 ms,
+deux mises à jour >33,3 ms, au plus 22 balles. Le filtre ne représente pas tous
+les combats ; les samples complets sont conservés. Confirmation du ressenti,
+constats des huit points, restart et décisions de William encore manquants.
+Le résultat et l'étage de cette seconde run ne sont pas encore extraits.
