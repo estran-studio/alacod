@@ -17,6 +17,11 @@
 //!   JSON inchangés.
 //! - `--floors <id>` (T1.8) : mode `Floors` avec la séquence `id` du dossier `Floors` du jeu ;
 //!   le JSON rapporte `floor`, le niveau atteint (pas d'arrêt anticipé par niveau : T1.14).
+//! - `--boss-direct` (M2-T16) : les `explorateur` vont droit au boss (`bots::explorer::ExplorerOptions`).
+//! - M2-T16 : le JSON rapporte aussi `outcome` (classement de la graine : `victoire`, `objectif`,
+//!   `mort`, `soft-lock`, `plafond`, `desync`) et `rooms` (par étage atteint : salles typées,
+//!   salles où un joueur est entré, salles nettoyées) ; un résumé par issue finit la sortie
+//!   d'erreur.
 //!
 //! - `--seeds A..B` : graines `A` à `B` **inclusivement** (`1..50` = 50 graines, la carte est
 //!   générée avec `map_seed = graine`).
@@ -79,6 +84,56 @@ struct SimResult {
     players_end: Vec<PlayerEnd>,
     /// Revue M0 (S5) : une entrée par vague commencée (équilibrage des premières vagues).
     waves: Vec<WaveStat>,
+    /// M2-T16 : issue de la graine (voir [`outcome`]).
+    outcome: &'static str,
+    /// M2-T16 : salles par étage atteint (mode `Floors` avec salles typées), vide sinon.
+    #[serde(skip_serializing_if = "Vec::is_empty")]
+    rooms: Vec<FloorRooms>,
+}
+
+/// M2-T16 : salles typées d'un étage, hors simulation (relu dans `Last` à chaque frame).
+#[derive(Serialize, Clone, Debug, Default, PartialEq)]
+struct FloorRooms {
+    floor: u32,
+    /// Salles typées de l'étage.
+    total: u32,
+    /// Salles où un joueur debout est entré (bornes de la salle).
+    visited: u32,
+    /// Salles nettoyées (`RoomState::Cleared`).
+    cleared: u32,
+    /// Salles verrouillantes de l'étage (celles qu'il faut nettoyer).
+    locking: u32,
+}
+
+/// Accumulateur des salles (hors simulation) : par étage, salles vues et salles visitées.
+#[derive(Default)]
+struct RoomProbe {
+    floors: std::collections::BTreeMap<u32, (FloorRooms, std::collections::BTreeSet<String>)>,
+}
+
+/// M2-T16 : classement d'une graine. Ordre : desync, puis issue de la partie (victoire ou
+/// défaite = `mort`), objectif atteint (`--until-*`), mort de tous les joueurs, soft-lock
+/// `Floors`, plafond de frames.
+fn outcome(
+    desync: bool,
+    run_end: Option<&str>,
+    softlock: bool,
+    reached: bool,
+    all_dead: bool,
+) -> &'static str {
+    if desync {
+        "desync"
+    } else if run_end == Some("Victory") {
+        "victoire"
+    } else if reached {
+        "objectif"
+    } else if all_dead || run_end.is_some() {
+        "mort"
+    } else if softlock {
+        "soft-lock"
+    } else {
+        "plafond"
+    }
 }
 
 /// Revue M0 (S5) : relevé d'une vague, hors simulation (lu dans `Last` à chaque frame).
@@ -186,7 +241,7 @@ fn main() {
         .map(|name| {
             BotProfile::parse_name(name.trim()).unwrap_or_else(|| {
                 panic!(
-                    "--profiles : profil inconnu « {name} » (attendu : immobile, fonceur, prudent, chasseur, acheteur)"
+                    "--profiles : profil inconnu « {name} » (attendu : immobile, fonceur, prudent, chasseur, acheteur, explorateur)"
                 )
             })
         })
@@ -289,6 +344,9 @@ fn main() {
         let players_end_probe = players_end.clone();
         let wave_probe = std::sync::Arc::new(std::sync::Mutex::new(WaveProbe::default()));
         let wave_probe_sys = wave_probe.clone();
+        let room_probe = std::sync::Arc::new(std::sync::Mutex::new(RoomProbe::default()));
+        let room_probe_sys = room_probe.clone();
+        let boss_direct = args.iter().any(|arg| arg == "--boss-direct");
 
         let wall_start = Instant::now();
         // `InputSource::Bot` : aucun joueur scripté ici, contrairement aux scénarios RON qui
@@ -298,6 +356,53 @@ fn main() {
             &run_scenario,
             |app| {
                 app.insert_resource(InputSource::Bot);
+                app.insert_resource(bots::explorer::ExplorerOptions { boss_direct });
+                // M2-T16 : salles de l'étage courant, visitées et nettoyées (hors simulation)
+                app.add_systems(
+                    bevy::prelude::Last,
+                    move |rooms: map_ldtk::game::rooms::CurrentRooms,
+                          states: Option<bevy::prelude::Res<world::RoomStates>>,
+                          table: Option<bevy::prelude::Res<world::RoomKindTable>>,
+                          floor: Option<bevy::prelude::Res<run::FloorState>>,
+                          frame: Option<bevy::prelude::Res<utils::frame::FrameCount>>,
+                          players: bevy::prelude::Query<(
+                        &bevy_fixed::fixed_math::FixedTransform3D,
+                        bevy::prelude::Has<combat::downed::Downed>,
+                    ), bevy::prelude::With<combat::actors::Player>>| {
+                        if frame.is_none_or(|f| f.frame == 0) {
+                            return;
+                        }
+                        let index = floor.map_or(0, |f| f.index);
+                        let mut probe = room_probe_sys.lock().unwrap();
+                        let (stat, seen) = probe.floors.entry(index).or_default();
+                        stat.floor = index;
+                        let mut total = 0;
+                        let mut cleared = 0;
+                        let mut locking = 0;
+                        for (level, bounds, kind) in rooms.iter() {
+                            total += 1;
+                            if table.as_deref().is_some_and(|t| t.locks(&kind.0)) {
+                                locking += 1;
+                            }
+                            if states
+                                .as_deref()
+                                .is_some_and(|s| s.get(&level.0) == world::RoomState::Cleared)
+                            {
+                                cleared += 1;
+                            }
+                            let inside = players.iter().any(|(t, downed)| {
+                                !downed && bounds.contains(t.translation.truncate())
+                            });
+                            if inside {
+                                seen.insert(level.0.clone());
+                            }
+                        }
+                        stat.total = total;
+                        stat.cleared = cleared;
+                        stat.locking = locking;
+                        stat.visited = seen.len() as u32;
+                    },
+                );
                 // T1.14 : compteur d'esquives (hors simulation), relu en fin de graine
                 app.add_systems(
                     bevy::prelude::Last,
@@ -430,6 +535,12 @@ fn main() {
         }
 
         let deaths = (bots as u32).saturating_sub(outcome.metrics.players_alive);
+        let outcome_end = outcome.metrics.run_end.as_ref().map(|(issue, _)| issue.clone());
+        let outcome_softlock = outcome.softlock.is_some()
+            && outcome.metrics.frames < max_frames
+            && outcome.metrics.run_end.is_none();
+        let outcome_reached = until_wave.is_some_and(|n| outcome.metrics.final_wave >= n)
+            || until_floor.is_some_and(|n| outcome.metrics.final_floor >= n);
         let wave = outcome.metrics.final_wave;
         let frames_reached = outcome.metrics.frames;
         let kills = outcome.metrics.kills;
@@ -470,6 +581,18 @@ fn main() {
             doors_opened: outcome.events.iter().filter(|e| e.kind == "door").count() as u32,
             players_end: players_end.lock().unwrap().clone(),
             waves: std::mem::take(&mut wave_probe.lock().unwrap().waves),
+            outcome: outcome(
+                desync,
+                outcome_end.as_deref(),
+                outcome_softlock,
+                outcome_reached,
+                deaths == bots as u32,
+            ),
+            rooms: std::mem::take(&mut room_probe.lock().unwrap().floors)
+                .into_values()
+                .map(|(stat, _)| stat)
+                .filter(|stat| stat.total > 0)
+                .collect(),
         });
     }
 
@@ -478,6 +601,20 @@ fn main() {
         results.len(),
         run_started.elapsed().as_secs_f64()
     );
+    // M2-T16 : résumé par issue (graines de chaque classe)
+    let mut by_outcome: std::collections::BTreeMap<&str, Vec<i32>> = Default::default();
+    for result in &results {
+        by_outcome.entry(result.outcome).or_default().push(result.seed);
+    }
+    for (issue, seeds) in &by_outcome {
+        let list: Vec<String> = seeds.iter().take(40).map(|s| s.to_string()).collect();
+        eprintln!(
+            "alacod-sim : {issue} : {} graine(s) [{}{}]",
+            seeds.len(),
+            list.join(" "),
+            if seeds.len() > 40 { " …" } else { "" }
+        );
+    }
 
     let json = serde_json::to_string_pretty(&results).expect("sérialisation JSON");
     match &json_path {

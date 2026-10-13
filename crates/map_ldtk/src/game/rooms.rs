@@ -102,7 +102,9 @@ pub struct CurrentRooms<'w, 's> {
 }
 
 impl CurrentRooms<'_, '_> {
-    fn iter(&self) -> impl Iterator<Item = (&LevelId, &RoomBounds, &RoomKind)> {
+    /// Salles typées de l'étage courant (ordre de requête : à trier par l'appelant ; public pour
+    /// le bot `explorateur`, M2-T16, qui ne lit que l'état).
+    pub fn iter(&self) -> impl Iterator<Item = (&LevelId, &RoomBounds, &RoomKind)> {
         let current = self
             .plan
             .as_ref()

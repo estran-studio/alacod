@@ -18,6 +18,7 @@
 pub mod arms;
 pub mod decide;
 pub mod dodge;
+pub mod explorer;
 pub mod hunter;
 pub mod input;
 pub mod navigation;

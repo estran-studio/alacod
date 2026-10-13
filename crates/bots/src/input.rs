@@ -109,12 +109,14 @@ impl Plugin for BotsPlugin {
             KindDecl::new("bot", BotProfile::Prudent.name()),
             KindDecl::new("bot", BotProfile::Chasseur.name()),
             KindDecl::new("bot", BotProfile::Acheteur.name()),
+            KindDecl::new("bot", BotProfile::Explorateur.name()),
         ]);
 
         app.init_resource::<crate::navigation::BotNavigation>();
         app.init_resource::<DirectNavigation>();
         app.init_resource::<WeaponChoices>();
         app.init_resource::<EnemyMoves>();
+        app.init_resource::<crate::explorer::ExplorerOptions>();
         app.add_systems(
             OnEnter(game::core::AppState::InGame),
             |mut choices: ResMut<WeaponChoices>, mut moves: ResMut<EnemyMoves>| {
@@ -209,6 +211,7 @@ pub fn read_bot_inputs(
         character_configs,
         mut weapon_choices,
         mut enemy_moves,
+        explorer,
     ): (
         Query<
             (
@@ -232,6 +235,8 @@ pub fn read_bot_inputs(
         ResMut<WeaponChoices>,
         // m1-bots-apres-movement-feel : déplacement réel des ennemis (coincés)
         ResMut<EnemyMoves>,
+        // M2-T16 : salles, objets, inventaire et blank (profil `explorateur`)
+        crate::explorer::ExplorerWorld,
     ),
 ) {
     let Some(assignments) = assignments else {
@@ -292,6 +297,24 @@ pub fn read_bot_inputs(
         .iter()
         .map(|(id, t, _, _, _)| (id.0, t.translation.truncate()))
         .collect();
+    // M2-T16 : l'étage vu par les `explorateur` (mode `Floors`) ; leurs cibles sont les ennemis
+    // éveillés (un ennemi endormi est une salle à visiter, pas une cible).
+    let explore_frame = (floors_mode
+        && assignments
+            .0
+            .values()
+            .any(|profile| *profile == BotProfile::Explorateur))
+    .then(|| explorer.frame());
+    let awake_points: Vec<(usize, FixedVec2)> = enemy_points
+        .iter()
+        .filter(|(id, _)| {
+            explore_frame
+                .as_ref()
+                .is_none_or(|frame| !frame.dormant.contains(id))
+        })
+        .copied()
+        .collect();
+    let explorer_options = explorer.options();
     // Ennemis immobiles (tourelle : `MoveSpeed` de base nulle ; ennemi coincé : vitesse
     // nulle, ou sur place depuis `STUCK_FRAMES` malgré une vitesse voulue, m1-bots-apres-
     // movement-feel), voir `BotView::enemy_still`.
@@ -354,9 +377,19 @@ pub fn read_bot_inputs(
         }
 
         let position = transform.translation.truncate();
+        // M2-T16 : un `explorateur` ne voit que les ennemis éveillés (voir `awake_points`).
+        let exploring = profile == BotProfile::Explorateur;
+        let points_for: &[(usize, FixedVec2)] = if exploring {
+            &awake_points
+        } else {
+            &enemy_points
+        };
 
-        let nearest_enemy =
-            nearest_by_net_id(enemies_sorted.iter().map(|(id, enemy_transform, _, _, _)| {
+        let nearest_enemy = nearest_by_net_id(
+            enemies_sorted
+                .iter()
+                .filter(|(id, ..)| !exploring || points_for.iter().any(|(a, _)| *a == id.0))
+                .map(|(id, enemy_transform, _, _, _)| {
                 let enemy_position = enemy_transform.translation.truncate();
                 let distance = position.distance(&enemy_position);
                 (
@@ -367,7 +400,8 @@ pub fn read_bot_inputs(
                         distance,
                     },
                 )
-            }));
+            }),
+        );
 
         let nearest_window = nearest_by_net_id(windows_sorted.iter().map(
             |(id, window_transform, window_health)| {
@@ -465,10 +499,11 @@ pub fn read_bot_inputs(
             loot: None,
             loot_interact: false,
             fire_range: None,
+            explore: None,
         };
 
         let mut view = view;
-        if floors_mode && matches!(profile, BotProfile::Prudent | BotProfile::Fonceur) {
+        if floors_mode && directed(profile) {
             if let Some(collider) = collider {
                 let rects = geometry_rects.get_or_insert_with(|| {
                     order_iter!(geometry)
@@ -485,12 +520,12 @@ pub fn read_bot_inputs(
                         .collect()
                 });
                 let body = AgentBody::from_collider(collider);
-                view.enemy_still = profile == BotProfile::Prudent
+                view.enemy_still = prudent_like(profile)
                     && view
                         .nearest_enemy
                         .is_some_and(|enemy| still_points.contains(&enemy.position));
                 let (visible, route) =
-                    navigate(&mut nav.0, rects, &body, &enemy_points, &view, profile);
+                    navigate(&mut nav.0, rects, &body, points_for, &view, profile);
                 view.enemy_visible = visible;
                 view.enemy_shootable = visible
                     || view.nearest_enemy.is_some_and(|enemy| {
@@ -507,9 +542,7 @@ pub fn read_bot_inputs(
 
         // m1-v3-bots-reanimation : relever un coéquipier à terre en l'absence de menace
         // immédiate (même règle que `chasseur`/`acheteur`), en `Floors` comme en vagues.
-        if matches!(profile, BotProfile::Prudent | BotProfile::Fonceur)
-            && downed.is_none()
-            && surfaces.iter().any(|(.., revive)| *revive)
+        if directed(profile) && downed.is_none() && surfaces.iter().any(|(.., revive)| *revive)
         {
             let threat = view
                 .nearest_enemy
@@ -533,17 +566,14 @@ pub fn read_bot_inputs(
                     &mut nav.0,
                     rects,
                     &AgentBody::from_collider(collider),
-                    &enemy_points,
+                    points_for,
                     position,
                     &surfaces,
                 );
             }
         }
 
-        if floors_mode
-            && matches!(profile, BotProfile::Prudent | BotProfile::Fonceur)
-            && downed.is_none()
-        {
+        if floors_mode && directed(profile) && downed.is_none() {
             // m1-v3-bots-armes : armes portées vues par leur config (mode courant), portée de
             // l'arme en main, choix d'arme (`arms`, hystérésis par `WeaponChoices`).
             let arms_views: Vec<WeaponView> = inventory
@@ -617,7 +647,7 @@ pub fn read_bot_inputs(
                         &mut nav.0,
                         rects,
                         &AgentBody::from_collider(collider),
-                        &enemy_points,
+                        points_for,
                         position,
                         &powerups,
                         &wanted,
@@ -630,7 +660,41 @@ pub fn read_bot_inputs(
             }
         }
 
-        if profile == BotProfile::Prudent && crate::dodge::dodge(&view).is_some() {
+        // M2-T16 : exploration de l'étage et blank (`explorateur`, mode `Floors`).
+        if exploring && downed.is_none() {
+            if let (Some(frame_data), Some(collider), Some(rects)) =
+                (explore_frame.as_ref(), collider, geometry_rects.as_ref())
+            {
+                let holder = explorer.holder(player.handle);
+                let mut explore = crate::explorer::ExploreView {
+                    blank: crate::explorer::should_blank(&view, holder),
+                    ..Default::default()
+                };
+                if view.nearest_enemy.is_none() {
+                    nav.0.update_from(
+                        rects,
+                        &AgentBody::from_collider(collider),
+                        points_for,
+                        position,
+                    );
+                    if let Some((direction, interact)) = crate::explorer::explore_step(
+                        &mut nav.0,
+                        frame_data,
+                        holder,
+                        position,
+                        view.portal.is_some(),
+                        explorer_options.boss_direct,
+                        &surfaces,
+                    ) {
+                        explore.direction = Some(direction);
+                        explore.interact = interact;
+                    }
+                }
+                view.explore = Some(explore);
+            }
+        }
+
+        if prudent_like(profile) && crate::dodge::dodge(&view).is_some() {
             dodged = true;
         }
         let input = decide_with_lazy_rng(&mut rng_streams, profile, &view);
@@ -664,8 +728,7 @@ fn navigate(
         let visible = crate::navigation::walls_clear(geometry, position, enemy.position);
         let needed = !visible
             || (view.enemy_still && enemy.distance > crate::decide::STILL_TARGET_DISTANCE)
-            || (profile == BotProfile::Prudent
-                && enemy.distance > crate::decide::PRUDENT_MAX_DISTANCE);
+            || (prudent_like(profile) && enemy.distance > crate::decide::PRUDENT_MAX_DISTANCE);
         if !needed {
             return (visible, None);
         }
@@ -711,6 +774,20 @@ fn navigate(
     (false, route)
 }
 
+/// Profils qui passent par la vue de `prudent`/`fonceur` en mode `Floors` (navigation,
+/// réanimation, armes et ramassage) : `explorateur` (M2-T16) en plus.
+fn directed(profile: BotProfile) -> bool {
+    matches!(
+        profile,
+        BotProfile::Prudent | BotProfile::Fonceur | BotProfile::Explorateur
+    )
+}
+
+/// `explorateur` (M2-T16) se bat comme `prudent` (bande de distance, ennemi immobile, esquive).
+fn prudent_like(profile: BotProfile) -> bool {
+    matches!(profile, BotProfile::Prudent | BotProfile::Explorateur)
+}
+
 /// Aucun ennemi visible à moins de cette distance : un bot `prudent`/`fonceur` peut relever un
 /// coéquipier à terre (même seuil que `chasseur`/`acheteur`, `crate::hunter`).
 pub const REVIVE_SAFE_DISTANCE: Fixed = Fixed::from_bits(150 << 16);
@@ -754,7 +831,7 @@ fn revive_step(
 /// portée − 8 par le chemin ; à portée, Interaction seulement si le jeu sélectionnerait bien
 /// cette surface (la plus proche à portée), sinon approche encore. Réanimation
 /// (m1-v3-bots-reanimation) et arme au sol (m1-v3-bots-armes).
-fn surface_step(
+pub(crate) fn surface_step(
     nav: &mut crate::navigation::BotNavigation,
     position: FixedVec2,
     surfaces: &[(usize, Rect, Fixed, bool)],
@@ -839,7 +916,7 @@ fn pickup_step(
 /// Composante annulée sous laquelle une direction de route ne presse pas son axe.
 const ROUTE_DEAD_ZONE: Fixed = Fixed::from_bits(2 << 16);
 
-fn dead_zone(direction: FixedVec2) -> FixedVec2 {
+pub(crate) fn dead_zone(direction: FixedVec2) -> FixedVec2 {
     let keep = |c: Fixed| {
         if c.abs() < ROUTE_DEAD_ZONE {
             Fixed::ZERO
