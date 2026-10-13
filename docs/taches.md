@@ -543,7 +543,7 @@ l'ancienne machine.
 **V1b effets et objets**
 - M2-T3 Effets v2 (C1 v2, 3 j ; fiche `docs/taches/m2-t3-effets-v2.md`, b1) : déclencheurs `OnRoomClear`, `OnDash`, `OnBlank`, `OnReload`,
   `OnPickup`, `OnFloorStart` ; conditions ; cooldowns et charges.
-- M2-T4 Objets et synergies (C2, 4 j) : passifs (modificateurs), actifs à cooldown par salles,
+- M2-T4 Objets et synergies (C2, 4 j ; fiche `docs/taches/m2-t4-objets-synergies.md`, b1) : passifs (modificateurs), actifs à cooldown par salles,
   consommables, synergie (paire d'objets → effet ajouté).
 - M2-T5 Butin, coffres, clés (C4, 3 j) : pools pondérés seedés par rareté, coffres verrouillés
   (clé consommée), récompense à la sortie de salle (`OnRoomClear`), tables par étage.
