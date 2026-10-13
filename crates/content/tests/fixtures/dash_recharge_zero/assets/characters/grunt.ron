@@ -1,0 +1,17 @@
+// M2-T2 : charges sans durée de recharge.
+(
+    movement: (
+        max_speed: "60.0",
+        dash_duration_frames: 8,
+        dash_charges: Some(2),
+    ),
+
+    asset_name_ref: "grunt",
+    base_health: (
+        max: "60.0",
+    ),
+    starting_skin: "1",
+    skins: {
+        "1": (layers: {}),
+    },
+)

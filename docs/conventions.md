@@ -2734,3 +2734,60 @@ sans les révéler entièrement. Le champ de vision révèle ensuite les seules 
 vue. Ce filtre empêche une vue par une fenêtre extérieure de dévoiler les objets d'une
 pièce encore fermée. Lorsqu'une partie d'une porte est en vue, sa face complète reste
 lisible dans les cases de mur du passage ; cela ne révèle aucune case intérieure.
+
+## 43. Esquive v2 (M2-T2, chantier B6)
+
+Code : `combat::actors::DashExtra` (état), `game::character::movement` (`DashConfig`, `DashEffect`,
+`IframesKind`, `MovementConfig::resolve_dash`), `game::character::player::input::apply_inputs`
+(lancement), `game::character::dash::dash_shove_system` (bousculade), `content::lint::lint_dash`.
+
+**`DashState` ne change pas.** Il est sous checksum et porté par tous les joueurs : le moindre champ
+de plus déplacerait toutes les traces dès la frame 0. L'état nouveau vit dans un composant séparé,
+`DashExtra { charges, max_charges, recharge_remaining, projectile_iframes_until, shove_force }`,
+enregistré en variante **neutre** (`rollback_and_trace_neutral`) et posé à la création
+(`character::create`) **seulement** si le personnage déclare `dash: Some(..)` ou
+`movement.dash_charges`. Aucun porteur ailleurs : zombies, testbed, throne gardent leurs traces.
+`is_dashing` passe à vrai à la frame de l'appui, comme en v1 (M2-T3 y branche `OnDodge`).
+
+**Réglage.** `MovementConfig` gagne `dash_charges: Option<u32>` et `dash_recharge_frames`. Le RON
+du personnage gagne `dash: Option<DashConfig>` ; chaque champ absent retombe sur le réglage v1 de
+`movement` : `distance`, `duration_frames`, `cooldown_frames`, `iframes`, `iframes_kind`
+(`All` v1 / `Projectiles`), `effect` (`Roll` v1 / `Shove` / `InPlace`, nouveaux effets en fin d'enum),
+`shove_force`, `charges`, `recharge_frames`.
+```ron
+dash: Some((iframes_kind: Projectiles, charges: Some(2), recharge_frames: Some(60))),
+```
+
+**Charges.** Sans `charges` : v1 exact, le cooldown seul règle le rythme. Avec : un dash consomme une
+charge (refusé à zéro, l'appui est gardé par le buffer comme en v1), `dash_cooldown_frames` reste
+l'écart minimal entre deux dashs, une charge est rendue `recharge_frames` frames après la
+consommation de la première manquante (le décompte repart tant qu'il en manque). Le test et le
+décompte sont dans `apply_inputs`, avant le lancement : une charge rendue à la frame F est utilisable à F.
+
+**Variantes.** `Roll` : v1. `Shove` : pendant le dash, chaque ennemi dont le collider touche celui du
+joueur reçoit `Velocity.knockback = direction du dash × shove_force` (assigné, pas cumulé ; l'amortissement
+habituel s'applique), ordre `GgrsNetId`. `InPlace` : distance 0 (les pas sont nuls), seulement les
+i-frames ; pas de tir pendant la durée, comme tout dash.
+
+**I-frames contre projectiles.** `iframes_kind: Projectiles` n'écrit **pas**
+`Health.invulnerable_until_frame` : `DashExtra.projectile_iframes_until` (dernière frame comprise),
+lu par la collision des balles (`weapons/mod.rs`) et des projectiles composables
+(`projectile.rs`) ; elles traversent le porteur sans être consommées. La mêlée, les contacts, la
+ruée (`Charge`) et tout autre dégât le touchent. `All` (défaut) : v1.
+
+**Lint** (`OutOfRange`, seulement pour un personnage qui déclare `dash` ou `dash_charges`) :
+`dash_charges = 0`, `dash_recharge_frames = 0` avec des charges, durée 0 hors `InPlace`, i-frames
+plus longues que la durée. Fixtures `dash_charges_zero`, `dash_recharge_zero`, `dash_duration_zero`,
+`dash_iframes_over_duration`.
+
+**Scénarios** : champ `dash` de `PlayerScript` (réglage de scénario, `DashOverride` + `DashExtra`
+posés avant la première frame par `apply_player_overrides` ; conservé au ré-enregistrement) pour
+essayer une variante sans changer le contenu des jeux. `dash_charges` (gungeon : deux dashs à f15 et
+f45, le troisième, refusé, part à f76 quand la charge de f15 est rendue), `dash_shove` (un
+`follower` projeté, 52 px derrière contre 30 pour `Roll`), `dash_in_place` (position inchangée,
+`NoDamageBetween` sur les i-frames), `dash_jump_bullets` (les balles de la `tourelle_salve` traversent,
+la ruée du `charger` touche dans la même fenêtre).
+
+**Contenu** : `gungeon/characters/pistolero.ron` : deux charges (une rendue toutes les 60 frames),
+i-frames contre projectiles seulement. Les traces `gungeon` ne bougent qu'à cause de ce nouveau
+composant (voir le rapport).

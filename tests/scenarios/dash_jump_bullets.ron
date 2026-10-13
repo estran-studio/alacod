@@ -1,0 +1,37 @@
+// M2-T2 (docs/conventions.md §43) : saut par-dessus les balles (`iframes_kind: Projectiles`, dash sur
+// place de 16 frames imposé au joueur par le scénario). La `tourelle_salve` (placée à f5, 96 px à
+// droite) tire sur le joueur des salves de balles de 5 dégâts ; un `charger` placé à f30, 84 px à
+// gauche, télégraphe 30 frames puis fonce : son dégât de contact (15) n'est pas un projectile.
+// Appui à f62 (effectif f67) : les i-frames contre projectiles couvrent f67 à f82.
+//
+// À regarder : pendant le saut les balles traversent le joueur (sans le dash, trois balles de plus
+// le touchent de f68 à f76, 80 -> 55 PV avec la ruée) alors que le coup de la ruée le touche (f78,
+// -15 PV) ; une balle le touche à la fin du saut (f84).
+Scenario(
+    powerup_drop_chance_override: "0.0",
+    game: "testbed",
+    map: "testbed/arena.ldtk",
+    frames: 130,
+    characters: [
+        (character: "tourelle_salve", x: "520.0", y: "696.0", at_frame: 5),
+        (character: "charger", x: "340.0", y: "696.0", at_frame: 30),
+    ],
+    players: [
+        (
+            dash: Some((effect: InPlace, duration_frames: Some(16), iframes: Some(16), iframes_kind: Projectiles, cooldown_frames: Some(30))),
+            inputs: [
+                (from: 62, to: 63, buttons: [Dash]),
+            ],
+        ),
+    ],
+    expect: [
+        // Avant le saut : trois balles ont touché (100 -> 85)
+        Health(handle: 0, min: 85.0, max: 85.0, at_frame: 66),
+        // Pendant le saut : les balles de f68 et f74 le traversent
+        Health(handle: 0, min: 85.0, max: 85.0, at_frame: 75),
+        // La ruée du charger le touche malgré le saut
+        Health(handle: 0, min: 70.0, max: 70.0, at_frame: 79),
+        // Fin du saut : les balles touchent de nouveau
+        Health(handle: 0, min: 65.0, max: 65.0, at_frame: 86),
+    ],
+)

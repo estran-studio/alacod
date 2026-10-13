@@ -46,6 +46,11 @@ pub struct CharacterSkin {
 pub struct CharacterConfig {
     pub movement: MovementConfig,
 
+    /// Dash nommé (M2-T2, §43) : distance, durée, i-frames, effet de variante, charges. Absent :
+    /// le réglage v1 de `movement`.
+    #[serde(default)]
+    pub dash: Option<crate::character::movement::DashConfig>,
+
     pub asset_name_ref: String,
 
     pub base_health: HealthConfig,

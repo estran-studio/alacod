@@ -1572,6 +1572,7 @@ pub fn bullet_rollback_collision_system(
             &GgrsNetId,
             &Team,
             &Health,
+            Option<&crate::actors::DashExtra>,
         ),
         (Without<Bullet>, With<Rollback>),
     >,
@@ -1633,8 +1634,14 @@ pub fn bullet_rollback_collision_system(
         }
 
         for char_entry in grids.characters.query_aabb(&swept_aabb) {
-            let Ok((target_transform, target_collider, target_net_id, target_team, target_health)) =
-                target_query.get(char_entry.entity)
+            let Ok((
+                target_transform,
+                target_collider,
+                target_net_id,
+                target_team,
+                target_health,
+                target_dash,
+            )) = target_query.get(char_entry.entity)
             else {
                 continue;
             };
@@ -1644,6 +1651,7 @@ pub fn bullet_rollback_collision_system(
                 bullet.friendly_fire,
                 &bullet.tags,
             ) || target_health.is_invulnerable_at(frame.frame)
+                || target_dash.is_some_and(|dash| dash.projectile_invulnerable_at(frame.frame))
             {
                 continue;
             }

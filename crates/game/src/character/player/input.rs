@@ -16,6 +16,7 @@ use crate::character::config::{CharacterConfig, CharacterConfigHandles};
 use crate::character::dash::DashState;
 use crate::character::health::Health;
 use crate::character::movement::{grip, run_velocity, SprintState, Velocity};
+use crate::character::movement::{DashEffect, IframesKind};
 use crate::character::player::{control::PlayerAction, Player};
 use crate::collider::{is_colliding, Collider, CollisionLayer, CollisionSettings};
 
@@ -397,6 +398,8 @@ pub fn apply_inputs(
             // lecture des inputs : un rejeu `Scripted` doit rester identique).
             Option<&combat::status::Statuses>,
             Option<&mut Health>,
+            Option<&mut combat::actors::DashExtra>,
+            Option<&crate::character::dash::DashOverride>,
         ),
         With<Rollback>,
     >,
@@ -416,6 +419,8 @@ pub fn apply_inputs(
         is_downed,
         statuses,
         health,
+        mut dash_extra,
+        dash_override,
     ) in order_mut_iter!(query)
     {
         let Some(config) = character_configs.get(&config_handles.config) else {
@@ -457,28 +462,65 @@ pub fn apply_inputs(
         // cette frame et sort à la vitesse de course. À terre ou étourdi (T1.3) : pas de dash,
         // même d'un appui gardé d'avant le statut.
         dash_state.begin_frame();
+        let dash = movement.resolve_dash(dash_override.map(|o| &o.0).or(config.dash.as_ref()));
+        if let Some(extra) = dash_extra.as_deref_mut() {
+            extra.tick_recharge(dash.recharge_frames);
+        }
         let requested =
             dash_state.read_button(input.buttons & INPUT_DASH != 0, movement.dash_buffer_frames);
-        if requested && !is_downed && !incapacitated && dash_state.can_dash() {
+        // Charges (M2-T2) : sans `DashExtra`/charges, le cooldown seul règle le rythme (v1)
+        let has_charge = match (dash.charges, dash_extra.as_deref()) {
+            (Some(_), Some(extra)) => extra.charges > 0,
+            _ => true,
+        };
+        if requested && !is_downed && !incapacitated && dash_state.can_dash() && has_charge {
             dash_state.start_dash(
                 dash_direction(&input, *facing_direction),
-                movement.dash_distance,
-                movement.dash_duration_frames,
+                dash.distance,
+                dash.duration_frames,
                 move_speed * dt,
-                movement.dash_cooldown_frames,
+                dash.cooldown_frames,
             );
-            // Invulnérable les `dash_iframes` premières frames, celle-ci comprise
-            // (`rollback_resolve_damage_events` compare la frame du coup à cette borne)
-            if let (Some(mut health), true) = (health, movement.dash_iframes > 0) {
-                let until = frame.frame + movement.dash_iframes - 1;
-                health.invulnerable_until_frame = Some(
-                    health
-                        .invulnerable_until_frame
-                        .map_or(until, |current| current.max(until)),
-                );
+            if let Some(extra) = dash_extra.as_deref_mut() {
+                if dash.charges.is_some() {
+                    extra.spend_charge(dash.recharge_frames);
+                }
+                extra.shove_force = if dash.effect == DashEffect::Shove {
+                    dash.shove_force
+                } else {
+                    fixed_math::FIXED_ZERO
+                };
+            }
+            // Invulnérable les `iframes` premières frames, celle-ci comprise
+            // (`rollback_resolve_damage_events` compare la frame du coup à cette borne) ;
+            // `Projectiles` : état à part, lu seulement par la collision des balles.
+            if dash.iframes > 0 {
+                let until = frame.frame + dash.iframes - 1;
+                match (dash.iframes_kind, dash_extra.as_deref_mut(), health) {
+                    (IframesKind::Projectiles, Some(extra), _) => {
+                        extra.projectile_iframes_until = Some(
+                            extra
+                                .projectile_iframes_until
+                                .map_or(until, |current| current.max(until)),
+                        );
+                    }
+                    (_, _, Some(mut health)) => {
+                        health.invulnerable_until_frame = Some(
+                            health
+                                .invulnerable_until_frame
+                                .map_or(until, |current| current.max(until)),
+                        );
+                    }
+                    _ => {}
+                }
             }
         } else {
             dash_state.age_buffer();
+        }
+        if !dash_state.is_dashing {
+            if let Some(extra) = dash_extra.as_deref_mut() {
+                extra.shove_force = fixed_math::FIXED_ZERO;
+            }
         }
         // Pendant le dash, son pas est une vitesse appliquée par move_characters, qui gère
         // les collisions (un dash s'arrête aux murs au lieu de les traverser)
