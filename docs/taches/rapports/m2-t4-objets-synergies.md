@@ -38,4 +38,9 @@ Branche `m2-t4-objets-synergies` depuis `main` (61cccdbf). Conventions : §44.
 
 ## Vérifications
 
-- Traces existantes : voir ci-dessous (suite complète).
+- `make test_crates` : 0 (tous verts). `make test_scenarios` (suite complète) : 0, 7712 s.
+- Traces existantes : aucune ne bouge, aucun `BLESS` sur un scénario existant ; seules 5 traces nouvelles
+  (`synergy_pair`, `synergy_lost`, `item_active_per_floor`, `item_active_cost`, `consumable_heal`).
+- `make lint` ×4 (zombies, testbed, throne, gungeon) : aucune erreur. `cargo fmt --all -- --check` propre.
+- `make gen` ×4 : exit 0, aucun fichier modifié.
+- p2p à deux clients sur `gungeon` (port 3556, 600 frames) : traces identiques, 599 lignes.
