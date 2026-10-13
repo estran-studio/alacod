@@ -70,6 +70,57 @@ pub fn update_weapon_sprite_direction(
     }
 }
 
+/// Présentation (D56) : l'arme active d'un ennemi à distance regarde sa cible. `CursorPosition`
+/// n'existe que pour les joueurs (`system_weapon_position`), l'arme d'un ennemi gardait sa
+/// rotation de création. Direction : la visée figée de son émetteur pendant un pattern, sinon
+/// sa cible de déplacement (`EnemyPath`). N'écrit que le `Transform` bevy (après la synchro
+/// depuis `FixedTransform3D`) : la simulation et les traces ne changent pas.
+pub fn aim_enemy_weapons(
+    enemies: Query<
+        (
+            &fixed_math::FixedTransform3D,
+            &WeaponInventory,
+            Option<&combat::emitter::Emitter>,
+            Option<&crate::character::enemy::ai::pathing::EnemyPath>,
+        ),
+        With<combat::actors::Enemy>,
+    >,
+    mut weapons: Query<(&mut Transform, Option<&Children>), With<Weapon>>,
+    mut sprites: Query<&mut Sprite>,
+) {
+    for (enemy_transform, inventory, emitter, path) in enemies.iter() {
+        let Some((weapon, _)) = inventory.weapons.get(inventory.active_weapon_index) else {
+            continue;
+        };
+        let Ok((mut transform, children)) = weapons.get_mut(*weapon) else {
+            continue;
+        };
+        let direction = match (emitter, path) {
+            (Some(emitter), _) if emitter.aim != fixed_math::FixedVec2::ZERO => {
+                Vec2::new(emitter.aim.x.to_num::<f32>(), emitter.aim.y.to_num::<f32>())
+            }
+            (_, Some(path)) => {
+                Vec2::new(
+                    path.target_position.x.to_num::<f32>(),
+                    path.target_position.y.to_num::<f32>(),
+                ) - fixed_math::fixed_to_vec3(enemy_transform.translation).truncate()
+            }
+            _ => continue,
+        };
+        if direction.length_squared() < 1e-6 {
+            continue;
+        }
+        let angle = direction.y.atan2(direction.x);
+        transform.rotation = Quat::from_rotation_z(angle);
+        // Le sprite se retourne quand la visée passe à gauche (comme pour un joueur).
+        for child in children.into_iter().flat_map(|c| c.iter()) {
+            if let Ok(mut sprite) = sprites.get_mut(child) {
+                sprite.flip_y = direction.x < 0.0;
+            }
+        }
+    }
+}
+
 /// Sprites des armes, effets de slash et UI de debug. Ajouté par `PresentationPlugin`.
 pub struct WeaponPresentationPlugin;
 
@@ -88,6 +139,11 @@ impl Plugin for WeaponPresentationPlugin {
                 spawn_slash_effects,
                 update_slash_effects,
             ),
+        );
+        // Après la synchro Transform <- FixedTransform3D (core.rs), qui réécrit la rotation.
+        app.add_systems(
+            PostUpdate,
+            aim_enemy_weapons.after(fixed_math::sync_bevy_transforms_from_fixed),
         );
     }
 }

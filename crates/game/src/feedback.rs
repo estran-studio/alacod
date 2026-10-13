@@ -131,14 +131,20 @@ pub struct TelegraphShape {
     pub remaining: u32,
 }
 
+/// Portée de tir (`Shoot.range`) d'un ennemi à distance, en pixels.
+fn ranged_range(ai: Option<&EnemyAiConfig>) -> Option<f32> {
+    ai?.ranged.as_ref().map(|r| r.range.to_num::<f32>())
+}
+
 /// Télégraphe en cours d'un personnage : phase `Telegraph` d'une `Charge` (cercle au point
 /// visé, figé, de rayon `attack_range`), sinon pas `Telegraph` d'un émetteur (cercle autour
-/// du porteur, de rayon la plus grande portée de sa table de projectiles).
+/// du porteur, de rayon la portée du tir annoncé).
 pub fn telegraph_shape(
     now: u32,
     position: Vec2,
     emitter: Option<&Emitter>,
     charge: Option<(&ChargePhase, &EnemyAiConfig)>,
+    ranged_range: Option<f32>,
 ) -> Option<TelegraphShape> {
     if let Some((ChargePhase::Telegraph { until, target }, ai_config)) = charge {
         return Some(TelegraphShape {
@@ -149,11 +155,15 @@ pub fn telegraph_shape(
     }
     let emitter = emitter?;
     let remaining = emitter.telegraphing()?;
+    // D57 : la portée du tir annoncé, pas la plus grande de la table (le télégraphe couvrait la
+    // carte entière pour `roi_rat`) ; repli sur la table si le pattern n'est pas résolu.
+    // et bornée par la portée de tir de l'ennemi (`Shoot.range`, 260 px pour `roi_rat`) : la
+    // zone lisible, pas la distance parcourue par la balle.
     let radius = emitter
-        .table
-        .values()
-        .map(|projectile| projectile.range.to_num::<f32>())
-        .fold(0.0, f32::max);
+        .telegraphed_range()
+        .or_else(|| emitter.max_range())
+        .map_or(0.0, |range| range.to_num::<f32>());
+    let radius = ranged_range.map_or(radius, |limit| radius.min(limit));
     Some(TelegraphShape {
         center: position,
         radius,
@@ -325,7 +335,9 @@ fn record_feedback_cues(
             transform.translation.y.to_num::<f32>(),
         );
         let charge = runtime.zip(*ai_config).map(|(r, ai)| (&r.charge, ai));
-        let Some(shape) = telegraph_shape(now, position, *emitter, charge) else {
+        let Some(shape) =
+            telegraph_shape(now, position, *emitter, charge, ranged_range(*ai_config))
+        else {
             continue;
         };
         current.insert(net_id.0);
@@ -673,7 +685,13 @@ fn draw_telegraphs(
             continue;
         }
         let charge = runtime.zip(ai_config).map(|(r, ai)| (&r.charge, ai));
-        let Some(shape) = telegraph_shape(frame.frame, position, emitter, charge) else {
+        let Some(shape) = telegraph_shape(
+            frame.frame,
+            position,
+            emitter,
+            charge,
+            ranged_range(ai_config),
+        ) else {
             continue;
         };
         // Durée totale : frames restantes au premier tick vu.
@@ -722,12 +740,13 @@ mod telegraph_tests {
             until: 90,
             target: (fixed_math::new(100.0), fixed_math::new(-20.0)),
         };
-        let shape = telegraph_shape(70, Vec2::new(5.0, 5.0), None, Some((&phase, &ai))).unwrap();
+        let shape =
+            telegraph_shape(70, Vec2::new(5.0, 5.0), None, Some((&phase, &ai)), None).unwrap();
         assert_eq!(shape.center, Vec2::new(100.0, -20.0));
         assert_eq!(shape.radius, 40.0);
         assert_eq!(shape.remaining, 20);
         assert_eq!(
-            telegraph_shape(70, Vec2::ZERO, None, Some((&ChargePhase::Idle, &ai))),
+            telegraph_shape(70, Vec2::ZERO, None, Some((&ChargePhase::Idle, &ai)), None),
             None
         );
     }
@@ -739,12 +758,39 @@ mod telegraph_tests {
             Pattern::Named("x".into()),
         ]));
         let mut never = || -> Fixed { panic!() };
-        assert!(telegraph_shape(0, Vec2::ZERO, Some(&e), None).is_none());
+        assert!(telegraph_shape(0, Vec2::ZERO, Some(&e), None, None).is_none());
         let _ = e.tick(1, &mut never);
-        let shape = telegraph_shape(1, Vec2::new(3.0, 4.0), Some(&e), None).unwrap();
+        let shape = telegraph_shape(1, Vec2::new(3.0, 4.0), Some(&e), None, None).unwrap();
         assert_eq!(shape.center, Vec2::new(3.0, 4.0));
         assert_eq!(shape.radius, 150.0);
         assert_eq!(shape.remaining, 30);
+    }
+
+    #[test]
+    fn emetteur_rayon_de_la_portee_du_tir_annonce() {
+        // Deux salves : la première annoncée (courte), la seconde après un autre télégraphe.
+        let mut e = emitter(Pattern::Sequence(vec![
+            Pattern::Telegraph(30),
+            Pattern::Ring {
+                count: 8,
+                speed: fixed_math::new(60.0),
+                projectile: "court".into(),
+                every: 0,
+            },
+            Pattern::Telegraph(20),
+            Pattern::Aimed {
+                count: 1,
+                spread: Fixed::ZERO,
+                projectile: "long".into(),
+            },
+        ]));
+        let mut never = || -> Fixed { panic!() };
+        let _ = e.tick(1, &mut never);
+        let shape = telegraph_shape(1, Vec2::ZERO, Some(&e), None, None).unwrap();
+        assert_eq!(shape.radius, 60.0);
+        // Bornée par la portée de tir de l'ennemi.
+        let bounded = telegraph_shape(1, Vec2::ZERO, Some(&e), None, Some(40.0)).unwrap();
+        assert_eq!(bounded.radius, 40.0);
     }
 }
 
