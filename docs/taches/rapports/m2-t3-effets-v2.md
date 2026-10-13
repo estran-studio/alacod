@@ -1,0 +1,77 @@
+# Rapport m2-t3-effets-v2 (M2-T3, effets v2, voie V1b)
+
+Branche `m2-t3-effets-v2` depuis `main` (6c712e25). Conventions : §42.
+
+## Livré
+
+- **Déclencheurs** `OnRoomClear`, `OnDodge`, `OnReload`, `OnPickup`, `OnFloorStart` exécutés ;
+  `OnBlank` branché après la fusion de M2-T1 (7f61e5c5) : `apply_triggered_effects_system` lit
+  `FrameEvents<BlankUsed>` du porteur et tourne `.after(blank_system)` (qui émet dans `Effects`) ;
+  les fixtures de lint « non supporté » utilisent désormais `OnEvent`.
+- **Conditions** `Carrying` et `SquadSize` ; `TargetInRange` laissée en contrat.
+- **Cooldown / charges / recharge** (`PerRoom`, `PerFloor`), état dans `EffectState::limits`.
+- **Effets passifs des objets** lus dans l'`Inventory` (choix justifié en §42).
+- **Lint** à jour + fixtures (`effect_limits_invalid`, `effect_unsupported`, `item_effect_unsupported`).
+- **Contenu** gungeon : `trefle`, `cartouchiere`, `amulette` ; testbed : huit objets d'essai.
+- **Scénarios** : `effect_on_room_clear`, `effect_on_dodge`, `effect_on_reload`, `effect_on_pickup`,
+  `effect_on_floor_start`, `effect_cooldown`, `effect_charges`, `item_passive_effect`.
+
+## Choix et pièges
+
+- **Événements plutôt que détection d'état** : `DashStarted` et `ReloadFinished`
+  (`sim_core::triggers`) sont émis là où le fait a lieu (`Option<ResMut<FrameEvents<_>>>`, donc
+  sans effet si la file n'est pas enregistrée). Le rechargement n'émet que quand le chargeur est
+  réellement rempli.
+- **Deux systèmes** : le système v1 (`DeathManagement`) garde `OnKill`/`OnDamageTaken`/`Tick`/
+  `OnGauge`/`OnLevelUp` ; `RoomChanged` est émis dans `Run` et vidé au `FrameStart` suivant, donc
+  les déclencheurs v2 vivent dans un second système après `Run` (et après `item_charge_system`, qui
+  écrit `Inventory` : sans cet ordre bevy refuse le planning, ambiguïté d'accès).
+- **`OnRoomClear` = salle du porteur** : position du porteur dans les bornes de la salle de
+  l'événement (`LevelId` + `RoomBounds`), exact même quand les salles de plusieurs étages se
+  recouvrent (§40).
+- **`OnFloorStart` et le premier étage** : un porteur présent aux frames 0–1 déclenche à l'étage 0 ;
+  un objet ramassé en cours d'étage ne se déclenche qu'au prochain (testé dans
+  `effect_on_floor_start` : pas de +1 au ramassage).
+- **Hash** : `Effect` et `EffectState` hachent leurs nouveaux champs seulement s'ils sont non vides ;
+  `Effect` n'est plus `derive(Hash)`. Aucune trace existante n'a bougé (voir Vérifications).
+- **Limites partagées** entre deux exemplaires du même objet (clé `item:<id>:<index>`).
+- Effet d'objet `Modifier` : un modificateur **permanent** par exécution (il s'empile) ; utiliser
+  `charges` pour un bonus unique.
+- **Nouvelle règle d'engine : `add_frame_events_transient`** (`sim_core::frame_events`). Pour
+  `DashStarted` et `ReloadFinished` : file hors checksum et hors snapshot, vidée au `FrameStart`,
+  lue dans la même frame par un lecteur `.after` l'émetteur (le système v2, après `Run`). La
+  variante neutre hachait la file non vide : 50 traces avaient bougé à la première suite.
+- Le second système d'effets ne pose plus les effets (`listed_effects(.., pose: false)`) : il les
+  posait une frame avant le système v1 et déplaçait `throne_solo` (mutation à la frame 903).
+- `gungeon_floor_start` : `OnFloorStart` sur les étages assemblés (T10), dégâts 1 puis 2 à f900.
+  L'attente `BossPhase` de `gungeon_two_floors` n'y est pas reprise (l'id de l'ennemi change).
+- Une panne de disque (0 Go) a coûté un build : `scenario` demande ~10 Go de build seul.
+
+## Mesures
+
+Valeurs lues par sonde (attentes à 0 dans une copie du scénario) : `effect_charges` dégâts 1 (f100),
+2 (f200, premier rechargement), 2 jusqu'à f700 (deuxième refusé), 3 (f800, après la salle) ;
+`effect_on_floor_start` 1, 11 (rechargement f~290), 12 (étage 1, f~380), 22 (rechargement étage 1,
+f~540) ; `item_passive_effect` 1, 2 (f100), 3 (f140).
+
+## Vérifications
+
+- `make test_scenarios` (arbre fusionné avec main 40886510, après les corrections) : EXIT 0,
+  **0 trace différente**. La première suite en avait 50 (événements neutres hachés quand non vides),
+  la deuxième 9 (`gungeon_boss`/`gungeon_clear` : un `EffectState` inséré sur un joueur sans
+  `Effects` ; 7 traces de mes propres scénarios, rebénies après le changement de checksum).
+- `make test_crates` : vert. `make lint` ×4 : vert. `cargo fmt --all -- --check` : propre.
+- p2p gungeon, 2 clients (port 3556, 900 frames) : traces identiques (899 lignes), 0 desync,
+  conteneur arrêté. La grammaire d'étage reste non jouée en p2p réel (D59).
+- `make sweep` : target 68 → 55 Go. `OnBlank` branché (scénario `effect_on_blank`) après la fusion de M2-T1.
+
+## Après la fusion de M2-T1 (7f61e5c5)
+
+- `OnBlank` branché (voir « Livré »), scénario `effect_on_blank` (passif `sceau`).
+- Suite complète refaite après la fusion : un seul scénario en échec, `gungeon_floor_start` (le joueur
+  scripté mourait à f226 sous la salve de `bullet_kin`). Son script reçoit les mêmes deux blanks par
+  étage que `gungeon_two_floors` (appuis f96/f208, puis +772 frames) ; attentes inchangées ; trace
+  rebénie (gameplay voulu : script et contenu T1). Les autres scénarios : 0 trace différente.
+- `cargo fmt`, tests des crates `effects`/`content`/`items`/`sim_core`, `make lint` ×4 : verts.
+- p2p non refait : `OnBlank` lit un `FrameEvents` neutre déjà couvert par la parité du checksum, sans
+  nouveau type rollback.

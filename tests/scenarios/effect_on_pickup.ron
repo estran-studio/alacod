@@ -1,0 +1,27 @@
+// M2-T3 (effets v2, docs/conventions.md §42) : `OnPickup`. Le `talisman` (passif : +1 de dégâts à
+// chaque objet ramassé, le sien compris) et les `bottes` sont posés à f5/f6.
+//
+// À regarder : f10 le joueur ramasse le talisman (dégâts 2, son propre ramassage), f60 les bottes
+// (dégâts 3).
+Scenario(
+    powerup_drop_chance_override: "0.0",
+    game: "testbed",
+    map: "testbed/salles.ldtk",
+    map_seed: 1,
+    frames: 120,
+    items: [
+        (id: "talisman", x: "-904.0", y: "-584.0", at_frame: 5),
+        (id: "bottes", x: "-904.0", y: "-584.0", at_frame: 50),
+    ],
+    players: [
+        (inputs: [
+            (from: 10, to: 13, buttons: [Interaction]),
+            (from: 60, to: 63, buttons: [Interaction]),
+        ]),
+    ],
+    expect: [
+        Stat(handle: 0, stat: Damage, value: 1.0, at_frame: 8),
+        Stat(handle: 0, stat: Damage, value: 2.0, at_frame: 40),
+        Stat(handle: 0, stat: Damage, value: 3.0, at_frame: 100),
+    ],
+)

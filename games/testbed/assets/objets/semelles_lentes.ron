@@ -1,0 +1,8 @@
+// M2-T3 : passif d'essai (`effect_cooldown`) : +1 de dégâts au dash, au plus une fois par 200 frames.
+(
+    name: "Semelles lentes",
+    kind: Passive,
+    effects: [
+        (on: OnDodge, cooldown: Some(200), do: [Modifier(stat: Damage, op: Add, value: "1")]),
+    ],
+)

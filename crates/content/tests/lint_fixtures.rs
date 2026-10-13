@@ -125,7 +125,8 @@ fn surface_fixtures_report_duplicate_value_and_non_positive_factors() {
 fn effect_fixtures_report_unsupported_and_out_of_range() {
     let (_, _, errors) = load_and_lint(&fixture_dir("effect_unsupported")).unwrap();
     assert_has_error(&errors, LintErrorKind::Unsupported, "OnHit");
-    assert_has_error(&errors, LintErrorKind::Unsupported, "SquadSize");
+    assert_has_error(&errors, LintErrorKind::Unsupported, "TargetInRange");
+    assert_has_error(&errors, LintErrorKind::Unsupported, "OnEvent");
     assert_has_error(&errors, LintErrorKind::Unsupported, "RefillAmmo");
     let (_, _, errors) = load_and_lint(&fixture_dir("effect_out_of_range")).unwrap();
     assert_has_error(&errors, LintErrorKind::OutOfRange, "Tick(0)");
@@ -462,6 +463,7 @@ fn t2_8_fixtures_have_a_single_problem() {
         ("surface_factor_non_positive", LintErrorKind::OutOfRange),
         ("effect_unsupported", LintErrorKind::Unsupported),
         ("effect_out_of_range", LintErrorKind::OutOfRange),
+        ("effect_limits_invalid", LintErrorKind::OutOfRange),
         ("progression_out_of_range", LintErrorKind::OutOfRange),
         (
             "progression_broken_reference",
@@ -1086,8 +1088,18 @@ fn item_effect_unsupported_fixture_reports_unsupported() {
     assert_has_error(
         &errors,
         LintErrorKind::Unsupported,
-        "seul OnUse d'un objet actif",
+        "OnUse n'a de sens que pour un objet actif",
     );
+    assert_has_error(&errors, LintErrorKind::Unsupported, "OnEvent");
+}
+
+/// M2-T3 : cooldown/charges nuls et recharge sans charges.
+#[test]
+fn effect_limits_invalid_fixture_reports_out_of_range() {
+    let (_, _, errors) = load_and_lint(&fixture_dir("effect_limits_invalid")).unwrap();
+    assert_has_error(&errors, LintErrorKind::OutOfRange, "cooldown = 0");
+    assert_has_error(&errors, LintErrorKind::OutOfRange, "charges = 0");
+    assert_has_error(&errors, LintErrorKind::OutOfRange, "recharge sans charges");
 }
 
 #[test]

@@ -1,0 +1,8 @@
+// M2-T3 : passif d'essai (`effect_on_reload`) : +1 de dégâts à chaque rechargement terminé.
+(
+    name: "Bandoulière",
+    kind: Passive,
+    effects: [
+        (on: OnReload, do: [Modifier(stat: Damage, op: Add, value: "1")]),
+    ],
+)

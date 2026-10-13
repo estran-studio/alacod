@@ -1,0 +1,9 @@
+// M2-T3 : passif d'essai (`effect_on_room_clear`) : chaque salle nettoyée où se trouve le porteur
+// ajoute +1 de dégâts (modificateur permanent, source `item:anneau_salle:0`).
+(
+    name: "Anneau de salle",
+    kind: Passive,
+    effects: [
+        (on: OnRoomClear, do: [Modifier(stat: Damage, op: Add, value: "1")]),
+    ],
+)

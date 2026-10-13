@@ -7,16 +7,28 @@ use sim_core::tag::{Tag, Tags};
 
 use crate::{Condition, Effect, GaugeThreshold, On};
 
-/// Déclencheurs exécutés en v1. Les autres (`OnHit`, `OnDodge`, `OnReload`, `OnRoomClear`,
-/// `OnPickup`, `OnUse`, `OnEvent`) restent des contrats : le lint les refuse.
+/// Déclencheurs exécutés (v1 + M2-T3 : `OnRoomClear`, `OnDodge`, `OnReload`, `OnPickup`,
+/// `OnFloorStart`, `OnBlank`). Les autres
+/// (`OnHit`, `OnUse` hors objet actif, `OnEvent`) restent des contrats : le lint les refuse.
 pub fn trigger_supported(on: &On) -> bool {
     matches!(
         on,
-        On::OnKill | On::OnDamageTaken | On::Tick(_) | On::OnGauge(..) | On::OnLevelUp
+        On::OnKill
+            | On::OnDamageTaken
+            | On::Tick(_)
+            | On::OnGauge(..)
+            | On::OnLevelUp
+            | On::OnRoomClear
+            | On::OnDodge
+            | On::OnReload
+            | On::OnPickup
+            | On::OnFloorStart
+            | On::OnBlank
     )
 }
 
-/// Conditions exécutées en v1 (`Carrying`, `SquadSize`, `TargetInRange` : contrats, refusés).
+/// Conditions exécutées (v1 + M2-T3 : `Carrying`, `SquadSize`). `TargetInRange` reste un
+/// contrat (aucune position de cible dans les déclencheurs) : le lint la refuse.
 pub fn condition_supported(condition: &Condition) -> bool {
     matches!(
         condition,
@@ -24,6 +36,8 @@ pub fn condition_supported(condition: &Condition) -> bool {
             | Condition::HasTag(_)
             | Condition::TargetTag(_)
             | Condition::NotHitFor(_)
+            | Condition::Carrying(_)
+            | Condition::SquadSize(_)
     )
 }
 
@@ -43,6 +57,18 @@ pub enum Trigger {
     },
     /// Le porteur est monté de niveau.
     LevelUp,
+    /// M2-T3 : une salle a été nettoyée (`RoomChanged` vers `Cleared`).
+    RoomCleared,
+    /// M2-T3 : le porteur a commencé un dash.
+    Dodge,
+    /// M2-T3 : le porteur a fini de recharger.
+    Reload,
+    /// M2-T3 : le porteur a ramassé l'objet `item`.
+    Pickup { item: String },
+    /// M2-T3 : un étage commence pour le porteur.
+    FloorStart,
+    /// M2-T3 : le porteur a utilisé une Blank (`BlankUsed`, M2-T1).
+    Blank,
 }
 
 /// État du porteur lu par les conditions.
@@ -54,6 +80,10 @@ pub struct Carrier<'a> {
     pub frame: u32,
     /// Dernière frame où le porteur a subi des dégâts (`None` : jamais).
     pub last_hit_frame: Option<u32>,
+    /// Objets tenus (passifs et actif), pour `Carrying`.
+    pub carried: &'a [&'a str],
+    /// Joueurs en vie dans la partie, pour `SquadSize`.
+    pub squad_size: u32,
 }
 
 /// L'effet répond-il à ce déclencheur (hors `Tick`, voir [`tick_due`]) ?
@@ -62,6 +92,12 @@ pub fn responds_to(on: &On, trigger: &Trigger) -> bool {
         (On::OnKill, Trigger::Kill { .. }) => true,
         (On::OnDamageTaken, Trigger::DamageTaken { .. }) => true,
         (On::OnLevelUp, Trigger::LevelUp) => true,
+        (On::OnRoomClear, Trigger::RoomCleared) => true,
+        (On::OnDodge, Trigger::Dodge) => true,
+        (On::OnReload, Trigger::Reload) => true,
+        (On::OnPickup, Trigger::Pickup { .. }) => true,
+        (On::OnFloorStart, Trigger::FloorStart) => true,
+        (On::OnBlank, Trigger::Blank) => true,
         (
             On::OnGauge(id, GaugeThreshold::Above(x)),
             Trigger::GaugeMoved {
@@ -99,6 +135,8 @@ pub fn conditions_hold(
         Condition::NotHitFor(n) => carrier
             .last_hit_frame
             .is_none_or(|hit| carrier.frame.saturating_sub(hit) >= *n),
+        Condition::Carrying(item) => carrier.carried.iter().any(|c| c == item),
+        Condition::SquadSize(n) => carrier.squad_size >= *n,
         _ => false,
     })
 }
@@ -117,6 +155,52 @@ pub fn healed(health: Fixed, health_max: Fixed, amount: Fixed) -> Fixed {
         return health;
     }
     (health + amount).min(health_max).max(health)
+}
+
+/// État de limite d'un effet pour un porteur (M2-T3) : `cooldown_until` = première frame où il
+/// peut de nouveau s'exécuter, `charges_left` = charges restantes (`None` : pleines).
+#[derive(Debug, Clone, Copy, Default, PartialEq, Eq, Hash)]
+pub struct Limits {
+    pub cooldown_until: Option<u32>,
+    pub charges_left: Option<u32>,
+}
+
+impl Limits {
+    /// Vrai si l'état est celui d'un effet jamais limité (rien à stocker).
+    pub fn is_default(&self) -> bool {
+        self.cooldown_until.is_none() && self.charges_left.is_none()
+    }
+}
+
+/// L'effet peut-il s'exécuter à `frame` ? Faux pendant le cooldown (`frame < cooldown_until`)
+/// ou sans charge restante. Un effet sans `cooldown` ni `charges` répond toujours vrai.
+pub fn limits_allow(effect: &Effect, limits: &Limits, frame: u32) -> bool {
+    if effect.cooldown.is_some() && limits.cooldown_until.is_some_and(|until| frame < until) {
+        return false;
+    }
+    if let Some(max) = effect.charges {
+        if limits.charges_left.unwrap_or(max) == 0 {
+            return false;
+        }
+    }
+    true
+}
+
+/// Consomme une exécution : le cooldown repart de `frame`, une charge est retirée.
+pub fn limits_consume(effect: &Effect, limits: &mut Limits, frame: u32) {
+    if let Some(cooldown) = effect.cooldown {
+        limits.cooldown_until = Some(frame.saturating_add(cooldown));
+    }
+    if let Some(max) = effect.charges {
+        limits.charges_left = Some(limits.charges_left.unwrap_or(max).saturating_sub(1));
+    }
+}
+
+/// Redonne toutes ses charges à l'effet si sa recharge est `recharge`.
+pub fn limits_recharge(effect: &Effect, limits: &mut Limits, recharge: crate::Recharge) {
+    if effect.charges.is_some() && effect.recharge == Some(recharge) {
+        limits.charges_left = None;
+    }
 }
 
 /// L'effet est-il exécutable en v1 (déclencheur et conditions supportés) ?
@@ -148,6 +232,8 @@ mod tests {
             health_max: fx(100.0),
             frame: 200,
             last_hit_frame: last_hit,
+            carried: &["fiole"],
+            squad_size: 2,
         }
     }
 
@@ -235,10 +321,75 @@ mod tests {
         ));
         // ET ; non supportée = fausse
         assert!(!conditions_hold(
-            &[Condition::HpBelow(fx(0.5)), Condition::SquadSize(2)],
+            &[
+                Condition::HpBelow(fx(0.5)),
+                Condition::TargetInRange(fx(5.0))
+            ],
             &c,
             None
         ));
+    }
+
+    #[test]
+    fn declencheurs_et_conditions_v2() {
+        assert!(responds_to(&On::OnRoomClear, &Trigger::RoomCleared));
+        assert!(responds_to(&On::OnDodge, &Trigger::Dodge));
+        assert!(responds_to(&On::OnReload, &Trigger::Reload));
+        assert!(responds_to(&On::OnFloorStart, &Trigger::FloorStart));
+        assert!(responds_to(
+            &On::OnPickup,
+            &Trigger::Pickup { item: "x".into() }
+        ));
+        assert!(!responds_to(&On::OnDodge, &Trigger::Reload));
+        for on in [
+            On::OnRoomClear,
+            On::OnDodge,
+            On::OnReload,
+            On::OnPickup,
+            On::OnFloorStart,
+            On::OnBlank,
+        ] {
+            assert!(trigger_supported(&on), "{on:?}");
+        }
+        assert!(!condition_supported(&Condition::TargetInRange(fx(10.0))));
+        let tags = Tags::new();
+        let c = carrier(&tags, 40.0, None);
+        assert!(conditions_hold(
+            &[Condition::Carrying("fiole".into())],
+            &c,
+            None
+        ));
+        assert!(!conditions_hold(
+            &[Condition::Carrying("autre".into())],
+            &c,
+            None
+        ));
+        assert!(conditions_hold(&[Condition::SquadSize(2)], &c, None));
+        assert!(!conditions_hold(&[Condition::SquadSize(3)], &c, None));
+    }
+
+    #[test]
+    fn cooldown_et_charges() {
+        let mut effect = Effect::new(On::OnReload, vec![], vec![]);
+        effect.cooldown = Some(100);
+        effect.charges = Some(2);
+        effect.recharge = Some(crate::Recharge::PerRoom);
+        let mut limits = Limits::default();
+        assert!(limits_allow(&effect, &limits, 10));
+        limits_consume(&effect, &mut limits, 10);
+        assert!(!limits_allow(&effect, &limits, 109), "cooldown");
+        assert!(limits_allow(&effect, &limits, 110));
+        limits_consume(&effect, &mut limits, 110);
+        assert!(!limits_allow(&effect, &limits, 500), "plus de charge");
+        limits_recharge(&effect, &mut limits, crate::Recharge::PerFloor);
+        assert!(!limits_allow(&effect, &limits, 500), "autre recharge");
+        limits_recharge(&effect, &mut limits, crate::Recharge::PerRoom);
+        assert!(limits_allow(&effect, &limits, 500));
+        // Sans champs v2 : jamais limité
+        let free = Effect::new(On::OnReload, vec![], vec![]);
+        let mut l = Limits::default();
+        limits_consume(&free, &mut l, 5);
+        assert!(l.is_default() && limits_allow(&free, &l, 5));
     }
 
     #[test]
