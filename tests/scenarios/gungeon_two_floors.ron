@@ -18,7 +18,10 @@ Scenario(
         (inputs: [
             // Étage 1 : comme `gungeon_floor_seed_123`, puis retour au portail (salle de départ).
             (from: 10, to: 70, buttons: [Right]),
+            // M2-T1 : la salve de `bullet_kin` tire trois volées ; un blank efface les deux premières (f101), un second la troisième (f213).
+            (from: 96, to: 97, buttons: [Fire, Blank], pan: (-34, -31)),
             (from: 80, to: 160, buttons: [Fire], pan: (-34, -31)),
+            (from: 208, to: 209, buttons: [Fire, Blank], pan: (-34, 27)),
             (from: 160, to: 240, buttons: [Fire], pan: (-34, 27)),
             (from: 240, to: 330, buttons: [Fire], pan: (25, 27)),
             (from: 340, to: 380, buttons: [Right]),
@@ -26,7 +29,10 @@ Scenario(
             (from: 665, to: 755, buttons: [Left]),
             // Étage 2 (arrivée f752, 20 px plus à l'ouest qu'au départ de l'étage 1).
             (from: 770, to: 840, buttons: [Right]),
+            // Étage 2 : mêmes deux blanks (+772 frames), remontés à deux au début de l'étage (`consumables_per_floor`).
+            (from: 868, to: 869, buttons: [Fire, Blank], pan: (-34, -31)),
             (from: 850, to: 920, buttons: [Fire], pan: (-34, -31)),
+            (from: 980, to: 981, buttons: [Fire, Blank], pan: (-34, 27)),
             (from: 920, to: 1000, buttons: [Fire], pan: (-34, 27)),
             (from: 1000, to: 1090, buttons: [Fire], pan: (25, 27)),
             (from: 1120, to: 1160, buttons: [Right]),
@@ -42,7 +48,7 @@ Scenario(
         RoomState(kind: "combat", state: Locked, at_frame: 900),
         RoomState(kind: "combat", state: Cleared, at_frame: 1120),
         RoomState(kind: "boss", state: Locked, at_frame: 1200),
-        BossPhase(entity: NetId(137), phase: 1, at_frame: 1350),
+        BossPhase(entity: NetId(195), phase: 1, at_frame: 1350), // M2-T1 : 137 avant les balles de l'étage 1 (elles prennent des NetId)
         RunState(step: Ended(Victory), at_frame: 1480),
         PlayerAlive(handle: 0, at_frame: 1499),
     ],

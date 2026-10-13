@@ -1,0 +1,5 @@
+(
+    name: "fixture-pattern_burst_interval_zero",
+    content_folders: [(path: "patterns", kind: "Pattern")],
+    entry: (start_map: "unused", default_seed: 1),
+)

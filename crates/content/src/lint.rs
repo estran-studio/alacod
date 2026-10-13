@@ -215,6 +215,24 @@ fn lint_characters(registry: &Registry, errors: &mut Vec<LintError>) {
             }
         }
 
+        // M2-T1 : consommables de départ -> objets consommables du kind `Item`.
+        for id in character.starting_consumables.keys() {
+            let known = registry
+                .items
+                .get(id)
+                .is_some_and(|item| item.def.kind == items::ItemKind::Consumable);
+            if !known {
+                errors.push(LintError {
+                    kind: LintErrorKind::BrokenReference,
+                    file: file.clone(),
+                    message: format!(
+                        "personnage « {} » : champ starting_consumables : « {id} » n'est pas un objet consommable (kind Item)",
+                        character.id
+                    ),
+                });
+            }
+        }
+
         if character.starting_weapons.len() > character.weapon_slots as usize {
             errors.push(LintError {
                 kind: LintErrorKind::OutOfRange,
@@ -517,7 +535,10 @@ fn pattern_projectiles<'a>(
         PatternEntry::Aimed { projectile, .. }
         | PatternEntry::Spread { projectile, .. }
         | PatternEntry::Ring { projectile, .. }
-        | PatternEntry::Scatter { projectile, .. } => out.push(projectile),
+        | PatternEntry::Scatter { projectile, .. }
+        | PatternEntry::Fan { projectile, .. }
+        | PatternEntry::Spiral { projectile, .. }
+        | PatternEntry::Burst { projectile, .. } => out.push(projectile),
         PatternEntry::Sequence(children) => children
             .iter()
             .for_each(|child| pattern_projectiles(child, patterns, depth, out)),
@@ -651,6 +672,20 @@ fn lint_expire_pattern(
             projectile,
             ..
         } => (*count, None, Some(speed.get()), projectile),
+        PatternEntry::Fan {
+            count,
+            spread,
+            speed,
+            projectile,
+        } => {
+            if speed.get() < Fixed::ZERO {
+                push(
+                    LintErrorKind::OutOfRange,
+                    format!("{at} : on_expire : Fan speed < 0"),
+                );
+            }
+            (*count, Some(spread.get()), None, projectile)
+        }
         PatternEntry::Sequence(children) => {
             for child in children {
                 lint_expire_pattern(at, child, table, patterns, depth, push);
@@ -664,11 +699,11 @@ fn lint_expire_pattern(
             );
             return;
         }
-        // T1.2 : aléatoire (flux `patterns`), réservé aux émetteurs.
-        PatternEntry::Scatter { .. } => {
+        // T1.2 : aléatoire (flux `patterns`), M2-T1 : multi-salves, réservés aux émetteurs.
+        PatternEntry::Scatter { .. } | PatternEntry::Spiral { .. } | PatternEntry::Burst { .. } => {
             push(
                 LintErrorKind::OutOfRange,
-                format!("{at} : on_expire : pattern aléatoire Scatter : réservé aux émetteurs, seuls Aimed, Spread, Ring et Sequence sont joués à la fin d'un projectile"),
+                format!("{at} : on_expire : pattern {pattern:?} (aléatoire ou multi-salves) : réservé aux émetteurs, seuls Aimed, Spread, Fan, Ring et Sequence sont joués à la fin d'un projectile"),
             );
             return;
         }
@@ -1324,7 +1359,8 @@ fn lint_pattern_values(
     match pattern {
         PatternEntry::Aimed { count, spread, .. }
         | PatternEntry::Spread { count, spread, .. }
-        | PatternEntry::Scatter { count, spread, .. } => {
+        | PatternEntry::Scatter { count, spread, .. }
+        | PatternEntry::Fan { count, spread, .. } => {
             if *count == 0 {
                 push(
                     LintErrorKind::OutOfRange,
@@ -1349,6 +1385,58 @@ fn lint_pattern_values(
                 push(
                     LintErrorKind::OutOfRange,
                     format!("{pattern:?} : speed < 0"),
+                );
+            }
+        }
+        PatternEntry::Spiral {
+            count,
+            shots,
+            every,
+            speed,
+            ..
+        } => {
+            if *count == 0 || *shots == 0 {
+                push(
+                    LintErrorKind::OutOfRange,
+                    format!("{pattern:?} : count et shots doivent être > 0"),
+                );
+            }
+            if *every == 0 {
+                push(
+                    LintErrorKind::OutOfRange,
+                    format!("{pattern:?} : every = 0 : doit être > 0"),
+                );
+            }
+            if speed.get() < Fixed::ZERO {
+                push(
+                    LintErrorKind::OutOfRange,
+                    format!("{pattern:?} : speed < 0"),
+                );
+            }
+        }
+        PatternEntry::Burst {
+            count,
+            per_burst,
+            interval,
+            spread,
+            ..
+        } => {
+            if *count == 0 || *per_burst == 0 {
+                push(
+                    LintErrorKind::OutOfRange,
+                    format!("{pattern:?} : count et per_burst doivent être > 0"),
+                );
+            }
+            if *interval == 0 {
+                push(
+                    LintErrorKind::OutOfRange,
+                    format!("{pattern:?} : interval = 0 : doit être > 0"),
+                );
+            }
+            if spread.get() < Fixed::ZERO {
+                push(
+                    LintErrorKind::OutOfRange,
+                    format!("{pattern:?} : spread < 0"),
                 );
             }
         }
@@ -1899,6 +1987,22 @@ fn lint_floors(registry: &Registry, errors: &mut Vec<LintError>) {
                     floors.id
                 ),
             });
+        }
+        for id in floors.consumables_per_floor.keys() {
+            let known = registry
+                .items
+                .get(id)
+                .is_some_and(|item| item.def.kind == items::ItemKind::Consumable);
+            if !known {
+                errors.push(LintError {
+                    kind: LintErrorKind::BrokenReference,
+                    file: file.clone(),
+                    message: format!(
+                        "séquence de niveaux « {} » : champ consumables_per_floor : « {id} » n'est pas un objet consommable (kind Item)",
+                        floors.id
+                    ),
+                });
+            }
         }
         for level in &floors.levels {
             if let Some(cave) = registry::cave_designation(level) {
@@ -2468,6 +2572,23 @@ fn lint_items(registry: &Registry, errors: &mut Vec<LintError>) {
                     item.def.pickup_range
                 ),
             );
+        }
+        if let Some(blank) = item.def.blank {
+            if item.def.kind != items::ItemKind::Consumable {
+                push(
+                    LintErrorKind::Unsupported,
+                    format!("objet « {id} » : `blank` n'a de sens que pour un consommable"),
+                );
+            }
+            if blank.radius <= Fixed::ZERO {
+                push(
+                    LintErrorKind::OutOfRange,
+                    format!(
+                        "objet « {id} » : blank.radius = {} : doit être > 0",
+                        blank.radius
+                    ),
+                );
+            }
         }
         let active = matches!(item.def.kind, items::ItemKind::Active(_));
         if item.def.kind == items::ItemKind::Consumable

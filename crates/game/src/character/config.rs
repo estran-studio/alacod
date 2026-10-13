@@ -171,6 +171,12 @@ pub struct CharacterConfig {
     /// ne pose jamais `Currency`, voir sa doc).
     #[serde(default = "default_starting_currency")]
     pub starting_currency: u32,
+
+    /// Consommables de départ (M2-T1) : `{"blank": 2}` donne un `items::Inventory` à la création
+    /// du joueur. Vide par défaut : le joueur n'a pas d'inventaire avant son premier ramassage
+    /// (traces des autres jeux inchangées). Lint : ids d'objets consommables connus.
+    #[serde(default)]
+    pub starting_consumables: std::collections::BTreeMap<String, u32>,
 }
 
 fn default_bleedout_frames() -> u32 {

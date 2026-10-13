@@ -202,4 +202,12 @@ pub fn create_player(
             },
         ));
     }
+
+    // Consommables de départ (M2-T1) : un inventaire seulement si le personnage en déclare.
+    if let Some(config) = character_config.filter(|c| !c.starting_consumables.is_empty()) {
+        commands.entity(entity).insert(items::Inventory {
+            consumables: config.starting_consumables.clone(),
+            ..default()
+        });
+    }
 }
