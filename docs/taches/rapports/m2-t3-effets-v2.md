@@ -5,9 +5,9 @@ Branche `m2-t3-effets-v2` depuis `main` (6c712e25). Conventions : §42.
 ## Livré
 
 - **Déclencheurs** `OnRoomClear`, `OnDodge`, `OnReload`, `OnPickup`, `OnFloorStart` exécutés ;
-  `OnBlank` en contrat + lint seulement (**M2-T1 pas mergée** : `BlankUsed` n'existe pas encore ;
-  quand elle l'est, ajouter la lecture du `FrameEvents<BlankUsed>` dans
-  `apply_triggered_effects_system`, une ligne, et `OnBlank` à `trigger_supported`).
+  `OnBlank` branché après la fusion de M2-T1 (7f61e5c5) : `apply_triggered_effects_system` lit
+  `FrameEvents<BlankUsed>` du porteur et tourne `.after(blank_system)` (qui émet dans `Effects`) ;
+  les fixtures de lint « non supporté » utilisent désormais `OnEvent`.
 - **Conditions** `Carrying` et `SquadSize` ; `TargetInRange` laissée en contrat.
 - **Cooldown / charges / recharge** (`PerRoom`, `PerFloor`), état dans `EffectState::limits`.
 - **Effets passifs des objets** lus dans l'`Inventory` (choix justifié en §42).
@@ -63,4 +63,15 @@ f~540) ; `item_passive_effect` 1, 2 (f100), 3 (f140).
 - `make test_crates` : vert. `make lint` ×4 : vert. `cargo fmt --all -- --check` : propre.
 - p2p gungeon, 2 clients (port 3556, 900 frames) : traces identiques (899 lignes), 0 desync,
   conteneur arrêté. La grammaire d'étage reste non jouée en p2p réel (D59).
-- `make sweep` : target 68 → 55 Go. `OnBlank` : contrat et lint seulement, à brancher au merge de M2-T1.
+- `make sweep` : target 68 → 55 Go. `OnBlank` branché (scénario `effect_on_blank`) après la fusion de M2-T1.
+
+## Après la fusion de M2-T1 (7f61e5c5)
+
+- `OnBlank` branché (voir « Livré »), scénario `effect_on_blank` (passif `sceau`).
+- Suite complète refaite après la fusion : un seul scénario en échec, `gungeon_floor_start` (le joueur
+  scripté mourait à f226 sous la salve de `bullet_kin`). Son script reçoit les mêmes deux blanks par
+  étage que `gungeon_two_floors` (appuis f96/f208, puis +772 frames) ; attentes inchangées ; trace
+  rebénie (gameplay voulu : script et contenu T1). Les autres scénarios : 0 trace différente.
+- `cargo fmt`, tests des crates `effects`/`content`/`items`/`sim_core`, `make lint` ×4 : verts.
+- p2p non refait : `OnBlank` lit un `FrameEvents` neutre déjà couvert par la parité du checksum, sans
+  nouveau type rollback.

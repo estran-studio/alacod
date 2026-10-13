@@ -126,7 +126,7 @@ fn effect_fixtures_report_unsupported_and_out_of_range() {
     let (_, _, errors) = load_and_lint(&fixture_dir("effect_unsupported")).unwrap();
     assert_has_error(&errors, LintErrorKind::Unsupported, "OnHit");
     assert_has_error(&errors, LintErrorKind::Unsupported, "TargetInRange");
-    assert_has_error(&errors, LintErrorKind::Unsupported, "OnBlank");
+    assert_has_error(&errors, LintErrorKind::Unsupported, "OnEvent");
     assert_has_error(&errors, LintErrorKind::Unsupported, "RefillAmmo");
     let (_, _, errors) = load_and_lint(&fixture_dir("effect_out_of_range")).unwrap();
     assert_has_error(&errors, LintErrorKind::OutOfRange, "Tick(0)");
@@ -1090,7 +1090,7 @@ fn item_effect_unsupported_fixture_reports_unsupported() {
         LintErrorKind::Unsupported,
         "OnUse n'a de sens que pour un objet actif",
     );
-    assert_has_error(&errors, LintErrorKind::Unsupported, "OnBlank");
+    assert_has_error(&errors, LintErrorKind::Unsupported, "OnEvent");
 }
 
 /// M2-T3 : cooldown/charges nuls et recharge sans charges.

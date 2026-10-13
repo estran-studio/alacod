@@ -2751,10 +2751,10 @@ Recharge}`, règles pures `effects::runtime` (`responds_to`, `conditions_hold`, 
 | `OnReload` | `FrameEvents<sim_core::triggers::ReloadFinished>` (émis par `weapon_rollback_system` quand le chargeur est **réellement rempli** ; le délai de pompe d'une arme sans chargeur n'en émet pas) | v2 |
 | `OnPickup` | `FrameEvents<ItemPicked>` du porteur (objet ramassé, **le sien compris**) | v2 |
 | `OnFloorStart` | changement de `FloorState::index` vu par le porteur ; le premier étage compte pour un effet présent aux frames 0–1 (un effet vu plus tard, par exemple un objet ramassé en cours d'étage, ne se déclenche qu'au **prochain** étage) | v2 |
-| `OnBlank` | `FrameEvents<BlankUsed>` de M2-T1 : **contrat et lint seulement** (T1 pas mergée) | — |
+| `OnBlank` | `FrameEvents<BlankUsed>` (M2-T1) du porteur (`player_handle`) | v2, **après `blank_system`** (qui émet dans `Effects`) |
 
 Les nouveaux variants (`OnFloorStart`, `OnBlank`) sont en **fin d'enum** `On`. Le système v2 tourne
-`.after(RollbackSystemSet::Run).after(item_charge_system).before(FrameCounter)` : `RoomChanged`
+`.after(RollbackSystemSet::Run).after(item_charge_system).after(blank_system).before(FrameCounter)` : `RoomChanged`
 est émis dans `Run` et vidé au `FrameStart` suivant, les autres événements dans des sets plus tôt
 de la même frame. Les événements `DashStarted`/`ReloadFinished` sont des `FrameEvents` neutres
 (file vide : contribution 0 au checksum).
@@ -2791,14 +2791,14 @@ que sur un actif.
 
 **Contenu** : `gungeon` : `trefle` (soin à la salle nettoyée, une fois par étage), `cartouchiere`
 (cadence après un rechargement, cooldown 600), `amulette` (vie max et soin au ramassage, une charge).
-`testbed` : huit objets d'essai (`anneau_salle`, `semelles`, `semelles_lentes`, `bandoulier`,
+`testbed` : neuf objets d'essai (dont `sceau`, `OnBlank`) (`anneau_salle`, `semelles`, `semelles_lentes`, `bandoulier`,
 `bandoulier_comptee`, `talisman`, `boussole`, `porte_bonheur`), dont l'effet est un `Modifier(Damage,
 Add, 1)` : la valeur de `Stat(Damage)` compte les exécutions.
 
 **Scénarios** : `effect_on_room_clear`, `effect_on_dodge`, `effect_on_reload`, `effect_on_pickup`,
 `effect_on_floor_start` (aussi la recharge `PerFloor`), `effect_cooldown`, `effect_charges`
-(recharge `PerRoom`), `item_passive_effect` (`OnKill` d'un objet). Pas de scénario `effect_on_blank`
-(M2-T1 non mergée).
+(recharge `PerRoom`), `item_passive_effect` (`OnKill` d'un objet), `effect_on_blank` (passif
+`sceau` : +1 de dégâts à chaque Blank utilisée, `testbed`).
 
 **Règle d'engine : `add_frame_events_transient`** (M2-T3). Un événement émis dans des parties
 existantes et lu seulement dans la même frame (`DashStarted`, `ReloadFinished`) s'enregistre avec

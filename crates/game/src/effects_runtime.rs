@@ -17,7 +17,7 @@
 //! **après** `RollbackSystemSet::Run` (avant `FrameCounter`) et exécute les déclencheurs lus
 //! dans des `FrameEvents` émis plus tôt dans la frame : `OnRoomClear` (`RoomChanged`, émis dans
 //! `Run`), `OnDodge` (`DashStarted`, `Movement`), `OnReload` (`ReloadFinished`, `Weapon`),
-//! `OnPickup` (`ItemPicked`, `Interaction`/`Effects`) et `OnFloorStart` (changement d'index
+//! `OnPickup` (`ItemPicked`, `Interaction`/`Effects`), `OnBlank` (`BlankUsed`, après `blank_system`) et `OnFloorStart` (changement d'index
 //! d'étage, passage d'étage dans `Run`). Les effets des **objets** tenus (passifs, actif hors
 //! `OnUse`) sont lus dans l'`Inventory` à chaque frame, sans copie dans [`Effects`] : un objet
 //! perdu n'a rien à retirer, l'index d'effet est celui du `ItemDef` (source des modificateurs
@@ -36,7 +36,7 @@ use effects::runtime::{
     Carrier, Limits, Trigger,
 };
 use effects::{Action, Effect, On, Recharge};
-use items::{Inventory, ItemPicked, ItemTable};
+use items::{BlankUsed, Inventory, ItemPicked, ItemTable};
 use map::game::entity::map::{level_id::LevelId, room::RoomBounds};
 use sim_core::damage::DamageEvent;
 use sim_core::frame_events::FrameEvents;
@@ -536,6 +536,7 @@ pub fn apply_triggered_effects_system(
     dash_events: Option<Res<FrameEvents<DashStarted>>>,
     reload_events: Option<Res<FrameEvents<ReloadFinished>>>,
     pick_events: Option<Res<FrameEvents<ItemPicked>>>,
+    blank_events: Option<Res<FrameEvents<BlankUsed>>>,
     floor: Option<Res<run::FloorState>>,
     table: Option<Res<ItemTable>>,
     assets: EffectAssets,
@@ -614,6 +615,13 @@ pub fn apply_triggered_effects_system(
                 .filter(|e| e.player_handle == handle)
             {
                 triggers.push(Trigger::Reload);
+            }
+            for _ in blank_events
+                .iter()
+                .flat_map(|events| events.iter())
+                .filter(|e| e.player_handle == handle)
+            {
+                triggers.push(Trigger::Blank);
             }
             for event in pick_events
                 .iter()
@@ -822,6 +830,7 @@ impl Plugin for EffectsRuntimePlugin {
                 apply_triggered_effects_system
                     .after(sim_core::system_set::RollbackSystemSet::Run)
                     .after(crate::items::item_charge_system)
+                    .after(crate::items::blank_system)
                     .before(sim_core::system_set::RollbackSystemSet::FrameCounter),
             )
             .add_systems(

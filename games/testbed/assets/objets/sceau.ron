@@ -1,0 +1,8 @@
+// M2-T3 : passif d'essai (`effect_on_blank`) : +1 de dégâts à chaque Blank utilisée par le porteur.
+(
+    name: "Sceau",
+    kind: Passive,
+    effects: [
+        (on: OnBlank, do: [Modifier(stat: Damage, op: Add, value: "1")]),
+    ],
+)

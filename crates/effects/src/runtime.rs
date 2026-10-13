@@ -8,8 +8,8 @@ use sim_core::tag::{Tag, Tags};
 use crate::{Condition, Effect, GaugeThreshold, On};
 
 /// Déclencheurs exécutés (v1 + M2-T3 : `OnRoomClear`, `OnDodge`, `OnReload`, `OnPickup`,
-/// `OnFloorStart`). Les autres (`OnHit`, `OnUse` hors objet actif, `OnBlank` tant que M2-T1
-/// n'est pas mergée, `OnEvent`) restent des contrats : le lint les refuse.
+/// `OnFloorStart`, `OnBlank`). Les autres
+/// (`OnHit`, `OnUse` hors objet actif, `OnEvent`) restent des contrats : le lint les refuse.
 pub fn trigger_supported(on: &On) -> bool {
     matches!(
         on,
@@ -23,6 +23,7 @@ pub fn trigger_supported(on: &On) -> bool {
             | On::OnReload
             | On::OnPickup
             | On::OnFloorStart
+            | On::OnBlank
     )
 }
 
@@ -66,6 +67,8 @@ pub enum Trigger {
     Pickup { item: String },
     /// M2-T3 : un étage commence pour le porteur.
     FloorStart,
+    /// M2-T3 : le porteur a utilisé une Blank (`BlankUsed`, M2-T1).
+    Blank,
 }
 
 /// État du porteur lu par les conditions.
@@ -94,6 +97,7 @@ pub fn responds_to(on: &On, trigger: &Trigger) -> bool {
         (On::OnReload, Trigger::Reload) => true,
         (On::OnPickup, Trigger::Pickup { .. }) => true,
         (On::OnFloorStart, Trigger::FloorStart) => true,
+        (On::OnBlank, Trigger::Blank) => true,
         (
             On::OnGauge(id, GaugeThreshold::Above(x)),
             Trigger::GaugeMoved {
@@ -343,10 +347,10 @@ mod tests {
             On::OnReload,
             On::OnPickup,
             On::OnFloorStart,
+            On::OnBlank,
         ] {
             assert!(trigger_supported(&on), "{on:?}");
         }
-        assert!(!trigger_supported(&On::OnBlank));
         assert!(!condition_supported(&Condition::TargetInRange(fx(10.0))));
         let tags = Tags::new();
         let c = carrier(&tags, 40.0, None);

@@ -1,5 +1,5 @@
 (name: "Bague", kind: Passive, effects: [
-    // OnUse n'a de sens que pour un objet actif ; OnBlank reste un contrat tant que M2-T1 n'est pas mergée
+    // OnUse n'a de sens que pour un objet actif ; OnEvent reste un contrat
     (on: OnUse, do: [Heal("1.0")]),
-    (on: OnBlank, do: [Heal("1.0")]),
+    (on: OnEvent("x"), do: [Heal("1.0")]),
 ])
