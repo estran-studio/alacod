@@ -133,7 +133,7 @@ pub struct TelegraphShape {
 
 /// Télégraphe en cours d'un personnage : phase `Telegraph` d'une `Charge` (cercle au point
 /// visé, figé, de rayon `attack_range`), sinon pas `Telegraph` d'un émetteur (cercle autour
-/// du porteur, de rayon la plus grande portée de sa table de projectiles).
+/// du porteur, de rayon la portée du tir annoncé).
 pub fn telegraph_shape(
     now: u32,
     position: Vec2,
@@ -149,11 +149,12 @@ pub fn telegraph_shape(
     }
     let emitter = emitter?;
     let remaining = emitter.telegraphing()?;
+    // D57 : la portée du tir annoncé, pas la plus grande de la table (le télégraphe couvrait la
+    // carte entière pour `roi_rat`) ; repli sur la table si le pattern n'est pas résolu.
     let radius = emitter
-        .table
-        .values()
-        .map(|projectile| projectile.range.to_num::<f32>())
-        .fold(0.0, f32::max);
+        .telegraphed_range()
+        .or_else(|| emitter.max_range())
+        .map_or(0.0, |range| range.to_num::<f32>());
     Some(TelegraphShape {
         center: position,
         radius,
@@ -745,6 +746,30 @@ mod telegraph_tests {
         assert_eq!(shape.center, Vec2::new(3.0, 4.0));
         assert_eq!(shape.radius, 150.0);
         assert_eq!(shape.remaining, 30);
+    }
+
+    #[test]
+    fn emetteur_rayon_de_la_portee_du_tir_annonce() {
+        // Deux salves : la première annoncée (courte), la seconde après un autre télégraphe.
+        let mut e = emitter(Pattern::Sequence(vec![
+            Pattern::Telegraph(30),
+            Pattern::Ring {
+                count: 8,
+                speed: fixed_math::new(60.0),
+                projectile: "court".into(),
+                every: 0,
+            },
+            Pattern::Telegraph(20),
+            Pattern::Aimed {
+                count: 1,
+                spread: Fixed::ZERO,
+                projectile: "long".into(),
+            },
+        ]));
+        let mut never = || -> Fixed { panic!() };
+        let _ = e.tick(1, &mut never);
+        let shape = telegraph_shape(1, Vec2::ZERO, Some(&e), None).unwrap();
+        assert_eq!(shape.radius, 60.0);
     }
 }
 

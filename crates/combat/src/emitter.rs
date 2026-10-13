@@ -192,6 +192,31 @@ impl Emitter {
         (self.telegraph && self.wait_left > 0).then_some(self.wait_left)
     }
 
+    /// Portée du tir que le `Telegraph` en cours annonce (présentation, D57) : la plus grande
+    /// portée des projectiles des étapes qui suivent le télégraphe, jusqu'à la prochaine étape
+    /// bloquante (`Telegraph`/`Wait`). `None` si aucune de ces étapes ne nomme un projectile de
+    /// la table (pattern non résolu) : l'appelant se rabat alors sur [`Emitter::max_range`].
+    pub fn telegraphed_range(&self) -> Option<Fixed> {
+        self.steps
+            .iter()
+            .skip(self.next_step as usize)
+            .take_while(|step| !matches!(step, Pattern::Telegraph(_) | Pattern::Wait(_)))
+            .filter_map(|step| match step {
+                Pattern::Aimed { projectile, .. }
+                | Pattern::Spread { projectile, .. }
+                | Pattern::Ring { projectile, .. }
+                | Pattern::Scatter { projectile, .. } => self.table.get(projectile),
+                _ => None,
+            })
+            .map(|def| def.range)
+            .max()
+    }
+
+    /// Plus grande portée de la table de projectiles de l'arme.
+    pub fn max_range(&self) -> Option<Fixed> {
+        self.table.values().map(|def| def.range).max()
+    }
+
     /// Salve d'une étape instantanée. `random` tire une valeur dans `[0, 1)` (flux
     /// `"patterns"`) : appelée seulement par `Scatter`.
     fn salvo(&self, step: &Pattern, random: &mut impl FnMut() -> Fixed) -> Vec<Shot> {
