@@ -326,7 +326,29 @@ pub fn build_app(scenario: &Scenario, headless: bool, config: &PlayConfig) -> Ap
         app.insert_resource(game::camera::CameraFollowOverride(handle));
     }
 
+    if headless {
+        single_threaded_schedules(&mut app);
+    }
+
     app
+}
+
+/// Exécuteur monothread pour tous les schedules d'un scénario headless (perf-suite-scenarios).
+///
+/// La simulation compte des centaines de petits systèmes par frame : l'exécuteur multithread de
+/// Bevy y coûte plus (≈ 1 500 `futex` par frame, réveils de threads) qu'il ne rapporte, et ses
+/// threads se disputent les cœurs quand la suite tourne en tranches parallèles. Mesuré sur
+/// `idle` : 52 fps sur 4 cœurs, 79 fps sur un seul. `ALACOD_EXECUTOR=multi` rétablit l'exécuteur
+/// par défaut. L'ordre d'exécution ne change aucun résultat : `GgrsSchedule` refuse toute
+/// ambiguïté d'ordre (`ambiguity_detection: Error`) et les traces de référence le prouvent.
+fn single_threaded_schedules(app: &mut App) {
+    if std::env::var("ALACOD_EXECUTOR").is_ok_and(|v| v == "multi") {
+        return;
+    }
+    let mut schedules = app.world_mut().resource_mut::<bevy::ecs::schedule::Schedules>();
+    for (_, schedule) in schedules.iter_mut() {
+        schedule.set_executor(bevy::ecs::schedule::SingleThreadedExecutor::new());
+    }
 }
 
 /// Un profil de bot par joueur (`PlayerScript::bot`), pour `bots::BotsPlugin` (T2.11). Le
@@ -1037,17 +1059,28 @@ pub fn run_with_options<F: FnOnce(&mut App)>(
     let mut frame = 0;
     let mut stopped_early = false;
     let mut previous_snapshot = None;
+    // ALACOD_PROFILE=1 : temps cumulé par poste du runner (mesure, jamais dans la simulation).
+    let profile = std::env::var("ALACOD_PROFILE").is_ok_and(|v| v == "1");
+    let mut t_update = 0.0f64;
+    let mut t_metrics = 0.0f64;
+    let mut t_invariants = 0.0f64;
+    let mut t_expect = 0.0f64;
     for _ in 0..max_updates {
         let before = app.world().resource::<FrameCount>().frame;
         if before > 0 && sim_start.is_none() {
             sim_start = Some(std::time::Instant::now());
         }
+        let t0 = std::time::Instant::now();
         app.update();
+        if profile && before > 0 {
+            t_update += t0.elapsed().as_secs_f64();
+        }
         frame = app.world().resource::<FrameCount>().frame;
         if let Some(start) = sim_start {
             sim_elapsed = start.elapsed().as_secs_f64();
         }
 
+        let t1 = std::time::Instant::now();
         if frame > 0 {
             entities_max = entities_max.max(q_rollback.iter(app.world()).count() as u32);
             bullets_max = bullets_max.max(q_bullets.iter(app.world()).count() as u32);
@@ -1061,7 +1094,10 @@ pub fn run_with_options<F: FnOnce(&mut App)>(
                 }
             }
 
+            t_metrics += t1.elapsed().as_secs_f64();
+            let t2 = std::time::Instant::now();
             failures.extend(invariants.check(app.world_mut(), &scenario.invariants, frame));
+            t_invariants += t2.elapsed().as_secs_f64();
 
             for expectation in &no_damage_between {
                 if let Expectation::NoDamageBetween {
@@ -1110,6 +1146,9 @@ pub fn run_with_options<F: FnOnce(&mut App)>(
             }
         }
 
+        if profile {
+            t_expect += t1.elapsed().as_secs_f64();
+        }
         if !app
             .world()
             .resource::<SyncTestMismatches>()
@@ -1192,6 +1231,12 @@ pub fn run_with_options<F: FnOnce(&mut App)>(
         }
     }
 
+    if profile {
+        eprintln!(
+            "profil runner : update={t_update:.2}s métriques={t_metrics:.2}s invariants={t_invariants:.2}s \
+             hors-update(total)={t_expect:.2}s"
+        );
+    }
     let sim_fps = if sim_elapsed > 0.0 {
         frame as f64 / sim_elapsed
     } else {
