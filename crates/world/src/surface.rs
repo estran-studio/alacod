@@ -56,6 +56,72 @@ pub struct SurfaceDef {
     pub move_speed: Fixed,
     /// Accélération du joueur (`Acceleration`) ; les ennemis n'en ont pas.
     pub acceleration: Fixed,
+    /// M2-T11 (§46) : la surface est une fosse. `None` pour toute surface de mouvement.
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub pit: Option<PitDef>,
+}
+
+/// Fosse (M2-T11, `docs/conventions.md` §46) : un joueur dont les pieds y entrent perd
+/// `fall_damage` PV et revient à sa dernière position sûre ; les ennemis au sol ne la traversent
+/// pas (champ de flux, déplacement), les volants la survolent.
+#[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
+pub struct PitDef {
+    pub fall_damage: Fixed,
+    /// Où revient le joueur tombé.
+    #[serde(default)]
+    pub respawn: PitRespawn,
+    /// Un dash en cours traverse la fosse sans y tomber (il tombe s'il finit dessus).
+    #[serde(default)]
+    pub dash_crosses: bool,
+}
+
+/// Point de retour d'un joueur tombé dans une fosse.
+#[derive(Debug, Clone, Copy, Default, PartialEq, Eq, Serialize, Deserialize)]
+pub enum PitRespawn {
+    /// Dernière position dont la case et ses 8 voisines étaient sans fosse
+    /// (`world::props::PitSafePosition`).
+    #[default]
+    LastSafeCell,
+}
+
+impl SurfaceTable {
+    /// Définition de fosse de la surface `id`, s'il y en a une.
+    pub fn pit(&self, id: SurfaceId) -> Option<&PitDef> {
+        self.0.get(&id)?.pit.as_ref()
+    }
+
+    /// Le jeu a au moins une surface fosse.
+    pub fn has_pits(&self) -> bool {
+        self.0.values().any(|def| def.pit.is_some())
+    }
+}
+
+impl SurfaceGrid {
+    /// Fosse sous `position` (monde), s'il y en a une.
+    pub fn pit_at<'a>(&self, table: &'a SurfaceTable, position: FixedVec2) -> Option<&'a PitDef> {
+        table.pit(self.at(position)?)
+    }
+
+    /// Case `(x, y)` sûre : ni elle ni ses 8 voisines ne sont une fosse.
+    pub fn is_safe_cell(&self, table: &SurfaceTable, x: i32, y: i32) -> bool {
+        (-1..=1).all(|dx| {
+            (-1..=1).all(|dy| {
+                self.get(x + dx, y + dy)
+                    .is_none_or(|id| table.pit(id).is_none())
+            })
+        })
+    }
+
+    /// Cases de fosse de la grille, dans l'ordre de la grille (déterministe).
+    pub fn pit_cells<'a>(
+        &'a self,
+        table: &'a SurfaceTable,
+    ) -> impl Iterator<Item = (i32, i32)> + 'a {
+        self.cells
+            .iter()
+            .filter(|(_, id)| table.pit(**id).is_some())
+            .map(|(cell, _)| *cell)
+    }
 }
 
 /// Surfaces du jeu par identifiant (contenu, kind `Surface`). Hors rollback (donnée de
@@ -106,7 +172,43 @@ mod tests {
             tags: vec!["eau".into()],
             move_speed: Fixed::from_num(0.5),
             acceleration: Fixed::ONE,
+            pit: None,
         }
+    }
+
+    #[test]
+    fn fosse_et_cases_sures() {
+        let mut table = SurfaceTable::default();
+        table.0.insert(1, eau());
+        let mut fosse = eau();
+        fosse.name = "fosse".into();
+        fosse.pit = Some(PitDef {
+            fall_damage: Fixed::from_num(10),
+            respawn: PitRespawn::LastSafeCell,
+            dash_crosses: true,
+        });
+        table.0.insert(2, fosse);
+        assert!(table.has_pits());
+        let mut grid = SurfaceGrid::default();
+        grid.cells.insert((5, 5), 2);
+        grid.cells.insert((0, 0), 1);
+        assert!(grid
+            .pit_at(
+                &table,
+                FixedVec2::new(Fixed::from_num(88), Fixed::from_num(88))
+            )
+            .is_some());
+        assert!(grid
+            .pit_at(
+                &table,
+                FixedVec2::new(Fixed::from_num(8), Fixed::from_num(8))
+            )
+            .is_none());
+        assert!(!grid.is_safe_cell(&table, 4, 4));
+        assert!(!grid.is_safe_cell(&table, 6, 5));
+        assert!(grid.is_safe_cell(&table, 7, 5));
+        assert!(grid.is_safe_cell(&table, 0, 1), "l'eau n'est pas une fosse");
+        assert_eq!(grid.pit_cells(&table).collect::<Vec<_>>(), vec![(5, 5)]);
     }
 
     #[test]
@@ -146,6 +248,7 @@ mod tests {
             tags: vec!["glace".into()],
             move_speed: Fixed::ONE,
             acceleration: Fixed::from_num(0.2),
+            pit: None,
         };
         let player = surface_modifiers(&glace, Walker::Player);
         assert_eq!(player.len(), 1);

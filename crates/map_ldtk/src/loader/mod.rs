@@ -33,10 +33,22 @@ pub fn surface_table(registry: Option<&Registry>) -> world::SurfaceTable {
                 tags: surface.tags.clone(),
                 move_speed: surface.move_speed,
                 acceleration: surface.acceleration,
+                pit: surface.pit.clone(),
             },
         );
     }
     table
+}
+
+/// Objets de décor (M2-T11) depuis le registre de contenu : `props/<id>.ron` → définition.
+pub fn prop_table(registry: Option<&Registry>) -> world::PropTable {
+    world::PropTable(
+        registry
+            .iter()
+            .flat_map(|r| r.props.values())
+            .map(|prop| (prop.id.clone(), prop.def.clone()))
+            .collect(),
+    )
 }
 
 /// Objets (M2-T0b) depuis le registre de contenu : `items/<id>.ron` → définition.
@@ -267,6 +279,8 @@ pub fn setup_generated_map(
 ) {
     // T1.7 : table des surfaces du jeu (valeur IntGrid → définition), hors rollback
     commands.insert_resource(surface_table(registry.as_deref()));
+    // M2-T11 : objets de décor du jeu (kind `Prop`), hors rollback
+    commands.insert_resource(prop_table(registry.as_deref()));
     // M2-E1 : types de salles du jeu (kind `Room`), hors rollback
     commands.insert_resource(room_kind_table(registry.as_deref()));
     // M2-T0b : objets du jeu (kind `Item`), hors rollback

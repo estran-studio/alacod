@@ -23,6 +23,9 @@
         (path: "loot", kind: "LootTable"),
         // M2-E1 : types de salles du champ de niveau `room_kind`.
         (path: "rooms", kind: "Room"),
+        // M2-T11 : tables renversables et barils explosifs (entités LDtk `Table` / `Barrel` des
+        // gabarits CombatEW et CombatNS de `maps/salles.ldtk`, docs/conventions.md §46).
+        (path: "props", kind: "Prop"),
         (path: "economy/economy.ron", kind: "Economy"),
         (path: "ui", kind: "Ui"),
         (path: "camera.ron", kind: "Camera"),

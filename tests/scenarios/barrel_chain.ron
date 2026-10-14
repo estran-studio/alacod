@@ -1,0 +1,35 @@
+// M2-T11 (surfaces v2, docs/conventions.md §46) : barils explosifs en chaîne. Carte
+// `testbed/props_barrels.ldtk` : couloir A, le joueur 0 (x -568) tire vers l'est sur deux barils
+// voisins (GgrsNetId 1 et 2, x -424 et -392, 20 PV, rayon 48, 30 dégâts, `props/barrel.ron`) ;
+// couloir B, le joueur 1 (x -360, y 200) est à 45 unités du second baril et à 76 du premier.
+//
+// À regarder : les balles du joueur 0 abîment le premier baril (20 -> 12 -> 4 PV) ; il tombe à
+// 0 PV à f63 et explose à f64 (rayon 48 : il blesse le second, à 32 unités, qui tombe à 0 PV) ;
+// le second explose à f65 et blesse le joueur 1 (100 -> 70). Le premier n'atteignait pas le
+// joueur 1 : sans la chaîne il resterait intact. Plus aucun baril à f65.
+Scenario(
+    powerup_drop_chance_override: "0.0",
+    game: "testbed",
+    map: "testbed/props_barrels.ldtk",
+    frames: 120,
+    players: [
+        (inputs: [(from: 10, to: 70, buttons: [Fire], pan: (100, 0))]),
+        (),
+    ],
+    expect: [
+        EntityCount(kind: Barrel, min: 2, max: 2, at_frame: 5),
+        EntityCount(kind: Barrel, min: 2, max: 2, at_frame: 60),
+        // Premier baril à 0 PV (f63), sa mort attend l'explosion de la frame suivante
+        EntityHealth(net_id: 1, min: 0, max: 0, at_frame: 63),
+        EntityHealth(net_id: 2, min: 20, max: 20, at_frame: 63),
+        // f64 : le premier a explosé, le second est à 0 PV
+        EntityCount(kind: Barrel, min: 1, max: 1, at_frame: 64),
+        EntityHealth(net_id: 2, min: 0, max: 0, at_frame: 64),
+        Health(handle: 1, min: 100, max: 100, at_frame: 64),
+        // f65 : le second a explosé, le joueur 1 a pris 30
+        EntityCount(kind: Barrel, min: 0, max: 0, at_frame: 65),
+        Health(handle: 1, min: 70, max: 70, at_frame: 65),
+        Health(handle: 1, min: 70, max: 70, at_frame: 119),
+        Health(handle: 0, min: 100, max: 100, at_frame: 119),
+    ],
+)

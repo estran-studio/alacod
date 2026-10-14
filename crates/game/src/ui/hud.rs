@@ -693,6 +693,8 @@ fn prompt_for(
                 has_key: items.is_some_and(|i| i.consumable(crate::loot::KEY_ITEM) > 0),
             }
         }
+        // M2-T11 : pas de prompt de table avant le HUD de M2 (V4).
+        InteractionType::Table => return String::new(),
         InteractionType::Weapon => {
             let Some(pickup) = pickup else {
                 return String::new();

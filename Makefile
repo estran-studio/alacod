@@ -173,6 +173,11 @@ test_scenarios:
 	ALACOD_BLESS=$(BLESS) ALACOD_SCENARIO=$(SCENARIO) APP_VERSION=$(TEST_VERSION) cargo test -p scenario --profile headless $(DEV_FEATURES) --test scenarios -- --nocapture
 	$(if $(filter 1,$(SWEEP)),./scripts/target-sweep.sh)
 
+# Même suite en tranches parallèles (scripts/test-scenarios-sharded.sh) : SHARDS processus (défaut 4),
+# un seul build. Mêmes variables (BLESS, SCENARIO) ; préférable à test_scenarios pour une vérification.
+test_scenarios_par:
+	ALACOD_BLESS=$(BLESS) ALACOD_SCENARIO=$(SCENARIO) TEST_VERSION=$(TEST_VERSION) ./scripts/test-scenarios-sharded.sh $(or $(SHARDS),4)
+
 # Benchmarks : lance test_scenarios puis affiche les métriques de performance.
 bench:
 	ALACOD_BENCH_STRICT=1 $(MAKE) test_scenarios

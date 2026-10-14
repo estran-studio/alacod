@@ -68,6 +68,7 @@ pub fn decide(profile: BotProfile, view: &BotView, rng: &mut RollbackRng) -> Box
             .as_ref()
             .map(crate::hunter::decide_hunter)
             .unwrap_or_default(),
+        BotProfile::Explorateur => crate::explorer::decide_explorer(view),
     }
 }
 
@@ -137,7 +138,7 @@ fn decide_fonceur(view: &BotView) -> BoxInput {
     input
 }
 
-fn decide_prudent(view: &BotView) -> BoxInput {
+pub(crate) fn decide_prudent(view: &BotView) -> BoxInput {
     let mut input = BoxInput::default();
 
     // T1.14 (v1) : un projectile menace → l'esquive remplace le déplacement ; la visée et le
@@ -268,7 +269,7 @@ fn approach_portal(input: &mut BoxInput, view: &BotView, portal: FixedVec2) {
 /// direction voulue quantifiée en 8 secteurs ; un axe dont la part est sous
 /// [`STEER_AXIS_SHARE`] n'est pas pressé (un écart de quelques pixels sur l'autre axe ne fait
 /// pas de pas en diagonale contre un coin de roche).
-fn steer(input: &mut BoxInput, direction: FixedVec2) {
+pub(crate) fn steer(input: &mut BoxInput, direction: FixedVec2) {
     let unit = direction.normalize_or_zero();
     let keep = |c: Fixed| {
         if c.abs() >= STEER_AXIS_SHARE {
@@ -283,7 +284,7 @@ fn steer(input: &mut BoxInput, direction: FixedVec2) {
 /// `prudent` v1 (T1.14) : recharge si possible, sinon passe à une arme utilisable (même règle
 /// que `chasseur`/`acheteur`) — sans ça, une mitrailleuse vide sans réserve bloquait le bot
 /// devant le dernier ennemi d'un niveau.
-fn manage_weapon(input: &mut BoxInput, view: &BotView) {
+pub(crate) fn manage_weapon(input: &mut BoxInput, view: &BotView) {
     if view.reload {
         input.buttons |= INPUT_RELOAD;
     } else if view.switch_weapon {
@@ -340,6 +341,12 @@ fn clamp_to_i16(value: Fixed) -> i16 {
     truncated.clamp(i32::from(i16::MIN), i32::from(i16::MAX)) as i16
 }
 
+/// Vue de test partagée par les modules du crate (M2-T16).
+#[cfg(test)]
+pub(crate) mod tests_support {
+    pub(crate) use super::tests::view;
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;
@@ -347,7 +354,7 @@ mod tests {
     use bevy_fixed::fixed_math::new as fx;
     use game::character::player::input::{INPUT_DOWN, INPUT_LEFT, INPUT_RIGHT, INPUT_UP};
 
-    fn view(position: FixedVec2) -> BotView {
+    pub(crate) fn view(position: FixedVec2) -> BotView {
         BotView {
             position,
             health: fx(100.0),
@@ -372,6 +379,7 @@ mod tests {
             loot: None,
             loot_interact: false,
             fire_range: None,
+            explore: None,
         }
     }
 

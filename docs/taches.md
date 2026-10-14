@@ -83,6 +83,13 @@ vague 3  intégration (1 à 2 agents, 1 semaine) : le clone assemblé, scénario
 À la fin de la vague 3, l'humain joue le clone et laisse ses notes (plan §9.8) ; les notes deviennent
 des tâches de la vague 0 du jalon suivant.
 
+**Porte des dettes (règle ajoutée le 2026-10-14)** : à chaque frontière de vague, chaque dette ouverte
+de `docs/taches/dettes.md` reçoit l'un de trois sorts, écrit dans sa ligne : **corrigée** (sha),
+**planifiée** (nom de la fiche qui la prend), ou **tranchée « on ne fait pas »** (par qui, pourquoi).
+Aucune dette ne traverse deux jalons sans sort : D10 et D29 (M0) n'ont été tranchées que le
+2026-10-14, en M2. « Fermeture des notes » (T3.4 de chaque jalon) devient l'exécution des sorts
+**planifiés** restants, pas leur tri.
+
 Tailles en **jours-agent** (un agent, le flow du §9.7 en place) ; les semaines sont calendaires avec
 quatre voies. C'est une estimation, à recaler après M0.
 
@@ -547,7 +554,7 @@ l'ancienne machine.
   consommables, synergie (paire d'objets → effet ajouté).
 - M2-T5 Butin, coffres, clés (C4, 3 j ; fiche `docs/taches/m2-t5-butin-coffres.md`, b1) : pools pondérés seedés par rareté, coffres verrouillés
   (clé consommée), récompense à la sortie de salle (`OnRoomClear`), tables par étage.
-- M2-T6 Boutique (C5, 2 j) : salle `Shop`, objets à prix, monnaie `shells` au sol.
+- M2-T6 Boutique (C5, 2 j ; fiche `docs/taches/m2-t6-boutique.md`, b1 après M2-T5) : salle `Shop`, objets à prix, monnaie `shells` au sol.
 
 **V1c ennemis**
 - M2-T7 Boss à phases et arène (D4, 4 j ; fiche `docs/taches/m2-t7-boss-arene.md`, cloud) : phases par seuil, timeline de patterns, salle de boss
@@ -568,12 +575,12 @@ l'ancienne machine.
   (couverture), barils explosifs.
 
 **V1e run et méta**
-- M2-T12 Profil et déblocages (G1, 3 j) : `Profile` écrit en fin de run, monnaie méta, déblocages
+- M2-T12 Profil et déblocages (G1, 3 j ; fiche `docs/taches/m2-t12-profil-deblocages.md`, b0 après M2-T8 ; prérequis : M2-T5 mergée) : `Profile` écrit en fin de run, monnaie méta, déblocages
   qui enrichissent les pools de C4.
 - M2-T13 Hub (G2, 3 j) : carte de hub (la Brèche), PNJ marchand de déblocages, entrée en run.
 
 **V2 données**
-- M2-T14 Contenu `gungeon` (6 j) : vingt armes, vingt objets, dix ennemis, un boss, quinze gabarits
+- M2-T14 Contenu `gungeon` (6 j ; fiche `docs/taches/m2-t14-contenu-gungeon.md`, en quatre parties a/b/c/d selon les prérequis ; T14a armes possible dès maintenant) : vingt armes, vingt objets, dix ennemis, un boss, quinze gabarits
   de salles, `test:` sur chaque définition ; lint vert, scénarios générés verts.
 - M2-T15 Lint des nouveaux kinds (2 j).
 
@@ -588,12 +595,48 @@ l'ancienne machine.
   actif et sa charge, minicarte.
 - M2-T19 Feedback v2 (I2 v2, 2 j) : télégraphes de patterns, flash du blank, ralenti de fin de boss.
 
-**Ordre de merge** : vague 0 (E1, objets, boss/profil, squelette) → V3 → V2 → V1 (V1a, V1d avec
+**Ordre de merge** (prévu) : vague 0 (E1, objets, boss/profil, squelette) → V3 → V2 → V1 (V1a, V1d avec
 M2-T9 seule à déplacer toutes les cartes générées, V1b, V1c, V1e) → V4.
+**Ordre réellement suivi (2026-10-14)** : comme en M1, au fil des livraisons, V1 d'abord (T10, T1,
+T3, T4, T2 mergées ; T5, T8 sur `orca`, T7, T11, T16 en sessions cloud), V2/V3/V4 après. Ce qui
+le rend sûr : chaque tâche fusionne `main` avant de livrer et fait la preuve §5 de toute trace qui
+bouge contre ce `main`. Dépendances qui comptent vraiment : T5 avant T6 et T12 (tables de butin) ;
+T16 (bot explorateur) avant tout critère « battu/joué par un bot » ; T4/D61 avant du contenu
+d'armure (T14) ; T18/T19 après les mécaniques qu'ils affichent.
+**Repli cloud** : une tâche cloud sans livraison 3 jours après son lancement (2026-10-14) est reprise
+sur `orca` depuis sa branche (T16 en priorité, chez b0).
+**Atteignabilité (règle ajoutée le 2026-10-14)** : une mécanique mergée doit être **rencontrée par une
+partie ordinaire de `gungeon`** (grammaire `etage`, sans `FloorsOverride` ni scénario sur mesure).
+La fiche nomme le scénario ou la graine `alacod-sim` qui l'atteint, et le rapport le vérifie
+(§7 du README). Cas vu : M2-T8 place son escouade dans un type de salle `escouade` et une grammaire
+`court_escouade` que rien ne tire, pour ne bouger aucune trace — mécanique mergée, jamais jouée.
+Autorisé comme étape, **à condition** qu'une partie de T14 (ici T14d gabarits) la branche dans
+`etage` et que la fiche de cette partie le dise ; sinon c'est une dette nommée au merge.
+**Train de merge** : des branches livrées à quelques heures d'écart, sur des crates ou des jeux
+disjoints (ex. T5 sur `items`/`gungeon` et T8 sur `behaviors`/`testbed`), se vérifient **ensemble
+sur l'état fusionné** (suite une seule fois, `make test_scenarios_par`), comme les « vérifications
+groupées » de M1 ; chaque branche garde sa preuve §5 et sa ligne de journal. Une suite = 1 à 2 h :
+le train divise ce coût par le nombre de branches.
+**Revue à mi-vague 1** : dès que salles, butin, boutique et escouades sont sur `main` (T5, T6, T8),
+William joue `gungeon` avec le protocole de `docs/taches/session-test-manuelle.md` (un bloc) ;
+son carnet entre dans les fiches T14 **avant** que le contenu soit écrit. En M1, la revue de fin
+(D56, D57) a trouvé des défauts de sensation que vingt armes auraient multipliés.
 
 ### Vague 2 : intégration
 Scénarios du clone (un étage complet à 1, 2 et 4), bots sur 200 graines, bench à 500 balles en salle
-verrouillée, vidéos, revue humaine, fermeture des notes. Calendrier indicatif : **huit semaines**.
+verrouillée, vidéos, revue humaine, fermeture des notes ; critères propres à M2 (brouillon §5) : un
+profil créé par une partie et relu par la suivante (déblocage visible dans le pool, T12), une partie
+entrée depuis le hub (T13). Ajoutés le 2026-10-14 :
+- **`gungeon_full_run`** : un scénario long (bot explorateur de T16, deux étages de la grammaire
+  `etage`) dont les moments clés attestent chaque mécanique de M2 (`room` verrouillée puis
+  nettoyée, `item_pickup`, coffre ouvert, achat en boutique, `blank`, `boss` et ses phases,
+  portail) ; c'est le `clone_quad` de M2 : une mécanique absente de ses événements n'est pas livrée.
+- **Perf d'un grand étage** : `bench_floor` sur la grammaire `grand` (15 à 20 salles) **rempli par
+  T14** (ennemis, props, coffres), au-dessus de son plancher dans `tests/budgets.ron` sur `orca` au
+  calme ; mesuré aujourd'hui 15 fps sous charge pour un plancher de 9 sur l'étage `etage` vide.
+- **D59 fermée en réel** : une partie en ligne à deux clients (allumette) qui franchit une
+  transition d'étage de la grammaire, traces identiques ; jouée par `scripts/nightly.sh` ensuite.
+Calendrier indicatif : **huit semaines**.
 
 ### Hors M2, gardé en file (revue M0 du 2026-10-09, `docs/digests/revue-m0.md`)
 Points de William sur `zombies` (sensations, pas des correctifs moteur), **pris par William lui-même en parallèle de M2** sur son ordinateur, branche `m0-revue-suite-contenu` (prompt : `docs/taches/m0-revue-suite-contenu.md`) :
@@ -1121,6 +1164,9 @@ coller le préambule puis la fiche dans son prompt.
 | 2026-10-13 | m2-t3-effets-v2 « effets v2 » (M2-T3, b1 : déclencheurs `OnRoomClear` (salle du porteur), `OnDodge`, `OnReload`, `OnPickup`, `OnFloorStart`, `OnBlank` ; conditions `Carrying`, `SquadSize` (`TargetInRange` reste un contrat) ; `cooldown`/`charges`/`recharge` (`PerRoom`, `PerFloor`) dans `EffectState::limits`, hash v1 conservé sans ces champs ; effets passifs d'objets lus dans l'`Inventory` (clé `item:<id>:<index>`) ; `add_frame_events_transient` pour `DashStarted`/`ReloadFinished` (hors checksum et snapshot, lus la même frame après l'émetteur) ; contenu gungeon (`trefle`, `cartouchiere`, `amulette`, `etendard`) et 8 objets testbed ; 9 scénarios `effect_*`/`item_passive_effect`, `gungeon_floor_start` ; conventions §42) | `m2-t3-effets-v2` (`c4a1e447`) | Claude (b1) | Aucune trace existante modifiée (nouvelles traces seules). Vérifié par orch sur la fusion avec main `f13035d6` : suite complète sans bless verte, test_crates (hors `scenarios`, déjà jouée), lint ×4, fmt, check_forbidden, rollback-registration, gen ×4 ; p2p zombies `ab466a88…` et gungeon `f50a943c…` identiques. Suite à 159 min en journée contre ~75 la nuit : charge de la machine (main au nightly du même jour : 168 min), pas une régression. Merge `61cccdbf` (orch). |
 | 2026-10-13 | m2-t4-objets-synergies « objets v2 et synergies » (M2-T4, b1 : kind `Synergy` (`synergies/<id>.ron`, active tant que tous les objets requis sont tenus, modificateurs `synergy:<id>` dérivés de l'`Inventory` à chaque frame, effets `synergy:<id>:<index>`) ; actifs `uses_per_floor` et `cost` (hash d'`ActiveSlot` conservé sans usage) ; consommables à effets `OnUse` appliqués au ramassage (aucun bouton d'usage) ; lint + 5 fixtures ; contenu gungeon `tresor_de_poche`, `tir_nourri`, `pierre_de_soin`, `ration` et testbed ; scénarios `synergy_pair`, `synergy_lost`, `item_active_per_floor`, `item_active_cost`, `consumable_heal` ; conventions §44) | `m2-t4-objets-synergies` (`c9daa580`) | Claude (b1) | b1 : test_crates, suite complète sans bless (7712 s, 0 trace existante modifiée, 5 nouvelles), lint ×4, fmt, gen ×4 sans diff, p2p gungeon identique (3556). Orch : relecture du code (WIP `dee49d52` puis livraison), main n'avait reçu que des fiches depuis la base de la branche (suite non rejouée), fmt, tests `items`/`effects`/`content`, lint gungeon. Pas de bouclier temporaire : `Armor` n'est lue par aucun système (D61). Merge `ee07e04c` (orch). |
 | 2026-10-14 | m2-t2-esquive-v2 « esquive v2 » (M2-T2, b0 : `dash_charges` et recharge, dash nommé par personnage `Roll`/`Shove`/`InPlace` (distance, durée, i-frames, recul), i-frames `Projectiles` (balles traversent, mêlée et contacts touchent) ; état dans `combat::actors::DashExtra`, composant séparé en variante neutre, `DashState` et son hash intacts ; 4 lints + fixtures ; roulade du pilote gungeon (2 charges) ; scénarios `dash_charges`, `dash_shove`, `dash_in_place`, `dash_jump_bullets` ; conventions §43) | `m2-t2-esquive-v2` (`d6c44977`) | Claude (b0) | Traces réenregistrées : les 13 `gungeon` + `gungeon_floor_start` (cause : le pilote porte `DashExtra`). b0 : suite, lint_fixtures, test_crates, fmt, lint ×4, gen ×4, p2p gungeon, `fuzz_inputs` 0:8 sur `dash_charges`/`dash_shove`. Orch sur `d6c44977` (main `565645f7` incluse, avec M2-T3/M2-T4) : preuve §5 sur `gungeon_start`, `gungeon_clear`, `gungeon_floor_seed_1`, `gungeon_two_floors` (seule différence : `DashExtra` du pilote à la frame 0 ; identiques sur 119/699/799/1499 frames en l'ignorant), suite complète sans bless verte (4145 s, la nuit), fmt. Remarque : un dash `Projectiles` sur un personnage sans `DashExtra` retombe sur l'invulnérabilité totale (à garder par lint, signalé à b0). Merge `3205ef14` (orch). |
+| 2026-10-14 | m2-t7-boss-arene « boss à phases jouable et arène » (M2-T7, session cloud : tir par phase (`Shoot` de phase), boss dormant tant que sa salle est `Dormant`, `BossDefeated` transitoire puis salle `Cleared` ; arène à tenir (`arena: Some((clock, waves))`, horloge `ArenaClocks` neutre) ; actions `SpawnEnemies`/`Telegraph` en fin d'enum ; `lint_arenas` + 7 fixtures ; `gatling` à trois phases (120 PV, renfort sous 10 %), type de salle `arene` exigé par `etage` (1 000 graines) ; 6 scénarios dont `gungeon_boss_bot` (le bot bat le boss, f403) ; conventions §45) | `m2-t7-boss-arene` (`4508ed76`) | Claude (cloud) | Traces réenregistrées : 10 `gungeon` (`bench_floor`, `dash_charges`, `gungeon_boss`, `gungeon_clear`, `gungeon_floor_seed_{1,23,123}`, `gungeon_floor_start`, `gungeon_start`, `gungeon_two_floors`) ; cause : le boss dort dans sa salle fermée (preuve §5 du rapport : première différence f10, seule ligne du `gatling`, sans `Emitter` ni `started`). Cloud : suite, test_crates, lint ×4, fmt, scripts, gen ×4 ; p2p non fait (pas de Docker). Orch sur la fusion `04f9b80b` : suite en 4 tranches verte (236 scénarios, 3932 s), fmt, lint gungeon/testbed, p2p gungeon à deux clients (599/599 lignes identiques). Reste : arène de `gungeon` jouée par aucun scénario (bot explorateur, M2-T16). Merge `b5e1863c` (orch). |
+| 2026-10-14 | m2-t11-surfaces-v2 « surfaces v2 » (M2-T11, session cloud : fosses (chute, dégâts `fall_damage`, retour à la dernière case sûre `PitSafePosition`, le dash les franchit), tables renversables (couvert contre les balles), barils explosifs en chaîne ; composants neutres, `BulletWallHit` transitoire ; 4 lints + fixtures ; props dans les gabarits de `salles.ldtk` ; 5 scénarios `pit_fall`, `pit_dash`, `pit_enemy_path`, `table_flip_cover`, `barrel_chain` ; conventions §46) | `m2-t11-surfaces-v2` (`934b11be`) | Claude (cloud) | Cloud : `bench_floor` réenregistré (12 barils + 6 tables dans l'étage `grand`, décalage des `GgrsNetId`, preuve §5 au rapport), suite, test_crates, lint ×4, fmt, gen ×4 ; p2p non fait. Merge en train avec M2-T16 sur main (M2-T7 inclus), voir la ligne suivante. |
+| 2026-10-14 | m2-t16-bot-explorateur « bot explorateur » (M2-T16, session cloud : bot `explorateur` qui parcourt un étage assemblé par grammaire (salles, combat, boss, portail) sans input scripté ; `alacod-sim` campagne par lots ; 200 graines `etages_court_deux` : 1 bot 177 étages franchis, 23 morts au boss (ancien `gatling`), 0 soft-lock, 0 desync ; 2 bots 200/200 ; scénarios `bot_explorer_floor`, `bot_explorer_two` ; conventions §47, D59 mise à jour) | `m2-t16-bot-explorateur` (`1d5b844f`) | Claude (cloud) | Train T11 + T16 sur main `05859ef0` (orch) : conflits additifs résolus (`world/src/plugin.rs`, conventions §45–47, D59 avec la décision de William et le bilan de campagne). Suite en 4 tranches sans bless : 3 traces bougent, `bench_floor`, `bot_explorer_floor`, `bot_explorer_two` ; preuve §5 (branches livrées contre la fusion) : première différence f0, seule ligne du `gatling` de M2-T7 (MaxHealth 150 → 120, `started` true → false) + `ArenaClocks` vide ; réenregistrées (`5c51453e`). `bot_explorer_floor` : le bot bat le nouveau boss (f621), franchit le portail f738 puis meurt f821 dans la première salle de l'étage 1 : scénario arrêté à f760. Puis test_crates, lint ×4, fmt, scripts, gen ×4, p2p gungeon et testbed à deux clients (599/599 identiques). Reste : campagne T16 à rejouer avec le boss à trois phases (morts du bot seul). Merge `5c51453e` (orch). |
 Orchestration : Fable crée les worktrees (`scripts/task-new.sh` du meta-repo), lance un agent par
 tâche avec le modèle le moins cher (Haiku d'abord, Sonnet si une tâche échoue deux fois), vérifie
 la branche (`make test_scenarios`, `cargo test`, lecture du diff), fusionne dans `main`

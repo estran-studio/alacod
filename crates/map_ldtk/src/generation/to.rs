@@ -14,7 +14,7 @@ use map::{
     generation::{
         entity::{
             character_spawn::CharacterSpawnConfig, door::DoorConfig, enemy_spawn::EnemySpawnConfig,
-            location::EntityLocation, soda_location::SodaLocationConfig,
+            location::EntityLocation, prop::PropConfig, soda_location::SodaLocationConfig,
             weapon_location::WeaponLocationConfig, window::WindowConfig,
         },
         room::{Room, RoomConnection},
@@ -42,6 +42,16 @@ impl GeneratedRoom {
             self.level.px_wid,
             self.level.px_hei,
         )
+    }
+
+    /// Entités de la couche `Entities` de la salle générée (M2-T11, vérifications des tests).
+    pub fn entities(&self) -> impl Iterator<Item = &EntityInstance> {
+        self.level
+            .layer_instances
+            .iter()
+            .flatten()
+            .filter(|layer| layer.identifier == LAYER_ENTITY)
+            .flat_map(|layer| layer.entity_instances.iter())
     }
 
     pub fn create(ldtk_json: Rc<LdtkJson>, room: &Room) -> Self {
@@ -554,6 +564,22 @@ impl IMapGenerator for GeneratedMap {
                     FieldValue::String(Some(config.perk.clone())),
                 )],
             );
+        }
+    }
+
+    /// M2-T11 : `prop` est une valeur d'auteur, réécrite telle quelle (champ seulement s'il est
+    /// rempli : les cartes sans champ gardent leur entité nue).
+    fn add_props(&mut self, rng: &mut RollbackRng, props: &Vec<(EntityLocation, PropConfig)>) {
+        for (location, config) in props.iter() {
+            let fields = if config.prop.is_empty() {
+                vec![]
+            } else {
+                vec![(
+                    map_const::FIELD_PROP_NAME,
+                    FieldValue::String(Some(config.prop.clone())),
+                )]
+            };
+            self.add_entity_to_level(rng, location, &config.entity, fields);
         }
     }
 }

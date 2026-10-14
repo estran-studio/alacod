@@ -2420,9 +2420,9 @@ les événements dus de la frise. La frise n'a pas de curseur : `due(frame - ent
 
 **Règles par phase.** `EnemyBehaviors::phase_rules` (statique) garde la liste de chaque phase ; l'IA
 lit `EnemyBehaviors::active(BossState::phase)` (sélection, déplacement imposé, attaque,
-`melee_hold`, attente `EnemyState`). **Limite** : la table de tir d'une règle `Shoot` (`ai.ranged`)
-est fixée à la config de l'ennemi, pas à la phase ; en phase, un tir passe par la frise
-(`SpawnPattern`).
+`melee_hold`, attente `EnemyState`). **Limite levée par M2-T7 (§45)** : la règle `Shoot` d'une phase
+porte sa propre table de tir (arme, pattern, portée, recharge) ; sans `Shoot` de phase, `ai.ranged` de
+la config ; un tir peut aussi passer par la frise (`SpawnPattern`).
 
 **Actions.** Même exécuteur que les effets de personnage (`effects_runtime::apply_action`) avec un
 `EffectState` jetable : `GaugeAdd` n'a pas d'effet durable sur un boss ; `SpawnPattern` est ignoré
@@ -2488,7 +2488,7 @@ manifeste `assets/game.ron`. Il montre les contrats de la vague 0 de M2 ensemble
 **Contenu.**
 - `characters/` : `pistolero` (le joueur, id moteur `player`, course nerveuse et roulade à i-frames
   du §34), `bullet_kin` (ennemi tireur : `Shoot` du pattern `visee`, `KeepDistance`, `Chase`),
-  `gatling` (boss immobile à deux phases, frise `SpawnPattern`), `cible` (cible des scénarios
+  `gatling` (boss immobile ; trois phases depuis M2-T7, §45 : éventail, spirale, rage avec renfort), `cible` (cible des scénarios
   générés d'armes).
 - `weapons/weapons.ron` : `pistolet` (le moteur n'a pas de munition infinie : réserve de 9999
   chargeurs de 12, rechargement rapide ; `Automatic` : tenir la gâchette tire en continu) et
@@ -2916,6 +2916,183 @@ la réduction de dégâts existera. `testbed` : objets d'essai `lame`, `manche`,
 `synergy_lost` (actif remplacé : dégâts 3 puis 1), `item_active_per_floor` (trois appuis par étage, deux
 effets, sur `deux_niveaux`), `item_active_cost` (obus 3 → 1, second usage refusé), `consumable_heal`
 (santé 92 → 97 au ramassage). Aucune trace existante ne bouge : types neutres, champs optionnels hors hash.
+
+## 45. Boss et arène (M2-T7, chantier D4)
+
+Complète §37 (phases, frise) et §35 (salles verrouillées) : tir **par phase**, salle de boss,
+arène à tenir, actions de frise `SpawnEnemies` et `Telegraph`.
+
+**Tir par phase** (lève la limite de §37). Une règle `Shoot` d'une phase (`Phase::behaviors`)
+utilise **sa propre** table de tir : arme (donc table de projectiles), pattern, portée, recharge.
+`EnemyBehaviors::phase_shoot(phase)` la rend, `enemy_attack_system` la préfère à `ai.ranged` ;
+`spawn_enemy` équipe en plus (inactives) les armes des `Shoot` de phase. Sans `Shoot` de phase,
+`ai.ranged` comme avant (aucune trace ne bouge). Personnage `testbed/gardien_tir`.
+
+**Salle de boss.** Type de salle `boss` (`locks: true`, §35). Le boss **dort** tant que sa salle est
+`Dormant` : `boss_phase_system` saute les entités `RoomDormant` (la phase 0 est donc datée à l'éveil,
+pas au premier tick du jeu : le boss ne tire plus depuis une salle fermée). À sa mort,
+`boss_defeated_system` (`DeathManagement`) émet `FrameEvents<BossDefeated>` (**transitoire** :
+`add_frame_events_transient`, hors checksum et hors snapshot, vidé à la frame suivante) puis
+`map_ldtk::game::rooms::boss_room_clear_system` tue les autres ennemis de sa salle (renforts compris) :
+la salle passe `Cleared` dans la frame (portes rouvertes, `RoomChanged`). `floor_portal_open_system`
+ne bouge pas : le portail ou la victoire de fin d'étage viennent après, comme avant. Trace
+`ggrs{f=… boss_defeated net_id=…}` et `boss_room_clear`.
+
+**Actions de frise** (variantes **en fin d'enum** `effects::Action`, le hash des autres ne bouge pas) :
+- `Telegraph(n)` : le prochain `SpawnPattern` de la même liste est précédé d'un télégraphe de `n`
+  frames (l'émetteur joue `Sequence([Telegraph(n), pattern])`) ; aucun type nouveau.
+- `SpawnEnemies(id, count)` : `count` personnages `id` apparaissent dans la salle du boss, positions
+  tirées du flux RNG `room:<niveau>` (`world::room_rng_stream`) sur une case libre du profil `Ground`
+  (16 essais, repli sur le centre). Demande `game::boss::ReinforcementRequest` (transitoire) émise
+  par `boss_phase_system` et exécutée dans la même frame par `boss_reinforcements_system` (`Run`).
+Refusées partout ailleurs que dans un boss (power-up, effet de personnage : `OutOfRange`).
+
+**Arène à tenir.** Champ optionnel `arena` d'un fichier `rooms/<id>.ron` :
+`(arena: Some((clock: 600, waves: [(at: 0, enemies: [("dummy", 2)]), …])))`
+(`world::ArenaDef`, `ArenaWave`). Une arène verrouille **dès qu'un joueur debout entre**, même vide
+(`RoomKindTable::locks` est vrai), et lance son horloge (`ArenaClocks`, ressource rollback **neutre**,
+frame de verrouillage par niveau). Vagues : `arena_waves_system` (`Run`) fait apparaître les ennemis
+d'une vague quand `frame - début == at` (aucun curseur : tout se déduit de l'horloge et de l'état de
+salle). À `clock` frames, si un joueur vit, les survivants meurent et la salle passe `Cleared`
+(portes rouvertes). Si tous les joueurs meurent, défaite universelle. Trace
+`ggrs{f=… arena_wave …}` et `arena_kill`.
+
+**Lint.** `lint_arenas` : `clock` > 0, au moins une vague, `at` < `clock` et croissants, vague non
+vide, personnage connu (`BrokenReference`), `count` > 0 ; dans une frise : `SpawnEnemies` d'un
+personnage inconnu, `count` 0, `Telegraph(0)`, `Telegraph` sans `SpawnPattern` après lui. Fixtures
+`arena_no_waves`, `arena_clock_zero`, `arena_unknown_enemy`, `arena_count_zero`,
+`boss_spawn_enemies_unknown`, `boss_spawn_enemies_count_zero`, `boss_telegraph_alone`.
+
+**Déterminisme.** Types nouveaux tous neutres ou transitoires (`ArenaClocks`, `BossDefeated`,
+`ReinforcementRequest`) : aucune trace hors `gungeon` ne bouge. Les flux `room:<niveau>` ne naissent
+qu'au premier renfort ou à la première vague. Apparitions dans l'ordre : demandes par `GgrsNetId` du
+boss, salles triées par position puis identifiant.
+
+**Contenu.** `testbed` : `gardien_tir`, `gardien_renforts`, types de salle `boss`, `arene`,
+`arene_mortelle`, cartes `salles_boss*.ldtk` et `salles_arene*.ldtk`
+(`docs/taches/rapports/m2-t7-boss-arene.make_cartes.py`).
+
+**Scénarios.** `boss_room_lock` (le boss dort : aucune flèche avant le verrou f85 ; réouverture à sa mort f184),
+`boss_phase_shoot` (flèches de `fireball_gun` en phase 0, balle `ricochet` de `tourelle_gun` en phase 1, projectile
+qui n'existe que dans cette table), `boss_reinforcements` (1 → 3 → 0 ennemis), `arena_survive` (verrou f85, rouverte
+f685 = 85 + 600), `arena_fail` (le joueur immobile meurt f1514, la salle ne se rouvre pas), `gungeon_boss_bot` (le bot
+`fonceur` bat le `gatling` à f403, victoire).
+
+**`gungeon`.** `gatling` : 120 PV (150 avant), phase 0 `eventail` ; phase 1 (sous 50 %) `spirale` ; phase 2 (sous
+10 %, la rage) `SpawnEnemies(bullet_kin, 1)` puis `Telegraph(10)` + `couronne`. Les scénarios scriptés de M2-T0d,
+T1, T3 et T10 gardent leurs entrées : un renfort plus tôt retardait la mort du boss de plus de 40 frames (il
+bloque des balles et le joueur scripté meurt à quelques points de vie près) ; la rage se déclenche donc à la
+dernière touche (sous 10 %) et les PV tombent à 120. Type de salle `arene` (`rooms/arene.ron`, horloge de 900
+frames, 2 + 2 + 3 `bullet_kin`), deux gabarits `ArenaEW` et `ArenaCroix` dans `maps/salles.ldtk`
+(`docs/taches/rapports/m2-t7-boss-arene.make_arene.py`), exigée une fois par la grammaire `etage`
+(`required: {"arene": 1}`), validée sur 1 000 graines (`ALACOD_FLOOR_SEEDS=1000 cargo test -p map_ldtk
+gungeon_etages_de_grammaire`). Aucun scénario ne joue encore l'arène de gungeon.
+## 46. Surfaces v2 : fosses, tables renversables, barils explosifs (M2-T11, chantier E4 v2)
+
+Code : `world::surface` (`PitDef`), `world::props` (`PropDef`, `TableState`, `BarrelState`,
+`PitSafePosition`, règles pures `flip_direction` / `flipped_rect`), `game::props` (`PropsPlugin` :
+`pit_system`, `table_flip_system`, `table_cover_system`, `barrel_explosion_system`),
+`map_ldtk::game::entity::prop` (entités LDtk), `map::generation::entity::prop` (génération).
+Script des cartes : `scripts/construire-cartes-t11.py`.
+
+**Fosse.** Une surface (§26) peut porter `pit` ; la case IntGrid `Surfaces` correspondante est
+une fosse :
+```ron
+// games/testbed/assets/surfaces/fosse.ron
+(intgrid_value: 4, tags: ["fosse"], move_speed: "1.0",
+ pit: (fall_damage: "10.0", dash_crosses: true))   // respawn: LastSafeCell (seul choix)
+```
+Un joueur (hors à terre) dont les pieds (§26) sont sur une fosse perd `fall_damage` PV (dégâts
+`True`, tag `fall`), revient à sa dernière position sûre et sa vitesse est remise à zéro. Un dash en
+cours traverse la fosse si `dash_crosses` ; il tombe s'il finit dessus. Position sûre =
+`PitSafePosition` (composant rollback **neutre**, posé sur les joueurs seulement quand la carte a
+au moins une case de fosse) : translation d'une frame où la case et ses 8 voisines n'étaient pas
+des fosses, réécrite à chaque frame **avant** toute chute. Un joueur apparu dans une fosse n'a pas
+de point de retour et ne tombe pas. Ennemis : les cases de fosse bloquent `Ground` et
+`GroundBreaker` dans le champ de flux (`ObstacleType::Pit`), `Flying` et `Phasing` les passent (sans
+pénalité) ; `EnemyNeverInWall` (§22) échoue aussi quand les pieds d'un ennemi au sol sont sur une
+fosse. Sans la ligne de `update_flow_field_system`, `pit_enemy_path` échoue à f137.
+
+**Objets de décor.** Kind `Prop` (`(path: "props", kind: "Prop")`), un fichier RON par objet, id =
+nom de fichier, lu avec l'extension RON `UNWRAP_VARIANT_NEWTYPES` :
+```ron
+Table(bullets: 4)                                     // thickness: "6", range: "20" par défaut
+Barrel(health: "20.0", radius: "48.0", damage: "30.0")
+```
+Entités LDtk `Table` et `Barrel` (aucun champ requis ; champ optionnel `prop` = id, défaut `table` /
+`barrel`), lues par la génération (`PropConfig`, valeurs d'auteur portées telles quelles comme
+`WeaponLocation`) puis créées par `spawn_map_items` avec `MapRollbackMarker` : `GgrsNetId` triés par
+nom puis position comme les portes. Une entité dont l'id est inconnu ou d'un autre type reste
+inerte (`warn!`). Lint : table à `bullets` 0, baril à `health`/`radius`/`damage` ≤ 0, fosse à
+`fall_damage` ≤ 0 (`OutOfRange`), fosse sans `fall_damage` (`Parse`) ; fixtures `pit_*` et `prop_*`.
+
+**Table.** Debout : marqueur `Window`, couche `window`, `Obstacle` `Barricade` non cassable,
+`Interactable { Table }` (portée 20 du bord du collider). Les balles passent, les joueurs et les
+zombies non. L'interaction (`InteractionType::Table`, variante ajoutée en fin d'enum) la renverse à
+l'opposé du joueur (axe dominant, égalité : x) : elle perd `Window` et `Interactable`, gagne
+`Wall` + couche `wall`, et son collider devient une bande de `thickness` au bord renversé sur toute
+la longueur de ce bord. Chaque balle qui la touche (`combat::projectile::BulletWallHit`, file
+**transitoire** hors checksum, émise par les collisions de balles ordinaires et composables) retire
+1 à `bullets_left` ; à 0, `despawn_rollback()`. `TableState` : rollback neutre.
+
+**Baril.** Personnage `Enemies` sans IA (Neutral ne subit jamais de dégâts) avec `Health`,
+`BarrelState` (neutre) ; sans butin (power-ups, armes de progression ignorent `BarrelState`). À 0 PV
+il garde son `Death` (santé figée à 0) : `rollback_apply_death` l'ignore. À la frame suivante
+`barrel_explosion_system` (`CollisionDamage`, avant le résolveur) envoie `damage` (genre `Physical`,
+tag `explosion`, tir ami `Always`) à tout ce qui a des PV dans `radius` (distance centre à centre,
+hors barils déjà morts), crédité au dernier joueur qui l'a touché, puis `despawn_rollback()`. Les
+barils touchés meurent dans la même frame (résolution avant `DeathManagement`) et explosent à la
+suivante : chaîne déterministe (ordre `GgrsNetId`).
+
+**Scénarios** (testbed, cartes `props_*.ldtk`) : `pit_fall` (100 → 90 PV, retour à x -150,6),
+`pit_dash` (traversée, 100 PV), `pit_enemy_path` (le `follower` contourne), `table_flip_cover`
+(cible à 5 coups avant, 5 pendant la couverture, 13 après la rupture), `barrel_chain` (f63 premier
+baril à 0 PV, f64 second, f65 joueur 1 à 70). Nouvelle catégorie `EntityCount(kind: Barrel | Table)`.
+
+**Gungeon.** `CombatEW` et `CombatNS` de `maps/salles.ldtk` portent deux barils et une table
+(définitions d'entités ajoutées au projet LDtk) ; test `gungeon_decor_sur_1000_graines`
+(`map_ldtk::generation`) : 1 000 graines de `etage`, 3 objets exactement par salle décorée, dans la
+salle, sans recouvrir porte, spawn ni personnage. Seule `bench_floor` bouge (12 barils, 6 tables).
+
+**Pièges.** (1) Une file `FrameEvents` « neutre » est hachée dès qu'elle n'est pas vide : un
+événement émis dans des parties existantes (ici un mur touché) exige `add_frame_events_transient`.
+(2) Un système qui pose un composant neutre sur les joueurs doit se garder sur une condition de
+**carte** (case de fosse présente), pas de **jeu** (une surface fosse existe) : sinon les cartes à
+eau du même jeu changent de trace. (3) `Team::Neutral` ne subit aucun dégât : un objet destructible
+est `Enemies`. (4) Les bullets partent ~9 unités sous le centre du joueur : ne pas poser le joueur
+en bord de couloir. (5) Deux worktrees sur un même `CARGO_TARGET_DIR` collisionnent (chemins
+relatifs hachés pareil) : `find crates games -name '*.rs' -exec touch {} +` avant de reconstruire.
+## 47. Bot explorateur d'étages (M2-T16, chantier K2 v1)
+
+**Profil `explorateur`** (`BotProfile::Explorateur`, fin de l'enum, `bots::explorer`) : joue seul un étage
+de salles typées du mode `Floors` (§35, §40). Aucune simulation touchée : il ne produit que des inputs, les
+profils existants sont inchangés (aucune trace existante ne bouge).
+- **Combat** : celui de `prudent` (chasse par le chemin, esquive, gestion d'arme, réanimation, ramassage au
+  passage), contre les seuls ennemis **éveillés** : un ennemi `RoomDormant` n'est pas une cible mais une salle
+  à visiter.
+- **Blank** (§41) : appui quand une balle ennemie qui approche est à moins de `BLANK_DISTANCE` (48 px) et que
+  le joueur a un blank ; front montant lu dans `BlankState::held` (état rollback).
+- **Exploration**, sans ennemi éveillé : le but le plus proche **par le chemin** (champ à une source,
+  `BotNavigation::costs_from`). Ordre déterministe : coût, objets avant salles, puis `GgrsNetId` de l'objet
+  ou identifiant de salle (`LevelId`). Buts : objet au sol (pas d'actif si le joueur en tient déjà un :
+  il échangerait sans fin), salle verrouillante à visiter (`Locked`, ou `Dormant` avec un ennemi dedans), la
+  salle du boss en dernier. Portail ouvert : `prudent` va au portail.
+- **Mémoire** : aucune. « Visitée » se lit dans l'état (`RoomState` `Cleared`, ou `Dormant` sans ennemi) ;
+  les champs de navigation sont des caches dont la clé contient la géométrie.
+- **Option** `ExplorerOptions::boss_direct` (`alacod-sim --boss-direct`) : droit au boss, sans autre salle
+  ni objet.
+
+**`alacod-sim`** : `--floors <séquence> --until-floor N` existait (T1.14) ; le JSON gagne `outcome`
+(`victoire`, `objectif`, `mort`, `soft-lock`, `plafond`, `desync`) et `rooms` (par étage : salles typées,
+visitées, nettoyées, verrouillantes) ; un résumé par issue (graines) finit la sortie d'erreur. `--until-floor N`
+s'arrête dès que `FloorState::index >= N` (index 0-based) : **atteindre l'étage 2 = `--until-floor 1`**. La
+campagne : `alacod-sim --game gungeon --bots 1 --profiles explorateur --floors etages_court_deux --seeds A..B
+--until-floor 1 --max-frames 20000`.
+
+**Scénarios** : `bot_explorer_floor` (un bot, graine 1) et `bot_explorer_two` (deux bots) jouent
+`etages_court_deux` sans input scripté ; ils vérifient l'état des salles, `FloorIndex` 1 et la survie. La
+carte de l'étage suivant est chargée à l'avance : `RoomState` y désigne les salles de l'étage joué par
+`nth: 1`. Les scénarios `gungeon_floor_seed_*` (atteinte scriptée) ne changent pas.
 
 ## 48. Butin, coffres et clés (M2-T5, chantier C4)
 

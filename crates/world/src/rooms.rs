@@ -36,6 +36,42 @@ pub struct RoomKindDef {
     /// M2-T5 : coffre posé au centre de chaque salle de ce type (`docs/conventions.md` §48).
     #[serde(default)]
     pub chest: Option<items::RoomChestDef>,
+    /// M2-T7 (`docs/conventions.md` §45) : arène à tenir. La salle se verrouille dès qu'un
+    /// joueur debout y entre (même vide), fait apparaître ses vagues internes et ne se rouvre
+    /// qu'à la fin de son horloge, si un joueur vit encore. Implique le verrouillage.
+    #[serde(default)]
+    pub arena: Option<ArenaDef>,
+}
+
+/// Arène à tenir (M2-T7) : horloge de `clock` frames comptée depuis le verrouillage, vagues
+/// internes datées sur cette horloge.
+#[derive(Clone, Debug, Default, PartialEq, Eq, Hash, Serialize, Deserialize)]
+pub struct ArenaDef {
+    /// Durée à tenir, en frames depuis le verrouillage (> 0).
+    pub clock: u32,
+    /// Vagues internes (au moins une), dans l'ordre de leurs `at`.
+    pub waves: Vec<ArenaWave>,
+}
+
+/// Une vague d'arène : à `at` frames du verrouillage, les personnages listés apparaissent dans
+/// la salle (positions tirées du flux RNG de la salle, `room:<niveau>`).
+#[derive(Clone, Debug, Default, PartialEq, Eq, Hash, Serialize, Deserialize)]
+pub struct ArenaWave {
+    pub at: u32,
+    /// `(personnage, nombre)`, nombre > 0.
+    pub enemies: Vec<(String, u32)>,
+}
+
+/// Frame de verrouillage de chaque arène en cours, par identifiant de niveau (M2-T7).
+/// Rollback + checksum + trace en variante **neutre** : vide hors arène. Les vagues dues et la
+/// fin de l'horloge se déduisent de `frame - début` (pas de curseur).
+#[derive(Resource, Clone, Debug, Default, PartialEq, Eq, Hash)]
+pub struct ArenaClocks(pub BTreeMap<String, u32>);
+
+/// Nom du flux RNG d'une salle (`RngStreams`) : positions des renforts de boss et des vagues
+/// d'arène.
+pub fn room_rng_stream(level_id: &str) -> String {
+    format!("room:{level_id}")
 }
 
 /// Types de salles du jeu par identifiant (contenu, hors rollback, posée au chargement de la
@@ -46,7 +82,14 @@ pub struct RoomKindTable(pub BTreeMap<String, RoomKindDef>);
 impl RoomKindTable {
     /// Le type verrouille-t-il ses salles ? (Type inconnu : non.)
     pub fn locks(&self, kind: &str) -> bool {
-        self.0.get(kind).is_some_and(|def| def.locks)
+        self.0
+            .get(kind)
+            .is_some_and(|def| def.locks || def.arena.is_some())
+    }
+
+    /// L'arène du type, s'il en est une (M2-T7).
+    pub fn arena(&self, kind: &str) -> Option<&ArenaDef> {
+        self.0.get(kind).and_then(|def| def.arena.as_ref())
     }
 }
 

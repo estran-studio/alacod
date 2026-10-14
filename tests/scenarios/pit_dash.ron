@@ -1,0 +1,28 @@
+// M2-T11 (surfaces v2, §46) : un dash traverse la fosse (`dash_crosses`). Même carte que
+// `pit_fall` : fosse x -144 à -112. Le joueur 0 marche à droite de f10 à f180 puis dash (64 px en
+// 8 frames, départ x = -150, arrivée x = -86 : au-delà de la fosse) et continue à droite.
+//
+// À regarder : le joueur 0 survole la fosse pendant le dash (f181 à f188) et ne perd aucun PV ;
+// à f260 il est de l'autre côté (x > -112) avec ses 100 PV.
+Scenario(
+    powerup_drop_chance_override: "0.0",
+    game: "testbed",
+    map: "testbed/props_pits.ldtk",
+    frames: 260,
+    players: [
+        (inputs: [
+            (from: 10, to: 180, buttons: [Right], pan: (0, 0)),
+            (from: 180, to: 182, buttons: [Right, Dash], pan: (0, 0)),
+            (from: 182, to: 200, buttons: [Right], pan: (0, 0)),
+        ]),
+        (),
+    ],
+    expect: [
+        NoDamageBetween(handle: 0, from_frame: 0, to_frame: 259),
+        PlayerPosition(handle: 0, x: -233.1, y: 248, tolerance: 2, at_frame: 150),
+        // Après la fosse (x > -112) : arrivé de l'autre côté, intact
+        PlayerPosition(handle: 0, x: -64.1, y: 248, tolerance: 2, at_frame: 200),
+        PlayerPosition(handle: 0, x: -49.1, y: 248, tolerance: 2, at_frame: 259),
+        Health(handle: 0, min: 100, max: 100, at_frame: 259),
+    ],
+)

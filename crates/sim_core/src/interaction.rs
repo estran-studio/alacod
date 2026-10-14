@@ -46,5 +46,9 @@ pub enum InteractionType {
     /// Ouvrir un coffre (M2-T5, `docs/conventions.md` §48). Posé avec `Interactable` sur une entité
     /// `items::Chest` (`game::loot::spawn_chest`) ; consommé par `game::loot::chest_interaction_system`.
     Chest,
+    /// Renverser une table (M2-T11, `docs/conventions.md` §46). Posé avec `Interactable` sur
+    /// une entité `world::TableState` debout (`map_ldtk::game::plugin::spawn_map_items`) ;
+    /// consommé par `game::props::table_flip_system`.
+    Table,
     // Future: Crate, etc.
 }

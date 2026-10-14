@@ -1,0 +1,41 @@
+// M2-T11 (surfaces v2, docs/conventions.md §46) : table renversable en couverture. Carte
+// `testbed/props_cover.ldtk` : couloir de 3 rangées ; le joueur 0 (x -568) ; une table de 32x48
+// (x -432 à -400, GgrsNetId 3, `props/table.ron` : 4 balles) ; une `target` ennemie immobile
+// (GgrsNetId 13, x -296) qui compte ses coups. Debout, la table bloque le passage mais laisse
+// passer les balles.
+//
+// À regarder : f10-f40 le joueur tire à travers la table debout : la cible reçoit 5 coups. Il
+// avance jusqu'à la table (f109, x -442), appuie sur Interaction (f110) : la table se renverse
+// vers l'est, à l'opposé du joueur (f125), et devient un mur mince qui arrête les balles. La
+// salve de f120-f135 s'y écrase : la table encaisse 4 balles (f140 : 2 restantes), se brise,
+// et la cible reste à 5 coups. Le tir de f180-f260 passe de nouveau : 13 coups à f259.
+Scenario(
+    powerup_drop_chance_override: "0.0",
+    game: "testbed",
+    map: "testbed/props_cover.ldtk",
+    frames: 300,
+    players: [
+        (inputs: [
+            (from: 10, to: 40, buttons: [Fire], pan: (100, 0)),
+            (from: 45, to: 110, buttons: [Right], pan: (100, 0)),
+            (from: 110, to: 113, buttons: [Interaction], pan: (100, 0)),
+            (from: 120, to: 135, buttons: [Fire], pan: (100, 0)),
+            (from: 180, to: 260, buttons: [Fire], pan: (100, 0)),
+        ]),
+    ],
+    expect: [
+        EntityCount(kind: Table, min: 1, max: 1, at_frame: 5),
+        // Table debout : les balles passent, la cible est touchée
+        EntityHits(net_id: 13, min: 0, max: Some(0), at_frame: 50),
+        EntityHits(net_id: 13, min: 5, max: Some(5), at_frame: 109),
+        PlayerPosition(handle: 0, x: -442.2, y: 696, tolerance: 2, at_frame: 109),
+        // Renversée : plus aucun coup tant que la table tient, puis elle se brise après 4 balles
+        EntityCount(kind: Table, min: 1, max: 1, at_frame: 125),
+        EntityHits(net_id: 13, min: 5, max: Some(5), at_frame: 125),
+        EntityHits(net_id: 13, min: 5, max: Some(5), at_frame: 140),
+        EntityCount(kind: Table, min: 0, max: 0, at_frame: 200),
+        EntityHits(net_id: 13, min: 5, max: Some(5), at_frame: 200),
+        // Table détruite : le tir touche de nouveau
+        HitsAtLeast(entity: Target, hits: 10, at_frame: 259),
+    ],
+)

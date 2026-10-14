@@ -1,0 +1,8 @@
+// Fixture M2-T7 (§45)
+(
+    name: "fixture-boss_telegraph_alone",
+    content_folders: [
+        (path: "characters", kind: "Character"),
+    ],
+    entry: (start_map: "maps/salle.ldtk", default_seed: 1),
+)

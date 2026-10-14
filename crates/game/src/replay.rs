@@ -383,6 +383,10 @@ pub enum BotProfile {
     Chasseur,
     /// Chasseur qui ouvre les portes et achète armes, munitions et Juggernog.
     Acheteur,
+    /// M2-T16 : joue un étage de salles (mode `Floors`) seul : va à la salle à visiter la plus
+    /// proche par le chemin, s'y bat comme `prudent` (esquive, blank), ramasse les objets au
+    /// sol, finit par le boss puis prend le portail (`docs/conventions.md` §47).
+    Explorateur,
 }
 
 impl BotProfile {
@@ -395,6 +399,7 @@ impl BotProfile {
             Self::Prudent => "prudent",
             Self::Chasseur => "chasseur",
             Self::Acheteur => "acheteur",
+            Self::Explorateur => "explorateur",
         }
     }
 
@@ -406,6 +411,7 @@ impl BotProfile {
             "prudent" => Some(Self::Prudent),
             "chasseur" => Some(Self::Chasseur),
             "acheteur" => Some(Self::Acheteur),
+            "explorateur" => Some(Self::Explorateur),
             _ => None,
         }
     }

@@ -122,6 +122,18 @@ fn surface_fixtures_report_duplicate_value_and_non_positive_factors() {
 }
 
 #[test]
+fn pit_and_prop_fixtures_are_refused() {
+    let (_, _, errors) = load_and_lint(&fixture_dir("pit_fall_damage_missing")).unwrap();
+    assert_has_error(&errors, LintErrorKind::Parse, "fall_damage");
+    let (_, _, errors) = load_and_lint(&fixture_dir("pit_fall_damage_non_positive")).unwrap();
+    assert_has_error(&errors, LintErrorKind::OutOfRange, "fall_damage = 0");
+    let (_, _, errors) = load_and_lint(&fixture_dir("prop_barrel_radius_non_positive")).unwrap();
+    assert_has_error(&errors, LintErrorKind::OutOfRange, "radius = 0");
+    let (_, _, errors) = load_and_lint(&fixture_dir("prop_table_no_bullets")).unwrap();
+    assert_has_error(&errors, LintErrorKind::OutOfRange, "bullets = 0");
+}
+
+#[test]
 fn effect_fixtures_report_unsupported_and_out_of_range() {
     let (_, _, errors) = load_and_lint(&fixture_dir("effect_unsupported")).unwrap();
     assert_has_error(&errors, LintErrorKind::Unsupported, "OnHit");
@@ -461,6 +473,11 @@ fn t2_8_fixtures_have_a_single_problem() {
         // T1.7.
         ("surface_duplicate_value", LintErrorKind::DuplicateId),
         ("surface_factor_non_positive", LintErrorKind::OutOfRange),
+        // M2-T11.
+        ("pit_fall_damage_missing", LintErrorKind::Parse),
+        ("pit_fall_damage_non_positive", LintErrorKind::OutOfRange),
+        ("prop_barrel_radius_non_positive", LintErrorKind::OutOfRange),
+        ("prop_table_no_bullets", LintErrorKind::OutOfRange),
         ("effect_unsupported", LintErrorKind::Unsupported),
         ("effect_out_of_range", LintErrorKind::OutOfRange),
         ("effect_limits_invalid", LintErrorKind::OutOfRange),
@@ -1235,4 +1252,37 @@ fn loot_unknown_item_fixture_reports_broken_reference() {
 fn loot_locked_chest_without_key_fixture_reports_broken_reference() {
     let (_, _, errors) = load_and_lint(&fixture_dir("loot_locked_chest_without_key")).unwrap();
     assert_has_error(&errors, LintErrorKind::BrokenReference, "« key »");
+}
+
+// M2-T7 (docs/conventions.md §45) : arènes et actions de frise.
+#[test]
+fn arena_and_boss_t7_fixtures_report_their_rule() {
+    for (fixture, kind, expected) in [
+        ("arena_no_waves", LintErrorKind::OutOfRange, "aucune vague"),
+        ("arena_clock_zero", LintErrorKind::OutOfRange, "clock = 0"),
+        (
+            "arena_unknown_enemy",
+            LintErrorKind::BrokenReference,
+            "personnage « fantome » inconnu",
+        ),
+        ("arena_count_zero", LintErrorKind::OutOfRange, "count = 0"),
+        (
+            "boss_spawn_enemies_unknown",
+            LintErrorKind::BrokenReference,
+            "personnage « fantome » inconnu",
+        ),
+        (
+            "boss_spawn_enemies_count_zero",
+            LintErrorKind::OutOfRange,
+            "count = 0",
+        ),
+        (
+            "boss_telegraph_alone",
+            LintErrorKind::OutOfRange,
+            "Telegraph sans SpawnPattern",
+        ),
+    ] {
+        let (_, _, errors) = load_and_lint(&fixture_dir(fixture)).unwrap();
+        assert_has_error(&errors, kind, expected);
+    }
 }
