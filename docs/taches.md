@@ -568,7 +568,7 @@ l'ancienne machine.
   (couverture), barils explosifs.
 
 **V1e run et méta**
-- M2-T12 Profil et déblocages (G1, 3 j ; fiche `docs/taches/m2-t12-profil-deblocages.md`, b0 après M2-T8) : `Profile` écrit en fin de run, monnaie méta, déblocages
+- M2-T12 Profil et déblocages (G1, 3 j ; fiche `docs/taches/m2-t12-profil-deblocages.md`, b0 après M2-T8 ; prérequis : M2-T5 mergée) : `Profile` écrit en fin de run, monnaie méta, déblocages
   qui enrichissent les pools de C4.
 - M2-T13 Hub (G2, 3 j) : carte de hub (la Brèche), PNJ marchand de déblocages, entrée en run.
 
@@ -588,12 +588,22 @@ l'ancienne machine.
   actif et sa charge, minicarte.
 - M2-T19 Feedback v2 (I2 v2, 2 j) : télégraphes de patterns, flash du blank, ralenti de fin de boss.
 
-**Ordre de merge** : vague 0 (E1, objets, boss/profil, squelette) → V3 → V2 → V1 (V1a, V1d avec
+**Ordre de merge** (prévu) : vague 0 (E1, objets, boss/profil, squelette) → V3 → V2 → V1 (V1a, V1d avec
 M2-T9 seule à déplacer toutes les cartes générées, V1b, V1c, V1e) → V4.
+**Ordre réellement suivi (2026-10-14)** : comme en M1, au fil des livraisons, V1 d'abord (T10, T1,
+T3, T4, T2 mergées ; T5, T8 sur `orca`, T7, T11, T16 en sessions cloud), V2/V3/V4 après. Ce qui
+le rend sûr : chaque tâche fusionne `main` avant de livrer et fait la preuve §5 de toute trace qui
+bouge contre ce `main`. Dépendances qui comptent vraiment : T5 avant T6 et T12 (tables de butin) ;
+T16 (bot explorateur) avant tout critère « battu/joué par un bot » ; T4/D61 avant du contenu
+d'armure (T14) ; T18/T19 après les mécaniques qu'ils affichent.
+**Repli cloud** : une tâche cloud sans livraison 3 jours après son lancement (2026-10-14) est reprise
+sur `orca` depuis sa branche (T16 en priorité, chez b0).
 
 ### Vague 2 : intégration
 Scénarios du clone (un étage complet à 1, 2 et 4), bots sur 200 graines, bench à 500 balles en salle
-verrouillée, vidéos, revue humaine, fermeture des notes. Calendrier indicatif : **huit semaines**.
+verrouillée, vidéos, revue humaine, fermeture des notes ; critères propres à M2 (brouillon §5) : un
+profil créé par une partie et relu par la suivante (déblocage visible dans le pool, T12), une partie
+entrée depuis le hub (T13). Calendrier indicatif : **huit semaines**.
 
 ### Hors M2, gardé en file (revue M0 du 2026-10-09, `docs/digests/revue-m0.md`)
 Points de William sur `zombies` (sensations, pas des correctifs moteur), **pris par William lui-même en parallèle de M2** sur son ordinateur, branche `m0-revue-suite-contenu` (prompt : `docs/taches/m0-revue-suite-contenu.md`) :

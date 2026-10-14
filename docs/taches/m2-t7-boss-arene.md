@@ -32,8 +32,10 @@ fixé à la config), une arène à tenir (horloge, vagues internes) et la preuve
    graines (test de M2-T10).
 7. **Scénarios** : `boss_room_lock` (verrou à l'entrée, réouverture à la mort), `boss_phase_shoot`
    (tir propre à la phase), `boss_reinforcements` (`EntityCount`), `arena_survive`, `arena_fail`,
-   et un scénario `gungeon_boss_bot` où un bot (`bot:` existant) bat le boss (attente `BossPhase`
-   puis mort, `RoomState` `Cleared`).
+   et un scénario `gungeon_boss_bot` où un bot bat le boss (attente `BossPhase` puis mort,
+   `RoomState` `Cleared`) : un profil de bot **existant** placé dans la salle du boss suffit ; s'il
+   n'y arrive pas, un joueur scripté le remplace et le rapport le dit (le bot explorateur de
+   M2-T16 reprendra ce critère sur un étage complet).
 
 ## Règles
 
