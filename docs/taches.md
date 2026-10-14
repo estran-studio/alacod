@@ -568,7 +568,7 @@ l'ancienne machine.
   (couverture), barils explosifs.
 
 **V1e run et méta**
-- M2-T12 Profil et déblocages (G1, 3 j) : `Profile` écrit en fin de run, monnaie méta, déblocages
+- M2-T12 Profil et déblocages (G1, 3 j ; fiche `docs/taches/m2-t12-profil-deblocages.md`, b0 après M2-T8) : `Profile` écrit en fin de run, monnaie méta, déblocages
   qui enrichissent les pools de C4.
 - M2-T13 Hub (G2, 3 j) : carte de hub (la Brèche), PNJ marchand de déblocages, entrée en run.
 
