@@ -9,7 +9,10 @@
 //!
 //! - `make test_scenarios` : compile sans rendu, avec le profil `headless`.
 //! - `ALACOD_BLESS=1` : réécrit les traces de référence (après un changement voulu).
-//! - `ALACOD_SCENARIO=<nom>` : ne joue que ce scénario.
+//! - `ALACOD_SCENARIO=<nom>` : ne joue que ce scénario (plusieurs : `a,b,c`).
+//! - `ALACOD_SCENARIO_SLICE=<k>/<n>` : ne joue que la tranche `k` (de 0 à `n-1`) des scénarios
+//!   triés (indice modulo `n`) : la suite complète par lots, quand une commande ne peut pas durer
+//!   assez longtemps (session cloud, M2-T11). Se combine avec `ALACOD_SCENARIO`.
 
 use std::collections::BTreeMap;
 use std::path::PathBuf;
@@ -180,9 +183,21 @@ fn scenarios() {
     let mut failures = Vec::new();
     let mut metrics_map: BTreeMap<String, Metrics> = BTreeMap::new();
 
-    for path in paths {
+    let slice: Option<(usize, usize)> = std::env::var("ALACOD_SCENARIO_SLICE")
+        .ok()
+        .and_then(|spec| {
+            let (k, n) = spec.split_once('/')?;
+            Some((k.trim().parse().ok()?, n.trim().parse().ok().filter(|n| *n > 0)?))
+        });
+    for (index, path) in paths.into_iter().enumerate() {
         let name = path.file_stem().unwrap().to_string_lossy().to_string();
-        if only.as_ref().is_some_and(|only| *only != name) {
+        if only
+            .as_ref()
+            .is_some_and(|only| !only.split(',').any(|candidate| candidate.trim() == name))
+        {
+            continue;
+        }
+        if slice.is_some_and(|(k, n)| index % n != k) {
             continue;
         }
 

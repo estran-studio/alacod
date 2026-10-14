@@ -478,8 +478,8 @@ pub struct ProjectileWallHit {
 
 /// Mur touché par une balle ou un projectile (M2-T11) : émis par les deux systèmes de collision
 /// avec le `GgrsNetId` du mur (le plus petit des murs en contact). Lu par `game::props` (une
-/// table renversée compte les balles qu'elle encaisse). File neutre : vide hors cartes qui
-/// l'écoutent... et hors tir sur un mur, elle ne contribue pas au checksum.
+/// table renversée compte les balles qu'elle encaisse). File transitoire (hors checksum et hors
+/// snapshot, `add_frame_events_transient`) : produite et lue dans la même frame.
 #[derive(Clone, Debug, Hash, PartialEq, Eq)]
 pub struct BulletWallHit {
     pub wall: GgrsNetId,

@@ -1843,8 +1843,11 @@ impl Plugin for BaseWeaponGamePlugin {
         app.add_frame_events::<crate::projectile::ProjectileHit>();
         // T1.6 : mur touché (file neutre, vide sauf projectile à `on_hit`)
         app.add_frame_events_neutral::<crate::projectile::ProjectileWallHit>();
-        // M2-T11 : mur touché par une balle (table renversée), file neutre
-        app.add_frame_events_neutral::<crate::projectile::BulletWallHit>();
+        // M2-T11 : mur touché par une balle (table renversée). File **transitoire** (hors
+        // checksum) : émise par les collisions de balles, lue la même frame par `game::props`
+        // (`World`, après `Weapon` et `Projectiles`) ; une file neutre non vide serait hachée
+        // et déplacerait la trace de tout tir contre un mur.
+        app.add_frame_events_transient::<crate::projectile::BulletWallHit>();
 
         // Rollback components for melee weapons
         app.rollback_and_trace::<melee::MeleeWeapon>()
