@@ -21,6 +21,12 @@ map = { path = "../map" }
 run = { path = "../run" }
 
 combat = { path = "../combat" }
+# M2-T16 (`explorateur`) : salles de l'étage courant (`CurrentRooms`, `map_ldtk`), état des salles
+# (`world`), objets au sol, inventaire et blank (`items`), boss (`behaviors`). Lecture seule.
+map_ldtk = { path = "../map_ldtk" }
+world = { path = "../world" }
+items = { path = "../items" }
+behaviors = { path = "../behaviors" }
 
 [dev-dependencies]
 ron = "0.12"
