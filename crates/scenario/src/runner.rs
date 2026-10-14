@@ -2609,6 +2609,10 @@ fn enemy_distance(
             .find(|(player, _)| player.handle == *handle)
             .map(|(_, transform)| transform.translation.truncate())
             .ok_or_else(|| format!("joueur {handle} absent"))?,
+        game::replay::DistanceTarget::Entity(other) => {
+            let other = resolve_entity(world, other).ok_or("cible absente")?;
+            entity_position(world, other).ok_or("cible sans position")?
+        }
     };
     Ok(enemy_pos.distance(&target_pos))
 }

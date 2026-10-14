@@ -475,6 +475,9 @@ pub enum Expectation {
 pub enum DistanceTarget {
     /// Le joueur de handle GGRS `0`, `1`, ...
     Player(usize),
+    /// M2-T8 : une autre entité (ex. un autre membre d'escouade, `Placed(n)`) : écarts d'une
+    /// formation.
+    Entity(EntityRef),
 }
 
 impl Expectation {
