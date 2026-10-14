@@ -124,10 +124,15 @@ mod tests {
             assert_eq!(grammar.rooms, bounds);
             let started = std::time::Instant::now();
             let derived = |s: i32| s.wrapping_add(0x3C6E_F372);
-            let seeds: Vec<i32> = (1..=200).chain((1..=200).map(derived)).collect();
+            // `ALACOD_FLOOR_SEEDS=1000` : la passe longue de M2-T10 et M2-T7 (200 par défaut).
+            let count: i32 = std::env::var("ALACOD_FLOOR_SEEDS")
+                .ok()
+                .and_then(|v| v.parse().ok())
+                .unwrap_or(200);
+            let seeds: Vec<i32> = (1..=count).chain((1..=count).map(derived)).collect();
             for seed in seeds
                 .into_iter()
-                .take(if file == "court" { 400 } else { 200 })
+                .take(if file == "court" { 400 } else { count as usize })
             {
                 let data: LdtkJson = load_ldtk_json_file(&path).unwrap();
                 let config = MapGenerationConfig {
@@ -169,6 +174,14 @@ mod tests {
                     "{file} graine {seed} : {} boss",
                     bosses.len()
                 );
+                // M2-T7 : une grammaire qui exige une arène en place exactement une.
+                if let Some(wanted) = grammar.required.get("arene") {
+                    let arenas = rooms
+                        .iter()
+                        .filter(|r| r.template.starts_with("Arena"))
+                        .count();
+                    assert_eq!(arenas, *wanted, "{file} graine {seed} : {arenas} arène(s)");
+                }
                 for (i, a) in rooms.iter().enumerate() {
                     for b in &rooms[i + 1..] {
                         let (ax, ay, aw, ah) = a.world_rect();
