@@ -30,7 +30,19 @@ Branche `m2-t8-formations`. Conventions : `docs/conventions.md` §49.
 
 ## Traces
 
-Aucune trace existante ne doit bouger ; voir la ligne « Vérification » ci-dessous pour le résultat.
+Suite complète `make test_scenarios` sans bless sur la branche : **aucune trace existante n'a bougé** (gungeon
+compris, malgré le nouveau niveau LDtk `EscouadeEW`, la grammaire et le personnage ajoutés : tout est neutre).
+Seules les traces des 6 scénarios nouveaux sont enregistrées (`formation_*`, `gungeon_squad`). Pas de preuve §5
+nécessaire.
+
+## Vérification
+
+`fmt`, `check-forbidden`, `check-rollback-registration`, `make lint` ×4, `make gen` ×4 : verts. `make test_crates` :
+662 verts. P2P gungeon à deux clients : traces identiques (599 lignes). `fuzz_inputs` (`ALACOD_FUZZ=0:8`) vert sur
+`formation_alternate_fire` et `formation_two_players`.
+
+Note : `escouade_tireur_fragile` (30 PV) sert `formation_member_dies` ; `formation_arc` s'arrête à la frame 180 car
+le joueur immobile (100 PV) meurt sous les flèches vers la frame 200.
 
 ## Pièges
 
