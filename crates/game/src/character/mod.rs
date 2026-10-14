@@ -87,6 +87,8 @@ impl Plugin for BaseCharacterGamePlugin {
 
         // AI system resources
         app.init_resource::<FlowFieldCache>();
+        // M2-T8 : places d'escouade, dérivées à chaque frame (hors rollback).
+        app.init_resource::<enemy::ai::squad::SquadSlots>();
         app.init_resource::<FlowFieldConfig>();
 
         // Initialize debug resources with --debug-ai flag if present
@@ -259,7 +261,12 @@ impl Plugin for BaseCharacterGamePlugin {
                     enemy_target_selection,
                     // T1.4 : sélection par priorité des ennemis à behaviors nouveaux (les
                     // autres n'ont pas d'état nouveau, voir `enemy::ai::rules`).
-                    enemy::ai::rules::behavior_select_system.after(enemy_target_selection),
+                    // M2-T8 : places des escouades (dérivées), avant la sélection qui lit le tour
+                    // de tir.
+                    enemy::ai::squad::formation_system.after(enemy_target_selection),
+                    enemy::ai::rules::behavior_select_system
+                        .after(enemy_target_selection)
+                        .after(enemy::ai::squad::formation_system),
                     update_enemy_targets.after(enemy::ai::rules::behavior_select_system),
                     move_enemies.after(update_enemy_targets),
                     enemy_attack_system.after(move_enemies),

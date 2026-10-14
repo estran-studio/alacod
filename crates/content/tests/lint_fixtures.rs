@@ -1230,6 +1230,36 @@ fn item_cost_not_consumable_fixture_reports_unsupported() {
     );
 }
 
+#[test]
+fn formation_radius_zero_fixture_reports_out_of_range() {
+    let (_, _, errors) = load_and_lint(&fixture_dir("formation_radius_zero")).unwrap();
+    assert_has_error(&errors, LintErrorKind::OutOfRange, "radius = 0");
+}
+
+#[test]
+fn formation_spread_fixture_reports_out_of_range() {
+    let (_, _, errors) = load_and_lint(&fixture_dir("formation_spread_out_of_range")).unwrap();
+    assert_has_error(&errors, LintErrorKind::OutOfRange, "doit être dans ]0, 2π]");
+}
+
+#[test]
+fn formation_period_zero_fixture_reports_out_of_range() {
+    let (_, _, errors) = load_and_lint(&fixture_dir("formation_period_zero")).unwrap();
+    assert_has_error(&errors, LintErrorKind::OutOfRange, "period = 0");
+}
+
+#[test]
+fn formation_inert_fixture_reports_out_of_range() {
+    let (_, _, errors) = load_and_lint(&fixture_dir("formation_inert")).unwrap();
+    assert_has_error(&errors, LintErrorKind::OutOfRange, "ni Shoot ni Chase");
+}
+
+#[test]
+fn formation_no_squad_fixture_reports_out_of_range() {
+    let (_, _, errors) = load_and_lint(&fixture_dir("formation_no_squad")).unwrap();
+    assert_has_error(&errors, LintErrorKind::OutOfRange, "sans escouade");
+}
+
 // M2-T7 (docs/conventions.md §45) : arènes et actions de frise.
 #[test]
 fn arena_and_boss_t7_fixtures_report_their_rule() {
@@ -1270,8 +1300,51 @@ fn shield_zero_fixture_reports_out_of_range() {
     assert_has_error(&errors, LintErrorKind::OutOfRange, "GainShield(0)");
 }
 
+// M2-T15 (docs/conventions.md §53) : stats sans lecteur et atteignabilité statique.
+fn assert_has_warning(fixture: &str, kind: content::LintWarningKind, needle: &str) {
+    let (registry, manifest, _) = load_and_lint(&fixture_dir(fixture)).unwrap();
+    let warnings = content::warnings(&registry, &manifest);
+    assert!(
+        warnings
+            .iter()
+            .any(|w| w.kind == kind && w.message.contains(needle)),
+        "attendu un avertissement {kind:?} contenant {needle:?}, obtenu :\n{warnings:#?}"
+    );
+}
+
 #[test]
-fn stat_unread_fixture_reports_unsupported() {
+fn stat_unread_fixture_is_an_error() {
     let (_, _, errors) = load_and_lint(&fixture_dir("stat_unread")).unwrap();
-    assert_has_error(&errors, LintErrorKind::Unsupported, "lue par aucun système");
+    assert_has_error(&errors, LintErrorKind::UnreadStat, "Luck");
+}
+
+#[test]
+fn reach_fixtures_report_their_warning() {
+    use content::LintWarningKind::Unreachable;
+    for (fixture, needle) in [
+        ("reach_room_unreachable", "type de salle « escouade »"),
+        ("reach_room_unreachable", "gabarit « Escouade »"),
+        ("reach_enemy_unplaced", "ennemi « grunt »"),
+        ("reach_item_no_source", "objet « bottes » : aucune source"),
+        ("reach_weapon_no_source", "arme « b »"),
+    ] {
+        assert_has_warning(fixture, Unreachable, needle);
+        // un avertissement n'est pas une erreur
+        let (_, _, errors) = load_and_lint(&fixture_dir(fixture)).unwrap();
+        assert!(
+            errors.iter().all(|e| !e.message.contains("inatteignable")),
+            "{fixture} : {errors:#?}"
+        );
+    }
+}
+
+#[test]
+fn shipped_games_lint_without_error() {
+    for game in ["zombies", "testbed", "throne", "gungeon"] {
+        let (registry, manifest, errors) = load_and_lint(&game_dir(game)).unwrap();
+        assert!(errors.is_empty(), "{game} : {errors:#?}");
+        for warning in content::warnings(&registry, &manifest) {
+            eprintln!("avertissement {game} : {warning}");
+        }
+    }
 }

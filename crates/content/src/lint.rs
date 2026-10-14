@@ -36,6 +36,9 @@ pub enum LintErrorKind {
     /// T1.10 : contrat déclaré mais pas encore exécuté (déclencheur, condition ou action
     /// d'effet « v2 ») : refusé plutôt qu'ignoré en silence.
     Unsupported,
+    /// M2-T15 : modificateur sur une stat qu'aucun système ne lit
+    /// (`sim_core::stats::stat_reader`).
+    UnreadStat,
 }
 
 /// Une erreur de lint : `file` et `message` forment le texte affiché par `alacod lint`
@@ -89,6 +92,7 @@ pub fn run(registry: &Registry, manifest: &GameManifest) -> Vec<LintError> {
     lint_difficulty(registry, manifest, &mut errors);
     lint_entry_point(registry, manifest, &mut errors);
     lint_generate_template(registry, manifest, &mut errors);
+    lint_stat_readers(registry, &mut errors);
 
     errors
 }
@@ -163,15 +167,6 @@ pub(crate) fn lint_effect(
                 LintErrorKind::OutOfRange,
                 format!("{at} : GainShield(0) : doit être > 0"),
             ),
-            effects::Action::Modifier { stat, .. }
-            | effects::Action::TimedModifier { stat, .. }
-                if stat_read_by_nothing(stat) =>
-            {
-                push(
-                    LintErrorKind::Unsupported,
-                    format!("{at} : modificateur sur la stat {stat:?}, lue par aucun système"),
-                )
-            }
             effects::Action::GaugeAdd(id, _) if !gauge_known(id) => push(
                 LintErrorKind::BrokenReference,
                 format!(
@@ -271,6 +266,8 @@ fn lint_characters(registry: &Registry, errors: &mut Vec<LintError>) {
         lint_dash(character, errors);
         // T1.4 : règles de comportement (`ai.behaviors`) et ciblage.
         lint_behaviors(registry, character, errors);
+        // M2-T8 : formations.
+        lint_formation(character, errors);
         // M2-T0c : boss à phases.
         lint_boss(registry, character, errors);
         // T1.5 : variantes et élites.
@@ -2100,6 +2097,68 @@ fn lint_rules(
                 }
             }
             BehaviorEntry::Strafe | BehaviorEntry::Flee | BehaviorEntry::Wander => {}
+            // Rayon, ouverture, période : voir `lint_formation` (qui voit aussi le reste de la
+            // liste et l'escouade).
+            BehaviorEntry::Formation { .. } => {}
+        }
+    }
+}
+
+/// M2-T8 (§49) : une formation a un rayon > 0, une ouverture dans ]0, 2π], une période > 0
+/// (hors `volley`), une escouade (`ai.squad`) et un moyen d'agir (`Shoot` ou `Chase` dans la
+/// liste) ; sinon elle ne fait rien.
+fn lint_formation(character: &registry::CharacterEntry, errors: &mut Vec<LintError>) {
+    use registry::{BehaviorEntry, FormationShapeEntry};
+    let Some(rules) = &character.behaviors else {
+        return;
+    };
+    let file = character.file.display().to_string();
+    let mut push = |message: String| {
+        errors.push(LintError {
+            kind: LintErrorKind::OutOfRange,
+            file: file.clone(),
+            message: format!("personnage « {} » : ai.behaviors : {message}", character.id),
+        })
+    };
+    let acts = rules.iter().any(|rule| {
+        matches!(
+            rule,
+            BehaviorEntry::Shoot { .. } | BehaviorEntry::Chase { .. }
+        )
+    });
+    for rule in rules {
+        let BehaviorEntry::Formation {
+            shape: FormationShapeEntry::Arc { radius, spread },
+            period,
+            volley,
+        } = rule
+        else {
+            continue;
+        };
+        if radius.get() <= Fixed::ZERO {
+            push(format!(
+                "Formation : radius = {} : doit être > 0",
+                radius.get()
+            ));
+        }
+        let tau = bevy_fixed::fixed_math::FIXED_TAU;
+        if spread.get() <= Fixed::ZERO || spread.get() > tau {
+            push(format!(
+                "Formation : spread = {} : doit être dans ]0, 2π]",
+                spread.get()
+            ));
+        }
+        if *period == 0 && !*volley {
+            push("Formation : period = 0 : doit être > 0 (ou volley: true)".to_string());
+        }
+        if !acts {
+            push(
+                "Formation : ni Shoot ni Chase dans la liste : la formation ne ferait rien"
+                    .to_string(),
+            );
+        }
+        if character.squad.is_none() {
+            push("Formation : sans escouade (ai.squad)".to_string());
         }
     }
 }
@@ -2722,13 +2781,6 @@ fn lint_statuses(registry: &Registry, errors: &mut Vec<LintError>) {
 /// modificateur sans valeur nulle inutile ignoré ; effets : `OnUse` d'un objet **actif** avec
 /// `TimedModifier`/`Modifier` (T0b) ; tout autre déclencheur suit les règles d'un effet de
 /// personnage (`lint_effect`, M2-T3) ; un actif sans effet ni modificateur ne fait rien.
-/// D61 : stats que **aucun système** de l'engine ne lit (liste tenue à jour : une stat y entre
-/// quand un système la lit, `Custom` est lu par le contenu). Un modificateur sur l'une d'elles
-/// serait sans effet : refusé plutôt qu'ignoré en silence.
-fn stat_read_by_nothing(stat: &sim_core::stats::StatId) -> bool {
-    matches!(stat, sim_core::stats::StatId::Luck)
-}
-
 fn lint_items(registry: &Registry, errors: &mut Vec<LintError>) {
     for item in registry.items.values() {
         let file = item.file.display().to_string();
@@ -2770,17 +2822,6 @@ fn lint_items(registry: &Registry, errors: &mut Vec<LintError>) {
                     format!(
                         "objet « {id} » : blank.radius = {} : doit être > 0",
                         blank.radius
-                    ),
-                );
-            }
-        }
-        for modifier in &item.def.modifiers {
-            if stat_read_by_nothing(&modifier.stat) {
-                push(
-                    LintErrorKind::Unsupported,
-                    format!(
-                        "objet « {id} » : modificateur sur la stat {:?}, lue par aucun système",
-                        modifier.stat
                     ),
                 );
             }
@@ -3083,5 +3124,19 @@ fn lint_entry_progression(
                 "entry.progression : progression inconnue « {id} » (kind Progression)"
             ),
         });
+    }
+}
+
+/// M2-T15 (`docs/conventions.md` §53) : un modificateur (ou une base de stat) sur une stat que
+/// `sim_core::stats::stat_reader` ne connaît pas ne ferait rien : erreur.
+fn lint_stat_readers(registry: &Registry, errors: &mut Vec<LintError>) {
+    for (file, at, stat) in crate::reach::stat_uses(registry) {
+        if sim_core::stats::stat_reader(&stat).is_none() {
+            errors.push(LintError {
+                kind: LintErrorKind::UnreadStat,
+                file,
+                message: format!("{at} : stat {stat:?} : aucun système ne la lit"),
+            });
+        }
     }
 }

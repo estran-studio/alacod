@@ -1,0 +1,11 @@
+// Grammaire d'étage minimale à salle d'escouade (M2-T8) : départ, une salle `escouade` (trois
+// `bullet_kin_squad`), boss. Les scénarios `gungeon_squad` s'y appuient.
+(
+    templates: "maps/salles.ldtk",
+    grammar: (
+        rooms: (3, 3),
+        required: {"boss": 1},
+        filler: "escouade",
+        min_boss_distance: 2,
+    ),
+)

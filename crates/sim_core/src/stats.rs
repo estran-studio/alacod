@@ -49,6 +49,41 @@ pub enum StatId {
     Custom(String),
 }
 
+/// M2-T15 (`docs/conventions.md` §53) : où la simulation **lit** une stat, ou `None` si aucun
+/// système ne la lit (un modificateur dessus ne ferait rien : D61, `Armor`). Liste fermée, tenue
+/// à jour à la main : ajouter une ligne en même temps que le système qui lit la stat. Le lint
+/// (`content::lint`) refuse un modificateur sur une stat sans lecteur.
+pub fn stat_reader(stat: &StatId) -> Option<&'static str> {
+    match stat {
+        StatId::MaxHealth => Some("character::health (santé max), interaction (soin)"),
+        StatId::HealthRegen => Some("character::health (régénération)"),
+        StatId::MoveSpeed => {
+            Some("character::player::input, combat::projectile, character::surface")
+        }
+        StatId::Acceleration => Some("character::player::input (accélération)"),
+        StatId::SprintMultiplier => Some("character::player::input (sprint)"),
+        StatId::Damage => Some("combat::weapons (dégâts), character::enemy::ai::behavior"),
+        StatId::FireRate => Some("combat::weapons (cadence)"),
+        StatId::ReloadSpeed => Some("combat::weapons (rechargement)"),
+        StatId::Range => Some("combat::weapons (portée)"),
+        StatId::SeparationDistance
+        | StatId::SeparationForce
+        | StatId::SlowDownDistance
+        | StatId::OptimalAttackDistance
+        | StatId::EnemyMoveSpeed => Some("character::enemy::ai::pathing (move_enemies)"),
+        // D61 : réduction des dégâts reçus, `dégât × 100 / (100 + armure)`.
+        StatId::Armor => Some("character::health (rollback_resolve_damage_events : armure)"),
+        // Aucun lecteur aujourd'hui : `Luck` attend le butin (M2-T5).
+        StatId::Luck => None,
+        // Seule stat `Custom` lue : le multiplicateur de points des power-ups
+        // (`effects::CURRENCY_MULTIPLIER_STAT`, lu par `game::economy`).
+        StatId::Custom(name) if name == "powerup_currency_multiplier" => {
+            Some("game::economy (points gagnés)")
+        }
+        StatId::Custom(_) => None,
+    }
+}
+
 /// Valeurs de base d'une entité, avant modificateurs (voir [`crate::modifier::resolve`]).
 ///
 /// **Pas encore posé sur d'entité en T0.2** (contrainte « traces identiques » de la

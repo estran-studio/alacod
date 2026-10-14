@@ -47,3 +47,21 @@ bougent : preuve §5 contre le `main` du moment, cause dans le commit. Les autre
 `make test_scenarios_par` (ou `make test_scenarios`), `make test_crates`, `make lint` ×4, fmt,
 `make gen` ×4 ; p2p gungeon à deux clients ; rapport `docs/taches/rapports/m2-t14<x>-*.md` ;
 livrer par `LIVRÉ m2-t14<x>-… <sha>`.
+
+## T14c en session cloud (ajout du 2026-10-14)
+
+T14c peut démarrer : M2-T7 (boss `gatling`, arène) et M2-T8 (escouades) sont sur `main`, M2-T15 aussi.
+- **Atteignabilité vérifiée par le lint** (M2-T15, §53) : chaque nouvel ennemi doit apparaître dans
+  une salle d'un type tiré par la grammaire `etage`, une arène ou un renfort de boss.
+  `alacod lint gungeon` ne doit avoir **aucun nouvel avertissement d'ennemi** (aujourd'hui : `cible`
+  seulement, dette D63). Placer les ennemis dans les gabarits existants de `salles.ldtk` (ou dans les
+  vagues d'arène), sans ajouter de gabarit : c'est T14d.
+- Le boss « complet en trois phases » part du `gatling` de M2-T7 : compléter ses patterns nommés v2 et
+  ses renforts, pas un second boss. Les traces `gungeon_boss*`, `bot_explorer_*`, `boss_gatling` qui
+  bougent : preuve §5, cause dans le commit.
+- Une mécanique qui manque : dette au rapport, pas de code moteur.
+- Session cloud : ignorer les consignes `orca` du README (§1) ; pas de Docker, le p2p est rejoué par
+  l'orchestrateur, le dire au rapport. Pousser la branche régulièrement (commits WIP acceptés ; le
+  conteneur redémarre environ toutes les deux heures : lancer la suite au premier plan, de préférence
+  `make test_scenarios`, `make test_scenarios_par` exige un `CARGO_TARGET_DIR` absolu). Finir par un
+  commit `LIVRÉ m2-t14c-ennemis` qui contient le rapport `docs/taches/rapports/m2-t14c-ennemis.md`.

@@ -154,6 +154,8 @@ pub fn behavior_select_system(
         (With<Player>, Without<Enemy>),
     >,
     bullet_query: Query<(&GgrsNetId, &Bullet, &fixed_math::FixedTransform3D)>,
+    // M2-T8 : tour de tir d'un membre d'escouade (dérivé, voir `squad`).
+    squad_slots: Res<super::squad::SquadSlots>,
 ) {
     let now = frame.frame;
     for (
@@ -229,7 +231,12 @@ pub fn behavior_select_system(
             attack_range: ai_config.attack_range,
             melee_in_reach: target_distance.is_some_and(|d| d < ai_config.attack_range),
             shooting,
-            shoot_ready: ranged_state.is_some_and(|ranged| now >= ranged.ready_at),
+            // M2-T8 : un membre d'escouade ne tire qu'à son tour (sauf `volley`).
+            shoot_ready: ranged_state.is_some_and(|ranged| now >= ranged.ready_at)
+                && squad_slots
+                    .0
+                    .get(&net_id.0)
+                    .is_none_or(|slot| slot.may_fire(now)),
             charging: runtime.charge != ChargePhase::Idle,
             charge_ready: now >= runtime.charge_ready_at,
             previous: runtime.selected.map(|index| index as usize),
@@ -337,6 +344,8 @@ pub fn behavior_motion(
     flow_field_cache: &FlowFieldCache,
     // D41 + D38 : champ de l'ennemi (profil, gabarit), pour le recul.
     nav_key: NavKey,
+    // M2-T8 : place de l'ennemi dans son escouade (`Formation`).
+    slot: Option<&super::squad::SquadSlot>,
 ) -> Option<BehaviorMotion> {
     let rule = runtime
         .selected
@@ -370,6 +379,33 @@ pub fn behavior_motion(
                     perpendicular
                 },
                 speed_mult: fixed_math::FIXED_ONE,
+            })
+        }
+        // Loin de la cible : le flow field d'origine. À portée de formation : droit vers la
+        // place sur l'arc, puis `Strafe` léger autour.
+        Behavior::Formation { .. } => {
+            let slot = slot?;
+            if position.distance(&slot.target) > slot.radius.saturating_mul(fixed_math::new(2.0)) {
+                return None;
+            }
+            if position.distance(&slot.place)
+                > fixed_math::new(super::squad::FORMATION_TOLERANCE as f32)
+            {
+                return Some(BehaviorMotion {
+                    direction: (slot.place - position).normalize_or_zero(),
+                    speed_mult: fixed_math::FIXED_ONE,
+                });
+            }
+            let to_target = (slot.target - position).normalize_or_zero();
+            let perpendicular = fixed_math::FixedVec2::new(-to_target.y, to_target.x);
+            let flip = (now.saturating_sub(runtime.since_frame) / STRAFE_PERIOD) % 2 == 1;
+            Some(BehaviorMotion {
+                direction: if flip {
+                    fixed_math::FixedVec2::ZERO - perpendicular
+                } else {
+                    perpendicular
+                },
+                speed_mult: fixed_math::new(super::squad::FORMATION_STRAFE_MULT),
             })
         }
         Behavior::Wander => Some(BehaviorMotion {
@@ -495,6 +531,7 @@ mod tests {
             target,
             &cache,
             crate::character::enemy::ai::navigation::MOVEMENT_FLOW_KEY,
+            None,
         )
         .unwrap();
         let second = behavior_motion(
@@ -505,6 +542,7 @@ mod tests {
             target,
             &cache,
             crate::character::enemy::ai::navigation::MOVEMENT_FLOW_KEY,
+            None,
         )
         .unwrap();
         // Perpendiculaire à la cible (axe x) : le long de y, sens opposés.
@@ -535,6 +573,7 @@ mod tests {
             None,
             &cache,
             crate::character::enemy::ai::navigation::MOVEMENT_FLOW_KEY,
+            None,
         )
         .unwrap();
         assert_eq!(telegraph.speed_mult, fixed_math::FIXED_ZERO);
@@ -550,6 +589,7 @@ mod tests {
             None,
             &cache,
             crate::character::enemy::ai::navigation::MOVEMENT_FLOW_KEY,
+            None,
         )
         .unwrap();
         assert_eq!(rush.speed_mult, fixed_math::Fixed::from_num(3));
