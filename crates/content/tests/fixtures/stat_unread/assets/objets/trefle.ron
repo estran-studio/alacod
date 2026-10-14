@@ -1,0 +1,1 @@
+(name: "Trèfle", kind: Passive, modifiers: [(stat: Luck, op: Add, value: "1")])

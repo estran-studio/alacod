@@ -163,6 +163,15 @@ pub(crate) fn lint_effect(
                 LintErrorKind::OutOfRange,
                 format!("{at} : GainShield(0) : doit être > 0"),
             ),
+            effects::Action::Modifier { stat, .. }
+            | effects::Action::TimedModifier { stat, .. }
+                if stat_read_by_nothing(stat) =>
+            {
+                push(
+                    LintErrorKind::Unsupported,
+                    format!("{at} : modificateur sur la stat {stat:?}, lue par aucun système"),
+                )
+            }
             effects::Action::GaugeAdd(id, _) if !gauge_known(id) => push(
                 LintErrorKind::BrokenReference,
                 format!(
@@ -2713,6 +2722,13 @@ fn lint_statuses(registry: &Registry, errors: &mut Vec<LintError>) {
 /// modificateur sans valeur nulle inutile ignoré ; effets : `OnUse` d'un objet **actif** avec
 /// `TimedModifier`/`Modifier` (T0b) ; tout autre déclencheur suit les règles d'un effet de
 /// personnage (`lint_effect`, M2-T3) ; un actif sans effet ni modificateur ne fait rien.
+/// D61 : stats que **aucun système** de l'engine ne lit (liste tenue à jour : une stat y entre
+/// quand un système la lit, `Custom` est lu par le contenu). Un modificateur sur l'une d'elles
+/// serait sans effet : refusé plutôt qu'ignoré en silence.
+fn stat_read_by_nothing(stat: &sim_core::stats::StatId) -> bool {
+    matches!(stat, sim_core::stats::StatId::Luck)
+}
+
 fn lint_items(registry: &Registry, errors: &mut Vec<LintError>) {
     for item in registry.items.values() {
         let file = item.file.display().to_string();
@@ -2754,6 +2770,17 @@ fn lint_items(registry: &Registry, errors: &mut Vec<LintError>) {
                     format!(
                         "objet « {id} » : blank.radius = {} : doit être > 0",
                         blank.radius
+                    ),
+                );
+            }
+        }
+        for modifier in &item.def.modifiers {
+            if stat_read_by_nothing(&modifier.stat) {
+                push(
+                    LintErrorKind::Unsupported,
+                    format!(
+                        "objet « {id} » : modificateur sur la stat {:?}, lue par aucun système",
+                        modifier.stat
                     ),
                 );
             }

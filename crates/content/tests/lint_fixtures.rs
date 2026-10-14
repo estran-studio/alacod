@@ -1262,3 +1262,16 @@ fn arena_and_boss_t7_fixtures_report_their_rule() {
         assert_has_error(&errors, kind, expected);
     }
 }
+
+// D61 (docs/conventions.md §18) : bouclier et stats lues.
+#[test]
+fn shield_zero_fixture_reports_out_of_range() {
+    let (_, _, errors) = load_and_lint(&fixture_dir("shield_zero")).unwrap();
+    assert_has_error(&errors, LintErrorKind::OutOfRange, "GainShield(0)");
+}
+
+#[test]
+fn stat_unread_fixture_reports_unsupported() {
+    let (_, _, errors) = load_and_lint(&fixture_dir("stat_unread")).unwrap();
+    assert_has_error(&errors, LintErrorKind::Unsupported, "lue par aucun système");
+}
