@@ -1652,12 +1652,15 @@ pub fn bullet_rollback_collision_system(
             else {
                 continue;
             };
-            if !team_allows_hit(
-                bullet.source_team,
-                *target_team,
-                bullet.friendly_fire,
-                &bullet.tags,
-            ) || target_health.is_invulnerable_at(frame.frame)
+            // D54 : le tir ami (`Always`, `Cursed`) ne touche jamais son propre tireur.
+            if target_net_id.0 == bullet.source.0
+                || !team_allows_hit(
+                    bullet.source_team,
+                    *target_team,
+                    bullet.friendly_fire,
+                    &bullet.tags,
+                )
+                || target_health.is_invulnerable_at(frame.frame)
                 || target_dash.is_some_and(|dash| dash.projectile_invulnerable_at(frame.frame))
             {
                 continue;
