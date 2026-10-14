@@ -87,6 +87,6 @@ fn main() {
         // Enable wave-based spawning mode (CoD Zombies style)
         .insert_resource(WaveModeEnabled(wave_mode))
         // Enable wave debug UI (toggle with F3)
-        .insert_resource(WaveDebugEnabled(true))
+        .insert_resource(WaveDebugEnabled(game::core::debug_ui_enabled()))
         .run();
 }

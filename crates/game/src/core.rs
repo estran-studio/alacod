@@ -371,6 +371,11 @@ impl CoreSetupPlugin {
 /// audio, UI de debug. Absent en headless ; la simulation ne doit jamais en dépendre.
 pub struct PresentationPlugin;
 
+/// Presentation diagnostics are opt-in, independently of the native build features.
+pub fn debug_ui_enabled() -> bool {
+    std::env::var("ALACOD_DEBUG_UI").is_ok_and(|value| value == "1")
+}
+
 impl Plugin for PresentationPlugin {
     fn build(&self, app: &mut App) {
         app.add_plugins(FrameTimeDiagnosticsPlugin::default());
@@ -380,7 +385,9 @@ impl Plugin for PresentationPlugin {
         }
         app.add_plugins(ZLightPlugin);
         app.add_plugins(ZAudioPlugin);
-        app.add_plugins(FrameDebugUIPlugin);
+        if debug_ui_enabled() {
+            app.add_plugins(FrameDebugUIPlugin);
+        }
         app.add_plugins(CameraControlPlugin);
         app.add_plugins(DebugColliderGamePlugin);
         app.add_plugins(crate::character::CharacterPresentationPlugin);
@@ -390,10 +397,10 @@ impl Plugin for PresentationPlugin {
         app.add_plugins(crate::ui::mutation_screen::MutationScreenPlugin);
         app.add_plugins(crate::ui::floor_transition::FloorTransitionPlugin);
         #[cfg(feature = "debug_ui")]
-        app.add_plugins(EguiPlugin::default());
-
-        #[cfg(feature = "debug_ui")]
-        app.add_plugins(WorldInspectorPlugin::new());
+        if debug_ui_enabled() {
+            app.add_plugins(EguiPlugin::default());
+            app.add_plugins(WorldInspectorPlugin::new());
+        }
     }
 }
 

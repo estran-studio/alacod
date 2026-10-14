@@ -786,8 +786,18 @@ sources et des ancrages dans `CLAUDE.md` § HUD). Il ne fait que **lire** l'éta
 T1.18 : les sources du joueur passent par `game::ui::hud_model` (`HudSnapshot`) et la liste
 des sources est fermée et lintée (voir §32).
 
-Champs optionnels à la racine de `hud.ron`, à côté de `widgets` : `font`, `icons`, `names`.
-Par widget : `background`.
+Champs optionnels à la racine de `hud.ron`, à côté de `widgets` : `font`, `icons`, `names`,
+`reference_size: Some((800.0, 540.0))`. Ce dernier ajuste `UiScale` aux petits viewports
+sans agrandir les grands, et masque ce HUD pendant mutation/fin de run. Sans ce champ,
+les anciens jeux conservent leur mise en page. Par widget : `background`,
+`compact: true` (défaut false) : arme lisible sans underscores, munitions `chargeur / réserve`,
+effets temporaires limités à deux lignes puis `+N effets`. Le nom de l'arme indique
+`· recharge` uniquement pendant le rechargement. Le modèle complet reste accessible
+aux scénarios/outils ; les barres ont un fond fixe sous le remplissage.
+
+Les overlays techniques (frame/FPS, caméra, arme, inspecteur natif) sont optionnels
+via `ALACOD_DEBUG_UI=1`. La feature native ne les active plus à elle seule. Le debug de
+vagues de zombies suit ce défaut ; F3 conserve sa bascule explicite.
 ```ron
 (
     // Police de tous les textes du HUD, relative à `assets/`. La police par défaut de Bevy
@@ -2181,9 +2191,21 @@ Présentation seule : aucune trace ne change.
   `Floors` seulement). Sans valeur : texte vide, pas même le préfixe (D22).
 - **Attente** `HudText { source, contains, at_frame }` : le texte (sans préfixe) contient
   `contains` ; lue dans `HudSnapshot`, hors simulation et hors trace.
-- **Contenu** : `games/throne/assets/ui/hud.ron` — étage en haut au centre (au lieu de la
-  vague), barre de rads sous la vie et son texte à droite, niveau et statuts au-dessus de la vie,
-  munitions par type sous le nom de l'arme. zombies et testbed inchangés.
+- **Contenu après revue humaine (2026-10-14)** : `games/throne/assets/ui/hud.ron` —
+  étage en haut à gauche ; vie, niveau et barres vie/rads en bas à gauche ; arme et
+  chargeur/réserve en bas à droite ; statuts/power-ups contextuels en haut. Les textes
+  joueurs/ennemis, rads numériques et réserves des armes inactives sont retirés du HUD
+  courant. Les sources restent disponibles dans le modèle. Mutation/fin masquent le HUD.
+  Les RON HUD de zombies et testbed restent inchangés.
+
+### Polissage de revue M1 (2026-10-14)
+
+Le rendu des cartes raccourcit les descriptions générées (« regagnez 25 points de vie »
+→ « +25 PV »), en conservant déclencheurs, conditions, quantités et durées. Le modèle
+`MutationScreenView` garde la description complète. L'écran de fin Floors affiche
+étage, éliminations et durée min:sec plutôt que frames/score technique ; panneau centré.
+`play_scenario --capture <dir> --size 640x360` vérifie les petits viewports ; défaut 960x540.
+Ce sont des changements de présentation, aucune mécanique ni trace modifiée.
 
 ## 33. Restart en ligne (D14)
 
