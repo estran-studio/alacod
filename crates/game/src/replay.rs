@@ -321,6 +321,10 @@ pub struct PlayerScript {
     /// aucune.
     #[serde(default, skip_serializing_if = "Vec::is_empty")]
     pub mutations: Vec<String>,
+    /// Dash imposé (M2-T2, §43, scénarios `dash_shove`, `dash_in_place`) : remplace le `dash` du
+    /// personnage (`scenario::runner::apply_player_overrides`). Absent (défaut) : rien.
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub dash: Option<crate::character::movement::DashConfig>,
 }
 
 /// Un modificateur de scénario, posé sur un joueur après sa création

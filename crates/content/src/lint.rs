@@ -197,6 +197,40 @@ pub(crate) fn lint_effect(
     }
 }
 
+/// M2-T2 (§43) : règles du dash. Un personnage sans `dash_charges` ni `dash` garde les réglages
+/// v1 : les mêmes bornes ne le concernent que s'il déclare des charges ou un dash.
+fn lint_dash(character: &registry::CharacterEntry, errors: &mut Vec<LintError>) {
+    let dash = &character.dash;
+    if !dash.declared {
+        return;
+    }
+    let file = character.file.display().to_string();
+    let mut refuse = |message: String| {
+        errors.push(LintError {
+            kind: LintErrorKind::OutOfRange,
+            file: file.clone(),
+            message: format!("personnage « {} » : {message}", character.id),
+        })
+    };
+    if let Some(charges) = dash.charges {
+        if charges == 0 {
+            refuse("dash_charges = 0 : doit être > 0".into());
+        }
+        if dash.recharge_frames == 0 {
+            refuse("dash_recharge_frames = 0 avec des charges : doit être > 0".into());
+        }
+    }
+    if dash.duration_frames == 0 && !dash.in_place {
+        refuse("dash : durée 0 hors InPlace".into());
+    }
+    if dash.iframes > dash.duration_frames.max(1) {
+        refuse(format!(
+            "dash : i-frames ({}) > durée ({})",
+            dash.iframes, dash.duration_frames
+        ));
+    }
+}
+
 fn lint_characters(registry: &Registry, errors: &mut Vec<LintError>) {
     for character in registry.characters.values() {
         let file = character.file.display().to_string();
@@ -213,6 +247,8 @@ fn lint_characters(registry: &Registry, errors: &mut Vec<LintError>) {
             });
         }
 
+        // M2-T2 : dash (charges, recharge, durée, i-frames).
+        lint_dash(character, errors);
         // T1.4 : règles de comportement (`ai.behaviors`) et ciblage.
         lint_behaviors(registry, character, errors);
         // M2-T0c : boss à phases.

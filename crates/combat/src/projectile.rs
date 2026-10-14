@@ -835,6 +835,7 @@ type TargetQuery<'w, 's> = Query<
         &'static Collider,
         &'static Team,
         &'static Health,
+        Option<&'static crate::actors::DashExtra>,
     ),
     (Without<Bullet>, With<Rollback>),
 >;
@@ -898,8 +899,14 @@ pub fn projectile_collision_system(
         // Personnages : tous les candidats en contact, par GgrsNetId.
         let mut characters: Vec<GgrsNetId> = Vec::new();
         for entry in grids.characters.query_aabb(&swept) {
-            let Ok((target_id, target_transform, target_collider, target_team, target_health)) =
-                target_query.get(entry.entity)
+            let Ok((
+                target_id,
+                target_transform,
+                target_collider,
+                target_team,
+                target_health,
+                target_dash,
+            )) = target_query.get(entry.entity)
             else {
                 continue;
             };
@@ -910,6 +917,7 @@ pub fn projectile_collision_system(
                 &bullet.tags,
             ) || !projectile.can_hit(target_id)
                 || target_health.is_invulnerable_at(frame.frame)
+                || target_dash.is_some_and(|dash| dash.projectile_invulnerable_at(frame.frame))
             {
                 continue;
             }
@@ -1043,7 +1051,7 @@ pub fn projectile_expire_system(
             &projectile,
             order_iter!(target_query)
                 .into_iter()
-                .map(|(id, t, _, team, _)| (id, t, team)),
+                .map(|(id, t, _, team, _, _)| (id, t, team)),
         );
         let parent = Parent {
             bullet,
@@ -1124,7 +1132,7 @@ pub fn projectile_steering_system(
                 projectile,
                 order_iter!(target_query)
                     .into_iter()
-                    .map(|(id, t, _, team, _)| (id, t, team)),
+                    .map(|(id, t, _, team, _, _)| (id, t, team)),
             ) {
                 bullet.velocity = steer_towards(bullet.velocity, to_target, force);
             }

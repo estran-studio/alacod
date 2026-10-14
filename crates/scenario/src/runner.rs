@@ -270,6 +270,7 @@ pub fn build_app(scenario: &Scenario, headless: bool, config: &PlayConfig) -> Ap
                     weapon: p.weapon.clone(),
                     currency: p.currency,
                     mutations: p.mutations.clone(),
+                    dash: p.dash.clone(),
                 })
                 .collect(),
         ))
@@ -736,6 +737,8 @@ struct PlayerOverride {
     currency: Option<u32>,
     /// T1.10 : voir `game::replay::PlayerScript::mutations`.
     mutations: Vec<String>,
+    /// M2-T2 : voir `game::replay::PlayerScript::dash`.
+    dash: Option<game::character::movement::DashConfig>,
 }
 
 #[derive(Resource)]
@@ -793,6 +796,7 @@ fn apply_player_overrides(
             && o.weapon.is_none()
             && o.currency.is_none()
             && o.mutations.is_empty()
+            && o.dash.is_none()
     }) {
         *applied = true;
         return;
@@ -810,6 +814,12 @@ fn apply_player_overrides(
         let Some(over) = overrides.0.get(player.handle) else {
             continue;
         };
+        if let Some(dash) = &over.dash {
+            commands.entity(entity).insert((
+                game::character::dash::DashOverride(dash.clone()),
+                combat::actors::DashExtra::with_charges(dash.charges.unwrap_or(0)),
+            ));
+        }
         if !over.tags.is_empty() {
             commands
                 .entity(entity)

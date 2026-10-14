@@ -1,0 +1,34 @@
+// M2-T2 (docs/conventions.md §43) : le roulé du pilote de `gungeon` a deux charges (une rendue
+// toutes les 60 frames, `dash_cooldown_frames` 24 reste l'écart minimal entre deux dashs). Dash vers
+// l'est à f10 (effectif f15), un second à f40 (effectif f45) : les deux charges sont consommées.
+// Un troisième appui (f65, effectif f70, un seul front) est refusé faute de charge, puis gardé par
+// le buffer (8 frames) : la première charge consommée (f15) est rendue à f75 et le dash part alors.
+//
+// À regarder : deux roulés enchaînés, puis un temps mort ; le troisième part à f75, pas avant.
+Scenario(
+    powerup_drop_chance_override: "0.0",
+    game: "gungeon",
+    frames: 120,
+    players: [
+        (inputs: [
+            (from: 10, to: 11, buttons: [Right, Dash]),
+            (from: 40, to: 41, buttons: [Right, Dash]),
+            (from: 65, to: 66, buttons: [Right, Dash]),
+        ]),
+    ],
+    expect: [
+        // premier roulé (+64 px)
+        PlayerPosition(handle: 0, x: 88.0, y: -120.0, tolerance: 0.2, at_frame: 14),
+        // second roulé en cours de route
+        PlayerPosition(handle: 0, x: 149.5, y: -115.0, tolerance: 0.2, at_frame: 44),
+        // second roulé fini
+        PlayerPosition(handle: 0, x: 202.5, y: -101.5, tolerance: 0.2, at_frame: 60),
+        // troisième appui refusé : aucune charge, le joueur n'a pas bougé
+        PlayerPosition(handle: 0, x: 202.5, y: -101.5, tolerance: 0.2, at_frame: 70),
+        // toujours à l'arrêt, la charge n'est rendue qu'à f75
+        PlayerPosition(handle: 0, x: 203.3, y: -101.5, tolerance: 0.2, at_frame: 75),
+        // la charge est rendue à f75 (15 + 60) : le roulé gardé par le buffer part
+        PlayerPosition(handle: 0, x: 216.8, y: -101.5, tolerance: 0.2, at_frame: 76),
+        PlayerPosition(handle: 0, x: 268.8, y: -101.5, tolerance: 0.2, at_frame: 119),
+    ],
+)
