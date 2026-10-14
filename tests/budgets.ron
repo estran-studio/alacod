@@ -14,6 +14,8 @@
         // sur une machine partagée, 37 ennemis et 282 entités au plus ; gungeon_floor_seed_1 : 30).
         "bench_floor": (min_sim_fps: 40.0),
         // M2-T16 : un étage `court` joué par des bots (mesure cloud du 2026-10-14 : 38 et 37).
+        "bot_explorer_floor": (min_sim_fps: 120.0),
+        "bot_explorer_two": (min_sim_fps: 100.0),
         // M2-T17 : scénarios générés d'objets, de salle et de boss (mesure cloud du 2026-10-14 :
         // 35 à 42 sim fps ; les objets ne jouent que 60 frames, démarrage compris).
         "item_bottes": (min_sim_fps: 20.0),
@@ -22,8 +24,6 @@
         "item_lame": (min_sim_fps: 20.0),
         "room_combat": (min_sim_fps: 25.0),
         "boss_gatling": (min_sim_fps: 25.0),
-        "bot_explorer_floor": (min_sim_fps: 120.0),
-        "bot_explorer_two": (min_sim_fps: 100.0),
         "ammo_burst": (min_sim_fps: 120.0),
         "bullets_walls": (min_sim_fps: 140.0),
         "dash_wall": (min_sim_fps: 100.0),
