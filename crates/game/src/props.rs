@@ -76,10 +76,11 @@ impl Plugin for PropsPlugin {
     }
 }
 
-/// Le jeu a au moins une surface fosse et la carte en a au moins une case : sinon `pit_system`
-/// ne tourne pas (aucun coût, aucun composant posé).
+/// La carte a au moins une case de fosse : sinon `pit_system` ne tourne pas (aucun coût, aucun
+/// composant posé ; une carte à eau ou à glace dans un jeu qui a aussi une fosse n'en porte pas).
 fn has_pits(grid: Res<SurfaceGrid>, table: Option<Res<SurfaceTable>>) -> bool {
-    !grid.is_empty() && table.is_some_and(|table| table.has_pits())
+    !grid.is_empty()
+        && table.is_some_and(|table| table.has_pits() && grid.pit_cells(&table).next().is_some())
 }
 
 /// Chute dans une fosse et suivi de la dernière position sûre (voir la doc du module).
