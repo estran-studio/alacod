@@ -294,13 +294,39 @@ pub struct CharacterEntry {
 }
 
 /// T1.13 : mirroir de `game::character::config::CharacterTest` (attentes comptées).
-#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+#[derive(Debug, Clone, PartialEq, Eq)]
 pub struct CharacterTestEntry {
     pub frames: u32,
     pub still: bool,
     pub moving: bool,
     pub expect_still: usize,
     pub expect_moving: usize,
+    /// M2-T17 : gabarit `BossFight` (`boss:` du `test:`).
+    pub boss: Option<BossFightEntry>,
+}
+
+/// M2-T17 : mirroir de `game::gen_test::BossFightTest` (attentes comptées).
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub struct BossFightEntry {
+    pub floors: Option<String>,
+    pub map: Option<String>,
+    pub expect: usize,
+}
+
+/// M2-T17 : `test:` d'un objet (`game::gen_test::ItemTest`, attentes comptées).
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub struct ItemTestEntry {
+    pub frames: u32,
+    pub expect: usize,
+}
+
+/// M2-T17 : `test:` d'un type de salle (`game::gen_test::RoomTest`, attentes comptées).
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub struct RoomTestEntry {
+    pub frames: u32,
+    pub floors: Option<String>,
+    pub map: Option<String>,
+    pub expect: usize,
 }
 
 /// T1.5 : mirroir de `game::character::variant::VariantsConfig`.
@@ -929,6 +955,8 @@ pub struct ItemEntry {
     pub id: String,
     pub file: PathBuf,
     pub def: items::ItemDef,
+    /// M2-T17 : `test:` (scénario généré `ItemHeld`).
+    pub test: Option<ItemTestEntry>,
 }
 
 /// Synergie (M2-T4, `docs/conventions.md` §44), un fichier RON par synergie
@@ -958,6 +986,8 @@ pub struct RoomEntry {
     pub id: String,
     pub file: PathBuf,
     pub def: world::RoomKindDef,
+    /// M2-T17 : `test:` (scénario généré `RoomClear`).
+    pub test: Option<RoomTestEntry>,
 }
 
 /// T1.12 : champ `character` de chaque `CharacterSpawn` d'un `.ldtk` (niveaux internes), dans
@@ -1534,6 +1564,77 @@ struct CharacterTestSchema {
     expect_still: Vec<serde::de::IgnoredAny>,
     #[serde(default)]
     expect_moving: Vec<serde::de::IgnoredAny>,
+    #[serde(default)]
+    boss: Option<BossFightSchema>,
+}
+
+/// Mirroir de `game::gen_test::BossFightTest`.
+#[derive(Deserialize)]
+struct BossFightSchema {
+    #[serde(default)]
+    floors: Option<String>,
+    #[serde(default)]
+    map: Option<String>,
+    #[serde(default)]
+    expect: Vec<serde::de::IgnoredAny>,
+}
+
+/// Mirroir de `game::gen_test::ItemTest` ; ne lit que `test` d'un fichier d'objet.
+#[derive(Deserialize, Default)]
+struct ItemTestFile {
+    #[serde(default)]
+    test: Option<ItemTestSchema>,
+}
+
+#[derive(Deserialize)]
+struct ItemTestSchema {
+    frames: u32,
+    #[serde(default)]
+    expect: Vec<serde::de::IgnoredAny>,
+}
+
+/// Mirroir de `game::gen_test::RoomTest` ; ne lit que `test` d'un fichier de type de salle.
+#[derive(Deserialize, Default)]
+struct RoomTestFile {
+    #[serde(default)]
+    test: Option<RoomTestSchema>,
+}
+
+#[derive(Deserialize)]
+struct RoomTestSchema {
+    frames: u32,
+    #[serde(default)]
+    floors: Option<String>,
+    #[serde(default)]
+    map: Option<String>,
+    #[serde(default)]
+    expect: Vec<serde::de::IgnoredAny>,
+}
+
+/// Relit `rel` pour son seul champ `test` (M2-T17). Une lecture impossible est déjà rapportée
+/// par le chargement du contrat (`load_ron_files`) ; un `test:` mal formé est une erreur `Parse`.
+fn read_test_field<F: serde::de::DeserializeOwned + Default>(
+    assets_dir: &ContentFiles,
+    rel: &Path,
+    errors: &mut Vec<LintError>,
+) -> F {
+    let Ok(text) = assets_dir.read(rel) else {
+        return F::default();
+    };
+    match ron::Options::default()
+        .with_default_extension(ron::extensions::Extensions::IMPLICIT_SOME)
+        .from_str::<F>(&text)
+    {
+        Ok(parsed) => parsed,
+        Err(e) => {
+            errors.push(LintError {
+                kind: LintErrorKind::Parse,
+                file: rel.display().to_string(),
+                message: format!("champ test : erreur RON : {e}"),
+            });
+            F::default()
+        }
+    }
 }
 
 fn default_true() -> bool {
@@ -2009,6 +2110,11 @@ fn load_characters(
                     moving: test.moving,
                     expect_still: test.expect_still.len(),
                     expect_moving: test.expect_moving.len(),
+                    boss: test.boss.map(|boss| BossFightEntry {
+                        floors: boss.floors,
+                        map: boss.map,
+                        expect: boss.expect.len(),
+                    }),
                 }),
                 counts_hits: parsed.counts_hits,
                 body_extent: parsed
@@ -2582,9 +2688,21 @@ fn load_items(
             });
             continue;
         }
-        registry
-            .items
-            .insert(id.clone(), ItemEntry { id, file: rel, def });
+        let test = read_test_field::<ItemTestFile>(assets_dir, &rel, errors)
+            .test
+            .map(|test| ItemTestEntry {
+                frames: test.frames,
+                expect: test.expect.len(),
+            });
+        registry.items.insert(
+            id.clone(),
+            ItemEntry {
+                id,
+                file: rel,
+                def,
+                test,
+            },
+        );
     }
 }
 
@@ -2661,9 +2779,23 @@ fn load_rooms(
             });
             continue;
         }
-        registry
-            .rooms
-            .insert(id.clone(), RoomEntry { id, file: rel, def });
+        let test = read_test_field::<RoomTestFile>(assets_dir, &rel, errors)
+            .test
+            .map(|test| RoomTestEntry {
+                frames: test.frames,
+                floors: test.floors,
+                map: test.map,
+                expect: test.expect.len(),
+            });
+        registry.rooms.insert(
+            id.clone(),
+            RoomEntry {
+                id,
+                file: rel,
+                def,
+                test,
+            },
+        );
     }
 }
 
