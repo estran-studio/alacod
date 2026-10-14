@@ -3291,3 +3291,50 @@ nettoyée")` si le jeu a un type de salle `boss` (§45).
 seulement avec `boss:`, `floors`/`map` exclusifs et connus, un gabarit actif parmi `still`, `moving`
 et `boss`. Fixtures `item_test_frames_zero`, `item_test_consumable`, `room_test_no_template`,
 `room_test_both_scenes`, `room_test_frames_zero`, `boss_fight_without_boss`.
+
+## 55. Feedback v2 : télégraphes de patterns, flash du blank, fin de boss (M2-T19, voie V4)
+
+Complète §31. **Tout est présentation** : rien de rollback, rien dans le checksum ni dans les
+traces, aucune simulation ralentie (`Time<Virtual>` n'est jamais touché : ggrs avance dessus). Les
+trois effets s'écrivent d'abord dans `FeedbackLog` (headless compris), le rendu (`FeedbackPlugin`)
+applique ensuite les indices ; `scenario::events` en fait des moments clés `feedback`.
+
+**Réglages** (`ui/feedback.ron`, champs optionnels de `content::feedback::FeedbackSettings`,
+défauts sûrs : les trois effets sont actifs sans rien écrire, `enabled: false` en coupe un) :
+- `pattern_telegraph: (enabled, color: Option<rgba>)` ; couleur absente : celle du cercle.
+- `blank: (enabled, ring_frames, color, flash_alpha)` : 24 frames, bleu clair, flash 0,15.
+- `boss_end: (enabled, freeze_frames, zoom, zoom_frames, flash_alpha, flash_color)` : 30 ticks
+  de rendu gelés, zoom ×1,5 relâché sur 60 frames, flash 0,6.
+Lint (`FeedbackSettings::problems`, `OutOfRange`) : durées dans `[1, 600]` (`freeze_frames`
+`[0, 600]`, > 0 si l'effet est actif), opacités et couleurs dans `[0, 1]`, `zoom` dans `[1, 4]`.
+Fixtures `feedback_blank_frames_zero`, `feedback_boss_zoom_out_of_range`,
+`feedback_boss_freeze_zero`.
+
+**Télégraphe de forme.** Pendant le `Telegraph` d'un émetteur (et le `Telegraph(n)` d'une frise de
+boss, §45 : même chemin, l'émetteur joue `Sequence([Telegraph(n), pattern])`), `pattern_shape`
+(fonction pure) lit les étapes **après** le télégraphe, jusqu'au prochain `Telegraph`/`Wait` :
+`Fan`/`Spread`/`Aimed` → rayons répartis sur l'ouverture autour de la visée figée ; `Spiral` →
+rayons de la première salve (l'amorce) ; `Burst`/`Scatter` → cône (deux rayons de bord et arc).
+`Ring` n'a pas de forme (le cercle v1 le dit). Gizmos, longueur = rayon du télégraphe v1 (portée du
+tir annoncé, bornée par `Shoot.range`). Un indice `PatternTelegraph` par (émetteur, étape), au
+début du télégraphe. Moment clé : « télégraphe fan 31 (5 rayons) », « télégraphe burst 31 (cône
+0.50 rad) » (`31` : `GgrsNetId` de l'émetteur).
+
+**Blank.** Dérivé de l'état : les charges de blank (`Inventory::consumable` de l'objet blank de la
+table) d'un joueur baissent d'un tick à l'autre. Anneau (`blank_ring_radius`, ease-out jusqu'au
+rayon de `BlankSpec`) et flash plein écran léger ; il **remplace** l'onde de `LastBlank` (M2-T1)
+quand `blank.enabled`. Moment clé : « blank 0 (rayon 160) » (`0` : handle du joueur).
+
+**Fin de boss.** Dérivé de l'état, jamais de `BossDefeated` (transitoire) : un boss (`BossPlan`)
+vu vivant au tick précédent a disparu **et** le nombre de salles `Cleared` (`RoomStates`) a
+augmenté. Gel de rendu de `freeze_frames` ticks (`AnimationFreeze`, comme le hit stop), zoom sur la
+position du boss (`boss_zoom_factor` : monte sur le premier cinquième puis revient à ×1 ; échelle
+de projection et décalage de la caméra retirés avant le suivi de caméra, `undo_boss_zoom`),
+flash plein écran (`ScreenFlashNode`). Moment clé : « fin de boss 40 » (`40` : `GgrsNetId` du boss).
+
+**Preuve sans écran.** Attentes `Event(kind: "feedback", label_contains: …)`, aucune trace ne
+bouge. À voir sur un poste avec GPU : voir le rapport `docs/taches/rapports/m2-t19-feedback-v2.md`.
+
+**Limites.** Comme §31 : un tick qui simule plusieurs frames ne journalise que la dernière ; un
+indice prédit puis annulé par un rollback p2p reste dans le journal. Une fin de boss se détecte au
+tick où le boss disparaît : un boss retiré sans qu'une salle passe `Cleared` ne déclenche rien.

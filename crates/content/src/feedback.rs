@@ -30,6 +30,15 @@ pub struct FeedbackSettings {
     /// Cercle de télégraphe au sol (T1.17).
     #[serde(default)]
     pub telegraph: TelegraphConfig,
+    /// Forme des patterns d'émetteur pendant leur télégraphe (M2-T19, §55).
+    #[serde(default)]
+    pub pattern_telegraph: PatternTelegraphConfig,
+    /// Anneau et flash du blank (M2-T19, §55).
+    #[serde(default)]
+    pub blank: BlankFlashConfig,
+    /// Gel de rendu, zoom et flash à la mort d'un boss (M2-T19, §55).
+    #[serde(default)]
+    pub boss_end: BossEndConfig,
     /// Surcharges par genre de dégât (`DamageKind`, ex. `Explosion`, `Custom("acide")`).
     #[serde(default, skip_serializing_if = "BTreeMap::is_empty")]
     pub by_kind: BTreeMap<DamageKind, FeedbackOverride>,
@@ -70,6 +79,84 @@ impl Default for TelegraphConfig {
         }
     }
 }
+
+/// Télégraphe de **forme** d'un pattern (M2-T19) : rayons d'un éventail, amorce d'une spirale,
+/// cône d'un burst, dessinés pendant la phase `Telegraph` d'un émetteur.
+#[derive(Debug, Clone, Copy, PartialEq, Serialize, Deserialize)]
+#[serde(default)]
+pub struct PatternTelegraphConfig {
+    pub enabled: bool,
+    /// Couleur RGBA ; absente : celle du cercle (`telegraph.color`).
+    pub color: Option<(f32, f32, f32, f32)>,
+}
+
+impl Default for PatternTelegraphConfig {
+    fn default() -> Self {
+        Self {
+            enabled: true,
+            color: None,
+        }
+    }
+}
+
+/// Flash du blank (M2-T19) : anneau qui s'étend sur le rayon du blank, plus un flash léger.
+#[derive(Debug, Clone, Copy, PartialEq, Serialize, Deserialize)]
+#[serde(default)]
+pub struct BlankFlashConfig {
+    pub enabled: bool,
+    /// Durée de l'anneau, en frames de simulation.
+    pub ring_frames: u32,
+    /// Couleur RGBA de l'anneau.
+    pub color: (f32, f32, f32, f32),
+    /// Opacité initiale du flash plein écran (0 : pas de flash) ; s'estompe sur `ring_frames`.
+    pub flash_alpha: f32,
+}
+
+impl Default for BlankFlashConfig {
+    fn default() -> Self {
+        Self {
+            enabled: true,
+            ring_frames: 24,
+            color: (0.7, 0.9, 1.0, 1.0),
+            flash_alpha: 0.15,
+        }
+    }
+}
+
+/// Fin de boss (M2-T19) : gel de **rendu** (jamais de la simulation), zoom sur la position du
+/// boss et flash plein écran.
+#[derive(Debug, Clone, Copy, PartialEq, Serialize, Deserialize)]
+#[serde(default)]
+pub struct BossEndConfig {
+    pub enabled: bool,
+    /// Ticks de rendu gelés (animations, caméra), comme le hit stop.
+    pub freeze_frames: u32,
+    /// Zoom avant (> 1 : plus près) sur la position du boss, relâché sur `zoom_frames`.
+    pub zoom: f32,
+    /// Durée du zoom, en frames de simulation.
+    pub zoom_frames: u32,
+    /// Opacité initiale du flash plein écran, estompé sur `zoom_frames`.
+    pub flash_alpha: f32,
+    pub flash_color: (f32, f32, f32),
+}
+
+impl Default for BossEndConfig {
+    fn default() -> Self {
+        Self {
+            enabled: true,
+            freeze_frames: 30,
+            zoom: 1.5,
+            zoom_frames: 60,
+            flash_alpha: 0.6,
+            flash_color: (1.0, 1.0, 1.0),
+        }
+    }
+}
+
+/// Bornes du zoom de fin de boss (lint).
+pub const BOSS_ZOOM_RANGE: (f32, f32) = (1.0, 4.0);
+/// Plafond des gels et durées de présentation (lint) : au-delà, le jeu paraît planté.
+pub const MAX_PRESENTATION_FRAMES: u32 = 600;
 
 /// Surcharge d'une entrée `by_kind` ou `by_weapon` : chaque champ est optionnel.
 #[derive(Debug, Clone, Copy, PartialEq, Default, Serialize, Deserialize)]
@@ -139,6 +226,7 @@ impl FeedbackSettings {
                 });
             }
         }
+        self.blank_and_boss_problems(&mut problems);
         let overrides = self
             .by_kind
             .iter()
@@ -157,6 +245,105 @@ impl FeedbackSettings {
             }
         }
         problems
+    }
+}
+
+impl FeedbackSettings {
+    /// M2-T19 : durées > 0 et bornées, opacités dans `[0, 1]`, zoom dans [`BOSS_ZOOM_RANGE`],
+    /// couleurs du télégraphe de forme dans `[0, 1]`.
+    fn blank_and_boss_problems(&self, problems: &mut Vec<FeedbackProblem>) {
+        let mut bad = |field: &str, message: String| {
+            problems.push(FeedbackProblem {
+                field: field.into(),
+                message,
+            })
+        };
+        let frames = 1..=MAX_PRESENTATION_FRAMES;
+        let unit = 0.0..=1.0;
+        let blank = &self.blank;
+        if !frames.contains(&blank.ring_frames) {
+            bad(
+                "blank.ring_frames",
+                format!(
+                    "{} : doit être dans [1, {MAX_PRESENTATION_FRAMES}]",
+                    blank.ring_frames
+                ),
+            );
+        }
+        if !unit.contains(&blank.flash_alpha) {
+            bad(
+                "blank.flash_alpha",
+                format!("{} : doit être dans [0, 1]", blank.flash_alpha),
+            );
+        }
+        let (r, g, b, a) = blank.color;
+        for (c, v) in [("r", r), ("g", g), ("b", b), ("a", a)] {
+            if !unit.contains(&v) {
+                bad(
+                    &format!("blank.color.{c}"),
+                    format!("{v} : doit être dans [0, 1]"),
+                );
+            }
+        }
+        let boss = &self.boss_end;
+        if boss.freeze_frames > MAX_PRESENTATION_FRAMES {
+            bad(
+                "boss_end.freeze_frames",
+                format!(
+                    "{} : doit être dans [0, {MAX_PRESENTATION_FRAMES}]",
+                    boss.freeze_frames
+                ),
+            );
+        }
+        if boss.enabled && boss.freeze_frames == 0 {
+            bad(
+                "boss_end.freeze_frames",
+                "0 : doit être > 0 (désactiver par enabled: false)".into(),
+            );
+        }
+        if !frames.contains(&boss.zoom_frames) {
+            bad(
+                "boss_end.zoom_frames",
+                format!(
+                    "{} : doit être dans [1, {MAX_PRESENTATION_FRAMES}]",
+                    boss.zoom_frames
+                ),
+            );
+        }
+        if !(BOSS_ZOOM_RANGE.0..=BOSS_ZOOM_RANGE.1).contains(&boss.zoom) {
+            bad(
+                "boss_end.zoom",
+                format!(
+                    "{} : doit être dans [{}, {}]",
+                    boss.zoom, BOSS_ZOOM_RANGE.0, BOSS_ZOOM_RANGE.1
+                ),
+            );
+        }
+        if !unit.contains(&boss.flash_alpha) {
+            bad(
+                "boss_end.flash_alpha",
+                format!("{} : doit être dans [0, 1]", boss.flash_alpha),
+            );
+        }
+        let (r, g, b) = boss.flash_color;
+        for (c, v) in [("r", r), ("g", g), ("b", b)] {
+            if !unit.contains(&v) {
+                bad(
+                    &format!("boss_end.flash_color.{c}"),
+                    format!("{v} : doit être dans [0, 1]"),
+                );
+            }
+        }
+        if let Some((r, g, b, a)) = self.pattern_telegraph.color {
+            for (c, v) in [("r", r), ("g", g), ("b", b), ("a", a)] {
+                if !unit.contains(&v) {
+                    bad(
+                        &format!("pattern_telegraph.color.{c}"),
+                        format!("{v} : doit être dans [0, 1]"),
+                    );
+                }
+            }
+        }
     }
 }
 
@@ -265,5 +452,35 @@ mod tests {
                 "by_kind.Explosion.shake.amplitude",
             ]
         );
+    }
+
+    #[test]
+    fn t19_defauts_surs_et_bornes() {
+        let s = settings();
+        assert!(s.pattern_telegraph.enabled && s.blank.enabled && s.boss_end.enabled);
+        assert!(s.problems().is_empty());
+        let mut bad = s.clone();
+        bad.blank.ring_frames = 0;
+        bad.blank.flash_alpha = 2.0;
+        bad.boss_end.freeze_frames = 0;
+        bad.boss_end.zoom = 9.0;
+        bad.boss_end.zoom_frames = 100_000;
+        bad.pattern_telegraph.color = Some((0.0, 0.0, 0.0, 3.0));
+        let fields: Vec<_> = bad.problems().into_iter().map(|p| p.field).collect();
+        for field in [
+            "blank.ring_frames",
+            "blank.flash_alpha",
+            "boss_end.freeze_frames",
+            "boss_end.zoom",
+            "boss_end.zoom_frames",
+            "pattern_telegraph.color.a",
+        ] {
+            assert!(fields.iter().any(|f| f == field), "{field} : {fields:?}");
+        }
+        // Désactivé : un gel à 0 est accepté.
+        let mut off = s;
+        off.boss_end.enabled = false;
+        off.boss_end.freeze_frames = 0;
+        assert!(off.problems().is_empty());
     }
 }
