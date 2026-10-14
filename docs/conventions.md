@@ -2420,9 +2420,9 @@ les événements dus de la frise. La frise n'a pas de curseur : `due(frame - ent
 
 **Règles par phase.** `EnemyBehaviors::phase_rules` (statique) garde la liste de chaque phase ; l'IA
 lit `EnemyBehaviors::active(BossState::phase)` (sélection, déplacement imposé, attaque,
-`melee_hold`, attente `EnemyState`). **Limite** : la table de tir d'une règle `Shoot` (`ai.ranged`)
-est fixée à la config de l'ennemi, pas à la phase ; en phase, un tir passe par la frise
-(`SpawnPattern`).
+`melee_hold`, attente `EnemyState`). **Limite levée par M2-T7 (§45)** : la règle `Shoot` d'une phase
+porte sa propre table de tir (arme, pattern, portée, recharge) ; sans `Shoot` de phase, `ai.ranged` de
+la config ; un tir peut aussi passer par la frise (`SpawnPattern`).
 
 **Actions.** Même exécuteur que les effets de personnage (`effects_runtime::apply_action`) avec un
 `EffectState` jetable : `GaugeAdd` n'a pas d'effet durable sur un boss ; `SpawnPattern` est ignoré
@@ -2488,7 +2488,7 @@ manifeste `assets/game.ron`. Il montre les contrats de la vague 0 de M2 ensemble
 **Contenu.**
 - `characters/` : `pistolero` (le joueur, id moteur `player`, course nerveuse et roulade à i-frames
   du §34), `bullet_kin` (ennemi tireur : `Shoot` du pattern `visee`, `KeepDistance`, `Chase`),
-  `gatling` (boss immobile à deux phases, frise `SpawnPattern`), `cible` (cible des scénarios
+  `gatling` (boss immobile ; trois phases depuis M2-T7, §45 : éventail, spirale, rage avec renfort), `cible` (cible des scénarios
   générés d'armes).
 - `weapons/weapons.ron` : `pistolet` (le moteur n'a pas de munition infinie : réserve de 9999
   chargeurs de 12, rechargement rapide ; `Automatic` : tenir la gâchette tire en continu) et
@@ -2970,8 +2970,20 @@ boss, salles triées par position puis identifiant.
 
 **Contenu.** `testbed` : `gardien_tir`, `gardien_renforts`, types de salle `boss`, `arene`,
 `arene_mortelle`, cartes `salles_boss*.ldtk` et `salles_arene*.ldtk`
-(`docs/taches/rapports/m2-t7-boss-arene.make_cartes.py`). `gungeon` : `gatling` à trois phases
-(éventail ; renforts `bullet_kin` puis salves ricochantes ; spirale).
+(`docs/taches/rapports/m2-t7-boss-arene.make_cartes.py`).
 
-**Scénarios.** `boss_room_lock`, `boss_phase_shoot`, `boss_reinforcements`, `arena_survive`,
-`arena_fail`, `gungeon_boss_bot`.
+**Scénarios.** `boss_room_lock` (le boss dort : aucune flèche avant le verrou f85 ; réouverture à sa mort f184),
+`boss_phase_shoot` (flèches de `fireball_gun` en phase 0, balle `ricochet` de `tourelle_gun` en phase 1, projectile
+qui n'existe que dans cette table), `boss_reinforcements` (1 → 3 → 0 ennemis), `arena_survive` (verrou f85, rouverte
+f685 = 85 + 600), `arena_fail` (le joueur immobile meurt f1514, la salle ne se rouvre pas), `gungeon_boss_bot` (le bot
+`fonceur` bat le `gatling` à f403, victoire).
+
+**`gungeon`.** `gatling` : 120 PV (150 avant), phase 0 `eventail` ; phase 1 (sous 50 %) `spirale` ; phase 2 (sous
+10 %, la rage) `SpawnEnemies(bullet_kin, 1)` puis `Telegraph(10)` + `couronne`. Les scénarios scriptés de M2-T0d,
+T1, T3 et T10 gardent leurs entrées : un renfort plus tôt retardait la mort du boss de plus de 40 frames (il
+bloque des balles et le joueur scripté meurt à quelques points de vie près) ; la rage se déclenche donc à la
+dernière touche (sous 10 %) et les PV tombent à 120. Type de salle `arene` (`rooms/arene.ron`, horloge de 900
+frames, 2 + 2 + 3 `bullet_kin`), deux gabarits `ArenaEW` et `ArenaCroix` dans `maps/salles.ldtk`
+(`docs/taches/rapports/m2-t7-boss-arene.make_arene.py`), exigée une fois par la grammaire `etage`
+(`required: {"arene": 1}`), validée sur 1 000 graines (`ALACOD_FLOOR_SEEDS=1000 cargo test -p map_ldtk
+gungeon_etages_de_grammaire`). Aucun scénario ne joue encore l'arène de gungeon.
