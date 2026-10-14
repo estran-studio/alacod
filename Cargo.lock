@@ -3890,17 +3890,21 @@ dependencies = [
 name = "bots"
 version = "0.1.0"
 dependencies = [
+ "behaviors",
  "bevy 0.19.1",
  "bevy_fixed",
  "bevy_ggrs",
  "combat",
  "game",
+ "items",
  "map",
+ "map_ldtk",
  "ron 0.12.2",
  "run",
  "serde",
  "sim_core",
  "utils",
+ "world",
 ]
 
 [[package]]

@@ -72,6 +72,7 @@ pub fn run(registry: &Registry, manifest: &GameManifest) -> Vec<LintError> {
     lint_caves(registry, &mut errors);
     lint_floor_grammars(registry, &mut errors);
     lint_surfaces(registry, &mut errors);
+    lint_props(registry, &mut errors);
     lint_patterns(registry, &mut errors);
     lint_progression(registry, &mut errors);
     lint_mutations(registry, &mut errors);
@@ -2410,6 +2411,54 @@ fn lint_surfaces(registry: &Registry, errors: &mut Vec<LintError>) {
                 LintErrorKind::OutOfRange,
                 "tags vide : au moins un tag".into(),
             );
+        }
+        // M2-T11 (§46) : une fosse inflige des dégâts.
+        if let Some(pit) = &surface.pit {
+            if pit.fall_damage <= Fixed::ZERO {
+                push(
+                    LintErrorKind::OutOfRange,
+                    format!("fall_damage = {} : doit être > 0", pit.fall_damage),
+                );
+            }
+        }
+    }
+}
+
+/// M2-T11 (`docs/conventions.md` §46) : objets de décor. Table : au moins une balle ; baril :
+/// PV, rayon et dégâts > 0.
+fn lint_props(registry: &Registry, errors: &mut Vec<LintError>) {
+    for prop in registry.props.values() {
+        let file = prop.file.display().to_string();
+        let mut push = |message: String| {
+            errors.push(LintError {
+                kind: LintErrorKind::OutOfRange,
+                file: file.clone(),
+                message: format!("objet de décor « {} » : {message}", prop.id),
+            })
+        };
+        match &prop.def {
+            world::PropDef::Table(table) => {
+                if table.bullets == 0 {
+                    push("bullets = 0 : une table encaisse au moins une balle".into());
+                }
+                if table.thickness <= Fixed::ZERO {
+                    push(format!("thickness = {} : doit être > 0", table.thickness));
+                }
+                if table.range <= Fixed::ZERO {
+                    push(format!("range = {} : doit être > 0", table.range));
+                }
+            }
+            world::PropDef::Barrel(barrel) => {
+                for (name, value) in [
+                    ("health", barrel.health),
+                    ("radius", barrel.radius),
+                    ("damage", barrel.damage),
+                ] {
+                    if value <= Fixed::ZERO {
+                        push(format!("{name} = {value} : doit être > 0"));
+                    }
+                }
+            }
         }
     }
 }

@@ -764,6 +764,8 @@ pub struct SurfaceEntry {
     pub tags: Vec<String>,
     pub move_speed: Fixed,
     pub acceleration: Fixed,
+    /// M2-T11 (§46) : la surface est une fosse.
+    pub pit: Option<world::PitDef>,
 }
 
 #[derive(Debug, Clone, Deserialize)]
@@ -773,6 +775,8 @@ struct SurfaceFileSchema {
     move_speed: FixedField,
     #[serde(default)]
     acceleration: Option<FixedField>,
+    #[serde(default)]
+    pit: Option<world::PitDef>,
 }
 
 /// Progression (T1.10, chantier C4 v1, `docs/conventions.md` §27), `progression/<id>.ron` : jauge
@@ -955,6 +959,16 @@ pub struct SynergyEntry {
     pub def: items::SynergyDef,
 }
 
+/// Objet de décor (M2-T11, `docs/conventions.md` §46), un fichier RON par objet
+/// (`props/<id>.ron` dans un dossier de kind `Prop`, champs de [`world::PropDef`]) ; id = nom
+/// de fichier.
+#[derive(Debug, Clone)]
+pub struct PropEntry {
+    pub id: String,
+    pub file: PathBuf,
+    pub def: world::PropDef,
+}
+
 /// Type de salle (M2-E1, `docs/conventions.md` §35), un fichier RON par type
 /// (`rooms/<id>.ron`, champs de [`world::RoomKindDef`]) : `(locks: true)`.
 #[derive(Debug, Clone)]
@@ -1116,6 +1130,8 @@ pub struct Registry {
     pub items: BTreeMap<String, ItemEntry>,
     /// M2-T4 : synergies d'objets (kind `Synergy`).
     pub synergies: BTreeMap<String, SynergyEntry>,
+    /// M2-T11 : objets de décor (kind `Prop`) : tables renversables et barils explosifs.
+    pub props: BTreeMap<String, PropEntry>,
     /// M2-E1 : types de salles (kind `Room`).
     pub rooms: BTreeMap<String, RoomEntry>,
     /// T1.7 : surfaces (kind `Surface`).
@@ -1191,6 +1207,7 @@ pub const KNOWN_KIND_NAMES: &[&str] = &[
     "Clock",
     "Difficulty",
     "Synergy",
+    "Prop",
 ];
 
 pub fn known_content_kinds() -> Kinds {
@@ -1287,6 +1304,7 @@ impl Registry {
                 "Room" => load_rooms(&assets_dir, decl, &mut registry, &mut errors),
                 "Item" => load_items(&assets_dir, decl, &mut registry, &mut errors),
                 "Synergy" => load_synergies(&assets_dir, decl, &mut registry, &mut errors),
+                "Prop" => load_props(&assets_dir, decl, &mut registry, &mut errors),
                 "Surface" => load_surfaces(&assets_dir, decl, &mut registry, &mut errors),
                 "Pattern" => load_patterns(&assets_dir, decl, &mut registry, &mut errors),
                 "Progression" => load_progression(&assets_dir, decl, &mut registry, &mut errors),
@@ -2621,6 +2639,35 @@ fn load_synergies(
     }
 }
 
+/// M2-T11 : `props/<id>.ron` (kind `Prop`), un objet de décor par fichier ; id = nom de fichier.
+fn load_props(
+    assets_dir: &ContentFiles,
+    decl: &ContentFolderDecl,
+    registry: &mut Registry,
+    errors: &mut Vec<LintError>,
+) {
+    let extensions = ron::extensions::Extensions::IMPLICIT_SOME
+        | ron::extensions::Extensions::UNWRAP_VARIANT_NEWTYPES;
+    for (id, rel, def) in
+        load_ron_files_with::<world::PropDef>(assets_dir, decl, errors, extensions)
+    {
+        if let Some(existing) = registry.props.get(&id) {
+            errors.push(LintError {
+                kind: LintErrorKind::DuplicateId,
+                file: rel.display().to_string(),
+                message: format!(
+                    "id d'objet de décor « {id} » déjà défini dans {}",
+                    existing.file.display()
+                ),
+            });
+            continue;
+        }
+        registry
+            .props
+            .insert(id.clone(), PropEntry { id, file: rel, def });
+    }
+}
+
 /// M2-E1 : `rooms/<id>.ron` (kind `Room`), un type de salle par fichier ; id = nom de fichier.
 fn load_rooms(
     assets_dir: &ContentFiles,
@@ -2708,6 +2755,7 @@ fn load_surfaces(
                 tags: parsed.tags,
                 move_speed: parsed.move_speed.get(),
                 acceleration: parsed.acceleration.map_or(Fixed::ONE, |a| a.get()),
+                pit: parsed.pit,
             },
         );
     }
@@ -2719,6 +2767,22 @@ fn load_ron_files<T: serde::de::DeserializeOwned>(
     assets_dir: &ContentFiles,
     decl: &ContentFolderDecl,
     errors: &mut Vec<LintError>,
+) -> Vec<(String, PathBuf, T)> {
+    load_ron_files_with(
+        assets_dir,
+        decl,
+        errors,
+        ron::extensions::Extensions::IMPLICIT_SOME,
+    )
+}
+
+/// [`load_ron_files`] avec les extensions RON données (M2-T11 : `props/<id>.ron` s'écrit
+/// `Table(bullets: 4)`, ce qui demande `UNWRAP_VARIANT_NEWTYPES`).
+fn load_ron_files_with<T: serde::de::DeserializeOwned>(
+    assets_dir: &ContentFiles,
+    decl: &ContentFolderDecl,
+    errors: &mut Vec<LintError>,
+    extensions: ron::extensions::Extensions,
 ) -> Vec<(String, PathBuf, T)> {
     let files = match discover_files(assets_dir, decl, "ron") {
         Ok(f) => f,
@@ -2737,7 +2801,7 @@ fn load_ron_files<T: serde::de::DeserializeOwned>(
             }
         };
         match ron::Options::default()
-            .with_default_extension(ron::extensions::Extensions::IMPLICIT_SOME)
+            .with_default_extension(extensions)
             .from_str::<T>(&text)
         {
             Ok(parsed) => {

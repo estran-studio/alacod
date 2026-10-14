@@ -42,6 +42,8 @@ pub struct LdtkMapEntityLoading {
     pub door_config: Option<DoorConfig>,
     pub door_grid_position: Option<DoorGridPosition>,
     pub spawner_config: Option<EnemySpawnerComponent>,
+    /// M2-T11 : id d'objet de décor demandé par une entité `Table`/`Barrel` (champ `prop`).
+    pub prop: Option<String>,
     pub level_id: Option<LevelId>,
     /// Emplacement du monde LDtk de l'entité dans la séquence du mode `Floors` (T1.8,
     /// [`FloorWorld`]) ; `0` pour la carte unique des autres modes.
@@ -220,11 +222,13 @@ fn wait_for_all_map_rollback_entity(
             Option<&DoorGridPosition>,
             Option<&EnemySpawnerComponent>,
             Option<&ChildOf>,
+            Option<&super::entity::prop::PropRef>,
         ),
         With<MapRollbackMarker>,
     >,
 
     collision_settings: Res<CollisionSettings>,
+    props: Res<world::PropTable>,
 
     mut id_factory: ResMut<GgrsNetIdFactory>,
 
@@ -252,7 +256,7 @@ fn wait_for_all_map_rollback_entity(
     // Collect and sort entities by their marker name and position for deterministic order
     let mut entities_to_process: Vec<_> = query_map_entity
         .iter()
-        .filter(|(e, _, _, _, _, _, _, _)| !entity_registery.registered_entities.contains(e))
+        .filter(|(e, ..)| !entity_registery.registered_entities.contains(e))
         .collect();
 
     // Sort by marker name first, then by position (x, y) for determinism
@@ -285,6 +289,7 @@ fn wait_for_all_map_rollback_entity(
         door_grid_pos,
         spawner_component,
         parent,
+        prop_ref,
     ) in entities_to_process
     {
         // Skip if already registered (should not happen due to filter above, but keeping for safety)
@@ -309,6 +314,7 @@ fn wait_for_all_map_rollback_entity(
             let door_config = door_component.map(|dc| dc.config.clone());
             let door_grid_position = door_grid_pos.cloned();
             let spawner_config = spawner_component.cloned();
+            let prop = prop_ref.map(|p| p.0.clone());
             info!(
                 "Found {} entity {:?} at position {} with LDTK size {:?} and door config {:?}",
                 rollback_marker.0, e, translation, sprite_size, door_config
@@ -323,6 +329,7 @@ fn wait_for_all_map_rollback_entity(
                 door_config,
                 door_grid_position,
                 spawner_config,
+                prop,
                 level_id: entity_level_id,
                 slot: slots.slot_of(e),
             });
@@ -377,6 +384,7 @@ fn wait_for_all_map_rollback_entity(
                 .filter(|item| item.slot == 0),
             &mut id_factory,
             &collision_settings,
+            &props,
             true,
         );
 
@@ -396,6 +404,7 @@ pub(crate) fn spawn_map_items<'a>(
     items: impl Iterator<Item = &'a LdtkMapEntityLoading>,
     id_factory: &mut GgrsNetIdFactory,
     collision_settings: &CollisionSettings,
+    props: &world::PropTable,
     window_bars: bool,
 ) {
     for item in items {
@@ -513,6 +522,86 @@ pub(crate) fn spawn_map_items<'a>(
                 ));
                 info!("adding collider and Obstacle to window entity with size {}x{}, interaction range {}",
                       width, height, interaction_range);
+            }
+            // M2-T11 (§46) : objets de décor, d'après `world::PropTable` (kind `Prop`).
+            "table" | "barrel" => {
+                let default_id = item.kind.as_str();
+                let prop_id = item
+                    .prop
+                    .as_deref()
+                    .filter(|id| !id.is_empty())
+                    .unwrap_or(default_id);
+                let (width, height) = item.sprite_size.map_or_else(
+                    || {
+                        if default_id == "table" {
+                            (32.0, 16.0)
+                        } else {
+                            (16.0, 16.0)
+                        }
+                    },
+                    |size| (size.x, size.y),
+                );
+                match props.0.get(prop_id) {
+                    Some(world::PropDef::Table(def)) if default_id == "table" => {
+                        let (width, height) =
+                            (fixed_math::Fixed::from_num(width), fixed_math::Fixed::from_num(height));
+                        cmd.insert((
+                            Window,
+                            // Bloque le passage des zombies (`move_enemies`) et le champ de flux,
+                            // mais n'est ni cassable ni ciblé par les ennemis.
+                            Obstacle {
+                                obstacle_type: game::character::enemy::ai::ObstacleType::Barricade,
+                                blocks_movement: true,
+                                allows_attack_through: false,
+                                breakable: false,
+                                health: None,
+                                max_health: None,
+                            },
+                            Collider {
+                                shape: game::collider::ColliderShape::Rectangle { width, height },
+                                offset: fixed_math::FixedVec3::ZERO,
+                            },
+                            CollisionLayer(collision_settings.window_layer),
+                            game::interaction::Interactable {
+                                interaction_range: def.range,
+                                interaction_type: game::interaction::InteractionType::Table,
+                            },
+                            world::TableState {
+                                prop: prop_id.to_string(),
+                                width,
+                                height,
+                                flipped: None,
+                                bullets_left: def.bullets,
+                            },
+                        ));
+                    }
+                    Some(world::PropDef::Barrel(def)) if default_id == "barrel" => {
+                        cmd.insert((
+                            Collider {
+                                shape: game::collider::ColliderShape::Rectangle {
+                                    width: fixed_math::Fixed::from_num(width),
+                                    height: fixed_math::Fixed::from_num(height),
+                                },
+                                offset: fixed_math::FixedVec3::ZERO,
+                            },
+                            CollisionLayer(collision_settings.environment_layer),
+                            // `Enemies` : les balles des joueurs le blessent (`Neutral` ne
+                            // subit jamais de dégât, `resolve_damage`) ; il ne cible
+                            // personne et ne laisse aucun butin (`game::props`).
+                            sim_core::team::Team::Enemies,
+                            game::character::health::new_health(def.health),
+                            world::BarrelState {
+                                prop: prop_id.to_string(),
+                                radius: def.radius,
+                                damage: def.damage,
+                            },
+                        ));
+                    }
+                    _ => warn!(
+                        "{} : objet de décor « {} » inconnu ou d'un autre type (voir `alacod lint`), entité inerte",
+                        item.kind, prop_id
+                    ),
+                }
             }
             "enemy_spawn" => {
                 // Get spawner config from LDTK entity, or use default

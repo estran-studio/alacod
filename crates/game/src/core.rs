@@ -159,6 +159,8 @@ impl Plugin for CoreSetupPlugin {
         // après par lisibilité).
         app.add_plugins(crate::powerups::PowerUpsPlugin);
         app.add_plugins(crate::items::ItemsPlugin);
+        // M2-T11 : fosses, tables renversables, barils explosifs (inertes sans eux)
+        app.add_plugins(crate::props::PropsPlugin);
         app.add_plugins(crate::boss::BossPlugin);
         app.add_plugins(crate::profile::ProfilePlugin);
         // Feedback v1 (T1.17) : journal de présentation (`FeedbackLog`), rempli aussi en

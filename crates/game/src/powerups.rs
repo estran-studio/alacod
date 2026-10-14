@@ -485,7 +485,12 @@ pub fn loot_drop_on_death_system(
     mut commands: Commands,
     dying: Query<
         (&GgrsNetId, &Team, &fixed_math::FixedTransform3D),
-        (With<Rollback>, Added<Death>),
+        (
+            With<Rollback>,
+            Added<Death>,
+            // M2-T11 : un baril (équipe `Enemies`) ne laisse aucun butin
+            Without<world::BarrelState>,
+        ),
     >,
 ) {
     let Some(config) = global_assets

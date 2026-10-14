@@ -122,6 +122,18 @@ fn surface_fixtures_report_duplicate_value_and_non_positive_factors() {
 }
 
 #[test]
+fn pit_and_prop_fixtures_are_refused() {
+    let (_, _, errors) = load_and_lint(&fixture_dir("pit_fall_damage_missing")).unwrap();
+    assert_has_error(&errors, LintErrorKind::Parse, "fall_damage");
+    let (_, _, errors) = load_and_lint(&fixture_dir("pit_fall_damage_non_positive")).unwrap();
+    assert_has_error(&errors, LintErrorKind::OutOfRange, "fall_damage = 0");
+    let (_, _, errors) = load_and_lint(&fixture_dir("prop_barrel_radius_non_positive")).unwrap();
+    assert_has_error(&errors, LintErrorKind::OutOfRange, "radius = 0");
+    let (_, _, errors) = load_and_lint(&fixture_dir("prop_table_no_bullets")).unwrap();
+    assert_has_error(&errors, LintErrorKind::OutOfRange, "bullets = 0");
+}
+
+#[test]
 fn effect_fixtures_report_unsupported_and_out_of_range() {
     let (_, _, errors) = load_and_lint(&fixture_dir("effect_unsupported")).unwrap();
     assert_has_error(&errors, LintErrorKind::Unsupported, "OnHit");
@@ -461,6 +473,11 @@ fn t2_8_fixtures_have_a_single_problem() {
         // T1.7.
         ("surface_duplicate_value", LintErrorKind::DuplicateId),
         ("surface_factor_non_positive", LintErrorKind::OutOfRange),
+        // M2-T11.
+        ("pit_fall_damage_missing", LintErrorKind::Parse),
+        ("pit_fall_damage_non_positive", LintErrorKind::OutOfRange),
+        ("prop_barrel_radius_non_positive", LintErrorKind::OutOfRange),
+        ("prop_table_no_bullets", LintErrorKind::OutOfRange),
         ("effect_unsupported", LintErrorKind::Unsupported),
         ("effect_out_of_range", LintErrorKind::OutOfRange),
         ("effect_limits_invalid", LintErrorKind::OutOfRange),

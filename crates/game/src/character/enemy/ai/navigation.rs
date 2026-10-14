@@ -506,9 +506,12 @@ impl FlowFieldCache {
     /// Intact obstacle that blocks movement but that `profile` can break (e.g. a window
     /// for [`NavProfile::GroundBreaker`]).
     pub fn is_breakable_obstacle(&self, pos: &GridPos, profile: NavProfile) -> bool {
-        self.blocked_cells
-            .iter()
-            .any(|(obstacle_type, cells)| cells.contains(pos) && profile.can_pass(*obstacle_type))
+        self.blocked_cells.iter().any(|(obstacle_type, cells)| {
+            // Un volant survole une fosse (M2-T11) : rien à casser, pas de pénalité.
+            *obstacle_type != ObstacleType::Pit
+                && cells.contains(pos)
+                && profile.can_pass(*obstacle_type)
+        })
     }
 
     /// Net id of the target (player) the flow field leads to from `pos`: the closest one
@@ -735,6 +738,9 @@ pub fn update_flow_field_system(
     // Portes fermées : une porte ouverte n'a plus de collider
     door_query: Query<(&GgrsNetId, &fixed_math::FixedTransform3D, &Collider), With<DoorComponent>>,
     obstacle_query: Query<(&fixed_math::FixedTransform3D, &Collider, &Obstacle), With<Rollback>>,
+    // M2-T11 : cases de fosse (surfaces), bloquées pour `Ground`/`GroundBreaker`
+    surface_grid: Res<world::SurfaceGrid>,
+    surface_table: Option<Res<world::SurfaceTable>>,
     // D41 + D38 : clés des ennemis qui se déplacent (un ennemi immobile ne suit aucun champ)
     agents: Query<(&super::state::EnemyAiConfig, &Collider), With<crate::character::enemy::Enemy>>,
     mut cache: ResMut<FlowFieldCache>,
@@ -779,6 +785,19 @@ pub fn update_flow_field_system(
     let previous_walls = cache.wall_cells.clone();
     let previous_blocked = cache.blocked_cells.clone();
     rebuild_blocked_cells(&mut cache, &door_query, &obstacle_query);
+    if let Some(table) = surface_table.as_deref().filter(|t| t.has_pits()) {
+        let pits: BTreeSet<GridPos> = surface_grid
+            .pit_cells(table)
+            .map(|(x, y)| GridPos::new(x, y))
+            .collect();
+        if !pits.is_empty() {
+            cache
+                .blocked_cells
+                .entry(ObstacleType::Pit)
+                .or_default()
+                .extend(pits);
+        }
+    }
     let obstacles_changed =
         cache.wall_cells != previous_walls || cache.blocked_cells != previous_blocked;
 

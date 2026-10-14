@@ -1,0 +1,3 @@
+// M2-T11 (§46) : table renversable (entité LDtk `Table`). Une interaction la renverse à l'opposé
+// du joueur ; elle arrête alors les balles et se brise après `bullets` balles.
+Table(bullets: 4)

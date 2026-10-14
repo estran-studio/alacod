@@ -7,7 +7,7 @@ use crate::{
         context::{AvailableLevel, LevelType, MapGenerationContext, MapGenerationData},
         entity::{
             character_spawn::CharacterSpawnConfig, door::DoorConfig, enemy_spawn::EnemySpawnConfig,
-            location::EntityLocation, soda_location::SodaLocationConfig,
+            location::EntityLocation, prop::PropConfig, soda_location::SodaLocationConfig,
             weapon_location::WeaponLocationConfig, window::WindowConfig,
         },
         position::Position,
@@ -667,6 +667,30 @@ impl IMapGeneration for BasicMapGeneration {
                         )
                     })
                     .collect::<Vec<(EntityLocation, SodaLocationConfig)>>()
+            })
+            .collect()
+    }
+
+    /// M2-T11 : mêmes règles que [`Self::get_character_spawns`] ci-dessus.
+    fn get_props(&mut self, _rng: &mut RollbackRng) -> Vec<(EntityLocation, PropConfig)> {
+        self.map
+            .rooms
+            .iter()
+            .flat_map(|room| {
+                room.entity_locations
+                    .props
+                    .iter()
+                    .map(|(location, config)| {
+                        (
+                            EntityLocation {
+                                position: location.position,
+                                size: location.size,
+                                level_iid: room.level_iid.clone(),
+                            },
+                            config.clone(),
+                        )
+                    })
+                    .collect::<Vec<(EntityLocation, PropConfig)>>()
             })
             .collect()
     }

@@ -13,6 +13,7 @@ use map::generation::{
     entity::{
         character_spawn::CharacterSpawnConfig,
         location::{EntityLocation, EntityLocations},
+        prop::PropConfig,
         soda_location::SodaLocationConfig,
         weapon_location::WeaponLocationConfig,
     },
@@ -173,6 +174,39 @@ fn get_soda_locations(
         .collect()
 }
 
+/// M2-T11 : extrait les entités `Table` et `Barrel` avec leur champ `prop`.
+fn get_props(
+    entities: &[bevy_ecs_ldtk::EntityInstance],
+    tile_size: &(i32, i32),
+) -> Vec<(EntityLocation, PropConfig)> {
+    entities
+        .iter()
+        .filter(|x| {
+            x.identifier == map_const::ENTITY_TABLE || x.identifier == map_const::ENTITY_BARREL
+        })
+        .map(|x| {
+            let position = Position(x.grid.x, x.grid.y);
+            let size = (x.width / tile_size.0, x.height / tile_size.1);
+            let prop = x
+                .get_string_field(map_const::FIELD_PROP_NAME)
+                .ok()
+                .cloned()
+                .unwrap_or_default();
+            (
+                EntityLocation {
+                    position,
+                    size,
+                    level_iid: "".to_string(),
+                },
+                PropConfig {
+                    entity: x.identifier.clone(),
+                    prop,
+                },
+            )
+        })
+        .collect()
+}
+
 fn extract_entity_locations(level: &Level, tile_size: &(i32, i32)) -> EntityLocations {
     let entity_layer = level
         .layer_instances
@@ -222,11 +256,13 @@ fn extract_entity_locations(level: &Level, tile_size: &(i32, i32)) -> EntityLoca
                 EntityLocation
             ),
             character_spawns: get_character_spawns(&entity_layer.entity_instances, tile_size),
+            props: get_props(&entity_layer.entity_instances, tile_size),
         }
     } else {
         EntityLocations {
             doors: vec![],
             sodas: vec![],
+            props: vec![],
             player_spawns: vec![],
             zombie_spawns: vec![],
             crates: vec![],

@@ -11,6 +11,9 @@
         // M2-T10 : étage assemblé de 15 à 20 salles, deux bots (mesure du 2026-10-12 : 18 sim fps
         // sur une machine partagée, 37 ennemis et 282 entités au plus ; gungeon_floor_seed_1 : 30).
         "bench_floor": (min_sim_fps: 9.0),
+        // M2-T16 : un étage `court` joué par des bots (mesure cloud du 2026-10-14 : 38 et 37).
+        "bot_explorer_floor": (min_sim_fps: 25.0),
+        "bot_explorer_two": (min_sim_fps: 25.0),
         "ammo_burst": (min_sim_fps: 70.0),
         "bullets_walls": (min_sim_fps: 80.0),
         "dash_wall": (min_sim_fps: 70.0),

@@ -3,6 +3,7 @@ pub mod door;
 pub mod enemy_spawn;
 pub mod location;
 pub mod player_spawn;
+pub mod prop;
 pub mod room;
 pub mod soda_location;
 pub mod weapon_location;
