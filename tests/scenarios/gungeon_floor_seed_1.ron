@@ -5,7 +5,7 @@
 // même forme : le même script passe. Le bot explorateur est T16 : l'atteinte du boss est scriptée.
 //
 // À regarder : f59 la salle de combat se verrouille ; f310 elle se rouvre ; f380 la salle du boss se
-// verrouille ; le boss meurt f513 phase 1, f644 mort, écran de victoire.
+// verrouille ; phase 1 f493, phase 2 (renfort) f553, mort f614, écran de victoire.
 Scenario(
     powerup_drop_chance_override: "0.0",
     game: "gungeon",
