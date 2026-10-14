@@ -776,6 +776,21 @@ fn map_probe() {
             h.current.to_num::<f32>()
         );
     }
+    // M2-T11 : entités de carte lues (diagnostic)
+    {
+        let registry = world.resource::<map_ldtk::game::plugin::LdtkMapEntityLoadingRegistry>();
+        let mut kinds: std::collections::BTreeMap<String, usize> = Default::default();
+        for e in &registry.entities {
+            *kinds.entry(e.kind.clone()).or_default() += 1;
+        }
+        println!("entités de carte : {kinds:?}");
+    }
+    for (id, t) in world
+        .query_filtered::<(&GgrsNetId, &FixedTransform3D), With<game::weapons::Bullet>>()
+        .iter(world)
+    {
+        println!("balle {} {:?}", id.0, pos(t));
+    }
     // M2-T11 : tables, barils (état rollback), sécurité des fosses
     let mut props: Vec<_> = world
         .query::<(
@@ -903,13 +918,13 @@ fn map_probe() {
         );
     }
     let mut enemies: Vec<_> = world
-        .query_filtered::<(&GgrsNetId, &FixedTransform3D, Has<world::RoomDormant>), With<game::character::enemy::Enemy>>()
+        .query_filtered::<(&GgrsNetId, &FixedTransform3D, Has<world::RoomDormant>, Option<&game::character::health::HitCount>), With<game::character::enemy::Enemy>>()
         .iter(world)
-        .map(|(id, t, dormant)| (id.0, pos(t), dormant))
+        .map(|(id, t, dormant, hits)| (id.0, pos(t), dormant, hits.map(|h| h.0)))
         .collect();
     enemies.sort_by_key(|e| e.0);
     for e in enemies {
-        println!("ennemi {} {:?} dormant={}", e.0, e.1, e.2);
+        println!("ennemi {} {:?} dormant={} coups={:?}", e.0, e.1, e.2, e.3);
     }
     let mut interactables: Vec<_> = world
         .query::<(

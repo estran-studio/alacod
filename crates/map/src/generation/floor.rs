@@ -407,6 +407,7 @@ mod tests {
         EntityLocations {
             doors: vec![],
             sodas: vec![],
+            props: vec![],
             player_spawns: vec![],
             zombie_spawns: vec![],
             crates: vec![],

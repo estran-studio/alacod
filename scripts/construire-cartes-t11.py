@@ -33,9 +33,6 @@ def defs_with_props():
     for name, color, w, h in (("Table", "#B5651D", 32, 16), ("Barrel", "#C0392B", 16, 16)):
         e = copy.deepcopy(spawn)
         e.update(identifier=name, uid=uid, width=w, height=h, color=color, fieldDefs=[])
-        e["tileRect"] = None
-        e["renderMode"] = "Rectangle"
-        e["tilesetId"] = None
         ents.append(e)
         uid += 1
     d["nextUid"] = uid
@@ -66,7 +63,7 @@ def entity(d, level, name, col, row, w=16, h=16, fields=()):
         "__grid": [col, row],
         "__pivot": [0, 0],
         "__tags": [],
-        "__tile": None,
+        "__tile": copy.deepcopy(definition["tileRect"]),
         "__smartColor": definition["color"],
         "iid": iid(level, name, col, row),
         "width": w,
@@ -150,7 +147,7 @@ build(
     ],
 )
 
-# 3. Couloir de couverture : joueur col 3, table 32x32 col 12-13 (rangées 1-2), cible col 20.
+# 3. Couloir de couverture : joueur col 3, table 32x48 col 12-13 (rangées 1-3), cible col 20.
 build(
     "props_cover",
     "PropsCover",
@@ -160,7 +157,7 @@ build(
     set(),
     [
         spawn(0, 3, 2),
-        ("Table", 12, 1, 32, 32, []),
+        ("Table", 12, 1, 32, 48, []),
         (
             "CharacterSpawn",
             20,
@@ -182,7 +179,7 @@ build(
     corridor_walls(60, 9, [(1, 3), (5, 7)]),
     set(),
     [
-        spawn(0, 3, 3),
+        spawn(0, 3, 2),
         spawn(1, 16, 5),
         ("Barrel", 12, 3, 16, 16, []),
         ("Barrel", 14, 3, 16, 16, []),

@@ -12,7 +12,7 @@ use crate::{
         entity::{
             character_spawn::CharacterSpawnConfig, door::DoorConfig, enemy_spawn::EnemySpawnConfig,
             location::EntityLocation, soda_location::SodaLocationConfig,
-            weapon_location::WeaponLocationConfig, window::WindowConfig,
+            prop::PropConfig, weapon_location::WeaponLocationConfig, window::WindowConfig,
         },
         floor::{connection_of, plan_floor, FloorPlan},
         room::{Room, RoomConnection},
@@ -107,5 +107,8 @@ impl IMapGeneration for FloorMapGeneration {
         rng: &mut RollbackRng,
     ) -> Vec<(EntityLocation, SodaLocationConfig)> {
         self.basic.get_soda_locations(rng)
+    }
+    fn get_props(&mut self, rng: &mut RollbackRng) -> Vec<(EntityLocation, PropConfig)> {
+        self.basic.get_props(rng)
     }
 }

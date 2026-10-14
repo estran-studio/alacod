@@ -1177,11 +1177,17 @@
         "lineOpacity": 0,
         "hollow": false,
         "color": "#B5651D",
-        "renderMode": "Rectangle",
+        "renderMode": "Tile",
         "showName": true,
-        "tilesetId": null,
+        "tilesetId": 38,
         "tileRenderMode": "FitInside",
-        "tileRect": null,
+        "tileRect": {
+          "tilesetUid": 38,
+          "x": 32,
+          "y": 112,
+          "w": 16,
+          "h": 16
+        },
         "uiTileRect": null,
         "nineSliceBorders": [],
         "maxCount": 0,
@@ -1212,11 +1218,17 @@
         "lineOpacity": 0,
         "hollow": false,
         "color": "#C0392B",
-        "renderMode": "Rectangle",
+        "renderMode": "Tile",
         "showName": true,
-        "tilesetId": null,
+        "tilesetId": 38,
         "tileRenderMode": "FitInside",
-        "tileRect": null,
+        "tileRect": {
+          "tilesetUid": 38,
+          "x": 32,
+          "y": 112,
+          "w": 16,
+          "h": 16
+        },
         "uiTileRect": null,
         "nineSliceBorders": [],
         "maxCount": 0,
@@ -1403,22 +1415,28 @@
               "__identifier": "PlayerSpawn",
               "__grid": [
                 3,
-                3
+                2
               ],
               "__pivot": [
                 0,
                 0
               ],
               "__tags": [],
-              "__tile": null,
+              "__tile": {
+                "tilesetUid": 38,
+                "x": 32,
+                "y": 112,
+                "w": 16,
+                "h": 16
+              },
               "__smartColor": "#56CC3C",
-              "iid": "5c08de5d-695a-5f17-886b-46738f111701",
+              "iid": "4800bfeb-674b-52a7-b80b-93840dd0a100",
               "width": 16,
               "height": 16,
               "defUid": 29,
               "px": [
                 48,
-                48
+                32
               ],
               "fieldInstances": [
                 {
@@ -1438,7 +1456,7 @@
                 }
               ],
               "__worldX": 48,
-              "__worldY": 48
+              "__worldY": 32
             },
             {
               "__identifier": "PlayerSpawn",
@@ -1451,7 +1469,13 @@
                 0
               ],
               "__tags": [],
-              "__tile": null,
+              "__tile": {
+                "tilesetUid": 38,
+                "x": 32,
+                "y": 112,
+                "w": 16,
+                "h": 16
+              },
               "__smartColor": "#56CC3C",
               "iid": "4fa90cee-0580-5db7-a76b-0419f2db5a39",
               "width": 16,
@@ -1492,7 +1516,13 @@
                 0
               ],
               "__tags": [],
-              "__tile": null,
+              "__tile": {
+                "tilesetUid": 38,
+                "x": 32,
+                "y": 112,
+                "w": 16,
+                "h": 16
+              },
               "__smartColor": "#C0392B",
               "iid": "2515f5a1-1c96-55d3-a5be-ed9091493d0d",
               "width": 16,
@@ -1517,7 +1547,13 @@
                 0
               ],
               "__tags": [],
-              "__tile": null,
+              "__tile": {
+                "tilesetUid": 38,
+                "x": 32,
+                "y": 112,
+                "w": 16,
+                "h": 16
+              },
               "__smartColor": "#C0392B",
               "iid": "87af70f8-3b16-5571-b3e3-0c78aae11440",
               "width": 16,

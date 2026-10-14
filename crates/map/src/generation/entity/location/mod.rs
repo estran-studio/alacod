@@ -1,4 +1,5 @@
 use crate::generation::entity::character_spawn::CharacterSpawnConfig;
+use crate::generation::entity::prop::PropConfig;
 use crate::generation::entity::soda_location::SodaLocationConfig;
 use crate::generation::entity::weapon_location::WeaponLocationConfig;
 use crate::generation::position::Position;
@@ -27,4 +28,6 @@ pub struct EntityLocations {
     /// `CharacterSpawnConfig`), portées avec leur position dès l'extraction (contrairement à
     /// `doors`, dont la config est recalculée plus tard à partir de la profondeur de la salle).
     pub character_spawns: Vec<(EntityLocation, CharacterSpawnConfig)>,
+    /// M2-T11 : tables et barils (`PropConfig`), valeurs d'auteur portées telles quelles.
+    pub props: Vec<(EntityLocation, PropConfig)>,
 }

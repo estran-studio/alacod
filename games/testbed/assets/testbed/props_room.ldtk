@@ -1177,11 +1177,17 @@
         "lineOpacity": 0,
         "hollow": false,
         "color": "#B5651D",
-        "renderMode": "Rectangle",
+        "renderMode": "Tile",
         "showName": true,
-        "tilesetId": null,
+        "tilesetId": 38,
         "tileRenderMode": "FitInside",
-        "tileRect": null,
+        "tileRect": {
+          "tilesetUid": 38,
+          "x": 32,
+          "y": 112,
+          "w": 16,
+          "h": 16
+        },
         "uiTileRect": null,
         "nineSliceBorders": [],
         "maxCount": 0,
@@ -1212,11 +1218,17 @@
         "lineOpacity": 0,
         "hollow": false,
         "color": "#C0392B",
-        "renderMode": "Rectangle",
+        "renderMode": "Tile",
         "showName": true,
-        "tilesetId": null,
+        "tilesetId": 38,
         "tileRenderMode": "FitInside",
-        "tileRect": null,
+        "tileRect": {
+          "tilesetUid": 38,
+          "x": 32,
+          "y": 112,
+          "w": 16,
+          "h": 16
+        },
         "uiTileRect": null,
         "nineSliceBorders": [],
         "maxCount": 0,
@@ -1410,7 +1422,13 @@
                 0
               ],
               "__tags": [],
-              "__tile": null,
+              "__tile": {
+                "tilesetUid": 38,
+                "x": 32,
+                "y": 112,
+                "w": 16,
+                "h": 16
+              },
               "__smartColor": "#56CC3C",
               "iid": "d4f7118e-e90a-55ad-aaf6-2fcf92f724c2",
               "width": 16,
@@ -1451,7 +1469,13 @@
                 0
               ],
               "__tags": [],
-              "__tile": null,
+              "__tile": {
+                "tilesetUid": 38,
+                "x": 112,
+                "y": 112,
+                "w": 16,
+                "h": 16
+              },
               "__smartColor": "#3050C0",
               "iid": "e0ceea34-7fb1-5861-b1fe-1480d45404fd",
               "width": 16,

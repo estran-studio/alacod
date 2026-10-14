@@ -14,7 +14,7 @@ use map::{
     generation::{
         entity::{
             character_spawn::CharacterSpawnConfig, door::DoorConfig, enemy_spawn::EnemySpawnConfig,
-            location::EntityLocation, soda_location::SodaLocationConfig,
+            location::EntityLocation, prop::PropConfig, soda_location::SodaLocationConfig,
             weapon_location::WeaponLocationConfig, window::WindowConfig,
         },
         room::{Room, RoomConnection},
@@ -554,6 +554,22 @@ impl IMapGenerator for GeneratedMap {
                     FieldValue::String(Some(config.perk.clone())),
                 )],
             );
+        }
+    }
+
+    /// M2-T11 : `prop` est une valeur d'auteur, réécrite telle quelle (champ seulement s'il est
+    /// rempli : les cartes sans champ gardent leur entité nue).
+    fn add_props(&mut self, rng: &mut RollbackRng, props: &Vec<(EntityLocation, PropConfig)>) {
+        for (location, config) in props.iter() {
+            let fields = if config.prop.is_empty() {
+                vec![]
+            } else {
+                vec![(
+                    map_const::FIELD_PROP_NAME,
+                    FieldValue::String(Some(config.prop.clone())),
+                )]
+            };
+            self.add_entity_to_level(rng, location, &config.entity, fields);
         }
     }
 }
