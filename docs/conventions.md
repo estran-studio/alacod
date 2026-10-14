@@ -2917,6 +2917,63 @@ la réduction de dégâts existera. `testbed` : objets d'essai `lame`, `manche`,
 effets, sur `deux_niveaux`), `item_active_cost` (obus 3 → 1, second usage refusé), `consumable_heal`
 (santé 92 → 97 au ramassage). Aucune trace existante ne bouge : types neutres, champs optionnels hors hash.
 
+## 49. Formations simples : escouades en arc et tir alterné (M2-T8, chantier D1 v2)
+
+Code : `behaviors::{Behavior::Formation, FormationShape}`, `game::character::enemy::ai::squad`
+(`formation_system`, `SquadSlots`, `arc_places`, `fire_turn`, `nearest`), `rules::behavior_motion`
+(déplacement), `rules::behavior_select_system` (tour de tir), `content::lint::lint_formation`.
+
+**Contenu.** Un ennemi se déclare membre d'une escouade par `ai.squad: Some(("id", Some("rôle")))` et
+liste une règle `Formation` (variante **en fin d'enum** `Behavior`, aucune discriminante existante ne bouge) :
+
+```ron
+ai: Some((
+    squad: Some(("bullet_kins", Some("arc"))),
+    behaviors: Some([
+        Shoot(weapon: "arsenal", pattern: "salve", range: "240.0", cooldown_frames: 90),
+        Formation(shape: Arc(radius: "56.0", spread: "1.6"), period: 40),   // volley: true : tir groupé
+        Chase(profile: "Ground"),
+    ]),
+)),
+```
+
+**Escouade = donnée dérivée.** Les ennemis vivants (hors salle dormante) de même `squad` qui listent une
+`Formation`, rangés par `GgrsNetId` (le rang est l'indice dans cet ordre). `formation_system`
+(`EnemyAI`, après `enemy_target_selection`, avant `behavior_select_system`) vide puis réécrit
+`SquadSlots` à chaque frame, avant tout retour anticipé : ressource **hors rollback**, aucun état caché,
+aucun nouveau type sous checksum. Une escouade vit tant que ses membres vivent ; elle ne dépend pas de la
+salle (une seule salle d'escouade est éveillée à la fois dans `gungeon`).
+
+**Cible et places.** La cible de l'escouade est le joueur debout le plus proche de son centre (moyenne
+des positions), à distance égale le plus petit `GgrsNetId` (`nearest`). L'arc est centré sur la cible,
+son milieu pointe vers le centre de l'escouade ; la place du rang `k` sur `n` membres est l'angle
+`spread × (k/(n−1) − 1/2)` (le membre seul est sur l'axe). Les places ne changent pas tant que l'effectif
+ne change pas ; un membre mort réattribue les rangs au prochain tour. Angles et trigonométrie en `Fixed`
+(`cos_fixed`/`sin_fixed`). Écart avec la fiche : « plus proche par le chemin » est ici la distance
+euclidienne au centre de l'escouade (pas de flow field par escouade).
+
+**Déplacement.** À plus de `2 × radius` de la cible : mouvement d'origine (flow field, comme `Chase`).
+Plus près : droit vers la place, puis, à moins de 6 unités, `Strafe` léger (quart de vitesse, sens
+alterné toutes les 45 frames). **Tir alterné** : `Shoot` n'est candidat que dans la fenêtre du membre,
+`(frame / period) mod effectif == rang` (`fire_turn`, état dérivé, aucun curseur) ; une séquence en cours
+va à son terme. `volley: true` garde le tir groupé. Effets de bord : un `Shoot` plus long que `period`
+chevauche la fenêtre suivante (les patterns d'escouade tiennent dans une fenêtre).
+
+**Lint** (`OutOfRange`, fixtures `formation_*`) : `radius ≤ 0`, `spread` hors ]0, 2π], `period = 0` sans
+`volley`, formation sans `Shoot` ni `Chase` dans la liste, formation sans `ai.squad`.
+
+**Testbed** : `escouade_tireur` (trois `salve` en fenêtres de 40, arc de 100). **Gungeon** :
+`bullet_kin_squad` (arc de 40, la salle est petite), niveau `EscouadeEW` de `maps/salles.ldtk`
+(`room_kind: escouade`, type `rooms/escouade.ron`), grammaire `court_escouade` et séquence
+`etages_court_escouade`. Ni `bullet_kin` ni les grammaires `court`/`etage`/`grand` ne changent : le nouveau
+type de salle n'est tiré par aucune.
+
+**Attentes** : `EnemyDistance` accepte `target: Entity(<EntityRef>)` (écarts entre membres).
+**Scénarios** : `formation_arc` (convergence à 100, écarts angulaires 59/113), `formation_member_dies`
+(le rang 0 tombe, les deux restants se placent aux extrémités), `formation_alternate_fire` (2, 4, 6 puis 8
+flèches au lieu de 6, 12, 18), `formation_two_players` (arc autour du joueur le plus proche),
+`gungeon_squad`.
+
 ## 45. Boss et arène (M2-T7, chantier D4)
 
 Complète §37 (phases, frise) et §35 (salles verrouillées) : tir **par phase**, salle de boss,
