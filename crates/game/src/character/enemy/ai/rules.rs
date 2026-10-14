@@ -531,6 +531,7 @@ mod tests {
             target,
             &cache,
             crate::character::enemy::ai::navigation::MOVEMENT_FLOW_KEY,
+            None,
         )
         .unwrap();
         let second = behavior_motion(
@@ -541,6 +542,7 @@ mod tests {
             target,
             &cache,
             crate::character::enemy::ai::navigation::MOVEMENT_FLOW_KEY,
+            None,
         )
         .unwrap();
         // Perpendiculaire à la cible (axe x) : le long de y, sens opposés.
@@ -571,6 +573,7 @@ mod tests {
             None,
             &cache,
             crate::character::enemy::ai::navigation::MOVEMENT_FLOW_KEY,
+            None,
         )
         .unwrap();
         assert_eq!(telegraph.speed_mult, fixed_math::FIXED_ZERO);
@@ -586,6 +589,7 @@ mod tests {
             None,
             &cache,
             crate::character::enemy::ai::navigation::MOVEMENT_FLOW_KEY,
+            None,
         )
         .unwrap();
         assert_eq!(rush.speed_mult, fixed_math::Fixed::from_num(3));
