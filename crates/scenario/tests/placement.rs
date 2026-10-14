@@ -31,6 +31,7 @@ fn test_600() -> CharacterTest {
         moving: true,
         expect_still: vec![],
         expect_moving: vec![],
+        boss: None,
     }
 }
 

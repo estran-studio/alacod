@@ -3242,3 +3242,52 @@ Aucun autre trou trouvé dans l'audit (les `props` et le profil n'ont pas de ré
 
 **Fixtures.** `stat_unread` (erreur), `stat_armor_warning` (avertissement), `reach_room_unreachable`
 (type de salle et gabarit), `reach_enemy_unplaced`, `reach_item_no_source`, `reach_weapon_no_source`.
+
+## 54. Générateur v2 : gabarits par objet, par salle et par boss (M2-T17, voie V3)
+
+Code : `crates/scenario/src/generate.rs` (gabarits), `game::gen_test` (`ItemTest`, `RoomTest`,
+`BossFightTest`), `scenario::runner::apply_player_overrides` (objets de départ), `content::lint`
+(`lint_item_tests`, `lint_room_tests`, `lint_character_tests`). Complète §28 : mêmes règles
+(opt-in par un champ `test:`, aucun effet en jeu, un scénario écrit par `make gen GAME=<jeu>` dans
+`tests/scenarios/generated/<jeu>/`, champ absent = rien de généré : aucune trace existante ne bouge).
+Contrairement aux gabarits d'armes, ces gabarits jouent **dans le jeu énuméré** (le registre du
+testbed n'a ni les objets ni les salles de `gungeon`) : carte de `generate_template` si le jeu en
+déclare une (`Sandbox` imposé), sinon l'arène du testbed pour le testbed.
+
+**Objet** (`objets/<id>.ron`, gabarit `ItemHeld`, fichier `item_<id>.ron`) :
+`test: Some((frames: 60, expect: [...]))` ; `frames > 16` pour un actif.
+- `PlayerScript::items: ["<id>"]` (nouveau, vide par défaut) : le joueur tient l'objet **avant la
+  première frame**, comme après un ramassage (passif : `Inventory` et modificateurs `item:<id>` ;
+  actif : emplacement actif **chargé** à `ActiveCharge::required()` ; consommable : compteur). Les
+  effets `OnPickup` ne sont pas rejoués.
+- Attentes par défaut : `HasItem` à la frame 1 ; une `Stat` par stat modifiée (frame 1), attendue =
+  `sim_core::modifier::resolve(base, modificateurs)` où `base` est lue par une **sonde** d'une frame
+  sans l'objet (`probe_player_stats`) : la valeur ne vient pas de la partie qui tient l'objet ; un
+  actif : `ItemCharge(required)` à la frame 5, `UseActive` une frame à `ITEM_USE_FRAME` (10), puis
+  `ItemCharge(0)` à la frame 16 (omis pour `Frames(n)`, qui se recharge aussitôt, et pour un actif à
+  `cost`, dont l'usage peut être refusé). `test.expect` s'**ajoute** aux attentes par défaut.
+
+**Salle** (`rooms/<id>.ron`, gabarit `RoomClear`, `room_<id>.ron`) :
+`test: Some((frames: 500, floors: "etages_court", seed: 1, expect: []))` ; exactement un de `floors`
+(séquence `Floors` du jeu) ou `map` (carte LDtk, `Sandbox` imposé si le manifeste est en `Floors`) ;
+`seed` = graine de carte (défaut 123456) : le gabarit LDtk tiré par la grammaire est donc fixe.
+Un bot `explorateur` (§47), aucun input scripté. Attentes par défaut : moments clés `room` « salle
+<id> verrouillée » puis « salle <id> nettoyée » avant `frames` (`Event`, cumulatif : une attente
+`RoomState` ponctuelle dépendrait de la frame exacte du bot), et `PlayerAlive` à la dernière frame.
+Une salle qui ne verrouille ni n'est une arène (`locks: false`, pas d'`arena`) : seulement
+`PlayerAlive`.
+
+**Boss** (personnage qui a `boss:`, gabarit `BossFight`, `boss_<id>.ron`) : le `test:` du personnage
+gagne le champ `boss: Some((floors: None, map: None, seed: 123456, expect: []))` (`boss: Some(())`
+suffit), `frames` du `test:` fixe la durée, `still: false, moving: false` coupent les gabarits
+ennemis. Sans `floors` ni `map`, la partie du manifeste (`entry.start_map`, comme `gungeon_boss_bot`).
+Bot `fonceur`, aucun input. Attentes par défaut : un `Event(boss_phase, "phase i-1 → i")` par phase
+atteinte (cumulatif : `BossPhase` échoue une fois le boss mort), puis `Event(room, "salle boss
+nettoyée")` si le jeu a un type de salle `boss` (§45).
+
+**Lint.** `frames > 0` ; objet : pas sur un consommable (`Unsupported`) ; salle : exactement un de
+`floors`/`map`, scène connue, **au moins un gabarit LDtk du type** dans les cartes de la scène
+(`BrokenReference`, y compris les gabarits d'une grammaire `floor:<id>`) ; personnage : `test.boss`
+seulement avec `boss:`, `floors`/`map` exclusifs et connus, un gabarit actif parmi `still`, `moving`
+et `boss`. Fixtures `item_test_frames_zero`, `item_test_consumable`, `room_test_no_template`,
+`room_test_both_scenes`, `room_test_frames_zero`, `boss_fight_without_boss`.

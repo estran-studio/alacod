@@ -6,4 +6,6 @@
     effects: [
         (on: OnReload, charges: Some(1), recharge: Some(PerRoom), do: [Modifier(stat: Damage, op: Add, value: "1")]),
     ],
+    // M2-T17 (docs/conventions.md §54) : scénario généré `item_bandoulier_comptee`.
+    test: Some((frames: 60)),
 )
