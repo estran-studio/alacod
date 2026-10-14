@@ -13303,6 +13303,7 @@ dependencies = [
  "bevy 0.19.1",
  "bevy_fixed",
  "bevy_ggrs",
+ "items",
  "ron 0.12.2",
  "serde",
  "sim_core",

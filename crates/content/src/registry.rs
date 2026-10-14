@@ -671,6 +671,9 @@ pub struct FloorsEntry {
     /// M2-T1 : consommables remontés à `n` au début de chaque étage (le blank de `gungeon` :
     /// `{"blank": 2}`) ; l'étage 0 est servi par `starting_consumables` du personnage.
     pub consumables_per_floor: BTreeMap<String, u32>,
+    /// M2-T5 : pool de butin de chaque étage (index = étage, le dernier vaut pour les suivants) ;
+    /// vide : `commun` pour les coffres, `salle` pour les récompenses de salle.
+    pub loot: Vec<String>,
 }
 
 /// Caverne générée (T1.6, `docs/conventions.md` §21), un fichier RON par caverne
@@ -842,6 +845,9 @@ struct FloorsFileSchema {
     /// M2-T1 : voir [`FloorsEntry::consumables_per_floor`].
     #[serde(default)]
     consumables_per_floor: BTreeMap<String, u32>,
+    /// M2-T5 : voir [`FloorsEntry::loot`].
+    #[serde(default)]
+    loot: Vec<String>,
 }
 
 #[derive(Debug, Clone)]
@@ -902,6 +908,16 @@ pub struct SynergyEntry {
     pub id: String,
     pub file: PathBuf,
     pub def: items::SynergyDef,
+}
+
+/// Pool de butin (M2-T5, `docs/conventions.md` §48), un fichier RON par pool
+/// (`loot/<id>.ron` dans un dossier de kind `LootTable`, champs de [`items::LootTableDef`]) ;
+/// id = nom de fichier.
+#[derive(Debug, Clone)]
+pub struct LootTableEntry {
+    pub id: String,
+    pub file: PathBuf,
+    pub def: items::LootTableDef,
 }
 
 /// Type de salle (M2-E1, `docs/conventions.md` §35), un fichier RON par type
@@ -1065,6 +1081,8 @@ pub struct Registry {
     pub items: BTreeMap<String, ItemEntry>,
     /// M2-T4 : synergies d'objets (kind `Synergy`).
     pub synergies: BTreeMap<String, SynergyEntry>,
+    /// M2-T5 : pools de butin (kind `LootTable`).
+    pub loot_tables: BTreeMap<String, LootTableEntry>,
     /// M2-E1 : types de salles (kind `Room`).
     pub rooms: BTreeMap<String, RoomEntry>,
     /// T1.7 : surfaces (kind `Surface`).
@@ -1140,6 +1158,7 @@ pub const KNOWN_KIND_NAMES: &[&str] = &[
     "Clock",
     "Difficulty",
     "Synergy",
+    "LootTable",
 ];
 
 pub fn known_content_kinds() -> Kinds {
@@ -1236,6 +1255,7 @@ impl Registry {
                 "Room" => load_rooms(&assets_dir, decl, &mut registry, &mut errors),
                 "Item" => load_items(&assets_dir, decl, &mut registry, &mut errors),
                 "Synergy" => load_synergies(&assets_dir, decl, &mut registry, &mut errors),
+                "LootTable" => load_loot_tables(&assets_dir, decl, &mut registry, &mut errors),
                 "Surface" => load_surfaces(&assets_dir, decl, &mut registry, &mut errors),
                 "Pattern" => load_patterns(&assets_dir, decl, &mut registry, &mut errors),
                 "Progression" => load_progression(&assets_dir, decl, &mut registry, &mut errors),
@@ -2375,6 +2395,7 @@ fn load_floors(
                 levels: parsed.levels,
                 victory_at_end: parsed.victory_at_end,
                 consumables_per_floor: parsed.consumables_per_floor,
+                loot: parsed.loot,
             },
         );
     }
@@ -2525,6 +2546,31 @@ fn load_synergies(
         registry
             .synergies
             .insert(id.clone(), SynergyEntry { id, file: rel, def });
+    }
+}
+
+/// M2-T5 : `loot/<id>.ron` (kind `LootTable`), un pool par fichier ; id = nom de fichier.
+fn load_loot_tables(
+    assets_dir: &ContentFiles,
+    decl: &ContentFolderDecl,
+    registry: &mut Registry,
+    errors: &mut Vec<LintError>,
+) {
+    for (id, rel, def) in load_ron_files::<items::LootTableDef>(assets_dir, decl, errors) {
+        if let Some(existing) = registry.loot_tables.get(&id) {
+            errors.push(LintError {
+                kind: LintErrorKind::DuplicateId,
+                file: rel.display().to_string(),
+                message: format!(
+                    "id de pool de butin « {id} » déjà défini dans {}",
+                    existing.file.display()
+                ),
+            });
+            continue;
+        }
+        registry
+            .loot_tables
+            .insert(id.clone(), LootTableEntry { id, file: rel, def });
     }
 }
 

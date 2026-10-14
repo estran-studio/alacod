@@ -432,6 +432,7 @@ struct HudPlayerState<'w, 's> {
             Option<&'static Modifiers>,
             Option<&'static WeaponInventory>,
             Option<&'static CharacterConfigHandles>,
+            Option<&'static items::Inventory>,
         ),
         With<Player>,
     >,
@@ -456,6 +457,7 @@ struct HudInteractables<'w, 's> {
             Option<&'static WindowHealth>,
             Option<&'static WeaponPickup>,
             Option<&'static PerkMachine>,
+            Option<&'static items::Chest>,
         ),
         With<Rollback>,
     >,
@@ -507,7 +509,7 @@ fn update_hud_v1_values(
         .unwrap_or_default();
 
     let downed = player
-        .map(|(net_id, _, _, downed, reviving, _, _, handles)| {
+        .map(|(net_id, _, _, downed, reviving, _, _, handles, _)| {
             let revive_frames = |handles: Option<&CharacterConfigHandles>| {
                 handles
                     .and_then(|h| state.character_configs.get(&h.config))
@@ -552,9 +554,9 @@ fn update_hud_v1_values(
 
     let prompt = player
         .filter(|p| p.3.is_none())
-        .and_then(|(_, transform, perks_owned, _, _, _, inventory, _)| {
+        .and_then(|(_, transform, perks_owned, _, _, _, inventory, _, items)| {
             closest_interactable(&world, transform.translation, &fog, fog_map.as_deref())
-                .map(|target| prompt_for(&world, config, target, perks_owned, inventory))
+                .map(|target| prompt_for(&world, config, target, perks_owned, inventory, items))
         })
         .unwrap_or_default();
 
@@ -661,8 +663,9 @@ fn prompt_for(
     target: GgrsNetId,
     perks_owned: Option<&Perks>,
     inventory: Option<&WeaponInventory>,
+    items: Option<&items::Inventory>,
 ) -> String {
-    let Some((_, _, interactable, _, door, window, pickup, perk_machine)) = world
+    let Some((_, _, interactable, _, door, window, pickup, perk_machine, chest)) = world
         .interactables
         .iter()
         .find(|(net_id, ..)| **net_id == target)
@@ -679,6 +682,15 @@ fn prompt_for(
         InteractionType::Revive => Prompt::Revive,
         // M2-T0b : pas de prompt d'objet avant le HUD de M2 (V4).
         InteractionType::Item => return String::new(),
+        InteractionType::Chest => {
+            let Some(chest) = chest else {
+                return String::new();
+            };
+            Prompt::Chest {
+                locked: chest.locked && !chest.opened,
+                has_key: items.is_some_and(|i| i.consumable(crate::loot::KEY_ITEM) > 0),
+            }
+        }
         InteractionType::Weapon => {
             let Some(pickup) = pickup else {
                 return String::new();
@@ -735,6 +747,11 @@ enum Prompt {
         refill_price: Option<u32>,
         owned: bool,
     },
+    /// M2-T5 : coffre ; `locked` sans clé en main : refus (« Fermé — 1 clé »).
+    Chest {
+        locked: bool,
+        has_key: bool,
+    },
     /// `owned` : déjà acheté, l'interaction ne fait rien.
     Perk {
         name: String,
@@ -763,6 +780,9 @@ impl Prompt {
                 ..
             } => format!("Acheter {name} — ${price}"),
             Prompt::Weapon { name, .. } => format!("Ramasser {name}"),
+            Prompt::Chest { locked: false, .. } => "Ouvrir le coffre".to_string(),
+            Prompt::Chest { has_key: false, .. } => "Fermé — 1 clé".to_string(),
+            Prompt::Chest { .. } => "Ouvrir — 1 clé".to_string(),
             Prompt::Perk {
                 name, owned: true, ..
             } => format!("{name} — possédé"),

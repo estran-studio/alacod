@@ -1,3 +1,7 @@
-// Type de salle `recompense` (M2-T10, docs/conventions.md §35 et §40) : pas de verrou, les
-// récompenses viennent de T3/T5.
-(locks: false)
+// Type de salle `recompense` (M2-T10, docs/conventions.md §35 et §40) : pas de verrou. M2-T5
+// (§48) : un coffre verrouillé au centre (une `key` tombe des salles de combat), rareté
+// minimale Uncommon.
+(
+    locks: false,
+    chest: Some((locked: true, rarity: Uncommon)),
+)

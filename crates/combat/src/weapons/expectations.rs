@@ -468,6 +468,15 @@ pub enum Expectation {
         doors_closed: Option<u32>,
         at_frame: u32,
     },
+    /// Nombre d'exemplaires de l'objet `id` (passifs identiques + actif) tenus par le joueur
+    /// `handle` à la frame exacte `at_frame` (0 sans inventaire) ; M2-T5, `docs/conventions.md`
+    /// §48 : prouve « refusé » (0) et « même objet tiré deux fois » (2).
+    ItemCount {
+        handle: usize,
+        id: String,
+        count: u32,
+        at_frame: u32,
+    },
 }
 
 /// Cible d'une distance (`EnemyDistance`).
@@ -518,6 +527,7 @@ impl Expectation {
             | Self::Mutations { at_frame, .. }
             | Self::HudText { at_frame, .. }
             | Self::RoomState { at_frame, .. }
+            | Self::ItemCount { at_frame, .. }
             | Self::HasItem { at_frame, .. }
             | Self::ItemCharge { at_frame, .. }
             | Self::Consumable { at_frame, .. }

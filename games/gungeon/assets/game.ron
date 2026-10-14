@@ -19,6 +19,8 @@
         (path: "objets", kind: "Item"),
         // M2-T4 : synergies d'objets (docs/conventions.md §44).
         (path: "synergies", kind: "Synergy"),
+        // M2-T5 : pools de butin (docs/conventions.md §48).
+        (path: "loot", kind: "LootTable"),
         // M2-E1 : types de salles du champ de niveau `room_kind`.
         (path: "rooms", kind: "Room"),
         (path: "economy/economy.ron", kind: "Economy"),

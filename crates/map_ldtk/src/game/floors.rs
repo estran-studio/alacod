@@ -205,6 +205,9 @@ pub fn compute_floor_plan(
                     registry.as_deref(),
                 ),
             ));
+            commands.insert_resource(game::loot::FloorLootTables(
+                game::run_state::floors_loot_tables(&mode_for_victory, registry.as_deref()),
+            ));
             commands.insert_resource(FloorPlan {
                 config,
                 levels,
@@ -220,6 +223,7 @@ pub fn compute_floor_plan(
     // Hors du mode `Floors` : rien à remonter au changement d'étage.
     if !matches!(&mode_for_victory, run::RunMode::Floors { .. }) {
         commands.insert_resource(game::items::FloorStartConsumables::default());
+        commands.insert_resource(game::loot::FloorLootTables::default());
     }
 }
 

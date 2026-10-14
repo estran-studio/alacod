@@ -26,13 +26,16 @@ use std::collections::BTreeMap;
 pub struct RoomKind(pub String);
 
 /// Définition d'un type de salle (`rooms/<id>.ron`, kind de contenu `Room`).
-#[derive(Clone, Copy, Debug, Default, PartialEq, Eq, Serialize, Deserialize)]
+#[derive(Clone, Debug, Default, PartialEq, Eq, Serialize, Deserialize)]
 pub struct RoomKindDef {
     /// La salle se verrouille quand un joueur debout y entre et qu'un ennemi y vit, et ses
     /// ennemis dorment tant qu'elle n'est pas activée. Faux : la salle est un lieu comme un
     /// autre (départ, récompense, boutique).
     #[serde(default)]
     pub locks: bool,
+    /// M2-T5 : coffre posé au centre de chaque salle de ce type (`docs/conventions.md` §48).
+    #[serde(default)]
+    pub chest: Option<items::RoomChestDef>,
 }
 
 /// Types de salles du jeu par identifiant (contenu, hors rollback, posée au chargement de la

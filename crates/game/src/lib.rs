@@ -20,6 +20,7 @@ pub mod interaction;
 pub mod items;
 pub mod jjrs;
 pub mod light;
+pub mod loot;
 pub mod patterns;
 mod powerup_visuals;
 pub mod powerups;

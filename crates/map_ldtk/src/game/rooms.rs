@@ -65,6 +65,9 @@ impl Plugin for RoomsPlugin {
                 room_lock_system
                     .after(super::floors::floor_transition_system)
                     .in_set(RollbackSystemSet::Run),
+                room_chest_system
+                    .after(room_lock_system)
+                    .in_set(RollbackSystemSet::Run),
             ),
         );
     }
@@ -172,6 +175,53 @@ pub fn room_dormancy_system(
         } else if !want && is_dormant {
             commands.entity(entity).remove::<RoomDormant>();
         }
+    }
+}
+
+/// M2-T5 (`docs/conventions.md` §48) : pose le coffre d'un type de salle (`RoomKindDef::chest`) au
+/// centre de chaque salle de l'étage courant qui n'en a pas encore (clé `room:<salle>`, tirage
+/// indépendant du moment). Un coffre ouvert reste en place (`opened`), donc n'est pas reposé.
+pub fn room_chest_system(
+    mut commands: Commands,
+    table: Option<Res<RoomKindTable>>,
+    rooms: CurrentRooms,
+    existing: Query<&items::Chest>,
+    mut id_factory: ResMut<utils::net_id::GgrsNetIdFactory>,
+) {
+    let Some(table) = table else {
+        return;
+    };
+    if !table.0.values().any(|def| def.chest.is_some()) {
+        return;
+    }
+    let present: std::collections::BTreeSet<&str> =
+        existing.iter().map(|chest| chest.key.as_str()).collect();
+    for (id, bounds, kind) in sorted_rooms(&rooms) {
+        let Some(def) = table.0.get(&kind.0).and_then(|def| def.chest.as_ref()) else {
+            continue;
+        };
+        let key = format!("room:{}", id.0);
+        if present.contains(key.as_str()) {
+            continue;
+        }
+        let two = Fixed::from_num(2);
+        let center = bevy_fixed::fixed_math::FixedVec3::new(
+            bounds.position.x + bounds.size.x / two,
+            bounds.position.y + bounds.size.y / two,
+            bevy_fixed::fixed_math::FIXED_ZERO,
+        );
+        game::loot::spawn_chest(
+            &mut commands,
+            &mut id_factory,
+            items::Chest {
+                key,
+                table: def.table.clone(),
+                rarity: def.rarity,
+                locked: def.locked,
+                opened: false,
+            },
+            center,
+        );
     }
 }
 

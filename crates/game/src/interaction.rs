@@ -199,6 +199,7 @@ pub fn interaction_detection_system(
                 InteractionType::Weapon => "Weapon",
                 InteractionType::Perk => "Perk",
                 InteractionType::Item => "Item",
+                InteractionType::Chest => "Chest",
             };
             info!(
                 "{} interaction detected: interactor {} with {} ({}) at distance_sq {:?}",

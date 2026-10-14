@@ -75,6 +75,14 @@ pub struct Scenario {
     /// `powerups`, pour les objets de `items/*.ron` ([`ItemPlacement`]).
     #[serde(default, skip_serializing_if = "Vec::is_empty")]
     pub items: Vec<ItemPlacement>,
+    /// Placements scriptés de coffres (M2-T5, `docs/conventions.md` §48) : même principe que
+    /// `items`, pour les coffres ([`ChestPlacement`]).
+    #[serde(default, skip_serializing_if = "Vec::is_empty")]
+    pub chests: Vec<ChestPlacement>,
+    /// Force `RoomRewardDef::chance` de tous les pools pour ce scénario (M2-T5), pour prouver la
+    /// récompense de salle sans dépendre du tirage. `None` : la chance du pool.
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub room_reward_chance_override: Option<Fixed>,
     /// Écrit les profils de méta-progression à la fin de la run, dans un dossier temporaire
     /// (M2-T0c, `docs/conventions.md` §38) ; faux par défaut : un scénario n'écrit rien.
     #[serde(default, skip_serializing_if = "std::ops::Not::not")]
@@ -153,6 +161,22 @@ pub struct PowerUpPlacement {
 #[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
 pub struct ItemPlacement {
     pub id: String,
+    pub x: Fixed,
+    pub y: Fixed,
+    pub at_frame: u32,
+}
+
+/// Placement scripté d'un coffre (M2-T5) : `key` est sa clé de contenu (graine du tirage),
+/// `table` son pool (`None` : celui de l'étage), `rarity` la rareté minimale de l'objet.
+#[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
+pub struct ChestPlacement {
+    pub key: String,
+    #[serde(default)]
+    pub table: Option<String>,
+    #[serde(default)]
+    pub rarity: items::Rarity,
+    #[serde(default)]
+    pub locked: bool,
     pub x: Fixed,
     pub y: Fixed,
     pub at_frame: u32,

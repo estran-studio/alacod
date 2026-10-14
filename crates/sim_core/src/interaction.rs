@@ -43,5 +43,8 @@ pub enum InteractionType {
     /// `Interactable` sur une entité `items::ItemPickup` (`game::items::spawn_item_pickup`) ;
     /// consommé par `game::items::handle_item_interaction`.
     Item,
+    /// Ouvrir un coffre (M2-T5, `docs/conventions.md` §48). Posé avec `Interactable` sur une entité
+    /// `items::Chest` (`game::loot::spawn_chest`) ; consommé par `game::loot::chest_interaction_system`.
+    Chest,
     // Future: Crate, etc.
 }
