@@ -1,0 +1,90 @@
+{
+  "date": "2026-10-14",
+  "code_commit": "beaa7b9f",
+  "seed": 123456,
+  "frames": 5567,
+  "original_sha256": "740df098bc27490413df81083ec1e53524caf6c429191dfddbb1d7dfefc014dc",
+  "events": [
+    {
+      "frame": 384,
+      "kind": "levelup",
+      "label": "joueur 0 passe niveau 1"
+    },
+    {
+      "frame": 452,
+      "kind": "portal",
+      "label": "portail ouvert (niveau 0)"
+    },
+    {
+      "frame": 561,
+      "kind": "mutation",
+      "label": "joueur 0 prend la mutation vampire"
+    },
+    {
+      "frame": 698,
+      "kind": "floor",
+      "label": "niveau 1"
+    },
+    {
+      "frame": 1665,
+      "kind": "levelup",
+      "label": "joueur 0 passe niveau 2"
+    },
+    {
+      "frame": 1823,
+      "kind": "portal",
+      "label": "portail ouvert (niveau 1)"
+    },
+    {
+      "frame": 2136,
+      "kind": "mutation",
+      "label": "joueur 0 prend la mutation coriace"
+    },
+    {
+      "frame": 2296,
+      "kind": "floor",
+      "label": "niveau 2"
+    },
+    {
+      "frame": 3203,
+      "kind": "levelup",
+      "label": "joueur 0 passe niveau 3"
+    },
+    {
+      "frame": 5381,
+      "kind": "portal",
+      "label": "portail ouvert (niveau 2)"
+    },
+    {
+      "frame": 5473,
+      "kind": "mutation",
+      "label": "joueur 0 prend la mutation irradie"
+    }
+  ],
+  "native_performance_all": {
+    "samples": 5568,
+    "interval_p95_ms": 17.175,
+    "interval_p99_ms": 17.5943,
+    "interval_over_33_3_ms": 0,
+    "max_bullets": 19
+  },
+  "native_performance_with_bullets": {
+    "samples": 4359,
+    "interval_p95_ms": 17.1618,
+    "interval_p99_ms": 17.5455,
+    "interval_over_33_3_ms": 0,
+    "max_bullets": 19
+  },
+  "hud_human_decision": "HUD parfait.",
+  "navigation_human_report": "toujours zombie qui sont coicé sans bouger et qui ne regarde pas.",
+  "boss_human_question": "le boss fait des immenses cercle rouge qui font toute la map,  es-ce que c'est normal ? Ca represente quoi ?",
+  "navigation_probe": {
+    "enemy": 461,
+    "frame": 5100,
+    "character": "tourelle",
+    "stationary_by_config": true,
+    "player_distance": "120.11243",
+    "line_of_sight": true,
+    "steering_blockers": []
+  }
+}

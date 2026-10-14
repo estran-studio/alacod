@@ -3,7 +3,8 @@
 Date : 2026-10-10 (America/St_Johns). Base : `origin/main`, `f53cd1ae`.
 Branche : `m1-revue-humaine`.
 
-Première run humaine terminée ; correctifs autorisés le 2026-10-10, deuxième run et décisions de sortie à recueillir.
+Trois runs humaines archivées ; correctifs autorisés le 2026-10-10, HUD validé le 2026-10-14.
+Ennemis immobiles, lisibilité des télégraphes et décisions de sortie encore ouverts.
 Version revue : movement-feel, m1-bots-apres-movement-feel, D55 et vague 0 de M2 inclus.
 D30 réglée ; Espace = objet actif, Q = blank. Les vidéos du digest précèdent movement-feel.
 
@@ -66,3 +67,15 @@ Verdict de sortie M1 à recueillir après la revue.
 - 2026-10-14 | points 4/5, lecture et présentation | HUD et textes de jeu | William : « il a bcp de pollisage possible aussi, il a bcp trop de texte et information aussi. J'aimerais qu'on travailles les 2 points, » | à corriger (proposition, gravité finale à confirmer) | autorise le travail sur les chevauchements et la densité d'information ; conserver les mécaniques et les chiffres des effets.
 - 2026-10-14 | points 4/5/8, suivi technique du HUD | rejeu humain f480/600/3240/3600, captures solo/quad et 640×360 | inspecteur et overlays techniques devenus optionnels ; HUD simplifié, textes contextuels, modals isolés, cartes abrégées et écran de fin lisible | à corriger initial, corrigé techniquement ; validation visuelle de William encore attendue | `m1-f53cd1ae-hud/README.md`, images avant/après et vidéo ; 11 scénarios verts, aucun bless, événements du rejeu identiques.
 - 2026-10-14 | suivi de la deuxième run humaine | graine 123456, enregistrement de lancement 03 | résultat extrait du rejeu : étage 3 à f2062, défaite observée à f3393 ; résumé 3392 frames, 16 éliminations | constat technique, aucun nouveau verdict humain | captures avant/après de fin et `m1-f53cd1ae-hud/replay-events.json`.
+
+## Retour du test final — 2026-10-14
+
+- 2026-10-14 — Troisième run humaine archivée : code `beaa7b9f`, graine 123456, solo, 5567 frames ; fichier de lancement 04 conservé intact dans `m1-f53cd1ae-run-03/original.ron`. Étage 3 à f2296, nettoyage boss compris et portail ouvert à f5381 ; pas de restart ni de défaite enregistrés.
+- 2026-10-14 | point 5, HUD | troisième run humaine, beaa7b9f, graine 123456 | William : « HUD parfait. » | constat à corriger clos pour le HUD | validation humaine explicite ; décision consignée ci-dessous.
+- 2026-10-14 | point 7, ennemis/navigation | troisième run humaine, graine 123456, endroit exact encore à préciser | William : « toujours zombie qui sont coicé sans bouger et qui ne regarde pas. » | à corriger (gravité proposée) | signalement maintenu ouvert ; enregistrement et diagnostic `m1-f53cd1ae-run-03`.
+- 2026-10-14 | point 7, diagnostic d'un cas immobile | étage 3, ennemi 461, f5100, position (952,504) | sonde : tourelle stationnaire par configuration, cible visible à 120 unités, tirs constatés ; orientation figée car sa mise à jour dépend du déplacement | à corriger (lisibilité/présentation, proposition technique) | sonde JSON/log et capture f5160 ; ce cas ne prouve pas un blocage, ni l'identité de tous les ennemis vus par William.
+- 2026-10-14 | points 3/6, télégraphes | étage 3, boss f4290 puis tourelle f5160 | William : « le boss fait des immenses cercle rouge qui font toute la map,  es-ce que c'est normal ? Ca represente quoi ? » | à corriger (lisibilité, gravité proposée) | rayon 400 dessiné pour la salve couronne de huit projectiles ; annonce de 20 frames, aucune explosion sur toute la surface ; captures et sources référencées dans `m1-f53cd1ae-run-03/README.md`.
+- 2026-10-14 | points 6/7, mesure complémentaire | troisième run native, 4359 mises à jour avec balles, au plus 19 balles | cadence p95 17,1618 ms, p99 17,5455 ms, aucune mise à jour >33,3 ms dans ce filtre | preuve technique ; aucun nouveau jugement humain de fluidité | CSV complet et summary.json archivés ; cadence applicative, sans mesure GPU.
+
+Décision de William, mot pour mot, 2026-10-14 : « HUD parfait. ».
+Les décisions D28/D29/D34/D40b/D50/D54, troisième étage et plan M2 restent à recueillir.

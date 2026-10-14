@@ -6,14 +6,17 @@ Espace = objet actif, Q = blank. M2 est déjà lancée : vague 0 mergée, T10 en
 
 ## Verdict de sortie M1
 
-**Non à ce stade : revue humaine incomplète.** Deux enregistrements solo avec commandes sont archivés
-(11882 puis 39026 frames, graine 123456). La première comporte deux passages jusqu'à
-`roi_rat`. La seconde finit au troisième étage (résultat extrait le 2026-10-14) ;
-ses constats humains, le restart et les décisions restent à consigner.
+**Non à ce stade : revue humaine incomplète et constats encore ouverts.** Trois
+enregistrements solo avec commandes sont archivés (11882, 39026 puis 5567 frames,
+graine 123456). La première comporte deux passages jusqu'à `roi_rat`, la seconde
+finit au troisième étage, la troisième nettoie cet étage, boss compris.
+Le 2026-10-14 William valide le HUD et signale encore des ennemis immobiles ainsi
+que des cercles rouges disproportionnés. Restart et décisions restent à consigner.
 Les validations automatiques des correctifs ne remplacent pas ce dernier critère.
 Ce qui empêche de prononcer la sortie de M1 :
 
-- Deuxième run enregistrée, résultat extrait (défaite, étage 3), encore sans avis humain.
+- Ennemis immobiles encore signalés ; un cas identifié comme tourelle, les autres à localiser.
+- Télégraphes boss/tourelle confondus avec une immense zone de dégâts ; lisibilité à corriger.
 - Confirmation du ressenti après correctifs, restart humain et avis des huit points encore incomplets.
 - Décisions D28/D29/D34/D40b/D50/D54, difficulté du troisième étage et relecture du plan M2 encore absentes.
 
@@ -25,7 +28,9 @@ Ce qui empêche de prononcer la sortie de M1 :
 | À corriger, gravité humaine à confirmer | Run solo 01, passages denses | « Beaucoup beaucoup de frame drop quand il a bcp de bullets » | Coût dominant mesuré dans la géométrie du flow field ; optimisation pure `41d3859d`, 204 scénarios verts et traces inchangées. Comparaison détaillée ci-dessous ; ressenti à confirmer. |
 | À corriger, gravité humaine à confirmer | Run solo 01, cavernes ; candidat pillard 220, étage 2, f2325 | « Des enemies restes coincé dans les murs au lieu de venir vers nous » | Fuite/recul utilisant des voisins franchissables et centre sûr du corps (`faa5120c`). Régression de la run verte ; sprite sorti du coin. 22 scénarios concernés, 14 traces modifiées avec preuve. L'emplacement vu par William reste à confirmer. |
 | À corriger, gravité humaine à confirmer | Run solo 01, écran de mutation ; capture de diagnostic f720 | « On recoit les augments pendant qu'on est en plein combat » | Choix conservés en attente pendant le combat, présentés après nettoyage ; portail attend tous les joueurs, projectiles hostiles supprimés et dégâts résiduels neutralisés pendant l'interlude. Politique BetweenFloors réservée à throne en mode Floors. Validation et traces dans le dossier mutations. |
-| À corriger, gravité humaine à confirmer | 2026-10-14, HUD et textes | « Pour les HUD, il a bcp de overlap entre les elements » ; « il a bcp trop de texte et information aussi » | Inspecteur/overlays optionnels, HUD compact, textes contextuels, modals isolés et cartes abrégées (`3ae7d2e5`). Captures solo/quad et 640×360, vidéo et traces inchangées ; confirmation humaine attendue. |
+| Corrigé et validé humainement | 2026-10-14, HUD et textes | « Pour les HUD, il a bcp de overlap entre les elements » ; puis « HUD parfait. » | Correctif `3ae7d2e5`, revue visuelle acceptée le 2026-10-14 ; ne vaut pas validation des autres points. |
+| À corriger, gravité proposée | 2026-10-14, troisième run ; cas diagnostiqué à l'étage 3, f5100 | « toujours zombie qui sont coicé sans bouger et qui ne regarde pas. » | Ennemi 461 confirmé comme tourelle stationnaire, qui tire ; orientation figée et silhouette zombie trompeuse. Signalement global ouvert, endroit des autres cas encore demandé. |
+| À corriger, lisibilité, gravité proposée | 2026-10-14, troisième run, boss f4290 et tourelle f5160 | « le boss fait des immenses cercle rouge qui font toute la map,  es-ce que c'est normal ? Ca represente quoi ? » | Annonce de salve couronne (20 frames, huit projectiles), dessinée avec un rayon de portée de 400. Aucune explosion sur toute cette surface. Preuve dans la troisième run ; aucune modification de gameplay effectuée pour ce retour. |
 | À corriger, constat technique de l'agent | Enregistrement natif/restart | La run throne enregistrait game=zombies et omettait les réglages de run | Réglages effectifs capturés, fichiers de restart séparés (`57de6173`). Aller-retour de 400 frames exact et test d'archivage verts. Original humain conservé intact. |
 
 Appréciation générale, mot pour mot : « Ca marche assez bien generalement mais problemes ».
@@ -65,17 +70,18 @@ Preuves : [performance](../../../tests/review-notes/m1-f53cd1ae-performance/READ
 |---|---|
 | 1. Armes throne/zombies après D51 | Avis comparatif encore manquant ; zombies compilé pour la session. |
 | 2. Difficulté du troisième étage | Étage joué ; jugement et décision de rééquilibrage encore manquants. |
-| 3. Boss roi_rat | Boss rencontré et tué deux fois dans la première run ; lisibilité et télégraphes à juger. |
+| 3. Boss roi_rat | Boss rencontré et tué dans les runs 1 et 3 ; cercles rouges disproportionnés signalés dans la run 3, lisibilité ouverte. |
 | 4. Écran de mutation | Constat précis recueilli, timing corrigé ; lecture des cartes/texte à confirmer. |
-| 5. HUD | Constats de chevauchements et de densité reçus le 2026-10-14 ; correctif 3ae7d2e5 livré, confirmation visuelle encore attendue. |
+| 5. HUD | Validé par William le 2026-10-14 : « HUD parfait. ». |
 | 6. Feedback | Constat de fluidité recueilli ; hit stop, secousse, flash/chiffres à juger séparément. |
-| 7. Cavernes | Constat de navigation recueilli ; variété, roche et surfaces à juger. |
+| 7. Cavernes | Ennemis immobiles encore signalés dans la run 3 ; une tourelle identifiée, signalement global ouvert. Variété, roche et surfaces à juger. |
 | 8. Restart / en ligne | Restart humain encore manquant ; réseau non essayé, selon disponibilité d'un partenaire. |
 
 ## Décisions datées
 
 - 2026-10-10 — Visibilité : « bloquand , doit etre fixer avant de faire les tests sinon je voie pas les enemies ».
 - 2026-10-10 — Plan des quatre correctifs, mutations entre étages incluses : « Parfait revalue la taches et si toute est bon tu peux ty lancer ».
+- 2026-10-14 — HUD : « HUD parfait. ».
 
 D28 (dégât direct), D29 (multiplicateurs zombies), D34 (CORDIC), D40b (grunt sans
 attaque, reliquat D40), D50 (munitions garanties), rééquilibrage du troisième étage,
@@ -92,6 +98,9 @@ Ces propositions n'ont pas été intégrées à `dettes.md` ; les identifiants s
 | Visibilité throne | Ennemis désormais visibles avec des sprites zombies provisoires attribués ; silhouettes distinctes encore à juger | assets throne, preuve m1-f53cd1ae-visibilite.md | Clore le blocage de visibilité après confirmation humaine ; conserver la question des silhouettes si William la retient. |
 | Fluidité native | Flow field optimisé et vérification locale séparée ; forte amélioration sur le passage humain diagnostiqué | performance.rs, navigation.rs, preuves performance | Confirmer le ressenti dans une seconde run ; mesure GPU/charge 500 balles reste dans le travail M2. |
 | Fuite dans les coins | Recul corrigé, pillard 220 sorti de la roche ; peut rester au repos dans une cellule sûre | ai/retreat.rs, preuves navigation | Clore le cas reproduit après confirmation ; D55 ne prouvait pas cette fuite. |
+| Ennemis immobiles / orientation | Nouveau signalement humain malgré le correctif de recul ; dernier ennemi de run 3 identifié comme tourelle stationnaire, orientation figée et silhouette trompeuse | ai/pathing.rs, tourelle.ron, preuve run-03 | Garder ouvert ; distinguer blocage des mobiles et lisibilité des stationnaires, localiser les autres cas avant correction. |
+| Télégraphe de salve | Immenses cercles boss/tourelle interprétés comme danger sur toute la carte, alors que couronne tire huit projectiles | feedback.rs, couronne.ron, preuve run-03 | Ouvrir une dette de lisibilité ; proposer une annonce près de l'émetteur et des directions de tir, sans modifier dégâts/portée. |
+| HUD chevauchements / densité | Correctif 3ae7d2e5 accepté par William : « HUD parfait. », le 2026-10-14 | hud.ron, preuves hud et run-03 | Clore ce constat ; conserver les autres décisions ouvertes. |
 | Mutations en combat | Choix entre étages, tous les niveaux conservés, transition attend tous les joueurs | progression.rs, floors.rs, preuves mutations | Clore après validation humaine de l'interlude et des cartes. |
 | Enregistrements natifs | Métadonnées effectives et restart séparé corrigés, aller-retour exact | recording.rs, preuve recording | Correctif technique validé ; en p2p, capture des seuls inputs locaux reste une limite. |
 | D28 / D29 / D34 / D40b / D50 / D54 | Décisions absentes ; pas de correction/rebalance autorisée au titre de ces dettes | lignes existantes | Garder ouvertes jusqu'aux décisions mot pour mot de William. |
@@ -138,7 +147,17 @@ pour les modals, cartes abrégées et panneau de fin avec durée lisible. Captur
 identiques avant/après, scénarios concernés verts, aucune trace modifiée.
 
 [Analyse, captures et vidéo](../../../tests/review-notes/m1-f53cd1ae-hud/README.md).
-Confirmation visuelle de William encore attendue ; les décisions de dettes et
-le verdict de sortie M1 restent ouverts. Proposition à orch : ajouter le constat
-HUD (chevauchements/densité), avec statut « corrigé techniquement, revue visuelle
-attendue ». Ne pas fermer les dettes de gameplay au titre de ce correctif.
+Confirmation visuelle reçue le 2026-10-14 : « HUD parfait. ».
+Proposition à orch : clore le constat HUD (chevauchements/densité).
+Les décisions de dettes et le verdict de sortie M1 restent ouverts.
+
+## Troisième run et nouveaux constats — 2026-10-14
+
+[Enregistrement, captures et diagnostic](../../../tests/review-notes/m1-f53cd1ae-run-03/README.md),
+code `beaa7b9f`, graine 123456, 5567 frames. Étage 3 à f2296, portail ouvert après
+nettoyage à f5381. La sonde existante `nav_probe` identifie le dernier ennemi comme
+tourelle ; elle vise et tire, mais ne s'oriente pas vers le joueur. Les cercles
+rouges sont reproduits visuellement et reliés au dessin des télégraphes de tir.
+Les deux tests diagnostiques existants passent ; aucun code/contenu/trace modifié.
+Mesures natives avec balles : p95 17,1618 ms, p99 17,5455 ms, zéro mise à jour
+>33,3 ms sur 4359 samples, au plus 19 balles ; pas de nouveau verdict humain de fluidité.
