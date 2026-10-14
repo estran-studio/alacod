@@ -54,6 +54,15 @@ les directions des tirs ; garder une zone de danger pour une attaque qui
 touche effectivement cette zone. Aucun changement de code/contenu/trace effectué
 pour ces nouveaux constats.
 
+Précision de William, 2026-10-14 : « 2. ah ok je voais pas vraiment les projectils
+arrivers apres , c'est quoi animation ? les balles viennent du ciel ou  ??? ».
+La [salve à f4320](salve-f4320.png) montre les petits carrés noirs autour du boss.
+`emitter_system` les crée à la position de l'émetteur ; `Ring` répartit les huit
+directions sur 360 degrés, avec une vitesse de 60 unités/s. `spawn_bullet` dessine
+un carré noir de 3,5 unités pour ce projectile standard, sans animation dédiée,
+comme les balles standard du joueur. Ils voyagent dans le plan de jeu, sans chute
+du ciel. La visibilité des tirs est donc à traiter avec celle du télégraphe.
+
 ## Preuves et reproduction
 
 - `replay-events.json` : événements extraits avec le renderer existant.

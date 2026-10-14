@@ -161,3 +161,12 @@ rouges sont reproduits visuellement et reliés au dessin des télégraphes de ti
 Les deux tests diagnostiques existants passent ; aucun code/contenu/trace modifié.
 Mesures natives avec balles : p95 17,1618 ms, p99 17,5455 ms, zéro mise à jour
 >33,3 ms sur 4359 samples, au plus 19 balles ; pas de nouveau verdict humain de fluidité.
+
+Précision humaine du 2026-10-14, mot pour mot : « 2. ah ok je voais pas vraiment
+les projectils arrivers apres , c'est quoi animation ? les balles viennent du ciel ou  ??? ».
+Constat à corriger proposé, points 3/6 : les huit projectiles partent de l'ennemi
+dans le plan de jeu, rendus comme de petits carrés noirs de 3,5 unités sans animation
+dédiée, de la même couleur que les balles standard du joueur. La capture f4320 de
+la troisième run montre la salve. Ajouter à la dette de lisibilité proposée :
+différencier les tirs hostiles et rendre leur départ visible, en cohérence avec
+l'annonce de salve. Aucun correctif de présentation appliqué à ce stade.

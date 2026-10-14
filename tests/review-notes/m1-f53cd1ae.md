@@ -79,3 +79,5 @@ Verdict de sortie M1 à recueillir après la revue.
 
 Décision de William, mot pour mot, 2026-10-14 : « HUD parfait. ».
 Les décisions D28/D29/D34/D40b/D50/D54, troisième étage et plan M2 restent à recueillir.
+
+- 2026-10-14 | points 3/6, visibilité des projectiles | troisième run, salve du boss après le grand cercle, capture f4320 | William : « 2. ah ok je voais pas vraiment les projectils arrivers apres , c'est quoi animation ? les balles viennent du ciel ou  ??? » | à corriger (lisibilité, gravité proposée) | huit tirs naissent au centre de l'émetteur puis s'écartent dans le plan de jeu ; boule est rendue comme un carré noir de 3,5 unités, même couleur que les balles standard du joueur, sans animation dédiée. Capture `m1-f53cd1ae-run-03/salve-f4320.png` et sources emitter.rs / weapons/mod.rs.
