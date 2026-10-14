@@ -82,8 +82,10 @@ impl Plugin for RoomsPlugin {
                     .after(room_lock_system)
                     .in_set(RollbackSystemSet::Run),
                 // M2-T7 : vagues internes d'une arène, après son verrouillage de la frame.
+                // Après le coffre de salle (M2-T5) : tous deux consomment `GgrsNetIdFactory`.
                 arena_waves_system
                     .after(room_lock_system)
+                    .after(room_chest_system)
                     .in_set(RollbackSystemSet::Run),
                 // M2-T7 : renforts d'une frise de boss, dans la frame de la demande (`Run` suit
                 // `EnemySpawning`, où `boss_phase_system` les demande).
