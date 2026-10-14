@@ -1,0 +1,30 @@
+// M2-T8 (docs/conventions.md §49) : un membre meurt, les places se réattribuent. Trois
+// `escouade_tireur` en place sur l'arc (rayon 100, ouverture 1,2) autour du joueur ; il tire sur
+// le rang 0 (le plus haut) de f10 à f50 : l'effectif passe à 2, les rangs et les places
+// de l'arc se recalculent (l'ancien rang 1, au milieu, va prendre l'extrémité libre).
+//
+// À regarder : un tireur tombe, un autre quitte le milieu de l'arc pour l'extrémité laissée libre.
+Scenario(
+    powerup_drop_chance_override: "0.0",
+    game: "testbed",
+    map: "testbed/floor_a.ldtk",
+    frames: 120,
+    characters: [
+        (character: "escouade_tireur", x: "506.0", y: "640.0", at_frame: 5),
+        (character: "escouade_tireur", x: "524.0", y: "696.0", at_frame: 5),
+        (character: "escouade_tireur", x: "506.0", y: "752.0", at_frame: 5),
+    ],
+    players: [
+        (inputs: [
+            (from: 10, to: 50, buttons: [Fire], pan: (82, -56)),
+        ]),
+    ],
+    expect: [
+        // 3 tireurs + le poursuivant de la carte ; avant la mort : voisins à 2·100·sin(0,3) ≈ 59
+        EntityCount(kind: Enemy, min: 4, max: 4, at_frame: 12),
+        EnemyDistance(entity: Placed(1), target: Entity(Placed(2)), min: 42.0, max: 78.0, at_frame: 12),
+        // Après la mort du rang 0 : deux tireurs, réattribués aux extrémités (2·100·sin(0,6) ≈ 113)
+        EntityCount(kind: Enemy, min: 3, max: 3, at_frame: 110),
+        EnemyDistance(entity: Placed(1), target: Entity(Placed(2)), min: 92.0, max: 132.0, at_frame: 110),
+    ],
+)

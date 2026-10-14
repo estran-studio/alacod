@@ -52,6 +52,19 @@ pub fn fire_turn(frame: u32, period: u32, count: u32, rank: u32) -> bool {
     count <= 1 || period == 0 || (frame / period) % count == rank
 }
 
+/// Le plus proche de `from` parmi `candidates` (triés par `GgrsNetId` croissant) ; à distance
+/// égale, le premier de la liste (plus petit `GgrsNetId`).
+pub fn nearest(from: FixedVec2, candidates: &[(usize, FixedVec2)]) -> Option<FixedVec2> {
+    let mut best: Option<(Fixed, FixedVec2)> = None;
+    for (_, pos) in candidates {
+        let distance = from.distance(pos);
+        if best.is_none_or(|(d, _)| distance < d) {
+            best = Some((distance, *pos));
+        }
+    }
+    best.map(|(_, pos)| pos)
+}
+
 /// Places d'un arc de `count` points, centré sur `target`, d'ouverture `spread`, dont le
 /// milieu pointe dans la direction unitaire `axis`. Le rang `k` prend le point `k`.
 pub fn arc_places(
@@ -136,6 +149,13 @@ pub fn formation_system(
         return;
     }
 
+    // Joueurs debout, par `GgrsNetId` croissant.
+    let standing: Vec<(usize, FixedVec2)> = order_iter!(players)
+        .into_iter()
+        .filter(|(_, _, downed, dead)| !downed && !dead)
+        .map(|(net_id, transform, ..)| (net_id.0, transform.translation.truncate()))
+        .collect();
+
     for members in squads.values() {
         let count = members.len() as u32;
         // Centre de l'escouade (moyenne de positions déjà divisées : pas de dépassement).
@@ -144,18 +164,8 @@ pub fn formation_system(
             sum + FixedVec2::new(member.1.x / share, member.1.y / share)
         });
         // Cible : le joueur debout le plus proche du centre, ex æquo au plus petit `GgrsNetId`.
-        let mut target: Option<(Fixed, FixedVec2)> = None;
-        for (_, transform, downed, dead) in order_iter!(players) {
-            if downed || dead {
-                continue;
-            }
-            let pos = transform.translation.truncate();
-            let distance = centroid.distance(&pos);
-            if target.is_none_or(|(best, _)| distance < best) {
-                target = Some((distance, pos));
-            }
-        }
-        let Some((_, target)) = target else {
+        let target = nearest(centroid, &standing);
+        let Some(target) = target else {
             continue;
         };
         let axis = {
@@ -208,6 +218,32 @@ mod tests {
         // seul : toujours son tour ; période 0 : pas d'alternance
         assert!(fire_turn(7, 30, 1, 0));
         assert!(fire_turn(7, 0, 3, 2));
+    }
+
+    #[test]
+    fn cible_la_plus_proche_ex_aequo_au_plus_petit_id() {
+        let v = |x: i32, y: i32| FixedVec2::new(Fixed::from_num(x), Fixed::from_num(y));
+        let candidates = [(3, v(-10, 0)), (5, v(10, 0)), (9, v(100, 0))];
+        // centre à égale distance de 3 et 5 : le plus petit id gagne
+        assert_eq!(nearest(v(0, 0), &candidates), Some(v(-10, 0)));
+        assert_eq!(nearest(v(40, 0), &candidates), Some(v(10, 0)));
+        assert_eq!(nearest(v(0, 0), &[]), None);
+    }
+
+    #[test]
+    fn volley_garde_le_tir_groupe() {
+        let slot = |volley| SquadSlot {
+            rank: 1,
+            count: 3,
+            place: FixedVec2::ZERO,
+            target: FixedVec2::ZERO,
+            radius: Fixed::from_num(100),
+            period: 40,
+            volley,
+        };
+        assert!(!slot(false).may_fire(0));
+        assert!(slot(false).may_fire(40));
+        assert!(slot(true).may_fire(0));
     }
 
     #[test]

@@ -28,7 +28,7 @@
     scale: "1.0",
 
     base_health: (
-        max: "200.0",
+        max: "30.0",
     ),
 
     starting_skin: "1",
