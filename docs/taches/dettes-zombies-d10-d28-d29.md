@@ -4,8 +4,8 @@ Lire d'abord `docs/taches/README.md`, `CLAUDE.md` (déterminisme, génération d
 §1 (générateur), §10 (preuve d'un bless), §13 (vagues), et les dettes **D10, D28, D29** de
 `dettes.md`. Branche `dettes-zombies-d10-d28-d29` depuis `main`. Estimation : 1,5 j. **Trois commits
 séparés, un par dette, chacun avec sa preuve §5** : ils changent des traces différentes et doivent
-se relire séparément. Prévenir l'orchestrateur avant de démarrer : William rééquilibre `zombies` sur
-sa branche `m0-revue-suite-contenu` (à fusionner ou à éviter, voir avec lui via l'orchestrateur).
+se relire séparément. L'équilibrage de William (`m0-revue-suite-contenu` : S5 B vagues allégées, Le
+Relais carte par défaut) est déjà sur `main` (merge `b8471b4b`, 2026-10-11) : partir de ces valeurs.
 
 ## À faire
 
