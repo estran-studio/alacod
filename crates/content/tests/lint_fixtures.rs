@@ -1212,3 +1212,36 @@ fn item_cost_not_consumable_fixture_reports_unsupported() {
         "n'est pas un consommable",
     );
 }
+
+// M2-T7 (docs/conventions.md §45) : arènes et actions de frise.
+#[test]
+fn arena_and_boss_t7_fixtures_report_their_rule() {
+    for (fixture, kind, expected) in [
+        ("arena_no_waves", LintErrorKind::OutOfRange, "aucune vague"),
+        ("arena_clock_zero", LintErrorKind::OutOfRange, "clock = 0"),
+        (
+            "arena_unknown_enemy",
+            LintErrorKind::BrokenReference,
+            "personnage « fantome » inconnu",
+        ),
+        ("arena_count_zero", LintErrorKind::OutOfRange, "count = 0"),
+        (
+            "boss_spawn_enemies_unknown",
+            LintErrorKind::BrokenReference,
+            "personnage « fantome » inconnu",
+        ),
+        (
+            "boss_spawn_enemies_count_zero",
+            LintErrorKind::OutOfRange,
+            "count = 0",
+        ),
+        (
+            "boss_telegraph_alone",
+            LintErrorKind::OutOfRange,
+            "Telegraph sans SpawnPattern",
+        ),
+    ] {
+        let (_, _, errors) = load_and_lint(&fixture_dir(fixture)).unwrap();
+        assert_has_error(&errors, kind, expected);
+    }
+}

@@ -1,0 +1,14 @@
+// Type de salle `arene` du testbed (M2-T7, docs/conventions.md §45) : arène à tenir. Elle se
+// verrouille dès qu'un joueur debout y entre (même vide), 600 frames d'horloge ; deux `dummy` au
+// verrouillage, un `follower` à 150 frames et deux `dummy` de plus à 300. Au bout de l'horloge, les
+// survivants meurent et la salle se rouvre, si un joueur vit.
+(
+    arena: Some((
+        clock: 600,
+        waves: [
+            (at: 0, enemies: [("dummy", 2)]),
+            (at: 150, enemies: [("follower", 1)]),
+            (at: 300, enemies: [("dummy", 2)]),
+        ],
+    )),
+)

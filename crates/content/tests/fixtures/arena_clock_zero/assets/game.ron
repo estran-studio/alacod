@@ -1,0 +1,9 @@
+// Fixture M2-T7 (§45)
+(
+    name: "fixture-arena_clock_zero",
+    content_folders: [
+        (path: "rooms", kind: "Room"),
+        (path: "characters", kind: "Character"),
+    ],
+    entry: (start_map: "maps/salle.ldtk", default_seed: 1),
+)

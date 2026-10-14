@@ -7623,6 +7623,7 @@ dependencies = [
 name = "map_ldtk"
 version = "0.2.0"
 dependencies = [
+ "behaviors",
  "bevy 0.19.1",
  "bevy-inspector-egui",
  "bevy_ecs_ldtk",

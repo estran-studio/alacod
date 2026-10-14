@@ -1,0 +1,32 @@
+// M2-T7 (docs/conventions.md §45) : renforts d'un boss. Le `gardien_renforts` (testbed, 120 PV) lance
+// la volée `volee` précédée d'un télégraphe (`Telegraph(15)` puis `SpawnPattern`) ; sous 60 % de
+// santé, phase 1 : deux `dummy` apparaissent dans sa salle (`SpawnEnemies`, positions tirées du flux RNG
+// de la salle). Carte testbed/salles_boss_renforts.ldtk.
+//
+// À regarder : le joueur entre dans la salle (f30-90) ; il tire sur le boss (f90-) ; au changement
+// de phase deux mannequins surgissent dans la salle ; à la mort du boss ils disparaissent avec
+// lui et la salle se rouvre.
+Scenario(
+    powerup_drop_chance_override: "0.0",
+    game: "testbed",
+    map: "testbed/salles_boss_renforts.ldtk",
+    map_seed: 1,
+    frames: 400,
+    players: [
+        (inputs: [
+            (from: 30, to: 90, buttons: [Right]),
+            (from: 90, to: 380, buttons: [Fire], pan: (64, 0)),
+        ]),
+    ],
+    expect: [
+        EntityCount(kind: Enemy, min: 1, max: 1, at_frame: 100),
+        RoomState(kind: "boss", state: Locked, doors_closed: Some(4), at_frame: 100),
+        // Phase 1 (f130) : le boss et ses deux renforts.
+        BossPhase(entity: NetId(27), phase: 1, at_frame: 140),
+        EntityCount(kind: Enemy, min: 3, max: 3, at_frame: 160),
+        // Le boss meurt (f184) : ses renforts meurent avec lui, la salle se rouvre dans la frame.
+        RoomState(kind: "boss", state: Cleared, doors_closed: Some(0), at_frame: 200),
+        EntityCount(kind: Enemy, max: Some(0), at_frame: 200),
+        PlayerAlive(handle: 0, at_frame: 399),
+    ],
+)

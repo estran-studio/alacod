@@ -78,6 +78,7 @@ pub fn run(registry: &Registry, manifest: &GameManifest) -> Vec<LintError> {
     lint_statuses(registry, &mut errors);
     lint_map_characters(registry, &mut errors);
     lint_room_kinds(registry, &mut errors);
+    lint_arenas(registry, &mut errors);
     lint_items(registry, &mut errors);
     lint_synergies(registry, &mut errors);
     lint_entry_progression(registry, manifest, &mut errors);
@@ -191,6 +192,11 @@ pub(crate) fn lint_effect(
             | effects::Action::ApplyStatus { .. } => push(
                 LintErrorKind::Unsupported,
                 format!("{at} : action {action:?} : pas exécutée dans un effet (v2)"),
+            ),
+            // M2-T7 : actions de frise de boss
+            effects::Action::SpawnEnemies { .. } | effects::Action::Telegraph(_) => push(
+                LintErrorKind::Unsupported,
+                format!("{at} : action {action:?} : réservée à la frise d'un boss (§45)"),
             ),
             _ => {}
         }
@@ -1232,6 +1238,13 @@ fn lint_powerups(registry: &Registry, errors: &mut Vec<LintError>) {
                     "power-up « {} » : actions[{index}] (ApplyStatus) : réservée aux projectiles (on_hit)",
                     powerup.id
                 )),
+                // M2-T7 : actions de frise de boss
+                effects::Action::SpawnEnemies { .. } | effects::Action::Telegraph(_) => {
+                    push(format!(
+                        "power-up « {} » : actions[{index}] : réservée à la frise d'un boss (§45)",
+                        powerup.id
+                    ))
+                }
                 _ => {}
             }
         }
@@ -1832,6 +1845,25 @@ fn lint_boss(
             push(kind, format!("{at}.{message}"))
         });
         let mut actions: Vec<&effects::Action> = phase.on_enter.iter().collect();
+        // M2-T7 : un `Telegraph` précède un `SpawnPattern` de la même liste.
+        let mut lists: Vec<&[effects::Action]> = vec![&phase.on_enter];
+        if let Some(timeline) = &phase.timeline {
+            lists.extend(timeline.events.iter().map(|event| event.r#do.as_slice()));
+        }
+        for list in lists {
+            for (k, action) in list.iter().enumerate() {
+                if matches!(action, effects::Action::Telegraph(_))
+                    && !list[k + 1..]
+                        .iter()
+                        .any(|next| matches!(next, effects::Action::SpawnPattern { .. }))
+                {
+                    push(
+                        LintErrorKind::OutOfRange,
+                        format!("{at} : Telegraph sans SpawnPattern après lui dans la même liste"),
+                    );
+                }
+            }
+        }
         if let Some(timeline) = &phase.timeline {
             if timeline.events.is_empty() {
                 push(
@@ -1896,6 +1928,28 @@ fn lint_boss(
                 effects::Action::Heal(amount) if *amount <= Fixed::ZERO => push(
                     LintErrorKind::OutOfRange,
                     format!("{at} : Heal = {amount} : doit être > 0"),
+                ),
+                // M2-T7 : renforts et télégraphe (§45)
+                effects::Action::SpawnEnemies { id, count } => {
+                    if !registry
+                        .characters
+                        .contains_key(&registry::CharacterId::from(id.clone()))
+                    {
+                        push(
+                            LintErrorKind::BrokenReference,
+                            format!("{at} : SpawnEnemies : personnage « {id} » inconnu"),
+                        );
+                    }
+                    if *count == 0 {
+                        push(
+                            LintErrorKind::OutOfRange,
+                            format!("{at} : SpawnEnemies « {id} » : count = 0 : doit être > 0"),
+                        );
+                    }
+                }
+                effects::Action::Telegraph(0) => push(
+                    LintErrorKind::OutOfRange,
+                    format!("{at} : Telegraph(0) : doit être > 0"),
                 ),
                 effects::Action::RefillAmmo
                 | effects::Action::RefillAmmoOf(_)
@@ -2815,6 +2869,80 @@ fn lint_room_kinds(registry: &Registry, errors: &mut Vec<LintError>) {
                         }
                     ),
                 });
+            }
+        }
+    }
+}
+
+/// M2-T7 (§45) : une arène a une horloge > 0, au moins une vague, des vagues datées dans
+/// l'horloge (`at < clock`), dans l'ordre, et des ennemis connus en nombre > 0.
+fn lint_arenas(registry: &Registry, errors: &mut Vec<LintError>) {
+    for room in registry.rooms.values() {
+        let Some(arena) = &room.def.arena else {
+            continue;
+        };
+        let mut push = |kind: LintErrorKind, message: String| {
+            errors.push(LintError {
+                kind,
+                file: room.file.display().to_string(),
+                message: format!("salle « {} » : arène : {message}", room.id),
+            })
+        };
+        if arena.clock == 0 {
+            push(
+                LintErrorKind::OutOfRange,
+                "clock = 0 : doit être > 0".into(),
+            );
+        }
+        if arena.waves.is_empty() {
+            push(
+                LintErrorKind::OutOfRange,
+                "aucune vague (au moins une)".into(),
+            );
+        }
+        let mut previous: Option<u32> = None;
+        for (index, wave) in arena.waves.iter().enumerate() {
+            if arena.clock > 0 && wave.at >= arena.clock {
+                push(
+                    LintErrorKind::OutOfRange,
+                    format!(
+                        "waves[{index}] : at = {} >= clock ({}) : la vague n'arriverait jamais",
+                        wave.at, arena.clock
+                    ),
+                );
+            }
+            if previous.is_some_and(|before| wave.at < before) {
+                push(
+                    LintErrorKind::OutOfRange,
+                    format!(
+                        "waves[{index}] : at = {} avant la vague précédente",
+                        wave.at
+                    ),
+                );
+            }
+            previous = Some(wave.at);
+            if wave.enemies.is_empty() {
+                push(
+                    LintErrorKind::OutOfRange,
+                    format!("waves[{index}] : aucun ennemi"),
+                );
+            }
+            for (id, count) in &wave.enemies {
+                if !registry
+                    .characters
+                    .contains_key(&registry::CharacterId::from(id.clone()))
+                {
+                    push(
+                        LintErrorKind::BrokenReference,
+                        format!("waves[{index}] : personnage « {id} » inconnu"),
+                    );
+                }
+                if *count == 0 {
+                    push(
+                        LintErrorKind::OutOfRange,
+                        format!("waves[{index}] : « {id} » : count = 0 : doit être > 0"),
+                    );
+                }
             }
         }
     }

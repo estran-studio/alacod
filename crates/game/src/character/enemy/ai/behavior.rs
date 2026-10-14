@@ -299,9 +299,16 @@ pub fn enemy_attack_system(
                     .is_some_and(|ranged| ranged.target.is_some())
         });
 
+        // M2-T7 : une règle `Shoot` propre à la phase courante d'un boss remplace la table de
+        // tir de la config ; sans elle, `ai_config.ranged` (chemin d'avant).
+        let phase_ranged = boss
+            .zip(enemy_behaviors)
+            .and_then(|(boss, rules)| rules.phase_shoot(boss.phase));
+        let ranged_config = phase_ranged.as_ref().or(ai_config.ranged.as_ref());
+
         // Tir à distance (T1.2) : avant le corps à corps.
         if let (true, Some(ranged), Some(mut ranged_state)) =
-            (shoot_allowed, &ai_config.ranged, ranged_state)
+            (shoot_allowed, ranged_config, ranged_state)
         {
             let firing = ranged_attack(
                 &mut commands,
