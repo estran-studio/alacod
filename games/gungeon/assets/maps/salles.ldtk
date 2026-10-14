@@ -2170,6 +2170,118 @@
        "fieldInstances": [],
        "__worldX": 48,
        "__worldY": 80
+      },
+      {
+       "__identifier": "CharacterSpawn",
+       "__grid": [
+        5,
+        5
+       ],
+       "__pivot": [
+        0,
+        0
+       ],
+       "__tags": [],
+       "__tile": null,
+       "__smartColor": "#3050C0",
+       "iid": "dd3c4405-c9a0-58eb-af73-ec92503119c6",
+       "width": 16,
+       "height": 16,
+       "defUid": 44,
+       "px": [
+        80,
+        80
+       ],
+       "fieldInstances": [
+        {
+         "__identifier": "character",
+         "__type": "String",
+         "__value": "shotgun_kin",
+         "__tile": null,
+         "defUid": 45,
+         "realEditorValues": [
+          {
+           "id": "V_String",
+           "params": [
+            "shotgun_kin"
+           ]
+          }
+         ]
+        },
+        {
+         "__identifier": "team",
+         "__type": "String",
+         "__value": "enemies",
+         "__tile": null,
+         "defUid": 46,
+         "realEditorValues": [
+          {
+           "id": "V_String",
+           "params": [
+            "enemies"
+           ]
+          }
+         ]
+        }
+       ],
+       "__worldX": 80,
+       "__worldY": 80
+      },
+      {
+       "__identifier": "CharacterSpawn",
+       "__grid": [
+        2,
+        5
+       ],
+       "__pivot": [
+        0,
+        0
+       ],
+       "__tags": [],
+       "__tile": null,
+       "__smartColor": "#3050C0",
+       "iid": "ea423b5f-1388-5cf2-8dd2-c3de96f9ee4b",
+       "width": 16,
+       "height": 16,
+       "defUid": 44,
+       "px": [
+        32,
+        80
+       ],
+       "fieldInstances": [
+        {
+         "__identifier": "character",
+         "__type": "String",
+         "__value": "fuyard_kin",
+         "__tile": null,
+         "defUid": 45,
+         "realEditorValues": [
+          {
+           "id": "V_String",
+           "params": [
+            "fuyard_kin"
+           ]
+          }
+         ]
+        },
+        {
+         "__identifier": "team",
+         "__type": "String",
+         "__value": "enemies",
+         "__tile": null,
+         "defUid": 46,
+         "realEditorValues": [
+          {
+           "id": "V_String",
+           "params": [
+            "enemies"
+           ]
+          }
+         ]
+        }
+       ],
+       "__worldX": 32,
+       "__worldY": 80
       }
      ],
      "gridTiles": []
@@ -2713,6 +2825,118 @@
        "fieldInstances": [],
        "__worldX": 96,
        "__worldY": 64
+      },
+      {
+       "__identifier": "CharacterSpawn",
+       "__grid": [
+        4,
+        5
+       ],
+       "__pivot": [
+        0,
+        0
+       ],
+       "__tags": [],
+       "__tile": null,
+       "__smartColor": "#3050C0",
+       "iid": "57ded8fd-db8b-5452-a0e3-9202c3435bc7",
+       "width": 16,
+       "height": 16,
+       "defUid": 44,
+       "px": [
+        64,
+        80
+       ],
+       "fieldInstances": [
+        {
+         "__identifier": "character",
+         "__type": "String",
+         "__value": "veteran_kin",
+         "__tile": null,
+         "defUid": 45,
+         "realEditorValues": [
+          {
+           "id": "V_String",
+           "params": [
+            "veteran_kin"
+           ]
+          }
+         ]
+        },
+        {
+         "__identifier": "team",
+         "__type": "String",
+         "__value": "enemies",
+         "__tile": null,
+         "defUid": 46,
+         "realEditorValues": [
+          {
+           "id": "V_String",
+           "params": [
+            "enemies"
+           ]
+          }
+         ]
+        }
+       ],
+       "__worldX": 64,
+       "__worldY": 80
+      },
+      {
+       "__identifier": "CharacterSpawn",
+       "__grid": [
+        6,
+        6
+       ],
+       "__pivot": [
+        0,
+        0
+       ],
+       "__tags": [],
+       "__tile": null,
+       "__smartColor": "#3050C0",
+       "iid": "d3643a65-bf17-5d39-bcda-a2a48f523435",
+       "width": 16,
+       "height": 16,
+       "defUid": 44,
+       "px": [
+        96,
+        96
+       ],
+       "fieldInstances": [
+        {
+         "__identifier": "character",
+         "__type": "String",
+         "__value": "tourelle_kin",
+         "__tile": null,
+         "defUid": 45,
+         "realEditorValues": [
+          {
+           "id": "V_String",
+           "params": [
+            "tourelle_kin"
+           ]
+          }
+         ]
+        },
+        {
+         "__identifier": "team",
+         "__type": "String",
+         "__value": "enemies",
+         "__tile": null,
+         "defUid": 46,
+         "realEditorValues": [
+          {
+           "id": "V_String",
+           "params": [
+            "enemies"
+           ]
+          }
+         ]
+        }
+       ],
+       "__worldX": 96,
+       "__worldY": 96
       }
      ],
      "gridTiles": []
@@ -3851,6 +4075,118 @@
        ],
        "__worldX": 32,
        "__worldY": 80
+      },
+      {
+       "__identifier": "CharacterSpawn",
+       "__grid": [
+        5,
+        5
+       ],
+       "__pivot": [
+        0,
+        0
+       ],
+       "__tags": [],
+       "__tile": null,
+       "__smartColor": "#3050C0",
+       "iid": "d654461d-a3d7-5fbb-afdb-e8f00b746e5b",
+       "width": 16,
+       "height": 16,
+       "defUid": 44,
+       "px": [
+        80,
+        80
+       ],
+       "fieldInstances": [
+        {
+         "__identifier": "character",
+         "__type": "String",
+         "__value": "bandana_kin",
+         "__tile": null,
+         "defUid": 45,
+         "realEditorValues": [
+          {
+           "id": "V_String",
+           "params": [
+            "bandana_kin"
+           ]
+          }
+         ]
+        },
+        {
+         "__identifier": "team",
+         "__type": "String",
+         "__value": "enemies",
+         "__tile": null,
+         "defUid": 46,
+         "realEditorValues": [
+          {
+           "id": "V_String",
+           "params": [
+            "enemies"
+           ]
+          }
+         ]
+        }
+       ],
+       "__worldX": 80,
+       "__worldY": 80
+      },
+      {
+       "__identifier": "CharacterSpawn",
+       "__grid": [
+        5,
+        6
+       ],
+       "__pivot": [
+        0,
+        0
+       ],
+       "__tags": [],
+       "__tile": null,
+       "__smartColor": "#3050C0",
+       "iid": "9083739d-8486-5222-a351-038ad3e95918",
+       "width": 16,
+       "height": 16,
+       "defUid": 44,
+       "px": [
+        80,
+        96
+       ],
+       "fieldInstances": [
+        {
+         "__identifier": "character",
+         "__type": "String",
+         "__value": "lanceur_kin",
+         "__tile": null,
+         "defUid": 45,
+         "realEditorValues": [
+          {
+           "id": "V_String",
+           "params": [
+            "lanceur_kin"
+           ]
+          }
+         ]
+        },
+        {
+         "__identifier": "team",
+         "__type": "String",
+         "__value": "enemies",
+         "__tile": null,
+         "defUid": 46,
+         "realEditorValues": [
+          {
+           "id": "V_String",
+           "params": [
+            "enemies"
+           ]
+          }
+         ]
+        }
+       ],
+       "__worldX": 80,
+       "__worldY": 96
       }
      ],
      "gridTiles": []

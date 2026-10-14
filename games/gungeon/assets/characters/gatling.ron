@@ -1,9 +1,9 @@
 // `gungeon` (M2-T0d, docs/conventions.md §37 et §45) : boss immobile à trois phases. Phase 0 : un
-// éventail (`eventail`, `Fan`) toutes les 150 frames ; sous 50 % de santé, phase 1 : une spirale
-// (`spirale`, `Spiral`) toutes les 90 frames ; sous 10 % (une dernière touche), phase 2, la rage : un
-// `bullet_kin` en renfort (`SpawnEnemies`) et une couronne (`couronne`, `Ring`) précédée d'un télégraphe
-// de 10 frames (`Telegraph`). Les tirs passent par la frise (`SpawnPattern` avec la table de
-// projectiles de l'`arsenal`).
+// éventail (`eventail`, `Fan`) toutes les 150 frames ; sous 50 % de santé, phase 1 : une couronne
+// (`couronne`, `Ring`) puis une spirale (`spirale`, `Spiral`) toutes les 150 frames ; sous 10 % (une
+// dernière touche), phase 2, la rage : un `bullet_kin` et un `lanceur_kin` en renfort (`SpawnEnemies`)
+// et un éventail précédé d'un télégraphe de 10 frames (`Telegraph`). Les tirs passent par la frise
+// (`SpawnPattern` avec la table de projectiles de l'`arsenal`).
 (
     movement: (
         acceleration: "0.0",
@@ -54,18 +54,22 @@
                     repeat: Some(150),
                 )),
             ),
-            // Phase 1 : la spirale (M2-T1), toutes les 90 frames.
+            // Phase 1 (M2-T14c) : la couronne (M2-T1) puis, 60 frames plus tard, la spirale (64 frames de
+            // jeu, elle finit avant la couronne suivante), toutes les 150 frames.
             (
                 until: Some(HealthBelow("0.1")),
                 timeline: Some((
-                    events: [(at: 0, do: [SpawnPattern(pattern: "couronne", weapon: "arsenal")])],
-                    repeat: Some(120),
+                    events: [
+                        (at: 0, do: [SpawnPattern(pattern: "couronne", weapon: "arsenal")]),
+                        (at: 60, do: [SpawnPattern(pattern: "spirale", weapon: "arsenal")]),
+                    ],
+                    repeat: Some(150),
                 )),
             ),
             // Phase 2, la rage (M2-T7) : un `bullet_kin` en renfort à l'entrée (`SpawnEnemies`),
-            // puis une spirale précédée d'un télégraphe de 10 frames (`Telegraph`).
+            // puis un éventail précédé d'un télégraphe de 10 frames (`Telegraph`).
             (
-                on_enter: [SpawnEnemies(id: "bullet_kin", count: 1)],
+                on_enter: [SpawnEnemies(id: "bullet_kin", count: 1), SpawnEnemies(id: "lanceur_kin", count: 1)],
                 timeline: Some((
                     events: [(at: 30, do: [Telegraph(10), SpawnPattern(pattern: "eventail", weapon: "arsenal")])],
                     repeat: Some(150),
