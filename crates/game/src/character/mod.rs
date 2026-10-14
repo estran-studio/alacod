@@ -68,6 +68,16 @@ use crate::{
 #[derive(Component, Clone, Copy, Default)]
 pub struct Character;
 
+/// Coupe la lecture des périphériques (perf-suite-scenarios) : `update_action_state` de
+/// leafwing résout les conflits d'entrées (`handle_clashes`) à chaque frame, ~5 % d'une frame
+/// headless. Pour un jeu piloté par scénario (`InputSource::Scripted`, bots), les inputs
+/// viennent du script et `ActionState` n'est jamais lu (`input.rs` ne le lit qu'avec
+/// `InputSource::Devices`) : aucun effet sur la simulation ni sur les traces.
+pub fn skip_device_input(app: &mut App) {
+    use leafwing_input_manager::plugin::InputManagerSystem;
+    app.configure_sets(PreUpdate, InputManagerSystem::Update.run_if(|| false));
+}
+
 pub struct BaseCharacterGamePlugin {}
 
 impl Plugin for BaseCharacterGamePlugin {
