@@ -21,6 +21,9 @@ shards="${1:-${SHARDS:-4}}"
 root="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
 cd "$root"
 export CARGO_TARGET_DIR="${CARGO_TARGET_DIR:-$root/target}"
+# Le Makefile exporte un chemin relatif (`./target`) : les journaux sont écrits depuis
+# `crates/scenario`, il doit être absolu.
+case "$CARGO_TARGET_DIR" in /*) ;; *) CARGO_TARGET_DIR="$root/${CARGO_TARGET_DIR#./}" ;; esac
 features="$(./scripts/dev-features.sh features)"
 
 # shellcheck disable=SC2086
