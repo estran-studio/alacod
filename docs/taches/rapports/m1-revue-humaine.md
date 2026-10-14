@@ -25,6 +25,7 @@ Ce qui empêche de prononcer la sortie de M1 :
 | À corriger, gravité humaine à confirmer | Run solo 01, passages denses | « Beaucoup beaucoup de frame drop quand il a bcp de bullets » | Coût dominant mesuré dans la géométrie du flow field ; optimisation pure `41d3859d`, 204 scénarios verts et traces inchangées. Comparaison détaillée ci-dessous ; ressenti à confirmer. |
 | À corriger, gravité humaine à confirmer | Run solo 01, cavernes ; candidat pillard 220, étage 2, f2325 | « Des enemies restes coincé dans les murs au lieu de venir vers nous » | Fuite/recul utilisant des voisins franchissables et centre sûr du corps (`faa5120c`). Régression de la run verte ; sprite sorti du coin. 22 scénarios concernés, 14 traces modifiées avec preuve. L'emplacement vu par William reste à confirmer. |
 | À corriger, gravité humaine à confirmer | Run solo 01, écran de mutation ; capture de diagnostic f720 | « On recoit les augments pendant qu'on est en plein combat » | Choix conservés en attente pendant le combat, présentés après nettoyage ; portail attend tous les joueurs, projectiles hostiles supprimés et dégâts résiduels neutralisés pendant l'interlude. Politique BetweenFloors réservée à throne en mode Floors. Validation et traces dans le dossier mutations. |
+| À corriger, gravité humaine à confirmer | 2026-10-14, HUD et textes | « Pour les HUD, il a bcp de overlap entre les elements » ; « il a bcp trop de texte et information aussi » | Inspecteur/overlays optionnels, HUD compact, textes contextuels, modals isolés et cartes abrégées (`3ae7d2e5`). Captures solo/quad et 640×360, vidéo et traces inchangées ; confirmation humaine attendue. |
 | À corriger, constat technique de l'agent | Enregistrement natif/restart | La run throne enregistrait game=zombies et omettait les réglages de run | Réglages effectifs capturés, fichiers de restart séparés (`57de6173`). Aller-retour de 400 frames exact et test d'archivage verts. Original humain conservé intact. |
 
 Appréciation générale, mot pour mot : « Ca marche assez bien generalement mais problemes ».
@@ -66,7 +67,7 @@ Preuves : [performance](../../../tests/review-notes/m1-f53cd1ae-performance/READ
 | 2. Difficulté du troisième étage | Étage joué ; jugement et décision de rééquilibrage encore manquants. |
 | 3. Boss roi_rat | Boss rencontré et tué deux fois dans la première run ; lisibilité et télégraphes à juger. |
 | 4. Écran de mutation | Constat précis recueilli, timing corrigé ; lecture des cartes/texte à confirmer. |
-| 5. HUD | Avis encore manquant. |
+| 5. HUD | Constats de chevauchements et de densité reçus le 2026-10-14 ; correctif 3ae7d2e5 livré, confirmation visuelle encore attendue. |
 | 6. Feedback | Constat de fluidité recueilli ; hit stop, secousse, flash/chiffres à juger séparément. |
 | 7. Cavernes | Constat de navigation recueilli ; variété, roche et surfaces à juger. |
 | 8. Restart / en ligne | Restart humain encore manquant ; réseau non essayé, selon disponibilité d'un partenaire. |
