@@ -6,6 +6,9 @@
 // À regarder : le joueur entre dans la salle (f30-90), elle se verrouille, le boss tire une volée
 // de flèches ; le joueur tire (f90-) ; à mi-vie le boss change de table de tir : des balles
 // perçantes remplacent les flèches (moment clé `boss_phase`).
+//
+// M2-T19 (feedback v2, conventions §55) : à f88 le télégraphe de la volée dessine ses 3 rayons au
+// sol (moment clé `feedback` « télégraphe aimed 27 (3 rayons) »). Présentation seule : trace inchangée.
 Scenario(
     powerup_drop_chance_override: "0.0",
     game: "testbed",
@@ -29,5 +32,6 @@ Scenario(
         BulletCount(count: 0, projectile: "arrow", team: Some(Enemies), at_frame: 245),
         BulletCount(count: 1, projectile: "ricochet", team: Some(Enemies), at_frame: 245),
         PlayerAlive(handle: 0, at_frame: 399),
+        Event(kind: "feedback", label_contains: Some("télégraphe aimed 27 (3 rayons)"), by_frame: 88),
     ],
 )

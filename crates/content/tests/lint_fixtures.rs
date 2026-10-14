@@ -665,7 +665,11 @@ fn t3_4_fixtures_have_a_single_rule_failure() {
         ("feedback_missing_sound", LintErrorKind::BrokenReference, 1),
         // M2-T19
         ("feedback_blank_frames_zero", LintErrorKind::OutOfRange, 1),
-        ("feedback_boss_zoom_out_of_range", LintErrorKind::OutOfRange, 1),
+        (
+            "feedback_boss_zoom_out_of_range",
+            LintErrorKind::OutOfRange,
+            1,
+        ),
         ("feedback_boss_freeze_zero", LintErrorKind::OutOfRange, 1),
         // T1.17
         (

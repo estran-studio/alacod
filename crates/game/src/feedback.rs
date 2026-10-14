@@ -32,11 +32,11 @@ pub use content::feedback::{
 use crate::character::enemy::ai::state::{BehaviorRuntime, ChargePhase, EnemyAiConfig};
 use crate::character::health::Death;
 use crate::character::player::{LocalPlayer, Player};
-use items::{Inventory, ItemTable};
-use world::{RoomState, RoomStates};
 use crate::core::is_headless;
 use crate::frame_events::FrameEvents;
+use items::{Inventory, ItemTable};
 use sim_core::damage::DamageEvent;
+use world::{RoomState, RoomStates};
 
 /// Asset `ui/feedback.ron` : enveloppe du type partagé avec le lint
 /// (`content::feedback::FeedbackSettings`).
@@ -140,7 +140,6 @@ impl FeedbackLog {
     }
 }
 
-
 // ---------------------------------------------------------------------------------------
 // M2-T19 : fonctions pures (formes de télégraphe, anneau du blank, zoom de fin de boss)
 // ---------------------------------------------------------------------------------------
@@ -204,7 +203,11 @@ pub fn pattern_shape(
     origin: Vec2,
     length: f32,
 ) -> Option<PatternShape> {
-    let center = if aim == Vec2::ZERO { 0.0 } else { aim.y.atan2(aim.x) };
+    let center = if aim == Vec2::ZERO {
+        0.0
+    } else {
+        aim.y.atan2(aim.x)
+    };
     let to_f32 = |value: bevy_fixed::fixed_math::Fixed| value.to_num::<f32>();
     let shape = |kind, rays: Vec<f32>, cone| PatternShape {
         kind,
@@ -268,7 +271,12 @@ pub fn pattern_shape(
 pub fn pattern_label(net_id: usize, shape: &PatternShape) -> String {
     match shape.cone {
         Some((_, spread)) => format!("{} {} (cône {:.2} rad)", shape.kind.name(), net_id, spread),
-        None => format!("{} {} ({} rayons)", shape.kind.name(), net_id, shape.rays.len()),
+        None => format!(
+            "{} {} ({} rayons)",
+            shape.kind.name(),
+            net_id,
+            shape.rays.len()
+        ),
     }
 }
 
@@ -635,10 +643,12 @@ fn record_t19_cues(
     memory: &mut T19Memory,
 ) {
     // Blank : l'objet blank est le premier de la table (ordre des ids) à porter la donnée.
-    let blank_item = inputs
-        .items
-        .as_ref()
-        .and_then(|table| table.0.iter().find_map(|(id, def)| def.blank.map(|b| (id, b))));
+    let blank_item = inputs.items.as_ref().and_then(|table| {
+        table
+            .0
+            .iter()
+            .find_map(|(id, def)| def.blank.map(|b| (id, b)))
+    });
     let mut blanks = BTreeMap::new();
     if let Some((id, spec)) = blank_item {
         for (net_id, player, inventory, transform) in &inputs.players {
@@ -1017,7 +1027,12 @@ fn update_screen_flash(
     let strongest = fx
         .flashes
         .iter()
-        .map(|flash| (flash_alpha(flash.alpha, now - flash.frame, flash.frames), flash.color))
+        .map(|flash| {
+            (
+                flash_alpha(flash.alpha, now - flash.frame, flash.frames),
+                flash.color,
+            )
+        })
         .max_by(|a, b| a.0.total_cmp(&b.0));
     for mut background in &mut nodes {
         background.0 = match strongest {
@@ -1365,7 +1380,10 @@ mod telegraph_tests {
         assert_eq!(shape.rays.len(), 5);
         assert!((shape.rays[0] + 0.5).abs() < 1e-5 && (shape.rays[4] - 0.5).abs() < 1e-5);
         assert!(shape.rays[2].abs() < 1e-5);
-        assert_eq!((shape.origin, shape.length, shape.cone), (Vec2::new(2.0, 3.0), 90.0, None));
+        assert_eq!(
+            (shape.origin, shape.length, shape.cone),
+            (Vec2::new(2.0, 3.0), 90.0, None)
+        );
         assert_eq!(pattern_label(31, &shape), "fan 31 (5 rayons)");
         // Visée vers le haut : l'éventail tourne avec elle.
         let up = pattern_shape(&steps, 1, Vec2::Y, Vec2::ZERO, 10.0).unwrap();
@@ -1409,7 +1427,10 @@ mod telegraph_tests {
             projectile: "p".into(),
             every: 0,
         };
-        assert_eq!(pattern_shape(&[ring.clone()], 0, Vec2::X, Vec2::ZERO, 10.0), None);
+        assert_eq!(
+            pattern_shape(&[ring.clone()], 0, Vec2::X, Vec2::ZERO, 10.0),
+            None
+        );
         let fan = Pattern::Fan {
             count: 3,
             spread: fixed(1.0),

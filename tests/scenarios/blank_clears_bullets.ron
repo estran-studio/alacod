@@ -7,6 +7,9 @@
 //
 // À regarder : la spirale se dessine, puis d'un coup toutes les boules de feu proches disparaissent
 // (moment clé `blank`) ; les balles du joueur continuent vers la tourelle.
+//
+// M2-T19 (feedback v2, conventions §55) : à f7 la spirale montre ses 3 rayons avant de tirer, à f36
+// le blank ouvre un anneau de rayon 120 et un léger flash (moments clés `feedback`). Trace inchangée.
 Scenario(
     powerup_drop_chance_override: "0.0",
     game: "testbed",
@@ -39,5 +42,7 @@ Scenario(
         BulletCount(count: 3, projectile: Some("fireball"), team: Some(Enemies), at_frame: 41),
         Consumable(handle: 0, id: "blank", count: 1, at_frame: 60),
         PlayerAlive(handle: 0, at_frame: 70),
+        Event(kind: "feedback", label_contains: Some("télégraphe spiral 38 (3 rayons)"), by_frame: 7),
+        Event(kind: "feedback", label_contains: Some("blank 0 (rayon 120)"), by_frame: 36),
     ],
 )
