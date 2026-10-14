@@ -1262,3 +1262,66 @@ fn arena_and_boss_t7_fixtures_report_their_rule() {
         assert_has_error(&errors, kind, expected);
     }
 }
+
+// M2-T15 (docs/conventions.md §53) : stats sans lecteur et atteignabilité statique.
+fn assert_has_warning(fixture: &str, kind: content::LintWarningKind, needle: &str) {
+    let (registry, manifest, _) = load_and_lint(&fixture_dir(fixture)).unwrap();
+    let warnings = content::warnings(&registry, &manifest);
+    assert!(
+        warnings
+            .iter()
+            .any(|w| w.kind == kind && w.message.contains(needle)),
+        "attendu un avertissement {kind:?} contenant {needle:?}, obtenu :\n{warnings:#?}"
+    );
+}
+
+#[test]
+fn stat_unread_fixture_is_an_error() {
+    let (_, _, errors) = load_and_lint(&fixture_dir("stat_unread")).unwrap();
+    assert_has_error(&errors, LintErrorKind::UnreadStat, "Luck");
+}
+
+#[test]
+fn stat_armor_is_only_a_warning() {
+    let (_, _, errors) = load_and_lint(&fixture_dir("stat_armor_warning")).unwrap();
+    assert!(
+        errors.iter().all(|e| e.kind != LintErrorKind::UnreadStat),
+        "Armor ne doit pas être une erreur : {errors:#?}"
+    );
+    assert_has_warning(
+        "stat_armor_warning",
+        content::LintWarningKind::UnreadStat,
+        "Armor",
+    );
+}
+
+#[test]
+fn reach_fixtures_report_their_warning() {
+    use content::LintWarningKind::Unreachable;
+    for (fixture, needle) in [
+        ("reach_room_unreachable", "type de salle « escouade »"),
+        ("reach_room_unreachable", "gabarit « Escouade »"),
+        ("reach_enemy_unplaced", "ennemi « grunt »"),
+        ("reach_item_no_source", "objet « bottes » : aucune source"),
+        ("reach_weapon_no_source", "arme « b »"),
+    ] {
+        assert_has_warning(fixture, Unreachable, needle);
+        // un avertissement n'est pas une erreur
+        let (_, _, errors) = load_and_lint(&fixture_dir(fixture)).unwrap();
+        assert!(
+            errors.iter().all(|e| !e.message.contains("inatteignable")),
+            "{fixture} : {errors:#?}"
+        );
+    }
+}
+
+#[test]
+fn shipped_games_lint_without_error() {
+    for game in ["zombies", "testbed", "throne", "gungeon"] {
+        let (registry, manifest, errors) = load_and_lint(&game_dir(game)).unwrap();
+        assert!(errors.is_empty(), "{game} : {errors:#?}");
+        for warning in content::warnings(&registry, &manifest) {
+            eprintln!("avertissement {game} : {warning}");
+        }
+    }
+}

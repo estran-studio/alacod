@@ -36,6 +36,9 @@ pub enum LintErrorKind {
     /// T1.10 : contrat déclaré mais pas encore exécuté (déclencheur, condition ou action
     /// d'effet « v2 ») : refusé plutôt qu'ignoré en silence.
     Unsupported,
+    /// M2-T15 : modificateur sur une stat qu'aucun système ne lit
+    /// (`sim_core::stats::stat_reader`).
+    UnreadStat,
 }
 
 /// Une erreur de lint : `file` et `message` forment le texte affiché par `alacod lint`
@@ -89,6 +92,7 @@ pub fn run(registry: &Registry, manifest: &GameManifest) -> Vec<LintError> {
     lint_difficulty(registry, manifest, &mut errors);
     lint_entry_point(registry, manifest, &mut errors);
     lint_generate_template(registry, manifest, &mut errors);
+    lint_stat_readers(registry, &mut errors);
 
     errors
 }
@@ -3041,5 +3045,20 @@ fn lint_entry_progression(
                 "entry.progression : progression inconnue « {id} » (kind Progression)"
             ),
         });
+    }
+}
+
+/// M2-T15 (`docs/conventions.md` §53) : un modificateur (ou une base de stat) sur une stat que
+/// `sim_core::stats::stat_reader` ne connaît pas ne ferait rien : erreur. Exception transitoire :
+/// `Armor` (D61 pas mergée) est un avertissement (`reach::warnings`).
+fn lint_stat_readers(registry: &Registry, errors: &mut Vec<LintError>) {
+    for (file, at, stat) in crate::reach::stat_uses(registry) {
+        if stat != StatId::Armor && sim_core::stats::stat_reader(&stat).is_none() {
+            errors.push(LintError {
+                kind: LintErrorKind::UnreadStat,
+                file,
+                message: format!("{at} : stat {stat:?} : aucun système ne la lit"),
+            });
+        }
     }
 }
