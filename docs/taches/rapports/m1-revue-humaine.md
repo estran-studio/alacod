@@ -8,11 +8,12 @@ Espace = objet actif, Q = blank. M2 est déjà lancée : vague 0 mergée, T10 en
 
 **Non à ce stade : revue humaine incomplète.** Deux enregistrements solo avec commandes sont archivés
 (11882 puis 39026 frames, graine 123456). La première comporte deux passages jusqu'à
-`roi_rat` ; résultat et constats de la seconde, restart et décisions restent à consigner.
+`roi_rat`. La seconde finit au troisième étage (résultat extrait le 2026-10-14) ;
+ses constats humains, le restart et les décisions restent à consigner.
 Les validations automatiques des correctifs ne remplacent pas ce dernier critère.
 Ce qui empêche de prononcer la sortie de M1 :
 
-- Deuxième run enregistrée, encore sans constats humains et sans résultat extrait.
+- Deuxième run enregistrée, résultat extrait (défaite, étage 3), encore sans avis humain.
 - Confirmation du ressenti après correctifs, restart humain et avis des huit points encore incomplets.
 - Décisions D28/D29/D34/D40b/D50/D54, difficulté du troisième étage et relecture du plan M2 encore absentes.
 
@@ -119,4 +120,24 @@ Sur 2466 mises à jour natives avec balles présentes : p95 17,29 ms, p99 17,70 
 deux mises à jour >33,3 ms, au plus 22 balles. Le filtre ne représente pas tous
 les combats ; les samples complets sont conservés. Confirmation du ressenti,
 constats des huit points, restart et décisions de William encore manquants.
-Le résultat et l'étage de cette seconde run ne sont pas encore extraits.
+Résultat extrait le 2026-10-14 : étage 3 à f2062, défaite observée à f3393 (résumé 3392 frames).
+
+## HUD : demande et correctifs du 2026-10-14
+
+William : « Pour les HUD, il a bcp de overlap entre les elements » ;
+« il a bcp de pollisage possible aussi, il a bcp trop de texte et information aussi.
+J'aimerais qu'on travailles les 2 points, ». Gravité proposée : à corriger.
+Cet accord autorise le correctif de disposition et de densité d'information.
+
+Rejeu actuel : inspecteur moteur ouvert, Weapon/Ammo sur la vie/rads, frame/FPS
+sur les munitions, réserves répétées. Correctif de présentation `3ae7d2e5` : diagnostics
+optionnels, cinq textes permanents et deux barres, effets contextuels, HUD masqué
+pour les modals, cartes abrégées et panneau de fin avec durée lisible. Capture
+640×360 et vue à quatre joueurs examinées ; événements de la partie humaine
+identiques avant/après, scénarios concernés verts, aucune trace modifiée.
+
+[Analyse, captures et vidéo](../../../tests/review-notes/m1-f53cd1ae-hud/README.md).
+Confirmation visuelle de William encore attendue ; les décisions de dettes et
+le verdict de sortie M1 restent ouverts. Proposition à orch : ajouter le constat
+HUD (chevauchements/densité), avec statut « corrigé techniquement, revue visuelle
+attendue ». Ne pas fermer les dettes de gameplay au titre de ce correctif.

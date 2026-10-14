@@ -1,0 +1,74 @@
+{
+  "unit_tests_passed": 112,
+  "content_unit_tests_passed": 84,
+  "content_fixture_tests_passed": 86,
+  "content_smoke_tests_passed": 2,
+  "scenarios": [
+    {
+      "scenario": "throne_ammo_pickup",
+      "exit_code": 0
+    },
+    {
+      "scenario": "throne_duo_defaite",
+      "exit_code": 0
+    },
+    {
+      "scenario": "throne_floor_1",
+      "exit_code": 0
+    },
+    {
+      "scenario": "throne_mutation_choice",
+      "exit_code": 0
+    },
+    {
+      "scenario": "throne_progression",
+      "exit_code": 0
+    },
+    {
+      "scenario": "throne_quad",
+      "exit_code": 0
+    },
+    {
+      "scenario": "throne_softlock_recul",
+      "exit_code": 0
+    },
+    {
+      "scenario": "throne_solo",
+      "exit_code": 0
+    },
+    {
+      "scenario": "throne_three_floors",
+      "exit_code": 0
+    },
+    {
+      "scenario": "clone_solo",
+      "exit_code": 0
+    },
+    {
+      "scenario": "clone_duo",
+      "exit_code": 0
+    }
+  ],
+  "bless": false,
+  "traces_changed": 0,
+  "human_replay_events_identical": true,
+  "human_replay_event_count": 401,
+  "capture_resolutions": [
+    [
+      960,
+      540
+    ],
+    [
+      640,
+      360
+    ]
+  ],
+  "minimum_viewport_inspected": true,
+  "solo_quad_mutation_low_health_end_inspected": true,
+  "code_commit": "3ae7d2e5",
+  "native_builds": [
+    "throne --profile headless --features native",
+    "zombies --profile headless --features native"
+  ],
+  "debug_opt_in_smoke_passed": true
+}
