@@ -43,5 +43,9 @@ pub enum InteractionType {
     /// `Interactable` sur une entité `items::ItemPickup` (`game::items::spawn_item_pickup`) ;
     /// consommé par `game::items::handle_item_interaction`.
     Item,
+    /// Renverser une table (M2-T11, `docs/conventions.md` §46). Posé avec `Interactable` sur
+    /// une entité `world::TableState` debout (`map_ldtk::game::plugin::spawn_map_items`) ;
+    /// consommé par `game::props::table_flip_system`.
+    Table,
     // Future: Crate, etc.
 }

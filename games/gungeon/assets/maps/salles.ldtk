@@ -11,7 +11,7 @@
  "iid": "2d8cb738-d75b-4494-964b-0d20aaea6b01",
  "jsonVersion": "1.5.3",
  "appBuildId": 473703,
- "nextUid": 48,
+ "nextUid": 50,
  "identifierStyle": "Capitalize",
  "toc": [],
  "worldLayout": "Free",
@@ -1091,6 +1091,88 @@
       "tilesetUid": null
      }
     ]
+   },
+   {
+    "identifier": "Table",
+    "uid": 48,
+    "tags": [],
+    "exportToToc": false,
+    "allowOutOfBounds": false,
+    "doc": null,
+    "width": 32,
+    "height": 16,
+    "resizableX": false,
+    "resizableY": false,
+    "minWidth": null,
+    "maxWidth": null,
+    "minHeight": null,
+    "maxHeight": null,
+    "keepAspectRatio": false,
+    "tileOpacity": 1,
+    "fillOpacity": 0.08,
+    "lineOpacity": 0,
+    "hollow": false,
+    "color": "#B5651D",
+    "renderMode": "Tile",
+    "showName": true,
+    "tilesetId": 38,
+    "tileRenderMode": "FitInside",
+    "tileRect": {
+     "tilesetUid": 38,
+     "x": 32,
+     "y": 112,
+     "w": 16,
+     "h": 16
+    },
+    "uiTileRect": null,
+    "nineSliceBorders": [],
+    "maxCount": 0,
+    "limitScope": "PerLevel",
+    "limitBehavior": "MoveLastOne",
+    "pivotX": 0,
+    "pivotY": 0,
+    "fieldDefs": []
+   },
+   {
+    "identifier": "Barrel",
+    "uid": 49,
+    "tags": [],
+    "exportToToc": false,
+    "allowOutOfBounds": false,
+    "doc": null,
+    "width": 16,
+    "height": 16,
+    "resizableX": false,
+    "resizableY": false,
+    "minWidth": null,
+    "maxWidth": null,
+    "minHeight": null,
+    "maxHeight": null,
+    "keepAspectRatio": false,
+    "tileOpacity": 1,
+    "fillOpacity": 0.08,
+    "lineOpacity": 0,
+    "hollow": false,
+    "color": "#C0392B",
+    "renderMode": "Tile",
+    "showName": true,
+    "tilesetId": 38,
+    "tileRenderMode": "FitInside",
+    "tileRect": {
+     "tilesetUid": 38,
+     "x": 32,
+     "y": 112,
+     "w": 16,
+     "h": 16
+    },
+    "uiTileRect": null,
+    "nineSliceBorders": [],
+    "maxCount": 0,
+    "limitScope": "PerLevel",
+    "limitBehavior": "MoveLastOne",
+    "pivotX": 0,
+    "pivotY": 0,
+    "fieldDefs": []
    }
   ],
   "tilesets": [
@@ -1995,6 +2077,99 @@
        ],
        "__worldX": 80,
        "__worldY": 32
+      },
+      {
+       "__identifier": "Barrel",
+       "__grid": [
+        3,
+        1
+       ],
+       "__pivot": [
+        0,
+        0
+       ],
+       "__tags": [],
+       "__tile": {
+        "tilesetUid": 38,
+        "x": 32,
+        "y": 112,
+        "w": 16,
+        "h": 16
+       },
+       "__smartColor": "#C0392B",
+       "iid": "eccfea2e-4167-59a1-a20e-d30b2593a4de",
+       "width": 16,
+       "height": 16,
+       "defUid": 49,
+       "px": [
+        48,
+        16
+       ],
+       "fieldInstances": [],
+       "__worldX": 48,
+       "__worldY": 16
+      },
+      {
+       "__identifier": "Barrel",
+       "__grid": [
+        4,
+        1
+       ],
+       "__pivot": [
+        0,
+        0
+       ],
+       "__tags": [],
+       "__tile": {
+        "tilesetUid": 38,
+        "x": 32,
+        "y": 112,
+        "w": 16,
+        "h": 16
+       },
+       "__smartColor": "#C0392B",
+       "iid": "ce06f6a2-bad0-592d-85ca-20e8467e2b18",
+       "width": 16,
+       "height": 16,
+       "defUid": 49,
+       "px": [
+        64,
+        16
+       ],
+       "fieldInstances": [],
+       "__worldX": 64,
+       "__worldY": 16
+      },
+      {
+       "__identifier": "Table",
+       "__grid": [
+        3,
+        5
+       ],
+       "__pivot": [
+        0,
+        0
+       ],
+       "__tags": [],
+       "__tile": {
+        "tilesetUid": 38,
+        "x": 32,
+        "y": 112,
+        "w": 16,
+        "h": 16
+       },
+       "__smartColor": "#B5651D",
+       "iid": "9d4fcb80-ebd5-5c27-8cce-ff7b8cd3f470",
+       "width": 32,
+       "height": 16,
+       "defUid": 48,
+       "px": [
+        48,
+        80
+       ],
+       "fieldInstances": [],
+       "__worldX": 48,
+       "__worldY": 80
       }
      ],
      "gridTiles": []
@@ -2445,6 +2620,99 @@
        ],
        "__worldX": 80,
        "__worldY": 32
+      },
+      {
+       "__identifier": "Table",
+       "__grid": [
+        1,
+        3
+       ],
+       "__pivot": [
+        0,
+        0
+       ],
+       "__tags": [],
+       "__tile": {
+        "tilesetUid": 38,
+        "x": 32,
+        "y": 112,
+        "w": 16,
+        "h": 16
+       },
+       "__smartColor": "#B5651D",
+       "iid": "7b36fd9b-c75a-52f8-8707-aa56d257e3d7",
+       "width": 32,
+       "height": 16,
+       "defUid": 48,
+       "px": [
+        16,
+        48
+       ],
+       "fieldInstances": [],
+       "__worldX": 16,
+       "__worldY": 48
+      },
+      {
+       "__identifier": "Barrel",
+       "__grid": [
+        6,
+        3
+       ],
+       "__pivot": [
+        0,
+        0
+       ],
+       "__tags": [],
+       "__tile": {
+        "tilesetUid": 38,
+        "x": 32,
+        "y": 112,
+        "w": 16,
+        "h": 16
+       },
+       "__smartColor": "#C0392B",
+       "iid": "28a9060c-b62d-5cc4-9dc5-be7c1912fc83",
+       "width": 16,
+       "height": 16,
+       "defUid": 49,
+       "px": [
+        96,
+        48
+       ],
+       "fieldInstances": [],
+       "__worldX": 96,
+       "__worldY": 48
+      },
+      {
+       "__identifier": "Barrel",
+       "__grid": [
+        6,
+        4
+       ],
+       "__pivot": [
+        0,
+        0
+       ],
+       "__tags": [],
+       "__tile": {
+        "tilesetUid": 38,
+        "x": 32,
+        "y": 112,
+        "w": 16,
+        "h": 16
+       },
+       "__smartColor": "#C0392B",
+       "iid": "1b2bc9ee-8ebb-509d-b16a-70b20779dd34",
+       "width": 16,
+       "height": 16,
+       "defUid": 49,
+       "px": [
+        96,
+        64
+       ],
+       "fieldInstances": [],
+       "__worldX": 96,
+       "__worldY": 64
       }
      ],
      "gridTiles": []

@@ -12,6 +12,7 @@ pub mod floor_grammar;
 pub mod grid;
 pub mod nav;
 pub mod plugin;
+pub mod props;
 pub mod rooms;
 pub mod surface;
 
@@ -20,8 +21,12 @@ pub use destroy::destroy_terrain;
 pub use floor_grammar::FloorGrammar;
 pub use grid::{CellGrid, CellKind, Destructible, CELL_SIZE};
 pub use plugin::{DestroyTerrainRequest, TerrainDestroyed, WorldPlugin};
+pub use props::{
+    flip_direction, flipped_rect, BarrelDef, BarrelState, FlipDirection, PitSafePosition, PropDef,
+    PropTable, TableDef, TableState,
+};
 pub use rooms::{
     entrance_point, inside_box, room_rng_stream, ArenaClocks, ArenaDef, ArenaWave, RoomChanged,
     RoomDormant, RoomKind, RoomKindDef, RoomKindTable, RoomState, RoomStates,
 };
-pub use surface::{SurfaceDef, SurfaceGrid, SurfaceId, SurfaceTable, Walker};
+pub use surface::{PitDef, PitRespawn, SurfaceDef, SurfaceGrid, SurfaceId, SurfaceTable, Walker};

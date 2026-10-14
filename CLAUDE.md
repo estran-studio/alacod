@@ -331,6 +331,7 @@ Avant/après un refactoring de la simulation, comparer les traces : elles doiven
     - T1.10 progression et mutations (§27) : `Gauge`, `Level`, `Mutations`.
     - M2-E1 salles (§35) : `RoomState` ; M2-T0b objets (§36) : `HasItem`, `ItemCharge`, `Consumable`.
     - M2-T0c boss (§37) : `BossPhase` ; profil (§38) : `ProfileHas`.
+    - M2-T11 surfaces v2 (§46) : `EntityCount(kind: Barrel | Table)`.
     - T1.18 HUD throne (§32) : `HudText` (texte d'une source du HUD, présentation, hors trace).
     - Réenregistrement : le scénario rejoué depuis son enregistrement garde ses réglages
       (`floors`, `clocks`, `difficulty`, `characters`, `mode`, `progression`, et chaque
@@ -353,6 +354,8 @@ Avant/après un refactoring de la simulation, comparer les traces : elles doiven
 - `tests/budgets.ron` : planchers de non-régression en frames simulées par seconde (défaut et
   surcharges par scénario). Sous le plancher, `make test_scenarios` avertit ; `make bench`
   (`ALACOD_BENCH_STRICT=1`) échoue.
+- `ALACOD_SCENARIO=a,b` (liste) et `ALACOD_SCENARIO_SLICE=k/n` (tranche k de n, pour jouer la suite par
+  lots quand une commande est limitée en durée) ;
 - `make test_scenarios` (profil `headless`, sans rendu) ; `SCENARIO=<nom>` pour un seul ;
   `BLESS=1` pour réécrire les traces après un **changement de gameplay voulu** (le dire dans le commit).
 - `make bench` : lance `test_scenarios`, puis affiche un tableau des métriques (fps, entités, balles, ennemis).

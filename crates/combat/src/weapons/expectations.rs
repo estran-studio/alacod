@@ -29,6 +29,10 @@ pub enum EntityKind {
     Bullet,
     /// Toutes les entités marquées `Rollback`.
     Rollback,
+    /// Barils explosifs vivants (M2-T11, `docs/conventions.md` §46).
+    Barrel,
+    /// Tables (debout ou renversées) pas encore détruites (M2-T11).
+    Table,
 }
 
 /// Étape de `Run` attendue (T2.4, chantier F1, `Expectation::RunState`) : miroir minimal de

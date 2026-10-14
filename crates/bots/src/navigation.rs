@@ -144,6 +144,9 @@ pub struct BotNavigation {
     pub field: FlowField,
     approaches: BTreeMap<(GridPos, GridPos, Fixed), FlowField>,
     reachable: Option<BTreeSet<GridPos>>,
+    /// M2-T16 (`explorateur`) : champ à une seule source (la case du bot) et sa case de départ,
+    /// pour comparer plusieurs buts par la longueur du chemin ([`Self::costs_from`]).
+    from_field: Option<(GridPos, FlowField)>,
 }
 
 impl BotNavigation {
@@ -177,6 +180,7 @@ impl BotNavigation {
         let changed = self.geometry != geometry || self.body_key != Some(key);
         if changed {
             self.approaches.clear();
+            self.from_field = None;
             self.geometry = geometry.to_vec();
             self.body_key = Some(key);
             self.obstacles = geometry
@@ -238,6 +242,7 @@ impl BotNavigation {
             };
         if component_changed {
             self.approaches.clear();
+            self.from_field = None;
             self.nearest_goals.clear();
             self.reachable = None;
             if let Some(from) = from {
@@ -470,6 +475,23 @@ impl BotNavigation {
             .min_by_key(|p| (field.costs[p], from.distance(&point(*p)), *p))
             .map(|p| (point(p) - from, field.costs[&p]))
     }
+    /// M2-T16 (`explorateur`) : coûts du chemin depuis `from` jusqu'à chaque case accessible
+    /// (champ à une seule source, mêmes pas et mêmes coûts que les autres champs). En cache tant
+    /// que la case de départ et la géométrie ne changent pas ; `None` si `from` n'a aucune case
+    /// libre autour de lui. Comme le reste du module : dérivé, jamais un état de décision.
+    pub fn costs_from(&mut self, from: FixedVec2) -> Option<&FlowField> {
+        let here = cell(from);
+        let start = (-2..=2)
+            .flat_map(|dx| (-2..=2).map(move |dy| GridPos::new(here.x + dx, here.y + dy)))
+            .filter(|p| self.free(*p) && self.clear(from, point(*p)))
+            .min_by_key(|p| (from.distance(&point(*p)), *p))?;
+        if self.from_field.as_ref().is_none_or(|(s, _)| *s != start) {
+            let field = self.build_field(&[(start, 0)]);
+            self.from_field = Some((start, field));
+        }
+        self.from_field.as_ref().map(|(_, field)| field)
+    }
+
     /// Choisit parmi les huit directions du clavier, en vérifiant le segment réel du corps.
     pub fn safe_direction(&self, from: FixedVec2, desired: FixedVec2) -> FixedVec2 {
         if desired.length_squared() <= Fixed::from_num(4) {

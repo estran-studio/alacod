@@ -1,0 +1,11 @@
+// Fixture M2-T11 (`lint::lint_props`, table à 0 balle).
+(
+    name: "fixture-prop_table_no_bullets",
+    content_folders: [
+        (path: "props", kind: "Prop"),
+    ],
+    entry: (
+        start_map: "unused",
+        default_seed: 1,
+    ),
+)

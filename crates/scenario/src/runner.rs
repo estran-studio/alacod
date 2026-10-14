@@ -1686,6 +1686,14 @@ fn check(world: &mut World, expectation: &Expectation) -> Result<(), String> {
                     .query_filtered::<(), With<bevy_ggrs::Rollback>>()
                     .iter(world)
                     .count() as u32,
+                game::replay::EntityKind::Barrel => world
+                    .query_filtered::<(), With<world::BarrelState>>()
+                    .iter(world)
+                    .count() as u32,
+                game::replay::EntityKind::Table => world
+                    .query_filtered::<(), With<world::TableState>>()
+                    .iter(world)
+                    .count() as u32,
             };
 
             if let Some(min_val) = min {
@@ -2636,7 +2644,8 @@ fn enemy_in_melee_range(world: &mut World, entity: &game::replay::EntityRef) -> 
         .any(|transform| enemy_pos.distance(&transform.translation.truncate()) <= reach)
 }
 
-/// `EnemyNeverInWall` (T1.4) : le collider de l'ennemi chevauche un `Wall`.
+/// `EnemyNeverInWall` (T1.4) : le collider de l'ennemi chevauche un `Wall` ; M2-T11 : ou les
+/// pieds d'un ennemi au sol sont sur une case de fosse (`world::SurfaceGrid`).
 fn enemy_in_wall(world: &mut World, entity: &game::replay::EntityRef) -> bool {
     use combat::collider::{is_colliding, Collider, Wall};
     let Some(enemy) = resolve_entity(world, entity) else {
@@ -2649,6 +2658,22 @@ fn enemy_in_wall(world: &mut World, entity: &game::replay::EntityRef) -> bool {
     else {
         return false;
     };
+    let grounded = world
+        .get::<game::character::enemy::ai::state::EnemyAiConfig>(enemy)
+        .is_some_and(|ai| {
+            ai.movement_type != game::character::enemy::ai::state::MovementType::Flying
+        });
+    if grounded {
+        if let (Some(grid), Some(table)) = (
+            world.get_resource::<world::SurfaceGrid>(),
+            world.get_resource::<world::SurfaceTable>(),
+        ) {
+            let feet = game::character::surface::feet_position(&enemy_transform, &enemy_collider);
+            if grid.pit_at(table, feet).is_some() {
+                return true;
+            }
+        }
+    }
     world
         .query_filtered::<(&fixed_math::FixedTransform3D, &Collider), With<Wall>>()
         .iter(world)

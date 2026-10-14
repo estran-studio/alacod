@@ -1,0 +1,33 @@
+// M2-T11 (surfaces v2, docs/conventions.md §46) : fosse. Carte `testbed/props_pits.ldtk`, couloir A
+// (joueur 0) avec une fosse de 2 cases (x -144 à -112, cases -9 et -8), surface `fosse`
+// (`fall_damage` 10, `dash_crosses`). Le joueur 0 marche à droite de f10 à f185 ; le joueur 1
+// reste immobile dans le couloir B.
+//
+// À regarder : le joueur 0 atteint le bord de la fosse à f185, perd 10 PV (100 -> 90) et revient
+// aussitôt à sa dernière position sûre (x = -160,6, deux cases avant la fosse, vitesse remise à
+// zéro) ; il y reste, sans retomber. Le joueur 1 n'est pas touché.
+Scenario(
+    powerup_drop_chance_override: "0.0",
+    game: "testbed",
+    map: "testbed/props_pits.ldtk",
+    frames: 260,
+    players: [
+        (inputs: [(from: 10, to: 185, buttons: [Right], pan: (0, 0))]),
+        (),
+    ],
+    expect: [
+        // La couche `Surfaces` : fosse de 2 cases sur 3 rangées
+        CellState(x: -9, y: 15, surface: "fosse", at_frame: 5),
+        CellState(x: -8, y: 14, surface: "fosse", at_frame: 5),
+        CellState(x: -10, y: 15, surface: "aucune", at_frame: 5),
+        // Avant la fosse : intact, au bord
+        Health(handle: 0, min: 100, max: 100, at_frame: 170),
+        PlayerPosition(handle: 0, x: -233.1, y: 248, tolerance: 2, at_frame: 150),
+        // Tombé : -10 PV, remis à la dernière case sûre
+        Health(handle: 0, min: 89, max: 91, at_frame: 200),
+        PlayerPosition(handle: 0, x: -150.6, y: 248, tolerance: 2, at_frame: 200),
+        Health(handle: 0, min: 89, max: 91, at_frame: 259),
+        PlayerPosition(handle: 0, x: -150.6, y: 248, tolerance: 2, at_frame: 259),
+        Health(handle: 1, min: 100, max: 100, at_frame: 259),
+    ],
+)
