@@ -270,6 +270,8 @@ pub struct CharacterEntry {
     pub effects: Vec<effects::Effect>,
     /// T1.4 : règles de comportement (`ai.behaviors`, `None` : liste par défaut).
     pub behaviors: Option<Vec<BehaviorEntry>>,
+    /// M2-T8 : id d'escouade (`ai.squad`).
+    pub squad: Option<String>,
     /// M2-T0c : boss à phases (`boss`).
     pub boss: Option<BossEntry>,
     /// T1.4 : tags ignorés par le ciblage (`ai.targeting: Some(Nearest(ignore: [...]))`).
@@ -359,6 +361,22 @@ pub enum BehaviorEntry {
     Melee(String),
     Flee,
     Wander,
+    /// M2-T8 (§49) : mirroir de `behaviors::Behavior::Formation`.
+    Formation {
+        shape: FormationShapeEntry,
+        period: u32,
+        #[serde(default)]
+        volley: bool,
+    },
+}
+
+/// M2-T8 : mirroir de `behaviors::FormationShape`.
+#[derive(Debug, Clone, Deserialize)]
+pub enum FormationShapeEntry {
+    Arc {
+        radius: FixedField,
+        spread: FixedField,
+    },
 }
 
 /// M2-T0c : mirroirs de `behaviors::boss` (`docs/conventions.md` §37) ; les `Fixed` passent par
@@ -901,6 +919,56 @@ pub struct MapEntry {
     /// `room_kind` est rempli (gabarits de salles typées, `docs/conventions.md` §35), pour le
     /// lint « type de salle connu ».
     pub room_kinds: Vec<(String, String)>,
+    /// M2-T15 (§53) : par niveau interne, ce qu'il contient (type de salle, personnages
+    /// `CharacterSpawn`, armes murales `WeaponLocation`), pour l'atteignabilité statique.
+    pub levels: Vec<MapLevelInfo>,
+}
+
+/// M2-T15 : contenu d'un niveau interne d'un `.ldtk` (voir [`MapEntry::levels`]).
+#[derive(Debug, Clone, Default)]
+pub struct MapLevelInfo {
+    pub id: String,
+    pub room_kind: Option<String>,
+    pub characters: Vec<String>,
+    pub weapons: Vec<String>,
+}
+
+/// M2-T15 : [`MapLevelInfo`] de chaque niveau d'un `.ldtk`, dans l'ordre du fichier ; vide si la
+/// carte est illisible en JSON.
+fn ldtk_level_infos(text: &str) -> Vec<MapLevelInfo> {
+    let Ok(json) = serde_json::from_str::<serde_json::Value>(text) else {
+        return Vec::new();
+    };
+    let field = |entity: &serde_json::Value, name: &str| -> Option<String> {
+        entity["fieldInstances"]
+            .as_array()?
+            .iter()
+            .find(|f| f["__identifier"] == name)?["__value"]
+            .as_str()
+            .filter(|value| !value.is_empty())
+            .map(str::to_string)
+    };
+    let mut out = Vec::new();
+    for level in json["levels"].as_array().into_iter().flatten() {
+        let mut info = MapLevelInfo {
+            id: level["identifier"].as_str().unwrap_or_default().to_string(),
+            room_kind: field(level, "room_kind"),
+            ..Default::default()
+        };
+        for layer in level["layerInstances"].as_array().into_iter().flatten() {
+            for entity in layer["entityInstances"].as_array().into_iter().flatten() {
+                match entity["__identifier"].as_str() {
+                    Some("CharacterSpawn") => info
+                        .characters
+                        .push(field(entity, "character").unwrap_or_default()),
+                    Some("WeaponLocation") => info.weapons.extend(field(entity, "weapon")),
+                    _ => {}
+                }
+            }
+        }
+        out.push(info);
+    }
+    out
 }
 
 /// M2-E1 : champ de niveau `room_kind` (non vide) de chaque niveau d'un `.ldtk`, avec
@@ -1577,6 +1645,9 @@ struct AiSchema {
     behaviors: Option<Vec<BehaviorEntry>>,
     #[serde(default)]
     targeting: Option<TargetingEntry>,
+    /// M2-T8 : `squad: Some(("id", Some("role")))`, voir `game::...::state::SquadRon`.
+    #[serde(default)]
+    squad: Option<(String, Option<String>)>,
 }
 
 fn default_bleedout_frames() -> u32 {
@@ -2017,6 +2088,11 @@ fn load_characters(
                     .map(|TargetingEntry::Nearest { ignore }| ignore.clone())
                     .unwrap_or_default(),
                 has_ai: parsed.ai.is_some(),
+                squad: parsed
+                    .ai
+                    .as_ref()
+                    .and_then(|ai| ai.squad.as_ref())
+                    .map(|squad| squad.0.clone()),
                 behaviors: parsed.ai.and_then(|ai| ai.behaviors),
                 tags: parsed.tags,
                 variants: parsed.variants.map(|variants| VariantsEntry {
@@ -3275,6 +3351,7 @@ fn load_maps(
             .map(ldtk_character_spawns)
             .unwrap_or_default();
         let room_kinds = text.as_deref().map(ldtk_room_kinds).unwrap_or_default();
+        let levels = text.as_deref().map(ldtk_level_infos).unwrap_or_default();
         registry.maps.insert(
             id.clone(),
             MapEntry {
@@ -3283,6 +3360,7 @@ fn load_maps(
                 forced_variants,
                 spawned_characters,
                 room_kinds,
+                levels,
             },
         );
     }

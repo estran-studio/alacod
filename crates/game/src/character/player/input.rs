@@ -512,6 +512,12 @@ pub fn apply_inputs(
                                 .map_or(until, |current| current.max(until)),
                         );
                     }
+                    (IframesKind::Projectiles, None, _) => {
+                        // Garde-fou (M2-T2) : `create_character` et le runner posent `DashExtra`
+                        // dès qu'un dash est déclaré ; sans lui, le dash perdrait ses i-frames
+                        // « projectiles » ou deviendrait invulnérable à tout. On refuse l'un et l'autre.
+                        debug_assert!(false, "dash Projectiles sans DashExtra");
+                    }
                     (_, _, Some(mut health)) => {
                         health.invulnerable_until_frame = Some(
                             health

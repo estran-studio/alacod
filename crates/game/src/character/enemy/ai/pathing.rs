@@ -237,6 +237,8 @@ pub fn move_enemies(
         ),
     >,
     flow_field_cache: Res<super::navigation::FlowFieldCache>,
+    // M2-T8 : places d'escouade (dérivées, `squad`).
+    squad_slots: Res<super::squad::SquadSlots>,
     stats: StatReader,
     grids: Res<crate::collision_grid::CollisionGrids>,
 ) {
@@ -605,6 +607,7 @@ pub fn move_enemies(
                     enemy_target_opt.and_then(|target| target.last_known_position),
                     &flow_field_cache,
                     nav_key,
+                    squad_slots.0.get(&net_id.0),
                 )
             });
         let desired_move_velocity_v2 = match &motion {

@@ -2917,6 +2917,63 @@ la réduction de dégâts existera. `testbed` : objets d'essai `lame`, `manche`,
 effets, sur `deux_niveaux`), `item_active_cost` (obus 3 → 1, second usage refusé), `consumable_heal`
 (santé 92 → 97 au ramassage). Aucune trace existante ne bouge : types neutres, champs optionnels hors hash.
 
+## 49. Formations simples : escouades en arc et tir alterné (M2-T8, chantier D1 v2)
+
+Code : `behaviors::{Behavior::Formation, FormationShape}`, `game::character::enemy::ai::squad`
+(`formation_system`, `SquadSlots`, `arc_places`, `fire_turn`, `nearest`), `rules::behavior_motion`
+(déplacement), `rules::behavior_select_system` (tour de tir), `content::lint::lint_formation`.
+
+**Contenu.** Un ennemi se déclare membre d'une escouade par `ai.squad: Some(("id", Some("rôle")))` et
+liste une règle `Formation` (variante **en fin d'enum** `Behavior`, aucune discriminante existante ne bouge) :
+
+```ron
+ai: Some((
+    squad: Some(("bullet_kins", Some("arc"))),
+    behaviors: Some([
+        Shoot(weapon: "arsenal", pattern: "salve", range: "240.0", cooldown_frames: 90),
+        Formation(shape: Arc(radius: "56.0", spread: "1.6"), period: 40),   // volley: true : tir groupé
+        Chase(profile: "Ground"),
+    ]),
+)),
+```
+
+**Escouade = donnée dérivée.** Les ennemis vivants (hors salle dormante) de même `squad` qui listent une
+`Formation`, rangés par `GgrsNetId` (le rang est l'indice dans cet ordre). `formation_system`
+(`EnemyAI`, après `enemy_target_selection`, avant `behavior_select_system`) vide puis réécrit
+`SquadSlots` à chaque frame, avant tout retour anticipé : ressource **hors rollback**, aucun état caché,
+aucun nouveau type sous checksum. Une escouade vit tant que ses membres vivent ; elle ne dépend pas de la
+salle (une seule salle d'escouade est éveillée à la fois dans `gungeon`).
+
+**Cible et places.** La cible de l'escouade est le joueur debout le plus proche de son centre (moyenne
+des positions), à distance égale le plus petit `GgrsNetId` (`nearest`). L'arc est centré sur la cible,
+son milieu pointe vers le centre de l'escouade ; la place du rang `k` sur `n` membres est l'angle
+`spread × (k/(n−1) − 1/2)` (le membre seul est sur l'axe). Les places ne changent pas tant que l'effectif
+ne change pas ; un membre mort réattribue les rangs au prochain tour. Angles et trigonométrie en `Fixed`
+(`cos_fixed`/`sin_fixed`). Écart avec la fiche : « plus proche par le chemin » est ici la distance
+euclidienne au centre de l'escouade (pas de flow field par escouade).
+
+**Déplacement.** À plus de `2 × radius` de la cible : mouvement d'origine (flow field, comme `Chase`).
+Plus près : droit vers la place, puis, à moins de 6 unités, `Strafe` léger (quart de vitesse, sens
+alterné toutes les 45 frames). **Tir alterné** : `Shoot` n'est candidat que dans la fenêtre du membre,
+`(frame / period) mod effectif == rang` (`fire_turn`, état dérivé, aucun curseur) ; une séquence en cours
+va à son terme. `volley: true` garde le tir groupé. Effets de bord : un `Shoot` plus long que `period`
+chevauche la fenêtre suivante (les patterns d'escouade tiennent dans une fenêtre).
+
+**Lint** (`OutOfRange`, fixtures `formation_*`) : `radius ≤ 0`, `spread` hors ]0, 2π], `period = 0` sans
+`volley`, formation sans `Shoot` ni `Chase` dans la liste, formation sans `ai.squad`.
+
+**Testbed** : `escouade_tireur` (trois `salve` en fenêtres de 40, arc de 100). **Gungeon** :
+`bullet_kin_squad` (arc de 40, la salle est petite), niveau `EscouadeEW` de `maps/salles.ldtk`
+(`room_kind: escouade`, type `rooms/escouade.ron`), grammaire `court_escouade` et séquence
+`etages_court_escouade`. Ni `bullet_kin` ni les grammaires `court`/`etage`/`grand` ne changent : le nouveau
+type de salle n'est tiré par aucune.
+
+**Attentes** : `EnemyDistance` accepte `target: Entity(<EntityRef>)` (écarts entre membres).
+**Scénarios** : `formation_arc` (convergence à 100, écarts angulaires 59/113), `formation_member_dies`
+(le rang 0 tombe, les deux restants se placent aux extrémités), `formation_alternate_fire` (2, 4, 6 puis 8
+flèches au lieu de 6, 12, 18), `formation_two_players` (arc autour du joueur le plus proche),
+`gungeon_squad`.
+
 ## 45. Boss et arène (M2-T7, chantier D4)
 
 Complète §37 (phases, frise) et §35 (salles verrouillées) : tir **par phase**, salle de boss,
@@ -3168,3 +3225,60 @@ pool inconnu dans `loot` d'une séquence. Fixtures `loot_empty_table`, `loot_wei
 **Hors périmètre** : le butin du boss (table `boss` de `gungeon` prévue, branchée par M2-T7), la boutique (T6),
 le HUD des clés (T18). Les deux types de salle `recompense` et `boutique` de `gungeon` gagnent un coffre : les
 scénarios qui jouent ces gabarits (étages `etage`/`grand`) changent de trace, preuve dans le rapport.
+
+## 53. Lint des kinds M2 et atteignabilité statique (M2-T15, voie V2)
+
+Lint seulement : aucune simulation touchée, aucune trace ne bouge.
+
+**Avertissements.** `content::warnings(&registry, &manifest) -> Vec<LintWarning>` (`crates/content/src/reach.rs`,
+kinds `Unreachable` et `UnreadStat`). `alacod lint` les liste sur stderr (« avertissement : … ») et le
+code de sortie ne change pas ; `LintError`/`load_and_lint` sont inchangés.
+
+**Stat sans lecteur.** `sim_core::stats::stat_reader(&StatId) -> Option<&'static str>` : liste fermée
+des stats lues par la simulation, avec l'endroit de lecture ; à tenir à jour **à la main** quand un
+système lit une nouvelle stat. Un modificateur (ou une base `stats:`) sur une stat sans lecteur est une
+erreur `LintErrorKind::UnreadStat` (`Luck`, tout `Custom` sauf `powerup_currency_multiplier`).
+**`Armor` : avertissement seulement** tant que D61 n'est pas mergée (retirer l'exception de
+`lint_stat_readers` et ajouter `Armor` à `stat_reader` en même temps que son lecteur).
+Usages inspectés : `stats` et `effects` des personnages, variantes, perks, objets, synergies, mutations,
+power-ups.
+
+**Atteignabilité.** Racines : `entry.start_map` et chaque niveau de chaque séquence `Floors` (carte,
+`cave:<id>`, `floor:<id>`). Il n'y a pas de séquence « par défaut » stable (le mode `Floors` prend la
+première par ordre d'id, et `etage_1` de gungeon est une carte fixe) : toute séquence déclarée compte.
+Types tirables d'une grammaire = `FloorGrammar::kinds_needed()`. Avertissements :
+- type de salle (`rooms/<id>.ron`) qu'aucune grammaire ni carte posée ne peut tirer ;
+- gabarit d'une carte `templates` dont le type n'est tiré par aucune grammaire atteinte ;
+- ennemi (`ai` présent) absent des niveaux jouables (cartes posées, gabarits tirables), des arènes
+  des salles tirables, des vagues, des cavernes et des renforts de boss (point fixe) ;
+- objet sans source : `starting_consumables`, `consumables_per_floor`, **pool**. Le point de branchement
+  de M2-T5 est `reach::loot_pool_items` (et `loot_pool_weapons`), vides aujourd'hui : y renvoyer les
+  ids de chaque pool (une dizaine de lignes) ;
+- arme sans source : `starting_weapons`, `WeaponLocation` des niveaux jouables, `weapon_pool` de
+  progression, pools.
+`MapEntry::levels` (`MapLevelInfo` : type de salle, personnages, armes murales par niveau LDtk) porte
+les données. Limites : pas de lecture des scénarios (une arme ou un objet donné par scénario seulement
+est signalé), ni des cartes assemblées autrement que par les désignations ci-dessus ; la sandbox
+`testbed` (arènes de test) produit donc beaucoup d'avertissements voulus.
+
+**Audit des kinds M2** (références vérifiées / bornes vérifiées / fixtures) :
+
+| Kind | Références | Bornes | Fixtures |
+|---|---|---|---|
+| `rooms` | `room_kind` des cartes (`lint_room_kinds`) ; ennemis d'arène | arène : clock>0, vagues datées, ordre, count>0 | `room_kind_unknown`, `arena_*` |
+| `floor_grammars` | carte `templates`, gabarit par type nécessaire | `problems()` (rooms, requis, distance) | `floor_required_without_template`, `floor_bounds_inverted` |
+| `floors` | carte, caverne, grammaire, `consumables_per_floor` | levels non vide, cavernes sans ennemi | `floors_*` |
+| `items` | `cost`, stats (Parse) | charge, pickup_range, blank, uses_per_floor, cost>0 ; **stat lue (T15)** | `item_*`, `stat_unread` |
+| `synergies` | objets requis | ≥2 objets distincts, doublon d'ensemble | `synergy_*` |
+| `props` | — | rayons, dégâts > 0 | `prop_barrel_radius_non_positive`… |
+| `surfaces` | — | doublon de valeur, facteurs > 0, fosse | `surface_*`, `pit_*` |
+| personnages boss | patterns, ennemis de renfort, pas de répétition sans fin | santé, phases, `until`, count>0 | `boss_*` |
+| profil | `entry.progression`, horloges | — | `entry_*` |
+| stats (T15) | — | liste fermée `stat_reader` | `stat_unread`, `stat_armor_warning` |
+| atteignabilité (T15) | racines → salles/gabarits/ennemis/objets/armes | — | `reach_*` |
+
+Trous comblés : la lecture des stats (nouvelle règle) et l'atteignabilité (nouveaux avertissements).
+Aucun autre trou trouvé dans l'audit (les `props` et le profil n'ont pas de référence à vérifier).
+
+**Fixtures.** `stat_unread` (erreur), `stat_armor_warning` (avertissement), `reach_room_unreachable`
+(type de salle et gabarit), `reach_enemy_unplaced`, `reach_item_no_source`, `reach_weapon_no_source`.

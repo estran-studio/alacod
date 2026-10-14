@@ -1,0 +1,5 @@
+// `gungeon` (M2-T8) : un étage minimal de la grammaire `court_escouade` (départ, escouade, boss).
+(
+    levels: ["floor:court_escouade"],
+    victory_at_end: true,
+)
