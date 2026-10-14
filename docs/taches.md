@@ -573,7 +573,7 @@ l'ancienne machine.
 - M2-T13 Hub (G2, 3 j) : carte de hub (la Brèche), PNJ marchand de déblocages, entrée en run.
 
 **V2 données**
-- M2-T14 Contenu `gungeon` (6 j) : vingt armes, vingt objets, dix ennemis, un boss, quinze gabarits
+- M2-T14 Contenu `gungeon` (6 j ; fiche `docs/taches/m2-t14-contenu-gungeon.md`, en quatre parties a/b/c/d selon les prérequis ; T14a armes possible dès maintenant) : vingt armes, vingt objets, dix ennemis, un boss, quinze gabarits
   de salles, `test:` sur chaque définition ; lint vert, scénarios générés verts.
 - M2-T15 Lint des nouveaux kinds (2 j).
 

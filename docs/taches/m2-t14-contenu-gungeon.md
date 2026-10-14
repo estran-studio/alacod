@@ -1,0 +1,46 @@
+# m2-t14-contenu-gungeon — contenu du clone `gungeon` (M2, V2, données)
+
+Lire d'abord `docs/taches/README.md`, `CLAUDE.md`, `docs/conventions.md` §4 (checklist d'un
+vocabulaire, `test:` des définitions), §16 et §41 (projectiles, patterns v2), §22 et §49
+(behaviors, formations), §36/§44/§48/§50 (objets, synergies, butin, boutique), §37/§45 (boss), §40
+(gabarits et grammaire d'étage), §46 (surfaces v2), et `games/gungeon/assets/`. Estimation : 6 j,
+**découpée en quatre parties livrables séparément** (une branche chacune) : le contenu touche les
+mêmes fichiers que les tâches V1 en cours, chaque partie ne démarre que quand ses prérequis sont
+sur `main`. Section de conventions réservée : **§52** (une sous-section par partie).
+
+## Objectif (plan M2)
+
+Vingt armes, vingt objets, dix ennemis, un boss complet, quinze gabarits de salles ; un `test:` sur
+chaque définition qui en accepte un ; `make lint` vert, scénarios générés (`make gen GAME=gungeon`)
+verts. Rien de nouveau côté moteur : une mécanique qui manque est notée au rapport (dette), pas
+codée ici.
+
+## Parties
+
+1. **T14a armes** (prérequis : rien de plus que `main`) — branche `m2-t14a-armes` : quatorze armes de
+   plus (vingt au total), chacune avec un caractère lisible (pistolets, fusil à pompe, mitraillette,
+   arc, lance-roquettes, laser, armes à rebond/perçantes/à tête chercheuse) en composant les
+   comportements existants (`firing_mode`, `bullet_type`, modificateurs T1.1, patterns) ; munitions
+   par type ; `test:` par arme ; scénarios générés `weapon_*`.
+2. **T14b objets** (prérequis : M2-T5, M2-T6, D61 tranchée) — `m2-t14b-objets` : dix objets de plus
+   (vingt), quatre synergies, répartis dans les tables de butin et de boutique par rareté ; **aucun
+   objet d'armure tant que D61 est ouverte** (la stat `Armor` n'est lue par rien).
+3. **T14c ennemis et boss** (prérequis : M2-T7, M2-T8) — `m2-t14c-ennemis` : six ennemis de plus
+   (dix), variantes (§25) et escouades, patterns nommés v2 ; le boss de fin d'étage en trois phases
+   complet ; `test:` par ennemi.
+4. **T14d gabarits** (prérequis : M2-T11, M2-T5, M2-T6) — `m2-t14d-gabarits` : quinze gabarits de
+   salles au total (combat, coffre, boutique, boss, secret), surfaces et props, la grammaire `etage`
+   valide sur 1 000 graines (test de M2-T10) et la campagne du bot explorateur (M2-T16) sans
+   soft-lock sur 200 graines.
+
+## Règles
+
+Données seulement (`games/gungeon/assets/`, scénarios, traces gungeon). Les traces `gungeon` qui
+bougent : preuve §5 contre le `main` du moment, cause dans le commit. Les autres jeux ne bougent pas.
+`make lint GAME=gungeon` vert, `make gen GAME=gungeon` sans diff après génération.
+
+## Vérification (par partie)
+
+`make test_scenarios_par` (ou `make test_scenarios`), `make test_crates`, `make lint` ×4, fmt,
+`make gen` ×4 ; p2p gungeon à deux clients ; rapport `docs/taches/rapports/m2-t14<x>-*.md` ;
+livrer par `LIVRÉ m2-t14<x>-… <sha>`.
