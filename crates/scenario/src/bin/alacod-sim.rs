@@ -84,7 +84,7 @@ struct SimResult {
     players_end: Vec<PlayerEnd>,
     /// Revue M0 (S5) : une entrée par vague commencée (équilibrage des premières vagues).
     waves: Vec<WaveStat>,
-    /// M2-T16 : issue de la graine (voir [`outcome`]).
+    /// M2-T16 : issue de la graine (voir [`classify_outcome`]).
     outcome: &'static str,
     /// M2-T16 : salles par étage atteint (mode `Floors` avec salles typées), vide sinon.
     #[serde(skip_serializing_if = "Vec::is_empty")]
@@ -114,7 +114,7 @@ struct RoomProbe {
 /// M2-T16 : classement d'une graine. Ordre : desync, puis issue de la partie (victoire ou
 /// défaite = `mort`), objectif atteint (`--until-*`), mort de tous les joueurs, soft-lock
 /// `Floors`, plafond de frames.
-fn outcome(
+fn classify_outcome(
     desync: bool,
     run_end: Option<&str>,
     softlock: bool,
@@ -581,7 +581,7 @@ fn main() {
             doors_opened: outcome.events.iter().filter(|e| e.kind == "door").count() as u32,
             players_end: players_end.lock().unwrap().clone(),
             waves: std::mem::take(&mut wave_probe.lock().unwrap().waves),
-            outcome: outcome(
+            outcome: classify_outcome(
                 desync,
                 outcome_end.as_deref(),
                 outcome_softlock,
