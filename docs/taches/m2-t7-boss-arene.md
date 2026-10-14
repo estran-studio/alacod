@@ -52,7 +52,8 @@ Butin du boss (M2-T5), ralenti et feedback de fin de boss (M2-T19), HUD du boss 
 Tâche prévue pour une session Claude Code cloud (pas la machine `orca`) : ignorer les consignes
 `orca` du README (§1 : `make sweep`, ports de signaling) ; build sans `game/dev-dylib` si
 `./scripts/dev-features.sh` ne le propose pas. La session ne peut pas écrire à l'orchestrateur :
-**pousser la branche régulièrement** (commits WIP acceptés) et finir par un commit
+**pousser la branche régulièrement** (commits WIP acceptés ; le conteneur redémarre environ
+toutes les deux heures et tue les processus d'arrière-plan : lancer la suite au premier plan) et finir par un commit
 `LIVRÉ m2-t7-boss-arene` qui contient le rapport. p2p : `make test_multiplayer` si docker et un
 affichage sont disponibles, sinon le dire au rapport (l'orchestrateur le fera).
 
