@@ -78,6 +78,7 @@ pub fn run(registry: &Registry, manifest: &GameManifest) -> Vec<LintError> {
     lint_statuses(registry, &mut errors);
     lint_map_characters(registry, &mut errors);
     lint_room_kinds(registry, &mut errors);
+    lint_arenas(registry, &mut errors);
     lint_items(registry, &mut errors);
     lint_synergies(registry, &mut errors);
     lint_entry_progression(registry, manifest, &mut errors);
@@ -2868,6 +2869,74 @@ fn lint_room_kinds(registry: &Registry, errors: &mut Vec<LintError>) {
                         }
                     ),
                 });
+            }
+        }
+    }
+}
+
+/// M2-T7 (§45) : une arène a une horloge > 0, au moins une vague, des vagues datées dans
+/// l'horloge (`at < clock`), dans l'ordre, et des ennemis connus en nombre > 0.
+fn lint_arenas(registry: &Registry, errors: &mut Vec<LintError>) {
+    for room in registry.rooms.values() {
+        let Some(arena) = &room.def.arena else {
+            continue;
+        };
+        let mut push = |kind: LintErrorKind, message: String| {
+            errors.push(LintError {
+                kind,
+                file: room.file.display().to_string(),
+                message: format!("salle « {} » : arène : {message}", room.id),
+            })
+        };
+        if arena.clock == 0 {
+            push(LintErrorKind::OutOfRange, "clock = 0 : doit être > 0".into());
+        }
+        if arena.waves.is_empty() {
+            push(
+                LintErrorKind::OutOfRange,
+                "aucune vague (au moins une)".into(),
+            );
+        }
+        let mut previous: Option<u32> = None;
+        for (index, wave) in arena.waves.iter().enumerate() {
+            if arena.clock > 0 && wave.at >= arena.clock {
+                push(
+                    LintErrorKind::OutOfRange,
+                    format!(
+                        "waves[{index}] : at = {} >= clock ({}) : la vague n'arriverait jamais",
+                        wave.at, arena.clock
+                    ),
+                );
+            }
+            if previous.is_some_and(|before| wave.at < before) {
+                push(
+                    LintErrorKind::OutOfRange,
+                    format!("waves[{index}] : at = {} avant la vague précédente", wave.at),
+                );
+            }
+            previous = Some(wave.at);
+            if wave.enemies.is_empty() {
+                push(
+                    LintErrorKind::OutOfRange,
+                    format!("waves[{index}] : aucun ennemi"),
+                );
+            }
+            for (id, count) in &wave.enemies {
+                if !registry
+                    .characters
+                    .contains_key(&registry::CharacterId::from(id.clone()))
+                {
+                    push(
+                        LintErrorKind::BrokenReference,
+                        format!("waves[{index}] : personnage « {id} » inconnu"),
+                    );
+                }
+                if *count == 0 {
+                    push(
+                        LintErrorKind::OutOfRange,
+                        format!("waves[{index}] : « {id} » : count = 0 : doit être > 0"),
+                    );
+                }
             }
         }
     }

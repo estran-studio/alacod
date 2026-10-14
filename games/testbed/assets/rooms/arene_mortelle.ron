@@ -1,0 +1,10 @@
+// Type de salle `arene_mortelle` du testbed (M2-T7, docs/conventions.md §45) : arène que le joueur
+// immobile ne peut pas tenir (cinq `follower` dès le verrouillage, horloge longue). Scénario `arena_fail`.
+(
+    arena: Some((
+        clock: 3000,
+        waves: [
+            (at: 0, enemies: [("follower", 5)]),
+        ],
+    )),
+)

@@ -23,7 +23,8 @@
 
 use bevy::ecs::system::SystemParam;
 use bevy::prelude::*;
-use bevy_fixed::fixed_math::{Fixed, FixedVec2};
+use bevy_fixed::fixed_math::{Fixed, FixedVec2, FixedVec3};
+use bevy_fixed::rng::RngStreams;
 use bevy_ggrs::GgrsSchedule;
 use sim_core::frame_events::FrameEvents;
 use sim_core::system_set::RollbackSystemSet;
@@ -38,15 +39,22 @@ use world::{
 use combat::actors::Velocity;
 use combat::downed::Downed;
 use game::boss::ReinforcementRequest;
+use game::character::config::CharacterConfig;
 use game::character::enemy::ai::navigation::{FlowFieldCache, GridPos};
+use game::character::enemy::create::spawn_enemy;
 use game::character::enemy::Enemy;
 use game::character::health::Death;
 use game::character::player::Player;
+use game::collider::CollisionSettings;
 use game::collider::{is_colliding, Collider, CollisionLayer};
+use game::global_asset::GlobalAsset;
 use game::interaction::Interactable;
+use game::weapons::{melee::MeleeWeaponsConfig, WeaponsConfig};
 use map::game::entity::map::door::DoorComponent;
 use map::game::entity::map::level_id::LevelId;
 use map::game::entity::map::room::RoomBounds;
+use sim_core::team::Team;
+use utils::net_id::GgrsNetIdFactory;
 
 /// Collider d'une porte fermée, pour la refermer (statique, hors rollback : la même valeur
 /// pour toute la partie).
@@ -64,7 +72,9 @@ impl Plugin for RoomsPlugin {
             GgrsSchedule,
             (
                 // Avant l'IA : les ennemis d'une salle dormante sautent leur tour.
-                room_dormancy_system.in_set(RollbackSystemSet::EnemySpawning),
+                room_dormancy_system
+                    .before(game::boss::boss_phase_system)
+                    .in_set(RollbackSystemSet::EnemySpawning),
                 room_lock_system
                     .after(super::floors::floor_transition_system)
                     .in_set(RollbackSystemSet::Run),
@@ -463,6 +473,189 @@ pub fn room_lock_system(
                 );
             }
             _ => {}
+        }
+    }
+}
+
+/// Paramètres d'apparition d'un personnage en cours de partie (renforts de boss, vagues
+/// d'arène, M2-T7).
+#[derive(SystemParam)]
+pub struct SpawnParams<'w> {
+    global_assets: Res<'w, GlobalAsset>,
+    collision_settings: Res<'w, CollisionSettings>,
+    weapons_asset: Res<'w, Assets<WeaponsConfig>>,
+    melee_weapons_asset: Res<'w, Assets<MeleeWeaponsConfig>>,
+    characters_asset: Res<'w, Assets<CharacterConfig>>,
+    balance: Res<'w, game::balance::ResolvedBalance>,
+    difficulty: game::clock::DifficultyReader<'w>,
+    id_factory: ResMut<'w, GgrsNetIdFactory>,
+    rng: ResMut<'w, RngStreams>,
+    flow: Res<'w, FlowFieldCache>,
+}
+
+/// Marge (en pixels) gardée entre une apparition et les bords de la salle.
+const SPAWN_INSET: i32 = 40;
+/// Tirages de position avant de se rabattre sur le centre de la salle.
+const SPAWN_TRIES: u32 = 16;
+
+impl SpawnParams<'_> {
+    /// Fait apparaître `count` personnages `id` dans la salle `level` : positions tirées du flux
+    /// RNG `room:<niveau>` (case libre pour le profil `Ground`), repli sur le centre.
+    fn spawn_in_room(
+        &mut self,
+        commands: &mut Commands,
+        level: &str,
+        bounds: &RoomBounds,
+        id: &str,
+        count: u32,
+    ) {
+        let Some(health_max) = self.balance.health_max_by_character.get(id).copied() else {
+            warn!("renforts : personnage « {id} » sans santé résolue (voir `alacod lint`), ignoré");
+            return;
+        };
+        let health_max = game::clock::scale(health_max, self.difficulty.current());
+        let inset = Fixed::from_num(SPAWN_INSET);
+        let width = (bounds.size.x - inset * 2).to_num::<i32>().max(1) as u32;
+        let height = (bounds.size.y - inset * 2).to_num::<i32>().max(1) as u32;
+        let stream = room_rng_stream(level);
+        for _ in 0..count {
+            let mut position = FixedVec2::new(
+                bounds.position.x + bounds.size.x / 2,
+                bounds.position.y + bounds.size.y / 2,
+            );
+            for _ in 0..SPAWN_TRIES {
+                let rng = self.rng.get_mut(&stream);
+                let x = bounds.position.x + inset + Fixed::from_num(rng.next_u32_range(0, width));
+                let y = bounds.position.y + inset + Fixed::from_num(rng.next_u32_range(0, height));
+                let candidate = FixedVec2::new(x, y);
+                if !self.flow.is_blocked(
+                    &GridPos::from_fixed(candidate),
+                    game::character::enemy::ai::navigation::NavProfile::Ground,
+                ) {
+                    position = candidate;
+                    break;
+                }
+            }
+            spawn_enemy(
+                id.to_string(),
+                FixedVec3::new(position.x, position.y, Fixed::ZERO),
+                commands,
+                &self.weapons_asset,
+                &self.melee_weapons_asset,
+                &self.characters_asset,
+                &self.global_assets,
+                &self.collision_settings,
+                &mut self.id_factory,
+                Team::Enemies,
+                health_max,
+                self.rng.run_seed,
+                None,
+            );
+        }
+    }
+}
+
+/// Renforts d'une frise de boss (`SpawnEnemies`, M2-T7) : exécute les demandes de la frame dans
+/// la salle qui contient le boss, dans l'ordre d'émission (`GgrsNetId` croissant du boss).
+pub fn boss_reinforcements_system(
+    mut commands: Commands,
+    mut requests: ResMut<FrameEvents<ReinforcementRequest>>,
+    rooms: CurrentRooms,
+    mut spawn: SpawnParams,
+) {
+    let requests: Vec<ReinforcementRequest> = requests.iter().cloned().collect();
+    for request in requests {
+        let at = FixedVec2::new(request.x, request.y);
+        let Some((level, bounds, _)) = sorted_rooms(&rooms)
+            .into_iter()
+            .find(|(_, bounds, _)| inside_box(bounds.position, bounds.size, at, Fixed::ZERO))
+        else {
+            warn!(
+                "renforts : le boss {} n'est dans aucune salle, {} « {} » ignoré",
+                request.boss, request.count, request.id
+            );
+            continue;
+        };
+        spawn.spawn_in_room(&mut commands, &level.0, bounds, &request.id, request.count);
+    }
+}
+
+/// Vagues internes d'une arène verrouillée (M2-T7) : à `at` frames du verrouillage, les
+/// personnages de la vague apparaissent. Aucun curseur : la vague due se déduit de l'horloge.
+pub fn arena_waves_system(
+    mut commands: Commands,
+    frame: Res<FrameCount>,
+    table: Res<RoomKindTable>,
+    states: Res<RoomStates>,
+    clocks: Res<ArenaClocks>,
+    rooms: CurrentRooms,
+    mut spawn: SpawnParams,
+) {
+    for (level, bounds, kind) in sorted_rooms(&rooms) {
+        let Some(arena) = table.arena(&kind.0) else {
+            continue;
+        };
+        if states.get(&level.0) != RoomState::Locked {
+            continue;
+        }
+        let Some(started) = clocks.0.get(&level.0) else {
+            continue;
+        };
+        let elapsed = frame.frame.saturating_sub(*started);
+        for wave in arena.waves.iter().filter(|wave| wave.at == elapsed) {
+            for (id, count) in &wave.enemies {
+                info!(
+                    "ggrs{{f={} arena_wave room={} at={} id={} count={}}}",
+                    frame.frame, level.0, wave.at, id, count
+                );
+                spawn.spawn_in_room(&mut commands, &level.0, bounds, id, *count);
+            }
+        }
+    }
+}
+
+/// Mort d'un boss (M2-T7) : les autres ennemis de sa salle meurent (renforts compris), pour que
+/// la salle passe `Cleared` dans la frame (`room_lock_system`) et que les portes se rouvrent.
+#[allow(clippy::type_complexity)]
+pub fn boss_room_clear_system(
+    mut commands: Commands,
+    frame: Res<FrameCount>,
+    defeated: Res<FrameEvents<behaviors::BossDefeated>>,
+    rooms: CurrentRooms,
+    enemies: Query<
+        (
+            &GgrsNetId,
+            Entity,
+            &bevy_fixed::fixed_math::FixedTransform3D,
+            Has<Death>,
+        ),
+        (With<Enemy>, Without<Player>),
+    >,
+) {
+    for event in defeated.iter() {
+        let at = FixedVec2::new(event.x, event.y);
+        let Some((_, bounds, _)) = sorted_rooms(&rooms)
+            .into_iter()
+            .find(|(_, bounds, _)| inside_box(bounds.position, bounds.size, at, Fixed::ZERO))
+        else {
+            continue;
+        };
+        for (net_id, entity, t, dead) in order_iter!(enemies) {
+            if !dead
+                && net_id.0 != event.net_id
+                && inside_box(
+                    bounds.position,
+                    bounds.size,
+                    t.translation.truncate(),
+                    Fixed::ZERO,
+                )
+            {
+                info!(
+                    "ggrs{{f={} boss_room_clear net_id={}}}",
+                    frame.frame, net_id.0
+                );
+                commands.entity(entity).insert(Death { last_hit_by: None });
+            }
         }
     }
 }
