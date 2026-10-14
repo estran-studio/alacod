@@ -582,18 +582,21 @@ l'ancienne machine.
 **V2 données**
 - M2-T14 Contenu `gungeon` (6 j ; fiche `docs/taches/m2-t14-contenu-gungeon.md`, en quatre parties a/b/c/d selon les prérequis ; T14a armes possible dès maintenant) : vingt armes, vingt objets, dix ennemis, un boss, quinze gabarits
   de salles, `test:` sur chaque définition ; lint vert, scénarios générés verts.
-- M2-T15 Lint des nouveaux kinds (2 j).
+- M2-T15 Lint des nouveaux kinds (2 j ; fiche `docs/taches/m2-t15-lint-atteignabilite.md`, cloud) : audit des règles M2, atteignabilité statique du contenu (avertissements), stat sans lecteur.
 
 **V3 outillage**
 - M2-T16 Bot explorateur (K2 v1, 4 j ; fiche `docs/taches/m2-t16-bot-explorateur.md`, cloud) : visite les salles, nettoie, prend le butin, va au boss ;
   `alacod sim --until-floor`. Acceptation : 200 graines sans soft-lock ni desync.
-- M2-T17 Générateur v2 et attentes (3 j) : gabarits par objet et par salle ; attentes `RoomState`,
+- Perf de la suite de scénarios (outillage, 3 j ; fiche `docs/taches/perf-suite-scenarios.md`, cloud) :
+  mesurer le coût fixe par frame (~10 fps même sur `idle`), l'optimiser sans changer ce que la suite
+  vérifie, tranches réparties par durée. Acceptation : suite deux fois plus rapide, aucune trace bougée.
+- M2-T17 Générateur v2 et attentes (3 j ; fiche `docs/taches/m2-t17-generateur-v2.md`, cloud) : gabarits par objet et par salle ; attentes `RoomState`,
   `Inventory`, `BossPhase`, `ProfileHas`.
 
 **V4 présentation**
 - M2-T18 Test comparatif d'UI (I1, décision §7 n° 4, 2 j) puis HUD gungeon : blanks, clés, objets,
   actif et sa charge, minicarte.
-- M2-T19 Feedback v2 (I2 v2, 2 j) : télégraphes de patterns, flash du blank, ralenti de fin de boss.
+- M2-T19 Feedback v2 (I2 v2, 2 j ; fiche `docs/taches/m2-t19-feedback-v2.md`, cloud) : télégraphes de patterns, flash du blank, ralenti de fin de boss.
 
 **Ordre de merge** (prévu) : vague 0 (E1, objets, boss/profil, squelette) → V3 → V2 → V1 (V1a, V1d avec
 M2-T9 seule à déplacer toutes les cartes générées, V1b, V1c, V1e) → V4.
@@ -1168,6 +1171,7 @@ coller le préambule puis la fiche dans son prompt.
 | 2026-10-14 | m2-t11-surfaces-v2 « surfaces v2 » (M2-T11, session cloud : fosses (chute, dégâts `fall_damage`, retour à la dernière case sûre `PitSafePosition`, le dash les franchit), tables renversables (couvert contre les balles), barils explosifs en chaîne ; composants neutres, `BulletWallHit` transitoire ; 4 lints + fixtures ; props dans les gabarits de `salles.ldtk` ; 5 scénarios `pit_fall`, `pit_dash`, `pit_enemy_path`, `table_flip_cover`, `barrel_chain` ; conventions §46) | `m2-t11-surfaces-v2` (`934b11be`) | Claude (cloud) | Cloud : `bench_floor` réenregistré (12 barils + 6 tables dans l'étage `grand`, décalage des `GgrsNetId`, preuve §5 au rapport), suite, test_crates, lint ×4, fmt, gen ×4 ; p2p non fait. Merge en train avec M2-T16 sur main (M2-T7 inclus), voir la ligne suivante. |
 | 2026-10-14 | m2-t16-bot-explorateur « bot explorateur » (M2-T16, session cloud : bot `explorateur` qui parcourt un étage assemblé par grammaire (salles, combat, boss, portail) sans input scripté ; `alacod-sim` campagne par lots ; 200 graines `etages_court_deux` : 1 bot 177 étages franchis, 23 morts au boss (ancien `gatling`), 0 soft-lock, 0 desync ; 2 bots 200/200 ; scénarios `bot_explorer_floor`, `bot_explorer_two` ; conventions §47, D59 mise à jour) | `m2-t16-bot-explorateur` (`1d5b844f`) | Claude (cloud) | Train T11 + T16 sur main `05859ef0` (orch) : conflits additifs résolus (`world/src/plugin.rs`, conventions §45–47, D59 avec la décision de William et le bilan de campagne). Suite en 4 tranches sans bless : 3 traces bougent, `bench_floor`, `bot_explorer_floor`, `bot_explorer_two` ; preuve §5 (branches livrées contre la fusion) : première différence f0, seule ligne du `gatling` de M2-T7 (MaxHealth 150 → 120, `started` true → false) + `ArenaClocks` vide ; réenregistrées (`5c51453e`). `bot_explorer_floor` : le bot bat le nouveau boss (f621), franchit le portail f738 puis meurt f821 dans la première salle de l'étage 1 : scénario arrêté à f760. Puis test_crates, lint ×4, fmt, scripts, gen ×4, p2p gungeon et testbed à deux clients (599/599 identiques). Reste : campagne T16 à rejouer avec le boss à trois phases (morts du bot seul). Merge `5c51453e` (orch). |
 | 2026-10-14 | plan-assets « plan des assets sous licence libre » (D32, partie 1, session cloud : `docs/plan-assets.md`, inventaire par jeu, besoins par priorité, contraintes CC0/CC BY, sources candidates, lots A à H ; constats : sons actuels sous licence Pixabay (hors règle), NuclearBlaze CC BY-SA, Dungeon_Tileset licence d'auteur, `Slash_strip3.png` et `Zombie2.png` sans source) | `plan-assets` (`3d851b90`) | Claude (cloud) | Doc seule. Partie 2 (lot A, sons de tir) non faite : le réseau cloud refuse (403) kenney.nl, opengameart.org, freesound.org, itch.io, archive.org, pixabay.com. William la reprend sur son poste. Licences des sources candidates à vérifier sur les pages d'auteur. |
+| 2026-10-14 | m2-t8-formations « formations simples » (M2-T8, b0 : escouades en arc (`Formation(Arc)`, escouade dérivée `SquadSlots` recalculée à chaque frame, non rollbackée), tir alterné (`period`, `volley`), 5 lints + fixtures, `bullet_kin_squad` et salle `escouade` dans `gungeon` (grammaire `court_escouade`), 5 scénarios `formation_arc`, `formation_alternate_fire`, `formation_member_dies`, `formation_two_players`, `gungeon_squad` ; conventions §49) | `m2-t8-formations` (`f5f7cb14`) | Claude (b0) | b0, sur la branche avec main `6de77f01` fusionné (conflit `salles.ldtk` : version de main + niveau `EscouadeEW` réinjecté) : suite sans bless, aucune trace existante bougée, test_crates, lint ×4, gen ×4, fmt, scripts, p2p gungeon, `fuzz_inputs` 0:8 sur deux scénarios. Orch : relecture (règles GGRS ; `SquadSlots` vidé avant tout retour anticipé), suite en 4 tranches verte (248 scénarios, 3709 s), fmt. Écart à la fiche : cible de l'escouade = joueur debout le plus proche du centroïde en distance euclidienne, pas par le chemin. Garde-fou `DashExtra`/`Projectiles` (`6abe6236`). Merge `1f3de825` (orch). |
 Orchestration : Fable crée les worktrees (`scripts/task-new.sh` du meta-repo), lance un agent par
 tâche avec le modèle le moins cher (Haiku d'abord, Sonnet si une tâche échoue deux fois), vérifie
 la branche (`make test_scenarios`, `cargo test`, lecture du diff), fusionne dans `main`
