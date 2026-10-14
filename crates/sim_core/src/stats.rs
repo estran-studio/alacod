@@ -57,7 +57,9 @@ pub fn stat_reader(stat: &StatId) -> Option<&'static str> {
     match stat {
         StatId::MaxHealth => Some("character::health (santé max), interaction (soin)"),
         StatId::HealthRegen => Some("character::health (régénération)"),
-        StatId::MoveSpeed => Some("character::player::input, combat::projectile, character::surface"),
+        StatId::MoveSpeed => {
+            Some("character::player::input, combat::projectile, character::surface")
+        }
         StatId::Acceleration => Some("character::player::input (accélération)"),
         StatId::SprintMultiplier => Some("character::player::input (sprint)"),
         StatId::Damage => Some("combat::weapons (dégâts), character::enemy::ai::behavior"),

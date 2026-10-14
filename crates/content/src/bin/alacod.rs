@@ -47,7 +47,11 @@ fn lint(game_dir: &PathBuf) -> ExitCode {
         eprintln!("avertissement : {warning}");
     }
     if !warnings.is_empty() {
-        eprintln!("{} : {} avertissement(s)", game_dir.display(), warnings.len());
+        eprintln!(
+            "{} : {} avertissement(s)",
+            game_dir.display(),
+            warnings.len()
+        );
     }
 
     if errors.is_empty() {

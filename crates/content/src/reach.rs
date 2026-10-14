@@ -98,7 +98,9 @@ fn reach<'a>(registry: &'a Registry, manifest: &'a GameManifest) -> Reach<'a> {
         let kinds: BTreeSet<&str> = entry.grammar.kinds_needed().into_iter().collect();
         for (level, kind) in &map.room_kinds {
             if kinds.contains(kind.as_str()) {
-                reach.drawn_templates.insert((map_id.clone(), level.clone()));
+                reach
+                    .drawn_templates
+                    .insert((map_id.clone(), level.clone()));
             }
         }
         reach.room_kinds.extend(kinds.iter().map(|k| k.to_string()));
@@ -204,12 +206,20 @@ pub(crate) fn stat_uses(registry: &Registry) -> Vec<(String, String, StatId)> {
     };
     for c in registry.characters.values() {
         for effect in &c.effects {
-            actions(&c.file, format!("personnage « {} » : effects", c.id), &effect.r#do);
+            actions(
+                &c.file,
+                format!("personnage « {} » : effects", c.id),
+                &effect.r#do,
+            );
         }
     }
     for item in registry.items.values() {
         for effect in &item.def.effects {
-            actions(&item.file, format!("objet « {} » : effects", item.id), &effect.r#do);
+            actions(
+                &item.file,
+                format!("objet « {} » : effects", item.id),
+                &effect.r#do,
+            );
         }
     }
     for synergy in registry.synergies.values() {
@@ -333,7 +343,10 @@ pub fn warnings(registry: &Registry, manifest: &GameManifest) -> Vec<LintWarning
             continue;
         }
         for (level, kind) in &map.room_kinds {
-            if !reach.drawn_templates.contains(&(map.id.clone(), level.clone())) {
+            if !reach
+                .drawn_templates
+                .contains(&(map.id.clone(), level.clone()))
+            {
                 warn(
                     LintWarningKind::Unreachable,
                     map.file.display().to_string(),
