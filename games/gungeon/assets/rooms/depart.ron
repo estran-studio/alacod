@@ -1,2 +1,3 @@
 // Type de salle `depart` (M2-E1, docs/conventions.md §35).
-(locks: false)
+(locks: false, test: Some((frames: 120, floors: "etages_court", seed: 1)))
+// M2-T17 (docs/conventions.md §54) : scénario généré `room_depart` (salle qui ne verrouille pas : le joueur reste en vie).

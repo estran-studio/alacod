@@ -8,4 +8,6 @@
     ],
     tags: ["defensif"],
     rarity: Rare,
+    // M2-T17 (docs/conventions.md §54) : scénario généré `item_amulette`.
+    test: Some((frames: 60)),
 )

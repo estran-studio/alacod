@@ -6,7 +6,7 @@ Scenario(
     game: "gungeon",
     map: "maps/etage_1.ldtk",
     map_seed: 1,
-    frames: 500,
+    frames: 400,
     players: [
         PlayerScript(
             inputs: [],
@@ -17,16 +17,16 @@ Scenario(
         Event(
             kind: "room",
             label_contains: "salle combat verrouillée",
-            by_frame: 500,
+            by_frame: 400,
         ),
         Event(
             kind: "room",
             label_contains: "salle combat nettoyée",
-            by_frame: 500,
+            by_frame: 400,
         ),
         PlayerAlive(
             handle: 0,
-            at_frame: 499,
+            at_frame: 399,
         ),
     ],
     powerup_drop_chance_override: "0",

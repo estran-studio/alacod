@@ -1,2 +1,3 @@
 // Salle de récompense : jamais verrouillée.
-(locks: false)
+(locks: false, test: Some((frames: 120, floors: "salle_combat", seed: 1)))
+// M2-T17 (docs/conventions.md §54) : scénario généré `room_recompense` (salle qui ne verrouille pas : le joueur reste en vie).

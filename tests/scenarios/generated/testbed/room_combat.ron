@@ -6,7 +6,7 @@ Scenario(
     game: "testbed",
     map: "testbed/arena.ldtk",
     map_seed: 1,
-    frames: 1500,
+    frames: 700,
     players: [
         PlayerScript(
             inputs: [],
@@ -17,16 +17,16 @@ Scenario(
         Event(
             kind: "room",
             label_contains: "salle combat verrouillée",
-            by_frame: 1500,
+            by_frame: 700,
         ),
         Event(
             kind: "room",
             label_contains: "salle combat nettoyée",
-            by_frame: 1500,
+            by_frame: 700,
         ),
         PlayerAlive(
             handle: 0,
-            at_frame: 1499,
+            at_frame: 699,
         ),
     ],
     powerup_drop_chance_override: "0",
