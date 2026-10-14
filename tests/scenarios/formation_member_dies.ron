@@ -10,9 +10,9 @@ Scenario(
     map: "testbed/floor_a.ldtk",
     frames: 120,
     characters: [
-        (character: "escouade_tireur", x: "506.0", y: "640.0", at_frame: 5),
-        (character: "escouade_tireur", x: "524.0", y: "696.0", at_frame: 5),
-        (character: "escouade_tireur", x: "506.0", y: "752.0", at_frame: 5),
+        (character: "escouade_tireur_fragile", x: "506.0", y: "640.0", at_frame: 5),
+        (character: "escouade_tireur_fragile", x: "524.0", y: "696.0", at_frame: 5),
+        (character: "escouade_tireur_fragile", x: "506.0", y: "752.0", at_frame: 5),
     ],
     players: [
         (inputs: [

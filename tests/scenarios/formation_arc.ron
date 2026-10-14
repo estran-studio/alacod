@@ -7,7 +7,7 @@ Scenario(
     powerup_drop_chance_override: "0.0",
     game: "testbed",
     map: "testbed/floor_a.ldtk",
-    frames: 260,
+    frames: 180,
     characters: [
         (character: "escouade_tireur", x: "600.0", y: "650.0", at_frame: 5),
         (character: "escouade_tireur", x: "610.0", y: "696.0", at_frame: 5),
@@ -20,12 +20,12 @@ Scenario(
         // Au loin : encore hors de l'arc
         EnemyDistance(entity: Placed(1), target: Player(0), min: 150.0, at_frame: 6),
         // En place : tous à ~120 du joueur (rayon ± tolérance et strafe léger)
-        EnemyDistance(entity: Placed(0), target: Player(0), min: 85.0, max: 118.0, at_frame: 250),
-        EnemyDistance(entity: Placed(1), target: Player(0), min: 85.0, max: 118.0, at_frame: 250),
-        EnemyDistance(entity: Placed(2), target: Player(0), min: 85.0, max: 118.0, at_frame: 250),
+        EnemyDistance(entity: Placed(0), target: Player(0), min: 85.0, max: 118.0, at_frame: 170),
+        EnemyDistance(entity: Placed(1), target: Player(0), min: 85.0, max: 118.0, at_frame: 170),
+        EnemyDistance(entity: Placed(2), target: Player(0), min: 85.0, max: 118.0, at_frame: 170),
         // Écarts angulaires : voisins à 2·100·sin(0,3) ≈ 59, extrémités à 2·100·sin(0,6) ≈ 113
-        EnemyDistance(entity: Placed(0), target: Entity(Placed(1)), min: 42.0, max: 78.0, at_frame: 250),
-        EnemyDistance(entity: Placed(1), target: Entity(Placed(2)), min: 42.0, max: 78.0, at_frame: 250),
-        EnemyDistance(entity: Placed(0), target: Entity(Placed(2)), min: 92.0, max: 132.0, at_frame: 250),
+        EnemyDistance(entity: Placed(0), target: Entity(Placed(1)), min: 42.0, max: 78.0, at_frame: 170),
+        EnemyDistance(entity: Placed(1), target: Entity(Placed(2)), min: 42.0, max: 78.0, at_frame: 170),
+        EnemyDistance(entity: Placed(0), target: Entity(Placed(2)), min: 92.0, max: 132.0, at_frame: 170),
     ],
 )
