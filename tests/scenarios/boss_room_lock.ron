@@ -9,19 +9,26 @@ Scenario(
     game: "testbed",
     map: "testbed/salles_boss.ldtk",
     map_seed: 1,
-    frames: 600,
+    frames: 300,
     players: [
         (inputs: [
             (from: 30, to: 90, buttons: [Right]),
-            (from: 90, to: 500, buttons: [Fire], pan: (64, 0)),
+            (from: 90, to: 250, buttons: [Fire], pan: (64, 0)),
         ]),
     ],
     expect: [
         RoomState(kind: "boss", state: Dormant, doors_closed: Some(0), at_frame: 20),
         EntityCount(kind: Enemy, min: 1, max: 1, at_frame: 20),
+        // Le boss dort : aucune flèche (la volée de la phase 0 part à l'éveil, pas au premier tick).
+        BulletCount(count: 0, projectile: "arrow", team: Some(Enemies), at_frame: 60),
+        BossPhase(entity: NetId(27), phase: 0, at_frame: 60),
         RoomState(kind: "boss", state: Locked, doors_closed: Some(4), at_frame: 100),
         PlayerAlive(handle: 0, at_frame: 100),
-        RoomState(kind: "boss", state: Cleared, doors_closed: Some(0), at_frame: 599),
-        EntityCount(kind: Enemy, max: Some(0), at_frame: 599),
+        // Phase 1 sous 50 % de santé (f142), le boss meurt (f184) : la salle se rouvre.
+        BossPhase(entity: NetId(27), phase: 1, at_frame: 160),
+        RoomState(kind: "boss", state: Cleared, doors_closed: Some(0), at_frame: 299),
+        DoorsOpenAtLeast(doors: 4, at_frame: 299),
+        EntityCount(kind: Enemy, max: Some(0), at_frame: 299),
+        PlayerAlive(handle: 0, at_frame: 299),
     ],
 )

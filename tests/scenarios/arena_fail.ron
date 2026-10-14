@@ -1,14 +1,14 @@
-// M2-T7 (docs/conventions.md §45) : arène perdue. `rooms/arene_mortelle.ron` : cinq `follower` dès
+// M2-T7 (docs/conventions.md §45) : arène perdue. `rooms/arene_mortelle.ron` : quatre `breacher` dès
 // le verrouillage, horloge de 3000 frames. Le joueur entre (f30-90) puis reste immobile : il meurt
 // bien avant la fin de l'horloge, la salle ne se rouvre pas.
 //
-// À regarder : verrouillage à l'entrée, les cinq poursuivants convergent, le joueur meurt, défaite.
+// À regarder : verrouillage à l'entrée, les quatre `breacher` convergent, le joueur meurt, défaite.
 Scenario(
     powerup_drop_chance_override: "0.0",
     game: "testbed",
     map: "testbed/salles_arene_mortelle.ldtk",
     map_seed: 1,
-    frames: 1200,
+    frames: 1650,
     players: [
         (inputs: [
             (from: 30, to: 90, buttons: [Right]),
@@ -16,8 +16,8 @@ Scenario(
     ],
     expect: [
         RoomState(kind: "arene_mortelle", state: Locked, doors_closed: Some(4), at_frame: 200),
-        PlayerDead(handle: 0, at_frame: 1100),
-        RoomState(kind: "arene_mortelle", state: Locked, at_frame: 1100),
-        Defeat(by_frame: 1190),
+        PlayerDead(handle: 0, at_frame: 1600),
+        RoomState(kind: "arene_mortelle", state: Locked, at_frame: 1600),
+        Defeat(by_frame: 1600),
     ],
 )

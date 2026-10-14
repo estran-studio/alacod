@@ -1,7 +1,7 @@
 // Boss de laboratoire M2-T7 (testbed, docs/conventions.md §45) : tir **par phase**. Chaque phase
 // porte sa propre règle `Shoot` (arme, pattern et recharge) : phase 0, la volée `volee` avec la table de
-// projectiles de `fireball_gun` (flèches) ; sous 50 % de santé, phase 1, la couronne `ring_8` avec la table de
-// `tourelle_gun` (boules). Le personnage n'a aucune règle `Shoot` ni `ranged` hors des phases.
+// projectiles de `fireball_gun` (flèches) ; sous 50 % de santé, phase 1, une balle perçante `ricochet` avec la
+// table de `tourelle_gun` (le projectile `ricochet` n'existe que dans cette table). Le personnage n'a aucune règle `Shoot` ni `ranged` hors des phases.
 // Scénario `boss_phase_shoot`.
 (
     movement: (
@@ -29,7 +29,7 @@
     scale: "1.0",
 
     base_health: (
-        max: "120.0",
+        max: "300.0",
     ),
 
     starting_skin: "1",
@@ -58,7 +58,7 @@
                 behaviors: [Shoot(weapon: "fireball_gun", pattern: "volee", range: "400.0", cooldown_frames: 90)],
             ),
             (
-                behaviors: [Shoot(weapon: "tourelle_gun", pattern: "ring_8", range: "400.0", cooldown_frames: 60)],
+                behaviors: [Shoot(weapon: "tourelle_gun", pattern: "ricochet", range: "400.0", cooldown_frames: 40)],
             ),
         ],
     )),
