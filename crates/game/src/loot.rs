@@ -65,7 +65,10 @@ pub struct LootOverrides {
 }
 
 /// Contexte commun des tirages : graine de la partie et étage courant.
-fn seed_context(run_seed: &Option<Res<RunSeed>>, floor: &Option<Res<run::FloorState>>) -> (u32, u32) {
+fn seed_context(
+    run_seed: &Option<Res<RunSeed>>,
+    floor: &Option<Res<run::FloorState>>,
+) -> (u32, u32) {
     (
         run_seed.as_ref().map_or(0, |seed| seed.0),
         floor.as_ref().map_or(0, |floor| floor.index),
@@ -158,13 +161,19 @@ pub fn chest_interaction_system(
         }
         let table_id = chest_table_id(&chest, &floors, floor).to_string();
         let Some(table) = tables.0.get(&table_id) else {
-            warn!("coffre « {} » : pool de butin « {table_id} » inconnu", chest.key);
+            warn!(
+                "coffre « {} » : pool de butin « {table_id} » inconnu",
+                chest.key
+            );
             continue;
         };
         let mut rng = RollbackRng::new(loot_seed(run_seed, floor, &chest.key));
         let held = inventory.as_deref();
         let Some(item_id) = draw_loot(table, &items, held, chest.rarity, false, &mut rng) else {
-            warn!("coffre « {} » : le pool « {table_id} » ne donne rien", chest.key);
+            warn!(
+                "coffre « {} » : le pool « {table_id} » ne donne rien",
+                chest.key
+            );
             continue;
         };
         taken.insert(event.interactable_net_id.0);
@@ -180,7 +189,13 @@ pub fn chest_interaction_system(
         commands.entity(event.interactable).remove::<Interactable>();
         let mut position = transform.translation;
         position.x += Fixed::from_num(DROP_OFFSET);
-        spawn_item_pickup(&mut commands, &items, item_id.clone(), position, &mut id_factory);
+        spawn_item_pickup(
+            &mut commands,
+            &items,
+            item_id.clone(),
+            position,
+            &mut id_factory,
+        );
         info!(
             "ggrs{{f={} chest_open net_id={} key={} item={} by={}}}",
             frame.frame, event.interactable_net_id.0, chest.key, item_id, event.interactor_net_id.0
@@ -257,7 +272,10 @@ pub fn room_reward_system(
                 spawn_item_pickup(&mut commands, &items, item_id, center, &mut id_factory);
             }
             None => {
-                info!("ggrs{{f={} room_reward room={} chest}}", frame.frame, event.room);
+                info!(
+                    "ggrs{{f={} room_reward room={} chest}}",
+                    frame.frame, event.room
+                );
                 spawn_chest(
                     &mut commands,
                     &mut id_factory,

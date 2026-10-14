@@ -554,10 +554,12 @@ fn update_hud_v1_values(
 
     let prompt = player
         .filter(|p| p.3.is_none())
-        .and_then(|(_, transform, perks_owned, _, _, _, inventory, _, items)| {
-            closest_interactable(&world, transform.translation, &fog, fog_map.as_deref())
-                .map(|target| prompt_for(&world, config, target, perks_owned, inventory, items))
-        })
+        .and_then(
+            |(_, transform, perks_owned, _, _, _, inventory, _, items)| {
+                closest_interactable(&world, transform.translation, &fog, fog_map.as_deref())
+                    .map(|target| prompt_for(&world, config, target, perks_owned, inventory, items))
+            },
+        )
         .unwrap_or_default();
 
     for (widget, mut text, mut background) in text_widgets.iter_mut() {
@@ -1045,6 +1047,11 @@ mod tests {
         };
         assert_eq!(perk(false).text(), "Juggernog — $2500");
         assert_eq!(perk(true).text(), "Juggernog — possédé");
+        // M2-T5 : coffres.
+        let chest = |locked, has_key| Prompt::Chest { locked, has_key };
+        assert_eq!(chest(false, false).text(), "Ouvrir le coffre");
+        assert_eq!(chest(true, false).text(), "Fermé — 1 clé");
+        assert_eq!(chest(true, true).text(), "Ouvrir — 1 clé");
     }
 
     #[test]

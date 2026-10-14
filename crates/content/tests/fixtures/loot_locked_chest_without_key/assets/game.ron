@@ -1,0 +1,9 @@
+// Fixture M2-T5 : coffre verrouillé dans un jeu sans objet consommable « key » (BrokenReference)
+(
+    name: "fixture-loot_locked_chest_without_key",
+    content_folders: [
+        (path: "objets", kind: "Item"),
+        (path: "rooms", kind: "Room"),
+    ],
+    entry: (start_map: "maps/salle.ldtk", default_seed: 1),
+)

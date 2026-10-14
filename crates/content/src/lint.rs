@@ -2803,7 +2803,11 @@ fn lint_loot(registry: &Registry, errors: &mut Vec<LintError>) {
                     }
                 }
                 items::LootPick::Rarity(rarity) => {
-                    if !registry.items.values().any(|item| item.def.rarity == *rarity) {
+                    if !registry
+                        .items
+                        .values()
+                        .any(|item| item.def.rarity == *rarity)
+                    {
                         push(
                             LintErrorKind::OutOfRange,
                             format!("pool de butin « {id} » : entries[{index}] : aucun objet de rareté {rarity:?}"),
@@ -2813,7 +2817,10 @@ fn lint_loot(registry: &Registry, errors: &mut Vec<LintError>) {
             }
         }
         if let Some(reward) = &table.def.reward {
-            for (name, value) in [("chance", reward.chance), ("chest_chance", reward.chest_chance)] {
+            for (name, value) in [
+                ("chance", reward.chance),
+                ("chest_chance", reward.chest_chance),
+            ] {
                 if value < zero || value > one {
                     push(
                         LintErrorKind::OutOfRange,
@@ -2852,7 +2859,10 @@ fn lint_loot(registry: &Registry, errors: &mut Vec<LintError>) {
             if !registry.loot_tables.contains_key(table) {
                 push(
                     LintErrorKind::BrokenReference,
-                    format!("type de salle « {} » : coffre : pool « {table} » inconnu", room.id),
+                    format!(
+                        "type de salle « {} » : coffre : pool « {table} » inconnu",
+                        room.id
+                    ),
                 );
             }
         }
