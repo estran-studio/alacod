@@ -1,0 +1,11 @@
+// Fixture M2-T11 (`lint::lint_props`, baril à rayon nul).
+(
+    name: "fixture-prop_barrel_radius_non_positive",
+    content_folders: [
+        (path: "props", kind: "Prop"),
+    ],
+    entry: (
+        start_map: "unused",
+        default_seed: 1,
+    ),
+)

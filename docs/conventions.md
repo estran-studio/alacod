@@ -2987,3 +2987,78 @@ frames, 2 + 2 + 3 `bullet_kin`), deux gabarits `ArenaEW` et `ArenaCroix` dans `m
 (`docs/taches/rapports/m2-t7-boss-arene.make_arene.py`), exigée une fois par la grammaire `etage`
 (`required: {"arene": 1}`), validée sur 1 000 graines (`ALACOD_FLOOR_SEEDS=1000 cargo test -p map_ldtk
 gungeon_etages_de_grammaire`). Aucun scénario ne joue encore l'arène de gungeon.
+## 46. Surfaces v2 : fosses, tables renversables, barils explosifs (M2-T11, chantier E4 v2)
+
+Code : `world::surface` (`PitDef`), `world::props` (`PropDef`, `TableState`, `BarrelState`,
+`PitSafePosition`, règles pures `flip_direction` / `flipped_rect`), `game::props` (`PropsPlugin` :
+`pit_system`, `table_flip_system`, `table_cover_system`, `barrel_explosion_system`),
+`map_ldtk::game::entity::prop` (entités LDtk), `map::generation::entity::prop` (génération).
+Script des cartes : `scripts/construire-cartes-t11.py`.
+
+**Fosse.** Une surface (§26) peut porter `pit` ; la case IntGrid `Surfaces` correspondante est
+une fosse :
+```ron
+// games/testbed/assets/surfaces/fosse.ron
+(intgrid_value: 4, tags: ["fosse"], move_speed: "1.0",
+ pit: (fall_damage: "10.0", dash_crosses: true))   // respawn: LastSafeCell (seul choix)
+```
+Un joueur (hors à terre) dont les pieds (§26) sont sur une fosse perd `fall_damage` PV (dégâts
+`True`, tag `fall`), revient à sa dernière position sûre et sa vitesse est remise à zéro. Un dash en
+cours traverse la fosse si `dash_crosses` ; il tombe s'il finit dessus. Position sûre =
+`PitSafePosition` (composant rollback **neutre**, posé sur les joueurs seulement quand la carte a
+au moins une case de fosse) : translation d'une frame où la case et ses 8 voisines n'étaient pas
+des fosses, réécrite à chaque frame **avant** toute chute. Un joueur apparu dans une fosse n'a pas
+de point de retour et ne tombe pas. Ennemis : les cases de fosse bloquent `Ground` et
+`GroundBreaker` dans le champ de flux (`ObstacleType::Pit`), `Flying` et `Phasing` les passent (sans
+pénalité) ; `EnemyNeverInWall` (§22) échoue aussi quand les pieds d'un ennemi au sol sont sur une
+fosse. Sans la ligne de `update_flow_field_system`, `pit_enemy_path` échoue à f137.
+
+**Objets de décor.** Kind `Prop` (`(path: "props", kind: "Prop")`), un fichier RON par objet, id =
+nom de fichier, lu avec l'extension RON `UNWRAP_VARIANT_NEWTYPES` :
+```ron
+Table(bullets: 4)                                     // thickness: "6", range: "20" par défaut
+Barrel(health: "20.0", radius: "48.0", damage: "30.0")
+```
+Entités LDtk `Table` et `Barrel` (aucun champ requis ; champ optionnel `prop` = id, défaut `table` /
+`barrel`), lues par la génération (`PropConfig`, valeurs d'auteur portées telles quelles comme
+`WeaponLocation`) puis créées par `spawn_map_items` avec `MapRollbackMarker` : `GgrsNetId` triés par
+nom puis position comme les portes. Une entité dont l'id est inconnu ou d'un autre type reste
+inerte (`warn!`). Lint : table à `bullets` 0, baril à `health`/`radius`/`damage` ≤ 0, fosse à
+`fall_damage` ≤ 0 (`OutOfRange`), fosse sans `fall_damage` (`Parse`) ; fixtures `pit_*` et `prop_*`.
+
+**Table.** Debout : marqueur `Window`, couche `window`, `Obstacle` `Barricade` non cassable,
+`Interactable { Table }` (portée 20 du bord du collider). Les balles passent, les joueurs et les
+zombies non. L'interaction (`InteractionType::Table`, variante ajoutée en fin d'enum) la renverse à
+l'opposé du joueur (axe dominant, égalité : x) : elle perd `Window` et `Interactable`, gagne
+`Wall` + couche `wall`, et son collider devient une bande de `thickness` au bord renversé sur toute
+la longueur de ce bord. Chaque balle qui la touche (`combat::projectile::BulletWallHit`, file
+**transitoire** hors checksum, émise par les collisions de balles ordinaires et composables) retire
+1 à `bullets_left` ; à 0, `despawn_rollback()`. `TableState` : rollback neutre.
+
+**Baril.** Personnage `Enemies` sans IA (Neutral ne subit jamais de dégâts) avec `Health`,
+`BarrelState` (neutre) ; sans butin (power-ups, armes de progression ignorent `BarrelState`). À 0 PV
+il garde son `Death` (santé figée à 0) : `rollback_apply_death` l'ignore. À la frame suivante
+`barrel_explosion_system` (`CollisionDamage`, avant le résolveur) envoie `damage` (genre `Physical`,
+tag `explosion`, tir ami `Always`) à tout ce qui a des PV dans `radius` (distance centre à centre,
+hors barils déjà morts), crédité au dernier joueur qui l'a touché, puis `despawn_rollback()`. Les
+barils touchés meurent dans la même frame (résolution avant `DeathManagement`) et explosent à la
+suivante : chaîne déterministe (ordre `GgrsNetId`).
+
+**Scénarios** (testbed, cartes `props_*.ldtk`) : `pit_fall` (100 → 90 PV, retour à x -150,6),
+`pit_dash` (traversée, 100 PV), `pit_enemy_path` (le `follower` contourne), `table_flip_cover`
+(cible à 5 coups avant, 5 pendant la couverture, 13 après la rupture), `barrel_chain` (f63 premier
+baril à 0 PV, f64 second, f65 joueur 1 à 70). Nouvelle catégorie `EntityCount(kind: Barrel | Table)`.
+
+**Gungeon.** `CombatEW` et `CombatNS` de `maps/salles.ldtk` portent deux barils et une table
+(définitions d'entités ajoutées au projet LDtk) ; test `gungeon_decor_sur_1000_graines`
+(`map_ldtk::generation`) : 1 000 graines de `etage`, 3 objets exactement par salle décorée, dans la
+salle, sans recouvrir porte, spawn ni personnage. Seule `bench_floor` bouge (12 barils, 6 tables).
+
+**Pièges.** (1) Une file `FrameEvents` « neutre » est hachée dès qu'elle n'est pas vide : un
+événement émis dans des parties existantes (ici un mur touché) exige `add_frame_events_transient`.
+(2) Un système qui pose un composant neutre sur les joueurs doit se garder sur une condition de
+**carte** (case de fosse présente), pas de **jeu** (une surface fosse existe) : sinon les cartes à
+eau du même jeu changent de trace. (3) `Team::Neutral` ne subit aucun dégât : un objet destructible
+est `Enemies`. (4) Les bullets partent ~9 unités sous le centre du joueur : ne pas poser le joueur
+en bord de couloir. (5) Deux worktrees sur un même `CARGO_TARGET_DIR` collisionnent (chemins
+relatifs hachés pareil) : `find crates games -name '*.rs' -exec touch {} +` avant de reconstruire.

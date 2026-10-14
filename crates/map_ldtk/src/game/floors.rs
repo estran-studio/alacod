@@ -433,6 +433,7 @@ pub fn floor_transition_system(
     mut room_states: Option<ResMut<world::RoomStates>>,
     mut id_factory: ResMut<GgrsNetIdFactory>,
     mut flow_field_cache: ResMut<FlowFieldCache>,
+    props: Res<world::PropTable>,
     assets: LevelSpawnAssets,
     data: FloorLevelData,
     mut entities: FloorTransitionEntities,
@@ -484,6 +485,7 @@ pub fn floor_transition_system(
             .filter(|item| item.slot == slot),
         &mut id_factory,
         &assets.collision_settings,
+        &props,
         false,
     );
 

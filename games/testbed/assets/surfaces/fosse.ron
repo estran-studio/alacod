@@ -1,0 +1,4 @@
+// M2-T11 (docs/conventions.md §46) : fosse (couche LDtk `Surfaces`, valeur 4). Un joueur qui y
+// pose les pieds perd 10 PV et revient à sa dernière case sûre ; un dash en cours la traverse
+// (`dash_crosses`). Les ennemis au sol la contournent (champ de flux), les volants la survolent.
+(intgrid_value: 4, tags: ["fosse"], move_speed: "1.0", pit: (fall_damage: "10.0", dash_crosses: true))

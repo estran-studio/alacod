@@ -25,6 +25,7 @@ mod powerup_visuals;
 pub mod powerups;
 pub mod profile;
 pub mod progression;
+pub mod props;
 pub mod recording;
 #[cfg(not(target_arch = "wasm32"))]
 pub mod remote;
