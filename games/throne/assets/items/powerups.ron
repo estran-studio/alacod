@@ -1,8 +1,8 @@
-// `throne` (T1.11, docs/conventions.md §14 et §29) : butin à la mort des ennemis (un ennemi sur
-// quatre laisse un objet, `drop_chance` 0,25 ; poids total 146). Munitions (une par munition, `RefillAmmoOf`, D40), rage et
+// `throne` (T1.11, docs/conventions.md §14 et §29) : butin à la mort des ennemis (deux ennemis sur
+// cinq laissent un objet, `drop_chance` 0,40 depuis D50 (0,25 avant : pénurie de munitions) ; poids total 146). Munitions (une par munition, `RefillAmmoOf`, D40), rage et
 // vitesse ; pas de `Carpenter` ni de `Nuke` (pas de fenêtres ni de vagues dans une caverne).
 (
-    drop_chance: "0.25",
+    drop_chance: "0.40",
     powerups: {
         // D40 : butin par munition (une par munition des armes de throne) : poids 36 (balles),
         // 12 (obus, explosifs, énergie) et 24 (lames), 96 en tout ; rage et vitesse 25 chacune.
