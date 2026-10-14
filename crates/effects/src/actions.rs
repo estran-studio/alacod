@@ -137,7 +137,9 @@ impl Action {
             | Action::SpawnPattern { .. }
             | Action::GaugeAdd(..)
             | Action::ApplyStatus { .. }
-            | Action::RefillAmmoOf(_) => None,
+            | Action::RefillAmmoOf(_)
+            | Action::SpawnEnemies { .. }
+            | Action::Telegraph(_) => None,
         }
     }
 }

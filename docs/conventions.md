@@ -2916,3 +2916,62 @@ la réduction de dégâts existera. `testbed` : objets d'essai `lame`, `manche`,
 `synergy_lost` (actif remplacé : dégâts 3 puis 1), `item_active_per_floor` (trois appuis par étage, deux
 effets, sur `deux_niveaux`), `item_active_cost` (obus 3 → 1, second usage refusé), `consumable_heal`
 (santé 92 → 97 au ramassage). Aucune trace existante ne bouge : types neutres, champs optionnels hors hash.
+
+## 45. Boss et arène (M2-T7, chantier D4)
+
+Complète §37 (phases, frise) et §35 (salles verrouillées) : tir **par phase**, salle de boss,
+arène à tenir, actions de frise `SpawnEnemies` et `Telegraph`.
+
+**Tir par phase** (lève la limite de §37). Une règle `Shoot` d'une phase (`Phase::behaviors`)
+utilise **sa propre** table de tir : arme (donc table de projectiles), pattern, portée, recharge.
+`EnemyBehaviors::phase_shoot(phase)` la rend, `enemy_attack_system` la préfère à `ai.ranged` ;
+`spawn_enemy` équipe en plus (inactives) les armes des `Shoot` de phase. Sans `Shoot` de phase,
+`ai.ranged` comme avant (aucune trace ne bouge). Personnage `testbed/gardien_tir`.
+
+**Salle de boss.** Type de salle `boss` (`locks: true`, §35). Le boss **dort** tant que sa salle est
+`Dormant` : `boss_phase_system` saute les entités `RoomDormant` (la phase 0 est donc datée à l'éveil,
+pas au premier tick du jeu : le boss ne tire plus depuis une salle fermée). À sa mort,
+`boss_defeated_system` (`DeathManagement`) émet `FrameEvents<BossDefeated>` (**transitoire** :
+`add_frame_events_transient`, hors checksum et hors snapshot, vidé à la frame suivante) puis
+`map_ldtk::game::rooms::boss_room_clear_system` tue les autres ennemis de sa salle (renforts compris) :
+la salle passe `Cleared` dans la frame (portes rouvertes, `RoomChanged`). `floor_portal_open_system`
+ne bouge pas : le portail ou la victoire de fin d'étage viennent après, comme avant. Trace
+`ggrs{f=… boss_defeated net_id=…}` et `boss_room_clear`.
+
+**Actions de frise** (variantes **en fin d'enum** `effects::Action`, le hash des autres ne bouge pas) :
+- `Telegraph(n)` : le prochain `SpawnPattern` de la même liste est précédé d'un télégraphe de `n`
+  frames (l'émetteur joue `Sequence([Telegraph(n), pattern])`) ; aucun type nouveau.
+- `SpawnEnemies(id, count)` : `count` personnages `id` apparaissent dans la salle du boss, positions
+  tirées du flux RNG `room:<niveau>` (`world::room_rng_stream`) sur une case libre du profil `Ground`
+  (16 essais, repli sur le centre). Demande `game::boss::ReinforcementRequest` (transitoire) émise
+  par `boss_phase_system` et exécutée dans la même frame par `boss_reinforcements_system` (`Run`).
+Refusées partout ailleurs que dans un boss (power-up, effet de personnage : `OutOfRange`).
+
+**Arène à tenir.** Champ optionnel `arena` d'un fichier `rooms/<id>.ron` :
+`(arena: Some((clock: 600, waves: [(at: 0, enemies: [("dummy", 2)]), …])))`
+(`world::ArenaDef`, `ArenaWave`). Une arène verrouille **dès qu'un joueur debout entre**, même vide
+(`RoomKindTable::locks` est vrai), et lance son horloge (`ArenaClocks`, ressource rollback **neutre**,
+frame de verrouillage par niveau). Vagues : `arena_waves_system` (`Run`) fait apparaître les ennemis
+d'une vague quand `frame - début == at` (aucun curseur : tout se déduit de l'horloge et de l'état de
+salle). À `clock` frames, si un joueur vit, les survivants meurent et la salle passe `Cleared`
+(portes rouvertes). Si tous les joueurs meurent, défaite universelle. Trace
+`ggrs{f=… arena_wave …}` et `arena_kill`.
+
+**Lint.** `lint_arenas` : `clock` > 0, au moins une vague, `at` < `clock` et croissants, vague non
+vide, personnage connu (`BrokenReference`), `count` > 0 ; dans une frise : `SpawnEnemies` d'un
+personnage inconnu, `count` 0, `Telegraph(0)`, `Telegraph` sans `SpawnPattern` après lui. Fixtures
+`arena_no_waves`, `arena_clock_zero`, `arena_unknown_enemy`, `arena_count_zero`,
+`boss_spawn_enemies_unknown`, `boss_spawn_enemies_count_zero`, `boss_telegraph_alone`.
+
+**Déterminisme.** Types nouveaux tous neutres ou transitoires (`ArenaClocks`, `BossDefeated`,
+`ReinforcementRequest`) : aucune trace hors `gungeon` ne bouge. Les flux `room:<niveau>` ne naissent
+qu'au premier renfort ou à la première vague. Apparitions dans l'ordre : demandes par `GgrsNetId` du
+boss, salles triées par position puis identifiant.
+
+**Contenu.** `testbed` : `gardien_tir`, `gardien_renforts`, types de salle `boss`, `arene`,
+`arene_mortelle`, cartes `salles_boss*.ldtk` et `salles_arene*.ldtk`
+(`docs/taches/rapports/m2-t7-boss-arene.make_cartes.py`). `gungeon` : `gatling` à trois phases
+(éventail ; renforts `bullet_kin` puis salves ricochantes ; spirale).
+
+**Scénarios.** `boss_room_lock`, `boss_phase_shoot`, `boss_reinforcements`, `arena_survive`,
+`arena_fail`, `gungeon_boss_bot`.

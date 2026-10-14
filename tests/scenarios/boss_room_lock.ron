@@ -1,0 +1,27 @@
+// M2-T7 (docs/conventions.md §45) : la salle du boss se verrouille à l'entrée et se rouvre à sa
+// mort. Carte testbed/salles_boss.ldtk (départ, salle `boss` avec un `gardien`, récompense).
+//
+// À regarder : le joueur reste dans le départ pendant que le `gardien` dort, porte ouverte ; il
+// avance (f30-90) : la salle se verrouille (quatre portes fermées), le boss s'éveille et tire sa
+// volée ; le joueur tire (f90-) ; à la mort du boss la salle passe `Cleared`, les portes se rouvrent.
+Scenario(
+    powerup_drop_chance_override: "0.0",
+    game: "testbed",
+    map: "testbed/salles_boss.ldtk",
+    map_seed: 1,
+    frames: 600,
+    players: [
+        (inputs: [
+            (from: 30, to: 90, buttons: [Right]),
+            (from: 90, to: 500, buttons: [Fire], pan: (64, 0)),
+        ]),
+    ],
+    expect: [
+        RoomState(kind: "boss", state: Dormant, doors_closed: Some(0), at_frame: 20),
+        EntityCount(kind: Enemy, min: 1, max: 1, at_frame: 20),
+        RoomState(kind: "boss", state: Locked, doors_closed: Some(4), at_frame: 100),
+        PlayerAlive(handle: 0, at_frame: 100),
+        RoomState(kind: "boss", state: Cleared, doors_closed: Some(0), at_frame: 599),
+        EntityCount(kind: Enemy, max: Some(0), at_frame: 599),
+    ],
+)

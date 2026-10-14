@@ -2889,7 +2889,10 @@ fn lint_arenas(registry: &Registry, errors: &mut Vec<LintError>) {
             })
         };
         if arena.clock == 0 {
-            push(LintErrorKind::OutOfRange, "clock = 0 : doit être > 0".into());
+            push(
+                LintErrorKind::OutOfRange,
+                "clock = 0 : doit être > 0".into(),
+            );
         }
         if arena.waves.is_empty() {
             push(
@@ -2911,7 +2914,10 @@ fn lint_arenas(registry: &Registry, errors: &mut Vec<LintError>) {
             if previous.is_some_and(|before| wave.at < before) {
                 push(
                     LintErrorKind::OutOfRange,
-                    format!("waves[{index}] : at = {} avant la vague précédente", wave.at),
+                    format!(
+                        "waves[{index}] : at = {} avant la vague précédente",
+                        wave.at
+                    ),
                 );
             }
             previous = Some(wave.at);
