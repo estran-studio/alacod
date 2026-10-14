@@ -1,0 +1,34 @@
+// M2-T2 (docs/conventions.md §43) : dash « sur place » (`effect: InPlace`) imposé au joueur par le
+// scénario (`dash:` du joueur, qui remplace le `dash` du personnage) : aucune distance, seulement 16
+// frames d'invulnérabilité (parade sans mouvement). La `tourelle_spirale` (placée à f5, 96 px à
+// droite) tire sa spirale ; sans dash, la première boule touche le joueur vers f65 (100 -> 92 PV).
+// Appui à f57 (effectif f62) : invulnérable de f62 à f77.
+//
+// À regarder : le joueur ne bouge pas d'un pixel pendant le dash, les boules le traversent sans
+// dégâts ; la première perte de PV n'arrive qu'à la fin des i-frames (f79-f80).
+Scenario(
+    powerup_drop_chance_override: "0.0",
+    game: "testbed",
+    map: "testbed/arena.ldtk",
+    frames: 110,
+    characters: [(character: "tourelle_spirale", x: "520.0", y: "696.0", at_frame: 5)],
+    players: [
+        (
+            dash: Some((effect: InPlace, duration_frames: Some(16), iframes: Some(16), cooldown_frames: Some(30))),
+            inputs: [
+                (from: 57, to: 58, buttons: [Dash]),
+            ],
+        ),
+    ],
+    expect: [
+        PlayerPosition(handle: 0, x: 424, y: 696, tolerance: 0.1, at_frame: 50),
+        // Dans les i-frames, rien ne touche (sans dash : 92 PV dès f66)
+        NoDamageBetween(handle: 0, from_frame: 61, to_frame: 77),
+        Health(handle: 0, min: 100.0, max: 100.0, at_frame: 77),
+        // Aucune distance : le joueur est resté sur place
+        PlayerPosition(handle: 0, x: 424, y: 696, tolerance: 0.1, at_frame: 70),
+        // Fin des i-frames : la boule encore sur lui le touche
+        Health(handle: 0, min: 92.0, max: 92.0, at_frame: 80),
+        PlayerPosition(handle: 0, x: 424, y: 696, tolerance: 0.1, at_frame: 100),
+    ],
+)

@@ -1,7 +1,7 @@
 use bevy::prelude::*;
 use bevy_fixed::fixed_math;
 use bevy_ggrs::Rollback;
-use serde::Deserialize;
+use serde::{Deserialize, Serialize};
 use utils::{net_id::GgrsNetId, order_mut_iter};
 
 /// Déplacement d'un personnage. Les ennemis n'en lisent que `max_speed` (leur IA décide du
@@ -32,6 +32,98 @@ pub struct MovementConfig {
     /// nombre de frames, celle de l'appui comprise (0 : seul l'appui compte).
     #[serde(default)]
     pub dash_buffer_frames: u32,
+    /// M2-T2 (§43) : nombre de charges de dash (absent : v1 exact, le cooldown seul règle le
+    /// rythme). Une charge par dash ; `dash_cooldown_frames` reste l'écart minimal entre deux.
+    #[serde(default)]
+    pub dash_charges: Option<u32>,
+    /// M2-T2 : frames pour rendre **une** charge (avec `dash_charges`).
+    #[serde(default)]
+    pub dash_recharge_frames: u32,
+}
+
+/// Effet de variante d'un dash (M2-T2, §43). Enum fermé, nouveaux effets **en fin d'enum**.
+#[derive(Deserialize, Serialize, Debug, Clone, Copy, PartialEq, Eq, Default)]
+pub enum DashEffect {
+    /// Roulé v1 : on traverse la horde sans ralentir.
+    #[default]
+    Roll,
+    /// Bousculade : repousse les ennemis touchés pendant le dash (`shove_force`).
+    Shove,
+    /// Sur place : aucune distance, seulement des i-frames (parade sans mouvement).
+    InPlace,
+}
+
+/// Contre quoi valent les i-frames d'un dash (M2-T2).
+#[derive(Deserialize, Serialize, Debug, Clone, Copy, PartialEq, Eq, Default)]
+pub enum IframesKind {
+    /// V1 : `Health.invulnerable_until_frame`, tout dégât.
+    #[default]
+    All,
+    /// Saut par-dessus les balles : les projectiles traversent, la mêlée et les contacts touchent.
+    Projectiles,
+}
+
+/// Dash nommé d'un personnage (`dash: Some(..)` dans son RON, M2-T2, §43). Chaque champ absent
+/// retombe sur le réglage v1 de `MovementConfig`.
+#[derive(Deserialize, Serialize, Debug, Clone, Default, PartialEq)]
+pub struct DashConfig {
+    #[serde(default)]
+    pub distance: Option<fixed_math::Fixed>,
+    #[serde(default)]
+    pub duration_frames: Option<u32>,
+    #[serde(default)]
+    pub cooldown_frames: Option<u32>,
+    #[serde(default)]
+    pub iframes: Option<u32>,
+    #[serde(default)]
+    pub iframes_kind: IframesKind,
+    #[serde(default)]
+    pub effect: DashEffect,
+    /// Recul (px/s, `Velocity.knockback`) des ennemis bousculés (`Shove`).
+    #[serde(default)]
+    pub shove_force: fixed_math::Fixed,
+    #[serde(default)]
+    pub charges: Option<u32>,
+    #[serde(default)]
+    pub recharge_frames: Option<u32>,
+}
+
+/// Dash résolu d'un personnage : `MovementConfig` v1 surchargé par son `DashConfig`.
+#[derive(Debug, Clone, Copy)]
+pub struct ResolvedDash {
+    pub distance: fixed_math::Fixed,
+    pub duration_frames: u32,
+    pub cooldown_frames: u32,
+    pub iframes: u32,
+    pub iframes_kind: IframesKind,
+    pub effect: DashEffect,
+    pub shove_force: fixed_math::Fixed,
+    pub charges: Option<u32>,
+    pub recharge_frames: u32,
+}
+
+impl MovementConfig {
+    /// Dash effectif : sans `dash`, exactement le réglage v1.
+    pub fn resolve_dash(&self, dash: Option<&DashConfig>) -> ResolvedDash {
+        let default = DashConfig::default();
+        let dash = dash.unwrap_or(&default);
+        let effect = dash.effect;
+        ResolvedDash {
+            distance: if effect == DashEffect::InPlace {
+                fixed_math::FIXED_ZERO
+            } else {
+                dash.distance.unwrap_or(self.dash_distance)
+            },
+            duration_frames: dash.duration_frames.unwrap_or(self.dash_duration_frames),
+            cooldown_frames: dash.cooldown_frames.unwrap_or(self.dash_cooldown_frames),
+            iframes: dash.iframes.unwrap_or(self.dash_iframes),
+            iframes_kind: dash.iframes_kind,
+            effect,
+            shove_force: dash.shove_force,
+            charges: dash.charges.or(self.dash_charges),
+            recharge_frames: dash.recharge_frames.unwrap_or(self.dash_recharge_frames),
+        }
+    }
 }
 
 impl MovementConfig {

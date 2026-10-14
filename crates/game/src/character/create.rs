@@ -206,6 +206,17 @@ pub fn create_character(
         });
     }
 
+    // M2-T2 (§43) : charges et i-frames « projectiles » du dash, composant neutre posé
+    // seulement si la donnée l'exige (`DashState` garde son hash).
+    if config.dash.is_some() || config.movement.dash_charges.is_some() {
+        let dash = config.movement.resolve_dash(config.dash.as_ref());
+        commands
+            .entity(entity)
+            .insert(combat::actors::DashExtra::with_charges(
+                dash.charges.unwrap_or(0),
+            ));
+    }
+
     // T1.10 : effets du personnage (composants neutres, absents sans effet)
     if !config.effects.is_empty() {
         commands.entity(entity).insert((

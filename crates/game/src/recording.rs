@@ -332,6 +332,7 @@ mod tests {
             players: vec![PlayerScript {
                 weapon: Some("pistol".into()),
                 mutations: vec!["vampire".into()],
+                dash: None,
                 ..Default::default()
             }],
         };
