@@ -3106,7 +3106,7 @@ testbed n'a ni les objets ni les salles de `gungeon`) : carte de `generate_templ
 déclare une (`Sandbox` imposé), sinon l'arène du testbed pour le testbed.
 
 **Objet** (`objets/<id>.ron`, gabarit `ItemHeld`, fichier `item_<id>.ron`) :
-`test: Some((frames: 60, expect: [...]))` ; `frames > 12` pour un actif.
+`test: Some((frames: 60, expect: [...]))` ; `frames > 16` pour un actif.
 - `PlayerScript::items: ["<id>"]` (nouveau, vide par défaut) : le joueur tient l'objet **avant la
   première frame**, comme après un ramassage (passif : `Inventory` et modificateurs `item:<id>` ;
   actif : emplacement actif **chargé** à `ActiveCharge::required()` ; consommable : compteur). Les
@@ -3115,7 +3115,7 @@ déclare une (`Sandbox` imposé), sinon l'arène du testbed pour le testbed.
   `sim_core::modifier::resolve(base, modificateurs)` où `base` est lue par une **sonde** d'une frame
   sans l'objet (`probe_player_stats`) : la valeur ne vient pas de la partie qui tient l'objet ; un
   actif : `ItemCharge(required)` à la frame 5, `UseActive` une frame à `ITEM_USE_FRAME` (10), puis
-  `ItemCharge(0)` à la frame 12 (omis pour `Frames(n)`, qui se recharge aussitôt, et pour un actif à
+  `ItemCharge(0)` à la frame 16 (omis pour `Frames(n)`, qui se recharge aussitôt, et pour un actif à
   `cost`, dont l'usage peut être refusé). `test.expect` s'**ajoute** aux attentes par défaut.
 
 **Salle** (`rooms/<id>.ron`, gabarit `RoomClear`, `room_<id>.ron`) :

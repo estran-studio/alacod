@@ -1,0 +1,34 @@
+// Généré par `alacod-gen`, ne pas éditer à la main (crates/scenario/src/generate.rs).
+// Gabarit BossFight (M2-T17, §54) : un bot `fonceur` affronte « gatling » ;
+// aucun input scripté.
+#![enable(implicit_some)]
+Scenario(
+    game: "gungeon",
+    map: "maps/etage_1.ldtk",
+    map_seed: 123456,
+    frames: 600,
+    players: [
+        PlayerScript(
+            inputs: [],
+            bot: fonceur,
+        ),
+    ],
+    expect: [
+        Event(
+            kind: "boss_phase",
+            label_contains: "phase 0 → 1",
+            by_frame: 600,
+        ),
+        Event(
+            kind: "boss_phase",
+            label_contains: "phase 1 → 2",
+            by_frame: 600,
+        ),
+        Event(
+            kind: "room",
+            label_contains: "salle boss nettoyée",
+            by_frame: 600,
+        ),
+    ],
+    powerup_drop_chance_override: "0",
+)

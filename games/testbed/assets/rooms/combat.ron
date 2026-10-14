@@ -1,4 +1,4 @@
 // Salle de combat : se verrouille quand un joueur debout y entre et qu'un ennemi y vit, se
 // rouvre quand elle est vide ; ses ennemis dorment tant qu'elle n'est pas activée.
-(locks: true, test: Some((frames: 500, map: "testbed/salles.ldtk", seed: 1)))
+(locks: true, test: Some((frames: 1500, floors: "salle_combat", seed: 1)))
 // M2-T17 (docs/conventions.md §54) : scénario généré `room_combat` (un bot `explorateur` nettoie la salle aux deux `dummy` de `salles.ldtk`).

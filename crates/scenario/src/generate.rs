@@ -532,6 +532,7 @@ pub fn build_enemy_scenario(
             currency: None,
             mutations: vec![],
             dash: None,
+            items: vec![],
         }],
         expect,
         weapon_overrides: vec![],
@@ -603,8 +604,9 @@ impl SceneContext {
 pub const ITEM_USE_FRAME: u32 = 10;
 /// Frame où `ItemCharge` est vérifiée avant l'usage.
 const ITEM_CHARGE_CHECK_FRAME: u32 = 5;
-/// Frame où `ItemCharge` est vérifiée après l'usage.
-const ITEM_AFTER_USE_FRAME: u32 = ITEM_USE_FRAME + 2;
+/// Frame où `ItemCharge` est vérifiée après l'usage : l'appui scripté à `ITEM_USE_FRAME` n'agit qu'à la
+/// frame 16 (mesuré : charge encore pleine à f15, retombée à f16 ; délai d'entrée de la session).
+const ITEM_AFTER_USE_FRAME: u32 = ITEM_USE_FRAME + 6;
 
 /// Stats modifiées par un objet passif et leur valeur attendue à la frame 1 : `(stat, valeur)`,
 /// une entrée par stat (dans l'ordre des modificateurs). `base` est lu chez le joueur de la
@@ -1052,6 +1054,7 @@ pub fn build_weapon_scenario(
             currency: None,
             mutations: vec![],
             dash: None,
+            items: vec![],
         }],
         expect,
         weapon_overrides: vec![],
