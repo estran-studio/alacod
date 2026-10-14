@@ -1,0 +1,18 @@
+// M2-T2 : dash_charges = 0.
+(
+    movement: (
+        max_speed: "60.0",
+        dash_duration_frames: 8,
+        dash_charges: Some(0),
+        dash_recharge_frames: 30,
+    ),
+
+    asset_name_ref: "grunt",
+    base_health: (
+        max: "60.0",
+    ),
+    starting_skin: "1",
+    skins: {
+        "1": (layers: {}),
+    },
+)

@@ -1,0 +1,34 @@
+// M2-T2 (docs/conventions.md §43) : dash « bousculade » (`effect: Shove`, `shove_force: "600.0"`)
+// imposé au joueur par le scénario. Un `follower` (poursuivant, 60 px/s) est placé à f5, 51 px à
+// droite du joueur. Dash vers l'est à f30 (effectif f35) : au contact (f37-f38) l'ennemi est repoussé
+// d'un recul qui s'amortit (0,85 par frame, `Velocity.knockback`), puis il reprend la poursuite.
+// Témoin (même scénario avec `Roll`) : l'ennemi traîne à 30 px derrière le joueur dès f48 ; bousculé,
+// il est à plus de 50 px.
+//
+// À regarder : le joueur fonce dans l'ennemi, qui est projeté vers l'est avant de revenir.
+Scenario(
+    powerup_drop_chance_override: "0.0",
+    game: "testbed",
+    map: "testbed/arena.ldtk",
+    frames: 110,
+    characters: [(character: "follower", x: "480.0", y: "696.0", at_frame: 5)],
+    players: [
+        (
+            dash: Some((effect: Shove, shove_force: "600.0")),
+            inputs: [
+                (from: 30, to: 31, buttons: [Right, Dash]),
+            ],
+        ),
+    ],
+    expect: [
+        EnemyDistance(entity: Placed(0), target: Player(0), min: 50.0, max: 52.0, at_frame: 10),
+        // Avant le contact
+        EnemyDistance(entity: Placed(0), target: Player(0), min: 35.0, max: 37.0, at_frame: 34),
+        // Repoussé : s'éloigne de 10 px par frame, plus de 45 px à f48 (témoin : 30)
+        EnemyDistance(entity: Placed(0), target: Player(0), min: 28.0, max: 29.0, at_frame: 44),
+        EnemyDistance(entity: Placed(0), target: Player(0), min: 45.0, max: 47.0, at_frame: 48),
+        EnemyDistance(entity: Placed(0), target: Player(0), min: 52.0, max: 54.0, at_frame: 56),
+        // Il reprend la poursuite
+        EnemyDistance(entity: Placed(0), target: Player(0), min: 35.0, max: 37.0, at_frame: 90),
+    ],
+)

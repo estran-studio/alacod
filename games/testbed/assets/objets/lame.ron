@@ -1,0 +1,6 @@
+// M2-T4 : passif d'essai des synergies (`synergy_pair`, `synergy_lost`) : sans effet seul.
+(
+    name: "Lame",
+    kind: Passive,
+    tags: ["synergie"],
+)

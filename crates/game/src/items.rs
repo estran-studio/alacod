@@ -25,12 +25,13 @@ use combat::actors::{INPUT_BLANK, INPUT_USE_ACTIVE};
 use combat::weapons::Bullet;
 use effects::Action;
 use items::{
-    item_source, ActiveSlot, BlankUsed, Inventory, ItemKind, ItemPicked, ItemPickup, ItemTable,
+    item_source, synergy_source, ActiveSlot, BlankUsed, Inventory, ItemKind, ItemPicked,
+    ItemPickup, ItemTable, SynergyTable,
 };
 use sim_core::damage::DamageEvent;
 use sim_core::frame_events::{FrameEvents, FrameEventsAppExt};
 use sim_core::interaction::{Interactable, InteractionType};
-use sim_core::modifier::{ModifierSource, Modifiers};
+use sim_core::modifier::{Modifier, ModifierSource, Modifiers};
 use sim_core::team::Team;
 use std::collections::{BTreeMap, BTreeSet};
 use utils::{
@@ -40,6 +41,7 @@ use utils::{
 };
 use world::{RoomChanged, RoomState};
 
+use crate::character::health::Health;
 use crate::character::player::jjrs::PeerConfig;
 use crate::character::player::Player;
 use crate::interaction::InteractionEvent;
@@ -115,6 +117,7 @@ type PlayerItems<'w, 's> = Query<
         &'static fixed_math::FixedTransform3D,
         Option<&'static mut Inventory>,
         &'static mut Modifiers,
+        Option<&'static mut Health>,
     ),
     Without<ItemPickup>,
 >;
@@ -161,17 +164,23 @@ pub fn item_consumable_pickup_system(
         else {
             continue;
         };
-        let Some((_, entity, player, _, inventory, _)) =
+        let Some((_, entity, player, _, inventory, mut modifiers, health)) =
             players.iter_mut().find(|(id, ..)| id.0 == *player_net_id)
         else {
             continue;
         };
-        with_inventory(inventory, &mut fresh, *player_net_id, entity, |inventory| {
-            *inventory
-                .consumables
-                .entry(pickup.item_id.clone())
-                .or_default() += 1;
-        });
+        if def.effects.is_empty() {
+            with_inventory(inventory, &mut fresh, *player_net_id, entity, |inventory| {
+                *inventory
+                    .consumables
+                    .entry(pickup.item_id.clone())
+                    .or_default() += 1;
+            });
+        } else {
+            // M2-T4 : un consommable à effets `OnUse` s'applique au ramassage (aucun bouton
+            // d'usage n'existe pour lui) et n'entre pas dans l'inventaire.
+            apply_instant_effects(def, &pickup.item_id, frame.frame, health, &mut modifiers);
+        }
         info!(
             "ggrs{{f={} item_pickup net_id={} item={} by={}}}",
             frame.frame, pickup_net_id.0, pickup.item_id, player_net_id
@@ -215,7 +224,7 @@ pub fn handle_item_interaction(
         let Some(def) = table.0.get(&pickup.item_id) else {
             continue;
         };
-        let Some((_, entity, player, player_transform, inventory, mut modifiers)) = players
+        let Some((_, entity, player, player_transform, inventory, mut modifiers, _)) = players
             .iter_mut()
             .find(|(id, ..)| id.0 == event.interactor_net_id.0)
         else {
@@ -238,10 +247,7 @@ pub fn handle_item_interaction(
                 }
                 ItemKind::Active(_) => {
                     dropped = inventory.active.take().map(|slot| slot.item);
-                    inventory.active = Some(ActiveSlot {
-                        item: pickup.item_id.clone(),
-                        charge: 0,
-                    });
+                    inventory.active = Some(ActiveSlot::new(pickup.item_id.clone()));
                 }
                 ItemKind::Consumable => {}
             },
@@ -272,6 +278,78 @@ pub fn handle_item_interaction(
         let _ = pickup_transform;
     }
     insert_fresh_inventories(&mut commands, fresh);
+}
+
+/// Applique les effets `OnUse` d'un objet (actif utilisé, consommable ramassé) : `Heal`,
+/// `Modifier` (permanent) et `TimedModifier`, source `item:<id>`. Les autres actions sont
+/// refusées par le lint.
+fn apply_instant_effects(
+    def: &items::ItemDef,
+    item_id: &str,
+    frame: u32,
+    mut health: Option<Mut<Health>>,
+    modifiers: &mut Modifiers,
+) {
+    let source: ModifierSource = item_source(item_id);
+    for effect in def.effects.iter().filter(|e| e.on == effects::On::OnUse) {
+        for action in &effect.r#do {
+            match action {
+                Action::TimedModifier { .. } => {
+                    if let Some(modifier) = action.as_modifier(frame, source.clone()) {
+                        modifiers.push(modifier);
+                    }
+                }
+                Action::Modifier { stat, op, value } => {
+                    modifiers.push_from(source.clone(), stat.clone(), *op, *value, None)
+                }
+                Action::Heal(amount) => {
+                    if let Some(health) = health.as_deref_mut() {
+                        health.current =
+                            effects::runtime::healed(health.current, health.max, *amount);
+                    }
+                }
+                // Refusées par le lint (effets v2).
+                _ => {}
+            }
+        }
+    }
+}
+
+/// Synergies (M2-T4, `docs/conventions.md` §44) : les modificateurs `synergy:<id>` d'un joueur
+/// suivent l'`Inventory` à chaque frame (état dérivé, aucun composant) : posés quand tous les
+/// objets requis sont tenus, retirés dès qu'un manque (actif remplacé). Synergies par id,
+/// joueurs par `GgrsNetId`. Les effets des synergies sont lus par
+/// `game::effects_runtime` (clé `synergy:<id>:<index>`).
+pub fn synergy_modifiers_system(
+    synergies: Res<SynergyTable>,
+    mut players: Query<(&GgrsNetId, &Inventory, &mut Modifiers)>,
+) {
+    if synergies.0.is_empty() {
+        return;
+    }
+    for (_, inventory, mut modifiers) in utils::order_mut_iter!(players) {
+        for (id, def) in &synergies.0 {
+            if def.modifiers.is_empty() {
+                continue;
+            }
+            let source = synergy_source(id);
+            let wanted = !def.requires.is_empty() && def.requires.iter().all(|r| inventory.has(r));
+            let present = modifiers.iter().any(|m| m.source == source);
+            if wanted && !present {
+                for modifier in &def.modifiers {
+                    modifiers.push(Modifier {
+                        stat: modifier.stat.clone(),
+                        op: modifier.op,
+                        value: modifier.value,
+                        source: source.clone(),
+                        until: None,
+                    });
+                }
+            } else if !wanted && present {
+                modifiers.remove_by_source(&source);
+            }
+        }
+    }
 }
 
 /// Charge des actifs tenus : frames, salles nettoyées, dégâts infligés.
@@ -312,13 +390,24 @@ pub fn item_charge_system(
 }
 
 /// `UseActive` avec l'actif chargé : applique ses effets `OnUse`, la charge retombe à 0.
+/// M2-T4 : refusé (la charge reste) si l'étage a déjà servi `uses_per_floor` fois, ou si le
+/// stock du consommable `cost` manque ; sinon le coût est prélevé et l'usage compté.
+#[allow(clippy::type_complexity)]
 pub fn item_use_active_system(
     frame: Res<FrameCount>,
     table: Res<ItemTable>,
+    floor: Option<Res<run::FloorState>>,
     inputs: Res<PlayerInputs<PeerConfig>>,
-    mut players: Query<(&GgrsNetId, &Player, &mut Inventory, &mut Modifiers)>,
+    mut players: Query<(
+        &GgrsNetId,
+        &Player,
+        &mut Inventory,
+        &mut Modifiers,
+        Option<&mut Health>,
+    )>,
 ) {
-    for (net_id, player, mut inventory, mut modifiers) in utils::order_mut_iter!(players) {
+    let floor_index = floor.map_or(0, |f| f.index);
+    for (net_id, player, mut inventory, mut modifiers, health) in utils::order_mut_iter!(players) {
         if inputs[player.handle].0.buttons & INPUT_USE_ACTIVE == 0 {
             continue;
         }
@@ -335,25 +424,29 @@ pub fn item_use_active_system(
         if slot.charge < charge.required() {
             continue;
         }
-        let source: ModifierSource = item_source(&item_id);
-        for effect in def.effects.iter().filter(|e| e.on == effects::On::OnUse) {
-            for action in &effect.r#do {
-                match action {
-                    Action::TimedModifier { .. } => {
-                        if let Some(modifier) = action.as_modifier(frame.frame, source.clone()) {
-                            modifiers.push(modifier);
-                        }
-                    }
-                    Action::Modifier { stat, op, value } => {
-                        modifiers.push_from(source.clone(), stat.clone(), *op, *value, None)
-                    }
-                    // Refusées par le lint (effets v2).
-                    _ => {}
-                }
+        if def
+            .uses_per_floor
+            .is_some_and(|limit| slot.uses_on(floor_index) >= limit)
+        {
+            continue;
+        }
+        if let Some((cost_item, count)) = &def.cost {
+            if inventory.consumable(cost_item) < *count {
+                continue;
             }
         }
+        if let Some((cost_item, count)) = &def.cost {
+            if let Some(stock) = inventory.consumables.get_mut(cost_item) {
+                *stock -= *count;
+            }
+        }
+        apply_instant_effects(def, &item_id, frame.frame, health, &mut modifiers);
+        let counts_uses = def.uses_per_floor.is_some();
         if let Some(slot) = inventory.active.as_mut() {
             slot.charge = 0;
+            if counts_uses {
+                slot.uses = Some((floor_index, slot.uses_on(floor_index) + 1));
+            }
         }
         info!(
             "ggrs{{f={} item_use net_id={} item={}}}",
@@ -550,6 +643,7 @@ pub struct ItemsPlugin;
 impl Plugin for ItemsPlugin {
     fn build(&self, app: &mut App) {
         app.init_resource::<ItemTable>()
+            .init_resource::<SynergyTable>()
             .init_resource::<FloorStartConsumables>()
             .add_frame_events_neutral::<ItemPicked>()
             .add_frame_events_neutral::<BlankUsed>()
@@ -570,6 +664,7 @@ impl Plugin for ItemsPlugin {
                 item_consumable_pickup_system.after(crate::powerups::apply_powerup_actions_system),
                 item_use_active_system.after(item_consumable_pickup_system),
                 blank_system.after(item_use_active_system),
+                synergy_modifiers_system.after(blank_system),
             )
                 .in_set(RollbackSystemSet::Effects),
         );

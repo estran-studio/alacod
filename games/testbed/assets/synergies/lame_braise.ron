@@ -1,0 +1,7 @@
+// M2-T4 : synergie d'essai (`synergy_lost`) avec un actif : la lame et la braise donnent +2 de
+// dégâts tant que la braise est l'actif tenu.
+(
+    name: "Lame ardente",
+    requires: ["lame", "braise"],
+    modifiers: [(stat: Damage, op: Add, value: "2")],
+)
