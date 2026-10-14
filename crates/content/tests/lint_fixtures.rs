@@ -1212,3 +1212,33 @@ fn item_cost_not_consumable_fixture_reports_unsupported() {
         "n'est pas un consommable",
     );
 }
+
+#[test]
+fn formation_radius_zero_fixture_reports_out_of_range() {
+    let (_, _, errors) = load_and_lint(&fixture_dir("formation_radius_zero")).unwrap();
+    assert_has_error(&errors, LintErrorKind::OutOfRange, "radius = 0");
+}
+
+#[test]
+fn formation_spread_fixture_reports_out_of_range() {
+    let (_, _, errors) = load_and_lint(&fixture_dir("formation_spread_out_of_range")).unwrap();
+    assert_has_error(&errors, LintErrorKind::OutOfRange, "doit être dans ]0, 2π]");
+}
+
+#[test]
+fn formation_period_zero_fixture_reports_out_of_range() {
+    let (_, _, errors) = load_and_lint(&fixture_dir("formation_period_zero")).unwrap();
+    assert_has_error(&errors, LintErrorKind::OutOfRange, "period = 0");
+}
+
+#[test]
+fn formation_inert_fixture_reports_out_of_range() {
+    let (_, _, errors) = load_and_lint(&fixture_dir("formation_inert")).unwrap();
+    assert_has_error(&errors, LintErrorKind::OutOfRange, "ni Shoot ni Chase");
+}
+
+#[test]
+fn formation_no_squad_fixture_reports_out_of_range() {
+    let (_, _, errors) = load_and_lint(&fixture_dir("formation_no_squad")).unwrap();
+    assert_has_error(&errors, LintErrorKind::OutOfRange, "sans escouade");
+}

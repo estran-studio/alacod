@@ -1,0 +1,5 @@
+(
+    name: "fixture-formation_inert",
+    content_folders: [(path: "characters/grunt.ron", kind: "Character")],
+    entry: (start_map: "unused", default_seed: 1),
+)

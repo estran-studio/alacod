@@ -270,6 +270,8 @@ pub struct CharacterEntry {
     pub effects: Vec<effects::Effect>,
     /// T1.4 : règles de comportement (`ai.behaviors`, `None` : liste par défaut).
     pub behaviors: Option<Vec<BehaviorEntry>>,
+    /// M2-T8 : id d'escouade (`ai.squad`).
+    pub squad: Option<String>,
     /// M2-T0c : boss à phases (`boss`).
     pub boss: Option<BossEntry>,
     /// T1.4 : tags ignorés par le ciblage (`ai.targeting: Some(Nearest(ignore: [...]))`).
@@ -359,6 +361,22 @@ pub enum BehaviorEntry {
     Melee(String),
     Flee,
     Wander,
+    /// M2-T8 (§49) : mirroir de `behaviors::Behavior::Formation`.
+    Formation {
+        shape: FormationShapeEntry,
+        period: u32,
+        #[serde(default)]
+        volley: bool,
+    },
+}
+
+/// M2-T8 : mirroir de `behaviors::FormationShape`.
+#[derive(Debug, Clone, Deserialize)]
+pub enum FormationShapeEntry {
+    Arc {
+        radius: FixedField,
+        spread: FixedField,
+    },
 }
 
 /// M2-T0c : mirroirs de `behaviors::boss` (`docs/conventions.md` §37) ; les `Fixed` passent par
@@ -1539,6 +1557,9 @@ struct AiSchema {
     behaviors: Option<Vec<BehaviorEntry>>,
     #[serde(default)]
     targeting: Option<TargetingEntry>,
+    /// M2-T8 : `squad: Some(("id", Some("role")))`, voir `game::...::state::SquadRon`.
+    #[serde(default)]
+    squad: Option<(String, Option<String>)>,
 }
 
 fn default_bleedout_frames() -> u32 {
@@ -1979,6 +2000,11 @@ fn load_characters(
                     .map(|TargetingEntry::Nearest { ignore }| ignore.clone())
                     .unwrap_or_default(),
                 has_ai: parsed.ai.is_some(),
+                squad: parsed
+                    .ai
+                    .as_ref()
+                    .and_then(|ai| ai.squad.as_ref())
+                    .map(|squad| squad.0.clone()),
                 behaviors: parsed.ai.and_then(|ai| ai.behaviors),
                 tags: parsed.tags,
                 variants: parsed.variants.map(|variants| VariantsEntry {
