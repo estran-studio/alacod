@@ -710,6 +710,67 @@ pub fn apply_triggered_effects_system(
     }
 }
 
+/// `SpawnPattern` : pose un émetteur jouant `pattern` avec la table de projectiles de `weapon`,
+/// visée fixe (+x). `telegraph > 0` (M2-T7, `Telegraph(n)` d'une frise de boss) : l'émetteur
+/// joue `Sequence([Telegraph(n), pattern])` ; 0 : le pattern tel quel (chemin d'avant). Rend
+/// vrai si un émetteur est posé (ignoré si un émetteur joue déjà).
+#[allow(clippy::too_many_arguments)]
+pub(crate) fn spawn_pattern(
+    pattern: &str,
+    weapon: &str,
+    telegraph: u32,
+    net_id: &GgrsNetId,
+    frame: u32,
+    (entity, has_emitter): (Entity, bool),
+    commands: &mut Commands,
+    assets: &EffectAssets,
+) -> bool {
+    if has_emitter {
+        warn!(
+            "effet de {} : SpawnPattern « {} » ignoré, un émetteur joue déjà",
+            net_id, pattern
+        );
+        return false;
+    }
+    let Some(weapon_asset) = assets
+        .global
+        .as_ref()
+        .and_then(|g| assets.weapons.get(&g.weapons))
+        .and_then(|config| config.0.get(weapon))
+    else {
+        warn!(
+            "effet de {} : arme « {} » inconnue (voir `alacod lint`)",
+            net_id, weapon
+        );
+        return false;
+    };
+    let named = combat::projectile::Pattern::Named(pattern.to_string());
+    let Ok(mut resolved) = resolve_pattern(assets.library.as_deref(), &named) else {
+        warn!(
+            "effet de {} : pattern « {} » inconnu (voir `alacod lint`)",
+            net_id, pattern
+        );
+        return false;
+    };
+    if telegraph > 0 {
+        resolved = combat::projectile::Pattern::Sequence(vec![
+            combat::projectile::Pattern::Telegraph(telegraph),
+            resolved,
+        ]);
+    }
+    commands.entity(entity).insert(Emitter::new(
+        pattern.to_string(),
+        &resolved,
+        weapon.to_string(),
+        std::sync::Arc::new(weapon_asset.config.projectiles.clone()),
+        fixed_math::FIXED_ONE,
+        weapon_asset.config.friendly_fire,
+        FixedVec2::new(Fixed::ONE, Fixed::ZERO),
+        frame,
+    ));
+    true
+}
+
 #[allow(clippy::too_many_arguments)]
 pub(crate) fn apply_action(
     action: &Action,
@@ -786,50 +847,26 @@ pub(crate) fn apply_action_sourced(
             }
         }
         Action::SpawnPattern { pattern, weapon } => {
-            if has_emitter {
-                warn!(
-                    "effet de {} : SpawnPattern « {} » ignoré, un émetteur joue déjà",
-                    net_id, pattern
-                );
-                return;
-            }
-            let Some(weapon_asset) = assets
-                .global
-                .as_ref()
-                .and_then(|g| assets.weapons.get(&g.weapons))
-                .and_then(|config| config.0.get(weapon))
-            else {
-                warn!(
-                    "effet de {} : arme « {} » inconnue (voir `alacod lint`)",
-                    net_id, weapon
-                );
-                return;
-            };
-            let named = combat::projectile::Pattern::Named(pattern.clone());
-            let Ok(resolved) = resolve_pattern(assets.library.as_deref(), &named) else {
-                warn!(
-                    "effet de {} : pattern « {} » inconnu (voir `alacod lint`)",
-                    net_id, pattern
-                );
-                return;
-            };
-            commands.entity(entity).insert(Emitter::new(
-                pattern.clone(),
-                &resolved,
-                weapon.clone(),
-                std::sync::Arc::new(weapon_asset.config.projectiles.clone()),
-                fixed_math::FIXED_ONE,
-                weapon_asset.config.friendly_fire,
-                FixedVec2::new(Fixed::ONE, Fixed::ZERO),
+            spawn_pattern(
+                pattern,
+                weapon,
+                0,
+                net_id,
                 frame,
-            ));
+                (entity, has_emitter),
+                commands,
+                assets,
+            );
         }
         Action::RefillAmmo
         | Action::RefillAmmoOf(_)
         | Action::RepairAllWindows
         | Action::KillAllWaveEnemies
         | Action::DestroyTerrain { .. }
-        | Action::ApplyStatus { .. } => {
+        | Action::ApplyStatus { .. }
+        // M2-T7 : frise de boss seulement (exécutées par `game::boss`).
+        | Action::SpawnEnemies { .. }
+        | Action::Telegraph(_) => {
             warn!(
                 "effet de {} : action {:?} non exécutée en v1 (voir `alacod lint`)",
                 net_id, action

@@ -156,6 +156,7 @@ fn scenarios() {
     let only = std::env::var("ALACOD_SCENARIO")
         .ok()
         .filter(|name| !name.is_empty());
+    let shard = shard_from_env();
 
     // Load budgets
     let budgets_path = budgets_dir().join("budgets.ron");
@@ -176,6 +177,16 @@ fn scenarios() {
     // T2.10 : en plus des scénarios manuscrits ci-dessus, un par arme générée (voir la doc du
     // module) ; même boucle ci-dessous, aucun traitement spécial.
     paths.extend(generated_scenario_paths());
+    // Tranche `i/N` (`ALACOD_SCENARIO_SHARD`, `scripts/test-scenarios-sharded.sh`) : un scénario
+    // sur N, à tour de rôle dans l'ordre ci-dessus ; N processus couvrent toute la liste.
+    if let Some((index, count)) = shard {
+        paths = paths
+            .into_iter()
+            .enumerate()
+            .filter(|(position, _)| position % count == index)
+            .map(|(_, path)| path)
+            .collect();
+    }
 
     let mut failures = Vec::new();
     let mut metrics_map: BTreeMap<String, Metrics> = BTreeMap::new();
@@ -280,7 +291,7 @@ fn scenarios() {
     }
 
     // Write metrics to JSON
-    write_metrics(&metrics_map);
+    write_metrics(&metrics_map, shard);
 
     assert!(failures.is_empty(), "\n{}\n", failures.join("\n"));
 }
@@ -307,7 +318,19 @@ fn commit_dir_name() -> String {
     }
 }
 
-fn write_metrics(metrics: &BTreeMap<String, Metrics>) {
+/// `ALACOD_SCENARIO_SHARD=i/N` (0 ≤ i < N) : tranche jouée par ce processus.
+fn shard_from_env() -> Option<(usize, usize)> {
+    let value = std::env::var("ALACOD_SCENARIO_SHARD").ok()?;
+    let (index, count) = value.split_once('/')?;
+    let (index, count) = (index.trim().parse().ok()?, count.trim().parse().ok()?);
+    assert!(
+        count > 0 && index < count,
+        "ALACOD_SCENARIO_SHARD={value} : attendu i/N avec 0 <= i < N"
+    );
+    Some((index, count))
+}
+
+fn write_metrics(metrics: &BTreeMap<String, Metrics>, shard: Option<(usize, usize)>) {
     let commit = commit_dir_name();
 
     let metrics_dir = metrics_dir();
@@ -316,8 +339,19 @@ fn write_metrics(metrics: &BTreeMap<String, Metrics>) {
     // Create directory if it doesn't exist
     std::fs::create_dir_all(&commit_dir).ok();
 
-    // Write metrics for this commit
     let metrics_json = serde_json::to_string_pretty(metrics).expect("sérialisation des métriques");
+    // Une tranche n'écrit que sa part ; le script qui lance les tranches les fusionne ensuite
+    // en `metrics.json` et `latest.json`.
+    if let Some((index, count)) = shard {
+        std::fs::write(
+            commit_dir.join(format!("metrics.shard-{index}-of-{count}.json")),
+            &metrics_json,
+        )
+        .ok();
+        return;
+    }
+
+    // Write metrics for this commit
     std::fs::write(commit_dir.join("metrics.json"), &metrics_json).ok();
 
     // Write latest.json symlink (or just copy for portability)

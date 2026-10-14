@@ -4,7 +4,7 @@
 // 50 % de santé (moment clé `boss_phase`) puis meurt : l'étage est vidé, victoire (`RunState`).
 //
 // À regarder : après le combat, le joueur avance vers l'est ; la salle du boss se verrouille ; le
-// `gatling` tire des éventails (`Fan`) puis, sous 50 % de santé, des spirales (`Spiral`) ; le joueur répond par deux blanks (M2-T1) qui effacent les balles proches ; il meurt, les portes se
+// `gatling` tire des éventails (`Fan`) puis, sous 50 % de santé, des spirales (`Spiral`) et, sous 10 %, un `bullet_kin` en renfort (M2-T7, trois phases) ; le joueur répond par deux blanks (M2-T1) qui effacent les balles proches ; il meurt, les portes se
 // rouvrent, écran de victoire.
 Scenario(
     powerup_drop_chance_override: "0.0",
@@ -34,10 +34,12 @@ Scenario(
         // Verrouillée à f291 : ses deux portes (celles de la salle de combat, rouvertes, se referment avec leur jumelle).
         RoomState(kind: "boss", state: Locked, at_frame: 320, doors_closed: Some(2)),
         BossPhase(entity: NetId(31), phase: 0, at_frame: 330),
-        // Sous 50 % de santé : phase 1 (f448) ; le boss meurt à f568.
-        BossPhase(entity: NetId(31), phase: 1, at_frame: 500),
-        RoomState(kind: "boss", state: Cleared, at_frame: 600),
-        // Étage vidé = victoire (`victory_at_end`, f569).
+        // Sous 50 % de santé : phase 1 (f428), puis la rage sous 10 % (f488 : un `bullet_kin` en renfort,
+        // M2-T7) ; le boss meurt à f549.
+        BossPhase(entity: NetId(31), phase: 1, at_frame: 450),
+        BossPhase(entity: NetId(31), phase: 2, at_frame: 520),
+        RoomState(kind: "boss", state: Cleared, at_frame: 560),
+        // Étage vidé = victoire (`victory_at_end`, f550).
         RunState(step: Ended(Victory), at_frame: 650),
         PlayerAlive(handle: 0, at_frame: 690),
     ],

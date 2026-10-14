@@ -1,0 +1,30 @@
+// M2-T7 (docs/conventions.md §45) : arène à tenir. Carte testbed/salles_arene.ldtk (départ, salle
+// `arene` vide, récompense) ; `rooms/arene.ron` : horloge de 600 frames, deux `dummy` au verrouillage,
+// un `follower` à 150 frames, deux `dummy` à 300.
+//
+// À regarder : le joueur entre dans l'arène vide (f30-90) : elle se verrouille (quatre portes) et
+// des mannequins apparaissent ; il tire sur le `follower` qui arrive (f150) ; à la fin de
+// l'horloge les mannequins restants meurent et les portes se rouvrent.
+Scenario(
+    powerup_drop_chance_override: "0.0",
+    game: "testbed",
+    map: "testbed/salles_arene.ldtk",
+    map_seed: 1,
+    frames: 900,
+    players: [
+        (inputs: [
+            (from: 30, to: 90, buttons: [Right]),
+            (from: 90, to: 800, buttons: [Fire], pan: (64, 0)),
+        ]),
+    ],
+    expect: [
+        RoomState(kind: "arene", state: Dormant, doors_closed: Some(0), at_frame: 20),
+        EntityCount(kind: Enemy, max: Some(0), at_frame: 20),
+        RoomState(kind: "arene", state: Locked, doors_closed: Some(4), at_frame: 200),
+        EntityCount(kind: Enemy, min: 2, at_frame: 200),
+        RoomState(kind: "arene", state: Locked, at_frame: 600),
+        RoomState(kind: "arene", state: Cleared, doors_closed: Some(0), at_frame: 899),
+        EntityCount(kind: Enemy, max: Some(0), at_frame: 899),
+        PlayerAlive(handle: 0, at_frame: 899),
+    ],
+)

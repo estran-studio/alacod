@@ -1,0 +1,13 @@
+// Type de salle `arene` de gungeon (M2-T7, docs/conventions.md §45) : arène à tenir. Elle se verrouille dès
+// qu'un joueur debout y entre (même vide) et ne se rouvre qu'au bout de 900 frames (15 s), si un joueur vit
+// encore : deux `bullet_kin` au verrouillage, deux autres à 300 frames, trois à 600.
+(
+    arena: Some((
+        clock: 900,
+        waves: [
+            (at: 0, enemies: [("bullet_kin", 2)]),
+            (at: 300, enemies: [("bullet_kin", 2)]),
+            (at: 600, enemies: [("bullet_kin", 3)]),
+        ],
+    )),
+)

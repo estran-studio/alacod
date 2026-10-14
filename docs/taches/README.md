@@ -213,4 +213,7 @@ Scénarios à dumper au minimum : `idle`, `two_players_shooting`, `points_on_kil
 2. Vérifié : chaque commande du §4 (et §5 si bless) **avec son résultat réel** (nombres).
 3. Non fait / incertain / non vérifié (un scénario jamais vu passer est « non vérifié »).
 4. Dettes laissées, questions ouvertes.
+5. Atteignabilité (M2, `docs/taches.md` §7) : le scénario ou la graine `alacod-sim` d'une partie
+   ordinaire du clone qui rencontre la mécanique livrée ; sinon, la fiche T14 qui la branchera,
+   nommée comme dette.
 Ne jamais écrire « complet » ou « vérifié » pour ce qui n'a pas tourné sous vos yeux.

@@ -2420,9 +2420,9 @@ les événements dus de la frise. La frise n'a pas de curseur : `due(frame - ent
 
 **Règles par phase.** `EnemyBehaviors::phase_rules` (statique) garde la liste de chaque phase ; l'IA
 lit `EnemyBehaviors::active(BossState::phase)` (sélection, déplacement imposé, attaque,
-`melee_hold`, attente `EnemyState`). **Limite** : la table de tir d'une règle `Shoot` (`ai.ranged`)
-est fixée à la config de l'ennemi, pas à la phase ; en phase, un tir passe par la frise
-(`SpawnPattern`).
+`melee_hold`, attente `EnemyState`). **Limite levée par M2-T7 (§45)** : la règle `Shoot` d'une phase
+porte sa propre table de tir (arme, pattern, portée, recharge) ; sans `Shoot` de phase, `ai.ranged` de
+la config ; un tir peut aussi passer par la frise (`SpawnPattern`).
 
 **Actions.** Même exécuteur que les effets de personnage (`effects_runtime::apply_action`) avec un
 `EffectState` jetable : `GaugeAdd` n'a pas d'effet durable sur un boss ; `SpawnPattern` est ignoré
@@ -2488,7 +2488,7 @@ manifeste `assets/game.ron`. Il montre les contrats de la vague 0 de M2 ensemble
 **Contenu.**
 - `characters/` : `pistolero` (le joueur, id moteur `player`, course nerveuse et roulade à i-frames
   du §34), `bullet_kin` (ennemi tireur : `Shoot` du pattern `visee`, `KeepDistance`, `Chase`),
-  `gatling` (boss immobile à deux phases, frise `SpawnPattern`), `cible` (cible des scénarios
+  `gatling` (boss immobile ; trois phases depuis M2-T7, §45 : éventail, spirale, rage avec renfort), `cible` (cible des scénarios
   générés d'armes).
 - `weapons/weapons.ron` : `pistolet` (le moteur n'a pas de munition infinie : réserve de 9999
   chargeurs de 12, rechargement rapide ; `Automatic` : tenir la gâchette tire en continu) et
@@ -2973,3 +2973,74 @@ type de salle n'est tiré par aucune.
 (le rang 0 tombe, les deux restants se placent aux extrémités), `formation_alternate_fire` (2, 4, 6 puis 8
 flèches au lieu de 6, 12, 18), `formation_two_players` (arc autour du joueur le plus proche),
 `gungeon_squad`.
+
+## 45. Boss et arène (M2-T7, chantier D4)
+
+Complète §37 (phases, frise) et §35 (salles verrouillées) : tir **par phase**, salle de boss,
+arène à tenir, actions de frise `SpawnEnemies` et `Telegraph`.
+
+**Tir par phase** (lève la limite de §37). Une règle `Shoot` d'une phase (`Phase::behaviors`)
+utilise **sa propre** table de tir : arme (donc table de projectiles), pattern, portée, recharge.
+`EnemyBehaviors::phase_shoot(phase)` la rend, `enemy_attack_system` la préfère à `ai.ranged` ;
+`spawn_enemy` équipe en plus (inactives) les armes des `Shoot` de phase. Sans `Shoot` de phase,
+`ai.ranged` comme avant (aucune trace ne bouge). Personnage `testbed/gardien_tir`.
+
+**Salle de boss.** Type de salle `boss` (`locks: true`, §35). Le boss **dort** tant que sa salle est
+`Dormant` : `boss_phase_system` saute les entités `RoomDormant` (la phase 0 est donc datée à l'éveil,
+pas au premier tick du jeu : le boss ne tire plus depuis une salle fermée). À sa mort,
+`boss_defeated_system` (`DeathManagement`) émet `FrameEvents<BossDefeated>` (**transitoire** :
+`add_frame_events_transient`, hors checksum et hors snapshot, vidé à la frame suivante) puis
+`map_ldtk::game::rooms::boss_room_clear_system` tue les autres ennemis de sa salle (renforts compris) :
+la salle passe `Cleared` dans la frame (portes rouvertes, `RoomChanged`). `floor_portal_open_system`
+ne bouge pas : le portail ou la victoire de fin d'étage viennent après, comme avant. Trace
+`ggrs{f=… boss_defeated net_id=…}` et `boss_room_clear`.
+
+**Actions de frise** (variantes **en fin d'enum** `effects::Action`, le hash des autres ne bouge pas) :
+- `Telegraph(n)` : le prochain `SpawnPattern` de la même liste est précédé d'un télégraphe de `n`
+  frames (l'émetteur joue `Sequence([Telegraph(n), pattern])`) ; aucun type nouveau.
+- `SpawnEnemies(id, count)` : `count` personnages `id` apparaissent dans la salle du boss, positions
+  tirées du flux RNG `room:<niveau>` (`world::room_rng_stream`) sur une case libre du profil `Ground`
+  (16 essais, repli sur le centre). Demande `game::boss::ReinforcementRequest` (transitoire) émise
+  par `boss_phase_system` et exécutée dans la même frame par `boss_reinforcements_system` (`Run`).
+Refusées partout ailleurs que dans un boss (power-up, effet de personnage : `OutOfRange`).
+
+**Arène à tenir.** Champ optionnel `arena` d'un fichier `rooms/<id>.ron` :
+`(arena: Some((clock: 600, waves: [(at: 0, enemies: [("dummy", 2)]), …])))`
+(`world::ArenaDef`, `ArenaWave`). Une arène verrouille **dès qu'un joueur debout entre**, même vide
+(`RoomKindTable::locks` est vrai), et lance son horloge (`ArenaClocks`, ressource rollback **neutre**,
+frame de verrouillage par niveau). Vagues : `arena_waves_system` (`Run`) fait apparaître les ennemis
+d'une vague quand `frame - début == at` (aucun curseur : tout se déduit de l'horloge et de l'état de
+salle). À `clock` frames, si un joueur vit, les survivants meurent et la salle passe `Cleared`
+(portes rouvertes). Si tous les joueurs meurent, défaite universelle. Trace
+`ggrs{f=… arena_wave …}` et `arena_kill`.
+
+**Lint.** `lint_arenas` : `clock` > 0, au moins une vague, `at` < `clock` et croissants, vague non
+vide, personnage connu (`BrokenReference`), `count` > 0 ; dans une frise : `SpawnEnemies` d'un
+personnage inconnu, `count` 0, `Telegraph(0)`, `Telegraph` sans `SpawnPattern` après lui. Fixtures
+`arena_no_waves`, `arena_clock_zero`, `arena_unknown_enemy`, `arena_count_zero`,
+`boss_spawn_enemies_unknown`, `boss_spawn_enemies_count_zero`, `boss_telegraph_alone`.
+
+**Déterminisme.** Types nouveaux tous neutres ou transitoires (`ArenaClocks`, `BossDefeated`,
+`ReinforcementRequest`) : aucune trace hors `gungeon` ne bouge. Les flux `room:<niveau>` ne naissent
+qu'au premier renfort ou à la première vague. Apparitions dans l'ordre : demandes par `GgrsNetId` du
+boss, salles triées par position puis identifiant.
+
+**Contenu.** `testbed` : `gardien_tir`, `gardien_renforts`, types de salle `boss`, `arene`,
+`arene_mortelle`, cartes `salles_boss*.ldtk` et `salles_arene*.ldtk`
+(`docs/taches/rapports/m2-t7-boss-arene.make_cartes.py`).
+
+**Scénarios.** `boss_room_lock` (le boss dort : aucune flèche avant le verrou f85 ; réouverture à sa mort f184),
+`boss_phase_shoot` (flèches de `fireball_gun` en phase 0, balle `ricochet` de `tourelle_gun` en phase 1, projectile
+qui n'existe que dans cette table), `boss_reinforcements` (1 → 3 → 0 ennemis), `arena_survive` (verrou f85, rouverte
+f685 = 85 + 600), `arena_fail` (le joueur immobile meurt f1514, la salle ne se rouvre pas), `gungeon_boss_bot` (le bot
+`fonceur` bat le `gatling` à f403, victoire).
+
+**`gungeon`.** `gatling` : 120 PV (150 avant), phase 0 `eventail` ; phase 1 (sous 50 %) `spirale` ; phase 2 (sous
+10 %, la rage) `SpawnEnemies(bullet_kin, 1)` puis `Telegraph(10)` + `couronne`. Les scénarios scriptés de M2-T0d,
+T1, T3 et T10 gardent leurs entrées : un renfort plus tôt retardait la mort du boss de plus de 40 frames (il
+bloque des balles et le joueur scripté meurt à quelques points de vie près) ; la rage se déclenche donc à la
+dernière touche (sous 10 %) et les PV tombent à 120. Type de salle `arene` (`rooms/arene.ron`, horloge de 900
+frames, 2 + 2 + 3 `bullet_kin`), deux gabarits `ArenaEW` et `ArenaCroix` dans `maps/salles.ldtk`
+(`docs/taches/rapports/m2-t7-boss-arene.make_arene.py`), exigée une fois par la grammaire `etage`
+(`required: {"arene": 1}`), validée sur 1 000 graines (`ALACOD_FLOOR_SEEDS=1000 cargo test -p map_ldtk
+gungeon_etages_de_grammaire`). Aucun scénario ne joue encore l'arène de gungeon.
