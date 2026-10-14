@@ -772,7 +772,11 @@ pub fn build_room_scenario(
 /// Attentes par défaut du gabarit [`Template::BossFight`] : chaque phase atteinte (moment clé
 /// `boss_phase`, cumulatif : l'attente `BossPhase` échoue une fois le boss mort), puis la salle du
 /// boss nettoyée quand le jeu a un type de salle `boss`.
-pub fn boss_default_expectations(phases: usize, has_boss_room: bool, frames: u32) -> Vec<Expectation> {
+pub fn boss_default_expectations(
+    phases: usize,
+    has_boss_room: bool,
+    frames: u32,
+) -> Vec<Expectation> {
     let mut expect: Vec<Expectation> = (1..phases)
         .map(|phase| Expectation::Event {
             kind: "boss_phase".to_string(),

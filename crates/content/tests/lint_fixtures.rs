@@ -205,7 +205,10 @@ fn m1_audit_fixtures() {
         (
             "room_test_no_template",
             LintErrorKind::BrokenReference,
-            &["type de salle « arene »", "aucun gabarit LDtk de type « arene »"],
+            &[
+                "type de salle « arene »",
+                "aucun gabarit LDtk de type « arene »",
+            ],
         ),
         (
             "room_test_both_scenes",

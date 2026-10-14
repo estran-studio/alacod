@@ -931,11 +931,9 @@ fn lint_character_tests(registry: &Registry, errors: &mut Vec<LintError>) {
                     "test.boss : floors et map sont exclusifs".to_string(),
                 );
             }
-            if let Err(message) = scene_room_kinds(
-                registry,
-                fight.floors.as_deref(),
-                fight.map.as_deref(),
-            ) {
+            if let Err(message) =
+                scene_room_kinds(registry, fight.floors.as_deref(), fight.map.as_deref())
+            {
                 push(
                     LintErrorKind::BrokenReference,
                     format!("test.boss : {message}"),
@@ -956,11 +954,14 @@ fn scene_room_kinds(
 ) -> Result<BTreeSet<String>, String> {
     let kinds_of = |path: &str| -> Result<BTreeSet<String>, String> {
         let id = registry::map_id_from_path(path);
-        let entry = registry
-            .maps
-            .get(&id)
-            .ok_or_else(|| format!("carte « {path} » inconnue (aucune carte chargée avec l'id « {id} »)"))?;
-        Ok(entry.room_kinds.iter().map(|(_, kind)| kind.clone()).collect())
+        let entry = registry.maps.get(&id).ok_or_else(|| {
+            format!("carte « {path} » inconnue (aucune carte chargée avec l'id « {id} »)")
+        })?;
+        Ok(entry
+            .room_kinds
+            .iter()
+            .map(|(_, kind)| kind.clone())
+            .collect())
     };
     let mut kinds = BTreeSet::new();
     if let Some(map) = map {
