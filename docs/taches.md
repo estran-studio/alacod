@@ -590,6 +590,9 @@ l'ancienne machine.
 - Perf de la suite de scénarios (outillage, 3 j ; fiche `docs/taches/perf-suite-scenarios.md`, cloud) :
   mesurer le coût fixe par frame (~10 fps même sur `idle`), l'optimiser sans changer ce que la suite
   vérifie, tranches réparties par durée. Acceptation : suite deux fois plus rapide, aucune trace bougée.
+- Perf de la navigation (outillage, 3 j ; fiche `docs/taches/perf-navigation.md`, cloud, après perf-suite-scenarios) :
+  flow field et navigation des bots en grilles denses (42 % + 14 % de `bench_floor`), sortie identique case par case.
+  Acceptation : aucune trace bougée, `throne_*` et `bench_floor` nettement plus rapides.
 - M2-T17 Générateur v2 et attentes (3 j ; fiche `docs/taches/m2-t17-generateur-v2.md`, cloud) : gabarits par objet et par salle ; attentes `RoomState`,
   `Inventory`, `BossPhase`, `ProfileHas`.
 
