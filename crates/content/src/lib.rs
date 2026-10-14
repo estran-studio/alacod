@@ -3,6 +3,7 @@ pub mod feedback;
 pub mod files;
 pub mod lint;
 pub mod manifest;
+pub mod reach;
 pub mod registry;
 pub mod ui;
 pub mod value;
@@ -10,6 +11,7 @@ pub mod value;
 pub use expr::{BoolExpr, Context, Expr, Kind, NumExpr, ParseError, Value};
 pub use lint::{LintError, LintErrorKind};
 pub use manifest::{ContentFolderDecl, EntryMode, EntryPoint, GameManifest, ManifestError};
+pub use reach::{warnings, LintWarning, LintWarningKind};
 pub use registry::{
     known_content_kinds, CharacterId, EnemyId, MapId, MeleeWeaponId, PowerUpId, Registry,
     WaveConfigId, WeaponId,

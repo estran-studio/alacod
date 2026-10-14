@@ -1,0 +1,8 @@
+// Fixture M2-T15 (§53) : stat_unread
+(
+    name: "fixture-stat_unread",
+    content_folders: [
+        (path: "objets", kind: "Item"),
+    ],
+    entry: (start_map: "maps/salle.ldtk", default_seed: 1),
+)

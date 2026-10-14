@@ -3150,3 +3150,60 @@ campagne : `alacod-sim --game gungeon --bots 1 --profiles explorateur --floors e
 `etages_court_deux` sans input scripté ; ils vérifient l'état des salles, `FloorIndex` 1 et la survie. La
 carte de l'étage suivant est chargée à l'avance : `RoomState` y désigne les salles de l'étage joué par
 `nth: 1`. Les scénarios `gungeon_floor_seed_*` (atteinte scriptée) ne changent pas.
+
+## 53. Lint des kinds M2 et atteignabilité statique (M2-T15, voie V2)
+
+Lint seulement : aucune simulation touchée, aucune trace ne bouge.
+
+**Avertissements.** `content::warnings(&registry, &manifest) -> Vec<LintWarning>` (`crates/content/src/reach.rs`,
+kinds `Unreachable` et `UnreadStat`). `alacod lint` les liste sur stderr (« avertissement : … ») et le
+code de sortie ne change pas ; `LintError`/`load_and_lint` sont inchangés.
+
+**Stat sans lecteur.** `sim_core::stats::stat_reader(&StatId) -> Option<&'static str>` : liste fermée
+des stats lues par la simulation, avec l'endroit de lecture ; à tenir à jour **à la main** quand un
+système lit une nouvelle stat. Un modificateur (ou une base `stats:`) sur une stat sans lecteur est une
+erreur `LintErrorKind::UnreadStat` (`Luck`, tout `Custom` sauf `powerup_currency_multiplier`).
+**`Armor` : avertissement seulement** tant que D61 n'est pas mergée (retirer l'exception de
+`lint_stat_readers` et ajouter `Armor` à `stat_reader` en même temps que son lecteur).
+Usages inspectés : `stats` et `effects` des personnages, variantes, perks, objets, synergies, mutations,
+power-ups.
+
+**Atteignabilité.** Racines : `entry.start_map` et chaque niveau de chaque séquence `Floors` (carte,
+`cave:<id>`, `floor:<id>`). Il n'y a pas de séquence « par défaut » stable (le mode `Floors` prend la
+première par ordre d'id, et `etage_1` de gungeon est une carte fixe) : toute séquence déclarée compte.
+Types tirables d'une grammaire = `FloorGrammar::kinds_needed()`. Avertissements :
+- type de salle (`rooms/<id>.ron`) qu'aucune grammaire ni carte posée ne peut tirer ;
+- gabarit d'une carte `templates` dont le type n'est tiré par aucune grammaire atteinte ;
+- ennemi (`ai` présent) absent des niveaux jouables (cartes posées, gabarits tirables), des arènes
+  des salles tirables, des vagues, des cavernes et des renforts de boss (point fixe) ;
+- objet sans source : `starting_consumables`, `consumables_per_floor`, **pool**. Le point de branchement
+  de M2-T5 est `reach::loot_pool_items` (et `loot_pool_weapons`), vides aujourd'hui : y renvoyer les
+  ids de chaque pool (une dizaine de lignes) ;
+- arme sans source : `starting_weapons`, `WeaponLocation` des niveaux jouables, `weapon_pool` de
+  progression, pools.
+`MapEntry::levels` (`MapLevelInfo` : type de salle, personnages, armes murales par niveau LDtk) porte
+les données. Limites : pas de lecture des scénarios (une arme ou un objet donné par scénario seulement
+est signalé), ni des cartes assemblées autrement que par les désignations ci-dessus ; la sandbox
+`testbed` (arènes de test) produit donc beaucoup d'avertissements voulus.
+
+**Audit des kinds M2** (références vérifiées / bornes vérifiées / fixtures) :
+
+| Kind | Références | Bornes | Fixtures |
+|---|---|---|---|
+| `rooms` | `room_kind` des cartes (`lint_room_kinds`) ; ennemis d'arène | arène : clock>0, vagues datées, ordre, count>0 | `room_kind_unknown`, `arena_*` |
+| `floor_grammars` | carte `templates`, gabarit par type nécessaire | `problems()` (rooms, requis, distance) | `floor_required_without_template`, `floor_bounds_inverted` |
+| `floors` | carte, caverne, grammaire, `consumables_per_floor` | levels non vide, cavernes sans ennemi | `floors_*` |
+| `items` | `cost`, stats (Parse) | charge, pickup_range, blank, uses_per_floor, cost>0 ; **stat lue (T15)** | `item_*`, `stat_unread` |
+| `synergies` | objets requis | ≥2 objets distincts, doublon d'ensemble | `synergy_*` |
+| `props` | — | rayons, dégâts > 0 | `prop_barrel_radius_non_positive`… |
+| `surfaces` | — | doublon de valeur, facteurs > 0, fosse | `surface_*`, `pit_*` |
+| personnages boss | patterns, ennemis de renfort, pas de répétition sans fin | santé, phases, `until`, count>0 | `boss_*` |
+| profil | `entry.progression`, horloges | — | `entry_*` |
+| stats (T15) | — | liste fermée `stat_reader` | `stat_unread`, `stat_armor_warning` |
+| atteignabilité (T15) | racines → salles/gabarits/ennemis/objets/armes | — | `reach_*` |
+
+Trous comblés : la lecture des stats (nouvelle règle) et l'atteignabilité (nouveaux avertissements).
+Aucun autre trou trouvé dans l'audit (les `props` et le profil n'ont pas de référence à vérifier).
+
+**Fixtures.** `stat_unread` (erreur), `stat_armor_warning` (avertissement), `reach_room_unreachable`
+(type de salle et gabarit), `reach_enemy_unplaced`, `reach_item_no_source`, `reach_weapon_no_source`.

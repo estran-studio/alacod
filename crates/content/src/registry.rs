@@ -913,6 +913,56 @@ pub struct MapEntry {
     /// `room_kind` est rempli (gabarits de salles typées, `docs/conventions.md` §35), pour le
     /// lint « type de salle connu ».
     pub room_kinds: Vec<(String, String)>,
+    /// M2-T15 (§53) : par niveau interne, ce qu'il contient (type de salle, personnages
+    /// `CharacterSpawn`, armes murales `WeaponLocation`), pour l'atteignabilité statique.
+    pub levels: Vec<MapLevelInfo>,
+}
+
+/// M2-T15 : contenu d'un niveau interne d'un `.ldtk` (voir [`MapEntry::levels`]).
+#[derive(Debug, Clone, Default)]
+pub struct MapLevelInfo {
+    pub id: String,
+    pub room_kind: Option<String>,
+    pub characters: Vec<String>,
+    pub weapons: Vec<String>,
+}
+
+/// M2-T15 : [`MapLevelInfo`] de chaque niveau d'un `.ldtk`, dans l'ordre du fichier ; vide si la
+/// carte est illisible en JSON.
+fn ldtk_level_infos(text: &str) -> Vec<MapLevelInfo> {
+    let Ok(json) = serde_json::from_str::<serde_json::Value>(text) else {
+        return Vec::new();
+    };
+    let field = |entity: &serde_json::Value, name: &str| -> Option<String> {
+        entity["fieldInstances"]
+            .as_array()?
+            .iter()
+            .find(|f| f["__identifier"] == name)?["__value"]
+            .as_str()
+            .filter(|value| !value.is_empty())
+            .map(str::to_string)
+    };
+    let mut out = Vec::new();
+    for level in json["levels"].as_array().into_iter().flatten() {
+        let mut info = MapLevelInfo {
+            id: level["identifier"].as_str().unwrap_or_default().to_string(),
+            room_kind: field(level, "room_kind"),
+            ..Default::default()
+        };
+        for layer in level["layerInstances"].as_array().into_iter().flatten() {
+            for entity in layer["entityInstances"].as_array().into_iter().flatten() {
+                match entity["__identifier"].as_str() {
+                    Some("CharacterSpawn") => info
+                        .characters
+                        .push(field(entity, "character").unwrap_or_default()),
+                    Some("WeaponLocation") => info.weapons.extend(field(entity, "weapon")),
+                    _ => {}
+                }
+            }
+        }
+        out.push(info);
+    }
+    out
 }
 
 /// M2-E1 : champ de niveau `room_kind` (non vide) de chaque niveau d'un `.ldtk`, avec
@@ -3255,6 +3305,7 @@ fn load_maps(
             .map(ldtk_character_spawns)
             .unwrap_or_default();
         let room_kinds = text.as_deref().map(ldtk_room_kinds).unwrap_or_default();
+        let levels = text.as_deref().map(ldtk_level_infos).unwrap_or_default();
         registry.maps.insert(
             id.clone(),
             MapEntry {
@@ -3263,6 +3314,7 @@ fn load_maps(
                 forced_variants,
                 spawned_characters,
                 room_kinds,
+                levels,
             },
         );
     }
