@@ -2660,7 +2660,9 @@ fn enemy_in_wall(world: &mut World, entity: &game::replay::EntityRef) -> bool {
     };
     let grounded = world
         .get::<game::character::enemy::ai::state::EnemyAiConfig>(enemy)
-        .is_some_and(|ai| ai.movement_type != game::character::enemy::ai::state::MovementType::Flying);
+        .is_some_and(|ai| {
+            ai.movement_type != game::character::enemy::ai::state::MovementType::Flying
+        });
     if grounded {
         if let (Some(grid), Some(table)) = (
             world.get_resource::<world::SurfaceGrid>(),

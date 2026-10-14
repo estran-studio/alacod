@@ -44,6 +44,16 @@ impl GeneratedRoom {
         )
     }
 
+    /// Entités de la couche `Entities` de la salle générée (M2-T11, vérifications des tests).
+    pub fn entities(&self) -> impl Iterator<Item = &EntityInstance> {
+        self.level
+            .layer_instances
+            .iter()
+            .flatten()
+            .filter(|layer| layer.identifier == LAYER_ENTITY)
+            .flat_map(|layer| layer.entity_instances.iter())
+    }
+
     pub fn create(ldtk_json: Rc<LdtkJson>, room: &Room) -> Self {
         let mut level = ldtk_json
             .levels

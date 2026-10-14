@@ -1716,13 +1716,13 @@ pub fn bullet_rollback_collision_system(
                     frame: frame.frame,
                 });
                 match bullet.bullet_type {
-                BulletType::Standard { .. } | BulletType::Explosive { .. } => {
-                    should_bullet_despawn_now = true;
-                }
-                BulletType::Piercing { .. } => {
-                    // Piercing bullets despawn on walls
-                    should_bullet_despawn_now = true;
-                }
+                    BulletType::Standard { .. } | BulletType::Explosive { .. } => {
+                        should_bullet_despawn_now = true;
+                    }
+                    BulletType::Piercing { .. } => {
+                        // Piercing bullets despawn on walls
+                        should_bullet_despawn_now = true;
+                    }
                 }
             }
         }

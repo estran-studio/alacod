@@ -5,6 +5,7 @@
   props_room.ldtk     une salle avec une fosse centrale et un ennemi (pit_enemy_path)
   props_cover.ldtk    un couloir : joueur, table, cible (table_flip_cover)
   props_barrels.ldtk  deux barils voisins dans le couloir A, un joueur dans le couloir B (barrel_chain)
+  gungeon/maps/salles.ldtk  barils et tables dans les gabarits CombatEW et CombatNS
 
 Part de `surfaces.ldtk` (mêmes définitions de calques et d'entités) : ajoute la surface `fosse`
 (valeur IntGrid 4) et les entités `Table` et `Barrel`. Relance idempotente (iid dérivés des noms).
@@ -25,8 +26,8 @@ def iid(*parts):
     return str(uuid.uuid5(NS, "/".join(map(str, parts))))
 
 
-def defs_with_props():
-    d = copy.deepcopy(BASE)
+def add_prop_defs(d):
+    """Ajoute les définitions d'entités `Table` et `Barrel` (copie de `PlayerSpawn`, sans champ)."""
     ents = d["defs"]["entities"]
     spawn = next(e for e in ents if e["identifier"] == "PlayerSpawn")
     uid = d["nextUid"]
@@ -36,6 +37,11 @@ def defs_with_props():
         ents.append(e)
         uid += 1
     d["nextUid"] = uid
+
+
+def defs_with_props():
+    d = copy.deepcopy(BASE)
+    add_prop_defs(d)
     surfaces = next(l for l in d["defs"]["layers"] if l["identifier"] == "Surfaces")
     surfaces["intGridValues"].append(
         {"value": 4, "identifier": "fosse", "color": "#202020", "tile": None, "groupUid": 0}
@@ -185,3 +191,32 @@ build(
         ("Barrel", 14, 3, 16, 16, []),
     ],
 )
+
+
+# 5. Gungeon : deux gabarits de combat de `maps/salles.ldtk` (8x8 tuiles) reçoivent des barils et
+# une table ; mêmes définitions de salles, mêmes types, seul le décor change.
+def patch_gungeon():
+    path = ROOT / "games/gungeon/assets/maps/salles.ldtk"
+    d = json.loads(path.read_text())
+    if not any(e["identifier"] == "Table" for e in d["defs"]["entities"]):
+        add_prop_defs(d)
+    wanted = {
+        # couloir est-ouest (portes en (0,3) et (7,3)) : deux barils côte à côte en haut, une table en bas
+        "CombatEW": [("Barrel", 3, 1, 16, 16), ("Barrel", 4, 1, 16, 16), ("Table", 3, 5, 32, 16)],
+        # couloir nord-sud (portes en (3,0) et (3,7)) : une table à gauche, deux barils à droite
+        "CombatNS": [("Table", 1, 3, 32, 16), ("Barrel", 6, 3, 16, 16), ("Barrel", 6, 4, 16, 16)],
+    }
+    for level in d["levels"]:
+        if level["identifier"] not in wanted:
+            continue
+        layer = next(l for l in level["layerInstances"] if l["__type"] == "Entities")
+        layer["entityInstances"] = [
+            e for e in layer["entityInstances"] if e["__identifier"] not in ("Table", "Barrel")
+        ]
+        for (name, col, row, w, h) in wanted[level["identifier"]]:
+            layer["entityInstances"].append(entity(d, "gungeon/" + level["identifier"], name, col, row, w, h))
+    path.write_text(json.dumps(d, indent=1, ensure_ascii=False))
+    print("gungeon salles.ldtk")
+
+
+patch_gungeon()

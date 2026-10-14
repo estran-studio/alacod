@@ -307,7 +307,8 @@ pub fn barrel_explosion_system(
             })
             .unwrap_or_else(|| net_id.clone());
         let center: FixedVec2 = transform.translation.truncate();
-        let radius_sq = FixedWide::from_num(state.radius).saturating_mul(FixedWide::from_num(state.radius));
+        let radius_sq =
+            FixedWide::from_num(state.radius).saturating_mul(FixedWide::from_num(state.radius));
         let mut hit = 0usize;
         for (target_id, target_transform, dying) in order_iter!(targets) {
             if target_id.0 == net_id.0 || dying {

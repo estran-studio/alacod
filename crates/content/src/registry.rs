@@ -2622,7 +2622,8 @@ fn load_props(
 ) {
     let extensions = ron::extensions::Extensions::IMPLICIT_SOME
         | ron::extensions::Extensions::UNWRAP_VARIANT_NEWTYPES;
-    for (id, rel, def) in load_ron_files_with::<world::PropDef>(assets_dir, decl, errors, extensions)
+    for (id, rel, def) in
+        load_ron_files_with::<world::PropDef>(assets_dir, decl, errors, extensions)
     {
         if let Some(existing) = registry.props.get(&id) {
             errors.push(LintError {

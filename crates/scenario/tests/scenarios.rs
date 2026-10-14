@@ -183,12 +183,16 @@ fn scenarios() {
     let mut failures = Vec::new();
     let mut metrics_map: BTreeMap<String, Metrics> = BTreeMap::new();
 
-    let slice: Option<(usize, usize)> = std::env::var("ALACOD_SCENARIO_SLICE")
-        .ok()
-        .and_then(|spec| {
-            let (k, n) = spec.split_once('/')?;
-            Some((k.trim().parse().ok()?, n.trim().parse().ok().filter(|n| *n > 0)?))
-        });
+    let slice: Option<(usize, usize)> =
+        std::env::var("ALACOD_SCENARIO_SLICE")
+            .ok()
+            .and_then(|spec| {
+                let (k, n) = spec.split_once('/')?;
+                Some((
+                    k.trim().parse().ok()?,
+                    n.trim().parse().ok().filter(|n| *n > 0)?,
+                ))
+            });
     for (index, path) in paths.into_iter().enumerate() {
         let name = path.file_stem().unwrap().to_string_lossy().to_string();
         if only
@@ -857,7 +861,12 @@ fn map_probe() {
             .map(|(c, _)| *c)
             .collect();
         if !cells.is_empty() {
-            println!("fosse : {} cases, de {:?} à {:?}", cells.len(), cells.first(), cells.last());
+            println!(
+                "fosse : {} cases, de {:?} à {:?}",
+                cells.len(),
+                cells.first(),
+                cells.last()
+            );
         }
     }
     let mut windows: Vec<_> = world
@@ -933,7 +942,12 @@ fn map_probe() {
         );
     }
     let mut enemies: Vec<_> = world
-        .query_filtered::<(&GgrsNetId, &FixedTransform3D, Has<world::RoomDormant>, Option<&game::character::health::HitCount>), With<game::character::enemy::Enemy>>()
+        .query_filtered::<(
+            &GgrsNetId,
+            &FixedTransform3D,
+            Has<world::RoomDormant>,
+            Option<&game::character::health::HitCount>,
+        ), With<game::character::enemy::Enemy>>()
         .iter(world)
         .map(|(id, t, dormant, hits)| (id.0, pos(t), dormant, hits.map(|h| h.0)))
         .collect();

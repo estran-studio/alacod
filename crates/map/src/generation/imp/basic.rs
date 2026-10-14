@@ -7,8 +7,8 @@ use crate::{
         context::{AvailableLevel, LevelType, MapGenerationContext, MapGenerationData},
         entity::{
             character_spawn::CharacterSpawnConfig, door::DoorConfig, enemy_spawn::EnemySpawnConfig,
-            location::EntityLocation, soda_location::SodaLocationConfig,
-            prop::PropConfig, weapon_location::WeaponLocationConfig, window::WindowConfig,
+            location::EntityLocation, prop::PropConfig, soda_location::SodaLocationConfig,
+            weapon_location::WeaponLocationConfig, window::WindowConfig,
         },
         position::Position,
         room::{ConnectionTo, RoomConnection},

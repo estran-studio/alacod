@@ -6,10 +6,14 @@ use crate::game::{collider::create_wall_colliders_from_ldtk, plugin::LdtkMapLoad
 use super::{
     game::{
         entity::{
-            character_spawn::CharacterSpawnBundle, door::DoorBundle, enemy_spawn::EnemySpawnBundle,
-            player_spawn::PlayerSpawnBundle, prop::{BarrelBundle, TableBundle},
+            character_spawn::CharacterSpawnBundle,
+            door::DoorBundle,
+            enemy_spawn::EnemySpawnBundle,
+            player_spawn::PlayerSpawnBundle,
+            prop::{BarrelBundle, TableBundle},
             soda_location::SodaLocationBundle,
-            weapon_location::WeaponLocationBundle, window::WindowBundle,
+            weapon_location::WeaponLocationBundle,
+            window::WindowBundle,
         },
         system::add_level_components::add_room_component_to_ldtk_level,
     },

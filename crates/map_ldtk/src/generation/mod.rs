@@ -186,6 +186,108 @@ mod tests {
         }
     }
 
+    /// M2-T11 (`docs/conventions.md` §46) : les gabarits `CombatEW` et `CombatNS` de `gungeon`
+    /// portent deux barils et une table. Sur 1 000 graines de la grammaire `etage`, la génération
+    /// réussit, chaque salle générée à partir de ces gabarits garde ses trois objets de décor
+    /// (champ `prop` vide : défaut du type), à l'intérieur de la salle, sans recouvrir une porte,
+    /// un point d'apparition de joueur ni un personnage, et la grammaire reste valide (un boss,
+    /// pas de chevauchement).
+    #[test]
+    fn gungeon_decor_sur_1000_graines() {
+        use bevy_ecs_ldtk::EntityInstance;
+        use map::generation::config::MapGenerationMode;
+        use world::FloorGrammar;
+        let path = get_crate_root_path!("../../games/gungeon/assets/maps/salles.ldtk");
+        let ron_path = get_crate_root_path!("../../games/gungeon/assets/floor_grammars/etage.ron");
+        let text = std::fs::read_to_string(ron_path).unwrap();
+        #[derive(serde::Deserialize)]
+        struct File {
+            grammar: FloorGrammar,
+        }
+        let grammar = ron::from_str::<File>(&text).unwrap().grammar;
+        let overlaps = |a: &EntityInstance, b: &EntityInstance| {
+            a.px.x < b.px.x + b.width
+                && b.px.x < a.px.x + a.width
+                && a.px.y < b.px.y + b.height
+                && b.px.y < a.px.y + a.height
+        };
+        let (mut decorated_rooms, mut bosses) = (0usize, 0usize);
+        for seed in 1..=1000 {
+            let data: LdtkJson = load_ldtk_json_file(&path).unwrap();
+            let config = MapGenerationConfig {
+                seed,
+                max_width: 1000,
+                max_heigth: 1000,
+                mode: MapGenerationMode::Floor(grammar.clone()),
+                ..Default::default()
+            };
+            let context = from_map(&data, config);
+            let mut generator = GeneratedMap::create(data);
+            map_generation(context, &mut generator)
+                .unwrap_or_else(|_| panic!("graine {seed} : génération échouée"));
+            generator.close_unused_openings();
+            let rooms = &generator.generated_rooms;
+            assert!(
+                (grammar.rooms.0..=grammar.rooms.1).contains(&rooms.len()),
+                "graine {seed} : {} salles",
+                rooms.len()
+            );
+            bosses += rooms
+                .iter()
+                .filter(|r| r.template.starts_with("Boss"))
+                .count();
+            for room in rooms {
+                let entities: Vec<&EntityInstance> = room.entities().collect();
+                let props: Vec<&&EntityInstance> = entities
+                    .iter()
+                    .filter(|e| e.identifier == "Table" || e.identifier == "Barrel")
+                    .collect();
+                let expected = if room.template == "CombatEW" || room.template == "CombatNS" {
+                    3
+                } else {
+                    0
+                };
+                assert_eq!(
+                    props.len(),
+                    expected,
+                    "graine {seed} : {} porte {} objets de décor",
+                    room.template,
+                    props.len()
+                );
+                if expected > 0 {
+                    decorated_rooms += 1;
+                }
+                let (rx, ry, rw, rh) = room.world_rect();
+                for prop in &props {
+                    let (px, py) = (prop.world_x.unwrap(), prop.world_y.unwrap());
+                    assert!(
+                        px >= rx
+                            && py >= ry
+                            && px + prop.width <= rx + rw
+                            && py + prop.height <= ry + rh,
+                        "graine {seed} : {} sort de {}",
+                        prop.identifier,
+                        room.template
+                    );
+                    for other in &entities {
+                        if std::ptr::eq(**prop, *other) {
+                            continue;
+                        }
+                        assert!(
+                            !overlaps(prop, other),
+                            "graine {seed} : {} recouvre {} dans {}",
+                            prop.identifier,
+                            other.identifier,
+                            room.template
+                        );
+                    }
+                }
+            }
+        }
+        assert_eq!(bosses, 1000, "un boss par étage");
+        assert!(decorated_rooms > 100, "salles décorées : {decorated_rooms}");
+    }
+
     fn get_context() -> GeneratedMap {
         let seed = 1;
         let data: LdtkJson = load_ldtk_json_file(get_crate_root_path!(

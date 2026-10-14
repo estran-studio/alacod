@@ -13,8 +13,8 @@ use map::generation::{
     entity::{
         character_spawn::CharacterSpawnConfig,
         location::{EntityLocation, EntityLocations},
-        soda_location::SodaLocationConfig,
         prop::PropConfig,
+        soda_location::SodaLocationConfig,
         weapon_location::WeaponLocationConfig,
     },
     position::Position,

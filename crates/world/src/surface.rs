@@ -193,10 +193,16 @@ mod tests {
         grid.cells.insert((5, 5), 2);
         grid.cells.insert((0, 0), 1);
         assert!(grid
-            .pit_at(&table, FixedVec2::new(Fixed::from_num(88), Fixed::from_num(88)))
+            .pit_at(
+                &table,
+                FixedVec2::new(Fixed::from_num(88), Fixed::from_num(88))
+            )
             .is_some());
         assert!(grid
-            .pit_at(&table, FixedVec2::new(Fixed::from_num(8), Fixed::from_num(8)))
+            .pit_at(
+                &table,
+                FixedVec2::new(Fixed::from_num(8), Fixed::from_num(8))
+            )
             .is_none());
         assert!(!grid.is_safe_cell(&table, 4, 4));
         assert!(!grid.is_safe_cell(&table, 6, 5));
