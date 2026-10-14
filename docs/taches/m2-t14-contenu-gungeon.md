@@ -31,7 +31,10 @@ codée ici.
 4. **T14d gabarits** (prérequis : M2-T11, M2-T5, M2-T6) — `m2-t14d-gabarits` : quinze gabarits de
    salles au total (combat, coffre, boutique, boss, secret), surfaces et props, la grammaire `etage`
    valide sur 1 000 graines (test de M2-T10) et la campagne du bot explorateur (M2-T16) sans
-   soft-lock sur 200 graines.
+   soft-lock sur 200 graines. **Atteignabilité** (`docs/taches.md` §7) : y brancher ce que les
+   tâches V1 ont laissé hors de la grammaire `etage` — la salle `escouade` de M2-T8 (grammaire
+   `court_escouade` seule aujourd'hui), les coffres et la boutique de M2-T5/M2-T6, les arènes de
+   M2-T7, les props de M2-T11 — et nommer pour chacun la graine `alacod-sim` qui la rencontre.
 
 ## Règles
 
