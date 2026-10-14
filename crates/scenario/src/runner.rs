@@ -345,7 +345,9 @@ fn single_threaded_schedules(app: &mut App) {
     if std::env::var("ALACOD_EXECUTOR").is_ok_and(|v| v == "multi") {
         return;
     }
-    let mut schedules = app.world_mut().resource_mut::<bevy::ecs::schedule::Schedules>();
+    let mut schedules = app
+        .world_mut()
+        .resource_mut::<bevy::ecs::schedule::Schedules>();
     for (_, schedule) in schedules.iter_mut() {
         schedule.set_executor(bevy::ecs::schedule::SingleThreadedExecutor::new());
     }
