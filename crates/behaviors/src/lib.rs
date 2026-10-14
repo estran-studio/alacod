@@ -43,6 +43,26 @@ pub enum Behavior {
     Melee(String),
     Flee,
     Wander,
+    /// M2-T8 (§49) : l'ennemi (membre d'une escouade, `ai.squad`) vise sa place sur une
+    /// formation autour de la cible. Variante en fin d'enum : les discriminants existants ne
+    /// bougent pas.
+    Formation {
+        shape: FormationShape,
+        /// Tir alterné : `Shoot` ne part que dans la fenêtre de `period` frames du membre
+        /// (`slot = (frame / period) mod effectif == rang`).
+        period: u32,
+        /// `true` : tir groupé, pas d'alternance.
+        #[serde(default)]
+        volley: bool,
+    },
+}
+
+/// Forme d'une formation (M2-T8).
+#[derive(Clone, PartialEq, Eq, PartialOrd, Ord, Debug, Hash, Serialize, Deserialize)]
+pub enum FormationShape {
+    /// Places réparties sur un arc de cercle de rayon `radius` centré sur la cible, ouvert de
+    /// `spread` radians (]0, 2π]) et orienté vers le centre de l'escouade.
+    Arc { radius: Fixed, spread: Fixed },
 }
 
 impl Behavior {
@@ -57,6 +77,7 @@ impl Behavior {
             Behavior::Melee(_) => "Melee",
             Behavior::Flee => "Flee",
             Behavior::Wander => "Wander",
+            Behavior::Formation { .. } => "Formation",
         }
     }
 }
@@ -118,6 +139,7 @@ pub fn applicable(index: usize, behavior: &Behavior, ctx: &SelectionContext) -> 
             .is_some_and(|threshold| ctx.health_ratio <= threshold),
         Behavior::Strafe => distance.is_some_and(|d| d < ctx.sight),
         Behavior::Chase { .. } => distance.is_some(),
+        Behavior::Formation { .. } => distance.is_some_and(|d| d < ctx.sight),
         Behavior::Wander => true,
     }
 }
@@ -176,6 +198,7 @@ impl Plugin for BehaviorsPlugin {
                     "Melee",
                     "Flee",
                     "Wander",
+                    "Formation",
                 ][..],
             ),
             ("perception", &["Sight", "Hearing"][..]),
@@ -213,6 +236,14 @@ mod tests {
             Behavior::Melee("griffe".into()),
             Behavior::Flee,
             Behavior::Wander,
+            Behavior::Formation {
+                shape: FormationShape::Arc {
+                    radius: Fixed::from_num(120),
+                    spread: Fixed::from_num(2),
+                },
+                period: 30,
+                volley: false,
+            },
         ];
         assert_eq!(
             ron::from_str::<Vec<Behavior>>(&ron::to_string(&values).unwrap()).unwrap(),
@@ -445,6 +476,7 @@ mod tests {
             "Melee",
             "Flee",
             "Wander",
+            "Formation",
         ] {
             assert!(kinds.has("behavior", name));
         }
@@ -452,7 +484,7 @@ mod tests {
             assert!(kinds.has("perception", name));
         }
         assert!(kinds.has("targeting", "Nearest"));
-        assert_eq!(kinds.names("behavior").count(), 8);
+        assert_eq!(kinds.names("behavior").count(), 9);
         assert_eq!(kinds.names("perception").count(), 2);
         assert_eq!(kinds.names("targeting").count(), 1);
         let name = std::any::type_name::<BehaviorState>();
