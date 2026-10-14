@@ -1345,6 +1345,116 @@ mod telegraph_tests {
         )
     }
 
+    fn fixed(value: f32) -> Fixed {
+        fixed_math::new(value)
+    }
+
+    #[test]
+    fn forme_fan_rayons_repartis_autour_de_la_visee() {
+        let steps = vec![
+            Pattern::Telegraph(20),
+            Pattern::Fan {
+                count: 5,
+                spread: fixed(1.0),
+                speed: Fixed::ZERO,
+                projectile: "p".into(),
+            },
+        ];
+        let shape = pattern_shape(&steps, 1, Vec2::X, Vec2::new(2.0, 3.0), 90.0).unwrap();
+        assert_eq!(shape.kind, PatternKind::Fan);
+        assert_eq!(shape.rays.len(), 5);
+        assert!((shape.rays[0] + 0.5).abs() < 1e-5 && (shape.rays[4] - 0.5).abs() < 1e-5);
+        assert!(shape.rays[2].abs() < 1e-5);
+        assert_eq!((shape.origin, shape.length, shape.cone), (Vec2::new(2.0, 3.0), 90.0, None));
+        assert_eq!(pattern_label(31, &shape), "fan 31 (5 rayons)");
+        // Visée vers le haut : l'éventail tourne avec elle.
+        let up = pattern_shape(&steps, 1, Vec2::Y, Vec2::ZERO, 10.0).unwrap();
+        assert!((up.rays[2] - std::f32::consts::FRAC_PI_2).abs() < 1e-5);
+    }
+
+    #[test]
+    fn forme_spirale_amorce_et_burst_cone() {
+        let spiral = vec![Pattern::Spiral {
+            count: 4,
+            step: fixed(0.3),
+            shots: 10,
+            every: 3,
+            speed: Fixed::ZERO,
+            projectile: "p".into(),
+        }];
+        let shape = pattern_shape(&spiral, 0, Vec2::X, Vec2::ZERO, 50.0).unwrap();
+        assert_eq!(shape.kind, PatternKind::Spiral);
+        assert_eq!(shape.rays.len(), 4);
+        assert!((shape.rays[1] - std::f32::consts::FRAC_PI_2).abs() < 1e-5);
+        let burst = vec![Pattern::Burst {
+            count: 3,
+            per_burst: 3,
+            interval: 5,
+            spread: fixed(0.5),
+            projectile: "p".into(),
+        }];
+        let shape = pattern_shape(&burst, 0, Vec2::X, Vec2::ZERO, 50.0).unwrap();
+        assert_eq!(shape.kind, PatternKind::Burst);
+        assert_eq!(shape.rays.len(), 2);
+        let (axis, spread) = shape.cone.unwrap();
+        assert!(axis.abs() < 1e-5 && (spread - 0.5).abs() < 1e-3);
+        assert_eq!(pattern_label(7, &shape), "burst 7 (cône 0.50 rad)");
+    }
+
+    #[test]
+    fn forme_absente_pour_ring_et_apres_une_etape_bloquante() {
+        let ring = Pattern::Ring {
+            count: 8,
+            speed: fixed(60.0),
+            projectile: "p".into(),
+            every: 0,
+        };
+        assert_eq!(pattern_shape(&[ring.clone()], 0, Vec2::X, Vec2::ZERO, 10.0), None);
+        let fan = Pattern::Fan {
+            count: 3,
+            spread: fixed(1.0),
+            speed: Fixed::ZERO,
+            projectile: "p".into(),
+        };
+        // Le prochain tir est derrière un autre télégraphe : ce n'est pas celui qu'on annonce.
+        let steps = vec![ring, Pattern::Wait(5), fan];
+        assert_eq!(pattern_shape(&steps, 0, Vec2::X, Vec2::ZERO, 10.0), None);
+    }
+
+    #[test]
+    fn anneau_du_blank_s_etend_jusqu_au_rayon_puis_disparait() {
+        assert_eq!(blank_ring_radius(160.0, 0, 24), Some(0.0));
+        let mid = blank_ring_radius(160.0, 12, 24).unwrap();
+        assert!(mid > 80.0 && mid < 160.0, "ease-out : {mid}");
+        let mut last = 0.0;
+        for age in 0..24 {
+            let radius = blank_ring_radius(160.0, age, 24).unwrap();
+            assert!(radius >= last && radius <= 160.0);
+            last = radius;
+        }
+        assert_eq!(blank_ring_radius(160.0, 24, 24), None);
+        assert_eq!(blank_ring_radius(160.0, 0, 0), None);
+        assert_eq!(flash_alpha(0.5, 0, 10), 0.5);
+        assert_eq!(flash_alpha(0.5, 5, 10), 0.25);
+        assert_eq!(flash_alpha(0.5, 10, 10), 0.0);
+    }
+
+    #[test]
+    fn zoom_de_fin_de_boss_monte_puis_revient_a_un() {
+        assert_eq!(boss_zoom_factor(1.5, 0, 60), 1.0);
+        let peak = boss_zoom_factor(1.5, 12, 60);
+        assert!((peak - 1.5).abs() < 1e-5);
+        let mut last = peak;
+        for age in 13..60 {
+            let factor = boss_zoom_factor(1.5, age, 60);
+            assert!(factor <= last && factor >= 1.0);
+            last = factor;
+        }
+        assert_eq!(boss_zoom_factor(1.5, 60, 60), 1.0);
+        // Un zoom < 1 est ramené à l'identité (jamais d'éloignement).
+        assert_eq!(boss_zoom_factor(0.5, 12, 60), 1.0);
+    }
+
     #[test]
     fn charge_cercle_au_point_vise_rayon_de_contact() {
         let ai = EnemyAiConfig {
