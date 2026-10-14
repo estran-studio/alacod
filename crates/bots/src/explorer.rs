@@ -430,11 +430,11 @@ mod tests {
         FixedVec2::new(fx(x), fx(y))
     }
 
-    /// Champ de coûts : distance de Manhattan × 10 depuis la case (0, 0), sur [-40, 40]².
+    /// Champ de coûts : distance de Manhattan × 10 depuis la case (0, 0), sur [-80, 80]².
     fn field() -> FlowField {
         let mut field = FlowField::default();
-        for x in -40..=40 {
-            for y in -40..=40 {
+        for x in -80..=80 {
+            for y in -80..=80 {
                 field
                     .costs
                     .insert(GridPos::new(x, y), ((x.abs() + y.abs()) * 10) as u32);
