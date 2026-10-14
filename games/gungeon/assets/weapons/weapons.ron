@@ -35,6 +35,470 @@
             weapon_offset: ( x: "0.0", y: "-5.0" )
         ),
     ),
+    // Revolver : un coup lent et lourd, six balles, rechargement long.
+    "revolver": (
+        config: (
+            name: "revolver",
+            default_firing_mode: "default",
+            ammo_type: Custom("balles"),
+            firing_modes: {
+                "default": (
+                    firing_rate: "2.0",
+                    firing_mode: Manual(),
+                    spread: "0.0",
+                    recoil: "2.0",
+                    bullet_type: Standard(
+                        damage: "30.0",
+                        speed: "420.0",
+                    ),
+                    range: "750.0",
+                    reload_time_seconds: "1.2",
+                    mag: Mag(mag_size: 6, mag_limit: 9999),
+                )
+            },
+            test: Some((frames: 300, min_hits: 1)),
+        ),
+        sprite_config: (
+            name: "pistol",
+            index: 3,
+            bullet_offset_right: ( x: "-5.0", y: "2.0" ),
+            bullet_offset_left: ( x: "0.0", y: "-2.0" ),
+            weapon_offset: ( x: "0.0", y: "-5.0" )
+        ),
+    ),
+    // Pistolet de précision : balle perçante (traverse un ennemi), cadence moyenne.
+    "pistolet_precis": (
+        config: (
+            name: "pistolet_precis",
+            default_firing_mode: "default",
+            ammo_type: Custom("balles"),
+            firing_modes: {
+                "default": (
+                    firing_rate: "2.5",
+                    firing_mode: Manual(),
+                    spread: "0.0",
+                    recoil: "1.0",
+                    bullet_type: Piercing(
+                        damage: "16.0",
+                        speed: "400.0",
+                        penetration: 1,
+                    ),
+                    range: "800.0",
+                    reload_time_seconds: "0.8",
+                    mag: Mag(mag_size: 10, mag_limit: 9999),
+                    projectile: (modifiers: [Pierce(1)]),
+                )
+            },
+            test: Some((frames: 300, min_hits: 1)),
+        ),
+        sprite_config: (
+            name: "pistol",
+            index: 3,
+            bullet_offset_right: ( x: "-5.0", y: "2.0" ),
+            bullet_offset_left: ( x: "0.0", y: "-2.0" ),
+            weapon_offset: ( x: "0.0", y: "-5.0" )
+        ),
+    ),
+    // Fusil à pompe : huit plombs en cône, portée courte, cartouches.
+    "fusil_pompe": (
+        config: (
+            name: "fusil_pompe",
+            default_firing_mode: "default",
+            ammo_type: Custom("cartouches"),
+            firing_modes: {
+                "default": (
+                    firing_rate: "1.2",
+                    firing_mode: Shotgun(pellet_count: 8, spread_angle: "0.45"),
+                    spread: "0.0",
+                    recoil: "3.0",
+                    bullet_type: Standard(
+                        damage: "6.0",
+                        speed: "340.0",
+                    ),
+                    range: "260.0",
+                    reload_time_seconds: "1.4",
+                    mag: Mag(mag_size: 6, mag_limit: 60),
+                )
+            },
+            test: Some((frames: 300, min_hits: 1)),
+        ),
+        sprite_config: (
+            name: "pistol",
+            index: 3,
+            bullet_offset_right: ( x: "-5.0", y: "2.0" ),
+            bullet_offset_left: ( x: "0.0", y: "-2.0" ),
+            weapon_offset: ( x: "0.0", y: "-5.0" )
+        ),
+    ),
+    // Double canon : dix plombs très ouverts, deux coups puis recharge.
+    "double_canon": (
+        config: (
+            name: "double_canon",
+            default_firing_mode: "default",
+            ammo_type: Custom("cartouches"),
+            firing_modes: {
+                "default": (
+                    firing_rate: "1.5",
+                    firing_mode: Shotgun(pellet_count: 10, spread_angle: "0.7"),
+                    spread: "0.0",
+                    recoil: "4.0",
+                    bullet_type: Standard(
+                        damage: "6.0",
+                        speed: "320.0",
+                    ),
+                    range: "220.0",
+                    reload_time_seconds: "1.6",
+                    mag: Mag(mag_size: 2, mag_limit: 60),
+                )
+            },
+            test: Some((frames: 300, min_hits: 1)),
+        ),
+        sprite_config: (
+            name: "pistol",
+            index: 3,
+            bullet_offset_right: ( x: "-5.0", y: "2.0" ),
+            bullet_offset_left: ( x: "0.0", y: "-2.0" ),
+            weapon_offset: ( x: "0.0", y: "-5.0" )
+        ),
+    ),
+    // Mitraillette : tir continu 10 coups/s, dispersion franche, petits dégâts.
+    "mitraillette": (
+        config: (
+            name: "mitraillette",
+            default_firing_mode: "default",
+            ammo_type: Custom("balles"),
+            firing_modes: {
+                "default": (
+                    firing_rate: "10.0",
+                    firing_mode: Automatic(),
+                    spread: "0.14",
+                    recoil: "1.0",
+                    bullet_type: Standard(
+                        damage: "5.0",
+                        speed: "380.0",
+                    ),
+                    range: "600.0",
+                    reload_time_seconds: "1.3",
+                    mag: Mag(mag_size: 30, mag_limit: 9999),
+                )
+            },
+            test: Some((frames: 300, min_hits: 1)),
+        ),
+        sprite_config: (
+            name: "pistol",
+            index: 3,
+            bullet_offset_right: ( x: "-5.0", y: "2.0" ),
+            bullet_offset_left: ( x: "0.0", y: "-2.0" ),
+            weapon_offset: ( x: "0.0", y: "-5.0" )
+        ),
+    ),
+    // Mitrailleuse lourde : 14 coups/s, grosse dispersion, chargeur de 100.
+    "mitrailleuse_lourde": (
+        config: (
+            name: "mitrailleuse_lourde",
+            default_firing_mode: "default",
+            ammo_type: Custom("balles"),
+            firing_modes: {
+                "default": (
+                    firing_rate: "14.0",
+                    firing_mode: Automatic(),
+                    spread: "0.2",
+                    recoil: "1.5",
+                    bullet_type: Standard(
+                        damage: "4.0",
+                        speed: "360.0",
+                    ),
+                    range: "600.0",
+                    reload_time_seconds: "2.5",
+                    mag: Mag(mag_size: 100, mag_limit: 9999),
+                )
+            },
+            test: Some((frames: 300, min_hits: 1)),
+        ),
+        sprite_config: (
+            name: "pistol",
+            index: 3,
+            bullet_offset_right: ( x: "-5.0", y: "2.0" ),
+            bullet_offset_left: ( x: "0.0", y: "-2.0" ),
+            weapon_offset: ( x: "0.0", y: "-5.0" )
+        ),
+    ),
+    // Carabine à rafales : rafales de trois balles par pression.
+    "carabine_rafale": (
+        config: (
+            name: "carabine_rafale",
+            default_firing_mode: "default",
+            ammo_type: Custom("balles"),
+            firing_modes: {
+                "default": (
+                    firing_rate: "2.0",
+                    firing_mode: Burst(pellets_per_shot: 3, cooldown_frames: 4),
+                    spread: "0.03",
+                    recoil: "1.0",
+                    bullet_type: Standard(
+                        damage: "9.0",
+                        speed: "400.0",
+                    ),
+                    range: "700.0",
+                    reload_time_seconds: "1.0",
+                    mag: Mag(mag_size: 24, mag_limit: 9999),
+                )
+            },
+            test: Some((frames: 300, min_hits: 1)),
+        ),
+        sprite_config: (
+            name: "pistol",
+            index: 3,
+            bullet_offset_right: ( x: "-5.0", y: "2.0" ),
+            bullet_offset_left: ( x: "0.0", y: "-2.0" ),
+            weapon_offset: ( x: "0.0", y: "-5.0" )
+        ),
+    ),
+    // Fusil de précision : balle perçante rapide qui traverse trois ennemis, très lent.
+    "fusil_precision": (
+        config: (
+            name: "fusil_precision",
+            default_firing_mode: "default",
+            ammo_type: Custom("calibre"),
+            firing_modes: {
+                "default": (
+                    firing_rate: "0.8",
+                    firing_mode: Manual(),
+                    spread: "0.0",
+                    recoil: "3.0",
+                    bullet_type: Piercing(
+                        damage: "45.0",
+                        speed: "700.0",
+                        penetration: 3,
+                    ),
+                    range: "1200.0",
+                    reload_time_seconds: "1.8",
+                    mag: Mag(mag_size: 5, mag_limit: 60),
+                    projectile: (modifiers: [Pierce(3)]),
+                )
+            },
+            test: Some((frames: 300, min_hits: 1)),
+        ),
+        sprite_config: (
+            name: "pistol",
+            index: 3,
+            bullet_offset_right: ( x: "-5.0", y: "2.0" ),
+            bullet_offset_left: ( x: "0.0", y: "-2.0" ),
+            weapon_offset: ( x: "0.0", y: "-5.0" )
+        ),
+    ),
+    // Arc : flèche lente qui traverse deux ennemis, cadence moyenne, flèches.
+    "arc": (
+        config: (
+            name: "arc",
+            default_firing_mode: "default",
+            ammo_type: Custom("fleches"),
+            firing_modes: {
+                "default": (
+                    firing_rate: "1.5",
+                    firing_mode: Manual(),
+                    spread: "0.0",
+                    recoil: "0.0",
+                    bullet_type: Piercing(
+                        damage: "20.0",
+                        speed: "260.0",
+                        penetration: 2,
+                    ),
+                    range: "800.0",
+                    reload_time_seconds: "0.6",
+                    mag: Mag(mag_size: 12, mag_limit: 9999),
+                    projectile: (modifiers: [Pierce(2), Size("1.2")]),
+                )
+            },
+            test: Some((frames: 300, min_hits: 1)),
+        ),
+        sprite_config: (
+            name: "pistol",
+            index: 3,
+            bullet_offset_right: ( x: "-5.0", y: "2.0" ),
+            bullet_offset_left: ( x: "0.0", y: "-2.0" ),
+            weapon_offset: ( x: "0.0", y: "-5.0" )
+        ),
+    ),
+    // Laser : faisceau d'énergie très rapide qui traverse tout, cadence soutenue.
+    "laser": (
+        config: (
+            name: "laser",
+            default_firing_mode: "default",
+            ammo_type: Custom("energie"),
+            firing_modes: {
+                "default": (
+                    firing_rate: "6.0",
+                    firing_mode: Automatic(),
+                    spread: "0.0",
+                    recoil: "0.0",
+                    bullet_type: Piercing(
+                        damage: "6.0",
+                        speed: "900.0",
+                        penetration: 8,
+                    ),
+                    range: "700.0",
+                    reload_time_seconds: "1.5",
+                    mag: Mag(mag_size: 40, mag_limit: 300),
+                    projectile: (modifiers: [Pierce(8), Lifetime(30)]),
+                )
+            },
+            test: Some((frames: 300, min_hits: 1)),
+        ),
+        sprite_config: (
+            name: "pistol",
+            index: 3,
+            bullet_offset_right: ( x: "-5.0", y: "2.0" ),
+            bullet_offset_left: ( x: "0.0", y: "-2.0" ),
+            weapon_offset: ( x: "0.0", y: "-5.0" )
+        ),
+    ),
+    // Rebondisseur : balle qui rebondit trois fois sur les murs.
+    "rebondisseur": (
+        config: (
+            name: "rebondisseur",
+            default_firing_mode: "default",
+            ammo_type: Custom("balles"),
+            firing_modes: {
+                "default": (
+                    firing_rate: "3.0",
+                    firing_mode: Manual(),
+                    spread: "0.0",
+                    recoil: "1.0",
+                    bullet_type: Standard(
+                        damage: "10.0",
+                        speed: "300.0",
+                    ),
+                    range: "900.0",
+                    reload_time_seconds: "1.0",
+                    mag: Mag(mag_size: 12, mag_limit: 9999),
+                    projectile: (modifiers: [Bounce(3)]),
+                )
+            },
+            test: Some((frames: 300, min_hits: 1)),
+        ),
+        sprite_config: (
+            name: "pistol",
+            index: 3,
+            bullet_offset_right: ( x: "-5.0", y: "2.0" ),
+            bullet_offset_left: ( x: "0.0", y: "-2.0" ),
+            weapon_offset: ( x: "0.0", y: "-5.0" )
+        ),
+    ),
+    // Chercheur : balle à tête chercheuse (Homing), lente et peu puissante.
+    "chercheur": (
+        config: (
+            name: "chercheur",
+            default_firing_mode: "default",
+            ammo_type: Custom("energie"),
+            firing_modes: {
+                "default": (
+                    firing_rate: "3.0",
+                    firing_mode: Manual(),
+                    spread: "0.0",
+                    recoil: "0.0",
+                    bullet_type: Standard(
+                        damage: "9.0",
+                        speed: "230.0",
+                    ),
+                    range: "800.0",
+                    reload_time_seconds: "1.0",
+                    mag: Mag(mag_size: 12, mag_limit: 300),
+                    projectile: (modifiers: [Homing("0.1")]),
+                )
+            },
+            test: Some((frames: 300, min_hits: 1)),
+        ),
+        sprite_config: (
+            name: "pistol",
+            index: 3,
+            bullet_offset_right: ( x: "-5.0", y: "2.0" ),
+            bullet_offset_left: ( x: "0.0", y: "-2.0" ),
+            weapon_offset: ( x: "0.0", y: "-5.0" )
+        ),
+    ),
+    // Lance-roquettes : roquette lente, explose à l'impact (souffle de grand rayon).
+    "lance_roquettes": (
+        config: (
+            name: "lance_roquettes",
+            default_firing_mode: "default",
+            ammo_type: Custom("roquettes"),
+            firing_modes: {
+                "default": (
+                    firing_rate: "0.8",
+                    firing_mode: Manual(),
+                    spread: "0.0",
+                    recoil: "4.0",
+                    bullet_type: Standard(
+                        damage: "0.0",
+                        speed: "220.0",
+                    ),
+                    range: "700.0",
+                    reload_time_seconds: "2.0",
+                    mag: Mag(mag_size: 3, mag_limit: 30),
+                    projectile: (on_expire: [Spawn(Aimed(count: 1, spread: "0.0", projectile: "souffle"))]),
+                )
+            },
+            projectiles: {
+                "souffle": (
+                    damage: "24.0",
+                    speed: "0.0",
+                    range: "1.0",
+                    modifiers: [Lifetime(0), Size("9.0"), Pierce(16)],
+                ),
+            },
+            test: Some((frames: 300, min_hits: 1)),
+        ),
+        sprite_config: (
+            name: "pistol",
+            index: 3,
+            bullet_offset_right: ( x: "-5.0", y: "2.0" ),
+            bullet_offset_left: ( x: "0.0", y: "-2.0" ),
+            weapon_offset: ( x: "0.0", y: "-5.0" )
+        ),
+    ),
+    // Grenadier : grenade qui rebondit deux fois puis explose en éclats.
+    "grenadier": (
+        config: (
+            name: "grenadier",
+            default_firing_mode: "default",
+            ammo_type: Custom("roquettes"),
+            firing_modes: {
+                "default": (
+                    firing_rate: "1.0",
+                    firing_mode: Manual(),
+                    spread: "0.0",
+                    recoil: "2.0",
+                    bullet_type: Standard(
+                        damage: "0.0",
+                        speed: "200.0",
+                    ),
+                    range: "600.0",
+                    reload_time_seconds: "1.5",
+                    mag: Mag(mag_size: 4, mag_limit: 30),
+                    projectile: (modifiers: [Bounce(2), Pierce(8), Lifetime(50)], on_expire: [Spawn(Aimed(count: 1, spread: "0.0", projectile: "explosion"))]),
+                )
+            },
+            projectiles: {
+                "explosion": (
+                    damage: "18.0",
+                    speed: "0.0",
+                    range: "1.0",
+                    modifiers: [Lifetime(0), Size("8.0"), Pierce(16)],
+                    on_expire: [Spawn(Ring(count: 6, speed: "220.0", projectile: "eclat", every: 0))],
+                ),
+                "eclat": (damage: "4.0", speed: "220.0", range: "90.0"),
+            },
+            test: Some((frames: 300, min_hits: 1)),
+        ),
+        sprite_config: (
+            name: "pistol",
+            index: 3,
+            bullet_offset_right: ( x: "-5.0", y: "2.0" ),
+            bullet_offset_left: ( x: "0.0", y: "-2.0" ),
+            weapon_offset: ( x: "0.0", y: "-5.0" )
+        ),
+    ),
     // Arsenal des ennemis (projectiles de leurs patterns).
     "arsenal": (
         config: (
