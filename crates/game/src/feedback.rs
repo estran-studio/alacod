@@ -20,7 +20,6 @@ use combat::emitter::Emitter;
 use serde::{Deserialize, Serialize};
 use sim_core::tag::Tag;
 use std::collections::{BTreeMap, BTreeSet, VecDeque};
-use std::time::Duration;
 use utils::{frame::FrameCount, net_id::GgrsNetId};
 
 pub use content::feedback::{
@@ -794,79 +793,125 @@ mod telegraph_tests {
     }
 }
 
-/// Un son de tir est coupé (en fondu) au bout de cette durée. `sounds/machine-gun.ogg` est un
-/// enregistrement de tir soutenu de 17 s, pas un coup unique : joué en entier à chaque balle, il
-/// se superposait des dizaines de fois. À retirer quand un échantillon de coup unique le remplace.
-const SHOT_SOUND_MAX: Duration = Duration::from_millis(250);
-const SHOT_SOUND_FADE: Duration = Duration::from_millis(40);
-/// Frames pendant lesquelles un tir déjà joué reste mémorisé (`ShotSounds::played`).
+/// Frames pendant lesquelles un tir déjà joué reste mémorisé (`played`, voir
+/// `play_shot_sound_for_new_bullets`).
 const SHOT_SOUND_MEMORY_FRAMES: u32 = 120;
 
-/// État du système de son de tir (présentation, hors rollback).
-#[derive(Default)]
-struct ShotSounds {
-    /// Tirs déjà joués, par (tireur, frame de création). Le rollback de la session locale détruit
-    /// puis recrée les balles des dernières frames à chaque image rendue : elles redeviennent
-    /// `Added<Bullet>` et rejoueraient leur son. Une clé par tir et non par balle : un fusil à
-    /// pompe ne joue pas un son par plomb.
-    played: BTreeSet<(usize, u32)>,
-    /// Instances lancées avec leur échéance (secondes de `Time<Real>`), à couper en fondu.
-    playing: Vec<(Handle<AudioInstance>, f64)>,
+/// Clé de `sounds` du son de tir d'un mode de tir (lot A, `docs/plan-assets.md`) : la famille
+/// d'arme se déduit du mode actif de l'arme (`Shotgun` : fusil à pompe ; `Automatic`/`Burst` :
+/// mitraillette ; `Manual` : pistolet).
+fn shot_sound_key(mode: &crate::weapons::FiringMode) -> &'static str {
+    use crate::weapons::FiringMode;
+    match mode {
+        FiringMode::Shotgun { .. } => "shot_shotgun",
+        FiringMode::Automatic {} | FiringMode::Burst { .. } => "shot_smg",
+        FiringMode::Manual {} => "shot_pistol",
+    }
+}
+
+/// Son de tir de `sounds` pour ce mode : la clé de sa famille, sinon `shot` (repli), sinon
+/// aucun son.
+fn shot_sound_path<'a>(
+    sounds: &'a BTreeMap<String, String>,
+    mode: Option<&crate::weapons::FiringMode>,
+) -> Option<&'a String> {
+    mode.and_then(|mode| sounds.get(shot_sound_key(mode)))
+        .or_else(|| sounds.get("shot"))
+}
+
+/// Mode de tir actif de l'arme active de cet inventaire.
+fn active_firing_mode<'a>(
+    inventory: &'a crate::weapons::WeaponInventory,
+    weapon_states: &Query<&crate::weapons::WeaponState>,
+) -> Option<&'a crate::weapons::FiringMode> {
+    let (entity, weapon) = inventory.weapons.get(inventory.active_weapon_index)?;
+    let state = weapon_states.get(*entity).ok()?;
+    weapon
+        .config
+        .firing_modes
+        .get(&state.active_mode)
+        .map(|mode| &mode.firing_mode)
 }
 
 /// Système jouant le son de tir pour chaque nouveau tir d'un joueur local.
+///
+/// Un son par (tireur, frame de création) : le rollback de la session locale détruit puis
+/// recrée les balles des dernières frames à chaque image rendue, elles redeviennent
+/// `Added<Bullet>` et rejoueraient leur son ; un fusil à pompe ne joue pas un son par plomb.
+/// Le son est celui de la famille du mode actif de l'arme active du tireur **à l'image
+/// rendue** (la balle ne porte pas son arme : lui ajouter un champ ferait bouger les traces).
 #[allow(clippy::too_many_arguments)]
 fn play_shot_sound_for_new_bullets(
     audio: Res<Audio>,
     asset_server: Res<AssetServer>,
-    mut instances: ResMut<Assets<AudioInstance>>,
-    time: Res<Time<Real>>,
     config: Option<Res<FeedbackConfigLoaded>>,
-    local_players: Query<&GgrsNetId, With<LocalPlayer>>,
+    local_players: Query<(&GgrsNetId, &crate::weapons::WeaponInventory), With<LocalPlayer>>,
+    weapon_states: Query<&crate::weapons::WeaponState>,
     new_bullets: Query<&crate::weapons::Bullet, Added<crate::weapons::Bullet>>,
     frame_count: Res<FrameCount>,
-    mut shots: Local<ShotSounds>,
+    mut played: Local<BTreeSet<(usize, u32)>>,
 ) {
-    let now = time.elapsed_secs_f64();
-    shots.playing.retain(|(handle, deadline)| {
-        if now < *deadline {
-            return true;
-        }
-        match instances.get_mut_untracked(handle) {
-            Some(instance) => {
-                instance.stop(AudioTween::linear(SHOT_SOUND_FADE));
-                false
-            }
-            // L'instance n'existe pas encore (la lecture est traitée à l'image suivante) ;
-            // une seconde après l'échéance, elle est finie depuis longtemps.
-            None => now < *deadline + 1.0,
-        }
-    });
-
     // Oublie les tirs anciens, et ceux d'une partie précédente (le compteur repart de 0).
     let frame = frame_count.frame;
-    shots.played.retain(|&(_, created_at)| {
+    played.retain(|&(_, created_at)| {
         created_at <= frame && frame - created_at <= SHOT_SOUND_MEMORY_FRAMES
     });
 
     let Some(cfg) = config else {
         return;
     };
-    let Some(sound_path) = cfg.0.sounds.get("shot") else {
-        return;
-    };
-    let local_net_ids: Vec<_> = local_players.iter().map(|n| n.0).collect();
-
     for bullet in new_bullets.iter() {
-        if local_net_ids.contains(&bullet.source.0)
-            && shots.played.insert((bullet.source.0, bullet.created_at))
-        {
-            info!("feedback f{} sound shot", frame);
-            let handle = audio.play(asset_server.load(sound_path)).handle();
-            shots
-                .playing
-                .push((handle, now + SHOT_SOUND_MAX.as_secs_f64()));
+        let Some((_, inventory)) = local_players
+            .iter()
+            .find(|(net_id, _)| net_id.0 == bullet.source.0)
+        else {
+            continue;
+        };
+        if !played.insert((bullet.source.0, bullet.created_at)) {
+            continue;
         }
+        let mode = active_firing_mode(inventory, &weapon_states);
+        let Some(sound_path) = shot_sound_path(&cfg.0.sounds, mode) else {
+            continue;
+        };
+        info!("feedback f{} sound {}", frame, sound_path);
+        audio.play(asset_server.load(sound_path));
+    }
+}
+
+#[cfg(test)]
+mod shot_sound_tests {
+    use super::*;
+    use crate::weapons::FiringMode;
+    use bevy_fixed::fixed_math::Fixed;
+
+    #[test]
+    fn cle_de_famille_puis_repli_sur_shot() {
+        let shotgun = FiringMode::Shotgun {
+            pellet_count: 8,
+            spread_angle: Fixed::ZERO,
+        };
+        let burst = FiringMode::Burst {
+            pellets_per_shot: 3,
+            cooldown_frames: 1,
+        };
+        let sounds: BTreeMap<String, String> = [
+            ("shot", "repli.ogg"),
+            ("shot_shotgun", "pompe.ogg"),
+            ("shot_smg", "smg.ogg"),
+        ]
+        .into_iter()
+        .map(|(k, v)| (k.to_string(), v.to_string()))
+        .collect();
+        let path = |mode| shot_sound_path(&sounds, mode).map(String::as_str);
+        assert_eq!(path(Some(&shotgun)), Some("pompe.ogg"));
+        assert_eq!(path(Some(&burst)), Some("smg.ogg"));
+        // `shot_pistol` absent : repli sur `shot` ; arme inconnue aussi.
+        assert_eq!(path(Some(&FiringMode::Manual {})), Some("repli.ogg"));
+        assert_eq!(path(None), Some("repli.ogg"));
+        // Ni la famille ni `shot` : aucun son.
+        let empty = BTreeMap::new();
+        assert_eq!(shot_sound_path(&empty, Some(&shotgun)), None);
     }
 }
 

@@ -37,7 +37,8 @@ pub struct FeedbackSettings {
     /// sur `by_kind`.
     #[serde(default, skip_serializing_if = "BTreeMap::is_empty")]
     pub by_weapon: BTreeMap<String, FeedbackOverride>,
-    /// Sons (clés : `shot`, `reload`), chemins relatifs à `assets/`.
+    /// Sons, chemins relatifs à `assets/`. Clés : `shot_pistol`, `shot_shotgun`, `shot_smg`
+    /// (tir, selon la famille du mode de tir actif), `shot` (repli du tir), `reload`.
     #[serde(default)]
     pub sounds: BTreeMap<String, String>,
 }

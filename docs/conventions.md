@@ -496,8 +496,12 @@ NIGHTLY_SEEDS=1..100 NIGHTLY_BOTS=4 NIGHTLY_WAVE=15 NIGHTLY_P2P=2,4,8 NIGHTLY_VI
         amplitude: 4.0,             // Amplitude du décalage en pixels
     ),
     sounds: {
-        "shot": "sounds/machine-gun.ogg",
-        "reload": "sounds/machine-gun-reload.ogg",
+        // Tir : clé de la famille du mode de tir actif de l'arme (Manual : shot_pistol,
+        // Shotgun : shot_shotgun, Automatic/Burst : shot_smg), repli sur "shot".
+        "shot_pistol": "sounds/shot_pistol.ogg",
+        "shot_shotgun": "sounds/shot_shotgun.ogg",
+        "shot_smg": "sounds/shot_smg.ogg",
+        "reload": "sounds/reload.ogg",
         // Les clés absentes désactivent le son correspondant
     },
 )
@@ -505,7 +509,7 @@ NIGHTLY_SEEDS=1..100 NIGHTLY_BOTS=4 NIGHTLY_WAVE=15 NIGHTLY_P2P=2,4,8 NIGHTLY_VI
 
 **Systèmes** : tous en `PostUpdate` (hors `GgrsSchedule`), lisant les événements de simulation dans `FrameEvents<T>` émis par `GgrsSchedule`. Les trois émetteurs sont :
 - `DamageEvent` pour les impacts (flash, secousse si joueur local)
-- Spawn de `Bullet` pour le son de tir (source = joueur local) : un son par tir (tireur, frame de création), mémorisé pour ne pas repartir quand le rollback de la session locale recrée les balles des dernières frames (elles redeviennent `Added<Bullet>`), et coupé en fondu après 250 ms (`SHOT_SOUND_MAX` : `machine-gun.ogg` est un enregistrement de tir soutenu de 17 s, pas un coup unique ; à remplacer)
+- Spawn de `Bullet` pour le son de tir (source = joueur local) : un son par tir (tireur, frame de création), mémorisé pour ne pas repartir quand le rollback de la session locale recrée les balles des dernières frames (elles redeviennent `Added<Bullet>`). Clé : famille du mode de tir actif de l'arme active du tireur à l'image rendue (`Shotgun` → `shot_shotgun`, `Automatic`/`Burst` → `shot_smg`, `Manual` → `shot_pistol`), repli sur `shot` si la clé manque (la balle ne porte pas son arme : un champ de plus ferait bouger les traces). Les échantillons sont des coups uniques courts (≤ 0,5 s, lot A de `docs/plan-assets.md`), joués en entier : plus de coupure en fondu.
 - Passage de `WeaponInventory.reloading_ending_frame` de `None` à `Some` pour le son de rechargement : une fois par rechargement, comparé d'une image rendue à la suivante
 
 **Composants non-rollback** :
