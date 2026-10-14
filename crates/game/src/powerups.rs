@@ -302,6 +302,7 @@ pub fn apply_powerup_actions_system(
                 Action::DestroyTerrain { .. }
                 | Action::Modifier { .. }
                 | Action::Heal(_)
+                | Action::GainShield(_)
                 | Action::SpawnPattern { .. }
                 | Action::GaugeAdd(..)
                 | Action::ApplyStatus { .. }
