@@ -2807,3 +2807,112 @@ Les lecteurs sont ordonnés `.after` l'émetteur (ici le système d'effets v2, a
 après `Input` et `Weapon`) ; un lecteur placé avant verrait la file de la frame précédente. La
 variante neutre ne convient pas : sa file non vide est hachée et déplace les traces existantes
 dès qu'un dash ou un rechargement a lieu.
+
+## 43. Esquive v2 (M2-T2, chantier B6)
+
+Code : `combat::actors::DashExtra` (état), `game::character::movement` (`DashConfig`, `DashEffect`,
+`IframesKind`, `MovementConfig::resolve_dash`), `game::character::player::input::apply_inputs`
+(lancement), `game::character::dash::dash_shove_system` (bousculade), `content::lint::lint_dash`.
+
+**`DashState` ne change pas.** Il est sous checksum et porté par tous les joueurs : le moindre champ
+de plus déplacerait toutes les traces dès la frame 0. L'état nouveau vit dans un composant séparé,
+`DashExtra { charges, max_charges, recharge_remaining, projectile_iframes_until, shove_force }`,
+enregistré en variante **neutre** (`rollback_and_trace_neutral`) et posé à la création
+(`character::create`) **seulement** si le personnage déclare `dash: Some(..)` ou
+`movement.dash_charges`. Aucun porteur ailleurs : zombies, testbed, throne gardent leurs traces.
+`is_dashing` passe à vrai à la frame de l'appui, comme en v1 (M2-T3 y branche `OnDodge`).
+
+**Réglage.** `MovementConfig` gagne `dash_charges: Option<u32>` et `dash_recharge_frames`. Le RON
+du personnage gagne `dash: Option<DashConfig>` ; chaque champ absent retombe sur le réglage v1 de
+`movement` : `distance`, `duration_frames`, `cooldown_frames`, `iframes`, `iframes_kind`
+(`All` v1 / `Projectiles`), `effect` (`Roll` v1 / `Shove` / `InPlace`, nouveaux effets en fin d'enum),
+`shove_force`, `charges`, `recharge_frames`.
+```ron
+dash: Some((iframes_kind: Projectiles, charges: Some(2), recharge_frames: Some(60))),
+```
+
+**Charges.** Sans `charges` : v1 exact, le cooldown seul règle le rythme. Avec : un dash consomme une
+charge (refusé à zéro, l'appui est gardé par le buffer comme en v1), `dash_cooldown_frames` reste
+l'écart minimal entre deux dashs, une charge est rendue `recharge_frames` frames après la
+consommation de la première manquante (le décompte repart tant qu'il en manque). Le test et le
+décompte sont dans `apply_inputs`, avant le lancement : une charge rendue à la frame F est utilisable à F.
+
+**Variantes.** `Roll` : v1. `Shove` : pendant le dash, chaque ennemi dont le collider touche celui du
+joueur reçoit `Velocity.knockback = direction du dash × shove_force` (assigné, pas cumulé ; l'amortissement
+habituel s'applique), ordre `GgrsNetId`. `InPlace` : distance 0 (les pas sont nuls), seulement les
+i-frames ; pas de tir pendant la durée, comme tout dash.
+
+**I-frames contre projectiles.** `iframes_kind: Projectiles` n'écrit **pas**
+`Health.invulnerable_until_frame` : `DashExtra.projectile_iframes_until` (dernière frame comprise),
+lu par la collision des balles (`weapons/mod.rs`) et des projectiles composables
+(`projectile.rs`) ; elles traversent le porteur sans être consommées. La mêlée, les contacts, la
+ruée (`Charge`) et tout autre dégât le touchent. `All` (défaut) : v1.
+
+**Lint** (`OutOfRange`, seulement pour un personnage qui déclare `dash` ou `dash_charges`) :
+`dash_charges = 0`, `dash_recharge_frames = 0` avec des charges, durée 0 hors `InPlace`, i-frames
+plus longues que la durée. Fixtures `dash_charges_zero`, `dash_recharge_zero`, `dash_duration_zero`,
+`dash_iframes_over_duration`.
+
+**Scénarios** : champ `dash` de `PlayerScript` (réglage de scénario, `DashOverride` + `DashExtra`
+posés avant la première frame par `apply_player_overrides` ; conservé au ré-enregistrement) pour
+essayer une variante sans changer le contenu des jeux. `dash_charges` (gungeon : deux dashs à f15 et
+f45, le troisième, refusé, part à f76 quand la charge de f15 est rendue), `dash_shove` (un
+`follower` projeté, 52 px derrière contre 30 pour `Roll`), `dash_in_place` (position inchangée,
+`NoDamageBetween` sur les i-frames), `dash_jump_bullets` (les balles de la `tourelle_salve` traversent,
+la ruée du `charger` touche dans la même fenêtre).
+
+**Contenu** : `gungeon/characters/pistolero.ron` : deux charges (une rendue toutes les 60 frames),
+i-frames contre projectiles seulement. Les traces `gungeon` ne bougent qu'à cause de ce nouveau
+composant (voir le rapport).
+
+## 44. Objets v2 et synergies (M2-T4, chantier C2)
+
+**Synergies.** Kind de contenu `Synergy` (dossier `synergies/`, `(path: "synergies", kind: "Synergy")`
+dans `game.ron`), un fichier RON par synergie, id = nom de fichier, champs de `items::SynergyDef` :
+`name`, `requires: [ids]` (deux objets distincts ou plus : passifs ou actif), `modifiers` et `effects`
+(mêmes formes que `ItemDef`). Table `items::SynergyTable` (ressource hors rollback, posée au chargement
+de la carte par `map_ldtk`, comme `ItemTable`).
+
+Active **tant que tous** les objets requis sont tenus (`Inventory::has` : un passif ou l'actif
+courant), retirée dès qu'un manque (l'actif remplacé tombe au sol). **État dérivé de l'`Inventory` à
+chaque frame, aucun composant ni hash en plus** :
+- `modifiers` : `game::items::synergy_modifiers_system` (`Effects`, après `blank_system`) pose les
+  modificateurs de source `synergy:<id>` quand la synergie devient active, les retire (`remove_by_source`)
+  quand elle cesse ; synergies par id, joueurs par `GgrsNetId`. Un joueur sans `Inventory` n'a pas de synergie.
+- `effects` : `game::effects_runtime::listed_effects` ajoute, après les effets des objets, ceux des
+  synergies actives (par id) sous la clé `synergy:<id>:<index>` (limites, `Tick`, source de modificateur
+  `synergy:<id>:<index>`, comme les effets d'objet). Un effet de synergie suit `lint_effect` ; `OnUse` y est
+  refusé. Le ramassage qui complète la paire déclenche déjà un `OnPickup` de la synergie (même frame).
+
+**Actifs v2** (`ItemDef`, champs optionnels, v1 exact sans eux) :
+- `uses_per_floor: Some(n)` : au plus `n` usages par étage du mode `Floors` (hors `Floors`, par partie).
+  Mémoire dans `ActiveSlot::uses = Some((étage, usages))` : les usages d'un autre étage ne comptent plus,
+  aucun reset à écrire. **`uses` n'entre dans le hash que s'il est posé** (`impl Hash` manuel d'`ActiveSlot`,
+  comme `Effect` en §42) : le hash d'un actif v1 est celui d'avant. Un usage refusé garde la charge.
+- `cost: Some((item, n))` : l'usage prélève `n` exemplaires du consommable `item` ; sans le stock, il est
+  refusé (charge conservée). Lint : `item` connu et consommable, `n > 0`.
+- `OnUse` accepte maintenant `Heal` (en plus de `Modifier` et `TimedModifier`) : `game::items::apply_instant_effects`.
+
+**Consommables à effets.** Un consommable dont `effects` n'est pas vide (uniquement `OnUse`, lint) **s'applique
+au ramassage** et n'entre pas dans l'inventaire : aucun bouton d'usage n'existe pour un consommable générique
+(pas de nouveau bit d'input, accord d'orch). Actions : `Heal`, `Modifier`, `TimedModifier`. Un consommable
+sans effet reste un compteur (`key`, `blank`, `obus`). Pas de refus de ramassage à pleine santé (le soin est
+simplement borné).
+
+**Lint** : synergie à objet inconnu (`BrokenReference`), à moins de deux objets distincts (`OutOfRange`),
+à un consommable (`Unsupported`), deux synergies pour le même ensemble (`DuplicateId`), `OnUse` dans une
+synergie ; `uses_per_floor = 0` (`OutOfRange`), `uses_per_floor`/`cost` sur un non-actif, `cost` vers un
+objet inconnu ou non consommable. Fixtures `synergy_unknown_item`, `synergy_single_item`,
+`synergy_duplicate_set`, `item_uses_per_floor_zero`, `item_cost_not_consumable`.
+
+**Contenu.** `gungeon` : synergies `tresor_de_poche` (`trefle` + `amulette` : +10 de vie max) et
+`tir_nourri` (`cartouchiere` + `etendard` : +25 % de cadence) ; actif `pierre_de_soin` (`Rooms(1)`, soin 20,
+`uses_per_floor: 2`) ; consommable `ration` (soin 15 au ramassage). Pas de « bouclier temporaire » :
+`StatId::Armor` n'est lue par aucun système (un actif sur cette stat serait sans effet), à reprendre quand
+la réduction de dégâts existera. `testbed` : objets d'essai `lame`, `manche`, `braise`, `eclat`, `canon`,
+`obus`, `ration`, synergies `lame_manche` (modificateur +2 et effet `OnPickup` +4) et `lame_braise` (+2).
+
+**Scénarios** : `synergy_pair` (bonus avec les deux objets, absent avec un seul : dégâts 1 puis 7),
+`synergy_lost` (actif remplacé : dégâts 3 puis 1), `item_active_per_floor` (trois appuis par étage, deux
+effets, sur `deux_niveaux`), `item_active_cost` (obus 3 → 1, second usage refusé), `consumable_heal`
+(santé 92 → 97 au ramassage). Aucune trace existante ne bouge : types neutres, champs optionnels hors hash.

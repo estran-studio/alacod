@@ -1,0 +1,29 @@
+// M2-T4 (synergies, docs/conventions.md §44) : la `lame` et le `manche` (passifs sans effet seuls)
+// forment la synergie `lame_manche` : +2 de dégâts (modificateur `synergy:lame_manche`) et +4 au
+// ramassage (effet `OnPickup` de la synergie, compté dès que la paire est tenue).
+//
+// À regarder : f10 le joueur ramasse la lame (dégâts 1, la synergie n'est pas là), f40 le manche :
+// +2 et +4, dégâts 7.
+Scenario(
+    powerup_drop_chance_override: "0.0",
+    game: "testbed",
+    map: "testbed/arena.ldtk",
+    frames: 100,
+    items: [
+        (id: "lame", x: "424.0", y: "696.0", at_frame: 1),
+        (id: "manche", x: "424.0", y: "696.0", at_frame: 30),
+    ],
+    players: [
+        (inputs: [
+            (from: 10, to: 11, buttons: [Interaction]),
+            (from: 40, to: 41, buttons: [Interaction]),
+        ]),
+    ],
+    expect: [
+        HasItem(handle: 0, id: "lame", at_frame: 20),
+        Stat(handle: 0, stat: Damage, value: 1.0, at_frame: 35),
+        HasItem(handle: 0, id: "manche", at_frame: 60),
+        Stat(handle: 0, stat: Damage, value: 7.0, at_frame: 60),
+        Stat(handle: 0, stat: Damage, value: 7.0, at_frame: 99),
+    ],
+)

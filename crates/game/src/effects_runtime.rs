@@ -36,7 +36,7 @@ use effects::runtime::{
     Carrier, Limits, Trigger,
 };
 use effects::{Action, Effect, On, Recharge};
-use items::{BlankUsed, Inventory, ItemPicked, ItemTable};
+use items::{BlankUsed, Inventory, ItemPicked, ItemTable, SynergyTable};
 use map::game::entity::map::{level_id::LevelId, room::RoomBounds};
 use sim_core::damage::DamageEvent;
 use sim_core::frame_events::FrameEvents;
@@ -226,8 +226,9 @@ struct Listed<'a> {
 /// (exécuté par `game::items`).
 fn listed_effects<'a>(
     effects: Option<&'a Effects>,
-    inventory: Option<&Inventory>,
+    inventory: Option<&'a Inventory>,
     table: Option<&'a ItemTable>,
+    synergies: Option<&'a SynergyTable>,
     net_id: &GgrsNetId,
     state: &mut EffectState,
     frame: u32,
@@ -263,6 +264,26 @@ fn listed_effects<'a>(
                     continue;
                 }
                 let key = format!("item:{id}:{index}");
+                let posed = if matches!(effect.on, On::Tick(_)) {
+                    *state.item_posed.entry(key.clone()).or_insert(frame)
+                } else {
+                    frame
+                };
+                listed.push(Listed {
+                    source: ModifierSource::Named(key.clone()),
+                    key,
+                    index,
+                    effect,
+                    posed,
+                });
+            }
+        }
+    }
+    // M2-T4 : effets des synergies actives (par id), clé `synergy:<id>:<index>`
+    if let (Some(inventory), Some(synergies)) = (inventory, synergies) {
+        for (id, def) in synergies.active(inventory) {
+            for (index, effect) in def.effects.iter().enumerate() {
+                let key = format!("synergy:{id}:{index}");
                 let posed = if matches!(effect.on, On::Tick(_)) {
                     *state.item_posed.entry(key.clone()).or_insert(frame)
                 } else {
@@ -395,6 +416,7 @@ pub fn apply_effects_system(
     alive: AliveQuery,
     damage: Option<Res<FrameEvents<DamageEvent>>>,
     table: Option<Res<ItemTable>>,
+    synergies: Option<Res<SynergyTable>>,
     assets: EffectAssets,
 ) {
     if carriers.is_empty() {
@@ -439,6 +461,7 @@ pub fn apply_effects_system(
             effects,
             inventory,
             table.as_deref(),
+            synergies.as_deref(),
             net_id,
             state,
             frame,
@@ -539,6 +562,7 @@ pub fn apply_triggered_effects_system(
     blank_events: Option<Res<FrameEvents<BlankUsed>>>,
     floor: Option<Res<run::FloorState>>,
     table: Option<Res<ItemTable>>,
+    synergies: Option<Res<SynergyTable>>,
     assets: EffectAssets,
 ) {
     if carriers.is_empty() {
@@ -590,6 +614,7 @@ pub fn apply_triggered_effects_system(
             effects,
             inventory,
             table.as_deref(),
+            synergies.as_deref(),
             net_id,
             state,
             frame,

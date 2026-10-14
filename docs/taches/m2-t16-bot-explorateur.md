@@ -48,7 +48,11 @@ Bot de boutique (M2-T6), parade, intelligence de build (choix d'objets), équili
 Tâche prévue pour une session Claude Code cloud (pas la machine `orca`) : ignorer les consignes
 `orca` du README (§1 : `make sweep`, ports de signaling) ; build sans `game/dev-dylib` si
 `./scripts/dev-features.sh` ne le propose pas. La session ne peut pas écrire à l'orchestrateur :
-**pousser la branche régulièrement** (commits WIP acceptés) et finir par un commit
+**pousser la branche régulièrement** (commits WIP acceptés). Le conteneur cloud **redémarre
+environ toutes les deux heures** et tue les processus d'arrière-plan (constaté par la session
+`m0-200-graines-test-map`, 2026-10-05) : la campagne se joue **au premier plan, par lots de 10
+graines au plus**, chaque lot écrit son JSON et est committé/poussé avant le suivant ; si elle ne
+tient pas, s'arrêter à ce qui est mesuré et le dire au rapport (l'orchestrateur finira sur `orca`) et finir par un commit
 `LIVRÉ m2-t16-bot-explorateur` qui contient le rapport. p2p : `make test_multiplayer` si docker et
 un affichage sont disponibles, sinon le dire au rapport.
 

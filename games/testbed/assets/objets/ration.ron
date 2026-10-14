@@ -1,0 +1,10 @@
+// M2-T4 : consommable d'essai (`consumable_heal`) : soigne 5 points au ramassage (aucun bouton
+// d'usage pour un consommable), n'entre pas dans l'inventaire.
+(
+    name: "Ration",
+    kind: Consumable,
+    rarity: Common,
+    effects: [
+        (on: OnUse, do: [Heal("5")]),
+    ],
+)

@@ -1,0 +1,16 @@
+// M2-T2 : i-frames plus longues que le dash.
+(
+    movement: (
+        max_speed: "60.0",
+        dash_duration_frames: 8,
+    ),
+    dash: Some((iframes: Some(12))),
+    asset_name_ref: "grunt",
+    base_health: (
+        max: "60.0",
+    ),
+    starting_skin: "1",
+    skins: {
+        "1": (layers: {}),
+    },
+)

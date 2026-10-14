@@ -1,0 +1,9 @@
+// Fixture M2-T4 : deux synergies pour le même ensemble d'objets (DuplicateId)
+(
+    name: "fixture-synergy_duplicate_set",
+    content_folders: [
+        (path: "objets", kind: "Item"),
+        (path: "synergies", kind: "Synergy"),
+    ],
+    entry: (start_map: "maps/salle.ldtk", default_seed: 1),
+)
