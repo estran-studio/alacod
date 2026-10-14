@@ -365,10 +365,13 @@ fn main() {
                           table: Option<bevy::prelude::Res<world::RoomKindTable>>,
                           floor: Option<bevy::prelude::Res<run::FloorState>>,
                           frame: Option<bevy::prelude::Res<utils::frame::FrameCount>>,
-                          players: bevy::prelude::Query<(
-                        &bevy_fixed::fixed_math::FixedTransform3D,
-                        bevy::prelude::Has<combat::downed::Downed>,
-                    ), bevy::prelude::With<combat::actors::Player>>| {
+                          players: bevy::prelude::Query<
+                        (
+                            &bevy_fixed::fixed_math::FixedTransform3D,
+                            bevy::prelude::Has<combat::downed::Downed>,
+                        ),
+                        bevy::prelude::With<combat::actors::Player>,
+                    >| {
                         if frame.is_none_or(|f| f.frame == 0) {
                             return;
                         }
@@ -535,7 +538,11 @@ fn main() {
         }
 
         let deaths = (bots as u32).saturating_sub(outcome.metrics.players_alive);
-        let outcome_end = outcome.metrics.run_end.as_ref().map(|(issue, _)| issue.clone());
+        let outcome_end = outcome
+            .metrics
+            .run_end
+            .as_ref()
+            .map(|(issue, _)| issue.clone());
         let outcome_softlock = outcome.softlock.is_some()
             && outcome.metrics.frames < max_frames
             && outcome.metrics.run_end.is_none();
@@ -604,7 +611,10 @@ fn main() {
     // M2-T16 : résumé par issue (graines de chaque classe)
     let mut by_outcome: std::collections::BTreeMap<&str, Vec<i32>> = Default::default();
     for result in &results {
-        by_outcome.entry(result.outcome).or_default().push(result.seed);
+        by_outcome
+            .entry(result.outcome)
+            .or_default()
+            .push(result.seed);
     }
     for (issue, seeds) in &by_outcome {
         let list: Vec<String> = seeds.iter().take(40).map(|s| s.to_string()).collect();

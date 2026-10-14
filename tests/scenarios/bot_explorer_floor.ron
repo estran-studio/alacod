@@ -1,0 +1,28 @@
+// M2-T16 (docs/conventions.md §47) : un bot `explorateur` joue seul l'étage `court` de `gungeon`
+// (graine 1, séquence `etages_court_deux`) : il entre dans la salle de combat, tue les trois
+// `bullet_kin` (esquive et blanks), file au boss, tue le `gatling`, prend le portail ouvert.
+// Aucune entrée scriptée : remplace à terme l'atteinte scriptée du boss de `gungeon_floor_seed_*`.
+//
+// À regarder : la salle de combat se verrouille vers f59 puis se rouvre ; la salle du boss se
+// verrouille ; le boss meurt, le portail s'ouvre et le bot le franchit (étage 1, portail ouvert f650, franchi f807).
+Scenario(
+    powerup_drop_chance_override: "0.0",
+    game: "gungeon",
+    floors: Some("etages_court_deux"),
+    map_seed: 1,
+    frames: 860,
+    players: [
+        (bot: explorateur),
+    ],
+    expect: [
+        // La carte de l'étage suivant est chargée à l'avance : les salles de l'étage joué sont
+        // les secondes (`nth: 1`) dans l'ordre des positions.
+        RoomState(kind: "combat", nth: 1, state: Locked, at_frame: 100),
+        RoomState(kind: "combat", nth: 1, state: Cleared, at_frame: 400),
+        RoomState(kind: "boss", nth: 1, state: Locked, at_frame: 500),
+        RoomState(kind: "boss", nth: 1, state: Cleared, at_frame: 700),
+        FloorIndex(index: 0, at_frame: 700),
+        FloorIndex(index: 1, at_frame: 859),
+        PlayerAlive(handle: 0, at_frame: 859),
+    ],
+)

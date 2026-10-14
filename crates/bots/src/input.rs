@@ -390,17 +390,17 @@ pub fn read_bot_inputs(
                 .iter()
                 .filter(|(id, ..)| !exploring || points_for.iter().any(|(a, _)| *a == id.0))
                 .map(|(id, enemy_transform, _, _, _)| {
-                let enemy_position = enemy_transform.translation.truncate();
-                let distance = position.distance(&enemy_position);
-                (
-                    id.0,
-                    distance,
-                    EnemyView {
-                        position: enemy_position,
+                    let enemy_position = enemy_transform.translation.truncate();
+                    let distance = position.distance(&enemy_position);
+                    (
+                        id.0,
                         distance,
-                    },
-                )
-            }),
+                        EnemyView {
+                            position: enemy_position,
+                            distance,
+                        },
+                    )
+                }),
         );
 
         let nearest_window = nearest_by_net_id(windows_sorted.iter().map(
@@ -542,8 +542,7 @@ pub fn read_bot_inputs(
 
         // m1-v3-bots-reanimation : relever un coéquipier à terre en l'absence de menace
         // immédiate (même règle que `chasseur`/`acheteur`), en `Floors` comme en vagues.
-        if directed(profile) && downed.is_none() && surfaces.iter().any(|(.., revive)| *revive)
-        {
+        if directed(profile) && downed.is_none() && surfaces.iter().any(|(.., revive)| *revive) {
             let threat = view
                 .nearest_enemy
                 .is_some_and(|enemy| enemy.distance <= REVIVE_SAFE_DISTANCE && view.enemy_visible);

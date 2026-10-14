@@ -388,7 +388,8 @@ pub fn should_blank(view: &BotView, holder: Holder) -> bool {
     holder.blanks > 0
         && !holder.blank_held
         && view.projectiles.iter().any(|p| {
-            p.distance < BLANK_DISTANCE && (p.position - view.position).dot(&p.velocity) < Fixed::ZERO
+            p.distance < BLANK_DISTANCE
+                && (p.position - view.position).dot(&p.velocity) < Fixed::ZERO
         })
 }
 
@@ -472,7 +473,11 @@ mod tests {
         };
         let goals = ordered_goals(&field(), &frame, Holder::default(), false, false);
         let ids: Vec<_> = goals.iter().map(|(k, ..)| k.3.clone()).collect();
-        assert_eq!(ids, vec!["b", "a"], "le boss (pourtant le plus proche) attend");
+        assert_eq!(
+            ids,
+            vec!["b", "a"],
+            "le boss (pourtant le plus proche) attend"
+        );
         let frame = ExploreFrame {
             rooms: vec![room("z", 50.0, true)],
             ..Default::default()
