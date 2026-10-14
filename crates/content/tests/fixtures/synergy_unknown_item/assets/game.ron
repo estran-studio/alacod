@@ -1,0 +1,9 @@
+// Fixture M2-T4 : synergie à un objet inconnu (BrokenReference)
+(
+    name: "fixture-synergy_unknown_item",
+    content_folders: [
+        (path: "objets", kind: "Item"),
+        (path: "synergies", kind: "Synergy"),
+    ],
+    entry: (start_map: "maps/salle.ldtk", default_seed: 1),
+)

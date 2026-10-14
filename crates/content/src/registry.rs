@@ -206,6 +206,37 @@ pub fn floor_designation(map: &str) -> Option<FloorGrammarId> {
 // Entrées
 // ---------------------------------------------------------------------------------------
 
+/// M2-T2 : valeurs de dash utiles aux règles du lint.
+#[derive(Debug, Clone, Default)]
+pub struct DashLint {
+    pub duration_frames: u32,
+    pub iframes: u32,
+    pub charges: Option<u32>,
+    pub recharge_frames: u32,
+    pub in_place: bool,
+    /// Le personnage déclare `dash` ou `dash_charges` (sinon le dash v1 n'est pas relu).
+    pub declared: bool,
+}
+
+impl DashLint {
+    fn resolve(movement: &MovementSchema, dash: Option<&DashSchema>) -> Self {
+        Self {
+            duration_frames: dash
+                .and_then(|d| d.duration_frames)
+                .unwrap_or(movement.dash_duration_frames),
+            iframes: dash
+                .and_then(|d| d.iframes)
+                .unwrap_or(movement.dash_iframes),
+            charges: dash.and_then(|d| d.charges).or(movement.dash_charges),
+            recharge_frames: dash
+                .and_then(|d| d.recharge_frames)
+                .unwrap_or(movement.dash_recharge_frames),
+            declared: dash.is_some() || movement.dash_charges.is_some(),
+            in_place: dash.is_some_and(|d| d.effect == Some(DashEffectSchema::InPlace)),
+        }
+    }
+}
+
 #[derive(Debug, Clone)]
 pub struct CharacterEntry {
     pub id: CharacterId,
@@ -233,6 +264,8 @@ pub struct CharacterEntry {
     pub weapon_slots: u32,
     /// M2-T1 : consommables de départ (`{"blank": 2}`), références vérifiées par le lint.
     pub starting_consumables: BTreeMap<String, u32>,
+    /// M2-T2 (§43) : dash résolu (`movement` surchargé par `dash`), pour les règles du lint.
+    pub dash: DashLint,
     /// T1.10 : effets v1 du personnage (`docs/conventions.md` §27).
     pub effects: Vec<effects::Effect>,
     /// T1.4 : règles de comportement (`ai.behaviors`, `None` : liste par défaut).
@@ -894,6 +927,16 @@ pub struct ItemEntry {
     pub def: items::ItemDef,
 }
 
+/// Synergie (M2-T4, `docs/conventions.md` §44), un fichier RON par synergie
+/// (`synergies/<id>.ron` dans un dossier de kind `Synergy`, champs de [`items::SynergyDef`]) ;
+/// id = nom de fichier.
+#[derive(Debug, Clone)]
+pub struct SynergyEntry {
+    pub id: String,
+    pub file: PathBuf,
+    pub def: items::SynergyDef,
+}
+
 /// Type de salle (M2-E1, `docs/conventions.md` §35), un fichier RON par type
 /// (`rooms/<id>.ron`, champs de [`world::RoomKindDef`]) : `(locks: true)`.
 #[derive(Debug, Clone)]
@@ -1053,6 +1096,8 @@ pub struct Registry {
     pub floor_grammars: BTreeMap<FloorGrammarId, FloorGrammarEntry>,
     /// M2-T0b : objets (kind `Item`).
     pub items: BTreeMap<String, ItemEntry>,
+    /// M2-T4 : synergies d'objets (kind `Synergy`).
+    pub synergies: BTreeMap<String, SynergyEntry>,
     /// M2-E1 : types de salles (kind `Room`).
     pub rooms: BTreeMap<String, RoomEntry>,
     /// T1.7 : surfaces (kind `Surface`).
@@ -1127,6 +1172,7 @@ pub const KNOWN_KIND_NAMES: &[&str] = &[
     "Status",
     "Clock",
     "Difficulty",
+    "Synergy",
 ];
 
 pub fn known_content_kinds() -> Kinds {
@@ -1222,6 +1268,7 @@ impl Registry {
                 }
                 "Room" => load_rooms(&assets_dir, decl, &mut registry, &mut errors),
                 "Item" => load_items(&assets_dir, decl, &mut registry, &mut errors),
+                "Synergy" => load_synergies(&assets_dir, decl, &mut registry, &mut errors),
                 "Surface" => load_surfaces(&assets_dir, decl, &mut registry, &mut errors),
                 "Pattern" => load_patterns(&assets_dir, decl, &mut registry, &mut errors),
                 "Progression" => load_progression(&assets_dir, decl, &mut registry, &mut errors),
@@ -1319,6 +1366,9 @@ fn read_file(assets_dir: &ContentFiles, rel: &Path) -> Result<String, LintError>
 #[derive(Deserialize)]
 struct CharacterFileSchema {
     movement: MovementSchema,
+    /// M2-T2 (§43) : dash nommé.
+    #[serde(default)]
+    dash: Option<DashSchema>,
     asset_name_ref: String,
     base_health: HealthSchema,
     starting_skin: String,
@@ -1510,6 +1560,36 @@ fn default_weapon_slots() -> u32 {
 #[derive(Deserialize)]
 struct MovementSchema {
     max_speed: FixedField,
+    #[serde(default)]
+    dash_duration_frames: u32,
+    #[serde(default)]
+    dash_iframes: u32,
+    #[serde(default)]
+    dash_charges: Option<u32>,
+    #[serde(default)]
+    dash_recharge_frames: u32,
+}
+
+#[derive(Deserialize, PartialEq)]
+enum DashEffectSchema {
+    Roll,
+    Shove,
+    InPlace,
+}
+
+/// M2-T2 : `dash` du personnage (miroir de `game::character::movement::DashConfig`).
+#[derive(Deserialize)]
+struct DashSchema {
+    #[serde(default)]
+    duration_frames: Option<u32>,
+    #[serde(default)]
+    iframes: Option<u32>,
+    #[serde(default)]
+    effect: Option<DashEffectSchema>,
+    #[serde(default)]
+    charges: Option<u32>,
+    #[serde(default)]
+    recharge_frames: Option<u32>,
 }
 
 #[derive(Deserialize)]
@@ -1888,6 +1968,7 @@ fn load_characters(
                 revive_frames: parsed.revive_frames,
                 downed_speed_mult: parsed.downed_speed_mult,
                 weapon_slots: parsed.weapon_slots,
+                dash: DashLint::resolve(&parsed.movement, parsed.dash.as_ref()),
                 starting_consumables: parsed.starting_consumables,
                 effects: parsed.effects,
                 boss: parsed.boss,
@@ -2486,6 +2567,31 @@ fn load_items(
         registry
             .items
             .insert(id.clone(), ItemEntry { id, file: rel, def });
+    }
+}
+
+/// M2-T4 : `synergies/<id>.ron` (kind `Synergy`), une synergie par fichier ; id = nom de fichier.
+fn load_synergies(
+    assets_dir: &ContentFiles,
+    decl: &ContentFolderDecl,
+    registry: &mut Registry,
+    errors: &mut Vec<LintError>,
+) {
+    for (id, rel, def) in load_ron_files::<items::SynergyDef>(assets_dir, decl, errors) {
+        if let Some(existing) = registry.synergies.get(&id) {
+            errors.push(LintError {
+                kind: LintErrorKind::DuplicateId,
+                file: rel.display().to_string(),
+                message: format!(
+                    "id de synergie « {id} » déjà défini dans {}",
+                    existing.file.display()
+                ),
+            });
+            continue;
+        }
+        registry
+            .synergies
+            .insert(id.clone(), SynergyEntry { id, file: rel, def });
     }
 }
 

@@ -1138,3 +1138,77 @@ fn boss_fixtures_report_their_rule() {
         assert_has_error(&errors, kind, expected);
     }
 }
+
+#[test]
+fn dash_charges_zero_fixture_reports_out_of_range() {
+    let (_, _, errors) = load_and_lint(&fixture_dir("dash_charges_zero")).unwrap();
+    assert_has_error(&errors, LintErrorKind::OutOfRange, "dash_charges = 0");
+}
+
+#[test]
+fn dash_recharge_zero_fixture_reports_out_of_range() {
+    let (_, _, errors) = load_and_lint(&fixture_dir("dash_recharge_zero")).unwrap();
+    assert_has_error(
+        &errors,
+        LintErrorKind::OutOfRange,
+        "dash_recharge_frames = 0",
+    );
+}
+
+#[test]
+fn dash_duration_zero_fixture_reports_out_of_range() {
+    let (_, _, errors) = load_and_lint(&fixture_dir("dash_duration_zero")).unwrap();
+    assert_has_error(&errors, LintErrorKind::OutOfRange, "durée 0 hors InPlace");
+}
+
+#[test]
+fn dash_iframes_over_duration_fixture_reports_out_of_range() {
+    let (_, _, errors) = load_and_lint(&fixture_dir("dash_iframes_over_duration")).unwrap();
+    assert_has_error(
+        &errors,
+        LintErrorKind::OutOfRange,
+        "i-frames (12) > durée (8)",
+    );
+}
+
+#[test]
+fn synergy_unknown_item_fixture_reports_broken_reference() {
+    let (_, _, errors) = load_and_lint(&fixture_dir("synergy_unknown_item")).unwrap();
+    assert_has_error(
+        &errors,
+        LintErrorKind::BrokenReference,
+        "objet « fantome » inconnu",
+    );
+}
+
+#[test]
+fn synergy_single_item_fixture_reports_out_of_range() {
+    let (_, _, errors) = load_and_lint(&fixture_dir("synergy_single_item")).unwrap();
+    assert_has_error(&errors, LintErrorKind::OutOfRange, "au moins deux objets");
+}
+
+#[test]
+fn synergy_duplicate_set_fixture_reports_duplicate_id() {
+    let (_, _, errors) = load_and_lint(&fixture_dir("synergy_duplicate_set")).unwrap();
+    assert_has_error(
+        &errors,
+        LintErrorKind::DuplicateId,
+        "même ensemble d'objets",
+    );
+}
+
+#[test]
+fn item_uses_per_floor_zero_fixture_reports_out_of_range() {
+    let (_, _, errors) = load_and_lint(&fixture_dir("item_uses_per_floor_zero")).unwrap();
+    assert_has_error(&errors, LintErrorKind::OutOfRange, "uses_per_floor = 0");
+}
+
+#[test]
+fn item_cost_not_consumable_fixture_reports_unsupported() {
+    let (_, _, errors) = load_and_lint(&fixture_dir("item_cost_not_consumable")).unwrap();
+    assert_has_error(
+        &errors,
+        LintErrorKind::Unsupported,
+        "n'est pas un consommable",
+    );
+}

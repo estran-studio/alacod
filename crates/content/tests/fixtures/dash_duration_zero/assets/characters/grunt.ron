@@ -1,0 +1,16 @@
+// M2-T2 : durée 0 hors InPlace.
+(
+    movement: (
+        max_speed: "60.0",
+        dash_duration_frames: 0,
+    ),
+    dash: Some((effect: Some(Roll))),
+    asset_name_ref: "grunt",
+    base_health: (
+        max: "60.0",
+    ),
+    starting_skin: "1",
+    skins: {
+        "1": (layers: {}),
+    },
+)

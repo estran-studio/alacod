@@ -1,0 +1,10 @@
+// M2-T4 : actif d'essai (`item_active_per_floor`) : +1 de dégâts permanent à l'usage, au plus
+// deux fois par étage (`uses_per_floor`).
+(
+    name: "Éclat",
+    kind: Active(Frames(5)),
+    effects: [
+        (on: OnUse, do: [Modifier(stat: Damage, op: Add, value: "1")]),
+    ],
+    uses_per_floor: Some(2),
+)

@@ -153,6 +153,9 @@ impl Plugin for BaseCharacterGamePlugin {
             // checksum agrégé des scénarios zombies existants, qui n'en posent jamais.
             .rollback_and_trace_no_checksum::<HitCount>()
             .rollback_and_trace::<DashState>()
+            // M2-T2 (§43) : charges et i-frames « projectiles », posés seulement si la donnée
+            // l'exige (variante neutre : les traces sans porteur ne bougent pas).
+            .rollback_and_trace_neutral::<combat::actors::DashExtra>()
             .rollback_and_trace::<SprintState>()
             .rollback_and_trace::<Velocity>()
             .rollback_and_trace::<Death>()
@@ -186,6 +189,7 @@ impl Plugin for BaseCharacterGamePlugin {
                 (
                     surface::surface_modifiers_system.run_if(surface::surfaces_active),
                     apply_inputs,
+                    dash::dash_shove_system,
                 )
                     .chain()
                     .in_set(RollbackSystemSet::Input),
