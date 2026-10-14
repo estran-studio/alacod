@@ -765,8 +765,70 @@ fn map_probe() {
             t.translation.y.to_num::<f32>(),
         )
     };
-    for (p, t) in world.query::<(&Player, &FixedTransform3D)>().iter(world) {
-        println!("joueur {} {:?}", p.handle, pos(t));
+    for (p, t, h) in world
+        .query::<(&Player, &FixedTransform3D, &game::character::health::Health)>()
+        .iter(world)
+    {
+        println!(
+            "joueur {} {:?} santé {}",
+            p.handle,
+            pos(t),
+            h.current.to_num::<f32>()
+        );
+    }
+    // M2-T11 : tables, barils (état rollback), sécurité des fosses
+    let mut props: Vec<_> = world
+        .query::<(
+            &GgrsNetId,
+            &FixedTransform3D,
+            Option<&world::TableState>,
+            Option<&world::BarrelState>,
+            Option<&game::character::health::Health>,
+            Has<game::character::health::Death>,
+            Option<&world::PitSafePosition>,
+        )>()
+        .iter(world)
+        .filter(|(.., t, b, _, _, _)| t.is_some() || b.is_some())
+        .map(|(id, tr, t, b, h, dead, _)| {
+            (
+                id.0,
+                pos(tr),
+                t.map(|t| (t.flipped, t.bullets_left)),
+                b.map(|b| b.radius.to_num::<f32>()),
+                h.map(|h| h.current.to_num::<f32>()),
+                dead,
+            )
+        })
+        .collect();
+    props.sort_by_key(|p| p.0);
+    for p in props {
+        println!(
+            "objet {} {:?} table={:?} baril_rayon={:?} santé={:?} mort={}",
+            p.0, p.1, p.2, p.3, p.4, p.5
+        );
+    }
+    for (p, safe) in world
+        .query::<(&Player, &world::PitSafePosition)>()
+        .iter(world)
+    {
+        println!(
+            "joueur {} position sûre ({}, {})",
+            p.handle,
+            safe.x.to_num::<f32>(),
+            safe.y.to_num::<f32>()
+        );
+    }
+    {
+        let grid = world.resource::<world::SurfaceGrid>();
+        let cells: Vec<_> = grid
+            .cells
+            .iter()
+            .filter(|(_, id)| **id == 4)
+            .map(|(c, _)| *c)
+            .collect();
+        if !cells.is_empty() {
+            println!("fosse : {} cases, de {:?} à {:?}", cells.len(), cells.first(), cells.last());
+        }
     }
     let mut windows: Vec<_> = world
         .query::<(

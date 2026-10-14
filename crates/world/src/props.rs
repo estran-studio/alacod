@@ -10,7 +10,8 @@ use bevy::prelude::*;
 use bevy_fixed::fixed_math::{Fixed, FixedVec2};
 use serde::{Deserialize, Serialize};
 
-/// Définition d'un objet de décor (`props/<id>.ron`) :
+/// Définition d'un objet de décor (`props/<id>.ron`, lu avec l'extension RON
+/// `UNWRAP_VARIANT_NEWTYPES` : `Table(bullets: 6)` sans double parenthèse) :
 /// ```ron
 /// Table(bullets: 6)
 /// Barrel(health: "20.0", radius: "48.0", damage: "30.0")
@@ -139,6 +140,8 @@ pub struct TableState {
     pub height: Fixed,
     /// `None` : debout.
     pub flipped: Option<FlipDirection>,
+    /// Balles que la table renversée peut encore encaisser.
+    pub bullets_left: u32,
 }
 
 /// État rollback d'un baril (composant **neutre** : porté seulement par les barils). Les PV
@@ -203,7 +206,9 @@ mod tests {
 
     #[test]
     fn definitions_en_ron() {
-        let table: PropDef = ron::from_str("Table(bullets: 6)").unwrap();
+        let options = ron::Options::default()
+            .with_default_extension(ron::extensions::Extensions::UNWRAP_VARIANT_NEWTYPES);
+        let table: PropDef = options.from_str("Table(bullets: 6)").unwrap();
         assert_eq!(
             table,
             PropDef::Table(TableDef {
@@ -212,8 +217,9 @@ mod tests {
                 range: Fixed::from_num(20),
             })
         );
-        let barrel: PropDef =
-            ron::from_str(r#"Barrel(health: "20.0", radius: "48.0", damage: "30.0")"#).unwrap();
+        let barrel: PropDef = options
+            .from_str(r#"Barrel(health: "20.0", radius: "48.0", damage: "30.0")"#)
+            .unwrap();
         assert_eq!(barrel.ldtk_entity(), "Barrel");
     }
 }

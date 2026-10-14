@@ -1,0 +1,22 @@
+// M2-T11 (surfaces v2, §46) : un ennemi au sol contourne la fosse. Carte `testbed/props_room.ldtk`
+// (salle de 30x11 cases), fosse centrale de 4x5 cases (x de 12 à 15, rangées 3 à 7) qui laisse
+// deux passages de 2 cases (rangées 1-2 et 8-9). Le joueur 0 est à droite, immobile ; un
+// `follower` part de la gauche.
+//
+// À regarder : le follower ne marche jamais sur la fosse (`EnemyNeverInWall` vaut aussi pour une
+// case de fosse sous les pieds d'un ennemi au sol), passe par l'un des deux couloirs et touche
+// le joueur.
+Scenario(
+    powerup_drop_chance_override: "0.0",
+    game: "testbed",
+    map: "testbed/props_room.ldtk",
+    frames: 600,
+    players: [
+        (),
+    ],
+    expect: [
+        CellState(x: 30, y: -13, surface: "fosse", at_frame: 5),
+        CellState(x: 30, y: -10, surface: "aucune", at_frame: 5),
+        EnemyNeverInWall(entity: NetId(12), from: 0, to: 599),
+    ],
+)

@@ -12,6 +12,11 @@ pub const ENTITY_WEAPON_LOCATION: &str = "WeaponLocation";
 pub const ENTITY_WINDOW_VERTICAL_LOCATION: &str = "WindowVertical";
 pub const ENTITY_WINDOW_HORIZONTAL_LOCATION: &str = "WindowHorizontal";
 pub const ENTITY_SODA_LOCATION: &str = "SodaLocation";
+/// Objets de décor (M2-T11, `docs/conventions.md` §46) : table renversable et baril explosif.
+/// Champ optionnel `prop` : id de l'objet (`props/<id>.ron`), par défaut `table` / `barrel`.
+pub const ENTITY_TABLE: &str = "Table";
+pub const ENTITY_BARREL: &str = "Barrel";
+pub const FIELD_PROP_NAME: &str = "prop";
 /// Entité de laboratoire (T2.9, testbed) : fait apparaître, au chargement de la map, le
 /// personnage nommé par son champ `character` (`CharacterId` du registre), avec la `Team` de
 /// son champ `team` si présent (voir `crate::game::local::spawn_characters_when_map_loaded`).

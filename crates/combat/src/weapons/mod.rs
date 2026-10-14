@@ -1549,6 +1549,7 @@ pub fn bullet_rollback_collision_system(
     mut commands: Commands,
     settings: Res<CollisionSettings>,
     mut damage_events: ResMut<FrameEvents<DamageEvent>>,
+    mut wall_hits: ResMut<FrameEvents<crate::projectile::BulletWallHit>>,
     grids: Res<crate::collision_grid::CollisionGrids>,
     bullet_query: Query<
         (
@@ -1709,7 +1710,12 @@ pub fn bullet_rollback_collision_system(
                     }
                 }
             }
-            BulletTarget::Wall => match bullet.bullet_type {
+            BulletTarget::Wall => {
+                wall_hits.send(crate::projectile::BulletWallHit {
+                    wall: deterministic_target_g_id.clone(),
+                    frame: frame.frame,
+                });
+                match bullet.bullet_type {
                 BulletType::Standard { .. } | BulletType::Explosive { .. } => {
                     should_bullet_despawn_now = true;
                 }
@@ -1717,7 +1723,8 @@ pub fn bullet_rollback_collision_system(
                     // Piercing bullets despawn on walls
                     should_bullet_despawn_now = true;
                 }
-            },
+                }
+            }
         }
 
         if should_bullet_despawn_now {
@@ -1836,6 +1843,8 @@ impl Plugin for BaseWeaponGamePlugin {
         app.add_frame_events::<crate::projectile::ProjectileHit>();
         // T1.6 : mur touché (file neutre, vide sauf projectile à `on_hit`)
         app.add_frame_events_neutral::<crate::projectile::ProjectileWallHit>();
+        // M2-T11 : mur touché par une balle (table renversée), file neutre
+        app.add_frame_events_neutral::<crate::projectile::BulletWallHit>();
 
         // Rollback components for melee weapons
         app.rollback_and_trace::<melee::MeleeWeapon>()
