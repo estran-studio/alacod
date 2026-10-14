@@ -83,6 +83,13 @@ vague 3  intégration (1 à 2 agents, 1 semaine) : le clone assemblé, scénario
 À la fin de la vague 3, l'humain joue le clone et laisse ses notes (plan §9.8) ; les notes deviennent
 des tâches de la vague 0 du jalon suivant.
 
+**Porte des dettes (règle ajoutée le 2026-10-14)** : à chaque frontière de vague, chaque dette ouverte
+de `docs/taches/dettes.md` reçoit l'un de trois sorts, écrit dans sa ligne : **corrigée** (sha),
+**planifiée** (nom de la fiche qui la prend), ou **tranchée « on ne fait pas »** (par qui, pourquoi).
+Aucune dette ne traverse deux jalons sans sort : D10 et D29 (M0) n'ont été tranchées que le
+2026-10-14, en M2. « Fermeture des notes » (T3.4 de chaque jalon) devient l'exécution des sorts
+**planifiés** restants, pas leur tri.
+
 Tailles en **jours-agent** (un agent, le flow du §9.7 en place) ; les semaines sont calendaires avec
 quatre voies. C'est une estimation, à recaler après M0.
 
@@ -598,12 +605,38 @@ T16 (bot explorateur) avant tout critère « battu/joué par un bot » ; T4/D61 
 d'armure (T14) ; T18/T19 après les mécaniques qu'ils affichent.
 **Repli cloud** : une tâche cloud sans livraison 3 jours après son lancement (2026-10-14) est reprise
 sur `orca` depuis sa branche (T16 en priorité, chez b0).
+**Atteignabilité (règle ajoutée le 2026-10-14)** : une mécanique mergée doit être **rencontrée par une
+partie ordinaire de `gungeon`** (grammaire `etage`, sans `FloorsOverride` ni scénario sur mesure).
+La fiche nomme le scénario ou la graine `alacod-sim` qui l'atteint, et le rapport le vérifie
+(§7 du README). Cas vu : M2-T8 place son escouade dans un type de salle `escouade` et une grammaire
+`court_escouade` que rien ne tire, pour ne bouger aucune trace — mécanique mergée, jamais jouée.
+Autorisé comme étape, **à condition** qu'une partie de T14 (ici T14d gabarits) la branche dans
+`etage` et que la fiche de cette partie le dise ; sinon c'est une dette nommée au merge.
+**Train de merge** : des branches livrées à quelques heures d'écart, sur des crates ou des jeux
+disjoints (ex. T5 sur `items`/`gungeon` et T8 sur `behaviors`/`testbed`), se vérifient **ensemble
+sur l'état fusionné** (suite une seule fois, `make test_scenarios_par`), comme les « vérifications
+groupées » de M1 ; chaque branche garde sa preuve §5 et sa ligne de journal. Une suite = 1 à 2 h :
+le train divise ce coût par le nombre de branches.
+**Revue à mi-vague 1** : dès que salles, butin, boutique et escouades sont sur `main` (T5, T6, T8),
+William joue `gungeon` avec le protocole de `docs/taches/session-test-manuelle.md` (un bloc) ;
+son carnet entre dans les fiches T14 **avant** que le contenu soit écrit. En M1, la revue de fin
+(D56, D57) a trouvé des défauts de sensation que vingt armes auraient multipliés.
 
 ### Vague 2 : intégration
 Scénarios du clone (un étage complet à 1, 2 et 4), bots sur 200 graines, bench à 500 balles en salle
 verrouillée, vidéos, revue humaine, fermeture des notes ; critères propres à M2 (brouillon §5) : un
 profil créé par une partie et relu par la suivante (déblocage visible dans le pool, T12), une partie
-entrée depuis le hub (T13). Calendrier indicatif : **huit semaines**.
+entrée depuis le hub (T13). Ajoutés le 2026-10-14 :
+- **`gungeon_full_run`** : un scénario long (bot explorateur de T16, deux étages de la grammaire
+  `etage`) dont les moments clés attestent chaque mécanique de M2 (`room` verrouillée puis
+  nettoyée, `item_pickup`, coffre ouvert, achat en boutique, `blank`, `boss` et ses phases,
+  portail) ; c'est le `clone_quad` de M2 : une mécanique absente de ses événements n'est pas livrée.
+- **Perf d'un grand étage** : `bench_floor` sur la grammaire `grand` (15 à 20 salles) **rempli par
+  T14** (ennemis, props, coffres), au-dessus de son plancher dans `tests/budgets.ron` sur `orca` au
+  calme ; mesuré aujourd'hui 15 fps sous charge pour un plancher de 9 sur l'étage `etage` vide.
+- **D59 fermée en réel** : une partie en ligne à deux clients (allumette) qui franchit une
+  transition d'étage de la grammaire, traces identiques ; jouée par `scripts/nightly.sh` ensuite.
+Calendrier indicatif : **huit semaines**.
 
 ### Hors M2, gardé en file (revue M0 du 2026-10-09, `docs/digests/revue-m0.md`)
 Points de William sur `zombies` (sensations, pas des correctifs moteur), **pris par William lui-même en parallèle de M2** sur son ordinateur, branche `m0-revue-suite-contenu` (prompt : `docs/taches/m0-revue-suite-contenu.md`) :
