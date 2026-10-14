@@ -606,7 +606,16 @@ fn track_blank_system(events: Res<FrameEvents<BlankUsed>>, mut last: ResMut<Last
 }
 
 /// Onde du blank : un cercle qui s'étend jusqu'au rayon et s'estompe (`Update`, présentation).
-fn draw_blank_wave_system(last: Res<LastBlank>, frame: Res<FrameCount>, mut gizmos: Gizmos) {
+fn draw_blank_wave_system(
+    last: Res<LastBlank>,
+    frame: Res<FrameCount>,
+    config: Option<Res<crate::feedback::FeedbackConfigLoaded>>,
+    mut gizmos: Gizmos,
+) {
+    // M2-T19 (§55) : l'anneau de `ui/feedback.ron` (`blank`) remplace cette onde quand il est actif.
+    if config.is_some_and(|config| config.0.blank.enabled) {
+        return;
+    }
     let Some(blank) = last.0 else {
         return;
     };
