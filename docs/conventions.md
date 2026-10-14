@@ -3151,6 +3151,41 @@ campagne : `alacod-sim --game gungeon --bots 1 --profiles explorateur --floors e
 carte de l'étage suivant est chargée à l'avance : `RoomState` y désigne les salles de l'étage joué par
 `nth: 1`. Les scénarios `gungeon_floor_seed_*` (atteinte scriptée) ne changent pas.
 
+## 52. Contenu `gungeon` (M2-T14, quatre parties)
+
+### 52.a Armes (T14a)
+
+Données seulement (`games/gungeon/assets/weapons/weapons.ron`), aucune mécanique ajoutée au moteur.
+Vingt armes à distance au total (compte du lint : `pistolet`, 18 nouvelles, `arsenal` des ennemis),
+plus `bare_hands` (mêlée). Chacune compose des comportements existants et porte un `test:` (scénario
+généré `weapon_<arme>`, `make gen GAME=gungeon`) avec bornes `min_hits`/`max_hits` mesurées.
+
+| Arme | Munition | Caractère | Composition |
+|---|---|---|---|
+| `pistolet` | balles | arme de départ, cadence 3/s | `Automatic`, `Standard` |
+| `revolver` | balles | coup lent et lourd | `Manual`, 30 dégâts, chargeur 6 |
+| `pistolet_precis` | balles | balle perçante | `Piercing(1)` + `Pierce(1)` |
+| `pistolet_jumele` | balles | deux balles par pression | `Burst(2)` |
+| `carabine_rafale` | balles | rafale de trois | `Burst(3)` |
+| `mitraillette` / `mitrailleuse_lourde` | balles | tir continu 10 et 14/s, dispersion | `Automatic`, `spread` |
+| `rebondisseur` | balles | rebondit sur les murs | `Bounce(3)` |
+| `fusil_pompe` / `double_canon` | cartouches | cône de 8 / 10 plombs | `Shotgun` |
+| `fusil_precision` | calibre | traverse trois ennemis, très lent | `Piercing(3)` + `Pierce(3)` |
+| `arc` / `arbalete` | fleches | flèche lente perçante / carreau lourd | `Piercing`, `Pierce`, `Size` |
+| `laser` | energie | faisceau rapide qui traverse tout | `Automatic`, `Pierce(8)`, `Lifetime(30)` |
+| `chercheur` | energie | tête chercheuse | `Homing("0.1")` |
+| `boule_energie` | energie | gros projectile lent | `Size("3.0")`, `Pierce(8)` |
+| `lance_roquettes` | roquettes | explose à l'impact | `on_expire: Spawn(Aimed → souffle)` |
+| `grenadier` | roquettes | rebondit puis explose en éclats | `Bounce(2)`, explosion + `Ring` (§16) |
+| `lance_flammes` | carburant | jet continu à portée courte | `Automatic`, `Lifetime(40)`, `Pierce(2)` |
+
+Munitions : réserves distinctes par type `Custom` (`balles`, `cartouches`, `calibre`, `fleches`,
+`energie`, `roquettes`, `carburant`). Pas de munition infinie dans le moteur (D à venir) : seul
+`pistolet` a une réserve de 9999 chargeurs ; les autres ont une réserve finie.
+`Burst` ne tire pas plusieurs balles par frame mais `pellets_per_shot` balles espacées de
+`cooldown_frames` (voir `FiringMode::Burst`). Les traces `gungeon` existantes n'ont pas bougé
+(les 5 scénarios générés d'avant sont identiques après `GEN_BLESS=1`).
+
 ## 53. Lint des kinds M2 et atteignabilité statique (M2-T15, voie V2)
 
 Lint seulement : aucune simulation touchée, aucune trace ne bouge.
