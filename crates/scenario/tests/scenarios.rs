@@ -182,7 +182,9 @@ fn scenarios() {
     paths.extend(generated_scenario_paths());
     // Tranche `i/N` (`ALACOD_SCENARIO_SHARD`, `scripts/test-scenarios-sharded.sh`) : un scénario
     // sur N, à tour de rôle dans l'ordre ci-dessus ; N processus couvrent toute la liste.
-    if let Some((index, count)) = shard {
+    // Quand `ALACOD_SCENARIO` donne la liste explicite (le script la calcule par durée
+    // mesurée, perf-suite-scenarios), la tranche ne sert qu'à nommer le fichier de métriques.
+    if let Some((index, count)) = shard.filter(|_| only.is_none()) {
         paths = paths
             .into_iter()
             .enumerate()

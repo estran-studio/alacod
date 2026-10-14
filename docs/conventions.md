@@ -407,6 +407,7 @@ et de ramassage et le chargement des armes murales restent dans `game`/`map_ldtk
 |---|---|
 | `make check` | Format, tests unitaires, scénarios, motifs interdits en avertissement, enregistrement rollback (`check_rollback_registration`, strict) (la CI rapide) |
 | `make test_scenarios` | Rejoue tous les scénarios en headless, compare les traces |
+| `make test_scenarios_par [SHARDS=4]` | Même suite en N processus, tranches réparties par durée mesurée (`scripts/scenario-shard-plan.py`) |
 | `make map_preview ARGS=<fichier.ldtk>` | Affiche une carte LDtk (fenêtre) |
 | `make map_generation ARGS=<entrée.ldtk> <sortie.ldtk> <graine>` | Génère une carte assemblée par connexions (voir `examples/map_generation.rs` pour les arguments exacts) |
 | `make play_scenario SCENARIO=<nom>` | Rejoue le scénario avec rendu (l'option `--follow <handle>` du binaire suit un joueur) |
@@ -435,6 +436,39 @@ les valeurs du jeu. Solo et duo déclarent `max_wave: 5` : le mode `Waves` termi
 l'**entrée** en vague 5 et produit le résumé (la cinquième vague n'est pas combattue).
 Le quad laisse cette limite absente et attend `RunState(Playing)` avec quatre joueurs
 debout à l'entrée en vague 5. Aucune trace antérieure n'est blessée pour ces références.
+
+**Vitesse de la suite (perf-suite-scenarios, 2026-10-14)** : 243 scénarios en ~17 min dans un
+seul processus et ~5 min en 4 tranches sur 4 cœurs (avant : ~51 et ~12 min). Ce qui l'explique,
+dans l'ordre du gain, et ce qu'il ne faut pas défaire :
+
+- **Exécuteur monothread en headless** (`runner::single_threaded_schedules`) : la simulation
+  compte des centaines de petits systèmes par frame, l'exécuteur multithread de Bevy y passait
+  plus de temps à se réveiller (~1 500 `futex` par frame) qu'à calculer, et ses threads se
+  disputaient les cœurs entre tranches parallèles. `ALACOD_EXECUTOR=multi` le rétablit. Un
+  système sans ordre explicite ne change pas de résultat : `GgrsSchedule` refuse toute ambiguïté
+  d'ordre (les 243 traces le prouvent).
+- **`FlowFieldCache::layers` en `SharedFlowField`** (`Arc` + image des octets du `Hash`) : le
+  snapshot rollback le clonait et le checksum le hachait 2 à 3 fois par frame (~23 000 entrées
+  de `BTreeMap`, ~20 % d'une frame). Un champ de flux n'est jamais modifié après sa
+  construction : toute nouvelle couche passe par `SharedFlowField::from`. Le flux d'octets du
+  `Hash` est celui de `#[derive(Hash)]` sur `FlowField` (test
+  `shared_flow_field_hash_equals_derived`) : aucune trace ne bouge.
+- Contenu (`Registry`, `GameManifest`) chargé **une fois par processus** (`runner::load_content`),
+  lecture des périphériques coupée (`game::character::skip_device_input`, `ActionState` n'est lu
+  qu'avec `InputSource::Devices`) et overlay de vagues (texte d'UI) coupé en headless.
+- **Tranches par durée** : `scripts/test-scenarios-sharded.sh` lit `sim_seconds` dans
+  `target/metrics/latest.json` (sinon les `frames` du `.ron`) et remplit les tranches du plus
+  long au plus court (plus long d'abord, sur la tranche la moins chargée). Les métriques d'un
+  run partiel écrasent `latest.json` : une suite complète les remet à jour. `SHARD_PLAN=roundrobin`
+  rétablit un scénario sur N.
+- `ALACOD_PROFILE=1` affiche, par scénario, le temps du runner par poste (`update` de
+  Bevy, métriques, invariants) ; les invariants et les attentes pèsent moins de 0,5 % d'une frame.
+
+Ce qui reste est la simulation elle-même : `bench_floor` (profil callgrind, 600 frames) passe
+~42 % de ses instructions dans `update_flow_field_system` (Dijkstra, dont ~22 % dans
+`is_blocked`) et ~14 % dans la navigation des bots ; les `throne_*` ne sont que 1,5 à 2 fois
+plus rapides qu'avant, pour la même raison probable (non profilés). Le détail chiffré est dans
+`docs/taches/rapports/perf-suite-scenarios.md`.
 
 ---
 
