@@ -342,9 +342,9 @@ Les types de contenu portent `#[cfg_attr(feature = "schema", derive(schemars::Js
 porte `#[cfg_attr(feature = "schema", schemars(with = "bevy_fixed::schema::FixedString"))]`.
 
 **Jeu hors de l'engine** : `cargo install --path crates/content --bin alacod`, puis
-`alacod new mon-jeu [--engine <racine>]` copie `templates/starter/` (contenu minimal qui passe le
+`alacod new mon-jeu [--engine <racine>] [--git [--rev <sha>]]` copie `templates/starter/` (contenu minimal qui passe le
 lint : joueur, quatre armes, une arène) dans `./mon-jeu`, avec un `Cargo.toml` à dépendances par
-chemin vers l'engine (+ `[workspace]` et `[patch.crates-io]` `bevy_ecs_ldtk`, que cargo n'applique
+chemin vers l'engine (ou par git avec `--git` : URL de `origin` et révision, qui doit être poussée) (+ `[workspace]` et `[patch.crates-io]` `bevy_ecs_ldtk`, que cargo n'applique
 qu'à la racine), le `Cargo.lock` de l'engine, un `CLAUDE.md` et un hook de lint. `lint` et
 `describe` sans chemin trouvent le jeu depuis le dossier courant. Le gabarit est un instantané
 d'assets du testbed : à resynchroniser si le format du contenu change (le lint du gabarit échoue
