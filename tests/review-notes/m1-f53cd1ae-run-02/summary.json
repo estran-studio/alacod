@@ -1,0 +1,31 @@
+{
+  "reviewed_on": "2026-10-13",
+  "played_on": "2026-10-11",
+  "branch_commit": "c19447de",
+  "seed": 123456,
+  "recorded_frames": 39026,
+  "input_segments": 2025,
+  "cadence": {
+    "all": {
+      "updates": 39003,
+      "max_bullets": 22,
+      "p50_ms": 16.662,
+      "p95_ms": 17.4749,
+      "p99_ms": 17.7218,
+      "over33_3ms": 6,
+      "last_frame": 39026
+    },
+    "bullets_present": {
+      "updates": 2466,
+      "max_bullets": 22,
+      "p50_ms": 16.6588,
+      "p95_ms": 17.2943,
+      "p99_ms": 17.6967,
+      "over33_3ms": 2,
+      "last_frame": 3593
+    }
+  },
+  "human_findings": "not yet collected",
+  "run_outcome": "not yet extracted",
+  "measurement": "main app update cadence, not GPU presentation"
+}

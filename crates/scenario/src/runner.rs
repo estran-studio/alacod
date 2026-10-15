@@ -266,6 +266,18 @@ pub fn build_app(scenario: &Scenario, headless: bool, config: &PlayConfig) -> Ap
                 .before(game::items::item_consumable_pickup_system)
                 .in_set(game::system_set::RollbackSystemSet::Effects),
         )
+        // M2-T5 : placements scriptés de coffres et chance de récompense de salle
+        .insert_resource(ScenarioChestPlacements(scenario.chests.clone()))
+        .insert_resource(game::loot::LootOverrides {
+            reward_chance: scenario.room_reward_chance_override,
+        })
+        .add_systems(
+            GgrsSchedule,
+            apply_scenario_chest_placements
+                .after(apply_scenario_item_placements)
+                .before(game::items::item_consumable_pickup_system)
+                .in_set(game::system_set::RollbackSystemSet::Effects),
+        )
         // T1.13 : placements scriptés de personnages (voir la doc de
         // `apply_scenario_character_placements`).
         .insert_resource(ScenarioCharacterPlacements(scenario.characters.clone()))
@@ -722,6 +734,36 @@ fn apply_scenario_item_placements(
         {
             warn!("placement d'objet : « {} » inconnu", placement.id);
         }
+    }
+}
+
+/// Placements scriptés de coffres (M2-T5, `Scenario::chests`).
+#[derive(Resource)]
+struct ScenarioChestPlacements(Vec<game::replay::ChestPlacement>);
+
+fn apply_scenario_chest_placements(
+    frame: Res<FrameCount>,
+    placements: Res<ScenarioChestPlacements>,
+    mut commands: Commands,
+    mut id_factory: ResMut<GgrsNetIdFactory>,
+) {
+    for placement in &placements.0 {
+        if frame.frame != placement.at_frame {
+            continue;
+        }
+        let position = fixed_math::FixedVec3::new(placement.x, placement.y, fixed_math::FIXED_ZERO);
+        game::loot::spawn_chest(
+            &mut commands,
+            &mut id_factory,
+            items::Chest {
+                key: placement.key.clone(),
+                table: placement.table.clone(),
+                rarity: placement.rarity,
+                locked: placement.locked,
+                opened: false,
+            },
+            position,
+        );
     }
 }
 
@@ -2097,6 +2139,22 @@ fn check(world: &mut World, expectation: &Expectation) -> Result<(), String> {
                 ))
             }
         }
+        Expectation::ItemCount {
+            handle, id, count, ..
+        } => {
+            let inventory = player_inventory(world, *handle)?;
+            let actual = inventory.as_ref().map_or(0, |i| {
+                i.passives.iter().filter(|p| *p == id).count()
+                    + usize::from(i.active.as_ref().is_some_and(|a| a.item == *id))
+            });
+            if actual == *count as usize {
+                Ok(())
+            } else {
+                Err(format!(
+                    "joueur {handle} : {actual} exemplaire(s) de « {id} » (attendu {count}) ({inventory:?})"
+                ))
+            }
+        }
         Expectation::ItemCharge { handle, charge, .. } => {
             let inventory = player_inventory(world, *handle)?;
             match inventory.and_then(|i| i.active) {
@@ -2491,6 +2549,8 @@ pub struct CaptureConfig {
     pub every: u32,
     /// Si présent, force la caméra à suivre le joueur avec ce handle GGRS.
     pub follow_handle: Option<usize>,
+    /// Capture viewport, for checking responsive HUD layouts.
+    pub size: (u32, u32),
 }
 
 #[derive(Resource)]
@@ -2502,6 +2562,7 @@ struct CaptureState {
     updates_after_end: u32,
     /// Image où la caméra rend pendant la capture (taille fixe, indépendante de la fenêtre).
     target: Option<Handle<Image>>,
+    size: (u32, u32),
 }
 
 /// Taille des images capturées.
@@ -2511,6 +2572,10 @@ pub const CAPTURE_SIZE: (u32, u32) = (960, 540);
 /// simulation. Le temps avance d'exactement une frame par update : l'image `n` montre
 /// toujours la frame `n`, quelle que soit la vitesse de la machine.
 pub fn capture(scenario: &Scenario, config: CaptureConfig) -> AppExit {
+    assert!(
+        config.size.0 > 0 && config.size.1 > 0,
+        "capture size must be positive"
+    );
     std::fs::create_dir_all(&config.dir).expect("dossier de capture");
 
     let play_config = PlayConfig {
@@ -2531,6 +2596,7 @@ pub fn capture(scenario: &Scenario, config: CaptureConfig) -> AppExit {
         last_captured: None,
         updates_after_end: 0,
         target: None,
+        size: config.size,
     })
     .add_systems(Startup, configure_capture_window)
     .add_systems(Update, (render_cameras_to_image, capture_frames).chain());
@@ -2553,12 +2619,13 @@ fn render_cameras_to_image(
     mut state: ResMut<CaptureState>,
     cameras: Query<(Entity, &bevy::camera::RenderTarget), With<Camera>>,
 ) {
+    let size = state.size;
     let target = state
         .target
         .get_or_insert_with(|| {
             images.add(Image::new_target_texture(
-                CAPTURE_SIZE.0,
-                CAPTURE_SIZE.1,
+                size.0,
+                size.1,
                 bevy::render::render_resource::TextureFormat::Rgba8UnormSrgb,
                 None,
             ))

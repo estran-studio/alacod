@@ -1,0 +1,24 @@
+{
+  "first_frame": 303,
+  "earlier_frames_identical": 303,
+  "changed": [
+    {
+      "entity_or_resource": "resource",
+      "type": "bevy_fixed::rng::RngStreams",
+      "before": "RngStreams { streams: {\"behaviors\": RollbackRng { seed: 3946763179 }, \"loot\": RollbackRng { seed: 1176761554 }, \"weapons\": RollbackRng { seed: 4277051332 }}, run_seed: 123456 }",
+      "after": "RngStreams { streams: {\"behaviors\": RollbackRng { seed: 3946763179 }, \"loot\": RollbackRng { seed: 428434693 }, \"weapons\": RollbackRng { seed: 4277051332 }}, run_seed: 123456 }"
+    },
+    {
+      "entity_or_resource": "GgrsNetId(73, \"player\")",
+      "type": "game::progression::MutationChoice",
+      "before": "MutationChoice { options: [\"sang_froid\", \"chasseur\", \"coriace\"], since_frame: 303, pending: 0, armed: false }",
+      "after": null
+    },
+    {
+      "entity_or_resource": "GgrsNetId(73, \"player\")",
+      "type": "game::progression::PendingMutations",
+      "before": null,
+      "after": "PendingMutations(1)"
+    }
+  ]
+}

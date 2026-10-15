@@ -1,0 +1,27 @@
+
+running 1 test
+found a spawn level: cave-niveau_1-123456
+found a spawn level: cave-niveau_2-123456
+found a spawn level: cave-niveau_3-123456
+found a spawn level: cave-niveau_1-123456
+found a spawn level: cave-niveau_2-123456
+found a spawn level: cave-niveau_3-123456
+found a spawn level: cave-niveau_1-123456
+found a spawn level: cave-niveau_2-123456
+found a spawn level: cave-niveau_3-123456
+zombie 461 f5100 pos (952.00,504.00) case (59, 31) → Some((58, 30)) coût Some(92) état Chasing
+   point visé (936.0,488.0)
+   vitesse main (0.00,0.00) knockback (0.00,0.00) collider Rectangle { width: 20, height: 20 }
+   ..#####   y=33
+   .....##   y=32
+   ...Z. #   y=31
+   .....##   y=30
+   .....##   y=29
+   mur x 960..1024 y 528..656 (écart 8.0,24.0)
+   mur x 944..960 y 528..624 (écart 0.0,24.0)
+   mur x 928..944 y 528..592 (écart 8.0,24.0)
+   mur x 976..1024 y 512..528 (écart 24.0,8.0)
+   mur x 976..992 y 464..496 (écart 24.0,8.0)
+test nav_probe ... ok
+
+test result: ok. 1 passed; 0 failed; 0 ignored; 0 measured; 9 filtered out; finished in 30.57s

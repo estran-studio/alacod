@@ -1,3 +1,5 @@
+// Revue M1 2026-10-10 : choix reportés après nettoyage ; attentes de timing
+// et mutations retestées. Les mesures historiques ci-dessous précèdent cette politique.
 // `throne` vague 2 de M1 (m1-integration-scenarios, docs/conventions.md §29) : quatre bots
 // `prudent` jouent la run complète (trois cavernes, `floors/run.ron`), avec tout ce que le manifeste
 // active (butin, progression, horloge, difficulté) et le boss `roi_rat` au niveau 3. Joué en
@@ -31,14 +33,14 @@ Scenario(
     ],
     expect: [
         FloorIndex(index: 1, at_frame: 445),
-        FloorIndex(index: 2, at_frame: 1065),
-        FloorIndex(index: 2, at_frame: 2250),
-        FloorIndex(index: 3, at_frame: 2270),
-        Event(kind: "portal", label_contains: Some("niveau 2"), by_frame: 2125),
-        Event(kind: "floor", label_contains: Some("niveau 3"), by_frame: 2270),
+        FloorIndex(index: 2, at_frame: 1505),
+        FloorIndex(index: 2, at_frame: 3155),
+        FloorIndex(index: 3, at_frame: 3170),
+        Event(kind: "portal", label_contains: Some("niveau 2"), by_frame: 2565),
+        Event(kind: "floor", label_contains: Some("niveau 3"), by_frame: 3170),
         Event(kind: "levelup", by_frame: 755),
-        Event(kind: "mutation", by_frame: 1355),
-        Clock(id: "alerte", fired: true, at_frame: 1850),
+        Event(kind: "mutation", by_frame: 1505),
+        Clock(id: "alerte", fired: true, at_frame: 2400),
         PlayerAlive(handle: 0, at_frame: 3399),
         PlayerAlive(handle: 1, at_frame: 3399),
         PlayerAlive(handle: 2, at_frame: 3399),
