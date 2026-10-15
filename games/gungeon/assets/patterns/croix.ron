@@ -1,0 +1,9 @@
+// `gungeon` (M2-T14c, docs/conventions.md §52) : télégraphe de 30 frames puis deux couronnes de quatre
+// boules lentes, la seconde 30 frames après la première (`Ring` à `every: 0`, premier rayon sur la visée) ;
+// `tourelle_kin`. Les boules de la seconde couronne comblent les trous de la première.
+Sequence([
+    Telegraph(30),
+    Ring(count: 4, speed: "70.0", projectile: "boule", every: 0),
+    Wait(30),
+    Ring(count: 4, speed: "70.0", projectile: "boule", every: 0),
+])

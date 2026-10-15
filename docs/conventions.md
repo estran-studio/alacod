@@ -3393,6 +3393,30 @@ Munitions : réserves distinctes par type `Custom` (`balles`, `cartouches`, `cal
 `cooldown_frames` (voir `FiringMode::Burst`). Les traces `gungeon` existantes n'ont pas bougé
 (les 5 scénarios générés d'avant sont identiques après `GEN_BLESS=1`).
 
+### 52.c Ennemis et boss (T14c)
+
+Données seulement (`games/gungeon/assets/`), aucune mécanique de moteur.
+
+**Ennemis** (`characters/`, un `test:` chacun, scénarios générés `enemy_<id>_still`/`_moving`) :
+`shotgun_kin` (`Shoot` de `pompe` : télégraphe 25 puis sept chevrotines en `Fan`, portée 170 ; variante
+`blinde`), `veteran_kin` (`visee` + `KeepDistance` 140-220 ; variantes `rapide` et `blinde`),
+`bandana_kin` (`Charge`, télégraphe 30, 15 de dégât), `tourelle_kin` (immobile, `croix` : deux couronnes de
+quatre boules), `fuyard_kin` (`Flee` sous 50 %, `rafale` de quatre balles ; variante `rapide`),
+`lanceur_kin` (`KeepDistance` 150-240, `grenade_lente`). Avec `bullet_kin`, `bullet_kin_squad` et le boss
+`gatling` : dix ennemis. Patterns nommés `pompe`, `rafale`, `croix`, `grenade_lente` ; arme ennemie
+`arsenal_lourd` (table `chevrotine`, `grenade` → `explosion` → `eclat`), à part de `arsenal` pour que le hash
+des ennemis existants ne bouge pas.
+
+**Placement** (aucun gabarit ajouté, `docs/taches/rapports/m2-t14c-ennemis.make_placement.py`) :
+`CombatEW` (+`shotgun_kin`, `fuyard_kin`), `CombatNS` (+`veteran_kin`, `tourelle_kin`), `CombatCroix`
+(+`bandana_kin`, `lanceur_kin`), vagues de l'arène (`fuyard_kin` à 300, `bandana_kin`, `lanceur_kin`,
+`tourelle_kin` à 600). `CombatT` et `EscouadeEW` ne bougent pas (les scénarios scriptés de l'étage `court` s'y
+appuient). `alacod lint gungeon` : aucun nouvel avertissement d'ennemi.
+
+**Boss `gatling`** : phase 1 = couronne puis spirale 60 frames plus tard (répétition 150) ; phases 0 et 2
+inchangées. Un renfort `lanceur_kin` en phase 2 a été essayé : le bot meurt et `gungeon_boss_bot` dépasse son
+`EntityCount`, retiré.
+
 ## 53. Lint des kinds M2 et atteignabilité statique (M2-T15, voie V2)
 
 Lint seulement : aucune simulation touchée, aucune trace ne bouge.
