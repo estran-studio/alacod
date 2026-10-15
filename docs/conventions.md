@@ -2844,6 +2844,21 @@ vue. Ce filtre empêche une vue par une fenêtre extérieure de dévoiler les ob
 pièce encore fermée. Lorsqu'une partie d'une porte est en vue, sa face complète reste
 lisible dans les cases de mur du passage ; cela ne révèle aucune case intérieure.
 
+
+**Séquence par défaut et preuve p2p (D59, 2026-10-15).** `entry.floors` (champ optionnel de
+`game.ron`, `content::manifest::EntryPoint`) désigne la séquence du dossier `Floors` que `entry.mode:
+Floors` joue par défaut ; absent, c'est l'ancien comportement (la première par ordre d'id). Lint : un id
+absent du dossier est une erreur `BrokenReference`, le champ sans `mode: Floors` une erreur `Unsupported`
+(fixtures `entry_floors_unknown` et `entry_floors_without_mode`). Un scénario garde la main par son champ
+`floors`. `gungeon` déclare `floors: "etages_deux"` : la partie ordinaire démarre sur deux étages assemblés
+par la grammaire `etage` (l'étage squelette `etage_1` reste jouable par `floors: Some("etage_1")`).
+Diagnostic `ALACOD_CLEAR_ENEMIES_AT=<frame>` (`map_ldtk::game::floors`, avec `ALACOD_INPUT=neutral`, à régler
+sur **tous** les clients) : à cette frame tous les ennemis disparaissent (`despawn_rollback`), le portail
+(barycentre des `PlayerSpawn`) s'ouvre par la règle ordinaire et les clients traversent la transition sans
+clavier. Preuve p2p de `gungeon` (2 clients, `ALACOD_CLEAR_ENEMIES_AT=200`, 900 frames) : séquence
+`etages_deux` choisie, `floor_portal_open` puis `floor_transition from=0 to=1` à f200 sur les deux clients,
+traces identiques sur 899 frames.
+
 ## 42. Effets v2 : déclencheurs, conditions, cooldowns et charges (M2-T3, chantier C1 v2)
 
 Suite de §27 (effets v1) et §36 (objets). Code : contrats `effects::{On, Condition, Effect,

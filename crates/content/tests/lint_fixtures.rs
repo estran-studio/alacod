@@ -1434,3 +1434,16 @@ fn shipped_games_lint_without_error() {
         }
     }
 }
+
+// D59 : `entry.floors` (séquence par défaut du mode `Floors`).
+#[test]
+fn entry_floors_fixtures_report_their_rule() {
+    let (_, _, errors) = load_and_lint(&fixture_dir("entry_floors_unknown")).unwrap();
+    assert_has_error(&errors, LintErrorKind::BrokenReference, "entry.floors");
+    let (_, _, errors) = load_and_lint(&fixture_dir("entry_floors_without_mode")).unwrap();
+    assert_has_error(
+        &errors,
+        LintErrorKind::Unsupported,
+        "exige entry.mode = Floors",
+    );
+}

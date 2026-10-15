@@ -58,6 +58,27 @@ sont recalées sur les valeurs mesurées, **sans en retirer aucune** (accord de 
 
 Aucune attente n'a perdu son sens. `throne_floor_1` et `throne_softlock_recul` : trace seulement.
 
+## D59 — la grammaire devient l'étage par défaut de `gungeon`
+
+- **Champ explicite du manifeste** : `entry.floors` (`content::manifest::EntryPoint`, optionnel) désigne la
+  séquence du dossier `Floors` que `mode: Floors` joue par défaut ; absent, la première par ordre d'id (comportement
+  d'avant, gardé pour les jeux à une séquence). `game::run_state::resolve_run_mode_with_floors` le lit (l'override d'un
+  scénario gagne) ; test unitaire. Lint : id inconnu → `BrokenReference`, champ sans `mode: Floors` → `Unsupported`
+  (deux fixtures, test dans `lint_fixtures.rs`). Commentaire de `content::reach` mis à jour (toute séquence reste une
+  racine d'atteignabilité).
+- **`gungeon`** : `floors: "etages_deux"` dans `game.ron` (`floor:etage` ×2 : étage assemblé, portail, second étage).
+  Les scénarios sans `floors:` ne sont pas en mode `Floors` (ils chargent une carte) ; le bot explorateur (M2-T16) impose
+  sa séquence : aucun scénario de T16 touché, aucune trace n'a bougé (suite verte, voir plus bas).
+- **p2p 2 clients sur étage assemblé et transition** : il fallait un moyen de vider un niveau sans clavier. Diagnostic
+  `ALACOD_CLEAR_ENEMIES_AT=<frame>` (`map_ldtk::game::floors::debug_clear_enemies_system`, `despawn_rollback`, sans
+  effet sans la variable, comme `ALACOD_PRESS_BLANK_AT`). Mesure : `gungeon`, `--matchbox`, 2 clients, `ALACOD_INPUT=neutral`
+  `ALACOD_CLEAR_ENEMIES_AT=200`, `ALACOD_EXIT_AT_FRAME=900` : « mode Floors : séquence « etages_deux », 2 niveau(x) :
+  [floor:etage, floor:etage] » ; à f200 `floor_portal_open floor=0` puis `floor_transition from=0 to=1 slot=1` sur
+  **les deux clients** ; `cmp` des traces : **identiques, 899 frames**. Couvre `floor://`, la graine dérivée par emplacement
+  et la transition (D59).
+- **Limite** : la mort réelle du boss n'est pas jouée en p2p (les ennemis sont retirés par le diagnostic) ; la victoire
+  de fin de séquence n'est pas atteinte dans ces 900 frames.
+
 ## Vérifications
 
 - D50, sur la fusion avec main 8f3fd270 : `make test_scenarios_par SHARDS=4` 297 scénarios verts (957 s), `cargo fmt --all -- --check` et `make lint` verts ; `drop_chance` = "0.40".

@@ -1,0 +1,11 @@
+// Fixture D59 : `entry.floors` désigne une séquence qui n'existe pas : LintErrorKind::BrokenReference.
+(
+    name: "fixture-entry-floors-unknown",
+    content_folders: [],
+    entry: (
+        start_map: "unused",
+        default_seed: 1,
+        mode: Floors,
+        floors: "fantome",
+    ),
+)

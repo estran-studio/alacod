@@ -2741,6 +2741,28 @@ fn lint_entry_point(registry: &Registry, manifest: &GameManifest, errors: &mut V
                 .to_string(),
         });
     }
+    // D59 : `entry.floors` désigne la séquence par défaut du mode `Floors`.
+    if let Some(floors) = &manifest.entry.floors {
+        if manifest.entry.mode != Some(crate::manifest::EntryMode::Floors) {
+            errors.push(LintError {
+                kind: LintErrorKind::Unsupported,
+                file: crate::manifest::MANIFEST_FILE_NAME.to_string(),
+                message: format!("champ entry.floors = « {floors} » : exige entry.mode = Floors"),
+            });
+        }
+        if !registry
+            .floors
+            .contains_key(&registry::FloorsConfigId::from(floors.clone()))
+        {
+            errors.push(LintError {
+                kind: LintErrorKind::BrokenReference,
+                file: crate::manifest::MANIFEST_FILE_NAME.to_string(),
+                message: format!(
+                    "champ entry.floors = « {floors} » : aucune séquence de ce nom dans le dossier « Floors »"
+                ),
+            });
+        }
+    }
 }
 
 /// T1.10 (`docs/conventions.md` §27) : `progression.ron`.
