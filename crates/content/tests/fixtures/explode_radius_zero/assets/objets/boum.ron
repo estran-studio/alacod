@@ -1,1 +1,0 @@
-(name: "Boum", kind: Consumable, effects: [(on: OnUse, do: [Explode(radius: "0.0", damage: "5.0", destroys: true)])])

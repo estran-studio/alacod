@@ -2,7 +2,7 @@
 (
     name: "fixture-explode_radius_zero",
     content_folders: [
-        (path: "objets", kind: "Item"),
+        (path: "characters", kind: "Character"),
     ],
     entry: (start_map: "maps/salle.ldtk", default_seed: 1),
 )
