@@ -1397,7 +1397,7 @@ fn clock_expectation_pass_and_fail() {
 /// T1.18 (§32) : `HudText` lit le HUD du joueur affiché (`HudSnapshot`, aussi en headless) sur
 /// `throne_progression` (scénario inchangé, attentes ajoutées ici) : étage, munitions par type,
 /// niveau 1 à f365 puis 2 à f1290 (D51), rads ; échoue sur un texte absent. Depuis D51, le bot
-/// est au deuxième étage à f1912 (« Étage 3 »).
+/// est au deuxième étage à f1912 (« Étage 3 »). Depuis D50 (`drop_chance` 0,40), « Étage 3 » à f3490.
 #[test]
 fn hud_text_sur_throne_progression() {
     if map_ldtk::RENDER_ENABLED {
@@ -1417,7 +1417,8 @@ fn hud_text_sur_throne_progression() {
             hud("rads", "rads", 60),
             hud("level", "Niv. 1", 365),
             hud("level", "Niv. 2", 1890),
-            hud("floor", "Étage 3", 2815),
+            // D50 : l'étage 3 est atteint à f3483 (f2804 avant `drop_chance` 0,40 de throne).
+            hud("floor", "Étage 3", 3490),
         ],
         &[
             (hud("level", "Niv. 2", 540), "attendu « Niv. 2 »"),
@@ -1715,7 +1716,12 @@ fn throne_mutations_wait_for_clear_and_every_duo_choice_before_transition() {
     assert!(completed.load(Ordering::Relaxed));
 }
 
-/// Regression from William's run: pillard 220 pressed into the wall while fleeing.
+/// `GgrsNetId` du pillard enregistré : 220 jusqu'à D50, 221 depuis `drop_chance` 0,40 de `throne` (un
+/// drop de plus avant son apparition prend un id ; c'est le même pillard, repéré par sa position dans
+/// le coin des deux murs : x 575,96, y 65, vitesse nulle).
+const PILLARD_NET_ID: usize = 221;
+
+/// Regression from William's run: the recorded pillard pressed into the wall while fleeing.
 /// Retain historical mutation timing to isolate navigation from the intermission change.
 #[test]
 fn throne_recorded_pillard_leaves_the_wall_corner() {
@@ -1764,8 +1770,8 @@ fn throne_recorded_pillard_leaves_the_wall_corner() {
                 }
                 let (_, transform, velocity) = enemies
                     .iter()
-                    .find(|(id, ..)| id.0 == 220)
-                    .expect("recorded pillard 220");
+                    .find(|(id, ..)| id.0 == PILLARD_NET_ID)
+                    .expect("recorded pillard");
                 let p = transform.translation;
                 // Its 32px provisional sprite also stays outside the two recorded walls.
                 assert!(

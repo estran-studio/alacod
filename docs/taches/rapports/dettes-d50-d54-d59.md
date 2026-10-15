@@ -56,6 +56,12 @@ sont recalées sur les valeurs mesurées, **sans en retirer aucune** (accord de 
 | `throne_mutation_choice` | `Mutations` et `Event mutation` à f786 | `vampire` | `tireur` (le `ChoiceB` applique toujours un choix) |
 | `throne_three_floors` | `Mutations` à f4430 | [adrenaline, coriace] | [adrenaline, rancune] |
 
+**Refait sur la base D34** (main e355be53 : D34 a rebéni les traces `throne` à cause d'un écart de ~1e-4 sur la vitesse
+des balles) : la preuve §5 est rejouée sur ce socle (dump à 0,40 contre dump à 0,25, `scripts/trace-diff.py`), mêmes
+causes : un `powerup_munitions_balles` de plus (`munitions_obus` pour `throne_three_floors`) à la mort d'un ennemi, aux
+mêmes frames (f303, f532, f215, f416, f3239) ; les attentes recalées ci-dessus passent telles quelles sur la nouvelle
+base (seules les traces ont été rebénies de nouveau).
+
 Aucune attente n'a perdu son sens. `throne_floor_1` et `throne_softlock_recul` : trace seulement.
 
 ## D59 — la grammaire devient l'étage par défaut de `gungeon`
@@ -76,9 +82,29 @@ Aucune attente n'a perdu son sens. `throne_floor_1` et `throne_softlock_recul` :
   [floor:etage, floor:etage] » ; à f200 `floor_portal_open floor=0` puis `floor_transition from=0 to=1 slot=1` sur
   **les deux clients** ; `cmp` des traces : **identiques, 899 frames**. Couvre `floor://`, la graine dérivée par emplacement
   et la transition (D59).
+- **Effet de bord corrigé** : `entry.floors` change « la partie du manifeste » de `gungeon` (avant : la première
+  séquence par ordre d'id, `etage_1`). Six scénarios qui la jouaient sans `floors:` démarraient sur `etages_deux`
+  (201 entités à f0, salles et positions différentes) : `dash_charges`, `gungeon_boss`, `gungeon_boss_bot`,
+  `gungeon_clear`, `gungeon_start` prennent `floors: Some("etage_1")` ; pour les scénarios de scène générés
+  (`alacod-gen`, `SceneContext::start_floors`), le générateur pose la séquence dont l'unique niveau est
+  `entry.start_map` quand le manifeste désigne `entry.floors` (`boss_gatling` régénéré). Leurs traces n'ont pas bougé
+  (vérifiées une à une, `make gen GAME=gungeon` ne touche que `boss_gatling.ron`). Aucun scénario de M2-T16 touché.
 - **Limite** : la mort réelle du boss n'est pas jouée en p2p (les ennemis sont retirés par le diagnostic) ; la victoire
   de fin de séquence n'est pas atteinte dans ces 900 frames.
 
 ## Vérifications
 
-- D50, sur la fusion avec main 8f3fd270 : `make test_scenarios_par SHARDS=4` 297 scénarios verts (957 s), `cargo fmt --all -- --check` et `make lint` verts ; `drop_chance` = "0.40".
+Sur la fusion avec main e355be53 (perf-navigation, dettes-outillage D34, M2-T14c), `drop_chance` = "0.40" :
+- `make test_scenarios_par SHARDS=4` : **310 scénarios verts** (1060 s) après bless des 7 traces `throne` (preuve §5 ci-dessus) ;
+- `cargo fmt --all -- --check`, `make lint`, `make gen GAME=gungeon` verts ; `make test_crates` vert (**712 tests**) ;
+- p2p `gungeon` 2 clients (D59) : séquence `etages_deux`, transition d'étage 0 → 1 à f200 sur les deux clients, traces identiques sur 899 frames.
+
+**Deux tests de `crates/scenario/tests/expectations.rs` dépendaient aussi de throne** (trouvés par `make test_crates`, pas par
+la suite de scénarios) : `hud_text_sur_throne_progression` (attente `floor` « Étage 3 » de f2815 à f3490, aucune retirée) et
+`throne_recorded_pillard_leaves_the_wall_corner` (le pillard enregistré passe de l'id 220 à 221 : un drop de plus avant son
+apparition ; reconnu à sa position dans le coin des murs, constante `PILLARD_NET_ID`).
+
+**Leçons** : (1) changer le défaut d'un manifeste (D59) touche tous les scénarios qui jouent « la partie du manifeste » ;
+(2) relever une chance de butin décale les ids, les tirages de mutations et les frames d'étage : lancer `make test_crates`
+avant de bénir, la suite de scénarios ne couvre pas `crates/scenario/tests/expectations.rs` ; (3) `/tmp` (tmpfs 12 Go) ne
+tient pas les dumps `.full` (200 Mo chacun) : les écrire sur le disque.
