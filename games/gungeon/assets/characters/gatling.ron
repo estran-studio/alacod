@@ -44,6 +44,10 @@
         stationary: Some(true),
     )),
 
+    // M2-T17 (docs/conventions.md §54) : scénario généré `boss_gatling` (un bot `fonceur` joue
+    // l'étage du manifeste, comme `gungeon_boss_bot`, et bat le boss : phases 1 et 2, salle rouverte).
+    test: Some((frames: 600, still: false, moving: false, boss: Some(()))),
+
     boss: Some((
         phases: [
             // Phase 0 : l'éventail (M2-T1), toutes les 150 frames.

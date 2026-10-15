@@ -6,4 +6,6 @@
     modifiers: [(stat: MoveSpeed, op: Pct, value: "0.25")],
     tags: ["mobilite"],
     rarity: Common,
+    // M2-T17 (docs/conventions.md §54) : scénario généré `item_bottes`.
+    test: Some((frames: 60)),
 )

@@ -6344,6 +6344,512 @@
      "gridTiles": []
     }
    ]
+  },
+  {
+   "identifier": "EscouadeEW",
+   "iid": "23deb101-afd4-5019-878d-49668dcb371f",
+   "uid": 48,
+   "worldX": 0,
+   "worldY": 0,
+   "worldDepth": 0,
+   "pxWid": 128,
+   "pxHei": 128,
+   "__bgColor": "#696A79",
+   "bgColor": null,
+   "useAutoIdentifier": true,
+   "bgRelPath": null,
+   "bgPos": null,
+   "bgPivotX": 0.5,
+   "bgPivotY": 0.5,
+   "__smartColor": "#ADADB5",
+   "__bgPos": null,
+   "externalRelPath": null,
+   "fieldInstances": [
+    {
+     "__identifier": "spawn",
+     "__type": "Bool",
+     "__value": false,
+     "__tile": null,
+     "defUid": 26,
+     "realEditorValues": []
+    },
+    {
+     "__identifier": "room_kind",
+     "__type": "String",
+     "__value": "escouade",
+     "__tile": null,
+     "defUid": 47,
+     "realEditorValues": [
+      {
+       "id": "V_String",
+       "params": [
+        "combat"
+       ]
+      }
+     ]
+    }
+   ],
+   "__neighbours": [],
+   "layerInstances": [
+    {
+     "__identifier": "Entities",
+     "__type": "Entities",
+     "__cWid": 8,
+     "__cHei": 8,
+     "__gridSize": 16,
+     "__opacity": 1,
+     "__pxTotalOffsetX": 0,
+     "__pxTotalOffsetY": 0,
+     "__tilesetDefUid": null,
+     "__tilesetRelPath": null,
+     "iid": "90a06e88-539b-517f-826e-7c3c02cd305c",
+     "levelId": 1,
+     "layerDefUid": 19,
+     "pxOffsetX": 0,
+     "pxOffsetY": 0,
+     "visible": true,
+     "optionalRules": [],
+     "seed": 1234567,
+     "overrideTilesetUid": null,
+     "intGridCsv": [],
+     "autoLayerTiles": [],
+     "entityInstances": [
+      {
+       "__identifier": "DoorVertical",
+       "__grid": [
+        0,
+        3
+       ],
+       "__pivot": [
+        0,
+        0
+       ],
+       "__tags": [],
+       "__tile": null,
+       "__smartColor": "#F0A20E",
+       "iid": "8792dd75-0231-5bb7-b0f3-1e8df4ab16cf",
+       "width": 16,
+       "height": 32,
+       "defUid": 40,
+       "px": [
+        0,
+        48
+       ],
+       "fieldInstances": [
+        {
+         "__identifier": "price",
+         "__type": "Int",
+         "__value": 0,
+         "__tile": null,
+         "defUid": 41,
+         "realEditorValues": []
+        },
+        {
+         "__identifier": "electrify",
+         "__type": "Bool",
+         "__value": false,
+         "__tile": null,
+         "defUid": 42,
+         "realEditorValues": []
+        }
+       ],
+       "__worldX": 0,
+       "__worldY": 48
+      },
+      {
+       "__identifier": "DoorVertical",
+       "__grid": [
+        7,
+        3
+       ],
+       "__pivot": [
+        0,
+        0
+       ],
+       "__tags": [],
+       "__tile": null,
+       "__smartColor": "#F0A20E",
+       "iid": "e30a4a7d-349f-5a4e-b626-2904af640682",
+       "width": 16,
+       "height": 32,
+       "defUid": 40,
+       "px": [
+        112,
+        48
+       ],
+       "fieldInstances": [
+        {
+         "__identifier": "price",
+         "__type": "Int",
+         "__value": 0,
+         "__tile": null,
+         "defUid": 41,
+         "realEditorValues": []
+        },
+        {
+         "__identifier": "electrify",
+         "__type": "Bool",
+         "__value": false,
+         "__tile": null,
+         "defUid": 42,
+         "realEditorValues": []
+        }
+       ],
+       "__worldX": 112,
+       "__worldY": 48
+      },
+      {
+       "__identifier": "CharacterSpawn",
+       "__grid": [
+        2,
+        2
+       ],
+       "__pivot": [
+        0,
+        0
+       ],
+       "__tags": [],
+       "__tile": null,
+       "__smartColor": "#3050C0",
+       "iid": "c3b9932b-e7cc-51b3-b66f-8ee0deb840fb",
+       "width": 16,
+       "height": 16,
+       "defUid": 44,
+       "px": [
+        32,
+        32
+       ],
+       "fieldInstances": [
+        {
+         "__identifier": "character",
+         "__type": "String",
+         "__value": "bullet_kin_squad",
+         "__tile": null,
+         "defUid": 45,
+         "realEditorValues": [
+          {
+           "id": "V_String",
+           "params": [
+            "bullet_kin_squad"
+           ]
+          }
+         ]
+        },
+        {
+         "__identifier": "team",
+         "__type": "String",
+         "__value": "enemies",
+         "__tile": null,
+         "defUid": 46,
+         "realEditorValues": [
+          {
+           "id": "V_String",
+           "params": [
+            "enemies"
+           ]
+          }
+         ]
+        }
+       ],
+       "__worldX": 32,
+       "__worldY": 32
+      },
+      {
+       "__identifier": "CharacterSpawn",
+       "__grid": [
+        5,
+        2
+       ],
+       "__pivot": [
+        0,
+        0
+       ],
+       "__tags": [],
+       "__tile": null,
+       "__smartColor": "#3050C0",
+       "iid": "c1e8b710-453e-55a2-8e1d-b3c310a590cb",
+       "width": 16,
+       "height": 16,
+       "defUid": 44,
+       "px": [
+        80,
+        32
+       ],
+       "fieldInstances": [
+        {
+         "__identifier": "character",
+         "__type": "String",
+         "__value": "bullet_kin_squad",
+         "__tile": null,
+         "defUid": 45,
+         "realEditorValues": [
+          {
+           "id": "V_String",
+           "params": [
+            "bullet_kin_squad"
+           ]
+          }
+         ]
+        },
+        {
+         "__identifier": "team",
+         "__type": "String",
+         "__value": "enemies",
+         "__tile": null,
+         "defUid": 46,
+         "realEditorValues": [
+          {
+           "id": "V_String",
+           "params": [
+            "enemies"
+           ]
+          }
+         ]
+        }
+       ],
+       "__worldX": 80,
+       "__worldY": 32
+      },
+      {
+       "__identifier": "CharacterSpawn",
+       "__grid": [
+        3,
+        6
+       ],
+       "__pivot": [
+        0,
+        0
+       ],
+       "__tags": [],
+       "__tile": null,
+       "__smartColor": "#3050C0",
+       "iid": "cf9041d9-fa03-5b41-986d-a0c3b6777ca6",
+       "width": 16,
+       "height": 16,
+       "defUid": 44,
+       "px": [
+        56,
+        96
+       ],
+       "fieldInstances": [
+        {
+         "__identifier": "character",
+         "__type": "String",
+         "__value": "bullet_kin_squad",
+         "__tile": null,
+         "defUid": 45,
+         "realEditorValues": [
+          {
+           "id": "V_String",
+           "params": [
+            "bullet_kin_squad"
+           ]
+          }
+         ]
+        },
+        {
+         "__identifier": "team",
+         "__type": "String",
+         "__value": "enemies",
+         "__tile": null,
+         "defUid": 46,
+         "realEditorValues": [
+          {
+           "id": "V_String",
+           "params": [
+            "enemies"
+           ]
+          }
+         ]
+        }
+       ],
+       "__worldX": 56,
+       "__worldY": 96
+      }
+     ],
+     "gridTiles": []
+    },
+    {
+     "__identifier": "LevelConnection",
+     "__type": "IntGrid",
+     "__cWid": 8,
+     "__cHei": 8,
+     "__gridSize": 16,
+     "__opacity": 1,
+     "__pxTotalOffsetX": 0,
+     "__pxTotalOffsetY": 0,
+     "__tilesetDefUid": null,
+     "__tilesetRelPath": null,
+     "iid": "ddf143c9-d9e3-54b5-980f-38b8c1ecfacb",
+     "levelId": 1,
+     "layerDefUid": 25,
+     "pxOffsetX": 0,
+     "pxOffsetY": 0,
+     "visible": true,
+     "optionalRules": [],
+     "seed": 1234567,
+     "overrideTilesetUid": null,
+     "intGridCsv": [
+      0,
+      0,
+      0,
+      0,
+      0,
+      0,
+      0,
+      0,
+      0,
+      0,
+      0,
+      0,
+      0,
+      0,
+      0,
+      0,
+      0,
+      0,
+      0,
+      0,
+      0,
+      0,
+      0,
+      0,
+      1,
+      0,
+      0,
+      0,
+      0,
+      0,
+      0,
+      1,
+      1,
+      0,
+      0,
+      0,
+      0,
+      0,
+      0,
+      1,
+      0,
+      0,
+      0,
+      0,
+      0,
+      0,
+      0,
+      0,
+      0,
+      0,
+      0,
+      0,
+      0,
+      0,
+      0,
+      0,
+      0,
+      0,
+      0,
+      0,
+      0,
+      0,
+      0,
+      0
+     ],
+     "autoLayerTiles": [],
+     "entityInstances": [],
+     "gridTiles": []
+    },
+    {
+     "__identifier": "Walls",
+     "__type": "IntGrid",
+     "__cWid": 8,
+     "__cHei": 8,
+     "__gridSize": 16,
+     "__opacity": 1,
+     "__pxTotalOffsetX": 0,
+     "__pxTotalOffsetY": 0,
+     "__tilesetDefUid": 1,
+     "__tilesetRelPath": "atlas/SunnyLand_by_Ansimuz-extended.png",
+     "iid": "41d2ba46-444f-5d11-a74d-0f8ca3b8069f",
+     "levelId": 1,
+     "layerDefUid": 3,
+     "pxOffsetX": 0,
+     "pxOffsetY": 0,
+     "visible": true,
+     "optionalRules": [],
+     "seed": 1234567,
+     "overrideTilesetUid": null,
+     "intGridCsv": [
+      1,
+      1,
+      1,
+      1,
+      1,
+      1,
+      1,
+      1,
+      1,
+      0,
+      0,
+      0,
+      0,
+      0,
+      0,
+      1,
+      1,
+      0,
+      0,
+      0,
+      0,
+      0,
+      0,
+      1,
+      0,
+      0,
+      0,
+      0,
+      0,
+      0,
+      0,
+      0,
+      0,
+      0,
+      0,
+      0,
+      0,
+      0,
+      0,
+      0,
+      1,
+      0,
+      0,
+      0,
+      0,
+      0,
+      0,
+      1,
+      1,
+      0,
+      0,
+      0,
+      0,
+      0,
+      0,
+      1,
+      1,
+      1,
+      1,
+      1,
+      1,
+      1,
+      1,
+      1
+     ],
+     "autoLayerTiles": [],
+     "entityInstances": [],
+     "gridTiles": []
+    }
+   ]
   }
  ],
  "worlds": [],

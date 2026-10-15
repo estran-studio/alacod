@@ -1,0 +1,9 @@
+// Fixture M2-T15 (§53) : reach_weapon_no_source
+(
+    name: "fixture-reach_weapon_no_source",
+    content_folders: [
+        (path: "player.ron", kind: "Character"),
+        (path: "weapons.ron", kind: "Weapon"),
+    ],
+    entry: (start_map: "maps/salle.ldtk", default_seed: 1),
+)

@@ -1,0 +1,26 @@
+// Généré par `alacod-gen`, ne pas éditer à la main (crates/scenario/src/generate.rs).
+// Gabarit ItemHeld (M2-T17, §54) : le joueur commence avec « bandoulier_comptee »
+// (`PlayerScript::items`) ; un actif est utilisé à la frame 10.
+#![enable(implicit_some)]
+Scenario(
+    game: "testbed",
+    map: "testbed/arena.ldtk",
+    map_seed: 123456,
+    frames: 60,
+    players: [
+        PlayerScript(
+            inputs: [],
+            items: [
+                "bandoulier_comptee",
+            ],
+        ),
+    ],
+    expect: [
+        HasItem(
+            handle: 0,
+            id: "bandoulier_comptee",
+            at_frame: 1,
+        ),
+    ],
+    powerup_drop_chance_override: "0",
+)

@@ -1,0 +1,24 @@
+// Généré par `alacod-gen`, ne pas éditer à la main (crates/scenario/src/generate.rs).
+// Gabarit RoomClear (M2-T17, §54) : un bot `explorateur` joue un étage qui contient
+// une salle « recompense » ; aucun input scripté.
+#![enable(implicit_some)]
+Scenario(
+    game: "testbed",
+    map: "testbed/arena.ldtk",
+    map_seed: 1,
+    frames: 120,
+    players: [
+        PlayerScript(
+            inputs: [],
+            bot: explorateur,
+        ),
+    ],
+    expect: [
+        PlayerAlive(
+            handle: 0,
+            at_frame: 119,
+        ),
+    ],
+    powerup_drop_chance_override: "0",
+    floors: "salle_combat",
+)

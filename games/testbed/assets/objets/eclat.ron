@@ -7,4 +7,6 @@
         (on: OnUse, do: [Modifier(stat: Damage, op: Add, value: "1")]),
     ],
     uses_per_floor: Some(2),
+    // M2-T17 (docs/conventions.md §54) : scénario généré `item_eclat`.
+    test: Some((frames: 60)),
 )

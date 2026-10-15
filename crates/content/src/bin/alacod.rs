@@ -33,13 +33,26 @@ fn main() -> ExitCode {
 }
 
 fn lint(game_dir: &PathBuf) -> ExitCode {
-    let (registry, _manifest, errors) = match load_and_lint(game_dir) {
+    let (registry, manifest, errors) = match load_and_lint(game_dir) {
         Ok(result) => result,
         Err(e) => {
             eprintln!("{e}");
             return ExitCode::FAILURE;
         }
     };
+
+    // M2-T15 : avertissements (atteignabilité, stats sans lecteur) ; n'échouent pas.
+    let warnings = content::warnings(&registry, &manifest);
+    for warning in &warnings {
+        eprintln!("avertissement : {warning}");
+    }
+    if !warnings.is_empty() {
+        eprintln!(
+            "{} : {} avertissement(s)",
+            game_dir.display(),
+            warnings.len()
+        );
+    }
 
     if errors.is_empty() {
         println!(

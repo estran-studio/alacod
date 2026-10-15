@@ -7,6 +7,7 @@ pub mod debug;
 pub mod navigation;
 pub mod obstacle;
 pub mod rules;
+pub mod squad;
 pub mod state;
 
 // Re-exports for convenience

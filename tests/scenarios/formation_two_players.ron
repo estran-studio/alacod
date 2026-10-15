@@ -1,0 +1,30 @@
+// M2-T8 (docs/conventions.md §49) : deux joueurs. Trois `escouade_tireur` placés à l'est prennent
+// leur place sur l'arc autour du joueur le plus proche du centre de l'escouade (ex æquo : plus petit
+// `GgrsNetId`), pas autour de l'autre.
+//
+// À regarder : l'escouade se range en éventail autour d'un seul joueur, le plus proche d'elle.
+Scenario(
+    powerup_drop_chance_override: "0.0",
+    game: "testbed",
+    map: "testbed/floor_a.ldtk",
+    frames: 160,
+    characters: [
+        (character: "escouade_tireur", x: "600.0", y: "650.0", at_frame: 5),
+        (character: "escouade_tireur", x: "610.0", y: "696.0", at_frame: 5),
+        (character: "escouade_tireur", x: "600.0", y: "742.0", at_frame: 5),
+    ],
+    players: [
+        (inputs: []),
+        // Le joueur 1 s'écarte vers l'ouest : le joueur 0 reste le plus proche de l'escouade
+        (inputs: [
+            (from: 10, to: 60, buttons: [Left]),
+        ]),
+    ],
+    expect: [
+        // Tous à ~100 du joueur 0 (rayon ± tolérance), loin du joueur 1
+        EnemyDistance(entity: Placed(0), target: Player(0), min: 85.0, max: 118.0, at_frame: 150),
+        EnemyDistance(entity: Placed(1), target: Player(0), min: 85.0, max: 118.0, at_frame: 150),
+        EnemyDistance(entity: Placed(2), target: Player(0), min: 85.0, max: 118.0, at_frame: 150),
+        EnemyDistance(entity: Placed(1), target: Player(1), min: 150.0, at_frame: 150),
+    ],
+)

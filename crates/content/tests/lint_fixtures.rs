@@ -193,6 +193,39 @@ fn m1_audit_fixtures() {
             &["personnage inconnu « fantome »"],
         ),
         (
+            "item_test_frames_zero",
+            LintErrorKind::OutOfRange,
+            &["objet « bottes »", "test.frames = 0"],
+        ),
+        (
+            "item_test_consumable",
+            LintErrorKind::Unsupported,
+            &["objet « cle »", "ItemHeld", "consommable"],
+        ),
+        (
+            "room_test_no_template",
+            LintErrorKind::BrokenReference,
+            &[
+                "type de salle « arene »",
+                "aucun gabarit LDtk de type « arene »",
+            ],
+        ),
+        (
+            "room_test_both_scenes",
+            LintErrorKind::OutOfRange,
+            &["type de salle « combat »", "exactement un de floors et map"],
+        ),
+        (
+            "room_test_frames_zero",
+            LintErrorKind::OutOfRange,
+            &["type de salle « combat »", "test.frames = 0"],
+        ),
+        (
+            "boss_fight_without_boss",
+            LintErrorKind::OutOfRange,
+            &["personnage « gardien »", "BossFight", "sans boss:"],
+        ),
+        (
             "room_kind_unknown",
             LintErrorKind::UnknownKind,
             &[
@@ -679,6 +712,14 @@ fn t3_4_fixtures_have_a_single_rule_failure() {
         ("feedback_frames_zero", LintErrorKind::OutOfRange, 2),
         ("feedback_amplitude_negative", LintErrorKind::OutOfRange, 1),
         ("feedback_missing_sound", LintErrorKind::BrokenReference, 1),
+        // M2-T19
+        ("feedback_blank_frames_zero", LintErrorKind::OutOfRange, 1),
+        (
+            "feedback_boss_zoom_out_of_range",
+            LintErrorKind::OutOfRange,
+            1,
+        ),
+        ("feedback_boss_freeze_zero", LintErrorKind::OutOfRange, 1),
         // T1.17
         (
             "feedback_by_weapon_unknown",
@@ -1251,6 +1292,36 @@ fn item_cost_not_consumable_fixture_reports_unsupported() {
     );
 }
 
+#[test]
+fn formation_radius_zero_fixture_reports_out_of_range() {
+    let (_, _, errors) = load_and_lint(&fixture_dir("formation_radius_zero")).unwrap();
+    assert_has_error(&errors, LintErrorKind::OutOfRange, "radius = 0");
+}
+
+#[test]
+fn formation_spread_fixture_reports_out_of_range() {
+    let (_, _, errors) = load_and_lint(&fixture_dir("formation_spread_out_of_range")).unwrap();
+    assert_has_error(&errors, LintErrorKind::OutOfRange, "doit être dans ]0, 2π]");
+}
+
+#[test]
+fn formation_period_zero_fixture_reports_out_of_range() {
+    let (_, _, errors) = load_and_lint(&fixture_dir("formation_period_zero")).unwrap();
+    assert_has_error(&errors, LintErrorKind::OutOfRange, "period = 0");
+}
+
+#[test]
+fn formation_inert_fixture_reports_out_of_range() {
+    let (_, _, errors) = load_and_lint(&fixture_dir("formation_inert")).unwrap();
+    assert_has_error(&errors, LintErrorKind::OutOfRange, "ni Shoot ni Chase");
+}
+
+#[test]
+fn formation_no_squad_fixture_reports_out_of_range() {
+    let (_, _, errors) = load_and_lint(&fixture_dir("formation_no_squad")).unwrap();
+    assert_has_error(&errors, LintErrorKind::OutOfRange, "sans escouade");
+}
+
 // M2-T7 (docs/conventions.md §45) : arènes et actions de frise.
 #[test]
 fn arena_and_boss_t7_fixtures_report_their_rule() {
@@ -1281,5 +1352,68 @@ fn arena_and_boss_t7_fixtures_report_their_rule() {
     ] {
         let (_, _, errors) = load_and_lint(&fixture_dir(fixture)).unwrap();
         assert_has_error(&errors, kind, expected);
+    }
+}
+
+// M2-T15 (docs/conventions.md §53) : stats sans lecteur et atteignabilité statique.
+fn assert_has_warning(fixture: &str, kind: content::LintWarningKind, needle: &str) {
+    let (registry, manifest, _) = load_and_lint(&fixture_dir(fixture)).unwrap();
+    let warnings = content::warnings(&registry, &manifest);
+    assert!(
+        warnings
+            .iter()
+            .any(|w| w.kind == kind && w.message.contains(needle)),
+        "attendu un avertissement {kind:?} contenant {needle:?}, obtenu :\n{warnings:#?}"
+    );
+}
+
+#[test]
+fn stat_unread_fixture_is_an_error() {
+    let (_, _, errors) = load_and_lint(&fixture_dir("stat_unread")).unwrap();
+    assert_has_error(&errors, LintErrorKind::UnreadStat, "Luck");
+}
+
+#[test]
+fn stat_armor_is_only_a_warning() {
+    let (_, _, errors) = load_and_lint(&fixture_dir("stat_armor_warning")).unwrap();
+    assert!(
+        errors.iter().all(|e| e.kind != LintErrorKind::UnreadStat),
+        "Armor ne doit pas être une erreur : {errors:#?}"
+    );
+    assert_has_warning(
+        "stat_armor_warning",
+        content::LintWarningKind::UnreadStat,
+        "Armor",
+    );
+}
+
+#[test]
+fn reach_fixtures_report_their_warning() {
+    use content::LintWarningKind::Unreachable;
+    for (fixture, needle) in [
+        ("reach_room_unreachable", "type de salle « escouade »"),
+        ("reach_room_unreachable", "gabarit « Escouade »"),
+        ("reach_enemy_unplaced", "ennemi « grunt »"),
+        ("reach_item_no_source", "objet « bottes » : aucune source"),
+        ("reach_weapon_no_source", "arme « b »"),
+    ] {
+        assert_has_warning(fixture, Unreachable, needle);
+        // un avertissement n'est pas une erreur
+        let (_, _, errors) = load_and_lint(&fixture_dir(fixture)).unwrap();
+        assert!(
+            errors.iter().all(|e| !e.message.contains("inatteignable")),
+            "{fixture} : {errors:#?}"
+        );
+    }
+}
+
+#[test]
+fn shipped_games_lint_without_error() {
+    for game in ["zombies", "testbed", "throne", "gungeon"] {
+        let (registry, manifest, errors) = load_and_lint(&game_dir(game)).unwrap();
+        assert!(errors.is_empty(), "{game} : {errors:#?}");
+        for warning in content::warnings(&registry, &manifest) {
+            eprintln!("avertissement {game} : {warning}");
+        }
     }
 }

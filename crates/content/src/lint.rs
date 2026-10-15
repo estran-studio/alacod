@@ -36,6 +36,9 @@ pub enum LintErrorKind {
     /// T1.10 : contrat déclaré mais pas encore exécuté (déclencheur, condition ou action
     /// d'effet « v2 ») : refusé plutôt qu'ignoré en silence.
     Unsupported,
+    /// M2-T15 : modificateur sur une stat qu'aucun système ne lit
+    /// (`sim_core::stats::stat_reader`).
+    UnreadStat,
 }
 
 /// Une erreur de lint : `file` et `message` forment le texte affiché par `alacod lint`
@@ -85,10 +88,13 @@ pub fn run(registry: &Registry, manifest: &GameManifest) -> Vec<LintError> {
     lint_entry_progression(registry, manifest, &mut errors);
     lint_forced_variants(registry, &mut errors);
     lint_character_tests(registry, &mut errors);
+    lint_item_tests(registry, &mut errors);
+    lint_room_tests(registry, &mut errors);
     lint_clocks(registry, manifest, &mut errors);
     lint_difficulty(registry, manifest, &mut errors);
     lint_entry_point(registry, manifest, &mut errors);
     lint_generate_template(registry, manifest, &mut errors);
+    lint_stat_readers(registry, &mut errors);
 
     errors
 }
@@ -258,6 +264,8 @@ fn lint_characters(registry: &Registry, errors: &mut Vec<LintError>) {
         lint_dash(character, errors);
         // T1.4 : règles de comportement (`ai.behaviors`) et ciblage.
         lint_behaviors(registry, character, errors);
+        // M2-T8 : formations.
+        lint_formation(character, errors);
         // M2-T0c : boss à phases.
         lint_boss(registry, character, errors);
         // T1.5 : variantes et élites.
@@ -878,30 +886,186 @@ fn lint_weapon_test(
 }
 
 /// `test:` d'un personnage (T1.13, `docs/conventions.md` §28) : `frames > 0`, au moins un
-/// gabarit actif (`still`/`moving`), attentes explicites seulement pour un gabarit actif.
+/// gabarit actif (`still`/`moving`/`boss`), attentes explicites seulement pour un gabarit actif.
+/// M2-T17 (§54) : `boss:` seulement sur un personnage qui a `boss:`, scène connue.
 fn lint_character_tests(registry: &Registry, errors: &mut Vec<LintError>) {
     for character in registry.characters.values() {
-        let Some(test) = character.test else {
+        let Some(test) = &character.test else {
             continue;
         };
-        let mut push = |message: String| {
+        let mut push = |kind: LintErrorKind, message: String| {
             errors.push(LintError {
-                kind: LintErrorKind::OutOfRange,
+                kind,
                 file: character.file.display().to_string(),
                 message: format!("personnage « {} » : {message}", character.id),
             });
         };
         if test.frames == 0 {
-            push("champ test.frames = 0 : doit être > 0".to_string());
+            push(
+                LintErrorKind::OutOfRange,
+                "champ test.frames = 0 : doit être > 0".to_string(),
+            );
         }
-        if !test.still && !test.moving {
-            push("test : aucun gabarit actif (still et moving faux)".to_string());
+        if !test.still && !test.moving && test.boss.is_none() {
+            push(
+                LintErrorKind::OutOfRange,
+                "test : aucun gabarit actif (still et moving faux)".to_string(),
+            );
         }
         if !test.still && test.expect_still > 0 {
-            push("test.expect_still sans gabarit still actif".to_string());
+            push(
+                LintErrorKind::OutOfRange,
+                "test.expect_still sans gabarit still actif".to_string(),
+            );
         }
         if !test.moving && test.expect_moving > 0 {
-            push("test.expect_moving sans gabarit moving actif".to_string());
+            push(
+                LintErrorKind::OutOfRange,
+                "test.expect_moving sans gabarit moving actif".to_string(),
+            );
+        }
+        if let Some(fight) = &test.boss {
+            if character.boss.is_none() {
+                push(
+                    LintErrorKind::OutOfRange,
+                    "test.boss (gabarit BossFight) sur un personnage sans boss:".to_string(),
+                );
+            }
+            if fight.floors.is_some() && fight.map.is_some() {
+                push(
+                    LintErrorKind::OutOfRange,
+                    "test.boss : floors et map sont exclusifs".to_string(),
+                );
+            }
+            if let Err(message) =
+                scene_room_kinds(registry, fight.floors.as_deref(), fight.map.as_deref())
+            {
+                push(
+                    LintErrorKind::BrokenReference,
+                    format!("test.boss : {message}"),
+                );
+            }
+        }
+    }
+}
+
+/// Types de salle (`room_kind` des niveaux) des cartes d'une scène de scénario généré (M2-T17) :
+/// une séquence `Floors` (ses cartes, ou les gabarits de ses grammaires `floor:<id>`), une carte
+/// seule, ou ni l'une ni l'autre (la carte de départ du manifeste n'est pas vérifiée ici : la
+/// scène vide rend un ensemble vide). `Err` : référence inconnue.
+fn scene_room_kinds(
+    registry: &Registry,
+    floors: Option<&str>,
+    map: Option<&str>,
+) -> Result<BTreeSet<String>, String> {
+    let kinds_of = |path: &str| -> Result<BTreeSet<String>, String> {
+        let id = registry::map_id_from_path(path);
+        let entry = registry.maps.get(&id).ok_or_else(|| {
+            format!("carte « {path} » inconnue (aucune carte chargée avec l'id « {id} »)")
+        })?;
+        Ok(entry
+            .room_kinds
+            .iter()
+            .map(|(_, kind)| kind.clone())
+            .collect())
+    };
+    let mut kinds = BTreeSet::new();
+    if let Some(map) = map {
+        kinds.extend(kinds_of(map)?);
+    }
+    if let Some(floors) = floors {
+        let entry = registry
+            .floors
+            .get(&registry::FloorsConfigId::from(floors.to_string()))
+            .ok_or_else(|| format!("séquence Floors « {floors} » inconnue"))?;
+        for level in &entry.levels {
+            if let Some(grammar) = level.strip_prefix("floor:") {
+                let grammar = registry
+                    .floor_grammars
+                    .get(&registry::FloorGrammarId::from(grammar.to_string()))
+                    .ok_or_else(|| {
+                        format!("séquence « {floors} » : grammaire d'étage « {grammar} » inconnue")
+                    })?;
+                kinds.extend(kinds_of(&grammar.templates)?);
+            } else if !level.contains(':') {
+                // Une carte LDtk absente du registre n'a pas de type de salle : elle est signalée
+                // par `lint_floors`.
+                if let Ok(found) = kinds_of(level) {
+                    kinds.extend(found);
+                }
+            }
+        }
+    }
+    Ok(kinds)
+}
+
+/// `test:` d'un objet (M2-T17, §54) : `frames > 0`, pas sur un consommable (il n'entre pas dans
+/// l'inventaire comme un passif ou un actif : `HasItem` ne le verrait pas).
+fn lint_item_tests(registry: &Registry, errors: &mut Vec<LintError>) {
+    for item in registry.items.values() {
+        let Some(test) = &item.test else {
+            continue;
+        };
+        let mut push = |kind: LintErrorKind, message: String| {
+            errors.push(LintError {
+                kind,
+                file: item.file.display().to_string(),
+                message: format!("objet « {} » : {message}", item.id),
+            });
+        };
+        if test.frames == 0 {
+            push(
+                LintErrorKind::OutOfRange,
+                "champ test.frames = 0 : doit être > 0".to_string(),
+            );
+        }
+        if item.def.kind == items::ItemKind::Consumable {
+            push(
+                LintErrorKind::Unsupported,
+                "test (gabarit ItemHeld) sur un consommable : seuls un passif et un actif sont tenus"
+                    .to_string(),
+            );
+        }
+    }
+}
+
+/// `test:` d'un type de salle (M2-T17, §54) : `frames > 0`, exactement un de `floors`/`map`, scène
+/// connue, et au moins un gabarit LDtk de ce type dans cette scène.
+fn lint_room_tests(registry: &Registry, errors: &mut Vec<LintError>) {
+    for room in registry.rooms.values() {
+        let Some(test) = &room.test else {
+            continue;
+        };
+        let mut push = |kind: LintErrorKind, message: String| {
+            errors.push(LintError {
+                kind,
+                file: room.file.display().to_string(),
+                message: format!("type de salle « {} » : {message}", room.id),
+            });
+        };
+        if test.frames == 0 {
+            push(
+                LintErrorKind::OutOfRange,
+                "champ test.frames = 0 : doit être > 0".to_string(),
+            );
+        }
+        if test.floors.is_some() == test.map.is_some() {
+            push(
+                LintErrorKind::OutOfRange,
+                "test : exactement un de floors et map".to_string(),
+            );
+            continue;
+        }
+        match scene_room_kinds(registry, test.floors.as_deref(), test.map.as_deref()) {
+            Err(message) => push(LintErrorKind::BrokenReference, format!("test : {message}")),
+            Ok(kinds) if !kinds.contains(&room.id) => push(
+                LintErrorKind::BrokenReference,
+                format!(
+                    "test (gabarit RoomClear) : aucun gabarit LDtk de type « {} » dans la scène du test",
+                    room.id
+                ),
+            ),
+            Ok(_) => {}
         }
     }
 }
@@ -2105,6 +2269,68 @@ fn lint_rules(
                 }
             }
             BehaviorEntry::Strafe | BehaviorEntry::Flee | BehaviorEntry::Wander => {}
+            // Rayon, ouverture, période : voir `lint_formation` (qui voit aussi le reste de la
+            // liste et l'escouade).
+            BehaviorEntry::Formation { .. } => {}
+        }
+    }
+}
+
+/// M2-T8 (§49) : une formation a un rayon > 0, une ouverture dans ]0, 2π], une période > 0
+/// (hors `volley`), une escouade (`ai.squad`) et un moyen d'agir (`Shoot` ou `Chase` dans la
+/// liste) ; sinon elle ne fait rien.
+fn lint_formation(character: &registry::CharacterEntry, errors: &mut Vec<LintError>) {
+    use registry::{BehaviorEntry, FormationShapeEntry};
+    let Some(rules) = &character.behaviors else {
+        return;
+    };
+    let file = character.file.display().to_string();
+    let mut push = |message: String| {
+        errors.push(LintError {
+            kind: LintErrorKind::OutOfRange,
+            file: file.clone(),
+            message: format!("personnage « {} » : ai.behaviors : {message}", character.id),
+        })
+    };
+    let acts = rules.iter().any(|rule| {
+        matches!(
+            rule,
+            BehaviorEntry::Shoot { .. } | BehaviorEntry::Chase { .. }
+        )
+    });
+    for rule in rules {
+        let BehaviorEntry::Formation {
+            shape: FormationShapeEntry::Arc { radius, spread },
+            period,
+            volley,
+        } = rule
+        else {
+            continue;
+        };
+        if radius.get() <= Fixed::ZERO {
+            push(format!(
+                "Formation : radius = {} : doit être > 0",
+                radius.get()
+            ));
+        }
+        let tau = bevy_fixed::fixed_math::FIXED_TAU;
+        if spread.get() <= Fixed::ZERO || spread.get() > tau {
+            push(format!(
+                "Formation : spread = {} : doit être dans ]0, 2π]",
+                spread.get()
+            ));
+        }
+        if *period == 0 && !*volley {
+            push("Formation : period = 0 : doit être > 0 (ou volley: true)".to_string());
+        }
+        if !acts {
+            push(
+                "Formation : ni Shoot ni Chase dans la liste : la formation ne ferait rien"
+                    .to_string(),
+            );
+        }
+        if character.squad.is_none() {
+            push("Formation : sans escouade (ai.squad)".to_string());
         }
     }
 }
@@ -3064,5 +3290,20 @@ fn lint_entry_progression(
                 "entry.progression : progression inconnue « {id} » (kind Progression)"
             ),
         });
+    }
+}
+
+/// M2-T15 (`docs/conventions.md` §53) : un modificateur (ou une base de stat) sur une stat que
+/// `sim_core::stats::stat_reader` ne connaît pas ne ferait rien : erreur. Exception transitoire :
+/// `Armor` (D61 pas mergée) est un avertissement (`reach::warnings`).
+fn lint_stat_readers(registry: &Registry, errors: &mut Vec<LintError>) {
+    for (file, at, stat) in crate::reach::stat_uses(registry) {
+        if stat != StatId::Armor && sim_core::stats::stat_reader(&stat).is_none() {
+            errors.push(LintError {
+                kind: LintErrorKind::UnreadStat,
+                file,
+                message: format!("{at} : stat {stat:?} : aucun système ne la lit"),
+            });
+        }
     }
 }

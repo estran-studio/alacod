@@ -1,0 +1,1 @@
+(name: "Clé", kind: Consumable, test: Some((frames: 30)))
