@@ -1,6 +1,10 @@
+//! Écran de fin en `bevy_hui` : résumé dérivé de `Run`, commandes locales uniquement.
+#![cfg(feature = "ui_hui")]
+
 use crate::core::AppState;
 use crate::run_state::RunRequest;
 use bevy::prelude::*;
+use bevy_hui::prelude::*;
 use run::{Run, RunEnd, RunStep};
 
 pub struct GameOverUiPlugin;
@@ -9,62 +13,24 @@ impl Plugin for GameOverUiPlugin {
     fn build(&self, app: &mut App) {
         app.add_systems(
             Update,
-            update_game_over_ui.run_if(in_state(AppState::InGame)),
-        );
-        app.add_systems(Update, button_system.run_if(in_state(AppState::InGame)));
+            update_game_over_ui
+                .before(bevy_hui::HuiSystems::Build)
+                .run_if(in_state(AppState::InGame)),
+        )
+        .add_systems(Update, button_system.run_if(in_state(AppState::InGame)))
+        .add_systems(OnExit(AppState::InGame), despawn_game_over);
     }
 }
 
 #[derive(Component)]
-struct GameOverUiRoot;
+struct GameOverUiRoot {
+    summary: String,
+}
 
-#[derive(Component)]
-struct SummaryText;
-
-#[derive(Component)]
-struct ReloadButton;
-
-/// Police de l'écran de fin (T2.12), relative à `assets/`.
-const GAME_OVER_FONT: &str = "fonts/FiraMono-Medium.ttf";
-
-/// Bouton « Lobby » (T2.12) : pose `RunRequest::ToLobby`.
-#[derive(Component)]
-struct LobbyButton;
-
-const BUTTON_COLOR: Color = Color::srgb(0.15, 0.18, 0.23);
-const BUTTON_HOVER_COLOR: Color = Color::srgb(0.2, 0.24, 0.3);
-
-/// Un bouton de l'écran de fin (même gabarit pour « Rejouer (R) » et « Lobby »).
-fn spawn_button(
-    parent: &mut ChildSpawnerCommands,
-    label: &str,
-    font: Handle<Font>,
-    marker: impl Bundle,
-) {
-    parent
-        .spawn((
-            Button,
-            Node {
-                width: Val::Px(200.0),
-                height: Val::Px(50.0),
-                justify_content: JustifyContent::Center,
-                align_items: AlignItems::Center,
-                ..default()
-            },
-            BackgroundColor(BUTTON_COLOR),
-            marker,
-        ))
-        .with_children(|parent| {
-            parent.spawn((
-                Text::new(label),
-                TextFont {
-                    font: font.into(),
-                    font_size: FontSize::Px(22.0),
-                    ..default()
-                },
-                TextColor(Color::WHITE),
-            ));
-        });
+fn despawn_game_over(mut commands: Commands, roots: Query<Entity, With<GameOverUiRoot>>) {
+    for root in &roots {
+        commands.entity(root).despawn();
+    }
 }
 
 /// Affiche l'écran de fin à la fin de la partie (T1.3 défaite, T2.4 victoire/`Run.step`,
@@ -77,32 +43,31 @@ fn update_game_over_ui(
     mut commands: Commands,
     asset_server: Res<AssetServer>,
     run: Option<Res<Run>>,
-    q_existing_ui: Query<Entity, With<GameOverUiRoot>>,
-    mut q_summary_text: Query<&mut Text, With<SummaryText>>,
+    mut roots: Query<(Entity, &mut GameOverUiRoot, &mut TemplateProperties)>,
 ) {
     let ended = run.as_deref().and_then(|run| match run.step {
         RunStep::Ended { outcome, .. } => Some(outcome),
         _ => None,
     });
-
-    match (ended, q_existing_ui.single()) {
-        (Some(outcome), Err(_)) => {
-            let text = summary_text(outcome, run.as_deref());
-            // T2.12 : la police par défaut de Bevy n'a pas les accents (« DÉFAITE ») ;
-            // même police que le HUD (`ui/hud.ron`, `font`), présente dans les deux jeux.
-            let font = asset_server.load(GAME_OVER_FONT);
-            spawn_game_over_ui(&mut commands, &text, font);
+    let Some(outcome) = ended else {
+        for (entity, ..) in &roots {
+            commands.entity(entity).despawn();
         }
-        (Some(outcome), Ok(_)) => {
-            // Rollback qui confirme/précise l'issue (ex. `summary` posé une frame après
-            // `step`, voir `game::run_state::finalize_run_summary_system`) : met à jour le
-            // texte en place plutôt que de respawn l'UI (évite un flash).
-            if let Ok(mut text) = q_summary_text.single_mut() {
-                *text = Text::new(summary_text(outcome, run.as_deref()));
-            }
+        return;
+    };
+    let summary = summary_text(outcome, run.as_deref());
+    if let Ok((entity, mut root, mut properties)) = roots.single_mut() {
+        if root.summary != summary {
+            properties.set("summary", &summary);
+            root.summary = summary;
+            commands.trigger(CompileContextEvent { entity });
         }
-        (None, Ok(ui)) => commands.entity(ui).despawn(),
-        (None, Err(_)) => {}
+    } else {
+        commands.spawn((
+            HtmlNode(asset_server.load("ui/game_over_screen.html")),
+            TemplateProperties::default().with("summary", &summary),
+            GameOverUiRoot { summary },
+        ));
     }
 }
 
@@ -134,66 +99,6 @@ fn summary_text(outcome: RunEnd, run: Option<&Run>) -> String {
     }
 }
 
-fn spawn_game_over_ui(commands: &mut Commands, text: &str, font: Handle<Font>) {
-    commands
-        .spawn((
-            Node {
-                width: Val::Percent(100.0),
-                height: Val::Percent(100.0),
-                position_type: PositionType::Absolute,
-                justify_content: JustifyContent::Center,
-                align_items: AlignItems::Center,
-                flex_direction: FlexDirection::Column,
-                ..default()
-            },
-            BackgroundColor(Color::srgba(0.02, 0.025, 0.04, 0.8)),
-            GameOverUiRoot,
-            GlobalZIndex(30),
-        ))
-        .with_children(|parent| {
-            parent
-                .spawn((
-                    Node {
-                        width: Val::Px(520.0),
-                        padding: UiRect::all(Val::Px(32.0)),
-                        flex_direction: FlexDirection::Column,
-                        align_items: AlignItems::Center,
-                        border_radius: BorderRadius::all(Val::Px(8.0)),
-                        ..default()
-                    },
-                    BackgroundColor(Color::srgb(0.08, 0.1, 0.125)),
-                ))
-                .with_children(|parent| {
-                    parent.spawn((
-                        Text::new(text),
-                        TextFont {
-                            font: font.clone().into(),
-                            font_size: FontSize::Px(30.0),
-                            ..default()
-                        },
-                        TextColor(Color::WHITE),
-                        TextLayout::justify(Justify::Center),
-                        SummaryText,
-                    ));
-
-                    // Bouton de relance (T2.4, chantier F1) : pose `RunRequest::Restart`, lu par
-                    // `game::run_state::apply_run_request_system` (jamais de relance synchrone ici
-                    // — voir la doc du module `run_state`). Touche `R` : même commande, voir
-                    // `button_system`. À côté, « Lobby » (T2.12) : `RunRequest::ToLobby`.
-                    parent
-                        .spawn(Node {
-                            flex_direction: FlexDirection::Row,
-                            column_gap: Val::Px(24.0),
-                            margin: UiRect::top(Val::Px(40.0)),
-                            ..default()
-                        })
-                        .with_children(|row| {
-                            spawn_button(row, "Rejouer (R)", font.clone(), ReloadButton);
-                            spawn_button(row, "Lobby", font.clone(), LobbyButton);
-                        });
-                });
-        });
-}
 
 /// Bouton et touche `R` : les deux posent `RunRequest::Restart` (en p2p, redirigé vers le
 /// lobby par `apply_run_request_system` — voir sa doc et celle de `RunRequest::Restart`).
@@ -208,33 +113,20 @@ fn button_system(
     mut commands: Commands,
     keyboard: Res<ButtonInput<KeyCode>>,
     screen: Query<(), With<GameOverUiRoot>>,
-    mut interaction_query: Query<
-        (&Interaction, &mut BackgroundColor, Has<LobbyButton>),
-        (
-            Changed<Interaction>,
-            Or<(With<ReloadButton>, With<LobbyButton>)>,
-        ),
-    >,
+    interaction_query: Query<(&Interaction, &UiId), Changed<Interaction>>,
 ) {
     if keyboard.just_pressed(KeyCode::KeyR) && !screen.is_empty() {
         commands.insert_resource(RunRequest::Restart);
     }
 
-    for (interaction, mut color, is_lobby) in &mut interaction_query {
-        match *interaction {
-            Interaction::Pressed => {
-                commands.insert_resource(if is_lobby {
-                    RunRequest::ToLobby
-                } else {
-                    RunRequest::Restart
-                });
-            }
-            Interaction::Hovered => {
-                *color = BackgroundColor(BUTTON_HOVER_COLOR);
-            }
-            Interaction::None => {
-                *color = BackgroundColor(BUTTON_COLOR);
-            }
+    for (interaction, id) in &interaction_query {
+        if *interaction != Interaction::Pressed || screen.is_empty() {
+            continue;
+        }
+        match id.id().as_str() {
+            "restart" => commands.insert_resource(RunRequest::Restart),
+            "lobby" => commands.insert_resource(RunRequest::ToLobby),
+            _ => {}
         }
     }
 }
@@ -248,7 +140,7 @@ mod tests {
         app.init_resource::<ButtonInput<KeyCode>>()
             .add_systems(Update, button_system);
         if screen_shown {
-            app.world_mut().spawn(GameOverUiRoot);
+            app.world_mut().spawn(GameOverUiRoot { summary: String::new() });
         }
         app.world_mut()
             .resource_mut::<ButtonInput<KeyCode>>()
