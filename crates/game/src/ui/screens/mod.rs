@@ -1,22 +1,14 @@
-//! Écrans du test comparatif d'UI (M2-T18 partie 1, `docs/conventions.md` §56) : le menu de
-//! pause et l'inventaire gungeon, faits deux fois.
+//! Écrans de pause et d'inventaire (M2-T18, `docs/conventions.md` §56).
 //!
-//! - **Modèle** ([`model`], pur) et **état** ([`ScreensPlugin`], aussi en headless, ressource
-//!   [`Screens`]) : communs aux deux options. Les touches (Échap / Start, I / Select, flèches /
-//!   D-pad, Entrée / A, Retour / B) et le script de scénario ([`ScreenScript`]) deviennent des
-//!   [`UiAction`](model::UiAction) ; le seul chemin hors de l'écran est [`ScreenCommand`]
-//!   (`RunRequest::Restart` / `ToLobby`, comme les boutons de l'écran de fin).
-//! - **Option A, couche maison** ([`custom`]) : `ui/pause_screen.ron`, `ui/inventory_screen.ron`
-//!   (arbre de boîtes et de sections liées par nom) construits en `bevy_ui`.
-//! - **Option B, `bevy_hui`** (`hui`, feature `ui_hui`) : `ui/*_screen.html`, gabarits
-//!   pseudo-HTML liés aux mêmes sections.
+//! Le modèle pur ([`model`]) et l'état ([`ScreensPlugin`], aussi en headless) transforment les
+//! touches (Échap / Start, I / Select, flèches / D-pad, Entrée / A, Retour / B) et le script de
+//! scénario ([`ScreenScript`]) en [`UiAction`](model::UiAction). Les commandes de sortie sont
+//! [`ScreenCommand`] (`RunRequest::Restart` / `ToLobby`).
 //!
-//! Le choix du rendu est un réglage, `ALACOD_SCREENS=custom|hui` (défaut `custom`). La simulation
-//! ne s'arrête jamais (GGRS) : les entrées de jeu continuent d'être envoyées pendant qu'un écran
-//! est ouvert (comme l'écran de mutation) ; les bloquer est une décision de la partie 2.
-//! Présentation seule : aucune trace ne change.
+//! Le rendu `bevy_hui` (`hui`, feature `ui_hui`) lie les gabarits `ui/*_screen.html` aux sections
+//! nommées de la vue. Présentation seule : la simulation continue pendant qu'un écran est ouvert,
+//! les entrées de jeu continuent d'être envoyées, et aucune trace ne change.
 
-pub mod custom;
 #[cfg(feature = "ui_hui")]
 pub mod hui;
 pub mod model;
@@ -64,23 +56,6 @@ pub struct ScreenScript {
 /// Actions en attente (clavier, manette) : vidées à chaque update.
 #[derive(Resource, Default)]
 struct UiActionQueue(Vec<UiAction>);
-
-/// Rendu choisi.
-#[derive(Resource, Clone, Copy, Debug, PartialEq, Eq)]
-pub enum ScreenBackend {
-    Custom,
-    Hui,
-}
-
-impl ScreenBackend {
-    /// `ALACOD_SCREENS=custom|hui` ; défaut `custom`.
-    pub fn from_env() -> Self {
-        match std::env::var("ALACOD_SCREENS").as_deref() {
-            Ok("hui") => Self::Hui,
-            _ => Self::Custom,
-        }
-    }
-}
 
 /// Modèle des écrans, aussi en headless (attente de scénario `ScreenText`).
 pub struct ScreensPlugin;

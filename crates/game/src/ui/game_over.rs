@@ -99,7 +99,6 @@ fn summary_text(outcome: RunEnd, run: Option<&Run>) -> String {
     }
 }
 
-
 /// Bouton et touche `R` : les deux posent `RunRequest::Restart` (en p2p, redirigé vers le
 /// lobby par `apply_run_request_system` — voir sa doc et celle de `RunRequest::Restart`).
 /// Bouton « Lobby » (T2.12) : `RunRequest::ToLobby`.
@@ -140,7 +139,9 @@ mod tests {
         app.init_resource::<ButtonInput<KeyCode>>()
             .add_systems(Update, button_system);
         if screen_shown {
-            app.world_mut().spawn(GameOverUiRoot { summary: String::new() });
+            app.world_mut().spawn(GameOverUiRoot {
+                summary: String::new(),
+            });
         }
         app.world_mut()
             .resource_mut::<ButtonInput<KeyCode>>()

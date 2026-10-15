@@ -33,6 +33,13 @@ pub const HUD_SOURCES: &[&str] = &[
     "ammo_by_type",
     "statuses",
     "floor",
+    "blanks",
+    "keys",
+    "shells",
+    "passives",
+    "active_item",
+    "active_charge",
+    "minimap",
 ];
 
 /// Ce que le lint lit de `ui/hud.ron` : la source de chaque widget.
@@ -60,12 +67,18 @@ pub enum HudWidgetKindSchema {
     Icons {
         source: String,
     },
+    Map {
+        source: String,
+    },
 }
 
 impl HudWidgetKindSchema {
     pub fn source(&self) -> &str {
         match self {
-            Self::Bar { source } | Self::Text { source, .. } | Self::Icons { source } => source,
+            Self::Bar { source }
+            | Self::Text { source, .. }
+            | Self::Icons { source }
+            | Self::Map { source } => source,
         }
     }
 }

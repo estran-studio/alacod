@@ -784,6 +784,99 @@ fn mutation_screen_fixtures() {
     }
 }
 
+#[test]
+fn html_screen_missing_row_fixture_reports_referenced_template() {
+    let (registry, _, errors) = load_and_lint(&fixture_dir("html_screen_missing_row")).unwrap();
+    assert!(registry.ui_files.contains(&"ui/pause_screen.html".into()));
+    assert_has_error(&errors, LintErrorKind::BrokenReference, "ui/hui_row.html");
+    let error = errors
+        .iter()
+        .find(|error| error.message.contains("ui/hui_row.html"))
+        .unwrap();
+    assert_eq!(error.file, "ui/pause_screen.html");
+    assert_only_one_besides_start_map(&errors);
+}
+
+#[test]
+fn html_templates_are_discovered_without_ron_companions() {
+    let (registry, _, errors) = load_and_lint(&fixture_dir("html_screens_valid")).unwrap();
+    assert!(
+        errors
+            .iter()
+            .all(|error| error.message.contains("entry.start_map")),
+        "{errors:#?}"
+    );
+    for file in [
+        "ui/pause_screen.html",
+        "ui/inventory_screen.html",
+        "ui/hui_row.html",
+        "ui/hud.ron",
+        "other/menu.html",
+    ] {
+        assert!(registry.ui_files.contains(&file.into()), "{file}");
+    }
+    // Explicit single-file declarations must not be discovered twice.
+    assert_eq!(registry.ui_files.len(), 5);
+    assert_eq!(registry.hud_sources.len(), 1);
+    assert_eq!(registry.hud_sources[0].1, ["health"]);
+}
+
+#[test]
+fn referenced_html_must_be_readable_in_browser_inventory() {
+    let (registry, _, errors) = content::load_embedded(&[
+        (
+            "game.ron",
+            Some(
+                r#"(
+                    name: "html_unreadable",
+                    content_folders: [(path: "ui", kind: "Ui")],
+                    entry: (start_map: "unused", default_seed: 1),
+                )"#,
+            ),
+        ),
+        (
+            "ui/inventory_screen.html",
+            Some("<template><node id=\"weapons\"></node></template>"),
+        ),
+        // Inventoried, but unavailable as UTF-8 text.
+        ("ui/hui_row.html", None),
+    ])
+    .unwrap();
+    assert!(registry
+        .ui_files
+        .contains(&"ui/inventory_screen.html".into()));
+    assert!(!registry.ui_files.contains(&"ui/hui_row.html".into()));
+    assert!(
+        errors
+            .iter()
+            .any(|error| { error.kind == LintErrorKind::Parse && error.file == "ui/hui_row.html" }),
+        "{errors:#?}"
+    );
+    assert_has_error(&errors, LintErrorKind::BrokenReference, "ui/hui_row.html");
+}
+
+#[test]
+fn explicitly_declared_missing_html_reports_structured_error() {
+    let (_, _, errors) = content::load_embedded(&[(
+        "game.ron",
+        Some(
+            r#"(
+                name: "html_missing",
+                content_folders: [(path: "ui/absent_screen.html", kind: "Ui")],
+                entry: (start_map: "unused", default_seed: 1),
+            )"#,
+        ),
+    )])
+    .unwrap();
+    assert!(
+        errors.iter().any(|error| {
+            error.kind == LintErrorKind::Parse && error.file == "ui/absent_screen.html"
+        }),
+        "{errors:#?}"
+    );
+    assert_only_one_besides_start_map(&errors);
+}
+
 // D3 : table des feuilles de sprites (kind `SpriteSheet`).
 
 /// Une seule erreur en plus de `start_map: "unused"`, commune à toutes les fixtures.

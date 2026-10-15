@@ -24,7 +24,7 @@ use crate::economy::PerkMachine;
 use crate::global_asset::GlobalAsset;
 use crate::interaction::{point_to_collider_surface_distance_sq, Interactable, InteractionType};
 use crate::powerups::PowerUpsConfig;
-use crate::ui::hud_model::{player_source_text, HudPlayer, HudSnapshot};
+use crate::ui::hud_model::{player_source_text, HudMapRoom, HudPlayer, HudSnapshot};
 use crate::waves::state::WaveState;
 use crate::weapons::{WeaponInventory, WeaponPickup};
 
@@ -40,6 +40,10 @@ pub struct HudBarWidget {
     /// Couleur du RON (`rads`) ; `health` garde son dégradé rouge → vert.
     pub color: Color,
 }
+
+/// Sans actif (ou définition de charge), cacher également le fond de sa jauge.
+#[derive(Component)]
+struct HudActiveChargeTrack;
 
 #[derive(Component)]
 pub struct HudTextWidget {
@@ -63,6 +67,15 @@ pub struct HudIconsWidget {
     pub shown: Vec<String>,
     /// Police des étiquettes (`HudConfig::font`), `None` : police par défaut de Bevy.
     pub font: Option<Handle<Font>>,
+}
+
+/// Minicarte spatiale dérivée du snapshot ; reconstruite seulement si ses salles changent.
+#[derive(Component)]
+struct HudMapWidget {
+    source: String,
+    shown: Vec<HudMapRoom>,
+    font: Option<Handle<Font>>,
+    font_size: f32,
 }
 
 /// Les sources que le HUD sait lire (liste fermée, lint `UnknownKind`) : une autre dans le RON
@@ -96,6 +109,10 @@ pub enum HudWidgetKind {
     /// Rangée d'icônes (T2.12) : un carré `size.1` × `size.1` par entrée de la source
     /// (`perks`), couleur et lettre lues dans [`HudConfig::icons`].
     Icons {
+        source: String,
+    },
+    /// Rectangles des salles de l'étage, positions stables et états issus de `RoomStates`.
+    Map {
         source: String,
     },
 }
@@ -169,7 +186,9 @@ impl Plugin for HudPlugin {
             )
             .add_systems(
                 Update,
-                update_hud_v1_values.run_if(in_state(AppState::InGame)),
+                (update_hud_v1_values, update_hud_map)
+                    .after(crate::ui::hud_model::HudModelSet)
+                    .run_if(in_state(AppState::InGame)),
             )
             .add_systems(
                 Update,
@@ -352,7 +371,8 @@ fn spawn_hud_widgets(
             let source = match &widget.kind {
                 HudWidgetKind::Bar { source }
                 | HudWidgetKind::Text { source, .. }
-                | HudWidgetKind::Icons { source } => source,
+                | HudWidgetKind::Icons { source }
+                | HudWidgetKind::Map { source } => source,
             };
             if !SOURCES.contains(&source.as_str()) {
                 warn!("hud.ron : source inconnue « {source} » (connues : {SOURCES:?})");
@@ -363,23 +383,26 @@ fn spawn_hud_widgets(
 
             match &widget.kind {
                 HudWidgetKind::Bar { source } => {
-                    parent
-                        .spawn((node, BackgroundColor(Color::srgba(0.04, 0.05, 0.07, 0.85))))
-                        .with_children(|track| {
-                            track.spawn((
-                                Node {
-                                    width: Val::Px(size.0),
-                                    height: Val::Percent(100.0),
-                                    ..default()
-                                },
-                                BackgroundColor(color),
-                                HudBarWidget {
-                                    source: source.clone(),
-                                    full_width: size.0,
-                                    color,
-                                },
-                            ));
-                        });
+                    let mut track =
+                        parent.spawn((node, BackgroundColor(Color::srgba(0.04, 0.05, 0.07, 0.85))));
+                    if source == "active_charge" {
+                        track.insert((HudActiveChargeTrack, Visibility::Hidden));
+                    }
+                    track.with_children(|track| {
+                        track.spawn((
+                            Node {
+                                width: Val::Px(size.0),
+                                height: Val::Percent(100.0),
+                                ..default()
+                            },
+                            BackgroundColor(color),
+                            HudBarWidget {
+                                source: source.clone(),
+                                full_width: size.0,
+                                color,
+                            },
+                        ));
+                    });
                 }
                 HudWidgetKind::Icons { source } => {
                     let mut node = node;
@@ -395,6 +418,18 @@ fn spawn_hud_widgets(
                             icon_size: size.1,
                             shown: Vec::new(),
                             font: font.clone(),
+                        },
+                    ));
+                }
+                HudWidgetKind::Map { source } => {
+                    parent.spawn((
+                        node,
+                        BackgroundColor(Color::srgba(0.02, 0.03, 0.05, 0.85)),
+                        HudMapWidget {
+                            source: source.clone(),
+                            shown: Vec::new(),
+                            font: font.clone(),
+                            font_size,
                         },
                     ));
                 }
@@ -445,6 +480,7 @@ fn update_hud_values(
         (&HudTextWidget, &mut Text, &mut BackgroundColor),
         Without<HudBarWidget>,
     >,
+    mut active_tracks: Query<&mut Visibility, With<HudActiveChargeTrack>>,
 ) {
     let enemy_count = enemies.iter().count();
     let player_count = all_players.iter().count();
@@ -453,6 +489,14 @@ fn update_hud_values(
         .entity()
         .and_then(|entity| inventories.get(entity).ok())
         .is_some_and(|inventory| inventory.is_reloading());
+
+    for mut visibility in &mut active_tracks {
+        *visibility = if snapshot.bars.contains_key("active_charge") {
+            Visibility::Inherited
+        } else {
+            Visibility::Hidden
+        };
+    }
 
     for (bar_widget, mut node, mut bg_color) in bar_widgets.iter_mut() {
         let Some(ratio) = snapshot.bars.get(bar_widget.source.as_str()).copied() else {
@@ -555,6 +599,7 @@ fn update_hud_v1_values(
     mut commands: Commands,
     frame: Res<FrameCount>,
     hud_player: HudPlayer,
+    snapshot: Res<HudSnapshot>,
     state: HudPlayerState,
     world: HudInteractables,
     fog: Res<crate::room_fog::FogView>,
@@ -669,14 +714,30 @@ fn update_hud_v1_values(
     }
 
     for (entity, mut widget) in icon_widgets.iter_mut() {
-        let ids: &[String] = match widget.source.as_str() {
-            "perks" => &perks,
-            _ => &[],
-        };
-        if widget.shown == ids {
+        let ids = perks
+            .iter()
+            .take(if widget.source == "perks" {
+                perks.len()
+            } else {
+                0
+            })
+            .map(String::as_str)
+            .chain(
+                snapshot
+                    .values
+                    .passives
+                    .iter()
+                    .take(if widget.source == "passives" {
+                        snapshot.values.passives.len()
+                    } else {
+                        0
+                    })
+                    .map(|(id, _)| id.as_str()),
+            );
+        if ids.clone().eq(widget.shown.iter().map(String::as_str)) {
             continue;
         }
-        widget.shown = ids.to_vec();
+        widget.shown = ids.clone().map(str::to_string).collect();
         let size = widget.icon_size;
         let font = widget.font.clone();
         commands
@@ -703,6 +764,76 @@ fn update_hud_v1_values(
                             hud_text_font(&font, size * 0.6),
                             TextColor(Color::WHITE),
                         ));
+                    });
+                }
+            });
+    }
+}
+
+fn update_hud_map(
+    mut commands: Commands,
+    snapshot: Res<HudSnapshot>,
+    mut widgets: Query<(Entity, &mut HudMapWidget)>,
+) {
+    for (entity, mut widget) in &mut widgets {
+        let rooms = if widget.source == "minimap" {
+            snapshot.values.minimap.as_slice()
+        } else {
+            &[]
+        };
+        if widget.shown == rooms {
+            continue;
+        }
+        widget.shown = rooms.to_vec();
+        commands
+            .entity(entity)
+            .despawn_related::<Children>()
+            .with_children(|map| {
+                for room in rooms {
+                    let [x, y, width, height] = room.rect;
+                    let fill = match room.state {
+                        world::RoomState::Locked => Color::srgb(0.65, 0.12, 0.12),
+                        world::RoomState::Cleared => Color::srgb(0.12, 0.42, 0.28),
+                        _ if room.visited => Color::srgb(0.27, 0.36, 0.48),
+                        _ => Color::srgb(0.08, 0.10, 0.14),
+                    };
+                    let border = if room.current {
+                        Color::srgb(1.0, 0.85, 0.2)
+                    } else if room.boss {
+                        Color::srgb(0.8, 0.45, 1.0)
+                    } else {
+                        Color::srgb(0.4, 0.45, 0.5)
+                    };
+                    map.spawn((
+                        Node {
+                            position_type: PositionType::Absolute,
+                            left: Val::Percent(x * 100.0),
+                            top: Val::Percent(y * 100.0),
+                            width: Val::Percent(width * 100.0),
+                            height: Val::Percent(height * 100.0),
+                            border: UiRect::all(Val::Px(if room.current { 3.0 } else { 1.0 })),
+                            justify_content: JustifyContent::Center,
+                            align_items: AlignItems::Center,
+                            overflow: Overflow::clip(),
+                            ..default()
+                        },
+                        BackgroundColor(fill),
+                        BorderColor::all(border),
+                    ))
+                    .with_children(|tile| {
+                        let label = match (room.boss, room.state) {
+                            (true, world::RoomState::Locked) => "B ×",
+                            (true, _) => "B",
+                            (false, world::RoomState::Locked) => "×",
+                            _ => "",
+                        };
+                        if !label.is_empty() {
+                            tile.spawn((
+                                Text::new(label),
+                                hud_text_font(&widget.font, widget.font_size),
+                                TextColor(Color::WHITE),
+                            ));
+                        }
                     });
                 }
             });
@@ -1313,7 +1444,8 @@ mod tests {
             let source = match &widget.kind {
                 HudWidgetKind::Bar { source }
                 | HudWidgetKind::Text { source, .. }
-                | HudWidgetKind::Icons { source } => source,
+                | HudWidgetKind::Icons { source }
+                | HudWidgetKind::Map { source } => source,
             };
             assert!(
                 SOURCES.contains(&source.as_str()),
@@ -1330,5 +1462,43 @@ mod tests {
                 "widget {source} absent de hud.ron"
             );
         }
+    }
+
+    #[test]
+    fn gungeon_hud_ron_partage_le_schema_et_affiche_les_objets_et_la_carte() {
+        let text = include_str!("../../../../games/gungeon/assets/ui/hud.ron");
+        let config: HudConfig = ron::from_str(text).expect("HUD gungeon");
+        let schema: content::ui::HudFileSchema = ron::from_str(text).expect("schéma HUD");
+        for widget in &schema.widgets {
+            assert!(SOURCES.contains(&widget.kind.source()));
+        }
+        for source in [
+            "blanks",
+            "keys",
+            "shells",
+            "active_item",
+            "active_charge",
+            "passives",
+            "minimap",
+        ] {
+            assert!(
+                schema
+                    .widgets
+                    .iter()
+                    .any(|widget| widget.kind.source() == source),
+                "{source}"
+            );
+        }
+        assert!(config.widgets.iter().any(|widget| matches!(
+            &widget.kind, HudWidgetKind::Map { source } if source == "minimap"
+        )));
+        assert!(config.widgets.iter().any(|widget| matches!(
+            &widget.kind, HudWidgetKind::Icons { source } if source == "passives"
+        )));
+        assert!(config.widgets.iter().any(|widget| matches!(
+            &widget.kind, HudWidgetKind::Bar { source } if source == "active_charge"
+        )));
+        assert_eq!(icon_for(&config, "amulette").1, "A");
+        assert_eq!(icon_for(&config, "bottes").1, "B");
     }
 }

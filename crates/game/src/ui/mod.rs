@@ -15,7 +15,6 @@ impl Plugin for GameUiPlugin {
     fn build(&self, app: &mut App) {
         app.add_plugins(lobby::LobbyUiPlugin);
         app.add_plugins(disconnected::DisconnectedUiPlugin);
-        app.add_plugins(game_over::GameOverUiPlugin);
         // T1.16 : modèle de vue de l'écran de mutation, aussi en headless.
         app.add_plugins(mutation_screen::MutationScreenModelPlugin);
         // T1.18 : valeurs du HUD du joueur affiché (`HudSnapshot`), aussi en headless.
