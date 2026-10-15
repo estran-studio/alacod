@@ -1508,6 +1508,30 @@ fn reach_fixtures_report_their_warning() {
     }
 }
 
+/// D63 : seules les règles des ennemis atteints donnent une source d'armes.
+#[test]
+fn reached_enemy_rules_are_weapon_sources() {
+    let (registry, manifest, errors) = load_and_lint(&fixture_dir("reach_enemy_weapons")).unwrap();
+    assert!(errors.is_empty(), "{errors:#?}");
+    let warnings = content::warnings(&registry, &manifest);
+    for weapon in ["shoot", "phase", "enter", "timeline"] {
+        assert!(
+            warnings
+                .iter()
+                .all(|w| !w.message.contains(&format!("arme « {weapon} »"))),
+            "{warnings:#?}"
+        );
+    }
+    for weapon in ["unused", "lab_weapon"] {
+        assert!(
+            warnings
+                .iter()
+                .any(|w| w.message.contains(&format!("arme « {weapon} »"))),
+            "{warnings:#?}"
+        );
+    }
+}
+
 /// D63 : `test_only: true` retire l'avertissement d'un personnage et d'une arme ; les fixtures
 /// jumelles sans marqueur (`reach_enemy_unplaced`, `reach_weapon_no_source`) le gardent.
 #[test]

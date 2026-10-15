@@ -106,3 +106,31 @@ fn hunter_run_replays_identically_once_recorded() {
     assert!(replayed.failures.is_empty(), "{:?}", replayed.failures);
     assert_eq!(original.trace, replayed.trace);
 }
+
+/// D68 : à terre, l'explorateur attend son équipier au lieu de continuer à fuir ou
+/// à poursuivre le portail, ce qui ferait sortir sa surface de la portée de réanimation.
+#[test]
+fn downed_explorer_waits_for_revive() {
+    let mut scenario =
+        Scenario::from_ron(include_str!("../../../tests/scenarios/downed_revive.ron"))
+            .expect("scénario de réanimation valide");
+    scenario.players[1].bot = Some(BotProfile::Explorateur);
+    let outcome = run(&scenario);
+    assert!(outcome.failures.is_empty(), "{:?}", outcome.failures);
+}
+
+/// D68 : les morts de l'arène sont posées en fin de frame ; leur butin doit être identique
+/// quand la frame suivante est rejouée depuis un snapshot portant déjà `Death`.
+#[test]
+fn arena_death_loot_survives_rollback() {
+    let mut scenario = two_fonceurs(1100);
+    scenario.game = "gungeon".into();
+    scenario.map = "maps/etage_1.ldtk".into();
+    scenario.map_seed = 2;
+    scenario.floors = Some("etages_deux".into());
+    for player in &mut scenario.players {
+        player.bot = Some(BotProfile::Explorateur);
+    }
+    let outcome = run(&scenario);
+    assert!(outcome.failures.is_empty(), "{:?}", outcome.failures);
+}
