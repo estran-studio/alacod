@@ -821,6 +821,9 @@ synctest à 2 et à 4 ; les bots finissent le clone sur 200 graines sans softloc
 dans les budgets ; vidéos publiées ; doc des conventions à jour ; les notes du jalon précédent
 fermées.
 
+Critères propres à M4 (`isaac` : empilement prouvé, `isaac_full_run`, campagnes, bench de larmes, p2p à
+inputs actifs) : `docs/taches.md` §8.1 (proposition du 2026-10-15, à valider par William).
+
 ### 9.9 La CI (K6)
 
 1. Réparer le jeton et garder le conteneur `alacod-builder`.
