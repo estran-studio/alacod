@@ -14,25 +14,28 @@
 
 use bevy::prelude::*;
 use bevy_common_assets::ron::RonAssetPlugin;
-use bevy_fixed::fixed_math::FixedTransform3D;
+use bevy_fixed::fixed_math::{Fixed, FixedTransform3D};
 use bevy_kira_audio::prelude::*;
 use combat::emitter::Emitter;
+use combat::projectile::Pattern;
 use serde::{Deserialize, Serialize};
 use sim_core::tag::Tag;
 use std::collections::{BTreeMap, BTreeSet, VecDeque};
-use std::time::Duration;
 use utils::{frame::FrameCount, net_id::GgrsNetId};
 
 pub use content::feedback::{
-    FeedbackOverride, FeedbackSettings, HitFlashConfig, ResolvedFeedback, ShakeConfig,
-    TelegraphConfig,
+    BlankFlashConfig, BossEndConfig, FeedbackOverride, FeedbackSettings, HitFlashConfig,
+    PatternTelegraphConfig, ResolvedFeedback, ShakeConfig, TelegraphConfig,
 };
 
 use crate::character::enemy::ai::state::{BehaviorRuntime, ChargePhase, EnemyAiConfig};
-use crate::character::player::LocalPlayer;
+use crate::character::health::Death;
+use crate::character::player::{LocalPlayer, Player};
 use crate::core::is_headless;
 use crate::frame_events::FrameEvents;
+use items::{Inventory, ItemTable};
 use sim_core::damage::DamageEvent;
+use world::{RoomState, RoomStates};
 
 /// Asset `ui/feedback.ron` : enveloppe du type partagé avec le lint
 /// (`content::feedback::FeedbackSettings`).
@@ -61,6 +64,15 @@ pub enum FeedbackKind {
     Telegraph,
     /// Chiffre de dégâts au-dessus de la cible (`value` : montant).
     Number,
+    /// Forme du pattern annoncé par un télégraphe d'émetteur (M2-T19, `pattern` : la forme,
+    /// `value` : frames restantes, `extra` : longueur des rayons).
+    PatternTelegraph,
+    /// Un joueur a utilisé un blank (M2-T19) : charges de blank en baisse (`value` : handle
+    /// du joueur, `extra` : rayon du blank).
+    Blank,
+    /// Mort d'un boss dont la salle passe `Cleared` (M2-T19) : `net_id` du boss, `position`
+    /// du boss, `value` : frames de rendu gelées.
+    BossEnd,
 }
 
 impl FeedbackKind {
@@ -72,6 +84,9 @@ impl FeedbackKind {
             Self::HitStop => "hit stop",
             Self::Telegraph => "télégraphe",
             Self::Number => "chiffre",
+            Self::PatternTelegraph => "télégraphe",
+            Self::Blank => "blank",
+            Self::BossEnd => "fin de boss",
         }
     }
 }
@@ -90,6 +105,8 @@ pub struct FeedbackCue {
     pub extra: f32,
     /// Couleur du flash (multiplicateur linéaire) ; `(1, 1, 1)` pour les autres genres.
     pub color: (f32, f32, f32),
+    /// Forme du pattern ([`FeedbackKind::PatternTelegraph`] seulement).
+    pub pattern: Option<PatternShape>,
 }
 
 /// Nombre d'indices gardés dans [`FeedbackLog::history`].
@@ -120,6 +137,183 @@ impl FeedbackLog {
         self.history.push_back(cue.clone());
         self.frame_cues.push(cue);
     }
+}
+
+// ---------------------------------------------------------------------------------------
+// M2-T19 : fonctions pures (formes de télégraphe, anneau du blank, zoom de fin de boss)
+// ---------------------------------------------------------------------------------------
+
+/// Genre de pattern dont la forme est télégraphiée.
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize)]
+pub enum PatternKind {
+    Fan,
+    Spread,
+    Aimed,
+    Spiral,
+    Burst,
+    Scatter,
+}
+
+impl PatternKind {
+    pub fn name(&self) -> &'static str {
+        match self {
+            Self::Fan => "fan",
+            Self::Spread => "spread",
+            Self::Aimed => "aimed",
+            Self::Spiral => "spiral",
+            Self::Burst => "burst",
+            Self::Scatter => "scatter",
+        }
+    }
+}
+
+/// Forme à dessiner pendant un télégraphe : des rayons (angles en radians, depuis `origin`,
+/// sur `length` pixels) et, pour un cône (`Burst`, `Scatter`), son axe et son ouverture totale.
+#[derive(Debug, Clone, PartialEq, Serialize)]
+pub struct PatternShape {
+    pub kind: PatternKind,
+    pub origin: Vec2,
+    pub length: f32,
+    pub rays: Vec<f32>,
+    /// `(angle de l'axe, ouverture totale)` d'un cône.
+    pub cone: Option<(f32, f32)>,
+}
+
+/// Angles d'un éventail de `count` rayons répartis sur `spread` autour de `center` (même
+/// répartition que `combat::projectile::fan_angles`, en `f32` : présentation seule).
+pub fn fan_rays(center: f32, count: u32, spread: f32) -> Vec<f32> {
+    if count <= 1 {
+        return vec![center; count as usize];
+    }
+    let step = spread / (count - 1) as f32;
+    (0..count)
+        .map(|i| center - spread / 2.0 + step * i as f32)
+        .collect()
+}
+
+/// Forme du prochain pattern d'un émetteur en télégraphe : la première étape qui tire, avant
+/// le prochain `Telegraph`/`Wait`, parmi `Fan`, `Spread`, `Aimed` (rayons), `Spiral` (rayons de
+/// la première salve : l'amorce), `Burst` et `Scatter` (cône). Un `Ring` n'a pas de forme
+/// propre : le cercle du télégraphe v1 le dit déjà. `aim` : visée figée de l'émetteur.
+pub fn pattern_shape(
+    steps: &[Pattern],
+    next_step: usize,
+    aim: Vec2,
+    origin: Vec2,
+    length: f32,
+) -> Option<PatternShape> {
+    let center = if aim == Vec2::ZERO {
+        0.0
+    } else {
+        aim.y.atan2(aim.x)
+    };
+    let to_f32 = |value: bevy_fixed::fixed_math::Fixed| value.to_num::<f32>();
+    let shape = |kind, rays: Vec<f32>, cone| PatternShape {
+        kind,
+        origin,
+        length,
+        rays,
+        cone,
+    };
+    for step in steps.iter().skip(next_step) {
+        match step {
+            Pattern::Telegraph(_) | Pattern::Wait(_) => return None,
+            Pattern::Fan { count, spread, .. } => {
+                return Some(shape(
+                    PatternKind::Fan,
+                    fan_rays(center, *count, to_f32(*spread)),
+                    None,
+                ))
+            }
+            Pattern::Spread { count, spread, .. } => {
+                return Some(shape(
+                    PatternKind::Spread,
+                    fan_rays(center, *count, to_f32(*spread)),
+                    None,
+                ))
+            }
+            Pattern::Aimed { count, spread, .. } => {
+                return Some(shape(
+                    PatternKind::Aimed,
+                    fan_rays(center, *count, to_f32(*spread)),
+                    None,
+                ))
+            }
+            Pattern::Spiral { count, .. } => {
+                let arm = std::f32::consts::TAU / (*count).max(1) as f32;
+                let rays = (0..*count).map(|i| center + arm * i as f32).collect();
+                return Some(shape(PatternKind::Spiral, rays, None));
+            }
+            Pattern::Burst { spread, .. } => {
+                let spread = to_f32(*spread);
+                return Some(shape(
+                    PatternKind::Burst,
+                    vec![center - spread / 2.0, center + spread / 2.0],
+                    Some((center, spread)),
+                ));
+            }
+            Pattern::Scatter { spread, .. } => {
+                let spread = to_f32(*spread);
+                return Some(shape(
+                    PatternKind::Scatter,
+                    vec![center - spread / 2.0, center + spread / 2.0],
+                    Some((center, spread)),
+                ));
+            }
+            _ => {}
+        }
+    }
+    None
+}
+
+/// Libellé du moment clé d'une forme : « fan 31 (5 rayons) », « burst 31 (cône 0.60 rad) ».
+pub fn pattern_label(net_id: usize, shape: &PatternShape) -> String {
+    match shape.cone {
+        Some((_, spread)) => format!("{} {} (cône {:.2} rad)", shape.kind.name(), net_id, spread),
+        None => format!(
+            "{} {} ({} rayons)",
+            shape.kind.name(),
+            net_id,
+            shape.rays.len()
+        ),
+    }
+}
+
+/// Rayon de l'anneau du blank `age` frames après l'usage : s'étend vite puis ralentit
+/// (ease-out) jusqu'à `radius`, `None` une fois `frames` écoulées.
+pub fn blank_ring_radius(radius: f32, age: u32, frames: u32) -> Option<f32> {
+    if frames == 0 || age >= frames {
+        return None;
+    }
+    let remaining = 1.0 - age as f32 / frames as f32;
+    Some(radius * (1.0 - remaining * remaining))
+}
+
+/// Opacité d'un flash `age` frames après son départ : linéaire de `alpha` à 0 sur `frames`.
+pub fn flash_alpha(alpha: f32, age: u32, frames: u32) -> f32 {
+    if frames == 0 || age >= frames {
+        return 0.0;
+    }
+    alpha * (1.0 - age as f32 / frames as f32)
+}
+
+/// Poids du zoom de fin de boss (0 à 1) : monte pendant le premier cinquième de `frames`, puis
+/// redescend en douceur à 0.
+pub fn boss_zoom_weight(age: u32, frames: u32) -> f32 {
+    if frames == 0 || age >= frames {
+        return 0.0;
+    }
+    let p = age as f32 / frames as f32;
+    if p < 0.2 {
+        p / 0.2
+    } else {
+        1.0 - (p - 0.2) / 0.8
+    }
+}
+
+/// Facteur de zoom avant (≥ 1) à l'instant `age` : `1 + (zoom - 1) × poids`.
+pub fn boss_zoom_factor(zoom: f32, age: u32, frames: u32) -> f32 {
+    1.0 + (zoom - 1.0).max(0.0) * boss_zoom_weight(age, frames)
 }
 
 /// Cercle de télégraphe au sol, dérivé de l'état de simulation (lecture seule).
@@ -231,13 +425,19 @@ fn record_feedback_cues(
     mut log: ResMut<FeedbackLog>,
     subjects: Query<CueSubject>,
     mut telegraphing: Local<BTreeSet<usize>>,
+    // M2-T19 : mémoires de présentation (état d'avant, pour détecter une baisse ou une disparition).
+    t19: T19Inputs,
+    mut memory: Local<T19Memory>,
 ) {
     log.frame_cues.clear();
     let now = frame.frame;
     match log.last_frame {
         Some(last) if now == last => return,
         // Nouvelle partie : le compteur de frames repart de zéro.
-        Some(last) if now < last => telegraphing.clear(),
+        Some(last) if now < last => {
+            telegraphing.clear();
+            *memory = T19Memory::default();
+        }
         _ => {}
     }
     log.last_frame = Some(now);
@@ -273,6 +473,7 @@ fn record_feedback_cues(
                 value: resolved.hit_flash.frames as f32,
                 extra: 0.0,
                 color: resolved.hit_flash.color,
+                pattern: None,
             });
             if settings.damage_numbers {
                 log.push(FeedbackCue {
@@ -283,6 +484,7 @@ fn record_feedback_cues(
                     value: event.amount.to_num::<f32>(),
                     extra: 0.0,
                     color: (1.0, 1.0, 1.0),
+                    pattern: None,
                 });
             }
             let local_hit = is_local(target);
@@ -313,6 +515,7 @@ fn record_feedback_cues(
                 value: frames as f32,
                 extra: amplitude,
                 color: (1.0, 1.0, 1.0),
+                pattern: None,
             });
         }
         if let Some((net_id, position, frames)) = hit_stop {
@@ -324,11 +527,15 @@ fn record_feedback_cues(
                 value: frames as f32,
                 extra: 0.0,
                 color: (1.0, 1.0, 1.0),
+                pattern: None,
             });
         }
     }
 
+    record_t19_cues(&mut log, now, config.as_deref(), &t19, &mut memory);
+
     let mut current = BTreeSet::new();
+    let mut current_patterns = BTreeSet::new();
     for (net_id, transform, _, _, emitter, runtime, ai_config) in by_net_id.values() {
         let position = Vec2::new(
             transform.translation.x.to_num::<f32>(),
@@ -350,10 +557,167 @@ fn record_feedback_cues(
                 value: shape.remaining as f32,
                 extra: shape.radius,
                 color: (1.0, 1.0, 1.0),
+                pattern: None,
             });
+        }
+        // M2-T19 : la forme du pattern annoncé, une fois par télégraphe (clé : émetteur et
+        // étape, un même émetteur enchaîne plusieurs télégraphes).
+        let enabled = config
+            .as_ref()
+            .is_none_or(|config| config.0.pattern_telegraph.enabled);
+        if let (true, Some(emitter)) = (enabled, *emitter) {
+            let key = (net_id.0, emitter.next_step);
+            current_patterns.insert(key);
+            if !memory.patterns.contains(&key) {
+                let aim = Vec2::new(emitter.aim.x.to_num::<f32>(), emitter.aim.y.to_num::<f32>());
+                if let Some(pattern) = pattern_shape(
+                    &emitter.steps,
+                    emitter.next_step as usize,
+                    aim,
+                    position,
+                    shape.radius,
+                ) {
+                    log.push(FeedbackCue {
+                        kind: FeedbackKind::PatternTelegraph,
+                        frame: now,
+                        net_id: net_id.0,
+                        position,
+                        value: shape.remaining as f32,
+                        extra: shape.radius,
+                        color: (1.0, 1.0, 1.0),
+                        pattern: Some(pattern),
+                    });
+                }
+            }
         }
     }
     *telegraphing = current;
+    memory.patterns = current_patterns;
+}
+
+/// Ce que [`record_feedback_cues`] lit en plus pour le blank et la fin de boss (M2-T19).
+#[derive(bevy::ecs::system::SystemParam)]
+struct T19Inputs<'w, 's> {
+    players: Query<
+        'w,
+        's,
+        (
+            &'static GgrsNetId,
+            &'static Player,
+            &'static Inventory,
+            &'static FixedTransform3D,
+        ),
+    >,
+    items: Option<Res<'w, ItemTable>>,
+    bosses: Query<
+        'w,
+        's,
+        (&'static GgrsNetId, &'static FixedTransform3D),
+        (With<crate::boss::BossPlan>, Without<Death>),
+    >,
+    rooms: Option<Res<'w, RoomStates>>,
+}
+
+/// Mémoire d'un tick à l'autre : tout se dérive de l'état, jamais d'un événement.
+#[derive(Default)]
+struct T19Memory {
+    /// Télégraphes de forme déjà journalisés, par (émetteur, étape).
+    patterns: BTreeSet<(usize, u32)>,
+    /// Charges de blank par joueur au tick précédent.
+    blanks: BTreeMap<usize, u32>,
+    /// Boss vivants au tick précédent, avec leur position.
+    bosses: BTreeMap<usize, Vec2>,
+    /// Nombre de salles `Cleared` au tick précédent.
+    cleared: usize,
+}
+
+/// Blank utilisé (charges en baisse) et fin de boss (boss disparu **et** une salle vient de
+/// passer `Cleared`). Rien n'est lu d'un événement : un rollback qui rejoue la même situation
+/// donne les mêmes indices.
+fn record_t19_cues(
+    log: &mut FeedbackLog,
+    now: u32,
+    config: Option<&FeedbackConfigLoaded>,
+    inputs: &T19Inputs,
+    memory: &mut T19Memory,
+) {
+    // Blank : l'objet blank est le premier de la table (ordre des ids) à porter la donnée.
+    let blank_item = inputs.items.as_ref().and_then(|table| {
+        table
+            .0
+            .iter()
+            .find_map(|(id, def)| def.blank.map(|b| (id, b)))
+    });
+    let mut blanks = BTreeMap::new();
+    if let Some((id, spec)) = blank_item {
+        for (net_id, player, inventory, transform) in &inputs.players {
+            let charges = inventory.consumable(id);
+            blanks.insert(net_id.0, charges);
+            let before = memory.blanks.get(&net_id.0).copied().unwrap_or(charges);
+            if charges < before && config.is_none_or(|config| config.0.blank.enabled) {
+                log.push(FeedbackCue {
+                    kind: FeedbackKind::Blank,
+                    frame: now,
+                    net_id: net_id.0,
+                    position: Vec2::new(
+                        transform.translation.x.to_num::<f32>(),
+                        transform.translation.y.to_num::<f32>(),
+                    ),
+                    value: player.handle as f32,
+                    extra: spec.radius.to_num::<f32>(),
+                    color: (1.0, 1.0, 1.0),
+                    pattern: None,
+                });
+            }
+        }
+    }
+    memory.blanks = blanks;
+
+    // Fin de boss.
+    let cleared = inputs.rooms.as_ref().map_or(0, |rooms| {
+        rooms
+            .rooms
+            .values()
+            .filter(|state| **state == RoomState::Cleared)
+            .count()
+    });
+    let alive: BTreeMap<usize, Vec2> = inputs
+        .bosses
+        .iter()
+        .map(|(net_id, transform)| {
+            (
+                net_id.0,
+                Vec2::new(
+                    transform.translation.x.to_num::<f32>(),
+                    transform.translation.y.to_num::<f32>(),
+                ),
+            )
+        })
+        .collect();
+    if cleared > memory.cleared {
+        if let Some(boss_end) = config
+            .map(|config| config.0.boss_end)
+            .or_else(|| Some(BossEndConfig::default()))
+            .filter(|boss_end| boss_end.enabled)
+        {
+            for (net_id, position) in &memory.bosses {
+                if !alive.contains_key(net_id) {
+                    log.push(FeedbackCue {
+                        kind: FeedbackKind::BossEnd,
+                        frame: now,
+                        net_id: *net_id,
+                        position: *position,
+                        value: boss_end.freeze_frames as f32,
+                        extra: boss_end.zoom,
+                        color: boss_end.flash_color,
+                        pattern: None,
+                    });
+                }
+            }
+        }
+    }
+    memory.cleared = cleared;
+    memory.bosses = alive;
 }
 
 /// Ressource intermédiaire : handle du fichier config.
@@ -421,6 +785,43 @@ pub struct DamageNumber {
 const DAMAGE_NUMBER_SECS: f64 = 0.7;
 const DAMAGE_NUMBER_RISE: f32 = 30.0;
 
+/// Effets de présentation en cours (M2-T19) : anneaux de blank, flash plein écran, zoom de fin
+/// de boss. Dérivés des indices du journal ; la simulation ne les lit jamais.
+#[derive(Resource, Default)]
+pub struct FeedbackFx {
+    rings: Vec<BlankRing>,
+    flashes: Vec<ScreenFlashFx>,
+    boss: Option<BossZoomFx>,
+    /// Décalage appliqué à la caméra au tick précédent (retiré avant le suivi de caméra).
+    boss_applied: Option<(f32, Vec3)>,
+}
+
+struct BlankRing {
+    frame: u32,
+    center: Vec2,
+    radius: f32,
+    frames: u32,
+    color: Color,
+}
+
+struct ScreenFlashFx {
+    frame: u32,
+    frames: u32,
+    alpha: f32,
+    color: (f32, f32, f32),
+}
+
+struct BossZoomFx {
+    frame: u32,
+    frames: u32,
+    zoom: f32,
+    center: Vec2,
+}
+
+/// Voile plein écran du flash (blank, fin de boss).
+#[derive(Component)]
+struct ScreenFlashNode;
+
 /// Plugin de rendu du feedback (`PresentationPlugin`, absent en headless).
 pub struct FeedbackPlugin;
 
@@ -431,6 +832,24 @@ impl Plugin for FeedbackPlugin {
             return;
         }
 
+        app.init_resource::<FeedbackFx>();
+        app.add_systems(Startup, spawn_screen_flash);
+        // Retire le zoom du tick précédent avant que le suivi de caméra ne relise la caméra.
+        app.add_systems(
+            Update,
+            undo_boss_zoom.before(crate::camera::camera_control_system),
+        );
+        app.add_systems(
+            PostUpdate,
+            (
+                draw_pattern_shapes,
+                draw_blank_rings,
+                update_screen_flash.after(apply_feedback_cues),
+                apply_boss_zoom
+                    .after(apply_feedback_cues)
+                    .before(bevy::transform::TransformSystems::Propagate),
+            ),
+        );
         app.add_systems(
             PostUpdate,
             (
@@ -447,6 +866,12 @@ impl Plugin for FeedbackPlugin {
                 draw_telegraphs,
                 play_shot_sound_for_new_bullets,
                 play_reload_sound_for_reload_events,
+                play_hit_sound,
+                play_hurt_sound,
+                play_death_sound,
+                play_dash_sound,
+                play_blank_sound,
+                play_door_sound,
             ),
         );
     }
@@ -466,10 +891,15 @@ fn apply_feedback_cues(
     mut freeze: ResMut<animation::AnimationFreeze>,
     fog: Res<crate::room_fog::FogView>,
     fog_map: Option<Res<crate::room_fog::FogMap>>,
+    config: Option<Res<FeedbackConfigLoaded>>,
+    mut fx: ResMut<FeedbackFx>,
 ) {
     if log.frame_cues.is_empty() {
         return;
     }
+    let settings = config.as_ref().map(|config| &config.0);
+    let blank = settings.map(|s| s.blank).unwrap_or_default();
+    let boss_end = settings.map(|s| s.boss_end).unwrap_or_default();
     let entity_of: BTreeMap<usize, Entity> = targets
         .iter()
         .map(|(entity, net_id)| (net_id.0, entity))
@@ -533,7 +963,212 @@ fn apply_feedback_cues(
                     Transform::from_xyz(cue.position.x, cue.position.y + 12.0, 50.0),
                 ));
             }
-            FeedbackKind::Telegraph => {}
+            FeedbackKind::Telegraph | FeedbackKind::PatternTelegraph => {}
+            FeedbackKind::Blank => {
+                let (r, g, b, a) = blank.color;
+                fx.rings.push(BlankRing {
+                    frame: cue.frame,
+                    center: cue.position,
+                    radius: cue.extra,
+                    frames: blank.ring_frames,
+                    color: Color::srgba(r, g, b, a),
+                });
+                if blank.flash_alpha > 0.0 {
+                    fx.flashes.push(ScreenFlashFx {
+                        frame: cue.frame,
+                        frames: blank.ring_frames,
+                        alpha: blank.flash_alpha,
+                        color: (r, g, b),
+                    });
+                }
+            }
+            FeedbackKind::BossEnd => {
+                // Gel de **rendu** (comme le hit stop) : la simulation et `Time<Virtual>` ne
+                // sont pas touchés.
+                freeze.freeze_for(boss_end.freeze_frames);
+                fx.boss = Some(BossZoomFx {
+                    frame: cue.frame,
+                    frames: boss_end.zoom_frames,
+                    zoom: boss_end.zoom,
+                    center: cue.position,
+                });
+                if boss_end.flash_alpha > 0.0 {
+                    fx.flashes.push(ScreenFlashFx {
+                        frame: cue.frame,
+                        frames: boss_end.zoom_frames,
+                        alpha: boss_end.flash_alpha,
+                        color: cue.color,
+                    });
+                }
+            }
+        }
+    }
+}
+
+/// Voile plein écran, transparent au repos.
+fn spawn_screen_flash(mut commands: Commands) {
+    commands.spawn((
+        ScreenFlashNode,
+        Node {
+            position_type: PositionType::Absolute,
+            width: Val::Percent(100.0),
+            height: Val::Percent(100.0),
+            ..default()
+        },
+        BackgroundColor(Color::NONE),
+        GlobalZIndex(900),
+    ));
+}
+
+/// Opacité du voile : le plus fort des flashs en cours ; retire les flashs finis.
+fn update_screen_flash(
+    frame: Res<FrameCount>,
+    mut fx: ResMut<FeedbackFx>,
+    mut nodes: Query<&mut BackgroundColor, With<ScreenFlashNode>>,
+) {
+    let now = frame.frame;
+    fx.flashes
+        .retain(|flash| now >= flash.frame && now - flash.frame < flash.frames);
+    let strongest = fx
+        .flashes
+        .iter()
+        .map(|flash| {
+            (
+                flash_alpha(flash.alpha, now - flash.frame, flash.frames),
+                flash.color,
+            )
+        })
+        .max_by(|a, b| a.0.total_cmp(&b.0));
+    for mut background in &mut nodes {
+        background.0 = match strongest {
+            Some((alpha, (r, g, b))) => Color::srgba(r, g, b, alpha),
+            None => Color::NONE,
+        };
+    }
+}
+
+/// Anneau du blank : s'étend jusqu'au rayon du blank et s'estompe.
+fn draw_blank_rings(mut gizmos: Gizmos, frame: Res<FrameCount>, mut fx: ResMut<FeedbackFx>) {
+    let now = frame.frame;
+    fx.rings
+        .retain(|ring| now >= ring.frame && now - ring.frame < ring.frames);
+    for ring in &fx.rings {
+        let age = now - ring.frame;
+        if let Some(radius) = blank_ring_radius(ring.radius, age, ring.frames) {
+            let fade = 1.0 - age as f32 / ring.frames as f32;
+            gizmos.circle_2d(
+                Isometry2d::from_translation(ring.center),
+                radius,
+                ring.color.with_alpha(ring.color.alpha() * fade),
+            );
+        }
+    }
+}
+
+/// Retire le décalage de zoom appliqué au tick précédent (avant le suivi de caméra).
+fn undo_boss_zoom(
+    mut fx: ResMut<FeedbackFx>,
+    mut cameras: Query<(&mut Transform, &mut Projection), With<crate::camera::GameCamera>>,
+) {
+    let Some((ratio, delta)) = fx.boss_applied.take() else {
+        return;
+    };
+    for (mut transform, mut projection) in &mut cameras {
+        transform.translation -= delta;
+        if let Projection::Orthographic(orthographic) = projection.as_mut() {
+            orthographic.scale /= ratio;
+        }
+    }
+}
+
+/// Zoom sur la position du boss mort : rapproche l'échelle de projection et décale la caméra
+/// vers le boss, selon [`boss_zoom_weight`]. Présentation seule (`Transform`, `Projection`).
+fn apply_boss_zoom(
+    frame: Res<FrameCount>,
+    mut fx: ResMut<FeedbackFx>,
+    mut cameras: Query<(&mut Transform, &mut Projection), With<crate::camera::GameCamera>>,
+) {
+    let now = frame.frame;
+    let Some(boss) = &fx.boss else {
+        return;
+    };
+    if now < boss.frame || now - boss.frame >= boss.frames {
+        fx.boss = None;
+        return;
+    }
+    let age = now - boss.frame;
+    let factor = boss_zoom_factor(boss.zoom, age, boss.frames);
+    let weight = boss_zoom_weight(age, boss.frames);
+    let (center, ratio) = (boss.center, 1.0 / factor);
+    let mut applied = None;
+    for (mut transform, mut projection) in &mut cameras {
+        let Projection::Orthographic(orthographic) = projection.as_mut() else {
+            continue;
+        };
+        orthographic.scale *= ratio;
+        let delta = ((center - transform.translation.truncate()) * weight).extend(0.0);
+        transform.translation += delta;
+        applied = Some((ratio, delta));
+    }
+    fx.boss_applied = applied;
+}
+
+/// Rayons, amorce ou cône du pattern annoncé, pendant le `Telegraph` d'un émetteur.
+fn draw_pattern_shapes(
+    mut gizmos: Gizmos,
+    frame: Res<FrameCount>,
+    config: Option<Res<FeedbackConfigLoaded>>,
+    subjects: Query<(&FixedTransform3D, &Emitter, Option<&EnemyAiConfig>)>,
+    fog: Res<crate::room_fog::FogView>,
+    fog_map: Option<Res<crate::room_fog::FogMap>>,
+) {
+    let settings = config.as_ref().map(|config| &config.0);
+    let pattern = settings.map(|s| s.pattern_telegraph).unwrap_or_default();
+    if !pattern.enabled {
+        return;
+    }
+    let (r, g, b, a) = pattern
+        .color
+        .or_else(|| settings.map(|s| s.telegraph.color))
+        .unwrap_or(TelegraphConfig::default().color);
+    for (transform, emitter, ai_config) in &subjects {
+        let position = Vec2::new(
+            transform.translation.x.to_num::<f32>(),
+            transform.translation.y.to_num::<f32>(),
+        );
+        if !fog.sees(fog_map.as_deref(), position) {
+            continue;
+        }
+        let Some(shape) = telegraph_shape(
+            frame.frame,
+            position,
+            Some(emitter),
+            None,
+            ranged_range(ai_config),
+        ) else {
+            continue;
+        };
+        let aim = Vec2::new(emitter.aim.x.to_num::<f32>(), emitter.aim.y.to_num::<f32>());
+        let Some(pattern_shape) = pattern_shape(
+            &emitter.steps,
+            emitter.next_step as usize,
+            aim,
+            position,
+            shape.radius,
+        ) else {
+            continue;
+        };
+        let color = Color::srgba(r, g, b, a);
+        for angle in &pattern_shape.rays {
+            let end = position + Vec2::from_angle(*angle) * pattern_shape.length;
+            gizmos.line_2d(position, end, color);
+        }
+        if let Some((center, spread)) = pattern_shape.cone {
+            let points = (0..=12).map(|i| {
+                let angle = center - spread / 2.0 + spread * i as f32 / 12.0;
+                position + Vec2::from_angle(angle) * pattern_shape.length
+            });
+            gizmos.linestrip_2d(points, color.with_alpha(a * 0.6));
         }
     }
 }
@@ -730,6 +1365,122 @@ mod telegraph_tests {
         )
     }
 
+    fn fixed(value: f32) -> Fixed {
+        fixed_math::new(value)
+    }
+
+    #[test]
+    fn forme_fan_rayons_repartis_autour_de_la_visee() {
+        let steps = vec![
+            Pattern::Telegraph(20),
+            Pattern::Fan {
+                count: 5,
+                spread: fixed(1.0),
+                speed: Fixed::ZERO,
+                projectile: "p".into(),
+            },
+        ];
+        let shape = pattern_shape(&steps, 1, Vec2::X, Vec2::new(2.0, 3.0), 90.0).unwrap();
+        assert_eq!(shape.kind, PatternKind::Fan);
+        assert_eq!(shape.rays.len(), 5);
+        assert!((shape.rays[0] + 0.5).abs() < 1e-5 && (shape.rays[4] - 0.5).abs() < 1e-5);
+        assert!(shape.rays[2].abs() < 1e-5);
+        assert_eq!(
+            (shape.origin, shape.length, shape.cone),
+            (Vec2::new(2.0, 3.0), 90.0, None)
+        );
+        assert_eq!(pattern_label(31, &shape), "fan 31 (5 rayons)");
+        // Visée vers le haut : l'éventail tourne avec elle.
+        let up = pattern_shape(&steps, 1, Vec2::Y, Vec2::ZERO, 10.0).unwrap();
+        assert!((up.rays[2] - std::f32::consts::FRAC_PI_2).abs() < 1e-5);
+    }
+
+    #[test]
+    fn forme_spirale_amorce_et_burst_cone() {
+        let spiral = vec![Pattern::Spiral {
+            count: 4,
+            step: fixed(0.3),
+            shots: 10,
+            every: 3,
+            speed: Fixed::ZERO,
+            projectile: "p".into(),
+        }];
+        let shape = pattern_shape(&spiral, 0, Vec2::X, Vec2::ZERO, 50.0).unwrap();
+        assert_eq!(shape.kind, PatternKind::Spiral);
+        assert_eq!(shape.rays.len(), 4);
+        assert!((shape.rays[1] - std::f32::consts::FRAC_PI_2).abs() < 1e-5);
+        let burst = vec![Pattern::Burst {
+            count: 3,
+            per_burst: 3,
+            interval: 5,
+            spread: fixed(0.5),
+            projectile: "p".into(),
+        }];
+        let shape = pattern_shape(&burst, 0, Vec2::X, Vec2::ZERO, 50.0).unwrap();
+        assert_eq!(shape.kind, PatternKind::Burst);
+        assert_eq!(shape.rays.len(), 2);
+        let (axis, spread) = shape.cone.unwrap();
+        assert!(axis.abs() < 1e-5 && (spread - 0.5).abs() < 1e-3);
+        assert_eq!(pattern_label(7, &shape), "burst 7 (cône 0.50 rad)");
+    }
+
+    #[test]
+    fn forme_absente_pour_ring_et_apres_une_etape_bloquante() {
+        let ring = Pattern::Ring {
+            count: 8,
+            speed: fixed(60.0),
+            projectile: "p".into(),
+            every: 0,
+        };
+        assert_eq!(
+            pattern_shape(&[ring.clone()], 0, Vec2::X, Vec2::ZERO, 10.0),
+            None
+        );
+        let fan = Pattern::Fan {
+            count: 3,
+            spread: fixed(1.0),
+            speed: Fixed::ZERO,
+            projectile: "p".into(),
+        };
+        // Le prochain tir est derrière un autre télégraphe : ce n'est pas celui qu'on annonce.
+        let steps = vec![ring, Pattern::Wait(5), fan];
+        assert_eq!(pattern_shape(&steps, 0, Vec2::X, Vec2::ZERO, 10.0), None);
+    }
+
+    #[test]
+    fn anneau_du_blank_s_etend_jusqu_au_rayon_puis_disparait() {
+        assert_eq!(blank_ring_radius(160.0, 0, 24), Some(0.0));
+        let mid = blank_ring_radius(160.0, 12, 24).unwrap();
+        assert!(mid > 80.0 && mid < 160.0, "ease-out : {mid}");
+        let mut last = 0.0;
+        for age in 0..24 {
+            let radius = blank_ring_radius(160.0, age, 24).unwrap();
+            assert!(radius >= last && radius <= 160.0);
+            last = radius;
+        }
+        assert_eq!(blank_ring_radius(160.0, 24, 24), None);
+        assert_eq!(blank_ring_radius(160.0, 0, 0), None);
+        assert_eq!(flash_alpha(0.5, 0, 10), 0.5);
+        assert_eq!(flash_alpha(0.5, 5, 10), 0.25);
+        assert_eq!(flash_alpha(0.5, 10, 10), 0.0);
+    }
+
+    #[test]
+    fn zoom_de_fin_de_boss_monte_puis_revient_a_un() {
+        assert_eq!(boss_zoom_factor(1.5, 0, 60), 1.0);
+        let peak = boss_zoom_factor(1.5, 12, 60);
+        assert!((peak - 1.5).abs() < 1e-5);
+        let mut last = peak;
+        for age in 13..60 {
+            let factor = boss_zoom_factor(1.5, age, 60);
+            assert!(factor <= last && factor >= 1.0);
+            last = factor;
+        }
+        assert_eq!(boss_zoom_factor(1.5, 60, 60), 1.0);
+        // Un zoom < 1 est ramené à l'identité (jamais d'éloignement).
+        assert_eq!(boss_zoom_factor(0.5, 12, 60), 1.0);
+    }
+
     #[test]
     fn charge_cercle_au_point_vise_rayon_de_contact() {
         let ai = EnemyAiConfig {
@@ -794,79 +1545,155 @@ mod telegraph_tests {
     }
 }
 
-/// Un son de tir est coupé (en fondu) au bout de cette durée. `sounds/machine-gun.ogg` est un
-/// enregistrement de tir soutenu de 17 s, pas un coup unique : joué en entier à chaque balle, il
-/// se superposait des dizaines de fois. À retirer quand un échantillon de coup unique le remplace.
-const SHOT_SOUND_MAX: Duration = Duration::from_millis(250);
-const SHOT_SOUND_FADE: Duration = Duration::from_millis(40);
-/// Frames pendant lesquelles un tir déjà joué reste mémorisé (`ShotSounds::played`).
+/// Frames pendant lesquelles un tir déjà joué reste mémorisé (`played`, voir
+/// `play_shot_sound_for_new_bullets`).
 const SHOT_SOUND_MEMORY_FRAMES: u32 = 120;
 
-/// État du système de son de tir (présentation, hors rollback).
-#[derive(Default)]
-struct ShotSounds {
-    /// Tirs déjà joués, par (tireur, frame de création). Le rollback de la session locale détruit
-    /// puis recrée les balles des dernières frames à chaque image rendue : elles redeviennent
-    /// `Added<Bullet>` et rejoueraient leur son. Une clé par tir et non par balle : un fusil à
-    /// pompe ne joue pas un son par plomb.
-    played: BTreeSet<(usize, u32)>,
-    /// Instances lancées avec leur échéance (secondes de `Time<Real>`), à couper en fondu.
-    playing: Vec<(Handle<AudioInstance>, f64)>,
+/// Clé de `sounds` du son de tir d'un mode de tir (lot A, `docs/plan-assets.md`) : la famille
+/// d'arme se déduit du mode actif de l'arme (`Shotgun` : fusil à pompe ; `Automatic`/`Burst` :
+/// mitraillette ; `Manual` : pistolet).
+fn shot_sound_key(mode: &crate::weapons::FiringMode) -> &'static str {
+    use crate::weapons::FiringMode;
+    match mode {
+        FiringMode::Shotgun { .. } => "shot_shotgun",
+        FiringMode::Automatic {} | FiringMode::Burst { .. } => "shot_smg",
+        FiringMode::Manual {} => "shot_pistol",
+    }
+}
+
+/// Son de tir : la clé imposée à l'arme (`shot_sounds`), sinon celle de la famille de son mode
+/// de tir, sinon `shot` (repli), sinon aucun son.
+fn shot_sound_path<'a>(
+    settings: &'a FeedbackSettings,
+    weapon: Option<&str>,
+    mode: Option<&crate::weapons::FiringMode>,
+) -> Option<&'a String> {
+    let sounds = &settings.sounds;
+    weapon
+        .and_then(|name| settings.shot_sounds.get(name))
+        .and_then(|key| sounds.get(key))
+        .or_else(|| mode.and_then(|mode| sounds.get(shot_sound_key(mode))))
+        .or_else(|| sounds.get("shot"))
+}
+
+/// Nom et mode de tir actif de l'arme active de cet inventaire.
+fn active_weapon_mode<'a>(
+    inventory: &'a crate::weapons::WeaponInventory,
+    weapon_states: &Query<&crate::weapons::WeaponState>,
+) -> Option<(&'a str, Option<&'a crate::weapons::FiringMode>)> {
+    let (entity, weapon) = inventory.weapons.get(inventory.active_weapon_index)?;
+    let mode = weapon_states.get(*entity).ok().and_then(|state| {
+        weapon
+            .config
+            .firing_modes
+            .get(&state.active_mode)
+            .map(|mode| &mode.firing_mode)
+    });
+    Some((weapon.config.name.as_str(), mode))
 }
 
 /// Système jouant le son de tir pour chaque nouveau tir d'un joueur local.
+///
+/// Un son par (tireur, frame de création) : le rollback de la session locale détruit puis
+/// recrée les balles des dernières frames à chaque image rendue, elles redeviennent
+/// `Added<Bullet>` et rejoueraient leur son ; un fusil à pompe ne joue pas un son par plomb.
+/// Le son est celui de l'arme active du tireur **à l'image rendue** (`shot_sounds`, sinon la
+/// famille de son mode actif) : la balle ne porte pas son arme, lui ajouter un champ ferait
+/// bouger les traces.
 #[allow(clippy::too_many_arguments)]
 fn play_shot_sound_for_new_bullets(
     audio: Res<Audio>,
     asset_server: Res<AssetServer>,
-    mut instances: ResMut<Assets<AudioInstance>>,
-    time: Res<Time<Real>>,
     config: Option<Res<FeedbackConfigLoaded>>,
-    local_players: Query<&GgrsNetId, With<LocalPlayer>>,
+    local_players: Query<(&GgrsNetId, &crate::weapons::WeaponInventory), With<LocalPlayer>>,
+    weapon_states: Query<&crate::weapons::WeaponState>,
     new_bullets: Query<&crate::weapons::Bullet, Added<crate::weapons::Bullet>>,
     frame_count: Res<FrameCount>,
-    mut shots: Local<ShotSounds>,
+    mut played: Local<BTreeSet<(usize, u32)>>,
 ) {
-    let now = time.elapsed_secs_f64();
-    shots.playing.retain(|(handle, deadline)| {
-        if now < *deadline {
-            return true;
-        }
-        match instances.get_mut_untracked(handle) {
-            Some(instance) => {
-                instance.stop(AudioTween::linear(SHOT_SOUND_FADE));
-                false
-            }
-            // L'instance n'existe pas encore (la lecture est traitée à l'image suivante) ;
-            // une seconde après l'échéance, elle est finie depuis longtemps.
-            None => now < *deadline + 1.0,
-        }
-    });
-
     // Oublie les tirs anciens, et ceux d'une partie précédente (le compteur repart de 0).
     let frame = frame_count.frame;
-    shots.played.retain(|&(_, created_at)| {
+    played.retain(|&(_, created_at)| {
         created_at <= frame && frame - created_at <= SHOT_SOUND_MEMORY_FRAMES
     });
 
     let Some(cfg) = config else {
         return;
     };
-    let Some(sound_path) = cfg.0.sounds.get("shot") else {
-        return;
-    };
-    let local_net_ids: Vec<_> = local_players.iter().map(|n| n.0).collect();
-
     for bullet in new_bullets.iter() {
-        if local_net_ids.contains(&bullet.source.0)
-            && shots.played.insert((bullet.source.0, bullet.created_at))
-        {
-            info!("feedback f{} sound shot", frame);
-            let handle = audio.play(asset_server.load(sound_path)).handle();
-            shots
-                .playing
-                .push((handle, now + SHOT_SOUND_MAX.as_secs_f64()));
+        let Some((_, inventory)) = local_players
+            .iter()
+            .find(|(net_id, _)| net_id.0 == bullet.source.0)
+        else {
+            continue;
+        };
+        if !played.insert((bullet.source.0, bullet.created_at)) {
+            continue;
         }
+        let active = active_weapon_mode(inventory, &weapon_states);
+        let weapon = active.map(|(name, _)| name);
+        let mode = active.and_then(|(_, mode)| mode);
+        let Some(sound_path) = shot_sound_path(&cfg.0, weapon, mode) else {
+            continue;
+        };
+        info!("feedback f{} sound {}", frame, sound_path);
+        audio.play(asset_server.load(sound_path));
+    }
+}
+
+#[cfg(test)]
+mod shot_sound_tests {
+    use super::*;
+    use crate::weapons::FiringMode;
+
+    #[test]
+    fn arme_puis_famille_puis_repli_sur_shot() {
+        let shotgun = FiringMode::Shotgun {
+            pellet_count: 8,
+            spread_angle: Fixed::ZERO,
+        };
+        let automatic = FiringMode::Automatic {};
+        let mut settings: FeedbackSettings = ron::from_str(
+            r#"(
+                hit_flash: (frames: 4, color: (1.0, 1.0, 1.0)),
+                shake: (frames: 8, amplitude: 12.0),
+                sounds: {
+                    "shot": "repli.ogg",
+                    "shot_pistol": "pistolet.ogg",
+                    "shot_shotgun": "pompe.ogg",
+                    "shot_smg": "smg.ogg",
+                },
+                shot_sounds: {"pistolet": "shot_pistol", "muet": "absente"},
+            )"#,
+        )
+        .unwrap();
+        let path = |s: &FeedbackSettings, weapon, mode| {
+            shot_sound_path(s, weapon, mode).map(|p| p.to_string())
+        };
+        // La clé imposée à l'arme l'emporte sur la famille de son mode.
+        assert_eq!(
+            path(&settings, Some("pistolet"), Some(&automatic)).as_deref(),
+            Some("pistolet.ogg")
+        );
+        // Clé imposée absente de `sounds` (refusée par le lint) : la famille reprend.
+        assert_eq!(
+            path(&settings, Some("muet"), Some(&shotgun)).as_deref(),
+            Some("pompe.ogg")
+        );
+        assert_eq!(
+            path(&settings, Some("mitraillette"), Some(&automatic)).as_deref(),
+            Some("smg.ogg")
+        );
+        // Famille absente : repli sur `shot` ; mode inconnu aussi.
+        settings.sounds.remove("shot_smg");
+        assert_eq!(
+            path(&settings, None, Some(&automatic)).as_deref(),
+            Some("repli.ogg")
+        );
+        assert_eq!(path(&settings, None, None).as_deref(), Some("repli.ogg"));
+        // Ni la famille ni `shot` : aucun son.
+        settings.sounds.clear();
+        assert_eq!(path(&settings, None, Some(&shotgun)), None);
     }
 }
 
@@ -900,5 +1727,185 @@ fn play_reload_sound_for_reload_events(
     for _ in 0..started {
         info!("feedback f{} sound reload", frame_count.frame);
         audio.play(asset_server.load(sound_path));
+    }
+}
+
+// ---------------------------------------------------------------------------------------
+// Sons d'événements (lot B de `docs/plan-assets.md`) : présentation seule, dérivés de l'état
+// ou des `FrameEvents` de la dernière frame simulée, jamais écrits dans la simulation.
+// ---------------------------------------------------------------------------------------
+
+/// Lecteur des sons de `ui/feedback.ron` par clé.
+#[derive(bevy::ecs::system::SystemParam)]
+struct FeedbackSounds<'w> {
+    audio: Res<'w, Audio>,
+    asset_server: Res<'w, AssetServer>,
+    config: Option<Res<'w, FeedbackConfigLoaded>>,
+    frame: Res<'w, FrameCount>,
+}
+
+impl FeedbackSounds<'_> {
+    /// Joue le son `key` (rien si la config n'est pas chargée ou si la clé manque).
+    fn play(&self, key: &str) {
+        let Some(path) = self.config.as_ref().and_then(|cfg| cfg.0.sounds.get(key)) else {
+            return;
+        };
+        info!("feedback f{} sound {}", self.frame.frame, key);
+        self.audio.play(self.asset_server.load(path));
+    }
+}
+
+/// `hit` : un coup porté par un joueur local à une autre entité, un son par frame simulée
+/// (les plombs d'un fusil à pompe ou une explosion n'en jouent qu'un). Gardé par la frame de
+/// l'événement : une image rendue sans nouvelle frame simulée voit encore les mêmes
+/// événements. L'événement précède la résolution : un coup annulé (invulnérabilité) sonne.
+fn play_hit_sound(
+    sounds: FeedbackSounds,
+    damage: Res<FrameEvents<DamageEvent>>,
+    local_players: Query<&GgrsNetId, With<LocalPlayer>>,
+    mut last_frame: Local<Option<u32>>,
+) {
+    let local: BTreeSet<usize> = local_players.iter().map(|n| n.0).collect();
+    let Some(hit) = damage
+        .iter()
+        .find(|e| local.contains(&e.source.0) && !local.contains(&e.target.0))
+    else {
+        return;
+    };
+    if *last_frame == Some(hit.frame) {
+        return;
+    }
+    *last_frame = Some(hit.frame);
+    sounds.play("hit");
+}
+
+/// Écart minimal, en frames simulées, entre deux sons `hurt` : les PV d'un joueur peuvent
+/// baisser deux frames de suite (vu en gungeon au contact d'un ennemi, frames 522 et 523), et le
+/// même son rejoué à 16 ms d'écart s'entend comme un écho.
+const HURT_SOUND_MIN_FRAMES: u32 = 15;
+
+/// `hurt` : la santé d'un joueur local baisse d'une image rendue à l'autre, à `max` égal (une
+/// baisse de `max` qui rabote `current` n'est pas un coup). Au plus un son toutes les
+/// [`HURT_SOUND_MIN_FRAMES`] frames.
+fn play_hurt_sound(
+    sounds: FeedbackSounds,
+    players: Query<(&GgrsNetId, &crate::character::health::Health), With<LocalPlayer>>,
+    mut previous: Local<BTreeMap<usize, (Fixed, Fixed)>>,
+    mut last_played: Local<Option<u32>>,
+) {
+    let now: BTreeMap<usize, (Fixed, Fixed)> = players
+        .iter()
+        .map(|(net_id, health)| (net_id.0, (health.current, health.max)))
+        .collect();
+    let hurt = now.iter().any(|(net_id, (current, max))| {
+        previous
+            .get(net_id)
+            .is_some_and(|(before, max_before)| current < before && max == max_before)
+    });
+    *previous = now;
+    let frame = sounds.frame.frame;
+    // Une frame plus petite que la dernière jouée : nouvelle partie.
+    let ready =
+        last_played.is_none_or(|last| frame < last || frame - last >= HURT_SOUND_MIN_FRAMES);
+    if hurt && ready {
+        *last_played = Some(frame);
+        sounds.play("hurt");
+    }
+}
+
+/// `death` : un ennemi tué. `Death` est posé puis l'entité est détruite par
+/// `despawn_rollback` : désactivée (`RollbackDespawned`), elle n'est vue que par une requête
+/// qui nomme ce composant, jusqu'à la confirmation de sa frame. Un son par image, quel que
+/// soit le nombre de morts ; chaque ennemi une fois (le rollback local la ressuscite puis la
+/// redétruit dans la même image).
+fn play_death_sound(
+    sounds: FeedbackSounds,
+    dead: Query<
+        &GgrsNetId,
+        (
+            With<crate::character::enemy::Enemy>,
+            With<crate::character::health::Death>,
+            With<bevy_ggrs::RollbackDespawned>,
+        ),
+    >,
+    mut played: Local<BTreeSet<usize>>,
+) {
+    let now: BTreeSet<usize> = dead.iter().map(|n| n.0).collect();
+    let new_death = now.difference(&played).next().is_some();
+    *played = now;
+    if new_death {
+        sounds.play("death");
+    }
+}
+
+/// `dash` : un joueur local commence un dash (front montant de `DashState::is_dashing`).
+fn play_dash_sound(
+    sounds: FeedbackSounds,
+    players: Query<(&GgrsNetId, &crate::character::dash::DashState), With<LocalPlayer>>,
+    mut dashing: Local<BTreeSet<usize>>,
+) {
+    let now: BTreeSet<usize> = players
+        .iter()
+        .filter(|(_, dash)| dash.is_dashing)
+        .map(|(net_id, _)| net_id.0)
+        .collect();
+    let started = now.difference(&dashing).next().is_some();
+    *dashing = now;
+    if started {
+        sounds.play("dash");
+    }
+}
+
+/// `blank` : un joueur local utilise un blank (`FrameEvents<BlankUsed>`, émis seulement s'il
+/// lui en restait un), gardé par la frame de l'événement comme `hit`.
+fn play_blank_sound(
+    sounds: FeedbackSounds,
+    blanks: Option<Res<FrameEvents<items::BlankUsed>>>,
+    local_players: Query<&crate::character::player::Player, With<LocalPlayer>>,
+    mut last_frame: Local<Option<u32>>,
+) {
+    let Some(blanks) = blanks else {
+        return;
+    };
+    let local: BTreeSet<usize> = local_players.iter().map(|p| p.handle).collect();
+    let Some(blank) = blanks.iter().find(|b| local.contains(&b.player_handle)) else {
+        return;
+    };
+    if *last_frame == Some(blank.frame) {
+        return;
+    }
+    *last_frame = Some(blank.frame);
+    sounds.play("blank");
+}
+
+/// `door` : une porte vue fermée (avec collider) à l'image précédente est ouverte (porte
+/// achetée de zombies, salle nettoyée de gungeon). Un son par image. Pas de son pour
+/// l'ouverture d'office des portes de salle (`RoomStates::doors_opened` qui passe à `true`, au
+/// début de chaque étage), ni à la première image (référence).
+fn play_door_sound(
+    sounds: FeedbackSounds,
+    doors: Query<
+        (&GgrsNetId, Has<crate::collider::Collider>),
+        With<map::game::entity::map::door::DoorComponent>,
+    >,
+    rooms: Option<Res<world::rooms::RoomStates>>,
+    mut previous: Local<Option<(BTreeSet<usize>, bool)>>,
+) {
+    let now_closed: BTreeSet<usize> = doors
+        .iter()
+        .filter(|(_, has_collider)| *has_collider)
+        .map(|(net_id, _)| net_id.0)
+        .collect();
+    let doors_opened = rooms.is_some_and(|rooms| rooms.doors_opened);
+    let opened = previous.as_ref().is_some_and(|(closed, opened_before)| {
+        let initial_opening = doors_opened && !opened_before;
+        !initial_opening
+            && doors
+                .iter()
+                .any(|(net_id, has_collider)| !has_collider && closed.contains(&net_id.0))
+    });
+    *previous = Some((now_closed, doors_opened));
+    if opened {
+        sounds.play("door");
     }
 }

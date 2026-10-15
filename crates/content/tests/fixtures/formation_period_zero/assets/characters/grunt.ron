@@ -1,0 +1,18 @@
+// M2-T8 : period = 0 sans volley.
+(
+    movement: (max_speed: "60.0"),
+
+    asset_name_ref: "grunt",
+    base_health: (max: "60.0"),
+    starting_skin: "1",
+    skins: {
+        "1": (layers: {}),
+    },
+    ai: Some((
+        behaviors: Some([
+            Formation(shape: Arc(radius: "80.0", spread: "2.0"), period: 0),
+            Chase(profile: "Ground")
+        ]),
+        squad: Some(("s", None)),
+    )),
+)

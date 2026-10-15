@@ -1,0 +1,32 @@
+// M2-T8 (docs/conventions.md §49) : tir alterné. Trois `escouade_tireur` déjà en place sur l'arc
+// (rayon 100) autour du joueur immobile ; `Formation(period: 40)` : le rang r tire dans les fenêtres
+// `(frame / 40) mod 3 == r`. Leur pattern `salve` (télégraphe 10, trois salves de deux flèches
+// espacées de 8 frames) tient dans une fenêtre : jamais plus d'un tireur à la fois, soit 2, 4 puis
+// 6 flèches ennemies au lieu de 6, 12, 18 si les trois tiraient ensemble.
+//
+// À regarder : les flèches partent par salves d'un seul tireur à la fois, chacun son tour.
+Scenario(
+    powerup_drop_chance_override: "0.0",
+    game: "testbed",
+    map: "testbed/floor_a.ldtk",
+    frames: 200,
+    characters: [
+        (character: "escouade_tireur", x: "506.0", y: "640.0", at_frame: 5),
+        (character: "escouade_tireur", x: "524.0", y: "696.0", at_frame: 5),
+        (character: "escouade_tireur", x: "506.0", y: "752.0", at_frame: 5),
+    ],
+    players: [
+        (inputs: []),
+    ],
+    expect: [
+        BulletCount(count: 0, projectile: Some("arrow"), at_frame: 10),
+        // Rang 0 (fenêtre f0-39) : trois salves de deux flèches, un seul tireur
+        BulletCount(count: 2, projectile: Some("arrow"), team: Some(Enemies), at_frame: 18),
+        BulletCount(count: 4, projectile: Some("arrow"), team: Some(Enemies), at_frame: 26),
+        BulletCount(count: 6, projectile: Some("arrow"), team: Some(Enemies), at_frame: 34),
+        // Fin de fenêtre : personne d'autre n'a tiré
+        BulletCount(count: 6, projectile: Some("arrow"), team: Some(Enemies), at_frame: 46),
+        // Rang 1 (fenêtre f40-79) : sa première salve, f51
+        BulletCount(count: 8, projectile: Some("arrow"), team: Some(Enemies), at_frame: 54),
+    ],
+)

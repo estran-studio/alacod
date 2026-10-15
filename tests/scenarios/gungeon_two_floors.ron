@@ -6,8 +6,8 @@
 // ne se verrouillent pas, les portes du second naissent ouvertes. Le bot explorateur est T16.
 //
 // À regarder : f645 le portail s'ouvre ; f752 le joueur est au second étage (index 1, ennemis
-// endormis) ; f828 la salle de combat se verrouille, f1091 elle se rouvre ; f1159 le boss ; f1293
-// phase 1 ; f1425 victoire.
+// endormis) ; f828 la salle de combat se verrouille, f1091 elle se rouvre ; f1159 le boss ; f1273
+// phase 1, f1333 phase 2 (renfort) ; f1385 victoire.
 Scenario(
     powerup_drop_chance_override: "0.0",
     game: "gungeon",
@@ -48,7 +48,7 @@ Scenario(
         RoomState(kind: "combat", state: Locked, at_frame: 900),
         RoomState(kind: "combat", state: Cleared, at_frame: 1120),
         RoomState(kind: "boss", state: Locked, at_frame: 1200),
-        BossPhase(entity: NetId(195), phase: 1, at_frame: 1350), // M2-T1 : 137 avant les balles de l'étage 1 (elles prennent des NetId)
+        BossPhase(entity: NetId(159), phase: 2, at_frame: 1350), // M2-T7 : le boss dormant ne tire plus, ses balles ne prennent plus de NetId
         RunState(step: Ended(Victory), at_frame: 1480),
         PlayerAlive(handle: 0, at_frame: 1499),
     ],

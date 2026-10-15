@@ -325,6 +325,11 @@ pub struct PlayerScript {
     /// personnage (`scenario::runner::apply_player_overrides`). Absent (défaut) : rien.
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub dash: Option<crate::character::movement::DashConfig>,
+    /// Objets tenus dès la première frame (M2-T17, §54, gabarit `ItemHeld`) : ids du kind `Item`,
+    /// posés comme un ramassage (passif : inventaire et modificateurs ; actif : emplacement actif,
+    /// **chargé**). Vide (défaut) : rien, aucune trace existante ne bouge.
+    #[serde(default, skip_serializing_if = "Vec::is_empty")]
+    pub items: Vec<String>,
 }
 
 /// Un modificateur de scénario, posé sur un joueur après sa création
@@ -359,6 +364,10 @@ pub enum BotProfile {
     Chasseur,
     /// Chasseur qui ouvre les portes et achète armes, munitions et Juggernog.
     Acheteur,
+    /// M2-T16 : joue un étage de salles (mode `Floors`) seul : va à la salle à visiter la plus
+    /// proche par le chemin, s'y bat comme `prudent` (esquive, blank), ramasse les objets au
+    /// sol, finit par le boss puis prend le portail (`docs/conventions.md` §47).
+    Explorateur,
 }
 
 impl BotProfile {
@@ -371,6 +380,7 @@ impl BotProfile {
             Self::Prudent => "prudent",
             Self::Chasseur => "chasseur",
             Self::Acheteur => "acheteur",
+            Self::Explorateur => "explorateur",
         }
     }
 
@@ -382,6 +392,7 @@ impl BotProfile {
             "prudent" => Some(Self::Prudent),
             "chasseur" => Some(Self::Chasseur),
             "acheteur" => Some(Self::Acheteur),
+            "explorateur" => Some(Self::Explorateur),
             _ => None,
         }
     }

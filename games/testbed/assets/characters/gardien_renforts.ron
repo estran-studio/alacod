@@ -1,0 +1,71 @@
+// Boss de laboratoire M2-T7 (testbed, docs/conventions.md §45) : renforts. Phase 0 : la volée
+// `volee` (avec télégraphe de 15 frames posé par l'action `Telegraph`) toutes les 150 frames ; sous 60 % de santé,
+// phase 1 : à l'entrée, deux `dummy` apparaissent dans la salle (`SpawnEnemies`, positions seedées par le flux
+// RNG de la salle). Scénario `boss_reinforcements`.
+(
+    movement: (
+        acceleration: "0.0",
+        max_speed: "0.0",
+        sprint_multiplier: "1.0",
+        sprint_acceleration_per_frame: "0.0",
+        sprint_deceleration_per_frame: "0.0",
+
+        dash_distance: "0.0",
+        dash_duration_frames: 0,
+        dash_cooldown_frames: 0,
+    ),
+
+    asset_name_ref: "gardien_renforts",
+
+    collider: (
+        shape: Rectangle(
+            width: "20.",
+            height: "20.",
+        ),
+        offset: ( x: "0.0", y: "-6.0", z: "0.0" )
+    ),
+
+    scale: "1.0",
+
+    base_health: (
+        max: "120.0",
+    ),
+
+    starting_skin: "1",
+    skins: {
+        "1": (layers: {}),
+    },
+
+    ai: Some((
+        movement_type: None,
+        aggro_range: Some("400.0"),
+        attack_range: Some("0.0"),
+        attack_cooldown_frames: None,
+        can_break: None,
+        attack_through: None,
+        ignores: None,
+        path_through_breakables: None,
+        flee_threshold: None,
+        attack_damage: None,
+        stationary: Some(true),
+    )),
+
+    boss: Some((
+        phases: [
+            (
+                until: Some(HealthBelow("0.6")),
+                timeline: Some((
+                    events: [(at: 10, do: [Telegraph(15), SpawnPattern(pattern: "volee", weapon: "fireball_gun")])],
+                    repeat: Some(150),
+                )),
+            ),
+            (
+                on_enter: [SpawnEnemies(id: "dummy", count: 2)],
+                timeline: Some((
+                    events: [(at: 0, do: [SpawnPattern(pattern: "couronne", weapon: "fireball_gun")])],
+                    repeat: Some(90),
+                )),
+            ),
+        ],
+    )),
+)

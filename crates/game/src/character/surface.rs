@@ -123,6 +123,7 @@ mod tests {
             tags: vec!["s".into()],
             move_speed: Fixed::from_num(move_speed),
             acceleration: Fixed::ONE,
+            pit: None,
         }
     }
 

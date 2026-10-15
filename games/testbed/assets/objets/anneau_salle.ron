@@ -6,4 +6,6 @@
     effects: [
         (on: OnRoomClear, do: [Modifier(stat: Damage, op: Add, value: "1")]),
     ],
+    // M2-T17 (docs/conventions.md §54) : scénario généré `item_anneau_salle`.
+    test: Some((frames: 60)),
 )

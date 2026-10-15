@@ -179,7 +179,15 @@ pub fn item_consumable_pickup_system(
         } else {
             // M2-T4 : un consommable à effets `OnUse` s'applique au ramassage (aucun bouton
             // d'usage n'existe pour lui) et n'entre pas dans l'inventaire.
-            apply_instant_effects(def, &pickup.item_id, frame.frame, health, &mut modifiers);
+            apply_instant_effects(
+                def,
+                &pickup.item_id,
+                frame.frame,
+                health,
+                &mut modifiers,
+                &mut commands,
+                entity,
+            );
         }
         info!(
             "ggrs{{f={} item_pickup net_id={} item={} by={}}}",
@@ -289,6 +297,8 @@ fn apply_instant_effects(
     frame: u32,
     mut health: Option<Mut<Health>>,
     modifiers: &mut Modifiers,
+    commands: &mut Commands,
+    entity: Entity,
 ) {
     let source: ModifierSource = item_source(item_id);
     for effect in def.effects.iter().filter(|e| e.on == effects::On::OnUse) {
@@ -307,6 +317,10 @@ fn apply_instant_effects(
                         health.current =
                             effects::runtime::healed(health.current, health.max, *amount);
                     }
+                }
+                // D61 : bouclier (distinct de l'armure), posé au premier gain.
+                Action::GainShield(points) => {
+                    combat::actors::queue_gain_shield(commands, entity, *points);
                 }
                 // Refusées par le lint (effets v2).
                 _ => {}
@@ -398,8 +412,10 @@ pub fn item_use_active_system(
     table: Res<ItemTable>,
     floor: Option<Res<run::FloorState>>,
     inputs: Res<PlayerInputs<PeerConfig>>,
+    mut commands: Commands,
     mut players: Query<(
         &GgrsNetId,
+        Entity,
         &Player,
         &mut Inventory,
         &mut Modifiers,
@@ -407,7 +423,9 @@ pub fn item_use_active_system(
     )>,
 ) {
     let floor_index = floor.map_or(0, |f| f.index);
-    for (net_id, player, mut inventory, mut modifiers, health) in utils::order_mut_iter!(players) {
+    for (net_id, entity, player, mut inventory, mut modifiers, health) in
+        utils::order_mut_iter!(players)
+    {
         if inputs[player.handle].0.buttons & INPUT_USE_ACTIVE == 0 {
             continue;
         }
@@ -440,7 +458,15 @@ pub fn item_use_active_system(
                 *stock -= *count;
             }
         }
-        apply_instant_effects(def, &item_id, frame.frame, health, &mut modifiers);
+        apply_instant_effects(
+            def,
+            &item_id,
+            frame.frame,
+            health,
+            &mut modifiers,
+            &mut commands,
+            entity,
+        );
         let counts_uses = def.uses_per_floor.is_some();
         if let Some(slot) = inventory.active.as_mut() {
             slot.charge = 0;
@@ -606,7 +632,16 @@ fn track_blank_system(events: Res<FrameEvents<BlankUsed>>, mut last: ResMut<Last
 }
 
 /// Onde du blank : un cercle qui s'étend jusqu'au rayon et s'estompe (`Update`, présentation).
-fn draw_blank_wave_system(last: Res<LastBlank>, frame: Res<FrameCount>, mut gizmos: Gizmos) {
+fn draw_blank_wave_system(
+    last: Res<LastBlank>,
+    frame: Res<FrameCount>,
+    config: Option<Res<crate::feedback::FeedbackConfigLoaded>>,
+    mut gizmos: Gizmos,
+) {
+    // M2-T19 (§55) : l'anneau de `ui/feedback.ron` (`blank`) remplace cette onde quand il est actif.
+    if config.is_some_and(|config| config.0.blank.enabled) {
+        return;
+    }
     let Some(blank) = last.0 else {
         return;
     };

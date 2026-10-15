@@ -302,9 +302,13 @@ pub fn apply_powerup_actions_system(
                 Action::DestroyTerrain { .. }
                 | Action::Modifier { .. }
                 | Action::Heal(_)
+                | Action::GainShield(_)
                 | Action::SpawnPattern { .. }
                 | Action::GaugeAdd(..)
-                | Action::ApplyStatus { .. } => {}
+                | Action::ApplyStatus { .. }
+                // Frise de boss seulement (M2-T7, refusées par le lint)
+                | Action::SpawnEnemies { .. }
+                | Action::Telegraph(_) => {}
                 Action::TimedModifier { .. } | Action::CurrencyMultiplier { .. } => {
                     for (net_id, _player, _dead, mut modifiers, _reserves, _inventory) in
                         order_mut_iter!(players)
@@ -482,7 +486,12 @@ pub fn loot_drop_on_death_system(
     mut commands: Commands,
     dying: Query<
         (&GgrsNetId, &Team, &fixed_math::FixedTransform3D),
-        (With<Rollback>, Added<Death>),
+        (
+            With<Rollback>,
+            Added<Death>,
+            // M2-T11 : un baril (équipe `Enemies`) ne laisse aucun butin
+            Without<world::BarrelState>,
+        ),
     >,
 ) {
     let Some(config) = global_assets

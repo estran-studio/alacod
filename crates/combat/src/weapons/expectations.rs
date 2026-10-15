@@ -29,6 +29,10 @@ pub enum EntityKind {
     Bullet,
     /// Toutes les entités marquées `Rollback`.
     Rollback,
+    /// Barils explosifs vivants (M2-T11, `docs/conventions.md` §46).
+    Barrel,
+    /// Tables (debout ou renversées) pas encore détruites (M2-T11).
+    Table,
 }
 
 /// Étape de `Run` attendue (T2.4, chantier F1, `Expectation::RunState`) : miroir minimal de
@@ -475,6 +479,9 @@ pub enum Expectation {
 pub enum DistanceTarget {
     /// Le joueur de handle GGRS `0`, `1`, ...
     Player(usize),
+    /// M2-T8 : une autre entité (ex. un autre membre d'escouade, `Placed(n)`) : écarts d'une
+    /// formation.
+    Entity(EntityRef),
 }
 
 impl Expectation {

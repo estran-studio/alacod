@@ -5,4 +5,6 @@
     effects: [
         (on: OnKill, do: [Modifier(stat: Damage, op: Add, value: "1")]),
     ],
+    // M2-T17 (docs/conventions.md §54) : scénario généré `item_porte_bonheur`.
+    test: Some((frames: 60)),
 )
