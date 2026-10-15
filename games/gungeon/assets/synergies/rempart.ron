@@ -1,0 +1,6 @@
+// `gungeon` (M2-T14b) : le gilet et le bastion ensemble ajoutent +25 d'armure (D61).
+(
+    name: "Rempart",
+    requires: ["gilet", "bastion"],
+    modifiers: [(stat: Armor, op: Add, value: "25")],
+)

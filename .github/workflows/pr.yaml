@@ -9,50 +9,12 @@ on:
       - synchronize
       - reopened
 
+# Un nouveau push sur la même PR annule la vérification en cours.
+concurrency:
+  group: pr-${{ github.event.pull_request.number }}
+  cancel-in-progress: true
+
 jobs:
-  check:
-    name: Tests & Format
-    runs-on: ubuntu-latest
-    steps:
-      - name: Check out
-        uses: actions/checkout@v4
-        with:
-          fetch-depth: 0
-
-      - name: Install system dependencies
-        run: |
-          sudo apt-get update
-          sudo apt-get install -y \
-            pkg-config \
-            libasound2-dev \
-            libudev-dev \
-            libwayland-dev \
-            libxkbcommon-dev \
-            libx11-dev
-
-      - name: Install Rust toolchain
-        uses: dtolnay/rust-toolchain@nightly
-        with:
-          components: rustfmt
-
-      - name: Cache cargo registry and git
-        uses: Swatinem/rust-cache@v2
-        with:
-          workspaces: .
-          cache-all-crates: true
-
-      - name: Format check
-        run: make format
-
-      - name: Run tests
-        run: cargo test
-
-      - name: Run scenario tests
-        run: make test_scenarios
-
-      - name: Check forbidden patterns
-        run: ./scripts/check-forbidden.sh
-        continue-on-error: true
-
-      - name: Check rollback registration
-        run: ./scripts/check-rollback-registration.sh
+  checks:
+    name: Checks
+    uses: ./.github/workflows/checks.yaml

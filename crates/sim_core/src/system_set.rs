@@ -60,6 +60,28 @@ impl RollbackSystemSet {
         RollbackSystemSet::Run,
         RollbackSystemSet::FrameCounter,
     ];
+
+    /// Nom de la variante (profil par set, `utils::system_profile`).
+    pub const fn name(self) -> &'static str {
+        match self {
+            Self::FrameStart => "FrameStart",
+            Self::Input => "Input",
+            Self::Interaction => "Interaction",
+            Self::Movement => "Movement",
+            Self::Weapon => "Weapon",
+            Self::Projectiles => "Projectiles",
+            Self::World => "World",
+            Self::CollisionDamage => "CollisionDamage",
+            Self::Effects => "Effects",
+            Self::Status => "Status",
+            Self::DeathManagement => "DeathManagement",
+            Self::AnimationUpdates => "AnimationUpdates",
+            Self::EnemySpawning => "EnemySpawning",
+            Self::EnemyAI => "EnemyAI",
+            Self::Run => "Run",
+            Self::FrameCounter => "FrameCounter",
+        }
+    }
 }
 
 #[cfg(test)]

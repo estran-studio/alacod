@@ -1,5 +1,5 @@
 use crate::core::AppState;
-use crate::jjrs::GameDisconnectedEvent;
+use crate::jjrs::SessionLostEvent;
 use bevy::prelude::*;
 
 pub struct DisconnectedUiPlugin;
@@ -24,7 +24,7 @@ struct ReloadButton;
 
 fn handle_disconnect_event(
     mut commands: Commands,
-    mut events: MessageReader<GameDisconnectedEvent>,
+    mut events: MessageReader<SessionLostEvent>,
     q_existing_ui: Query<Entity, With<DisconnectedUiRoot>>,
     run: Option<Res<run::Run>>,
 ) {
@@ -43,11 +43,11 @@ fn handle_disconnect_event(
     }
 
     for event in events.read() {
-        spawn_disconnect_ui(&mut commands, event.0.clone());
+        spawn_disconnect_ui(&mut commands, event.title, event.message.clone());
     }
 }
 
-fn spawn_disconnect_ui(commands: &mut Commands, message: String) {
+fn spawn_disconnect_ui(commands: &mut Commands, title: &'static str, message: String) {
     commands
         .spawn((
             Node {
@@ -65,7 +65,7 @@ fn spawn_disconnect_ui(commands: &mut Commands, message: String) {
         ))
         .with_children(|parent| {
             parent.spawn((
-                Text::new("GAME DISCONNECTED"),
+                Text::new(title),
                 TextFont {
                     font_size: FontSize::Px(50.0),
                     ..default()

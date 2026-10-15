@@ -25,8 +25,9 @@ use serde::{Deserialize, Serialize};
 use utils::{
     frame::FrameCount,
     net_id::{GgrsNetId, GgrsNetIdFactory},
-    web::WebPlugin,
 };
+
+use crate::web::WebPlugin;
 
 use crate::{
     audio::ZAudioPlugin,
@@ -40,7 +41,7 @@ use crate::{
         local::{setup_ggrs_local, system_after_map_loaded_local},
         log_ggrs_events,
         p2p::{start_matchbox_socket, system_after_map_loaded, wait_for_players},
-        GameDisconnectedEvent, GggrsSessionConfigurationState,
+        GggrsSessionConfigurationState, SessionLostEvent,
     },
     light::ZLightPlugin,
     system_set::RollbackSystemSet,
@@ -183,7 +184,7 @@ impl Plugin for CoreSetupPlugin {
         // `RunSeed` (jjrs/local.rs, jjrs/p2p.rs) ; enregistrés en rollback plus bas.
         app.insert_resource(RngStreams::new(12345));
 
-        app.add_message::<GameDisconnectedEvent>();
+        app.add_message::<SessionLostEvent>();
 
         app.init_state::<AppState>();
         // app.set_rollback_schedule_fps(60);
@@ -200,6 +201,44 @@ impl Plugin for CoreSetupPlugin {
         // (mêmes arêtes qu'un `.chain()` sur un n-uplet, sans limite d'arité de tuple).
         for pair in RollbackSystemSet::ORDER.windows(2) {
             app.configure_sets(GgrsSchedule, pair[1].after(pair[0]));
+        }
+        // `ALACOD_SYSTEM_PROFILE=1` : temps par set (`utils::system_profile`), une frontière
+        // entre deux sets voisins, une avant le premier, une après le dernier ; rien sinon.
+        // Le champ de flux (`update_flow_field_system`, entre `EnemySpawning` et `EnemyAI`) a sa
+        // propre tranche : mesuré le 2026-10-15 (p2p_smoke, 4 joueurs qui bougent), il pèse
+        // 9,1 ms des 9,3 ms d'une frame de simulation (reconstruction à chaque changement de
+        // case d'un joueur, `FlowFieldCache::update_interval` vaut 0 par `Default`).
+        if utils::system_profile::requested() {
+            use crate::character::enemy::ai::navigation::update_flow_field_system;
+            use utils::system_profile::boundary;
+            app.init_resource::<utils::system_profile::SetTimings>();
+            let order = RollbackSystemSet::ORDER;
+            app.add_systems(
+                GgrsSchedule,
+                boundary(Some(order[0].name())).before(order[0]),
+            );
+            for pair in order.windows(2) {
+                let (before, after) = (pair[0], pair[1]);
+                if after == RollbackSystemSet::EnemyAI {
+                    app.add_systems(
+                        GgrsSchedule,
+                        (
+                            boundary(Some("FlowField"))
+                                .after(before)
+                                .before(update_flow_field_system),
+                            boundary(Some(after.name()))
+                                .after(update_flow_field_system)
+                                .before(after),
+                        ),
+                    );
+                } else {
+                    app.add_systems(
+                        GgrsSchedule,
+                        boundary(Some(after.name())).after(before).before(after),
+                    );
+                }
+            }
+            app.add_systems(GgrsSchedule, boundary(None).after(order[order.len() - 1]));
         }
 
         // First step is to load the global asset
@@ -288,6 +327,14 @@ impl Plugin for CoreSetupPlugin {
 
         app.add_plugins(crate::state_trace::StateTracePlugin);
         app.add_plugins(crate::recording::RecordingPlugin);
+        // `ALACOD_SNAPSHOT_PROFILE=1` : coût du rollback (sauvegarde, restauration, simulation,
+        // inventaire des snapshots) écrit dans le journal à la sortie par `state_trace`. Le
+        // runner de scénarios installe le plugin lui-même (métriques) : jamais deux fois.
+        if std::env::var("ALACOD_SNAPSHOT_PROFILE").is_ok_and(|v| v == "1")
+            && !app.is_plugin_added::<utils::snapshot_profile::SnapshotProfilePlugin>()
+        {
+            app.add_plugins(utils::snapshot_profile::SnapshotProfilePlugin);
+        }
         // Rechargement à chaud du registre de contenu hors partie (T1.5) : no-op sans
         // `GameRoot` (tests de scénario) ou sans changement de fichier détecté (sans
         // feature `native`, aucun `AssetEvent` de modification n'est jamais émis).
@@ -304,9 +351,51 @@ impl Plugin for CoreSetupPlugin {
                 // `Run`) ; sans horloge ni difficulté activée, elle ne fait rien.
                 crate::clock::clock_system.before(increase_frame_system),
                 increase_frame_system,
+                // Exercice de desync (`ALACOD_DEBUG_DESYNC_AT`) : no-op sans la variable.
+                crate::jjrs::debug_desync_system.after(increase_frame_system),
             )
                 .in_set(RollbackSystemSet::FrameCounter),
         );
+    }
+
+    /// Après tous les `build` : exécuteur des schedules du rollback (voir
+    /// [`single_threaded_rollback_schedules`]).
+    fn finish(&self, app: &mut App) {
+        single_threaded_rollback_schedules(app);
+    }
+}
+
+/// Exécuteur monothread pour les schedules du rollback (`ReadInputs`, `AdvanceWorld`,
+/// `GgrsSchedule`, `SaveWorld`, `LoadWorld`), dans le jeu comme dans les scénarios.
+///
+/// La simulation compte des centaines de petits systèmes par frame : l'exécuteur multithread
+/// de Bevy y coûte plus (réveils de threads, ≈ 1 500 `futex` par frame) qu'il ne rapporte.
+/// Mesuré le 2026-10-15 sur le smoke p2p de `zombies` à deux clients (97 entités), profil
+/// `utils::snapshot_profile` : une frame de simulation à 6,8 ms en moyenne (23,6 ms au pire)
+/// en multithread, contre 0,15 ms sur la même charge en monothread dans le runner de
+/// scénarios. En ligne, un rollback de 12 frames coûte donc 80 ms au lieu de 2. L'ordre
+/// d'exécution ne change aucun résultat : `GgrsSchedule` refuse toute ambiguïté d'ordre
+/// (`ambiguity_detection: Error`) et les traces de référence le prouvent.
+/// `ALACOD_EXECUTOR=multi` rétablit l'exécuteur par défaut (comparaison).
+pub fn single_threaded_rollback_schedules(app: &mut App) {
+    if std::env::var("ALACOD_EXECUTOR").is_ok_and(|v| v == "multi") {
+        return;
+    }
+    let mut schedules = app
+        .world_mut()
+        .resource_mut::<bevy::ecs::schedule::Schedules>();
+    use bevy::ecs::schedule::ScheduleLabel as _;
+    let labels = [
+        bevy_ggrs::ReadInputs.intern(),
+        bevy_ggrs::AdvanceWorld.intern(),
+        GgrsSchedule.intern(),
+        bevy_ggrs::SaveWorld.intern(),
+        bevy_ggrs::LoadWorld.intern(),
+    ];
+    for label in labels {
+        if let Some(schedule) = schedules.get_mut(label) {
+            schedule.set_executor(bevy::ecs::schedule::SingleThreadedExecutor::new());
+        }
     }
 }
 
@@ -407,11 +496,11 @@ impl Plugin for PresentationPlugin {
         app.add_plugins(crate::room_fog::RoomFogPlugin);
         app.add_plugins(crate::ui::hud::HudPlugin);
         app.add_plugins(crate::ui::mutation_screen::MutationScreenPlugin);
-        // M2-T18 : écrans pause et inventaire, deux rendus au choix (`ALACOD_SCREENS`).
-        app.insert_resource(crate::ui::screens::ScreenBackend::from_env());
-        app.add_plugins(crate::ui::screens::custom::CustomScreensPlugin);
         #[cfg(feature = "ui_hui")]
-        app.add_plugins(crate::ui::screens::hui::HuiScreensPlugin);
+        app.add_plugins((
+            crate::ui::screens::hui::HuiScreensPlugin,
+            crate::ui::game_over::GameOverUiPlugin,
+        ));
         app.add_plugins(crate::ui::floor_transition::FloorTransitionPlugin);
         #[cfg(feature = "debug_ui")]
         if debug_ui_enabled() {

@@ -1,0 +1,9 @@
+// `gungeon` (M2-T14b) : passif, +20 % de portée des armes (source `item:lunettes`).
+(
+    name: "Lunettes de visée",
+    kind: Passive,
+    modifiers: [(stat: Range, op: Pct, value: "0.2")],
+    tags: ["offensif"],
+    rarity: Common,
+    test: Some((frames: 60)),
+)

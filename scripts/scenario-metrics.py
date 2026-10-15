@@ -58,11 +58,14 @@ def main():
             if prev_path.exists():
                 previous_metrics = load_metrics(prev_path)
 
-    # Afficher le tableau
+    # Afficher le tableau. Colonnes de coût du rollback (ms, moyenne par frame) : `sim` = une
+    # frame de simulation (`AdvanceWorld`), `save` = checksum + clone des snapshots, `load` =
+    # restauration ; `rb×12` = pire rollback (load + 12 frames resimulées), à comparer aux
+    # 16,7 ms d'un tick à 60 Hz. Les fichiers d'avant la mesure n'ont pas ces champs (0).
     print()
-    print("╭─ Scénarios Performance ─────────────────────────────────────────────╮")
-    print("│ Scénario              │ FPS   │  Δ FPS │ Entités │ Balles │ Ennemis │")
-    print("├───────────────────────┼───────┼────────┼─────────┼────────┼─────────┤")
+    print("╭─ Scénarios Performance ──────────────────────────────────────────────────────────────────────────────╮")
+    print("│ Scénario              │ FPS   │  Δ FPS │ Entités │ Balles │ Ennemis │ sim ms │ save │ load │ rb×12 │")
+    print("├───────────────────────┼───────┼────────┼─────────┼────────┼─────────┼────────┼──────┼──────┼───────┤")
 
     for name in sorted(latest.keys()):
         metrics = latest[name]
@@ -75,10 +78,14 @@ def main():
             pct = (delta / prev['sim_fps'] * 100) if prev['sim_fps'] > 0 else 0
             sign = "+" if delta > 0 else ""
             delta_str = f"{sign}{pct:.0f}%"
+        sim_ms = metrics.get("advance_ms_avg", 0.0)
+        save_ms = metrics.get("save_ms_avg", 0.0)
+        load_ms = metrics.get("load_ms_avg", 0.0)
+        rollback_ms = metrics.get("rollback_ms_worst", 0.0)
 
-        print(f"│ {name:21s} │ {fps_str:>5s} │ {delta_str:>6s} │ {metrics['entities_max']:>7} │ {metrics['bullets_max']:>6} │ {metrics['enemies_max']:>7} │")
+        print(f"│ {name:21s} │ {fps_str:>5s} │ {delta_str:>6s} │ {metrics['entities_max']:>7} │ {metrics['bullets_max']:>6} │ {metrics['enemies_max']:>7} │ {sim_ms:>6.2f} │ {save_ms:>4.2f} │ {load_ms:>4.2f} │ {rollback_ms:>5.1f} │")
 
-    print("╰───────────────────────┴───────┴────────┴─────────┴────────┴─────────╯")
+    print("╰───────────────────────┴───────┴────────┴─────────┴────────┴─────────┴────────┴──────┴──────┴───────╯")
     print()
 
     print_sim_table(current_commit)
