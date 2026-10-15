@@ -470,7 +470,7 @@ pub fn powerup_expiry_system(
 /// `RollbackSystemSet::DeathManagement`, `.after(rollback_apply_accumulated_damage)`
 /// (`Death` est posée là, et aussi par `apply_powerup_actions_system::KillAllWaveEnemies`
 /// plus tôt dans la frame, `RollbackSystemSet::Effects` — les deux sont visibles ici via
-/// `Added<Death>`), `.before(rollback_apply_death)` (il faut la position de l'entité avant
+/// `With<Death>`), `.before(rollback_apply_death)` (il faut la position de l'entité avant
 /// qu'elle ne soit détruite, même contrainte que
 /// `waves::systems::wave_enemy_death_tracking_system`).
 ///
@@ -488,7 +488,7 @@ pub fn loot_drop_on_death_system(
         (&GgrsNetId, &Team, &fixed_math::FixedTransform3D),
         (
             With<Rollback>,
-            Added<Death>,
+            With<Death>,
             // M2-T11 : un baril (équipe `Enemies`) ne laisse aucun butin
             Without<world::BarrelState>,
         ),

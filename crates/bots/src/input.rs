@@ -384,6 +384,13 @@ pub fn read_bot_inputs(
             continue;
         }
 
+        // D68 : à terre, l'explorateur attend la réanimation. Continuer le pilotage de
+        // prudent (repli ou portail) déplace sa surface hors de portée de l'équipier.
+        if profile == BotProfile::Explorateur && downed.is_some() {
+            local_inputs.0.insert(player.handle, BoxInput::default());
+            continue;
+        }
+
         let position = transform.translation.truncate();
         let surfaces = if profile == BotProfile::Explorateur {
             &surfaces_any

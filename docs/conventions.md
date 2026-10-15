@@ -2456,6 +2456,11 @@ optionnel, nombre de portes fermées de la carte. Moment clé `room` (« salle c
 `rooms_door_occupied`. Diagnostic : `ALACOD_MAP_PROBE=<scénario>:<frame>` affiche aussi les salles
 (état) et les ennemis (position, dormant).
 
+D68 : si un ennemi chevauche une porte ouverte, une salle dormante réveille ses ennemis dès
+qu'un joueur debout y entre (même marge `PLAYER_INSET` que le verrouillage). La porte
+reste ouverte tant qu'un corps la chevauche. Un ennemi endormi sur une porte ne peut ainsi plus
+empêcher son propre réveil. La dormance est recalculée avant l'IA à chaque frame, sans état caché.
+
 ## 36. Objets et inventaire (M2-T0b, chantier C2)
 
 Contrats : crate `items` (simulation, sans rendu) ; runtime : `game::items` ; contenu :
@@ -3284,6 +3289,9 @@ profils existants sont inchangés (aucune trace existante ne bouge).
 - **Zone morte** : `surface_step` considère le bot arrivé quand son pas est sous `ROUTE_DEAD_ZONE`
   sur les deux axes ; sinon il restait immobile à 36 px de la portée, sans presser Interaction
   (graine 47 à 2 bots, `etages_deux`, soft-lock).
+- **D68 : à terre, l'explorateur envoie un input neutre** jusqu'à sa réanimation. Il poursuivait
+  sinon le repli de `prudent` ou le portail, quittant la portée de l'équipier. Le jeu continue
+  d'autoriser le déplacement à terre pour les joueurs humains (`downed_speed_mult`).
 - Campagne : `docs/taches/rapports/bot-explorateur-v2/campagne.sh` (lots de 10 graines).
 
 **`alacod-sim`** : `--floors <séquence> --until-floor N` existait (T1.14) ; le JSON gagne `outcome`
@@ -3419,6 +3427,11 @@ Scénarios : `shells_drop`, `shop_buy`, `shop_refused` (testbed), `shop_seeded` 
 
 **Hors périmètre** : marchand PNJ et déblocages méta (M2-T12, T13), vol, réduction de prix, HUD des
 shells (M2-T18).
+D68 : les drops de mort (douilles, power-ups et armes de progression) interrogent `With<Death>`
+avant `rollback_apply_death`, qui désactive immédiatement le mort. Le drop reste unique et se
+rejoue après restauration d'une mort posée en fin de frame (arène) ; les ticks `Added` ne font pas
+partie du snapshot rollback et ne peuvent pas servir à détecter cette mort.
+
 
 ## 52. Contenu `gungeon` (M2-T14, quatre parties)
 

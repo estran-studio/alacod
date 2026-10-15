@@ -122,6 +122,9 @@ pub fn draw_shelves(
 }
 
 /// Lâche des `shells` à la mort d'un ennemi (équipe `Enemies`, hors barils).
+/// D68 : `With<Death>`, car une mort posée en fin de frame (arène) est restaurée sans
+/// ses ticks `Added` par le rollback. Le mort est désactivé juste après par `rollback_apply_death`,
+/// donc le drop se produit une fois, y compris en resimulation.
 #[allow(clippy::too_many_arguments, clippy::type_complexity)]
 pub fn shell_drop_on_death_system(
     frame: Res<FrameCount>,
@@ -134,7 +137,7 @@ pub fn shell_drop_on_death_system(
     mut commands: Commands,
     dying: Query<
         (&GgrsNetId, &Team, &fixed_math::FixedTransform3D),
-        (With<Rollback>, Added<Death>, Without<world::BarrelState>),
+        (With<Rollback>, With<Death>, Without<world::BarrelState>),
     >,
 ) {
     let drop = overrides.shells_drop.or_else(|| {
