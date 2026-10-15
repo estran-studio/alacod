@@ -1,12 +1,27 @@
+// D72 (docs/conventions.md §56) : mémoire de visite de la minicarte. Étage `etages_grammaire`, graine 12 :
+// la boutique est voisine ouest de la salle de départ. Le joueur y entre (f5-80), attend, revient au départ
+// (f120-200). La boutique n'est jamais activée par la simulation (`RoomStates` la laisse `Dormant`) : sans
+// mémoire de visite elle redeviendrait « inexplorée » dès la sortie.
+//
+// À regarder : f10 le joueur est au départ ; f40-80 il traverse la porte ouest et entre dans la boutique
+// (présentoirs) ; f120-200 il revient au départ. Minicarte : la boutique est « visitée » après la sortie.
 Scenario(
     powerup_drop_chance_override: "0.0",
     game: "gungeon",
     floors: Some("etages_grammaire"),
-    map_seed: 1,
-    frames: 60,
-    players: [(inputs: [])],
+    map_seed: 12,
+    frames: 200,
+    players: [(inputs: [
+        (from: 5, to: 80, buttons: [Left]),
+        (from: 120, to: 200, buttons: [Right]),
+    ])],
     expect: [
-        HudText(source: "minimap", contains: "ZZZ", at_frame: 5),
-        PlayerPosition(handle: 0, x: "0.0", y: "0.0", tolerance: "1.0", at_frame: 5),
+        HudText(source: "minimap", contains: "boutique · inexplorée", at_frame: 10),
+        HudText(source: "minimap", contains: "depart · visitée · actuelle", at_frame: 10),
+        HudText(source: "minimap", contains: "boutique · visitée · actuelle", at_frame: 90),
+        HudText(source: "minimap", contains: "boutique · visitée\n", at_frame: 199),
+        HudText(source: "minimap", contains: "depart · visitée · actuelle", at_frame: 199),
+        HudText(source: "minimap", contains: "recompense · inexplorée", at_frame: 199),
+        RoomState(kind: "boutique", state: Dormant, at_frame: 199),
     ],
 )
