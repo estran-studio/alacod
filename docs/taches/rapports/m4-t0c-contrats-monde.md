@@ -38,7 +38,7 @@ cavernes ; T4 ajoutera les rochers-entités à ses candidats.
 - `make test_crates`, `make lint`, `cargo fmt --check`, `make check_sim_boundary`, `make gen GAME=gungeon`
   (sans diff) verts. Fixtures de lint : `explode_radius_zero`, `door_lock_key_zero`,
   `hazard_period_zero`, `bomb_fuse_zero`.
-- `fuzz_inputs` : le bit 18 n'a aucun effet (aucun système ne le lit, aucun personnage n'a `bomb`).
+- `fuzz_inputs` (`ALACOD_FUZZ=0:4`, 3600 frames) sans divergence ; le bit 18 n'a aucun effet (aucun système ne le lit, aucun personnage n'a `bomb`).
 - Contrôle de `rocks_static` : départ à x = 168, arrêt à 293,8 de f100 à f215 (rocher de 304 à 320,
   demi-collider du joueur 10) ; l'invariant `joueur_hors_mur` tient.
 
