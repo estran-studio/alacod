@@ -44,15 +44,17 @@ jobs:
       - name: Format check
         run: make format
 
-      - name: Run tests
-        run: cargo test
+      - name: Test validation tools
+        run: make test_tools
+
+      - name: Check deterministic patterns and rollback registration
+        run: make check_forbidden check_rollback_registration
+
+      - name: Run workspace tests (headless, including P2P regression tests)
+        run: make test_crates
 
       - name: Run scenario tests
         run: make test_scenarios
 
-      - name: Check forbidden patterns
-        run: ./scripts/check-forbidden.sh
-        continue-on-error: true
-
-      - name: Check rollback registration
-        run: ./scripts/check-rollback-registration.sh
+      - name: Lint game content
+        run: make lint

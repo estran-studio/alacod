@@ -225,6 +225,8 @@ else
 
                     log_step "  Starting ${CID}..."
 
+                    rm -f "${TRACE_FILE}"
+                    ALACOD_INPUT=neutral \
                     ALACOD_HEADLESS=1 \
                     ALACOD_STATE_TRACE="${TRACE_FILE}" \
                     ALACOD_EXIT_AT_FRAME=600 \
@@ -265,24 +267,12 @@ else
                 # Compare traces between first and other clients
                 if [ "${NUM_PLAYERS}" -gt 1 ]; then
                     log_step "  Comparing traces between clients..."
-                    FIRST_TRACE="${NIGHTLY_DIR}/p2p-${NUM_PLAYERS}-client_0.trace"
-                    TRACES_MATCH=true
-
-                    for ((i = 1; i < NUM_PLAYERS; i++)); do
-                        TRACE="${NIGHTLY_DIR}/p2p-${NUM_PLAYERS}-client_${i}.trace"
-                        if [ -f "${FIRST_TRACE}" ] && [ -f "${TRACE}" ]; then
-                            if ! diff -q "${FIRST_TRACE}" "${TRACE}" &> /dev/null; then
-                                log_error "  Trace mismatch: client_0 vs client_${i}"
-                                # Find first differing frame for diagnostics
-                                FIRST_DIFF=$(diff "${FIRST_TRACE}" "${TRACE}" | head -1)
-                                log_error "  First difference: ${FIRST_DIFF}"
-                                TRACES_MATCH=false
-                            fi
-                        fi
+                    TRACE_FILES=()
+                    for ((i = 0; i < NUM_PLAYERS; i++)); do
+                        TRACE_FILES+=("${NIGHTLY_DIR}/p2p-${NUM_PLAYERS}-client_${i}.trace")
                     done
-
-                    if [ "$TRACES_MATCH" = false ]; then
-                        append_summary "### C. P2P Headless (${NUM_PLAYERS}p): ❌ DESYNC DETECTED"
+                    if ! python3 scripts/check-p2p-traces.py --frames 599 "${TRACE_FILES[@]}"; then
+                        append_summary "### C. P2P Headless (${NUM_PLAYERS}p): ❌ INVALID OR DIVERGENT TRACES"
                         ${DOCKER_COMPOSE} -f docker-compose.ci.yaml --profile allumette down 2>/dev/null || true
                         exit 1
                     fi
