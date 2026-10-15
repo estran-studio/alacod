@@ -45,3 +45,21 @@ traces `unlock_*` sont nouvelles.
 
 Hub et PNJ marchand (M2-T13), synchronisation en ligne des profils (pubkey allumette), méta-monnaie
 dépensée en run. En ligne, l'ensemble vient de la variable d'environnement, pas encore d'un échange réseau.
+
+## Pour M2-T13 (hub) : lire les déblocages, le profil, acheter
+
+- **Lire `RunUnlocks`** (ce que la partie utilise) : `Res<items::RunUnlocks>` (`.has(id)`, `.0` : `BTreeSet<String>`),
+  posée au lancement de la run (`jjrs/local.rs`, `jjrs/p2p.rs`). Seul accès autorisé depuis la simulation ; ne
+  jamais lire le profil dans `GgrsSchedule`.
+- **Lire le profil** (hors simulation, `Update` ou menu) : `Res<meta::Profiles>` (`Profiles.0` : `BTreeMap<id, Profile>`,
+  ids `local-<handle>` via `meta::local_id`), ou `meta::load(dir, id)` ; `Profile::has_unlock(id)`,
+  `Profile::currency("essence")`, `Profile.stats`. Dossier : `meta::profile_dir()` (`ALACOD_PROFILE_DIR` sinon données utilisateur).
+- **Catalogue** : `ContentRegistry.unlocks` (`BTreeMap<id, UnlockEntry>`, `.def` = `items::UnlockDef` : `name`, `cost`,
+  `requires`, `stat`, `grants`). Règles d'essence : `Res<meta::MetaRules>` (`MetaEconomy`).
+- **Acheter un `Unlock`** : `game::profile::purchase_unlock(&mut profile, id, &def)` (vérifie déjà possédé, prérequis,
+  statistique, essence ; ne change rien en cas d'erreur `PurchaseError`), puis `meta::save(dir, &profile)` (écriture atomique).
+  En ligne de commande : `alacod-profile unlock games/<jeu> <id> [--handle n]` (`list` pour l'état).
+  L'achat n'est jamais dans la simulation ; il prend effet à la **prochaine** run (ensemble figé au lancement,
+  relance comprise).
+- **Règle de session** : local = union des profils locaux (filtrée sur les `Unlock` du jeu) ; en ligne = ensemble
+  de l'hôte transmis avec la configuration (`ALACOD_RUN_UNLOCKS` en attendant la synchronisation des profils).
