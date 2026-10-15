@@ -7,6 +7,7 @@
 Scenario(
     powerup_drop_chance_override: "0.0",
     game: "gungeon",
+    floors: Some("etage_1"),
     frames: 100,
     profile: true,
     profile_setup: Some((profiles: [(handle: 0, unlocks: ["tresor_trefle", "etendard_royal", "coffre_riche"])])),

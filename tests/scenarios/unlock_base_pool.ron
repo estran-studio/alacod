@@ -5,6 +5,7 @@
 Scenario(
     powerup_drop_chance_override: "0.0",
     game: "gungeon",
+    floors: Some("etage_1"),
     frames: 100,
     profile: true,
     chests: [(key: "k1", x: "88.0", y: "-120.0", at_frame: 5), (key: "k2", x: "88.0", y: "-120.0", at_frame: 6), (key: "k3", x: "88.0", y: "-120.0", at_frame: 7), (key: "k4", x: "88.0", y: "-120.0", at_frame: 8)],

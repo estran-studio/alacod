@@ -7,6 +7,7 @@
 Scenario(
     powerup_drop_chance_override: "0.0",
     game: "gungeon",
+    floors: Some("etage_1"),
     frames: 30,
     profile: true,
     profile_setup: Some((

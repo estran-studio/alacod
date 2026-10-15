@@ -39,8 +39,14 @@ impl ProfileSettings {
 pub const RUN_UNLOCKS_ENV: &str = "ALACOD_RUN_UNLOCKS";
 
 /// Partie locale : l'union des déblocages des profils des joueurs de la partie (`handles`).
-/// Un profil absent ne débloque rien.
-pub fn local_run_unlocks(profiles: Option<&Profiles>, handles: &[usize]) -> RunUnlocks {
+/// Un profil absent ne débloque rien. Seuls les identifiants que `known` reconnaît (les `Unlock`
+/// du jeu) comptent : les jalons du profil (`first_run`, …) grossissent à chaque fin de run, et
+/// les relire à la relance ferait différer l'état dès la frame 0.
+pub fn local_run_unlocks(
+    profiles: Option<&Profiles>,
+    handles: &[usize],
+    known: impl Fn(&str) -> bool,
+) -> RunUnlocks {
     let Some(profiles) = profiles else {
         return RunUnlocks::default();
     };
@@ -48,7 +54,9 @@ pub fn local_run_unlocks(profiles: Option<&Profiles>, handles: &[usize]) -> RunU
         handles
             .iter()
             .filter_map(|handle| profiles.0.get(&local_id(*handle)))
-            .flat_map(|profile| profile.unlocks.iter().cloned())
+            .flat_map(|profile| profile.unlocks.iter())
+            .filter(|id| known(id))
+            .cloned()
             .collect(),
     )
 }
@@ -177,13 +185,26 @@ mod tests {
     fn local_is_the_union_of_the_players_profiles() {
         let profiles = profiles();
         let ids = |u: RunUnlocks| u.0.into_iter().collect::<Vec<_>>();
-        assert_eq!(ids(local_run_unlocks(Some(&profiles), &[0])), ["x"]);
-        assert_eq!(ids(local_run_unlocks(Some(&profiles), &[0, 1])), ["x", "y"]);
         assert_eq!(
-            ids(local_run_unlocks(Some(&profiles), &[2])),
+            ids(local_run_unlocks(Some(&profiles), &[0], |_| true)),
+            ["x"]
+        );
+        assert_eq!(
+            ids(local_run_unlocks(Some(&profiles), &[0, 1], |_| true)),
+            ["x", "y"]
+        );
+        assert_eq!(
+            ids(local_run_unlocks(Some(&profiles), &[2], |_| true)),
             Vec::<String>::new()
         );
-        assert!(local_run_unlocks(None, &[0]).0.is_empty());
+        assert!(local_run_unlocks(None, &[0], |_| true).0.is_empty());
+    }
+
+    #[test]
+    fn local_keeps_only_known_unlocks() {
+        let profiles = profiles();
+        let ids = local_run_unlocks(Some(&profiles), &[0, 1], |id| id == "y").0;
+        assert_eq!(ids.into_iter().collect::<Vec<_>>(), ["y"]);
     }
 
     #[test]
