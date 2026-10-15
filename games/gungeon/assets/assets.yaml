@@ -1,8 +1,9 @@
 # Registre des licences des assets binaires de games/gungeon/assets/ (voie V6, mêmes règles que
 # games/zombies/assets/assets.yaml). Créé par m2-t0d-squelette-gungeon : `gungeon` n'a encore
 # **aucun asset propre** ; tous les fichiers ci-dessous sont des **placeholders** copiés de
-# `games/throne` (eux-mêmes du testbed et de zombies). Aucun asset nouveau. Les ennemis et le boss
-# n'ont aucun sprite (comme les personnages de laboratoire du testbed).
+# `games/throne` (eux-mêmes du testbed et de zombies). Aucun asset nouveau. Lot C (2026-10-15) :
+# les ennemis, le boss, le héros, les objets du monde et les projectiles ont leurs sprites
+# (Tiny Dungeon et Particle Pack de Kenney, CC0 ; entrées en fin de fichier).
 # Exception : les sons (tir et rechargement du lot A, événements du lot B de
 # docs/plan-assets.md, 2026-10-14) ne sont pas des placeholders ; mêmes fichiers dans les jeux.
 
@@ -144,3 +145,36 @@
   licence: SIL Open Font License 1.1 (https://openfontlicense.org/)
   modifications: aucune
   statut: placeholder (copie du testbed/zombies) — à remplacer par la voie V6
+
+- id: sprites-tiny-dungeon-kenney
+  fichiers:
+    - sprites/gungeon/tiny_dungeon.png
+    - sprites/gungeon/LICENSE-kenney-tiny-dungeon.txt
+  source: https://kenney.nl/assets/tiny-dungeon (archive kenney_tiny-dungeon.zip, sha256
+    c109438ab06f65fd80f9b2686a4cf9c7c11dc64444b47333ec71d602f8bb5fc7, fichier
+    Tilemap/tilemap_packed.png ; page lue le 2026-10-15, lot C de docs/plan-assets.md)
+  auteur: Kenney (www.kenney.nl)
+  licence: CC0 1.0 (https://creativecommons.org/publicdomain/zero/1.0/) — affichée sur la page
+    (« License Creative Commons CC0 ») et dans le License.txt de l'archive (copié à côté de l'image)
+  modifications: aucune (tilemap_packed.png tel quel, 12 colonnes x 11 lignes de cases de 16 px) ;
+    les personnages et objets du monde sont des cases de cette planche choisies par les animations
+    `sprites/gungeon/anim_<id>.ron` (héros 85, bullet_kin 98, bullet_kin_squad 100, shotgun_kin 87,
+    veteran_kin 96, bandana_kin 112, tourelle_kin 124, fuyard_kin 120, lanceur_kin 84, cible 97,
+    boss gatling 110 ; coffre 89/91, présentoir 75, douille 101, objet au sol 114, tonneau 82, table 72)
+  statut: lot C (sprites de gungeon) ; pas un placeholder
+
+- id: sprites-particle-pack-kenney
+  fichiers:
+    - sprites/gungeon/bullet_player.png
+    - sprites/gungeon/bullet_enemy.png
+    - sprites/gungeon/LICENSE-kenney-particle-pack.txt
+  source: https://kenney.nl/assets/particle-pack (archive kenney_particle-pack.zip, sha256
+    b631d4b07f7002549fdcf155f01141ad482f79f3440e4e301eed49ce5f1d8958, fichiers
+    PNG (Transparent)/circle_05.png → bullet_player et magic_05.png → bullet_enemy ; page lue
+    le 2026-10-15, lot C)
+  auteur: Kenney Vleugels (www.kenney.nl)
+  licence: CC0 1.0 (https://creativecommons.org/publicdomain/zero/1.0/) — affichée sur la page
+    (« License Creative Commons CC0 ») et dans le License.txt de l'archive (copié à côté)
+  modifications: réduites de 512 x 512 à 64 x 64 (ffmpeg, scale) ; teintées au rendu (jaune pour
+    les projectiles des joueurs, rouge pour ceux des ennemis) par `game::world_sprites`
+  statut: lot C (projectiles de gungeon) ; pas un placeholder

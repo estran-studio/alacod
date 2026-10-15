@@ -75,7 +75,17 @@ pub fn attach_character_visuals(
             VisualsAttached,
         ));
 
-        for layer in skin.layers.keys() {
+        // Un skin sans calque (ennemis de `gungeon`, lot C) montre tous les calques de l'entrée de la
+        // table `SpriteSheet` : déclarer des calques dans le RON ajouterait `ActiveLayers` à l'état
+        // rollback et déplacerait les traces ; la présentation les lit donc dans la table.
+        let layer_names: Vec<&String> = if skin.layers.is_empty() {
+            let mut names: Vec<&String> = map_layers.keys().collect();
+            names.sort();
+            names
+        } else {
+            skin.layers.keys().collect()
+        };
+        for layer in layer_names {
             let Some(spritesheet_config) = map_layers
                 .get(layer)
                 .and_then(|handle| spritesheet_assets.get(handle))
