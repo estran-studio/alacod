@@ -200,7 +200,7 @@ mod tests {
     }
 
     /// M3-T0f (`docs/conventions.md` §65) : sur les six gabarits de `isaac` (`maps/salles.ldtk` : départ, combat, quatre boss,
-    /// 15 x 9 cases, quatre ouvertures centrées), chaque graine donne un étage de 5 à 7 salles avec
+    /// 15 x 9 cases, ouvertures centrées), chaque graine donne un étage de 5 à 7 salles avec
     /// un seul boss, sans chevauchement, toutes de la taille de la grille.
     #[test]
     fn isaac_etages_de_grammaire() {
@@ -240,11 +240,19 @@ mod tests {
                 "graine {seed} : {} salles",
                 rooms.len()
             );
-            let bosses = rooms.iter().filter(|r| r.template.starts_with("Boss")).count();
+            let bosses = rooms
+                .iter()
+                .filter(|r| r.template.starts_with("Boss"))
+                .count();
             assert_eq!(bosses, 1, "graine {seed} : {bosses} boss");
             for (i, a) in rooms.iter().enumerate() {
                 let (_, _, aw, ah) = a.world_rect();
-                assert_eq!((aw, ah), (240, 144), "graine {seed} : taille de {}", a.template);
+                assert_eq!(
+                    (aw, ah),
+                    (240, 144),
+                    "graine {seed} : taille de {}",
+                    a.template
+                );
                 for b in &rooms[i + 1..] {
                     let (ax, ay, aw, ah) = a.world_rect();
                     let (bx, by, bw, bh) = b.world_rect();

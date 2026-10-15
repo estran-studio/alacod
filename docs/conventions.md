@@ -3993,3 +3993,39 @@ fait exactement `cell` cases avec une ouverture centrée sur chacun des quatre c
 Carte `testbed/rocks_static.ldtk` (`scripts/construire-cartes-t0c.py`) et scénario `rocks_static` :
 le joueur marche vers trois rochers qui ferment un couloir et s'y arrête ; quatre rochers comptés
 (dont un à butin) à f5 et à la fin ; `joueur_hors_mur` tient.
+
+
+## 65. Le jeu `isaac` : squelette (M3-T0f)
+
+Le clone `isaac` démarre, sur la grammaire d'étage **en arbre existante** (`Graph`) : rien de nouveau
+côté moteur. Modèle : `gungeon` (§39). Données et un `main.rs` seulement (`games/isaac/`, membre du
+workspace par `games/*`, `make isaac`, `make lint` ×5 avec `games/isaac`).
+
+- **Manifeste** `games/isaac/assets/game.ron` : mode `Floors`, séquence `floors/sous_sol.ron` (nom
+  provisoire, Q9) d'un seul étage `floor:sous_sol`, `victory_at_end` ; `generate_template` copié de
+  `gungeon` (scénarios générés `make gen GAME=isaac`).
+- **Personnage** `pleureur` (`asset_name_ref: "player"`) : 6 PV (Q2, en attendant), aucun dash ni
+  sprint, arme `larmes` (`Automatic`, 3 tirs/s, chargeur 9999 faute de munition infinie ici : le
+  `mag: Infinite` de M3-T0a viendra avec M3-T11a). Contact des ennemis : `ai.attack_damage` (1 PV) et
+  `attack_cooldown_frames` (120) ; **l'arme de mêlée nommée dans `Melee("contact")` ne fixe ni les
+  dégâts ni la cadence** (`enemy_attack_damage_translate_system` lit l'`EnemyAiConfig`, défaut 10 PV et
+  60 frames) : ne pas s'y fier pour équilibrer un ennemi au corps à corps.
+- **Ennemis** : `suiveur` (`Chase` profil `Ground` + contact), `mouche` (`Chase` profil `Flying` +
+  contact), boss `gardien` immobile à deux phases (éventail, puis couronne sous 50 % de santé).
+  Valeurs choisies pour que les bots `fonceur` (scénario généré `boss_gardien`) et `explorateur` (6 PV, aucune
+  esquive du premier) finissent l'étage : 10, 4 et 40 PV, un coup de contact toutes les 120 frames.
+- **Gabarits** `maps/salles.ldtk`, produit par `docs/taches/rapports/m4-t0f-squelette-isaac.make_salles.py` :
+  salles de **15 × 9 cases** (Q8, préparation de la grille de M3-T5), types `depart`, `combat`
+  (un suiveur, une mouche), `boss`. Ouvertures de 3 cases **centrées** (colonnes 6-8 au nord et au sud,
+  rangées 3-5 à l'ouest et à l'est). `depart` et `combat` ont les quatre ; le boss a **une seule** ouverture
+  (quatre gabarits `BossN/E/S/W`) car le planificateur en arbre exige un boss à une connexion
+  (`floor.rs`, « cul-de-sac ») : la grille de M3-T5 apportera ses propres gabarits.
+- **Grammaire** `floor_grammars/sous_sol.ron` : 5 à 7 salles, un boss requis à au moins 2 salles du
+  départ, `Graph`. Test `map_ldtk::generation::tests::isaac_etages_de_grammaire` : 1 000 graines
+  (`ALACOD_FLOOR_SEEDS`, 500 par défaut, doublées par la graine dérivée), 5 à 7 salles, un seul boss,
+  toutes de 240 × 144, sans chevauchement.
+- **Sprites, sons, UI** : copiés de `gungeon` (placeholders Kenney CC0 et sons du registre), registre
+  `assets.yaml` de `isaac` renvoyant à celui de `gungeon` ; aucun nom ni visuel tiré du jeu commercial.
+- **Scénarios** : `isaac_boots` (démarrage, tir continu sans rechargement), `isaac_floor_seed_1`
+  (le bot `explorateur` bat l'étage, victoire à f1009) ; générés : `weapon_*`, `enemy_*`, `room_combat`,
+  `boss_gardien`.
