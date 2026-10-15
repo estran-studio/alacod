@@ -80,6 +80,14 @@ Toutes les commandes ci-dessous ont été exécutées localement ; aucune réfé
 - Les consommateurs externes de métriques doivent utiliser les nouveaux ids des scénarios générés ;
   refaire leur référence pour comparer ces scénarios. Les ids des scénarios manuscrits restent identiques.
 
+## Dépendances : signal remonté au push
+
+GitHub a signalé **58 alertes de dépendances sur la branche par défaut** (24 hautes,
+24 modérées, 10 faibles) lors du push. Ce compteur est une notification de l’hébergement,
+pas un audit réalisé dans cette tâche. Trier les [alertes Dependabot](https://github.com/estran-studio/alacod/security/dependabot)
+par composant, exposition réelle et correctif disponible dans une tâche dédiée ; ne pas assimiler
+ce compteur à 58 vulnérabilités exploitables de la simulation. Aucune dépendance mise à jour ici.
+
 Pour la revue : comparer à `b917c38f`, lancer `ALACOD_DYLIB=0 make check` (ou les étapes séparées
 avec les features habituelles du poste), puis la recette P2P à 2/4 et le restart. Ne pas fusionner
 sur la seule base des tests en mémoire.
