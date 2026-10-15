@@ -68,6 +68,7 @@ pub struct SurfaceDef {
 #[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
 pub struct PitDef {
     #[cfg_attr(feature = "schema", schemars(with = "bevy_fixed::schema::FixedString"))]
+    #[cfg_attr(feature = "schema", schemars(extend("x-lint" = "> 0")))]
     pub fall_damage: Fixed,
     /// Où revient le joueur tombé.
     #[serde(default)]

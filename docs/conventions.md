@@ -338,7 +338,10 @@ exemple), fichier modèle. Pour chaque kind couvert (tous sauf `Map`, `Ui`, `Cam
 commentaires de doc ; les `Fixed` y sont des chaînes. `--json` donne le JSON Schema brut (`schema`).
 Les types de contenu portent `#[cfg_attr(feature = "schema", derive(schemars::JsonSchema))]`
 (feature `schema` de `bevy_fixed`, `sim_core`, `effects`, `items`, `world`, activée par `content`) :
-**un nouveau champ ou une nouvelle variante apparaît donc seul dans `describe`**. Un champ `Fixed`
+**un nouveau champ ou une nouvelle variante apparaît donc seul dans `describe`**. Les plages que le lint
+vérifie s'écrivent `[requis, lint : > 0]` : elles viennent de `#[schemars(extend("x-lint" = "> 0"))]`
+posé sur le champ, **à maintenir à la main avec la règle de `lint.rs`** (une règle de lint ajoutée sans
+annotation n'apparaît pas dans `describe`). Un champ `Fixed`
 porte `#[cfg_attr(feature = "schema", schemars(with = "bevy_fixed::schema::FixedString"))]`.
 
 **Jeu hors de l'engine** : `cargo install --path crates/content --bin alacod`, puis

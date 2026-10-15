@@ -121,7 +121,13 @@ fn type_name(v: &Value, queue: &mut Vec<String>) -> String {
 
 fn array_name(v: &Value, queue: &mut Vec<String>) -> String {
     if let Some(prefix) = v.get("prefixItems").and_then(Value::as_array) {
-        let parts: Vec<String> = prefix.iter().map(|p| type_name(p, queue)).collect();
+        let parts: Vec<String> = prefix
+            .iter()
+            .map(|p| {
+                let rule = lint_rule(p).map(|r| format!(" [{r}]")).unwrap_or_default();
+                format!("{}{rule}", type_name(p, queue))
+            })
+            .collect();
         format!("({})", parts.join(", "))
     } else if let Some(items) = v.get("items") {
         format!("[{}]", type_name(items, queue))
@@ -167,8 +173,11 @@ fn render_type_body(v: &Value, queue: &mut Vec<String>) -> String {
                 .get("default")
                 .map(|d| format!(", défaut {d}"))
                 .unwrap_or_default();
+            let lint = lint_rule(prop)
+                .map(|r| format!(", lint : {r}"))
+                .unwrap_or_default();
             out.push_str(&format!(
-                "    {name}: {ty}  [{req}{default}]{}\n",
+                "    {name}: {ty}  [{req}{default}{lint}]{}\n",
                 doc(prop)
             ));
         }
@@ -218,6 +227,11 @@ fn render_variant(variant: &Value, queue: &mut Vec<String>) -> String {
     format!("    {}\n", type_name(variant, queue))
 }
 
+/// Règle que le lint ajoute au type (`x-lint`, posée par `#[schemars(extend(...))]` sur le champ).
+fn lint_rule(v: &Value) -> Option<&str> {
+    v.get("x-lint").and_then(Value::as_str)
+}
+
 /// `(A, B)` pour un tuple, `(A)` pour un newtype, `{ champ: T, … }` pour un struct.
 fn payload_shape(payload: &Value, queue: &mut Vec<String>) -> String {
     if let Some(props) = payload.get("properties").and_then(Value::as_object) {
@@ -230,16 +244,20 @@ fn payload_shape(payload: &Value, queue: &mut Vec<String>) -> String {
             .iter()
             .map(|(n, p)| {
                 let opt = if required.contains(n.as_str()) { "" } else { "?" };
-                format!("{n}{opt}: {}", type_name(p, queue))
+                let rule = lint_rule(p).map(|r| format!(" [{r}]")).unwrap_or_default();
+                format!("{n}{opt}: {}{rule}", type_name(p, queue))
             })
             .collect();
         return format!(" {{ {} }}", fields.join(", "));
     }
     let ty = type_name(payload, queue);
     if ty.starts_with('(') {
-        ty.into()
+        ty
     } else {
-        format!("({ty})")
+        let rule = lint_rule(payload)
+            .map(|r| format!(" [{r}]"))
+            .unwrap_or_default();
+        format!("({ty}{rule})")
     }
 }
 
@@ -271,7 +289,7 @@ mod tests {
     #[test]
     fn enum_variants_are_listed() {
         let text = render(&schema_for_kind("Item").unwrap());
-        for variant in ["Passive", "Active(ActiveCharge)", "OnPickup", "Heal(Fixed)", "Legendary"] {
+        for variant in ["Passive", "Active(ActiveCharge)", "OnPickup", "Heal(Fixed [> 0])", "Legendary"] {
             assert!(text.contains(variant), "variante {variant} absente :\n{text}");
         }
     }

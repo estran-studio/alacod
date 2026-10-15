@@ -24,7 +24,7 @@ pub enum On {
     OnPickup,
     OnUse,
     OnGauge(String, GaugeThreshold),
-    Tick(u32),
+    Tick(#[cfg_attr(feature = "schema", schemars(extend("x-lint" = "> 0")))] u32),
     OnEvent(String),
     /// T1.10 : montée de niveau du porteur (C4, jauge de progression franchie).
     OnLevelUp,
@@ -76,8 +76,10 @@ pub struct Effect {
     #[serde(rename = "do")]
     pub r#do: Vec<Action>,
     #[serde(default)]
+    #[cfg_attr(feature = "schema", schemars(extend("x-lint" = "> 0 (ou absent)")))]
     pub cooldown: Option<u32>,
     #[serde(default)]
+    #[cfg_attr(feature = "schema", schemars(extend("x-lint" = "> 0 (ou absent)")))]
     pub charges: Option<u32>,
     #[serde(default)]
     pub recharge: Option<Recharge>,

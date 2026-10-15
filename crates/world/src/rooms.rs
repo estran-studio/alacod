@@ -54,6 +54,7 @@ pub struct RoomKindDef {
 #[derive(Clone, Debug, Default, PartialEq, Eq, Hash, Serialize, Deserialize)]
 pub struct ArenaDef {
     /// Durée à tenir, en frames depuis le verrouillage (> 0).
+    #[cfg_attr(feature = "schema", schemars(extend("x-lint" = "> 0")))]
     pub clock: u32,
     /// Vagues internes (au moins une), dans l'ordre de leurs `at`.
     pub waves: Vec<ArenaWave>,

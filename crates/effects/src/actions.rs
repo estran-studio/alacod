@@ -36,6 +36,7 @@ pub enum Action {
         op: ModifierOp,
         #[cfg_attr(feature = "schema", schemars(with = "bevy_fixed::schema::FixedString"))]
         value: Fixed,
+        #[cfg_attr(feature = "schema", schemars(extend("x-lint" = "> 0")))]
         frames: u32,
     },
     /// Remplit le chargeur de chaque arme portée par chaque joueur et recharge sa réserve
@@ -55,7 +56,9 @@ pub enum Action {
     /// documentée, v0 minimal : pas de règle de non-stacking).
     CurrencyMultiplier {
         #[cfg_attr(feature = "schema", schemars(with = "bevy_fixed::schema::FixedString"))]
+        #[cfg_attr(feature = "schema", schemars(extend("x-lint" = "> 0")))]
         factor: Fixed,
+        #[cfg_attr(feature = "schema", schemars(extend("x-lint" = "> 0")))]
         frames: u32,
     },
     /// Creuse le terrain d'une caverne (T1.6, `docs/conventions.md` §21) : toute case `Rock`
@@ -65,6 +68,7 @@ pub enum Action {
     /// (lint), sans position. Ajoutée en dernier : les hashs des autres variantes ne bougent pas.
     DestroyTerrain {
         #[cfg_attr(feature = "schema", schemars(with = "bevy_fixed::schema::FixedString"))]
+        #[cfg_attr(feature = "schema", schemars(extend("x-lint" = "> 0")))]
         radius: Fixed,
     },
     /// T1.10 (effets v1, `docs/conventions.md` §27) : modificateur **permanent** posé sur le
@@ -76,7 +80,7 @@ pub enum Action {
         value: Fixed,
     },
     /// T1.10 : soigne le porteur de `amount` points, borné à sa santé maximale.
-    Heal(#[cfg_attr(feature = "schema", schemars(with = "bevy_fixed::schema::FixedString"))] Fixed),
+    Heal(#[cfg_attr(feature = "schema", schemars(extend("x-lint" = "> 0")))] #[cfg_attr(feature = "schema", schemars(with = "bevy_fixed::schema::FixedString"))] Fixed),
     /// T1.10 : joue le pattern nommé `pattern` (kind `Pattern`, T1.2) depuis la position du
     /// porteur, avec la table de projectiles de l'arme `weapon` (config d'armes du jeu).
     SpawnPattern { pattern: String, weapon: String },
@@ -88,7 +92,7 @@ pub enum Action {
     /// T1.3 (statuts, `docs/conventions.md` §19) : pose `stacks` fois le statut `status` (id
     /// du kind `Status`) sur le personnage touché par un projectile (`on_hit`). Dans un effet
     /// ou un power-up : refusée par le lint en v1 (pas de cible).
-    ApplyStatus { status: String, stacks: u32 },
+    ApplyStatus { status: String, #[cfg_attr(feature = "schema", schemars(extend("x-lint" = "> 0")))] stacks: u32 },
     /// D40 : comme [`Self::RefillAmmo`], restreint à une munition : remplit le chargeur des
     /// armes de cette munition et recharge la réserve de cette munition seulement (butin par
     /// munition de `throne`). Power-up seulement (refusée dans un effet, comme `RefillAmmo`).
@@ -98,15 +102,15 @@ pub enum Action {
     /// ailleurs). Fait apparaître `count` personnages `id` dans la salle du boss, à des
     /// positions tirées du flux RNG de la salle (`room:<niveau>`). Ajoutée en fin d'enum : le
     /// hash des variantes d'avant ne bouge pas.
-    SpawnEnemies { id: String, count: u32 },
+    SpawnEnemies { id: String, #[cfg_attr(feature = "schema", schemars(extend("x-lint" = "> 0")))] count: u32 },
     /// M2-T7 : **frise de boss seulement**. Télégraphe de `n` frames posé devant le prochain
     /// `SpawnPattern` du même événement (l'émetteur joue `Sequence([Telegraph(n), pattern])`) :
     /// l'état est celui de l'émetteur, aucun type nouveau.
-    Telegraph(u32),
+    Telegraph(#[cfg_attr(feature = "schema", schemars(extend("x-lint" = "> 0")))] u32),
     /// D61 (`docs/conventions.md` §18, bouclier) : donne `n` points de bouclier au porteur ; chaque
     /// point absorbe un coup entier (`combat::actors::Shield`). Utilisable par un effet, un
     /// objet (`OnUse`), une synergie ; refusée dans un power-up (lint). Ajoutée en fin d'enum.
-    GainShield(u32),
+    GainShield(#[cfg_attr(feature = "schema", schemars(extend("x-lint" = "> 0")))] u32),
 }
 
 impl Action {

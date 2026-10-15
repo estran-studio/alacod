@@ -346,6 +346,7 @@ pub struct VariantsEntry {
 #[derive(Debug, Clone, Deserialize)]
 pub struct VariantEntry {
     #[serde(default = "default_variant_weight")]
+    #[schemars(extend("x-lint" = "> 0"))]
     pub weight: u32,
     #[serde(default)]
     pub modifiers: Vec<VariantModifierEntry>,
@@ -377,17 +378,21 @@ pub enum BehaviorEntry {
         profile: String,
     },
     KeepDistance {
+        #[schemars(extend("x-lint" = "< max"))]
         min: FixedField,
         max: FixedField,
     },
     Strafe,
     Charge {
+        #[schemars(extend("x-lint" = "> 0"))]
         telegraph: u32,
     },
     Shoot {
         weapon: String,
         pattern: String,
+        #[schemars(extend("x-lint" = "> 0"))]
         range: FixedField,
+        #[schemars(extend("x-lint" = "> 0"))]
         cooldown_frames: u32,
     },
     Melee(String),
@@ -407,7 +412,9 @@ pub enum BehaviorEntry {
 #[derive(Debug, Clone, Deserialize)]
 pub enum FormationShapeEntry {
     Arc {
+        #[schemars(extend("x-lint" = "> 0"))]
         radius: FixedField,
+        #[schemars(extend("x-lint" = "]0, 2π]"))]
         spread: FixedField,
     },
 }
@@ -417,8 +424,8 @@ pub enum FormationShapeEntry {
 #[derive(schemars::JsonSchema)]
 #[derive(Debug, Clone, Deserialize)]
 pub enum PhaseEndEntry {
-    HealthBelow(FixedField),
-    AfterFrames(u32),
+    HealthBelow(#[schemars(extend("x-lint" = "]0, 1]"))] FixedField),
+    AfterFrames(#[schemars(extend("x-lint" = "> 0"))] u32),
 }
 
 #[derive(schemars::JsonSchema)]
@@ -434,6 +441,7 @@ pub struct TimelineEventEntry {
 pub struct TimelineEntry {
     pub events: Vec<TimelineEventEntry>,
     #[serde(default)]
+    #[schemars(extend("x-lint" = "> 0 (ou absent)"))]
     pub repeat: Option<u32>,
 }
 
@@ -827,10 +835,13 @@ pub struct SurfaceEntry {
 #[derive(schemars::JsonSchema)]
 #[derive(Debug, Clone, Deserialize)]
 struct SurfaceFileSchema {
+    #[schemars(extend("x-lint" = "> 0 et unique"))]
     intgrid_value: u8,
     tags: Vec<String>,
+    #[schemars(extend("x-lint" = "> 0"))]
     move_speed: FixedField,
     #[serde(default)]
+    #[schemars(extend("x-lint" = "> 0"))]
     acceleration: Option<FixedField>,
     #[serde(default)]
     pit: Option<world::PitDef>,
@@ -882,9 +893,12 @@ pub struct WeaponPoolEntry {
 #[derive(Debug, Clone, Deserialize)]
 struct ProgressionFileSchema {
     gauge: String,
+    #[schemars(extend("x-lint" = "> 0"))]
     per_kill: FixedField,
     levels: Vec<FixedField>,
+    #[schemars(extend("x-lint" = "entre 1 et la taille du pool de mutations"))]
     choices: u32,
+    #[schemars(extend("x-lint" = "> 0"))]
     choice_frames: u32,
     #[serde(default)]
     choice_timing: MutationTiming,
@@ -893,6 +907,7 @@ struct ProgressionFileSchema {
     #[serde(default)]
     weapon_pool: Vec<WeaponPoolEntry>,
     #[serde(default)]
+    #[schemars(extend("x-lint" = "[0, 1]"))]
     weapon_drop_chance: Option<FixedField>,
 }
 
@@ -924,12 +939,16 @@ pub struct StatusContentEntry {
 #[derive(Debug, Clone, Deserialize)]
 struct StatusFileSchema {
     kind: StatusKindEntry,
+    #[schemars(extend("x-lint" = "> 0"))]
     frames: u32,
     #[serde(default)]
+    #[schemars(extend("x-lint" = "> 0 (Burn)"))]
     damage: Option<FixedField>,
     #[serde(default)]
+    #[schemars(extend("x-lint" = "> 0 (Burn)"))]
     period: Option<u32>,
     #[serde(default)]
+    #[schemars(extend("x-lint" = "]0, 1] (Slow)"))]
     factor: Option<FixedField>,
 }
 
@@ -951,10 +970,12 @@ pub struct MutationEntry {
 struct MutationFileSchema {
     name: String,
     #[serde(default = "one")]
+    #[schemars(extend("x-lint" = "> 0"))]
     weight: u32,
     #[serde(default)]
     tags: Vec<String>,
     #[serde(default = "one")]
+    #[schemars(extend("x-lint" = "> 0"))]
     max_stacks: u32,
     effects: Vec<effects::Effect>,
 }
@@ -1571,13 +1592,17 @@ struct CharacterFileSchema {
     stats: BTreeMap<StatId, FixedField>,
     /// T1.3, chantier B6 : voir `game::character::config::CharacterConfig::bleedout_frames`.
     #[serde(default = "default_bleedout_frames")]
+    #[schemars(extend("x-lint" = "> 0"))]
     bleedout_frames: u32,
     #[serde(default = "default_revive_frames")]
+    #[schemars(extend("x-lint" = "> 0"))]
     revive_frames: u32,
     #[serde(default = "default_downed_speed_mult")]
+    #[schemars(extend("x-lint" = "]0, 1]"))]
     downed_speed_mult: FixedField,
     /// T2.2, chantier B7 : voir `game::character::config::CharacterConfig::weapon_slots`.
     #[serde(default = "default_weapon_slots")]
+    #[schemars(extend("x-lint" = "> 0"))]
     weapon_slots: u32,
     /// M2-T1 : voir `game::character::config::CharacterConfig::starting_consumables`.
     #[serde(default)]
@@ -1800,6 +1825,7 @@ fn default_true() -> bool {
 #[derive(Deserialize)]
 struct VariantsSchema {
     #[serde(default = "default_variant_chance")]
+    #[schemars(extend("x-lint" = "[0, 1]"))]
     chance: FixedField,
     table: KeyedEntries<VariantEntry>,
 }
@@ -1839,6 +1865,7 @@ fn default_weapon_slots() -> u32 {
 #[derive(schemars::JsonSchema)]
 #[derive(Deserialize)]
 struct MovementSchema {
+    #[schemars(extend("x-lint" = ">= 0"))]
     max_speed: FixedField,
     #[serde(default)]
     dash_duration_frames: u32,
@@ -1869,6 +1896,7 @@ struct DashSchema {
     #[serde(default)]
     effect: Option<DashEffectSchema>,
     #[serde(default)]
+    #[schemars(extend("x-lint" = "> 0"))]
     charges: Option<u32>,
     #[serde(default)]
     recharge_frames: Option<u32>,
@@ -1878,6 +1906,7 @@ struct DashSchema {
 #[derive(Deserialize)]
 struct HealthSchema {
     /// F5 (chantier m0-v11) : littéral ou expression `players` (`crate::expr::NumOrExpr`).
+    #[schemars(extend("x-lint" = "> 0"))]
     max: NumOrExpr,
 }
 
@@ -1982,9 +2011,11 @@ fn zero_spread() -> FixedField {
 #[derive(schemars::JsonSchema)]
 #[derive(Deserialize)]
 struct FiringModeSchema {
+    #[schemars(extend("x-lint" = "> 0"))]
     firing_rate: FixedField,
     /// D51 : voir `WeaponEntry::spreads` (absent : 0, aucune règle violée).
     #[serde(default = "zero_spread")]
+    #[schemars(extend("x-lint" = "[0, π] (radians)"))]
     spread: FixedField,
     /// T1.1 : voir `WeaponEntry::mode_projectiles`.
     #[serde(default)]
@@ -2026,6 +2057,7 @@ struct MeleeWeaponEntrySchema {
 #[derive(schemars::JsonSchema)]
 #[derive(Deserialize)]
 struct MeleeWeaponConfigSchema {
+    #[schemars(extend("x-lint" = ">= 0"))]
     damage: FixedField,
     #[serde(default)]
     test: Option<WeaponTestSchema>,
@@ -2066,6 +2098,7 @@ struct EconomyFileSchema {
     #[serde(default)]
     repair_points_cap_per_wave: Option<NumOrExpr>,
     #[serde(default = "default_refill_price_ratio")]
+    #[schemars(extend("x-lint" = "[0, 1]"))]
     refill_price_ratio: NumOrExpr,
     #[serde(default)]
     shells_drop: Option<(u32, u32)>,
@@ -2105,6 +2138,7 @@ struct PerksFileSchema(KeyedEntries<PerkEntrySchema>);
 #[derive(Deserialize)]
 struct PerkEntrySchema {
     /// F5 (chantier m0-v11) : littéral ou expression `players` (`crate::expr::NumOrExpr`).
+    #[schemars(extend("x-lint" = "> 0"))]
     price: NumOrExpr,
     #[serde(default)]
     modifiers: Vec<PerkModifierSchema>,
@@ -2127,6 +2161,7 @@ struct PerkModifierSchema {
 #[derive(schemars::JsonSchema)]
 #[derive(Deserialize)]
 struct PowerUpsFileSchema {
+    #[schemars(extend("x-lint" = "[0, 1]"))]
     drop_chance: FixedField,
     powerups: KeyedEntries<PowerUpEntrySchema>,
 }
@@ -2144,8 +2179,11 @@ struct PowerUpsFileSchema {
 #[derive(schemars::JsonSchema)]
 #[derive(Deserialize)]
 struct PowerUpEntrySchema {
+    #[schemars(extend("x-lint" = "> 0"))]
     weight: u32,
+    #[schemars(extend("x-lint" = "> 0"))]
     pickup_range: FixedField,
+    #[schemars(extend("x-lint" = "> 0"))]
     lifetime_frames: u32,
     #[serde(default)]
     actions: Vec<effects::Action>,

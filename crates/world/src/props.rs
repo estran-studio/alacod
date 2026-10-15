@@ -44,10 +44,12 @@ pub struct TableDef {
     /// Épaisseur (unités) de la couverture une fois renversée, au bord opposé au joueur.
     #[serde(default = "default_flipped_thickness")]
     #[cfg_attr(feature = "schema", schemars(with = "bevy_fixed::schema::FixedString"))]
+    #[cfg_attr(feature = "schema", schemars(extend("x-lint" = "> 0")))]
     pub thickness: Fixed,
     /// Portée de l'interaction (unités, depuis le bord du collider).
     #[serde(default = "default_flip_range")]
     #[cfg_attr(feature = "schema", schemars(with = "bevy_fixed::schema::FixedString"))]
+    #[cfg_attr(feature = "schema", schemars(extend("x-lint" = "> 0")))]
     pub range: Fixed,
 }
 

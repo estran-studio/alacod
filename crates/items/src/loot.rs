@@ -32,6 +32,7 @@ pub enum LootPick {
 #[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
 pub struct LootEntry {
     pub pick: LootPick,
+    #[cfg_attr(feature = "schema", schemars(extend("x-lint" = "> 0")))]
     pub weight: i32,
 }
 

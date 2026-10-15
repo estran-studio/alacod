@@ -28,11 +28,11 @@ use std::collections::BTreeMap;
 #[derive(Clone, Copy, Debug, PartialEq, Eq, Hash, Serialize, Deserialize)]
 pub enum ActiveCharge {
     /// `n` salles nettoyées (`world::RoomChanged` vers `Cleared`, M2-E1).
-    Rooms(u32),
+    Rooms(#[cfg_attr(feature = "schema", schemars(extend("x-lint" = "> 0")))] u32),
     /// `n` points de dégâts infligés par le porteur (`DamageEvent`, arrondi à l'entier inférieur).
-    Damage(u32),
+    Damage(#[cfg_attr(feature = "schema", schemars(extend("x-lint" = "> 0")))] u32),
     /// `n` frames écoulées.
-    Frames(u32),
+    Frames(#[cfg_attr(feature = "schema", schemars(extend("x-lint" = "> 0")))] u32),
 }
 
 impl ActiveCharge {
@@ -109,6 +109,7 @@ fn default_pickup_range() -> Fixed {
 #[derive(Clone, Copy, Debug, PartialEq, Eq, Hash, Serialize, Deserialize)]
 pub struct BlankSpec {
     #[cfg_attr(feature = "schema", schemars(with = "bevy_fixed::schema::FixedString"))]
+    #[cfg_attr(feature = "schema", schemars(extend("x-lint" = "> 0")))]
     pub radius: Fixed,
     #[serde(default)]
     pub iframes: u32,
@@ -134,6 +135,7 @@ pub struct ItemDef {
     /// Portée de ramassage au contact d'un consommable, ou d'interaction (unités monde).
     #[serde(default = "default_pickup_range")]
     #[cfg_attr(feature = "schema", schemars(with = "bevy_fixed::schema::FixedString"))]
+    #[cfg_attr(feature = "schema", schemars(extend("x-lint" = "> 0")))]
     pub pickup_range: Fixed,
     /// M2-T1 : le consommable est un **blank** (voir [`BlankSpec`]) ; le blank utilisé est le
     /// premier objet de la table (ordre des ids) qui porte cette donnée et que le joueur possède.
@@ -142,6 +144,7 @@ pub struct ItemDef {
     /// M2-T4 : un actif utilisable au plus `n` fois par étage du mode `Floors` (hors `Floors`,
     /// par partie) ; `None` : sans limite (v1 exact).
     #[serde(default)]
+    #[cfg_attr(feature = "schema", schemars(extend("x-lint" = "> 0 (ou absent)")))]
     pub uses_per_floor: Option<u32>,
     /// M2-T4 : un actif qui consomme `n` exemplaires du consommable `item` à l'usage ; sans le
     /// stock, l'usage est refusé (la charge reste). `None` : gratuit (v1 exact).
