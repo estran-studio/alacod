@@ -196,8 +196,8 @@ Scenario(
         KillsAtLeast(kills: 13, at_frame: 4602),
         // Les trois bots gagnent des points ; le joueur scripté garde 3000 après achats, + 400 du
         // Nuke (D17).
-        Currency(handle: 0, min: 1460, max: 1460, at_frame: 4602),
-        Currency(handle: 1, min: 1770, max: 1770, at_frame: 4602),
+        Currency(handle: 0, min: 1470, max: 1470, at_frame: 4602),
+        Currency(handle: 1, min: 1780, max: 1780, at_frame: 4602),
         Currency(handle: 2, min: 1040, max: 1040, at_frame: 4602),
         Currency(handle: 3, min: 3480, max: 3480, at_frame: 4602),
         PlayerAlive(handle: 0, at_frame: 4602),

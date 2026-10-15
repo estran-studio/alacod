@@ -631,6 +631,8 @@ pub fn enemy_attack_damage_translate_system(
             &MonsterState,
             // T1.2 : une séquence de tir à distance n'est pas un coup de corps à corps.
             Option<&RangedAttackState>,
+            // D29 : dégâts de la vague d'apparition.
+            Option<&combat::weapons::melee::WaveDamageScale>,
         ),
         With<Enemy>,
     >,
@@ -665,7 +667,9 @@ pub fn enemy_attack_damage_translate_system(
         has_accumulator.insert(net_id.0, has);
     }
 
-    for (enemy_net_id, team, opt_tags, ai_config, state, ranged_state) in order_iter!(enemy_query) {
+    for (enemy_net_id, team, opt_tags, ai_config, state, ranged_state, wave_scale) in
+        order_iter!(enemy_query)
+    {
         // T1.2 : `Attacking` posé par un tir à distance (séquence en cours) : les dégâts
         // passent par les projectiles, jamais par ce coup direct.
         if ranged_state.is_some_and(|ranged| ranged.target.is_some()) {
@@ -701,7 +705,9 @@ pub fn enemy_attack_damage_translate_system(
             source: enemy_net_id.clone(),
             target: target_net_id.clone(),
             kind: DamageKind::Physical,
-            amount: ai_config.attack_damage,
+            amount: wave_scale.map_or(ai_config.attack_damage, |scale| {
+                ai_config.attack_damage.saturating_mul(scale.0)
+            }),
             frame: frame.frame,
             tags,
             source_team: *team,
