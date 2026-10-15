@@ -554,7 +554,7 @@ l'ancienne machine.
   consommables, synergie (paire d'objets → effet ajouté).
 - M2-T5 Butin, coffres, clés (C4, 3 j ; fiche `docs/taches/m2-t5-butin-coffres.md`, b1) : pools pondérés seedés par rareté, coffres verrouillés
   (clé consommée), récompense à la sortie de salle (`OnRoomClear`), tables par étage.
-- M2-T6 Boutique (C5, 2 j ; fiche `docs/taches/m2-t6-boutique.md`, b1 après M2-T5) : salle `Shop`, objets à prix, monnaie `shells` au sol.
+- M2-T6 Boutique (C5, 2 j ; fiche `docs/taches/m2-t6-boutique.md`, cloud depuis le 2026-10-15, M2-T5 mergée) : salle `Shop`, objets à prix, monnaie `shells` au sol.
 
 **V1c ennemis**
 - M2-T7 Boss à phases et arène (D4, 4 j ; fiche `docs/taches/m2-t7-boss-arene.md`, cloud) : phases par seuil, timeline de patterns, salle de boss
