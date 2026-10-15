@@ -14,11 +14,9 @@ use combat::downed::Downed;
 use sim_core::damage::{DamageEvent, DamageKind};
 use sim_core::tag::{Tag, Tags};
 use sim_core::team::Team;
-use std::collections::BTreeMap;
 use utils::{frame::FrameCount, net_id::GgrsNetId, order_iter, order_mut_iter};
 
 use crate::character::enemy::Enemy;
-use crate::character::health::DamageAccumulator;
 use crate::character::player::Player;
 use crate::frame_events::FrameEvents;
 
@@ -616,9 +614,13 @@ pub fn ranged_attack(
 /// avant `rollback_resolve_damage_events` : le dégât est appliqué exactement une frame après
 /// la décision — comme avant T1.1, où `DamageAccumulator` était déjà écrit dans `EnemyAI`
 /// mais n'était consommé par `DeathManagement` que la frame suivante (elle avait déjà
-/// tourné, plus tôt, cette même frame). Reproduit donc la trace existante à l'identique
-/// (voir le rapport, point 4) : ce n'est pas un choix de gameplay, juste la façon de faire
-/// passer ce dégât par `DamageEvent` sans changer son timing.
+/// tourné, plus tôt, cette même frame).
+///
+/// D28 : le dégât direct est émis à chaque attaque. Avant, il n'était émis que si la cible
+/// portait déjà un `DamageAccumulator` (reliquat d'avant T1.1 : l'écriture se faisait avec une
+/// `Query<&mut DamageAccumulator>` sans `Option`, or le composant est retiré dès qu'il est
+/// appliqué), donc presque jamais, et seule la hitbox de mêlée touchait le joueur. Les ennemis
+/// font donc plus mal ; `attack_damage` (donnée du personnage) sert au rééquilibrage.
 pub fn enemy_attack_damage_translate_system(
     frame: Res<FrameCount>,
     mut damage_events: ResMut<FrameEvents<DamageEvent>>,
@@ -636,36 +638,10 @@ pub fn enemy_attack_damage_translate_system(
         ),
         With<Enemy>,
     >,
-    // Préservation d'un bug pré-existant (voir le rapport, point 4) : ne sert qu'à la
-    // vérification ci-dessous, jamais à écrire.
-    target_has_accumulator: Query<(&GgrsNetId, Has<DamageAccumulator>), With<Player>>,
 ) {
     let Some(previous_frame) = frame.frame.checked_sub(1) else {
         return;
     };
-
-    // Bug pré-existant (avant T1.1) préservé à l'identique, PAS un choix de gameplay :
-    // `enemy_attack_system` (ci-dessus) écrivait `player_damage_query.get_mut(player_entity)`
-    // avec `Query<&mut DamageAccumulator>` (sans `Option`) — cette écriture n'avait donc
-    // d'effet QUE si la cible portait déjà un `DamageAccumulator` à cet instant précis. Or
-    // `DamageAccumulator` est retiré (`commands.remove`) dès qu'il est appliqué, la même
-    // frame, par `rollback_apply_accumulated_damage` (`DeathManagement`, qui tourne avant
-    // `EnemyAI` où vivait cette écriture) : en pratique, le dégât direct de
-    // `EnemyAiConfig::attack_damage` ne s'appliquait donc (quasiment) jamais — seule la
-    // griffe via hitbox (`weapons::melee`, `MeleeWeaponConfig::damage`, ex. 2.5 pour
-    // `zombie_claws`) touchait réellement le joueur. Vérifié empiriquement (T1.1, point 4) :
-    // sans cette garde, `idle`/`shoot_around`/`remote_first_fight` divergent bien au-delà des
-    // lignes `DamageEvent`/`DamageAccumulator`/`HitBy` (le joueur meurt nettement plus tôt,
-    // `shoot_around` ne tue même plus aucun zombie avant sa propre mort). Corriger ce bug
-    // changerait l'équilibrage (dégâts ennemis ~5× plus fréquents) sans rapport avec ce
-    // chantier ; à traiter séparément, délibérément, avec ses propres tests. Un résolveur
-    // unique et correct (`character::health::rollback_resolve_damage_events`) ne peut pas
-    // reproduire ce comportement lui-même (il utilise `Option<&mut DamageAccumulator>`,
-    // correct, pour les deux autres émetteurs) : la garde vit donc ici, à l'émission.
-    let mut has_accumulator: BTreeMap<usize, bool> = BTreeMap::new();
-    for (net_id, has) in target_has_accumulator.iter() {
-        has_accumulator.insert(net_id.0, has);
-    }
 
     for (enemy_net_id, team, opt_tags, ai_config, state, ranged_state, wave_scale) in
         order_iter!(enemy_query)
@@ -687,14 +663,6 @@ pub fn enemy_attack_damage_translate_system(
         if *last_attack_frame != previous_frame {
             continue;
         }
-        if !has_accumulator
-            .get(&target_net_id.0)
-            .copied()
-            .unwrap_or(false)
-        {
-            continue;
-        }
-
         // Tags du dégât (T1.1) : tags du zombie (ex. `zombie`, posé par
         // `CharacterConfig::tags`) union le genre d'attaque `melee` (voir la doc de
         // `sim_core::damage::DamageEvent::tags`).
