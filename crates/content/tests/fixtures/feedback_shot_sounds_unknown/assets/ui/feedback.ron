@@ -1,8 +1,0 @@
-// Lot A des assets : `shot_sounds` cite une arme que le jeu ne déclare pas (aucun kind d'armes
-// ici) et une clé absente de `sounds` : deux erreurs.
-(
-    hit_flash: (frames: 4, color: (2.5, 2.5, 2.5)),
-    shake: (frames: 8, amplitude: 4.0),
-    sounds: {},
-    shot_sounds: {"fantome": "shot_absente"},
-)

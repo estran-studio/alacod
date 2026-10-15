@@ -1,0 +1,6 @@
+// `gungeon` (M2-T14b) : le trophée et la rancune ensemble ajoutent +20 % de dégâts.
+(
+    name: "Sang-froid",
+    requires: ["trophee", "rancune"],
+    modifiers: [(stat: Damage, op: Pct, value: "0.2")],
+)

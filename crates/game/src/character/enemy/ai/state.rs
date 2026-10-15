@@ -7,7 +7,6 @@ use bevy::prelude::*;
 use bevy_fixed::fixed_math;
 use serde::{Deserialize, Serialize};
 use sim_core::damage::FriendlyFire;
-use std::collections::HashSet;
 use utils::net_id::GgrsNetId;
 
 use super::navigation::NavProfile;

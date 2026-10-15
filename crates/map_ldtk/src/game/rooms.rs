@@ -105,6 +105,10 @@ impl Plugin for RoomsPlugin {
                     .in_set(RollbackSystemSet::DeathManagement),
             ),
         );
+        app.add_systems(
+            Update,
+            update_hud_room_geometry.before(game::ui::hud_model::HudModelSet),
+        );
     }
 }
 
@@ -154,6 +158,27 @@ impl CurrentRooms<'_, '_> {
                 current.is_none_or(|slot| self.slots.slot_of(*entity) == slot)
             })
             .map(|(_, id, bounds, kind)| (id, bounds, kind))
+    }
+}
+
+/// Présentation seulement : remplace aussi la liste quand l'étage disparaît ou change.
+/// `CurrentRooms` filtre les mondes LDtk superposés à partir de l'état rollback courant.
+fn update_hud_room_geometry(
+    rooms: CurrentRooms,
+    mut geometry: ResMut<game::ui::hud_model::HudRoomGeometry>,
+) {
+    let mut next: Vec<_> = rooms
+        .iter()
+        .map(|(id, bounds, kind)| game::ui::hud_model::HudRoomBounds {
+            id: id.0.clone(),
+            kind: kind.0.clone(),
+            position: bounds.position,
+            size: bounds.size,
+        })
+        .collect();
+    next.sort_by(|a, b| a.id.cmp(&b.id));
+    if geometry.0 != next {
+        geometry.0 = next;
     }
 }
 

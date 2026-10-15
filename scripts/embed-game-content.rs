@@ -16,7 +16,7 @@ fn scan(root: &Path, dir: &Path, entries: &mut Vec<(String, Option<String>)>) {
                 .unwrap()
                 .replace('\\', "/");
             let text = match path.extension().and_then(|ext| ext.to_str()) {
-                Some("ron" | "ldtk" | "json") => {
+                Some("ron" | "ldtk" | "json" | "html") => {
                     Some(fs::read_to_string(&path).expect("UTF-8 content"))
                 }
                 _ => None,

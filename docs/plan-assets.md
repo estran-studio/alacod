@@ -15,7 +15,7 @@ registre `assets.yaml` de `throne` et `gungeon` est une copie marquée `statut: 
 
 | Fichier | Jeux | Usage | Licence enregistrée | Problème |
 |---|---|---|---|---|
-| `shot_pistol.ogg`, `shot_shotgun.ogg`, `shot_smg.ogg` (0,30 à 0,50 s) | zombies, throne, gungeon, testbed | clés `shot_pistol`/`shot_shotgun`/`shot_smg` (famille du mode de tir actif, ou `shot_sounds` par arme) | CC BY 3.0 (Michel Baradari) | lot A (2026-10-14) ; un lance-grenades `Manual` sonne comme un pistolet sauf `shot_sounds` |
+| `shot_pistol.ogg`, `shot_shotgun.ogg`, `shot_smg.ogg` (0,30 à 0,50 s) | zombies, throne, gungeon, testbed | clés `shot_pistol`/`shot_shotgun`/`shot_smg` (famille du mode de tir actif), ou `audio_config` de l'arme par mode | CC BY 3.0 (Michel Baradari) | lot A (2026-10-14) ; un lance-grenades `Manual` sonne comme un pistolet tant que son `audio_config` ne dit rien |
 | `reload.ogg` (0,58 s) | idem | clé `reload` | CC0 (BMacZero) | lot A ; un son pour toutes les armes |
 | `hit`, `hurt`, `death`, `dash`, `door` `.ogg` (0,12 à 0,92 s) | idem | clés du même nom | CC0 (Kenney) | lot B (2026-10-14) |
 | `blank.ogg` (0,95 s) | gungeon, testbed | clé `blank` | CC0 (Kenney) | lot B |
@@ -106,7 +106,8 @@ Vérifier la page de l'auteur, noter l'URL et la date, avant tout import.
   `machine-gun*.ogg` (Pixabay) retirés. Présentation seule, traces inchangées.
 - **Lot B — sons d'événements : FAIT** (même branche, rapport `assets-lot-a.md`) : `hit`, `hurt`,
   `death`, `dash`, `blank`, `door` (Kenney, CC0), systèmes de présentation dans `feedback.rs` ;
-  `shot_sounds` (son de tir imposé par arme). **Reste : coffre**, à brancher quand M2-T5
+  paramétrage par arme et par mode (`audio_config` de `weapons.ron` : tir et rechargement) et
+  volumes par clé (`volumes` de `feedback.ron`). **Reste : coffre**, à brancher quand M2-T5
   (coffres) sera dans `main`.
 - **Lot C — gungeon : sprites** ennemis + boss + props (Tiny Dungeon ou équivalent), atlas
   dans `sprites/`, entrées `sprite_config` des `characters/*.ron`.

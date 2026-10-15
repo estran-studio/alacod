@@ -13,7 +13,7 @@ bevy_kira_audio = { version = "0.26" }
 # (port upstream: https://github.com/johanhelsing/matchbox/pull/557)
 bevy_matchbox = { git = "https://github.com/AdamWhitehurst/matchbox", rev = "593f900c4f27e94632a71232389d9e4ffaeb9bdf", features = ["ggrs"] }
 bevy_light_2d = { version = "0.10", optional = true }
-# M2-T18 (docs/conventions.md §56) : option B du test comparatif d'UI, écrans en gabarits pseudo-HTML.
+# Écrans en gabarits pseudo-HTML (M2-T18, docs/conventions.md §56).
 # Présentation seule, jamais dans les crates de simulation.
 bevy_hui = { version = "0.7.0", optional = true }
 leafwing-input-manager = "0.21.0"
@@ -52,6 +52,13 @@ clap = { version = "4.4", features = ["derive"] }
 
 bevy-inspector-egui = { version = "0.37.0", optional = true }
 chrono = "0.4.42"
+# Journal natif (`logs.rs`) et console web (`web/logs.rs`), déménagés de `utils` : la
+# présentation et les E/S restent hors des crates de simulation (scripts/check-sim-boundary.sh).
+tracing = "0.1"
+tracing-subscriber = { version = "0.3.18", features = ["fmt", "env-filter", "registry"] }
+# 0.2.5 ne compile plus pour wasm32 (crate symlink sans cible wasm)
+tracing-appender = "=0.2.4"
+tracing-web = { version = "0.1" }
 
 
 [dependencies.web-sys]
@@ -73,8 +80,8 @@ lighting = ["bevy_light_2d"]
 # Jamais activée par défaut, jamais en release, en CI ni pour le web : seul le `Makefile` la passe
 # (`--features game/dev-dylib`), voir `docs/taches/README.md` §1. Aucun effet sur la simulation.
 dev-dylib = ["bevy/dynamic_linking"]
-# Option B du test comparatif d'UI (M2-T18) : rendu des écrans pause et inventaire par `bevy_hui`.
-# Désactivée par défaut ; sans elle le choix `ALACOD_SCREENS=hui` retombe sur la couche maison.
+# Seul rendu des écrans, activé par les features de rendu des jeux et de `scenario`.
+# Les exécutables headless ne l'activent pas.
 ui_hui = ["dep:bevy_hui"]
 # Musique générative (harmonium). Désactivée tant que harmonium_bevy n'est pas porté à bevy 0.19
 harmonium = ["dep:harmonium_bevy"]
@@ -92,3 +99,6 @@ ureq = "2.12.1"
 ed25519-dalek = "2.2.0"
 base64 = "0.21.7"
 getrandom = "0.2.17"
+
+[target.'cfg(target_arch = "wasm32")'.dependencies]
+console_error_panic_hook = "0.1.6"

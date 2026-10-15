@@ -27,8 +27,8 @@ animation = { path = "../../crates/animation" }
 dev-dylib = ["game/dev-dylib"]
 default = ["lighting", "render"]
 
-# Rendu des tilemaps. Les builds headless (tests, replays) compilent sans.
-render = ["map_ldtk/render", "bevy_ecs_ldtk/render"]
+# Présentation (tilemaps et écrans). Les builds headless (tests, replays) compilent sans.
+render = ["map_ldtk/render", "bevy_ecs_ldtk/render", "game/ui_hui"]
 
 lighting = ["game/lighting"]
 
