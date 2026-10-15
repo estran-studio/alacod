@@ -152,6 +152,7 @@ pub enum PatternKind {
     Spiral,
     Burst,
     Scatter,
+    Ring,
 }
 
 impl PatternKind {
@@ -163,6 +164,7 @@ impl PatternKind {
             Self::Spiral => "spiral",
             Self::Burst => "burst",
             Self::Scatter => "scatter",
+            Self::Ring => "ring",
         }
     }
 }
@@ -191,10 +193,13 @@ pub fn fan_rays(center: f32, count: u32, spread: f32) -> Vec<f32> {
         .collect()
 }
 
+/// Longueur (px) des rayons du télégraphe d'une couronne (`Ring`) : courts, autour de l'émetteur.
+pub const RING_RAY_LENGTH: f32 = 40.0;
+
 /// Forme du prochain pattern d'un émetteur en télégraphe : la première étape qui tire, avant
 /// le prochain `Telegraph`/`Wait`, parmi `Fan`, `Spread`, `Aimed` (rayons), `Spiral` (rayons de
-/// la première salve : l'amorce), `Burst` et `Scatter` (cône). Un `Ring` n'a pas de forme
-/// propre : le cercle du télégraphe v1 le dit déjà. `aim` : visée figée de l'émetteur.
+/// la première salve : l'amorce), `Burst` et `Scatter` (cône), `Ring` (D67 : rayons courts
+/// dans les directions de tir de la salve). `aim` : visée figée de l'émetteur.
 pub fn pattern_shape(
     steps: &[Pattern],
     next_step: usize,
@@ -238,6 +243,16 @@ pub fn pattern_shape(
                     fan_rays(center, *count, to_f32(*spread)),
                     None,
                 ))
+            }
+            // D67 : la salve en couronne se dit par des rayons **courts** autour de l'émetteur,
+            // dans les directions de tir (départ = visée, pas TAU / count : `combat::projectile`),
+            // pas par un grand cercle qui ressemble à une zone de dégâts.
+            Pattern::Ring { count, .. } => {
+                let arm = std::f32::consts::TAU / (*count).max(1) as f32;
+                let rays = (0..*count).map(|i| center + arm * i as f32).collect();
+                let mut ring = shape(PatternKind::Ring, rays, None);
+                ring.length = length.min(RING_RAY_LENGTH);
+                return Some(ring);
             }
             Pattern::Spiral { count, .. } => {
                 let arm = std::f32::consts::TAU / (*count).max(1) as f32;
@@ -1202,15 +1217,21 @@ fn apply_layer_colors(
             &Children,
             Option<&HitFlash>,
             Option<&combat::status::Statuses>,
+            Option<&crate::character::visuals::MarkerTint>,
         ),
         With<combat::actors::Health>,
     >,
     mut sprites: Query<&mut Sprite>,
 ) {
-    for (layers, flash, statuses) in &characters {
+    for (layers, flash, statuses, marker) in &characters {
+        // D66 : la teinte du marqueur remplace le blanc de base (statuts et flash passent devant).
+        let base = marker.map_or(Color::WHITE, |marker| marker.0);
         let color = match flash {
             Some(flash) if frame.frame < flash.until_frame => flash.color,
-            _ => statuses.map(status_tint).unwrap_or(Color::WHITE),
+            _ => statuses
+                .map(status_tint)
+                .filter(|tint| *tint != Color::WHITE)
+                .unwrap_or(base),
         };
         for layer in layers.iter() {
             if let Ok(mut sprite) = sprites.get_mut(layer) {
@@ -1425,17 +1446,40 @@ mod telegraph_tests {
     }
 
     #[test]
-    fn forme_absente_pour_ring_et_apres_une_etape_bloquante() {
+    fn forme_ring_rayons_courts_dans_les_directions_de_tir() {
         let ring = Pattern::Ring {
             count: 8,
             speed: fixed(60.0),
             projectile: "p".into(),
             every: 0,
         };
-        assert_eq!(
-            pattern_shape(&[ring.clone()], 0, Vec2::X, Vec2::ZERO, 10.0),
-            None
-        );
+        let shape = pattern_shape(&[ring.clone()], 0, Vec2::X, Vec2::new(1.0, 2.0), 260.0).unwrap();
+        assert_eq!(shape.kind, PatternKind::Ring);
+        assert_eq!(shape.rays.len(), 8);
+        assert_eq!(shape.length, RING_RAY_LENGTH);
+        assert_eq!(shape.cone, None);
+        assert!((shape.rays[2] - std::f32::consts::FRAC_PI_2).abs() < 1e-5);
+        assert_eq!(pattern_label(220, &shape), "ring 220 (8 rayons)");
+        // Départ sur la visée.
+        let up = pattern_shape(&[ring], 0, Vec2::Y, Vec2::ZERO, 10.0).unwrap();
+        assert!((up.rays[0] - std::f32::consts::FRAC_PI_2).abs() < 1e-5);
+        assert_eq!(up.length, 10.0);
+    }
+
+    #[test]
+    fn forme_absente_apres_une_etape_bloquante() {
+        let ring = Pattern::Ring {
+            count: 8,
+            speed: fixed(60.0),
+            projectile: "p".into(),
+            every: 0,
+        };
+        let ring = Pattern::Ring {
+            count: 8,
+            speed: fixed(60.0),
+            projectile: "p".into(),
+            every: 0,
+        };
         let fan = Pattern::Fan {
             count: 3,
             spread: fixed(1.0),
