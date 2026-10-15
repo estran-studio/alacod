@@ -675,7 +675,7 @@ par nombre d'exemplaires, familiers et orbitaux, rochers et bombes, cœurs, clé
 curses, champions et élites. Chantiers : B5 v3, C1 v3, C3, D2 v2, E4 v2, F4, G1 v2, plus ce que la
 lecture du code ajoute (E2 en grille, santé en cœurs, pools à épuisement). **Proposition du 2026-10-15**
 (`plan-m4-isaac`, documentation seule), à valider par William : les choix de design restent ouverts,
-listés au rapport `docs/taches/rapports/plan-m4-isaac.md` (questions Q1 à Q16) ; une fiche qui en dépend
+listés au rapport `docs/taches/rapports/plan-m4-isaac.md` (questions Q1 à Q18) ; une fiche qui en dépend
 le dit (« bloqué par Qn ») et propose une valeur par défaut sans la trancher.
 
 M3 (1837) attend la bible de William et n'est pas un prérequis de M4. M4 se prépare pendant la fin de M2 :
