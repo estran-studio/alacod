@@ -1,6 +1,6 @@
 //! Contrats de projectiles (B5) : modificateurs, patterns, actions de fin et leur spec.
 //!
-//! Définis par T1.0a/T1.1/T1.2/M2-T1 dans `combat::projectile`, **déplacés ici par M4-T0a**
+//! Définis par T1.0a/T1.1/T1.2/M2-T1 dans `combat::projectile`, **déplacés ici par M3-T0a**
 //! (`docs/conventions.md` §60) pour qu'un objet (`items::ItemDef::projectile`, crate de
 //! simulation sans rendu) puisse les porter sans dépendre de `combat` (crate encore en dette
 //! D69). `combat::projectile` les réexporte : chemins, `Hash`, `Debug` et RON inchangés (un
@@ -20,10 +20,10 @@ pub enum ProjectileModifier {
     Lifetime(u32),
     Homing(Fixed),
     Gravity(Fixed),
-    // M4-T0a (`docs/conventions.md` §60) : contrats, **en fin d'enum** (le `derive(Hash)` hache
+    // M3-T0a (`docs/conventions.md` §60) : contrats, **en fin d'enum** (le `derive(Hash)` hache
     // l'index de la variante : les six d'avant gardent le leur, le hash des armes existantes ne
     // bouge pas). Acceptés par le lint dans le RON (formes, plages) mais une arme qui les porte
-    // est refusée (`Unsupported`) tant que M4-T1 ne les exécute pas.
+    // est refusée (`Unsupported`) tant que M3-T1 ne les exécute pas.
     /// Traverse les murs et les obstacles (pas les personnages).
     Spectral,
     /// À l'impact sur un personnage, `count` projectiles `child` en éventail de `spread`
@@ -59,7 +59,7 @@ impl ProjectileModifier {
         }
     }
 
-    /// Contrat déclaré mais pas encore exécuté au tir (M4-T1) : le lint refuse une arme qui le
+    /// Contrat déclaré mais pas encore exécuté au tir (M3-T1) : le lint refuse une arme qui le
     /// porte (`Unsupported`).
     pub fn is_contract_only(&self) -> bool {
         matches!(
@@ -203,8 +203,8 @@ impl ProjectileSpec {
     }
 }
 
-/// M4-T0a : modificateurs de projectile **portés par un objet** (`items::ItemDef::projectile`,
+/// M3-T0a : modificateurs de projectile **portés par un objet** (`items::ItemDef::projectile`,
 /// `items::SynergyDef::projectile`), ajoutés aux tirs du porteur. Même forme que la spec d'un
 /// mode de tir (`modifiers`, `on_hit`, `on_expire`) ; composés avec ceux de l'arme par
-/// `combat::projectile::compose` (M4-T1 les lira au tir).
+/// `combat::projectile::compose` (M3-T1 les lira au tir).
 pub type ProjectileMods = ProjectileSpec;

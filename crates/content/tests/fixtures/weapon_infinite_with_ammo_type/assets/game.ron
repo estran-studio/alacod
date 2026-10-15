@@ -1,4 +1,4 @@
-// Fixture M4-T0a (docs/conventions.md §60) : arme à munitions infinies qui déclare un ammo_type (OutOfRange)
+// Fixture M3-T0a (docs/conventions.md §60) : arme à munitions infinies qui déclare un ammo_type (OutOfRange)
 (
     name: "fixture-weapon_infinite_with_ammo_type",
     content_folders: [

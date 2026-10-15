@@ -1,4 +1,4 @@
-// Fixture M4-T0a (docs/conventions.md §60) : objet qui porte des modificateurs de projectile (Unsupported, lus par M4-T1)
+// Fixture M3-T0a (docs/conventions.md §60) : objet qui porte des modificateurs de projectile (Unsupported, lus par M3-T1)
 (
     name: "fixture-item_projectile_unsupported",
     content_folders: [

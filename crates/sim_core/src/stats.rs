@@ -47,7 +47,7 @@ pub enum StatId {
     /// ne touche jamais l'autre.
     EnemyMoveSpeed,
     Custom(String),
-    // M4-T0a (`docs/conventions.md` §60) : stats de larmes, **après** `Custom` pour garder
+    // M3-T0a (`docs/conventions.md` §60) : stats de larmes, **après** `Custom` pour garder
     // l'ordre (`Ord` des clés de `Stats`) et le hash (discriminant) des stats existantes. Base 1
     // pour tout personnage sans être posées dans `Stats` (lues par `StatReader::get` avec 1 par
     // défaut, voir [`default_base`]) : `Stats` de tous les personnages reste inchangé.
@@ -58,7 +58,7 @@ pub enum StatId {
     ShotSize,
 }
 
-/// M4-T0a : base d'une stat qu'aucun personnage ne porte dans [`Stats`] mais que l'engine lit
+/// M3-T0a : base d'une stat qu'aucun personnage ne porte dans [`Stats`] mais que l'engine lit
 /// avec une valeur par défaut (`ShotSpeed`, `ShotSize` : 1). `None` : la base vient de `Stats`.
 /// Sert aux lecteurs hors simulation (attente `Stat`, générateur) pour résoudre ces stats comme
 /// le tir les résout.
@@ -93,8 +93,8 @@ pub fn stat_reader(stat: &StatId) -> Option<&'static str> {
         | StatId::EnemyMoveSpeed => Some("character::enemy::ai::pathing (move_enemies)"),
         // D61 : réduction des dégâts reçus, `dégât × 100 / (100 + armure)`.
         StatId::Armor => Some("character::health (rollback_resolve_damage_events : armure)"),
-        // M4-T0a : lecteur de contrat, la chance d'effet (`effects::chance_with_luck`) ; M4-T1
-        // et M4-T2 l'appellent pour les chances d'effet des objets.
+        // M3-T0a : lecteur de contrat, la chance d'effet (`effects::chance_with_luck`) ; M3-T1
+        // et M3-T2 l'appellent pour les chances d'effet des objets.
         StatId::Luck => Some("effects::chance_with_luck (chance d'effet)"),
         StatId::ShotSpeed => Some("combat::weapons (vitesse de la balle)"),
         StatId::ShotSize => Some("combat::weapons (taille de la balle)"),

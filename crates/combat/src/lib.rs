@@ -50,7 +50,7 @@ impl Plugin for CombatPlugin {
         for (category, names) in [
             (
                 "projectile_modifier",
-                // M4-T0a (§60) : `Spectral`, `Split`, `Orbit` (contrats, exécutés par M4-T1).
+                // M3-T0a (§60) : `Spectral`, `Split`, `Orbit` (contrats, exécutés par M3-T1).
                 &[
                     "Bounce", "Pierce", "Size", "Lifetime", "Homing", "Gravity", "Spectral",
                     "Split", "Orbit",
@@ -67,7 +67,7 @@ impl Plugin for CombatPlugin {
                     "Wait",
                     "Scatter",
                     "Named",
-                    // M4-T0a : variantes de M2-T1 qui manquaient au registre des kinds.
+                    // M3-T0a : variantes de M2-T1 qui manquaient au registre des kinds.
                     "Fan",
                     "Spiral",
                     "Burst",

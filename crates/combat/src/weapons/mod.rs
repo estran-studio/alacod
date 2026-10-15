@@ -88,16 +88,16 @@ pub enum MagBulletConfig {
     Magless {
         bullet_limit: u32,
     },
-    /// M4-T0a (`docs/conventions.md` §60, larmes d'isaac) : munitions infinies. Le mode tire
+    /// M3-T0a (`docs/conventions.md` §60, larmes d'isaac) : munitions infinies. Le mode tire
     /// tant que la cadence le permet, jamais de rechargement (pas même le délai de pompe d'un
     /// `Shotgun`), aucune réserve (`ammo_type` absent de l'arme, refusé par le lint s'il est
-    /// donné) ; `mag_ammo` reste à 0 (le HUD affiche `∞` ou rien : M4-T16). **En fin d'enum** :
+    /// donné) ; `mag_ammo` reste à 0 (le HUD affiche `∞` ou rien : M3-T16). **En fin d'enum** :
     /// le `derive(Hash)` des deux variantes d'avant ne change pas.
     Infinite,
 }
 
 impl MagBulletConfig {
-    /// M4-T0a : munitions infinies (aucun chargeur, aucune réserve).
+    /// M3-T0a : munitions infinies (aucun chargeur, aucune réserve).
     pub fn is_infinite(&self) -> bool {
         matches!(self, Self::Infinite)
     }
@@ -215,7 +215,7 @@ pub struct WeaponConfig {
     /// qui compte pour la simulation vit dans `combat::inventory::AmmoReserves`, déjà
     /// rollback). Voir le rapport de la tâche T2.2, décision « ammo_type hors hash ».
     ///
-    /// M4-T0a : optionnel dans le RON (`#[serde(default)]`, défaut [`no_ammo_type`]) pour une arme
+    /// M3-T0a : optionnel dans le RON (`#[serde(default)]`, défaut [`no_ammo_type`]) pour une arme
     /// dont tous les modes sont `MagBulletConfig::Infinite` ; le lint le rend obligatoire pour
     /// toute autre arme (comme avant) et le refuse sur une arme `Infinite`.
     #[serde(default = "no_ammo_type")]
@@ -237,7 +237,7 @@ pub struct WeaponConfig {
     pub projectiles: ProjectileTable,
 }
 
-/// M4-T0a : `ammo_type` d'une arme qui n'en déclare pas (munitions `Infinite`) :
+/// M3-T0a : `ammo_type` d'une arme qui n'en déclare pas (munitions `Infinite`) :
 /// `Custom("")`, la seule valeur qu'aucun RON ne peut écrire (le lint refuse un `Custom` au nom
 /// vide, T2.8). La réserve de ce type reste à 0 et n'est jamais consultée par un mode `Infinite`.
 pub fn no_ammo_type() -> AmmoType {
@@ -630,7 +630,7 @@ pub fn spawn_weapon_for_player(
                 mag_size
             }
             MagBulletConfig::Magless { bullet_limit } => bullet_limit,
-            // M4-T0a : aucun chargeur, `mag_ammo` et `mag_size` restent à 0.
+            // M3-T0a : aucun chargeur, `mag_ammo` et `mag_size` restent à 0.
             MagBulletConfig::Infinite => 0,
         };
         // `initial_mag_ammo` (T2.2) ne s'applique qu'au mode par défaut : c'est le seul dont
@@ -794,7 +794,7 @@ pub struct BulletSpawn<'a> {
     /// Préfixe du `GgrsNetId` de la balle (type de balle pour un tir de joueur, id de
     /// projectile pour un projectile né d'un pattern).
     pub id_label: String,
-    /// M4-T0a : stat `ShotSize` du tireur (1 sans modificateur, et pour les projectiles nés
+    /// M3-T0a : stat `ShotSize` du tireur (1 sans modificateur, et pour les projectiles nés
     /// d'un pattern et les tirs d'émetteur) : multiplie le rayon de collision et le sprite,
     /// après `Size`. À 1, aucun calcul : rayon et sprite exactement ceux d'avant.
     pub shot_size: fixed_math::Fixed,
@@ -926,7 +926,7 @@ fn spawn_bullet_rollback(
     // Projectile composable (T1.1) : `Size` agrandit collider et sprite ; `None` (mode de
     // tir sans `projectile:`) : balle ordinaire, inchangée.
     projectile: Option<Projectile>,
-    // M4-T0a : stats de larmes du porteur (`ShotSpeed`, `ShotSize`, 1 par défaut).
+    // M3-T0a : stats de larmes du porteur (`ShotSpeed`, `ShotSize`, 1 par défaut).
     shot: ShotStats,
 ) -> Entity {
     let (velocity, damage) = match &bullet_type {
@@ -944,7 +944,7 @@ fn spawn_bullet_rollback(
             damage: damage_bullet,
             ..
         } => {
-            // M4-T0a : `ShotSpeed` multiplie la vitesse de la balle ; à 1, aucun produit (même
+            // M3-T0a : `ShotSpeed` multiplie la vitesse de la balle ; à 1, aucun produit (même
             // valeur au bit près qu'avant la stat).
             let speed = if shot.speed == fixed_math::FIXED_ONE {
                 *speed
@@ -1023,7 +1023,7 @@ fn spawn_bullet_rollback(
     )
 }
 
-/// M4-T0a : stats de larmes du tireur lues au tir (`StatId::ShotSpeed`, `StatId::ShotSize`,
+/// M3-T0a : stats de larmes du tireur lues au tir (`StatId::ShotSpeed`, `StatId::ShotSize`,
 /// base 1 pour tout personnage, `sim_core::stats::default_base`).
 #[derive(Clone, Copy, Debug, PartialEq, Eq)]
 pub struct ShotStats {
@@ -1373,7 +1373,7 @@ pub fn weapon_rollback_system(
                 let current_frame = frame.frame;
                 let frames_since_last_shot = current_frame - weapon_state.last_fire_frame;
 
-                // M4-T0a : munitions infinies, jamais vide ni rechargé.
+                // M3-T0a : munitions infinies, jamais vide ni rechargé.
                 let infinite = weapon_config.mag.is_infinite();
                 let (can_fire, empty) = match weapon_config.firing_mode {
                     FiringMode::Automatic { .. } => (
@@ -1456,7 +1456,7 @@ pub fn weapon_rollback_system(
                         let damage_mult =
                             stats.get(shooter, &StatId::Damage, fixed_math::FIXED_ONE);
                         let range_mult = stats.get(shooter, &StatId::Range, fixed_math::FIXED_ONE);
-                        // M4-T0a : stats de larmes (1 par défaut, sans être posées dans `Stats`).
+                        // M3-T0a : stats de larmes (1 par défaut, sans être posées dans `Stats`).
                         let shot = ShotStats {
                             speed: stats.get(shooter, &StatId::ShotSpeed, fixed_math::FIXED_ONE),
                             size: stats.get(shooter, &StatId::ShotSize, fixed_math::FIXED_ONE),
@@ -1524,7 +1524,7 @@ pub fn weapon_rollback_system(
                                         shot,
                                     );
                                 }
-                                // M4-T0a : `Infinite` ne consomme rien et n'a pas de délai de
+                                // M3-T0a : `Infinite` ne consomme rien et n'a pas de délai de
                                 // pompe (la cadence seule règle le tir).
                                 if !infinite {
                                     weapon_mode_state.mag_ammo -= 1; // Shotgun uses one ammo for all pellets

@@ -2570,7 +2570,7 @@ fn player_stat(world: &mut World, handle: usize, stat: &StatId) -> Option<fixed_
 
 /// Stat résolue d'une entité (base `Stats` + `Modifiers` actifs).
 fn entity_stat(world: &mut World, entity: Entity, stat: &StatId) -> Option<fixed_math::Fixed> {
-    // M4-T0a : `ShotSpeed`/`ShotSize` ne sont pas posées dans `Stats` (base 1, comme au tir).
+    // M3-T0a : `ShotSpeed`/`ShotSize` ne sont pas posées dans `Stats` (base 1, comme au tir).
     let base = world
         .get::<Stats>(entity)?
         .get(stat)

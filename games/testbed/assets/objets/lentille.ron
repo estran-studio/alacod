@@ -1,4 +1,4 @@
-// M4-T0a (docs/conventions.md §60) : objet d'essai des stats de larmes. Passif : tirs 50 % plus
+// M3-T0a (docs/conventions.md §60) : objet d'essai des stats de larmes. Passif : tirs 50 % plus
 // rapides (`ShotSpeed`, Pct) et 1,5 fois plus gros (`ShotSize`, Mul : rayon de collision et sprite).
 // Scénario `tears_shot_speed` (la balle de `larme` atteint `target` plus tôt).
 (

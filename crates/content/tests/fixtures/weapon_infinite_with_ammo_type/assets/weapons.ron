@@ -1,4 +1,4 @@
-// Fixture M4-T0a : `mag: Infinite` n'a pas de réserve à consommer : `ammo_type` est refusé.
+// Fixture M3-T0a : `mag: Infinite` n'a pas de réserve à consommer : `ammo_type` est refusé.
 ({
     "larme": (
         config: (

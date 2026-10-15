@@ -2039,7 +2039,7 @@ f122/f242/f362), `levelup_choice` (`ChoiceC` → `coriace`), `levelup_timeout` (
 f704), `weapon_pool_drop` (progression `armes`).
 
 **Hors périmètre** (écran de choix et HUD des rads livrés depuis : §30, §32) : déclencheurs et conditions v2,
-objets passifs/actifs (M2), modificateurs de projectiles (M4), pause, `--progression` dans
+objets passifs/actifs (M2), modificateurs de projectiles (M3, `isaac`), pause, `--progression` dans
 `alacod-sim`.
 
 ## 28. Générateur v1 et placement scripté (T1.13, voie V3)
@@ -2482,6 +2482,11 @@ optionnel, nombre de portes fermées de la carte. Moment clé `room` (« salle c
 `two_rooms_door.ldtk` ; scénarios `rooms_lock_solo`, `rooms_dormant`, `rooms_lock_coop`,
 `rooms_door_occupied`. Diagnostic : `ALACOD_MAP_PROBE=<scénario>:<frame>` affiche aussi les salles
 (état) et les ennemis (position, dormant).
+
+D68 : si un ennemi chevauche une porte ouverte, une salle dormante réveille ses ennemis dès
+qu'un joueur debout y entre (même marge `PLAYER_INSET` que le verrouillage). La porte
+reste ouverte tant qu'un corps la chevauche. Un ennemi endormi sur une porte ne peut ainsi plus
+empêcher son propre réveil. La dormance est recalculée avant l'IA à chaque frame, sans état caché.
 
 ## 36. Objets et inventaire (M2-T0b, chantier C2)
 
@@ -3311,6 +3316,9 @@ profils existants sont inchangés (aucune trace existante ne bouge).
 - **Zone morte** : `surface_step` considère le bot arrivé quand son pas est sous `ROUTE_DEAD_ZONE`
   sur les deux axes ; sinon il restait immobile à 36 px de la portée, sans presser Interaction
   (graine 47 à 2 bots, `etages_deux`, soft-lock).
+- **D68 : à terre, l'explorateur envoie un input neutre** jusqu'à sa réanimation. Il poursuivait
+  sinon le repli de `prudent` ou le portail, quittant la portée de l'équipier. Le jeu continue
+  d'autoriser le déplacement à terre pour les joueurs humains (`downed_speed_mult`).
 - Campagne : `docs/taches/rapports/bot-explorateur-v2/campagne.sh` (lots de 10 graines).
 
 **`alacod-sim`** : `--floors <séquence> --until-floor N` existait (T1.14) ; le JSON gagne `outcome`
@@ -3446,6 +3454,11 @@ Scénarios : `shells_drop`, `shop_buy`, `shop_refused` (testbed), `shop_seeded` 
 
 **Hors périmètre** : marchand PNJ et déblocages méta (M2-T12, T13), vol, réduction de prix, HUD des
 shells (M2-T18).
+D68 : les drops de mort (douilles, power-ups et armes de progression) interrogent `With<Death>`
+avant `rollback_apply_death`, qui désactive immédiatement le mort. Le drop reste unique et se
+rejoue après restauration d'une mort posée en fin de frame (arène) ; les ticks `Added` ne font pas
+partie du snapshot rollback et ne peuvent pas servir à détecter cette mort.
+
 
 ## 52. Contenu `gungeon` (M2-T14, quatre parties)
 
@@ -3563,7 +3576,9 @@ Types tirables d'une grammaire = `FloorGrammar::kinds_needed()`. Avertissements 
   de M2-T5 est `reach::loot_pool_items` (et `loot_pool_weapons`), vides aujourd'hui : y renvoyer les
   ids de chaque pool (une dizaine de lignes) ;
 - arme sans source : `starting_weapons`, `WeaponLocation` des niveaux jouables, `weapon_pool` de
-  progression, pools.
+  progression, pools, armes citées par les règles des ennemis atteints (`Shoot`, phases de boss,
+  `SpawnPattern` des effets, entrées de phase et frises). Un ennemi inatteint ou `test_only`
+  ne compte pas comme source de ces armes.
 `MapEntry::levels` (`MapLevelInfo` : type de salle, personnages, armes murales par niveau LDtk) porte
 les données. Limites : pas de lecture des scénarios (une arme ou un objet donné par scénario seulement
 est signalé), ni des cartes assemblées autrement que par les désignations ci-dessus ; la sandbox
@@ -3574,7 +3589,8 @@ de personnage (`test_only: true,`), dans `config:` d'une arme (`config: (test_on
 l'ignore : pas d'avertissement « ennemi » ou « arme » pour lui, et un personnage marqué n'est pas une
 source d'armes. Lu par `content` seulement (`CharacterEntry::test_only`, `WeaponEntry::test_only`) : les
 types de `game` et `combat` l'ignorent comme tout champ inconnu, donc aucun effet en jeu et aucune trace
-qui bouge. Marqués : `cible` et `mannequin` (throne), `cible` (gungeon). Fixtures
+qui bouge. Marqués : `zombie_scaled` (zombies), `cible` et `mannequin` (throne), `cible` (gungeon). Fixtures
+`reach_enemy_weapons` (règles atteintes, phases et frises ; sources inatteintes et de test exclues),
 `reach_test_only_character` et `reach_test_only_weapon` (jumelles de `reach_enemy_unplaced` et
 `reach_weapon_no_source`, test `test_only_content_is_ignored_by_reach`).
 
@@ -3798,17 +3814,17 @@ Rechargement en jeu : `cargo run -p gungeon --features native`, ouvrir un écran
 modifier son `.html`. Le rapport précise les captures effectivement observées.
 
 
-## 60. Contrats des larmes et de l'empilement de projectiles (M4-T0a, chantier B5 v3)
+## 60. Contrats des larmes et de l'empilement de projectiles (M3-T0a, chantier B5 v3)
 
-Contrats posés pour M4-T1 (larmes v3), M4-T6 (familiers qui tirent), M4-T11a (contenu de larmes)
-et M4-T15 (bench). **Aucune trace existante ne bouge** : variantes en fin d'enum, stats lues avec
+Contrats posés pour M3-T1 (larmes v3), M3-T6 (familiers qui tirent), M3-T11a (contenu de larmes)
+et M3-T15 (bench). **Aucune trace existante ne bouge** : variantes en fin d'enum, stats lues avec
 une base 1 sans être posées dans `Stats`, champs d'objet optionnels hors rollback.
 
 ### Munitions infinies
 
 `MagBulletConfig::Infinite` (en fin d'enum, `combat::weapons`) : le mode tire tant que la cadence
 le permet ; jamais vide, jamais rechargé (pas même le délai de pompe d'un `Shotgun`), `mag_ammo` et
-`mag_size` restent à 0 (attente `Ammo` à 0 ; le HUD affichera `∞` ou rien, M4-T16). Réserve
+`mag_size` restent à 0 (attente `Ammo` à 0 ; le HUD affichera `∞` ou rien, M3-T16). Réserve
 initiale : 0, comme `Magless`.
 
 ```ron
@@ -3833,7 +3849,7 @@ modes sont `Infinite`. Lint : `ammo_type` absent alors qu'un mode consomme (`Mag
   base aux lecteurs hors simulation (attente `Stat`, générateur `ItemHeld`).
 - `Luck` a un lecteur de contrat : `effects::chance_with_luck(base, luck, par_point)` =
   `clamp(base + luck × par_point, 0, 1)` en `Fixed`, saturant. Rien ne l'appelle encore dans la
-  simulation (M4-T1 : statut posé par une larme ; M4-T2 : effets d'objet). Le lint accepte donc
+  simulation (M3-T1 : statut posé par une larme ; M3-T2 : effets d'objet). Le lint accepte donc
   désormais un modificateur sur `Luck` (`stat_reader`).
 
 ### Modificateurs de projectile portés par un objet
@@ -3851,7 +3867,7 @@ le `Debug` et le RON ne dépendent pas du crate de définition : aucune trace ne
 `ItemDef.projectile` et `SynergyDef.projectile` : `Option<ProjectileMods>` (`ProjectileMods` =
 `ProjectileSpec` : `modifiers`, `on_hit`, `on_expire`), absent = v1 exacte. Ce sont des
 définitions (`ItemTable`/`SynergyTable`, ressources hors rollback, sans `Hash`) : le champ n'entre
-dans aucun checksum. **Le tir ne le lit pas encore** (M4-T1) : le lint vérifie sa forme (mêmes
+dans aucun checksum. **Le tir ne le lit pas encore** (M3-T1) : le lint vérifie sa forme (mêmes
 plages qu'une arme, doublon refusé dans la liste d'un objet) puis le refuse (`Unsupported`).
 
 ### Composition (`combat::projectile::compose`)
@@ -3892,7 +3908,7 @@ En fin d'enum `ProjectileModifier` (les six d'avant gardent leur hash, test
 
 Lint : formes et plages (`Split.count > 0`, `spread >= 0`, `child` présent dans la table de
 l'arme ; `Orbit.radius > 0`, `frames_per_turn > 0`), puis `Unsupported` sur une arme tant que
-M4-T1 ne les exécute pas. Kinds `projectile_modifier` : `Spectral`, `Split`, `Orbit` (et `Fan`,
+M3-T1 ne les exécute pas. Kinds `projectile_modifier` : `Spectral`, `Split`, `Orbit` (et `Fan`,
 `Spiral`, `Burst`, qui manquaient aux `pattern` déclarés par `CombatPlugin`).
 
 ### Testbed et scénarios

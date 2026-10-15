@@ -139,10 +139,10 @@ pub struct ItemDef {
     /// stock, l'usage est refusé (la charge reste). `None` : gratuit (v1 exact).
     #[serde(default)]
     pub cost: Option<(String, u32)>,
-    /// M4-T0a (`docs/conventions.md` §60) : modificateurs de projectile ajoutés aux tirs du
+    /// M3-T0a (`docs/conventions.md` §60) : modificateurs de projectile ajoutés aux tirs du
     /// porteur (`modifiers`, `on_hit`, `on_expire`), composés avec ceux de l'arme par
     /// `combat::projectile::compose` dans l'ordre de [`projectile_sources`]. `None` : v1 exacte.
-    /// Contrat : le tir ne le lit pas encore (M4-T1) ; le lint refuse un objet qui le porte
+    /// Contrat : le tir ne le lit pas encore (M3-T1) ; le lint refuse un objet qui le porte
     /// (`Unsupported`). `ItemDef` est une définition (ressource [`ItemTable`], hors rollback,
     /// sans `Hash`) : le champ n'entre dans aucun checksum.
     #[serde(default, skip_serializing_if = "Option::is_none")]
@@ -160,17 +160,17 @@ pub struct SynergyDef {
     pub modifiers: Vec<ItemModifier>,
     #[serde(default)]
     pub effects: Vec<Effect>,
-    /// M4-T0a : comme [`ItemDef::projectile`], pour une synergie (une synergie peut changer les
+    /// M3-T0a : comme [`ItemDef::projectile`], pour une synergie (une synergie peut changer les
     /// larmes). `None` : v1 exacte ; hors rollback et hors hash (définition).
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub projectile: Option<ProjectileMods>,
 }
 
-/// M4-T0a (§60) : listes de modificateurs de projectile des objets tenus par `inventory`, dans
+/// M3-T0a (§60) : listes de modificateurs de projectile des objets tenus par `inventory`, dans
 /// l'ordre déterministe de la composition (`combat::projectile::compose`, après ceux de l'arme) :
 /// passifs dans l'ordre de ramassage (un passif en double compte deux fois), puis l'actif, puis
 /// les synergies actives par id croissant. Les objets sans `projectile` ne donnent rien. Pure :
-/// M4-T1 l'appellera au tir.
+/// M3-T1 l'appellera au tir.
 pub fn projectile_sources<'a>(
     items: &'a ItemTable,
     synergies: &'a SynergyTable,
@@ -327,7 +327,7 @@ mod tests {
         hasher.finish()
     }
 
-    /// M4-T0a : `projectile` absent = v1 exacte ; présent, lu tel quel ; sources de la
+    /// M3-T0a : `projectile` absent = v1 exacte ; présent, lu tel quel ; sources de la
     /// composition dans l'ordre passifs (ramassage, doublons compris), actif, synergies par id.
     #[test]
     fn projectile_d_objet_et_ordre_des_sources() {

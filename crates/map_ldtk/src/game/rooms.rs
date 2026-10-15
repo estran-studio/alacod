@@ -209,25 +209,67 @@ pub fn room_dormancy_system(
     states: Res<RoomStates>,
     table: Res<RoomKindTable>,
     rooms: CurrentRooms,
+    players: Query<
+        (
+            &GgrsNetId,
+            &bevy_fixed::fixed_math::FixedTransform3D,
+            Has<Downed>,
+        ),
+        With<Player>,
+    >,
+    doors: Query<
+        (
+            &GgrsNetId,
+            &bevy_fixed::fixed_math::FixedTransform3D,
+            &DoorShape,
+            Has<Collider>,
+        ),
+        With<DoorComponent>,
+    >,
     enemies: Query<
         (
             &GgrsNetId,
             Entity,
             &bevy_fixed::fixed_math::FixedTransform3D,
             Has<RoomDormant>,
+            Option<&Collider>,
         ),
         With<Enemy>,
     >,
 ) {
-    let dormant: Vec<&RoomBounds> = rooms
-        .iter()
-        .filter(|(id, _, kind)| table.locks(&kind.0) && states.get(&id.0) == RoomState::Dormant)
-        .map(|(_, bounds, _)| bounds)
-        .collect();
     if rooms.iter().next().is_none() {
         return;
     }
-    for (_, entity, transform, is_dormant) in order_iter!(enemies) {
+    let standing: Vec<_> = order_iter!(players)
+        .into_iter()
+        .filter_map(|(_, t, downed)| (!downed).then_some(t.translation.truncate()))
+        .collect();
+    let open_doors: Vec<_> = order_iter!(doors)
+        .into_iter()
+        .filter_map(|(_, t, shape, closed)| (!closed).then_some((t, shape)))
+        .collect();
+    let enemy_bodies: Vec<_> = order_iter!(enemies)
+        .into_iter()
+        .filter_map(|(_, _, t, _, collider)| collider.map(|c| (t, c)))
+        .collect();
+    let dormant: Vec<&RoomBounds> = rooms
+        .iter()
+        .filter(|(id, bounds, kind)| {
+            table.locks(&kind.0)
+                && states.get(&id.0) == RoomState::Dormant
+                // D68 : un ennemi dans une porte empêche sa fermeture et donc son propre
+                // réveil. Si un joueur est entré, réveiller la salle avant l'IA, même tant
+                // que cette porte reste ouverte. Une porte occupée seulement par un joueur
+                // conserve la règle habituelle (pas de réveil anticipé au passage du seuil).
+                && !(standing.iter().any(|p| inside_box(bounds.position, bounds.size, *p, Fixed::from_num(PLAYER_INSET)))
+                    && open_doors.iter().any(|(door_t, shape)| {
+                        door_near(bounds, door_t.translation.truncate())
+                            && enemy_bodies.iter().any(|(t, collider)| is_colliding(&door_t.translation, &shape.collider, &t.translation, collider))
+                    }))
+        })
+        .map(|(_, bounds, _)| bounds)
+        .collect();
+    for (_, entity, transform, is_dormant, _) in order_iter!(enemies) {
         let p = transform.translation.truncate();
         let want = dormant
             .iter()

@@ -1,0 +1,407 @@
+{
+  "main_avant": {
+    "seed": 90,
+    "floor": 0,
+    "frames": 1591,
+    "outcome": "soft-lock",
+    "desync": false,
+    "rooms": [
+      {
+        "floor": 0,
+        "total": 12,
+        "visited": 5,
+        "cleared": 2,
+        "locking": 9
+      }
+    ],
+    "players_end": [
+      {
+        "handle": 0,
+        "currency": 819,
+        "downed": false,
+        "x": 371.49213,
+        "y": 8.709427,
+        "in_spawn_room": false
+      },
+      {
+        "handle": 1,
+        "currency": 1024,
+        "downed": false,
+        "x": 371.6989,
+        "y": 6.876587,
+        "in_spawn_room": false
+      }
+    ],
+    "instantanes": {
+      "previous": {
+        "frame": 991,
+        "players": [
+          {
+            "net_id": 148,
+            "handle": 0,
+            "position": {
+              "x": "371.49214",
+              "y": "8.70943",
+              "cell": [
+                23,
+                0
+              ]
+            },
+            "health": "100",
+            "downed": null,
+            "currency": 819,
+            "active_weapon": "pistolet",
+            "mag_ammo": 12,
+            "reserves": [
+              [
+                "Custom(\"balles\")",
+                119964
+              ]
+            ],
+            "last_input": null
+          },
+          {
+            "net_id": 151,
+            "handle": 1,
+            "position": {
+              "x": "371.69891",
+              "y": "6.87659",
+              "cell": [
+                23,
+                0
+              ]
+            },
+            "health": "81.16232",
+            "downed": null,
+            "currency": 1024,
+            "active_weapon": "pistolet",
+            "mag_ammo": 12,
+            "reserves": [
+              [
+                "Custom(\"balles\")",
+                119964
+              ]
+            ],
+            "last_input": null
+          }
+        ],
+        "floor": {
+          "index": 0,
+          "portal_open": false,
+          "anchor": [
+            "8",
+            "-8"
+          ],
+          "anchor_cell": [
+            0,
+            -1
+          ]
+        }
+      },
+      "final_state": {
+        "frame": 1591,
+        "players": [
+          {
+            "net_id": 148,
+            "handle": 0,
+            "position": {
+              "x": "371.49214",
+              "y": "8.70943",
+              "cell": [
+                23,
+                0
+              ]
+            },
+            "health": "100",
+            "downed": null,
+            "currency": 819,
+            "active_weapon": "pistolet",
+            "mag_ammo": 12,
+            "reserves": [
+              [
+                "Custom(\"balles\")",
+                119964
+              ]
+            ],
+            "last_input": null
+          },
+          {
+            "net_id": 151,
+            "handle": 1,
+            "position": {
+              "x": "371.69891",
+              "y": "6.87659",
+              "cell": [
+                23,
+                0
+              ]
+            },
+            "health": "100",
+            "downed": null,
+            "currency": 1024,
+            "active_weapon": "pistolet",
+            "mag_ammo": 12,
+            "reserves": [
+              [
+                "Custom(\"balles\")",
+                119964
+              ]
+            ],
+            "last_input": null
+          }
+        ],
+        "floor": {
+          "index": 0,
+          "portal_open": false,
+          "anchor": [
+            "8",
+            "-8"
+          ],
+          "anchor_cell": [
+            0,
+            -1
+          ]
+        }
+      }
+    }
+  },
+  "historique_avant": {
+    "seed": 90,
+    "floor": 0,
+    "frames": 5216,
+    "outcome": "soft-lock",
+    "desync": false,
+    "rooms": [
+      {
+        "floor": 0,
+        "total": 12,
+        "visited": 12,
+        "cleared": 9,
+        "locking": 9
+      }
+    ],
+    "players_end": [
+      {
+        "handle": 0,
+        "currency": 1790,
+        "downed": true,
+        "x": 10.361847,
+        "y": -7.915802,
+        "in_spawn_room": true
+      },
+      {
+        "handle": 1,
+        "currency": 2470,
+        "downed": false,
+        "x": 221.45073,
+        "y": -0.99505615,
+        "in_spawn_room": false
+      }
+    ],
+    "instantanes": {
+      "previous": {
+        "frame": 4616,
+        "players": [
+          {
+            "net_id": 138,
+            "handle": 0,
+            "position": {
+              "x": "43.65353",
+              "y": "7.46289",
+              "cell": [
+                2,
+                0
+              ]
+            },
+            "health": "0",
+            "downed": {
+              "since_frame": 3976,
+              "bleedout_at_frame": 5776
+            },
+            "currency": 1790,
+            "active_weapon": "pistolet",
+            "mag_ammo": 3,
+            "reserves": [
+              [
+                "Custom(\"balles\")",
+                119880
+              ]
+            ],
+            "last_input": null
+          },
+          {
+            "net_id": 141,
+            "handle": 1,
+            "position": {
+              "x": "216.45734",
+              "y": "8.78038",
+              "cell": [
+                13,
+                0
+              ]
+            },
+            "health": "100",
+            "downed": null,
+            "currency": 2470,
+            "active_weapon": "pistolet",
+            "mag_ammo": 5,
+            "reserves": [
+              [
+                "Custom(\"balles\")",
+                119892
+              ]
+            ],
+            "last_input": null
+          }
+        ],
+        "floor": {
+          "index": 0,
+          "portal_open": true,
+          "anchor": [
+            "8",
+            "-8"
+          ],
+          "anchor_cell": [
+            0,
+            -1
+          ]
+        }
+      },
+      "final_state": {
+        "frame": 5216,
+        "players": [
+          {
+            "net_id": 138,
+            "handle": 0,
+            "position": {
+              "x": "10.36185",
+              "y": "-7.9158",
+              "cell": [
+                0,
+                -1
+              ]
+            },
+            "health": "0",
+            "downed": {
+              "since_frame": 3976,
+              "bleedout_at_frame": 5776
+            },
+            "currency": 1790,
+            "active_weapon": "pistolet",
+            "mag_ammo": 3,
+            "reserves": [
+              [
+                "Custom(\"balles\")",
+                119880
+              ]
+            ],
+            "last_input": null
+          },
+          {
+            "net_id": 141,
+            "handle": 1,
+            "position": {
+              "x": "221.45073",
+              "y": "-0.99506",
+              "cell": [
+                13,
+                -1
+              ]
+            },
+            "health": "100",
+            "downed": null,
+            "currency": 2470,
+            "active_weapon": "pistolet",
+            "mag_ammo": 5,
+            "reserves": [
+              [
+                "Custom(\"balles\")",
+                119892
+              ]
+            ],
+            "last_input": null
+          }
+        ],
+        "floor": {
+          "index": 0,
+          "portal_open": true,
+          "anchor": [
+            "8",
+            "-8"
+          ],
+          "anchor_cell": [
+            0,
+            -1
+          ]
+        }
+      }
+    }
+  },
+  "main_apres": {
+    "seed": 90,
+    "floor": 0,
+    "frames": 1780,
+    "outcome": "mort",
+    "desync": false,
+    "rooms": [
+      {
+        "floor": 0,
+        "total": 12,
+        "visited": 6,
+        "cleared": 3,
+        "locking": 9
+      }
+    ],
+    "players_end": [
+      {
+        "handle": 0,
+        "currency": 1311,
+        "downed": true,
+        "x": 218.06456,
+        "y": -91.72154,
+        "in_spawn_room": false
+      }
+    ]
+  },
+  "historique_apres": {
+    "seed": 90,
+    "floor": 1,
+    "frames": 4101,
+    "outcome": "objectif",
+    "desync": false,
+    "rooms": [
+      {
+        "floor": 0,
+        "total": 12,
+        "visited": 12,
+        "cleared": 9,
+        "locking": 9
+      },
+      {
+        "floor": 1,
+        "total": 10,
+        "visited": 1,
+        "cleared": 0,
+        "locking": 7
+      }
+    ],
+    "players_end": [
+      {
+        "handle": 0,
+        "currency": 1900,
+        "downed": false,
+        "x": -8.0,
+        "y": -8.0,
+        "in_spawn_room": true
+      },
+      {
+        "handle": 1,
+        "currency": 2390,
+        "downed": false,
+        "x": 24.0,
+        "y": -8.0,
+        "in_spawn_room": true
+      }
+    ]
+  }
+}

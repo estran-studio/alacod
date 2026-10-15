@@ -1,5 +1,5 @@
-// Fixture M4-T0a : `Spectral`, `Split` et `Orbit` sont lus (formes valides) mais pas encore exécutés
-// au tir (M4-T1) : une arme qui les porte est refusée (Unsupported).
+// Fixture M3-T0a : `Spectral`, `Split` et `Orbit` sont lus (formes valides) mais pas encore exécutés
+// au tir (M3-T1) : une arme qui les porte est refusée (Unsupported).
 ({
     "spectre": (
         config: (
