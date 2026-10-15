@@ -1,0 +1,39 @@
+<!-- Écran de mutation (D71, docs/conventions.md §56) : présentation seule. Les propriétés viennent de
+     `game::ui::mutation_hui` (cartes de `MutationScreenView`) ; le choix part toujours par le bit
+     `ChoiceA/B/C` de l'input (`mutation_screen::confirm_input`), jamais par ce gabarit. -->
+<template>
+    <property name="name0"></property>
+    <property name="desc0"></property>
+    <property name="tint0">#ffffff</property>
+    <property name="border0">#ffffff4d</property>
+    <property name="name1"></property>
+    <property name="desc1"></property>
+    <property name="tint1">#ffffff</property>
+    <property name="border1">#ffffff4d</property>
+    <property name="name2"></property>
+    <property name="desc2"></property>
+    <property name="tint2">#ffffff</property>
+    <property name="border2">#ffffff4d</property>
+    <property name="bar_width">100%</property>
+    <node width="100%" height="100%" align_items="center" justify_content="center" flex_direction="column" row_gap="24px" background="#05060ab8" global_zindex="10">
+        <text font="fonts/FiraMono-Medium.ttf" font_size="24" font_color="#ffffff">Mutation</text>
+        <node column_gap="12px">
+            <node width="220px" height="180px" padding="12px" border="3px" border_color="{border0}" flex_direction="column" row_gap="8px" background="#141414e6">
+                <text font="fonts/FiraMono-Medium.ttf" font_size="17" font_color="{tint0}">{name0}</text>
+                <text font="fonts/FiraMono-Medium.ttf" font_size="15" font_color="#ffffff">{desc0}</text>
+            </node>
+            <node width="220px" height="180px" padding="12px" border="3px" border_color="{border1}" flex_direction="column" row_gap="8px" background="#141414e6">
+                <text font="fonts/FiraMono-Medium.ttf" font_size="17" font_color="{tint1}">{name1}</text>
+                <text font="fonts/FiraMono-Medium.ttf" font_size="15" font_color="#ffffff">{desc1}</text>
+            </node>
+            <node width="220px" height="180px" padding="12px" border="3px" border_color="{border2}" flex_direction="column" row_gap="8px" background="#141414e6">
+                <text font="fonts/FiraMono-Medium.ttf" font_size="17" font_color="{tint2}">{name2}</text>
+                <text font="fonts/FiraMono-Medium.ttf" font_size="15" font_color="#ffffff">{desc2}</text>
+            </node>
+        </node>
+        <node width="480px" height="6px" background="#ffffff22">
+            <node width="{bar_width}" height="100%" background="#f1c40f"></node>
+        </node>
+        <text font="fonts/FiraMono-Medium.ttf" font_size="15" font_color="#ffffffb3">← → choisir · Entrée / A valider · 1 2 3</text>
+    </node>
+</template>

@@ -1290,8 +1290,6 @@ pub struct Registry {
     pub ui_files: Vec<PathBuf>,
     /// Réglages typés du feedback (T3.4) parmi les fichiers Ui.
     pub feedback: Vec<FeedbackEntry>,
-    /// T1.16 : écrans de mutation (`ui/mutation_screen.ron`) parmi les fichiers Ui.
-    pub mutation_screens: Vec<(PathBuf, crate::ui::MutationScreenLayout)>,
     /// T1.18 : sources des widgets de chaque `ui/hud.ron`.
     pub hud_sources: Vec<(PathBuf, Vec<String>)>,
     pub camera_files: Vec<PathBuf>,
@@ -3537,8 +3535,7 @@ fn load_maps(
     }
 }
 
-/// Les réglages `feedback.ron` déclarés comme Ui ont un schéma typé (T3.4), comme
-/// `mutation_screen.ron` (T1.16, [`crate::ui::MutationScreenLayout`]).
+/// Les réglages `feedback.ron` déclarés comme Ui ont un schéma typé (T3.4).
 /// Les autres RON gardent la validation syntaxique ; les gabarits HTML doivent être lisibles.
 fn load_ui(
     assets_dir: &ContentFiles,
@@ -3592,12 +3589,6 @@ fn load_ui(
                     .map(|w| w.kind.source().to_string())
                     .collect();
                 registry.hud_sources.push((rel.clone(), sources));
-            })
-        } else if rel.file_name().and_then(|name| name.to_str())
-            == Some(crate::ui::MUTATION_SCREEN_FILE_NAME)
-        {
-            ron::from_str::<crate::ui::MutationScreenLayout>(&text).map(|layout| {
-                registry.mutation_screens.push((rel.clone(), layout));
             })
         } else {
             ron::from_str::<ron::Value>(&text).map(|_| ())
