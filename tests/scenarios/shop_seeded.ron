@@ -4,6 +4,7 @@
 // graine, quel que soit le moment), prix par rareté de `economy.ron`.
 //
 // À regarder : rien ne bouge (joueur immobile) ; les trois présentoirs existent depuis f10.
+// T14b : le pool de boutique compte dix objets de plus ; le tirage seedé change (présentoir 1 : trefle → trophee, 30 inchangé ; présentoir 2 : blank → gilet, 15 inchangé). Attentes de même rôle (objet et prix suivent la rareté), aucune retirée.
 Scenario(
     powerup_drop_chance_override: "0.0",
     game: "gungeon",
@@ -14,7 +15,7 @@ Scenario(
     expect: [
         ShelfCount(count: 3, at_frame: 10),
         Shelf(nth: 0, item: Some("key"), price: Some(15), sold: Some(false), at_frame: 10),
-        Shelf(nth: 1, item: Some("trefle"), price: Some(30), at_frame: 10),
-        Shelf(nth: 2, item: Some("blank"), price: Some(15), at_frame: 10),
+        Shelf(nth: 1, item: Some("trophee"), price: Some(30), at_frame: 10),
+        Shelf(nth: 2, item: Some("gilet"), price: Some(15), at_frame: 10),
     ],
 )

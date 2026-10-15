@@ -1,0 +1,12 @@
+// `gungeon` (M2-T14b) : passif, chaque Blank utilisée donne un point de bouclier (`OnBlank`, §42 ;
+// `GainShield`, D61), au plus une fois toutes les 5 s.
+(
+    name: "Parchemin de garde",
+    kind: Passive,
+    effects: [
+        (on: OnBlank, cooldown: Some(300), do: [GainShield(1)]),
+    ],
+    tags: ["defensif"],
+    rarity: Uncommon,
+    test: Some((frames: 60)),
+)
