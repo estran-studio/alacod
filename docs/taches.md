@@ -599,7 +599,7 @@ l'ancienne machine.
   `Inventory`, `BossPhase`, `ProfileHas`.
 
 **V4 présentation**
-- M2-T18 Test comparatif d'UI (I1, décision §7 n° 4, 2 j) puis HUD gungeon : blanks, clés, objets,
+- M2-T18 Test comparatif d'UI (I1, décision §7 n° 4, 2 j ; fiche de la première partie `docs/taches/m2-t18-ui-comparatif.md`, cloud ; William choisit sur pièces) puis HUD gungeon : blanks, clés, objets,
   actif et sa charge, minicarte.
 - M2-T19 Feedback v2 (I2 v2, 2 j ; fiche `docs/taches/m2-t19-feedback-v2.md`, cloud) : télégraphes de patterns, flash du blank, ralenti de fin de boss.
 
