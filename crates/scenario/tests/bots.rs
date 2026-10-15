@@ -33,6 +33,7 @@ fn two_fonceurs(frames: u32) -> Scenario {
         items: vec![],
         chests: vec![],
         room_reward_chance_override: None,
+        shop: Default::default(),
         profile: false,
         profile_setup: None,
         powerup_drop_chance_override: None,
@@ -42,6 +43,7 @@ fn two_fonceurs(frames: u32) -> Scenario {
         difficulty: None,
         characters: vec![],
         mode: None,
+        ui: Vec::new(),
     }
 }
 

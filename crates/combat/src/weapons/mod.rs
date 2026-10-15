@@ -1855,6 +1855,8 @@ impl Plugin for BaseWeaponGamePlugin {
             // D38 : type nouveau, sans porteur hors fuite : variante neutre (parité des types
             // vides, CLAUDE.md), sinon toutes les traces bougent dès la frame 0.
             .rollback_and_trace_neutral::<melee::MeleeHold>()
+            // D29 : idem, posé seulement sur les ennemis des vagues 2 et suivantes.
+            .rollback_and_trace_neutral::<melee::WaveDamageScale>()
             .rollback_and_trace::<melee::MeleeHitbox>();
 
         app.add_systems(

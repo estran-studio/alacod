@@ -114,6 +114,14 @@ impl From<MeleeWeaponAsset> for MeleeWeapon {
 #[derive(Component, Reflect, Default, Clone, Debug, Hash, Serialize, Deserialize)]
 pub struct MeleeHold;
 
+/// D29 : multiplicateur de dégâts de la vague où l'ennemi est apparu
+/// (`WaveState::current_damage_multiplier`, valeur de `wave_config.ron`). Posé au spawn par
+/// `waves::wave_spawning_system` seulement quand il diffère de 1 (vague 1 : absent, donc rien ne
+/// change), lu par la mêlée et l'attaque directe de l'ennemi. Rollback et tracé, variante
+/// **neutre** (type nouveau sans porteur à la frame 0, parité des types vides, CLAUDE.md).
+#[derive(Component, Default, Clone, Debug, Hash, Serialize, Deserialize)]
+pub struct WaveDamageScale(pub fixed_math::Fixed);
+
 // MELEE ATTACK STATE
 #[derive(Component, Reflect, Default, Clone, Debug, Hash, Serialize, Deserialize)]
 pub struct MeleeAttackState {
@@ -651,6 +659,7 @@ pub fn enemy_melee_attack_system(
             &Team,
             Option<&Tags>,
             Has<MeleeHold>,
+            Option<&WaveDamageScale>,
         ),
         (With<Enemy>, With<Rollback>),
     >,
@@ -675,6 +684,7 @@ pub fn enemy_melee_attack_system(
         team,
         opt_tags,
         held,
+        wave_scale,
     ) in order_mut_iter!(enemy_query)
     {
         // Find melee weapon in children
@@ -719,7 +729,7 @@ pub fn enemy_melee_attack_system(
                     attack_state.start_attack(frame.frame);
 
                     // Spawn hitbox
-                    spawn_melee_hitbox(
+                    let hitbox = spawn_melee_hitbox(
                         &mut commands,
                         entity,
                         net_id,
@@ -733,6 +743,15 @@ pub fn enemy_melee_attack_system(
                         *team,
                         opt_tags.unwrap_or(&Tags::default()),
                     );
+                    // D29 : dégâts de la vague (absent = vague 1 = aucun calcul).
+                    if let Some(scale) = wave_scale {
+                        let damage = config.damage.saturating_mul(scale.0);
+                        commands.queue(move |world: &mut World| {
+                            if let Some(mut hitbox) = world.get_mut::<MeleeHitbox>(hitbox) {
+                                hitbox.damage = damage;
+                            }
+                        });
+                    }
 
                     info!(
                         "Enemy {} started melee attack with {} at frame {}",

@@ -320,6 +320,18 @@ pub fn build_app(scenario: &Scenario, headless: bool, config: &PlayConfig) -> Ap
                 .before(game::items::item_consumable_pickup_system)
                 .in_set(game::system_set::RollbackSystemSet::Effects),
         )
+        // M2-T6 : présentoirs scriptés et drop de douilles imposé
+        .insert_resource(ScenarioShelfPlacements(scenario.shop.shelves.clone()))
+        .insert_resource(game::shop::ShopOverrides {
+            shells_drop: scenario.shop.shells_drop_override,
+        })
+        .add_systems(
+            GgrsSchedule,
+            apply_scenario_shelf_placements
+                .after(apply_scenario_chest_placements)
+                .before(game::items::item_consumable_pickup_system)
+                .in_set(game::system_set::RollbackSystemSet::Effects),
+        )
         // T1.13 : placements scriptés de personnages (voir la doc de
         // `apply_scenario_character_placements`).
         .insert_resource(ScenarioCharacterPlacements(scenario.characters.clone()))
@@ -362,6 +374,11 @@ pub fn build_app(scenario: &Scenario, headless: bool, config: &PlayConfig) -> Ap
         )
         .insert_resource(InputSource::Scripted)
         .insert_resource::<ScriptedInputs>(scenario.scripted_inputs())
+        // M2-T18 : actions d'UI du scénario (présentation, hors trace) ; absente sans `ui`.
+        .insert_resource(game::ui::screens::ScreenScript {
+            steps: scenario.ui.clone(),
+            played_until: None,
+        })
         // T2.11 : toujours ajouté (BotAssignments vide ⇒ read_bot_inputs ne fait rien, les
         // scénarios sans bot ne changent pas) ; le mode de base reste Scripted (au-dessus) pour
         // que les joueurs scriptés d'un scénario qui mélange les deux gardent leurs inputs, les
@@ -803,6 +820,36 @@ fn apply_scenario_chest_placements(
                 rarity: placement.rarity,
                 locked: placement.locked,
                 opened: false,
+            },
+            position,
+        );
+    }
+}
+
+/// Placements scriptés de présentoirs (M2-T6, `Scenario::shop`).
+#[derive(Resource)]
+struct ScenarioShelfPlacements(Vec<game::replay::ShelfPlacement>);
+
+fn apply_scenario_shelf_placements(
+    frame: Res<FrameCount>,
+    placements: Res<ScenarioShelfPlacements>,
+    mut commands: Commands,
+    mut id_factory: ResMut<GgrsNetIdFactory>,
+) {
+    for placement in &placements.0 {
+        if frame.frame != placement.at_frame {
+            continue;
+        }
+        let position = fixed_math::FixedVec3::new(placement.x, placement.y, fixed_math::FIXED_ZERO);
+        game::shop::spawn_shelf(
+            &mut commands,
+            &mut id_factory,
+            items::Shelf {
+                key: placement.key.clone(),
+                item_id: placement.item.clone(),
+                price: placement.price,
+                sold: false,
+                retry_after: 0,
             },
             position,
         );
@@ -2197,6 +2244,49 @@ fn check(world: &mut World, expectation: &Expectation) -> Result<(), String> {
                 ))
             }
         }
+        Expectation::Shelf {
+            nth,
+            item,
+            price,
+            sold,
+            ..
+        } => {
+            let mut shelves: Vec<items::Shelf> = world
+                .query::<&items::Shelf>()
+                .iter(world)
+                .cloned()
+                .collect();
+            shelves.sort_by(|a, b| a.key.cmp(&b.key));
+            let Some(shelf) = shelves.get(*nth) else {
+                return Err(format!(
+                    "présentoir {nth} absent ({} présentoirs)",
+                    shelves.len()
+                ));
+            };
+            if item.as_ref().is_some_and(|item| *item != shelf.item_id)
+                || price.is_some_and(|price| price != shelf.price)
+                || sold.is_some_and(|sold| sold != shelf.sold)
+            {
+                return Err(format!("présentoir {nth} : {shelf:?}"));
+            }
+            Ok(())
+        }
+        Expectation::ShelfCount { count, .. } => {
+            let actual = world.query::<&items::Shelf>().iter(world).count() as u32;
+            if actual == *count {
+                Ok(())
+            } else {
+                Err(format!("{actual} présentoir(s) (attendu {count})"))
+            }
+        }
+        Expectation::ShellPiles { count, .. } => {
+            let actual = world.query::<&items::ShellPickup>().iter(world).count() as u32;
+            if actual == *count {
+                Ok(())
+            } else {
+                Err(format!("{actual} tas de douilles (attendu {count})"))
+            }
+        }
         Expectation::ItemCharge { handle, charge, .. } => {
             let inventory = player_inventory(world, *handle)?;
             match inventory.and_then(|i| i.active) {
@@ -2333,6 +2423,41 @@ fn check(world: &mut World, expectation: &Expectation) -> Result<(), String> {
             } else {
                 Err(format!(
                     "HUD {source} = « {text} » (attendu « {contains} »)"
+                ))
+            }
+        }
+        // M2-T18 : texte d'une section d'un écran (pause, inventaire), présentation hors trace.
+        Expectation::ScreenText {
+            screen,
+            section,
+            contains,
+            closed,
+            ..
+        } => {
+            let Some(screens) = world.get_resource::<game::ui::screens::Screens>() else {
+                return Err("pas de Screens".into());
+            };
+            let open = screens.view.as_ref().map(|view| view.screen.name());
+            if *closed {
+                return match open {
+                    None => Ok(()),
+                    Some(open) => Err(format!("écran « {open} » ouvert, attendu fermé")),
+                };
+            }
+            let text = match &screens.view {
+                Some(view) if view.screen.name() == screen => view.section_text(section),
+                _ => {
+                    return Err(format!(
+                        "écran « {screen} » fermé (ouvert : {})",
+                        open.unwrap_or("aucun")
+                    ))
+                }
+            };
+            if text.contains(contains.as_str()) {
+                Ok(())
+            } else {
+                Err(format!(
+                    "écran {screen}, section {section} = « {text} » (attendu « {contains} »)"
                 ))
             }
         }

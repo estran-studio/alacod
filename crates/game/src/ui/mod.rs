@@ -7,6 +7,7 @@ pub mod hud;
 pub mod hud_model;
 pub mod lobby;
 pub mod mutation_screen;
+pub mod screens;
 
 pub struct GameUiPlugin;
 
@@ -19,6 +20,8 @@ impl Plugin for GameUiPlugin {
         app.add_plugins(mutation_screen::MutationScreenModelPlugin);
         // T1.18 : valeurs du HUD du joueur affiché (`HudSnapshot`), aussi en headless.
         app.add_plugins(hud_model::HudModelPlugin);
+        // M2-T18 : état et vue des écrans pause et inventaire, aussi en headless.
+        app.add_plugins(screens::ScreensPlugin);
     }
 }
 

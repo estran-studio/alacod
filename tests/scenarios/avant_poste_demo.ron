@@ -8,13 +8,15 @@
 // (grace 150, délai 60) pour finir vers f2400, proche du « ~2000 frames » de
 // la fiche. À regarder : vague 1 vers f300-600, vagues suivantes vers
 // f800/f1400/f2000 ; le joueur reste debout, 8+ kills, entrée en vague 5 =
-// Victoire (règle du mode Waves).
+// Victoire (règle du mode Waves). D28 (dégât direct des attaques ennemies réparé) : le joueur
+// immobile finit par mourir (f3465, vague 6, bien après la victoire de f2236) ; le scénario
+// s'arrête à f3400.
 Scenario(
     game: "zombies",
     map: "maps/avant_poste.ldtk",
     map_seed: 2,
     powerup_drop_chance_override: "0.0",
-    frames: 3600,
+    frames: 3400,
     wave_overrides: (
         min_wave_delay_frames: 60,
         base_enemies: 2,
@@ -62,11 +64,11 @@ Scenario(
         ),
     ],
     expect: [
-        PlayerAlive(handle: 0, at_frame: 3600),
+        PlayerAlive(handle: 0, at_frame: 3400),
         WaveAtLeast(wave: 1, at_frame: 500),
-        WaveAtLeast(wave: 5, at_frame: 3600),
-        KillsAtLeast(kills: 8, at_frame: 3600),
-        RunState(step: Ended(Victory), at_frame: 3600),
-        RunSummary(wave_reached_min: 5, kills_min: 8, at_frame: 3600),
+        WaveAtLeast(wave: 5, at_frame: 3400),
+        KillsAtLeast(kills: 8, at_frame: 3400),
+        RunState(step: Ended(Victory), at_frame: 3400),
+        RunSummary(wave_reached_min: 5, kills_min: 8, at_frame: 3400),
     ],
 )

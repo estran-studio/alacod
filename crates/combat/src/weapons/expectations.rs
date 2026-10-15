@@ -448,6 +448,19 @@ pub enum Expectation {
         contains: String,
         at_frame: u32,
     },
+    /// Le texte de la section `section` de l'écran `screen` (`pause` ou `inventory`,
+    /// `game::ui::screens::Screens`, « > » devant l'élément qui a le focus) contient `contains`
+    /// à la frame exacte `at_frame`. Un écran fermé a un texte vide : `contains: ""` ne prouve
+    /// rien, `closed: true` exige que l'écran ne soit pas ouvert. Présentation : lu hors
+    /// simulation, hors trace (M2-T18, `docs/conventions.md` §56).
+    ScreenText {
+        screen: String,
+        section: String,
+        contains: String,
+        #[serde(default, skip_serializing_if = "std::ops::Not::not")]
+        closed: bool,
+        at_frame: u32,
+    },
     /// Le joueur `handle` tient l'objet `id` (passif ou actif, `items::Inventory`) à la frame
     /// exacte `at_frame` (M2-T0b, `docs/conventions.md` §36).
     HasItem {
@@ -487,6 +500,29 @@ pub enum Expectation {
     ItemCount {
         handle: usize,
         id: String,
+        count: u32,
+        at_frame: u32,
+    },
+    /// M2-T6 (`docs/conventions.md` §50) : le `nth` présentoir (triés par clé de contenu) à la
+    /// frame exacte `at_frame` ; chaque champ donné doit correspondre (objet, prix, vendu).
+    Shelf {
+        #[serde(default)]
+        nth: usize,
+        #[serde(default, skip_serializing_if = "Option::is_none")]
+        item: Option<String>,
+        #[serde(default, skip_serializing_if = "Option::is_none")]
+        price: Option<u32>,
+        #[serde(default, skip_serializing_if = "Option::is_none")]
+        sold: Option<bool>,
+        at_frame: u32,
+    },
+    /// M2-T6 : nombre de présentoirs (vendus ou non) de la partie à la frame `at_frame`.
+    ShelfCount {
+        count: u32,
+        at_frame: u32,
+    },
+    /// M2-T6 : nombre de tas de douilles au sol à la frame `at_frame`.
+    ShellPiles {
         count: u32,
         at_frame: u32,
     },
@@ -542,8 +578,12 @@ impl Expectation {
             | Self::Level { at_frame, .. }
             | Self::Mutations { at_frame, .. }
             | Self::HudText { at_frame, .. }
+            | Self::ScreenText { at_frame, .. }
             | Self::RoomState { at_frame, .. }
             | Self::ItemCount { at_frame, .. }
+            | Self::Shelf { at_frame, .. }
+            | Self::ShelfCount { at_frame, .. }
+            | Self::ShellPiles { at_frame, .. }
             | Self::HasItem { at_frame, .. }
             | Self::ItemCharge { at_frame, .. }
             | Self::Consumable { at_frame, .. }

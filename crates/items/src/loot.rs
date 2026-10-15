@@ -61,6 +61,17 @@ pub struct RoomChestDef {
     pub rarity: Rarity,
 }
 
+/// Boutique posée par un type de salle (`rooms/<id>.ron`, champ `shop`, M2-T6,
+/// `docs/conventions.md` §50) : `shelves` présentoirs tirés dans le pool `table`, au centre de
+/// chaque salle de ce type que l'étage présente.
+#[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
+pub struct RoomShopDef {
+    /// Pool de butin des présentoirs (`loot/<table>.ron`).
+    pub table: String,
+    /// Nombre de présentoirs (> 0).
+    pub shelves: u32,
+}
+
 /// Un pool de butin, `loot/<id>.ron`.
 #[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
 pub struct LootTableDef {
@@ -236,6 +247,26 @@ pub struct ChestOpened {
     pub player_handle: usize,
     pub chest_key: String,
     pub item_id: String,
+}
+
+/// Présentoir d'une boutique (rollback, checksum et trace en variante **neutre** : absent de
+/// toute partie sans boutique). `key` est sa clé de contenu (`shelf:<salle>:<i>`), `price` en
+/// `shells` (`Currency`), `sold` une fois acheté (l'`Interactable` est alors retiré).
+#[derive(Component, Clone, Debug, PartialEq, Eq, Hash)]
+pub struct Shelf {
+    pub key: String,
+    pub item_id: String,
+    pub price: u32,
+    pub sold: bool,
+    /// Anti-rebond d'un achat refusé : pas de nouvel essai avant cette frame.
+    pub retry_after: u32,
+}
+
+/// Douilles au sol (`shells`), ramassées au contact et créditées à `Currency` (rollback,
+/// neutre).
+#[derive(Component, Clone, Debug, PartialEq, Eq, Hash)]
+pub struct ShellPickup {
+    pub amount: u32,
 }
 
 #[cfg(test)]

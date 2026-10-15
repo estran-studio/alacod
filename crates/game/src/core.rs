@@ -160,6 +160,7 @@ impl Plugin for CoreSetupPlugin {
         app.add_plugins(crate::powerups::PowerUpsPlugin);
         app.add_plugins(crate::items::ItemsPlugin);
         app.add_plugins(crate::loot::LootPlugin);
+        app.add_plugins(crate::shop::ShopPlugin);
         // M2-T11 : fosses, tables renversables, barils explosifs (inertes sans eux)
         app.add_plugins(crate::props::PropsPlugin);
         app.add_plugins(crate::boss::BossPlugin);
@@ -405,6 +406,11 @@ impl Plugin for PresentationPlugin {
         app.add_plugins(crate::room_fog::RoomFogPlugin);
         app.add_plugins(crate::ui::hud::HudPlugin);
         app.add_plugins(crate::ui::mutation_screen::MutationScreenPlugin);
+        // M2-T18 : écrans pause et inventaire, deux rendus au choix (`ALACOD_SCREENS`).
+        app.insert_resource(crate::ui::screens::ScreenBackend::from_env());
+        app.add_plugins(crate::ui::screens::custom::CustomScreensPlugin);
+        #[cfg(feature = "ui_hui")]
+        app.add_plugins(crate::ui::screens::hui::HuiScreensPlugin);
         app.add_plugins(crate::ui::floor_transition::FloorTransitionPlugin);
         #[cfg(feature = "debug_ui")]
         if debug_ui_enabled() {

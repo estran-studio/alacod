@@ -83,6 +83,10 @@ pub struct Scenario {
     /// récompense de salle sans dépendre du tirage. `None` : la chance du pool.
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub room_reward_chance_override: Option<Fixed>,
+    /// Boutique et monnaie au sol (M2-T6, `docs/conventions.md` §50) : présentoirs et douilles
+    /// posés par le scénario.
+    #[serde(default, skip_serializing_if = "ShopSetup::is_empty")]
+    pub shop: ShopSetup,
     /// Écrit les profils de méta-progression à la fin de la run, dans un dossier temporaire
     /// (M2-T0c, `docs/conventions.md` §38) ; faux par défaut : un scénario n'écrit rien.
     #[serde(default, skip_serializing_if = "std::ops::Not::not")]
@@ -126,6 +130,11 @@ pub struct Scenario {
     /// `floors`. `None` (défaut) : `entry.mode`, comme avant.
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub mode: Option<content::EntryMode>,
+    /// Script d'actions d'UI (M2-T18, `docs/conventions.md` §56) : ouvre le menu de pause ou
+    /// l'inventaire et navigue, à des frames exactes. Présentation seule : lu hors simulation
+    /// (`game::ui::screens::ScreenScript`), jamais dans l'input rollback, aucune trace ne bouge.
+    #[serde(default, skip_serializing_if = "Vec::is_empty")]
+    pub ui: Vec<crate::ui::screens::UiStep>,
 }
 
 /// Placement scripté d'un personnage (T1.13, `docs/conventions.md` §28) : fait apparaître
@@ -210,6 +219,36 @@ pub struct ChestPlacement {
     pub rarity: items::Rarity,
     #[serde(default)]
     pub locked: bool,
+    pub x: Fixed,
+    pub y: Fixed,
+    pub at_frame: u32,
+}
+
+/// Réglages de boutique d'un scénario (M2-T6).
+#[derive(Debug, Clone, Default, PartialEq, Serialize, Deserialize)]
+pub struct ShopSetup {
+    /// Présentoirs posés à une position et une frame exactes.
+    #[serde(default)]
+    pub shelves: Vec<ShelfPlacement>,
+    /// Force `EconomyConfig::shells_drop` pour ce scénario (preuve du drop sans toucher
+    /// l'économie du jeu). `None` : celle du jeu.
+    #[serde(default)]
+    pub shells_drop_override: Option<(u32, u32)>,
+}
+
+impl ShopSetup {
+    pub fn is_empty(&self) -> bool {
+        *self == Self::default()
+    }
+}
+
+/// Placement scripté d'un présentoir : `key` est sa clé de contenu, `item` l'objet, `price` en
+/// `shells`.
+#[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
+pub struct ShelfPlacement {
+    pub key: String,
+    pub item: String,
+    pub price: u32,
     pub x: Fixed,
     pub y: Fixed,
     pub at_frame: u32,

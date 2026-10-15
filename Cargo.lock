@@ -1979,6 +1979,18 @@ dependencies = [
 ]
 
 [[package]]
+name = "bevy_hui"
+version = "0.7.0"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "a65392431b2c6eb4a11be1e3a45e26c9ab8babfaf1f0e86d82800cdfa4dc8fe5"
+dependencies = [
+ "bevy 0.19.1",
+ "nom 7.1.3",
+ "owo-colors",
+ "thiserror 1.0.69",
+]
+
+[[package]]
 name = "bevy_image"
 version = "0.17.3"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -5859,6 +5871,7 @@ dependencies = [
  "bevy_common_assets",
  "bevy_fixed",
  "bevy_ggrs",
+ "bevy_hui",
  "bevy_kira_audio",
  "bevy_light_2d",
  "bevy_matchbox",
@@ -8789,6 +8802,12 @@ checksum = "36820e9051aca1014ddc75770aab4d68bc1e9e632f0f5627c4086bc216fb583b"
 dependencies = [
  "ttf-parser 0.25.1",
 ]
+
+[[package]]
+name = "owo-colors"
+version = "4.4.0"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "13c45bb4a6ae1280ec0803b1ef9d3455eb50f01efbbe1447ab020f1d54fba9d8"
 
 [[package]]
 name = "oxisynth"

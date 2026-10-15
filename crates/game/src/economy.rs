@@ -97,6 +97,14 @@ pub struct EconomyConfig {
     /// round(price × refill_price_ratio)`.
     #[serde(default = "default_refill_price_ratio")]
     pub refill_price_ratio: content::expr::NumOrExpr,
+    /// M2-T6 (`docs/conventions.md` §50) : `shells` lâchés à la mort d'un ennemi, `(min, max)`
+    /// inclus, tirés dans un flux dédié (`items::loot_seed`). `None` (défaut) : aucun drop.
+    #[serde(default)]
+    pub shells_drop: Option<(u32, u32)>,
+    /// M2-T6 : prix d'un présentoir par rareté de l'objet (`shells`). Une rareté absente vaut
+    /// [`crate::shop::DEFAULT_SHELF_PRICE`] ; le lint exige un prix > 0.
+    #[serde(default)]
+    pub shop_prices: BTreeMap<items::Rarity, u32>,
 }
 
 impl Default for EconomyConfig {
@@ -108,6 +116,8 @@ impl Default for EconomyConfig {
             nuke_points: default_nuke_points(),
             repair_points_cap_per_wave: None,
             refill_price_ratio: default_refill_price_ratio(),
+            shells_drop: None,
+            shop_prices: BTreeMap::new(),
         }
     }
 }

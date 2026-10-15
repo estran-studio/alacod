@@ -1,7 +1,15 @@
 // `throne` (T1.0c) : économie minimale (points au kill et au coup), aucun achat en phase 1.
+// M2-T6 (docs/conventions.md §50) : `shells_drop` (douilles lâchées par ennemi tué) et
+// `shop_prices` (prix d'un présentoir par rareté, en douilles).
 (
     kill_points: 60,
     hit_points: 10,
     repair_points: 10,
     nuke_points: 400,
+    shells_drop: Some((2, 5)),
+    shop_prices: {
+        Common: 15,
+        Uncommon: 30,
+        Rare: 50,
+    },
 )

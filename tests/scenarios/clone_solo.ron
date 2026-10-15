@@ -132,7 +132,7 @@ Scenario(
         Currency(handle: 0, min: 3400, max: 3400, at_frame: 800),
         Currency(handle: 0, min: 3920, max: 3920, at_frame: 1700),
         Currency(handle: 0, min: 4310, max: 4310, at_frame: 2400),
-        Currency(handle: 0, min: 4600, max: 4600, at_frame: 3047),
+        Currency(handle: 0, min: 4610, max: 4610, at_frame: 3047),
         KillsAtLeast(kills: 13, at_frame: 3047),
         PlayerAlive(handle: 0, at_frame: 3047),
         Health(handle: 0, min: 1.0, at_frame: 3047),

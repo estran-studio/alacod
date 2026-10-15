@@ -1,6 +1,7 @@
-// Type de salle `boutique` (M2-T10, docs/conventions.md §35 et §40). M2-T5 (§48) : un coffre
-// ouvert au centre en attendant la boutique de M2-T6, qui le remplacera.
+// Type de salle `boutique` (M2-T10, docs/conventions.md §35 et §40). M2-T6 (§50) : trois
+// présentoirs tirés dans le pool `boutique` (objets + prix par rareté, `economy.ron`) au centre,
+// à la place du coffre de M2-T5. Jamais verrouillée.
 (
     locks: false,
-    chest: Some((locked: false)),
+    shop: Some((table: "boutique", shelves: 3)),
 )

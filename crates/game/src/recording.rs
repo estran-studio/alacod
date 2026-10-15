@@ -41,6 +41,7 @@ pub struct RecordedSettings {
     pub items: Vec<crate::replay::ItemPlacement>,
     pub chests: Vec<crate::replay::ChestPlacement>,
     pub room_reward_chance_override: Option<Fixed>,
+    pub shop: crate::replay::ShopSetup,
     pub profile: bool,
     pub powerup_drop_chance_override: Option<Fixed>,
     /// T1.8 : séquence de niveaux imposée (`Scenario::floors`).
@@ -73,6 +74,7 @@ impl Default for RecordedSettings {
             items: vec![],
             chests: vec![],
             room_reward_chance_override: None,
+            shop: Default::default(),
             profile: false,
             powerup_drop_chance_override: None,
             floors: None,
@@ -97,6 +99,7 @@ impl RecordedSettings {
             items: scenario.items.clone(),
             chests: scenario.chests.clone(),
             room_reward_chance_override: scenario.room_reward_chance_override,
+            shop: scenario.shop.clone(),
             profile: scenario.profile,
             powerup_drop_chance_override: scenario.powerup_drop_chance_override,
             floors: scenario.floors.clone(),
@@ -205,6 +208,7 @@ impl InputRecorder {
             items: settings.items,
             chests: settings.chests,
             room_reward_chance_override: settings.room_reward_chance_override,
+            shop: settings.shop,
             profile: settings.profile,
             profile_setup: None,
             powerup_drop_chance_override: settings.powerup_drop_chance_override,
@@ -215,6 +219,7 @@ impl InputRecorder {
             difficulty: settings.difficulty,
             characters: settings.characters,
             mode: settings.mode,
+            ui: Vec::new(),
         };
         if let Some((path, seed)) = &self.initial_map {
             scenario.map = path.clone();
@@ -436,8 +441,8 @@ mod tests {
             items: vec![],
             chests: vec![],
             room_reward_chance_override: None,
+            shop: Default::default(),
             profile: false,
-            profile_setup: None,
             powerup_drop_chance_override: Some(Fixed::ZERO),
             floors: Some("deux_niveaux".into()),
             clocks: None,

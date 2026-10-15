@@ -68,11 +68,11 @@ Référence pour ceux qui créent du contenu (cartes LDtk, sprites RON) et ceux 
 - `PlayerSpawn` (16×16 px) : points de départ des joueurs. Champ obligatoire : `index` (0, 1, 2, 3) = handle GGRS du joueur. Seul le niveau de départ a besoin de points de départ. Lus par `crates/map_ldtk/src/game/entity/player_spawn.rs`.
 - `ZombieSpawn` (16×16 px) : emplacements de spawn des ennemis. Aucun champ. Le mode vagues (`WaveModeEnabled`, activé quand le jeu déclare un dossier `Wave` ; `RunMode::Waves` depuis T2.4, §13) y fait apparaître les ennemis. Lus par `crates/map_ldtk/src/game/entity/enemy_spawn.rs`.
 - `CharacterSpawn` (16×16 px, T2.9, testbed) : fait apparaître, une fois au chargement de la map (pas par les vagues), un personnage précis du registre. Trois champs : `character` (chaîne, `CharacterId`, obligatoire), `variant` (chaîne optionnelle, variante imposée, T1.5, §25) et `team` (chaîne optionnelle : `players`/`enemies`/`allies`/`neutral` ; absente ou vide → `CharacterConfig.team` du personnage, sinon `Enemies`). Lus par `crates/map_ldtk/src/game/entity/character_spawn.rs` ; spawné par `map_ldtk::game::local::spawn_characters_when_map_loaded` via `character::enemy::create::spawn_enemy`. Utilisé par `games/testbed/assets/testbed/*.ldtk` pour placer `dummy`/`target`/`follower`/`ally`/`civilian`/`breacher` (`games/testbed/assets/characters/*.ron`).
-- `WeaponLocation` (16×16 px, T2.3, chantier C5 v1) : arme murale payante. Deux champs en éditeur : `weapon` (chaîne, `WeaponId` de `weapons.ron`), `price` (entier, coût en points). Propagée par le générateur de salles (modèle `CharacterSpawn`, voir `crates/map/src/generation/entity/weapon_location.rs`) ; au chargement de la map, fait apparaître un `weapons::WeaponPickup` mural (`price: Some(...)`, jamais consommé au ramassage — voir `map_ldtk::game::local::spawn_weapon_locations_when_map_loaded`). Lue par `crates/map_ldtk/src/game/entity/weapon_location.rs`. `games/zombies/assets/exemples/test_map.ldtk` en pose quatre depuis T2.6 (pistol 500 dans le gabarit de départ `Level_0`, rifle 1200 et shotgun 1000 dans `Level_1`, machine_gun 1500 dans `Level_2` ; tableau dans `games/zombies/README.md`, qui rappelle aussi que la partie assemble des copies de ces gabarits — deux salles `Level_0` avec la seed des scénarios, donc deux murs `pistol`) ; `test_map_shop.ldtk` en pose une (shotgun, 500) pour les scénarios d'achat.
+- `WeaponLocation` (16×16 px, T2.3, chantier C5 v1) : arme murale payante. Deux champs en éditeur : `weapon` (chaîne, `WeaponId` de `weapons.ron`), `price` (entier, coût en points). Propagée par le générateur de salles (modèle `CharacterSpawn`, voir `crates/map/src/generation/entity/weapon_location.rs`) ; au chargement de la map, fait apparaître un `weapons::WeaponPickup` mural (`price: Some(...)`, jamais consommé au ramassage — voir `map_ldtk::game::local::spawn_weapon_locations_when_map_loaded`). Lue par `crates/map_ldtk/src/game/entity/weapon_location.rs`. `games/zombies/assets/exemples/test_map.ldtk` en pose quatre depuis T2.6 (pistol 500 dans le gabarit de départ `Level_0`, rifle 1200 et shotgun 1000 dans `Level_1`, machine_gun 1500 dans `Level_2` ; tableau dans `games/zombies/README.md`, qui rappelle aussi que la partie assemble des copies de ces gabarits ; depuis D10 le gabarit de départ `Level_0` n'est plus réutilisé, donc un seul mur `pistol`) ; `test_map_shop.ldtk` en pose une (shotgun, 500) pour les scénarios d'achat.
 - `SodaLocation` (16×16 px, T2.3, chantier C5 v1) : machine à perk. Un champ en éditeur : `perk` (chaîne, `PerkId` de `economy/perks.ron`). Même propagation que `WeaponLocation` ; au chargement, fait apparaître une entité `game::economy::PerkMachine` avec `Interactable { interaction_type: Perk }` (voir `map_ldtk::game::local::spawn_soda_locations_when_map_loaded`). Lue par `crates/map_ldtk/src/game/entity/soda_location.rs`.
 - `CrateLocation` (16×16 px) : **collectée mais non utilisée** (`crates/map_ldtk/src/map_const.rs` la déclare, le générateur en relève les positions dans le champ `crates` de `generation/from.rs`, aucun bundle implémenté en entity/*.rs). Réservée à un chantier futur (butin, C4).
 
-**Champ de niveau** : le champ `spawn` (booléen) détermine le niveau de départ d'une run. Lu par `crates/map_ldtk/src/generation/from.rs` (`map_const::LEVEL_FIELD_SPAWN`) : si présent et `true`, le niveau est marqué `LevelType::Spawn`.
+**Champ de niveau** : le champ `spawn` (booléen) détermine le niveau de départ d'une run. Lu par `crates/map_ldtk/src/generation/from.rs` (`map_const::LEVEL_FIELD_SPAWN`) : si présent et `true`, le niveau est marqué `LevelType::Spawn`. **D10 (décision de William, 2026-10-14)** : le gabarit de départ n'est utilisé que comme salle de départ (`BasicMapGeneration::get_next_room_recursize` l'écarte des candidats des salles suivantes ; une connexion dont tous les gabarits compatibles sont des gabarits de départ est fermée comme `DeadEnd`). Avant, il pouvait réapparaître comme salle ordinaire (deux `Level_0` avec la seed des scénarios).
 
 **Tailles de collision** : les colliders des entités (joueurs, ennemis) font 20×20 pixels aux pieds (voir `crates/game/src/character/config.rs`). Les sprites font 32×32 pixels. Les colliders de porte et fenêtre sont déterminés par leur taille LDtk (32×16 ou 16×32) ; l'engine les lit dans `crates/map_ldtk/src/game/entity/door.rs` et `window.rs`.
 
@@ -3398,6 +3398,53 @@ graine, mêmes coffres, l'un avec les trois déblocages : « amulette » ×2, l'
 
 **Traces** : aucune trace existante n'a bougé.
 
+## 50. Boutique et monnaie `shells` (M2-T6, chantier C5)
+
+Les ennemis lâchent des douilles (`shells`), dépensées sur les présentoirs d'une salle `boutique`.
+Code : contrats dans `items::loot` (`Shelf`, `ShellPickup`, `RoomShopDef`), systèmes dans
+`game::shop`, pose des présentoirs dans `map_ldtk::game::rooms::room_shop_system`.
+
+**Monnaie au sol.** `economy.ron` : `shells_drop: Some((min, max))` (inclus, `None` par défaut :
+aucun drop ; `min > max` refusé par le lint). `shell_drop_on_death_system`
+(`DeathManagement`, même place que le drop de power-ups) tire le montant dans un `RollbackRng`
+**local** de graine `items::loot_seed(graine, étage, "shells:<GgrsNetId du mort>")` : aucun flux de
+`RngStreams` (le flux `"loot"` des power-ups garde sa consommation, donc ses traces). Équipe
+`Enemies` seulement, jamais un baril. Le tas (`ShellPickup { amount }`, rollback **neutre**,
+`GgrsNetId` `shells_<id du mort>`) se ramasse au contact (`shell_pickup_system`, `Effects`, portée
+20, le plus petit `GgrsNetId` à portée) : `Currency::earn` + `CurrencyEvent` (raison `pickup`),
+`despawn_rollback()`. Les points de kill (zombies) sont une autre source, inchangée.
+
+**Boutique.** `rooms/<type>.ron` : `shop: Some((table: "boutique", shelves: 3))` (`world::RoomKindDef`).
+`room_shop_system` pose, une fois par salle de ce type que l'étage présente, `shelves` présentoirs
+alignés au centre (écart 32). Objets : `shop::draw_shelves`, tirage dans le pool `loot/<table>.ron`
+avec un `RollbackRng` local de graine `loot_seed(graine, étage, "shop:<salle>")` — même mécanisme
+que les coffres (§48), donc indépendant du moment et de qui entre ; un objet déjà tiré est redemandé
+(8 essais au plus). Prix : `economy.ron` `shop_prices: {Common: 15, Uncommon: 30, Rare: 50}` par
+rareté de l'objet (absent : `shop::DEFAULT_SHELF_PRICE` = 10). La salle n'est jamais verrouillée.
+
+**Achat.** `items::Shelf { key, item_id, price, sold, retry_after }` (rollback **neutre**,
+`GgrsNetId` `shelf_<clé>`, `Interactable { InteractionType::Shop }` — variante en fin d'enum),
+`shelf_interaction_system` (`Interaction`, après le coffre) : `Currency::spend(prix)` puis l'objet est
+donné comme un ramassage (passif : liste + modificateurs ; actif : remplace l'actif tenu, qui tombe
+au sol ; consommable : stock ou effet immédiat) et `ItemPicked` est émis. `sold = true`,
+`Interactable` retiré. Solde insuffisant : rien ne change, `CurrencyEvent { delta: 0, reason:
+"shop_refused" }` et anti-rebond `retry_after = frame + 30`. Achat : `delta = -prix`, raison `shop`.
+Prompt HUD (source `prompt`) : « Acheter Trèfle — 30 » ; rien pour un présentoir vendu.
+
+**Lint.** Prix de `shop_prices` à 0, `shells_drop` min > max (`OutOfRange`) ; `shop` sans présentoir
+(`shelves: 0`), pool de boutique vide (`OutOfRange`), pool inconnu (`BrokenReference`). Fixtures
+`shop_price_zero`, `shop_shells_inverted`, `shop_no_shelves`, `shop_empty_table`, `shop_without_table`.
+
+**Scénarios.** `Scenario::shop` (`ShopSetup`) : `shelves: [(key, item, price, x, y, at_frame)]` pose
+des présentoirs, `shells_drop_override: Some((min, max))` force le drop (le testbed n'a pas de
+`shells_drop` : ses traces ne bougent pas). Attentes : `Shelf(nth, item, price, sold, at_frame)`
+(présentoirs triés par clé), `ShelfCount(count, at_frame)`, `ShellPiles(count, at_frame)`.
+Scénarios : `shells_drop`, `shop_buy`, `shop_refused` (testbed), `shop_seeded` (gungeon, grammaire
+`etage`).
+
+**Hors périmètre** : marchand PNJ et déblocages méta (M2-T12, T13), vol, réduction de prix, HUD des
+shells (M2-T18).
+
 ## 52. Contenu `gungeon` (M2-T14, quatre parties)
 
 ### 52.a Armes (T14a)
@@ -3617,3 +3664,70 @@ bouge. À voir sur un poste avec GPU : voir le rapport `docs/taches/rapports/m2-
 **Limites.** Comme §31 : un tick qui simule plusieurs frames ne journalise que la dernière ; un
 indice prédit puis annulé par un rollback p2p reste dans le journal. Une fin de boss se détecte au
 tick où le boss disparaît : un boss retiré sans qu'une salle passe `Cleared` ne déclenche rien.
+
+## 56. Écrans pause et inventaire : test comparatif d'UI (M2-T18 partie 1, voie V4)
+
+Décision ouverte du plan (`docs/plan-engine.md` §7.1, point 3) : le même menu de pause et le même
+inventaire gungeon, faits deux fois, pour que William choisisse sur pièces. Le HUD reste la couche
+maison (`ui/hud.ron`, §15) et n'est pas touché. Comparaison, mesures et recommandation :
+`docs/taches/rapports/m2-t18-ui-comparatif.md`. La seconde partie (HUD gungeon) vient après la décision.
+
+**Modèle commun** (`crates/game/src/ui/screens/model.rs`, pur) : `ScreensState` (écran ouvert, focus de
+chaque écran), `UiAction` (`Toggle(Pause|Inventory)`, `Up`, `Down`, `Confirm`, `Back`), `reduce` (le seul
+endroit qui change l'état), `pause_view` et `inventory_view` qui produisent une `ScreenView` : des sections
+nommées, `Text`, `List` (éléments avec `focused`) ou `Bar` (texte et fraction). Les deux rendus lisent
+cette vue et ne savent rien d'autre. Tout est testé sans rendu.
+
+- **Pause** : Reprendre, Recommencer (`RunRequest::Restart`), Lobby (`RunRequest::ToLobby`, comme les
+  boutons de l'écran de fin), Réglages (vide : affiche « Aucun réglage pour l'instant. »). Sections
+  `title`, `entries`, `detail`, `hint`.
+- **Inventaire** : armes (en main, `chargeur | réserve`), objet actif et sa charge (`charge` : « 1 / 2 »,
+  « 2 / 2 · prêt », fraction), passifs, consommables (blanks, clés). Lu dans `WeaponInventory`,
+  `AmmoReserves`, `items::Inventory` et `ItemTable`, pour le joueur du HUD (`HudPlayer`). L'ordre du focus
+  est armes, actif, passifs, consommables (`inventory_focus_target`, testé).
+- **Entrées** (`screens::read_nav_keys`) : Échap / Start ouvre la pause ou ferme l'écran ouvert, `I` /
+  Select l'inventaire, ↑ ↓ / D-pad, Entrée ou Espace / A, Retour arrière / B. Hors d'un écran ouvert,
+  seules les deux touches d'ouverture agissent (flèches, Entrée et A restent des touches de jeu).
+  `ALACOD_INPUT=neutral` coupe les entrées. Pas de souris dans cette partie.
+- **La simulation ne s'arrête jamais** (GGRS) : pendant qu'un écran est ouvert, les entrées de jeu
+  continuent d'être envoyées (comme l'écran de mutation, §30). Les bloquer est une décision de la partie 2.
+  Rien n'entre dans l'input rollback : aucune trace ne bouge.
+
+**Option A, couche maison** (`screens/custom.rs`, `games/gungeon/assets/ui/pause_screen.ron` et
+`inventory_screen.ron`) : un arbre `Column`/`Row` (gap, marge, largeur, fond, bordure) dont les feuilles
+sont `Label` (texte fixe), `Text`/`List`/`Bar` (liées par `bind` à une section de la vue). Le rendu
+reconstruit l'arbre `bevy_ui` quand la vue change ou que le fichier est rechargé.
+
+**Option B, `bevy_hui` 0.7** (`screens/hui.rs`, feature `ui_hui`, `pause_screen.html`,
+`inventory_screen.html`, `hui_row.html`) : gabarits pseudo-HTML, `{propriétés}` posées depuis la vue
+(`view_properties`). Pas de boucle dans le langage : les lignes des listes sont des instances de
+`hui_row.html` créées par le code sous les conteneurs `id`. Un rechargement du gabarit reconstruit
+l'arbre (les lignes sont recréées).
+
+**Réglage** : `ALACOD_SCREENS=custom|hui` (défaut `custom`) ; `hui` exige la feature `ui_hui` (sinon rien
+ne s'affiche). Les fichiers de l'option B ne sont cherchés que si `pause_screen.ron` /
+`inventory_screen.ron` existent dans le dossier `Ui` du jeu. Registre de contenu : ces fichiers sont du
+kind `Ui` (syntaxe RON seulement, pas de schéma lint ; les `.html` ne sont pas lus par le lint).
+
+**Scénarios** : champ `ui: [(at_frame: 10, action: Toggle(Pause)), …]` (`game::ui::screens::UiStep`,
+ressource `ScreenScript`), joué en `Update` hors simulation, une fois par frame ; attente
+`ScreenText(screen: "pause" | "inventory", section, contains, closed, at_frame)` (texte de la section,
+« > » devant le focus ; `closed: true` exige l'écran fermé). Scénarios `ui_pause_menu` et `ui_inventory`
+(gungeon). Un réenregistrement ne garde pas `ui`.
+
+**Captures** (à produire sur un poste avec GPU, la revue est visuelle) :
+
+```bash
+# A, couche maison
+cargo run -p scenario --features render --bin play_scenario -- tests/scenarios/ui_pause_menu.ron --capture /tmp/ui/pause_maison --every 2
+cargo run -p scenario --features render --bin play_scenario -- tests/scenarios/ui_inventory.ron --capture /tmp/ui/inventaire_maison --every 2
+# B, bevy_hui
+ALACOD_SCREENS=hui cargo run -p scenario --features render,ui_hui --bin play_scenario -- tests/scenarios/ui_pause_menu.ron --capture /tmp/ui/pause_hui --every 2
+ALACOD_SCREENS=hui cargo run -p scenario --features render,ui_hui --bin play_scenario -- tests/scenarios/ui_inventory.ron --capture /tmp/ui/inventaire_hui --every 2
+```
+
+Images à comparer (`frame_NNNN.png`, n = frame de simulation) : pause 10 (ouverture), 20 à 22 (focus),
+31 (Réglages validé), 40 (retour sur Lobby), 51 (fermé), 62 et 64 ; inventaire 12 (actif prêt),
+20 (actif déchargé), 21 à 24 (focus), 31 (fermé). Rechargement à chaud à voir en jeu : `cargo run -p
+gungeon --features native` (A) ou `ALACOD_SCREENS=hui cargo run -p gungeon --features native,ui_hui` (B),
+ouvrir un écran (Échap ou I), puis modifier le `.ron` ou le `.html` correspondant.
