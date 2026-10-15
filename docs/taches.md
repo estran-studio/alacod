@@ -577,7 +577,7 @@ l'ancienne machine.
 **V1e run et méta**
 - M2-T12 Profil et déblocages (G1, 3 j ; fiche `docs/taches/m2-t12-profil-deblocages.md`, b0 après M2-T8 ; prérequis : M2-T5 mergée) : `Profile` écrit en fin de run, monnaie méta, déblocages
   qui enrichissent les pools de C4.
-- M2-T13 Hub (G2, 3 j) : carte de hub (la Brèche), PNJ marchand de déblocages, entrée en run.
+- M2-T13 Hub (G2, 3 j ; fiche `docs/taches/m2-t13-hub.md`, cloud **après le merge de M2-T12**) : carte de hub (la Brèche), PNJ marchand de déblocages, entrée en run.
 
 **V2 données**
 - M2-T14 Contenu `gungeon` (6 j ; fiche `docs/taches/m2-t14-contenu-gungeon.md`, en quatre parties a/b/c/d selon les prérequis ; T14a armes possible dès maintenant) : vingt armes, vingt objets, dix ennemis, un boss, quinze gabarits
@@ -593,6 +593,9 @@ l'ancienne machine.
 - Dettes en lot pour le cloud (2026-10-15) : `docs/taches/dettes-zombies-d10-d28-d29.md` (D10, D28, D29, décidées le 2026-10-14) et
   `docs/taches/dettes-outillage-d15-d34-d60-d63.md` (mesures D15/D34, `compare_video` des scénarios générés, contenu de test D63).
 - Dettes D15 (retirer la grille), D63 (contenu de test), D68 (soft-lock de réanimation) : fiche `docs/taches/dettes-d15-d63-d68.md`, cloud.
+- Fiches cloud du 2026-10-15 (soir) : `docs/taches/dettes-ui-d71-d72.md` (écran de mutation en `bevy_hui`, minicarte),
+  `docs/taches/lisibilite-throne-d66-d67.md` (tourelles, télégraphe de salve), `docs/taches/revue-sortie-m2.md`
+  (audit des critères de sortie de M2), `docs/taches/plan-m4-isaac.md` (M4 découpé en fiches ; M3 attend la bible).
 - Perf de la navigation (outillage, 3 j ; fiche `docs/taches/perf-navigation.md`, cloud, après perf-suite-scenarios) :
   flow field et navigation des bots en grilles denses (42 % + 14 % de `bench_floor`), sortie identique case par case.
   Acceptation : aucune trace bougée, `throne_*` et `bench_floor` nettement plus rapides.
@@ -647,6 +650,30 @@ entrée depuis le hub (T13). Ajoutés le 2026-10-14 :
   transition d'étage de la grammaire, traces identiques ; jouée par `scripts/nightly.sh` ensuite.
 Calendrier indicatif : **huit semaines**.
 
+### Reste à faire pour sortir de M2 (revue-sortie-m2, 2026-10-15, base `7172660`)
+
+Audit critère par critère, avec les mesures : `docs/taches/rapports/revue-sortie-m2.md`. Bilan : sur
+14 critères, 5 faits, 6 partiels, 3 manquants (hub et profil, bots sans soft-lock ni desync, vidéos et
+revue humaine). **B** = bloque la sortie, **P** = polissage (peut suivre la sortie).
+
+| # | | Tâche (fiche) | Estimation | Dépend de | Cloud |
+|---|---|---|---|---|---|
+| 1 | B | `m2-campagne-linux-desync` : 6 desyncs et 11 soft-locks sur 20 graines à 2 bots (`etages_deux`, Linux x86) ; cause, correction, campagne refaite sur 200 graines (`docs/taches/m2-campagne-linux-desync.md`, §58) | 3 j | rien | oui |
+| 2 | B | M2-T14d gabarits + D64 (équilibrage `combat`) : 12 gabarits sur 15, `escouade` hors de `etage` (`docs/taches/m2-t14-contenu-gungeon.md`, § T14d) | 3 j | 1 (le bot sert de mesure) | oui |
+| 3 | B | `m2-armes-sources` : 20 armes sans source, D62 (`docs/taches/m2-armes-sources.md`, §59) | 2 j | rien (parallèle de 1 et 2) | oui |
+| 4 | B | M2-T12 profil et déblocages (`docs/taches/m2-t12-profil-deblocages.md`, §51) | 3 j | 3 (tables de butin) | oui |
+| 5 | B | M2-T13 hub (`docs/taches/m2-t13-hub.md`) | 3 j | 4 | oui |
+| 6 | B | `m2-full-run` : `gungeon_full_run`, bench `grand` rempli, variante à 4 (`docs/taches/m2-full-run.md`) | 2 j | 1 à 5 | oui |
+| 7 | B | `m2-p2p-run-complete` : run complète à 2 puis 4 en ligne, D59 en réel, réseau dégradé, nightly (`docs/taches/m2-p2p-run-complete.md`) | 1,5 j | 6 | **non** (Docker, deux machines) |
+| 8 | B | Revue humaine (`docs/taches/session-test-manuelle.md`, un bloc) puis `m2-cloture-videos-digest` (`docs/taches/m2-cloture-videos-digest.md`) | 1 j + William | 6 | partiel |
+| 9 | P | D71 (écran de mutation `bevy_hui`), D72 (minicarte) : `docs/taches/dettes-ui-d71-d72.md` | 1,5 j | rien | oui |
+| 10 | P | D66/D67 lisibilité throne : `docs/taches/lisibilite-throne-d66-d67.md` | 2 j | rien | oui |
+| 11 | P | Sprites et sons propres de gungeon (placeholders de `throne`), équilibrage fin des armes et du boss | selon assets | direction artistique | non |
+
+Les lignes 1, 3, 9 et 10 démarrent tout de suite en parallèle ; 2 attend le verdict de 1 sur les
+campagnes, mais ses gabarits peuvent commencer. Chemin critique : environ 10 jours de session cloud,
+une demi-journée de William (revue) et le poste d'orchestration pour la ligne 7.
+
 ### Hors M2, gardé en file (revue M0 du 2026-10-09, `docs/digests/revue-m0.md`)
 Points de William sur `zombies` (sensations, pas des correctifs moteur), **pris par William lui-même en parallèle de M2** sur son ordinateur, branche `m0-revue-suite-contenu` (prompt : `docs/taches/m0-revue-suite-contenu.md`) :
 équilibrage des vagues (S5) et des armes (S4), volume des tirs (S7), sons de début et fin de vague
@@ -661,8 +688,227 @@ R10, R2/R3/R8/R9, la migration du Relais en plusieurs niveaux LDtk, les objectif
 
 Par voies, à la sortie de M2 et de chaque jalon suivant, avec les chantiers du plan §6 : M3 (la
 tranche verticale de 1837 : A5 en V4, B5 parade et D3 en V1a et V1c, E4 neige et E8 nuit en V1d, F2
-nuit en V1e, H1 en V4, J2 en V1e, le plugin `1837` dans son dépôt) ; M4 Isaac ; M5 Hades ; M6 la
+nuit en V1e, H1 en V4, J2 en V1e, le plugin `1837` dans son dépôt) ; M4 Isaac (détaillé en tâches le 2026-10-15, §8.1, avant la sortie
+de M2 : il ne dépend pas de M3) ; M5 Hades ; M6 la
 région des chantiers puis la campagne.
+
+### 8.1 M4 : `isaac` (Binding of Isaac) en tâches
+
+**Décision de William du 2026-10-15** : les propositions par défaut des questions Q1 à Q18 (`docs/taches/rapports/plan-m4-isaac.md` §7) sont retenues.
+
+**But** (plan §6) : effets à l'échelle (100 objets en RON), empilement de modificateurs de projectiles et
+par nombre d'exemplaires, familiers et orbitaux, rochers et bombes, cœurs, clés, sous, marchés du diable,
+curses, champions et élites. Chantiers : B5 v3, C1 v3, C3, D2 v2, E4 v2, F4, G1 v2, plus ce que la
+lecture du code ajoute (E2 en grille, santé en cœurs, pools à épuisement). **Proposition du 2026-10-15**
+(`plan-m4-isaac`, documentation seule), à valider par William : les choix de design restent ouverts,
+listés au rapport `docs/taches/rapports/plan-m4-isaac.md` (questions Q1 à Q18) ; une fiche qui en dépend
+le dit (« bloqué par Qn ») et propose une valeur par défaut sans la trancher.
+
+M3 (1837) attend la bible de William et n'est pas un prérequis de M4. M4 se prépare pendant la fin de M2 :
+ses contrats touchent des crates (`combat`, `world`, `behaviors`) qu'aucune tâche M2 restante ne modifie,
+sauf `items::loot` et `meta` (M2-T12) : ce qui en dépend attend son merge.
+
+#### Écart : ce que M2 a livré, ce que M4 ajoute
+
+Relevé sur `main` `7172660` (code lu, pas seulement la doc ; état des tâches M2 au journal §10).
+
+| Chantier | Déjà livré (M0 à M2) | M4 ajoute | Tâches |
+|---|---|---|---|
+| Larmes (tir d'Isaac) | armes RON, `Automatic`, stats `Damage`/`FireRate`/`Range`/`ReloadSpeed` lues au tir, visée 360° | munitions infinies (`MagBulletConfig::Infinite`), stats `ShotSpeed` et `ShotSize`, `Luck` lue (chance d'effet) | T0a, T1 |
+| B5 v3 empilement de projectiles | 6 modificateurs (`Bounce`, `Pierce`, `Size`, `Lifetime`, `Homing`, `Gravity`), `on_hit`/`on_expire`, division approchée par `Spawn(pattern)`, 8 générations ; **par arme seulement**, un modificateur répété est refusé par le lint (le dernier l'emporte) | modificateurs **apportés par les objets** aux tirs du porteur, règle de composition (addition, maximum, produit selon le modificateur), `Spectral`, `Split`, `Orbit` ; statut à l'impact depuis un objet | T0a, T1 |
+| Statuts v2 | `Burn`, `Slow`, `Stun`, `Freeze`, posés par `on_hit` seulement | `Poison`, `Fear` (charme : Q12) ; posés par un objet avec une chance | T1 |
+| C1 v3 effets à l'échelle | 14 déclencheurs (11 exécutés), 7 conditions (6 exécutées), 15 actions, cooldown/charges/recharge, effets lus dans l'`Inventory`, synergies par ensemble d'objets | `OnHit`, `OnEvent`, `TargetInRange`, `ApplyStatus` en effet, `OnPickup` filtré par objet, chance d'effet liée à `Luck`, **transformations** (N objets d'un tag, Q10) ; tenir 100 objets sans régression de perf | T0b, T2 |
+| Exemplaires multiples | les modificateurs d'un passif en double s'additionnent déjà ; les **limites** d'effet sont partagées (clé `item:<id>:<i>` identique) : un effet à `charges: 1` ne se déclenche qu'une fois pour deux exemplaires | `Inventory::count`, limites par exemplaire (clé inchangée pour le premier), ampleur d'effet proportionnelle au nombre (`PerCopy`) | T0b, T2 |
+| C3 familiers et orbitaux | rien ; briques : `Emitter` sur toute entité à équipe, `Team::Allies`, `Formation(Arc)`, effacement de balles du blank | familier suiveur qui tire avec le porteur, orbital qui bloque les balles et blesse au contact, nombre par exemplaire, lien rollback au porteur | T0d, T6 |
+| E4 v2 rochers, bombes, piques | `CellGrid`/`Rock` + `DestroyTerrain` (**cavernes seulement**), barils explosifs en chaîne, fosses, tables | bombe posée (bit d'input 18, mèche), action `Explode` partagée (barils, bombes, champions), rochers sur les salles LDtk (et rochers à butin), piques (surface à dégâts), mur secret ouvert par explosion | T0c, T4 |
+| E2 v2 étage en grille | grammaire en arbre sur gabarits LDtk (types requis, boss au bout, distance), murage, minicarte, `Floors` d'étages assemblés ; gabarits gungeon tous en 8×8 cases mais rien ne l'impose | disposition `Grid` (salles de taille fixe, adjacence = porte, boucles possibles), salle secrète placée par adjacence, salle à porte fermée à clé, salle post-boss optionnelle (diable) | T0c, T5 |
+| Cœurs, clés, sous | `Health` en `Fixed`, `Shield` (D61, un point = un coup), `Armor`, consommables compteurs (`key`, `blank`), une `Currency` par joueur + `ShellPickup`, soin au ramassage (`ration`) | couche de vie au-dessus des PV (cœurs d'âme, Q2), **i-frames après un coup** (aucune aujourd'hui), consommable `bomb`, sous dans les pools et récompenses, plafond de compteur, règle de partage en coop (Q4) | T0b, T3 |
+| C4 v2 / C5 v2 pools et diable | `LootTable` pondérée seedée, rareté, `exclude_held` opt-in, boutique à prix par rareté, pools par étage ; M2-T12 (en cours) ajoute les déblocages | pool par type de salle, **épuisement** (un objet vu sort du pool, Q5), prix en vie max, salle du diable et sa chance (Q6) | T0e, T8 |
+| D2 v2 champions et élites | variantes (stats, tags, skin), tirage local seedé indépendant du moment, élite = tag `champion` | comportement propre au champion (à la mort : explose, se divise, lâche un butin), teinte, chance en expression (difficulté, étage) | T0d, T7 |
+| F4 curses | rien (`Run.flags` jamais utilisé) ; difficulté par horloge | kind `Curse`, tirage par étage indépendant du moment, effets (minicarte cachée, vie cachée, étage agrandi…, Q7) | T0e, T9 |
+| G1 v2 profil | `Profile` écrit hors simulation, jamais lu par la run ; M2-T12 (déblocages figés au lancement) non mergée | accomplissements (condition sur le résumé de run) → déblocages d'objets dans les pools | T10 |
+| Présentation | HUD maison (clés, blanks, shells, objets, charge, minicarte), écrans `bevy_hui`, feedback v2 | cœurs, bombes, sous, minicarte en grille avec icônes et secret, larmes lisibles par modificateur, familiers, teinte des champions, mèche et explosion | T16, T17 |
+| Outillage | générateur v2 (`ItemHeld`, `RoomClear`, `BossFight`), bot `explorateur` (salles, coffres, boutique, arène), campagnes 200 graines, lint d'atteignabilité | gabarits de génération par larme, familier, champion (100 objets), bot qui pose des bombes, ouvre la salle secrète, achète en sous, décide du diable ; campagnes `isaac` ; bench de larmes | T12, T13, T14, T15 |
+
+Hors M4 sauf décision (Q11, Q12) : laser continu, couteau, tir chargé ; charme ; salles d'ange, de
+défi, de sacrifice ; mode Greed ; personnages multiples à déblocage.
+
+#### Conventions
+
+Sections réservées : **§60 à §82**, une par tâche (numéro dans chaque fiche). §51 (M2-T12) et §57 (M2-T13)
+restent à M2 ; §58 et §59 sont laissés libres pour les tâches que `revue-sortie-m2` ajoutera.
+
+#### Vague 0 : contrats (en parallèle, chacun dans sa crate)
+
+Même règle qu'en M2 : types partagés, kinds au registre et au lint, attentes, un chemin minimal de bout en
+bout dans le testbed, **aucune trace existante ne bouge** (variantes en fin d'enum, composants et
+ressources en variante neutre, champs optionnels hors hash quand absents).
+
+- **M4-T0a Contrats de larmes** (V1a, `combat`, `sim_core::stats` ; 2-3 j ; fiche
+  `docs/taches/m4-t0a-contrats-larmes.md`, §60) : `MagBulletConfig::Infinite`, stats `ShotSpeed` et
+  `ShotSize` lues au tir, `Luck` déclarée lue, `ProjectileMods` (modificateurs portés par un objet),
+  fonction pure de composition et sa table de règles, variantes de contrat `Spectral`, `Split`, `Orbit`.
+  **Lançable tout de suite.**
+- **M4-T0b Contrats d'objets v3 et de santé** (V1b, `items`, `effects`, `combat::actors` ; 2-3 j ; fiche
+  `docs/taches/m4-t0b-contrats-objets-sante.md`, §61) : `Inventory::count`, clé de limite par exemplaire,
+  `Scale::PerCopy`, `Price` (sous, consommable, vie max), i-frames après un coup (`hit_iframes`, défaut
+  aucune), contrat de la couche de vie (Q2), consommable `bomb`, règle de partage (Q4).
+  **Lançable pour sa partie technique** ; la couche de vie attend Q2. Conflit possible avec M2-T12
+  (`items`) : fusionner `main` avant de livrer.
+- **M4-T0c Contrats de monde** (V1d, `world`, `map`, `map_ldtk`, `combat::actors` pour l'input ; 3 j ; fiche
+  `docs/taches/m4-t0c-contrats-monde.md`, §62) : `FloorLayout::Grid`, `Explode` (action partagée),
+  `Bomb` et `INPUT_BOMB` (bit 18), rochers sur les salles (couche IntGrid `Rocks`), surface `hazard`
+  (piques), `DoorLock` (clé, secret). **Lançable tout de suite** (la taille des salles est une donnée, Q8).
+- **M4-T0d Contrats de familiers et de champions** (V1c, `behaviors`, `game::character::variant` ; 2 j ;
+  fiche `docs/taches/m4-t0d-contrats-familiers-champions.md`, §63) : behaviors `Follow`, `Orbit`,
+  `MirrorShot`, `BlockBullets`, `FamiliarOf`, champ `familiar` d'objet, `VariantDef` v2 (`on_death`,
+  `behaviors`, `tint`). **Lançable tout de suite.**
+- **M4-T0e Contrats de run : curses et pools** (V1e, `run`, `items::loot` ; 2 j ; fiche
+  `docs/taches/m4-t0e-contrats-curses-pools.md`, §64) : kind `Curse`, `RunCurses` (neutre), graine de
+  curse par étage, `ItemPool` à épuisement et son état. **Après le merge de M2-T12** (même fichier
+  `items::loot`) ; bloqué par Q5 et Q7 pour les règles.
+- **M4-T0f Squelette `games/isaac`** (V2 ; 1-2 j ; fiche `docs/taches/m4-t0f-squelette-isaac.md`, §65) :
+  manifeste, un personnage à larmes, une arme, un ennemi, trois gabarits de salle, `Floors` par la
+  grammaire en arbre existante : le clone démarre. **Lançable tout de suite** (adopte `Infinite` et `Grid`
+  quand T0a et T0c sont mergées ; noms et sprites : Q9).
+
+#### Vague 1 (parallèle)
+
+**V1a combat**
+- M4-T1 Larmes v3 (B5 v3 et statuts v2, 5 j ; fiche `docs/taches/m4-t1-larmes-v3.md`, §66 ; après T0a) :
+  modificateurs d'objets composés sur les tirs, `Spectral`, `Split`, `Orbit` exécutés, statuts `Poison`
+  et `Fear`, chance d'effet par `Luck`. Acceptation : unitaires de toutes les paires de modificateurs,
+  scénarios `tears_*`, bench de larmes dans le budget (T15).
+
+**V1b objets et effets**
+- M4-T2 Effets v3 à l'échelle (C1 v3, 4 j ; fiche `docs/taches/m4-t2-effets-v3.md`, §67 ; après T0b) :
+  `OnHit`, `OnEvent`, `TargetInRange`, `ApplyStatus` en effet, `OnPickup(item)`, limites par exemplaire,
+  `PerCopy`, transformations (si Q10). Acceptation : un scénario par ajout, coût par frame mesuré avec
+  100 effets tenus.
+- M4-T3 Cœurs et pickups (C4/C5, 3 j ; fiche `docs/taches/m4-t3-coeurs-pickups.md`, §68 ; après T0b, Q2,
+  Q4) : couche de vie, i-frames après un coup, sous et bombes au sol, entrées `Currency(n)` dans les pools,
+  plafonds, partage en coop.
+- M4-T8 Pools d'objets et marché du diable (C4 v2, C5 v2, 4 j ; fiche
+  `docs/taches/m4-t8-pools-marche-diable.md`, §73 ; après T0e, T3 (`Price`), T5 (salle post-boss), M2-T12) :
+  pool par type de salle, épuisement indépendant du moment, présentoir payé en vie max, salle du diable.
+
+**V1c ennemis et familiers**
+- M4-T6 Familiers et orbitaux (C3, 4 j ; fiche `docs/taches/m4-t6-familiers.md`, §71 ; après T0d, T1) :
+  suiveur qui tire avec le porteur (larmes du porteur ou les siennes, Q13), orbital, plusieurs par
+  exemplaire, coop à 4.
+- M4-T7 Champions et élites v2 (D2 v2, 2 j ; fiche `docs/taches/m4-t7-champions.md`, §72 ; après T0d,
+  T0c pour `Explode`) : comportements à la mort, teinte, chance en expression.
+
+**V1d monde**
+- M4-T4 Bombes, rochers, piques, secret (E3/E4 v2, 4 j ; fiche `docs/taches/m4-t4-bombes-rochers.md`,
+  §69 ; après T0c) : bombe posée, explosion qui casse les rochers et ouvre le mur secret, rochers à butin,
+  piques, champ de flux à jour.
+- M4-T5 Grammaire en grille (E2 v2, 5 j, **risque**, fiche `docs/taches/m4-t5-grammaire-grille.md`, §70 ;
+  après T0c) : planificateur en grille sur 1 000 graines, salle secrète, trésor à clé, salle post-boss,
+  minicarte en grille (état dérivé).
+
+**V1e run et méta**
+- M4-T9 Curses (F4, 3 j ; fiche `docs/taches/m4-t9-curses.md`, §74 ; après T0e, T5 pour l'étage agrandi,
+  Q7).
+- M4-T10 Profil v2 : accomplissements (G1 v2, 3 j ; fiche `docs/taches/m4-t10-profil-accomplissements.md`,
+  §75 ; après M2-T12, T0e).
+
+**V2 données**
+- M4-T11 Contenu `isaac` (10 j en quatre parties, fiche `docs/taches/m4-t11-contenu-isaac.md`, §76) :
+  a larmes et objets de stats (après T1), b objets à effets, familiers, transformations (après T2, T6),
+  c ennemis, champions, boss (après T7, T4), d gabarits, pools, curses et équilibrage (après T5, T8, T9).
+  Volume : Q1.
+- M4-T12 Lint des kinds M4 et atteignabilité (2 j ; fiche `docs/taches/m4-t12-lint-atteignabilite.md`,
+  §77 ; après la vague 0, à rejouer après T11).
+
+**V3 outillage**
+- M4-T13 Générateur v3 (3 j ; fiche `docs/taches/m4-t13-generateur-v3.md`, §78 ; après T1, T6, T7) :
+  gabarits larme sur cible, familier, champion ; un scénario par définition sans écrire de `.ron` à la
+  main pour 100 objets.
+- M4-T14 Bot explorateur v3 pour `isaac` (4 j ; fiche `docs/taches/m4-t14-bot-isaac.md`, §79 ; après T4,
+  T5, T3) : bombes (rochers, secret), clés, achats en sous, décision du diable (politique en données),
+  campagnes 200 graines.
+- M4-T15 Bench de larmes (2 j ; fiche `docs/taches/m4-t15-bench-larmes.md`, §80 ; après T1, T6) :
+  `bench_tears` (4 joueurs, objets de larmes cumulés, familiers), `bench_floor_isaac`, coût du rollback.
+
+**V4 présentation**
+- M4-T16 HUD `isaac` (3 j ; fiche `docs/taches/m4-t16-hud-isaac.md`, §81 ; après T3, T5) : cœurs, sous,
+  bombes, clés, minicarte en grille, nom de l'objet ramassé, effets des curses sur le HUD.
+- M4-T17 Feedback v3 (2 j ; fiche `docs/taches/m4-t17-feedback-v3.md`, §82 ; après T1, T4, T6, T7) :
+  larmes selon leurs modificateurs, familiers, teinte des champions, mèche et explosion, rocher cassé.
+
+#### Vague 2 : intégration
+
+- M4-T18 Intégration et sortie (5 j ; fiche `docs/taches/m4-t18-integration-sortie.md`) : scénarios du
+  clone à 1, 2 et 4, `isaac_full_run`, campagnes, bench, p2p, vidéos, revue humaine, fermeture des notes,
+  audit des critères ci-dessous.
+
+#### Prérequis et ordre
+
+| Peut démarrer avant la fin de M2 | Attend |
+|---|---|
+| T0a, T0c, T0d, T0f (crates ou jeu qu'aucune tâche M2 restante ne touche) ; T0b pour sa partie technique (fusion de `main` avant livraison, M2-T12 touche `items`) | T0e et T8 : M2-T12 (`items::loot`, `RunUnlocks`) ; T10 : M2-T12 ; tout le reste : sa ou ses T0 (colonne « après » ci-dessus) ; les parties de T11 : leurs mécaniques ; T14 : T4, T5 ; T16, T17 : les mécaniques affichées |
+
+Règle 7 du §1 (quatre voies actives au plus) : M2 a encore des tâches en cours ou en file (M2-T12, M2-T13,
+M2-T14d, `revue-sortie-m2`, les fiches de dettes). Combien de T0 de M4 lancer en même temps est une
+décision d'orchestration (Q15) ; ordre conseillé : T0a, T0c, T0d, T0f, puis T0b, puis T0e après M2-T12.
+
+**Ordre de merge** (prévu, comme M2) : vague 0 → V3 → V2 → V1 (V1a, V1d, V1b, V1c, V1e) → V4 ; en pratique
+au fil des livraisons, chaque tâche fusionnant `main` et prouvant (§5) toute trace qui bouge. Dépendances qui
+comptent vraiment : T1 avant tout contenu de larmes (T11a) et avant T6 ; T5 avant T8 (salle post-boss), T9
+(étage agrandi) et T14 ; T3 avant T8 (`Price`) ; T14 avant tout critère « joué par un bot ».
+
+#### Atteignabilité (règle du §7)
+
+Chaque mécanique est rencontrée par une **partie ordinaire de `isaac`** (la séquence `entry.floors` du
+manifeste, grammaire en grille par défaut, sans `FloorsOverride`). La fiche nomme le scénario ou la graine
+`alacod-sim` ; T12 (lint) l'avertit statiquement ; T14 (bot) et T18 le vérifient en campagne.
+
+| Mécanique | Où une partie ordinaire la rencontre |
+|---|---|
+| Larmes modifiées, empilement | objet de la salle de trésor (exigée par la grammaire, une par étage) et de la boutique ; deux exemplaires : pools sans exclusion |
+| Effets v3, transformations | objets des pools trésor, boutique, boss ; transformation : graine `alacod-sim` nommée par T11b |
+| Familiers, orbitaux | objets des pools trésor et boutique (au moins deux familiers dans le pool trésor) |
+| Bombes, rochers, piques | bombe(s) de départ du personnage et récompenses de salle ; rochers et piques dans les gabarits `combat` |
+| Salle secrète | exigée par la grammaire (une par étage), ouverte par une bombe ; le bot T14 doit l'ouvrir |
+| Clés, trésor fermé | clés en récompense de salle et en boutique ; trésor fermé à clé à partir de l'étage 2 (Q6) |
+| Cœurs, sous, boutique | récompenses de salle, mort d'ennemis, boutique exigée par la grammaire |
+| Pools à épuisement | tout objet tiré ; prouvé par un scénario à deux salles de même pool |
+| Marché du diable | salle post-boss à chance (Q6) : graine nommée où elle apparaît et où le bot prend un objet |
+| Champions | chance par ennemi des salles `combat` : graine nommée |
+| Curses | chance par étage : graine nommée |
+| Accomplissements | deux parties d'affilée (scénario enchaîné) : déblocage visible dans un pool |
+
+#### Critères de sortie de M4 (complément du plan §9.8)
+
+Ceux du plan §9.8 et du contrat de `docs/etat-engine.md`, plus :
+1. **Contenu** : le volume tranché en Q1 (proposition : 100 objets dont au moins 30 modifient les larmes,
+   8 familiers ou orbitaux, 10 actifs ; 10 ennemis dont 3 à champions ; 2 boss ; 20 gabarits), chaque
+   définition avec son `test:` et son scénario généré vert ; `make lint GAME=isaac` sans erreur ni
+   avertissement d'atteignabilité hors `test_only`.
+2. **Empilement prouvé** : unitaires de composition de toutes les paires de modificateurs de larmes (N1) ;
+   scénarios `tears_stack_two_copies` (deux exemplaires = effet doublé), `tears_stack_three` (trois
+   modificateurs d'objets distincts sur un tir), `effect_per_copy` (une limite par exemplaire).
+3. **`isaac_full_run`** (bot, deux étages de la séquence par défaut) : moments clés de salle verrouillée puis
+   nettoyée, objet de larmes et familier ramassés, bombe qui casse un rocher, salle secrète ouverte, clé
+   consommée, achat en sous, cœur ramassé, champion tué, boss et phases, portail ; **`isaac_devil_run`** :
+   salle du diable, objet payé en vie max (`Stat(MaxHealth)` baisse) ; **`isaac_curse_run`** : curse active
+   et son effet observé.
+4. **Bots** : `alacod-sim --game isaac` sur la séquence par défaut, 200 graines à 1 et 2 bots : 0 soft-lock,
+   0 desync, taux de franchissement de l'étage 1 dans une fourchette fixée avec William (Q14) ; 20 graines à
+   4 bots sans desync.
+5. **Synctest à 2 et 4** : `isaac_duo`, `isaac_quad` verts (familiers et larmes de quatre joueurs).
+6. **Performance** : `bench_tears` (4 joueurs, 10 objets de larmes chacun dont division et guidage, 2
+   familiers chacun, au moins 400 projectiles) et `bench_floor_isaac` au-dessus de leur plancher sur une
+   machine nommée au calme ; `rollback_ms_worst` publié et sous son `max_rollback_ms`.
+7. **p2p réel** : une partie à deux clients à inputs actifs (bot ou script) qui franchit une transition
+   d'étage avec bombe, objet de larmes et familier, traces identiques, jamais `DesyncDetected` ; smoke à
+   quatre clients ; sur deux machines si D73 le permet (sinon dit au dossier de sortie).
+8. **Humain** : William joue trente minutes en coop (lisibilité des larmes, des cœurs, des familiers, des
+   champions) ; notes fermées avant de déclarer M4 terminé.
+
+Calendrier indicatif : **environ 80 jours-agent**, six à huit semaines calendaires à quatre voies, dont
+deux à trois en recouvrement de la fin de M2 (vague 0).
 
 ## 9. Suivi
 
@@ -1200,6 +1446,7 @@ coller le préambule puis la fiche dans son prompt.
 | 2026-10-15 | hardening-engine-p2p-ci « durcissement » (William, PR #64 : CI bloquante, nightly tenable, smoke p2p avec rollback et desync = échec, détection des desyncs p2p et ordre des destructions corrigés, coût du rollback mesuré (`utils::snapshot_profile`, `system_profile`, `max_rollback_ms`), frontière simulation/présentation prouvée par la compilation (`make check_sim_boundary`), schedules du rollback en monothread dans le jeu, `docs/etat-engine.md`) | `hardening-engine-p2p-ci` (`fdf6fd95`) | William + Claude | Orch : train sur main `c82d7ad7` ; fusion de hardening (base `d2e3cef2`) : conflits `game/lib.rs`, `zombies/main.rs`, `test-scenarios-sharded.sh`, `dettes.md` (ses D66/D67 renumérotées **D69/D70**, références suivies dans `CLAUDE.md`, `Makefile`, `etat-engine.md`, `check-sim-boundary.sh`) ; `examples/map_preview` réparé (caméra de debug locale, `game::web`) ; `p2p_smoke` rebénie après preuve (f0 : D10, une salle de moins) ; `test-scenarios-sharded.sh` cherche les parts de métriques sous `<sha>-dirty` avec BLESS. Vérifié : Mac (fmt, lint ×4, test_crates, suite 4 tranches verte, 340 scénarios, 104 s, gen gungeon sans diff), orca (`check_sim_boundary` : 11 crates, 5 en dette D69 ; p2p zombies et gungeon identiques). D70 (champ de flux à chaque frame) : à remesurer sur main, perf-navigation (grilles denses) n'était pas dans sa base. Merge `6f988349` (orch). |
 | 2026-10-15 | m2-t18-hud-gungeon « écrans en bevy_hui, HUD gungeon » (M2-T18 seconde partie, session cloud : décision de William `bevy_hui`, option maison retirée, écran de fin en `bevy_hui`, HUD gungeon (blanks, clés, shells, objets, charge de l'actif, minicarte des salles) avec attentes `HudText`) | `m2-t18-hud-gungeon` (`df826ea4`) | Claude (cloud) | Cloud : suite sans bless sur la fusion avec main `c82d7ad7`, test_crates, lint ×4, wasm `cargo check`. Orch : train sur main `c82d7ad7` ; fusion de hardening (base `d2e3cef2`) : conflits `game/lib.rs`, `zombies/main.rs`, `test-scenarios-sharded.sh`, `dettes.md` (ses D66/D67 renumérotées **D69/D70**, références suivies dans `CLAUDE.md`, `Makefile`, `etat-engine.md`, `check-sim-boundary.sh`) ; `examples/map_preview` réparé (caméra de debug locale, `game::web`) ; `p2p_smoke` rebénie après preuve (f0 : D10, une salle de moins) ; `test-scenarios-sharded.sh` cherche les parts de métriques sous `<sha>-dirty` avec BLESS. Vérifié : Mac (fmt, lint ×4, test_crates, suite 4 tranches verte, 340 scénarios, 104 s, gen gungeon sans diff), orca (`check_sim_boundary` : 11 crates, 5 en dette D69 ; p2p zombies et gungeon identiques). Dettes D71 (écran de mutation en `bevy_hui`) et D72 (mémoire de visite de la minicarte). Merge `6f988349` (orch). |
 | 2026-10-15 | m2-t14b-objets « objets gungeon » (M2-T14b, b1 : dix objets de plus (vingt) dont gilet et egide (armure, bouclier de D61), quatre synergies de plus (six), pools de butin et de boutique ; §52.b) | `m2-t14b-objets` (`1c62f203`) | Claude (b1) | b1 : preuve §5 (`shop_seeded`, `bench_floor` dès f0 : présentoirs tirés dans le pool élargi), 2 attentes `Shelf` recalées sans retrait, 9 scénarios `item_*`, suite, test_crates, lint ×4, gen ×4, p2p gungeon. Orch : train sur main `c82d7ad7` ; fusion de hardening (base `d2e3cef2`) : conflits `game/lib.rs`, `zombies/main.rs`, `test-scenarios-sharded.sh`, `dettes.md` (ses D66/D67 renumérotées **D69/D70**, références suivies dans `CLAUDE.md`, `Makefile`, `etat-engine.md`, `check-sim-boundary.sh`) ; `examples/map_preview` réparé (caméra de debug locale, `game::web`) ; `p2p_smoke` rebénie après preuve (f0 : D10, une salle de moins) ; `test-scenarios-sharded.sh` cherche les parts de métriques sous `<sha>-dirty` avec BLESS. Vérifié : Mac (fmt, lint ×4, test_crates, suite 4 tranches verte, 340 scénarios, 104 s, gen gungeon sans diff), orca (`check_sim_boundary` : 11 crates, 5 en dette D69 ; p2p zombies et gungeon identiques). Merge `6f988349` (orch). |
+| 2026-10-15 | plan-m4-isaac « M4 en fiches » (session cloud, documentation seule : §8.1 de ce fichier, écart chantier par chantier, vagues et voies, sections §60 à §82 réservées, 24 fiches `docs/taches/m4-*.md`, critères de sortie de M4, 18 questions pour William) | `plan-m4-isaac` (`b49031ad`) | Claude (cloud) | Orch : relecture, aucun fichier hors `docs/`, merge sans suite. Constats devenus dettes D74 (`ReloadSpeed`), D75 (exemplaires), D76 (docs périmées, `blast_radius`, `Run.flags`). Lançables tout de suite : M4-T0a, T0c, T0d, T0f. |
 Orchestration : Fable crée les worktrees (`scripts/task-new.sh` du meta-repo), lance un agent par
 tâche avec le modèle le moins cher (Haiku d'abord, Sonnet si une tâche échoue deux fois), vérifie
 la branche (`make test_scenarios`, `cargo test`, lecture du diff), fusionne dans `main`
@@ -1268,3 +1515,4 @@ de fichiers existants hors de sa propriété, aucun `.trace`.
 Ordre proposé : V6.1, puis V6.4 et V6.5 (utiles à M0), puis V6.2 et V6.3 (M1), V6.6, V6.8, et V6.7
 quand M2 commence. Les sprites de 1837 ne passent pas par cette voie : ils viennent du pipeline
 `assetgen` de `1867_lore` (A5).
+| 2026-10-15 | revue-sortie-m2 (audit des critères de sortie de M2, session cloud, documentation et mesures seulement : lint gungeon 0 erreur / 20 avertissements d'armes ; campagne 2 bots `etages_deux` 20 graines : 0 fini, 6 desyncs, 11 soft-locks, 3 morts, identique sur `2e87834` ; 14 critères : 5 faits, 6 partiels, 3 manquants ; p2p non mesuré) | `revue-sortie-m2` | Claude (cloud) | Tâches ajoutées au §7 (`m2-campagne-linux-desync`, `m2-armes-sources`, `m2-full-run`, `m2-p2p-run-complete`, `m2-cloture-videos-digest`), rapport `docs/taches/rapports/revue-sortie-m2.md`. À relire par l'orchestrateur : l'écart avec les campagnes macOS committées. |

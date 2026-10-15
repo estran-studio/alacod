@@ -214,5 +214,17 @@
     "code": "let started = std::time::Instant::now();",
     "count": 1,
     "reason": "Mesure de durée des tests de génération, hors simulation."
+  },
+  {
+    "path": "crates/game/src/performance.rs",
+    "code": "let now = Instant::now();",
+    "count": 2,
+    "reason": "Capture de cadence native (ALACOD_PERF_CSV, revue M1) : mesure de temps réel écrite dans un CSV, jamais lue par la simulation."
+  },
+  {
+    "path": "crates/game/src/performance.rs",
+    "code": "capture.simulation_start = Instant::now();",
+    "count": 1,
+    "reason": "Capture de cadence native (ALACOD_PERF_CSV, revue M1) : mesure de temps réel écrite dans un CSV, jamais lue par la simulation."
   }
 ]
