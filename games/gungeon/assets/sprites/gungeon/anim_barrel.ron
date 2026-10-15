@@ -1,7 +1,7 @@
-// Lot C : objet du monde `barrel` : tuile 66 de `tiny_dungeon.png` (tonneau).
+// Lot C : objet du monde `barrel` : tuile 82 de `tiny_dungeon.png` (tonneau).
 (
     frame_duration: 120,
     animations: {
-        "Idle": (start: 66, end: 66),
+        "Idle": (start: 82, end: 82),
     },
 )

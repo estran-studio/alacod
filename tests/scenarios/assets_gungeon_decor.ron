@@ -1,0 +1,30 @@
+// Lot C (docs/plan-assets.md) : objets du monde de `gungeon` avec leurs sprites (Tiny Dungeon, Kenney,
+// CC0). Un joueur immobile dans la salle de départ ; à f5 un coffre fermé, deux présentoirs et deux
+// objets au sol sont posés autour de lui (positions et frames exactes, comme `chest_locked` et `shop_buy`).
+// Présentation seule : le scénario n'a pas d'attente de sprite (le rendu n'existe pas en headless),
+// il sert de décor aux captures et garde la simulation sous trace.
+//
+// À regarder : f10-180 le héros au centre ; à sa droite un coffre, deux présentoirs (étagère brune)
+// et deux objets au sol (une potion verte, une clé) ; rien ne bouge.
+Scenario(
+    powerup_drop_chance_override: "0.0",
+    room_reward_chance_override: "0.0",
+    game: "gungeon",
+    floors: Some("etage_1"),
+    frames: 180,
+    chests: [(key: "decor", x: "70.0", y: "-60.0", at_frame: 5)],
+    shop: (shelves: [
+        (key: "s0", item: "trefle", price: 30, x: "100.0", y: "-50.0", at_frame: 5),
+        (key: "s1", item: "bottes", price: 15, x: "100.0", y: "-80.0", at_frame: 5),
+    ]),
+    items: [
+        (id: "key", x: "75.0", y: "-95.0", at_frame: 5),
+        (id: "amulette", x: "90.0", y: "-95.0", at_frame: 5),
+    ],
+    players: [
+        (inputs: []),
+    ],
+    expect: [
+        PlayerAlive(handle: 0, at_frame: 170),
+    ],
+)
