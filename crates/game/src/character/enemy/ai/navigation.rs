@@ -1064,10 +1064,25 @@ fn build_flow_field(
     let halo_width = width + 2;
     let raw_index =
         |x: i32, y: i32| (y - min_y + 1) as usize * halo_width + (x - min_x + 1) as usize;
+    // Remplissage par parcours des ensembles (au lieu d'une recherche par case) : mêmes
+    // règles que `FlowFieldCache::is_blocked` et `is_breakable_obstacle`.
+    let in_halo =
+        |p: &GridPos| p.x >= min_x - 1 && p.x <= max_x + 1 && p.y >= min_y - 1 && p.y <= max_y + 1;
     let mut raw = vec![false; halo_width * (height + 2)];
-    for x in min_x - 1..=max_x + 1 {
-        for y in min_y - 1..=max_y + 1 {
-            raw[raw_index(x, y)] = cache.is_blocked(&GridPos::new(x, y), profile);
+    for p in cache.wall_cells.iter().filter(|p| in_halo(p)) {
+        raw[raw_index(p.x, p.y)] = true;
+    }
+    let mut breakable_halo = vec![false; halo_width * (height + 2)];
+    for (obstacle_type, cells) in &cache.blocked_cells {
+        let passes = profile.can_pass(*obstacle_type);
+        let breakable_type = *obstacle_type != ObstacleType::Pit && passes;
+        for p in cells.iter().filter(|p| in_halo(p)) {
+            if !passes {
+                raw[raw_index(p.x, p.y)] = true;
+            }
+            if breakable_type {
+                breakable_halo[raw_index(p.x, p.y)] = true;
+            }
         }
     }
     let blocked = |x, y| raw[raw_index(x, y)];
@@ -1082,7 +1097,7 @@ fn build_flow_field(
             let i = index(p);
             clearance[i] = world::nav::blocked_for(blocked, x, y, key.size == AgentSize::Large);
             narrow[i] = key.size == AgentSize::Small && world::nav::too_narrow(blocked, x, y);
-            breakable[i] = cache.is_breakable_obstacle(&p, profile);
+            breakable[i] = breakable_halo[raw_index(x, y)];
             if clearance[i] {
                 wall_distance[i] = 0;
                 frontier.push_back((p, 0));
@@ -1106,24 +1121,35 @@ fn build_flow_field(
         _ => 0,
     };
 
-    // Every target is a source of cost 0 (a cell shared by two targets goes to the first)
+    // Une cible hors de la boîte (carte sans murs, plusieurs joueurs éloignés) : le calcul
+    // historique, qui l'accepte telle quelle.
+    if targets.iter().any(|t| !in_bounds(t)) {
+        return build_flow_field_legacy(targets, key, cache, config);
+    }
+
+    // Dijkstra sur tableaux denses (coût, case suivante, propriétaire par case). Tas trié par
+    // (coût, case), mêmes voisins dans le même ordre, mêmes départages que le calcul sur
+    // `BTreeMap` : la sortie est identique case par case.
+    const UNSET: u32 = u32::MAX;
+    let cells = width * height;
+    let mut costs = vec![UNSET; cells];
+    let mut next_cell = vec![0u32; cells];
+    let mut owners = vec![0u32; cells];
     let mut heap: BinaryHeap<Reverse<(u32, GridPos)>> = BinaryHeap::new();
-    for (index, target) in targets.iter().enumerate() {
-        if flow_field.costs.contains_key(target) {
+    for (owner, target) in targets.iter().enumerate() {
+        let i = index(*target);
+        if costs[i] != UNSET {
             continue;
         }
-        flow_field.directions.insert(*target, *target);
-        flow_field.costs.insert(*target, 0);
-        flow_field.owners.insert(*target, index);
+        costs[i] = 0;
+        next_cell[i] = i as u32;
+        owners[i] = owner as u32;
         heap.push(Reverse((0, *target)));
     }
 
     while let Some(Reverse((cost, current))) = heap.pop() {
-        if flow_field
-            .costs
-            .get(&current)
-            .is_some_and(|best| cost > *best)
-        {
+        let current_index = index(current);
+        if cost > costs[current_index] {
             continue; // stale heap entry
         }
 
@@ -1134,9 +1160,10 @@ fn build_flow_field(
             if !in_bounds(&neighbor) {
                 continue;
             }
+            let neighbor_index = index(neighbor);
 
-            // Check if blocked for this profile, or too narrow for an agent
-            if clearance[index(neighbor)] || narrow[index(neighbor)] {
+            // Blocked for this profile, or too narrow for an agent
+            if clearance[neighbor_index] || narrow[neighbor_index] {
                 continue;
             }
 
@@ -1145,18 +1172,8 @@ fn build_flow_field(
             let (dx, dy) = (neighbor.x - current.x, neighbor.y - current.y);
             let diagonal = dx != 0 && dy != 0;
             if diagonal
-                && [
-                    GridPos::new(current.x + dx, current.y),
-                    GridPos::new(current.x, current.y + dy),
-                ]
-                .iter()
-                .any(|p| {
-                    if in_bounds(p) {
-                        clearance[index(*p)]
-                    } else {
-                        cache.is_blocked_for(p, key)
-                    }
-                })
+                && (clearance[index(GridPos::new(current.x + dx, current.y))]
+                    || clearance[index(GridPos::new(current.x, current.y + dy))])
             {
                 continue;
             }
@@ -1176,30 +1193,41 @@ fn build_flow_field(
             } else {
                 config.straight_cost
             };
-            let breakable = if breakable[index(neighbor)] {
+            let breakable = if breakable[neighbor_index] {
                 config.breakable_penalty
             } else {
                 0
             };
             let new_cost = cost + step + penalty(neighbor) + breakable;
-            if flow_field
-                .costs
-                .get(&neighbor)
-                .is_some_and(|best| new_cost >= *best)
-            {
+            if new_cost >= costs[neighbor_index] {
                 continue;
             }
 
             // Direction points TOWARD target (so we store 'current' as the next step)
-            flow_field.directions.insert(neighbor, current);
-            flow_field.costs.insert(neighbor, new_cost);
-            let owner = flow_field.owners[&current];
-            flow_field.owners.insert(neighbor, owner);
+            costs[neighbor_index] = new_cost;
+            next_cell[neighbor_index] = current_index as u32;
+            owners[neighbor_index] = owners[current_index];
             heap.push(Reverse((new_cost, neighbor)));
         }
     }
 
-    flow_field
+    // Sortie : `BTreeMap` construites depuis une suite déjà triée par `GridPos` (x puis y).
+    let cell_at = |i: usize| GridPos::new(min_x + (i % width) as i32, min_y + (i / width) as i32);
+    let reached: Vec<usize> = (0..width)
+        .flat_map(|x| (0..height).map(move |y| y * width + x))
+        .filter(|&i| costs[i] != UNSET)
+        .collect();
+    FlowField {
+        directions: reached
+            .iter()
+            .map(|&i| (cell_at(i), cell_at(next_cell[i] as usize)))
+            .collect(),
+        costs: reached.iter().map(|&i| (cell_at(i), costs[i])).collect(),
+        owners: reached
+            .iter()
+            .map(|&i| (cell_at(i), owners[i] as usize))
+            .collect(),
+    }
 }
 
 #[cfg(test)]
@@ -1461,7 +1489,9 @@ mod cave_nav_tests {
     }
 }
 
-#[cfg(test)]
+/// Calcul historique sur `BTreeMap` : référence des tests et repli pour une cible hors de la
+/// boîte de recherche.
+#[cfg_attr(not(test), allow(dead_code))]
 fn build_flow_field_legacy(
     targets: &[GridPos],
     key: NavKey,
