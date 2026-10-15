@@ -193,6 +193,39 @@ fn m1_audit_fixtures() {
             &["personnage inconnu « fantome »"],
         ),
         (
+            "item_test_frames_zero",
+            LintErrorKind::OutOfRange,
+            &["objet « bottes »", "test.frames = 0"],
+        ),
+        (
+            "item_test_consumable",
+            LintErrorKind::Unsupported,
+            &["objet « cle »", "ItemHeld", "consommable"],
+        ),
+        (
+            "room_test_no_template",
+            LintErrorKind::BrokenReference,
+            &[
+                "type de salle « arene »",
+                "aucun gabarit LDtk de type « arene »",
+            ],
+        ),
+        (
+            "room_test_both_scenes",
+            LintErrorKind::OutOfRange,
+            &["type de salle « combat »", "exactement un de floors et map"],
+        ),
+        (
+            "room_test_frames_zero",
+            LintErrorKind::OutOfRange,
+            &["type de salle « combat »", "test.frames = 0"],
+        ),
+        (
+            "boss_fight_without_boss",
+            LintErrorKind::OutOfRange,
+            &["personnage « gardien »", "BossFight", "sans boss:"],
+        ),
+        (
             "room_kind_unknown",
             LintErrorKind::UnknownKind,
             &[

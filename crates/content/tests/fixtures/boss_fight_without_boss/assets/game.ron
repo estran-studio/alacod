@@ -1,0 +1,8 @@
+// Fixture M2-T17 : `test.boss` (BossFight) sur un personnage sans `boss:` (OutOfRange).
+(
+    name: "fixture-boss_fight_without_boss",
+    content_folders: [
+        (path: "characters", kind: "Character"),
+    ],
+    entry: (start_map: "maps/salle.ldtk", default_seed: 1),
+)

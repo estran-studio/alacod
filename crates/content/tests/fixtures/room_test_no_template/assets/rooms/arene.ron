@@ -1,0 +1,1 @@
+(locks: true, test: Some((frames: 300, map: "maps/salle.ldtk")))

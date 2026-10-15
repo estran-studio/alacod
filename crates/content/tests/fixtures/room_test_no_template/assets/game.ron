@@ -1,0 +1,10 @@
+// Fixture M2-T17 : `test:` (RoomClear) d'un type de salle qu'aucun gabarit de la carte ne porte
+// (BrokenReference).
+(
+    name: "fixture-room_test_no_template",
+    content_folders: [
+        (path: "rooms", kind: "Room"),
+        (path: "maps", kind: "Map"),
+    ],
+    entry: (start_map: "maps/salle.ldtk", default_seed: 1),
+)

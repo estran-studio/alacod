@@ -271,6 +271,7 @@ pub fn build_app(scenario: &Scenario, headless: bool, config: &PlayConfig) -> Ap
                     currency: p.currency,
                     mutations: p.mutations.clone(),
                     dash: p.dash.clone(),
+                    items: p.items.clone(),
                 })
                 .collect(),
         ))
@@ -739,6 +740,8 @@ struct PlayerOverride {
     mutations: Vec<String>,
     /// M2-T2 : voir `game::replay::PlayerScript::dash`.
     dash: Option<game::character::movement::DashConfig>,
+    /// M2-T17 : voir `game::replay::PlayerScript::items`.
+    items: Vec<String>,
 }
 
 #[derive(Resource)]
@@ -776,8 +779,10 @@ fn apply_player_overrides(
         &Player,
         &Children,
         Option<&game::effects_runtime::Effects>,
+        Option<&Modifiers>,
     )>,
     progression: Option<Res<game::progression::ProgressionTable>>,
+    item_table: Option<Res<items::ItemTable>>,
     ranged_children: Query<(), With<Weapon>>,
     melee_children: Query<(), With<MeleeWeapon>>,
     global_assets: Option<Res<GlobalAsset>>,
@@ -797,6 +802,7 @@ fn apply_player_overrides(
             && o.currency.is_none()
             && o.mutations.is_empty()
             && o.dash.is_none()
+            && o.items.is_empty()
     }) {
         *applied = true;
         return;
@@ -810,7 +816,10 @@ fn apply_player_overrides(
     if progression.is_none() && overrides.0.iter().any(|o| !o.mutations.is_empty()) {
         return; // table des mutations pas encore résolue (`OnEnter(GameLoading)`)
     }
-    for (entity, player, children, effects) in players.iter() {
+    if item_table.is_none() && overrides.0.iter().any(|o| !o.items.is_empty()) {
+        return; // table des objets posée au chargement de la carte
+    }
+    for (entity, player, children, effects, existing_modifiers) in players.iter() {
         let Some(over) = overrides.0.get(player.handle) else {
             continue;
         };
@@ -831,8 +840,11 @@ fn apply_player_overrides(
                 resistances: Default::default(),
             });
         }
+        let mut built = existing_modifiers.cloned().unwrap_or_default();
+        let mut modifiers_changed = false;
         if !over.modifiers.is_empty() {
-            let mut built = Modifiers::default();
+            built = Modifiers::default();
+            modifiers_changed = true;
             for (i, spec) in over.modifiers.iter().enumerate() {
                 built.push(Modifier {
                     stat: spec.stat.clone(),
@@ -845,6 +857,40 @@ fn apply_player_overrides(
                     until: spec.until,
                 });
             }
+        }
+        // M2-T17 (§54) : objets tenus dès le départ, posés comme un ramassage (passif : inventaire
+        // et modificateurs `item:<id>` ; actif : emplacement actif **chargé**).
+        if !over.items.is_empty() {
+            let table = item_table.as_ref().expect("vérifié avant la boucle");
+            let mut inventory = items::Inventory::default();
+            for id in &over.items {
+                let Some(def) = table.0.get(id) else {
+                    panic!(
+                        "PlayerScript::items : objet inconnu « {id} » pour le joueur {}",
+                        player.handle
+                    );
+                };
+                match def.kind {
+                    items::ItemKind::Passive => {
+                        inventory.passives.push(id.clone());
+                        for modifier in &def.modifiers {
+                            built.push(modifier.to_modifier(id));
+                        }
+                    }
+                    items::ItemKind::Active(charge) => {
+                        let mut slot = items::ActiveSlot::new(id.clone());
+                        slot.charge = charge.required();
+                        inventory.active = Some(slot);
+                    }
+                    items::ItemKind::Consumable => {
+                        *inventory.consumables.entry(id.clone()).or_insert(0) += 1;
+                    }
+                }
+            }
+            modifiers_changed = true;
+            commands.entity(entity).insert(inventory);
+        }
+        if modifiers_changed {
             commands.entity(entity).insert(built);
         }
         if let Some(weapon_id) = &over.weapon {

@@ -3,4 +3,6 @@
     name: "Lame",
     kind: Passive,
     tags: ["synergie"],
+    // M2-T17 (docs/conventions.md §54) : scénario généré `item_lame` (passif sans effet seul : tenu).
+    test: Some((frames: 60)),
 )

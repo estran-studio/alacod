@@ -8,4 +8,6 @@
     ],
     tags: ["dégâts"],
     rarity: Uncommon,
+    // M2-T17 (docs/conventions.md §54) : scénario généré `item_etendard`.
+    test: Some((frames: 60)),
 )
