@@ -1,7 +1,7 @@
 // `gungeon` (M2-T0d, docs/conventions.md §37 et §45) : boss immobile à trois phases. Phase 0 : un
 // éventail (`eventail`, `Fan`) toutes les 150 frames ; sous 50 % de santé, phase 1 : une couronne
 // (`couronne`, `Ring`) puis une spirale (`spirale`, `Spiral`) toutes les 150 frames ; sous 10 % (une
-// dernière touche), phase 2, la rage : un `bullet_kin` et un `lanceur_kin` en renfort (`SpawnEnemies`)
+// dernière touche), phase 2, la rage : un `bullet_kin` en renfort (`SpawnEnemies`)
 // et un éventail précédé d'un télégraphe de 10 frames (`Telegraph`). Les tirs passent par la frise
 // (`SpawnPattern` avec la table de projectiles de l'`arsenal`).
 (
@@ -69,7 +69,7 @@
             // Phase 2, la rage (M2-T7) : un `bullet_kin` en renfort à l'entrée (`SpawnEnemies`),
             // puis un éventail précédé d'un télégraphe de 10 frames (`Telegraph`).
             (
-                on_enter: [SpawnEnemies(id: "bullet_kin", count: 1), SpawnEnemies(id: "lanceur_kin", count: 1)],
+                on_enter: [SpawnEnemies(id: "bullet_kin", count: 1)],
                 timeline: Some((
                     events: [(at: 30, do: [Telegraph(10), SpawnPattern(pattern: "eventail", weapon: "arsenal")])],
                     repeat: Some(150),
