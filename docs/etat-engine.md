@@ -12,7 +12,7 @@ l’écart initial du 2026-09-28 : ne pas les lire comme l’inventaire actuel.
 | M0 / zombies | Boucle de vagues, achats, portes/fenêtres, perks, à terre/réanimation, restart | Campagnes de bots, traces P2P à 2 et 4 clients | Runs humaines sur plusieurs machines et validation du ressenti |
 | M1 / throne | Trois cavernes, destruction, armes/munitions, mutations, portail, boss, HUD | Digest : 198/200 runs à 2 bots, 200/200 à 4, sans soft-lock ni desync sur la révision mesurée | Revue humaine finale, équilibrage, nouvelles campagnes après changements de contenu |
 | M2 / gungeon | Salles et grammaires, patterns, blanks, esquives, effets, synergies, boss, props, formations, bot explorateur | Scénarios dédiés ; campagne explorateur sur une version antérieure du boss | Butin/coffres/boutique, contenu accessible, profil/hub/UI selon fiches, puis run intégrée P2P |
-| M3–M6 | M3 `isaac` en fiches, contrats en cours (T0) ; M4 (1837) attend la bible ; plan et contrats partiels réutilisables | Pas de validation de clone complet | Terminer les critères de M2 avant d’étendre fortement le vocabulaire |
+| M3–M5 | M3 `isaac` en fiches, contrats en cours (T0) ; M4 (1837) attend la bible ; plan et contrats partiels réutilisables | Pas de validation de clone complet | Terminer les critères de M2 avant d’étendre fortement le vocabulaire |
 
 Les réussites de bots sont des résultats fonctionnels sur une configuration donnée ; elles ne
 mesurent ni le plaisir, ni la difficulté pour un humain. « Zéro desync » en synctest n'équivaut
