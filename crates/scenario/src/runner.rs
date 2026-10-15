@@ -159,6 +159,45 @@ fn scenario_profile_dir() -> PathBuf {
     dir
 }
 
+/// Dossier des profils d'un scénario `profile: true`, avec les profils et achats imposés par
+/// `profile_setup` (M2-T12) déjà écrits : la run les lit au lancement, comme le jeu.
+fn prepare_profiles(scenario: &Scenario, registry: &content::Registry) -> PathBuf {
+    let dir = scenario_profile_dir();
+    let Some(setup) = &scenario.profile_setup else {
+        return dir;
+    };
+    let mut profiles: BTreeMap<String, meta::Profile> = BTreeMap::new();
+    for seed in &setup.profiles {
+        let id = meta::local_id(seed.handle);
+        let mut profile = meta::Profile::new(id.clone());
+        profile.unlocks.extend(seed.unlocks.iter().cloned());
+        profile.stats = seed.stats.clone();
+        if seed.essence > 0 {
+            profile
+                .currencies
+                .insert(meta::ESSENCE.into(), seed.essence);
+        }
+        profiles.insert(id, profile);
+    }
+    for purchase in &setup.purchases {
+        let id = meta::local_id(purchase.handle);
+        let profile = profiles
+            .entry(id.clone())
+            .or_insert_with(|| meta::Profile::new(id.clone()));
+        let def = &registry
+            .unlocks
+            .get(&purchase.unlock)
+            .unwrap_or_else(|| panic!("achat : déblocage « {} » inconnu", purchase.unlock))
+            .def;
+        game::profile::purchase_unlock(profile, &purchase.unlock, def)
+            .unwrap_or_else(|e| panic!("achat de « {} » refusé : {e}", purchase.unlock));
+    }
+    for profile in profiles.values() {
+        meta::save(&dir, profile).unwrap_or_else(|e| panic!("profil non écrit : {e}"));
+    }
+    dir
+}
+
 /// Contenu d'un jeu, chargé et linté **une fois par processus** (perf-suite-scenarios) : la
 /// suite rejoue 243 scénarios dans le même processus et le chargement (lecture de centaines de
 /// `.ron`, lint) coûtait ~0,25 s chacun, ~5 % de la suite. Le contenu ne change pas pendant un
@@ -214,7 +253,9 @@ pub fn build_app(scenario: &Scenario, headless: bool, config: &PlayConfig) -> Ap
         // M2-T0c : un scénario n'écrit aucun profil, sauf `profile: true` (dossier temporaire
         // propre à ce scénario, jamais le profil de l'utilisateur).
         .insert_resource(game::profile::ProfileSettings {
-            dir: scenario.profile.then(scenario_profile_dir),
+            dir: scenario
+                .profile
+                .then(|| prepare_profiles(scenario, &registry)),
         })
         .add_plugins(core_plugin)
         .add_plugins(LdtkRoguePlugin)
@@ -2261,6 +2302,20 @@ fn check(world: &mut World, expectation: &Expectation) -> Result<(), String> {
             }
             if unlock.is_none() && currency.is_none() {
                 return Err("ProfileHas sans unlock ni currency".into());
+            }
+            Ok(())
+        }
+        // M2-T12 : déblocages de la partie (ressource rollback neutre, statique).
+        Expectation::RunUnlocks { has, lacks, .. } => {
+            let active = world
+                .get_resource::<items::RunUnlocks>()
+                .cloned()
+                .unwrap_or_default();
+            if let Some(missing) = has.iter().find(|id| !active.has(id)) {
+                return Err(format!("RunUnlocks sans « {missing} » ({:?})", active.0));
+            }
+            if let Some(extra) = lacks.iter().find(|id| active.has(id)) {
+                return Err(format!("RunUnlocks contient « {extra} » ({:?})", active.0));
             }
             Ok(())
         }

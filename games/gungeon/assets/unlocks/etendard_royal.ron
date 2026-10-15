@@ -1,0 +1,7 @@
+// M2-T12 : l'étendard est réservé aux joueurs qui ont déjà fini une run (statistique `runs` ≥ 1).
+(
+    name: "Étendard royal",
+    cost: Some(40),
+    stat: Some(("runs", 1)),
+    grants: [Item("etendard")],
+)

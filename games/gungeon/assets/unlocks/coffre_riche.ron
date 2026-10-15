@@ -1,0 +1,7 @@
+// M2-T12 : un coffre plus riche : le pool `commun` gagne une entrée de rareté Rare (poids 4).
+(
+    name: "Coffres plus riches",
+    cost: Some(60),
+    requires: ["tresor_trefle"],
+    grants: [Loot(table: "commun", pick: Rarity(Rare), weight: 4)],
+)

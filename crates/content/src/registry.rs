@@ -1053,6 +1053,25 @@ pub struct LootTableEntry {
     pub def: items::LootTableDef,
 }
 
+/// Déblocage de méta-progression (M2-T12, `docs/conventions.md` §51), un fichier RON par
+/// déblocage (`unlocks/<id>.ron` dans un dossier de kind `Unlock`, champs de
+/// [`items::UnlockDef`]) ; id = nom de fichier.
+#[derive(Debug, Clone)]
+pub struct UnlockEntry {
+    pub id: String,
+    pub file: PathBuf,
+    pub def: items::UnlockDef,
+}
+
+/// Règles d'essence du jeu (M2-T12, kind `MetaEconomy`, `meta/<id>.ron`, champs de
+/// [`meta::EssenceRules`]) ; le premier fichier par identifiant fait foi.
+#[derive(Debug, Clone)]
+pub struct MetaEconomyEntry {
+    pub id: String,
+    pub file: PathBuf,
+    pub rules: meta::EssenceRules,
+}
+
 /// Objet de décor (M2-T11, `docs/conventions.md` §46), un fichier RON par objet
 /// (`props/<id>.ron` dans un dossier de kind `Prop`, champs de [`world::PropDef`]) ; id = nom
 /// de fichier.
@@ -1228,6 +1247,10 @@ pub struct Registry {
     pub synergies: BTreeMap<String, SynergyEntry>,
     /// M2-T5 : pools de butin (kind `LootTable`).
     pub loot_tables: BTreeMap<String, LootTableEntry>,
+    /// M2-T12 : déblocages de méta-progression (kind `Unlock`).
+    pub unlocks: BTreeMap<String, UnlockEntry>,
+    /// M2-T12 : règles d'essence (kind `MetaEconomy`).
+    pub meta_economy: BTreeMap<String, MetaEconomyEntry>,
     /// M2-T11 : objets de décor (kind `Prop`) : tables renversables et barils explosifs.
     pub props: BTreeMap<String, PropEntry>,
     /// M2-E1 : types de salles (kind `Room`).
@@ -1306,6 +1329,8 @@ pub const KNOWN_KIND_NAMES: &[&str] = &[
     "Difficulty",
     "Synergy",
     "LootTable",
+    "Unlock",
+    "MetaEconomy",
     "Prop",
 ];
 
@@ -1404,6 +1429,8 @@ impl Registry {
                 "Item" => load_items(&assets_dir, decl, &mut registry, &mut errors),
                 "Synergy" => load_synergies(&assets_dir, decl, &mut registry, &mut errors),
                 "LootTable" => load_loot_tables(&assets_dir, decl, &mut registry, &mut errors),
+                "Unlock" => load_unlocks(&assets_dir, decl, &mut registry, &mut errors),
+                "MetaEconomy" => load_meta_economy(&assets_dir, decl, &mut registry, &mut errors),
                 "Prop" => load_props(&assets_dir, decl, &mut registry, &mut errors),
                 "Surface" => load_surfaces(&assets_dir, decl, &mut registry, &mut errors),
                 "Pattern" => load_patterns(&assets_dir, decl, &mut registry, &mut errors),
@@ -2850,6 +2877,50 @@ fn load_loot_tables(
         registry
             .loot_tables
             .insert(id.clone(), LootTableEntry { id, file: rel, def });
+    }
+}
+
+/// M2-T12 : `unlocks/<id>.ron` (kind `Unlock`), un déblocage par fichier ; id = nom de fichier.
+fn load_unlocks(
+    assets_dir: &ContentFiles,
+    decl: &ContentFolderDecl,
+    registry: &mut Registry,
+    errors: &mut Vec<LintError>,
+) {
+    for (id, rel, def) in load_ron_files::<items::UnlockDef>(assets_dir, decl, errors) {
+        if let Some(existing) = registry.unlocks.get(&id) {
+            errors.push(LintError {
+                kind: LintErrorKind::DuplicateId,
+                file: rel.display().to_string(),
+                message: format!(
+                    "id de déblocage « {id} » déjà défini dans {}",
+                    existing.file.display()
+                ),
+            });
+            continue;
+        }
+        registry
+            .unlocks
+            .insert(id.clone(), UnlockEntry { id, file: rel, def });
+    }
+}
+
+/// M2-T12 : `meta/<id>.ron` (kind `MetaEconomy`), règles d'essence ; id = nom de fichier.
+fn load_meta_economy(
+    assets_dir: &ContentFiles,
+    decl: &ContentFolderDecl,
+    registry: &mut Registry,
+    errors: &mut Vec<LintError>,
+) {
+    for (id, rel, rules) in load_ron_files::<meta::EssenceRules>(assets_dir, decl, errors) {
+        registry
+            .meta_economy
+            .entry(id.clone())
+            .or_insert(MetaEconomyEntry {
+                id,
+                file: rel,
+                rules,
+            });
     }
 }
 

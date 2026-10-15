@@ -1,0 +1,1 @@
+(cost: Some(5), requires: ["a"], grants: [Item("lame")])

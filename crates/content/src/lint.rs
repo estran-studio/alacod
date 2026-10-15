@@ -86,6 +86,7 @@ pub fn run(registry: &Registry, manifest: &GameManifest) -> Vec<LintError> {
     lint_items(registry, &mut errors);
     lint_synergies(registry, &mut errors);
     lint_loot(registry, &mut errors);
+    lint_unlocks(registry, &mut errors);
     lint_entry_progression(registry, manifest, &mut errors);
     lint_forced_variants(registry, &mut errors);
     lint_character_tests(registry, &mut errors);
@@ -3161,6 +3162,105 @@ fn lint_synergies(registry: &Registry, errors: &mut Vec<LintError>) {
             }
             lint_effect(registry, &at, effect, &mut push);
         }
+    }
+}
+
+/// M2-T12 (`docs/conventions.md` §51) : déblocages. Coût ≤ 0, prérequis inconnu ou cyclique,
+/// objet ou pool inconnus, poids ≤ 0 d'une entrée ajoutée.
+fn lint_unlocks(registry: &Registry, errors: &mut Vec<LintError>) {
+    for unlock in registry.unlocks.values() {
+        let file = unlock.file.display().to_string();
+        let id = &unlock.id;
+        let mut push = |kind: LintErrorKind, message: String| {
+            errors.push(LintError {
+                kind,
+                file: file.clone(),
+                message,
+            })
+        };
+        if let Some(cost) = unlock.def.cost.filter(|cost| *cost <= 0) {
+            push(
+                LintErrorKind::OutOfRange,
+                format!(
+                    "déblocage « {id} » : cost = {cost} (doit être > 0, ou absent pour gratuit)"
+                ),
+            );
+        }
+        for required in &unlock.def.requires {
+            if !registry.unlocks.contains_key(required) {
+                push(
+                    LintErrorKind::BrokenReference,
+                    format!("déblocage « {id} » : prérequis « {required} » inconnu"),
+                );
+            }
+        }
+        if unlock.def.grants.is_empty() {
+            push(
+                LintErrorKind::OutOfRange,
+                format!("déblocage « {id} » : grants vide (il n'accorde rien)"),
+            );
+        }
+        for (index, grant) in unlock.def.grants.iter().enumerate() {
+            match grant {
+                items::UnlockGrant::Item(item) => {
+                    if !registry.items.contains_key(item) {
+                        push(
+                            LintErrorKind::BrokenReference,
+                            format!(
+                                "déblocage « {id} » : grants[{index}] : objet « {item} » inconnu"
+                            ),
+                        );
+                    }
+                }
+                items::UnlockGrant::Loot {
+                    table,
+                    pick,
+                    weight,
+                } => {
+                    if !registry.loot_tables.contains_key(table) {
+                        push(
+                            LintErrorKind::BrokenReference,
+                            format!(
+                                "déblocage « {id} » : grants[{index}] : pool « {table} » inconnu"
+                            ),
+                        );
+                    }
+                    if *weight <= 0 {
+                        push(
+                            LintErrorKind::OutOfRange,
+                            format!("déblocage « {id} » : grants[{index}] : poids {weight} (doit être > 0)"),
+                        );
+                    }
+                    if let items::LootPick::Item(item) = pick {
+                        if !registry.items.contains_key(item) {
+                            push(
+                                LintErrorKind::BrokenReference,
+                                format!("déblocage « {id} » : grants[{index}] : objet « {item} » inconnu"),
+                            );
+                        }
+                    }
+                }
+            }
+        }
+    }
+    let table = items::UnlockTable(
+        registry
+            .unlocks
+            .values()
+            .map(|unlock| (unlock.id.clone(), unlock.def.clone()))
+            .collect(),
+    );
+    if let Some(id) = table.requires_cycle() {
+        let file = registry
+            .unlocks
+            .get(&id)
+            .map(|unlock| unlock.file.display().to_string())
+            .unwrap_or_default();
+        errors.push(LintError {
+            kind: LintErrorKind::BrokenReference,
+            file,
+            message: format!("déblocage « {id} » : cycle de prérequis"),
+        });
     }
 }
 

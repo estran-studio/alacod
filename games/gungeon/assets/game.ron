@@ -21,6 +21,9 @@
         (path: "synergies", kind: "Synergy"),
         // M2-T5 : pools de butin (docs/conventions.md §48).
         (path: "loot", kind: "LootTable"),
+        // M2-T12 : déblocages de méta-progression et essence gagnée (docs/conventions.md §51).
+        (path: "unlocks", kind: "Unlock"),
+        (path: "meta", kind: "MetaEconomy"),
         // M2-E1 : types de salles du champ de niveau `room_kind`.
         (path: "rooms", kind: "Room"),
         // M2-T11 : tables renversables et barils explosifs (entités LDtk `Table` / `Barrel` des

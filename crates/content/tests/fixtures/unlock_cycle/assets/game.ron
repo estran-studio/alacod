@@ -1,0 +1,10 @@
+// Fixture M2-T12 : unlock_cycle
+(
+    name: "fixture-unlock_cycle",
+    content_folders: [
+        (path: "objets", kind: "Item"),
+        (path: "loot", kind: "LootTable"),
+        (path: "unlocks", kind: "Unlock"),
+    ],
+    entry: (start_map: "maps/salle.ldtk", default_seed: 1),
+)

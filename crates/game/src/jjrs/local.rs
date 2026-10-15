@@ -87,6 +87,7 @@ pub fn system_after_map_loaded_local(
     manifest: Option<Res<GameManifest>>,
     registry: Option<Res<Registry>>,
     floors_override: Option<Res<crate::run_state::FloorsOverride>>,
+    profiles: Option<Res<meta::Profiles>>,
 ) {
     if !matches!(online_state.as_ref(), OnlineState::Offline) {
         return;
@@ -160,7 +161,10 @@ pub fn system_after_map_loaded_local(
         registry.as_deref(),
         floors_override.as_deref().map(|o| o.0.as_str()),
     );
+    // M2-T12 : déblocages de la partie = union des profils des joueurs locaux, figés ici.
+    let run_unlocks = crate::profile::local_run_unlocks(profiles.as_deref(), &players);
     let run = Run::new(run_seed.0, mode, players, 0);
+    commands.insert_resource(run_unlocks);
 
     // Insert the GGRS session resource
     commands.insert_resource(run_seed);

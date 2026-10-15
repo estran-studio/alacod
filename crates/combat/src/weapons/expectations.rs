@@ -431,6 +431,15 @@ pub enum Expectation {
         currency: Option<(String, u64)>,
         at_frame: u32,
     },
+    /// Les déblocages de la partie (`items::RunUnlocks`, M2-T12, §51) contiennent tous ceux de
+    /// `has` et aucun de ceux de `lacks`, à la frame exacte `at_frame`.
+    RunUnlocks {
+        #[serde(default)]
+        has: Vec<String>,
+        #[serde(default)]
+        lacks: Vec<String>,
+        at_frame: u32,
+    },
     /// Le texte de la source `source` du HUD (`game::ui::hud_model::HudSnapshot`, joueur
     /// affiché, sans préfixe) contient `contains` à la frame exacte `at_frame` (T1.18,
     /// `docs/conventions.md` §32). Présentation : lu hors simulation, hors trace.
@@ -540,6 +549,7 @@ impl Expectation {
             | Self::Consumable { at_frame, .. }
             | Self::BossPhase { at_frame, .. }
             | Self::ProfileHas { at_frame, .. }
+            | Self::RunUnlocks { at_frame, .. }
             | Self::Event {
                 by_frame: at_frame, ..
             }

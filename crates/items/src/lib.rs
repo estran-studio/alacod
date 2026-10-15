@@ -13,6 +13,8 @@
 
 pub mod loot;
 pub use loot::*;
+pub mod unlock;
+pub use unlock::*;
 
 use bevy::prelude::*;
 use bevy_fixed::fixed_math::Fixed;

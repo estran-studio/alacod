@@ -34,6 +34,7 @@ fn two_fonceurs(frames: u32) -> Scenario {
         chests: vec![],
         room_reward_chance_override: None,
         profile: false,
+        profile_setup: None,
         powerup_drop_chance_override: None,
         floors: None,
         progression: None,

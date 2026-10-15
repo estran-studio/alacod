@@ -1434,3 +1434,37 @@ fn shipped_games_lint_without_error() {
         }
     }
 }
+
+#[test]
+fn unlock_cost_zero_fixture_reports_out_of_range() {
+    let (_, _, errors) = load_and_lint(&fixture_dir("unlock_cost_zero")).unwrap();
+    assert_has_error(&errors, LintErrorKind::OutOfRange, "cost = 0");
+}
+
+#[test]
+fn unlock_unknown_item_fixture_reports_broken_reference() {
+    let (_, _, errors) = load_and_lint(&fixture_dir("unlock_unknown_item")).unwrap();
+    assert_has_error(&errors, LintErrorKind::BrokenReference, "fantome");
+}
+
+#[test]
+fn unlock_unknown_table_fixture_reports_broken_reference() {
+    let (_, _, errors) = load_and_lint(&fixture_dir("unlock_unknown_table")).unwrap();
+    assert_has_error(&errors, LintErrorKind::BrokenReference, "nulle");
+}
+
+#[test]
+fn unlock_cycle_fixture_reports_broken_reference() {
+    let (_, _, errors) = load_and_lint(&fixture_dir("unlock_cycle")).unwrap();
+    assert_has_error(
+        &errors,
+        LintErrorKind::BrokenReference,
+        "cycle de prérequis",
+    );
+}
+
+#[test]
+fn unlock_unknown_requires_fixture_reports_broken_reference() {
+    let (_, _, errors) = load_and_lint(&fixture_dir("unlock_unknown_requires")).unwrap();
+    assert_has_error(&errors, LintErrorKind::BrokenReference, "prérequis « zz »");
+}

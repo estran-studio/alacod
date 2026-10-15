@@ -84,6 +84,27 @@ pub fn loot_tables(registry: Option<&Registry>) -> items::LootTables {
     )
 }
 
+/// Déblocages de méta-progression (M2-T12) depuis le registre : `unlocks/<id>.ron` → définition.
+pub fn unlock_table(registry: Option<&Registry>) -> items::UnlockTable {
+    items::UnlockTable(
+        registry
+            .iter()
+            .flat_map(|r| r.unlocks.values())
+            .map(|unlock| (unlock.id.clone(), unlock.def.clone()))
+            .collect(),
+    )
+}
+
+/// Règles d'essence du jeu (M2-T12, kind `MetaEconomy`) ; les règles par défaut sans fichier.
+pub fn meta_rules(registry: Option<&Registry>) -> meta::MetaRules {
+    meta::MetaRules(
+        registry
+            .and_then(|r| r.meta_economy.values().next())
+            .map(|entry| entry.rules)
+            .unwrap_or_default(),
+    )
+}
+
 /// Types de salles (M2-E1) depuis le registre de contenu : `rooms/<id>.ron` → définition.
 pub fn room_kind_table(registry: Option<&Registry>) -> world::RoomKindTable {
     world::RoomKindTable(
@@ -289,6 +310,9 @@ pub fn setup_generated_map(
     commands.insert_resource(synergy_table(registry.as_deref()));
     // M2-T5 : pools de butin (kind `LootTable`), hors rollback
     commands.insert_resource(loot_tables(registry.as_deref()));
+    // M2-T12 : déblocages et règles d'essence (kinds `Unlock`, `MetaEconomy`), hors rollback
+    commands.insert_resource(unlock_table(registry.as_deref()));
+    commands.insert_resource(meta_rules(registry.as_deref()));
     let mut caves = CaveSlots::default();
     let Some(plan) = plan else {
         let (load, cave) = resolve_map_config(&config, &config.map_path, registry.as_deref(), 0);
