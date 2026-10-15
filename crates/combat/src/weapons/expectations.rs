@@ -33,7 +33,7 @@ pub enum EntityKind {
     Barrel,
     /// Tables (debout ou renversées) pas encore détruites (M2-T11).
     Table,
-    /// Rochers de salle pas encore détruits (M4-T0c, `docs/conventions.md` §62).
+    /// Rochers de salle pas encore détruits (M3-T0c, `docs/conventions.md` §62).
     Rock,
 }
 
@@ -496,7 +496,7 @@ pub enum Expectation {
         doors_closed: Option<u32>,
         at_frame: u32,
     },
-    /// M4-T0c (`docs/conventions.md` §62) : la porte de la `nth` salle de type `kind` (même tri que
+    /// M3-T0c (`docs/conventions.md` §62) : la porte de la `nth` salle de type `kind` (même tri que
     /// `RoomState`) est fermée à clé ou murée (`locked: true`) ou ouverte (`false`) à la frame
     /// exacte `at_frame`. Une salle dont le type n'a pas de `door_lock` n'est jamais verrouillée.
     DoorLocked {

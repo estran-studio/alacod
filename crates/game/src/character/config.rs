@@ -114,8 +114,8 @@ pub struct CharacterConfig {
     #[serde(default)]
     pub boss: Option<behaviors::BossDef>,
 
-    /// Bombe du personnage (M4-T0c, `docs/conventions.md` §62) : sans elle, le bouton `Bomb` est
-    /// sans effet (aucun contenu existant n'en a). La pose vient de M4-T4.
+    /// Bombe du personnage (M3-T0c, `docs/conventions.md` §62) : sans elle, le bouton `Bomb` est
+    /// sans effet (aucun contenu existant n'en a). La pose vient de M3-T4.
     #[serde(default)]
     pub bomb: Option<world::BombDef>,
 

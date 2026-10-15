@@ -42,7 +42,7 @@ pub enum FloorError {
     NoTemplate(String),
     /// Aucune tentative n'a satisfait la grammaire.
     Exhausted { attempts: u32 },
-    /// La disposition demandée n'est pas encore planifiable (`FloorLayout::Grid`, M4-T5).
+    /// La disposition demandée n'est pas encore planifiable (`FloorLayout::Grid`, M3-T5).
     Unsupported(String),
 }
 
@@ -50,7 +50,7 @@ impl std::fmt::Display for FloorError {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
         match self {
             Self::NoTemplate(kind) => write!(f, "aucun gabarit de type « {kind} »"),
-            Self::Unsupported(what) => write!(f, "{what} : pas encore planifiable (M4-T5)"),
+            Self::Unsupported(what) => write!(f, "{what} : pas encore planifiable (M3-T5)"),
             Self::Exhausted { attempts } => {
                 write!(
                     f,

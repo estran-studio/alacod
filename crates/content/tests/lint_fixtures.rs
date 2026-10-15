@@ -1462,7 +1462,7 @@ fn arena_and_boss_t7_fixtures_report_their_rule() {
     }
 }
 
-// M4-T0c (docs/conventions.md §62) : contrats du monde.
+// M3-T0c (docs/conventions.md §62) : contrats du monde.
 #[test]
 fn world_contract_fixtures_report_their_rule() {
     for (fixture, kind, expected) in [

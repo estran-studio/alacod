@@ -1,7 +1,7 @@
-//! Explosion (`effects::Action::Explode`, M4-T0c, `docs/conventions.md` §62) : forme pure.
+//! Explosion (`effects::Action::Explode`, M3-T0c, `docs/conventions.md` §62) : forme pure.
 //!
 //! Contrat seul : la règle qui dit **qui** et **quoi** une explosion touche, sans ECS. Son exécution
-//! (dégâts, rochers, mur secret) vient de M4-T4 ; le baril ne l'emploie pas encore (sa trace ne
+//! (dégâts, rochers, mur secret) vient de M3-T4 ; le baril ne l'emploie pas encore (sa trace ne
 //! doit pas bouger). Elle vit dans `world` (comme `destroy_terrain`, qu'elle réutilise) : la
 //! frontière `SIM` n'y voit que des identifiants et des positions.
 

@@ -3961,9 +3961,9 @@ Scénarios : `tears_infinite` (300 frames de tir, `Ammo` à 0 tout du long, les 
 `tears_shot_speed_sans_objet`, elle n'est pas encore arrivée).
 
 
-## 62. Contrats du monde : bombes, rochers, piques, portes verrouillées, grille (M4-T0c)
+## 62. Contrats du monde : bombes, rochers, piques, portes verrouillées, grille (M3-T0c)
 
-Contrats seuls, sans exécution : M4-T4 (bombes, rochers cassés, mur secret, piques) et M4-T5
+Contrats seuls, sans exécution : M3-T4 (bombes, rochers cassés, mur secret, piques) et M3-T5
 (planificateur en grille) les exécutent. **Aucune trace existante ne bouge** : tout type nouveau est
 neutre ou absent du contenu existant, l'input `Bomb` n'est lu par personne.
 
@@ -3975,8 +3975,8 @@ personnages à PV dont le centre est à **strictement** moins de `radius` (carr�
 dans l'ordre croissant de `GgrsNetId.0` ; `destroys` casse aussi les rochers de `CellGrid` du rayon
 (`destroy_terrain`). Elle vit dans `world` (comme `destroy_terrain`, dans la frontière `SIM`), pas dans
 `combat` : elle ne connaît que des identifiants et des positions. Lint : `radius > 0`, `damage >= 0`,
-puis `Unsupported` dans un effet tant que M4-T4 ne l'exécute pas ; refusée dans un power-up. Le baril
-**ne bascule pas** dessus ici (sa trace ne doit pas bouger) : M4-T4 le fera avec preuve. Moment clé
+puis `Unsupported` dans un effet tant que M3-T4 ne l'exécute pas ; refusée dans un power-up. Le baril
+**ne bascule pas** dessus ici (sa trace ne doit pas bouger) : M3-T4 le fera avec preuve. Moment clé
 `explosion` (`world::Exploded`, `FrameEvents` neutre) déclaré, émis en T4.
 
 ### Bombe
@@ -4000,7 +4000,7 @@ dense, ancrée à l'origine et non négative, et `rebuild_cave_walls_system` dé
 les recréer depuis la grille et `reload_walls` remplace les cases murées de la navigation par celles
 de la grille : sur un étage assemblé (salles à des positions quelconques, murs IntGrid propres) cela
 effacerait les murs des salles. Le champ de flux voit l'`Obstacle` sans code de plus. Un niveau sans
-la couche ne crée aucune entité ni aucun id : traces inchangées. M4-T4 détruira un rocher par
+la couche ne crée aucune entité ni aucun id : traces inchangées. M3-T4 détruira un rocher par
 `despawn_rollback` (explosion `destroys`). Attente : `EntityCount(kind: Rock)`.
 
 ### Piques
@@ -4026,7 +4026,7 @@ défaut). Lint : `Key(0)`. Attente : `DoorLocked(kind, nth, locked, at_frame)` (
 (Q8, proposition retenue : `cell` = 15 × 9 cases, une seule taille). Lint (`lint_floor_grammars`) :
 `cell` et `max` > 0, `max` contient au moins `rooms.0` salles, et chaque gabarit de la grammaire
 fait exactement `cell` cases avec une ouverture centrée sur chacun des quatre côtés. `plan_floor`
-**refuse** `Grid` (`FloorError::Unsupported`) tant que M4-T5 n'est pas livrée.
+**refuse** `Grid` (`FloorError::Unsupported`) tant que M3-T5 n'est pas livrée.
 
 ### Testbed et scénarios
 

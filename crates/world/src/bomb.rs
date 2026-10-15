@@ -1,9 +1,9 @@
-//! Bombe du joueur (M4-T0c, `docs/conventions.md` §62) : contrat seul.
+//! Bombe du joueur (M3-T0c, `docs/conventions.md` §62) : contrat seul.
 //!
 //! - [`BombDef`] : définition en données dans le personnage (`bomb: Some((...))`) ; absente, le
 //!   bouton `Bomb` (bit `INPUT_BOMB`) n'a aucun effet (aucun contenu existant n'en a).
-//! - [`Bomb`] : composant rollback **neutre** de la bombe posée (aucune hors M4-T4).
-//! - Pose, mèche et explosion (`effects::Action::Explode`) : M4-T4.
+//! - [`Bomb`] : composant rollback **neutre** de la bombe posée (aucune hors M3-T4).
+//! - Pose, mèche et explosion (`effects::Action::Explode`) : M3-T4.
 
 use bevy::prelude::*;
 use bevy_fixed::fixed_math::Fixed;
@@ -22,7 +22,7 @@ pub struct BombDef {
 }
 
 /// Une bombe posée. Rollback + trace en variante neutre : portée par aucune entité tant que
-/// M4-T4 n'a pas livré la pose.
+/// M3-T4 n'a pas livré la pose.
 #[derive(Component, Debug, Clone, PartialEq, Eq, Hash)]
 pub struct Bomb {
     /// Le joueur qui l'a posée.
@@ -51,13 +51,13 @@ impl Bomb {
 }
 
 /// Le bouton `Bomb` est-il une demande de pose ? Seulement si le personnage a une définition
-/// de bombe : sans `bomb`, l'input est ignoré (contrat M4-T0c).
+/// de bombe : sans `bomb`, l'input est ignoré (contrat M3-T0c).
 pub fn bomb_requested(buttons: u32, def: Option<&BombDef>, bit: u32) -> bool {
     def.is_some() && buttons & bit != 0
 }
 
 /// Une explosion vient d'avoir lieu (`FrameEvents`, neutre) : moment clé `explosion`. Déclaré par
-/// M4-T0c, émis par M4-T4 ; position en champs séparés (`FixedVec2` n'est pas `Hash`).
+/// M3-T0c, émis par M3-T4 ; position en champs séparés (`FixedVec2` n'est pas `Hash`).
 #[derive(Debug, Clone, PartialEq, Eq, Hash)]
 pub struct Exploded {
     pub frame: u32,

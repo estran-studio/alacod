@@ -25,7 +25,7 @@ pub enum PlayerAction {
     /// Objet actif (M2-T0b) : Espace ; blank : Q.
     UseActive,
     Blank,
-    /// Bombe (M4-T0c) : touche E.
+    /// Bombe (M3-T0c) : touche E.
     Bomb,
     /// Choix de mutation (T1.10) : touches 1/2/3.
     ChoiceA,

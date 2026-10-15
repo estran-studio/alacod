@@ -171,7 +171,7 @@ pub(crate) fn lint_effect(
                 LintErrorKind::OutOfRange,
                 format!("{at} : GainShield(0) : doit être > 0"),
             ),
-            // M4-T0c (§62) : contrat de l'explosion, exécutée par M4-T4
+            // M3-T0c (§62) : contrat de l'explosion, exécutée par M3-T4
             effects::Action::Explode { radius, damage, .. } => {
                 if *radius <= Fixed::ZERO {
                     push(
@@ -187,7 +187,7 @@ pub(crate) fn lint_effect(
                 }
                 push(
                     LintErrorKind::Unsupported,
-                    format!("{at} : Explode : pas encore exécutée (M4-T4)"),
+                    format!("{at} : Explode : pas encore exécutée (M3-T4)"),
                 );
             }
             effects::Action::GaugeAdd(id, _) if !gauge_known(id) => push(
@@ -295,7 +295,7 @@ fn lint_characters(registry: &Registry, errors: &mut Vec<LintError>) {
         lint_boss(registry, character, errors);
         // T1.5 : variantes et élites.
         lint_variants(character, errors);
-        // M4-T0c : bombe.
+        // M3-T0c : bombe.
         if let Some(bomb) = &character.bomb {
             for message in world::bomb_problems(bomb) {
                 errors.push(LintError {
@@ -2650,7 +2650,7 @@ fn lint_floor_grammars(registry: &Registry, errors: &mut Vec<LintError>) {
             });
             continue;
         };
-        // M4-T0c (§62) : disposition en grille, tous les gabarits de la grammaire font `cell`
+        // M3-T0c (§62) : disposition en grille, tous les gabarits de la grammaire font `cell`
         // cases (une seule taille, Q8) et ont une ouverture centrée sur chaque côté.
         if let world::FloorLayout::Grid { cell, .. } = entry.grammar.layout() {
             let needed = entry.grammar.kinds_needed();
@@ -2830,7 +2830,7 @@ fn lint_surfaces(registry: &Registry, errors: &mut Vec<LintError>) {
                 "tags vide : au moins un tag".into(),
             );
         }
-        // M4-T0c (§62) : piques.
+        // M3-T0c (§62) : piques.
         if let Some(hazard) = &surface.hazard {
             for message in hazard.problems() {
                 push(LintErrorKind::OutOfRange, message);
@@ -3684,7 +3684,7 @@ fn lint_loot(registry: &Registry, errors: &mut Vec<LintError>) {
 /// M2-E1 (`docs/conventions.md` §35) : le champ de niveau `room_kind` d'un gabarit de salle
 /// (`RoomTemplate`) désigne un type du dossier `Room` ; un type inconnu est une erreur.
 fn lint_room_kinds(registry: &Registry, errors: &mut Vec<LintError>) {
-    // M4-T0c (§62) : verrou de porte (`Key(0)` n'ouvrirait jamais rien).
+    // M3-T0c (§62) : verrou de porte (`Key(0)` n'ouvrirait jamais rien).
     for room in registry.rooms.values() {
         if let Some(message) = room.def.door_lock.and_then(|lock| lock.problem()) {
             errors.push(LintError {

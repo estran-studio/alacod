@@ -86,7 +86,7 @@ pub(crate) fn spawn_level_walls(
                 }
             }
         }
-        // M4-T0c (§62) : rochers de la salle (couche optionnelle `Rocks`)
+        // M3-T0c (§62) : rochers de la salle (couche optionnelle `Rocks`)
         spawn_level_rocks(
             commands,
             level_data,
@@ -150,7 +150,7 @@ pub(crate) fn spawn_level_walls(
     }
 }
 
-/// Rochers d'un niveau (M4-T0c, `docs/conventions.md` §62) : une entité rollback par case de la
+/// Rochers d'un niveau (M3-T0c, `docs/conventions.md` §62) : une entité rollback par case de la
 /// couche IntGrid `Rocks` (1 = rocher, 2 = rocher à butin), dans l'ordre de lecture de la couche,
 /// numérotée par la factory (`rock_<col>_<row>`). Collider de la couche des murs et `Obstacle`
 /// `Wall` : le joueur ne le traverse pas et le champ de flux le contourne. Un niveau sans la

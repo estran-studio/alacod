@@ -43,21 +43,21 @@ pub struct FloorGrammar {
     /// Tentatives au plus avant d'échouer.
     #[serde(default = "default_attempts")]
     pub max_attempts: u32,
-    /// M4-T0c (§62) : disposition de l'étage. Absent (tout le contenu existant) : `Graph`, le
+    /// M3-T0c (§62) : disposition de l'étage. Absent (tout le contenu existant) : `Graph`, le
     /// planificateur en arbre d'aujourd'hui.
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub layout: Option<FloorLayout>,
 }
 
-/// Disposition d'un étage assemblé (M4-T0c, `docs/conventions.md` §62).
+/// Disposition d'un étage assemblé (M3-T0c, `docs/conventions.md` §62).
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Default, Serialize, Deserialize)]
 pub enum FloorLayout {
     /// Arbre de gabarits par connexions alignées (M2-T10).
     #[default]
     Graph,
-    /// Cases de salle sur une grille (M4-T5) : `cell` = taille d'une salle en cases de 16 px
+    /// Cases de salle sur une grille (M3-T5) : `cell` = taille d'une salle en cases de 16 px
     /// (Q8 : 15 × 9, une seule taille), `max` = étendue maximale de la grille en salles. Le
-    /// planificateur la refuse (`FloorError::Unsupported`) tant que M4-T5 n'est pas livrée.
+    /// planificateur la refuse (`FloorError::Unsupported`) tant que M3-T5 n'est pas livrée.
     Grid { cell: (u32, u32), max: (u32, u32) },
 }
 

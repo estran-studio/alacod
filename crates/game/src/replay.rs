@@ -533,7 +533,7 @@ pub enum Button {
     UseActive,
     /// Blank (M2-T0b, contrat : compteur et input). Voir `INPUT_BLANK`.
     Blank,
-    /// Bombe (M4-T0c, contrat : bit d'input sans effet sans `bomb`). Voir `INPUT_BOMB`.
+    /// Bombe (M3-T0c, contrat : bit d'input sans effet sans `bomb`). Voir `INPUT_BOMB`.
     Bomb,
 }
 

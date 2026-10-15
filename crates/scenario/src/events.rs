@@ -270,8 +270,8 @@ fn room_events(
     }
 }
 
-/// Moments clés `explosion` (M4-T0c, `docs/conventions.md` §62) : une explosion (`world::Exploded`).
-/// Déclaré ici, émis par M4-T4 : aucun scénario existant n'en produit.
+/// Moments clés `explosion` (M3-T0c, `docs/conventions.md` §62) : une explosion (`world::Exploded`).
+/// Déclaré ici, émis par M3-T4 : aucun scénario existant n'en produit.
 fn explosion_events(
     exploded: Option<Res<FrameEvents<world::Exploded>>>,
     mut events: ResMut<GameEvents>,

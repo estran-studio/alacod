@@ -2406,7 +2406,7 @@ fn check(world: &mut World, expectation: &Expectation) -> Result<(), String> {
             }
             Ok(())
         }
-        // M4-T0c : porte verrouillée d'une salle typée (`world::DoorLocks`, `RoomKindDef::door_lock`).
+        // M3-T0c : porte verrouillée d'une salle typée (`world::DoorLocks`, `RoomKindDef::door_lock`).
         Expectation::DoorLocked {
             kind, nth, locked, ..
         } => {

@@ -59,14 +59,14 @@ pub struct SurfaceDef {
     /// M2-T11 (§46) : la surface est une fosse. `None` pour toute surface de mouvement.
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub pit: Option<PitDef>,
-    /// M4-T0c (§62) : la surface blesse (piques). `None` pour toute surface existante.
+    /// M3-T0c (§62) : la surface blesse (piques). `None` pour toute surface existante.
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub hazard: Option<HazardDef>,
 }
 
-/// Piques (M4-T0c, `docs/conventions.md` §62) : le joueur dont les pieds sont sur la case perd
+/// Piques (M3-T0c, `docs/conventions.md` §62) : le joueur dont les pieds sont sur la case perd
 /// `damage` PV (dégâts `True`, ou typés : Q2 pour les demi-cœurs) au plus une fois par `period`
-/// frames. Contrat seul : la forme RON, le lint et la règle pure ; l'exécution vient de M4-T4.
+/// frames. Contrat seul : la forme RON, le lint et la règle pure ; l'exécution vient de M3-T4.
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Hash, Serialize, Deserialize)]
 pub struct HazardDef {
     pub damage: Fixed,

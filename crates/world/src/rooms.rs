@@ -45,19 +45,19 @@ pub struct RoomKindDef {
     /// qu'à la fin de son horloge, si un joueur vit encore. Implique le verrouillage.
     #[serde(default)]
     pub arena: Option<ArenaDef>,
-    /// M4-T0c (§62) : la porte des salles de ce type est fermée à clé ou murée. Absent (tout le
+    /// M3-T0c (§62) : la porte des salles de ce type est fermée à clé ou murée. Absent (tout le
     /// contenu existant) : porte ordinaire, hors du hash de la définition.
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub door_lock: Option<DoorLock>,
 }
 
-/// Verrou de la porte d'une salle (M4-T0c, `docs/conventions.md` §62).
+/// Verrou de la porte d'une salle (M3-T0c, `docs/conventions.md` §62).
 #[derive(Clone, Copy, Debug, PartialEq, Eq, Hash, PartialOrd, Ord, Serialize, Deserialize)]
 pub enum DoorLock {
     /// Reste fermée jusqu'à ce qu'un joueur la touche par Interaction avec `n` clés
     /// (`game::loot::KEY_ITEM`, consommées à l'ouverture). `n > 0`.
     Key(u32),
-    /// Mur plein jusqu'à une explosion `destroys` qui le touche (M4-T4).
+    /// Mur plein jusqu'à une explosion `destroys` qui le touche (M3-T4).
     Secret,
 }
 
@@ -133,7 +133,7 @@ impl RoomKindTable {
         self.0.get(kind).and_then(|def| def.arena.as_ref())
     }
 
-    /// Le verrou de porte du type, s'il en a un (M4-T0c).
+    /// Le verrou de porte du type, s'il en a un (M3-T0c).
     pub fn door_lock(&self, kind: &str) -> Option<DoorLock> {
         self.0.get(kind).and_then(|def| def.door_lock)
     }

@@ -274,7 +274,7 @@ pub struct CharacterEntry {
     pub squad: Option<String>,
     /// M2-T0c : boss à phases (`boss`).
     pub boss: Option<BossEntry>,
-    /// M4-T0c (§62) : bombe du personnage (`bomb`), absente = pas de bombe.
+    /// M3-T0c (§62) : bombe du personnage (`bomb`), absente = pas de bombe.
     pub bomb: Option<world::BombDef>,
     /// T1.4 : tags ignorés par le ciblage (`ai.targeting: Some(Nearest(ignore: [...]))`).
     pub ignore_tags: Vec<String>,
@@ -824,7 +824,7 @@ pub struct SurfaceEntry {
     pub acceleration: Fixed,
     /// M2-T11 (§46) : la surface est une fosse.
     pub pit: Option<world::PitDef>,
-    /// M4-T0c (§62) : la surface blesse (piques).
+    /// M3-T0c (§62) : la surface blesse (piques).
     pub hazard: Option<world::HazardDef>,
 }
 
@@ -1002,15 +1002,15 @@ pub struct MapLevelInfo {
     pub room_kind: Option<String>,
     pub characters: Vec<String>,
     pub weapons: Vec<String>,
-    /// M4-T0c (§62) : taille du niveau en cases de 16 px `(largeur, hauteur)`, pour le lint
+    /// M3-T0c (§62) : taille du niveau en cases de 16 px `(largeur, hauteur)`, pour le lint
     /// d'une disposition en grille.
     pub size_cells: (u32, u32),
-    /// M4-T0c : le côté (haut, bas, gauche, droite) a une ouverture `LevelConnection` centrée.
+    /// M3-T0c : le côté (haut, bas, gauche, droite) a une ouverture `LevelConnection` centrée.
     pub centered_openings: [bool; 4],
 }
 
 /// Côtés (haut, bas, gauche, droite) dont l'ouverture `LevelConnection` est un groupe de cases
-/// contiguës symétrique par rapport au milieu du côté (M4-T0c). `cells` : rangées de haut en bas
+/// contiguës symétrique par rapport au milieu du côté (M3-T0c). `cells` : rangées de haut en bas
 /// (ordre LDtk) ; vide ou dimensions incohérentes : aucun côté.
 fn centered_openings(cells: &[bool], width: usize, height: usize) -> [bool; 4] {
     if width == 0 || height == 0 || cells.len() != width * height {
@@ -1663,7 +1663,7 @@ struct CharacterFileSchema {
     /// M2-T0c : boss à phases.
     #[serde(default)]
     boss: Option<BossEntry>,
-    /// M4-T0c : bombe.
+    /// M3-T0c : bombe.
     #[serde(default)]
     bomb: Option<world::BombDef>,
     #[serde(default)]

@@ -1,4 +1,4 @@
-// Fixture M4-T0c : explode_radius_zero
+// Fixture M3-T0c : explode_radius_zero
 (
     name: "fixture-explode_radius_zero",
     content_folders: [

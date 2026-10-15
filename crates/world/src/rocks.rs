@@ -1,4 +1,4 @@
-//! Rochers des salles (M4-T0c, `docs/conventions.md` §62) : obstacles destructibles posés par la
+//! Rochers des salles (M3-T0c, `docs/conventions.md` §62) : obstacles destructibles posés par la
 //! couche IntGrid optionnelle `Rocks` d'un gabarit LDtk.
 //!
 //! **Une entité par rocher**, pas un remplissage de [`crate::CellGrid`] : cette grille est dense,
@@ -6,7 +6,7 @@
 //! détruit *tous* les murs pour les recréer depuis la grille. Sur un étage assemblé (salles à
 //! des positions quelconques, murs IntGrid propres à chaque salle) elle effacerait les murs des
 //! salles. Un rocher-entité porte son collider et son `Obstacle` (le champ de flux le voit sans
-//! code de plus) et disparaît par `despawn_rollback` : c'est ce que M4-T4 (explosion
+//! code de plus) et disparaît par `despawn_rollback` : c'est ce que M3-T4 (explosion
 //! `destroys`) fera. Aucun rocher hors d'une carte avec la couche : le composant est neutre.
 
 use bevy::prelude::*;
@@ -15,7 +15,7 @@ use bevy::prelude::*;
 pub const LAYER_ROCKS: &str = "Rocks";
 /// Valeur IntGrid d'un rocher ordinaire.
 pub const ROCK_VALUE: i32 = 1;
-/// Valeur IntGrid d'un rocher à butin (le butin vient de M4-T4).
+/// Valeur IntGrid d'un rocher à butin (le butin vient de M3-T4).
 pub const ROCK_LOOT_VALUE: i32 = 2;
 
 /// Un rocher : une case de 16 unités. Rollback + trace en variante neutre.

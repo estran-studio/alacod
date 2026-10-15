@@ -56,7 +56,7 @@ impl Plugin for WorldPlugin {
             .rollback_and_trace_resource_neutral::<crate::rooms::RoomStates>()
             .rollback_and_trace_neutral::<crate::rooms::RoomDormant>()
             .init_resource::<crate::rooms::RoomKindTable>()
-            // M4-T0c (§62) : bombes (aucune hors M4-T4) et portes fermées ouvertes (vide hors
+            // M3-T0c (§62) : bombes (aucune hors M3-T4) et portes fermées ouvertes (vide hors
             // salle à porte verrouillée) : neutres
             .rollback_and_trace_neutral::<crate::bomb::Bomb>()
             .rollback_and_trace_neutral::<crate::rocks::Rock>()
