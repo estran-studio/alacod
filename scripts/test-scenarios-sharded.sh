@@ -5,17 +5,25 @@
 #   scripts/test-scenarios-sharded.sh [N]        (défaut : SHARDS, sinon 4)
 #
 # Compile une fois le binaire de test `scenarios` (mêmes options que `make test_scenarios`), puis
-# le lance N fois avec `ALACOD_SCENARIO_SHARD=i/N` : chaque processus joue un scénario sur N.
+# le lance N fois, chaque processus jouant sa tranche (`ALACOD_SCENARIO_SHARD=i/N` nomme le
+# fichier de métriques). Les tranches sont réparties par **durée mesurée** (`sim_seconds` de la
+# dernière suite, `<target>/metrics/latest.json`, sinon les `frames` du scénario ; algorithme dans
+# `scripts/scenario-shard-plan.py`) pour qu'elles finissent ensemble ; avec `ALACOD_SCENARIO`
+# donné, seuls ces scénarios sont répartis. Sans métriques ni plan, ce serait un scénario sur N à
+# tour de rôle (`SHARD_PLAN=roundrobin`).
 # `cargo test` garde le verrou du target pendant toute l'exécution des tests : N `cargo test`
 # en parallèle s'attendraient, d'où le lancement direct du binaire. Journaux par tranche dans
 # `<target>/scenario-shards/shard-<i>.log`, métriques fusionnées en `metrics.json`/`latest.json`.
-# Variables respectées : ALACOD_BLESS, ALACOD_SCENARIO, ALACOD_BENCH_STRICT, ALACOD_EVENTS…
+# Variables respectées : ALACOD_BLESS, ALACOD_SCENARIO, ALACOD_BENCH_STRICT, ALACOD_EVENTS, SHARD_PLAN…
 set -euo pipefail
 
 shards="${1:-${SHARDS:-4}}"
 root="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
 cd "$root"
 export CARGO_TARGET_DIR="${CARGO_TARGET_DIR:-$root/target}"
+# Le Makefile exporte un chemin relatif (`./target`) : les journaux sont écrits depuis
+# `crates/scenario`, il doit être absolu.
+case "$CARGO_TARGET_DIR" in /*) ;; *) CARGO_TARGET_DIR="$root/${CARGO_TARGET_DIR#./}" ;; esac
 features="$(./scripts/dev-features.sh features)"
 
 # shellcheck disable=SC2086
@@ -45,17 +53,37 @@ export APP_VERSION="${APP_VERSION:-${TEST_VERSION:-v0.0.0}}"
 
 logs="$CARGO_TARGET_DIR/scenario-shards"
 mkdir -p "$logs"
+
+# Plan : une liste de scénarios par tranche. `SHARD_PLAN=roundrobin` : un scénario sur N à tour
+# de rôle, décidé par le binaire (`ALACOD_SCENARIO_SHARD`).
+plan=()
+if [ "${SHARD_PLAN:-duration}" != "roundrobin" ]; then
+    ./scripts/scenario-shard-plan.py "$root" "$CARGO_TARGET_DIR/metrics/latest.json" "$shards" \
+        "${ALACOD_SCENARIO:-}" >"$logs/plan.tsv"
+    for ((i = 0; i < shards; i++)); do
+        plan+=("$(awk -F'\t' -v i="$i" '$1 == i { print $2 }' "$logs/plan.tsv")")
+    done
+fi
+
 started=$(date +%s)
 pids=()
 for ((i = 0; i < shards; i++)); do
-    (cd crates/scenario && ALACOD_SCENARIO_SHARD="$i/$shards" \
+    if [ "${#plan[@]}" -gt 0 ] && [ -z "${plan[$i]}" ]; then
+        pids+=("")  # tranche sans scénario (liste courte) : rien à lancer
+        continue
+    fi
+    (cd crates/scenario && ALACOD_SCENARIO="${plan[$i]:-${ALACOD_SCENARIO:-}}" \
+        ALACOD_SCENARIO_SHARD="$i/$shards" \
         "$binary" --exact scenarios --nocapture >"$logs/shard-$i.log" 2>&1) &
     pids+=("$!")
 done
 
 status=0
 for ((i = 0; i < shards; i++)); do
-    if wait "${pids[$i]}"; then
+    if [ -z "${pids[$i]}" ]; then
+        echo "tranche $i/$shards : vide"
+        rm -f "$logs/shard-$i.log"
+    elif wait "${pids[$i]}"; then
         echo "tranche $i/$shards : ok"
     else
         echo "tranche $i/$shards : ÉCHEC (journal : $logs/shard-$i.log)"
