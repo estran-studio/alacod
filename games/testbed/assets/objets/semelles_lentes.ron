@@ -5,4 +5,6 @@
     effects: [
         (on: OnDodge, cooldown: Some(200), do: [Modifier(stat: Damage, op: Add, value: "1")]),
     ],
+    // M2-T17 (docs/conventions.md §54) : scénario généré `item_semelles_lentes`.
+    test: Some((frames: 60)),
 )

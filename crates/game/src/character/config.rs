@@ -31,6 +31,9 @@ pub struct CharacterTest {
     pub expect_still: Vec<combat::weapons::expectations::Expectation>,
     #[serde(default)]
     pub expect_moving: Vec<combat::weapons::expectations::Expectation>,
+    /// M2-T17 (§54) : gabarit `BossFight`, pour un personnage qui a `boss:`.
+    #[serde(default)]
+    pub boss: Option<crate::gen_test::BossFightTest>,
 }
 
 fn enabled() -> bool {

@@ -15,6 +15,7 @@ pub mod effects_runtime;
 pub mod feedback;
 pub mod frame;
 pub mod frame_events;
+pub mod gen_test;
 pub mod global_asset;
 pub mod interaction;
 pub mod items;

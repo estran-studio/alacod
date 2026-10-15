@@ -1,0 +1,9 @@
+// Fixture M2-T17 : `test.frames = 0` sur un type de salle (OutOfRange).
+(
+    name: "fixture-room_test_frames_zero",
+    content_folders: [
+        (path: "rooms", kind: "Room"),
+        (path: "maps", kind: "Map"),
+    ],
+    entry: (start_map: "maps/salle.ldtk", default_seed: 1),
+)

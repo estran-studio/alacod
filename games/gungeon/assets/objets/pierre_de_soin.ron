@@ -9,4 +9,6 @@
     uses_per_floor: Some(2),
     tags: ["soin"],
     rarity: Uncommon,
+    // M2-T17 (docs/conventions.md §54) : scénario généré `item_pierre_de_soin` (chargée, utilisée à la frame 10).
+    test: Some((frames: 60)),
 )

@@ -5,6 +5,10 @@
 //
 // À regarder : le bot avance de salle en salle en tirant ; le boss change de phase deux fois
 // (moments clés `boss_phase`), un renfort apparaît à la dernière ; écran de victoire vers f403.
+//
+// M2-T19 (feedback v2, conventions §55) : le gatling montre les 5 rayons de son éventail avant de
+// tirer (f231), et sa mort (f403) gèle le rendu, zoome sur lui et flashe (moment clé `feedback`
+// « fin de boss 31 »). Présentation seule : trace inchangée.
 Scenario(
     powerup_drop_chance_override: "0.0",
     game: "gungeon",
@@ -24,5 +28,7 @@ Scenario(
         EntityCount(kind: Enemy, max: Some(0), at_frame: 430),
         RunState(step: Ended(Victory), at_frame: 450),
         PlayerAlive(handle: 0, at_frame: 599),
+        Event(kind: "feedback", label_contains: Some("télégraphe fan 31 (5 rayons)"), by_frame: 231),
+        Event(kind: "feedback", label_contains: Some("fin de boss 31"), by_frame: 403),
     ],
 )

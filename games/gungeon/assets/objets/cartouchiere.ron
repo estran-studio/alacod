@@ -8,4 +8,6 @@
     ],
     tags: ["offensif"],
     rarity: Common,
+    // M2-T17 (docs/conventions.md §54) : scénario généré `item_cartouchiere`.
+    test: Some((frames: 60)),
 )
