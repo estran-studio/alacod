@@ -256,6 +256,7 @@ un seul problème en plus de `start_map: "unused"` commun à toutes), un test pa
 | arme | `ammo_type: Custom("")` (nom vide) (T2.8) | `OutOfRange` | `ammo_type_empty_custom` |
 | arme, corps à corps | `friendly_fire` : valeur inconnue (enum fermé `Never`/`Always`/`Cursed`) (T2.8) | `Parse` (nomme le champ) | `friendly_fire_unknown` |
 | arme | `audio_config.modes.<mode>.reloading`/`firing` : fichier absent de `assets/` (T2.8) | `BrokenReference` | `audio_missing_file` |
+| arme | `audio_config.modes.<mode>` : mode absent de `firing_modes` (assets) | `BrokenReference` | `audio_unknown_mode` |
 | arme | clé répétée dans `weapons.ron` (T3.4) | `DuplicateId` | `weapons_duplicate_key` |
 | corps à corps | clé répétée dans `melee_weapons.ron` (T3.4) | `DuplicateId` | `melee_duplicate_key` |
 | corps à corps | `damage >= 0` | `OutOfRange` | — |
@@ -281,6 +282,7 @@ un seul problème en plus de `start_map: "unused"` commun à toutes), un test pa
 | `ui/feedback.ron` | `shake.amplitude >= 0` (T3.4, zéro désactive la secousse) | `OutOfRange` | `feedback_amplitude_negative` |
 | `ui/feedback.ron` | chaque fichier de `sounds` présent sous `assets/` (T3.4) | `BrokenReference` | `feedback_missing_sound` |
 | `ui/feedback.ron` | arme de `by_weapon` connue du jeu (T1.17, §31) | `BrokenReference` | `feedback_by_weapon_unknown` |
+| `ui/feedback.ron` | clé de `volumes` présente dans `sounds` (assets) ; valeur dans [-60, 12] dB | `BrokenReference` / `OutOfRange` | `feedback_volume_unknown_key` |
 | `ui/feedback.ron` | surcharges `by_kind`/`by_weapon` dans les bornes (T1.17, §31) | `OutOfRange` | `feedback_override_out_of_range` |
 | `ui/mutation_screen.ron` | `font` présent sous `assets/` (T1.16, §30) | `BrokenReference` | `mutation_screen_font_missing` |
 | `ui/mutation_screen.ron` | exactement `MUTATION_SCREEN_SLOTS` (3) emplacements (T1.16, §30) | `OutOfRange` | `mutation_screen_two_slots` |
@@ -530,8 +532,8 @@ NIGHTLY_SEEDS=1..100 NIGHTLY_BOTS=4 NIGHTLY_WAVE=15 NIGHTLY_P2P=2,4,8 NIGHTLY_VI
         amplitude: 4.0,             // Amplitude du décalage en pixels
     ),
     sounds: {
-        // Tir : clé de la famille du mode de tir actif de l'arme (Manual : shot_pistol,
-        // Shotgun : shot_shotgun, Automatic/Burst : shot_smg), repli sur "shot".
+        // Sons de base. Tir : clé de la famille du mode de tir actif de l'arme (Manual :
+        // shot_pistol, Shotgun : shot_shotgun, Automatic/Burst : shot_smg), repli sur "shot".
         "shot_pistol": "sounds/shot_pistol.ogg",
         "shot_shotgun": "sounds/shot_shotgun.ogg",
         "shot_smg": "sounds/shot_smg.ogg",
@@ -546,13 +548,33 @@ NIGHTLY_SEEDS=1..100 NIGHTLY_BOTS=4 NIGHTLY_WAVE=15 NIGHTLY_P2P=2,4,8 NIGHTLY_VI
         "door": "sounds/door.ogg",
         // Les clés absentes désactivent le son correspondant
     },
+    // Volume par clé de `sounds`, en dB (0 : inchangé, plage [-60, 12]) ; un son d'arme
+    // (`audio_config`) prend le volume de la clé qu'il remplace.
+    volumes: {"hit": -3.0},
 )
 ```
 
+**Son propre d'une arme** (`weapons.ron`, champ `audio_config` de l'entrée, à côté de
+`config`/`sprite_config`) : un tir et un rechargement par mode de tir, chacun facultatif.
+```ron
+"pistolet": (
+    config: (...),
+    sprite_config: (...),
+    audio_config: (modes: {
+        "default": (firing: "sounds/shot_pistol.ogg", reloading: "sounds/reload_pistolet.ogg"),
+    }),
+),
+```
+Priorité du tir : `firing` du mode actif de l'arme, sinon la clé de sa famille dans `sounds`,
+sinon `shot` ; du rechargement : `reloading` du mode actif, sinon `reload`. `audio_config` reste
+sur l'asset `WeaponAsset` (lu par `game::feedback::WeaponAudio` dans
+`Assets<WeaponsConfig>`) et n'est jamais copié dans le composant rollback `Weapon` : aucune
+trace ne bouge. Lint : fichiers présents sous `assets/`, mode connu de `firing_modes`.
+
 **Systèmes** : tous en `PostUpdate` (hors `GgrsSchedule`), lisant les événements de simulation dans `FrameEvents<T>` émis par `GgrsSchedule`. Les trois émetteurs sont :
 - `DamageEvent` pour les impacts (flash, secousse si joueur local)
-- Spawn de `Bullet` pour le son de tir (source = joueur local) : un son par tir (tireur, frame de création), mémorisé pour ne pas repartir quand le rollback de la session locale recrée les balles des dernières frames (elles redeviennent `Added<Bullet>`). Clé : celle que `shot_sounds` impose à l'arme active du tireur (`shot_sounds: {"pistolet": "shot_pistol"}`, nom d'arme → clé de `sounds`, vérifié par le lint), sinon la famille de son mode de tir actif à l'image rendue (`Shotgun` → `shot_shotgun`, `Automatic`/`Burst` → `shot_smg`, `Manual` → `shot_pistol`), sinon `shot` (la balle ne porte pas son arme : un champ de plus ferait bouger les traces). Les échantillons sont des coups uniques courts (≤ 0,5 s, lot A de `docs/plan-assets.md`), joués en entier : plus de coupure en fondu.
-- Passage de `WeaponInventory.reloading_ending_frame` de `None` à `Some` pour le son de rechargement : une fois par rechargement, comparé d'une image rendue à la suivante
+- Spawn de `Bullet` pour le son de tir (source = joueur local) : un son par tir (tireur, frame de création), mémorisé pour ne pas repartir quand le rollback de la session locale recrée les balles des dernières frames (elles redeviennent `Added<Bullet>`). Son : celui de l'arme active du tireur et de son mode actif à l'image rendue, selon la priorité ci-dessus (familles : `Shotgun` → `shot_shotgun`, `Automatic`/`Burst` → `shot_smg`, `Manual` → `shot_pistol` ; la balle ne porte pas son arme : un champ de plus ferait bouger les traces). Les échantillons sont des coups uniques courts (≤ 0,5 s, lot A de `docs/plan-assets.md`), joués en entier : plus de coupure en fondu.
+- Passage de `WeaponInventory.reloading_ending_frame` de `None` à `Some` pour le son de rechargement (celui de l'arme active, priorité ci-dessus) : une fois par rechargement, comparé d'une image rendue à la suivante
 - Sons d'événements (lot B), joués par `FeedbackSounds::play(clé)` ; chaque signal est lu dans l'état ou dans les `FrameEvents` de la dernière frame simulée, jamais écrit :
   - `hit` : un `DamageEvent` dont la source est un joueur local et la cible non, un son par frame simulée (gardé par `DamageEvent.frame` : une image rendue sans nouvelle frame voit encore les mêmes événements). L'événement précède la résolution : un coup annulé (invulnérabilité) sonne aussi.
   - `hurt` : `Health.current` d'un joueur local en baisse d'une image rendue à l'autre, à `max` égal ; au plus un son toutes les 15 frames (`HURT_SOUND_MIN_FRAMES` : les PV peuvent baisser deux frames de suite).

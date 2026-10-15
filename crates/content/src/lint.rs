@@ -461,6 +461,25 @@ fn lint_weapons(registry: &Registry, errors: &mut Vec<LintError>) {
                 });
             }
         }
+        // Assets (lot A) : `audio_config` ne peut viser qu'un mode de tir de l'arme (sinon
+        // le son ne jouerait jamais). Une erreur par mode, même s'il a deux sons.
+        let audio_modes: std::collections::BTreeSet<&str> = weapon
+            .sounds
+            .iter()
+            .map(|sound| sound.mode.as_str())
+            .collect();
+        for mode in audio_modes {
+            if !weapon.firing_rates.contains_key(mode) {
+                errors.push(LintError {
+                    kind: LintErrorKind::BrokenReference,
+                    file: weapon.file.display().to_string(),
+                    message: format!(
+                        "arme « {} » : audio_config.modes.{mode} : mode de tir inconnu",
+                        weapon.id
+                    ),
+                });
+            }
+        }
         for (mode, rate) in &weapon.firing_rates {
             if rate.get() <= Fixed::ZERO {
                 errors.push(LintError {
@@ -1427,8 +1446,8 @@ fn lint_powerups(registry: &Registry, errors: &mut Vec<LintError>) {
 /// valeurs de `FeedbackSettings::problems` (flash, secousse, télégraphe, surcharges
 /// `by_kind`/`by_weapon`) et armes de `by_weapon` connues du jeu (à distance ou de corps à
 /// corps).
-/// Lot A des assets : chaque entrée de `shot_sounds` nomme une arme à distance du jeu et une
-/// clé de `sounds`.
+/// Assets (lot A) : chaque clé de `volumes` existe dans `sounds` (sa plage est vérifiée par
+/// `problems`).
 fn lint_feedback(registry: &Registry, errors: &mut Vec<LintError>) {
     for feedback in &registry.feedback {
         let file = feedback.file.display().to_string();
@@ -1466,24 +1485,12 @@ fn lint_feedback(registry: &Registry, errors: &mut Vec<LintError>) {
                 });
             }
         }
-        for (weapon, key) in &settings.shot_sounds {
-            if !registry
-                .weapons
-                .contains_key(&registry::WeaponId::from(weapon.as_str()))
-            {
-                errors.push(LintError {
-                    kind: LintErrorKind::BrokenReference,
-                    file: file.clone(),
-                    message: format!("feedback : shot_sounds « {weapon} » : arme inconnue du jeu"),
-                });
-            }
+        for key in settings.volumes.keys() {
             if !settings.sounds.contains_key(key) {
                 errors.push(LintError {
                     kind: LintErrorKind::BrokenReference,
                     file: file.clone(),
-                    message: format!(
-                        "feedback : shot_sounds.{weapon} = « {key} » : clé absente de sounds"
-                    ),
+                    message: format!("feedback : volumes.{key} : clé absente de sounds"),
                 });
             }
         }

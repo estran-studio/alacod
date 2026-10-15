@@ -789,6 +789,8 @@ pub fn handle_weapon_pickup_interaction(
                 let weapon_asset = WeaponAsset {
                     config: picked_weapon.config.clone(),
                     sprite_config: picked_weapon.sprite_config.clone(),
+                    // Les sons se lisent sur l'asset du registre, jamais sur le composant.
+                    audio_config: Default::default(),
                 };
                 let (ammo_type, amount) = default_mode_ammo_contribution(&weapon_asset);
                 let current = ammo_reserves.get(&ammo_type);
@@ -857,6 +859,7 @@ pub fn handle_weapon_pickup_interaction(
             WeaponAsset {
                 config: picked_weapon.config,
                 sprite_config: picked_weapon.sprite_config,
+                audio_config: Default::default(),
             },
             &mut inventory,
             &mut id_factory,

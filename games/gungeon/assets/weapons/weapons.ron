@@ -34,6 +34,8 @@
             bullet_offset_left: ( x: "0.0", y: "-2.0" ),
             weapon_offset: ( x: "0.0", y: "-5.0" )
         ),
+        // Son de tir : le mode `Automatic` donnerait celui de la mitraillette (famille).
+        audio_config: (modes: {"default": (firing: "sounds/shot_pistol.ogg")}),
     ),
     // Revolver : un coup lent et lourd, six balles, rechargement long.
     "revolver": (
@@ -526,6 +528,8 @@
             bullet_offset_left: ( x: "0.0", y: "-2.0" ),
             weapon_offset: ( x: "0.0", y: "-5.0" )
         ),
+        // Son de tir : le mode `Burst` donnerait celui de la mitraillette (famille).
+        audio_config: (modes: {"default": (firing: "sounds/shot_pistol.ogg")}),
     ),
     // Arbalète : carreau lent et lourd qui traverse un ennemi, un tir toutes les deux secondes.
     "arbalete": (

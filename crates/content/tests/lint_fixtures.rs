@@ -661,19 +661,21 @@ fn feedback_t1_17_fixtures_report_their_field() {
     );
 }
 
-/// Lot A des assets : `shot_sounds` vers une arme inconnue et une clé absente de `sounds`.
+/// Assets : `volumes` règle une clé absente de `sounds` ; `audio_config` d'une arme vise un
+/// mode de tir qu'elle n'a pas.
 #[test]
-fn feedback_shot_sounds_fixture_reports_weapon_and_key() {
-    let (_, _, errors) = load_and_lint(&fixture_dir("feedback_shot_sounds_unknown")).unwrap();
+fn sound_config_fixtures_report_key_and_mode() {
+    let (_, _, errors) = load_and_lint(&fixture_dir("feedback_volume_unknown_key")).unwrap();
     assert_has_error(
         &errors,
         LintErrorKind::BrokenReference,
-        "shot_sounds « fantome » : arme inconnue",
+        "volumes.hit : clé absente de sounds",
     );
+    let (_, _, errors) = load_and_lint(&fixture_dir("audio_unknown_mode")).unwrap();
     assert_has_error(
         &errors,
         LintErrorKind::BrokenReference,
-        "shot_sounds.fantome = « shot_absente » : clé absente",
+        "audio_config.modes.rafale : mode de tir inconnu",
     );
 }
 
@@ -727,10 +729,11 @@ fn t3_4_fixtures_have_a_single_rule_failure() {
             1,
         ),
         (
-            "feedback_shot_sounds_unknown",
+            "feedback_volume_unknown_key",
             LintErrorKind::BrokenReference,
-            2,
+            1,
         ),
+        ("audio_unknown_mode", LintErrorKind::BrokenReference, 1),
         (
             "feedback_override_out_of_range",
             LintErrorKind::OutOfRange,

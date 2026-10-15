@@ -285,6 +285,35 @@ pub struct WeaponSpriteConfig {
 pub struct WeaponAsset {
     pub config: WeaponConfig,
     pub sprite_config: WeaponSpriteConfig,
+    /// Sons de l'arme, par mode de tir. **Présentation seule** (`game::feedback`) : reste sur
+    /// l'asset, jamais copié dans le composant rollback [`Weapon`] (son `Hash` entre dans le
+    /// checksum). Vide par défaut : les sons de famille de `ui/feedback.ron` s'appliquent.
+    #[serde(default, skip_serializing_if = "WeaponAudioConfig::is_empty")]
+    pub audio_config: WeaponAudioConfig,
+}
+
+/// `audio_config` d'une arme dans `weapons.ron` : `(modes: {"default": (firing: "sounds/x.ogg",
+/// reloading: "sounds/y.ogg")})`. Un mode absent ou un champ vide laisse le son de
+/// `ui/feedback.ron` (famille du mode de tir pour le tir, `reload` pour le rechargement).
+#[derive(Debug, Clone, Default, PartialEq, Serialize, Deserialize)]
+pub struct WeaponAudioConfig {
+    #[serde(default)]
+    pub modes: BTreeMap<String, WeaponModeAudio>,
+}
+
+impl WeaponAudioConfig {
+    pub fn is_empty(&self) -> bool {
+        self.modes.is_empty()
+    }
+}
+
+/// Sons d'un mode de tir, chemins relatifs à `assets/` ; chaîne vide = pas de son propre.
+#[derive(Debug, Clone, Default, PartialEq, Serialize, Deserialize)]
+pub struct WeaponModeAudio {
+    #[serde(default, skip_serializing_if = "String::is_empty")]
+    pub firing: String,
+    #[serde(default, skip_serializing_if = "String::is_empty")]
+    pub reloading: String,
 }
 
 // Component for a weapon

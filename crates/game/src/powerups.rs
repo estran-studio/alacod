@@ -350,6 +350,7 @@ pub fn apply_powerup_actions_system(
                             let weapon_asset = crate::weapons::WeaponAsset {
                                 config: weapon.config.clone(),
                                 sprite_config: weapon.sprite_config.clone(),
+                                audio_config: Default::default(),
                             };
                             let (ammo_type, full_amount) =
                                 crate::weapons::default_mode_ammo_contribution(&weapon_asset);
