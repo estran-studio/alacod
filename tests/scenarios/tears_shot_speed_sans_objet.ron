@@ -1,0 +1,21 @@
+// M4-T0a (docs/conventions.md §60) : témoin de `tears_shot_speed`, même tir sans l'objet `lentille`
+// (`ShotSpeed` et `ShotSize` à leur base 1, sans être posées dans `Stats`).
+//
+// À regarder : la balle part à f10 et atteint la cible plus tard que dans `tears_shot_speed`.
+Scenario(
+    game: "testbed",
+    map: "testbed/arena.ldtk",
+    frames: 120,
+    powerup_drop_chance_override: "0",
+    players: [
+        (
+            inputs: [(from: 10, to: 11, buttons: [Fire], pan: (128, 48))],
+            weapon: "larme",
+        ),
+    ],
+    expect: [
+        Stat(handle: 0, stat: ShotSpeed, value: 1.0, at_frame: 1),
+        Stat(handle: 0, stat: ShotSize, value: 1.0, at_frame: 1),
+        HitsAtLeast(entity: Target, hits: 1, at_frame: 119),
+    ],
+)

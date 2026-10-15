@@ -10,7 +10,10 @@ pub mod actions;
 
 pub use actions::{Action, CURRENCY_MULTIPLIER_STAT};
 
+pub mod chance;
 pub mod contracts;
+pub mod projectile;
+pub use chance::chance_with_luck;
 pub mod describe;
 pub mod progression;
 pub mod runtime;

@@ -1497,7 +1497,8 @@ fn assert_has_warning(fixture: &str, kind: content::LintWarningKind, needle: &st
 #[test]
 fn stat_unread_fixture_is_an_error() {
     let (_, _, errors) = load_and_lint(&fixture_dir("stat_unread")).unwrap();
-    assert_has_error(&errors, LintErrorKind::UnreadStat, "Luck");
+    // M4-T0a : `Luck` est lue (chance d'effet) ; une stat `Custom` sans lecteur reste refusée.
+    assert_has_error(&errors, LintErrorKind::UnreadStat, "superstition");
 }
 
 #[test]
@@ -1615,4 +1616,56 @@ fn entry_floors_fixtures_report_their_rule() {
         LintErrorKind::Unsupported,
         "exige entry.mode = Floors",
     );
+}
+
+// ---------------------------------------------------------------------------------------
+// M4-T0a (docs/conventions.md §60) : munitions infinies, contrats de larmes, projectile d'objet
+// ---------------------------------------------------------------------------------------
+
+#[test]
+fn weapon_infinite_with_ammo_type_fixture_is_refused() {
+    let (_, _, errors) = load_and_lint(&fixture_dir("weapon_infinite_with_ammo_type")).unwrap();
+    assert_has_error(&errors, LintErrorKind::OutOfRange, "Infinite");
+    assert_eq!(errors.len(), 1, "{errors:#?}");
+}
+
+#[test]
+fn weapon_ammo_type_missing_fixture_is_refused() {
+    let (_, _, errors) = load_and_lint(&fixture_dir("weapon_ammo_type_missing")).unwrap();
+    assert_has_error(&errors, LintErrorKind::Parse, "ammo_type absent");
+    assert_eq!(errors.len(), 1, "{errors:#?}");
+}
+
+#[test]
+fn projectile_contract_fixture_is_unsupported() {
+    let (_, _, errors) = load_and_lint(&fixture_dir("projectile_contract_unsupported")).unwrap();
+    for name in ["Spectral", "Split", "Orbit"] {
+        assert_has_error(&errors, LintErrorKind::Unsupported, name);
+    }
+    assert!(
+        errors.iter().all(|e| e.kind == LintErrorKind::Unsupported),
+        "formes valides : seul le refus de contrat, {errors:#?}"
+    );
+}
+
+#[test]
+fn projectile_split_out_of_range_fixture_reports_ranges() {
+    let (_, _, errors) = load_and_lint(&fixture_dir("projectile_split_out_of_range")).unwrap();
+    assert_has_error(&errors, LintErrorKind::OutOfRange, "count = 0");
+    assert_has_error(&errors, LintErrorKind::OutOfRange, "radius");
+    assert_has_error(&errors, LintErrorKind::BrokenReference, "inconnu");
+}
+
+#[test]
+fn item_projectile_fixture_is_unsupported() {
+    let (_, _, errors) = load_and_lint(&fixture_dir("item_projectile_unsupported")).unwrap();
+    assert_has_error(&errors, LintErrorKind::Unsupported, "ricochet");
+    assert_eq!(errors.len(), 1, "{errors:#?}");
+}
+
+#[test]
+fn item_projectile_out_of_range_fixture_reports_ranges() {
+    let (_, _, errors) = load_and_lint(&fixture_dir("item_projectile_out_of_range")).unwrap();
+    assert_has_error(&errors, LintErrorKind::OutOfRange, "Homing");
+    assert_has_error(&errors, LintErrorKind::OutOfRange, "Bounce répété");
 }

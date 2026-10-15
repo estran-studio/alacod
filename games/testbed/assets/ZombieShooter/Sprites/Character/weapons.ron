@@ -836,4 +836,35 @@
             weapon_offset: ( x: "0.0", y: "-5.0" )
         ),
     ),
+    // M4-T0a (docs/conventions.md §60) : larme d'essai d'isaac, tir automatique à munitions
+    // infinies (`mag: Infinite`, pas d'`ammo_type` : aucune réserve à consommer). Scénarios
+    // `tears_infinite`, `tears_shot_speed` (avec l'objet `lentille`).
+    "larme": (
+        config: (
+            name: "larme",
+            default_firing_mode: "default",
+            firing_modes: {
+                "default": (
+                    firing_rate: "3.0",
+                    firing_mode: Automatic(),
+                    spread: "0.0",
+                    recoil: "0.0",
+                    bullet_type: Standard(
+                        damage: "3.5",
+                        speed: "200.0",
+                    ),
+                    range: "700.0",
+                    reload_time_seconds: "0.0",
+                    mag: Infinite,
+                )
+            },
+        ),
+        sprite_config: (
+            name: "pistol",
+            index: 3,
+            bullet_offset_right: ( x: "-5.0", y: "2.0" ),
+            bullet_offset_left: ( x: "0.0", y: "-2.0" ),
+            weapon_offset: ( x: "0.0", y: "-5.0" )
+        ),
+    ),
 })

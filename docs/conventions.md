@@ -3791,3 +3791,109 @@ Carte : `gungeon_clear` 100 (verrouillage), 650 (nettoyée) ;
 Rechargement en jeu : `cargo run -p gungeon --features native`, ouvrir un écran puis
 modifier son `.html`. Le rapport précise les captures effectivement observées.
 
+
+## 60. Contrats des larmes et de l'empilement de projectiles (M4-T0a, chantier B5 v3)
+
+Contrats posés pour M4-T1 (larmes v3), M4-T6 (familiers qui tirent), M4-T11a (contenu de larmes)
+et M4-T15 (bench). **Aucune trace existante ne bouge** : variantes en fin d'enum, stats lues avec
+une base 1 sans être posées dans `Stats`, champs d'objet optionnels hors rollback.
+
+### Munitions infinies
+
+`MagBulletConfig::Infinite` (en fin d'enum, `combat::weapons`) : le mode tire tant que la cadence
+le permet ; jamais vide, jamais rechargé (pas même le délai de pompe d'un `Shotgun`), `mag_ammo` et
+`mag_size` restent à 0 (attente `Ammo` à 0 ; le HUD affichera `∞` ou rien, M4-T16). Réserve
+initiale : 0, comme `Magless`.
+
+```ron
+"larme": (config: (name: "larme", default_firing_mode: "default", firing_modes: {
+    "default": (firing_rate: "3.0", firing_mode: Automatic(), /* … */ mag: Infinite),
+})),
+```
+
+`ammo_type` devient facultatif dans le RON (`#[serde(default)]`, défaut `Custom("")`, la seule
+valeur qu'un RON ne peut pas écrire : T2.8 la refuse) **seulement** pour une arme dont tous les
+modes sont `Infinite`. Lint : `ammo_type` absent alors qu'un mode consomme (`Mag`, `Magless`) →
+`Parse` (comme l'erreur RON d'avant) ; `ammo_type` donné alors que tous les modes sont `Infinite` →
+`OutOfRange`. Une arme mixte (un mode `Mag`, un mode `Infinite`) garde son `ammo_type`.
+
+### Stats de larmes et `Luck`
+
+- `StatId::ShotSpeed` (vitesse de la balle) et `StatId::ShotSize` (rayon de collision et sprite,
+  après `Size`), **après `Custom`** dans l'enum : l'`Ord` des clés de `Stats` et le hash des stats
+  existantes ne changent pas. Lues au tir (`weapon_rollback_system`, `ShotStats`) par
+  `StatReader::get(…, 1)` : base 1 sans être posées dans `Stats` (le `Stats` de tout personnage
+  reste identique) ; à 1, aucun produit n'est calculé. `sim_core::stats::default_base` donne cette
+  base aux lecteurs hors simulation (attente `Stat`, générateur `ItemHeld`).
+- `Luck` a un lecteur de contrat : `effects::chance_with_luck(base, luck, par_point)` =
+  `clamp(base + luck × par_point, 0, 1)` en `Fixed`, saturant. Rien ne l'appelle encore dans la
+  simulation (M4-T1 : statut posé par une larme ; M4-T2 : effets d'objet). Le lint accepte donc
+  désormais un modificateur sur `Luck` (`stat_reader`).
+
+### Modificateurs de projectile portés par un objet
+
+Les contrats `ProjectileModifier`, `Pattern`, `ExpireAction` et `ProjectileSpec` vivent désormais
+dans `effects::projectile` (crate de simulation) et sont réexportés par `combat::projectile` :
+`items` (simulation, sans rendu) peut les porter sans dépendre de `combat` (dette D69). Le `Hash`,
+le `Debug` et le RON ne dépendent pas du crate de définition : aucune trace ne bouge.
+
+```ron
+// objets/<id>.ron (ou synergies/<id>.ron)
+(name: "Ricochet", kind: Passive, projectile: Some((modifiers: [Bounce(2)], on_hit: [], on_expire: [])))
+```
+
+`ItemDef.projectile` et `SynergyDef.projectile` : `Option<ProjectileMods>` (`ProjectileMods` =
+`ProjectileSpec` : `modifiers`, `on_hit`, `on_expire`), absent = v1 exacte. Ce sont des
+définitions (`ItemTable`/`SynergyTable`, ressources hors rollback, sans `Hash`) : le champ n'entre
+dans aucun checksum. **Le tir ne le lit pas encore** (M4-T1) : le lint vérifie sa forme (mêmes
+plages qu'une arme, doublon refusé dans la liste d'un objet) puis le refuse (`Unsupported`).
+
+### Composition (`combat::projectile::compose`)
+
+`compose(base, ajouts) -> ResolvedModifiers`, pure, `Fixed` seulement. Chaque liste est d'abord
+résolue seule (`resolve_modifiers` : dans une liste, le dernier l'emporte, le lint y refuse les
+doublons), puis les sources se combinent (règles par défaut de Q3, retenues par William le
+2026-10-15) :
+
+| Modificateur | Règle entre sources | Pourquoi |
+|---|---|---|
+| `Bounce(n)`, `Pierce(n)` | addition (saturante) | deux objets de rebond rebondissent plus |
+| `Size(f)` | produit | comme une stat multiplicative |
+| `Lifetime(n)` | maximum des sources qui en ont un | une larme vit au moins aussi longtemps |
+| `Homing(f)` | somme plafonnée à 1 | le guidage se renforce sans dépasser le virage complet |
+| `Gravity(g)` | somme | |
+| `Spectral` | présence | |
+| `Split` | addition des `count` ; `spread`, `child` de la première source | addition des branches |
+| `Orbit` | présence ; paramètres de la première source | |
+
+Ordre des sources, déterministe : arme (`base`), passifs dans l'ordre de ramassage (un passif en
+double compte deux fois), actif, synergies actives par id ; `items::projectile_sources(items,
+synergies, inventory)` rend les listes des objets dans cet ordre. Sans ajout,
+`compose(base, &[]) == resolve_modifiers(base)` exactement. `resolve_modifiers` reste l'unique
+appel au tir (inchangé) ; `ResolvedModifiers` n'est plus `Copy` (il porte `split`, `orbit`,
+`spectral`, que `Projectile::new` ne lit pas encore).
+
+### Nouveaux modificateurs (contrats)
+
+En fin d'enum `ProjectileModifier` (les six d'avant gardent leur hash, test
+`variantes_historiques_gardent_leur_hash`) :
+
+- `Spectral` : traverse murs et obstacles, pas les personnages ;
+- `Split(count, spread, child: Some("id"))` : à l'impact sur un personnage, `count` projectiles en
+  éventail de `spread` radians ; `child` = id de la table `projectiles` de l'arme, absent = le
+  projectile par défaut du porteur (Q3) ;
+- `Orbit(radius, frames_per_turn)` : tourne autour du tireur au lieu d'avancer.
+
+Lint : formes et plages (`Split.count > 0`, `spread >= 0`, `child` présent dans la table de
+l'arme ; `Orbit.radius > 0`, `frames_per_turn > 0`), puis `Unsupported` sur une arme tant que
+M4-T1 ne les exécute pas. Kinds `projectile_modifier` : `Spectral`, `Split`, `Orbit` (et `Fan`,
+`Spiral`, `Burst`, qui manquaient aux `pattern` déclarés par `CombatPlugin`).
+
+### Testbed et scénarios
+
+Arme `larme` (`Automatic`, 3 tirs/s, `mag: Infinite`, sans `ammo_type`) et objet `lentille`
+(`ShotSpeed Pct 0.5`, `ShotSize Mul 1.5`). Le testbed n'a pas de choix de personnage joueur dans
+un scénario : le « personnage d'essai » de la fiche est l'arme, donnée par `PlayerScript::weapon`.
+Scénarios : `tears_infinite` (300 frames de tir, `Ammo` à 0 tout du long, les coups continuent),
+`tears_shot_speed` (avec `lentille`, la larme touche `target` à une frame où, dans le témoin
+`tears_shot_speed_sans_objet`, elle n'est pas encore arrivée).

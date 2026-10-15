@@ -1,0 +1,13 @@
+// Fixture M4-T0a : `mag: Infinite` n'a pas de réserve à consommer : `ammo_type` est refusé.
+({
+    "larme": (
+        config: (
+            name: "larme",
+            default_firing_mode: "default",
+            ammo_type: Balle,
+            firing_modes: {
+                "default": (firing_rate: "3.0", mag: Infinite),
+            },
+        ),
+    ),
+})

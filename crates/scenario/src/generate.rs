@@ -645,6 +645,7 @@ pub fn expected_item_stats(
         }
         let base_value = base
             .get(&modifier.stat)
+            .or_else(|| sim_core::stats::default_base(&modifier.stat))
             .ok_or_else(|| GenerateError::MissingStat {
                 item_id: id.to_string(),
                 stat: format!("{:?}", modifier.stat),

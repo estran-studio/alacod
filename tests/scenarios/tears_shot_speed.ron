@@ -1,0 +1,24 @@
+// M4-T0a (docs/conventions.md §60) : stats de larmes. Le joueur 0 tient l'objet `lentille`
+// (`ShotSpeed` +50 %, `ShotSize` ×1,5) et tire une seule larme (`larme`) sur `target` à f10.
+//
+// À regarder : la balle, plus grosse, part à f10 et atteint la cible plus tôt que dans
+// `tears_shot_speed_sans_objet` (même tir, sans l'objet).
+Scenario(
+    game: "testbed",
+    map: "testbed/arena.ldtk",
+    frames: 120,
+    powerup_drop_chance_override: "0",
+    players: [
+        (
+            inputs: [(from: 10, to: 11, buttons: [Fire], pan: (128, 48))],
+            weapon: "larme",
+            items: ["lentille"],
+        ),
+    ],
+    expect: [
+        HasItem(handle: 0, id: "lentille", at_frame: 1),
+        Stat(handle: 0, stat: ShotSpeed, value: 1.5, at_frame: 1),
+        Stat(handle: 0, stat: ShotSize, value: 1.5, at_frame: 1),
+        HitsAtLeast(entity: Target, hits: 1, at_frame: 100),
+    ],
+)
