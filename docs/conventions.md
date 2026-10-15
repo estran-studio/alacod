@@ -284,8 +284,6 @@ un seul problème en plus de `start_map: "unused"` commun à toutes), un test pa
 | `ui/feedback.ron` | arme de `by_weapon` connue du jeu (T1.17, §31) | `BrokenReference` | `feedback_by_weapon_unknown` |
 | `ui/feedback.ron` | clé de `volumes` présente dans `sounds` (assets) ; valeur dans [-60, 12] dB | `BrokenReference` / `OutOfRange` | `feedback_volume_unknown_key` |
 | `ui/feedback.ron` | surcharges `by_kind`/`by_weapon` dans les bornes (T1.17, §31) | `OutOfRange` | `feedback_override_out_of_range` |
-| `ui/mutation_screen.ron` | `font` présent sous `assets/` (T1.16, §30) | `BrokenReference` | `mutation_screen_font_missing` |
-| `ui/mutation_screen.ron` | exactement `MUTATION_SCREEN_SLOTS` (3) emplacements (T1.16, §30) | `OutOfRange` | `mutation_screen_two_slots` |
 | `ui/hud.ron` | source de widget inconnue (T1.18, §32) | `UnknownKind` | `hud_unknown_source` |
 | power-up | `RefillAmmoOf` : munition déclarée par au moins une arme (D40, §14) | `BrokenReference` | `powerup_refill_ammo_unknown` |
 | feuilles de sprites | `animation` et feuille de chaque calque présentes sous `assets/` (D3) | `BrokenReference` | `sprite_sheet_missing_file` |
@@ -321,7 +319,7 @@ enums ouverts (`AmmoType`, `StatId`, qui n'acceptent un nom libre que sous `Cust
 clé répétée. Le registre lit donc `perks.ron`, `weapons.ron`, `melee_weapons.ron` et la table
 `powerups` de `items/powerups.ron` en liste (`registry::KeyedEntries`) pour rapporter les
 doublons, y compris dans un même fichier. La première entrée est conservée, la seconde
-produit `DuplicateId`. Les fichiers `feedback.ron`, `hud.ron` et `mutation_screen.ron` déclarés sous le kind `Ui`
+produit `DuplicateId`. Les fichiers `feedback.ron` et `hud.ron` déclarés sous le kind `Ui`
 sont lus avec un schéma typé ; les autres fichiers Ui restent validés syntaxiquement.
 
 **CLI** : `cargo run -p content --bin alacod --profile headless -- lint games/<jeu>` (code
@@ -2211,11 +2209,10 @@ Présentation seule : aucune trace ne change, la simulation ne fait jamais de pa
   (Entrée, A) ajoute à l'input du joueur affiché le bit de la carte surlignée
   (`read_local_inputs`) : seul chemin vers la simulation, le même que 1/2/3. Le D-pad et → gardent
   aussi leur action de déplacement (la partie continue pendant le choix).
-- **Mise en page** `ui/mutation_screen.ron` (kind `Ui`, schéma `content::ui::MutationScreenLayout`
-  partagé par le lint et le jeu) : police, titre, taille des cartes, `slots` (centre de chaque
-  carte depuis le centre de l'écran), couleurs, barre de temps, aide. Lint : police présente sous
-  `assets/` (BrokenReference), exactement trois `slots` et tailles > 0 (OutOfRange). Absent : pas
-  d'écran (le choix se fait aux touches 1/2/3 ou d'office).
+- **Mise en page** (D71, §56) : gabarit `bevy_hui` `ui/mutation_screen.html` (throne, testbed),
+  rempli par `game::ui::mutation_hui` depuis `MutationScreenView`. Remplace l'ancien
+  `ui/mutation_screen.ron` et son schéma de lint (retirés). Absent : pas d'écran (le choix se
+  fait aux touches 1/2/3 ou d'office).
 - **Transition de niveau** `game::ui::floor_transition` : à chaque changement de
   `FloorState::index` lu côté présentation (pas `FloorEntered`), voile noir qui s'éclaircit
   linéairement en `floor_fade_seconds` (`camera.ron`, défaut 0,4) et caméra posée sur sa cible
@@ -3732,11 +3729,15 @@ construire une ligne déjà détruite lorsque l'inventaire change.
   `Run.step`/`Run.summary`, mis à jour sans reconstruire la racine ; rollback de l'issue :
   disparition de l'écran. Rejouer (R) et Lobby gardent leurs `RunRequest`, boutons souris
   inclus. La présentation est chargée seulement dans `PresentationPlugin`.
-- **Dette mutation** : le modèle `MutationScreenView` et le rendu `mutation_screen.ron`
-  restent distincts. Le choix de trois cartes chronométrées, la surbrillance et
-  `ChoiceConfirm` alimentent les bits `ChoiceA/B/C` du joueur, pas les commandes locales
-  de `ScreensState`. Cette migration nécessite un adaptateur spécifique conservant ce
-  protocole et la mise en page des cartes ; elle n'est pas assimilée au menu d'inventaire.
+- **Écran de mutation (D71, 2026-10-15)** : `ui/mutation_screen.html` dans throne et testbed,
+  adaptateur `game::ui::mutation_hui` (`MutationHuiPlugin`, dans `PresentationPlugin`, feature
+  `ui_hui`). `MutationScreenView` et le protocole sont inchangés : valider émet toujours le bit
+  `ChoiceA/B/C` dans l'input (`confirm_input`), l'adaptateur ne lit que la vue. Propriétés du
+  gabarit : `name{i}`, `desc{i}`, `tint{i}`, `border{i}` (carte surlignée en or) pour trois cartes,
+  `bar_width` (barre de temps, en %). Écran dérivé de l'état : un rollback qui annule le choix le
+  fait disparaître. `mutation_screen.ron`, `MutationScreenLayout` et son lint sont retirés (aucune
+  trace ne bouge). Tests : `mutation_hui::gabarit_des_jeux_construit_et_recompile` construit les
+  vrais gabarits de throne et testbed.
 
 Les fichiers HTML sont découverts directement dans les dossiers `Ui`, sans compagnon RON.
 Le registre vérifie leur lecture UTF-8 ; le lint exige aussi `ui/hui_row.html` lisible
@@ -3762,12 +3763,17 @@ en headless et dans la liste fermée `content::ui::HUD_SOURCES` :
 Sans joueur/objet : textes vides et charge masquée. `HudRoomGeometry` reçoit uniquement
 la géométrie de l'étage courant depuis `CurrentRooms`, en `Update` avant `HudModelSet`.
 La carte se dérive de cette géométrie, de la position du joueur et de `RoomStates` :
-aucun nouveau composant/état rollback, aucun cache de visites.
-**Limite du contrat actuel** : `RoomStates` ne mémorise pas une visite d'une salle non
-combattante restée `Dormant`. La carte distingue comme visitées la salle courante,
-le départ et les salles `Locked`/`Cleared` ; une boutique dormante quittée ne conserve
-pas de marque de visite. Ajouter une mémoire simulation changerait les traces et sort
-de cette tâche de présentation seule.
+aucun nouveau composant/état rollback.
+**Mémoire de visite (D72, 2026-10-15)** : `RoomStates` ne retient pas une salle non combattante
+restée `Dormant` (boutique, récompense). `hud_model::MinimapVisits` (ressource de présentation,
+`Update`, hors rollback et hors trace) garde les ids des salles où un joueur **local** est entré
+(`track_minimap_visits`, avant `update_hud_snapshot`) ; elle repart de zéro quand la géométrie de
+l'étage change (nouvel étage, restart). Une salle visitée puis quittée reste « visitée ». Limite
+assumée : un rollback ne défait pas une visite (l'exploration n'est pas un fait de simulation) ;
+aucun état `Visited` rollback n'a été nécessaire. Preuve : scénario `minimap_shop_visit`
+(gungeon, `etages_grammaire`, graine 12 : la boutique est voisine du départ ; attentes `HudText`
+« boutique · inexplorée » f10, « visitée · actuelle » f90, « visitée » après la sortie f199, alors
+que `RoomState` reste `Dormant`).
 
 ### Scénarios et revue visuelle
 
