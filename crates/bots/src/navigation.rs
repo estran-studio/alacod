@@ -169,7 +169,10 @@ impl CellGrid {
         }
     }
     fn cell_at(&self, i: usize) -> GridPos {
-        GridPos::new(self.x0 + (i % self.width) as i32, self.y0 + (i / self.width) as i32)
+        GridPos::new(
+            self.x0 + (i % self.width) as i32,
+            self.y0 + (i / self.width) as i32,
+        )
     }
 }
 
@@ -456,6 +459,45 @@ impl BotNavigation {
                 .collect(),
         }
     }
+    /// Calcul historique sur `BTreeMap`, référence de `build_field` (perf-navigation).
+    #[cfg(test)]
+    fn build_field_legacy(&self, sources: &[(GridPos, usize)]) -> FlowField {
+        let mut field = FlowField::default();
+        let mut heap = BinaryHeap::new();
+        for &(p, owner) in sources {
+            if field.costs.contains_key(&p) {
+                continue;
+            }
+            field.costs.insert(p, 0);
+            field.directions.insert(p, p);
+            field.owners.insert(p, owner);
+            heap.push(Reverse((0u32, p)));
+        }
+        while let Some(Reverse((cost, p))) = heap.pop() {
+            if field.costs.get(&p) != Some(&cost) {
+                continue;
+            }
+            for next in p.neighbors_8() {
+                if !self.step_free(p, next) {
+                    continue;
+                }
+                let next_cost = cost
+                    + if p.x == next.x || p.y == next.y {
+                        10
+                    } else {
+                        14
+                    };
+                if field.costs.get(&next).is_some_and(|c| *c <= next_cost) {
+                    continue;
+                }
+                field.costs.insert(next, next_cost);
+                field.directions.insert(next, p);
+                field.owners.insert(next, field.owners[&p]);
+                heap.push(Reverse((next_cost, next)));
+            }
+        }
+        field
+    }
     pub fn chase(&self, from: FixedVec2) -> Option<FixedVec2> {
         let p = cell(from);
         if let Some(next) = self.field.directions.get(&p) {
@@ -657,6 +699,37 @@ mod tests {
         }
         assert!(went_around);
         assert!(nav.visible(point(p), vec(160, 0)));
+    }
+    /// perf-navigation : le champ dense est identique au champ sur `BTreeMap`, case par case.
+    #[test]
+    fn dense_field_matches_legacy_field() {
+        for seed in 0..12i32 {
+            let mut geometry = vec![(rect(-8 - seed * 4, -64, 8, 64 + seed * 8), true)];
+            if seed % 2 == 0 {
+                geometry.push((rect(60, -40 + seed * 3, 100, -10), false));
+            }
+            geometry.push((rect(-120, 90, -60 + seed * 5, 110), seed % 3 == 0));
+            let mut nav = BotNavigation::default();
+            nav.update_from(
+                &geometry,
+                &body(),
+                &[(1, vec(160, 0)), (2, vec(-150, 40 - seed * 10))],
+                vec(-80, 0),
+            );
+            let sources: Vec<_> = [(1usize, vec(160, 0)), (2, vec(-150, 40 - seed * 10))]
+                .iter()
+                .enumerate()
+                .map(|(owner, (_, at))| (cell(*at), owner))
+                .filter(|(p, _)| nav.free(*p))
+                .collect();
+            assert!(!sources.is_empty(), "seed {seed}");
+            let old = nav.build_field_legacy(&sources);
+            let new = nav.build_field(&sources);
+            assert_eq!(new.costs, old.costs, "seed {seed}");
+            assert_eq!(new.directions, old.directions, "seed {seed}");
+            assert_eq!(new.owners, old.owners, "seed {seed}");
+            assert!(new.costs.len() > 100, "seed {seed}");
+        }
     }
     #[test]
     fn broken_window_still_blocks_body_but_allows_shooting() {

@@ -1066,9 +1066,8 @@ fn build_flow_field(
         |x: i32, y: i32| (y - min_y + 1) as usize * halo_width + (x - min_x + 1) as usize;
     // Remplissage par parcours des ensembles (au lieu d'une recherche par case) : mêmes
     // règles que `FlowFieldCache::is_blocked` et `is_breakable_obstacle`.
-    let in_halo = |p: &GridPos| {
-        p.x >= min_x - 1 && p.x <= max_x + 1 && p.y >= min_y - 1 && p.y <= max_y + 1
-    };
+    let in_halo =
+        |p: &GridPos| p.x >= min_x - 1 && p.x <= max_x + 1 && p.y >= min_y - 1 && p.y <= max_y + 1;
     let mut raw = vec![false; halo_width * (height + 2)];
     for p in cache.wall_cells.iter().filter(|p| in_halo(p)) {
         raw[raw_index(p.x, p.y)] = true;
