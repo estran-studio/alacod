@@ -26,6 +26,7 @@ pub mod patterns;
 #[cfg(not(target_arch = "wasm32"))]
 pub mod performance;
 mod powerup_visuals;
+mod world_sprites;
 pub mod powerups;
 pub mod profile;
 pub mod progression;
