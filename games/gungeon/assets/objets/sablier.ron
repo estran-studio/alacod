@@ -1,0 +1,11 @@
+// `gungeon` (M2-T14b) : actif sur le temps (prêt toutes les 30 s), +50 % de vitesse pendant 4 s.
+(
+    name: "Sablier",
+    kind: Active(Frames(1800)),
+    effects: [
+        (on: OnUse, do: [TimedModifier(stat: MoveSpeed, op: Pct, value: "0.5", frames: 240)]),
+    ],
+    tags: ["mobilite"],
+    rarity: Uncommon,
+    test: Some((frames: 60)),
+)

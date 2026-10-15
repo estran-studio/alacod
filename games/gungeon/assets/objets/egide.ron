@@ -1,0 +1,10 @@
+// `gungeon` (M2-T14b, D61 docs/conventions.md §18) : consommable, un point de bouclier au ramassage
+// (absorbe le prochain coup entier). N'entre pas dans l'inventaire.
+(
+    name: "Égide",
+    kind: Consumable,
+    rarity: Common,
+    effects: [
+        (on: OnUse, do: [GainShield(1)]),
+    ],
+)

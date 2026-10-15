@@ -1,0 +1,6 @@
+// `gungeon` (M2-T14b) : les bottes et la roulade offensive ensemble ajoutent +10 % de vitesse.
+(
+    name: "Fuite armée",
+    requires: ["bottes", "roulade"],
+    modifiers: [(stat: MoveSpeed, op: Pct, value: "0.1")],
+)

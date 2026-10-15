@@ -1,0 +1,13 @@
+// `gungeon` (M2-T14b, D61 docs/conventions.md §18) : passif, +25 d'armure au ramassage (les dégâts
+// reçus passent à 100/125, sauf `DamageKind::True`). Posé par un effet `OnPickup` et non par `modifiers` :
+// la sonde du scénario généré lit la valeur de base de chaque stat modifiée, et `Armor` n'en a pas.
+(
+    name: "Gilet pare-balles",
+    kind: Passive,
+    effects: [
+        (on: OnPickup, charges: Some(1), do: [Modifier(stat: Armor, op: Add, value: "25")]),
+    ],
+    tags: ["defensif"],
+    rarity: Common,
+    test: Some((frames: 60)),
+)

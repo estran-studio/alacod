@@ -1,0 +1,6 @@
+// `gungeon` (M2-T14b) : les lunettes et le chargeur rapide ensemble ajoutent +15 % de dégâts.
+(
+    name: "Tireur d'élite",
+    requires: ["lunettes", "chargeur_rapide"],
+    modifiers: [(stat: Damage, op: Pct, value: "0.15")],
+)
