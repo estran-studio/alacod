@@ -3255,6 +3255,15 @@ les données. Limites : pas de lecture des scénarios (une arme ou un objet donn
 est signalé), ni des cartes assemblées autrement que par les désignations ci-dessus ; la sandbox
 `testbed` (arènes de test) produit donc beaucoup d'avertissements voulus.
 
+**Contenu de test (D63).** Champ optionnel `test_only: bool` (défaut `false`) : au sommet d'un fichier
+de personnage (`test_only: true,`), dans `config:` d'une arme (`config: (test_only: true, …)`). L'analyse
+l'ignore : pas d'avertissement « ennemi » ou « arme » pour lui, et un personnage marqué n'est pas une
+source d'armes. Lu par `content` seulement (`CharacterEntry::test_only`, `WeaponEntry::test_only`) : les
+types de `game` et `combat` l'ignorent comme tout champ inconnu, donc aucun effet en jeu et aucune trace
+qui bouge. Marqués : `cible` et `mannequin` (throne), `cible` (gungeon). Fixtures
+`reach_test_only_character` et `reach_test_only_weapon` (jumelles de `reach_enemy_unplaced` et
+`reach_weapon_no_source`, test `test_only_content_is_ignored_by_reach`).
+
 **Audit des kinds M2** (références vérifiées / bornes vérifiées / fixtures) :
 
 | Kind | Références | Bornes | Fixtures |

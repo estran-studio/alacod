@@ -1,0 +1,9 @@
+// Fixture M2-T15 (§53) : reach_test_only_character
+(
+    name: "fixture-reach_test_only_character",
+    content_folders: [
+        (path: "characters", kind: "Character"),
+        (path: "maps", kind: "Map"),
+    ],
+    entry: (start_map: "maps/salle.ldtk", default_seed: 1),
+)
