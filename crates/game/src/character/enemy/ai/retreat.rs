@@ -80,7 +80,7 @@ mod tests {
         for &(x, y, cost) in costs {
             field.costs.insert(GridPos::new(x, y), cost);
         }
-        cache.layers.insert(MOVEMENT_FLOW_KEY, field);
+        cache.layers.insert(MOVEMENT_FLOW_KEY, field.into());
         cache
             .wall_cells
             .extend(walls.iter().map(|&(x, y)| GridPos::new(x, y)));
