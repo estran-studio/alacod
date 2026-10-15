@@ -1,0 +1,73 @@
+// `isaac` (M3-T0f, docs/conventions.md §65) : l'arme du joueur et l'arsenal du boss.
+// `larmes` : tir automatique, 2,5 tirs/s, **sans rechargement visible** : le chargeur est très grand
+// (9999) faute de munition infinie dans cette fiche (`mag: Infinite` de M3-T0a viendra avec M3-T11a,
+// pas ici). `arsenal` : table de projectiles du boss (`eventail`, `couronne`).
+({
+    "larmes": (
+        config: (
+            name: "larmes",
+            default_firing_mode: "default",
+            ammo_type: Custom("larmes"),
+            firing_modes: {
+                "default": (
+                    firing_rate: "3.0",
+                    firing_mode: Automatic(),
+                    spread: "0.001",
+                    recoil: "0.0",
+                    bullet_type: Standard(
+                        damage: "3.5",
+                        speed: "260.0",
+                    ),
+                    range: "300.0",
+                    reload_time_seconds: "0.1",
+                    mag: Mag(mag_size: 9999, mag_limit: 1),
+                )
+            },
+            test: Some((frames: 200, min_hits: 1)),
+        ),
+        sprite_config: (
+            name: "pistol",
+            index: 3,
+            bullet_offset_right: ( x: "-5.0", y: "2.0" ),
+            bullet_offset_left: ( x: "0.0", y: "-2.0" ),
+            weapon_offset: ( x: "0.0", y: "-5.0" )
+        ),
+        audio_config: (modes: {"default": (firing: "sounds/shot_pistol.ogg")}),
+    ),
+    "arsenal": (
+        config: (
+            name: "arsenal",
+            default_firing_mode: "default",
+            ammo_type: Custom("balles"),
+            firing_modes: {
+                "default": (
+                    firing_rate: "4.0",
+                    firing_mode: Manual(),
+                    spread: "0.0",
+                    recoil: "0.0",
+                    bullet_type: Standard(
+                        damage: "1.0",
+                        speed: "300.0",
+                    ),
+                    range: "900.0",
+                    reload_time_seconds: "1.0",
+                    mag: Mag(mag_size: 30, mag_limit: 4),
+                )
+            },
+            projectiles: {
+                // Plombs en éventail du boss (`eventail`).
+                "plomb": (damage: "1.0", speed: "140.0", range: "260.0"),
+                // Couronne lente du boss (`couronne`).
+                "boule": (damage: "1.0", speed: "90.0", range: "400.0"),
+            },
+            test: Some((frames: 200, min_hits: 2)),
+        ),
+        sprite_config: (
+            name: "pistol",
+            index: 3,
+            bullet_offset_right: ( x: "-5.0", y: "2.0" ),
+            bullet_offset_left: ( x: "0.0", y: "-2.0" ),
+            weapon_offset: ( x: "0.0", y: "-5.0" )
+        ),
+    ),
+})

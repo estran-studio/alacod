@@ -56,6 +56,12 @@ impl Plugin for WorldPlugin {
             .rollback_and_trace_resource_neutral::<crate::rooms::RoomStates>()
             .rollback_and_trace_neutral::<crate::rooms::RoomDormant>()
             .init_resource::<crate::rooms::RoomKindTable>()
+            // M4-T0c (§62) : bombes (aucune hors M4-T4) et portes fermées ouvertes (vide hors
+            // salle à porte verrouillée) : neutres
+            .rollback_and_trace_neutral::<crate::bomb::Bomb>()
+            .rollback_and_trace_neutral::<crate::rocks::Rock>()
+            .init_resource::<crate::rooms::DoorLocks>()
+            .rollback_and_trace_resource_neutral::<crate::rooms::DoorLocks>()
             // M2-T7 : horloges d'arène (vides hors arène : neutre)
             .init_resource::<crate::rooms::ArenaClocks>()
             .rollback_and_trace_resource_neutral::<crate::rooms::ArenaClocks>()
@@ -68,6 +74,7 @@ impl Plugin for WorldPlugin {
             .add_frame_events_neutral::<crate::rooms::RoomChanged>()
             .add_frame_events_neutral::<DestroyTerrainRequest>()
             .add_frame_events_neutral::<TerrainDestroyed>()
+            .add_frame_events_neutral::<crate::bomb::Exploded>()
             .add_systems(
                 GgrsSchedule,
                 apply_destroy_terrain_system.in_set(RollbackSystemSet::World),

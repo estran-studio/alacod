@@ -303,6 +303,7 @@ pub fn apply_powerup_actions_system(
                 | Action::Modifier { .. }
                 | Action::Heal(_)
                 | Action::GainShield(_)
+                | Action::Explode { .. }
                 | Action::SpawnPattern { .. }
                 | Action::GaugeAdd(..)
                 | Action::ApplyStatus { .. }

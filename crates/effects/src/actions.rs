@@ -94,6 +94,17 @@ pub enum Action {
     /// point absorbe un coup entier (`combat::actors::Shield`). Utilisable par un effet, un
     /// objet (`OnUse`), une synergie ; refusée dans un power-up (lint). Ajoutée en fin d'enum.
     GainShield(u32),
+    /// M4-T0c (`docs/conventions.md` §62) : explosion centrée sur la position de l'action (celle
+    /// du porteur, du projectile ou de la bombe). Inflige `damage` à chaque personnage à PV dont
+    /// le centre est à **strictement** moins de `radius` (ordre `GgrsNetId`) et, si `destroys`,
+    /// casse les rochers du rayon et ouvre les murs secrets qu'elle touche
+    /// (`world::explosion_plan`). Contrat seul : l'exécution vient de M4-T4 (le baril ne bascule
+    /// pas dessus ici, sa trace ne bouge pas). Ajoutée en fin d'enum : les hashs d'avant ne bougent pas.
+    Explode {
+        radius: Fixed,
+        damage: Fixed,
+        destroys: bool,
+    },
 }
 
 impl Action {
@@ -144,7 +155,8 @@ impl Action {
             | Action::RefillAmmoOf(_)
             | Action::SpawnEnemies { .. }
             | Action::Telegraph(_)
-            | Action::GainShield(_) => None,
+            | Action::GainShield(_)
+            | Action::Explode { .. } => None,
         }
     }
 }

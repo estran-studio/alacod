@@ -59,6 +59,42 @@ pub struct SurfaceDef {
     /// M2-T11 (§46) : la surface est une fosse. `None` pour toute surface de mouvement.
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub pit: Option<PitDef>,
+    /// M4-T0c (§62) : la surface blesse (piques). `None` pour toute surface existante.
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub hazard: Option<HazardDef>,
+}
+
+/// Piques (M4-T0c, `docs/conventions.md` §62) : le joueur dont les pieds sont sur la case perd
+/// `damage` PV (dégâts `True`, ou typés : Q2 pour les demi-cœurs) au plus une fois par `period`
+/// frames. Contrat seul : la forme RON, le lint et la règle pure ; l'exécution vient de M4-T4.
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Hash, Serialize, Deserialize)]
+pub struct HazardDef {
+    pub damage: Fixed,
+    /// Frames entre deux coups sur le même joueur (> 0).
+    pub period: u32,
+}
+
+impl HazardDef {
+    /// Le joueur est-il blessé à `frame` ? `last_hit` = frame du dernier coup reçu de cette
+    /// surface (`None` : jamais).
+    pub fn is_due(&self, last_hit: Option<u32>, frame: u32) -> bool {
+        match last_hit {
+            None => true,
+            Some(last) => frame.saturating_sub(last) >= self.period,
+        }
+    }
+
+    /// Problèmes de la définition (lint) ; vide si elle est valide.
+    pub fn problems(&self) -> Vec<String> {
+        let mut out = Vec::new();
+        if self.damage <= Fixed::ZERO {
+            out.push(format!("hazard : damage = {} : doit être > 0", self.damage));
+        }
+        if self.period == 0 {
+            out.push("hazard : period = 0 : doit être > 0".to_string());
+        }
+        out
+    }
 }
 
 /// Fosse (M2-T11, `docs/conventions.md` §46) : un joueur dont les pieds y entrent perd
@@ -173,6 +209,7 @@ mod tests {
             move_speed: Fixed::from_num(0.5),
             acceleration: Fixed::ONE,
             pit: None,
+            hazard: None,
         }
     }
 
@@ -249,6 +286,7 @@ mod tests {
             move_speed: Fixed::ONE,
             acceleration: Fixed::from_num(0.2),
             pit: None,
+            hazard: None,
         };
         let player = surface_modifiers(&glace, Walker::Player);
         assert_eq!(player.len(), 1);

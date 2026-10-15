@@ -171,6 +171,25 @@ pub(crate) fn lint_effect(
                 LintErrorKind::OutOfRange,
                 format!("{at} : GainShield(0) : doit être > 0"),
             ),
+            // M4-T0c (§62) : contrat de l'explosion, exécutée par M4-T4
+            effects::Action::Explode { radius, damage, .. } => {
+                if *radius <= Fixed::ZERO {
+                    push(
+                        LintErrorKind::OutOfRange,
+                        format!("{at} : Explode : rayon = {radius} : doit être > 0"),
+                    );
+                }
+                if *damage < Fixed::ZERO {
+                    push(
+                        LintErrorKind::OutOfRange,
+                        format!("{at} : Explode : dégâts = {damage} : doivent être >= 0"),
+                    );
+                }
+                push(
+                    LintErrorKind::Unsupported,
+                    format!("{at} : Explode : pas encore exécutée (M4-T4)"),
+                );
+            }
             effects::Action::GaugeAdd(id, _) if !gauge_known(id) => push(
                 LintErrorKind::BrokenReference,
                 format!(
@@ -276,6 +295,16 @@ fn lint_characters(registry: &Registry, errors: &mut Vec<LintError>) {
         lint_boss(registry, character, errors);
         // T1.5 : variantes et élites.
         lint_variants(character, errors);
+        // M4-T0c : bombe.
+        if let Some(bomb) = &character.bomb {
+            for message in world::bomb_problems(bomb) {
+                errors.push(LintError {
+                    kind: LintErrorKind::OutOfRange,
+                    file: character.file.display().to_string(),
+                    message,
+                });
+            }
+        }
 
         // Référence : starting_weapons -> WeaponId (T1.5 : les joueurs ne reçoivent plus
         // tout `weapons.ron`, seulement les armes déclarées ici).
@@ -1595,6 +1624,7 @@ fn lint_powerups(registry: &Registry, errors: &mut Vec<LintError>) {
                 effects::Action::Modifier { .. }
                 | effects::Action::Heal(_)
                 | effects::Action::GainShield(_)
+                | effects::Action::Explode { .. }
                 | effects::Action::SpawnPattern { .. }
                 | effects::Action::GaugeAdd(..) => push(format!(
                     "power-up « {} » : actions[{index}] : action d'effet (T1.10), pas de power-up",
@@ -2620,6 +2650,36 @@ fn lint_floor_grammars(registry: &Registry, errors: &mut Vec<LintError>) {
             });
             continue;
         };
+        // M4-T0c (§62) : disposition en grille, tous les gabarits de la grammaire font `cell`
+        // cases (une seule taille, Q8) et ont une ouverture centrée sur chaque côté.
+        if let world::FloorLayout::Grid { cell, .. } = entry.grammar.layout() {
+            let needed = entry.grammar.kinds_needed();
+            for level in &map.levels {
+                let Some(kind) = level.room_kind.as_deref().filter(|k| needed.contains(k)) else {
+                    continue;
+                };
+                if level.size_cells != cell {
+                    errors.push(LintError {
+                        kind: LintErrorKind::OutOfRange,
+                        file: file.clone(),
+                        message: format!(
+                            "grammaire d'étage « {} » : gabarit « {} » (type « {kind} ») fait {} × {} cases, la grille veut {} × {}",
+                            entry.id, level.id, level.size_cells.0, level.size_cells.1, cell.0, cell.1
+                        ),
+                    });
+                }
+                if level.centered_openings != [true; 4] {
+                    errors.push(LintError {
+                        kind: LintErrorKind::OutOfRange,
+                        file: file.clone(),
+                        message: format!(
+                            "grammaire d'étage « {} » : gabarit « {} » sans ouverture centrée sur chaque côté (haut, bas, gauche, droite : {:?})",
+                            entry.id, level.id, level.centered_openings
+                        ),
+                    });
+                }
+            }
+        }
         for kind in entry.grammar.kinds_needed() {
             if !map.room_kinds.iter().any(|(_, k)| k == kind) {
                 errors.push(LintError {
@@ -2769,6 +2829,12 @@ fn lint_surfaces(registry: &Registry, errors: &mut Vec<LintError>) {
                 LintErrorKind::OutOfRange,
                 "tags vide : au moins un tag".into(),
             );
+        }
+        // M4-T0c (§62) : piques.
+        if let Some(hazard) = &surface.hazard {
+            for message in hazard.problems() {
+                push(LintErrorKind::OutOfRange, message);
+            }
         }
         // M2-T11 (§46) : une fosse inflige des dégâts.
         if let Some(pit) = &surface.pit {
@@ -3618,6 +3684,16 @@ fn lint_loot(registry: &Registry, errors: &mut Vec<LintError>) {
 /// M2-E1 (`docs/conventions.md` §35) : le champ de niveau `room_kind` d'un gabarit de salle
 /// (`RoomTemplate`) désigne un type du dossier `Room` ; un type inconnu est une erreur.
 fn lint_room_kinds(registry: &Registry, errors: &mut Vec<LintError>) {
+    // M4-T0c (§62) : verrou de porte (`Key(0)` n'ouvrirait jamais rien).
+    for room in registry.rooms.values() {
+        if let Some(message) = room.def.door_lock.and_then(|lock| lock.problem()) {
+            errors.push(LintError {
+                kind: LintErrorKind::OutOfRange,
+                file: room.file.display().to_string(),
+                message: format!("type de salle « {} » : {message}", room.id),
+            });
+        }
+    }
     for map in registry.maps.values() {
         for (level, kind) in &map.room_kinds {
             if !registry.rooms.contains_key(kind) {

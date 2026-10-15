@@ -45,6 +45,43 @@ pub struct RoomKindDef {
     /// qu'à la fin de son horloge, si un joueur vit encore. Implique le verrouillage.
     #[serde(default)]
     pub arena: Option<ArenaDef>,
+    /// M4-T0c (§62) : la porte des salles de ce type est fermée à clé ou murée. Absent (tout le
+    /// contenu existant) : porte ordinaire, hors du hash de la définition.
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub door_lock: Option<DoorLock>,
+}
+
+/// Verrou de la porte d'une salle (M4-T0c, `docs/conventions.md` §62).
+#[derive(Clone, Copy, Debug, PartialEq, Eq, Hash, PartialOrd, Ord, Serialize, Deserialize)]
+pub enum DoorLock {
+    /// Reste fermée jusqu'à ce qu'un joueur la touche par Interaction avec `n` clés
+    /// (`game::loot::KEY_ITEM`, consommées à l'ouverture). `n > 0`.
+    Key(u32),
+    /// Mur plein jusqu'à une explosion `destroys` qui le touche (M4-T4).
+    Secret,
+}
+
+/// Salles dont la porte verrouillée a été ouverte, par identifiant de niveau. Rollback +
+/// checksum + trace en variante **neutre** : vide (défaut) tant qu'aucune porte verrouillée n'a
+/// été ouverte. Une salle à `door_lock` absente de l'ensemble est fermée.
+#[derive(Resource, Clone, Debug, Default, PartialEq, Eq, Hash)]
+pub struct DoorLocks(pub std::collections::BTreeSet<String>);
+
+impl DoorLocks {
+    /// La porte de `room` est-elle ouverte ? (Une salle sans `door_lock` ne passe pas par ici.)
+    pub fn is_open(&self, room: &str) -> bool {
+        self.0.contains(room)
+    }
+}
+
+impl DoorLock {
+    /// Problème du verrou pour le lint ; `None` s'il est valide.
+    pub fn problem(&self) -> Option<String> {
+        match self {
+            DoorLock::Key(0) => Some("door_lock : Key(0) : doit être > 0".to_string()),
+            _ => None,
+        }
+    }
 }
 
 /// Arène à tenir (M2-T7) : horloge de `clock` frames comptée depuis le verrouillage, vagues
@@ -94,6 +131,11 @@ impl RoomKindTable {
     /// L'arène du type, s'il en est une (M2-T7).
     pub fn arena(&self, kind: &str) -> Option<&ArenaDef> {
         self.0.get(kind).and_then(|def| def.arena.as_ref())
+    }
+
+    /// Le verrou de porte du type, s'il en a un (M4-T0c).
+    pub fn door_lock(&self, kind: &str) -> Option<DoorLock> {
+        self.0.get(kind).and_then(|def| def.door_lock)
     }
 }
 

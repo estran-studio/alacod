@@ -1,0 +1,3 @@
+// M4-T0c (docs/conventions.md §62) : type réservé. Porte fermée jusqu'à ce qu'un joueur la touche
+// par Interaction avec 1 clé (exécuté par M4-T4, placé par M4-T5).
+(door_lock: Some(Key(1)))

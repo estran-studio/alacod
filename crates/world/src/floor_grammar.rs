@@ -43,6 +43,29 @@ pub struct FloorGrammar {
     /// Tentatives au plus avant d'échouer.
     #[serde(default = "default_attempts")]
     pub max_attempts: u32,
+    /// M4-T0c (§62) : disposition de l'étage. Absent (tout le contenu existant) : `Graph`, le
+    /// planificateur en arbre d'aujourd'hui.
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub layout: Option<FloorLayout>,
+}
+
+/// Disposition d'un étage assemblé (M4-T0c, `docs/conventions.md` §62).
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Default, Serialize, Deserialize)]
+pub enum FloorLayout {
+    /// Arbre de gabarits par connexions alignées (M2-T10).
+    #[default]
+    Graph,
+    /// Cases de salle sur une grille (M4-T5) : `cell` = taille d'une salle en cases de 16 px
+    /// (Q8 : 15 × 9, une seule taille), `max` = étendue maximale de la grille en salles. Le
+    /// planificateur la refuse (`FloorError::Unsupported`) tant que M4-T5 n'est pas livrée.
+    Grid { cell: (u32, u32), max: (u32, u32) },
+}
+
+impl FloorGrammar {
+    /// Disposition effective (`Graph` si absente).
+    pub fn layout(&self) -> FloorLayout {
+        self.layout.unwrap_or_default()
+    }
 }
 
 impl FloorGrammar {
@@ -98,6 +121,20 @@ impl FloorGrammar {
         }
         if self.required.get(&self.boss).is_some_and(|n| *n > 1) {
             out.push(format!("required : un seul boss (« {} »)", self.boss));
+        }
+        if let FloorLayout::Grid { cell, max } = self.layout() {
+            if cell.0 == 0 || cell.1 == 0 {
+                out.push(format!("layout Grid : cell = {cell:?} : doit être > 0"));
+            }
+            if max.0 == 0 || max.1 == 0 {
+                out.push(format!("layout Grid : max = {max:?} : doit être > 0"));
+            }
+            let capacity = (max.0 as usize).saturating_mul(max.1 as usize);
+            if capacity < min {
+                out.push(format!(
+                    "layout Grid : max = {max:?} ne contient pas les {min} salles minimum"
+                ));
+            }
         }
         let fixed = 2 + self.others();
         if fixed > max {

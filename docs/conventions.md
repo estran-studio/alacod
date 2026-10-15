@@ -3959,3 +3959,113 @@ un scénario : le « personnage d'essai » de la fiche est l'arme, donnée par `
 Scénarios : `tears_infinite` (300 frames de tir, `Ammo` à 0 tout du long, les coups continuent),
 `tears_shot_speed` (avec `lentille`, la larme touche `target` à une frame où, dans le témoin
 `tears_shot_speed_sans_objet`, elle n'est pas encore arrivée).
+
+
+## 62. Contrats du monde : bombes, rochers, piques, portes verrouillées, grille (M4-T0c)
+
+Contrats seuls, sans exécution : M4-T4 (bombes, rochers cassés, mur secret, piques) et M4-T5
+(planificateur en grille) les exécutent. **Aucune trace existante ne bouge** : tout type nouveau est
+neutre ou absent du contenu existant, l'input `Bomb` n'est lu par personne.
+
+### Explosion (`effects::Action::Explode`)
+
+`Explode { radius, damage, destroys }`, en fin d'enum `Action` (les hashs d'avant ne bougent pas).
+Règle pure `world::explosion_plan(grid, center, radius, destroys, candidates)` : les cibles sont les
+personnages à PV dont le centre est à **strictement** moins de `radius` (carré en `FixedWide`), rendus
+dans l'ordre croissant de `GgrsNetId.0` ; `destroys` casse aussi les rochers de `CellGrid` du rayon
+(`destroy_terrain`). Elle vit dans `world` (comme `destroy_terrain`, dans la frontière `SIM`), pas dans
+`combat` : elle ne connaît que des identifiants et des positions. Lint : `radius > 0`, `damage >= 0`,
+puis `Unsupported` dans un effet tant que M4-T4 ne l'exécute pas ; refusée dans un power-up. Le baril
+**ne bascule pas** dessus ici (sa trace ne doit pas bouger) : M4-T4 le fera avec preuve. Moment clé
+`explosion` (`world::Exploded`, `FrameEvents` neutre) déclaré, émis en T4.
+
+### Bombe
+
+Bit d'input `INPUT_BOMB` (18), bouton `Bomb` des scénarios (`game::replay::Button`), touche **E**
+(présentation ; la manette attend Q17). `CharacterConfig.bomb: Option<world::BombDef>`
+(`BombDef { fuse_frames, radius, damage }`, absent = pas de bombe, aucun contenu existant n'en a) ;
+composant `world::Bomb { owner: GgrsNetId, fuse_until, radius, damage }`, rollback **neutre**.
+`world::bomb_requested(buttons, def, bit)` est la lecture de l'input : faux sans `bomb`. Lint :
+`fuse_frames > 0`, `radius > 0`, `damage >= 0`. `fuzz_inputs` : le bit 18 n'a aucun effet sans `bomb`
+(personne ne le lit), donc aucune desync possible avant T4.
+
+### Rochers de salle
+
+Couche IntGrid optionnelle **`Rocks`** d'un gabarit LDtk (1 = rocher, 2 = rocher à butin ; le nom
+final dépend de Q9). **Écart à la proposition de la fiche** (remplir `CellGrid`) : un rocher est **une
+entité rollback** `world::Rock { cell, loot }` (neutre) avec collider (couche des murs) et `Obstacle`
+`Wall`, créée à côté des murs (`map_ldtk::game::collider::spawn_level_rocks`), numérotée
+`rock_<x>_<y>` dans l'ordre de lecture de la couche, niveaux triés par iid. Raison : `CellGrid` est
+dense, ancrée à l'origine et non négative, et `rebuild_cave_walls_system` détruit **tous** les murs pour
+les recréer depuis la grille et `reload_walls` remplace les cases murées de la navigation par celles
+de la grille : sur un étage assemblé (salles à des positions quelconques, murs IntGrid propres) cela
+effacerait les murs des salles. Le champ de flux voit l'`Obstacle` sans code de plus. Un niveau sans
+la couche ne crée aucune entité ni aucun id : traces inchangées. M4-T4 détruira un rocher par
+`despawn_rollback` (explosion `destroys`). Attente : `EntityCount(kind: Rock)`.
+
+### Piques
+
+`SurfaceDef.hazard: Option<HazardDef { damage, period }>` (fin de structure, absent des surfaces
+existantes ; fichier `surfaces/*.ron`, champ `hazard`). Règle pure `HazardDef::is_due(last_hit,
+frame)` : un coup au plus toutes les `period` frames. Lint : `damage > 0`, `period > 0`. Dégâts `True`
+ou typés (demi-cœurs : Q2) et exécution en T4.
+
+### Portes verrouillées
+
+`RoomKindDef.door_lock: Option<DoorLock>`, `DoorLock { Key(n), Secret }` (`rooms/*.ron`, hors
+sérialisation quand absent). `Key(n)` : porte fermée jusqu'à une Interaction avec `n` clés
+(`KEY_ITEM`, consommées à l'ouverture) ; `Secret` : mur plein jusqu'à une explosion `destroys`. État
+rollback **neutre** `world::DoorLocks` (ensemble des salles dont la porte est ouverte, vide par
+défaut). Lint : `Key(0)`. Attente : `DoorLocked(kind, nth, locked, at_frame)` (même tri que
+`RoomState`). Types réservés dans le testbed, aucun dans `gungeon` : `rooms/secrete.ron` (`Secret`),
+`tresor.ron` (`Key(1)`), `diable.ron` (sémantique en T8).
+
+### Disposition en grille
+
+`FloorGrammar.layout: Option<FloorLayout>`, `FloorLayout { Graph (défaut), Grid { cell, max } }`
+(Q8, proposition retenue : `cell` = 15 × 9 cases, une seule taille). Lint (`lint_floor_grammars`) :
+`cell` et `max` > 0, `max` contient au moins `rooms.0` salles, et chaque gabarit de la grammaire
+fait exactement `cell` cases avec une ouverture centrée sur chacun des quatre côtés. `plan_floor`
+**refuse** `Grid` (`FloorError::Unsupported`) tant que M4-T5 n'est pas livrée.
+
+### Testbed et scénarios
+
+Carte `testbed/rocks_static.ldtk` (`scripts/construire-cartes-t0c.py`) et scénario `rocks_static` :
+le joueur marche vers trois rochers qui ferment un couloir et s'y arrête ; quatre rochers comptés
+(dont un à butin) à f5 et à la fin ; `joueur_hors_mur` tient.
+
+
+## 65. Le jeu `isaac` : squelette (M3-T0f)
+
+Le clone `isaac` démarre, sur la grammaire d'étage **en arbre existante** (`Graph`) : rien de nouveau
+côté moteur. Modèle : `gungeon` (§39). Données et un `main.rs` seulement (`games/isaac/`, membre du
+workspace par `games/*`, `make isaac`, `make lint` ×5 avec `games/isaac`).
+
+- **Manifeste** `games/isaac/assets/game.ron` : mode `Floors`, séquence `floors/sous_sol.ron` (nom
+  provisoire, Q9) d'un seul étage `floor:sous_sol`, `victory_at_end` ; `generate_template` copié de
+  `gungeon` (scénarios générés `make gen GAME=isaac`).
+- **Personnage** `pleureur` (`asset_name_ref: "player"`) : 6 PV (Q2, en attendant), aucun dash ni
+  sprint, arme `larmes` (`Automatic`, 3 tirs/s, chargeur 9999 faute de munition infinie ici : le
+  `mag: Infinite` de M3-T0a viendra avec M3-T11a). Contact des ennemis : `ai.attack_damage` (1 PV) et
+  `attack_cooldown_frames` (120) ; **l'arme de mêlée nommée dans `Melee("contact")` ne fixe ni les
+  dégâts ni la cadence** (`enemy_attack_damage_translate_system` lit l'`EnemyAiConfig`, défaut 10 PV et
+  60 frames) : ne pas s'y fier pour équilibrer un ennemi au corps à corps.
+- **Ennemis** : `suiveur` (`Chase` profil `Ground` + contact), `mouche` (`Chase` profil `Flying` +
+  contact), boss `gardien` immobile à deux phases (éventail, puis couronne sous 50 % de santé).
+  Valeurs choisies pour que les bots `fonceur` (scénario généré `boss_gardien`) et `explorateur` (6 PV, aucune
+  esquive du premier) finissent l'étage : 10, 4 et 40 PV, un coup de contact toutes les 120 frames.
+- **Gabarits** `maps/salles.ldtk`, produit par `docs/taches/rapports/m4-t0f-squelette-isaac.make_salles.py` :
+  salles de **15 × 9 cases** (Q8, préparation de la grille de M3-T5), types `depart`, `combat`
+  (un suiveur, une mouche), `boss`. Ouvertures de 3 cases **centrées** (colonnes 6-8 au nord et au sud,
+  rangées 3-5 à l'ouest et à l'est). `depart` et `combat` ont les quatre ; le boss a **une seule** ouverture
+  (quatre gabarits `BossN/E/S/W`) car le planificateur en arbre exige un boss à une connexion
+  (`floor.rs`, « cul-de-sac ») : la grille de M3-T5 apportera ses propres gabarits.
+- **Grammaire** `floor_grammars/sous_sol.ron` : 5 à 7 salles, un boss requis à au moins 2 salles du
+  départ, `Graph`. Test `map_ldtk::generation::tests::isaac_etages_de_grammaire` : 1 000 graines
+  (`ALACOD_FLOOR_SEEDS`, 500 par défaut, doublées par la graine dérivée), 5 à 7 salles, un seul boss,
+  toutes de 240 × 144, sans chevauchement.
+- **Sprites, sons, UI** : copiés de `gungeon` (placeholders Kenney CC0 et sons du registre), registre
+  `assets.yaml` de `isaac` renvoyant à celui de `gungeon` ; aucun nom ni visuel tiré du jeu commercial.
+- **Scénarios** : `isaac_boots` (démarrage, tir continu sans rechargement), `isaac_floor_seed_1`
+  (le bot `explorateur` bat l'étage, victoire à f1009) ; générés : `weapon_*`, `enemy_*`, `room_combat`,
+  `boss_gardien`.

@@ -1990,6 +1990,10 @@ fn check(world: &mut World, expectation: &Expectation) -> Result<(), String> {
                     .query_filtered::<(), With<world::TableState>>()
                     .iter(world)
                     .count() as u32,
+                game::replay::EntityKind::Rock => world
+                    .query_filtered::<(), With<world::Rock>>()
+                    .iter(world)
+                    .count() as u32,
             };
 
             if let Some(min_val) = min {
@@ -2399,6 +2403,39 @@ fn check(world: &mut World, expectation: &Expectation) -> Result<(), String> {
                 if closed != *expected {
                     return Err(format!("{closed} portes fermées (attendu {expected})"));
                 }
+            }
+            Ok(())
+        }
+        // M4-T0c : porte verrouillée d'une salle typée (`world::DoorLocks`, `RoomKindDef::door_lock`).
+        Expectation::DoorLocked {
+            kind, nth, locked, ..
+        } => {
+            let mut rooms: Vec<_> = world
+                .query::<(
+                    &map::game::entity::map::level_id::LevelId,
+                    &map::game::entity::map::room::RoomBounds,
+                    &world::RoomKind,
+                )>()
+                .iter(world)
+                .filter(|(_, _, k)| &k.0 == kind)
+                .map(|(id, bounds, _)| (bounds.position.x, bounds.position.y, id.0.clone()))
+                .collect();
+            rooms.sort();
+            let Some((_, _, id)) = rooms.get(*nth) else {
+                return Err(format!(
+                    "{} salle(s) de type « {kind} » (index {nth} demandé)",
+                    rooms.len()
+                ));
+            };
+            let has_lock = world
+                .resource::<world::RoomKindTable>()
+                .door_lock(kind)
+                .is_some();
+            let actual = has_lock && !world.resource::<world::DoorLocks>().is_open(id);
+            if actual != *locked {
+                return Err(format!(
+                    "salle {kind}#{nth} : porte verrouillée = {actual} (attendu {locked})"
+                ));
             }
             Ok(())
         }

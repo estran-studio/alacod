@@ -1,0 +1,10 @@
+// `isaac` (M2-T4) : consommable de soin, +15 points de vie au ramassage (un consommable n'a pas
+// de bouton d'usage : l'effet `OnUse` s'applique quand on le ramasse, il n'entre pas dans l'inventaire).
+(
+    name: "Ration",
+    kind: Consumable,
+    rarity: Common,
+    effects: [
+        (on: OnUse, do: [Heal("15")]),
+    ],
+)

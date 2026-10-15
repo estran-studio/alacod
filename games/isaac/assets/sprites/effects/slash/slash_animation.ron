@@ -1,0 +1,9 @@
+(
+    frame_duration: 3,
+    animations: {
+        "slash": (
+            start: 0,
+            end: 2,
+        ),
+    },
+)

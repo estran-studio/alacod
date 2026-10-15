@@ -1,0 +1,38 @@
+// `isaac` (M3-T0f) : armes de corps à corps. `bare_hands` : arme de mêlée par défaut du joueur ;
+// `contact` : le coup de contact des ennemis (règle `Melee`), 1 point de vie (le joueur en a 6).
+({
+    "bare_hands": (
+        config: (
+            name: "Bare Hands",
+            damage: "10.0",
+            range: "30.0",
+            attack_pattern: SingleStrike,
+            attack_duration_frames: 10,
+            cooldown_frames: 30,
+            knockback_force: "70.0",
+            stamina_cost: "5.0",
+        ),
+        sprite_config: (
+            name: "bare_hands",
+            index: 0,
+            weapon_offset: (x: "0.0", y: "0.0"),
+        ),
+    ),
+    "contact": (
+        config: (
+            name: "Contact",
+            damage: "1.0",
+            range: "28.0",
+            attack_pattern: SingleStrike,
+            attack_duration_frames: 12,
+            cooldown_frames: 120,
+            knockback_force: "40.0",
+            stamina_cost: "0.0",
+        ),
+        sprite_config: (
+            name: "contact",
+            index: 0,
+            weapon_offset: (x: "0.0", y: "0.0"),
+        ),
+    ),
+})

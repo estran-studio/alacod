@@ -274,6 +274,8 @@ pub struct CharacterEntry {
     pub squad: Option<String>,
     /// M2-T0c : boss à phases (`boss`).
     pub boss: Option<BossEntry>,
+    /// M4-T0c (§62) : bombe du personnage (`bomb`), absente = pas de bombe.
+    pub bomb: Option<world::BombDef>,
     /// T1.4 : tags ignorés par le ciblage (`ai.targeting: Some(Nearest(ignore: [...]))`).
     pub ignore_tags: Vec<String>,
     /// Tags du personnage (`tags`), source des tags connus du jeu (règle `ignore`).
@@ -822,6 +824,8 @@ pub struct SurfaceEntry {
     pub acceleration: Fixed,
     /// M2-T11 (§46) : la surface est une fosse.
     pub pit: Option<world::PitDef>,
+    /// M4-T0c (§62) : la surface blesse (piques).
+    pub hazard: Option<world::HazardDef>,
 }
 
 #[derive(Debug, Clone, Deserialize)]
@@ -833,6 +837,8 @@ struct SurfaceFileSchema {
     acceleration: Option<FixedField>,
     #[serde(default)]
     pit: Option<world::PitDef>,
+    #[serde(default)]
+    hazard: Option<world::HazardDef>,
 }
 
 /// When earned mutation choices are presented. Existing games keep immediate choices.
@@ -996,6 +1002,41 @@ pub struct MapLevelInfo {
     pub room_kind: Option<String>,
     pub characters: Vec<String>,
     pub weapons: Vec<String>,
+    /// M4-T0c (§62) : taille du niveau en cases de 16 px `(largeur, hauteur)`, pour le lint
+    /// d'une disposition en grille.
+    pub size_cells: (u32, u32),
+    /// M4-T0c : le côté (haut, bas, gauche, droite) a une ouverture `LevelConnection` centrée.
+    pub centered_openings: [bool; 4],
+}
+
+/// Côtés (haut, bas, gauche, droite) dont l'ouverture `LevelConnection` est un groupe de cases
+/// contiguës symétrique par rapport au milieu du côté (M4-T0c). `cells` : rangées de haut en bas
+/// (ordre LDtk) ; vide ou dimensions incohérentes : aucun côté.
+fn centered_openings(cells: &[bool], width: usize, height: usize) -> [bool; 4] {
+    if width == 0 || height == 0 || cells.len() != width * height {
+        return [false; 4];
+    }
+    let centered = |line: Vec<bool>| -> bool {
+        // symétrique et au moins une case ouverte ; un seul groupe contigu
+        let n = line.len();
+        let open: Vec<usize> = (0..n).filter(|i| line[*i]).collect();
+        let (Some(first), Some(last)) = (open.first(), open.last()) else {
+            return false;
+        };
+        open.len() == last - first + 1 && first + last == n - 1
+    };
+    let row = |y: usize| (0..width).map(|x| cells[y * width + x]).collect::<Vec<_>>();
+    let col = |x: usize| {
+        (0..height)
+            .map(|y| cells[y * width + x])
+            .collect::<Vec<_>>()
+    };
+    [
+        centered(row(0)),
+        centered(row(height - 1)),
+        centered(col(0)),
+        centered(col(width - 1)),
+    ]
 }
 
 /// M2-T15 : [`MapLevelInfo`] de chaque niveau d'un `.ldtk`, dans l'ordre du fichier ; vide si la
@@ -1018,8 +1059,25 @@ fn ldtk_level_infos(text: &str) -> Vec<MapLevelInfo> {
         let mut info = MapLevelInfo {
             id: level["identifier"].as_str().unwrap_or_default().to_string(),
             room_kind: field(level, "room_kind"),
+            size_cells: (
+                (level["pxWid"].as_u64().unwrap_or(0) / 16) as u32,
+                (level["pxHei"].as_u64().unwrap_or(0) / 16) as u32,
+            ),
             ..Default::default()
         };
+        for layer in level["layerInstances"].as_array().into_iter().flatten() {
+            if layer["__identifier"] == "LevelConnection" {
+                let width = layer["__cWid"].as_u64().unwrap_or(0) as usize;
+                let height = layer["__cHei"].as_u64().unwrap_or(0) as usize;
+                let cells: Vec<bool> = layer["intGridCsv"]
+                    .as_array()
+                    .into_iter()
+                    .flatten()
+                    .map(|v| v.as_u64() == Some(1))
+                    .collect();
+                info.centered_openings = centered_openings(&cells, width, height);
+            }
+        }
         for layer in level["layerInstances"].as_array().into_iter().flatten() {
             for entity in layer["entityInstances"].as_array().into_iter().flatten() {
                 match entity["__identifier"].as_str() {
@@ -1605,6 +1663,9 @@ struct CharacterFileSchema {
     /// M2-T0c : boss à phases.
     #[serde(default)]
     boss: Option<BossEntry>,
+    /// M4-T0c : bombe.
+    #[serde(default)]
+    bomb: Option<world::BombDef>,
     #[serde(default)]
     tags: Vec<String>,
     /// T1.5 : variantes et élites.
@@ -2280,6 +2341,7 @@ fn load_characters(
                 starting_consumables: parsed.starting_consumables,
                 effects: parsed.effects,
                 boss: parsed.boss,
+                bomb: parsed.bomb,
                 ignore_tags: parsed
                     .ai
                     .as_ref()
@@ -3134,6 +3196,7 @@ fn load_surfaces(
                 move_speed: parsed.move_speed.get(),
                 acceleration: parsed.acceleration.map_or(Fixed::ONE, |a| a.get()),
                 pit: parsed.pit,
+                hazard: parsed.hazard,
             },
         );
     }

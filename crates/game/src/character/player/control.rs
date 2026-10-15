@@ -25,6 +25,8 @@ pub enum PlayerAction {
     /// Objet actif (M2-T0b) : Espace ; blank : Q.
     UseActive,
     Blank,
+    /// Bombe (M4-T0c) : touche E.
+    Bomb,
     /// Choix de mutation (T1.10) : touches 1/2/3.
     ChoiceA,
     ChoiceB,
@@ -73,6 +75,7 @@ pub fn get_input_map() -> InputMap<PlayerAction> {
         (PlayerAction::DropWeapon, KeyCode::KeyL),
         (PlayerAction::UseActive, KeyCode::Space),
         (PlayerAction::Blank, KeyCode::KeyQ),
+        (PlayerAction::Bomb, KeyCode::KeyE),
         (PlayerAction::ChoiceA, KeyCode::Digit1),
         (PlayerAction::ChoiceB, KeyCode::Digit2),
         (PlayerAction::ChoiceC, KeyCode::Digit3),

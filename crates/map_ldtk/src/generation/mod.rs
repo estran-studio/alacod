@@ -199,6 +199,74 @@ mod tests {
         }
     }
 
+    /// M3-T0f (`docs/conventions.md` §65) : sur les six gabarits de `isaac` (`maps/salles.ldtk` : départ, combat, quatre boss,
+    /// 15 x 9 cases, ouvertures centrées), chaque graine donne un étage de 5 à 7 salles avec
+    /// un seul boss, sans chevauchement, toutes de la taille de la grille.
+    #[test]
+    fn isaac_etages_de_grammaire() {
+        use map::generation::config::MapGenerationMode;
+        use world::FloorGrammar;
+        let path = get_crate_root_path!("../../games/isaac/assets/maps/salles.ldtk");
+        let ron_path = get_crate_root_path!("../../games/isaac/assets/floor_grammars/sous_sol.ron");
+        let text = std::fs::read_to_string(ron_path).unwrap();
+        #[derive(serde::Deserialize)]
+        struct File {
+            grammar: FloorGrammar,
+        }
+        let grammar = ron::from_str::<File>(&text).unwrap().grammar;
+        assert_eq!(grammar.rooms, (5, 7));
+        let derived = |s: i32| s.wrapping_add(0x3C6E_F372);
+        let count: i32 = std::env::var("ALACOD_FLOOR_SEEDS")
+            .ok()
+            .and_then(|v| v.parse().ok())
+            .unwrap_or(500);
+        for seed in (1..=count).chain((1..=count).map(derived)) {
+            let data: LdtkJson = load_ldtk_json_file(&path).unwrap();
+            let config = MapGenerationConfig {
+                seed,
+                max_width: 1000,
+                max_heigth: 1000,
+                mode: MapGenerationMode::Floor(grammar.clone()),
+                ..Default::default()
+            };
+            let context = from_map(&data, config);
+            let mut generator = GeneratedMap::create(data);
+            map_generation(context, &mut generator)
+                .unwrap_or_else(|_| panic!("graine {seed} : génération échouée"));
+            generator.close_unused_openings();
+            let rooms = &generator.generated_rooms;
+            assert!(
+                (5..=7).contains(&rooms.len()),
+                "graine {seed} : {} salles",
+                rooms.len()
+            );
+            let bosses = rooms
+                .iter()
+                .filter(|r| r.template.starts_with("Boss"))
+                .count();
+            assert_eq!(bosses, 1, "graine {seed} : {bosses} boss");
+            for (i, a) in rooms.iter().enumerate() {
+                let (_, _, aw, ah) = a.world_rect();
+                assert_eq!(
+                    (aw, ah),
+                    (240, 144),
+                    "graine {seed} : taille de {}",
+                    a.template
+                );
+                for b in &rooms[i + 1..] {
+                    let (ax, ay, aw, ah) = a.world_rect();
+                    let (bx, by, bw, bh) = b.world_rect();
+                    assert!(
+                        ax + aw <= bx || bx + bw <= ax || ay + ah <= by || by + bh <= ay,
+                        "graine {seed} : {} chevauche {}",
+                        a.template,
+                        b.template
+                    );
+                }
+            }
+        }
+    }
+
     /// M2-T11 (`docs/conventions.md` §46) : les gabarits `CombatEW` et `CombatNS` de `gungeon`
     /// portent deux barils et une table. Sur 1 000 graines de la grammaire `etage`, la génération
     /// réussit, chaque salle générée à partir de ces gabarits garde ses trois objets de décor

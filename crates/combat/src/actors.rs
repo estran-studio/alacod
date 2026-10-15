@@ -271,6 +271,10 @@ pub const INPUT_USE_ACTIVE: u32 = 1 << 16;
 /// Blank (M2-T0b) : touche `Q`, bouton `Blank` des scénarios. Contrat seul : compteur de
 /// consommable et input, l'effet vient de M2-T1.
 pub const INPUT_BLANK: u32 = 1 << 17;
+/// Bombe (M4-T0c, `docs/conventions.md` §62) : touche `E`, bouton `Bomb` des scénarios. Contrat :
+/// sans effet tant que le personnage n'a pas de `bomb` dans sa définition (aucun contenu existant
+/// n'en a) ; la pose vient de M4-T4.
+pub const INPUT_BOMB: u32 = 1 << 18;
 
 #[repr(C)]
 #[derive(Copy, Clone, Debug, PartialEq, Eq, Default, Serialize, Deserialize)]

@@ -1,0 +1,28 @@
+// M3-T0f (docs/conventions.md §65) : un étage complet de `isaac` (grammaire `sous_sol`, graine 1)
+// joué par le bot `explorateur` : il traverse trois salles de combat (un suiveur et une mouche
+// chacune), entre dans la salle du boss, bat le `gardien` à deux phases et gagne. C'est la première
+// partie ordinaire du clone : les fiches suivantes de M4 s'y réfèrent.
+//
+// À regarder : trois verrouillages de salle de combat (f64, f273, f551) rouverts à f156, f378 et f655 ;
+// la salle du boss se verrouille à f769, le boss passe en phase 1 à f881 (couronne), meurt vers f1008 :
+// la salle se rouvre et l'écran de victoire s'affiche (f1009).
+Scenario(
+    powerup_drop_chance_override: "0.0",
+    game: "isaac",
+    map_seed: 1,
+    frames: 1100,
+    players: [
+        (bot: explorateur),
+    ],
+    expect: [
+        RoomState(kind: "depart", state: Dormant, at_frame: 5),
+        RoomState(kind: "boss", state: Dormant, at_frame: 5),
+        EntityCount(kind: Enemy, min: 7, max: 7, at_frame: 5),
+        RoomState(kind: "boss", state: Locked, at_frame: 800),
+        BossPhase(entity: NetId(68), phase: 1, at_frame: 950),
+        RoomState(kind: "boss", state: Cleared, at_frame: 1050),
+        EntityCount(kind: Enemy, max: Some(0), at_frame: 1050),
+        RunState(step: Ended(Victory), at_frame: 1050),
+        PlayerAlive(handle: 0, at_frame: 1099),
+    ],
+)

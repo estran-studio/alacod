@@ -114,6 +114,11 @@ pub struct CharacterConfig {
     #[serde(default)]
     pub boss: Option<behaviors::BossDef>,
 
+    /// Bombe du personnage (M4-T0c, `docs/conventions.md` §62) : sans elle, le bouton `Bomb` est
+    /// sans effet (aucun contenu existant n'en a). La pose vient de M4-T4.
+    #[serde(default)]
+    pub bomb: Option<world::BombDef>,
+
     /// Équipe par défaut d'un personnage spawné via `spawn_enemy` sans `team` explicite sur
     /// l'entité `CharacterSpawn` qui l'a créé (T2.9, testbed). `None` pour tout le contenu
     /// zombies existant (comportement inchangé : `Team::Enemies` en dur, voir

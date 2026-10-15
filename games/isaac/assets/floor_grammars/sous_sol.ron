@@ -1,0 +1,12 @@
+// Grammaire d'étage de `isaac` (M3-T0f, docs/conventions.md §40 et §65) : de 5 à 7 salles, un départ,
+// un boss en cul-de-sac à distance d'au moins 2 salles du départ, le reste en salles de combat.
+// Disposition `Graph` (le planificateur en arbre d'aujourd'hui) ; la grille vient de M3-T5.
+// Gabarits : maps/salles.ldtk, trois salles de 15 x 9 cases (Q8) à quatre ouvertures centrées.
+(
+    templates: "maps/salles.ldtk",
+    grammar: (
+        rooms: (5, 7),
+        required: {"boss": 1},
+        min_boss_distance: 2,
+    ),
+)
