@@ -1,0 +1,21 @@
+// M2-T12 (§51) : jumeau de `unlock_enriches_pool` sans déblocage : mêmes coffres, mêmes appuis,
+// mais pools de base (trèfle et étendard cachés) : ici « amulette » ×1, « bastion » ×1,
+// « lunettes » ×3. Mêmes remarques de maintenance.
+//
+// À regarder : même séquence que `unlock_enriches_pool`, inventaire différent à la fin.
+Scenario(
+    powerup_drop_chance_override: "0.0",
+    game: "gungeon",
+    floors: Some("etage_1"),
+    frames: 260,
+    profile: true,
+    profile_setup: Some((profiles: [(handle: 0, unlocks: [])])),
+    chests: [(key: "k1", x: "88.0", y: "-120.0", at_frame: 5), (key: "k2", x: "88.0", y: "-120.0", at_frame: 6), (key: "k3", x: "88.0", y: "-120.0", at_frame: 7), (key: "k4", x: "88.0", y: "-120.0", at_frame: 8), (key: "k5", x: "88.0", y: "-120.0", at_frame: 9), (key: "k6", x: "88.0", y: "-120.0", at_frame: 10), (key: "k7", x: "88.0", y: "-120.0", at_frame: 11), (key: "k8", x: "88.0", y: "-120.0", at_frame: 12), (key: "k9", x: "88.0", y: "-120.0", at_frame: 13), (key: "k10", x: "88.0", y: "-120.0", at_frame: 14)],
+    players: [(inputs: [(from: 30, to: 31, buttons: [Interaction]),(from: 40, to: 41, buttons: [Interaction]),(from: 50, to: 51, buttons: [Interaction]),(from: 60, to: 61, buttons: [Interaction]),(from: 70, to: 71, buttons: [Interaction]),(from: 80, to: 81, buttons: [Interaction]),(from: 90, to: 91, buttons: [Interaction]),(from: 100, to: 101, buttons: [Interaction]),(from: 110, to: 111, buttons: [Interaction]),(from: 120, to: 121, buttons: [Interaction]),(from: 130, to: 131, buttons: [Interaction]),(from: 140, to: 141, buttons: [Interaction]),(from: 150, to: 151, buttons: [Interaction]),(from: 160, to: 161, buttons: [Interaction]),(from: 170, to: 171, buttons: [Interaction]),(from: 180, to: 181, buttons: [Interaction]),(from: 190, to: 191, buttons: [Interaction]),(from: 200, to: 201, buttons: [Interaction]),(from: 210, to: 211, buttons: [Interaction]),(from: 220, to: 221, buttons: [Interaction])])],
+    expect: [
+        RunUnlocks(lacks: ["tresor_trefle", "etendard_royal", "coffre_riche"], at_frame: 50),
+        ItemCount(handle: 0, id: "amulette", count: 1, at_frame: 259),
+        ItemCount(handle: 0, id: "bastion", count: 1, at_frame: 259),
+        ItemCount(handle: 0, id: "lunettes", count: 3, at_frame: 259),
+    ],
+)

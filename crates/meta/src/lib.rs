@@ -8,8 +8,8 @@
 //!
 //! **Hors simulation** : écrit à la fin d'une run depuis son [`RunSummary`] par
 //! `game::profile` (`Update`, jamais `GgrsSchedule`) et lu au lancement dans la ressource
-//! [`Profiles`]. La simulation ne le lit pas dans cette tâche : M2-T12 décidera comment un
-//! déblocage entre dans une run de façon déterministe et partagée entre pairs.
+//! [`Profiles`]. La simulation ne le lit jamais : un déblocage entre dans une run par
+//! `items::RunUnlocks`, figé au lancement et identique chez tous les pairs (M2-T12, §51).
 
 use bevy::prelude::Resource;
 use run::{RunEnd, RunSummary};
@@ -22,6 +22,72 @@ pub const PROFILE_VERSION: u32 = 1;
 
 /// Monnaie méta créditée par [`Profile::apply_run`].
 pub const ESSENCE: &str = "essence";
+
+/// Essence gagnée par run (M2-T12, `meta/essence.ron` du jeu, kind `MetaEconomy`) ; défaut =
+/// les règles provisoires de M2-T0c (1 par run, 1 par kill, 10 par victoire).
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize)]
+pub struct EssenceRules {
+    #[serde(default = "one")]
+    pub per_run: u64,
+    #[serde(default = "one")]
+    pub per_kill: u64,
+    #[serde(default = "ten")]
+    pub per_victory: u64,
+}
+
+fn one() -> u64 {
+    1
+}
+
+fn ten() -> u64 {
+    10
+}
+
+impl Default for EssenceRules {
+    fn default() -> Self {
+        Self {
+            per_run: 1,
+            per_kill: 1,
+            per_victory: 10,
+        }
+    }
+}
+
+/// Règles du jeu (hors rollback), posées par le chargeur de contenu ; défaut sans fichier.
+#[derive(Resource, Debug, Clone, Copy, Default, PartialEq, Eq)]
+pub struct MetaRules(pub EssenceRules);
+
+/// Condition d'achat d'un déblocage (copie des champs de `items::UnlockDef`, sans dépendre d'`items`).
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub struct PurchaseTerms<'a> {
+    /// Coût en [`ESSENCE`] ; `None` : gratuit.
+    pub cost: Option<i64>,
+    /// Déblocages préalables.
+    pub requires: &'a [String],
+    /// Statistique minimale `(nom, valeur)`.
+    pub stat: Option<(&'a str, u64)>,
+}
+
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub enum PurchaseError {
+    AlreadyOwned,
+    MissingPrerequisite(String),
+    StatTooLow { stat: String, have: u64, need: u64 },
+    NotEnoughEssence { have: u64, need: u64 },
+}
+
+impl std::fmt::Display for PurchaseError {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        match self {
+            Self::AlreadyOwned => write!(f, "déjà débloqué"),
+            Self::MissingPrerequisite(id) => write!(f, "prérequis manquant : {id}"),
+            Self::StatTooLow { stat, have, need } => {
+                write!(f, "statistique « {stat} » {have} < {need}")
+            }
+            Self::NotEnoughEssence { have, need } => write!(f, "essence {have} < {need}"),
+        }
+    }
+}
 
 #[derive(Debug, Clone, PartialEq, Eq, Default, Serialize, Deserialize)]
 pub struct Profile {
@@ -98,6 +164,42 @@ impl Profile {
     /// meilleures `wave_best` et `floor_best`), monnaie [`ESSENCE`] (+1 par run, +1 par kill,
     /// +10 par victoire) et déblocages `first_run` / `first_victory`. Règles provisoires (M2-T12).
     pub fn apply_run(&mut self, summary: &RunSummary) {
+        self.apply_run_with(summary, &EssenceRules::default());
+    }
+
+    /// Achète un déblocage hors simulation : vérifie les conditions puis débite l'essence et
+    /// l'ajoute à [`Profile::unlocks`]. Rien ne change en cas d'erreur.
+    pub fn purchase(&mut self, id: &str, terms: &PurchaseTerms) -> Result<(), PurchaseError> {
+        if self.has_unlock(id) {
+            return Err(PurchaseError::AlreadyOwned);
+        }
+        if let Some(missing) = terms.requires.iter().find(|r| !self.has_unlock(r)) {
+            return Err(PurchaseError::MissingPrerequisite(missing.clone()));
+        }
+        if let Some((stat, need)) = terms.stat {
+            let have = self.stat(stat);
+            if have < need {
+                return Err(PurchaseError::StatTooLow {
+                    stat: stat.to_string(),
+                    have,
+                    need,
+                });
+            }
+        }
+        let cost = terms.cost.unwrap_or(0).max(0) as u64;
+        let have = self.currency(ESSENCE);
+        if have < cost {
+            return Err(PurchaseError::NotEnoughEssence { have, need: cost });
+        }
+        if cost > 0 {
+            self.currencies.insert(ESSENCE.to_string(), have - cost);
+        }
+        self.unlocks.insert(id.to_string());
+        Ok(())
+    }
+
+    /// [`Profile::apply_run`] avec les règles d'essence du jeu.
+    pub fn apply_run_with(&mut self, summary: &RunSummary, rules: &EssenceRules) {
         let add = |map: &mut BTreeMap<String, u64>, key: &str, n: u64| {
             *map.entry(key.to_string()).or_default() += n;
         };
@@ -126,7 +228,9 @@ impl Profile {
         add(
             &mut self.currencies,
             ESSENCE,
-            1 + u64::from(summary.kills) + if victory { 10 } else { 0 },
+            rules.per_run
+                + rules.per_kill * u64::from(summary.kills)
+                + if victory { rules.per_victory } else { 0 },
         );
         self.unlocks.insert("first_run".to_string());
     }
@@ -276,6 +380,67 @@ mod tests {
         assert_eq!(profile.stat("kills"), 6);
         assert_eq!(profile.stat("wave_best"), 3);
         assert!(profile.has_unlock("first_victory"));
+    }
+
+    #[test]
+    fn achat_debite_et_verifie_les_conditions() {
+        let mut profile = Profile::new("local-0");
+        profile.apply_run(&summary(9, RunEnd::Defeat)); // 10 essence, kills 9
+        let req = ["first_run".to_string()];
+        let terms = PurchaseTerms {
+            cost: Some(4),
+            requires: &req,
+            stat: Some(("kills", 5)),
+        };
+        profile.purchase("a", &terms).unwrap();
+        assert_eq!(profile.currency(ESSENCE), 6);
+        assert!(profile.has_unlock("a"));
+        assert_eq!(
+            profile.purchase("a", &terms),
+            Err(PurchaseError::AlreadyOwned)
+        );
+        let dear = PurchaseTerms {
+            cost: Some(7),
+            requires: &[],
+            stat: None,
+        };
+        assert!(matches!(
+            profile.purchase("b", &dear),
+            Err(PurchaseError::NotEnoughEssence { .. })
+        ));
+        let missing = ["zzz".to_string()];
+        let needs = PurchaseTerms {
+            cost: None,
+            requires: &missing,
+            stat: None,
+        };
+        assert!(matches!(
+            profile.purchase("c", &needs),
+            Err(PurchaseError::MissingPrerequisite(_))
+        ));
+        let stat = PurchaseTerms {
+            cost: None,
+            requires: &[],
+            stat: Some(("kills", 50)),
+        };
+        assert!(matches!(
+            profile.purchase("d", &stat),
+            Err(PurchaseError::StatTooLow { .. })
+        ));
+        assert_eq!(profile.currency(ESSENCE), 6);
+        assert!(!profile.has_unlock("b") && !profile.has_unlock("c") && !profile.has_unlock("d"));
+    }
+
+    #[test]
+    fn regles_d_essence_en_donnees() {
+        let rules = EssenceRules {
+            per_run: 2,
+            per_kill: 3,
+            per_victory: 20,
+        };
+        let mut profile = Profile::new("x");
+        profile.apply_run_with(&summary(4, RunEnd::Victory), &rules);
+        assert_eq!(profile.currency(ESSENCE), 2 + 12 + 20);
     }
 
     #[test]

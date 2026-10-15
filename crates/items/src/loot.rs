@@ -13,9 +13,10 @@ use bevy::prelude::*;
 use bevy_fixed::fixed_math::Fixed;
 use bevy_fixed::rng::{fnv1a, RollbackRng};
 use serde::{Deserialize, Serialize};
-use std::collections::BTreeMap;
+use std::borrow::Cow;
+use std::collections::{BTreeMap, BTreeSet};
 
-use crate::{Inventory, ItemKind, ItemTable, Rarity};
+use crate::{Inventory, ItemKind, ItemTable, Rarity, RunUnlocks, UnlockTable};
 
 /// Ce qu'une entrée de table désigne.
 #[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
@@ -111,9 +112,11 @@ fn candidates<'a>(
     held: Option<&Inventory>,
     min_rarity: Rarity,
     consumables_only: bool,
+    hidden: &BTreeSet<&str>,
 ) -> Vec<&'a str> {
     let ok = |id: &str, def: &crate::ItemDef| {
-        (!consumables_only || def.kind == ItemKind::Consumable)
+        !hidden.contains(id)
+            && (!consumables_only || def.kind == ItemKind::Consumable)
             && effective_rarity(items, id) >= min_rarity
             && !held.is_some_and(|inventory| inventory.has(id))
     };
@@ -147,6 +150,46 @@ pub fn draw_loot(
     consumables_only: bool,
     rng: &mut RollbackRng,
 ) -> Option<String> {
+    draw_loot_with(
+        table,
+        items,
+        held,
+        min_rarity,
+        consumables_only,
+        &BTreeSet::new(),
+        rng,
+    )
+}
+
+/// Le pool `id` tel que les déblocages actifs le laissent : les entrées ajoutées s'ajoutent
+/// après les siennes. Sans entrée ajoutée, le pool lui-même (aucune copie).
+pub fn unlocked_table<'a>(
+    id: &str,
+    table: &'a LootTableDef,
+    unlocks: &UnlockTable,
+    active: &RunUnlocks,
+) -> Cow<'a, LootTableDef> {
+    let extra = unlocks.extra_entries(id, active);
+    if extra.is_empty() {
+        return Cow::Borrowed(table);
+    }
+    let mut table = table.clone();
+    table.entries.extend(extra);
+    Cow::Owned(table)
+}
+
+/// [`draw_loot`] avec des objets exclus (`hidden` : réservés à un déblocage manquant, voir
+/// [`UnlockTable::hidden_items`]). Le flux RNG avance pareil : `hidden` ne change que les
+/// candidats.
+pub fn draw_loot_with(
+    table: &LootTableDef,
+    items: &ItemTable,
+    held: Option<&Inventory>,
+    min_rarity: Rarity,
+    consumables_only: bool,
+    hidden: &BTreeSet<&str>,
+    rng: &mut RollbackRng,
+) -> Option<String> {
     let held = held.filter(|_| table.exclude_held);
     let pick = rng.next_u32();
     let pick_candidate = rng.next_u32();
@@ -159,7 +202,7 @@ pub fn draw_loot(
             .map(|entry| {
                 (
                     entry.weight,
-                    candidates(entry, items, held, min, consumables_only),
+                    candidates(entry, items, held, min, consumables_only, hidden),
                 )
             })
             .filter(|(_, ids)| !ids.is_empty())

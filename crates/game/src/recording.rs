@@ -210,6 +210,7 @@ impl InputRecorder {
             room_reward_chance_override: settings.room_reward_chance_override,
             shop: settings.shop,
             profile: settings.profile,
+            profile_setup: None,
             powerup_drop_chance_override: settings.powerup_drop_chance_override,
             floors: settings.floors,
             // T1.10 : progression imposée par le scénario d'origine (sinon celle du manifeste).

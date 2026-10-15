@@ -19,8 +19,8 @@ use bevy_fixed::fixed_math::{self, Fixed};
 use bevy_fixed::rng::{RollbackRng, RunSeed};
 use bevy_ggrs::{GgrsSchedule, Rollback};
 use items::{
-    draw_loot, loot_seed, Chest, ChestOpened, Inventory, ItemTable, LootTables,
-    DEFAULT_CHEST_TABLE, DEFAULT_REWARD_TABLE,
+    draw_loot_with, loot_seed, unlocked_table, Chest, ChestOpened, Inventory, ItemTable,
+    LootTables, RunUnlocks, UnlockTable, DEFAULT_CHEST_TABLE, DEFAULT_REWARD_TABLE,
 };
 use map::game::entity::map::{level_id::LevelId, room::RoomBounds};
 use sim_core::frame_events::{FrameEvents, FrameEventsAppExt};
@@ -120,6 +120,8 @@ pub fn chest_interaction_system(
     items: Res<ItemTable>,
     tables: Res<LootTables>,
     floors: Res<FloorLootTables>,
+    unlocks: Res<UnlockTable>,
+    active: Res<RunUnlocks>,
     run_seed: Option<Res<RunSeed>>,
     floor: Option<Res<run::FloorState>>,
     mut commands: Commands,
@@ -169,7 +171,11 @@ pub fn chest_interaction_system(
         };
         let mut rng = RollbackRng::new(loot_seed(run_seed, floor, &chest.key));
         let held = inventory.as_deref();
-        let Some(item_id) = draw_loot(table, &items, held, chest.rarity, false, &mut rng) else {
+        let table = unlocked_table(&table_id, table, &unlocks, &active);
+        let hidden = unlocks.hidden_items(&active);
+        let Some(item_id) =
+            draw_loot_with(&table, &items, held, chest.rarity, false, &hidden, &mut rng)
+        else {
             warn!(
                 "coffre « {} » : le pool « {table_id} » ne donne rien",
                 chest.key
@@ -217,6 +223,8 @@ pub fn room_reward_system(
     tables: Res<LootTables>,
     floors: Res<FloorLootTables>,
     overrides: Res<LootOverrides>,
+    unlocks: Res<UnlockTable>,
+    active: Res<RunUnlocks>,
     run_seed: Option<Res<RunSeed>>,
     floor: Option<Res<run::FloorState>>,
     rooms: Query<(&LevelId, &RoomBounds)>,
@@ -232,14 +240,17 @@ pub fn room_reward_system(
         // Le pool de l'étage s'il définit une récompense, sinon `salle`.
         let floor_table = floors
             .for_floor(floor)
-            .and_then(|id| tables.0.get(id))
-            .filter(|table| table.reward.is_some());
-        let Some(table) = floor_table.or_else(|| tables.0.get(DEFAULT_REWARD_TABLE)) else {
+            .and_then(|id| tables.0.get_key_value(id))
+            .filter(|(_, table)| table.reward.is_some());
+        let Some((table_id, table)) =
+            floor_table.or_else(|| tables.0.get_key_value(DEFAULT_REWARD_TABLE))
+        else {
             continue;
         };
         let Some(reward) = table.reward else {
             continue;
         };
+        let table = unlocked_table(table_id, table, &unlocks, &active);
         let mut candidates: Vec<_> = rooms.iter().filter(|(id, _)| id.0 == event.room).collect();
         candidates.sort_by_key(|(_, bounds)| (bounds.position.x, bounds.position.y));
         let Some((_, bounds)) = candidates.first() else {
@@ -261,7 +272,15 @@ pub fn room_reward_system(
         let consumable = if want_chest {
             None
         } else {
-            draw_loot(table, &items, None, items::Rarity::Common, true, &mut rng)
+            draw_loot_with(
+                &table,
+                &items,
+                None,
+                items::Rarity::Common,
+                true,
+                &unlocks.hidden_items(&active),
+                &mut rng,
+            )
         };
         match consumable {
             Some(item_id) => {
@@ -300,6 +319,9 @@ impl Plugin for LootPlugin {
         app.init_resource::<LootTables>()
             .init_resource::<FloorLootTables>()
             .init_resource::<LootOverrides>()
+            .init_resource::<UnlockTable>()
+            .init_resource::<RunUnlocks>()
+            .rollback_and_trace_resource_neutral::<RunUnlocks>()
             .add_frame_events_neutral::<ChestOpened>()
             .rollback_and_trace_neutral::<Chest>();
         app.add_systems(

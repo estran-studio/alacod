@@ -324,6 +324,7 @@ fn main() {
             room_reward_chance_override: None,
             shop: Default::default(),
             profile: false,
+            profile_setup: None,
             powerup_drop_chance_override: None,
             floors: floors.clone(),
             // T1.10 : progression du manifeste (pas d'option `--progression` en v1).

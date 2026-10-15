@@ -10,6 +10,7 @@ sim_core = { path = "../sim_core" }
 effects = { path = "../effects" }
 world = { path = "../world" }
 items = { path = "../items" }
+meta = { path = "../meta" }
 bevy = { version = "0.19.1", default-features = false }
 serde = { version = "1.0", features = ["derive"] }
 thiserror = "2"
@@ -22,3 +23,7 @@ clap = { version = "4.4", features = ["derive"] }
 [[bin]]
 name = "alacod"
 path = "src/bin/alacod.rs"
+
+[[bin]]
+name = "alacod-profile"
+path = "src/bin/alacod-profile.rs"

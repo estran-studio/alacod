@@ -91,6 +91,10 @@ pub struct Scenario {
     /// (M2-T0c, `docs/conventions.md` §38) ; faux par défaut : un scénario n'écrit rien.
     #[serde(default, skip_serializing_if = "std::ops::Not::not")]
     pub profile: bool,
+    /// Profils imposés avant la première frame et achats hors simulation (M2-T12, §51), dans le
+    /// dossier temporaire de `profile: true`. `None` : les profils se constituent seuls.
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub profile_setup: Option<ProfileSetup>,
     /// Force `PowerUpsConfig::drop_chance` pour ce scénario (T2.5), pour prouver le chemin
     /// « drop à la mort » sans dépendre du tirage réel du jeu (scénario
     /// `powerup_drop_on_kill`) — voir `scenario::runner::apply_powerup_drop_chance_override`.
@@ -173,6 +177,35 @@ pub struct ItemPlacement {
     pub x: Fixed,
     pub y: Fixed,
     pub at_frame: u32,
+}
+
+/// Profil imposé à un joueur d'un scénario (M2-T12) : son état avant la run.
+#[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
+pub struct ProfileSeed {
+    pub handle: usize,
+    #[serde(default)]
+    pub unlocks: Vec<String>,
+    /// Essence possédée.
+    #[serde(default)]
+    pub essence: u64,
+    #[serde(default)]
+    pub stats: std::collections::BTreeMap<String, u64>,
+}
+
+/// Achat d'un déblocage par le profil du joueur `handle`, avant la run (`purchase_unlock`).
+#[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
+pub struct ProfilePurchase {
+    pub handle: usize,
+    pub unlock: String,
+}
+
+/// Profils d'un scénario `profile: true` (M2-T12) : états de départ puis achats, dans cet ordre.
+#[derive(Debug, Clone, PartialEq, Eq, Default, Serialize, Deserialize)]
+pub struct ProfileSetup {
+    #[serde(default)]
+    pub profiles: Vec<ProfileSeed>,
+    #[serde(default)]
+    pub purchases: Vec<ProfilePurchase>,
 }
 
 /// Placement scripté d'un coffre (M2-T5) : `key` est sa clé de contenu (graine du tirage),

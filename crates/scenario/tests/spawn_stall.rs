@@ -43,6 +43,7 @@ fn empty_distance_range_spawns_after_deadline_without_desync() {
         room_reward_chance_override: None,
         shop: Default::default(),
         profile: false,
+        profile_setup: None,
         powerup_drop_chance_override: None,
         floors: None,
         progression: None,

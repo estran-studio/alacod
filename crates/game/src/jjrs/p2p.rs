@@ -369,6 +369,13 @@ pub fn system_after_map_loaded(
         floors_override.as_deref().map(|o| o.0.as_str()),
     );
     let run = Run::new(run_seed.0, mode, run_players, 0);
+    // M2-T12 : en ligne, les déblocages sont ceux de la configuration de session (l'hôte), jamais
+    // le profil local : deux pairs aux profils différents jouent le même ensemble.
+    commands.insert_resource(crate::profile::online_run_unlocks(
+        std::env::var(crate::profile::RUN_UNLOCKS_ENV)
+            .ok()
+            .as_deref(),
+    ));
 
     commands.insert_resource(run_seed);
     commands.insert_resource(rng_streams);

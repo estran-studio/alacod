@@ -22,6 +22,7 @@ fn scenario(frames: u32) -> Scenario {
         room_reward_chance_override: None,
         shop: Default::default(),
         profile: false,
+        profile_setup: None,
         powerup_drop_chance_override: None,
         floors: None,
         progression: None,
