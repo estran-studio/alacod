@@ -402,3 +402,73 @@ impl Plugin for ShopPlugin {
         );
     }
 }
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use items::{ItemDef, LootEntry, LootPick, LootTableDef};
+
+    fn item(rarity: Rarity) -> ItemDef {
+        ItemDef {
+            name: String::new(),
+            kind: ItemKind::Passive,
+            modifiers: vec![],
+            effects: vec![],
+            tags: vec![],
+            rarity,
+            pickup_range: Fixed::from_num(24),
+            blank: None,
+            uses_per_floor: None,
+            cost: None,
+        }
+    }
+
+    fn fixtures() -> (LootTableDef, ItemTable) {
+        let table = LootTableDef {
+            entries: vec![LootEntry {
+                pick: LootPick::Rarity(Rarity::Common),
+                weight: 1,
+            }],
+            exclude_held: false,
+            reward: None,
+        };
+        let items = ItemTable(
+            ["a", "b", "c", "d", "e"]
+                .into_iter()
+                .map(|id| (id.to_string(), item(Rarity::Common)))
+                .collect(),
+        );
+        (table, items)
+    }
+
+    #[test]
+    fn same_seed_same_shelves_without_duplicates() {
+        let (table, items) = fixtures();
+        let first = draw_shelves(&table, &items, 7, 0, "room_a", 3);
+        assert_eq!(first, draw_shelves(&table, &items, 7, 0, "room_a", 3));
+        assert_eq!(first.len(), 3);
+        let unique: BTreeSet<_> = first.iter().collect();
+        assert_eq!(unique.len(), 3);
+    }
+
+    #[test]
+    fn other_room_or_seed_changes_the_draw_stream() {
+        let (table, items) = fixtures();
+        let base = draw_shelves(&table, &items, 7, 0, "room_a", 5);
+        let others = [
+            draw_shelves(&table, &items, 8, 0, "room_a", 5),
+            draw_shelves(&table, &items, 7, 0, "room_b", 5),
+            draw_shelves(&table, &items, 7, 1, "room_a", 5),
+        ];
+        assert!(others.iter().any(|other| *other != base));
+    }
+
+    #[test]
+    fn price_falls_back_to_default() {
+        assert_eq!(shelf_price(None, Rarity::Rare), DEFAULT_SHELF_PRICE);
+        let mut economy = EconomyConfig::default();
+        economy.shop_prices.insert(Rarity::Rare, 50);
+        assert_eq!(shelf_price(Some(&economy), Rarity::Rare), 50);
+        assert_eq!(shelf_price(Some(&economy), Rarity::Common), DEFAULT_SHELF_PRICE);
+    }
+}

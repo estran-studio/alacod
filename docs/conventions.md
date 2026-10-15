@@ -3335,6 +3335,53 @@ pool inconnu dans `loot` d'une séquence. Fixtures `loot_empty_table`, `loot_wei
 le HUD des clés (T18). Les deux types de salle `recompense` et `boutique` de `gungeon` gagnent un coffre : les
 scénarios qui jouent ces gabarits (étages `etage`/`grand`) changent de trace, preuve dans le rapport.
 
+## 50. Boutique et monnaie `shells` (M2-T6, chantier C5)
+
+Les ennemis lâchent des douilles (`shells`), dépensées sur les présentoirs d'une salle `boutique`.
+Code : contrats dans `items::loot` (`Shelf`, `ShellPickup`, `RoomShopDef`), systèmes dans
+`game::shop`, pose des présentoirs dans `map_ldtk::game::rooms::room_shop_system`.
+
+**Monnaie au sol.** `economy.ron` : `shells_drop: Some((min, max))` (inclus, `None` par défaut :
+aucun drop ; `min > max` refusé par le lint). `shell_drop_on_death_system`
+(`DeathManagement`, même place que le drop de power-ups) tire le montant dans un `RollbackRng`
+**local** de graine `items::loot_seed(graine, étage, "shells:<GgrsNetId du mort>")` : aucun flux de
+`RngStreams` (le flux `"loot"` des power-ups garde sa consommation, donc ses traces). Équipe
+`Enemies` seulement, jamais un baril. Le tas (`ShellPickup { amount }`, rollback **neutre**,
+`GgrsNetId` `shells_<id du mort>`) se ramasse au contact (`shell_pickup_system`, `Effects`, portée
+20, le plus petit `GgrsNetId` à portée) : `Currency::earn` + `CurrencyEvent` (raison `pickup`),
+`despawn_rollback()`. Les points de kill (zombies) sont une autre source, inchangée.
+
+**Boutique.** `rooms/<type>.ron` : `shop: Some((table: "boutique", shelves: 3))` (`world::RoomKindDef`).
+`room_shop_system` pose, une fois par salle de ce type que l'étage présente, `shelves` présentoirs
+alignés au centre (écart 32). Objets : `shop::draw_shelves`, tirage dans le pool `loot/<table>.ron`
+avec un `RollbackRng` local de graine `loot_seed(graine, étage, "shop:<salle>")` — même mécanisme
+que les coffres (§48), donc indépendant du moment et de qui entre ; un objet déjà tiré est redemandé
+(8 essais au plus). Prix : `economy.ron` `shop_prices: {Common: 15, Uncommon: 30, Rare: 50}` par
+rareté de l'objet (absent : `shop::DEFAULT_SHELF_PRICE` = 10). La salle n'est jamais verrouillée.
+
+**Achat.** `items::Shelf { key, item_id, price, sold, retry_after }` (rollback **neutre**,
+`GgrsNetId` `shelf_<clé>`, `Interactable { InteractionType::Shop }` — variante en fin d'enum),
+`shelf_interaction_system` (`Interaction`, après le coffre) : `Currency::spend(prix)` puis l'objet est
+donné comme un ramassage (passif : liste + modificateurs ; actif : remplace l'actif tenu, qui tombe
+au sol ; consommable : stock ou effet immédiat) et `ItemPicked` est émis. `sold = true`,
+`Interactable` retiré. Solde insuffisant : rien ne change, `CurrencyEvent { delta: 0, reason:
+"shop_refused" }` et anti-rebond `retry_after = frame + 30`. Achat : `delta = -prix`, raison `shop`.
+Prompt HUD (source `prompt`) : « Acheter Trèfle — 30 » ; rien pour un présentoir vendu.
+
+**Lint.** Prix de `shop_prices` à 0, `shells_drop` min > max (`OutOfRange`) ; `shop` sans présentoir
+(`shelves: 0`), pool de boutique vide (`OutOfRange`), pool inconnu (`BrokenReference`). Fixtures
+`shop_price_zero`, `shop_shells_inverted`, `shop_no_shelves`, `shop_empty_table`, `shop_without_table`.
+
+**Scénarios.** `Scenario::shop` (`ShopSetup`) : `shelves: [(key, item, price, x, y, at_frame)]` pose
+des présentoirs, `shells_drop_override: Some((min, max))` force le drop (le testbed n'a pas de
+`shells_drop` : ses traces ne bougent pas). Attentes : `Shelf(nth, item, price, sold, at_frame)`
+(présentoirs triés par clé), `ShelfCount(count, at_frame)`, `ShellPiles(count, at_frame)`.
+Scénarios : `shells_drop`, `shop_buy`, `shop_refused` (testbed), `shop_seeded` (gungeon, grammaire
+`etage`).
+
+**Hors périmètre** : marchand PNJ et déblocages méta (M2-T12, T13), vol, réduction de prix, HUD des
+shells (M2-T18).
+
 ## 52. Contenu `gungeon` (M2-T14, quatre parties)
 
 ### 52.a Armes (T14a)
