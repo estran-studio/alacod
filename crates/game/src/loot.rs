@@ -65,7 +65,7 @@ pub struct LootOverrides {
 }
 
 /// Contexte commun des tirages : graine de la partie et étage courant.
-pub(crate) fn seed_context(
+pub fn seed_context(
     run_seed: &Option<Res<RunSeed>>,
     floor: &Option<Res<run::FloorState>>,
 ) -> (u32, u32) {
