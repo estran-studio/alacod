@@ -1,0 +1,9 @@
+// Fixture M2-T17 : `test:` d'un type de salle avec `floors` et `map` (OutOfRange).
+(
+    name: "fixture-room_test_both_scenes",
+    content_folders: [
+        (path: "rooms", kind: "Room"),
+        (path: "maps", kind: "Map"),
+    ],
+    entry: (start_map: "maps/salle.ldtk", default_seed: 1),
+)

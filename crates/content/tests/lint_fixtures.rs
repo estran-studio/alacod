@@ -193,6 +193,39 @@ fn m1_audit_fixtures() {
             &["personnage inconnu « fantome »"],
         ),
         (
+            "item_test_frames_zero",
+            LintErrorKind::OutOfRange,
+            &["objet « bottes »", "test.frames = 0"],
+        ),
+        (
+            "item_test_consumable",
+            LintErrorKind::Unsupported,
+            &["objet « cle »", "ItemHeld", "consommable"],
+        ),
+        (
+            "room_test_no_template",
+            LintErrorKind::BrokenReference,
+            &[
+                "type de salle « arene »",
+                "aucun gabarit LDtk de type « arene »",
+            ],
+        ),
+        (
+            "room_test_both_scenes",
+            LintErrorKind::OutOfRange,
+            &["type de salle « combat »", "exactement un de floors et map"],
+        ),
+        (
+            "room_test_frames_zero",
+            LintErrorKind::OutOfRange,
+            &["type de salle « combat »", "test.frames = 0"],
+        ),
+        (
+            "boss_fight_without_boss",
+            LintErrorKind::OutOfRange,
+            &["personnage « gardien »", "BossFight", "sans boss:"],
+        ),
+        (
             "room_kind_unknown",
             LintErrorKind::UnknownKind,
             &[
@@ -663,6 +696,14 @@ fn t3_4_fixtures_have_a_single_rule_failure() {
         ("feedback_frames_zero", LintErrorKind::OutOfRange, 2),
         ("feedback_amplitude_negative", LintErrorKind::OutOfRange, 1),
         ("feedback_missing_sound", LintErrorKind::BrokenReference, 1),
+        // M2-T19
+        ("feedback_blank_frames_zero", LintErrorKind::OutOfRange, 1),
+        (
+            "feedback_boss_zoom_out_of_range",
+            LintErrorKind::OutOfRange,
+            1,
+        ),
+        ("feedback_boss_freeze_zero", LintErrorKind::OutOfRange, 1),
         // T1.17
         (
             "feedback_by_weapon_unknown",

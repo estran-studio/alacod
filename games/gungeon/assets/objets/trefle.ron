@@ -8,4 +8,6 @@
     ],
     tags: ["soin"],
     rarity: Uncommon,
+    // M2-T17 (docs/conventions.md §54) : scénario généré `item_trefle`.
+    test: Some((frames: 60)),
 )

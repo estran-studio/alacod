@@ -7,4 +7,6 @@
         (on: OnFloorStart, do: [Modifier(stat: Damage, op: Add, value: "1")]),
         (on: OnReload, charges: Some(1), recharge: Some(PerFloor), do: [Modifier(stat: Damage, op: Add, value: "10")]),
     ],
+    // M2-T17 (docs/conventions.md §54) : scénario généré `item_boussole`.
+    test: Some((frames: 60)),
 )

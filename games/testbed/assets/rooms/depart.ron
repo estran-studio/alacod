@@ -1,4 +1,5 @@
 // Types de salles (M2-E1, kind `Room`, docs/conventions.md §35) : un fichier par type, id =
 // nom de fichier. Valeur du champ de niveau LDtk `room_kind` des gabarits de salles.
 // `locks: false` : un lieu comme un autre (ni verrouillage ni ennemis dormants).
-(locks: false)
+(locks: false, test: Some((frames: 120, floors: "salle_combat", seed: 1)))
+// M2-T17 (docs/conventions.md §54) : scénario généré `room_depart` (salle qui ne verrouille pas : le joueur reste en vie).

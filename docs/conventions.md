@@ -407,6 +407,7 @@ et de ramassage et le chargement des armes murales restent dans `game`/`map_ldtk
 |---|---|
 | `make check` | Format, tests unitaires, scénarios, motifs interdits en avertissement, enregistrement rollback (`check_rollback_registration`, strict) (la CI rapide) |
 | `make test_scenarios` | Rejoue tous les scénarios en headless, compare les traces |
+| `make test_scenarios_par [SHARDS=4]` | Même suite en N processus, tranches réparties par durée mesurée (`scripts/scenario-shard-plan.py`) |
 | `make map_preview ARGS=<fichier.ldtk>` | Affiche une carte LDtk (fenêtre) |
 | `make map_generation ARGS=<entrée.ldtk> <sortie.ldtk> <graine>` | Génère une carte assemblée par connexions (voir `examples/map_generation.rs` pour les arguments exacts) |
 | `make play_scenario SCENARIO=<nom>` | Rejoue le scénario avec rendu (l'option `--follow <handle>` du binaire suit un joueur) |
@@ -435,6 +436,39 @@ les valeurs du jeu. Solo et duo déclarent `max_wave: 5` : le mode `Waves` termi
 l'**entrée** en vague 5 et produit le résumé (la cinquième vague n'est pas combattue).
 Le quad laisse cette limite absente et attend `RunState(Playing)` avec quatre joueurs
 debout à l'entrée en vague 5. Aucune trace antérieure n'est blessée pour ces références.
+
+**Vitesse de la suite (perf-suite-scenarios, 2026-10-14)** : 243 scénarios en ~17 min dans un
+seul processus et ~5 min en 4 tranches sur 4 cœurs (avant : ~51 et ~12 min). Ce qui l'explique,
+dans l'ordre du gain, et ce qu'il ne faut pas défaire :
+
+- **Exécuteur monothread en headless** (`runner::single_threaded_schedules`) : la simulation
+  compte des centaines de petits systèmes par frame, l'exécuteur multithread de Bevy y passait
+  plus de temps à se réveiller (~1 500 `futex` par frame) qu'à calculer, et ses threads se
+  disputaient les cœurs entre tranches parallèles. `ALACOD_EXECUTOR=multi` le rétablit. Un
+  système sans ordre explicite ne change pas de résultat : `GgrsSchedule` refuse toute ambiguïté
+  d'ordre (les 243 traces le prouvent).
+- **`FlowFieldCache::layers` en `SharedFlowField`** (`Arc` + image des octets du `Hash`) : le
+  snapshot rollback le clonait et le checksum le hachait 2 à 3 fois par frame (~23 000 entrées
+  de `BTreeMap`, ~20 % d'une frame). Un champ de flux n'est jamais modifié après sa
+  construction : toute nouvelle couche passe par `SharedFlowField::from`. Le flux d'octets du
+  `Hash` est celui de `#[derive(Hash)]` sur `FlowField` (test
+  `shared_flow_field_hash_equals_derived`) : aucune trace ne bouge.
+- Contenu (`Registry`, `GameManifest`) chargé **une fois par processus** (`runner::load_content`),
+  lecture des périphériques coupée (`game::character::skip_device_input`, `ActionState` n'est lu
+  qu'avec `InputSource::Devices`) et overlay de vagues (texte d'UI) coupé en headless.
+- **Tranches par durée** : `scripts/test-scenarios-sharded.sh` lit `sim_seconds` dans
+  `target/metrics/latest.json` (sinon les `frames` du `.ron`) et remplit les tranches du plus
+  long au plus court (plus long d'abord, sur la tranche la moins chargée). Les métriques d'un
+  run partiel écrasent `latest.json` : une suite complète les remet à jour. `SHARD_PLAN=roundrobin`
+  rétablit un scénario sur N.
+- `ALACOD_PROFILE=1` affiche, par scénario, le temps du runner par poste (`update` de
+  Bevy, métriques, invariants) ; les invariants et les attentes pèsent moins de 0,5 % d'une frame.
+
+Ce qui reste est la simulation elle-même : `bench_floor` (profil callgrind, 600 frames) passe
+~42 % de ses instructions dans `update_flow_field_system` (Dijkstra, dont ~22 % dans
+`is_blocked`) et ~14 % dans la navigation des bots ; les `throne_*` ne sont que 1,5 à 2 fois
+plus rapides qu'avant, pour la même raison probable (non profilés). Le détail chiffré est dans
+`docs/taches/rapports/perf-suite-scenarios.md`.
 
 ---
 
@@ -3175,6 +3209,41 @@ campagne : `alacod-sim --game gungeon --bots 1 --profiles explorateur --floors e
 carte de l'étage suivant est chargée à l'avance : `RoomState` y désigne les salles de l'étage joué par
 `nth: 1`. Les scénarios `gungeon_floor_seed_*` (atteinte scriptée) ne changent pas.
 
+## 52. Contenu `gungeon` (M2-T14, quatre parties)
+
+### 52.a Armes (T14a)
+
+Données seulement (`games/gungeon/assets/weapons/weapons.ron`), aucune mécanique ajoutée au moteur.
+Vingt armes à distance au total (compte du lint : `pistolet`, 18 nouvelles, `arsenal` des ennemis),
+plus `bare_hands` (mêlée). Chacune compose des comportements existants et porte un `test:` (scénario
+généré `weapon_<arme>`, `make gen GAME=gungeon`) avec bornes `min_hits`/`max_hits` mesurées.
+
+| Arme | Munition | Caractère | Composition |
+|---|---|---|---|
+| `pistolet` | balles | arme de départ, cadence 3/s | `Automatic`, `Standard` |
+| `revolver` | balles | coup lent et lourd | `Manual`, 30 dégâts, chargeur 6 |
+| `pistolet_precis` | balles | balle perçante | `Piercing(1)` + `Pierce(1)` |
+| `pistolet_jumele` | balles | deux balles par pression | `Burst(2)` |
+| `carabine_rafale` | balles | rafale de trois | `Burst(3)` |
+| `mitraillette` / `mitrailleuse_lourde` | balles | tir continu 10 et 14/s, dispersion | `Automatic`, `spread` |
+| `rebondisseur` | balles | rebondit sur les murs | `Bounce(3)` |
+| `fusil_pompe` / `double_canon` | cartouches | cône de 8 / 10 plombs | `Shotgun` |
+| `fusil_precision` | calibre | traverse trois ennemis, très lent | `Piercing(3)` + `Pierce(3)` |
+| `arc` / `arbalete` | fleches | flèche lente perçante / carreau lourd | `Piercing`, `Pierce`, `Size` |
+| `laser` | energie | faisceau rapide qui traverse tout | `Automatic`, `Pierce(8)`, `Lifetime(30)` |
+| `chercheur` | energie | tête chercheuse | `Homing("0.1")` |
+| `boule_energie` | energie | gros projectile lent | `Size("3.0")`, `Pierce(8)` |
+| `lance_roquettes` | roquettes | explose à l'impact | `on_expire: Spawn(Aimed → souffle)` |
+| `grenadier` | roquettes | rebondit puis explose en éclats | `Bounce(2)`, explosion + `Ring` (§16) |
+| `lance_flammes` | carburant | jet continu à portée courte | `Automatic`, `Lifetime(40)`, `Pierce(2)` |
+
+Munitions : réserves distinctes par type `Custom` (`balles`, `cartouches`, `calibre`, `fleches`,
+`energie`, `roquettes`, `carburant`). Pas de munition infinie dans le moteur (D à venir) : seul
+`pistolet` a une réserve de 9999 chargeurs ; les autres ont une réserve finie.
+`Burst` ne tire pas plusieurs balles par frame mais `pellets_per_shot` balles espacées de
+`cooldown_frames` (voir `FiringMode::Burst`). Les traces `gungeon` existantes n'ont pas bougé
+(les 5 scénarios générés d'avant sont identiques après `GEN_BLESS=1`).
+
 ## 53. Lint des kinds M2 et atteignabilité statique (M2-T15, voie V2)
 
 Lint seulement : aucune simulation touchée, aucune trace ne bouge.
@@ -3230,3 +3299,99 @@ Aucun autre trou trouvé dans l'audit (les `props` et le profil n'ont pas de ré
 
 **Fixtures.** `stat_unread` (erreur), `stat_armor_warning` (avertissement), `reach_room_unreachable`
 (type de salle et gabarit), `reach_enemy_unplaced`, `reach_item_no_source`, `reach_weapon_no_source`.
+
+## 54. Générateur v2 : gabarits par objet, par salle et par boss (M2-T17, voie V3)
+
+Code : `crates/scenario/src/generate.rs` (gabarits), `game::gen_test` (`ItemTest`, `RoomTest`,
+`BossFightTest`), `scenario::runner::apply_player_overrides` (objets de départ), `content::lint`
+(`lint_item_tests`, `lint_room_tests`, `lint_character_tests`). Complète §28 : mêmes règles
+(opt-in par un champ `test:`, aucun effet en jeu, un scénario écrit par `make gen GAME=<jeu>` dans
+`tests/scenarios/generated/<jeu>/`, champ absent = rien de généré : aucune trace existante ne bouge).
+Contrairement aux gabarits d'armes, ces gabarits jouent **dans le jeu énuméré** (le registre du
+testbed n'a ni les objets ni les salles de `gungeon`) : carte de `generate_template` si le jeu en
+déclare une (`Sandbox` imposé), sinon l'arène du testbed pour le testbed.
+
+**Objet** (`objets/<id>.ron`, gabarit `ItemHeld`, fichier `item_<id>.ron`) :
+`test: Some((frames: 60, expect: [...]))` ; `frames > 16` pour un actif.
+- `PlayerScript::items: ["<id>"]` (nouveau, vide par défaut) : le joueur tient l'objet **avant la
+  première frame**, comme après un ramassage (passif : `Inventory` et modificateurs `item:<id>` ;
+  actif : emplacement actif **chargé** à `ActiveCharge::required()` ; consommable : compteur). Les
+  effets `OnPickup` ne sont pas rejoués.
+- Attentes par défaut : `HasItem` à la frame 1 ; une `Stat` par stat modifiée (frame 1), attendue =
+  `sim_core::modifier::resolve(base, modificateurs)` où `base` est lue par une **sonde** d'une frame
+  sans l'objet (`probe_player_stats`) : la valeur ne vient pas de la partie qui tient l'objet ; un
+  actif : `ItemCharge(required)` à la frame 5, `UseActive` une frame à `ITEM_USE_FRAME` (10), puis
+  `ItemCharge(0)` à la frame 16 (omis pour `Frames(n)`, qui se recharge aussitôt, et pour un actif à
+  `cost`, dont l'usage peut être refusé). `test.expect` s'**ajoute** aux attentes par défaut.
+
+**Salle** (`rooms/<id>.ron`, gabarit `RoomClear`, `room_<id>.ron`) :
+`test: Some((frames: 500, floors: "etages_court", seed: 1, expect: []))` ; exactement un de `floors`
+(séquence `Floors` du jeu) ou `map` (carte LDtk, `Sandbox` imposé si le manifeste est en `Floors`) ;
+`seed` = graine de carte (défaut 123456) : le gabarit LDtk tiré par la grammaire est donc fixe.
+Un bot `explorateur` (§47), aucun input scripté. Attentes par défaut : moments clés `room` « salle
+<id> verrouillée » puis « salle <id> nettoyée » avant `frames` (`Event`, cumulatif : une attente
+`RoomState` ponctuelle dépendrait de la frame exacte du bot), et `PlayerAlive` à la dernière frame.
+Une salle qui ne verrouille ni n'est une arène (`locks: false`, pas d'`arena`) : seulement
+`PlayerAlive`.
+
+**Boss** (personnage qui a `boss:`, gabarit `BossFight`, `boss_<id>.ron`) : le `test:` du personnage
+gagne le champ `boss: Some((floors: None, map: None, seed: 123456, expect: []))` (`boss: Some(())`
+suffit), `frames` du `test:` fixe la durée, `still: false, moving: false` coupent les gabarits
+ennemis. Sans `floors` ni `map`, la partie du manifeste (`entry.start_map`, comme `gungeon_boss_bot`).
+Bot `fonceur`, aucun input. Attentes par défaut : un `Event(boss_phase, "phase i-1 → i")` par phase
+atteinte (cumulatif : `BossPhase` échoue une fois le boss mort), puis `Event(room, "salle boss
+nettoyée")` si le jeu a un type de salle `boss` (§45).
+
+**Lint.** `frames > 0` ; objet : pas sur un consommable (`Unsupported`) ; salle : exactement un de
+`floors`/`map`, scène connue, **au moins un gabarit LDtk du type** dans les cartes de la scène
+(`BrokenReference`, y compris les gabarits d'une grammaire `floor:<id>`) ; personnage : `test.boss`
+seulement avec `boss:`, `floors`/`map` exclusifs et connus, un gabarit actif parmi `still`, `moving`
+et `boss`. Fixtures `item_test_frames_zero`, `item_test_consumable`, `room_test_no_template`,
+`room_test_both_scenes`, `room_test_frames_zero`, `boss_fight_without_boss`.
+
+## 55. Feedback v2 : télégraphes de patterns, flash du blank, fin de boss (M2-T19, voie V4)
+
+Complète §31. **Tout est présentation** : rien de rollback, rien dans le checksum ni dans les
+traces, aucune simulation ralentie (`Time<Virtual>` n'est jamais touché : ggrs avance dessus). Les
+trois effets s'écrivent d'abord dans `FeedbackLog` (headless compris), le rendu (`FeedbackPlugin`)
+applique ensuite les indices ; `scenario::events` en fait des moments clés `feedback`.
+
+**Réglages** (`ui/feedback.ron`, champs optionnels de `content::feedback::FeedbackSettings`,
+défauts sûrs : les trois effets sont actifs sans rien écrire, `enabled: false` en coupe un) :
+- `pattern_telegraph: (enabled, color: Option<rgba>)` ; couleur absente : celle du cercle.
+- `blank: (enabled, ring_frames, color, flash_alpha)` : 24 frames, bleu clair, flash 0,15.
+- `boss_end: (enabled, freeze_frames, zoom, zoom_frames, flash_alpha, flash_color)` : 30 ticks
+  de rendu gelés, zoom ×1,5 relâché sur 60 frames, flash 0,6.
+Lint (`FeedbackSettings::problems`, `OutOfRange`) : durées dans `[1, 600]` (`freeze_frames`
+`[0, 600]`, > 0 si l'effet est actif), opacités et couleurs dans `[0, 1]`, `zoom` dans `[1, 4]`.
+Fixtures `feedback_blank_frames_zero`, `feedback_boss_zoom_out_of_range`,
+`feedback_boss_freeze_zero`.
+
+**Télégraphe de forme.** Pendant le `Telegraph` d'un émetteur (et le `Telegraph(n)` d'une frise de
+boss, §45 : même chemin, l'émetteur joue `Sequence([Telegraph(n), pattern])`), `pattern_shape`
+(fonction pure) lit les étapes **après** le télégraphe, jusqu'au prochain `Telegraph`/`Wait` :
+`Fan`/`Spread`/`Aimed` → rayons répartis sur l'ouverture autour de la visée figée ; `Spiral` →
+rayons de la première salve (l'amorce) ; `Burst`/`Scatter` → cône (deux rayons de bord et arc).
+`Ring` n'a pas de forme (le cercle v1 le dit). Gizmos, longueur = rayon du télégraphe v1 (portée du
+tir annoncé, bornée par `Shoot.range`). Un indice `PatternTelegraph` par (émetteur, étape), au
+début du télégraphe. Moment clé : « télégraphe fan 31 (5 rayons) », « télégraphe burst 31 (cône
+0.50 rad) » (`31` : `GgrsNetId` de l'émetteur).
+
+**Blank.** Dérivé de l'état : les charges de blank (`Inventory::consumable` de l'objet blank de la
+table) d'un joueur baissent d'un tick à l'autre. Anneau (`blank_ring_radius`, ease-out jusqu'au
+rayon de `BlankSpec`) et flash plein écran léger ; il **remplace** l'onde de `LastBlank` (M2-T1)
+quand `blank.enabled`. Moment clé : « blank 0 (rayon 160) » (`0` : handle du joueur).
+
+**Fin de boss.** Dérivé de l'état, jamais de `BossDefeated` (transitoire) : un boss (`BossPlan`)
+vu vivant au tick précédent a disparu **et** le nombre de salles `Cleared` (`RoomStates`) a
+augmenté. Gel de rendu de `freeze_frames` ticks (`AnimationFreeze`, comme le hit stop), zoom sur la
+position du boss (`boss_zoom_factor` : monte sur le premier cinquième puis revient à ×1 ; échelle
+de projection et décalage de la caméra retirés avant le suivi de caméra, `undo_boss_zoom`),
+flash plein écran (`ScreenFlashNode`). Moment clé : « fin de boss 40 » (`40` : `GgrsNetId` du boss).
+
+**Preuve sans écran.** Attentes `Event(kind: "feedback", label_contains: …)`, aucune trace ne
+bouge. À voir sur un poste avec GPU : voir le rapport `docs/taches/rapports/m2-t19-feedback-v2.md`.
+
+**Limites.** Comme §31 : un tick qui simule plusieurs frames ne journalise que la dernière ; un
+indice prédit puis annulé par un rollback p2p reste dans le journal. Une fin de boss se détecte au
+tick où le boss disparaît : un boss retiré sans qu'une salle passe `Cleared` ne déclenche rien.
