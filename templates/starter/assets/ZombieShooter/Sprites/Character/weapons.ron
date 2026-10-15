@@ -2,6 +2,8 @@
     "pistol": (
         config: (
             name: "pistol",
+            // `alacod test <arme>` : tire sur la cible pendant 200 frames et exige au moins un coup.
+            test: Some((frames: 200, min_hits: 1)),
             default_firing_mode: "default",
             // T2.2, chantier B7 : type de munition, voir la copie de ce fichier sous
             // games/zombies (même contenu, ce commentaire n'est pas dupliqué partout ici).
@@ -44,6 +46,8 @@
     "machine_gun": (
         config: (
             name: "machine_gun",
+            // `alacod test <arme>` : tire sur la cible pendant 200 frames et exige au moins un coup.
+            test: Some((frames: 200, min_hits: 1)),
             default_firing_mode: "default",
             ammo_type: Balle,
             firing_modes: {
@@ -100,6 +104,8 @@
     "shotgun": (
         config: (
             name: "shotgun",
+            // `alacod test <arme>` : tire sur la cible pendant 200 frames et exige au moins un coup.
+            test: Some((frames: 200, min_hits: 1)),
             default_firing_mode: "default",
             ammo_type: Cartouche,
             firing_modes: {
@@ -163,6 +169,8 @@
     "rifle": (
         config: (
             name: "rifle",
+            // `alacod test <arme>` : tire sur la cible pendant 200 frames et exige au moins un coup.
+            test: Some((frames: 200, min_hits: 1)),
             default_firing_mode: "default",
             // T2.6 : copie de l'entrée de games/zombies (les scénarios générés par
             // `alacod-gen games/zombies` jouent dans l'arène du testbed, qui doit connaître

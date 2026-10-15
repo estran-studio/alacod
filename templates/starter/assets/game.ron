@@ -16,4 +16,7 @@
         default_seed: 123456,
         mode: Sandbox,
     ),
+    // Scénarios générés (`alacod test`) : les armes sont jouées sur cette carte, contre `target`
+    // (personnage `counts_hits`), et non dans le testbed de l'engine.
+    generate_template: (map: "maps/arena.ldtk", target: "target"),
 )

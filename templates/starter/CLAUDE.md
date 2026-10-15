@@ -5,10 +5,15 @@ sous `assets/`, déclarés dans `assets/game.ron`, assemblent des behaviors cod�
 
 ## Boucle de travail
 
-1. `alacod describe` : kinds du jeu ; `alacod describe <Kind>` : ids, champs utilisés, fichier modèle.
-   Copier un fichier modèle plutôt que d'inventer des champs.
-2. Éditer le RON. Un hook relance `alacod lint` après chaque édition ; corriger jusqu'à zéro erreur.
-3. `alacod lint --json` pour une sortie structurée.
+1. `alacod describe` : kinds du jeu ; `alacod describe <Kind>` : ids, champs **possibles** (types,
+   variantes, plages du lint) et ceux utilisés, fichier modèle. Ne pas inventer de champ.
+2. `alacod new-content <Kind> <id> [--from <modèle>]` : crée l'entrée en copiant un modèle qui passe
+   le lint (fichier du kind, ou entrée de table pour `Weapon`…). Puis l'adapter.
+3. Éditer le RON. Un hook relance `alacod lint` après chaque édition ; corriger jusqu'à zéro erreur
+   (`alacod lint --json` pour une sortie structurée).
+4. `alacod test <id>` : joue le scénario généré de l'entrée (arme : tir sur la cible ; objet, salle,
+   boss, personnage : leur `test:`). `alacod test` seul les joue tous, `--list` les liste. Un test
+   « ok » sans attente ne prouve rien : renseigner `test:` dans l'entrée.
 
 ## Règles qui piègent
 

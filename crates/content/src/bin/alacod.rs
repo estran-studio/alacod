@@ -42,6 +42,34 @@ enum Command {
         #[arg(long)]
         rev: Option<String>,
     },
+    /// Joue les scénarios générés d'un jeu (`test:` des armes, personnages, objets, salles,
+    /// boss) : `alacod test [jeu] [id…] [--list]`. Sans id, tous ; avec un id (`amulette` ou
+    /// `item_amulette`), seulement celui-là. Les traces de référence sont ignorées sauf `--bless`.
+    Test {
+        /// `[dossier du jeu] [id…]` : le premier argument est pris pour un dossier s'il existe.
+        args: Vec<String>,
+        /// Liste les sujets testables au lieu de les jouer.
+        #[arg(long)]
+        list: bool,
+        /// Écrit les traces de référence (changement de gameplay voulu).
+        #[arg(long)]
+        bless: bool,
+        /// Sortie JSON (tableau de résultats) sur stdout.
+        #[arg(long)]
+        json: bool,
+        /// Racine de l'engine ; sinon celle du jeu (dépendance `Cargo.toml`) ou de ce binaire.
+        #[arg(long)]
+        engine: Option<PathBuf>,
+    },
+    /// Crée une entrée de contenu à partir d'un modèle du jeu :
+    /// `alacod new-content [jeu] <Kind> <id> [--from <modèle>]`.
+    NewContent {
+        /// `[dossier du jeu] <Kind> <id>`.
+        args: Vec<String>,
+        /// Entrée à copier (défaut : la première du kind).
+        #[arg(long)]
+        from: Option<String>,
+    },
     /// Inventaire du vocabulaire d'un jeu : `alacod describe [games/gungeon] [Kind]`.
     Describe {
         /// `[dossier du jeu] [Kind]` : le premier argument est pris pour un dossier s'il
@@ -76,6 +104,39 @@ fn main() -> ExitCode {
             }
             Err(e) => fail(&e),
         },
+        Command::NewContent { args, from } => {
+            let (dir_arg, rest) = match args.split_first() {
+                Some((first, rest)) if PathBuf::from(first).is_dir() && rest.len() == 2 => {
+                    (Some(PathBuf::from(first)), rest.to_vec())
+                }
+                _ => (None, args.clone()),
+            };
+            let [kind, id] = rest.as_slice() else {
+                return fail("usage : alacod new-content [jeu] <Kind> <id> [--from <modèle>]");
+            };
+            match resolve_game_dir(dir_arg) {
+                Ok(dir) => new_content(&dir, kind, id, from.as_deref()),
+                Err(e) => fail(&e),
+            }
+        }
+        Command::Test {
+            args,
+            list,
+            bless,
+            json,
+            engine,
+        } => {
+            let (dir_arg, ids) = match args.split_first() {
+                Some((first, rest)) if PathBuf::from(first).is_dir() => {
+                    (Some(PathBuf::from(first)), rest.to_vec())
+                }
+                _ => (None, args.clone()),
+            };
+            match resolve_game_dir(dir_arg) {
+                Ok(dir) => run_tests(&dir, &ids, list, bless, json, engine),
+                Err(e) => fail(&e),
+            }
+        }
         Command::Describe { args, json } => {
             let (dir_arg, kind) = match args.as_slice() {
                 [] => (None, None),
@@ -353,4 +414,173 @@ fn copy_template(
         }
     }
     Ok(())
+}
+
+/// Racine de l'engine pour un jeu : `--engine`, sinon l'ancêtre du jeu qui contient
+/// `crates/scenario` (jeu de `games/`), sinon la dépendance `crates/content` de son
+/// `Cargo.toml` (jeu créé par `alacod new`), sinon celle d'où `alacod` a été compilé.
+fn engine_root_for(game_dir: &std::path::Path, explicit: Option<PathBuf>) -> Result<PathBuf, String> {
+    let is_engine = |p: &std::path::Path| p.join("crates").join("scenario").join("Cargo.toml").is_file();
+    if let Some(root) = explicit {
+        return root
+            .canonicalize()
+            .map_err(|e| format!("engine introuvable ({}) : {e}", root.display()));
+    }
+    let game = game_dir.canonicalize().map_err(|e| e.to_string())?;
+    if let Some(root) = game.ancestors().skip(1).find(|p| is_engine(p)) {
+        return Ok(root.to_path_buf());
+    }
+    if let Ok(cargo) = std::fs::read_to_string(game.join("Cargo.toml")) {
+        for line in cargo.lines() {
+            let Some(rest) = line.trim().strip_prefix("content") else {
+                continue;
+            };
+            if let Some(start) = rest.find("path = \"") {
+                let path = &rest[start + 8..];
+                if let Some(end) = path.find('"') {
+                    let root = std::path::Path::new(&path[..end]).join("..").join("..");
+                    if let Ok(root) = root.canonicalize() {
+                        if is_engine(&root) {
+                            return Ok(root);
+                        }
+                    }
+                }
+            }
+        }
+    }
+    let built = PathBuf::from(BUILT_FROM_ENGINE);
+    built
+        .canonicalize()
+        .ok()
+        .filter(|r| is_engine(r))
+        .ok_or_else(|| "engine introuvable : passer --engine <racine>".to_string())
+}
+
+/// `alacod test` : délègue à `alacod-gen` de l'engine (le crate `scenario` dépend de `content`,
+/// pas l'inverse), en ignorant les traces sauf `--bless`.
+fn run_tests(
+    game_dir: &std::path::Path,
+    ids: &[String],
+    list: bool,
+    bless: bool,
+    json: bool,
+    engine: Option<PathBuf>,
+) -> ExitCode {
+    let engine = match engine_root_for(game_dir, engine) {
+        Ok(root) => root,
+        Err(e) => return fail(&e),
+    };
+    let game = match game_dir.canonicalize() {
+        Ok(g) => g,
+        Err(e) => return fail(&e.to_string()),
+    };
+    let mut cmd = std::process::Command::new("cargo");
+    cmd.args(["run", "-q", "-p", "scenario", "--bin", "alacod-gen", "--profile", "headless"])
+        .arg("--manifest-path")
+        .arg(engine.join("Cargo.toml"))
+        .arg("--")
+        .arg(&game);
+    if list {
+        cmd.arg("--list");
+    } else {
+        cmd.arg("--play").arg("--json");
+        if bless {
+            cmd.arg("--bless");
+        } else {
+            cmd.arg("--no-trace");
+        }
+        if !ids.is_empty() {
+            cmd.arg("--only").arg(ids.join(","));
+        }
+    }
+    let output = match cmd.output() {
+        Ok(o) => o,
+        Err(e) => return fail(&format!("cargo : {e}")),
+    };
+    let stdout = String::from_utf8_lossy(&output.stdout);
+    // stderr de cargo (avertissements de compilation de l'engine) : seulement si ça a échoué.
+    let show_stderr = |output: &std::process::Output| {
+        let text = String::from_utf8_lossy(&output.stderr);
+        // Les messages d'`alacod-gen` d'abord ; sinon la fin de la sortie de cargo.
+        let own: Vec<&str> = text.lines().filter(|l| l.starts_with("alacod-gen")).collect();
+        let lines: Vec<&str> = text.lines().collect();
+        let start = lines.len().saturating_sub(25);
+        eprintln!(
+            "{}",
+            if own.is_empty() { lines[start..].join("\n") } else { own.join("\n") }
+        );
+    };
+
+    if list {
+        // Les journaux du jeu partagent stdout : seules les lignes `scénario<TAB>sujet` comptent.
+        for line in stdout.lines().filter(|l| l.contains('\t')) {
+            println!("{}", line.replace('\t', "  "));
+        }
+        return if output.status.success() { ExitCode::SUCCESS } else { ExitCode::FAILURE };
+    }
+
+    // Le tableau JSON est la dernière ligne qui commence par `[`.
+    let Some(results) = stdout
+        .lines()
+        .rev()
+        .find(|l| l.starts_with('['))
+        .and_then(|l| serde_json::from_str::<Vec<serde_json::Value>>(l).ok())
+    else {
+        show_stderr(&output);
+        return fail("alacod test : aucun résultat (voir ci-dessus)");
+    };
+    if json {
+        println!("{}", serde_json::Value::Array(results.clone()));
+    } else {
+        for r in &results {
+            let ok = r["expectations_ok"].as_bool().unwrap_or(false);
+            println!(
+                "{} {:<28} {:>5} frames, {:>3} coups",
+                if ok { "ok    " } else { "ÉCHEC " },
+                r["scenario"].as_str().unwrap_or("?"),
+                r["frames"],
+                r["hits"],
+            );
+            for f in r["failures"].as_array().into_iter().flatten() {
+                println!("        {}", f.as_str().unwrap_or("?"));
+            }
+            if ok && r["expectations"] == 0 {
+                println!("        (aucune attente : ce test ne prouve rien ; ajouter `test:` à l'entrée, voir `alacod describe`)");
+            }
+        }
+    }
+    let failed = results.iter().filter(|r| r["expectations_ok"] != true).count();
+    if !json {
+        println!("{} scénario(s), {} échec(s)", results.len(), failed);
+    }
+    if failed == 0 && output.status.success() { ExitCode::SUCCESS } else { ExitCode::FAILURE }
+}
+
+fn new_content(game_dir: &std::path::Path, kind: &str, id: &str, from: Option<&str>) -> ExitCode {
+    let created = match content::scaffold::new_content(game_dir, kind, id, from) {
+        Ok(c) => c,
+        Err(e) => return fail(&e),
+    };
+    println!(
+        "{} {} « {id} » (modèle : {})",
+        if created.in_table { "entrée ajoutée à" } else { "créé :" },
+        created.file.display(),
+        created.model
+    );
+    // Le modèle passe le lint : toute erreur vient du changement (référence à renommer, id…).
+    match load_and_lint(game_dir) {
+        Ok((_, _, errors)) if errors.is_empty() => {
+            println!("lint : aucune erreur");
+            println!("à adapter : alacod describe {kind} ; puis alacod test {id}");
+            ExitCode::SUCCESS
+        }
+        Ok((_, _, errors)) => {
+            for e in &errors {
+                eprintln!("{e}");
+            }
+            eprintln!("lint : {} erreur(s) à corriger dans {}", errors.len(), created.file.display());
+            ExitCode::FAILURE
+        }
+        Err(e) => fail(&e.to_string()),
+    }
 }

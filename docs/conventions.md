@@ -344,6 +344,19 @@ posé sur le champ, **à maintenir à la main avec la règle de `lint.rs`** (une
 annotation n'apparaît pas dans `describe`). Un champ `Fixed`
 porte `#[cfg_attr(feature = "schema", schemars(with = "bevy_fixed::schema::FixedString"))]`.
 
+**Créer et tester** : `alacod new-content [jeu] <Kind> <id> [--from <modèle>]`
+(`crates/content/src/scaffold.rs`) copie un modèle du jeu (fichier `<dossier>/<id>.ron`, ou entrée
+dupliquée à la fin d'une table comme `weapons.ron`), réécrit l'id et le nom, relance le lint. Pas
+pour `Map`, `Ui`, `Camera`, `Economy`, `Difficulty`. `alacod test [jeu] [id…] [--list] [--bless]
+[--json]` joue les scénarios générés (§28, §54) par `alacod-gen --only` (le crate `scenario`
+dépend de `content`, donc `alacod` appelle `cargo run -p scenario` dans l'engine : celui du jeu
+(`Cargo.toml`), de `--engine`, ou d'où `alacod` a été compilé). Traces ignorées sauf `--bless` ;
+sortie JSON : `scenario`, `frames`, `hits`, `expectations`, `expectations_ok`, `failures`. Un jeu
+hors de l'engine est retrouvé par `ALACOD_GAME_NAME`/`ALACOD_GAME_DIR` (posés par `alacod-gen`) ;
+ses scénarios sont écrits sous `<jeu>/tests/generated`. Les armes se jouent sur la
+`generate_template` du manifeste (sinon dans le testbed de l'engine, où une arme nouvelle n'existe
+pas).
+
 **Jeu hors de l'engine** : `cargo install --path crates/content --bin alacod`, puis
 `alacod new mon-jeu [--engine <racine>] [--git [--rev <sha>]]` copie `templates/starter/` (contenu minimal qui passe le
 lint : joueur, quatre armes, une arène) dans `./mon-jeu`, avec un `Cargo.toml` à dépendances par
