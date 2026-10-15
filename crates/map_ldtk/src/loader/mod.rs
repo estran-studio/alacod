@@ -73,6 +73,17 @@ pub fn synergy_table(registry: Option<&Registry>) -> items::SynergyTable {
     )
 }
 
+/// Pools de butin (M2-T5) depuis le registre de contenu : `loot/<id>.ron` → définition.
+pub fn loot_tables(registry: Option<&Registry>) -> items::LootTables {
+    items::LootTables(
+        registry
+            .iter()
+            .flat_map(|r| r.loot_tables.values())
+            .map(|table| (table.id.clone(), table.def.clone()))
+            .collect(),
+    )
+}
+
 /// Types de salles (M2-E1) depuis le registre de contenu : `rooms/<id>.ron` → définition.
 pub fn room_kind_table(registry: Option<&Registry>) -> world::RoomKindTable {
     world::RoomKindTable(
@@ -276,6 +287,8 @@ pub fn setup_generated_map(
     commands.insert_resource(item_table(registry.as_deref()));
     // M2-T4 : synergies d'objets (kind `Synergy`), hors rollback
     commands.insert_resource(synergy_table(registry.as_deref()));
+    // M2-T5 : pools de butin (kind `LootTable`), hors rollback
+    commands.insert_resource(loot_tables(registry.as_deref()));
     let mut caves = CaveSlots::default();
     let Some(plan) = plan else {
         let (load, cave) = resolve_map_config(&config, &config.map_path, registry.as_deref(), 0);

@@ -1,0 +1,9 @@
+// Fixture M2-T5 : pool de butin vide (OutOfRange)
+(
+    name: "fixture-loot_empty_table",
+    content_folders: [
+        (path: "objets", kind: "Item"),
+        (path: "loot", kind: "LootTable"),
+    ],
+    entry: (start_map: "maps/salle.ldtk", default_seed: 1),
+)

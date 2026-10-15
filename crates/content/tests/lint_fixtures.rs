@@ -1293,6 +1293,30 @@ fn item_cost_not_consumable_fixture_reports_unsupported() {
 }
 
 #[test]
+fn loot_empty_table_fixture_reports_out_of_range() {
+    let (_, _, errors) = load_and_lint(&fixture_dir("loot_empty_table")).unwrap();
+    assert_has_error(&errors, LintErrorKind::OutOfRange, "entries vide");
+}
+
+#[test]
+fn loot_weight_zero_fixture_reports_out_of_range() {
+    let (_, _, errors) = load_and_lint(&fixture_dir("loot_weight_zero")).unwrap();
+    assert_has_error(&errors, LintErrorKind::OutOfRange, "poids 0");
+}
+
+#[test]
+fn loot_unknown_item_fixture_reports_broken_reference() {
+    let (_, _, errors) = load_and_lint(&fixture_dir("loot_unknown_item")).unwrap();
+    assert_has_error(&errors, LintErrorKind::BrokenReference, "fantome");
+}
+
+#[test]
+fn loot_locked_chest_without_key_fixture_reports_broken_reference() {
+    let (_, _, errors) = load_and_lint(&fixture_dir("loot_locked_chest_without_key")).unwrap();
+    assert_has_error(&errors, LintErrorKind::BrokenReference, "« key »");
+}
+
+#[test]
 fn formation_radius_zero_fixture_reports_out_of_range() {
     let (_, _, errors) = load_and_lint(&fixture_dir("formation_radius_zero")).unwrap();
     assert_has_error(&errors, LintErrorKind::OutOfRange, "radius = 0");

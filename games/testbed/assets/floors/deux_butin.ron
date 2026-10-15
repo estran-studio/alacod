@@ -1,0 +1,9 @@
+// M2-T5 (docs/conventions.md §48) : mêmes deux niveaux que `deux_niveaux`, un pool de butin par
+// étage (`commun` puis `etage2`) ; scénario `loot_floor_table`.
+(
+    levels: [
+        "testbed/floor_a.ldtk",
+        "testbed/floor_b.ldtk",
+    ],
+    loot: ["commun", "etage2"],
+)

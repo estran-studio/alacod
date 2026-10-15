@@ -1,0 +1,35 @@
+// M2-T5 (pool par étage, docs/conventions.md §48) : la séquence `deux_butin` donne le pool
+// `commun` à l'étage 0 et `etage2` à l'étage 1 (aucun objet en commun). Un coffre sans pool propre
+// est posé à chaque étage au pied du joueur, ouvert (Interaction) puis ramassé.
+//
+// À regarder : f30/f40 coffre de l'étage 0 ; le joueur tue le follower, passe le portail (f~370) ;
+// f430/f440 coffre de l'étage 1, d'un autre pool.
+Scenario(
+    powerup_drop_chance_override: "0.0",
+    game: "testbed",
+    floors: Some("deux_butin"),
+    frames: 520,
+    chests: [
+        (key: "f", x: "424.0", y: "696.0", at_frame: 5),
+        (key: "f", x: "424.0", y: "696.0", at_frame: 415),
+    ],
+    players: [
+        (inputs: [
+            (from: 0, to: 29, buttons: [Fire], pan: (-64, 48)),
+            (from: 30, to: 31, buttons: [Fire, Interaction], pan: (-64, 48)),
+            (from: 31, to: 40, buttons: [Fire], pan: (-64, 48)),
+            (from: 40, to: 41, buttons: [Fire, Interaction], pan: (-64, 48)),
+            (from: 41, to: 200, buttons: [Fire], pan: (-64, 48)),
+            (from: 360, to: 366, buttons: [Right, Down], pan: (0, 0)),
+            (from: 430, to: 431, buttons: [Interaction]),
+            (from: 440, to: 441, buttons: [Interaction]),
+        ]),
+    ],
+    expect: [
+        ItemCount(handle: 0, id: "bottes", count: 1, at_frame: 100),
+        ItemCount(handle: 0, id: "semelles_lentes", count: 0, at_frame: 100),
+        FloorIndex(index: 1, at_frame: 410),
+        ItemCount(handle: 0, id: "bottes", count: 1, at_frame: 500),
+        ItemCount(handle: 0, id: "semelles_lentes", count: 1, at_frame: 500),
+    ],
+)

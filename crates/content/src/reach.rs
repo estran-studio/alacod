@@ -39,15 +39,35 @@ impl fmt::Display for LintWarning {
     }
 }
 
-/// Objets donnés par un pool de butin (M2-T5, tables de butin pondérées). **Point de
-/// branchement** : quand les pools existent, renvoyer ici les ids d'objets de chaque pool
-/// (une dizaine de lignes : `registry.loot_pools.values().flat_map(|p| p.items())`). Vide tant
-/// que M2-T5 n'est pas mergée.
-fn loot_pool_items(_registry: &Registry) -> BTreeSet<String> {
-    BTreeSet::new()
+/// Objets donnés par un pool de butin (M2-T5, `docs/conventions.md` §48) : les objets nommés
+/// par une entrée `Item`, plus tous ceux d'une rareté visée par une entrée `Rarity`. Un pool
+/// compte même si aucune salle ne le pose : le lint dit « un pool donne cet objet », pas
+/// « une partie le rencontre » (l'atteignabilité dynamique est le bot explorateur, §47).
+fn loot_pool_items(registry: &Registry) -> BTreeSet<String> {
+    let mut found = BTreeSet::new();
+    for pool in registry.loot_tables.values() {
+        for entry in &pool.def.entries {
+            match &entry.pick {
+                items::LootPick::Item(id) => {
+                    found.insert(id.clone());
+                }
+                items::LootPick::Rarity(rarity) => {
+                    found.extend(
+                        registry
+                            .items
+                            .values()
+                            .filter(|item| item.def.rarity == *rarity)
+                            .map(|item| item.id.clone()),
+                    );
+                }
+            }
+        }
+    }
+    found
 }
 
-/// Armes données par un pool de butin (même point de branchement que [`loot_pool_items`]).
+/// Armes données par un pool de butin : aucune entrée de pool ne désigne d'arme (M2-T5 ne
+/// tire que des objets, les armes viennent de la boutique, T6).
 fn loot_pool_weapons(_registry: &Registry) -> BTreeSet<String> {
     BTreeSet::new()
 }
