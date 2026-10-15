@@ -65,3 +65,25 @@ T14c peut démarrer : M2-T7 (boss `gatling`, arène) et M2-T8 (escouades) sont s
   conteneur redémarre environ toutes les deux heures : lancer la suite au premier plan, de préférence
   `make test_scenarios`, `make test_scenarios_par` exige un `CARGO_TARGET_DIR` absolu). Finir par un
   commit `LIVRÉ m2-t14c-ennemis` qui contient le rapport `docs/taches/rapports/m2-t14c-ennemis.md`.
+
+## T14d en session cloud, avec D64 (ajout du 2026-10-15)
+
+Prérequis tous sur `main` : M2-T11 (surfaces), M2-T5 (coffres), M2-T6 (boutique), M2-T14c (ennemis),
+bot-explorateur-v2 (l'explorateur joue l'arène, la récompense et la boutique), D59 (gungeon démarre sur
+`etages_deux`). Branche `m2-t14d-gabarits` depuis `origin/main`.
+- **Gabarits** : la partie 4 ci-dessus (quinze gabarits au total, surfaces et props, salle `escouade`
+  branchée dans `etage`, grammaire valide sur 1 000 graines), sans nouvelle mécanique.
+- **D64, équilibrage des salles `combat`** (`docs/taches/dettes.md`) : sur `etages_deux`, le bot
+  `explorateur` meurt dans 200 parties sur 200 à 1 bot et 67 sur 200 à 2 bots (après bot-explorateur-v2,
+  avant les ennemis de T14c). Objectif : **moins de 15 % de morts à 2 bots et moins de 50 % à 1 bot** sur
+  200 graines (`docs/taches/rapports/bot-explorateur-v2/` : `campagne.sh`, `analyse.py`), 0 soft-lock,
+  0 desync. Leviers en données seulement : nombre et composition des ennemis par gabarit, dégâts des
+  armes ennemies, salles de récompense ou de soin sur le chemin. Ne pas toucher au bot ni au boss.
+  Tableau avant/après au rapport, avec les tueurs principaux.
+- Les traces gungeon qui bougent : preuve §5 contre le `main` du moment, cause dans le commit. Les autres
+  jeux ne bougent pas.
+- Session cloud : ignorer les consignes `orca` du README (§1) ; pas de Docker, le p2p gungeon est rejoué
+  par l'orchestrateur. Campagnes au premier plan, par lots de 10 graines poussés un par un (le conteneur
+  redémarre environ toutes les deux heures). Voie rapide du README §6 : fusionner `origin/main` et
+  rejouer la suite juste avant le commit `LIVRÉ m2-t14d-gabarits`, rapport
+  `docs/taches/rapports/m2-t14d-gabarits.md`.
