@@ -177,4 +177,75 @@ mod tests {
         assert_eq!(get(&props, "name2"), "", "troisième carte absente");
         assert_eq!(get(&props, "border2"), IDLE_BORDER);
     }
+
+    fn texts(app: &mut App) -> Vec<String> {
+        let mut query = app.world_mut().query::<&Text>();
+        query.iter(app.world()).map(|text| text.0.clone()).collect()
+    }
+
+    fn wait_for(app: &mut App, wanted: &str) {
+        for _ in 0..2000 {
+            app.update();
+            if texts(app).iter().any(|t| t.contains(wanted)) {
+                return;
+            }
+            std::thread::sleep(std::time::Duration::from_millis(1));
+        }
+        panic!("« {wanted} » jamais affiché : {:?}", texts(app));
+    }
+
+    /// Le vrai gabarit des jeux se construit, remplit les trois cartes, et un changement de
+    /// surbrillance recompile les propriétés ; fermer la vue détruit l'écran.
+    #[test]
+    fn gabarit_des_jeux_construit_et_recompile() {
+        for game in ["throne", "testbed"] {
+            let dir =
+                std::env::temp_dir().join(format!("alacod-mut-{game}-{}", std::process::id()));
+            std::fs::create_dir_all(dir.join("ui")).unwrap();
+            let source = std::path::Path::new(env!("CARGO_MANIFEST_DIR"))
+                .join("../../games")
+                .join(game)
+                .join("assets/ui/mutation_screen.html");
+            std::fs::copy(source, dir.join("ui/mutation_screen.html")).unwrap();
+            let dir = dir.canonicalize().unwrap();
+            let mut app = App::new();
+            app.add_plugins((
+                MinimalPlugins,
+                AssetPlugin {
+                    file_path: dir.display().to_string(),
+                    ..default()
+                },
+                HuiPlugin,
+            ));
+            app.init_asset::<Font>()
+                .init_asset::<Image>()
+                .init_asset::<TextureAtlasLayout>();
+            let handle = app.world().resource::<AssetServer>().load(TEMPLATE);
+            app.insert_resource(MutationTemplate(Some(handle)))
+                .insert_resource(view(0, 300))
+                .add_systems(
+                    Update,
+                    sync_mutation_screen.before(bevy_hui::HuiSystems::Build),
+                );
+            wait_for(&mut app, "1  Nom a");
+            assert!(texts(&mut app).contains(&"Effet b.".to_string()));
+            app.insert_resource(view(1, 300));
+            wait_for(&mut app, "2  Nom b");
+            let tint = |text: &str, app: &mut App| {
+                let mut query = app.world_mut().query::<(&Text, &TextColor)>();
+                let found = query
+                    .iter(app.world())
+                    .find(|(t, _)| t.0.contains(text))
+                    .map(|(_, c)| c.0.to_srgba().to_u8_array());
+                found.unwrap()
+            };
+            assert_eq!(tint("2  Nom b", &mut app), [241, 196, 15, 255], "{game}");
+            assert_eq!(tint("1  Nom a", &mut app), [255, 255, 255, 255], "{game}");
+            app.insert_resource(MutationScreenView::default());
+            app.update();
+            app.update();
+            assert!(!texts(&mut app).iter().any(|t| t.contains("Nom a")));
+            let _ = std::fs::remove_dir_all(dir);
+        }
+    }
 }
