@@ -418,6 +418,37 @@ pub fn warnings(registry: &Registry, manifest: &GameManifest) -> Vec<LintWarning
     // D63 : un personnage de test ne donne rien à une partie ordinaire.
     for c in registry.characters.values().filter(|c| !c.test_only) {
         weapon_sources.extend(c.starting_weapons.iter().map(|w| w.to_string()));
+        if characters.contains(c.id.as_str()) {
+            let phases = c.boss.iter().flat_map(|boss| &boss.phases);
+            for rule in c
+                .behaviors
+                .iter()
+                .flatten()
+                .chain(phases.clone().flat_map(|phase| &phase.behaviors))
+            {
+                if let registry::BehaviorEntry::Shoot { weapon, .. } = rule {
+                    weapon_sources.insert(weapon.clone());
+                }
+            }
+            let actions = c
+                .effects
+                .iter()
+                .flat_map(|effect| &effect.r#do)
+                .chain(phases.flat_map(|phase| {
+                    phase.on_enter.iter().chain(
+                        phase
+                            .timeline
+                            .iter()
+                            .flat_map(|timeline| &timeline.events)
+                            .flat_map(|event| &event.r#do),
+                    )
+                }));
+            for action in actions {
+                if let effects::Action::SpawnPattern { weapon, .. } = action {
+                    weapon_sources.insert(weapon.clone());
+                }
+            }
+        }
     }
     for level in playable_levels(registry, &reach) {
         weapon_sources.extend(level.weapons.iter().cloned());
@@ -433,7 +464,7 @@ pub fn warnings(registry: &Registry, manifest: &GameManifest) -> Vec<LintWarning
                 LintWarningKind::Unreachable,
                 weapon.file.display().to_string(),
                 format!(
-                    "arme « {} » : aucun personnage, mur ni pool ne la donne",
+                    "arme « {} » : aucun personnage, règle ennemie, mur ni pool ne la donne",
                     weapon.id
                 ),
             );
