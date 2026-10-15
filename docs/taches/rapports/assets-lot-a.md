@@ -82,15 +82,19 @@ Mono 44,1 kHz, ogg vorbis (`oggenc -q 5`), entrées `sound-impact-kenney`,
 
 ## 2. Vérifié
 
-Toutes les commandes lancées sur le Mac, sur l'état final (commit 03602970) sauf mention.
+`origin/main` a avancé pendant la tâche (M2-T14a, M2-T15, M2-T17, M2-T19 feedback v2,
+perf-suite, M2-T16) : fusionné dans la branche (8480d7bd, sans conflit textuel), puis
+`shot_sounds` étendu au `pistolet_jumele` de gungeon (`Burst`, arme de M2-T14a, 787e86c1).
+Toutes les commandes ont tourné sur le Mac.
 
 | Commande | Résultat |
 |---|---|
 | `make test_scenarios` (complet, sans `BLESS`) sur le lot A (d7618bca) | `test scenarios ... ok`, 250 scénarios joués (159 + générés), 3 réussis / 0 échec / 8 ignorés, 1 193 s ; avertissement de budget `window_repair` 78,2 < 100 fps (machine chargée, non bloquant) |
-| `make test_scenarios` (complet, sans `BLESS`) sur l'état final | `test scenarios ... ok`, 250 scénarios, 3 réussis / 0 échec / 8 ignorés, 929 s ; avertissement de budget `ammo_burst` 68,7 < 70 fps (non bloquant) |
-| `make test_crates` | 668 réussis / 0 échec / 10 ignorés (42 binaires de test) |
+| `make test_scenarios` sur les lots A + B avant fusion (03602970) | `ok`, 250 scénarios, 0 échec, 929 s ; avertissement de budget `ammo_burst` 68,7 < 70 fps (non bloquant) |
+| `make test_scenarios` **après fusion** (787e86c1) | `ok`, 302 scénarios, 3 réussis / 0 échec / 8 ignorés, 405 s, aucun avertissement de budget |
+| `make test_crates` après fusion | 690 réussis / 0 échec / 10 ignorés (42 binaires de test ; 668 avant fusion) |
 | `cargo test -p game --lib shot_sound` | `arme_puis_famille_puis_repli_sur_shot ... ok` |
-| `make lint` (zombies, testbed, throne, gungeon) | « aucune erreur » pour les quatre |
+| `make lint` (zombies, testbed, throne, gungeon), après fusion | « aucune erreur » pour les quatre ; avertissements d'atteignabilité de M2-T15 (armes non données, etc.), aucun sur les sons ou `feedback.ron` |
 | `cargo fmt --all -- --check` | rien à afficher |
 | `./scripts/check-rollback-registration.sh` | OK |
 | `./scripts/check-forbidden.sh` | 6 avertissements, tous dans des fichiers non touchés (préexistants) |
@@ -109,7 +113,13 @@ Toutes les commandes lancées sur le Mac, sur l'état final (commit 03602970) sa
   `shot_shotgun.ogg` ×1 pour 8 plombs.
 - **zombies** (1 200 frames, vague 1) : 50 `shot_smg`, 21 `hit`, 3 `death` pour 3 kills,
   6 `hurt` espacés de ≥ 15 frames, 1 `reload`, aucun `door` parasite.
+- **gungeon après fusion** (787e86c1, feedback v2 de M2-T19 présent) : 15 `shot_pistol`,
+  8 `hit`, 2 `death`, 1 `reload`, 1 `dash`, 1 `blank` ; aucune panique.
 - Aucune erreur de chargement audio (`error`/`failed`/`warn` audio) dans les journaux.
+
+Note : pendant la première suite (lot A), les `feedback.ron` et les `.ogg` du lot B ont été
+ajoutés au disque en cours de route (le binaire était celui du lot A) ; seule la table `sounds`
+changeait, lue par la présentation. Les deux suites suivantes ont tourné sur un état figé.
 
 ## 3. Non fait / incertain
 
