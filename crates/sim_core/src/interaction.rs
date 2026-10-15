@@ -50,5 +50,9 @@ pub enum InteractionType {
     /// une entité `world::TableState` debout (`map_ldtk::game::plugin::spawn_map_items`) ;
     /// consommé par `game::props::table_flip_system`.
     Table,
+    /// Acheter un objet sur un présentoir (M2-T6, `docs/conventions.md` §50). Posé avec
+    /// `Interactable` sur une entité `items::Shelf` (`game::shop::spawn_shelf`) ; consommé par
+    /// `game::shop::shelf_interaction_system`.
+    Shop,
     // Future: Crate, etc.
 }

@@ -81,11 +81,17 @@ impl Plugin for RoomsPlugin {
                 room_chest_system
                     .after(room_lock_system)
                     .in_set(RollbackSystemSet::Run),
+                // M2-T6 : présentoirs d'une salle `boutique`, après le coffre de salle (tous
+                // deux consomment `GgrsNetIdFactory`).
+                room_shop_system
+                    .after(room_chest_system)
+                    .in_set(RollbackSystemSet::Run),
                 // M2-T7 : vagues internes d'une arène, après son verrouillage de la frame.
                 // Après le coffre de salle (M2-T5) : tous deux consomment `GgrsNetIdFactory`.
                 arena_waves_system
                     .after(room_lock_system)
                     .after(room_chest_system)
+                    .after(room_shop_system)
                     .in_set(RollbackSystemSet::Run),
                 // M2-T7 : renforts d'une frise de boss, dans la frame de la demande (`Run` suit
                 // `EnemySpawning`, où `boss_phase_system` les demande).
@@ -253,6 +259,80 @@ pub fn room_chest_system(
             },
             center,
         );
+    }
+}
+
+/// M2-T6 (`docs/conventions.md` §50) : pose les présentoirs d'un type de salle à boutique
+/// (`RoomKindDef::shop`) au centre de chaque salle de l'étage courant qui n'en a pas encore
+/// (clés `shelf:<salle>:<i>`). Objets tirés dans le pool de la boutique par
+/// `game::shop::draw_shelves` (graine de contenu, indépendante du moment), prix par rareté
+/// (`economy.ron`). Un présentoir vendu reste en place (`sold`), donc n'est pas reposé.
+#[allow(clippy::too_many_arguments)]
+pub fn room_shop_system(
+    mut commands: Commands,
+    table: Option<Res<RoomKindTable>>,
+    rooms: CurrentRooms,
+    existing: Query<&items::Shelf>,
+    tables: Res<items::LootTables>,
+    item_table: Res<items::ItemTable>,
+    global_assets: Res<game::global_asset::GlobalAsset>,
+    economies: Res<Assets<game::economy::EconomyConfig>>,
+    run_seed: Option<Res<bevy_fixed::rng::RunSeed>>,
+    floor: Option<Res<run::FloorState>>,
+    mut id_factory: ResMut<utils::net_id::GgrsNetIdFactory>,
+) {
+    let Some(table) = table else {
+        return;
+    };
+    if !table.0.values().any(|def| def.shop.is_some()) {
+        return;
+    }
+    let economy = global_assets
+        .economy_config
+        .as_ref()
+        .and_then(|handle| economies.get(handle));
+    let (run_seed, floor) = game::loot::seed_context(&run_seed, &floor);
+    let present: std::collections::BTreeSet<&str> =
+        existing.iter().map(|shelf| shelf.key.as_str()).collect();
+    for (id, bounds, kind) in sorted_rooms(&rooms) {
+        let Some(def) = table.0.get(&kind.0).and_then(|def| def.shop.as_ref()) else {
+            continue;
+        };
+        if present.contains(format!("shelf:{}:0", id.0).as_str()) {
+            continue;
+        }
+        let Some(pool) = tables.0.get(&def.table) else {
+            continue;
+        };
+        let picks = game::shop::draw_shelves(pool, &item_table, run_seed, floor, &id.0, def.shelves);
+        let two = Fixed::from_num(2);
+        let center_x = bounds.position.x + bounds.size.x / two;
+        let center_y = bounds.position.y + bounds.size.y / two;
+        let count = picks.len() as i32;
+        for (index, item_id) in picks.into_iter().enumerate() {
+            let rarity = item_table
+                .0
+                .get(&item_id)
+                .map(|item| item.rarity)
+                .unwrap_or_default();
+            let offset = (2 * index as i32 - (count - 1)) * game::shop::SHELF_SPACING / 2;
+            game::shop::spawn_shelf(
+                &mut commands,
+                &mut id_factory,
+                items::Shelf {
+                    key: format!("shelf:{}:{index}", id.0),
+                    item_id,
+                    price: game::shop::shelf_price(economy, rarity),
+                    sold: false,
+                    retry_after: 0,
+                },
+                bevy_fixed::fixed_math::FixedVec3::new(
+                    center_x + Fixed::from_num(offset),
+                    center_y,
+                    bevy_fixed::fixed_math::FIXED_ZERO,
+                ),
+            );
+        }
     }
 }
 

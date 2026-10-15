@@ -1,0 +1,6 @@
+// Fixture M2-T6 : shells_drop avec min > max (OutOfRange)
+(
+    name: "fixture-shop_shells_inverted",
+    content_folders: [(path: "economy/economy.ron", kind: "Economy")],
+    entry: (start_map: "unused", default_seed: 1),
+)

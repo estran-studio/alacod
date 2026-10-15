@@ -1,0 +1,24 @@
+// M2-T6 (boutique, docs/conventions.md §50) : même présentoir (« boussole », 30 douilles) mais le
+// joueur n'en a que 10 : l'Interaction (f10, puis f50 après l'anti-rebond) est refusée, rien ne
+// change : solde 10, aucun objet, présentoir non vendu (`CurrencyEvent { delta: 0 }`).
+//
+// À regarder : f10 et f50 le refus ; rien ne bouge.
+Scenario(
+    powerup_drop_chance_override: "0.0",
+    game: "testbed",
+    floors: Some("deux_niveaux"),
+    shop: (shelves: [(key: "s", item: "boussole", price: 30, x: "424.0", y: "696.0", at_frame: 5)]),
+    frames: 80,
+    players: [
+        (currency: Some(10), inputs: [
+            (from: 10, to: 11, buttons: [Interaction]),
+            (from: 12, to: 13, buttons: [Interaction]),
+            (from: 50, to: 51, buttons: [Interaction]),
+        ]),
+    ],
+    expect: [
+        Currency(handle: 0, min: 10, max: 10, at_frame: 70),
+        ItemCount(handle: 0, id: "boussole", count: 0, at_frame: 70),
+        Shelf(nth: 0, sold: Some(false), at_frame: 70),
+    ],
+)

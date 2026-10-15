@@ -1,0 +1,29 @@
+// M2-T6 (boutique, docs/conventions.md §50) : un présentoir « boussole » à 30 douilles au pied du
+// joueur (f5), qui en a 100. L'Interaction de f10 l'achète : la boussole est tenue (HasItem),
+// `Currency` tombe à 70, le présentoir est vendu ; une seconde Interaction (f40) ne coûte rien.
+//
+// À regarder : f10 l'achat ; solde 70 ; le présentoir ne répond plus.
+Scenario(
+    powerup_drop_chance_override: "0.0",
+    game: "testbed",
+    floors: Some("deux_niveaux"),
+    shop: (shelves: [(key: "s", item: "boussole", price: 30, x: "424.0", y: "696.0", at_frame: 5)]),
+    frames: 80,
+    players: [
+        (currency: Some(100), inputs: [
+            (from: 10, to: 11, buttons: [Interaction]),
+            (from: 40, to: 41, buttons: [Interaction]),
+        ]),
+    ],
+    expect: [
+        ShelfCount(count: 1, at_frame: 8),
+        Shelf(nth: 0, item: Some("boussole"), price: Some(30), sold: Some(false), at_frame: 8),
+        Currency(handle: 0, min: 100, max: 100, at_frame: 9),
+        ItemCount(handle: 0, id: "boussole", count: 0, at_frame: 9),
+        Currency(handle: 0, min: 70, max: 70, at_frame: 30),
+        HasItem(handle: 0, id: "boussole", at_frame: 30),
+        Shelf(nth: 0, sold: Some(true), at_frame: 30),
+        Currency(handle: 0, min: 70, max: 70, at_frame: 70),
+        ItemCount(handle: 0, id: "boussole", count: 1, at_frame: 70),
+    ],
+)

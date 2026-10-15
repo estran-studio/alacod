@@ -41,6 +41,7 @@ fn empty_distance_range_spawns_after_deadline_without_desync() {
         items: vec![],
         chests: vec![],
         room_reward_chance_override: None,
+        shop: Default::default(),
         profile: false,
         powerup_drop_chance_override: None,
         floors: None,

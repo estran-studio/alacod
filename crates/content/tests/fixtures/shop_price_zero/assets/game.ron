@@ -1,0 +1,6 @@
+// Fixture M2-T6 : prix de présentoir à 0 (OutOfRange)
+(
+    name: "fixture-shop_price_zero",
+    content_folders: [(path: "economy/economy.ron", kind: "Economy")],
+    entry: (start_map: "unused", default_seed: 1),
+)

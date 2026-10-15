@@ -81,11 +81,11 @@ pub fn spawn_item_pickup(
 
 /// Inventaires à créer pendant un système, par `GgrsNetId` du joueur : un joueur sans
 /// `Inventory` peut recevoir plusieurs objets dans la même frame.
-type FreshInventories = BTreeMap<usize, (Entity, Inventory)>;
+pub(crate) type FreshInventories = BTreeMap<usize, (Entity, Inventory)>;
 
 /// Applique `f` à l'inventaire du joueur, existant ou à créer (inséré par
 /// [`insert_fresh_inventories`] en fin de système).
-fn with_inventory<R>(
+pub(crate) fn with_inventory<R>(
     existing: Option<Mut<Inventory>>,
     fresh: &mut FreshInventories,
     net_id: usize,
@@ -101,7 +101,7 @@ fn with_inventory<R>(
     }
 }
 
-fn insert_fresh_inventories(commands: &mut Commands, fresh: FreshInventories) {
+pub(crate) fn insert_fresh_inventories(commands: &mut Commands, fresh: FreshInventories) {
     for (_, (entity, inventory)) in fresh {
         commands.entity(entity).insert(inventory);
     }
@@ -291,7 +291,7 @@ pub fn handle_item_interaction(
 /// Applique les effets `OnUse` d'un objet (actif utilisé, consommable ramassé) : `Heal`,
 /// `Modifier` (permanent) et `TimedModifier`, source `item:<id>`. Les autres actions sont
 /// refusées par le lint.
-fn apply_instant_effects(
+pub(crate) fn apply_instant_effects(
     def: &items::ItemDef,
     item_id: &str,
     frame: u32,

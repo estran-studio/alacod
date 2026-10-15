@@ -551,6 +551,7 @@ pub fn build_enemy_scenario(
         items: vec![],
         chests: vec![],
         room_reward_chance_override: None,
+        shop: Default::default(),
         profile: false,
         powerup_drop_chance_override: Some(fixed_math::FIXED_ZERO),
         floors: None,
@@ -889,6 +890,7 @@ fn base_scenario(
         mode: None,
         chests: vec![],
         room_reward_chance_override: None,
+        shop: Default::default(),
     }
 }
 
@@ -1073,6 +1075,7 @@ pub fn build_weapon_scenario(
         items: vec![],
         chests: vec![],
         room_reward_chance_override: None,
+        shop: Default::default(),
         profile: false,
         powerup_drop_chance_override: Some(bevy_fixed::fixed_math::FIXED_ZERO),
         floors: None,

@@ -1,0 +1,28 @@
+// M2-T6 (monnaie au sol, docs/conventions.md §50) : les deux `dummy` de la salle de combat lâchent
+// chacun 3 douilles (`shop.shells_drop_override` : (3, 3), tirage au `loot_seed` de la clé
+// `shells:<id du mort>`). Le joueur démarre à 0 ; il tire depuis l'entrée de la salle, puis
+// avance sur les tas, qui se ramassent au contact et créditent `Currency` (raison `pickup`).
+//
+// À regarder : f30-90 le joueur entre ; f90-300 il tire sur les `dummy` ; deux tas de douilles
+// apparaissent à leur mort ; il les ramasse en avançant, le solde passe à 6.
+Scenario(
+    powerup_drop_chance_override: "0.0",
+    room_reward_chance_override: "0.0",
+    shop: (shells_drop_override: Some((3, 3))),
+    game: "testbed",
+    map: "testbed/salles.ldtk",
+    map_seed: 1,
+    frames: 700,
+    players: [
+        (currency: Some(0), inputs: [
+            (from: 30, to: 90, buttons: [Right]),
+            (from: 90, to: 500, buttons: [Fire], pan: (64, 0)),
+            (from: 520, to: 620, buttons: [Right]),
+        ]),
+    ],
+    expect: [
+        Currency(handle: 0, min: 0, max: 0, at_frame: 80),
+        Currency(handle: 0, min: 6, max: 6, at_frame: 690),
+        ShellPiles(count: 0, at_frame: 690),
+    ],
+)

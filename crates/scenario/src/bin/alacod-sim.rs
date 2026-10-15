@@ -322,6 +322,7 @@ fn main() {
             items: vec![],
             chests: vec![],
             room_reward_chance_override: None,
+            shop: Default::default(),
             profile: false,
             powerup_drop_chance_override: None,
             floors: floors.clone(),
