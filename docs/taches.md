@@ -650,6 +650,30 @@ entrée depuis le hub (T13). Ajoutés le 2026-10-14 :
   transition d'étage de la grammaire, traces identiques ; jouée par `scripts/nightly.sh` ensuite.
 Calendrier indicatif : **huit semaines**.
 
+### Reste à faire pour sortir de M2 (revue-sortie-m2, 2026-10-15, base `7172660`)
+
+Audit critère par critère, avec les mesures : `docs/taches/rapports/revue-sortie-m2.md`. Bilan : sur
+14 critères, 5 faits, 6 partiels, 3 manquants (hub et profil, bots sans soft-lock ni desync, vidéos et
+revue humaine). **B** = bloque la sortie, **P** = polissage (peut suivre la sortie).
+
+| # | | Tâche (fiche) | Estimation | Dépend de | Cloud |
+|---|---|---|---|---|---|
+| 1 | B | `m2-campagne-linux-desync` : 6 desyncs et 11 soft-locks sur 20 graines à 2 bots (`etages_deux`, Linux x86) ; cause, correction, campagne refaite sur 200 graines (`docs/taches/m2-campagne-linux-desync.md`, §58) | 3 j | rien | oui |
+| 2 | B | M2-T14d gabarits + D64 (équilibrage `combat`) : 12 gabarits sur 15, `escouade` hors de `etage` (`docs/taches/m2-t14-contenu-gungeon.md`, § T14d) | 3 j | 1 (le bot sert de mesure) | oui |
+| 3 | B | `m2-armes-sources` : 20 armes sans source, D62 (`docs/taches/m2-armes-sources.md`, §59) | 2 j | rien (parallèle de 1 et 2) | oui |
+| 4 | B | M2-T12 profil et déblocages (`docs/taches/m2-t12-profil-deblocages.md`, §51) | 3 j | 3 (tables de butin) | oui |
+| 5 | B | M2-T13 hub (`docs/taches/m2-t13-hub.md`) | 3 j | 4 | oui |
+| 6 | B | `m2-full-run` : `gungeon_full_run`, bench `grand` rempli, variante à 4 (`docs/taches/m2-full-run.md`) | 2 j | 1 à 5 | oui |
+| 7 | B | `m2-p2p-run-complete` : run complète à 2 puis 4 en ligne, D59 en réel, réseau dégradé, nightly (`docs/taches/m2-p2p-run-complete.md`) | 1,5 j | 6 | **non** (Docker, deux machines) |
+| 8 | B | Revue humaine (`docs/taches/session-test-manuelle.md`, un bloc) puis `m2-cloture-videos-digest` (`docs/taches/m2-cloture-videos-digest.md`) | 1 j + William | 6 | partiel |
+| 9 | P | D71 (écran de mutation `bevy_hui`), D72 (minicarte) : `docs/taches/dettes-ui-d71-d72.md` | 1,5 j | rien | oui |
+| 10 | P | D66/D67 lisibilité throne : `docs/taches/lisibilite-throne-d66-d67.md` | 2 j | rien | oui |
+| 11 | P | Sprites et sons propres de gungeon (placeholders de `throne`), équilibrage fin des armes et du boss | selon assets | direction artistique | non |
+
+Les lignes 1, 3, 9 et 10 démarrent tout de suite en parallèle ; 2 attend le verdict de 1 sur les
+campagnes, mais ses gabarits peuvent commencer. Chemin critique : environ 10 jours de session cloud,
+une demi-journée de William (revue) et le poste d'orchestration pour la ligne 7.
+
 ### Hors M2, gardé en file (revue M0 du 2026-10-09, `docs/digests/revue-m0.md`)
 Points de William sur `zombies` (sensations, pas des correctifs moteur), **pris par William lui-même en parallèle de M2** sur son ordinateur, branche `m0-revue-suite-contenu` (prompt : `docs/taches/m0-revue-suite-contenu.md`) :
 équilibrage des vagues (S5) et des armes (S4), volume des tirs (S7), sons de début et fin de vague
@@ -669,6 +693,8 @@ de M2 : il ne dépend pas de M3) ; M5 Hades ; M6 la
 région des chantiers puis la campagne.
 
 ### 8.1 M4 : `isaac` (Binding of Isaac) en tâches
+
+**Décision de William du 2026-10-15** : les propositions par défaut des questions Q1 à Q18 (`docs/taches/rapports/plan-m4-isaac.md` §7) sont retenues.
 
 **But** (plan §6) : effets à l'échelle (100 objets en RON), empilement de modificateurs de projectiles et
 par nombre d'exemplaires, familiers et orbitaux, rochers et bombes, cœurs, clés, sous, marchés du diable,
@@ -1489,3 +1515,4 @@ de fichiers existants hors de sa propriété, aucun `.trace`.
 Ordre proposé : V6.1, puis V6.4 et V6.5 (utiles à M0), puis V6.2 et V6.3 (M1), V6.6, V6.8, et V6.7
 quand M2 commence. Les sprites de 1837 ne passent pas par cette voie : ils viennent du pipeline
 `assetgen` de `1867_lore` (A5).
+| 2026-10-15 | revue-sortie-m2 (audit des critères de sortie de M2, session cloud, documentation et mesures seulement : lint gungeon 0 erreur / 20 avertissements d'armes ; campagne 2 bots `etages_deux` 20 graines : 0 fini, 6 desyncs, 11 soft-locks, 3 morts, identique sur `2e87834` ; 14 critères : 5 faits, 6 partiels, 3 manquants ; p2p non mesuré) | `revue-sortie-m2` | Claude (cloud) | Tâches ajoutées au §7 (`m2-campagne-linux-desync`, `m2-armes-sources`, `m2-full-run`, `m2-p2p-run-complete`, `m2-cloture-videos-digest`), rapport `docs/taches/rapports/revue-sortie-m2.md`. À relire par l'orchestrateur : l'écart avec les campagnes macOS committées. |

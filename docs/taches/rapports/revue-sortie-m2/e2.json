@@ -1,0 +1,942 @@
+[
+ {
+  "seed": 1,
+  "wave": 0,
+  "floor": 0,
+  "frames": 811,
+  "deaths": 1,
+  "kills": 0,
+  "wall_seconds": 6.003456623,
+  "desync": false,
+  "sim_fps": 146.5837547980785,
+  "damage_taken": 216,
+  "run_end": [
+   "Defeat",
+   810
+  ],
+  "dodges": 268,
+  "doors_opened": 33,
+  "players_end": [
+   {
+    "handle": 0,
+    "currency": 760,
+    "downed": true,
+    "x": 120.18744,
+    "y": -31.701202,
+    "in_spawn_room": false
+   }
+  ],
+  "waves": [],
+  "outcome": "mort",
+  "rooms": [
+   {
+    "floor": 0,
+    "total": 10,
+    "visited": 3,
+    "cleared": 0,
+    "locking": 7
+   }
+  ]
+ },
+ {
+  "seed": 2,
+  "wave": 0,
+  "floor": 0,
+  "frames": 961,
+  "deaths": 0,
+  "kills": 0,
+  "wall_seconds": 6.883101928,
+  "desync": true,
+  "sim_fps": 143.97268223674845,
+  "damage_taken": 135,
+  "dodges": 272,
+  "failures": [
+   "la simulation n'a atteint que la frame 961 sur 20000 (map pas charg\u00e9e ?)",
+   "frame 961: synctest mismatch (frames [959]) : l'\u00e9tat rejou\u00e9 apr\u00e8s rollback diff\u00e8re de l'\u00e9tat sauvegard\u00e9",
+   "trace des frames divergentes :\n  frame 957 : 2 version(s) enregistr\u00e9e(s)\n  frame 958 : 2 version(s) enregistr\u00e9e(s)\n    checksums : 958 00000000000000003f54604be5c7153e 195  \u2192  958 0000000000000000e182caf4c46e5810 190\n    (ALACOD_DIAG=1 pour le d\u00e9tail par composant)\n  frame 959 : 1 version(s) enregistr\u00e9e(s)\n"
+  ],
+  "doors_opened": 35,
+  "players_end": [
+   {
+    "handle": 0,
+    "currency": 680,
+    "downed": true,
+    "x": -37.78018,
+    "y": -117.3289,
+    "in_spawn_room": false
+   },
+   {
+    "handle": 1,
+    "currency": 1164,
+    "downed": false,
+    "x": -20.962463,
+    "y": -84.42479,
+    "in_spawn_room": false
+   }
+  ],
+  "waves": [],
+  "outcome": "desync",
+  "rooms": [
+   {
+    "floor": 0,
+    "total": 10,
+    "visited": 2,
+    "cleared": 1,
+    "locking": 7
+   }
+  ]
+ },
+ {
+  "seed": 3,
+  "wave": 0,
+  "floor": 0,
+  "frames": 1201,
+  "deaths": 0,
+  "kills": 0,
+  "wall_seconds": 8.237810013,
+  "desync": false,
+  "sim_fps": 150.69347122867197,
+  "damage_taken": 0,
+  "doors_opened": 32,
+  "players_end": [
+   {
+    "handle": 0,
+    "currency": 500,
+    "downed": false,
+    "x": -114.486465,
+    "y": 6.412674,
+    "in_spawn_room": false
+   },
+   {
+    "handle": 1,
+    "currency": 500,
+    "downed": false,
+    "x": 114.534,
+    "y": -5.334015,
+    "in_spawn_room": false
+   }
+  ],
+  "waves": [],
+  "outcome": "soft-lock",
+  "rooms": [
+   {
+    "floor": 0,
+    "total": 10,
+    "visited": 5,
+    "cleared": 0,
+    "locking": 7
+   }
+  ],
+  "softlock_observations": [
+   "plafond atteint : phase NotStarted, 0 ennemis de vague pr\u00e9sents, 0 encore \u00e0 g\u00e9n\u00e9rer",
+   "0 ennemis hors de leur champ de flux depuis leur case exacte (champs : Ground, GroundBreaker)",
+   "restant : bullet_kin #127 case (-10, -2), 40 PV, joueur 0 le plus proche \u00e0 48.29282 (en vue)",
+   "restant : bullet_kin #129 case (-10, 1), 40 PV, joueur 0 le plus proche \u00e0 41.43163 (en vue)"
+  ]
+ },
+ {
+  "seed": 4,
+  "wave": 0,
+  "floor": 0,
+  "frames": 1479,
+  "deaths": 0,
+  "kills": 0,
+  "wall_seconds": 10.288082846,
+  "desync": false,
+  "sim_fps": 146.4412873245751,
+  "damage_taken": 54,
+  "dodges": 54,
+  "doors_opened": 33,
+  "players_end": [
+   {
+    "handle": 0,
+    "currency": 683,
+    "downed": false,
+    "x": 1.5564117,
+    "y": 118.54982,
+    "in_spawn_room": false
+   },
+   {
+    "handle": 1,
+    "currency": 802,
+    "downed": false,
+    "x": 5.1419373,
+    "y": 115.178085,
+    "in_spawn_room": false
+   }
+  ],
+  "waves": [],
+  "outcome": "soft-lock",
+  "rooms": [
+   {
+    "floor": 0,
+    "total": 10,
+    "visited": 4,
+    "cleared": 1,
+    "locking": 7
+   }
+  ],
+  "softlock_observations": [
+   "plafond atteint : phase NotStarted, 0 ennemis de vague pr\u00e9sents, 0 encore \u00e0 g\u00e9n\u00e9rer",
+   "0 ennemis hors de leur champ de flux depuis leur case exacte (champs : Ground, GroundBreaker)",
+   "restant : bullet_kin #128 case (-2, -18), 40 PV, joueur 1 le plus proche \u00e0 396.25116 (hors de vue)",
+   "restant : bullet_kin #130 case (-2, -15), 40 PV, joueur 1 le plus proche \u00e0 348.39905 (hors de vue)"
+  ]
+ },
+ {
+  "seed": 5,
+  "wave": 0,
+  "floor": 0,
+  "frames": 1588,
+  "deaths": 0,
+  "kills": 0,
+  "wall_seconds": 10.526267658,
+  "desync": true,
+  "sim_fps": 154.29784666598826,
+  "damage_taken": 216,
+  "dodges": 409,
+  "failures": [
+   "la simulation n'a atteint que la frame 1588 sur 20000 (map pas charg\u00e9e ?)",
+   "frame 1588: synctest mismatch (frames [1586]) : l'\u00e9tat rejou\u00e9 apr\u00e8s rollback diff\u00e8re de l'\u00e9tat sauvegard\u00e9",
+   "trace des frames divergentes :\n  frame 1584 : 2 version(s) enregistr\u00e9e(s)\n  frame 1585 : 2 version(s) enregistr\u00e9e(s)\n    checksums : 1585 0000000000000000c4ada04079ba96d5 169  \u2192  1585 00000000000000003ae498736d4ed3b5 164\n    (ALACOD_DIAG=1 pour le d\u00e9tail par composant)\n  frame 1586 : 1 version(s) enregistr\u00e9e(s)\n"
+  ],
+  "doors_opened": 49,
+  "players_end": [
+   {
+    "handle": 0,
+    "currency": 939,
+    "downed": true,
+    "x": 156.4302,
+    "y": 96.98259,
+    "in_spawn_room": false
+   },
+   {
+    "handle": 1,
+    "currency": 1535,
+    "downed": false,
+    "x": 165.95477,
+    "y": 140.78,
+    "in_spawn_room": false
+   }
+  ],
+  "waves": [],
+  "outcome": "desync",
+  "rooms": [
+   {
+    "floor": 0,
+    "total": 10,
+    "visited": 6,
+    "cleared": 3,
+    "locking": 7
+   }
+  ]
+ },
+ {
+  "seed": 6,
+  "wave": 0,
+  "floor": 0,
+  "frames": 2397,
+  "deaths": 0,
+  "kills": 0,
+  "wall_seconds": 15.714013491,
+  "desync": false,
+  "sim_fps": 154.66723210477332,
+  "damage_taken": 245,
+  "dodges": 278,
+  "doors_opened": 45,
+  "players_end": [
+   {
+    "handle": 0,
+    "currency": 900,
+    "downed": false,
+    "x": -116.49483,
+    "y": -113.49982,
+    "in_spawn_room": false
+   },
+   {
+    "handle": 1,
+    "currency": 1287,
+    "downed": false,
+    "x": -127.07103,
+    "y": -119.13083,
+    "in_spawn_room": false
+   }
+  ],
+  "waves": [],
+  "outcome": "soft-lock",
+  "rooms": [
+   {
+    "floor": 0,
+    "total": 10,
+    "visited": 7,
+    "cleared": 3,
+    "locking": 7
+   }
+  ],
+  "softlock_observations": [
+   "plafond atteint : phase NotStarted, 0 ennemis de vague pr\u00e9sents, 0 encore \u00e0 g\u00e9n\u00e9rer",
+   "0 ennemis hors de leur champ de flux depuis leur case exacte (champs : Ground, GroundBreaker)",
+   "restant : bullet_kin #124 case (-10, -15), 40 PV, joueur 1 le plus proche \u00e0 115.58937 (hors de vue)",
+   "restant : bullet_kin #126 case (-10, -10), 40 PV, joueur 1 le plus proche \u00e0 41.25331 (en vue)"
+  ]
+ },
+ {
+  "seed": 7,
+  "wave": 0,
+  "floor": 0,
+  "frames": 1201,
+  "deaths": 0,
+  "kills": 0,
+  "wall_seconds": 7.431671467,
+  "desync": false,
+  "sim_fps": 166.50298360494975,
+  "damage_taken": 0,
+  "doors_opened": 31,
+  "players_end": [
+   {
+    "handle": 0,
+    "currency": 500,
+    "downed": false,
+    "x": -3.1285706,
+    "y": -118.33089,
+    "in_spawn_room": false
+   },
+   {
+    "handle": 1,
+    "currency": 500,
+    "downed": false,
+    "x": 1.2254486,
+    "y": -119.16194,
+    "in_spawn_room": false
+   }
+  ],
+  "waves": [],
+  "outcome": "soft-lock",
+  "rooms": [
+   {
+    "floor": 0,
+    "total": 10,
+    "visited": 2,
+    "cleared": 0,
+    "locking": 7
+   }
+  ],
+  "softlock_observations": [
+   "plafond atteint : phase NotStarted, 0 ennemis de vague pr\u00e9sents, 0 encore \u00e0 g\u00e9n\u00e9rer",
+   "0 ennemis hors de leur champ de flux depuis leur case exacte (champs : Ground, GroundBreaker)",
+   "restant : fuyard_kin #130 case (-10, -2), 35 PV, joueur 0 le plus proche \u00e0 176.24136 (hors de vue)",
+   "restant : bullet_kin #132 case (-10, 1), 40 PV, joueur 0 le plus proche \u00e0 205.96306 (hors de vue)"
+  ]
+ },
+ {
+  "seed": 8,
+  "wave": 0,
+  "floor": 0,
+  "frames": 955,
+  "deaths": 0,
+  "kills": 0,
+  "wall_seconds": 6.292559204,
+  "desync": true,
+  "sim_fps": 156.4228890341583,
+  "damage_taken": 188,
+  "dodges": 300,
+  "failures": [
+   "la simulation n'a atteint que la frame 955 sur 20000 (map pas charg\u00e9e ?)",
+   "frame 955: synctest mismatch (frames [953]) : l'\u00e9tat rejou\u00e9 apr\u00e8s rollback diff\u00e8re de l'\u00e9tat sauvegard\u00e9",
+   "trace des frames divergentes :\n  frame 951 : 2 version(s) enregistr\u00e9e(s)\n  frame 952 : 2 version(s) enregistr\u00e9e(s)\n    checksums : 952 000000000000000017b61108e9f70788 195  \u2192  952 00000000000000003d10051098f7702e 190\n    (ALACOD_DIAG=1 pour le d\u00e9tail par composant)\n  frame 953 : 1 version(s) enregistr\u00e9e(s)\n"
+  ],
+  "doors_opened": 40,
+  "players_end": [
+   {
+    "handle": 0,
+    "currency": 737,
+    "downed": true,
+    "x": 154.34657,
+    "y": 28.805618,
+    "in_spawn_room": false
+   },
+   {
+    "handle": 1,
+    "currency": 1100,
+    "downed": false,
+    "x": 165.81131,
+    "y": -31.826431,
+    "in_spawn_room": false
+   }
+  ],
+  "waves": [],
+  "outcome": "desync",
+  "rooms": [
+   {
+    "floor": 0,
+    "total": 10,
+    "visited": 3,
+    "cleared": 1,
+    "locking": 7
+   }
+  ]
+ },
+ {
+  "seed": 9,
+  "wave": 0,
+  "floor": 0,
+  "frames": 2371,
+  "deaths": 0,
+  "kills": 0,
+  "wall_seconds": 15.396855351,
+  "desync": false,
+  "sim_fps": 156.33610245047166,
+  "damage_taken": 247,
+  "dodges": 216,
+  "doors_opened": 44,
+  "players_end": [
+   {
+    "handle": 0,
+    "currency": 844,
+    "downed": false,
+    "x": -114.36069,
+    "y": 6.9110565,
+    "in_spawn_room": false
+   },
+   {
+    "handle": 1,
+    "currency": 1370,
+    "downed": false,
+    "x": -113.47153,
+    "y": 13.155487,
+    "in_spawn_room": false
+   }
+  ],
+  "waves": [],
+  "outcome": "soft-lock",
+  "rooms": [
+   {
+    "floor": 0,
+    "total": 9,
+    "visited": 6,
+    "cleared": 3,
+    "locking": 6
+   }
+  ],
+  "softlock_observations": [
+   "plafond atteint : phase NotStarted, 0 ennemis de vague pr\u00e9sents, 0 encore \u00e0 g\u00e9n\u00e9rer",
+   "0 ennemis hors de leur champ de flux depuis leur case exacte (champs : Ground, GroundBreaker)",
+   "restant : bullet_kin #109 case (-10, -2), 40 PV, joueur 0 le plus proche \u00e0 48.70535 (en vue)",
+   "restant : bullet_kin #111 case (-10, 1), 40 PV, joueur 1 le plus proche \u00e0 40.02557 (en vue)"
+  ]
+ },
+ {
+  "seed": 10,
+  "wave": 0,
+  "floor": 0,
+  "frames": 1400,
+  "deaths": 0,
+  "kills": 0,
+  "wall_seconds": 9.030574569,
+  "desync": false,
+  "sim_fps": 158.8605573112938,
+  "damage_taken": 42,
+  "dodges": 86,
+  "doors_opened": 31,
+  "players_end": [
+   {
+    "handle": 0,
+    "currency": 822,
+    "downed": false,
+    "x": 243.344,
+    "y": 8.459122,
+    "in_spawn_room": false
+   },
+   {
+    "handle": 1,
+    "currency": 586,
+    "downed": false,
+    "x": 242.58858,
+    "y": 7.6131134,
+    "in_spawn_room": false
+   }
+  ],
+  "waves": [],
+  "outcome": "soft-lock",
+  "rooms": [
+   {
+    "floor": 0,
+    "total": 9,
+    "visited": 4,
+    "cleared": 1,
+    "locking": 6
+   }
+  ],
+  "softlock_observations": [
+   "plafond atteint : phase NotStarted, 0 ennemis de vague pr\u00e9sents, 0 encore \u00e0 g\u00e9n\u00e9rer",
+   "0 ennemis hors de leur champ de flux depuis leur case exacte (champs : Ground, GroundBreaker)",
+   "restant : fuyard_kin #110 case (-10, 6), 35 PV, joueur 1 le plus proche \u00e0 406.1903 (hors de vue)",
+   "restant : bullet_kin #112 case (-10, 9), 40 PV, joueur 1 le plus proche \u00e0 420.17581 (hors de vue)"
+  ]
+ },
+ {
+  "seed": 11,
+  "wave": 0,
+  "floor": 0,
+  "frames": 1201,
+  "deaths": 0,
+  "kills": 0,
+  "wall_seconds": 8.004878349,
+  "desync": false,
+  "sim_fps": 154.98097827091038,
+  "damage_taken": 0,
+  "doors_opened": 25,
+  "players_end": [
+   {
+    "handle": 0,
+    "currency": 500,
+    "downed": false,
+    "x": -3.1285706,
+    "y": -118.33089,
+    "in_spawn_room": false
+   },
+   {
+    "handle": 1,
+    "currency": 500,
+    "downed": false,
+    "x": 1.2254486,
+    "y": -119.16194,
+    "in_spawn_room": false
+   }
+  ],
+  "waves": [],
+  "outcome": "soft-lock",
+  "rooms": [
+   {
+    "floor": 0,
+    "total": 9,
+    "visited": 2,
+    "cleared": 0,
+    "locking": 6
+   }
+  ],
+  "softlock_observations": [
+   "plafond atteint : phase NotStarted, 0 ennemis de vague pr\u00e9sents, 0 encore \u00e0 g\u00e9n\u00e9rer",
+   "0 ennemis hors de leur champ de flux depuis leur case exacte (champs : Ground, GroundBreaker)",
+   "restant : fuyard_kin #113 case (-10, -10), 35 PV, joueur 0 le plus proche \u00e0 152.63129 (en vue)",
+   "restant : bullet_kin #115 case (-10, -7), 40 PV, joueur 0 le plus proche \u00e0 149.55962 (hors de vue)"
+  ]
+ },
+ {
+  "seed": 12,
+  "wave": 0,
+  "floor": 0,
+  "frames": 1242,
+  "deaths": 0,
+  "kills": 0,
+  "wall_seconds": 8.620193823,
+  "desync": true,
+  "sim_fps": 148.43724061204716,
+  "damage_taken": 247,
+  "dodges": 497,
+  "failures": [
+   "la simulation n'a atteint que la frame 1242 sur 20000 (map pas charg\u00e9e ?)",
+   "frame 1242: synctest mismatch (frames [1240]) : l'\u00e9tat rejou\u00e9 apr\u00e8s rollback diff\u00e8re de l'\u00e9tat sauvegard\u00e9",
+   "trace des frames divergentes :\n  frame 1238 : 2 version(s) enregistr\u00e9e(s)\n  frame 1239 : 2 version(s) enregistr\u00e9e(s)\n    checksums : 1239 0000000000000000d9ad904058de8d46 165  \u2192  1239 00000000000000003290f111982e9b56 160\n    (ALACOD_DIAG=1 pour le d\u00e9tail par composant)\n  frame 1240 : 1 version(s) enregistr\u00e9e(s)\n"
+  ],
+  "doors_opened": 38,
+  "players_end": [
+   {
+    "handle": 0,
+    "currency": 997,
+    "downed": true,
+    "x": 37.548264,
+    "y": -284.7631,
+    "in_spawn_room": false
+   },
+   {
+    "handle": 1,
+    "currency": 1312,
+    "downed": false,
+    "x": 37.3425,
+    "y": -268.45984,
+    "in_spawn_room": false
+   }
+  ],
+  "waves": [],
+  "outcome": "desync",
+  "rooms": [
+   {
+    "floor": 0,
+    "total": 9,
+    "visited": 4,
+    "cleared": 2,
+    "locking": 6
+   }
+  ]
+ },
+ {
+  "seed": 13,
+  "wave": 0,
+  "floor": 0,
+  "frames": 974,
+  "deaths": 1,
+  "kills": 0,
+  "wall_seconds": 6.953591441,
+  "desync": false,
+  "sim_fps": 144.615306156727,
+  "damage_taken": 221,
+  "run_end": [
+   "Defeat",
+   973
+  ],
+  "dodges": 211,
+  "doors_opened": 43,
+  "players_end": [
+   {
+    "handle": 1,
+    "currency": 1080,
+    "downed": true,
+    "x": -37.752914,
+    "y": -287.76843,
+    "in_spawn_room": false
+   }
+  ],
+  "waves": [],
+  "outcome": "mort",
+  "rooms": [
+   {
+    "floor": 0,
+    "total": 12,
+    "visited": 4,
+    "cleared": 1,
+    "locking": 9
+   }
+  ]
+ },
+ {
+  "seed": 14,
+  "wave": 0,
+  "floor": 0,
+  "frames": 1570,
+  "deaths": 0,
+  "kills": 0,
+  "wall_seconds": 9.047346792,
+  "desync": false,
+  "sim_fps": 177.20257595885766,
+  "damage_taken": 90,
+  "dodges": 103,
+  "doors_opened": 31,
+  "players_end": [
+   {
+    "handle": 0,
+    "currency": 652,
+    "downed": false,
+    "x": 0.83766174,
+    "y": -245.78748,
+    "in_spawn_room": false
+   },
+   {
+    "handle": 1,
+    "currency": 1055,
+    "downed": false,
+    "x": 0.67497253,
+    "y": -245.80807,
+    "in_spawn_room": false
+   }
+  ],
+  "waves": [],
+  "outcome": "soft-lock",
+  "rooms": [
+   {
+    "floor": 0,
+    "total": 9,
+    "visited": 4,
+    "cleared": 1,
+    "locking": 6
+   }
+  ],
+  "softlock_observations": [
+   "plafond atteint : phase NotStarted, 0 ennemis de vague pr\u00e9sents, 0 encore \u00e0 g\u00e9n\u00e9rer",
+   "0 ennemis hors de leur champ de flux depuis leur case exacte (champs : Ground, GroundBreaker)",
+   "restant : fuyard_kin #113 case (-10, -2), 35 PV, joueur 1 le plus proche \u00e0 269.27396 (hors de vue)",
+   "restant : bullet_kin #115 case (-10, 1), 40 PV, joueur 1 le plus proche \u00e0 310.00974 (hors de vue)"
+  ]
+ },
+ {
+  "seed": 15,
+  "wave": 0,
+  "floor": 0,
+  "frames": 1201,
+  "deaths": 0,
+  "kills": 0,
+  "wall_seconds": 7.59394743,
+  "desync": false,
+  "sim_fps": 162.5324580211367,
+  "damage_taken": 0,
+  "doors_opened": 26,
+  "players_end": [
+   {
+    "handle": 0,
+    "currency": 500,
+    "downed": false,
+    "x": 113.636856,
+    "y": -5.2364655,
+    "in_spawn_room": false
+   },
+   {
+    "handle": 1,
+    "currency": 500,
+    "downed": false,
+    "x": 114.534,
+    "y": -5.334015,
+    "in_spawn_room": false
+   }
+  ],
+  "waves": [],
+  "outcome": "soft-lock",
+  "rooms": [
+   {
+    "floor": 0,
+    "total": 9,
+    "visited": 3,
+    "cleared": 0,
+    "locking": 6
+   }
+  ],
+  "softlock_observations": [
+   "plafond atteint : phase NotStarted, 0 ennemis de vague pr\u00e9sents, 0 encore \u00e0 g\u00e9n\u00e9rer",
+   "0 ennemis hors de leur champ de flux depuis leur case exacte (champs : Ground, GroundBreaker)",
+   "restant : bullet_kin #110 case (-10, -7), 40 PV, joueur 0 le plus proche \u00e0 283.40283 (hors de vue)",
+   "restant : bullet_kin #112 case (-10, -2), 40 PV, joueur 0 le plus proche \u00e0 266.2987 (hors de vue)"
+  ]
+ },
+ {
+  "seed": 16,
+  "wave": 0,
+  "floor": 0,
+  "frames": 1479,
+  "deaths": 0,
+  "kills": 0,
+  "wall_seconds": 9.802291814,
+  "desync": false,
+  "sim_fps": 154.47906418941773,
+  "damage_taken": 54,
+  "dodges": 54,
+  "doors_opened": 34,
+  "players_end": [
+   {
+    "handle": 0,
+    "currency": 684,
+    "downed": false,
+    "x": 243.47542,
+    "y": 7.5861206,
+    "in_spawn_room": false
+   },
+   {
+    "handle": 1,
+    "currency": 803,
+    "downed": false,
+    "x": 243.9268,
+    "y": 6.8736267,
+    "in_spawn_room": false
+   }
+  ],
+  "waves": [],
+  "outcome": "soft-lock",
+  "rooms": [
+   {
+    "floor": 0,
+    "total": 11,
+    "visited": 4,
+    "cleared": 1,
+    "locking": 8
+   }
+  ],
+  "softlock_observations": [
+   "plafond atteint : phase NotStarted, 0 ennemis de vague pr\u00e9sents, 0 encore \u00e0 g\u00e9n\u00e9rer",
+   "0 ennemis hors de leur champ de flux depuis leur case exacte (champs : Ground, GroundBreaker)",
+   "restant : bullet_kin #140 case (-2, -7), 40 PV, joueur 0 le plus proche \u00e0 289.81815 (hors de vue)",
+   "restant : bullet_kin #142 case (-2, 9), 40 PV, joueur 0 le plus proche \u00e0 303.97116 (hors de vue)"
+  ]
+ },
+ {
+  "seed": 17,
+  "wave": 0,
+  "floor": 0,
+  "frames": 954,
+  "deaths": 0,
+  "kills": 0,
+  "wall_seconds": 6.151963071,
+  "desync": true,
+  "sim_fps": 160.03883319137117,
+  "damage_taken": 187,
+  "dodges": 304,
+  "failures": [
+   "la simulation n'a atteint que la frame 954 sur 20000 (map pas charg\u00e9e ?)",
+   "frame 954: synctest mismatch (frames [952]) : l'\u00e9tat rejou\u00e9 apr\u00e8s rollback diff\u00e8re de l'\u00e9tat sauvegard\u00e9",
+   "trace des frames divergentes :\n  frame 950 : 2 version(s) enregistr\u00e9e(s)\n  frame 951 : 2 version(s) enregistr\u00e9e(s)\n    checksums : 951 00000000000000007852d33d40c6dd53 170  \u2192  951 00000000000000001a0e7abe4d797ab0 167\n    (ALACOD_DIAG=1 pour le d\u00e9tail par composant)\n  frame 952 : 1 version(s) enregistr\u00e9e(s)\n"
+  ],
+  "doors_opened": 35,
+  "players_end": [
+   {
+    "handle": 0,
+    "currency": 1114,
+    "downed": false,
+    "x": -165.61086,
+    "y": -11.742676,
+    "in_spawn_room": false
+   },
+   {
+    "handle": 1,
+    "currency": 828,
+    "downed": true,
+    "x": -165.75352,
+    "y": -9.885193,
+    "in_spawn_room": false
+   }
+  ],
+  "waves": [],
+  "outcome": "desync",
+  "rooms": [
+   {
+    "floor": 0,
+    "total": 9,
+    "visited": 3,
+    "cleared": 1,
+    "locking": 6
+   }
+  ]
+ },
+ {
+  "seed": 18,
+  "wave": 0,
+  "floor": 0,
+  "frames": 1097,
+  "deaths": 0,
+  "kills": 0,
+  "wall_seconds": 7.284033689,
+  "desync": true,
+  "sim_fps": 155.04412525771218,
+  "damage_taken": 189,
+  "dodges": 368,
+  "failures": [
+   "la simulation n'a atteint que la frame 1097 sur 20000 (map pas charg\u00e9e ?)",
+   "frame 1097: synctest mismatch (frames [1095]) : l'\u00e9tat rejou\u00e9 apr\u00e8s rollback diff\u00e8re de l'\u00e9tat sauvegard\u00e9",
+   "trace des frames divergentes :\n  frame 1093 : 2 version(s) enregistr\u00e9e(s)\n  frame 1094 : 2 version(s) enregistr\u00e9e(s)\n    checksums : 1094 0000000000000000dea46b7252145bce 166  \u2192  1094 00000000000000001378be2224aa1382 161\n    (ALACOD_DIAG=1 pour le d\u00e9tail par composant)\n  frame 1095 : 1 version(s) enregistr\u00e9e(s)\n"
+  ],
+  "doors_opened": 36,
+  "players_end": [
+   {
+    "handle": 0,
+    "currency": 918,
+    "downed": true,
+    "x": 293.80243,
+    "y": 1.9677887,
+    "in_spawn_room": false
+   },
+   {
+    "handle": 1,
+    "currency": 1241,
+    "downed": false,
+    "x": 293.58344,
+    "y": 39.02327,
+    "in_spawn_room": false
+   }
+  ],
+  "waves": [],
+  "outcome": "desync",
+  "rooms": [
+   {
+    "floor": 0,
+    "total": 9,
+    "visited": 3,
+    "cleared": 2,
+    "locking": 6
+   }
+  ]
+ },
+ {
+  "seed": 19,
+  "wave": 0,
+  "floor": 0,
+  "frames": 1486,
+  "deaths": 0,
+  "kills": 0,
+  "wall_seconds": 10.181013028,
+  "desync": false,
+  "sim_fps": 148.62999041083512,
+  "damage_taken": 6,
+  "dodges": 16,
+  "doors_opened": 37,
+  "players_end": [
+   {
+    "handle": 0,
+    "currency": 624,
+    "downed": false,
+    "x": -139.21881,
+    "y": -113.44559,
+    "in_spawn_room": false
+   },
+   {
+    "handle": 1,
+    "currency": 680,
+    "downed": false,
+    "x": -128.64049,
+    "y": -117.52464,
+    "in_spawn_room": false
+   }
+  ],
+  "waves": [],
+  "outcome": "soft-lock",
+  "rooms": [
+   {
+    "floor": 0,
+    "total": 10,
+    "visited": 5,
+    "cleared": 1,
+    "locking": 7
+   }
+  ],
+  "softlock_observations": [
+   "plafond atteint : phase NotStarted, 0 ennemis de vague pr\u00e9sents, 0 encore \u00e0 g\u00e9n\u00e9rer",
+   "0 ennemis hors de leur champ de flux depuis leur case exacte (champs : Ground, GroundBreaker)",
+   "restant : bullet_kin #127 case (-10, -10), 40 PV, joueur 0 le plus proche \u00e0 40.61775 (en vue)",
+   "restant : bullet_kin #129 case (-10, -7), 40 PV, joueur 0 le plus proche \u00e0 15.8927 (en vue)"
+  ]
+ },
+ {
+  "seed": 20,
+  "wave": 0,
+  "floor": 0,
+  "frames": 1145,
+  "deaths": 1,
+  "kills": 0,
+  "wall_seconds": 7.994449294,
+  "desync": false,
+  "sim_fps": 146.81664515509183,
+  "damage_taken": 251,
+  "run_end": [
+   "Defeat",
+   1144
+  ],
+  "dodges": 397,
+  "doors_opened": 37,
+  "players_end": [
+   {
+    "handle": 0,
+    "currency": 853,
+    "downed": true,
+    "x": 255.70428,
+    "y": 43.682297,
+    "in_spawn_room": false
+   }
+  ],
+  "waves": [],
+  "outcome": "mort",
+  "rooms": [
+   {
+    "floor": 0,
+    "total": 11,
+    "visited": 4,
+    "cleared": 1,
+    "locking": 8
+   }
+  ]
+ }
+]
