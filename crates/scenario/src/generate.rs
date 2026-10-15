@@ -566,6 +566,7 @@ pub fn build_enemy_scenario(
             team: None,
         }],
         mode: arena.mode,
+        ui: Vec::new(),
     }
 }
 
@@ -889,6 +890,7 @@ fn base_scenario(
         mode: None,
         chests: vec![],
         room_reward_chance_override: None,
+        ui: Vec::new(),
     }
 }
 
@@ -1081,6 +1083,7 @@ pub fn build_weapon_scenario(
         difficulty: None,
         characters: vec![],
         mode: arena.mode,
+        ui: Vec::new(),
     }
 }
 

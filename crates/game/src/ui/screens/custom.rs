@@ -300,7 +300,13 @@ fn spawn_node(
             };
             if items.is_empty() {
                 if let Some(text) = empty {
-                    spawn_text(parent, text.clone(), *size, parse_color(color).with_alpha(0.5), font);
+                    spawn_text(
+                        parent,
+                        text.clone(),
+                        *size,
+                        parse_color(color).with_alpha(0.5),
+                        font,
+                    );
                 }
             }
             for item in items {
@@ -397,12 +403,15 @@ mod tests {
     use super::super::model::{pause_view, ScreensState};
     use super::*;
     use std::path::PathBuf;
-    use std::time::{Duration, Instant};
+    use std::time::Duration;
 
     fn layout_text(label: &str) -> String {
-        format!(
-            "(root: Column((children: [Label(text: \"{label}\"), List(bind: \"entries\")])))"
-        )
+        format!("(root: Column((children: [Label(text: \"{label}\"), List(bind: \"entries\")])))")
+    }
+
+    /// Horloge réelle de Bevy (`Time<Real>`) : le test mesure sans lire l'horloge système.
+    fn real_elapsed(app: &App) -> Duration {
+        app.world().resource::<Time<Real>>().elapsed()
     }
 
     fn texts(app: &mut App) -> Vec<String> {
@@ -450,11 +459,11 @@ mod tests {
         app.add_systems(Update, draw_screen);
 
         let wait_for = |app: &mut App, wanted: &str| -> (u32, Duration) {
-            let start = Instant::now();
+            let start = real_elapsed(app);
             for updates in 1..=2000 {
                 app.update();
                 if texts(app).iter().any(|t| t.contains(wanted)) {
-                    return (updates, start.elapsed());
+                    return (updates, real_elapsed(app) - start);
                 }
                 std::thread::sleep(Duration::from_millis(1));
             }
@@ -467,12 +476,14 @@ mod tests {
         assert!(shown.contains(&"  Réglages".to_string()), "{shown:?}");
 
         std::fs::write(&file, layout_text("version B")).unwrap();
-        let reload_start = Instant::now();
-        app.world().resource::<AssetServer>().reload("ui/pause_screen.ron");
+        let reload_start = real_elapsed(&app);
+        app.world()
+            .resource::<AssetServer>()
+            .reload("ui/pause_screen.ron");
         let (updates, _) = wait_for(&mut app, "version B");
         eprintln!(
             "maison : rechargement visible en {updates} updates, {:?}",
-            reload_start.elapsed()
+            real_elapsed(&app) - reload_start
         );
         assert!(!texts(&mut app).iter().any(|t| t.contains("version A")));
         let _ = std::fs::remove_dir_all(dir);

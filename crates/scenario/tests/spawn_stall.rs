@@ -49,6 +49,7 @@ fn empty_distance_range_spawns_after_deadline_without_desync() {
         difficulty: None,
         characters: vec![],
         mode: None,
+        ui: Vec::new(),
     };
     let outcome = run_with_options(
         &scenario,

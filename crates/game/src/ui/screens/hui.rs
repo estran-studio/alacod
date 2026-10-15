@@ -288,6 +288,11 @@ mod tests {
         dir
     }
 
+    /// Horloge réelle de Bevy (`Time<Real>`) : le test mesure sans lire l'horloge système.
+    fn real_elapsed(app: &App) -> std::time::Duration {
+        app.world().resource::<Time<Real>>().elapsed()
+    }
+
     fn texts(app: &mut App) -> Vec<String> {
         let mut query = app.world_mut().query::<&Text>();
         query.iter(app.world()).map(|text| text.0.clone()).collect()
@@ -321,11 +326,11 @@ mod tests {
     }
 
     fn wait_for(app: &mut App, wanted: &str) -> (u32, std::time::Duration) {
-        let start = std::time::Instant::now();
+        let start = real_elapsed(app);
         for updates in 1..=2000 {
             app.update();
             if texts(app).iter().any(|t| t.contains(wanted)) {
-                return (updates, start.elapsed());
+                return (updates, real_elapsed(app) - start);
             }
             std::thread::sleep(std::time::Duration::from_millis(1));
         }
@@ -355,12 +360,14 @@ mod tests {
             .unwrap()
             .replace("{hint}", "version B {hint}");
         std::fs::write(&file, edited).unwrap();
-        let start = std::time::Instant::now();
-        app.world().resource::<AssetServer>().reload("ui/pause_screen.html");
+        let start = real_elapsed(&app);
+        app.world()
+            .resource::<AssetServer>()
+            .reload("ui/pause_screen.html");
         let (updates, _) = wait_for(&mut app, "version B");
         eprintln!(
             "hui : rechargement visible en {updates} updates, {:?}",
-            start.elapsed()
+            real_elapsed(&app) - start
         );
         let _ = std::fs::remove_dir_all(dir);
     }
@@ -391,7 +398,10 @@ mod tests {
         let (updates, took) = wait_for(&mut app, "Blank  ×2");
         eprintln!("hui : inventaire affiché en {updates} updates, {took:?}");
         let shown = texts(&mut app);
-        assert!(shown.contains(&"> pistolet (en main)  8 | 40".to_string()), "{shown:?}");
+        assert!(
+            shown.contains(&"> pistolet (en main)  8 | 40".to_string()),
+            "{shown:?}"
+        );
         assert!(shown.contains(&"1 / 2".to_string()), "{shown:?}");
 
         let file = dir.join("ui/inventory_screen.html");
@@ -399,13 +409,15 @@ mod tests {
             .unwrap()
             .replace(">Armes<", ">Armes équipées<");
         std::fs::write(&file, edited).unwrap();
-        let start = std::time::Instant::now();
-        app.world().resource::<AssetServer>().reload("ui/inventory_screen.html");
+        let start = real_elapsed(&app);
+        app.world()
+            .resource::<AssetServer>()
+            .reload("ui/inventory_screen.html");
         wait_for(&mut app, "Armes équipées");
         let (updates, _) = wait_for(&mut app, "Blank  ×2");
         eprintln!(
             "hui : inventaire rechargé, lignes recréées en {updates} updates, {:?}",
-            start.elapsed()
+            real_elapsed(&app) - start
         );
         let _ = std::fs::remove_dir_all(dir);
     }

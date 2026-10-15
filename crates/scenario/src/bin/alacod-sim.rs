@@ -331,6 +331,7 @@ fn main() {
             difficulty: None,
             characters: vec![],
             mode: None,
+            ui: Vec::new(),
         };
 
         let stop_early = StopEarly {

@@ -163,7 +163,10 @@ pub enum Section {
     Text(String),
     List(Vec<ListItem>),
     /// Jauge : texte et fraction dans `[0, 1]`.
-    Bar { label: String, fraction: f32 },
+    Bar {
+        label: String,
+        fraction: f32,
+    },
 }
 
 /// Ce qu'un écran affiche cette frame.
@@ -483,10 +486,7 @@ mod tests {
         );
         // Le focus déborde : il reboucle.
         assert_eq!(inventory_focus_target(&input, 7), Some(("weapons", 0)));
-        assert_eq!(
-            inventory_focus_target(&InventoryInput::default(), 3),
-            None
-        );
+        assert_eq!(inventory_focus_target(&InventoryInput::default(), 3), None);
     }
 
     #[test]
@@ -543,14 +543,20 @@ mod tests {
     #[test]
     fn pause_navigation_et_commandes() {
         let mut state = ScreensState::default();
-        assert_eq!(reduce(&mut state, UiAction::Toggle(ScreenId::Pause), 0), None);
+        assert_eq!(
+            reduce(&mut state, UiAction::Toggle(ScreenId::Pause), 0),
+            None
+        );
         assert_eq!(state.open, Some(ScreenId::Pause));
         assert_eq!(
             pause_view(&state).section_text("entries"),
             "> Reprendre\n  Recommencer\n  Lobby\n  Réglages"
         );
         reduce(&mut state, UiAction::Down, 0);
-        assert_eq!(reduce(&mut state, UiAction::Confirm, 0), Some(ScreenCommand::Restart));
+        assert_eq!(
+            reduce(&mut state, UiAction::Confirm, 0),
+            Some(ScreenCommand::Restart)
+        );
         assert_eq!(state.open, None);
 
         reduce(&mut state, UiAction::Toggle(ScreenId::Pause), 0);
@@ -561,8 +567,10 @@ mod tests {
         assert!(pause_view(&state).section_text("detail").contains("Aucun"));
         reduce(&mut state, UiAction::Up, 0);
         assert!(!state.settings_shown);
-        reduce(&mut state, UiAction::Up, 0);
-        assert_eq!(reduce(&mut state, UiAction::Confirm, 0), Some(ScreenCommand::ToLobby));
+        assert_eq!(
+            reduce(&mut state, UiAction::Confirm, 0),
+            Some(ScreenCommand::ToLobby)
+        );
     }
 
     #[test]
@@ -593,7 +601,10 @@ mod tests {
             vec![UiAction::Back]
         );
         assert_eq!(
-            actions_from_keys(Some(ScreenId::Pause), &[NavKey::Down, NavKey::Confirm, NavKey::Down]),
+            actions_from_keys(
+                Some(ScreenId::Pause),
+                &[NavKey::Down, NavKey::Confirm, NavKey::Down]
+            ),
             vec![UiAction::Down, UiAction::Confirm]
         );
     }
