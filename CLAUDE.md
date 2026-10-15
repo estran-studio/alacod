@@ -11,6 +11,8 @@ Alacod est un **engine 2D modulaire** pour roguelikes/shooters inspiré de :
 L'objectif est de créer un moteur **data-driven** où les comportements sont définis en fichiers RON et assemblés à partir de modules codés dans l'engine.
 
 Le plan de l'engine (écart avec les jeux de référence, architecture cible, jalons par clones, tests) est dans `docs/plan-engine.md` ; les tâches, les voies parallèles et l'ordre de merge dans `docs/taches.md`. Les conventions (LDtk, sprites, dossier de jeu, checklist d'un vocabulaire) sont dans `docs/conventions.md`.
+L’état courant et les critères de sortie (run accessible, P2P intégré, performance, revue humaine)
+sont synthétisés dans `docs/etat-engine.md` ; les matrices du plan décrivent l’écart initial.
 
 ## Architecture Data-Driven
 
@@ -354,8 +356,13 @@ Avant/après un refactoring de la simulation, comparer les traces : elles doiven
 - `tests/budgets.ron` : planchers de non-régression en frames simulées par seconde (défaut et
   surcharges par scénario). Sous le plancher, `make test_scenarios` avertit ; `make bench`
   (`ALACOD_BENCH_STRICT=1`) échoue.
-- `ALACOD_SCENARIO=a,b` (liste) et `ALACOD_SCENARIO_SLICE=k/n` (tranche k de n, pour jouer la suite par
+- `ALACOD_SCENARIO=a,b` (liste ; nom court unique ou id `generated/<jeu>/<nom>`, sans extension ;
+  un nom inconnu ou ambigu est une erreur, les métriques utilisent les ids uniques) et `ALACOD_SCENARIO_SLICE=k/n` (tranche k de n, pour jouer la suite par
   lots quand une commande est limitée en durée) ;
+- `make test_tools` : contrôles Python sans compilation ; `make test_crates` : tout le workspace
+  en headless sans features par défaut (la suite `scenarios` est jouée séparément).
+- `scripts/check-forbidden.sh` est strict : exceptions exactes et justifiées dans
+  `scripts/determinism-allowlist.json`, aucune nouvelle occurrence implicite.
 - `make test_scenarios` (profil `headless`, sans rendu) ; `SCENARIO=<nom>` pour un seul ;
   `BLESS=1` pour réécrire les traces après un **changement de gameplay voulu** (le dire dans le commit).
 - `make bench` : lance `test_scenarios`, puis affiche un tableau des métriques (fps, entités, balles, ennemis).

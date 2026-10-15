@@ -128,19 +128,19 @@ de `scripts/task-new.sh`, pas de worktree ni d'`env.sh`. Ce qui change :
 
 ```bash
 make test_scenarios                       # tous les scénarios (traces comparées aux .trace) ; SCENARIO=<nom> pour un seul
-make test_crates                          # cargo test des crates du workspace, mêmes features que test_scenarios (sans la suite `scenarios`)
+make test_crates                          # tout le workspace, headless sans features par défaut (sans la suite `scenarios`)
+make test_tools                           # garde-fous et comparateurs Python, sans build
 make lint                                 # alacod lint games/zombies et games/testbed : « aucune erreur »
 cargo fmt --all -- --check                # rien à afficher ; sinon `make fmt`
-./scripts/check-forbidden.sh              # avertissements préexistants tolérés, aucun nouveau
+./scripts/check-forbidden.sh              # strict ; exceptions exactes et justifiées, aucune nouvelle implicite
 ./scripts/check-rollback-registration.sh  # « OK »
 make gen GAME=zombies                     # seulement si une arme a changé (scénarios générés)
 ALACOD_BENCH_STRICT=1 make test_scenarios && ./scripts/scenario-metrics.py   # bench : à faire machine calme
 ```
-Résultats attendus aujourd'hui (main e2716ff, T2.4 et T2.5 mergées) : 58 scénarios verts en
-`make test_scenarios` (48 + 10 générés), tests des dix crates 240 réussis / 0 échec / 8 ignorés
-(`expectations` 30, `lint_fixtures` 10, `run` 13, `effects` 6), lint des deux jeux sans erreur,
-`check-forbidden` 4 avertissements préexistants, bench : `bench_bullets` ≥ 70 fps et
-`bench_horde` ≥ 38 fps (`tests/budgets.ron`).
+Les comptes historiques de tests varient avec le contenu ; consulter le rapport du commit
+revu et [les critères de sortie](../etat-engine.md), puis consigner les résultats réellement
+obtenus. `check-forbidden.sh` échoue aussi si une exception devient périmée : retirer son entrée
+ou adapter son compte avec justification, sans régénérer la liste pour accepter une régression.
 
 **p2p à deux clients** (obligatoire quand la simulation ou la session change) :
 ```bash
