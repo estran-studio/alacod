@@ -11,6 +11,9 @@
 //! [`Profiles`]. La simulation ne le lit jamais : un déblocage entre dans une run par
 //! `items::RunUnlocks`, figé au lancement et identique chez tous les pairs (M2-T12, §51).
 
+pub mod hub;
+pub use hub::*;
+
 use bevy::prelude::Resource;
 use run::{RunEnd, RunSummary};
 use serde::{Deserialize, Serialize};
@@ -19,6 +22,10 @@ use std::path::{Path, PathBuf};
 
 /// Version courante du format. `0` : fichier sans champ `version` (avant versionnement).
 pub const PROFILE_VERSION: u32 = 1;
+
+/// Jalons que [`Profile::apply_run`] ajoute aux déblocages (hors `Unlock` du jeu) : un service du
+/// hub peut en dépendre (M2-T13).
+pub const MILESTONES: [&str; 2] = ["first_run", "first_victory"];
 
 /// Monnaie méta créditée par [`Profile::apply_run`].
 pub const ESSENCE: &str = "essence";
