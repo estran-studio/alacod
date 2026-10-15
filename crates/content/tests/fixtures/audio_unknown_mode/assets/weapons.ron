@@ -1,0 +1,22 @@
+// Fixture (assets) : `audio_config` vise un mode de tir que l'arme n'a pas (« rafale ») ; le
+// fichier existe : seule l'erreur de mode, LintErrorKind::BrokenReference (`lint::lint_weapons`).
+({
+    "rifle": (
+        config: (
+            name: "rifle",
+            default_firing_mode: "default",
+            ammo_type: Balle,
+            firing_modes: {
+                "default": (firing_rate: "5.0"),
+            },
+        ),
+        audio_config: (
+            modes: {
+                "rafale": (
+                    firing: "sounds/rifle.ogg",
+                    reloading: "sounds/rifle.ogg",
+                ),
+            },
+        ),
+    ),
+})
