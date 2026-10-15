@@ -33,7 +33,7 @@ et ce rapport sont ajoutés. Conventions : §47.
 | **e1** `etages_deux`, 1 bot | **0 / 200** | 200 (100 %) | 0 | 0 | — |
 | **e2** `etages_deux`, 2 bots | **93 / 200** | 105 (52,5 %) | 2 | 0 | 1020 / 1697 / 3167 |
 
-**Desyncs : 0 sur les 800 parties** (la première lot a été rejouée deux fois par accident : mêmes résultats
+**Desyncs : 0 sur les 800 parties** (le premier lot a été rejouée deux fois par accident : mêmes résultats
 au bit près, seuls les temps d'horloge changent).
 
 ### b1 : `etages_court_deux`, 1 bot (comparaison directe avec M2-T16)
