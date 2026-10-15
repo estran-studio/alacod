@@ -839,8 +839,18 @@ sources et des ancrages dans `CLAUDE.md` § HUD). Il ne fait que **lire** l'éta
 T1.18 : les sources du joueur passent par `game::ui::hud_model` (`HudSnapshot`) et la liste
 des sources est fermée et lintée (voir §32).
 
-Champs optionnels à la racine de `hud.ron`, à côté de `widgets` : `font`, `icons`, `names`.
-Par widget : `background`.
+Champs optionnels à la racine de `hud.ron`, à côté de `widgets` : `font`, `icons`, `names`,
+`reference_size: Some((800.0, 540.0))`. Ce dernier ajuste `UiScale` aux petits viewports
+sans agrandir les grands, et masque ce HUD pendant mutation/fin de run. Sans ce champ,
+les anciens jeux conservent leur mise en page. Par widget : `background`,
+`compact: true` (défaut false) : arme lisible sans underscores, munitions `chargeur / réserve`,
+effets temporaires limités à deux lignes puis `+N effets`. Le nom de l'arme indique
+`· recharge` uniquement pendant le rechargement. Le modèle complet reste accessible
+aux scénarios/outils ; les barres ont un fond fixe sous le remplissage.
+
+Les overlays techniques (frame/FPS, caméra, arme, inspecteur natif) sont optionnels
+via `ALACOD_DEBUG_UI=1`. La feature native ne les active plus à elle seule. Le debug de
+vagues de zombies suit ce défaut ; F3 conserve sa bascule explicite.
 ```ron
 (
     // Police de tous les textes du HUD, relative à `assets/`. La police par défaut de Bevy
@@ -1962,6 +1972,16 @@ ajoute ses effets, est notée dans `Mutations`, et **`OnLevelUp` se déclenche �
 suivante** (pour tous les effets `OnLevelUp` du joueur, ceux de la nouvelle mutation compris).
 Pool épuisé : pas de choix, `OnLevelUp` directement. Moments clés `levelup`, `mutation`.
 
+`choice_timing: Immediate` est le défaut. `BetweenFloors` (revue humaine M1) conserve
+les niveaux gagnés pendant le combat dans `PendingMutations` (rollback neutre, absent
+quand vide), puis ouvre les choix après nettoyage de l'étage et ouverture du portail.
+Le portail attend que tous les joueurs vivants aient résolu leurs choix ; les projectiles
+hostiles restants sont supprimés et les dégâts des joueurs sont ignorés pendant cet
+interlude. Le timeout par choix reste actif, les horloges continuent. Le tirage `loot`
+est différé avec le choix, donc ses options et les combats suivants peuvent changer.
+Cette politique ne s'applique qu'au mode `Floors` ; les autres modes gardent le choix
+immédiat. `throne` l'active dans `progression/run.ron`.
+
 **Mutation** : kind `Mutation` (`mutations/<id>.ron`) : `(name, weight: 1, tags, max_stacks: 1,
 effects: [Effect])`.
 
@@ -2248,9 +2268,21 @@ Présentation seule : aucune trace ne change.
   `Floors` seulement). Sans valeur : texte vide, pas même le préfixe (D22).
 - **Attente** `HudText { source, contains, at_frame }` : le texte (sans préfixe) contient
   `contains` ; lue dans `HudSnapshot`, hors simulation et hors trace.
-- **Contenu** : `games/throne/assets/ui/hud.ron` — étage en haut au centre (au lieu de la
-  vague), barre de rads sous la vie et son texte à droite, niveau et statuts au-dessus de la vie,
-  munitions par type sous le nom de l'arme. zombies et testbed inchangés.
+- **Contenu après revue humaine (2026-10-14)** : `games/throne/assets/ui/hud.ron` —
+  étage en haut à gauche ; vie, niveau et barres vie/rads en bas à gauche ; arme et
+  chargeur/réserve en bas à droite ; statuts/power-ups contextuels en haut. Les textes
+  joueurs/ennemis, rads numériques et réserves des armes inactives sont retirés du HUD
+  courant. Les sources restent disponibles dans le modèle. Mutation/fin masquent le HUD.
+  Les RON HUD de zombies et testbed restent inchangés.
+
+### Polissage de revue M1 (2026-10-14)
+
+Le rendu des cartes raccourcit les descriptions générées (« regagnez 25 points de vie »
+→ « +25 PV »), en conservant déclencheurs, conditions, quantités et durées. Le modèle
+`MutationScreenView` garde la description complète. L'écran de fin Floors affiche
+étage, éliminations et durée min:sec plutôt que frames/score technique ; panneau centré.
+`play_scenario --capture <dir> --size 640x360` vérifie les petits viewports ; défaut 960x540.
+Ce sont des changements de présentation, aucune mécanique ni trace modifiée.
 
 ## 33. Restart en ligne (D14)
 
@@ -3244,6 +3276,81 @@ campagne : `alacod-sim --game gungeon --bots 1 --profiles explorateur --floors e
 `etages_court_deux` sans input scripté ; ils vérifient l'état des salles, `FloorIndex` 1 et la survie. La
 carte de l'étage suivant est chargée à l'avance : `RoomState` y désigne les salles de l'étage joué par
 `nth: 1`. Les scénarios `gungeon_floor_seed_*` (atteinte scriptée) ne changent pas.
+
+## 48. Butin, coffres et clés (M2-T5, chantier C4)
+
+Où les objets (§36, §44) apparaissent : un tirage pondéré, seedé, **indépendant du moment**, des coffres
+(dont certains à clé) et une récompense à la fin d'une salle de combat. Code : `items::loot` (contrats et
+tirage pur), `game::loot` (systèmes), `map_ldtk::game::rooms::room_chest_system` (coffres des types de salle).
+
+**Pool de butin** (kind `LootTable`, `loot/<id>.ron`, id = nom de fichier ; `game.ron` : `(path: "loot", kind: "LootTable")`) :
+
+```ron
+(
+    entries: [(pick: Item("key"), weight: 3), (pick: Rarity(Rare), weight: 1)],
+    exclude_held: false,                                   // défaut : faux
+    reward: Some((chance: "0.33", chest_chance: "0.25")),  // récompense de salle (chest_rarity: Common)
+)
+```
+
+- `pick: Item(id)` : un objet précis ; `pick: Rarity(r)` : **un** objet de cette rareté, uniforme parmi ceux de
+  `items/` (le poids est celui de l'entrée, pas par objet : les rares restent rares quel que soit leur nombre).
+- **Tirage** (`items::draw_loot`) : deux `next_u32` toujours consommés (l'entrée par poids, puis le candidat),
+  entrées et candidats triés (BTreeMap), donc le flux avance de la même façon quels que soient les filtres.
+- **Exclusion des objets tenus** : décision = **opt-in par pool** (`exclude_held`, faux par défaut). Elle rend
+  le tirage dépendant de l'inventaire de l'ouvreur, donc du moment ; les pools de `gungeon` ne l'activent pas.
+  Un actif tenu compte comme tenu. Si le filtre ne laisse rien, retombée sur le pool sans filtre de rareté ni
+  d'exclusion (sauf récompense de salle : un consommable ou rien).
+- **Rareté d'un coffre** (`Chest::rarity`) = rareté **minimale** de l'objet tiré (un consommable compte pour `Common`).
+
+**Flux RNG dédié, indépendant du temps.** `items::loot_seed(graine de la partie, étage, clé de contenu)` =
+FNV-1a de `loot:<graine>:<étage>:<clé>` replié sur 32 bits ; le tirage lit un **`RollbackRng` local** de cette
+graine. Il ne touche **aucun** flux de `RngStreams` : le flux nommé `"loot"` des power-ups est consommé à chaque
+mort d'ennemi, il ferait dépendre l'objet du moment d'ouverture (et changerait le hash de la ressource, comme
+`variant.rs` le note déjà). La clé de contenu est celle du coffre (`room:<salle>`, `reward:<salle>`, ou la clé
+d'un placement de scénario), jamais son `Entity` ni son `GgrsNetId`. Résultat : un coffre ouvert à la frame 30 ou
+à la frame 3000, par l'un ou l'autre joueur, donne le même objet (scénario `loot_seeded` : deux coffres de même
+clé ouverts à 120 frames d'écart donnent le même objet ; `loot_seeded_other` : une autre graine, un autre objet).
+
+**Pool d'un étage.** `Floors` : champ optionnel `loot: ["commun", "etage2"]` (index = étage, le dernier vaut
+pour les suivants) → `game::loot::FloorLootTables` (hors rollback, posé par `map_ldtk::game::floors`). Un coffre
+sans `table` utilise celui de l'étage, sinon `commun` ; la récompense de salle utilise celui de l'étage **s'il
+définit `reward`**, sinon `salle`. Lint : pool inconnu = `BrokenReference`.
+
+**Coffre** (`items::Chest { key, table, rarity, locked, opened }`, rollback + checksum + trace en variante
+**neutre**) : entité au sol avec `Interactable { Chest }` (`InteractionType::Chest`, variante en fin d'enum :
+les hash existants ne bougent pas), `GgrsNetId` par clé de contenu (`chest_<clé>`). `chest_interaction_system`
+(`Interaction`, après `handle_item_interaction`) : le premier joueur (ordre `GgrsNetId`) l'emporte. **Verrouillé**
+(`locked`) : consomme **un** consommable `key` ; sans clé, refus (rien ne change, `ggrs{chest_refused}`). Ouvert :
+un `ItemPickup` au sol à 16 unités, `opened = true`, `Interactable` retiré (le prompt et la détection n'y
+reviennent pas), `FrameEvents<ChestOpened>` (neutre). Un coffre ouvert reste en place.
+Prompt HUD (source `prompt`) : « Ouvrir le coffre », « Fermé — 1 clé » (verrouillé, sans clé), « Ouvrir — 1 clé ».
+
+**Coffre d'un type de salle.** `rooms/<id>.ron` : champ optionnel `chest: Some((table: None, locked: false,
+rarity: Common))` (`world::RoomKindDef`, qui perd `Copy`). `room_chest_system` pose le coffre au centre de chaque
+salle de l'étage courant qui n'en a pas encore (clé `room:<salle>`) : aucune entité LDtk à ajouter, tout
+gabarit d'un type donné en reçoit un. `gungeon` : `recompense` (verrouillé, rareté mini Uncommon, donc au moins un
+coffre à clé par étage dans la grammaire `etage` qui exige une récompense) et `boutique` (ouvert, en attendant M2-T6).
+
+**Récompense de salle** (`room_reward_system`, après `Run`) : une salle de type `combat` qui passe `Cleared`
+(`FrameEvents<RoomChanged>`) laisse, avec la chance `reward.chance` du pool (forcée par
+`Scenario::room_reward_chance_override`), au centre de la salle : un coffre (`chest_chance`, pool de l'étage ou
+`commun`) ou un consommable tiré dans le pool (`consumables_only`). Graine : clé `reward:<salle>`. Les clés
+tombent donc comme récompense (`gungeon` : `salle.ron`, clé de poids 3).
+
+**Lint** : pool vide, poids ≤ 0, objet inconnu (`BrokenReference`), rareté sans objet, chances hors de 0..=1,
+coffre de salle à pool inconnu, **coffre verrouillé dans un jeu sans consommable `key`** (`BrokenReference`),
+pool inconnu dans `loot` d'une séquence. Fixtures `loot_empty_table`, `loot_weight_zero`, `loot_unknown_item`,
+`loot_locked_chest_without_key`.
+
+**Scénario** : `Scenario::chests` (`ChestPlacement` : clé, pool, rareté, verrou, position, frame), comme `items` ;
+`room_reward_chance_override`. Attente `ItemCount { handle, id, count, at_frame }` (exemplaires d'un objet tenus :
+0 prouve un refus, 2 un même objet tiré deux fois). Scénarios : `loot_seeded`, `loot_seeded_other`, `chest_locked`,
+`room_reward`, `loot_floor_table` (testbed : pools `commun`/`etage2`/`salle`, séquence `deux_butin`).
+
+**Hors périmètre** : le butin du boss (table `boss` de `gungeon` prévue, branchée par M2-T7), la boutique (T6),
+le HUD des clés (T18). Les deux types de salle `recompense` et `boutique` de `gungeon` gagnent un coffre : les
+scénarios qui jouent ces gabarits (étages `etage`/`grand`) changent de trace, preuve dans le rapport.
 
 ## 52. Contenu `gungeon` (M2-T14, quatre parties)
 

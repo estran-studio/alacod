@@ -1,0 +1,59 @@
+# Rapport m2-t5-butin-coffres — butin, coffres et clés (M2, chantier C4)
+
+Branche `m2-t5-butin-coffres` depuis `main` (406eec01). Conventions : §48.
+
+## Livré
+
+- **Pools de butin** : kind `LootTable` (`loot/<id>.ron`), entrées `Item(id)` / `Rarity(r)` pondérées,
+  `exclude_held` (opt-in), `reward` (récompense de salle). `items::draw_loot` : tirage pur, deux `next_u32`
+  toujours consommés, tout trié (BTreeMap).
+- **Flux RNG dédié** : `items::loot_seed(graine, étage, clé)` + `RollbackRng` **local** ; aucun flux de
+  `RngStreams` touché (le flux nommé `"loot"` des power-ups serait consommé à chaque mort). La clé est une clé
+  de contenu, donc le moment d'ouverture, le joueur et les `Entity` ne comptent pas.
+- **Pool par étage** : `Floors.loot` (liste par index d'étage, le dernier vaut ensuite) → `FloorLootTables`.
+- **Coffres** : `items::Chest` (rollback neutre), `InteractionType::Chest`, verrouillé = une `key`, refus sans
+  clé, objet posé à côté, `FrameEvents<ChestOpened>` (neutre), prompt HUD « Fermé — 1 clé ».
+- **Coffre par type de salle** : `rooms/<id>.ron` `chest: Some(...)` ; `room_chest_system` (map_ldtk) le pose
+  au centre de chaque salle de l'étage courant. `gungeon` : `recompense` (verrouillé) et `boutique` (ouvert).
+- **Récompense de salle** : une salle `combat` `Cleared` laisse un coffre ou un consommable du pool (chance en
+  donnée par pool, `room_reward_chance_override` pour un scénario).
+- **Lint** : pool vide, poids ≤ 0, objet inconnu, rareté sans objet, chances hors 0..=1, coffre de salle à pool
+  inconnu, coffre verrouillé sans consommable `key`, pool inconnu d'une séquence. 4 fixtures.
+- **Contenu** : `gungeon` pools `commun`, `salle`, `boss` (non tiré, M2-T7) ; `testbed` pools `commun`,
+  `etage2`, `salle` et séquence `deux_butin`.
+- **Scénarios** : `loot_seeded`, `loot_seeded_other`, `chest_locked`, `room_reward`, `loot_floor_table`, et
+  l'attente `ItemCount`.
+
+## Choix et écarts
+
+- **Exclusion des objets tenus** (« à décider ») : opt-in par pool (`exclude_held`), faux partout dans
+  `gungeon`. Une exclusion par défaut ferait dépendre l'objet de l'inventaire de l'ouvreur, donc du moment :
+  c'est le contraire du point clé de la fiche. Le choix existe pour un pool qui le veut explicitement.
+- **Rareté d'un coffre** = rareté minimale de l'objet (repli sur le pool entier si rien ne passe).
+- **Coffres « dans deux gabarits »** : posés par **type de salle** (`rooms/<id>.ron`), pas par une entité LDtk :
+  ajouter une entité LDtk passe par l'extraction, l'assembleur d'étage et la transition d'étage (offsets), pour
+  un résultat identique côté joueur. Tous les gabarits d'un type en reçoivent un. Les deux types choisis,
+  `recompense` et `boutique`, sont ceux des gabarits de la grammaire `etage`/`grand` qui ne servent pas encore.
+- **`world` dépend désormais de `items`** (`RoomKindDef::chest` utilise `items::RoomChestDef`) ; `RoomKindDef`
+  perd `Copy`.
+- **Boss** : la table `boss` existe et est lintée, rien ne la tire avant M2-T7.
+- **Seed de scénario** : `RunSeed` = `map_seed` ; la position de départ d'un `Floors` dépend de la graine
+  (assemblage `Basic`), d'où des coordonnées de coffre propres à chaque graine dans `loot_seeded*`.
+
+## Vérifications
+
+- `make test_crates` : vert (items 12, content 100, etc.).
+- `make test_scenarios` : vert après fusion de `origin/main` (M2-T2, 3205ef14) ; `make lint` ×4 (zombies, testbed, throne, gungeon) vert ; `cargo fmt --all -- --check` propre ; `make gen` ×4 vert ; p2p gungeon 2 clients (port 3556) : « traces identiques 599 ».
+- **Traces existantes déplacées : 9**, toutes bénies après preuve §5 : `bench_floor`, `effect_charges`, `effect_on_room_clear`, `gungeon_boss`, `gungeon_clear`, `gungeon_floor_seed_23`, `item_active_rooms`, `rooms_lock_coop`, `rooms_lock_solo`.
+  - Cause pour 8 d'entre elles : `room_reward_system` pose un `ItemPickup` (clé ou ration) quand une salle `combat` passe en `Cleared` (+1 entité, `GgrsNetIdFactory` +1).
+  - Cause pour `bench_floor` : `room_chest_system` pose 2 coffres (salles `recompense`/`boutique`) dès la frame 0 ; leurs ids (279, 280) suivent les ids existants.
+  - Preuve : `ALACOD_DUMP_TRACE` sur `origin/main` (96b7b0aa) puis sur la branche, `scripts/trace-diff.py main.full branche.full --ignore "FrameEvents<items::loot::ChestOpened>"` (ressource neutre nouvelle) : la première frame divergente est la frame du `Cleared` (0 pour `bench_floor`), et les seules lignes en plus sont l'`ItemPickup` ou les `Chest`.
+- Incident : le worktree `main-proof` (dumps `main`) a partagé le target et pollué les artefacts de la branche (erreur `RoomChestDef` introuvable) ; résolu en touchant les `lib.rs`. Disque : 44-58 Go libres pendant les suites (`make sweep` fait avant, -32 Go).
+- **Fusion finale (2026-10-14)** : `origin/main` = 6de77f01 (M2-T7 boss/arène, M2-T11 surfaces, M2-T16 bot explorateur) fusionné (8074cf91). Conflits résolus en gardant les deux côtés (`registry.rs` : `LootTable` + `Prop`, `lint_fixtures.rs`, `core.rs`, `InteractionType::Chest` + `Table`, `hud.rs`, `rooms.rs`, `RoomKindDef.chest` + `arena`, conventions §45–48). La première suite a trouvé une ambiguïté de schedule : `room_chest_system` et `arena_waves_system`/`boss_reinforcements_system` consomment tous `GgrsNetIdFactory` ; `arena_waves_system` passe `.after(room_chest_system)` (45cc2b1e).
+- Suite après fusion : `cargo fmt`, `make test_crates` verts ; `make test_scenarios_par SHARDS=3` : tout vert sauf **six traces**, prouvées §5 contre origin/main 6de77f01 (`ALACOD_DUMP_TRACE`, `trace-diff.py --ignore "FrameEvents<items::loot::ChestOpened>"`) : `bench_floor` (f0 : deux coffres `chest_room:` de plus, ids 297/298, compteur 296→298) ; `gungeon_boss_bot` (f181), `gungeon_boss` et `gungeon_clear` (f231), `gungeon_floor_seed_23` (f310) : un `item_ration` de plus (récompense de salle) ; `table_flip_cover` : identique hors le nouveau type neutre `FrameEvents<ChestOpened>` (hash différent dès f0, aucun état de jeu ne bouge). Re-bénies, cause au message du commit.
+- Fusion faite sur 6de77f01, pas sur 9bb61797 (M2-T8 mergé entre-temps) : l'orchestrateur fait le train T5 sur ce main (`salles.ldtk` : niveau EscouadeEW de T8 + props de T11 + gabarits de coffres).
+- **Fusions suivantes (2026-10-15)** : `origin/main` f8b0663d (M2-T15 `content::reach`), 7afe43be (T14a, T17, T19, suite parallèle) puis ec69ebc1 (assets lots A/B, T16 campagne) fusionnés dans la branche, sans conflit de code (sauf `conventions.md`, deux côtés gardés). Correctif de compilation : `scenario::generate::base_scenario` (T17) gagne `chests` et `room_reward_chance_override` (champs T5).
+- **`content::reach` / D62** : `loot_pool_items` renvoie les objets des entrées `Item` des pools et ceux de la rareté d'une entrée `Rarity` ; `loot_pool_weapons` reste vide (aucune entrée de pool ne désigne d'arme). `alacod lint gungeon` : 2 avertissements (ennemi `cible`, arme `arsenal`), **plus aucun objet sans source** (les 9 de D62 : amulette, bottes, cartouchiere, etendard, fiole, key, pierre_de_soin, ration, trefle, sont donnés par les pools `salle`/`commun`/`boss`). `testbed` garde 12 objets sans source (aucun de ses pools ne les donne).
+- **Suite sur la fusion avec main ec69ebc1** : `cargo fmt`, `make lint`, `make test_crates` verts ; `make test_scenarios_par SHARDS=4` : seules deux traces divergent, **`boss_gatling`** (gungeon, f181 : un `item_ration` de plus) et **`room_combat`** (testbed, f534 : un `item_key` de plus) — récompenses de salle de T5 ; prouvées §5 contre origin/main ec69ebc1 (`trace-diff.py --ignore "FrameEvents<items::loot::ChestOpened>"`), re-bénies. p2p gungeon 2 clients : traces identiques sur 599 frames. Suite verte sur la fusion avec main ec69ebc1 (hors ces deux traces bénies, revérifiées vertes).
+- Main a bougé après le gel annoncé (assets, T16 campagne) ; D61 (246b2464) est arrivée ensuite sans bouger de trace : non refusionnée, l'orchestrateur fusionne et rejoue la suite.
+- Disque : 23–32 Go libres pendant la suite (sous le seuil de 40 Go, d'autres sessions occupent la machine).

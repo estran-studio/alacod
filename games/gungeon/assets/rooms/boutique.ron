@@ -1,2 +1,6 @@
-// Type de salle `boutique` (M2-T10, docs/conventions.md §35 et §40) : vide pour l'instant (T6).
-(locks: false)
+// Type de salle `boutique` (M2-T10, docs/conventions.md §35 et §40). M2-T5 (§48) : un coffre
+// ouvert au centre en attendant la boutique de M2-T6, qui le remplacera.
+(
+    locks: false,
+    chest: Some((locked: false)),
+)

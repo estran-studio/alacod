@@ -1,3 +1,5 @@
+// Revue M1 2026-10-10 : choix reportés après nettoyage ; attentes de timing
+// et mutations retestées. Les mesures historiques ci-dessous précèdent cette politique.
 // `throne` phase 2 (T1.10 + T1.11, docs/conventions.md §27 et §29) : choix de mutation par input
 // dans le vrai jeu. Inputs enregistrés d'un bot `prudent` sur le premier étage (graine 123456 :
 // `alacod-sim --game throne --bots 1 --profiles prudent --floors run --seeds 123456..123456
@@ -8,7 +10,9 @@
 // prise d'office à f1348 (`throne_progression`) ; ici `chasseur` (option B) est prise vers f783.
 // Le reste du script ne dépend pas du choix : portail franchi à f936 comme `throne_floor_1`.
 //
-// À regarder : comme `throne_floor_1` ; rien ne s'affiche au choix (pas d'écran avant T1.16).
+// Mesure revue M1 : dernier ennemi mort à f539 ; ChoiceB (f778–782) sélectionne
+// Vampire à f784, portail franchi à f935. Le tirage différé change les options.
+// À regarder : choix après nettoyage, puis passage au deuxième étage.
 #![enable(implicit_some)]
 Scenario(
     game: "throne",
@@ -707,9 +711,10 @@ Scenario(
         ),
     ],
     expect: [
+        FloorIndex(index: 0, at_frame: 777),
         Mutations(handle: 0, count: 0, at_frame: 777),
-        Mutations(handle: 0, contains: ["chasseur"], count: 1, at_frame: 786),
-        Event(kind: "mutation", label_contains: "chasseur", by_frame: 786),
+        Mutations(handle: 0, contains: ["vampire"], count: 1, at_frame: 786),
+        Event(kind: "mutation", label_contains: "vampire", by_frame: 786),
         FloorIndex(index: 1, at_frame: 945),
     ],
     floors: "run",

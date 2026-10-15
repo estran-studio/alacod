@@ -1,0 +1,8 @@
+// Pool du boss (M2-T5) : prévu pour M2-T7, qui le branchera sur la mort du boss ; aucun système
+// ne le tire encore.
+(
+    entries: [
+        (pick: Rarity(Rare), weight: 3),
+        (pick: Rarity(Uncommon), weight: 2),
+    ],
+)

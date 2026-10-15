@@ -1,0 +1,24 @@
+// M2-T5 (récompense de salle, docs/conventions.md §48) : une salle `combat` nettoyée laisse une
+// récompense tirée dans le pool `salle` (chance forcée à 1 par `room_reward_chance_override`).
+// Carte testbed/salles.ldtk (départ, combat avec deux `dummy`, récompense).
+//
+// À regarder : f30-90 le joueur entre dans la salle de combat et tire ; quand les deux ennemis
+// sont morts la salle est nettoyée et une clé apparaît au centre de la salle ; le joueur la ramasse.
+Scenario(
+    powerup_drop_chance_override: "0.0",
+    room_reward_chance_override: "1.0",
+    game: "testbed",
+    map: "testbed/salles.ldtk",
+    map_seed: 1,
+    frames: 600,
+    players: [
+        (inputs: [
+            (from: 30, to: 90, buttons: [Right]),
+            (from: 90, to: 500, buttons: [Fire], pan: (64, 0)),
+        ]),
+    ],
+    expect: [
+        RoomState(kind: "combat", state: Cleared, at_frame: 500),
+        Consumable(handle: 0, id: "key", count: 1, at_frame: 590),
+    ],
+)
