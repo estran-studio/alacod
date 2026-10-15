@@ -593,18 +593,20 @@ pub(crate) fn fan_angles(center: Fixed, count: u32, spread: Fixed) -> Vec<Fixed>
         .collect()
 }
 
-/// Direction unitaire d'un angle. Un angle au-delà de `±2π` est d'abord ramené dans
-/// `[-2π, 2π]` (T1.2) : le CORDIC de `fixed_math` perd sa précision puis **déborde** (panique
-/// `fixed`) au-delà (ex. 7,07 rad : le 8e rayon d'une couronne dont le premier part à π/2,
-/// cas d'une tourelle qui vise vers le haut). Les angles déjà dans `[-2π, 2π]` — tout le
-/// contenu d'avant T1.2 : couronnes partant de l'axe +x, au plus 7τ/8 — passent tels quels,
-/// valeurs inchangées au bit près.
+/// Direction unitaire d'un angle. Le CORDIC de `fixed_math` est juste à 5e-5 près sur
+/// `[-3π/2, 3π/2]`, puis perd sa précision (1e-4 dès 5,24 rad, 7e-3 en 2π, mesuré dans
+/// `bevy_fixed`) et **déborde** (panique `fixed`) au-delà de `2π + 0,03` (ex. 7,07 rad : le 8e
+/// rayon d'une couronne dont le premier part à π/2, cas d'une tourelle qui vise vers le haut,
+/// T1.2). L'angle est donc replié par tours de `2π` jusque dans `[-3π/2, 3π/2]` (D34). Les angles
+/// déjà dans cet intervalle passent tels quels, au bit près ; seuls changent ceux de `]3π/2, 2π+]`
+/// et leurs symétriques (ex. le dernier rayon d'une couronne de 24 : 6,02 rad, écart 2e-3 avant).
 pub(crate) fn direction_of(angle: Fixed) -> FixedVec2 {
+    let limit = fixed_math::FIXED_PI + fixed_math::FIXED_PI.saturating_div(Fixed::from_num(2));
     let mut angle = angle;
-    while angle > fixed_math::FIXED_TAU {
+    while angle > limit {
         angle -= fixed_math::FIXED_TAU;
     }
-    while angle < -fixed_math::FIXED_TAU {
+    while angle < -limit {
         angle += fixed_math::FIXED_TAU;
     }
     FixedVec2::new(fixed_math::cos_fixed(angle), fixed_math::sin_fixed(angle))
@@ -1557,5 +1559,35 @@ mod tests {
         };
         let shots = pattern_shots(&ring, FixedVec2::ZERO, None);
         assert!((shots[0].direction.x - fx(1.0)).abs() < fx(0.01));
+    }
+
+    /// D34 : après le repli dans `[-3π/2, 3π/2]`, `direction_of` est juste à 1e-4 près sur tout
+    /// `]-4π, 4π]` (avant : 7e-3 près de 2π, panique au-delà de 2π + 0,03 sans le repli de T1.2),
+    /// et le dernier rayon d'une couronne de 24 (6,02 rad) aussi.
+    #[test]
+    fn direction_of_is_accurate_on_wide_range_d34() {
+        let pi = std::f64::consts::PI;
+        let mut a = -4.0 * pi + 1.0 / 64.0;
+        while a <= 4.0 * pi {
+            let angle = Fixed::from_num(a);
+            let exact = angle.to_num::<f64>();
+            let d = direction_of(angle);
+            for (got, want) in [(d.x, exact.cos()), (d.y, exact.sin())] {
+                let err = (got.to_num::<f64>() - want).abs();
+                assert!(err < 1e-4, "angle {exact} : écart {err}");
+            }
+            a += 1.0 / 64.0;
+        }
+        let ring = Pattern::Ring {
+            count: 24,
+            speed: fx(60.0),
+            projectile: "brume".into(),
+            every: 0,
+        };
+        let shots = pattern_shots(&ring, FixedVec2::new(fx(1.0), fx(0.0)), None);
+        let last = &shots[23].direction;
+        let angle = 23.0 * 2.0 * pi / 24.0;
+        assert!((last.x.to_num::<f64>() - angle.cos()).abs() < 1e-4);
+        assert!((last.y.to_num::<f64>() - angle.sin()).abs() < 1e-4);
     }
 }

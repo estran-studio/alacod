@@ -1,0 +1,9 @@
+// Pool de butin `commun` de gungeon (M2-T5, docs/conventions.md §48) : coffres sans pool propre.
+// Poids par rareté (un objet de la rareté, uniforme) : les rares sortent peu.
+(
+    entries: [
+        (pick: Rarity(Common), weight: 5),
+        (pick: Rarity(Uncommon), weight: 3),
+        (pick: Rarity(Rare), weight: 1),
+    ],
+)

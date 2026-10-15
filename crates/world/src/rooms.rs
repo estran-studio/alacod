@@ -33,6 +33,9 @@ pub struct RoomKindDef {
     /// autre (départ, récompense, boutique).
     #[serde(default)]
     pub locks: bool,
+    /// M2-T5 : coffre posé au centre de chaque salle de ce type (`docs/conventions.md` §48).
+    #[serde(default)]
+    pub chest: Option<items::RoomChestDef>,
     /// M2-T7 (`docs/conventions.md` §45) : arène à tenir. La salle se verrouille dès qu'un
     /// joueur debout y entre (même vide), fait apparaître ses vagues internes et ne se rouvre
     /// qu'à la fin de son horloge, si un joueur vit encore. Implique le verrouillage.

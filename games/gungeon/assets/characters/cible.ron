@@ -3,6 +3,7 @@
 // par `gabarit_armes.ldtk` (copie de l'arène du testbed, cible à +128/−48 du spawn), pour le
 // gabarit par jeu de T1.13 ; jamais dans une caverne.
 (
+    test_only: true, // D63 : contenu de laboratoire, ignoré par l'analyse d'atteignabilité (conventions §53)
     movement: (
         acceleration: "0.0",
         max_speed: "0.0",

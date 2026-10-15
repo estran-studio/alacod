@@ -1,0 +1,9 @@
+// Fixture M2-T15 (§53) : reach_test_only_weapon
+(
+    name: "fixture-reach_test_only_weapon",
+    content_folders: [
+        (path: "player.ron", kind: "Character"),
+        (path: "weapons.ron", kind: "Weapon"),
+    ],
+    entry: (start_map: "maps/salle.ldtk", default_seed: 1),
+)

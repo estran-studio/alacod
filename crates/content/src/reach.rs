@@ -3,6 +3,11 @@
 //! dynamique est le bot explorateur, §47). Tout est avertissement ([`LintWarning`]) : un
 //! avertissement n'échoue pas `alacod lint`, il est listé.
 //!
+//! **Contenu de test** (D63) : un personnage (`test_only: true`) ou une arme
+//! (`config: (test_only: true, …)`) marqué est ignoré par l'analyse : pas d'avertissement pour
+//! lui, et un personnage marqué ne compte pas comme source d'armes. Le champ est optionnel
+//! (défaut `false`) et sans effet en jeu.
+//!
 //! **Racines** : `entry.start_map` et chaque niveau de chaque séquence du dossier `Floors`
 //! (carte directe, caverne ou grammaire d'étage `floor:<id>`). Le dossier `Floors` n'a pas de
 //! séquence « par défaut » stable (le mode `Floors` prend la première par ordre d'id) : toute
@@ -20,7 +25,8 @@ use sim_core::stats::StatId;
 pub enum LintWarningKind {
     /// Contenu valide qu'aucune partie ne peut rencontrer (calcul statique).
     Unreachable,
-    /// Modificateur sur une stat qu'aucun système ne lit encore (`Armor`, D61).
+    /// Modificateur sur une stat qu'aucun système ne lit (aujourd'hui une erreur de lint : variante
+    /// gardée pour un futur avertissement).
     UnreadStat,
 }
 
@@ -38,15 +44,35 @@ impl fmt::Display for LintWarning {
     }
 }
 
-/// Objets donnés par un pool de butin (M2-T5, tables de butin pondérées). **Point de
-/// branchement** : quand les pools existent, renvoyer ici les ids d'objets de chaque pool
-/// (une dizaine de lignes : `registry.loot_pools.values().flat_map(|p| p.items())`). Vide tant
-/// que M2-T5 n'est pas mergée.
-fn loot_pool_items(_registry: &Registry) -> BTreeSet<String> {
-    BTreeSet::new()
+/// Objets donnés par un pool de butin (M2-T5, `docs/conventions.md` §48) : les objets nommés
+/// par une entrée `Item`, plus tous ceux d'une rareté visée par une entrée `Rarity`. Un pool
+/// compte même si aucune salle ne le pose : le lint dit « un pool donne cet objet », pas
+/// « une partie le rencontre » (l'atteignabilité dynamique est le bot explorateur, §47).
+fn loot_pool_items(registry: &Registry) -> BTreeSet<String> {
+    let mut found = BTreeSet::new();
+    for pool in registry.loot_tables.values() {
+        for entry in &pool.def.entries {
+            match &entry.pick {
+                items::LootPick::Item(id) => {
+                    found.insert(id.clone());
+                }
+                items::LootPick::Rarity(rarity) => {
+                    found.extend(
+                        registry
+                            .items
+                            .values()
+                            .filter(|item| item.def.rarity == *rarity)
+                            .map(|item| item.id.clone()),
+                    );
+                }
+            }
+        }
+    }
+    found
 }
 
-/// Armes données par un pool de butin (même point de branchement que [`loot_pool_items`]).
+/// Armes données par un pool de butin : aucune entrée de pool ne désigne d'arme (M2-T5 ne
+/// tire que des objets, les armes viennent de la boutique, T6).
 fn loot_pool_weapons(_registry: &Registry) -> BTreeSet<String> {
     BTreeSet::new()
 }
@@ -296,8 +322,8 @@ pub(crate) fn stat_uses(registry: &Registry) -> Vec<(String, String, StatId)> {
     out
 }
 
-/// Avertissements : stat `Armor` sans lecteur (D61 n'est pas mergée : les autres stats sans
-/// lecteur sont des erreurs, voir `lint::lint_stat_readers`) et contenu inatteignable.
+/// Avertissements : contenu inatteignable (les stats sans lecteur sont des erreurs, voir
+/// `lint::lint_stat_readers`).
 pub fn warnings(registry: &Registry, manifest: &GameManifest) -> Vec<LintWarning> {
     let mut out = Vec::new();
     let mut warn = |kind: LintWarningKind, file: String, message: String| {
@@ -307,16 +333,6 @@ pub fn warnings(registry: &Registry, manifest: &GameManifest) -> Vec<LintWarning
             message,
         })
     };
-
-    for (file, at, stat) in stat_uses(registry) {
-        if stat == StatId::Armor {
-            warn(
-                LintWarningKind::UnreadStat,
-                file,
-                format!("{at} : stat Armor : aucun système ne la lit encore (D61)"),
-            );
-        }
-    }
 
     let reach = reach(registry, manifest);
 
@@ -360,7 +376,7 @@ pub fn warnings(registry: &Registry, manifest: &GameManifest) -> Vec<LintWarning
 
     let characters = reachable_characters(registry, &reach);
     for c in registry.characters.values() {
-        if c.has_ai && !characters.contains(c.id.as_str()) {
+        if c.has_ai && !c.test_only && !characters.contains(c.id.as_str()) {
             warn(
                 LintWarningKind::Unreachable,
                 c.file.display().to_string(),
@@ -398,7 +414,8 @@ pub fn warnings(registry: &Registry, manifest: &GameManifest) -> Vec<LintWarning
     }
 
     let mut weapon_sources: BTreeSet<String> = loot_pool_weapons(registry);
-    for c in registry.characters.values() {
+    // D63 : un personnage de test ne donne rien à une partie ordinaire.
+    for c in registry.characters.values().filter(|c| !c.test_only) {
         weapon_sources.extend(c.starting_weapons.iter().map(|w| w.to_string()));
     }
     for level in playable_levels(registry, &reach) {
@@ -410,7 +427,7 @@ pub fn warnings(registry: &Registry, manifest: &GameManifest) -> Vec<LintWarning
         }
     }
     for weapon in registry.weapons.values() {
-        if !weapon_sources.contains(weapon.id.as_str()) {
+        if !weapon.test_only && !weapon_sources.contains(weapon.id.as_str()) {
             warn(
                 LintWarningKind::Unreachable,
                 weapon.file.display().to_string(),
@@ -437,8 +454,8 @@ mod tests {
     }
 
     #[test]
-    fn armor_and_luck_have_no_reader() {
-        assert!(sim_core::stats::stat_reader(&StatId::Armor).is_none());
+    fn armor_has_a_reader_luck_has_none() {
+        assert!(sim_core::stats::stat_reader(&StatId::Armor).is_some());
         assert!(sim_core::stats::stat_reader(&StatId::Luck).is_none());
         assert!(sim_core::stats::stat_reader(&StatId::MoveSpeed).is_some());
     }

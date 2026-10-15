@@ -92,9 +92,31 @@ pub fn resolve_damage(
     Some(result)
 }
 
+/// Dégât après armure (D61, formule de League of Legends) : `dégât × 100 / (100 + armure)`, soit
+/// 100 d'armure = moitié des dégâts. En `Fixed`. Armure négative bornée à 0 ; **armure 0 =
+/// identité exacte** (le montant est rendu tel quel : aucun arrondi, aucune trace ne bouge).
+/// `DamageKind::True` ignore l'armure (à tester par l'appelant : cette fonction est pure).
+pub fn after_armor(amount: Fixed, armor: Fixed) -> Fixed {
+    if armor <= Fixed::ZERO {
+        return amount;
+    }
+    let hundred = Fixed::from_num(100);
+    amount.saturating_mul(hundred) / hundred.saturating_add(armor)
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;
+
+    #[test]
+    fn armor_formula_matches_league() {
+        let fx = Fixed::from_num;
+        assert_eq!(after_armor(fx(10), fx(0)), fx(10));
+        assert_eq!(after_armor(fx(10), fx(-30)), fx(10));
+        assert_eq!(after_armor(fx(10), fx(100)), fx(5));
+        assert_eq!(after_armor(fx(30), fx(200)), fx(10));
+        assert_eq!(after_armor(fx(10), fx(100)).to_num::<i32>(), 5);
+    }
 
     fn tags(names: &[&str]) -> Tags {
         Tags::parse(names.iter().copied())

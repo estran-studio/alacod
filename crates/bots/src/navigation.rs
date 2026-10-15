@@ -10,7 +10,7 @@
 //! Les fenêtres, même cassées, restent bloquantes pour le joueur. Les sources sont des postes
 //! de tir autour des ennemis, pour pouvoir tuer ceux qui restent derrière ces fenêtres.
 use std::cmp::Reverse;
-use std::collections::{BTreeMap, BTreeSet, BinaryHeap, VecDeque};
+use std::collections::{BTreeMap, BinaryHeap, VecDeque};
 
 use bevy::prelude::Resource;
 use bevy_fixed::fixed_math::{Fixed, FixedVec2};
@@ -130,6 +130,52 @@ pub fn point(cell: GridPos) -> FixedVec2 {
 #[derive(Resource, Default)]
 pub struct DirectNavigation(pub BotNavigation);
 
+/// Grille dense de booléens sur une boîte de cases (perf-navigation) : remplace les
+/// `BTreeSet<GridPos>` consultés à chaque arête de Dijkstra. Hors de la boîte : `false`.
+#[derive(Clone, Default)]
+struct CellGrid {
+    x0: i32,
+    y0: i32,
+    width: usize,
+    height: usize,
+    cells: Vec<bool>,
+}
+
+impl CellGrid {
+    fn new(bounds: (i32, i32, i32, i32)) -> Self {
+        let (x0, x1, y0, y1) = bounds;
+        let width = (x1 - x0 + 1).max(0) as usize;
+        let height = (y1 - y0 + 1).max(0) as usize;
+        Self {
+            x0,
+            y0,
+            width,
+            height,
+            cells: vec![false; width * height],
+        }
+    }
+    fn slot(&self, p: GridPos) -> Option<usize> {
+        let (dx, dy) = (p.x - self.x0, p.y - self.y0);
+        (dx >= 0 && dy >= 0 && (dx as usize) < self.width && (dy as usize) < self.height)
+            .then(|| dy as usize * self.width + dx as usize)
+    }
+    fn get(&self, p: GridPos) -> bool {
+        self.slot(p).is_some_and(|i| self.cells[i])
+    }
+    fn set(&mut self, p: GridPos) -> bool {
+        match self.slot(p) {
+            Some(i) => !std::mem::replace(&mut self.cells[i], true),
+            None => false,
+        }
+    }
+    fn cell_at(&self, i: usize) -> GridPos {
+        GridPos::new(
+            self.x0 + (i % self.width) as i32,
+            self.y0 + (i / self.width) as i32,
+        )
+    }
+}
+
 #[derive(Resource, Default)]
 pub struct BotNavigation {
     nearest_goals: BTreeMap<GridPos, GridPos>,
@@ -137,13 +183,13 @@ pub struct BotNavigation {
     body_key: Option<(Fixed, Fixed, Fixed, Fixed)>,
     obstacles: Vec<Rect>,
     walls: Vec<Rect>,
-    blocked: BTreeSet<GridPos>,
+    blocked: CellGrid,
     bounds: (i32, i32, i32, i32),
     geometry_bounds: (i32, i32, i32, i32),
     targets: Vec<(usize, GridPos)>,
     pub field: FlowField,
     approaches: BTreeMap<(GridPos, GridPos, Fixed), FlowField>,
-    reachable: Option<BTreeSet<GridPos>>,
+    reachable: Option<CellGrid>,
     /// M2-T16 (`explorateur`) : champ à une seule source (la case du bot) et sa case de départ,
     /// pour comparer plusieurs buts par la longueur du chemin ([`Self::costs_from`]).
     from_field: Option<(GridPos, FlowField)>,
@@ -192,7 +238,6 @@ impl BotNavigation {
                 .filter(|(_, wall)| *wall)
                 .map(|(rect, _)| *rect)
                 .collect();
-            self.blocked.clear();
             let mut bounds = (0, 0, 0, 0);
             for rect in &self.obstacles {
                 let min = cell(rect.min);
@@ -203,11 +248,18 @@ impl BotNavigation {
                     bounds.2.min(min.y - 16),
                     bounds.3.max(max.y + 16),
                 );
+            }
+            // Les cases bloquées de chaque obstacle sont à une case de son rectangle : dans
+            // la boîte ci-dessus.
+            self.blocked = CellGrid::new(bounds);
+            for rect in &self.obstacles {
+                let min = cell(rect.min);
+                let max = cell(rect.max);
                 for x in min.x - 1..=max.x + 1 {
                     for y in min.y - 1..=max.y + 1 {
                         let p = GridPos::new(x, y);
                         if rect.contains(point(p)) {
-                            self.blocked.insert(p);
+                            self.blocked.set(p);
                         }
                     }
                 }
@@ -238,7 +290,7 @@ impl BotNavigation {
                 Some(p) => self
                     .reachable
                     .as_ref()
-                    .is_none_or(|cells| !cells.contains(&cell(p))),
+                    .is_none_or(|cells| !cells.get(cell(p))),
             };
         if component_changed {
             self.approaches.clear();
@@ -253,13 +305,15 @@ impl BotNavigation {
                     .flat_map(|dx| (-2..=2).map(move |dy| GridPos::new(here.x + dx, here.y + dy)))
                     .filter(|p| self.free(*p) && self.clear(from, point(*p)))
                     .min_by_key(|p| (from.distance(&point(*p)), *p));
-                let mut cells = BTreeSet::new();
+                // `self.reachable` est vide ici : `free` ne teste que la boîte `bounds`, que
+                // la grille recouvre.
+                let mut cells = CellGrid::new(self.bounds);
                 if let Some(seed) = seed {
                     let mut queue = VecDeque::from([seed]);
-                    cells.insert(seed);
+                    cells.set(seed);
                     while let Some(p) = queue.pop_front() {
                         for next in p.neighbors_8() {
-                            if self.step_free(p, next) && cells.insert(next) {
+                            if self.step_free(p, next) && cells.set(next) {
                                 queue.push_back(next);
                             }
                         }
@@ -301,11 +355,8 @@ impl BotNavigation {
             && p.x <= x1
             && p.y >= y0
             && p.y <= y1
-            && !self.blocked.contains(&p)
-            && self
-                .reachable
-                .as_ref()
-                .is_none_or(|cells| cells.contains(&p))
+            && !self.blocked.get(p)
+            && self.reachable.as_ref().is_none_or(|cells| cells.get(p))
     }
     /// Ligne de tir (murs élargis de [`SHOT_MARGIN`], comme [`walls_clear`]).
     pub fn visible(&self, from: FixedVec2, to: FixedVec2) -> bool {
@@ -345,6 +396,72 @@ impl BotNavigation {
                 || (self.free(GridPos::new(from.x, to.y)) && self.free(GridPos::new(to.x, from.y))))
     }
     fn build_field(&self, sources: &[(GridPos, usize)]) -> FlowField {
+        // Dijkstra sur tableaux denses de la boîte `bounds` (toute case libre y est) ; mêmes
+        // voisins, mêmes coûts et mêmes départages que le calcul sur `BTreeMap`.
+        const UNSET: u32 = u32::MAX;
+        let (x0, x1, y0, y1) = self.bounds;
+        let (width, height) = ((x1 - x0 + 1).max(0) as usize, (y1 - y0 + 1).max(0) as usize);
+        let index = |p: GridPos| (p.y - y0) as usize * width + (p.x - x0) as usize;
+        let mut costs = vec![UNSET; width * height];
+        let mut previous = vec![0u32; width * height];
+        let mut owners = vec![0u32; width * height];
+        let mut heap = BinaryHeap::new();
+        for &(p, owner) in sources {
+            let i = index(p);
+            if costs[i] != UNSET {
+                continue;
+            }
+            costs[i] = 0;
+            previous[i] = i as u32;
+            owners[i] = owner as u32;
+            heap.push(Reverse((0u32, p)));
+        }
+        while let Some(Reverse((cost, p))) = heap.pop() {
+            let current = index(p);
+            if costs[current] != cost {
+                continue;
+            }
+            for next in p.neighbors_8() {
+                if !self.step_free(p, next) {
+                    continue;
+                }
+                let next_cost = cost
+                    + if p.x == next.x || p.y == next.y {
+                        10
+                    } else {
+                        14
+                    };
+                let slot = index(next);
+                if costs[slot] <= next_cost {
+                    continue;
+                }
+                costs[slot] = next_cost;
+                previous[slot] = current as u32;
+                owners[slot] = owners[current];
+                heap.push(Reverse((next_cost, next)));
+            }
+        }
+        let cell_at = |i: usize| GridPos::new(x0 + (i % width) as i32, y0 + (i / width) as i32);
+        // Suite triée par `GridPos` (x puis y) pour construire les `BTreeMap` d'un bloc.
+        let reached: Vec<usize> = (0..width)
+            .flat_map(|x| (0..height).map(move |y| y * width + x))
+            .filter(|&i| costs[i] != UNSET)
+            .collect();
+        FlowField {
+            directions: reached
+                .iter()
+                .map(|&i| (cell_at(i), cell_at(previous[i] as usize)))
+                .collect(),
+            costs: reached.iter().map(|&i| (cell_at(i), costs[i])).collect(),
+            owners: reached
+                .iter()
+                .map(|&i| (cell_at(i), owners[i] as usize))
+                .collect(),
+        }
+    }
+    /// Calcul historique sur `BTreeMap`, référence de `build_field` (perf-navigation).
+    #[cfg(test)]
+    fn build_field_legacy(&self, sources: &[(GridPos, usize)]) -> FlowField {
         let mut field = FlowField::default();
         let mut heap = BinaryHeap::new();
         for &(p, owner) in sources {
@@ -404,11 +521,10 @@ impl BotNavigation {
     pub fn investigate(&mut self, from: FixedVec2, target: FixedVec2) -> Option<FixedVec2> {
         let target = cell(target);
         if !self.nearest_goals.contains_key(&target) {
-            let goal = self
-                .reachable
-                .as_ref()?
-                .iter()
-                .copied()
+            let grid = self.reachable.as_ref()?;
+            let goal = (0..grid.cells.len())
+                .filter(|&i| grid.cells[i])
+                .map(|i| grid.cell_at(i))
                 .min_by_key(|p| ((point(*p) - point(target)).length_squared(), *p))?;
             if self.nearest_goals.len() >= 16 {
                 self.nearest_goals.clear();
@@ -583,6 +699,37 @@ mod tests {
         }
         assert!(went_around);
         assert!(nav.visible(point(p), vec(160, 0)));
+    }
+    /// perf-navigation : le champ dense est identique au champ sur `BTreeMap`, case par case.
+    #[test]
+    fn dense_field_matches_legacy_field() {
+        for seed in 0..12i32 {
+            let mut geometry = vec![(rect(-8 - seed * 4, -64, 8, 64 + seed * 8), true)];
+            if seed % 2 == 0 {
+                geometry.push((rect(60, -40 + seed * 3, 100, -10), false));
+            }
+            geometry.push((rect(-120, 90, -60 + seed * 5, 110), seed % 3 == 0));
+            let mut nav = BotNavigation::default();
+            nav.update_from(
+                &geometry,
+                &body(),
+                &[(1, vec(160, 0)), (2, vec(-150, 40 - seed * 10))],
+                vec(-80, 0),
+            );
+            let sources: Vec<_> = [(1usize, vec(160, 0)), (2, vec(-150, 40 - seed * 10))]
+                .iter()
+                .enumerate()
+                .map(|(owner, (_, at))| (cell(*at), owner))
+                .filter(|(p, _)| nav.free(*p))
+                .collect();
+            assert!(!sources.is_empty(), "seed {seed}");
+            let old = nav.build_field_legacy(&sources);
+            let new = nav.build_field(&sources);
+            assert_eq!(new.costs, old.costs, "seed {seed}");
+            assert_eq!(new.directions, old.directions, "seed {seed}");
+            assert_eq!(new.owners, old.owners, "seed {seed}");
+            assert!(new.costs.len() > 100, "seed {seed}");
+        }
     }
     #[test]
     fn broken_window_still_blocks_body_but_allows_shooting() {

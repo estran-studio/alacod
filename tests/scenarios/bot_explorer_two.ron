@@ -3,7 +3,8 @@
 // plus vite et les deux franchissent le portail.
 //
 // À regarder : les deux bots entrent dans la salle de combat, se partagent les cibles, tuent le
-// boss et passent l'étage ensemble (portail ouvert vers f471, franchi vers f613).
+// boss et passent l'étage ensemble (portail ouvert vers f403, franchi vers f505 ; f433 et f558 avant le recul
+// de m1-revue-humaine, `faa5120c` : les `bullet_kin` reculent autrement).
 Scenario(
     powerup_drop_chance_override: "0.0",
     game: "gungeon",
@@ -19,7 +20,7 @@ Scenario(
         RoomState(kind: "combat", nth: 1, state: Cleared, at_frame: 250),
         RoomState(kind: "boss", nth: 1, state: Locked, at_frame: 300),
         RoomState(kind: "boss", nth: 1, state: Cleared, at_frame: 520),
-        FloorIndex(index: 0, at_frame: 520),
+        FloorIndex(index: 0, at_frame: 480),
         FloorIndex(index: 1, at_frame: 719),
         PlayerAlive(handle: 0, at_frame: 719),
         PlayerAlive(handle: 1, at_frame: 719),

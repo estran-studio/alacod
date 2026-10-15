@@ -56,3 +56,14 @@ README §4 (`make test_scenarios`, `make test_crates`, lint ×4, fmt, scripts, `
 p2p à deux clients sur `gungeon` (port 3556, `MATCHBOX_PORT`) ; rapport
 `docs/taches/rapports/m2-t6-boutique.md`, conventions §50. Livrer par
 `LIVRÉ m2-t6-boutique <sha>`.
+
+## Session cloud (ajout du 2026-10-15)
+
+M2-T5 est mergée (`m2-t5-butin-coffres`, §48) : la tâche part en session Claude Code cloud au lieu
+de b1. Ignorer les consignes `orca` du README (§1 : `make sweep`, ports de signaling) ; pas de
+Docker : le p2p gungeon est rejoué par l'orchestrateur, le dire au rapport. Atteignabilité
+(`docs/taches.md` §7) : la boutique doit être tirée par la grammaire `etage` d'une partie gungeon
+ordinaire (nommer la graine `alacod-sim` qui la rencontre) ; `alacod lint gungeon` sans nouvel
+avertissement. Pousser la branche régulièrement (commits WIP acceptés ; le conteneur redémarre
+environ toutes les deux heures : suite au premier plan). Voie rapide du README §6 : fusionner
+`origin/main` et rejouer la suite juste avant le commit `LIVRÉ m2-t6-boutique`.

@@ -31,8 +31,8 @@ const GAME_OVER_FONT: &str = "fonts/FiraMono-Medium.ttf";
 #[derive(Component)]
 struct LobbyButton;
 
-const BUTTON_COLOR: Color = Color::srgb(0.3, 0.3, 0.3);
-const BUTTON_HOVER_COLOR: Color = Color::srgb(0.4, 0.4, 0.4);
+const BUTTON_COLOR: Color = Color::srgb(0.15, 0.18, 0.23);
+const BUTTON_HOVER_COLOR: Color = Color::srgb(0.2, 0.24, 0.3);
 
 /// Un bouton de l'écran de fin (même gabarit pour « Rejouer (R) » et « Lobby »).
 fn spawn_button(
@@ -46,7 +46,7 @@ fn spawn_button(
             Button,
             Node {
                 width: Val::Px(200.0),
-                height: Val::Px(65.0),
+                height: Val::Px(50.0),
                 justify_content: JustifyContent::Center,
                 align_items: AlignItems::Center,
                 ..default()
@@ -59,7 +59,7 @@ fn spawn_button(
                 Text::new(label),
                 TextFont {
                     font: font.into(),
-                    font_size: FontSize::Px(30.0),
+                    font_size: FontSize::Px(22.0),
                     ..default()
                 },
                 TextColor(Color::WHITE),
@@ -120,11 +120,11 @@ fn summary_text(outcome: RunEnd, run: Option<&Run>) -> String {
     match run.and_then(|run| run.summary) {
         // T1.8 : en mode `Floors`, le niveau atteint (affiché à partir de 1) remplace la vague.
         Some(summary) if floors => format!(
-            "{title}\n\nniveau {} - {} kills - {} points\n{} frames",
+            "{title}\n\nÉtage {}  ·  {} éliminés\n{}:{:02}",
             summary.floor_reached + 1,
             summary.kills,
-            summary.points_total,
-            summary.frames
+            summary.frames / (crate::core::SIM_FPS as u32 * 60),
+            summary.frames / crate::core::SIM_FPS as u32 % 60
         ),
         Some(summary) => format!(
             "{title}\n\nvague {} - {} kills - {} points\n{} frames",
@@ -146,36 +146,51 @@ fn spawn_game_over_ui(commands: &mut Commands, text: &str, font: Handle<Font>) {
                 flex_direction: FlexDirection::Column,
                 ..default()
             },
-            BackgroundColor(Color::srgba(0.5, 0.0, 0.0, 0.5)), // Red tint
+            BackgroundColor(Color::srgba(0.02, 0.025, 0.04, 0.8)),
             GameOverUiRoot,
+            GlobalZIndex(30),
         ))
         .with_children(|parent| {
-            parent.spawn((
-                Text::new(text),
-                TextFont {
-                    font: font.clone().into(),
-                    font_size: FontSize::Px(40.0),
-                    ..default()
-                },
-                TextColor(Color::WHITE),
-                TextLayout::justify(Justify::Center),
-                SummaryText,
-            ));
-
-            // Bouton de relance (T2.4, chantier F1) : pose `RunRequest::Restart`, lu par
-            // `game::run_state::apply_run_request_system` (jamais de relance synchrone ici
-            // — voir la doc du module `run_state`). Touche `R` : même commande, voir
-            // `button_system`. À côté, « Lobby » (T2.12) : `RunRequest::ToLobby`.
             parent
-                .spawn(Node {
-                    flex_direction: FlexDirection::Row,
-                    column_gap: Val::Px(24.0),
-                    margin: UiRect::top(Val::Px(40.0)),
-                    ..default()
-                })
-                .with_children(|row| {
-                    spawn_button(row, "Rejouer (R)", font.clone(), ReloadButton);
-                    spawn_button(row, "Lobby", font.clone(), LobbyButton);
+                .spawn((
+                    Node {
+                        width: Val::Px(520.0),
+                        padding: UiRect::all(Val::Px(32.0)),
+                        flex_direction: FlexDirection::Column,
+                        align_items: AlignItems::Center,
+                        border_radius: BorderRadius::all(Val::Px(8.0)),
+                        ..default()
+                    },
+                    BackgroundColor(Color::srgb(0.08, 0.1, 0.125)),
+                ))
+                .with_children(|parent| {
+                    parent.spawn((
+                        Text::new(text),
+                        TextFont {
+                            font: font.clone().into(),
+                            font_size: FontSize::Px(30.0),
+                            ..default()
+                        },
+                        TextColor(Color::WHITE),
+                        TextLayout::justify(Justify::Center),
+                        SummaryText,
+                    ));
+
+                    // Bouton de relance (T2.4, chantier F1) : pose `RunRequest::Restart`, lu par
+                    // `game::run_state::apply_run_request_system` (jamais de relance synchrone ici
+                    // — voir la doc du module `run_state`). Touche `R` : même commande, voir
+                    // `button_system`. À côté, « Lobby » (T2.12) : `RunRequest::ToLobby`.
+                    parent
+                        .spawn(Node {
+                            flex_direction: FlexDirection::Row,
+                            column_gap: Val::Px(24.0),
+                            margin: UiRect::top(Val::Px(40.0)),
+                            ..default()
+                        })
+                        .with_children(|row| {
+                            spawn_button(row, "Rejouer (R)", font.clone(), ReloadButton);
+                            spawn_button(row, "Lobby", font.clone(), LobbyButton);
+                        });
                 });
         });
 }

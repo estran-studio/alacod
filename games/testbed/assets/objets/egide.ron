@@ -1,0 +1,11 @@
+// D61 (bouclier, docs/conventions.md §18) : consommable d'essai. Au ramassage, `GainShield(1)` :
+// un point de bouclier, qui absorbe le prochain coup entier (puis disparaît). N'entre pas dans
+// l'inventaire.
+(
+    name: "Égide",
+    kind: Consumable,
+    rarity: Common,
+    effects: [
+        (on: OnUse, do: [GainShield(1)]),
+    ],
+)

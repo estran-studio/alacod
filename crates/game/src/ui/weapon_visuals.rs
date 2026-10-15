@@ -129,7 +129,9 @@ impl Plugin for WeaponPresentationPlugin {
         // Only include the debug UI plugin when the `debug_ui` feature is enabled.
         // This keeps Egui / WorldInspector out of production builds unless explicitly requested.
         #[cfg(feature = "debug_ui")]
-        app.add_plugins(crate::ui::weapon_hud::WeaponDebugUIPlugin);
+        if crate::core::debug_ui_enabled() {
+            app.add_plugins(crate::ui::weapon_hud::WeaponDebugUIPlugin);
+        }
 
         app.add_systems(
             Update,

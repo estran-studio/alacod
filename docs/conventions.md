@@ -464,7 +464,13 @@ dans l'ordre du gain, et ce qu'il ne faut pas défaire :
 - `ALACOD_PROFILE=1` affiche, par scénario, le temps du runner par poste (`update` de
   Bevy, métriques, invariants) ; les invariants et les attentes pèsent moins de 0,5 % d'une frame.
 
-Ce qui reste est la simulation elle-même : `bench_floor` (profil callgrind, 600 frames) passe
+**perf-navigation (2026-10-15)** : `build_flow_field` et `BotNavigation::build_field` calculent sur
+tableaux `Vec` denses (sortie reconstruite en `BTreeMap` triée, même `Hash`) ; `throne_quad`
+37,6 → 102 fps, `bench_floor` 96 → 121. Les calculs historiques (`build_flow_field_legacy`,
+`build_field_legacy`) restent comme références de test : tout changement de l'un des deux doit
+rester égal case par case. Détail : `docs/taches/rapports/perf-navigation.md`.
+
+Ce qui restait avant perf-navigation était la simulation elle-même : `bench_floor` (profil callgrind, 600 frames) passe
 ~42 % de ses instructions dans `update_flow_field_system` (Dijkstra, dont ~22 % dans
 `is_blocked`) et ~14 % dans la navigation des bots ; les `throne_*` ne sont que 1,5 à 2 fois
 plus rapides qu'avant, pour la même raison probable (non profilés). Le détail chiffré est dans
@@ -530,8 +536,20 @@ NIGHTLY_SEEDS=1..100 NIGHTLY_BOTS=4 NIGHTLY_WAVE=15 NIGHTLY_P2P=2,4,8 NIGHTLY_VI
         amplitude: 4.0,             // Amplitude du décalage en pixels
     ),
     sounds: {
-        "shot": "sounds/machine-gun.ogg",
-        "reload": "sounds/machine-gun-reload.ogg",
+        // Tir : clé de la famille du mode de tir actif de l'arme (Manual : shot_pistol,
+        // Shotgun : shot_shotgun, Automatic/Burst : shot_smg), repli sur "shot".
+        "shot_pistol": "sounds/shot_pistol.ogg",
+        "shot_shotgun": "sounds/shot_shotgun.ogg",
+        "shot_smg": "sounds/shot_smg.ogg",
+        "reload": "sounds/reload.ogg",
+        // Événements (lot B) : coup porté par un joueur local, dégâts reçus, ennemi tué,
+        // dash, blank, porte ouverte.
+        "hit": "sounds/hit.ogg",
+        "hurt": "sounds/hurt.ogg",
+        "death": "sounds/death.ogg",
+        "dash": "sounds/dash.ogg",
+        "blank": "sounds/blank.ogg",
+        "door": "sounds/door.ogg",
         // Les clés absentes désactivent le son correspondant
     },
 )
@@ -539,8 +557,15 @@ NIGHTLY_SEEDS=1..100 NIGHTLY_BOTS=4 NIGHTLY_WAVE=15 NIGHTLY_P2P=2,4,8 NIGHTLY_VI
 
 **Systèmes** : tous en `PostUpdate` (hors `GgrsSchedule`), lisant les événements de simulation dans `FrameEvents<T>` émis par `GgrsSchedule`. Les trois émetteurs sont :
 - `DamageEvent` pour les impacts (flash, secousse si joueur local)
-- Spawn de `Bullet` pour le son de tir (source = joueur local) : un son par tir (tireur, frame de création), mémorisé pour ne pas repartir quand le rollback de la session locale recrée les balles des dernières frames (elles redeviennent `Added<Bullet>`), et coupé en fondu après 250 ms (`SHOT_SOUND_MAX` : `machine-gun.ogg` est un enregistrement de tir soutenu de 17 s, pas un coup unique ; à remplacer)
+- Spawn de `Bullet` pour le son de tir (source = joueur local) : un son par tir (tireur, frame de création), mémorisé pour ne pas repartir quand le rollback de la session locale recrée les balles des dernières frames (elles redeviennent `Added<Bullet>`). Clé : celle que `shot_sounds` impose à l'arme active du tireur (`shot_sounds: {"pistolet": "shot_pistol"}`, nom d'arme → clé de `sounds`, vérifié par le lint), sinon la famille de son mode de tir actif à l'image rendue (`Shotgun` → `shot_shotgun`, `Automatic`/`Burst` → `shot_smg`, `Manual` → `shot_pistol`), sinon `shot` (la balle ne porte pas son arme : un champ de plus ferait bouger les traces). Les échantillons sont des coups uniques courts (≤ 0,5 s, lot A de `docs/plan-assets.md`), joués en entier : plus de coupure en fondu.
 - Passage de `WeaponInventory.reloading_ending_frame` de `None` à `Some` pour le son de rechargement : une fois par rechargement, comparé d'une image rendue à la suivante
+- Sons d'événements (lot B), joués par `FeedbackSounds::play(clé)` ; chaque signal est lu dans l'état ou dans les `FrameEvents` de la dernière frame simulée, jamais écrit :
+  - `hit` : un `DamageEvent` dont la source est un joueur local et la cible non, un son par frame simulée (gardé par `DamageEvent.frame` : une image rendue sans nouvelle frame voit encore les mêmes événements). L'événement précède la résolution : un coup annulé (invulnérabilité) sonne aussi.
+  - `hurt` : `Health.current` d'un joueur local en baisse d'une image rendue à l'autre, à `max` égal ; au plus un son toutes les 15 frames (`HURT_SOUND_MIN_FRAMES` : les PV peuvent baisser deux frames de suite).
+  - `death` : un ennemi portant `Death` et `RollbackDespawned` (requête qui nomme ce composant désactivant), une fois par `GgrsNetId`.
+  - `dash` : front montant de `DashState::is_dashing` d'un joueur local.
+  - `blank` : `FrameEvents<BlankUsed>` d'un joueur local, gardé par la frame de l'événement.
+  - `door` : une porte avec collider à l'image précédente, sans collider maintenant ; rien pour l'ouverture d'office des portes de salle (`RoomStates::doors_opened` qui passe à `true`, début d'étage) ni à la première image (référence). Pas encore de son de coffre : les coffres (M2-T5) ne sont pas dans `main`.
 
 **Composants non-rollback** :
 - `HitFlash { until_frame, color }` : posé sur l'entité cible d'un `DamageEvent`, multiplie la couleur des calques enfants (`apply_layer_colors`) jusqu'à `until_frame`.
@@ -820,8 +845,18 @@ sources et des ancrages dans `CLAUDE.md` § HUD). Il ne fait que **lire** l'éta
 T1.18 : les sources du joueur passent par `game::ui::hud_model` (`HudSnapshot`) et la liste
 des sources est fermée et lintée (voir §32).
 
-Champs optionnels à la racine de `hud.ron`, à côté de `widgets` : `font`, `icons`, `names`.
-Par widget : `background`.
+Champs optionnels à la racine de `hud.ron`, à côté de `widgets` : `font`, `icons`, `names`,
+`reference_size: Some((800.0, 540.0))`. Ce dernier ajuste `UiScale` aux petits viewports
+sans agrandir les grands, et masque ce HUD pendant mutation/fin de run. Sans ce champ,
+les anciens jeux conservent leur mise en page. Par widget : `background`,
+`compact: true` (défaut false) : arme lisible sans underscores, munitions `chargeur / réserve`,
+effets temporaires limités à deux lignes puis `+N effets`. Le nom de l'arme indique
+`· recharge` uniquement pendant le rechargement. Le modèle complet reste accessible
+aux scénarios/outils ; les barres ont un fond fixe sous le remplissage.
+
+Les overlays techniques (frame/FPS, caméra, arme, inspecteur natif) sont optionnels
+via `ALACOD_DEBUG_UI=1`. La feature native ne les active plus à elle seule. Le debug de
+vagues de zombies suit ce défaut ; F3 conserve sa bascule explicite.
 ```ron
 (
     // Police de tous les textes du HUD, relative à `assets/`. La police par défaut de Bevy
@@ -1120,6 +1155,30 @@ expression `content::expr` en chaîne RON (ex. `health: "120.0 + (players - 1) *
   `resolve_balance_system` panique en nommant le fichier, le champ et le nombre de joueurs.
   Tests unitaires : `content::expr` (désérialisation, résolution, erreurs) et `game::balance`
   (dépendance à `players`, erreurs = panic avec contexte).
+
+### D61 : armure et bouclier
+
+**Armure** (`StatId::Armor`, lue par `game::character::health::rollback_resolve_damage_events`, listée
+dans `sim_core::stats::stat_reader`). Un dégât reçu devient `dégât × 100 / (100 + armure)`
+(`combat::damage::after_armor`, formule de League of Legends : 100 d'armure = moitié des dégâts), en
+`Fixed`, après `resolve_damage` (équipe, résistances, difficulté). Armure `<= 0` ou absente : le montant
+est rendu tel quel (identité exacte, aucune trace ne bouge). `Armor` n'a pas de base dans `Stats` : un
+modificateur (`objets/plaque`, `Modifier { stat: Armor, .. }`, perk, mutation) s'applique sur 0.
+`DamageKind::True` ignore l'armure **et** le bouclier.
+
+**Bouclier** (`combat::actors::Shield(u32)`), distinct de l'armure : chaque point absorbe **un coup
+entier** (le dégât est annulé, le point disparaît, `SHIELD_IFRAMES` = 15 frames d'invulnérabilité
+`Health.invulnerable_until_frame` pour qu'une rafale n'en consomme pas plusieurs). Composant
+**neutre** (`rollback_and_trace_neutral`), posé au premier gain par `GainShield(n)` (variante **en fin
+d'enum** d'`Action` : effet, objet `OnUse`/consommable, synergie ; refusée dans un power-up, `n = 0`
+refusé par le lint). Le gain passe par `combat::actors::queue_gain_shield` (commande différée : ajoute à
+un `Shield` existant). Ordre au résolveur : **bouclier d'abord, puis armure** sur ce qui passe. Trace :
+`ggrs{f= shield_absorb target= left=}`.
+
+**Contenu** (`testbed`) : `objets/plaque` (passif, +100 d'armure), `objets/egide` (consommable,
+`GainShield(1)` au ramassage). Scénarios : `armor_reduces_damage`, `armor_true_damage` (chute en fosse
+= dégât `True`, +100 d'armure par `modifiers`), `shield_absorbs_hit`, `shield_then_armor`. Lint :
+fixture `shield_zero`. HUD : source `shield` laissée à M2-T18.
 
 ## 19. Statuts (T1.3, chantier B3)
 
@@ -1919,6 +1978,16 @@ ajoute ses effets, est notée dans `Mutations`, et **`OnLevelUp` se déclenche �
 suivante** (pour tous les effets `OnLevelUp` du joueur, ceux de la nouvelle mutation compris).
 Pool épuisé : pas de choix, `OnLevelUp` directement. Moments clés `levelup`, `mutation`.
 
+`choice_timing: Immediate` est le défaut. `BetweenFloors` (revue humaine M1) conserve
+les niveaux gagnés pendant le combat dans `PendingMutations` (rollback neutre, absent
+quand vide), puis ouvre les choix après nettoyage de l'étage et ouverture du portail.
+Le portail attend que tous les joueurs vivants aient résolu leurs choix ; les projectiles
+hostiles restants sont supprimés et les dégâts des joueurs sont ignorés pendant cet
+interlude. Le timeout par choix reste actif, les horloges continuent. Le tirage `loot`
+est différé avec le choix, donc ses options et les combats suivants peuvent changer.
+Cette politique ne s'applique qu'au mode `Floors` ; les autres modes gardent le choix
+immédiat. `throne` l'active dans `progression/run.ron`.
+
 **Mutation** : kind `Mutation` (`mutations/<id>.ron`) : `(name, weight: 1, tags, max_stacks: 1,
 effects: [Effect])`.
 
@@ -2205,9 +2274,21 @@ Présentation seule : aucune trace ne change.
   `Floors` seulement). Sans valeur : texte vide, pas même le préfixe (D22).
 - **Attente** `HudText { source, contains, at_frame }` : le texte (sans préfixe) contient
   `contains` ; lue dans `HudSnapshot`, hors simulation et hors trace.
-- **Contenu** : `games/throne/assets/ui/hud.ron` — étage en haut au centre (au lieu de la
-  vague), barre de rads sous la vie et son texte à droite, niveau et statuts au-dessus de la vie,
-  munitions par type sous le nom de l'arme. zombies et testbed inchangés.
+- **Contenu après revue humaine (2026-10-14)** : `games/throne/assets/ui/hud.ron` —
+  étage en haut à gauche ; vie, niveau et barres vie/rads en bas à gauche ; arme et
+  chargeur/réserve en bas à droite ; statuts/power-ups contextuels en haut. Les textes
+  joueurs/ennemis, rads numériques et réserves des armes inactives sont retirés du HUD
+  courant. Les sources restent disponibles dans le modèle. Mutation/fin masquent le HUD.
+  Les RON HUD de zombies et testbed restent inchangés.
+
+### Polissage de revue M1 (2026-10-14)
+
+Le rendu des cartes raccourcit les descriptions générées (« regagnez 25 points de vie »
+→ « +25 PV »), en conservant déclencheurs, conditions, quantités et durées. Le modèle
+`MutationScreenView` garde la description complète. L'écran de fin Floors affiche
+étage, éliminations et durée min:sec plutôt que frames/score technique ; panneau centré.
+`play_scenario --capture <dir> --size 640x360` vérifie les petits viewports ; défaut 960x540.
+Ce sont des changements de présentation, aucune mécanique ni trace modifiée.
 
 ## 33. Restart en ligne (D14)
 
@@ -3173,6 +3254,23 @@ profils existants sont inchangés (aucune trace existante ne bouge).
 - **Option** `ExplorerOptions::boss_direct` (`alacod-sim --boss-direct`) : droit au boss, sans autre salle
   ni objet.
 
+**bot-explorateur-v2 (D65).**
+- **Arène** : une salle `arene` dormante et vide est un but (`explorer::room_pending`) jusqu'à son
+  nettoyage : elle ne se verrouille qu'à l'entrée d'un joueur et ses vagues naissent à ce moment.
+  Même ordre que les autres salles (coût du chemin, puis identifiant), le boss reste en dernier.
+- **Salles non verrouillantes** (départ, récompense, boutique) : un but jusqu'à ce qu'un joueur y
+  entre (dans la salle réduite de 24 px) ; on n'y achète rien. **Seule mémoire du bot**,
+  `ExplorerVisits` (ensemble `(index d'étage, salle)`, ressource hors rollback) : une salle sans
+  état n'a rien à lire dans `RoomStates`. Elle ne sert qu'à produire des inputs, que GGRS enregistre ;
+  un rollback ne rappelle pas le bot pour une frame passée.
+- **Réanimation** : l'explorateur relève un coéquipier à terre sans attendre les 600 dernières frames
+  d'urgence (`REVIVE_URGENT_FRAMES` reste la règle de `prudent`/`fonceur`). Il attendait l'urgence
+  sans autre but : graine 175 à 2 bots, saignement fini à f2459, première interaction f1887.
+- **Zone morte** : `surface_step` considère le bot arrivé quand son pas est sous `ROUTE_DEAD_ZONE`
+  sur les deux axes ; sinon il restait immobile à 36 px de la portée, sans presser Interaction
+  (graine 47 à 2 bots, `etages_deux`, soft-lock).
+- Campagne : `docs/taches/rapports/bot-explorateur-v2/campagne.sh` (lots de 10 graines).
+
 **`alacod-sim`** : `--floors <séquence> --until-floor N` existait (T1.14) ; le JSON gagne `outcome`
 (`victoire`, `objectif`, `mort`, `soft-lock`, `plafond`, `desync`) et `rooms` (par étage : salles typées,
 visitées, nettoyées, verrouillantes) ; un résumé par issue (graines) finit la sortie d'erreur. `--until-floor N`
@@ -3184,6 +3282,81 @@ campagne : `alacod-sim --game gungeon --bots 1 --profiles explorateur --floors e
 `etages_court_deux` sans input scripté ; ils vérifient l'état des salles, `FloorIndex` 1 et la survie. La
 carte de l'étage suivant est chargée à l'avance : `RoomState` y désigne les salles de l'étage joué par
 `nth: 1`. Les scénarios `gungeon_floor_seed_*` (atteinte scriptée) ne changent pas.
+
+## 48. Butin, coffres et clés (M2-T5, chantier C4)
+
+Où les objets (§36, §44) apparaissent : un tirage pondéré, seedé, **indépendant du moment**, des coffres
+(dont certains à clé) et une récompense à la fin d'une salle de combat. Code : `items::loot` (contrats et
+tirage pur), `game::loot` (systèmes), `map_ldtk::game::rooms::room_chest_system` (coffres des types de salle).
+
+**Pool de butin** (kind `LootTable`, `loot/<id>.ron`, id = nom de fichier ; `game.ron` : `(path: "loot", kind: "LootTable")`) :
+
+```ron
+(
+    entries: [(pick: Item("key"), weight: 3), (pick: Rarity(Rare), weight: 1)],
+    exclude_held: false,                                   // défaut : faux
+    reward: Some((chance: "0.33", chest_chance: "0.25")),  // récompense de salle (chest_rarity: Common)
+)
+```
+
+- `pick: Item(id)` : un objet précis ; `pick: Rarity(r)` : **un** objet de cette rareté, uniforme parmi ceux de
+  `items/` (le poids est celui de l'entrée, pas par objet : les rares restent rares quel que soit leur nombre).
+- **Tirage** (`items::draw_loot`) : deux `next_u32` toujours consommés (l'entrée par poids, puis le candidat),
+  entrées et candidats triés (BTreeMap), donc le flux avance de la même façon quels que soient les filtres.
+- **Exclusion des objets tenus** : décision = **opt-in par pool** (`exclude_held`, faux par défaut). Elle rend
+  le tirage dépendant de l'inventaire de l'ouvreur, donc du moment ; les pools de `gungeon` ne l'activent pas.
+  Un actif tenu compte comme tenu. Si le filtre ne laisse rien, retombée sur le pool sans filtre de rareté ni
+  d'exclusion (sauf récompense de salle : un consommable ou rien).
+- **Rareté d'un coffre** (`Chest::rarity`) = rareté **minimale** de l'objet tiré (un consommable compte pour `Common`).
+
+**Flux RNG dédié, indépendant du temps.** `items::loot_seed(graine de la partie, étage, clé de contenu)` =
+FNV-1a de `loot:<graine>:<étage>:<clé>` replié sur 32 bits ; le tirage lit un **`RollbackRng` local** de cette
+graine. Il ne touche **aucun** flux de `RngStreams` : le flux nommé `"loot"` des power-ups est consommé à chaque
+mort d'ennemi, il ferait dépendre l'objet du moment d'ouverture (et changerait le hash de la ressource, comme
+`variant.rs` le note déjà). La clé de contenu est celle du coffre (`room:<salle>`, `reward:<salle>`, ou la clé
+d'un placement de scénario), jamais son `Entity` ni son `GgrsNetId`. Résultat : un coffre ouvert à la frame 30 ou
+à la frame 3000, par l'un ou l'autre joueur, donne le même objet (scénario `loot_seeded` : deux coffres de même
+clé ouverts à 120 frames d'écart donnent le même objet ; `loot_seeded_other` : une autre graine, un autre objet).
+
+**Pool d'un étage.** `Floors` : champ optionnel `loot: ["commun", "etage2"]` (index = étage, le dernier vaut
+pour les suivants) → `game::loot::FloorLootTables` (hors rollback, posé par `map_ldtk::game::floors`). Un coffre
+sans `table` utilise celui de l'étage, sinon `commun` ; la récompense de salle utilise celui de l'étage **s'il
+définit `reward`**, sinon `salle`. Lint : pool inconnu = `BrokenReference`.
+
+**Coffre** (`items::Chest { key, table, rarity, locked, opened }`, rollback + checksum + trace en variante
+**neutre**) : entité au sol avec `Interactable { Chest }` (`InteractionType::Chest`, variante en fin d'enum :
+les hash existants ne bougent pas), `GgrsNetId` par clé de contenu (`chest_<clé>`). `chest_interaction_system`
+(`Interaction`, après `handle_item_interaction`) : le premier joueur (ordre `GgrsNetId`) l'emporte. **Verrouillé**
+(`locked`) : consomme **un** consommable `key` ; sans clé, refus (rien ne change, `ggrs{chest_refused}`). Ouvert :
+un `ItemPickup` au sol à 16 unités, `opened = true`, `Interactable` retiré (le prompt et la détection n'y
+reviennent pas), `FrameEvents<ChestOpened>` (neutre). Un coffre ouvert reste en place.
+Prompt HUD (source `prompt`) : « Ouvrir le coffre », « Fermé — 1 clé » (verrouillé, sans clé), « Ouvrir — 1 clé ».
+
+**Coffre d'un type de salle.** `rooms/<id>.ron` : champ optionnel `chest: Some((table: None, locked: false,
+rarity: Common))` (`world::RoomKindDef`, qui perd `Copy`). `room_chest_system` pose le coffre au centre de chaque
+salle de l'étage courant qui n'en a pas encore (clé `room:<salle>`) : aucune entité LDtk à ajouter, tout
+gabarit d'un type donné en reçoit un. `gungeon` : `recompense` (verrouillé, rareté mini Uncommon, donc au moins un
+coffre à clé par étage dans la grammaire `etage` qui exige une récompense) et `boutique` (ouvert, en attendant M2-T6).
+
+**Récompense de salle** (`room_reward_system`, après `Run`) : une salle de type `combat` qui passe `Cleared`
+(`FrameEvents<RoomChanged>`) laisse, avec la chance `reward.chance` du pool (forcée par
+`Scenario::room_reward_chance_override`), au centre de la salle : un coffre (`chest_chance`, pool de l'étage ou
+`commun`) ou un consommable tiré dans le pool (`consumables_only`). Graine : clé `reward:<salle>`. Les clés
+tombent donc comme récompense (`gungeon` : `salle.ron`, clé de poids 3).
+
+**Lint** : pool vide, poids ≤ 0, objet inconnu (`BrokenReference`), rareté sans objet, chances hors de 0..=1,
+coffre de salle à pool inconnu, **coffre verrouillé dans un jeu sans consommable `key`** (`BrokenReference`),
+pool inconnu dans `loot` d'une séquence. Fixtures `loot_empty_table`, `loot_weight_zero`, `loot_unknown_item`,
+`loot_locked_chest_without_key`.
+
+**Scénario** : `Scenario::chests` (`ChestPlacement` : clé, pool, rareté, verrou, position, frame), comme `items` ;
+`room_reward_chance_override`. Attente `ItemCount { handle, id, count, at_frame }` (exemplaires d'un objet tenus :
+0 prouve un refus, 2 un même objet tiré deux fois). Scénarios : `loot_seeded`, `loot_seeded_other`, `chest_locked`,
+`room_reward`, `loot_floor_table` (testbed : pools `commun`/`etage2`/`salle`, séquence `deux_butin`).
+
+**Hors périmètre** : le butin du boss (table `boss` de `gungeon` prévue, branchée par M2-T7), la boutique (T6),
+le HUD des clés (T18). Les deux types de salle `recompense` et `boutique` de `gungeon` gagnent un coffre : les
+scénarios qui jouent ces gabarits (étages `etage`/`grand`) changent de trace, preuve dans le rapport.
 
 ## 52. Contenu `gungeon` (M2-T14, quatre parties)
 
@@ -3220,6 +3393,30 @@ Munitions : réserves distinctes par type `Custom` (`balles`, `cartouches`, `cal
 `cooldown_frames` (voir `FiringMode::Burst`). Les traces `gungeon` existantes n'ont pas bougé
 (les 5 scénarios générés d'avant sont identiques après `GEN_BLESS=1`).
 
+### 52.c Ennemis et boss (T14c)
+
+Données seulement (`games/gungeon/assets/`), aucune mécanique de moteur.
+
+**Ennemis** (`characters/`, un `test:` chacun, scénarios générés `enemy_<id>_still`/`_moving`) :
+`shotgun_kin` (`Shoot` de `pompe` : télégraphe 25 puis sept chevrotines en `Fan`, portée 170 ; variante
+`blinde`), `veteran_kin` (`visee` + `KeepDistance` 140-220 ; variantes `rapide` et `blinde`),
+`bandana_kin` (`Charge`, télégraphe 30, 15 de dégât), `tourelle_kin` (immobile, `croix` : deux couronnes de
+quatre boules), `fuyard_kin` (`Flee` sous 50 %, `rafale` de quatre balles ; variante `rapide`),
+`lanceur_kin` (`KeepDistance` 150-240, `grenade_lente`). Avec `bullet_kin`, `bullet_kin_squad` et le boss
+`gatling` : dix ennemis. Patterns nommés `pompe`, `rafale`, `croix`, `grenade_lente` ; arme ennemie
+`arsenal_lourd` (table `chevrotine`, `grenade` → `explosion` → `eclat`), à part de `arsenal` pour que le hash
+des ennemis existants ne bouge pas.
+
+**Placement** (aucun gabarit ajouté, `docs/taches/rapports/m2-t14c-ennemis.make_placement.py`) :
+`CombatEW` (+`shotgun_kin`, `fuyard_kin`), `CombatNS` (+`veteran_kin`, `tourelle_kin`), `CombatCroix`
+(+`bandana_kin`, `lanceur_kin`), vagues de l'arène (`fuyard_kin` à 300, `bandana_kin`, `lanceur_kin`,
+`tourelle_kin` à 600). `CombatT` et `EscouadeEW` ne bougent pas (les scénarios scriptés de l'étage `court` s'y
+appuient). `alacod lint gungeon` : aucun nouvel avertissement d'ennemi.
+
+**Boss `gatling`** : phase 1 = couronne puis spirale 60 frames plus tard (répétition 150) ; phases 0 et 2
+inchangées. Un renfort `lanceur_kin` en phase 2 a été essayé : le bot meurt et `gungeon_boss_bot` dépasse son
+`EntityCount`, retiré.
+
 ## 53. Lint des kinds M2 et atteignabilité statique (M2-T15, voie V2)
 
 Lint seulement : aucune simulation touchée, aucune trace ne bouge.
@@ -3232,8 +3429,7 @@ code de sortie ne change pas ; `LintError`/`load_and_lint` sont inchangés.
 des stats lues par la simulation, avec l'endroit de lecture ; à tenir à jour **à la main** quand un
 système lit une nouvelle stat. Un modificateur (ou une base `stats:`) sur une stat sans lecteur est une
 erreur `LintErrorKind::UnreadStat` (`Luck`, tout `Custom` sauf `powerup_currency_multiplier`).
-**`Armor` : avertissement seulement** tant que D61 n'est pas mergée (retirer l'exception de
-`lint_stat_readers` et ajouter `Armor` à `stat_reader` en même temps que son lecteur).
+`Armor` est lue depuis D61 (§18, `character::health`) : plus d'exception.
 Usages inspectés : `stats` et `effects` des personnages, variantes, perks, objets, synergies, mutations,
 power-ups.
 
@@ -3254,6 +3450,15 @@ Types tirables d'une grammaire = `FloorGrammar::kinds_needed()`. Avertissements 
 les données. Limites : pas de lecture des scénarios (une arme ou un objet donné par scénario seulement
 est signalé), ni des cartes assemblées autrement que par les désignations ci-dessus ; la sandbox
 `testbed` (arènes de test) produit donc beaucoup d'avertissements voulus.
+
+**Contenu de test (D63).** Champ optionnel `test_only: bool` (défaut `false`) : au sommet d'un fichier
+de personnage (`test_only: true,`), dans `config:` d'une arme (`config: (test_only: true, …)`). L'analyse
+l'ignore : pas d'avertissement « ennemi » ou « arme » pour lui, et un personnage marqué n'est pas une
+source d'armes. Lu par `content` seulement (`CharacterEntry::test_only`, `WeaponEntry::test_only`) : les
+types de `game` et `combat` l'ignorent comme tout champ inconnu, donc aucun effet en jeu et aucune trace
+qui bouge. Marqués : `cible` et `mannequin` (throne), `cible` (gungeon). Fixtures
+`reach_test_only_character` et `reach_test_only_weapon` (jumelles de `reach_enemy_unplaced` et
+`reach_weapon_no_source`, test `test_only_content_is_ignored_by_reach`).
 
 **Audit des kinds M2** (références vérifiées / bornes vérifiées / fixtures) :
 

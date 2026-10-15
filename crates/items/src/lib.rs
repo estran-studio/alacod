@@ -11,6 +11,9 @@
 //!
 //! Les systèmes (ramassage, charge, usage) vivent dans `game::items`.
 
+pub mod loot;
+pub use loot::*;
+
 use bevy::prelude::*;
 use bevy_fixed::fixed_math::Fixed;
 use effects::Effect;

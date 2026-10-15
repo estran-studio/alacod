@@ -320,6 +320,8 @@ fn main() {
             invariants: Default::default(),
             powerups: vec![],
             items: vec![],
+            chests: vec![],
+            room_reward_chance_override: None,
             profile: false,
             powerup_drop_chance_override: None,
             floors: floors.clone(),

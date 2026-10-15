@@ -661,6 +661,22 @@ fn feedback_t1_17_fixtures_report_their_field() {
     );
 }
 
+/// Lot A des assets : `shot_sounds` vers une arme inconnue et une clé absente de `sounds`.
+#[test]
+fn feedback_shot_sounds_fixture_reports_weapon_and_key() {
+    let (_, _, errors) = load_and_lint(&fixture_dir("feedback_shot_sounds_unknown")).unwrap();
+    assert_has_error(
+        &errors,
+        LintErrorKind::BrokenReference,
+        "shot_sounds « fantome » : arme inconnue",
+    );
+    assert_has_error(
+        &errors,
+        LintErrorKind::BrokenReference,
+        "shot_sounds.fantome = « shot_absente » : clé absente",
+    );
+}
+
 #[test]
 fn starting_weapons_exceed_slots_fixture_reports_error() {
     let (mut registry, manifest, errors) =
@@ -709,6 +725,11 @@ fn t3_4_fixtures_have_a_single_rule_failure() {
             "feedback_by_weapon_unknown",
             LintErrorKind::BrokenReference,
             1,
+        ),
+        (
+            "feedback_shot_sounds_unknown",
+            LintErrorKind::BrokenReference,
+            2,
         ),
         (
             "feedback_override_out_of_range",
@@ -1272,6 +1293,30 @@ fn item_cost_not_consumable_fixture_reports_unsupported() {
 }
 
 #[test]
+fn loot_empty_table_fixture_reports_out_of_range() {
+    let (_, _, errors) = load_and_lint(&fixture_dir("loot_empty_table")).unwrap();
+    assert_has_error(&errors, LintErrorKind::OutOfRange, "entries vide");
+}
+
+#[test]
+fn loot_weight_zero_fixture_reports_out_of_range() {
+    let (_, _, errors) = load_and_lint(&fixture_dir("loot_weight_zero")).unwrap();
+    assert_has_error(&errors, LintErrorKind::OutOfRange, "poids 0");
+}
+
+#[test]
+fn loot_unknown_item_fixture_reports_broken_reference() {
+    let (_, _, errors) = load_and_lint(&fixture_dir("loot_unknown_item")).unwrap();
+    assert_has_error(&errors, LintErrorKind::BrokenReference, "fantome");
+}
+
+#[test]
+fn loot_locked_chest_without_key_fixture_reports_broken_reference() {
+    let (_, _, errors) = load_and_lint(&fixture_dir("loot_locked_chest_without_key")).unwrap();
+    assert_has_error(&errors, LintErrorKind::BrokenReference, "« key »");
+}
+
+#[test]
 fn formation_radius_zero_fixture_reports_out_of_range() {
     let (_, _, errors) = load_and_lint(&fixture_dir("formation_radius_zero")).unwrap();
     assert_has_error(&errors, LintErrorKind::OutOfRange, "radius = 0");
@@ -1334,6 +1379,13 @@ fn arena_and_boss_t7_fixtures_report_their_rule() {
     }
 }
 
+// D61 (docs/conventions.md §18) : bouclier et stats lues.
+#[test]
+fn shield_zero_fixture_reports_out_of_range() {
+    let (_, _, errors) = load_and_lint(&fixture_dir("shield_zero")).unwrap();
+    assert_has_error(&errors, LintErrorKind::OutOfRange, "GainShield(0)");
+}
+
 // M2-T15 (docs/conventions.md §53) : stats sans lecteur et atteignabilité statique.
 fn assert_has_warning(fixture: &str, kind: content::LintWarningKind, needle: &str) {
     let (registry, manifest, _) = load_and_lint(&fixture_dir(fixture)).unwrap();
@@ -1353,20 +1405,6 @@ fn stat_unread_fixture_is_an_error() {
 }
 
 #[test]
-fn stat_armor_is_only_a_warning() {
-    let (_, _, errors) = load_and_lint(&fixture_dir("stat_armor_warning")).unwrap();
-    assert!(
-        errors.iter().all(|e| e.kind != LintErrorKind::UnreadStat),
-        "Armor ne doit pas être une erreur : {errors:#?}"
-    );
-    assert_has_warning(
-        "stat_armor_warning",
-        content::LintWarningKind::UnreadStat,
-        "Armor",
-    );
-}
-
-#[test]
 fn reach_fixtures_report_their_warning() {
     use content::LintWarningKind::Unreachable;
     for (fixture, needle) in [
@@ -1382,6 +1420,37 @@ fn reach_fixtures_report_their_warning() {
         assert!(
             errors.iter().all(|e| !e.message.contains("inatteignable")),
             "{fixture} : {errors:#?}"
+        );
+    }
+}
+
+/// D63 : `test_only: true` retire l'avertissement d'un personnage et d'une arme ; les fixtures
+/// jumelles sans marqueur (`reach_enemy_unplaced`, `reach_weapon_no_source`) le gardent.
+#[test]
+fn test_only_content_is_ignored_by_reach() {
+    for (fixture, twin, needle) in [
+        (
+            "reach_test_only_character",
+            "reach_enemy_unplaced",
+            "ennemi « grunt »",
+        ),
+        (
+            "reach_test_only_weapon",
+            "reach_weapon_no_source",
+            "arme « b »",
+        ),
+    ] {
+        assert_has_warning(twin, content::LintWarningKind::Unreachable, needle);
+        let (registry, manifest, errors) = load_and_lint(&fixture_dir(fixture)).unwrap();
+        // `test_only` est un champ valide (les erreurs de la jumelle, ex. carte absente, restent).
+        assert!(
+            errors.iter().all(|e| !e.message.contains("test_only")),
+            "{fixture} : {errors:#?}"
+        );
+        let warnings = content::warnings(&registry, &manifest);
+        assert!(
+            warnings.iter().all(|w| !w.message.contains(needle)),
+            "{fixture} : {warnings:#?}"
         );
     }
 }

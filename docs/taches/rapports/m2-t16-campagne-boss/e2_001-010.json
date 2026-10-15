@@ -1,0 +1,871 @@
+[
+  {
+    "seed": 1,
+    "wave": 0,
+    "floor": 0,
+    "frames": 746,
+    "deaths": 1,
+    "kills": 0,
+    "wall_seconds": 23.997313012,
+    "desync": false,
+    "sim_fps": 31.66557715631287,
+    "damage_taken": 210,
+    "run_end": [
+      "Defeat",
+      745
+    ],
+    "dodges": 153,
+    "doors_opened": 42,
+    "players_end": [
+      {
+        "handle": 0,
+        "currency": 760,
+        "downed": true,
+        "x": 3.7112732,
+        "y": 107.71127,
+        "in_spawn_room": false
+      }
+    ],
+    "waves": [],
+    "outcome": "mort",
+    "rooms": [
+      {
+        "floor": 0,
+        "total": 10,
+        "visited": 4,
+        "cleared": 2,
+        "locking": 7
+      }
+    ]
+  },
+  {
+    "seed": 2,
+    "wave": 0,
+    "floor": 0,
+    "frames": 1164,
+    "deaths": 1,
+    "kills": 0,
+    "wall_seconds": 35.100536086,
+    "desync": false,
+    "sim_fps": 33.50391465204768,
+    "damage_taken": 248,
+    "run_end": [
+      "Defeat",
+      1163
+    ],
+    "dodges": 315,
+    "doors_opened": 50,
+    "players_end": [
+      {
+        "handle": 0,
+        "currency": 970,
+        "downed": true,
+        "x": 108.77164,
+        "y": 256.0,
+        "in_spawn_room": false
+      }
+    ],
+    "waves": [],
+    "outcome": "mort",
+    "rooms": [
+      {
+        "floor": 0,
+        "total": 10,
+        "visited": 6,
+        "cleared": 4,
+        "locking": 7
+      }
+    ]
+  },
+  {
+    "seed": 3,
+    "wave": 0,
+    "floor": 0,
+    "frames": 2170,
+    "deaths": 0,
+    "kills": 0,
+    "wall_seconds": 59.924651042,
+    "desync": false,
+    "sim_fps": 36.489321594202366,
+    "damage_taken": 194,
+    "dodges": 273,
+    "softlock": {
+      "observations": [
+        "plafond atteint : phase NotStarted, 0 ennemis de vague présents, 0 encore à générer",
+        "0 ennemis hors de leur champ de flux depuis leur case exacte (champs : Ground, GroundBreaker)",
+        "restant : bullet_kin #123 case (-10, 9), 40 PV, joueur 1 le plus proche à 161.23706 (en vue)",
+        "restant : bullet_kin #127 case (-7, 9), 40 PV, joueur 1 le plus proche à 158.77834 (hors de vue)",
+        "restant : gatling #145 case (16, 8), 120 PV, joueur 1 le plus proche à 409.22675 (hors de vue)",
+        "0 ennemis dont le point visé par le flow field chevauche un mur physique avec leur collider",
+        "aucun kill entre les frames 1570 et 2170"
+      ],
+      "previous": {
+        "frame": 1570,
+        "wave": {
+          "phase": "NotStarted",
+          "current_wave": 0,
+          "enemies_to_spawn": 0,
+          "enemies_spawned_this_wave": 0,
+          "wave_enemy_count": 0,
+          "total_enemies_killed": 0,
+          "wave_enemies_killed": 0,
+          "wave_start_frame": 0,
+          "last_spawn_frame": 0,
+          "last_enemy_killed_frame": 0,
+          "phase_start_frame": 0,
+          "current_health_multiplier": "1",
+          "current_damage_multiplier": "1",
+          "spawn_fallback": false
+        },
+        "run_step": "Playing { since_frame: 0 }",
+        "enemies": [
+          {
+            "net_id": 123,
+            "character": "bullet_kin",
+            "position": {
+              "x": "-152",
+              "y": "152",
+              "cell": [
+                -10,
+                9
+              ]
+            },
+            "health": "40",
+            "wave_enemy": false,
+            "state": "Idle",
+            "target": {
+              "target": null,
+              "target_type": "None",
+              "last_known_position": null
+            },
+            "nav_profile": "Ground",
+            "path_cost": 268,
+            "nearest_player": {
+              "handle": 1,
+              "net_id": 116,
+              "distance": "108.3878",
+              "line_of_sight": true
+            },
+            "next_cell": [
+              -9,
+              9
+            ],
+            "steering_point": {
+              "x": "-128",
+              "y": "160",
+              "cell": [
+                -8,
+                10
+              ]
+            },
+            "steering_point_blockers": []
+          },
+          {
+            "net_id": 127,
+            "character": "bullet_kin",
+            "position": {
+              "x": "-104",
+              "y": "152",
+              "cell": [
+                -7,
+                9
+              ]
+            },
+            "health": "40",
+            "wave_enemy": false,
+            "state": "Idle",
+            "target": {
+              "target": null,
+              "target_type": "None",
+              "last_known_position": null
+            },
+            "nav_profile": "Ground",
+            "path_cost": 208,
+            "nearest_player": {
+              "handle": 1,
+              "net_id": 116,
+              "distance": "108.84872",
+              "line_of_sight": true
+            },
+            "next_cell": [
+              -8,
+              8
+            ],
+            "steering_point": {
+              "x": "-120",
+              "y": "136",
+              "cell": [
+                -8,
+                8
+              ]
+            },
+            "steering_point_blockers": []
+          },
+          {
+            "net_id": 145,
+            "character": "gatling",
+            "position": {
+              "x": "264",
+              "y": "136",
+              "cell": [
+                16,
+                8
+              ]
+            },
+            "health": "120",
+            "wave_enemy": false,
+            "state": "Idle",
+            "target": {
+              "target": null,
+              "target_type": "None",
+              "last_known_position": null
+            },
+            "nav_profile": "Ground",
+            "path_cost": 872,
+            "nearest_player": {
+              "handle": 1,
+              "net_id": 116,
+              "distance": "403.1997",
+              "line_of_sight": false
+            },
+            "next_cell": [
+              15,
+              8
+            ],
+            "steering_point": {
+              "x": "248",
+              "y": "136",
+              "cell": [
+                15,
+                8
+              ]
+            },
+            "steering_point_blockers": []
+          }
+        ],
+        "flow_field": "Ground, GroundBreaker",
+        "players": [
+          {
+            "net_id": 113,
+            "handle": 0,
+            "position": {
+              "x": "-109.99611",
+              "y": "-31.6161",
+              "cell": [
+                -7,
+                -2
+              ]
+            },
+            "health": "0",
+            "downed": {
+              "since_frame": 863,
+              "bleedout_at_frame": 2663
+            },
+            "currency": 1040,
+            "active_weapon": "pistolet",
+            "mag_ammo": 0,
+            "reserves": [
+              [
+                "Custom(\"balles\")",
+                119964
+              ]
+            ],
+            "last_input": null
+          },
+          {
+            "net_id": 116,
+            "handle": 1,
+            "position": {
+              "x": "-129.04301",
+              "y": "46.07129",
+              "cell": [
+                -9,
+                2
+              ]
+            },
+            "health": "100",
+            "downed": null,
+            "currency": 1140,
+            "active_weapon": "pistolet",
+            "mag_ammo": 9,
+            "reserves": [
+              [
+                "Custom(\"balles\")",
+                119940
+              ]
+            ],
+            "last_input": null
+          }
+        ],
+        "closed_doors": [],
+        "windows": [],
+        "navigation": "légende : # mur (pathfinding + physique)  p mur physique seul  n mur pathfinding seul\nW fenêtre intacte  w fenêtre cassée  D porte fermée  d porte ouverte  S spawner  Z zombie  P joueur\n. atteignable par le flow field (ou direction 8/2/4/6/7/9/1/3)   (espace) libre mais NON atteignable\nx -21..20, y -21..12 (cellules de 16 px), cible GridPos { x: -9, y: 2 }, 396 cellules atteignables\n                                          \n         ####d########################### \n         #332111##332111##321111##321111# \n         #6Z21Z1##332111##211111##211111# \n         #WW2111#d332111dd111111dd111Z11# \n         #332111##3321114444444444444444# \n         #632114##632114##87WW77##877777# \n         #962147##962147##987987##987777# \n         ###2d######2d################### \n ####d######2d######2d#######d###         \n #333321##36P411##321111##321111#         \n #333332##698744##211111##211111#         \n d666666dd998777dd444444dd444444d         \n #999999999987777777777777777777#         \n #999998##9987P7##877777##877777#         \n #999987##998777##987777##987777#         \n ####d#######d######8d#######d###         \n                 ###8d###                 \n                 #368741#                 \n                 #698774#                 \n                 d998777d                 \n                 #998777#                 \n                 #998777#                 \n                 #998777#                 \n                 ###8d###                 \n                 ###8d###                 \n                 #368741#                 \n                 #698774#                 \n                 d998777d                 \n                 #998777#                 \n                 #998777#                 \n                 #998777#                 \n                 ####d###                 \n                                          \n",
+        "floor": {
+          "index": 0,
+          "portal_open": false,
+          "anchor": [
+            "8",
+            "-8"
+          ],
+          "anchor_cell": [
+            0,
+            -1
+          ]
+        }
+      },
+      "final_state": {
+        "frame": 2170,
+        "wave": {
+          "phase": "NotStarted",
+          "current_wave": 0,
+          "enemies_to_spawn": 0,
+          "enemies_spawned_this_wave": 0,
+          "wave_enemy_count": 0,
+          "total_enemies_killed": 0,
+          "wave_enemies_killed": 0,
+          "wave_start_frame": 0,
+          "last_spawn_frame": 0,
+          "last_enemy_killed_frame": 0,
+          "phase_start_frame": 0,
+          "current_health_multiplier": "1",
+          "current_damage_multiplier": "1",
+          "spawn_fallback": false
+        },
+        "run_step": "Playing { since_frame: 0 }",
+        "enemies": [
+          {
+            "net_id": 123,
+            "character": "bullet_kin",
+            "position": {
+              "x": "-152",
+              "y": "152",
+              "cell": [
+                -10,
+                9
+              ]
+            },
+            "health": "40",
+            "wave_enemy": false,
+            "state": "Idle",
+            "target": {
+              "target": null,
+              "target_type": "None",
+              "last_known_position": null
+            },
+            "nav_profile": "Ground",
+            "path_cost": 334,
+            "nearest_player": {
+              "handle": 1,
+              "net_id": 116,
+              "distance": "161.23706",
+              "line_of_sight": true
+            },
+            "next_cell": [
+              -9,
+              9
+            ],
+            "steering_point": {
+              "x": "-128",
+              "y": "160",
+              "cell": [
+                -8,
+                10
+              ]
+            },
+            "steering_point_blockers": []
+          },
+          {
+            "net_id": 127,
+            "character": "bullet_kin",
+            "position": {
+              "x": "-104",
+              "y": "152",
+              "cell": [
+                -7,
+                9
+              ]
+            },
+            "health": "40",
+            "wave_enemy": false,
+            "state": "Idle",
+            "target": {
+              "target": null,
+              "target_type": "None",
+              "last_known_position": null
+            },
+            "nav_profile": "Ground",
+            "path_cost": 274,
+            "nearest_player": {
+              "handle": 1,
+              "net_id": 116,
+              "distance": "158.77834",
+              "line_of_sight": false
+            },
+            "next_cell": [
+              -8,
+              8
+            ],
+            "steering_point": {
+              "x": "-120",
+              "y": "136",
+              "cell": [
+                -8,
+                8
+              ]
+            },
+            "steering_point_blockers": []
+          },
+          {
+            "net_id": 145,
+            "character": "gatling",
+            "position": {
+              "x": "264",
+              "y": "136",
+              "cell": [
+                16,
+                8
+              ]
+            },
+            "health": "120",
+            "wave_enemy": false,
+            "state": "Idle",
+            "target": {
+              "target": null,
+              "target_type": "None",
+              "last_known_position": null
+            },
+            "nav_profile": "Ground",
+            "path_cost": 848,
+            "nearest_player": {
+              "handle": 1,
+              "net_id": 116,
+              "distance": "409.22675",
+              "line_of_sight": false
+            },
+            "next_cell": [
+              15,
+              8
+            ],
+            "steering_point": {
+              "x": "248",
+              "y": "136",
+              "cell": [
+                15,
+                8
+              ]
+            },
+            "steering_point_blockers": []
+          }
+        ],
+        "flow_field": "Ground, GroundBreaker",
+        "players": [
+          {
+            "net_id": 113,
+            "handle": 0,
+            "position": {
+              "x": "-109.99611",
+              "y": "-31.6161",
+              "cell": [
+                -7,
+                -2
+              ]
+            },
+            "health": "0",
+            "downed": {
+              "since_frame": 863,
+              "bleedout_at_frame": 2663
+            },
+            "currency": 1040,
+            "active_weapon": "pistolet",
+            "mag_ammo": 0,
+            "reserves": [
+              [
+                "Custom(\"balles\")",
+                119964
+              ]
+            ],
+            "last_input": null
+          },
+          {
+            "net_id": 116,
+            "handle": 1,
+            "position": {
+              "x": "-119.80386",
+              "y": "-5.98987",
+              "cell": [
+                -8,
+                -1
+              ]
+            },
+            "health": "100",
+            "downed": null,
+            "currency": 1140,
+            "active_weapon": "pistolet",
+            "mag_ammo": 9,
+            "reserves": [
+              [
+                "Custom(\"balles\")",
+                119940
+              ]
+            ],
+            "last_input": null
+          }
+        ],
+        "closed_doors": [],
+        "windows": [],
+        "navigation": "légende : # mur (pathfinding + physique)  p mur physique seul  n mur pathfinding seul\nW fenêtre intacte  w fenêtre cassée  D porte fermée  d porte ouverte  S spawner  Z zombie  P joueur\n. atteignable par le flow field (ou direction 8/2/4/6/7/9/1/3)   (espace) libre mais NON atteignable\nx -21..20, y -21..12 (cellules de 16 px), cible GridPos { x: -8, y: -1 }, 396 cellules atteignables\n                                          \n         ####d########################### \n         #333211##332111##321111##321111# \n         #6Z32Z1##332111##211111##211111# \n         #WW3211#d332111dd111111dd111Z11# \n         #333211##3321114444444444444444# \n         #633214##632114##87WW77##877777# \n         #963247##962147##987987##987777# \n         ###3d######2d################### \n ####d######3d######2d#######d###         \n #333321##333211##321111##321111#         \n #333332##333211##211111##211111#         \n d333333dd333211dd111111dd111111d         \n #66666666666P444444444444444444#         \n #999998##9998P7##877777##877777#         \n #999987##999877##987777##987777#         \n ####d#######d######8d#######d###         \n                 ###8d###                 \n                 #368741#                 \n                 #698774#                 \n                 d998777d                 \n                 #998777#                 \n                 #998777#                 \n                 #998777#                 \n                 ###8d###                 \n                 ###8d###                 \n                 #368741#                 \n                 #698774#                 \n                 d998777d                 \n                 #998777#                 \n                 #998777#                 \n                 #998777#                 \n                 ####d###                 \n                                          \n",
+        "floor": {
+          "index": 0,
+          "portal_open": false,
+          "anchor": [
+            "8",
+            "-8"
+          ],
+          "anchor_cell": [
+            0,
+            -1
+          ]
+        }
+      }
+    },
+    "doors_opened": 54,
+    "players_end": [
+      {
+        "handle": 0,
+        "currency": 1040,
+        "downed": true,
+        "x": -109.99611,
+        "y": -31.616104,
+        "in_spawn_room": false
+      },
+      {
+        "handle": 1,
+        "currency": 1140,
+        "downed": false,
+        "x": -119.80386,
+        "y": -5.989868,
+        "in_spawn_room": false
+      }
+    ],
+    "waves": [],
+    "outcome": "soft-lock",
+    "rooms": [
+      {
+        "floor": 0,
+        "total": 10,
+        "visited": 5,
+        "cleared": 4,
+        "locking": 7
+      }
+    ]
+  },
+  {
+    "seed": 4,
+    "wave": 0,
+    "floor": 0,
+    "frames": 815,
+    "deaths": 1,
+    "kills": 0,
+    "wall_seconds": 25.270416008,
+    "desync": false,
+    "sim_fps": 32.72410805554654,
+    "damage_taken": 239,
+    "run_end": [
+      "Defeat",
+      814
+    ],
+    "dodges": 227,
+    "doors_opened": 43,
+    "players_end": [
+      {
+        "handle": 1,
+        "currency": 920,
+        "downed": true,
+        "x": 90.07005,
+        "y": 42.625473,
+        "in_spawn_room": false
+      }
+    ],
+    "waves": [],
+    "outcome": "mort",
+    "rooms": [
+      {
+        "floor": 0,
+        "total": 10,
+        "visited": 4,
+        "cleared": 3,
+        "locking": 7
+      }
+    ]
+  },
+  {
+    "seed": 5,
+    "wave": 0,
+    "floor": 1,
+    "frames": 2134,
+    "deaths": 0,
+    "kills": 0,
+    "wall_seconds": 68.670236712,
+    "desync": false,
+    "sim_fps": 31.27743928324766,
+    "floor_frames": [
+      2134
+    ],
+    "damage_taken": 277,
+    "dodges": 589,
+    "doors_opened": 62,
+    "players_end": [
+      {
+        "handle": 0,
+        "currency": 1530,
+        "downed": false,
+        "x": -8.0,
+        "y": -8.0,
+        "in_spawn_room": true
+      },
+      {
+        "handle": 1,
+        "currency": 1110,
+        "downed": true,
+        "x": 24.0,
+        "y": -8.0,
+        "in_spawn_room": true
+      }
+    ],
+    "waves": [],
+    "outcome": "objectif",
+    "rooms": [
+      {
+        "floor": 0,
+        "total": 10,
+        "visited": 7,
+        "cleared": 6,
+        "locking": 7
+      },
+      {
+        "floor": 1,
+        "total": 8,
+        "visited": 1,
+        "cleared": 0,
+        "locking": 5
+      }
+    ]
+  },
+  {
+    "seed": 6,
+    "wave": 0,
+    "floor": 0,
+    "frames": 1270,
+    "deaths": 1,
+    "kills": 0,
+    "wall_seconds": 49.207587663,
+    "desync": false,
+    "sim_fps": 26.007555465587068,
+    "damage_taken": 258,
+    "run_end": [
+      "Defeat",
+      1269
+    ],
+    "dodges": 429,
+    "doors_opened": 53,
+    "players_end": [
+      {
+        "handle": 0,
+        "currency": 1090,
+        "downed": true,
+        "x": 95.74596,
+        "y": -31.507767,
+        "in_spawn_room": false
+      }
+    ],
+    "waves": [],
+    "outcome": "mort",
+    "rooms": [
+      {
+        "floor": 0,
+        "total": 10,
+        "visited": 6,
+        "cleared": 4,
+        "locking": 7
+      }
+    ]
+  },
+  {
+    "seed": 7,
+    "wave": 0,
+    "floor": 0,
+    "frames": 746,
+    "deaths": 1,
+    "kills": 0,
+    "wall_seconds": 28.856891914,
+    "desync": false,
+    "sim_fps": 26.175655546753507,
+    "damage_taken": 210,
+    "run_end": [
+      "Defeat",
+      745
+    ],
+    "dodges": 153,
+    "doors_opened": 42,
+    "players_end": [
+      {
+        "handle": 0,
+        "currency": 760,
+        "downed": true,
+        "x": 3.7112732,
+        "y": 107.71127,
+        "in_spawn_room": false
+      }
+    ],
+    "waves": [],
+    "outcome": "mort",
+    "rooms": [
+      {
+        "floor": 0,
+        "total": 10,
+        "visited": 4,
+        "cleared": 2,
+        "locking": 7
+      }
+    ]
+  },
+  {
+    "seed": 8,
+    "wave": 0,
+    "floor": 0,
+    "frames": 1210,
+    "deaths": 1,
+    "kills": 0,
+    "wall_seconds": 41.60267887,
+    "desync": false,
+    "sim_fps": 29.41234992942864,
+    "damage_taken": 236,
+    "run_end": [
+      "Defeat",
+      1209
+    ],
+    "dodges": 393,
+    "doors_opened": 58,
+    "players_end": [
+      {
+        "handle": 0,
+        "currency": 950,
+        "downed": true,
+        "x": -509.2079,
+        "y": 113.38185,
+        "in_spawn_room": false
+      }
+    ],
+    "waves": [],
+    "outcome": "mort",
+    "rooms": [
+      {
+        "floor": 0,
+        "total": 10,
+        "visited": 6,
+        "cleared": 4,
+        "locking": 7
+      }
+    ]
+  },
+  {
+    "seed": 9,
+    "wave": 0,
+    "floor": 0,
+    "frames": 638,
+    "deaths": 0,
+    "kills": 0,
+    "wall_seconds": 23.284567799,
+    "desync": false,
+    "sim_fps": 27.878906916450248,
+    "damage_taken": 212,
+    "run_end": [
+      "Defeat",
+      637
+    ],
+    "dodges": 172,
+    "doors_opened": 40,
+    "players_end": [
+      {
+        "handle": 0,
+        "currency": 760,
+        "downed": true,
+        "x": 90.29616,
+        "y": 171.58578,
+        "in_spawn_room": false
+      },
+      {
+        "handle": 1,
+        "currency": 1190,
+        "downed": true,
+        "x": 90.46185,
+        "y": 171.93294,
+        "in_spawn_room": false
+      }
+    ],
+    "waves": [],
+    "outcome": "mort",
+    "rooms": [
+      {
+        "floor": 0,
+        "total": 9,
+        "visited": 4,
+        "cleared": 2,
+        "locking": 6
+      }
+    ]
+  },
+  {
+    "seed": 10,
+    "wave": 0,
+    "floor": 1,
+    "frames": 1783,
+    "deaths": 0,
+    "kills": 0,
+    "wall_seconds": 61.390274969000004,
+    "desync": false,
+    "sim_fps": 29.233657639339288,
+    "floor_frames": [
+      1783
+    ],
+    "damage_taken": 209,
+    "dodges": 400,
+    "doors_opened": 49,
+    "players_end": [
+      {
+        "handle": 0,
+        "currency": 920,
+        "downed": true,
+        "x": -8.0,
+        "y": -8.0,
+        "in_spawn_room": true
+      },
+      {
+        "handle": 1,
+        "currency": 1390,
+        "downed": false,
+        "x": 24.0,
+        "y": -8.0,
+        "in_spawn_room": true
+      }
+    ],
+    "waves": [],
+    "outcome": "objectif",
+    "rooms": [
+      {
+        "floor": 0,
+        "total": 9,
+        "visited": 6,
+        "cleared": 5,
+        "locking": 6
+      },
+      {
+        "floor": 1,
+        "total": 12,
+        "visited": 1,
+        "cleared": 0,
+        "locking": 9
+      }
+    ]
+  }
+]

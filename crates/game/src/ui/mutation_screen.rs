@@ -348,6 +348,19 @@ fn centered(center: (f32, f32), size: (f32, f32)) -> Node {
     }
 }
 
+/// Shorten wording without removing triggers, conditions, amounts or durations.
+/// The full generated description remains available in the view model/tooling.
+fn compact_description(description: &str) -> String {
+    description
+        .replace("À chaque ennemi tué", "Ennemi tué")
+        .replace("Quand vous êtes touché", "Coup reçu")
+        .replace("À chaque niveau", "Par niveau")
+        .replace("sans avoir été touché depuis", "sans dégâts reçus depuis")
+        .replace("si la cible est champion", "si champion")
+        .replace("regagnez ", "+")
+        .replace("points de vie", "PV")
+}
+
 fn spawn_screen(
     commands: &mut Commands,
     view: &MutationScreenView,
@@ -366,6 +379,7 @@ fn spawn_screen(
                 ..default()
             },
             GlobalZIndex(10),
+            BackgroundColor(Color::srgba(0.02, 0.025, 0.04, 0.72)),
             MutationScreenRoot { shown },
         ))
         .with_children(|parent| {
@@ -401,7 +415,7 @@ fn spawn_screen(
                             TextColor(if selected { highlight } else { text_color }),
                         ));
                         card_node.spawn((
-                            Text::new(card.description.clone()),
+                            Text::new(compact_description(&card.description)),
                             hud_text_font(&font, layout.text_size),
                             TextColor(text_color),
                         ));
@@ -428,6 +442,26 @@ fn spawn_screen(
 #[cfg(test)]
 mod tests {
     use super::*;
+
+    #[test]
+    fn short_wording_keeps_effect_conditions_and_quantities() {
+        assert_eq!(
+            compact_description(
+                "Chaque seconde, sans avoir été touché depuis 5 s : regagnez 3 points de vie."
+            ),
+            "Chaque seconde, sans dégâts reçus depuis 5 s : +3 PV."
+        );
+        assert_eq!(
+            compact_description(
+                "À chaque ennemi tué, si la cible est champion : dégâts × 2 pendant 5 s."
+            ),
+            "Ennemi tué, si champion : dégâts × 2 pendant 5 s."
+        );
+        assert_eq!(
+            compact_description("À chaque niveau : +25 vie max, regagnez 25 points de vie."),
+            "Par niveau : +25 vie max, +25 PV."
+        );
+    }
 
     fn choice(since_frame: u32) -> MutationChoice {
         MutationChoice {

@@ -1,0 +1,28 @@
+// M2-T5 : même partie que `loot_seeded` avec une autre graine (2) : l'objet tiré est différent
+// (autre graine, autre objet ; toujours le même pour les deux coffres de clé « k »).
+//
+// À regarder : f30 le coffre s'ouvre, f40 le joueur ramasse l'objet ; f150 et f160 la même chose.
+Scenario(
+    powerup_drop_chance_override: "0.0",
+    game: "testbed",
+    floors: Some("deux_niveaux"),
+    map_seed: 2,
+    frames: 200,
+    chests: [
+        (key: "k", x: "40.0", y: "168.0", at_frame: 5),
+        (key: "k", x: "40.0", y: "168.0", at_frame: 120),
+    ],
+    players: [
+        (inputs: [
+            (from: 30, to: 31, buttons: [Interaction]),
+            (from: 40, to: 41, buttons: [Interaction]),
+            (from: 150, to: 151, buttons: [Interaction]),
+            (from: 160, to: 161, buttons: [Interaction]),
+        ]),
+    ],
+    expect: [
+        ItemCount(handle: 0, id: "manche", count: 0, at_frame: 20),
+        ItemCount(handle: 0, id: "manche", count: 1, at_frame: 100),
+        ItemCount(handle: 0, id: "manche", count: 2, at_frame: 190),
+    ],
+)

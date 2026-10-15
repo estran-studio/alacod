@@ -85,6 +85,7 @@ pub fn run(registry: &Registry, manifest: &GameManifest) -> Vec<LintError> {
     lint_arenas(registry, &mut errors);
     lint_items(registry, &mut errors);
     lint_synergies(registry, &mut errors);
+    lint_loot(registry, &mut errors);
     lint_entry_progression(registry, manifest, &mut errors);
     lint_forced_variants(registry, &mut errors);
     lint_character_tests(registry, &mut errors);
@@ -164,6 +165,10 @@ pub(crate) fn lint_effect(
             effects::Action::Heal(amount) if *amount <= Fixed::ZERO => push(
                 LintErrorKind::OutOfRange,
                 format!("{at} : Heal = {amount} : doit être > 0"),
+            ),
+            effects::Action::GainShield(0) => push(
+                LintErrorKind::OutOfRange,
+                format!("{at} : GainShield(0) : doit être > 0"),
             ),
             effects::Action::GaugeAdd(id, _) if !gauge_known(id) => push(
                 LintErrorKind::BrokenReference,
@@ -1393,6 +1398,7 @@ fn lint_powerups(registry: &Registry, errors: &mut Vec<LintError>) {
                 // T1.10 : actions propres aux effets du porteur
                 effects::Action::Modifier { .. }
                 | effects::Action::Heal(_)
+                | effects::Action::GainShield(_)
                 | effects::Action::SpawnPattern { .. }
                 | effects::Action::GaugeAdd(..) => push(format!(
                     "power-up « {} » : actions[{index}] : action d'effet (T1.10), pas de power-up",
@@ -1427,6 +1433,8 @@ fn lint_powerups(registry: &Registry, errors: &mut Vec<LintError>) {
 /// valeurs de `FeedbackSettings::problems` (flash, secousse, télégraphe, surcharges
 /// `by_kind`/`by_weapon`) et armes de `by_weapon` connues du jeu (à distance ou de corps à
 /// corps).
+/// Lot A des assets : chaque entrée de `shot_sounds` nomme une arme à distance du jeu et une
+/// clé de `sounds`.
 fn lint_feedback(registry: &Registry, errors: &mut Vec<LintError>) {
     for feedback in &registry.feedback {
         let file = feedback.file.display().to_string();
@@ -1461,6 +1469,27 @@ fn lint_feedback(registry: &Registry, errors: &mut Vec<LintError>) {
                     kind: LintErrorKind::BrokenReference,
                     file: file.clone(),
                     message: format!("feedback : by_weapon « {weapon} » : arme inconnue du jeu"),
+                });
+            }
+        }
+        for (weapon, key) in &settings.shot_sounds {
+            if !registry
+                .weapons
+                .contains_key(&registry::WeaponId::from(weapon.as_str()))
+            {
+                errors.push(LintError {
+                    kind: LintErrorKind::BrokenReference,
+                    file: file.clone(),
+                    message: format!("feedback : shot_sounds « {weapon} » : arme inconnue du jeu"),
+                });
+            }
+            if !settings.sounds.contains_key(key) {
+                errors.push(LintError {
+                    kind: LintErrorKind::BrokenReference,
+                    file: file.clone(),
+                    message: format!(
+                        "feedback : shot_sounds.{weapon} = « {key} » : clé absente de sounds"
+                    ),
                 });
             }
         }
@@ -2093,6 +2122,10 @@ fn lint_boss(
                 effects::Action::Heal(amount) if *amount <= Fixed::ZERO => push(
                     LintErrorKind::OutOfRange,
                     format!("{at} : Heal = {amount} : doit être > 0"),
+                ),
+                effects::Action::GainShield(0) => push(
+                    LintErrorKind::OutOfRange,
+                    format!("{at} : GainShield(0) : doit être > 0"),
                 ),
                 // M2-T7 : renforts et télégraphe (§45)
                 effects::Action::SpawnEnemies { id, count } => {
@@ -3051,6 +3084,12 @@ fn lint_items(registry: &Registry, errors: &mut Vec<LintError>) {
                 match action {
                     // M2-T4 : soin instantané d'un actif ou d'un consommable
                     effects::Action::Heal(_) => {}
+                    // D61 : bouclier instantané
+                    effects::Action::GainShield(0) => push(
+                        LintErrorKind::OutOfRange,
+                        format!("{at} : GainShield(0) : doit être > 0"),
+                    ),
+                    effects::Action::GainShield(_) => {}
                     effects::Action::TimedModifier { frames: 0, .. } => push(
                         LintErrorKind::OutOfRange,
                         format!("{at} : TimedModifier frames = 0 : doit être > 0"),
@@ -3121,6 +3160,128 @@ fn lint_synergies(registry: &Registry, errors: &mut Vec<LintError>) {
                 continue;
             }
             lint_effect(registry, &at, effect, &mut push);
+        }
+    }
+}
+
+/// M2-T5 (`docs/conventions.md` §48) : pools de butin, coffres des types de salle et pools par
+/// étage. Pool vide, poids ≤ 0, objet ou rareté sans objet, chances hors de 0..=1, pool ou clé
+/// inconnus.
+fn lint_loot(registry: &Registry, errors: &mut Vec<LintError>) {
+    let zero = bevy_fixed::fixed_math::Fixed::ZERO;
+    let one = bevy_fixed::fixed_math::Fixed::ONE;
+    for table in registry.loot_tables.values() {
+        let file = table.file.display().to_string();
+        let mut push = |kind: LintErrorKind, message: String| {
+            errors.push(LintError {
+                kind,
+                file: file.clone(),
+                message,
+            })
+        };
+        let id = &table.id;
+        if table.def.entries.is_empty() {
+            push(
+                LintErrorKind::OutOfRange,
+                format!("pool de butin « {id} » : entries vide (au moins une entrée)"),
+            );
+        }
+        for (index, entry) in table.def.entries.iter().enumerate() {
+            if entry.weight <= 0 {
+                push(
+                    LintErrorKind::OutOfRange,
+                    format!(
+                        "pool de butin « {id} » : entries[{index}] : poids {} (doit être > 0)",
+                        entry.weight
+                    ),
+                );
+            }
+            match &entry.pick {
+                items::LootPick::Item(item) => {
+                    if !registry.items.contains_key(item) {
+                        push(
+                            LintErrorKind::BrokenReference,
+                            format!("pool de butin « {id} » : entries[{index}] : objet « {item} » inconnu"),
+                        );
+                    }
+                }
+                items::LootPick::Rarity(rarity) => {
+                    if !registry
+                        .items
+                        .values()
+                        .any(|item| item.def.rarity == *rarity)
+                    {
+                        push(
+                            LintErrorKind::OutOfRange,
+                            format!("pool de butin « {id} » : entries[{index}] : aucun objet de rareté {rarity:?}"),
+                        );
+                    }
+                }
+            }
+        }
+        if let Some(reward) = &table.def.reward {
+            for (name, value) in [
+                ("chance", reward.chance),
+                ("chest_chance", reward.chest_chance),
+            ] {
+                if value < zero || value > one {
+                    push(
+                        LintErrorKind::OutOfRange,
+                        format!("pool de butin « {id} » : reward.{name} = {value} (0 à 1)"),
+                    );
+                }
+            }
+        }
+    }
+    let has_key = registry
+        .items
+        .get("key")
+        .is_some_and(|item| item.def.kind == items::ItemKind::Consumable);
+    for room in registry.rooms.values() {
+        let Some(chest) = &room.def.chest else {
+            continue;
+        };
+        let file = room.file.display().to_string();
+        let mut push = |kind: LintErrorKind, message: String| {
+            errors.push(LintError {
+                kind,
+                file: file.clone(),
+                message,
+            })
+        };
+        if chest.locked && !has_key {
+            push(
+                LintErrorKind::BrokenReference,
+                format!(
+                    "type de salle « {} » : coffre verrouillé mais aucun objet consommable « key » dans le jeu",
+                    room.id
+                ),
+            );
+        }
+        if let Some(table) = &chest.table {
+            if !registry.loot_tables.contains_key(table) {
+                push(
+                    LintErrorKind::BrokenReference,
+                    format!(
+                        "type de salle « {} » : coffre : pool « {table} » inconnu",
+                        room.id
+                    ),
+                );
+            }
+        }
+    }
+    for floors in registry.floors.values() {
+        for table in &floors.loot {
+            if !registry.loot_tables.contains_key(table) {
+                errors.push(LintError {
+                    kind: LintErrorKind::BrokenReference,
+                    file: floors.file.display().to_string(),
+                    message: format!(
+                        "séquence de niveaux « {} » : champ loot : pool « {table} » inconnu",
+                        floors.id
+                    ),
+                });
+            }
         }
     }
 }
@@ -3271,11 +3432,10 @@ fn lint_entry_progression(
 }
 
 /// M2-T15 (`docs/conventions.md` §53) : un modificateur (ou une base de stat) sur une stat que
-/// `sim_core::stats::stat_reader` ne connaît pas ne ferait rien : erreur. Exception transitoire :
-/// `Armor` (D61 pas mergée) est un avertissement (`reach::warnings`).
+/// `sim_core::stats::stat_reader` ne connaît pas ne ferait rien : erreur.
 fn lint_stat_readers(registry: &Registry, errors: &mut Vec<LintError>) {
     for (file, at, stat) in crate::reach::stat_uses(registry) {
-        if stat != StatId::Armor && sim_core::stats::stat_reader(&stat).is_none() {
+        if sim_core::stats::stat_reader(&stat).is_none() {
             errors.push(LintError {
                 kind: LintErrorKind::UnreadStat,
                 file,

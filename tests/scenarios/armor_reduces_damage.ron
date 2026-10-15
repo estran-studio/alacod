@@ -1,0 +1,18 @@
+// D61 (armure, docs/conventions.md §18) : la `plaque` (+100 d'armure) divise les dégâts par 2. Même
+// mise en place que `consumable_heal` (la `tourelle_spirale` placée à f5, 100 px à droite du joueur
+// immobile le touche de ses boules de feu) : sans armure, 92 PV à f99 ; avec la plaque, ramassée
+// à f10 (Interaction), les mêmes coups font moitié moins.
+//
+// À regarder : la barre de vie descend deux fois moins vite que dans `consumable_heal`.
+Scenario(
+    powerup_drop_chance_override: "0.0",
+    game: "testbed",
+    map: "testbed/arena.ldtk",
+    frames: 140,
+    items: [(id: "plaque", x: "424.0", y: "696.0", at_frame: 5)],
+    characters: [(character: "tourelle_spirale", x: "520.0", y: "696.0", at_frame: 5)],
+    players: [(inputs: [(from: 10, to: 13, buttons: [Interaction])])],
+    expect: [
+        Health(handle: 0, min: 96.0, max: 96.0, at_frame: 99),
+    ],
+)

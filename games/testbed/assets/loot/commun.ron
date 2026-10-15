@@ -1,0 +1,10 @@
+// Pool de butin `commun` (M2-T5, docs/conventions.md §48) : coffres sans pool propre (étage 0 de
+// `deux_butin`). Quatre passifs à poids égaux : deux graines donnent des objets différents.
+(
+    entries: [
+        (pick: Item("bottes"), weight: 1),
+        (pick: Item("boussole"), weight: 1),
+        (pick: Item("lame"), weight: 1),
+        (pick: Item("manche"), weight: 1),
+    ],
+)

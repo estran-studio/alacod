@@ -1,0 +1,22 @@
+// D61 : bouclier d'abord, puis armure sur ce qui passe. `egide` (1 point) et `plaque` (+100
+// d'armure) : le premier coup de la spirale est absorbé, les suivants sont divisés par 2.
+//
+// À regarder : la barre de vie ne bouge pas au premier coup, puis descend deux fois moins vite.
+Scenario(
+    powerup_drop_chance_override: "0.0",
+    game: "testbed",
+    map: "testbed/arena.ldtk",
+    frames: 200,
+    items: [
+        (id: "egide", x: "424.0", y: "696.0", at_frame: 5),
+        (id: "plaque", x: "424.0", y: "696.0", at_frame: 5),
+    ],
+    characters: [(character: "tourelle_spirale", x: "520.0", y: "696.0", at_frame: 5)],
+    players: [(inputs: [(from: 10, to: 13, buttons: [Interaction])])],
+    expect: [
+        // Première volée (~f65) : absorbée par le bouclier
+        Health(handle: 0, min: 100.0, max: 100.0, at_frame: 110),
+        // Seconde volée (~f155) : plus de bouclier, l'armure divise les 8 PV par 2
+        Health(handle: 0, min: 96.0, max: 96.0, at_frame: 199),
+    ],
+)

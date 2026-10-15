@@ -1,8 +1,0 @@
-// Fixture M2-T15 (§53) : stat_armor_warning
-(
-    name: "fixture-stat_armor_warning",
-    content_folders: [
-        (path: "objets", kind: "Item"),
-    ],
-    entry: (start_map: "maps/salle.ldtk", default_seed: 1),
-)
