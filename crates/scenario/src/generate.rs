@@ -582,6 +582,10 @@ pub struct SceneContext {
     /// `entry.mode` vaut `Floors` : un gabarit à `map` impose alors `Sandbox` (sinon la séquence
     /// du manifeste remplacerait la carte).
     pub floors_mode: bool,
+    /// D59 : quand le manifeste désigne sa séquence par défaut (`entry.floors`), la séquence du
+    /// dossier `Floors` dont l'unique niveau est `start_map` : un gabarit sans `floors` ni `map`
+    /// joue alors cette carte (l'étage squelette), pas la séquence par défaut du jeu.
+    pub start_floors: Option<String>,
     /// Jeu en mode `Waves` : période de grâce plus longue que le scénario ([`EnemyArena::waves`]).
     pub waves: bool,
     /// Le jeu déclare un type de salle `boss` (le boss y est enfermé, §45) : la salle se rouvre à
@@ -599,6 +603,16 @@ impl SceneContext {
             game: manifest.name.clone(),
             start_map: manifest.entry.start_map.clone(),
             floors_mode: manifest.entry.mode == Some(content::EntryMode::Floors),
+            start_floors: manifest
+                .entry
+                .floors
+                .as_ref()
+                .and_then(|_| {
+                    registry.floors.values().find(|entry| {
+                        entry.levels.len() == 1 && entry.levels[0] == manifest.entry.start_map
+                    })
+                })
+                .map(|entry| entry.id.to_string()),
             waves: arena.waves,
             has_boss_room: registry.rooms.contains_key("boss"),
         }
@@ -840,6 +854,9 @@ fn scene_scenario(
     let map_path = map.unwrap_or(&scene.start_map);
     let mut scenario = base_scenario(&scene.game, map_path, seed, frames, player, expect);
     scenario.floors = floors.map(str::to_string);
+    if floors.is_none() && map.is_none() {
+        scenario.floors = scene.start_floors.clone();
+    }
     if map.is_some() && scene.floors_mode {
         scenario.mode = Some(content::EntryMode::Sandbox);
     }

@@ -3,14 +3,16 @@
 // Avant le correctif, il partait dès la fin du cooldown malgré l'étourdissement : le joueur
 // restait sur place (vitesse annulée par `status_motion_system`) mais gagnait les i-frames du
 // dash. Le joueur 1 dashe vers le mur sud (appui f10, dash à f16), puis réappuie pendant le
-// cooldown en tirant `status_stun` (f27) : tir ami `Always` et rien n'exclut le tireur, sa balle
-// l'étourdit lui-même aussitôt (f33, 1 PV). Le joueur 0 descend, dashe sur lui contre le mur
-// (f34, les joueurs ne se bloquent pas) et tire `proj_pierce` à bout portant (f42) : Pierce(2),
-// la balle traverse le joueur 0 et touche le joueur 1 quel que soit l'écart aléatoire du tir.
+// cooldown (f27), alors que le joueur 2, arrivé au mur par un dash (f8-f16), lui tire dessus
+// `status_stun` depuis l'est (f17, tir ami `Always`) : la balle l'étourdit à f32 (1 PV). Le joueur 0
+// descend, dashe sur lui contre le mur (f34, les joueurs ne se bloquent pas) et tire `proj_pierce`
+// à bout portant (f42) : Pierce(2), la balle traverse le joueur 0 et touche le joueur 1 quel que
+// soit l'écart aléatoire du tir.
 //
-// À regarder : le joueur 1, étourdi dès f33, ne dashe pas à f40 quand son cooldown finit ; la
-// balle du joueur 0 le touche à f42 (99 -> 89 PV). Sans le correctif, il dashait sur place à
-// f40 et la balle le traversait (99 PV).
+// À regarder : le joueur 1, étourdi dès f32, ne dashe pas à f40 quand son cooldown finit ; la
+// balle du joueur 0 le touche à f42 (99 -> 89 PV). Sans le correctif de dash, il dashait sur
+// place à f40 et la balle le traversait (99 PV). D54 : un tireur ne touche jamais sa propre
+// balle (le joueur 1 s'étourdissait avant lui-même), d'où le troisième joueur.
 Scenario(
     powerup_drop_chance_override: "0.0",
     game: "testbed",
@@ -25,7 +27,11 @@ Scenario(
         ]),
         (weapon: "status_stun", inputs: [
             (from: 10, to: 11, buttons: [Down, Dash]),
-            (from: 27, to: 28, buttons: [Dash, Fire], pan: (100, 0)),
+            (from: 27, to: 28, buttons: [Dash]),
+        ]),
+        (weapon: "status_stun", inputs: [
+            (from: 2, to: 3, buttons: [Down, Dash]),
+            (from: 17, to: 18, buttons: [Fire], pan: (-64, 0)),
         ]),
     ],
     weapon_overrides: [

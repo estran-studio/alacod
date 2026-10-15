@@ -729,6 +729,7 @@ fn nearest_target<'a>(
     let mut best: Option<(fixed_math::FixedWide, usize, FixedVec2)> = None;
     for (net_id, transform, team) in targets {
         if *team == Team::Neutral
+            || net_id.0 == bullet.source.0
             || !team_allows_hit(
                 bullet.source_team,
                 *team,
@@ -928,12 +929,15 @@ pub fn projectile_collision_system(
             else {
                 continue;
             };
-            if !team_allows_hit(
-                bullet.source_team,
-                *target_team,
-                bullet.friendly_fire,
-                &bullet.tags,
-            ) || !projectile.can_hit(target_id)
+            // D54 : le tir ami (`Always`, `Cursed`) ne touche jamais son propre tireur.
+            if target_id.0 == bullet.source.0
+                || !team_allows_hit(
+                    bullet.source_team,
+                    *target_team,
+                    bullet.friendly_fire,
+                    &bullet.tags,
+                )
+                || !projectile.can_hit(target_id)
                 || target_health.is_invulnerable_at(frame.frame)
                 || target_dash.is_some_and(|dash| dash.projectile_invulnerable_at(frame.frame))
             {

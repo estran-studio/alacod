@@ -10,6 +10,8 @@
 Scenario(
     powerup_drop_chance_override: "0.0",
     game: "gungeon",
+    // D59 : la partie du manifeste démarre sur `etages_deux` ; ce scénario garde la carte `etage_1`.
+    floors: Some("etage_1"),
     frames: 90,
     players: [
         (inputs: []),
