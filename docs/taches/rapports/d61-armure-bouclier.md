@@ -28,3 +28,7 @@ Branche `d61-armure-bouclier`. Conventions : `docs/conventions.md` §18 (sous-se
   échoue donc (« sans stat Armor ») ; les scénarios mesurent la `Health`.
 - La spirale de test ne tire qu'un coup de 8 PV toutes les ~90 frames : les attentes de bouclier regardent
   la seconde volée (f155) pour voir le coup qui touche.
+
+## Vérifications rejouées ailleurs
+
+`cargo test -p game --lib` et `ALACOD_FUZZ=0:8` (shield_absorbs_hit) : rejoués par orch sur le Mac (mémoire insuffisante sur orca).
