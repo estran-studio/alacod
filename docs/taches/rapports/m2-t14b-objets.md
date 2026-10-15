@@ -28,5 +28,7 @@ identiques.
 - Non joué ici : synergies sans scénario dédié (les `test:` portent sur les objets seuls).
 
 ## Vérifications
-Suite `make test_scenarios_par`, `make test_crates`, `make lint` ×4, `cargo fmt --check`, `make gen` ×4 : résultats
-à la livraison (voir ci-dessous). p2p gungeon à deux clients : à jouer avant LIVRÉ.
+`make test_scenarios_par` (4 tranches) vert, `make test_crates` vert, `make lint` ×4 vert, `cargo fmt --check`
+propre, `make gen` ×4 sans diff, p2p gungeon à deux clients (900 frames, entrées neutres) : traces identiques
+(899 lignes). Limite : en p2p sans entrée, aucun objet n'est ramassé ni acheté ; les objets sont couverts par
+les scénarios `item_*` et `shop_seeded`.
