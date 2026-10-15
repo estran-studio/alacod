@@ -3358,6 +3358,46 @@ pool inconnu dans `loot` d'une séquence. Fixtures `loot_empty_table`, `loot_wei
 le HUD des clés (T18). Les deux types de salle `recompense` et `boutique` de `gungeon` gagnent un coffre : les
 scénarios qui jouent ces gabarits (étages `etage`/`grand`) changent de trace, preuve dans le rapport.
 
+## 51. Profil et déblocages qui enrichissent le butin (M2-T12, chantier G1)
+
+**Kind `Unlock`** (`unlocks/<id>.ron`, `items::UnlockDef`) : `name`, `cost: Option<i64>` (essence ;
+`None` = gratuit, conditions seules), `requires` (déblocages préalables), `stat: Option<(nom, n)>`
+(statistique de profil minimale) et `grants` : `Item(id)` (l'objet quitte **tous** les pools tant que
+le déblocage manque) ou `Loot(table, pick, weight)` (une entrée de plus dans le pool). Kind
+`MetaEconomy` (`meta/essence.ron`, `(per_run, per_kill, per_victory)`) : l'essence gagnée par run,
+qui remplace les règles provisoires de §38 (mêmes valeurs ; défaut identique sans fichier).
+
+**`RunUnlocks`** (`items::RunUnlocks`, `BTreeSet<String>`) : les déblocages **de la partie**, figés au
+lancement, ressource rollback **neutre** (`rollback_and_trace_resource_neutral`, contribution 0 si
+vide) et statique pendant la run. Seule donnée du profil lue par la simulation.
+- **Local** : union des profils des joueurs locaux (`profile::local_run_unlocks`).
+- **En ligne** : le profil de l'**hôte** (plus petit handle), transmis avec la configuration de
+  session comme la graine (`ALACOD_RUN_UNLOCKS`, ids séparés par des virgules ; jamais le profil
+  du pair local). Choix de l'hôte plutôt que de l'intersection : un seul ensemble à transmettre,
+  et un joueur qui rejoint n'appauvrit pas la partie.
+
+**Tirage** (`items::draw_loot_with`) : retire les objets « hidden » (réservés à un déblocage absent)
+et ajoute les entrées `Loot` des déblocages actifs ; le RNG consomme toujours ses deux `next_u32`,
+donc une même graine donne la même suite de tirages avec ou sans déblocage, et seul l'objet change.
+Ensemble vide et jeu sans `unlocks/` : comportement d'avant.
+
+**Achat** hors simulation : `Profile::purchase` (déjà possédé, prérequis, statistique, essence ;
+écriture atomique) et `alacod-profile unlock games/<jeu> <id> [--handle n]` (`list` pour l'état).
+
+**Lint** (`lint_unlocks`, fixtures `unlock_*`) : objet ou table inconnus, prix ≤ 0, déblocage
+préalable inconnu, cycle de prérequis.
+
+**Contenu `gungeon`** : `tresor_trefle` (20 essence, retire le trèfle des pools), `etendard_royal`
+(40, statistique `runs` ≥ 1, retire l'étendard), `coffre_riche` (60, exige le trèfle, entrée Rare
+dans `commun`). `zombies`, `testbed`, `throne` : inchangés.
+
+**Scénarios** : `Scenario.profile_setup` (profils de départ et achats, `profile: true`),
+attente `RunUnlocks { has, lacks, at_frame }`. `unlock_enriches_pool` / `unlock_base_pool` (même
+graine, mêmes coffres, l'un avec les trois déblocages : « amulette » ×2, l'autre sans :
+« amulette » + « bottes »), `unlock_purchase`, `unlock_two_players_host` (union locale).
+
+**Traces** : aucune trace existante n'a bougé.
+
 ## 52. Contenu `gungeon` (M2-T14, quatre parties)
 
 ### 52.a Armes (T14a)
