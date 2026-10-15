@@ -108,6 +108,11 @@ string_id!(
     CaveId
 );
 string_id!(
+    /// Identifiant d'une grammaire d'étage (M2-T10, kind `FloorGrammar`) : nom de fichier sans
+    /// extension, désignée comme carte par `floor:<id>` (voir [`floor_designation`]).
+    FloorGrammarId
+);
+string_id!(
     /// Identifiant d'une surface (T1.7, kind `Surface`) : nom de fichier sans extension.
     SurfaceName
 );
@@ -186,9 +191,51 @@ pub fn cave_designation(map: &str) -> Option<CaveId> {
         .map(|id| CaveId::from(id.to_string()))
 }
 
+/// Préfixe qui désigne un étage assemblé par une grammaire là où une carte LDtk est attendue
+/// (`entry.start_map`, `Scenario.map`, `levels` d'une séquence `Floors`) : `floor:<id>` (M2-T10,
+/// `docs/conventions.md` §40).
+pub const FLOOR_PREFIX: &str = "floor:";
+
+/// `Some(id)` si `map` désigne un étage de grammaire (`floor:<id>`).
+pub fn floor_designation(map: &str) -> Option<FloorGrammarId> {
+    map.strip_prefix(FLOOR_PREFIX)
+        .map(|id| FloorGrammarId::from(id.to_string()))
+}
+
 // ---------------------------------------------------------------------------------------
 // Entrées
 // ---------------------------------------------------------------------------------------
+
+/// M2-T2 : valeurs de dash utiles aux règles du lint.
+#[derive(Debug, Clone, Default)]
+pub struct DashLint {
+    pub duration_frames: u32,
+    pub iframes: u32,
+    pub charges: Option<u32>,
+    pub recharge_frames: u32,
+    pub in_place: bool,
+    /// Le personnage déclare `dash` ou `dash_charges` (sinon le dash v1 n'est pas relu).
+    pub declared: bool,
+}
+
+impl DashLint {
+    fn resolve(movement: &MovementSchema, dash: Option<&DashSchema>) -> Self {
+        Self {
+            duration_frames: dash
+                .and_then(|d| d.duration_frames)
+                .unwrap_or(movement.dash_duration_frames),
+            iframes: dash
+                .and_then(|d| d.iframes)
+                .unwrap_or(movement.dash_iframes),
+            charges: dash.and_then(|d| d.charges).or(movement.dash_charges),
+            recharge_frames: dash
+                .and_then(|d| d.recharge_frames)
+                .unwrap_or(movement.dash_recharge_frames),
+            declared: dash.is_some() || movement.dash_charges.is_some(),
+            in_place: dash.is_some_and(|d| d.effect == Some(DashEffectSchema::InPlace)),
+        }
+    }
+}
 
 #[derive(Debug, Clone)]
 pub struct CharacterEntry {
@@ -215,10 +262,16 @@ pub struct CharacterEntry {
     pub downed_speed_mult: FixedField,
     /// Emplacements d'armes à distance (T2.2, chantier B7), pour la règle « > 0 ».
     pub weapon_slots: u32,
+    /// M2-T1 : consommables de départ (`{"blank": 2}`), références vérifiées par le lint.
+    pub starting_consumables: BTreeMap<String, u32>,
+    /// M2-T2 (§43) : dash résolu (`movement` surchargé par `dash`), pour les règles du lint.
+    pub dash: DashLint,
     /// T1.10 : effets v1 du personnage (`docs/conventions.md` §27).
     pub effects: Vec<effects::Effect>,
     /// T1.4 : règles de comportement (`ai.behaviors`, `None` : liste par défaut).
     pub behaviors: Option<Vec<BehaviorEntry>>,
+    /// M2-T8 : id d'escouade (`ai.squad`).
+    pub squad: Option<String>,
     /// M2-T0c : boss à phases (`boss`).
     pub boss: Option<BossEntry>,
     /// T1.4 : tags ignorés par le ciblage (`ai.targeting: Some(Nearest(ignore: [...]))`).
@@ -243,13 +296,39 @@ pub struct CharacterEntry {
 }
 
 /// T1.13 : mirroir de `game::character::config::CharacterTest` (attentes comptées).
-#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+#[derive(Debug, Clone, PartialEq, Eq)]
 pub struct CharacterTestEntry {
     pub frames: u32,
     pub still: bool,
     pub moving: bool,
     pub expect_still: usize,
     pub expect_moving: usize,
+    /// M2-T17 : gabarit `BossFight` (`boss:` du `test:`).
+    pub boss: Option<BossFightEntry>,
+}
+
+/// M2-T17 : mirroir de `game::gen_test::BossFightTest` (attentes comptées).
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub struct BossFightEntry {
+    pub floors: Option<String>,
+    pub map: Option<String>,
+    pub expect: usize,
+}
+
+/// M2-T17 : `test:` d'un objet (`game::gen_test::ItemTest`, attentes comptées).
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub struct ItemTestEntry {
+    pub frames: u32,
+    pub expect: usize,
+}
+
+/// M2-T17 : `test:` d'un type de salle (`game::gen_test::RoomTest`, attentes comptées).
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub struct RoomTestEntry {
+    pub frames: u32,
+    pub floors: Option<String>,
+    pub map: Option<String>,
+    pub expect: usize,
 }
 
 /// T1.5 : mirroir de `game::character::variant::VariantsConfig`.
@@ -308,6 +387,22 @@ pub enum BehaviorEntry {
     Melee(String),
     Flee,
     Wander,
+    /// M2-T8 (§49) : mirroir de `behaviors::Behavior::Formation`.
+    Formation {
+        shape: FormationShapeEntry,
+        period: u32,
+        #[serde(default)]
+        volley: bool,
+    },
+}
+
+/// M2-T8 : mirroir de `behaviors::FormationShape`.
+#[derive(Debug, Clone, Deserialize)]
+pub enum FormationShapeEntry {
+    Arc {
+        radius: FixedField,
+        spread: FixedField,
+    },
 }
 
 /// M2-T0c : mirroirs de `behaviors::boss` (`docs/conventions.md` §37) ; les `Fixed` passent par
@@ -512,6 +607,30 @@ pub enum PatternEntry {
     },
     /// T1.2 : pattern nommé du kind `Pattern`.
     Named(String),
+    /// M2-T1 : éventail exact (`speed` 0 : celle du projectile).
+    Fan {
+        count: u32,
+        spread: FixedField,
+        speed: FixedField,
+        projectile: String,
+    },
+    /// M2-T1 : spirale, émetteurs seulement.
+    Spiral {
+        count: u32,
+        step: FixedField,
+        shots: u32,
+        every: u32,
+        speed: FixedField,
+        projectile: String,
+    },
+    /// M2-T1 : salves, émetteurs seulement.
+    Burst {
+        count: u32,
+        per_burst: u32,
+        interval: u32,
+        spread: FixedField,
+        projectile: String,
+    },
 }
 
 /// Mirroir de `combat::projectile::ExpireAction`.
@@ -626,6 +745,9 @@ pub struct FloorsEntry {
     /// (au lieu d'ouvrir un portail qui boucle) : `gungeon`, étage dont le boss est le dernier
     /// ennemi. Faux par défaut (throne, testbed : boucle infinie au dernier niveau).
     pub victory_at_end: bool,
+    /// M2-T1 : consommables remontés à `n` au début de chaque étage (le blank de `gungeon` :
+    /// `{"blank": 2}`) ; l'étage 0 est servi par `starting_consumables` du personnage.
+    pub consumables_per_floor: BTreeMap<String, u32>,
 }
 
 /// Caverne générée (T1.6, `docs/conventions.md` §21), un fichier RON par caverne
@@ -639,6 +761,24 @@ pub struct CaveEntry {
     pub template: String,
 }
 
+/// Grammaire d'étage (M2-T10, `docs/conventions.md` §40), un fichier RON par grammaire
+/// (`floor_grammars/<id>.ron`) : `(templates: "gungeon/salles.ldtk", grammar: (rooms: (8, 12), ...))`.
+/// `templates` est la carte LDtk (chemin relatif à `assets/`) dont les niveaux sont les gabarits
+/// de salle, typés par leur champ `room_kind`.
+#[derive(Debug, Clone)]
+pub struct FloorGrammarEntry {
+    pub id: FloorGrammarId,
+    pub file: PathBuf,
+    pub templates: String,
+    pub grammar: world::FloorGrammar,
+}
+
+#[derive(Debug, Clone, serde::Deserialize)]
+struct FloorGrammarFileSchema {
+    templates: String,
+    grammar: world::FloorGrammar,
+}
+
 /// Surface (T1.7, `docs/conventions.md` §26), un fichier RON par surface (`surfaces/<id>.ron`) :
 /// `(intgrid_value: 1, tags: ["eau"], move_speed: "0.5", acceleration: Some("1.0"))`. Facteurs
 /// abstraits (`Mul`) traduits vers la stat du personnage par `world::surface`.
@@ -650,6 +790,8 @@ pub struct SurfaceEntry {
     pub tags: Vec<String>,
     pub move_speed: Fixed,
     pub acceleration: Fixed,
+    /// M2-T11 (§46) : la surface est une fosse.
+    pub pit: Option<world::PitDef>,
 }
 
 #[derive(Debug, Clone, Deserialize)]
@@ -659,6 +801,8 @@ struct SurfaceFileSchema {
     move_speed: FixedField,
     #[serde(default)]
     acceleration: Option<FixedField>,
+    #[serde(default)]
+    pit: Option<world::PitDef>,
 }
 
 /// When earned mutation choices are presented. Existing games keep immediate choices.
@@ -788,6 +932,9 @@ struct FloorsFileSchema {
     /// M2-T0d : voir [`FloorsEntry::victory_at_end`].
     #[serde(default)]
     victory_at_end: bool,
+    /// M2-T1 : voir [`FloorsEntry::consumables_per_floor`].
+    #[serde(default)]
+    consumables_per_floor: BTreeMap<String, u32>,
 }
 
 #[derive(Debug, Clone)]
@@ -804,6 +951,56 @@ pub struct MapEntry {
     /// `room_kind` est rempli (gabarits de salles typées, `docs/conventions.md` §35), pour le
     /// lint « type de salle connu ».
     pub room_kinds: Vec<(String, String)>,
+    /// M2-T15 (§53) : par niveau interne, ce qu'il contient (type de salle, personnages
+    /// `CharacterSpawn`, armes murales `WeaponLocation`), pour l'atteignabilité statique.
+    pub levels: Vec<MapLevelInfo>,
+}
+
+/// M2-T15 : contenu d'un niveau interne d'un `.ldtk` (voir [`MapEntry::levels`]).
+#[derive(Debug, Clone, Default)]
+pub struct MapLevelInfo {
+    pub id: String,
+    pub room_kind: Option<String>,
+    pub characters: Vec<String>,
+    pub weapons: Vec<String>,
+}
+
+/// M2-T15 : [`MapLevelInfo`] de chaque niveau d'un `.ldtk`, dans l'ordre du fichier ; vide si la
+/// carte est illisible en JSON.
+fn ldtk_level_infos(text: &str) -> Vec<MapLevelInfo> {
+    let Ok(json) = serde_json::from_str::<serde_json::Value>(text) else {
+        return Vec::new();
+    };
+    let field = |entity: &serde_json::Value, name: &str| -> Option<String> {
+        entity["fieldInstances"]
+            .as_array()?
+            .iter()
+            .find(|f| f["__identifier"] == name)?["__value"]
+            .as_str()
+            .filter(|value| !value.is_empty())
+            .map(str::to_string)
+    };
+    let mut out = Vec::new();
+    for level in json["levels"].as_array().into_iter().flatten() {
+        let mut info = MapLevelInfo {
+            id: level["identifier"].as_str().unwrap_or_default().to_string(),
+            room_kind: field(level, "room_kind"),
+            ..Default::default()
+        };
+        for layer in level["layerInstances"].as_array().into_iter().flatten() {
+            for entity in layer["entityInstances"].as_array().into_iter().flatten() {
+                match entity["__identifier"].as_str() {
+                    Some("CharacterSpawn") => info
+                        .characters
+                        .push(field(entity, "character").unwrap_or_default()),
+                    Some("WeaponLocation") => info.weapons.extend(field(entity, "weapon")),
+                    _ => {}
+                }
+            }
+        }
+        out.push(info);
+    }
+    out
 }
 
 /// M2-E1 : champ de niveau `room_kind` (non vide) de chaque niveau d'un `.ldtk`, avec
@@ -838,6 +1035,28 @@ pub struct ItemEntry {
     pub id: String,
     pub file: PathBuf,
     pub def: items::ItemDef,
+    /// M2-T17 : `test:` (scénario généré `ItemHeld`).
+    pub test: Option<ItemTestEntry>,
+}
+
+/// Synergie (M2-T4, `docs/conventions.md` §44), un fichier RON par synergie
+/// (`synergies/<id>.ron` dans un dossier de kind `Synergy`, champs de [`items::SynergyDef`]) ;
+/// id = nom de fichier.
+#[derive(Debug, Clone)]
+pub struct SynergyEntry {
+    pub id: String,
+    pub file: PathBuf,
+    pub def: items::SynergyDef,
+}
+
+/// Objet de décor (M2-T11, `docs/conventions.md` §46), un fichier RON par objet
+/// (`props/<id>.ron` dans un dossier de kind `Prop`, champs de [`world::PropDef`]) ; id = nom
+/// de fichier.
+#[derive(Debug, Clone)]
+pub struct PropEntry {
+    pub id: String,
+    pub file: PathBuf,
+    pub def: world::PropDef,
 }
 
 /// Type de salle (M2-E1, `docs/conventions.md` §35), un fichier RON par type
@@ -847,6 +1066,8 @@ pub struct RoomEntry {
     pub id: String,
     pub file: PathBuf,
     pub def: world::RoomKindDef,
+    /// M2-T17 : `test:` (scénario généré `RoomClear`).
+    pub test: Option<RoomTestEntry>,
 }
 
 /// T1.12 : champ `character` de chaque `CharacterSpawn` d'un `.ldtk` (niveaux internes), dans
@@ -995,8 +1216,14 @@ pub struct Registry {
     pub floors: BTreeMap<FloorsConfigId, FloorsEntry>,
     /// T1.6 : cavernes générées (kind `Cave`).
     pub caves: BTreeMap<CaveId, CaveEntry>,
+    /// M2-T10 : grammaires d'étage (kind `FloorGrammar`).
+    pub floor_grammars: BTreeMap<FloorGrammarId, FloorGrammarEntry>,
     /// M2-T0b : objets (kind `Item`).
     pub items: BTreeMap<String, ItemEntry>,
+    /// M2-T4 : synergies d'objets (kind `Synergy`).
+    pub synergies: BTreeMap<String, SynergyEntry>,
+    /// M2-T11 : objets de décor (kind `Prop`) : tables renversables et barils explosifs.
+    pub props: BTreeMap<String, PropEntry>,
     /// M2-E1 : types de salles (kind `Room`).
     pub rooms: BTreeMap<String, RoomEntry>,
     /// T1.7 : surfaces (kind `Surface`).
@@ -1061,6 +1288,7 @@ pub const KNOWN_KIND_NAMES: &[&str] = &[
     "SpriteSheet",
     "Floors",
     "Cave",
+    "FloorGrammar",
     "Room",
     "Item",
     "Surface",
@@ -1070,6 +1298,8 @@ pub const KNOWN_KIND_NAMES: &[&str] = &[
     "Status",
     "Clock",
     "Difficulty",
+    "Synergy",
+    "Prop",
 ];
 
 pub fn known_content_kinds() -> Kinds {
@@ -1160,8 +1390,13 @@ impl Registry {
                 "SpriteSheet" => load_sprite_sheets(&assets_dir, decl, &mut registry, &mut errors),
                 "Floors" => load_floors(&assets_dir, decl, &mut registry, &mut errors),
                 "Cave" => load_caves(&assets_dir, decl, &mut registry, &mut errors),
+                "FloorGrammar" => {
+                    load_floor_grammars(&assets_dir, decl, &mut registry, &mut errors)
+                }
                 "Room" => load_rooms(&assets_dir, decl, &mut registry, &mut errors),
                 "Item" => load_items(&assets_dir, decl, &mut registry, &mut errors),
+                "Synergy" => load_synergies(&assets_dir, decl, &mut registry, &mut errors),
+                "Prop" => load_props(&assets_dir, decl, &mut registry, &mut errors),
                 "Surface" => load_surfaces(&assets_dir, decl, &mut registry, &mut errors),
                 "Pattern" => load_patterns(&assets_dir, decl, &mut registry, &mut errors),
                 "Progression" => load_progression(&assets_dir, decl, &mut registry, &mut errors),
@@ -1259,6 +1494,9 @@ fn read_file(assets_dir: &ContentFiles, rel: &Path) -> Result<String, LintError>
 #[derive(Deserialize)]
 struct CharacterFileSchema {
     movement: MovementSchema,
+    /// M2-T2 (§43) : dash nommé.
+    #[serde(default)]
+    dash: Option<DashSchema>,
     asset_name_ref: String,
     base_health: HealthSchema,
     starting_skin: String,
@@ -1280,6 +1518,9 @@ struct CharacterFileSchema {
     /// T2.2, chantier B7 : voir `game::character::config::CharacterConfig::weapon_slots`.
     #[serde(default = "default_weapon_slots")]
     weapon_slots: u32,
+    /// M2-T1 : voir `game::character::config::CharacterConfig::starting_consumables`.
+    #[serde(default)]
+    starting_consumables: BTreeMap<String, u32>,
     /// T1.4 : seuls `ai.behaviors` et `ai.targeting` sont lus.
     #[serde(default)]
     ai: Option<AiSchema>,
@@ -1403,6 +1644,77 @@ struct CharacterTestSchema {
     expect_still: Vec<serde::de::IgnoredAny>,
     #[serde(default)]
     expect_moving: Vec<serde::de::IgnoredAny>,
+    #[serde(default)]
+    boss: Option<BossFightSchema>,
+}
+
+/// Mirroir de `game::gen_test::BossFightTest`.
+#[derive(Deserialize)]
+struct BossFightSchema {
+    #[serde(default)]
+    floors: Option<String>,
+    #[serde(default)]
+    map: Option<String>,
+    #[serde(default)]
+    expect: Vec<serde::de::IgnoredAny>,
+}
+
+/// Mirroir de `game::gen_test::ItemTest` ; ne lit que `test` d'un fichier d'objet.
+#[derive(Deserialize, Default)]
+struct ItemTestFile {
+    #[serde(default)]
+    test: Option<ItemTestSchema>,
+}
+
+#[derive(Deserialize)]
+struct ItemTestSchema {
+    frames: u32,
+    #[serde(default)]
+    expect: Vec<serde::de::IgnoredAny>,
+}
+
+/// Mirroir de `game::gen_test::RoomTest` ; ne lit que `test` d'un fichier de type de salle.
+#[derive(Deserialize, Default)]
+struct RoomTestFile {
+    #[serde(default)]
+    test: Option<RoomTestSchema>,
+}
+
+#[derive(Deserialize)]
+struct RoomTestSchema {
+    frames: u32,
+    #[serde(default)]
+    floors: Option<String>,
+    #[serde(default)]
+    map: Option<String>,
+    #[serde(default)]
+    expect: Vec<serde::de::IgnoredAny>,
+}
+
+/// Relit `rel` pour son seul champ `test` (M2-T17). Une lecture impossible est déjà rapportée
+/// par le chargement du contrat (`load_ron_files`) ; un `test:` mal formé est une erreur `Parse`.
+fn read_test_field<F: serde::de::DeserializeOwned + Default>(
+    assets_dir: &ContentFiles,
+    rel: &Path,
+    errors: &mut Vec<LintError>,
+) -> F {
+    let Ok(text) = assets_dir.read(rel) else {
+        return F::default();
+    };
+    match ron::Options::default()
+        .with_default_extension(ron::extensions::Extensions::IMPLICIT_SOME)
+        .from_str::<F>(&text)
+    {
+        Ok(parsed) => parsed,
+        Err(e) => {
+            errors.push(LintError {
+                kind: LintErrorKind::Parse,
+                file: rel.display().to_string(),
+                message: format!("champ test : erreur RON : {e}"),
+            });
+            F::default()
+        }
+    }
 }
 
 fn default_true() -> bool {
@@ -1426,6 +1738,9 @@ struct AiSchema {
     behaviors: Option<Vec<BehaviorEntry>>,
     #[serde(default)]
     targeting: Option<TargetingEntry>,
+    /// M2-T8 : `squad: Some(("id", Some("role")))`, voir `game::...::state::SquadRon`.
+    #[serde(default)]
+    squad: Option<(String, Option<String>)>,
 }
 
 fn default_bleedout_frames() -> u32 {
@@ -1447,6 +1762,36 @@ fn default_weapon_slots() -> u32 {
 #[derive(Deserialize)]
 struct MovementSchema {
     max_speed: FixedField,
+    #[serde(default)]
+    dash_duration_frames: u32,
+    #[serde(default)]
+    dash_iframes: u32,
+    #[serde(default)]
+    dash_charges: Option<u32>,
+    #[serde(default)]
+    dash_recharge_frames: u32,
+}
+
+#[derive(Deserialize, PartialEq)]
+enum DashEffectSchema {
+    Roll,
+    Shove,
+    InPlace,
+}
+
+/// M2-T2 : `dash` du personnage (miroir de `game::character::movement::DashConfig`).
+#[derive(Deserialize)]
+struct DashSchema {
+    #[serde(default)]
+    duration_frames: Option<u32>,
+    #[serde(default)]
+    iframes: Option<u32>,
+    #[serde(default)]
+    effect: Option<DashEffectSchema>,
+    #[serde(default)]
+    charges: Option<u32>,
+    #[serde(default)]
+    recharge_frames: Option<u32>,
 }
 
 #[derive(Deserialize)]
@@ -1825,6 +2170,8 @@ fn load_characters(
                 revive_frames: parsed.revive_frames,
                 downed_speed_mult: parsed.downed_speed_mult,
                 weapon_slots: parsed.weapon_slots,
+                dash: DashLint::resolve(&parsed.movement, parsed.dash.as_ref()),
+                starting_consumables: parsed.starting_consumables,
                 effects: parsed.effects,
                 boss: parsed.boss,
                 ignore_tags: parsed
@@ -1834,6 +2181,11 @@ fn load_characters(
                     .map(|TargetingEntry::Nearest { ignore }| ignore.clone())
                     .unwrap_or_default(),
                 has_ai: parsed.ai.is_some(),
+                squad: parsed
+                    .ai
+                    .as_ref()
+                    .and_then(|ai| ai.squad.as_ref())
+                    .map(|squad| squad.0.clone()),
                 behaviors: parsed.ai.and_then(|ai| ai.behaviors),
                 tags: parsed.tags,
                 variants: parsed.variants.map(|variants| VariantsEntry {
@@ -1846,6 +2198,11 @@ fn load_characters(
                     moving: test.moving,
                     expect_still: test.expect_still.len(),
                     expect_moving: test.expect_moving.len(),
+                    boss: test.boss.map(|boss| BossFightEntry {
+                        floors: boss.floors,
+                        map: boss.map,
+                        expect: boss.expect.len(),
+                    }),
                 }),
                 counts_hits: parsed.counts_hits,
                 body_extent: parsed
@@ -2296,6 +2653,7 @@ fn load_floors(
                 file: rel,
                 levels: parsed.levels,
                 victory_at_end: parsed.victory_at_end,
+                consumables_per_floor: parsed.consumables_per_floor,
             },
         );
     }
@@ -2366,6 +2724,39 @@ fn load_caves(
     }
 }
 
+/// M2-T10 : `floor_grammars/<id>.ron` (kind `FloorGrammar`), une grammaire par fichier ; id = nom
+/// de fichier sans extension.
+fn load_floor_grammars(
+    assets_dir: &ContentFiles,
+    decl: &ContentFolderDecl,
+    registry: &mut Registry,
+    errors: &mut Vec<LintError>,
+) {
+    for (id, rel, def) in load_ron_files::<FloorGrammarFileSchema>(assets_dir, decl, errors) {
+        let id = FloorGrammarId::from(id);
+        if let Some(existing) = registry.floor_grammars.get(&id) {
+            errors.push(LintError {
+                kind: LintErrorKind::DuplicateId,
+                file: rel.display().to_string(),
+                message: format!(
+                    "id de grammaire d'étage « {id} » déjà défini dans {}",
+                    existing.file.display()
+                ),
+            });
+            continue;
+        }
+        registry.floor_grammars.insert(
+            id.clone(),
+            FloorGrammarEntry {
+                id,
+                file: rel,
+                templates: def.templates,
+                grammar: def.grammar,
+            },
+        );
+    }
+}
+
 /// M2-T0b : `items/<id>.ron` (kind `Item`), un objet par fichier ; id = nom de fichier.
 fn load_items(
     assets_dir: &ContentFiles,
@@ -2385,9 +2776,75 @@ fn load_items(
             });
             continue;
         }
+        let test = read_test_field::<ItemTestFile>(assets_dir, &rel, errors)
+            .test
+            .map(|test| ItemTestEntry {
+                frames: test.frames,
+                expect: test.expect.len(),
+            });
+        registry.items.insert(
+            id.clone(),
+            ItemEntry {
+                id,
+                file: rel,
+                def,
+                test,
+            },
+        );
+    }
+}
+
+/// M2-T4 : `synergies/<id>.ron` (kind `Synergy`), une synergie par fichier ; id = nom de fichier.
+fn load_synergies(
+    assets_dir: &ContentFiles,
+    decl: &ContentFolderDecl,
+    registry: &mut Registry,
+    errors: &mut Vec<LintError>,
+) {
+    for (id, rel, def) in load_ron_files::<items::SynergyDef>(assets_dir, decl, errors) {
+        if let Some(existing) = registry.synergies.get(&id) {
+            errors.push(LintError {
+                kind: LintErrorKind::DuplicateId,
+                file: rel.display().to_string(),
+                message: format!(
+                    "id de synergie « {id} » déjà défini dans {}",
+                    existing.file.display()
+                ),
+            });
+            continue;
+        }
         registry
-            .items
-            .insert(id.clone(), ItemEntry { id, file: rel, def });
+            .synergies
+            .insert(id.clone(), SynergyEntry { id, file: rel, def });
+    }
+}
+
+/// M2-T11 : `props/<id>.ron` (kind `Prop`), un objet de décor par fichier ; id = nom de fichier.
+fn load_props(
+    assets_dir: &ContentFiles,
+    decl: &ContentFolderDecl,
+    registry: &mut Registry,
+    errors: &mut Vec<LintError>,
+) {
+    let extensions = ron::extensions::Extensions::IMPLICIT_SOME
+        | ron::extensions::Extensions::UNWRAP_VARIANT_NEWTYPES;
+    for (id, rel, def) in
+        load_ron_files_with::<world::PropDef>(assets_dir, decl, errors, extensions)
+    {
+        if let Some(existing) = registry.props.get(&id) {
+            errors.push(LintError {
+                kind: LintErrorKind::DuplicateId,
+                file: rel.display().to_string(),
+                message: format!(
+                    "id d'objet de décor « {id} » déjà défini dans {}",
+                    existing.file.display()
+                ),
+            });
+            continue;
+        }
+        registry
+            .props
+            .insert(id.clone(), PropEntry { id, file: rel, def });
     }
 }
 
@@ -2410,9 +2867,23 @@ fn load_rooms(
             });
             continue;
         }
-        registry
-            .rooms
-            .insert(id.clone(), RoomEntry { id, file: rel, def });
+        let test = read_test_field::<RoomTestFile>(assets_dir, &rel, errors)
+            .test
+            .map(|test| RoomTestEntry {
+                frames: test.frames,
+                floors: test.floors,
+                map: test.map,
+                expect: test.expect.len(),
+            });
+        registry.rooms.insert(
+            id.clone(),
+            RoomEntry {
+                id,
+                file: rel,
+                def,
+                test,
+            },
+        );
     }
 }
 
@@ -2478,6 +2949,7 @@ fn load_surfaces(
                 tags: parsed.tags,
                 move_speed: parsed.move_speed.get(),
                 acceleration: parsed.acceleration.map_or(Fixed::ONE, |a| a.get()),
+                pit: parsed.pit,
             },
         );
     }
@@ -2489,6 +2961,22 @@ fn load_ron_files<T: serde::de::DeserializeOwned>(
     assets_dir: &ContentFiles,
     decl: &ContentFolderDecl,
     errors: &mut Vec<LintError>,
+) -> Vec<(String, PathBuf, T)> {
+    load_ron_files_with(
+        assets_dir,
+        decl,
+        errors,
+        ron::extensions::Extensions::IMPLICIT_SOME,
+    )
+}
+
+/// [`load_ron_files`] avec les extensions RON données (M2-T11 : `props/<id>.ron` s'écrit
+/// `Table(bullets: 4)`, ce qui demande `UNWRAP_VARIANT_NEWTYPES`).
+fn load_ron_files_with<T: serde::de::DeserializeOwned>(
+    assets_dir: &ContentFiles,
+    decl: &ContentFolderDecl,
+    errors: &mut Vec<LintError>,
+    extensions: ron::extensions::Extensions,
 ) -> Vec<(String, PathBuf, T)> {
     let files = match discover_files(assets_dir, decl, "ron") {
         Ok(f) => f,
@@ -2507,7 +2995,7 @@ fn load_ron_files<T: serde::de::DeserializeOwned>(
             }
         };
         match ron::Options::default()
-            .with_default_extension(ron::extensions::Extensions::IMPLICIT_SOME)
+            .with_default_extension(extensions)
             .from_str::<T>(&text)
         {
             Ok(parsed) => {
@@ -2962,6 +3450,7 @@ fn load_maps(
             .map(ldtk_character_spawns)
             .unwrap_or_default();
         let room_kinds = text.as_deref().map(ldtk_room_kinds).unwrap_or_default();
+        let levels = text.as_deref().map(ldtk_level_infos).unwrap_or_default();
         registry.maps.insert(
             id.clone(),
             MapEntry {
@@ -2970,6 +3459,7 @@ fn load_maps(
                 forced_variants,
                 spawned_characters,
                 room_kinds,
+                levels,
             },
         );
     }

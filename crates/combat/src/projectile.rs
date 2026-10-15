@@ -108,6 +108,36 @@ pub enum Pattern {
     /// Pattern nommé du contenu (`patterns/<nom>.ron`, kind `Pattern`), résolu par
     /// [`PatternLibrary`] (nom inconnu : erreur de lint, jamais de panique en jeu).
     Named(String),
+    // M2-T1 : encore en fin d'enum (hash des variantes précédentes inchangé).
+    /// Éventail de `count` tirs répartis exactement sur `spread` radians (bornes comprises,
+    /// sans hasard, à la différence de `Scatter`), centré sur la visée ; `speed` > 0 remplace
+    /// celle de la définition du projectile.
+    Fan {
+        count: u32,
+        spread: Fixed,
+        speed: Fixed,
+        projectile: String,
+    },
+    /// Spirale (émetteurs seulement) : `shots` salves espacées de `every` frames, chacune de
+    /// `count` bras régulièrement répartis sur le cercle ; la salve `k` tourne de `k * step`
+    /// radians par rapport à la visée. `speed` > 0 remplace celle de la définition.
+    Spiral {
+        count: u32,
+        step: Fixed,
+        shots: u32,
+        every: u32,
+        speed: Fixed,
+        projectile: String,
+    },
+    /// Salves (émetteurs seulement) : `count` salves de `per_burst` tirs en éventail de
+    /// `spread` radians centré sur la visée, espacées de `interval` frames.
+    Burst {
+        count: u32,
+        per_burst: u32,
+        interval: u32,
+        spread: Fixed,
+        projectile: String,
+    },
 }
 
 impl Pattern {
@@ -116,7 +146,11 @@ impl Pattern {
     /// `on_expire`). `Named` n'est pas résolu ici.
     pub fn has_emitter_only_step(&self) -> bool {
         match self {
-            Pattern::Telegraph(_) | Pattern::Wait(_) | Pattern::Scatter { .. } => true,
+            Pattern::Telegraph(_)
+            | Pattern::Wait(_)
+            | Pattern::Scatter { .. }
+            | Pattern::Spiral { .. }
+            | Pattern::Burst { .. } => true,
             Pattern::Sequence(children) => children.iter().any(Pattern::has_emitter_only_step),
             _ => false,
         }
@@ -442,6 +476,16 @@ pub struct ProjectileWallHit {
     pub frame: u32,
 }
 
+/// Mur touché par une balle ou un projectile (M2-T11) : émis par les deux systèmes de collision
+/// avec le `GgrsNetId` du mur (le plus petit des murs en contact). Lu par `game::props` (une
+/// table renversée compte les balles qu'elle encaisse). File transitoire (hors checksum et hors
+/// snapshot, `add_frame_events_transient`) : produite et lue dans la même frame.
+#[derive(Clone, Debug, Hash, PartialEq, Eq)]
+pub struct BulletWallHit {
+    pub wall: GgrsNetId,
+    pub frame: u32,
+}
+
 /// Actions de terrain des projectiles (T1.6) : chaque `DestroyTerrain` d'un mur touché
 /// (`on_hit`) devient une `world::DestroyTerrainRequest` au point d'impact, appliquée ensuite
 /// dans `RollbackSystemSet::World`. Les `DestroyTerrain` d'`on_expire` sont émises par
@@ -641,6 +685,20 @@ fn collect_shots(
                 });
             }
         }
+        Pattern::Fan {
+            count,
+            spread,
+            speed,
+            projectile,
+        } => {
+            for angle in fan_angles(angle_of(forward), *count, *spread) {
+                shots.push(Shot {
+                    projectile: projectile.clone(),
+                    direction: direction_of(angle),
+                    speed: (*speed > Fixed::ZERO).then_some(*speed),
+                });
+            }
+        }
         Pattern::Sequence(patterns) => {
             for child in patterns {
                 collect_shots(child, forward, aim, shots);
@@ -648,7 +706,12 @@ fn collect_shots(
         }
         // Temporels et aléatoires : réservés aux émetteurs (T1.2, `crate::emitter`),
         // refusés en `on_expire` par le lint. `Named` est résolu avant (`PatternLibrary`).
-        Pattern::Telegraph(_) | Pattern::Wait(_) | Pattern::Scatter { .. } | Pattern::Named(_) => {}
+        Pattern::Telegraph(_)
+        | Pattern::Wait(_)
+        | Pattern::Scatter { .. }
+        | Pattern::Spiral { .. }
+        | Pattern::Burst { .. }
+        | Pattern::Named(_) => {}
     }
 }
 
@@ -782,6 +845,7 @@ type TargetQuery<'w, 's> = Query<
         &'static Collider,
         &'static Team,
         &'static Health,
+        Option<&'static crate::actors::DashExtra>,
     ),
     (Without<Bullet>, With<Rollback>),
 >;
@@ -801,6 +865,7 @@ pub fn projectile_collision_system(
     mut damage_events: ResMut<FrameEvents<DamageEvent>>,
     mut hit_events: ResMut<FrameEvents<ProjectileHit>>,
     mut wall_hit_events: ResMut<FrameEvents<ProjectileWallHit>>,
+    mut bullet_wall_hits: ResMut<FrameEvents<BulletWallHit>>,
     mut projectile_query: Query<
         (
             &GgrsNetId,
@@ -813,7 +878,12 @@ pub fn projectile_collision_system(
         With<Rollback>,
     >,
     wall_query: Query<
-        (&fixed_math::FixedTransform3D, &Collider, &CollisionLayer),
+        (
+            &fixed_math::FixedTransform3D,
+            &Collider,
+            &CollisionLayer,
+            &GgrsNetId,
+        ),
         (With<Wall>, With<Rollback>, Without<Bullet>),
     >,
     target_query: TargetQuery,
@@ -845,8 +915,14 @@ pub fn projectile_collision_system(
         // Personnages : tous les candidats en contact, par GgrsNetId.
         let mut characters: Vec<GgrsNetId> = Vec::new();
         for entry in grids.characters.query_aabb(&swept) {
-            let Ok((target_id, target_transform, target_collider, target_team, target_health)) =
-                target_query.get(entry.entity)
+            let Ok((
+                target_id,
+                target_transform,
+                target_collider,
+                target_team,
+                target_health,
+                target_dash,
+            )) = target_query.get(entry.entity)
             else {
                 continue;
             };
@@ -857,6 +933,7 @@ pub fn projectile_collision_system(
                 &bullet.tags,
             ) || !projectile.can_hit(target_id)
                 || target_health.is_invulnerable_at(frame.frame)
+                || target_dash.is_some_and(|dash| dash.projectile_invulnerable_at(frame.frame))
             {
                 continue;
             }
@@ -907,15 +984,34 @@ pub fn projectile_collision_system(
             .query_aabb(&swept)
             .into_iter()
             .filter_map(|entry| wall_query.get(entry.entity).ok())
-            .filter(|(_, _, wall_layer)| settings.layer_matrix[layer.0][wall_layer.0])
+            .filter(|(_, _, wall_layer, _)| settings.layer_matrix[layer.0][wall_layer.0])
             .collect();
         let collides_at = |pos: &FixedVec3| {
-            walls.iter().any(|(wall_transform, wall_collider, _)| {
+            walls.iter().any(|(wall_transform, wall_collider, _, _)| {
                 is_colliding(pos, collider, &wall_transform.translation, wall_collider)
             })
         };
         if !collides_at(&transform.translation) {
             continue;
+        }
+        // M2-T11 : le mur touché (le plus petit `GgrsNetId` en contact)
+        if let Some(wall_id) = walls
+            .iter()
+            .filter(|(wall_transform, wall_collider, _, _)| {
+                is_colliding(
+                    &transform.translation,
+                    collider,
+                    &wall_transform.translation,
+                    wall_collider,
+                )
+            })
+            .min_by_key(|(_, _, _, id)| id.0)
+            .map(|(_, _, _, id)| (*id).clone())
+        {
+            bullet_wall_hits.send(BulletWallHit {
+                wall: wall_id,
+                frame: frame.frame,
+            });
         }
         if !projectile.on_hit.is_empty() {
             wall_hit_events.send(ProjectileWallHit {
@@ -990,7 +1086,7 @@ pub fn projectile_expire_system(
             &projectile,
             order_iter!(target_query)
                 .into_iter()
-                .map(|(id, t, _, team, _)| (id, t, team)),
+                .map(|(id, t, _, team, _, _)| (id, t, team)),
         );
         let parent = Parent {
             bullet,
@@ -1071,7 +1167,7 @@ pub fn projectile_steering_system(
                 projectile,
                 order_iter!(target_query)
                     .into_iter()
-                    .map(|(id, t, _, team, _)| (id, t, team)),
+                    .map(|(id, t, _, team, _, _)| (id, t, team)),
             ) {
                 bullet.velocity = steer_towards(bullet.velocity, to_target, force);
             }

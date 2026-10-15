@@ -101,6 +101,11 @@ pub struct AvailableLevel {
     pub connections: Vec<Connection>,
 
     pub entity_locations: EntityLocations,
+
+    /// M2-T10 : type de salle du gabarit (champ de niveau LDtk `room_kind`, M2-E1,
+    /// `docs/conventions.md` §35), `None` si le niveau n'en déclare pas. Lu seulement par la
+    /// grammaire d'étage ([`crate::generation::floor`]) ; `Basic` l'ignore.
+    pub room_kind: Option<String>,
 }
 
 pub type AvailableLevels = Vec<Rc<AvailableLevel>>;
@@ -259,6 +264,7 @@ mod tests {
         EntityLocations {
             doors: vec![],
             sodas: vec![],
+            props: vec![],
             player_spawns: vec![],
             zombie_spawns: vec![],
             crates: vec![],
@@ -287,6 +293,7 @@ mod tests {
                 })
                 .collect(),
             entity_locations: locations(),
+            room_kind: None,
         }
     }
 

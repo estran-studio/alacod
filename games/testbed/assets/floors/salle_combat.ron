@@ -1,0 +1,7 @@
+// M2-T17 (docs/conventions.md §54) : un étage de la carte `salles.ldtk` (départ, combat aux deux
+// `dummy`, récompense) pour le scénario généré `room_combat` (bot `explorateur`, mode `Floors`).
+(
+    levels: [
+        "testbed/salles.ldtk",
+    ],
+)

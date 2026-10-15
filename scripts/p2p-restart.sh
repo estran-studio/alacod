@@ -13,20 +13,24 @@ RESTART_AT=${RESTART_AT:-600}
 EXIT_AT=${EXIT_AT:-600}
 OUT=${OUT:-/tmp/p2p-restart}
 LOBBY="restart-$$"
+export MATCHBOX_PORT=${MATCHBOX_PORT:-3536}
 mkdir -p "$OUT"
 rm -f "$OUT"/*.trace-g* "$OUT"/*.log
 
 docker compose -f docker-compose.ci.yaml up -d signaling
 trap 'docker compose -f docker-compose.ci.yaml down' EXIT
 sleep 3
-cargo build -q -p zombies --profile headless --no-default-features
+# Bevy dynamique en développement (outillage-build) : mêmes features que le Makefile, sinon
+# deuxième génération de Bevy. Vide en CI.
+DEV_FEATURES="$(./scripts/dev-features.sh features)"
+cargo build -q -p zombies --profile headless --no-default-features $DEV_FEATURES
 
 run_client() {
     local i=$1
     ALACOD_HEADLESS=1 ALACOD_STATE_TRACE="$OUT/p2p-$i.trace" ALACOD_EXIT_AT_FRAME="$EXIT_AT" \
     ALACOD_RESTART_AT_FRAME="$RESTART_AT" APP_VERSION=x \
-    cargo run -q -p zombies --profile headless --no-default-features -- \
-        --matchbox ws://127.0.0.1:3536 --lobby "$LOBBY" --number-player 2 \
+    cargo run -q -p zombies --profile headless --no-default-features $DEV_FEATURES -- \
+        --matchbox ws://127.0.0.1:${MATCHBOX_PORT:-3536} --lobby "$LOBBY" --number-player 2 \
         --players localhost remote --cid "client_$i" --name "client_$i" \
         > "$OUT/p2p-$i.log" 2>&1
 }
@@ -64,7 +68,7 @@ grep -h "restart en ligne\|salle" "$OUT"/p2p-*.log | sed 's/^/  /' | head -8 || 
 # Local (synctest) : même graine au restart, donc parties 1 et 2 identiques.
 ALACOD_HEADLESS=1 ALACOD_STATE_TRACE="$OUT/local.trace" ALACOD_EXIT_AT_FRAME="$EXIT_AT" \
 ALACOD_RESTART_AT_FRAME="$RESTART_AT" APP_VERSION=x \
-cargo run -q -p zombies --profile headless --no-default-features -- \
+cargo run -q -p zombies --profile headless --no-default-features $DEV_FEATURES -- \
     --number-player 1 --players localhost --cid local --name local \
     > "$OUT/local.log" 2>&1 || { echo "local : échec (voir $OUT/local.log)"; exit 1; }
 head -n "$((EXIT_AT - 1))" "$OUT/local.trace-g1" > "$OUT/local.g1-head"

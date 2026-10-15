@@ -156,6 +156,7 @@ impl Plugin for GameEventsPlugin {
                 feedback_events.after(detect_events),
                 room_events.after(detect_events),
                 item_events.after(detect_events),
+                blank_events.after(detect_events),
                 boss_events.after(detect_events),
             ),
         );
@@ -167,7 +168,7 @@ impl Plugin for GameEventsPlugin {
 /// les indices rares deviennent des moments clés : télégraphe, hit stop, secousse (le flash
 /// et le chiffre accompagnent chaque coup, déjà visibles par les moments `hit`). Libellé :
 /// « télégraphe 34 (30 frames, rayon 48) », « hit stop 35 (4 frames) », « secousse 26 (8
-/// frames) ».
+/// frames) ». M2-T19 : forme du pattern, blank, fin de boss.
 fn feedback_events(log: Option<Res<game::feedback::FeedbackLog>>, mut events: ResMut<GameEvents>) {
     use game::feedback::FeedbackKind;
     let Some(log) = log else {
@@ -185,6 +186,20 @@ fn feedback_events(log: Option<Res<game::feedback::FeedbackLog>>, mut events: Re
             FeedbackKind::HitStop | FeedbackKind::Shake => {
                 format!("{} {} ({} frames)", cue.kind.label(), cue.net_id, cue.value)
             }
+            // M2-T19 (§55) : « télégraphe fan 31 (5 rayons) », « blank 0 (rayon 160) »,
+            // « fin de boss 40 ».
+            FeedbackKind::PatternTelegraph => match &cue.pattern {
+                Some(shape) => format!(
+                    "{} {}",
+                    cue.kind.label(),
+                    game::feedback::pattern_label(cue.net_id, shape)
+                ),
+                None => continue,
+            },
+            FeedbackKind::Blank => {
+                format!("{} {} (rayon {})", cue.kind.label(), cue.value, cue.extra)
+            }
+            FeedbackKind::BossEnd => format!("{} {}", cue.kind.label(), cue.net_id),
             FeedbackKind::Flash | FeedbackKind::Number => continue,
         };
         events.events.push(GameEvent {
@@ -209,6 +224,23 @@ fn item_events(
             frame: pick.frame,
             kind: "item_pickup",
             label: format!("joueur {} ramasse {}", pick.player_handle, pick.item_id),
+        });
+    }
+}
+
+/// Moments clés `blank` (M2-T1) : un blank utilisé (`items::BlankUsed`).
+fn blank_events(used: Option<Res<FrameEvents<items::BlankUsed>>>, mut events: ResMut<GameEvents>) {
+    let Some(used) = used else {
+        return;
+    };
+    for blank in used.iter() {
+        events.events.push(GameEvent {
+            frame: blank.frame,
+            kind: "blank",
+            label: format!(
+                "joueur {} utilise un blank ({} balles effacées)",
+                blank.player_handle, blank.cleared
+            ),
         });
     }
 }

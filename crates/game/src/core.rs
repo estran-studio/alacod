@@ -159,6 +159,8 @@ impl Plugin for CoreSetupPlugin {
         // après par lisibilité).
         app.add_plugins(crate::powerups::PowerUpsPlugin);
         app.add_plugins(crate::items::ItemsPlugin);
+        // M2-T11 : fosses, tables renversables, barils explosifs (inertes sans eux)
+        app.add_plugins(crate::props::PropsPlugin);
         app.add_plugins(crate::boss::BossPlugin);
         app.add_plugins(crate::profile::ProfilePlugin);
         // Feedback v1 (T1.17) : journal de présentation (`FeedbackLog`), rempli aussi en
@@ -336,10 +338,14 @@ impl CoreSetupPlugin {
         let cave_source = crate::cave_assets::CaveAssetSourcePlugin {
             file_path: asset_plugin.file_path.clone(),
         };
+        let floor_source = crate::cave_assets::FloorAssetSourcePlugin {
+            file_path: asset_plugin.file_path.clone(),
+        };
         let plugins = DefaultPlugins
             .set(ImagePlugin::default_nearest())
             .set(asset_plugin)
             .add_before::<AssetPlugin>(cave_source)
+            .add_before::<AssetPlugin>(floor_source)
             .disable::<LogPlugin>();
 
         if !self.0.headless {
@@ -393,6 +399,9 @@ impl Plugin for PresentationPlugin {
         app.add_plugins(crate::character::CharacterPresentationPlugin);
         app.add_plugins(crate::ui::weapon_visuals::WeaponPresentationPlugin);
         app.add_plugins(crate::feedback::FeedbackPlugin);
+        app.add_plugins(crate::items::BlankPresentationPlugin);
+        app.add_plugins(crate::powerup_visuals::PowerUpVisualPlugin);
+        app.add_plugins(crate::room_fog::RoomFogPlugin);
         app.add_plugins(crate::ui::hud::HudPlugin);
         app.add_plugins(crate::ui::mutation_screen::MutationScreenPlugin);
         app.add_plugins(crate::ui::floor_transition::FloorTransitionPlugin);

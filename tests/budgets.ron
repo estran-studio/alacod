@@ -1,40 +1,56 @@
 // Budgets de performance : planchers de NON-RÉGRESSION en frames simulées par seconde, par
-// scénario. Ce ne sont pas des objectifs : la moitié de la mesure du 2026-09-28 sur le poste de
-// dev (profil headless, une compilation en parallèle), arrondie à la dizaine. Ils ne bloquent
-// que `make bench` (ALACOD_BENCH_STRICT=1) ; `make test_scenarios` se contente d'avertir.
-// Mesures de référence : ammo_burst 155, bullets_walls 169, dash_wall 146, door_open 95,
-// idle 164, movement_melee 161, remote_first_fight 199, shoot_around 191, two_players_idle 174,
-// two_players_shooting 203, weapons_workout 216, window_repair 218.
+// scénario. Ce ne sont pas des objectifs : la moitié de la mesure, arrondie à la dizaine. Ils ne
+// bloquent que `make bench` (ALACOD_BENCH_STRICT=1) ; `make test_scenarios` se contente d'avertir.
+// Relevés le 2026-10-14 (perf-suite-scenarios) sur la mesure de la suite complète en un
+// processus, machine cloud de 4 cœurs au calme, profil headless : exécuteur monothread, champs
+// de flux partagés (docs/conventions.md §5). Avant : idle 54, bench_floor 38, ammo_burst 155
+// (poste de dev de 2026-09-28), bench_bullets 44 ; après : idle 225, bench_floor 90,
+// ammo_burst 253, bench_bullets 162. Quatre tranches en parallèle partagent la mémoire : un
+// plancher à la moitié de la mesure y reste tenable.
 (
     default: (min_sim_fps: 40.0),
     scenarios: {
-        "ammo_burst": (min_sim_fps: 70.0),
-        "bullets_walls": (min_sim_fps: 80.0),
-        "dash_wall": (min_sim_fps: 70.0),
+        // M2-T10 : étage assemblé de 15 à 20 salles, deux bots (mesure du 2026-10-12 : 18 sim fps
+        // sur une machine partagée, 37 ennemis et 282 entités au plus ; gungeon_floor_seed_1 : 30).
+        "bench_floor": (min_sim_fps: 40.0),
+        // M2-T16 : un étage `court` joué par des bots (mesure cloud du 2026-10-14 : 38 et 37).
+        "bot_explorer_floor": (min_sim_fps: 120.0),
+        "bot_explorer_two": (min_sim_fps: 100.0),
+        // M2-T17 : scénarios générés d'objets, de salle et de boss (mesure cloud du 2026-10-14 :
+        // 35 à 42 sim fps ; les objets ne jouent que 60 frames, démarrage compris).
+        "item_bottes": (min_sim_fps: 20.0),
+        "item_fiole": (min_sim_fps: 20.0),
+        "item_pierre_de_soin": (min_sim_fps: 20.0),
+        "item_lame": (min_sim_fps: 20.0),
+        "room_combat": (min_sim_fps: 25.0),
+        "boss_gatling": (min_sim_fps: 25.0),
+        "ammo_burst": (min_sim_fps: 120.0),
+        "bullets_walls": (min_sim_fps: 140.0),
+        "dash_wall": (min_sim_fps: 100.0),
         "door_open": (min_sim_fps: 45.0),
-        "idle": (min_sim_fps: 80.0),
-        "movement_melee": (min_sim_fps: 80.0),
-        "remote_first_fight": (min_sim_fps: 90.0),
-        "shoot_around": (min_sim_fps: 90.0),
+        "idle": (min_sim_fps: 110.0),
+        "movement_melee": (min_sim_fps: 90.0),
+        "remote_first_fight": (min_sim_fps: 120.0),
+        "shoot_around": (min_sim_fps: 100.0),
         "two_players_idle": (min_sim_fps: 80.0),
-        "two_players_shooting": (min_sim_fps: 100.0),
+        "two_players_shooting": (min_sim_fps: 130.0),
         "weapons_workout": (min_sim_fps: 100.0),
         "window_repair": (min_sim_fps: 100.0),
         // quatre joueurs (mesures du 2026-09-29 : 179 et 209)
-        "four_players_idle": (min_sim_fps: 80.0),
+        "four_players_idle": (min_sim_fps: 100.0),
         "four_players_shooting": (min_sim_fps: 100.0),
         // T2.9, testbed (mesures du 2026-09-29 : ally_safe 214, arena_idle 230,
         // civilian_blocks 218, corridor_idle 282, dummy_shoot 224, follower 234,
         // target_hits 220, two_rooms_door_idle 281, window 269)
-        "testbed_ally_safe": (min_sim_fps: 100.0),
-        "testbed_arena_idle": (min_sim_fps: 110.0),
-        "testbed_civilian_blocks": (min_sim_fps: 100.0),
-        "testbed_corridor_idle": (min_sim_fps: 140.0),
-        "testbed_dummy_shoot": (min_sim_fps: 110.0),
-        "testbed_follower": (min_sim_fps: 110.0),
-        "testbed_target_hits": (min_sim_fps: 110.0),
-        "testbed_two_rooms_door_idle": (min_sim_fps: 140.0),
-        "testbed_window": (min_sim_fps: 130.0),
+        "testbed_ally_safe": (min_sim_fps: 150.0),
+        "testbed_arena_idle": (min_sim_fps: 150.0),
+        "testbed_civilian_blocks": (min_sim_fps: 160.0),
+        "testbed_corridor_idle": (min_sim_fps: 180.0),
+        "testbed_dummy_shoot": (min_sim_fps: 160.0),
+        "testbed_follower": (min_sim_fps: 170.0),
+        "testbed_target_hits": (min_sim_fps: 140.0),
+        "testbed_two_rooms_door_idle": (min_sim_fps: 180.0),
+        "testbed_window": (min_sim_fps: 160.0),
         // T2.1, chantier B4b (grille spatiale) : bench_bullets (4 joueurs, mitrailleuse
         // chargeur énorme/cadence maximale, ~155 balles vivantes) et bench_horde (4 joueurs,
         // 60+ ennemis dès la vague 1). Planchers = moitié de la mesure sur la branche
@@ -45,10 +61,18 @@
         // bench_horde 64.7 fps, avant que ce job n'apparaisse dans la même session). Ces deux
         // planchers sont donc plus prudents (bas) que la convention habituelle : à resserrer
         // une fois une mesure propre disponible (voir le rapport de la tâche T2.1).
-        "bench_bullets": (min_sim_fps: 70.0),
+        "bench_bullets": (min_sim_fps: 80.0),
+        // M2-T1 : ~535 balles ENNEMIES vivantes (testbed, salle verrouillée, 3 tourelles de brume). Mesure
+        // du 2026-10-11 sur la machine chargée (trois suites en parallèle) : 34 fps ; plancher
+        // à confirmer au calme (`make bench`).
+        "bench_bullets_room": (min_sim_fps: 40.0),
+        // Les trois scénarios throne les plus lourds (mesures du 2026-10-14 : 28, 40 et 53 fps).
+        "throne_quad": (min_sim_fps: 14.0),
+        "throne_three_floors": (min_sim_fps: 20.0),
+        "throne_softlock_recul": (min_sim_fps: 26.0),
         "bench_horde": (min_sim_fps: 38.0),
         // T1.6 : caverne destructible (quatre joueurs, six followers, ≥ 50 destructions) ; plancher
         // par défaut, mesure sous charge (200 graines en parallèle, load 20) : 62,7 le 2026-10-04.
-        "bench_cave": (min_sim_fps: 40.0),
+        "bench_cave": (min_sim_fps: 100.0),
     },
 )

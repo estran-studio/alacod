@@ -11,12 +11,19 @@
         (path: "weapons/melee.ron", kind: "MeleeWeapon"),
         (path: "patterns", kind: "Pattern"),
         (path: "floors", kind: "Floors"),
+        // M2-T10 : grammaires d'étage (`floor:<id>`), gabarits dans `maps/salles.ldtk`.
+        (path: "floor_grammars", kind: "FloorGrammar"),
         // Table de power-ups (copie de `throne` ; aucun drop dans l'étage squelette).
         (path: "items", kind: "PowerUp"),
         // M2-T0b : objets (passif, actif, consommables `key` et `blank`).
         (path: "objets", kind: "Item"),
+        // M2-T4 : synergies d'objets (docs/conventions.md §44).
+        (path: "synergies", kind: "Synergy"),
         // M2-E1 : types de salles du champ de niveau `room_kind`.
         (path: "rooms", kind: "Room"),
+        // M2-T11 : tables renversables et barils explosifs (entités LDtk `Table` / `Barrel` des
+        // gabarits CombatEW et CombatNS de `maps/salles.ldtk`, docs/conventions.md §46).
+        (path: "props", kind: "Prop"),
         (path: "economy/economy.ron", kind: "Economy"),
         (path: "ui", kind: "Ui"),
         (path: "camera.ron", kind: "Camera"),

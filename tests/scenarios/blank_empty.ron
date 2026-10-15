@@ -1,0 +1,23 @@
+// M2-T1 (docs/conventions.md §41) : sans blank, l'appui ne fait rien. Même partie que
+// `blank_clears_bullets` sans objet à ramasser : Blank est tenu à f30, aucune balle ne disparaît,
+// aucun inventaire n'est créé.
+//
+// À regarder : la spirale continue sans interruption, rien ne se passe à l'appui.
+Scenario(
+    powerup_drop_chance_override: "0.0",
+    game: "testbed",
+    map: "testbed/arena.ldtk",
+    frames: 70,
+    characters: [(character: "tourelle_spirale", x: "520.0", y: "696.0", at_frame: 5)],
+    players: [
+        (inputs: [
+            (from: 30, to: 31, buttons: [Blank]),
+        ]),
+    ],
+    expect: [
+        Consumable(handle: 0, id: "blank", count: 0, at_frame: 60),
+        BulletCount(count: 9, projectile: Some("fireball"), team: Some(Enemies), at_frame: 29),
+        BulletCount(count: 14, projectile: Some("fireball"), at_frame: 45),
+        PlayerAlive(handle: 0, at_frame: 70),
+    ],
+)

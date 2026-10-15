@@ -1,0 +1,32 @@
+// M2-T1 (docs/conventions.md §41) : les blanks remontent au début de chaque étage. Séquence
+// `deux_blanks` du testbed (`deux_niveaux` + `consumables_per_floor: {"blank": 2}`). Deux `blank` sont
+// ramassés (f1, f2) ; le joueur en utilise un (f100, rien à effacer : le compteur baisse quand même) ;
+// il tue le follower (f0-200), passe le portail (f230) : à l'étage 1 il en a de nouveau deux.
+//
+// À regarder : même partie que `portal_next_floor` ; un blank est consommé au milieu du tir, le joueur
+// en retrouve deux à l'étage suivant (moment clé `blank`).
+Scenario(
+    powerup_drop_chance_override: "0.0",
+    game: "testbed",
+    floors: Some("deux_blanks"),
+    frames: 260,
+    items: [
+        (id: "blank", x: "424.0", y: "696.0", at_frame: 1),
+        (id: "blank", x: "424.0", y: "696.0", at_frame: 2),
+    ],
+    players: [
+        (inputs: [
+            (from: 0, to: 100, buttons: [Fire], pan: (-64, 48)),
+            (from: 100, to: 101, buttons: [Fire, Blank], pan: (-64, 48)),
+            (from: 101, to: 200, buttons: [Fire], pan: (-64, 48)),
+            (from: 220, to: 226, buttons: [Right, Down], pan: (0, 0)),
+        ]),
+    ],
+    expect: [
+        Consumable(handle: 0, id: "blank", count: 2, at_frame: 90),
+        Consumable(handle: 0, id: "blank", count: 1, at_frame: 150),
+        Consumable(handle: 0, id: "blank", count: 1, at_frame: 225),
+        FloorIndex(index: 1, at_frame: 240),
+        Consumable(handle: 0, id: "blank", count: 2, at_frame: 250),
+    ],
+)

@@ -182,16 +182,32 @@ pub fn spawn_enemy(
     // l'inventaire ; sa table `projectiles` fournit les projectiles de l'émetteur. Sans
     // `ranged` (tout le contenu d'avant T1.2), rien ne change : inventaire vide, aucun
     // `RangedAttackState`.
-    let ranged = ai_config.ranged.is_some();
-    if let Some(ranged_config) = &ai_config.ranged {
+    // M2-T7 : armes des règles `Shoot` des phases d'un boss (tir par phase), équipées après
+    // celle de `ranged` (inactives), une fois chacune. Sans règle `Shoot` de phase : rien.
+    let mut shoot_weapons: Vec<String> = ai_config
+        .ranged
+        .iter()
+        .map(|ranged| ranged.weapon.clone())
+        .collect();
+    if let Some(boss) = &boss {
+        for rule in boss.phase_shoots() {
+            if let behaviors::Behavior::Shoot { weapon, .. } = rule {
+                if !shoot_weapons.contains(weapon) {
+                    shoot_weapons.push(weapon.clone());
+                }
+            }
+        }
+    }
+    let ranged = !shoot_weapons.is_empty();
+    for (index, weapon_name) in shoot_weapons.iter().enumerate() {
         match weapons_asset
             .get(&global_assets.weapons)
-            .and_then(|config| config.0.get(&ranged_config.weapon))
+            .and_then(|config| config.0.get(weapon_name))
         {
             Some(weapon) => {
                 spawn_weapon_for_player(
                     commands,
-                    true,
+                    index == 0,
                     entity,
                     weapon.clone(),
                     &mut inventory,
@@ -201,7 +217,7 @@ pub fn spawn_enemy(
             }
             None => warn!(
                 "ennemi : arme de tir « {} » inconnue (voir `alacod lint`), pas de tir à distance",
-                ranged_config.weapon
+                weapon_name
             ),
         }
     }

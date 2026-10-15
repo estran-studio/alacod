@@ -7,7 +7,7 @@ use crate::{
         context::{AvailableLevel, LevelType, MapGenerationContext, MapGenerationData},
         entity::{
             character_spawn::CharacterSpawnConfig, door::DoorConfig, enemy_spawn::EnemySpawnConfig,
-            location::EntityLocation, soda_location::SodaLocationConfig,
+            location::EntityLocation, prop::PropConfig, soda_location::SodaLocationConfig,
             weapon_location::WeaponLocationConfig, window::WindowConfig,
         },
         position::Position,
@@ -21,21 +21,21 @@ use serde_json::Value;
 use utils::map;
 
 // private struct to store data during the map generation
-struct Map {
+pub(super) struct Map {
     // index of the last room that we iterate on
-    last_generated_room_index: Option<usize>,
+    pub(super) last_generated_room_index: Option<usize>,
     // list of the room i have generated
-    rooms: Vec<Room>,
+    pub(super) rooms: Vec<Room>,
     // index of all the item in the rooms vector that still possively have open connection
-    rooms_possible: Vec<usize>,
+    pub(super) rooms_possible: Vec<usize>,
     // Track the depth/distance from spawn for each room (by index)
-    room_depths: Vec<usize>,
+    pub(super) room_depths: Vec<usize>,
 }
 
 pub struct BasicMapGeneration {
-    context: MapGenerationContext,
+    pub(super) context: MapGenerationContext,
     data: MapGenerationData,
-    map: Map,
+    pub(super) map: Map,
 }
 
 impl BasicMapGeneration {
@@ -667,6 +667,30 @@ impl IMapGeneration for BasicMapGeneration {
                         )
                     })
                     .collect::<Vec<(EntityLocation, SodaLocationConfig)>>()
+            })
+            .collect()
+    }
+
+    /// M2-T11 : mêmes règles que [`Self::get_character_spawns`] ci-dessus.
+    fn get_props(&mut self, _rng: &mut RollbackRng) -> Vec<(EntityLocation, PropConfig)> {
+        self.map
+            .rooms
+            .iter()
+            .flat_map(|room| {
+                room.entity_locations
+                    .props
+                    .iter()
+                    .map(|(location, config)| {
+                        (
+                            EntityLocation {
+                                position: location.position,
+                                size: location.size,
+                                level_iid: room.level_iid.clone(),
+                            },
+                            config.clone(),
+                        )
+                    })
+                    .collect::<Vec<(EntityLocation, PropConfig)>>()
             })
             .collect()
     }

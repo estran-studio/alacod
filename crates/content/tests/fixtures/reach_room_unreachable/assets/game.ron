@@ -1,0 +1,10 @@
+// Fixture M2-T15 (§53) : reach_room_unreachable
+(
+    name: "fixture-reach_room_unreachable",
+    content_folders: [
+        (path: "rooms", kind: "Room"),
+        (path: "maps", kind: "Map"),
+        (path: "floor_grammars", kind: "FloorGrammar"),
+    ],
+    entry: (start_map: "floor:etage", default_seed: 1),
+)

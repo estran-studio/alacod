@@ -6,9 +6,14 @@ use crate::game::{collider::create_wall_colliders_from_ldtk, plugin::LdtkMapLoad
 use super::{
     game::{
         entity::{
-            character_spawn::CharacterSpawnBundle, door::DoorBundle, enemy_spawn::EnemySpawnBundle,
-            player_spawn::PlayerSpawnBundle, soda_location::SodaLocationBundle,
-            weapon_location::WeaponLocationBundle, window::WindowBundle,
+            character_spawn::CharacterSpawnBundle,
+            door::DoorBundle,
+            enemy_spawn::EnemySpawnBundle,
+            player_spawn::PlayerSpawnBundle,
+            prop::{BarrelBundle, TableBundle},
+            soda_location::SodaLocationBundle,
+            weapon_location::WeaponLocationBundle,
+            window::WindowBundle,
         },
         system::add_level_components::add_room_component_to_ldtk_level,
     },
@@ -31,7 +36,9 @@ impl Plugin for EntityPlugin {
         .register_ldtk_entity::<DoorBundle>(map_const::ENTITY_DOOR_VERTICAL_LOCATION)
         .register_ldtk_entity::<CharacterSpawnBundle>(map_const::ENTITY_CHARACTER_SPAWN_LOCATION)
         .register_ldtk_entity::<WeaponLocationBundle>(map_const::ENTITY_WEAPON_LOCATION)
-        .register_ldtk_entity::<SodaLocationBundle>(map_const::ENTITY_SODA_LOCATION);
+        .register_ldtk_entity::<SodaLocationBundle>(map_const::ENTITY_SODA_LOCATION)
+        .register_ldtk_entity::<TableBundle>(map_const::ENTITY_TABLE)
+        .register_ldtk_entity::<BarrelBundle>(map_const::ENTITY_BARREL);
     }
 }
 

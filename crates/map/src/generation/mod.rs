@@ -3,6 +3,7 @@ mod imp;
 pub mod config;
 pub mod context;
 pub mod entity;
+pub mod floor;
 pub mod position;
 pub mod room;
 
@@ -16,7 +17,7 @@ use self::{
     context::MapGenerationContext,
     entity::{
         character_spawn::CharacterSpawnConfig, door::DoorConfig, enemy_spawn::EnemySpawnConfig,
-        location::EntityLocation, soda_location::SodaLocationConfig,
+        location::EntityLocation, prop::PropConfig, soda_location::SodaLocationConfig,
         weapon_location::WeaponLocationConfig, window::WindowConfig,
     },
     room::{Room, RoomConnection},
@@ -61,6 +62,8 @@ trait IMapGeneration {
         &mut self,
         rng: &mut RollbackRng,
     ) -> Vec<(EntityLocation, SodaLocationConfig)>;
+    /// M2-T11 : tables et barils (`Table`, `Barrel`), portés tels quels.
+    fn get_props(&mut self, rng: &mut RollbackRng) -> Vec<(EntityLocation, PropConfig)>;
 }
 
 pub trait IMapGenerator {
@@ -101,6 +104,8 @@ pub trait IMapGenerator {
         rng: &mut RollbackRng,
         soda_locations: &Vec<(EntityLocation, SodaLocationConfig)>,
     );
+    /// M2-T11 : voir [`IMapGeneration::get_props`].
+    fn add_props(&mut self, rng: &mut RollbackRng, props: &Vec<(EntityLocation, PropConfig)>);
 }
 
 pub fn map_generation(
@@ -134,6 +139,7 @@ pub fn map_generation(
     let character_spawns = generator.get_character_spawns(&mut rng);
     let weapon_locations = generator.get_weapon_locations(&mut rng);
     let soda_locations = generator.get_soda_locations(&mut rng);
+    let props = generator.get_props(&mut rng);
 
     map_generator.add_doors(&mut rng, &doors);
 
@@ -148,6 +154,8 @@ pub fn map_generation(
     map_generator.add_weapon_locations(&mut rng, &weapon_locations);
 
     map_generator.add_soda_locations(&mut rng, &soda_locations);
+
+    map_generator.add_props(&mut rng, &props);
 
     Ok(())
 }

@@ -58,6 +58,45 @@ pub fn pattern_from_entry(entry: &PatternEntry) -> Pattern {
             projectile: projectile.clone(),
         },
         PatternEntry::Named(name) => Pattern::Named(name.clone()),
+        PatternEntry::Fan {
+            count,
+            spread,
+            speed,
+            projectile,
+        } => Pattern::Fan {
+            count: *count,
+            spread: spread.get(),
+            speed: speed.get(),
+            projectile: projectile.clone(),
+        },
+        PatternEntry::Spiral {
+            count,
+            step,
+            shots,
+            every,
+            speed,
+            projectile,
+        } => Pattern::Spiral {
+            count: *count,
+            step: step.get(),
+            shots: *shots,
+            every: *every,
+            speed: speed.get(),
+            projectile: projectile.clone(),
+        },
+        PatternEntry::Burst {
+            count,
+            per_burst,
+            interval,
+            spread,
+            projectile,
+        } => Pattern::Burst {
+            count: *count,
+            per_burst: *per_burst,
+            interval: *interval,
+            spread: spread.get(),
+            projectile: projectile.clone(),
+        },
     }
 }
 

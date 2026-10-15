@@ -65,6 +65,18 @@ pub trait FrameEventsAppExt {
     fn add_frame_events_neutral<T>(&mut self) -> &mut Self
     where
         T: Clone + Send + Sync + PartialEq + std::hash::Hash + std::fmt::Debug + 'static;
+
+    /// File **hors checksum et hors snapshot**, vidée au `FrameStart` suivant.
+    ///
+    /// À utiliser pour un événement produit **et** consommé dans la même frame, par des
+    /// lecteurs ordonnés `.after` l'émetteur (jamais lu par un système placé avant lui : il y
+    /// verrait la file de la frame précédente). Rien à restaurer après un rollback, puisque la
+    /// file est vidée avant toute lecture. Pas la variante neutre : sa file **non vide** est
+    /// hachée, donc un événement émis dans des parties existantes (esquive, rechargement,
+    /// M2-T3) déplacerait leurs traces dès la première émission.
+    fn add_frame_events_transient<T>(&mut self) -> &mut Self
+    where
+        T: Clone + Send + Sync + 'static;
 }
 
 impl FrameEventsAppExt for App {
@@ -90,6 +102,16 @@ impl FrameEventsAppExt for App {
                 GgrsSchedule,
                 clear_frame_events::<T>.in_set(RollbackSystemSet::FrameStart),
             )
+    }
+
+    fn add_frame_events_transient<T>(&mut self) -> &mut Self
+    where
+        T: Clone + Send + Sync + 'static,
+    {
+        self.init_resource::<FrameEvents<T>>().add_systems(
+            GgrsSchedule,
+            clear_frame_events::<T>.in_set(RollbackSystemSet::FrameStart),
+        )
     }
 }
 

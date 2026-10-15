@@ -68,6 +68,16 @@ use crate::{
 #[derive(Component, Clone, Copy, Default)]
 pub struct Character;
 
+/// Coupe la lecture des périphériques (perf-suite-scenarios) : `update_action_state` de
+/// leafwing résout les conflits d'entrées (`handle_clashes`) à chaque frame, ~5 % d'une frame
+/// headless. Pour un jeu piloté par scénario (`InputSource::Scripted`, bots), les inputs
+/// viennent du script et `ActionState` n'est jamais lu (`input.rs` ne le lit qu'avec
+/// `InputSource::Devices`) : aucun effet sur la simulation ni sur les traces.
+pub fn skip_device_input(app: &mut App) {
+    use leafwing_input_manager::plugin::InputManagerSystem;
+    app.configure_sets(PreUpdate, InputManagerSystem::Update.run_if(|| false));
+}
+
 pub struct BaseCharacterGamePlugin {}
 
 impl Plugin for BaseCharacterGamePlugin {
@@ -87,6 +97,8 @@ impl Plugin for BaseCharacterGamePlugin {
 
         // AI system resources
         app.init_resource::<FlowFieldCache>();
+        // M2-T8 : places d'escouade, dérivées à chaque frame (hors rollback).
+        app.init_resource::<enemy::ai::squad::SquadSlots>();
         app.init_resource::<FlowFieldConfig>();
 
         // Initialize debug resources with --debug-ai flag if present
@@ -153,6 +165,9 @@ impl Plugin for BaseCharacterGamePlugin {
             // checksum agrégé des scénarios zombies existants, qui n'en posent jamais.
             .rollback_and_trace_no_checksum::<HitCount>()
             .rollback_and_trace::<DashState>()
+            // M2-T2 (§43) : charges et i-frames « projectiles », posés seulement si la donnée
+            // l'exige (variante neutre : les traces sans porteur ne bougent pas).
+            .rollback_and_trace_neutral::<combat::actors::DashExtra>()
             .rollback_and_trace::<SprintState>()
             .rollback_and_trace::<Velocity>()
             .rollback_and_trace::<Death>()
@@ -186,6 +201,7 @@ impl Plugin for BaseCharacterGamePlugin {
                 (
                     surface::surface_modifiers_system.run_if(surface::surfaces_active),
                     apply_inputs,
+                    dash::dash_shove_system,
                 )
                     .chain()
                     .in_set(RollbackSystemSet::Input),
@@ -253,7 +269,12 @@ impl Plugin for BaseCharacterGamePlugin {
                     enemy_target_selection,
                     // T1.4 : sélection par priorité des ennemis à behaviors nouveaux (les
                     // autres n'ont pas d'état nouveau, voir `enemy::ai::rules`).
-                    enemy::ai::rules::behavior_select_system.after(enemy_target_selection),
+                    // M2-T8 : places des escouades (dérivées), avant la sélection qui lit le tour
+                    // de tir.
+                    enemy::ai::squad::formation_system.after(enemy_target_selection),
+                    enemy::ai::rules::behavior_select_system
+                        .after(enemy_target_selection)
+                        .after(enemy::ai::squad::formation_system),
                     update_enemy_targets.after(enemy::ai::rules::behavior_select_system),
                     move_enemies.after(update_enemy_targets),
                     enemy_attack_system.after(move_enemies),

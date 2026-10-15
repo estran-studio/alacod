@@ -437,7 +437,12 @@ pub fn weapon_drop_on_death_system(
             &sim_core::team::Team,
             &bevy_fixed::fixed_math::FixedTransform3D,
         ),
-        (With<Rollback>, Added<Death>),
+        (
+            With<Rollback>,
+            Added<Death>,
+            // M2-T11 : un baril (équipe `Enemies`) ne laisse aucun butin
+            Without<world::BarrelState>,
+        ),
     >,
 ) {
     let Some(def) = &table.active else {

@@ -967,7 +967,7 @@ pub fn system_weapon_position(
     }
 }
 
-/// Lâche l'arme active au sol (T2.2, chantier B7) : `INPUT_DROP_WEAPON`, touche `G`
+/// Lâche l'arme active au sol (T2.2, chantier B7) : `INPUT_DROP_WEAPON`, touche `L`
 /// (`Devices`), bouton `DropWeapon` des scénarios. Sans effet si le joueur n'a pas d'arme à
 /// distance ou est à terre (T1.3, comme les autres actions volontaires — dash, sprint,
 /// interaction). Tourne avant `weapon_rollback_system` (voir `BaseWeaponGamePlugin`) : un
@@ -1103,6 +1103,7 @@ pub fn weapon_rollback_system(
     stats: StatReader,
 
     mut id_factory: ResMut<GgrsNetIdFactory>,
+    mut reload_finished: Option<ResMut<FrameEvents<sim_core::triggers::ReloadFinished>>>,
 ) {
     let system_span = span!(Level::INFO, "ggrs", f = frame.frame, s = "weapon");
     let _enter = system_span.enter(); // Enter the span
@@ -1205,6 +1206,12 @@ pub fn weapon_rollback_system(
                         if ammo_reserves.get(&weapon.config.ammo_type) >= needed {
                             ammo_reserves.take(&weapon.config.ammo_type, needed);
                             mode_state.reload();
+                            if let Some(events) = reload_finished.as_mut() {
+                                events.send(sim_core::triggers::ReloadFinished {
+                                    frame: frame.frame,
+                                    player_handle: player.handle,
+                                });
+                            }
                         }
                     }
                     inventory.clear_reloading();
@@ -1542,6 +1549,7 @@ pub fn bullet_rollback_collision_system(
     mut commands: Commands,
     settings: Res<CollisionSettings>,
     mut damage_events: ResMut<FrameEvents<DamageEvent>>,
+    mut wall_hits: ResMut<FrameEvents<crate::projectile::BulletWallHit>>,
     grids: Res<crate::collision_grid::CollisionGrids>,
     bullet_query: Query<
         (
@@ -1572,6 +1580,7 @@ pub fn bullet_rollback_collision_system(
             &GgrsNetId,
             &Team,
             &Health,
+            Option<&crate::actors::DashExtra>,
         ),
         (Without<Bullet>, With<Rollback>),
     >,
@@ -1633,8 +1642,14 @@ pub fn bullet_rollback_collision_system(
         }
 
         for char_entry in grids.characters.query_aabb(&swept_aabb) {
-            let Ok((target_transform, target_collider, target_net_id, target_team, target_health)) =
-                target_query.get(char_entry.entity)
+            let Ok((
+                target_transform,
+                target_collider,
+                target_net_id,
+                target_team,
+                target_health,
+                target_dash,
+            )) = target_query.get(char_entry.entity)
             else {
                 continue;
             };
@@ -1644,6 +1659,7 @@ pub fn bullet_rollback_collision_system(
                 bullet.friendly_fire,
                 &bullet.tags,
             ) || target_health.is_invulnerable_at(frame.frame)
+                || target_dash.is_some_and(|dash| dash.projectile_invulnerable_at(frame.frame))
             {
                 continue;
             }
@@ -1694,15 +1710,21 @@ pub fn bullet_rollback_collision_system(
                     }
                 }
             }
-            BulletTarget::Wall => match bullet.bullet_type {
-                BulletType::Standard { .. } | BulletType::Explosive { .. } => {
-                    should_bullet_despawn_now = true;
+            BulletTarget::Wall => {
+                wall_hits.send(crate::projectile::BulletWallHit {
+                    wall: deterministic_target_g_id.clone(),
+                    frame: frame.frame,
+                });
+                match bullet.bullet_type {
+                    BulletType::Standard { .. } | BulletType::Explosive { .. } => {
+                        should_bullet_despawn_now = true;
+                    }
+                    BulletType::Piercing { .. } => {
+                        // Piercing bullets despawn on walls
+                        should_bullet_despawn_now = true;
+                    }
                 }
-                BulletType::Piercing { .. } => {
-                    // Piercing bullets despawn on walls
-                    should_bullet_despawn_now = true;
-                }
-            },
+            }
         }
 
         if should_bullet_despawn_now {
@@ -1821,6 +1843,11 @@ impl Plugin for BaseWeaponGamePlugin {
         app.add_frame_events::<crate::projectile::ProjectileHit>();
         // T1.6 : mur touché (file neutre, vide sauf projectile à `on_hit`)
         app.add_frame_events_neutral::<crate::projectile::ProjectileWallHit>();
+        // M2-T11 : mur touché par une balle (table renversée). File **transitoire** (hors
+        // checksum) : émise par les collisions de balles, lue la même frame par `game::props`
+        // (`World`, après `Weapon` et `Projectiles`) ; une file neutre non vide serait hachée
+        // et déplacerait la trace de tout tir contre un mur.
+        app.add_frame_events_transient::<crate::projectile::BulletWallHit>();
 
         // Rollback components for melee weapons
         app.rollback_and_trace::<melee::MeleeWeapon>()

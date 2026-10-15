@@ -1,0 +1,3 @@
+// Type de salle `escouade` (M2-T8, docs/conventions.md §35 et §49) : salle de combat verrouillée
+// dont les ennemis forment une escouade (`ai.squad`).
+(locks: true)

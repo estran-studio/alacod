@@ -1,0 +1,6 @@
+// `gungeon` (M2-T10, docs/conventions.md §17 et §40) : un étage assemblé par la grammaire
+// `floor_grammars/etage.ron`, boss vaincu = victoire.
+(
+    levels: ["floor:etage"],
+    victory_at_end: true,
+)

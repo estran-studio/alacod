@@ -73,6 +73,8 @@ pub fn describe_trigger(on: &On) -> String {
         On::OnRoomClear => "À chaque salle vidée".into(),
         On::OnPickup => "À chaque ramassage".into(),
         On::OnUse => "À l'utilisation".into(),
+        On::OnFloorStart => "À chaque début d'étage".into(),
+        On::OnBlank => "À chaque Blank utilisée".into(),
         On::OnEvent(id) => format!("À l'événement {id}"),
     }
 }
@@ -133,6 +135,8 @@ pub fn describe_action(action: &Action) -> String {
         Action::RepairAllWindows => "fenêtres réparées".into(),
         Action::KillAllWaveEnemies => "tous les ennemis de la vague tués".into(),
         Action::DestroyTerrain { radius } => format!("creuse la roche ({})", number(*radius)),
+        Action::SpawnEnemies { id, count } => format!("{count} renfort(s) {id}"),
+        Action::Telegraph(frames) => format!("télégraphe ({frames} frames)"),
     }
 }
 
@@ -175,10 +179,10 @@ mod tests {
 
     #[test]
     fn mutations_du_throne() {
-        let coriace = Effect {
-            on: On::OnLevelUp,
-            r#if: vec![],
-            r#do: vec![
+        let coriace = Effect::new(
+            On::OnLevelUp,
+            vec![],
+            vec![
                 Action::Modifier {
                     stat: StatId::MaxHealth,
                     op: ModifierOp::Add,
@@ -186,39 +190,39 @@ mod tests {
                 },
                 Action::Heal(fx(25.0)),
             ],
-        };
+        );
         assert_eq!(
             describe_effect(&coriace),
             "À chaque niveau : +25 vie max, regagnez 25 points de vie."
         );
-        let adrenaline = Effect {
-            on: On::OnDamageTaken,
-            r#if: vec![Condition::HpBelow(fx(0.4))],
-            r#do: vec![Action::TimedModifier {
+        let adrenaline = Effect::new(
+            On::OnDamageTaken,
+            vec![Condition::HpBelow(fx(0.4))],
+            vec![Action::TimedModifier {
                 stat: StatId::MoveSpeed,
                 op: ModifierOp::Mul,
                 value: fx(1.4),
                 frames: 180,
             }],
-        };
+        );
         assert_eq!(
             describe_effect(&adrenaline),
             "Quand vous êtes touché, sous 40 % de vie : vitesse × 1,4 pendant 3 s."
         );
-        let sang_froid = Effect {
-            on: On::Tick(60),
-            r#if: vec![Condition::NotHitFor(300)],
-            r#do: vec![Action::Heal(fx(3.0))],
-        };
+        let sang_froid = Effect::new(
+            On::Tick(60),
+            vec![Condition::NotHitFor(300)],
+            vec![Action::Heal(fx(3.0))],
+        );
         assert_eq!(
             describe_effect(&sang_froid),
             "Chaque seconde, sans avoir été touché depuis 5 s : regagnez 3 points de vie."
         );
-        let irradie = Effect {
-            on: On::OnKill,
-            r#if: vec![],
-            r#do: vec![Action::GaugeAdd("rads".into(), fx(1.0))],
-        };
+        let irradie = Effect::new(
+            On::OnKill,
+            vec![],
+            vec![Action::GaugeAdd("rads".into(), fx(1.0))],
+        );
         assert_eq!(describe_effect(&irradie), "À chaque ennemi tué : +1 rads.");
     }
 }

@@ -1,0 +1,8 @@
+// M2-T4 : passif d'essai des synergies (`synergy_pair`) : sans effet seul.
+(
+    name: "Manche",
+    kind: Passive,
+    tags: ["synergie"],
+    // M2-T17 (docs/conventions.md §54) : scénario généré `item_manche`.
+    test: Some((frames: 60)),
+)

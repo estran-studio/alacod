@@ -14,7 +14,7 @@ use map::{
     generation::{
         entity::{
             character_spawn::CharacterSpawnConfig, door::DoorConfig, enemy_spawn::EnemySpawnConfig,
-            location::EntityLocation, soda_location::SodaLocationConfig,
+            location::EntityLocation, prop::PropConfig, soda_location::SodaLocationConfig,
             weapon_location::WeaponLocationConfig, window::WindowConfig,
         },
         room::{Room, RoomConnection},
@@ -42,6 +42,16 @@ impl GeneratedRoom {
             self.level.px_wid,
             self.level.px_hei,
         )
+    }
+
+    /// Entités de la couche `Entities` de la salle générée (M2-T11, vérifications des tests).
+    pub fn entities(&self) -> impl Iterator<Item = &EntityInstance> {
+        self.level
+            .layer_instances
+            .iter()
+            .flatten()
+            .filter(|layer| layer.identifier == LAYER_ENTITY)
+            .flat_map(|layer| layer.entity_instances.iter())
     }
 
     pub fn create(ldtk_json: Rc<LdtkJson>, room: &Room) -> Self {
@@ -194,6 +204,52 @@ impl GeneratedMap {
         GeneratedMap {
             ldtk_json: Rc::new(ldtk_json),
             generated_rooms: vec![],
+        }
+    }
+
+    /// M2-T10 (mode `Floor`) : mure les ouvertures des salles qu'aucune salle voisine ne prolonge.
+    /// Un étage de grammaire place des gabarits à plusieurs ouvertures dont certaines restent
+    /// libres : sans cela, le joueur sortirait de l'étage. Une ouverture est une case de la couche
+    /// `LevelConnection` au bord du niveau ; son côté est utilisé si la salle a un voisin de cette
+    /// direction (`neighbours`). `Basic` ne l'appelle pas.
+    pub fn close_unused_openings(&mut self) {
+        for room in &mut self.generated_rooms {
+            let used: Vec<String> = room
+                .level
+                .neighbours
+                .iter()
+                .map(|n| n.dir.clone())
+                .collect();
+            let Some(layers) = room.level.layer_instances.as_mut() else {
+                continue;
+            };
+            let Some(opening_cells) = layers
+                .iter()
+                .find(|l| l.identifier == map_const::LAYER_CONNECTION)
+                .map(|l| (l.c_wid, l.c_hei, l.int_grid_csv.clone()))
+            else {
+                continue;
+            };
+            let (w, h, openings) = opening_cells;
+            let Some(walls) = layers.iter_mut().find(|l| l.identifier == "Walls") else {
+                continue;
+            };
+            for (dir, cells) in [
+                ("n", (0..w).map(|x| (x, 0)).collect::<Vec<_>>()),
+                ("s", (0..w).map(|x| (x, h - 1)).collect()),
+                ("w", (0..h).map(|y| (0, y)).collect()),
+                ("e", (0..h).map(|y| (w - 1, y)).collect()),
+            ] {
+                if used.iter().any(|d| d == dir) {
+                    continue;
+                }
+                for (x, y) in cells {
+                    let i = (y * w + x) as usize;
+                    if openings.get(i).copied().unwrap_or(0) == 1 {
+                        walls.int_grid_csv[i] = 1;
+                    }
+                }
+            }
         }
     }
 
@@ -508,6 +564,22 @@ impl IMapGenerator for GeneratedMap {
                     FieldValue::String(Some(config.perk.clone())),
                 )],
             );
+        }
+    }
+
+    /// M2-T11 : `prop` est une valeur d'auteur, réécrite telle quelle (champ seulement s'il est
+    /// rempli : les cartes sans champ gardent leur entité nue).
+    fn add_props(&mut self, rng: &mut RollbackRng, props: &Vec<(EntityLocation, PropConfig)>) {
+        for (location, config) in props.iter() {
+            let fields = if config.prop.is_empty() {
+                vec![]
+            } else {
+                vec![(
+                    map_const::FIELD_PROP_NAME,
+                    FieldValue::String(Some(config.prop.clone())),
+                )]
+            };
+            self.add_entity_to_level(rng, location, &config.entity, fields);
         }
     }
 }

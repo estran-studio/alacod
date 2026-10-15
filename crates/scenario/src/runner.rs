@@ -159,6 +159,32 @@ fn scenario_profile_dir() -> PathBuf {
     dir
 }
 
+/// Contenu d'un jeu, chargé et linté **une fois par processus** (perf-suite-scenarios) : la
+/// suite rejoue 243 scénarios dans le même processus et le chargement (lecture de centaines de
+/// `.ron`, lint) coûtait ~0,25 s chacun, ~5 % de la suite. Le contenu ne change pas pendant un
+/// test ; seul un chargement sans erreur est mis en cache (une erreur fait échouer le scénario
+/// comme avant). Chaque scénario reçoit sa propre copie.
+fn load_content(game: &str) -> (content::Registry, content::GameManifest) {
+    use std::sync::{Mutex, OnceLock};
+    static CACHE: OnceLock<Mutex<BTreeMap<String, (content::Registry, content::GameManifest)>>> =
+        OnceLock::new();
+    let cache = CACHE.get_or_init(Default::default);
+    if let Some(cached) = cache.lock().unwrap().get(game) {
+        return cached.clone();
+    }
+    let (registry, manifest, content_errors) = content::load_and_lint(&game_dir(game))
+        .unwrap_or_else(|e| panic!("scénario « {game} » : game.ron invalide : {e}"));
+    assert!(
+        content_errors.is_empty(),
+        "scénario « {game} » : contenu invalide :\n{content_errors:#?}"
+    );
+    cache
+        .lock()
+        .unwrap()
+        .insert(game.to_string(), (registry.clone(), manifest.clone()));
+    (registry, manifest)
+}
+
 /// App de la partie décrite par le scénario (même partie que `zombies`).
 /// Avec `headless: false`, la partie est affichée (voir le binaire `play_scenario`).
 pub fn build_app(scenario: &Scenario, headless: bool, config: &PlayConfig) -> App {
@@ -170,15 +196,7 @@ pub fn build_app(scenario: &Scenario, headless: bool, config: &PlayConfig) -> Ap
 
     // Registre de contenu (T1.5) : mêmes règles que `alacod lint`, un contenu invalide
     // fait échouer le test tout de suite plutôt qu'en plein milieu de la simulation.
-    let game_root = game_dir(&scenario.game);
-    let (registry, mut manifest, content_errors) = content::load_and_lint(&game_root)
-        .unwrap_or_else(|e| panic!("scénario « {} » : game.ron invalide : {e}", scenario.game));
-    assert!(
-        content_errors.is_empty(),
-        "scénario « {} » : contenu invalide :\n{:#?}",
-        scenario.game,
-        content_errors
-    );
+    let (registry, mut manifest) = load_content(&scenario.game);
 
     // Suite de T1.13 : mode de run imposé par le scénario, à la place de `entry.mode`.
     if let Some(mode) = scenario.mode {
@@ -205,7 +223,9 @@ pub fn build_app(scenario: &Scenario, headless: bool, config: &PlayConfig) -> Ap
             seed: scenario.map_seed,
         }))
         .insert_resource(WaveModeEnabled(true))
-        .insert_resource(WaveDebugEnabled(true))
+        // Overlay de vagues : du texte d'UI Bevy mesuré à chaque frame (~10 % d'une frame
+        // headless), purement visuel ; gardé pour le rendu (vidéos, `play_scenario`).
+        .insert_resource(WaveDebugEnabled(!headless))
         // ALACOD_DIAG=1 : trace détaillée, pour nommer le composant qui diverge en synctest
         // ALACOD_DUMP_TRACE=<dossier> : outil de preuve permanent (T1.2), voir
         // `docs/conventions.md` §10 et `crates/scenario/tests/scenarios.rs` (qui écrit
@@ -270,6 +290,8 @@ pub fn build_app(scenario: &Scenario, headless: bool, config: &PlayConfig) -> Ap
                     weapon: p.weapon.clone(),
                     currency: p.currency,
                     mutations: p.mutations.clone(),
+                    dash: p.dash.clone(),
+                    items: p.items.clone(),
                 })
                 .collect(),
         ))
@@ -325,7 +347,32 @@ pub fn build_app(scenario: &Scenario, headless: bool, config: &PlayConfig) -> Ap
         app.insert_resource(game::camera::CameraFollowOverride(handle));
     }
 
+    if headless {
+        game::character::skip_device_input(&mut app);
+        single_threaded_schedules(&mut app);
+    }
+
     app
+}
+
+/// Exécuteur monothread pour tous les schedules d'un scénario headless (perf-suite-scenarios).
+///
+/// La simulation compte des centaines de petits systèmes par frame : l'exécuteur multithread de
+/// Bevy y coûte plus (≈ 1 500 `futex` par frame, réveils de threads) qu'il ne rapporte, et ses
+/// threads se disputent les cœurs quand la suite tourne en tranches parallèles. Mesuré sur
+/// `idle` : 52 fps sur 4 cœurs, 79 fps sur un seul. `ALACOD_EXECUTOR=multi` rétablit l'exécuteur
+/// par défaut. L'ordre d'exécution ne change aucun résultat : `GgrsSchedule` refuse toute
+/// ambiguïté d'ordre (`ambiguity_detection: Error`) et les traces de référence le prouvent.
+fn single_threaded_schedules(app: &mut App) {
+    if std::env::var("ALACOD_EXECUTOR").is_ok_and(|v| v == "multi") {
+        return;
+    }
+    let mut schedules = app
+        .world_mut()
+        .resource_mut::<bevy::ecs::schedule::Schedules>();
+    for (_, schedule) in schedules.iter_mut() {
+        schedule.set_executor(bevy::ecs::schedule::SingleThreadedExecutor::new());
+    }
 }
 
 /// Un profil de bot par joueur (`PlayerScript::bot`), pour `bots::BotsPlugin` (T2.11). Le
@@ -736,6 +783,10 @@ struct PlayerOverride {
     currency: Option<u32>,
     /// T1.10 : voir `game::replay::PlayerScript::mutations`.
     mutations: Vec<String>,
+    /// M2-T2 : voir `game::replay::PlayerScript::dash`.
+    dash: Option<game::character::movement::DashConfig>,
+    /// M2-T17 : voir `game::replay::PlayerScript::items`.
+    items: Vec<String>,
 }
 
 #[derive(Resource)]
@@ -773,8 +824,10 @@ fn apply_player_overrides(
         &Player,
         &Children,
         Option<&game::effects_runtime::Effects>,
+        Option<&Modifiers>,
     )>,
     progression: Option<Res<game::progression::ProgressionTable>>,
+    item_table: Option<Res<items::ItemTable>>,
     ranged_children: Query<(), With<Weapon>>,
     melee_children: Query<(), With<MeleeWeapon>>,
     global_assets: Option<Res<GlobalAsset>>,
@@ -793,6 +846,8 @@ fn apply_player_overrides(
             && o.weapon.is_none()
             && o.currency.is_none()
             && o.mutations.is_empty()
+            && o.dash.is_none()
+            && o.items.is_empty()
     }) {
         *applied = true;
         return;
@@ -806,10 +861,19 @@ fn apply_player_overrides(
     if progression.is_none() && overrides.0.iter().any(|o| !o.mutations.is_empty()) {
         return; // table des mutations pas encore résolue (`OnEnter(GameLoading)`)
     }
-    for (entity, player, children, effects) in players.iter() {
+    if item_table.is_none() && overrides.0.iter().any(|o| !o.items.is_empty()) {
+        return; // table des objets posée au chargement de la carte
+    }
+    for (entity, player, children, effects, existing_modifiers) in players.iter() {
         let Some(over) = overrides.0.get(player.handle) else {
             continue;
         };
+        if let Some(dash) = &over.dash {
+            commands.entity(entity).insert((
+                game::character::dash::DashOverride(dash.clone()),
+                combat::actors::DashExtra::with_charges(dash.charges.unwrap_or(0)),
+            ));
+        }
         if !over.tags.is_empty() {
             commands
                 .entity(entity)
@@ -821,8 +885,11 @@ fn apply_player_overrides(
                 resistances: Default::default(),
             });
         }
+        let mut built = existing_modifiers.cloned().unwrap_or_default();
+        let mut modifiers_changed = false;
         if !over.modifiers.is_empty() {
-            let mut built = Modifiers::default();
+            built = Modifiers::default();
+            modifiers_changed = true;
             for (i, spec) in over.modifiers.iter().enumerate() {
                 built.push(Modifier {
                     stat: spec.stat.clone(),
@@ -835,6 +902,40 @@ fn apply_player_overrides(
                     until: spec.until,
                 });
             }
+        }
+        // M2-T17 (§54) : objets tenus dès le départ, posés comme un ramassage (passif : inventaire
+        // et modificateurs `item:<id>` ; actif : emplacement actif **chargé**).
+        if !over.items.is_empty() {
+            let table = item_table.as_ref().expect("vérifié avant la boucle");
+            let mut inventory = items::Inventory::default();
+            for id in &over.items {
+                let Some(def) = table.0.get(id) else {
+                    panic!(
+                        "PlayerScript::items : objet inconnu « {id} » pour le joueur {}",
+                        player.handle
+                    );
+                };
+                match def.kind {
+                    items::ItemKind::Passive => {
+                        inventory.passives.push(id.clone());
+                        for modifier in &def.modifiers {
+                            built.push(modifier.to_modifier(id));
+                        }
+                    }
+                    items::ItemKind::Active(charge) => {
+                        let mut slot = items::ActiveSlot::new(id.clone());
+                        slot.charge = charge.required();
+                        inventory.active = Some(slot);
+                    }
+                    items::ItemKind::Consumable => {
+                        *inventory.consumables.entry(id.clone()).or_insert(0) += 1;
+                    }
+                }
+            }
+            modifiers_changed = true;
+            commands.entity(entity).insert(inventory);
+        }
+        if modifiers_changed {
             commands.entity(entity).insert(built);
         }
         if let Some(weapon_id) = &over.weapon {
@@ -1027,17 +1128,28 @@ pub fn run_with_options<F: FnOnce(&mut App)>(
     let mut frame = 0;
     let mut stopped_early = false;
     let mut previous_snapshot = None;
+    // ALACOD_PROFILE=1 : temps cumulé par poste du runner (mesure, jamais dans la simulation).
+    let profile = std::env::var("ALACOD_PROFILE").is_ok_and(|v| v == "1");
+    let mut t_update = 0.0f64;
+    let mut t_metrics = 0.0f64;
+    let mut t_invariants = 0.0f64;
+    let mut t_expect = 0.0f64;
     for _ in 0..max_updates {
         let before = app.world().resource::<FrameCount>().frame;
         if before > 0 && sim_start.is_none() {
             sim_start = Some(std::time::Instant::now());
         }
+        let t0 = std::time::Instant::now();
         app.update();
+        if profile && before > 0 {
+            t_update += t0.elapsed().as_secs_f64();
+        }
         frame = app.world().resource::<FrameCount>().frame;
         if let Some(start) = sim_start {
             sim_elapsed = start.elapsed().as_secs_f64();
         }
 
+        let t1 = std::time::Instant::now();
         if frame > 0 {
             entities_max = entities_max.max(q_rollback.iter(app.world()).count() as u32);
             bullets_max = bullets_max.max(q_bullets.iter(app.world()).count() as u32);
@@ -1051,7 +1163,10 @@ pub fn run_with_options<F: FnOnce(&mut App)>(
                 }
             }
 
+            t_metrics += t1.elapsed().as_secs_f64();
+            let t2 = std::time::Instant::now();
             failures.extend(invariants.check(app.world_mut(), &scenario.invariants, frame));
+            t_invariants += t2.elapsed().as_secs_f64();
 
             for expectation in &no_damage_between {
                 if let Expectation::NoDamageBetween {
@@ -1100,6 +1215,9 @@ pub fn run_with_options<F: FnOnce(&mut App)>(
             }
         }
 
+        if profile {
+            t_expect += t1.elapsed().as_secs_f64();
+        }
         if !app
             .world()
             .resource::<SyncTestMismatches>()
@@ -1182,6 +1300,12 @@ pub fn run_with_options<F: FnOnce(&mut App)>(
         }
     }
 
+    if profile {
+        eprintln!(
+            "profil runner : update={t_update:.2}s métriques={t_metrics:.2}s invariants={t_invariants:.2}s \
+             hors-update(total)={t_expect:.2}s"
+        );
+    }
     let sim_fps = if sim_elapsed > 0.0 {
         frame as f64 / sim_elapsed
     } else {
@@ -1308,6 +1432,7 @@ pub fn run(scenario: &Scenario) -> ScenarioOutcome {
 
 fn game_args(player_count: usize) -> GameArgs {
     GameArgs {
+        seed: None,
         check_distance: game::args::check_distance_from_env(),
         local_port: 0,
         number_player: player_count,
@@ -1673,6 +1798,14 @@ fn check(world: &mut World, expectation: &Expectation) -> Result<(), String> {
                     .count() as u32,
                 game::replay::EntityKind::Rollback => world
                     .query_filtered::<(), With<bevy_ggrs::Rollback>>()
+                    .iter(world)
+                    .count() as u32,
+                game::replay::EntityKind::Barrel => world
+                    .query_filtered::<(), With<world::BarrelState>>()
+                    .iter(world)
+                    .count() as u32,
+                game::replay::EntityKind::Table => world
+                    .query_filtered::<(), With<world::TableState>>()
                     .iter(world)
                     .count() as u32,
             };
@@ -2607,6 +2740,10 @@ fn enemy_distance(
             .find(|(player, _)| player.handle == *handle)
             .map(|(_, transform)| transform.translation.truncate())
             .ok_or_else(|| format!("joueur {handle} absent"))?,
+        game::replay::DistanceTarget::Entity(other) => {
+            let other = resolve_entity(world, other).ok_or("cible absente")?;
+            entity_position(world, other).ok_or("cible sans position")?
+        }
     };
     Ok(enemy_pos.distance(&target_pos))
 }
@@ -2634,7 +2771,8 @@ fn enemy_in_melee_range(world: &mut World, entity: &game::replay::EntityRef) -> 
         .any(|transform| enemy_pos.distance(&transform.translation.truncate()) <= reach)
 }
 
-/// `EnemyNeverInWall` (T1.4) : le collider de l'ennemi chevauche un `Wall`.
+/// `EnemyNeverInWall` (T1.4) : le collider de l'ennemi chevauche un `Wall` ; M2-T11 : ou les
+/// pieds d'un ennemi au sol sont sur une case de fosse (`world::SurfaceGrid`).
 fn enemy_in_wall(world: &mut World, entity: &game::replay::EntityRef) -> bool {
     use combat::collider::{is_colliding, Collider, Wall};
     let Some(enemy) = resolve_entity(world, entity) else {
@@ -2647,6 +2785,22 @@ fn enemy_in_wall(world: &mut World, entity: &game::replay::EntityRef) -> bool {
     else {
         return false;
     };
+    let grounded = world
+        .get::<game::character::enemy::ai::state::EnemyAiConfig>(enemy)
+        .is_some_and(|ai| {
+            ai.movement_type != game::character::enemy::ai::state::MovementType::Flying
+        });
+    if grounded {
+        if let (Some(grid), Some(table)) = (
+            world.get_resource::<world::SurfaceGrid>(),
+            world.get_resource::<world::SurfaceTable>(),
+        ) {
+            let feet = game::character::surface::feet_position(&enemy_transform, &enemy_collider);
+            if grid.pit_at(table, feet).is_some() {
+                return true;
+            }
+        }
+    }
     world
         .query_filtered::<(&fixed_math::FixedTransform3D, &Collider), With<Wall>>()
         .iter(world)

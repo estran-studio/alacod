@@ -24,7 +24,19 @@
         dash_buffer_frames: 8,
     ),
 
+    // M2-T2 (§43) : roulé façon Gungeon. Deux charges (une rendue toutes les 60 frames), 8 frames
+    // dont les 6 premières « sautent » les balles : elles traversent, la mêlée et les contacts
+    // touchent encore (`iframes_kind: Projectiles`, état à part de `Health`).
+    dash: Some((
+        iframes_kind: Projectiles,
+        charges: Some(2),
+        recharge_frames: Some(60),
+    )),
+
     asset_name_ref: "player",
+
+    // M2-T1 : deux blanks au départ (un `Inventory` dès la création, jamais avant pour les autres jeux).
+    starting_consumables: {"blank": 2},
 
     collider: (
         shape: Rectangle(

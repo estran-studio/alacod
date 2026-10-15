@@ -2,6 +2,7 @@ pub mod character_spawn;
 pub mod door;
 pub mod enemy_spawn;
 pub mod player_spawn;
+pub mod prop;
 pub mod soda_location;
 pub mod weapon_location;
 pub mod window;

@@ -824,6 +824,7 @@ version = "0.19.1"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "4bfadbebfc6599aa59289b754ac30023959854304f3d393da2cf62bb3cd5df8f"
 dependencies = [
+ "bevy_dylib",
  "bevy_internal 0.19.1",
 ]
 
@@ -1508,6 +1509,15 @@ dependencies = [
  "log",
  "serde",
  "sysinfo 0.38.4",
+]
+
+[[package]]
+name = "bevy_dylib"
+version = "0.19.1"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "e3c03a128bac8b59a8699b81038b574e3cfa33dfae18e375d46be028d3d13c0e"
+dependencies = [
+ "bevy_internal 0.19.1",
 ]
 
 [[package]]
@@ -3880,17 +3890,21 @@ dependencies = [
 name = "bots"
 version = "0.1.0"
 dependencies = [
+ "behaviors",
  "bevy 0.19.1",
  "bevy_fixed",
  "bevy_ggrs",
  "combat",
  "game",
+ "items",
  "map",
+ "map_ldtk",
  "ron 0.12.2",
  "run",
  "serde",
  "sim_core",
  "utils",
+ "world",
 ]
 
 [[package]]
@@ -7613,6 +7627,7 @@ dependencies = [
 name = "map_ldtk"
 version = "0.2.0"
 dependencies = [
+ "behaviors",
  "bevy 0.19.1",
  "bevy-inspector-egui",
  "bevy_ecs_ldtk",
@@ -13620,6 +13635,7 @@ dependencies = [
  "bevy_ggrs",
  "content",
  "game",
+ "getrandom 0.2.17",
  "map",
  "map_ldtk",
  "serde_json",

@@ -123,6 +123,8 @@ pub struct BotView {
     /// m1-v3-bots-armes : portée de l'arme en main (`range` du mode courant) : pas de tir au-delà.
     /// `None` hors mode `Floors` (comportement inchangé).
     pub fire_range: Option<Fixed>,
+    /// M2-T16 : exploration de l'étage (profil `explorateur` en mode `Floors`), `None` sinon.
+    pub explore: Option<crate::explorer::ExploreView>,
 }
 
 /// Sélection des projectiles de la vue : `candidates` = (net id, équipe adverse ?, vue).

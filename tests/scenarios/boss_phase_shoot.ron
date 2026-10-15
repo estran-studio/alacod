@@ -1,0 +1,37 @@
+// M2-T7 (docs/conventions.md §45) : tir **par phase**. Le `gardien_tir` (testbed, 300 PV) n'a aucune
+// frise : chaque phase porte sa règle `Shoot`. Phase 0 : la volée `volee` avec la table de
+// projectiles de `fireball_gun` (flèches `arrow`) ; sous 50 % de santé, phase 1 : la balle `ricochet` (pattern
+// `ricochet`) avec la table de `tourelle_gun` (le projectile `ricochet` n'existe que là). Carte testbed/salles_boss_tir.ldtk.
+//
+// À regarder : le joueur entre dans la salle (f30-90), elle se verrouille, le boss tire une volée
+// de flèches ; le joueur tire (f90-) ; à mi-vie le boss change de table de tir : des balles
+// perçantes remplacent les flèches (moment clé `boss_phase`).
+//
+// M2-T19 (feedback v2, conventions §55) : à f88 le télégraphe de la volée dessine ses 3 rayons au
+// sol (moment clé `feedback` « télégraphe aimed 27 (3 rayons) »). Présentation seule : trace inchangée.
+Scenario(
+    powerup_drop_chance_override: "0.0",
+    game: "testbed",
+    map: "testbed/salles_boss_tir.ldtk",
+    map_seed: 1,
+    frames: 400,
+    players: [
+        (inputs: [
+            (from: 30, to: 90, buttons: [Right]),
+            (from: 90, to: 380, buttons: [Fire], pan: (64, 0)),
+        ]),
+    ],
+    expect: [
+        RoomState(kind: "boss", state: Locked, doors_closed: Some(4), at_frame: 100),
+        // Phase 0 : la volée de flèches (table de `fireball_gun`), pas encore de `ricochet`.
+        BossPhase(entity: NetId(27), phase: 0, at_frame: 130),
+        BulletCount(count: 3, projectile: "arrow", team: Some(Enemies), at_frame: 125),
+        BulletCount(count: 0, projectile: "ricochet", team: Some(Enemies), at_frame: 125),
+        // Sous 50 % de santé (f208) : phase 1, la balle perçante de la table de `tourelle_gun`.
+        BossPhase(entity: NetId(27), phase: 1, at_frame: 220),
+        BulletCount(count: 0, projectile: "arrow", team: Some(Enemies), at_frame: 245),
+        BulletCount(count: 1, projectile: "ricochet", team: Some(Enemies), at_frame: 245),
+        PlayerAlive(handle: 0, at_frame: 399),
+        Event(kind: "feedback", label_contains: Some("télégraphe aimed 27 (3 rayons)"), by_frame: 88),
+    ],
+)

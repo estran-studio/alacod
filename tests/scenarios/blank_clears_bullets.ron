@@ -1,0 +1,48 @@
+// M2-T1 (docs/conventions.md §41) : le blank efface les balles ennemies, pas celles des joueurs. Deux
+// `blank` (testbed/objets/blank.ron, rayon 120, 6 frames d'invulnérabilité) sont ramassés au contact
+// (f1, f2). La `tourelle_spirale` (placée à f5, 100 px à droite du joueur 0, testbed/arena.ldtk)
+// tire sa spirale (salves à f17, f23, f29, …) ; le joueur 0 tire vers l'est (f10 à f60) ; Blank est
+// appuyé à f30 (effectif à f35-f36, délai d'input de 5 frames ; front montant) : le compteur passe à 1, les balles ennemies à portée
+// disparaissent, celles du joueur restent.
+//
+// À regarder : la spirale se dessine, puis d'un coup toutes les boules de feu proches disparaissent
+// (moment clé `blank`) ; les balles du joueur continuent vers la tourelle.
+//
+// M2-T19 (feedback v2, conventions §55) : à f7 la spirale montre ses 3 rayons avant de tirer, à f36
+// le blank ouvre un anneau de rayon 120 et un léger flash (moments clés `feedback`). Trace inchangée.
+Scenario(
+    powerup_drop_chance_override: "0.0",
+    game: "testbed",
+    map: "testbed/arena.ldtk",
+    frames: 70,
+    items: [
+        (id: "blank", x: "424.0", y: "696.0", at_frame: 1),
+        (id: "blank", x: "424.0", y: "696.0", at_frame: 2),
+    ],
+    characters: [(character: "tourelle_spirale", x: "520.0", y: "696.0", at_frame: 5)],
+    players: [
+        (inputs: [
+            (from: 10, to: 30, buttons: [Fire], pan: (100, 0)),
+            (from: 30, to: 31, buttons: [Fire, Blank], pan: (100, 0)),
+            (from: 31, to: 60, buttons: [Fire], pan: (100, 0)),
+        ]),
+    ],
+    expect: [
+        Consumable(handle: 0, id: "blank", count: 0, at_frame: 1),
+        Consumable(handle: 0, id: "blank", count: 2, at_frame: 10),
+        // Quatre salves de trois boules (f17, f23, f29, f35), puis le blank (f36) les efface toutes.
+        BulletCount(count: 12, projectile: Some("fireball"), team: Some(Enemies), at_frame: 35),
+        Consumable(handle: 0, id: "blank", count: 2, at_frame: 35),
+        BulletCount(count: 0, projectile: Some("fireball"), team: Some(Enemies), at_frame: 36),
+        Consumable(handle: 0, id: "blank", count: 1, at_frame: 36),
+        // Les balles du joueur (tirées vers l'est depuis f10) restent.
+        BulletCount(count: 2, team: Some(Players), at_frame: 36),
+        BulletCount(count: 3, team: Some(Players), at_frame: 40),
+        // La spirale reprend (salve de f41) ; un seul blank utilisé.
+        BulletCount(count: 3, projectile: Some("fireball"), team: Some(Enemies), at_frame: 41),
+        Consumable(handle: 0, id: "blank", count: 1, at_frame: 60),
+        PlayerAlive(handle: 0, at_frame: 70),
+        Event(kind: "feedback", label_contains: Some("télégraphe spiral 38 (3 rayons)"), by_frame: 7),
+        Event(kind: "feedback", label_contains: Some("blank 0 (rayon 120)"), by_frame: 36),
+    ],
+)

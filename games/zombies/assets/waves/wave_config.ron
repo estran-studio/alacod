@@ -1,8 +1,9 @@
 (
     // === Enemy Count Formula ===
     // count = base_enemies + ((wave - 1) * enemies_per_wave) + random(0, max_variance)
-    base_enemies: 6,
-    enemies_per_wave: 4,
+    // S5 — option B choisie par William : départ doux (3–5, 5–7, 7–9… zombies).
+    base_enemies: 3,
+    enemies_per_wave: 2,
     max_random_variance: 2,
 
     // === Timing (in frames at 60fps) ===
@@ -10,9 +11,9 @@
     grace_period_frames: 180,       // 3 seconds prep time
 
     // === Spawning Constraints ===
-    max_concurrent_enemies: 8,      // Max enemies alive at once
+    max_concurrent_enemies: 4,      // S5 : au plus 4 zombies vivants
     spawn_batch_size: 1,            // Spawn 1 enemy at a time
-    spawn_interval_frames: 60,      // 1 second between spawns
+    spawn_interval_frames: 120,     // S5 : 2 secondes entre les apparitions
 
     // === Spawner Selection (distance from players) ===
     min_player_distance: "150.0",

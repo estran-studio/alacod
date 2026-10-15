@@ -1,0 +1,452 @@
+[
+  {
+    "seed": 151,
+    "wave": 0,
+    "floor": 1,
+    "frames": 653,
+    "deaths": 0,
+    "kills": 0,
+    "wall_seconds": 13.384284993,
+    "desync": false,
+    "sim_fps": 49.94314171023826,
+    "floor_frames": [
+      653
+    ],
+    "damage_taken": 70,
+    "dodges": 47,
+    "doors_opened": 13,
+    "players_end": [
+      {
+        "handle": 0,
+        "currency": 890,
+        "downed": false,
+        "x": -8.0,
+        "y": -8.0,
+        "in_spawn_room": true
+      }
+    ],
+    "waves": [],
+    "outcome": "objectif",
+    "rooms": [
+      {
+        "floor": 0,
+        "total": 3,
+        "visited": 3,
+        "cleared": 2,
+        "locking": 2
+      },
+      {
+        "floor": 1,
+        "total": 3,
+        "visited": 1,
+        "cleared": 0,
+        "locking": 2
+      }
+    ]
+  },
+  {
+    "seed": 152,
+    "wave": 0,
+    "floor": 1,
+    "frames": 825,
+    "deaths": 0,
+    "kills": 0,
+    "wall_seconds": 17.831366888,
+    "desync": false,
+    "sim_fps": 47.07503822541749,
+    "floor_frames": [
+      825
+    ],
+    "damage_taken": 42,
+    "dodges": 206,
+    "doors_opened": 17,
+    "players_end": [
+      {
+        "handle": 0,
+        "currency": 990,
+        "downed": false,
+        "x": -8.0,
+        "y": -8.0,
+        "in_spawn_room": true
+      }
+    ],
+    "waves": [],
+    "outcome": "objectif",
+    "rooms": [
+      {
+        "floor": 0,
+        "total": 3,
+        "visited": 3,
+        "cleared": 2,
+        "locking": 2
+      },
+      {
+        "floor": 1,
+        "total": 3,
+        "visited": 1,
+        "cleared": 0,
+        "locking": 2
+      }
+    ]
+  },
+  {
+    "seed": 153,
+    "wave": 0,
+    "floor": 1,
+    "frames": 741,
+    "deaths": 0,
+    "kills": 0,
+    "wall_seconds": 16.264583887,
+    "desync": false,
+    "sim_fps": 46.38868424050271,
+    "floor_frames": [
+      741
+    ],
+    "damage_taken": 69,
+    "dodges": 110,
+    "doors_opened": 17,
+    "players_end": [
+      {
+        "handle": 0,
+        "currency": 990,
+        "downed": false,
+        "x": -8.0,
+        "y": -8.0,
+        "in_spawn_room": true
+      }
+    ],
+    "waves": [],
+    "outcome": "objectif",
+    "rooms": [
+      {
+        "floor": 0,
+        "total": 3,
+        "visited": 3,
+        "cleared": 2,
+        "locking": 2
+      },
+      {
+        "floor": 1,
+        "total": 3,
+        "visited": 1,
+        "cleared": 0,
+        "locking": 2
+      }
+    ]
+  },
+  {
+    "seed": 154,
+    "wave": 0,
+    "floor": 1,
+    "frames": 825,
+    "deaths": 0,
+    "kills": 0,
+    "wall_seconds": 18.408867067,
+    "desync": false,
+    "sim_fps": 45.457691379749086,
+    "floor_frames": [
+      825
+    ],
+    "damage_taken": 42,
+    "dodges": 206,
+    "doors_opened": 15,
+    "players_end": [
+      {
+        "handle": 0,
+        "currency": 990,
+        "downed": false,
+        "x": -8.0,
+        "y": -8.0,
+        "in_spawn_room": true
+      }
+    ],
+    "waves": [],
+    "outcome": "objectif",
+    "rooms": [
+      {
+        "floor": 0,
+        "total": 3,
+        "visited": 3,
+        "cleared": 2,
+        "locking": 2
+      },
+      {
+        "floor": 1,
+        "total": 3,
+        "visited": 1,
+        "cleared": 0,
+        "locking": 2
+      }
+    ]
+  },
+  {
+    "seed": 155,
+    "wave": 0,
+    "floor": 1,
+    "frames": 825,
+    "deaths": 0,
+    "kills": 0,
+    "wall_seconds": 17.768127019,
+    "desync": false,
+    "sim_fps": 47.19123919769483,
+    "floor_frames": [
+      825
+    ],
+    "damage_taken": 42,
+    "dodges": 206,
+    "doors_opened": 15,
+    "players_end": [
+      {
+        "handle": 0,
+        "currency": 990,
+        "downed": false,
+        "x": -8.0,
+        "y": -8.0,
+        "in_spawn_room": true
+      }
+    ],
+    "waves": [],
+    "outcome": "objectif",
+    "rooms": [
+      {
+        "floor": 0,
+        "total": 3,
+        "visited": 3,
+        "cleared": 2,
+        "locking": 2
+      },
+      {
+        "floor": 1,
+        "total": 3,
+        "visited": 1,
+        "cleared": 0,
+        "locking": 2
+      }
+    ]
+  },
+  {
+    "seed": 156,
+    "wave": 0,
+    "floor": 1,
+    "frames": 825,
+    "deaths": 0,
+    "kills": 0,
+    "wall_seconds": 17.956019269,
+    "desync": false,
+    "sim_fps": 46.603442445219194,
+    "floor_frames": [
+      825
+    ],
+    "damage_taken": 42,
+    "dodges": 206,
+    "doors_opened": 17,
+    "players_end": [
+      {
+        "handle": 0,
+        "currency": 990,
+        "downed": false,
+        "x": -8.0,
+        "y": -8.0,
+        "in_spawn_room": true
+      }
+    ],
+    "waves": [],
+    "outcome": "objectif",
+    "rooms": [
+      {
+        "floor": 0,
+        "total": 3,
+        "visited": 3,
+        "cleared": 2,
+        "locking": 2
+      },
+      {
+        "floor": 1,
+        "total": 3,
+        "visited": 1,
+        "cleared": 0,
+        "locking": 2
+      }
+    ]
+  },
+  {
+    "seed": 157,
+    "wave": 0,
+    "floor": 1,
+    "frames": 764,
+    "deaths": 0,
+    "kills": 0,
+    "wall_seconds": 16.46630448,
+    "desync": false,
+    "sim_fps": 47.1686405880361,
+    "floor_frames": [
+      764
+    ],
+    "damage_taken": 82,
+    "dodges": 104,
+    "doors_opened": 15,
+    "players_end": [
+      {
+        "handle": 0,
+        "currency": 990,
+        "downed": false,
+        "x": -8.0,
+        "y": -8.0,
+        "in_spawn_room": true
+      }
+    ],
+    "waves": [],
+    "outcome": "objectif",
+    "rooms": [
+      {
+        "floor": 0,
+        "total": 3,
+        "visited": 3,
+        "cleared": 2,
+        "locking": 2
+      },
+      {
+        "floor": 1,
+        "total": 3,
+        "visited": 1,
+        "cleared": 0,
+        "locking": 2
+      }
+    ]
+  },
+  {
+    "seed": 158,
+    "wave": 0,
+    "floor": 1,
+    "frames": 653,
+    "deaths": 0,
+    "kills": 0,
+    "wall_seconds": 13.95176208,
+    "desync": false,
+    "sim_fps": 47.80795771166883,
+    "floor_frames": [
+      653
+    ],
+    "damage_taken": 70,
+    "dodges": 47,
+    "doors_opened": 13,
+    "players_end": [
+      {
+        "handle": 0,
+        "currency": 890,
+        "downed": false,
+        "x": -8.0,
+        "y": -8.0,
+        "in_spawn_room": true
+      }
+    ],
+    "waves": [],
+    "outcome": "objectif",
+    "rooms": [
+      {
+        "floor": 0,
+        "total": 3,
+        "visited": 3,
+        "cleared": 2,
+        "locking": 2
+      },
+      {
+        "floor": 1,
+        "total": 3,
+        "visited": 1,
+        "cleared": 0,
+        "locking": 2
+      }
+    ]
+  },
+  {
+    "seed": 159,
+    "wave": 0,
+    "floor": 1,
+    "frames": 764,
+    "deaths": 0,
+    "kills": 0,
+    "wall_seconds": 16.386403407,
+    "desync": false,
+    "sim_fps": 47.51790574186743,
+    "floor_frames": [
+      764
+    ],
+    "damage_taken": 82,
+    "dodges": 104,
+    "doors_opened": 17,
+    "players_end": [
+      {
+        "handle": 0,
+        "currency": 990,
+        "downed": false,
+        "x": -8.0,
+        "y": -8.0,
+        "in_spawn_room": true
+      }
+    ],
+    "waves": [],
+    "outcome": "objectif",
+    "rooms": [
+      {
+        "floor": 0,
+        "total": 3,
+        "visited": 3,
+        "cleared": 2,
+        "locking": 2
+      },
+      {
+        "floor": 1,
+        "total": 3,
+        "visited": 1,
+        "cleared": 0,
+        "locking": 2
+      }
+    ]
+  },
+  {
+    "seed": 160,
+    "wave": 0,
+    "floor": 1,
+    "frames": 689,
+    "deaths": 0,
+    "kills": 0,
+    "wall_seconds": 14.920289761,
+    "desync": false,
+    "sim_fps": 47.00293758959347,
+    "floor_frames": [
+      689
+    ],
+    "damage_taken": 88,
+    "dodges": 56,
+    "doors_opened": 17,
+    "players_end": [
+      {
+        "handle": 0,
+        "currency": 990,
+        "downed": false,
+        "x": -8.0,
+        "y": -8.0,
+        "in_spawn_room": true
+      }
+    ],
+    "waves": [],
+    "outcome": "objectif",
+    "rooms": [
+      {
+        "floor": 0,
+        "total": 3,
+        "visited": 3,
+        "cleared": 2,
+        "locking": 2
+      },
+      {
+        "floor": 1,
+        "total": 3,
+        "visited": 1,
+        "cleared": 0,
+        "locking": 2
+      }
+    ]
+  }
+]

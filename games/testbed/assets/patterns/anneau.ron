@@ -1,0 +1,3 @@
+// M2-T1 : couronne continue de vingt-quatre boules de brume inoffensives toutes les 6 frames (`Ring`
+// seul = infini, conventions §20) ; tourelle `tourelle_anneau`, scénario `bench_bullets_room`.
+Ring(count: 24, speed: "60.0", projectile: "brume", every: 6)

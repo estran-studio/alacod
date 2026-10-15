@@ -1,0 +1,11 @@
+// Grammaire d'étage minimale de `gungeon` (M2-T10) : départ, une salle de combat, boss. Les
+// scénarios qui doivent atteindre le boss par un script (`gungeon_floor_seed_*`,
+// `gungeon_two_floors`) s'y appuient : la forme est la même d'une graine à l'autre.
+(
+    templates: "maps/salles.ldtk",
+    grammar: (
+        rooms: (3, 3),
+        required: {"boss": 1},
+        min_boss_distance: 2,
+    ),
+)

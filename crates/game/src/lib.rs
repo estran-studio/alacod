@@ -15,6 +15,7 @@ pub mod effects_runtime;
 pub mod feedback;
 pub mod frame;
 pub mod frame_events;
+pub mod gen_test;
 pub mod global_asset;
 pub mod interaction;
 pub mod items;
@@ -23,14 +24,17 @@ pub mod light;
 pub mod patterns;
 #[cfg(not(target_arch = "wasm32"))]
 pub mod performance;
+mod powerup_visuals;
 pub mod powerups;
 pub mod profile;
 pub mod progression;
+pub mod props;
 pub mod recording;
 #[cfg(not(target_arch = "wasm32"))]
 pub mod remote;
 pub mod replay;
 pub mod rollback;
+pub mod room_fog;
 pub mod run_state;
 pub mod state_trace;
 pub mod statuses;

@@ -1,0 +1,9 @@
+// M2-T1 (docs/conventions.md §41) : consommable `blank`. Un appui sur `Blank` en consomme un exemplaire,
+// efface les balles ennemies dans 120 unités autour du joueur (jamais celles des joueurs) et rend le
+// joueur invulnérable 6 frames.
+(
+    name: "Blank",
+    kind: Consumable,
+    rarity: Common,
+    blank: Some((radius: "120.0", iframes: 6)),
+)

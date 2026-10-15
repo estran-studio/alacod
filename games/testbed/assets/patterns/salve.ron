@@ -1,0 +1,5 @@
+// M2-T1 : trois salves de deux flèches (`Burst`), espacées de 8 frames ; tourelle `tourelle_salve`.
+Sequence([
+    Telegraph(10),
+    Burst(count: 3, per_burst: 2, interval: 8, spread: "0.2", projectile: "arrow"),
+])

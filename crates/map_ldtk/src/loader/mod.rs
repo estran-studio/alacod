@@ -12,7 +12,7 @@ use map::generation::map_generation;
 
 use super::generation::{from_map, GeneratedMap};
 use crate::game::floors::{FloorPlan, FloorWorld};
-use content::registry::{cave_designation, Registry};
+use content::registry::{cave_designation, floor_designation, Registry};
 use std::collections::BTreeMap;
 use world::CaveConfig;
 
@@ -33,10 +33,22 @@ pub fn surface_table(registry: Option<&Registry>) -> world::SurfaceTable {
                 tags: surface.tags.clone(),
                 move_speed: surface.move_speed,
                 acceleration: surface.acceleration,
+                pit: surface.pit.clone(),
             },
         );
     }
     table
+}
+
+/// Objets de décor (M2-T11) depuis le registre de contenu : `props/<id>.ron` → définition.
+pub fn prop_table(registry: Option<&Registry>) -> world::PropTable {
+    world::PropTable(
+        registry
+            .iter()
+            .flat_map(|r| r.props.values())
+            .map(|prop| (prop.id.clone(), prop.def.clone()))
+            .collect(),
+    )
 }
 
 /// Objets (M2-T0b) depuis le registre de contenu : `items/<id>.ron` → définition.
@@ -50,13 +62,24 @@ pub fn item_table(registry: Option<&Registry>) -> items::ItemTable {
     )
 }
 
+/// Synergies (M2-T4) depuis le registre de contenu : `synergies/<id>.ron` → définition.
+pub fn synergy_table(registry: Option<&Registry>) -> items::SynergyTable {
+    items::SynergyTable(
+        registry
+            .iter()
+            .flat_map(|r| r.synergies.values())
+            .map(|synergy| (synergy.id.clone(), synergy.def.clone()))
+            .collect(),
+    )
+}
+
 /// Types de salles (M2-E1) depuis le registre de contenu : `rooms/<id>.ron` → définition.
 pub fn room_kind_table(registry: Option<&Registry>) -> world::RoomKindTable {
     world::RoomKindTable(
         registry
             .iter()
             .flat_map(|r| r.rooms.values())
-            .map(|room| (room.id.clone(), room.def))
+            .map(|room| (room.id.clone(), room.def.clone()))
             .collect(),
     )
 }
@@ -72,6 +95,7 @@ pub fn resolve_map_config(
     base: &MapGenerationConfig,
     map: &str,
     registry: Option<&Registry>,
+    slot: usize,
 ) -> (MapGenerationConfig, Option<CaveConfig>) {
     let cave = cave_designation(map).map(|id| {
         let entry = registry
@@ -79,19 +103,33 @@ pub fn resolve_map_config(
             .unwrap_or_else(|| panic!("caverne « {id} » inconnue (voir `alacod lint`)"));
         (id, entry)
     });
+    // M2-T10 : `floor:<id>` assemble un étage depuis les gabarits de la grammaire
+    let floor = floor_designation(map).map(|id| {
+        registry
+            .and_then(|r| r.floor_grammars.get(&id))
+            .unwrap_or_else(|| panic!("grammaire d'étage « {id} » inconnue (voir `alacod lint`)"))
+    });
     let config = MapGenerationConfig {
-        map_path: cave.as_ref().map_or_else(
-            || map.to_string(),
-            |(id, c)| game::cave_assets::cave_asset_path(&c.template, id.as_str()),
-        ),
-        seed: base.seed,
+        map_path: match (&cave, floor) {
+            (Some((id, c)), _) => game::cave_assets::cave_asset_path(&c.template, id.as_str()),
+            (None, Some(f)) => game::cave_assets::floor_asset_path(&f.templates, slot),
+            (None, None) => map.to_string(),
+        },
+        // M2-T10 : graine dérivée par emplacement d'étage (l'emplacement 0 garde la graine de la run)
+        seed: if floor.is_some() {
+            base.seed
+                .wrapping_add((slot as i32).wrapping_mul(0x3C6E_F372))
+        } else {
+            base.seed
+        },
         max_width: base.max_width,
         max_heigth: base.max_heigth,
         max_room: base.max_room,
-        mode: cave.as_ref().map_or_else(
-            || base.mode.clone(),
-            |(_, c)| MapGenerationMode::Cave(c.config.clone()),
-        ),
+        mode: match (&cave, floor) {
+            (Some((_, c)), _) => MapGenerationMode::Cave(c.config.clone()),
+            (None, Some(f)) => MapGenerationMode::Floor(f.grammar.clone()),
+            (None, None) => base.mode.clone(),
+        },
     };
     (config, cave.map(|(_, c)| c.config.clone()))
 }
@@ -128,10 +166,20 @@ pub fn get_asset_loader_generation() -> LdtkProjectLoader {
                 return crate::generation::cave::build_cave_ldtk(&map_json, &id, config.seed, cave);
             }
 
+            // Opt-in building composition; Basic and the M2 room contracts stay unchanged.
+            if crate::generation::building::is_building_template(&map_json) {
+                return crate::generation::building::build_building_ldtk(&map_json, config.seed)
+                    .expect("invalid building modules");
+            }
+
             let context = from_map(&map_json, config);
             let mut generator = GeneratedMap::create(map_json);
 
+            let is_floor = matches!(context.config.mode, MapGenerationMode::Floor(_));
             map_generation(context, &mut generator).unwrap();
+            if is_floor {
+                generator.close_unused_openings();
+            }
 
             generator.get_generated_map()
         })),
@@ -220,13 +268,17 @@ pub fn setup_generated_map(
 ) {
     // T1.7 : table des surfaces du jeu (valeur IntGrid → définition), hors rollback
     commands.insert_resource(surface_table(registry.as_deref()));
+    // M2-T11 : objets de décor du jeu (kind `Prop`), hors rollback
+    commands.insert_resource(prop_table(registry.as_deref()));
     // M2-E1 : types de salles du jeu (kind `Room`), hors rollback
     commands.insert_resource(room_kind_table(registry.as_deref()));
     // M2-T0b : objets du jeu (kind `Item`), hors rollback
     commands.insert_resource(item_table(registry.as_deref()));
+    // M2-T4 : synergies d'objets (kind `Synergy`), hors rollback
+    commands.insert_resource(synergy_table(registry.as_deref()));
     let mut caves = CaveSlots::default();
     let Some(plan) = plan else {
-        let (load, cave) = resolve_map_config(&config, &config.map_path, registry.as_deref());
+        let (load, cave) = resolve_map_config(&config, &config.map_path, registry.as_deref(), 0);
         if let Some(cave) = cave {
             caves.0.insert(0, (config.seed, cave));
         }
@@ -237,7 +289,7 @@ pub fn setup_generated_map(
     };
     for slot in plan.distinct_slots() {
         let (floor_config, cave) =
-            resolve_map_config(&config, &plan.levels[slot], registry.as_deref());
+            resolve_map_config(&config, &plan.levels[slot], registry.as_deref(), slot);
         if let Some(cave) = cave {
             caves.0.insert(slot, (config.seed, cave));
         }

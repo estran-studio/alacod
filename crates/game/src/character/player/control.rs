@@ -70,7 +70,7 @@ pub fn get_input_map() -> InputMap<PlayerAction> {
         (PlayerAction::SwitchWeaponMode, KeyCode::KeyZ),
         (PlayerAction::Reload, KeyCode::KeyR),
         (PlayerAction::MeleeAttack, KeyCode::KeyF),
-        (PlayerAction::DropWeapon, KeyCode::KeyG),
+        (PlayerAction::DropWeapon, KeyCode::KeyL),
         (PlayerAction::UseActive, KeyCode::Space),
         (PlayerAction::Blank, KeyCode::KeyQ),
         (PlayerAction::ChoiceA, KeyCode::Digit1),

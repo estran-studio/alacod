@@ -43,12 +43,15 @@ fn main() {
         seed,
         ..Default::default()
     };
-    let context = from_map(&data, config);
-    let mut generator = GeneratedMap::create(data);
-
-    map_generation(context, &mut generator).expect("Failed to generate map");
-
-    let data = generator.get_generated_map();
+    let data = if map_ldtk::generation::building::is_building_template(&data) {
+        map_ldtk::generation::building::build_building_ldtk(&data, seed)
+            .expect("Invalid building modules")
+    } else {
+        let context = from_map(&data, config);
+        let mut generator = GeneratedMap::create(data);
+        map_generation(context, &mut generator).expect("Failed to generate map");
+        generator.get_generated_map()
+    };
 
     // Convert JSON data to a pretty formatted string
     let pretty_json_string = to_string_pretty(&data).expect("Failed to serialize JSON");

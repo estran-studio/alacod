@@ -2,8 +2,9 @@
 //! distance et de corps à corps) du registre de `<games/jeu>` dans
 //! `tests/scenarios/generated/<jeu>/weapon_<id>.ron` (gabarit `Template::WeaponOnTarget`,
 //! voir `crates/scenario/src/generate.rs`), un par gabarit actif de chaque personnage qui
-//! déclare `test:` (`enemy_<id>_still.ron`, `enemy_<id>_moving.ron`), et supprime ceux dont le
-//! sujet n'existe plus.
+//! déclare `test:` (`enemy_<id>_still.ron`, `enemy_<id>_moving.ron`), un par objet
+//! (`item_<id>.ron`), type de salle (`room_<id>.ron`) et boss (`boss_<id>.ron`) qui déclarent
+//! `test:` (M2-T17, `docs/conventions.md` §54), et supprime ceux dont le sujet n'existe plus.
 //!
 //! - `--play` : joue chaque scénario généré et affiche un tableau (arme, frames, coups sur la cible, attentes,
 //!   trace) ; code de sortie 1 si une attente échoue, si un scénario n'atteint pas sa
@@ -65,9 +66,12 @@ fn main() {
     let count = |kind: GeneratedKind| generated.iter().filter(|g| g.kind == kind).count();
     let ranged = count(GeneratedKind::Weapon(WeaponKind::Ranged));
     let melee = count(GeneratedKind::Weapon(WeaponKind::Melee));
-    let characters = generated.len() - ranged - melee;
+    let items = count(GeneratedKind::Item);
+    let rooms = count(GeneratedKind::Room);
+    let bosses = count(GeneratedKind::Boss);
+    let characters = generated.len() - ranged - melee - items - rooms - bosses;
     println!(
-        "alacod-gen : {} : {ranged} arme(s) à distance, {melee} de corps à corps, {characters} gabarit(s) de personnage -> {}",
+        "alacod-gen : {} : {ranged} arme(s) à distance, {melee} de corps à corps, {characters} gabarit(s) de personnage, {items} objet(s), {rooms} salle(s), {bosses} boss -> {}",
         game_dir.display(),
         out_dir.display(),
     );

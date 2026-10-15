@@ -93,6 +93,10 @@ impl FloorPlan {
     /// (une carte répétée réutilise le même monde, ses entités sont recréées à chaque passage).
     pub fn slot_of_level(&self, level: usize) -> usize {
         let path = &self.levels[level];
+        // M2-T10 : chaque étage de grammaire est son propre monde (graine dérivée par emplacement)
+        if content::registry::floor_designation(path).is_some() {
+            return level;
+        }
         self.levels.iter().position(|p| p == path).unwrap_or(level)
     }
 
@@ -195,6 +199,12 @@ pub fn compute_floor_plan(
                 levels.len()
             );
             let victory_at_end = floors_victory_at_end(&mode_for_victory, registry.as_deref());
+            commands.insert_resource(game::items::FloorStartConsumables(
+                game::run_state::floors_consumables_per_floor(
+                    &mode_for_victory,
+                    registry.as_deref(),
+                ),
+            ));
             commands.insert_resource(FloorPlan {
                 config,
                 levels,
@@ -206,6 +216,10 @@ pub fn compute_floor_plan(
             commands.remove_resource::<FloorPlan>();
         }
         _ => commands.remove_resource::<FloorPlan>(),
+    }
+    // Hors du mode `Floors` : rien à remonter au changement d'étage.
+    if !matches!(&mode_for_victory, run::RunMode::Floors { .. }) {
+        commands.insert_resource(game::items::FloorStartConsumables::default());
     }
 }
 
@@ -428,8 +442,10 @@ pub fn floor_transition_system(
     >,
     plan: Res<FloorPlan>,
     mut floor_state: ResMut<FloorState>,
+    mut room_states: Option<ResMut<world::RoomStates>>,
     mut id_factory: ResMut<GgrsNetIdFactory>,
     mut flow_field_cache: ResMut<FlowFieldCache>,
+    props: Res<world::PropTable>,
     assets: LevelSpawnAssets,
     data: FloorLevelData,
     mut entities: FloorTransitionEntities,
@@ -491,6 +507,7 @@ pub fn floor_transition_system(
             .filter(|item| item.slot == slot),
         &mut id_factory,
         &assets.collision_settings,
+        &props,
         false,
     );
 
@@ -592,7 +609,11 @@ pub fn floor_transition_system(
         .collect();
     spawn_level_soda_locations(&mut commands, &mut id_factory, sodas);
 
-    // 7. État du mode.
+    // 7. État du mode. Les portes du nouvel étage naissent fermées : les portes de salle
+    // s'ouvrent de nouveau au prochain tick (`rooms::room_lock_system`).
+    if let Some(states) = room_states.as_mut() {
+        states.doors_opened = false;
+    }
     floor_state.index = next;
     floor_state.portal_open = false;
     floor_state.anchor = portal_anchor(data.caves.as_deref(), slot, &anchor_points);

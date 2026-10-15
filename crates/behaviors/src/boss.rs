@@ -93,7 +93,27 @@ pub struct BossPhaseChanged {
     pub to: u32,
 }
 
+/// Un boss vient de mourir (M2-T7, `docs/conventions.md` §45) : `FrameEvents` **transitoire**
+/// (`add_frame_events_transient` : hors checksum et hors snapshot, émis dans
+/// `DeathManagement` et lu dans la même frame), pour le butin (M2-T5) et les effets à venir.
+/// Position du boss à sa mort (`x`, `y`, coordonnées monde).
+#[derive(Clone, Debug, PartialEq, Eq, Hash)]
+pub struct BossDefeated {
+    pub frame: u32,
+    pub net_id: usize,
+    pub x: Fixed,
+    pub y: Fixed,
+}
+
 impl BossDef {
+    /// La définition joue-t-elle une règle `Shoot` dans une phase (M2-T7 : tir par phase) ?
+    pub fn phase_shoots(&self) -> impl Iterator<Item = &crate::Behavior> {
+        self.phases
+            .iter()
+            .flat_map(|phase| phase.behaviors.iter())
+            .filter(|rule| matches!(rule, crate::Behavior::Shoot { .. }))
+    }
+
     /// Phase vers laquelle passer cette frame, au plus une (ordre du RON). `health_ratio` :
     /// santé courante / santé max.
     pub fn next_phase(&self, state: &BossState, health_ratio: Fixed, frame: u32) -> Option<u32> {

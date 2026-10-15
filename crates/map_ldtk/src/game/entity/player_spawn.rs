@@ -19,8 +19,6 @@ pub struct PlayerSpawnBundle {
     #[with(player_spawn_component_from_field)]
     player_spawn: PlayerSpawnConfig,
     rollback_marker: MapRollbackMarker,
-    #[sprite_sheet]
-    sprite_sheet: Sprite,
 }
 
 impl Default for PlayerSpawnBundle {
@@ -28,7 +26,6 @@ impl Default for PlayerSpawnBundle {
         Self {
             rollback_marker: MapRollbackMarker("p_spawn".into()),
             player_spawn: PlayerSpawnConfig::default(),
-            sprite_sheet: Sprite::default(),
         }
     }
 }

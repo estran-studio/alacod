@@ -1,0 +1,1 @@
+(name: "Canon", kind: Active(Frames(5)), cost: Some(("lame", 1)))

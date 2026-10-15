@@ -1,0 +1,12 @@
+// M2-T4 : actif d'essai (`item_active_cost`) : +1 de dégâts permanent à l'usage, au prix de deux
+// `obus` (`cost`).
+(
+    name: "Canon",
+    kind: Active(Frames(5)),
+    effects: [
+        (on: OnUse, do: [Modifier(stat: Damage, op: Add, value: "1")]),
+    ],
+    cost: Some(("obus", 2)),
+    // M2-T17 (docs/conventions.md §54) : scénario généré `item_canon`.
+    test: Some((frames: 60)),
+)

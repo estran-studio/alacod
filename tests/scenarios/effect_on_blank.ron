@@ -1,0 +1,31 @@
+// M2-T3 (effets v2, docs/conventions.md §42) : `OnBlank`. Un `blank` (consommable, ramassé au contact
+// à f1) et le `sceau` (passif : +1 de dégâts à chaque Blank utilisée) sont posés à f1/f2 ; le sceau est
+// ramassé à f10 (Interaction). Blank est appuyé à f30 (effectif à f35-f36, délai d'input de 5 frames).
+//
+// À regarder : f10 le joueur ramasse le sceau (dégâts 1) ; f36 il utilise le blank (onde, moment clé
+// `blank`), le compteur passe à 0 et les dégâts à 2.
+Scenario(
+    powerup_drop_chance_override: "0.0",
+    game: "testbed",
+    map: "testbed/arena.ldtk",
+    frames: 70,
+    items: [
+        (id: "blank", x: "424.0", y: "696.0", at_frame: 1),
+        (id: "sceau", x: "424.0", y: "696.0", at_frame: 2),
+    ],
+    players: [
+        (inputs: [
+            (from: 10, to: 13, buttons: [Interaction]),
+            (from: 30, to: 31, buttons: [Blank]),
+        ]),
+    ],
+    expect: [
+        Consumable(handle: 0, id: "blank", count: 1, at_frame: 20),
+        Stat(handle: 0, stat: Damage, value: 1.0, at_frame: 20),
+        Stat(handle: 0, stat: Damage, value: 1.0, at_frame: 34),
+        Consumable(handle: 0, id: "blank", count: 0, at_frame: 40),
+        Stat(handle: 0, stat: Damage, value: 2.0, at_frame: 40),
+        Stat(handle: 0, stat: Damage, value: 2.0, at_frame: 69),
+        PlayerAlive(handle: 0, at_frame: 70),
+    ],
+)

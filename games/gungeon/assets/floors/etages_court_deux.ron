@@ -1,0 +1,7 @@
+// `gungeon` (M2-T10) : deux étages minimaux ; le portail s'ouvre à la mort du boss du premier.
+(
+    levels: ["floor:court", "floor:court"],
+    victory_at_end: true,
+    // M2-T1 : les blanks remontent à deux au début de chaque étage.
+    consumables_per_floor: {"blank": 2},
+)

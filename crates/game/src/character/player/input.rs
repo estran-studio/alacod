@@ -8,6 +8,7 @@ use bevy_ggrs::{LocalInputs, LocalPlayers};
 use combat::downed::Downed;
 use leafwing_input_manager::prelude::*;
 use serde::{Deserialize, Serialize};
+use sim_core::frame_events::FrameEvents;
 use sim_core::stats::StatId;
 use stats::StatReader;
 use utils::{frame::FrameCount, net_id::GgrsNetId, order_mut_iter};
@@ -16,6 +17,7 @@ use crate::character::config::{CharacterConfig, CharacterConfigHandles};
 use crate::character::dash::DashState;
 use crate::character::health::Health;
 use crate::character::movement::{grip, run_velocity, SprintState, Velocity};
+use crate::character::movement::{DashEffect, IframesKind};
 use crate::character::player::{control::PlayerAction, Player};
 use crate::collider::{is_colliding, Collider, CollisionLayer, CollisionSettings};
 
@@ -163,6 +165,18 @@ impl InputSource {
     }
 }
 
+/// `ALACOD_PRESS_BLANK_AT=<frame>` (diagnostic, avec `ALACOD_INPUT=neutral`) : tous les joueurs
+/// locaux appuient sur Blank à cette frame (preuve p2p du blank, `docs/conventions.md` §41).
+fn press_blank_at() -> Option<u32> {
+    static AT: std::sync::OnceLock<Option<u32>> = std::sync::OnceLock::new();
+    *AT.get_or_init(|| {
+        std::env::var("ALACOD_PRESS_BLANK_AT").ok().map(|v| {
+            v.parse()
+                .expect("ALACOD_PRESS_BLANK_AT doit être un entier")
+        })
+    })
+}
+
 pub fn read_local_inputs(
     mut commands: Commands,
     input_source: Res<InputSource>,
@@ -249,7 +263,7 @@ pub fn read_local_inputs(
             input.buttons |= INPUT_MELEE_ATTACK;
         }
 
-        if action_state.pressed(&PlayerAction::DropWeapon) {
+        if action_state.just_pressed(&PlayerAction::DropWeapon) {
             input.buttons |= INPUT_DROP_WEAPON;
         }
 
@@ -310,9 +324,13 @@ pub fn read_local_inputs(
     // GGRS exige un input par joueur local à chaque frame : un joueur mort
     // (entité despawn) ou pas encore créé envoie un input neutre.
     for handle in &local_players.0 {
-        local_inputs
+        let input = local_inputs
             .entry(*handle)
             .or_insert_with(BoxInput::default);
+        // M2-T1 : preuve p2p d'un blank sans clavier (`ALACOD_INPUT=neutral`).
+        if *input_source == InputSource::Neutral && press_blank_at() == Some(frame.frame) {
+            input.buttons |= INPUT_BLANK;
+        }
     }
 
     commands.insert_resource(LocalInputs::<PeerConfig>(local_inputs));
@@ -364,6 +382,7 @@ pub fn apply_inputs(
     inputs: Res<PlayerInputs<PeerConfig>>,
     character_configs: Res<Assets<CharacterConfig>>,
     stats: StatReader,
+    mut dash_started: Option<ResMut<FrameEvents<sim_core::triggers::DashStarted>>>,
     mut query: Query<
         (
             &GgrsNetId,
@@ -381,6 +400,8 @@ pub fn apply_inputs(
             // lecture des inputs : un rejeu `Scripted` doit rester identique).
             Option<&combat::status::Statuses>,
             Option<&mut Health>,
+            Option<&mut combat::actors::DashExtra>,
+            Option<&crate::character::dash::DashOverride>,
         ),
         With<Rollback>,
     >,
@@ -400,6 +421,8 @@ pub fn apply_inputs(
         is_downed,
         statuses,
         health,
+        mut dash_extra,
+        dash_override,
     ) in order_mut_iter!(query)
     {
         let Some(config) = character_configs.get(&config_handles.config) else {
@@ -441,28 +464,77 @@ pub fn apply_inputs(
         // cette frame et sort à la vitesse de course. À terre ou étourdi (T1.3) : pas de dash,
         // même d'un appui gardé d'avant le statut.
         dash_state.begin_frame();
+        let dash = movement.resolve_dash(dash_override.map(|o| &o.0).or(config.dash.as_ref()));
+        if let Some(extra) = dash_extra.as_deref_mut() {
+            extra.tick_recharge(dash.recharge_frames);
+        }
         let requested =
             dash_state.read_button(input.buttons & INPUT_DASH != 0, movement.dash_buffer_frames);
-        if requested && !is_downed && !incapacitated && dash_state.can_dash() {
+        // Charges (M2-T2) : sans `DashExtra`/charges, le cooldown seul règle le rythme (v1)
+        let has_charge = match (dash.charges, dash_extra.as_deref()) {
+            (Some(_), Some(extra)) => extra.charges > 0,
+            _ => true,
+        };
+        if requested && !is_downed && !incapacitated && dash_state.can_dash() && has_charge {
             dash_state.start_dash(
                 dash_direction(&input, *facing_direction),
-                movement.dash_distance,
-                movement.dash_duration_frames,
+                dash.distance,
+                dash.duration_frames,
                 move_speed * dt,
-                movement.dash_cooldown_frames,
+                dash.cooldown_frames,
             );
-            // Invulnérable les `dash_iframes` premières frames, celle-ci comprise
-            // (`rollback_resolve_damage_events` compare la frame du coup à cette borne)
-            if let (Some(mut health), true) = (health, movement.dash_iframes > 0) {
-                let until = frame.frame + movement.dash_iframes - 1;
-                health.invulnerable_until_frame = Some(
-                    health
-                        .invulnerable_until_frame
-                        .map_or(until, |current| current.max(until)),
-                );
+            if let Some(events) = dash_started.as_mut() {
+                events.send(sim_core::triggers::DashStarted {
+                    frame: frame.frame,
+                    player_handle: player.handle,
+                });
+            }
+            if let Some(extra) = dash_extra.as_deref_mut() {
+                if dash.charges.is_some() {
+                    extra.spend_charge(dash.recharge_frames);
+                }
+                extra.shove_force = if dash.effect == DashEffect::Shove {
+                    dash.shove_force
+                } else {
+                    fixed_math::FIXED_ZERO
+                };
+            }
+            // Invulnérable les `iframes` premières frames, celle-ci comprise
+            // (`rollback_resolve_damage_events` compare la frame du coup à cette borne) ;
+            // `Projectiles` : état à part, lu seulement par la collision des balles.
+            if dash.iframes > 0 {
+                let until = frame.frame + dash.iframes - 1;
+                match (dash.iframes_kind, dash_extra.as_deref_mut(), health) {
+                    (IframesKind::Projectiles, Some(extra), _) => {
+                        extra.projectile_iframes_until = Some(
+                            extra
+                                .projectile_iframes_until
+                                .map_or(until, |current| current.max(until)),
+                        );
+                    }
+                    (IframesKind::Projectiles, None, _) => {
+                        // Garde-fou (M2-T2) : `create_character` et le runner posent `DashExtra`
+                        // dès qu'un dash est déclaré ; sans lui, le dash perdrait ses i-frames
+                        // « projectiles » ou deviendrait invulnérable à tout. On refuse l'un et l'autre.
+                        debug_assert!(false, "dash Projectiles sans DashExtra");
+                    }
+                    (_, _, Some(mut health)) => {
+                        health.invulnerable_until_frame = Some(
+                            health
+                                .invulnerable_until_frame
+                                .map_or(until, |current| current.max(until)),
+                        );
+                    }
+                    _ => {}
+                }
             }
         } else {
             dash_state.age_buffer();
+        }
+        if !dash_state.is_dashing {
+            if let Some(extra) = dash_extra.as_deref_mut() {
+                extra.shove_force = fixed_math::FIXED_ZERO;
+            }
         }
         // Pendant le dash, son pas est une vitesse appliquée par move_characters, qui gère
         // les collisions (un dash s'arrête aux murs au lieu de les traverser)
@@ -729,6 +801,58 @@ mod movement_tests {
     use crate::collider::{ColliderShape, Wall};
     use bevy::ecs::system::RunSystemOnce;
     use fixed_math::{Fixed, FixedTransform3D, FixedVec2, FixedVec3};
+
+    #[test]
+    fn held_drop_sends_one_request_and_rearms_after_release() {
+        let mut world = World::new();
+        world.insert_resource(InputSource::Devices);
+        world.insert_resource(LocalPlayers(vec![0]));
+        world.insert_resource(FrameCount::default());
+        let mut actions = ActionState::<PlayerAction>::default();
+        actions.press(&PlayerAction::DropWeapon);
+        actions.press(&PlayerAction::Interaction);
+        let player = world
+            .spawn((
+                actions,
+                Transform::default(),
+                Player::default(),
+                LocalPlayer {},
+            ))
+            .id();
+        world.run_system_once(read_local_inputs).unwrap();
+        assert_ne!(
+            world.resource::<LocalInputs<PeerConfig>>().0[&0].buttons & INPUT_DROP_WEAPON,
+            0
+        );
+        let instant = bevy::time::Time::<bevy::time::Real>::default().startup();
+        for _ in 0..120 {
+            let mut entity = world.entity_mut(player);
+            let mut actions = entity.get_mut::<ActionState<PlayerAction>>().unwrap();
+            actions.tick(instant, instant);
+            actions.press(&PlayerAction::DropWeapon);
+            drop(actions);
+            world.run_system_once(read_local_inputs).unwrap();
+            let buttons = world.resource::<LocalInputs<PeerConfig>>().0[&0].buttons;
+            assert_eq!(buttons & INPUT_DROP_WEAPON, 0, "held drop must not repeat");
+            assert_ne!(
+                buttons & INPUT_INTERACTION,
+                0,
+                "holding interaction remains supported"
+            );
+        }
+        {
+            let mut entity = world.entity_mut(player);
+            let mut actions = entity.get_mut::<ActionState<PlayerAction>>().unwrap();
+            actions.release(&PlayerAction::DropWeapon);
+            actions.tick(instant, instant);
+            actions.press(&PlayerAction::DropWeapon);
+        }
+        world.run_system_once(read_local_inputs).unwrap();
+        assert_ne!(
+            world.resource::<LocalInputs<PeerConfig>>().0[&0].buttons & INPUT_DROP_WEAPON,
+            0
+        );
+    }
 
     #[test]
     fn sliding_on_both_axes_never_enters_a_wall_corner() {

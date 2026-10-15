@@ -176,6 +176,7 @@ mod tests {
             entity_locations: EntityLocations {
                 doors: vec![],
                 sodas: vec![],
+                props: vec![],
                 player_spawns: vec![],
                 zombie_spawns: vec![],
                 crates: vec![],
@@ -183,6 +184,7 @@ mod tests {
                 windows: vec![],
                 character_spawns: vec![],
             },
+            room_kind: None,
         };
         Room {
             level_iid: "iid".into(),

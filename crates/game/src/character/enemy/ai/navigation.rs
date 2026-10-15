@@ -17,6 +17,7 @@ use bevy_ggrs::Rollback;
 use combat::downed::Downed;
 use serde::{Deserialize, Serialize};
 use std::collections::{BTreeMap, BTreeSet, VecDeque};
+use std::sync::{Arc, OnceLock};
 use utils::{frame::FrameCount, net_id::GgrsNetId};
 
 use crate::character::player::Player;
@@ -208,6 +209,76 @@ pub struct FlowField {
     pub owners: BTreeMap<GridPos, usize>,
 }
 
+/// Champ de flux **partagé et immuable** d'une couche de [`FlowFieldCache::layers`]
+/// (perf-suite-scenarios).
+///
+/// Le cache est cloné à chaque snapshot rollback et haché à chaque checksum GGRS, 2 à 3 fois
+/// par frame en synctest ; ses trois `BTreeMap` (~23 000 entrées pour une carte de zombies)
+/// coûtaient à eux seuls ~20 % d'une frame. Un champ n'est jamais modifié après sa
+/// construction (`update_flow_field_system` remplace `layers` d'un bloc) : il est donc derrière
+/// un `Arc` (clone en O(1), et un snapshot restauré retrouve le même champ), avec l'**image
+/// des octets** que son `Hash` écrit, calculée une seule fois. `Hash` réécrit cette image :
+/// le flux d'octets, donc le checksum et les traces, est exactement celui de
+/// `#[derive(Hash)]` sur [`FlowField`] (test `shared_flow_field_hash_equals_derived`).
+#[derive(Clone)]
+pub struct SharedFlowField(Arc<SharedFlowFieldInner>);
+
+struct SharedFlowFieldInner {
+    field: FlowField,
+    /// Octets écrits par `FlowField::hash`, remplis au premier `hash`.
+    hash_image: OnceLock<Vec<u8>>,
+}
+
+impl From<FlowField> for SharedFlowField {
+    fn from(field: FlowField) -> Self {
+        Self(Arc::new(SharedFlowFieldInner {
+            field,
+            hash_image: OnceLock::new(),
+        }))
+    }
+}
+
+impl std::ops::Deref for SharedFlowField {
+    type Target = FlowField;
+    fn deref(&self) -> &FlowField {
+        &self.0.field
+    }
+}
+
+impl std::fmt::Debug for SharedFlowField {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        self.0.field.fmt(f)
+    }
+}
+
+impl Default for SharedFlowField {
+    fn default() -> Self {
+        FlowField::default().into()
+    }
+}
+
+impl std::hash::Hash for SharedFlowField {
+    fn hash<H: std::hash::Hasher>(&self, state: &mut H) {
+        /// Hasher qui ne garde que les octets écrits.
+        struct Bytes(Vec<u8>);
+        impl std::hash::Hasher for Bytes {
+            fn finish(&self) -> u64 {
+                0
+            }
+            fn write(&mut self, bytes: &[u8]) {
+                self.0.extend_from_slice(bytes);
+            }
+        }
+        let image = self.0.hash_image.get_or_init(|| {
+            use std::hash::Hash;
+            let mut bytes = Bytes(Vec::new());
+            self.0.field.hash(&mut bytes);
+            bytes.0
+        });
+        state.write(image);
+    }
+}
+
 impl FlowField {
     /// Get the direction to move from a given position
     pub fn get_direction(&self, pos: GridPos) -> Option<GridPos> {
@@ -384,7 +455,7 @@ pub struct FlowFieldCache {
     pub update_interval: u32,
     /// Champs de flux par clé (profil, gabarit) **canonique** (voir
     /// [`FlowFieldCache::canonical`]) ; [`MOVEMENT_FLOW_KEY`] est toujours présent.
-    pub layers: BTreeMap<NavKey, FlowField>,
+    pub layers: BTreeMap<NavKey, SharedFlowField>,
     /// Blocked cells per obstacle type (for building flow fields)
     pub blocked_cells: BTreeMap<ObstacleType, BTreeSet<GridPos>>,
     /// All permanently blocked cells (walls) - computed from IntGrid + dynamic walls
@@ -434,7 +505,7 @@ impl FlowFieldCache {
 
     /// Champ de flux à suivre pour un agent de clé `key`.
     pub fn get_flow_field(&self, key: NavKey) -> Option<&FlowField> {
-        self.layers.get(&self.canonical(key))
+        self.layers.get(&self.canonical(key)).map(|field| &**field)
     }
 
     /// Case bloquée pour un agent de clé `key` : obstacle du profil, et pour un gabarit grand,
@@ -476,9 +547,12 @@ impl FlowFieldCache {
     /// Intact obstacle that blocks movement but that `profile` can break (e.g. a window
     /// for [`NavProfile::GroundBreaker`]).
     pub fn is_breakable_obstacle(&self, pos: &GridPos, profile: NavProfile) -> bool {
-        self.blocked_cells
-            .iter()
-            .any(|(obstacle_type, cells)| cells.contains(pos) && profile.can_pass(*obstacle_type))
+        self.blocked_cells.iter().any(|(obstacle_type, cells)| {
+            // Un volant survole une fosse (M2-T11) : rien à casser, pas de pénalité.
+            *obstacle_type != ObstacleType::Pit
+                && cells.contains(pos)
+                && profile.can_pass(*obstacle_type)
+        })
     }
 
     /// Net id of the target (player) the flow field leads to from `pos`: the closest one
@@ -705,6 +779,9 @@ pub fn update_flow_field_system(
     // Portes fermées : une porte ouverte n'a plus de collider
     door_query: Query<(&GgrsNetId, &fixed_math::FixedTransform3D, &Collider), With<DoorComponent>>,
     obstacle_query: Query<(&fixed_math::FixedTransform3D, &Collider, &Obstacle), With<Rollback>>,
+    // M2-T11 : cases de fosse (surfaces), bloquées pour `Ground`/`GroundBreaker`
+    surface_grid: Res<world::SurfaceGrid>,
+    surface_table: Option<Res<world::SurfaceTable>>,
     // D41 + D38 : clés des ennemis qui se déplacent (un ennemi immobile ne suit aucun champ)
     agents: Query<(&super::state::EnemyAiConfig, &Collider), With<crate::character::enemy::Enemy>>,
     mut cache: ResMut<FlowFieldCache>,
@@ -749,6 +826,19 @@ pub fn update_flow_field_system(
     let previous_walls = cache.wall_cells.clone();
     let previous_blocked = cache.blocked_cells.clone();
     rebuild_blocked_cells(&mut cache, &door_query, &obstacle_query);
+    if let Some(table) = surface_table.as_deref().filter(|t| t.has_pits()) {
+        let pits: BTreeSet<GridPos> = surface_grid
+            .pit_cells(table)
+            .map(|(x, y)| GridPos::new(x, y))
+            .collect();
+        if !pits.is_empty() {
+            cache
+                .blocked_cells
+                .entry(ObstacleType::Pit)
+                .or_default()
+                .extend(pits);
+        }
+    }
     let obstacles_changed =
         cache.wall_cells != previous_walls || cache.blocked_cells != previous_blocked;
 
@@ -778,9 +868,14 @@ pub fn update_flow_field_system(
     cache.targets = targets.clone();
     cache.target_ids = target_ids;
 
-    let layers: BTreeMap<NavKey, FlowField> = keys
+    let layers: BTreeMap<NavKey, SharedFlowField> = keys
         .iter()
-        .map(|key| (*key, build_flow_field(&targets, *key, &cache, &config)))
+        .map(|key| {
+            (
+                *key,
+                build_flow_field(&targets, *key, &cache, &config).into(),
+            )
+        })
         .collect();
 
     // Log flow field stats only on significant rebuilds
@@ -1110,6 +1205,35 @@ fn build_flow_field(
 #[cfg(test)]
 mod tests {
     use super::*;
+
+    #[test]
+    fn shared_flow_field_hash_equals_derived() {
+        use std::hash::{Hash, Hasher};
+        for size in [0, 1, 5, 40] {
+            let mut field = FlowField::default();
+            for i in 0..size {
+                let cell = GridPos::new(i, -i);
+                field.directions.insert(cell, GridPos::new(i + 1, -i));
+                field.costs.insert(cell, i as u32 * 10);
+                field.owners.insert(cell, (i % 3) as usize);
+            }
+            let mut layers = BTreeMap::new();
+            layers.insert(MOVEMENT_FLOW_KEY, field.clone());
+            let shared: BTreeMap<NavKey, SharedFlowField> = layers
+                .iter()
+                .map(|(key, field)| (*key, field.clone().into()))
+                .collect();
+            let mut expected = bevy_ggrs::checksum_hasher();
+            layers.hash(&mut expected);
+            let mut actual = bevy_ggrs::checksum_hasher();
+            shared.hash(&mut actual);
+            assert_eq!(actual.finish(), expected.finish(), "taille {size}");
+            // deuxième passage : l'image en cache donne la même valeur
+            let mut again = bevy_ggrs::checksum_hasher();
+            shared.hash(&mut again);
+            assert_eq!(again.finish(), expected.finish(), "taille {size}, en cache");
+        }
+    }
 
     #[test]
     fn test_grid_pos_conversion() {

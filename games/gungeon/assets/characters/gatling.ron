@@ -1,8 +1,9 @@
-// `gungeon` (M2-T0d, docs/conventions.md §37) : boss « vide » à deux phases (contrats de M2-T0c),
-// immobile : phase 0, une visée (`visee`) toutes les 150 frames ; sous 50 % de santé, phase 1 :
-// une couronne (`couronne`) toutes les 90 frames. Les tirs passent par la frise
-// (`SpawnPattern` avec la table de projectiles de l'`arsenal`). Le contenu réel (attaques,
-// phases supplémentaires, arène à tenir) viendra avec M2-T7.
+// `gungeon` (M2-T0d, docs/conventions.md §37 et §45) : boss immobile à trois phases. Phase 0 : un
+// éventail (`eventail`, `Fan`) toutes les 150 frames ; sous 50 % de santé, phase 1 : une spirale
+// (`spirale`, `Spiral`) toutes les 90 frames ; sous 10 % (une dernière touche), phase 2, la rage : un
+// `bullet_kin` en renfort (`SpawnEnemies`) et une couronne (`couronne`, `Ring`) précédée d'un télégraphe
+// de 10 frames (`Telegraph`). Les tirs passent par la frise (`SpawnPattern` avec la table de
+// projectiles de l'`arsenal`).
 (
     movement: (
         acceleration: "0.0",
@@ -29,7 +30,7 @@
     scale: "1.0",
 
     base_health: (
-        max: "150.0",
+        max: "120.0",
     ),
 
     starting_skin: "1",
@@ -43,19 +44,35 @@
         stationary: Some(true),
     )),
 
+    // M2-T17 (docs/conventions.md §54) : scénario généré `boss_gatling` (un bot `fonceur` joue
+    // l'étage du manifeste, comme `gungeon_boss_bot`, et bat le boss : phases 1 et 2, salle rouverte).
+    test: Some((frames: 600, still: false, moving: false, boss: Some(()))),
+
     boss: Some((
         phases: [
+            // Phase 0 : l'éventail (M2-T1), toutes les 150 frames.
             (
                 until: Some(HealthBelow("0.5")),
                 timeline: Some((
-                    events: [(at: 10, do: [SpawnPattern(pattern: "visee", weapon: "arsenal")])],
+                    events: [(at: 10, do: [SpawnPattern(pattern: "eventail", weapon: "arsenal")])],
                     repeat: Some(150),
                 )),
             ),
+            // Phase 1 : la spirale (M2-T1), toutes les 90 frames.
             (
+                until: Some(HealthBelow("0.1")),
                 timeline: Some((
                     events: [(at: 0, do: [SpawnPattern(pattern: "couronne", weapon: "arsenal")])],
-                    repeat: Some(90),
+                    repeat: Some(120),
+                )),
+            ),
+            // Phase 2, la rage (M2-T7) : un `bullet_kin` en renfort à l'entrée (`SpawnEnemies`),
+            // puis une spirale précédée d'un télégraphe de 10 frames (`Telegraph`).
+            (
+                on_enter: [SpawnEnemies(id: "bullet_kin", count: 1)],
+                timeline: Some((
+                    events: [(at: 30, do: [Telegraph(10), SpawnPattern(pattern: "eventail", weapon: "arsenal")])],
+                    repeat: Some(150),
                 )),
             ),
         ],

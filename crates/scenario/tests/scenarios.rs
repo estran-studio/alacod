@@ -9,7 +9,10 @@
 //!
 //! - `make test_scenarios` : compile sans rendu, avec le profil `headless`.
 //! - `ALACOD_BLESS=1` : réécrit les traces de référence (après un changement voulu).
-//! - `ALACOD_SCENARIO=<nom>` : ne joue que ce scénario.
+//! - `ALACOD_SCENARIO=<nom>` : ne joue que ce scénario (plusieurs : `a,b,c`).
+//! - `ALACOD_SCENARIO_SLICE=<k>/<n>` : ne joue que la tranche `k` (de 0 à `n-1`) des scénarios
+//!   triés (indice modulo `n`) : la suite complète par lots, quand une commande ne peut pas durer
+//!   assez longtemps (session cloud, M2-T11). Se combine avec `ALACOD_SCENARIO`.
 
 use std::collections::BTreeMap;
 use std::path::PathBuf;
@@ -156,6 +159,7 @@ fn scenarios() {
     let only = std::env::var("ALACOD_SCENARIO")
         .ok()
         .filter(|name| !name.is_empty());
+    let shard = shard_from_env();
 
     // Load budgets
     let budgets_path = budgets_dir().join("budgets.ron");
@@ -176,13 +180,41 @@ fn scenarios() {
     // T2.10 : en plus des scénarios manuscrits ci-dessus, un par arme générée (voir la doc du
     // module) ; même boucle ci-dessous, aucun traitement spécial.
     paths.extend(generated_scenario_paths());
+    // Tranche `i/N` (`ALACOD_SCENARIO_SHARD`, `scripts/test-scenarios-sharded.sh`) : un scénario
+    // sur N, à tour de rôle dans l'ordre ci-dessus ; N processus couvrent toute la liste.
+    // Quand `ALACOD_SCENARIO` donne la liste explicite (le script la calcule par durée
+    // mesurée, perf-suite-scenarios), la tranche ne sert qu'à nommer le fichier de métriques.
+    if let Some((index, count)) = shard.filter(|_| only.is_none()) {
+        paths = paths
+            .into_iter()
+            .enumerate()
+            .filter(|(position, _)| position % count == index)
+            .map(|(_, path)| path)
+            .collect();
+    }
 
     let mut failures = Vec::new();
     let mut metrics_map: BTreeMap<String, Metrics> = BTreeMap::new();
 
-    for path in paths {
+    let slice: Option<(usize, usize)> =
+        std::env::var("ALACOD_SCENARIO_SLICE")
+            .ok()
+            .and_then(|spec| {
+                let (k, n) = spec.split_once('/')?;
+                Some((
+                    k.trim().parse().ok()?,
+                    n.trim().parse().ok().filter(|n| *n > 0)?,
+                ))
+            });
+    for (index, path) in paths.into_iter().enumerate() {
         let name = path.file_stem().unwrap().to_string_lossy().to_string();
-        if only.as_ref().is_some_and(|only| *only != name) {
+        if only
+            .as_ref()
+            .is_some_and(|only| !only.split(',').any(|candidate| candidate.trim() == name))
+        {
+            continue;
+        }
+        if slice.is_some_and(|(k, n)| index % n != k) {
             continue;
         }
 
@@ -280,7 +312,7 @@ fn scenarios() {
     }
 
     // Write metrics to JSON
-    write_metrics(&metrics_map);
+    write_metrics(&metrics_map, shard);
 
     assert!(failures.is_empty(), "\n{}\n", failures.join("\n"));
 }
@@ -307,7 +339,19 @@ fn commit_dir_name() -> String {
     }
 }
 
-fn write_metrics(metrics: &BTreeMap<String, Metrics>) {
+/// `ALACOD_SCENARIO_SHARD=i/N` (0 ≤ i < N) : tranche jouée par ce processus.
+fn shard_from_env() -> Option<(usize, usize)> {
+    let value = std::env::var("ALACOD_SCENARIO_SHARD").ok()?;
+    let (index, count) = value.split_once('/')?;
+    let (index, count) = (index.trim().parse().ok()?, count.trim().parse().ok()?);
+    assert!(
+        count > 0 && index < count,
+        "ALACOD_SCENARIO_SHARD={value} : attendu i/N avec 0 <= i < N"
+    );
+    Some((index, count))
+}
+
+fn write_metrics(metrics: &BTreeMap<String, Metrics>, shard: Option<(usize, usize)>) {
     let commit = commit_dir_name();
 
     let metrics_dir = metrics_dir();
@@ -316,8 +360,19 @@ fn write_metrics(metrics: &BTreeMap<String, Metrics>) {
     // Create directory if it doesn't exist
     std::fs::create_dir_all(&commit_dir).ok();
 
-    // Write metrics for this commit
     let metrics_json = serde_json::to_string_pretty(metrics).expect("sérialisation des métriques");
+    // Une tranche n'écrit que sa part ; le script qui lance les tranches les fusionne ensuite
+    // en `metrics.json` et `latest.json`.
+    if let Some((index, count)) = shard {
+        std::fs::write(
+            commit_dir.join(format!("metrics.shard-{index}-of-{count}.json")),
+            &metrics_json,
+        )
+        .ok();
+        return;
+    }
+
+    // Write metrics for this commit
     std::fs::write(commit_dir.join("metrics.json"), &metrics_json).ok();
 
     // Write latest.json symlink (or just copy for portability)
@@ -765,8 +820,90 @@ fn map_probe() {
             t.translation.y.to_num::<f32>(),
         )
     };
-    for (p, t) in world.query::<(&Player, &FixedTransform3D)>().iter(world) {
-        println!("joueur {} {:?}", p.handle, pos(t));
+    for (p, t, h) in world
+        .query::<(&Player, &FixedTransform3D, &game::character::health::Health)>()
+        .iter(world)
+    {
+        println!(
+            "joueur {} {:?} santé {}",
+            p.handle,
+            pos(t),
+            h.current.to_num::<f32>()
+        );
+    }
+    // M2-T11 : entités de carte lues (diagnostic)
+    {
+        let registry = world.resource::<map_ldtk::game::plugin::LdtkMapEntityLoadingRegistry>();
+        let mut kinds: std::collections::BTreeMap<String, usize> = Default::default();
+        for e in &registry.entities {
+            *kinds.entry(e.kind.clone()).or_default() += 1;
+        }
+        println!("entités de carte : {kinds:?}");
+    }
+    for (id, t) in world
+        .query_filtered::<(&GgrsNetId, &FixedTransform3D), With<game::weapons::Bullet>>()
+        .iter(world)
+    {
+        println!("balle {} {:?}", id.0, pos(t));
+    }
+    // M2-T11 : tables, barils (état rollback), sécurité des fosses
+    let mut props: Vec<_> = world
+        .query::<(
+            &GgrsNetId,
+            &FixedTransform3D,
+            Option<&world::TableState>,
+            Option<&world::BarrelState>,
+            Option<&game::character::health::Health>,
+            Has<game::character::health::Death>,
+            Option<&world::PitSafePosition>,
+        )>()
+        .iter(world)
+        .filter(|(.., t, b, _, _, _)| t.is_some() || b.is_some())
+        .map(|(id, tr, t, b, h, dead, _)| {
+            (
+                id.0,
+                pos(tr),
+                t.map(|t| (t.flipped, t.bullets_left)),
+                b.map(|b| b.radius.to_num::<f32>()),
+                h.map(|h| h.current.to_num::<f32>()),
+                dead,
+            )
+        })
+        .collect();
+    props.sort_by_key(|p| p.0);
+    for p in props {
+        println!(
+            "objet {} {:?} table={:?} baril_rayon={:?} santé={:?} mort={}",
+            p.0, p.1, p.2, p.3, p.4, p.5
+        );
+    }
+    for (p, safe) in world
+        .query::<(&Player, &world::PitSafePosition)>()
+        .iter(world)
+    {
+        println!(
+            "joueur {} position sûre ({}, {})",
+            p.handle,
+            safe.x.to_num::<f32>(),
+            safe.y.to_num::<f32>()
+        );
+    }
+    {
+        let grid = world.resource::<world::SurfaceGrid>();
+        let cells: Vec<_> = grid
+            .cells
+            .iter()
+            .filter(|(_, id)| **id == 4)
+            .map(|(c, _)| *c)
+            .collect();
+        if !cells.is_empty() {
+            println!(
+                "fosse : {} cases, de {:?} à {:?}",
+                cells.len(),
+                cells.first(),
+                cells.last()
+            );
+        }
     }
     let mut windows: Vec<_> = world
         .query::<(
@@ -830,8 +967,9 @@ fn map_probe() {
         .iter(world)
     {
         println!(
-            "salle {} pos=({}, {}) taille=({}, {}) état={:?}",
+            "salle {} iid={} pos=({}, {}) taille=({}, {}) état={:?}",
             kind.0,
+            id.0,
             bounds.position.x.to_num::<f32>(),
             bounds.position.y.to_num::<f32>(),
             bounds.size.x.to_num::<f32>(),
@@ -840,13 +978,18 @@ fn map_probe() {
         );
     }
     let mut enemies: Vec<_> = world
-        .query_filtered::<(&GgrsNetId, &FixedTransform3D, Has<world::RoomDormant>), With<game::character::enemy::Enemy>>()
+        .query_filtered::<(
+            &GgrsNetId,
+            &FixedTransform3D,
+            Has<world::RoomDormant>,
+            Option<&game::character::health::HitCount>,
+        ), With<game::character::enemy::Enemy>>()
         .iter(world)
-        .map(|(id, t, dormant)| (id.0, pos(t), dormant))
+        .map(|(id, t, dormant, hits)| (id.0, pos(t), dormant, hits.map(|h| h.0)))
         .collect();
     enemies.sort_by_key(|e| e.0);
     for e in enemies {
-        println!("ennemi {} {:?} dormant={}", e.0, e.1, e.2);
+        println!("ennemi {} {:?} dormant={} coups={:?}", e.0, e.1, e.2, e.3);
     }
     let mut interactables: Vec<_> = world
         .query::<(
@@ -930,4 +1073,65 @@ fn bullets_probe() {
         }
     }
     println!("balles : au plus {max_alive} en vol, x {min_x:.1}..{max_x:.1}, y max {max_y:.1}");
+}
+
+/// Diagnostic (M2-T1) : à chaque frame, le nombre de balles et leur position
+/// (`ALACOD_BULLET_LINES=<scénario>:<de>:<à>`), pour calibrer les attentes `BulletCount`.
+#[test]
+#[ignore]
+fn bullet_lines() {
+    use bevy::prelude::*;
+    use bevy_fixed::fixed_math::FixedTransform3D;
+    use game::weapons::Bullet;
+    use utils::frame::FrameCount;
+    let spec =
+        std::env::var("ALACOD_BULLET_LINES").unwrap_or_else(|_| "pattern_spiral:0:60".into());
+    let p: Vec<&str> = spec.split(':').collect();
+    let (from, to): (u32, u32) = (p[1].parse().unwrap(), p[2].parse().unwrap());
+    let source = std::fs::read_to_string(scenarios_dir().join(format!("{}.ron", p[0]))).unwrap();
+    let mut app = scenario::runner::run_until(&Scenario::from_ron(&source).unwrap(), from);
+    while app.world().resource::<FrameCount>().frame < to {
+        app.update();
+        let world = app.world_mut();
+        let frame = world.resource::<FrameCount>().frame;
+        let mut ps: Vec<(i32, i32)> = world
+            .query_filtered::<&FixedTransform3D, With<Bullet>>()
+            .iter(world)
+            .map(|t| {
+                (
+                    t.translation.x.to_num::<f32>().round() as i32,
+                    t.translation.y.to_num::<f32>().round() as i32,
+                )
+            })
+            .collect();
+        ps.sort();
+        let players: Vec<(i32, i32)> = world
+            .query_filtered::<&FixedTransform3D, With<game::character::player::Player>>()
+            .iter(world)
+            .map(|t| {
+                (
+                    t.translation.x.to_num::<f32>().round() as i32,
+                    t.translation.y.to_num::<f32>().round() as i32,
+                )
+            })
+            .collect();
+        let inv: Vec<String> = world
+            .query_filtered::<(
+                Option<&items::Inventory>,
+                Option<&game::items::BlankState>,
+                Option<&sim_core::team::Team>,
+            ), With<game::character::player::Player>>()
+            .iter(world)
+            .map(|(i, b, t)| format!("{:?}/{:?}/{:?}", i.map(|i| &i.consumables), b, t))
+            .collect();
+        let hp: Vec<f32> = world
+            .query_filtered::<&game::character::health::Health, With<game::character::player::Player>>()
+            .iter(world)
+            .map(|h| h.current.to_num::<f32>())
+            .collect();
+        println!(
+            "f{frame} n={} {ps:?} joueurs={players:?} inv={inv:?} hp={hp:?}",
+            ps.len()
+        );
+    }
 }

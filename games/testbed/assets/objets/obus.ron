@@ -1,0 +1,2 @@
+// M2-T4 : consommable d'essai (compteur `obus`), payé par le `canon`.
+(name: "Obus", kind: Consumable, rarity: Common)

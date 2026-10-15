@@ -16,6 +16,9 @@ fn force_empty_spawn_range(balance: Option<ResMut<ResolvedBalance>>) {
         config.max_player_distance = Fixed::ZERO;
         config.base_enemies = 3;
         config.max_random_variance = 0;
+        // Pin this recovery fixture independently of S5 content tuning: fallback
+        // starts at frame 780, so three batches must fit before the 1000f limit.
+        config.spawn_interval_frames = 30;
     }
 }
 

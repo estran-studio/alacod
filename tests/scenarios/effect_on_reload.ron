@@ -1,0 +1,24 @@
+// M2-T3 (effets v2, docs/conventions.md §42) : `OnReload` d'un objet tenu. La `bandoulier`
+// (passif : +1 de dégâts à chaque rechargement terminé) est posée à f5. Carte testbed/salles.ldtk.
+//
+// À regarder : f10 le joueur ramasse la bandoulière, tire quelques balles (f20-30), recharge
+// (f40) ; quand le rechargement se termine les dégâts passent de 1 à 2.
+Scenario(
+    powerup_drop_chance_override: "0.0",
+    game: "testbed",
+    map: "testbed/salles.ldtk",
+    map_seed: 1,
+    frames: 300,
+    items: [(id: "bandoulier", x: "-904.0", y: "-584.0", at_frame: 5)],
+    players: [
+        (inputs: [
+            (from: 10, to: 13, buttons: [Interaction]),
+            (from: 20, to: 40, buttons: [Fire], pan: (0, -64)),
+            (from: 50, to: 53, buttons: [Reload]),
+        ]),
+    ],
+    expect: [
+        Stat(handle: 0, stat: Damage, value: 1.0, at_frame: 60),
+        Stat(handle: 0, stat: Damage, value: 2.0, at_frame: 290),
+    ],
+)

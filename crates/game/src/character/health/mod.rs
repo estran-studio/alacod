@@ -295,6 +295,7 @@ pub fn rollback_apply_accumulated_damage(
             Option<&Player>,
             Option<&CharacterConfigHandles>,
             Option<&mut Modifiers>,
+            Has<world::BarrelState>,
         ),
         With<Rollback>,
     >,
@@ -322,6 +323,7 @@ pub fn rollback_apply_accumulated_damage(
         opt_player,
         opt_config_handles,
         opt_modifiers,
+        is_barrel,
     ) in order_mut_iter!(query)
     {
         if accumulator.total_damage > fixed_math::FIXED_ZERO {
@@ -340,6 +342,11 @@ pub fn rollback_apply_accumulated_damage(
             commands.entity(entity).remove::<DamageAccumulator>();
 
             if health.current <= fixed_math::FIXED_ZERO {
+                // M2-T11 : un baril garde son `Death` jusqu'à son explosion (frame suivante) ;
+                // sa santé reste dans `[0, max]` (invariant `sante_bornee`).
+                if is_barrel {
+                    health.current = fixed_math::FIXED_ZERO;
+                }
                 // À terre (T1.3) plutôt que mort : seulement un joueur, et seulement s'il
                 // reste au moins un AUTRE joueur debout pour le réanimer (`PlayersCount > 1`
                 // et un autre handle que le sien dans `standing_handles`) ; sinon (seul, ou
@@ -500,7 +507,8 @@ pub fn rollback_check_defeat(
 pub fn rollback_apply_death(
     frame: Res<FrameCount>,
     mut commands: Commands,
-    query: Query<(&GgrsNetId, Entity, &Death), With<Rollback>>,
+    // M2-T11 : un baril mort explose à la frame suivante (`crate::props`), qui le détruit.
+    query: Query<(&GgrsNetId, Entity, &Death), (With<Rollback>, Without<world::BarrelState>)>,
 ) {
     let system_span = span!(Level::INFO, "ggrs", f = frame.frame, s = "apply_death");
     let _enter = system_span.enter();

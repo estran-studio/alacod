@@ -328,7 +328,15 @@ pub struct EnemyAiConfigRon {
     /// T1.4 : repli `Nearest { ignore: [] }` (l'algorithme actuel).
     #[serde(default)]
     pub targeting: Option<Targeting>,
+    /// M2-T8 (§49) : escouade du personnage (`Some((id, role))`), lue par la règle `Formation`.
+    #[serde(default)]
+    pub squad: Option<SquadRon>,
 }
+
+/// M2-T8 : appartenance à une escouade. Les membres vivants d'un même `id` forment l'escouade
+/// (rangs par `GgrsNetId`) ; `role` est une étiquette de contenu (lue par la présentation).
+#[derive(Clone, Debug, Serialize, Deserialize, PartialEq, Eq)]
+pub struct SquadRon(pub String, #[serde(default)] pub Option<String>);
 
 impl From<&EnemyAiConfigRon> for EnemyAiConfig {
     fn from(ron: &EnemyAiConfigRon) -> Self {
@@ -476,6 +484,8 @@ pub struct EnemyBehaviors {
     /// boss ; une phase sans règle (liste vide) garde `rules`. Statique, hors rollback : la
     /// phase courante est `behaviors::BossState::phase` (rollback), voir [`Self::active`].
     pub phase_rules: Vec<Vec<Behavior>>,
+    /// M2-T8 : id d'escouade (`ai.squad`), statique comme `rules`.
+    pub squad: Option<String>,
 }
 
 impl EnemyBehaviors {
@@ -500,6 +510,9 @@ impl EnemyBehaviors {
             hearing,
             ignore,
             phase_rules: Vec::new(),
+            squad: ron
+                .and_then(|ron| ron.squad.as_ref())
+                .map(|squad| squad.0.clone()),
         }
     }
 
@@ -514,6 +527,29 @@ impl EnemyBehaviors {
 
     pub fn has(&self, name: &str) -> bool {
         self.rules.iter().any(|rule| rule.name() == name)
+    }
+
+    /// M2-T7 (tir par phase) : table de tir de la première règle `Shoot` des règles **propres**
+    /// à la phase `phase` d'un boss ; `None` si la phase n'a pas de règle (ou pas de `Shoot`) :
+    /// l'appelant garde alors `EnemyAiConfig::ranged` (comportement d'avant).
+    pub fn phase_shoot(&self, phase: u32) -> Option<RangedAttack> {
+        self.phase_rules
+            .get(phase as usize)?
+            .iter()
+            .find_map(|rule| match rule {
+                Behavior::Shoot {
+                    weapon,
+                    pattern,
+                    range,
+                    cooldown_frames,
+                } => Some(RangedAttack {
+                    weapon: weapon.clone(),
+                    pattern: pattern.clone(),
+                    range: *range,
+                    cooldown_frames: *cooldown_frames,
+                }),
+                _ => None,
+            })
     }
 
     /// Arme de la première règle `Melee`.
@@ -537,6 +573,7 @@ impl EnemyBehaviors {
                         | Behavior::Charge { .. }
                         | Behavior::Flee
                         | Behavior::Wander
+                        | Behavior::Formation { .. }
                 )
             })
     }

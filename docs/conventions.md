@@ -407,6 +407,7 @@ et de ramassage et le chargement des armes murales restent dans `game`/`map_ldtk
 |---|---|
 | `make check` | Format, tests unitaires, scénarios, motifs interdits en avertissement, enregistrement rollback (`check_rollback_registration`, strict) (la CI rapide) |
 | `make test_scenarios` | Rejoue tous les scénarios en headless, compare les traces |
+| `make test_scenarios_par [SHARDS=4]` | Même suite en N processus, tranches réparties par durée mesurée (`scripts/scenario-shard-plan.py`) |
 | `make map_preview ARGS=<fichier.ldtk>` | Affiche une carte LDtk (fenêtre) |
 | `make map_generation ARGS=<entrée.ldtk> <sortie.ldtk> <graine>` | Génère une carte assemblée par connexions (voir `examples/map_generation.rs` pour les arguments exacts) |
 | `make play_scenario SCENARIO=<nom>` | Rejoue le scénario avec rendu (l'option `--follow <handle>` du binaire suit un joueur) |
@@ -435,6 +436,39 @@ les valeurs du jeu. Solo et duo déclarent `max_wave: 5` : le mode `Waves` termi
 l'**entrée** en vague 5 et produit le résumé (la cinquième vague n'est pas combattue).
 Le quad laisse cette limite absente et attend `RunState(Playing)` avec quatre joueurs
 debout à l'entrée en vague 5. Aucune trace antérieure n'est blessée pour ces références.
+
+**Vitesse de la suite (perf-suite-scenarios, 2026-10-14)** : 243 scénarios en ~17 min dans un
+seul processus et ~5 min en 4 tranches sur 4 cœurs (avant : ~51 et ~12 min). Ce qui l'explique,
+dans l'ordre du gain, et ce qu'il ne faut pas défaire :
+
+- **Exécuteur monothread en headless** (`runner::single_threaded_schedules`) : la simulation
+  compte des centaines de petits systèmes par frame, l'exécuteur multithread de Bevy y passait
+  plus de temps à se réveiller (~1 500 `futex` par frame) qu'à calculer, et ses threads se
+  disputaient les cœurs entre tranches parallèles. `ALACOD_EXECUTOR=multi` le rétablit. Un
+  système sans ordre explicite ne change pas de résultat : `GgrsSchedule` refuse toute ambiguïté
+  d'ordre (les 243 traces le prouvent).
+- **`FlowFieldCache::layers` en `SharedFlowField`** (`Arc` + image des octets du `Hash`) : le
+  snapshot rollback le clonait et le checksum le hachait 2 à 3 fois par frame (~23 000 entrées
+  de `BTreeMap`, ~20 % d'une frame). Un champ de flux n'est jamais modifié après sa
+  construction : toute nouvelle couche passe par `SharedFlowField::from`. Le flux d'octets du
+  `Hash` est celui de `#[derive(Hash)]` sur `FlowField` (test
+  `shared_flow_field_hash_equals_derived`) : aucune trace ne bouge.
+- Contenu (`Registry`, `GameManifest`) chargé **une fois par processus** (`runner::load_content`),
+  lecture des périphériques coupée (`game::character::skip_device_input`, `ActionState` n'est lu
+  qu'avec `InputSource::Devices`) et overlay de vagues (texte d'UI) coupé en headless.
+- **Tranches par durée** : `scripts/test-scenarios-sharded.sh` lit `sim_seconds` dans
+  `target/metrics/latest.json` (sinon les `frames` du `.ron`) et remplit les tranches du plus
+  long au plus court (plus long d'abord, sur la tranche la moins chargée). Les métriques d'un
+  run partiel écrasent `latest.json` : une suite complète les remet à jour. `SHARD_PLAN=roundrobin`
+  rétablit un scénario sur N.
+- `ALACOD_PROFILE=1` affiche, par scénario, le temps du runner par poste (`update` de
+  Bevy, métriques, invariants) ; les invariants et les attentes pèsent moins de 0,5 % d'une frame.
+
+Ce qui reste est la simulation elle-même : `bench_floor` (profil callgrind, 600 frames) passe
+~42 % de ses instructions dans `update_flow_field_system` (Dijkstra, dont ~22 % dans
+`is_blocked`) et ~14 % dans la navigation des bots ; les `throne_*` ne sont que 1,5 à 2 fois
+plus rapides qu'avant, pour la même raison probable (non profilés). Le détail chiffré est dans
+`docs/taches/rapports/perf-suite-scenarios.md`.
 
 ---
 
@@ -592,7 +626,7 @@ Deux champs de test (testbed) sont délibérément hors du checksum GGRS — les
 
 **Emplacements** (`CharacterConfig::weapon_slots: u32`, `#[serde(default)]` = 2, validé par `content::lint` : `> 0` et `starting_weapons.len() <= weapon_slots`) : nombre d'armes à distance qu'un personnage peut porter. À l'exécution, borne le **ramassage** (voir plus bas) ; la création donne toutes les `starting_weapons`, le lint refuse désormais une liste trop longue (T3.4, D7). `zombies` et `testbed` déclarent `weapon_slots: 3` sur le joueur : ses trois armes de départ étaient déjà créées, aucune n'était perdue.
 
-**Lâcher** (`INPUT_DROP_WEAPON`, touche `G`, bouton `DropWeapon` des scénarios ; `weapons::weapon_drop_system`, avant `weapon_rollback_system` dans `GgrsSchedule`) : l'arme active est retirée de `WeaponInventory.weapons`, son entité despawn (`despawn_rollback`), et une entité rollback `weapons::WeaponPickup { weapon_id, mag_ammo }` apparaît au sol à la position du joueur — `mag_ammo` est celui du **mode actif** au moment du dépôt (un seul nombre, pas un par mode). Le rechargement en cours, s'il y en avait un, est annulé (`WeaponInventory::clear_reloading`) : l'arme qui rechargeait n'existe plus.
+**Lâcher** (entrée clavier sur nouvel appui uniquement : relâcher puis rappuyer pour une autre arme ; `INPUT_DROP_WEAPON`, touche `L`, bouton `DropWeapon` des scénarios ; `weapons::weapon_drop_system`, avant `weapon_rollback_system` dans `GgrsSchedule`) : l'arme active est retirée de `WeaponInventory.weapons`, son entité despawn (`despawn_rollback`), et une entité rollback `weapons::WeaponPickup { weapon_id, mag_ammo }` apparaît au sol à la position du joueur — `mag_ammo` est celui du **mode actif** au moment du dépôt (un seul nombre, pas un par mode). Le rechargement en cours, s'il y en avait un, est annulé (`WeaponInventory::clear_reloading`) : l'arme qui rechargeait n'existe plus.
 
 **Ramasser** (`INPUT_INTERACTION`, `InteractionType::Weapon`, `interaction::handle_weapon_pickup_interaction`) : équipe l'arme (devient active), restaure son chargeur (`WeaponPickup::mag_ammo`, via `spawn_weapon_for_player`, paramètre `initial_mag_ammo`). En dessous de `weapon_slots`, elle s'ajoute ; à `weapon_slots` ou au-delà, elle **remplace** l'arme active, qui tombe au sol à son tour (même mécanisme, `weapons::spawn_weapon_pickup`). La réserve de munitions n'est jamais transférée : seul le chargeur voyage avec l'arme, la réserve reste attachée au joueur.
 
@@ -2452,9 +2486,9 @@ les événements dus de la frise. La frise n'a pas de curseur : `due(frame - ent
 
 **Règles par phase.** `EnemyBehaviors::phase_rules` (statique) garde la liste de chaque phase ; l'IA
 lit `EnemyBehaviors::active(BossState::phase)` (sélection, déplacement imposé, attaque,
-`melee_hold`, attente `EnemyState`). **Limite** : la table de tir d'une règle `Shoot` (`ai.ranged`)
-est fixée à la config de l'ennemi, pas à la phase ; en phase, un tir passe par la frise
-(`SpawnPattern`).
+`melee_hold`, attente `EnemyState`). **Limite levée par M2-T7 (§45)** : la règle `Shoot` d'une phase
+porte sa propre table de tir (arme, pattern, portée, recharge) ; sans `Shoot` de phase, `ai.ranged` de
+la config ; un tir peut aussi passer par la frise (`SpawnPattern`).
 
 **Actions.** Même exécuteur que les effets de personnage (`effects_runtime::apply_action`) avec un
 `EffectState` jetable : `GaugeAdd` n'a pas d'effet durable sur un boss ; `SpawnPattern` est ignoré
@@ -2520,7 +2554,7 @@ manifeste `assets/game.ron`. Il montre les contrats de la vague 0 de M2 ensemble
 **Contenu.**
 - `characters/` : `pistolero` (le joueur, id moteur `player`, course nerveuse et roulade à i-frames
   du §34), `bullet_kin` (ennemi tireur : `Shoot` du pattern `visee`, `KeepDistance`, `Chase`),
-  `gatling` (boss immobile à deux phases, frise `SpawnPattern`), `cible` (cible des scénarios
+  `gatling` (boss immobile ; trois phases depuis M2-T7, §45 : éventail, spirale, rage avec renfort), `cible` (cible des scénarios
   générés d'armes).
 - `weapons/weapons.ron` : `pistolet` (le moteur n'a pas de munition infinie : réserve de 9999
   chargeurs de 12, rechargement rapide ; `Automatic` : tenir la gâchette tire en continu) et
@@ -2552,7 +2586,166 @@ encore (conçus pour les zombies et leurs fenêtres).
 registre natif et registre embarqué pour `zombies`, `throne` et `gungeon` ; le jeu n'est pas encore
 dans les scripts de build web (`zombies` et `throne` seulement).
 
+## 41. Projectiles v2 et blank (M2-T1, chantier B5 v2)
+
+Code : `combat::projectile::Pattern` (variantes), `combat::emitter` (état multi-salves),
+`items::{BlankSpec, BlankUsed}`, `game::items::{blank_system, BlankState, FloorStartConsumables}`,
+`content::lint` (règles), contenu `gungeon` et `testbed`.
+
+**Patterns ajoutés** (en **fin** d'enum `Pattern` : le hash des variantes d'avant ne bouge pas) :
+
+| Variante | Effet | Où |
+|---|---|---|
+| `Fan(count, spread, speed, projectile)` | `count` tirs répartis **exactement** sur `spread` radians (bornes comprises), centrés sur la visée, sans hasard (à la différence de `Scatter`) ; `speed` > 0 remplace celle du projectile, 0 = celle de la définition | émetteur **et** `on_expire` |
+| `Spiral(count, step, shots, every, speed, projectile)` | `shots` salves espacées de `every` frames, chacune de `count` bras régulièrement répartis sur le cercle ; la salve `k` tourne de `k × step` radians par rapport à la visée figée | émetteur seulement |
+| `Burst(count, per_burst, interval, spread, projectile)` | `count` salves de `per_burst` tirs en éventail de `spread`, espacées de `interval` frames | émetteur seulement |
+
+Une étape multi-salves (`Spiral`, `Burst`) **bloque la séquence** comme un `Wait` : la salve 0 part tout de
+suite, la suivante `every`/`interval` frames plus tard, l'étape suivante après la dernière salve (une salve
+de fond `Ring.every` continue de tirer). L'état d'avancement est `Emitter::multi` (`MultiVolley { step,
+fired }`), dans l'état rollback de l'émetteur ; il n'est **haché que s'il existe** (hacher un `None`
+déplacerait le checksum de tous les émetteurs d'avant ; test `spirale_ne_change_pas_le_hash…`). Aucun hasard :
+le flux RNG `patterns` n'est pas consommé. Frames mesurées (`pattern_spiral`) : émetteur posé à f6, télégraphe
+de 10 frames, salves à f17, f23, … (une salve toutes les `every` frames).
+
+**Lint.** `count`, `per_burst`, `shots` > 0 ; `every` > 0 (`Spiral`) et `interval` > 0 (`Burst`) ; `spread`,
+`speed` ≥ 0 ; `Spiral`/`Burst` refusés en `on_expire` (même au travers d'un `Named`), `Fan` admis. Fixtures
+`pattern_spiral_on_expire`, `pattern_burst_interval_zero`.
+
+**Balles ennemies qui rebondissent.** `Bounce(n)` joue pour un projectile de n'importe quelle équipe (la
+chaîne `projectile_collision_system` ne regarde pas l'équipe pour les murs) : aucun correctif nécessaire,
+prouvé par `enemy_bullet_bounce`. `gungeon` : `salve` de `bullet_kin` tire des `ricochet` (`Bounce(2)`).
+
+**Blank.** Le consommable `blank` porte `blank: Some((radius: "140.0", iframes: 10))` (`items::BlankSpec`
+dans `objets/blank.ron`, lint : consommable seulement, `radius` > 0). Au **front montant** de `Blank`
+(`INPUT_BLANK`, touche Q), `blank_system` (`RollbackSystemSet::Effects`, après l'usage d'actif) :
+1. consomme un exemplaire du premier objet porteur de `blank` que le joueur possède (ordre des ids) ;
+2. efface (`despawn_rollback`) toute balle dont l'équipe de tir n'est ni celle du joueur ni
+   `Allies`/`Neutral`, dans `radius` du joueur (jamais celles des joueurs) ;
+3. rend le joueur invulnérable `iframes` frames (`Health::invulnerable_until_frame`, comme le dash) ;
+4. émet `FrameEvents<BlankUsed { frame, player_handle, x, y, radius, cleared }>` (neutre ; lu par la
+   présentation et par `OnBlank` de M2-T3) et la trace `ggrs{f=… blank net_id=… item=… cleared=…}`.
+Sans blank en inventaire (ou sans inventaire) : rien. **Mémoire du front montant** :
+`BlankState { held, floor }`, composant rollback **neutre**, posé sur un joueur qui a un `Inventory`
+**et** un motif d'en avoir (Blank appuyé, blank en poche, ou recharge d'étage dans le contenu) : un joueur
+avec inventaire mais sans blank (objets du testbed) ne le porte pas, donc sa trace ne bouge pas (une
+première version le posait sur tout inventaire et déplaçait 4 traces du testbed). Réécrit à chaque frame
+**avant** tout retour anticipé (piège « donnée dérivée non rollbackée »). Seuls `gungeon` et les scénarios
+qui donnent un blank en portent : les traces des autres jeux ne bougent pas.
+
+**Piège des tables de projectiles.** Les `projectiles:` d'une arme sont dans l'état hashé de ses porteurs :
+ajouter un projectile à une arme existante déplace les traces de tous ses porteurs (une première version
+l'avait fait sur `fireball_gun` : 33 traces). Les tourelles de motifs du testbed ont donc leur propre arme
+`tourelle_gun` (copie de `fireball_gun` + `brume`, `ricochet`).
+
+**Preuve p2p.** `ALACOD_PRESS_BLANK_AT=<frame>` (`player/input.rs`, `press_blank_at`) ajoute `INPUT_BLANK` à
+l'input neutre de cette frame : permet de jouer un blank dans un test p2p sans clavier
+(`ALACOD_INPUT=neutral`).
+
+**Consommables de départ et d'étage (données).** `CharacterConfig::starting_consumables: {"blank": 2}`
+crée l'`Inventory` du joueur à la création (vide par défaut : aucun inventaire). `Floors` :
+`consumables_per_floor: {"blank": 2}` dans `floors/<id>.ron` remonte chaque compteur **à au moins** `n` au
+début de chaque étage suivant (ressource hors rollback `FloorStartConsumables`, posée par `map_ldtk` au
+chargement ; `BlankState::floor` retient l'étage servi). Lint : id consommable connu (`BrokenReference`,
+fixture `character_starting_consumable_unknown`).
+
+**Présentation.** `game::items::BlankPresentationPlugin` (`PresentationPlugin`, absent en headless) : onde (cercle
+qui s'étend jusqu'au rayon puis s'estompe, 24 frames) dérivée de `BlankUsed` dans `Update` (ressource
+`LastBlank`, jamais lue par la simulation). Moment clé `blank` (scénarios, vidéos). HUD : pas de source
+« compteur de blanks » dans `HUD_SOURCES` : à M2-T18.
+
+**Scénarios.** Testbed (`arena.ldtk`, tourelles `tourelle_spirale|eventail|salve|ricochet|anneau`) :
+`pattern_spiral` (salves f17-f47), `pattern_fan` (5 flèches f17), `pattern_burst` (2 flèches à f17, f25, f33),
+`enemy_bullet_bounce` (rebond sur le mur sud vers f63), `blank_clears_bullets` (12 boules ennemies effacées
+à f36, 2 balles du joueur gardées, compteur 2 → 1), `blank_empty` (sans blank, rien), `bench_bullets_room`
+(535 balles ennemies vivantes, salle verrouillée, plancher `budgets.ron`). Piège de script : **des segments
+d'input qui se chevauchent ne se combinent pas** (le premier gagne) : couper les segments (`Fire` seul,
+puis `Fire, Blank` une frame, puis `Fire`). Diagnostic : test ignoré `bullet_lines`
+(`ALACOD_BULLET_LINES=<scénario>:<de>:<à>` : balles, joueurs, inventaire, santé frame par frame).
+`gungeon` : `bullet_kin` joue `salve`, le boss `gatling` `eventail` (phase 0) puis `spirale` (phase 1,
+projectile `etincelle`), le pistolero a deux blanks (`gungeon_boss` en utilise deux contre la spirale).
+
 ---
+
+## 40. Grammaire d'étage (M2-T10, chantier E2)
+
+Un étage de salles typées, assemblé à partir de gabarits LDtk. Code : `world::FloorGrammar`
+(donnée), `map::generation::floor` (planificateur), `map::generation::imp::floor`
+(`FloorMapGeneration`, mode `MapGenerationMode::Floor(grammaire)` à côté de `Basic` et `Cave`).
+`Basic` est inchangé (traces `zombies`/testbed identiques).
+
+**Contenu.** Kind de dossier `FloorGrammar` : un fichier RON par grammaire, id = nom de fichier,
+désignée comme carte par `floor:<id>` (`entry.start_map`, `Scenario.map`, `levels` d'une séquence
+`Floors`) :
+
+```ron
+// floor_grammars/etage.ron — game.ron : (path: "floor_grammars", kind: "FloorGrammar")
+(templates: "maps/salles.ldtk", grammar: (
+    rooms: (8, 12),                                    // départ, boss et requises compris
+    required: {"boss": 1, "boutique": 1, "recompense": 1},
+    min_boss_distance: 3,                              // en salles
+    // start: "depart", boss: "boss", filler: "combat", max_attempts: 64 (défauts)
+))
+```
+
+`templates` est la carte LDtk dont chaque niveau est un gabarit, typé par son champ de niveau
+`room_kind` (§35). Le départ est un gabarit `spawn: true`.
+
+**Algorithme** (déterministe, `RollbackRng` de génération ; listes ordonnées, aucun `HashMap`) :
+départ au centre ; remplissage par croissance aléatoire (tirage uniforme parmi les poses valides :
+parent, connexion libre, gabarit compatible du bon type, sans chevauchement ni sortie de carte) ;
+boss posé sur une salle de profondeur maximale, avec un gabarit à **une seule connexion**
+(cul-de-sac, donc strictement le plus loin du départ) ; salles requises sur des salles de
+profondeur ≤ celle du boss − 2 ; contrôle indépendant `validate_plan`. Échec : nouvelle tentative
+avec une graine dérivée (`next_u32` du générateur principal), au plus `max_attempts`, puis
+`FloorError::Exhausted` explicite (jamais de boucle infinie ; `NoTemplate` si un type n'a aucun
+gabarit).
+
+**Mesure** (1 000 graines, gabarits 10×10 tuiles du test) : génération moyenne 184 µs, max 11,8 ms,
+1,05 tentative en moyenne, tailles 8 à 12 réparties uniformément.
+
+**Lint** : `rooms` min > max ou < 2, `max_attempts` 0, `required` à 0 ou contenant le départ,
+plus d'un boss, départ + boss + requises > max, `min_boss_distance` impossible (`OutOfRange`) ;
+carte `templates` absente, type nécessaire (départ, boss, remplissage, requis) sans niveau de ce
+`room_kind`, séquence `Floors` ou `start_map` vers une grammaire inconnue (`BrokenReference`).
+Fixtures : `floor_bounds_inverted`, `floor_required_without_template`.
+
+**Étapes 2 : `Floors` d'étages assemblés.** Une séquence `Floors` peut lister des `floor:<id>`
+(`levels: ["floor:etage", "floor:etage"]`). Chaque entrée est **son propre monde** (emplacement) :
+
+- *Un chemin d'asset par étage* : `floor://<emplacement>/<gabarits>` (`game::cave_assets`, comme
+  `cave://` §21), lu physiquement dans le fichier des gabarits ; sans cela l'`AssetServer` rendrait
+  le premier étage chargé à tous (`FloorPlan::slot_of_level` ne fusionne pas les entrées `floor:`).
+- *Graine dérivée par emplacement* : `graine_de_la_run + emplacement × 0x3C6E_F372` (wrapping) ;
+  l'emplacement 0 garde la graine de la run. Les ids réseau sont triés par contenu comme partout.
+- *Ouvertures libres murées* (`GeneratedMap::close_unused_openings`) : une ouverture sans voisin
+  reste ouverte en `Basic` ; dans un étage de grammaire elle est refermée.
+- *Salles de l'étage courant seulement* : les mondes de tous les emplacements existent dès le
+  départ et se superposent dans l'espace ; `rooms::CurrentRooms` ne présente aux systèmes de salle
+  que l'emplacement de l'étage en cours. Sans cela les salles de l'étage 2 se verrouillaient et se
+  vidaient pendant l'étage 1. Les portes du nouvel étage sont rouvertes à la transition
+  (`RoomStates::doors_opened` remis à faux).
+- Portail à la mort du boss (barycentre des `PlayerSpawn`, donc au centre de la salle de départ),
+  `victory_at_end` sur le dernier étage.
+
+**Piège : la séquence par défaut.** `entry.mode: Floors` prend la **première séquence par ordre
+d'id** du dossier `Floors` (`run_state::resolve_run_mode_with_floors`). Ajouter un fichier qui
+passe avant l'ancien change la partie par défaut : les séquences de grammaire de `gungeon` sont
+nommées `etages_*` pour que `etage_1` (T0d) reste la première. Même piège pour tout nouveau jeu.
+
+**Gungeon.** Gabarits `games/gungeon/assets/maps/salles.ldtk` (9 gabarits de 8×8 tuiles, script
+`docs/taches/rapports/m2-t10-grammaire-etage.make_salles.py`) : `Depart`, `CombatEW/NS/T/Croix`,
+`Recompense`, `Boutique`, `BossW/N`. Grammaires `etage` (8–12 salles), `grand` (15–20) et `court`
+(3 salles : départ, combat, boss) ; séquences `etages_grammaire`, `etages_grand`, `etages_court`,
+`etages_court_deux`. T0d (`etage_1`) reste la séquence par défaut : les traces `gungeon_*` d'avant
+ne bougent pas, la grammaire est activée par `floors: Some("etages_...")`.
+
+**Scénarios.** `gungeon_floor_seed_{1,23,123}` : étage `court` (même forme, départ, combat en T,
+boss à l'est, pour ces trois graines : relevé par `ALACOD_FLOOR_DUMP=court` du test
+`gungeon_etages_de_grammaire`), joueur scripté jusqu'à la mort du boss. `gungeon_two_floors` :
+graine 123, deux étages `court` de même forme, `FloorIndex`. `bench_floor` : étage `grand`, deux
+bots `fonceur` (plancher dans `tests/budgets.ron`). L'atteinte du boss est scriptée : les bots
+nettoient les salles de combat mais ne vont pas vers une salle dormante (bot explorateur : T16).
 
 ## Notes essentielles
 
@@ -2565,3 +2758,649 @@ dans les scripts de build web (`zombies` et `throne` seulement).
 **Fixed-point** : voir §2 et `CLAUDE.md` (Déterminisme, règles 1 et 7).
 
 **Tests et scénarios** : `make test_scenarios` vérifie que les scénarios passent en synctest (mode déterministe local). Tout changement de code dans `GgrsSchedule` peut casser les traces `.trace` ; rebase sur `main` chaque jour et revalider en CI rapide (preuve d'un bless : §10). Une tâche de toute voie peut bénir des traces, **avec la preuve du §10**, bénies par l'orchestrateur (`BLESS=1`, justification dans le commit) ; V1 (simulation) est la voie qui les change le plus souvent.
+
+### Brouillard d'exploration opt-in (revue M0, Le Relais)
+
+`game::room_fog::FogMap` est une ressource de présentation immuable décrivant une grille
+LDtk de visibilité : dimensions, origine monde, murs, fenêtres, identifiants de pièces
+et portes avec leurs deux extrémités. Elle n'est ni un état de salle M2 ni un état de
+combat. La présence de `settings.enabled = true` active le rendu ; sans métadonnées,
+les autres jeux conservent leur affichage.
+
+Pour `zombies`, régler `games/zombies/assets/ui/fog.ron`, puis lancer
+`python3 scripts/construire-modules-le-relais.py`. Ce script conserve les réglages RON
+comme champ `fog_settings` des gabarits ; le générateur produit le champ `fog_layout`
+avec les limites exactes de la carte assemblée et ses connexions. Les rectangles de
+défense des spawners ne servent pas au champ de vision. La génération reste à un
+niveau final fusionné : ne pas confondre ces identifiants avec des `LevelId` distincts.
+
+Le champ de vision utilise les murs et l'état des portes. Les fenêtres laissent passer
+la vue avec une portée limitée ; les obstacles bas ne sont pas déduits de leur seule
+collision de mouvement. Dans Le Relais, les cases IntGrid `Walls` sont des occluders
+pleins, y compris le mobilier actuellement dessiné dans cette couche. Pour du mobilier
+bas transparent à la vue, fournir une grille de visibilité différente de celle-ci.
+
+L'observation `capture_vision` est installée seulement par `PresentationPlugin` dans
+`GgrsSchedule` : lecture des positions Fixed et des portes, écriture d'un historique
+**hors simulation**, sans RNG, dégâts, composants rollback ni effet sur les checksums.
+Une resimulation invalide les échantillons prédits ultérieurs. Seules les frames
+`ConfirmedFrameCount` alimentent la mémoire explorée. Le calcul de visibilité et la
+texture RGBA se font hors GgrsSchedule ; une fermeture masque immédiatement et seule
+la révélation est interpolée. La mémoire et les assets sont nettoyés en fin de partie.
+
+Les sprites dynamiques et leurs enfants sont filtrés hors de vue, avec conservation
+de leur alpha propre. Les bonus au sol, leurs noms, les chiffres de dégâts,
+télégraphes et prompts d'interaction lisent aussi la visibilité courante. Ne pas
+restaurer `Visibility` sur les armes : cela pourrait rendre visible une arme inactive.
+Le HUD écran reste hors du masque. Toute extension des effets visuels doit respecter
+ce filtrage si elle affiche des informations sur une entité cachée.
+
+Les connexions des portes déterminent quelles pièces sont accessibles à l'exploration,
+sans les révéler entièrement. Le champ de vision révèle ensuite les seules cases en
+vue. Ce filtre empêche une vue par une fenêtre extérieure de dévoiler les objets d'une
+pièce encore fermée. Lorsqu'une partie d'une porte est en vue, sa face complète reste
+lisible dans les cases de mur du passage ; cela ne révèle aucune case intérieure.
+
+## 42. Effets v2 : déclencheurs, conditions, cooldowns et charges (M2-T3, chantier C1 v2)
+
+Suite de §27 (effets v1) et §36 (objets). Code : contrats `effects::{On, Condition, Effect,
+Recharge}`, règles pures `effects::runtime` (`responds_to`, `conditions_hold`, `Limits`,
+`limits_allow/consume/recharge`), exécution `game::effects_runtime`
+(`apply_effects_system` v1, `apply_triggered_effects_system` v2).
+
+**Déclencheurs exécutés** (le lint refuse les autres) :
+
+| Déclencheur | Source lue | Système / ordre |
+|---|---|---|
+| `OnRoomClear` | `FrameEvents<RoomChanged>` vers `Cleared`, **si le porteur est dans les bornes de cette salle** (iid de l'événement) | v2, après `Run` |
+| `OnDodge` | `FrameEvents<sim_core::triggers::DashStarted>` (émis par `apply_inputs` au début du dash) | v2 |
+| `OnReload` | `FrameEvents<sim_core::triggers::ReloadFinished>` (émis par `weapon_rollback_system` quand le chargeur est **réellement rempli** ; le délai de pompe d'une arme sans chargeur n'en émet pas) | v2 |
+| `OnPickup` | `FrameEvents<ItemPicked>` du porteur (objet ramassé, **le sien compris**) | v2 |
+| `OnFloorStart` | changement de `FloorState::index` vu par le porteur ; le premier étage compte pour un effet présent aux frames 0–1 (un effet vu plus tard, par exemple un objet ramassé en cours d'étage, ne se déclenche qu'au **prochain** étage) | v2 |
+| `OnBlank` | `FrameEvents<BlankUsed>` (M2-T1) du porteur (`player_handle`) | v2, **après `blank_system`** (qui émet dans `Effects`) |
+
+Les nouveaux variants (`OnFloorStart`, `OnBlank`) sont en **fin d'enum** `On`. Le système v2 tourne
+`.after(RollbackSystemSet::Run).after(item_charge_system).after(blank_system).before(FrameCounter)` : `RoomChanged`
+est émis dans `Run` et vidé au `FrameStart` suivant, les autres événements dans des sets plus tôt
+de la même frame. Les événements `DashStarted`/`ReloadFinished` sont des `FrameEvents` neutres
+(file vide : contribution 0 au checksum).
+
+**Conditions** : `Carrying(item)` (objets tenus, passifs et actif) et `SquadSize(n)` (au moins `n`
+joueurs en vie, ni `Death` ni `Downed`) sont exécutées. `TargetInRange` reste un contrat (aucune
+position de cible dans les déclencheurs) : le lint la refuse.
+
+**Cooldown et charges** : champs optionnels de l'effet, `cooldown: Some(frames)` (délai minimal entre
+deux exécutions), `charges: Some(n)` (exécutions avant épuisement), `recharge: Some(PerRoom |
+PerFloor)` (retour de **toutes** les charges à la salle nettoyée ou au début d'étage ; `PerRoom`
+suit `RoomChanged` de n'importe quelle salle du porteur, `PerFloor` le changement d'index).
+Sans ces champs l'effet est celui de la v1. La condition est évaluée **avant** les limites (une
+condition fausse ne consomme rien) ; une exécution consomme la charge et arme le cooldown.
+Lint : `cooldown = 0`, `charges = 0`, `recharge` sans `charges` sont refusés.
+État : `EffectState::limits` (clé `effect:<index>` ou `item:<id>:<index>`).
+
+**Pas de trace qui bouge** : `Effect` et `EffectState` ont un `impl Hash` manuel qui écrit les champs
+v2 **seulement s'ils ne sont pas vides** ; un porteur sans effet v2 garde le hash d'avant
+(`effet_v1_garde_son_hash`, `effect_state_sans_champ_v2_garde_le_hash_de_t1_10`).
+
+**Effets des objets (choix : lecture dans l'`Inventory`)**. Un objet passif ou actif tenu applique
+ses `effects` (hors `OnUse`, exécuté par `game::items`) au porteur : les systèmes lisent
+l'`Inventory` à chaque frame au lieu de copier les effets dans `Effects` au ramassage. Raisons :
+un objet perdu (actif remplacé) n'a rien à retirer ; pas de composant en plus sur le joueur (donc
+pas de hash qui bouge pour les joueurs sans objet à effets) ; l'index d'effet est celui du
+`ItemDef`, stable. Le porteur qui n'a pas d'`EffectState` en reçoit un au premier effet exécuté.
+Source des modificateurs d'un effet d'objet : `item:<id>:<index>` (distincte de `item:<id>`,
+celle des `modifiers` de l'objet). Ordre : porteurs par `GgrsNetId`, effets du personnage par
+index puis ceux des objets (passifs dans l'ordre de ramassage, puis l'actif). Deux exemplaires du
+même objet partagent leurs limites (clé identique). Un `Tick` d'objet compte depuis la première
+frame où le système voit l'objet. Lint : un effet d'objet suit `lint_effect` ; `OnUse` n'a de sens
+que sur un actif.
+
+**Contenu** : `gungeon` : `trefle` (soin à la salle nettoyée, une fois par étage), `cartouchiere`
+(cadence après un rechargement, cooldown 600), `amulette` (vie max et soin au ramassage, une charge).
+`testbed` : neuf objets d'essai (dont `sceau`, `OnBlank`) (`anneau_salle`, `semelles`, `semelles_lentes`, `bandoulier`,
+`bandoulier_comptee`, `talisman`, `boussole`, `porte_bonheur`), dont l'effet est un `Modifier(Damage,
+Add, 1)` : la valeur de `Stat(Damage)` compte les exécutions.
+
+**Scénarios** : `effect_on_room_clear`, `effect_on_dodge`, `effect_on_reload`, `effect_on_pickup`,
+`effect_on_floor_start` (aussi la recharge `PerFloor`), `effect_cooldown`, `effect_charges`
+(recharge `PerRoom`), `item_passive_effect` (`OnKill` d'un objet), `effect_on_blank` (passif
+`sceau` : +1 de dégâts à chaque Blank utilisée, `testbed`).
+
+**Règle d'engine : `add_frame_events_transient`** (M2-T3). Un événement émis dans des parties
+existantes et lu seulement dans la même frame (`DashStarted`, `ReloadFinished`) s'enregistre avec
+`add_frame_events_transient::<T>()` : file hors checksum et hors snapshot, vidée au `FrameStart`.
+Les lecteurs sont ordonnés `.after` l'émetteur (ici le système d'effets v2, après `Run`, donc
+après `Input` et `Weapon`) ; un lecteur placé avant verrait la file de la frame précédente. La
+variante neutre ne convient pas : sa file non vide est hachée et déplace les traces existantes
+dès qu'un dash ou un rechargement a lieu.
+
+## 43. Esquive v2 (M2-T2, chantier B6)
+
+Code : `combat::actors::DashExtra` (état), `game::character::movement` (`DashConfig`, `DashEffect`,
+`IframesKind`, `MovementConfig::resolve_dash`), `game::character::player::input::apply_inputs`
+(lancement), `game::character::dash::dash_shove_system` (bousculade), `content::lint::lint_dash`.
+
+**`DashState` ne change pas.** Il est sous checksum et porté par tous les joueurs : le moindre champ
+de plus déplacerait toutes les traces dès la frame 0. L'état nouveau vit dans un composant séparé,
+`DashExtra { charges, max_charges, recharge_remaining, projectile_iframes_until, shove_force }`,
+enregistré en variante **neutre** (`rollback_and_trace_neutral`) et posé à la création
+(`character::create`) **seulement** si le personnage déclare `dash: Some(..)` ou
+`movement.dash_charges`. Aucun porteur ailleurs : zombies, testbed, throne gardent leurs traces.
+`is_dashing` passe à vrai à la frame de l'appui, comme en v1 (M2-T3 y branche `OnDodge`).
+
+**Réglage.** `MovementConfig` gagne `dash_charges: Option<u32>` et `dash_recharge_frames`. Le RON
+du personnage gagne `dash: Option<DashConfig>` ; chaque champ absent retombe sur le réglage v1 de
+`movement` : `distance`, `duration_frames`, `cooldown_frames`, `iframes`, `iframes_kind`
+(`All` v1 / `Projectiles`), `effect` (`Roll` v1 / `Shove` / `InPlace`, nouveaux effets en fin d'enum),
+`shove_force`, `charges`, `recharge_frames`.
+```ron
+dash: Some((iframes_kind: Projectiles, charges: Some(2), recharge_frames: Some(60))),
+```
+
+**Charges.** Sans `charges` : v1 exact, le cooldown seul règle le rythme. Avec : un dash consomme une
+charge (refusé à zéro, l'appui est gardé par le buffer comme en v1), `dash_cooldown_frames` reste
+l'écart minimal entre deux dashs, une charge est rendue `recharge_frames` frames après la
+consommation de la première manquante (le décompte repart tant qu'il en manque). Le test et le
+décompte sont dans `apply_inputs`, avant le lancement : une charge rendue à la frame F est utilisable à F.
+
+**Variantes.** `Roll` : v1. `Shove` : pendant le dash, chaque ennemi dont le collider touche celui du
+joueur reçoit `Velocity.knockback = direction du dash × shove_force` (assigné, pas cumulé ; l'amortissement
+habituel s'applique), ordre `GgrsNetId`. `InPlace` : distance 0 (les pas sont nuls), seulement les
+i-frames ; pas de tir pendant la durée, comme tout dash.
+
+**I-frames contre projectiles.** `iframes_kind: Projectiles` n'écrit **pas**
+`Health.invulnerable_until_frame` : `DashExtra.projectile_iframes_until` (dernière frame comprise),
+lu par la collision des balles (`weapons/mod.rs`) et des projectiles composables
+(`projectile.rs`) ; elles traversent le porteur sans être consommées. La mêlée, les contacts, la
+ruée (`Charge`) et tout autre dégât le touchent. `All` (défaut) : v1.
+
+**Lint** (`OutOfRange`, seulement pour un personnage qui déclare `dash` ou `dash_charges`) :
+`dash_charges = 0`, `dash_recharge_frames = 0` avec des charges, durée 0 hors `InPlace`, i-frames
+plus longues que la durée. Fixtures `dash_charges_zero`, `dash_recharge_zero`, `dash_duration_zero`,
+`dash_iframes_over_duration`.
+
+**Scénarios** : champ `dash` de `PlayerScript` (réglage de scénario, `DashOverride` + `DashExtra`
+posés avant la première frame par `apply_player_overrides` ; conservé au ré-enregistrement) pour
+essayer une variante sans changer le contenu des jeux. `dash_charges` (gungeon : deux dashs à f15 et
+f45, le troisième, refusé, part à f76 quand la charge de f15 est rendue), `dash_shove` (un
+`follower` projeté, 52 px derrière contre 30 pour `Roll`), `dash_in_place` (position inchangée,
+`NoDamageBetween` sur les i-frames), `dash_jump_bullets` (les balles de la `tourelle_salve` traversent,
+la ruée du `charger` touche dans la même fenêtre).
+
+**Contenu** : `gungeon/characters/pistolero.ron` : deux charges (une rendue toutes les 60 frames),
+i-frames contre projectiles seulement. Les traces `gungeon` ne bougent qu'à cause de ce nouveau
+composant (voir le rapport).
+
+## 44. Objets v2 et synergies (M2-T4, chantier C2)
+
+**Synergies.** Kind de contenu `Synergy` (dossier `synergies/`, `(path: "synergies", kind: "Synergy")`
+dans `game.ron`), un fichier RON par synergie, id = nom de fichier, champs de `items::SynergyDef` :
+`name`, `requires: [ids]` (deux objets distincts ou plus : passifs ou actif), `modifiers` et `effects`
+(mêmes formes que `ItemDef`). Table `items::SynergyTable` (ressource hors rollback, posée au chargement
+de la carte par `map_ldtk`, comme `ItemTable`).
+
+Active **tant que tous** les objets requis sont tenus (`Inventory::has` : un passif ou l'actif
+courant), retirée dès qu'un manque (l'actif remplacé tombe au sol). **État dérivé de l'`Inventory` à
+chaque frame, aucun composant ni hash en plus** :
+- `modifiers` : `game::items::synergy_modifiers_system` (`Effects`, après `blank_system`) pose les
+  modificateurs de source `synergy:<id>` quand la synergie devient active, les retire (`remove_by_source`)
+  quand elle cesse ; synergies par id, joueurs par `GgrsNetId`. Un joueur sans `Inventory` n'a pas de synergie.
+- `effects` : `game::effects_runtime::listed_effects` ajoute, après les effets des objets, ceux des
+  synergies actives (par id) sous la clé `synergy:<id>:<index>` (limites, `Tick`, source de modificateur
+  `synergy:<id>:<index>`, comme les effets d'objet). Un effet de synergie suit `lint_effect` ; `OnUse` y est
+  refusé. Le ramassage qui complète la paire déclenche déjà un `OnPickup` de la synergie (même frame).
+
+**Actifs v2** (`ItemDef`, champs optionnels, v1 exact sans eux) :
+- `uses_per_floor: Some(n)` : au plus `n` usages par étage du mode `Floors` (hors `Floors`, par partie).
+  Mémoire dans `ActiveSlot::uses = Some((étage, usages))` : les usages d'un autre étage ne comptent plus,
+  aucun reset à écrire. **`uses` n'entre dans le hash que s'il est posé** (`impl Hash` manuel d'`ActiveSlot`,
+  comme `Effect` en §42) : le hash d'un actif v1 est celui d'avant. Un usage refusé garde la charge.
+- `cost: Some((item, n))` : l'usage prélève `n` exemplaires du consommable `item` ; sans le stock, il est
+  refusé (charge conservée). Lint : `item` connu et consommable, `n > 0`.
+- `OnUse` accepte maintenant `Heal` (en plus de `Modifier` et `TimedModifier`) : `game::items::apply_instant_effects`.
+
+**Consommables à effets.** Un consommable dont `effects` n'est pas vide (uniquement `OnUse`, lint) **s'applique
+au ramassage** et n'entre pas dans l'inventaire : aucun bouton d'usage n'existe pour un consommable générique
+(pas de nouveau bit d'input, accord d'orch). Actions : `Heal`, `Modifier`, `TimedModifier`. Un consommable
+sans effet reste un compteur (`key`, `blank`, `obus`). Pas de refus de ramassage à pleine santé (le soin est
+simplement borné).
+
+**Lint** : synergie à objet inconnu (`BrokenReference`), à moins de deux objets distincts (`OutOfRange`),
+à un consommable (`Unsupported`), deux synergies pour le même ensemble (`DuplicateId`), `OnUse` dans une
+synergie ; `uses_per_floor = 0` (`OutOfRange`), `uses_per_floor`/`cost` sur un non-actif, `cost` vers un
+objet inconnu ou non consommable. Fixtures `synergy_unknown_item`, `synergy_single_item`,
+`synergy_duplicate_set`, `item_uses_per_floor_zero`, `item_cost_not_consumable`.
+
+**Contenu.** `gungeon` : synergies `tresor_de_poche` (`trefle` + `amulette` : +10 de vie max) et
+`tir_nourri` (`cartouchiere` + `etendard` : +25 % de cadence) ; actif `pierre_de_soin` (`Rooms(1)`, soin 20,
+`uses_per_floor: 2`) ; consommable `ration` (soin 15 au ramassage). Pas de « bouclier temporaire » :
+`StatId::Armor` n'est lue par aucun système (un actif sur cette stat serait sans effet), à reprendre quand
+la réduction de dégâts existera. `testbed` : objets d'essai `lame`, `manche`, `braise`, `eclat`, `canon`,
+`obus`, `ration`, synergies `lame_manche` (modificateur +2 et effet `OnPickup` +4) et `lame_braise` (+2).
+
+**Scénarios** : `synergy_pair` (bonus avec les deux objets, absent avec un seul : dégâts 1 puis 7),
+`synergy_lost` (actif remplacé : dégâts 3 puis 1), `item_active_per_floor` (trois appuis par étage, deux
+effets, sur `deux_niveaux`), `item_active_cost` (obus 3 → 1, second usage refusé), `consumable_heal`
+(santé 92 → 97 au ramassage). Aucune trace existante ne bouge : types neutres, champs optionnels hors hash.
+
+## 49. Formations simples : escouades en arc et tir alterné (M2-T8, chantier D1 v2)
+
+Code : `behaviors::{Behavior::Formation, FormationShape}`, `game::character::enemy::ai::squad`
+(`formation_system`, `SquadSlots`, `arc_places`, `fire_turn`, `nearest`), `rules::behavior_motion`
+(déplacement), `rules::behavior_select_system` (tour de tir), `content::lint::lint_formation`.
+
+**Contenu.** Un ennemi se déclare membre d'une escouade par `ai.squad: Some(("id", Some("rôle")))` et
+liste une règle `Formation` (variante **en fin d'enum** `Behavior`, aucune discriminante existante ne bouge) :
+
+```ron
+ai: Some((
+    squad: Some(("bullet_kins", Some("arc"))),
+    behaviors: Some([
+        Shoot(weapon: "arsenal", pattern: "salve", range: "240.0", cooldown_frames: 90),
+        Formation(shape: Arc(radius: "56.0", spread: "1.6"), period: 40),   // volley: true : tir groupé
+        Chase(profile: "Ground"),
+    ]),
+)),
+```
+
+**Escouade = donnée dérivée.** Les ennemis vivants (hors salle dormante) de même `squad` qui listent une
+`Formation`, rangés par `GgrsNetId` (le rang est l'indice dans cet ordre). `formation_system`
+(`EnemyAI`, après `enemy_target_selection`, avant `behavior_select_system`) vide puis réécrit
+`SquadSlots` à chaque frame, avant tout retour anticipé : ressource **hors rollback**, aucun état caché,
+aucun nouveau type sous checksum. Une escouade vit tant que ses membres vivent ; elle ne dépend pas de la
+salle (une seule salle d'escouade est éveillée à la fois dans `gungeon`).
+
+**Cible et places.** La cible de l'escouade est le joueur debout le plus proche de son centre (moyenne
+des positions), à distance égale le plus petit `GgrsNetId` (`nearest`). L'arc est centré sur la cible,
+son milieu pointe vers le centre de l'escouade ; la place du rang `k` sur `n` membres est l'angle
+`spread × (k/(n−1) − 1/2)` (le membre seul est sur l'axe). Les places ne changent pas tant que l'effectif
+ne change pas ; un membre mort réattribue les rangs au prochain tour. Angles et trigonométrie en `Fixed`
+(`cos_fixed`/`sin_fixed`). Écart avec la fiche : « plus proche par le chemin » est ici la distance
+euclidienne au centre de l'escouade (pas de flow field par escouade).
+
+**Déplacement.** À plus de `2 × radius` de la cible : mouvement d'origine (flow field, comme `Chase`).
+Plus près : droit vers la place, puis, à moins de 6 unités, `Strafe` léger (quart de vitesse, sens
+alterné toutes les 45 frames). **Tir alterné** : `Shoot` n'est candidat que dans la fenêtre du membre,
+`(frame / period) mod effectif == rang` (`fire_turn`, état dérivé, aucun curseur) ; une séquence en cours
+va à son terme. `volley: true` garde le tir groupé. Effets de bord : un `Shoot` plus long que `period`
+chevauche la fenêtre suivante (les patterns d'escouade tiennent dans une fenêtre).
+
+**Lint** (`OutOfRange`, fixtures `formation_*`) : `radius ≤ 0`, `spread` hors ]0, 2π], `period = 0` sans
+`volley`, formation sans `Shoot` ni `Chase` dans la liste, formation sans `ai.squad`.
+
+**Testbed** : `escouade_tireur` (trois `salve` en fenêtres de 40, arc de 100). **Gungeon** :
+`bullet_kin_squad` (arc de 40, la salle est petite), niveau `EscouadeEW` de `maps/salles.ldtk`
+(`room_kind: escouade`, type `rooms/escouade.ron`), grammaire `court_escouade` et séquence
+`etages_court_escouade`. Ni `bullet_kin` ni les grammaires `court`/`etage`/`grand` ne changent : le nouveau
+type de salle n'est tiré par aucune.
+
+**Attentes** : `EnemyDistance` accepte `target: Entity(<EntityRef>)` (écarts entre membres).
+**Scénarios** : `formation_arc` (convergence à 100, écarts angulaires 59/113), `formation_member_dies`
+(le rang 0 tombe, les deux restants se placent aux extrémités), `formation_alternate_fire` (2, 4, 6 puis 8
+flèches au lieu de 6, 12, 18), `formation_two_players` (arc autour du joueur le plus proche),
+`gungeon_squad`.
+
+## 45. Boss et arène (M2-T7, chantier D4)
+
+Complète §37 (phases, frise) et §35 (salles verrouillées) : tir **par phase**, salle de boss,
+arène à tenir, actions de frise `SpawnEnemies` et `Telegraph`.
+
+**Tir par phase** (lève la limite de §37). Une règle `Shoot` d'une phase (`Phase::behaviors`)
+utilise **sa propre** table de tir : arme (donc table de projectiles), pattern, portée, recharge.
+`EnemyBehaviors::phase_shoot(phase)` la rend, `enemy_attack_system` la préfère à `ai.ranged` ;
+`spawn_enemy` équipe en plus (inactives) les armes des `Shoot` de phase. Sans `Shoot` de phase,
+`ai.ranged` comme avant (aucune trace ne bouge). Personnage `testbed/gardien_tir`.
+
+**Salle de boss.** Type de salle `boss` (`locks: true`, §35). Le boss **dort** tant que sa salle est
+`Dormant` : `boss_phase_system` saute les entités `RoomDormant` (la phase 0 est donc datée à l'éveil,
+pas au premier tick du jeu : le boss ne tire plus depuis une salle fermée). À sa mort,
+`boss_defeated_system` (`DeathManagement`) émet `FrameEvents<BossDefeated>` (**transitoire** :
+`add_frame_events_transient`, hors checksum et hors snapshot, vidé à la frame suivante) puis
+`map_ldtk::game::rooms::boss_room_clear_system` tue les autres ennemis de sa salle (renforts compris) :
+la salle passe `Cleared` dans la frame (portes rouvertes, `RoomChanged`). `floor_portal_open_system`
+ne bouge pas : le portail ou la victoire de fin d'étage viennent après, comme avant. Trace
+`ggrs{f=… boss_defeated net_id=…}` et `boss_room_clear`.
+
+**Actions de frise** (variantes **en fin d'enum** `effects::Action`, le hash des autres ne bouge pas) :
+- `Telegraph(n)` : le prochain `SpawnPattern` de la même liste est précédé d'un télégraphe de `n`
+  frames (l'émetteur joue `Sequence([Telegraph(n), pattern])`) ; aucun type nouveau.
+- `SpawnEnemies(id, count)` : `count` personnages `id` apparaissent dans la salle du boss, positions
+  tirées du flux RNG `room:<niveau>` (`world::room_rng_stream`) sur une case libre du profil `Ground`
+  (16 essais, repli sur le centre). Demande `game::boss::ReinforcementRequest` (transitoire) émise
+  par `boss_phase_system` et exécutée dans la même frame par `boss_reinforcements_system` (`Run`).
+Refusées partout ailleurs que dans un boss (power-up, effet de personnage : `OutOfRange`).
+
+**Arène à tenir.** Champ optionnel `arena` d'un fichier `rooms/<id>.ron` :
+`(arena: Some((clock: 600, waves: [(at: 0, enemies: [("dummy", 2)]), …])))`
+(`world::ArenaDef`, `ArenaWave`). Une arène verrouille **dès qu'un joueur debout entre**, même vide
+(`RoomKindTable::locks` est vrai), et lance son horloge (`ArenaClocks`, ressource rollback **neutre**,
+frame de verrouillage par niveau). Vagues : `arena_waves_system` (`Run`) fait apparaître les ennemis
+d'une vague quand `frame - début == at` (aucun curseur : tout se déduit de l'horloge et de l'état de
+salle). À `clock` frames, si un joueur vit, les survivants meurent et la salle passe `Cleared`
+(portes rouvertes). Si tous les joueurs meurent, défaite universelle. Trace
+`ggrs{f=… arena_wave …}` et `arena_kill`.
+
+**Lint.** `lint_arenas` : `clock` > 0, au moins une vague, `at` < `clock` et croissants, vague non
+vide, personnage connu (`BrokenReference`), `count` > 0 ; dans une frise : `SpawnEnemies` d'un
+personnage inconnu, `count` 0, `Telegraph(0)`, `Telegraph` sans `SpawnPattern` après lui. Fixtures
+`arena_no_waves`, `arena_clock_zero`, `arena_unknown_enemy`, `arena_count_zero`,
+`boss_spawn_enemies_unknown`, `boss_spawn_enemies_count_zero`, `boss_telegraph_alone`.
+
+**Déterminisme.** Types nouveaux tous neutres ou transitoires (`ArenaClocks`, `BossDefeated`,
+`ReinforcementRequest`) : aucune trace hors `gungeon` ne bouge. Les flux `room:<niveau>` ne naissent
+qu'au premier renfort ou à la première vague. Apparitions dans l'ordre : demandes par `GgrsNetId` du
+boss, salles triées par position puis identifiant.
+
+**Contenu.** `testbed` : `gardien_tir`, `gardien_renforts`, types de salle `boss`, `arene`,
+`arene_mortelle`, cartes `salles_boss*.ldtk` et `salles_arene*.ldtk`
+(`docs/taches/rapports/m2-t7-boss-arene.make_cartes.py`).
+
+**Scénarios.** `boss_room_lock` (le boss dort : aucune flèche avant le verrou f85 ; réouverture à sa mort f184),
+`boss_phase_shoot` (flèches de `fireball_gun` en phase 0, balle `ricochet` de `tourelle_gun` en phase 1, projectile
+qui n'existe que dans cette table), `boss_reinforcements` (1 → 3 → 0 ennemis), `arena_survive` (verrou f85, rouverte
+f685 = 85 + 600), `arena_fail` (le joueur immobile meurt f1514, la salle ne se rouvre pas), `gungeon_boss_bot` (le bot
+`fonceur` bat le `gatling` à f403, victoire).
+
+**`gungeon`.** `gatling` : 120 PV (150 avant), phase 0 `eventail` ; phase 1 (sous 50 %) `spirale` ; phase 2 (sous
+10 %, la rage) `SpawnEnemies(bullet_kin, 1)` puis `Telegraph(10)` + `couronne`. Les scénarios scriptés de M2-T0d,
+T1, T3 et T10 gardent leurs entrées : un renfort plus tôt retardait la mort du boss de plus de 40 frames (il
+bloque des balles et le joueur scripté meurt à quelques points de vie près) ; la rage se déclenche donc à la
+dernière touche (sous 10 %) et les PV tombent à 120. Type de salle `arene` (`rooms/arene.ron`, horloge de 900
+frames, 2 + 2 + 3 `bullet_kin`), deux gabarits `ArenaEW` et `ArenaCroix` dans `maps/salles.ldtk`
+(`docs/taches/rapports/m2-t7-boss-arene.make_arene.py`), exigée une fois par la grammaire `etage`
+(`required: {"arene": 1}`), validée sur 1 000 graines (`ALACOD_FLOOR_SEEDS=1000 cargo test -p map_ldtk
+gungeon_etages_de_grammaire`). Aucun scénario ne joue encore l'arène de gungeon.
+## 46. Surfaces v2 : fosses, tables renversables, barils explosifs (M2-T11, chantier E4 v2)
+
+Code : `world::surface` (`PitDef`), `world::props` (`PropDef`, `TableState`, `BarrelState`,
+`PitSafePosition`, règles pures `flip_direction` / `flipped_rect`), `game::props` (`PropsPlugin` :
+`pit_system`, `table_flip_system`, `table_cover_system`, `barrel_explosion_system`),
+`map_ldtk::game::entity::prop` (entités LDtk), `map::generation::entity::prop` (génération).
+Script des cartes : `scripts/construire-cartes-t11.py`.
+
+**Fosse.** Une surface (§26) peut porter `pit` ; la case IntGrid `Surfaces` correspondante est
+une fosse :
+```ron
+// games/testbed/assets/surfaces/fosse.ron
+(intgrid_value: 4, tags: ["fosse"], move_speed: "1.0",
+ pit: (fall_damage: "10.0", dash_crosses: true))   // respawn: LastSafeCell (seul choix)
+```
+Un joueur (hors à terre) dont les pieds (§26) sont sur une fosse perd `fall_damage` PV (dégâts
+`True`, tag `fall`), revient à sa dernière position sûre et sa vitesse est remise à zéro. Un dash en
+cours traverse la fosse si `dash_crosses` ; il tombe s'il finit dessus. Position sûre =
+`PitSafePosition` (composant rollback **neutre**, posé sur les joueurs seulement quand la carte a
+au moins une case de fosse) : translation d'une frame où la case et ses 8 voisines n'étaient pas
+des fosses, réécrite à chaque frame **avant** toute chute. Un joueur apparu dans une fosse n'a pas
+de point de retour et ne tombe pas. Ennemis : les cases de fosse bloquent `Ground` et
+`GroundBreaker` dans le champ de flux (`ObstacleType::Pit`), `Flying` et `Phasing` les passent (sans
+pénalité) ; `EnemyNeverInWall` (§22) échoue aussi quand les pieds d'un ennemi au sol sont sur une
+fosse. Sans la ligne de `update_flow_field_system`, `pit_enemy_path` échoue à f137.
+
+**Objets de décor.** Kind `Prop` (`(path: "props", kind: "Prop")`), un fichier RON par objet, id =
+nom de fichier, lu avec l'extension RON `UNWRAP_VARIANT_NEWTYPES` :
+```ron
+Table(bullets: 4)                                     // thickness: "6", range: "20" par défaut
+Barrel(health: "20.0", radius: "48.0", damage: "30.0")
+```
+Entités LDtk `Table` et `Barrel` (aucun champ requis ; champ optionnel `prop` = id, défaut `table` /
+`barrel`), lues par la génération (`PropConfig`, valeurs d'auteur portées telles quelles comme
+`WeaponLocation`) puis créées par `spawn_map_items` avec `MapRollbackMarker` : `GgrsNetId` triés par
+nom puis position comme les portes. Une entité dont l'id est inconnu ou d'un autre type reste
+inerte (`warn!`). Lint : table à `bullets` 0, baril à `health`/`radius`/`damage` ≤ 0, fosse à
+`fall_damage` ≤ 0 (`OutOfRange`), fosse sans `fall_damage` (`Parse`) ; fixtures `pit_*` et `prop_*`.
+
+**Table.** Debout : marqueur `Window`, couche `window`, `Obstacle` `Barricade` non cassable,
+`Interactable { Table }` (portée 20 du bord du collider). Les balles passent, les joueurs et les
+zombies non. L'interaction (`InteractionType::Table`, variante ajoutée en fin d'enum) la renverse à
+l'opposé du joueur (axe dominant, égalité : x) : elle perd `Window` et `Interactable`, gagne
+`Wall` + couche `wall`, et son collider devient une bande de `thickness` au bord renversé sur toute
+la longueur de ce bord. Chaque balle qui la touche (`combat::projectile::BulletWallHit`, file
+**transitoire** hors checksum, émise par les collisions de balles ordinaires et composables) retire
+1 à `bullets_left` ; à 0, `despawn_rollback()`. `TableState` : rollback neutre.
+
+**Baril.** Personnage `Enemies` sans IA (Neutral ne subit jamais de dégâts) avec `Health`,
+`BarrelState` (neutre) ; sans butin (power-ups, armes de progression ignorent `BarrelState`). À 0 PV
+il garde son `Death` (santé figée à 0) : `rollback_apply_death` l'ignore. À la frame suivante
+`barrel_explosion_system` (`CollisionDamage`, avant le résolveur) envoie `damage` (genre `Physical`,
+tag `explosion`, tir ami `Always`) à tout ce qui a des PV dans `radius` (distance centre à centre,
+hors barils déjà morts), crédité au dernier joueur qui l'a touché, puis `despawn_rollback()`. Les
+barils touchés meurent dans la même frame (résolution avant `DeathManagement`) et explosent à la
+suivante : chaîne déterministe (ordre `GgrsNetId`).
+
+**Scénarios** (testbed, cartes `props_*.ldtk`) : `pit_fall` (100 → 90 PV, retour à x -150,6),
+`pit_dash` (traversée, 100 PV), `pit_enemy_path` (le `follower` contourne), `table_flip_cover`
+(cible à 5 coups avant, 5 pendant la couverture, 13 après la rupture), `barrel_chain` (f63 premier
+baril à 0 PV, f64 second, f65 joueur 1 à 70). Nouvelle catégorie `EntityCount(kind: Barrel | Table)`.
+
+**Gungeon.** `CombatEW` et `CombatNS` de `maps/salles.ldtk` portent deux barils et une table
+(définitions d'entités ajoutées au projet LDtk) ; test `gungeon_decor_sur_1000_graines`
+(`map_ldtk::generation`) : 1 000 graines de `etage`, 3 objets exactement par salle décorée, dans la
+salle, sans recouvrir porte, spawn ni personnage. Seule `bench_floor` bouge (12 barils, 6 tables).
+
+**Pièges.** (1) Une file `FrameEvents` « neutre » est hachée dès qu'elle n'est pas vide : un
+événement émis dans des parties existantes (ici un mur touché) exige `add_frame_events_transient`.
+(2) Un système qui pose un composant neutre sur les joueurs doit se garder sur une condition de
+**carte** (case de fosse présente), pas de **jeu** (une surface fosse existe) : sinon les cartes à
+eau du même jeu changent de trace. (3) `Team::Neutral` ne subit aucun dégât : un objet destructible
+est `Enemies`. (4) Les bullets partent ~9 unités sous le centre du joueur : ne pas poser le joueur
+en bord de couloir. (5) Deux worktrees sur un même `CARGO_TARGET_DIR` collisionnent (chemins
+relatifs hachés pareil) : `find crates games -name '*.rs' -exec touch {} +` avant de reconstruire.
+## 47. Bot explorateur d'étages (M2-T16, chantier K2 v1)
+
+**Profil `explorateur`** (`BotProfile::Explorateur`, fin de l'enum, `bots::explorer`) : joue seul un étage
+de salles typées du mode `Floors` (§35, §40). Aucune simulation touchée : il ne produit que des inputs, les
+profils existants sont inchangés (aucune trace existante ne bouge).
+- **Combat** : celui de `prudent` (chasse par le chemin, esquive, gestion d'arme, réanimation, ramassage au
+  passage), contre les seuls ennemis **éveillés** : un ennemi `RoomDormant` n'est pas une cible mais une salle
+  à visiter.
+- **Blank** (§41) : appui quand une balle ennemie qui approche est à moins de `BLANK_DISTANCE` (48 px) et que
+  le joueur a un blank ; front montant lu dans `BlankState::held` (état rollback).
+- **Exploration**, sans ennemi éveillé : le but le plus proche **par le chemin** (champ à une source,
+  `BotNavigation::costs_from`). Ordre déterministe : coût, objets avant salles, puis `GgrsNetId` de l'objet
+  ou identifiant de salle (`LevelId`). Buts : objet au sol (pas d'actif si le joueur en tient déjà un :
+  il échangerait sans fin), salle verrouillante à visiter (`Locked`, ou `Dormant` avec un ennemi dedans), la
+  salle du boss en dernier. Portail ouvert : `prudent` va au portail.
+- **Mémoire** : aucune. « Visitée » se lit dans l'état (`RoomState` `Cleared`, ou `Dormant` sans ennemi) ;
+  les champs de navigation sont des caches dont la clé contient la géométrie.
+- **Option** `ExplorerOptions::boss_direct` (`alacod-sim --boss-direct`) : droit au boss, sans autre salle
+  ni objet.
+
+**`alacod-sim`** : `--floors <séquence> --until-floor N` existait (T1.14) ; le JSON gagne `outcome`
+(`victoire`, `objectif`, `mort`, `soft-lock`, `plafond`, `desync`) et `rooms` (par étage : salles typées,
+visitées, nettoyées, verrouillantes) ; un résumé par issue (graines) finit la sortie d'erreur. `--until-floor N`
+s'arrête dès que `FloorState::index >= N` (index 0-based) : **atteindre l'étage 2 = `--until-floor 1`**. La
+campagne : `alacod-sim --game gungeon --bots 1 --profiles explorateur --floors etages_court_deux --seeds A..B
+--until-floor 1 --max-frames 20000`.
+
+**Scénarios** : `bot_explorer_floor` (un bot, graine 1) et `bot_explorer_two` (deux bots) jouent
+`etages_court_deux` sans input scripté ; ils vérifient l'état des salles, `FloorIndex` 1 et la survie. La
+carte de l'étage suivant est chargée à l'avance : `RoomState` y désigne les salles de l'étage joué par
+`nth: 1`. Les scénarios `gungeon_floor_seed_*` (atteinte scriptée) ne changent pas.
+
+## 52. Contenu `gungeon` (M2-T14, quatre parties)
+
+### 52.a Armes (T14a)
+
+Données seulement (`games/gungeon/assets/weapons/weapons.ron`), aucune mécanique ajoutée au moteur.
+Vingt armes à distance au total (compte du lint : `pistolet`, 18 nouvelles, `arsenal` des ennemis),
+plus `bare_hands` (mêlée). Chacune compose des comportements existants et porte un `test:` (scénario
+généré `weapon_<arme>`, `make gen GAME=gungeon`) avec bornes `min_hits`/`max_hits` mesurées.
+
+| Arme | Munition | Caractère | Composition |
+|---|---|---|---|
+| `pistolet` | balles | arme de départ, cadence 3/s | `Automatic`, `Standard` |
+| `revolver` | balles | coup lent et lourd | `Manual`, 30 dégâts, chargeur 6 |
+| `pistolet_precis` | balles | balle perçante | `Piercing(1)` + `Pierce(1)` |
+| `pistolet_jumele` | balles | deux balles par pression | `Burst(2)` |
+| `carabine_rafale` | balles | rafale de trois | `Burst(3)` |
+| `mitraillette` / `mitrailleuse_lourde` | balles | tir continu 10 et 14/s, dispersion | `Automatic`, `spread` |
+| `rebondisseur` | balles | rebondit sur les murs | `Bounce(3)` |
+| `fusil_pompe` / `double_canon` | cartouches | cône de 8 / 10 plombs | `Shotgun` |
+| `fusil_precision` | calibre | traverse trois ennemis, très lent | `Piercing(3)` + `Pierce(3)` |
+| `arc` / `arbalete` | fleches | flèche lente perçante / carreau lourd | `Piercing`, `Pierce`, `Size` |
+| `laser` | energie | faisceau rapide qui traverse tout | `Automatic`, `Pierce(8)`, `Lifetime(30)` |
+| `chercheur` | energie | tête chercheuse | `Homing("0.1")` |
+| `boule_energie` | energie | gros projectile lent | `Size("3.0")`, `Pierce(8)` |
+| `lance_roquettes` | roquettes | explose à l'impact | `on_expire: Spawn(Aimed → souffle)` |
+| `grenadier` | roquettes | rebondit puis explose en éclats | `Bounce(2)`, explosion + `Ring` (§16) |
+| `lance_flammes` | carburant | jet continu à portée courte | `Automatic`, `Lifetime(40)`, `Pierce(2)` |
+
+Munitions : réserves distinctes par type `Custom` (`balles`, `cartouches`, `calibre`, `fleches`,
+`energie`, `roquettes`, `carburant`). Pas de munition infinie dans le moteur (D à venir) : seul
+`pistolet` a une réserve de 9999 chargeurs ; les autres ont une réserve finie.
+`Burst` ne tire pas plusieurs balles par frame mais `pellets_per_shot` balles espacées de
+`cooldown_frames` (voir `FiringMode::Burst`). Les traces `gungeon` existantes n'ont pas bougé
+(les 5 scénarios générés d'avant sont identiques après `GEN_BLESS=1`).
+
+## 53. Lint des kinds M2 et atteignabilité statique (M2-T15, voie V2)
+
+Lint seulement : aucune simulation touchée, aucune trace ne bouge.
+
+**Avertissements.** `content::warnings(&registry, &manifest) -> Vec<LintWarning>` (`crates/content/src/reach.rs`,
+kinds `Unreachable` et `UnreadStat`). `alacod lint` les liste sur stderr (« avertissement : … ») et le
+code de sortie ne change pas ; `LintError`/`load_and_lint` sont inchangés.
+
+**Stat sans lecteur.** `sim_core::stats::stat_reader(&StatId) -> Option<&'static str>` : liste fermée
+des stats lues par la simulation, avec l'endroit de lecture ; à tenir à jour **à la main** quand un
+système lit une nouvelle stat. Un modificateur (ou une base `stats:`) sur une stat sans lecteur est une
+erreur `LintErrorKind::UnreadStat` (`Luck`, tout `Custom` sauf `powerup_currency_multiplier`).
+**`Armor` : avertissement seulement** tant que D61 n'est pas mergée (retirer l'exception de
+`lint_stat_readers` et ajouter `Armor` à `stat_reader` en même temps que son lecteur).
+Usages inspectés : `stats` et `effects` des personnages, variantes, perks, objets, synergies, mutations,
+power-ups.
+
+**Atteignabilité.** Racines : `entry.start_map` et chaque niveau de chaque séquence `Floors` (carte,
+`cave:<id>`, `floor:<id>`). Il n'y a pas de séquence « par défaut » stable (le mode `Floors` prend la
+première par ordre d'id, et `etage_1` de gungeon est une carte fixe) : toute séquence déclarée compte.
+Types tirables d'une grammaire = `FloorGrammar::kinds_needed()`. Avertissements :
+- type de salle (`rooms/<id>.ron`) qu'aucune grammaire ni carte posée ne peut tirer ;
+- gabarit d'une carte `templates` dont le type n'est tiré par aucune grammaire atteinte ;
+- ennemi (`ai` présent) absent des niveaux jouables (cartes posées, gabarits tirables), des arènes
+  des salles tirables, des vagues, des cavernes et des renforts de boss (point fixe) ;
+- objet sans source : `starting_consumables`, `consumables_per_floor`, **pool**. Le point de branchement
+  de M2-T5 est `reach::loot_pool_items` (et `loot_pool_weapons`), vides aujourd'hui : y renvoyer les
+  ids de chaque pool (une dizaine de lignes) ;
+- arme sans source : `starting_weapons`, `WeaponLocation` des niveaux jouables, `weapon_pool` de
+  progression, pools.
+`MapEntry::levels` (`MapLevelInfo` : type de salle, personnages, armes murales par niveau LDtk) porte
+les données. Limites : pas de lecture des scénarios (une arme ou un objet donné par scénario seulement
+est signalé), ni des cartes assemblées autrement que par les désignations ci-dessus ; la sandbox
+`testbed` (arènes de test) produit donc beaucoup d'avertissements voulus.
+
+**Audit des kinds M2** (références vérifiées / bornes vérifiées / fixtures) :
+
+| Kind | Références | Bornes | Fixtures |
+|---|---|---|---|
+| `rooms` | `room_kind` des cartes (`lint_room_kinds`) ; ennemis d'arène | arène : clock>0, vagues datées, ordre, count>0 | `room_kind_unknown`, `arena_*` |
+| `floor_grammars` | carte `templates`, gabarit par type nécessaire | `problems()` (rooms, requis, distance) | `floor_required_without_template`, `floor_bounds_inverted` |
+| `floors` | carte, caverne, grammaire, `consumables_per_floor` | levels non vide, cavernes sans ennemi | `floors_*` |
+| `items` | `cost`, stats (Parse) | charge, pickup_range, blank, uses_per_floor, cost>0 ; **stat lue (T15)** | `item_*`, `stat_unread` |
+| `synergies` | objets requis | ≥2 objets distincts, doublon d'ensemble | `synergy_*` |
+| `props` | — | rayons, dégâts > 0 | `prop_barrel_radius_non_positive`… |
+| `surfaces` | — | doublon de valeur, facteurs > 0, fosse | `surface_*`, `pit_*` |
+| personnages boss | patterns, ennemis de renfort, pas de répétition sans fin | santé, phases, `until`, count>0 | `boss_*` |
+| profil | `entry.progression`, horloges | — | `entry_*` |
+| stats (T15) | — | liste fermée `stat_reader` | `stat_unread`, `stat_armor_warning` |
+| atteignabilité (T15) | racines → salles/gabarits/ennemis/objets/armes | — | `reach_*` |
+
+Trous comblés : la lecture des stats (nouvelle règle) et l'atteignabilité (nouveaux avertissements).
+Aucun autre trou trouvé dans l'audit (les `props` et le profil n'ont pas de référence à vérifier).
+
+**Fixtures.** `stat_unread` (erreur), `stat_armor_warning` (avertissement), `reach_room_unreachable`
+(type de salle et gabarit), `reach_enemy_unplaced`, `reach_item_no_source`, `reach_weapon_no_source`.
+
+## 54. Générateur v2 : gabarits par objet, par salle et par boss (M2-T17, voie V3)
+
+Code : `crates/scenario/src/generate.rs` (gabarits), `game::gen_test` (`ItemTest`, `RoomTest`,
+`BossFightTest`), `scenario::runner::apply_player_overrides` (objets de départ), `content::lint`
+(`lint_item_tests`, `lint_room_tests`, `lint_character_tests`). Complète §28 : mêmes règles
+(opt-in par un champ `test:`, aucun effet en jeu, un scénario écrit par `make gen GAME=<jeu>` dans
+`tests/scenarios/generated/<jeu>/`, champ absent = rien de généré : aucune trace existante ne bouge).
+Contrairement aux gabarits d'armes, ces gabarits jouent **dans le jeu énuméré** (le registre du
+testbed n'a ni les objets ni les salles de `gungeon`) : carte de `generate_template` si le jeu en
+déclare une (`Sandbox` imposé), sinon l'arène du testbed pour le testbed.
+
+**Objet** (`objets/<id>.ron`, gabarit `ItemHeld`, fichier `item_<id>.ron`) :
+`test: Some((frames: 60, expect: [...]))` ; `frames > 16` pour un actif.
+- `PlayerScript::items: ["<id>"]` (nouveau, vide par défaut) : le joueur tient l'objet **avant la
+  première frame**, comme après un ramassage (passif : `Inventory` et modificateurs `item:<id>` ;
+  actif : emplacement actif **chargé** à `ActiveCharge::required()` ; consommable : compteur). Les
+  effets `OnPickup` ne sont pas rejoués.
+- Attentes par défaut : `HasItem` à la frame 1 ; une `Stat` par stat modifiée (frame 1), attendue =
+  `sim_core::modifier::resolve(base, modificateurs)` où `base` est lue par une **sonde** d'une frame
+  sans l'objet (`probe_player_stats`) : la valeur ne vient pas de la partie qui tient l'objet ; un
+  actif : `ItemCharge(required)` à la frame 5, `UseActive` une frame à `ITEM_USE_FRAME` (10), puis
+  `ItemCharge(0)` à la frame 16 (omis pour `Frames(n)`, qui se recharge aussitôt, et pour un actif à
+  `cost`, dont l'usage peut être refusé). `test.expect` s'**ajoute** aux attentes par défaut.
+
+**Salle** (`rooms/<id>.ron`, gabarit `RoomClear`, `room_<id>.ron`) :
+`test: Some((frames: 500, floors: "etages_court", seed: 1, expect: []))` ; exactement un de `floors`
+(séquence `Floors` du jeu) ou `map` (carte LDtk, `Sandbox` imposé si le manifeste est en `Floors`) ;
+`seed` = graine de carte (défaut 123456) : le gabarit LDtk tiré par la grammaire est donc fixe.
+Un bot `explorateur` (§47), aucun input scripté. Attentes par défaut : moments clés `room` « salle
+<id> verrouillée » puis « salle <id> nettoyée » avant `frames` (`Event`, cumulatif : une attente
+`RoomState` ponctuelle dépendrait de la frame exacte du bot), et `PlayerAlive` à la dernière frame.
+Une salle qui ne verrouille ni n'est une arène (`locks: false`, pas d'`arena`) : seulement
+`PlayerAlive`.
+
+**Boss** (personnage qui a `boss:`, gabarit `BossFight`, `boss_<id>.ron`) : le `test:` du personnage
+gagne le champ `boss: Some((floors: None, map: None, seed: 123456, expect: []))` (`boss: Some(())`
+suffit), `frames` du `test:` fixe la durée, `still: false, moving: false` coupent les gabarits
+ennemis. Sans `floors` ni `map`, la partie du manifeste (`entry.start_map`, comme `gungeon_boss_bot`).
+Bot `fonceur`, aucun input. Attentes par défaut : un `Event(boss_phase, "phase i-1 → i")` par phase
+atteinte (cumulatif : `BossPhase` échoue une fois le boss mort), puis `Event(room, "salle boss
+nettoyée")` si le jeu a un type de salle `boss` (§45).
+
+**Lint.** `frames > 0` ; objet : pas sur un consommable (`Unsupported`) ; salle : exactement un de
+`floors`/`map`, scène connue, **au moins un gabarit LDtk du type** dans les cartes de la scène
+(`BrokenReference`, y compris les gabarits d'une grammaire `floor:<id>`) ; personnage : `test.boss`
+seulement avec `boss:`, `floors`/`map` exclusifs et connus, un gabarit actif parmi `still`, `moving`
+et `boss`. Fixtures `item_test_frames_zero`, `item_test_consumable`, `room_test_no_template`,
+`room_test_both_scenes`, `room_test_frames_zero`, `boss_fight_without_boss`.
+
+## 55. Feedback v2 : télégraphes de patterns, flash du blank, fin de boss (M2-T19, voie V4)
+
+Complète §31. **Tout est présentation** : rien de rollback, rien dans le checksum ni dans les
+traces, aucune simulation ralentie (`Time<Virtual>` n'est jamais touché : ggrs avance dessus). Les
+trois effets s'écrivent d'abord dans `FeedbackLog` (headless compris), le rendu (`FeedbackPlugin`)
+applique ensuite les indices ; `scenario::events` en fait des moments clés `feedback`.
+
+**Réglages** (`ui/feedback.ron`, champs optionnels de `content::feedback::FeedbackSettings`,
+défauts sûrs : les trois effets sont actifs sans rien écrire, `enabled: false` en coupe un) :
+- `pattern_telegraph: (enabled, color: Option<rgba>)` ; couleur absente : celle du cercle.
+- `blank: (enabled, ring_frames, color, flash_alpha)` : 24 frames, bleu clair, flash 0,15.
+- `boss_end: (enabled, freeze_frames, zoom, zoom_frames, flash_alpha, flash_color)` : 30 ticks
+  de rendu gelés, zoom ×1,5 relâché sur 60 frames, flash 0,6.
+Lint (`FeedbackSettings::problems`, `OutOfRange`) : durées dans `[1, 600]` (`freeze_frames`
+`[0, 600]`, > 0 si l'effet est actif), opacités et couleurs dans `[0, 1]`, `zoom` dans `[1, 4]`.
+Fixtures `feedback_blank_frames_zero`, `feedback_boss_zoom_out_of_range`,
+`feedback_boss_freeze_zero`.
+
+**Télégraphe de forme.** Pendant le `Telegraph` d'un émetteur (et le `Telegraph(n)` d'une frise de
+boss, §45 : même chemin, l'émetteur joue `Sequence([Telegraph(n), pattern])`), `pattern_shape`
+(fonction pure) lit les étapes **après** le télégraphe, jusqu'au prochain `Telegraph`/`Wait` :
+`Fan`/`Spread`/`Aimed` → rayons répartis sur l'ouverture autour de la visée figée ; `Spiral` →
+rayons de la première salve (l'amorce) ; `Burst`/`Scatter` → cône (deux rayons de bord et arc).
+`Ring` n'a pas de forme (le cercle v1 le dit). Gizmos, longueur = rayon du télégraphe v1 (portée du
+tir annoncé, bornée par `Shoot.range`). Un indice `PatternTelegraph` par (émetteur, étape), au
+début du télégraphe. Moment clé : « télégraphe fan 31 (5 rayons) », « télégraphe burst 31 (cône
+0.50 rad) » (`31` : `GgrsNetId` de l'émetteur).
+
+**Blank.** Dérivé de l'état : les charges de blank (`Inventory::consumable` de l'objet blank de la
+table) d'un joueur baissent d'un tick à l'autre. Anneau (`blank_ring_radius`, ease-out jusqu'au
+rayon de `BlankSpec`) et flash plein écran léger ; il **remplace** l'onde de `LastBlank` (M2-T1)
+quand `blank.enabled`. Moment clé : « blank 0 (rayon 160) » (`0` : handle du joueur).
+
+**Fin de boss.** Dérivé de l'état, jamais de `BossDefeated` (transitoire) : un boss (`BossPlan`)
+vu vivant au tick précédent a disparu **et** le nombre de salles `Cleared` (`RoomStates`) a
+augmenté. Gel de rendu de `freeze_frames` ticks (`AnimationFreeze`, comme le hit stop), zoom sur la
+position du boss (`boss_zoom_factor` : monte sur le premier cinquième puis revient à ×1 ; échelle
+de projection et décalage de la caméra retirés avant le suivi de caméra, `undo_boss_zoom`),
+flash plein écran (`ScreenFlashNode`). Moment clé : « fin de boss 40 » (`40` : `GgrsNetId` du boss).
+
+**Preuve sans écran.** Attentes `Event(kind: "feedback", label_contains: …)`, aucune trace ne
+bouge. À voir sur un poste avec GPU : voir le rapport `docs/taches/rapports/m2-t19-feedback-v2.md`.
+
+**Limites.** Comme §31 : un tick qui simule plusieurs frames ne journalise que la dernière ; un
+indice prédit puis annulé par un rollback p2p reste dans le journal. Une fin de boss se détecte au
+tick où le boss disparaît : un boss retiré sans qu'une salle passe `Cleared` ne déclenche rien.

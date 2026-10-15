@@ -12,6 +12,11 @@
 //! les attentes par `EntityRef::Placed(0)`. Un jeu en mode `Waves` reçoit une période de grâce
 //! plus longue que le scénario : aucune vague ne s'ajoute à l'ennemi testé.
 //!
+//! **Gabarits M2-T17** (`docs/conventions.md` §54) : un scénario par objet qui déclare `test:`
+//! ([`Template::ItemHeld`]), par type de salle ([`Template::RoomClear`]) et par boss
+//! ([`Template::BossFight`]) ; les attentes par défaut en sont dérivées du contenu
+//! ([`item_default_expectations`], [`room_default_expectations`], [`boss_default_expectations`]).
+//!
 //! Gabarit d'arme :
 //!
 //! Les scénarios générés tournent tous dans le **testbed** (`games/testbed/assets/testbed/arena.ldtk`),
@@ -37,12 +42,15 @@ use bevy_fixed::fixed_math::{self, Fixed};
 use game::character::config::{CharacterConfig, CharacterTest};
 use game::character::health::HitCount;
 use game::character::player::Player;
+use game::gen_test::{BossFightTest, ItemFile, ItemTest, RoomFile, RoomTest};
 use game::replay::{
     Button, CharacterPlacement, EntityRef, Expectation, Invariants, PlayerScript, Scenario,
     Segment, WaveOverride,
 };
 use game::weapons::melee::{MeleeWeaponAsset, MeleeWeaponsConfig};
 use game::weapons::{WeaponAsset, WeaponTest, WeaponsConfig};
+use sim_core::modifier::resolve;
+use sim_core::stats::Stats;
 use utils::net_id::GgrsNetId;
 
 /// Gabarit utilisé pour construire un scénario généré.
@@ -57,6 +65,13 @@ pub enum Template {
     /// T1.13 : même placement ; le joueur marche en carré ([`SQUARE_SIDE_FRAMES`] frames par
     /// côté, en boucle), sans tirer.
     EnemyVsMovingPlayer,
+    /// M2-T17 : le joueur commence avec l'objet (`PlayerScript::items`), sans input (hors
+    /// `UseActive` d'un actif), dans l'arène du jeu.
+    ItemHeld,
+    /// M2-T17 : un étage (ou une carte) qui contient une salle de ce type, un bot `explorateur`.
+    RoomClear,
+    /// M2-T17 : la salle du boss, un bot `fonceur`.
+    BossFight,
 }
 
 impl Template {
@@ -65,6 +80,7 @@ impl Template {
             Template::WeaponOnTarget => "",
             Template::EnemyVsStillPlayer => "still",
             Template::EnemyVsMovingPlayer => "moving",
+            Template::ItemHeld | Template::RoomClear | Template::BossFight => "",
         }
     }
 }
@@ -75,6 +91,12 @@ impl Template {
 pub enum GeneratedKind {
     Weapon(WeaponKind),
     Character(Template),
+    /// M2-T17 : objet ([`Template::ItemHeld`]).
+    Item,
+    /// M2-T17 : type de salle ([`Template::RoomClear`]).
+    Room,
+    /// M2-T17 : boss ([`Template::BossFight`]).
+    Boss,
 }
 
 /// Catégorie d'une arme générée (détermine le registre d'où elle vient et la façon de
@@ -102,7 +124,7 @@ pub struct GeneratedScenario {
     pub subject_id: String,
     pub kind: GeneratedKind,
     /// Nom de fichier seul (pas de dossier) : `weapon_<id>.ron`, `enemy_<id>_still.ron`,
-    /// `enemy_<id>_moving.ron`.
+    /// `enemy_<id>_moving.ron`, `item_<id>.ron`, `room_<id>.ron`, `boss_<id>.ron`.
     pub file_name: String,
     pub scenario: Scenario,
 }
@@ -174,6 +196,11 @@ pub enum GenerateError {
     MissingPlayer {
         character_id: String,
     },
+    /// M2-T17 : la sonde d'un gabarit d'objet n'a pas trouvé la stat modifiée par l'objet.
+    MissingStat {
+        item_id: String,
+        stat: String,
+    },
 }
 
 impl std::fmt::Display for GenerateError {
@@ -197,6 +224,10 @@ impl std::fmt::Display for GenerateError {
             GenerateError::MissingPlayer { character_id } => write!(
                 f,
                 "personnage « {character_id} » : sonde du gabarit ennemi sans joueur 0 (carte sans spawn de joueur ?)"
+            ),
+            GenerateError::MissingStat { item_id, stat } => write!(
+                f,
+                "objet « {item_id} » : la stat {stat} n'existe pas chez le joueur de la sonde (modificateur sans effet : pas d'attente Stat possible)"
             ),
         }
     }
@@ -347,6 +378,56 @@ pub fn generate_game(game_dir: &Path) -> Result<Vec<GeneratedScenario>, Generate
                 scenario: build_enemy_scenario(&arena, &id, template, &test, &probe),
             });
         }
+        // M2-T17 : gabarit BossFight (`test.boss`, personnage qui a `boss:`).
+        if let (Some(fight), Some(boss)) = (&test.boss, &config.boss) {
+            let scene = SceneContext::new(&manifest, &arena, &registry);
+            out.push(GeneratedScenario {
+                file_name: format!("boss_{id}.ron"),
+                subject_id: id.clone(),
+                kind: GeneratedKind::Boss,
+                scenario: build_boss_scenario(&scene, test.frames, fight, boss.phases.len()),
+            });
+        }
+    }
+
+    // M2-T17 : objets qui déclarent `test:` (gabarit ItemHeld), dans l'ordre du registre.
+    for (id, entry) in &registry.items {
+        if entry.test.is_none() || !generated(&entry.file) {
+            continue;
+        }
+        let file: ItemFile = parse_ron_file_implicit_some(&assets_dir, &entry.file)?;
+        let Some(test) = file.test else {
+            continue;
+        };
+        let base = probe_player_stats(&build_item_scenario(&arena, id, &entry.def, &test, &[]))
+            .ok_or_else(|| GenerateError::MissingPlayer {
+                character_id: id.clone(),
+            })?;
+        let stats = expected_item_stats(id, &entry.def, &base)?;
+        out.push(GeneratedScenario {
+            file_name: format!("item_{id}.ron"),
+            subject_id: id.clone(),
+            kind: GeneratedKind::Item,
+            scenario: build_item_scenario(&arena, id, &entry.def, &test, &stats),
+        });
+    }
+
+    // M2-T17 : types de salle qui déclarent `test:` (gabarit RoomClear).
+    for (id, entry) in &registry.rooms {
+        if entry.test.is_none() || !generated(&entry.file) {
+            continue;
+        }
+        let file: RoomFile = parse_ron_file_implicit_some(&assets_dir, &entry.file)?;
+        let Some(test) = file.test else {
+            continue;
+        };
+        let scene = SceneContext::new(&manifest, &arena, &registry);
+        out.push(GeneratedScenario {
+            file_name: format!("room_{id}.ron"),
+            subject_id: id.clone(),
+            kind: GeneratedKind::Room,
+            scenario: build_room_scenario(&scene, id, &entry.def, &test),
+        });
     }
 
     Ok(out)
@@ -406,7 +487,10 @@ pub fn enemy_default_expectations(template: Template, frames: u32) -> Vec<Expect
             },
             in_wall,
         ],
-        Template::WeaponOnTarget => vec![],
+        Template::WeaponOnTarget
+        | Template::ItemHeld
+        | Template::RoomClear
+        | Template::BossFight => vec![],
     }
 }
 
@@ -447,6 +531,8 @@ pub fn build_enemy_scenario(
             weapon: None,
             currency: None,
             mutations: vec![],
+            dash: None,
+            items: vec![],
         }],
         expect,
         weapon_overrides: vec![],
@@ -479,6 +565,342 @@ pub fn build_enemy_scenario(
         }],
         mode: arena.mode,
     }
+}
+
+/// Contexte des gabarits M2-T17 (objet, salle, boss), tiré du manifeste et du registre du jeu
+/// énuméré : ces gabarits jouent dans le jeu lui-même, jamais dans le testbed.
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub struct SceneContext {
+    pub game: String,
+    /// `entry.start_map` : carte d'un gabarit sans `floors` ni `map` (la partie du manifeste).
+    pub start_map: String,
+    /// `entry.mode` vaut `Floors` : un gabarit à `map` impose alors `Sandbox` (sinon la séquence
+    /// du manifeste remplacerait la carte).
+    pub floors_mode: bool,
+    /// Jeu en mode `Waves` : période de grâce plus longue que le scénario ([`EnemyArena::waves`]).
+    pub waves: bool,
+    /// Le jeu déclare un type de salle `boss` (le boss y est enfermé, §45) : la salle se rouvre à
+    /// sa mort.
+    pub has_boss_room: bool,
+}
+
+impl SceneContext {
+    fn new(
+        manifest: &content::GameManifest,
+        arena: &EnemyArena,
+        registry: &content::Registry,
+    ) -> Self {
+        Self {
+            game: manifest.name.clone(),
+            start_map: manifest.entry.start_map.clone(),
+            floors_mode: manifest.entry.mode == Some(content::EntryMode::Floors),
+            waves: arena.waves,
+            has_boss_room: registry.rooms.contains_key("boss"),
+        }
+    }
+}
+
+/// Frame de l'appui sur `UseActive` du gabarit [`Template::ItemHeld`] (un seul appui d'une frame).
+pub const ITEM_USE_FRAME: u32 = 10;
+/// Frame où `ItemCharge` est vérifiée avant l'usage.
+const ITEM_CHARGE_CHECK_FRAME: u32 = 5;
+/// Frame où `ItemCharge` est vérifiée après l'usage : l'appui scripté à `ITEM_USE_FRAME` n'agit qu'à la
+/// frame 16 (mesuré : charge encore pleine à f15, retombée à f16 ; délai d'entrée de la session).
+const ITEM_AFTER_USE_FRAME: u32 = ITEM_USE_FRAME + 6;
+
+/// Stats modifiées par un objet passif et leur valeur attendue à la frame 1 : `(stat, valeur)`,
+/// une entrée par stat (dans l'ordre des modificateurs). `base` est lu chez le joueur de la
+/// sonde **sans** l'objet : l'attendu est calculé par `sim_core::modifier::resolve`, pas relu
+/// dans la partie qui tient l'objet.
+pub fn expected_item_stats(
+    id: &str,
+    def: &items::ItemDef,
+    base: &Stats,
+) -> Result<Vec<(sim_core::stats::StatId, f32)>, GenerateError> {
+    let mut out: Vec<(sim_core::stats::StatId, f32)> = Vec::new();
+    if def.kind != items::ItemKind::Passive {
+        return Ok(out);
+    }
+    for modifier in &def.modifiers {
+        if out.iter().any(|(stat, _)| *stat == modifier.stat) {
+            continue;
+        }
+        let base_value = base
+            .get(&modifier.stat)
+            .ok_or_else(|| GenerateError::MissingStat {
+                item_id: id.to_string(),
+                stat: format!("{:?}", modifier.stat),
+            })?;
+        let modifiers: Vec<_> = def
+            .modifiers
+            .iter()
+            .filter(|m| m.stat == modifier.stat)
+            .map(|m| m.to_modifier(id))
+            .collect();
+        let value = resolve(base_value, modifiers.iter(), 0);
+        out.push((modifier.stat.clone(), value.to_num::<f32>()));
+    }
+    Ok(out)
+}
+
+/// Attentes par défaut du gabarit [`Template::ItemHeld`] : l'objet est tenu à la frame 1, chaque
+/// stat modifiée a sa valeur résolue ; un actif est chargé, puis sa charge retombe après l'usage
+/// (sauf `Frames`, qui se recharge tout de suite, et un actif à `cost`, dont l'usage peut être
+/// refusé).
+pub fn item_default_expectations(
+    id: &str,
+    def: &items::ItemDef,
+    stats: &[(sim_core::stats::StatId, f32)],
+) -> Vec<Expectation> {
+    let mut expect = vec![Expectation::HasItem {
+        handle: 0,
+        id: id.to_string(),
+        at_frame: 1,
+    }];
+    for (stat, value) in stats {
+        expect.push(Expectation::Stat {
+            handle: 0,
+            stat: stat.clone(),
+            value: *value,
+            at_frame: 1,
+            entity: None,
+        });
+    }
+    if let items::ItemKind::Active(charge) = def.kind {
+        expect.push(Expectation::ItemCharge {
+            handle: 0,
+            charge: charge.required(),
+            at_frame: ITEM_CHARGE_CHECK_FRAME,
+        });
+        let drops = !matches!(charge, items::ActiveCharge::Frames(_)) && def.cost.is_none();
+        if drops {
+            expect.push(Expectation::ItemCharge {
+                handle: 0,
+                charge: 0,
+                at_frame: ITEM_AFTER_USE_FRAME,
+            });
+        }
+    }
+    expect
+}
+
+/// Scénario du gabarit [`Template::ItemHeld`] (pur) : `stats` vient de [`expected_item_stats`].
+pub fn build_item_scenario(
+    arena: &EnemyArena,
+    id: &str,
+    def: &items::ItemDef,
+    test: &ItemTest,
+    stats: &[(sim_core::stats::StatId, f32)],
+) -> Scenario {
+    let frames = test.frames;
+    let active = matches!(def.kind, items::ItemKind::Active(_));
+    let inputs = if active {
+        assert!(
+            frames > ITEM_AFTER_USE_FRAME,
+            "gabarit ItemHeld « {id} » : test.frames ({frames}) trop petit pour l'usage de l'actif ({ITEM_AFTER_USE_FRAME} frames)"
+        );
+        vec![Segment {
+            from: ITEM_USE_FRAME,
+            to: ITEM_USE_FRAME + 1,
+            buttons: vec![Button::UseActive],
+            pan: (0, 0),
+        }]
+    } else {
+        vec![]
+    };
+    let mut expect = item_default_expectations(id, def, stats);
+    expect.extend(test.expect.iter().cloned());
+    let mut scenario = base_scenario(
+        &arena.game,
+        &arena.map,
+        TEMPLATE_MAP_SEED,
+        frames,
+        PlayerScript {
+            inputs,
+            items: vec![id.to_string()],
+            ..PlayerScript::default()
+        },
+        expect,
+    );
+    scenario.wave_overrides = arena.waves.then(|| quiet_waves(frames));
+    scenario.mode = arena.mode;
+    scenario
+}
+
+/// Attentes par défaut du gabarit [`Template::RoomClear`] : une salle qui verrouille passe
+/// verrouillée puis nettoyée avant la dernière frame (moments clés `room`, cumulatifs : un état
+/// ponctuel dépendrait de la frame exacte du bot) ; dans tous les cas le joueur vit.
+pub fn room_default_expectations(kind: &str, locks: bool, frames: u32) -> Vec<Expectation> {
+    let mut expect = Vec::new();
+    if locks {
+        for what in ["verrouillée", "nettoyée"] {
+            expect.push(Expectation::Event {
+                kind: "room".to_string(),
+                label_contains: Some(format!("salle {kind} {what}")),
+                by_frame: frames,
+            });
+        }
+    }
+    expect.push(Expectation::PlayerAlive {
+        handle: 0,
+        at_frame: frames.saturating_sub(1),
+    });
+    expect
+}
+
+/// Scénario du gabarit [`Template::RoomClear`] (pur) : un bot `explorateur`, aucun input.
+pub fn build_room_scenario(
+    scene: &SceneContext,
+    id: &str,
+    def: &world::RoomKindDef,
+    test: &RoomTest,
+) -> Scenario {
+    let locks = def.locks || def.arena.is_some();
+    let mut expect = room_default_expectations(id, locks, test.frames);
+    expect.extend(test.expect.iter().cloned());
+    scene_scenario(
+        scene,
+        test.frames,
+        test.floors.as_deref(),
+        test.map.as_deref(),
+        test.seed,
+        bot_player(game::replay::BotProfile::Explorateur),
+        expect,
+    )
+}
+
+/// Attentes par défaut du gabarit [`Template::BossFight`] : chaque phase atteinte (moment clé
+/// `boss_phase`, cumulatif : l'attente `BossPhase` échoue une fois le boss mort), puis la salle du
+/// boss nettoyée quand le jeu a un type de salle `boss`.
+pub fn boss_default_expectations(
+    phases: usize,
+    has_boss_room: bool,
+    frames: u32,
+) -> Vec<Expectation> {
+    let mut expect: Vec<Expectation> = (1..phases)
+        .map(|phase| Expectation::Event {
+            kind: "boss_phase".to_string(),
+            label_contains: Some(format!("phase {} → {phase}", phase - 1)),
+            by_frame: frames,
+        })
+        .collect();
+    if has_boss_room {
+        expect.push(Expectation::Event {
+            kind: "room".to_string(),
+            label_contains: Some("salle boss nettoyée".to_string()),
+            by_frame: frames,
+        });
+    }
+    expect
+}
+
+/// Scénario du gabarit [`Template::BossFight`] (pur) : un bot `fonceur`, aucun input.
+pub fn build_boss_scenario(
+    scene: &SceneContext,
+    frames: u32,
+    fight: &BossFightTest,
+    phases: usize,
+) -> Scenario {
+    let mut expect = boss_default_expectations(phases, scene.has_boss_room, frames);
+    expect.extend(fight.expect.iter().cloned());
+    scene_scenario(
+        scene,
+        frames,
+        fight.floors.as_deref(),
+        fight.map.as_deref(),
+        fight.seed,
+        bot_player(game::replay::BotProfile::Fonceur),
+        expect,
+    )
+}
+
+fn bot_player(profile: game::replay::BotProfile) -> PlayerScript {
+    PlayerScript {
+        bot: Some(profile),
+        ..PlayerScript::default()
+    }
+}
+
+/// Scène d'un gabarit de salle ou de boss : séquence `Floors` (`floors`), carte seule (`map`,
+/// `Sandbox` imposé dans un jeu en `Floors`) ou la partie du manifeste.
+fn scene_scenario(
+    scene: &SceneContext,
+    frames: u32,
+    floors: Option<&str>,
+    map: Option<&str>,
+    seed: i32,
+    player: PlayerScript,
+    expect: Vec<Expectation>,
+) -> Scenario {
+    let map_path = map.unwrap_or(&scene.start_map);
+    let mut scenario = base_scenario(&scene.game, map_path, seed, frames, player, expect);
+    scenario.floors = floors.map(str::to_string);
+    if map.is_some() && scene.floors_mode {
+        scenario.mode = Some(content::EntryMode::Sandbox);
+    }
+    scenario.wave_overrides = scene.waves.then(|| quiet_waves(frames));
+    scenario
+}
+
+/// Aucune vague pendant le scénario (période de grâce plus longue que lui).
+fn quiet_waves(frames: u32) -> WaveOverride {
+    WaveOverride {
+        max_wave: None,
+        min_wave_delay_frames: None,
+        base_enemies: None,
+        enemies_per_wave: None,
+        grace_period_frames: Some(frames + 1),
+        max_concurrent_enemies: None,
+        spawn_batch_size: None,
+        spawn_interval_frames: None,
+    }
+}
+
+/// Squelette commun des gabarits M2-T17 : un joueur, pas d'override, pas de drop.
+fn base_scenario(
+    game: &str,
+    map: &str,
+    seed: i32,
+    frames: u32,
+    player: PlayerScript,
+    expect: Vec<Expectation>,
+) -> Scenario {
+    Scenario {
+        game: game.to_string(),
+        map: map.to_string(),
+        map_seed: seed,
+        frames,
+        players: vec![player],
+        expect,
+        weapon_overrides: vec![],
+        wave_overrides: None,
+        invariants: Invariants::default(),
+        powerups: vec![],
+        items: vec![],
+        profile: false,
+        powerup_drop_chance_override: Some(fixed_math::FIXED_ZERO),
+        floors: None,
+        clocks: None,
+        difficulty: None,
+        progression: None,
+        characters: vec![],
+        mode: None,
+    }
+}
+
+/// Sonde d'un gabarit d'objet : simule une frame **sans** l'objet et rend les `Stats` du joueur 0.
+pub fn probe_player_stats(scenario: &Scenario) -> Option<Stats> {
+    let mut probe = scenario.clone();
+    for player in &mut probe.players {
+        player.items.clear();
+    }
+    let mut app = crate::runner::run_until(&probe, 1);
+    let world = app.world_mut();
+    world
+        .query::<(&Player, &Stats)>()
+        .iter(world)
+        .find(|(player, _)| player.handle == 0)
+        .map(|(_, stats)| stats.clone())
 }
 
 /// Le joueur marche en carré (droite, bas, gauche, haut), [`SQUARE_SIDE_FRAMES`] frames par
@@ -635,6 +1057,8 @@ pub fn build_weapon_scenario(
             weapon: Some(weapon_id.to_string()),
             currency: None,
             mutations: vec![],
+            dash: None,
+            items: vec![],
         }],
         expect,
         weapon_overrides: vec![],
@@ -738,6 +1162,26 @@ fn parse_ron_file<T: serde::de::DeserializeOwned>(
     })
 }
 
+/// [`parse_ron_file`] avec `IMPLICIT_SOME`, comme le registre (`content`) lit les objets et les
+/// types de salle : `test: (frames: 60)` sans `Some`.
+fn parse_ron_file_implicit_some<T: serde::de::DeserializeOwned>(
+    assets_dir: &Path,
+    file: &Path,
+) -> Result<T, GenerateError> {
+    let abs = assets_dir.join(file);
+    let text = fs::read_to_string(&abs).map_err(|e| GenerateError::WeaponFile {
+        path: file.to_path_buf(),
+        message: format!("lecture impossible ({}) : {e}", abs.display()),
+    })?;
+    ron::Options::default()
+        .with_default_extension(ron::extensions::Extensions::IMPLICIT_SOME)
+        .from_str(&text)
+        .map_err(|e| GenerateError::WeaponFile {
+            path: file.to_path_buf(),
+            message: format!("erreur RON : {e}"),
+        })
+}
+
 /// En-tête écrit en RON au-dessus de chaque scénario généré (voir `bin/alacod-gen.rs`).
 pub fn header_comment(subject_id: &str, kind: GeneratedKind) -> String {
     match kind {
@@ -750,6 +1194,21 @@ pub fn header_comment(subject_id: &str, kind: GeneratedKind) -> String {
                 WeaponKind::Ranged => "vise et tire sur",
                 WeaponKind::Melee => "marche jusqu'à et frappe",
             }
+        ),
+        GeneratedKind::Item => format!(
+            "// Généré par `alacod-gen`, ne pas éditer à la main (crates/scenario/src/generate.rs).\n\
+             // Gabarit ItemHeld (M2-T17, §54) : le joueur commence avec « {subject_id} »\n\
+             // (`PlayerScript::items`) ; un actif est utilisé à la frame {ITEM_USE_FRAME}.\n"
+        ),
+        GeneratedKind::Room => format!(
+            "// Généré par `alacod-gen`, ne pas éditer à la main (crates/scenario/src/generate.rs).\n\
+             // Gabarit RoomClear (M2-T17, §54) : un bot `explorateur` joue un étage qui contient\n\
+             // une salle « {subject_id} » ; aucun input scripté.\n"
+        ),
+        GeneratedKind::Boss => format!(
+            "// Généré par `alacod-gen`, ne pas éditer à la main (crates/scenario/src/generate.rs).\n\
+             // Gabarit BossFight (M2-T17, §54) : un bot `fonceur` affronte « {subject_id} » ;\n\
+             // aucun input scripté.\n"
         ),
         GeneratedKind::Character(template) => format!(
             "// Généré par `alacod-gen`, ne pas éditer à la main (crates/scenario/src/generate.rs).\n\

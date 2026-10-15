@@ -134,6 +134,68 @@ impl DashState {
     }
 }
 
+/// Esquive v2 (M2-T2, §43) : état que `DashState` ne porte pas. Composant **séparé** et
+/// enregistré en variante neutre (`rollback_and_trace_neutral`) : posé seulement sur un
+/// personnage dont la donnée l'exige (`dash_charges`, `dash: Some(..)`), il laisse donc le hash
+/// de `DashState` et des traces des autres jeux exactement comme avant.
+#[derive(Component, Default, Clone, Debug, Hash)]
+pub struct DashExtra {
+    /// Charges de dash disponibles (jamais lue si le personnage n'a pas de charges).
+    pub charges: u32,
+    /// Charges maximales (donnée du personnage, copiée à la création).
+    pub max_charges: u32,
+    /// Frames avant la prochaine charge rendue (0 : rien à recharger).
+    pub recharge_remaining: u32,
+    /// Dernière frame (comprise) des i-frames **contre projectiles seulement** (`Projectiles`) :
+    /// n'écrit pas `Health.invulnerable_until_frame`, la mêlée et les contacts touchent.
+    pub projectile_iframes_until: Option<u32>,
+    /// Recul infligé aux ennemis touchés pendant le dash en cours (`Shove`), nul sinon.
+    pub shove_force: fixed_math::Fixed,
+}
+
+impl DashExtra {
+    /// Charges de départ pleines.
+    pub fn with_charges(max_charges: u32) -> Self {
+        Self {
+            charges: max_charges,
+            max_charges,
+            ..Default::default()
+        }
+    }
+
+    /// Les balles et projectiles traversent le porteur à `frame` (i-frames `Projectiles`).
+    pub fn projectile_invulnerable_at(&self, frame: u32) -> bool {
+        self.projectile_iframes_until
+            .is_some_and(|until| frame <= until)
+    }
+
+    /// Début de frame : rend une charge quand `recharge_remaining` tombe à zéro, puis relance
+    /// le décompte tant qu'il en manque.
+    pub fn tick_recharge(&mut self, recharge_frames: u32) {
+        if self.charges >= self.max_charges {
+            self.recharge_remaining = 0;
+            return;
+        }
+        if self.recharge_remaining > 0 {
+            self.recharge_remaining -= 1;
+        }
+        if self.recharge_remaining == 0 {
+            self.charges += 1;
+            if self.charges < self.max_charges {
+                self.recharge_remaining = recharge_frames;
+            }
+        }
+    }
+
+    /// Consomme une charge ; arme le décompte si c'était la pleine.
+    pub fn spend_charge(&mut self, recharge_frames: u32) {
+        if self.charges == self.max_charges {
+            self.recharge_remaining = recharge_frames;
+        }
+        self.charges = self.charges.saturating_sub(1);
+    }
+}
+
 /// Pas (px) de la frame `k` (de 0 à `frames - 1`) d'un dash de `distance` px en `frames`
 /// frames : décroissance linéaire de `2·distance/frames − end` jusqu'à `end` (px par frame,
 /// la vitesse de course à la sortie), donc une somme de `distance` px quelle que soit `end`.
@@ -192,7 +254,7 @@ pub const INPUT_MODIFIER: u32 = 1 << 8;
 pub const INPUT_INTERACTION: u32 = 1 << 9;
 pub const INPUT_MELEE_ATTACK: u32 = 1 << 10;
 pub const INPUT_FORCE_CRASH: u32 = 1 << 11;
-/// Lâche l'arme active au sol (T2.2, chantier B7). Touche `G` (`Devices`, voir
+/// Lâche l'arme active au sol (T2.2, chantier B7). Touche `L` (`Devices`, voir
 /// `character::player::control::get_input_map`), bouton `DropWeapon` des scénarios (voir
 /// `game::replay::Button`).
 pub const INPUT_DROP_WEAPON: u32 = 1 << 12;
