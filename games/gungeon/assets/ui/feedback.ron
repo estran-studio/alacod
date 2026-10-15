@@ -37,8 +37,10 @@
     // joueur local touche (secousse de surcharge).
     by_weapon: {},
     sounds: {
-        // Tir : clé de la famille du mode de tir actif (Manual : shot_pistol, Shotgun :
-        // shot_shotgun, Automatic/Burst : shot_smg), repli sur "shot" si elle est absente.
+        // Sons de base. Tir : clé de la famille du mode de tir actif (Manual : shot_pistol,
+        // Shotgun : shot_shotgun, Automatic/Burst : shot_smg), repli sur "shot". Une arme
+        // remplace le tir et le rechargement de chacun de ses modes par son `audio_config`
+        // (weapons.ron), au volume de la clé qu'il remplace (`volumes`).
         "shot_pistol": "sounds/shot_pistol.ogg",
         "shot_shotgun": "sounds/shot_shotgun.ogg",
         "shot_smg": "sounds/shot_smg.ogg",
@@ -52,7 +54,6 @@
         "blank": "sounds/blank.ogg",
         "door": "sounds/door.ogg",
     },
-    // Son de tir imposé à une arme (prioritaire sur la famille du mode) : le pistolet
-    // (`Automatic`) et le pistolet jumelé (`Burst`) sonneraient comme une mitraillette.
-    shot_sounds: {"pistolet": "shot_pistol", "pistolet_jumele": "shot_pistol"},
+    // Volume par clé de `sounds`, en dB (0 : inchangé ; plage -60 à +12), ex. {"hit": -3.0}.
+    volumes: {},
 )
