@@ -1,6 +1,40 @@
 alacod lint games/zombies
+cargo run -q -p content --bin alacod --profile headless -- lint games/zombies
+warning: unused import: `std::hash::Hash`
+   --> crates/items/src/lib.rs:216:13
+    |
+216 |         use std::hash::Hash as _;
+    |             ^^^^^^^^^^^^^^^
+    |
+    = note: `#[warn(unused_imports)]` (part of `#[warn(unused)]`) on by default
+
+warning: unused import: `registry::BehaviorEntry`
+    --> crates/content/src/lint.rs:2003:9
+     |
+2003 |     use registry::BehaviorEntry;
+     |         ^^^^^^^^^^^^^^^^^^^^^^^
+     |
+     = note: `#[warn(unused_imports)]` (part of `#[warn(unused)]`) on by default
+
 games/zombies : aucune erreur (5 personnages, 4 armes, 6 armes de corps à corps, 1 vagues, 6 cartes)
 alacod lint games/testbed
+cargo run -q -p content --bin alacod --profile headless -- lint games/testbed
+warning: unused import: `std::hash::Hash`
+   --> crates/items/src/lib.rs:216:13
+    |
+216 |         use std::hash::Hash as _;
+    |             ^^^^^^^^^^^^^^^
+    |
+    = note: `#[warn(unused_imports)]` (part of `#[warn(unused)]`) on by default
+
+warning: unused import: `registry::BehaviorEntry`
+    --> crates/content/src/lint.rs:2003:9
+     |
+2003 |     use registry::BehaviorEntry;
+     |         ^^^^^^^^^^^^^^^^^^^^^^^
+     |
+     = note: `#[warn(unused_imports)]` (part of `#[warn(unused)]`) on by default
+
 avertissement : rooms/arene.ron: type de salle « arene » : aucune grammaire ni carte d'une séquence ne peut le tirer
 avertissement : rooms/arene_mortelle.ron: type de salle « arene_mortelle » : aucune grammaire ni carte d'une séquence ne peut le tirer
 avertissement : rooms/boss.ron: type de salle « boss » : aucune grammaire ni carte d'une séquence ne peut le tirer
@@ -57,8 +91,42 @@ avertissement : ZombieShooter/Sprites/Character/weapons.ron: arme « tourelle_gu
 games/testbed : 53 avertissement(s)
 games/testbed : aucune erreur (27 personnages, 19 armes, 6 armes de corps à corps, 0 vagues, 30 cartes)
 alacod lint games/throne
+cargo run -q -p content --bin alacod --profile headless -- lint games/throne
+warning: unused import: `std::hash::Hash`
+   --> crates/items/src/lib.rs:216:13
+    |
+216 |         use std::hash::Hash as _;
+    |             ^^^^^^^^^^^^^^^
+    |
+    = note: `#[warn(unused_imports)]` (part of `#[warn(unused)]`) on by default
+
+warning: unused import: `registry::BehaviorEntry`
+    --> crates/content/src/lint.rs:2003:9
+     |
+2003 |     use registry::BehaviorEntry;
+     |         ^^^^^^^^^^^^^^^^^^^^^^^
+     |
+     = note: `#[warn(unused_imports)]` (part of `#[warn(unused)]`) on by default
+
 games/throne : aucune erreur (14 personnages, 13 armes, 4 armes de corps à corps, 0 vagues, 1 cartes)
 alacod lint games/gungeon
+cargo run -q -p content --bin alacod --profile headless -- lint games/gungeon
+warning: unused import: `std::hash::Hash`
+   --> crates/items/src/lib.rs:216:13
+    |
+216 |         use std::hash::Hash as _;
+    |             ^^^^^^^^^^^^^^^
+    |
+    = note: `#[warn(unused_imports)]` (part of `#[warn(unused)]`) on by default
+
+warning: unused import: `registry::BehaviorEntry`
+    --> crates/content/src/lint.rs:2003:9
+     |
+2003 |     use registry::BehaviorEntry;
+     |         ^^^^^^^^^^^^^^^^^^^^^^^
+     |
+     = note: `#[warn(unused_imports)]` (part of `#[warn(unused)]`) on by default
+
 avertissement : weapons/weapons.ron: arme « arbalete » : aucun personnage, règle ennemie, mur ni pool ne la donne
 avertissement : weapons/weapons.ron: arme « arc » : aucun personnage, règle ennemie, mur ni pool ne la donne
 avertissement : weapons/weapons.ron: arme « boule_energie » : aucun personnage, règle ennemie, mur ni pool ne la donne

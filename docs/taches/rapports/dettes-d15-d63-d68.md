@@ -1,6 +1,8 @@
 # dettes-d15-d63-d68
 
-Branche depuis `origin/main` `77c145b7`. Vérification finale sur fusion et campagne e2 : en cours.
+Branche depuis `origin/main` `77c145b7`, fusionnée avec `origin/main` `5d1295ed` juste avant
+livraison (commit de fusion `cb68d67c`). **Suite complète verte sur cette fusion** (voir
+§ Vérification finale). Campagne e2 finale jouée sur le binaire de la fusion.
 
 ## Fait
 
@@ -73,8 +75,15 @@ rollback. Ce lot invalide est écarté, pas compté dans la campagne finale.
 
 Tests de régression : `downed_explorer_waits_for_revive` échoue avant le correctif (pas réanimé à
 f350), passe après ; `arena_death_loot_survives_rollback` joue la graine 2 au-delà de la fin de
-l'arène. Les quatre tests d'intégration bots passent. Campagne finale : à terminer, lots de 10
-joués au premier plan et poussés chacun via [`campagne.sh`](dettes-d15-d63-d68/campagne.sh).
+l'arène. Les quatre tests d'intégration bots passent.
+
+**Campagne e2 finale** (binaire de la fusion `cb68d67c`, 200 graines, 2 bots `explorateur`,
+`etages_deux`, `--until-floor 1 --max-frames 20000`, lots de 10 joués au premier plan, commités
+et poussés un par un via [`campagne.sh`](dettes-d15-d63-d68/campagne.sh), fichiers
+`e2_001-010.json` … `e2_191-200.json`) : **0 soft-lock, 0 desync, 0 échec** ; 26 objectifs
+(étage 1 atteint), 174 morts. La mortalité relève de D64 et du contenu fusionné depuis
+(M2-T14b/T18), pas d'un blocage : aucune partie n'atteint le plafond de frames.
+Graine 90 rejouée sur la fusion avec la commande de la fiche (`--log`) : `mort`, `desync: false`.
 
 ## Preuve §5 et traces D68
 
@@ -92,14 +101,31 @@ par appel, comparés par `scripts/trace-diff.py`, sans exclusion de type.
 
 Toutes les autres lignes sont identiques jusqu'à cette première divergence. Les seules traces
 blessées pour D68 sont `bench_floor.trace` et `bot_explorer_two.trace`, après ces preuves.
-La suite sans bless avant cette mise à jour ne signalait que ces deux fichiers.
 Détail : [`preuves.txt`](dettes-d15-d63-d68/preuves.txt),
 [`résumé par composant`](dettes-d15-d63-d68/preuves-resume.txt). Dumps volumineux supprimés après comparaison.
 
-## Vérification finale
+**Preuve refaite sur la fusion** (`origin/main` `5d1295ed`, worktree séparé, même
+`CARGO_TARGET_DIR`, un scénario par appel) : conflit de fusion sur `bench_floor.trace` résolu
+puis dumps comparés sans exclusion — `bench_floor` diverge à **f83** (mêmes ennemis 309, 311,
+321, 323, 324), `bot_explorer_two` à **f551** (mêmes ennemis du second étage), seule cause le
+retrait de `RoomDormant`. `bench_floor.trace` rebénie sur la fusion ; `bot_explorer_two` verte
+sans re-bless. Piège rencontré : le target partagé avec le worktree main laissait un binaire
+`lint_fixtures` périmé (ancien libellé D63) — corrigé par `touch` des `.rs` (README §6), puis
+`make test_crates` vert.
 
-À compléter après la campagne et la fusion avec `origin/main` : suite complète sans bless,
-`make test_crates`, `make lint` ×4, fmt, scripts et `make gen` ×4.
+## Vérification finale (sur la fusion avec `origin/main` `5d1295ed`)
+
+- `make test_scenarios` complet, sans `BLESS` : **vert** (340 fichiers `.ron` : 180 + 160
+  générés ; 162 s). Aucune trace différente après le bless prouvé de `bench_floor`.
+- `make test_crates` : **vert** (62 suites `ok`, 0 échec), après le `touch` ci-dessus.
+- `make lint` ×4 : aucune erreur ; zombies 0 avertissement, throne 0, testbed 53, gungeon 18.
+  Liste exacte : [`lint.txt`](dettes-d15-d63-d68/lint.txt) (régénéré sur la fusion).
+- `cargo fmt --all -- --check` : propre. `make gen` ×4 (zombies, testbed, throne, gungeon) :
+  vert, aucun fichier modifié.
+- `check-rollback-registration.sh` : OK. `check-sim-boundary.sh` : OK.
+- `check-forbidden.sh` : 1 erreur sur `crates/game/src/performance.rs` (`Instant::now`),
+  **préexistante sur `origin/main`** (fichier du durcissement, inchangé par cette branche :
+  `git diff 5d1295ed..HEAD` vide sur ce fichier) ; aucun avertissement ajouté par nos fichiers.
 
 ## Non vérifié, dettes et atteignabilité
 
