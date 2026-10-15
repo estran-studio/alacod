@@ -41,6 +41,7 @@ fn two_fonceurs(frames: u32) -> Scenario {
         difficulty: None,
         characters: vec![],
         mode: None,
+        ui: Vec::new(),
     }
 }
 

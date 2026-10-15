@@ -28,6 +28,7 @@ fn scenario(frames: u32) -> Scenario {
         difficulty: None,
         characters: vec![],
         mode: None,
+        ui: Vec::new(),
     }
 }
 

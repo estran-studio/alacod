@@ -30,6 +30,10 @@ render = ["map_ldtk/render", "bevy_ecs_ldtk/render"]
 
 lighting = ["game/lighting"]
 
+# M2-T18 (docs/conventions.md §56) : option B du test comparatif d'UI (écrans en bevy_hui), avec
+# `ALACOD_SCREENS=hui`.
+ui_hui = ["game/ui_hui"]
+
 native = [
   "bevy/file_watcher",
   "game/debug_ui"

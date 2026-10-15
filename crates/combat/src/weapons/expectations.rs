@@ -439,6 +439,19 @@ pub enum Expectation {
         contains: String,
         at_frame: u32,
     },
+    /// Le texte de la section `section` de l'écran `screen` (`pause` ou `inventory`,
+    /// `game::ui::screens::Screens`, « > » devant l'élément qui a le focus) contient `contains`
+    /// à la frame exacte `at_frame`. Un écran fermé a un texte vide : `contains: ""` ne prouve
+    /// rien, `closed: true` exige que l'écran ne soit pas ouvert. Présentation : lu hors
+    /// simulation, hors trace (M2-T18, `docs/conventions.md` §56).
+    ScreenText {
+        screen: String,
+        section: String,
+        contains: String,
+        #[serde(default, skip_serializing_if = "std::ops::Not::not")]
+        closed: bool,
+        at_frame: u32,
+    },
     /// Le joueur `handle` tient l'objet `id` (passif ou actif, `items::Inventory`) à la frame
     /// exacte `at_frame` (M2-T0b, `docs/conventions.md` §36).
     HasItem {
@@ -533,6 +546,7 @@ impl Expectation {
             | Self::Level { at_frame, .. }
             | Self::Mutations { at_frame, .. }
             | Self::HudText { at_frame, .. }
+            | Self::ScreenText { at_frame, .. }
             | Self::RoomState { at_frame, .. }
             | Self::ItemCount { at_frame, .. }
             | Self::HasItem { at_frame, .. }
