@@ -1,0 +1,19 @@
+(
+    name: "{{name}}",
+    content_folders: [
+        (path: "ZombieShooter/Sprites/Character/player_config.ron", kind: "Character"),
+        (path: "ZombieShooter/Sprites/Character/weapons.ron", kind: "Weapon"),
+        (path: "weapons/melee/melee_weapons.ron", kind: "MeleeWeapon", generate: false),
+        (path: "characters", kind: "Character"),
+        (path: "maps", kind: "Map"),
+        (path: "ui", kind: "Ui"),
+        (path: "camera.ron", kind: "Camera"),
+        (path: "sprites/sprites.ron", kind: "SpriteSheet"),
+        (path: "economy/economy.ron", kind: "Economy"),
+    ],
+    entry: (
+        start_map: "maps/arena.ldtk",
+        default_seed: 123456,
+        mode: Sandbox,
+    ),
+)

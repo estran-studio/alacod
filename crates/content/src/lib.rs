@@ -1,3 +1,4 @@
+pub mod describe;
 pub mod expr;
 pub mod feedback;
 pub mod files;

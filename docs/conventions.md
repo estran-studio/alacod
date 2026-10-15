@@ -328,6 +328,22 @@ de sortie 1 et messages sur stderr en cas d'erreur, 0 sinon) ; `make lint` l'app
 `scripts/lint-edited-game.sh`) relance ce lint en arrière-plan quand un fichier sous
 `games/**` est édité.
 
+**Pour un agent** : `alacod lint --json games/<jeu>` écrit un objet `{game, errors, warnings}` sur
+stdout (`kind`, `file`, `message` par entrée ; même code de sortie que `lint`).
+`alacod describe games/<jeu> [Kind] [--json]` (`crates/content/src/describe.rs`) inventorie le
+vocabulaire **utilisé** par un jeu : kinds et dossiers, ids, champs de premier niveau avec
+fréquence et exemple, fichier modèle. Prototype : déduit du contenu (scan lexical), pas des types ;
+il ne liste ni variantes d'enum ni plages (suite : `schemars` sur les types de contenu).
+
+**Jeu hors de l'engine** : `cargo install --path crates/content --bin alacod`, puis
+`alacod new mon-jeu [--engine <racine>]` copie `templates/starter/` (contenu minimal qui passe le
+lint : joueur, quatre armes, une arène) dans `./mon-jeu`, avec un `Cargo.toml` à dépendances par
+chemin vers l'engine (+ `[workspace]` et `[patch.crates-io]` `bevy_ecs_ldtk`, que cargo n'applique
+qu'à la racine), le `Cargo.lock` de l'engine, un `CLAUDE.md` et un hook de lint. `lint` et
+`describe` sans chemin trouvent le jeu depuis le dossier courant. Le gabarit est un instantané
+d'assets du testbed : à resynchroniser si le format du contenu change (le lint du gabarit échoue
+alors).
+
 **Rechargement à chaud** : hors partie (`AppState::LobbyLocal`/`LobbyOnline`), si un
 fichier de contenu suivi par bevy change (feature `native`, `bevy/file_watcher`), le
 registre est relu depuis le disque et le lint relancé
