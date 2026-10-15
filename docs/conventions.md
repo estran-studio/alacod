@@ -3440,6 +3440,35 @@ Munitions : réserves distinctes par type `Custom` (`balles`, `cartouches`, `cal
 `cooldown_frames` (voir `FiringMode::Burst`). Les traces `gungeon` existantes n'ont pas bougé
 (les 5 scénarios générés d'avant sont identiques après `GEN_BLESS=1`).
 
+### 52.b Objets et synergies (T14b)
+
+Données seulement (`games/gungeon/assets/{objets,synergies}/`), aucune mécanique ajoutée. Vingt objets
+au total (dix de plus), huit synergies (quatre de plus : la fiche dit « quatre synergies », lue comme
+quatre en plus des deux de M2-T4). Les pools de butin (`commun`, `boutique`, `boss`) tirent par rareté :
+les nouveaux objets y entrent sans toucher aux pools ; le prix en boutique suit la rareté (§50).
+
+| Objet | Rareté | Genre | Effet |
+|---|---|---|---|
+| `gilet` | Commun | passif | `OnPickup` (une charge) : +25 d'armure (D61) |
+| `egide` | Commun | consommable | `GainShield(1)` au ramassage (D61) |
+| `lunettes` | Commun | passif | `Range` +20 % |
+| `chargeur_rapide` | Commun | passif | `ReloadSpeed` +30 % |
+| `roulade` | Peu commun | passif | `OnDodge`, cooldown 60 : cadence +30 % pendant 120 frames |
+| `trophee` | Peu commun | passif | `OnKill`, cooldown 120 : soin 2 |
+| `parchemin` | Peu commun | passif | `OnBlank`, cooldown 300 : `GainShield(1)` |
+| `sablier` | Peu commun | actif `Frames(1800)` | vitesse +50 % pendant 240 frames |
+| `bastion` | Rare | passif | vie max +10 ; `OnFloorStart` : `GainShield(1)` |
+| `rancune` | Rare | passif | `OnDamageTaken` sous 50 % de vie, cooldown 600 : dégâts +50 % pendant 180 frames |
+
+Synergies : `rempart` (`gilet` + `bastion` : +25 d'armure), `fuite_armee` (`bottes` + `roulade` : vitesse
++10 %), `sang_froid` (`trophee` + `rancune` : dégâts +20 %), `tireur_d_elite` (`lunettes` + `chargeur_rapide` :
+dégâts +15 %).
+
+**Piège (armure).** `Armor` n'a pas de valeur de base chez le joueur : le générateur (`expected_item_stats`)
+refuse (`MissingStat`) un passif dont `modifiers` touche `Armor`. `gilet` pose donc son armure par un effet
+`OnPickup` (source `item:gilet:0`) ; `rempart` (synergie, sans `test:`) peut l'utiliser en `modifiers`.
+Les consommables (`egide`) n'ont pas de `test:` (comme `ration`, `blank`).
+
 ### 52.c Ennemis et boss (T14c)
 
 Données seulement (`games/gungeon/assets/`), aucune mécanique de moteur.
