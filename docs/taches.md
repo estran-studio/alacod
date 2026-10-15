@@ -590,6 +590,8 @@ l'ancienne machine.
 - Perf de la suite de scénarios (outillage, 3 j ; fiche `docs/taches/perf-suite-scenarios.md`, cloud) :
   mesurer le coût fixe par frame (~10 fps même sur `idle`), l'optimiser sans changer ce que la suite
   vérifie, tranches réparties par durée. Acceptation : suite deux fois plus rapide, aucune trace bougée.
+- Dettes en lot pour le cloud (2026-10-15) : `docs/taches/dettes-zombies-d10-d28-d29.md` (D10, D28, D29, décidées le 2026-10-14) et
+  `docs/taches/dettes-outillage-d15-d34-d60-d63.md` (mesures D15/D34, `compare_video` des scénarios générés, contenu de test D63).
 - Perf de la navigation (outillage, 3 j ; fiche `docs/taches/perf-navigation.md`, cloud, après perf-suite-scenarios) :
   flow field et navigation des bots en grilles denses (42 % + 14 % de `bench_floor`), sortie identique case par case.
   Acceptation : aucune trace bougée, `throne_*` et `bench_floor` nettement plus rapides.

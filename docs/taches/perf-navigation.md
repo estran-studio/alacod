@@ -4,7 +4,7 @@ Lire d'abord `docs/taches/README.md`, `CLAUDE.md` (« Flow Field - Implémentati
 « Déterminisme »), `docs/conventions.md` §5, §6 et §10 (preuve d'une trace), le rapport
 `docs/taches/rapports/perf-suite-scenarios.md` (§ 5, « Pistes non appliquées »),
 `crates/game/src/character/enemy/ai/navigation.rs` et `crates/bots/src/navigation.rs`.
-Branche `perf-navigation` depuis `origin/main` (perf-suite-scenarios mergée). Estimation : 3 j. Pas de
+Branche `perf-navigation` depuis `origin/main`, **une fois perf-suite-scenarios et m1-revue-humaine mergées** (toutes deux touchent `navigation.rs`). Estimation : 3 j. Pas de
 section de conventions réservée : compléter « Vitesse de la suite » de §5.
 
 ## Contexte
