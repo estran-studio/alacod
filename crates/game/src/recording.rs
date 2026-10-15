@@ -74,7 +74,6 @@ impl Default for RecordedSettings {
             chests: vec![],
             room_reward_chance_override: None,
             profile: false,
-            profile_setup: None,
             powerup_drop_chance_override: None,
             floors: None,
             clocks: None,
@@ -186,6 +185,7 @@ impl InputRecorder {
             chests: settings.chests,
             room_reward_chance_override: settings.room_reward_chance_override,
             profile: settings.profile,
+            profile_setup: None,
             powerup_drop_chance_override: settings.powerup_drop_chance_override,
             floors: settings.floors,
             // T1.10 : progression imposée par le scénario d'origine (sinon celle du manifeste).

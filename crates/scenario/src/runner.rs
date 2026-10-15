@@ -236,6 +236,9 @@ pub fn build_app(scenario: &Scenario, headless: bool, config: &PlayConfig) -> Ap
     // Registre de contenu (T1.5) : mêmes règles que `alacod lint`, un contenu invalide
     // fait échouer le test tout de suite plutôt qu'en plein milieu de la simulation.
     let (registry, mut manifest) = load_content(&scenario.game);
+    let profile_dir = scenario
+        .profile
+        .then(|| prepare_profiles(scenario, &registry));
 
     // Suite de T1.13 : mode de run imposé par le scénario, à la place de `entry.mode`.
     if let Some(mode) = scenario.mode {
@@ -253,9 +256,7 @@ pub fn build_app(scenario: &Scenario, headless: bool, config: &PlayConfig) -> Ap
         // M2-T0c : un scénario n'écrit aucun profil, sauf `profile: true` (dossier temporaire
         // propre à ce scénario, jamais le profil de l'utilisateur).
         .insert_resource(game::profile::ProfileSettings {
-            dir: scenario
-                .profile
-                .then(|| prepare_profiles(scenario, &registry)),
+            dir: profile_dir,
         })
         .add_plugins(core_plugin)
         .add_plugins(LdtkRoguePlugin)
