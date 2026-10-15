@@ -46,6 +46,7 @@ pub mod system_set;
 pub mod ui;
 pub mod waves;
 pub mod web;
+mod world_sprites;
 pub use combat::weapons;
 
 use lazy_static::lazy_static;

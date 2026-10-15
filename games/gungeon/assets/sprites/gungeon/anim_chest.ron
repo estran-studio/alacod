@@ -1,0 +1,8 @@
+// Lot C : objet du monde `chest` : tuile 89 de `tiny_dungeon.png` (coffre fermé ; `Open` : tuile 91, coffre ouvert).
+(
+    frame_duration: 120,
+    animations: {
+        "Idle": (start: 89, end: 89),
+        "Open": (start: 91, end: 91),
+    },
+)

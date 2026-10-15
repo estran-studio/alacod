@@ -31,6 +31,11 @@ impl std::hash::Hash for CharacterAppearance {
     }
 }
 
+/// Teinte de base des calques (D66, `CharacterConfig::marker`) : relue par
+/// `feedback::apply_layer_colors` à la place du blanc. Présentation, hors rollback.
+#[derive(Component, Clone, Copy, Debug, PartialEq)]
+pub struct MarkerTint(pub Color);
+
 /// Marque une entité dont les visuels ont été créés (hors rollback).
 #[derive(Component)]
 pub struct VisualsAttached;
@@ -70,14 +75,24 @@ pub fn attach_character_visuals(
             VisualsAttached,
         ));
 
-        for layer in skin.layers.keys() {
+        // Un skin sans calque (ennemis de `gungeon`, lot C) montre tous les calques de l'entrée de la
+        // table `SpriteSheet` : déclarer des calques dans le RON ajouterait `ActiveLayers` à l'état
+        // rollback et déplacerait les traces ; la présentation les lit donc dans la table.
+        let layer_names: Vec<&String> = if skin.layers.is_empty() {
+            let mut names: Vec<&String> = map_layers.keys().collect();
+            names.sort();
+            names
+        } else {
+            skin.layers.keys().collect()
+        };
+        for layer in layer_names {
             let Some(spritesheet_config) = map_layers
                 .get(layer)
                 .and_then(|handle| spritesheet_assets.get(handle))
             else {
                 continue;
             };
-            create_child_sprite(
+            let layer_entity = create_child_sprite(
                 &mut commands,
                 &asset_server,
                 &mut texture_atlas_layouts,
@@ -85,6 +100,23 @@ pub fn attach_character_visuals(
                 spritesheet_config,
                 0,
             );
+            // D66 : échelle du marqueur (ombre comprise, le personnage grossit d'un bloc).
+            if let Some(scale) = config.marker.as_ref().and_then(|m| m.scale) {
+                commands.entity(layer_entity).insert(Transform {
+                    translation: Vec3::new(
+                        spritesheet_config.offset_x,
+                        spritesheet_config.offset_y,
+                        spritesheet_config.offset_z,
+                    ),
+                    scale: Vec3::splat(spritesheet_config.scale * scale),
+                    ..default()
+                });
+            }
+        }
+        if let Some((r, g, b)) = config.marker.as_ref().and_then(|m| m.tint) {
+            commands
+                .entity(entity)
+                .insert(MarkerTint(Color::srgb(r, g, b)));
         }
 
         commands.entity(entity).with_children(|parent| {
@@ -98,5 +130,45 @@ pub fn attach_character_visuals(
                 Transform::from_translation(Vec3::new(0.0, 10.0, 0.1)),
             ));
         });
+    }
+}
+
+/// D66 (présentation) : un ennemi **stationnaire** regarde sa cible. `FacingDirection` (rollback)
+/// ne suit que la vitesse, nulle pour une tourelle : le sprite gardait son orientation de
+/// création. Direction : visée figée de l'émetteur pendant un pattern, sinon cible de
+/// déplacement (`EnemyPath`) ; ne retourne que le `flip_x` des calques (comme `set_sprite_flip`,
+/// dont ce système passe après). Ne touche ni l'état ni les traces.
+pub fn face_stationary_enemies(
+    enemies: Query<
+        (
+            &bevy_fixed::fixed_math::FixedTransform3D,
+            &crate::character::enemy::ai::state::EnemyAiConfig,
+            Option<&combat::emitter::Emitter>,
+            Option<&crate::character::enemy::ai::pathing::EnemyPath>,
+            &Children,
+        ),
+        With<combat::actors::Enemy>,
+    >,
+    mut sprites: Query<&mut Sprite>,
+) {
+    for (transform, ai, emitter, path, children) in &enemies {
+        if !ai.stationary {
+            continue;
+        }
+        let dx = match (emitter, path) {
+            (Some(emitter), _) if emitter.aim != bevy_fixed::fixed_math::FixedVec2::ZERO => {
+                emitter.aim.x.to_num::<f32>()
+            }
+            (_, Some(path)) => (path.target_position.x - transform.translation.x).to_num::<f32>(),
+            _ => continue,
+        };
+        if dx.abs() < 1e-3 {
+            continue;
+        }
+        for child in children.iter() {
+            if let Ok(mut sprite) = sprites.get_mut(child) {
+                sprite.flip_x = dx < 0.0;
+            }
+        }
     }
 }

@@ -367,6 +367,7 @@ pub fn apply_powerup_actions_system(
                                 mode_state.mag_ammo = match mode_config.mag {
                                     MagBulletConfig::Mag { mag_size, .. } => mag_size,
                                     MagBulletConfig::Magless { bullet_limit } => bullet_limit,
+                                    MagBulletConfig::Infinite => 0,
                                 };
                             }
                             let capacity = capacities.entry(ammo_type).or_default();
@@ -489,7 +490,8 @@ pub fn loot_drop_on_death_system(
         (&GgrsNetId, &Team, &fixed_math::FixedTransform3D),
         (
             With<Rollback>,
-            Added<Death>,
+            // `With`, pas `Added` : voir `shop::shell_drop_on_death_system`.
+            With<Death>,
             // M2-T11 : un baril (équipe `Enemies`) ne laisse aucun butin
             Without<world::BarrelState>,
         ),
@@ -891,6 +893,7 @@ mod tests {
                 match weapon.config.firing_modes["default"].mag {
                     MagBulletConfig::Mag { mag_size, .. } => mag_size,
                     MagBulletConfig::Magless { bullet_limit } => bullet_limit,
+                    MagBulletConfig::Infinite => 0,
                 }
             );
         }

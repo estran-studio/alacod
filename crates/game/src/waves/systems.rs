@@ -510,7 +510,8 @@ fn select_enemy_type(
 pub fn wave_enemy_death_tracking_system(
     frame: Res<FrameCount>,
     mut wave_state: ResMut<WaveState>,
-    query: Query<(&utils::net_id::GgrsNetId, &WaveEnemy), Added<Death>>,
+    // `With`, pas `Added` : voir `shop::shell_drop_on_death_system`.
+    query: Query<(&utils::net_id::GgrsNetId, &WaveEnemy), With<Death>>,
 ) {
     for (net_id, wave_enemy) in query.iter() {
         info!(

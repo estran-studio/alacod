@@ -2589,7 +2589,11 @@ fn player_stat(world: &mut World, handle: usize, stat: &StatId) -> Option<fixed_
 
 /// Stat résolue d'une entité (base `Stats` + `Modifiers` actifs).
 fn entity_stat(world: &mut World, entity: Entity, stat: &StatId) -> Option<fixed_math::Fixed> {
-    let base = world.get::<Stats>(entity)?.get(stat)?;
+    // M4-T0a : `ShotSpeed`/`ShotSize` ne sont pas posées dans `Stats` (base 1, comme au tir).
+    let base = world
+        .get::<Stats>(entity)?
+        .get(stat)
+        .or_else(|| sim_core::stats::default_base(stat))?;
     let frame = world.resource::<FrameCount>().frame;
     Some(match world.get::<Modifiers>(entity) {
         Some(modifiers) => resolve(base, modifiers.iter().filter(|m| &m.stat == stat), frame),

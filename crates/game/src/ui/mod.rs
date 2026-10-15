@@ -6,6 +6,7 @@ pub mod game_over;
 pub mod hud;
 pub mod hud_model;
 pub mod lobby;
+pub mod mutation_hui;
 pub mod mutation_screen;
 pub mod screens;
 

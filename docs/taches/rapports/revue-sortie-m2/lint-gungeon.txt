@@ -1,0 +1,22 @@
+avertissement : weapons/weapons.ron: arme « arbalete » : aucun personnage, mur ni pool ne la donne
+avertissement : weapons/weapons.ron: arme « arc » : aucun personnage, mur ni pool ne la donne
+avertissement : weapons/weapons.ron: arme « arsenal » : aucun personnage, mur ni pool ne la donne
+avertissement : weapons/weapons.ron: arme « arsenal_lourd » : aucun personnage, mur ni pool ne la donne
+avertissement : weapons/weapons.ron: arme « boule_energie » : aucun personnage, mur ni pool ne la donne
+avertissement : weapons/weapons.ron: arme « carabine_rafale » : aucun personnage, mur ni pool ne la donne
+avertissement : weapons/weapons.ron: arme « chercheur » : aucun personnage, mur ni pool ne la donne
+avertissement : weapons/weapons.ron: arme « double_canon » : aucun personnage, mur ni pool ne la donne
+avertissement : weapons/weapons.ron: arme « fusil_pompe » : aucun personnage, mur ni pool ne la donne
+avertissement : weapons/weapons.ron: arme « fusil_precision » : aucun personnage, mur ni pool ne la donne
+avertissement : weapons/weapons.ron: arme « grenadier » : aucun personnage, mur ni pool ne la donne
+avertissement : weapons/weapons.ron: arme « lance_flammes » : aucun personnage, mur ni pool ne la donne
+avertissement : weapons/weapons.ron: arme « lance_roquettes » : aucun personnage, mur ni pool ne la donne
+avertissement : weapons/weapons.ron: arme « laser » : aucun personnage, mur ni pool ne la donne
+avertissement : weapons/weapons.ron: arme « mitraillette » : aucun personnage, mur ni pool ne la donne
+avertissement : weapons/weapons.ron: arme « mitrailleuse_lourde » : aucun personnage, mur ni pool ne la donne
+avertissement : weapons/weapons.ron: arme « pistolet_jumele » : aucun personnage, mur ni pool ne la donne
+avertissement : weapons/weapons.ron: arme « pistolet_precis » : aucun personnage, mur ni pool ne la donne
+avertissement : weapons/weapons.ron: arme « rebondisseur » : aucun personnage, mur ni pool ne la donne
+avertissement : weapons/weapons.ron: arme « revolver » : aucun personnage, mur ni pool ne la donne
+games/gungeon : 20 avertissement(s)
+games/gungeon : aucune erreur (11 personnages, 21 armes, 1 armes de corps à corps, 0 vagues, 3 cartes)

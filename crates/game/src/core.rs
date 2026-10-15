@@ -492,13 +492,14 @@ impl Plugin for PresentationPlugin {
         app.add_plugins(crate::feedback::FeedbackPlugin);
         app.add_plugins(crate::items::BlankPresentationPlugin);
         app.add_plugins(crate::powerup_visuals::PowerUpVisualPlugin);
+        app.add_plugins(crate::world_sprites::WorldSpritePlugin);
         app.add_plugins(crate::room_fog::RoomFogPlugin);
         app.add_plugins(crate::ui::hud::HudPlugin);
-        app.add_plugins(crate::ui::mutation_screen::MutationScreenPlugin);
         #[cfg(feature = "ui_hui")]
         app.add_plugins((
             crate::ui::screens::hui::HuiScreensPlugin,
             crate::ui::game_over::GameOverUiPlugin,
+            crate::ui::mutation_hui::MutationHuiPlugin,
         ));
         app.add_plugins(crate::ui::floor_transition::FloorTransitionPlugin);
         #[cfg(feature = "debug_ui")]

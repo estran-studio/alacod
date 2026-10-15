@@ -68,7 +68,6 @@ pub fn run(registry: &Registry, manifest: &GameManifest) -> Vec<LintError> {
     lint_perks(registry, &mut errors);
     lint_powerups(registry, &mut errors);
     lint_feedback(registry, &mut errors);
-    lint_mutation_screens(registry, &mut errors);
     lint_hud_sources(registry, &mut errors);
     lint_html_screens(registry, &mut errors);
     lint_sprite_sheets(registry, &mut errors);
@@ -442,7 +441,34 @@ fn lint_weapons(registry: &Registry, errors: &mut Vec<LintError>) {
         // T2.8 : `Custom` est la porte d'un type de munition propre au jeu ; un nom vide (ou
         // fait d'espaces) ne désigne rien et partagerait la réserve de toute autre arme
         // `Custom("")` par accident.
-        if let AmmoType::Custom(name) = &weapon.ammo_type {
+        // M4-T0a (§60) : munitions infinies. Une arme dont un mode consomme des munitions doit
+        // déclarer `ammo_type` (comme avant M4-T0a, où son absence était une erreur RON) ; une
+        // arme dont **tous** les modes sont `Infinite` n'a pas de réserve à consommer et le refuse.
+        let consumes = weapon.firing_rates.is_empty()
+            || weapon
+                .firing_rates
+                .keys()
+                .any(|mode| !weapon.infinite_modes.contains(mode));
+        match (&weapon.ammo_type, consumes) {
+            (None, true) => errors.push(LintError {
+                kind: LintErrorKind::Parse,
+                file: weapon.file.display().to_string(),
+                message: format!(
+                    "arme « {} » : champ ammo_type absent : obligatoire pour une arme dont un mode consomme des munitions (Mag, Magless)",
+                    weapon.id
+                ),
+            }),
+            (Some(ammo), false) => errors.push(LintError {
+                kind: LintErrorKind::OutOfRange,
+                file: weapon.file.display().to_string(),
+                message: format!(
+                    "arme « {} » : ammo_type = {ammo:?} avec des munitions Infinite : pas de réserve à consommer, retirer ammo_type",
+                    weapon.id
+                ),
+            }),
+            _ => {}
+        }
+        if let Some(AmmoType::Custom(name)) = &weapon.ammo_type {
             if name.trim().is_empty() {
                 errors.push(LintError {
                     kind: LintErrorKind::OutOfRange,
@@ -693,6 +719,32 @@ fn lint_projectile_spec(
                     format!("{at} : Homing({}) : doit être dans ]0, 1]", force.get()),
                 )
             }
+            // M4-T0a (§60) : contrats acceptés dans le RON (formes, plages), refusés tant que
+            // M4-T1 ne les exécute pas.
+            registry::ProjectileModifierEntry::Spectral => push_contract(at, "Spectral", push),
+            registry::ProjectileModifierEntry::Split {
+                count,
+                spread,
+                child,
+            } => {
+                lint_split_orbit(at, Some((*count, spread.get())), None, push);
+                if let Some(child) = child {
+                    if !table.contains_key(child) {
+                        push(
+                            LintErrorKind::BrokenReference,
+                            format!("{at} : Split : child « {child} » absent de la table projectiles de l'arme"),
+                        );
+                    }
+                }
+                push_contract(at, "Split", push);
+            }
+            registry::ProjectileModifierEntry::Orbit {
+                radius,
+                frames_per_turn,
+            } => {
+                lint_split_orbit(at, None, Some((radius.get(), *frames_per_turn)), push);
+                push_contract(at, "Orbit", push);
+            }
             _ => {}
         }
     }
@@ -741,6 +793,101 @@ fn lint_projectile_spec(
             }
         }
     }
+}
+
+/// M4-T0a : modificateur de contrat (`Spectral`, `Split`, `Orbit`) dans une arme : refusé
+/// jusqu'à son exécution (M4-T1), comme les contrats de M1.
+fn push_contract(at: &str, name: &str, push: &mut impl FnMut(LintErrorKind, String)) {
+    push(
+        LintErrorKind::Unsupported,
+        format!("{at} : modificateur {name} : contrat pas encore exécuté au tir (M4-T1)"),
+    );
+}
+
+/// M4-T0a : plages de `Split` (`count > 0`, `spread >= 0`) et d'`Orbit` (`radius > 0`,
+/// `frames_per_turn > 0`).
+fn lint_split_orbit(
+    at: &str,
+    split: Option<(u32, Fixed)>,
+    orbit: Option<(Fixed, u32)>,
+    push: &mut impl FnMut(LintErrorKind, String),
+) {
+    if let Some((count, spread)) = split {
+        if count == 0 {
+            push(
+                LintErrorKind::OutOfRange,
+                format!("{at} : Split : count = 0 : doit être > 0"),
+            );
+        }
+        if spread < Fixed::ZERO {
+            push(
+                LintErrorKind::OutOfRange,
+                format!("{at} : Split : spread = {spread} : doit être >= 0"),
+            );
+        }
+    }
+    if let Some((radius, frames_per_turn)) = orbit {
+        if radius <= Fixed::ZERO {
+            push(
+                LintErrorKind::OutOfRange,
+                format!("{at} : Orbit : radius = {radius} : doit être > 0"),
+            );
+        }
+        if frames_per_turn == 0 {
+            push(
+                LintErrorKind::OutOfRange,
+                format!("{at} : Orbit : frames_per_turn = 0 : doit être > 0"),
+            );
+        }
+    }
+}
+
+/// M4-T0a (§60) : `projectile:` d'un objet ou d'une synergie (`effects::projectile::
+/// ProjectileMods`). Mêmes règles de forme que la liste d'une arme (chaque modificateur au plus
+/// une fois **dans cette liste**, l'empilement vaut entre sources ; `Size > 0`, `0 < Homing <= 1`,
+/// plages de `Split`/`Orbit`), puis refus `Unsupported` : le tir ne lit pas encore les
+/// modificateurs d'objet (M4-T1).
+fn lint_carried_projectile(
+    at: &str,
+    mods: &effects::projectile::ProjectileMods,
+    push: &mut impl FnMut(LintErrorKind, String),
+) {
+    use effects::projectile::ProjectileModifier as M;
+    let mut seen = BTreeSet::new();
+    for modifier in &mods.modifiers {
+        if !seen.insert(modifier.name()) {
+            push(
+                LintErrorKind::OutOfRange,
+                format!("{at} : modificateur {} répété", modifier.name()),
+            );
+        }
+        match modifier {
+            M::Size(size) if *size <= Fixed::ZERO => push(
+                LintErrorKind::OutOfRange,
+                format!("{at} : Size({size}) : doit être > 0"),
+            ),
+            M::Homing(force)
+                if *force <= Fixed::ZERO || *force > bevy_fixed::fixed_math::FIXED_ONE =>
+            {
+                push(
+                    LintErrorKind::OutOfRange,
+                    format!("{at} : Homing({force}) : doit être dans ]0, 1]"),
+                )
+            }
+            M::Split { count, spread, .. } => {
+                lint_split_orbit(at, Some((*count, *spread)), None, push)
+            }
+            M::Orbit {
+                radius,
+                frames_per_turn,
+            } => lint_split_orbit(at, None, Some((*radius, *frames_per_turn)), push),
+            _ => {}
+        }
+    }
+    push(
+        LintErrorKind::Unsupported,
+        format!("{at} : modificateurs de projectile portés par un objet : contrat pas encore lu au tir (M4-T1)"),
+    );
 }
 
 fn lint_expire_pattern(
@@ -1395,7 +1542,10 @@ fn lint_powerups(registry: &Registry, errors: &mut Vec<LintError>) {
         for (index, action) in powerup.actions.iter().enumerate() {
             match action {
                 effects::Action::RefillAmmoOf(ammo) => {
-                    if !registry.weapons.values().any(|weapon| weapon.ammo_type == *ammo) {
+                    if !registry
+                        .weapons
+                        .values()
+                        .any(|weapon| weapon.ammo_type.as_ref() == Some(ammo)) {
                         unknown_ammo.push(format!(
                             "power-up « {} » : actions[{index}] (RefillAmmoOf) : munition {ammo:?} déclarée par aucune arme",
                             powerup.id
@@ -1572,53 +1722,6 @@ fn lint_html_screens(registry: &Registry, errors: &mut Vec<LintError>) {
                 row.display()
             ),
         });
-    }
-}
-
-/// T1.16 : l'écran de mutation (`ui/mutation_screen.ron`, présentation seule) a sa police
-/// sous `assets/`, exactement trois emplacements de carte (un par bit `ChoiceA/B/C`) et des
-/// tailles positives.
-fn lint_mutation_screens(registry: &Registry, errors: &mut Vec<LintError>) {
-    for (rel, layout) in &registry.mutation_screens {
-        let file = rel.display().to_string();
-        if !registry.asset_exists(&layout.font) {
-            errors.push(LintError {
-                kind: LintErrorKind::BrokenReference,
-                file: file.clone(),
-                message: format!(
-                    "mutation_screen : champ font = « {} » : fichier absent de assets/",
-                    layout.font
-                ),
-            });
-        }
-        if layout.slots.len() != crate::ui::MUTATION_SCREEN_SLOTS {
-            errors.push(LintError {
-                kind: LintErrorKind::OutOfRange,
-                file: file.clone(),
-                message: format!(
-                    "mutation_screen : champ slots : {} emplacements, il en faut {}",
-                    layout.slots.len(),
-                    crate::ui::MUTATION_SCREEN_SLOTS
-                ),
-            });
-        }
-        for (field, value) in [
-            ("card_size.0", layout.card_size.0),
-            ("card_size.1", layout.card_size.1),
-            ("bar_size.0", layout.bar_size.0),
-            ("bar_size.1", layout.bar_size.1),
-            ("title_size", layout.title_size),
-            ("name_size", layout.name_size),
-            ("text_size", layout.text_size),
-        ] {
-            if value <= 0.0 {
-                errors.push(LintError {
-                    kind: LintErrorKind::OutOfRange,
-                    file: file.clone(),
-                    message: format!("mutation_screen : champ {field} = {value} : doit être > 0"),
-                });
-            }
-        }
     }
 }
 
@@ -3056,6 +3159,9 @@ fn lint_items(registry: &Registry, errors: &mut Vec<LintError>) {
             })
         };
         let id = &item.id;
+        if let Some(mods) = &item.def.projectile {
+            lint_carried_projectile(&format!("objet « {id} » : projectile"), mods, &mut push);
+        }
         if let items::ItemKind::Active(charge) = item.def.kind {
             if charge.required() == 0 {
                 push(
@@ -3201,6 +3307,9 @@ fn lint_synergies(registry: &Registry, errors: &mut Vec<LintError>) {
             })
         };
         let id = &synergy.id;
+        if let Some(mods) = &synergy.def.projectile {
+            lint_carried_projectile(&format!("synergie « {id} » : projectile"), mods, &mut push);
+        }
         let set: BTreeSet<&str> = synergy.def.requires.iter().map(String::as_str).collect();
         if set.len() < 2 {
             push(

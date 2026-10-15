@@ -284,8 +284,6 @@ un seul problème en plus de `start_map: "unused"` commun à toutes), un test pa
 | `ui/feedback.ron` | arme de `by_weapon` connue du jeu (T1.17, §31) | `BrokenReference` | `feedback_by_weapon_unknown` |
 | `ui/feedback.ron` | clé de `volumes` présente dans `sounds` (assets) ; valeur dans [-60, 12] dB | `BrokenReference` / `OutOfRange` | `feedback_volume_unknown_key` |
 | `ui/feedback.ron` | surcharges `by_kind`/`by_weapon` dans les bornes (T1.17, §31) | `OutOfRange` | `feedback_override_out_of_range` |
-| `ui/mutation_screen.ron` | `font` présent sous `assets/` (T1.16, §30) | `BrokenReference` | `mutation_screen_font_missing` |
-| `ui/mutation_screen.ron` | exactement `MUTATION_SCREEN_SLOTS` (3) emplacements (T1.16, §30) | `OutOfRange` | `mutation_screen_two_slots` |
 | `ui/hud.ron` | source de widget inconnue (T1.18, §32) | `UnknownKind` | `hud_unknown_source` |
 | power-up | `RefillAmmoOf` : munition déclarée par au moins une arme (D40, §14) | `BrokenReference` | `powerup_refill_ammo_unknown` |
 | feuilles de sprites | `animation` et feuille de chaque calque présentes sous `assets/` (D3) | `BrokenReference` | `sprite_sheet_missing_file` |
@@ -321,7 +319,7 @@ enums ouverts (`AmmoType`, `StatId`, qui n'acceptent un nom libre que sous `Cust
 clé répétée. Le registre lit donc `perks.ron`, `weapons.ron`, `melee_weapons.ron` et la table
 `powerups` de `items/powerups.ron` en liste (`registry::KeyedEntries`) pour rapporter les
 doublons, y compris dans un même fichier. La première entrée est conservée, la seconde
-produit `DuplicateId`. Les fichiers `feedback.ron`, `hud.ron` et `mutation_screen.ron` déclarés sous le kind `Ui`
+produit `DuplicateId`. Les fichiers `feedback.ron` et `hud.ron` déclarés sous le kind `Ui`
 sont lus avec un schéma typé ; les autres fichiers Ui restent validés syntaxiquement.
 
 **CLI** : `cargo run -p content --bin alacod --profile headless -- lint games/<jeu>` (code
@@ -2211,11 +2209,10 @@ Présentation seule : aucune trace ne change, la simulation ne fait jamais de pa
   (Entrée, A) ajoute à l'input du joueur affiché le bit de la carte surlignée
   (`read_local_inputs`) : seul chemin vers la simulation, le même que 1/2/3. Le D-pad et → gardent
   aussi leur action de déplacement (la partie continue pendant le choix).
-- **Mise en page** `ui/mutation_screen.ron` (kind `Ui`, schéma `content::ui::MutationScreenLayout`
-  partagé par le lint et le jeu) : police, titre, taille des cartes, `slots` (centre de chaque
-  carte depuis le centre de l'écran), couleurs, barre de temps, aide. Lint : police présente sous
-  `assets/` (BrokenReference), exactement trois `slots` et tailles > 0 (OutOfRange). Absent : pas
-  d'écran (le choix se fait aux touches 1/2/3 ou d'office).
+- **Mise en page** (D71, §56) : gabarit `bevy_hui` `ui/mutation_screen.html` (throne, testbed),
+  rempli par `game::ui::mutation_hui` depuis `MutationScreenView`. Remplace l'ancien
+  `ui/mutation_screen.ron` et son schéma de lint (retirés). Absent : pas d'écran (le choix se
+  fait aux touches 1/2/3 ou d'office).
 - **Transition de niveau** `game::ui::floor_transition` : à chaque changement de
   `FloorState::index` lu côté présentation (pas `FloorEntered`), voile noir qui s'éclaircit
   linéairement en `floor_fade_seconds` (`camera.ron`, défaut 0,4) et caméra posée sur sa cible
@@ -3772,11 +3769,15 @@ construire une ligne déjà détruite lorsque l'inventaire change.
   `Run.step`/`Run.summary`, mis à jour sans reconstruire la racine ; rollback de l'issue :
   disparition de l'écran. Rejouer (R) et Lobby gardent leurs `RunRequest`, boutons souris
   inclus. La présentation est chargée seulement dans `PresentationPlugin`.
-- **Dette mutation** : le modèle `MutationScreenView` et le rendu `mutation_screen.ron`
-  restent distincts. Le choix de trois cartes chronométrées, la surbrillance et
-  `ChoiceConfirm` alimentent les bits `ChoiceA/B/C` du joueur, pas les commandes locales
-  de `ScreensState`. Cette migration nécessite un adaptateur spécifique conservant ce
-  protocole et la mise en page des cartes ; elle n'est pas assimilée au menu d'inventaire.
+- **Écran de mutation (D71, 2026-10-15)** : `ui/mutation_screen.html` dans throne et testbed,
+  adaptateur `game::ui::mutation_hui` (`MutationHuiPlugin`, dans `PresentationPlugin`, feature
+  `ui_hui`). `MutationScreenView` et le protocole sont inchangés : valider émet toujours le bit
+  `ChoiceA/B/C` dans l'input (`confirm_input`), l'adaptateur ne lit que la vue. Propriétés du
+  gabarit : `name{i}`, `desc{i}`, `tint{i}`, `border{i}` (carte surlignée en or) pour trois cartes,
+  `bar_width` (barre de temps, en %). Écran dérivé de l'état : un rollback qui annule le choix le
+  fait disparaître. `mutation_screen.ron`, `MutationScreenLayout` et son lint sont retirés (aucune
+  trace ne bouge). Tests : `mutation_hui::gabarit_des_jeux_construit_et_recompile` construit les
+  vrais gabarits de throne et testbed.
 
 Les fichiers HTML sont découverts directement dans les dossiers `Ui`, sans compagnon RON.
 Le registre vérifie leur lecture UTF-8 ; le lint exige aussi `ui/hui_row.html` lisible
@@ -3802,12 +3803,17 @@ en headless et dans la liste fermée `content::ui::HUD_SOURCES` :
 Sans joueur/objet : textes vides et charge masquée. `HudRoomGeometry` reçoit uniquement
 la géométrie de l'étage courant depuis `CurrentRooms`, en `Update` avant `HudModelSet`.
 La carte se dérive de cette géométrie, de la position du joueur et de `RoomStates` :
-aucun nouveau composant/état rollback, aucun cache de visites.
-**Limite du contrat actuel** : `RoomStates` ne mémorise pas une visite d'une salle non
-combattante restée `Dormant`. La carte distingue comme visitées la salle courante,
-le départ et les salles `Locked`/`Cleared` ; une boutique dormante quittée ne conserve
-pas de marque de visite. Ajouter une mémoire simulation changerait les traces et sort
-de cette tâche de présentation seule.
+aucun nouveau composant/état rollback.
+**Mémoire de visite (D72, 2026-10-15)** : `RoomStates` ne retient pas une salle non combattante
+restée `Dormant` (boutique, récompense). `hud_model::MinimapVisits` (ressource de présentation,
+`Update`, hors rollback et hors trace) garde les ids des salles où un joueur **local** est entré
+(`track_minimap_visits`, avant `update_hud_snapshot`) ; elle repart de zéro quand la géométrie de
+l'étage change (nouvel étage, restart). Une salle visitée puis quittée reste « visitée ». Limite
+assumée : un rollback ne défait pas une visite (l'exploration n'est pas un fait de simulation) ;
+aucun état `Visited` rollback n'a été nécessaire. Preuve : scénario `minimap_shop_visit`
+(gungeon, `etages_grammaire`, graine 12 : la boutique est voisine du départ ; attentes `HudText`
+« boutique · inexplorée » f10, « visitée · actuelle » f90, « visitée » après la sortie f199, alors
+que `RoomState` reste `Dormant`).
 
 ### Scénarios et revue visuelle
 
@@ -3831,3 +3837,109 @@ Carte : `gungeon_clear` 100 (verrouillage), 650 (nettoyée) ;
 Rechargement en jeu : `cargo run -p gungeon --features native`, ouvrir un écran puis
 modifier son `.html`. Le rapport précise les captures effectivement observées.
 
+
+## 60. Contrats des larmes et de l'empilement de projectiles (M4-T0a, chantier B5 v3)
+
+Contrats posés pour M4-T1 (larmes v3), M4-T6 (familiers qui tirent), M4-T11a (contenu de larmes)
+et M4-T15 (bench). **Aucune trace existante ne bouge** : variantes en fin d'enum, stats lues avec
+une base 1 sans être posées dans `Stats`, champs d'objet optionnels hors rollback.
+
+### Munitions infinies
+
+`MagBulletConfig::Infinite` (en fin d'enum, `combat::weapons`) : le mode tire tant que la cadence
+le permet ; jamais vide, jamais rechargé (pas même le délai de pompe d'un `Shotgun`), `mag_ammo` et
+`mag_size` restent à 0 (attente `Ammo` à 0 ; le HUD affichera `∞` ou rien, M4-T16). Réserve
+initiale : 0, comme `Magless`.
+
+```ron
+"larme": (config: (name: "larme", default_firing_mode: "default", firing_modes: {
+    "default": (firing_rate: "3.0", firing_mode: Automatic(), /* … */ mag: Infinite),
+})),
+```
+
+`ammo_type` devient facultatif dans le RON (`#[serde(default)]`, défaut `Custom("")`, la seule
+valeur qu'un RON ne peut pas écrire : T2.8 la refuse) **seulement** pour une arme dont tous les
+modes sont `Infinite`. Lint : `ammo_type` absent alors qu'un mode consomme (`Mag`, `Magless`) →
+`Parse` (comme l'erreur RON d'avant) ; `ammo_type` donné alors que tous les modes sont `Infinite` →
+`OutOfRange`. Une arme mixte (un mode `Mag`, un mode `Infinite`) garde son `ammo_type`.
+
+### Stats de larmes et `Luck`
+
+- `StatId::ShotSpeed` (vitesse de la balle) et `StatId::ShotSize` (rayon de collision et sprite,
+  après `Size`), **après `Custom`** dans l'enum : l'`Ord` des clés de `Stats` et le hash des stats
+  existantes ne changent pas. Lues au tir (`weapon_rollback_system`, `ShotStats`) par
+  `StatReader::get(…, 1)` : base 1 sans être posées dans `Stats` (le `Stats` de tout personnage
+  reste identique) ; à 1, aucun produit n'est calculé. `sim_core::stats::default_base` donne cette
+  base aux lecteurs hors simulation (attente `Stat`, générateur `ItemHeld`).
+- `Luck` a un lecteur de contrat : `effects::chance_with_luck(base, luck, par_point)` =
+  `clamp(base + luck × par_point, 0, 1)` en `Fixed`, saturant. Rien ne l'appelle encore dans la
+  simulation (M4-T1 : statut posé par une larme ; M4-T2 : effets d'objet). Le lint accepte donc
+  désormais un modificateur sur `Luck` (`stat_reader`).
+
+### Modificateurs de projectile portés par un objet
+
+Les contrats `ProjectileModifier`, `Pattern`, `ExpireAction` et `ProjectileSpec` vivent désormais
+dans `effects::projectile` (crate de simulation) et sont réexportés par `combat::projectile` :
+`items` (simulation, sans rendu) peut les porter sans dépendre de `combat` (dette D69). Le `Hash`,
+le `Debug` et le RON ne dépendent pas du crate de définition : aucune trace ne bouge.
+
+```ron
+// objets/<id>.ron (ou synergies/<id>.ron)
+(name: "Ricochet", kind: Passive, projectile: Some((modifiers: [Bounce(2)], on_hit: [], on_expire: [])))
+```
+
+`ItemDef.projectile` et `SynergyDef.projectile` : `Option<ProjectileMods>` (`ProjectileMods` =
+`ProjectileSpec` : `modifiers`, `on_hit`, `on_expire`), absent = v1 exacte. Ce sont des
+définitions (`ItemTable`/`SynergyTable`, ressources hors rollback, sans `Hash`) : le champ n'entre
+dans aucun checksum. **Le tir ne le lit pas encore** (M4-T1) : le lint vérifie sa forme (mêmes
+plages qu'une arme, doublon refusé dans la liste d'un objet) puis le refuse (`Unsupported`).
+
+### Composition (`combat::projectile::compose`)
+
+`compose(base, ajouts) -> ResolvedModifiers`, pure, `Fixed` seulement. Chaque liste est d'abord
+résolue seule (`resolve_modifiers` : dans une liste, le dernier l'emporte, le lint y refuse les
+doublons), puis les sources se combinent (règles par défaut de Q3, retenues par William le
+2026-10-15) :
+
+| Modificateur | Règle entre sources | Pourquoi |
+|---|---|---|
+| `Bounce(n)`, `Pierce(n)` | addition (saturante) | deux objets de rebond rebondissent plus |
+| `Size(f)` | produit | comme une stat multiplicative |
+| `Lifetime(n)` | maximum des sources qui en ont un | une larme vit au moins aussi longtemps |
+| `Homing(f)` | somme plafonnée à 1 | le guidage se renforce sans dépasser le virage complet |
+| `Gravity(g)` | somme | |
+| `Spectral` | présence | |
+| `Split` | addition des `count` ; `spread`, `child` de la première source | addition des branches |
+| `Orbit` | présence ; paramètres de la première source | |
+
+Ordre des sources, déterministe : arme (`base`), passifs dans l'ordre de ramassage (un passif en
+double compte deux fois), actif, synergies actives par id ; `items::projectile_sources(items,
+synergies, inventory)` rend les listes des objets dans cet ordre. Sans ajout,
+`compose(base, &[]) == resolve_modifiers(base)` exactement. `resolve_modifiers` reste l'unique
+appel au tir (inchangé) ; `ResolvedModifiers` n'est plus `Copy` (il porte `split`, `orbit`,
+`spectral`, que `Projectile::new` ne lit pas encore).
+
+### Nouveaux modificateurs (contrats)
+
+En fin d'enum `ProjectileModifier` (les six d'avant gardent leur hash, test
+`variantes_historiques_gardent_leur_hash`) :
+
+- `Spectral` : traverse murs et obstacles, pas les personnages ;
+- `Split(count, spread, child: Some("id"))` : à l'impact sur un personnage, `count` projectiles en
+  éventail de `spread` radians ; `child` = id de la table `projectiles` de l'arme, absent = le
+  projectile par défaut du porteur (Q3) ;
+- `Orbit(radius, frames_per_turn)` : tourne autour du tireur au lieu d'avancer.
+
+Lint : formes et plages (`Split.count > 0`, `spread >= 0`, `child` présent dans la table de
+l'arme ; `Orbit.radius > 0`, `frames_per_turn > 0`), puis `Unsupported` sur une arme tant que
+M4-T1 ne les exécute pas. Kinds `projectile_modifier` : `Spectral`, `Split`, `Orbit` (et `Fan`,
+`Spiral`, `Burst`, qui manquaient aux `pattern` déclarés par `CombatPlugin`).
+
+### Testbed et scénarios
+
+Arme `larme` (`Automatic`, 3 tirs/s, `mag: Infinite`, sans `ammo_type`) et objet `lentille`
+(`ShotSpeed Pct 0.5`, `ShotSize Mul 1.5`). Le testbed n'a pas de choix de personnage joueur dans
+un scénario : le « personnage d'essai » de la fiche est l'arme, donnée par `PlayerScript::weapon`.
+Scénarios : `tears_infinite` (300 frames de tir, `Ammo` à 0 tout du long, les coups continuent),
+`tears_shot_speed` (avec `lentille`, la larme touche `target` à une frame où, dans le témoin
+`tears_shot_speed_sans_objet`, elle n'est pas encore arrivée).

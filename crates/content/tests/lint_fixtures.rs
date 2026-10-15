@@ -755,28 +755,15 @@ fn t3_4_fixtures_have_a_single_rule_failure() {
     }
 }
 
-/// T1.16 : écran de mutation (`ui/mutation_screen.ron`) — police absente, deux emplacements ;
 /// T1.18 : source de HUD inconnue ;
 /// une seule erreur par fixture en plus du start_map commun.
 #[test]
-fn mutation_screen_fixtures() {
-    for (name, kind, needle) in [
-        (
-            "mutation_screen_font_missing",
-            LintErrorKind::BrokenReference,
-            "champ font = « fonts/absente.ttf »",
-        ),
-        (
-            "mutation_screen_two_slots",
-            LintErrorKind::OutOfRange,
-            "2 emplacements, il en faut 3",
-        ),
-        (
-            "hud_unknown_source",
-            LintErrorKind::UnknownKind,
-            "hud : source inconnue « mana »",
-        ),
-    ] {
+fn hud_source_fixtures() {
+    for (name, kind, needle) in [(
+        "hud_unknown_source",
+        LintErrorKind::UnknownKind,
+        "hud : source inconnue « mana »",
+    )] {
         let (_, _, errors) = load_and_lint(&fixture_dir(name)).unwrap();
         assert_has_error(&errors, kind, needle);
         let others: Vec<_> = errors
@@ -1497,7 +1484,8 @@ fn assert_has_warning(fixture: &str, kind: content::LintWarningKind, needle: &st
 #[test]
 fn stat_unread_fixture_is_an_error() {
     let (_, _, errors) = load_and_lint(&fixture_dir("stat_unread")).unwrap();
-    assert_has_error(&errors, LintErrorKind::UnreadStat, "Luck");
+    // M4-T0a : `Luck` est lue (chance d'effet) ; une stat `Custom` sans lecteur reste refusée.
+    assert_has_error(&errors, LintErrorKind::UnreadStat, "superstition");
 }
 
 #[test]
@@ -1649,4 +1637,68 @@ fn entry_floors_fixtures_report_their_rule() {
         LintErrorKind::Unsupported,
         "exige entry.mode = Floors",
     );
+}
+
+// ---------------------------------------------------------------------------------------
+// M4-T0a (docs/conventions.md §60) : munitions infinies, contrats de larmes, projectile d'objet
+// ---------------------------------------------------------------------------------------
+
+#[test]
+fn weapon_infinite_with_ammo_type_fixture_is_refused() {
+    let (_, _, errors) = load_and_lint(&fixture_dir("weapon_infinite_with_ammo_type")).unwrap();
+    assert_has_error(&errors, LintErrorKind::OutOfRange, "Infinite");
+    assert_eq!(m4_t0a_errors(&errors), 1, "{errors:#?}");
+}
+
+#[test]
+fn weapon_ammo_type_missing_fixture_is_refused() {
+    let (_, _, errors) = load_and_lint(&fixture_dir("weapon_ammo_type_missing")).unwrap();
+    assert_has_error(&errors, LintErrorKind::Parse, "ammo_type absent");
+    assert_eq!(m4_t0a_errors(&errors), 1, "{errors:#?}");
+}
+
+#[test]
+fn projectile_contract_fixture_is_unsupported() {
+    let (_, _, errors) = load_and_lint(&fixture_dir("projectile_contract_unsupported")).unwrap();
+    for name in ["Spectral", "Split", "Orbit"] {
+        assert_has_error(&errors, LintErrorKind::Unsupported, name);
+    }
+    assert!(
+        errors
+            .iter()
+            .filter(|e| !e.message.contains("entry.start_map"))
+            .all(|e| e.kind == LintErrorKind::Unsupported),
+        "formes valides : seul le refus de contrat, {errors:#?}"
+    );
+}
+
+#[test]
+fn projectile_split_out_of_range_fixture_reports_ranges() {
+    let (_, _, errors) = load_and_lint(&fixture_dir("projectile_split_out_of_range")).unwrap();
+    assert_has_error(&errors, LintErrorKind::OutOfRange, "count = 0");
+    assert_has_error(&errors, LintErrorKind::OutOfRange, "radius");
+    assert_has_error(&errors, LintErrorKind::BrokenReference, "inconnu");
+}
+
+#[test]
+fn item_projectile_fixture_is_unsupported() {
+    let (_, _, errors) = load_and_lint(&fixture_dir("item_projectile_unsupported")).unwrap();
+    assert_has_error(&errors, LintErrorKind::Unsupported, "ricochet");
+    assert_eq!(m4_t0a_errors(&errors), 1, "{errors:#?}");
+}
+
+#[test]
+fn item_projectile_out_of_range_fixture_reports_ranges() {
+    let (_, _, errors) = load_and_lint(&fixture_dir("item_projectile_out_of_range")).unwrap();
+    assert_has_error(&errors, LintErrorKind::OutOfRange, "Homing");
+    assert_has_error(&errors, LintErrorKind::OutOfRange, "Bounce répété");
+}
+
+/// Erreurs d'une fixture M4-T0a hors la carte de départ absente (`start_map: "unused"`, commune
+/// aux fixtures sans carte).
+fn m4_t0a_errors(errors: &[content::LintError]) -> usize {
+    errors
+        .iter()
+        .filter(|e| !e.message.contains("entry.start_map"))
+        .count()
 }

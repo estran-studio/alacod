@@ -6,14 +6,87 @@
 // à `assets/`. Feuilles et images rangées par entité sous `sprites/` (characters/, weapons/,
 // enemies/, effects/) ; voir `docs/conventions.md` §2.
 ({
+    // Lot C (docs/plan-assets.md) : héros, ennemis, boss et objets du monde de `gungeon` viennent du pack
+    // Tiny Dungeon de Kenney (CC0, `sprites/gungeon/`) ; l'image est choisie par l'animation (une case).
     "player": (
-        animation: "sprites/characters/player/player_animation.ron",
+        animation: "sprites/gungeon/anim_player.ron",
         layers: {
-            "body": "sprites/characters/player/player_sheet.ron",
-            "shirt": "sprites/characters/player/shirt_1_sheet.ron",
-            "hair": "sprites/characters/player/hair_1_sheet.ron",
+            "body": "sprites/gungeon/tiny_sheet.ron",
             "shadow": "sprites/characters/shadow/shadow_sheet.ron",
         },
+    ),
+    "bullet_kin": (
+        animation: "sprites/gungeon/anim_bullet_kin.ron",
+        layers: { "body": "sprites/gungeon/tiny_sheet.ron" },
+    ),
+    "bullet_kin_squad": (
+        animation: "sprites/gungeon/anim_bullet_kin_squad.ron",
+        layers: { "body": "sprites/gungeon/tiny_sheet.ron" },
+    ),
+    "shotgun_kin": (
+        animation: "sprites/gungeon/anim_shotgun_kin.ron",
+        layers: { "body": "sprites/gungeon/tiny_sheet.ron" },
+    ),
+    "veteran_kin": (
+        animation: "sprites/gungeon/anim_veteran_kin.ron",
+        layers: { "body": "sprites/gungeon/tiny_sheet.ron" },
+    ),
+    "bandana_kin": (
+        animation: "sprites/gungeon/anim_bandana_kin.ron",
+        layers: { "body": "sprites/gungeon/tiny_sheet.ron" },
+    ),
+    "tourelle_kin": (
+        animation: "sprites/gungeon/anim_tourelle_kin.ron",
+        layers: { "body": "sprites/gungeon/tiny_sheet.ron" },
+    ),
+    "fuyard_kin": (
+        animation: "sprites/gungeon/anim_fuyard_kin.ron",
+        layers: { "body": "sprites/gungeon/tiny_sheet.ron" },
+    ),
+    "lanceur_kin": (
+        animation: "sprites/gungeon/anim_lanceur_kin.ron",
+        layers: { "body": "sprites/gungeon/tiny_sheet.ron" },
+    ),
+    "cible": (
+        animation: "sprites/gungeon/anim_cible.ron",
+        layers: { "body": "sprites/gungeon/tiny_sheet.ron" },
+    ),
+    "gatling": (
+        animation: "sprites/gungeon/anim_gatling.ron",
+        layers: { "body": "sprites/gungeon/tiny_boss_sheet.ron" },
+    ),
+    // Lot C : objets du monde et projectiles, dessinés par `game::world_sprites` (présentation seule).
+    "chest": (
+        animation: "sprites/gungeon/anim_chest.ron",
+        layers: { "body": "sprites/gungeon/tiny_world_sheet.ron" },
+    ),
+    "shelf": (
+        animation: "sprites/gungeon/anim_shelf.ron",
+        layers: { "body": "sprites/gungeon/tiny_world_sheet.ron" },
+    ),
+    "shell": (
+        animation: "sprites/gungeon/anim_shell.ron",
+        layers: { "body": "sprites/gungeon/tiny_world_sheet.ron" },
+    ),
+    "item": (
+        animation: "sprites/gungeon/anim_item.ron",
+        layers: { "body": "sprites/gungeon/tiny_world_sheet.ron" },
+    ),
+    "barrel": (
+        animation: "sprites/gungeon/anim_barrel.ron",
+        layers: { "body": "sprites/gungeon/tiny_world_sheet.ron" },
+    ),
+    "table": (
+        animation: "sprites/gungeon/anim_table.ron",
+        layers: { "body": "sprites/gungeon/tiny_world_sheet.ron" },
+    ),
+    "bullet_player": (
+        animation: "sprites/gungeon/anim_bullet_player.ron",
+        layers: { "body": "sprites/gungeon/bullet_player_sheet.ron" },
+    ),
+    "bullet_enemy": (
+        animation: "sprites/gungeon/anim_bullet_enemy.ron",
+        layers: { "body": "sprites/gungeon/bullet_enemy_sheet.ron" },
     ),
     // Armes à distance : portées par le joueur, animées par l'animation du joueur.
     "shotgun": (

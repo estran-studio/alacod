@@ -1,0 +1,3 @@
+// Fixture M4-T0a : mêmes plages qu'une arme pour la liste d'un objet ; un doublon **dans** la liste
+// d'un objet est refusé (l'empilement vaut entre sources).
+(name: "Aimant", kind: Passive, projectile: Some((modifiers: [Homing("1.5"), Bounce(1), Bounce(2)])))
