@@ -1,0 +1,21 @@
+// M2-T12 (§51) : l'achat se fait hors simulation (`Profile::purchase`, commande
+// `alacod-profile unlock`) avant la run : 20 d'essence, un déblocage à 20. Le profil le possède
+// ensuite, l'essence est à 0, et `RunUnlocks` le contient. Un second achat du même déblocage est refusé
+// (déjà possédé), l'essence ne bouge pas.
+//
+// À regarder : rien de spécial à l'écran (le pilote reste immobile).
+Scenario(
+    powerup_drop_chance_override: "0.0",
+    game: "gungeon",
+    frames: 30,
+    profile: true,
+    profile_setup: Some((
+        profiles: [(handle: 0, essence: 20)],
+        purchases: [(handle: 0, unlock: "tresor_trefle")],
+    )),
+    players: [()],
+    expect: [
+        ProfileHas(handle: 0, unlock: "tresor_trefle", currency: ("essence", 0), at_frame: 20),
+        RunUnlocks(has: ["tresor_trefle"], lacks: ["etendard_royal"], at_frame: 20),
+    ],
+)

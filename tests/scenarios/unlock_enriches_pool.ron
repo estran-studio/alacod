@@ -1,0 +1,20 @@
+// M2-T12 (docs/conventions.md §51) : même graine, mêmes quatre coffres (k1..k4), mêmes appuis ;
+// seul le profil change. Sans déblocage, le trèfle et l'étendard sont hors des pools : le joueur
+// finit avec « amulette » et « bottes ». Avec les trois déblocages, l'un des tirages change
+// (« amulette » deux fois). Le tirage consomme le RNG de la même façon dans les deux cas.
+//
+// À regarder : le joueur ouvre puis ramasse les coffres aux frames 30–80 ; rien d'autre ne change.
+Scenario(
+    powerup_drop_chance_override: "0.0",
+    game: "gungeon",
+    frames: 100,
+    profile: true,
+    profile_setup: Some((profiles: [(handle: 0, unlocks: ["tresor_trefle", "etendard_royal", "coffre_riche"])])),
+    chests: [(key: "k1", x: "88.0", y: "-120.0", at_frame: 5), (key: "k2", x: "88.0", y: "-120.0", at_frame: 6), (key: "k3", x: "88.0", y: "-120.0", at_frame: 7), (key: "k4", x: "88.0", y: "-120.0", at_frame: 8)],
+    players: [(inputs: [(from: 30, to: 31, buttons: [Interaction]),(from: 40, to: 41, buttons: [Interaction]),(from: 50, to: 51, buttons: [Interaction]),(from: 60, to: 61, buttons: [Interaction]),(from: 70, to: 71, buttons: [Interaction]),(from: 80, to: 81, buttons: [Interaction])])],
+    expect: [
+        RunUnlocks(has: ["tresor_trefle", "etendard_royal", "coffre_riche"], at_frame: 50),
+        ItemCount(handle: 0, id: "amulette", count: 2, at_frame: 99),
+        ItemCount(handle: 0, id: "bottes", count: 0, at_frame: 99),
+    ],
+)

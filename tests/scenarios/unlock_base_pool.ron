@@ -1,0 +1,17 @@
+// M2-T12 (§51) : jumeau de `unlock_enriches_pool` sans déblocage : mêmes coffres, mêmes appuis, mais
+// un autre objet au deuxième coffre (« bottes » au lieu de la seconde « amulette »).
+//
+// À regarder : même séquence que `unlock_enriches_pool`, inventaire différent à la fin.
+Scenario(
+    powerup_drop_chance_override: "0.0",
+    game: "gungeon",
+    frames: 100,
+    profile: true,
+    chests: [(key: "k1", x: "88.0", y: "-120.0", at_frame: 5), (key: "k2", x: "88.0", y: "-120.0", at_frame: 6), (key: "k3", x: "88.0", y: "-120.0", at_frame: 7), (key: "k4", x: "88.0", y: "-120.0", at_frame: 8)],
+    players: [(inputs: [(from: 30, to: 31, buttons: [Interaction]),(from: 40, to: 41, buttons: [Interaction]),(from: 50, to: 51, buttons: [Interaction]),(from: 60, to: 61, buttons: [Interaction]),(from: 70, to: 71, buttons: [Interaction]),(from: 80, to: 81, buttons: [Interaction])])],
+    expect: [
+        RunUnlocks(lacks: ["tresor_trefle", "etendard_royal", "coffre_riche"], at_frame: 50),
+        ItemCount(handle: 0, id: "amulette", count: 1, at_frame: 99),
+        ItemCount(handle: 0, id: "bottes", count: 1, at_frame: 99),
+    ],
+)
