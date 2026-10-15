@@ -489,6 +489,62 @@ mod tests {
         let _ = std::fs::remove_dir_all(dir);
     }
 
+    /// Mesure du délai réel du watcher de fichiers de Bevy (modification sur disque → arbre
+    /// reconstruit), sans appeler `reload`. Demande la feature `bevy/file_watcher` (celle de
+    /// `native`) : `cargo test -p game --features bevy/file_watcher -- --ignored watcher --nocapture`.
+    #[test]
+    #[ignore = "demande bevy/file_watcher"]
+    fn watcher_de_fichiers_detecte_la_modification() {
+        let dir = temp_assets("custom-watcher");
+        let file = dir.join("ui/pause_screen.ron");
+        std::fs::write(&file, layout_text("version A")).unwrap();
+        let mut app = App::new();
+        app.add_plugins((
+            MinimalPlugins,
+            AssetPlugin {
+                file_path: dir.display().to_string(),
+                watch_for_changes_override: Some(true),
+                ..default()
+            },
+            RonAssetPlugin::<ScreenLayoutAsset>::new(&["ron"]),
+        ));
+        app.init_asset::<Font>();
+        let handle = app
+            .world()
+            .resource::<AssetServer>()
+            .load::<ScreenLayoutAsset>("ui/pause_screen.ron");
+        app.insert_resource(LayoutHandles {
+            pause: Some(handle),
+            inventory: None,
+        });
+        app.insert_resource(Screens {
+            state: ScreensState::default(),
+            view: Some(pause_view(&ScreensState::default())),
+        });
+        app.add_systems(Update, draw_screen);
+        let mut waited = |app: &mut App, wanted: &str| -> Duration {
+            let start = real_elapsed(app);
+            for _ in 0..5000 {
+                app.update();
+                if texts(app).iter().any(|t| t.contains(wanted)) {
+                    return real_elapsed(app) - start;
+                }
+                std::thread::sleep(Duration::from_millis(1));
+            }
+            panic!("« {wanted} » jamais affiché : {:?}", texts(app));
+        };
+        waited(&mut app, "version A");
+        // Laisse le watcher s'installer avant de modifier.
+        for _ in 0..200 {
+            app.update();
+            std::thread::sleep(Duration::from_millis(5));
+        }
+        std::fs::write(&file, layout_text("version B")).unwrap();
+        let took = waited(&mut app, "version B");
+        eprintln!("maison : watcher, modification sur disque visible après {took:?}");
+        let _ = std::fs::remove_dir_all(dir);
+    }
+
     #[test]
     fn les_fichiers_des_jeux_se_lisent() {
         for text in [

@@ -376,6 +376,52 @@ mod tests {
         let _ = std::fs::remove_dir_all(dir);
     }
 
+    /// Même mesure que la couche maison, pour un gabarit `bevy_hui` : modification sur disque,
+    /// sans `reload`. `cargo test -p game --features ui_hui,bevy/file_watcher -- --ignored
+    /// watcher --nocapture`.
+    #[test]
+    #[ignore = "demande bevy/file_watcher"]
+    fn watcher_de_fichiers_detecte_la_modification_hui() {
+        let dir = copy_templates("hui-watcher");
+        let mut app = App::new();
+        app.add_plugins((
+            MinimalPlugins,
+            AssetPlugin {
+                file_path: dir.display().to_string(),
+                watch_for_changes_override: Some(true),
+                ..default()
+            },
+            HuiPlugin,
+        ));
+        app.init_asset::<Font>()
+            .init_asset::<Image>()
+            .init_asset::<TextureAtlasLayout>();
+        let server = app.world().resource::<AssetServer>().clone();
+        app.insert_resource(HuiHandles {
+            pause: Some(server.load("ui/pause_screen.html")),
+            inventory: None,
+            row: None,
+        });
+        app.insert_resource(Screens {
+            state: ScreensState::default(),
+            view: Some(pause_view(&ScreensState::default())),
+        });
+        app.add_systems(Update, sync_screen);
+        wait_for(&mut app, "> Reprendre");
+        for _ in 0..200 {
+            app.update();
+            std::thread::sleep(std::time::Duration::from_millis(5));
+        }
+        let file = dir.join("ui/pause_screen.html");
+        let edited = std::fs::read_to_string(&file)
+            .unwrap()
+            .replace("{hint}", "version B {hint}");
+        std::fs::write(&file, edited).unwrap();
+        let (_, took) = wait_for(&mut app, "version B");
+        eprintln!("hui : watcher, modification sur disque visible après {took:?}");
+        let _ = std::fs::remove_dir_all(dir);
+    }
+
     /// L'inventaire : les lignes sont créées sous les conteneurs `id` (pas de boucle dans
     /// `bevy_hui`), et recréées après un rechargement qui reconstruit les conteneurs.
     #[test]
