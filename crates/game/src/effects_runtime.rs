@@ -832,6 +832,9 @@ pub(crate) fn apply_action_sourced(
         Action::Heal(amount) => {
             health.current = healed(health.current, health.max, *amount);
         }
+        Action::GainShield(points) => {
+            combat::actors::queue_gain_shield(commands, entity, *points);
+        }
         Action::GaugeAdd(id, amount) => {
             // Franchissements : `OnGauge` à la frame suivante (déclencheur reporté)
             match gauges.and_then(|g| g.add(id, *amount)) {

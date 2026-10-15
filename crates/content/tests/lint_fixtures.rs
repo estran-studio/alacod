@@ -1355,6 +1355,13 @@ fn arena_and_boss_t7_fixtures_report_their_rule() {
     }
 }
 
+// D61 (docs/conventions.md §18) : bouclier et stats lues.
+#[test]
+fn shield_zero_fixture_reports_out_of_range() {
+    let (_, _, errors) = load_and_lint(&fixture_dir("shield_zero")).unwrap();
+    assert_has_error(&errors, LintErrorKind::OutOfRange, "GainShield(0)");
+}
+
 // M2-T15 (docs/conventions.md §53) : stats sans lecteur et atteignabilité statique.
 fn assert_has_warning(fixture: &str, kind: content::LintWarningKind, needle: &str) {
     let (registry, manifest, _) = load_and_lint(&fixture_dir(fixture)).unwrap();
@@ -1371,20 +1378,6 @@ fn assert_has_warning(fixture: &str, kind: content::LintWarningKind, needle: &st
 fn stat_unread_fixture_is_an_error() {
     let (_, _, errors) = load_and_lint(&fixture_dir("stat_unread")).unwrap();
     assert_has_error(&errors, LintErrorKind::UnreadStat, "Luck");
-}
-
-#[test]
-fn stat_armor_is_only_a_warning() {
-    let (_, _, errors) = load_and_lint(&fixture_dir("stat_armor_warning")).unwrap();
-    assert!(
-        errors.iter().all(|e| e.kind != LintErrorKind::UnreadStat),
-        "Armor ne doit pas être une erreur : {errors:#?}"
-    );
-    assert_has_warning(
-        "stat_armor_warning",
-        content::LintWarningKind::UnreadStat,
-        "Armor",
-    );
 }
 
 #[test]

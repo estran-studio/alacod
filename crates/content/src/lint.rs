@@ -165,6 +165,10 @@ pub(crate) fn lint_effect(
                 LintErrorKind::OutOfRange,
                 format!("{at} : Heal = {amount} : doit être > 0"),
             ),
+            effects::Action::GainShield(0) => push(
+                LintErrorKind::OutOfRange,
+                format!("{at} : GainShield(0) : doit être > 0"),
+            ),
             effects::Action::GaugeAdd(id, _) if !gauge_known(id) => push(
                 LintErrorKind::BrokenReference,
                 format!(
@@ -1393,6 +1397,7 @@ fn lint_powerups(registry: &Registry, errors: &mut Vec<LintError>) {
                 // T1.10 : actions propres aux effets du porteur
                 effects::Action::Modifier { .. }
                 | effects::Action::Heal(_)
+                | effects::Action::GainShield(_)
                 | effects::Action::SpawnPattern { .. }
                 | effects::Action::GaugeAdd(..) => push(format!(
                     "power-up « {} » : actions[{index}] : action d'effet (T1.10), pas de power-up",
@@ -2116,6 +2121,10 @@ fn lint_boss(
                 effects::Action::Heal(amount) if *amount <= Fixed::ZERO => push(
                     LintErrorKind::OutOfRange,
                     format!("{at} : Heal = {amount} : doit être > 0"),
+                ),
+                effects::Action::GainShield(0) => push(
+                    LintErrorKind::OutOfRange,
+                    format!("{at} : GainShield(0) : doit être > 0"),
                 ),
                 // M2-T7 : renforts et télégraphe (§45)
                 effects::Action::SpawnEnemies { id, count } => {
@@ -3074,6 +3083,12 @@ fn lint_items(registry: &Registry, errors: &mut Vec<LintError>) {
                 match action {
                     // M2-T4 : soin instantané d'un actif ou d'un consommable
                     effects::Action::Heal(_) => {}
+                    // D61 : bouclier instantané
+                    effects::Action::GainShield(0) => push(
+                        LintErrorKind::OutOfRange,
+                        format!("{at} : GainShield(0) : doit être > 0"),
+                    ),
+                    effects::Action::GainShield(_) => {}
                     effects::Action::TimedModifier { frames: 0, .. } => push(
                         LintErrorKind::OutOfRange,
                         format!("{at} : TimedModifier frames = 0 : doit être > 0"),
@@ -3294,11 +3309,10 @@ fn lint_entry_progression(
 }
 
 /// M2-T15 (`docs/conventions.md` §53) : un modificateur (ou une base de stat) sur une stat que
-/// `sim_core::stats::stat_reader` ne connaît pas ne ferait rien : erreur. Exception transitoire :
-/// `Armor` (D61 pas mergée) est un avertissement (`reach::warnings`).
+/// `sim_core::stats::stat_reader` ne connaît pas ne ferait rien : erreur.
 fn lint_stat_readers(registry: &Registry, errors: &mut Vec<LintError>) {
     for (file, at, stat) in crate::reach::stat_uses(registry) {
-        if stat != StatId::Armor && sim_core::stats::stat_reader(&stat).is_none() {
+        if sim_core::stats::stat_reader(&stat).is_none() {
             errors.push(LintError {
                 kind: LintErrorKind::UnreadStat,
                 file,

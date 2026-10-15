@@ -1,0 +1,1 @@
+(name: "Égide", kind: Consumable, effects: [(on: OnUse, do: [GainShield(0)])])

@@ -1140,6 +1140,30 @@ expression `content::expr` en chaîne RON (ex. `health: "120.0 + (players - 1) *
   Tests unitaires : `content::expr` (désérialisation, résolution, erreurs) et `game::balance`
   (dépendance à `players`, erreurs = panic avec contexte).
 
+### D61 : armure et bouclier
+
+**Armure** (`StatId::Armor`, lue par `game::character::health::rollback_resolve_damage_events`, listée
+dans `sim_core::stats::stat_reader`). Un dégât reçu devient `dégât × 100 / (100 + armure)`
+(`combat::damage::after_armor`, formule de League of Legends : 100 d'armure = moitié des dégâts), en
+`Fixed`, après `resolve_damage` (équipe, résistances, difficulté). Armure `<= 0` ou absente : le montant
+est rendu tel quel (identité exacte, aucune trace ne bouge). `Armor` n'a pas de base dans `Stats` : un
+modificateur (`objets/plaque`, `Modifier { stat: Armor, .. }`, perk, mutation) s'applique sur 0.
+`DamageKind::True` ignore l'armure **et** le bouclier.
+
+**Bouclier** (`combat::actors::Shield(u32)`), distinct de l'armure : chaque point absorbe **un coup
+entier** (le dégât est annulé, le point disparaît, `SHIELD_IFRAMES` = 15 frames d'invulnérabilité
+`Health.invulnerable_until_frame` pour qu'une rafale n'en consomme pas plusieurs). Composant
+**neutre** (`rollback_and_trace_neutral`), posé au premier gain par `GainShield(n)` (variante **en fin
+d'enum** d'`Action` : effet, objet `OnUse`/consommable, synergie ; refusée dans un power-up, `n = 0`
+refusé par le lint). Le gain passe par `combat::actors::queue_gain_shield` (commande différée : ajoute à
+un `Shield` existant). Ordre au résolveur : **bouclier d'abord, puis armure** sur ce qui passe. Trace :
+`ggrs{f= shield_absorb target= left=}`.
+
+**Contenu** (`testbed`) : `objets/plaque` (passif, +100 d'armure), `objets/egide` (consommable,
+`GainShield(1)` au ramassage). Scénarios : `armor_reduces_damage`, `armor_true_damage` (chute en fosse
+= dégât `True`, +100 d'armure par `modifiers`), `shield_absorbs_hit`, `shield_then_armor`. Lint :
+fixture `shield_zero`. HUD : source `shield` laissée à M2-T18.
+
 ## 19. Statuts (T1.3, chantier B3)
 
 Code : `combat::status` (règles pures, `Statuses`, `StatusLibrary`), `combat::projectile`
@@ -3251,8 +3275,7 @@ code de sortie ne change pas ; `LintError`/`load_and_lint` sont inchangés.
 des stats lues par la simulation, avec l'endroit de lecture ; à tenir à jour **à la main** quand un
 système lit une nouvelle stat. Un modificateur (ou une base `stats:`) sur une stat sans lecteur est une
 erreur `LintErrorKind::UnreadStat` (`Luck`, tout `Custom` sauf `powerup_currency_multiplier`).
-**`Armor` : avertissement seulement** tant que D61 n'est pas mergée (retirer l'exception de
-`lint_stat_readers` et ajouter `Armor` à `stat_reader` en même temps que son lecteur).
+`Armor` est lue depuis D61 (§18, `character::health`) : plus d'exception.
 Usages inspectés : `stats` et `effects` des personnages, variantes, perks, objets, synergies, mutations,
 power-ups.
 
