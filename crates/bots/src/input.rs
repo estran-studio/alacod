@@ -581,6 +581,7 @@ pub fn read_bot_inputs(
                     points_for,
                     position,
                     &surfaces,
+                    profile == BotProfile::Explorateur,
                 );
             }
         }
@@ -825,17 +826,18 @@ fn revive_step(
     enemies: &[(usize, FixedVec2)],
     position: FixedVec2,
     surfaces: &[(usize, Rect, Fixed, bool)],
+    settle: bool,
 ) -> Option<ReviveView> {
     nav.update_from(geometry, body, enemies, position);
     let mut targets: Vec<_> = surfaces.iter().filter(|(.., revive)| *revive).collect();
     targets.sort_by_key(|(id, rect, ..)| (rect.distance(position), *id));
     targets.into_iter().find_map(|(id, rect, reach, _)| {
-        surface_step(nav, position, surfaces, *id, *rect, *reach).map(|(direction, interact)| {
-            ReviveView {
+        surface_step_with(nav, position, surfaces, *id, *rect, *reach, settle).map(
+            |(direction, interact)| ReviveView {
                 direction,
                 interact,
-            }
-        })
+            },
+        )
     })
 }
 
@@ -851,12 +853,25 @@ pub(crate) fn surface_step(
     rect: Rect,
     reach: Fixed,
 ) -> Option<(FixedVec2, bool)> {
+    surface_step_with(nav, position, surfaces, id, rect, reach, false)
+}
+
+/// [`surface_step`] pour l'`explorateur` (bot-explorateur-v2, D65) : `settle` = un pas sous la
+/// zone morte (`dead_zone`) compte comme arrivé. Sinon le bot reste immobile à quelques pixels de
+/// la portée, sans jamais presser Interaction (graine 47 à 2 bots). Les autres profils gardent
+/// leur comportement (leurs traces de scénario ne bougent pas).
+pub(crate) fn surface_step_with(
+    nav: &mut crate::navigation::BotNavigation,
+    position: FixedVec2,
+    surfaces: &[(usize, Rect, Fixed, bool)],
+    id: usize,
+    rect: Rect,
+    reach: Fixed,
+    settle: bool,
+) -> Option<(FixedVec2, bool)> {
     let reach = (reach - Fixed::from_num(8)).max(Fixed::ZERO);
     let (mut direction, _) = nav.approach(position, rect, reach)?;
-    // Un pas sous la zone morte (`dead_zone`) ne ferait pas bouger le bot : arrivé (sinon il
-    // reste immobile à quelques pixels de la portée, sans jamais presser Interaction ; D65,
-    // graine 47 à 2 bots).
-    if dead_zone(direction) == FixedVec2::ZERO {
+    if settle && dead_zone(direction) == FixedVec2::ZERO {
         direction = FixedVec2::ZERO;
     }
     let mut interact = false;

@@ -416,7 +416,15 @@ pub fn explore_step(
     goals.into_iter().find_map(|(_, zone, item)| match item {
         Some(item) if item.surface => {
             let (_, rect, reach, _) = surfaces.iter().find(|(id, ..)| *id == item.net_id)?;
-            crate::input::surface_step(nav, position, surfaces, item.net_id, *rect, *reach)
+            crate::input::surface_step_with(
+                nav,
+                position,
+                surfaces,
+                item.net_id,
+                *rect,
+                *reach,
+                true,
+            )
         }
         Some(_) => nav
             .approach(position, zone, ITEM_REACH)
