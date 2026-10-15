@@ -1,0 +1,12 @@
+Scenario(
+    powerup_drop_chance_override: "0.0",
+    game: "gungeon",
+    floors: Some("etages_grammaire"),
+    map_seed: 1,
+    frames: 60,
+    players: [(inputs: [])],
+    expect: [
+        HudText(source: "minimap", contains: "ZZZ", at_frame: 5),
+        PlayerPosition(handle: 0, x: "0.0", y: "0.0", tolerance: "1.0", at_frame: 5),
+    ],
+)
