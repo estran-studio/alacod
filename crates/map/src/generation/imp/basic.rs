@@ -174,7 +174,22 @@ impl BasicMapGeneration {
                     previous_room_def.connections.get(connection.index).unwrap()
                 };
 
-                if connection_def.compatiable_levels.is_empty() {
+                // D10 : le gabarit de départ (`Spawn`) n'est jamais réutilisé comme salle suivante
+                // (la carte n'a qu'un point d'apparition). Une connexion sans autre gabarit
+                // compatible est fermée comme sans gabarit du tout.
+                let candidates: Vec<&(String, usize)> = connection_def
+                    .compatiable_levels
+                    .iter()
+                    .filter(|(level_id, _)| {
+                        self.context
+                            .available_levels
+                            .iter()
+                            .find(|l| &l.level_id == level_id)
+                            .is_none_or(|l| l.level_type != LevelType::Spawn)
+                    })
+                    .collect();
+
+                if candidates.is_empty() {
                     previous_room
                         .connections
                         .get_mut(connection_def.index)
@@ -184,13 +199,9 @@ impl BasicMapGeneration {
                     continue;
                 } else {
                     // D45 : `.nth(r)`, même correction (toujours le dernier gabarit compatible avant).
-                    let compatible_level = connection_def
-                        .compatiable_levels
-                        .iter()
-                        .nth(
-                            rng.next_u32_range(0, connection_def.compatiable_levels.len() as u32)
-                                as usize,
-                        )
+                    let compatible_level = candidates
+                        .get(rng.next_u32_range(0, candidates.len() as u32) as usize)
+                        .copied()
                         .unwrap();
 
                     let compatible_level_def = self

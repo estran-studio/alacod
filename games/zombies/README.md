@@ -47,8 +47,9 @@ passe le projet au générateur (`crates/map/src/generation`, mode `Basic`), qui
 la seed (`default_seed` de `game.ron`, `seed` d'un scénario) une salle de départ parmi les niveaux
 marqués `spawn: true`, puis accroche d'autres salles par leurs cases `LevelConnection`, jusqu'à
 `max_room` (10) ou faute de connexion libre. Chaque niveau LDtk est un **gabarit** réutilisable :
-avec la seed des scénarios, la partie compte quatre salles, dont deux copies de `Level_0` (la
-salle de départ et une salle ordinaire), donc deux murs `pistol` et deux Juggernog. Les joueurs
+le gabarit de départ n'est jamais réutilisé comme salle ordinaire (D10) ; avec la seed des
+scénarios, la partie compte trois salles (avant D10, quatre, dont deux copies de `Level_0`),
+donc un seul mur `pistol` et un seul Juggernog. Les joueurs
 apparaissent dans la salle de départ (`PlayerSpawn` du gabarit de départ seulement).
 
 ## Armes murales et perks de `test_map.ldtk`

@@ -10,7 +10,7 @@ Scenario(
     // Isoler ce scénario des drops aléatoires ; powerup_drop_on_kill teste ce chemin.
     powerup_drop_chance_override: "0.0",
     game: "zombies",
-    frames: 600,
+    frames: 900,
     players: [
         (bot: fonceur),
         (bot: fonceur),
@@ -22,9 +22,9 @@ Scenario(
         PlayerAlive(handle: 1, at_frame: 300),
         PlayerAlive(handle: 2, at_frame: 300),
         PlayerAlive(handle: 3, at_frame: 300),
-        WaveAtLeast(wave: 1, at_frame: 600),
-        // Observé : 2 zombies tués à f600 par les deux fonceurs (le prudent tire aussi, mais
+        WaveAtLeast(wave: 1, at_frame: 900),
+        // Observé : 2 zombies tués à f900 (D10 : carte sans salle de départ en double, les zombies arrivent plus tard) par les deux fonceurs (le prudent tire aussi, mais
         // reste souvent hors de portée en gardant ses distances ; l'immobile ne tire jamais).
-        KillsAtLeast(kills: 1, at_frame: 600),
+        KillsAtLeast(kills: 1, at_frame: 900),
     ],
 )

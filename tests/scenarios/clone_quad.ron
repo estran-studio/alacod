@@ -16,12 +16,15 @@
 // m1-fusion-revue-m0-suite (movement-feel + M1) : inputs du joueur 3 de revue-m0-suite (course
 // nerveuse), attente M0 tenue (vague 5 à f4602, 13 kills, quatre debout) ; soldes des trois bots
 // remesurés sur l'état fusionné : 1460/1770/1040, joueur 3 inchangé (3480).
+// D10 (gabarit de départ exclu des salles suivantes, carte test_map sans salle en double) : moins
+// de zombies par vague et trajets différents ; vagues 2/3/4/5 à f871/f2360/f3617/f4674, attente M0
+// tenue à f4674 (13 kills, quatre joueurs debout) ; soldes remesurés.
 Scenario(
     game: "zombies",
     map: "exemples/test_map.ldtk",
     map_seed: 123456,
     powerup_drop_chance_override: "0.0",
-    frames: 4602,
+    frames: 4674,
     wave_overrides: (
         min_wave_delay_frames: 120,
         base_enemies: 2,
@@ -190,25 +193,25 @@ Scenario(
         RunState(step: Playing, at_frame: 600),
         WaveAtLeast(wave: 1, at_frame: 600),
         WaveAtLeast(wave: 2, at_frame: 900),
-        WaveAtLeast(wave: 3, at_frame: 2100),
-        WaveAtLeast(wave: 4, at_frame: 3544),
-        WaveAtLeast(wave: 5, at_frame: 4602),
-        KillsAtLeast(kills: 13, at_frame: 4602),
+        WaveAtLeast(wave: 3, at_frame: 2360),
+        WaveAtLeast(wave: 4, at_frame: 3617),
+        WaveAtLeast(wave: 5, at_frame: 4674),
+        KillsAtLeast(kills: 13, at_frame: 4674),
         // Les trois bots gagnent des points ; le joueur scripté garde 3000 après achats, + 400 du
         // Nuke (D17).
-        Currency(handle: 0, min: 1470, max: 1470, at_frame: 4602),
-        Currency(handle: 1, min: 1780, max: 1780, at_frame: 4602),
-        Currency(handle: 2, min: 1040, max: 1040, at_frame: 4602),
-        Currency(handle: 3, min: 3480, max: 3480, at_frame: 4602),
-        PlayerAlive(handle: 0, at_frame: 4602),
-        PlayerAlive(handle: 1, at_frame: 4602),
-        PlayerAlive(handle: 2, at_frame: 4602),
-        PlayerAlive(handle: 3, at_frame: 4602),
-        Health(handle: 0, min: 1.0, at_frame: 4602),
-        Health(handle: 1, min: 1.0, at_frame: 4602),
-        Health(handle: 2, min: 1.0, at_frame: 4602),
-        Health(handle: 3, min: 1.0, at_frame: 4602),
-        EntityCount(kind: Player, min: 4, max: 4, at_frame: 4602),
-        RunState(step: Playing, at_frame: 4602),
+        Currency(handle: 0, min: 1550, max: 1550, at_frame: 4674),
+        Currency(handle: 1, min: 1510, max: 1510, at_frame: 4674),
+        Currency(handle: 2, min: 1410, max: 1410, at_frame: 4674),
+        Currency(handle: 3, min: 3420, max: 3420, at_frame: 4674),
+        PlayerAlive(handle: 0, at_frame: 4674),
+        PlayerAlive(handle: 1, at_frame: 4674),
+        PlayerAlive(handle: 2, at_frame: 4674),
+        PlayerAlive(handle: 3, at_frame: 4674),
+        Health(handle: 0, min: 1.0, at_frame: 4674),
+        Health(handle: 1, min: 1.0, at_frame: 4674),
+        Health(handle: 2, min: 1.0, at_frame: 4674),
+        Health(handle: 3, min: 1.0, at_frame: 4674),
+        EntityCount(kind: Player, min: 4, max: 4, at_frame: 4674),
+        RunState(step: Playing, at_frame: 4674),
     ],
 )
