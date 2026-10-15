@@ -45,6 +45,16 @@ pub struct CharacterSkin {
     pub layers: HashMap<String, String>,
 }
 
+/// Marqueur visuel d'un personnage (D66) : `tint` = couleur RGB (0 à 1) multipliée aux calques,
+/// `scale` = facteur appliqué à l'échelle des calques.
+#[derive(Deserialize, Debug, Clone, PartialEq, Default)]
+pub struct CharacterMarker {
+    #[serde(default)]
+    pub tint: Option<(f32, f32, f32)>,
+    #[serde(default)]
+    pub scale: Option<f32>,
+}
+
 #[derive(Asset, TypePath, Deserialize, Debug, Clone)]
 pub struct CharacterConfig {
     pub movement: MovementConfig,
@@ -129,6 +139,12 @@ pub struct CharacterConfig {
     /// existant.
     #[serde(default)]
     pub counts_hits: bool,
+
+    /// Marqueur visuel (D66, présentation seule : aucune simulation ne le lit) : teinte et échelle
+    /// des calques, pour distinguer un personnage dont le sprite est provisoire (tourelle à
+    /// silhouette de zombie). `None` : sprites inchangés.
+    #[serde(default)]
+    pub marker: Option<CharacterMarker>,
 
     /// Scénarios générés de ce personnage (T1.13, `docs/conventions.md` §28, gabarits
     /// `EnemyVsStillPlayer`/`EnemyVsMovingPlayer` de `scenario::generate`). Aucun effet en jeu ;
