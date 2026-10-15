@@ -464,7 +464,13 @@ dans l'ordre du gain, et ce qu'il ne faut pas défaire :
 - `ALACOD_PROFILE=1` affiche, par scénario, le temps du runner par poste (`update` de
   Bevy, métriques, invariants) ; les invariants et les attentes pèsent moins de 0,5 % d'une frame.
 
-Ce qui reste est la simulation elle-même : `bench_floor` (profil callgrind, 600 frames) passe
+**perf-navigation (2026-10-15)** : `build_flow_field` et `BotNavigation::build_field` calculent sur
+tableaux `Vec` denses (sortie reconstruite en `BTreeMap` triée, même `Hash`) ; `throne_quad`
+37,6 → 102 fps, `bench_floor` 96 → 121. Les calculs historiques (`build_flow_field_legacy`,
+`build_field_legacy`) restent comme références de test : tout changement de l'un des deux doit
+rester égal case par case. Détail : `docs/taches/rapports/perf-navigation.md`.
+
+Ce qui restait avant perf-navigation était la simulation elle-même : `bench_floor` (profil callgrind, 600 frames) passe
 ~42 % de ses instructions dans `update_flow_field_system` (Dijkstra, dont ~22 % dans
 `is_blocked`) et ~14 % dans la navigation des bots ; les `throne_*` ne sont que 1,5 à 2 fois
 plus rapides qu'avant, pour la même raison probable (non profilés). Le détail chiffré est dans
