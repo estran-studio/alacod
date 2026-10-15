@@ -577,7 +577,7 @@ l'ancienne machine.
 **V1e run et méta**
 - M2-T12 Profil et déblocages (G1, 3 j ; fiche `docs/taches/m2-t12-profil-deblocages.md`, b0 après M2-T8 ; prérequis : M2-T5 mergée) : `Profile` écrit en fin de run, monnaie méta, déblocages
   qui enrichissent les pools de C4.
-- M2-T13 Hub (G2, 3 j) : carte de hub (la Brèche), PNJ marchand de déblocages, entrée en run.
+- M2-T13 Hub (G2, 3 j ; fiche `docs/taches/m2-t13-hub.md`, cloud **après le merge de M2-T12**) : carte de hub (la Brèche), PNJ marchand de déblocages, entrée en run.
 
 **V2 données**
 - M2-T14 Contenu `gungeon` (6 j ; fiche `docs/taches/m2-t14-contenu-gungeon.md`, en quatre parties a/b/c/d selon les prérequis ; T14a armes possible dès maintenant) : vingt armes, vingt objets, dix ennemis, un boss, quinze gabarits
@@ -593,6 +593,9 @@ l'ancienne machine.
 - Dettes en lot pour le cloud (2026-10-15) : `docs/taches/dettes-zombies-d10-d28-d29.md` (D10, D28, D29, décidées le 2026-10-14) et
   `docs/taches/dettes-outillage-d15-d34-d60-d63.md` (mesures D15/D34, `compare_video` des scénarios générés, contenu de test D63).
 - Dettes D15 (retirer la grille), D63 (contenu de test), D68 (soft-lock de réanimation) : fiche `docs/taches/dettes-d15-d63-d68.md`, cloud.
+- Fiches cloud du 2026-10-15 (soir) : `docs/taches/dettes-ui-d71-d72.md` (écran de mutation en `bevy_hui`, minicarte),
+  `docs/taches/lisibilite-throne-d66-d67.md` (tourelles, télégraphe de salve), `docs/taches/revue-sortie-m2.md`
+  (audit des critères de sortie de M2), `docs/taches/plan-m4-isaac.md` (M4 découpé en fiches ; M3 attend la bible).
 - Perf de la navigation (outillage, 3 j ; fiche `docs/taches/perf-navigation.md`, cloud, après perf-suite-scenarios) :
   flow field et navigation des bots en grilles denses (42 % + 14 % de `bench_floor`), sortie identique case par case.
   Acceptation : aucune trace bougée, `throne_*` et `bench_floor` nettement plus rapides.
