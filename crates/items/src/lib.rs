@@ -16,6 +16,7 @@ pub use loot::*;
 
 use bevy::prelude::*;
 use bevy_fixed::fixed_math::Fixed;
+use effects::projectile::ProjectileMods;
 use effects::Effect;
 use serde::{Deserialize, Serialize};
 use sim_core::modifier::{Modifier, ModifierOp, ModifierSource};
@@ -138,6 +139,14 @@ pub struct ItemDef {
     /// stock, l'usage est refusé (la charge reste). `None` : gratuit (v1 exact).
     #[serde(default)]
     pub cost: Option<(String, u32)>,
+    /// M4-T0a (`docs/conventions.md` §60) : modificateurs de projectile ajoutés aux tirs du
+    /// porteur (`modifiers`, `on_hit`, `on_expire`), composés avec ceux de l'arme par
+    /// `combat::projectile::compose` dans l'ordre de [`projectile_sources`]. `None` : v1 exacte.
+    /// Contrat : le tir ne le lit pas encore (M4-T1) ; le lint refuse un objet qui le porte
+    /// (`Unsupported`). `ItemDef` est une définition (ressource [`ItemTable`], hors rollback,
+    /// sans `Hash`) : le champ n'entre dans aucun checksum.
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub projectile: Option<ProjectileMods>,
 }
 
 /// Une synergie (M2-T4, `docs/conventions.md` §44) : un fichier `synergies/<id>.ron` (kind
@@ -151,6 +160,42 @@ pub struct SynergyDef {
     pub modifiers: Vec<ItemModifier>,
     #[serde(default)]
     pub effects: Vec<Effect>,
+    /// M4-T0a : comme [`ItemDef::projectile`], pour une synergie (une synergie peut changer les
+    /// larmes). `None` : v1 exacte ; hors rollback et hors hash (définition).
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub projectile: Option<ProjectileMods>,
+}
+
+/// M4-T0a (§60) : listes de modificateurs de projectile des objets tenus par `inventory`, dans
+/// l'ordre déterministe de la composition (`combat::projectile::compose`, après ceux de l'arme) :
+/// passifs dans l'ordre de ramassage (un passif en double compte deux fois), puis l'actif, puis
+/// les synergies actives par id croissant. Les objets sans `projectile` ne donnent rien. Pure :
+/// M4-T1 l'appellera au tir.
+pub fn projectile_sources<'a>(
+    items: &'a ItemTable,
+    synergies: &'a SynergyTable,
+    inventory: &Inventory,
+) -> Vec<&'a [effects::projectile::ProjectileModifier]> {
+    let item_mods = |id: &str| {
+        items
+            .0
+            .get(id)
+            .and_then(|def| def.projectile.as_ref())
+            .map(|mods| mods.modifiers.as_slice())
+    };
+    let mut out: Vec<&[effects::projectile::ProjectileModifier]> = Vec::new();
+    out.extend(inventory.passives.iter().filter_map(|id| item_mods(id)));
+    if let Some(active) = &inventory.active {
+        out.extend(item_mods(&active.item));
+    }
+    out.extend(
+        synergies
+            .active(inventory)
+            .into_iter()
+            .filter_map(|(_, def)| def.projectile.as_ref())
+            .map(|mods| mods.modifiers.as_slice()),
+    );
+    out
 }
 
 /// Source des modificateurs d'une synergie.
@@ -280,6 +325,62 @@ mod tests {
         let mut hasher = std::collections::hash_map::DefaultHasher::new();
         value.hash(&mut hasher);
         hasher.finish()
+    }
+
+    /// M4-T0a : `projectile` absent = v1 exacte ; présent, lu tel quel ; sources de la
+    /// composition dans l'ordre passifs (ramassage, doublons compris), actif, synergies par id.
+    #[test]
+    fn projectile_d_objet_et_ordre_des_sources() {
+        use effects::projectile::ProjectileModifier::*;
+        let plain: ItemDef = ron::from_str(r#"(name: "Rien", kind: Passive)"#).unwrap();
+        assert_eq!(plain.projectile, None);
+        let parse = |src: &str| -> ItemDef { ron::from_str(src).unwrap() };
+        let table = ItemTable(BTreeMap::from([
+            (
+                "rebond".to_string(),
+                parse(r#"(name: "R", kind: Passive, projectile: Some((modifiers: [Bounce(1)])))"#),
+            ),
+            (
+                "grosse".to_string(),
+                parse(
+                    r#"(name: "G", kind: Passive, projectile: Some((modifiers: [Size("1.5")])))"#,
+                ),
+            ),
+            (
+                "actif".to_string(),
+                parse(
+                    r#"(name: "A", kind: Active(Frames(10)), projectile: Some((modifiers: [Spectral])))"#,
+                ),
+            ),
+            ("rien".to_string(), plain),
+        ]));
+        let synergy: SynergyDef = ron::from_str(
+            r#"(name: "S", requires: ["rebond", "grosse"], projectile: Some((modifiers: [Pierce(2)])))"#,
+        )
+        .unwrap();
+        let synergies = SynergyTable(BTreeMap::from([("s".to_string(), synergy)]));
+        let inventory = Inventory {
+            passives: vec![
+                "grosse".into(),
+                "rien".into(),
+                "rebond".into(),
+                "grosse".into(),
+            ],
+            active: Some(ActiveSlot::new("actif".into())),
+            consumables: BTreeMap::new(),
+        };
+        let sources = projectile_sources(&table, &synergies, &inventory);
+        assert_eq!(
+            sources,
+            vec![
+                &[Size(Fixed::from_num(1.5))][..],
+                &[Bounce(1)][..],
+                &[Size(Fixed::from_num(1.5))][..],
+                &[Spectral][..],
+                &[Pierce(2)][..],
+            ]
+        );
+        assert!(projectile_sources(&table, &synergies, &Inventory::default()).is_empty());
     }
 
     #[test]

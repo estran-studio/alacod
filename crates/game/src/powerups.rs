@@ -367,6 +367,7 @@ pub fn apply_powerup_actions_system(
                                 mode_state.mag_ammo = match mode_config.mag {
                                     MagBulletConfig::Mag { mag_size, .. } => mag_size,
                                     MagBulletConfig::Magless { bullet_limit } => bullet_limit,
+                                    MagBulletConfig::Infinite => 0,
                                 };
                             }
                             let capacity = capacities.entry(ammo_type).or_default();
@@ -892,6 +893,7 @@ mod tests {
                 match weapon.config.firing_modes["default"].mag {
                     MagBulletConfig::Mag { mag_size, .. } => mag_size,
                     MagBulletConfig::Magless { bullet_limit } => bullet_limit,
+                    MagBulletConfig::Infinite => 0,
                 }
             );
         }
