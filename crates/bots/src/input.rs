@@ -117,6 +117,7 @@ impl Plugin for BotsPlugin {
         app.init_resource::<WeaponChoices>();
         app.init_resource::<EnemyMoves>();
         app.init_resource::<crate::explorer::ExplorerOptions>();
+        app.init_resource::<crate::explorer::ExplorerVisits>();
         app.add_systems(
             OnEnter(game::core::AppState::InGame),
             |mut choices: ResMut<WeaponChoices>, mut moves: ResMut<EnemyMoves>| {
@@ -211,7 +212,7 @@ pub fn read_bot_inputs(
         character_configs,
         mut weapon_choices,
         mut enemy_moves,
-        explorer,
+        mut explorer,
     ): (
         Query<
             (
@@ -299,12 +300,16 @@ pub fn read_bot_inputs(
         .collect();
     // M2-T16 : l'étage vu par les `explorateur` (mode `Floors`) ; leurs cibles sont les ennemis
     // éveillés (un ennemi endormi est une salle à visiter, pas une cible).
-    let explore_frame = (floors_mode
-        && assignments
-            .0
-            .values()
-            .any(|profile| *profile == BotProfile::Explorateur))
-    .then(|| explorer.frame());
+    let explorer_positions: Vec<FixedVec2> = order_iter!(players)
+        .into_iter()
+        .filter(|(_, player, ..)| {
+            local_players.0.contains(&player.handle)
+                && assignments.0.get(&player.handle) == Some(&BotProfile::Explorateur)
+        })
+        .map(|(_, _, transform, ..)| transform.translation.truncate())
+        .collect();
+    let explore_frame = (floors_mode && !explorer_positions.is_empty())
+        .then(|| explorer.frame(&explorer_positions));
     let awake_points: Vec<(usize, FixedVec2)> = enemy_points
         .iter()
         .filter(|(id, _)| {
@@ -337,20 +342,23 @@ pub fn read_bot_inputs(
     // Réanimation (m1-v3-bots-reanimation) : toutes les surfaces (id, rectangle, portée) et,
     // parmi elles, les joueurs à terre dont le saignement est **urgent** (moins de
     // `REVIVE_URGENT_FRAMES` avant la mort), dans l'ordre `GgrsNetId`.
-    let surfaces: Vec<(usize, Rect, Fixed, bool)> = order_iter!(interactables)
+    // `explorateur` (bot-explorateur-v2, D65) : relever est son premier but tant que le
+    // coéquipier peut l'être, urgent ou non (`surfaces_any`) ; les autres profils attendent
+    // l'urgence (`surfaces_urgent`).
+    let (surfaces_urgent, surfaces_any): (Vec<_>, Vec<_>) = order_iter!(interactables)
         .into_iter()
         .map(|(id, t, interactable, c, downed)| {
             let p = t.translation.truncate();
             let urgent = downed.is_some_and(|d| revive_urgent(d.bleedout_at_frame, frame.frame));
+            let rect = c.map_or(Rect { min: p, max: p }, |c| Rect::collider(p, c));
+            let revive =
+                interactable.interaction_type == sim_core::interaction::InteractionType::Revive;
             (
-                id.0,
-                c.map_or(Rect { min: p, max: p }, |c| Rect::collider(p, c)),
-                interactable.interaction_range,
-                interactable.interaction_type == sim_core::interaction::InteractionType::Revive
-                    && urgent,
+                (id.0, rect, interactable.interaction_range, revive && urgent),
+                (id.0, rect, interactable.interaction_range, revive),
             )
         })
-        .collect();
+        .unzip();
 
     for (
         _net_id,
@@ -377,6 +385,11 @@ pub fn read_bot_inputs(
         }
 
         let position = transform.translation.truncate();
+        let surfaces = if profile == BotProfile::Explorateur {
+            &surfaces_any
+        } else {
+            &surfaces_urgent
+        };
         // M2-T16 : un `explorateur` ne voit que les ennemis éveillés (voir `awake_points`).
         let exploring = profile == BotProfile::Explorateur;
         let points_for: &[(usize, FixedVec2)] = if exploring {
