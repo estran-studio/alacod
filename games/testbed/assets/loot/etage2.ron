@@ -1,0 +1,7 @@
+// Pool de butin du deuxième étage de `deux_butin` (M2-T5) : aucun objet en commun avec `commun`.
+(
+    entries: [
+        (pick: Item("bandoulier"), weight: 1),
+        (pick: Item("semelles_lentes"), weight: 1),
+    ],
+)

@@ -266,6 +266,18 @@ pub fn build_app(scenario: &Scenario, headless: bool, config: &PlayConfig) -> Ap
                 .before(game::items::item_consumable_pickup_system)
                 .in_set(game::system_set::RollbackSystemSet::Effects),
         )
+        // M2-T5 : placements scriptés de coffres et chance de récompense de salle
+        .insert_resource(ScenarioChestPlacements(scenario.chests.clone()))
+        .insert_resource(game::loot::LootOverrides {
+            reward_chance: scenario.room_reward_chance_override,
+        })
+        .add_systems(
+            GgrsSchedule,
+            apply_scenario_chest_placements
+                .after(apply_scenario_item_placements)
+                .before(game::items::item_consumable_pickup_system)
+                .in_set(game::system_set::RollbackSystemSet::Effects),
+        )
         // T1.13 : placements scriptés de personnages (voir la doc de
         // `apply_scenario_character_placements`).
         .insert_resource(ScenarioCharacterPlacements(scenario.characters.clone()))
@@ -722,6 +734,36 @@ fn apply_scenario_item_placements(
         {
             warn!("placement d'objet : « {} » inconnu", placement.id);
         }
+    }
+}
+
+/// Placements scriptés de coffres (M2-T5, `Scenario::chests`).
+#[derive(Resource)]
+struct ScenarioChestPlacements(Vec<game::replay::ChestPlacement>);
+
+fn apply_scenario_chest_placements(
+    frame: Res<FrameCount>,
+    placements: Res<ScenarioChestPlacements>,
+    mut commands: Commands,
+    mut id_factory: ResMut<GgrsNetIdFactory>,
+) {
+    for placement in &placements.0 {
+        if frame.frame != placement.at_frame {
+            continue;
+        }
+        let position = fixed_math::FixedVec3::new(placement.x, placement.y, fixed_math::FIXED_ZERO);
+        game::loot::spawn_chest(
+            &mut commands,
+            &mut id_factory,
+            items::Chest {
+                key: placement.key.clone(),
+                table: placement.table.clone(),
+                rarity: placement.rarity,
+                locked: placement.locked,
+                opened: false,
+            },
+            position,
+        );
     }
 }
 
@@ -2094,6 +2136,22 @@ fn check(world: &mut World, expectation: &Expectation) -> Result<(), String> {
             } else {
                 Err(format!(
                     "joueur {handle} ne tient pas « {id} » ({inventory:?})"
+                ))
+            }
+        }
+        Expectation::ItemCount {
+            handle, id, count, ..
+        } => {
+            let inventory = player_inventory(world, *handle)?;
+            let actual = inventory.as_ref().map_or(0, |i| {
+                i.passives.iter().filter(|p| *p == id).count()
+                    + usize::from(i.active.as_ref().is_some_and(|a| a.item == *id))
+            });
+            if actual == *count as usize {
+                Ok(())
+            } else {
+                Err(format!(
+                    "joueur {handle} : {actual} exemplaire(s) de « {id} » (attendu {count}) ({inventory:?})"
                 ))
             }
         }

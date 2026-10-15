@@ -298,6 +298,34 @@ pub struct CursorPosition {
 pub type BoxConfig = bevy_ggrs::GgrsConfig<BoxInput>;
 pub type PeerConfig = bevy_ggrs::GgrsConfig<BoxInput, bevy_matchbox::prelude::PeerId>;
 
+/// Frames d'invulnérabilité (`Health.invulnerable_until_frame`) accordées quand un point de
+/// bouclier absorbe un coup : une rafale n'en consomme pas plusieurs d'un coup.
+pub const SHIELD_IFRAMES: u32 = 15;
+
+/// Bouclier (D61, `docs/conventions.md` §18) : `0` points de bouclier restants, chacun absorbe un
+/// **coup entier** (le dégât est annulé, le point disparaît, brèves i-frames), à la Gungeon.
+/// Distinct de l'armure (stat `Armor`, réduction proportionnelle). Composant **neutre**
+/// (`rollback_and_trace_neutral`) posé au premier gain (`GainShield`) : sans porteur il ne
+/// contribue pas au checksum, les traces des personnages sans bouclier ne bougent pas.
+#[derive(Component, Default, Clone, Copy, Debug, PartialEq, Eq, Hash)]
+pub struct Shield(pub u32);
+
+/// Donne `points` de bouclier à `entity` au prochain flush des commandes : ajoute à un
+/// `Shield` existant, en pose un sinon. Une entité disparue est ignorée.
+pub fn queue_gain_shield(commands: &mut Commands, entity: Entity, points: u32) {
+    commands.queue(move |world: &mut World| {
+        let Ok(mut target) = world.get_entity_mut(entity) else {
+            return;
+        };
+        match target.get_mut::<Shield>() {
+            Some(mut shield) => shield.0 = shield.0.saturating_add(points),
+            None => {
+                target.insert(Shield(points));
+            }
+        }
+    });
+}
+
 #[cfg(test)]
 mod dash_tests {
     use super::*;

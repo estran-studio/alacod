@@ -5,6 +5,8 @@
 # games/zombies/assets/assets.yaml (chemins `exemples/atlas/` devenus `atlas/`). Les ennemis
 # de throne utilisent désormais les sprites zombie provisoires pour la revue M1 ;
 # les personnages de laboratoire conservent leurs skins sans sprite.
+# Exception : les sons (tir et rechargement du lot A, événements du lot B de
+# docs/plan-assets.md, 2026-10-14) ne sont pas des placeholders ; mêmes fichiers dans les jeux.
 
 - id: basic-zombie-shooter-blackhunterdev
   fichiers:
@@ -65,25 +67,65 @@
   note: licence hors CC0/CC-BY — à valider par l'équipe (dette de la voie V6)
   statut: placeholder (copie du testbed/zombies) — à remplacer par la voie V6
 
-- id: sound-machine-gun-scottishperson
+- id: sound-shots-michel-baradari
   fichiers:
-    - sounds/machine-gun.ogg
-  source: https://pixabay.com/sound-effects/sound-effect-machine-gun-333524/
-  auteur: ScottishPerson
-  licence: Pixabay Content License (https://pixabay.com/service/license-summary/),
-    pas d'attribution requise
-  modifications: "ré-encodage ogg (conversion ffmpeg du mp3, durée identique : 17,6588 s)"
-  statut: placeholder (copie du testbed/zombies) — à remplacer par la voie V6
+    - sounds/shot_pistol.ogg
+    - sounds/shot_shotgun.ogg
+    - sounds/shot_smg.ogg
+  source: https://opengameart.org/content/chaingun-pistol-rifle-shotgun-shots (archive
+    https://opengameart.org/sites/default/files/shots.7z, fichiers pistol.wav, shotgun.wav,
+    cg1.wav ; page lue le 2026-10-14, lot A de docs/plan-assets.md)
+  auteur: Michel Baradari (apollo-music.de, aujourd'hui ultimate-sounds.de), publié sur
+    OpenGameArt par qubodup
+  licence: CC BY 3.0 (https://creativecommons.org/licenses/by/3.0/) — affichée sur la page
+    (« License(s) CC-BY 3.0 ») et dans le info.txt de l'archive (« Sounds (c) by Michel
+    Baradari apollo-music.de / Licensed under CC BY 3.0 »)
+  attribution: "Sounds (c) by Michel Baradari apollo-music.de, CC BY 3.0"
+  modifications: rogné (pistol.wav → shot_pistol 0,45 s ; shotgun.wav → shot_shotgun 0,50 s,
+    avant le bruit de pompe ; cg1.wav → shot_smg 0,30 s), fondu de sortie (0,15 / 0,15 /
+    0,12 s), stéréo mixée en mono, 44,1 kHz, normalisé à -3 dBFS crête, ré-encodé en ogg
+    vorbis (oggenc -q 5)
+  statut: lot A (D32), mêmes fichiers dans les quatre jeux ; pas un placeholder
 
-- id: sound-machine-gun-reload-samsterbirdies
+- id: sound-reload-bmaczero
   fichiers:
-    - sounds/machine-gun-reload.ogg
-  source: https://pixabay.com/sound-effects/technology-machine-gun-reload-81593/
-  auteur: SamsterBirdies (publié via le compte freesound_community)
-  licence: Pixabay Content License (https://pixabay.com/service/license-summary/),
-    pas d'attribution requise
-  modifications: "ré-encodage ogg (conversion ffmpeg du mp3, durée identique : 2,8212 s)"
-  statut: placeholder (copie du testbed/zombies) — à remplacer par la voie V6
+    - sounds/reload.ogg
+  source: https://opengameart.org/content/gun-reload-sound-effects (fichiers clipload2.wav et
+    clipload1.wav ; page lue le 2026-10-14, lot A de docs/plan-assets.md)
+  auteur: Brian MacIntosh (BMacZero)
+  licence: CC0 1.0 (https://creativecommons.org/publicdomain/zero/1.0/) — affichée sur la
+    page, avec « Optionally credit Brian MacIntosh » (crédit gardé ici)
+  modifications: assemblé (clipload2.wav, 0,12 s de silence, clipload1.wav ; 0,58 s en tout),
+    normalisé à -3 dBFS crête, ré-encodé en ogg vorbis (oggenc -q 5)
+  statut: lot A (D32), mêmes fichiers dans les quatre jeux ; pas un placeholder
+
+- id: sound-impact-kenney
+  fichiers:
+    - sounds/hit.ogg
+    - sounds/hurt.ogg
+    - sounds/death.ogg
+  source: https://kenney.nl/assets/impact-sounds (archive kenney_impact-sounds.zip, fichiers
+    impactSoft_medium_000.ogg → hit, impactPunch_heavy_000.ogg → hurt,
+    impactSoft_heavy_000.ogg → death ; page lue le 2026-10-14, lot B de docs/plan-assets.md)
+  auteur: Kenney (www.kenney.nl)
+  licence: CC0 1.0 (https://creativecommons.org/publicdomain/zero/1.0/) — affichée sur la page
+    (« License Creative Commons CC0 ») et dans le License.txt de l'archive
+  modifications: stéréo mixée en mono, 44,1 kHz, normalisé en crête (hit -9 dBFS, son
+    fréquent ; death -6 dBFS ; hurt -3 dBFS), ré-encodé en ogg vorbis (oggenc -q 5)
+  statut: lot B (sons d'événements), mêmes fichiers dans les quatre jeux ; pas un placeholder
+
+- id: sound-rpg-audio-kenney
+  fichiers:
+    - sounds/dash.ogg
+    - sounds/door.ogg
+  source: https://kenney.nl/assets/rpg-audio (archive kenney_rpg-audio.zip, fichiers
+    cloth1.ogg → dash, doorOpen_1.ogg → door ; page lue le 2026-10-14, lot B)
+  auteur: Kenney (www.kenney.nl)
+  licence: CC0 1.0 (https://creativecommons.org/publicdomain/zero/1.0/) — affichée sur la page
+    et dans le License.txt de l'archive
+  modifications: stéréo 48 kHz mixée en mono 44,1 kHz, normalisé en crête (dash -6 dBFS,
+    door -3 dBFS), ré-encodé en ogg vorbis (oggenc -q 5)
+  statut: lot B (sons d'événements), mêmes fichiers dans les quatre jeux ; pas un placeholder
 
 - id: fira-mono
   fichiers:

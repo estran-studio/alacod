@@ -1,0 +1,6 @@
+// Pool de la récompense de salle (M2-T5) : une clé, tirée avec une chance sur deux à la fin d'une
+// salle `combat` ; jamais de coffre (`chest_chance: "0.0"`).
+(
+    entries: [(pick: Item("key"), weight: 1)],
+    reward: Some((chance: "0.5", chest_chance: "0.0")),
+)

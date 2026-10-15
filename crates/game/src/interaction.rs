@@ -199,6 +199,7 @@ pub fn interaction_detection_system(
                 InteractionType::Weapon => "Weapon",
                 InteractionType::Perk => "Perk",
                 InteractionType::Item => "Item",
+                InteractionType::Chest => "Chest",
                 InteractionType::Table => "Table",
             };
             info!(

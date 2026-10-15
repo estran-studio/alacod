@@ -1,0 +1,28 @@
+// M2-T5 (coffres et clés, docs/conventions.md §48) : un coffre verrouillé exige une `key`. Au pied
+// du joueur (f5) : l'Interaction sans clé (f10, puis f15 pour ramasser) est refusée, le joueur ne
+// tient rien à f40 ; une clé posée à f50 est ramassée au contact (Consumable key 1) ; l'Interaction
+// de f70 ouvre le coffre et consomme la clé (key 0), f90 ramasse l'objet.
+//
+// À regarder : f10 rien ne se passe ; f50 la clé ; f70 le coffre s'ouvre, f90 l'objet est ramassé.
+Scenario(
+    powerup_drop_chance_override: "0.0",
+    game: "testbed",
+    floors: Some("deux_niveaux"),
+    frames: 140,
+    chests: [(key: "c", locked: true, x: "424.0", y: "696.0", at_frame: 5)],
+    items: [(id: "key", x: "424.0", y: "696.0", at_frame: 50)],
+    players: [
+        (inputs: [
+            (from: 10, to: 11, buttons: [Interaction]),
+            (from: 15, to: 16, buttons: [Interaction]),
+            (from: 70, to: 71, buttons: [Interaction]),
+            (from: 90, to: 91, buttons: [Interaction]),
+        ]),
+    ],
+    expect: [
+        ItemCount(handle: 0, id: "boussole", count: 0, at_frame: 40),
+        Consumable(handle: 0, id: "key", count: 1, at_frame: 65),
+        Consumable(handle: 0, id: "key", count: 0, at_frame: 80),
+        ItemCount(handle: 0, id: "boussole", count: 1, at_frame: 120),
+    ],
+)

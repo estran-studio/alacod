@@ -159,6 +159,20 @@ pub fn floors_consumables_per_floor(
         .unwrap_or_default()
 }
 
+/// `loot` (pool de butin par étage) de la séquence `Floors` du mode (M2-T5) ; vide hors `Floors`.
+pub fn floors_loot_tables(mode: &RunMode, registry: Option<&Registry>) -> Vec<String> {
+    let RunMode::Floors { config } = mode else {
+        return Vec::new();
+    };
+    registry
+        .and_then(|r| {
+            r.floors
+                .get(&content::registry::FloorsConfigId::from(config.clone()))
+        })
+        .map(|entry| entry.loot.clone())
+        .unwrap_or_default()
+}
+
 pub fn floor_levels(mode: &RunMode, registry: Option<&Registry>) -> Option<Vec<String>> {
     let RunMode::Floors { config } = mode else {
         return None;

@@ -530,8 +530,20 @@ NIGHTLY_SEEDS=1..100 NIGHTLY_BOTS=4 NIGHTLY_WAVE=15 NIGHTLY_P2P=2,4,8 NIGHTLY_VI
         amplitude: 4.0,             // Amplitude du décalage en pixels
     ),
     sounds: {
-        "shot": "sounds/machine-gun.ogg",
-        "reload": "sounds/machine-gun-reload.ogg",
+        // Tir : clé de la famille du mode de tir actif de l'arme (Manual : shot_pistol,
+        // Shotgun : shot_shotgun, Automatic/Burst : shot_smg), repli sur "shot".
+        "shot_pistol": "sounds/shot_pistol.ogg",
+        "shot_shotgun": "sounds/shot_shotgun.ogg",
+        "shot_smg": "sounds/shot_smg.ogg",
+        "reload": "sounds/reload.ogg",
+        // Événements (lot B) : coup porté par un joueur local, dégâts reçus, ennemi tué,
+        // dash, blank, porte ouverte.
+        "hit": "sounds/hit.ogg",
+        "hurt": "sounds/hurt.ogg",
+        "death": "sounds/death.ogg",
+        "dash": "sounds/dash.ogg",
+        "blank": "sounds/blank.ogg",
+        "door": "sounds/door.ogg",
         // Les clés absentes désactivent le son correspondant
     },
 )
@@ -539,8 +551,15 @@ NIGHTLY_SEEDS=1..100 NIGHTLY_BOTS=4 NIGHTLY_WAVE=15 NIGHTLY_P2P=2,4,8 NIGHTLY_VI
 
 **Systèmes** : tous en `PostUpdate` (hors `GgrsSchedule`), lisant les événements de simulation dans `FrameEvents<T>` émis par `GgrsSchedule`. Les trois émetteurs sont :
 - `DamageEvent` pour les impacts (flash, secousse si joueur local)
-- Spawn de `Bullet` pour le son de tir (source = joueur local) : un son par tir (tireur, frame de création), mémorisé pour ne pas repartir quand le rollback de la session locale recrée les balles des dernières frames (elles redeviennent `Added<Bullet>`), et coupé en fondu après 250 ms (`SHOT_SOUND_MAX` : `machine-gun.ogg` est un enregistrement de tir soutenu de 17 s, pas un coup unique ; à remplacer)
+- Spawn de `Bullet` pour le son de tir (source = joueur local) : un son par tir (tireur, frame de création), mémorisé pour ne pas repartir quand le rollback de la session locale recrée les balles des dernières frames (elles redeviennent `Added<Bullet>`). Clé : celle que `shot_sounds` impose à l'arme active du tireur (`shot_sounds: {"pistolet": "shot_pistol"}`, nom d'arme → clé de `sounds`, vérifié par le lint), sinon la famille de son mode de tir actif à l'image rendue (`Shotgun` → `shot_shotgun`, `Automatic`/`Burst` → `shot_smg`, `Manual` → `shot_pistol`), sinon `shot` (la balle ne porte pas son arme : un champ de plus ferait bouger les traces). Les échantillons sont des coups uniques courts (≤ 0,5 s, lot A de `docs/plan-assets.md`), joués en entier : plus de coupure en fondu.
 - Passage de `WeaponInventory.reloading_ending_frame` de `None` à `Some` pour le son de rechargement : une fois par rechargement, comparé d'une image rendue à la suivante
+- Sons d'événements (lot B), joués par `FeedbackSounds::play(clé)` ; chaque signal est lu dans l'état ou dans les `FrameEvents` de la dernière frame simulée, jamais écrit :
+  - `hit` : un `DamageEvent` dont la source est un joueur local et la cible non, un son par frame simulée (gardé par `DamageEvent.frame` : une image rendue sans nouvelle frame voit encore les mêmes événements). L'événement précède la résolution : un coup annulé (invulnérabilité) sonne aussi.
+  - `hurt` : `Health.current` d'un joueur local en baisse d'une image rendue à l'autre, à `max` égal ; au plus un son toutes les 15 frames (`HURT_SOUND_MIN_FRAMES` : les PV peuvent baisser deux frames de suite).
+  - `death` : un ennemi portant `Death` et `RollbackDespawned` (requête qui nomme ce composant désactivant), une fois par `GgrsNetId`.
+  - `dash` : front montant de `DashState::is_dashing` d'un joueur local.
+  - `blank` : `FrameEvents<BlankUsed>` d'un joueur local, gardé par la frame de l'événement.
+  - `door` : une porte avec collider à l'image précédente, sans collider maintenant ; rien pour l'ouverture d'office des portes de salle (`RoomStates::doors_opened` qui passe à `true`, début d'étage) ni à la première image (référence). Pas encore de son de coffre : les coffres (M2-T5) ne sont pas dans `main`.
 
 **Composants non-rollback** :
 - `HitFlash { until_frame, color }` : posé sur l'entité cible d'un `DamageEvent`, multiplie la couleur des calques enfants (`apply_layer_colors`) jusqu'à `until_frame`.
@@ -1130,6 +1149,30 @@ expression `content::expr` en chaîne RON (ex. `health: "120.0 + (players - 1) *
   `resolve_balance_system` panique en nommant le fichier, le champ et le nombre de joueurs.
   Tests unitaires : `content::expr` (désérialisation, résolution, erreurs) et `game::balance`
   (dépendance à `players`, erreurs = panic avec contexte).
+
+### D61 : armure et bouclier
+
+**Armure** (`StatId::Armor`, lue par `game::character::health::rollback_resolve_damage_events`, listée
+dans `sim_core::stats::stat_reader`). Un dégât reçu devient `dégât × 100 / (100 + armure)`
+(`combat::damage::after_armor`, formule de League of Legends : 100 d'armure = moitié des dégâts), en
+`Fixed`, après `resolve_damage` (équipe, résistances, difficulté). Armure `<= 0` ou absente : le montant
+est rendu tel quel (identité exacte, aucune trace ne bouge). `Armor` n'a pas de base dans `Stats` : un
+modificateur (`objets/plaque`, `Modifier { stat: Armor, .. }`, perk, mutation) s'applique sur 0.
+`DamageKind::True` ignore l'armure **et** le bouclier.
+
+**Bouclier** (`combat::actors::Shield(u32)`), distinct de l'armure : chaque point absorbe **un coup
+entier** (le dégât est annulé, le point disparaît, `SHIELD_IFRAMES` = 15 frames d'invulnérabilité
+`Health.invulnerable_until_frame` pour qu'une rafale n'en consomme pas plusieurs). Composant
+**neutre** (`rollback_and_trace_neutral`), posé au premier gain par `GainShield(n)` (variante **en fin
+d'enum** d'`Action` : effet, objet `OnUse`/consommable, synergie ; refusée dans un power-up, `n = 0`
+refusé par le lint). Le gain passe par `combat::actors::queue_gain_shield` (commande différée : ajoute à
+un `Shield` existant). Ordre au résolveur : **bouclier d'abord, puis armure** sur ce qui passe. Trace :
+`ggrs{f= shield_absorb target= left=}`.
+
+**Contenu** (`testbed`) : `objets/plaque` (passif, +100 d'armure), `objets/egide` (consommable,
+`GainShield(1)` au ramassage). Scénarios : `armor_reduces_damage`, `armor_true_damage` (chute en fosse
+= dégât `True`, +100 d'armure par `modifiers`), `shield_absorbs_hit`, `shield_then_armor`. Lint :
+fixture `shield_zero`. HUD : source `shield` laissée à M2-T18.
 
 ## 19. Statuts (T1.3, chantier B3)
 
@@ -3217,6 +3260,81 @@ campagne : `alacod-sim --game gungeon --bots 1 --profiles explorateur --floors e
 carte de l'étage suivant est chargée à l'avance : `RoomState` y désigne les salles de l'étage joué par
 `nth: 1`. Les scénarios `gungeon_floor_seed_*` (atteinte scriptée) ne changent pas.
 
+## 48. Butin, coffres et clés (M2-T5, chantier C4)
+
+Où les objets (§36, §44) apparaissent : un tirage pondéré, seedé, **indépendant du moment**, des coffres
+(dont certains à clé) et une récompense à la fin d'une salle de combat. Code : `items::loot` (contrats et
+tirage pur), `game::loot` (systèmes), `map_ldtk::game::rooms::room_chest_system` (coffres des types de salle).
+
+**Pool de butin** (kind `LootTable`, `loot/<id>.ron`, id = nom de fichier ; `game.ron` : `(path: "loot", kind: "LootTable")`) :
+
+```ron
+(
+    entries: [(pick: Item("key"), weight: 3), (pick: Rarity(Rare), weight: 1)],
+    exclude_held: false,                                   // défaut : faux
+    reward: Some((chance: "0.33", chest_chance: "0.25")),  // récompense de salle (chest_rarity: Common)
+)
+```
+
+- `pick: Item(id)` : un objet précis ; `pick: Rarity(r)` : **un** objet de cette rareté, uniforme parmi ceux de
+  `items/` (le poids est celui de l'entrée, pas par objet : les rares restent rares quel que soit leur nombre).
+- **Tirage** (`items::draw_loot`) : deux `next_u32` toujours consommés (l'entrée par poids, puis le candidat),
+  entrées et candidats triés (BTreeMap), donc le flux avance de la même façon quels que soient les filtres.
+- **Exclusion des objets tenus** : décision = **opt-in par pool** (`exclude_held`, faux par défaut). Elle rend
+  le tirage dépendant de l'inventaire de l'ouvreur, donc du moment ; les pools de `gungeon` ne l'activent pas.
+  Un actif tenu compte comme tenu. Si le filtre ne laisse rien, retombée sur le pool sans filtre de rareté ni
+  d'exclusion (sauf récompense de salle : un consommable ou rien).
+- **Rareté d'un coffre** (`Chest::rarity`) = rareté **minimale** de l'objet tiré (un consommable compte pour `Common`).
+
+**Flux RNG dédié, indépendant du temps.** `items::loot_seed(graine de la partie, étage, clé de contenu)` =
+FNV-1a de `loot:<graine>:<étage>:<clé>` replié sur 32 bits ; le tirage lit un **`RollbackRng` local** de cette
+graine. Il ne touche **aucun** flux de `RngStreams` : le flux nommé `"loot"` des power-ups est consommé à chaque
+mort d'ennemi, il ferait dépendre l'objet du moment d'ouverture (et changerait le hash de la ressource, comme
+`variant.rs` le note déjà). La clé de contenu est celle du coffre (`room:<salle>`, `reward:<salle>`, ou la clé
+d'un placement de scénario), jamais son `Entity` ni son `GgrsNetId`. Résultat : un coffre ouvert à la frame 30 ou
+à la frame 3000, par l'un ou l'autre joueur, donne le même objet (scénario `loot_seeded` : deux coffres de même
+clé ouverts à 120 frames d'écart donnent le même objet ; `loot_seeded_other` : une autre graine, un autre objet).
+
+**Pool d'un étage.** `Floors` : champ optionnel `loot: ["commun", "etage2"]` (index = étage, le dernier vaut
+pour les suivants) → `game::loot::FloorLootTables` (hors rollback, posé par `map_ldtk::game::floors`). Un coffre
+sans `table` utilise celui de l'étage, sinon `commun` ; la récompense de salle utilise celui de l'étage **s'il
+définit `reward`**, sinon `salle`. Lint : pool inconnu = `BrokenReference`.
+
+**Coffre** (`items::Chest { key, table, rarity, locked, opened }`, rollback + checksum + trace en variante
+**neutre**) : entité au sol avec `Interactable { Chest }` (`InteractionType::Chest`, variante en fin d'enum :
+les hash existants ne bougent pas), `GgrsNetId` par clé de contenu (`chest_<clé>`). `chest_interaction_system`
+(`Interaction`, après `handle_item_interaction`) : le premier joueur (ordre `GgrsNetId`) l'emporte. **Verrouillé**
+(`locked`) : consomme **un** consommable `key` ; sans clé, refus (rien ne change, `ggrs{chest_refused}`). Ouvert :
+un `ItemPickup` au sol à 16 unités, `opened = true`, `Interactable` retiré (le prompt et la détection n'y
+reviennent pas), `FrameEvents<ChestOpened>` (neutre). Un coffre ouvert reste en place.
+Prompt HUD (source `prompt`) : « Ouvrir le coffre », « Fermé — 1 clé » (verrouillé, sans clé), « Ouvrir — 1 clé ».
+
+**Coffre d'un type de salle.** `rooms/<id>.ron` : champ optionnel `chest: Some((table: None, locked: false,
+rarity: Common))` (`world::RoomKindDef`, qui perd `Copy`). `room_chest_system` pose le coffre au centre de chaque
+salle de l'étage courant qui n'en a pas encore (clé `room:<salle>`) : aucune entité LDtk à ajouter, tout
+gabarit d'un type donné en reçoit un. `gungeon` : `recompense` (verrouillé, rareté mini Uncommon, donc au moins un
+coffre à clé par étage dans la grammaire `etage` qui exige une récompense) et `boutique` (ouvert, en attendant M2-T6).
+
+**Récompense de salle** (`room_reward_system`, après `Run`) : une salle de type `combat` qui passe `Cleared`
+(`FrameEvents<RoomChanged>`) laisse, avec la chance `reward.chance` du pool (forcée par
+`Scenario::room_reward_chance_override`), au centre de la salle : un coffre (`chest_chance`, pool de l'étage ou
+`commun`) ou un consommable tiré dans le pool (`consumables_only`). Graine : clé `reward:<salle>`. Les clés
+tombent donc comme récompense (`gungeon` : `salle.ron`, clé de poids 3).
+
+**Lint** : pool vide, poids ≤ 0, objet inconnu (`BrokenReference`), rareté sans objet, chances hors de 0..=1,
+coffre de salle à pool inconnu, **coffre verrouillé dans un jeu sans consommable `key`** (`BrokenReference`),
+pool inconnu dans `loot` d'une séquence. Fixtures `loot_empty_table`, `loot_weight_zero`, `loot_unknown_item`,
+`loot_locked_chest_without_key`.
+
+**Scénario** : `Scenario::chests` (`ChestPlacement` : clé, pool, rareté, verrou, position, frame), comme `items` ;
+`room_reward_chance_override`. Attente `ItemCount { handle, id, count, at_frame }` (exemplaires d'un objet tenus :
+0 prouve un refus, 2 un même objet tiré deux fois). Scénarios : `loot_seeded`, `loot_seeded_other`, `chest_locked`,
+`room_reward`, `loot_floor_table` (testbed : pools `commun`/`etage2`/`salle`, séquence `deux_butin`).
+
+**Hors périmètre** : le butin du boss (table `boss` de `gungeon` prévue, branchée par M2-T7), la boutique (T6),
+le HUD des clés (T18). Les deux types de salle `recompense` et `boutique` de `gungeon` gagnent un coffre : les
+scénarios qui jouent ces gabarits (étages `etage`/`grand`) changent de trace, preuve dans le rapport.
+
 ## 52. Contenu `gungeon` (M2-T14, quatre parties)
 
 ### 52.a Armes (T14a)
@@ -3264,8 +3382,7 @@ code de sortie ne change pas ; `LintError`/`load_and_lint` sont inchangés.
 des stats lues par la simulation, avec l'endroit de lecture ; à tenir à jour **à la main** quand un
 système lit une nouvelle stat. Un modificateur (ou une base `stats:`) sur une stat sans lecteur est une
 erreur `LintErrorKind::UnreadStat` (`Luck`, tout `Custom` sauf `powerup_currency_multiplier`).
-**`Armor` : avertissement seulement** tant que D61 n'est pas mergée (retirer l'exception de
-`lint_stat_readers` et ajouter `Armor` à `stat_reader` en même temps que son lecteur).
+`Armor` est lue depuis D61 (§18, `character::health`) : plus d'exception.
 Usages inspectés : `stats` et `effects` des personnages, variantes, perks, objets, synergies, mutations,
 power-ups.
 

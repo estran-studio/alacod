@@ -6,12 +6,13 @@ use bevy::{
 };
 use bevy_fixed::fixed_math;
 use bevy_ggrs::Rollback;
-use combat::damage::{resolve_damage, Defenses};
+use combat::actors::{Shield, SHIELD_IFRAMES};
+use combat::damage::{after_armor, resolve_damage, Defenses};
 use combat::downed::{downed_modifier_source, Downed, Reviving};
 use ggrs::PlayerHandle;
 use run::{Run, RunEnd, RunStep};
 use serde::{Deserialize, Serialize};
-use sim_core::damage::DamageEvent;
+use sim_core::damage::{DamageEvent, DamageKind};
 use sim_core::modifier::{ModifierOp, Modifiers};
 use sim_core::players::PlayersCount;
 use sim_core::stats::StatId;
@@ -139,13 +140,17 @@ pub fn rollback_resolve_damage_events(
             &GgrsNetId,
             &Team,
             Option<&Defenses>,
-            Option<&Health>,
+            Option<&mut Health>,
             Option<&mut DamageAccumulator>,
             Has<Downed>,
             Option<&mut HitCount>,
+            // D61 : bouclier, posé au premier gain (neutre sans porteur).
+            Option<&mut Shield>,
         ),
         With<Rollback>,
     >,
+    // D61 : stat `Armor` résolue (base + modificateurs).
+    stats: StatReader,
     // T1.9 : multiplicateur de difficulté des dégâts infligés par les ennemis (1 sans
     // difficulté activée : aucun calcul, voir `crate::clock::scale`).
     clock: Res<run::Clock>,
@@ -180,10 +185,11 @@ pub fn rollback_resolve_damage_events(
             target_net_id,
             target_team,
             opt_defenses,
-            opt_health,
+            mut opt_health,
             opt_accumulator,
             downed,
             opt_hit_count,
+            opt_shield,
         )) = target_query.get_mut(entity)
         else {
             continue;
@@ -206,7 +212,9 @@ pub fn rollback_resolve_damage_events(
         {
             continue;
         }
-        let invulnerable = opt_health.is_some_and(|h| h.is_invulnerable_at(event.frame));
+        let invulnerable = opt_health
+            .as_ref()
+            .is_some_and(|h| h.is_invulnerable_at(event.frame));
         let defenses = opt_defenses.unwrap_or(&default_defenses);
 
         let Some(amount) = resolve_damage(
@@ -226,6 +234,36 @@ pub fn rollback_resolve_damage_events(
             invulnerable,
         ) else {
             continue;
+        };
+
+        // D61 : bouclier d'abord (un point absorbe un coup entier, brèves i-frames), puis armure
+        // sur ce qui passe. `DamageKind::True` ignore l'un et l'autre. Armure 0 et pas de
+        // bouclier : le montant reste exactement celui de `resolve_damage`.
+        let amount = if event.kind == DamageKind::True {
+            amount
+        } else {
+            if let Some(mut shield) = opt_shield {
+                if shield.0 > 0 {
+                    shield.0 -= 1;
+                    if let Some(health) = opt_health.as_deref_mut() {
+                        let until = event.frame.saturating_add(SHIELD_IFRAMES);
+                        health.invulnerable_until_frame = Some(
+                            health
+                                .invulnerable_until_frame
+                                .map_or(until, |current| current.max(until)),
+                        );
+                    }
+                    info!(
+                        "ggrs{{f={} shield_absorb target={} left={}}}",
+                        frame.frame, target_net_id.0, shield.0
+                    );
+                    continue;
+                }
+            }
+            after_armor(
+                amount,
+                stats.get(entity, &StatId::Armor, fixed_math::Fixed::ZERO),
+            )
         };
 
         // T2.9 (testbed) : compte le coup pour toute entité qui porte `HitCount`, quel que

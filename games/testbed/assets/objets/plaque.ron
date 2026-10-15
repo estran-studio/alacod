@@ -1,0 +1,9 @@
+// D61 (armure, docs/conventions.md §18) : passif d'essai. +100 d'armure tant qu'il est tenu :
+// les dégâts reçus sont divisés par 2 (`dégât × 100 / (100 + armure)`, sauf `DamageKind::True`).
+(
+    name: "Plaque",
+    kind: Passive,
+    modifiers: [(stat: Armor, op: Add, value: "100")],
+    tags: ["defense"],
+    rarity: Common,
+)

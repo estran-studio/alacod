@@ -1,0 +1,22 @@
+// D61 : `DamageKind::True` ignore l'armure (et le bouclier). Même mise en place que `pit_fall` (la
+// chute inflige 10 de dégât `True`), mais le joueur 0 porte +100 d'armure (`modifiers`) : il perd
+// quand même 10 PV, pas 5.
+//
+// À regarder : comme `pit_fall`, le joueur tombe dans la fosse à f185 et perd 10 PV malgré l'armure.
+Scenario(
+    powerup_drop_chance_override: "0.0",
+    game: "testbed",
+    map: "testbed/props_pits.ldtk",
+    frames: 230,
+    players: [
+        (
+            inputs: [(from: 10, to: 185, buttons: [Right], pan: (0, 0))],
+            modifiers: [(stat: Armor, op: Add, value: "100")],
+        ),
+        (),
+    ],
+    expect: [
+        Health(handle: 0, min: 100, max: 100, at_frame: 170),
+        Health(handle: 0, min: 89, max: 91, at_frame: 200),
+    ],
+)

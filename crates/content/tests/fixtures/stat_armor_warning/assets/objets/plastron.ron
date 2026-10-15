@@ -1,1 +1,0 @@
-(name: "Plastron", kind: Passive, modifiers: [(stat: Armor, op: Pct, value: "0.25")])

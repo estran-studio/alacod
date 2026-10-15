@@ -1,0 +1,9 @@
+// Fixture M2-T5 : poids nul (OutOfRange)
+(
+    name: "fixture-loot_weight_zero",
+    content_folders: [
+        (path: "objets", kind: "Item"),
+        (path: "loot", kind: "LootTable"),
+    ],
+    entry: (start_map: "maps/salle.ldtk", default_seed: 1),
+)

@@ -168,6 +168,8 @@ impl Plugin for BaseCharacterGamePlugin {
             // M2-T2 (§43) : charges et i-frames « projectiles », posés seulement si la donnée
             // l'exige (variante neutre : les traces sans porteur ne bougent pas).
             .rollback_and_trace_neutral::<combat::actors::DashExtra>()
+            // D61 (§18) : points de bouclier, posés au premier gain (neutre sans porteur).
+            .rollback_and_trace_neutral::<combat::actors::Shield>()
             .rollback_and_trace::<SprintState>()
             .rollback_and_trace::<Velocity>()
             .rollback_and_trace::<Death>()
