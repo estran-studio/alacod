@@ -250,7 +250,9 @@ mod tests {
         for file in ["pause_screen.html", "inventory_screen.html", "hui_row.html"] {
             std::fs::copy(source.join(file), dir.join("ui").join(file)).unwrap();
         }
-        dir
+        // Chemin canonique : sur macOS `/var` est un lien vers `/private/var`, et le watcher de
+        // Bevy panique quand l'événement ne commence pas par la racine des assets.
+        dir.canonicalize().unwrap()
     }
 
     /// Horloge réelle de Bevy (`Time<Real>`) : le test mesure sans lire l'horloge système.
@@ -353,7 +355,7 @@ mod tests {
         assert_eq!(focused.len(), 1);
         let (text, color) = focused[0];
         assert_eq!(text.0, "> Recommencer");
-        assert_eq!(color.0.to_srgba(), Color::srgb_u8(241, 196, 15).to_srgba());
+        assert_eq!(color.0.to_srgba().to_u8_array(), [241, 196, 15, 255]);
 
         let file = dir.join("ui/pause_screen.html");
         let edited = std::fs::read_to_string(&file)
