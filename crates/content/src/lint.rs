@@ -1428,6 +1428,8 @@ fn lint_powerups(registry: &Registry, errors: &mut Vec<LintError>) {
 /// valeurs de `FeedbackSettings::problems` (flash, secousse, télégraphe, surcharges
 /// `by_kind`/`by_weapon`) et armes de `by_weapon` connues du jeu (à distance ou de corps à
 /// corps).
+/// Lot A des assets : chaque entrée de `shot_sounds` nomme une arme à distance du jeu et une
+/// clé de `sounds`.
 fn lint_feedback(registry: &Registry, errors: &mut Vec<LintError>) {
     for feedback in &registry.feedback {
         let file = feedback.file.display().to_string();
@@ -1462,6 +1464,27 @@ fn lint_feedback(registry: &Registry, errors: &mut Vec<LintError>) {
                     kind: LintErrorKind::BrokenReference,
                     file: file.clone(),
                     message: format!("feedback : by_weapon « {weapon} » : arme inconnue du jeu"),
+                });
+            }
+        }
+        for (weapon, key) in &settings.shot_sounds {
+            if !registry
+                .weapons
+                .contains_key(&registry::WeaponId::from(weapon.as_str()))
+            {
+                errors.push(LintError {
+                    kind: LintErrorKind::BrokenReference,
+                    file: file.clone(),
+                    message: format!("feedback : shot_sounds « {weapon} » : arme inconnue du jeu"),
+                });
+            }
+            if !settings.sounds.contains_key(key) {
+                errors.push(LintError {
+                    kind: LintErrorKind::BrokenReference,
+                    file: file.clone(),
+                    message: format!(
+                        "feedback : shot_sounds.{weapon} = « {key} » : clé absente de sounds"
+                    ),
                 });
             }
         }
