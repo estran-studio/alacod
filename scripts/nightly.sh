@@ -8,6 +8,8 @@
 #   NIGHTLY_BOTS=4
 #   NIGHTLY_WAVE=10
 #   NIGHTLY_P2P=2,4 (comma-separated list of player counts)
+#   NIGHTLY_P2P_SCRIPT=tests/scenarios/p2p_smoke.ron (inputs de chaque client, `ALACOD_INPUT=script:`)
+#   NIGHTLY_SHARDS=2 (tranches parallèles de la suite de scénarios, STEP A)
 #   STEP C (p2p headless) passe par le profil `allumette` du docker-compose.ci.yaml
 #   (matchmaking HTTP + WebSocket avec JWT, port hôte 3537) : ALLUMETTE_DIR explicite ou
 #   ../allumette (layout meta-repo), SKIPPED propre s'il est introuvable. Le service
@@ -93,11 +95,15 @@ EOF
 # régression réelle. Les traces et les attentes, elles, restent strictes (un échec
 # de scénario fait toujours échouer la commande) ; la régression de performance se
 # lit dans le tableau comparatif des notes (scenario-metrics.py, commit précédent).
-log_step "Running bench (traces strictes, budgets absolus désactivés : machine de CI plus lente que la machine de calibration)..."
+# En tranches (`test_scenarios_par`) : en un seul processus, la suite prenait 14 337 s sur le
+# runner (mesuré le 2026-10-14) et le pipeline était annulé à 6 h sans jamais atteindre le
+# p2p ni les vidéos. NIGHTLY_SHARDS tranches parallèles (défaut 2 : la machine est partagée).
+NIGHTLY_SHARDS=${NIGHTLY_SHARDS:-2}
+log_step "Running bench (${NIGHTLY_SHARDS} tranches, traces strictes, budgets absolus désactivés : machine de CI plus lente que la machine de calibration)..."
 START_TIME=$(date +%s)
 
-if ! make test_scenarios > logs/bench.log 2>&1; then
-    log_error "Bench failed (make test_scenarios)"
+if ! make test_scenarios_par SHARDS="${NIGHTLY_SHARDS}" > logs/bench.log 2>&1; then
+    log_error "Bench failed (make test_scenarios_par)"
     echo "--- bench.log (tail) ---"
     tail -40 logs/bench.log
     append_summary "### A. Bench: ❌ FAILED"
@@ -226,7 +232,13 @@ else
                     log_step "  Starting ${CID}..."
 
                     rm -f "${TRACE_FILE}"
-                    ALACOD_INPUT=neutral \
+                    # Inputs scriptés (p2p_smoke.ron : changements fréquents, phases décalées) et
+                    # délai d'input nul : sur la boucle locale, l'input du pair arrive après la
+                    # frame qui en a besoin, les prédictions ratent, la partie rollbacke et
+                    # resimule sur le vrai transport. Avec `ALACOD_INPUT=neutral` (et 5 frames de
+                    # délai), aucun rollback n'avait lieu : le log de trace en donne le compte.
+                    ALACOD_INPUT="script:${NIGHTLY_P2P_SCRIPT:-tests/scenarios/p2p_smoke.ron}" \
+                    ALACOD_INPUT_DELAY="${NIGHTLY_P2P_INPUT_DELAY:-0}" \
                     ALACOD_HEADLESS=1 \
                     ALACOD_STATE_TRACE="${TRACE_FILE}" \
                     ALACOD_EXIT_AT_FRAME=600 \
@@ -275,6 +287,17 @@ else
                         append_summary "### C. P2P Headless (${NUM_PLAYERS}p): ❌ INVALID OR DIVERGENT TRACES"
                         ${DOCKER_COMPOSE} -f docker-compose.ci.yaml --profile allumette down 2>/dev/null || true
                         exit 1
+                    fi
+                    # Preuve que le rollback a eu lieu sur le transport : frames resimulées par
+                    # client (log de trace). Zéro partout = run sans valeur pour le rollback.
+                    RESIM=""
+                    for ((i = 0; i < NUM_PLAYERS; i++)); do
+                        COUNT=$(sed -n 's/.*frames resimulées après rollback : \([0-9]*\).*/\1/p' "logs/p2p-${NUM_PLAYERS}-client_${i}.log" | tail -1)
+                        RESIM="${RESIM} client_${i}=${COUNT:-?}"
+                    done
+                    append_summary "- ${NUM_PLAYERS}p : traces identiques ; frames resimulées :${RESIM}"
+                    if ! echo "${RESIM}" | grep -Eq '=[1-9][0-9]*'; then
+                        log_warn "  Aucune frame resimulée : le smoke p2p n'a exercé aucun rollback"
                     fi
                 fi
             done

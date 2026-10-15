@@ -4,6 +4,8 @@ mesures manquantes et faux succès de comparaison. Exécuter `make test_tools`.
 import importlib.util
 import json
 from pathlib import Path
+import subprocess
+import sys
 import tempfile
 import unittest
 
@@ -126,6 +128,31 @@ class P2PTraceTests(unittest.TestCase):
                 path.write_text(content)
                 with self.assertRaises(ValueError):
                     traces.read_trace(path, 1)
+
+
+class ShardPlanTests(unittest.TestCase):
+    """`scenario-shard-plan.py` nomme les scénarios par leur id (`generated/<jeu>/<nom>`) :
+    deux jeux peuvent générer le même nom court, et le runner refuse un nom ambigu."""
+
+    def test_homonyms_of_two_games_are_both_planned_by_id(self):
+        with tempfile.TemporaryDirectory() as directory:
+            root = Path(directory)
+            for relative in ("idle", "generated/throne/weapon", "generated/gungeon/weapon"):
+                path = root / "tests/scenarios" / f"{relative}.ron"
+                path.parent.mkdir(parents=True, exist_ok=True)
+                path.write_text("Scenario(frames: 60)\n")
+            output = subprocess.run(
+                [sys.executable, str(SCRIPTS / "scenario-shard-plan.py"), str(root),
+                 str(root / "absent.json"), "2", ""],
+                check=True, capture_output=True, text=True,
+            ).stdout
+            planned = {
+                name for line in output.splitlines() for name in line.split("\t")[1].split(",") if name
+            }
+            self.assertEqual(
+                planned, {"idle", "generated/throne/weapon", "generated/gungeon/weapon"}
+            )
+
 
 
 if __name__ == "__main__":

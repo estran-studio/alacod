@@ -40,7 +40,7 @@ use crate::{
         local::{setup_ggrs_local, system_after_map_loaded_local},
         log_ggrs_events,
         p2p::{start_matchbox_socket, system_after_map_loaded, wait_for_players},
-        GameDisconnectedEvent, GggrsSessionConfigurationState,
+        GggrsSessionConfigurationState, SessionLostEvent,
     },
     light::ZLightPlugin,
     system_set::RollbackSystemSet,
@@ -181,7 +181,7 @@ impl Plugin for CoreSetupPlugin {
         // `RunSeed` (jjrs/local.rs, jjrs/p2p.rs) ; enregistrés en rollback plus bas.
         app.insert_resource(RngStreams::new(12345));
 
-        app.add_message::<GameDisconnectedEvent>();
+        app.add_message::<SessionLostEvent>();
 
         app.init_state::<AppState>();
         // app.set_rollback_schedule_fps(60);
@@ -302,6 +302,8 @@ impl Plugin for CoreSetupPlugin {
                 // `Run`) ; sans horloge ni difficulté activée, elle ne fait rien.
                 crate::clock::clock_system.before(increase_frame_system),
                 increase_frame_system,
+                // Exercice de desync (`ALACOD_DEBUG_DESYNC_AT`) : no-op sans la variable.
+                crate::jjrs::debug_desync_system.after(increase_frame_system),
             )
                 .in_set(RollbackSystemSet::FrameCounter),
         );

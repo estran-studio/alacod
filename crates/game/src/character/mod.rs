@@ -188,7 +188,11 @@ impl Plugin for BaseCharacterGamePlugin {
         app.rollback_and_trace_resource::<FlowFieldCache>();
         // Note: FlowFieldConfig is not rolled back (static configuration)
 
-        app.insert_resource(player::input::InputSource::from_env());
+        let (input_source, scripted) = player::input::InputSource::from_env();
+        app.insert_resource(input_source);
+        if let Some(scripted) = scripted {
+            app.insert_resource(scripted);
+        }
         app.add_systems(ReadInputs, read_local_inputs);
 
         // Non-rollback systems: update visuals and debug

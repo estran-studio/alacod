@@ -16,7 +16,9 @@ use map_ldtk::{
 #[cfg(not(target_arch = "wasm32"))]
 use std::path::PathBuf;
 
-fn main() {
+/// Retourne l'`AppExit` : en headless, un desync p2p sort en code 3 (`SESSION_LOST_EXIT_CODE`),
+/// une trace écrite en 0 ; sans ce retour, le processus sortait toujours en 0.
+fn main() -> AppExit {
     // `CARGO_MANIFEST_DIR` de ce binaire (`games/zombies`), capturé à la compilation :
     // fiable même si le binaire est ensuite lancé hors de `cargo run` (voir
     // `crates/content/src/manifest.rs` et `docs/conventions.md` §3).
@@ -92,7 +94,7 @@ fn main() {
         .insert_resource(WaveModeEnabled(wave_mode))
         // Enable wave debug UI (toggle with F3)
         .insert_resource(WaveDebugEnabled(true))
-        .run();
+        .run()
 }
 
 /// A fresh local run chooses a seed outside simulation; --seed reproduces a recorded run.

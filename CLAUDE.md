@@ -303,9 +303,16 @@ simulation. Les crates de simulation (`sim_core`, `combat`, `stats`, `effects`, 
 Variables d'environnement (natif) :
 - `ALACOD_HEADLESS=1` : sans fenêtre ni GPU, une frame GGRS par update. Compiler sans le rendu des
   tilemaps : `--no-default-features` (et `--profile headless` pour la vitesse).
-- `ALACOD_INPUT=neutral` : ignore clavier et souris (sinon la position du curseur entre dans l'input).
+- `ALACOD_INPUT=neutral` : ignore clavier et souris (sinon la position du curseur entre dans l'input) ;
+  `ALACOD_INPUT=script:<scénario.ron>` (natif) : chaque joueur local rejoue le `PlayerScript` de son
+  handle (preuve p2p avec rollback réel : `tests/scenarios/p2p_smoke.ron`, inputs qui changent sans
+  arrêt ; avec `neutral`, les prédictions sont toujours justes et rien n'est resimulé).
 - `ALACOD_STATE_TRACE=<fichier>` + `ALACOD_EXIT_AT_FRAME=<n>` : hash de l'état rollback à chaque frame,
-  puis arrêt. `ALACOD_STATE_TRACE_FULL=1` ajoute l'état détaillé pour trouver une divergence.
+  puis arrêt. `ALACOD_STATE_TRACE_FULL=1` ajoute l'état détaillé pour trouver une divergence. Le log
+  final donne le nombre de frames resimulées après rollback (zéro en p2p = run sans valeur).
+- En ligne, un `DesyncDetected` GGRS affiche un écran « DESYNC » (plus de partie commune) et, en
+  headless, arrête le processus avec le code `SESSION_LOST_EXIT_CODE` (3) : un test p2p qui
+  diverge ne peut pas passer pour un succès.
 
 Avant/après un refactoring de la simulation, comparer les traces : elles doivent être identiques.
 

@@ -91,3 +91,60 @@ ce compteur à 58 vulnérabilités exploitables de la simulation. Aucune dépend
 Pour la revue : comparer à `b917c38f`, lancer `ALACOD_DYLIB=0 make check` (ou les étapes séparées
 avec les features habituelles du poste), puis la recette P2P à 2/4 et le restart. Ne pas fusionner
 sur la seule base des tests en mémoire.
+
+## Deuxième passe (Claude, 2026-10-14) : revue du lot et compléments
+
+Revue du lot Codex contre `origin/main` puis fusion de `main` (perf-suite, M2-T14a/T16/T17/T19 ;
+302 scénarios après fusion, 13 noms courts partagés entre jeux).
+
+Ce que le lot avait juste : la détection p2p était bien absente (`DesyncDetection::Off` par
+défaut), le `session_builder` commun couvre natif et wasm, le `BTreeMap` par `GgrsNetId` est
+correct (les balles ne se touchent jamais entre elles : `contains_key` est mort, avant comme
+après), les scripts Python sont sains. Le test de divergence prouve la configuration GGRS, pas
+la chaîne Bevy (`Checksum` → `cell.save` → `log_ggrs_events`) : c'est la raison du point 5.
+
+Ce qui manquait ou cassait :
+
+1. **`main.yaml` n'était pas touché.** Les branches sont fusionnées sans PR : `pr.yaml` n'a plus
+   tourné depuis le 2026-10-03, et `main.yaml` gardait `cargo test` nu et `check-forbidden` en
+   `continue-on-error`. Les deux appellent désormais `checks.yaml` (workflow réutilisable) :
+   mêmes étapes bloquantes, suite de scénarios en quatre jobs par durée estimée, `timeout-minutes`
+   et annulation des runs de PR dépassés. Mesuré avant : 26 à 38 min de scénarios en un job,
+   ~45 min par push.
+2. **Le nightly n'a jamais été vert** : annulé chaque nuit du 07 au 14 octobre à 6 h 00
+   (timeout GitHub par défaut), la suite seule prenant 14 337 s sur le runner ; ni p2p, ni vidéos,
+   ni notes n'ont jamais été produits. `timeout-minutes: 720`, suite en tranches
+   (`NIGHTLY_SHARDS`, défaut 2). À observer une nuit avant d'y croire.
+3. **Le smoke p2p ne rollbackait jamais** (`ALACOD_INPUT=neutral` : prédictions toujours
+   justes). Nouveau : `ALACOD_INPUT=script:<scénario.ron>` (le `PlayerScript` de chaque joueur
+   local, natif), `ALACOD_INPUT_DELAY` (0 sur boucle locale = chaque changement d'input est prédit
+   puis resimulé), scénario `p2p_smoke.ron` (4 joueurs, inputs qui changent toutes les 20 à 40
+   frames, phases décalées), compteur « frames resimulées après rollback » dans le log de trace et
+   dans le résumé du nightly. Mesuré sur deux clients headless par `matchbox_server` local :
+   délai 5 → 0 frame resimulée ; délai 0 → 8 et 11 frames resimulées, traces identiques
+   (`check-p2p-traces.py --frames 599`).
+4. **Un desync ne faisait rien** (journal + télémétrie). `SessionLostEvent { title, message }`
+   remplace `GameDisconnectedEvent` : écran « DESYNC » en jeu, `AppExit` code 3
+   (`SESSION_LOST_EXIT_CODE`) en headless pour le desync seulement (une déconnexion en headless
+   est normale : le pair a fini sa trace). Le nom du pair est résolu par `handles_by_address`
+   (avant : premier joueur distant, faux dès trois joueurs).
+5. **Exercice de desync** : `ALACOD_DEBUG_DESYNC_AT=<frame>` altère la santé du joueur local sur
+   ce client seulement ; les deux pairs doivent sortir en code 3. Voir la vérification ci-dessous.
+6. **Régression du lot** : `ALACOD_DUMP_TRACE` ne créait pas le sous-dossier des ids
+   `generated/<jeu>/<nom>` (panique). **Régression de fusion** : `scenario-shard-plan.py` (main,
+   perf-suite) nommait les tranches par nom court : les 13 homonymes se confondaient (un des deux
+   disparaissait du plan, l'autre était refusé comme ambigu par le runner du lot). Corrigé par
+   l'id complet, test Python ajouté (`ShardPlanTests`).
+
+### Vérification de la deuxième passe
+
+- `make test_tools` : 14 tests Python verts (dont le nouveau).
+- `cargo test -p game` (headless) : 133 tests verts, dont les 3 p2p en mémoire.
+- `p2p_smoke` : trace de référence créée (nouveau scénario, aucune trace existante modifiée) ;
+  600 frames, quatre joueurs vivants à la frame 300.
+- p2p réel à deux clients headless (`matchbox_server` local, `ws://127.0.0.1:3536`) : voir
+  le point 3 ci-dessus ; avec `ALACOD_DEBUG_DESYNC_AT=200` sur un client : voir ci-dessous.
+- Suite complète en tranches et `make test_crates` : voir ci-dessous.
+
+Non fait ici : allumette/WebRTC via docker (daemon absent), deux machines, wasm, nuit verte
+observée, mesure du coût des snapshots (`docs/etat-engine.md`, revue d'architecture).

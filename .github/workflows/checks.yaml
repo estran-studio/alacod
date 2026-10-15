@@ -1,0 +1,128 @@
+name: Checks
+
+# Étage rapide de la CI (`docs/plan-engine.md` §9.9), partagé par `pr.yaml` et `main.yaml` :
+# un seul endroit décide de ce qui bloque. Deux jobs indépendants :
+# - `checks` : format, outils Python, garde-fous, tests du workspace en headless, lint du contenu ;
+# - `scenarios` : la suite de scénarios en SHARDS tranches parallèles (une par job), réparties
+#   par durée estimée (`scripts/scenario-shard-plan.py`, frames faute de métriques sur un runner
+#   neuf). Mesuré le 2026-10-14 : la suite en un seul job prenait 26 à 38 min sur ubuntu-latest,
+#   ~45 min de CI par push ; quatre tranches la ramènent sous les 15 min.
+
+on:
+  workflow_call:
+    inputs:
+      shards:
+        description: Nombre de tranches de la suite de scénarios
+        type: number
+        default: 4
+
+env:
+  CARGO_TERM_COLOR: always
+
+jobs:
+  checks:
+    name: Format, tests, lint
+    runs-on: ubuntu-latest
+    timeout-minutes: 60
+    steps:
+      - name: Check out
+        uses: actions/checkout@v4
+
+      - name: Install system dependencies
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y \
+            pkg-config \
+            libasound2-dev \
+            libudev-dev \
+            libwayland-dev \
+            libxkbcommon-dev \
+            libx11-dev
+
+      - name: Install Rust toolchain
+        uses: dtolnay/rust-toolchain@nightly
+        with:
+          components: rustfmt
+
+      - name: Cache cargo registry and git
+        uses: Swatinem/rust-cache@v2
+        with:
+          workspaces: .
+          cache-all-crates: true
+
+      - name: Format check
+        run: make format
+
+      - name: Test validation tools
+        run: make test_tools
+
+      - name: Check deterministic patterns and rollback registration
+        run: make check_forbidden check_rollback_registration
+
+      - name: Run workspace tests (headless, including P2P regression tests)
+        run: make test_crates
+
+      - name: Lint game content
+        run: make lint
+
+  plan:
+    name: Plan des tranches
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    outputs:
+      shards: ${{ steps.plan.outputs.shards }}
+    steps:
+      - name: Check out
+        uses: actions/checkout@v4
+
+      - name: Split scenarios by estimated duration
+        id: plan
+        run: |
+          # Liste JSON [{index, scenarios}] ; une tranche vide est omise.
+          python3 scripts/scenario-shard-plan.py . /dev/null "${{ inputs.shards }}" "" \
+            | python3 -c '
+          import json, sys
+          rows = [line.split("\t") for line in sys.stdin.read().splitlines() if "\t" in line]
+          print("shards=" + json.dumps([
+              {"index": int(i), "scenarios": names} for i, names in rows if names
+          ]))' >> "$GITHUB_OUTPUT"
+
+  scenarios:
+    name: Scénarios ${{ matrix.shard.index }}/${{ inputs.shards }}
+    needs: plan
+    runs-on: ubuntu-latest
+    timeout-minutes: 60
+    strategy:
+      fail-fast: false
+      matrix:
+        shard: ${{ fromJSON(needs.plan.outputs.shards) }}
+    steps:
+      - name: Check out
+        uses: actions/checkout@v4
+
+      - name: Install system dependencies
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y \
+            pkg-config \
+            libasound2-dev \
+            libudev-dev \
+            libwayland-dev \
+            libxkbcommon-dev \
+            libx11-dev
+
+      - name: Install Rust toolchain
+        uses: dtolnay/rust-toolchain@nightly
+
+      - name: Cache cargo registry and git
+        uses: Swatinem/rust-cache@v2
+        with:
+          workspaces: .
+          cache-all-crates: true
+          # Même cache pour toutes les tranches (même build) ; `checks` a le sien (autres cibles).
+          shared-key: scenarios
+
+      - name: Run scenario shard
+        env:
+          ALACOD_SCENARIO_SHARD: ${{ matrix.shard.index }}/${{ inputs.shards }}
+        run: make test_scenarios SCENARIO="${{ matrix.shard.scenarios }}"

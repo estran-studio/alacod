@@ -15,8 +15,60 @@ l’écart initial du 2026-09-28 : ne pas les lire comme l’inventaire actuel.
 | M3–M6 | Plan et contrats partiels réutilisables | Pas de validation de clone complet | Terminer les critères de M2 avant d’étendre fortement le vocabulaire |
 
 Les réussites de bots sont des résultats fonctionnels sur une configuration donnée ; elles ne
-mesurent ni le plaisir, ni la difficulté pour un humain. « Zéro desync » en synctest n’équivaut
+mesurent ni le plaisir, ni la difficulté pour un humain. « Zéro desync » en synctest n'équivaut
 pas à une validation de traversée NAT ou de réseau dégradé.
+
+## Ce que la CI prouvait réellement (mesuré le 2026-10-14, `gh run list`)
+
+| Étage | Constat | Conséquence |
+|---|---|---|
+| `pr.yaml` | dernier run le 2026-10-03 : les branches sont fusionnées par merge direct, sans PR | les contrôles « bloquants » d'une PR ne s'exécutaient jamais |
+| `main.yaml` (push) | `cargo test` nu + `check-forbidden` en `continue-on-error` ; ~45 min par push, dont 26 à 38 min de suite de scénarios en un seul job | l'étage « rapide » du plan (§9.9, < 5 min) n'existait pas ; les garde-fous ne bloquaient pas |
+| `nightly.yaml` | **annulé chaque nuit du 07 au 14 octobre à 6 h 00 pile** (timeout GitHub par défaut) pendant l'étape B : la suite seule prenait 14 337 s sur le runner | aucun p2p réel, aucune vidéo, aucune note de revue produits par la CI depuis la mise en place (une seule note, écrite à la main le 2026-10-02) |
+| Smoke p2p nocturne | `ALACOD_INPUT=neutral` : prédictions toujours justes, aucun rollback resimulé sur le transport réel | la seule preuve de rollback p2p était le test en mémoire |
+| `DesyncDetected` | journal + télémétrie seulement : la partie continuait, chaque pair dans son propre état | un desync en partie réelle n'arrêtait rien, et un smoke headless pouvait finir « vert » |
+
+Corrigé sur cette branche : `checks.yaml` partagé par PR et main (format, outils, garde-fous,
+workspace, lint ; suite de scénarios en quatre tranches par durée estimée, jobs limités à 60 min) ;
+nightly à 720 min avec la suite en tranches ; smoke p2p à inputs scriptés (`p2p_smoke.ron`) et
+compteur de frames resimulées dans le log de trace ; `DesyncDetected` → écran « DESYNC » et code
+de sortie 3 en headless. Reste à **observer** une nuit verte avant de considérer N5/N7 couverts.
+
+## Revue d'architecture (2026-10-14)
+
+Direction : juste. Déterminisme vérifiable, scénarios comme tests, clones comme intégration et
+contenu en RON sont exactement ce qu'il faut pour un engine de roguelike coop en rollback ; peu
+de projets ont ce filet. Les trois risques qui pèsent le plus sur « l'ultime engine p2p » :
+
+1. **Le coût des snapshots n'est pas mesuré.** ≈ 74 composants et 17 ressources rollback plus
+   16 `FrameEvents`, clonés à chaque frame (bevy_ggrs, pas de `sparse_saving`), fenêtre de
+   prédiction 12 : un paquet en retard coûte jusqu'à 12 sauvegardes et 12 resimulations. Les
+   métriques de scénario ne donnent que des fps de simulation ; aucune mesure de
+   `SaveWorld`/`LoadWorld`. Des composants de configuration (`Weapon` avec ses `BTreeMap`,
+   `EnemyAiConfig`) et un `PointerWorldPosition` sans lecteur sont dans chaque snapshot. Avant
+   M3, instrumenter le temps de sauvegarde/restauration par frame et la taille des snapshots sur
+   `bench_bullets_room` (570 entités), puis décider de l'élagage.
+2. **La frontière simulation/présentation n'est pas prouvée par la compilation.** `game`
+   (≈ 28 k lignes) héberge à la fois la simulation (personnages, IA, interaction, vagues,
+   économie, objets, progression, boss) et la présentation (UI, caméra, audio, lumière, réseau),
+   en `bevy` complet ; `combat` tire `animation` (bevy complet), les loaders RON et
+   `bevy_matchbox` (`PeerConfig`) ; `spawn_bullet` pose un `Sprite` depuis `GgrsSchedule`.
+   Le portage console décidé en §7 du plan n'est donc pas « rien à faire » : c'est un
+   découpage `game_sim`/`game_app` à faire avant que le crate ne grossisse encore, avec un
+   `cargo check` ECS seul des crates de simulation en CI.
+3. **La partie en ligne n'a pas de politique de session.** Une déconnexion termine la partie
+   pour tout le monde (overlay et sortie du processus) alors que GGRS continue sans le pair
+   parti ; pas de spectateur (`PlayerType::Spectator` n'est jamais ajouté au builder), pas de
+   réglage de `disconnect_timeout`, flux allumette bloquant sur le thread principal avec
+   `process::exit`. Pour une coop à 4, décider : continuer à 3, ou fin de partie ; le code fait
+   aujourd'hui le choix le plus brutal par défaut.
+
+Risques de second rang : la suite de scénarios est le goulot de tout (1 à 2 h par vérification
+sur orca, 4 h sur le runner) et son coût fixe par frame domine (synctest ×2, checksum, trace,
+invariants) ; la boucle gungeon n'est pas jouable de bout en bout (D59, D62 : objets sans source,
+étage par grammaire jamais joué en p2p) ; les dettes de jouabilité zombies tranchées le 10-14
+(D28, D29) changeront les traces `test_map` ; le `rust-toolchain` nightly n'est pas épinglé par
+date (stabilité des hash entre machines, §5 du contrat de sortie).
 
 ## Contrat de sortie d’un jalon
 

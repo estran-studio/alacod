@@ -52,6 +52,16 @@ pub fn check_distance_from_env() -> usize {
         .unwrap_or(2)
 }
 
+/// `ALACOD_INPUT_DELAY`, ou 5 frames. À 0 sur une boucle locale, les inputs du pair arrivent
+/// après la frame qui en a besoin : chaque changement d'input est prédit puis resimulé, ce qui
+/// fait du smoke p2p (`scripts/nightly.sh`) une vraie épreuve de rollback.
+pub fn input_delay_from_env() -> usize {
+    std::env::var("ALACOD_INPUT_DELAY")
+        .ok()
+        .and_then(|v| v.parse::<usize>().ok())
+        .unwrap_or(5)
+}
+
 pub fn get_args() -> GameArgs {
     #[cfg(not(target_arch = "wasm32"))]
     {
@@ -238,7 +248,7 @@ impl Plugin for GameArgsPlugin {
             matchbox_url: args.matchbox,
             allumette_url: args.allumette,
             connection: GggrsConnectionConfiguration {
-                input_delay: 5,
+                input_delay: input_delay_from_env(),
                 max_player: nbr_player,
                 desync_interval: 10,
                 // UDP seulement s'il y a des joueurs distants : plusieurs joueurs locaux
