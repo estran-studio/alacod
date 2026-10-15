@@ -49,6 +49,8 @@ fi
 # dossier du paquet comme répertoire courant.
 libpath="$(./scripts/dev-features.sh libpath 2>/dev/null || true)"
 export LD_LIBRARY_PATH="${libpath:+$libpath:}${LD_LIBRARY_PATH:-}"
+# macOS : SIP retire DYLD_* de l'environnement d'un script lancé par /usr/bin/env ; le poser ici.
+export DYLD_LIBRARY_PATH="${libpath:+$libpath:}${DYLD_LIBRARY_PATH:-}"
 export APP_VERSION="${APP_VERSION:-${TEST_VERSION:-v0.0.0}}"
 
 logs="$CARGO_TARGET_DIR/scenario-shards"
