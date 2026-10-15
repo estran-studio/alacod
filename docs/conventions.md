@@ -3248,6 +3248,23 @@ profils existants sont inchangés (aucune trace existante ne bouge).
 - **Option** `ExplorerOptions::boss_direct` (`alacod-sim --boss-direct`) : droit au boss, sans autre salle
   ni objet.
 
+**bot-explorateur-v2 (D65).**
+- **Arène** : une salle `arene` dormante et vide est un but (`explorer::room_pending`) jusqu'à son
+  nettoyage : elle ne se verrouille qu'à l'entrée d'un joueur et ses vagues naissent à ce moment.
+  Même ordre que les autres salles (coût du chemin, puis identifiant), le boss reste en dernier.
+- **Salles non verrouillantes** (départ, récompense, boutique) : un but jusqu'à ce qu'un joueur y
+  entre (dans la salle réduite de 24 px) ; on n'y achète rien. **Seule mémoire du bot**,
+  `ExplorerVisits` (ensemble `(index d'étage, salle)`, ressource hors rollback) : une salle sans
+  état n'a rien à lire dans `RoomStates`. Elle ne sert qu'à produire des inputs, que GGRS enregistre ;
+  un rollback ne rappelle pas le bot pour une frame passée.
+- **Réanimation** : l'explorateur relève un coéquipier à terre sans attendre les 600 dernières frames
+  d'urgence (`REVIVE_URGENT_FRAMES` reste la règle de `prudent`/`fonceur`). Il attendait l'urgence
+  sans autre but : graine 175 à 2 bots, saignement fini à f2459, première interaction f1887.
+- **Zone morte** : `surface_step` considère le bot arrivé quand son pas est sous `ROUTE_DEAD_ZONE`
+  sur les deux axes ; sinon il restait immobile à 36 px de la portée, sans presser Interaction
+  (graine 47 à 2 bots, `etages_deux`, soft-lock).
+- Campagne : `docs/taches/rapports/bot-explorateur-v2/campagne.sh` (lots de 10 graines).
+
 **`alacod-sim`** : `--floors <séquence> --until-floor N` existait (T1.14) ; le JSON gagne `outcome`
 (`victoire`, `objectif`, `mort`, `soft-lock`, `plafond`, `desync`) et `rooms` (par étage : salles typées,
 visitées, nettoyées, verrouillantes) ; un résumé par issue (graines) finit la sortie d'erreur. `--until-floor N`
