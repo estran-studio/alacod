@@ -1474,12 +1474,6 @@ mod telegraph_tests {
             projectile: "p".into(),
             every: 0,
         };
-        let ring = Pattern::Ring {
-            count: 8,
-            speed: fixed(60.0),
-            projectile: "p".into(),
-            every: 0,
-        };
         let fan = Pattern::Fan {
             count: 3,
             spread: fixed(1.0),
@@ -1488,7 +1482,7 @@ mod telegraph_tests {
         };
         // Le prochain tir est derrière un autre télégraphe : ce n'est pas celui qu'on annonce.
         let steps = vec![ring, Pattern::Wait(5), fan];
-        assert_eq!(pattern_shape(&steps, 0, Vec2::X, Vec2::ZERO, 10.0), None);
+        assert_eq!(pattern_shape(&steps, 1, Vec2::X, Vec2::ZERO, 10.0), None);
     }
 
     #[test]
