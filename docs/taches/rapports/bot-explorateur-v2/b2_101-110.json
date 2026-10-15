@@ -3,22 +3,22 @@
     "seed": 101,
     "wave": 0,
     "floor": 1,
-    "frames": 672,
+    "frames": 657,
     "deaths": 0,
     "kills": 0,
-    "wall_seconds": 1.420226166,
+    "wall_seconds": 1.463482875,
     "desync": false,
-    "sim_fps": 560.0521352532708,
+    "sim_fps": 535.761156952097,
     "floor_frames": [
-      672
+      657
     ],
-    "damage_taken": 86,
-    "dodges": 159,
+    "damage_taken": 92,
+    "dodges": 168,
     "doors_opened": 17,
     "players_end": [
       {
         "handle": 0,
-        "currency": 890,
+        "currency": 700,
         "downed": false,
         "x": -8.0,
         "y": -8.0,
@@ -26,7 +26,7 @@
       },
       {
         "handle": 1,
-        "currency": 820,
+        "currency": 1000,
         "downed": false,
         "x": 24.0,
         "y": -8.0,
@@ -56,22 +56,22 @@
     "seed": 102,
     "wave": 0,
     "floor": 1,
-    "frames": 621,
+    "frames": 431,
     "deaths": 0,
     "kills": 0,
-    "wall_seconds": 1.165729291,
+    "wall_seconds": 1.0101285,
     "desync": false,
-    "sim_fps": 598.9895792365002,
+    "sim_fps": 495.57147669951695,
     "floor_frames": [
-      621
+      431
     ],
-    "damage_taken": 58,
-    "dodges": 106,
+    "damage_taken": 34,
+    "dodges": 21,
     "doors_opened": 13,
     "players_end": [
       {
         "handle": 0,
-        "currency": 730,
+        "currency": 620,
         "downed": false,
         "x": -8.0,
         "y": -8.0,
@@ -79,7 +79,7 @@
       },
       {
         "handle": 1,
-        "currency": 790,
+        "currency": 800,
         "downed": false,
         "x": 24.0,
         "y": -8.0,
@@ -109,22 +109,22 @@
     "seed": 103,
     "wave": 0,
     "floor": 1,
-    "frames": 444,
+    "frames": 549,
     "deaths": 0,
     "kills": 0,
-    "wall_seconds": 2.438861209,
+    "wall_seconds": 1.203422,
     "desync": false,
-    "sim_fps": 193.2194795325386,
+    "sim_fps": 511.89370000134227,
     "floor_frames": [
-      444
+      549
     ],
-    "damage_taken": 34,
-    "dodges": 20,
+    "damage_taken": 32,
+    "dodges": 111,
     "doors_opened": 15,
     "players_end": [
       {
         "handle": 0,
-        "currency": 730,
+        "currency": 700,
         "downed": false,
         "x": -8.0,
         "y": -8.0,
@@ -132,7 +132,7 @@
       },
       {
         "handle": 1,
-        "currency": 730,
+        "currency": 830,
         "downed": false,
         "x": 24.0,
         "y": -8.0,
@@ -162,14 +162,14 @@
     "seed": 104,
     "wave": 0,
     "floor": 1,
-    "frames": 445,
+    "frames": 441,
     "deaths": 0,
     "kills": 0,
-    "wall_seconds": 3.458109542,
+    "wall_seconds": 1.068410959,
     "desync": false,
-    "sim_fps": 139.96894104924965,
+    "sim_fps": 468.89177297614503,
     "floor_frames": [
-      445
+      441
     ],
     "damage_taken": 36,
     "dodges": 16,
@@ -215,14 +215,14 @@
     "seed": 105,
     "wave": 0,
     "floor": 1,
-    "frames": 591,
+    "frames": 570,
     "deaths": 0,
     "kills": 0,
-    "wall_seconds": 3.275317083,
+    "wall_seconds": 1.26022225,
     "desync": false,
-    "sim_fps": 196.9572411738129,
+    "sim_fps": 503.9819922247409,
     "floor_frames": [
-      591
+      570
     ],
     "damage_taken": 30,
     "dodges": 16,
@@ -268,14 +268,14 @@
     "seed": 106,
     "wave": 0,
     "floor": 1,
-    "frames": 445,
+    "frames": 441,
     "deaths": 0,
     "kills": 0,
-    "wall_seconds": 3.353411542,
+    "wall_seconds": 1.104279959,
     "desync": false,
-    "sim_fps": 143.73612112277158,
+    "sim_fps": 452.80510080079165,
     "floor_frames": [
-      445
+      441
     ],
     "damage_taken": 36,
     "dodges": 16,
@@ -321,14 +321,14 @@
     "seed": 107,
     "wave": 0,
     "floor": 1,
-    "frames": 591,
+    "frames": 570,
     "deaths": 0,
     "kills": 0,
-    "wall_seconds": 3.571736042,
+    "wall_seconds": 1.484908291,
     "desync": false,
-    "sim_fps": 180.6911390022699,
+    "sim_fps": 422.79150315174377,
     "floor_frames": [
-      591
+      570
     ],
     "damage_taken": 30,
     "dodges": 16,
@@ -374,14 +374,14 @@
     "seed": 108,
     "wave": 0,
     "floor": 1,
-    "frames": 432,
+    "frames": 399,
     "deaths": 0,
     "kills": 0,
-    "wall_seconds": 1.875917792,
+    "wall_seconds": 0.945606166,
     "desync": false,
-    "sim_fps": 263.24468209546023,
+    "sim_fps": 505.71851156552503,
     "floor_frames": [
-      432
+      399
     ],
     "damage_taken": 36,
     "dodges": 14,
@@ -427,22 +427,22 @@
     "seed": 109,
     "wave": 0,
     "floor": 1,
-    "frames": 621,
+    "frames": 431,
     "deaths": 0,
     "kills": 0,
-    "wall_seconds": 1.965928875,
+    "wall_seconds": 1.076831291,
     "desync": false,
-    "sim_fps": 349.53478507366106,
+    "sim_fps": 463.9727865557075,
     "floor_frames": [
-      621
+      431
     ],
-    "damage_taken": 58,
-    "dodges": 106,
+    "damage_taken": 34,
+    "dodges": 21,
     "doors_opened": 13,
     "players_end": [
       {
         "handle": 0,
-        "currency": 730,
+        "currency": 620,
         "downed": false,
         "x": -8.0,
         "y": -8.0,
@@ -450,7 +450,7 @@
       },
       {
         "handle": 1,
-        "currency": 790,
+        "currency": 800,
         "downed": false,
         "x": 24.0,
         "y": -8.0,
@@ -480,22 +480,22 @@
     "seed": 110,
     "wave": 0,
     "floor": 1,
-    "frames": 448,
+    "frames": 407,
     "deaths": 0,
     "kills": 0,
-    "wall_seconds": 1.380229333,
+    "wall_seconds": 1.007041042,
     "desync": false,
-    "sim_fps": 368.80595866879213,
+    "sim_fps": 471.4544424455935,
     "floor_frames": [
-      448
+      407
     ],
-    "damage_taken": 34,
-    "dodges": 20,
+    "damage_taken": 26,
+    "dodges": 41,
     "doors_opened": 15,
     "players_end": [
       {
         "handle": 0,
-        "currency": 730,
+        "currency": 670,
         "downed": false,
         "x": -8.0,
         "y": -8.0,
@@ -503,7 +503,7 @@
       },
       {
         "handle": 1,
-        "currency": 730,
+        "currency": 790,
         "downed": false,
         "x": 24.0,
         "y": -8.0,

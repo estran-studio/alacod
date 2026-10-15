@@ -706,6 +706,8 @@ pub struct SpriteSheetEntry {
 pub struct SoundRef {
     pub field: String,
     pub path: String,
+    /// Mode de tir de `audio_config.modes` (assets) : doit exister dans `firing_modes`.
+    pub mode: String,
 }
 
 #[derive(Debug, Clone)]
@@ -2323,6 +2325,7 @@ fn load_weapons(
                         sounds.push(SoundRef {
                             field: format!("audio_config.modes.{mode}.{name}"),
                             path,
+                            mode: mode.clone(),
                         });
                     }
                 }
