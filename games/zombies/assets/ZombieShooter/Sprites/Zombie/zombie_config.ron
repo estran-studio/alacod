@@ -56,7 +56,7 @@
         ignores: Some([]),
         path_through_breakables: Some(true),
         flee_threshold: None,
-        attack_damage: Some("10.0"),
+        attack_damage: Some("1.0"),
         stationary: None,
         behaviors: Some([Melee("zombie_claws"), Chase(profile: "GroundBreaker")]),
     )),

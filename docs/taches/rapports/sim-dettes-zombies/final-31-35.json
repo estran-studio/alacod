@@ -1,0 +1,502 @@
+[
+  {
+    "seed": 31,
+    "wave": 5,
+    "floor": 0,
+    "frames": 6494,
+    "deaths": 0,
+    "kills": 28,
+    "wall_seconds": 53.214459783,
+    "desync": false,
+    "sim_fps": 123.64084356136222,
+    "damage_taken": 0,
+    "doors_opened": 6,
+    "players_end": [
+      {
+        "handle": 0,
+        "currency": 420,
+        "downed": false,
+        "x": 122.91751,
+        "y": -455.38574,
+        "in_spawn_room": true
+      },
+      {
+        "handle": 1,
+        "currency": 490,
+        "downed": false,
+        "x": 122.2626,
+        "y": -455.75156,
+        "in_spawn_room": true
+      },
+      {
+        "handle": 2,
+        "currency": 620,
+        "downed": false,
+        "x": 122.3528,
+        "y": -479.80798,
+        "in_spawn_room": true
+      },
+      {
+        "handle": 3,
+        "currency": 460,
+        "downed": false,
+        "x": 123.590256,
+        "y": -455.2423,
+        "in_spawn_room": true
+      }
+    ],
+    "waves": [
+      {
+        "wave": 1,
+        "enemies": 5,
+        "start": 1,
+        "spawning": 181,
+        "cleared": 755,
+        "damage": 0,
+        "downs": 0,
+        "deaths": 0
+      },
+      {
+        "wave": 2,
+        "enemies": 6,
+        "start": 1355,
+        "spawning": 1535,
+        "cleared": 2249,
+        "damage": 0,
+        "downs": 0,
+        "deaths": 0
+      },
+      {
+        "wave": 3,
+        "enemies": 8,
+        "start": 2849,
+        "spawning": 3029,
+        "cleared": 3988,
+        "damage": 0,
+        "downs": 0,
+        "deaths": 0
+      },
+      {
+        "wave": 4,
+        "enemies": 9,
+        "start": 4588,
+        "spawning": 4768,
+        "cleared": 5894,
+        "damage": 0,
+        "downs": 0,
+        "deaths": 0
+      },
+      {
+        "wave": 5,
+        "enemies": 13,
+        "start": 6494,
+        "spawning": null,
+        "cleared": null,
+        "damage": 0,
+        "downs": 0,
+        "deaths": 0
+      }
+    ],
+    "outcome": "objectif"
+  },
+  {
+    "seed": 32,
+    "wave": 5,
+    "floor": 0,
+    "frames": 6374,
+    "deaths": 0,
+    "kills": 27,
+    "wall_seconds": 56.040584341,
+    "desync": false,
+    "sim_fps": 114.49001658984822,
+    "damage_taken": 0,
+    "doors_opened": 6,
+    "players_end": [
+      {
+        "handle": 0,
+        "currency": 450,
+        "downed": false,
+        "x": 677.72595,
+        "y": -746.02454,
+        "in_spawn_room": true
+      },
+      {
+        "handle": 1,
+        "currency": 60,
+        "downed": false,
+        "x": 821.6999,
+        "y": -566.3725,
+        "in_spawn_room": true
+      },
+      {
+        "handle": 2,
+        "currency": 570,
+        "downed": false,
+        "x": 793.0517,
+        "y": -870.7657,
+        "in_spawn_room": true
+      },
+      {
+        "handle": 3,
+        "currency": 620,
+        "downed": false,
+        "x": 676.71094,
+        "y": -765.87225,
+        "in_spawn_room": true
+      }
+    ],
+    "waves": [
+      {
+        "wave": 1,
+        "enemies": 4,
+        "start": 1,
+        "spawning": 181,
+        "cleared": 638,
+        "damage": 0,
+        "downs": 0,
+        "deaths": 0
+      },
+      {
+        "wave": 2,
+        "enemies": 7,
+        "start": 1238,
+        "spawning": 1418,
+        "cleared": 2282,
+        "damage": 0,
+        "downs": 0,
+        "deaths": 0
+      },
+      {
+        "wave": 3,
+        "enemies": 7,
+        "start": 2882,
+        "spawning": 3062,
+        "cleared": 3878,
+        "damage": 0,
+        "downs": 0,
+        "deaths": 0
+      },
+      {
+        "wave": 4,
+        "enemies": 9,
+        "start": 4478,
+        "spawning": 4658,
+        "cleared": 5774,
+        "damage": 0,
+        "downs": 0,
+        "deaths": 0
+      },
+      {
+        "wave": 5,
+        "enemies": 12,
+        "start": 6374,
+        "spawning": null,
+        "cleared": null,
+        "damage": 0,
+        "downs": 0,
+        "deaths": 0
+      }
+    ],
+    "outcome": "objectif"
+  },
+  {
+    "seed": 33,
+    "wave": 5,
+    "floor": 0,
+    "frames": 6429,
+    "deaths": 0,
+    "kills": 28,
+    "wall_seconds": 54.726393283,
+    "desync": false,
+    "sim_fps": 118.58441370675777,
+    "damage_taken": 0,
+    "doors_opened": 4,
+    "players_end": [
+      {
+        "handle": 0,
+        "currency": 690,
+        "downed": false,
+        "x": 122.90816,
+        "y": -456.04498,
+        "in_spawn_room": true
+      },
+      {
+        "handle": 1,
+        "currency": 1170,
+        "downed": false,
+        "x": 122.85835,
+        "y": -455.6591,
+        "in_spawn_room": true
+      },
+      {
+        "handle": 2,
+        "currency": 1170,
+        "downed": false,
+        "x": 122.95889,
+        "y": -455.8934,
+        "in_spawn_room": true
+      },
+      {
+        "handle": 3,
+        "currency": 590,
+        "downed": false,
+        "x": 122.66675,
+        "y": -455.17224,
+        "in_spawn_room": true
+      }
+    ],
+    "waves": [
+      {
+        "wave": 1,
+        "enemies": 5,
+        "start": 1,
+        "spawning": 181,
+        "cleared": 774,
+        "damage": 0,
+        "downs": 0,
+        "deaths": 0
+      },
+      {
+        "wave": 2,
+        "enemies": 5,
+        "start": 1374,
+        "spawning": 1554,
+        "cleared": 2136,
+        "damage": 0,
+        "downs": 0,
+        "deaths": 0
+      },
+      {
+        "wave": 3,
+        "enemies": 8,
+        "start": 2736,
+        "spawning": 2916,
+        "cleared": 3851,
+        "damage": 0,
+        "downs": 0,
+        "deaths": 0
+      },
+      {
+        "wave": 4,
+        "enemies": 10,
+        "start": 4451,
+        "spawning": 4631,
+        "cleared": 5829,
+        "damage": 0,
+        "downs": 0,
+        "deaths": 0
+      },
+      {
+        "wave": 5,
+        "enemies": 11,
+        "start": 6429,
+        "spawning": null,
+        "cleared": null,
+        "damage": 0,
+        "downs": 0,
+        "deaths": 0
+      }
+    ],
+    "outcome": "objectif"
+  },
+  {
+    "seed": 34,
+    "wave": 5,
+    "floor": 0,
+    "frames": 7055,
+    "deaths": 0,
+    "kills": 30,
+    "wall_seconds": 67.622911639,
+    "desync": false,
+    "sim_fps": 105.11422721301184,
+    "damage_taken": 0,
+    "doors_opened": 7,
+    "players_end": [
+      {
+        "handle": 0,
+        "currency": 170,
+        "downed": false,
+        "x": 164.40967,
+        "y": -239.71643,
+        "in_spawn_room": true
+      },
+      {
+        "handle": 1,
+        "currency": 240,
+        "downed": false,
+        "x": 163.20409,
+        "y": -237.66911,
+        "in_spawn_room": true
+      },
+      {
+        "handle": 2,
+        "currency": 870,
+        "downed": false,
+        "x": 160.7569,
+        "y": -274.8424,
+        "in_spawn_room": true
+      },
+      {
+        "handle": 3,
+        "currency": 1930,
+        "downed": false,
+        "x": 177.2621,
+        "y": -206.9147,
+        "in_spawn_room": true
+      }
+    ],
+    "waves": [
+      {
+        "wave": 1,
+        "enemies": 5,
+        "start": 1,
+        "spawning": 181,
+        "cleared": 764,
+        "damage": 0,
+        "downs": 0,
+        "deaths": 0
+      },
+      {
+        "wave": 2,
+        "enemies": 7,
+        "start": 1364,
+        "spawning": 1544,
+        "cleared": 2362,
+        "damage": 0,
+        "downs": 0,
+        "deaths": 0
+      },
+      {
+        "wave": 3,
+        "enemies": 8,
+        "start": 2962,
+        "spawning": 3142,
+        "cleared": 4276,
+        "damage": 0,
+        "downs": 0,
+        "deaths": 0
+      },
+      {
+        "wave": 4,
+        "enemies": 10,
+        "start": 4876,
+        "spawning": 5056,
+        "cleared": 6455,
+        "damage": 0,
+        "downs": 0,
+        "deaths": 0
+      },
+      {
+        "wave": 5,
+        "enemies": 13,
+        "start": 7055,
+        "spawning": null,
+        "cleared": null,
+        "damage": 0,
+        "downs": 0,
+        "deaths": 0
+      }
+    ],
+    "outcome": "objectif"
+  },
+  {
+    "seed": 35,
+    "wave": 5,
+    "floor": 0,
+    "frames": 6180,
+    "deaths": 0,
+    "kills": 26,
+    "wall_seconds": 51.750058663,
+    "desync": false,
+    "sim_fps": 120.3642777116551,
+    "damage_taken": 0,
+    "doors_opened": 7,
+    "players_end": [
+      {
+        "handle": 0,
+        "currency": 50,
+        "downed": false,
+        "x": 821.2151,
+        "y": -552.61926,
+        "in_spawn_room": true
+      },
+      {
+        "handle": 1,
+        "currency": 40,
+        "downed": false,
+        "x": 821.33606,
+        "y": -263.17957,
+        "in_spawn_room": true
+      },
+      {
+        "handle": 2,
+        "currency": 30,
+        "downed": false,
+        "x": 546.4277,
+        "y": -496.6062,
+        "in_spawn_room": true
+      },
+      {
+        "handle": 3,
+        "currency": 530,
+        "downed": false,
+        "x": 123.52272,
+        "y": -455.14423,
+        "in_spawn_room": true
+      }
+    ],
+    "waves": [
+      {
+        "wave": 1,
+        "enemies": 3,
+        "start": 1,
+        "spawning": 181,
+        "cleared": 518,
+        "damage": 0,
+        "downs": 0,
+        "deaths": 0
+      },
+      {
+        "wave": 2,
+        "enemies": 5,
+        "start": 1118,
+        "spawning": 1298,
+        "cleared": 1870,
+        "damage": 0,
+        "downs": 0,
+        "deaths": 0
+      },
+      {
+        "wave": 3,
+        "enemies": 8,
+        "start": 2470,
+        "spawning": 2650,
+        "cleared": 3600,
+        "damage": 0,
+        "downs": 0,
+        "deaths": 0
+      },
+      {
+        "wave": 4,
+        "enemies": 10,
+        "start": 4200,
+        "spawning": 4380,
+        "cleared": 5580,
+        "damage": 0,
+        "downs": 0,
+        "deaths": 0
+      },
+      {
+        "wave": 5,
+        "enemies": 11,
+        "start": 6180,
+        "spawning": null,
+        "cleared": null,
+        "damage": 0,
+        "downs": 0,
+        "deaths": 0
+      }
+    ],
+    "outcome": "objectif"
+  }
+]

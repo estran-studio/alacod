@@ -321,6 +321,8 @@ pub fn wave_spawning_system(
                 panic!("équilibrage F5 : pas de santé résolue pour le personnage « {enemy_type} »")
             });
         let health_max = crate::clock::scale(health_max, spawn_assets.difficulty.current());
+        // D29 : multiplicateur de vie de la vague (1 exactement en vague 1 : aucun calcul).
+        let health_max = crate::clock::scale(health_max, wave_state.current_health_multiplier);
 
         // Spawn the enemy and get the entity
         let enemy_entity = spawn_enemy(
@@ -344,6 +346,14 @@ pub fn wave_spawning_system(
         commands.entity(enemy_entity).insert(WaveEnemy {
             spawned_wave: wave_state.current_wave,
         });
+        // D29 : dégâts de la vague, posés seulement s'ils diffèrent de 1 (vague 1 : rien).
+        if wave_state.current_damage_multiplier != fixed_math::FIXED_ONE {
+            commands
+                .entity(enemy_entity)
+                .insert(combat::weapons::melee::WaveDamageScale(
+                    wave_state.current_damage_multiplier,
+                ));
+        }
 
         wave_state.enemies_to_spawn -= 1;
         wave_state.enemies_spawned_this_wave += 1;

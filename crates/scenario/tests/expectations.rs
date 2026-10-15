@@ -17,10 +17,11 @@ fn health_player_in_range() {
     }
 
     let mut scenario = load_scenario("idle");
-    // À la frame 800, le joueur doit être vivant et avoir une santé entre 50 et 100
+    // À la frame 800, le joueur doit être vivant et avoir une santé entre 30 et 100 (D28 : le dégât
+    // direct des attaques ennemies est appliqué, le joueur immobile de `idle` est à 44 ; avant, 50+)
     scenario.expect = vec![game::replay::Expectation::Health {
         handle: 0,
-        min: Some(50.0),
+        min: Some(30.0),
         max: Some(100.0),
         at_frame: 800,
     }];
