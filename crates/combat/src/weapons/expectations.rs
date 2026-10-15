@@ -495,9 +495,15 @@ pub enum Expectation {
         at_frame: u32,
     },
     /// M2-T6 : nombre de présentoirs (vendus ou non) de la partie à la frame `at_frame`.
-    ShelfCount { count: u32, at_frame: u32 },
+    ShelfCount {
+        count: u32,
+        at_frame: u32,
+    },
     /// M2-T6 : nombre de tas de douilles au sol à la frame `at_frame`.
-    ShellPiles { count: u32, at_frame: u32 },
+    ShellPiles {
+        count: u32,
+        at_frame: u32,
+    },
 }
 
 /// Cible d'une distance (`EnemyDistance`).

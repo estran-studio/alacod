@@ -1450,17 +1450,29 @@ fn shop_shells_inverted_fixture_reports_out_of_range() {
 #[test]
 fn shop_without_table_fixture_reports_broken_reference() {
     let (_, _, errors) = load_and_lint(&fixture_dir("shop_without_table")).unwrap();
-    assert_has_error(&errors, LintErrorKind::BrokenReference, "boutique : pool « fantome » inconnu");
+    assert_has_error(
+        &errors,
+        LintErrorKind::BrokenReference,
+        "boutique : pool « fantome » inconnu",
+    );
 }
 
 #[test]
 fn shop_empty_table_fixture_reports_out_of_range() {
     let (_, _, errors) = load_and_lint(&fixture_dir("shop_empty_table")).unwrap();
-    assert_has_error(&errors, LintErrorKind::OutOfRange, "boutique : le pool « vide » est vide");
+    assert_has_error(
+        &errors,
+        LintErrorKind::OutOfRange,
+        "boutique : le pool « vide » est vide",
+    );
 }
 
 #[test]
 fn shop_no_shelves_fixture_reports_out_of_range() {
     let (_, _, errors) = load_and_lint(&fixture_dir("shop_no_shelves")).unwrap();
-    assert_has_error(&errors, LintErrorKind::OutOfRange, "boutique sans présentoir");
+    assert_has_error(
+        &errors,
+        LintErrorKind::OutOfRange,
+        "boutique sans présentoir",
+    );
 }

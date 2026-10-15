@@ -304,7 +304,8 @@ pub fn room_shop_system(
         let Some(pool) = tables.0.get(&def.table) else {
             continue;
         };
-        let picks = game::shop::draw_shelves(pool, &item_table, run_seed, floor, &id.0, def.shelves);
+        let picks =
+            game::shop::draw_shelves(pool, &item_table, run_seed, floor, &id.0, def.shelves);
         let two = Fixed::from_num(2);
         let center_x = bounds.position.x + bounds.size.x / two;
         let center_y = bounds.position.y + bounds.size.y / two;

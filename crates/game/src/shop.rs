@@ -17,8 +17,8 @@ use bevy_fixed::fixed_math::{self, Fixed, FixedVec2};
 use bevy_fixed::rng::{RollbackRng, RunSeed};
 use bevy_ggrs::{GgrsSchedule, Rollback, RollbackDespawnCommandExtension};
 use items::{
-    draw_loot, loot_seed, Inventory, ItemKind, ItemPicked, ItemTable, LootTables, Rarity,
-    ShellPickup, Shelf,
+    draw_loot, loot_seed, Inventory, ItemKind, ItemPicked, ItemTable, LootTables, Rarity, Shelf,
+    ShellPickup,
 };
 use sim_core::frame_events::FrameEvents;
 use sim_core::interaction::{Interactable, InteractionType};
@@ -161,7 +161,13 @@ pub fn shell_drop_on_death_system(
             "ggrs{{f={} shells_drop enemy_net_id={} amount={}}}",
             frame.frame, net_id.0, amount
         );
-        spawn_shell_pickup(&mut commands, &mut id_factory, amount, transform.translation, net_id.0);
+        spawn_shell_pickup(
+            &mut commands,
+            &mut id_factory,
+            amount,
+            transform.translation,
+            net_id.0,
+        );
     }
 }
 
@@ -198,11 +204,21 @@ pub fn shell_pickup_system(
     mut commands: Commands,
     mut currency_events: ResMut<FrameEvents<CurrencyEvent>>,
     pickups: Query<
-        (&GgrsNetId, Entity, &ShellPickup, &fixed_math::FixedTransform3D),
+        (
+            &GgrsNetId,
+            Entity,
+            &ShellPickup,
+            &fixed_math::FixedTransform3D,
+        ),
         With<Rollback>,
     >,
     mut players: Query<
-        (&GgrsNetId, &Player, &fixed_math::FixedTransform3D, &mut Currency),
+        (
+            &GgrsNetId,
+            &Player,
+            &fixed_math::FixedTransform3D,
+            &mut Currency,
+        ),
         Without<ShellPickup>,
     >,
 ) {
@@ -217,9 +233,7 @@ pub fn shell_pickup_system(
     order.sort_by_key(|(id, _)| *id);
     for (net_id, entity, pickup, transform) in order_iter!(pickups) {
         let position = transform.translation.truncate();
-        let Some((player_id, _)) = order
-            .iter()
-            .find(|(_, at)| position.distance(at) <= range)
+        let Some((player_id, _)) = order.iter().find(|(_, at)| position.distance(at) <= range)
         else {
             continue;
         };
@@ -284,10 +298,18 @@ pub fn shelf_interaction_system(
         let Some(def) = table.0.get(&shelf.item_id) else {
             continue;
         };
-        let Some((_, entity, player, player_transform, inventory, mut modifiers, health, mut wallet)) =
-            players
-                .iter_mut()
-                .find(|(id, ..)| id.0 == event.interactor_net_id.0)
+        let Some((
+            _,
+            entity,
+            player,
+            player_transform,
+            inventory,
+            mut modifiers,
+            health,
+            mut wallet,
+        )) = players
+            .iter_mut()
+            .find(|(id, ..)| id.0 == event.interactor_net_id.0)
         else {
             continue;
         };
@@ -296,7 +318,11 @@ pub fn shelf_interaction_system(
             shelf.retry_after = frame.frame + SHELF_RETRY_FRAMES;
             info!(
                 "ggrs{{f={} shop_refused net_id={} by={} price={} balance={}}}",
-                frame.frame, event.interactable_net_id.0, event.interactor_net_id.0, shelf.price, wallet.0
+                frame.frame,
+                event.interactable_net_id.0,
+                event.interactor_net_id.0,
+                shelf.price,
+                wallet.0
             );
             currency_events.send(CurrencyEvent {
                 handle: player.handle,
@@ -362,7 +388,11 @@ pub fn shelf_interaction_system(
         }
         info!(
             "ggrs{{f={} shop_buy net_id={} item={} price={} by={}}}",
-            frame.frame, event.interactable_net_id.0, item_id, shelf.price, event.interactor_net_id.0
+            frame.frame,
+            event.interactable_net_id.0,
+            item_id,
+            shelf.price,
+            event.interactor_net_id.0
         );
         picked.send(ItemPicked {
             frame: frame.frame,
@@ -473,6 +503,9 @@ mod tests {
         let mut economy = EconomyConfig::default();
         economy.shop_prices.insert(Rarity::Rare, 50);
         assert_eq!(shelf_price(Some(&economy), Rarity::Rare), 50);
-        assert_eq!(shelf_price(Some(&economy), Rarity::Common), DEFAULT_SHELF_PRICE);
+        assert_eq!(
+            shelf_price(Some(&economy), Rarity::Common),
+            DEFAULT_SHELF_PRICE
+        );
     }
 }

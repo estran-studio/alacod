@@ -2211,7 +2211,10 @@ fn check(world: &mut World, expectation: &Expectation) -> Result<(), String> {
                 .collect();
             shelves.sort_by(|a, b| a.key.cmp(&b.key));
             let Some(shelf) = shelves.get(*nth) else {
-                return Err(format!("présentoir {nth} absent ({} présentoirs)", shelves.len()));
+                return Err(format!(
+                    "présentoir {nth} absent ({} présentoirs)",
+                    shelves.len()
+                ));
             };
             if item.as_ref().is_some_and(|item| *item != shelf.item_id)
                 || price.is_some_and(|price| price != shelf.price)

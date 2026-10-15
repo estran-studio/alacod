@@ -3310,7 +3310,10 @@ fn lint_loot(registry: &Registry, errors: &mut Vec<LintError>) {
         if shop.shelves == 0 {
             push(
                 LintErrorKind::OutOfRange,
-                format!("type de salle « {} » : boutique sans présentoir (shelves = 0)", room.id),
+                format!(
+                    "type de salle « {} » : boutique sans présentoir (shelves = 0)",
+                    room.id
+                ),
             );
         }
         match registry.loot_tables.get(&shop.table) {
