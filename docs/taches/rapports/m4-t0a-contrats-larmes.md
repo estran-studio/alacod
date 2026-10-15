@@ -67,7 +67,30 @@ par défaut retenues (décision de William du 2026-10-15) ; pour cette fiche, Q3
 
 ## 2. Vérifié (résultats réels)
 
-RESULTATS
+**Suite verte sur la fusion avec main `8a3d5c8`** (merge `716c6cb` ; `main` n'avait avancé que sur de la
+documentation et `scripts/determinism-allowlist.json`, aucun code).
+
+- `make test_scenarios` complet, **sans BLESS** : 345 scénarios joués, 0 échec (807 s), aucune trace
+  existante modifiée ; même résultat (345, 0 échec) avant la fusion, sur `f81caa7` + la branche. Les cinq
+  traces ajoutées sont celles des scénarios nouveaux (§1), bénies une à une (`ALACOD_BLESS=1
+  ALACOD_SCENARIO=tears_*`, `make gen GAME=testbed GEN_BLESS=1` qui n'a écrit que `weapon_larme` et
+  `item_lentille`).
+- `make test_crates` (sur la fusion) : 813 tests passés, 0 échec, 10 ignorés.
+- `make test_tools` (sur la fusion) : OK (17 tests).
+- `make lint` ×4 : « aucune erreur » pour zombies, testbed, throne, gungeon. Deux avertissements
+  d'atteignabilité nouveaux, attendus : `larme` et `lentille` (contenu de laboratoire, aucune source).
+- `cargo fmt --all -- --check` : propre.
+- `./scripts/check-forbidden.sh` (sur la fusion) : « OK : aucun nouveau motif interdit ; 39 occurrences
+  auditées ».
+- `./scripts/check-rollback-registration.sh` : OK.
+- `make check_sim_boundary` : « frontière respectée par 11 crates ; 5 en dette D69 » (`items` reste `SIM`
+  grâce au déplacement des contrats dans `effects`).
+- `make gen` ×4 (avant la fusion, aucun code de `main` changé depuis) : zombies, throne, gungeon tous
+  « ok » ; testbed : tous « ok » sauf les deux nouveaux (`weapon_larme` 8 coups, `item_lentille`), trace
+  absente puis bénie.
+- Unitaires ajoutés : `compose` (10, dont identité et hash des six variantes historiques),
+  `chance_with_luck` (3), `items::projectile_sources` (1), kinds (`plugin_registers_contract_kinds…`,
+  9 `projectile_modifier`, 11 `pattern`), 6 fixtures de lint.
 
 ## 3. Non fait, incertain, non vérifié
 
@@ -85,11 +108,9 @@ RESULTATS
   (`weapons/mod.rs`, `reload_time_seconds.saturating_mul(reload_speed_mult)`) ; l'objet gungeon
   `chargeur_rapide` (`Pct 0.3`, « 30 % plus rapide ») ralentit donc le rechargement. Déjà noté D74 au
   journal ; numérotation par l'orchestrateur.
-- **Préexistant sur `origin/main`** (`f81caa7`, vérifié dans un worktree propre de `main`) :
-  `scripts/check-forbidden.sh` échoue sur `crates/game/src/performance.rs` (`Instant::now()`, 3
-  occurrences non autorisées, commit `41d3859`) et `make test_tools` échoue sur le test qui vérifie la même
-  liste d'exceptions (`test_current_repository_has_no_unreviewed_or_stale_exception`). Hors périmètre ;
-  rien de cette tâche n'y touche.
+- Constaté puis résolu par `main` : sur `f81caa7`, `check-forbidden.sh` et `make test_tools` échouaient
+  sur `crates/game/src/performance.rs` (`Instant::now()`) ; `main` `8a3d5c8` ajoute l'exception, les deux
+  passent sur la fusion. Rien de cette tâche n'y touche.
 - Règles de composition non couvertes par la fiche, tranchées ici (à confirmer par William si besoin) :
   forme de `Split` et paramètres d'`Orbit` de la **première** source (l'arme passe avant les objets) ;
   `ammo_type` gardé pour une arme mixte `Mag` + `Infinite`.
