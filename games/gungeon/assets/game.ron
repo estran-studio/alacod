@@ -38,6 +38,10 @@
         start_map: "maps/etage_1.ldtk",
         default_seed: 123456,
         mode: Floors,
+        // D59 : la partie ordinaire démarre sur deux étages assemblés par la grammaire `etage`
+        // (`floors/etages_deux.ron`, portail à la mort du boss du premier) ; l'étage squelette T0d
+        // (`etage_1`) reste jouable par `floors: Some("etage_1")` et par les scénarios.
+        floors: "etages_deux",
     ),
     // `docs/conventions.md` §28 : scénarios générés de gungeon (`make gen GAME=gungeon`) joués
     // sur la carte gabarit, en mode `Sandbox` imposé par le générateur.

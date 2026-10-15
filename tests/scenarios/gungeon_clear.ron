@@ -9,6 +9,8 @@
 Scenario(
     powerup_drop_chance_override: "0.0",
     game: "gungeon",
+    // D59 : la partie du manifeste de gungeon est maintenant `etages_deux` ; ce scénario joue l'étage squelette.
+    floors: Some("etage_1"),
     frames: 700,
     items: [
         (id: "bottes", x: "88.0", y: "-120.0", at_frame: 5),

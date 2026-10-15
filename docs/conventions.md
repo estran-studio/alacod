@@ -583,7 +583,7 @@ NIGHTLY_SEEDS=1..100 NIGHTLY_BOTS=4 NIGHTLY_WAVE=15 NIGHTLY_P2P=2,4,8 NIGHTLY_VI
 
 **`DamageEvent`** (`sim_core::damage`, `FrameEvents<DamageEvent>`) : toute blessure passe par là — six émetteurs (`weapons::bullet_rollback_collision_system`, `weapons::melee::melee_hitbox_collision_system`, `character::enemy::ai::behavior::enemy_attack_damage_translate_system`, `combat::projectile::projectile_collision_system` (B5), `combat::projectile::status_tick_system` (T1.3), `character::enemy::ai::rules::charge_damage_translate_system` (T1.4)), un seul résolveur (`character::health::rollback_resolve_damage_events`, `RollbackSystemSet::CollisionDamage`, après les émetteurs, avant `DeathManagement`). Le résolveur applique `combat::damage::resolve_damage` (fonction pure, testée dans `crates/combat/src/damage.rs`) puis écrit `DamageAccumulator`/`HitBy` (appliqués à `Health` par `rollback_apply_accumulated_damage`, inchangé).
 
-**Politique de tir ami** (`sim_core::damage::FriendlyFire` : `Never`/`Always`/`Cursed`, `#[serde(default)]` = `Never`) : champ RON `friendly_fire` sur `WeaponConfig` (`weapons.ron`), `MeleeWeaponConfig` (`melee_weapons.ron`) et `EnemyAiConfig` (en dur, pas encore RON). `Cursed` ne touche un allié que si la source porte le tag `cursed` (`combat::team::CURSED_TAG`).
+**Politique de tir ami** (`sim_core::damage::FriendlyFire` : `Never`/`Always`/`Cursed`, `#[serde(default)]` = `Never`) : champ RON `friendly_fire` sur `WeaponConfig` (`weapons.ron`), `MeleeWeaponConfig` (`melee_weapons.ron`) et `EnemyAiConfig` (en dur, pas encore RON). `Cursed` ne touche un allié que si la source porte le tag `cursed` (`combat::team::CURSED_TAG`). **D54** : quelle que soit la politique, une balle ne touche jamais son propre tireur (`bullet.source`) : exclu dans `bullet_rollback_collision_system`, dans la collision des projectiles composables et dans le choix de cible de `Homing`/`Aimed` (`nearest_target`) ; un test de tir ami a donc besoin d'un second tireur (scénario `dash_stun_buffer`, 3 joueurs).
 
 **Tags et défenses** : `CharacterConfig` (`character/config.rs`) gagne trois champs RON, tous `#[serde(default)]` (vides) : `tags: [...]` (posé en composant `sim_core::tag::Tags`, ex. `["cursed"]`, `["zombie"]`), `immune_to: [...]` et `resistances: {"tag": "mult"}` (posés ensemble en composant `combat::damage::Defenses`). `Tags`/`Defenses` sont hors rollback, comme `Team`. Chaque `DamageEvent` porte `tags: Tags` = tags du personnage source **union** un tag de genre d'attaque posé par l'émetteur (`bullet` pour une balle, `melee` pour une attaque au corps à corps — arme ou griffe) : une griffe de zombie porte donc `melee` et `zombie` (le tag vient de `CharacterConfig::tags` du zombie). Une cible dont `immune_to` contient un de ces tags ne subit aucun dégât ; `resistances` multiplie le montant à la place. `DamageKind::True` ignore résistances, immunités et invulnérabilité (mais pas l'équipe/le tir ami).
 
@@ -2126,7 +2126,7 @@ générée, §26 v2).
 
 **Butin** (`items/powerups.ron`, §14) : `munitions_balles`, `munitions_obus`,
 `munitions_explosifs`, `munitions_energie`, `munitions_lames` (`RefillAmmoOf`, D40, poids 36,
-12, 12, 12 et 24), `rage` (dégâts ×2) et `vitesse` (×1,3) (poids 25), `drop_chance` 0,25. Pas de `weapon_pool`.
+12, 12, 12 et 24), `rage` (dégâts ×2) et `vitesse` (×1,3) (poids 25), `drop_chance` **0,40** (0,25 avant D50 : pénurie de munitions prouvée sur la graine 76, soft-lock des bots ; décision de William du 2026-10-14 : relever la chance, sans pondération par les réserves). Pas de `weapon_pool`.
 
 **Assets** : tous des **placeholders** copiés du testbed (sprites du joueur et des armes, slash,
 sons, police, tilesets), enregistrés dans `games/throne/assets/assets.yaml` (licences reprises de
@@ -2849,6 +2849,21 @@ sans les révéler entièrement. Le champ de vision révèle ensuite les seules 
 vue. Ce filtre empêche une vue par une fenêtre extérieure de dévoiler les objets d'une
 pièce encore fermée. Lorsqu'une partie d'une porte est en vue, sa face complète reste
 lisible dans les cases de mur du passage ; cela ne révèle aucune case intérieure.
+
+
+**Séquence par défaut et preuve p2p (D59, 2026-10-15).** `entry.floors` (champ optionnel de
+`game.ron`, `content::manifest::EntryPoint`) désigne la séquence du dossier `Floors` que `entry.mode:
+Floors` joue par défaut ; absent, c'est l'ancien comportement (la première par ordre d'id). Lint : un id
+absent du dossier est une erreur `BrokenReference`, le champ sans `mode: Floors` une erreur `Unsupported`
+(fixtures `entry_floors_unknown` et `entry_floors_without_mode`). Un scénario garde la main par son champ
+`floors`. `gungeon` déclare `floors: "etages_deux"` : la partie ordinaire démarre sur deux étages assemblés
+par la grammaire `etage` (l'étage squelette `etage_1` reste jouable par `floors: Some("etage_1")`).
+Diagnostic `ALACOD_CLEAR_ENEMIES_AT=<frame>` (`map_ldtk::game::floors`, avec `ALACOD_INPUT=neutral`, à régler
+sur **tous** les clients) : à cette frame tous les ennemis disparaissent (`despawn_rollback`), le portail
+(barycentre des `PlayerSpawn`) s'ouvre par la règle ordinaire et les clients traversent la transition sans
+clavier. Preuve p2p de `gungeon` (2 clients, `ALACOD_CLEAR_ENEMIES_AT=200`, 900 frames) : séquence
+`etages_deux` choisie, `floor_portal_open` puis `floor_transition from=0 to=1` à f200 sur les deux clients,
+traces identiques sur 899 frames.
 
 ## 42. Effets v2 : déclencheurs, conditions, cooldowns et charges (M2-T3, chantier C1 v2)
 

@@ -88,7 +88,8 @@ pub fn resolve_run_mode(manifest: Option<&GameManifest>, registry: Option<&Regis
 /// Comme [`resolve_run_mode`], avec une séquence de niveaux imposée (T1.8 : champ `floors`
 /// d'un scénario, option `--floors` d'`alacod-sim`, voir [`FloorsOverride`]) : `Some(id)`
 /// force `RunMode::Floors { config: id }` quel que soit `entry.mode`. Sinon, `entry.mode:
-/// Floors` prend la première séquence (ordre des ids) du dossier `Floors`.
+/// Floors` prend la séquence que `entry.floors` désigne (D59), à défaut la première (ordre des
+/// ids) du dossier `Floors`.
 pub fn resolve_run_mode_with_floors(
     manifest: Option<&GameManifest>,
     registry: Option<&Registry>,
@@ -104,9 +105,21 @@ pub fn resolve_run_mode_with_floors(
         .map(|id| id.to_string());
     match manifest.and_then(|m| m.entry.mode) {
         Some(EntryMode::Floors) => RunMode::Floors {
-            config: registry
-                .and_then(|r| r.floors.keys().next())
-                .map(|id| id.to_string())
+            // D59 : la séquence par défaut est celle que le manifeste désigne (`entry.floors`) ;
+            // à défaut, la première par ordre d'id.
+            config: manifest
+                .and_then(|m| m.entry.floors.clone())
+                .filter(|id| {
+                    registry.is_none_or(|r| {
+                        r.floors
+                            .contains_key(&content::registry::FloorsConfigId::from(id.clone()))
+                    })
+                })
+                .or_else(|| {
+                    registry
+                        .and_then(|r| r.floors.keys().next())
+                        .map(|id| id.to_string())
+                })
                 .unwrap_or_default(),
         },
         Some(EntryMode::Sandbox) => RunMode::Sandbox,
@@ -648,6 +661,7 @@ mod tests {
                 start_map: "exemples/test_map.ldtk".to_string(),
                 default_seed: 1,
                 mode,
+                floors: None,
                 progression: None,
                 clocks: None,
                 difficulty: None,
@@ -690,6 +704,22 @@ mod tests {
             resolve_run_mode(Some(&manifest), None),
             RunMode::Floors {
                 config: String::new()
+            }
+        );
+        // D59 : `entry.floors` désigne la séquence par défaut.
+        let mut manifest = manifest_with_mode(Some(EntryMode::Floors));
+        manifest.entry.floors = Some("etages_deux".to_string());
+        assert_eq!(
+            resolve_run_mode(Some(&manifest), None),
+            RunMode::Floors {
+                config: "etages_deux".to_string()
+            }
+        );
+        // L'override d'un scénario gagne sur `entry.floors`.
+        assert_eq!(
+            resolve_run_mode_with_floors(Some(&manifest), None, Some("etage_1")),
+            RunMode::Floors {
+                config: "etage_1".to_string()
             }
         );
         // L'override gagne même sur un manifeste `Sandbox`.

@@ -1,3 +1,4 @@
+// D50 (2026-10-15) : `drop_chance` de throne 0,25 -> 0,40 : un drop de munitions de plus à la mort d'un ennemi (première divergence f532) décale le flux de tirage ; ChoiceB prend maintenant `tireur` (avant `vampire`) : le choix est toujours appliqué.
 // Revue M1 2026-10-10 : choix reportés après nettoyage ; attentes de timing
 // et mutations retestées. Les mesures historiques ci-dessous précèdent cette politique.
 // `throne` phase 2 (T1.10 + T1.11, docs/conventions.md §27 et §29) : choix de mutation par input
@@ -713,8 +714,8 @@ Scenario(
     expect: [
         FloorIndex(index: 0, at_frame: 777),
         Mutations(handle: 0, count: 0, at_frame: 777),
-        Mutations(handle: 0, contains: ["vampire"], count: 1, at_frame: 786),
-        Event(kind: "mutation", label_contains: "vampire", by_frame: 786),
+        Mutations(handle: 0, contains: ["tireur"], count: 1, at_frame: 786),
+        Event(kind: "mutation", label_contains: "tireur", by_frame: 786),
         FloorIndex(index: 1, at_frame: 945),
     ],
     floors: "run",
