@@ -27,7 +27,7 @@ Calque `shadow` du héros conservé (blackHUNTERdev) ; `shirt` retiré de l'entr
 `Chest`, `Shelf`, `ShellPickup`, `ItemPickup`, `BarrelState`, `TableState` (case `Idle` de l'animation de l'entrée ;
 coffre ouvert : `Open` ; présentoir vendu : caché) et remplace le carré de couleur des `Bullet` par l'image
 de leur équipe. Un jeu sans l'entrée garde le rendu d'avant (zombies, throne, testbed inchangés). Rien dans `GgrsSchedule`,
-aucun composant rollback ajouté. Les `characters/*.ron` de gungeon déclarent le calque `body` (`layers: {"body": ""}`).
+aucun composant rollback ajouté. Les `characters/*.ron` gardent `layers: {}` (déclarer un calque ajoute `ActiveLayers` au rollback et déplace toutes les traces) : `visuals.rs` lit les calques dans la table de sprites pour un skin vide.
 
 ## Preuve visuelle (rendu logiciel, pas de GPU)
 Xvfb + lavapipe (`VK_ICD_FILENAMES=…/lvp_icd.json`), `play_scenario --capture`. Xvfb n'étant pas installé sur
@@ -55,3 +55,7 @@ Pour rejouer : `play_scenario tests/scenarios/<nom>.ron --capture /tmp/x --every
 
 ## Vérifications
 Résultats ci-dessous, rejouées après fusion de `origin/main` (62f9aaf3).
+Après le correctif des calques (lus dans la table de sprites) : `make test_scenarios_par SHARDS=4` — seule
+`assets_gungeon_decor.trace` (nouvelle, bénie avant le correctif) a été rebénie, aucune trace existante ne
+bouge ; `make test_crates`, `make lint`, `cargo fmt --check`, `make check_sim_boundary` et `make gen GAME=gungeon`
+(sans diff) verts. `cargo clippy` n'est pas installé sur la chaîne nightly de la machine : **non vérifié**.
