@@ -33,6 +33,8 @@ fn stat_name(stat: &StatId) -> String {
         StatId::Range => "portée".into(),
         StatId::Armor => "armure".into(),
         StatId::Luck => "chance".into(),
+        StatId::ShotSpeed => "vitesse des tirs".into(),
+        StatId::ShotSize => "taille des tirs".into(),
         StatId::Custom(name) => name.clone(),
         other => format!("{other:?}"),
     }

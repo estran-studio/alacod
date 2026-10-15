@@ -491,6 +491,7 @@ pub fn emitter_system(
                     friendly_fire: emitter.friendly_fire,
                     projectile: Some(projectile),
                     id_label: shot.projectile.clone(),
+                    shot_size: bevy_fixed::fixed_math::FIXED_ONE,
                 },
             );
         }

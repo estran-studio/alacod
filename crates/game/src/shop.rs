@@ -459,6 +459,7 @@ mod tests {
             blank: None,
             uses_per_floor: None,
             cost: None,
+            projectile: None,
         }
     }
 
