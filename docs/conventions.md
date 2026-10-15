@@ -502,6 +502,14 @@ NIGHTLY_SEEDS=1..100 NIGHTLY_BOTS=4 NIGHTLY_WAVE=15 NIGHTLY_P2P=2,4,8 NIGHTLY_VI
         "shot_shotgun": "sounds/shot_shotgun.ogg",
         "shot_smg": "sounds/shot_smg.ogg",
         "reload": "sounds/reload.ogg",
+        // Événements (lot B) : coup porté par un joueur local, dégâts reçus, ennemi tué,
+        // dash, blank, porte ouverte.
+        "hit": "sounds/hit.ogg",
+        "hurt": "sounds/hurt.ogg",
+        "death": "sounds/death.ogg",
+        "dash": "sounds/dash.ogg",
+        "blank": "sounds/blank.ogg",
+        "door": "sounds/door.ogg",
         // Les clés absentes désactivent le son correspondant
     },
 )
@@ -509,8 +517,15 @@ NIGHTLY_SEEDS=1..100 NIGHTLY_BOTS=4 NIGHTLY_WAVE=15 NIGHTLY_P2P=2,4,8 NIGHTLY_VI
 
 **Systèmes** : tous en `PostUpdate` (hors `GgrsSchedule`), lisant les événements de simulation dans `FrameEvents<T>` émis par `GgrsSchedule`. Les trois émetteurs sont :
 - `DamageEvent` pour les impacts (flash, secousse si joueur local)
-- Spawn de `Bullet` pour le son de tir (source = joueur local) : un son par tir (tireur, frame de création), mémorisé pour ne pas repartir quand le rollback de la session locale recrée les balles des dernières frames (elles redeviennent `Added<Bullet>`). Clé : famille du mode de tir actif de l'arme active du tireur à l'image rendue (`Shotgun` → `shot_shotgun`, `Automatic`/`Burst` → `shot_smg`, `Manual` → `shot_pistol`), repli sur `shot` si la clé manque (la balle ne porte pas son arme : un champ de plus ferait bouger les traces). Les échantillons sont des coups uniques courts (≤ 0,5 s, lot A de `docs/plan-assets.md`), joués en entier : plus de coupure en fondu.
+- Spawn de `Bullet` pour le son de tir (source = joueur local) : un son par tir (tireur, frame de création), mémorisé pour ne pas repartir quand le rollback de la session locale recrée les balles des dernières frames (elles redeviennent `Added<Bullet>`). Clé : celle que `shot_sounds` impose à l'arme active du tireur (`shot_sounds: {"pistolet": "shot_pistol"}`, nom d'arme → clé de `sounds`, vérifié par le lint), sinon la famille de son mode de tir actif à l'image rendue (`Shotgun` → `shot_shotgun`, `Automatic`/`Burst` → `shot_smg`, `Manual` → `shot_pistol`), sinon `shot` (la balle ne porte pas son arme : un champ de plus ferait bouger les traces). Les échantillons sont des coups uniques courts (≤ 0,5 s, lot A de `docs/plan-assets.md`), joués en entier : plus de coupure en fondu.
 - Passage de `WeaponInventory.reloading_ending_frame` de `None` à `Some` pour le son de rechargement : une fois par rechargement, comparé d'une image rendue à la suivante
+- Sons d'événements (lot B), joués par `FeedbackSounds::play(clé)` ; chaque signal est lu dans l'état ou dans les `FrameEvents` de la dernière frame simulée, jamais écrit :
+  - `hit` : un `DamageEvent` dont la source est un joueur local et la cible non, un son par frame simulée (gardé par `DamageEvent.frame` : une image rendue sans nouvelle frame voit encore les mêmes événements). L'événement précède la résolution : un coup annulé (invulnérabilité) sonne aussi.
+  - `hurt` : `Health.current` d'un joueur local en baisse d'une image rendue à l'autre, à `max` égal ; au plus un son toutes les 15 frames (`HURT_SOUND_MIN_FRAMES` : les PV peuvent baisser deux frames de suite).
+  - `death` : un ennemi portant `Death` et `RollbackDespawned` (requête qui nomme ce composant désactivant), une fois par `GgrsNetId`.
+  - `dash` : front montant de `DashState::is_dashing` d'un joueur local.
+  - `blank` : `FrameEvents<BlankUsed>` d'un joueur local, gardé par la frame de l'événement.
+  - `door` : une porte avec collider à l'image précédente, sans collider maintenant ; rien pour l'ouverture d'office des portes de salle (`RoomStates::doors_opened` qui passe à `true`, début d'étage) ni à la première image (référence). Pas encore de son de coffre : les coffres (M2-T5) ne sont pas dans `main`.
 
 **Composants non-rollback** :
 - `HitFlash { until_frame, color }` : posé sur l'entité cible d'un `DamageEvent`, multiplie la couleur des calques enfants (`apply_layer_colors`) jusqu'à `until_frame`.

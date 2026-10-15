@@ -24,5 +24,16 @@
         "shot_shotgun": "sounds/shot_shotgun.ogg",
         "shot_smg": "sounds/shot_smg.ogg",
         "reload": "sounds/reload.ogg",
+        // Événements (lot B) : coup porté par un joueur local, dégâts reçus, ennemi tué, dash,
+        // blank, porte ouverte.
+        "hit": "sounds/hit.ogg",
+        "hurt": "sounds/hurt.ogg",
+        "death": "sounds/death.ogg",
+        "dash": "sounds/dash.ogg",
+        "blank": "sounds/blank.ogg",
+        "door": "sounds/door.ogg",
     },
+    // Son de tir imposé à une arme (prioritaire sur la famille du mode) : le pistolet de
+    // gungeon est `Automatic`, il sonnerait comme une mitraillette.
+    shot_sounds: {"pistolet": "shot_pistol"},
 )

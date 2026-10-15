@@ -628,6 +628,22 @@ fn feedback_t1_17_fixtures_report_their_field() {
     );
 }
 
+/// Lot A des assets : `shot_sounds` vers une arme inconnue et une clé absente de `sounds`.
+#[test]
+fn feedback_shot_sounds_fixture_reports_weapon_and_key() {
+    let (_, _, errors) = load_and_lint(&fixture_dir("feedback_shot_sounds_unknown")).unwrap();
+    assert_has_error(
+        &errors,
+        LintErrorKind::BrokenReference,
+        "shot_sounds « fantome » : arme inconnue",
+    );
+    assert_has_error(
+        &errors,
+        LintErrorKind::BrokenReference,
+        "shot_sounds.fantome = « shot_absente » : clé absente",
+    );
+}
+
 #[test]
 fn starting_weapons_exceed_slots_fixture_reports_error() {
     let (mut registry, manifest, errors) =
@@ -668,6 +684,11 @@ fn t3_4_fixtures_have_a_single_rule_failure() {
             "feedback_by_weapon_unknown",
             LintErrorKind::BrokenReference,
             1,
+        ),
+        (
+            "feedback_shot_sounds_unknown",
+            LintErrorKind::BrokenReference,
+            2,
         ),
         (
             "feedback_override_out_of_range",

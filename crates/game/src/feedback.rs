@@ -14,7 +14,7 @@
 
 use bevy::prelude::*;
 use bevy_common_assets::ron::RonAssetPlugin;
-use bevy_fixed::fixed_math::FixedTransform3D;
+use bevy_fixed::fixed_math::{Fixed, FixedTransform3D};
 use bevy_kira_audio::prelude::*;
 use combat::emitter::Emitter;
 use serde::{Deserialize, Serialize};
@@ -446,6 +446,12 @@ impl Plugin for FeedbackPlugin {
                 draw_telegraphs,
                 play_shot_sound_for_new_bullets,
                 play_reload_sound_for_reload_events,
+                play_hit_sound,
+                play_hurt_sound,
+                play_death_sound,
+                play_dash_sound,
+                play_blank_sound,
+                play_door_sound,
             ),
         );
     }
@@ -809,28 +815,35 @@ fn shot_sound_key(mode: &crate::weapons::FiringMode) -> &'static str {
     }
 }
 
-/// Son de tir de `sounds` pour ce mode : la clé de sa famille, sinon `shot` (repli), sinon
-/// aucun son.
+/// Son de tir : la clé imposée à l'arme (`shot_sounds`), sinon celle de la famille de son mode
+/// de tir, sinon `shot` (repli), sinon aucun son.
 fn shot_sound_path<'a>(
-    sounds: &'a BTreeMap<String, String>,
+    settings: &'a FeedbackSettings,
+    weapon: Option<&str>,
     mode: Option<&crate::weapons::FiringMode>,
 ) -> Option<&'a String> {
-    mode.and_then(|mode| sounds.get(shot_sound_key(mode)))
+    let sounds = &settings.sounds;
+    weapon
+        .and_then(|name| settings.shot_sounds.get(name))
+        .and_then(|key| sounds.get(key))
+        .or_else(|| mode.and_then(|mode| sounds.get(shot_sound_key(mode))))
         .or_else(|| sounds.get("shot"))
 }
 
-/// Mode de tir actif de l'arme active de cet inventaire.
-fn active_firing_mode<'a>(
+/// Nom et mode de tir actif de l'arme active de cet inventaire.
+fn active_weapon_mode<'a>(
     inventory: &'a crate::weapons::WeaponInventory,
     weapon_states: &Query<&crate::weapons::WeaponState>,
-) -> Option<&'a crate::weapons::FiringMode> {
+) -> Option<(&'a str, Option<&'a crate::weapons::FiringMode>)> {
     let (entity, weapon) = inventory.weapons.get(inventory.active_weapon_index)?;
-    let state = weapon_states.get(*entity).ok()?;
-    weapon
-        .config
-        .firing_modes
-        .get(&state.active_mode)
-        .map(|mode| &mode.firing_mode)
+    let mode = weapon_states.get(*entity).ok().and_then(|state| {
+        weapon
+            .config
+            .firing_modes
+            .get(&state.active_mode)
+            .map(|mode| &mode.firing_mode)
+    });
+    Some((weapon.config.name.as_str(), mode))
 }
 
 /// Système jouant le son de tir pour chaque nouveau tir d'un joueur local.
@@ -838,8 +851,9 @@ fn active_firing_mode<'a>(
 /// Un son par (tireur, frame de création) : le rollback de la session locale détruit puis
 /// recrée les balles des dernières frames à chaque image rendue, elles redeviennent
 /// `Added<Bullet>` et rejoueraient leur son ; un fusil à pompe ne joue pas un son par plomb.
-/// Le son est celui de la famille du mode actif de l'arme active du tireur **à l'image
-/// rendue** (la balle ne porte pas son arme : lui ajouter un champ ferait bouger les traces).
+/// Le son est celui de l'arme active du tireur **à l'image rendue** (`shot_sounds`, sinon la
+/// famille de son mode actif) : la balle ne porte pas son arme, lui ajouter un champ ferait
+/// bouger les traces.
 #[allow(clippy::too_many_arguments)]
 fn play_shot_sound_for_new_bullets(
     audio: Res<Audio>,
@@ -870,8 +884,10 @@ fn play_shot_sound_for_new_bullets(
         if !played.insert((bullet.source.0, bullet.created_at)) {
             continue;
         }
-        let mode = active_firing_mode(inventory, &weapon_states);
-        let Some(sound_path) = shot_sound_path(&cfg.0.sounds, mode) else {
+        let active = active_weapon_mode(inventory, &weapon_states);
+        let weapon = active.map(|(name, _)| name);
+        let mode = active.and_then(|(_, mode)| mode);
+        let Some(sound_path) = shot_sound_path(&cfg.0, weapon, mode) else {
             continue;
         };
         info!("feedback f{} sound {}", frame, sound_path);
@@ -883,35 +899,55 @@ fn play_shot_sound_for_new_bullets(
 mod shot_sound_tests {
     use super::*;
     use crate::weapons::FiringMode;
-    use bevy_fixed::fixed_math::Fixed;
 
     #[test]
-    fn cle_de_famille_puis_repli_sur_shot() {
+    fn arme_puis_famille_puis_repli_sur_shot() {
         let shotgun = FiringMode::Shotgun {
             pellet_count: 8,
             spread_angle: Fixed::ZERO,
         };
-        let burst = FiringMode::Burst {
-            pellets_per_shot: 3,
-            cooldown_frames: 1,
+        let automatic = FiringMode::Automatic {};
+        let mut settings: FeedbackSettings = ron::from_str(
+            r#"(
+                hit_flash: (frames: 4, color: (1.0, 1.0, 1.0)),
+                shake: (frames: 8, amplitude: 12.0),
+                sounds: {
+                    "shot": "repli.ogg",
+                    "shot_pistol": "pistolet.ogg",
+                    "shot_shotgun": "pompe.ogg",
+                    "shot_smg": "smg.ogg",
+                },
+                shot_sounds: {"pistolet": "shot_pistol", "muet": "absente"},
+            )"#,
+        )
+        .unwrap();
+        let path = |s: &FeedbackSettings, weapon, mode| {
+            shot_sound_path(s, weapon, mode).map(|p| p.to_string())
         };
-        let sounds: BTreeMap<String, String> = [
-            ("shot", "repli.ogg"),
-            ("shot_shotgun", "pompe.ogg"),
-            ("shot_smg", "smg.ogg"),
-        ]
-        .into_iter()
-        .map(|(k, v)| (k.to_string(), v.to_string()))
-        .collect();
-        let path = |mode| shot_sound_path(&sounds, mode).map(String::as_str);
-        assert_eq!(path(Some(&shotgun)), Some("pompe.ogg"));
-        assert_eq!(path(Some(&burst)), Some("smg.ogg"));
-        // `shot_pistol` absent : repli sur `shot` ; arme inconnue aussi.
-        assert_eq!(path(Some(&FiringMode::Manual {})), Some("repli.ogg"));
-        assert_eq!(path(None), Some("repli.ogg"));
+        // La clé imposée à l'arme l'emporte sur la famille de son mode.
+        assert_eq!(
+            path(&settings, Some("pistolet"), Some(&automatic)).as_deref(),
+            Some("pistolet.ogg")
+        );
+        // Clé imposée absente de `sounds` (refusée par le lint) : la famille reprend.
+        assert_eq!(
+            path(&settings, Some("muet"), Some(&shotgun)).as_deref(),
+            Some("pompe.ogg")
+        );
+        assert_eq!(
+            path(&settings, Some("mitraillette"), Some(&automatic)).as_deref(),
+            Some("smg.ogg")
+        );
+        // Famille absente : repli sur `shot` ; mode inconnu aussi.
+        settings.sounds.remove("shot_smg");
+        assert_eq!(
+            path(&settings, None, Some(&automatic)).as_deref(),
+            Some("repli.ogg")
+        );
+        assert_eq!(path(&settings, None, None).as_deref(), Some("repli.ogg"));
         // Ni la famille ni `shot` : aucun son.
-        let empty = BTreeMap::new();
-        assert_eq!(shot_sound_path(&empty, Some(&shotgun)), None);
+        settings.sounds.clear();
+        assert_eq!(path(&settings, None, Some(&shotgun)), None);
     }
 }
 
@@ -945,5 +981,185 @@ fn play_reload_sound_for_reload_events(
     for _ in 0..started {
         info!("feedback f{} sound reload", frame_count.frame);
         audio.play(asset_server.load(sound_path));
+    }
+}
+
+// ---------------------------------------------------------------------------------------
+// Sons d'événements (lot B de `docs/plan-assets.md`) : présentation seule, dérivés de l'état
+// ou des `FrameEvents` de la dernière frame simulée, jamais écrits dans la simulation.
+// ---------------------------------------------------------------------------------------
+
+/// Lecteur des sons de `ui/feedback.ron` par clé.
+#[derive(bevy::ecs::system::SystemParam)]
+struct FeedbackSounds<'w> {
+    audio: Res<'w, Audio>,
+    asset_server: Res<'w, AssetServer>,
+    config: Option<Res<'w, FeedbackConfigLoaded>>,
+    frame: Res<'w, FrameCount>,
+}
+
+impl FeedbackSounds<'_> {
+    /// Joue le son `key` (rien si la config n'est pas chargée ou si la clé manque).
+    fn play(&self, key: &str) {
+        let Some(path) = self.config.as_ref().and_then(|cfg| cfg.0.sounds.get(key)) else {
+            return;
+        };
+        info!("feedback f{} sound {}", self.frame.frame, key);
+        self.audio.play(self.asset_server.load(path));
+    }
+}
+
+/// `hit` : un coup porté par un joueur local à une autre entité, un son par frame simulée
+/// (les plombs d'un fusil à pompe ou une explosion n'en jouent qu'un). Gardé par la frame de
+/// l'événement : une image rendue sans nouvelle frame simulée voit encore les mêmes
+/// événements. L'événement précède la résolution : un coup annulé (invulnérabilité) sonne.
+fn play_hit_sound(
+    sounds: FeedbackSounds,
+    damage: Res<FrameEvents<DamageEvent>>,
+    local_players: Query<&GgrsNetId, With<LocalPlayer>>,
+    mut last_frame: Local<Option<u32>>,
+) {
+    let local: BTreeSet<usize> = local_players.iter().map(|n| n.0).collect();
+    let Some(hit) = damage
+        .iter()
+        .find(|e| local.contains(&e.source.0) && !local.contains(&e.target.0))
+    else {
+        return;
+    };
+    if *last_frame == Some(hit.frame) {
+        return;
+    }
+    *last_frame = Some(hit.frame);
+    sounds.play("hit");
+}
+
+/// Écart minimal, en frames simulées, entre deux sons `hurt` : les PV d'un joueur peuvent
+/// baisser deux frames de suite (vu en gungeon au contact d'un ennemi, frames 522 et 523), et le
+/// même son rejoué à 16 ms d'écart s'entend comme un écho.
+const HURT_SOUND_MIN_FRAMES: u32 = 15;
+
+/// `hurt` : la santé d'un joueur local baisse d'une image rendue à l'autre, à `max` égal (une
+/// baisse de `max` qui rabote `current` n'est pas un coup). Au plus un son toutes les
+/// [`HURT_SOUND_MIN_FRAMES`] frames.
+fn play_hurt_sound(
+    sounds: FeedbackSounds,
+    players: Query<(&GgrsNetId, &crate::character::health::Health), With<LocalPlayer>>,
+    mut previous: Local<BTreeMap<usize, (Fixed, Fixed)>>,
+    mut last_played: Local<Option<u32>>,
+) {
+    let now: BTreeMap<usize, (Fixed, Fixed)> = players
+        .iter()
+        .map(|(net_id, health)| (net_id.0, (health.current, health.max)))
+        .collect();
+    let hurt = now.iter().any(|(net_id, (current, max))| {
+        previous
+            .get(net_id)
+            .is_some_and(|(before, max_before)| current < before && max == max_before)
+    });
+    *previous = now;
+    let frame = sounds.frame.frame;
+    // Une frame plus petite que la dernière jouée : nouvelle partie.
+    let ready =
+        last_played.is_none_or(|last| frame < last || frame - last >= HURT_SOUND_MIN_FRAMES);
+    if hurt && ready {
+        *last_played = Some(frame);
+        sounds.play("hurt");
+    }
+}
+
+/// `death` : un ennemi tué. `Death` est posé puis l'entité est détruite par
+/// `despawn_rollback` : désactivée (`RollbackDespawned`), elle n'est vue que par une requête
+/// qui nomme ce composant, jusqu'à la confirmation de sa frame. Un son par image, quel que
+/// soit le nombre de morts ; chaque ennemi une fois (le rollback local la ressuscite puis la
+/// redétruit dans la même image).
+fn play_death_sound(
+    sounds: FeedbackSounds,
+    dead: Query<
+        &GgrsNetId,
+        (
+            With<crate::character::enemy::Enemy>,
+            With<crate::character::health::Death>,
+            With<bevy_ggrs::RollbackDespawned>,
+        ),
+    >,
+    mut played: Local<BTreeSet<usize>>,
+) {
+    let now: BTreeSet<usize> = dead.iter().map(|n| n.0).collect();
+    let new_death = now.difference(&played).next().is_some();
+    *played = now;
+    if new_death {
+        sounds.play("death");
+    }
+}
+
+/// `dash` : un joueur local commence un dash (front montant de `DashState::is_dashing`).
+fn play_dash_sound(
+    sounds: FeedbackSounds,
+    players: Query<(&GgrsNetId, &crate::character::dash::DashState), With<LocalPlayer>>,
+    mut dashing: Local<BTreeSet<usize>>,
+) {
+    let now: BTreeSet<usize> = players
+        .iter()
+        .filter(|(_, dash)| dash.is_dashing)
+        .map(|(net_id, _)| net_id.0)
+        .collect();
+    let started = now.difference(&dashing).next().is_some();
+    *dashing = now;
+    if started {
+        sounds.play("dash");
+    }
+}
+
+/// `blank` : un joueur local utilise un blank (`FrameEvents<BlankUsed>`, émis seulement s'il
+/// lui en restait un), gardé par la frame de l'événement comme `hit`.
+fn play_blank_sound(
+    sounds: FeedbackSounds,
+    blanks: Option<Res<FrameEvents<items::BlankUsed>>>,
+    local_players: Query<&crate::character::player::Player, With<LocalPlayer>>,
+    mut last_frame: Local<Option<u32>>,
+) {
+    let Some(blanks) = blanks else {
+        return;
+    };
+    let local: BTreeSet<usize> = local_players.iter().map(|p| p.handle).collect();
+    let Some(blank) = blanks.iter().find(|b| local.contains(&b.player_handle)) else {
+        return;
+    };
+    if *last_frame == Some(blank.frame) {
+        return;
+    }
+    *last_frame = Some(blank.frame);
+    sounds.play("blank");
+}
+
+/// `door` : une porte vue fermée (avec collider) à l'image précédente est ouverte (porte
+/// achetée de zombies, salle nettoyée de gungeon). Un son par image. Pas de son pour
+/// l'ouverture d'office des portes de salle (`RoomStates::doors_opened` qui passe à `true`, au
+/// début de chaque étage), ni à la première image (référence).
+fn play_door_sound(
+    sounds: FeedbackSounds,
+    doors: Query<
+        (&GgrsNetId, Has<crate::collider::Collider>),
+        With<map::game::entity::map::door::DoorComponent>,
+    >,
+    rooms: Option<Res<world::rooms::RoomStates>>,
+    mut previous: Local<Option<(BTreeSet<usize>, bool)>>,
+) {
+    let now_closed: BTreeSet<usize> = doors
+        .iter()
+        .filter(|(_, has_collider)| *has_collider)
+        .map(|(net_id, _)| net_id.0)
+        .collect();
+    let doors_opened = rooms.is_some_and(|rooms| rooms.doors_opened);
+    let opened = previous.as_ref().is_some_and(|(closed, opened_before)| {
+        let initial_opening = doors_opened && !opened_before;
+        !initial_opening
+            && doors
+                .iter()
+                .any(|(net_id, has_collider)| !has_collider && closed.contains(&net_id.0))
+    });
+    *previous = Some((now_closed, doors_opened));
+    if opened {
+        sounds.play("door");
     }
 }
