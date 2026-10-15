@@ -887,6 +887,8 @@ fn base_scenario(
         progression: None,
         characters: vec![],
         mode: None,
+        chests: vec![],
+        room_reward_chance_override: None,
     }
 }
 
