@@ -4,6 +4,7 @@
 //
 // À regarder : le joueur est vivant dans la salle de départ ; les ennemis de la salle de combat et
 // le boss dorment (ils ne bougent pas, aucune porte fermée).
+// HUD f100 : deux blanks, zéro clé, départ courant en or, silhouettes combat et boss B.
 Scenario(
     powerup_drop_chance_override: "0.0",
     game: "gungeon",
@@ -15,6 +16,11 @@ Scenario(
     ],
     expect: [
         PlayerAlive(handle: 0, at_frame: 100),
+        HudText(source: "blanks", contains: "2", at_frame: 100),
+        HudText(source: "keys", contains: "0", at_frame: 100),
+        HudText(source: "minimap", contains: "depart · visitée · actuelle", at_frame: 100),
+        HudText(source: "minimap", contains: "combat · inexplorée", at_frame: 100),
+        HudText(source: "minimap", contains: "boss · boss · inexplorée", at_frame: 100),
         RoomState(kind: "depart", state: Dormant, at_frame: 100),
         RoomState(kind: "combat", state: Dormant, doors_closed: Some(0), at_frame: 100),
         RoomState(kind: "boss", state: Dormant, at_frame: 100),

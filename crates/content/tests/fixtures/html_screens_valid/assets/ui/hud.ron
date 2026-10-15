@@ -1,0 +1,12 @@
+(
+    widgets: [
+        (
+            kind: Bar(source: "health"),
+            anchor: BottomLeft,
+            offset: (16.0, 16.0),
+            size: Some((200.0, 12.0)),
+            color: None,
+            font_size: None,
+        ),
+    ],
+)

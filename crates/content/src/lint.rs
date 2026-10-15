@@ -54,9 +54,9 @@ pub struct LintError {
 
 /// Valide les références croisées et les plages de valeurs du contenu déjà chargé dans
 /// `registry`. Ne relit aucun fichier de contenu : opère sur les entrées déjà parsées. Seule
-/// exception : l'**existence** des sons référencés par une arme (`audio_config`) ou
-/// par le feedback (`ui/feedback.ron`), et des fichiers d'une feuille de sprites (D3 :
-/// animation, feuilles, images), vérifiée sous `registry.game_dir/assets/`.
+/// exception : les assets référencés (sons, feuilles de sprites, police de l'écran de
+/// mutation) et la lisibilité du gabarit partagé des listes HTML, sous
+/// `registry.game_dir/assets/` (ou dans l'inventaire embarqué du navigateur).
 pub fn run(registry: &Registry, manifest: &GameManifest) -> Vec<LintError> {
     let mut errors = Vec::new();
 
@@ -70,6 +70,7 @@ pub fn run(registry: &Registry, manifest: &GameManifest) -> Vec<LintError> {
     lint_feedback(registry, &mut errors);
     lint_mutation_screens(registry, &mut errors);
     lint_hud_sources(registry, &mut errors);
+    lint_html_screens(registry, &mut errors);
     lint_sprite_sheets(registry, &mut errors);
     lint_floors(registry, &mut errors);
     lint_caves(registry, &mut errors);
@@ -1544,6 +1545,32 @@ fn lint_hud_sources(registry: &Registry, errors: &mut Vec<LintError>) {
                 });
             }
         }
+    }
+}
+
+/// Les écrans pause/inventaire instancient leurs listes depuis ce gabarit chargé par
+/// le rendu, pas depuis une référence HTML. Les autres gabarits HTML sont vérifiés
+/// à leur découverte par `Registry::build`, sans dépendance sur `bevy_hui`.
+fn lint_html_screens(registry: &Registry, errors: &mut Vec<LintError>) {
+    let Some(screen) = registry.ui_files.iter().find(|path| {
+        path.ends_with("ui/pause_screen.html") || path.ends_with("ui/inventory_screen.html")
+    }) else {
+        return;
+    };
+    let files = match registry.embedded_files {
+        Some(files) => crate::files::ContentFiles::embedded(files),
+        None => crate::files::ContentFiles::native(GameManifest::assets_dir(&registry.game_dir)),
+    };
+    let row = std::path::Path::new("ui/hui_row.html");
+    if let Err(error) = files.read(row) {
+        errors.push(LintError {
+            kind: LintErrorKind::BrokenReference,
+            file: screen.display().to_string(),
+            message: format!(
+                "écran HTML : gabarit de liste référencé « {} » absent ou illisible : {error}",
+                row.display()
+            ),
+        });
     }
 }
 

@@ -911,6 +911,12 @@ vagues de zombies suit ce défaut ; F3 conserve sa bascule explicite.
 - `Icons(source)` : `size.1` est le côté d'un carré ; la rangée s'étend vers la droite depuis
   l'ancre, quel que soit le nombre de perks. `Text(source: "perks")` affiche les étiquettes
   séparées par des espaces.
+- M2-T18 : `Icons(source: "passives")` lit les objets passifs (ordre de ramassage,
+  doublons conservés), avec les mêmes entrées `icons` et le même repli gris/initiale.
+- `Map(source: "minimap")` dessine les rectangles des salles dans `size` : même échelle
+  sur les deux axes, cadrage stable de l'étage, y monde inversé vers l'UI. Salle courante :
+  bordure or ; verrouillée : rouge et `×` ; nettoyée : verte ; boss : violet et `B`.
+  Les salles dormantes restent des silhouettes. Voir §56 pour la limite d'exploration.
 - Les noms des perks et des power-ups viennent de leur propre contenu (`name` de `perks.ron`
   et de `items/powerups.ron`), pas de `hud.ron`.
 - Prix « en icône » : préfixe `$` devant le montant (`Ouvrir — $750`).
@@ -2281,8 +2287,10 @@ Présentation seule : aucune trace ne change.
 
 - **Liste fermée** `content::ui::HUD_SOURCES` : `health`, `wave`, `ammo`, `weapon`, `enemies`,
   `players`, `currency`, `perks`, `downed`, `powerups`, `prompt`, et (T1.18) `rads`, `level`,
-  `ammo_by_type`, `statuses`, `floor`. Le lint lit la source de chaque widget de `ui/hud.ron`
-  (`HudFileSchema`) : source inconnue = `UnknownKind` (fixture `hud_unknown_source`).
+  `ammo_by_type`, `statuses`, `floor`, puis (M2-T18, §56) `blanks`, `keys`, `shells`,
+  `passives`, `active_item`, `active_charge`, `minimap`. Le lint lit la source de chaque
+  widget de `ui/hud.ron` (`HudFileSchema`) : source inconnue = `UnknownKind`
+  (fixture `hud_unknown_source`).
 - **Modèle** `game::ui::hud_model` : `hud_values(&HudPlayerInput) -> HudPlayerValues` (pure,
   testée sans rendu) et `player_source_text(source, prefix, values)` ; `HudSnapshot { frame,
   texts, bars, values }` mis à jour en `Update` par `HudModelPlugin`, **aussi en headless** ; le
@@ -3662,69 +3670,95 @@ bouge. À voir sur un poste avec GPU : voir le rapport `docs/taches/rapports/m2-
 indice prédit puis annulé par un rollback p2p reste dans le journal. Une fin de boss se détecte au
 tick où le boss disparaît : un boss retiré sans qu'une salle passe `Cleared` ne déclenche rien.
 
-## 56. Écrans pause et inventaire : test comparatif d'UI (M2-T18 partie 1, voie V4)
+## 56. Écrans en bevy_hui et HUD gungeon (M2-T18, voie V4)
 
-Décision ouverte du plan (`docs/plan-engine.md` §7.1, point 3) : le même menu de pause et le même
-inventaire gungeon, faits deux fois, pour que William choisisse sur pièces. Le HUD reste la couche
-maison (`ui/hud.ron`, §15) et n'est pas touché. Comparaison, mesures et recommandation :
-`docs/taches/rapports/m2-t18-ui-comparatif.md`. La seconde partie (HUD gungeon) vient après la décision.
+**Décision de William, 2026-10-15 : `bevy_hui` pour les écrans.** Le HUD reste la couche
+maison `ui/hud.ron` (§15). Le comparatif historique et ses mesures restent dans
+`docs/taches/rapports/m2-t18-ui-comparatif.md` ; la livraison de la seconde partie est décrite
+dans `docs/taches/rapports/m2-t18-hud-gungeon.md`.
 
-**Modèle commun** (`crates/game/src/ui/screens/model.rs`, pur) : `ScreensState` (écran ouvert, focus de
-chaque écran), `UiAction` (`Toggle(Pause|Inventory)`, `Up`, `Down`, `Confirm`, `Back`), `reduce` (le seul
-endroit qui change l'état), `pause_view` et `inventory_view` qui produisent une `ScreenView` : des sections
-nommées, `Text`, `List` (éléments avec `focused`) ou `Bar` (texte et fraction). Les deux rendus lisent
-cette vue et ne savent rien d'autre. Tout est testé sans rendu.
+### Écrans
 
-- **Pause** : Reprendre, Recommencer (`RunRequest::Restart`), Lobby (`RunRequest::ToLobby`, comme les
-  boutons de l'écran de fin), Réglages (vide : affiche « Aucun réglage pour l'instant. »). Sections
-  `title`, `entries`, `detail`, `hint`.
-- **Inventaire** : armes (en main, `chargeur | réserve`), objet actif et sa charge (`charge` : « 1 / 2 »,
-  « 2 / 2 · prêt », fraction), passifs, consommables (blanks, clés). Lu dans `WeaponInventory`,
-  `AmmoReserves`, `items::Inventory` et `ItemTable`, pour le joueur du HUD (`HudPlayer`). L'ordre du focus
-  est armes, actif, passifs, consommables (`inventory_focus_target`, testé).
-- **Entrées** (`screens::read_nav_keys`) : Échap / Start ouvre la pause ou ferme l'écran ouvert, `I` /
-  Select l'inventaire, ↑ ↓ / D-pad, Entrée ou Espace / A, Retour arrière / B. Hors d'un écran ouvert,
-  seules les deux touches d'ouverture agissent (flèches, Entrée et A restent des touches de jeu).
-  `ALACOD_INPUT=neutral` coupe les entrées. Pas de souris dans cette partie.
-- **La simulation ne s'arrête jamais** (GGRS) : pendant qu'un écran est ouvert, les entrées de jeu
-  continuent d'être envoyées (comme l'écran de mutation, §30). Les bloquer est une décision de la partie 2.
-  Rien n'entre dans l'input rollback : aucune trace ne bouge.
+`game/ui_hui` est activée par `render`, défaut des quatre jeux natifs et wasm et du rendu
+scénario. Les exécutables headless ne chargent pas Hui. Il n'y a plus de sélecteur de backend,
+de renderer `screens/custom.rs` ni de fichiers pause/inventaire RON.
 
-**Option A, couche maison** (`screens/custom.rs`, `games/gungeon/assets/ui/pause_screen.ron` et
-`inventory_screen.ron`) : un arbre `Column`/`Row` (gap, marge, largeur, fond, bordure) dont les feuilles
-sont `Label` (texte fixe), `Text`/`List`/`Bar` (liées par `bind` à une section de la vue). Le rendu
-reconstruit l'arbre `bevy_ui` quand la vue change ou que le fichier est rechargé.
+Le modèle pur (`screens/model.rs`) conserve `ScreensState`, `UiAction`, `reduce`,
+`pause_view`, `inventory_view` et `ScreenView`. Les sections nommées sont liées génériquement :
+`Text` → `{nom}`, `Bar` → `{nom_label}` et `{nom_width}`, `List` → conteneur `id="nom"`.
+Chaque ligne utilise `ui/hui_row.html`, avec marqueur, couleur et fond du focus. Un changement
+de vue remplit à nouveau les listes ; un rechargement HTML recrée leurs lignes.
+`sync_screen` tourne **avant `HuiSystems::Build`** : aucune commande de Hui ne doit
+construire une ligne déjà détruite lorsque l'inventaire change.
 
-**Option B, `bevy_hui` 0.7** (`screens/hui.rs`, feature `ui_hui`, `pause_screen.html`,
-`inventory_screen.html`, `hui_row.html`) : gabarits pseudo-HTML, `{propriétés}` posées depuis la vue
-(`view_properties`). Pas de boucle dans le langage : les lignes des listes sont des instances de
-`hui_row.html` créées par le code sous les conteneurs `id`. Un rechargement du gabarit reconstruit
-l'arbre (les lignes sont recréées).
+- Pause : Reprendre, Recommencer (`RunRequest::Restart`), Lobby (`RunRequest::ToLobby`),
+  Réglages (« Aucun réglage pour l'instant. »).
+- Inventaire : armes et munitions, actif et charge, passifs, consommables. Joueur affiché :
+  celui de `HudPlayer` (caméra forcée, sinon local de plus petit handle).
+- Navigation : Échap / Start, I / Select ; ↑ ↓ / D-pad ; Entrée ou Espace / A ;
+  Retour arrière / B. `ALACOD_INPUT=neutral` coupe la lecture des touches.
+- **La simulation continue et ses touches restent actives** sous les menus, comme avant :
+  aucun verrou d'input ni changement de trace n'est introduit.
+- Écran de fin : `ui/game_over_screen.html`, dans les quatre jeux. Résumé dérivé de
+  `Run.step`/`Run.summary`, mis à jour sans reconstruire la racine ; rollback de l'issue :
+  disparition de l'écran. Rejouer (R) et Lobby gardent leurs `RunRequest`, boutons souris
+  inclus. La présentation est chargée seulement dans `PresentationPlugin`.
+- **Dette mutation** : le modèle `MutationScreenView` et le rendu `mutation_screen.ron`
+  restent distincts. Le choix de trois cartes chronométrées, la surbrillance et
+  `ChoiceConfirm` alimentent les bits `ChoiceA/B/C` du joueur, pas les commandes locales
+  de `ScreensState`. Cette migration nécessite un adaptateur spécifique conservant ce
+  protocole et la mise en page des cartes ; elle n'est pas assimilée au menu d'inventaire.
 
-**Réglage** : `ALACOD_SCREENS=custom|hui` (défaut `custom`) ; `hui` exige la feature `ui_hui` (sinon rien
-ne s'affiche). Les fichiers de l'option B ne sont cherchés que si `pause_screen.ron` /
-`inventory_screen.ron` existent dans le dossier `Ui` du jeu. Registre de contenu : ces fichiers sont du
-kind `Ui` (syntaxe RON seulement, pas de schéma lint ; les `.html` ne sont pas lus par le lint).
+Les fichiers HTML sont découverts directement dans les dossiers `Ui`, sans compagnon RON.
+Le registre vérifie leur lecture UTF-8 ; le lint exige aussi `ui/hui_row.html` lisible
+si pause/inventaire le référencent. Fixtures `html_screen_missing_row` et
+`html_screens_valid`. Les inventaires de texte embarqués pour wasm incluent `.html`.
+Ce lint ne valide pas la grammaire complète de Hui.
 
-**Scénarios** : champ `ui: [(at_frame: 10, action: Toggle(Pause)), …]` (`game::ui::screens::UiStep`,
-ressource `ScreenScript`), joué en `Update` hors simulation, une fois par frame ; attente
-`ScreenText(screen: "pause" | "inventory", section, contains, closed, at_frame)` (texte de la section,
-« > » devant le focus ; `closed: true` exige l'écran fermé). Scénarios `ui_pause_menu` et `ui_inventory`
-(gungeon). Un réenregistrement ne garde pas `ui`.
+### HUD gungeon
 
-**Captures** (à produire sur un poste avec GPU, la revue est visuelle) :
+Nouvelles sources calculées par `hud_values` (pure), présentes dans `HudSnapshot` aussi
+en headless et dans la liste fermée `content::ui::HUD_SOURCES` :
+
+| Source | Valeur |
+|---|---|
+| `blanks` | compteur `Inventory::consumables["blank"]` |
+| `keys` | compteur `Inventory::consumables["key"]` |
+| `shells` | monnaie `Currency` (les douilles de boutique la créditent) |
+| `passives` | noms des passifs ; `Icons` utilise leurs ids |
+| `active_item` | nom de l'objet actif |
+| `active_charge` | charge / seuil, suffixe « · prêt » ; barre bornée entre 0 et 1 |
+| `minimap` | type, état, marqueur boss et salle actuelle ; rendu spatial par `Map` |
+
+Sans joueur/objet : textes vides et charge masquée. `HudRoomGeometry` reçoit uniquement
+la géométrie de l'étage courant depuis `CurrentRooms`, en `Update` avant `HudModelSet`.
+La carte se dérive de cette géométrie, de la position du joueur et de `RoomStates` :
+aucun nouveau composant/état rollback, aucun cache de visites.
+**Limite du contrat actuel** : `RoomStates` ne mémorise pas une visite d'une salle non
+combattante restée `Dormant`. La carte distingue comme visitées la salle courante,
+le départ et les salles `Locked`/`Cleared` ; une boutique dormante quittée ne conserve
+pas de marque de visite. Ajouter une mémoire simulation changerait les traces et sort
+de cette tâche de présentation seule.
+
+### Scénarios et revue visuelle
+
+Le script `ui: [(at_frame: 10, action: Toggle(Pause)), …]` joue en `Update`, hors input
+rollback. `ScreenText(screen, section, contains, closed, at_frame)` vérifie les menus ;
+`HudText(source, contains, at_frame)` vérifie les sources du HUD. Les scénarios existants
+`ui_inventory`, `gungeon_start`, `gungeon_clear`, `gungeon_boss` et `gungeon_two_floors`
+portent les attentes HUD, sans modifier leurs traces.
 
 ```bash
-# A, couche maison
-cargo run -p scenario --features render --bin play_scenario -- tests/scenarios/ui_pause_menu.ron --capture /tmp/ui/pause_maison --every 2
-cargo run -p scenario --features render --bin play_scenario -- tests/scenarios/ui_inventory.ron --capture /tmp/ui/inventaire_maison --every 2
-# B, bevy_hui
-ALACOD_SCREENS=hui cargo run -p scenario --features render,ui_hui --bin play_scenario -- tests/scenarios/ui_pause_menu.ron --capture /tmp/ui/pause_hui --every 2
-ALACOD_SCREENS=hui cargo run -p scenario --features render,ui_hui --bin play_scenario -- tests/scenarios/ui_inventory.ron --capture /tmp/ui/inventaire_hui --every 2
+cargo run -p scenario --profile headless --features render --bin play_scenario -- tests/scenarios/ui_pause_menu.ron --capture /tmp/ui/pause --every 1
+cargo run -p scenario --profile headless --features render --bin play_scenario -- tests/scenarios/ui_inventory.ron --capture /tmp/ui/inventaire --every 1
+cargo run -p scenario --profile headless --features render --bin play_scenario -- tests/scenarios/gungeon_boss_bot.ron --capture /tmp/ui/fin --every 10
 ```
 
-Images à comparer (`frame_NNNN.png`, n = frame de simulation) : pause 10 (ouverture), 20 à 22 (focus),
-31 (Réglages validé), 40 (retour sur Lobby), 51 (fermé), 62 et 64 ; inventaire 12 (actif prêt),
-20 (actif déchargé), 21 à 24 (focus), 31 (fermé). Rechargement à chaud à voir en jeu : `cargo run -p
-gungeon --features native` (A) ou `ALACOD_SCREENS=hui cargo run -p gungeon --features native,ui_hui` (B),
-ouvrir un écran (Échap ou I), puis modifier le `.ron` ou le `.html` correspondant.
+Frames à regarder (`frame_NNNNN.png`) : pause 10, 20–22, 31, 40, 51, 62, 64 ;
+inventaire/HUD 9 (actif prêt), 12, 20 (déchargé), 21–24 (focus), 31 (fermé).
+Carte : `gungeon_clear` 100 (verrouillage), 650 (nettoyée) ;
+`gungeon_boss` 320–450 (boss), 480–520 (blanks consommés) ;
+`gungeon_two_floors` 800 (nouvel étage). Fin : `gungeon_boss_bot` 450.
+Rechargement en jeu : `cargo run -p gungeon --features native`, ouvrir un écran puis
+modifier son `.html`. Le rapport précise les captures effectivement observées.
+
