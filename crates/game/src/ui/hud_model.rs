@@ -10,7 +10,7 @@
 //! `ammo_by_type`, `statuses`, `floor` (T1.18). D22 : sans valeur, texte vide (pas même le
 //! préfixe).
 
-use std::collections::BTreeMap;
+use std::collections::{BTreeMap, BTreeSet};
 
 use bevy::ecs::system::SystemParam;
 use bevy::prelude::*;
@@ -100,9 +100,21 @@ impl RadsValue {
     }
 }
 /// Géométrie du seul étage courant, fournie par l'adaptateur de carte en `Update`.
-/// Aucune mémoire d'exploration : les salles visitées se déduisent de `RoomStates`.
+/// Les salles activées se déduisent de `RoomStates` ; les autres visites (boutique,
+/// récompense : jamais activées) viennent de [`MinimapVisits`].
 #[derive(Resource, Debug, Default, Clone, PartialEq, Eq)]
 pub struct HudRoomGeometry(pub Vec<HudRoomBounds>);
+
+/// D72 : mémoire de visite de la minicarte, **présentation seule** (hors rollback, hors trace) :
+/// ids des salles où un joueur local est entré, pour l'étage dont la géométrie est `geometry`.
+/// Remise à zéro quand l'étage change ou disparaît (nouvel étage, restart). Un rollback ne
+/// la défait pas : une salle entrée sur une frame annulée reste visitée, l'exploration d'un
+/// joueur n'étant pas un fait de simulation.
+#[derive(Resource, Debug, Default, Clone, PartialEq, Eq)]
+pub struct MinimapVisits {
+    pub geometry: Vec<String>,
+    pub visited: BTreeSet<String>,
+}
 
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub struct HudRoomBounds {
@@ -133,10 +145,12 @@ pub struct HudActiveItem {
 
 /// Projette les bornes monde (y vers le haut) en coordonnées UI (y vers le bas).
 /// Les salles dormantes non courantes restent des silhouettes ; `depart` est le point
-/// d'entrée, et les autres salles visitées sont celles activées (`Locked`/`Cleared`).
+/// d'entrée, et les autres salles visitées sont celles activées (`Locked`/`Cleared`) ou
+/// mémorisées par [`MinimapVisits`].
 pub fn minimap_rooms(
     geometry: &HudRoomGeometry,
     states: &RoomStates,
+    visits: &BTreeSet<String>,
     player: Option<FixedVec2>,
 ) -> Vec<HudMapRoom> {
     let mut rooms: Vec<_> = geometry
@@ -185,7 +199,10 @@ pub fn minimap_rooms(
                     room.size.y.to_num::<f32>() / span,
                 ],
                 current: is_current,
-                visited: is_current || room.kind == "depart" || state != RoomState::Dormant,
+                visited: is_current
+                    || room.kind == "depart"
+                    || state != RoomState::Dormant
+                    || visits.contains(&room.id),
                 state,
                 boss: room.kind == "boss",
             }
@@ -235,6 +252,7 @@ pub struct HudPlayerInput<'a> {
     pub item_table: Option<&'a ItemTable>,
     pub room_geometry: Option<&'a HudRoomGeometry>,
     pub room_states: Option<&'a RoomStates>,
+    pub visits: Option<&'a BTreeSet<String>>,
     pub position: Option<FixedVec2>,
     pub frame: u32,
 }
@@ -333,7 +351,10 @@ pub fn hud_values(input: &HudPlayerInput) -> HudPlayerValues {
         minimap: input
             .room_geometry
             .zip(input.room_states)
-            .map(|(geometry, states)| minimap_rooms(geometry, states, input.position))
+            .map(|(geometry, states)| {
+                let none = BTreeSet::new();
+                minimap_rooms(geometry, states, input.visits.unwrap_or(&none), input.position)
+            })
             .unwrap_or_default(),
     }
 }
@@ -452,7 +473,13 @@ impl Plugin for HudModelPlugin {
     fn build(&self, app: &mut App) {
         app.init_resource::<HudSnapshot>()
             .init_resource::<HudRoomGeometry>()
-            .add_systems(Update, update_hud_snapshot.in_set(HudModelSet));
+            .init_resource::<MinimapVisits>()
+            .add_systems(
+                Update,
+                (track_minimap_visits, update_hud_snapshot)
+                    .chain()
+                    .in_set(HudModelSet),
+            );
     }
 }
 
@@ -467,6 +494,7 @@ pub(crate) struct HudPlayerState<'w, 's> {
     item_table: Option<Res<'w, ItemTable>>,
     geometry: Res<'w, HudRoomGeometry>,
     room_states: Option<Res<'w, RoomStates>>,
+    visits: Res<'w, MinimapVisits>,
     weapons: Query<'w, 's, (&'static WeaponState, &'static WeaponModesState)>,
     progress: Query<
         'w,
@@ -477,6 +505,30 @@ pub(crate) struct HudPlayerState<'w, 's> {
             Option<&'static Statuses>,
         ),
     >,
+}
+
+/// D72 : ajoute à [`MinimapVisits`] la salle où se trouve chaque joueur local, et repart de
+/// zéro quand la géométrie de l'étage change.
+pub(crate) fn track_minimap_visits(
+    mut visits: ResMut<MinimapVisits>,
+    geometry: Res<HudRoomGeometry>,
+    players: Query<&FixedTransform3D, (With<Player>, With<LocalPlayer>)>,
+) {
+    let ids: Vec<String> = geometry.0.iter().map(|room| room.id.clone()).collect();
+    if visits.geometry != ids {
+        visits.geometry = ids;
+        visits.visited.clear();
+    }
+    for transform in &players {
+        let position = FixedVec2::new(transform.translation.x, transform.translation.y);
+        for room in &geometry.0 {
+            if !visits.visited.contains(&room.id)
+                && world::inside_box(room.position, room.size, position, Fixed::ZERO)
+            {
+                visits.visited.insert(room.id.clone());
+            }
+        }
+    }
 }
 
 pub(crate) fn update_hud_snapshot(
@@ -528,6 +580,7 @@ pub(crate) fn update_hud_snapshot(
         item_table: state.item_table.as_deref(),
         room_geometry: Some(&state.geometry),
         room_states: state.room_states.as_deref(),
+        visits: Some(&state.visits.visited),
         position: player
             .and_then(|e| state.positions.get(e).ok())
             .map(|transform| FixedVec2::new(transform.translation.x, transform.translation.y)),
@@ -847,8 +900,9 @@ mod tests {
             room("combat", "combat", 100, 0),
             room("start", "depart", 0, 0),
         ]);
+        let none = BTreeSet::new();
         let mut states = RoomStates::default();
-        let before = minimap_rooms(&geometry, &states, Some(FixedVec2::new(fx(50.0), fx(50.0))));
+        let before = minimap_rooms(&geometry, &states, &none, Some(FixedVec2::new(fx(50.0), fx(50.0))));
         assert!(before[0].current && before[0].visited);
         assert_eq!(before[0].rect, [0.0, 0.5, 0.5, 0.5]);
         assert!(!before[1].visited);
@@ -858,6 +912,7 @@ mod tests {
         let locked = minimap_rooms(
             &geometry,
             &states,
+            &none,
             Some(FixedVec2::new(fx(150.0), fx(50.0))),
         );
         assert_eq!(locked[1].state, RoomState::Locked);
@@ -865,13 +920,13 @@ mod tests {
         assert!(!locked[0].current && locked[0].visited);
         assert_eq!(before[1].rect, locked[1].rect);
         states.rooms.insert("combat".into(), RoomState::Cleared);
-        let cleared = minimap_rooms(&geometry, &states, None);
+        let cleared = minimap_rooms(&geometry, &states, &none, None);
         assert!(cleared[1].visited);
         assert_eq!(cleared[1].state, RoomState::Cleared);
         // Rollback : aucune salle "visitée" ne reste en cache.
-        let rewound = minimap_rooms(&geometry, &RoomStates::default(), None);
+        let rewound = minimap_rooms(&geometry, &RoomStates::default(), &none, None);
         assert!(!rewound[1].visited);
-        assert!(minimap_rooms(&HudRoomGeometry::default(), &states, None).is_empty());
+        assert!(minimap_rooms(&HudRoomGeometry::default(), &states, &none, None).is_empty());
         let snapshot = snapshot_of(
             100,
             HudPlayerValues {
@@ -881,5 +936,58 @@ mod tests {
         );
         assert!(snapshot.texts["minimap"].contains("combat · verrouillée · actuelle"));
         assert!(snapshot.texts["minimap"].contains("boss · boss · inexplorée"));
+    }
+
+    /// D72 : une salle non combattante (jamais activée, donc `Dormant`) visitée puis quittée
+    /// reste marquée visitée ; l'étage suivant repart de zéro.
+    #[test]
+    fn salle_visitee_puis_quittee_reste_marquee() {
+        let room = |id: &str, kind: &str, x: i32| HudRoomBounds {
+            id: id.into(),
+            kind: kind.into(),
+            position: FixedVec2::new(Fixed::from_num(x), Fixed::ZERO),
+            size: FixedVec2::new(Fixed::from_num(100), Fixed::from_num(100)),
+        };
+        let geometry = HudRoomGeometry(vec![
+            room("start", "depart", 0),
+            room("shop", "boutique", 100),
+            room("boss", "boss", 200),
+        ]);
+        let mut app = App::new();
+        app.insert_resource(geometry.clone())
+            .init_resource::<MinimapVisits>()
+            .add_systems(Update, track_minimap_visits);
+        let player = app
+            .world_mut()
+            .spawn((
+                Player { handle: 0 },
+                LocalPlayer,
+                FixedTransform3D::default(),
+            ))
+            .id();
+        let mut move_to = |app: &mut App, x: i32| {
+            app.world_mut()
+                .get_mut::<FixedTransform3D>(player)
+                .unwrap()
+                .translation
+                .x = Fixed::from_num(x);
+            app.update();
+        };
+        move_to(&mut app, 150);
+        move_to(&mut app, 50);
+        let visits = app.world().resource::<MinimapVisits>().visited.clone();
+        assert!(visits.contains("shop") && visits.contains("start") && !visits.contains("boss"));
+        let none = RoomStates::default();
+        let map = minimap_rooms(&geometry, &none, &visits, Some(FixedVec2::new(fx(50.0), fx(50.0))));
+        let shop = map.iter().find(|r| r.id == "shop").unwrap();
+        assert!(shop.visited && !shop.current && shop.state == RoomState::Dormant);
+        assert!(!map.iter().find(|r| r.id == "boss").unwrap().visited);
+        let snapshot = snapshot_of(1, HudPlayerValues { minimap: map, ..default() });
+        assert!(snapshot.texts["minimap"].contains("boutique · visitée"));
+        assert!(snapshot.texts["minimap"].contains("boss · boss · inexplorée"));
+        // Nouvel étage : géométrie différente, mémoire vidée.
+        app.insert_resource(HudRoomGeometry(vec![room("other", "depart", 0)]));
+        app.update();
+        assert!(!app.world().resource::<MinimapVisits>().visited.contains("shop"));
     }
 }
