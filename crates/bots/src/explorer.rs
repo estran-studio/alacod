@@ -52,6 +52,18 @@ pub const ROOM_INSET: Fixed = Fixed::from_bits(40 << 16);
 /// Portée visée pour ramasser un objet au contact (sous le `pickup_range` de 24 par défaut).
 const ITEM_REACH: Fixed = Fixed::from_bits(16 << 16);
 
+/// Marge intérieure au-delà de laquelle un joueur « est dans » une salle non verrouillante
+/// (`PLAYER_INSET` de `map_ldtk::game::rooms`) : entrer suffit pour la visiter.
+const VISIT_INSET: Fixed = Fixed::from_bits(24 << 16);
+
+/// Salles non verrouillantes (récompense, boutique, départ) déjà visitées : `(index d'étage,
+/// identifiant de salle)`. **Seule mémoire de l'explorateur**, hors simulation et hors rollback :
+/// une salle sans état (`RoomStates` ne suit que les salles verrouillantes) ne laisse aucune trace
+/// à lire. Elle ne sert qu'à produire des inputs, que GGRS enregistre ensuite : un rollback ne
+/// rappelle jamais le bot pour une frame passée.
+#[derive(Resource, Debug, Clone, Default, PartialEq, Eq)]
+pub struct ExplorerVisits(pub BTreeSet<(usize, String)>);
+
 /// Ce que l'exploration ajoute à la [`BotView`] d'un `explorateur`.
 #[derive(Debug, Clone, Copy, PartialEq, Default)]
 pub struct ExploreView {
@@ -153,6 +165,8 @@ pub struct ExplorerWorld<'w, 's> {
         ),
     >,
     options: Option<Res<'w, ExplorerOptions>>,
+    visits: ResMut<'w, ExplorerVisits>,
+    floor: Option<Res<'w, run::FloorState>>,
 }
 
 impl ExplorerWorld<'_, '_> {
@@ -160,8 +174,24 @@ impl ExplorerWorld<'_, '_> {
         self.options.as_deref().copied().unwrap_or_default()
     }
 
-    /// Salles à visiter, objets au sol et ennemis endormis de la frame.
-    pub fn frame(&self) -> ExploreFrame {
+    /// Salles à visiter, objets au sol et ennemis endormis de la frame. `positions` : les joueurs
+    /// (une salle non verrouillante où l'un d'eux se tient est visitée).
+    pub fn frame(&mut self, positions: &[FixedVec2]) -> ExploreFrame {
+        let floor = self
+            .floor
+            .as_deref()
+            .map_or(0, |state| state.index as usize);
+        if let Some(table) = self.table.as_deref() {
+            for (level, bounds, kind) in self.rooms.iter() {
+                if !table.locks(&kind.0)
+                    && positions.iter().any(|p| {
+                        world::rooms::inside_box(bounds.position, bounds.size, *p, VISIT_INSET)
+                    })
+                {
+                    self.visits.0.insert((floor, level.0.clone()));
+                }
+            }
+        }
         let enemies: Vec<(usize, FixedVec2, bool, bool)> = order_iter!(self.enemies)
             .into_iter()
             .map(|(id, t, dormant, boss)| (id.0, t.translation.truncate(), dormant, boss))
@@ -174,17 +204,19 @@ impl ExplorerWorld<'_, '_> {
         let mut rooms = Vec::new();
         if let (Some(states), Some(table)) = (self.states.as_deref(), self.table.as_deref()) {
             for (level, bounds, kind) in self.rooms.iter() {
-                if !table.locks(&kind.0) {
+                let locking = table.locks(&kind.0);
+                if !locking && self.visits.0.contains(&(floor, level.0.clone())) {
                     continue;
                 }
                 let inside = |p: FixedVec2| {
                     world::rooms::inside_box(bounds.position, bounds.size, p, Fixed::ZERO)
                 };
-                let pending = match states.get(&level.0) {
-                    RoomState::Locked => true,
-                    RoomState::Dormant => enemies.iter().any(|(_, p, ..)| inside(*p)),
-                    RoomState::Cleared => false,
-                };
+                let pending = room_pending(
+                    locking,
+                    table.arena(&kind.0).is_some(),
+                    states.get(&level.0),
+                    enemies.iter().any(|(_, p, ..)| inside(*p)),
+                );
                 if pending {
                     rooms.push(RoomGoal {
                         id: level.0.clone(),
@@ -237,6 +269,19 @@ impl ExplorerWorld<'_, '_> {
             blank_held: blank.is_some_and(|b| b.held),
         }
     }
+}
+
+/// Une salle est-elle encore un but ? Une salle qui ne verrouille pas (récompense, boutique,
+/// départ) l'est tant qu'elle n'est pas visitée (l'appelant a déjà écarté les visitées) ; une
+/// arène dort vide (ses vagues naissent au verrou) et l'est jusqu'à son nettoyage ; une autre
+/// salle verrouillante l'est quand elle est verrouillée, ou dormante avec un ennemi dedans.
+pub fn room_pending(locking: bool, arena: bool, state: RoomState, enemy_inside: bool) -> bool {
+    !locking
+        || match state {
+            RoomState::Locked => true,
+            RoomState::Dormant => arena || enemy_inside,
+            RoomState::Cleared => false,
+        }
 }
 
 /// Zone visée dans une salle de bornes `(position, size)` : réduite de [`ROOM_INSET`] (ramenée au
@@ -371,7 +416,15 @@ pub fn explore_step(
     goals.into_iter().find_map(|(_, zone, item)| match item {
         Some(item) if item.surface => {
             let (_, rect, reach, _) = surfaces.iter().find(|(id, ..)| *id == item.net_id)?;
-            crate::input::surface_step(nav, position, surfaces, item.net_id, *rect, *reach)
+            crate::input::surface_step_with(
+                nav,
+                position,
+                surfaces,
+                item.net_id,
+                *rect,
+                *reach,
+                true,
+            )
         }
         Some(_) => nav
             .approach(position, zone, ITEM_REACH)
@@ -449,6 +502,19 @@ mod tests {
             zone: room_zone(v(x, -64.0), v(128.0, 128.0)),
             boss,
         }
+    }
+
+    #[test]
+    fn salle_a_visiter() {
+        // Récompense / boutique : un but jusqu'à la visite, quel que soit l'état.
+        assert!(room_pending(false, false, RoomState::Dormant, false));
+        // Combat dormant sans ennemi : jamais un but ; avec un ennemi : oui.
+        assert!(!room_pending(true, false, RoomState::Dormant, false));
+        assert!(room_pending(true, false, RoomState::Dormant, true));
+        // Arène dormante et vide : un but ; nettoyée : non.
+        assert!(room_pending(true, true, RoomState::Dormant, false));
+        assert!(room_pending(true, true, RoomState::Locked, false));
+        assert!(!room_pending(true, true, RoomState::Cleared, false));
     }
 
     #[test]
