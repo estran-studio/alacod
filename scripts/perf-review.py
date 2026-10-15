@@ -3,6 +3,12 @@
 
 Les FPS du runner incluent synctest et instrumentation : ce sont des mesures de débit du
 harness, pas le temps d'une frame de production ni une preuve de fluidité du rendu.
+
+Les coûts par frame (`advance_ms_avg` : une frame de simulation ; `save_ms_avg` : checksum et
+clone des snapshots ; `load_ms_avg` : restauration) sont mesurés aux bornes des schedules
+bevy_ggrs : ce sont les temps qu'un rollback en ligne paie réellement. `rollback_ms_worst` =
+restauration + 12 frames resimulées (fenêtre de prédiction) ; `--max-rollback-ms` lui impose
+un plafond absolu, à calibrer sur la machine cible (16,7 ms = un tick à 60 Hz).
 """
 import argparse
 import json
@@ -35,7 +41,12 @@ def load_metrics(path):
     return metrics
 
 
-def compare(current, baseline, names, max_regression, min_fps):
+# Coûts par frame comparés comme les FPS : une hausse de plus de `max_regression` % échoue.
+# Absents des mesures d'avant l'instrumentation : ignorés (pas de faux succès, pas de faux échec).
+COST_KEYS = ("advance_ms_avg", "save_ms_avg", "load_ms_avg")
+
+
+def compare(current, baseline, names, max_regression, min_fps, max_rollback_ms=None):
     failures = []
     rows = []
     for name in names:
@@ -48,11 +59,29 @@ def compare(current, baseline, names, max_regression, min_fps):
             continue
         fps = now["sim_fps"]
         delta = (fps / before["sim_fps"] - 1) * 100
-        rows.append(f"{name}: {fps:.1f} sim fps ; {1000 / fps:.2f} ms/frame du harness ; variation {delta:+.1f}%")
+        costs = " ; ".join(
+            f"{key.removesuffix('_ms_avg')} {now[key]:.2f} ms"
+            for key in COST_KEYS if isinstance(now.get(key), (int, float))
+        )
+        rollback = now.get("rollback_ms_worst")
+        rollback_text = f" ; pire rollback {rollback:.1f} ms" if isinstance(rollback, (int, float)) else ""
+        rows.append(f"{name}: {fps:.1f} sim fps ; {1000 / fps:.2f} ms/frame du harness ; variation {delta:+.1f}%"
+                    + (f" ; {costs}" if costs else "") + rollback_text)
         if delta < -max_regression:
             failures.append(f"{name} : régression supérieure à {max_regression:g}%")
         if min_fps is not None and fps < min_fps:
             failures.append(f"{name} : débit inférieur à l'objectif explicite {min_fps:g} sim fps")
+        for key in COST_KEYS:
+            then, this = before.get(key), now.get(key)
+            if not all(isinstance(v, (int, float)) and math.isfinite(v) for v in (then, this)):
+                continue
+            if then > 0 and (this / then - 1) * 100 > max_regression:
+                failures.append(f"{name} : {key} {then:.3f} → {this:.3f} ms, hausse supérieure à {max_regression:g}%")
+        if max_rollback_ms is not None:
+            if not isinstance(rollback, (int, float)):
+                failures.append(f"{name} : rollback_ms_worst absent, plafond invérifiable")
+            elif rollback > max_rollback_ms:
+                failures.append(f"{name} : pire rollback {rollback:.1f} ms au-dessus du plafond {max_rollback_ms:g} ms")
     return rows, failures
 
 
@@ -63,6 +92,7 @@ def main():
     parser.add_argument("--scenario", action="append", help="répétable ; sinon union des scénarios des deux fichiers")
     parser.add_argument("--max-regression", type=positive, default=10.0, help="pourcentage, défaut 10")
     parser.add_argument("--min-sim-fps", type=positive, help="objectif de débit du harness ; indépendant des budgets historiques")
+    parser.add_argument("--max-rollback-ms", type=positive, help="plafond absolu du pire rollback (restauration + 12 frames), en ms")
     args = parser.parse_args()
     if args.max_regression >= 100:
         parser.error("--max-regression doit être inférieur à 100")
@@ -71,7 +101,7 @@ def main():
     try:
         current, baseline = load_metrics(args.current), load_metrics(args.baseline)
         names = sorted(set(args.scenario) if args.scenario else current.keys() | baseline.keys())
-        rows, failures = compare(current, baseline, names, args.max_regression, args.min_sim_fps)
+        rows, failures = compare(current, baseline, names, args.max_regression, args.min_sim_fps, args.max_rollback_ms)
     except (OSError, ValueError, TypeError) as error:
         print(f"ERROR: {error}", file=sys.stderr)
         return 2

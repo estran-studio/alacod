@@ -21,6 +21,8 @@ pub mod interaction;
 pub mod items;
 pub mod jjrs;
 pub mod light;
+#[cfg(not(target_arch = "wasm32"))]
+pub mod logs;
 pub mod patterns;
 mod powerup_visuals;
 pub mod powerups;
@@ -39,6 +41,7 @@ pub mod statuses;
 pub mod system_set;
 pub mod ui;
 pub mod waves;
+pub mod web;
 pub use combat::weapons;
 
 use lazy_static::lazy_static;

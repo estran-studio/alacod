@@ -17,6 +17,8 @@ use bevy_ggrs::{
 };
 use std::any::type_name;
 
+use crate::snapshot_profile::SnapshotInventory;
+
 /// Ressource pour tracker les types enregistrés avec tracing.
 /// Utile pour vérifier la couverture plus tard (voir [`StateTracers`] et le test de
 /// couverture dans `game::rollback`).
@@ -272,6 +274,9 @@ fn ensure_trace_resources(app: &mut App) {
     if !app.world().contains_resource::<StateTracers>() {
         app.init_resource::<StateTracers>();
     }
+    if !app.world().contains_resource::<SnapshotInventory>() {
+        app.init_resource::<SnapshotInventory>();
+    }
 }
 
 /// Enregistre un composant : nom dans `TracedTypes`, tracer `Debug` dans `StateTracers`.
@@ -291,6 +296,9 @@ fn register_traced_component<C: Component + std::fmt::Debug>(app: &mut App) {
         .resource_mut::<StateTracers>()
         .components
         .push((name, tracer));
+    state
+        .resource_mut::<SnapshotInventory>()
+        .register_component::<C>();
 }
 
 /// Enregistre une ressource : nom dans `TracedTypes`, tracer `Debug` dans `StateTracers`.
@@ -304,6 +312,9 @@ fn register_traced_resource<R: Resource + std::fmt::Debug>(app: &mut App) {
         .resource_mut::<StateTracers>()
         .resources
         .push((name, tracer));
+    state
+        .resource_mut::<SnapshotInventory>()
+        .register_resource::<R>();
 }
 
 /// Checksum d'un composant à checksum neutre (voir

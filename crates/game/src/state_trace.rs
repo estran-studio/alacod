@@ -465,6 +465,8 @@ fn write_trace_at_exit_frame(
     trace: Res<StateTraceRecorder>,
     mut file: ResMut<StateTraceFile>,
     mut exit: MessageWriter<AppExit>,
+    snapshot_profile: Option<Res<utils::snapshot_profile::SnapshotProfile>>,
+    set_timings: Option<Res<utils::system_profile::SetTimings>>,
 ) {
     if file.written {
         return;
@@ -524,6 +526,20 @@ fn write_trace_at_exit_frame(
         "trace d'état écrite dans {path:?} ; frames resimulées après rollback : {}",
         trace.resimulated
     );
+    if let Some(profile) = snapshot_profile {
+        info!("profil rollback : {}", profile.summary());
+        for sample in profile.heaviest(5) {
+            info!(
+                "profil rollback : {} ×{} ~{} octets",
+                sample.name, sample.count, sample.bytes
+            );
+        }
+    }
+    if let Some(timings) = set_timings {
+        for row in timings.report() {
+            info!("profil sets : {row}");
+        }
+    }
     file.written = true;
     exit.write(AppExit::Success);
 }

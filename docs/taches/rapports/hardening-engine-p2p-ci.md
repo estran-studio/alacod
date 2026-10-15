@@ -148,3 +148,45 @@ Ce qui manquait ou cassait :
 
 Non fait ici : allumette/WebRTC via docker (daemon absent), deux machines, wasm, nuit verte
 observée, mesure du coût des snapshots (`docs/etat-engine.md`, revue d'architecture).
+
+## Troisième passe (Claude, 2026-10-15) : mesure du rollback et frontière compilée
+
+Demande de William : les points 1 (coût des snapshots) et 2 (frontière simulation/présentation)
+de la revue passent dans le flow ; le point 3 (politique de session) reste une dette.
+
+1. **`utils::snapshot_profile`** : chronos aux bornes de `SaveWorld` (checksum, clone),
+   `LoadWorld`, `AdvanceWorld` ; inventaire des types rollback enregistrés par
+   `RollbackTraceApp` (porteurs × `size_of`, échantillon toutes les 30 sauvegardes). Toujours
+   actif dans le runner : métriques `save_ms_avg/max`, `checksum_ms_avg`, `load_ms_avg/max`,
+   `advance_ms_avg/max`, `snapshot_bytes_max`, `snapshot_heaviest`, `rollback_ms_worst`
+   (restauration + `MAX_PREDICTION_WINDOW` = 12 frames). Tableau `scenario-metrics.py`
+   (colonnes sim/save/load/rb×12), `perf-review.py` (hausse > 10 % d'un coût par frame =
+   échec ; `--max-rollback-ms`, `PERF_MAX_ROLLBACK_MS`), `tests/budgets.ron` (`max_rollback_ms`
+   sur les cinq `bench_*`, au double de la mesure ; `implicit_some`). Jeu :
+   `ALACOD_SNAPSHOT_PROFILE=1`, résumé et cinq types les plus lourds dans le journal à la sortie ;
+   le nightly l'active sur le smoke p2p et reprend la ligne dans son résumé.
+2. **`utils::system_profile`** (`ALACOD_SYSTEM_PROFILE=1`) : temps par `RollbackSystemSet`
+   par un système-frontière entre sets voisins (aucune ambiguïté d'ordre), plus une tranche
+   `FlowField` ; rapport à la sortie. `RollbackSystemSet::name()` ajouté.
+3. **Constat** (p2p_smoke, 4 joueurs qui bougent, 150 entités, 4 zombies) : simulation
+   7,06 ms/frame contre 0,11 à l'arrêt ; 98 % dans `update_flow_field_system` (895
+   reconstructions pour 1 794 frames : `FlowFieldCache` dérive `Default` → `update_interval`
+   0, le `new()` à 30 frames n'est appelé nulle part). Pire rollback 85 ms. Dette **D67** avec
+   deux sorties chiffrées ; aucune trace changée ici (une cadence serait un changement de
+   gameplay, un bless de toute la suite : à trancher).
+4. **Exécuteur monothread des schedules du rollback dans le jeu**
+   (`game::core::single_threaded_rollback_schedules`, `finish` de `CoreSetupPlugin`) : A/B sur
+   le p2p réel, délai 0 : save 1,28 → 0,47 ms, simulation 7,1 → 5,9 ms, traces identiques.
+   `ALACOD_EXECUTOR=multi` rétablit l'ancien.
+5. **`scripts/check-sim-boundary.sh`** (`make check_sim_boundary`, `make check`, CI) : graphe
+   du crate seul sans crate de présentation + `cargo check --no-default-features` des crates
+   SIM (35 s). `utils` rendu ECS seul : `logs.rs`, `web/` déménagés dans `game`
+   (`game::logs`, `game::web`), `camera/tod.rs` supprimé (aucun usage), features `keyboard`/
+   `bevy_camera` et dépendances de journal retirées de `utils`. 11 crates propres, 5 en dette
+   **D66** (listés `PENDING`, affichés sans bloquer ; un crate non classé échoue).
+
+Vérification : `make test_tools` 17 ✅ ; `utils` 3 tests ✅ ; `make check_sim_boundary` ✅ ;
+`make format`, `check_forbidden`, `check_rollback_registration` ✅ ; cinq `bench_*` mesurés ;
+p2p réel à deux clients (profil, A/B exécuteur) traces identiques ; suite complète en tranches :
+303 scénarios verts en 124 s, aucune trace changée (le profil n'entre pas dans l'état) ; tests
+unitaires de `utils`, `sim_core`, `game`, `scenario`, `content` verts.

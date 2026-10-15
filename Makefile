@@ -85,7 +85,7 @@ endif
 all: test format
 
 # CI check target (runs locally or in CI)
-check: format test_tools check_forbidden check_rollback_registration test lint
+check: format test_tools check_forbidden check_rollback_registration check_sim_boundary test lint
 	@echo "✓ All checks passed"
 
 .PHONY: check
@@ -131,7 +131,7 @@ PERF_SCENARIOS ?= bench_bullets bench_bullets_room bench_horde bench_cave bench_
 PERF_MAX_REGRESSION ?= 10
 perf_review:
 	@test -n "$(PERF_BASELINE)" || { echo 'PERF_BASELINE=<mesures de référence.json> est requis'; exit 2; }
-	python3 scripts/perf-review.py --current "$(PERF_CURRENT)" --baseline "$(PERF_BASELINE)" --max-regression "$(PERF_MAX_REGRESSION)" $(foreach scenario,$(PERF_SCENARIOS),--scenario "$(scenario)") $(if $(PERF_MIN_SIM_FPS),--min-sim-fps "$(PERF_MIN_SIM_FPS)")
+	python3 scripts/perf-review.py --current "$(PERF_CURRENT)" --baseline "$(PERF_BASELINE)" --max-regression "$(PERF_MAX_REGRESSION)" $(foreach scenario,$(PERF_SCENARIOS),--scenario "$(scenario)") $(if $(PERF_MIN_SIM_FPS),--min-sim-fps "$(PERF_MIN_SIM_FPS)") $(if $(PERF_MAX_ROLLBACK_MS),--max-rollback-ms "$(PERF_MAX_ROLLBACK_MS)")
 
 .PHONY: test_crates test_tools perf_review sweep
 
@@ -149,6 +149,11 @@ check_forbidden:
 check_rollback_registration:
 	@echo "Checking rollback registration goes through RollbackTraceApp..."
 	./scripts/check-rollback-registration.sh
+
+# Frontière simulation/présentation prouvée par la compilation (D66) : les crates de simulation
+# n'ont que bevy ECS dans leur graphe et compilent seuls en `--no-default-features`.
+check_sim_boundary:
+	./scripts/check-sim-boundary.sh
 
 # Lint du contenu (crates/content, T1.5) : références cassées, ids dupliqués, valeurs hors
 # plage, kinds inconnus, littéraux nus dans des champs Fixed. Sans lancer le moteur.

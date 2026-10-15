@@ -201,7 +201,7 @@ impl Plugin for BaseArgsPlugin {
         }
 
         #[cfg(not(target_arch = "wasm32"))]
-        app.add_plugins(utils::logs::NativeLogPlugin(args.cid.clone()));
+        app.add_plugins(crate::logs::NativeLogPlugin(args.cid.clone()));
 
         app.add_plugins(telemetry::TelemetryPlugin);
 

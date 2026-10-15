@@ -139,6 +139,10 @@ fn active_target_dir_suit_le_binaire_puis_la_variable() {
 #[derive(Debug, Default, Deserialize)]
 struct BudgetConfig {
     min_sim_fps: f64,
+    /// Plafond du pire rollback (`Metrics::rollback_ms_worst`, restauration + 12 frames
+    /// resimulées) ; même régime que `min_sim_fps` : avertissement, bloquant en bench.
+    #[serde(default)]
+    max_rollback_ms: Option<f64>,
 }
 
 #[derive(Debug, Deserialize)]
@@ -165,9 +169,16 @@ fn scenarios() {
     // Load budgets
     let budgets_path = budgets_dir().join("budgets.ron");
     let budgets: Budgets = match std::fs::read_to_string(&budgets_path) {
-        Ok(content) => ron::from_str(&content).expect("budgets.ron invalide"),
+        // `implicit_some`, comme les scénarios : `max_rollback_ms: 18.0` plutôt que `Some(18.0)`.
+        Ok(content) => ron::Options::default()
+            .with_default_extension(ron::extensions::Extensions::IMPLICIT_SOME)
+            .from_str(&content)
+            .expect("budgets.ron invalide"),
         Err(_) => Budgets {
-            default: BudgetConfig { min_sim_fps: 40.0 },
+            default: BudgetConfig {
+                min_sim_fps: 40.0,
+                max_rollback_ms: None,
+            },
             scenarios: BTreeMap::new(),
         },
     };
@@ -225,12 +236,17 @@ fn scenarios() {
         let outcome = run(&scenario);
 
         let metrics_str = format!(
-            "| frames={} fps={:.1} entités_max={} balles_max={} ennemis_max={}",
+            "| frames={} fps={:.1} entités_max={} balles_max={} ennemis_max={} save={:.2}ms load={:.2}ms sim={:.2}ms rollback×12={:.1}ms snapshot~{}KiB",
             outcome.metrics.frames,
             outcome.metrics.sim_fps,
             outcome.metrics.entities_max,
             outcome.metrics.bullets_max,
-            outcome.metrics.enemies_max
+            outcome.metrics.enemies_max,
+            outcome.metrics.save_ms_avg,
+            outcome.metrics.load_ms_avg,
+            outcome.metrics.advance_ms_avg,
+            outcome.metrics.rollback_ms_worst,
+            outcome.metrics.snapshot_bytes_max / 1024
         );
         eprintln!(
             "{name}: {} {} ({:.1?})",
@@ -248,12 +264,27 @@ fn scenarios() {
         // Budget : bloquant seulement en bench (`ALACOD_BENCH_STRICT=1`, `make bench`) ; les
         // mesures d'un poste chargé (compilations en parallèle) ne doivent pas casser les tests.
         let budget = budgets.scenarios.get(&name).unwrap_or(&budgets.default);
+        let strict = std::env::var("ALACOD_BENCH_STRICT").is_ok_and(|v| v == "1");
+        let mut over_budget = Vec::new();
         if outcome.metrics.sim_fps < budget.min_sim_fps {
-            let message = format!(
+            over_budget.push(format!(
                 "{name}: budget : {:.1} fps < {:.1} fps",
                 outcome.metrics.sim_fps, budget.min_sim_fps
-            );
-            if std::env::var("ALACOD_BENCH_STRICT").is_ok_and(|v| v == "1") {
+            ));
+        }
+        if let Some(max_rollback_ms) = budget.max_rollback_ms {
+            if outcome.metrics.rollback_ms_worst > max_rollback_ms {
+                over_budget.push(format!(
+                    "{name}: budget : pire rollback {:.1} ms > {:.1} ms (restauration {:.2} ms + 12 × {:.2} ms de simulation)",
+                    outcome.metrics.rollback_ms_worst,
+                    max_rollback_ms,
+                    outcome.metrics.load_ms_avg,
+                    outcome.metrics.advance_ms_avg
+                ));
+            }
+        }
+        for message in over_budget {
+            if strict {
                 failures.push(message);
             } else {
                 eprintln!("  attention, {message}");

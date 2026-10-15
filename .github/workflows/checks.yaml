@@ -59,6 +59,9 @@ jobs:
       - name: Check deterministic patterns and rollback registration
         run: make check_forbidden check_rollback_registration
 
+      - name: Check simulation/presentation boundary (ECS-only crates)
+        run: make check_sim_boundary
+
       - name: Run workspace tests (headless, including P2P regression tests)
         run: make test_crates
 

@@ -65,11 +65,11 @@ class DeterminismGuardTests(unittest.TestCase):
 
 
 class PerformanceReviewTests(unittest.TestCase):
-    def metrics(self, fps=180, frames=600, players=4):
-        return {"bench": dict(sim_fps=fps, frames=frames, players=players)}
+    def metrics(self, fps=180, frames=600, players=4, **costs):
+        return {"bench": dict(sim_fps=fps, frames=frames, players=players, **costs)}
 
-    def compare(self, current, baseline, names=("bench",), minimum=None):
-        return perf.compare(current, baseline, names, 10, minimum)[1]
+    def compare(self, current, baseline, names=("bench",), minimum=None, max_rollback=None):
+        return perf.compare(current, baseline, names, 10, minimum, max_rollback)[1]
 
     def test_regression_is_blocking_even_above_absolute_floor(self):
         self.assertTrue(self.compare(self.metrics(160), self.metrics(200)))
@@ -97,6 +97,24 @@ class PerformanceReviewTests(unittest.TestCase):
             path.write_text("[]")
             with self.assertRaises(ValueError):
                 perf.load_metrics(path)
+
+    def test_frame_cost_increase_is_a_regression_even_with_same_fps(self):
+        # La frame de simulation coûte 20 % de plus : le débit du harness peut masquer le
+        # surcoût (moins de rollbacks, machine plus libre) ; le coût par frame, lui, échoue.
+        self.assertTrue(self.compare(
+            self.metrics(advance_ms_avg=1.2), self.metrics(advance_ms_avg=1.0)))
+        self.assertEqual(self.compare(
+            self.metrics(advance_ms_avg=1.05, load_ms_avg=0.4), self.metrics(advance_ms_avg=1.0, load_ms_avg=0.5)), [])
+
+    def test_measurements_without_costs_are_compared_on_fps_only(self):
+        self.assertEqual(self.compare(self.metrics(advance_ms_avg=3.0), self.metrics()), [])
+
+    def test_rollback_ceiling_requires_the_measure(self):
+        self.assertTrue(self.compare(self.metrics(), self.metrics(), max_rollback=40))
+        self.assertTrue(self.compare(
+            self.metrics(rollback_ms_worst=45.0), self.metrics(), max_rollback=40))
+        self.assertEqual(self.compare(
+            self.metrics(rollback_ms_worst=35.0), self.metrics(), max_rollback=40), [])
 
 
 class P2PTraceTests(unittest.TestCase):

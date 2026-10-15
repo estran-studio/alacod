@@ -316,6 +316,33 @@ Variables d'environnement (natif) :
 
 Avant/après un refactoring de la simulation, comparer les traces : elles doivent être identiques.
 
+### Coût du rollback (mesure, jamais dans la simulation)
+
+`utils::snapshot_profile` chronomètre les schedules bevy_ggrs : `SaveWorld` (checksum + clone des
+snapshots), `LoadWorld` (restauration) et `AdvanceWorld` (une frame de simulation), et inventorie
+les types rollback (porteurs × `size_of`, sans le tas). Toujours actif dans le runner de
+scénarios : métriques `save_ms_avg`, `load_ms_avg`, `advance_ms_avg` (et `_max`),
+`snapshot_bytes_max`, `snapshot_heaviest`, et `rollback_ms_worst` = restauration + 12 frames
+resimulées (`jjrs::p2p::MAX_PREDICTION_WINDOW`), à comparer aux 16,7 ms d'un tick à 60 Hz.
+`tests/budgets.ron` accepte `max_rollback_ms` par scénario (même régime que `min_sim_fps`) ;
+`make perf_review` échoue sur une hausse de plus de 10 % d'un coût par frame
+(`PERF_MAX_ROLLBACK_MS` : plafond absolu). Dans le jeu : `ALACOD_SNAPSHOT_PROFILE=1` (résumé et
+types les plus lourds dans le journal à la sortie, repris par le résumé du nightly pour le p2p
+réel) ; `ALACOD_SYSTEM_PROFILE=1` ajoute le temps par `RollbackSystemSet` (plus une tranche
+`FlowField`), pour savoir où passe la frame. Mesures du 2026-10-15 et dette D67 (champ de flux
+reconstruit à chaque changement de case d'un joueur : 9 ms par frame avec quatre joueurs qui
+bougent) dans `docs/etat-engine.md`.
+
+### Frontière simulation/présentation (prouvée par la compilation)
+
+`make check_sim_boundary` (`scripts/check-sim-boundary.sh`, dans `make check` et la CI) vérifie
+que chaque crate de simulation listé `SIM` n'a aucun crate de présentation dans son graphe
+(`cargo tree` du crate seul) et que ces crates compilent ensemble en `--no-default-features`
+(bevy ECS seul). Les crates `PENDING` (`combat`, `animation`, `map`, `map_ldtk`, `game`) sont
+la dette D66, affichée sans bloquer ; un crate nouveau doit être classé (échec sinon). Un module
+qui a besoin de `Sprite`, `Window`, `KeyCode`, des assets ou du réseau va dans `game` (ou un
+crate `APP`), jamais dans un crate `SIM`.
+
 ## Scénarios (tests de comportement et de régression)
 
 `crates/scenario` joue des parties scriptées en headless, dans le processus de test :
@@ -361,8 +388,9 @@ Avant/après un refactoring de la simulation, comparer les traces : elles doiven
   - Format documenté dans `crates/game/src/replay.rs`.
 - `tests/scenarios/<nom>.trace` : trace d'état de référence. Toute différence fait échouer le test.
 - `tests/budgets.ron` : planchers de non-régression en frames simulées par seconde (défaut et
-  surcharges par scénario). Sous le plancher, `make test_scenarios` avertit ; `make bench`
-  (`ALACOD_BENCH_STRICT=1`) échoue.
+  surcharges par scénario) et plafonds `max_rollback_ms` (pire rollback, voir « Coût du
+  rollback »). Hors budget, `make test_scenarios` avertit ; `make bench` (`ALACOD_BENCH_STRICT=1`)
+  échoue.
 - `ALACOD_SCENARIO=a,b` (liste ; nom court unique ou id `generated/<jeu>/<nom>`, sans extension ;
   un nom inconnu ou ambigu est une erreur, les métriques utilisent les ids uniques) et `ALACOD_SCENARIO_SLICE=k/n` (tranche k de n, pour jouer la suite par
   lots quand une commande est limitée en durée) ;

@@ -239,6 +239,7 @@ else
                     # délai), aucun rollback n'avait lieu : le log de trace en donne le compte.
                     ALACOD_INPUT="script:${NIGHTLY_P2P_SCRIPT:-tests/scenarios/p2p_smoke.ron}" \
                     ALACOD_INPUT_DELAY="${NIGHTLY_P2P_INPUT_DELAY:-0}" \
+                    ALACOD_SNAPSHOT_PROFILE=1 \
                     ALACOD_HEADLESS=1 \
                     ALACOD_STATE_TRACE="${TRACE_FILE}" \
                     ALACOD_EXIT_AT_FRAME=600 \
@@ -290,10 +291,15 @@ else
                     fi
                     # Preuve que le rollback a eu lieu sur le transport : frames resimulées par
                     # client (log de trace). Zéro partout = run sans valeur pour le rollback.
+                    # Et le coût mesuré de ce rollback (`ALACOD_SNAPSHOT_PROFILE`) : sauvegarde,
+                    # restauration, frame de simulation, taille estimée du snapshot.
                     RESIM=""
                     for ((i = 0; i < NUM_PLAYERS; i++)); do
-                        COUNT=$(sed -n 's/.*frames resimulées après rollback : \([0-9]*\).*/\1/p' "logs/p2p-${NUM_PLAYERS}-client_${i}.log" | tail -1)
+                        CLIENT_LOG="logs/p2p-${NUM_PLAYERS}-client_${i}.log"
+                        COUNT=$(sed -n 's/.*frames resimulées après rollback : \([0-9]*\).*/\1/p' "${CLIENT_LOG}" | tail -1)
                         RESIM="${RESIM} client_${i}=${COUNT:-?}"
+                        PROFILE=$(sed -n 's/.*profil rollback : \(save .*\)/\1/p' "${CLIENT_LOG}" | tail -1)
+                        append_summary "- ${NUM_PLAYERS}p client_${i} : ${PROFILE:-profil rollback absent}"
                     done
                     append_summary "- ${NUM_PLAYERS}p : traces identiques ; frames resimulées :${RESIM}"
                     if ! echo "${RESIM}" | grep -Eq '=[1-9][0-9]*'; then

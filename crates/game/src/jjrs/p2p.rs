@@ -378,6 +378,10 @@ pub fn system_after_map_loaded(
     app_state.set(AppState::InGame);
 }
 
+/// Frames que GGRS prédit au plus avant d'attendre les inputs distants : le pire rollback
+/// restaure une frame puis en resimule autant (métrique `rollback_ms_worst` des scénarios).
+pub const MAX_PREDICTION_WINDOW: usize = 12;
+
 /// Configuration commune aux chemins natif et navigateur. GGRS désactive la détection
 /// des desyncs par défaut : enregistrer des checksums ne suffit pas à les échanger.
 /// Générique pour exercer cette politique avec deux pairs en mémoire dans les tests.
@@ -394,7 +398,7 @@ fn session_builder<C: ggrs::Config>(
     Ok(ggrs::SessionBuilder::<C>::new()
         .with_num_players(config.max_player)?
         .with_fps(crate::core::SIM_FPS as usize)?
-        .with_max_prediction_window(12)
+        .with_max_prediction_window(MAX_PREDICTION_WINDOW)
         .with_desync_detection_mode(ggrs::DesyncDetection::On {
             interval: config.desync_interval,
         })

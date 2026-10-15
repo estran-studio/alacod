@@ -40,23 +40,45 @@ Direction : juste. Déterminisme vérifiable, scénarios comme tests, clones com
 contenu en RON sont exactement ce qu'il faut pour un engine de roguelike coop en rollback ; peu
 de projets ont ce filet. Les trois risques qui pèsent le plus sur « l'ultime engine p2p » :
 
-1. **Le coût des snapshots n'est pas mesuré.** ≈ 74 composants et 17 ressources rollback plus
-   16 `FrameEvents`, clonés à chaque frame (bevy_ggrs, pas de `sparse_saving`), fenêtre de
-   prédiction 12 : un paquet en retard coûte jusqu'à 12 sauvegardes et 12 resimulations. Les
-   métriques de scénario ne donnent que des fps de simulation ; aucune mesure de
-   `SaveWorld`/`LoadWorld`. Des composants de configuration (`Weapon` avec ses `BTreeMap`,
-   `EnemyAiConfig`) et un `PointerWorldPosition` sans lecteur sont dans chaque snapshot. Avant
-   M3, instrumenter le temps de sauvegarde/restauration par frame et la taille des snapshots sur
-   `bench_bullets_room` (570 entités), puis décider de l'élagage.
-2. **La frontière simulation/présentation n'est pas prouvée par la compilation.** `game`
-   (≈ 28 k lignes) héberge à la fois la simulation (personnages, IA, interaction, vagues,
-   économie, objets, progression, boss) et la présentation (UI, caméra, audio, lumière, réseau),
-   en `bevy` complet ; `combat` tire `animation` (bevy complet), les loaders RON et
-   `bevy_matchbox` (`PeerConfig`) ; `spawn_bullet` pose un `Sprite` depuis `GgrsSchedule`.
-   Le portage console décidé en §7 du plan n'est donc pas « rien à faire » : c'est un
-   découpage `game_sim`/`game_app` à faire avant que le crate ne grossisse encore, avec un
-   `cargo check` ECS seul des crates de simulation en CI.
-3. **La partie en ligne n'a pas de politique de session.** Une déconnexion termine la partie
+1. **Le coût du rollback est maintenant mesuré, et ce n'est pas les snapshots.** Décision du
+   2026-10-15 (William) : points 1 et 2 passent dans le flow ; le point 3 reste une dette.
+   `utils::snapshot_profile` chronomètre `SaveWorld`/`LoadWorld`/`AdvanceWorld` dans chaque
+   scénario (métriques `save_ms_avg`, `load_ms_avg`, `advance_ms_avg`, `rollback_ms_worst` =
+   restauration + 12 frames resimulées ; plafonds `max_rollback_ms` dans `tests/budgets.ron`,
+   régression de plus de 10 % refusée par `make perf_review`) et dans le jeu
+   (`ALACOD_SNAPSHOT_PROFILE=1`, repris par le résumé du nightly sur le p2p réel). Mesures du
+   2026-10-15, poste M4, ms par frame simulée :
+
+   | scénario | entités | save | load | simulation | pire rollback (×12) | snapshot |
+   |---|---|---|---|---|---|---|
+   | bench_bullets_room (535 balles) | 570 | 0,60 | 0,46 | 1,05 | 13,0 | ~198 KiB |
+   | bench_horde (61 zombies, 3 joueurs) | 272 | 0,46 | 0,45 | 2,91 | 35,3 | ~88 KiB |
+   | four_players_idle | 141 | 0,20 | 0,17 | 0,11 | 1,5 | ~29 KiB |
+   | **p2p_smoke (4 joueurs qui bougent, 4 zombies)** | 150 | 0,51 | 0,38 | **7,06** | **85,1** | ~30 KiB |
+
+   Les snapshots coûtent ~0,5 ms (dont 0,37 de checksum) même à 570 entités : élaguer
+   `Weapon`/`EnemyAiConfig`/`GgrsNetId` (une `String` clonée par entité) est secondaire. Ce qui
+   compte, c'est la frame de simulation quand des **joueurs bougent** : 64× plus chère qu'à
+   l'arrêt, et `ALACOD_SYSTEM_PROFILE=1` (temps par `RollbackSystemSet`) l'attribue à 98 % au
+   champ de flux, reconstruit à chaque changement de case d'un joueur parce que
+   `FlowFieldCache::update_interval` vaut 0 par `Default` (dette **D67**, deux sorties
+   chiffrées). En ligne, un rollback de 12 frames coûte cinq ticks avant toute horde. Autre
+   constat du p2p réel : l'exécuteur multithread de Bevy sur les schedules du rollback coûtait
+   2,7× sur la sauvegarde (1,28 → 0,47 ms) ; `game::core::single_threaded_rollback_schedules`
+   les passe en monothread dans le jeu comme dans les scénarios (`ALACOD_EXECUTOR=multi` pour
+   comparer).
+2. **La frontière simulation/présentation est prouvée par la compilation pour 11 crates,
+   en dette pour 5.** `make check_sim_boundary` (`scripts/check-sim-boundary.sh`, `make check`
+   et CI) : `cargo tree` du crate seul sans crate de présentation, puis `cargo check
+   --no-default-features` ECS seul (35 s). Propres : `sim_core`, `stats`, `effects`, `behaviors`,
+   `world`, `run`, `items`, `meta`, `content`, `bevy_fixed`, `utils` (journal natif, plugin web
+   et caméra de debug déménagés dans `game`). Dette **D66**, affichée sans bloquer : `combat`
+   (`animation`, loaders RON, `bevy_matchbox`, `Sprite` dans `spawn_bullet`), `animation`,
+   `map`/`map_ldtk` (`bevy_ecs_ldtk`), `game` (≈ 28 k lignes, simulation et UI/caméra/audio/
+   réseau dans le même crate). Un crate nouveau doit être classé. Sort de D66 : `FacingDirection`
+   et `PeerConfig` vers `sim_core`, visuels de balle en présentation, puis `game_sim`/`game_app`.
+3. **La partie en ligne n'a pas de politique de session** (dette, pas prioritaire : décision du
+   2026-10-15). Une déconnexion termine la partie
    pour tout le monde (overlay et sortie du processus) alors que GGRS continue sans le pair
    parti ; pas de spectateur (`PlayerType::Spectator` n'est jamais ajouté au builder), pas de
    réglage de `disconnect_timeout`, flux allumette bloquant sur le thread principal avec
