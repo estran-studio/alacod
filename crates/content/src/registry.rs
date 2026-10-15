@@ -280,6 +280,9 @@ pub struct CharacterEntry {
     pub tags: Vec<String>,
     /// T1.5 : `ai` présent (personnage IA : la règle `MoveSpeed` → `EnemyMoveSpeed`).
     pub has_ai: bool,
+    /// D63 : `test_only: true`, contenu de laboratoire ignoré par l'analyse d'atteignabilité
+    /// (`reach`) ; sans effet en jeu (le type `game` ne lit pas ce champ).
+    pub test_only: bool,
     /// T1.5 : table de variantes (`variants`), dans l'ordre du fichier (doublons gardés pour
     /// la règle « nom en double »).
     pub variants: Option<VariantsEntry>,
@@ -550,6 +553,9 @@ pub struct WeaponEntry {
     pub mode_projectiles: BTreeMap<String, ProjectileSpecEntry>,
     /// T1.1 (B5 v1) : table `projectiles` de l'arme, cible des patterns de `on_expire`.
     pub projectiles: BTreeMap<String, ProjectileDefEntry>,
+    /// D63 : `config.test_only: true`, arme de laboratoire ignorée par l'analyse d'atteignabilité ;
+    /// sans effet en jeu (`combat::WeaponConfig` ne lit pas ce champ).
+    pub test_only: bool,
 }
 
 /// T1.1 (B5 v1) : mirroirs de `combat::projectile` pour le lint (`content` ne dépend pas de
@@ -1588,6 +1594,9 @@ struct CharacterFileSchema {
     /// T1.13 : cible de `generate_template` (règle « `counts_hits` »).
     #[serde(default)]
     counts_hits: bool,
+    /// D63 : contenu de test, ignoré par l'analyse d'atteignabilité (`WeaponConfigSchema` idem).
+    #[serde(default)]
+    test_only: bool,
     /// D41 : corps (dégagement des points d'apparition des cavernes). Écrit sans `Some(...)`
     /// dans les RON de personnages (`collider: (...)`, comme `CharacterConfig`).
     #[serde(default, deserialize_with = "present")]
@@ -1928,6 +1937,9 @@ struct WeaponConfigSchema {
     /// T1.1 : table `projectiles` (voir `WeaponEntry::projectiles`).
     #[serde(default)]
     projectiles: BTreeMap<String, ProjectileDefEntry>,
+    /// D63 : voir `WeaponEntry::test_only`.
+    #[serde(default)]
+    test_only: bool,
 }
 
 fn zero_spread() -> FixedField {
@@ -2228,6 +2240,7 @@ fn load_characters(
                     .map(|TargetingEntry::Nearest { ignore }| ignore.clone())
                     .unwrap_or_default(),
                 has_ai: parsed.ai.is_some(),
+                test_only: parsed.test_only,
                 squad: parsed
                     .ai
                     .as_ref()
@@ -2346,6 +2359,7 @@ fn load_weapons(
                     sprite: Some(entry.sprite_config.name).filter(|name| !name.is_empty()),
                     mode_projectiles,
                     projectiles: entry.config.projectiles,
+                    test_only: entry.config.test_only,
                 },
             );
         }
