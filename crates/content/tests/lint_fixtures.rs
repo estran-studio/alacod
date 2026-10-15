@@ -1462,6 +1462,32 @@ fn arena_and_boss_t7_fixtures_report_their_rule() {
     }
 }
 
+// M4-T0c (docs/conventions.md §62) : contrats du monde.
+#[test]
+fn world_contract_fixtures_report_their_rule() {
+    for (fixture, kind, expected) in [
+        (
+            "explode_radius_zero",
+            LintErrorKind::OutOfRange,
+            "Explode : rayon = 0",
+        ),
+        ("door_lock_key_zero", LintErrorKind::OutOfRange, "Key(0)"),
+        (
+            "hazard_period_zero",
+            LintErrorKind::OutOfRange,
+            "period = 0",
+        ),
+        (
+            "bomb_fuse_zero",
+            LintErrorKind::OutOfRange,
+            "fuse_frames = 0",
+        ),
+    ] {
+        let (_, _, errors) = load_and_lint(&fixture_dir(fixture)).unwrap();
+        assert_has_error(&errors, kind, expected);
+    }
+}
+
 // D61 (docs/conventions.md §18) : bouclier et stats lues.
 #[test]
 fn shield_zero_fixture_reports_out_of_range() {

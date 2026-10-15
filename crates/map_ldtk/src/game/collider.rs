@@ -86,6 +86,14 @@ pub(crate) fn spawn_level_walls(
                 }
             }
         }
+        // M4-T0c (§62) : rochers de la salle (couche optionnelle `Rocks`)
+        spawn_level_rocks(
+            commands,
+            level_data,
+            collision_settings,
+            id_factory,
+            level_transform.translation.truncate(),
+        );
         // Find the collision layer (assuming it's named "Collision" or similar)
         if let Some(collision_layer) = level_data.layer_instances.as_ref().and_then(|layers| {
             layers.iter().find(|layer| {
@@ -139,6 +147,64 @@ pub(crate) fn spawn_level_walls(
             total_walls,
             flow_field_cache.intgrid_wall_cells.len()
         );
+    }
+}
+
+/// Rochers d'un niveau (M4-T0c, `docs/conventions.md` §62) : une entité rollback par case de la
+/// couche IntGrid `Rocks` (1 = rocher, 2 = rocher à butin), dans l'ordre de lecture de la couche,
+/// numérotée par la factory (`rock_<col>_<row>`). Collider de la couche des murs et `Obstacle`
+/// `Wall` : le joueur ne le traverse pas et le champ de flux le contourne. Un niveau sans la
+/// couche n'ajoute rien (aucune entité, aucun id consommé).
+fn spawn_level_rocks(
+    commands: &mut Commands,
+    level_data: &bevy_ecs_ldtk::ldtk::Level,
+    collision_settings: &CollisionSettings,
+    id_factory: &mut GgrsNetIdFactory,
+    level_offset: Vec2,
+) {
+    let Some(layer) = level_data
+        .layer_instances
+        .as_ref()
+        .and_then(|layers| layers.iter().find(|l| l.identifier == world::LAYER_ROCKS))
+    else {
+        return;
+    };
+    let size = layer.grid_size;
+    let height = layer.c_hei;
+    let origin_x = (level_offset.x as i32).div_euclid(size);
+    let origin_y = (level_offset.y as i32).div_euclid(size);
+    for (col, row, loot) in world::rocks_of_layer(&layer.int_grid_csv, layer.c_wid as usize) {
+        let cell = (origin_x + col as i32, origin_y + height - 1 - row as i32);
+        let center = fixed_math::FixedVec3::new(
+            fixed_math::Fixed::from_num(cell.0 * size + size / 2),
+            fixed_math::Fixed::from_num(cell.1 * size + size / 2),
+            fixed_math::Fixed::ZERO,
+        );
+        let transform = fixed_math::FixedTransform3D::new(
+            center,
+            fixed_math::FixedMat3::IDENTITY,
+            fixed_math::FixedVec3::ONE,
+        );
+        let side = fixed_math::Fixed::from_num(size);
+        commands
+            .spawn((
+                world::Rock { cell, loot },
+                transform.to_bevy_transform(),
+                transform,
+                Collider {
+                    shape: ColliderShape::Rectangle {
+                        width: side,
+                        height: side,
+                    },
+                    offset: fixed_math::FixedVec3::ZERO,
+                },
+                game::collider::CollisionLayer(collision_settings.wall_layer),
+                game::character::enemy::ai::Obstacle::new(
+                    game::character::enemy::ai::ObstacleType::Wall,
+                ),
+                id_factory.next(format!("rock_{}_{}", cell.0, cell.1)),
+            ))
+            .insert(Rollback);
     }
 }
 

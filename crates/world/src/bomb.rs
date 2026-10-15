@@ -56,6 +56,16 @@ pub fn bomb_requested(buttons: u32, def: Option<&BombDef>, bit: u32) -> bool {
     def.is_some() && buttons & bit != 0
 }
 
+/// Une explosion vient d'avoir lieu (`FrameEvents`, neutre) : moment clé `explosion`. Déclaré par
+/// M4-T0c, émis par M4-T4 ; position en champs séparés (`FixedVec2` n'est pas `Hash`).
+#[derive(Debug, Clone, PartialEq, Eq, Hash)]
+pub struct Exploded {
+    pub frame: u32,
+    pub x: Fixed,
+    pub y: Fixed,
+    pub radius: Fixed,
+}
+
 /// Problèmes d'une définition (lint) ; vide si elle est valide.
 pub fn bomb_problems(def: &BombDef) -> Vec<String> {
     let mut out = Vec::new();

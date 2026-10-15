@@ -15,10 +15,11 @@ pub mod grid;
 pub mod nav;
 pub mod plugin;
 pub mod props;
+pub mod rocks;
 pub mod rooms;
 pub mod surface;
 
-pub use bomb::{bomb_problems, bomb_requested, Bomb, BombDef};
+pub use bomb::{bomb_problems, bomb_requested, Bomb, BombDef, Exploded};
 pub use cave::{generate, is_open_within, points_of_interest, CaveConfig, CavePoints};
 pub use destroy::destroy_terrain;
 pub use explosion::{explosion_plan, within_radius, ExplosionPlan};
@@ -29,6 +30,7 @@ pub use props::{
     flip_direction, flipped_rect, BarrelDef, BarrelState, FlipDirection, PitSafePosition, PropDef,
     PropTable, TableDef, TableState,
 };
+pub use rocks::{rocks_of_layer, Rock, LAYER_ROCKS, ROCK_LOOT_VALUE, ROCK_VALUE};
 pub use rooms::{
     entrance_point, inside_box, room_rng_stream, ArenaClocks, ArenaDef, ArenaWave, DoorLock,
     DoorLocks, RoomChanged, RoomDormant, RoomKind, RoomKindDef, RoomKindTable, RoomState,

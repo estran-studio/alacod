@@ -1,0 +1,1 @@
+(intgrid_value: 5, tags: ["piques"], move_speed: "1.0", hazard: Some((damage: "1.0", period: 0)))

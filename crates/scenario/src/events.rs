@@ -155,6 +155,7 @@ impl Plugin for GameEventsPlugin {
                 detect_events,
                 feedback_events.after(detect_events),
                 room_events.after(detect_events),
+                explosion_events.after(detect_events),
                 item_events.after(detect_events),
                 blank_events.after(detect_events),
                 boss_events.after(detect_events),
@@ -265,6 +266,27 @@ fn room_events(
             frame: change.frame,
             kind: "room",
             label: format!("salle {} {what}", change.kind),
+        });
+    }
+}
+
+/// Moments clés `explosion` (M4-T0c, `docs/conventions.md` §62) : une explosion (`world::Exploded`).
+/// Déclaré ici, émis par M4-T4 : aucun scénario existant n'en produit.
+fn explosion_events(
+    exploded: Option<Res<FrameEvents<world::Exploded>>>,
+    mut events: ResMut<GameEvents>,
+) {
+    let Some(exploded) = exploded else {
+        return;
+    };
+    for explosion in exploded.iter() {
+        events.events.push(GameEvent {
+            frame: explosion.frame,
+            kind: "explosion",
+            label: format!(
+                "explosion en ({}, {}) rayon {}",
+                explosion.x, explosion.y, explosion.radius
+            ),
         });
     }
 }

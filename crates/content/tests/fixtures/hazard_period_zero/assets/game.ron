@@ -1,0 +1,8 @@
+// Fixture M4-T0c : hazard_period_zero
+(
+    name: "fixture-hazard_period_zero",
+    content_folders: [
+        (path: "surfaces", kind: "Surface"),
+    ],
+    entry: (start_map: "unused", default_seed: 1),
+)

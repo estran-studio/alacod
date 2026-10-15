@@ -367,6 +367,7 @@ crate `APP`), jamais dans un crate `SIM`.
     - T1.10 progression et mutations (§27) : `Gauge`, `Level`, `Mutations`.
     - M2-E1 salles (§35) : `RoomState` ; M2-T0b objets (§36) : `HasItem`, `ItemCharge`, `Consumable` ; M2-T5 (§48) : `ItemCount`.
     - M2-T0c boss (§37) : `BossPhase` ; profil (§38) : `ProfileHas`.
+    - M4-T0c contrats du monde (§62) : `DoorLocked` ; `EntityCount(kind: Rock)`.
     - M2-T11 surfaces v2 (§46) : `EntityCount(kind: Barrel | Table)`.
     - T1.18 HUD throne (§32) : `HudText` (texte d'une source du HUD, présentation, hors trace).
     - M2-T18 écrans (§56) : `ScreenText` (texte d'une section de l'écran de pause ou de l'inventaire, présentation, hors trace) ; le script `ui:` du scénario joue les actions d'UI (`Toggle(Pause)`, `Down`, `Confirm`…), jamais dans l'input rollback.
@@ -385,7 +386,8 @@ crate `APP`), jamais dans un crate `SIM`.
     mutation `ChoiceA`/`ChoiceB`/`ChoiceC` = bits d'input 13/14/15 (`INPUT_CHOICE_A/B/C`,
     touches 1/2/3) ; bits 0–12 : déplacement, recharge, mode, sprint, dash, modificateur,
     interaction, mêlée, crash de debug, lâcher d'arme ; bits 16/17 (M2-T0b, input `u32`) :
-    `UseActive` (objet actif) et `Blank`.
+    `UseActive` (objet actif) et `Blank` ; bit 18 (M4-T0c, §62) : `Bomb` (touche E), sans effet
+    tant que le personnage n'a pas de `bomb`.
   - Format documenté dans `crates/game/src/replay.rs`.
 - `tests/scenarios/<nom>.trace` : trace d'état de référence. Toute différence fait échouer le test.
 - `tests/budgets.ron` : planchers de non-régression en frames simulées par seconde (défaut et

@@ -3903,3 +3903,77 @@ un scénario : le « personnage d'essai » de la fiche est l'arme, donnée par `
 Scénarios : `tears_infinite` (300 frames de tir, `Ammo` à 0 tout du long, les coups continuent),
 `tears_shot_speed` (avec `lentille`, la larme touche `target` à une frame où, dans le témoin
 `tears_shot_speed_sans_objet`, elle n'est pas encore arrivée).
+
+
+## 62. Contrats du monde : bombes, rochers, piques, portes verrouillées, grille (M4-T0c)
+
+Contrats seuls, sans exécution : M4-T4 (bombes, rochers cassés, mur secret, piques) et M4-T5
+(planificateur en grille) les exécutent. **Aucune trace existante ne bouge** : tout type nouveau est
+neutre ou absent du contenu existant, l'input `Bomb` n'est lu par personne.
+
+### Explosion (`effects::Action::Explode`)
+
+`Explode { radius, damage, destroys }`, en fin d'enum `Action` (les hashs d'avant ne bougent pas).
+Règle pure `world::explosion_plan(grid, center, radius, destroys, candidates)` : les cibles sont les
+personnages à PV dont le centre est à **strictement** moins de `radius` (carré en `FixedWide`), rendus
+dans l'ordre croissant de `GgrsNetId.0` ; `destroys` casse aussi les rochers de `CellGrid` du rayon
+(`destroy_terrain`). Elle vit dans `world` (comme `destroy_terrain`, dans la frontière `SIM`), pas dans
+`combat` : elle ne connaît que des identifiants et des positions. Lint : `radius > 0`, `damage >= 0`,
+puis `Unsupported` dans un effet tant que M4-T4 ne l'exécute pas ; refusée dans un power-up. Le baril
+**ne bascule pas** dessus ici (sa trace ne doit pas bouger) : M4-T4 le fera avec preuve. Moment clé
+`explosion` (`world::Exploded`, `FrameEvents` neutre) déclaré, émis en T4.
+
+### Bombe
+
+Bit d'input `INPUT_BOMB` (18), bouton `Bomb` des scénarios (`game::replay::Button`), touche **E**
+(présentation ; la manette attend Q17). `CharacterConfig.bomb: Option<world::BombDef>`
+(`BombDef { fuse_frames, radius, damage }`, absent = pas de bombe, aucun contenu existant n'en a) ;
+composant `world::Bomb { owner: GgrsNetId, fuse_until, radius, damage }`, rollback **neutre**.
+`world::bomb_requested(buttons, def, bit)` est la lecture de l'input : faux sans `bomb`. Lint :
+`fuse_frames > 0`, `radius > 0`, `damage >= 0`. `fuzz_inputs` : le bit 18 n'a aucun effet sans `bomb`
+(personne ne le lit), donc aucune desync possible avant T4.
+
+### Rochers de salle
+
+Couche IntGrid optionnelle **`Rocks`** d'un gabarit LDtk (1 = rocher, 2 = rocher à butin ; le nom
+final dépend de Q9). **Écart à la proposition de la fiche** (remplir `CellGrid`) : un rocher est **une
+entité rollback** `world::Rock { cell, loot }` (neutre) avec collider (couche des murs) et `Obstacle`
+`Wall`, créée à côté des murs (`map_ldtk::game::collider::spawn_level_rocks`), numérotée
+`rock_<x>_<y>` dans l'ordre de lecture de la couche, niveaux triés par iid. Raison : `CellGrid` est
+dense, ancrée à l'origine et non négative, et `rebuild_cave_walls_system` détruit **tous** les murs pour
+les recréer depuis la grille et `reload_walls` remplace les cases murées de la navigation par celles
+de la grille : sur un étage assemblé (salles à des positions quelconques, murs IntGrid propres) cela
+effacerait les murs des salles. Le champ de flux voit l'`Obstacle` sans code de plus. Un niveau sans
+la couche ne crée aucune entité ni aucun id : traces inchangées. M4-T4 détruira un rocher par
+`despawn_rollback` (explosion `destroys`). Attente : `EntityCount(kind: Rock)`.
+
+### Piques
+
+`SurfaceDef.hazard: Option<HazardDef { damage, period }>` (fin de structure, absent des surfaces
+existantes ; fichier `surfaces/*.ron`, champ `hazard`). Règle pure `HazardDef::is_due(last_hit,
+frame)` : un coup au plus toutes les `period` frames. Lint : `damage > 0`, `period > 0`. Dégâts `True`
+ou typés (demi-cœurs : Q2) et exécution en T4.
+
+### Portes verrouillées
+
+`RoomKindDef.door_lock: Option<DoorLock>`, `DoorLock { Key(n), Secret }` (`rooms/*.ron`, hors
+sérialisation quand absent). `Key(n)` : porte fermée jusqu'à une Interaction avec `n` clés
+(`KEY_ITEM`, consommées à l'ouverture) ; `Secret` : mur plein jusqu'à une explosion `destroys`. État
+rollback **neutre** `world::DoorLocks` (ensemble des salles dont la porte est ouverte, vide par
+défaut). Lint : `Key(0)`. Attente : `DoorLocked(kind, nth, locked, at_frame)` (même tri que
+`RoomState`). Types réservés dans le testbed, aucun dans `gungeon` : `rooms/secrete.ron` (`Secret`),
+`tresor.ron` (`Key(1)`), `diable.ron` (sémantique en T8).
+
+### Disposition en grille
+
+`FloorGrammar.layout: Option<FloorLayout>`, `FloorLayout { Graph (défaut), Grid { cell, max } }`
+(Q8, proposition retenue : `cell` = 15 × 9 cases, une seule taille). Lint (`lint_floor_grammars`) :
+`cell` et `max` > 0, `max` contient au moins `rooms.0` salles, et chaque gabarit de la grammaire
+fait exactement `cell` cases avec une ouverture centrée sur chacun des quatre côtés. `plan_floor`
+**refuse** `Grid` (`FloorError::Unsupported`) tant que M4-T5 n'est pas livrée.
+
+### Testbed et scénarios
+
+Carte `testbed/rocks_static.ldtk` (`scripts/construire-cartes-t0c.py`) et scénario `rocks_static` :
+le joueur marche vers trois rochers qui ferment un couloir et s'y arrête ; quatre rochers comptés
+(dont un à butin) à f5 et à la fin ; `joueur_hors_mur` tient.
