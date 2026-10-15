@@ -15,15 +15,17 @@ registre `assets.yaml` de `throne` et `gungeon` est une copie marquée `statut: 
 
 | Fichier | Jeux | Usage | Licence enregistrée | Problème |
 |---|---|---|---|---|
-| `shot_pistol.ogg`, `shot_shotgun.ogg`, `shot_smg.ogg` (0,30 à 0,50 s) | zombies, throne, gungeon, testbed | clés `shot_pistol`/`shot_shotgun`/`shot_smg` (famille du mode de tir actif) | CC BY 3.0 (Michel Baradari) | lot A (2026-10-14) ; un fusil (`Manual`) sonne comme un pistolet |
+| `shot_pistol.ogg`, `shot_shotgun.ogg`, `shot_smg.ogg` (0,30 à 0,50 s) | zombies, throne, gungeon, testbed | clés `shot_pistol`/`shot_shotgun`/`shot_smg` (famille du mode de tir actif, ou `shot_sounds` par arme) | CC BY 3.0 (Michel Baradari) | lot A (2026-10-14) ; un lance-grenades `Manual` sonne comme un pistolet sauf `shot_sounds` |
 | `reload.ogg` (0,58 s) | idem | clé `reload` | CC0 (BMacZero) | lot A ; un son pour toutes les armes |
+| `hit`, `hurt`, `death`, `dash`, `door` `.ogg` (0,12 à 0,92 s) | idem | clés du même nom | CC0 (Kenney) | lot B (2026-10-14) |
+| `blank.ogg` (0,95 s) | gungeon, testbed | clé `blank` | CC0 (Kenney) | lot B |
 | `loop.ogg` (31 s) | zombies | musique (voir `game.ron`/feedback) | CC BY 4.0 (Jay You) | seule musique ; aucune musique de salle ni de boss |
 
 Avant le lot A : `machine-gun.ogg` (tir soutenu de 17,7 s coupé à 250 ms par `SHOT_SOUND_MAX`) et
 `machine-gun-reload.ogg`, sous Pixabay Content License (hors règle) : supprimés des quatre jeux.
 
 Clés de `sounds` connues du code : `shot_pistol`, `shot_shotgun`, `shot_smg`, `shot` (repli),
-`reload`. Rien pour impact, dash, blank, coffre, mort, pas, UI.
+`reload`, `hit`, `hurt`, `death`, `dash`, `blank`, `door`. Rien pour coffre, pas, UI.
 
 ### Sprites et tilesets
 
@@ -48,7 +50,7 @@ côté HUD (T2.12). Rien d'autre.
 ### Bilan licences
 
 Conformes (CC0 / CC BY / OFL) : blackHUNTERdev, Ansimuz, Caz, Jay You, Fira Mono, Michel Baradari
-et BMacZero (lot A).
+et BMacZero (lot A), Kenney (lot B).
 **Non conformes à la règle CC0/CC BY** : Pixel_Poem (licence propre), deepnight (CC BY-SA), deux
 fichiers de source inconnue. À traiter dans les lots ci-dessous. Les deux sons Pixabay ont été
 retirés par le lot A.
@@ -102,8 +104,10 @@ Vérifier la page de l'auteur, noter l'URL et la date, avant tout import.
   l'arme active (`Manual` → pistolet, `Shotgun` → pompe, `Automatic`/`Burst` → mitraillette),
   repli sur `shot` ; `SHOT_SOUND_MAX`/`SHOT_SOUND_FADE`/`ShotSounds::playing` supprimés ;
   `machine-gun*.ogg` (Pixabay) retirés. Présentation seule, traces inchangées.
-- **Lot B — sons d'événements** : impact, mort, dégâts joueur, dash, blank, coffre, porte
-  (nouvelles clés `sounds` + déclencheurs dans `feedback.rs`).
+- **Lot B — sons d'événements : FAIT** (même branche, rapport `assets-lot-a.md`) : `hit`, `hurt`,
+  `death`, `dash`, `blank`, `door` (Kenney, CC0), systèmes de présentation dans `feedback.rs` ;
+  `shot_sounds` (son de tir imposé par arme). **Reste : coffre**, à brancher quand M2-T5
+  (coffres) sera dans `main`.
 - **Lot C — gungeon : sprites** ennemis + boss + props (Tiny Dungeon ou équivalent), atlas
   dans `sprites/`, entrées `sprite_config` des `characters/*.ron`.
 - **Lot D — throne : sprites** des 14 personnages.
