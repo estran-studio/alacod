@@ -33,7 +33,7 @@
 
     starting_skin: "1",
     skins: {
-        "1": (layers: {"body": ""}),
+        "1": (layers: {}),
     },
 
     ai: Some((

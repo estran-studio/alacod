@@ -28,7 +28,6 @@ pub mod patterns;
 #[cfg(not(target_arch = "wasm32"))]
 pub mod performance;
 mod powerup_visuals;
-mod world_sprites;
 pub mod powerups;
 pub mod profile;
 pub mod progression;
@@ -47,6 +46,7 @@ pub mod system_set;
 pub mod ui;
 pub mod waves;
 pub mod web;
+mod world_sprites;
 pub use combat::weapons;
 
 use lazy_static::lazy_static;
