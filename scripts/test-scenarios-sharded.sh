@@ -18,6 +18,10 @@
 set -euo pipefail
 
 shards="${1:-${SHARDS:-4}}"
+if ! [[ "$shards" =~ ^[1-9][0-9]*$ ]]; then
+    echo "test-scenarios-sharded : nombre de tranches entier strictement positif requis" >&2
+    exit 2
+fi
 root="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
 cd "$root"
 export CARGO_TARGET_DIR="${CARGO_TARGET_DIR:-$root/target}"
@@ -68,6 +72,12 @@ if [ "${SHARD_PLAN:-duration}" != "roundrobin" ]; then
 fi
 
 started=$(date +%s)
+commit="$(git rev-parse --short HEAD)"
+if ! git diff --quiet; then commit="$commit-dirty"; fi
+metrics_commit="$CARGO_TARGET_DIR/metrics/$commit"
+mkdir -p "$metrics_commit"
+# Une ancienne part ne doit jamais remplacer une tranche qui n'a rien écrit dans ce run.
+rm -f "$metrics_commit"/metrics.shard-*-of-"$shards".json
 pids=()
 for ((i = 0; i < shards; i++)); do
     if [ "${#plan[@]}" -gt 0 ] && [ -z "${plan[$i]}" ]; then
@@ -99,25 +109,35 @@ if [ "$status" -ne 0 ]; then
     for log in "$logs"/shard-*.log; do
         sed -n '/panicked at/,/^note:/p' "$log"
     done
+    exit "$status"
 fi
 
-python3 - "$CARGO_TARGET_DIR/metrics" "$shards" <<'PY'
-import glob, json, os, sys
-metrics_dir, shards = sys.argv[1], sys.argv[2]
-parts = sorted(glob.glob(os.path.join(metrics_dir, "*", f"metrics.shard-*-of-{shards}.json")),
-               key=os.path.getmtime)
-if not parts:
-    sys.exit(0)
-commit_dir = os.path.dirname(parts[-1])
+python3 - "$CARGO_TARGET_DIR/metrics" "$metrics_commit" "$shards" <<'PY'
+import json, sys
+from pathlib import Path
+metrics_dir, commit_dir = map(Path, sys.argv[1:3])
+shards = int(sys.argv[3])
+parts = [commit_dir / f"metrics.shard-{i}-of-{shards}.json" for i in range(shards)]
 merged = {}
-for part in glob.glob(os.path.join(commit_dir, f"metrics.shard-*-of-{shards}.json")):
-    merged.update(json.load(open(part)))
-    os.remove(part)
+for part in parts:
+    # Absence, JSON invalide ou collision : échec, sans écraser latest.json.
+    data = json.loads(part.read_text())
+    if not isinstance(data, dict):
+        raise ValueError(f"métriques invalides : {part}")
+    duplicates = merged.keys() & data.keys()
+    if duplicates:
+        raise ValueError(f"scénarios dupliqués entre tranches : {sorted(duplicates)}")
+    merged.update(data)
+if not merged:
+    raise ValueError("aucun scénario exécuté")
 text = json.dumps(dict(sorted(merged.items())), indent=2)
-for path in (os.path.join(commit_dir, "metrics.json"), os.path.join(metrics_dir, "latest.json")):
-    with open(path, "w") as f:
-        f.write(text)
-print(f"métriques : {len(merged)} scénarios fusionnés dans {os.path.relpath(commit_dir)}")
+for path in (commit_dir / "metrics.json", metrics_dir / "latest.json"):
+    temporary = path.with_suffix(".json.tmp")
+    temporary.write_text(text)
+    temporary.replace(path)
+for part in parts:
+    part.unlink()
+print(f"métriques : {len(merged)} scénarios fusionnés dans {commit_dir}")
 PY
 echo "suite en $shards tranches : $(($(date +%s) - started)) s"
 exit "$status"

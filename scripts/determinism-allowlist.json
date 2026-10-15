@@ -1,0 +1,218 @@
+[
+  {
+    "path": "crates/combat/src/weapons/melee.rs",
+    "code": "platform::collections::HashMap,",
+    "count": 1,
+    "reason": "Assets de mêlée consultés par id, aucun ordre de simulation dérivé de cette collection."
+  },
+  {
+    "path": "crates/combat/src/weapons/melee.rs",
+    "code": "pub struct MeleeWeaponsConfig(pub HashMap<String, MeleeWeaponAsset>);",
+    "count": 1,
+    "reason": "Assets de mêlée consultés par id, aucun ordre de simulation dérivé de cette collection."
+  },
+  {
+    "path": "crates/combat/src/weapons/mod.rs",
+    "code": "platform::collections::HashMap,",
+    "count": 1,
+    "reason": "WeaponsConfig : assets consultés par id ; ordre explicite aux sites de création des armes."
+  },
+  {
+    "path": "crates/combat/src/weapons/mod.rs",
+    "code": "pub struct WeaponsConfig(pub HashMap<String, WeaponAsset>);",
+    "count": 1,
+    "reason": "WeaponsConfig : assets consultés par id ; ordre explicite aux sites de création des armes."
+  },
+  {
+    "path": "crates/game/src/balance.rs",
+    "code": "pub enemy_probabilities: HashMap<String, u32>,",
+    "count": 1,
+    "reason": "Probabilités de vagues : tri par nom avant le tirage dans le système de spawn."
+  },
+  {
+    "path": "crates/game/src/balance.rs",
+    "code": "use std::collections::{BTreeMap, HashMap};",
+    "count": 1,
+    "reason": "Probabilités de vagues : tri par nom avant le tirage dans le système de spawn."
+  },
+  {
+    "path": "crates/game/src/character/config.rs",
+    "code": "pub layers: HashMap<String, String>,",
+    "count": 1,
+    "reason": "Configuration des calques/skins ; calques convertis en BTreeMap à la création du personnage."
+  },
+  {
+    "path": "crates/game/src/character/config.rs",
+    "code": "pub skins: HashMap<String, CharacterSkin>,",
+    "count": 1,
+    "reason": "Configuration des calques/skins ; calques convertis en BTreeMap à la création du personnage."
+  },
+  {
+    "path": "crates/game/src/character/config.rs",
+    "code": "use bevy::{platform::collections::hash_map::HashMap, prelude::*, reflect::TypePath};",
+    "count": 1,
+    "reason": "Configuration des calques/skins ; calques convertis en BTreeMap à la création du personnage."
+  },
+  {
+    "path": "crates/game/src/character/player/input.rs",
+    "code": "let mut local_inputs = HashMap::new();",
+    "count": 1,
+    "reason": "Collecte locale des inputs hors simulation ; indexée par handle GGRS."
+  },
+  {
+    "path": "crates/game/src/character/player/input.rs",
+    "code": "pub held: HashMap<usize, BoxInput>,",
+    "count": 1,
+    "reason": "Collecte locale des inputs hors simulation ; indexée par handle GGRS."
+  },
+  {
+    "path": "crates/game/src/character/player/input.rs",
+    "code": "use bevy::{platform::collections::hash_map::HashMap, prelude::*};",
+    "count": 1,
+    "reason": "Collecte locale des inputs hors simulation ; indexée par handle GGRS."
+  },
+  {
+    "path": "crates/game/src/global_asset.rs",
+    "code": "HashMap::default();",
+    "count": 1,
+    "reason": "Handles Bevy de présentation et chargement ; accès par id, ordre de spawn explicite ailleurs."
+  },
+  {
+    "path": "crates/game/src/global_asset.rs",
+    "code": "let mut animations: HashMap<String, Handle<AnimationMapConfig>> = HashMap::default();",
+    "count": 1,
+    "reason": "Handles Bevy de présentation et chargement ; accès par id, ordre de spawn explicite ailleurs."
+  },
+  {
+    "path": "crates/game/src/global_asset.rs",
+    "code": "let mut spritesheets: HashMap<String, HashMap<String, Handle<SpriteSheetConfig>>> =",
+    "count": 1,
+    "reason": "Handles Bevy de présentation et chargement ; accès par id, ordre de spawn explicite ailleurs."
+  },
+  {
+    "path": "crates/game/src/global_asset.rs",
+    "code": "pub animations: HashMap<String, Handle<AnimationMapConfig>>,",
+    "count": 1,
+    "reason": "Handles Bevy de présentation et chargement ; accès par id, ordre de spawn explicite ailleurs."
+  },
+  {
+    "path": "crates/game/src/global_asset.rs",
+    "code": "pub character_configs: HashMap<String, Handle<CharacterConfig>>,",
+    "count": 1,
+    "reason": "Handles Bevy de présentation et chargement ; accès par id, ordre de spawn explicite ailleurs."
+  },
+  {
+    "path": "crates/game/src/global_asset.rs",
+    "code": "pub spritesheets: HashMap<String, HashMap<String, Handle<SpriteSheetConfig>>>,",
+    "count": 1,
+    "reason": "Handles Bevy de présentation et chargement ; accès par id, ordre de spawn explicite ailleurs."
+  },
+  {
+    "path": "crates/game/src/global_asset.rs",
+    "code": "use bevy::{platform::collections::hash_map::HashMap, prelude::*};",
+    "count": 1,
+    "reason": "Handles Bevy de présentation et chargement ; accès par id, ordre de spawn explicite ailleurs."
+  },
+  {
+    "path": "crates/game/src/ui/weapon_visuals.rs",
+    "code": "mut shown: Local<HashMap<usize, u32>>,",
+    "count": 1,
+    "reason": "Cache local de présentation, absent du rollback."
+  },
+  {
+    "path": "crates/game/src/ui/weapon_visuals.rs",
+    "code": "use bevy::{platform::collections::HashMap, prelude::*};",
+    "count": 1,
+    "reason": "Cache local de présentation, absent du rollback."
+  },
+  {
+    "path": "crates/game/src/waves/config.rs",
+    "code": "let mut tier_0_probs = HashMap::default();",
+    "count": 1,
+    "reason": "Configuration des probabilités ; les candidats sont triés avant consommation du RNG."
+  },
+  {
+    "path": "crates/game/src/waves/config.rs",
+    "code": "let mut tier_1_probs = HashMap::default();",
+    "count": 1,
+    "reason": "Configuration des probabilités ; les candidats sont triés avant consommation du RNG."
+  },
+  {
+    "path": "crates/game/src/waves/config.rs",
+    "code": "let mut tier_2_probs = HashMap::default();",
+    "count": 1,
+    "reason": "Configuration des probabilités ; les candidats sont triés avant consommation du RNG."
+  },
+  {
+    "path": "crates/game/src/waves/config.rs",
+    "code": "pub enemy_probabilities: HashMap<String, NumOrExpr>,",
+    "count": 1,
+    "reason": "Configuration des probabilités ; les candidats sont triés avant consommation du RNG."
+  },
+  {
+    "path": "crates/game/src/waves/config.rs",
+    "code": "use bevy::{platform::collections::HashMap, prelude::*, reflect::TypePath};",
+    "count": 1,
+    "reason": "Configuration des probabilités ; les candidats sont triés avant consommation du RNG."
+  },
+  {
+    "path": "crates/map/src/generation/floor.rs",
+    "code": "let started = std::time::Instant::now();",
+    "count": 1,
+    "reason": "Mesure de durée dans le test mille_graines_respectent_la_grammaire, hors simulation."
+  },
+  {
+    "path": "crates/map/src/generation/room.rs",
+    "code": "properties: HashMap::new(),",
+    "count": 1,
+    "reason": "Propriétés LDtk consultées par clé ; ne pas utiliser leur ordre pour la génération."
+  },
+  {
+    "path": "crates/map/src/generation/room.rs",
+    "code": "properties: HashMap<String, Value>,",
+    "count": 1,
+    "reason": "Propriétés LDtk consultées par clé ; ne pas utiliser leur ordre pour la génération."
+  },
+  {
+    "path": "crates/map/src/generation/room.rs",
+    "code": "pub properties: HashMap<String, Value>,",
+    "count": 1,
+    "reason": "Propriétés LDtk consultées par clé ; ne pas utiliser leur ordre pour la génération."
+  },
+  {
+    "path": "crates/map/src/generation/room.rs",
+    "code": "use std::{collections::HashMap, rc::Rc};",
+    "count": 1,
+    "reason": "Propriétés LDtk consultées par clé ; ne pas utiliser leur ordre pour la génération."
+  },
+  {
+    "path": "crates/map_ldtk/src/game/local.rs",
+    "code": "let spawns: HashMap<usize, &GlobalTransform> = player_spawn",
+    "count": 1,
+    "reason": "Index des points de spawn par handle, consulté par clé pendant le chargement."
+  },
+  {
+    "path": "crates/map_ldtk/src/game/local.rs",
+    "code": "use bevy::{ecs::system::SystemParam, platform::collections::HashMap, prelude::*};",
+    "count": 1,
+    "reason": "Index des points de spawn par handle, consulté par clé pendant le chargement."
+  },
+  {
+    "path": "crates/map_ldtk/src/game/plugin.rs",
+    "code": "pub registered_entities: std::collections::HashSet<Entity>,",
+    "count": 1,
+    "reason": "Registre de chargement hors GgrsSchedule ; uniquement contains/insert, aucune itération."
+  },
+  {
+    "path": "crates/map_ldtk/src/game/plugin.rs",
+    "code": "registered_entities: std::collections::HashSet::new(),",
+    "count": 1,
+    "reason": "Registre de chargement hors GgrsSchedule ; uniquement contains/insert, aucune itération."
+  },
+  {
+    "path": "crates/map_ldtk/src/generation/mod.rs",
+    "code": "let started = std::time::Instant::now();",
+    "count": 1,
+    "reason": "Mesure de durée des tests de génération, hors simulation."
+  }
+]

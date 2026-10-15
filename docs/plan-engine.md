@@ -1,5 +1,8 @@
 # Plan de l'engine alacod
 
+> **Lecture de l’état courant** : voir [état de l’engine et critères de sortie](etat-engine.md).
+> Les matrices ci-dessous décrivent l’écart initial du 2026-09-28, pas un statut actualisé.
+
 > Proposition du 2026-09-28. Compare ce que l'engine sait faire à ce que demandent les six jeux de
 > référence de 1837 (`1867_lore/CLAUDE.md` : Enter the Gungeon, Binding of Isaac, Nuclear Throne,
 > Risk of Rain, Hades, Call of Duty Zombies), puis propose un découpage en jalons. Chaque jalon se

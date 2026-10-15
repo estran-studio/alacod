@@ -16,7 +16,8 @@ use map_ldtk::{
 #[cfg(not(target_arch = "wasm32"))]
 use std::path::PathBuf;
 
-fn main() {
+/// Retourne l'`AppExit` (code de sortie du processus : desync p2p headless = 3).
+fn main() -> AppExit {
     // `CARGO_MANIFEST_DIR` de ce binaire (`games/gungeon`), capturé à la compilation :
     // voir `games/zombies/src/main.rs` et `crates/content/src/manifest.rs`.
     #[cfg(not(target_arch = "wasm32"))]
@@ -80,5 +81,5 @@ fn main() {
             seed: manifest.entry.default_seed,
         }))
         .insert_resource(WaveModeEnabled(wave_mode))
-        .run();
+        .run()
 }

@@ -17,6 +17,10 @@ jobs:
     # re-déclencher le pipeline : sinon boucle infinie à chaque commit.
     if: github.actor != 'alacod-nightly'
     runs-on: [self-hosted, alacod-builder]
+    # Défaut GitHub : 360 min. Du 2026-10-07 au 2026-10-14, chaque nuit a été annulée à 6 h
+    # pile pendant l'étape B (la suite de scénarios seule prenait 14 337 s) : jamais de p2p,
+    # de vidéos ni de notes. La suite est désormais en tranches ; la marge reste large.
+    timeout-minutes: 720
     permissions:
       contents: write
     steps:

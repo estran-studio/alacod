@@ -11,7 +11,8 @@ use map_ldtk::{
 };
 use std::path::PathBuf;
 
-fn main() {
+/// Retourne l'`AppExit` (code de sortie du processus : desync p2p headless = 3).
+fn main() -> AppExit {
     // `CARGO_MANIFEST_DIR` de ce binaire (`games/testbed`), capturé à la compilation :
     // voir `games/zombies/src/main.rs` et `crates/content/src/manifest.rs`.
     let game_dir = PathBuf::from(env!("CARGO_MANIFEST_DIR"));
@@ -61,5 +62,5 @@ fn main() {
             seed: manifest.entry.default_seed,
         }))
         .insert_resource(WaveModeEnabled(wave_mode))
-        .run();
+        .run()
 }
