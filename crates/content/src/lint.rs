@@ -1180,6 +1180,31 @@ fn lint_perks(registry: &Registry, errors: &mut Vec<LintError>) {
 fn lint_economy(registry: &Registry, errors: &mut Vec<LintError>) {
     for economy in registry.economy.values() {
         let file = economy.file.display().to_string();
+        // M2-T6 (§50) : `shells` lâchés et prix des présentoirs.
+        if let Some((min, max)) = economy.shells_drop {
+            if min > max {
+                errors.push(LintError {
+                    kind: LintErrorKind::OutOfRange,
+                    file: file.clone(),
+                    message: format!(
+                        "économie « {} » : shells_drop = ({min}, {max}) : min > max",
+                        economy.id
+                    ),
+                });
+            }
+        }
+        for (rarity, price) in &economy.shop_prices {
+            if *price == 0 {
+                errors.push(LintError {
+                    kind: LintErrorKind::OutOfRange,
+                    file: file.clone(),
+                    message: format!(
+                        "économie « {} » : shop_prices[{rarity:?}] = 0 : un prix doit être > 0",
+                        economy.id
+                    ),
+                });
+            }
+        }
         if let Some(ratio) = economy.refill_price_ratio.literal() {
             if ratio < Fixed::ZERO || ratio > Fixed::from_num(1.0) {
                 errors.push(LintError {
@@ -3268,6 +3293,45 @@ fn lint_loot(registry: &Registry, errors: &mut Vec<LintError>) {
                     ),
                 );
             }
+        }
+    }
+    for room in registry.rooms.values() {
+        let Some(shop) = &room.def.shop else {
+            continue;
+        };
+        let file = room.file.display().to_string();
+        let mut push = |kind: LintErrorKind, message: String| {
+            errors.push(LintError {
+                kind,
+                file: file.clone(),
+                message,
+            })
+        };
+        if shop.shelves == 0 {
+            push(
+                LintErrorKind::OutOfRange,
+                format!(
+                    "type de salle « {} » : boutique sans présentoir (shelves = 0)",
+                    room.id
+                ),
+            );
+        }
+        match registry.loot_tables.get(&shop.table) {
+            None => push(
+                LintErrorKind::BrokenReference,
+                format!(
+                    "type de salle « {} » : boutique : pool « {} » inconnu",
+                    room.id, shop.table
+                ),
+            ),
+            Some(table) if table.def.entries.is_empty() => push(
+                LintErrorKind::OutOfRange,
+                format!(
+                    "type de salle « {} » : boutique : le pool « {} » est vide",
+                    room.id, shop.table
+                ),
+            ),
+            Some(_) => {}
         }
     }
     for floors in registry.floors.values() {

@@ -25,6 +25,7 @@ fn buyers_finish_the_first_wave_when_awake_zombies_are_inaccessible() {
             items: vec![],
             chests: vec![],
             room_reward_chance_override: None,
+            shop: Default::default(),
             profile: false,
             powerup_drop_chance_override: None,
             floors: None,

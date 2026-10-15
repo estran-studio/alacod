@@ -1,0 +1,10 @@
+// Fixture M2-T6 : boutique invalide (shop_without_table)
+(
+    name: "fixture-shop_without_table",
+    content_folders: [
+        (path: "objets", kind: "Item"),
+        (path: "loot", kind: "LootTable"),
+        (path: "rooms", kind: "Room"),
+    ],
+    entry: (start_map: "maps/salle.ldtk", default_seed: 1),
+)

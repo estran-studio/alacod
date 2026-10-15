@@ -540,9 +540,11 @@ struct HudInteractables<'w, 's> {
             Option<&'static WeaponPickup>,
             Option<&'static PerkMachine>,
             Option<&'static items::Chest>,
+            Option<&'static items::Shelf>,
         ),
         With<Rollback>,
     >,
+    item_table: Option<Res<'w, items::ItemTable>>,
     global_assets: Option<Res<'w, GlobalAsset>>,
     // F5 (chantier m0-v11) : prix et perks résolus une fois au lancement (`crate::balance`).
     balance: Res<'w, crate::balance::ResolvedBalance>,
@@ -750,7 +752,7 @@ fn prompt_for(
     inventory: Option<&WeaponInventory>,
     items: Option<&items::Inventory>,
 ) -> String {
-    let Some((_, _, interactable, _, door, window, pickup, perk_machine, chest)) = world
+    let Some((_, _, interactable, _, door, window, pickup, perk_machine, chest, shelf)) = world
         .interactables
         .iter()
         .find(|(net_id, ..)| **net_id == target)
@@ -778,6 +780,20 @@ fn prompt_for(
         }
         // M2-T11 : pas de prompt de table avant le HUD de M2 (V4).
         InteractionType::Table => return String::new(),
+        // M2-T6 : « Acheter Trèfle — 30 » (nom de l'objet, prix en douilles).
+        InteractionType::Shop => {
+            let Some(shelf) = shelf.filter(|shelf| !shelf.sold) else {
+                return String::new();
+            };
+            Prompt::Shelf {
+                name: world
+                    .item_table
+                    .as_ref()
+                    .and_then(|table| table.0.get(&shelf.item_id))
+                    .map_or_else(|| shelf.item_id.clone(), |def| def.name.clone()),
+                price: shelf.price,
+            }
+        }
         InteractionType::Weapon => {
             let Some(pickup) = pickup else {
                 return String::new();
@@ -839,6 +855,11 @@ enum Prompt {
         locked: bool,
         has_key: bool,
     },
+    /// M2-T6 : présentoir de boutique.
+    Shelf {
+        name: String,
+        price: u32,
+    },
     /// `owned` : déjà acheté, l'interaction ne fait rien.
     Perk {
         name: String,
@@ -867,6 +888,7 @@ impl Prompt {
                 ..
             } => format!("Acheter {name} — ${price}"),
             Prompt::Weapon { name, .. } => format!("Ramasser {name}"),
+            Prompt::Shelf { name, price } => format!("Acheter {name} — {price}"),
             Prompt::Chest { locked: false, .. } => "Ouvrir le coffre".to_string(),
             Prompt::Chest { has_key: false, .. } => "Fermé — 1 clé".to_string(),
             Prompt::Chest { .. } => "Ouvrir — 1 clé".to_string(),
@@ -1193,6 +1215,14 @@ mod tests {
         assert_eq!(perk(true).text(), "Juggernog — possédé");
         // M2-T5 : coffres.
         let chest = |locked, has_key| Prompt::Chest { locked, has_key };
+        assert_eq!(
+            Prompt::Shelf {
+                name: "Trèfle".into(),
+                price: 30
+            }
+            .text(),
+            "Acheter Trèfle — 30"
+        );
         assert_eq!(chest(false, false).text(), "Ouvrir le coffre");
         assert_eq!(chest(true, false).text(), "Fermé — 1 clé");
         assert_eq!(chest(true, true).text(), "Ouvrir — 1 clé");

@@ -494,6 +494,29 @@ pub enum Expectation {
         count: u32,
         at_frame: u32,
     },
+    /// M2-T6 (`docs/conventions.md` §50) : le `nth` présentoir (triés par clé de contenu) à la
+    /// frame exacte `at_frame` ; chaque champ donné doit correspondre (objet, prix, vendu).
+    Shelf {
+        #[serde(default)]
+        nth: usize,
+        #[serde(default, skip_serializing_if = "Option::is_none")]
+        item: Option<String>,
+        #[serde(default, skip_serializing_if = "Option::is_none")]
+        price: Option<u32>,
+        #[serde(default, skip_serializing_if = "Option::is_none")]
+        sold: Option<bool>,
+        at_frame: u32,
+    },
+    /// M2-T6 : nombre de présentoirs (vendus ou non) de la partie à la frame `at_frame`.
+    ShelfCount {
+        count: u32,
+        at_frame: u32,
+    },
+    /// M2-T6 : nombre de tas de douilles au sol à la frame `at_frame`.
+    ShellPiles {
+        count: u32,
+        at_frame: u32,
+    },
 }
 
 /// Cible d'une distance (`EnemyDistance`).
@@ -549,6 +572,9 @@ impl Expectation {
             | Self::ScreenText { at_frame, .. }
             | Self::RoomState { at_frame, .. }
             | Self::ItemCount { at_frame, .. }
+            | Self::Shelf { at_frame, .. }
+            | Self::ShelfCount { at_frame, .. }
+            | Self::ShellPiles { at_frame, .. }
             | Self::HasItem { at_frame, .. }
             | Self::ItemCharge { at_frame, .. }
             | Self::Consumable { at_frame, .. }

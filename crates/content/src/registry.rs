@@ -1162,6 +1162,10 @@ pub struct EconomyEntry {
     pub nuke_points: NumOrExpr,
     pub repair_points_cap_per_wave: Option<NumOrExpr>,
     pub refill_price_ratio: NumOrExpr,
+    /// M2-T6 : `(min, max)` de `shells` lâchés par ennemi tué.
+    pub shells_drop: Option<(u32, u32)>,
+    /// M2-T6 : prix d'un présentoir par rareté.
+    pub shop_prices: BTreeMap<items::Rarity, u32>,
 }
 
 /// T2.3, chantier C5 v1 : une entrée de `games/<jeu>/assets/economy/perks.ron`. Un `StatId`
@@ -1999,6 +2003,10 @@ struct EconomyFileSchema {
     repair_points_cap_per_wave: Option<NumOrExpr>,
     #[serde(default = "default_refill_price_ratio")]
     refill_price_ratio: NumOrExpr,
+    #[serde(default)]
+    shells_drop: Option<(u32, u32)>,
+    #[serde(default)]
+    shop_prices: BTreeMap<items::Rarity, u32>,
 }
 
 fn default_kill_points() -> NumOrExpr {
@@ -3250,6 +3258,8 @@ fn load_economy(
                 nuke_points: parsed.nuke_points,
                 repair_points_cap_per_wave: parsed.repair_points_cap_per_wave,
                 refill_price_ratio: parsed.refill_price_ratio,
+                shells_drop: parsed.shells_drop,
+                shop_prices: parsed.shop_prices,
             },
         );
     }

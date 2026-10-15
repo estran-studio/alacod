@@ -1,0 +1,11 @@
+// Pool de la boutique de gungeon (M2-T6, docs/conventions.md §50) : de quoi dépenser des
+// douilles. Mêmes poids par rareté que `commun`, plus un peu de consommables (clé, blank).
+(
+    entries: [
+        (pick: Rarity(Common), weight: 4),
+        (pick: Rarity(Uncommon), weight: 3),
+        (pick: Rarity(Rare), weight: 1),
+        (pick: Item("key"), weight: 2),
+        (pick: Item("blank"), weight: 1),
+    ],
+)
