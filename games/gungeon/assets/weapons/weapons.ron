@@ -657,4 +657,57 @@
             weapon_offset: ( x: "0.0", y: "-5.0" )
         ),
     ),
+    // Arsenal lourd des ennemis (M2-T14c, §52) : table de projectiles à part pour ne pas toucher
+    // `arsenal` (les traces des ennemis existants restent celles d'avant).
+    "arsenal_lourd": (
+        config: (
+            name: "arsenal_lourd",
+            default_firing_mode: "default",
+            ammo_type: Custom("balles"),
+            firing_modes: {
+                "default": (
+                    firing_rate: "4.0",
+                    firing_mode: Manual(),
+                    spread: "0.0",
+                    recoil: "0.0",
+                    bullet_type: Standard(
+                        damage: "10.0",
+                        speed: "300.0",
+                    ),
+                    range: "900.0",
+                    reload_time_seconds: "1.0",
+                    mag: Mag(mag_size: 30, mag_limit: 4),
+                )
+            },
+            projectiles: {
+                // Chevrotine du `shotgun_kin` : courte portée, lente.
+                "chevrotine": (damage: "5.0", speed: "170.0", range: "200.0"),
+                // Grenade du `lanceur_kin` : ne touche pas en roulant (`damage` 0, `Pierce`), rebondit une
+                // fois et explose à la fin de sa durée de vie (même chaîne que `grenade` du testbed, T1.1).
+                "grenade": (
+                    damage: "0.0",
+                    speed: "110.0",
+                    range: "400.0",
+                    modifiers: [Bounce(1), Pierce(8), Lifetime(70)],
+                    on_expire: [Spawn(Aimed(count: 1, spread: "0.0", projectile: "explosion"))],
+                ),
+                "explosion": (
+                    damage: "14.0",
+                    speed: "0.0",
+                    range: "1.0",
+                    modifiers: [Lifetime(0), Size("10.0"), Pierce(16)],
+                    on_expire: [Spawn(Ring(count: 8, speed: "150.0", projectile: "eclat", every: 0))],
+                ),
+                "eclat": (damage: "4.0", speed: "150.0", range: "96.0"),
+            },
+            test: Some((frames: 200, min_hits: 2)),
+        ),
+        sprite_config: (
+            name: "pistol",
+            index: 3,
+            bullet_offset_right: ( x: "-5.0", y: "2.0" ),
+            bullet_offset_left: ( x: "0.0", y: "-2.0" ),
+            weapon_offset: ( x: "0.0", y: "-5.0" )
+        ),
+    ),
 })

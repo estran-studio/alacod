@@ -1,6 +1,7 @@
 // `throne` (phase 2) : mannequin immobile du gabarit d'armes (`gabarit_armes.ldtk`), copie de
 // `dummy` du testbed ; occupe les autres emplacements de personnages de l'arène.
 (
+    test_only: true, // D63 : contenu de laboratoire, ignoré par l'analyse d'atteignabilité (conventions §53)
     movement: (
         acceleration: "0.0",
         max_speed: "0.0",

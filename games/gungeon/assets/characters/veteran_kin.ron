@@ -1,0 +1,70 @@
+// `gungeon` (M2-T14c, docs/conventions.md §52) : vétéran. Garde ses distances (`KeepDistance` 140-220) et
+// tire deux crachats visés (`visee`, 30 frames de visée). Variantes `rapide` (×1,5 de vitesse) et `blinde`
+// (champion, ×2 PV). Posé dans `CombatNS`.
+(
+    movement: (
+        acceleration: "120.0",
+        max_speed: "70.0",
+        sprint_multiplier: "1.0",
+        sprint_acceleration_per_frame: "0.0",
+        sprint_deceleration_per_frame: "0.0",
+
+        dash_distance: "0.0",
+        dash_duration_frames: 0,
+        dash_cooldown_frames: 0,
+    ),
+
+    asset_name_ref: "veteran_kin",
+
+    collider: (
+        shape: Rectangle(
+            width: "20.",
+            height: "20.",
+        ),
+        offset: ( x: "0.0", y: "-6.0", z: "0.0" )
+    ),
+
+    scale: "1.0",
+
+    base_health: (
+        max: "50.0",
+    ),
+
+    starting_skin: "1",
+    skins: {
+        "1": (layers: {}),
+        "rapide": (layers: {}),
+    },
+
+    ai: Some((
+        aggro_range: Some("500.0"),
+        attack_range: Some("0.0"),
+        behaviors: Some([
+            Shoot(weapon: "arsenal", pattern: "visee", range: "260.0", cooldown_frames: 80),
+            KeepDistance(min: "140.0", max: "220.0"),
+            Chase(profile: "Ground"),
+        ]),
+    )),
+
+    variants: Some((
+        chance: "0.5",
+        table: {
+            "rapide": (
+                weight: 1,
+                modifiers: [(stat: EnemyMoveSpeed, op: Mul, value: "1.5")],
+                tags: ["rapide"],
+                skin: Some("rapide"),
+            ),
+            "blinde": (
+                weight: 1,
+                modifiers: [(stat: MaxHealth, op: Mul, value: "2.0")],
+                tags: ["champion"],
+                skin: None,
+            ),
+        },
+    )),
+
+    // `docs/conventions.md` §28 : scénarios générés `enemy_<id>_still`/`_moving`
+    // (`make gen GAME=gungeon`), attentes par défaut.
+    test: Some((frames: 600)),
+)

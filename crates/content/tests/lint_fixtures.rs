@@ -1424,6 +1424,37 @@ fn reach_fixtures_report_their_warning() {
     }
 }
 
+/// D63 : `test_only: true` retire l'avertissement d'un personnage et d'une arme ; les fixtures
+/// jumelles sans marqueur (`reach_enemy_unplaced`, `reach_weapon_no_source`) le gardent.
+#[test]
+fn test_only_content_is_ignored_by_reach() {
+    for (fixture, twin, needle) in [
+        (
+            "reach_test_only_character",
+            "reach_enemy_unplaced",
+            "ennemi « grunt »",
+        ),
+        (
+            "reach_test_only_weapon",
+            "reach_weapon_no_source",
+            "arme « b »",
+        ),
+    ] {
+        assert_has_warning(twin, content::LintWarningKind::Unreachable, needle);
+        let (registry, manifest, errors) = load_and_lint(&fixture_dir(fixture)).unwrap();
+        // `test_only` est un champ valide (les erreurs de la jumelle, ex. carte absente, restent).
+        assert!(
+            errors.iter().all(|e| !e.message.contains("test_only")),
+            "{fixture} : {errors:#?}"
+        );
+        let warnings = content::warnings(&registry, &manifest);
+        assert!(
+            warnings.iter().all(|w| !w.message.contains(needle)),
+            "{fixture} : {warnings:#?}"
+        );
+    }
+}
+
 #[test]
 fn shipped_games_lint_without_error() {
     for game in ["zombies", "testbed", "throne", "gungeon"] {

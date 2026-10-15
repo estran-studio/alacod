@@ -963,4 +963,38 @@ mod tests {
 
         println!("FixedVec3 display: {}", display);
     }
+
+    /// D34 : écart du CORDIC (`sin_fixed`/`cos_fixed`) à `f64` (dans un test seulement : aucune
+    /// simulation). Mesuré le 2026-10-15 par pas de 1/256 rad sur ]−4π, 4π] : écart maximal
+    /// 5e-5 sur [−4,71, 4,71], puis il monte (1e-4 dès 5,24 rad, 1e-3 dès 5,78, 5e-3 dès 6,19,
+    /// 7e-3 en 2π) ; au-delà de ±(2π + 0,03) le CORDIC panique (débordement). Les appelants
+    /// replient donc l'angle dans [−3π/2, 3π/2] (`combat::projectile::direction_of`).
+    #[test]
+    fn cordic_error_is_bounded_in_the_folded_range_and_known_near_tau() {
+        let pi = std::f64::consts::PI;
+        let error = |exact: f64| {
+            let angle = Fixed::from_num(exact);
+            let exact = angle.to_num::<f64>();
+            (sin_fixed(angle).to_num::<f64>() - exact.sin())
+                .abs()
+                .max((cos_fixed(angle).to_num::<f64>() - exact.cos()).abs())
+        };
+        let (mut worst_inside, mut worst_near_tau) = (0.0f64, 0.0f64);
+        let mut a = -1.5 * pi;
+        while a <= 1.5 * pi {
+            worst_inside = worst_inside.max(error(a));
+            a += 1.0 / 256.0;
+        }
+        let mut a = 2.0 * pi - 0.1;
+        while a <= 2.0 * pi {
+            worst_near_tau = worst_near_tau.max(error(a));
+            a += 1.0 / 256.0;
+        }
+        assert!(worst_inside < 1e-4, "dans [−3π/2, 3π/2] : {worst_inside}");
+        // Le défaut qui justifie le repli : l'écart près de 2π est de l'ordre du centième.
+        assert!(
+            (1e-3..1e-2).contains(&worst_near_tau),
+            "près de 2π : {worst_near_tau}"
+        );
+    }
 }

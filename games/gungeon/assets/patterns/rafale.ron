@@ -1,0 +1,6 @@
+// `gungeon` (M2-T14c, docs/conventions.md §52) : télégraphe de 12 frames puis quatre balles visées, une
+// toutes les 6 frames (`Burst`, une balle par salve) ; `fuyard_kin`. Courte, rapide, esquivable en roulant.
+Sequence([
+    Telegraph(12),
+    Burst(count: 4, per_burst: 1, interval: 6, spread: "0.0", projectile: "crachat"),
+])

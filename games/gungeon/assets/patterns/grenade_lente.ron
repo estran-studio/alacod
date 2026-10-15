@@ -1,0 +1,7 @@
+// `gungeon` (M2-T14c, docs/conventions.md §52) : télégraphe de 30 frames puis une grenade visée
+// (`grenade` de la table de `arsenal_lourd` : rebondit une fois, explose en huit éclats à la fin de sa
+// durée de vie) ; `lanceur_kin`.
+Sequence([
+    Telegraph(30),
+    Aimed(count: 1, spread: "0.0", projectile: "grenade"),
+])

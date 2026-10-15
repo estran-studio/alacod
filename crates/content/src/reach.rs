@@ -3,6 +3,11 @@
 //! dynamique est le bot explorateur, §47). Tout est avertissement ([`LintWarning`]) : un
 //! avertissement n'échoue pas `alacod lint`, il est listé.
 //!
+//! **Contenu de test** (D63) : un personnage (`test_only: true`) ou une arme
+//! (`config: (test_only: true, …)`) marqué est ignoré par l'analyse : pas d'avertissement pour
+//! lui, et un personnage marqué ne compte pas comme source d'armes. Le champ est optionnel
+//! (défaut `false`) et sans effet en jeu.
+//!
 //! **Racines** : `entry.start_map` et chaque niveau de chaque séquence du dossier `Floors`
 //! (carte directe, caverne ou grammaire d'étage `floor:<id>`). Le dossier `Floors` n'a pas de
 //! séquence « par défaut » implicite (D59 : `entry.floors` la désigne explicitement, à défaut la
@@ -372,7 +377,7 @@ pub fn warnings(registry: &Registry, manifest: &GameManifest) -> Vec<LintWarning
 
     let characters = reachable_characters(registry, &reach);
     for c in registry.characters.values() {
-        if c.has_ai && !characters.contains(c.id.as_str()) {
+        if c.has_ai && !c.test_only && !characters.contains(c.id.as_str()) {
             warn(
                 LintWarningKind::Unreachable,
                 c.file.display().to_string(),
@@ -410,7 +415,8 @@ pub fn warnings(registry: &Registry, manifest: &GameManifest) -> Vec<LintWarning
     }
 
     let mut weapon_sources: BTreeSet<String> = loot_pool_weapons(registry);
-    for c in registry.characters.values() {
+    // D63 : un personnage de test ne donne rien à une partie ordinaire.
+    for c in registry.characters.values().filter(|c| !c.test_only) {
         weapon_sources.extend(c.starting_weapons.iter().map(|w| w.to_string()));
     }
     for level in playable_levels(registry, &reach) {
@@ -422,7 +428,7 @@ pub fn warnings(registry: &Registry, manifest: &GameManifest) -> Vec<LintWarning
         }
     }
     for weapon in registry.weapons.values() {
-        if !weapon_sources.contains(weapon.id.as_str()) {
+        if !weapon.test_only && !weapon_sources.contains(weapon.id.as_str()) {
             warn(
                 LintWarningKind::Unreachable,
                 weapon.file.display().to_string(),

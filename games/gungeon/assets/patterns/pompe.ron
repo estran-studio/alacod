@@ -1,0 +1,6 @@
+// `gungeon` (M2-T14c, docs/conventions.md §52) : télégraphe de 25 frames puis sept chevrotines réparties
+// exactement sur 0,9 rad (`Fan`, sans hasard) ; `shotgun_kin`. Portée courte, large couverture.
+Sequence([
+    Telegraph(25),
+    Fan(count: 7, spread: "0.9", speed: "0.0", projectile: "chevrotine"),
+])
