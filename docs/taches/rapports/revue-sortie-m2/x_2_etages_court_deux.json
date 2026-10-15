@@ -1,0 +1,1007 @@
+[
+ {
+  "seed": 1,
+  "wave": 0,
+  "floor": 1,
+  "frames": 505,
+  "deaths": 0,
+  "kills": 0,
+  "wall_seconds": 2.496325106,
+  "desync": false,
+  "sim_fps": 223.18123794334352,
+  "floor_frames": [
+   505
+  ],
+  "damage_taken": 40,
+  "dodges": 71,
+  "doors_opened": 15,
+  "players_end": [
+   {
+    "handle": 0,
+    "currency": 773,
+    "downed": false,
+    "x": -8.0,
+    "y": -8.0,
+    "in_spawn_room": true
+   },
+   {
+    "handle": 1,
+    "currency": 760,
+    "downed": false,
+    "x": 24.0,
+    "y": -8.0,
+    "in_spawn_room": true
+   }
+  ],
+  "waves": [],
+  "outcome": "objectif",
+  "rooms": [
+   {
+    "floor": 0,
+    "total": 3,
+    "visited": 3,
+    "cleared": 2,
+    "locking": 2
+   },
+   {
+    "floor": 1,
+    "total": 3,
+    "visited": 1,
+    "cleared": 0,
+    "locking": 2
+   }
+  ]
+ },
+ {
+  "seed": 2,
+  "wave": 0,
+  "floor": 1,
+  "frames": 570,
+  "deaths": 0,
+  "kills": 0,
+  "wall_seconds": 2.557844377,
+  "desync": false,
+  "sim_fps": 240.22652785032622,
+  "floor_frames": [
+   570
+  ],
+  "damage_taken": 48,
+  "dodges": 16,
+  "doors_opened": 15,
+  "players_end": [
+   {
+    "handle": 0,
+    "currency": 787,
+    "downed": false,
+    "x": -8.0,
+    "y": -8.0,
+    "in_spawn_room": true
+   },
+   {
+    "handle": 1,
+    "currency": 784,
+    "downed": false,
+    "x": 24.0,
+    "y": -8.0,
+    "in_spawn_room": true
+   }
+  ],
+  "waves": [],
+  "outcome": "objectif",
+  "rooms": [
+   {
+    "floor": 0,
+    "total": 3,
+    "visited": 3,
+    "cleared": 2,
+    "locking": 2
+   },
+   {
+    "floor": 1,
+    "total": 3,
+    "visited": 1,
+    "cleared": 0,
+    "locking": 2
+   }
+  ]
+ },
+ {
+  "seed": 3,
+  "wave": 0,
+  "floor": 0,
+  "frames": 1201,
+  "deaths": 0,
+  "kills": 0,
+  "wall_seconds": 5.753114603,
+  "desync": false,
+  "sim_fps": 215.32758379221247,
+  "damage_taken": 0,
+  "doors_opened": 9,
+  "players_end": [
+   {
+    "handle": 0,
+    "currency": 500,
+    "downed": false,
+    "x": 112.04259,
+    "y": -3.2257538,
+    "in_spawn_room": false
+   },
+   {
+    "handle": 1,
+    "currency": 500,
+    "downed": false,
+    "x": 114.534,
+    "y": -5.334015,
+    "in_spawn_room": false
+   }
+  ],
+  "waves": [],
+  "outcome": "soft-lock",
+  "rooms": [
+   {
+    "floor": 0,
+    "total": 3,
+    "visited": 2,
+    "cleared": 0,
+    "locking": 2
+   }
+  ],
+  "softlock_observations": [
+   "plafond atteint : phase NotStarted, 0 ennemis de vague pr\u00e9sents, 0 encore \u00e0 g\u00e9n\u00e9rer",
+   "0 ennemis hors de leur champ de flux depuis leur case exacte (champs : GroundBreaker)",
+   "restant : bullet_kin #40 case (6, -2), 40 PV, joueur 1 le plus proche \u00e0 21.43324 (en vue)",
+   "restant : bullet_kin #42 case (6, 1), 40 PV, joueur 0 le plus proche \u00e0 28.38882 (en vue)"
+  ]
+ },
+ {
+  "seed": 4,
+  "wave": 0,
+  "floor": 0,
+  "frames": 1201,
+  "deaths": 0,
+  "kills": 0,
+  "wall_seconds": 5.166519829,
+  "desync": false,
+  "sim_fps": 241.41836868857902,
+  "damage_taken": 0,
+  "doors_opened": 9,
+  "players_end": [
+   {
+    "handle": 0,
+    "currency": 500,
+    "downed": false,
+    "x": -115.425674,
+    "y": 7.1727753,
+    "in_spawn_room": false
+   },
+   {
+    "handle": 1,
+    "currency": 500,
+    "downed": false,
+    "x": -114.12538,
+    "y": 4.7498016,
+    "in_spawn_room": false
+   }
+  ],
+  "waves": [],
+  "outcome": "soft-lock",
+  "rooms": [
+   {
+    "floor": 0,
+    "total": 3,
+    "visited": 2,
+    "cleared": 0,
+    "locking": 2
+   }
+  ],
+  "softlock_observations": [
+   "plafond atteint : phase NotStarted, 0 ennemis de vague pr\u00e9sents, 0 encore \u00e0 g\u00e9n\u00e9rer",
+   "0 ennemis hors de leur champ de flux depuis leur case exacte (champs : GroundBreaker)",
+   "restant : bullet_kin #40 case (-10, -2), 40 PV, joueur 1 le plus proche \u00e0 47.55037 (en vue)",
+   "restant : bullet_kin #42 case (-10, 1), 40 PV, joueur 0 le plus proche \u00e0 40.25961 (en vue)"
+  ]
+ },
+ {
+  "seed": 5,
+  "wave": 0,
+  "floor": 0,
+  "frames": 1201,
+  "deaths": 0,
+  "kills": 0,
+  "wall_seconds": 5.373938134,
+  "desync": false,
+  "sim_fps": 230.41065666776043,
+  "damage_taken": 0,
+  "doors_opened": 9,
+  "players_end": [
+   {
+    "handle": 0,
+    "currency": 500,
+    "downed": false,
+    "x": 112.04259,
+    "y": -3.2257538,
+    "in_spawn_room": false
+   },
+   {
+    "handle": 1,
+    "currency": 500,
+    "downed": false,
+    "x": 114.534,
+    "y": -5.334015,
+    "in_spawn_room": false
+   }
+  ],
+  "waves": [],
+  "outcome": "soft-lock",
+  "rooms": [
+   {
+    "floor": 0,
+    "total": 3,
+    "visited": 2,
+    "cleared": 0,
+    "locking": 2
+   }
+  ],
+  "softlock_observations": [
+   "plafond atteint : phase NotStarted, 0 ennemis de vague pr\u00e9sents, 0 encore \u00e0 g\u00e9n\u00e9rer",
+   "0 ennemis hors de leur champ de flux depuis leur case exacte (champs : GroundBreaker)",
+   "restant : bullet_kin #40 case (6, -2), 40 PV, joueur 1 le plus proche \u00e0 21.43324 (en vue)",
+   "restant : bullet_kin #42 case (6, 1), 40 PV, joueur 0 le plus proche \u00e0 28.38882 (en vue)"
+  ]
+ },
+ {
+  "seed": 6,
+  "wave": 0,
+  "floor": 1,
+  "frames": 596,
+  "deaths": 0,
+  "kills": 0,
+  "wall_seconds": 2.79993564,
+  "desync": false,
+  "sim_fps": 228.07957739009584,
+  "floor_frames": [
+   596
+  ],
+  "damage_taken": 113,
+  "dodges": 261,
+  "doors_opened": 13,
+  "players_end": [
+   {
+    "handle": 0,
+    "currency": 740,
+    "downed": false,
+    "x": -8.0,
+    "y": -8.0,
+    "in_spawn_room": true
+   },
+   {
+    "handle": 1,
+    "currency": 918,
+    "downed": false,
+    "x": 24.0,
+    "y": -8.0,
+    "in_spawn_room": true
+   }
+  ],
+  "waves": [],
+  "outcome": "objectif",
+  "rooms": [
+   {
+    "floor": 0,
+    "total": 3,
+    "visited": 3,
+    "cleared": 2,
+    "locking": 2
+   },
+   {
+    "floor": 1,
+    "total": 3,
+    "visited": 1,
+    "cleared": 0,
+    "locking": 2
+   }
+  ]
+ },
+ {
+  "seed": 7,
+  "wave": 0,
+  "floor": 1,
+  "frames": 410,
+  "deaths": 0,
+  "kills": 0,
+  "wall_seconds": 2.034888002,
+  "desync": false,
+  "sim_fps": 223.6475714700971,
+  "floor_frames": [
+   410
+  ],
+  "damage_taken": 26,
+  "dodges": 35,
+  "doors_opened": 15,
+  "players_end": [
+   {
+    "handle": 0,
+    "currency": 675,
+    "downed": false,
+    "x": -8.0,
+    "y": -8.0,
+    "in_spawn_room": true
+   },
+   {
+    "handle": 1,
+    "currency": 790,
+    "downed": false,
+    "x": 24.0,
+    "y": -8.0,
+    "in_spawn_room": true
+   }
+  ],
+  "waves": [],
+  "outcome": "objectif",
+  "rooms": [
+   {
+    "floor": 0,
+    "total": 3,
+    "visited": 3,
+    "cleared": 2,
+    "locking": 2
+   },
+   {
+    "floor": 1,
+    "total": 3,
+    "visited": 1,
+    "cleared": 0,
+    "locking": 2
+   }
+  ]
+ },
+ {
+  "seed": 8,
+  "wave": 0,
+  "floor": 1,
+  "frames": 420,
+  "deaths": 0,
+  "kills": 0,
+  "wall_seconds": 2.074769843,
+  "desync": false,
+  "sim_fps": 224.24250469468103,
+  "floor_frames": [
+   420
+  ],
+  "damage_taken": 36,
+  "dodges": 16,
+  "doors_opened": 15,
+  "players_end": [
+   {
+    "handle": 0,
+    "currency": 677,
+    "downed": false,
+    "x": -8.0,
+    "y": -8.0,
+    "in_spawn_room": true
+   },
+   {
+    "handle": 1,
+    "currency": 790,
+    "downed": false,
+    "x": 24.0,
+    "y": -8.0,
+    "in_spawn_room": true
+   }
+  ],
+  "waves": [],
+  "outcome": "objectif",
+  "rooms": [
+   {
+    "floor": 0,
+    "total": 3,
+    "visited": 3,
+    "cleared": 2,
+    "locking": 2
+   },
+   {
+    "floor": 1,
+    "total": 3,
+    "visited": 1,
+    "cleared": 0,
+    "locking": 2
+   }
+  ]
+ },
+ {
+  "seed": 9,
+  "wave": 0,
+  "floor": 0,
+  "frames": 1201,
+  "deaths": 0,
+  "kills": 0,
+  "wall_seconds": 5.279988131,
+  "desync": false,
+  "sim_fps": 235.84253168758067,
+  "damage_taken": 0,
+  "doors_opened": 9,
+  "players_end": [
+   {
+    "handle": 0,
+    "currency": 500,
+    "downed": false,
+    "x": 10.915649,
+    "y": 110.32547,
+    "in_spawn_room": false
+   },
+   {
+    "handle": 1,
+    "currency": 500,
+    "downed": false,
+    "x": 3.4509888,
+    "y": 112.53761,
+    "in_spawn_room": false
+   }
+  ],
+  "waves": [],
+  "outcome": "soft-lock",
+  "rooms": [
+   {
+    "floor": 0,
+    "total": 3,
+    "visited": 2,
+    "cleared": 0,
+    "locking": 2
+   }
+  ],
+  "softlock_observations": [
+   "plafond atteint : phase NotStarted, 0 ennemis de vague pr\u00e9sents, 0 encore \u00e0 g\u00e9n\u00e9rer",
+   "0 ennemis hors de leur champ de flux depuis leur case exacte (champs : GroundBreaker)",
+   "restant : bullet_kin #40 case (-2, 6), 40 PV, joueur 1 le plus proche \u00e0 28.748 (en vue)",
+   "restant : bullet_kin #42 case (-2, 9), 40 PV, joueur 1 le plus proche \u00e0 48.07117 (en vue)"
+  ]
+ },
+ {
+  "seed": 10,
+  "wave": 0,
+  "floor": 0,
+  "frames": 1201,
+  "deaths": 0,
+  "kills": 0,
+  "wall_seconds": 5.566970361,
+  "desync": false,
+  "sim_fps": 222.89603659027185,
+  "damage_taken": 0,
+  "doors_opened": 9,
+  "players_end": [
+   {
+    "handle": 0,
+    "currency": 500,
+    "downed": false,
+    "x": 112.04259,
+    "y": -3.2257538,
+    "in_spawn_room": false
+   },
+   {
+    "handle": 1,
+    "currency": 500,
+    "downed": false,
+    "x": 114.534,
+    "y": -5.334015,
+    "in_spawn_room": false
+   }
+  ],
+  "waves": [],
+  "outcome": "soft-lock",
+  "rooms": [
+   {
+    "floor": 0,
+    "total": 3,
+    "visited": 2,
+    "cleared": 0,
+    "locking": 2
+   }
+  ],
+  "softlock_observations": [
+   "plafond atteint : phase NotStarted, 0 ennemis de vague pr\u00e9sents, 0 encore \u00e0 g\u00e9n\u00e9rer",
+   "0 ennemis hors de leur champ de flux depuis leur case exacte (champs : GroundBreaker)",
+   "restant : bullet_kin #40 case (6, -2), 40 PV, joueur 1 le plus proche \u00e0 21.43324 (en vue)",
+   "restant : bullet_kin #42 case (6, 1), 40 PV, joueur 0 le plus proche \u00e0 28.38882 (en vue)"
+  ]
+ },
+ {
+  "seed": 11,
+  "wave": 0,
+  "floor": 1,
+  "frames": 1194,
+  "deaths": 0,
+  "kills": 0,
+  "wall_seconds": 5.578328255,
+  "desync": false,
+  "sim_fps": 220.66302602797737,
+  "floor_frames": [
+   1194
+  ],
+  "damage_taken": 148,
+  "dodges": 103,
+  "doors_opened": 13,
+  "players_end": [
+   {
+    "handle": 0,
+    "currency": 763,
+    "downed": false,
+    "x": -8.0,
+    "y": -8.0,
+    "in_spawn_room": true
+   },
+   {
+    "handle": 1,
+    "currency": 1220,
+    "downed": false,
+    "x": 24.0,
+    "y": -8.0,
+    "in_spawn_room": true
+   }
+  ],
+  "waves": [],
+  "outcome": "objectif",
+  "rooms": [
+   {
+    "floor": 0,
+    "total": 3,
+    "visited": 3,
+    "cleared": 2,
+    "locking": 2
+   },
+   {
+    "floor": 1,
+    "total": 3,
+    "visited": 1,
+    "cleared": 0,
+    "locking": 2
+   }
+  ]
+ },
+ {
+  "seed": 12,
+  "wave": 0,
+  "floor": 0,
+  "frames": 1201,
+  "deaths": 0,
+  "kills": 0,
+  "wall_seconds": 5.501225289,
+  "desync": false,
+  "sim_fps": 225.31107378764492,
+  "damage_taken": 0,
+  "doors_opened": 9,
+  "players_end": [
+   {
+    "handle": 0,
+    "currency": 500,
+    "downed": false,
+    "x": 10.915649,
+    "y": 110.32547,
+    "in_spawn_room": false
+   },
+   {
+    "handle": 1,
+    "currency": 500,
+    "downed": false,
+    "x": 3.4509888,
+    "y": 112.53761,
+    "in_spawn_room": false
+   }
+  ],
+  "waves": [],
+  "outcome": "soft-lock",
+  "rooms": [
+   {
+    "floor": 0,
+    "total": 3,
+    "visited": 2,
+    "cleared": 0,
+    "locking": 2
+   }
+  ],
+  "softlock_observations": [
+   "plafond atteint : phase NotStarted, 0 ennemis de vague pr\u00e9sents, 0 encore \u00e0 g\u00e9n\u00e9rer",
+   "0 ennemis hors de leur champ de flux depuis leur case exacte (champs : GroundBreaker)",
+   "restant : bullet_kin #40 case (-2, 6), 40 PV, joueur 1 le plus proche \u00e0 28.748 (en vue)",
+   "restant : bullet_kin #42 case (-2, 9), 40 PV, joueur 1 le plus proche \u00e0 48.07117 (en vue)"
+  ]
+ },
+ {
+  "seed": 13,
+  "wave": 0,
+  "floor": 0,
+  "frames": 1201,
+  "deaths": 0,
+  "kills": 0,
+  "wall_seconds": 5.29739474,
+  "desync": false,
+  "sim_fps": 234.26173082328484,
+  "damage_taken": 0,
+  "doors_opened": 9,
+  "players_end": [
+   {
+    "handle": 0,
+    "currency": 500,
+    "downed": false,
+    "x": -3.1285706,
+    "y": -118.33089,
+    "in_spawn_room": false
+   },
+   {
+    "handle": 1,
+    "currency": 500,
+    "downed": false,
+    "x": 1.2254486,
+    "y": -119.16194,
+    "in_spawn_room": false
+   }
+  ],
+  "waves": [],
+  "outcome": "soft-lock",
+  "rooms": [
+   {
+    "floor": 0,
+    "total": 3,
+    "visited": 2,
+    "cleared": 0,
+    "locking": 2
+   }
+  ],
+  "softlock_observations": [
+   "plafond atteint : phase NotStarted, 0 ennemis de vague pr\u00e9sents, 0 encore \u00e0 g\u00e9n\u00e9rer",
+   "0 ennemis hors de leur champ de flux depuis leur case exacte (champs : GroundBreaker)",
+   "restant : bullet_kin #40 case (-2, -10), 40 PV, joueur 0 le plus proche \u00e0 39.61345 (en vue)",
+   "restant : bullet_kin #42 case (-2, -7), 40 PV, joueur 0 le plus proche \u00e0 25.3178 (en vue)"
+  ]
+ },
+ {
+  "seed": 14,
+  "wave": 0,
+  "floor": 1,
+  "frames": 407,
+  "deaths": 0,
+  "kills": 0,
+  "wall_seconds": 1.986348279,
+  "desync": false,
+  "sim_fps": 225.96698673069275,
+  "floor_frames": [
+   407
+  ],
+  "damage_taken": 26,
+  "dodges": 41,
+  "doors_opened": 15,
+  "players_end": [
+   {
+    "handle": 0,
+    "currency": 673,
+    "downed": false,
+    "x": -8.0,
+    "y": -8.0,
+    "in_spawn_room": true
+   },
+   {
+    "handle": 1,
+    "currency": 790,
+    "downed": false,
+    "x": 24.0,
+    "y": -8.0,
+    "in_spawn_room": true
+   }
+  ],
+  "waves": [],
+  "outcome": "objectif",
+  "rooms": [
+   {
+    "floor": 0,
+    "total": 3,
+    "visited": 3,
+    "cleared": 2,
+    "locking": 2
+   },
+   {
+    "floor": 1,
+    "total": 3,
+    "visited": 1,
+    "cleared": 0,
+    "locking": 2
+   }
+  ]
+ },
+ {
+  "seed": 15,
+  "wave": 0,
+  "floor": 0,
+  "frames": 1201,
+  "deaths": 0,
+  "kills": 0,
+  "wall_seconds": 5.68087184,
+  "desync": false,
+  "sim_fps": 218.41010633034335,
+  "damage_taken": 0,
+  "doors_opened": 9,
+  "players_end": [
+   {
+    "handle": 0,
+    "currency": 500,
+    "downed": false,
+    "x": 112.04259,
+    "y": -3.2257538,
+    "in_spawn_room": false
+   },
+   {
+    "handle": 1,
+    "currency": 500,
+    "downed": false,
+    "x": 114.534,
+    "y": -5.334015,
+    "in_spawn_room": false
+   }
+  ],
+  "waves": [],
+  "outcome": "soft-lock",
+  "rooms": [
+   {
+    "floor": 0,
+    "total": 3,
+    "visited": 2,
+    "cleared": 0,
+    "locking": 2
+   }
+  ],
+  "softlock_observations": [
+   "plafond atteint : phase NotStarted, 0 ennemis de vague pr\u00e9sents, 0 encore \u00e0 g\u00e9n\u00e9rer",
+   "0 ennemis hors de leur champ de flux depuis leur case exacte (champs : GroundBreaker)",
+   "restant : bullet_kin #40 case (6, -2), 40 PV, joueur 1 le plus proche \u00e0 21.43324 (en vue)",
+   "restant : bullet_kin #42 case (6, 1), 40 PV, joueur 0 le plus proche \u00e0 28.38882 (en vue)"
+  ]
+ },
+ {
+  "seed": 16,
+  "wave": 0,
+  "floor": 0,
+  "frames": 1201,
+  "deaths": 0,
+  "kills": 0,
+  "wall_seconds": 5.391837957,
+  "desync": false,
+  "sim_fps": 230.25161419792127,
+  "damage_taken": 0,
+  "doors_opened": 9,
+  "players_end": [
+   {
+    "handle": 0,
+    "currency": 500,
+    "downed": false,
+    "x": 10.915649,
+    "y": 110.32547,
+    "in_spawn_room": false
+   },
+   {
+    "handle": 1,
+    "currency": 500,
+    "downed": false,
+    "x": 3.4509888,
+    "y": 112.53761,
+    "in_spawn_room": false
+   }
+  ],
+  "waves": [],
+  "outcome": "soft-lock",
+  "rooms": [
+   {
+    "floor": 0,
+    "total": 3,
+    "visited": 2,
+    "cleared": 0,
+    "locking": 2
+   }
+  ],
+  "softlock_observations": [
+   "plafond atteint : phase NotStarted, 0 ennemis de vague pr\u00e9sents, 0 encore \u00e0 g\u00e9n\u00e9rer",
+   "0 ennemis hors de leur champ de flux depuis leur case exacte (champs : GroundBreaker)",
+   "restant : bullet_kin #40 case (-2, 6), 40 PV, joueur 1 le plus proche \u00e0 28.748 (en vue)",
+   "restant : bullet_kin #42 case (-2, 9), 40 PV, joueur 1 le plus proche \u00e0 48.07117 (en vue)"
+  ]
+ },
+ {
+  "seed": 17,
+  "wave": 0,
+  "floor": 1,
+  "frames": 570,
+  "deaths": 0,
+  "kills": 0,
+  "wall_seconds": 2.73376112,
+  "desync": false,
+  "sim_fps": 221.85829435262346,
+  "floor_frames": [
+   570
+  ],
+  "damage_taken": 48,
+  "dodges": 16,
+  "doors_opened": 15,
+  "players_end": [
+   {
+    "handle": 0,
+    "currency": 787,
+    "downed": false,
+    "x": -8.0,
+    "y": -8.0,
+    "in_spawn_room": true
+   },
+   {
+    "handle": 1,
+    "currency": 784,
+    "downed": false,
+    "x": 24.0,
+    "y": -8.0,
+    "in_spawn_room": true
+   }
+  ],
+  "waves": [],
+  "outcome": "objectif",
+  "rooms": [
+   {
+    "floor": 0,
+    "total": 3,
+    "visited": 3,
+    "cleared": 2,
+    "locking": 2
+   },
+   {
+    "floor": 1,
+    "total": 3,
+    "visited": 1,
+    "cleared": 0,
+    "locking": 2
+   }
+  ]
+ },
+ {
+  "seed": 18,
+  "wave": 0,
+  "floor": 1,
+  "frames": 1191,
+  "deaths": 0,
+  "kills": 0,
+  "wall_seconds": 5.588828121,
+  "desync": false,
+  "sim_fps": 220.74795158045777,
+  "floor_frames": [
+   1191
+  ],
+  "damage_taken": 148,
+  "dodges": 99,
+  "doors_opened": 13,
+  "players_end": [
+   {
+    "handle": 0,
+    "currency": 767,
+    "downed": false,
+    "x": -8.0,
+    "y": -8.0,
+    "in_spawn_room": true
+   },
+   {
+    "handle": 1,
+    "currency": 1220,
+    "downed": false,
+    "x": 24.0,
+    "y": -8.0,
+    "in_spawn_room": true
+   }
+  ],
+  "waves": [],
+  "outcome": "objectif",
+  "rooms": [
+   {
+    "floor": 0,
+    "total": 3,
+    "visited": 3,
+    "cleared": 2,
+    "locking": 2
+   },
+   {
+    "floor": 1,
+    "total": 3,
+    "visited": 1,
+    "cleared": 0,
+    "locking": 2
+   }
+  ]
+ },
+ {
+  "seed": 19,
+  "wave": 0,
+  "floor": 0,
+  "frames": 1201,
+  "deaths": 0,
+  "kills": 0,
+  "wall_seconds": 5.512854834,
+  "desync": false,
+  "sim_fps": 225.51338835451168,
+  "damage_taken": 0,
+  "doors_opened": 9,
+  "players_end": [
+   {
+    "handle": 0,
+    "currency": 500,
+    "downed": false,
+    "x": -115.425674,
+    "y": 7.1727753,
+    "in_spawn_room": false
+   },
+   {
+    "handle": 1,
+    "currency": 500,
+    "downed": false,
+    "x": -114.12538,
+    "y": 4.7498016,
+    "in_spawn_room": false
+   }
+  ],
+  "waves": [],
+  "outcome": "soft-lock",
+  "rooms": [
+   {
+    "floor": 0,
+    "total": 3,
+    "visited": 2,
+    "cleared": 0,
+    "locking": 2
+   }
+  ],
+  "softlock_observations": [
+   "plafond atteint : phase NotStarted, 0 ennemis de vague pr\u00e9sents, 0 encore \u00e0 g\u00e9n\u00e9rer",
+   "0 ennemis hors de leur champ de flux depuis leur case exacte (champs : GroundBreaker)",
+   "restant : bullet_kin #40 case (-10, -2), 40 PV, joueur 1 le plus proche \u00e0 47.55037 (en vue)",
+   "restant : bullet_kin #42 case (-10, 1), 40 PV, joueur 0 le plus proche \u00e0 40.25961 (en vue)"
+  ]
+ },
+ {
+  "seed": 20,
+  "wave": 0,
+  "floor": 0,
+  "frames": 1201,
+  "deaths": 0,
+  "kills": 0,
+  "wall_seconds": 5.259129671,
+  "desync": false,
+  "sim_fps": 237.08545105742272,
+  "damage_taken": 0,
+  "doors_opened": 9,
+  "players_end": [
+   {
+    "handle": 0,
+    "currency": 500,
+    "downed": false,
+    "x": -3.1285706,
+    "y": -118.33089,
+    "in_spawn_room": false
+   },
+   {
+    "handle": 1,
+    "currency": 500,
+    "downed": false,
+    "x": 1.2254486,
+    "y": -119.16194,
+    "in_spawn_room": false
+   }
+  ],
+  "waves": [],
+  "outcome": "soft-lock",
+  "rooms": [
+   {
+    "floor": 0,
+    "total": 3,
+    "visited": 2,
+    "cleared": 0,
+    "locking": 2
+   }
+  ],
+  "softlock_observations": [
+   "plafond atteint : phase NotStarted, 0 ennemis de vague pr\u00e9sents, 0 encore \u00e0 g\u00e9n\u00e9rer",
+   "0 ennemis hors de leur champ de flux depuis leur case exacte (champs : GroundBreaker)",
+   "restant : bullet_kin #40 case (-2, -10), 40 PV, joueur 0 le plus proche \u00e0 39.61345 (en vue)",
+   "restant : bullet_kin #42 case (-2, -7), 40 PV, joueur 0 le plus proche \u00e0 25.3178 (en vue)"
+  ]
+ }
+]
