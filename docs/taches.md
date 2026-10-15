@@ -592,6 +592,7 @@ l'ancienne machine.
   vérifie, tranches réparties par durée. Acceptation : suite deux fois plus rapide, aucune trace bougée.
 - Dettes en lot pour le cloud (2026-10-15) : `docs/taches/dettes-zombies-d10-d28-d29.md` (D10, D28, D29, décidées le 2026-10-14) et
   `docs/taches/dettes-outillage-d15-d34-d60-d63.md` (mesures D15/D34, `compare_video` des scénarios générés, contenu de test D63).
+- Dettes D15 (retirer la grille), D63 (contenu de test), D68 (soft-lock de réanimation) : fiche `docs/taches/dettes-d15-d63-d68.md`, cloud.
 - Perf de la navigation (outillage, 3 j ; fiche `docs/taches/perf-navigation.md`, cloud, après perf-suite-scenarios) :
   flow field et navigation des bots en grilles denses (42 % + 14 % de `bench_floor`), sortie identique case par case.
   Acceptation : aucune trace bougée, `throne_*` et `bench_floor` nettement plus rapides.
@@ -599,7 +600,7 @@ l'ancienne machine.
   `Inventory`, `BossPhase`, `ProfileHas`.
 
 **V4 présentation**
-- M2-T18 Test comparatif d'UI (I1, décision §7 n° 4, 2 j ; fiche de la première partie `docs/taches/m2-t18-ui-comparatif.md`, cloud ; **décision de William du 2026-10-15 : `bevy_hui`** pour les écrans) puis HUD gungeon : blanks, clés, objets,
+- M2-T18 Test comparatif d'UI (I1, décision §7 n° 4, 2 j ; fiche de la première partie `docs/taches/m2-t18-ui-comparatif.md`, cloud ; **décision de William du 2026-10-15 : `bevy_hui`** pour les écrans) puis HUD gungeon (fiche `docs/taches/m2-t18-hud-gungeon.md`, cloud) : blanks, clés, objets,
   actif et sa charge, minicarte.
 - M2-T19 Feedback v2 (I2 v2, 2 j ; fiche `docs/taches/m2-t19-feedback-v2.md`, cloud) : télégraphes de patterns, flash du blank, ralenti de fin de boss.
 
