@@ -342,11 +342,15 @@ mod tests {
             ),
             (
                 "grosse".to_string(),
-                parse(r#"(name: "G", kind: Passive, projectile: Some((modifiers: [Size("1.5")])))"#),
+                parse(
+                    r#"(name: "G", kind: Passive, projectile: Some((modifiers: [Size("1.5")])))"#,
+                ),
             ),
             (
                 "actif".to_string(),
-                parse(r#"(name: "A", kind: Active(Frames(10)), projectile: Some((modifiers: [Spectral])))"#),
+                parse(
+                    r#"(name: "A", kind: Active(Frames(10)), projectile: Some((modifiers: [Spectral])))"#,
+                ),
             ),
             ("rien".to_string(), plain),
         ]));

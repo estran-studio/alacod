@@ -858,6 +858,8 @@
                     mag: Infinite,
                 )
             },
+            // Scénario généré `weapon_larme` : une larme toutes les 20 frames, 8 coups à f200.
+            test: Some((frames: 200, min_hits: 8)),
         ),
         sprite_config: (
             name: "pistol",

@@ -1,7 +1,9 @@
 // M4-T0a (docs/conventions.md §60) : témoin de `tears_shot_speed`, même tir sans l'objet `lentille`
-// (`ShotSpeed` et `ShotSize` à leur base 1, sans être posées dans `Stats`).
+// (`ShotSpeed` et `ShotSize` à leur base 1, sans être posées dans `Stats`). Une seule larme part à
+// f20.
 //
-// À regarder : la balle part à f10 et atteint la cible plus tard que dans `tears_shot_speed`.
+// À regarder : la balle part à f20 et n'a pas encore touché la cible à f50, où celle de
+// `tears_shot_speed` l'a déjà touchée (f46) ; elle arrive à f58.
 Scenario(
     game: "testbed",
     map: "testbed/arena.ldtk",
@@ -9,13 +11,16 @@ Scenario(
     powerup_drop_chance_override: "0",
     players: [
         (
-            inputs: [(from: 10, to: 11, buttons: [Fire], pan: (128, 48))],
+            inputs: [(from: 10, to: 30, buttons: [Fire], pan: (128, 48))],
             weapon: "larme",
         ),
     ],
     expect: [
         Stat(handle: 0, stat: ShotSpeed, value: 1.0, at_frame: 1),
         Stat(handle: 0, stat: ShotSize, value: 1.0, at_frame: 1),
-        HitsAtLeast(entity: Target, hits: 1, at_frame: 119),
+        EntityHits(net_id: 35, min: 0, max: Some(0), at_frame: 50),
+        EntityHits(net_id: 35, min: 0, max: Some(0), at_frame: 56),
+        HitsAtLeast(entity: Target, hits: 1, at_frame: 58),
+        EntityHits(net_id: 35, min: 1, max: Some(1), at_frame: 119),
     ],
 )

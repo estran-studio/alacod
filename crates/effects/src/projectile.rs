@@ -37,7 +37,10 @@ pub enum ProjectileModifier {
     },
     /// Tourne autour du tireur à `radius` unités, un tour en `frames_per_turn` frames, au lieu
     /// d'avancer.
-    Orbit { radius: Fixed, frames_per_turn: u32 },
+    Orbit {
+        radius: Fixed,
+        frames_per_turn: u32,
+    },
 }
 
 impl ProjectileModifier {
@@ -59,7 +62,10 @@ impl ProjectileModifier {
     /// Contrat déclaré mais pas encore exécuté au tir (M4-T1) : le lint refuse une arme qui le
     /// porte (`Unsupported`).
     pub fn is_contract_only(&self) -> bool {
-        matches!(self, Self::Spectral | Self::Split { .. } | Self::Orbit { .. })
+        matches!(
+            self,
+            Self::Spectral | Self::Split { .. } | Self::Orbit { .. }
+        )
     }
 }
 

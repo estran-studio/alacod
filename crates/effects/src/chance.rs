@@ -35,8 +35,14 @@ mod tests {
     fn bornee_a_zero_et_un() {
         assert_eq!(chance_with_luck(fx(0.9), fx(10.0), fx(0.1)), FIXED_ONE);
         assert_eq!(chance_with_luck(fx(0.1), fx(-10.0), fx(0.1)), Fixed::ZERO);
-        assert_eq!(chance_with_luck(fx(2.0), Fixed::ZERO, Fixed::ZERO), FIXED_ONE);
+        assert_eq!(
+            chance_with_luck(fx(2.0), Fixed::ZERO, Fixed::ZERO),
+            FIXED_ONE
+        );
         // Saturation : pas de panique sur des valeurs extrêmes.
-        assert_eq!(chance_with_luck(Fixed::MAX, Fixed::MAX, Fixed::MAX), FIXED_ONE);
+        assert_eq!(
+            chance_with_luck(Fixed::MAX, Fixed::MAX, Fixed::MAX),
+            FIXED_ONE
+        );
     }
 }

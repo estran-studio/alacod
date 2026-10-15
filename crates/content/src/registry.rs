@@ -1956,8 +1956,9 @@ struct FiringModeSchema {
     /// T1.1 : voir `WeaponEntry::mode_projectiles`.
     #[serde(default)]
     projectile: ProjectileSpecEntry,
-    /// M4-T0a : voir `WeaponEntry::infinite_modes` (absent des fixtures : `None`).
-    #[serde(default)]
+    /// M4-T0a : voir `WeaponEntry::infinite_modes` (absent des fixtures : `None`). Écrit sans
+    /// `Some(..)` dans le RON, comme le champ réel.
+    #[serde(default, deserialize_with = "de_opt_mag")]
     mag: Option<MagSchema>,
 }
 
@@ -2131,6 +2132,10 @@ where
     T: Deserialize<'de>,
 {
     T::deserialize(deserializer).map_err(|e| de::Error::custom(format!("champ {field} : {e}")))
+}
+
+fn de_opt_mag<'de, D: Deserializer<'de>>(d: D) -> Result<Option<MagSchema>, D::Error> {
+    with_field_name(d, "mag").map(Some)
 }
 
 fn de_opt_ammo_type<'de, D: Deserializer<'de>>(d: D) -> Result<Option<AmmoType>, D::Error> {

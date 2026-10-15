@@ -3,7 +3,7 @@
 // `target` : il tire sans jamais recharger, le chargeur reste à 0 (aucune munition consommée) et les
 // coups continuent d'arriver jusqu'au bout.
 //
-// À regarder : un flot régulier de balles de f10 à f300, aucune pause de rechargement ; les coups
+// À regarder : un flot régulier de balles de f20 à f300, aucune pause de rechargement ; les coups
 // sur la cible montent sans palier.
 Scenario(
     game: "testbed",
@@ -22,7 +22,10 @@ Scenario(
         Ammo(handle: 0, ammo: 0, at_frame: 100),
         Ammo(handle: 0, ammo: 0, at_frame: 200),
         Ammo(handle: 0, ammo: 0, at_frame: 309),
-        HitsAtLeast(entity: Target, hits: 1, at_frame: 100),
-        HitsAtLeast(entity: Target, hits: 2, at_frame: 309),
+        // Une larme toutes les 20 frames (f20, f40…), 38 frames de vol jusqu'à la cible : toutes
+        // les larmes tirées jusqu'à f62, f162, f271 ont touché, sans palier de rechargement.
+        EntityHits(net_id: 35, min: 3, max: Some(3), at_frame: 100),
+        EntityHits(net_id: 35, min: 8, max: Some(8), at_frame: 200),
+        EntityHits(net_id: 35, min: 13, max: Some(13), at_frame: 309),
     ],
 )

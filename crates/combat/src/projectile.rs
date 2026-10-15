@@ -54,9 +54,6 @@ use utils::{
 };
 
 use crate::status::{StatusDef, StatusLibrary, Statuses};
-/// Contrats déplacés dans `effects::projectile` par M4-T0a (§60), réexportés ici : chemins
-/// inchangés pour tout le code existant.
-pub use effects::projectile::{ExpireAction, Pattern, ProjectileMods, ProjectileModifier, ProjectileSpec};
 use crate::{
     actors::Health,
     collider::{is_colliding, Collider, CollisionLayer, CollisionSettings, Wall},
@@ -64,7 +61,11 @@ use crate::{
     team::team_allows_hit,
     weapons::{Bullet, BulletType},
 };
-
+/// Contrats déplacés dans `effects::projectile` par M4-T0a (§60), réexportés ici : chemins
+/// inchangés pour tout le code existant.
+pub use effects::projectile::{
+    ExpireAction, Pattern, ProjectileModifier, ProjectileMods, ProjectileSpec,
+};
 
 /// Patterns nommés du jeu (kind de contenu `Pattern`, T1.2) : nom -> pattern. Ressource
 /// **hors rollback** (comme `Assets`) : remplie par `game` depuis le registre de contenu,
@@ -117,7 +118,6 @@ impl PatternLibrary {
         }
     }
 }
-
 
 /// Projectile nommé de la table `projectiles` d'une arme, que `on_expire` fait naître.
 /// `speed` en unités/seconde (remplacée par celle d'un `Ring`), `range` en unités (> 0).
@@ -1347,10 +1347,22 @@ mod tests {
         let pairs = [
             (hash_of(&Avant::Bounce(2)), ProjectileModifier::Bounce(2)),
             (hash_of(&Avant::Pierce(3)), ProjectileModifier::Pierce(3)),
-            (hash_of(&Avant::Size(fx(1.5))), ProjectileModifier::Size(fx(1.5))),
-            (hash_of(&Avant::Lifetime(9)), ProjectileModifier::Lifetime(9)),
-            (hash_of(&Avant::Homing(fx(0.5))), ProjectileModifier::Homing(fx(0.5))),
-            (hash_of(&Avant::Gravity(fx(-2.0))), ProjectileModifier::Gravity(fx(-2.0))),
+            (
+                hash_of(&Avant::Size(fx(1.5))),
+                ProjectileModifier::Size(fx(1.5)),
+            ),
+            (
+                hash_of(&Avant::Lifetime(9)),
+                ProjectileModifier::Lifetime(9),
+            ),
+            (
+                hash_of(&Avant::Homing(fx(0.5))),
+                ProjectileModifier::Homing(fx(0.5)),
+            ),
+            (
+                hash_of(&Avant::Gravity(fx(-2.0))),
+                ProjectileModifier::Gravity(fx(-2.0)),
+            ),
         ];
         for (avant, now) in pairs {
             assert_eq!(avant, hash_of(&now), "{now:?}");
@@ -1426,7 +1438,10 @@ mod tests {
     #[test]
     fn compose_bounce_et_pierce_s_additionnent() {
         use ProjectileModifier::*;
-        let r = compose(&[Bounce(1), Pierce(2)], &[&[Bounce(2)], &[Pierce(3), Bounce(1)]]);
+        let r = compose(
+            &[Bounce(1), Pierce(2)],
+            &[&[Bounce(2)], &[Pierce(3), Bounce(1)]],
+        );
         assert_eq!((r.bounces, r.pierces), (4, 5));
         let r = compose(&[], &[&[Bounce(u32::MAX)], &[Bounce(5)]]);
         assert_eq!(r.bounces, u32::MAX, "addition saturante");
@@ -1460,7 +1475,11 @@ mod tests {
             Some(fx(0.75))
         );
         assert_eq!(
-            compose(&[Homing(fx(0.75))], &[&[Homing(fx(0.5))], &[Homing(fx(1.0))]]).homing,
+            compose(
+                &[Homing(fx(0.75))],
+                &[&[Homing(fx(0.5))], &[Homing(fx(1.0))]]
+            )
+            .homing,
             Some(fixed_math::FIXED_ONE)
         );
         assert_eq!(compose(&[], &[&[Homing(fx(0.5))]]).homing, Some(fx(0.5)));
@@ -1470,7 +1489,11 @@ mod tests {
     fn compose_gravity_somme() {
         use ProjectileModifier::*;
         assert_eq!(
-            compose(&[Gravity(fx(-60.0))], &[&[Gravity(fx(20.0))], &[Gravity(fx(-10.0))]]).gravity,
+            compose(
+                &[Gravity(fx(-60.0))],
+                &[&[Gravity(fx(20.0))], &[Gravity(fx(-10.0))]]
+            )
+            .gravity,
             Some(fx(-50.0))
         );
         assert_eq!(compose(&[], &[]).gravity, None);
@@ -1549,7 +1572,10 @@ mod tests {
         assert_eq!(ab.bounces, ba.bounces);
         assert_eq!(ab.orbit.unwrap().radius, fx(20.0));
         assert_eq!(ba.orbit.unwrap().radius, fx(40.0));
-        let twice = compose(&[Size(fx(1.0))], &[&[Size(fx(1.5)), Pierce(1)], &[Size(fx(1.5)), Pierce(1)]]);
+        let twice = compose(
+            &[Size(fx(1.0))],
+            &[&[Size(fx(1.5)), Pierce(1)], &[Size(fx(1.5)), Pierce(1)]],
+        );
         assert_eq!((twice.size, twice.pierces), (fx(2.25), 2));
         // L'arme passe avant les objets : sa forme de Split l'emporte.
         let weapon: &[ProjectileModifier] = &[Split {
@@ -1574,7 +1600,6 @@ mod tests {
         assert_eq!(compose(&[Bounce(1), Bounce(3)], &[]).bounces, 3);
         assert_eq!(compose(&[], &[&[Bounce(1), Bounce(3)]]).bounces, 3);
     }
-
 
     fn projectile(modifiers: Vec<ProjectileModifier>) -> Projectile {
         Projectile::new(

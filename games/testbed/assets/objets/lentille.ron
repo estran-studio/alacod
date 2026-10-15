@@ -10,4 +10,7 @@
     ],
     tags: ["larmes"],
     rarity: Common,
+    // Scénario généré `item_lentille` (gabarit ItemHeld) : `ShotSpeed` et `ShotSize` à 1,5 (base 1,
+    // `sim_core::stats::default_base`).
+    test: Some((frames: 60)),
 )
