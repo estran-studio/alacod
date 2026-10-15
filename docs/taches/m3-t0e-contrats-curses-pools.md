@@ -1,17 +1,17 @@
-# m4-t0e-contrats-curses-pools — curses et pools d'objets à épuisement (M4, vague 0)
+# m3-t0e-contrats-curses-pools — curses et pools d'objets à épuisement (M3, vague 0)
 
 Lire d'abord `docs/taches/README.md`, `CLAUDE.md`, `docs/taches.md` §8.1, `docs/conventions.md` §4, §13 et
 §17 (run, `Floors`), §23 (horloges, difficulté), §40 (grammaire, graine par emplacement), §48 (butin : tirage
 indépendant du moment, `loot_seed`), §50 (boutique), §51 (déblocages de M2-T12, une fois mergée), et le code
 `crates/run/src/` (`Run`, `Run.flags`, `FloorState`), `crates/items/src/loot.rs` (`LootTableDef`,
 `draw_loot`, `loot_seed`), `crates/game/src/loot.rs`, `crates/game/src/shop.rs`. Branche
-`m4-t0e-contrats-curses-pools` depuis `origin/main`, **une fois M2-T12 mergée** (`git log origin/main`
+`m3-t0e-contrats-curses-pools` depuis `origin/main`, **une fois M2-T12 mergée** (`git log origin/main`
 contient `merge m2-t12-profil-deblocages` ; sinon attendre : même fichier `items::loot`). Estimation : 2 j.
 Section de conventions réservée : **§64**.
 
 ## But
 
-Poser les contrats dont dépendent M4-T8 (pools et marché du diable), M4-T9 (curses) et M4-T10
+Poser les contrats dont dépendent M3-T8 (pools et marché du diable), M3-T9 (curses) et M3-T10
 (accomplissements). **Aucune trace existante ne bouge.**
 
 ## Contexte (état de `main` au 2026-10-15)
@@ -31,7 +31,7 @@ Poser les contrats dont dépendent M4-T8 (pools et marché du diable), M4-T9 (cu
    `(path: "curses", kind: "Curse")`), `run::CurseDef { weight, effects: [CurseEffect] }` avec
    `CurseEffect` en liste fermée, extensible en fin d'enum. Variantes proposées (la liste du clone est
    **Q7**, ne pas en coder plus que le contrat) : `HideMinimap`, `HideHealth`, `HideItemNames` (présentation
-   seule : lues par le HUD), `FloorRooms(mult)` (lu par la grammaire, M4-T5/T9), `Modifier(stat, op, value)`
+   seule : lues par le HUD), `FloorRooms(mult)` (lu par la grammaire, M3-T5/T9), `Modifier(stat, op, value)`
    (posé sur chaque joueur pour l'étage, source `curse:<id>`). Tirage : chance par étage dans la séquence
    `Floors` (`curses: Some((chance, pool: [ids]))`, absent = aucune curse), graine
    `fnv1a("curse:<graine>:<étage>")` (RNG local, aucun flux de `RngStreams`), donc indépendante du moment.
@@ -65,13 +65,13 @@ ressource et toutes les traces. Le profil et les accomplissements restent hors `
 
 ## Hors périmètre
 
-Curses en jeu et leur effet sur la grammaire et le HUD (M4-T9, T16) ; épuisement en jeu, salle du diable
-(M4-T8) ; accomplissements écrits dans le profil (M4-T10).
+Curses en jeu et leur effet sur la grammaire et le HUD (M3-T9, T16) ; épuisement en jeu, salle du diable
+(M3-T8) ; accomplissements écrits dans le profil (M3-T10).
 
 ## Vérification
 
 README §4 complet ; unitaires des trois règles pures ; rapport
-`docs/taches/rapports/m4-t0e-contrats-curses-pools.md`, conventions §64.
+`docs/taches/rapports/m3-t0e-contrats-curses-pools.md`, conventions §64.
 
 ## Atteignabilité
 
@@ -82,5 +82,5 @@ T8 active l'épuisement sur le pool trésor, T10 écrit un accomplissement à la
 
 Tâche prévue pour une session Claude Code cloud, **après le merge de M2-T12**. Ignorer les consignes `orca`
 du README (§1). Pas de Docker : le dire au rapport. Pousser la branche régulièrement. Voie rapide du README
-§6 : fusionner `origin/main` et rejouer la suite juste avant le commit `LIVRÉ m4-t0e-contrats-curses-pools`,
+§6 : fusionner `origin/main` et rejouer la suite juste avant le commit `LIVRÉ m3-t0e-contrats-curses-pools`,
 qui contient le rapport.

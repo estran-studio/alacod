@@ -1,7 +1,7 @@
-//! M4-T0a (`docs/conventions.md` §60) : chance d'effet liée à la stat `Luck`.
+//! M3-T0a (`docs/conventions.md` §60) : chance d'effet liée à la stat `Luck`.
 //!
-//! Contrat seulement : rien ne l'appelle encore dans la simulation (M4-T1 pour les statuts
-//! posés par une larme, M4-T2 pour les effets d'objet). Le lecteur de `Luck` déclaré par
+//! Contrat seulement : rien ne l'appelle encore dans la simulation (M3-T1 pour les statuts
+//! posés par une larme, M3-T2 pour les effets d'objet). Le lecteur de `Luck` déclaré par
 //! `sim_core::stats::stat_reader`.
 
 use bevy_fixed::fixed_math::{Fixed, FIXED_ONE};

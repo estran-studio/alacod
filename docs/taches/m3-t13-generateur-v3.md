@@ -1,9 +1,9 @@
-# m4-t13-generateur-v3 — générateur v3 : larmes, familiers, champions à l'échelle (M4, V3)
+# m3-t13-generateur-v3 — générateur v3 : larmes, familiers, champions à l'échelle (M3, V3)
 
 Lire d'abord `docs/taches/README.md`, `docs/taches.md` §8.1, `docs/conventions.md` §28 et §54 (générateur
 v1 et v2), §66, §71, §72, et le code `crates/scenario/src/generate.rs`,
-`crates/scenario/src/bin/alacod-gen.rs`. Branche `m4-t13-generateur-v3` depuis `origin/main`, **après le
-merge de M4-T1, M4-T6 et M4-T7**. Estimation : 3 j. Section de conventions réservée : **§78**.
+`crates/scenario/src/bin/alacod-gen.rs`. Branche `m3-t13-generateur-v3` depuis `origin/main`, **après le
+merge de M3-T1, M3-T6 et M3-T7**. Estimation : 3 j. Section de conventions réservée : **§78**.
 
 ## À faire
 
@@ -23,10 +23,10 @@ Outillage seulement : traces existantes inchangées (les scénarios générés e
 
 ## Vérification
 
-README §4 ; rapport `docs/taches/rapports/m4-t13-generateur-v3.md`, conventions §78.
+README §4 ; rapport `docs/taches/rapports/m3-t13-generateur-v3.md`, conventions §78.
 
 ## Session cloud
 
 Tâche prévue pour une session Claude Code cloud. Ignorer les consignes `orca` du README (§1). Pousser la
 branche régulièrement. Voie rapide du README §6 : fusionner `origin/main` et rejouer la suite juste avant le
-commit `LIVRÉ m4-t13-generateur-v3`, qui contient le rapport.
+commit `LIVRÉ m3-t13-generateur-v3`, qui contient le rapport.

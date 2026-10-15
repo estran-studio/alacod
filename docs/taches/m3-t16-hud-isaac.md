@@ -1,8 +1,8 @@
-# m4-t16-hud-isaac — HUD `isaac` : cœurs, sous, bombes, clés, minicarte en grille (M4, V4, I1)
+# m3-t16-hud-isaac — HUD `isaac` : cœurs, sous, bombes, clés, minicarte en grille (M3, V4, I1)
 
 Lire d'abord `docs/taches/README.md`, `CLAUDE.md` (« HUD »), `docs/taches.md` §8.1, `docs/conventions.md`
-§15, §56 (HUD gungeon, `bevy_hui`), §68 (cœurs), §70 (grille), §74 (curses). Branche `m4-t16-hud-isaac`
-depuis `origin/main`, **après le merge de M4-T3 et M4-T5** (T9 pour les curses). Estimation : 3 j. Section de
+§15, §56 (HUD gungeon, `bevy_hui`), §68 (cœurs), §70 (grille), §74 (curses). Branche `m3-t16-hud-isaac`
+depuis `origin/main`, **après le merge de M3-T3 et M3-T5** (T9 pour les curses). Estimation : 3 j. Section de
 conventions réservée : **§81**.
 
 ## À faire
@@ -21,9 +21,9 @@ Présentation seule : aucune trace ne bouge. Ce qui est affiché dérive de l'é
 
 ## Vérification
 
-README §4 ; rapport `docs/taches/rapports/m4-t16-hud-isaac.md`, conventions §81.
+README §4 ; rapport `docs/taches/rapports/m3-t16-hud-isaac.md`, conventions §81.
 
 ## Session cloud
 
 Tâche prévue pour une session Claude Code cloud. Ignorer les consignes `orca` du README (§1). Pousser la
-branche régulièrement ; voie rapide du README §6 ; commit final `LIVRÉ m4-t16-hud-isaac` avec le rapport.
+branche régulièrement ; voie rapide du README §6 ; commit final `LIVRÉ m3-t16-hud-isaac` avec le rapport.

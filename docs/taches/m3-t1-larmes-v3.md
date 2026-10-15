@@ -1,13 +1,13 @@
-# m4-t1-larmes-v3 — larmes v3 : modificateurs d'objets empilés, Spectral, Split, Orbit, statuts v2 (M4, V1a, B5 v3)
+# m3-t1-larmes-v3 — larmes v3 : modificateurs d'objets empilés, Spectral, Split, Orbit, statuts v2 (M3, V1a, B5 v3)
 
 Lire d'abord `docs/taches/README.md`, `CLAUDE.md`, `docs/taches.md` §8.1, `docs/conventions.md` §16, §19
-(statuts), §41, §60 (contrats de M4-T0a) et le rapport `docs/taches/rapports/m4-t0a-contrats-larmes.md`.
-Branche `m4-t1-larmes-v3` depuis `origin/main`, **après le merge de M4-T0a**. Estimation : 5 j. Section de
+(statuts), §41, §60 (contrats de M3-T0a) et le rapport `docs/taches/rapports/m4-t0a-contrats-larmes.md`.
+Branche `m3-t1-larmes-v3` depuis `origin/main`, **après le merge de M3-T0a**. Estimation : 5 j. Section de
 conventions réservée : **§66**.
 
 ## Contexte
 
-M4-T0a a posé `ProjectileMods` sur les objets, `compose` et ses règles, `ShotSpeed`/`ShotSize`, `Luck` et les
+M3-T0a a posé `ProjectileMods` sur les objets, `compose` et ses règles, `ShotSpeed`/`ShotSize`, `Luck` et les
 contrats `Spectral`, `Split`, `Orbit`. Rien n'est encore lu au tir.
 
 ## À faire
@@ -42,7 +42,7 @@ Contenu `isaac` (T11a), familiers (T6), visuels des larmes (T17), bench dédié 
 
 ## Vérification
 
-README §4 ; rapport `docs/taches/rapports/m4-t1-larmes-v3.md`, conventions §66.
+README §4 ; rapport `docs/taches/rapports/m3-t1-larmes-v3.md`, conventions §66.
 
 ## Atteignabilité
 
@@ -53,5 +53,5 @@ Rencontré quand T11a met les objets de larmes dans le pool trésor de `isaac` (
 
 Tâche prévue pour une session Claude Code cloud. Ignorer les consignes `orca` du README (§1). Pas de Docker :
 p2p rejoué par l'orchestrateur, le dire au rapport. Pousser la branche régulièrement. Voie rapide du README
-§6 : fusionner `origin/main` et rejouer la suite juste avant le commit `LIVRÉ m4-t1-larmes-v3`, qui contient
+§6 : fusionner `origin/main` et rejouer la suite juste avant le commit `LIVRÉ m3-t1-larmes-v3`, qui contient
 le rapport.

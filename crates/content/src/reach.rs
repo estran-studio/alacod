@@ -488,7 +488,7 @@ mod tests {
     #[test]
     fn armor_and_luck_have_a_reader_custom_has_none() {
         assert!(sim_core::stats::stat_reader(&StatId::Armor).is_some());
-        // M4-T0a : `Luck` lue (chance d'effet), `ShotSpeed`/`ShotSize` lues au tir.
+        // M3-T0a : `Luck` lue (chance d'effet), `ShotSpeed`/`ShotSize` lues au tir.
         assert!(sim_core::stats::stat_reader(&StatId::Luck).is_some());
         assert!(sim_core::stats::stat_reader(&StatId::ShotSpeed).is_some());
         assert!(sim_core::stats::stat_reader(&StatId::ShotSize).is_some());

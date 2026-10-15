@@ -440,8 +440,8 @@ fn lint_weapons(registry: &Registry, errors: &mut Vec<LintError>) {
         // T2.8 : `Custom` est la porte d'un type de munition propre au jeu ; un nom vide (ou
         // fait d'espaces) ne désigne rien et partagerait la réserve de toute autre arme
         // `Custom("")` par accident.
-        // M4-T0a (§60) : munitions infinies. Une arme dont un mode consomme des munitions doit
-        // déclarer `ammo_type` (comme avant M4-T0a, où son absence était une erreur RON) ; une
+        // M3-T0a (§60) : munitions infinies. Une arme dont un mode consomme des munitions doit
+        // déclarer `ammo_type` (comme avant M3-T0a, où son absence était une erreur RON) ; une
         // arme dont **tous** les modes sont `Infinite` n'a pas de réserve à consommer et le refuse.
         let consumes = weapon.firing_rates.is_empty()
             || weapon
@@ -718,8 +718,8 @@ fn lint_projectile_spec(
                     format!("{at} : Homing({}) : doit être dans ]0, 1]", force.get()),
                 )
             }
-            // M4-T0a (§60) : contrats acceptés dans le RON (formes, plages), refusés tant que
-            // M4-T1 ne les exécute pas.
+            // M3-T0a (§60) : contrats acceptés dans le RON (formes, plages), refusés tant que
+            // M3-T1 ne les exécute pas.
             registry::ProjectileModifierEntry::Spectral => push_contract(at, "Spectral", push),
             registry::ProjectileModifierEntry::Split {
                 count,
@@ -794,16 +794,16 @@ fn lint_projectile_spec(
     }
 }
 
-/// M4-T0a : modificateur de contrat (`Spectral`, `Split`, `Orbit`) dans une arme : refusé
-/// jusqu'à son exécution (M4-T1), comme les contrats de M1.
+/// M3-T0a : modificateur de contrat (`Spectral`, `Split`, `Orbit`) dans une arme : refusé
+/// jusqu'à son exécution (M3-T1), comme les contrats de M1.
 fn push_contract(at: &str, name: &str, push: &mut impl FnMut(LintErrorKind, String)) {
     push(
         LintErrorKind::Unsupported,
-        format!("{at} : modificateur {name} : contrat pas encore exécuté au tir (M4-T1)"),
+        format!("{at} : modificateur {name} : contrat pas encore exécuté au tir (M3-T1)"),
     );
 }
 
-/// M4-T0a : plages de `Split` (`count > 0`, `spread >= 0`) et d'`Orbit` (`radius > 0`,
+/// M3-T0a : plages de `Split` (`count > 0`, `spread >= 0`) et d'`Orbit` (`radius > 0`,
 /// `frames_per_turn > 0`).
 fn lint_split_orbit(
     at: &str,
@@ -841,11 +841,11 @@ fn lint_split_orbit(
     }
 }
 
-/// M4-T0a (§60) : `projectile:` d'un objet ou d'une synergie (`effects::projectile::
+/// M3-T0a (§60) : `projectile:` d'un objet ou d'une synergie (`effects::projectile::
 /// ProjectileMods`). Mêmes règles de forme que la liste d'une arme (chaque modificateur au plus
 /// une fois **dans cette liste**, l'empilement vaut entre sources ; `Size > 0`, `0 < Homing <= 1`,
 /// plages de `Split`/`Orbit`), puis refus `Unsupported` : le tir ne lit pas encore les
-/// modificateurs d'objet (M4-T1).
+/// modificateurs d'objet (M3-T1).
 fn lint_carried_projectile(
     at: &str,
     mods: &effects::projectile::ProjectileMods,
@@ -885,7 +885,7 @@ fn lint_carried_projectile(
     }
     push(
         LintErrorKind::Unsupported,
-        format!("{at} : modificateurs de projectile portés par un objet : contrat pas encore lu au tir (M4-T1)"),
+        format!("{at} : modificateurs de projectile portés par un objet : contrat pas encore lu au tir (M3-T1)"),
     );
 }
 

@@ -1,9 +1,9 @@
-# m4-t10-profil-accomplissements — accomplissements qui débloquent des objets (M4, V1e, G1 v2)
+# m3-t10-profil-accomplissements — accomplissements qui débloquent des objets (M3, V1e, G1 v2)
 
 Lire d'abord `docs/taches/README.md`, `CLAUDE.md`, `docs/taches.md` §8.1, `docs/conventions.md` §38
-(profil), §51 (déblocages de M2-T12), §64 (contrat `Achievement` de M4-T0e), et les rapports de M2-T12 et
-M4-T0e. Branche `m4-t10-profil-accomplissements` depuis `origin/main`, **après le merge de M2-T12 et
-M4-T0e**. Estimation : 3 j. Section de conventions réservée : **§75**.
+(profil), §51 (déblocages de M2-T12), §64 (contrat `Achievement` de M3-T0e), et les rapports de M2-T12 et
+M3-T0e. Branche `m3-t10-profil-accomplissements` depuis `origin/main`, **après le merge de M2-T12 et
+M3-T0e**. Estimation : 3 j. Section de conventions réservée : **§75**.
 
 ## À faire
 
@@ -30,7 +30,7 @@ rapport si besoin).
 ## Vérification
 
 README §4 ; p2p à deux profils différents rejoué par l'orchestrateur ; rapport
-`docs/taches/rapports/m4-t10-profil-accomplissements.md`, conventions §75.
+`docs/taches/rapports/m3-t10-profil-accomplissements.md`, conventions §75.
 
 ## Atteignabilité
 
@@ -42,4 +42,4 @@ pool (scénario enchaîné, pas une graine).
 Tâche prévue pour une session Claude Code cloud, **après le merge de M2-T12**. Ignorer les consignes `orca`
 du README (§1). Pas de Docker : le dire au rapport. Pousser la branche régulièrement. Voie rapide du README
 §6 : fusionner `origin/main` et rejouer la suite juste avant le commit
-`LIVRÉ m4-t10-profil-accomplissements`, qui contient le rapport.
+`LIVRÉ m3-t10-profil-accomplissements`, qui contient le rapport.

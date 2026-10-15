@@ -1,8 +1,8 @@
-# m4-t18-integration-sortie — intégration de `isaac` et dossier de sortie de M4 (M4, vague 2)
+# m3-t18-integration-sortie — intégration de `isaac` et dossier de sortie de M3 (M3, vague 2)
 
 Lire d'abord `docs/taches/README.md`, `docs/plan-engine.md` §9.8, `docs/etat-engine.md` (contrat de sortie),
-`docs/taches.md` §8.1 (atteignabilité, critères de sortie de M4), `docs/taches/dettes.md`, et les rapports
-`docs/taches/rapports/m4-*.md`. Branche `m4-t18-integration-sortie` depuis `origin/main`, **après le merge de
+`docs/taches.md` §8.1 (atteignabilité, critères de sortie de M3), `docs/taches/dettes.md`, et les rapports
+`docs/taches/rapports/m4-*.md`. Branche `m3-t18-integration-sortie` depuis `origin/main`, **après le merge de
 toute la vague 1, de T11d, T14 et T15**. Estimation : 5 j (orchestration et mesures, peu de code).
 
 ## À faire
@@ -13,9 +13,9 @@ toute la vague 1, de T11d, T14 et T15**. Estimation : 5 j (orchestration et mesu
 3. **Bench** : critère 6 sur une machine nommée au calme.
 4. **p2p réel** : critère 7 (orchestrateur, Docker ; deux machines si D73 le permet).
 5. **Vidéos** et page de revue ; **revue humaine** de William (critère 8), notes transformées en attentes ou
-   en dettes ; **porte des dettes** (§4 de `docs/taches.md`) pour toutes les dettes ouvertes par M4.
+   en dettes ; **porte des dettes** (§4 de `docs/taches.md`) pour toutes les dettes ouvertes par M3.
 6. **Dossier de sortie** : un tableau critère par critère (fait / partiel / manquant, preuve), dans le
-   rapport `docs/taches/rapports/m4-t18-integration-sortie.md`.
+   rapport `docs/taches/rapports/m3-t18-integration-sortie.md`.
 
 ## Règles
 
@@ -25,4 +25,4 @@ Une mécanique absente des moments clés de `isaac_full_run` n'est pas livrée. 
 ## Session cloud
 
 Les points 1, 2 et 6 se prêtent à une session cloud ; les points 3 à 5 demandent `orca`, Docker et William.
-Commit final `LIVRÉ m4-t18-integration-sortie` avec le rapport.
+Commit final `LIVRÉ m3-t18-integration-sortie` avec le rapport.

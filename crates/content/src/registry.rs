@@ -542,10 +542,10 @@ pub struct WeaponEntry {
     /// (`frames > 0`, `min_hits <= max_hits`). `None` : pas de `test:`, aucune règle à
     /// vérifier (l'arme obtient quand même un scénario généré, invariants seulement).
     pub test: Option<WeaponTestRange>,
-    /// Type de munition (T2.2), pour la règle « `Custom` au nom non vide » (T2.8). M4-T0a :
+    /// Type de munition (T2.2), pour la règle « `Custom` au nom non vide » (T2.8). M3-T0a :
     /// `None` si le RON n'en déclare pas (permis seulement si tous les modes sont `Infinite`).
     pub ammo_type: Option<AmmoType>,
-    /// M4-T0a : modes de tir à munitions infinies (`mag: Infinite`), pour les règles
+    /// M3-T0a : modes de tir à munitions infinies (`mag: Infinite`), pour les règles
     /// « `ammo_type` absent seulement si tous les modes sont infinis » et inversement.
     pub infinite_modes: BTreeSet<String>,
     /// Sons référencés par `audio_config` (T2.8), pour la règle « fichier présent sous
@@ -572,7 +572,7 @@ pub enum ProjectileModifierEntry {
     Lifetime(u32),
     Homing(FixedField),
     Gravity(FixedField),
-    /// M4-T0a (§60) : contrats (exécution M4-T1), voir `effects::projectile::ProjectileModifier`.
+    /// M3-T0a (§60) : contrats (exécution M3-T1), voir `effects::projectile::ProjectileModifier`.
     Spectral,
     Split {
         count: u32,
@@ -1922,7 +1922,7 @@ struct WeaponConfigSchema {
     /// avec des valeurs par défaut. T2.8 : une variante inconnue est rapportée avec le nom
     /// du champ (`de_ammo_type`), un `Custom("")` par `lint::lint_weapons`.
     ///
-    /// M4-T0a : optionnel ici (`None` si absent) ; le lint l'exige pour une arme dont un mode
+    /// M3-T0a : optionnel ici (`None` si absent) ; le lint l'exige pour une arme dont un mode
     /// consomme des munitions (comme avant, mais en erreur de lint plutôt qu'en erreur RON) et le
     /// refuse pour une arme dont tous les modes sont `Infinite`.
     #[serde(default, deserialize_with = "de_opt_ammo_type")]
@@ -1954,13 +1954,13 @@ struct FiringModeSchema {
     /// T1.1 : voir `WeaponEntry::mode_projectiles`.
     #[serde(default)]
     projectile: ProjectileSpecEntry,
-    /// M4-T0a : voir `WeaponEntry::infinite_modes` (absent des fixtures : `None`). Écrit sans
+    /// M3-T0a : voir `WeaponEntry::infinite_modes` (absent des fixtures : `None`). Écrit sans
     /// `Some(..)` dans le RON, comme le champ réel.
     #[serde(default, deserialize_with = "de_opt_mag")]
     mag: Option<MagSchema>,
 }
 
-/// M4-T0a : mirroir de `combat::weapons::MagBulletConfig` (seule la variante compte).
+/// M3-T0a : mirroir de `combat::weapons::MagBulletConfig` (seule la variante compte).
 #[derive(Deserialize)]
 #[allow(dead_code)]
 enum MagSchema {

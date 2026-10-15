@@ -1,4 +1,4 @@
-// Fixture M4-T0a (docs/conventions.md §60) : Split count 0, Orbit radius 0, child inconnu (OutOfRange, BrokenReference)
+// Fixture M3-T0a (docs/conventions.md §60) : Split count 0, Orbit radius 0, child inconnu (OutOfRange, BrokenReference)
 (
     name: "fixture-projectile_split_out_of_range",
     content_folders: [

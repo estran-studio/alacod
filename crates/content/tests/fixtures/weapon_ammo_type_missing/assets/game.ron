@@ -1,4 +1,4 @@
-// Fixture M4-T0a (docs/conventions.md §60) : arme à chargeur sans ammo_type (Parse)
+// Fixture M3-T0a (docs/conventions.md §60) : arme à chargeur sans ammo_type (Parse)
 (
     name: "fixture-weapon_ammo_type_missing",
     content_folders: [

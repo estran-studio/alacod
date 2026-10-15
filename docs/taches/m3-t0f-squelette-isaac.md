@@ -1,4 +1,4 @@
-# m4-t0f-squelette-isaac — contenu `games/isaac/` squelette (M4, vague 0, V2)
+# m4-t0f-squelette-isaac — contenu `games/isaac/` squelette (M3, vague 0, V2)
 
 Lire d'abord `docs/taches/README.md`, `CLAUDE.md`, `docs/taches.md` §8.1, `docs/conventions.md` §3
 (dossier de jeu, manifeste), §17 et §40 (`Floors`, grammaire d'étage), §35 (salles), §39 (le jeu `gungeon` :
@@ -21,14 +21,14 @@ grammaire en arbre **existante**. Rien de nouveau côté moteur.
    `rooms`, `floors`, `floor_grammars`, `maps`, `ui`, `camera.ron`, `sprites` ; `entry` en `Floors` sur une
    séquence `sous_sol` (nom provisoire, **Q9**) d'un étage.
 3. **Personnage** : un joueur à vie basse (valeurs en données ; modèle des cœurs : **Q2**, prendre 6 PV en
-   attendant), une arme de larmes. Tant que M4-T0a n'est pas mergée : `Automatic` avec un chargeur très grand
+   attendant), une arme de larmes. Tant que M3-T0a n'est pas mergée : `Automatic` avec un chargeur très grand
    et sans rechargement visible (le dire en commentaire RON) ; passer à `Infinite` dans une fiche suivante
    (T11a), pas ici.
 4. **Ennemi** : un suiveur simple (`Chase`) et une mouche volante (`Flying`) si le profil existe pour le
    contenu ; un boss à deux phases réutilisant le vocabulaire de §37/§45.
 5. **Gabarits** : `maps/salles.ldtk` produit par un script Python versionné
    (`docs/taches/rapports/m4-t0f-squelette-isaac.make_salles.py`, sur le modèle de M2-T10) : trois salles de
-   **même taille**, une ouverture centrée sur chacun des quatre côtés (préparation de la grille de M4-T5 ;
+   **même taille**, une ouverture centrée sur chacun des quatre côtés (préparation de la grille de M3-T5 ;
    taille proposée 15×9 cases, à confirmer : **Q8**). Types `depart`, `combat`, `boss`.
 6. **Grammaire** `floor_grammars/sous_sol.ron` : `rooms: (5, 7)`, boss requis, en `Graph` (le planificateur
    actuel). Doit être valide sur 1 000 graines (test de M2-T10 étendu au jeu `isaac`).
@@ -48,7 +48,7 @@ l'avertissement d'atteignabilité éventuel est listé au rapport.
 
 ## Hors périmètre
 
-Grille (M4-T5), larmes infinies (T0a/T1), rochers, bombes (T4), objets (T11), HUD propre (T16).
+Grille (M3-T5), larmes infinies (T0a/T1), rochers, bombes (T4), objets (T11), HUD propre (T16).
 
 ## Vérification
 

@@ -836,7 +836,7 @@
             weapon_offset: ( x: "0.0", y: "-5.0" )
         ),
     ),
-    // M4-T0a (docs/conventions.md §60) : larme d'essai d'isaac, tir automatique à munitions
+    // M3-T0a (docs/conventions.md §60) : larme d'essai d'isaac, tir automatique à munitions
     // infinies (`mag: Infinite`, pas d'`ammo_type` : aucune réserve à consommer). Scénarios
     // `tears_infinite`, `tears_shot_speed` (avec l'objet `lentille`).
     "larme": (

@@ -1,9 +1,9 @@
-# m4-t4-bombes-rochers — bombes posées, rochers, piques, mur secret (M4, V1d, E3/E4 v2)
+# m3-t4-bombes-rochers — bombes posées, rochers, piques, mur secret (M3, V1d, E3/E4 v2)
 
 Lire d'abord `docs/taches/README.md`, `CLAUDE.md` (champ de flux, despawn différé), `docs/taches.md` §8.1,
-`docs/conventions.md` §21, §26, §46, §62 (contrats de M4-T0c) et le rapport
-`docs/taches/rapports/m4-t0c-contrats-monde.md`. Branche `m4-t4-bombes-rochers` depuis `origin/main`, **après
-le merge de M4-T0c**. Estimation : 4 j. Section de conventions réservée : **§69**.
+`docs/conventions.md` §21, §26, §46, §62 (contrats de M3-T0c) et le rapport
+`docs/taches/rapports/m4-t0c-contrats-monde.md`. Branche `m3-t4-bombes-rochers` depuis `origin/main`, **après
+le merge de M3-T0c**. Estimation : 4 j. Section de conventions réservée : **§69**.
 
 ## À faire
 
@@ -35,7 +35,7 @@ Placement du mur secret par la grammaire (T5), bombes du bot (T14), visuels (T17
 
 ## Vérification
 
-README §4 plus `fuzz_inputs` ; rapport `docs/taches/rapports/m4-t4-bombes-rochers.md`, conventions §69.
+README §4 plus `fuzz_inputs` ; rapport `docs/taches/rapports/m3-t4-bombes-rochers.md`, conventions §69.
 
 ## Atteignabilité
 
@@ -46,5 +46,5 @@ T11d ; mur secret placé par T5. Graine nommée au rapport de T11d.
 
 Tâche prévue pour une session Claude Code cloud. Ignorer les consignes `orca` du README (§1). Pas de Docker :
 p2p rejoué par l'orchestrateur, le dire au rapport. Pousser la branche régulièrement. Voie rapide du README
-§6 : fusionner `origin/main` et rejouer la suite juste avant le commit `LIVRÉ m4-t4-bombes-rochers`, qui
+§6 : fusionner `origin/main` et rejouer la suite juste avant le commit `LIVRÉ m3-t4-bombes-rochers`, qui
 contient le rapport.

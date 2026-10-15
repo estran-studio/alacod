@@ -1,9 +1,9 @@
-# m4-t2-effets-v3 — effets v3 à l'échelle : OnHit, OnEvent, exemplaires, transformations (M4, V1b, C1 v3)
+# m3-t2-effets-v3 — effets v3 à l'échelle : OnHit, OnEvent, exemplaires, transformations (M3, V1b, C1 v3)
 
 Lire d'abord `docs/taches/README.md`, `CLAUDE.md`, `docs/taches.md` §8.1, `docs/conventions.md` §27, §42,
-§44, §61 (contrats de M4-T0b) et le rapport `docs/taches/rapports/m4-t0b-contrats-objets-sante.md`, le code
-`crates/effects/src/runtime.rs`, `crates/game/src/effects_runtime.rs`. Branche `m4-t2-effets-v3` depuis
-`origin/main`, **après le merge de M4-T0b**. Estimation : 4 j. Section de conventions réservée : **§67**.
+§44, §61 (contrats de M3-T0b) et le rapport `docs/taches/rapports/m3-t0b-contrats-objets-sante.md`, le code
+`crates/effects/src/runtime.rs`, `crates/game/src/effects_runtime.rs`. Branche `m3-t2-effets-v3` depuis
+`origin/main`, **après le merge de M3-T0b**. Estimation : 4 j. Section de conventions réservée : **§67**.
 
 ## Contexte
 
@@ -46,7 +46,7 @@ Contenu `isaac` (T11b), HUD de transformation (T16).
 
 ## Vérification
 
-README §4 ; rapport `docs/taches/rapports/m4-t2-effets-v3.md`, conventions §67.
+README §4 ; rapport `docs/taches/rapports/m3-t2-effets-v3.md`, conventions §67.
 
 ## Atteignabilité
 
@@ -57,4 +57,4 @@ Les objets à effets de T11b dans les pools trésor, boutique et boss de `isaac`
 
 Tâche prévue pour une session Claude Code cloud. Ignorer les consignes `orca` du README (§1). Pas de Docker :
 le dire au rapport. Pousser la branche régulièrement. Voie rapide du README §6 : fusionner `origin/main` et
-rejouer la suite juste avant le commit `LIVRÉ m4-t2-effets-v3`, qui contient le rapport.
+rejouer la suite juste avant le commit `LIVRÉ m3-t2-effets-v3`, qui contient le rapport.

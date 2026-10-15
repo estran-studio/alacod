@@ -1484,7 +1484,7 @@ fn assert_has_warning(fixture: &str, kind: content::LintWarningKind, needle: &st
 #[test]
 fn stat_unread_fixture_is_an_error() {
     let (_, _, errors) = load_and_lint(&fixture_dir("stat_unread")).unwrap();
-    // M4-T0a : `Luck` est lue (chance d'effet) ; une stat `Custom` sans lecteur reste refusée.
+    // M3-T0a : `Luck` est lue (chance d'effet) ; une stat `Custom` sans lecteur reste refusée.
     assert_has_error(&errors, LintErrorKind::UnreadStat, "superstition");
 }
 
@@ -1630,7 +1630,7 @@ fn entry_floors_fixtures_report_their_rule() {
 }
 
 // ---------------------------------------------------------------------------------------
-// M4-T0a (docs/conventions.md §60) : munitions infinies, contrats de larmes, projectile d'objet
+// M3-T0a (docs/conventions.md §60) : munitions infinies, contrats de larmes, projectile d'objet
 // ---------------------------------------------------------------------------------------
 
 #[test]
@@ -1684,7 +1684,7 @@ fn item_projectile_out_of_range_fixture_reports_ranges() {
     assert_has_error(&errors, LintErrorKind::OutOfRange, "Bounce répété");
 }
 
-/// Erreurs d'une fixture M4-T0a hors la carte de départ absente (`start_map: "unused"`, commune
+/// Erreurs d'une fixture M3-T0a hors la carte de départ absente (`start_map: "unused"`, commune
 /// aux fixtures sans carte).
 fn m4_t0a_errors(errors: &[content::LintError]) -> usize {
     errors

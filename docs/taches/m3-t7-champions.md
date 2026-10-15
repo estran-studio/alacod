@@ -1,8 +1,8 @@
-# m4-t7-champions — champions et élites v2 (M4, V1c, D2 v2)
+# m3-t7-champions — champions et élites v2 (M3, V1c, D2 v2)
 
 Lire d'abord `docs/taches/README.md`, `CLAUDE.md`, `docs/taches.md` §8.1, `docs/conventions.md` §18
-(expressions), §25 (variantes), §48 (graine de butin), §62 (`Explode`) et §63 (contrats de M4-T0d). Branche
-`m4-t7-champions` depuis `origin/main`, **après le merge de M4-T0d et M4-T0c**. Estimation : 2 j. Section de
+(expressions), §25 (variantes), §48 (graine de butin), §62 (`Explode`) et §63 (contrats de M3-T0d). Branche
+`m3-t7-champions` depuis `origin/main`, **après le merge de M3-T0d et M3-T0c**. Estimation : 2 j. Section de
 conventions réservée : **§72**.
 
 ## À faire
@@ -28,7 +28,7 @@ Contenu `isaac` (T11c), teinte dessinée (T17).
 
 ## Vérification
 
-README §4 ; rapport `docs/taches/rapports/m4-t7-champions.md`, conventions §72.
+README §4 ; rapport `docs/taches/rapports/m3-t7-champions.md`, conventions §72.
 
 ## Atteignabilité
 
@@ -38,4 +38,4 @@ T11c donne des champions à au moins trois ennemis placés dans les salles `comb
 
 Tâche prévue pour une session Claude Code cloud. Ignorer les consignes `orca` du README (§1). Pas de Docker :
 le dire au rapport. Pousser la branche régulièrement. Voie rapide du README §6 : fusionner `origin/main` et
-rejouer la suite juste avant le commit `LIVRÉ m4-t7-champions`, qui contient le rapport.
+rejouer la suite juste avant le commit `LIVRÉ m3-t7-champions`, qui contient le rapport.

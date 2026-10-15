@@ -1,4 +1,4 @@
-// Fixture M4-T0a (docs/conventions.md §60) : modificateurs de contrat Spectral/Split/Orbit sur une arme (Unsupported)
+// Fixture M3-T0a (docs/conventions.md §60) : modificateurs de contrat Spectral/Split/Orbit sur une arme (Unsupported)
 (
     name: "fixture-projectile_contract_unsupported",
     content_folders: [

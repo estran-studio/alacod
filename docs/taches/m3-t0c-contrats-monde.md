@@ -1,4 +1,4 @@
-# m4-t0c-contrats-monde — étage en grille, bombes, rochers, piques, portes fermées (M4, vague 0)
+# m4-t0c-contrats-monde — étage en grille, bombes, rochers, piques, portes fermées (M3, vague 0)
 
 Lire d'abord `docs/taches/README.md`, `CLAUDE.md` (« Numérotation des entités », champ de flux),
 `docs/taches.md` §8.1, `docs/conventions.md` §1 (LDtk), §4, §21 (terrain destructible : `CellGrid`,
@@ -12,8 +12,8 @@ Estimation : 3 j. Section de conventions réservée : **§62**.
 
 ## But
 
-Poser les contrats dont dépendent M4-T4 (bombes, rochers, secret), M4-T5 (grammaire en grille) et
-M4-T7 (champions qui explosent), avec un chemin minimal dans le testbed. **Aucune trace existante ne
+Poser les contrats dont dépendent M3-T4 (bombes, rochers, secret), M3-T5 (grammaire en grille) et
+M3-T7 (champions qui explosent), avec un chemin minimal dans le testbed. **Aucune trace existante ne
 bouge** (l'élargissement de l'usage de l'input non plus).
 
 ## Contexte (état de `main`)
@@ -66,7 +66,7 @@ bouge** (l'élargissement de l'usage de l'input non plus).
    `diable` comme fichiers `rooms/*.ron` d'exemple pour le lint ; leur sémantique arrive en T4, T5, T8.
 8. **Attentes et événements** : `DoorLocked(room, bool, at_frame)`, `BombsHeld(handle, n)` si
    `Consumable(handle, "bomb", n)` ne suffit pas (le préférer) ; moment clé `explosion` (déclaré, émis en T4).
-   Mettre à jour la liste de `CLAUDE.md` (bloc « Attentes », ligne M4).
+   Mettre à jour la liste de `CLAUDE.md` (bloc « Attentes », ligne M3).
 
 ## Règles
 
@@ -79,8 +79,8 @@ bouge** (l'élargissement de l'usage de l'input non plus).
 
 ## Hors périmètre
 
-Pose et explosion des bombes, rochers cassés, piques en jeu, mur secret ouvert (M4-T4) ; planificateur en
-grille, placement de la salle secrète, du trésor et de la salle post-boss (M4-T5) ; HUD et visuels (T16,
+Pose et explosion des bombes, rochers cassés, piques en jeu, mur secret ouvert (M3-T4) ; planificateur en
+grille, placement de la salle secrète, du trésor et de la salle post-boss (M3-T5) ; HUD et visuels (T16,
 T17).
 
 ## Vérification

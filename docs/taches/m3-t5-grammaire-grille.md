@@ -1,10 +1,10 @@
-# m4-t5-grammaire-grille — étage en grille, salle secrète, trésor à clé, salle post-boss (M4, V1d, E2 v2)
+# m3-t5-grammaire-grille — étage en grille, salle secrète, trésor à clé, salle post-boss (M3, V1d, E2 v2)
 
 Lire d'abord `docs/taches/README.md`, `CLAUDE.md`, `docs/taches.md` §8.1, `docs/conventions.md` §35, §40,
-§62 (contrats de M4-T0c), le rapport `docs/taches/rapports/m2-t10-grammaire-etage.md`, et le code
+§62 (contrats de M3-T0c), le rapport `docs/taches/rapports/m2-t10-grammaire-etage.md`, et le code
 `crates/map/src/generation/floor.rs`, `crates/map/src/generation/imp/floor.rs`,
-`crates/map_ldtk/src/generation/to.rs`. Branche `m4-t5-grammaire-grille` depuis `origin/main`, **après le
-merge de M4-T0c** et la réponse de William à **Q8** (taille et formes des salles). Estimation : 5 j,
+`crates/map_ldtk/src/generation/to.rs`. Branche `m3-t5-grammaire-grille` depuis `origin/main`, **après le
+merge de M3-T0c** et la réponse de William à **Q8** (taille et formes des salles). Estimation : 5 j,
 **risque** (planificateur nouveau, boucles). Section de conventions réservée : **§70**.
 
 ## Contexte
@@ -48,7 +48,7 @@ Contenu de la salle du diable (T8), ouverture du mur secret (T4), curse « étag
 
 ## Vérification
 
-README §4 ; rapport `docs/taches/rapports/m4-t5-grammaire-grille.md`, conventions §70.
+README §4 ; rapport `docs/taches/rapports/m3-t5-grammaire-grille.md`, conventions §70.
 
 ## Atteignabilité
 
@@ -60,4 +60,4 @@ la rencontre ; secret, trésor à clé, post-boss : graines nommées au rapport.
 Tâche prévue pour une session Claude Code cloud. Ignorer les consignes `orca` du README (§1). Pas de Docker :
 p2p `isaac` (transition d'étage) rejoué par l'orchestrateur, le dire au rapport. Pousser la branche
 régulièrement. Voie rapide du README §6 : fusionner `origin/main` et rejouer la suite juste avant le commit
-`LIVRÉ m4-t5-grammaire-grille`, qui contient le rapport.
+`LIVRÉ m3-t5-grammaire-grille`, qui contient le rapport.

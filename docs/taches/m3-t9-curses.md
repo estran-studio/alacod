@@ -1,8 +1,8 @@
-# m4-t9-curses — curses d'étage (M4, V1e, F4)
+# m3-t9-curses — curses d'étage (M3, V1e, F4)
 
 Lire d'abord `docs/taches/README.md`, `CLAUDE.md` (« Simulation et présentation »), `docs/taches.md` §8.1,
-`docs/conventions.md` §15 et §56 (HUD), §17, §40, §64 (contrats de M4-T0e), §70 (grille). Branche
-`m4-t9-curses` depuis `origin/main`, **après le merge de M4-T0e et M4-T5**, et la réponse de William à
+`docs/conventions.md` §15 et §56 (HUD), §17, §40, §64 (contrats de M3-T0e), §70 (grille). Branche
+`m3-t9-curses` depuis `origin/main`, **après le merge de M3-T0e et M3-T5**, et la réponse de William à
 **Q7** (liste des curses). Estimation : 3 j. Section de conventions réservée : **§74**.
 
 ## À faire
@@ -22,12 +22,12 @@ l'état (`RunCurses`), jamais d'un événement.
 
 ## Hors périmètre
 
-Obscurité (visibilité dans la simulation : E8, hors M4 sauf décision), défis et modificateurs de run choisis
+Obscurité (visibilité dans la simulation : E8, hors M3 sauf décision), défis et modificateurs de run choisis
 par le joueur (heat, Carême).
 
 ## Vérification
 
-README §4 ; rapport `docs/taches/rapports/m4-t9-curses.md`, conventions §74.
+README §4 ; rapport `docs/taches/rapports/m3-t9-curses.md`, conventions §74.
 
 ## Atteignabilité
 
@@ -38,4 +38,4 @@ l'étage 1 ou 2.
 
 Tâche prévue pour une session Claude Code cloud. Ignorer les consignes `orca` du README (§1). Pas de Docker :
 le dire au rapport. Pousser la branche régulièrement. Voie rapide du README §6 : fusionner `origin/main` et
-rejouer la suite juste avant le commit `LIVRÉ m4-t9-curses`, qui contient le rapport.
+rejouer la suite juste avant le commit `LIVRÉ m3-t9-curses`, qui contient le rapport.

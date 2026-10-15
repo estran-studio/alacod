@@ -1,9 +1,9 @@
-# m4-t14-bot-isaac — bot explorateur v3 pour `isaac` (M4, V3, K2)
+# m3-t14-bot-isaac — bot explorateur v3 pour `isaac` (M3, V3, K2)
 
 Lire d'abord `docs/taches/README.md`, `docs/taches.md` §8.1, `docs/conventions.md` §24 et §47 (bots, bot
 explorateur), §62, §69, §70, les rapports `docs/taches/rapports/bot-explorateur-v2.md` et ses scripts
 (`campagne.sh`, `analyse.py`, `morts.py`), et le code `crates/bots/src/explorer.rs`. Branche
-`m4-t14-bot-isaac` depuis `origin/main`, **après le merge de M4-T3, M4-T4 et M4-T5**. Estimation : 4 j.
+`m3-t14-bot-isaac` depuis `origin/main`, **après le merge de M3-T3, M3-T4 et M3-T5**. Estimation : 4 j.
 Section de conventions réservée : **§79**.
 
 ## À faire
@@ -28,11 +28,11 @@ Une décision du bot vient de l'état et de son flux RNG dédié, jamais de l'ho
 
 ## Vérification
 
-README §4 ; campagnes au rapport `docs/taches/rapports/m4-t14-bot-isaac.md` (scripts versionnés à côté),
+README §4 ; campagnes au rapport `docs/taches/rapports/m3-t14-bot-isaac.md` (scripts versionnés à côté),
 conventions §79.
 
 ## Session cloud
 
 Tâche prévue pour une session Claude Code cloud. Ignorer les consignes `orca` du README (§1). Pas de Docker.
 Campagnes au premier plan, par lots de 10 graines poussés un par un. Voie rapide du README §6 : fusionner
-`origin/main` et rejouer la suite juste avant le commit `LIVRÉ m4-t14-bot-isaac`, qui contient le rapport.
+`origin/main` et rejouer la suite juste avant le commit `LIVRÉ m3-t14-bot-isaac`, qui contient le rapport.

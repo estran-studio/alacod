@@ -1,8 +1,8 @@
-# m4-t17-feedback-v3 — feedback v3 : larmes lisibles, familiers, champions, explosions (M4, V4, I2)
+# m3-t17-feedback-v3 — feedback v3 : larmes lisibles, familiers, champions, explosions (M3, V4, I2)
 
 Lire d'abord `docs/taches/README.md`, `CLAUDE.md`, `docs/taches.md` §8.1, `docs/conventions.md` §31 et §55
-(feedback v1/v2), §66, §69, §71, §72. Branche `m4-t17-feedback-v3` depuis `origin/main`, **après le merge de
-M4-T1, M4-T4, M4-T6 et M4-T7**. Estimation : 2 j. Section de conventions réservée : **§82**.
+(feedback v1/v2), §66, §69, §71, §72. Branche `m3-t17-feedback-v3` depuis `origin/main`, **après le merge de
+M3-T1, M3-T4, M3-T6 et M3-T7**. Estimation : 2 j. Section de conventions réservée : **§82**.
 
 ## À faire
 
@@ -21,9 +21,9 @@ Présentation seule : aucune trace ne bouge.
 
 ## Vérification
 
-README §4 ; `make videos SCENARIO=…` ; rapport `docs/taches/rapports/m4-t17-feedback-v3.md`, conventions §82.
+README §4 ; `make videos SCENARIO=…` ; rapport `docs/taches/rapports/m3-t17-feedback-v3.md`, conventions §82.
 
 ## Session cloud
 
 Tâche prévue pour une session Claude Code cloud (captures en rendu logiciel). Ignorer les consignes `orca` du
-README (§1). Pousser la branche régulièrement ; commit final `LIVRÉ m4-t17-feedback-v3` avec le rapport.
+README (§1). Pousser la branche régulièrement ; commit final `LIVRÉ m3-t17-feedback-v3` avec le rapport.

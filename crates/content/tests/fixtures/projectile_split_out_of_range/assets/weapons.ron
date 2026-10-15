@@ -1,4 +1,4 @@
-// Fixture M4-T0a : plages des contrats : `Split.count > 0`, `Orbit.radius > 0`, `child` présent dans
+// Fixture M3-T0a : plages des contrats : `Split.count > 0`, `Orbit.radius > 0`, `child` présent dans
 // la table `projectiles` de l'arme.
 ({
     "spectre": (

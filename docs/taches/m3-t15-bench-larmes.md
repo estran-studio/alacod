@@ -1,8 +1,8 @@
-# m4-t15-bench-larmes — bench de larmes et d'étage en grille (M4, V3, K3)
+# m3-t15-bench-larmes — bench de larmes et d'étage en grille (M3, V3, K3)
 
 Lire d'abord `docs/taches/README.md`, `CLAUDE.md` (« Coût du rollback »), `docs/etat-engine.md` (mesures du
 2026-10-15, D70), `docs/taches.md` §8.1 (critère 6), `docs/conventions.md` §66, §71, et `tests/budgets.ron`.
-Branche `m4-t15-bench-larmes` depuis `origin/main`, **après le merge de M4-T1 et M4-T6**. Estimation : 2 j.
+Branche `m3-t15-bench-larmes` depuis `origin/main`, **après le merge de M3-T1 et M3-T6**. Estimation : 2 j.
 Section de conventions réservée : **§80**.
 
 ## À faire
@@ -23,9 +23,9 @@ Mesure seulement, sauf optimisation qui garde les traces identiques (preuve : su
 ## Vérification
 
 `make bench`, `make perf_review` contre une référence copiée avant ; rapport
-`docs/taches/rapports/m4-t15-bench-larmes.md`, conventions §80.
+`docs/taches/rapports/m3-t15-bench-larmes.md`, conventions §80.
 
 ## Session cloud
 
 Mesure indicative au cloud (machine non calme) ; la mesure de référence se fait sur `orca` ou le Mac au
-calme : le dire au rapport. Pousser la branche régulièrement ; commit final `LIVRÉ m4-t15-bench-larmes`.
+calme : le dire au rapport. Pousser la branche régulièrement ; commit final `LIVRÉ m3-t15-bench-larmes`.

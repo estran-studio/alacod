@@ -61,7 +61,7 @@ use crate::{
     team::team_allows_hit,
     weapons::{Bullet, BulletType},
 };
-/// Contrats déplacés dans `effects::projectile` par M4-T0a (§60), réexportés ici : chemins
+/// Contrats déplacés dans `effects::projectile` par M3-T0a (§60), réexportés ici : chemins
 /// inchangés pour tout le code existant.
 pub use effects::projectile::{
     ExpireAction, Pattern, ProjectileModifier, ProjectileMods, ProjectileSpec,
@@ -154,7 +154,7 @@ pub const BASE_SPRITE: f32 = 3.5;
 /// Garde-fou contre une chaîne `on_expire` sans fin (le lint refuse déjà les cycles).
 pub const MAX_GENERATION: u8 = 8;
 
-/// `Split` résolu (M4-T0a, contrat exécuté par M4-T1).
+/// `Split` résolu (M3-T0a, contrat exécuté par M3-T1).
 #[derive(Clone, Debug, PartialEq, Eq)]
 pub struct ResolvedSplit {
     pub count: u32,
@@ -162,7 +162,7 @@ pub struct ResolvedSplit {
     pub child: Option<String>,
 }
 
-/// `Orbit` résolu (M4-T0a, contrat exécuté par M4-T1).
+/// `Orbit` résolu (M3-T0a, contrat exécuté par M3-T1).
 #[derive(Clone, Copy, Debug, PartialEq, Eq)]
 pub struct ResolvedOrbit {
     pub radius: Fixed,
@@ -172,8 +172,8 @@ pub struct ResolvedOrbit {
 /// Valeurs résolues d'une liste de modificateurs. Un même modificateur répété : le dernier
 /// l'emporte (le lint refuse les doublons).
 ///
-/// M4-T0a : plus `Copy` (`split` porte l'id du projectile enfant) ; `spectral`, `split`,
-/// `orbit` sont des contrats que [`Projectile::new`] ne lit pas encore (M4-T1).
+/// M3-T0a : plus `Copy` (`split` porte l'id du projectile enfant) ; `spectral`, `split`,
+/// `orbit` sont des contrats que [`Projectile::new`] ne lit pas encore (M3-T1).
 #[derive(Clone, Debug, PartialEq, Eq)]
 pub struct ResolvedModifiers {
     pub bounces: u32,
@@ -233,7 +233,7 @@ pub fn resolve_modifiers(modifiers: &[ProjectileModifier]) -> ResolvedModifiers 
     resolved
 }
 
-/// M4-T0a (`docs/conventions.md` §60, règles retenues par William le 2026-10-15, Q3) : compose
+/// M3-T0a (`docs/conventions.md` §60, règles retenues par William le 2026-10-15, Q3) : compose
 /// les modificateurs de l'arme (`base`) avec ceux apportés par d'autres sources (`ajouts`), dans
 /// l'ordre déterministe fixé par l'appelant : arme, passifs dans l'ordre de ramassage (un passif
 /// en double compte deux fois), actif, synergies par id (voir `items::projectile_sources`).
@@ -1321,7 +1321,7 @@ mod tests {
         GgrsNetId(id as _, "t".into())
     }
     // -----------------------------------------------------------------------------------
-    // M4-T0a (§60) : contrats de larmes et composition
+    // M3-T0a (§60) : contrats de larmes et composition
     // -----------------------------------------------------------------------------------
 
     fn hash_of<T: std::hash::Hash>(value: &T) -> u64 {
@@ -1332,7 +1332,7 @@ mod tests {
     }
 
     /// Les variantes de contrat sont en fin d'enum : les six variantes d'avant hachent comme
-    /// l'enum d'avant M4-T0a (copie locale), le checksum des armes existantes ne bouge pas.
+    /// l'enum d'avant M3-T0a (copie locale), le checksum des armes existantes ne bouge pas.
     #[test]
     fn variantes_historiques_gardent_leur_hash() {
         #[derive(Hash)]

@@ -1,7 +1,7 @@
-# m4-t11-contenu-isaac — contenu du clone `isaac` (M4, V2, données)
+# m3-t11-contenu-isaac — contenu du clone `isaac` (M3, V2, données)
 
 Lire d'abord `docs/taches/README.md`, `CLAUDE.md`, `docs/taches.md` §8.1 (atteignabilité, critères de
-sortie), `docs/conventions.md` §4 (`test:` des définitions), §60 à §75 (vocabulaires de M4), §52 (contenu
+sortie), `docs/conventions.md` §4 (`test:` des définitions), §60 à §75 (vocabulaires de M3), §52 (contenu
 gungeon, modèle), et `games/isaac/assets/`. Estimation : 10 j, **en quatre parties livrables séparément**
 (une branche chacune), chacune quand ses prérequis sont sur `main`. Section de conventions réservée :
 **§76** (une sous-section par partie). Volume total : **Q1** (proposition : 100 objets, dont au moins 30
@@ -16,17 +16,17 @@ Le clone se joue avec du contenu seulement : chaque définition a son `test:` et
 
 ## Parties
 
-1. **T11a larmes et stats** (prérequis : M4-T1) — `m4-t11a-larmes` : le personnage passe en `Infinite` ; la
+1. **T11a larmes et stats** (prérequis : M3-T1) — `m3-t11a-larmes` : le personnage passe en `Infinite` ; la
    moitié des objets (stats `Damage`, `FireRate`, `Range`, `ShotSpeed`, `ShotSize`, `MoveSpeed`, `Luck`,
    modificateurs de larmes, statuts à l'impact), répartis dans les pools par rareté.
-2. **T11b effets, familiers, actifs** (prérequis : M4-T2, M4-T6 ; T3 pour les cœurs) — `m4-t11b-effets` :
+2. **T11b effets, familiers, actifs** (prérequis : M3-T2, M3-T6 ; T3 pour les cœurs) — `m3-t11b-effets` :
    l'autre moitié (déclencheurs v3, `PerCopy`, actifs à charge par salles, familiers, orbitaux,
    transformations si Q10) ; graines `alacod-sim` nommées pour une transformation et un familier.
-3. **T11c ennemis, champions, boss** (prérequis : M4-T7, M4-T4 pour les explosions) — `m4-t11c-ennemis` :
+3. **T11c ennemis, champions, boss** (prérequis : M3-T7, M3-T4 pour les explosions) — `m3-t11c-ennemis` :
    dix ennemis (au sol, volants `Flying`, tireurs en patterns), trois à champions, deux boss à phases ;
    placement dans les gabarits existants (sans en ajouter : c'est T11d).
-4. **T11d gabarits, pools, curses, équilibrage** (prérequis : M4-T5, M4-T8, M4-T9, M4-T3) —
-   `m4-t11d-gabarits` : vingt gabarits en grille (combat avec rochers, rochers à butin et piques, trésor,
+4. **T11d gabarits, pools, curses, équilibrage** (prérequis : M3-T5, M3-T8, M3-T9, M3-T3) —
+   `m3-t11d-gabarits` : vingt gabarits en grille (combat avec rochers, rochers à butin et piques, trésor,
    boutique, secrète, boss, diable), pools par type de salle, récompenses (cœurs, sous, bombes, clés),
    curses dans la séquence par défaut ; **brancher ici tout ce que les tâches V1 ont laissé hors de la
    partie ordinaire** et nommer pour chacun la graine qui le rencontre ; campagne du bot T14 sur 200 graines
@@ -41,7 +41,7 @@ GAME=isaac` sans diff après génération.
 ## Vérification (par partie)
 
 README §4 (`make test_scenarios`, `make test_crates`, `make lint` ×5, fmt, `make gen` ×5) ; rapport
-`docs/taches/rapports/m4-t11<x>-*.md` ; livraison par commit `LIVRÉ m4-t11<x>-…`.
+`docs/taches/rapports/m3-t11<x>-*.md` ; livraison par commit `LIVRÉ m3-t11<x>-…`.
 
 ## Atteignabilité
 

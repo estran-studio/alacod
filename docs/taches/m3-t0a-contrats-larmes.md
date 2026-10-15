@@ -1,18 +1,18 @@
-# m4-t0a-contrats-larmes — contrats des larmes et de l'empilement de projectiles (M4, vague 0)
+# m4-t0a-contrats-larmes — contrats des larmes et de l'empilement de projectiles (M3, vague 0)
 
-Lire d'abord `docs/taches/README.md`, `CLAUDE.md`, `docs/taches.md` §8.1 (M4 en tâches),
+Lire d'abord `docs/taches/README.md`, `CLAUDE.md`, `docs/taches.md` §8.1 (M3 en tâches),
 `docs/conventions.md` §4 (checklist d'un vocabulaire), §9 (stats et modificateurs), §16 (projectiles
 composables), §20 et §41 (patterns, projectiles v2), §53 (stats lues, `stat_reader`), et le code
 `crates/combat/src/projectile.rs` (`ProjectileModifier`, `resolve_modifiers`, `Projectile`),
 `crates/combat/src/weapons/mod.rs` (`MagBulletConfig`, `weapon_rollback_system`, lecture des stats au
 tir), `crates/sim_core/src/stats.rs` (`StatId`, `stat_reader`), `crates/items/src/lib.rs` (`ItemDef`).
 Branche `m4-t0a-contrats-larmes` depuis `origin/main`. Estimation : 2 à 3 j. Plan :
-`docs/plan-engine.md` §5 B5 (v3), ligne M4 du tableau §6. Section de conventions réservée : **§60**.
+`docs/plan-engine.md` §5 B5 (v3), ligne M3 du tableau §6. Section de conventions réservée : **§60**.
 
 ## But
 
-Poser les contrats dont dépendent M4-T1 (larmes v3), M4-T6 (familiers qui tirent), M4-T11a (contenu de
-larmes) et M4-T15 (bench), avec un chemin minimal de bout en bout dans le testbed. **Aucune trace
+Poser les contrats dont dépendent M3-T1 (larmes v3), M3-T6 (familiers qui tirent), M3-T11a (contenu de
+larmes) et M3-T15 (bench), avec un chemin minimal de bout en bout dans le testbed. **Aucune trace
 existante ne bouge.**
 
 ## Contexte (état de `main`)
@@ -91,7 +91,7 @@ existante ne bouge.**
 ## Hors périmètre
 
 Exécution des modificateurs d'objets au tir, `Spectral`/`Split`/`Orbit` en jeu, statuts `Poison` et `Fear`,
-chance d'effet en jeu (tout cela : M4-T1) ; contenu `isaac` (T0f, T11a) ; correction de `ReloadSpeed`
+chance d'effet en jeu (tout cela : M3-T1) ; contenu `isaac` (T0f, T11a) ; correction de `ReloadSpeed`
 (dette à numéroter par l'orchestrateur).
 
 ## Vérification

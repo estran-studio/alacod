@@ -1,2 +1,2 @@
-// M4-T0a : `Luck` est lue depuis (chance d'effet) ; une stat `Custom` sans lecteur reste refusée.
+// M3-T0a : `Luck` est lue depuis (chance d'effet) ; une stat `Custom` sans lecteur reste refusée.
 (name: "Trefle", kind: Passive, modifiers: [(stat: Custom("superstition"), op: Pct, value: "0.25")])

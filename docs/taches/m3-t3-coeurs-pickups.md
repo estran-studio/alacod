@@ -1,8 +1,8 @@
-# m4-t3-coeurs-pickups — cœurs, i-frames, sous, bombes et clés au sol (M4, V1b, C4/C5)
+# m3-t3-coeurs-pickups — cœurs, i-frames, sous, bombes et clés au sol (M3, V1b, C4/C5)
 
 Lire d'abord `docs/taches/README.md`, `CLAUDE.md`, `docs/taches.md` §8.1, `docs/conventions.md` §12, §18,
-§36, §44, §48, §50, §61 (contrats de M4-T0b). Branche `m4-t3-coeurs-pickups` depuis `origin/main`, **après le
-merge de M4-T0b** et la réponse de William à **Q2** (modèle des cœurs) et **Q4** (partage en coop).
+§36, §44, §48, §50, §61 (contrats de M3-T0b). Branche `m3-t3-coeurs-pickups` depuis `origin/main`, **après le
+merge de M3-T0b** et la réponse de William à **Q2** (modèle des cœurs) et **Q4** (partage en coop).
 Estimation : 3 j. Section de conventions réservée : **§68**.
 
 ## À faire
@@ -32,7 +32,7 @@ Bombes posées (T4), prix en vie max (T8), HUD des cœurs (T16).
 
 ## Vérification
 
-README §4 ; rapport `docs/taches/rapports/m4-t3-coeurs-pickups.md`, conventions §68.
+README §4 ; rapport `docs/taches/rapports/m3-t3-coeurs-pickups.md`, conventions §68.
 
 ## Atteignabilité
 
@@ -42,4 +42,4 @@ Récompense de salle `combat` et mort d'ennemis de `isaac` (tables de T11d) ; bo
 
 Tâche prévue pour une session Claude Code cloud. Ignorer les consignes `orca` du README (§1). Pas de Docker :
 le dire au rapport. Pousser la branche régulièrement. Voie rapide du README §6 : fusionner `origin/main` et
-rejouer la suite juste avant le commit `LIVRÉ m4-t3-coeurs-pickups`, qui contient le rapport.
+rejouer la suite juste avant le commit `LIVRÉ m3-t3-coeurs-pickups`, qui contient le rapport.

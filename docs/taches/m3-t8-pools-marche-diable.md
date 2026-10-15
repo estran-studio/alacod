@@ -1,8 +1,8 @@
-# m4-t8-pools-marche-diable — pools par type de salle, épuisement, marché du diable (M4, V1b, C4 v2 / C5 v2)
+# m3-t8-pools-marche-diable — pools par type de salle, épuisement, marché du diable (M3, V1b, C4 v2 / C5 v2)
 
 Lire d'abord `docs/taches/README.md`, `CLAUDE.md`, `docs/taches.md` §8.1, `docs/conventions.md` §48, §50, §51
 (déblocages de M2-T12), §61 (`Price`), §64 (pools à épuisement), §70 (salle post-boss). Branche
-`m4-t8-pools-marche-diable` depuis `origin/main`, **après le merge de M2-T12, M4-T0e, M4-T3 et M4-T5**, et
+`m3-t8-pools-marche-diable` depuis `origin/main`, **après le merge de M2-T12, M3-T0e, M3-T3 et M3-T5**, et
 les réponses de William à **Q5** (épuisement) et **Q6** (diable). Estimation : 4 j. Section de conventions
 réservée : **§73**.
 
@@ -30,7 +30,7 @@ Salles d'ange (Q6), contenu des pools (T11d), HUD des prix en cœurs (T16).
 
 ## Vérification
 
-README §4 ; rapport `docs/taches/rapports/m4-t8-pools-marche-diable.md`, conventions §73.
+README §4 ; rapport `docs/taches/rapports/m3-t8-pools-marche-diable.md`, conventions §73.
 
 ## Atteignabilité
 
@@ -41,5 +41,5 @@ nommée où elle apparaît après le boss de l'étage 1 et où le bot (T14) pren
 
 Tâche prévue pour une session Claude Code cloud, **après le merge de M2-T12**. Ignorer les consignes `orca`
 du README (§1). Pas de Docker : le dire au rapport. Pousser la branche régulièrement. Voie rapide du README
-§6 : fusionner `origin/main` et rejouer la suite juste avant le commit `LIVRÉ m4-t8-pools-marche-diable`, qui
+§6 : fusionner `origin/main` et rejouer la suite juste avant le commit `LIVRÉ m3-t8-pools-marche-diable`, qui
 contient le rapport.

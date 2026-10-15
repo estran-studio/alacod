@@ -2039,7 +2039,7 @@ f122/f242/f362), `levelup_choice` (`ChoiceC` → `coriace`), `levelup_timeout` (
 f704), `weapon_pool_drop` (progression `armes`).
 
 **Hors périmètre** (écran de choix et HUD des rads livrés depuis : §30, §32) : déclencheurs et conditions v2,
-objets passifs/actifs (M2), modificateurs de projectiles (M4), pause, `--progression` dans
+objets passifs/actifs (M2), modificateurs de projectiles (M3, `isaac`), pause, `--progression` dans
 `alacod-sim`.
 
 ## 28. Générateur v1 et placement scripté (T1.13, voie V3)
@@ -3814,17 +3814,17 @@ Rechargement en jeu : `cargo run -p gungeon --features native`, ouvrir un écran
 modifier son `.html`. Le rapport précise les captures effectivement observées.
 
 
-## 60. Contrats des larmes et de l'empilement de projectiles (M4-T0a, chantier B5 v3)
+## 60. Contrats des larmes et de l'empilement de projectiles (M3-T0a, chantier B5 v3)
 
-Contrats posés pour M4-T1 (larmes v3), M4-T6 (familiers qui tirent), M4-T11a (contenu de larmes)
-et M4-T15 (bench). **Aucune trace existante ne bouge** : variantes en fin d'enum, stats lues avec
+Contrats posés pour M3-T1 (larmes v3), M3-T6 (familiers qui tirent), M3-T11a (contenu de larmes)
+et M3-T15 (bench). **Aucune trace existante ne bouge** : variantes en fin d'enum, stats lues avec
 une base 1 sans être posées dans `Stats`, champs d'objet optionnels hors rollback.
 
 ### Munitions infinies
 
 `MagBulletConfig::Infinite` (en fin d'enum, `combat::weapons`) : le mode tire tant que la cadence
 le permet ; jamais vide, jamais rechargé (pas même le délai de pompe d'un `Shotgun`), `mag_ammo` et
-`mag_size` restent à 0 (attente `Ammo` à 0 ; le HUD affichera `∞` ou rien, M4-T16). Réserve
+`mag_size` restent à 0 (attente `Ammo` à 0 ; le HUD affichera `∞` ou rien, M3-T16). Réserve
 initiale : 0, comme `Magless`.
 
 ```ron
@@ -3849,7 +3849,7 @@ modes sont `Infinite`. Lint : `ammo_type` absent alors qu'un mode consomme (`Mag
   base aux lecteurs hors simulation (attente `Stat`, générateur `ItemHeld`).
 - `Luck` a un lecteur de contrat : `effects::chance_with_luck(base, luck, par_point)` =
   `clamp(base + luck × par_point, 0, 1)` en `Fixed`, saturant. Rien ne l'appelle encore dans la
-  simulation (M4-T1 : statut posé par une larme ; M4-T2 : effets d'objet). Le lint accepte donc
+  simulation (M3-T1 : statut posé par une larme ; M3-T2 : effets d'objet). Le lint accepte donc
   désormais un modificateur sur `Luck` (`stat_reader`).
 
 ### Modificateurs de projectile portés par un objet
@@ -3867,7 +3867,7 @@ le `Debug` et le RON ne dépendent pas du crate de définition : aucune trace ne
 `ItemDef.projectile` et `SynergyDef.projectile` : `Option<ProjectileMods>` (`ProjectileMods` =
 `ProjectileSpec` : `modifiers`, `on_hit`, `on_expire`), absent = v1 exacte. Ce sont des
 définitions (`ItemTable`/`SynergyTable`, ressources hors rollback, sans `Hash`) : le champ n'entre
-dans aucun checksum. **Le tir ne le lit pas encore** (M4-T1) : le lint vérifie sa forme (mêmes
+dans aucun checksum. **Le tir ne le lit pas encore** (M3-T1) : le lint vérifie sa forme (mêmes
 plages qu'une arme, doublon refusé dans la liste d'un objet) puis le refuse (`Unsupported`).
 
 ### Composition (`combat::projectile::compose`)
@@ -3908,7 +3908,7 @@ En fin d'enum `ProjectileModifier` (les six d'avant gardent leur hash, test
 
 Lint : formes et plages (`Split.count > 0`, `spread >= 0`, `child` présent dans la table de
 l'arme ; `Orbit.radius > 0`, `frames_per_turn > 0`), puis `Unsupported` sur une arme tant que
-M4-T1 ne les exécute pas. Kinds `projectile_modifier` : `Spectral`, `Split`, `Orbit` (et `Fan`,
+M3-T1 ne les exécute pas. Kinds `projectile_modifier` : `Spectral`, `Split`, `Orbit` (et `Fan`,
 `Spiral`, `Burst`, qui manquaient aux `pattern` déclarés par `CombatPlugin`).
 
 ### Testbed et scénarios
