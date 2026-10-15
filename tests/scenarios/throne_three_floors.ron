@@ -1,3 +1,4 @@
+// D50 (2026-10-15) : `drop_chance` de throne 0,25 -> 0,40 : un drop de munitions de plus à la mort d'un ennemi ; mutations à f4430 : [adrenaline, rancune] (avant [adrenaline, coriace]).
 // Revue M1 2026-10-10 : choix reportés après nettoyage ; attentes de timing
 // et mutations retestées. Les mesures historiques ci-dessous précèdent cette politique.
 // Revue M1 2026-10-10, recul corrigé : étage 3 à f2783 ; sang_froid puis chasseur (f3908), deux joueurs vivants à f4999.
@@ -45,7 +46,7 @@ Scenario(
         Event(kind: "floor", label_contains: Some("niveau 3"), by_frame: 4430),
         Event(kind: "levelup", by_frame: 445),
         Clock(id: "alerte", fired: true, at_frame: 2940),
-        Mutations(handle: 0, contains: ["adrenaline", "coriace"], count: Some(2), at_frame: 4430),
+        Mutations(handle: 0, contains: ["adrenaline", "rancune"], count: Some(2), at_frame: 4430),
         PlayerAlive(handle: 0, at_frame: 4999),
         PlayerAlive(handle: 1, at_frame: 4999),
     ],

@@ -2120,7 +2120,7 @@ générée, §26 v2).
 
 **Butin** (`items/powerups.ron`, §14) : `munitions_balles`, `munitions_obus`,
 `munitions_explosifs`, `munitions_energie`, `munitions_lames` (`RefillAmmoOf`, D40, poids 36,
-12, 12, 12 et 24), `rage` (dégâts ×2) et `vitesse` (×1,3) (poids 25), `drop_chance` 0,25. Pas de `weapon_pool`.
+12, 12, 12 et 24), `rage` (dégâts ×2) et `vitesse` (×1,3) (poids 25), `drop_chance` **0,40** (0,25 avant D50 : pénurie de munitions prouvée sur la graine 76, soft-lock des bots ; décision de William du 2026-10-14 : relever la chance, sans pondération par les réserves). Pas de `weapon_pool`.
 
 **Assets** : tous des **placeholders** copiés du testbed (sprites du joueur et des armes, slash,
 sons, police, tilesets), enregistrés dans `games/throne/assets/assets.yaml` (licences reprises de
