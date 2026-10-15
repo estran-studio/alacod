@@ -20,7 +20,8 @@ use sim_core::stats::StatId;
 pub enum LintWarningKind {
     /// Contenu valide qu'aucune partie ne peut rencontrer (calcul statique).
     Unreachable,
-    /// Modificateur sur une stat qu'aucun système ne lit encore (`Armor`, D61).
+    /// Modificateur sur une stat qu'aucun système ne lit (aujourd'hui une erreur de lint : variante
+    /// gardée pour un futur avertissement).
     UnreadStat,
 }
 
@@ -296,8 +297,8 @@ pub(crate) fn stat_uses(registry: &Registry) -> Vec<(String, String, StatId)> {
     out
 }
 
-/// Avertissements : stat `Armor` sans lecteur (D61 n'est pas mergée : les autres stats sans
-/// lecteur sont des erreurs, voir `lint::lint_stat_readers`) et contenu inatteignable.
+/// Avertissements : contenu inatteignable (les stats sans lecteur sont des erreurs, voir
+/// `lint::lint_stat_readers`).
 pub fn warnings(registry: &Registry, manifest: &GameManifest) -> Vec<LintWarning> {
     let mut out = Vec::new();
     let mut warn = |kind: LintWarningKind, file: String, message: String| {
@@ -307,16 +308,6 @@ pub fn warnings(registry: &Registry, manifest: &GameManifest) -> Vec<LintWarning
             message,
         })
     };
-
-    for (file, at, stat) in stat_uses(registry) {
-        if stat == StatId::Armor {
-            warn(
-                LintWarningKind::UnreadStat,
-                file,
-                format!("{at} : stat Armor : aucun système ne la lit encore (D61)"),
-            );
-        }
-    }
 
     let reach = reach(registry, manifest);
 
@@ -437,8 +428,8 @@ mod tests {
     }
 
     #[test]
-    fn armor_and_luck_have_no_reader() {
-        assert!(sim_core::stats::stat_reader(&StatId::Armor).is_none());
+    fn armor_has_a_reader_luck_has_none() {
+        assert!(sim_core::stats::stat_reader(&StatId::Armor).is_some());
         assert!(sim_core::stats::stat_reader(&StatId::Luck).is_none());
         assert!(sim_core::stats::stat_reader(&StatId::MoveSpeed).is_some());
     }

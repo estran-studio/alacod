@@ -90,6 +90,10 @@ pub enum Action {
     /// `SpawnPattern` du même événement (l'émetteur joue `Sequence([Telegraph(n), pattern])`) :
     /// l'état est celui de l'émetteur, aucun type nouveau.
     Telegraph(u32),
+    /// D61 (`docs/conventions.md` §18, bouclier) : donne `n` points de bouclier au porteur ; chaque
+    /// point absorbe un coup entier (`combat::actors::Shield`). Utilisable par un effet, un
+    /// objet (`OnUse`), une synergie ; refusée dans un power-up (lint). Ajoutée en fin d'enum.
+    GainShield(u32),
 }
 
 impl Action {
@@ -139,7 +143,8 @@ impl Action {
             | Action::ApplyStatus { .. }
             | Action::RefillAmmoOf(_)
             | Action::SpawnEnemies { .. }
-            | Action::Telegraph(_) => None,
+            | Action::Telegraph(_)
+            | Action::GainShield(_) => None,
         }
     }
 }

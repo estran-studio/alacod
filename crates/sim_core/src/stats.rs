@@ -71,8 +71,10 @@ pub fn stat_reader(stat: &StatId) -> Option<&'static str> {
         | StatId::SlowDownDistance
         | StatId::OptimalAttackDistance
         | StatId::EnemyMoveSpeed => Some("character::enemy::ai::pathing (move_enemies)"),
-        // Aucun lecteur aujourd'hui : `Armor` attend D61 (b0), `Luck` le butin (M2-T5).
-        StatId::Armor | StatId::Luck => None,
+        // D61 : réduction des dégâts reçus, `dégât × 100 / (100 + armure)`.
+        StatId::Armor => Some("character::health (rollback_resolve_damage_events : armure)"),
+        // Aucun lecteur aujourd'hui : `Luck` attend le butin (M2-T5).
+        StatId::Luck => None,
         // Seule stat `Custom` lue : le multiplicateur de points des power-ups
         // (`effects::CURRENCY_MULTIPLIER_STAT`, lu par `game::economy`).
         StatId::Custom(name) if name == "powerup_currency_multiplier" => {

@@ -1,0 +1,21 @@
+// D61 (bouclier, docs/conventions.md §18) : un point de bouclier absorbe un coup entier. Même mise
+// en place que `consumable_heal` : l'`egide` (GainShield 1) est ramassée à f5 au contact, avant le
+// premier tir de la `tourelle_spirale`.
+//
+// À regarder : le premier coup de la spirale (f65) ne retire rien, le suivant (f155) touche (comme sans
+// bouclier : 92 PV).
+Scenario(
+    powerup_drop_chance_override: "0.0",
+    game: "testbed",
+    map: "testbed/arena.ldtk",
+    frames: 200,
+    items: [(id: "egide", x: "424.0", y: "696.0", at_frame: 5)],
+    characters: [(character: "tourelle_spirale", x: "520.0", y: "696.0", at_frame: 5)],
+    players: [(inputs: [])],
+    expect: [
+        // Première volée (~f65, 8 PV) : absorbée, rien n'est retiré
+        Health(handle: 0, min: 100.0, max: 100.0, at_frame: 110),
+        // Seconde volée (~f155) : plus de bouclier, le coup touche (8 PV)
+        Health(handle: 0, min: 92.0, max: 92.0, at_frame: 199),
+    ],
+)

@@ -1,6 +1,6 @@
-// Fixture M2-T15 (§53) : stat_armor_warning
+// Fixture D61 : shield_zero
 (
-    name: "fixture-stat_armor_warning",
+    name: "fixture-shield_zero",
     content_folders: [
         (path: "objets", kind: "Item"),
     ],

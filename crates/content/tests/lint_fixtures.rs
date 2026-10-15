@@ -661,6 +661,22 @@ fn feedback_t1_17_fixtures_report_their_field() {
     );
 }
 
+/// Lot A des assets : `shot_sounds` vers une arme inconnue et une clé absente de `sounds`.
+#[test]
+fn feedback_shot_sounds_fixture_reports_weapon_and_key() {
+    let (_, _, errors) = load_and_lint(&fixture_dir("feedback_shot_sounds_unknown")).unwrap();
+    assert_has_error(
+        &errors,
+        LintErrorKind::BrokenReference,
+        "shot_sounds « fantome » : arme inconnue",
+    );
+    assert_has_error(
+        &errors,
+        LintErrorKind::BrokenReference,
+        "shot_sounds.fantome = « shot_absente » : clé absente",
+    );
+}
+
 #[test]
 fn starting_weapons_exceed_slots_fixture_reports_error() {
     let (mut registry, manifest, errors) =
@@ -709,6 +725,11 @@ fn t3_4_fixtures_have_a_single_rule_failure() {
             "feedback_by_weapon_unknown",
             LintErrorKind::BrokenReference,
             1,
+        ),
+        (
+            "feedback_shot_sounds_unknown",
+            LintErrorKind::BrokenReference,
+            2,
         ),
         (
             "feedback_override_out_of_range",
@@ -1334,6 +1355,13 @@ fn arena_and_boss_t7_fixtures_report_their_rule() {
     }
 }
 
+// D61 (docs/conventions.md §18) : bouclier et stats lues.
+#[test]
+fn shield_zero_fixture_reports_out_of_range() {
+    let (_, _, errors) = load_and_lint(&fixture_dir("shield_zero")).unwrap();
+    assert_has_error(&errors, LintErrorKind::OutOfRange, "GainShield(0)");
+}
+
 // M2-T15 (docs/conventions.md §53) : stats sans lecteur et atteignabilité statique.
 fn assert_has_warning(fixture: &str, kind: content::LintWarningKind, needle: &str) {
     let (registry, manifest, _) = load_and_lint(&fixture_dir(fixture)).unwrap();
@@ -1350,20 +1378,6 @@ fn assert_has_warning(fixture: &str, kind: content::LintWarningKind, needle: &st
 fn stat_unread_fixture_is_an_error() {
     let (_, _, errors) = load_and_lint(&fixture_dir("stat_unread")).unwrap();
     assert_has_error(&errors, LintErrorKind::UnreadStat, "Luck");
-}
-
-#[test]
-fn stat_armor_is_only_a_warning() {
-    let (_, _, errors) = load_and_lint(&fixture_dir("stat_armor_warning")).unwrap();
-    assert!(
-        errors.iter().all(|e| e.kind != LintErrorKind::UnreadStat),
-        "Armor ne doit pas être une erreur : {errors:#?}"
-    );
-    assert_has_warning(
-        "stat_armor_warning",
-        content::LintWarningKind::UnreadStat,
-        "Armor",
-    );
 }
 
 #[test]
