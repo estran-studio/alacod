@@ -16,7 +16,7 @@ use crate::{
 use animation::{AnimationStateBundle, FacingDirection};
 use bevy::{
     log::{tracing::span, Level},
-    platform::collections::{HashMap, HashSet},
+    platform::collections::HashMap,
     prelude::*,
 };
 use bevy_common_assets::ron::RonAssetPlugin;
@@ -1593,12 +1593,13 @@ pub fn bullet_rollback_collision_system(
     );
     let _enter = system_span.enter();
 
-    let mut bullets_to_despawn_set = HashSet::new();
+    // Les Entity sont locales à chaque client ; seul le NetId fixe l’ordre des commandes.
+    let mut bullets_to_despawn = BTreeMap::new();
 
     for (ggrs_net_id, bullet_entity, bullet_transform, bullet, bullet_collider, bullet_layer) in
         order_iter!(bullet_query)
     {
-        if bullets_to_despawn_set.contains(&bullet_entity) {
+        if bullets_to_despawn.contains_key(&ggrs_net_id.0) {
             continue;
         }
 
@@ -1728,17 +1729,14 @@ pub fn bullet_rollback_collision_system(
         }
 
         if should_bullet_despawn_now {
-            bullets_to_despawn_set.insert(bullet_entity);
+            bullets_to_despawn.insert(ggrs_net_id.0, bullet_entity);
             // Since the original code had a `break` here, we effectively stop processing
             // more targets for this bullet after this first deterministic interaction.
         }
     }
 
-    // Deterministic despawning of bullets (already good)
-    let mut bullets_to_despawn_vec: Vec<Entity> = bullets_to_despawn_set.into_iter().collect();
-    bullets_to_despawn_vec.sort_by_key(|entity| entity.index()); // Or .to_bits()
     use bevy_ggrs::RollbackDespawnCommandExtension;
-    for entity in bullets_to_despawn_vec {
+    for entity in bullets_to_despawn.into_values() {
         commands.entity(entity).despawn_rollback();
     }
 }

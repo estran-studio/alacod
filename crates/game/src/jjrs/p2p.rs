@@ -314,14 +314,8 @@ pub fn system_after_map_loaded(
     let socket = socket.as_mut().unwrap();
 
     let channel = socket.take_channel(0).unwrap();
-    let num_players = ggrs_config.connection.max_player;
-
-    // start the GGRS session
-    let mut session_builder = ggrs::SessionBuilder::<PeerConfig>::new()
-        .with_num_players(num_players)
-        .expect("invalid number of players")
-        .with_max_prediction_window(12)
-        .with_input_delay(ggrs_config.connection.input_delay);
+    let mut session_builder = session_builder::<PeerConfig>(&ggrs_config.connection)
+        .expect("invalid p2p session configuration");
 
     let players = socket.players();
 
@@ -383,3 +377,30 @@ pub fn system_after_map_loaded(
 
     app_state.set(AppState::InGame);
 }
+
+/// Configuration commune aux chemins natif et navigateur. GGRS désactive la détection
+/// des desyncs par défaut : enregistrer des checksums ne suffit pas à les échanger.
+/// Générique pour exercer cette politique avec deux pairs en mémoire dans les tests.
+fn session_builder<C: ggrs::Config>(
+    config: &crate::jjrs::GggrsConnectionConfiguration,
+) -> Result<ggrs::SessionBuilder<C>, ggrs::GgrsError> {
+    // Un intervalle nul est invalide pour GGRS. On conserve cette erreur explicite plutôt
+    // que de démarrer une session sans surveillance (ou de modifier silencieusement l'intervalle).
+    if config.desync_interval == 0 {
+        return Err(ggrs::GgrsError::InvalidRequest {
+            info: "desync_interval must be greater than zero".into(),
+        });
+    }
+    Ok(ggrs::SessionBuilder::<C>::new()
+        .with_num_players(config.max_player)?
+        .with_fps(crate::core::SIM_FPS as usize)?
+        .with_max_prediction_window(12)
+        .with_desync_detection_mode(ggrs::DesyncDetection::On {
+            interval: config.desync_interval,
+        })
+        .with_input_delay(config.input_delay))
+}
+
+#[cfg(test)]
+#[path = "p2p_tests.rs"]
+mod tests;
