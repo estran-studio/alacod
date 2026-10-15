@@ -1,0 +1,11 @@
+// Fixture M2-T15 (§53) : reach_enemy_weapons
+(
+    name: "fixture-reach_enemy_weapons",
+    content_folders: [
+        (path: "characters", kind: "Character"),
+        (path: "maps", kind: "Map"),
+        (path: "weapons.ron", kind: "Weapon"),
+        (path: "shot.ron", kind: "Pattern"),
+    ],
+    entry: (start_map: "maps/salle.ldtk", default_seed: 1),
+)

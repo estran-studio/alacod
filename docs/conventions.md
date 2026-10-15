@@ -3507,7 +3507,9 @@ Types tirables d'une grammaire = `FloorGrammar::kinds_needed()`. Avertissements 
   de M2-T5 est `reach::loot_pool_items` (et `loot_pool_weapons`), vides aujourd'hui : y renvoyer les
   ids de chaque pool (une dizaine de lignes) ;
 - arme sans source : `starting_weapons`, `WeaponLocation` des niveaux jouables, `weapon_pool` de
-  progression, pools.
+  progression, pools, armes citées par les règles des ennemis atteints (`Shoot`, phases de boss,
+  `SpawnPattern` des effets, entrées de phase et frises). Un ennemi inatteint ou `test_only`
+  ne compte pas comme source de ces armes.
 `MapEntry::levels` (`MapLevelInfo` : type de salle, personnages, armes murales par niveau LDtk) porte
 les données. Limites : pas de lecture des scénarios (une arme ou un objet donné par scénario seulement
 est signalé), ni des cartes assemblées autrement que par les désignations ci-dessus ; la sandbox
@@ -3518,7 +3520,8 @@ de personnage (`test_only: true,`), dans `config:` d'une arme (`config: (test_on
 l'ignore : pas d'avertissement « ennemi » ou « arme » pour lui, et un personnage marqué n'est pas une
 source d'armes. Lu par `content` seulement (`CharacterEntry::test_only`, `WeaponEntry::test_only`) : les
 types de `game` et `combat` l'ignorent comme tout champ inconnu, donc aucun effet en jeu et aucune trace
-qui bouge. Marqués : `cible` et `mannequin` (throne), `cible` (gungeon). Fixtures
+qui bouge. Marqués : `zombie_scaled` (zombies), `cible` et `mannequin` (throne), `cible` (gungeon). Fixtures
+`reach_enemy_weapons` (règles atteintes, phases et frises ; sources inatteintes et de test exclues),
 `reach_test_only_character` et `reach_test_only_weapon` (jumelles de `reach_enemy_unplaced` et
 `reach_weapon_no_source`, test `test_only_content_is_ignored_by_reach`).
 
