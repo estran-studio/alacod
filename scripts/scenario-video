@@ -12,6 +12,13 @@
 #                                            (caméra --follow), côte à côte : <nom>.vues.mp4
 #   scenario-video index                     regénère la page de revue target/videos/index.html
 #
+# Un nom de scénario est cherché dans tests/scenarios/<nom>.ron puis dans les scénarios générés
+# (tests/scenarios/generated/<jeu>/<nom>.ron, `make gen`) ; `<jeu>/<nom>` désigne un généré sans
+# ambiguïté (un même nom dans deux jeux est une erreur qui liste les chemins).
+# Le rendu hors écran demande un GPU (Vulkan, ou Metal sous macOS) : sans lui, le script s'arrête
+# avant de compiler, avec un message. DRY_RUN=1 (render, views, compare) affiche la résolution des
+# noms et s'arrête là, sans GPU ni compilation.
+#
 # Sorties dans target/videos/<commit>/ (compare : target/videos/compare/).
 # EVERY=N : une image toutes les N frames de simulation (défaut 2 → 30 images/s).
 set -euo pipefail
@@ -53,7 +60,19 @@ build_player() {
 # capture <binaire> <scenario.ron> <dossier images>
 capture() {
     rm -rf "$3"
-    "$1" "$2" --capture "$3" --every "$EVERY" >/dev/null 2>&1
+    local log status=0
+    log="$(mktemp)"
+    "$1" "$2" --capture "$3" --every "$EVERY" "${@:4}" >"$log" 2>&1 || status=$?
+    if [ "$status" -ne 0 ]; then
+        echo "capture en échec (code $status) pour $2" >&2
+        if grep -qiE 'no suitable (graphics )?adapter|vulkan|wgpu.*(adapter|instance)|RequestAdapterError' "$log"; then
+            echo "cause probable : GPU (Vulkan) absent ou inutilisable ; capturer sur un poste avec GPU." >&2
+        fi
+        tail -n 15 "$log" >&2
+        rm -f "$log"
+        return "$status"
+    fi
+    rm -f "$log"
 }
 
 # encode <dossier images> <sortie.mp4> <étiquette>
@@ -64,19 +83,57 @@ encode() {
         -pix_fmt yuv420p "${ENCODER[@]}" "$2"
 }
 
+# resolve_scenario <nom> : chemin du .ron d'un scénario (D60). Ordre : tests/scenarios/<nom>.ron,
+# puis tests/scenarios/generated/<jeu>/<nom>.ron ; `<jeu>/<nom>` désigne un généré. Un nom présent
+# dans plusieurs jeux est une erreur qui liste les chemins. Code de retour 1 si inconnu.
+resolve_scenario() {
+    local name="$1" dir="$ROOT/tests/scenarios" found=() f
+    if [ -f "$dir/$name.ron" ]; then
+        echo "$dir/$name.ron"
+        return 0
+    fi
+    case "$name" in
+        */*)
+            if [ -f "$dir/generated/$name.ron" ]; then
+                echo "$dir/generated/$name.ron"
+                return 0
+            fi
+            echo "scénario inconnu : $name (ni tests/scenarios/$name.ron ni tests/scenarios/generated/$name.ron)" >&2
+            return 1
+            ;;
+    esac
+    for f in "$dir"/generated/*/"$name.ron"; do
+        [ -f "$f" ] && found+=("$f")
+    done
+    case ${#found[@]} in
+        0)
+            echo "scénario inconnu : $name (tests/scenarios/$name.ron et tests/scenarios/generated/*/$name.ron absents)" >&2
+            return 1
+            ;;
+        1) echo "${found[0]}" ;;
+        *)
+            echo "scénario ambigu : $name existe dans plusieurs jeux, préciser <jeu>/$name :" >&2
+            printf '  %s\n' "${found[@]#"$ROOT"/}" >&2
+            return 1
+            ;;
+    esac
+}
+
+# Nom de fichier d'un nom de scénario (`jeu/nom` → `jeu__nom`).
+scenario_slug() {
+    printf '%s\n' "${1//\//__}"
+}
+
 # Noms de scénarios, un par ligne. D23 : chaque argument peut en contenir plusieurs, séparés
 # par des virgules ou des espaces (`make videos SCENARIO=a,b` comme `SCENARIO="a b"`). Sans
-# argument : tous les scénarios. Un nom sans `tests/scenarios/<nom>.ron` arrête le script
-# avant toute compilation.
+# argument : tous les scénarios de tests/scenarios/ (pas les générés). Un nom introuvable ou
+# ambigu arrête le script avant toute compilation.
 scenario_names() {
     if [ $# -gt 0 ]; then
         local arg name
         for arg in "$@"; do
             for name in ${arg//,/ }; do
-                if [ ! -f "$ROOT/tests/scenarios/$name.ron" ]; then
-                    echo "scénario inconnu : $name (tests/scenarios/$name.ron absent)" >&2
-                    return 1
-                fi
+                resolve_scenario "$name" >/dev/null || return 1
                 printf '%s\n' "$name"
             done
         done
@@ -85,24 +142,51 @@ scenario_names() {
     fi
 }
 
+# D60 : le rendu hors écran a besoin d'un GPU. Vérifié avant toute compilation (Vulkan : un pilote
+# ICD déclaré ou `vulkaninfo` qui répond ; macOS : Metal, rien à vérifier).
+require_gpu() {
+    [ "$(uname -s)" = Darwin ] && return 0
+    if command -v vulkaninfo >/dev/null 2>&1 && vulkaninfo --summary >/dev/null 2>&1; then
+        return 0
+    fi
+    if ! command -v vulkaninfo >/dev/null 2>&1 && compgen -G "/usr/share/vulkan/icd.d/*.json" >/dev/null; then
+        return 0
+    fi
+    if ! command -v vulkaninfo >/dev/null 2>&1 && compgen -G "/etc/vulkan/icd.d/*.json" >/dev/null; then
+        return 0
+    fi
+    cat >&2 <<'MSG'
+GPU absent : le rendu hors écran (play_scenario --capture) demande un GPU Vulkan, et aucun pilote
+n'est installé ou ne répond ici (`vulkaninfo --summary` échoue ou n'existe pas, aucun ICD dans
+/usr/share/vulkan/icd.d ni /etc/vulkan/icd.d). Faire la capture sur un poste avec GPU
+(ou installer mesa-vulkan-drivers, rendu logiciel lent). DRY_RUN=1 vérifie seulement la résolution
+des noms de scénarios, sans GPU.
+MSG
+    return 1
+}
+
 cmd_render() {
-    local commit out player names
+    local commit out player names name slug
     names="$(scenario_names "$@")"
     # DRY_RUN=1 : affiche les scénarios qui seraient rendus, sans compiler ni capturer.
     if [ -n "${DRY_RUN:-}" ]; then
-        printf 'à rendre : %s\n' $names
+        for name in $names; do
+            printf 'à rendre : %s (%s)\n' "$name" "$(resolve_scenario "$name" | sed "s|^$ROOT/||")"
+        done
         exit 0
     fi
+    require_gpu
     commit="$(git -C "$ROOT" rev-parse --short HEAD)$(git -C "$ROOT" diff --quiet || echo "-dirty")"
     out="$ROOT/target/videos/$commit"
     mkdir -p "$out"
     player="$(build_player "$ROOT")"
     for name in $names; do
         echo "→ $name"
-        capture "$player" "$ROOT/tests/scenarios/$name.ron" "$out/frames/$name"
-        encode "$out/frames/$name" "$out/$name.mp4" "$name  $commit"
-        cp "$out/frames/$name/events.json" "$out/$name.events.json" 2>/dev/null || true
-        rm -rf "$out/frames/$name"
+        slug="$(scenario_slug "$name")"
+        capture "$player" "$(resolve_scenario "$name")" "$out/frames/$slug"
+        encode "$out/frames/$slug" "$out/$slug.mp4" "$name  $commit"
+        cp "$out/frames/$slug/events.json" "$out/$slug.events.json" 2>/dev/null || true
+        rm -rf "$out/frames/$slug"
     done
     rmdir "$out/frames" 2>/dev/null || true
     echo "vidéos dans $out"
@@ -132,21 +216,28 @@ PY
 # toutes de la même durée, contrairement au montage de scénarios différents. Les moments
 # clés sont ceux de la capture du joueur 0 (identiques pour tous : même simulation).
 cmd_views() {
-    local name="$1" n="${2:-}" commit out player i cols
+    local name="$1" n="${2:-}" commit out player i cols scenario slug
+    scenario="$(resolve_scenario "$name")"
+    slug="$(scenario_slug "$name")"
+    if [ -n "${DRY_RUN:-}" ]; then
+        printf 'à rendre (vues) : %s (%s)\n' "$name" "${scenario#"$ROOT"/}"
+        exit 0
+    fi
+    require_gpu
     commit="$(git -C "$ROOT" rev-parse --short HEAD)$(git -C "$ROOT" diff --quiet || echo "-dirty")"
     out="$ROOT/target/videos/$commit"
     mkdir -p "$out"
     player="$(build_player "$ROOT")"
-    [ -n "$n" ] || n="$(player_count "$ROOT/tests/scenarios/$name.ron")"
+    [ -n "$n" ] || n="$(player_count "$scenario")"
     [ "$n" -ge 1 ] || { echo "aucun joueur dans $name" >&2; exit 1; }
     cols=2; [ "$n" -lt 2 ] && cols=1
     local inputs=() filter="" layout=""
     for ((i = 0; i < n; i++)); do
         echo "→ $name, vue du joueur $i"
-        rm -rf "$out/frames/$name.p$i"
-        "$player" "$ROOT/tests/scenarios/$name.ron" --capture "$out/frames/$name.p$i" --every "$EVERY" --follow "$i" >/dev/null 2>&1
-        encode "$out/frames/$name.p$i" "$out/frames/$name.p$i.mp4" "$name  joueur $i"
-        inputs+=(-i "$out/frames/$name.p$i.mp4")
+        rm -rf "$out/frames/$slug.p$i"
+        capture "$player" "$scenario" "$out/frames/$slug.p$i" --follow "$i"
+        encode "$out/frames/$slug.p$i" "$out/frames/$slug.p$i.mp4" "$name  joueur $i"
+        inputs+=(-i "$out/frames/$slug.p$i.mp4")
         filter+="[$i:v]scale=960:540[v$i];"
         if [ "$i" -gt 0 ]; then layout+="|"; fi
         layout+="$(( (i % cols) * 960 ))_$(( (i / cols) * 540 ))"
@@ -159,11 +250,11 @@ cmd_views() {
         filter+="${streams}xstack=inputs=$n:layout=$layout:fill=black[out]"
     fi
     ffmpeg -hide_banner -loglevel error -y "${inputs[@]}" -filter_complex "$filter" -map "[out]" \
-        -pix_fmt yuv420p "${ENCODER[@]}" "$out/$name.vues.mp4"
-    cp "$out/frames/$name.p0/events.json" "$out/$name.vues.events.json" 2>/dev/null || true
-    rm -rf "$out/frames/$name".p*
+        -pix_fmt yuv420p "${ENCODER[@]}" "$out/$slug.vues.mp4"
+    cp "$out/frames/$name.p0/events.json" "$out/$slug.vues.events.json" 2>/dev/null || true
+    rm -rf "$out/frames/$slug".p*
     rmdir "$out/frames" 2>/dev/null || true
-    echo "vues : $out/$name.vues.mp4"
+    echo "vues : $out/$slug.vues.mp4"
 }
 
 cmd_montage() {
@@ -198,14 +289,20 @@ cmd_montage() {
 
 cmd_compare() {
     local name="$1" base="$2" head="${3:-HEAD}"
-    local scenario="$ROOT/tests/scenarios/$name.ron"
-    [ -f "$scenario" ] || { echo "scénario inconnu : $name" >&2; exit 1; }
+    local scenario slug
+    scenario="$(resolve_scenario "$name")" || exit 1
+    slug="$(scenario_slug "$name")"
+    if [ -n "${DRY_RUN:-}" ]; then
+        printf 'à comparer : %s (%s) entre %s et %s\n' "$name" "${scenario#"$ROOT"/}" "$base" "$head"
+        exit 0
+    fi
+    require_gpu
     local out="$ROOT/target/videos/compare"
     mkdir -p "$out"
 
     # Les attentes ne servent pas à la vidéo, et un ancien commit peut ne pas connaître les
     # plus récentes : on joue le scénario sans elles
-    local playable="$out/$name.playable.ron"
+    local playable="$out/$slug.playable.ron"
     python3 - "$scenario" "$playable" <<'PY'
 import re, sys
 text = open(sys.argv[1]).read()
@@ -243,7 +340,7 @@ PY
         sides+=("$out/$side.mp4")
     done
 
-    local result="$out/${name}_$(git -C "$ROOT" rev-parse --short "$base")_vs_$(git -C "$ROOT" rev-parse --short "$head").mp4"
+    local result="$out/${slug}_$(git -C "$ROOT" rev-parse --short "$base")_vs_$(git -C "$ROOT" rev-parse --short "$head").mp4"
     ffmpeg -hide_banner -loglevel error -y -i "${sides[0]}" -i "${sides[1]}" -filter_complex \
         "[0:v]tpad=stop_mode=clone:stop_duration=3600[a];[1:v]tpad=stop_mode=clone:stop_duration=3600[b];[a][b]hstack=inputs=2[out]" \
         -map "[out]" -t "$(for v in "${sides[@]}"; do ffprobe -v error -show_entries format=duration -of csv=p=0 "$v"; done | sort -g | tail -1)" \
