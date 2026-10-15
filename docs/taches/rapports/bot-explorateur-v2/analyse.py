@@ -1,7 +1,7 @@
 import json,glob,sys,statistics as st,collections
-p=sys.argv[1]
+p=sys.argv[1]; rep=sys.argv[2] if len(sys.argv)>2 else 'bot-explorateur-v2'
 R=[]
-for f in sorted(glob.glob(f'docs/taches/rapports/m2-t16-campagne-boss/{p}_*.json')): R+=json.load(open(f))
+for f in sorted(glob.glob(f'docs/taches/rapports/{rep}/{p}_*.json')): R+=json.load(open(f))
 oc=collections.Counter(r['outcome'] for r in R)
 print(p,len(R),dict(oc),'desync',sum(r['desync'] for r in R))
 ok=[r['frames'] for r in R if r['outcome']=='objectif']

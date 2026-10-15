@@ -853,6 +853,12 @@ pub(crate) fn surface_step(
 ) -> Option<(FixedVec2, bool)> {
     let reach = (reach - Fixed::from_num(8)).max(Fixed::ZERO);
     let (mut direction, _) = nav.approach(position, rect, reach)?;
+    // Un pas sous la zone morte (`dead_zone`) ne ferait pas bouger le bot : arrivé (sinon il
+    // reste immobile à quelques pixels de la portée, sans jamais presser Interaction ; D65,
+    // graine 47 à 2 bots).
+    if dead_zone(direction) == FixedVec2::ZERO {
+        direction = FixedVec2::ZERO;
+    }
     let mut interact = false;
     if direction == FixedVec2::ZERO {
         let selected = surfaces
