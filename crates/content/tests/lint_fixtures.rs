@@ -755,28 +755,15 @@ fn t3_4_fixtures_have_a_single_rule_failure() {
     }
 }
 
-/// T1.16 : écran de mutation (`ui/mutation_screen.ron`) — police absente, deux emplacements ;
 /// T1.18 : source de HUD inconnue ;
 /// une seule erreur par fixture en plus du start_map commun.
 #[test]
-fn mutation_screen_fixtures() {
-    for (name, kind, needle) in [
-        (
-            "mutation_screen_font_missing",
-            LintErrorKind::BrokenReference,
-            "champ font = « fonts/absente.ttf »",
-        ),
-        (
-            "mutation_screen_two_slots",
-            LintErrorKind::OutOfRange,
-            "2 emplacements, il en faut 3",
-        ),
-        (
-            "hud_unknown_source",
-            LintErrorKind::UnknownKind,
-            "hud : source inconnue « mana »",
-        ),
-    ] {
+fn hud_source_fixtures() {
+    for (name, kind, needle) in [(
+        "hud_unknown_source",
+        LintErrorKind::UnknownKind,
+        "hud : source inconnue « mana »",
+    )] {
         let (_, _, errors) = load_and_lint(&fixture_dir(name)).unwrap();
         assert_has_error(&errors, kind, needle);
         let others: Vec<_> = errors

@@ -16,15 +16,12 @@
 //!   émet le bit de la carte surlignée ([`confirm_bit`]) dans `read_local_inputs` : seul chemin
 //!   vers la simulation, le même que les touches 1/2/3.
 //!
-//! **Rendu** ([`MutationScreenPlugin`], `PresentationPlugin`) : `ui/mutation_screen.ron`
-//! ([`content::ui::MutationScreenLayout`], kind `Ui`, lint) ; trois cartes, la surlignée bordée,
-//! une barre de temps qui se vide.
+//! **Rendu** : `ui::mutation_hui` (`PresentationPlugin`, feature `ui_hui`), gabarit
+//! `ui/mutation_screen.html` ; trois cartes, la surlignée bordée, une barre de temps qui se vide.
 
 use bevy::prelude::*;
-use bevy_common_assets::ron::RonAssetPlugin;
 use combat::actors::{INPUT_CHOICE_A, INPUT_CHOICE_B, INPUT_CHOICE_C};
 use content::registry::Registry;
-use content::ui::MutationScreenLayout;
 use leafwing_input_manager::prelude::ActionState;
 use utils::frame::FrameCount;
 
@@ -34,7 +31,9 @@ use crate::character::player::input::ScriptedInputs;
 use crate::character::player::{LocalPlayer, Player};
 use crate::core::AppState;
 use crate::progression::{MutationChoice, ProgressionTable};
-use crate::ui::hud::{hud_text_font, parse_color};
+
+/// Nombre de cartes : une par bit `ChoiceA/B/C`.
+pub const CARD_SLOTS: usize = 3;
 
 /// Une carte de l'écran.
 #[derive(Clone, Debug, Default, PartialEq, Eq)]
@@ -186,7 +185,7 @@ impl Plugin for MutationScreenModelPlugin {
 }
 
 #[allow(clippy::too_many_arguments)]
-fn update_mutation_screen_view(
+pub(crate) fn update_mutation_screen_view(
     mut view: ResMut<MutationScreenView>,
     frame: Res<FrameCount>,
     table: Option<Res<ProgressionTable>>,
@@ -246,111 +245,9 @@ fn update_mutation_screen_view(
     }
 }
 
-/// Mise en page chargée depuis `ui/mutation_screen.ron` (même schéma que le lint).
-#[derive(Asset, TypePath, Debug, Clone, serde::Deserialize)]
-#[serde(transparent)]
-pub struct MutationScreenAsset(pub MutationScreenLayout);
-
-#[derive(Resource, Default)]
-struct MutationScreenHandle(Option<Handle<MutationScreenAsset>>);
-
-/// Racine de l'écran ; `shown` : (since_frame, surbrillance) dessinés, pour ne reconstruire
-/// qu'au changement.
-#[derive(Component)]
-struct MutationScreenRoot {
-    shown: (u32, usize),
-}
-
-/// Barre de temps (largeur pleine en pixels).
-#[derive(Component)]
-struct MutationScreenBar {
-    full_width: f32,
-}
-
-/// Rendu de l'écran (présentation seule).
-pub struct MutationScreenPlugin;
-
-impl Plugin for MutationScreenPlugin {
-    fn build(&self, app: &mut App) {
-        app.add_plugins(RonAssetPlugin::<MutationScreenAsset>::new(&["ron"]))
-            .init_resource::<MutationScreenHandle>()
-            .add_systems(OnEnter(AppState::InGame), load_mutation_screen)
-            .add_systems(
-                Update,
-                draw_mutation_screen
-                    .after(update_mutation_screen_view)
-                    .run_if(in_state(AppState::InGame)),
-            )
-            .add_systems(OnExit(AppState::InGame), despawn_mutation_screen);
-    }
-}
-
-fn load_mutation_screen(
-    asset_server: Res<AssetServer>,
-    registry: Res<Registry>,
-    mut handle: ResMut<MutationScreenHandle>,
-) {
-    // Games without mutation UI (zombies) must not request a nonexistent asset.
-    handle.0 = registry
-        .mutation_screens
-        .first()
-        .map(|(path, _)| asset_server.load(path.to_string_lossy().replace('\\', "/")));
-}
-
-fn despawn_mutation_screen(mut commands: Commands, roots: Query<Entity, With<MutationScreenRoot>>) {
-    for root in &roots {
-        commands.entity(root).despawn();
-    }
-}
-
-#[allow(clippy::too_many_arguments)]
-fn draw_mutation_screen(
-    mut commands: Commands,
-    view: Res<MutationScreenView>,
-    asset_server: Res<AssetServer>,
-    handle: Res<MutationScreenHandle>,
-    layouts: Res<Assets<MutationScreenAsset>>,
-    roots: Query<(Entity, &MutationScreenRoot)>,
-    mut bars: Query<(&mut Node, &MutationScreenBar)>,
-) {
-    let wanted = view.open.then_some((view.since_frame, view.highlighted));
-    let current = roots.iter().next();
-    if current.map(|(_, root)| root.shown) != wanted {
-        if let Some((entity, _)) = current {
-            commands.entity(entity).despawn();
-        }
-        let layout = handle.0.as_ref().and_then(|h| layouts.get(h));
-        if let (Some(shown), Some(layout)) = (wanted, layout) {
-            let font = Some(asset_server.load(layout.0.font.clone()));
-            spawn_screen(&mut commands, &view, &layout.0, font, shown);
-        }
-        return;
-    }
-    for (mut node, bar) in &mut bars {
-        node.width = Val::Px(bar.full_width * view.time_fraction());
-    }
-}
-
-/// Nœud absolu centré sur `center` (pixels depuis le centre de l'écran).
-fn centered(center: (f32, f32), size: (f32, f32)) -> Node {
-    Node {
-        position_type: PositionType::Absolute,
-        left: Val::Percent(50.0),
-        top: Val::Percent(50.0),
-        margin: UiRect {
-            left: Val::Px(center.0 - size.0 / 2.0),
-            top: Val::Px(center.1 - size.1 / 2.0),
-            ..default()
-        },
-        width: Val::Px(size.0),
-        height: Val::Px(size.1),
-        ..default()
-    }
-}
-
 /// Shorten wording without removing triggers, conditions, amounts or durations.
 /// The full generated description remains available in the view model/tooling.
-fn compact_description(description: &str) -> String {
+pub fn compact_description(description: &str) -> String {
     description
         .replace("À chaque ennemi tué", "Ennemi tué")
         .replace("Quand vous êtes touché", "Coup reçu")
@@ -359,84 +256,6 @@ fn compact_description(description: &str) -> String {
         .replace("si la cible est champion", "si champion")
         .replace("regagnez ", "+")
         .replace("points de vie", "PV")
-}
-
-fn spawn_screen(
-    commands: &mut Commands,
-    view: &MutationScreenView,
-    layout: &MutationScreenLayout,
-    font: Option<Handle<Font>>,
-    shown: (u32, usize),
-) {
-    let text_color = parse_color(&layout.text_color);
-    let highlight = parse_color(&layout.highlight_color);
-    let card_color = parse_color(&layout.card_color);
-    commands
-        .spawn((
-            Node {
-                width: Val::Percent(100.0),
-                height: Val::Percent(100.0),
-                ..default()
-            },
-            GlobalZIndex(10),
-            BackgroundColor(Color::srgba(0.02, 0.025, 0.04, 0.72)),
-            MutationScreenRoot { shown },
-        ))
-        .with_children(|parent| {
-            let line = (layout.title_size * 1.5, layout.text_size * 1.5);
-            parent.spawn((
-                centered(layout.title_offset, (layout.bar_size.0, line.0)),
-                Text::new(layout.title.clone()),
-                hud_text_font(&font, layout.title_size),
-                TextColor(text_color),
-                TextLayout::justify(Justify::Center),
-            ));
-            for ((index, card), slot) in view.options.iter().enumerate().zip(&layout.slots) {
-                let selected = index == view.highlighted;
-                let mut node = centered(*slot, layout.card_size);
-                node.flex_direction = FlexDirection::Column;
-                node.row_gap = Val::Px(8.0);
-                node.padding = UiRect::all(Val::Px(12.0));
-                node.border = UiRect::all(Val::Px(if selected { 3.0 } else { 1.0 }));
-                parent
-                    .spawn((
-                        node,
-                        BackgroundColor(card_color),
-                        BorderColor::all(if selected {
-                            highlight
-                        } else {
-                            text_color.with_alpha(0.3)
-                        }),
-                    ))
-                    .with_children(|card_node| {
-                        card_node.spawn((
-                            Text::new(format!("{}  {}", index + 1, card.name)),
-                            hud_text_font(&font, layout.name_size),
-                            TextColor(if selected { highlight } else { text_color }),
-                        ));
-                        card_node.spawn((
-                            Text::new(compact_description(&card.description)),
-                            hud_text_font(&font, layout.text_size),
-                            TextColor(text_color),
-                        ));
-                    });
-            }
-            let full = layout.bar_size.0;
-            let mut bar = centered(layout.bar_offset, layout.bar_size);
-            bar.width = Val::Px(full * view.time_fraction());
-            parent.spawn((
-                bar,
-                BackgroundColor(parse_color(&layout.bar_color)),
-                MutationScreenBar { full_width: full },
-            ));
-            parent.spawn((
-                centered(layout.hint_offset, (layout.bar_size.0, line.1)),
-                Text::new(layout.hint.clone()),
-                hud_text_font(&font, layout.text_size),
-                TextColor(text_color.with_alpha(0.7)),
-                TextLayout::justify(Justify::Center),
-            ));
-        });
 }
 
 #[cfg(test)]
