@@ -204,6 +204,12 @@ Scénarios à dumper au minimum : `idle`, `two_players_shooting`, `points_on_kil
   Si `main` a avancé pendant la tâche : `git merge main` dans le worktree d'abord ; conflits sur
   des `.trace` = les deux côtés ont re-blessé → prendre n'importe quelle version puis refaire
   preuve (§5, contre le nouveau `main`) et bless sur l'état fusionné.
+- **Voie rapide (décision de l'orchestrateur, 2026-10-15)** : juste avant le commit `LIVRÉ`, fusionner
+  `origin/main` dans la branche, puis rejouer la suite complète **sur cette fusion** et le dire au
+  rapport (« suite verte sur la fusion avec main `<sha>` »). Si `main` n'a pas bougé depuis à la
+  vérification, l'orchestrateur ne rejoue pas la suite : il relit, lance les vérifications courtes
+  (fmt, lint, test_crates) et le p2p, puis merge. Si `main` a bougé, il refait la suite sur la
+  nouvelle fusion, comme avant.
 - Journal : une ligne dans le tableau de `docs/taches.md` §10, sur `main`, après le merge :
   `| AAAA-MM-JJ | T2.x (ce qui a été livré, en une phrase dense) | \`branche\` | modèle | mergée ; comment vérifié (scénarios, tests, preuve, bench, p2p) ; non fait ; dettes |`.
 
