@@ -396,6 +396,10 @@ impl Plugin for ShopPlugin {
         app.add_systems(
             GgrsSchedule,
             shell_drop_on_death_system
+                // Après les autres drops : ils consomment tous `GgrsNetIdFactory`, les ids
+                // existants ne changent pas.
+                .after(crate::powerups::loot_drop_on_death_system)
+                .after(crate::progression::weapon_drop_on_death_system)
                 .after(crate::character::health::rollback_apply_accumulated_damage)
                 .before(crate::character::health::rollback_apply_death)
                 .in_set(RollbackSystemSet::DeathManagement),

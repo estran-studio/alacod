@@ -4,7 +4,7 @@
 // avance sur les tas, qui se ramassent au contact et créditent `Currency` (raison `pickup`).
 //
 // À regarder : f30-90 le joueur entre ; f90-300 il tire sur les `dummy` ; deux tas de douilles
-// apparaissent à leur mort ; il les ramasse en avançant, le solde passe à 6.
+// apparaissent à leur mort ; il les ramasse en avançant, le solde gagne 6 (620 → 626 : points de kill et de coups déjà comptés avant).
 Scenario(
     powerup_drop_chance_override: "0.0",
     room_reward_chance_override: "0.0",
@@ -22,7 +22,9 @@ Scenario(
     ],
     expect: [
         Currency(handle: 0, min: 0, max: 0, at_frame: 80),
-        Currency(handle: 0, min: 6, max: 6, at_frame: 690),
+        ShellPiles(count: 2, at_frame: 510),
+        Currency(handle: 0, min: 620, max: 620, at_frame: 510),
         ShellPiles(count: 0, at_frame: 690),
+        Currency(handle: 0, min: 626, max: 626, at_frame: 690),
     ],
 )

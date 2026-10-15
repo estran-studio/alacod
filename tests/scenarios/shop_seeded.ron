@@ -1,0 +1,20 @@
+// M2-T6 (boutique, docs/conventions.md §50) : l'étage `etage` de `gungeon` (grammaire de 8 à 12
+// salles dont une `boutique` obligatoire), graine 1. La salle boutique présente trois présentoirs
+// dès le départ : objets tirés au `loot_seed` de la clé `shop:<salle>` (donc les mêmes pour la même
+// graine, quel que soit le moment), prix par rareté de `economy.ron`.
+//
+// À regarder : rien ne bouge (joueur immobile) ; les trois présentoirs existent depuis f10.
+Scenario(
+    powerup_drop_chance_override: "0.0",
+    game: "gungeon",
+    floors: Some("etages_grammaire"),
+    map_seed: 1,
+    frames: 60,
+    players: [(inputs: [])],
+    expect: [
+        ShelfCount(count: 3, at_frame: 10),
+        Shelf(nth: 0, item: Some("key"), price: Some(15), sold: Some(false), at_frame: 10),
+        Shelf(nth: 1, item: Some("trefle"), price: Some(30), at_frame: 10),
+        Shelf(nth: 2, item: Some("blank"), price: Some(15), at_frame: 10),
+    ],
+)
