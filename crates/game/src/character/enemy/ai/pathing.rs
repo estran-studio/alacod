@@ -607,6 +607,7 @@ pub fn move_enemies(
                     enemy_target_opt.and_then(|target| target.last_known_position),
                     &flow_field_cache,
                     nav_key,
+                    &body,
                     squad_slots.0.get(&net_id.0),
                 )
             });

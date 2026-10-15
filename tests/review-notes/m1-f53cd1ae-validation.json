@@ -1,0 +1,266 @@
+{
+  "date": "2026-10-10",
+  "code_commit": "12a35292",
+  "game_unit_tests": {
+    "passed": 109,
+    "failed": 0
+  },
+  "scenario_expectation_tests": {
+    "suite_passed": 49,
+    "additional_trace_contract_passed": 1,
+    "failed": 0
+  },
+  "final_scenarios": {
+    "count": 57,
+    "bless": false,
+    "failed": 0,
+    "results": [
+      {
+        "scenario": "enemy_arroseur_moving",
+        "code": 0
+      },
+      {
+        "scenario": "enemy_arroseur_still",
+        "code": 0
+      },
+      {
+        "scenario": "enemy_brute_moving",
+        "code": 0
+      },
+      {
+        "scenario": "enemy_brute_still",
+        "code": 0
+      },
+      {
+        "scenario": "enemy_buffle_moving",
+        "code": 0
+      },
+      {
+        "scenario": "enemy_buffle_still",
+        "code": 0
+      },
+      {
+        "scenario": "enemy_bullet_kin_moving",
+        "code": 0
+      },
+      {
+        "scenario": "enemy_bullet_kin_still",
+        "code": 0
+      },
+      {
+        "scenario": "enemy_chien_moving",
+        "code": 0
+      },
+      {
+        "scenario": "enemy_chien_still",
+        "code": 0
+      },
+      {
+        "scenario": "enemy_cracheur_moving",
+        "code": 0
+      },
+      {
+        "scenario": "enemy_cracheur_still",
+        "code": 0
+      },
+      {
+        "scenario": "enemy_flee",
+        "code": 0
+      },
+      {
+        "scenario": "enemy_franc_tireur_moving",
+        "code": 0
+      },
+      {
+        "scenario": "enemy_franc_tireur_still",
+        "code": 0
+      },
+      {
+        "scenario": "enemy_keep_distance",
+        "code": 0
+      },
+      {
+        "scenario": "enemy_kiter_moving",
+        "code": 0
+      },
+      {
+        "scenario": "enemy_kiter_still",
+        "code": 0
+      },
+      {
+        "scenario": "enemy_pillard_moving",
+        "code": 0
+      },
+      {
+        "scenario": "enemy_pillard_still",
+        "code": 0
+      },
+      {
+        "scenario": "enemy_rat_moving",
+        "code": 0
+      },
+      {
+        "scenario": "enemy_rat_still",
+        "code": 0
+      },
+      {
+        "scenario": "enemy_rodeur_moving",
+        "code": 0
+      },
+      {
+        "scenario": "enemy_rodeur_still",
+        "code": 0
+      },
+      {
+        "scenario": "enemy_roi_rat_moving",
+        "code": 0
+      },
+      {
+        "scenario": "enemy_roi_rat_still",
+        "code": 0
+      },
+      {
+        "scenario": "enemy_tourelle_moving",
+        "code": 0
+      },
+      {
+        "scenario": "enemy_tourelle_still",
+        "code": 0
+      },
+      {
+        "scenario": "gungeon_boss",
+        "code": 0
+      },
+      {
+        "scenario": "gungeon_clear",
+        "code": 0
+      },
+      {
+        "scenario": "gungeon_start",
+        "code": 0
+      },
+      {
+        "scenario": "throne_ammo_pickup",
+        "code": 0
+      },
+      {
+        "scenario": "throne_duo_defaite",
+        "code": 0
+      },
+      {
+        "scenario": "throne_floor_1",
+        "code": 0
+      },
+      {
+        "scenario": "throne_mutation_choice",
+        "code": 0
+      },
+      {
+        "scenario": "throne_progression",
+        "code": 0
+      },
+      {
+        "scenario": "throne_quad",
+        "code": 0
+      },
+      {
+        "scenario": "throne_softlock_recul",
+        "code": 0
+      },
+      {
+        "scenario": "throne_solo",
+        "code": 0
+      },
+      {
+        "scenario": "throne_three_floors",
+        "code": 0
+      },
+      {
+        "scenario": "weapon_arsenal",
+        "code": 0
+      },
+      {
+        "scenario": "weapon_bare_hands",
+        "code": 0
+      },
+      {
+        "scenario": "weapon_canon_ricochet",
+        "code": 0
+      },
+      {
+        "scenario": "weapon_crocs",
+        "code": 0
+      },
+      {
+        "scenario": "weapon_disque",
+        "code": 0
+      },
+      {
+        "scenario": "weapon_fusil_a_pompe",
+        "code": 0
+      },
+      {
+        "scenario": "weapon_griffes",
+        "code": 0
+      },
+      {
+        "scenario": "weapon_lance_grenades",
+        "code": 0
+      },
+      {
+        "scenario": "weapon_lance_lames",
+        "code": 0
+      },
+      {
+        "scenario": "weapon_laser",
+        "code": 0
+      },
+      {
+        "scenario": "weapon_massue",
+        "code": 0
+      },
+      {
+        "scenario": "weapon_mitraillette",
+        "code": 0
+      },
+      {
+        "scenario": "weapon_mortier",
+        "code": 0
+      },
+      {
+        "scenario": "weapon_plasma",
+        "code": 0
+      },
+      {
+        "scenario": "weapon_revolver",
+        "code": 0
+      },
+      {
+        "scenario": "weapon_roquette",
+        "code": 0
+      },
+      {
+        "scenario": "weapon_traqueur",
+        "code": 0
+      }
+    ]
+  },
+  "pure_performance_validation": {
+    "scenarios": 204,
+    "traces_changed": 0,
+    "failed": 0
+  },
+  "mutation_trace_proof_first_changed_frame": 303,
+  "native_builds": [
+    "throne --profile headless --features native",
+    "zombies --profile headless --features native"
+  ],
+  "native_restart_smoke": "m1-f53cd1ae-recording/README.md",
+  "commands": [
+    "cargo test -p game --profile headless --lib",
+    "cargo test -p scenario --profile headless --test expectations -- --nocapture",
+    "ALACOD_DUMP_TRACE=/tmp/alacod-m1-mutation-proof cargo test -p scenario --profile headless --test expectations throne_deferred_choice_trace_starts_at_the_earned_level -- --nocapture",
+    "ALACOD_BLESS=0 ALACOD_SCENARIO=<each listed case> cargo test -p scenario --profile headless --test scenarios -- --nocapture",
+    "cargo build -p throne -p zombies --profile headless --features native"
+  ]
+}
