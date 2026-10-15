@@ -32,7 +32,12 @@ pub fn render(schema: &Schema) -> String {
     let mut seen = BTreeSet::new();
     let mut queue: Vec<String> = Vec::new();
 
-    out.push_str(&render_type_body(root, &mut queue));
+    // Racine qui n'est qu'une référence (newtype d'une table : `weapons.ron`) : la décrire.
+    if let Some(name) = ref_name(root) {
+        queue.push(name);
+    } else {
+        out.push_str(&render_type_body(root, &mut queue));
+    }
     while let Some(name) = queue.pop() {
         if !seen.insert(name.clone()) {
             continue;
@@ -276,6 +281,19 @@ mod tests {
                 "kind {kind} : {} (ajouter le kind à registry::schema_for_kind, ou à UNCOVERED_KINDS avec la raison)",
                 if covered { "a un schéma mais est listé non couvert" } else { "sans schéma" }
             );
+        }
+    }
+
+    #[test]
+    fn every_schema_renders_fields() {
+        // Un schéma dont le rendu est vide (racine en simple référence, par exemple) ne dit rien.
+        for kind in KNOWN_KIND_NAMES {
+            let Some(schema) = schema_for_kind(kind) else {
+                continue;
+            };
+            let text = render(&schema);
+            let fields = text.lines().filter(|l| l.contains(": ")).count();
+            assert!(fields >= 1, "kind {kind} : schéma sans aucun champ rendu :\n{text}");
         }
     }
 
