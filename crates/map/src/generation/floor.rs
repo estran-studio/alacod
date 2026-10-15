@@ -42,12 +42,15 @@ pub enum FloorError {
     NoTemplate(String),
     /// Aucune tentative n'a satisfait la grammaire.
     Exhausted { attempts: u32 },
+    /// La disposition demandée n'est pas encore planifiable (`FloorLayout::Grid`, M4-T5).
+    Unsupported(String),
 }
 
 impl std::fmt::Display for FloorError {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
         match self {
             Self::NoTemplate(kind) => write!(f, "aucun gabarit de type « {kind} »"),
+            Self::Unsupported(what) => write!(f, "{what} : pas encore planifiable (M4-T5)"),
             Self::Exhausted { attempts } => {
                 write!(
                     f,
@@ -365,6 +368,9 @@ pub fn plan_floor(
     context: &MapGenerationContext,
     rng: &mut RollbackRng,
 ) -> Result<FloorPlan, FloorError> {
+    if let world::FloorLayout::Grid { .. } = grammar.layout() {
+        return Err(FloorError::Unsupported("layout Grid".into()));
+    }
     for kind in grammar.required.keys().chain([&grammar.filler]) {
         if !context.available_levels.iter().any(|l| kind_of(l) == kind) {
             return Err(FloorError::NoTemplate(kind.clone()));
@@ -507,6 +513,7 @@ mod tests {
             filler: "combat".into(),
             min_boss_distance: 3,
             max_attempts: 64,
+            layout: None,
         }
     }
 
@@ -601,6 +608,23 @@ mod tests {
             plan_floor(&g, &context(1, boss_double), &mut rng).unwrap_err(),
             FloorError::Exhausted { attempts: 5 }
         );
+    }
+
+    #[test]
+    fn la_disposition_en_grille_est_refusee_proprement() {
+        let mut g = grammar();
+        g.layout = Some(world::FloorLayout::Grid {
+            cell: (15, 9),
+            max: (5, 5),
+        });
+        let mut rng = RollbackRng::new(1);
+        assert_eq!(
+            plan_floor(&g, &context(1, templates()), &mut rng).unwrap_err(),
+            FloorError::Unsupported("layout Grid".into())
+        );
+        // `Graph` explicite = l'absence de champ
+        g.layout = Some(world::FloorLayout::Graph);
+        assert!(plan_floor(&g, &context(1, templates()), &mut rng).is_ok());
     }
 
     #[test]

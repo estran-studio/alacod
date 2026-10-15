@@ -34,6 +34,7 @@ pub fn surface_table(registry: Option<&Registry>) -> world::SurfaceTable {
                 move_speed: surface.move_speed,
                 acceleration: surface.acceleration,
                 pit: surface.pit.clone(),
+                hazard: surface.hazard,
             },
         );
     }

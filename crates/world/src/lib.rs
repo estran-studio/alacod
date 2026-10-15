@@ -6,8 +6,10 @@
 //! grille, le générateur pur et la règle de destruction ; le branchement ECS (remplissage au
 //! chargement, reconstruction des murs) vit dans `map_ldtk`.
 
+pub mod bomb;
 pub mod cave;
 pub mod destroy;
+pub mod explosion;
 pub mod floor_grammar;
 pub mod grid;
 pub mod nav;
@@ -16,9 +18,11 @@ pub mod props;
 pub mod rooms;
 pub mod surface;
 
+pub use bomb::{bomb_problems, bomb_requested, Bomb, BombDef};
 pub use cave::{generate, is_open_within, points_of_interest, CaveConfig, CavePoints};
 pub use destroy::destroy_terrain;
-pub use floor_grammar::FloorGrammar;
+pub use explosion::{explosion_plan, within_radius, ExplosionPlan};
+pub use floor_grammar::{FloorGrammar, FloorLayout};
 pub use grid::{CellGrid, CellKind, Destructible, CELL_SIZE};
 pub use plugin::{DestroyTerrainRequest, TerrainDestroyed, WorldPlugin};
 pub use props::{
@@ -26,7 +30,10 @@ pub use props::{
     PropTable, TableDef, TableState,
 };
 pub use rooms::{
-    entrance_point, inside_box, room_rng_stream, ArenaClocks, ArenaDef, ArenaWave, RoomChanged,
-    RoomDormant, RoomKind, RoomKindDef, RoomKindTable, RoomState, RoomStates,
+    entrance_point, inside_box, room_rng_stream, ArenaClocks, ArenaDef, ArenaWave, DoorLock,
+    DoorLocks, RoomChanged, RoomDormant, RoomKind, RoomKindDef, RoomKindTable, RoomState,
+    RoomStates,
 };
-pub use surface::{PitDef, PitRespawn, SurfaceDef, SurfaceGrid, SurfaceId, SurfaceTable, Walker};
+pub use surface::{
+    HazardDef, PitDef, PitRespawn, SurfaceDef, SurfaceGrid, SurfaceId, SurfaceTable, Walker,
+};

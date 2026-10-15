@@ -869,7 +869,9 @@ pub(crate) fn apply_action_sourced(
         | Action::ApplyStatus { .. }
         // M2-T7 : frise de boss seulement (exécutées par `game::boss`).
         | Action::SpawnEnemies { .. }
-        | Action::Telegraph(_) => {
+        | Action::Telegraph(_)
+        // M4-T0c : contrat seul, exécutée par M4-T4 (le lint la refuse d'ici là)
+        | Action::Explode { .. } => {
             warn!(
                 "effet de {} : action {:?} non exécutée en v1 (voir `alacod lint`)",
                 net_id, action
