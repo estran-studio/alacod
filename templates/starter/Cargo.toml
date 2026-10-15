@@ -12,13 +12,13 @@ bevy_ecs_ldtk = { version = "0.15", default-features = false, features = ["deriv
 bevy_ggrs = "0.22.0"
 serde_json = "1.0"
 
-utils = { path = "{{engine}}/crates/utils" }
-content = { path = "{{engine}}/crates/content" }
-map = { path = "{{engine}}/crates/map" }
-game = { path = "{{engine}}/crates/game" }
-map_ldtk = { path = "{{engine}}/crates/map_ldtk" }
-bevy_fixed = { path = "{{engine}}/crates/bevy_fixed" }
-animation = { path = "{{engine}}/crates/animation" }
+utils = { {{engine:utils}} }
+content = { {{engine:content}} }
+map = { {{engine:map}} }
+game = { {{engine:game}} }
+map_ldtk = { {{engine:map_ldtk}} }
+bevy_fixed = { {{engine:bevy_fixed}} }
+animation = { {{engine:animation}} }
 
 [features]
 default = ["lighting", "render"]

@@ -40,6 +40,10 @@ pub struct KindInfo {
     pub fields: Vec<FieldInfo>,
     /// Premier fichier du kind, à ouvrir comme modèle.
     pub example_file: Option<String>,
+    /// Schéma exhaustif du fichier de ce kind (JSON Schema), si le kind est couvert
+    /// (`schema::UNCOVERED_KINDS` : les autres). Absent : seul l'inventaire du contenu est disponible.
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub schema: Option<serde_json::Value>,
 }
 
 #[derive(Debug, Clone, Serialize)]
@@ -65,6 +69,7 @@ pub fn describe(game_dir: &Path) -> Result<GameDescription, String> {
             entries: 0,
             fields: Vec::new(),
             example_file: None,
+            schema: None,
         });
         info.declared.push(decl.path.clone());
 
@@ -101,6 +106,7 @@ pub fn describe(game_dir: &Path) -> Result<GameDescription, String> {
         info.entries = info.ids.len();
         info.ids.sort();
         info.example_file = info.files.first().cloned();
+        info.schema = crate::schema::schema_for_kind(kind).map(|s| s.to_value());
         if let Some(acc) = field_acc.remove(kind) {
             let mut fields: Vec<FieldInfo> = acc.into_values().collect();
             fields.sort_by(|a, b| b.used_in.cmp(&a.used_in).then(a.name.cmp(&b.name)));
@@ -376,6 +382,15 @@ pub fn render_kind(info: &KindInfo) -> String {
                 f.name, f.used_in, total, f.example
             ));
         }
+    }
+    match info.schema.as_ref().and_then(|v| serde_json::from_value::<schemars::Schema>(v.clone()).ok()) {
+        Some(schema) => {
+            out.push_str("\n  schéma (tous les champs possibles) :\n");
+            for line in crate::schema::render(&schema).lines() {
+                out.push_str(&format!("  {line}\n"));
+            }
+        }
+        None => out.push_str("\n  (pas de schéma exhaustif pour ce kind : champs ci-dessus = ceux utilisés)\n"),
     }
     out
 }

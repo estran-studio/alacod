@@ -23,6 +23,7 @@ pub const CURRENCY_MULTIPLIER_STAT: &str = "powerup_currency_multiplier";
 /// Une action appliquée par un power-up ramassé. Liste fermée et minimale (T2.5, graine de
 /// C1 — `docs/plan-engine.md` §5) : un power-up futur qui a besoin d'un autre effet ajoute
 /// une variante ici, jamais un type de contenu séparé.
+#[cfg_attr(feature = "schema", derive(schemars::JsonSchema))]
 #[derive(Debug, Clone, PartialEq, Eq, Hash, Serialize, Deserialize)]
 pub enum Action {
     /// Modificateur de stat temporaire posé sur chaque joueur (ex. Insta-Kill : `stat:
@@ -33,6 +34,7 @@ pub enum Action {
     TimedModifier {
         stat: StatId,
         op: ModifierOp,
+        #[cfg_attr(feature = "schema", schemars(with = "bevy_fixed::schema::FixedString"))]
         value: Fixed,
         frames: u32,
     },
@@ -51,27 +53,38 @@ pub enum Action {
     /// `factor` s'applique par `ModifierOp::Mul` sur [`CURRENCY_MULTIPLIER_STAT`] — deux
     /// `CurrencyMultiplier` actifs en même temps se cumulent multiplicativement (limitation
     /// documentée, v0 minimal : pas de règle de non-stacking).
-    CurrencyMultiplier { factor: Fixed, frames: u32 },
+    CurrencyMultiplier {
+        #[cfg_attr(feature = "schema", schemars(with = "bevy_fixed::schema::FixedString"))]
+        factor: Fixed,
+        frames: u32,
+    },
     /// Creuse le terrain d'une caverne (T1.6, `docs/conventions.md` §21) : toute case `Rock`
     /// dont le centre est à moins de `radius` unités de la position de l'action devient
     /// `Floor`, `Wall` ne change jamais (`world::destroy_terrain`). Positionnelle : un
     /// projectile l'emploie (`on_hit` sur un mur, `on_expire`) ; refusée dans un power-up
     /// (lint), sans position. Ajoutée en dernier : les hashs des autres variantes ne bougent pas.
-    DestroyTerrain { radius: Fixed },
+    DestroyTerrain {
+        #[cfg_attr(feature = "schema", schemars(with = "bevy_fixed::schema::FixedString"))]
+        radius: Fixed,
+    },
     /// T1.10 (effets v1, `docs/conventions.md` §27) : modificateur **permanent** posé sur le
     /// porteur de l'effet (source `effect:<porteur>:<index>`).
     Modifier {
         stat: StatId,
         op: ModifierOp,
+        #[cfg_attr(feature = "schema", schemars(with = "bevy_fixed::schema::FixedString"))]
         value: Fixed,
     },
     /// T1.10 : soigne le porteur de `amount` points, borné à sa santé maximale.
-    Heal(Fixed),
+    Heal(#[cfg_attr(feature = "schema", schemars(with = "bevy_fixed::schema::FixedString"))] Fixed),
     /// T1.10 : joue le pattern nommé `pattern` (kind `Pattern`, T1.2) depuis la position du
     /// porteur, avec la table de projectiles de l'arme `weapon` (config d'armes du jeu).
     SpawnPattern { pattern: String, weapon: String },
     /// T1.10 : ajoute `amount` à la jauge `id` du porteur (`Gauges`).
-    GaugeAdd(String, Fixed),
+    GaugeAdd(
+        String,
+        #[cfg_attr(feature = "schema", schemars(with = "bevy_fixed::schema::FixedString"))] Fixed,
+    ),
     /// T1.3 (statuts, `docs/conventions.md` §19) : pose `stacks` fois le statut `status` (id
     /// du kind `Status`) sur le personnage touché par un projectile (`on_hit`). Dans un effet
     /// ou un power-up : refusée par le lint en v1 (pas de cible).

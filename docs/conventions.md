@@ -331,9 +331,15 @@ de sortie 1 et messages sur stderr en cas d'erreur, 0 sinon) ; `make lint` l'app
 **Pour un agent** : `alacod lint --json games/<jeu>` écrit un objet `{game, errors, warnings}` sur
 stdout (`kind`, `file`, `message` par entrée ; même code de sortie que `lint`).
 `alacod describe games/<jeu> [Kind] [--json]` (`crates/content/src/describe.rs`) inventorie le
-vocabulaire **utilisé** par un jeu : kinds et dossiers, ids, champs de premier niveau avec
-fréquence et exemple, fichier modèle. Prototype : déduit du contenu (scan lexical), pas des types ;
-il ne liste ni variantes d'enum ni plages (suite : `schemars` sur les types de contenu).
+contenu d'un jeu : kinds et dossiers, ids, champs de premier niveau **utilisés** (fréquence,
+exemple), fichier modèle. Pour chaque kind couvert (tous sauf `Map`, `Ui`, `Camera`, test
+`every_kind_has_a_schema`), il ajoute le **schéma exhaustif** dérivé des types Rust
+(`crates/content/src/schema.rs`, `schemars`) : champs, types, requis ou défaut, variantes d'enum et
+commentaires de doc ; les `Fixed` y sont des chaînes. `--json` donne le JSON Schema brut (`schema`).
+Les types de contenu portent `#[cfg_attr(feature = "schema", derive(schemars::JsonSchema))]`
+(feature `schema` de `bevy_fixed`, `sim_core`, `effects`, `items`, `world`, activée par `content`) :
+**un nouveau champ ou une nouvelle variante apparaît donc seul dans `describe`**. Un champ `Fixed`
+porte `#[cfg_attr(feature = "schema", schemars(with = "bevy_fixed::schema::FixedString"))]`.
 
 **Jeu hors de l'engine** : `cargo install --path crates/content --bin alacod`, puis
 `alacod new mon-jeu [--engine <racine>]` copie `templates/starter/` (contenu minimal qui passe le

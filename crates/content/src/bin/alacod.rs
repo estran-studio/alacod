@@ -34,6 +34,13 @@ enum Command {
         /// d'où ce binaire a été compilé.
         #[arg(long)]
         engine: Option<PathBuf>,
+        /// Dépendre de l'engine par git (URL de `origin` de l'engine, révision = `--rev` ou
+        /// le HEAD de l'engine, qui doit être poussé) au lieu d'un chemin local.
+        #[arg(long)]
+        git: bool,
+        /// Révision git de l'engine (implique `--git`).
+        #[arg(long)]
+        rev: Option<String>,
     },
     /// Inventaire du vocabulaire d'un jeu : `alacod describe [games/gungeon] [Kind]`.
     Describe {
@@ -55,7 +62,12 @@ fn main() -> ExitCode {
             Ok(dir) => lint(&dir),
             Err(e) => fail(&e),
         },
-        Command::New { name, engine } => match new_game(&name, engine) {
+        Command::New {
+            name,
+            engine,
+            git,
+            rev,
+        } => match new_game(&name, engine, git || rev.is_some(), rev) {
             Ok(dir) => {
                 println!("{} créé.", dir.display());
                 println!("  cd {name} && alacod lint && alacod describe");
@@ -216,7 +228,12 @@ const BUILT_FROM_ENGINE: &str = concat!(env!("CARGO_MANIFEST_DIR"), "/../..");
 /// `alacod new` : copie `<engine>/templates/starter` dans `./<name>` en remplaçant `{{name}}`
 /// et `{{engine}}` dans les fichiers texte, et reprend le `Cargo.lock` de l'engine (mêmes
 /// versions de dépendances que l'engine, qui compile).
-fn new_game(name: &str, engine: Option<PathBuf>) -> Result<PathBuf, String> {
+fn new_game(
+    name: &str,
+    engine: Option<PathBuf>,
+    git: bool,
+    rev: Option<String>,
+) -> Result<PathBuf, String> {
     let valid = name
         .chars()
         .next()
@@ -247,7 +264,18 @@ fn new_game(name: &str, engine: Option<PathBuf>) -> Result<PathBuf, String> {
         return Err(format!("{} existe déjà", target.display()));
     }
     let engine_str = engine.to_string_lossy().into_owned();
-    copy_template(&template, &target, name, &engine_str).map_err(|e| e.to_string())?;
+    let source = if git {
+        EngineSource::Git {
+            url: git_output(&engine, &["remote", "get-url", "origin"])?,
+            rev: match rev {
+                Some(rev) => rev,
+                None => git_output(&engine, &["rev-parse", "HEAD"])?,
+            },
+        }
+    } else {
+        EngineSource::Path(engine_str.clone())
+    };
+    copy_template(&template, &target, name, &engine_str, &source).map_err(|e| e.to_string())?;
     let lock = engine.join("Cargo.lock");
     if lock.is_file() {
         std::fs::copy(&lock, target.join("Cargo.lock")).map_err(|e| e.to_string())?;
@@ -255,11 +283,46 @@ fn new_game(name: &str, engine: Option<PathBuf>) -> Result<PathBuf, String> {
     Ok(target)
 }
 
+/// Comment le jeu référence les crates de l'engine dans son `Cargo.toml`.
+enum EngineSource {
+    Path(String),
+    Git { url: String, rev: String },
+}
+
+impl EngineSource {
+    /// Spécification de dépendance (`{{engine:<crate>}}` du gabarit).
+    fn dependency(&self, krate: &str) -> String {
+        match self {
+            Self::Path(root) => format!("path = \"{root}/crates/{krate}\""),
+            Self::Git { url, rev } => format!("git = \"{url}\", rev = \"{rev}\""),
+        }
+    }
+}
+
+fn git_output(dir: &std::path::Path, args: &[&str]) -> Result<String, String> {
+    let out = std::process::Command::new("git")
+        .arg("-C")
+        .arg(dir)
+        .args(args)
+        .output()
+        .map_err(|e| format!("git : {e}"))?;
+    if !out.status.success() {
+        return Err(format!(
+            "git {} a échoué dans {} : {}",
+            args.join(" "),
+            dir.display(),
+            String::from_utf8_lossy(&out.stderr).trim()
+        ));
+    }
+    Ok(String::from_utf8_lossy(&out.stdout).trim().to_string())
+}
+
 fn copy_template(
     from: &std::path::Path,
     to: &std::path::Path,
     name: &str,
     engine: &str,
+    source: &EngineSource,
 ) -> std::io::Result<()> {
     std::fs::create_dir_all(to)?;
     for entry in std::fs::read_dir(from)? {
@@ -270,14 +333,19 @@ fn copy_template(
             continue;
         }
         if src.is_dir() {
-            copy_template(&src, &dst, name, engine)?;
+            copy_template(&src, &dst, name, engine, source)?;
             continue;
         }
         match std::fs::read_to_string(&src) {
-            Ok(text) => std::fs::write(
-                &dst,
-                text.replace("{{name}}", name).replace("{{engine}}", engine),
-            )?,
+            Ok(mut text) => {
+                text = text.replace("{{name}}", name).replace("{{engine}}", engine);
+                while let Some(start) = text.find("{{engine:") {
+                    let end = start + text[start..].find("}}").unwrap_or(0) + 2;
+                    let krate = text[start + "{{engine:".len()..end - 2].to_string();
+                    text.replace_range(start..end, &source.dependency(&krate));
+                }
+                std::fs::write(&dst, text)?
+            }
             // Binaire (png, ogg, ttf) : copie telle quelle.
             Err(_) => {
                 std::fs::copy(&src, &dst)?;

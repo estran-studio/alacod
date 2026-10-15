@@ -15,6 +15,7 @@ use std::collections::BTreeMap;
 /// `EnemyMoveSpeed`), qui remplacent les constantes jusque-là figées dans
 /// `character::enemy::ai::pathing::PathfindingConfig`. Voir
 /// `character::create::create_character` pour la valeur de base de chacune.
+#[cfg_attr(feature = "schema", derive(schemars::JsonSchema))]
 #[derive(Debug, Clone, PartialEq, Eq, Hash, PartialOrd, Ord, Serialize, Deserialize)]
 pub enum StatId {
     MaxHealth,

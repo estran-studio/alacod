@@ -28,18 +28,21 @@ pub const MAX_ATTEMPTS: u32 = 64;
 pub const ZOMBIE_SPAWN_SPACING: u32 = 8;
 
 /// Contenu d'une caverne, kind RON `Cave` (`caves/<nom>.ron`, `docs/conventions.md` §21).
+#[cfg_attr(feature = "schema", derive(schemars::JsonSchema))]
 #[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
 pub struct CaveConfig {
     /// Dimensions en cases (bordure `Wall` comprise).
     pub width: u32,
     pub height: u32,
     /// Probabilité qu'une case intérieure commence en `Rock` (`Fixed` en chaîne).
+    #[cfg_attr(feature = "schema", schemars(with = "bevy_fixed::schema::FixedString"))]
     pub fill_ratio: Fixed,
     pub iterations: u32,
     /// Seuils de la règle (voisins solides sur 8).
     pub birth: u32,
     pub survive: u32,
     /// Ratio de sol minimal après connexité (`Fixed` en chaîne).
+    #[cfg_attr(feature = "schema", schemars(with = "bevy_fixed::schema::FixedString"))]
     pub min_floor_ratio: Fixed,
     /// Nombre de `ZombieSpawn` placés.
     pub enemy_spawns: u32,

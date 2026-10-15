@@ -5,6 +5,7 @@ pub mod files;
 pub mod lint;
 pub mod manifest;
 pub mod reach;
+pub mod schema;
 pub mod registry;
 pub mod ui;
 pub mod value;

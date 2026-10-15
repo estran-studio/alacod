@@ -20,6 +20,7 @@ fn default_attempts() -> u32 {
 }
 
 /// Exigences d'un étage (RON : fichier du kind de contenu `FloorGrammar`).
+#[cfg_attr(feature = "schema", derive(schemars::JsonSchema))]
 #[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
 pub struct FloorGrammar {
     /// Nombre de salles de l'étage, bornes incluses (départ, boss et salles requises comprises).

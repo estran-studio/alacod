@@ -47,6 +47,7 @@ pub enum DamageKind {
 /// `EnemyAiConfig`, RON, `#[serde(default)]` = [`FriendlyFire::Never`]). Contrat partagé
 /// (comme [`DamageKind`]) : les règles qui l'interprètent (même équipe, polarité `cursed`)
 /// vivent dans `combat::team::team_allows_hit`.
+#[cfg_attr(feature = "schema", derive(schemars::JsonSchema))]
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Hash, Default, Serialize, Deserialize)]
 pub enum FriendlyFire {
     /// Un allié (même bord : `Players` et `Allies` ensemble, ou deux `Enemies`) n'est

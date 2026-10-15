@@ -26,6 +26,7 @@ use std::collections::BTreeMap;
 pub struct RoomKind(pub String);
 
 /// Définition d'un type de salle (`rooms/<id>.ron`, kind de contenu `Room`).
+#[cfg_attr(feature = "schema", derive(schemars::JsonSchema))]
 #[derive(Clone, Debug, Default, PartialEq, Eq, Serialize, Deserialize)]
 pub struct RoomKindDef {
     /// La salle se verrouille quand un joueur debout y entre et qu'un ennemi y vit, et ses
@@ -49,6 +50,7 @@ pub struct RoomKindDef {
 
 /// Arène à tenir (M2-T7) : horloge de `clock` frames comptée depuis le verrouillage, vagues
 /// internes datées sur cette horloge.
+#[cfg_attr(feature = "schema", derive(schemars::JsonSchema))]
 #[derive(Clone, Debug, Default, PartialEq, Eq, Hash, Serialize, Deserialize)]
 pub struct ArenaDef {
     /// Durée à tenir, en frames depuis le verrouillage (> 0).
@@ -59,6 +61,7 @@ pub struct ArenaDef {
 
 /// Une vague d'arène : à `at` frames du verrouillage, les personnages listés apparaissent dans
 /// la salle (positions tirées du flux RNG de la salle, `room:<niveau>`).
+#[cfg_attr(feature = "schema", derive(schemars::JsonSchema))]
 #[derive(Clone, Debug, Default, PartialEq, Eq, Hash, Serialize, Deserialize)]
 pub struct ArenaWave {
     pub at: u32,
