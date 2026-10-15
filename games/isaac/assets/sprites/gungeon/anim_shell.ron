@@ -1,0 +1,7 @@
+// Lot C : objet du monde `shell` : tuile 101 de `tiny_dungeon.png` (douille).
+(
+    frame_duration: 120,
+    animations: {
+        "Idle": (start: 101, end: 101),
+    },
+)

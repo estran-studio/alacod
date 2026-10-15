@@ -167,6 +167,8 @@ lint:
 	cargo run -q -p content --bin alacod --profile headless -- lint games/throne
 	@echo "alacod lint games/gungeon"
 	cargo run -q -p content --bin alacod --profile headless -- lint games/gungeon
+	@echo "alacod lint games/isaac"
+	cargo run -q -p content --bin alacod --profile headless -- lint games/isaac
 
 .PHONY: lint
 
@@ -288,7 +290,7 @@ character_tester:
 character_tester_matchbox:
 	APP_VERSION=$(VERSION) cargo run --example character_tester $(ARGS) --features native -- --number-player $(NUMBER_PLAYER) --matchbox $(MATCHBOX_URL) --lobby $(LOBBY) --players $(PLAYERS) --cid $(CID) --name $(NAME)
 
-# Lance un jeu du dossier games/ en local (un joueur) : make zombies / testbed / throne / gungeon
+# Lance un jeu du dossier games/ en local (un joueur) : make zombies / testbed / throne / gungeon / isaac
 zombies:
 	APP_VERSION=$(VERSION) cargo run -p zombies $(ARGS) --features native $(DEV_FEATURES) -- $(GARGS) --local-port 7000 --players localhost
 
@@ -300,6 +302,9 @@ throne:
 
 gungeon:
 	APP_VERSION=$(VERSION) cargo run -p gungeon $(ARGS) --features native $(DEV_FEATURES) -- $(GARGS) --local-port 7000 --players localhost
+
+isaac:
+	APP_VERSION=$(VERSION) cargo run -p isaac $(ARGS) --features native $(DEV_FEATURES) -- $(GARGS) --local-port 7000 --players localhost
 
 ldtk_map_explorer:
 	APP_VERSION=$(VERSION) cargo run -p zombies $(ARGS) --features native $(DEV_FEATURES) -- $(GARGS) --local-port 7000 --players localhost

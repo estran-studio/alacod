@@ -1,0 +1,6 @@
+// `isaac` (M3-T0f, docs/conventions.md §17 et §40) : la séquence `Floors` d'un étage assemblé par la
+// grammaire `floor_grammars/sous_sol.ron` ; le boss vaincu termine la partie par une victoire.
+(
+    levels: ["floor:sous_sol"],
+    victory_at_end: true,
+)

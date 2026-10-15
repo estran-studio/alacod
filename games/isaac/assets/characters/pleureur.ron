@@ -1,0 +1,43 @@
+// `isaac` (M3-T0f, docs/conventions.md §65) : le personnage joueur (le moteur crée toujours les
+// joueurs depuis le personnage d'id `player` = `asset_name_ref`). Vie basse : 6 PV, un coup de
+// contact en retire 1 (modèle de cœurs : Q2, 6 PV en attendant). Pas de dash ni de sprint ici
+// (le déplacement d'Isaac est à vitesse constante) ; arme : les larmes. Sprites placeholders.
+(
+    movement: (
+        acceleration: "3000.0",
+        max_speed: "120.0",
+        deceleration: "3000.0",
+        sprint_multiplier: "1.0",
+        sprint_acceleration_per_frame: "0.0",
+        sprint_deceleration_per_frame: "0.0",
+
+        dash_distance: "0.0",
+        dash_duration_frames: 0,
+        dash_cooldown_frames: 0,
+    ),
+
+    asset_name_ref: "player",
+
+    collider: (
+        shape: Rectangle(
+            width: "20.",
+            height: "20.",
+        ),
+        offset: ( x: "0.0", y: "-6.0", z: "0.0" )
+    ),
+
+    scale: "1.0",
+
+    base_health: (
+        max: "6.0",
+    ),
+
+    starting_skin: "1",
+    skins: {
+        "1": (layers: {}),
+    },
+
+    // Un seul emplacement d'arme à distance : les larmes.
+    weapon_slots: 1,
+    starting_weapons: ["larmes"],
+)
