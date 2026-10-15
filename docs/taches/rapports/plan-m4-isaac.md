@@ -110,6 +110,11 @@ graine.
 
 ## 7. Questions pour William
 
+**Réponse de William (2026-10-15) : « default ok pour isaac »** : les propositions par défaut de Q1 à Q18
+ci-dessous sont **décidées**. Les fiches qui disaient « bloqué » sur une question peuvent avancer avec la
+proposition par défaut.
+
+
 | # | Question | Proposition par défaut (rien n'est codé avant la réponse quand la fiche dit « bloqué ») | Fiches |
 |---|---|---|---|
 | Q1 | **Volume du clone** : le tableau des jalons dit « 100 objets », le §1 du plan dit qu'un clone minimal a « 15 à 20 objets ». Lequel pour M4 ? | 100 objets (c'est la preuve « effets à l'échelle »), dont 30 de larmes, 8 familiers, 10 actifs ; 10 ennemis, 2 boss, 20 gabarits | T11, critères |

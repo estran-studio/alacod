@@ -670,6 +670,8 @@ région des chantiers puis la campagne.
 
 ### 8.1 M4 : `isaac` (Binding of Isaac) en tâches
 
+**Décision de William du 2026-10-15** : les propositions par défaut des questions Q1 à Q18 (`docs/taches/rapports/plan-m4-isaac.md` §7) sont retenues.
+
 **But** (plan §6) : effets à l'échelle (100 objets en RON), empilement de modificateurs de projectiles et
 par nombre d'exemplaires, familiers et orbitaux, rochers et bombes, cœurs, clés, sous, marchés du diable,
 curses, champions et élites. Chantiers : B5 v3, C1 v3, C3, D2 v2, E4 v2, F4, G1 v2, plus ce que la
