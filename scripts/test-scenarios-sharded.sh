@@ -77,7 +77,7 @@ if ! git diff --quiet; then commit="$commit-dirty"; fi
 metrics_commit="$CARGO_TARGET_DIR/metrics/$commit"
 mkdir -p "$metrics_commit"
 # Une ancienne part ne doit jamais remplacer une tranche qui n'a rien écrit dans ce run.
-rm -f "$metrics_commit"/metrics.shard-*-of-"$shards".json
+rm -f "$metrics_commit"/metrics.shard-*-of-"$shards".json "${metrics_commit%-dirty}-dirty"/metrics.shard-*-of-"$shards".json
 pids=()
 for ((i = 0; i < shards; i++)); do
     if [ "${#plan[@]}" -gt 0 ] && [ -z "${plan[$i]}" ]; then
@@ -117,7 +117,13 @@ import json, sys
 from pathlib import Path
 metrics_dir, commit_dir = map(Path, sys.argv[1:3])
 shards = int(sys.argv[3])
-parts = [commit_dir / f"metrics.shard-{i}-of-{shards}.json" for i in range(shards)]
+# Avec BLESS, les traces réécrites salissent l'arbre pendant le run : une tranche peut écrire
+# sa part sous `<sha>-dirty` alors que le dossier a été calculé propre avant le lancement.
+dirty_dir = commit_dir.parent / (commit_dir.name.removesuffix("-dirty") + "-dirty")
+def part_path(i):
+    name = f"metrics.shard-{i}-of-{shards}.json"
+    return commit_dir / name if (commit_dir / name).exists() else dirty_dir / name
+parts = [part_path(i) for i in range(shards)]
 merged = {}
 for part in parts:
     # Absence, JSON invalide ou collision : échec, sans écraser latest.json.
