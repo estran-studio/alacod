@@ -1626,14 +1626,14 @@ fn entry_floors_fixtures_report_their_rule() {
 fn weapon_infinite_with_ammo_type_fixture_is_refused() {
     let (_, _, errors) = load_and_lint(&fixture_dir("weapon_infinite_with_ammo_type")).unwrap();
     assert_has_error(&errors, LintErrorKind::OutOfRange, "Infinite");
-    assert_eq!(errors.len(), 1, "{errors:#?}");
+    assert_eq!(m4_t0a_errors(&errors), 1, "{errors:#?}");
 }
 
 #[test]
 fn weapon_ammo_type_missing_fixture_is_refused() {
     let (_, _, errors) = load_and_lint(&fixture_dir("weapon_ammo_type_missing")).unwrap();
     assert_has_error(&errors, LintErrorKind::Parse, "ammo_type absent");
-    assert_eq!(errors.len(), 1, "{errors:#?}");
+    assert_eq!(m4_t0a_errors(&errors), 1, "{errors:#?}");
 }
 
 #[test]
@@ -1643,7 +1643,10 @@ fn projectile_contract_fixture_is_unsupported() {
         assert_has_error(&errors, LintErrorKind::Unsupported, name);
     }
     assert!(
-        errors.iter().all(|e| e.kind == LintErrorKind::Unsupported),
+        errors
+            .iter()
+            .filter(|e| !e.message.contains("entry.start_map"))
+            .all(|e| e.kind == LintErrorKind::Unsupported),
         "formes valides : seul le refus de contrat, {errors:#?}"
     );
 }
@@ -1660,7 +1663,7 @@ fn projectile_split_out_of_range_fixture_reports_ranges() {
 fn item_projectile_fixture_is_unsupported() {
     let (_, _, errors) = load_and_lint(&fixture_dir("item_projectile_unsupported")).unwrap();
     assert_has_error(&errors, LintErrorKind::Unsupported, "ricochet");
-    assert_eq!(errors.len(), 1, "{errors:#?}");
+    assert_eq!(m4_t0a_errors(&errors), 1, "{errors:#?}");
 }
 
 #[test]
@@ -1668,4 +1671,13 @@ fn item_projectile_out_of_range_fixture_reports_ranges() {
     let (_, _, errors) = load_and_lint(&fixture_dir("item_projectile_out_of_range")).unwrap();
     assert_has_error(&errors, LintErrorKind::OutOfRange, "Homing");
     assert_has_error(&errors, LintErrorKind::OutOfRange, "Bounce répété");
+}
+
+/// Erreurs d'une fixture M4-T0a hors la carte de départ absente (`start_map: "unused"`, commune
+/// aux fixtures sans carte).
+fn m4_t0a_errors(errors: &[content::LintError]) -> usize {
+    errors
+        .iter()
+        .filter(|e| !e.message.contains("entry.start_map"))
+        .count()
 }
