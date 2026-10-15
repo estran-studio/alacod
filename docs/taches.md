@@ -1515,3 +1515,4 @@ de fichiers existants hors de sa propriété, aucun `.trace`.
 Ordre proposé : V6.1, puis V6.4 et V6.5 (utiles à M0), puis V6.2 et V6.3 (M1), V6.6, V6.8, et V6.7
 quand M2 commence. Les sprites de 1837 ne passent pas par cette voie : ils viennent du pipeline
 `assetgen` de `1867_lore` (A5).
+| 2026-10-15 | revue-sortie-m2 (audit des critères de sortie de M2, session cloud, documentation et mesures seulement : lint gungeon 0 erreur / 20 avertissements d'armes ; campagne 2 bots `etages_deux` 20 graines : 0 fini, 6 desyncs, 11 soft-locks, 3 morts, identique sur `2e87834` ; 14 critères : 5 faits, 6 partiels, 3 manquants ; p2p non mesuré) | `revue-sortie-m2` | Claude (cloud) | Tâches ajoutées au §7 (`m2-campagne-linux-desync`, `m2-armes-sources`, `m2-full-run`, `m2-p2p-run-complete`, `m2-cloture-videos-digest`), rapport `docs/taches/rapports/revue-sortie-m2.md`. À relire par l'orchestrateur : l'écart avec les campagnes macOS committées. |
