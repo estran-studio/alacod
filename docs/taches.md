@@ -1,9 +1,9 @@
 # Tâches et parallélisation
 
 > Complète `docs/plan-engine.md` (le quoi et le pourquoi) : ici, le comment, dans quel ordre et en
-> parallèle. Les identifiants de chantiers (A1, B5, K0…) sont ceux du plan, §5 ; les jalons M0 à M6
+> parallèle. Les identifiants de chantiers (A1, B5, K0…) sont ceux du plan, §5 ; les jalons M0 à M5
 > ceux du §6. Statut : proposition du 2026-09-28. Les jalons se détaillent deux à l'avance : M0 et
-> M1 en fiches, M2 en tâches, M3 (`isaac`) en fiches (§8.1), M4 à M6 par voies à la sortie du jalon précédent.
+> M1 en fiches, M2 en tâches, M3 (`isaac`) en fiches (§8.1), M4 et M5 par voies à la sortie du jalon précédent (Hades retiré le 2026-10-15).
 
 ## 1. Les règles du travail en parallèle
 
@@ -684,7 +684,7 @@ acheter » (R10, non reproduit). Ouverts sans décision : R2, R3, R6 (touches), 
 **Première passe mergée le 2026-10-11** (S5 B, R6, S2/S8 Le Relais, brouillard v2) ; restent S4, S6, S7,
 R10, R2/R3/R8/R9, la migration du Relais en plusieurs niveaux LDtk, les objectifs radio/évacuation, **D58**.
 
-## 8. M3 à M6
+## 8. M3 à M5
 
 **Renumérotation du 2026-10-15 (décision de William)** : `isaac` devient **M3** et la tranche verticale
 de 1837 devient **M4**. 1837 est encore en design initial (définition des mécaniques) : on continue les
@@ -696,7 +696,7 @@ inspirations de gameplay viendront peut-être s'ajouter : à discuter plus tard.
 Par voies, à la sortie de M2 et de chaque jalon suivant, avec les chantiers du plan §6 : M3 `isaac`
 (détaillé en tâches le 2026-10-15, §8.1, avant la sortie de M2) ; M4 (la tranche verticale de 1837,
 quand la bible sera prête : A5 en V4, B5 parade et D3 en V1a et V1c, E4 neige et E8 nuit en V1d, F2
-nuit en V1e, H1 en V4, J2 en V1e, le plugin `1837` dans son dépôt) ; M5 Hades ; M6 la région des
+nuit en V1e, H1 en V4, J2 en V1e, le plugin `1837` dans son dépôt) ; M5 la région des
 chantiers puis la campagne.
 
 ### 8.1 M3 : `isaac` (Binding of Isaac) en tâches
@@ -1461,6 +1461,7 @@ coller le préambule puis la fiche dans son prompt.
 | 2026-10-15 | m4-t0a-contrats-larmes « contrats des larmes » (M4-T0a, session cloud, branche `claude/great-dirac-m1r24o` : `MagBulletConfig::Infinite`, stats `ShotSpeed`/`ShotSize`/`Luck`, modificateurs de larmes portés par les objets et leur composition, contrats `Spectral`/`Split`/`Orbit`, lint et fixtures, 5 scénarios `tears_*` et `weapon_larme` ; §60) | `m4-t0a-contrats-larmes` (`c26ca195`) | Claude (cloud) | Cloud : 345 scénarios sans bless, aucune trace existante modifiée. Orch, fusion avec main `94ab9854` sans conflit : Mac (fmt, check_forbidden, test_tools, lint ×4, test_crates, suite verte 348 scénarios en 103 s, gen testbed sans diff), orca (p2p zombies, gungeon, throne identiques, hashes inchangés). Limites : les bots lisent une arme `Infinite` comme vide (M4-T14), le HUD affiche `0 | 0` (M4-T16). Merge `d61d18d1` (orch). |
 | 2026-10-15 | dettes-d15-d63-d68 « D15, D63, D68 » (fusion avec main dans `verif/train14` ; conflits de commentaires seulement autour du correctif `With<Death>` trouvé des deux côtés, gardé celui de main) : D15 grille de collision retirée, `query_aabb` en balayage trié par `net_id`, aucune trace bougée, bancs de 8 à 19 % plus rapides ; D63 `zombie_scaled` `test_only`, `content::reach` lit les armes des règles (`Shoot`/`SpawnPattern`) ; D68 bot à terre en input neutre, salle dormante réveillée quand un ennemi bloque une porte ouverte (soft-lock graine 90 et D77) ; traces rebénies avec preuve §5 : `bench_floor` (f83), `bot_explorer_two` (f551). Campagne e2 200 graines à 2 explorateurs : 0 soft-lock, 0 desync, 26 objectifs / 174 morts (D64 ouverte). | `dettes-d15-d63-d68` (`f6b8fd82`) | Claude (cloud) | Orch : Mac fmt, check_forbidden, test_tools, lint ×4, test_crates, suite 348 scénarios en 4 tranches (99 s), `make gen GAME=gungeon` ; p2p 2 clients sur orca : gungeon 23285c53, throne a6c93650, zombies 1714dc0f identiques (mêmes hashes que main). D15, D63, D68, D77 soldées. Merge `56e35e23` (orch). |
 | 2026-10-15 | Renumérotation des jalons (décision de William) : `isaac` devient M3, la tranche verticale de 1837 devient M4 (encore en design initial ; on continue les clones et leurs mécaniques ; d'autres inspirations de gameplay à discuter plus tard). Fiches `docs/taches/m4-t*.md` renommées `m3-t*.md`, identifiants `M4-T…` → `M3-T…` dans les docs et les commentaires du code (aucun code changé) ; branches existantes gardées (`m4-t0a-contrats-larmes`, `m4-t0c-contrats-monde`, `m4-t0f-squelette-isaac`) | `orch` | orchestrateur | fmt, test_tools |
+| 2026-10-15 | Hades retiré du plan (décision de William) : aucune mécanique propre nécessaire ; le hub de déblocages entre les runs est porté par `gungeon` (M2-T12, M2-T13) puis la loge de 1837. Plan §6 : ligne M5 `hades` retirée, « Hades : analysé, pas cloné » ; la campagne de 1837 devient M5 | `orch` | orchestrateur | docs |
 Orchestration : Fable crée les worktrees (`scripts/task-new.sh` du meta-repo), lance un agent par
 tâche avec le modèle le moins cher (Haiku d'abord, Sonnet si une tâche échoue deux fois), vérifie
 la branche (`make test_scenarios`, `cargo test`, lecture du diff), fusionne dans `main`
@@ -1518,7 +1519,7 @@ de fichiers existants hors de sa propriété, aucun `.trace`.
 | Tâche | Quoi | Sert à | Taille |
 |---|---|---|---|
 | V6.1 Registre et lint des assets | `assets.yaml` par jeu, `scripts/check-assets.py`, `docs/assets.md` (formats, conventions, sources retenues) ; identifier et enregistrer le pack `ZombieShooter` | tout | S |
-| V6.2 Recherche d'assets par clone | une liste courte de packs libres par clone (tilesets, personnages, ennemis, projectiles, objets, icônes, sons), avec licence vérifiée, et le téléchargement des seuls fichiers utiles ; pistes à vérifier : Kenney (CC0 : Top-down Shooter, Tiny Dungeon, Roguelike packs, sons), 0x72 « 16x16 Dungeon Tileset II » (CC0), OpenGameArt en filtrant CC0 | M1, M2, M3, M5 | M |
+| V6.2 Recherche d'assets par clone | une liste courte de packs libres par clone (tilesets, personnages, ennemis, projectiles, objets, icônes, sons), avec licence vérifiée, et le téléchargement des seuls fichiers utiles ; pistes à vérifier : Kenney (CC0 : Top-down Shooter, Tiny Dungeon, Roguelike packs, sons), 0x72 « 16x16 Dungeon Tileset II » (CC0), OpenGameArt en filtrant CC0 | M1, M2, M3 | M |
 | V6.3 Import de planches | `scripts/assets/import-sheet.py` : à partir d'une planche et de ses paramètres, écrit les `.ron` de `SpriteSheetConfig` et `AnimationMapConfig` ; exemple sur un ennemi de `throne` | V2 (contenu) | S |
 | V6.4 Carte `zombies` v1 | une vraie carte à la CoD Zombies pour M0 : six à huit salles, portes payantes (dont appariées), fenêtres sur les murs extérieurs, spawners dehors, quatre points de départ, emplacements d'armes murales et de perks (`WeaponLocation`, `SodaLocation`), avec le tileset actuel ; capture et « À regarder » | M0 (T3.1 la jouera) | M |
 | V6.5 Salles du testbed (LDtk) | arène vide, couloir, deux salles et une porte, une fenêtre, de l'eau, du bois : les `.ldtk` du plan §9.5 ; V3 (T2.9) y branche les entités et le RON | tests de vocabulaire | S |

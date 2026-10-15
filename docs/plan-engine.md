@@ -544,17 +544,22 @@ seulement. Les critères de sortie détaillés sont au §9.8.
 | **M2** | `gungeon` (Enter the Gungeon) | Étages de salles typées et verrouillées, bullet hell, roulade à i-frames, blanks, coffres, clés, boutique, objets passifs et actifs, synergies, boss à phases et arènes à tenir, hub et déblocages | B5 (v2), B6, C1 (v2), C2, C4, C5, D4, E1, E2, G1, G2, I1 (v1), I2, K2 (v1) | XL |
 | **M3** | `isaac` (Binding of Isaac) | Effets à l'échelle (100 objets en RON), empilement de modificateurs de projectiles et par nombre d'exemplaires, familiers et orbitaux, rochers et bombes, cœurs, clés, sous, marchés du diable, curses, champions et élites | B5 (v3), C1 (v3), C3, D2 (v2), E4 (v2), F4, G1 (v2) | L |
 | **M4** | **1837 : « La coupe »** (tranche verticale, bible §13) | Engelure et jauge de sacre, camp et poêle, 5 à 8 objets, mistigris (horde, variantes), feu follet (immunité, contres), loup-garou (parade → délivrance), 1 et 2 joueurs en ligne, sprites assetgen | A5, B5 (parade), D3, D5 (v1), E4 (neige, chaleur), E8 (v1), F2 (nuit), H1 (v1), J2, plugin `1837` | L |
-| **M5** | `hades` (Hades) | Capacités (attaque, spécial, cast, dash, call), bienfaits à rareté, niveaux, prérequis et duos, portes-récompenses, hub avec PNJ et barks, miroir, pacte de punition, souvenirs, armure, télégraphes, codex | B6 (v2), C1 (v4), D4 (v2), F3 (v1), F4, G2 (v2), G3, G4, H1 (v2), I2 (v2) | L |
-| **M6** | **1837 : une région, puis la campagne** | Les chantiers en entier (3 étages et la digue), carte de campagne, loge, âmes, codex, classes, Reviré, feu, marée, barques, Diable au tempo, bots à 4 pour l'équilibrage | A5, B8, D5, E5 à E7, E9, F3, G1 à G4, H2, I1 (v2), J3, K2 (v2), plugin `1837` | XL |
+| **M5** | **1837 : une région, puis la campagne** | Les chantiers en entier (3 étages et la digue), carte de campagne, loge, âmes, codex, classes, Reviré, feu, marée, barques, Diable au tempo, bots à 4 pour l'équilibrage | A5, B8, D5, E5 à E7, E9, F3, G1 à G4, H2, I1 (v2), J3, K2 (v2), plugin `1837` | XL |
 
 Notes.
 
 - **Isaac avant 1837 (décision de William du 2026-10-15).** 1837 est encore en design initial et en
   définition de ses mécaniques : la tranche verticale (M4) attend la bible. Les clones continuent
   d'abord (`zombies`, `throne`, `gungeon`, puis `isaac` en M3) et enrichissent le vocabulaire que la
-  tranche et M6 utiliseront. D'autres inspirations de gameplay pourront s'ajouter : à discuter avec
+  tranche et M5 utiliseront. D'autres inspirations de gameplay pourront s'ajouter : à discuter avec
   William plus tard, pas planifiées. (Avant cette décision, la tranche de 1837 était M3 et `isaac` M4 ;
   les branches déjà créées gardent leur nom `m4-t…`.)
+- **Hades : analysé, pas cloné (décision de William du 2026-10-15).** Aucune de ses mécaniques
+  n'est un besoin propre ; la seule retenue est le hub où l'on revient entre les runs pour débloquer
+  des éléments et partir vers le ou les mondes disponibles, déjà porté par `gungeon` (M2-T12 profil et
+  déblocages, M2-T13 hub, chantiers G1, G2) puis par la loge de 1837. Les autres (bienfaits à rareté,
+  portes-récompenses, barks, codex, pacte) restent dans les chantiers (F3, F4, G3, H1) et ne seront
+  faites que si 1837 les demande. L'ancien M5 `hades` est retiré ; la campagne de 1837 devient M5.
 - **Risk of Rain : analysé, pas cloné.** Ses mécaniques atterrissent ailleurs : l'horloge de
   difficulté en M1 (F2), l'empilement par nombre d'exemplaires et les élites en M3 (C1, D2),
   l'événement « tenir la zone » en M2 (D4), les quatre joueurs en ligne avec caméra par joueur dès
@@ -562,7 +567,7 @@ Notes.
 - **Chaque clone reste petit.** Le but est le vocabulaire, pas la fidélité : dix ennemis et vingt
   objets bien choisis exercent plus de kinds qu'un catalogue.
 - **La performance se mesure dès M0** (bench de vagues à 4 joueurs) et se vérifie à chaque jalon
-  (M2 : 500 balles ; M6 : une région entière).
+  (M2 : 500 balles ; M5 : une région entière).
 
 ## 7. Décisions
 
