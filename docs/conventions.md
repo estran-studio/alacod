@@ -3521,3 +3521,70 @@ bouge. À voir sur un poste avec GPU : voir le rapport `docs/taches/rapports/m2-
 **Limites.** Comme §31 : un tick qui simule plusieurs frames ne journalise que la dernière ; un
 indice prédit puis annulé par un rollback p2p reste dans le journal. Une fin de boss se détecte au
 tick où le boss disparaît : un boss retiré sans qu'une salle passe `Cleared` ne déclenche rien.
+
+## 56. Écrans pause et inventaire : test comparatif d'UI (M2-T18 partie 1, voie V4)
+
+Décision ouverte du plan (`docs/plan-engine.md` §7.1, point 3) : le même menu de pause et le même
+inventaire gungeon, faits deux fois, pour que William choisisse sur pièces. Le HUD reste la couche
+maison (`ui/hud.ron`, §15) et n'est pas touché. Comparaison, mesures et recommandation :
+`docs/taches/rapports/m2-t18-ui-comparatif.md`. La seconde partie (HUD gungeon) vient après la décision.
+
+**Modèle commun** (`crates/game/src/ui/screens/model.rs`, pur) : `ScreensState` (écran ouvert, focus de
+chaque écran), `UiAction` (`Toggle(Pause|Inventory)`, `Up`, `Down`, `Confirm`, `Back`), `reduce` (le seul
+endroit qui change l'état), `pause_view` et `inventory_view` qui produisent une `ScreenView` : des sections
+nommées, `Text`, `List` (éléments avec `focused`) ou `Bar` (texte et fraction). Les deux rendus lisent
+cette vue et ne savent rien d'autre. Tout est testé sans rendu.
+
+- **Pause** : Reprendre, Recommencer (`RunRequest::Restart`), Lobby (`RunRequest::ToLobby`, comme les
+  boutons de l'écran de fin), Réglages (vide : affiche « Aucun réglage pour l'instant. »). Sections
+  `title`, `entries`, `detail`, `hint`.
+- **Inventaire** : armes (en main, `chargeur | réserve`), objet actif et sa charge (`charge` : « 1 / 2 »,
+  « 2 / 2 · prêt », fraction), passifs, consommables (blanks, clés). Lu dans `WeaponInventory`,
+  `AmmoReserves`, `items::Inventory` et `ItemTable`, pour le joueur du HUD (`HudPlayer`). L'ordre du focus
+  est armes, actif, passifs, consommables (`inventory_focus_target`, testé).
+- **Entrées** (`screens::read_nav_keys`) : Échap / Start ouvre la pause ou ferme l'écran ouvert, `I` /
+  Select l'inventaire, ↑ ↓ / D-pad, Entrée ou Espace / A, Retour arrière / B. Hors d'un écran ouvert,
+  seules les deux touches d'ouverture agissent (flèches, Entrée et A restent des touches de jeu).
+  `ALACOD_INPUT=neutral` coupe les entrées. Pas de souris dans cette partie.
+- **La simulation ne s'arrête jamais** (GGRS) : pendant qu'un écran est ouvert, les entrées de jeu
+  continuent d'être envoyées (comme l'écran de mutation, §30). Les bloquer est une décision de la partie 2.
+  Rien n'entre dans l'input rollback : aucune trace ne bouge.
+
+**Option A, couche maison** (`screens/custom.rs`, `games/gungeon/assets/ui/pause_screen.ron` et
+`inventory_screen.ron`) : un arbre `Column`/`Row` (gap, marge, largeur, fond, bordure) dont les feuilles
+sont `Label` (texte fixe), `Text`/`List`/`Bar` (liées par `bind` à une section de la vue). Le rendu
+reconstruit l'arbre `bevy_ui` quand la vue change ou que le fichier est rechargé.
+
+**Option B, `bevy_hui` 0.7** (`screens/hui.rs`, feature `ui_hui`, `pause_screen.html`,
+`inventory_screen.html`, `hui_row.html`) : gabarits pseudo-HTML, `{propriétés}` posées depuis la vue
+(`view_properties`). Pas de boucle dans le langage : les lignes des listes sont des instances de
+`hui_row.html` créées par le code sous les conteneurs `id`. Un rechargement du gabarit reconstruit
+l'arbre (les lignes sont recréées).
+
+**Réglage** : `ALACOD_SCREENS=custom|hui` (défaut `custom`) ; `hui` exige la feature `ui_hui` (sinon rien
+ne s'affiche). Les fichiers de l'option B ne sont cherchés que si `pause_screen.ron` /
+`inventory_screen.ron` existent dans le dossier `Ui` du jeu. Registre de contenu : ces fichiers sont du
+kind `Ui` (syntaxe RON seulement, pas de schéma lint ; les `.html` ne sont pas lus par le lint).
+
+**Scénarios** : champ `ui: [(at_frame: 10, action: Toggle(Pause)), …]` (`game::ui::screens::UiStep`,
+ressource `ScreenScript`), joué en `Update` hors simulation, une fois par frame ; attente
+`ScreenText(screen: "pause" | "inventory", section, contains, closed, at_frame)` (texte de la section,
+« > » devant le focus ; `closed: true` exige l'écran fermé). Scénarios `ui_pause_menu` et `ui_inventory`
+(gungeon). Un réenregistrement ne garde pas `ui`.
+
+**Captures** (à produire sur un poste avec GPU, la revue est visuelle) :
+
+```bash
+# A, couche maison
+cargo run -p scenario --features render --bin play_scenario -- tests/scenarios/ui_pause_menu.ron --capture /tmp/ui/pause_maison --every 2
+cargo run -p scenario --features render --bin play_scenario -- tests/scenarios/ui_inventory.ron --capture /tmp/ui/inventaire_maison --every 2
+# B, bevy_hui
+ALACOD_SCREENS=hui cargo run -p scenario --features render,ui_hui --bin play_scenario -- tests/scenarios/ui_pause_menu.ron --capture /tmp/ui/pause_hui --every 2
+ALACOD_SCREENS=hui cargo run -p scenario --features render,ui_hui --bin play_scenario -- tests/scenarios/ui_inventory.ron --capture /tmp/ui/inventaire_hui --every 2
+```
+
+Images à comparer (`frame_NNNN.png`, n = frame de simulation) : pause 10 (ouverture), 20 à 22 (focus),
+31 (Réglages validé), 40 (retour sur Lobby), 51 (fermé), 62 et 64 ; inventaire 12 (actif prêt),
+20 (actif déchargé), 21 à 24 (focus), 31 (fermé). Rechargement à chaud à voir en jeu : `cargo run -p
+gungeon --features native` (A) ou `ALACOD_SCREENS=hui cargo run -p gungeon --features native,ui_hui` (B),
+ouvrir un écran (Échap ou I), puis modifier le `.ron` ou le `.html` correspondant.

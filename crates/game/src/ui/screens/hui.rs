@@ -39,8 +39,12 @@ impl Plugin for HuiScreensPlugin {
             .add_systems(OnEnter(AppState::InGame), load_templates)
             .add_systems(
                 Update,
+                // Avant la construction des gabarits : une ligne détruite ici ne doit plus être
+                // construite par `spawn_ui` dans la même frame (commande sur une entité
+                // détruite : panique de `bevy_hui`, vue au rendu de `ui_inventory`).
                 sync_screen
                     .after(super::update_screens)
+                    .before(bevy_hui::HuiSystems::Build)
                     .run_if(in_state(AppState::InGame))
                     .run_if(is_hui_backend),
             )
@@ -419,6 +423,47 @@ mod tests {
             "hui : inventaire rechargé, lignes recréées en {updates} updates, {:?}",
             real_elapsed(&app) - start
         );
+        let _ = std::fs::remove_dir_all(dir);
+    }
+
+    /// La vue de l'inventaire change pendant que l'écran est ouvert (la charge de l'actif
+    /// retombe) : les lignes sont recréées, sans commande sur une entité détruite, et chaque
+    /// update garde un affichage complet.
+    #[test]
+    fn inventaire_changement_de_vue_sans_commande_orpheline() {
+        use super::super::model::{ActiveLine, WeaponLine};
+        let dir = copy_templates("hui-change");
+        let mut input = InventoryInput {
+            weapons: vec![WeaponLine {
+                name: "pistolet".into(),
+                mag: Some(8),
+                reserve: 40,
+                active: true,
+            }],
+            active: Some(ActiveLine {
+                name: "Fiole".into(),
+                charge: 2,
+                required: 2,
+            }),
+            passives: vec!["Amulette".into()],
+            consumables: vec![("Blank".into(), 2)],
+        };
+        let mut app = app_on(&dir, inventory_view(&input, &ScreensState::default()));
+        wait_for(&mut app, "Blank  ×2");
+        for step in 0..6 {
+            input.active.as_mut().unwrap().charge = step % 2;
+            app.world_mut().resource_mut::<Screens>().view =
+                Some(inventory_view(&input, &ScreensState::default()));
+            app.update();
+            app.update();
+            app.update();
+            let shown = texts(&mut app);
+            eprintln!("changement {step} : {} textes", shown.len());
+            assert!(
+                shown.iter().any(|t| t.contains("Blank  ×2")),
+                "lignes absentes après le changement {step} : {shown:?}"
+            );
+        }
         let _ = std::fs::remove_dir_all(dir);
     }
 

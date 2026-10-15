@@ -1,9 +1,13 @@
-<!-- Ligne d'une liste (M2-T18, option B) : instanciée par game::ui::screens::hui, une par élément. -->
+<!-- Ligne d'une liste (M2-T18, option B) : instanciée par game::ui::screens::hui, une par élément.
+     Le fond est sur un nœud enfant : une propriété lue par le nœud racine d'un gabarit n'est pas
+     recompilée par bevy_hui 0.7 (le fond du focus restait absent). -->
 <template>
     <property name="label"></property>
     <property name="color">#ffffff</property>
     <property name="bg">#00000000</property>
-    <node padding="2px 8px 2px 8px" background="{bg}">
-        <text font="fonts/FiraMono-Medium.ttf" font_size="20" font_color="{color}">{label}</text>
+    <node>
+        <node width="100%" padding="2px 8px 2px 8px" background="{bg}">
+            <text font="fonts/FiraMono-Medium.ttf" font_size="20" font_color="{color}">{label}</text>
+        </node>
     </node>
 </template>
