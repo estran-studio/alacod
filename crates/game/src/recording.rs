@@ -214,6 +214,7 @@ impl InputRecorder {
             difficulty: settings.difficulty,
             characters: settings.characters,
             mode: settings.mode,
+            ui: Vec::new(),
         };
         if let Some((path, seed)) = &self.initial_map {
             scenario.map = path.clone();

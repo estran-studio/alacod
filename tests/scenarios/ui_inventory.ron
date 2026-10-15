@@ -1,0 +1,43 @@
+// M2-T18 partie 1 (docs/conventions.md §56) : inventaire gungeon du test comparatif d'UI. Le joueur
+// tient la fiole de rage (actif chargé 2/2), l'amulette et les bottes (passifs), le pistolet de
+// départ et deux blanks. Présentation seule : le script `ui` ouvre l'inventaire (touche I / Select)
+// et parcourt les éléments (↓ / D-pad) ; la simulation continue, la fiole est utilisée à f15.
+//
+// À regarder : f10 l'inventaire s'ouvre, l'arme en main surlignée, la jauge de l'actif pleine
+// (« 2 / 2 · prêt ») ; f20 la jauge est vide (« 0 / 2 », la fiole a été utilisée à f15) ; f21 le
+// focus passe sur la fiole, f22 sur l'amulette, f24 sur les blanks (×2) ; f30 Retour ferme.
+Scenario(
+    powerup_drop_chance_override: "0.0",
+    game: "gungeon",
+    frames: 60,
+    players: [
+        (
+            inputs: [(from: 15, to: 16, buttons: [UseActive], pan: (0, 0))],
+            items: ["fiole", "amulette", "bottes"],
+        ),
+    ],
+    ui: [
+        (at_frame: 10, action: Toggle(Inventory)),
+        (at_frame: 21, action: Down),
+        (at_frame: 22, action: Down),
+        (at_frame: 23, action: Down),
+        (at_frame: 24, action: Down),
+        (at_frame: 30, action: Back),
+    ],
+    expect: [
+        PlayerAlive(handle: 0, at_frame: 59),
+        ScreenText(screen: "inventory", section: "weapons", contains: "", closed: true, at_frame: 9),
+        ScreenText(screen: "inventory", section: "title", contains: "Inventaire", at_frame: 10),
+        ScreenText(screen: "inventory", section: "weapons", contains: "> pistolet (en main)", at_frame: 12),
+        ScreenText(screen: "inventory", section: "active", contains: "  Fiole de rage", at_frame: 12),
+        ScreenText(screen: "inventory", section: "charge", contains: "2 / 2 · prêt", at_frame: 12),
+        ScreenText(screen: "inventory", section: "passives", contains: "  Amulette\n  Bottes", at_frame: 12),
+        ScreenText(screen: "inventory", section: "consumables", contains: "Blank  ×2", at_frame: 12),
+        ScreenText(screen: "inventory", section: "charge", contains: "0 / 2", at_frame: 20),
+        ScreenText(screen: "inventory", section: "active", contains: "> Fiole de rage", at_frame: 21),
+        ScreenText(screen: "inventory", section: "passives", contains: "> Amulette\n  Bottes", at_frame: 22),
+        ScreenText(screen: "inventory", section: "passives", contains: "  Amulette\n> Bottes", at_frame: 23),
+        ScreenText(screen: "inventory", section: "consumables", contains: "> Blank  ×2", at_frame: 24),
+        ScreenText(screen: "inventory", section: "weapons", contains: "", closed: true, at_frame: 31),
+    ],
+)

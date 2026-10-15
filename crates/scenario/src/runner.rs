@@ -320,6 +320,11 @@ pub fn build_app(scenario: &Scenario, headless: bool, config: &PlayConfig) -> Ap
         )
         .insert_resource(InputSource::Scripted)
         .insert_resource::<ScriptedInputs>(scenario.scripted_inputs())
+        // M2-T18 : actions d'UI du scénario (présentation, hors trace) ; absente sans `ui`.
+        .insert_resource(game::ui::screens::ScreenScript {
+            steps: scenario.ui.clone(),
+            played_until: None,
+        })
         // T2.11 : toujours ajouté (BotAssignments vide ⇒ read_bot_inputs ne fait rien, les
         // scénarios sans bot ne changent pas) ; le mode de base reste Scripted (au-dessus) pour
         // que les joueurs scriptés d'un scénario qui mélange les deux gardent leurs inputs, les
@@ -2277,6 +2282,41 @@ fn check(world: &mut World, expectation: &Expectation) -> Result<(), String> {
             } else {
                 Err(format!(
                     "HUD {source} = « {text} » (attendu « {contains} »)"
+                ))
+            }
+        }
+        // M2-T18 : texte d'une section d'un écran (pause, inventaire), présentation hors trace.
+        Expectation::ScreenText {
+            screen,
+            section,
+            contains,
+            closed,
+            ..
+        } => {
+            let Some(screens) = world.get_resource::<game::ui::screens::Screens>() else {
+                return Err("pas de Screens".into());
+            };
+            let open = screens.view.as_ref().map(|view| view.screen.name());
+            if *closed {
+                return match open {
+                    None => Ok(()),
+                    Some(open) => Err(format!("écran « {open} » ouvert, attendu fermé")),
+                };
+            }
+            let text = match &screens.view {
+                Some(view) if view.screen.name() == screen => view.section_text(section),
+                _ => {
+                    return Err(format!(
+                        "écran « {screen} » fermé (ouvert : {})",
+                        open.unwrap_or("aucun")
+                    ))
+                }
+            };
+            if text.contains(contains.as_str()) {
+                Ok(())
+            } else {
+                Err(format!(
+                    "écran {screen}, section {section} = « {text} » (attendu « {contains} »)"
                 ))
             }
         }

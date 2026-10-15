@@ -333,6 +333,7 @@ Avant/après un refactoring de la simulation, comparer les traces : elles doiven
     - M2-T0c boss (§37) : `BossPhase` ; profil (§38) : `ProfileHas`.
     - M2-T11 surfaces v2 (§46) : `EntityCount(kind: Barrel | Table)`.
     - T1.18 HUD throne (§32) : `HudText` (texte d'une source du HUD, présentation, hors trace).
+    - M2-T18 écrans (§56) : `ScreenText` (texte d'une section de l'écran de pause ou de l'inventaire, présentation, hors trace) ; le script `ui:` du scénario joue les actions d'UI (`Toggle(Pause)`, `Down`, `Confirm`…), jamais dans l'input rollback.
     - Réenregistrement : le scénario rejoué depuis son enregistrement garde ses réglages
       (`floors`, `clocks`, `difficulty`, `characters`, `mode`, `progression`, et chaque
       `PlayerScript` sans ses inputs) ; ses attentes y restent vertes
@@ -565,6 +566,14 @@ Les sources du joueur sont calculées par `game::ui::hud_model` (`hud_values`, p
   (« balles 120 »).
 - `statuses` (T1.18) : statuts posés, une ligne chacun (« brulure ×2 · 3 s »).
 - `floor` (T1.18) : « Étage 3 » (index + 1), en mode `Floors` seulement.
+
+#### Écrans : pause et inventaire (M2-T18, test comparatif)
+
+`game::ui::screens` : menu de pause (Échap / Start) et inventaire gungeon (I / Select), navigation
+↑ ↓ / D-pad, Entrée / A, Retour / B. Modèle pur commun (`screens::model`), deux rendus au choix par
+`ALACOD_SCREENS=custom|hui` (défaut `custom` : fichiers `ui/*_screen.ron` ; `hui` : gabarits
+`ui/*_screen.html`, feature `ui_hui`). Présentation seule, la simulation continue pendant qu'un écran
+est ouvert. Détail et mesures : `docs/conventions.md` §56.
 
 Le joueur affiché est celui que la caméra suit de force (`--follow <handle>` de
 `play_scenario`), sinon le joueur local de plus petit handle. Les cercles de portée restent

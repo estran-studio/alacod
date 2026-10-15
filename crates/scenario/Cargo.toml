@@ -35,3 +35,5 @@ dev-dylib = ["game/dev-dylib"]
 # Rendu des tilemaps, requis pour afficher un scénario (play_scenario). Les tests
 # headless compilent sans.
 render = ["map_ldtk/render"]
+# Option B du test comparatif d'UI (M2-T18) : écrans pause et inventaire en `bevy_hui` (`ALACOD_SCREENS=hui`).
+ui_hui = ["game/ui_hui"]
