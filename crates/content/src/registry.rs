@@ -706,6 +706,8 @@ pub struct SpriteSheetEntry {
 pub struct SoundRef {
     pub field: String,
     pub path: String,
+    /// Mode de tir de `audio_config.modes` (assets) : doit exister dans `firing_modes`.
+    pub mode: String,
 }
 
 #[derive(Debug, Clone)]
@@ -1306,9 +1308,8 @@ pub struct Registry {
     /// `Economy`) : le dernier traité gagne silencieusement, comme `wave_config`/
     /// `economy_config` dans `game::global_asset` (`.values().next()`).
     pub powerup_drop_chance: Option<PowerUpDropChanceEntry>,
-    /// Fichiers `Ui`/`Camera` validés (RON syntaxiquement correct, feedback typé). Pas de table typée par
-    /// id : rien ne les référence par id aujourd'hui (décision T1.5, voir le rapport de la
-    /// tâche).
+    /// Fichiers `Ui` validés : RON syntaxiquement correct (feedback/HUD/mutations typés)
+    /// ou HTML lisible, sans compagnon RON. Chemins relatifs à `assets/`, sans table par id.
     pub ui_files: Vec<PathBuf>,
     /// Réglages typés du feedback (T3.4) parmi les fichiers Ui.
     pub feedback: Vec<FeedbackEntry>,
@@ -2350,6 +2351,7 @@ fn load_weapons(
                         sounds.push(SoundRef {
                             field: format!("audio_config.modes.{mode}.{name}"),
                             path,
+                            mode: mode.clone(),
                         });
                     }
                 }
@@ -3608,20 +3610,32 @@ fn load_maps(
 
 /// Les réglages `feedback.ron` déclarés comme Ui ont un schéma typé (T3.4), comme
 /// `mutation_screen.ron` (T1.16, [`crate::ui::MutationScreenLayout`]).
-/// Les autres fichiers Ui gardent la validation syntaxique.
+/// Les autres RON gardent la validation syntaxique ; les gabarits HTML doivent être lisibles.
 fn load_ui(
     assets_dir: &ContentFiles,
     decl: &ContentFolderDecl,
     registry: &mut Registry,
     errors: &mut Vec<LintError>,
 ) {
-    let files = match discover_files(assets_dir, decl, "ron") {
+    let mut files = match discover_files(assets_dir, decl, "ron") {
         Ok(files) => files,
         Err(error) => {
             errors.push(error);
             return;
         }
     };
+    // Une déclaration peut viser un fichier unique : `discover` le renvoie quelle que
+    // soit l'extension demandée. Ne pas le charger une seconde fois dans ce cas.
+    if !assets_dir.contains(Path::new(&decl.path)) {
+        match discover_files(assets_dir, decl, "html") {
+            Ok(html) => files.extend(html),
+            Err(error) => {
+                errors.push(error);
+                return;
+            }
+        }
+        files.sort();
+    }
     for rel in files {
         let text = match read_file(assets_dir, &rel) {
             Ok(text) => text,
@@ -3630,6 +3644,10 @@ fn load_ui(
                 continue;
             }
         };
+        if rel.extension().and_then(|extension| extension.to_str()) == Some("html") {
+            registry.ui_files.push(rel);
+            continue;
+        }
         let parsed = if rel.file_name().and_then(|name| name.to_str()) == Some("feedback.ron") {
             ron::from_str::<crate::feedback::FeedbackSettings>(&text).map(|settings| {
                 registry.feedback.push(FeedbackEntry {

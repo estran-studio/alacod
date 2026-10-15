@@ -8,6 +8,7 @@
 // À regarder : f645 le portail s'ouvre ; f752 le joueur est au second étage (index 1, ennemis
 // endormis) ; f828 la salle de combat se verrouille, f1091 elle se rouvre ; f1159 le boss ; f1273
 // phase 1, f1333 phase 2 (renfort) ; f1385 victoire.
+// HUD f800 : « Étage 2 », blanks remontés à 2, salles de combat et boss à nouveau dormantes.
 Scenario(
     powerup_drop_chance_override: "0.0",
     game: "gungeon",
@@ -42,6 +43,11 @@ Scenario(
     expect: [
         FloorIndex(index: 0, at_frame: 600),
         FloorIndex(index: 1, at_frame: 900),
+        // Le deuxième monde recouvre le premier : aucune salle nettoyée de l'ancien étage.
+        HudText(source: "floor", contains: "Étage 2", at_frame: 800),
+        HudText(source: "blanks", contains: "2", at_frame: 800),
+        HudText(source: "minimap", contains: "combat · inexplorée", at_frame: 800),
+        HudText(source: "minimap", contains: "boss · boss · inexplorée", at_frame: 800),
         RoomState(kind: "combat", state: Dormant, at_frame: 800),
         RoomState(kind: "boss", state: Dormant, at_frame: 800),
         EntityCount(kind: Enemy, min: 4, max: 4, at_frame: 800),

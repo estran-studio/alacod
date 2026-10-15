@@ -46,16 +46,18 @@ pub struct FeedbackSettings {
     /// sur `by_kind`.
     #[serde(default, skip_serializing_if = "BTreeMap::is_empty")]
     pub by_weapon: BTreeMap<String, FeedbackOverride>,
-    /// Sons, chemins relatifs à `assets/`. Clés : `shot_pistol`, `shot_shotgun`, `shot_smg`
-    /// (tir, selon la famille du mode de tir actif), `shot` (repli du tir), `reload`, et les
-    /// événements `hit`, `hurt`, `death`, `dash`, `blank`, `door` (`game::feedback`).
+    /// Sons de base, chemins relatifs à `assets/`. Clés : `shot_pistol`, `shot_shotgun`,
+    /// `shot_smg` (tir, selon la famille du mode de tir actif), `shot` (repli du tir), `reload`,
+    /// et les événements `hit`, `hurt`, `death`, `dash`, `blank`, `door` (`game::feedback`).
+    /// Une arme surcharge le tir et le rechargement de chacun de ses modes par son
+    /// `audio_config` (`weapons.ron`).
     #[serde(default)]
     pub sounds: BTreeMap<String, String>,
-    /// Son de tir d'une arme à distance : nom d'arme → clé de `sounds`, prioritaire sur la
-    /// famille déduite du mode de tir (ex. un pistolet `Automatic` qui ne doit pas sonner comme
-    /// une mitraillette). Le lint vérifie l'arme et la clé.
+    /// Volume par clé de `sounds`, en décibels (0 : inchangé, négatif : plus bas), dans
+    /// [`SOUND_VOLUME_DB_RANGE`]. S'applique aussi au son d'arme qui remplace la clé (tir de sa
+    /// famille, `reload`). Le lint vérifie que la clé existe dans `sounds`.
     #[serde(default, skip_serializing_if = "BTreeMap::is_empty")]
-    pub shot_sounds: BTreeMap<String, String>,
+    pub volumes: BTreeMap<String, f32>,
 }
 
 #[derive(Debug, Clone, Copy, PartialEq, Serialize, Deserialize)]
@@ -191,6 +193,10 @@ pub struct ResolvedFeedback {
 /// Couleur de flash au-delà de laquelle le lint refuse (multiplicateur linéaire).
 pub const MAX_FLASH_COLOR: f32 = 4.0;
 
+/// Volumes acceptés pour `volumes`, en décibels : de quasi muet à +12 dB (au-delà, un
+/// échantillon normalisé à -3 dBFS sature).
+pub const SOUND_VOLUME_DB_RANGE: std::ops::RangeInclusive<f32> = -60.0..=12.0;
+
 /// Problème de valeur trouvé par [`FeedbackSettings::problems`] : chemin du champ et message.
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub struct FeedbackProblem {
@@ -234,6 +240,18 @@ impl FeedbackSettings {
             }
         }
         self.blank_and_boss_problems(&mut problems);
+        for (key, db) in &self.volumes {
+            if !SOUND_VOLUME_DB_RANGE.contains(db) {
+                problems.push(FeedbackProblem {
+                    field: format!("volumes.{key}"),
+                    message: format!(
+                        "{db} dB : doit être dans [{}, {}]",
+                        SOUND_VOLUME_DB_RANGE.start(),
+                        SOUND_VOLUME_DB_RANGE.end()
+                    ),
+                });
+            }
+        }
         let overrides = self
             .by_kind
             .iter()
@@ -489,5 +507,17 @@ mod tests {
         off.boss_end.enabled = false;
         off.boss_end.freeze_frames = 0;
         assert!(off.problems().is_empty());
+    }
+
+    #[test]
+    fn volume_hors_plage_signale() {
+        let mut s = settings();
+        s.volumes.insert("hit".into(), -6.0);
+        s.volumes.insert("door".into(), 12.0);
+        assert!(s.problems().is_empty(), "{:?}", s.problems());
+        s.volumes.insert("hurt".into(), 20.0);
+        s.volumes.insert("dash".into(), -80.0);
+        let fields: Vec<_> = s.problems().into_iter().map(|p| p.field).collect();
+        assert_eq!(fields, ["volumes.dash", "volumes.hurt"]);
     }
 }

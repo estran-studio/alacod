@@ -99,6 +99,35 @@ pub struct Metrics {
     /// (`"Defeat"`, `"Victory"`…), avec sa frame ; absent si la partie est encore en cours.
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub run_end: Option<(String, u32)>,
+    /// Coût du rollback (`utils::snapshot_profile`) : `SaveWorld` (checksum + clone des
+    /// snapshots), `LoadWorld` (restauration) et `AdvanceWorld` (une frame de simulation),
+    /// moyenne et maximum en millisecondes ; octets estimés du plus gros snapshot (porteurs ×
+    /// `size_of`, sans le tas) et ses types les plus lourds. En synctest, chaque frame est
+    /// sauvegardée puis restaurée `check_distance` fois : `load` est exercé à chaque frame.
+    #[serde(default)]
+    pub save_ms_avg: f64,
+    #[serde(default)]
+    pub save_ms_max: f64,
+    #[serde(default)]
+    pub checksum_ms_avg: f64,
+    #[serde(default)]
+    pub load_ms_avg: f64,
+    #[serde(default)]
+    pub load_ms_max: f64,
+    #[serde(default)]
+    pub advance_ms_avg: f64,
+    #[serde(default)]
+    pub advance_ms_max: f64,
+    #[serde(default)]
+    pub snapshot_bytes_max: u64,
+    /// `(type, porteurs, octets)` des cinq types les plus lourds du plus gros snapshot.
+    #[serde(default)]
+    pub snapshot_heaviest: Vec<(String, u32, u64)>,
+    /// Pire rollback en ligne : une restauration puis `MAX_PREDICTION_WINDOW` frames
+    /// resimulées (`load_ms_avg + 12 × advance_ms_avg`), à comparer aux 16,7 ms d'un tick à
+    /// 60 Hz. Plafond optionnel par scénario : `max_rollback_ms` de `tests/budgets.ron`.
+    #[serde(default)]
+    pub rollback_ms_worst: f64,
 }
 
 /// Résultat d'un scénario.
@@ -397,6 +426,11 @@ pub fn build_app(scenario: &Scenario, headless: bool, config: &PlayConfig) -> Ap
             }
         });
 
+    // Coût du rollback dans les métriques (`Metrics::save_ms_avg`…). Déjà installé par
+    // `CoreSetupPlugin` si `ALACOD_SNAPSHOT_PROFILE=1` est dans l'environnement du test.
+    if !app.is_plugin_added::<utils::snapshot_profile::SnapshotProfilePlugin>() {
+        app.add_plugins(utils::snapshot_profile::SnapshotProfilePlugin);
+    }
     // T1.8 : séquence de niveaux imposée par le scénario (mode `Floors`, `Scenario::floors`).
     // T1.9 : horloges et difficulté demandées par le scénario (`game::clock`).
     if let Some(clocks) = &scenario.clocks {
@@ -1504,6 +1538,9 @@ pub fn run_with_options<F: FnOnce(&mut App)>(
     let kills = wave_state.total_enemies_killed;
     let players_alive = q_players.iter(app.world()).count() as u32;
     let final_floor = app.world().resource::<run::FloorState>().index;
+    let profile = app
+        .world()
+        .resource::<utils::snapshot_profile::SnapshotProfile>();
 
     let metrics = Metrics {
         frames: frame,
@@ -1523,6 +1560,20 @@ pub fn run_with_options<F: FnOnce(&mut App)>(
             RunStep::Ended { at_frame, outcome } => Some((format!("{outcome:?}"), *at_frame)),
             _ => None,
         },
+        save_ms_avg: profile.save.avg_ms(),
+        save_ms_max: profile.save.max_ms(),
+        checksum_ms_avg: profile.checksum.avg_ms(),
+        load_ms_avg: profile.load.avg_ms(),
+        load_ms_max: profile.load.max_ms(),
+        advance_ms_avg: profile.advance.avg_ms(),
+        advance_ms_max: profile.advance.max_ms(),
+        snapshot_bytes_max: profile.snapshot_bytes_max as u64,
+        snapshot_heaviest: profile
+            .heaviest(5)
+            .map(|t| (t.name.to_string(), t.count as u32, t.bytes as u64))
+            .collect(),
+        rollback_ms_worst: profile.load.avg_ms()
+            + game::jjrs::p2p::MAX_PREDICTION_WINDOW as f64 * profile.advance.avg_ms(),
     };
 
     let world = app.world_mut();

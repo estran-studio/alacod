@@ -1,5 +1,8 @@
 # Plan de l'engine alacod
 
+> **Lecture de l’état courant** : voir [état de l’engine et critères de sortie](etat-engine.md).
+> Les matrices ci-dessous décrivent l’écart initial du 2026-09-28, pas un statut actualisé.
+
 > Proposition du 2026-09-28. Compare ce que l'engine sait faire à ce que demandent les six jeux de
 > référence de 1837 (`1867_lore/CLAUDE.md` : Enter the Gungeon, Binding of Isaac, Nuclear Throne,
 > Risk of Rain, Hades, Call of Duty Zombies), puis propose un découpage en jalons. Chaque jalon se
@@ -579,11 +582,16 @@ derrière `PresentationPlugin` : wgpu-Vulkan sur Switch 1/2, renderer custom (ou
 PS4/PS5. Le prérequis réel n'est pas technique mais commercial : un jeu fini sur Steam pour la
 candidature Nintendo, puis le kit (~440 $US).
 
+**Prise ensuite (2026-10-15) — UI.** Après le comparatif M2-T18, William choisit
+`bevy_hui` pour les écrans. Le HUD conserve la couche maison `ui/hud.ron`.
+Pause, inventaire et fin de run utilisent les gabarits HTML ; le rendu des cartes de
+mutation reste une dette explicite (§56 des conventions), avec son protocole d'input inchangé.
+
 ### Ouvertes
 
 | # | Question | Recommandation |
 |---|---|---|
-| 4 | Toolkit d'UI | Voir §7.1 : `bevy_ui` comme base, HUD maison, test comparatif de deux jours au début de M2 pour les écrans. |
+| 4 | Toolkit d'UI | Tranché le 2026-10-15 : `bevy_hui` pour les écrans, HUD maison conservé (M2-T18 ; conventions §56). |
 | 5 | Où vit le contenu de 1837 | Dépôt `1837` (crate et contenu), engine en dépendance git comme allumette ; le lore reste dans `1867_lore`, un script y puise codex et barks. |
 | 6 | Balles : entités ou stockage compact | Entités d'abord, bench à M0 et M2 ; compact seulement si les snapshots coûtent trop. |
 | 7 | Web : cible ou vitrine | Vitrine (démos des clones) ; les cibles de perf sont natives, le web reste compilable. |
@@ -623,10 +631,10 @@ Recommandation :
 2. **HUD** : une couche maison mince, `ui/hud.ron` → arbre `bevy_ui`, liée aux données de la
    simulation (jauges, munitions, objet actif). Le HUD est petit et stable ; l'écrire soi-même coûte
    moins qu'une dépendance, et il migrera vers `.bsn` le jour où le chargeur sort.
-3. **Écrans** : test comparatif de deux jours au début de M2 (I1 v1). Le menu de pause avec navigation
-   à la manette et l'inventaire de Gungeon, faits deux fois : avec `bevy_hui`, et avec la couche
-   maison étendue. Critères : wasm, rechargement à chaud, manette, lignes par écran, et ce qu'il
-   faudra jeter quand les fichiers `.bsn` arriveront.
+3. **Écrans** : le test comparatif de M2-T18 a été livré ; William a choisi `bevy_hui`
+   le 2026-10-15. Les écrans pause/inventaire et de fin utilisent cette couche, sans fork ;
+   le modèle de vue et la navigation restent indépendants du toolkit. Rapport :
+   `docs/taches/rapports/m2-t18-hud-gungeon.md`.
 4. **M0 n'a besoin que du HUD** (points, prompts d'achat, lobby existant) : la décision peut attendre
    M2 sans rien bloquer.
 

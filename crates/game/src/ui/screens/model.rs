@@ -1,8 +1,7 @@
-//! Modèle des écrans (M2-T18, `docs/conventions.md` §56) : tout ce qui est **pur** et commun aux
-//! deux options de rendu comparées (couche maison `ui/*_screen.ron`, `bevy_hui` `ui/*_screen.html`).
+//! Modèle pur des écrans (M2-T18, `docs/conventions.md` §56).
 //!
-//! Les deux rendus lisent la même [`ScreenView`] : des sections nommées (texte, liste avec
-//! focus, jauge). Ce qui change d'une option à l'autre, c'est seulement la mise en page.
+//! La [`ScreenView`] décrit des sections nommées (texte, liste avec focus, jauge), indépendamment
+//! de leur mise en page dans les gabarits `bevy_hui`.
 //! Présentation seule : rien ici ne touche la simulation.
 
 use std::collections::BTreeMap;

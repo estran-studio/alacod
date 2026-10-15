@@ -85,7 +85,7 @@ endif
 all: test format
 
 # CI check target (runs locally or in CI)
-check: format test check_forbidden check_rollback_registration
+check: format test_tools check_forbidden check_rollback_registration check_sim_boundary test lint
 	@echo "✓ All checks passed"
 
 .PHONY: check
@@ -113,17 +113,27 @@ format_fix:
 
 # Test
 
-test: test_scenarios
-	@echo "Running tests with profile"
-	cargo test $(DEV_FEATURES)
+test: test_crates test_scenarios
 
 # Tests des crates du workspace (vérification standard, docs/taches/README.md §4), mêmes features
 # que test_scenarios : un seul build de Bevy. Le test `scenarios` (la suite complète, 1 à 3 h sur
 # orca) est sauté : `make test_scenarios` le joue déjà ; `--exact` ne saute que ce nom-là.
 test_crates:
-	cargo test -q --profile headless -p scenario -p run -p combat -p game -p content -p map_ldtk -p sim_core -p stats -p bots -p effects -p world --no-fail-fast $(DEV_FEATURES) -- --exact --skip scenarios
+	cargo test -q --workspace --profile headless --no-default-features --no-fail-fast $(DEV_FEATURES) -- --exact --skip scenarios
 
-.PHONY: test_crates sweep
+# Contrôles Python sans build ni dépendance externe (Python >= 3.10).
+test_tools:
+	python3 -m unittest discover -s scripts/tests -v
+
+# Référence explicite prise sur la même machine ; ne jamais comparer latest.json à lui-même.
+PERF_CURRENT ?= $(or $(CARGO_TARGET_DIR),./target)/metrics/latest.json
+PERF_SCENARIOS ?= bench_bullets bench_bullets_room bench_horde bench_cave bench_floor
+PERF_MAX_REGRESSION ?= 10
+perf_review:
+	@test -n "$(PERF_BASELINE)" || { echo 'PERF_BASELINE=<mesures de référence.json> est requis'; exit 2; }
+	python3 scripts/perf-review.py --current "$(PERF_CURRENT)" --baseline "$(PERF_BASELINE)" --max-regression "$(PERF_MAX_REGRESSION)" $(foreach scenario,$(PERF_SCENARIOS),--scenario "$(scenario)") $(if $(PERF_MIN_SIM_FPS),--min-sim-fps "$(PERF_MIN_SIM_FPS)") $(if $(PERF_MAX_ROLLBACK_MS),--max-rollback-ms "$(PERF_MAX_ROLLBACK_MS)")
+
+.PHONY: test_crates test_tools perf_review sweep
 
 # Purge du target (scripts/target-sweep.sh) : incremental/ et générations périmées des crates du
 # workspace. À lancer entre deux commandes cargo. SWEEP=1 sur test_scenarios la lance à la fin.
@@ -139,6 +149,11 @@ check_forbidden:
 check_rollback_registration:
 	@echo "Checking rollback registration goes through RollbackTraceApp..."
 	./scripts/check-rollback-registration.sh
+
+# Frontière simulation/présentation prouvée par la compilation (D69) : les crates de simulation
+# n'ont que bevy ECS dans leur graphe et compilent seuls en `--no-default-features`.
+check_sim_boundary:
+	./scripts/check-sim-boundary.sh
 
 # Lint du contenu (crates/content, T1.5) : références cassées, ids dupliqués, valeurs hors
 # plage, kinds inconnus, littéraux nus dans des champs Fixed. Sans lancer le moteur.
@@ -284,7 +299,7 @@ throne:
 	APP_VERSION=$(VERSION) cargo run -p throne $(ARGS) --features native $(DEV_FEATURES) -- $(GARGS) --local-port 7000 --players localhost
 
 gungeon:
-	APP_VERSION=$(VERSION) cargo run -p gungeon $(ARGS) --features native -- $(GARGS) --local-port 7000 --players localhost
+	APP_VERSION=$(VERSION) cargo run -p gungeon $(ARGS) --features native $(DEV_FEATURES) -- $(GARGS) --local-port 7000 --players localhost
 
 ldtk_map_explorer:
 	APP_VERSION=$(VERSION) cargo run -p zombies $(ARGS) --features native $(DEV_FEATURES) -- $(GARGS) --local-port 7000 --players localhost

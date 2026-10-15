@@ -156,11 +156,25 @@ impl ScriptedInputs {
 }
 
 impl InputSource {
-    pub fn from_env() -> Self {
+    /// Source choisie par `ALACOD_INPUT` ; `script:<scénario.ron>` (natif) rejoue les inputs
+    /// du `PlayerScript` de chaque joueur local (handle GGRS = index dans `players`) et
+    /// retourne la ressource [`ScriptedInputs`] à installer avec [`Self::Scripted`].
+    pub fn from_env() -> (Self, Option<ScriptedInputs>) {
         match std::env::var("ALACOD_INPUT").as_deref() {
-            Err(_) | Ok("devices") => Self::Devices,
-            Ok("neutral") => Self::Neutral,
-            Ok(other) => panic!("ALACOD_INPUT inconnu : {other} (attendu : devices, neutral)"),
+            Err(_) | Ok("devices") => (Self::Devices, None),
+            Ok("neutral") => (Self::Neutral, None),
+            #[cfg(not(target_arch = "wasm32"))]
+            Ok(value) if value.starts_with("script:") => {
+                let path = &value["script:".len()..];
+                let source = std::fs::read_to_string(path)
+                    .unwrap_or_else(|e| panic!("ALACOD_INPUT : lecture de {path} : {e}"));
+                let scenario = crate::replay::Scenario::from_ron(&source)
+                    .unwrap_or_else(|e| panic!("ALACOD_INPUT : scénario {path} invalide : {e}"));
+                (Self::Scripted, Some(scenario.scripted_inputs()))
+            }
+            Ok(other) => panic!(
+                "ALACOD_INPUT inconnu : {other} (attendu : devices, neutral, script:<scénario.ron>)"
+            ),
         }
     }
 }

@@ -2,8 +2,9 @@
 //! trace d'état à `tests/scenarios/<nom>.trace`. Joue aussi, en plus, tout scénario généré
 //! sous `tests/scenarios/generated/<jeu>/*.ron` (T2.10, `alacod-gen` /
 //! `crates/scenario/src/generate.rs`) : même mécanisme de trace `.trace` sœur, même bless,
-//! même filtre `ALACOD_SCENARIO` (par nom de fichier, sans le dossier — deux scénarios,
-//! générés ou non, ne doivent donc pas partager un nom). `alacod-gen` (re)génère ces
+//! filtre `ALACOD_SCENARIO` : nom court unique, ou chemin relatif sans extension
+//! (`generated/<jeu>/<nom>`). Les métriques utilisent ce chemin pour éviter les collisions.
+//! `alacod-gen` (re)génère ces
 //! fichiers et gère lui-même leur suppression quand une arme disparaît du registre ; ce test
 //! ne fait que les jouer comme n'importe quel autre scénario.
 //!
@@ -14,7 +15,7 @@
 //!   triés (indice modulo `n`) : la suite complète par lots, quand une commande ne peut pas durer
 //!   assez longtemps (session cloud, M2-T11). Se combine avec `ALACOD_SCENARIO`.
 
-use std::collections::BTreeMap;
+use std::collections::{BTreeMap, BTreeSet};
 use std::path::PathBuf;
 
 use scenario::{run, Metrics, Scenario};
@@ -138,6 +139,10 @@ fn active_target_dir_suit_le_binaire_puis_la_variable() {
 #[derive(Debug, Default, Deserialize)]
 struct BudgetConfig {
     min_sim_fps: f64,
+    /// Plafond du pire rollback (`Metrics::rollback_ms_worst`, restauration + 12 frames
+    /// resimulées) ; même régime que `min_sim_fps` : avertissement, bloquant en bench.
+    #[serde(default)]
+    max_rollback_ms: Option<f64>,
 }
 
 #[derive(Debug, Deserialize)]
@@ -150,10 +155,10 @@ struct Budgets {
 
 #[test]
 fn scenarios() {
-    if map_ldtk::RENDER_ENABLED {
-        eprintln!("scénarios ignorés : compilés avec le rendu des tilemaps (utiliser `make test_scenarios`)");
-        return;
-    }
+    assert!(
+        !map_ldtk::RENDER_ENABLED,
+        "scénarios non exécutés : rendu des tilemaps actif ; utiliser `make test_scenarios`"
+    );
 
     let bless = std::env::var("ALACOD_BLESS").is_ok_and(|v| v == "1");
     let only = std::env::var("ALACOD_SCENARIO")
@@ -164,9 +169,16 @@ fn scenarios() {
     // Load budgets
     let budgets_path = budgets_dir().join("budgets.ron");
     let budgets: Budgets = match std::fs::read_to_string(&budgets_path) {
-        Ok(content) => ron::from_str(&content).expect("budgets.ron invalide"),
+        // `implicit_some`, comme les scénarios : `max_rollback_ms: 18.0` plutôt que `Some(18.0)`.
+        Ok(content) => ron::Options::default()
+            .with_default_extension(ron::extensions::Extensions::IMPLICIT_SOME)
+            .from_str(&content)
+            .expect("budgets.ron invalide"),
         Err(_) => Budgets {
-            default: BudgetConfig { min_sim_fps: 40.0 },
+            default: BudgetConfig {
+                min_sim_fps: 40.0,
+                max_rollback_ms: None,
+            },
             scenarios: BTreeMap::new(),
         },
     };
@@ -180,6 +192,8 @@ fn scenarios() {
     // T2.10 : en plus des scénarios manuscrits ci-dessus, un par arme générée (voir la doc du
     // module) ; même boucle ci-dessous, aucun traitement spécial.
     paths.extend(generated_scenario_paths());
+    let selected = resolve_scenario_selection(&paths, only.as_deref())
+        .unwrap_or_else(|error| panic!("{error}"));
     // Tranche `i/N` (`ALACOD_SCENARIO_SHARD`, `scripts/test-scenarios-sharded.sh`) : un scénario
     // sur N, à tour de rôle dans l'ordre ci-dessus ; N processus couvrent toute la liste.
     // Quand `ALACOD_SCENARIO` donne la liste explicite (le script la calcule par durée
@@ -196,21 +210,12 @@ fn scenarios() {
     let mut failures = Vec::new();
     let mut metrics_map: BTreeMap<String, Metrics> = BTreeMap::new();
 
-    let slice: Option<(usize, usize)> =
-        std::env::var("ALACOD_SCENARIO_SLICE")
-            .ok()
-            .and_then(|spec| {
-                let (k, n) = spec.split_once('/')?;
-                Some((
-                    k.trim().parse().ok()?,
-                    n.trim().parse().ok().filter(|n| *n > 0)?,
-                ))
-            });
+    let slice = partition_from_env("ALACOD_SCENARIO_SLICE");
     for (index, path) in paths.into_iter().enumerate() {
-        let name = path.file_stem().unwrap().to_string_lossy().to_string();
-        if only
+        let name = scenario_id(&path);
+        if selected
             .as_ref()
-            .is_some_and(|only| !only.split(',').any(|candidate| candidate.trim() == name))
+            .is_some_and(|selected| !selected.contains(&name))
         {
             continue;
         }
@@ -231,12 +236,17 @@ fn scenarios() {
         let outcome = run(&scenario);
 
         let metrics_str = format!(
-            "| frames={} fps={:.1} entités_max={} balles_max={} ennemis_max={}",
+            "| frames={} fps={:.1} entités_max={} balles_max={} ennemis_max={} save={:.2}ms load={:.2}ms sim={:.2}ms rollback×12={:.1}ms snapshot~{}KiB",
             outcome.metrics.frames,
             outcome.metrics.sim_fps,
             outcome.metrics.entities_max,
             outcome.metrics.bullets_max,
-            outcome.metrics.enemies_max
+            outcome.metrics.enemies_max,
+            outcome.metrics.save_ms_avg,
+            outcome.metrics.load_ms_avg,
+            outcome.metrics.advance_ms_avg,
+            outcome.metrics.rollback_ms_worst,
+            outcome.metrics.snapshot_bytes_max / 1024
         );
         eprintln!(
             "{name}: {} {} ({:.1?})",
@@ -254,12 +264,27 @@ fn scenarios() {
         // Budget : bloquant seulement en bench (`ALACOD_BENCH_STRICT=1`, `make bench`) ; les
         // mesures d'un poste chargé (compilations en parallèle) ne doivent pas casser les tests.
         let budget = budgets.scenarios.get(&name).unwrap_or(&budgets.default);
+        let strict = std::env::var("ALACOD_BENCH_STRICT").is_ok_and(|v| v == "1");
+        let mut over_budget = Vec::new();
         if outcome.metrics.sim_fps < budget.min_sim_fps {
-            let message = format!(
+            over_budget.push(format!(
                 "{name}: budget : {:.1} fps < {:.1} fps",
                 outcome.metrics.sim_fps, budget.min_sim_fps
-            );
-            if std::env::var("ALACOD_BENCH_STRICT").is_ok_and(|v| v == "1") {
+            ));
+        }
+        if let Some(max_rollback_ms) = budget.max_rollback_ms {
+            if outcome.metrics.rollback_ms_worst > max_rollback_ms {
+                over_budget.push(format!(
+                    "{name}: budget : pire rollback {:.1} ms > {:.1} ms (restauration {:.2} ms + 12 × {:.2} ms de simulation)",
+                    outcome.metrics.rollback_ms_worst,
+                    max_rollback_ms,
+                    outcome.metrics.load_ms_avg,
+                    outcome.metrics.advance_ms_avg
+                ));
+            }
+        }
+        for message in over_budget {
+            if strict {
                 failures.push(message);
             } else {
                 eprintln!("  attention, {message}");
@@ -275,8 +300,11 @@ fn scenarios() {
         // prouver qu'aucune valeur de stat ne diverge des constantes qu'elle remplace).
         if let Ok(dump_dir) = std::env::var("ALACOD_DUMP_TRACE") {
             if let Some(full) = &outcome.full_trace {
-                std::fs::create_dir_all(&dump_dir).expect("création du dossier ALACOD_DUMP_TRACE");
+                // L'id d'un scénario généré contient des `/` (`generated/<jeu>/<nom>`) : créer
+                // le sous-dossier, pas seulement la racine.
                 let dump_path = PathBuf::from(&dump_dir).join(format!("{name}.full"));
+                std::fs::create_dir_all(dump_path.parent().expect("dossier du dump"))
+                    .expect("création du dossier ALACOD_DUMP_TRACE");
                 let content = full.join("\n") + "\n";
                 std::fs::write(&dump_path, content)
                     .unwrap_or_else(|e| panic!("écriture de {}: {e}", dump_path.display()));
@@ -341,14 +369,114 @@ fn commit_dir_name() -> String {
 
 /// `ALACOD_SCENARIO_SHARD=i/N` (0 ≤ i < N) : tranche jouée par ce processus.
 fn shard_from_env() -> Option<(usize, usize)> {
-    let value = std::env::var("ALACOD_SCENARIO_SHARD").ok()?;
-    let (index, count) = value.split_once('/')?;
-    let (index, count) = (index.trim().parse().ok()?, count.trim().parse().ok()?);
-    assert!(
-        count > 0 && index < count,
-        "ALACOD_SCENARIO_SHARD={value} : attendu i/N avec 0 <= i < N"
-    );
-    Some((index, count))
+    partition_from_env("ALACOD_SCENARIO_SHARD")
+}
+
+fn parse_partition(value: &str) -> Result<(usize, usize), String> {
+    let parsed = value.split_once('/').and_then(|(index, count)| {
+        Some((
+            index.trim().parse::<usize>().ok()?,
+            count.trim().parse::<usize>().ok()?,
+        ))
+    });
+    match parsed {
+        Some((index, count)) if count > 0 && index < count => Ok((index, count)),
+        _ => Err(format!("{value:?} : attendu i/N avec 0 <= i < N")),
+    }
+}
+
+fn partition_from_env(name: &str) -> Option<(usize, usize)> {
+    match std::env::var(name) {
+        Ok(value) => Some(parse_partition(&value).unwrap_or_else(|error| panic!("{name}={error}"))),
+        Err(std::env::VarError::NotPresent) => None,
+        Err(error) => panic!("{name} invalide : {error}"),
+    }
+}
+
+/// Identité unique, y compris pour deux armes de jeux différents portant le même nom.
+/// Le nom court reste accepté dans le filtre s'il n'est pas ambigu.
+fn scenario_id(path: &std::path::Path) -> String {
+    path.strip_prefix(scenarios_dir())
+        .unwrap_or(path)
+        .with_extension("")
+        .to_string_lossy()
+        .replace('\\', "/")
+}
+
+/// Valider avant le sharding : une faute de nom ne doit pas produire un succès vide,
+/// même si une autre entrée du filtre existe. Les métriques sont indexées par id unique.
+fn resolve_scenario_selection(
+    paths: &[PathBuf],
+    only: Option<&str>,
+) -> Result<Option<BTreeSet<String>>, String> {
+    let mut names: BTreeMap<String, Vec<String>> = BTreeMap::new();
+    let mut ids = BTreeSet::new();
+    for path in paths {
+        let id = scenario_id(path);
+        if !ids.insert(id.clone()) {
+            return Err(format!("id de scénario dupliqué : {id}"));
+        }
+        let name = path.file_stem().unwrap().to_string_lossy().into_owned();
+        names.entry(name).or_default().push(id);
+    }
+    if ids.is_empty() {
+        return Err("aucun scénario découvert".into());
+    }
+    let Some(only) = only else { return Ok(None) };
+    let mut selected = BTreeSet::new();
+    for name in only.split(',').map(str::trim) {
+        if ids.contains(name) {
+            selected.insert(name.to_string());
+            continue;
+        }
+        match names.get(name).map(Vec::as_slice) {
+            Some([id]) => {
+                selected.insert(id.clone());
+            }
+            Some(ids) => {
+                return Err(format!(
+                    "ALACOD_SCENARIO : nom ambigu {name:?} ; utiliser {}",
+                    ids.join(", ")
+                ))
+            }
+            None => {
+                return Err(format!(
+                    "ALACOD_SCENARIO : scénario inconnu ou nom vide : {name:?}"
+                ))
+            }
+        }
+    }
+    Ok(Some(selected))
+}
+
+#[test]
+fn scenario_filters_reject_unknown_names_and_resolve_generated_collisions() {
+    let paths = [
+        PathBuf::from("idle.ron"),
+        PathBuf::from("generated/testbed/shoot.ron"),
+    ];
+    assert!(resolve_scenario_selection(&paths, Some("idle, shoot")).is_ok());
+    assert!(resolve_scenario_selection(&paths, Some("idle,typo")).is_err());
+    assert!(resolve_scenario_selection(&paths, Some("idle,")).is_err());
+    assert!(resolve_scenario_selection(&[], None).is_err());
+    let paths = [
+        PathBuf::from("generated/a/weapon.ron"),
+        PathBuf::from("generated/b/weapon.ron"),
+    ];
+    assert!(resolve_scenario_selection(&paths, None).is_ok());
+    assert!(resolve_scenario_selection(&paths, Some("weapon")).is_err());
+    let selected = resolve_scenario_selection(&paths, Some("generated/b/weapon"))
+        .unwrap()
+        .unwrap();
+    assert_eq!(selected, BTreeSet::from(["generated/b/weapon".to_string()]));
+}
+
+#[test]
+fn partitions_reject_invalid_specs_instead_of_running_a_different_suite() {
+    assert_eq!(parse_partition(" 1 / 4 ").unwrap(), (1, 4));
+    for value in ["", "bad", "0/0", "4/4", "-1/4", "1/2/3", "1/x"] {
+        assert!(parse_partition(value).is_err(), "{value}");
+    }
 }
 
 fn write_metrics(metrics: &BTreeMap<String, Metrics>, shard: Option<(usize, usize)>) {
@@ -431,7 +559,7 @@ fn nav_stats() {
         ai::{AttackTarget, MonsterState},
         Enemy,
     };
-    use std::collections::BTreeMap;
+    use std::collections::{BTreeMap, BTreeSet};
     use utils::{frame::FrameCount, net_id::GgrsNetId};
     let spec = std::env::var("ALACOD_NAV").unwrap_or_else(|_| "idle:1180".into());
     let (name, frames) = spec.split_once(':').unwrap();

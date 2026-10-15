@@ -1,0 +1,12 @@
+// `gungeon` (M2-T14b) : passif, +30 % de cadence de tir pendant 2 s après une esquive, au plus une
+// fois par seconde (`OnDodge`, §42).
+(
+    name: "Roulade offensive",
+    kind: Passive,
+    effects: [
+        (on: OnDodge, cooldown: Some(60), do: [TimedModifier(stat: FireRate, op: Pct, value: "0.3", frames: 120)]),
+    ],
+    tags: ["mobilite", "offensif"],
+    rarity: Uncommon,
+    test: Some((frames: 60)),
+)

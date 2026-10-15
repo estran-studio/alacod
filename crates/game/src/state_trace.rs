@@ -64,6 +64,10 @@ pub struct StateTraceRecorder {
     /// voir `docs/conventions.md` §10 « Blesser une trace : la preuve »). `None` sinon,
     /// pour ne rien coûter en usage normal (tests de scénario, jeu).
     dump: Option<BTreeMap<u32, String>>,
+    /// Enregistrements d'une frame déjà vue : resimulations après rollback. En synctest,
+    /// chaque frame l'est `check_distance` fois ; en p2p, c'est la mesure des prédictions
+    /// ratées (zéro = aucun rollback n'a eu lieu, le run ne prouve rien du rollback réseau).
+    pub resimulated: u32,
 }
 
 /// Nombre de lignes gardées dans `history` (une frame = jusqu'à trois versions).
@@ -224,6 +228,7 @@ impl Plugin for StateTraceRecorderPlugin {
             divergences: Vec::new(),
             dump: self.dump.is_some().then(BTreeMap::new),
             history: std::collections::VecDeque::new(),
+            resimulated: 0,
         })
         .add_systems(SaveWorld, record_state.in_set(SaveWorldSystems::Snapshot));
     }
@@ -399,9 +404,10 @@ fn record_state(world: &mut World) {
     if let Some(dump) = recorder.dump.as_mut() {
         dump.insert(frame, line.clone());
     }
-    if let Some(previous) = recorder.frames.get(&frame) {
-        if previous != &hash_line && recorder.divergences.len() < 3 {
-            let before = previous.clone();
+    if let Some(previous) = recorder.frames.get(&frame).cloned() {
+        recorder.resimulated += 1;
+        if previous != hash_line && recorder.divergences.len() < 3 {
+            let before = previous;
             recorder.divergences.push(Divergence {
                 frame,
                 before,
@@ -459,6 +465,8 @@ fn write_trace_at_exit_frame(
     trace: Res<StateTraceRecorder>,
     mut file: ResMut<StateTraceFile>,
     mut exit: MessageWriter<AppExit>,
+    snapshot_profile: Option<Res<utils::snapshot_profile::SnapshotProfile>>,
+    set_timings: Option<Res<utils::system_profile::SetTimings>>,
 ) {
     if file.written {
         return;
@@ -514,7 +522,24 @@ fn write_trace_at_exit_frame(
     let path = trace_path(&file.path, restart, file.game);
     std::fs::write(&path, out).expect("écriture de la trace d'état");
     write_full_history(&path, &trace, file.exit_at_frame);
-    info!("trace d'état écrite dans {path:?}");
+    info!(
+        "trace d'état écrite dans {path:?} ; frames resimulées après rollback : {}",
+        trace.resimulated
+    );
+    if let Some(profile) = snapshot_profile {
+        info!("profil rollback : {}", profile.summary());
+        for sample in profile.heaviest(5) {
+            info!(
+                "profil rollback : {} ×{} ~{} octets",
+                sample.name, sample.count, sample.bytes
+            );
+        }
+    }
+    if let Some(timings) = set_timings {
+        for row in timings.report() {
+            info!("profil sets : {row}");
+        }
+    }
     file.written = true;
     exit.write(AppExit::Success);
 }

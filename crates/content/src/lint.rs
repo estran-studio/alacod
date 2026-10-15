@@ -54,9 +54,9 @@ pub struct LintError {
 
 /// Valide les références croisées et les plages de valeurs du contenu déjà chargé dans
 /// `registry`. Ne relit aucun fichier de contenu : opère sur les entrées déjà parsées. Seule
-/// exception : l'**existence** des sons référencés par une arme (`audio_config`) ou
-/// par le feedback (`ui/feedback.ron`), et des fichiers d'une feuille de sprites (D3 :
-/// animation, feuilles, images), vérifiée sous `registry.game_dir/assets/`.
+/// exception : les assets référencés (sons, feuilles de sprites, police de l'écran de
+/// mutation) et la lisibilité du gabarit partagé des listes HTML, sous
+/// `registry.game_dir/assets/` (ou dans l'inventaire embarqué du navigateur).
 pub fn run(registry: &Registry, manifest: &GameManifest) -> Vec<LintError> {
     let mut errors = Vec::new();
 
@@ -70,6 +70,7 @@ pub fn run(registry: &Registry, manifest: &GameManifest) -> Vec<LintError> {
     lint_feedback(registry, &mut errors);
     lint_mutation_screens(registry, &mut errors);
     lint_hud_sources(registry, &mut errors);
+    lint_html_screens(registry, &mut errors);
     lint_sprite_sheets(registry, &mut errors);
     lint_floors(registry, &mut errors);
     lint_caves(registry, &mut errors);
@@ -463,6 +464,25 @@ fn lint_weapons(registry: &Registry, errors: &mut Vec<LintError>) {
                     message: format!(
                         "arme « {} » : champ {} = « {} » : fichier absent de assets/",
                         weapon.id, sound.field, sound.path
+                    ),
+                });
+            }
+        }
+        // Assets (lot A) : `audio_config` ne peut viser qu'un mode de tir de l'arme (sinon
+        // le son ne jouerait jamais). Une erreur par mode, même s'il a deux sons.
+        let audio_modes: std::collections::BTreeSet<&str> = weapon
+            .sounds
+            .iter()
+            .map(|sound| sound.mode.as_str())
+            .collect();
+        for mode in audio_modes {
+            if !weapon.firing_rates.contains_key(mode) {
+                errors.push(LintError {
+                    kind: LintErrorKind::BrokenReference,
+                    file: weapon.file.display().to_string(),
+                    message: format!(
+                        "arme « {} » : audio_config.modes.{mode} : mode de tir inconnu",
+                        weapon.id
                     ),
                 });
             }
@@ -1459,8 +1479,8 @@ fn lint_powerups(registry: &Registry, errors: &mut Vec<LintError>) {
 /// valeurs de `FeedbackSettings::problems` (flash, secousse, télégraphe, surcharges
 /// `by_kind`/`by_weapon`) et armes de `by_weapon` connues du jeu (à distance ou de corps à
 /// corps).
-/// Lot A des assets : chaque entrée de `shot_sounds` nomme une arme à distance du jeu et une
-/// clé de `sounds`.
+/// Assets (lot A) : chaque clé de `volumes` existe dans `sounds` (sa plage est vérifiée par
+/// `problems`).
 fn lint_feedback(registry: &Registry, errors: &mut Vec<LintError>) {
     for feedback in &registry.feedback {
         let file = feedback.file.display().to_string();
@@ -1498,24 +1518,12 @@ fn lint_feedback(registry: &Registry, errors: &mut Vec<LintError>) {
                 });
             }
         }
-        for (weapon, key) in &settings.shot_sounds {
-            if !registry
-                .weapons
-                .contains_key(&registry::WeaponId::from(weapon.as_str()))
-            {
-                errors.push(LintError {
-                    kind: LintErrorKind::BrokenReference,
-                    file: file.clone(),
-                    message: format!("feedback : shot_sounds « {weapon} » : arme inconnue du jeu"),
-                });
-            }
+        for key in settings.volumes.keys() {
             if !settings.sounds.contains_key(key) {
                 errors.push(LintError {
                     kind: LintErrorKind::BrokenReference,
                     file: file.clone(),
-                    message: format!(
-                        "feedback : shot_sounds.{weapon} = « {key} » : clé absente de sounds"
-                    ),
+                    message: format!("feedback : volumes.{key} : clé absente de sounds"),
                 });
             }
         }
@@ -1538,6 +1546,32 @@ fn lint_hud_sources(registry: &Registry, errors: &mut Vec<LintError>) {
                 });
             }
         }
+    }
+}
+
+/// Les écrans pause/inventaire instancient leurs listes depuis ce gabarit chargé par
+/// le rendu, pas depuis une référence HTML. Les autres gabarits HTML sont vérifiés
+/// à leur découverte par `Registry::build`, sans dépendance sur `bevy_hui`.
+fn lint_html_screens(registry: &Registry, errors: &mut Vec<LintError>) {
+    let Some(screen) = registry.ui_files.iter().find(|path| {
+        path.ends_with("ui/pause_screen.html") || path.ends_with("ui/inventory_screen.html")
+    }) else {
+        return;
+    };
+    let files = match registry.embedded_files {
+        Some(files) => crate::files::ContentFiles::embedded(files),
+        None => crate::files::ContentFiles::native(GameManifest::assets_dir(&registry.game_dir)),
+    };
+    let row = std::path::Path::new("ui/hui_row.html");
+    if let Err(error) = files.read(row) {
+        errors.push(LintError {
+            kind: LintErrorKind::BrokenReference,
+            file: screen.display().to_string(),
+            message: format!(
+                "écran HTML : gabarit de liste référencé « {} » absent ou illisible : {error}",
+                row.display()
+            ),
+        });
     }
 }
 

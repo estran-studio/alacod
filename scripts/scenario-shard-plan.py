@@ -29,10 +29,15 @@ try:
 except (OSError, ValueError):
     pass
 
+scenarios_dir = os.path.join(root, "tests/scenarios")
 costs = {}
 for path in paths:
-    name = os.path.splitext(os.path.basename(path))[0]
-    if only and name not in only:
+    # Même id que le runner (`crates/scenario/tests/scenarios.rs::scenario_id`) : chemin relatif
+    # sans extension, `generated/<jeu>/<nom>` pour les générés. Le nom court seul confondrait
+    # les scénarios homonymes de deux jeux (une tranche en perdrait un, et `ALACOD_SCENARIO`
+    # refuserait l'autre comme ambigu).
+    name = os.path.splitext(os.path.relpath(path, scenarios_dir))[0]
+    if only and name not in only and os.path.basename(name) not in only:
         continue
     known = metrics.get(name)
     if known and known.get("sim_seconds"):
