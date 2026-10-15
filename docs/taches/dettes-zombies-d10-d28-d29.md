@@ -29,3 +29,16 @@ Relais carte par défaut) est déjà sur `main` (merge `b8471b4b`, 2026-10-11) :
 Les jeux autres que `zombies` ne bougent pas. Pas de `f32`. `cargo fmt --all -- --check`.
 Vérification README §4 (`make test_scenarios_par` ou `make test_scenarios`), rapport
 `docs/taches/rapports/dettes-zombies-d10-d28-d29.md`, `LIVRÉ dettes-zombies-d10-d28-d29 <sha>`.
+
+## Session cloud (ajout du 2026-10-15)
+
+Tâche prête pour une session Claude Code cloud : ignorer les consignes `orca` du README (§1). Pas de
+Docker : le p2p zombies est rejoué par l'orchestrateur, le dire au rapport. `make sim` existe en
+local (pas de réseau requis). D28 touche un système partagé : si des traces d'autres jeux bougent à
+cause de lui, c'est permis avec la preuve §5 et la cause (corrige « les jeux autres que zombies ne
+bougent pas » pour D28 seulement). Un commit par dette (D29, D10, D28), chacun avec sa preuve.
+Pousser la branche régulièrement (commits WIP acceptés ; le conteneur redémarre environ toutes les
+deux heures : lancer la suite et les campagnes au premier plan, par lots poussés). Voie rapide du
+README §6 : fusionner `origin/main` et rejouer la suite juste avant le commit
+`LIVRÉ dettes-zombies-d10-d28-d29`.
+

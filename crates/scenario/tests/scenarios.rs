@@ -185,7 +185,9 @@ fn scenarios() {
         .unwrap_or_else(|error| panic!("{error}"));
     // Tranche `i/N` (`ALACOD_SCENARIO_SHARD`, `scripts/test-scenarios-sharded.sh`) : un scénario
     // sur N, à tour de rôle dans l'ordre ci-dessus ; N processus couvrent toute la liste.
-    if let Some((index, count)) = shard {
+    // Quand `ALACOD_SCENARIO` donne la liste explicite (le script la calcule par durée
+    // mesurée, perf-suite-scenarios), la tranche ne sert qu'à nommer le fichier de métriques.
+    if let Some((index, count)) = shard.filter(|_| only.is_none()) {
         paths = paths
             .into_iter()
             .enumerate()
@@ -267,8 +269,11 @@ fn scenarios() {
         // prouver qu'aucune valeur de stat ne diverge des constantes qu'elle remplace).
         if let Ok(dump_dir) = std::env::var("ALACOD_DUMP_TRACE") {
             if let Some(full) = &outcome.full_trace {
-                std::fs::create_dir_all(&dump_dir).expect("création du dossier ALACOD_DUMP_TRACE");
+                // L'id d'un scénario généré contient des `/` (`generated/<jeu>/<nom>`) : créer
+                // le sous-dossier, pas seulement la racine.
                 let dump_path = PathBuf::from(&dump_dir).join(format!("{name}.full"));
+                std::fs::create_dir_all(dump_path.parent().expect("dossier du dump"))
+                    .expect("création du dossier ALACOD_DUMP_TRACE");
                 let content = full.join("\n") + "\n";
                 std::fs::write(&dump_path, content)
                     .unwrap_or_else(|e| panic!("écriture de {}: {e}", dump_path.display()));
