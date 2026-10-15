@@ -14,7 +14,7 @@ pub struct CameraDebugUiEnabled(pub bool);
 
 impl Default for CameraDebugUiEnabled {
     fn default() -> Self {
-        Self(true)
+        Self(crate::core::debug_ui_enabled())
     }
 }
 

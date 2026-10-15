@@ -1,0 +1,20 @@
+// Session enregistrée : 92 frames, 1 joueur(s).
+#![enable(implicit_some)]
+Scenario(
+    game: "throne",
+    map: "cave:niveau_1",
+    map_seed: 123456,
+    frames: 92,
+    players: [
+        PlayerScript(
+            inputs: [],
+        ),
+    ],
+    floors: "run",
+    progression: "run",
+    clocks: [
+        "etage",
+    ],
+    difficulty: true,
+    mode: Floors,
+)

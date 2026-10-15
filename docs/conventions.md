@@ -839,8 +839,18 @@ sources et des ancrages dans `CLAUDE.md` § HUD). Il ne fait que **lire** l'éta
 T1.18 : les sources du joueur passent par `game::ui::hud_model` (`HudSnapshot`) et la liste
 des sources est fermée et lintée (voir §32).
 
-Champs optionnels à la racine de `hud.ron`, à côté de `widgets` : `font`, `icons`, `names`.
-Par widget : `background`.
+Champs optionnels à la racine de `hud.ron`, à côté de `widgets` : `font`, `icons`, `names`,
+`reference_size: Some((800.0, 540.0))`. Ce dernier ajuste `UiScale` aux petits viewports
+sans agrandir les grands, et masque ce HUD pendant mutation/fin de run. Sans ce champ,
+les anciens jeux conservent leur mise en page. Par widget : `background`,
+`compact: true` (défaut false) : arme lisible sans underscores, munitions `chargeur / réserve`,
+effets temporaires limités à deux lignes puis `+N effets`. Le nom de l'arme indique
+`· recharge` uniquement pendant le rechargement. Le modèle complet reste accessible
+aux scénarios/outils ; les barres ont un fond fixe sous le remplissage.
+
+Les overlays techniques (frame/FPS, caméra, arme, inspecteur natif) sont optionnels
+via `ALACOD_DEBUG_UI=1`. La feature native ne les active plus à elle seule. Le debug de
+vagues de zombies suit ce défaut ; F3 conserve sa bascule explicite.
 ```ron
 (
     // Police de tous les textes du HUD, relative à `assets/`. La police par défaut de Bevy
@@ -1962,6 +1972,16 @@ ajoute ses effets, est notée dans `Mutations`, et **`OnLevelUp` se déclenche �
 suivante** (pour tous les effets `OnLevelUp` du joueur, ceux de la nouvelle mutation compris).
 Pool épuisé : pas de choix, `OnLevelUp` directement. Moments clés `levelup`, `mutation`.
 
+`choice_timing: Immediate` est le défaut. `BetweenFloors` (revue humaine M1) conserve
+les niveaux gagnés pendant le combat dans `PendingMutations` (rollback neutre, absent
+quand vide), puis ouvre les choix après nettoyage de l'étage et ouverture du portail.
+Le portail attend que tous les joueurs vivants aient résolu leurs choix ; les projectiles
+hostiles restants sont supprimés et les dégâts des joueurs sont ignorés pendant cet
+interlude. Le timeout par choix reste actif, les horloges continuent. Le tirage `loot`
+est différé avec le choix, donc ses options et les combats suivants peuvent changer.
+Cette politique ne s'applique qu'au mode `Floors` ; les autres modes gardent le choix
+immédiat. `throne` l'active dans `progression/run.ron`.
+
 **Mutation** : kind `Mutation` (`mutations/<id>.ron`) : `(name, weight: 1, tags, max_stacks: 1,
 effects: [Effect])`.
 
@@ -2248,9 +2268,21 @@ Présentation seule : aucune trace ne change.
   `Floors` seulement). Sans valeur : texte vide, pas même le préfixe (D22).
 - **Attente** `HudText { source, contains, at_frame }` : le texte (sans préfixe) contient
   `contains` ; lue dans `HudSnapshot`, hors simulation et hors trace.
-- **Contenu** : `games/throne/assets/ui/hud.ron` — étage en haut au centre (au lieu de la
-  vague), barre de rads sous la vie et son texte à droite, niveau et statuts au-dessus de la vie,
-  munitions par type sous le nom de l'arme. zombies et testbed inchangés.
+- **Contenu après revue humaine (2026-10-14)** : `games/throne/assets/ui/hud.ron` —
+  étage en haut à gauche ; vie, niveau et barres vie/rads en bas à gauche ; arme et
+  chargeur/réserve en bas à droite ; statuts/power-ups contextuels en haut. Les textes
+  joueurs/ennemis, rads numériques et réserves des armes inactives sont retirés du HUD
+  courant. Les sources restent disponibles dans le modèle. Mutation/fin masquent le HUD.
+  Les RON HUD de zombies et testbed restent inchangés.
+
+### Polissage de revue M1 (2026-10-14)
+
+Le rendu des cartes raccourcit les descriptions générées (« regagnez 25 points de vie »
+→ « +25 PV »), en conservant déclencheurs, conditions, quantités et durées. Le modèle
+`MutationScreenView` garde la description complète. L'écran de fin Floors affiche
+étage, éliminations et durée min:sec plutôt que frames/score technique ; panneau centré.
+`play_scenario --capture <dir> --size 640x360` vérifie les petits viewports ; défaut 960x540.
+Ce sont des changements de présentation, aucune mécanique ni trace modifiée.
 
 ## 33. Restart en ligne (D14)
 
@@ -3215,6 +3247,23 @@ profils existants sont inchangés (aucune trace existante ne bouge).
   les champs de navigation sont des caches dont la clé contient la géométrie.
 - **Option** `ExplorerOptions::boss_direct` (`alacod-sim --boss-direct`) : droit au boss, sans autre salle
   ni objet.
+
+**bot-explorateur-v2 (D65).**
+- **Arène** : une salle `arene` dormante et vide est un but (`explorer::room_pending`) jusqu'à son
+  nettoyage : elle ne se verrouille qu'à l'entrée d'un joueur et ses vagues naissent à ce moment.
+  Même ordre que les autres salles (coût du chemin, puis identifiant), le boss reste en dernier.
+- **Salles non verrouillantes** (départ, récompense, boutique) : un but jusqu'à ce qu'un joueur y
+  entre (dans la salle réduite de 24 px) ; on n'y achète rien. **Seule mémoire du bot**,
+  `ExplorerVisits` (ensemble `(index d'étage, salle)`, ressource hors rollback) : une salle sans
+  état n'a rien à lire dans `RoomStates`. Elle ne sert qu'à produire des inputs, que GGRS enregistre ;
+  un rollback ne rappelle pas le bot pour une frame passée.
+- **Réanimation** : l'explorateur relève un coéquipier à terre sans attendre les 600 dernières frames
+  d'urgence (`REVIVE_URGENT_FRAMES` reste la règle de `prudent`/`fonceur`). Il attendait l'urgence
+  sans autre but : graine 175 à 2 bots, saignement fini à f2459, première interaction f1887.
+- **Zone morte** : `surface_step` considère le bot arrivé quand son pas est sous `ROUTE_DEAD_ZONE`
+  sur les deux axes ; sinon il restait immobile à 36 px de la portée, sans presser Interaction
+  (graine 47 à 2 bots, `etages_deux`, soft-lock).
+- Campagne : `docs/taches/rapports/bot-explorateur-v2/campagne.sh` (lots de 10 graines).
 
 **`alacod-sim`** : `--floors <séquence> --until-floor N` existait (T1.14) ; le JSON gagne `outcome`
 (`victoire`, `objectif`, `mort`, `soft-lock`, `plafond`, `desync`) et `rooms` (par étage : salles typées,

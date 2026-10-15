@@ -1,0 +1,409 @@
+warning: unnecessary `unsafe` block
+  --> crates/utils/src/web/logs.rs:60:9
+   |
+60 |         unsafe {
+   |         ^^^^^^ unnecessary `unsafe` block
+   |
+note: the lint level is defined here
+  --> crates/utils/src/web/logs.rs:59:16
+   |
+59 |         #[warn(unused_unsafe)]
+   |                ^^^^^^^^^^^^^
+
+warning: unused variable: `app`
+ --> crates/utils/src/web/mod.rs:8:21
+  |
+8 |     fn build(&self, app: &mut App) {
+  |                     ^^^ help: if this is intentional, prefix it with an underscore: `_app`
+  |
+  = note: `#[warn(unused_variables)]` (part of `#[warn(unused)]`) on by default
+
+warning: `utils` (lib) generated 2 warnings (run `cargo fix --lib -p utils` to apply 1 suggestion)
+warning: unused import: `Arc`
+ --> crates/telemetry/src/panic.rs:5:17
+  |
+5 | use std::sync::{Arc, Mutex};
+  |                 ^^^
+  |
+  = note: `#[warn(unused_imports)]` (part of `#[warn(unused)]`) on by default
+
+warning: unused import: `self`
+ --> crates/map/src/game/entity/map/room.rs:2:30
+  |
+2 | use bevy_fixed::fixed_math::{self, FixedVec2};
+  |                              ^^^^
+  |
+  = note: `#[warn(unused_imports)]` (part of `#[warn(unused)]`) on by default
+
+warning: unused import: `bevy::prelude::*`
+ --> crates/map/src/game/plugin.rs:1:5
+  |
+1 | use bevy::prelude::*;
+  |     ^^^^^^^^^^^^^^^^
+
+warning: unused import: `bevy_fixed::rng::RollbackRng`
+ --> crates/map/src/generation/context.rs:1:5
+  |
+1 | use bevy_fixed::rng::RollbackRng;
+  |     ^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+
+warning: use of deprecated module `std::usize`: all constants in this module replaced by associated constants on the type
+ --> crates/map/src/generation/context.rs:5:33
+  |
+5 | use std::{fmt::Display, rc::Rc, usize};
+  |                                 ^^^^^
+  |
+  = note: `#[warn(deprecated)]` on by default
+
+warning: unused variable: `rng`
+   --> crates/map/src/generation/imp/basic.rs:502:9
+    |
+502 |         rng: &mut RollbackRng,
+    |         ^^^ help: if this is intentional, prefix it with an underscore: `_rng`
+    |
+    = note: `#[warn(unused_variables)]` (part of `#[warn(unused)]`) on by default
+
+warning: unused variable: `rng`
+   --> crates/map/src/generation/imp/basic.rs:534:9
+    |
+534 |         rng: &mut RollbackRng,
+    |         ^^^ help: if this is intentional, prefix it with an underscore: `_rng`
+
+warning: unused variable: `rng`
+   --> crates/map/src/generation/imp/basic.rs:570:9
+    |
+570 |         rng: &mut RollbackRng,
+    |         ^^^ help: if this is intentional, prefix it with an underscore: `_rng`
+
+warning: field `data` is never read
+  --> crates/map/src/generation/imp/basic.rs:37:5
+   |
+35 | pub struct BasicMapGeneration {
+   |            ------------------ field in this struct
+36 |     context: MapGenerationContext,
+37 |     data: MapGenerationData,
+   |     ^^^^
+   |
+   = note: `#[warn(dead_code)]` (part of `#[warn(unused)]`) on by default
+
+warning: unused import: `registry::BehaviorEntry`
+    --> crates/content/src/lint.rs:1592:9
+     |
+1592 |     use registry::BehaviorEntry;
+     |         ^^^^^^^^^^^^^^^^^^^^^^^
+     |
+     = note: `#[warn(unused_imports)]` (part of `#[warn(unused)]`) on by default
+
+warning: `telemetry` (lib) generated 1 warning (run `cargo fix --lib -p telemetry` to apply 1 suggestion)
+warning: `map` (lib) generated 8 warnings (run `cargo fix --lib -p map` to apply 6 suggestions)
+warning: `content` (lib) generated 1 warning (run `cargo fix --lib -p content` to apply 1 suggestion)
+warning: unused import: `Health`
+  --> crates/game/src/character/create.rs:22:26
+   |
+22 |     health::{new_health, Health, HealthRegen, HitCount},
+   |                          ^^^^^^
+   |
+   = note: `#[warn(unused_imports)]` (part of `#[warn(unused)]`) on by default
+
+warning: unused import: `std::collections::HashSet`
+  --> crates/game/src/character/enemy/ai/state.rs:10:5
+   |
+10 | use std::collections::HashSet;
+   |     ^^^^^^^^^^^^^^^^^^^^^^^^^
+
+warning: unused import: `bevy::color::palettes::css::YELLOW`
+ --> crates/game/src/collider/mod.rs:7:5
+  |
+7 | use bevy::color::palettes::css::YELLOW;
+  |     ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+
+warning: unused import: `CollisionLayer`
+ --> crates/game/src/collider/debug.rs:7:38
+  |
+7 | use super::{Collider, ColliderShape, CollisionLayer, Wall};
+  |                                      ^^^^^^^^^^^^^^
+
+warning: unused import: `animation::SpriteSheetConfig`
+ --> crates/game/src/jjrs/local.rs:3:5
+  |
+3 | use animation::SpriteSheetConfig;
+  |     ^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+
+warning: unused imports: `ORANGE_300`, `PURPLE_300`, and `css::TURQUOISE`
+ --> crates/game/src/jjrs/local.rs:6:9
+  |
+6 |         css::TURQUOISE,
+  |         ^^^^^^^^^^^^^^
+7 |         tailwind::{ORANGE_300, PURPLE_300},
+  |                    ^^^^^^^^^^  ^^^^^^^^^^
+
+warning: unused import: `fixed_math`
+  --> crates/game/src/jjrs/local.rs:12:5
+   |
+12 |     fixed_math,
+   |     ^^^^^^^^^^
+
+warning: unused imports: `MatchboxSocket` and `prelude::PeerState`
+  --> crates/game/src/jjrs/local.rs:16:21
+   |
+16 | use bevy_matchbox::{prelude::PeerState, MatchboxSocket};
+   |                     ^^^^^^^^^^^^^^^^^^  ^^^^^^^^^^^^^^
+
+warning: unused import: `map::game::entity::map::enemy_spawn::EnemySpawnerComponent`
+  --> crates/game/src/jjrs/local.rs:20:5
+   |
+20 | use map::game::entity::map::enemy_spawn::EnemySpawnerComponent;
+   |     ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+
+warning: unused import: `utils::net_id::GgrsNetIdFactory`
+  --> crates/game/src/jjrs/local.rs:23:5
+   |
+23 | use utils::net_id::GgrsNetIdFactory;
+   |     ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+
+warning: unused imports: `CollisionSettings`, `config::CharacterConfig`, `create::create_player`, `enemy::spawning::EnemySpawnerState`, `global_asset::GlobalAsset`, `spawn_test_wall`, and `weapons::WeaponsConfig`
+  --> crates/game/src/jjrs/local.rs:27:9
+   |
+27 |         config::CharacterConfig,
+   |         ^^^^^^^^^^^^^^^^^^^^^^^
+28 |         enemy::spawning::EnemySpawnerState,
+   |         ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+29 |         player::{create::create_player, jjrs::PeerConfig},
+   |                  ^^^^^^^^^^^^^^^^^^^^^
+30 |     },
+31 |     collider::{spawn_test_wall, CollisionSettings},
+   |                ^^^^^^^^^^^^^^^  ^^^^^^^^^^^^^^^^^
+32 |     core::{AppState, OnlineState},
+33 |     global_asset::GlobalAsset,
+   |     ^^^^^^^^^^^^^^^^^^^^^^^^^
+...
+38 |     weapons::WeaponsConfig,
+   |     ^^^^^^^^^^^^^^^^^^^^^^
+
+warning: unused imports: `default` and `net::SocketAddr`
+  --> crates/game/src/jjrs/mod.rs:11:11
+   |
+11 | use std::{default, net::SocketAddr};
+   |           ^^^^^^^  ^^^^^^^^^^^^^^^
+
+warning: unused import: `animation::SpriteSheetConfig`
+  --> crates/game/src/jjrs/mod.rs:13:5
+   |
+13 | use animation::SpriteSheetConfig;
+   |     ^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+
+warning: unused imports: `ORANGE_300`, `PURPLE_300`, and `css::TURQUOISE`
+  --> crates/game/src/jjrs/mod.rs:16:9
+   |
+16 |         css::TURQUOISE,
+   |         ^^^^^^^^^^^^^^
+17 |         tailwind::{ORANGE_300, PURPLE_300},
+   |                    ^^^^^^^^^^  ^^^^^^^^^^
+
+warning: unused imports: `fixed_math` and `rng::RollbackRng`
+  --> crates/game/src/jjrs/mod.rs:21:18
+   |
+21 | use bevy_fixed::{fixed_math, rng::RollbackRng};
+   |                  ^^^^^^^^^^  ^^^^^^^^^^^^^^^^
+
+warning: unused import: `ggrs::PlayerType`
+  --> crates/game/src/jjrs/mod.rs:22:17
+   |
+22 | use bevy_ggrs::{ggrs::PlayerType, prelude::*};
+   |                 ^^^^^^^^^^^^^^^^
+
+warning: unused imports: `MatchboxSocket` and `prelude::PeerState`
+  --> crates/game/src/jjrs/mod.rs:23:21
+   |
+23 | use bevy_matchbox::{prelude::PeerState, MatchboxSocket};
+   |                     ^^^^^^^^^^^^^^^^^^  ^^^^^^^^^^^^^^
+
+warning: unused import: `ggrs::UdpNonBlockingSocket`
+  --> crates/game/src/jjrs/mod.rs:24:5
+   |
+24 | use ggrs::UdpNonBlockingSocket;
+   |     ^^^^^^^^^^^^^^^^^^^^^^^^^^
+
+warning: unused import: `map::game::entity::map::enemy_spawn::EnemySpawnerComponent`
+  --> crates/game/src/jjrs/mod.rs:25:5
+   |
+25 | use map::game::entity::map::enemy_spawn::EnemySpawnerComponent;
+   |     ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+
+warning: unused import: `utils::net_id::GgrsNetIdFactory`
+  --> crates/game/src/jjrs/mod.rs:26:5
+   |
+26 | use utils::net_id::GgrsNetIdFactory;
+   |     ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+
+warning: unused imports: `CollisionSettings`, `config::CharacterConfig`, `core::AppState`, `create::create_player`, `enemy::spawning::EnemySpawnerState`, `global_asset::GlobalAsset`, `spawn_test_wall`, and `weapons::WeaponsConfig`
+  --> crates/game/src/jjrs/mod.rs:30:9
+   |
+30 |         config::CharacterConfig,
+   |         ^^^^^^^^^^^^^^^^^^^^^^^
+31 |         enemy::spawning::EnemySpawnerState,
+   |         ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+32 |         player::{create::create_player, jjrs::PeerConfig},
+   |                  ^^^^^^^^^^^^^^^^^^^^^
+33 |     },
+34 |     collider::{spawn_test_wall, CollisionSettings},
+   |                ^^^^^^^^^^^^^^^  ^^^^^^^^^^^^^^^^^
+35 |     core::AppState,
+   |     ^^^^^^^^^^^^^^
+36 |     global_asset::GlobalAsset,
+   |     ^^^^^^^^^^^^^^^^^^^^^^^^^
+37 |     weapons::WeaponsConfig,
+   |     ^^^^^^^^^^^^^^^^^^^^^^
+
+warning: variable does not need to be mutable
+   --> crates/game/src/character/enemy/ai/pathing.rs:287:9
+    |
+287 |         mut path,
+    |         ----^^^^
+    |         |
+    |         help: remove this `mut`
+    |
+    = note: `#[warn(unused_mut)]` (part of `#[warn(unused)]`) on by default
+
+warning: unused variable: `path`
+   --> crates/game/src/character/enemy/ai/pathing.rs:287:9
+    |
+287 |         mut path,
+    |         ^^^^^^^^ help: if this is intentional, prefix it with an underscore: `_path`
+    |
+    = note: `#[warn(unused_variables)]` (part of `#[warn(unused)]`) on by default
+
+warning: unused variable: `frame`
+  --> crates/game/src/character/enemy/ai/behavior.rs:43:5
+   |
+43 |     frame: Res<FrameCount>,
+   |     ^^^^^ help: if this is intentional, prefix it with an underscore: `_frame`
+
+warning: unused variable: `next_pos`
+   --> crates/game/src/character/enemy/ai/navigation.rs:256:25
+    |
+256 |             if let Some(next_pos) = self.get_direction(neighbor) {
+    |                         ^^^^^^^^ help: if this is intentional, prefix it with an underscore: `_next_pos`
+
+warning: unused variable: `player_net_id`
+   --> crates/game/src/character/enemy/spawning.rs:157:14
+    |
+157 |         for (player_net_id, player_pos, player_room) in &players_with_rooms {
+    |              ^^^^^^^^^^^^^ help: if this is intentional, prefix it with an underscore: `_player_net_id`
+
+warning: unused variable: `width`
+  --> crates/game/src/collider/mod.rs:44:9
+   |
+44 |     let width = size.x;
+   |         ^^^^^ help: if this is intentional, prefix it with an underscore: `_width`
+
+warning: unused variable: `height`
+  --> crates/game/src/collider/mod.rs:45:9
+   |
+45 |     let height = size.y;
+   |         ^^^^^^ help: if this is intentional, prefix it with an underscore: `_height`
+
+warning: unused variable: `global_assets`
+   --> crates/game/src/interaction.rs:677:5
+    |
+677 |     global_assets: Res<GlobalAsset>,
+    |     ^^^^^^^^^^^^^ help: if this is intentional, prefix it with an underscore: `_global_assets`
+
+warning: unused variable: `telemetry_config`
+   --> crates/game/src/jjrs/mod.rs:106:5
+    |
+106 |     telemetry_config: Res<telemetry::TelemetryConfig>,
+    |     ^^^^^^^^^^^^^^^^ help: if this is intentional, prefix it with an underscore: `_telemetry_config`
+
+warning: unused variable: `app`
+  --> crates/game/src/light/mod.rs:10:21
+   |
+10 |     fn build(&self, app: &mut App) {
+   |                     ^^^ help: if this is intentional, prefix it with an underscore: `_app`
+
+warning: variable does not need to be mutable
+   --> crates/game/src/ui/lobby.rs:198:5
+    |
+198 |     mut socket: Option<ResMut<MatchboxSocket>>,
+    |     ----^^^^^^
+    |     |
+    |     help: remove this `mut`
+
+warning: variable does not need to be mutable
+   --> crates/game/src/waves/systems.rs:206:5
+    |
+206 |     mut spawn_assets: SpawnAssets,
+    |     ----^^^^^^^^^^^^
+    |     |
+    |     help: remove this `mut`
+
+warning: `game` (lib) generated 33 warnings (run `cargo fix --lib -p game` to apply 33 suggestions)
+warning: unused import: `spawn_test_wall`
+ --> crates/map_ldtk/src/game/collider.rs:6:22
+  |
+6 | use game::collider::{spawn_test_wall, Collider, ColliderShape, CollisionSettings, Wall};
+  |                      ^^^^^^^^^^^^^^^
+  |
+  = note: `#[warn(unused_imports)]` (part of `#[warn(unused)]`) on by default
+
+warning: unused import: `crate::map_const`
+ --> crates/map_ldtk/src/game/entity/enemy_spawn.rs:6:5
+  |
+6 | use crate::map_const;
+  |     ^^^^^^^^^^^^^^^^
+
+warning: unused import: `bevy_fixed::rng::RollbackRng`
+ --> crates/map_ldtk/src/loader/mod.rs:7:5
+  |
+7 | use bevy_fixed::rng::RollbackRng;
+  |     ^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+
+warning: unused import: `collider::create_wall_colliders_from_ldtk`
+ --> crates/map_ldtk/src/plugins.rs:4:19
+  |
+4 | use crate::game::{collider::create_wall_colliders_from_ldtk, plugin::LdtkMapLoadingPlugin};
+  |                   ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+
+warning: `map_ldtk` (lib) generated 4 warnings (run `cargo fix --lib -p map_ldtk` to apply 4 suggestions)
+warning: unused import: `NavProfile`
+  --> crates/scenario/src/nav_debug.rs:13:71
+   |
+13 |             ai::{navigation::GRID_CELL_SIZE, FlowFieldCache, GridPos, NavProfile, Obstacle},
+   |                                                                       ^^^^^^^^^^
+   |
+   = note: `#[warn(unused_imports)]` (part of `#[warn(unused)]`) on by default
+
+warning: `scenario` (lib) generated 1 warning (run `cargo fix --lib -p scenario` to apply 1 suggestion)
+warning: linker stderr: ld: __eh_frame section too large (max 16MB) to encode dwarf unwind offsets in compact unwind table, performance of exception handling might be affected
+  |
+  = note: `#[warn(linker_messages)]` on by default
+
+   Compiling scenario v0.1.0 (/Users/william.quintal/Project/bascanada/alacod/crates/scenario)
+warning: `scenario` (bin "alacod-gen") generated 1 warning
+warning: `scenario` (bin "alacod-sim") generated 1 warning (1 duplicate)
+warning: `scenario` (bin "play_scenario") generated 1 warning (1 duplicate)
+warning: unused import: `bevy::prelude`
+   --> crates/scenario/tests/expectations.rs:323:9
+    |
+323 |     use bevy::prelude::*;
+    |         ^^^^^^^^^^^^^
+    |
+    = note: `#[warn(unused_imports)]` (part of `#[warn(unused)]`) on by default
+
+warning: `scenario` (test "expectations") generated 2 warnings (1 duplicate)
+    Finished `headless` profile [optimized + debuginfo] target(s) in 3.57s
+     Running tests/expectations.rs (target/headless/build/scenario/00c5cb2f96f2df67/out/expectations-00c5cb2f96f2df67)
+
+running 1 test
+found a spawn level: cave-niveau_1-123456
+found a spawn level: cave-niveau_2-123456
+found a spawn level: cave-niveau_3-123456
+found a spawn level: cave-niveau_1-123456
+found a spawn level: cave-niveau_2-123456
+found a spawn level: cave-niveau_3-123456
+found a spawn level: cave-niveau_1-123456
+found a spawn level: cave-niveau_2-123456
+found a spawn level: cave-niveau_3-123456
+test throne_mutations_wait_for_clear_and_every_duo_choice_before_transition ... ok
+
+test result: ok. 1 passed; 0 failed; 0 ignored; 0 measured; 48 filtered out; finished in 27.51s

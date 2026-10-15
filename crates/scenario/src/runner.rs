@@ -2605,6 +2605,8 @@ pub struct CaptureConfig {
     pub every: u32,
     /// Si présent, force la caméra à suivre le joueur avec ce handle GGRS.
     pub follow_handle: Option<usize>,
+    /// Capture viewport, for checking responsive HUD layouts.
+    pub size: (u32, u32),
 }
 
 #[derive(Resource)]
@@ -2616,6 +2618,7 @@ struct CaptureState {
     updates_after_end: u32,
     /// Image où la caméra rend pendant la capture (taille fixe, indépendante de la fenêtre).
     target: Option<Handle<Image>>,
+    size: (u32, u32),
 }
 
 /// Taille des images capturées.
@@ -2625,6 +2628,10 @@ pub const CAPTURE_SIZE: (u32, u32) = (960, 540);
 /// simulation. Le temps avance d'exactement une frame par update : l'image `n` montre
 /// toujours la frame `n`, quelle que soit la vitesse de la machine.
 pub fn capture(scenario: &Scenario, config: CaptureConfig) -> AppExit {
+    assert!(
+        config.size.0 > 0 && config.size.1 > 0,
+        "capture size must be positive"
+    );
     std::fs::create_dir_all(&config.dir).expect("dossier de capture");
 
     let play_config = PlayConfig {
@@ -2645,6 +2652,7 @@ pub fn capture(scenario: &Scenario, config: CaptureConfig) -> AppExit {
         last_captured: None,
         updates_after_end: 0,
         target: None,
+        size: config.size,
     })
     .add_systems(Startup, configure_capture_window)
     .add_systems(Update, (render_cameras_to_image, capture_frames).chain());
@@ -2667,12 +2675,13 @@ fn render_cameras_to_image(
     mut state: ResMut<CaptureState>,
     cameras: Query<(Entity, &bevy::camera::RenderTarget), With<Camera>>,
 ) {
+    let size = state.size;
     let target = state
         .target
         .get_or_insert_with(|| {
             images.add(Image::new_target_texture(
-                CAPTURE_SIZE.0,
-                CAPTURE_SIZE.1,
+                size.0,
+                size.1,
                 bevy::render::render_resource::TextureFormat::Rgba8UnormSrgb,
                 None,
             ))

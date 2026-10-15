@@ -2,6 +2,7 @@ use std::collections::BTreeMap;
 
 use bevy::ecs::system::SystemParam;
 use bevy::prelude::*;
+use bevy::ui::UiSystems;
 use bevy_common_assets::ron::RonAssetPlugin;
 use bevy_fixed::fixed_math;
 use bevy_ggrs::Rollback;
@@ -48,6 +49,7 @@ pub struct HudTextWidget {
     /// Fond derrière le texte (T2.12, `HudWidget::background`), affiché seulement quand le
     /// texte n'est pas vide.
     pub background: Option<Color>,
+    pub compact: bool,
 }
 
 /// Rangée d'icônes (T2.12, source `perks`) : un carré de couleur par entrée, avec son
@@ -111,6 +113,9 @@ pub struct HudWidget {
     /// est vide. `None` : pas de fond.
     #[serde(default)]
     pub background: Option<String>,
+    /// Short presentation labels and bounded temporary-effect lists.
+    #[serde(default)]
+    pub compact: bool,
 }
 
 /// Icône d'un id de contenu (T2.12, perks) : pas de sprite, un carré de couleur et une
@@ -139,6 +144,10 @@ pub struct HudConfig {
     /// déclarent `fonts/FiraMono-Medium.ttf`. `None` : police par défaut.
     #[serde(default)]
     pub font: Option<String>,
+    /// Logical viewport that fits this game's HUD and modal screens. Shrinks on
+    /// smaller windows; omitted by existing games to preserve their UI scale.
+    #[serde(default)]
+    pub reference_size: Option<(f32, f32)>,
 }
 
 pub struct HudPlugin;
@@ -166,6 +175,14 @@ impl Plugin for HudPlugin {
                 Update,
                 handle_hud_config_changes.run_if(in_state(AppState::InGame)),
             )
+            .add_systems(
+                PostUpdate,
+                sync_hud_presentation
+                    .after(bevy::camera::CameraUpdateSystems)
+                    .before(UiSystems::Layout)
+                    .before(bevy::camera::visibility::VisibilitySystems::VisibilityPropagate)
+                    .run_if(in_state(AppState::InGame)),
+            )
             .add_systems(OnExit(AppState::InGame), despawn_hud);
     }
 }
@@ -173,6 +190,49 @@ impl Plugin for HudPlugin {
 /// Resource to hold the HUD config asset handle
 #[derive(Resource, Default)]
 struct HudConfigHandle(Option<Handle<HudConfig>>);
+
+/// Derived presentation only: reserve the screen for mutation/end modals and fit
+/// the complete UI into the viewport, including screenshot render targets.
+fn sync_hud_presentation(
+    view: Res<crate::ui::mutation_screen::MutationScreenView>,
+    run: Option<Res<run::Run>>,
+    config_handle: Res<HudConfigHandle>,
+    configs: Res<Assets<HudConfig>>,
+    cameras: Query<&Camera, With<crate::camera::GameCamera>>,
+    mut scale: ResMut<UiScale>,
+    mut roots: Query<&mut Visibility, With<HudRoot>>,
+) {
+    let config = config_handle.0.as_ref().and_then(|h| configs.get(h));
+    // Opt-in with the compact layout; legacy games keep their HUD during modals.
+    let Some(reference) = config.and_then(|config| config.reference_size) else {
+        return;
+    };
+    if let Ok(camera) = cameras.single() {
+        if let Some(size) = camera.logical_viewport_size() {
+            scale.0 = hud_scale(size, reference);
+        }
+    }
+    let modal = view.open
+        || run
+            .as_deref()
+            .is_some_and(|r| matches!(r.step, run::RunStep::Ended { .. }));
+    for mut visibility in &mut roots {
+        *visibility = if modal {
+            Visibility::Hidden
+        } else {
+            Visibility::Inherited
+        };
+    }
+}
+
+fn hud_scale(viewport: Vec2, reference: (f32, f32)) -> f32 {
+    if reference.0 <= 0.0 || reference.1 <= 0.0 || viewport.min_element() <= 0.0 {
+        return 1.0;
+    }
+    (viewport.x / reference.0)
+        .min(viewport.y / reference.1)
+        .min(1.0)
+}
 
 /// Load the HUD config handle
 fn load_hud_config(asset_server: Res<AssetServer>, mut config_handle: ResMut<HudConfigHandle>) {
@@ -303,15 +363,23 @@ fn spawn_hud_widgets(
 
             match &widget.kind {
                 HudWidgetKind::Bar { source } => {
-                    parent.spawn((
-                        node,
-                        BackgroundColor(Color::srgba(0.2, 0.2, 0.2, 0.8)),
-                        HudBarWidget {
-                            source: source.clone(),
-                            full_width: size.0,
-                            color,
-                        },
-                    ));
+                    parent
+                        .spawn((node, BackgroundColor(Color::srgba(0.04, 0.05, 0.07, 0.85))))
+                        .with_children(|track| {
+                            track.spawn((
+                                Node {
+                                    width: Val::Px(size.0),
+                                    height: Val::Percent(100.0),
+                                    ..default()
+                                },
+                                BackgroundColor(color),
+                                HudBarWidget {
+                                    source: source.clone(),
+                                    full_width: size.0,
+                                    color,
+                                },
+                            ));
+                        });
                 }
                 HudWidgetKind::Icons { source } => {
                     let mut node = node;
@@ -351,6 +419,7 @@ fn spawn_hud_widgets(
                             source: source.clone(),
                             prefix: text,
                             background,
+                            compact: widget.compact,
                         },
                     ));
                 }
@@ -363,6 +432,8 @@ fn spawn_hud_widgets(
 /// aussi en headless), `wave`/`enemies`/`players` depuis l'ECS.
 fn update_hud_values(
     snapshot: Res<HudSnapshot>,
+    hud_player: HudPlayer,
+    inventories: Query<&WeaponInventory>,
     all_players: Query<(), With<Player>>,
     enemies: Query<(), With<Enemy>>,
     wave_state: Res<WaveState>,
@@ -378,6 +449,10 @@ fn update_hud_values(
     let enemy_count = enemies.iter().count();
     let player_count = all_players.iter().count();
     let wave_num = wave_state.current_wave;
+    let reloading = hud_player
+        .entity()
+        .and_then(|entity| inventories.get(entity).ok())
+        .is_some_and(|inventory| inventory.is_reloading());
 
     for (bar_widget, mut node, mut bg_color) in bar_widgets.iter_mut() {
         let Some(ratio) = snapshot.bars.get(bar_widget.source.as_str()).copied() else {
@@ -395,7 +470,7 @@ fn update_hud_values(
 
     for (text_widget, mut text, mut background) in text_widgets.iter_mut() {
         let prefix_text = text_widget.prefix.clone();
-        let new_text = match text_widget.source.as_str() {
+        let mut new_text = match text_widget.source.as_str() {
             "wave" => format!("{}{}", prefix_text, wave_num),
             "enemies" => format!("{}{}", prefix_text, enemy_count),
             "players" => format!("{}{}", prefix_text, player_count),
@@ -405,6 +480,13 @@ fn update_hud_values(
                 None => continue,
             },
         };
+        if text_widget.compact
+            && text_widget.source == "weapon"
+            && reloading
+            && !new_text.is_empty()
+        {
+            new_text.push_str(" · recharge");
+        }
         set_text(&mut text, &mut background, text_widget, new_text);
     }
 }
@@ -486,6 +568,7 @@ fn update_hud_v1_values(
         icons: BTreeMap::new(),
         names: BTreeMap::new(),
         font: None,
+        reference_size: None,
     };
     let config = config_handle
         .0
@@ -919,12 +1002,43 @@ fn set_text(
     widget: &HudTextWidget,
     new_text: String,
 ) {
+    let new_text = if widget.compact {
+        compact_hud_text(&widget.source, &new_text)
+    } else {
+        new_text
+    };
     let color = text_background(widget.background, &new_text);
     if background.0 != color {
         background.0 = color;
     }
     if text.0 != new_text {
         text.0 = new_text;
+    }
+}
+
+fn compact_hud_text(source: &str, text: &str) -> String {
+    match source {
+        "weapon" => {
+            let label = text.replace('_', " ");
+            let mut chars = label.chars();
+            chars.next().map_or_else(String::new, |first| {
+                first.to_uppercase().collect::<String>() + chars.as_str()
+            })
+        }
+        "ammo" => text.replace(" | ", " / "),
+        "statuses" | "powerups" => {
+            let lines: Vec<_> = text.lines().collect();
+            let mut visible: Vec<_> = lines
+                .iter()
+                .take(2)
+                .map(|line| line.replace('_', " "))
+                .collect();
+            if lines.len() > 2 {
+                visible.push(format!("+{} effets", lines.len() - 2));
+            }
+            visible.join("\n")
+        }
+        _ => text.to_string(),
     }
 }
 
@@ -959,6 +1073,34 @@ pub(crate) fn parse_color(hex: &str) -> Color {
 #[cfg(test)]
 mod tests {
     use super::*;
+    #[test]
+    fn temporary_effects_keep_durations_and_count_hidden_entries() {
+        assert_eq!(
+            compact_hud_text(
+                "statuses",
+                "brulure ×2 · 3 s\npoison · 8 s\ngel · 2 s\nlent · 5 s"
+            ),
+            "brulure ×2 · 3 s\npoison · 8 s\n+2 effets"
+        );
+        assert_eq!(compact_hud_text("powerups", ""), "");
+        assert_eq!(compact_hud_text("ammo", "4 | 912"), "4 / 912");
+        assert_eq!(
+            compact_hud_text("weapon", "lance_grenades"),
+            "Lance grenades"
+        );
+    }
+
+    #[test]
+    fn compact_layout_fits_small_viewports_and_preserves_large_ones() {
+        assert_eq!(hud_scale(Vec2::new(960.0, 540.0), (800.0, 540.0)), 1.0);
+        let scale = hud_scale(Vec2::new(640.0, 360.0), (800.0, 540.0));
+        assert!(684.0 * scale < 640.0, "all three mutation cards must fit");
+        assert!(
+            340.0 * scale < 360.0,
+            "title/cards/hint must fit vertically"
+        );
+        assert_eq!(hud_scale(Vec2::ZERO, (800.0, 540.0)), 1.0);
+    }
     use crate::ui::hud_model::HudPlayerValues;
     use bevy_fixed::fixed_math::new as fx;
     use sim_core::modifier::{Modifier, ModifierOp};
@@ -1120,6 +1262,7 @@ mod tests {
             icons: BTreeMap::new(),
             names: BTreeMap::new(),
             font: None,
+            reference_size: None,
         };
         config.icons.insert(
             "juggernog".into(),
