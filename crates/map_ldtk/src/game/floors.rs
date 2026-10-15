@@ -233,7 +233,11 @@ impl Plugin for FloorsPlugin {
     fn build(&self, app: &mut App) {
         app.add_systems(
             GgrsSchedule,
-            (floor_portal_open_system, floor_transition_system)
+            (
+                debug_clear_enemies_system,
+                floor_portal_open_system,
+                floor_transition_system,
+            )
                 .chain()
                 .after(finalize_run_summary_system)
                 .in_set(RollbackSystemSet::Run)
@@ -310,6 +314,39 @@ fn init_floor_state_when_map_loaded(
         "Floors : niveau 0, portail en {:?}, {} ennemi(s)",
         floor_state.anchor, floor_state.enemies_placed
     );
+}
+
+/// `ALACOD_CLEAR_ENEMIES_AT=<frame>` (diagnostic, D59, avec `ALACOD_INPUT=neutral`) : à cette
+/// frame, tous les ennemis vivants disparaissent (`despawn_rollback`) : le portail s'ouvre alors
+/// par la règle ordinaire ([`floor_portal_open_system`]) et des clients sans clavier traversent
+/// la transition d'étage, ce qui permet une preuve p2p de `floor://` et du changement d'étage
+/// (`docs/conventions.md` §40). À régler sur **tous** les clients ; absente : sans effet.
+fn clear_enemies_at() -> Option<u32> {
+    static AT: std::sync::OnceLock<Option<u32>> = std::sync::OnceLock::new();
+    *AT.get_or_init(|| {
+        std::env::var("ALACOD_CLEAR_ENEMIES_AT").ok().map(|v| {
+            v.parse()
+                .expect("ALACOD_CLEAR_ENEMIES_AT doit être un entier")
+        })
+    })
+}
+
+/// Voir [`clear_enemies_at`] ; rien sans la variable d'environnement.
+pub fn debug_clear_enemies_system(
+    frame: Res<FrameCount>,
+    mut commands: Commands,
+    enemies: Query<(&GgrsNetId, Entity), With<Enemy>>,
+) {
+    if clear_enemies_at() != Some(frame.frame) {
+        return;
+    }
+    for (net_id, entity) in order_iter!(enemies) {
+        info!(
+            "ggrs{{f={} debug_clear_enemy net_id={}}}",
+            frame.frame, net_id.0
+        );
+        commands.entity(entity).despawn_rollback();
+    }
 }
 
 /// Ouvre le portail quand le niveau courant n'a plus d'ennemi (`EntityCount(enemy) == 0` :

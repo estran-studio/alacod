@@ -45,8 +45,9 @@ pub enum EntryMode {
     Waves,
     /// Aucune condition de fin hors défaite.
     Sandbox,
-    /// Séquence de niveaux (T1.8) : la première séquence (ordre des ids) d'un dossier de
-    /// contenu `Floors` (validé par `lint::lint_entry_point`). Voir `docs/conventions.md` §17.
+    /// Séquence de niveaux (T1.8) : la séquence désignée par `entry.floors`, sinon (D59) la
+    /// première (ordre des ids) d'un dossier de contenu `Floors` (validé par
+    /// `lint::lint_entry_point`). Voir `docs/conventions.md` §17.
     Floors,
 }
 
@@ -61,6 +62,12 @@ pub struct EntryPoint {
     /// ici (ce module ne construit pas de registre).
     #[serde(default)]
     pub mode: Option<EntryMode>,
+    /// D59 : id de la séquence du dossier `Floors` jouée par défaut en mode `Floors` (nom de
+    /// fichier sans extension). Absent : la première par ordre d'id (comportement d'avant D59,
+    /// gardé pour les jeux qui n'ont qu'une séquence). Un scénario garde la main par son champ
+    /// `floors`. Exige `mode: Floors` et un id de séquence existant (lint).
+    #[serde(default)]
+    pub floors: Option<String>,
     /// Progression active (T1.10, `docs/conventions.md` §27) : id d'un fichier du kind
     /// `Progression`. Absent (défaut) : aucune progression, même si le jeu en déclare une
     /// (le testbed la garde pour ses scénarios, qui l'imposent par `Scenario::progression`).

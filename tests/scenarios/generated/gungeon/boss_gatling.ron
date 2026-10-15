@@ -31,4 +31,5 @@ Scenario(
         ),
     ],
     powerup_drop_chance_override: "0",
+    floors: "etage_1",
 )

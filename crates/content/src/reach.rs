@@ -10,8 +10,9 @@
 //!
 //! **Racines** : `entry.start_map` et chaque niveau de chaque séquence du dossier `Floors`
 //! (carte directe, caverne ou grammaire d'étage `floor:<id>`). Le dossier `Floors` n'a pas de
-//! séquence « par défaut » stable (le mode `Floors` prend la première par ordre d'id) : toute
-//! séquence déclarée est une partie jouable.
+//! séquence « par défaut » implicite (D59 : `entry.floors` la désigne explicitement, à défaut la
+//! première par ordre d'id) : toute séquence déclarée reste une racine, car un scénario ou le
+//! lobby peut en imposer une autre.
 
 use std::collections::{BTreeMap, BTreeSet};
 use std::fmt;

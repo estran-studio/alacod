@@ -1,0 +1,10 @@
+// Fixture D59 : `entry.floors` sans `entry.mode: Floors` : LintErrorKind::Unsupported.
+(
+    name: "fixture-entry-floors-without-mode",
+    content_folders: [],
+    entry: (
+        start_map: "unused",
+        default_seed: 1,
+        floors: "fantome",
+    ),
+)
