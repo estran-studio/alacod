@@ -759,13 +759,11 @@ fn t3_4_fixtures_have_a_single_rule_failure() {
 /// une seule erreur par fixture en plus du start_map commun.
 #[test]
 fn hud_source_fixtures() {
-    for (name, kind, needle) in [
-        (
-            "hud_unknown_source",
-            LintErrorKind::UnknownKind,
-            "hud : source inconnue « mana »",
-        ),
-    ] {
+    for (name, kind, needle) in [(
+        "hud_unknown_source",
+        LintErrorKind::UnknownKind,
+        "hud : source inconnue « mana »",
+    )] {
         let (_, _, errors) = load_and_lint(&fixture_dir(name)).unwrap();
         assert_has_error(&errors, kind, needle);
         let others: Vec<_> = errors

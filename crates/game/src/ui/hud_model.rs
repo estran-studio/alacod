@@ -353,7 +353,12 @@ pub fn hud_values(input: &HudPlayerInput) -> HudPlayerValues {
             .zip(input.room_states)
             .map(|(geometry, states)| {
                 let none = BTreeSet::new();
-                minimap_rooms(geometry, states, input.visits.unwrap_or(&none), input.position)
+                minimap_rooms(
+                    geometry,
+                    states,
+                    input.visits.unwrap_or(&none),
+                    input.position,
+                )
             })
             .unwrap_or_default(),
     }
@@ -902,7 +907,12 @@ mod tests {
         ]);
         let none = BTreeSet::new();
         let mut states = RoomStates::default();
-        let before = minimap_rooms(&geometry, &states, &none, Some(FixedVec2::new(fx(50.0), fx(50.0))));
+        let before = minimap_rooms(
+            &geometry,
+            &states,
+            &none,
+            Some(FixedVec2::new(fx(50.0), fx(50.0))),
+        );
         assert!(before[0].current && before[0].visited);
         assert_eq!(before[0].rect, [0.0, 0.5, 0.5, 0.5]);
         assert!(!before[1].visited);
@@ -960,9 +970,12 @@ mod tests {
         let player = app
             .world_mut()
             .spawn((
-                Player { handle: 0 },
-                LocalPlayer,
-                FixedTransform3D::default(),
+                Player {
+                    handle: 0,
+                    ..Default::default()
+                },
+                LocalPlayer {},
+                FixedTransform3D::IDENTITY,
             ))
             .id();
         let mut move_to = |app: &mut App, x: i32| {
@@ -978,16 +991,31 @@ mod tests {
         let visits = app.world().resource::<MinimapVisits>().visited.clone();
         assert!(visits.contains("shop") && visits.contains("start") && !visits.contains("boss"));
         let none = RoomStates::default();
-        let map = minimap_rooms(&geometry, &none, &visits, Some(FixedVec2::new(fx(50.0), fx(50.0))));
+        let map = minimap_rooms(
+            &geometry,
+            &none,
+            &visits,
+            Some(FixedVec2::new(fx(50.0), fx(50.0))),
+        );
         let shop = map.iter().find(|r| r.id == "shop").unwrap();
         assert!(shop.visited && !shop.current && shop.state == RoomState::Dormant);
         assert!(!map.iter().find(|r| r.id == "boss").unwrap().visited);
-        let snapshot = snapshot_of(1, HudPlayerValues { minimap: map, ..default() });
+        let snapshot = snapshot_of(
+            1,
+            HudPlayerValues {
+                minimap: map,
+                ..default()
+            },
+        );
         assert!(snapshot.texts["minimap"].contains("boutique · visitée"));
         assert!(snapshot.texts["minimap"].contains("boss · boss · inexplorée"));
         // Nouvel étage : géométrie différente, mémoire vidée.
         app.insert_resource(HudRoomGeometry(vec![room("other", "depart", 0)]));
         app.update();
-        assert!(!app.world().resource::<MinimapVisits>().visited.contains("shop"));
+        assert!(!app
+            .world()
+            .resource::<MinimapVisits>()
+            .visited
+            .contains("shop"));
     }
 }

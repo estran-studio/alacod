@@ -53,10 +53,11 @@ fn load_template(
     mut template: ResMut<MutationTemplate>,
 ) {
     // Un jeu sans écran de mutation (zombies, gungeon) ne demande pas d'asset absent.
-    let present = registry
-        .ui_files
-        .iter()
-        .any(|path| path.to_string_lossy().replace('\\', "/").ends_with(TEMPLATE));
+    let present = registry.ui_files.iter().any(|path| {
+        path.to_string_lossy()
+            .replace('\\', "/")
+            .ends_with(TEMPLATE)
+    });
     template.0 = present.then(|| asset_server.load(TEMPLATE));
 }
 
@@ -131,11 +132,7 @@ fn sync_mutation_screen(
             for (key, value) in &props {
                 properties.set(key, value);
             }
-            commands.spawn((
-                HtmlNode(handle),
-                properties,
-                MutationRoot { shown: props },
-            ));
+            commands.spawn((HtmlNode(handle), properties, MutationRoot { shown: props }));
         }
     }
 }
