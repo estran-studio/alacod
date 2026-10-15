@@ -20,7 +20,19 @@
         "grenade": (hit_stop_frames: Some(6), shake: Some((frames: 16, amplitude: 20.0))),
     },
     sounds: {
-        "shot": "sounds/machine-gun.ogg",
-        "reload": "sounds/machine-gun-reload.ogg",
+        // Tir : clé de la famille du mode de tir actif (Manual : shot_pistol, Shotgun :
+        // shot_shotgun, Automatic/Burst : shot_smg), repli sur "shot" si elle est absente.
+        "shot_pistol": "sounds/shot_pistol.ogg",
+        "shot_shotgun": "sounds/shot_shotgun.ogg",
+        "shot_smg": "sounds/shot_smg.ogg",
+        "reload": "sounds/reload.ogg",
+        // Événements (lot B) : coup porté par un joueur local, dégâts reçus, ennemi tué, dash,
+        // blank, porte ouverte.
+        "hit": "sounds/hit.ogg",
+        "hurt": "sounds/hurt.ogg",
+        "death": "sounds/death.ogg",
+        "dash": "sounds/dash.ogg",
+        "blank": "sounds/blank.ogg",
+        "door": "sounds/door.ogg",
     },
 )

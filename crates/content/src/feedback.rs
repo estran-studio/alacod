@@ -46,9 +46,16 @@ pub struct FeedbackSettings {
     /// sur `by_kind`.
     #[serde(default, skip_serializing_if = "BTreeMap::is_empty")]
     pub by_weapon: BTreeMap<String, FeedbackOverride>,
-    /// Sons (clés : `shot`, `reload`), chemins relatifs à `assets/`.
+    /// Sons, chemins relatifs à `assets/`. Clés : `shot_pistol`, `shot_shotgun`, `shot_smg`
+    /// (tir, selon la famille du mode de tir actif), `shot` (repli du tir), `reload`, et les
+    /// événements `hit`, `hurt`, `death`, `dash`, `blank`, `door` (`game::feedback`).
     #[serde(default)]
     pub sounds: BTreeMap<String, String>,
+    /// Son de tir d'une arme à distance : nom d'arme → clé de `sounds`, prioritaire sur la
+    /// famille déduite du mode de tir (ex. un pistolet `Automatic` qui ne doit pas sonner comme
+    /// une mitraillette). Le lint vérifie l'arme et la clé.
+    #[serde(default, skip_serializing_if = "BTreeMap::is_empty")]
+    pub shot_sounds: BTreeMap<String, String>,
 }
 
 #[derive(Debug, Clone, Copy, PartialEq, Serialize, Deserialize)]
