@@ -33,19 +33,21 @@ joueur 1 vivant à 36 px de lui, immobile 600 frames. `approach` rendait un pas 
 
 ## 3. Campagnes (`docs/taches/rapports/bot-explorateur-v2/`, 200 graines, lots de 10 poussés un par un)
 
-Binaire de la fusion avec main 246b2464. `--until-floor 1 --max-frames 20000`.
+Binaire de la fusion avec main 1a85d51b (M1 revue humaine, T5 loot). `--until-floor 1 --max-frames 20000`.
 
-| Campagne | Étage 2 atteint | Morts | Soft-lock | Desync | Avant (m2-t16) |
-|---|---|---|---|---|---|
-| b1 `etages_court_deux`, 1 bot | 195 / 200 | 5 | 0 | 0 | 195 / 200 (identique) |
-| b2 `etages_court_deux`, 2 bots | 200 / 200 | 0 | 0 | 0 | 200 / 200 (identique) |
-| e1 `etages_deux`, 1 bot | 0 / 200 | 200 | 0 | 0 | 0 / 200 |
-| e2 `etages_deux`, 2 bots | **133 / 200** | 67 (33,5 %) | **0** | 0 | 93 / 200, 105 morts, 2 soft-locks |
+| Campagne | Étage 2 atteint | Morts | Soft-lock | Desync |
+|---|---|---|---|---|
+| b1 `etages_court_deux`, 1 bot | 200 / 200 | 0 | 0 | 0 |
+| b2 `etages_court_deux`, 2 bots | 200 / 200 | 0 | 0 | 0 |
+| e1 `etages_deux`, 1 bot | 1 / 200 | 199 | 0 | 0 |
+| e2 `etages_deux`, 2 bots | **140 / 200** | 59 | **1 (graine 90)** | 0 |
 
-- b1 et b2 : `etages_court_deux` n'a ni arène, ni boutique, ni récompense ; mêmes résultats graine par graine.
-- e1 : tous morts, frames 352 / 605 (méd.) / 1668 (avant 320 / 558 / 1171) ; 3 salles visitées et 1 nettoyée en médiane
-  (comme avant). Le taux de mort de `etages_deux` relève de **D64** (salles de combat trop mortelles) : chiffré, pas traité.
-- e2 : 0 soft-lock (2 avant), 0 desync, 133 réussites (93 avant), sans toucher au contenu.
+Avant ce travail (main d2e3cef2) : b1 195, b2 200, e1 0, e2 93 réussites avec 2 soft-locks. Sur la fusion précédente
+(246b2464) les mêmes campagnes donnaient b1 195, b2 200, e1 0, e2 133 sans soft-lock : le passage à main 1a85d51b
+(recul des ennemis, loot) a changé l'équilibre (b1 sans mort), pas le bot.
+- **Soft-lock e2 graine 90 (ouvert)** : 12 salles visitées, plus aucun ennemi, portail ouvert, joueur 0 à terre depuis
+  f3976 (saignement f5776) qui se déplace, joueur 1 vivant à ~210 px dont les réanimations sont « interrompues » sans
+  cesse (f4103 à f4442…). Cause non élucidée ; à traiter dans une suite (D65b).
 - **Arène verrouillée puis nettoyée**, `arene.py` (rejouée avec `--log`, graines 1 à 30 à 2 bots) : verrouillée sur 28
   graines, **nettoyée sur 23**. Exemples : graine 1 (verrou f45, nettoyée f945), graine 2 (f48, f948), graine 3 (f1527,
   f2427) ; la nettoyée dure 900 frames (horloge de la salle). Les 5 autres verrouillées sont des défaites en arène ou
