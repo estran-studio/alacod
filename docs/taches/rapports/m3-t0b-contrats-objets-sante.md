@@ -30,10 +30,11 @@ reporté à M3-T2.
 
 ## Vérification et traces
 
-Le scénario `hit_iframes` est une trace neuve. Les traces existantes doivent rester identiques :
-les champs sont absents du contenu livré, les types nouveaux sont neutres et les variantes sont en
-fin d'enum. Frames à regarder dans la capture : f10 (premier impact), f20 (second impact ignoré),
-f40 (un seul coup compté).
+Le scénario `hit_iframes` est une trace neuve (seule bénie). Les traces existantes sont
+identiques : les champs sont absents du contenu livré, les types nouveaux sont neutres et les
+variantes sont en fin d'enum. Preuve des i-frames : deux balles touchent la cible (`iframes_target`,
+`hit_iframes: Some(30)`, 5000 PV) ; elle ne perd que 8 PV (4992). Contrôle sans i-frames
+(`hit_iframes: None`) : 4984, soit deux coups.
 
 ## Questions pour William
 
@@ -44,31 +45,20 @@ f40 (un seul coup compté).
 
 ## Vérifications effectuées après fusion
 
+Cause du blocage précédent (erreur M3-T0b, corrigée) : `games/testbed/assets/characters/iframes_target.ron`
+omettait `scale`, champ obligatoire de `CharacterConfig` côté jeu mais absent du schéma de contenu
+(le lint passait). Le chargement du personnage échouait, la run se terminait, puis
+`cleanup_rollback_world_system` retirait `Run` : tout scénario `testbed` paniquait au runner. Les
+échecs de `make gen` et `test_crates` venaient de la même cause, pas d'un état préexistant.
+`counts_hits` est aussi retiré de `iframes_target` (réservé à la cible de `generate_template`).
+
 - `git fetch && git merge origin/main` : OK, `origin/main` est `5d9f854b`.
-- `git diff --exit-code origin/main -- scripts Makefile` : OK ; aucun changement de générateur
-  dans la branche. Les seuls changements sous `crates/content` concernent le lint et le schéma
-  M3-T0b.
-- `cargo check -p content -p game --tests` : OK.
-- `cargo test -p content` : OK, 262 tests passés (1 ignoré).
-- `make lint` : OK pour zombies, testbed, throne, gungeon et isaac.
-- `make gen GAME=throne`, `make gen GAME=gungeon`, `make gen GAME=isaac` : OK, sans diff.
-- `make gen GAME=zombies` : échec dans `alacod-gen` :
-  `arme « machine_gun » : impossible de trouver l'entité « target » (HitCount) en jouant
-  testbed/arena.ldtk`.
-- `make gen GAME=testbed` : échec dans `alacod-gen` :
-  `arme « fireball_gun » : impossible de trouver l'entité « target » (HitCount) en jouant
-  testbed/arena.ldtk`.
-  Ces erreurs sont reproductibles sur `origin/main` et aucun fichier de générateur n'est modifié
-  par cette branche.
+- `make test_scenarios SCENARIO=barrel_chain` : OK.
+- `make test_scenarios SCENARIO=hit_iframes` : OK après `BLESS=1` (trace neuve seule).
+- `make test_scenarios_par SHARDS=3` (sans BLESS) : OK, 369 scénarios, aucune trace existante
+  modifiée.
+- `make test_crates` : OK.
+- `make gen GAME=zombies|testbed|throne|gungeon|isaac` : OK, sans diff.
+- `make lint` : OK pour les cinq jeux.
 - `cargo fmt --all -- --check` : OK.
-- `make check_sim_boundary` : OK ; 11 crates simulation ECS seul, 5 dettes D69 signalées.
-- `make test_scenarios SCENARIO=four_players_idle` : OK.
-- `make test_scenarios SCENARIO=hit_iframes` : le scénario déclenche bien la sortie de run avant
-  la fin demandée, puis le runner lit `Run` après `cleanup_rollback_world_system` ; la commande
-  panique donc à `crates/scenario/src/runner.rs:1593`. La cible est désormais inoffensive
-  (`attack_damage: Some("0.0")`), les vagues et la victoire sont retardées, et la durée est
-  limitée à 40 frames ; la trace ne peut pas être bénie tant que ce chemin de runner n'est pas
-  corrigé.
-- `make test_scenarios_par SHARDS=3` et `make test_crates` : échecs sur le même chemin de
-  runner (`Run` absent après nettoyage), ainsi que des tests scénario dépendants ; aucune trace
-  existante n'a été bénie ni modifiée.
+- `cargo test -p content` : OK, 262 tests (1 ignoré) ; `make check_sim_boundary` : OK.
