@@ -155,10 +155,11 @@ pub struct ItemDef {
     pub cost: Option<(String, u32)>,
     /// M3-T0a (`docs/conventions.md` §60) : modificateurs de projectile ajoutés aux tirs du
     /// porteur (`modifiers`, `on_hit`, `on_expire`), composés avec ceux de l'arme par
-    /// `combat::projectile::compose` dans l'ordre de [`projectile_sources`]. `None` : v1 exacte.
-    /// Contrat : le tir ne le lit pas encore (M3-T1) ; le lint refuse un objet qui le porte
-    /// (`Unsupported`). `ItemDef` est une définition (ressource [`ItemTable`], hors rollback,
-    /// sans `Hash`) : le champ n'entre dans aucun checksum.
+    /// `combat::projectile::compose` dans l'ordre de [`projectile_mods`]. `None` : v1 exacte.
+    /// Lu au tir par M3-T1 (§66) ; le lint vérifie sa forme (un objet n'a pas de table
+    /// `projectiles` : `Split` sans `child`, `on_expire` sans `Spawn`). `ItemDef` est une
+    /// définition (ressource [`ItemTable`], hors rollback, sans `Hash`) : le champ n'entre dans
+    /// aucun checksum.
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub projectile: Option<ProjectileMods>,
     /// M3-T0d (`docs/conventions.md` §63) : l'objet donne un **familier** (un personnage de
@@ -203,24 +204,17 @@ pub struct SynergyDef {
     pub projectile: Option<ProjectileMods>,
 }
 
-/// M3-T0a (§60) : listes de modificateurs de projectile des objets tenus par `inventory`, dans
+/// M3-T0a (§60), lu au tir par M3-T1 (§66) : `projectile` des objets tenus par `inventory`, dans
 /// l'ordre déterministe de la composition (`combat::projectile::compose`, après ceux de l'arme) :
 /// passifs dans l'ordre de ramassage (un passif en double compte deux fois), puis l'actif, puis
-/// les synergies actives par id croissant. Les objets sans `projectile` ne donnent rien. Pure :
-/// M3-T1 l'appellera au tir.
-pub fn projectile_sources<'a>(
+/// les synergies actives par id croissant. Les objets sans `projectile` ne donnent rien. Pure.
+pub fn projectile_mods<'a>(
     items: &'a ItemTable,
     synergies: &'a SynergyTable,
     inventory: &Inventory,
-) -> Vec<&'a [effects::projectile::ProjectileModifier]> {
-    let item_mods = |id: &str| {
-        items
-            .0
-            .get(id)
-            .and_then(|def| def.projectile.as_ref())
-            .map(|mods| mods.modifiers.as_slice())
-    };
-    let mut out: Vec<&[effects::projectile::ProjectileModifier]> = Vec::new();
+) -> Vec<&'a ProjectileMods> {
+    let item_mods = |id: &str| items.0.get(id).and_then(|def| def.projectile.as_ref());
+    let mut out: Vec<&ProjectileMods> = Vec::new();
     out.extend(inventory.passives.iter().filter_map(|id| item_mods(id)));
     if let Some(active) = &inventory.active {
         out.extend(item_mods(&active.item));
@@ -229,10 +223,22 @@ pub fn projectile_sources<'a>(
         synergies
             .active(inventory)
             .into_iter()
-            .filter_map(|(_, def)| def.projectile.as_ref())
-            .map(|mods| mods.modifiers.as_slice()),
+            .filter_map(|(_, def)| def.projectile.as_ref()),
     );
     out
+}
+
+/// Les seules listes de modificateurs de [`projectile_mods`] (même ordre), sans `on_hit` ni
+/// `on_expire`.
+pub fn projectile_sources<'a>(
+    items: &'a ItemTable,
+    synergies: &'a SynergyTable,
+    inventory: &Inventory,
+) -> Vec<&'a [effects::projectile::ProjectileModifier]> {
+    projectile_mods(items, synergies, inventory)
+        .into_iter()
+        .map(|mods| mods.modifiers.as_slice())
+        .collect()
 }
 
 /// Source des modificateurs d'une synergie.
@@ -418,6 +424,39 @@ mod tests {
             ]
         );
         assert!(projectile_sources(&table, &synergies, &Inventory::default()).is_empty());
+    }
+
+    /// M3-T1 : `projectile_mods` rend les `ProjectileMods` entiers (`on_hit` et `on_expire` avec les
+    /// modificateurs), dans l'ordre de `projectile_sources`.
+    #[test]
+    fn projectile_mods_porte_on_hit_et_on_expire_dans_le_meme_ordre() {
+        let parse = |src: &str| -> ItemDef { ron::from_str(src).unwrap() };
+        let table = ItemTable(BTreeMap::from([
+            (
+                "venin".to_string(),
+                parse(
+                    r#"(name: "V", kind: Passive, projectile: Some((on_hit: [ApplyStatus(status: "poison", stacks: 1)])))"#,
+                ),
+            ),
+            (
+                "mine".to_string(),
+                parse(
+                    r#"(name: "M", kind: Passive, projectile: Some((on_expire: [DestroyTerrain(radius: "8.0")])))"#,
+                ),
+            ),
+        ]));
+        let inventory = Inventory {
+            passives: vec!["mine".into(), "venin".into(), "venin".into()],
+            active: None,
+            consumables: BTreeMap::new(),
+        };
+        let synergies = SynergyTable::default();
+        let mods = projectile_mods(&table, &synergies, &inventory);
+        assert_eq!(mods.len(), 3, "un passif en double compte deux fois");
+        assert_eq!(mods[0].on_expire.len(), 1);
+        assert!(mods[0].on_hit.is_empty());
+        assert_eq!(mods[1], mods[2]);
+        assert_eq!(mods[1].on_hit.len(), 1);
     }
 
     #[test]

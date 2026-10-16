@@ -1,5 +1,4 @@
-// Fixture M3-T0a : `Spectral`, `Split` et `Orbit` sont lus (formes valides) mais pas encore exécutés
-// au tir (M3-T1) : une arme qui les porte est refusée (Unsupported).
+// Fixture M3-T1 : `Spectral`, `Split` (enfant de la table) sont exécutés ; `Orbit` seul (sans Homing ni Gravity).
 ({
     "spectre": (
         config: (
@@ -12,8 +11,11 @@
                     projectile: (modifiers: [
                         Spectral,
                         Split(count: 3, spread: "0.6", child: Some("eclat")),
-                        Orbit(radius: "40.0", frames_per_turn: 60),
                     ]),
+                ),
+                "orbite": (
+                    firing_rate: "3.0",
+                    projectile: (modifiers: [Orbit(radius: "40.0", frames_per_turn: 60), Lifetime(120)]),
                 ),
             },
             projectiles: {

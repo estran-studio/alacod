@@ -1,0 +1,9 @@
+// M3-T1 (docs/conventions.md §66) : objet d'essai : les larmes du porteur se guident vers l'ennemi le plus proche (`Homing`). Scénario `tears_item_homing` (et son témoin sans objet) ; empilé dans `tears_stack_three`.
+(
+    name: "Guide",
+    kind: Passive,
+    projectile: Some((modifiers: [Homing("0.1")])),
+    tags: ["larmes"],
+    rarity: Common,
+    test: Some((frames: 60)),
+)

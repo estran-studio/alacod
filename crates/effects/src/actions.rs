@@ -148,6 +148,21 @@ pub enum Action {
         #[cfg_attr(feature = "schema", schemars(extend("x-lint" = "> 0")))]
         count: u32,
     },
+    /// M3-T1 (`docs/conventions.md` §66) : exécute `then` avec une chance de
+    /// `clamp(base + Luck × per_luck, 0, 1)` ([`crate::chance_with_luck`]). **`on_hit` d'un
+    /// projectile seulement** (arme ou objet) ; le tirage est un RNG local de graine
+    /// `(graine de run, net id du projectile, rang de l'action)`, jamais `RngStreams`. `then` est
+    /// une action d'`on_hit` ordinaire (pas une autre `Chance`). Ajoutée en fin d'enum : les
+    /// hashs des variantes d'avant ne bougent pas.
+    Chance {
+        #[cfg_attr(feature = "schema", schemars(with = "bevy_fixed::schema::FixedString"))]
+        #[cfg_attr(feature = "schema", schemars(extend("x-lint" = "[0, 1]")))]
+        base: Fixed,
+        #[serde(default)]
+        #[cfg_attr(feature = "schema", schemars(with = "bevy_fixed::schema::FixedString"))]
+        per_luck: Fixed,
+        then: Box<Action>,
+    },
 }
 
 impl Action {
@@ -200,7 +215,8 @@ impl Action {
             | Action::Telegraph(_)
             | Action::GainShield(_)
             | Action::Explode { .. }
-            | Action::SpawnCharacters { .. } => None,
+            | Action::SpawnCharacters { .. }
+            | Action::Chance { .. } => None,
         }
     }
 }

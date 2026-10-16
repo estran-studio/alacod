@@ -1,0 +1,8 @@
+// Fixture M3-T1 (docs/conventions.md §66) : un objet n'a pas de table projectiles (celle de l'arme) : Split avec child et on_expire Spawn refusés (Unsupported)
+(
+    name: "fixture-item_projectile_no_table",
+    content_folders: [
+        (path: "objets", kind: "Item"),
+    ],
+    entry: (start_map: "unused", default_seed: 1),
+)
