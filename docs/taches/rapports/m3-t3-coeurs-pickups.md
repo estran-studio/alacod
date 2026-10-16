@@ -1,6 +1,6 @@
 # M3-T3 : cœurs, i-frames, sous, bombes et clés au sol
 
-Branche `m3-t3-coeurs-pickups` (depuis `origin/main` a9432ed9, fusionnée avec `0a719425`), worker b1, 2026-10-16.
+Branche `m3-t3-coeurs-pickups` (depuis `origin/main` a9432ed9, fusionnée avec `0a719425`, puis à la revue avec `64ec961c`), worker b1 (réalisation), b6 (revue indépendante et correctifs), 2026-10-16.
 Spécification : `docs/conventions.md` §68. Réponses de William appliquées : **Q2** (demi-cœur = 1 PV, `ExtraHealth { soul }`
 neutre absorbé avant les PV point par point, cœurs d'âme en présentation), **Q4** (sous, bombes, clés **par joueur**), **Q6**
 (`ExtraHealth` lisible par `can_pay`, rien décidé pour T8).
@@ -11,9 +11,9 @@ neutre absorbé avant les PV point par point, cœurs d'âme en présentation), *
    `GainSoul(Fixed)` (variante en fin d'enum), attente `ExtraHealth(handle, n, at_frame)`. **Ordre retenu des couches, testé** :
    bouclier → armure → `ExtraHealth` → PV, dans la fonction pure `combat::damage::apply_layers` (appelée par
    `rollback_resolve_damage_events`) ; `DamageKind::True` ignore bouclier et armure mais **pas** l'âme ; un coup absorbé par l'âme
-   démarre les `hit_iframes`, compte pour `HitLanded`/`HitCount`/crédit de points, mais n'accumule rien aux PV (donc pas d'`OnDamageTaken`).
-   Unitaires : `combat::damage::layer_tests` (6) ; dans le vrai résolveur : `crates/scenario/tests/extra_health.rs` (4 : âme point par point,
-   ordre bouclier/armure/âme/PV sur trois coups, coup absorbé qui démarre les i-frames, dégâts vrais).
+   démarre les `hit_iframes`, compte pour `HitLanded`/`HitCount`/crédit de points, mais n'accumule rien aux PV (ni mort, ni `last_hit_by`, ni délai de régénération). **`OnDamageTaken`** (revue) : avec `HealthRegen` il se lit sur la perte de PV réelle (un coup absorbé en entier par l'âme ne le déclenche pas) ; **sans `HealthRegen` — `pleureur` — `effects_runtime` le déclenche sur tout `DamageEvent` visant le porteur** (§25), donc aussi sur un coup absorbé par l'âme. **Règle inchangée, documentation corrigée** (§68).
+   Unitaires : `combat::damage::layer_tests` (6) ; dans le vrai résolveur : `crates/scenario/tests/extra_health.rs` (5 : âme point par point,
+   ordre bouclier/armure/âme/PV sur trois coups, coup absorbé par l'âme qui démarre les i-frames, coup absorbé par le bouclier qui ne démarre **pas** les `hit_iframes`, dégâts vrais).
 2. **`hit_iframes: Some(60)`** sur `pleureur` (le joueur d'`isaac`), en données. `hit_iframes_isaac` : 4 PV à f130 et 3 à f260 ; sans la
    donnée 3 et 1 (témoin permanent : `extra_health.rs::isaac_without_hit_iframes_loses_more`, qui efface la donnée dans les assets).
 3. **Sous au sol** : `LootPick::Currency(n)` en fin d'enum ; `currency:<n>` ; posé en `ShellPickup` par le coffre, la récompense de salle, le
@@ -27,64 +27,88 @@ neutre absorbé avant les PV point par point, cœurs d'âme en présentation), *
 6. **Coop par joueur** (Q4) : rien de nouveau à coder (l'`Inventory` et le `Currency` sont déjà par joueur) ; le HUD gagne la source `bombs` (joueur affiché),
    `isaac/ui/hud.ron` l'affiche. Scénario à deux joueurs `coop_pickups_per_player`.
 7. **Scénarios** (chacun avec `// À regarder :`) : `soul_heart_absorbs` (+ `_temoin`), `hit_iframes_isaac`, `coin_pickup`, `bomb_pickup_cap`,
-   `heart_full_stays` (+ `_temoin`), `coop_pickups_per_player` : **8 traces neuves**, bénies une à une. Mutations jouées à la main (données seules) : sans
+   `heart_full_stays` (+ `_temoin`), `coop_pickups_per_player` : **8 traces neuves**, bénies une à une. Ajoutés à la revue : `shop_full` (+ `_temoin`), `room_reward_coins`, `champion_drops_coins` (**4 traces neuves**). Mutations jouées à la main (données seules) : sans
    `max_stack` ou sans `refuse_when_full`, `bomb_pickup_cap`, `coop_pickups_per_player` et `heart_full_stays` échouent (4 bombes au lieu de 3 ; santé 92 au lieu de 96).
 8. **Lint** : `GainSoul = 0`, `Currency(0)` (pool et déblocage), `Currency` dans un pool de boutique (pool, étage, déblocage), `refuse_when_full` sans `Heal`,
-   `starting_consumables` > `max_stack` : 7 fixtures (`crates/content/tests/m3_t3_fixtures.rs`).
+   `starting_consumables` > `max_stack`, et (revue) **`Scaled` à `OnUse`** (consommable ou actif, `Unsupported`) : 8 fixtures (`crates/content/tests/m3_t3_fixtures.rs`).
 
-## 2. Traces bougées (preuve §5)
+## 2. Traces bougées (preuve §5, refaite à la revue sur l'état fusionné avec `origin/main` `64ec961c`)
 
-**Six traces `isaac`**, aucune autre : `isaac_floor_seed_1`, `generated/isaac/{boss_gardien, enemy_mouche_moving, enemy_mouche_still, enemy_suiveur_moving,
-enemy_suiveur_still}`. Cause : `hit_iframes: Some(60)` de `pleureur` (le pool de récompense d'isaac a changé aussi : il ne se lit que si une récompense tombe).
-Preuve : dump détaillé (`ALACOD_DUMP_TRACE`) des six scénarios sur `origin/main` a9432ed9 (worktree à part) et sur la branche, `scripts/trace-diff.py` sans `--ignore` :
-la première frame qui diffère est, pour les six, **la frame du premier coup reçu par le joueur** (f555, f92, f73, f202, f77, f264), avec **une seule ligne différente**, celle du joueur, et un seul champ :
-`Health { current: 5, max: 6, invulnerable_until_frame: None }` → `Some(f+60)` (615, 152, 133, 262, 137, 324). `ExtraHealth` n'a aucun porteur dans ces parties (type neutre : aucune ligne).
-Toutes les autres traces (testbed, zombies, gungeon, throne, générées des quatre autres jeux, `isaac_boots`, `generated/isaac/room_combat`) sont **identiques**.
+**Onze traces `isaac`** bougent, plus `hit_iframes_isaac` (trace neuve) ; aucune autre. Méthode : dumps détaillés (`ALACOD_DUMP_TRACE`) des onze scénarios sur trois états — (1) `main` (worktree), (2) la
+branche **sans** `hit_iframes` de `pleureur` (reste : pool `salle`, code), (3) la branche complète — comparés par `scripts/trace-diff.py` sans `--ignore`. Deux causes, jamais confondues :
+`hit_iframes` (2 → 3) : première frame = premier coup reçu, **une ligne** (le joueur), **un champ** : `Health.invulnerable_until_frame` `None` → `Some(f+60)` ; pool `salle` (1 → 2) : première frame = tirage de la
+récompense, **une ligne** : l'objet au sol change (même position).
 
-## 3. Vérifié (sur la fusion avec `origin/main` 0a719425)
+| Trace | 1 → 3 : première frame, cause | autre cause, plus tard |
+|---|---|---|
+| `grid_floor_seed_1` | f250, `hit_iframes` (→ 310) | pool `salle` f529 (clé → bombe) |
+| `grid_floor_seed_123` | f365, `hit_iframes` (→ 425) | aucune (pool seul : identique) |
+| `grid_floor_seed_23` | f254, `hit_iframes` (→ 314) | pool `salle` f357 (blank → ration) |
+| `grid_post_boss` | f352, **pool `salle`** (clé → bombe) | `hit_iframes` f845 (→ 905) |
+| `isaac_floor_seed_1` | f250, `hit_iframes` (→ 310) | pool `salle` f529 (clé → bombe) |
+| `generated/isaac/boss_gardien` | f160, `hit_iframes` (→ 220) | pool `salle` f163 (ration → bombe) |
+| `generated/isaac/enemy_mouche_moving` | f73, `hit_iframes` (→ 133) | aucune |
+| `generated/isaac/enemy_mouche_still` | f202, `hit_iframes` (→ 262) | aucune |
+| `generated/isaac/enemy_suiveur_moving` | f77, `hit_iframes` (→ 137) | aucune |
+| `generated/isaac/enemy_suiveur_still` | f264, `hit_iframes` (→ 324) | aucune |
+| `generated/isaac/room_combat` | f250, `hit_iframes` (→ 310) | aucune (pool seul : identique) |
 
-- `make test_scenarios_par SHARDS=3` sans BLESS des traces existantes : **490 scénarios, trois tranches ok** (227 s) ; 482 d'avant + 8 neufs, **6 traces `isaac` rebénies** (voir § 2), aucune autre bougée.
-- `make test_crates` : **997 tests, 0 échec** (991 avant les deux fixtures de déblocage et la fusion). `make test_tools` : 18 ok.
-- `make lint` ×5 (`zombies`, `testbed`, `throne`, `gungeon`, `isaac`) : aucune erreur. `make gen` ×5 : tous les scénarios générés ok, **aucun diff** de `tests/scenarios/generated`.
-- `cargo fmt --all -- --check` : ok. `make check_sim_boundary` : ok (11 crates, 5 en dette D69). `check-forbidden.sh` : ok (39 occurrences auditées). `check-rollback-registration.sh` : ok.
-- Fuzz `ALACOD_FUZZ=0:8` : 8 graines, 3600 frames, aucune divergence ; `ALACOD_FUZZ_BOMBS=1` : ok.
-- `cargo test -p scenario --test extra_health` : 5 ok ; `-p content --test m3_t3_fixtures` : 7 ok.
-- Docker : OrbStack (`PATH=$HOME/.orbstack/bin:$PATH`), `MATCHBOX_PORT=3556`, `COMPOSE_PROJECT_NAME=b1`.
+**Correction de l'ancienne preuve** : elle attribuait tout à `hit_iframes` et écartait le pool (« ne se lit que si une récompense tombe »). Sur la grille d'`isaac` des récompenses tombent : le pool `salle` **fait bouger**
+`grid_floor_seed_1`, `grid_floor_seed_23`, `grid_post_boss`, `isaac_floor_seed_1` et `boss_gardien`, et c'est la seule cause de la première divergence de `grid_post_boss`. Ces traces sont bénies pour les deux causes.
+`hit_iframes_isaac` : n'existe pas sur `main`, trace neuve (la carte `map_seed: 1` est la grille) ; ses ennemis (20, −8) et (−36, −8) sont toujours à 28 px du joueur (départ (−8, −8), ancre de l'étage inchangée),
+les attentes (6, 5, 4, 4, 3 PV) passent sans changement : **rien à recaler**. Identiques : `grid_secret_*`, `grid_treasure_*`, `isaac_boots`, générées `weapon_*`, et tous les autres jeux.
+
+## 3. Vérifié (revue b6, sur la fusion avec `origin/main` `64ec961c`)
+
+- `make test_scenarios_par SHARDS=3` **sans BLESS hors `isaac`** : **509 scénarios, trois tranches ok** (1 287 s sur la machine partagée). Bénis (liste exacte) : les **onze** traces `isaac` du § 2 et `hit_iframes_isaac` (neuve) ;
+  nouvelles traces : `shop_full`, `shop_full_temoin`, `room_reward_coins`, `champion_drops_coins`. Aucune autre trace (testbed, zombies, gungeon, throne, `grid_secret_*`, `grid_treasure_*`, `isaac_boots`, générées `weapon_*`) n'a bougé.
+- `make test_crates` : **1 033 tests, 0 échec**, 13 ignorés (somme des lignes `test result`). `make test_tools` : 18 ok.
+- `make lint` ×5 (`zombies`, `testbed`, `throne`, `gungeon`, `isaac`) : aucune erreur. `make gen` ×5 : tous les scénarios générés ok, aucun diff hors des six traces `generated/isaac` du § 2.
+- `cargo fmt --all -- --check` : ok. `make check_sim_boundary` : ok (11 crates, 5 en dette D69). `check-forbidden.sh` : ok (38 occurrences auditées). `check-rollback-registration.sh` : ok.
+- Fuzz `ALACOD_FUZZ=0:8` (`-- --ignored`) : 8 graines, 3600 frames, aucune divergence (354 s) ; `ALACOD_FUZZ_BOMBS=1` : 8 graines, 8 explosions par partie, aucune divergence (314 s).
+- `extra_health.rs` : 6 tests ok ; **mutation jouée** : avec `SHIELD_IFRAMES` porté de 15 à 30 (le coup absorbé par le bouclier bloquerait le coup de f30, comme s'il posait les 30 frames de `hit_iframes`), le nouveau test échoue avec `(5000.0, 0.0, 0)` au lieu de `(4992.0, 0.0, 0)` ; rétabli à 15.
+  `hit_iframes.rs` : 2 tests ok (le test vacuous est supprimé). `-p content --test m3_t3_fixtures` : 8 ok ; `m3_t0b_fixtures` : 6 ok.
+- Docker : `MATCHBOX_PORT=3596`, `COMPOSE_PROJECT_NAME=b6`.
 
 ## 4. p2p, deux clients, rollbacks forcés (`scripts/p2p-stress.sh`)
 
-Montage temporaire **non commité** (annulé par `git checkout`), jeu `testbed` : un système `GgrsSchedule` qui, toutes les 45 frames dès f60 et pour chaque joueur (ordre `GgrsNetId`),
-pose un `coeur_ame` à ses pieds (f%45 = 0), un tas de 3 sous (10), une `bomb` (20, plafonnée à 3, donc refusée ensuite) et lui inflige 5 dégâts « ennemis » (30) : absorption partielle (4 d'âme, 1 PV).
-Entrées : `scripts/p2p-stress-inputs.py 3000` (changent toutes les 1 à 3 frames), `ALACOD_INPUT_DELAY=0`, client 1 suspendu 12 ms toutes les 30 ms, `MATCHBOX_PORT=3556`, `COMPOSE_PROJECT_NAME=b1`, 3000 frames.
-- **Run 1** : codes 0/0, `DesyncDetected` 0, **10 862 / 1** frames resimulées, `cmp` : traces **identiques (2999 lignes)**. Le script l'a pourtant déclaré en échec : 3 `NetworkInterrupted` (timeout 1500 ms) chacun suivi de `NetworkResumed`
-  (une suspension plus longue que prévu : machine partagée, compilation du binaire par le script juste avant). Ce n'est ni un desync ni une déconnexion définitive ; relancé aussitôt.
-- **Run 2** : « p2p-stress : OK », codes 0/0, `DesyncDetected` 0, déconnexions 0, **4906 / 25** frames resimulées, traces **identiques, 2999 lignes** (= FRAMES-1).
-  Journal : 327 `soul_absorb` exécutés au client 0 pour 108 (frame, joueur) distincts (94 rejoués, jusqu'à 6 fois), 103 au client 1 ; 392 ramassages de cœur d'âme, 386 de sous, 22 de bombes (6 au client 1, plafond atteint) ; sur les 99 absorptions que les deux clients ont en commun avant f2985, la valeur finale est identique (99/99).
-  Huit absorptions du client 0 n'existent pas au client 1 : exécutions prédites puis annulées (le client 1, derrière, ne voit que des entrées confirmées ; [INFERENCE] le joueur y est en dash, donc invulnérable, la valeur finale ne logue rien).
+Montage temporaire **non commité** (reconstruit à la revue, annulé par `git checkout`), jeu `testbed` : un système `GgrsSchedule` (`CollisionDamage`, après les traducteurs de dégâts, avant `rollback_resolve_damage_events`) qui, toutes
+les 45 frames dès f60 et pour chaque joueur (ordre `GgrsNetId`), pose à ses pieds un `coeur_ame`, un tas de 3 sous et une `bomb` (plafonnée à 3, donc refusée ensuite) et lui inflige 5 dégâts « ennemis » (absorption partielle : 4 d'âme, 1 PV),
+avec la trace `ggrs{f=… montage player=<handle> net_id=<id>}` (joueur 0 = net id 26, joueur 1 = net id 31).
+Entrées : `scripts/p2p-stress-inputs.py 3000`, `ALACOD_INPUT_DELAY=0`, client 1 suspendu 12 ms toutes les 30 ms, 3000 frames. Les journaux de la première livraison (autre machine) n'existent plus : tout a été rejoué.
+- **Run 1** : échec de construction du montage (conflit d'ordre sur `FrameEvents<DamageEvent>` entre mon système et les traducteurs), corrigé par des `.after(...)`.
+- **Run 2** : « p2p-stress : OK », codes 0/0, `DesyncDetected` 0, déconnexions 0, **7 907 / 20** frames resimulées (client 0 / client 1), `cmp` : traces **identiques, 2 999 lignes** (= FRAMES-1).
+- **Point 6 (absorptions vues au seul client 0)** : 412 exécutions de `soul_absorb` au client 0 pour 99 (frame, cible) distincts, 94 au client 1 pour 94 distincts ; 94 communes. **Cinq** (frame, cible) n'existent qu'au client 0 (f990, f1305, f1710, f1890, f2925 ;
+  la première livraison en comptait huit sur un autre run), **toutes sur le net id 31 = joueur 1, aucune sur le joueur 0**, aucune seulement au client 1. L'explication « dash prédit du joueur 1 » n'est pas réfutée : le script d'entrées du joueur 1 tient `Dash`
+  à ces frames ou juste avant (f990 : 990-992 ; f1305 : 1303-1306 ; f1710 : 1698-1701 et 1704-1706 ; f1890 : 1887-1890 ; f2925 : 2925-2926). Le mécanisme lui-même (le dash rend invulnérable au client 1, pas au client 0 qui prédit) reste une
+  **[INFÉRENCE]** : aucun journal ne l'observe directement.
 
 ## 5. Non fait, incertain
 
 - **Pas de bench** (machine partagée, consigne).
 - `Price::can_pay`/`pay` ne reçoivent pas `ExtraHealth` : le paiement par cœurs d'âme (Q6) est T8 ; `ExtraHealth::soul` est public, rien d'autre n'a été prévu.
 - Aucun plafond de vie d'âme (Isaac : 12 cœurs au total) ; HUD des cœurs : T16.
-- `OnDamageTaken` ne se déclenche pas sur un coup que l'âme absorbe en entier ; à reprendre si un objet doit y réagir.
+- `OnDamageTaken` : voir § 1 (règle du §25 inchangée : sans `HealthRegen`, un coup absorbé par l'âme le déclenche) ; une règle unique est à décider si un objet d'`isaac` doit réagir aux seules pertes de PV.
 - La pose de bombe d'`isaac` (`BombCarrier`) reste à M3-T11 : les bombes d'`isaac` se ramassent et se comptent, rien ne les pose encore.
+- **Sous du rocher à butin : aucun scénario**. Même appel (`items::loot_currency` puis `shop::spawn_shell_pickup`) que la récompense de salle et le champion, observés par `room_reward_coins` et `champion_drops_coins`, mais un essai de scénario
+  sur un étage dont le pool est `pieces_salle` et la carte `rocks_static` laissait le joueur immobile (cause non élucidée, hors fiche) : retiré plutôt que livré faux.
 
 ## 6. Dettes, questions
 
-- **Relecture indépendante** (agent `reviewer`, lecture seule) : 3 constats. (1) `state_trace.rs` « supprimé » : faux positif, la comparaison se faisait contre un `origin/main` déjà avancé (le correctif `outillage-p2p-stress` n'est pas à moi, il disparaît à la fusion). (2) `Scaled` en `OnUse` : réel, antérieur, voir dette T3-1. (3) `Currency(0)` ajouté par un déblocage : corrigé (lint + fixture `unlock_currency_zero`).
-- **Dette T3-1 (antérieure à la tâche)** : `items::apply_instant_effects` n'exécute pas l'enveloppe `Scaled` d'un `OnUse` (consommable, actif) alors que le lint la déballe et valide l'action intérieure (T0b) :
-  `OnUse: [Scaled(GainSoul(..))]`, comme `Scaled(Heal(..))` et `Scaled(GainShield(..))`, est accepté puis sans effet. Découvert à la relecture ; documenté au §68, pas corrigé (hors fiche, le sens de `PerCopy` pour un consommable
-  consommé au ramassage est à décider).
-- **Observation** : le test `hit_iframes.rs::shield_absorb_uses_its_own_short_iframes_not_the_hit_ones` (M3-T0b) est vacuous : ses trois coups (f12, f30, f40) donnent 4992 avec ou sans bouclier à cause des 30 frames de `hit_iframes`. Non corrigé (hors fiche).
+- **Relecture indépendante** (agent `reviewer`, lecture seule, première livraison) : 3 constats. (1) `state_trace.rs` « supprimé » : faux positif. (2) `Scaled` en `OnUse` : **corrigé à la revue** (ci-dessous). (3) `Currency(0)` ajouté par un déblocage : corrigé (lint + fixture `unlock_currency_zero`).
+- **Dette T3-1 retirée** : `Scaled` à `OnUse` (consommable ou actif) est refusé au lint (`Unsupported`, « Scaled : pas exécuté par OnUse d'un objet »), fixture `scaled_in_onuse` (un consommable et un actif) ; aucun contenu ne l'utilisait
+  (les `Scaled` du testbed sont des effets passifs) ; l'ancienne assertion de `m3_t0b_fixtures` sur un `Scaled(Heal)` de consommable est remplacée par la nouvelle fixture. Le sens de `PerCopy` pour un consommable consommé au ramassage reste à décider si un besoin apparaît.
+- **Test vacuous remplacé** : `hit_iframes.rs::shield_absorb_uses_its_own_short_iframes_not_the_hit_ones` (bouclier posé à f5, cible présente à f6 seulement) est supprimé, avec le paramètre `shield_at_5` qu'il était seul à utiliser ;
+  `extra_health.rs::a_hit_absorbed_by_the_shield_does_not_start_the_hit_iframes` le remplace (bouclier d'un point posé à f6, coups à f12 et f30, 40 frames, attendu `(4992, 0, 0)`), mutation jouée (§ 3).
   Piège rencontré : la cible placée à f5 n'existe qu'à partir de f6 ; poser un composant « à f5 » ne fait rien.
-- **Piège d'outillage** : un `git worktree` de `main` compilé avec le même `CARGO_TARGET_DIR` écrase les artefacts des crates du workspace (le hash ne dépend pas du chemin) ; `find crates games -name '*.rs' -exec touch {} +` après coup.
+- **Piège d'outillage** : un `git worktree` de `main` compilé avec le même `CARGO_TARGET_DIR` écrase les artefacts des crates du workspace (le hash ne dépend pas du chemin) ; `find crates games -name '*.rs' -exec touch {} +` après coup (fait).
 - Question pour William : le pool de récompense d'`isaac` (poids : clé 3, blank 2, ration 2, sou 4, cœur 3, cœur d'âme 1, bombe 2) est un premier jet ; équilibrage à M3-T11d.
+- Fusion : `origin/main` avait avancé de `89a394ef` à `64ec961c` pendant la revue (m2-full-run, revue-sons-visuels-m1) ; c'est `64ec961c` qui est fusionné. Conflits : `bomb.ron` (isaac : commentaire de M3-T5 gardé, `max_stack: Some(99)` gardé), `docs/taches.md` (deux lignes), six traces `isaac` (reprises de `main`, puis re-bénies).
 
 ## 7. Atteignabilité
 
 Récompense de salle `combat` d'`isaac` (`loot/salle.ron` : sous, cœurs, bombes, clés) et mort d'ennemi d'`isaac` (`shells_drop`) ; scénario d'une partie ordinaire : `isaac_floor_seed_1` (le bot `explorateur` bat l'étage, victoire, avec `hit_iframes`). Boutique : un présentoir refuse un consommable plein
-(`shop_full`) ; la grammaire d'étage d'`isaac` n'a pas de boutique (tables de T11d).
+(`shop_full`, scénario `shop_full`) ; la grammaire d'étage d'`isaac` n'a pas de boutique (tables de T11d).
 
 ## 8. Frames à regarder
 

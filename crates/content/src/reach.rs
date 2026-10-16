@@ -49,7 +49,7 @@ impl fmt::Display for LintWarning {
 /// par une entrée `Item`, plus tous ceux d'une rareté visée par une entrée `Rarity`. Un pool
 /// compte même si aucune salle ne le pose : le lint dit « un pool donne cet objet », pas
 /// « une partie le rencontre » (l'atteignabilité dynamique est le bot explorateur, §47).
-fn loot_pool_items(registry: &Registry) -> BTreeSet<String> {
+pub(crate) fn loot_pool_items(registry: &Registry) -> BTreeSet<String> {
     let mut found = BTreeSet::new();
     for pool in registry.loot_tables.values() {
         for entry in &pool.def.entries {

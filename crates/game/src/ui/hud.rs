@@ -927,6 +927,8 @@ fn prompt_for(
         }
         // M2-T13 : pas de prompt du hub avant le HUD de M2 (V4).
         InteractionType::Hub => return String::new(),
+        // M3-T5 : porte à clé (la clé est consommée à l'ouverture, `key_door_system`).
+        InteractionType::KeyDoor => Prompt::KeyDoor,
         InteractionType::Weapon => {
             let Some(pickup) = pickup else {
                 return String::new();
@@ -999,6 +1001,8 @@ enum Prompt {
         price: Option<u32>,
         owned: bool,
     },
+    /// M3-T5 : porte d'une salle à clé.
+    KeyDoor,
 }
 
 impl Prompt {
@@ -1034,6 +1038,7 @@ impl Prompt {
                 ..
             } => format!("{name} — ${price}"),
             Prompt::Perk { name, .. } => name.clone(),
+            Prompt::KeyDoor => "Ouvrir — clé".to_string(),
         }
     }
 }
@@ -1324,6 +1329,7 @@ mod tests {
         assert_eq!(Prompt::Window { damaged: true }.text(), "Réparer");
         assert_eq!(Prompt::Window { damaged: false }.text(), "");
         assert_eq!(Prompt::Revive.text(), "Réanimer");
+        assert_eq!(Prompt::KeyDoor.text(), "Ouvrir — clé");
         let weapon = |price, owned| Prompt::Weapon {
             name: "fusil à pompe".into(),
             price,

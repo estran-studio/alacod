@@ -4,7 +4,7 @@
 #![enable(implicit_some)]
 Scenario(
     game: "isaac",
-    map: "maps/salles.ldtk",
+    map: "floor:sous_sol_court",
     map_seed: 123456,
     frames: 1500,
     players: [
@@ -26,4 +26,5 @@ Scenario(
         ),
     ],
     powerup_drop_chance_override: "0",
+    floors: "sous_sol_court",
 )

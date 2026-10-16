@@ -197,11 +197,27 @@ pub enum Expectation {
     /// "weapon", "move", "melee", "death", "window", "door", "downed", "revived", "defeat",
     /// "drop", "pickup" (T2.2, chantier B7), "portal", "floor" (T1.8, mode `Floors`),
     /// "terrain" (T1.6, terrain de caverne creusé), "levelup", "mutation" (T1.10), "feedback"
-    /// (T1.17 : "télégraphe", "hit stop", "secousse" dans le libellé).
+    /// (T1.17 : "télégraphe", "hit stop", "secousse" dans le libellé), et pour M2 : "item_pickup",
+    /// "blank", "room", "boss_phase", "purchase" (achat en boutique : raison `shop` dans le
+    /// libellé), "chest" (coffre ouvert), "arena" (arène tenue), "unlock" (déblocages du profil
+    /// lus par la partie), "hub" (run entrée depuis le hub).
     Event {
         kind: String,
         #[serde(default, skip_serializing_if = "Option::is_none")]
         label_contains: Option<String>,
+        by_frame: u32,
+    },
+    /// Comme [`Self::Event`], mais l'événement doit être survenu **après** `after_frame` (frame de
+    /// l'événement `> after_frame`, hors `by_frame` : la vérification se fait à `by_frame`). Prouve
+    /// le même moment clé une seconde fois (la seconde arène, le second boss) là où `Event`
+    /// serait satisfait par le premier. Les moments clés tirés de `FrameEvents` (`room`, `blank`,
+    /// `item_pickup`, `boss_phase`, `arena`, `chest`) portent la frame de la simulation qui les a
+    /// émis, une de moins que celle lue après l'update : `by_frame` = frame de l'événement + 1.
+    EventAfter {
+        kind: String,
+        #[serde(default, skip_serializing_if = "Option::is_none")]
+        label_contains: Option<String>,
+        after_frame: u32,
         by_frame: u32,
     },
     /// Le joueur `handle` est à terre (`combat::downed::Downed`) à la frame exacte
@@ -342,6 +358,16 @@ pub enum Expectation {
         min: Option<f32>,
         #[serde(default, skip_serializing_if = "Option::is_none")]
         max: Option<f32>,
+        at_frame: u32,
+    },
+    /// m2-full-run : nombre d'ennemis vivants déclarant l'escouade `squad` (`ai.squad`, M2-T8, §49)
+    /// dans `[min, max]` (bornes inclusives, `None` = pas de borne) à `at_frame`, endormis ou non.
+    SquadSize {
+        squad: String,
+        #[serde(default, skip_serializing_if = "Option::is_none")]
+        min: Option<u32>,
+        #[serde(default, skip_serializing_if = "Option::is_none")]
+        max: Option<u32>,
         at_frame: u32,
     },
     /// Variante du personnage `entity` à `at_frame` (T1.5, `docs/conventions.md` §25) :
@@ -537,9 +563,27 @@ pub enum Expectation {
         doors_closed: Option<u32>,
         at_frame: u32,
     },
+    /// M3-T5 (`docs/conventions.md` §70) : géométrie de la `nth` salle de type `kind` (même tri que
+    /// `RoomState`) dans la carte générée, relue à la frame `at_frame` : `size` = (largeur, hauteur)
+    /// en pixels (grandes salles de la grille : 480 × 288 pour une 2×2 de 15 × 9 cases), `touches` =
+    /// types dont au moins une salle partage un bord avec elle, `apart` = types dont aucune salle ne
+    /// la touche. À employer sur un étage unique (les mondes des étages se superposent).
+    RoomLayout {
+        kind: String,
+        #[serde(default)]
+        nth: usize,
+        #[serde(default, skip_serializing_if = "Option::is_none")]
+        size: Option<(u32, u32)>,
+        #[serde(default, skip_serializing_if = "Vec::is_empty")]
+        touches: Vec<String>,
+        #[serde(default, skip_serializing_if = "Vec::is_empty")]
+        apart: Vec<String>,
+        at_frame: u32,
+    },
     /// M3-T0c (`docs/conventions.md` §62) : la porte de la `nth` salle de type `kind` (même tri que
     /// `RoomState`) est fermée à clé ou murée (`locked: true`) ou ouverte (`false`) à la frame
-    /// exacte `at_frame`. Une salle dont le type n'a pas de `door_lock` n'est jamais verrouillée.
+    /// exacte `at_frame`. Une salle dont le type n'a pas de `door_lock` à l'étage courant (M3-T5 :
+    /// `door_lock_at`, `lock_from_floor`, étage `0` hors `Floors`) n'est jamais verrouillée.
     DoorLocked {
         kind: String,
         #[serde(default)]
@@ -625,6 +669,7 @@ impl Expectation {
             | Self::BulletCount { at_frame, .. }
             | Self::HitsAtLeast { at_frame, .. }
             | Self::EnemyState { at_frame, .. }
+            | Self::SquadSize { at_frame, .. }
             | Self::EnemyDistance { at_frame, .. }
             | Self::EnemyVariant { at_frame, .. }
             | Self::Clock { at_frame, .. }
@@ -641,6 +686,7 @@ impl Expectation {
             | Self::ScreenText { at_frame, .. }
             | Self::RoomState { at_frame, .. }
             | Self::DoorLocked { at_frame, .. }
+            | Self::RoomLayout { at_frame, .. }
             | Self::ItemCount { at_frame, .. }
             | Self::ExtraHealth { at_frame, .. }
             | Self::Shelf { at_frame, .. }
@@ -657,6 +703,9 @@ impl Expectation {
             | Self::HubExit { at_frame, .. }
             | Self::HubVisit { at_frame, .. }
             | Self::Event {
+                by_frame: at_frame, ..
+            }
+            | Self::EventAfter {
                 by_frame: at_frame, ..
             }
             | Self::PlayerRevived {

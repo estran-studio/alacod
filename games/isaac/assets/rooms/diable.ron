@@ -1,0 +1,3 @@
+// Type de salle `diable` (M3-T5, docs/conventions.md §70) : la salle post-boss, accrochée au boss une
+// fois sur trois. Vide : le marché du diable est le contenu de M3-T8.
+(locks: false)

@@ -1,6 +1,9 @@
-// `isaac` (M3-T3, docs/conventions.md §68) : consommable `bomb` (nom réservé, `game::loot::BOMB_ITEM`),
-// un compteur par joueur plafonné à 99 : au plafond le ramassage est refusé et la bombe reste au sol.
-// La pose (bouton Bomb) exige un `BombCarrier` : le personnage n'en a pas encore (M3-T11).
+// `isaac` (M3-T5, docs/conventions.md §70 ; copie de `testbed`, M3-T4, §69) : la bombe, consommable `bomb`
+// (nom réservé, `game::loot::BOMB_ITEM`). Isaac n'en donne pas encore au départ (décision de
+// l'orchestrateur, §69) : les scénarios `grid_secret_bomb` la donnent par `PlayerScript::items`, avec
+// la `BombDef` de `PlayerScript::bomb`. Elle ouvre le mur de la salle secrète.
+// M3-T3 (§68) : un compteur par joueur plafonné à 99 ; au plafond le ramassage est refusé et la bombe
+// reste au sol. La pose (bouton Bomb) exige un `BombCarrier` que le personnage n'a pas encore (M3-T11).
 (
     name: "Bombe",
     kind: Consumable,

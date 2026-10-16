@@ -4051,16 +4051,101 @@ simulation partagée au passage de la porte** : `RunUnlocks` est figé au lancem
 **Scénarios.** `Scenario::hub: Option<HubSetup>` (`stay: true` : la run n'est pas lancée, la preuve
 reste dans la session du hub), attentes `HubExit { handle, exit_frame, none, at_frame }` et
 `HubVisit { handle, service, at_frame }`. `hub_use_stations` (marchand puis porte), `hub_buy_unlock`
-(écran, achat, `ProfileHas`, `RunUnlocks` inchangé). Le runner de scénarios ne suit pas une relance
-de session (sa boucle compte les frames d'une seule session) : la relance a son test,
-`crates/scenario/tests/hub.rs` (porte → requête une fois la frame confirmée → `Floors { etage_1 }`
-étage 0, `HubState` remis à zéro, `RunUnlocks` de la run contient le déblocage acheté au hub).
+(écran, achat, `ProfileHas`, `RunUnlocks` inchangé). Avec `stay: true` le runner ne suit pas la relance
+(la preuve reste dans la session du hub) ; avec `stay: false` il la suit (m2-full-run, ci-dessous). La
+relance a aussi son test, `crates/scenario/tests/hub.rs` (porte → requête une fois la frame confirmée →
+`Floors { etage_1 }` étage 0, `HubState` et `RoomStates` remis à zéro, `RunUnlocks` de la run contient le
+déblocage acheté au hub).
 
 **Limites.** Local : la graine de la run ne change pas d'une run à l'autre (le restart local garde la
 graine, §33). En ligne : la porte est jouée par le chemin du restart de §33 (preuve p2p rejouée par
 l'orchestrateur) ; les déblocages et services de l'hôte viennent de la configuration de session
 (`ALACOD_RUN_UNLOCKS`, `ALACOD_HOST_STATS`), pas encore d'un échange réseau, et un achat de l'hôte
 au hub n'atteint les pairs qu'avec la synchronisation des profils (hors périmètre).
+
+### Run complète de M2 : `gungeon_full_run` (m2-full-run)
+
+Deux scénarios attestent les mécaniques de M2 du tableau ci-dessous dans **une** partie de bots (graine 10, `etages_deux`,
+`shopping: true`, profil à trois déblocages, hub puis run) : `gungeon_full_run` (2 bots `explorateur`, 7 700
+frames, victoire f7545) et `gungeon_full_run_four` (4 bots, 7 000 frames, victoire f6876, synctest). Les
+moments clés du premier sont dans `events.json` (page de revue), chaque ligne du tableau a une attente.
+
+| Mécanique | Frame (2 bots, frames de la run) | Attente |
+|---|---|---|
+| Entrée depuis le hub | marchand f80 et porte f175 du hub ; `hub` f1 | `HubVisit`, `HubExit(exit_frame: 175)`, `Event(hub)` |
+| Déblocages lus du profil (M2-T12) | f1 | `RunUnlocks(has: 3)`, `Event(unlock)` |
+| Escouade | verrou f1471 → f1605 | `SquadSize(bullet_kins)` = 3 (f1480), 0 (f1700) ; à 4 joueurs ≥ 2 (f2150), 0 (f2300) |
+| Salle verrouillée puis nettoyée | f42 → f139 | `Event(room)` ×2 |
+| Blank utilisé | f70, f82 | `Event(blank)` |
+| Objet ramassé | clé f157, rancune f3022 | `Event(item_pickup)`, `HasItem(rancune)`, `Consumable(key, 1)` |
+| Achat en boutique | f2825-f2887 (gilet, roulade) | `Event(purchase, shop)`, `HasItem(gilet)`, `HasItem(roulade)` |
+| Coffre à clé ouvert, clé consommée | f2928 (`arc`) | `Consumable(key)` 1 (f2920) → 0 (f2930), `Event(chest)` |
+| Arène tenue | f1890 → f2640 (750 frames) | `Event(arena)`, `RoomState(arene, nth: 1, Cleared)` |
+| Boss, trois phases | f3406, phases f3439 et f3487 | `BossPhase(NetId(205), 2)`, `Event(boss_phase)` |
+| Portail | f3489 | `Event(portal)` |
+| Second étage | f3691, puis coffre f4711, boutique f5249, arène f6172-6922, boss f7325 (phases f7471, f7532) | `FloorIndex(1)`, `EventAfter(chest, purchase, arena, boss_phase)`, `BossPhase(NetId(694), 2)` |
+| Victoire et profil | f7545 | `RunState(Ended(Victory))`, `ProfileHas(first_victory)` |
+
+**Non attestées, et pourquoi** : (1) la **salle secrète** : absente de la graine 10 et, de toute façon, son mur ne
+s'ouvre qu'à une explosion alors que gungeon ne donne aucune bombe (D81) ; (2) la **porte du hub conditionnée par un
+déblocage** : elle n'existe pas, `hub/porte.ron` (`EnterRun`) n'a aucune condition ; seul le marchand exige `first_run`
+(sa visite f120 le prouve pour le profil du scénario) ; l'effet des déblocages sur la run se prouve par `RunUnlocks`
+(le trèfle quitte les pools sans `tresor_trefle`, §51), pas par la porte. Attente ajoutée `SquadSize { squad, min,
+max, at_frame }` : ennemis vivants déclarant `ai.squad`.
+
+**Runner : la relance du hub est suivie** (`HubSetup { stay: false, inputs }`). Le scénario se joue en deux
+phases dans une même boucle : le hub (frames du hub ; seules `HubExit` et `HubVisit` sont évaluées, `inputs` :
+une piste par joueur, remplace `players[i]` pendant le hub) puis, quand la porte a relancé la session
+(`HubSession::in_hub` faux, `FrameCount` revenu à 0), la run (`swap_hub_inputs` rend aux joueurs leurs pistes ou
+leurs bots). `frames`, les autres attentes, la **trace** (l'enregistreur est vidé à la relance), `sim_fps` et
+`events.json` sont ceux de la run ; `play` et `capture` ne comptent `frames` et ne capturent qu'une fois la run
+commencée (`HubPhaseOver`) : la vidéo montre la run seule, sans image du hub. Refusés explicitement
+(échec du scénario) : les attentes continues et les réglages de joueur (`weapon`, `items`, `currency`…), qui
+ne s'appliquent qu'à la première session. `HubSetup { stay: true }` et les scénarios sans hub : inchangés.
+
+**`Scenario::shopping`** : le bot `explorateur` ouvre les coffres et achète les présentoirs (D62,
+`ExplorerOptions::shopping`) sans code côté appelant ; faux par défaut, aucune trace de bot ne bouge.
+
+**Moments clés ajoutés** (`crates/scenario/src/events.rs`) : `chest` (`ChestOpened`), `arena` (arène dont le
+type porte `RoomKindDef::arena`, de `Locked` à `Cleared` : « arène tenue (750 frames) »), `unlock` (`RunUnlocks`
+non vide, une fois), `hub` (« entrée en run depuis le hub », daté de la première frame de la run) ; l'achat
+en boutique est le moment `purchase` existant (`CurrencyEvent` de raison `shop`). Attente `EventAfter` : un
+moment clé survenu après une frame donnée (la seconde arène, le second boss). **Les moments clés tirés de
+`FrameEvents` (`room`, `blank`, `item_pickup`, `boss_phase`, `arena`, `chest`) portent la frame de la
+simulation qui les a émis, une de moins que celle lue après l'update : `by_frame` = frame affichée + 1.**
+
+**Trois défauts trouvés en le faisant** (aucune trace existante ne bouge) :
+1. *Hub → run : toutes les portes restaient fermées.* Le hub est une salle typée (`room_kind: depart`) : sa
+   session posait `RoomStates::doors_opened`, que la relance ne remettait pas à zéro ; aucun bot ni joueur ne
+   sortait de la salle de départ (mesure : 39 portes fermées contre 3 sans hub). Même défaut au restart
+   (touche R) avec les salles nettoyées de la partie précédente. `cleanup_rollback_world_system` remet
+   maintenant `RoomStates`, `ArenaClocks` et `DoorLocks` à zéro (assertions dans `tests/hub.rs`).
+2. *Quatre joueurs sur `gungeon` : panique « pas de point de spawn pour le joueur 2 ».* Le gabarit `Depart` n'a que
+   deux `PlayerSpawn` ; en ajouter décalait le barycentre du portail et la numérotation des entités de tous les
+   étages (toutes les traces gungeon). `map_ldtk::game::local::player_spawn_point` : un joueur sans point
+   propre prend celui de rang `handle % n` décalé de 24 unités vers le bas par tour, uniquement là où le
+   chargement paniquait. À l'étage suivant, `floors.rs` laisse déjà « en place » un joueur sans point.
+3. *`HashMap` des points de spawn* remplacé par un `BTreeMap` (deux entrées retirées de
+   `determinism-allowlist.json`).
+
+**Fuzz** : `ALACOD_FUZZ_SCENARIO=<nom>` (`fuzz_inputs`) joue le scénario avec des inputs aléatoires à la place de
+ses bots (attentes retirées, pistes du hub conservées) : `ALACOD_FUZZ=0:8 ALACOD_FUZZ_SCENARIO=gungeon_full_run
+cargo test -p scenario --profile headless --test fuzz_inputs -- --ignored --nocapture`.
+Résultat (2026-10-16, 3 600 frames, synctest) : graines 0 à 7 sur `gungeon_full_run` et sur
+`gungeon_full_run_four`, aucune divergence ; tous les joueurs restent en vie. La couverture n'est pas mesurée : des
+inputs aléatoires ne cherchent pas à traverser les étages, les deux scénarios de bots le font (synctest, 0 desync).
+
+**Vidéo et moments clés.** `scripts/scenario-video` ne tourne pas ici : `play_scenario --capture` ouvre une fenêtre
+winit (cachée) et panique (`Failed to build event loop`, « neither WAYLAND… nor DISPLAY is set » : ni X11 ni Wayland, aucun `Xvfb`
+installé, pas de droits root ; `lavapipe` est installé mais la fenêtre échoue avant). Les vidéos sont à rendre sur un
+poste avec écran. Les moments clés se produisent sans rendu : `ALACOD_EVENTS_JSON=<dossier> ALACOD_SCENARIO=<nom>
+make test_scenarios` écrit `<dossier>/<nom>.events.json`, au format de la capture ; ceux des deux scénarios sont dans
+`docs/taches/rapports/m2-full-run/` (à copier dans `target/videos/<commit>/<nom>.events.json` pour la page de revue).
+
+**Graine** : sur 64 graines à 2 bots (`alacod-sim --shopping`, 15 000 frames, avant la relance par le hub) : 48
+victoires, 13 soft-locks (bot, D82), 3 défaites, 0 desync ; la 10 est une graine où tout arrive (coffre à clé,
+achats, deux arènes, deux boss) et où les phases 0 → 1 → 2 du boss tombent aux deux étages ; elle gagne aussi à
+4 joueurs.
 
 ## 60. Contrats des larmes et de l'empilement de projectiles (M3-T0a, chantier B5 v3)
 
@@ -4295,7 +4380,9 @@ défaut). Lint : `Key(0)`. Attente : `DoorLocked(kind, nth, locked, at_frame)` (
 (Q8, proposition retenue : `cell` = 15 × 9 cases, une seule taille). Lint (`lint_floor_grammars`) :
 `cell` et `max` > 0, `max` contient au moins `rooms.0` salles, et chaque gabarit de la grammaire
 fait exactement `cell` cases avec une ouverture centrée sur chacun des quatre côtés. `plan_floor`
-**refuse** `Grid` (`FloorError::Unsupported`) tant que M3-T5 n'est pas livrée.
+**refusait** `Grid` (`FloorError::Unsupported`) tant que M3-T5 n'était pas livrée : le planificateur est
+`map::generation::grid` (§70), le lint des gabarits passe aux multiples de `cell` et aux ouvertures par
+case de salle (§70), `Grid` gagne `loops`, `secret` et `post_boss`.
 
 ### Testbed et scénarios
 
@@ -4596,17 +4683,25 @@ réglage de T16) et reste posé à `soul == 0`.
 vie : une chute ou des piques entament d'abord les cœurs d'âme, comme dans Isaac). Un coup que l'âme absorbe
 en entier **est un coup** : `hit_iframes` démarrent, `HitLanded` (donc `OnHit`) et `HitCount` le comptent, le
 crédit de points aussi ; en revanche rien n'est accumulé (`DamageAccumulator` intact : ni mort, ni `last_hit_by`,
-ni `OnDamageTaken`, ni délai de régénération — `OnDamageTaken` se lit sur la perte de PV). Sans bouclier, avec
-une armure ≤ 0 et sans âme, le montant reste exactement celui de `resolve_damage` (identité, aucune trace ne
-bouge). Traces de jeu : `ggrs{f=… soul_absorb target=… took=… left=…}` (et `shield_absorb` comme avant).
+ni délai de régénération). **`OnDamageTaken` dépend du porteur** (`effects_runtime`, §25) : avec `HealthRegen`
+il se lit sur la perte de PV réellement appliquée, donc un coup absorbé en entier par l'âme ne le déclenche pas ;
+**sans `HealthRegen` — le cas de `pleureur`, le joueur d'`isaac` — il se déclenche sur tout `DamageEvent` qui vise
+le porteur**, donc aussi sur un coup que l'âme absorbe en entier (et sur un coup ignoré par les i-frames). **La
+règle du §25 n'est pas modifiée** par cette tâche : c'est la documentation qui est corrigée. Un objet d'`isaac`
+qui doit réagir aux seules pertes de PV devra attendre une règle unique (hors fiche).
+
+Sans bouclier, avec une armure ≤ 0 et sans âme, le montant reste exactement celui de `resolve_damage` (identité,
+aucune trace ne bouge). Traces de jeu : `ggrs{f=… soul_absorb target=… took=… left=…}` (et `shield_absorb` comme avant).
 
 **Consommable « cœur d'âme »** : action `effects::Action::GainSoul(Fixed)` (variante **en fin d'enum**, linéaire
 donc acceptée sous `Scaled(PerCopy)` dans un effet, décrite par `describe_action`), exécutée dans un effet de
 personnage ou d'objet (`effects_runtime`) et à `OnUse` d'un consommable (`items::apply_instant_effects`) ;
 refusée dans un power-up et dans les actions où `GainShield` l'est ; lint `GainSoul = 0` (`OutOfRange`).
-**Écart connu, antérieur** : `apply_instant_effects` n'exécute pas l'enveloppe `Scaled` (le lint la déballe et
-valide l'action intérieure, T0b) : `OnUse: [Scaled(GainSoul(..))]` est accepté puis sans effet, comme
-`Scaled(Heal)` ou `Scaled(GainShield)` avant cette tâche (dette, voir le rapport). Un consommable à
+**`Scaled` est refusé à `OnUse`** (consommable et actif, lint `Unsupported`, fixture `scaled_in_onuse`) :
+`apply_instant_effects` n'exécute pas l'enveloppe, donc `OnUse: [Scaled(GainSoul(..))]`, `Scaled(Heal(..))` ou
+`Scaled(GainShield(..))` aurait été accepté puis sans effet (T0b avait fait déballer l'enveloppe par le lint ; aucun
+contenu ne l'utilisait). Le sens de `PerCopy` pour un consommable consommé au ramassage reste à décider si un
+besoin apparaît. Un consommable à
 effets s'applique au ramassage et n'entre pas dans l'inventaire (§44). `testbed` : `coeur_ame` (4 points) ;
 `isaac` : `coeur_ame` (2 points = un cœur entier).
 
@@ -4663,10 +4758,36 @@ témoin joué par `crates/scenario/tests/extra_health.rs`, `isaac_without_hit_if
 
 ### Traces
 
-Seuls les scénarios `isaac` où le joueur subit un coup ou qui tirent une récompense de salle bougent
-(`isaac_floor_seed_1`, `generated/isaac/{boss_gardien, enemy_mouche_moving, enemy_mouche_still,
-enemy_suiveur_moving, enemy_suiveur_still}`) : cause = `hit_iframes` de `pleureur` (preuve §5 dans le rapport
-de la tâche). Toutes les autres traces (testbed, zombies, gungeon, throne, générées) sont identiques.
+Fusion avec `origin/main` `64ec961c` (M3-T5 : `isaac` en grille) : **onze traces `isaac` bougent** (plus `hit_iframes_isaac`,
+neuve) ; aucune autre. Preuve §5 : dumps détaillés (`ALACOD_DUMP_TRACE`) des onze scénarios sur trois états, comparés par
+`scripts/trace-diff.py` sans `--ignore` : (1) `main` ; (2) la branche **sans** `hit_iframes` de `pleureur` (reste : le pool
+`loot/salle.ron` d'`isaac` et le code) ; (3) la branche complète. Deux causes distinctes, jamais confondues :
+
+- **`hit_iframes`** (2 → 3) : première frame qui diffère = frame du premier coup reçu par le joueur, **une seule ligne** (le
+  joueur), **un seul champ** : `Health.invulnerable_until_frame` `None` → `Some(f+60)` ;
+- **pool `salle`** (1 → 2) : première frame qui diffère = frame où la récompense de salle est tirée, **une seule ligne** :
+  l'objet au sol change (`item_key`/`item_blank`/`item_ration` → `item_bomb`/`item_ration`, même position).
+
+| Trace | 1 → 3 : première frame et cause | autre cause, plus tard |
+|---|---|---|
+| `grid_floor_seed_1` | f250, `hit_iframes` (→ 310) | pool `salle` f529 (clé → bombe, (248, −8)) |
+| `grid_floor_seed_123` | f365, `hit_iframes` (→ 425) | aucune (pool seul : identique à `main`) |
+| `grid_floor_seed_23` | f254, `hit_iframes` (→ 314) | pool `salle` f357 (blank → ration, (248, 136)) |
+| `grid_post_boss` | f352, **pool `salle`** (clé → bombe, (−232, 136)) | `hit_iframes` f845 (→ 905) |
+| `isaac_floor_seed_1` | f250, `hit_iframes` (→ 310) | pool `salle` f529 (clé → bombe) |
+| `generated/isaac/boss_gardien` | f160, `hit_iframes` (→ 220) | pool `salle` f163 (ration → bombe, (−232, −8)) |
+| `generated/isaac/enemy_mouche_moving` | f73, `hit_iframes` (→ 133) | aucune |
+| `generated/isaac/enemy_mouche_still` | f202, `hit_iframes` (→ 262) | aucune |
+| `generated/isaac/enemy_suiveur_moving` | f77, `hit_iframes` (→ 137) | aucune |
+| `generated/isaac/enemy_suiveur_still` | f264, `hit_iframes` (→ 324) | aucune |
+| `generated/isaac/room_combat` | f250, `hit_iframes` (→ 310) | aucune (pool seul : identique) |
+
+Le pool `salle` **fait donc bouger des `grid_*`** (`grid_floor_seed_1`, `grid_floor_seed_23`, `grid_post_boss`) et
+`isaac_floor_seed_1`, `boss_gardien` : ces traces sont bénies pour les deux causes. `hit_iframes_isaac` n'existe pas
+sur `main` : sa trace est neuve (la carte `map_seed: 1` est maintenant la grille). Ses ennemis, posés à (20, −8) et
+(−36, −8), restent à 28 px du joueur (départ (−8, −8), ancre de l'étage inchangée) : les attentes (6, 5, 4, 4, 3 PV)
+passent sans changement, rien à recaler. Toutes les autres traces (`grid_secret_*`, `grid_treasure_*`, `isaac_boots`,
+générées `weapon_*`, testbed, zombies, gungeon, throne, autres jeux) sont identiques.
 
 ### Scénarios (testbed sauf mention)
 
@@ -4675,23 +4796,31 @@ de la tâche). Toutes les autres traces (testbed, zombies, gungeon, throne, gén
 | `soul_heart_absorbs` / `_temoin` | la `tourelle_spirale` retire 8 PV par volée ; avec un `coeur_ame` (4) : ExtraHealth 4 puis 0, santé 100 → 96 → 88 ; sans : 92 → 84 |
 | `heart_full_stays` / `_temoin` | à pleine vie le `coeur` (`refuse_when_full`) reste au sol et soigne dès le premier coup (96) ; la `ration` ramassée à f5 est perdue (92) |
 | `coin_pickup` | un coffre du pool `pieces` (`Currency(7)`) laisse un tas de 7 sous, ramassé : 500 → 507 |
+| `room_reward_coins` | l'étage `sous_salle` (pool `pieces_salle`, `Currency(3)`) : la salle `combat` nettoyée laisse un `ShellPickup` de 3 sous (f480), ramassé aussitôt (1120 → 1123), aucune clé ; chemin `room_reward_system` |
+| `champion_drops_coins` | `elite_sous` (variante `sous`, pool `pieces`) : à sa mort (f54) un tas de 7 sous (`champions::drop_loot`), ramassé (580 → 587) ; chemin champion |
+| `shop_full` / `_temoin` | un présentoir de `bomb` (5 sous) : avec 3 bombes (plafond) l'achat est refusé sans dépense (500, 3 bombes, présentoir invendu) ; avec 2 bombes il passe (495, 3 bombes, vendu) |
 | `bomb_pickup_cap` | au plafond (3) la bombe du sol est refusée (3 à f29) ; après la pose d'une bombe (explosion), elle est ramassée (3 à f40) |
 | `coop_pickups_per_player` | deux joueurs : une clé chacun, la bombe du milieu va à P0 (plafond 3), la seconde est refusée par P0 et prise par P1 ; 7 sous pour P1 seul ; HUD sur P0 |
 | `hit_iframes_isaac` (`isaac`) | voir ci-dessus |
 
+Les sous du **rocher à butin** passent par le même `items::loot_currency` + `shop::spawn_shell_pickup` que la
+récompense de salle et le champion, mais **aucun scénario ne les observe** : un étage dont le pool est `pieces_salle`
+sur la carte `rocks_static` ne laisse pas le joueur bouger (non élucidé), le scénario a été retiré.
+
 Unitaires : `combat::damage::layer_tests` (ordre bouclier → armure → âme → PV, `True`, coup absorbé en entier),
 `items::tests::accepts_refuses_a_full_counter_and_a_wasted_heal`, `items::loot::tests`
 (`currency_pick_is_a_common_consumable…`), `crates/scenario/tests/extra_health.rs` (les mêmes règles dans le vrai
-résolveur), `crates/content/tests/m3_t3_fixtures.rs` (7 fixtures : `item_refuse_when_full_without_heal`,
-`item_gain_soul_zero`, `loot_currency_zero`, `shop_currency_pool`, `character_starting_over_max_stack`,
-`unlock_currency_zero`, `unlock_currency_shop_pool`).
+résolveur, dont `a_hit_absorbed_by_the_shield_does_not_start_the_hit_iframes` : bouclier d'un point, coups à f12 et
+f30, attendu `(4992, 0, 0)` ; 5000 si le coup absorbé posait `hit_iframes`), `crates/content/tests/m3_t3_fixtures.rs`
+(8 fixtures : `item_refuse_when_full_without_heal`, `item_gain_soul_zero`, `loot_currency_zero`, `shop_currency_pool`,
+`character_starting_over_max_stack`, `unlock_currency_zero`, `unlock_currency_shop_pool`, `scaled_in_onuse`).
 
 ### Atteignabilité et dettes
 
 Récompense de salle `combat` d'`isaac` (cœurs, sous, bombes, clés) ; mort d'ennemi d'`isaac` (`shells_drop`) ;
-tables de champions et d'ennemis de M3-T11d. L'`OnDamageTaken` ne se déclenche pas sur un coup que l'âme
-absorbe en entier (à reprendre si un objet doit réagir aux cœurs d'âme perdus) ; `ExtraHealth` n'a pas de
-plafond ; la pose de bombe d'`isaac` (`BombCarrier`) est M3-T11 ; HUD des cœurs : T16.
+tables de champions et d'ennemis de M3-T11d. `OnDamageTaken` et cœurs d'âme : voir « Ordre retenu » ci-dessus
+(sans `HealthRegen`, un coup absorbé par l'âme le déclenche) ; `ExtraHealth` n'a pas de plafond ; la pose de
+bombe d'`isaac` (`BombCarrier`) est M3-T11 ; HUD des cœurs : T16.
 
 ## 69. Bombes, explosions, rochers cassés, piques, mur secret (M3-T4, chantiers E3 et E4 v2)
 
@@ -4767,7 +4896,7 @@ fermées, et un étage répété (mêmes `LevelId`) ne les croit pas déjà ouve
 rayon touche le **bord du collider** d'une de ces portes (`world::rect_within_radius`, strict) ouvre
 **toutes** les portes de la salle (colliders retirés) et la range dans `DoorLocks` (`DoorLocked(kind, nth,
 locked: false)`). Le champ de flux relit les portes à chaque mise à jour : les deux salles sont reliées
-(`secret_wall_bomb`, un ennemi de la salle secrète rejoint le joueur). Placement par la grammaire : M3-T5.
+(`secret_wall_bomb`, un ennemi de la salle secrète rejoint le joueur). Placement par la grammaire : M3-T5 (§70).
 
 ### Piques
 
@@ -4833,8 +4962,208 @@ une explosion de baril (aujourd'hui non : le baril n'a pas `destroys`).
 ### Atteignabilité
 
 Rencontré quand `isaac` donne des bombes de départ à son personnage (dette : le faire change ses traces,
-décision de l'orchestrateur), que M3-T11d place rochers et piques dans les gabarits `combat` et que M3-T5
-place le mur secret ; d'ici là, scénarios testbed seulement.
+décision de l'orchestrateur), que M3-T11d place rochers et piques dans les gabarits `combat` ; M3-T5 a placé
+le mur secret (§70 : une salle secrète par étage de `isaac`, graines 5 et 8 : `grid_secret_*`).
+
+## 70. Étage en grille : planificateur, salle secrète, trésor à clé, salle post-boss (M3-T5, chantier E2 v2)
+
+Exécute `FloorLayout::Grid` (contrat de §62) : un étage d'Isaac pose ses salles sur une grille de cases de
+même taille, une porte par côté partagé relié, des boucles possibles, des culs-de-sac pour les salles
+spéciales, une salle secrète voisine de plusieurs salles. Code : `map::generation::grid` (planificateur et
+contrôle indépendant), `map::generation::floor` (dispatch, `FloorPlan`), `map::generation::imp::floor`,
+`map_ldtk::generation::to` (portes de plus, murage exact), `map_ldtk::game::rooms` (portes à clé, minicarte),
+`content::lint` (gabarits et clés). **`Graph` est inchangé** : mêmes plans, mêmes traces pour `gungeon`,
+`zombies`, `throne` et `testbed` (preuve en fin de §).
+
+### Contenu : la grammaire
+
+```ron
+// games/isaac/assets/floor_grammars/sous_sol.ron
+(templates: "maps/salles.ldtk", grammar: (
+    rooms: (8, 12),                                   // départ, boss, requises, secrète, diable compris
+    required: {"boss": 1, "tresor": 1, "secrete": 1}, // en grille : exactement ce nombre
+    min_boss_distance: 3,
+    layout: Some(Grid(
+        cell: (15, 9),                                // une case de salle, en cases de 16 px (Q8)
+        max: (7, 7),                                  // étendue de la grille, en cases de salle
+        loops: 1,                                     // boucles au plus (défaut 0 : un arbre)
+        secret: "secrete",                            // type de la salle secrète (défaut)
+        post_boss: Some((kind: "diable", chance: "0.33")), // salle post-boss, absente : aucune
+    )),
+))
+```
+
+Réponse de William à Q8 : **case unique et grandes salles 2×1, 1×2, 2×2 dès T5** (formes en L hors périmètre).
+Un gabarit couvre un rectangle de cases de salle : sa taille en cases de 16 px est un **multiple de `cell`**, et
+**chaque côté de chaque case de salle** a une ouverture `LevelConnection` **centrée sur ce segment** (un 2×1 :
+deux ouvertures au nord, deux au sud, une à l'ouest et à l'est). Cette ouverture est un *port* : `(côté, case le
+long du côté)`. Lecture de « ouverture centrée sur chaque côté » pour une grande salle : **par segment de case**,
+seule façon d'aligner ses portes sur celles de voisines 1×1 ; à relire (Q8 ne tranchait pas ce point). Deux salles ne
+se relient que par des ouvertures **de même largeur** (sinon leurs bords ne coïncident pas : le contrôle indépendant
+refuserait la porte, `Layout::width` l'exclut dès la pose ; le lint exige une même largeur pour tous les gabarits d'une
+grammaire en grille). **L'étendue `max` est bornée par le monde** : le départ est à la case `(max - taille) / 2` et le
+monde fait ±1000 px (`max_width`/`max_heigth`), si bien que huit colonnes de 240 px ne tiennent pas (la huitième est
+refusée par `Layout::free`) : `sous_sol_grand` est en 7×7, comme `sous_sol`. Un
+gabarit n'a plus besoin d'être un cul-de-sac : le boss et le trésor ont leurs quatre ouvertures, le plan n'en
+relie qu'une, le chargeur mure les autres. Les quatre `BossN/E/S/W` de T0f disparaissent.
+
+### Algorithme (`grid::attempt`, une tentative = une graine)
+
+1. **Départ** (gabarit `Spawn` du type de départ) au centre de la grille, aligné sur les tuiles comme en `Graph`.
+2. **Remplissage** : croissance, une pose = tirage d'un gabarit parmi ceux qui ont au moins une pose valide (un 2×2
+   n'est pas favorisé par ses huit ports), puis d'une pose de ce gabarit. Une pose est valide si le rectangle est
+   dans la grille et dans le monde (`max_width`/`max_heigth`), sans salle, et **ne touche que son parent** (règle
+   d'Isaac). Sauf à `loops` pas de croissance tirés d'un flux local, où la pose peut toucher **une seconde** salle
+   ordinaire, reliée par une porte de plus (une boucle ; ports libres face à face exigés).
+3. **Boss** sur une salle de profondeur maximale (distance en salles, boucles comprises) : le cul-de-sac le plus loin ;
+   `min_boss_distance` ; strictement le plus loin de l'étage.
+4. **Salle post-boss** : la chance (`post_boss.chance`) est tirée **une fois par étage** par un flux local de la
+   graine de l'emplacement (avant les tentatives : toutes les tentatives voient la même décision) ; la place est
+   réservée dans `rooms` ; la case est accrochée au boss (seul voisin) et n'est pas comptée comme « plus loin que le
+   boss ». Le boss a donc un voisin de plus, elle.
+5. **Salles requises** (hors boss et secrète) : culs-de-sac accrochés à une salle ordinaire (départ ou remplissage)
+   de profondeur ≤ celle du boss − 2.
+6. **Salle secrète** (`required` la demande) : un rectangle libre, sans voisin boss ni post-boss, qui touche **au
+   moins deux salles ordinaires** par un port libre de part et d'autre ; une porte par voisine (la première dans
+   l'ordre des ports). Les candidats sont énumérés dans l'ordre (`BTreeSet`), tirés comme les poses.
+7. **Contrôle indépendant** `validate_grid_plan`, relu depuis les `Room` (positions, connexions) et non depuis l'état du
+   planificateur : bornes, types **exacts**, un seul départ en tête, un seul boss, alignement sur la grille et
+   tailles multiples, aucun chevauchement ni identifiant en double, **portes réciproques entre salles voisines aux
+   ouvertures face à face** (aucune porte vers le vide), connexité hors salle secrète, arêtes ≤ arbre + `loops`, deux
+   salles voisines (hors secrète) toujours reliées, boss en cul-de-sac strictement le plus loin (distances sans la
+   secrète : un raccourci par elle ne compte pas) à la salle post-boss près, requises en culs-de-sac, secrète à ≥ 2
+   portes toutes ordinaires et loin du boss. Un plan refusé relance une tentative.
+
+**Déterminisme.** `BTreeMap`/`BTreeSet`, `Vec` parcourus dans l'ordre de pose, aucun `HashMap`. Le RNG d'une
+tentative est découpé en **flux locaux** par usage (croissance, pas de boucle, secrète, départ, identifiants de salle
+par indice) dérivés de la graine de la tentative (`mix`) : ajouter un tirage à l'un ne déplace pas les autres. Les
+tirages bornés prennent les bits de poids fort du LCG (`below` : `RollbackRng::next_u32_range` prend un modulo, dont
+les bits de poids faible alternent). Identifiants de salle `seed ^ (indice + 1) × 0x9E3779B9` : injectif, jamais deux
+salles au même identifiant. Graine par emplacement : inchangée (§40).
+
+**Terminaison (le risque de la fiche).** Aucune boucle `while`. La croissance est un `for` borné par le nombre de
+salles ; une pose énumère un nombre fini de candidats (parents × ports × gabarits × ports) ; les pas de boucle sont
+tirés sans remise ; les tentatives sont bornées par `max_attempts` (`FloorError::Exhausted`, `NoTemplate` si un type
+n'a aucun gabarit à ports). `grid::step_bound(grammaire, gabarits)` majore les évaluations de candidats ;
+`FloorPlan::steps` les compte, tentatives échouées comprises. Tests : 1 000 graines sous la borne (maximum observé
+353 pour une borne de 77 millions, gabarits du test), grammaire impossible (grille d'une case, distance du boss
+irréaliste, plus de requises que de salles) : échec explicite sous la borne.
+
+### Plan : de l'arbre au graphe
+
+`PlannedRoom.links: Vec<PlannedLink { mine, other, theirs }>` : les portes qui ne sont l'arête de pose (parent) d'aucune
+salle (boucle, voisines supplémentaires de la salle secrète), portées par la salle posée en dernier des deux ; vide en
+`Graph`. `IMapGeneration::get_links` (vide par défaut) et `IMapGenerator::add_link` les rendent après les salles
+(`map_generation`, aucun tirage : `Graph` inchangé). `Room::connections` finales portent déjà toutes les portes :
+l'appariement des portes (`get_doors`) est inchangé.
+
+**Murage exact.** `GeneratedMap::close_unused_openings` raisonne par direction (un côté est utilisé dès qu'il a un
+voisin) : insuffisant pour une grande salle dont seules certaines ouvertures d'un côté mènent quelque part. En grille
+le chargeur appelle `close_unused_openings_exact` : chaque salle générée garde la liste de ses ouvertures sans porte
+du plan (lue dans ses connexions finales) et les mure. `Graph` garde l'ancienne fonction (cartes identiques).
+
+### Salle secrète
+
+Type `secrete` (`rooms/secrete.ron`, `door_lock: Secret`) : une par étage si `required` la demande, murée (§69 : une
+explosion `destroys` ouvre toutes ses portes). Elle n'est reliée qu'à des salles **ordinaires** (départ, combat) :
+seules, les portes du mur secret restent closes (`doors_closed` de `isaac_boots`, graine 1 : six portes, les quatre de la salle secrète dont deux murées et les deux jumelles de ses deux voisines).
+**Accessible à la bombe** : ses voisines sont atteignables du départ sans la franchir (testé sur 1 000 graines, deux
+grammaires) et `grid_secret_bomb` l'ouvre par une vraie explosion. **Minicarte** (M2-T18, `hud_model::minimap_rooms`) :
+elle lit déjà les bornes de chaque salle et `RoomStates`, donc dessine une grille (grandes salles à leur taille)
+sans changement ; l'adaptateur de carte (`update_hud_room_geometry`) ne lui donne pas la salle secrète **tant que son
+mur est fermé** (`hidden_from_minimap`, unitaire) : elle apparaît à l'ouverture (`DoorLocks`).
+
+### Trésor à clé
+
+`RoomKindDef.lock_from_floor: u32` (défaut 0, champ de fin de structure absent du contenu existant) : étage de la
+séquence `Floors` (indice, 0 = le premier) à partir duquel `door_lock` s'applique ; `RoomKindTable::door_lock_at(kind,
+floor)`. `rooms/tresor.ron` d'`isaac` : `door_lock: Some(Key(1)), lock_from_floor: 1` (Q6 : fermé à partir du second
+étage). **`DoorLock::Key` n'était exécuté par personne** (T0c le disait pour T4, qui n'a fait que `Secret`) :
+- `InteractionType::KeyDoor` (fin d'enum) : au premier tick, la porte d'une salle `Key(n)` de l'étage courant **et sa
+  jumelle** (`DoorConfig::paired_door` renseigné : les ouvertures murées restent des portes de salle ordinaires)
+  gardent leur collider et leur `Interactable` devient `KeyDoor` (même portée) : `handle_door_interaction` ne les voit
+  plus, donc **aucun coût de porte** n'est débité. Prompt du HUD « Ouvrir — clé ».
+- `key_door_system` (`Interaction`, après tous les handlers qui écrivent `Inventory`) : une Interaction sur une porte
+  `KeyDoor` consomme `n` clés **de l'interacteur** (Q4 : les clés sont par joueur), retire collider, couche et
+  `Interactable` de toutes les portes scellées de la salle, inscrit la salle dans `DoorLocks`
+  (`ggrs{f=… key_door_open room=… by=…}`) ; sans clé suffisante : `key_door_refused`, rien ne change.
+- ni l'ouverture d'office, ni le verrouillage d'une salle de combat voisine, ni sa fin (`Locked → Cleared`) ne touchent
+  une porte à clé, ouverte ou fermée (même règle que le mur secret).
+- `DoorLocked` (attente) et le lint lisent `door_lock_at` avec l'étage courant.
+**Clé obtenable** : lint (§ plus bas) et donnée : `consumables_per_floor: {"key": 1}` de la séquence `sous_sol`
+(servi à l'arrivée du second étage) ; `pleureur.ron` gagne `starting_consumables: {"key": 0}` : `blank_system` ne sert
+que les joueurs qui **ont** un `Inventory` (posé au premier ramassage ou par `starting_consumables`), sans quoi la clé du
+second étage n'aurait servi personne avant le premier ramassage.
+
+### Salle post-boss
+
+Type `diable` (`rooms/diable.ron`, vide ; le marché est T8). Tirée par `post_boss.chance` (un tiers pour `isaac`), une fois
+par étage, accrochée au boss, jamais voisine de la salle secrète. Le boss verrouille sa salle comme avant ; à sa mort ses
+portes s'ouvrent, celle de la salle post-boss comprise.
+
+### Lint
+
+`lint_floor_grammars` (grammaires en grille) : taille d'un gabarit d'un type nécessaire multiple de `cell`, ouverture
+centrée sur **chaque segment de chaque côté** (message : côté et segment), `FloorGrammar::problems()` : `secret` égal au
+départ/boss/remplissage, plus d'une secrète requise, `post_boss.chance` hors [0, 1], `post_boss.kind` déjà pris ;
+`lock_from_floor` sans `door_lock` ou sur `Secret` (le mur secret ne lit pas l'étage) ; **clé obtenable** : un type `Key(n)` exigé par une grammaire que nomme une séquence
+`Floors` doit avoir une source de ≥ n clés pour l'étage où le verrou s'applique (`consumables_per_floor["key"]` servi à
+partir de l'étage 1 seulement, pool de butin qui donne `key`, `starting_consumables`). Fixtures : `grid_template_size_not_multiple`,
+`grid_template_missing_opening`, `grid_post_boss_chance_out_of_range`, `lock_from_floor_without_lock`,
+`key_room_without_key_source`, `key_room_key_at_floor_zero_only` ; cas valides `grid_large_rooms_ok`,
+`key_room_with_key_source`.
+
+### `isaac` en grille
+
+Gabarits `maps/salles.ldtk` (`docs/taches/rapports/m3-t5-grammaire-grille.make_salles.py`) : `Depart`, `Combat`, `Boss`
+(1×1), `BossGrand` (2×2), `Tresor` (1×1), `TresorLong` (2×1), `TresorHaut` (1×2), `Secrete`, `Diable`, `Transit`. Grammaires :
+`sous_sol` (8 à 12 salles, 7×7), `sous_sol_grand` (12 à 15, 8×8, deux boucles), `sous_sol_court` (3 salles, désignée par
+`entry.start_map = floor:sous_sol_court` pour les scénarios générés sans carte : `boss_gardien`), `sous_sol_transit` (un
+départ et une salle sans ennemi : portail ouvert aussitôt). Séquences : `sous_sol` (**défaut : deux étages**, clé au second),
+`sous_sol_un`, `sous_sol_grand`, `sous_sol_court`, `sous_sol_cle` (étage de passage puis `sous_sol` : le second étage des
+scénarios à clé sans jouer le premier). Objet `bomb` (copie du testbed : la bombe des scénarios ; `isaac` n'en donne toujours
+pas au départ). **Les traces d'isaac bougent** : (1) la carte est une grille ; (2) le joueur a un `Inventory`
+(`starting_consumables`). Preuve et traces re-bénies : rapport `docs/taches/rapports/m3-t5-grammaire-grille.md`.
+
+### Scénarios et attente `RoomLayout`
+
+Attente nouvelle `RoomLayout(kind, nth, size: Some((w, h)), touches: [types], apart: [types], at_frame)` (même tri que
+`RoomState`, géométrie relue sur `RoomBounds`, à employer sur un étage unique : les mondes des étages se superposent) :
+taille en pixels (2×2 = 480 × 288) et voisinage par un bord commun.
+
+| Scénario | Prouve |
+|---|---|
+| `grid_floor_seed_1`, `_23`, `_123` | un étage entier joué par le bot `explorateur` jusqu'à la victoire : boss 1×1 (graine 1, trésor 1×2, boucle), **boss 2×2** avec salle du diable et trésor 2×1 (graine 23), diable et boucle (graine 123) ; tailles, voisinages, secrète fermée, trésor ouvert au premier étage |
+| `grid_secret_room` | graine 5 : secrète placée (voisine du départ et d'un combat, loin du boss), fermée, rien n'y entre |
+| `grid_secret_bomb`, `grid_secret_no_bomb` | graine 8 : la bombe (explosion f55) ouvre toutes les portes de la secrète, le joueur y entre ; témoin sans bombe : il s'arrête contre le mur |
+| `grid_treasure_key`, `grid_treasure_floor0` | séquence `sous_sol_cle`, graine -1013904216 (plan du second étage = graine 26) : le trésor est fermé à clé, la clé du second étage l'ouvre (f56), le joueur entre ; témoin du premier étage : porte ordinaire |
+| `grid_post_boss` | graine 8 : la salle du diable collée au boss et à lui seul, boss verrouillé puis nettoyé, victoire |
+| `isaac_floor_seed_1`, `isaac_boots` | partie ordinaire (séquence par défaut) : premier étage nettoyé, portail, second étage : trésor fermé, clé servie, secrète fermée |
+
+Tests : `map::generation::grid` (unitaires : ports par forme, `port_cell`/`origin_for` réciproques, pose d'un 2×2 sur un
+rectangle libre qui ne touche que le parent, 1 000 graines, boucles bornées, chance 0 et 1, déterminisme, grammaires
+impossibles, plan altéré refusé), `map_ldtk::generation` (`isaac_etages_de_grille_sur_1000_graines` : 2 × 1 000 graines
+sur les gabarits réels, `isaac_grille_de_12_a_15_salles_sous_deux_fois_grand_de_gungeon`), `map_ldtk::game::rooms`
+(minicarte), `world::rooms` (`door_lock_at`), `content` (lint et fixtures).
+
+### Mesures
+
+1 000 graines, gabarits du test (départ, combat, boss 1×1 et 2×2, trésor 1×1/2×1/1×2, secrète, diable) : 1,08 tentative en
+moyenne, 353 évaluations de candidats au plus ; gabarits d'`isaac` (2 grammaires × 1 000 graines) : salle du diable 304
+fois sur 1 000 (un tiers), boucle dans 510 étages `sous_sol` sur 1 000 et 929 `sous_sol_grand` ; génération d'un étage de 12 à
+15 salles en grille 0,80 ms contre 0,99 ms pour `grand` de gungeon (rapport 0,81, machine partagée ; fiche : moins de 2).
+
+### Questions pour William
+
+Ouverture « centrée sur chaque côté » d'une grande salle : lue par segment de case de salle (voir plus haut). Bot et
+trésor à clé : l'`explorateur` n'ouvre pas les portes à clé (T14). Aucune salle secrète n'apparaît sur la minicarte de la
+fiche T16 tant que le mur est fermé : T16 reprendra le dessin.
+
+### Atteignabilité
+
+La séquence par défaut d'`isaac` est en grille : toute partie ordinaire la rencontre (deux étages). Secrète : graines 5 et 8
+(`grid_secret_*`) ; trésor à clé : second étage de toute partie par défaut, graine -1013904216 de `sous_sol_cle` ;
+post-boss : graines 8, 23, 123.
 
 ## 71. Familiers et orbitaux en jeu (M3-T6, chantier C3)
 

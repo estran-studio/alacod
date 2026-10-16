@@ -557,7 +557,17 @@ pub fn create_child_sprite(
 
     let sprite = entity_commands.id();
 
-    commands.entity(parent_entity).add_child(sprite);
+    // Le parent a pu mourir et être détruit avant l'application différée des
+    // commandes (même course que les `try_insert` des visuels) : `add_child`
+    // paniquait (« Entity despawned »). Si le parent est parti, l'enfant
+    // orphelin est détruit plutôt que laissé seul à l'origine.
+    commands.queue_silenced(move |world: &mut World| {
+        if let Ok(mut parent) = world.get_entity_mut(parent_entity) {
+            parent.add_child(sprite);
+        } else if let Ok(mut orphan) = world.get_entity_mut(sprite) {
+            orphan.despawn();
+        }
+    });
 
     sprite
 }

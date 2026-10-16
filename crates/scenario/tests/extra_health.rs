@@ -199,6 +199,24 @@ fn a_hit_absorbed_by_soul_still_starts_the_hit_iframes() {
     );
 }
 
+/// Remplace le test de M3-T0b (`hit_iframes.rs`), vacuous (bouclier posé avant l'apparition de la cible).
+/// Un coup absorbé par le bouclier ne pose **pas** les `hit_iframes` (60 frames pour `isaac`, 30 pour la
+/// cible) : il pose seulement les brèves i-frames du bouclier (`SHIELD_IFRAMES`, 15 frames). Le bouclier
+/// (1 point, posé à f6) absorbe le coup de f12 ; le coup de f30, 18 frames plus tard, passe. Si le coup
+/// absorbé posait les 30 frames de `hit_iframes` (jusqu'à f42), le coup de f30 serait ignoré : 5000.
+#[test]
+fn a_hit_absorbed_by_the_shield_does_not_start_the_hit_iframes() {
+    if map_ldtk::RENDER_ENABLED {
+        return;
+    }
+    let phys = DamageKind::Physical;
+    let setup = Setup { shield: 1, ..NONE };
+    assert_eq!(
+        target_state(&[(12, 8.0, phys.clone()), (30, 8.0, phys)], setup, 40),
+        (4992.0, 0.0, 0)
+    );
+}
+
 #[test]
 fn true_damage_skips_shield_and_armor_but_not_soul() {
     if map_ldtk::RENDER_ENABLED {

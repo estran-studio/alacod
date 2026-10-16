@@ -83,6 +83,10 @@ fn la_porte_du_hub_lance_la_run_avec_les_deblocages_du_profil() {
         "la run ne doit pas démarrer avant la confirmation de la frame {exit_frame}"
     );
     assert_eq!(app.world().resource::<Run>().mode, RunMode::Sandbox);
+    assert!(
+        app.world().resource::<world::RoomStates>().doors_opened,
+        "le hub (salle `depart`) pose doors_opened : sans quoi le test ci-dessous ne prouve rien"
+    );
 
     // La frame de sortie se confirme, `hub_exit_trigger` pose la requête, la session repart.
     let mut left_in_game = false;
@@ -95,6 +99,12 @@ fn la_porte_du_hub_lance_la_run_avec_les_deblocages_du_profil() {
     }
     assert!(left_in_game, "InGame jamais quitté après la sortie du hub");
     assert!(!app.world().resource::<HubSession>().in_hub);
+    // L'état des salles du hub (salle typée `depart` : `doors_opened`) ne passe pas à la run :
+    // sinon les portes de la run restent toutes fermées (m2-full-run).
+    assert!(
+        !app.world().resource::<world::RoomStates>().doors_opened,
+        "RoomStates du hub encore posé dans la run"
+    );
     assert!(app.world().get_resource::<RunRequest>().is_none());
 
     let mut back = false;

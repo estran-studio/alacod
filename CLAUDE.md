@@ -381,6 +381,11 @@ crate `APP`), jamais dans un crate `SIM`.
       Barrel)`, `EntityHealth`, `Health`, `PlayerPosition`, `DoorLocked`, `EnemyDistance`, `Event(kind: "explosion")` couvrent
       les seize scénarios `bomb_*`, `rock_*`, `secret_wall_*`, `explode_effect`, `spikes_damage`) ; champ de scénario `PlayerScript::bomb`
       (la `BombDef` du joueur, le stock par `items: ["bomb", ...]`, bouton `Bomb` = bit 18, front montant).
+    - M3-T5 grille (§70) : `RoomLayout(kind, nth, size: Some((l, h)), touches: [types], apart: [types])` (géométrie
+      d'une salle typée relue sur ses bornes : taille en pixels, voisinage par un bord commun ; à employer sur un
+      étage unique, les mondes des étages se superposent) ; `DoorLocked` lit désormais `door_lock_at` (étage courant,
+      `RoomKindDef::lock_from_floor`) ; aucune autre attente nouvelle (`RoomState`, `BossPhase`, `Consumable`, `Event`,
+      `EntityCount` couvrent les scénarios `grid_*` et `key_door_*`).
     - M3-T6 familiers (§71) : `FamiliarDistance` (distance d'un familier à son porteur ou à un autre familier
       du même porteur) ; `FamiliarCount` (§63) compte maintenant de vrais familiers.
     - M3-T3 cœurs, sous, bombes et clés au sol (§68) : `ExtraHealth` (points de vie d'âme du joueur : `ExtraHealth(handle: 0,
@@ -392,6 +397,9 @@ crate `APP`), jamais dans un crate `SIM`.
       résout `Luck` avec la base 0 (`sim_core::stats::default_base`).
     - M2-T11 surfaces v2 (§46) : `EntityCount(kind: Barrel | Table)`.
     - M2-T13 hub (§57) : `HubExit`, `HubVisit` ; `RunUnlocks` (M2-T12, §51).
+    - m2-full-run (§57, « Run complète de M2 ») : `EventAfter` (moment clé survenu après une frame) ; moments
+      clés `chest`, `arena`, `unlock`, `hub` ; `Scenario::shopping` ; `hub: Some((stay: false, inputs: …))` :
+      le runner suit la relance du hub (frames de la run repartent de 0).
     - T1.18 HUD throne (§32) : `HudText` (texte d'une source du HUD, présentation, hors trace).
     - M2-T18 écrans (§56) : `ScreenText` (texte d'une section de l'écran de pause ou de l'inventaire, présentation, hors trace) ; le script `ui:` du scénario joue les actions d'UI (`Toggle(Pause)`, `Down`, `Confirm`…), jamais dans l'input rollback.
     - Réenregistrement : le scénario rejoué depuis son enregistrement garde ses réglages

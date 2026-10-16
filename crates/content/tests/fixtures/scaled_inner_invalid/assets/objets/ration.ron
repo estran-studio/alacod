@@ -1,1 +1,0 @@
-(name: "Ration", kind: Consumable, effects: [(on: OnUse, do: [Scaled(action: Heal("-1.0"), scale: Some(PerCopy))])])

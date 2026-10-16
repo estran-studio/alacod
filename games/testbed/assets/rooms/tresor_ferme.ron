@@ -1,0 +1,5 @@
+// M3-T5 (docs/conventions.md §70) : comme `tresor`, mais la porte n'est fermée à clé qu'à partir du
+// deuxième étage (`lock_from_floor: 1`) : au premier étage c'est une porte de salle ordinaire, ouverte
+// d'office (le trésor d'Isaac est ouvert au sous-sol 1). Carte `testbed/salles_cle_floors.ldtk`, séquence
+// `floors/deux_cles.ron` (scénario `key_door_floors`).
+(door_lock: Some(Key(1)), lock_from_floor: 1)

@@ -1,3 +1,4 @@
-// M3-T0c (docs/conventions.md §62) : type réservé. Porte fermée jusqu'à ce qu'un joueur la touche
-// par Interaction avec 1 clé (exécuté par M3-T4, placé par M3-T5).
+// M3-T0c (docs/conventions.md §62) : porte fermée jusqu'à ce qu'un joueur la touche par Interaction
+// avec 1 clé (consommée à l'ouverture, M3-T5 §70 : `map_ldtk::game::rooms::key_door_system`). Carte
+// `testbed/salles_cle.ldtk` (scénarios `key_door_*`) ; aucun gabarit de grammaire n'en use encore.
 (door_lock: Some(Key(1)))

@@ -1,0 +1,4 @@
+{"levels": [
+  {"identifier": "Depart", "pxWid": 80, "pxHei": 48, "fieldInstances": [{"__identifier": "room_kind", "__value": "depart"}], "layerInstances": [{"__identifier": "LevelConnection", "__cWid": 5, "__cHei": 3, "intGridCsv": [0, 0, 1, 0, 0, 1, 0, 0, 0, 1, 0, 0, 1, 0, 0]}]},
+  {"identifier": "Boss", "pxWid": 96, "pxHei": 48, "fieldInstances": [{"__identifier": "room_kind", "__value": "boss"}], "layerInstances": [{"__identifier": "LevelConnection", "__cWid": 6, "__cHei": 3, "intGridCsv": [0, 0, 1, 0, 0, 0, 1, 0, 0, 0, 0, 1, 0, 0, 1, 0, 0, 0]}]}
+]}

@@ -61,3 +61,17 @@ fn an_unlock_cannot_add_coins_to_a_shop_pool() {
     let (_, _, errors) = load_and_lint(&fixture_dir("unlock_currency_shop_pool")).unwrap();
     assert_has_error(&errors, LintErrorKind::Unsupported, "pool de boutique");
 }
+
+#[test]
+fn scaled_is_refused_in_an_on_use_effect() {
+    let (_, _, errors) = load_and_lint(&fixture_dir("scaled_in_onuse")).unwrap();
+    // Consommable et actif : l'un comme l'autre, `apply_instant_effects` n'exécute pas l'enveloppe.
+    for item in ["ration", "eclat"] {
+        assert!(
+            errors.iter().any(|e| e.kind == LintErrorKind::Unsupported
+                && e.message.contains(item)
+                && e.message.contains("Scaled : pas exécuté par OnUse")),
+            "{item} : {errors:#?}"
+        );
+    }
+}

@@ -224,10 +224,16 @@ pub fn get_asset_loader_generation() -> LdtkProjectLoader {
             let context = from_map(&map_json, config);
             let mut generator = GeneratedMap::create(map_json);
 
-            let is_floor = matches!(context.config.mode, MapGenerationMode::Floor(_));
+            let layout = match &context.config.mode {
+                MapGenerationMode::Floor(grammar) => Some(grammar.layout()),
+                _ => None,
+            };
             map_generation(context, &mut generator).unwrap();
-            if is_floor {
-                generator.close_unused_openings();
+            match layout {
+                // M3-T5 : une grille mure exactement les ouvertures sans porte du plan.
+                Some(world::FloorLayout::Grid { .. }) => generator.close_unused_openings_exact(),
+                Some(world::FloorLayout::Graph) => generator.close_unused_openings(),
+                None => {}
             }
 
             generator.get_generated_map()
