@@ -1,0 +1,1 @@
+(name: "Clé", kind: Consumable, max_stack: Some(0))

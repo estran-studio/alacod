@@ -313,7 +313,8 @@ pub fn apply_powerup_actions_system(
                 // M3-T0d : mort d'un champion seulement
                 | Action::SpawnCharacters { .. }
                 // M3-T1 : `on_hit` de projectile seulement
-                | Action::Chance { .. } => {}
+                | Action::Chance { .. }
+                | Action::Scaled { .. } => {}
                 Action::TimedModifier { .. } | Action::CurrencyMultiplier { .. } => {
                     for (net_id, _player, _dead, mut modifiers, _reserves, _inventory) in
                         order_mut_iter!(players)

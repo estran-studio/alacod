@@ -167,6 +167,10 @@ pub fn describe_action(action: &Action) -> String {
                 )
             }
         }
+        Action::Scaled { action, scale } => {
+            let suffix = scale.map_or(String::new(), |scale| format!(" ({scale:?})"));
+            format!("{}{}", describe_action(action), suffix)
+        }
     }
 }
 
