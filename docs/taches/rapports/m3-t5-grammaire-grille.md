@@ -46,10 +46,10 @@ Réponse de William à Q8 appliquée : case unique **et** grandes salles 2×1, 1
 - **Un étage `transit`** (départ + salle sans ennemi) sert aux scénarios du trésor à clé : sans lui, atteindre le second étage demande
   de vaincre un boss (≈ 1 500 frames).
 
-## 3. Vérifié (résultats réels, sur l'arbre final)
+## 3. Vérifié (résultats réels ; **suite verte sur la fusion avec `main` 0a719425**, qui contient `outillage-p2p-stress`)
 
-- `make test_scenarios_par SHARDS=3` **sans BLESS** : vert, 495 scénarios, 263 s ; aucune trace existante n'a bougé hors `isaac`.
-- `make test_crates` : 1 005 réussis, 0 échec, 13 ignorés.
+- `make test_scenarios_par SHARDS=3` **sans BLESS** : vert, 495 scénarios, 217 s sur la fusion (263 s avant : même suite) ; aucune trace existante n'a bougé hors `isaac`.
+- `make test_crates` : 1 007 réussis, 0 échec, 13 ignorés (fusion).
 - `make lint` (zombies, testbed, throne, gungeon, isaac) : « aucune erreur » ×5 ; `make gen GAME=…` ×5 : sortie 0, aucun diff hors
   `isaac` (régénéré et re-bénit).
 - `cargo fmt --all -- --check`, `make check_sim_boundary` (« OK : 11 crates, 5 en dette D69 »), `scripts/check-forbidden.sh` (exception
@@ -89,16 +89,14 @@ type de remplissage : `depths.get(…)` et nouveau problème de grammaire.
 
 ## 6. p2p
 
-`scripts/p2p-stress.sh` (branche `outillage-p2p-stress`, livrée mais **pas encore sur `main`** à ma livraison : copie jetable hors dépôt) :
-`ALACOD_INPUT_DELAY=0`, entrées qui changent toutes les 1 à 3 frames (deux joueurs), client 1 suspendu par `SIGSTOP`/`SIGCONT`, jeu `isaac` en headless
-(Docker OrbStack, `MATCHBOX_PORT=3576`, `COMPOSE_PROJECT_NAME=b3`), 3 000 frames. Manifeste d'`isaac` temporairement sur la séquence `sous_sol_cle` et la
-graine -1013904216 (second étage à trésor fermé ; annulé par `git checkout`) : la clé est servie à f1 et la porte à clé s'ouvre dès f9 (`key_door_open`, rejouée par
-les rollbacks du client 0).
-- Avec le `state_trace.rs` de cette branche (`git checkout origin/outillage-p2p-stress -- crates/game/src/state_trace.rs`, annulé ensuite) : codes de sortie 0 et 0,
-  `DesyncDetected` 0, **7 936 frames resimulées** (client 0 ; client 1 : 0), **traces identiques sur 2 999 lignes** : « p2p-stress : OK ».
-- Avec le `state_trace.rs` de `main` (premier passage) : 7 289 frames resimulées, aucun desync, traces identiques sur les 2 992 premières lignes et différentes
-  sur les sept dernières frames (prédictions non confirmées écrites à la sortie) : le défaut que corrige `outillage-p2p-stress`, pas un desync.
-Non rejoué : `scripts/p2p-restart.sh` (la session et le restart ne changent pas).
+Sur la fusion avec `main` (qui porte maintenant `scripts/p2p-stress.sh`) : `scripts/p2p-stress.sh isaac <inputs> 3000` avec `scripts/p2p-stress-inputs.py 3000 --pool
+Up,Down,Left,Right,Fire,Interaction,Sprint` (`ALACOD_INPUT_DELAY=0`, entrées qui changent toutes les 1 à 3 frames, client 1 suspendu par `SIGSTOP`/`SIGCONT`, Docker OrbStack,
+`MATCHBOX_PORT=3576`, `COMPOSE_PROJECT_NAME=b3`). Manifeste d'`isaac` temporairement sur la séquence `sous_sol_cle` et la graine -1013904216 (second étage à trésor fermé ;
+annulé par `git checkout`) : la clé est servie à f1 et la porte à clé s'ouvre dès f9 (`key_door_open`, rejouée par les rollbacks).
+Résultat : codes de sortie 0 et 0, `DesyncDetected` 0, **7 794 frames resimulées** (client 0 ; client 1 : 3), déconnexions 0, **traces identiques sur 2 999 lignes** :
+« p2p-stress : OK ». (Avant la fusion, avec une copie jetable du script et le `state_trace.rs` de `outillage-p2p-stress` : 7 936 frames resimulées, 2 999 lignes identiques ;
+avec le `state_trace.rs` de l'ancien `main` : traces différentes sur les sept dernières frames seulement, prédictions non confirmées écrites à la sortie, le défaut que cette
+branche corrige.) Non rejoué : `scripts/p2p-restart.sh` (la session et le restart ne changent pas).
 
 ## 7. Non fait / non vérifié / incertain
 
