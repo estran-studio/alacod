@@ -650,6 +650,36 @@ entrée depuis le hub (T13). Ajoutés le 2026-10-14 :
   transition d'étage de la grammaire, traces identiques ; jouée par `scripts/nightly.sh` ensuite.
 Calendrier indicatif : **huit semaines**.
 
+### État au 2026-10-16 (soir) et réponses de William aux questions de M3
+
+Orchestration passée sous OMP (orchestrateur Fable sur le VPS, workers `b0`/`b1`/`b3` sur le Mac et
+`b2` sur le VPS, un worktree et un target par worker, relecture indépendante par `gpt-6-astra` avant
+chaque merge ; `~/orca/worker.sh`). Mergé dans la journée : D78, M3-T0d, M3-T1, M3-T0b, M3-T6, M3-T4,
+M3-T7, M3-T13, M2-T14d + D64, M3-T2. En cours : M3-T17 (b0), `outillage-p2p-stress` (b1 : les p2p de
+T6/T4/T7 du jour n'avaient presque aucun rollback réel, seul celui de T2 en avait ; rejeu sur `main`
+avec rollbacks forcés), `m2-full-run` (b2). Les listes « lançable tout de suite » ci-dessous sont
+périmées pour T0a/T0c/T0d/T0f (mergées sous les noms `m4-t0*`) : vérifier `git log origin/main` avant
+tout dispatch.
+
+**Réponses de William (2026-10-16, orchestrateur OMP)** — elles lèvent les blocages des fiches :
+
+| Q | Réponse |
+|---|---|
+| Q2 (cœurs) | demi-cœur = 1 PV ; `ExtraHealth { soul }` (composant neutre) absorbée **avant** les PV, point par point ; cœurs d'âme dessinés en présentation |
+| Q4 (coop) | sous, bombes, clés **par joueur** (`Inventory` de chacun, comme aujourd'hui) ; celui qui ramasse possède |
+| Q5 (pools) | épuisement **par run et par pool** (trésor, boutique, boss, diable) ; `PoolState` rollback neutre, tirage indépendant du moment (`loot_seed` + index d'épuisement) |
+| Q6 (diable) | refus si le paiement tuerait, sinon vie max réduite définitivement (`can_pay` de T0b) ; les cœurs d'âme (Q2) paient à la place s'ils sont présents |
+| Q7 (curses) | les cinq : `Darkness` (HideMinimap), `Unknown` (HideHealth), `Blind` (HideItemNames), `Labyrinth` (FloorRooms ×2), `Modifier(stat)` (ex. Maze/Lost : vitesse ou chance en moins) |
+| Q8 (grille) | case unique **et** grandes salles 2×1 / 1×2 / 2×2 (boss, trésor) dès T5 (estimation T5 : 7 j) |
+| Q10 (transformations) | oui : contrat (`SynergyDef.requires_tag`) + une transformation d'exemple au testbed (`transformation_three`), petite tâche séparée après T2 |
+| Q12 (charme) | oui : l'ennemi charmé cible l'ennemi le plus proche (tie-break net id) pendant la durée, puis redevient hostile |
+| Q13 (familier) | `MirrorShot` tire **les larmes du porteur** (arme + objets via `Projectile::composed`) : reprise de T6, traces testbed de T6 bougent avec preuve §5 |
+| Q16 (limites) | `Shared` par défaut, `Independent` opt-in par objet (livré par T2) |
+| Q17 (visée) | option de personnage `aim: FourWay` (donnée), activée par `isaac` ; quantification dans `weapon_rollback_system`, traces isaac bougent (preuve §5), le bot T14 la connaît |
+
+Tâches de suivi créées par ces réponses (une branche chacune, après T2/T6) : `m3-q10-transformations`,
+`m3-q12-charme`, `m3-q13-mirror-shot-larmes`, `m3-q17-visee-quatre-directions`.
+
 ### Reprise au 2026-10-16 (sessions fermées, contexte frais)
 
 `main` = `85b8b2dd`. Mergé le 2026-10-15/16 : dettes D15/D63/D68/D77, M2-T12 profil et déblocages,
