@@ -3700,15 +3700,16 @@ que dans la grammaire `court_escouade`. Validée sur 1 000 graines par `gungeon_
 (`ALACOD_FLOOR_SEEDS=1000`) et `gungeon_decor_sur_1000_graines`. `court`, `grand` et `court_escouade` ne
 bougent pas (leurs scénarios scriptés gardent leur forme). `court_arene` et `court_coffre` (départ, la salle, boss)
 portent les `test:` de `rooms/arene.ron` et `rooms/coffre.ron` ; `rooms/escouade.ron` joue `etages_court_escouade`.
-Scénarios générés `room_arene`, `room_coffre`, `room_escouade`.
+Scénarios générés `room_arene`, `room_coffre`, `room_escouade`, `room_secret` (grammaire `court_secret`, 5 salles).
 
 **D64, équilibrage** (leviers, tous en données). Un `bullet_kin` : 30 PV (40), salve de trois balles simples de
 4 dégâts (trois salves de deux, 6 dégâts), recharge de 150 frames (90), `ricochet` : `Bounce(1)`, portée 320 (500) ;
 idem `bullet_kin_squad`. Autres ennemis : `crachat` 4 (6), `chevrotine` 3 (5), explosion de `grenade` 10 (14) et
 éclat 3 (4), `bandana_kin` 10 de dégât (15), `tourelle_kin` 60 PV (90) et `croix` avec la nouvelle boule `boulette`
-(4 dégâts : `boule` reste celle du boss, non touchée). Gabarits : un `bullet_kin` de moins dans chaque salle de
-combat sauf `CombatT` (scénarios scriptés), `shotgun_kin` seulement dans `CombatCroix`, `veteran_kin` dans
-`CombatNS`, `fuyard_kin` dans `CombatEW` ; positions aux coins de la salle. Arène :
+(4 dégâts : `boule` reste celle du boss, non touchée). Gabarits (ennemis avant → après) : `CombatEW` 2 `bullet_kin` + `shotgun_kin` + `fuyard_kin` → 2 `bullet_kin` + `fuyard_kin` ;
+`CombatNS` 2 `bullet_kin` + `veteran_kin` + `tourelle_kin` → 2 `bullet_kin` + `veteran_kin` ; `CombatCroix` 3 `bullet_kin` +
+`bandana_kin` + `lanceur_kin` → 2 `bullet_kin` + `shotgun_kin` ; `CombatT` (3 `bullet_kin`) et `EscouadeEW` inchangés ; positions
+aux coins de la salle. Arène :
 horloge 750 (900), vagues à 0/250/500 (0/300/600), un `bullet_kin` au lieu de deux, un au lieu de trois. Soin :
 chaque salle `combat` nettoyée laisse une récompense (`salle.ron` : chance 1, ration 6/9) et la `ration` rend 25 PV (15).
 Joueur, boss, armes du joueur : intouchés (le renfort `bullet_kin` du boss profite de l'allègement).

@@ -61,7 +61,8 @@ exactement une fois ; `gungeon_decor_sur_1000_graines` : 3 accessoires par salle
 une porte ni sur un spawn). Durée de `etage` : 200 graines en 6,4 s (chargement LDtk compris).
 
 Scénarios générés nouveaux (tests de type de salle, §54) : `room_escouade` (grammaire `court_escouade`),
-`room_arene` (`court_arene`, nouvelle), `room_coffre` (`court_coffre`, nouvelle).
+`room_arene` (`court_arene`, nouvelle), `room_coffre` (`court_coffre`, nouvelle), `room_secret` (`court_secret`, 5 salles : le
+cul-de-sac ne peut pas être sur la route ; attente par défaut : joueur vivant, le coffre Rare n'est pas asserté).
 
 ### Graines `alacod-sim` qui rencontrent chaque mécanique
 
@@ -167,7 +168,19 @@ Contre `main` `433cfc6a` (dumps `ALACOD_DUMP_TRACE`, mêmes binaires, données �
 | Scénario | première frame qui diffère | cause |
 |---|---|---|
 | `gungeon_start`, `gungeon_clear`, `dash_charges`, `gungeon_boss`, `ui_*`, `unlock_*`, `assets_gungeon_decor`, `generated/gungeon/boss_gatling`, `weapon_arsenal*` (carte `etage_1`) | **0** | entité `bullet_kin` : `Health` 40 → 30 et `MaxHealth`, `Shoot` `cooldown_frames` 90 → 150, table `arsenal` : `crachat` 6 → 4, `ricochet` (6, portée 500, `Bounce(2)`) → (4, portée 320, `Bounce(1)`), `boulette` ajoutée |
-| `generated/gungeon/enemy_*` | 0 ou 1 | même données (PV, tir) de l'ennemi testé |
+| `generated/gungeon/enemy_*` (14 traces, dumps contre `433cfc6a`) | **1 pour les 14** (la frame 0 ne contient pas l'ennemi, créé à la frame 1) | voir ci-dessous |
+
+Famille `enemy_*`, première frame et cause, une ligne par trace :
+
+| trace | 1re frame | cause (diff `trace-diff.py`) |
+|---|---|---|
+| `enemy_bullet_kin_still`, `_moving` | 1, 1 | 30 PV, recharge 150, `arsenal` : `crachat` 6 → 4, `ricochet` (6, 500, `Bounce(2)`) → (4, 320, `Bounce(1)`), `boulette` ajoutée |
+| `enemy_fuyard_kin_still`, `_moving` | 1, 1 | table `arsenal` (mêmes lignes) |
+| `enemy_veteran_kin_still`, `_moving` | 1, 1 | table `arsenal` (mêmes lignes) |
+| `enemy_tourelle_kin_still`, `_moving` | 1, 1 | 90 → 60 PV et table `arsenal` (`boulette`) |
+| `enemy_bandana_kin_still`, `_moving` | 1, 1 | `attack_damage` 15 → 10 |
+| `enemy_lanceur_kin_still`, `_moving` | 1, 1 | `arsenal_lourd` : explosion 14 → 10, éclat 4 → 3, chevrotine 5 → 3 |
+| `enemy_shotgun_kin_still`, `_moving` | 1, 1 | `arsenal_lourd` (mêmes lignes) |
 | `gungeon_floor_seed_*`, `gungeon_floor_start`, `gungeon_two_floors`, `bot_explorer_*`, `generated/gungeon/room_*` (grammaire `court`) | 0 | idem (le gabarit `CombatT` garde ses trois `bullet_kin`, mêmes positions) |
 | `shop_seeded`, `minimap_shop_visit`, `bench_floor` (grammaire `etage`, `grand`) | 0 | autres étages : sept types exigés, gabarits et accessoires ajoutés (`SurfaceGrid` non vide, autres entités) |
 
@@ -179,7 +192,7 @@ la boutique est voisine ouest du départ).
 
 ## 7. Vérifications (état fusionné avec `origin/main` `030a4bc0`)
 
-- `make test_scenarios_par SHARDS=3` : 431 scénarios, 3 tranches vertes, 931 s. Les traces gungeon rebénies sur la
+- `make test_scenarios_par SHARDS=3` : 432 scénarios (dont `room_secret`), 3 tranches vertes sans BLESS, 955 s. Les traces gungeon rebénies sur la
   branche (avant les fusions) sont celles que rejoue l'état fusionné : aucune n'a bougé avec M3-T0b, T1, T6, T4, T7
   (barils compris, M3-T4 a refait leur explosion).
 - `make lint` : 0 erreur sur les cinq jeux ; `games/gungeon` : 0 avertissement (testbed : 82, bac à sable voulu).
@@ -226,4 +239,4 @@ direction changée toutes les 60 frames, tir toutes les 6 frames, phases décal�
   `ricochet` avant de toucher aux gabarits ; le `lanceur_kin` est le tueur principal à 1 bot).
 - La grammaire `etage` n'a plus que 2 à 6 salles de combat (7 types exigés) : les étages sont plus variés mais
   moins longs en combats ; `CombatT` n'a pas bougé (scénarios scriptés).
-- p2p gungeon à 2 clients : non rejoué ici (pas de Docker, `scripts/p2p` à lancer par l'orchestrateur).
+- p2p gungeon à 2 clients : rejoué (§7 bis) : traces identiques, 599 lignes, aucun desync.
