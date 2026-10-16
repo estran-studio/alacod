@@ -439,6 +439,11 @@ pub struct PlayerScript {
     /// **chargé**). Vide (défaut) : rien, aucune trace existante ne bouge.
     #[serde(default, skip_serializing_if = "Vec::is_empty")]
     pub items: Vec<String>,
+    /// Bombe imposée (M3-T4, §69, scénarios `bomb_*`) : le joueur porte cette `BombDef` comme si son
+    /// personnage la déclarait ; le stock se donne par `items: ["bomb", ...]` (un consommable par
+    /// bombe). Absent (défaut) : rien, aucune trace existante ne bouge.
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub bomb: Option<world::BombDef>,
 }
 
 /// Un modificateur de scénario, posé sur un joueur après sa création

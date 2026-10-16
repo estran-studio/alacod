@@ -210,4 +210,10 @@ pub fn create_player(
             ..default()
         });
     }
+
+    // Bombes (M3-T4, §69) : seulement un personnage qui déclare `bomb` (aucun contenu existant
+    // n'en a) ; le stock est un consommable `bomb` (`starting_consumables`).
+    if let Some(def) = character_config.and_then(|c| c.bomb) {
+        commands.entity(entity).insert(world::BombCarrier::new(def));
+    }
 }

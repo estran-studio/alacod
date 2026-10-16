@@ -190,7 +190,8 @@ pub(crate) fn lint_effect(
                 LintErrorKind::OutOfRange,
                 format!("{at} : GainShield(0) : doit être > 0"),
             ),
-            // M3-T0c (§62) : contrat de l'explosion, exécutée par M3-T4
+            // M3-T0c (§62) : contrat de l'explosion ; M3-T4 (§69) l'exécute (bombe à mèche d'une frame
+            // au point du porteur)
             effects::Action::Explode { radius, damage, .. } => {
                 if *radius <= Fixed::ZERO {
                     push(
@@ -204,10 +205,6 @@ pub(crate) fn lint_effect(
                         format!("{at} : Explode : dégâts = {damage} : doivent être >= 0"),
                     );
                 }
-                push(
-                    LintErrorKind::Unsupported,
-                    format!("{at} : Explode : pas encore exécutée (M3-T4)"),
-                );
             }
             effects::Action::GaugeAdd(id, _) if !gauge_known(id) => push(
                 LintErrorKind::BrokenReference,
