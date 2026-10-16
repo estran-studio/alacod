@@ -5,12 +5,12 @@
 //
 // À regarder : le bot avance de salle en salle en tirant ; le boss change de phase deux fois
 // (moments clés `boss_phase`), un renfort apparaît à la dernière ; écran de victoire vers f423 (f403 avant le recul de m1-revue-humaine, `faa5120c` : les `bullet_kin`
-// reculent autrement, le bot entre dans la salle du boss à f247 au lieu de f218). M2-T14d (D64) : les
-// `bullet_kin` tirent des salves allégées (une balle de 4 dégâts, §52.d), le bot entre dans la salle du boss à f261,
-// le boss passe en phase 1 f362 et en phase 2 f422, meurt f442 (victoire f443).
+// reculent autrement, le bot entre dans la salle du boss à f247 au lieu de f218). M2-T14d (D64) : les `bullet_kin`
+// ont 30 PV et tirent des salves allégées (§52.d) : le bot entre dans la salle du boss à f216, le boss passe en
+// phase 1 f322 et en phase 2 f382, meurt f402 (victoire f403).
 //
 // M2-T19 (feedback v2, conventions §55) : le gatling montre les 5 rayons de son éventail avant de
-// tirer (f290), et sa mort (f443) gèle le rendu, zoome sur lui et flashe (moment clé `feedback`
+// tirer (f260), et sa mort (f423) gèle le rendu, zoome sur lui et flashe (moment clé `feedback`
 // « fin de boss 31 »). Présentation seule : trace inchangée.
 Scenario(
     powerup_drop_chance_override: "0.0",
@@ -23,17 +23,17 @@ Scenario(
     ],
     expect: [
         RoomState(kind: "combat", state: Cleared, at_frame: 250),
-        RoomState(kind: "boss", state: Locked, at_frame: 270),
-        // Trois phases : sous 50 % de santé (f362), puis sous 10 % (f422, le renfort apparaît).
-        BossPhase(entity: NetId(31), phase: 1, at_frame: 380),
-        BossPhase(entity: NetId(31), phase: 2, at_frame: 430),
-        EntityCount(kind: Enemy, min: 2, max: 2, at_frame: 430),
-        // Le boss meurt (f442) avec son renfort : la salle se rouvre, victoire (`victory_at_end`).
-        RoomState(kind: "boss", state: Cleared, at_frame: 450),
-        EntityCount(kind: Enemy, max: Some(0), at_frame: 450),
-        RunState(step: Ended(Victory), at_frame: 460),
+        RoomState(kind: "boss", state: Locked, at_frame: 250),
+        // Trois phases : sous 50 % de santé (f322), puis sous 10 % (f382, le renfort apparaît).
+        BossPhase(entity: NetId(31), phase: 1, at_frame: 350),
+        BossPhase(entity: NetId(31), phase: 2, at_frame: 390),
+        EntityCount(kind: Enemy, min: 2, max: 2, at_frame: 390),
+        // Le boss meurt (f403) avec son renfort : la salle se rouvre, victoire (`victory_at_end`).
+        RoomState(kind: "boss", state: Cleared, at_frame: 410),
+        EntityCount(kind: Enemy, max: Some(0), at_frame: 410),
+        RunState(step: Ended(Victory), at_frame: 450),
         PlayerAlive(handle: 0, at_frame: 599),
-        Event(kind: "feedback", label_contains: Some("télégraphe fan 31 (5 rayons)"), by_frame: 290),
-        Event(kind: "feedback", label_contains: Some("fin de boss 31"), by_frame: 450),
+        Event(kind: "feedback", label_contains: Some("télégraphe fan 31 (5 rayons)"), by_frame: 260),
+        Event(kind: "feedback", label_contains: Some("fin de boss 31"), by_frame: 423),
     ],
 )

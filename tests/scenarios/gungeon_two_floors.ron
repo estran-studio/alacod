@@ -54,7 +54,7 @@ Scenario(
         RoomState(kind: "combat", state: Locked, at_frame: 900),
         RoomState(kind: "combat", state: Cleared, at_frame: 1120),
         RoomState(kind: "boss", state: Locked, at_frame: 1200),
-        BossPhase(entity: NetId(142), phase: 2, at_frame: 1350), // M2-T14d : NetId 163 → 142 (les salles de combat de l'étage 2 portent moins d'ennemis). M2-T7 : le boss dormant ne tire plus, ses balles ne prennent plus de NetId
+        BossPhase(entity: NetId(143), phase: 2, at_frame: 1350), // M2-T14d : NetId 163 → 142 (les salles de combat de l'étage 2 portent moins d'ennemis). M2-T7 : le boss dormant ne tire plus, ses balles ne prennent plus de NetId
         RunState(step: Ended(Victory), at_frame: 1480),
         PlayerAlive(handle: 0, at_frame: 1499),
     ],

@@ -4,8 +4,8 @@
 //
 // À regarder : les deux bots entrent dans la salle de combat, se partagent les cibles, tuent le
 // boss et passent l'étage ensemble (portail ouvert vers f403, franchi vers f505 ; f433 et f558 avant le recul
-// de m1-revue-humaine, `faa5120c` : les `bullet_kin` reculent autrement). M2-T14d (D64) : le boss meurt f366 (salves
-// allégées, §52.d), l'étage suivant commence juste après.
+// de m1-revue-humaine, `faa5120c` : les `bullet_kin` reculent autrement). M2-T14d (D64) : le boss meurt f341 (salves
+// allégées, `bullet_kin` à 30 PV, §52.d), portail ouvert f342, franchi f434.
 Scenario(
     powerup_drop_chance_override: "0.0",
     game: "gungeon",
