@@ -87,3 +87,5 @@ bot-explorateur-v2 (l'explorateur joue l'arène, la récompense et la boutique),
   redémarre environ toutes les deux heures). Voie rapide du README §6 : fusionner `origin/main` et
   rejouer la suite juste avant le commit `LIVRÉ m2-t14d-gabarits`, rapport
   `docs/taches/rapports/m2-t14d-gabarits.md`.
+
+**Fait dans `m2-t14d-gabarits` (2026-10-16)** : quinze gabarits, grammaire `etage` à sept types exigés (escouade comprise) sur 1 000 graines, D64 tenue (1 bot 27 % de morts, 2 bots 3,5 %, 0 desync) ; un soft-lock résiduel à 1 bot (4 sur 200) est le cycle limite du bot, D82. Conventions §52.d, rapport `docs/taches/rapports/m2-t14d-gabarits.md`.

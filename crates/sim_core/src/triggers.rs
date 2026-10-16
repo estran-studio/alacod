@@ -19,3 +19,13 @@ pub struct ReloadFinished {
     pub frame: u32,
     pub player_handle: usize,
 }
+
+/// Un joueur vient de tirer avec son arme active (M3-T6, `MirrorShot`, §71) : émis par
+/// `combat::weapons::weapon_rollback_system` à chaque tir **réellement parti** (cadence respectée,
+/// chargeur non vide), jamais pour une gâchette tenue que la cadence ou le chargeur refuse. Lu dans
+/// la même frame par `game::familiars` (après l'émetteur).
+#[derive(Clone, Debug, PartialEq, Eq, Hash)]
+pub struct WeaponFired {
+    pub frame: u32,
+    pub player_handle: usize,
+}

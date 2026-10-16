@@ -12,5 +12,9 @@
     rarity: Common,
     // Scénario généré `item_lentille` (gabarit ItemHeld) : `ShotSpeed` et `ShotSize` à 1,5 (base 1,
     // `sim_core::stats::default_base`).
-    test: Some((frames: 60)),
+    test: Some((
+        frames: 60,
+        // M3-T13 (§78) : scénarios générés `tears_lentille` et son témoin `tears_lentille_sans_objet` : avec ShotSpeed la larme atteint la cible posée avant la frame 40 (1 coup contre 0).
+        tears: Some((weapon: Some("larme"), frames: Some(40), targets: [(character: "target", dx: -48, dy: -18)], hits: [(target: 1, with_item: 1, without_item: 0)])),
+    )),
 )

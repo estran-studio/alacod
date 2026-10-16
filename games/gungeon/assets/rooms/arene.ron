@@ -1,14 +1,17 @@
 // Type de salle `arene` de gungeon (M2-T7, docs/conventions.md §45) : arène à tenir. Elle se verrouille dès
-// qu'un joueur debout y entre (même vide) et ne se rouvre qu'au bout de 900 frames (15 s), si un joueur vit
-// encore : deux `bullet_kin` au verrouillage, deux autres et un `fuyard_kin` à 300 frames, trois à 600
-// avec un `bandana_kin`, un `lanceur_kin` et une `tourelle_kin` (M2-T14c, docs/conventions.md §52).
+// qu'un joueur debout y entre (même vide) et ne se rouvre qu'au bout de 750 frames (12,5 s), si un joueur vit
+// encore : deux `bullet_kin` au verrouillage, un autre et un `fuyard_kin` à 250 frames, un `bandana_kin`,
+// un `lanceur_kin` et une `tourelle_kin` à 500 (M2-T14c, §52). D64 (§52.d) : horloge de 900 à 750, vagues à
+// 0/250/500 (0/300/600), un `bullet_kin` au lieu de deux, un au lieu de trois.
 (
+    // M2-T14d (§52.d, scénario généré `room_arene`) : un bot `explorateur` verrouille puis nettoie l'arène de l'étage `court_arene`.
+    test: Some((frames: 1000, floors: "etages_court_arene", seed: 1)),
     arena: Some((
-        clock: 900,
+        clock: 750,
         waves: [
             (at: 0, enemies: [("bullet_kin", 2)]),
-            (at: 300, enemies: [("bullet_kin", 2), ("fuyard_kin", 1)]),
-            (at: 600, enemies: [("bullet_kin", 3), ("bandana_kin", 1), ("lanceur_kin", 1), ("tourelle_kin", 1)]),
+            (at: 250, enemies: [("bullet_kin", 1), ("fuyard_kin", 1)]),
+            (at: 500, enemies: [("bandana_kin", 1), ("lanceur_kin", 1), ("tourelle_kin", 1)]),
         ],
     )),
 )

@@ -20,9 +20,17 @@ use sim_core::stats::StatId;
 /// module `game::powerups`, décision « pas de ressource globale toujours présente »).
 pub const CURRENCY_MULTIPLIER_STAT: &str = "powerup_currency_multiplier";
 
+/// Une action appliquée par un power-up ramassé ou un effet. Liste fermée et minimale ; une
+/// action qui doit être multipliée par le nombre d'exemplaires est enveloppée par `Scaled`.
+#[cfg_attr(feature = "schema", derive(schemars::JsonSchema))]
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Hash, Serialize, Deserialize)]
+pub enum Scale {
+    PerCopy,
+}
+
 /// Une action appliquée par un power-up ramassé. Liste fermée et minimale (T2.5, graine de
-/// C1 — `docs/plan-engine.md` §5) : un power-up futur qui a besoin d'un autre effet ajoute
-/// une variante ici, jamais un type de contenu séparé.
+/// C1 — `docs/plan-engine.md` §5) : un power-up futur qui a besoin d'un autre effet ajoute une
+/// variante ici, jamais un type de contenu séparé.
 #[cfg_attr(feature = "schema", derive(schemars::JsonSchema))]
 #[derive(Debug, Clone, PartialEq, Eq, Hash, Serialize, Deserialize)]
 pub enum Action {
@@ -138,6 +146,47 @@ pub enum Action {
         damage: Fixed,
         destroys: bool,
     },
+    /// M3-T0d (`docs/conventions.md` §63) : fait apparaître `count` personnages `id` à la position
+    /// de l'action (division d'un champion à sa mort). Contrairement à `SpawnEnemies` (frise de
+    /// boss, positions tirées du flux RNG de la salle), les positions sont des **décalages fixes
+    /// autour du point** (aucune consommation de RNG : le tirage d'une salle n'est pas touché par
+    /// la mort d'un champion). Contrat seul : l'exécution vient de M3-T7. Ajoutée en fin d'enum.
+    SpawnCharacters {
+        id: String,
+        #[cfg_attr(feature = "schema", schemars(extend("x-lint" = "> 0")))]
+        count: u32,
+    },
+    /// M3-T1 (`docs/conventions.md` §66) : exécute `then` avec une chance de
+    /// `clamp(base + Luck × per_luck, 0, 1)` ([`crate::chance_with_luck`]). **`on_hit` d'un
+    /// projectile seulement** (arme ou objet) ; le tirage est un RNG local de graine
+    /// `(graine de run, net id du projectile, rang de l'action)`, jamais `RngStreams`. `then` est
+    /// une action d'`on_hit` ordinaire (pas une autre `Chance`). Ajoutée en fin d'enum : les
+    /// hashs des variantes d'avant ne bougent pas.
+    Chance {
+        #[cfg_attr(feature = "schema", schemars(with = "bevy_fixed::schema::FixedString"))]
+        #[cfg_attr(feature = "schema", schemars(extend("x-lint" = "[0, 1]")))]
+        base: Fixed,
+        #[serde(default)]
+        #[cfg_attr(feature = "schema", schemars(with = "bevy_fixed::schema::FixedString"))]
+        per_luck: Fixed,
+        then: Box<Action>,
+    },
+    /// M3-T0b : ampleur par exemplaire. Lint : uniquement dans un effet d'objet ; exécution T2.
+    /// `scale: None` est accepté comme champ optionnel sans effet et conserve la forme de contrat.
+    /// Ajoutée après `Chance` (les variantes de `main` d'abord).
+    Scaled {
+        action: Box<Action>,
+        #[serde(default)]
+        scale: Option<Scale>,
+    },
+}
+
+/// Règle pure de multiplication par exemplaire ; l'exécution des actions reste T2.
+pub fn scale_value(value: Fixed, scale: Option<Scale>, copies: u32) -> Fixed {
+    match scale {
+        Some(Scale::PerCopy) => value * Fixed::from_num(copies),
+        None => value,
+    }
 }
 
 impl Action {
@@ -189,7 +238,10 @@ impl Action {
             | Action::SpawnEnemies { .. }
             | Action::Telegraph(_)
             | Action::GainShield(_)
-            | Action::Explode { .. } => None,
+            | Action::Explode { .. }
+            | Action::SpawnCharacters { .. }
+            | Action::Chance { .. }
+            | Action::Scaled { .. } => None,
         }
     }
 }
@@ -288,5 +340,11 @@ mod tests {
         let ron_text =
             r#"TimedModifier(stat: PasUneStatConnue, op: Set, value: "1.0", frames: 60)"#;
         assert!(ron::from_str::<Action>(ron_text).is_err());
+    }
+
+    #[test]
+    fn per_copy_scale_is_pure_and_optional() {
+        assert_eq!(scale_value(fx(2.0), Some(Scale::PerCopy), 3), fx(6.0));
+        assert_eq!(scale_value(fx(2.0), None, 3), fx(2.0));
     }
 }

@@ -28,7 +28,7 @@
     scale: "1.0",
 
     base_health: (
-        max: "40.0",
+        max: "30.0",
     ),
 
     starting_skin: "1",
@@ -41,7 +41,7 @@
         attack_range: Some("0.0"),
         squad: Some(("bullet_kins", Some("arc"))),
         behaviors: Some([
-            Shoot(weapon: "arsenal", pattern: "salve", range: "240.0", cooldown_frames: 90),
+            Shoot(weapon: "arsenal", pattern: "salve", range: "240.0", cooldown_frames: 150),
             Formation(shape: Arc(radius: "40.0", spread: "1.6"), period: 40),
             Chase(profile: "Ground"),
         ]),

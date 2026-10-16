@@ -1662,7 +1662,7 @@ fn throne_mutations_wait_for_clear_and_every_duo_choice_before_transition() {
             residual_damage_during_choice
                 .after(game::character::enemy::ai::rules::charge_damage_translate_system)
                 // T11 (barils) émet aussi des `DamageEvent` dans `CollisionDamage` : ordre fixé.
-                .after(game::props::barrel_explosion_system)
+                .after(game::bombs::explosion_system)
                 .before(game::character::health::rollback_resolve_damage_events)
                 .in_set(game::system_set::RollbackSystemSet::CollisionDamage),
         );

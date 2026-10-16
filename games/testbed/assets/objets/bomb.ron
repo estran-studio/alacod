@@ -1,0 +1,8 @@
+// M3-T4 (docs/conventions.md §69) : la bombe, consommable `bomb` (nom réservé, `game::loot::BOMB_ITEM`).
+// Chaque appui sur `Bomb` d'un porteur de `BombDef` en consomme un et pose une bombe aux pieds.
+// Aucun scénario existant n'en ramasse : donné par `PlayerScript::items`.
+(
+    name: "Bombe",
+    kind: Consumable,
+    rarity: Common,
+)

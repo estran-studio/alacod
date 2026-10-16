@@ -266,11 +266,16 @@ pièges) s'applique à chaque système et fait foi pour l'enregistrement rollbac
       et déplace les traces de tout porteur dès la frame 0. Remède : `impl Hash` manuel où la
       variante historique garde son hash d'avant (sans discriminant), la nouvelle en ajoute un ;
       le documenter au § conventions de la tâche.
+- [ ] **Ajouter un champ à un composant rollback sous checksum** (constaté par M3-T1, `Projectile`) :
+      le `derive(Hash)` hacherait le champ de **tous** les porteurs existants et déplacerait toutes les
+      traces. `impl Hash` manuel : les champs d'avant dans leur ordre, les champs nouveaux **seulement
+      s'ils sont actifs** (valeur non neutre) ; faire de même pour le `Debug` (dump détaillé, preuve §5).
 - [ ] **Donnée dérivée non rollbackée** (ex. `CursorPosition`, lue la même frame par un système
       du `GgrsSchedule`) : réécrite **à chaque frame, avant tout `continue`/retour anticipé** du
       système qui l'écrit ; sinon c'est un état caché qu'une frame resimulée lit avec la valeur
       d'une frame plus récente (desync du dash, scénario `dash_aim_change`, 2026-10-03). Les
-      scénarios à visée constante ne le voient pas : `fuzz_inputs` (`ALACOD_FUZZ=0:8`) oui.
+      scénarios à visée constante ne le voient pas : `fuzz_inputs` (`ALACOD_FUZZ=0:8`) oui ; `ALACOD_FUZZ_BOMBS=1` y joue un
+      personnage à bombes (M3-T4, §69).
 - [ ] Logs utilisent `GgrsNetId`/`player.handle` (pas `Entity`) pour comparaison
 - [ ] Trace logs suivent format `ggrs{{f={} system_name key=value...}}` pour diff_log
 
@@ -366,8 +371,21 @@ crate `APP`), jamais dans un crate `SIM`.
     - T1.9 horloges (§23) : `Clock`.
     - T1.10 progression et mutations (§27) : `Gauge`, `Level`, `Mutations`.
     - M2-E1 salles (§35) : `RoomState` ; M2-T0b objets (§36) : `HasItem`, `ItemCharge`, `Consumable` ; M2-T5 (§48) : `ItemCount`.
+    - M3-T0b contrats objets/santé (§61) : `ItemCount` (existe, §48) ; `Invulnerable(handle, at_frame)` pour les i-frames si un scénario l'expose.
     - M2-T0c boss (§37) : `BossPhase` ; profil (§38) : `ProfileHas`.
     - M3-T0c contrats du monde (§62) : `DoorLocked` ; `EntityCount(kind: Rock)`.
+    - M3-T0d familiers et champions (§63) : `FamiliarCount` ; `EnemyVariant` (existe, §25).
+    - M3-T7 champions (§72) : aucune attente nouvelle (`EnemyVariant`, `EnemyState`, `EnemyDistance`, `EntityCount`,
+      `EntityHealth`, `HasItem`, `BulletCount`, `FamiliarCount` couvrent les onze scénarios).
+    - M3-T4 bombes, rochers, piques, mur secret (§69) : aucune attente nouvelle (`Consumable`, `EntityCount(kind: Rock |
+      Barrel)`, `EntityHealth`, `Health`, `PlayerPosition`, `DoorLocked`, `EnemyDistance`, `Event(kind: "explosion")` couvrent
+      les seize scénarios `bomb_*`, `rock_*`, `secret_wall_*`, `explode_effect`, `spikes_damage`) ; champ de scénario `PlayerScript::bomb`
+      (la `BombDef` du joueur, le stock par `items: ["bomb", ...]`, bouton `Bomb` = bit 18, front montant).
+    - M3-T6 familiers (§71) : `FamiliarDistance` (distance d'un familier à son porteur ou à un autre familier
+      du même porteur) ; `FamiliarCount` (§63) compte maintenant de vrais familiers.
+    - M3-T1 larmes v3 (§66) : aucune attente nouvelle (`BulletCount` avec filtre `projectile`, `HitsAtLeast`,
+      `HasStatus`, `StatusStacks`, `EnemyDistance`, `EntityHealth` couvrent les douze scénarios) ; `Stat`
+      résout `Luck` avec la base 0 (`sim_core::stats::default_base`).
     - M2-T11 surfaces v2 (§46) : `EntityCount(kind: Barrel | Table)`.
     - M2-T13 hub (§57) : `HubExit`, `HubVisit` ; `RunUnlocks` (M2-T12, §51).
     - T1.18 HUD throne (§32) : `HudText` (texte d'une source du HUD, présentation, hors trace).

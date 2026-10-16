@@ -400,6 +400,7 @@ pub fn build_app(scenario: &Scenario, headless: bool, config: &PlayConfig) -> Ap
                     mutations: p.mutations.clone(),
                     dash: p.dash.clone(),
                     items: p.items.clone(),
+                    bomb: p.bomb,
                 })
                 .collect(),
         ))
@@ -548,6 +549,34 @@ pub fn run_until(scenario: &Scenario, frame: u32) -> App {
         }
     }
     app
+}
+
+/// Joue `scenario` jusqu'à la frame `frames` en appelant `visit(monde, frame)` une fois par frame
+/// de simulation atteinte (sonde du générateur, M3-T13 : mesures image par image sans attentes).
+pub fn run_visiting<F: FnMut(&mut World, u32)>(scenario: &Scenario, frames: u32, mut visit: F) {
+    let config = PlayConfig {
+        follow_handle: None,
+    };
+    let mut app = build_app(scenario, true, &config);
+    app.finish();
+    app.cleanup();
+    let mut last = None;
+    for _ in 0..MAX_LOADING_UPDATES + frames {
+        app.update();
+        let frame = app.world().resource::<FrameCount>().frame;
+        if last != Some(frame) {
+            last = Some(frame);
+            visit(app.world_mut(), frame);
+        }
+        if frame >= frames {
+            break;
+        }
+    }
+}
+
+/// Inventaire du joueur `handle` (copie), pour les sondes du générateur.
+pub fn probe_player_inventory(world: &mut World, handle: usize) -> Option<items::Inventory> {
+    player_inventory(world, handle).ok().flatten()
 }
 
 #[derive(Resource)]
@@ -718,7 +747,10 @@ fn apply_scenario_character_placements(
     mut commands: Commands,
     mut id_factory: ResMut<GgrsNetIdFactory>,
     mut errors: ResMut<PlacementErrors>,
+    // M3-T7 : étage courant (contexte de `chance` des variantes)
+    floor: Option<Res<run::FloorState>>,
 ) {
+    let floor = floor.as_deref().map_or(0, |floor| floor.index);
     for (index, placement) in placements
         .0
         .iter()
@@ -766,6 +798,7 @@ fn apply_scenario_character_placements(
             placement.team,
             placement.variant.as_deref(),
             assets.difficulty.current(),
+            assets.difficulty.variant_context_at(floor),
         );
         if let Some(entity) = spawned {
             commands.entity(entity).insert(ScriptedPlacement(index));
@@ -917,6 +950,7 @@ fn apply_scenario_shelf_placements(
                 price: placement.price,
                 sold: false,
                 retry_after: 0,
+                cost: None,
             },
             position,
         );
@@ -985,6 +1019,8 @@ struct PlayerOverride {
     dash: Option<game::character::movement::DashConfig>,
     /// M2-T17 : voir `game::replay::PlayerScript::items`.
     items: Vec<String>,
+    /// M3-T4 : voir `game::replay::PlayerScript::bomb`.
+    bomb: Option<world::BombDef>,
 }
 
 #[derive(Resource)]
@@ -1046,6 +1082,7 @@ fn apply_player_overrides(
             && o.mutations.is_empty()
             && o.dash.is_none()
             && o.items.is_empty()
+            && o.bomb.is_none()
     }) {
         *applied = true;
         return;
@@ -1071,6 +1108,9 @@ fn apply_player_overrides(
                 game::character::dash::DashOverride(dash.clone()),
                 combat::actors::DashExtra::with_charges(dash.charges.unwrap_or(0)),
             ));
+        }
+        if let Some(def) = over.bomb {
+            commands.entity(entity).insert(world::BombCarrier::new(def));
         }
         if !over.tags.is_empty() {
             commands
@@ -2331,6 +2371,75 @@ fn check(world: &mut World, expectation: &Expectation) -> Result<(), String> {
                     "joueur {handle} : {actual} exemplaire(s) de « {id} » (attendu {count}) ({inventory:?})"
                 ))
             }
+        }
+        // M3-T0d : familiers du joueur (`behaviors::FamiliarOf`).
+        Expectation::FamiliarCount { handle, count, .. } => {
+            let owner = world
+                .query::<(&Player, &GgrsNetId)>()
+                .iter(world)
+                .find(|(player, _)| player.handle == *handle)
+                .map(|(_, net_id)| net_id.clone())
+                .ok_or_else(|| format!("joueur {handle} absent"))?;
+            let actual = world
+                .query::<&behaviors::FamiliarOf>()
+                .iter(world)
+                .filter(|familiar| familiar.owner == owner)
+                .count();
+            if actual == *count as usize {
+                Ok(())
+            } else {
+                Err(format!(
+                    "joueur {handle} : {actual} familier(s) (attendu {count})"
+                ))
+            }
+        }
+        // M3-T6 : distance d'un familier à son porteur ou à un autre familier du même porteur.
+        Expectation::FamiliarDistance {
+            handle,
+            rank,
+            to_rank,
+            min,
+            max,
+            ..
+        } => {
+            let (owner, owner_position) = world
+                .query::<(
+                    &Player,
+                    &GgrsNetId,
+                    &bevy_fixed::fixed_math::FixedTransform3D,
+                )>()
+                .iter(world)
+                .find(|(player, ..)| player.handle == *handle)
+                .map(|(_, net_id, transform)| (net_id.clone(), transform.translation.truncate()))
+                .ok_or_else(|| format!("joueur {handle} absent"))?;
+            let position_of = |world: &mut World, wanted: u32| {
+                world
+                    .query::<(
+                        &behaviors::FamiliarOf,
+                        &bevy_fixed::fixed_math::FixedTransform3D,
+                    )>()
+                    .iter(world)
+                    .find(|(familiar, _)| familiar.owner == owner && familiar.rank == wanted)
+                    .map(|(_, transform)| transform.translation.truncate())
+                    .ok_or_else(|| format!("joueur {handle} : pas de familier de rang {wanted}"))
+            };
+            let familiar = position_of(world, *rank)?;
+            let other = match to_rank {
+                Some(other) => position_of(world, *other)?,
+                None => owner_position,
+            };
+            let distance = familiar.distance(&other);
+            if let Some(min) = min {
+                if distance < fixed_math::new(*min) {
+                    return Err(format!("distance {distance} < min {min}"));
+                }
+            }
+            if let Some(max) = max {
+                if distance > fixed_math::new(*max) {
+                    return Err(format!("distance {distance} > max {max}"));
+                }
+            }
+            Ok(())
         }
         Expectation::Shelf {
             nth,

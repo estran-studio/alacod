@@ -1,0 +1,29 @@
+// M3-T1 (docs/conventions.md §66) : `Fear`. Le `follower` de la carte (net id 12, parti de (328, -200))
+// marche vers le joueur 0 (en (696, -200), arme `status_fear`) ; une balle (f100, visée sur son trajet) l'effraie :
+// pendant 150 frames il fuit (`Flee` imposé, aucune attaque) puis reprend sa marche.
+//
+// À regarder : le `follower` s'arrête, rebrousse chemin teinté de violet, puis revient vers le joueur.
+Scenario(
+    game: "testbed",
+    map: "testbed/props_room.ldtk",
+    frames: 400,
+    powerup_drop_chance_override: "0",
+    players: [
+        (
+            inputs: [(from: 100, to: 102, buttons: [Fire], pan: (-127, -28))],
+            weapon: "status_fear",
+        ),
+    ],
+    expect: [
+        HasStatus(entity: NetId(12), status: "peur", present: false, at_frame: 150),
+        // f152 : la balle (f100) touche le `follower` (net id 12), qui fuit vers l'ouest pendant
+        // 150 frames : à f300 il est à plus de 360 unités du joueur (sans peur il serait arrivé).
+        HasStatus(entity: NetId(12), status: "peur", at_frame: 160),
+        EnemyDistance(entity: NetId(12), target: Player(0), min: Some(360.0), at_frame: 300),
+        // La peur expire (f302) : il reprend sa marche vers le joueur.
+        HasStatus(entity: NetId(12), status: "peur", present: false, at_frame: 310),
+        EnemyDistance(entity: NetId(12), target: Player(0), max: Some(320.0), at_frame: 399),
+        // Aucune attaque pendant la peur : le joueur n'est pas touché.
+        NoDamageBetween(handle: 0, from_frame: 0, to_frame: 399),
+    ],
+)

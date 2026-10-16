@@ -1189,7 +1189,7 @@ fn draw_pattern_shapes(
 }
 
 /// Teinte d'un statut (T1.3, `docs/conventions.md` §19) : le plus contraignant gagne
-/// (gel, étourdi, brûlure, lenteur).
+/// (gel, étourdi, brûlure, poison, peur, lenteur ; M3-T1 : poison et peur).
 fn status_tint(statuses: &combat::status::Statuses) -> Color {
     use combat::status::StatusDef;
     let has = |kind: StatusDef| statuses.0.iter().any(|entry| entry.status == kind);
@@ -1199,6 +1199,10 @@ fn status_tint(statuses: &combat::status::Statuses) -> Color {
         Color::srgb(1.0, 1.0, 0.45)
     } else if has(StatusDef::Burn) {
         Color::srgb(1.0, 0.55, 0.35)
+    } else if has(StatusDef::Poison) {
+        Color::srgb(0.55, 0.9, 0.4)
+    } else if has(StatusDef::Fear) {
+        Color::srgb(0.75, 0.55, 0.9)
     } else if has(StatusDef::Slow) {
         Color::srgb(0.6, 0.6, 0.9)
     } else {

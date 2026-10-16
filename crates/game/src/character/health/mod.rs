@@ -114,6 +114,15 @@ pub fn new_health(max: fixed_math::Fixed) -> Health {
     }
 }
 
+/// Jusqu'à quelle frame une invulnérabilité issue d'un coup doit durer.
+pub fn hit_iframes_until(
+    frame: u32,
+    damage: fixed_math::Fixed,
+    iframes: Option<u32>,
+) -> Option<u32> {
+    (damage > fixed_math::Fixed::ZERO).then(|| iframes.map(|n| frame.saturating_add(n)))?
+}
+
 /// Lit `FrameEvents<DamageEvent>` (émis par six émetteurs : collision de balles, collision de
 /// mêlée, attaque d'ennemi, collision de projectile composable (B5), brûlure des statuts (T1.3),
 /// charge d'ennemi (T1.4) ; `docs/conventions.md` §8) dans l'ordre d'émission et applique
@@ -140,19 +149,18 @@ pub fn rollback_resolve_damage_events(
             &GgrsNetId,
             &Team,
             Option<&Defenses>,
+            Option<&CharacterConfigHandles>,
             Option<&mut Health>,
             Option<&mut DamageAccumulator>,
             Has<Downed>,
             Option<&mut HitCount>,
-            // D61 : bouclier, posé au premier gain (neutre sans porteur).
             Option<&mut Shield>,
         ),
         With<Rollback>,
     >,
     // D61 : stat `Armor` résolue (base + modificateurs).
     stats: StatReader,
-    // T1.9 : multiplicateur de difficulté des dégâts infligés par les ennemis (1 sans
-    // difficulté activée : aucun calcul, voir `crate::clock::scale`).
+    character_configs: Res<Assets<CharacterConfig>>,
     clock: Res<run::Clock>,
     progression: Res<crate::progression::ProgressionTable>,
     floor: Option<Res<run::FloorState>>,
@@ -185,6 +193,7 @@ pub fn rollback_resolve_damage_events(
             target_net_id,
             target_team,
             opt_defenses,
+            opt_config,
             mut opt_health,
             opt_accumulator,
             downed,
@@ -266,6 +275,18 @@ pub fn rollback_resolve_damage_events(
             )
         };
 
+        if let (Some(health), Some(handles)) = (opt_health.as_deref_mut(), opt_config) {
+            if let Some(config) = character_configs.get(&handles.config) {
+                if let Some(until) = hit_iframes_until(event.frame, amount, config.hit_iframes) {
+                    health.invulnerable_until_frame = Some(
+                        health
+                            .invulnerable_until_frame
+                            .map_or(until, |current| current.max(until)),
+                    );
+                }
+            }
+        }
+
         // T2.9 (testbed) : compte le coup pour toute entité qui porte `HitCount`, quel que
         // soit le montant final (le coup a bien été résolu en dégât réel ici, après équipe,
         // tir ami, immunités et résistances).
@@ -277,7 +298,7 @@ pub fn rollback_resolve_damage_events(
         if let Some(&handle) = player_handle_by_net_id.get(&event.source.0) {
             last_hit_by.push(HitBy::Player(handle));
             // T2.3, chantier C5 v1 : coup au but porté par un joueur sur une cible qui n'en
-            // est pas un (pas de points à se tirer dessus entre joueurs, même sous tir ami).
+            // est pas un (pas de points de se tirer dessus entre joueurs, même sous tir ami).
             if *target_team != Team::Players {
                 points_credits.send(PointsCredit::Hit { handle });
             }
@@ -625,3 +646,16 @@ pub fn sync_health_from_stats(
 }
 
 pub use combat::actors::Health;
+
+#[cfg(test)]
+mod m3_t0b_tests {
+    use super::*;
+    use bevy_fixed::fixed_math::new as fx;
+
+    #[test]
+    fn hit_iframes_only_follow_positive_damage() {
+        assert_eq!(hit_iframes_until(10, fx(1.0), Some(30)), Some(40));
+        assert_eq!(hit_iframes_until(10, fx(0.0), Some(30)), None);
+        assert_eq!(hit_iframes_until(10, fx(1.0), None), None);
+    }
+}

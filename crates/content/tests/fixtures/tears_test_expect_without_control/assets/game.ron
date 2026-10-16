@@ -1,0 +1,8 @@
+// Fixture M3-T13 : test.tears.expect sans control (OutOfRange).
+(
+    name: "fixture-tears_test_expect_without_control",
+    content_folders: [
+        (path: "objets", kind: "Item"),
+    ],
+    entry: (start_map: "maps/salle.ldtk", default_seed: 1),
+)

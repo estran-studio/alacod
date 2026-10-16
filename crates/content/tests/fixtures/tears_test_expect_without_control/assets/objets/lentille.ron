@@ -1,0 +1,1 @@
+(name: "Lentille", kind: Passive, test: Some((frames: 60, tears: Some((expect: [BulletCount(count: 1, at_frame: 10)])))))

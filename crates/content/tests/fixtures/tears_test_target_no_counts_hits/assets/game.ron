@@ -1,0 +1,9 @@
+// Fixture M3-T13 : test.tears.targets : cible sans counts_hits (Unsupported).
+(
+    name: "fixture-tears_test_target_no_counts_hits",
+    content_folders: [
+        (path: "objets", kind: "Item"),
+        (path: "characters", kind: "Character"),
+    ],
+    entry: (start_map: "maps/salle.ldtk", default_seed: 1),
+)

@@ -1,0 +1,68 @@
+// Généré par `alacod-gen`, ne pas éditer à la main (crates/scenario/src/generate.rs).
+// Gabarit TearsOnTarget (M3-T13, §78) : le joueur tient « lentille » et tire sur la
+// cible de l'arène ; les coups reçus sont comptés.
+#![enable(implicit_some)]
+Scenario(
+    game: "testbed",
+    map: "testbed/arena.ldtk",
+    map_seed: 123456,
+    frames: 40,
+    players: [
+        PlayerScript(
+            inputs: [
+                Segment(from: 10, to: 11, buttons: [Fire], pan: (128, 48)),
+                Segment(from: 12, to: 13, buttons: [Fire], pan: (128, 48)),
+                Segment(from: 14, to: 15, buttons: [Fire], pan: (128, 48)),
+                Segment(from: 16, to: 17, buttons: [Fire], pan: (128, 48)),
+                Segment(from: 18, to: 19, buttons: [Fire], pan: (128, 48)),
+                Segment(from: 20, to: 21, buttons: [Fire], pan: (128, 48)),
+                Segment(from: 22, to: 23, buttons: [Fire], pan: (128, 48)),
+                Segment(from: 24, to: 25, buttons: [Fire], pan: (128, 48)),
+                Segment(from: 26, to: 27, buttons: [Fire], pan: (128, 48)),
+                Segment(from: 28, to: 29, buttons: [Fire], pan: (128, 48)),
+                Segment(from: 30, to: 31, buttons: [Fire], pan: (128, 48)),
+                Segment(from: 32, to: 33, buttons: [Fire], pan: (128, 48)),
+                Segment(from: 34, to: 35, buttons: [Fire], pan: (128, 48)),
+                Segment(from: 36, to: 37, buttons: [Fire], pan: (128, 48)),
+                Segment(from: 38, to: 39, buttons: [Fire], pan: (128, 48)),
+            ],
+            weapon: "larme",
+            items: [
+                "lentille",
+            ],
+        ),
+    ],
+    expect: [
+        HasItem(
+            handle: 0,
+            id: "lentille",
+            at_frame: 1,
+        ),
+        Stat(
+            handle: 0,
+            stat: ShotSpeed,
+            value: 1.5,
+            at_frame: 1,
+        ),
+        Stat(
+            handle: 0,
+            stat: ShotSize,
+            value: 1.5,
+            at_frame: 1,
+        ),
+        EntityHits(
+            net_id: 37,
+            min: 1,
+            at_frame: 40,
+        ),
+    ],
+    powerup_drop_chance_override: "0",
+    characters: [
+        CharacterPlacement(
+            character: "target",
+            x: "504",
+            y: "726",
+            at_frame: 1,
+        ),
+    ],
+)

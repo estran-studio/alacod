@@ -1,0 +1,8 @@
+// Fixture M3-T13 : test.champions : variante répétée (DuplicateId).
+(
+    name: "fixture-champion_test_duplicate_variant",
+    content_folders: [
+        (path: "characters", kind: "Character"),
+    ],
+    entry: (start_map: "maps/salle.ldtk", default_seed: 1),
+)

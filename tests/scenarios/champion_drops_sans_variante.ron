@@ -1,0 +1,27 @@
+// M3-T7 (§72) : `loot` (témoin : variante `nu`). Le joueur 0 (carte `surfaces`) tire sur un `elite_riche` à 40 unités : à sa mort il lâche un objet
+// du pool `commun`, tiré par la graine `champion:<net_id>` (jamais `RngStreams`), 16 unités à l'est ; le joueur avance,
+// ramasse (Interaction) et tient l'objet. Témoin : variante `nu`, rien au sol.
+//
+// À regarder : le champion tombe, un objet apparaît à sa place, le joueur le ramasse.
+Scenario(
+    game: "testbed",
+    map: "testbed/surfaces.ldtk",
+    frames: 200,
+    powerup_drop_chance_override: "0",
+    characters: [
+        (character: "elite_riche", x: "-528", y: "248", at_frame: 1, variant: "nu"),
+    ],
+    players: [
+        (
+            inputs: [(from: 20, to: 41, buttons: [Fire], pan: (127, 0)), (from: 100, to: 116, buttons: [Right], pan: (127, 0)), (from: 120, to: 121, buttons: [Interaction])],
+            weapon: "larme",
+            items: [],
+        ),
+    ],
+    expect: [
+        EnemyVariant(entity: NetId(14), variant: Some("nu"), at_frame: 2),
+        ItemCount(handle: 0, id: "bottes", count: 0, at_frame: 130),
+        // Témoin : même marche, même Interaction (f120) : rien à ramasser.
+        EntityCount(kind: Enemy, min: Some(0), max: Some(0), at_frame: 100),
+    ],
+)

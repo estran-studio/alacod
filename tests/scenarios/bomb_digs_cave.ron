@@ -1,0 +1,35 @@
+// M3-T4 (docs/conventions.md §69, §21) : une bombe creuse la roche d'une caverne. Caverne `petite` du testbed (graine
+// 123456, voir `explode_wall`) : le joueur 0 apparaît en case (23, 15), marche à l'est jusqu'à la première roche
+// (case (26, 15)), pose une bombe (f70, effective f75 ; mèche 20 frames, rayon 40, tir ami coupé), puis repart à l'est.
+//
+// À regarder : à l'explosion (f95) les cases (26, 15) et (27, 15) deviennent du sol (`destroys` passe par la même
+// requête de destruction que la grenade de `explode_wall` : murs et champ de flux refaits dans la frame) ; la bordure
+// (47, 15) reste un mur ; le joueur traverse l'ancienne roche.
+Scenario(
+    powerup_drop_chance_override: "0.0",
+    game: "testbed",
+    map: "cave:petite",
+    map_seed: 123456,
+    frames: 260,
+    players: [
+        (
+            bomb: (fuse_frames: 20, radius: "40.0", damage: "10.0", friendly_fire: Never),
+            items: ["bomb"],
+            inputs: [
+                (from: 10, to: 60, buttons: [Right], pan: (0, 0)),
+                (from: 70, to: 71, buttons: [Bomb]),
+                (from: 110, to: 200, buttons: [Right], pan: (0, 0)),
+            ],
+        ),
+    ],
+    expect: [
+        CellState(x: 26, y: 15, kind: Rock, at_frame: 94),
+        CellState(x: 27, y: 15, kind: Rock, at_frame: 94),
+        CellState(x: 26, y: 15, kind: Floor, at_frame: 97),
+        CellState(x: 27, y: 15, kind: Floor, at_frame: 97),
+        CellState(x: 47, y: 15, kind: Wall, at_frame: 259),
+        PlayerPosition(handle: 0, x: 406, y: 248, tolerance: 1, at_frame: 100),
+        PlayerPosition(handle: 0, x: 437.6, y: 248, tolerance: 1.5, at_frame: 259),
+        Event(kind: "terrain", by_frame: 97),
+    ],
+)

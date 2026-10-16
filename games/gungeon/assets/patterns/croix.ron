@@ -3,7 +3,7 @@
 // `tourelle_kin`. Les boules de la seconde couronne comblent les trous de la première.
 Sequence([
     Telegraph(30),
-    Ring(count: 4, speed: "70.0", projectile: "boule", every: 0),
+    Ring(count: 4, speed: "70.0", projectile: "boulette", every: 0),
     Wait(30),
-    Ring(count: 4, speed: "70.0", projectile: "boule", every: 0),
+    Ring(count: 4, speed: "70.0", projectile: "boulette", every: 0),
 ])

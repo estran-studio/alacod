@@ -1,0 +1,4 @@
+// M3-T4 (docs/conventions.md §69) : piques (couche LDtk `Surfaces`, valeur 5). Un joueur qui y pose
+// les pieds perd 5 PV (dégâts `True`), au plus une fois par seconde (30 frames) ; un dash ne les
+// franchit pas (`dash_crosses` absent = faux : il y est blessé s'il n'a pas d'i-frames).
+(intgrid_value: 5, tags: ["piques"], move_speed: "1.0", hazard: Some((damage: "5.0", period: 30)))

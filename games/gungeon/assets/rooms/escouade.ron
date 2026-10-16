@@ -1,3 +1,4 @@
 // Type de salle `escouade` (M2-T8, docs/conventions.md §35 et §49) : salle de combat verrouillée
 // dont les ennemis forment une escouade (`ai.squad`).
-(locks: true)
+(locks: true, test: Some((frames: 700, floors: "etages_court_escouade", seed: 1)))
+// M2-T14d (§52.d) : scénario généré `room_escouade` (un bot `explorateur` verrouille puis nettoie la salle d'escouade).

@@ -1,0 +1,7 @@
+// Fixture D78 : le personnage joueur (`asset_name_ref: "player"`) n'a pas de skin "2" : le second
+// joueur (handle 1, `game::character::player::create`) n'aurait pas de skin (BrokenReference).
+(
+    name: "fixture-player_skin_second_missing",
+    content_folders: [(path: "characters", kind: "Character")],
+    entry: (start_map: "unused", default_seed: 1),
+)

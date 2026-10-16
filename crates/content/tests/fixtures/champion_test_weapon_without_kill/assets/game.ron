@@ -1,0 +1,8 @@
+// Fixture M3-T13 : test.champions.weapon sans kill (OutOfRange).
+(
+    name: "fixture-champion_test_weapon_without_kill",
+    content_folders: [
+        (path: "characters", kind: "Character"),
+    ],
+    entry: (start_map: "maps/salle.ldtk", default_seed: 1),
+)

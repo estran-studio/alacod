@@ -60,12 +60,14 @@ pub enum StatId {
 }
 
 /// M3-T0a : base d'une stat qu'aucun personnage ne porte dans [`Stats`] mais que l'engine lit
-/// avec une valeur par défaut (`ShotSpeed`, `ShotSize` : 1). `None` : la base vient de `Stats`.
+/// avec une valeur par défaut (`ShotSpeed`, `ShotSize` : 1 ; `Luck` : 0, M3-T1). `None` : la base
+/// vient de `Stats`.
 /// Sert aux lecteurs hors simulation (attente `Stat`, générateur) pour résoudre ces stats comme
 /// le tir les résout.
 pub fn default_base(stat: &StatId) -> Option<Fixed> {
     match stat {
         StatId::ShotSpeed | StatId::ShotSize => Some(bevy_fixed::fixed_math::FIXED_ONE),
+        StatId::Luck => Some(bevy_fixed::fixed_math::FIXED_ZERO),
         _ => None,
     }
 }

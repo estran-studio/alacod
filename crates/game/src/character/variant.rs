@@ -16,6 +16,7 @@ use bevy_fixed::{
     fixed_math::{self, Fixed},
     rng::{fnv1a, RollbackRng},
 };
+use content::expr::NumOrExpr;
 use serde::Deserialize;
 use sim_core::{
     modifier::{Modifier, ModifierOp, ModifierSource},
@@ -26,15 +27,29 @@ use sim_core::{
 /// `variants: Some((chance: "0.25", table: { ... }))` d'un `CharacterConfig`.
 #[derive(Debug, Clone, Deserialize)]
 pub struct VariantsConfig {
-    /// Probabilité d'avoir une variante (`[0, 1]`, défaut 1).
+    /// Probabilité d'avoir une variante (`[0, 1]`, défaut 1). M3-T0d : un nombre (valeur
+    /// inchangée) **ou une expression** (`"0.1 + floor * 0.05"`, identifiants `players` et
+    /// `floor`, `docs/conventions.md` §18 et §63).
     #[serde(default = "full_chance")]
-    pub chance: Fixed,
+    pub chance: NumOrExpr,
     /// Variantes par nom (ordre `BTreeMap` : ordre du tirage pondéré).
     pub table: BTreeMap<String, VariantDef>,
 }
 
-fn full_chance() -> Fixed {
-    fixed_math::FIXED_ONE
+fn full_chance() -> NumOrExpr {
+    NumOrExpr::Literal(fixed_math::FIXED_ONE)
+}
+
+impl VariantsConfig {
+    /// Chance résolue pour `players` joueurs à l'étage `floor` (un littéral est inchangé). Une
+    /// expression en erreur donne 0 : le lint la refuse avant le jeu.
+    pub fn chance_at(&self, players: u32, floor: u32) -> Fixed {
+        let ctx = std::collections::BTreeMap::from([
+            ("players".to_string(), Fixed::from_num(players)),
+            ("floor".to_string(), Fixed::from_num(floor)),
+        ]);
+        self.chance.resolve_with(&ctx).unwrap_or(Fixed::ZERO)
+    }
 }
 
 fn unit_weight() -> u32 {
@@ -53,6 +68,21 @@ pub struct VariantDef {
     pub tags: Tags,
     #[serde(default)]
     pub skin: Option<String>,
+    /// M3-T0d (`docs/conventions.md` §63) : actions jouées **à la mort** du porteur (`Explode`,
+    /// `SpawnCharacters`, `SpawnPattern`). Vide : rien (v1 exacte). Contrat : exécuté par M3-T7 ;
+    /// la définition est hors rollback, le composant [`Variant`] ne change pas.
+    #[serde(default)]
+    pub on_death: Vec<effects::Action>,
+    /// M3-T0d : remplace la liste de behaviors du personnage. `None` : celle du personnage.
+    #[serde(default)]
+    pub behaviors: Option<Vec<behaviors::Behavior>>,
+    /// M3-T0d : table de butin (`loot/<table>.ron`) lâchée à la mort, tirée par la graine de §48
+    /// avec la clé de contenu `champion:<net_id>`.
+    #[serde(default)]
+    pub loot: Option<String>,
+    /// M3-T0d : teinte `#rrggbb` du sprite (présentation seule, hors trace).
+    #[serde(default)]
+    pub tint: Option<String>,
 }
 
 /// Modificateur de variante, `(stat: EnemyMoveSpeed, op: Mul, value: "1.5")`.
@@ -85,6 +115,25 @@ impl VariantDef {
 #[derive(Component, Clone, Debug, PartialEq, Eq, Hash)]
 pub struct Variant(pub String);
 
+/// Contexte d'un tirage (M3-T7, §72) : nombre de joueurs de la session et index de l'étage **à
+/// l'apparition** (les identifiants `players` et `floor` de `chance`). Valeur figée au tirage : la
+/// variante ne change plus ensuite.
+#[derive(Clone, Copy, Debug, PartialEq, Eq)]
+pub struct VariantContext {
+    pub players: u32,
+    pub floor: u32,
+}
+
+impl Default for VariantContext {
+    /// Un joueur, étage 0 (hors partie : tests, outils).
+    fn default() -> Self {
+        Self {
+            players: 1,
+            floor: 0,
+        }
+    }
+}
+
 /// Graine du tirage d'un personnage : `fnv1a("variants") ^ run_seed ^ net_id` (tronqués en
 /// `u32`), indépendante de l'ordre d'apparition et du moment du chargement de la carte.
 pub fn variant_seed(run_seed: u32, net_id: u64) -> u32 {
@@ -99,12 +148,15 @@ pub fn draw_variant(
     forced: Option<&str>,
     run_seed: u32,
     net_id: u64,
+    context: VariantContext,
 ) -> Option<String> {
     if let Some(name) = forced.filter(|name| !name.is_empty()) {
         return config.table.contains_key(name).then(|| name.to_string());
     }
     let mut rng = RollbackRng::new(variant_seed(run_seed, net_id));
-    if rng.next_fixed() >= config.chance {
+    // M3-T7 : une expression se résout avec le nombre de joueurs et l'étage de l'apparition ; un
+    // littéral est inchangé (même tirage qu'avant).
+    if rng.next_fixed() >= config.chance_at(context.players, context.floor) {
         return None;
     }
     let total: u32 = config.table.values().map(|def| def.weight).sum();
@@ -149,12 +201,16 @@ mod tests {
             }],
             tags: Tags::default(),
             skin: None,
+            on_death: vec![],
+            behaviors: None,
+            loot: None,
+            tint: None,
         }
     }
 
     fn table(chance: f32, entries: &[(&str, u32)]) -> VariantsConfig {
         VariantsConfig {
-            chance: fixed_math::new(chance),
+            chance: NumOrExpr::Literal(fixed_math::new(chance)),
             table: entries
                 .iter()
                 .map(|(name, weight)| (name.to_string(), def(*weight)))
@@ -167,13 +223,13 @@ mod tests {
         let config = table(0.5, &[("a", 1), ("b", 1), ("c", 1)]);
         for net_id in 0..50 {
             assert_eq!(
-                draw_variant(&config, None, 123456, net_id),
-                draw_variant(&config, None, 123456, net_id)
+                draw_variant(&config, None, 123456, net_id, VariantContext::default()),
+                draw_variant(&config, None, 123456, net_id, VariantContext::default())
             );
         }
         // Des net ids différents donnent des tirages différents (pas tous identiques).
         let draws: Vec<_> = (0..50)
-            .map(|id| draw_variant(&config, None, 123456, id))
+            .map(|id| draw_variant(&config, None, 123456, id, VariantContext::default()))
             .collect();
         assert!(draws.iter().any(|d| d != &draws[0]));
     }
@@ -183,8 +239,14 @@ mod tests {
         let never = table(0.0, &[("a", 1)]);
         let always = table(1.0, &[("a", 1)]);
         for net_id in 0..200 {
-            assert_eq!(draw_variant(&never, None, 7, net_id), None);
-            assert_eq!(draw_variant(&always, None, 7, net_id), Some("a".into()));
+            assert_eq!(
+                draw_variant(&never, None, 7, net_id, VariantContext::default()),
+                None
+            );
+            assert_eq!(
+                draw_variant(&always, None, 7, net_id, VariantContext::default()),
+                Some("a".into())
+            );
         }
     }
 
@@ -193,23 +255,38 @@ mod tests {
         let config = table(1.0, &[("jamais", 0), ("toujours", 3)]);
         for net_id in 0..200 {
             assert_eq!(
-                draw_variant(&config, None, 99, net_id),
+                draw_variant(&config, None, 99, net_id, VariantContext::default()),
                 Some("toujours".into())
             );
         }
-        assert_eq!(draw_variant(&table(1.0, &[("x", 0)]), None, 1, 1), None);
+        assert_eq!(
+            draw_variant(
+                &table(1.0, &[("x", 0)]),
+                None,
+                1,
+                1,
+                VariantContext::default()
+            ),
+            None
+        );
     }
 
     #[test]
     fn variante_imposee_sans_tirage() {
         let config = table(0.0, &[("rapide", 1), ("blinde", 1)]);
         assert_eq!(
-            draw_variant(&config, Some("blinde"), 1, 1),
+            draw_variant(&config, Some("blinde"), 1, 1, VariantContext::default()),
             Some("blinde".into())
         );
         // Inconnue : ignorée (refusée par le lint) ; vide : pas imposée, tirage normal.
-        assert_eq!(draw_variant(&config, Some("absente"), 1, 1), None);
-        assert_eq!(draw_variant(&config, Some(""), 1, 1), None);
+        assert_eq!(
+            draw_variant(&config, Some("absente"), 1, 1, VariantContext::default()),
+            None
+        );
+        assert_eq!(
+            draw_variant(&config, Some(""), 1, 1, VariantContext::default()),
+            None
+        );
     }
 
     #[test]
@@ -235,5 +312,44 @@ mod tests {
             variant_health(fixed_math::new(60.0), &def(1).modifiers("rapide"), 0),
             fixed_math::new(60.0)
         );
+    }
+
+    /// M3-T7 : la chance en expression suit le nombre de joueurs et l'étage de l'apparition ; un
+    /// littéral reste exact.
+    #[test]
+    fn chance_en_expression_suit_joueurs_et_etage() {
+        let config = VariantsConfig {
+            chance: ron::from_str("\"0.1 + floor * 0.2 + players * 0.1\"").unwrap(),
+            table: BTreeMap::from([("a".to_string(), def(1))]),
+        };
+        let ctx = |players, floor| VariantContext { players, floor };
+        let near = |value: Fixed, expected: f32| {
+            (value - fixed_math::new(expected)).abs() < fixed_math::new(0.001)
+        };
+        assert!(near(config.chance_at(1, 0), 0.2));
+        assert!(near(config.chance_at(1, 2), 0.6));
+        assert!(near(config.chance_at(4, 2), 0.9));
+        let hits = |context| {
+            (0..400)
+                .filter(|net_id| draw_variant(&config, None, 5, *net_id, context).is_some())
+                .count()
+        };
+        let (low, mid, high) = (hits(ctx(1, 0)), hits(ctx(1, 2)), hits(ctx(4, 2)));
+        assert!(low < mid && mid < high, "{low} < {mid} < {high}");
+        // Même graine, même net id, même contexte : même tirage ; un tirage qui réussit à l'étage
+        // 0 réussit aussi à l'étage 2 (la chance ne fait que croître : même nombre tiré).
+        for net_id in 0..400 {
+            let at0 = draw_variant(&config, None, 5, net_id, ctx(1, 0)).is_some();
+            let at2 = draw_variant(&config, None, 5, net_id, ctx(1, 2)).is_some();
+            assert!(!at0 || at2, "net id {net_id}");
+        }
+        let literal = table(0.5, &[("a", 1)]);
+        for net_id in 0..100 {
+            assert_eq!(
+                draw_variant(&literal, None, 5, net_id, ctx(1, 0)),
+                draw_variant(&literal, None, 5, net_id, ctx(4, 9)),
+                "un littéral ne dépend ni des joueurs ni de l'étage"
+            );
+        }
     }
 }

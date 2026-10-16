@@ -1,0 +1,35 @@
+// M3-T4 (docs/conventions.md §69) : la bombe du joueur. Carte `testbed/rocks_static.ldtk` (couloir nu, rochers
+// loin à droite) ; le joueur 0 (x 168) porte une bombe (`bomb`, mèche 20 frames, rayon 48, 50 dégâts, tir ami coupé)
+// et une bombe en poche (`items`). Deux mannequins (200 PV) placés à f5 : le premier à 35 px du joueur
+// (dans le rayon), le second à 100 px (hors rayon).
+//
+// À regarder : l'appui sur Bomb (f10, effectif f15) pose la bombe aux pieds du joueur (le compteur `bomb`
+// tombe à 0) ; l'explosion vient 20 frames plus tard (f35, moment clé `explosion`) : le premier mannequin
+// perd 50 PV, le second reste intact ; le joueur et son poseur restent intacts (tir ami coupé : voir `bomb_hurts_owner` pour le même tir avec tir ami).
+Scenario(
+    powerup_drop_chance_override: "0.0",
+    game: "testbed",
+    map: "testbed/rocks_static.ldtk",
+    frames: 100,
+    characters: [
+        (character: "dummy", x: "203.0", y: "696.0", at_frame: 5),
+        (character: "dummy", x: "268.0", y: "696.0", at_frame: 5),
+    ],
+    players: [
+        (
+            bomb: (fuse_frames: 20, radius: "48.0", damage: "50.0", friendly_fire: Never),
+            items: ["bomb"],
+            inputs: [(from: 10, to: 11, buttons: [Bomb])],
+        ),
+    ],
+    expect: [
+        Consumable(handle: 0, id: "bomb", count: 1, at_frame: 5),
+        Consumable(handle: 0, id: "bomb", count: 0, at_frame: 20),
+        EntityHealth(net_id: 15, min: 200, max: 200, at_frame: 34),
+        EntityHealth(net_id: 15, min: 150, max: 150, at_frame: 40),
+        EntityHealth(net_id: 16, min: 200, max: 200, at_frame: 99),
+        Health(handle: 0, min: 100, max: 100, at_frame: 34),
+        Health(handle: 0, min: 100, max: 100, at_frame: 99),
+        Event(kind: "explosion", by_frame: 36),
+    ],
+)

@@ -1,0 +1,8 @@
+// Fixture M3-T1 (docs/conventions.md §66) : Spectral, Split et Orbit sont exécutés : une arme qui les porte (formes valides) passe le lint
+(
+    name: "fixture-projectile_contract_ok",
+    content_folders: [
+        (path: "weapons.ron", kind: "Weapon"),
+    ],
+    entry: (start_map: "unused", default_seed: 1),
+)

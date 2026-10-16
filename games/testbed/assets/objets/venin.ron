@@ -1,0 +1,13 @@
+// M3-T1 (docs/conventions.md §66) : objet d'essai : chaque larme empoisonne avec une chance de 50 % (+12,5 % par point de `Luck`) ; tirage local par larme (graine de run, net id, rang). Scénario `tears_luck_chance`.
+(
+    name: "Venin",
+    kind: Passive,
+    projectile: Some((on_hit: [Chance(base: "0.5", per_luck: "0.125", then: ApplyStatus(status: "poison", stacks: 1))])),
+    tags: ["larmes"],
+    rarity: Common,
+    test: Some((
+        frames: 60,
+        // M3-T13 (§78) : scénarios générés `tears_venin` et son témoin `tears_venin_sans_objet` : empoisonne la cible posée (9 coups contre 6, statut `poison`).
+        tears: Some((weapon: Some("larme"), frames: Some(150), targets: [(character: "target", dx: -48, dy: -18)], hits: [(target: 1, with_item: 9, without_item: 6)], expect: [HasStatus(entity: Placed(0), status: "poison", at_frame: 150)], control: [HasStatus(entity: Placed(0), status: "poison", present: false, at_frame: 150)])),
+    )),
+)

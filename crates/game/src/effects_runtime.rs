@@ -861,6 +861,54 @@ pub(crate) fn apply_action_sourced(
                 assets,
             );
         }
+        // M3-T4 (§69) : l'explosion est une bombe à mèche d'une frame au point du porteur : même
+        // chemin que la bombe d'un joueur (`game::bombs`), explosion à la frame suivante, comme un
+        // baril. Posée par une commande différée : le `GgrsNetIdFactory` et la position du porteur
+        // se lisent à l'application, dans l'ordre déterministe des systèmes.
+        Action::Explode {
+            radius,
+            damage,
+            destroys,
+        } => {
+            let (radius, damage, destroys) = (*radius, *damage, *destroys);
+            let owner = net_id.clone();
+            commands.queue(move |world: &mut World| {
+                let Some(position) = world
+                    .get::<fixed_math::FixedTransform3D>(entity)
+                    .map(|transform| transform.translation)
+                else {
+                    return;
+                };
+                let team = world
+                    .get::<sim_core::team::Team>(entity)
+                    .copied()
+                    .unwrap_or(sim_core::team::Team::Neutral);
+                let id = world
+                    .resource_mut::<utils::net_id::GgrsNetIdFactory>()
+                    .next(format!("explode_{}", owner.0));
+                let at = fixed_math::FixedVec3::new(position.x, position.y, Fixed::ZERO);
+                let transform = fixed_math::FixedTransform3D::new(
+                    at,
+                    fixed_math::FixedMat3::IDENTITY,
+                    fixed_math::FixedVec3::ONE,
+                );
+                world.spawn((
+                    world::Bomb {
+                        owner,
+                        fuse_until: frame.saturating_add(1),
+                        radius,
+                        damage,
+                        friendly_fire: sim_core::damage::FriendlyFire::Always,
+                        team,
+                        destroys,
+                    },
+                    transform.to_bevy_transform(),
+                    transform,
+                    id,
+                    Rollback,
+                ));
+            });
+        }
         Action::RefillAmmo
         | Action::RefillAmmoOf(_)
         | Action::RepairAllWindows
@@ -870,8 +918,11 @@ pub(crate) fn apply_action_sourced(
         // M2-T7 : frise de boss seulement (exécutées par `game::boss`).
         | Action::SpawnEnemies { .. }
         | Action::Telegraph(_)
-        // M3-T0c : contrat seul, exécutée par M3-T4 (le lint la refuse d'ici là)
-        | Action::Explode { .. } => {
+        // M3-T0d : mort d'un champion, exécutée par M3-T7 (refusée dans un effet par le lint)
+        | Action::SpawnCharacters { .. }
+        // M3-T1 : chance d'`on_hit` de projectile seulement
+        | Action::Chance { .. }
+        | Action::Scaled { .. } => {
             warn!(
                 "effet de {} : action {:?} non exécutée en v1 (voir `alacod lint`)",
                 net_id, action
@@ -966,6 +1017,82 @@ mod tests {
             fx(0.0),
             "mort dans la frame : aucun effet, pas de soin"
         );
+    }
+
+    /// `Explode` d'un effet (M3-T4, §69) : une bombe à mèche d'une frame au point du porteur, de
+    /// l'équipe du porteur, créditée à son `GgrsNetId`, qui casse les rochers si `destroys`.
+    #[test]
+    fn explode_pose_une_bombe_a_meche_d_une_frame_de_l_equipe_du_porteur() {
+        fn run(
+            mut commands: Commands,
+            assets: EffectAssets,
+            mut carriers: Query<(Entity, &GgrsNetId, &mut Health, &mut Modifiers)>,
+        ) {
+            for (entity, net_id, mut health, mut modifiers) in &mut carriers {
+                apply_action_sourced(
+                    &Action::Explode {
+                        radius: Fixed::from_num(40),
+                        damage: Fixed::from_num(7),
+                        destroys: true,
+                    },
+                    net_id,
+                    effect_source(net_id, 0),
+                    50,
+                    &mut health,
+                    &mut modifiers,
+                    &mut EffectState::default(),
+                    None,
+                    (entity, false),
+                    &mut commands,
+                    &assets,
+                );
+            }
+        }
+        let mut app = App::new();
+        app.init_resource::<bevy_ggrs::RollbackOrdered>()
+            .init_resource::<Assets<WeaponsConfig>>()
+            .insert_resource(utils::net_id::GgrsNetIdFactory::default())
+            .add_systems(Update, run);
+        let transform = fixed_math::FixedTransform3D::new(
+            fixed_math::FixedVec3::new(fx(12.0), fx(-8.0), Fixed::ZERO),
+            fixed_math::FixedMat3::IDENTITY,
+            fixed_math::FixedVec3::ONE,
+        );
+        app.world_mut().spawn((
+            GgrsNetId(3, "kamikaze".into()),
+            transform,
+            sim_core::team::Team::Enemies,
+            Health {
+                current: fx(50.0),
+                max: fx(50.0),
+                invulnerable_until_frame: None,
+            },
+            Modifiers::default(),
+        ));
+        app.update();
+        let world = app.world_mut();
+        let bombs: Vec<(world::Bomb, fixed_math::FixedVec3)> = world
+            .query::<(&world::Bomb, &fixed_math::FixedTransform3D)>()
+            .iter(world)
+            .map(|(bomb, t)| (bomb.clone(), t.translation))
+            .collect();
+        assert_eq!(bombs.len(), 1);
+        let (bomb, at) = &bombs[0];
+        assert_eq!(
+            bomb.owner,
+            GgrsNetId(3, "kamikaze".into()),
+            "crédité au porteur"
+        );
+        assert_eq!(
+            bomb.team,
+            sim_core::team::Team::Enemies,
+            "équipe du porteur"
+        );
+        assert_eq!(bomb.fuse_until, 51, "mèche d'une frame");
+        assert!(bomb.is_due(51) && !bomb.is_due(50));
+        assert_eq!((bomb.radius, bomb.damage), (fx(40.0), fx(7.0)));
+        assert!(bomb.destroys);
+        assert_eq!((at.x, at.y), (fx(12.0), fx(-8.0)), "au point du porteur");
     }
 
     use std::hash::{Hash, Hasher};

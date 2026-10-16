@@ -1,4 +1,4 @@
-// D72 (docs/conventions.md §56) : mémoire de visite de la minicarte. Étage `etages_grammaire`, graine 12 :
+// D72 (docs/conventions.md §56) : mémoire de visite de la minicarte. Étage `etages_grammaire`, graine 13 (T14d : 12 avant la grammaire à 15 gabarits) :
 // la boutique est voisine ouest de la salle de départ. Le joueur y entre (f5-80), attend, revient au départ
 // (f120-200). La boutique n'est jamais activée par la simulation (`RoomStates` la laisse `Dormant`) : sans
 // mémoire de visite elle redeviendrait « inexplorée » dès la sortie.
@@ -9,7 +9,7 @@ Scenario(
     powerup_drop_chance_override: "0.0",
     game: "gungeon",
     floors: Some("etages_grammaire"),
-    map_seed: 12,
+    map_seed: 13,
     frames: 200,
     players: [(inputs: [
         (from: 5, to: 80, buttons: [Left]),

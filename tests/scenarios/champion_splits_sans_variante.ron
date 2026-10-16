@@ -1,0 +1,28 @@
+// M3-T7 (§72) : `on_death` `SpawnCharacters` (témoin : variante `nu`). Le joueur 0 (carte `surfaces`) tire sur un `elite_divise` à 40 unités
+// de lui : à sa mort, trois `elite_divise` apparaissent en anneau (14 unités) autour de lui, de son équipe, **sans variante**
+// (la chance du personnage est de 1 : sans cette règle ils se diviseraient à leur tour sans fin). Témoin : variante `nu`.
+//
+// À regarder : un champion tombe, trois petits apparaissent autour de sa position et ne se divisent plus.
+Scenario(
+    game: "testbed",
+    map: "testbed/surfaces.ldtk",
+    frames: 160,
+    powerup_drop_chance_override: "0",
+    characters: [
+        (character: "elite_divise", x: "-528", y: "248", at_frame: 1, variant: "nu"),
+    ],
+    players: [
+        (
+            inputs: [(from: 20, to: 41, buttons: [Fire], pan: (127, 0))],
+            weapon: "larme",
+            items: [],
+        ),
+    ],
+    expect: [
+        EnemyVariant(entity: NetId(14), variant: Some("nu"), at_frame: 2),
+        // Témoin : le champion meurt (f55), rien n'apparaît.
+        EntityCount(kind: Enemy, min: Some(1), max: Some(1), at_frame: 54),
+        EntityCount(kind: Enemy, min: Some(0), max: Some(0), at_frame: 56),
+        EntityCount(kind: Enemy, min: Some(0), max: Some(0), at_frame: 159),
+    ],
+)
