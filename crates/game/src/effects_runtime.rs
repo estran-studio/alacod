@@ -299,6 +299,11 @@ pub(crate) fn listed_effects<'a>(
                 if effect.on == On::OnUse {
                     continue;
                 }
+                // M3-T2 (§67) : un récepteur `OnEvent` écoute une fois par objet, pas par exemplaire
+                // (seule `Scaled(PerCopy)` multiplie) ; les émetteurs, eux, s'exécutent par exemplaire.
+                if copy_rank > 0 && matches!(effect.on, On::OnEvent(_)) {
+                    continue;
+                }
                 let key = items::item_effect_key(id, key_rank, index);
                 let posed = if matches!(effect.on, On::Tick(_)) {
                     *state.item_posed.entry(key.clone()).or_insert(frame)
@@ -470,7 +475,7 @@ pub(crate) fn run_listed(
                         stacks,
                     } => {
                         // Sur le porteur, ou sur la cible du déclencheur (sans cible : rien, le lint
-                        // refuse `ApplyStatus` hors `OnHit`/`OnKill`/`OnDamageTaken`).
+                        // refuse `ApplyStatus` hors `OnHit`/`OnDamageTaken`).
                         let (target, source) = if to_self {
                             (Some(net_id.0), None)
                         } else {

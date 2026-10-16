@@ -184,8 +184,8 @@ pub enum Action {
     /// (lint). Ajoutée en fin d'enum.
     Emit(String),
     /// M3-T2 : comme [`Self::ApplyStatus`], mais sur le **porteur** de l'effet (sans cible de
-    /// déclencheur). `ApplyStatus` dans un effet vise la cible du déclencheur (`OnHit`, `OnKill`,
-    /// `OnDamageTaken`). Variante séparée plutôt qu'un champ `to` : le hash des `ApplyStatus` d'`on_hit`
+    /// déclencheur). `ApplyStatus` dans un effet vise la cible du déclencheur (`OnHit`,
+    /// `OnDamageTaken` ; pas `OnKill` : la cible est morte, le lint refuse). Variante séparée plutôt qu'un champ `to` : le hash des `ApplyStatus` d'`on_hit`
     /// de projectile (déjà en trace) ne bouge pas.
     ApplyStatusSelf {
         status: String,
@@ -200,6 +200,12 @@ pub fn scale_value(value: Fixed, scale: Option<Scale>, copies: u32) -> Fixed {
         Some(Scale::PerCopy) => value * Fixed::from_num(copies),
         None => value,
     }
+}
+
+/// L'action a-t-elle une ampleur linéaire que `Scaled(PerCopy)` peut multiplier ? Liste blanche du
+/// lint, identique à ce que [`scaled_action`] sait faire (un `Scaled` imbriqué est déballé).
+pub fn is_linear(action: &Action) -> bool {
+    scaled_action(action, 2).is_some()
 }
 
 /// `action` multipliée par `copies` exemplaires (`Scale::PerCopy`, M3-T2). Rend `None` quand

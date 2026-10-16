@@ -1,0 +1,3 @@
+(name: "Objet", kind: Passive, effects: [
+    (on: OnKill, do: [ApplyStatus(status: "poison", stacks: 1)]),
+])

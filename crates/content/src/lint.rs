@@ -121,6 +121,24 @@ pub(crate) fn lint_effect(
             ),
         );
     }
+    // M3-T2 (§67) : filtre `item` de `OnPickup`
+    if let Some(item) = &effect.item {
+        if effect.on != effects::On::OnPickup {
+            push(
+                LintErrorKind::Unsupported,
+                format!(
+                    "{at} : item « {item} » : filtre réservé à OnPickup (sans effet avec {:?})",
+                    effect.on
+                ),
+            );
+        }
+        if !registry.items.contains_key(item.as_str()) {
+            push(
+                LintErrorKind::BrokenReference,
+                format!("{at} : OnPickup : objet « {item} » inconnu"),
+            );
+        }
+    }
     // M2-T3 : limites d'exécution
     if effect.cooldown == Some(0) {
         push(
@@ -174,6 +192,7 @@ pub(crate) fn lint_effect(
         // M3-T0b : `Scaled` n'est qu'une enveloppe ; l'action intérieure est validée comme une
         // action nue.
         let mut action = outer;
+        let mut per_copy = false;
         while let effects::Action::Scaled {
             action: inner,
             scale,
@@ -185,7 +204,16 @@ pub(crate) fn lint_effect(
                     format!("{at} : scale {scale:?} : uniquement dans un effet d'objet"),
                 );
             }
+            per_copy |= scale.is_some();
             action = inner;
+        }
+        // M3-T2 (§67) : `PerCopy` ne multiplie que les actions linéaires (`effects::actions::is_linear`) ;
+        // sinon l'exécution la sauterait sans rien dire.
+        if per_copy && !effects::actions::is_linear(action) {
+            push(
+                LintErrorKind::Unsupported,
+                format!("{at} : Scaled(PerCopy) : action {action:?} non linéaire (Heal, GainShield, Modifier/TimedModifier Add ou Pct, ApplyStatus, ApplyStatusSelf, Explode seulement)"),
+            );
         }
         match action {
             effects::Action::Heal(amount) if *amount <= Fixed::ZERO => push(
@@ -238,7 +266,7 @@ pub(crate) fn lint_effect(
                     );
                 }
             }
-            // M3-T2 (§67) : statut posé sur la cible du déclencheur (`OnHit`, `OnKill`,
+            // M3-T2 (§67) : statut posé sur la cible du déclencheur (`OnHit`,
             // `OnDamageTaken`) ou sur le porteur (`ApplyStatusSelf`)
             effects::Action::ApplyStatus { status, stacks }
             | effects::Action::ApplyStatusSelf { status, stacks } => {
@@ -246,12 +274,12 @@ pub(crate) fn lint_effect(
                 if !on_self
                     && !matches!(
                         effect.on,
-                        effects::On::OnHit | effects::On::OnKill | effects::On::OnDamageTaken
+                        effects::On::OnHit | effects::On::OnDamageTaken
                     )
                 {
                     push(
                         LintErrorKind::Unsupported,
-                        format!("{at} : ApplyStatus : pas de cible hors OnHit, OnKill et OnDamageTaken (ApplyStatusSelf pose sur le porteur)"),
+                        format!("{at} : ApplyStatus : pas de cible hors OnHit et OnDamageTaken (OnKill : la cible est déjà morte ; ApplyStatusSelf pose sur le porteur)"),
                     );
                 }
                 if !registry

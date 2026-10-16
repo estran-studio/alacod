@@ -4465,23 +4465,45 @@ optionnels, files transitoires (hors checksum, vidées au `FrameStart`).
   entité. `character::health::rollback_resolve_damage_events` émet `effects_v3::HitLanded`, lu par
   `apply_effects_system`. Jamais pour un dégât que la source s'inflige. La condition `TargetInRange` lit
   la position de la cible (`OnHit`, `OnKill`, `OnDamageTaken`) ; fausse sans cible.
-- **`ApplyStatus { status, stacks }`** dans un effet : statut posé sur la **cible** du déclencheur
-  (`OnHit`, `OnKill`, `OnDamageTaken` seulement, sinon lint). **`ApplyStatusSelf`** : sur le porteur.
-  Posé par `effects_v3::effect_status_system` avec la règle des `on_hit` de projectile (auteur crédité
-  des dégâts, `Slow` pose son modificateur de vitesse).
+- **`ApplyStatus { status, stacks }`** dans un effet : statut posé sur la **cible** du déclencheur, donc
+  `OnHit` ou `OnDamageTaken` (la source du coup) seulement. **Pas `OnKill`** : la cible est morte dans la
+  frame, le statut ne serait jamais posé (lint : refusé) ; pour un effet à la mort, `ApplyStatusSelf` pose
+  sur le porteur. Posé par `effects_v3::effect_status_system` avec la règle des `on_hit` de projectile
+  (auteur crédité des dégâts, `Slow` pose son modificateur de vitesse). Statut inconnu et `stacks = 0` : lint.
+- **`OnPickup` filtré** : champ `item: Some("bottes")` de l'**effet** (pas une variante `OnPickup(Some(item))` :
+  l'enum `On` et le hash des effets existants ne bougent pas). Sans filtre, tout ramassage ; avec, le seul
+  objet nommé (le sien compris). Lint : `item` hors `OnPickup` et objet inconnu refusés. Hors hash quand absent.
 - **`Emit(nom)` / `OnEvent(nom)`** : les effets `OnEvent` du même porteur répondent aux `Emit` de ses
   effets, dans la même frame, par tours (`MAX_EVENT_ROUNDS` = 8, au-delà les émissions sont abandonnées
   avec un `warn!`). Le lint refuse un nom vide ; il ne vérifie pas qu'un `OnEvent` a un émetteur.
 - **`Scaled { PerCopy }`** : l'action enveloppée n'est exécutée **qu'une fois par objet** (par le premier
-  exemplaire), multipliée par le nombre d'exemplaires (`Inventory::count`). Les actions non `Scaled`
-  s'exécutent **par exemplaire** (deux exemplaires = deux effets). `scale: None` est transparent.
+  exemplaire), multipliée par le nombre d'exemplaires (`Inventory::count`). `scale: None` est transparent.
+  **Actions linéaires seulement** (`effects::actions::is_linear`) : `Heal`, `GainShield`,
+  `Modifier`/`TimedModifier` d'op `Add` ou `Pct`, `ApplyStatus`, `ApplyStatusSelf`, `Explode` (dégâts, pas le
+  rayon). Le lint refuse toute autre action sous `PerCopy` (`Modifier` `Mul`/`Set`, `Emit`, `RefillAmmo`…) :
+  l'exécution ne la sauterait pas sans rien dire.
+- **Composition `Emit` × `OnEvent` par exemplaire : linéaire.** Une action non `Scaled` s'exécute **par
+  exemplaire** (n exemplaires = n `Emit`), mais un effet `OnEvent` **écoute une fois par objet** (le récepteur
+  n'est pas dupliqué ; `listed_effects` ne le liste que pour le premier exemplaire). Exemple, la `vipere`
+  (`OnHit : Emit("coup")`, `OnEvent("coup") : +1 de dégâts`) : 1 exemplaire = 1 émission × 1 récepteur = +1 ;
+  2 exemplaires = 2 × 1 = **+2** (et non +4) ; seul `Scaled(PerCopy)` multiplie.
 - **Limites par exemplaire (Q16)** : `ItemDef::stack` (`Shared`, défaut, ou `Independent`). `Shared` :
   clé `item:<id>:<index>` commune, les `cooldown`/`charges` sont partagés ; `Independent` : clé
   `item:<id>#k:<index>` par exemplaire.
-- Testbed et scénarios : objet `vipere` ; `effect_on_hit` (poison à l'impact, +1 de dégâts par
-  `OnEvent`), `effect_per_copy` (deux exemplaires, un coup : 2 piles de poison, pas 4). Unitaires :
-  `effects_v3::tests` (tri `classify`), `effects::runtime::tests`.
-- Hors périmètre : exécution des effets d'objet par les pools Isaac (T11b).
+- **Ordre d'exécution** : porteurs par `GgrsNetId` ; pour chacun, effets du personnage, puis objets (passifs
+  dans l'ordre de ramassage, puis l'actif), exemplaire après exemplaire, puis synergies. Les `Emit` sont
+  traités après (`apply_event_effects_system`), puis les statuts (`effect_status_system`).
+- **Scénarios** (chacun avec son témoin `_temoin`, sauf `effect_on_hit`/`effect_per_copy` dont le témoin est
+  la frame d'avant le coup) : `effect_on_hit` (`vipere`), `effect_on_event` (`echo`), `effect_target_in_range`
+  (`portee`), `effect_apply_status` (`morsure`), `effect_pickup_filtered` (`filtre`), `effect_per_copy`,
+  `effect_scale_per_copy` (`empile`). Unitaires : `effects_v3::tests`, `effects_runtime::tests`,
+  `effects::runtime::tests`, `crates/scenario/tests/effects_v3.rs` (`HitLanded` dans le vrai résolveur).
+- **Échelle** : `effects_hundred_items` (100 objets : `Tick`, `OnHit`, `OnKill`, `machine_gun` sur un `dummy`
+  puis une `target`) et son témoin sans objets. `advance_ms_avg`, trois exécutions du même run, machine
+  partagée (indicatif) : **0,19 ms** avec les 100 objets, **0,12 ms** sans, 0,145 ms pour `four_players_idle`
+  (115 entités). Surcoût ≈ 0,07 ms par frame sur 16,7 : `listed_effects` n'est pas précalculé.
+- Hors périmètre : exécution des effets d'objet par les pools Isaac (T11b), transformations (Q10, non retenues
+  ici : `transformation_three` non livré).
 
 ## 69. Bombes, explosions, rochers cassés, piques, mur secret (M3-T4, chantiers E3 et E4 v2)
 

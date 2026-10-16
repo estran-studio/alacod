@@ -1,0 +1,8 @@
+// Fixture M3-T2 (docs/conventions.md §67) : Scaled(PerCopy) d'une action non linéaire (Modifier Mul, Emit, RefillAmmo) : Unsupported
+(
+    name: "fixture-effect_per_copy_not_linear",
+    content_folders: [
+        (path: "objets", kind: "Item"),
+    ],
+    entry: (start_map: "maps/salle.ldtk", default_seed: 1),
+)

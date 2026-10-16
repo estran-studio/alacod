@@ -783,4 +783,60 @@ mod tests {
             fx(16.0)
         );
     }
+
+    /// Composition linéaire (§67) : un `Emit` non `Scaled` s'exécute par exemplaire, mais le récepteur
+    /// `OnEvent` écoute une fois par objet : n exemplaires = n émissions × 1 récepteur (pas n × n).
+    #[test]
+    fn un_recepteur_on_event_ecoute_une_fois_par_objet() {
+        fn damage_modifiers(copies: usize) -> usize {
+            let mut app = app();
+            let def: ItemDef = ron::from_str(
+                r#"(name: "V", kind: Passive, effects: [
+                    (on: OnHit, do: [Emit("coup")]),
+                    (on: OnEvent("coup"), do: [Modifier(stat: Damage, op: Add, value: "1")]),
+                ])"#,
+            )
+            .unwrap();
+            app.insert_resource(items::ItemTable(
+                [("vipere".to_string(), def)].into_iter().collect(),
+            ))
+            .add_systems(
+                Update,
+                (apply_effects_system, apply_event_effects_system).chain(),
+            );
+            let carrier = app
+                .world_mut()
+                .spawn((
+                    id(1),
+                    Inventory {
+                        passives: vec!["vipere".into(); copies],
+                        ..Default::default()
+                    },
+                    health(10.0),
+                    Modifiers::default(),
+                    Rollback,
+                ))
+                .id();
+            app.world_mut().spawn((
+                id(2),
+                Team::Enemies,
+                health(50.0),
+                Modifiers::default(),
+                Rollback,
+            ));
+            app.world_mut()
+                .resource_mut::<FrameEvents<HitLanded>>()
+                .send(HitLanded {
+                    frame: 10,
+                    source: 1,
+                    target: 2,
+                });
+            app.update();
+            app.world().get::<Modifiers>(carrier).unwrap().0.len()
+        }
+        assert_eq!(damage_modifiers(1), 1);
+        // 2 exemplaires : 2 émissions lues par 1 récepteur = 2 (et non 4)
+        assert_eq!(damage_modifiers(2), 2);
+        assert_eq!(damage_modifiers(3), 3);
+    }
 }

@@ -1,0 +1,20 @@
+// M3-T2 : témoin de `effects_hundred_items` : le même scénario sans objets (coût de base).
+
+Scenario(
+    game: "testbed",
+    map: "testbed/props_room.ldtk",
+    frames: 600,
+    powerup_drop_chance_override: "0",
+    characters: [(character: "target", x: "560.0", y: "-194.0", at_frame: 1), (character: "dummy", x: "620.0", y: "-194.0", at_frame: 1)],
+    players: [
+        (
+            inputs: [(from: 20, to: 560, buttons: [Fire], pan: (-127, 0))],
+            weapon: "machine_gun",
+        ),
+    ],
+    expect: [
+        PlayerAlive(handle: 0, at_frame: 599),
+        EntityCount(kind: Enemy, min: 3, max: 3, at_frame: 20),
+        EntityCount(kind: Enemy, min: 1, max: 1, at_frame: 599),
+    ],
+)

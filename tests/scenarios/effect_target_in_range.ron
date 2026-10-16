@@ -1,0 +1,24 @@
+// M3-T2 (docs/conventions.md §67) : `TargetInRange` sur la cible d'`OnHit`. La `portee` : +1 de dégâts si la cible
+// est à moins de 200 unités, +10 à moins de 50. Une `target` en (560, -194), à 136 du joueur (696, -200), un tir (f30).
+//
+// À regarder : les dégâts passent de 1 à 2 au coup, pas à 12. Témoin : `effect_target_in_range_temoin` (cible à 316 :
+// rien ne bouge).
+
+Scenario(
+    game: "testbed",
+    map: "testbed/props_room.ldtk",
+    frames: 150,
+    powerup_drop_chance_override: "0",
+    characters: [(character: "target", x: "560.0", y: "-194.0", at_frame: 1)],
+    players: [
+        (
+            inputs: [(from: 30, to: 32, buttons: [Fire], pan: (-127, 0))],
+            weapon: "pistol",
+            items: ["portee"],
+        ),
+    ],
+    expect: [
+        Stat(handle: 0, stat: Damage, value: 1.0, at_frame: 29),
+        Stat(handle: 0, stat: Damage, value: 2.0, at_frame: 100),
+    ],
+)

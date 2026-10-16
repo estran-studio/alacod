@@ -1,0 +1,9 @@
+// M3-T2 (docs/conventions.md §67) : `OnPickup` filtré par objet (`item`). +1 de dégâts au seul
+// ramassage des `bottes`. Scénarios `effect_pickup_filtered`.
+(
+    name: "Filtre",
+    kind: Passive,
+    effects: [
+        (on: OnPickup, item: Some("bottes"), do: [Modifier(stat: Damage, op: Add, value: "1")]),
+    ],
+)
