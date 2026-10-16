@@ -1,16 +1,3 @@
-//! Objets (M2-T0b, chantier C2, `docs/conventions.md` §36) : contrats sans dépendance au rendu.
-//!
-//! - [`ItemDef`] : un objet de `items/*.ron` (kind de contenu `Item`) : genre ([`ItemKind`]),
-//!   modificateurs de stats, [`effects::Effect`] (réutilisés tels quels), tags, rareté.
-//! - [`ActiveCharge`] : comment un objet actif se recharge (salles nettoyées, dégâts infligés,
-//!   frames).
-//! - [`Inventory`] : composant rollback **neutre** du joueur (posé au premier ramassage, absent
-//!   de tout joueur qui n'a rien ramassé : contribution 0 au checksum).
-//! - [`ItemPickup`] : objet au sol (rollback, `GgrsNetId`).
-//! - [`ItemTable`] : les objets du jeu par identifiant (contenu, hors rollback).
-//!
-//! Les systèmes (ramassage, charge, usage) vivent dans `game::items`.
-
 pub mod loot;
 pub use loot::*;
 pub mod unlock;
@@ -127,46 +114,86 @@ pub struct ItemDef {
     /// Modificateurs permanents posés au ramassage d'un passif (retirés s'il est perdu).
     #[serde(default)]
     pub modifiers: Vec<ItemModifier>,
-    /// Effets (T1.10). T0b n'exécute que `OnUse` d'un actif (`TimedModifier`, `Modifier`) ;
-    /// le reste est refusé par le lint jusqu'aux effets v2.
     #[serde(default)]
     pub effects: Vec<Effect>,
     #[serde(default)]
     pub tags: Vec<String>,
     #[serde(default)]
     pub rarity: Rarity,
-    /// Portée de ramassage au contact d'un consommable, ou d'interaction (unités monde).
     #[serde(default = "default_pickup_range")]
     #[cfg_attr(feature = "schema", schemars(with = "bevy_fixed::schema::FixedString"))]
     #[cfg_attr(feature = "schema", schemars(extend("x-lint" = "> 0")))]
     pub pickup_range: Fixed,
-    /// M2-T1 : le consommable est un **blank** (voir [`BlankSpec`]) ; le blank utilisé est le
-    /// premier objet de la table (ordre des ids) qui porte cette donnée et que le joueur possède.
     #[serde(default)]
     pub blank: Option<BlankSpec>,
-    /// M2-T4 : un actif utilisable au plus `n` fois par étage du mode `Floors` (hors `Floors`,
-    /// par partie) ; `None` : sans limite (v1 exact).
     #[serde(default)]
     #[cfg_attr(feature = "schema", schemars(extend("x-lint" = "> 0 (ou absent)")))]
     pub uses_per_floor: Option<u32>,
-    /// M2-T4 : un actif qui consomme `n` exemplaires du consommable `item` à l'usage ; sans le
-    /// stock, l'usage est refusé (la charge reste). `None` : gratuit (v1 exact).
     #[serde(default)]
     pub cost: Option<(String, u32)>,
-    /// M3-T0a (`docs/conventions.md` §60) : modificateurs de projectile ajoutés aux tirs du
-    /// porteur (`modifiers`, `on_hit`, `on_expire`), composés avec ceux de l'arme par
-    /// `combat::projectile::compose` dans l'ordre de [`projectile_sources`]. `None` : v1 exacte.
-    /// Contrat : le tir ne le lit pas encore (M3-T1) ; le lint refuse un objet qui le porte
-    /// (`Unsupported`). `ItemDef` est une définition (ressource [`ItemTable`], hors rollback,
-    /// sans `Hash`) : le champ n'entre dans aucun checksum.
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub projectile: Option<ProjectileMods>,
-    /// M3-T0d (`docs/conventions.md` §63) : l'objet donne un **familier** (un personnage de
-    /// `characters/` à comportements de familier), `per_copy` par exemplaire tenu. `None` : aucun
-    /// (v1 exacte). Contrat : le ramassage ne crée rien encore (M3-T6) ; hors rollback et hors
-    /// hash (définition, ressource [`ItemTable`]).
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub familiar: Option<FamiliarRef>,
+    /// M3-T0b : plafond d'un compteur consommable. Absent = illimité (exécution T3).
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    #[cfg_attr(feature = "schema", schemars(extend("x-lint" = "> 0 (ou absent)")))]
+    pub max_stack: Option<u32>,
+}
+
+/// Prix contractuel d'un présentoir (M3-T0b, §61). L'exécution vient de T8.
+#[cfg_attr(feature = "schema", derive(schemars::JsonSchema))]
+#[derive(Clone, Debug, PartialEq, Eq, Hash, Serialize, Deserialize)]
+pub enum Price {
+    Currency(u32),
+    Consumable(String, u32),
+    #[cfg_attr(feature = "schema", schemars(with = "bevy_fixed::schema::FixedString"))]
+    MaxHealth(Fixed),
+}
+
+impl Price {
+    pub fn can_pay(
+        &self,
+        currency: u32,
+        inventory: &Inventory,
+        max_health: Fixed,
+        health: Fixed,
+    ) -> bool {
+        match self {
+            Self::Currency(amount) => currency >= *amount,
+            Self::Consumable(id, amount) => inventory.consumable(id) >= *amount,
+            Self::MaxHealth(amount) => {
+                *amount > Fixed::ZERO && *amount <= max_health && health > *amount
+            }
+        }
+    }
+
+    pub fn pay(
+        &self,
+        currency: &mut u32,
+        inventory: &mut Inventory,
+        max_health: &mut Fixed,
+        health: &mut Fixed,
+    ) -> bool {
+        if !self.can_pay(*currency, inventory, *max_health, *health) {
+            return false;
+        }
+        match self {
+            Self::Currency(amount) => *currency -= *amount,
+            Self::Consumable(id, amount) => {
+                let count = inventory
+                    .consumables
+                    .get_mut(id)
+                    .expect("can_pay checked count");
+                *count -= *amount;
+            }
+            Self::MaxHealth(amount) => {
+                *max_health -= *amount;
+                *health -= *amount;
+            }
+        }
+        true
+    }
 }
 
 /// Le familier que donne un objet (M3-T0d, §63).
@@ -295,7 +322,6 @@ impl ActiveSlot {
 /// M2-T4 (traces inchangées, `docs/conventions.md` §44).
 impl std::hash::Hash for ActiveSlot {
     fn hash<H: std::hash::Hasher>(&self, state: &mut H) {
-        use std::hash::Hash as _;
         self.item.hash(state);
         self.charge.hash(state);
         if let Some(uses) = self.uses {
@@ -305,7 +331,6 @@ impl std::hash::Hash for ActiveSlot {
 }
 
 /// Inventaire d'un joueur (rollback, checksum et trace en variante **neutre**). Posé au premier
-/// ramassage seulement : un joueur qui n'a jamais rien ramassé n'en porte pas.
 #[derive(Component, Clone, Debug, Default, PartialEq, Eq, Hash)]
 pub struct Inventory {
     /// Passifs, dans l'ordre de ramassage.
@@ -322,6 +347,26 @@ impl Inventory {
 
     pub fn consumable(&self, id: &str) -> u32 {
         self.consumables.get(id).copied().unwrap_or(0)
+    }
+
+    /// Nombre d'exemplaires portés, tous types d'inventaire confondus.
+    pub fn count(&self, id: &str) -> u32 {
+        self.passives
+            .iter()
+            .filter(|item| item.as_str() == id)
+            .count() as u32
+            + u32::from(self.active.as_ref().is_some_and(|active| active.item == id))
+            + self.consumable(id)
+    }
+}
+
+/// Clé stable d'un effet porté par un exemplaire. Le premier exemplaire conserve la clé v1 ;
+/// les suivants reçoivent un suffixe `#k` (M3-T0b, exécution branchée en M3-T2).
+pub fn item_effect_key(item_id: &str, copy_index: u32, effect_index: usize) -> String {
+    if copy_index == 0 {
+        format!("item:{item_id}:{effect_index}")
+    } else {
+        format!("item:{item_id}#{copy_index}:{effect_index}")
     }
 }
 
@@ -532,5 +577,63 @@ mod tests {
         let inventory = Inventory::default();
         assert!(!inventory.has("x"));
         assert_eq!(inventory.consumable("key"), 0);
+    }
+}
+
+#[cfg(test)]
+mod m3_t0b_tests {
+    use super::*;
+
+    #[test]
+    fn inventory_count_includes_all_copy_kinds() {
+        let inventory = Inventory {
+            passives: vec!["amulet".into(), "amulet".into()],
+            active: Some(ActiveSlot::new("amulet".into())),
+            consumables: BTreeMap::from([("amulet".into(), 3)]),
+        };
+        assert_eq!(inventory.count("amulet"), 6);
+        assert_eq!(inventory.count("other"), 0);
+    }
+
+    #[test]
+    fn item_effect_key_keeps_first_copy_compatibility() {
+        assert_eq!(item_effect_key("amulet", 0, 2), "item:amulet:2");
+        assert_eq!(item_effect_key("amulet", 1, 2), "item:amulet#1:2");
+        assert_eq!(item_effect_key("amulet", 2, 2), "item:amulet#2:2");
+    }
+
+    #[test]
+    fn prices_pay_currency_consumables_and_non_lethal_max_health() {
+        let mut currency = 10;
+        let mut inventory = Inventory {
+            consumables: BTreeMap::from([("key".into(), 3)]),
+            ..Default::default()
+        };
+        let mut max_health = Fixed::from_num(6);
+        let mut health = Fixed::from_num(6);
+        assert!(Price::Currency(4).pay(
+            &mut currency,
+            &mut inventory,
+            &mut max_health,
+            &mut health
+        ));
+        assert!(Price::Consumable("key".into(), 2).pay(
+            &mut currency,
+            &mut inventory,
+            &mut max_health,
+            &mut health
+        ));
+        assert_eq!(inventory.consumable("key"), 1);
+        assert!(Price::MaxHealth(Fixed::from_num(2)).pay(
+            &mut currency,
+            &mut inventory,
+            &mut max_health,
+            &mut health
+        ));
+        assert_eq!(max_health, Fixed::from_num(4));
+        assert_eq!(health, Fixed::from_num(4));
+        assert!(
+            !Price::MaxHealth(Fixed::from_num(4)).can_pay(currency, &inventory, max_health, health)
+        );
     }
 }

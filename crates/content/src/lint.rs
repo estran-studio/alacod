@@ -108,6 +108,7 @@ pub(crate) fn lint_effect(
     registry: &Registry,
     at: &str,
     effect: &effects::Effect,
+    allow_scale: bool,
     push: &mut impl FnMut(LintErrorKind, String),
 ) {
     use effects::runtime::{condition_supported, trigger_supported};
@@ -164,6 +165,15 @@ pub(crate) fn lint_effect(
         }
     }
     for action in &effect.r#do {
+        if let effects::Action::Scaled { scale, .. } = action {
+            if !allow_scale {
+                push(
+                    LintErrorKind::Unsupported,
+                    format!("{at} : scale {scale:?} : uniquement dans un effet d'objet"),
+                );
+            }
+            continue;
+        }
         match action {
             effects::Action::Heal(amount) if *amount <= Fixed::ZERO => push(
                 LintErrorKind::OutOfRange,
@@ -283,7 +293,7 @@ fn lint_characters(registry: &Registry, errors: &mut Vec<LintError>) {
         // T1.10 : effets v1
         for (index, effect) in character.effects.iter().enumerate() {
             let at = format!("personnage « {} » : effects[{index}]", character.id);
-            lint_effect(registry, &at, effect, &mut |kind, message| {
+            lint_effect(registry, &at, effect, false, &mut |kind, message| {
                 errors.push(LintError {
                     kind,
                     file: file.clone(),
@@ -387,8 +397,17 @@ fn lint_characters(registry: &Registry, errors: &mut Vec<LintError>) {
                 }
             }
         }
+        if character.hit_iframes == Some(0) {
+            errors.push(LintError {
+                kind: LintErrorKind::OutOfRange,
+                file: file.clone(),
+                message: format!(
+                    "personnage « {} » : hit_iframes = 0 : doit être > 0 (ou absent)",
+                    character.id
+                ),
+            });
+        }
 
-        // Hors plage : santé > 0 (littéral seulement ; une expression est validée par
         // `lint_num_or_expr`).
         if let Some(max) = character.base_health_max.literal() {
             if max <= Fixed::ZERO {
@@ -3473,6 +3492,7 @@ fn lint_mutations(registry: &Registry, errors: &mut Vec<LintError>) {
                 registry,
                 &format!("{at} : effects[{index}]"),
                 effect,
+                false,
                 &mut push,
             );
         }
@@ -3620,6 +3640,12 @@ fn lint_items(registry: &Registry, errors: &mut Vec<LintError>) {
         }
         let active = matches!(item.def.kind, items::ItemKind::Active(_));
         let consumable = item.def.kind == items::ItemKind::Consumable;
+        if item.def.max_stack == Some(0) {
+            push(
+                LintErrorKind::OutOfRange,
+                format!("objet « {id} » : max_stack = 0 : doit être > 0 (ou absent)"),
+            );
+        }
         if consumable && !item.def.modifiers.is_empty() {
             push(
                 LintErrorKind::Unsupported,
@@ -3680,7 +3706,7 @@ fn lint_items(registry: &Registry, errors: &mut Vec<LintError>) {
             if effect.on != effects::On::OnUse {
                 // M2-T3 : effet porté par le porteur tant que l'objet est tenu (même règles
                 // qu'un effet de personnage)
-                lint_effect(registry, &at, effect, &mut push);
+                lint_effect(registry, &at, effect, true, &mut push);
                 continue;
             }
             if !active && !consumable {
@@ -3704,7 +3730,9 @@ fn lint_items(registry: &Registry, errors: &mut Vec<LintError>) {
                         LintErrorKind::OutOfRange,
                         format!("{at} : TimedModifier frames = 0 : doit être > 0"),
                     ),
-                    effects::Action::TimedModifier { .. } | effects::Action::Modifier { .. } => {}
+                    effects::Action::TimedModifier { .. }
+                    | effects::Action::Modifier { .. }
+                    | effects::Action::Scaled { .. } => {}
                     other => push(
                         LintErrorKind::Unsupported,
                         format!("{at} : action {other:?} : pas exécutée par OnUse d'un objet"),
@@ -3772,7 +3800,7 @@ fn lint_synergies(registry: &Registry, errors: &mut Vec<LintError>) {
                 );
                 continue;
             }
-            lint_effect(registry, &at, effect, &mut push);
+            lint_effect(registry, &at, effect, false, &mut push);
         }
     }
 }

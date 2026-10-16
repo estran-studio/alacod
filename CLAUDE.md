@@ -366,6 +366,7 @@ crate `APP`), jamais dans un crate `SIM`.
     - T1.9 horloges (§23) : `Clock`.
     - T1.10 progression et mutations (§27) : `Gauge`, `Level`, `Mutations`.
     - M2-E1 salles (§35) : `RoomState` ; M2-T0b objets (§36) : `HasItem`, `ItemCharge`, `Consumable` ; M2-T5 (§48) : `ItemCount`.
+    - M3-T0b contrats objets/santé (§61) : `ItemCount` (existe, §48) ; `Invulnerable(handle, at_frame)` pour les i-frames si un scénario l'expose.
     - M2-T0c boss (§37) : `BossPhase` ; profil (§38) : `ProfileHas`.
     - M3-T0c contrats du monde (§62) : `DoorLocked` ; `EntityCount(kind: Rock)`.
     - M3-T0d familiers et champions (§63) : `FamiliarCount` ; `EnemyVariant` (existe, §25).

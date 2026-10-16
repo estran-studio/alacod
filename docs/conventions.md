@@ -4108,6 +4108,62 @@ Scénarios : `tears_infinite` (300 frames de tir, `Ammo` à 0 tout du long, les 
 `tears_shot_speed_sans_objet`, elle n'est pas encore arrivée).
 
 
+## 61. Contrats des objets et de la santé (M3-T0b)
+
+Contrats posés pour M3-T2 (effets v3), M3-T3 (cœurs et pickups), M3-T8 (marché du diable) et
+le contenu Isaac. **Aucune trace existante ne bouge** : les champs nouveaux sont optionnels et
+absents du contenu livré, les nouveaux types rollback sont neutres, et les variantes sont ajoutées
+en fin d'enum.
+
+### Inventaire et exemplaires
+
+`Inventory::count(id)` compte les passifs dans leur ordre (doublons compris), l'actif s'il porte
+`id`, et le compteur consommable `id`. La clé historique d'un effet est
+`item:<id>:<index>` pour le premier exemplaire ; les suivants réservent
+`item:<id>#<k>:<index>`, avec `k >= 1`. Le branchement dans `listed_effects` et l'exécution de
+`PerCopy` restent M3-T2 : ce point ne change aucune partie existante.
+
+`effects::Scale::PerCopy` est porté par l'action contractuelle `Scaled { action, scale }`.
+`effects::scale_value` est la règle pure : `PerCopy` multiplie par `Inventory::count(id)`, le
+champ absent ne modifie pas la valeur. `scale` est accepté seulement dans un effet d'objet ;
+les power-ups, personnages, mutations et synergies le refusent au lint. `Scale` est hors de
+l'exécution de cette dette.
+
+### Prix et compteurs
+
+`items::Price` est `Currency(u32)`, `Consumable(String, u32)` ou `MaxHealth(Fixed)`. Un
+`Shelf` conserve `price: u32` pour son hash historique et reçoit `cost: Option<Price>` ; absent,
+`cost` ne contribue pas au hash, et `Price::Currency` est équivalent à `price`. Les règles pures
+`can_pay`/`pay` refusent un prix de vie qui tuerait le joueur et réduisent la vie courante et
+maximale ensemble ; l'interaction de boutique est M3-T8.
+
+`ItemDef.max_stack: Option<u32>` ne plafonne un consommable que lorsqu'il est présent (Isaac :
+99). Absent conserve le comportement illimité actuel. Le ramassage au plafond laisse l'objet au
+sol ; son exécution est M3-T3. `game::loot::BOMB_ITEM` réserve le nom `"bomb"`.
+
+### I-frames et questions ouvertes
+
+`CharacterConfig.hit_iframes: Option<u32>` est absent par défaut. Après un dégât final strictement
+positif (après immunité, bouclier et armure), le résolveur pose `Health.invulnerable_until_frame`
+à `event.frame + n`, en conservant la valeur la plus longue. Un coup absorbé par un bouclier ou
+annulé par l'armure ne déclenche pas cette durée. La preuve future est le scénario
+`hit_iframes` : deux balles à dix frames d'écart, la seconde n'enlève rien avec `Some(30)`.
+
+**Q2 — modèle des cœurs (proposition par défaut).** Une demi-case vaut un point de `Health`,
+les personnages livrés gardent des PV pairs, et `ExtraHealth { soul: Fixed }` absorbe les dégâts
+point par point avant les PV ; il reste distinct de `Shield`, qui absorbe un coup entier.
+T0b ne code pas cette couche.
+
+**Q4 — partage en coop (bloqué).** Option par joueur : chaque `Inventory` reste local, et le
+ramassage est attribué au premier `GgrsNetId` dans l'ordre déterministe. Option équipe : une
+ressource rollback d'équipe porte sous, bombes et clés, les prompts lisent cette ressource et
+un seul ramassage la crédite. T0b ne choisit ni ne code l'une des deux.
+
+**Q16 — exemplaires.** Proposition par défaut : limites indépendantes pour tous les exemplaires,
+avec preuve des traces gungeon touchées ; l'alternative est un champ par objet
+`stack: Independent | Shared`. T0b réserve la clé indépendante mais ne branche pas les limites
+dans `listed_effects` avant M3-T2.
+
 ## 62. Contrats du monde : bombes, rochers, piques, portes verrouillées, grille (M3-T0c)
 
 Contrats seuls, sans exécution : M3-T4 (bombes, rochers cassés, mur secret, piques) et M3-T5

@@ -318,16 +318,29 @@ pub struct ChestOpened {
 }
 
 /// Présentoir d'une boutique (rollback, checksum et trace en variante **neutre** : absent de
-/// toute partie sans boutique). `key` est sa clé de contenu (`shelf:<salle>:<i>`), `price` en
-/// `shells` (`Currency`), `sold` une fois acheté (l'`Interactable` est alors retiré).
-#[derive(Component, Clone, Debug, PartialEq, Eq, Hash)]
+/// toute partie sans boutique). `price` conserve le hash historique ; `cost` est optionnel et
+/// n'entre dans le hash que lorsqu'il est présent (M3-T0b).
+#[derive(Component, Clone, Debug, PartialEq, Eq)]
 pub struct Shelf {
     pub key: String,
     pub item_id: String,
     pub price: u32,
     pub sold: bool,
-    /// Anti-rebond d'un achat refusé : pas de nouvel essai avant cette frame.
     pub retry_after: u32,
+    pub cost: Option<crate::Price>,
+}
+
+impl std::hash::Hash for Shelf {
+    fn hash<H: std::hash::Hasher>(&self, state: &mut H) {
+        self.key.hash(state);
+        self.item_id.hash(state);
+        self.price.hash(state);
+        self.sold.hash(state);
+        self.retry_after.hash(state);
+        if let Some(cost) = &self.cost {
+            cost.hash(state);
+        }
+    }
 }
 
 /// Douilles au sol (`shells`), ramassées au contact et créditées à `Currency` (rollback,
@@ -356,6 +369,7 @@ mod tests {
             cost: None,
             projectile: None,
             familiar: None,
+            max_stack: None,
         }
     }
 

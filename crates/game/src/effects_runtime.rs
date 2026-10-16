@@ -873,7 +873,8 @@ pub(crate) fn apply_action_sourced(
         // M3-T0c : contrat seul, exécutée par M3-T4 (le lint la refuse d'ici là)
         | Action::Explode { .. }
         // M3-T0d : mort d'un champion, exécutée par M3-T7 (refusée dans un effet par le lint)
-        | Action::SpawnCharacters { .. } => {
+        | Action::SpawnCharacters { .. }
+        | Action::Scaled { .. } => {
             warn!(
                 "effet de {} : action {:?} non exécutée en v1 (voir `alacod lint`)",
                 net_id, action
