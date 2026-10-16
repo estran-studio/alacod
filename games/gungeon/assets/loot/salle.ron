@@ -4,7 +4,7 @@
     entries: [
         (pick: Item("key"), weight: 1),
         (pick: Item("blank"), weight: 2),
-        (pick: Item("ration"), weight: 4),
+        (pick: Item("ration"), weight: 6),
     ],
-    reward: Some((chance: "0.5", chest_chance: "0.1")),
+    reward: Some((chance: "1.0", chest_chance: "0.1")),
 )

@@ -14,8 +14,8 @@ import copy, json, sys, uuid
 PLACEMENT = {
     'CombatEW': [('bullet_kin', 2, 2), ('bullet_kin', 5, 2), ('fuyard_kin', 2, 5)],
     'CombatNS': [('bullet_kin', 2, 2), ('bullet_kin', 5, 2), ('veteran_kin', 4, 5)],
-    'CombatT': [('bullet_kin', 2, 2), ('bullet_kin', 5, 2)],
-    'CombatCroix': [('bullet_kin', 2, 2), ('bullet_kin', 5, 2), ('shotgun_kin', 3, 5)],
+    'CombatT': [('bullet_kin', 2, 2), ('bullet_kin', 5, 2), ('bullet_kin', 2, 5)],
+    'CombatCroix': [('bullet_kin', 2, 2), ('bullet_kin', 5, 2), ('shotgun_kin', 5, 5)],
     'EscouadeEW': [('bullet_kin_squad', 2, 2), ('bullet_kin_squad', 5, 2), ('bullet_kin_squad', 3, 6)],
 }
 

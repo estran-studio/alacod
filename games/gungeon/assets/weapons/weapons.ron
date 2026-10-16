@@ -648,11 +648,11 @@
                 // Couronne lente de la tourelle.
                 "boule": (damage: "8.0", speed: "90.0", range: "400.0"),
                 // Couronne de la `tourelle_kin` (M2-T14d, D64) : plus légère que `boule`, qui reste celle du boss.
-                "boulette": (damage: "5.0", speed: "90.0", range: "400.0"),
+                "boulette": (damage: "4.0", speed: "90.0", range: "400.0"),
                 // Étincelle de la spirale du boss (`spirale`, M2-T1) : légère, il y en a beaucoup.
                 "etincelle": (damage: "3.0", speed: "80.0", range: "350.0"),
                 // Balle qui rebondit deux fois sur les murs (`salve` de `bullet_kin`, M2-T1).
-                "ricochet": (damage: "4.0", speed: "150.0", range: "500.0", modifiers: [Bounce(2)]),
+                "ricochet": (damage: "4.0", speed: "150.0", range: "320.0", modifiers: [Bounce(1)]),
             },
             test: Some((frames: 200, min_hits: 2)),
         ),

@@ -26,7 +26,7 @@
     scale: "1.0",
 
     base_health: (
-        max: "40.0",
+        max: "30.0",
     ),
 
     starting_skin: "1",
@@ -38,7 +38,7 @@
         aggro_range: Some("500.0"),
         attack_range: Some("0.0"),
         behaviors: Some([
-            Shoot(weapon: "arsenal", pattern: "salve", range: "240.0", cooldown_frames: 120),
+            Shoot(weapon: "arsenal", pattern: "salve", range: "240.0", cooldown_frames: 150),
             KeepDistance(min: "120.0", max: "200.0"),
             Chase(profile: "Ground"),
         ]),

@@ -1,0 +1,5 @@
+// `gungeon` (M2-T14d) : un étage minimal de la grammaire `court_arene` (départ, arene, boss).
+(
+    levels: ["floor:court_arene"],
+    victory_at_end: true,
+)

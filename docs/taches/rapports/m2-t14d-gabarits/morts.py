@@ -7,7 +7,7 @@ for seed in sys.argv[3:]:
     out=subprocess.run([os.environ['CARGO_TARGET_DIR']+'/headless/alacod-sim','--game','gungeon','--bots',bots,'--profiles',prof,'--floors',seq,'--seeds',f'{seed}..{seed}','--until-floor','1','--max-frames','20000','--log'],stdout=subprocess.PIPE,stderr=subprocess.STDOUT,text=True,env=env,cwd='.').stdout
     rooms={};seen=set();death=None;killer=None;names={}
     for l in out.splitlines():
-        m=re.search(r'room_state room=(\d+) kind=(\w+) state=(\w+) enemies=(\d+)',l)
+        m=re.search(r'room_state room=(\d+) kind=(\w+) state=(\w+)',l)
         f=re.search(r'ggrs\{f=(\d+)',l)
         if m: rooms[m[1]]=(m[2],m[3],int(f[1]) if f else -1)
         for n in re.finditer(r'\((\w+)-(\d+)\)',l): names[n[2]]=n[1]
