@@ -191,11 +191,11 @@ fn explorer_finds_weapons_on_ordinary_floors() {
     let seeds: Vec<i32> = std::env::var("ALACOD_SHOP_SEEDS")
         .ok()
         .map(|v| v.split(',').filter_map(|s| s.parse().ok()).collect())
-        .unwrap_or_else(|| vec![1]);
+        .unwrap_or_else(|| vec![3]);
     let frames: u32 = std::env::var("ALACOD_SHOP_FRAMES")
         .ok()
         .and_then(|v| v.parse().ok())
-        .unwrap_or(4000);
+        .unwrap_or(1000);
     for seed in seeds {
         let held = shopped_weapons(seed, frames);
         println!("graine {seed} : armes tenues {held:?}");

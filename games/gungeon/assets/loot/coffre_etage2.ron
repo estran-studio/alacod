@@ -1,6 +1,5 @@
-// Pool de butin du second étage de gungeon (D62) : mêmes objets que `commun`, les armes rares
-// y pèsent double (pondération par étage, `floors/*.ron` champ
-// `loot`).
+// Pool de coffres des étages suivants de gungeon (D62) : comme `coffre_etage1`, les armes rares pèsent
+// double (pondération par étage, `floors/etages_deux.ron` champ `loot`).
 (
     entries: [
         (pick: Rarity(Common), weight: 5),

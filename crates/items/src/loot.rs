@@ -531,4 +531,61 @@ mod tests {
             Some("key")
         );
     }
+    /// D62 : une entrée `Weapon` donne `weapon:<id>`, suit le filtre de rareté d'un coffre, est
+    /// ignorée d'une récompense de consommables, et `weapons_only` / `weapon_rarity` la retrouvent.
+    #[test]
+    fn weapon_entries() {
+        let pool = table(
+            vec![
+                entry(LootPick::Weapon("revolver".into(), Rarity::Common), 1),
+                entry(LootPick::Weapon("laser".into(), Rarity::Rare), 1),
+                entry(LootPick::Item("a".into()), 1),
+            ],
+            false,
+        );
+        let mut seen = BTreeSet::new();
+        for seed in 0..200 {
+            let drawn = draw_loot(
+                &pool,
+                &items(),
+                None,
+                Rarity::Common,
+                false,
+                &mut RollbackRng::new(seed),
+            )
+            .unwrap();
+            seen.insert(drawn);
+        }
+        assert!(seen.contains("weapon:revolver") && seen.contains("weapon:laser"));
+        assert!(seen.contains("a"));
+        assert_eq!(loot_weapon("weapon:laser"), Some("laser"));
+        assert_eq!(loot_weapon("a"), None);
+        // Coffre Rare : seules les raretés suffisantes (l'arme rare ; pas de repli si elle existe).
+        for seed in 0..50 {
+            let drawn = draw_loot(
+                &pool,
+                &items(),
+                None,
+                Rarity::Rare,
+                false,
+                &mut RollbackRng::new(seed),
+            );
+            assert_eq!(drawn.as_deref(), Some("weapon:laser"));
+        }
+        // Récompense de salle : consommables seulement, jamais d'arme.
+        for seed in 0..50 {
+            let drawn = draw_loot(
+                &pool,
+                &items(),
+                None,
+                Rarity::Common,
+                true,
+                &mut RollbackRng::new(seed),
+            );
+            assert!(drawn.is_none(), "{drawn:?}");
+        }
+        assert_eq!(pool.weapons_only().entries.len(), 2);
+        assert_eq!(pool.weapon_rarity("laser"), Some(Rarity::Rare));
+        assert_eq!(pool.weapon_rarity("absent"), None);
+    }
 }

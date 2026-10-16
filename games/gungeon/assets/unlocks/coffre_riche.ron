@@ -3,5 +3,10 @@
     name: "Coffres plus riches",
     cost: Some(60),
     requires: ["tresor_trefle"],
-    grants: [Loot(table: "commun", pick: Rarity(Rare), weight: 4)],
+    // D62 : les pools de coffres par étage (armes comprises) sont enrichis de même.
+    grants: [
+        Loot(table: "commun", pick: Rarity(Rare), weight: 4),
+        Loot(table: "coffre_etage1", pick: Rarity(Rare), weight: 4),
+        Loot(table: "coffre_etage2", pick: Rarity(Rare), weight: 4),
+    ],
 )
