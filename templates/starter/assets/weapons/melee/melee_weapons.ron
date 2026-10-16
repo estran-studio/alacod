@@ -1,0 +1,108 @@
+({
+    "bare_hands": (
+        config: (
+            name: "Bare Hands",
+            damage: "10.0",
+            range: "30.0",
+            attack_pattern: SingleStrike,
+            attack_duration_frames: 10,
+            cooldown_frames: 30,
+            knockback_force: "70.0",
+            stamina_cost: "5.0",
+        ),
+        sprite_config: (
+            name: "bare_hands",
+            index: 0,
+            weapon_offset: (x: "0.0", y: "0.0"),
+        ),
+    ),
+    "zombie_claws": (
+        config: (
+            name: "Zombie Claws",
+            damage: "2.5",
+            range: "35.0",
+            attack_pattern: SingleStrike,
+            attack_duration_frames: 12,
+            cooldown_frames: 45,
+            knockback_force: "50.0",
+            stamina_cost: "0.0",
+        ),
+        sprite_config: (
+            name: "zombie_claws",
+            index: 0,
+            weapon_offset: (x: "0.0", y: "0.0"),
+        ),
+    ),
+    "club": (
+        config: (
+            name: "Club",
+            damage: "3.0",
+            range: "40.0",
+            attack_pattern: SingleStrike,
+            attack_duration_frames: 15,
+            cooldown_frames: 45,
+            knockback_force: "30.0",
+            stamina_cost: "10.0",
+        ),
+        sprite_config: (
+            name: "club",
+            index: 0,
+            weapon_offset: (x: "0.0", y: "0.0"),
+        ),
+    ),
+    "knife": (
+        config: (
+            name: "Knife",
+            damage: "2.0",
+            range: "25.0",
+            attack_pattern: Combo(
+                strikes_in_combo: 3,
+            ),
+            attack_duration_frames: 8,
+            cooldown_frames: 20,
+            knockback_force: "5.0",
+            stamina_cost: "5.0",
+        ),
+        sprite_config: (
+            name: "knife",
+            index: 0,
+            weapon_offset: (x: "0.0", y: "0.0"),
+        ),
+    ),
+    "sword": (
+        config: (
+            name: "Sword",
+            damage: "5.0",
+            range: "50.0",
+            attack_pattern: Sweep(
+                arc_angle: "1.57",
+            ),
+            attack_duration_frames: 12,
+            cooldown_frames: 40,
+            knockback_force: "20.0",
+            stamina_cost: "15.0",
+        ),
+        sprite_config: (
+            name: "sword",
+            index: 0,
+            weapon_offset: (x: "0.0", y: "0.0"),
+        ),
+    ),
+    "axe": (
+        config: (
+            name: "Axe",
+            damage: "7.0",
+            range: "45.0",
+            attack_pattern: Thrust,
+            attack_duration_frames: 18,
+            cooldown_frames: 60,
+            knockback_force: "40.0",
+            stamina_cost: "20.0",
+        ),
+        sprite_config: (
+            name: "axe",
+            index: 0,
+            weapon_offset: (x: "0.0", y: "0.0"),
+        ),
+    ),
+})

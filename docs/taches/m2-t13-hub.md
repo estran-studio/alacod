@@ -34,6 +34,18 @@ entre dans la run par une porte ; à la fin de la run, il revient au hub.
    - Atteignabilité : une partie gungeon ordinaire démarre au hub. Dire au rapport l'effet sur les
      scénarios qui jouent « la partie du manifeste », qu'il faut peut-être fixer sur `floors`.
 
+## Coop en ligne (décision de William du 2026-10-15)
+
+- **L'hôte décide** : les déblocages de la run (`RunUnlocks`, M2-T12) et ce que le hub propose sont
+  ceux du profil de l'hôte (pair de plus petit handle). Chaque joueur gagne sa propre monnaie méta
+  et écrit son propre profil.
+- **Achats appliqués à la porte** : un achat au marchand écrit le profil tout de suite (hors
+  simulation) et se voit dans l'écran du marchand, mais n'entre dans la simulation partagée qu'au
+  passage de la porte, quand `RunUnlocks` est figé de nouveau.
+- **Sortie du hub décidée dans la simulation** : l'interaction sur la porte écrit un état rollback ;
+  la relance n'a lieu qu'une fois cette frame confirmée, par le chemin du restart en ligne (§33).
+  Par défaut, n'importe quel joueur déclenche la porte (à confirmer au rapport).
+
 ## Règles
 
 Le hub est dans la simulation (déplacement, interaction) : `order_iter!`, `FrameEvents`, pas de `f32`.

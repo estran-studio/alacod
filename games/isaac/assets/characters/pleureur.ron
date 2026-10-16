@@ -33,8 +33,10 @@
     ),
 
     starting_skin: "1",
+    // "2" : skin du joueur de handle 1 (`player::create`, le second joueur en ligne).
     skins: {
         "1": (layers: {}),
+        "2": (layers: {}),
     },
 
     // Un seul emplacement d'arme à distance : les larmes.

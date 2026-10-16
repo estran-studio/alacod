@@ -156,18 +156,31 @@ pub struct ScenarioOutcome {
     pub softlock: Option<crate::softlock::SoftlockDump>,
 }
 
+/// Jeu hors de l'engine (`alacod test` sur un jeu créé par `alacod new`) : `ALACOD_GAME_NAME` et
+/// `ALACOD_GAME_DIR` désignent son nom (celui de `game.ron`) et son dossier. Les autres jeux
+/// (testbed, jeux de `games/`) se résolvent comme avant.
+fn external_game_dir(game: &str) -> Option<std::path::PathBuf> {
+    let name = std::env::var("ALACOD_GAME_NAME").ok()?;
+    (name == game).then(|| std::env::var("ALACOD_GAME_DIR").ok().map(Into::into))?
+}
+
 /// Dossier racine du jeu (`games/<jeu>`), pour `content::load_and_lint` (T1.5).
 pub fn game_dir(game: &str) -> std::path::PathBuf {
-    std::path::PathBuf::from(format!(
-        "{}/../../games/{}",
-        env!("CARGO_MANIFEST_DIR"),
-        game
-    ))
+    external_game_dir(game).unwrap_or_else(|| {
+        std::path::PathBuf::from(format!(
+            "{}/../../games/{}",
+            env!("CARGO_MANIFEST_DIR"),
+            game
+        ))
+    })
 }
 
 /// Dossier des assets du jeu.
 pub fn assets_dir(game: &str) -> String {
-    format!("{}/../../games/{}/assets", env!("CARGO_MANIFEST_DIR"), game)
+    match external_game_dir(game) {
+        Some(dir) => dir.join("assets").to_string_lossy().into_owned(),
+        None => format!("{}/../../games/{}/assets", env!("CARGO_MANIFEST_DIR"), game),
+    }
 }
 
 /// Configuration de lecture d'un scénario.

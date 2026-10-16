@@ -5,18 +5,20 @@ version = "0.1.0"
 edition = "2021"
 
 [dependencies]
-bevy_fixed = { path = "../bevy_fixed" }
-sim_core = { path = "../sim_core" }
-effects = { path = "../effects" }
-world = { path = "../world" }
-items = { path = "../items" }
-meta = { path = "../meta" }
+bevy_fixed = { path = "../bevy_fixed", features = ["schema"] }
+sim_core = { path = "../sim_core", features = ["schema"] }
+effects = { path = "../effects", features = ["schema"] }
+world = { path = "../world", features = ["schema"] }
+items = { path = "../items", features = ["schema"] }
+meta = { path = "../meta", features = ["schema"] }
 bevy = { version = "0.19.1", default-features = false }
 serde = { version = "1.0", features = ["derive"] }
 thiserror = "2"
 ron = "0.12"
 serde_json = "1.0"
 clap = { version = "4.4", features = ["derive"] }
+
+schemars = "1"
 
 [dev-dependencies]
 

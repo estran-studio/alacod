@@ -33,6 +33,7 @@ pub const ESSENCE: &str = "essence";
 /// Essence gagnée par run (M2-T12, `meta/essence.ron` du jeu, kind `MetaEconomy`) ; défaut =
 /// les règles provisoires de M2-T0c (1 par run, 1 par kill, 10 par victoire).
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize)]
+#[cfg_attr(feature = "schema", derive(schemars::JsonSchema))]
 pub struct EssenceRules {
     #[serde(default = "one")]
     pub per_run: u64,

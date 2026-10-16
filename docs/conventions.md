@@ -328,6 +328,44 @@ de sortie 1 et messages sur stderr en cas d'erreur, 0 sinon) ; `make lint` l'app
 `scripts/lint-edited-game.sh`) relance ce lint en arrière-plan quand un fichier sous
 `games/**` est édité.
 
+**Pour un agent** : `alacod lint --json games/<jeu>` écrit un objet `{game, errors, warnings}` sur
+stdout (`kind`, `file`, `message` par entrée ; même code de sortie que `lint`).
+`alacod describe games/<jeu> [Kind] [--json]` (`crates/content/src/describe.rs`) inventorie le
+contenu d'un jeu : kinds et dossiers, ids, champs de premier niveau **utilisés** (fréquence,
+exemple), fichier modèle. Pour chaque kind couvert (tous sauf `Map`, `Ui`, `Camera`, test
+`every_kind_has_a_schema`), il ajoute le **schéma exhaustif** dérivé des types Rust
+(`crates/content/src/schema.rs`, `schemars`) : champs, types, requis ou défaut, variantes d'enum et
+commentaires de doc ; les `Fixed` y sont des chaînes. `--json` donne le JSON Schema brut (`schema`).
+Les types de contenu portent `#[cfg_attr(feature = "schema", derive(schemars::JsonSchema))]`
+(feature `schema` de `bevy_fixed`, `sim_core`, `effects`, `items`, `world`, activée par `content`) :
+**un nouveau champ ou une nouvelle variante apparaît donc seul dans `describe`**. Les plages que le lint
+vérifie s'écrivent `[requis, lint : > 0]` : elles viennent de `#[schemars(extend("x-lint" = "> 0"))]`
+posé sur le champ, **à maintenir à la main avec la règle de `lint.rs`** (une règle de lint ajoutée sans
+annotation n'apparaît pas dans `describe`). Un champ `Fixed`
+porte `#[cfg_attr(feature = "schema", schemars(with = "bevy_fixed::schema::FixedString"))]`.
+
+**Créer et tester** : `alacod new-content [jeu] <Kind> <id> [--from <modèle>]`
+(`crates/content/src/scaffold.rs`) copie un modèle du jeu (fichier `<dossier>/<id>.ron`, ou entrée
+dupliquée à la fin d'une table comme `weapons.ron`), réécrit l'id et le nom, relance le lint. Pas
+pour `Map`, `Ui`, `Camera`, `Economy`, `Difficulty`. `alacod test [jeu] [id…] [--list] [--bless]
+[--json]` joue les scénarios générés (§28, §54) par `alacod-gen --only` (le crate `scenario`
+dépend de `content`, donc `alacod` appelle `cargo run -p scenario` dans l'engine : celui du jeu
+(`Cargo.toml`), de `--engine`, ou d'où `alacod` a été compilé). Traces ignorées sauf `--bless` ;
+sortie JSON : `scenario`, `frames`, `hits`, `expectations`, `expectations_ok`, `failures`. Un jeu
+hors de l'engine est retrouvé par `ALACOD_GAME_NAME`/`ALACOD_GAME_DIR` (posés par `alacod-gen`) ;
+ses scénarios sont écrits sous `<jeu>/tests/generated`. Les armes se jouent sur la
+`generate_template` du manifeste (sinon dans le testbed de l'engine, où une arme nouvelle n'existe
+pas).
+
+**Jeu hors de l'engine** : `cargo install --path crates/content --bin alacod`, puis
+`alacod new mon-jeu [--engine <racine>] [--git [--rev <sha>]]` copie `templates/starter/` (contenu minimal qui passe le
+lint : joueur, quatre armes, une arène) dans `./mon-jeu`, avec un `Cargo.toml` à dépendances par
+chemin vers l'engine (ou par git avec `--git` : URL de `origin` et révision, qui doit être poussée) (+ `[workspace]` et `[patch.crates-io]` `bevy_ecs_ldtk`, que cargo n'applique
+qu'à la racine), le `Cargo.lock` de l'engine, un `CLAUDE.md` et un hook de lint. `lint` et
+`describe` sans chemin trouvent le jeu depuis le dossier courant. Le gabarit est un instantané
+d'assets du testbed : à resynchroniser si le format du contenu change (le lint du gabarit échoue
+alors).
+
 **Rechargement à chaud** : hors partie (`AppState::LobbyLocal`/`LobbyOnline`), si un
 fichier de contenu suivi par bevy change (feature `native`, `bevy/file_watcher`), le
 registre est relu depuis le disque et le lint relancé
