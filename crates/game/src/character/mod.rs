@@ -306,6 +306,8 @@ impl Plugin for CharacterPresentationPlugin {
             Update,
             (
                 visuals::attach_character_visuals,
+                visuals::spawn_death_ghosts.after(visuals::attach_character_visuals),
+                visuals::animate_death_ghosts,
                 set_sprite_flip,
                 visuals::face_stationary_enemies.after(set_sprite_flip),
                 update_health_bars,
