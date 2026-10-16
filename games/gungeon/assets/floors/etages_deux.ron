@@ -3,4 +3,6 @@
 (
     levels: ["floor:etage", "floor:etage"],
     victory_at_end: true,
+    // D62 : pool de coffres par étage (armes rares plus courantes au second).
+    loot: ["commun", "commun_profond"],
 )

@@ -17,6 +17,7 @@
 //!   JSON inchangés.
 //! - `--floors <id>` (T1.8) : mode `Floors` avec la séquence `id` du dossier `Floors` du jeu ;
 //!   le JSON rapporte `floor`, le niveau atteint (pas d'arrêt anticipé par niveau : T1.14).
+//! - `--shopping` (D62) : les `explorateur` ouvrent les coffres et achètent les présentoirs qu'ils peuvent payer.
 //! - `--boss-direct` (M2-T16) : les `explorateur` vont droit au boss (`bots::explorer::ExplorerOptions`).
 //! - M2-T16 : le JSON rapporte aussi `outcome` (classement de la graine : `victoire`, `objectif`,
 //!   `mort`, `soft-lock`, `plafond`, `desync`) et `rooms` (par étage atteint : salles typées,
@@ -352,6 +353,7 @@ fn main() {
         let room_probe = std::sync::Arc::new(std::sync::Mutex::new(RoomProbe::default()));
         let room_probe_sys = room_probe.clone();
         let boss_direct = args.iter().any(|arg| arg == "--boss-direct");
+        let shopping = args.iter().any(|arg| arg == "--shopping");
 
         let wall_start = Instant::now();
         // `InputSource::Bot` : aucun joueur scripté ici, contrairement aux scénarios RON qui
@@ -361,7 +363,10 @@ fn main() {
             &run_scenario,
             |app| {
                 app.insert_resource(InputSource::Bot);
-                app.insert_resource(bots::explorer::ExplorerOptions { boss_direct });
+                app.insert_resource(bots::explorer::ExplorerOptions {
+                    boss_direct,
+                    shopping,
+                });
                 // M2-T16 : salles de l'étage courant, visitées et nettoyées (hors simulation)
                 app.add_systems(
                     bevy::prelude::Last,

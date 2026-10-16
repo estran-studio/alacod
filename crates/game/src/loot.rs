@@ -33,10 +33,12 @@ use utils::{
 use world::{RoomChanged, RoomState};
 
 use crate::character::player::Player;
+use crate::global_asset::GlobalAsset;
 use crate::interaction::InteractionEvent;
 use crate::items::spawn_item_pickup;
 use crate::rollback::RollbackTraceApp;
 use crate::system_set::RollbackSystemSet;
+use crate::weapons::WeaponsConfig;
 
 /// Consommable qui ouvre un coffre verrouillé.
 pub const KEY_ITEM: &str = "key";
@@ -103,6 +105,36 @@ pub fn spawn_chest(
         .id()
 }
 
+/// Pose au sol l'arme `weapon_id` tirée par un coffre ou un présentoir (D62) : une arme lâchée
+/// ordinaire (`price: None`, chargeur plein), ramassée par l'interaction habituelle, qui
+/// applique l'échange d'emplacement (`CharacterConfig::weapon_slots`). `false` si l'arme est
+/// inconnue du registre chargé (le lint la refuse).
+pub fn spawn_loot_weapon(
+    commands: &mut Commands,
+    global_assets: &GlobalAsset,
+    weapons: &Assets<WeaponsConfig>,
+    weapon_id: &str,
+    position: fixed_math::FixedVec3,
+    id_factory: &mut ResMut<GgrsNetIdFactory>,
+) -> bool {
+    let Some(asset) = weapons
+        .get(&global_assets.weapons)
+        .and_then(|config| config.0.get(weapon_id))
+    else {
+        return false;
+    };
+    let mag_ammo = crate::weapons::default_mode_capacity(asset);
+    crate::weapons::spawn_weapon_pickup(
+        commands,
+        asset.clone().into(),
+        mag_ammo,
+        position,
+        None,
+        id_factory,
+    );
+    true
+}
+
 /// Le pool du coffre : le sien, sinon celui de l'étage, sinon `commun`.
 fn chest_table_id<'a>(chest: &'a Chest, floors: &'a FloorLootTables, floor: u32) -> &'a str {
     chest
@@ -127,6 +159,8 @@ pub fn chest_interaction_system(
     mut commands: Commands,
     mut id_factory: ResMut<GgrsNetIdFactory>,
     mut opened: ResMut<FrameEvents<ChestOpened>>,
+    global_assets: Res<GlobalAsset>,
+    weapons: Res<Assets<WeaponsConfig>>,
     mut chests: Query<(&mut Chest, &fixed_math::FixedTransform3D), With<Rollback>>,
     mut players: Query<(&GgrsNetId, &Player, Option<&mut Inventory>), Without<Chest>>,
 ) {
@@ -195,13 +229,29 @@ pub fn chest_interaction_system(
         commands.entity(event.interactable).remove::<Interactable>();
         let mut position = transform.translation;
         position.x += Fixed::from_num(DROP_OFFSET);
-        spawn_item_pickup(
-            &mut commands,
-            &items,
-            item_id.clone(),
-            position,
-            &mut id_factory,
-        );
+        match items::loot_weapon(&item_id) {
+            Some(weapon_id) => {
+                if !spawn_loot_weapon(
+                    &mut commands,
+                    &global_assets,
+                    &weapons,
+                    weapon_id,
+                    position,
+                    &mut id_factory,
+                ) {
+                    warn!("coffre « {} » : arme « {weapon_id} » inconnue", chest.key);
+                }
+            }
+            None => {
+                spawn_item_pickup(
+                    &mut commands,
+                    &items,
+                    item_id.clone(),
+                    position,
+                    &mut id_factory,
+                );
+            }
+        }
         info!(
             "ggrs{{f={} chest_open net_id={} key={} item={} by={}}}",
             frame.frame, event.interactable_net_id.0, chest.key, item_id, event.interactor_net_id.0

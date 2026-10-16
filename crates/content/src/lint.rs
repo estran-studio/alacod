@@ -3561,6 +3561,17 @@ fn lint_loot(registry: &Registry, errors: &mut Vec<LintError>) {
                         );
                     }
                 }
+                items::LootPick::Weapon(weapon, _) => {
+                    if !registry
+                        .weapons
+                        .contains_key(&crate::registry::WeaponId::from(weapon.clone()))
+                    {
+                        push(
+                            LintErrorKind::BrokenReference,
+                            format!("pool de butin « {id} » : entries[{index}] : arme « {weapon} » inconnue"),
+                        );
+                    }
+                }
                 items::LootPick::Rarity(rarity) => {
                     if !registry
                         .items
@@ -3646,6 +3657,53 @@ fn lint_loot(registry: &Registry, errors: &mut Vec<LintError>) {
                     room.id
                 ),
             );
+        }
+        if shop.weapon_shelves > shop.shelves {
+            push(
+                LintErrorKind::OutOfRange,
+                format!(
+                    "type de salle « {} » : boutique : weapon_shelves = {} > shelves = {}",
+                    room.id, shop.weapon_shelves, shop.shelves
+                ),
+            );
+        }
+        let mut shop_tables = vec![shop.table.as_str()];
+        shop_tables.extend(shop.floor_tables.iter().map(String::as_str));
+        for name in shop_tables.iter().skip(1) {
+            if !registry.loot_tables.contains_key(*name) {
+                push(
+                    LintErrorKind::BrokenReference,
+                    format!(
+                        "type de salle « {} » : boutique : floor_tables : pool « {name} » inconnu",
+                        room.id
+                    ),
+                );
+            }
+        }
+        if shop.weapon_shelves > 0 {
+            let used: Vec<&str> = if shop.floor_tables.is_empty() {
+                vec![shop.table.as_str()]
+            } else {
+                shop.floor_tables.iter().map(String::as_str).collect()
+            };
+            for name in used {
+                let has_weapon = registry.loot_tables.get(name).is_some_and(|table| {
+                    table
+                        .def
+                        .entries
+                        .iter()
+                        .any(|entry| matches!(entry.pick, items::LootPick::Weapon(..)))
+                });
+                if registry.loot_tables.contains_key(name) && !has_weapon {
+                    push(
+                        LintErrorKind::OutOfRange,
+                        format!(
+                            "type de salle « {} » : boutique : weapon_shelves > 0 mais le pool « {name} » n'a aucune arme",
+                            room.id
+                        ),
+                    );
+                }
+            }
         }
         match registry.loot_tables.get(&shop.table) {
             None => push(

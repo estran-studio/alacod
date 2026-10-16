@@ -25,6 +25,17 @@ pub enum LootPick {
     Item(String),
     /// Un objet de cette rareté, tiré uniformément parmi ceux de la table d'objets.
     Rarity(Rarity),
+    /// Une arme de `weapons/weapons.ron` (D62). Le tirage la désigne par `weapon:<id>`
+    /// ([`loot_weapon`]) ; la rareté sert au filtre d'un coffre et au prix d'un présentoir.
+    Weapon(String, Rarity),
+}
+
+/// Préfixe de l'identifiant tiré pour une arme (voir [`LootPick::Weapon`]).
+pub const WEAPON_LOOT_PREFIX: &str = "weapon:";
+
+/// L'arme désignée par un identifiant tiré (`weapon:<id>`), `None` pour un objet.
+pub fn loot_weapon(drawn: &str) -> Option<&str> {
+    drawn.strip_prefix(WEAPON_LOOT_PREFIX)
 }
 
 /// Une entrée pondérée. Un poids ≤ 0 est refusé par le lint.
@@ -70,6 +81,23 @@ pub struct RoomShopDef {
     pub table: String,
     /// Nombre de présentoirs (> 0).
     pub shelves: u32,
+    /// D62 : nombre de présentoirs (les premiers) qui ne tirent que des armes du pool.
+    #[serde(default)]
+    pub weapon_shelves: u32,
+    /// D62 : pool de chaque étage (index = étage, le dernier vaut pour les suivants) ; vide :
+    /// `table` à tous les étages.
+    #[serde(default)]
+    pub floor_tables: Vec<String>,
+}
+
+impl RoomShopDef {
+    /// Le pool de la boutique à l'étage `floor`.
+    pub fn table_for_floor(&self, floor: u32) -> &str {
+        match self.floor_tables.len().checked_sub(1) {
+            Some(last) => self.floor_tables[(floor as usize).min(last)].as_str(),
+            None => self.table.as_str(),
+        }
+    }
 }
 
 /// Un pool de butin, `loot/<id>.ron`.
@@ -82,6 +110,30 @@ pub struct LootTableDef {
     pub exclude_held: bool,
     #[serde(default)]
     pub reward: Option<RoomRewardDef>,
+}
+
+impl LootTableDef {
+    /// Ce pool réduit à ses armes (la première étagère d'une boutique en tire une, D62).
+    pub fn weapons_only(&self) -> LootTableDef {
+        LootTableDef {
+            entries: self
+                .entries
+                .iter()
+                .filter(|entry| matches!(entry.pick, LootPick::Weapon(..)))
+                .cloned()
+                .collect(),
+            exclude_held: false,
+            reward: None,
+        }
+    }
+
+    /// Rareté sous laquelle ce pool donne l'arme `id` (prix d'un présentoir).
+    pub fn weapon_rarity(&self, id: &str) -> Option<Rarity> {
+        self.entries.iter().find_map(|entry| match &entry.pick {
+            LootPick::Weapon(weapon, rarity) if weapon == id => Some(*rarity),
+            _ => None,
+        })
+    }
 }
 
 /// Les pools du jeu par identifiant (hors rollback).
@@ -113,7 +165,7 @@ fn candidates<'a>(
     min_rarity: Rarity,
     consumables_only: bool,
     hidden: &BTreeSet<&str>,
-) -> Vec<&'a str> {
+) -> Vec<Cow<'a, str>> {
     let ok = |id: &str, def: &crate::ItemDef| {
         !hidden.contains(id)
             && (!consumables_only || def.kind == ItemKind::Consumable)
@@ -125,14 +177,21 @@ fn candidates<'a>(
             .0
             .get_key_value(id)
             .filter(|(id, def)| ok(id, def))
-            .map(|(id, _)| vec![id.as_str()])
+            .map(|(id, _)| vec![Cow::Borrowed(id.as_str())])
             .unwrap_or_default(),
         LootPick::Rarity(rarity) => items
             .0
             .iter()
             .filter(|(id, def)| def.rarity == *rarity && ok(id, def))
-            .map(|(id, _)| id.as_str())
+            .map(|(id, _)| Cow::Borrowed(id.as_str()))
             .collect(),
+        LootPick::Weapon(id, rarity) => {
+            if consumables_only || *rarity < min_rarity {
+                Vec::new()
+            } else {
+                vec![Cow::Owned(format!("{WEAPON_LOOT_PREFIX}{id}"))]
+            }
+        }
     }
 }
 
@@ -193,7 +252,7 @@ pub fn draw_loot_with(
     let held = held.filter(|_| table.exclude_held);
     let pick = rng.next_u32();
     let pick_candidate = rng.next_u32();
-    let mut pools: Vec<(i32, Vec<&str>)> = Vec::new();
+    let mut pools: Vec<(i32, Vec<Cow<str>>)> = Vec::new();
     for (min, held) in [(min_rarity, held), (Rarity::Common, None)] {
         pools = table
             .entries
