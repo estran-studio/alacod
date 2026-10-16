@@ -12,6 +12,9 @@ pub const ENTITY_WEAPON_LOCATION: &str = "WeaponLocation";
 pub const ENTITY_WINDOW_VERTICAL_LOCATION: &str = "WindowVertical";
 pub const ENTITY_WINDOW_HORIZONTAL_LOCATION: &str = "WindowHorizontal";
 pub const ENTITY_SODA_LOCATION: &str = "SodaLocation";
+/// Station du hub (M2-T13, `docs/conventions.md` §57) ; champ `service` : id de `hub/<id>.ron`.
+pub const ENTITY_HUB_STATION: &str = "HubStation";
+pub const FIELD_SERVICE_NAME: &str = "service";
 /// Objets de décor (M2-T11, `docs/conventions.md` §46) : table renversable et baril explosif.
 /// Champ optionnel `prop` : id de l'objet (`props/<id>.ron`), par défaut `table` / `barrel`.
 pub const ENTITY_TABLE: &str = "Table";

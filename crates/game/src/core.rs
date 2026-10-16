@@ -162,6 +162,7 @@ impl Plugin for CoreSetupPlugin {
         app.add_plugins(crate::items::ItemsPlugin);
         app.add_plugins(crate::loot::LootPlugin);
         app.add_plugins(crate::shop::ShopPlugin);
+        app.add_plugins(crate::hub::HubPlugin);
         // M2-T11 : fosses, tables renversables, barils explosifs (inertes sans eux)
         app.add_plugins(crate::props::PropsPlugin);
         app.add_plugins(crate::boss::BossPlugin);

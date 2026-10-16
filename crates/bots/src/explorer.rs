@@ -82,6 +82,9 @@ pub struct ExploreView {
 pub struct ExplorerOptions {
     /// Aller droit au boss : les autres salles et les objets ne sont plus des buts.
     pub boss_direct: bool,
+    /// D62 : ouvre les coffres et achète les présentoirs qu'il peut payer (`alacod-sim
+    /// --shopping`). Faux par défaut : les traces des scénarios d'explorateur ne bougent pas.
+    pub shopping: bool,
 }
 
 /// Une salle verrouillante encore à visiter.
@@ -164,6 +167,29 @@ pub struct ExplorerWorld<'w, 's> {
             Option<&'static BlankState>,
         ),
     >,
+    shelves: Query<
+        'w,
+        's,
+        (
+            &'static GgrsNetId,
+            &'static FixedTransform3D,
+            &'static items::Shelf,
+            Has<game::interaction::Interactable>,
+        ),
+        With<Rollback>,
+    >,
+    chests: Query<
+        'w,
+        's,
+        (
+            &'static GgrsNetId,
+            &'static FixedTransform3D,
+            &'static items::Chest,
+            Has<game::interaction::Interactable>,
+        ),
+        With<Rollback>,
+    >,
+    wallets: Query<'w, 's, (&'static Player, &'static run::Currency)>,
     options: Option<Res<'w, ExplorerOptions>>,
     visits: ResMut<'w, ExplorerVisits>,
     floor: Option<Res<'w, run::FloorState>>,
@@ -227,7 +253,7 @@ impl ExplorerWorld<'_, '_> {
             }
         }
         rooms.sort_by(|a, b| a.id.cmp(&b.id));
-        let items = order_iter!(self.items)
+        let mut items: Vec<ItemGoal> = order_iter!(self.items)
             .into_iter()
             .map(|(id, t, pickup, surface)| ItemGoal {
                 net_id: id.0,
@@ -240,11 +266,49 @@ impl ExplorerWorld<'_, '_> {
                     .is_some_and(|def| matches!(def.kind, ItemKind::Active(_))),
             })
             .collect();
+        if self.options().shopping {
+            self.shopping_goals(&mut items);
+        }
         ExploreFrame {
             rooms,
             items,
             dormant,
         }
+    }
+
+    /// D62 : présentoirs payables et coffres ouvrables (but d'exploration par Interaction, comme
+    /// un objet passif au sol). L'arme qui en sort est ramassée par le combat de `prudent`
+    /// (butin au sol), jamais par un but d'ici. Solde et clés se lisent dans l'état.
+    fn shopping_goals(&self, items: &mut Vec<ItemGoal>) {
+        let wallet = self.wallets.iter().map(|(_, c)| c.0).max().unwrap_or(0);
+        let keys = self
+            .holders
+            .iter()
+            .filter_map(|(_, inventory, _)| inventory)
+            .map(|inventory| inventory.consumable(game::loot::KEY_ITEM))
+            .max()
+            .unwrap_or(0);
+        for (id, t, shelf, interactable) in order_iter!(self.shelves) {
+            if interactable && !shelf.sold && shelf.price <= wallet {
+                items.push(ItemGoal {
+                    net_id: id.0,
+                    position: t.translation.truncate(),
+                    surface: true,
+                    active: false,
+                });
+            }
+        }
+        for (id, t, chest, interactable) in order_iter!(self.chests) {
+            if interactable && !chest.opened && (!chest.locked || keys > 0) {
+                items.push(ItemGoal {
+                    net_id: id.0,
+                    position: t.translation.truncate(),
+                    surface: true,
+                    active: false,
+                });
+            }
+        }
+        items.sort_by_key(|goal| goal.net_id);
     }
 
     /// Ce que porte le joueur `handle`.

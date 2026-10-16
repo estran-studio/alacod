@@ -368,21 +368,31 @@ pub fn room_shop_system(
         if present.contains(format!("shelf:{}:0", id.0).as_str()) {
             continue;
         }
-        let Some(pool) = tables.0.get(&def.table) else {
+        let Some(pool) = tables.0.get(def.table_for_floor(floor)) else {
             continue;
         };
-        let picks =
-            game::shop::draw_shelves(pool, &item_table, run_seed, floor, &id.0, def.shelves);
+        let picks = game::shop::draw_shelves(
+            pool,
+            &item_table,
+            run_seed,
+            floor,
+            &id.0,
+            def.shelves,
+            def.weapon_shelves,
+        );
         let two = Fixed::from_num(2);
         let center_x = bounds.position.x + bounds.size.x / two;
         let center_y = bounds.position.y + bounds.size.y / two;
         let count = picks.len() as i32;
         for (index, item_id) in picks.into_iter().enumerate() {
-            let rarity = item_table
-                .0
-                .get(&item_id)
-                .map(|item| item.rarity)
-                .unwrap_or_default();
+            let rarity = match items::loot_weapon(&item_id) {
+                Some(weapon) => pool.weapon_rarity(weapon).unwrap_or_default(),
+                None => item_table
+                    .0
+                    .get(&item_id)
+                    .map(|item| item.rarity)
+                    .unwrap_or_default(),
+            };
             let offset = (2 * index as i32 - (count - 1)) * game::shop::SHELF_SPACING / 2;
             game::shop::spawn_shelf(
                 &mut commands,

@@ -1,0 +1,8 @@
+// Fixture M2-T13 : hub_stat_zero
+(
+    name: "fixture-hub_stat_zero",
+    content_folders: [
+        (path: "hub", kind: "HubService"),
+    ],
+    entry: (start_map: "maps/salle.ldtk", default_seed: 1),
+)

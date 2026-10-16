@@ -622,6 +622,7 @@
     "arsenal": (
         config: (
             name: "arsenal",
+            test_only: true,
             default_firing_mode: "default",
             ammo_type: Custom("balles"),
             firing_modes: {
@@ -666,6 +667,7 @@
     "arsenal_lourd": (
         config: (
             name: "arsenal_lourd",
+            test_only: true,
             default_firing_mode: "default",
             ammo_type: Custom("balles"),
             firing_modes: {

@@ -57,6 +57,7 @@ fn loot_pool_items(registry: &Registry) -> BTreeSet<String> {
                 items::LootPick::Item(id) => {
                     found.insert(id.clone());
                 }
+                items::LootPick::Weapon(..) => {}
                 items::LootPick::Rarity(rarity) => {
                     found.extend(
                         registry
@@ -72,10 +73,18 @@ fn loot_pool_items(registry: &Registry) -> BTreeSet<String> {
     found
 }
 
-/// Armes données par un pool de butin : aucune entrée de pool ne désigne d'arme (M2-T5 ne
-/// tire que des objets, les armes viennent de la boutique, T6).
-fn loot_pool_weapons(_registry: &Registry) -> BTreeSet<String> {
-    BTreeSet::new()
+/// Armes données par un pool de butin (D62) : les entrées `Weapon` (coffres, récompenses,
+/// boutique). Comme pour les objets, un pool compte même si aucune salle ne le pose.
+fn loot_pool_weapons(registry: &Registry) -> BTreeSet<String> {
+    registry
+        .loot_tables
+        .values()
+        .flat_map(|pool| &pool.def.entries)
+        .filter_map(|entry| match &entry.pick {
+            items::LootPick::Weapon(id, _) => Some(id.clone()),
+            _ => None,
+        })
+        .collect()
 }
 
 /// Ce qu'une partie ordinaire peut atteindre, déduit des racines.

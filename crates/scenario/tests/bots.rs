@@ -36,6 +36,7 @@ fn two_fonceurs(frames: u32) -> Scenario {
         shop: Default::default(),
         profile: false,
         profile_setup: None,
+        hub: None,
         powerup_drop_chance_override: None,
         floors: None,
         progression: None,
@@ -134,4 +135,74 @@ fn arena_death_loot_survives_rollback() {
     }
     let outcome = run(&scenario);
     assert!(outcome.failures.is_empty(), "{:?}", outcome.failures);
+}
+
+/// D62 : armes que l'`explorateur` a tenues pendant une partie `etages_deux` de gungeon, avec
+/// `shopping` (coffres ouverts, présentoirs achetés ; le combat de `prudent` ramasse l'arme qui
+/// tombe). Une graine par appel.
+fn shopped_weapons(seed: i32, frames: u32) -> std::collections::BTreeSet<String> {
+    use bevy::prelude::*;
+    use std::sync::{Arc, Mutex};
+    let mut scenario = two_fonceurs(frames);
+    scenario.players.truncate(1);
+    scenario.game = "gungeon".into();
+    scenario.map = "maps/etage_1.ldtk".into();
+    scenario.map_seed = seed;
+    scenario.floors = Some("etages_deux".into());
+    scenario.players[0].bot = Some(BotProfile::Explorateur);
+    let held = Arc::new(Mutex::new(std::collections::BTreeSet::new()));
+    let probe = held.clone();
+    let outcome = scenario::runner::run_with_options(
+        &scenario,
+        move |app| {
+            app.insert_resource(bots::explorer::ExplorerOptions {
+                boss_direct: false,
+                shopping: true,
+            });
+            app.add_systems(
+                Last,
+                move |inventories: Query<
+                    &game::weapons::WeaponInventory,
+                    With<game::character::player::Player>,
+                >,
+                      weapons: Query<&game::weapons::Weapon>| {
+                    let mut held = probe.lock().unwrap();
+                    for inventory in &inventories {
+                        for (entity, _) in &inventory.weapons {
+                            if let Ok(weapon) = weapons.get(*entity) {
+                                held.insert(weapon.config.name.clone());
+                            }
+                        }
+                    }
+                },
+            );
+        },
+        None,
+    );
+    assert!(outcome.failures.is_empty(), "{:?}", outcome.failures);
+    let held = held.lock().unwrap().clone();
+    held
+}
+
+/// D62 : une partie ordinaire (`etages_deux`, grammaire `etage`) donne au moins une arme autre
+/// que le pistolet de départ à l'explorateur qui achète et ouvre (atteignabilité, règle du
+/// 2026-10-14).
+#[test]
+fn explorer_finds_weapons_on_ordinary_floors() {
+    let seeds: Vec<i32> = std::env::var("ALACOD_SHOP_SEEDS")
+        .ok()
+        .map(|v| v.split(',').filter_map(|s| s.parse().ok()).collect())
+        .unwrap_or_else(|| vec![3]);
+    let frames: u32 = std::env::var("ALACOD_SHOP_FRAMES")
+        .ok()
+        .and_then(|v| v.parse().ok())
+        .unwrap_or(1000);
+    for seed in seeds {
+        let held = shopped_weapons(seed, frames);
+        println!("graine {seed} : armes tenues {held:?}");
+        assert!(
+            held.iter().any(|name| name != "pistolet"),
+            "graine {seed} : aucune arme obtenue ({held:?})"
+        );
+    }
 }

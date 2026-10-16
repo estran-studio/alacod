@@ -455,6 +455,26 @@ pub fn build_app(scenario: &Scenario, headless: bool, config: &PlayConfig) -> Ap
     if let Some(floors) = &scenario.floors {
         app.insert_resource(game::run_state::FloorsOverride(floors.clone()));
     }
+    // M2-T13 : le scénario démarre au hub du manifeste (`entry.hub`).
+    if let Some(hub) = scenario.hub {
+        let hub_map = app
+            .world()
+            .resource::<content::manifest::GameManifest>()
+            .entry
+            .hub
+            .as_ref()
+            .map(|hub| hub.map.clone());
+        if let Some(hub_map) = hub_map {
+            app.insert_resource(game::hub::HubSession {
+                hub_map,
+                run_map: scenario.map.clone(),
+                in_hub: true,
+            });
+            if hub.stay {
+                app.insert_resource(game::hub::HubStay);
+            }
+        }
+    }
     // T1.10 : progression imposée par le scénario.
     if let Some(progression) = &scenario.progression {
         app.insert_resource(game::progression::ProgressionOverride(progression.clone()));
@@ -2531,6 +2551,52 @@ fn check(world: &mut World, expectation: &Expectation) -> Result<(), String> {
                 return Err(format!("RunUnlocks contient « {extra} » ({:?})", active.0));
             }
             Ok(())
+        }
+        // M2-T13 : décisions du hub dans la simulation (`game::hub::HubState`).
+        Expectation::HubExit {
+            handle,
+            exit_frame,
+            none,
+            ..
+        } => {
+            let state = world
+                .get_resource::<game::hub::HubState>()
+                .cloned()
+                .unwrap_or_default();
+            match (state.exit, *none) {
+                (None, true) => Ok(()),
+                (Some(exit), true) => Err(format!("sortie du hub décidée : {exit:?}")),
+                (None, false) => Err("aucune sortie du hub décidée".into()),
+                (Some(exit), false) => {
+                    if handle.is_some_and(|handle| handle != exit.handle) {
+                        Err(format!(
+                            "sortie par le joueur {} (attendu {handle:?})",
+                            exit.handle
+                        ))
+                    } else if exit_frame.is_some_and(|frame| frame != exit.frame) {
+                        Err(format!(
+                            "sortie à la frame {} (attendu {exit_frame:?})",
+                            exit.frame
+                        ))
+                    } else {
+                        Ok(())
+                    }
+                }
+            }
+        }
+        Expectation::HubVisit {
+            handle, service, ..
+        } => {
+            let state = world
+                .get_resource::<game::hub::HubState>()
+                .cloned()
+                .unwrap_or_default();
+            match state.visits.get(handle) {
+                Some(visit) if visit.service == *service => Ok(()),
+                other => Err(format!(
+                    "service du joueur {handle} : {other:?} (attendu « {service} »)"
+                )),
+            }
         }
         // T1.18 : texte d'une source du HUD (présentation, hors trace).
         Expectation::HudText {

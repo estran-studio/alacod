@@ -1263,3 +1263,75 @@ fn bullet_lines() {
         );
     }
 }
+
+/// Diagnostic (D62) : salles typées, présentoirs et coffres d'un scénario à une frame.
+/// `ALACOD_ROOM_PROBE=<scénario>:<frame>`
+#[test]
+#[ignore]
+fn room_probe() {
+    use bevy::prelude::*;
+    use bevy_fixed::fixed_math::FixedTransform3D;
+    use utils::net_id::GgrsNetId;
+    let spec = std::env::var("ALACOD_ROOM_PROBE").unwrap_or_else(|_| "shop_seeded:20".into());
+    let (name, frame) = spec.split_once(':').unwrap();
+    let source = std::fs::read_to_string(scenarios_dir().join(format!("{name}.ron"))).unwrap();
+    let mut app = scenario::runner::run_until(
+        &Scenario::from_ron(&source).unwrap(),
+        frame.parse().unwrap(),
+    );
+    let world = app.world_mut();
+    for (id, b, k) in world
+        .query::<(
+            &map::game::entity::map::level_id::LevelId,
+            &map::game::entity::map::room::RoomBounds,
+            &world::RoomKind,
+        )>()
+        .iter(world)
+    {
+        println!(
+            "salle {} {} pos ({},{}) taille ({},{})",
+            id.0,
+            k.0,
+            b.position.x.to_num::<f32>(),
+            b.position.y.to_num::<f32>(),
+            b.size.x.to_num::<f32>(),
+            b.size.y.to_num::<f32>()
+        );
+    }
+    for (p, t) in world
+        .query::<(&game::character::player::Player, &FixedTransform3D)>()
+        .iter(world)
+    {
+        println!(
+            "joueur {} ({},{})",
+            p.handle,
+            t.translation.x.to_num::<f32>(),
+            t.translation.y.to_num::<f32>()
+        );
+    }
+    for (id, s, t) in world
+        .query::<(&GgrsNetId, &items::Shelf, &FixedTransform3D)>()
+        .iter(world)
+    {
+        println!(
+            "présentoir {} {} {} ({},{})",
+            id.0,
+            s.item_id,
+            s.price,
+            t.translation.x.to_num::<f32>(),
+            t.translation.y.to_num::<f32>()
+        );
+    }
+    for (id, c, t) in world
+        .query::<(&GgrsNetId, &items::Chest, &FixedTransform3D)>()
+        .iter(world)
+    {
+        println!(
+            "coffre {} {} ({},{})",
+            id.0,
+            c.key,
+            t.translation.x.to_num::<f32>(),
+            t.translation.y.to_num::<f32>()
+        );
+    }
+}

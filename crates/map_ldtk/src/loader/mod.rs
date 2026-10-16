@@ -96,6 +96,17 @@ pub fn unlock_table(registry: Option<&Registry>) -> items::UnlockTable {
     )
 }
 
+/// Services du hub (M2-T13) depuis le registre : `hub/<id>.ron` → définition.
+pub fn hub_services(registry: Option<&Registry>) -> game::hub::HubServices {
+    game::hub::HubServices(
+        registry
+            .iter()
+            .flat_map(|r| r.hub_services.values())
+            .map(|service| (service.id.clone(), service.def.clone()))
+            .collect(),
+    )
+}
+
 /// Règles d'essence du jeu (M2-T12, kind `MetaEconomy`) ; les règles par défaut sans fichier.
 pub fn meta_rules(registry: Option<&Registry>) -> meta::MetaRules {
     meta::MetaRules(
@@ -197,6 +208,11 @@ pub fn get_asset_loader_generation() -> LdtkProjectLoader {
                 let id =
                     game::cave_assets::cave_id_of_asset_path(&config.map_path).unwrap_or_default();
                 return crate::generation::cave::build_cave_ldtk(&map_json, &id, config.seed, cave);
+            }
+
+            // M2-T13 : le hub est joué tel qu'il est dessiné.
+            if matches!(config.mode, MapGenerationMode::Static) {
+                return map_json;
             }
 
             // Opt-in building composition; Basic and the M2 room contracts stay unchanged.
@@ -314,6 +330,7 @@ pub fn setup_generated_map(
     // M2-T12 : déblocages et règles d'essence (kinds `Unlock`, `MetaEconomy`), hors rollback
     commands.insert_resource(unlock_table(registry.as_deref()));
     commands.insert_resource(meta_rules(registry.as_deref()));
+    commands.insert_resource(hub_services(registry.as_deref()));
     let mut caves = CaveSlots::default();
     let Some(plan) = plan else {
         let (load, cave) = resolve_map_config(&config, &config.map_path, registry.as_deref(), 0);
