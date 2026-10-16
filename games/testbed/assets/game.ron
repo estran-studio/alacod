@@ -44,6 +44,11 @@
         (path: "synergies", kind: "Synergy"),
         // M2-T5 : pools de butin (docs/conventions.md §48).
         (path: "loot", kind: "LootTable"),
+        // M3-T0e : curses de run, tirées par étage dans la séquence `maudit` (docs/conventions.md
+        // §64) ; accomplissements et déblocages d'exemple (évalués hors simulation en fin de run).
+        (path: "curses", kind: "Curse"),
+        (path: "unlocks", kind: "Unlock"),
+        (path: "achievements", kind: "Achievement"),
         // T1.7 : surfaces (couche IntGrid `Surfaces` des cartes, docs/conventions.md §26).
         (path: "surfaces", kind: "Surface"),
         // M2-T11 : tables renversables et barils explosifs (entités LDtk `Table` / `Barrel`,

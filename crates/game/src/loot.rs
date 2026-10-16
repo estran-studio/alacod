@@ -373,6 +373,10 @@ impl Plugin for LootPlugin {
             .init_resource::<UnlockTable>()
             .init_resource::<RunUnlocks>()
             .rollback_and_trace_resource_neutral::<RunUnlocks>()
+            // M3-T0e (§64) : objets déjà sortis de chaque pool à épuisement ; vide (hash 0)
+            // tant qu'aucun pool n'a `exhaust`.
+            .init_resource::<items::PoolState>()
+            .rollback_and_trace_resource_neutral::<items::PoolState>()
             .add_frame_events_neutral::<ChestOpened>()
             .rollback_and_trace_neutral::<Chest>();
         app.add_systems(
