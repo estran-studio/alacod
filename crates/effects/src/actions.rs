@@ -20,9 +20,17 @@ use sim_core::stats::StatId;
 /// module `game::powerups`, décision « pas de ressource globale toujours présente »).
 pub const CURRENCY_MULTIPLIER_STAT: &str = "powerup_currency_multiplier";
 
+/// Une action appliquée par un power-up ramassé ou un effet. Liste fermée et minimale ; une
+/// action qui doit être multipliée par le nombre d'exemplaires est enveloppée par `Scaled`.
+#[cfg_attr(feature = "schema", derive(schemars::JsonSchema))]
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Hash, Serialize, Deserialize)]
+pub enum Scale {
+    PerCopy,
+}
+
 /// Une action appliquée par un power-up ramassé. Liste fermée et minimale (T2.5, graine de
-/// C1 — `docs/plan-engine.md` §5) : un power-up futur qui a besoin d'un autre effet ajoute
-/// une variante ici, jamais un type de contenu séparé.
+/// C1 — `docs/plan-engine.md` §5) : un power-up futur qui a besoin d'un autre effet ajoute une
+/// variante ici, jamais un type de contenu séparé.
 #[cfg_attr(feature = "schema", derive(schemars::JsonSchema))]
 #[derive(Debug, Clone, PartialEq, Eq, Hash, Serialize, Deserialize)]
 pub enum Action {
@@ -163,6 +171,22 @@ pub enum Action {
         per_luck: Fixed,
         then: Box<Action>,
     },
+    /// M3-T0b : ampleur par exemplaire. Lint : uniquement dans un effet d'objet ; exécution T2.
+    /// `scale: None` est accepté comme champ optionnel sans effet et conserve la forme de contrat.
+    /// Ajoutée après `Chance` (les variantes de `main` d'abord).
+    Scaled {
+        action: Box<Action>,
+        #[serde(default)]
+        scale: Option<Scale>,
+    },
+}
+
+/// Règle pure de multiplication par exemplaire ; l'exécution des actions reste T2.
+pub fn scale_value(value: Fixed, scale: Option<Scale>, copies: u32) -> Fixed {
+    match scale {
+        Some(Scale::PerCopy) => value * Fixed::from_num(copies),
+        None => value,
+    }
 }
 
 impl Action {
@@ -216,7 +240,8 @@ impl Action {
             | Action::GainShield(_)
             | Action::Explode { .. }
             | Action::SpawnCharacters { .. }
-            | Action::Chance { .. } => None,
+            | Action::Chance { .. }
+            | Action::Scaled { .. } => None,
         }
     }
 }
@@ -315,5 +340,11 @@ mod tests {
         let ron_text =
             r#"TimedModifier(stat: PasUneStatConnue, op: Set, value: "1.0", frames: 60)"#;
         assert!(ron::from_str::<Action>(ron_text).is_err());
+    }
+
+    #[test]
+    fn per_copy_scale_is_pure_and_optional() {
+        assert_eq!(scale_value(fx(2.0), Some(Scale::PerCopy), 3), fx(6.0));
+        assert_eq!(scale_value(fx(2.0), None, 3), fx(2.0));
     }
 }

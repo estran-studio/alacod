@@ -917,6 +917,7 @@ fn apply_scenario_shelf_placements(
                 price: placement.price,
                 sold: false,
                 retry_after: 0,
+                cost: None,
             },
             position,
         );

@@ -499,6 +499,7 @@ mod tests {
             cost: None,
             projectile: None,
             familiar: None,
+            max_stack: None,
         }
     }
 

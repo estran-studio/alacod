@@ -288,10 +288,12 @@ pub struct CharacterEntry {
     /// T1.5 : table de variantes (`variants`), dans l'ordre du fichier (doublons gardés pour
     /// la règle « nom en double »).
     pub variants: Option<VariantsEntry>,
-    /// T1.13 : `test:` (scénarios générés), pour `lint_character_test`.
+    /// T1.13 : `test:` (attentes comptées).
     pub test: Option<CharacterTestEntry>,
     /// T1.13 : `counts_hits`, pour la cible de `generate_template`.
     pub counts_hits: bool,
+    /// M3-T0b (§61) : i-frames après un dégât réel.
+    pub hit_iframes: Option<u32>,
     /// D41 : étendue du corps **en jeu** (collider × `scale`, comme `create_character`) : la plus
     /// grande distance du centre du personnage à un bord de son collider, en px. 0 sans collider.
     pub body_extent: Fixed,
@@ -1749,6 +1751,10 @@ struct CharacterFileSchema {
     /// T1.13 : cible de `generate_template` (règle « `counts_hits` »).
     #[serde(default)]
     counts_hits: bool,
+    /// M3-T0b (§61) : i-frames après un dégât réel.
+    #[serde(default)]
+    #[schemars(extend("x-lint" = "> 0 (ou absent)"))]
+    hit_iframes: Option<u32>,
     /// D63 : contenu de test, ignoré par l'analyse d'atteignabilité (`WeaponConfigSchema` idem).
     #[serde(default)]
     test_only: bool,
@@ -2480,6 +2486,7 @@ fn load_characters(
                     }),
                 }),
                 counts_hits: parsed.counts_hits,
+                hit_iframes: parsed.hit_iframes,
                 body_extent: parsed
                     .collider
                     .as_ref()
