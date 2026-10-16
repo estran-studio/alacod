@@ -50,6 +50,15 @@ pub struct RoomKindDef {
     /// contenu existant) : porte ordinaire, hors du hash de la définition.
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub door_lock: Option<DoorLock>,
+    /// M3-T5 (§70) : étage (indice dans la séquence `Floors`, 0 = le premier) à partir duquel
+    /// `door_lock` s'applique ; avant, la porte est ordinaire. 0 (défaut) : dès le premier étage.
+    /// Le trésor d'Isaac est ouvert au premier étage et fermé à clé ensuite.
+    #[serde(default, skip_serializing_if = "is_zero")]
+    pub lock_from_floor: u32,
+}
+
+fn is_zero(n: &u32) -> bool {
+    *n == 0
 }
 
 /// Verrou de la porte d'une salle (M3-T0c, `docs/conventions.md` §62).
@@ -138,9 +147,18 @@ impl RoomKindTable {
         self.0.get(kind).and_then(|def| def.arena.as_ref())
     }
 
-    /// Le verrou de porte du type, s'il en a un (M3-T0c).
+    /// Le verrou de porte du type, s'il en a un (M3-T0c), tous étages confondus.
     pub fn door_lock(&self, kind: &str) -> Option<DoorLock> {
         self.0.get(kind).and_then(|def| def.door_lock)
+    }
+
+    /// Le verrou de porte du type **à l'étage `floor`** (M3-T5) : `door_lock` seulement à partir
+    /// de `lock_from_floor`, sinon la porte est ordinaire.
+    pub fn door_lock_at(&self, kind: &str, floor: u32) -> Option<DoorLock> {
+        self.0
+            .get(kind)
+            .filter(|def| floor >= def.lock_from_floor)
+            .and_then(|def| def.door_lock)
     }
 }
 
