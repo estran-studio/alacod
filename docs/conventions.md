@@ -4166,6 +4166,67 @@ Scénarios : `tears_infinite` (300 frames de tir, `Ammo` à 0 tout du long, les 
 `tears_shot_speed_sans_objet`, elle n'est pas encore arrivée).
 
 
+## 61. Contrats des objets et de la santé (M3-T0b)
+
+Contrats posés pour M3-T2 (effets v3), M3-T3 (cœurs et pickups), M3-T8 (marché du diable) et
+le contenu Isaac. **Aucune trace existante ne bouge** : les champs nouveaux sont optionnels et
+absents du contenu livré, les nouveaux types rollback sont neutres, et les variantes sont ajoutées
+en fin d'enum.
+
+### Inventaire et exemplaires
+
+`Inventory::count(id)` compte les passifs dans leur ordre (doublons compris), l'actif s'il porte
+`id`, et le compteur consommable `id`. La clé historique d'un effet est
+`item:<id>:<index>` pour le premier exemplaire ; les suivants réservent
+`item:<id>#<k>:<index>`, avec `k >= 1`. Le branchement dans `listed_effects` et l'exécution de
+`PerCopy` restent M3-T2 : ce point ne change aucune partie existante.
+
+`effects::Scale::PerCopy` est porté par l'action contractuelle `Scaled { action, scale }`.
+`effects::scale_value` est la règle pure : `PerCopy` multiplie par `Inventory::count(id)`, le
+champ absent ne modifie pas la valeur. `scale` est accepté seulement dans un effet d'objet ;
+les power-ups, frises de boss, personnages, mutations et synergies le refusent au lint. L'action
+enveloppée est validée comme une action nue (`Heal` > 0, références de `SpawnPattern`…), y compris
+dans l'`OnUse` d'un objet. `Scale` est hors de l'exécution de cette dette.
+
+### Prix et compteurs
+
+`items::Price` est `Currency(u32)`, `Consumable(String, u32)` ou `MaxHealth(Fixed)`. Un
+`Shelf` conserve `price: u32` pour son hash historique et reçoit `cost: Option<Price>` ; absent,
+`cost` ne contribue pas au hash, et `Price::Currency` est équivalent à `price`. Les règles pures
+`can_pay`/`pay` refusent un prix de vie qui tuerait le joueur et réduisent la vie courante et
+maximale ensemble ; l'interaction de boutique est M3-T8. Un montant nul n'est jamais payable
+(`can_pay` faux, `pay` sans effet et sans panique) ; `Price::problems` donne les erreurs de contenu
+(montant nul, consommable inconnu, vie maximale hors `]0, max]`), sans surface de contenu avant T8.
+
+`ItemDef.max_stack: Option<u32>` ne plafonne un consommable que lorsqu'il est présent (Isaac :
+99). Absent conserve le comportement illimité actuel. Le ramassage au plafond laisse l'objet au
+sol ; son exécution est M3-T3. `game::loot::BOMB_ITEM` réserve le nom `"bomb"`.
+
+### I-frames et questions ouvertes
+
+`CharacterConfig.hit_iframes: Option<u32>` est absent par défaut. Après un dégât final strictement
+positif (après immunité, bouclier et armure), le résolveur pose `Health.invulnerable_until_frame`
+à `event.frame + n`, en conservant la valeur la plus longue. Un coup absorbé par un bouclier ou
+annulé par l'armure ne déclenche pas cette durée. La preuve future est le scénario
+`hit_iframes` : deux balles à dix frames d'écart, la seconde n'enlève rien avec `Some(30)` (4992) ;
+son témoin `hit_iframes_sans_iframes` (personnage `iframes_temoin`, sans `hit_iframes`) en perd
+deux (4984). Le résolveur lui-même est testé par `crates/scenario/tests/hit_iframes.rs`.
+
+**Q2 — modèle des cœurs (proposition par défaut).** Une demi-case vaut un point de `Health`,
+les personnages livrés gardent des PV pairs, et `ExtraHealth { soul: Fixed }` absorbe les dégâts
+point par point avant les PV ; il reste distinct de `Shield`, qui absorbe un coup entier.
+T0b ne code pas cette couche.
+
+**Q4 — partage en coop (bloqué).** Option par joueur : chaque `Inventory` reste local, et le
+ramassage est attribué au premier `GgrsNetId` dans l'ordre déterministe. Option équipe : une
+ressource rollback d'équipe porte sous, bombes et clés, les prompts lisent cette ressource et
+un seul ramassage la crédite. T0b ne choisit ni ne code l'une des deux.
+
+**Q16 — exemplaires.** Proposition par défaut : limites indépendantes pour tous les exemplaires,
+avec preuve des traces gungeon touchées ; l'alternative est un champ par objet
+`stack: Independent | Shared`. T0b réserve la clé indépendante mais ne branche pas les limites
+dans `listed_effects` avant M3-T2.
+
 ## 62. Contrats du monde : bombes, rochers, piques, portes verrouillées, grille (M3-T0c)
 
 Contrats seuls, sans exécution : M3-T4 (bombes, rochers cassés, mur secret, piques) et M3-T5
@@ -4240,6 +4301,59 @@ le joueur marche vers trois rochers qui ferment un couloir et s'y arrête ; quat
 (dont un à butin) à f5 et à la fin ; `joueur_hors_mur` tient.
 
 
+## 63. Contrats des familiers, orbitaux et champions v2 (M3-T0d)
+
+Contrats seuls : rien n'est rencontré en partie ordinaire, aucune trace ne bouge. M3-T6 exécute les
+familiers, M3-T7 les champions.
+
+**Behaviors de familier** (`behaviors::Behavior`, variantes **en fin d'enum**) : `Follow { gap }` (suit
+le porteur à `gap` unités, en file derrière les autres familiers du même porteur : rang = ordre
+d'apparition), `Orbit { radius, frames_per_turn }` (tourne autour du porteur, phase = rang × 2π /
+nombre d'orbitaux, par `fixed_math`), `MirrorShot { weapon, every }` (tire quand le porteur tire, dans
+sa direction de visée, au plus une fois tous les `every` frames ; **Q13** : l'arme du familier, sans les
+modificateurs du porteur), `BlockBullets` (une balle hostile qui touche le familier est détruite par
+`despawn_rollback`, comme le blank ; le familier est immunisé). `Behavior::is_familiar`. `select`
+ne retient jamais ces règles (un familier n'a pas d'IA de poursuite) ; kinds `Follow`, `Orbit`,
+`MirrorShot`, `BlockBullets` déclarés (`register_kinds`). Un familier est un **personnage** de
+`characters/` (équipe `Players` ; l'IA ennemie ne cible que `With<Player>`, un familier n'est donc ni
+visé ni attaqué : le ciblage ne change pas ici, allié qui combat = D5).
+
+**Lien au porteur.** `behaviors::FamiliarOf { owner: GgrsNetId, rank: u32 }` : composant rollback
+**neutre** (`rollback_and_trace_neutral`), contribution 0 sans porteur. Créé et détruit par les
+objets en M3-T6 ; son `GgrsNetId` viendra de `id_factory` au ramassage, dans l'ordre déterministe des
+ramassages de la frame.
+
+**Champ d'objet.** `ItemDef.familiar: Option<FamiliarRef { character, per_copy }>` (`per_copy` : 1 par
+défaut, par exemplaire tenu). Définition hors rollback et hors hash. **Lint** : personnage inconnu
+(`BrokenReference`), personnage sans behavior de familier, `per_copy = 0`, `gap`/`radius` ≤ 0,
+`frames_per_turn = 0`, `every = 0`, arme de `MirrorShot` inconnue ; réciproquement un behavior de
+familier sur un personnage qu'aucun objet ne cite est refusé (`Unsupported`, « sans porteur »).
+
+**Champions v2.** Champs optionnels de `VariantDef` (hors hash : le composant `Variant(nom)` ne change
+pas) : `on_death: [Action]` (vide par défaut), `behaviors: Option<Vec<Behavior>>` (remplace la liste
+du personnage), `loot: Option<String>` (pool de butin lâché à la mort, graine de §48 avec la clé de
+contenu `champion:<net_id>`), `tint: Option<String>` (`#rrggbb`, présentation seule). `chance`
+accepte un nombre (valeur inchangée) **ou une expression** (`NumOrExpr`, §18) avec les identifiants
+`players` et `floor` ; `VariantsConfig::chance_at(players, floor)`. Tant que M3-T7 n'exécute rien, le
+tirage de la variante résout l'expression avec 1 joueur à l'étage 0 (`draw_variant`) ; un nombre est
+toujours exact, le tirage de la graine de §25 est donc inchangé.
+**Nouvelle action** `Action::SpawnCharacters { id, count }` (fin d'enum) : fait apparaître `count`
+personnages à la position de l'action, à des **décalages fixes** autour du point, sans RNG (justification
+contre `SpawnEnemies`, qui tire ses positions dans le flux RNG de la salle `room:<niveau>` : la mort d'un
+champion ne doit pas déplacer ce tirage). **Lint** des actions à la mort : seules `Explode`, `SpawnCharacters`
+et `SpawnPattern` sont admises (`Unsupported` sinon ; `SpawnCharacters` est refusée dans un effet, un
+power-up et une frise de boss) ; `Explode` rayon > 0 et dégâts ≥ 0, `SpawnCharacters` personnage connu et
+`count > 0`, `SpawnPattern` pattern et arme connus, pool de butin connu, couleur `#rrggbb`, `behaviors`
+non vide et valides (mêmes règles que `ai.behaviors`), `chance` dans [0, 1] pour 1 et 4 joueurs aux
+étages 0 et 5.
+
+**Preuves.** Fixtures `familiar_ok`, `familiar_unknown_character`, `familiar_orphan_behavior`,
+`familiar_without_behavior`, `familiar_gap_zero`, `champion_ok`, `champion_bad_death`,
+`variant_chance_expression_range`, `variant_chance_expression_unknown` ; contenu `testbed` : personnage
+`compagnon` (`Follow` + `MirrorShot`, arme `pistol`) et objet `compagnon` (`familiar`), accepté par le lint,
+sans scénario de jeu (le ramassage ne crée rien encore). Attente de scénario `FamiliarCount { handle,
+count, at_frame }` (familiers dont le porteur est le joueur ; 0 tant que M3-T6 n'existe pas).
+
 ## 65. Le jeu `isaac` : squelette (M3-T0f)
 
 Le clone `isaac` démarre, sur la grammaire d'étage **en arbre existante** (`Graph`) : rien de nouveau
@@ -4274,3 +4388,227 @@ workspace par `games/*`, `make isaac`, `make lint` ×5 avec `games/isaac`).
 - **Scénarios** : `isaac_boots` (démarrage, tir continu sans rechargement), `isaac_floor_seed_1`
   (le bot `explorateur` bat l'étage, victoire à f1009) ; générés : `weapon_*`, `enemy_*`, `room_combat`,
   `boss_gardien`.
+
+## 66. Larmes v3 : tir composé, `Spectral`, `Split`, `Orbit`, `Poison`, `Fear`, chance d'effet (M3-T1, chantier B5 v3)
+
+M3-T1 fait **lire au tir** les contrats de §60 et ajoute les statuts v2 et la chance d'effet.
+**Aucune trace existante ne bouge** (suite complète sans `BLESS`) : tout passe par des objets, des
+modificateurs ou des champs que le contenu d'avant n'a pas. Scénarios neufs seulement : douze
+(`tears_*`, `status_poison`, `status_fear`) et les générés `weapon_status_poison`/`weapon_status_fear`,
+`item_*` des neuf objets d'essai.
+
+### Tir composé
+
+`weapon_rollback_system` lit, au tir d'un joueur, `items::Inventory` (le tireur), `ItemTable` et
+`SynergyTable` (`items::projectile_mods` : passifs dans l'ordre de ramassage, un passif en double
+compte deux fois, puis l'actif, puis les synergies actives par id). Les `ProjectileMods` **non vides**
+sont composés avec le `projectile:` du mode de tir par `Projectile::composed` (règles de `compose`,
+§60) ; leur `on_hit` et leur `on_expire` s'**ajoutent** à ceux de l'arme, dans le même ordre.
+
+- Aucun objet qui ajoute quelque chose (cas de tout le contenu d'avant) : chemin d'origine,
+  `Projectile::new` ou balle ordinaire sans `Projectile`, au bit près.
+- Une balle ordinaire devient un `Projectile` (id : le nom de l'arme) dès qu'un objet ajoute quelque
+  chose ; `Size` agrandit alors collider et sprite, comme pour une arme.
+- `Projectile` (rollback) gagne `spectral`, `split`, `orbit`, `luck` ; son `Hash` est **manuel** :
+  ces champs ne sont hachés que s'ils sont actifs, donc le hash d'un projectile d'avant M3-T1 est
+  inchangé (même règle pour le `Debug` du dump détaillé).
+- `combat` dépend maintenant de `items` (crate de simulation, sans rendu : `check_sim_boundary` inchangé).
+- Familiers (Q13, question ouverte) : le tir d'un familier n'est **pas** composé ici ; `Projectile::composed`
+  prend ses ajouts en paramètre, M3-T6 y passera `items::projectile_mods` du porteur s'il retient l'héritage.
+
+### `Spectral`, `Split`, `Orbit`
+
+- **`Spectral`** : `projectile_collision_system` saute la branche des murs (rebond, arrêt, `BulletWallHit`) ;
+  les personnages touchent toujours. La portée (`range`) borne encore le vol.
+- **`Split { count, spread, child }`** : à chaque impact sur un personnage (après `register_hit`),
+  `spawn_split_children` fait naître `count` projectiles en éventail de `spread` radians centré sur la
+  direction de vol, à la position du parent, un `GgrsNetId` chacun dans l'ordre de l'éventail.
+  `child: Some(id)` : l'entrée `id` de la table `projectiles` de l'arme (dégâts, vitesse, portée et
+  modificateurs de sa définition) ; `child: None` (**Q3 : le projectile par défaut du porteur**) : une
+  **copie du parent** (mêmes dégâts, vitesse et portée, modificateurs et `on_hit` restants, sans `Split`,
+  sans `Orbit`, sans `on_expire`). Dans les deux cas l'enfant **hérite de la liste des cibles déjà touchées**
+  (il ne retouche pas la cible qu'il quitte) et compte une génération de plus : au-delà de `MAX_GENERATION`
+  (8) la division est ignorée avec un `warn!`. L'enfant n'hérite pas de `ShotSize`. Lint : un cycle de
+  `Split` dans la table (`a → b → a`) est refusé (`OutOfRange`).
+- **`Orbit { radius, frames_per_turn }`** : `projectile_steering_system` fixe chaque frame la vitesse
+  de la frame suivante à l'écart jusqu'à `combat::projectile::orbit_position` : angle
+  `phase + 2π · (âge mod frames_per_turn) / frames_per_turn` (sens trigonométrique, `phase` = direction
+  de tir, fixée à l'apparition), rayon qui croît de 0 à `radius` pendant 10 frames
+  (`ORBIT_RAMP_FRAMES`), centre = position du **tireur** à cette frame. Ni gravité ni guidage en orbite
+  (lint : `Orbit` avec `Homing` ou `Gravity` dans la même liste est refusé). Le projectile ne s'arrête que
+  par un coup (`Pierce`), un mur (sauf `Spectral`), `Lifetime`, la portée (la longueur d'arc compte) ou la
+  disparition du tireur (portée mise à 0).
+
+### Statuts `Poison` et `Fear`
+
+`StatusDef::{Poison, Fear}` en fin d'enum (`status_def_ron_round_trip` ; `StatusDef` avait quatre variantes,
+le `Hash` dérivé garde l'index des anciennes). Contenu : `(kind: Poison, frames: 120, damage: "2", period: 30)`,
+`(kind: Fear, frames: 150)` ; le lint exige `damage > 0` et `period > 0` pour `Poison`, `frames > 0` pour les deux.
+
+- **`Poison`** : exactement les règles de `Burn` (ticks, piles jusqu'à 2, durée plafonnée à 2 × la base,
+  dernière source créditée) ; dégâts de genre `DamageKind::Poison` (`status_tick_system`).
+- **`Fear`** : `Statuses::feared()`. L'ennemi **fuit** sa cible : `move_enemies` impose le recul de
+  `Flee` (`ai::rules::flee_motion`, extrait de `behavior_motion` : champ de recul de l'ennemi, sinon à
+  l'opposé de la cible) qu'il liste `Flee` ou non ; `enemy_attack_system` ne lance plus d'attaque au corps à
+  corps et `melee_hold_system` pose `MeleeHold` (mêlée d'arme) tant que la peur dure. Réapplication :
+  durée rafraîchie ; sans effet sur un joueur. **Charme : Q12**, hors tâche (rien codé).
+
+### Chance d'effet
+
+`Action::Chance { base, per_luck, then }` (en fin d'enum `Action`) enveloppe une action d'`on_hit`
+(`ApplyStatus`, `TimedModifier`, `CurrencyMultiplier` ; ni une autre `Chance` ni `DestroyTerrain`) :
+
+```ron
+projectile: Some((on_hit: [Chance(base: "0.5", per_luck: "0.125", then: ApplyStatus(status: "poison", stacks: 1))]))
+```
+
+Chance finale `effects::chance_with_luck(base, Luck, per_luck)` (§60), `Luck` lue **au tir** et gardée dans
+`Projectile::luck` (seulement pour un projectile qui porte une `Chance`). Le tirage est un RNG **local** :
+`effects::chance::roll_chance(run_seed, net id du projectile, rang de l'action)`, graine mélangée
+(`chance_seed`, splitmix64 : deux net ids voisins ne donnent pas deux tirages voisins), aucun `RngStreams`
+consommé (la graine de run est lue seule). Il est résolu dans `projectile_collision_system` (le seul à
+connaître le net id) : l'événement `ProjectileHit` porte l'action `then` si le tirage réussit, la `Chance`
+elle-même sinon (les systèmes d'application l'ignorent), ce qui garde le **rang** de chaque action, donc la
+source `projectile:<id>:<rang>` des modificateurs posés. Lint : `base` dans `[0, 1]`, statut vérifié à travers
+la `Chance`. Refusée (`Unsupported`) dans un effet, un power-up et une frise de boss.
+
+### Lint
+
+`Spectral`, `Split` et `Orbit` ne sont plus refusés dans une arme ; un objet ou une synergie à `projectile:`
+est vérifié sans être refusé : mêmes plages qu'une arme, doublon refusé **dans une liste**, `on_hit` comme
+une arme (statut connu), et, faute de table `projectiles` (celle de l'arme qui tire), `Split` **sans** `child`
+et `on_expire` **sans** `Spawn` (`DestroyTerrain` seulement). Fixtures : `projectile_contract_ok`,
+`item_projectile_ok`, `item_projectile_no_table`, `item_projectile_out_of_range`,
+`projectile_chance_out_of_range`, `projectile_split_cycle`, `status_poison_fear_out_of_range`.
+
+`sim_core::stats::default_base` donne 0 à `Luck` (attente `Stat`, générateur `ItemHeld`).
+
+### Testbed et scénarios
+
+Carte `testbed/props_room.ldtk` (salle de 28 × 9 cases, un joueur en (696, -200), un `follower` en
+(328, -200) ; monde = `(x_ldtk + 280, -120 - y_ldtk)`), cibles `target` posées par `characters`. Objets
+d'essai (`tags: ["larmes"]`) : `guide` (`Homing`), `perforant` (`Pierce(1)`), `rebond` (`Bounce(2)`),
+`spectre` (`Spectral`), `division` (`Split` en 3, 0,6 rad), `orbite` (rayon 40, un tour en 60 frames),
+`venin` (`Chance` 0,5, +0,125 par `Luck`, `ApplyStatus poison`), `trefle` (`Luck` +4). Armes `status_poison`,
+`status_fear`. Statuts `poison`, `peur`.
+
+| Scénario | Prouve |
+|---|---|
+| `tears_item_homing`, `..._sans_objet` | un objet ajoute `Homing` à une arme sans modificateur : touche à f58 ; témoin : aucun coup |
+| `tears_stack_two_copies` | deux `perforant` : `Pierce` 1 + 1, la larme touche trois cibles sur quatre |
+| `tears_stack_three` | `rebond` + `guide` + `division` : une larme, impact, trois larmes de génération 1 qui se courbent vers le `follower` |
+| `tears_spectral_wall`, `..._sans_objet` | `Spectral` franchit le mur de la salle et touche la cible derrière (f49) ; témoin : arrêtée par le mur |
+| `tears_split` | une larme, trois enfants qui touchent chacun sa cible (f72), personne touché deux fois |
+| `tears_orbit` | la larme tourne autour du joueur et touche la cible derrière lui (demi-tour, f48) |
+| `status_poison` | ticks de 2 toutes les 30 frames, santé exacte de la cible, expiration |
+| `status_fear` | le `follower` touché fuit 150 frames (distance ≥ 360 à f300), reprend sa marche, ne touche pas le joueur |
+| `tears_luck_chance` | six larmes, chance 0,5 : quatre cibles empoisonnées (graine de run, net id, rang) |
+| `tears_luck_stat` | même tir avec `trefle` (`Luck` 4 → chance 1) : les six |
+
+Diagnostic : `ALACOD_PROJECTILES=<scénario>:<de>:<à> cargo test -p scenario --profile headless
+--no-default-features --test scenarios projectile_probe -- --ignored --nocapture` (projectiles, coups,
+statuts frame par frame) ; `map_probe` liste aussi les personnages non joueurs.
+
+### Atteignabilité
+
+Rencontré quand M3-T11a met les objets de larmes dans le pool trésor d'`isaac` ; d'ici là, scénarios
+testbed seulement.
+
+## 71. Familiers et orbitaux en jeu (M3-T6, chantier C3)
+
+M3-T6 exécute les contrats de §63 : `Follow`, `Orbit`, `MirrorShot`, `BlockBullets`, `FamiliarOf`,
+`ItemDef.familiar`. **Aucune trace existante ne bouge** : aucun objet existant n'a `familiar`, donc aucun
+`FamiliarOf` ni `FamiliarGun` (neutres) n'existe, et les systèmes sortent sans rien toucher quand il n'y a
+pas de familier (`game::familiars`, plugin `FamiliarsPlugin`, dans `RollbackSystemSet::Weapon`).
+
+### Apparition : dérivée de l'état
+
+`familiar_sync_system` compare chaque frame, par joueur, les familiers **voulus** (`desired_familiars` : les objets
+tenus dans l'ordre passifs (ordre de ramassage, un passif en double compte deux fois) puis actif ; `per_copy`
+fois le personnage de chaque objet à `familiar`) aux familiers **existants** (`FamiliarOf`, triés par rang).
+`reconcile` garde le plus long préfixe commun (par personnage) : le reste est détruit par `despawn_rollback()`
+puis recréé. Ramasser un objet crée ses familiers (rangs à la suite), perdre l'actif remplacé détruit ceux de
+l'actif (queue de liste : les autres gardent leur rang) ; perdre un passif du milieu refait les rangs suivants.
+Pas d'événement à rejouer : un rollback avant le ramassage retombe sur le même état. `GgrsNetId` (étiquette =
+id du personnage) : porteurs par `GgrsNetId` croissant, puis rang croissant ; le familier naît **sur le porteur**.
+Porteur à terre : ses familiers ne bougent ni ne tirent ; porteur mort (entité détruite) : ils restent en place,
+immobiles (proposition de la fiche, retenue).
+
+### Un familier est un personnage, ni `Enemy` ni `Player`
+
+Créé par `create_character` (`character/` du jeu), de l'équipe de sa fiche (sinon celle du porteur), avec :
+`FamiliarOf { owner, rank }` (rollback, neutre), `FamiliarBehaviors` (liste `ai.behaviors`, **statique**, comme
+`EnemyBehaviors`), `FamiliarGun` (neutre, seulement avec `MirrorShot`). Sans `Enemy` : ni compté par les salles,
+les vagues, le HUD ; sans `Player` : l'IA ennemie ne le cible pas. **Aucun obstacle** : couche `environment` (aucune
+entrée dans la matrice de collision), donc ni joueur, ni ennemi, ni balle n'est gêné par un familier ; il traverse
+aussi les murs (il vole). **Immunisé** : `Health.invulnerable_until_frame = u32::MAX`, que les collisions de balles,
+de projectiles et de mêlée respectent déjà (traversé, jamais touché). Limite : `Homing`/`Aimed` hostiles « visent
+toujours » un personnage invulnérable (§16) : une balle à tête chercheuse peut chasser un familier.
+
+### Comportements (`behaviors::familiar`, pures, `Fixed` seulement)
+
+- **`Orbit { radius, frames_per_turn }`** : `orbit_position(centre, radius, fpt, index, count, frame)` = centre +
+  `radius` × (cos, sin) de `index × 2π / count + 2π × (frame mod fpt) / fpt` (sens trigonométrique). `index` = rang
+  parmi les orbitaux du porteur, `count` = leur nombre. **Sans état** : se déduit du numéro de frame (fraction de
+  tour en entiers : `Fixed` est un I16F16, un tour de plus de 32 767 frames ne déborde pas), angle replié dans
+  `[-π, π]` (le CORDIC perd sa précision au-delà de 3π/2). Rang = ordre d'apparition.
+- **`Follow { gap }`** : `follow_step(position, ancre, gap)` : immobile à `gap` ou moins de l'ancre, sinon avance de
+  `max(5, excédent / 4)` unités par frame sans dépasser l'excédent. Les suiveurs d'un porteur, par rang croissant,
+  forment une **file** : le premier vise le porteur, chacun des suivants le précédent (position déjà mise à jour dans
+  la frame). Pas de mémoire de trajectoire : la file se déduit des positions courantes.
+- **`MirrorShot { weapon, every }`** : quand le porteur a **réellement tiré** cette frame, le familier tire **sa** arme
+  `weapon` (mode par défaut), dans la direction de visée du porteur (`pan` de l'input), au plus une fois par `every`
+  frames (`FamiliarGun`). Le déclencheur est l'événement transitoire `sim_core::triggers::WeaponFired { frame,
+  player_handle }`, émis par `weapon_rollback_system` quand la balle part (cadence respectée, chargeur non vide) et
+  lu la même frame (`owner_fired`, pure) : une gâchette tenue que la cadence refuse n'émet rien (à la frame 0,
+  `last_fire_frame` valait 0 par défaut et faisait croire à un tir). Événement transitoire : hors checksum, hors
+  snapshot, aucune trace ne bouge. **Q13 (réponse de la fiche et du plan : proposition par défaut) : l'arme du
+  familier, sans les modificateurs du porteur** ni ses objets de larmes ; un seul tir par déclenchement (pas de plombs
+  multiples), ni dispersion ni recul (aucun RNG consommé), projectile composable de l'arme si elle en déclare un. La
+  balle porte le `GgrsNetId` et l'équipe du **porteur** (les kills et les points lui reviennent, elle ne le touche
+  jamais), `player_handle` du porteur, les tags du familier. Variante non retenue (larmes du porteur) :
+  `Projectile::composed` de §66 prend ses ajouts en paramètre, il suffirait d'y passer `items::projectile_mods` du
+  porteur.
+- **`BlockBullets`** : entre le mouvement des balles et leurs collisions, une balle (ordinaire ou composable) que
+  `team_allows_hit` dit hostile au familier et dont le **disque balayé** de la frame (segment ancienne → nouvelle
+  position, rayon de la balle) touche son collider est détruite par `despawn_rollback()` (sans `on_expire`), comme le
+  blank. L'AABB balayée ne sert qu'à présélectionner ; le contact se décide par `swept_hits_collider` (pure,
+  `FixedWide`) : rond = distance du centre au segment < R + r ; rectangle = segment qui le traverse, ou distance
+  segment–rectangle < r (bouts du segment et coins). Une balle qui frôle un coin n'est donc plus détruite.
+
+Ordre dans `Weapon` : `weapon_rollback_system` → `familiar_sync_system` → `familiar_motion_system` →
+`familiar_mirror_shot_system` → `bullet_rollback_system` → `familiar_block_bullets_system` →
+`bullet_rollback_collision_system`. Les `GgrsNetId` des balles de familier sont donc alloués entre ceux des tirs de
+joueurs et le mouvement des balles, dans l'ordre porteur puis rang.
+
+### Lint et attentes
+
+Inchangé pour l'essentiel (§63). Un personnage cité par un objet `familiar` n'est plus signalé « n'apparaît dans
+aucune salle » (son atteignabilité est celle de l'objet). Attente de scénario **`FamiliarDistance { handle, rank,
+to_rank, min, max, at_frame }`** : distance du familier de rang `rank` du joueur `handle` à son porteur ou au
+familier de rang `to_rank` (avec `FamiliarCount` de §63).
+
+### Testbed et scénarios
+
+Personnages `compagnon` (`Follow` 28 + `MirrorShot` `pistol` tous les 12), `orbital` (`Orbit` 36, un tour en 120 frames,
+`BlockBullets`), `rempart` (`Orbit` 24 en 36 000 frames : quasi immobile à l'est du porteur, `BlockBullets`). Objets
+`compagnon`, `compagnon_actif` (actif), `orbital`, `essaim` (`per_copy: 2`), `trio` (`per_copy: 3`), `rempart`.
+
+| Scénario | Prouve |
+|---|---|
+| `familiar_follow` | apparaît sur le porteur, reste dans sa laisse, rattrape et garde 28 unités |
+| `familiar_mirror_shot`, `..._sans_objet` | une larme du porteur, deux coups sur la cible (le familier f58, le porteur f83) ; témoin : un seul |
+| `familiar_two_copies` | deux `compagnon` en file (rangs 0, 1) et un `trio` (rangs 2 à 4, à 120°) |
+| `familiar_lost_with_active` | l'actif remplacé détruit son familier, l'orbital passif reste |
+| `orbital_blocks_bullet`, `..._sans_objet` | l'orbital arrête la boule de feu de la tourelle (f125 : au bord, 19 en vol comme le témoin ; f126 : 18 contre 19), santé 100 à f200 contre 74 sans objet |
+| `familiar_mirror_cadence` | gâchette tenue dès f0 : la cadence refuse le tir jusqu'à f20, le familier ne tire pas avant ; deux balles à f20 |
+| `familiar_quad` | quatre joueurs, deux familiers chacun, synctest (resimulation + checksums à chaque frame) |
+
+Diagnostic : `projectile_probe` (`ALACOD_PROJECTILES=<scénario>:<de>:<à>`) affiche aussi joueurs et familiers
+(porteur, rang, position) toutes les 10 frames.
+
+### Atteignabilité
+
+M3-T11b met au moins deux familiers et un orbital dans le pool trésor d'`isaac` ; d'ici là, scénarios testbed seulement
+(dette nommée, à fermer par T11b).
+

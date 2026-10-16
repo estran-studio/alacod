@@ -138,12 +138,14 @@ pub struct CharacterConfig {
     #[serde(default)]
     pub variants: Option<crate::character::variant::VariantsConfig>,
 
-    /// Si vrai, ce personnage reçoit un composant `HitCount` (rollback) à sa création,
-    /// incrémenté par le résolveur de dégâts pour chaque coup reçu (T2.9, testbed : la
-    /// cible `target`). Faux par défaut : ne s'applique à aucun personnage zombie/joueur
-    /// existant.
+    /// Si vrai, ce personnage reçoit un composant `HitCount` à sa création.
     #[serde(default)]
     pub counts_hits: bool,
+
+    /// I-frames après un coup subi (M3-T0b, §61). Absent : comportement historique ; le
+    /// résolveur ne pose aucune invulnérabilité supplémentaire.
+    #[serde(default)]
+    pub hit_iframes: Option<u32>,
 
     /// Marqueur visuel (D66, présentation seule : aucune simulation ne le lit) : teinte et échelle
     /// des calques, pour distinguer un personnage dont le sprite est provisoire (tourelle à

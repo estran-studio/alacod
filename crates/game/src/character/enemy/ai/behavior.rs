@@ -333,6 +333,10 @@ pub fn enemy_attack_system(
         if runtime_rule.is_some_and(|rule| rule != Some("Melee")) {
             continue;
         }
+        // M3-T1 : sous `Fear` l'ennemi fuit (`Flee` imposé) : aucune attaque au corps à corps.
+        if combat::status::feared(statuses) {
+            continue;
+        }
 
         match target.target_type {
             TargetType::Player => {

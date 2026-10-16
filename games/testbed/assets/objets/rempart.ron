@@ -1,0 +1,6 @@
+// M3-T6 (docs/conventions.md §71) : objet d'essai : un orbital quasi immobile à l'est du porteur (`rempart`). Scénario `orbital_blocks_bullet`.
+(
+    name: "Rempart",
+    kind: Passive,
+    familiar: Some((character: "rempart")),
+)

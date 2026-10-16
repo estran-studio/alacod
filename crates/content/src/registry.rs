@@ -288,10 +288,12 @@ pub struct CharacterEntry {
     /// T1.5 : table de variantes (`variants`), dans l'ordre du fichier (doublons gardés pour
     /// la règle « nom en double »).
     pub variants: Option<VariantsEntry>,
-    /// T1.13 : `test:` (scénarios générés), pour `lint_character_test`.
+    /// T1.13 : `test:` (attentes comptées).
     pub test: Option<CharacterTestEntry>,
     /// T1.13 : `counts_hits`, pour la cible de `generate_template`.
     pub counts_hits: bool,
+    /// M3-T0b (§61) : i-frames après un dégât réel.
+    pub hit_iframes: Option<u32>,
     /// D41 : étendue du corps **en jeu** (collider × `scale`, comme `create_character`) : la plus
     /// grande distance du centre du personnage à un bord de son collider, en px. 0 sans collider.
     pub body_extent: Fixed,
@@ -339,7 +341,8 @@ pub struct RoomTestEntry {
 /// T1.5 : mirroir de `game::character::variant::VariantsConfig`.
 #[derive(Debug, Clone)]
 pub struct VariantsEntry {
-    pub chance: FixedField,
+    /// M3-T0d : nombre ou expression (`players`, `floor`).
+    pub chance: NumOrExpr,
     pub table: Vec<(String, VariantEntry)>,
 }
 
@@ -355,6 +358,16 @@ pub struct VariantEntry {
     pub tags: Vec<String>,
     #[serde(default)]
     pub skin: Option<String>,
+    /// M3-T0d (§63) : mirroir des champs de champion de `game::character::variant::VariantDef`.
+    #[serde(default)]
+    pub on_death: Vec<effects::Action>,
+    #[serde(default)]
+    pub behaviors: Option<Vec<BehaviorEntry>>,
+    #[serde(default)]
+    pub loot: Option<String>,
+    #[serde(default)]
+    #[schemars(extend("x-lint" = "#rrggbb"))]
+    pub tint: Option<String>,
 }
 
 fn default_variant_weight() -> u32 {
@@ -404,6 +417,23 @@ pub enum BehaviorEntry {
         #[serde(default)]
         volley: bool,
     },
+    /// M3-T0d (§63) : mirroirs des behaviors de familier de `behaviors::Behavior`.
+    Follow {
+        #[schemars(extend("x-lint" = "> 0"))]
+        gap: FixedField,
+    },
+    Orbit {
+        #[schemars(extend("x-lint" = "> 0"))]
+        radius: FixedField,
+        #[schemars(extend("x-lint" = "> 0"))]
+        frames_per_turn: u32,
+    },
+    MirrorShot {
+        weapon: String,
+        #[schemars(extend("x-lint" = "> 0"))]
+        every: u32,
+    },
+    BlockBullets,
 }
 
 /// M2-T8 : mirroir de `behaviors::FormationShape`.
@@ -582,7 +612,7 @@ pub enum ProjectileModifierEntry {
     Lifetime(u32),
     Homing(FixedField),
     Gravity(FixedField),
-    /// M3-T0a (§60) : contrats (exécution M3-T1), voir `effects::projectile::ProjectileModifier`.
+    /// M3-T0a (§60), exécutés par M3-T1 (§66), voir `effects::projectile::ProjectileModifier`.
     Spectral,
     Split {
         count: u32,
@@ -921,6 +951,10 @@ pub enum StatusKindEntry {
     Slow,
     Stun,
     Freeze,
+    /// M3-T1 (§66) : comme `Burn`, dégâts de poison.
+    Poison,
+    /// M3-T1 (§66) : l'ennemi fuit sa cible pendant `frames`.
+    Fear,
 }
 
 /// Statut (T1.3, `docs/conventions.md` §19), `statuses/<id>.ron` :
@@ -1717,6 +1751,10 @@ struct CharacterFileSchema {
     /// T1.13 : cible de `generate_template` (règle « `counts_hits` »).
     #[serde(default)]
     counts_hits: bool,
+    /// M3-T0b (§61) : i-frames après un dégât réel.
+    #[serde(default)]
+    #[schemars(extend("x-lint" = "> 0 (ou absent)"))]
+    hit_iframes: Option<u32>,
     /// D63 : contenu de test, ignoré par l'analyse d'atteignabilité (`WeaponConfigSchema` idem).
     #[serde(default)]
     test_only: bool,
@@ -1909,13 +1947,13 @@ fn default_true() -> bool {
 #[derive(schemars::JsonSchema, Deserialize)]
 struct VariantsSchema {
     #[serde(default = "default_variant_chance")]
-    #[schemars(extend("x-lint" = "[0, 1]"))]
-    chance: FixedField,
+    #[schemars(extend("x-lint" = "[0, 1] (nombre) ou expression `players`/`floor`"))]
+    chance: NumOrExpr,
     table: KeyedEntries<VariantEntry>,
 }
 
-fn default_variant_chance() -> FixedField {
-    FixedField(Fixed::from_num(1))
+fn default_variant_chance() -> NumOrExpr {
+    NumOrExpr::Literal(Fixed::from_num(1))
 }
 
 #[derive(schemars::JsonSchema, Deserialize)]
@@ -2448,6 +2486,7 @@ fn load_characters(
                     }),
                 }),
                 counts_hits: parsed.counts_hits,
+                hit_iframes: parsed.hit_iframes,
                 body_extent: parsed
                     .collider
                     .as_ref()

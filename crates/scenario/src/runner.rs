@@ -917,6 +917,7 @@ fn apply_scenario_shelf_placements(
                 price: placement.price,
                 sold: false,
                 retry_after: 0,
+                cost: None,
             },
             position,
         );
@@ -2331,6 +2332,75 @@ fn check(world: &mut World, expectation: &Expectation) -> Result<(), String> {
                     "joueur {handle} : {actual} exemplaire(s) de « {id} » (attendu {count}) ({inventory:?})"
                 ))
             }
+        }
+        // M3-T0d : familiers du joueur (`behaviors::FamiliarOf`).
+        Expectation::FamiliarCount { handle, count, .. } => {
+            let owner = world
+                .query::<(&Player, &GgrsNetId)>()
+                .iter(world)
+                .find(|(player, _)| player.handle == *handle)
+                .map(|(_, net_id)| net_id.clone())
+                .ok_or_else(|| format!("joueur {handle} absent"))?;
+            let actual = world
+                .query::<&behaviors::FamiliarOf>()
+                .iter(world)
+                .filter(|familiar| familiar.owner == owner)
+                .count();
+            if actual == *count as usize {
+                Ok(())
+            } else {
+                Err(format!(
+                    "joueur {handle} : {actual} familier(s) (attendu {count})"
+                ))
+            }
+        }
+        // M3-T6 : distance d'un familier à son porteur ou à un autre familier du même porteur.
+        Expectation::FamiliarDistance {
+            handle,
+            rank,
+            to_rank,
+            min,
+            max,
+            ..
+        } => {
+            let (owner, owner_position) = world
+                .query::<(
+                    &Player,
+                    &GgrsNetId,
+                    &bevy_fixed::fixed_math::FixedTransform3D,
+                )>()
+                .iter(world)
+                .find(|(player, ..)| player.handle == *handle)
+                .map(|(_, net_id, transform)| (net_id.clone(), transform.translation.truncate()))
+                .ok_or_else(|| format!("joueur {handle} absent"))?;
+            let position_of = |world: &mut World, wanted: u32| {
+                world
+                    .query::<(
+                        &behaviors::FamiliarOf,
+                        &bevy_fixed::fixed_math::FixedTransform3D,
+                    )>()
+                    .iter(world)
+                    .find(|(familiar, _)| familiar.owner == owner && familiar.rank == wanted)
+                    .map(|(_, transform)| transform.translation.truncate())
+                    .ok_or_else(|| format!("joueur {handle} : pas de familier de rang {wanted}"))
+            };
+            let familiar = position_of(world, *rank)?;
+            let other = match to_rank {
+                Some(other) => position_of(world, *other)?,
+                None => owner_position,
+            };
+            let distance = familiar.distance(&other);
+            if let Some(min) = min {
+                if distance < fixed_math::new(*min) {
+                    return Err(format!("distance {distance} < min {min}"));
+                }
+            }
+            if let Some(max) = max {
+                if distance > fixed_math::new(*max) {
+                    return Err(format!("distance {distance} > max {max}"));
+                }
+            }
+            Ok(())
         }
         Expectation::Shelf {
             nth,

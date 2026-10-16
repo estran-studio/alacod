@@ -42,7 +42,8 @@ use crate::weapons::WeaponsConfig;
 
 /// Consommable qui ouvre un coffre verrouillé.
 pub const KEY_ITEM: &str = "key";
-/// Portée d'interaction d'un coffre (unités monde).
+/// Nom réservé du consommable bombe (M3-T0b ; exécution par M3-T4).
+pub const BOMB_ITEM: &str = "bomb";
 const CHEST_RANGE: i32 = 32;
 /// Écart (unités monde) entre un coffre et l'objet qu'il laisse.
 const DROP_OFFSET: i32 = 16;

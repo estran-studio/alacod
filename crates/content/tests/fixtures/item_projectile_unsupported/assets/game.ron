@@ -1,8 +1,0 @@
-// Fixture M3-T0a (docs/conventions.md §60) : objet qui porte des modificateurs de projectile (Unsupported, lus par M3-T1)
-(
-    name: "fixture-item_projectile_unsupported",
-    content_folders: [
-        (path: "objets", kind: "Item"),
-    ],
-    entry: (start_map: "unused", default_seed: 1),
-)

@@ -67,10 +67,23 @@ pub fn create_character(
 
     // BTreeMap (pas HashMap) : `AnimationStateBundle` place ces layers dans `ActiveLayers`,
     // un composant rollback dont l'ordre d'itération doit être stable entre clients.
+    // D78 : un skin demandé absent (ex. "2" du second joueur sur un personnage qui n'en a qu'un)
+    // retombe sur `starting_skin` au lieu de paniquer ; le lint le refuse pour `player`. Même
+    // contenu chez tous les pairs : le repli est le même partout.
+    let requested = skin.as_deref().unwrap_or(&config.starting_skin);
+    let chosen = if config.skins.contains_key(requested) {
+        requested
+    } else {
+        warn!(
+            "personnage « {config_name} » : skin « {requested} » absent, repli sur « {} »",
+            config.starting_skin
+        );
+        &config.starting_skin
+    };
     let starting_layers: std::collections::BTreeMap<String, String> = config
         .skins
-        .get(skin.as_deref().unwrap_or(&config.starting_skin))
-        .unwrap()
+        .get(chosen)
+        .expect("starting_skin est une clé de skins (lint)")
         .layers
         .iter()
         .map(|(k, v)| (k.clone(), v.clone()))

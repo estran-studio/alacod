@@ -1,0 +1,11 @@
+(
+    drop_chance: "0.2",
+    powerups: {
+        "soin": (
+            weight: 10,
+            pickup_range: "30.0",
+            lifetime_frames: 1800,
+            actions: [Scaled(action: Heal("1.0"), scale: Some(PerCopy))],
+        ),
+    },
+)

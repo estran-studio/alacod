@@ -138,6 +138,7 @@ pub fn describe_action(action: &Action) -> String {
         Action::KillAllWaveEnemies => "tous les ennemis de la vague tués".into(),
         Action::DestroyTerrain { radius } => format!("creuse la roche ({})", number(*radius)),
         Action::SpawnEnemies { id, count } => format!("{count} renfort(s) {id}"),
+        Action::SpawnCharacters { id, count } => format!("{count} {id} apparaissent"),
         Action::Explode {
             radius,
             damage,
@@ -150,6 +151,26 @@ pub fn describe_action(action: &Action) -> String {
         ),
         Action::GainShield(n) => format!("gagnez {n} point(s) de bouclier"),
         Action::Telegraph(frames) => format!("télégraphe ({frames} frames)"),
+        Action::Chance {
+            base,
+            per_luck,
+            then,
+        } => {
+            let percent = number(*base * Fixed::from_num(100));
+            if *per_luck == Fixed::ZERO {
+                format!("{percent} % de chances : {}", describe_action(then))
+            } else {
+                format!(
+                    "{percent} % de chances (+{} % par point de chance) : {}",
+                    number(*per_luck * Fixed::from_num(100)),
+                    describe_action(then)
+                )
+            }
+        }
+        Action::Scaled { action, scale } => {
+            let suffix = scale.map_or(String::new(), |scale| format!(" ({scale:?})"));
+            format!("{}{}", describe_action(action), suffix)
+        }
     }
 }
 

@@ -403,6 +403,7 @@ pub fn room_shop_system(
                     price: game::shop::shelf_price(economy, rarity),
                     sold: false,
                     retry_after: 0,
+                    cost: None,
                 },
                 bevy_fixed::fixed_math::FixedVec3::new(
                     center_x + Fixed::from_num(offset),

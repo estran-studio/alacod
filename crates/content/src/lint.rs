@@ -87,6 +87,7 @@ pub fn run(registry: &Registry, manifest: &GameManifest) -> Vec<LintError> {
     lint_synergies(registry, &mut errors);
     lint_loot(registry, &mut errors);
     lint_unlocks(registry, &mut errors);
+    lint_familiars(registry, &mut errors);
     lint_hub_services(registry, &mut errors);
     lint_entry_progression(registry, manifest, &mut errors);
     lint_forced_variants(registry, &mut errors);
@@ -107,6 +108,7 @@ pub(crate) fn lint_effect(
     registry: &Registry,
     at: &str,
     effect: &effects::Effect,
+    allow_scale: bool,
     push: &mut impl FnMut(LintErrorKind, String),
 ) {
     use effects::runtime::{condition_supported, trigger_supported};
@@ -162,7 +164,23 @@ pub(crate) fn lint_effect(
             );
         }
     }
-    for action in &effect.r#do {
+    for outer in &effect.r#do {
+        // M3-T0b : `Scaled` n'est qu'une enveloppe ; l'action intérieure est validée comme une
+        // action nue.
+        let mut action = outer;
+        while let effects::Action::Scaled {
+            action: inner,
+            scale,
+        } = action
+        {
+            if !allow_scale {
+                push(
+                    LintErrorKind::Unsupported,
+                    format!("{at} : scale {scale:?} : uniquement dans un effet d'objet"),
+                );
+            }
+            action = inner;
+        }
         match action {
             effects::Action::Heal(amount) if *amount <= Fixed::ZERO => push(
                 LintErrorKind::OutOfRange,
@@ -222,7 +240,9 @@ pub(crate) fn lint_effect(
             | effects::Action::RepairAllWindows
             | effects::Action::KillAllWaveEnemies
             | effects::Action::DestroyTerrain { .. }
-            | effects::Action::ApplyStatus { .. } => push(
+            | effects::Action::ApplyStatus { .. }
+            // M3-T1 : chance d'`on_hit` de projectile seulement
+            | effects::Action::Chance { .. } => push(
                 LintErrorKind::Unsupported,
                 format!("{at} : action {action:?} : pas exécutée dans un effet (v2)"),
             ),
@@ -230,6 +250,11 @@ pub(crate) fn lint_effect(
             effects::Action::SpawnEnemies { .. } | effects::Action::Telegraph(_) => push(
                 LintErrorKind::Unsupported,
                 format!("{at} : action {action:?} : réservée à la frise d'un boss (§45)"),
+            ),
+            // M3-T0d : division d'un champion à sa mort (`variants`, §63)
+            effects::Action::SpawnCharacters { .. } => push(
+                LintErrorKind::Unsupported,
+                format!("{at} : action {action:?} : réservée à la mort d'un champion (§63)"),
             ),
             _ => {}
         }
@@ -277,7 +302,7 @@ fn lint_characters(registry: &Registry, errors: &mut Vec<LintError>) {
         // T1.10 : effets v1
         for (index, effect) in character.effects.iter().enumerate() {
             let at = format!("personnage « {} » : effects[{index}]", character.id);
-            lint_effect(registry, &at, effect, &mut |kind, message| {
+            lint_effect(registry, &at, effect, false, &mut |kind, message| {
                 errors.push(LintError {
                     kind,
                     file: file.clone(),
@@ -295,7 +320,7 @@ fn lint_characters(registry: &Registry, errors: &mut Vec<LintError>) {
         // M2-T0c : boss à phases.
         lint_boss(registry, character, errors);
         // T1.5 : variantes et élites.
-        lint_variants(character, errors);
+        lint_variants(registry, character, errors);
         // M3-T0c : bombe.
         if let Some(bomb) = &character.bomb {
             for message in world::bomb_problems(bomb) {
@@ -363,7 +388,35 @@ fn lint_characters(registry: &Registry, errors: &mut Vec<LintError>) {
             });
         }
 
-        // Hors plage : santé > 0 (littéral seulement ; une expression est validée par
+        // D78 : le personnage joueur (`player`) porte le skin "1" pour le handle 0 et "2" pour
+        // tous les autres (`game::character::player::create`) : sans "2", le second joueur en
+        // ligne n'a pas de skin.
+        if character.id.as_str() == "player" {
+            for skin in ["1", "2"] {
+                if !character.skins.contains(skin) {
+                    errors.push(LintError {
+                        kind: LintErrorKind::BrokenReference,
+                        file: file.clone(),
+                        message: format!(
+                            "personnage « player » : skin « {skin} » absent de skins ({:?}) : le joueur de handle {} n'aurait pas de skin",
+                            character.skins,
+                            if skin == "1" { "0" } else { "1 et plus" }
+                        ),
+                    });
+                }
+            }
+        }
+        if character.hit_iframes == Some(0) {
+            errors.push(LintError {
+                kind: LintErrorKind::OutOfRange,
+                file: file.clone(),
+                message: format!(
+                    "personnage « {} » : hit_iframes = 0 : doit être > 0 (ou absent)",
+                    character.id
+                ),
+            });
+        }
+
         // `lint_num_or_expr`).
         if let Some(max) = character.base_health_max.literal() {
             if max <= Fixed::ZERO {
@@ -666,6 +719,43 @@ fn lint_weapon_projectiles(
             }
         }
     }
+    // M3-T1 : cycles de `Split` dans la table (un enfant qui finit par se diviser en lui-même).
+    let split_children = |id: &str| -> Vec<&str> {
+        weapon
+            .projectiles
+            .get(id)
+            .map(|def| {
+                def.modifiers
+                    .iter()
+                    .filter_map(|modifier| match modifier {
+                        registry::ProjectileModifierEntry::Split {
+                            child: Some(child), ..
+                        } => Some(child.as_str()),
+                        _ => None,
+                    })
+                    .collect()
+            })
+            .unwrap_or_default()
+    };
+    for start in weapon.projectiles.keys() {
+        let mut seen = BTreeSet::new();
+        let mut stack = vec![start.as_str()];
+        while let Some(id) = stack.pop() {
+            for next in split_children(id) {
+                if next == start {
+                    push(
+                        LintErrorKind::OutOfRange,
+                        format!("projectiles « {start} » : Split se divise en lui-même (cycle)"),
+                    );
+                    stack.clear();
+                    break;
+                }
+                if seen.insert(next) {
+                    stack.push(next);
+                }
+            }
+        }
+    }
 }
 
 /// T1.2 : patterns nommés du jeu (kind `Pattern`), pour résoudre `Named`.
@@ -749,9 +839,8 @@ fn lint_projectile_spec(
                     format!("{at} : Homing({}) : doit être dans ]0, 1]", force.get()),
                 )
             }
-            // M3-T0a (§60) : contrats acceptés dans le RON (formes, plages), refusés tant que
-            // M3-T1 ne les exécute pas.
-            registry::ProjectileModifierEntry::Spectral => push_contract(at, "Spectral", push),
+            // M3-T0a (§60), exécutés par M3-T1 (§66) : formes et plages.
+            registry::ProjectileModifierEntry::Spectral => {}
             registry::ProjectileModifierEntry::Split {
                 count,
                 spread,
@@ -766,43 +855,35 @@ fn lint_projectile_spec(
                         );
                     }
                 }
-                push_contract(at, "Split", push);
             }
             registry::ProjectileModifierEntry::Orbit {
                 radius,
                 frames_per_turn,
-            } => {
-                lint_split_orbit(at, None, Some((radius.get(), *frames_per_turn)), push);
-                push_contract(at, "Orbit", push);
-            }
+            } => lint_split_orbit(at, None, Some((radius.get(), *frames_per_turn)), push),
             _ => {}
         }
     }
+    if spec
+        .modifiers
+        .iter()
+        .any(|m| matches!(m, registry::ProjectileModifierEntry::Orbit { .. }))
+        && spec.modifiers.iter().any(|m| {
+            matches!(
+                m,
+                registry::ProjectileModifierEntry::Homing(_)
+                    | registry::ProjectileModifierEntry::Gravity(_)
+            )
+        })
+    {
+        push(
+            LintErrorKind::Unsupported,
+            format!(
+                "{at} : Orbit avec Homing ou Gravity : l'orbite impose la vitesse du projectile"
+            ),
+        );
+    }
     for action in &spec.on_hit {
-        // T1.6 : `DestroyTerrain` creuse au point d'impact (mur de caverne touché)
-        if let effects::Action::DestroyTerrain { radius } = action {
-            if *radius <= Fixed::ZERO {
-                push(
-                    LintErrorKind::OutOfRange,
-                    format!("{at} : on_hit DestroyTerrain : radius = {radius} : doit être > 0"),
-                );
-            }
-            continue;
-        }
-        if !matches!(
-            action,
-            effects::Action::TimedModifier { .. }
-                | effects::Action::CurrencyMultiplier { .. }
-                // T1.3 : statut posé sur la cible (référence vérifiée par `lint_weapon_statuses`)
-                | effects::Action::ApplyStatus { .. }
-        ) {
-            push(
-                LintErrorKind::OutOfRange,
-                format!(
-                    "{at} : on_hit {action:?} : seules les actions à modificateur (TimedModifier, CurrencyMultiplier) s'appliquent à la cible"
-                ),
-            );
-        }
+        lint_on_hit_action(at, action, push);
     }
     for action in &spec.on_expire {
         match action {
@@ -825,13 +906,64 @@ fn lint_projectile_spec(
     }
 }
 
-/// M3-T0a : modificateur de contrat (`Spectral`, `Split`, `Orbit`) dans une arme : refusé
-/// jusqu'à son exécution (M3-T1), comme les contrats de M1.
-fn push_contract(at: &str, name: &str, push: &mut impl FnMut(LintErrorKind, String)) {
-    push(
-        LintErrorKind::Unsupported,
-        format!("{at} : modificateur {name} : contrat pas encore exécuté au tir (M3-T1)"),
-    );
+/// `ApplyStatus` d'une action d'`on_hit`, `Chance` déballée (M3-T1) : `(statut, piles)`.
+fn on_hit_status(action: &effects::Action) -> Option<(&str, u32)> {
+    match action {
+        effects::Action::ApplyStatus { status, stacks } => Some((status.as_str(), *stacks)),
+        effects::Action::Chance { then, .. } => on_hit_status(then),
+        _ => None,
+    }
+}
+
+/// Une action d'`on_hit` d'un projectile (arme ou objet, M3-T1) : `DestroyTerrain` (rayon > 0),
+/// les actions à modificateur et `ApplyStatus` (posées sur la cible), `Chance` (base dans
+/// `[0, 1]`, qui enveloppe une de ces trois dernières, pas `DestroyTerrain` ni une autre
+/// `Chance`). Le reste est refusé.
+fn lint_on_hit_action(
+    at: &str,
+    action: &effects::Action,
+    push: &mut impl FnMut(LintErrorKind, String),
+) {
+    match action {
+        // T1.6 : `DestroyTerrain` creuse au point d'impact (mur de caverne touché)
+        effects::Action::DestroyTerrain { radius } => {
+            if *radius <= Fixed::ZERO {
+                push(
+                    LintErrorKind::OutOfRange,
+                    format!("{at} : on_hit DestroyTerrain : radius = {radius} : doit être > 0"),
+                );
+            }
+        }
+        effects::Action::TimedModifier { .. }
+        | effects::Action::CurrencyMultiplier { .. }
+        // T1.3 : statut posé sur la cible (référence vérifiée par `lint_weapon_statuses`)
+        | effects::Action::ApplyStatus { .. } => {}
+        effects::Action::Chance { base, then, .. } => {
+            if *base < Fixed::ZERO || *base > Fixed::ONE {
+                push(
+                    LintErrorKind::OutOfRange,
+                    format!("{at} : on_hit Chance : base = {base} : doit être dans [0, 1]"),
+                );
+            }
+            if matches!(
+                **then,
+                effects::Action::Chance { .. } | effects::Action::DestroyTerrain { .. }
+            ) {
+                push(
+                    LintErrorKind::OutOfRange,
+                    format!("{at} : on_hit Chance : then {then:?} : une action à modificateur ou ApplyStatus seulement"),
+                );
+            } else {
+                lint_on_hit_action(at, then, push);
+            }
+        }
+        other => push(
+            LintErrorKind::OutOfRange,
+            format!(
+                "{at} : on_hit {other:?} : seules les actions à modificateur (TimedModifier, CurrencyMultiplier), ApplyStatus, DestroyTerrain et Chance s'appliquent à la cible"
+            ),
+        ),
+    }
 }
 
 /// M3-T0a : plages de `Split` (`count > 0`, `spread >= 0`) et d'`Orbit` (`radius > 0`,
@@ -872,12 +1004,15 @@ fn lint_split_orbit(
     }
 }
 
-/// M3-T0a (§60) : `projectile:` d'un objet ou d'une synergie (`effects::projectile::
-/// ProjectileMods`). Mêmes règles de forme que la liste d'une arme (chaque modificateur au plus
-/// une fois **dans cette liste**, l'empilement vaut entre sources ; `Size > 0`, `0 < Homing <= 1`,
-/// plages de `Split`/`Orbit`), puis refus `Unsupported` : le tir ne lit pas encore les
-/// modificateurs d'objet (M3-T1).
+/// M3-T0a (§60), lu au tir par M3-T1 (§66) : `projectile:` d'un objet ou d'une synergie
+/// (`effects::projectile::ProjectileMods`). Mêmes règles de forme que la liste d'une arme (chaque
+/// modificateur au plus une fois **dans cette liste**, l'empilement vaut entre sources ;
+/// `Size > 0`, `0 < Homing <= 1`, plages de `Split`/`Orbit`, `Orbit` sans `Homing` ni `Gravity`).
+/// Un objet n'a pas de table `projectiles` (celle de l'arme qui tire) : `Split` sans `child`
+/// (l'enfant par défaut du porteur) et `on_expire` sans `Spawn` seulement. `on_hit` : mêmes
+/// actions qu'une arme, statut connu.
 fn lint_carried_projectile(
+    registry: &Registry,
     at: &str,
     mods: &effects::projectile::ProjectileMods,
     push: &mut impl FnMut(LintErrorKind, String),
@@ -904,8 +1039,18 @@ fn lint_carried_projectile(
                     format!("{at} : Homing({force}) : doit être dans ]0, 1]"),
                 )
             }
-            M::Split { count, spread, .. } => {
-                lint_split_orbit(at, Some((*count, *spread)), None, push)
+            M::Split {
+                count,
+                spread,
+                child,
+            } => {
+                lint_split_orbit(at, Some((*count, *spread)), None, push);
+                if let Some(child) = child {
+                    push(
+                        LintErrorKind::Unsupported,
+                        format!("{at} : Split : child « {child} » : un objet n'a pas de table projectiles (celle de l'arme) ; Split sans child (copie du tir du porteur) seulement"),
+                    );
+                }
             }
             M::Orbit {
                 radius,
@@ -914,10 +1059,55 @@ fn lint_carried_projectile(
             _ => {}
         }
     }
-    push(
-        LintErrorKind::Unsupported,
-        format!("{at} : modificateurs de projectile portés par un objet : contrat pas encore lu au tir (M3-T1)"),
-    );
+    if mods.modifiers.iter().any(|m| matches!(m, M::Orbit { .. }))
+        && mods
+            .modifiers
+            .iter()
+            .any(|m| matches!(m, M::Homing(_) | M::Gravity(_)))
+    {
+        push(
+            LintErrorKind::Unsupported,
+            format!(
+                "{at} : Orbit avec Homing ou Gravity : l'orbite impose la vitesse du projectile"
+            ),
+        );
+    }
+    for action in &mods.on_hit {
+        lint_on_hit_action(at, action, push);
+        if let Some((status, stacks)) = on_hit_status(action) {
+            if !registry
+                .statuses
+                .contains_key(&registry::StatusId::from(status.to_string()))
+            {
+                push(
+                    LintErrorKind::BrokenReference,
+                    format!("{at} : ApplyStatus : statut « {status} » inconnu"),
+                );
+            }
+            if stacks == 0 {
+                push(
+                    LintErrorKind::OutOfRange,
+                    format!("{at} : ApplyStatus « {status} » : stacks = 0 : doit être > 0"),
+                );
+            }
+        }
+    }
+    for action in &mods.on_expire {
+        match action {
+            effects::projectile::ExpireAction::Spawn(_) => push(
+                LintErrorKind::Unsupported,
+                format!("{at} : on_expire Spawn : un objet n'a pas de table projectiles (celle de l'arme) ; DestroyTerrain seulement"),
+            ),
+            effects::projectile::ExpireAction::DestroyTerrain { radius } => {
+                if *radius <= Fixed::ZERO {
+                    push(
+                        LintErrorKind::OutOfRange,
+                        format!("{at} : on_expire DestroyTerrain : radius = {radius} : doit être > 0"),
+                    );
+                }
+            }
+        }
+    }
 }
 
 fn lint_expire_pattern(
@@ -1632,9 +1822,14 @@ fn lint_powerups(registry: &Registry, errors: &mut Vec<LintError>) {
                     powerup.id
                 )),
                 // T1.3 : un statut se pose sur un personnage touché (projectile)
-                effects::Action::ApplyStatus { .. } => push(format!(
-                    "power-up « {} » : actions[{index}] (ApplyStatus) : réservée aux projectiles (on_hit)",
-                    powerup.id
+                effects::Action::ApplyStatus { .. } | effects::Action::Chance { .. } => push(format!(
+                    "power-up « {} » : actions[{index}] ({}) : réservée aux projectiles (on_hit)",
+                    powerup.id,
+                    if matches!(action, effects::Action::Chance { .. }) {
+                        "Chance"
+                    } else {
+                        "ApplyStatus"
+                    }
                 )),
                 // M2-T7 : actions de frise de boss
                 effects::Action::SpawnEnemies { .. } | effects::Action::Telegraph(_) => {
@@ -1643,6 +1838,16 @@ fn lint_powerups(registry: &Registry, errors: &mut Vec<LintError>) {
                         powerup.id
                     ))
                 }
+                // M3-T0d : mort d'un champion (§63)
+                effects::Action::SpawnCharacters { .. } => push(format!(
+                    "power-up « {} » : actions[{index}] : réservée à la mort d'un champion (§63)",
+                    powerup.id
+                )),
+                // M3-T0b : `scale` est réservé aux effets d'objet
+                effects::Action::Scaled { .. } => push(format!(
+                    "power-up « {} » : actions[{index}] : Scaled réservée aux effets d'objet (§61)",
+                    powerup.id
+                )),
                 _ => {}
             }
         }
@@ -2038,7 +2243,11 @@ fn lint_difficulty(registry: &Registry, manifest: &GameManifest, errors: &mut Ve
 /// T1.5 : `variants` d'un personnage (`docs/conventions.md` §25) : `chance` dans `[0, 1]`,
 /// `weight > 0`, nom en double, `skin` clé de `skins`, `MoveSpeed` refusé sur un personnage IA
 /// (sa vitesse est `EnemyMoveSpeed`). Une stat inconnue échoue déjà au chargement RON.
-fn lint_variants(character: &registry::CharacterEntry, errors: &mut Vec<LintError>) {
+fn lint_variants(
+    registry: &Registry,
+    character: &registry::CharacterEntry,
+    errors: &mut Vec<LintError>,
+) {
     let Some(variants) = &character.variants else {
         return;
     };
@@ -2050,12 +2259,49 @@ fn lint_variants(character: &registry::CharacterEntry, errors: &mut Vec<LintErro
             message: format!("personnage « {} » : variants : {message}", character.id),
         });
     };
-    let chance = variants.chance.get();
-    if chance < Fixed::ZERO || chance > Fixed::from_num(1) {
-        push(
-            LintErrorKind::OutOfRange,
-            format!("chance = {chance} : doit être dans [0, 1]"),
-        );
+    // M3-T0d : un nombre doit être dans [0, 1] ; une expression n'utilise que `players` et
+    // `floor` et reste dans [0, 1] pour 1 et 4 joueurs aux étages 0 et 5.
+    match &variants.chance {
+        NumOrExpr::Expression(expr) => {
+            for id in expr.expr().identifiers() {
+                if id != "players" && id != "floor" {
+                    push(
+                        LintErrorKind::BrokenReference,
+                        format!(
+                            "chance : identifiant « {id} » inconnu — seuls « players » et « floor » existent"
+                        ),
+                    );
+                }
+            }
+            for (players, floor) in [(1u32, 0u32), (4, 0), (1, 5), (4, 5)] {
+                let ctx = std::collections::BTreeMap::from([
+                    ("players".to_string(), Fixed::from_num(players)),
+                    ("floor".to_string(), Fixed::from_num(floor)),
+                ]);
+                match variants.chance.resolve_with(&ctx) {
+                    Ok(value) if value < Fixed::ZERO || value > Fixed::from_num(1) => push(
+                        LintErrorKind::OutOfRange,
+                        format!(
+                            "chance : expression « {expr} » = {value} ({players} joueur(s), étage {floor}) : doit être dans [0, 1]"
+                        ),
+                    ),
+                    Ok(_) => {}
+                    Err(e) => push(
+                        LintErrorKind::OutOfRange,
+                        format!("chance : expression « {expr} » : {e} ({players} joueur(s), étage {floor})"),
+                    ),
+                }
+            }
+        }
+        literal => {
+            let chance = literal.resolve(1).unwrap_or(Fixed::ZERO);
+            if chance < Fixed::ZERO || chance > Fixed::from_num(1) {
+                push(
+                    LintErrorKind::OutOfRange,
+                    format!("chance = {chance} : doit être dans [0, 1]"),
+                );
+            }
+        }
     }
     let mut seen = BTreeSet::new();
     for (name, variant) in &variants.table {
@@ -2079,6 +2325,99 @@ fn lint_variants(character: &registry::CharacterEntry, errors: &mut Vec<LintErro
                         "variante « {name} » : skin « {skin} » absent de skins ({:?})",
                         character.skins
                     ),
+                );
+            }
+        }
+        // M3-T0d (§63) : champs de champion.
+        for (index, action) in variant.on_death.iter().enumerate() {
+            let at = format!("variante « {name} » : on_death[{index}]");
+            match action {
+                effects::Action::Explode { radius, damage, .. } => {
+                    if *radius <= Fixed::ZERO {
+                        push(
+                            LintErrorKind::OutOfRange,
+                            format!("{at} : Explode : rayon = {radius} : doit être > 0"),
+                        );
+                    }
+                    if *damage < Fixed::ZERO {
+                        push(
+                            LintErrorKind::OutOfRange,
+                            format!("{at} : Explode : dégâts = {damage} : doivent être >= 0"),
+                        );
+                    }
+                }
+                effects::Action::SpawnCharacters { id, count } => {
+                    if !registry
+                        .characters
+                        .contains_key(&registry::CharacterId::from(id.clone()))
+                    {
+                        push(
+                            LintErrorKind::BrokenReference,
+                            format!("{at} : SpawnCharacters : personnage « {id} » inconnu"),
+                        );
+                    }
+                    if *count == 0 {
+                        push(
+                            LintErrorKind::OutOfRange,
+                            format!("{at} : SpawnCharacters « {id} » : count = 0 : doit être > 0"),
+                        );
+                    }
+                }
+                effects::Action::SpawnPattern { pattern, weapon } => {
+                    if !registry
+                        .patterns
+                        .contains_key(&registry::PatternId::from(pattern.clone()))
+                    {
+                        push(
+                            LintErrorKind::BrokenReference,
+                            format!("{at} : SpawnPattern : pattern « {pattern} » inconnu"),
+                        );
+                    }
+                    if !registry
+                        .weapons
+                        .contains_key(&registry::WeaponId::from(weapon.clone()))
+                    {
+                        push(
+                            LintErrorKind::BrokenReference,
+                            format!("{at} : SpawnPattern : arme « {weapon} » inconnue"),
+                        );
+                    }
+                }
+                other => push(
+                    LintErrorKind::Unsupported,
+                    format!(
+                        "{at} : action {other:?} refusée à la mort (Explode, SpawnCharacters et SpawnPattern seulement)"
+                    ),
+                ),
+            }
+        }
+        if let Some(rules) = &variant.behaviors {
+            if rules.is_empty() {
+                push(
+                    LintErrorKind::OutOfRange,
+                    format!("variante « {name} » : behaviors vide (omettre pour garder ceux du personnage)"),
+                );
+            }
+            lint_rules(registry, rules, &mut |kind, message| {
+                push(kind, format!("variante « {name} » : {message}"))
+            });
+        }
+        if let Some(table) = &variant.loot {
+            if !registry.loot_tables.contains_key(table) {
+                push(
+                    LintErrorKind::BrokenReference,
+                    format!("variante « {name} » : loot : pool « {table} » inconnu"),
+                );
+            }
+        }
+        if let Some(tint) = &variant.tint {
+            let valid = tint.len() == 7
+                && tint.starts_with('#')
+                && tint[1..].chars().all(|c| c.is_ascii_hexdigit());
+            if !valid {
+                push(
+                    LintErrorKind::OutOfRange,
+                    format!("variante « {name} » : tint « {tint} » : attendu #rrggbb"),
                 );
             }
         }
@@ -2349,10 +2688,18 @@ fn lint_boss(
                 | effects::Action::KillAllWaveEnemies
                 | effects::Action::DestroyTerrain { .. }
                 | effects::Action::ApplyStatus { .. }
+                | effects::Action::Chance { .. }
                 | effects::Action::GaugeAdd(..)
-                | effects::Action::CurrencyMultiplier { .. } => push(
+                | effects::Action::CurrencyMultiplier { .. }
+                // M3-T0d : mort d'un champion (§63), pas une frise de boss
+                | effects::Action::SpawnCharacters { .. } => push(
                     LintErrorKind::Unsupported,
                     format!("{at} : action {action:?} : pas exécutée par un boss (effets v2)"),
+                ),
+                // M3-T0b : `scale` est réservé aux effets d'objet
+                effects::Action::Scaled { .. } => push(
+                    LintErrorKind::Unsupported,
+                    format!("{at} : Scaled : réservée aux effets d'objet (§61)"),
                 ),
                 _ => {}
             }
@@ -2476,6 +2823,131 @@ fn lint_rules(
             // Rayon, ouverture, période : voir `lint_formation` (qui voit aussi le reste de la
             // liste et l'escouade).
             BehaviorEntry::Formation { .. } => {}
+            // M3-T0d (§63) : comportements de familier ; la présence d'un objet porteur est
+            // vérifiée par `lint_familiars`.
+            BehaviorEntry::Follow { gap } => {
+                if gap.get() <= Fixed::ZERO {
+                    push(
+                        LintErrorKind::OutOfRange,
+                        format!("behaviors : Follow : gap = {} : doit être > 0", gap.get()),
+                    );
+                }
+            }
+            BehaviorEntry::Orbit {
+                radius,
+                frames_per_turn,
+            } => {
+                if radius.get() <= Fixed::ZERO {
+                    push(
+                        LintErrorKind::OutOfRange,
+                        format!(
+                            "behaviors : Orbit : radius = {} : doit être > 0",
+                            radius.get()
+                        ),
+                    );
+                }
+                if *frames_per_turn == 0 {
+                    push(
+                        LintErrorKind::OutOfRange,
+                        "behaviors : Orbit : frames_per_turn = 0 : doit être > 0".to_string(),
+                    );
+                }
+            }
+            BehaviorEntry::MirrorShot { weapon, every } => {
+                if !registry
+                    .weapons
+                    .contains_key(&registry::WeaponId::from(weapon.clone()))
+                {
+                    push(
+                        LintErrorKind::BrokenReference,
+                        format!("behaviors : MirrorShot : arme inconnue « {weapon} »"),
+                    );
+                }
+                if *every == 0 {
+                    push(
+                        LintErrorKind::OutOfRange,
+                        "behaviors : MirrorShot : every = 0 : doit être > 0".to_string(),
+                    );
+                }
+            }
+            BehaviorEntry::BlockBullets => {}
+        }
+    }
+}
+
+/// M3-T0d (`docs/conventions.md` §63) : familiers. Un objet qui porte `familiar` cite un
+/// personnage connu, qui a au moins un behavior de familier, et `per_copy > 0` ; réciproquement,
+/// un behavior de familier n'est valide que sur un personnage cité par un objet.
+fn lint_familiars(registry: &Registry, errors: &mut Vec<LintError>) {
+    use std::collections::BTreeSet;
+    let is_familiar = |rule: &registry::BehaviorEntry| {
+        matches!(
+            rule,
+            registry::BehaviorEntry::Follow { .. }
+                | registry::BehaviorEntry::Orbit { .. }
+                | registry::BehaviorEntry::MirrorShot { .. }
+                | registry::BehaviorEntry::BlockBullets
+        )
+    };
+    let mut cited: BTreeSet<&str> = BTreeSet::new();
+    for item in registry.items.values() {
+        let Some(familiar) = &item.def.familiar else {
+            continue;
+        };
+        let file = item.file.display().to_string();
+        let mut push = |kind: LintErrorKind, message: String| {
+            errors.push(LintError {
+                kind,
+                file: file.clone(),
+                message: format!("objet « {} » : familiar : {message}", item.id),
+            })
+        };
+        cited.insert(familiar.character.as_str());
+        if familiar.per_copy == 0 {
+            push(
+                LintErrorKind::OutOfRange,
+                "per_copy = 0 : doit être > 0".to_string(),
+            );
+        }
+        match registry
+            .characters
+            .get(&registry::CharacterId::from(familiar.character.clone()))
+        {
+            None => push(
+                LintErrorKind::BrokenReference,
+                format!("personnage « {} » inconnu", familiar.character),
+            ),
+            Some(character) => {
+                if !character
+                    .behaviors
+                    .as_deref()
+                    .is_some_and(|rules| rules.iter().any(is_familiar))
+                {
+                    push(
+                        LintErrorKind::Unsupported,
+                        format!(
+                            "personnage « {} » sans behavior de familier (Follow, Orbit, MirrorShot, BlockBullets)",
+                            familiar.character
+                        ),
+                    );
+                }
+            }
+        }
+    }
+    for character in registry.characters.values() {
+        let has_familiar_rule = character
+            .behaviors
+            .as_deref()
+            .is_some_and(|rules| rules.iter().any(is_familiar));
+        if has_familiar_rule && !cited.contains(character.id.as_str()) {
+            errors.push(LintError {
+                kind: LintErrorKind::Unsupported,
+                file: character.file.display().to_string(),
+                message: format!(
+                    "personnage « {} » : behavior de familier sans porteur (aucun objet ne le cite par `familiar`)",
+                    character.id
+                ),
+            });
         }
     }
 }
@@ -3182,6 +3654,7 @@ fn lint_mutations(registry: &Registry, errors: &mut Vec<LintError>) {
                 registry,
                 &format!("{at} : effects[{index}]"),
                 effect,
+                false,
                 &mut push,
             );
         }
@@ -3207,7 +3680,8 @@ fn lint_weapon_statuses(
         );
     for (at, on_hit) in specs {
         for action in on_hit {
-            let effects::Action::ApplyStatus { status, stacks } = action else {
+            let Some((status, stacks)) = on_hit_status(&action).map(|(s, n)| (s.to_string(), n))
+            else {
                 continue;
             };
             let file = weapon.file.display().to_string();
@@ -3254,12 +3728,20 @@ fn lint_statuses(registry: &Registry, errors: &mut Vec<LintError>) {
             push("frames = 0 : doit être > 0".into());
         }
         match status.kind {
-            StatusKindEntry::Burn => {
+            StatusKindEntry::Burn | StatusKindEntry::Poison => {
+                let name = if status.kind == StatusKindEntry::Burn {
+                    "Burn"
+                } else {
+                    "Poison"
+                };
                 if status.damage <= Fixed::ZERO {
-                    push(format!("damage = {} : doit être > 0 (Burn)", status.damage));
+                    push(format!(
+                        "damage = {} : doit être > 0 ({name})",
+                        status.damage
+                    ));
                 }
                 if status.period == 0 {
-                    push("period = 0 : doit être > 0 (Burn)".into());
+                    push(format!("period = 0 : doit être > 0 ({name})"));
                 }
             }
             StatusKindEntry::Slow => {
@@ -3270,7 +3752,7 @@ fn lint_statuses(registry: &Registry, errors: &mut Vec<LintError>) {
                     ));
                 }
             }
-            StatusKindEntry::Stun | StatusKindEntry::Freeze => {}
+            StatusKindEntry::Stun | StatusKindEntry::Freeze | StatusKindEntry::Fear => {}
         }
     }
 }
@@ -3291,7 +3773,12 @@ fn lint_items(registry: &Registry, errors: &mut Vec<LintError>) {
         };
         let id = &item.id;
         if let Some(mods) = &item.def.projectile {
-            lint_carried_projectile(&format!("objet « {id} » : projectile"), mods, &mut push);
+            lint_carried_projectile(
+                registry,
+                &format!("objet « {id} » : projectile"),
+                mods,
+                &mut push,
+            );
         }
         if let items::ItemKind::Active(charge) = item.def.kind {
             if charge.required() == 0 {
@@ -3329,6 +3816,20 @@ fn lint_items(registry: &Registry, errors: &mut Vec<LintError>) {
         }
         let active = matches!(item.def.kind, items::ItemKind::Active(_));
         let consumable = item.def.kind == items::ItemKind::Consumable;
+        if let Some(max_stack) = item.def.max_stack {
+            if max_stack == 0 {
+                push(
+                    LintErrorKind::OutOfRange,
+                    format!("objet « {id} » : max_stack = 0 : doit être > 0 (ou absent)"),
+                );
+            }
+            if !consumable {
+                push(
+                    LintErrorKind::Unsupported,
+                    format!("objet « {id} » : max_stack n'a de sens que pour un consommable"),
+                );
+            }
+        }
         if consumable && !item.def.modifiers.is_empty() {
             push(
                 LintErrorKind::Unsupported,
@@ -3389,7 +3890,7 @@ fn lint_items(registry: &Registry, errors: &mut Vec<LintError>) {
             if effect.on != effects::On::OnUse {
                 // M2-T3 : effet porté par le porteur tant que l'objet est tenu (même règles
                 // qu'un effet de personnage)
-                lint_effect(registry, &at, effect, &mut push);
+                lint_effect(registry, &at, effect, true, &mut push);
                 continue;
             }
             if !active && !consumable {
@@ -3399,9 +3900,18 @@ fn lint_items(registry: &Registry, errors: &mut Vec<LintError>) {
                 );
                 continue;
             }
-            for action in &effect.r#do {
+            for outer in &effect.r#do {
+                // M3-T0b : l'enveloppe `Scaled` est transparente, l'action intérieure est validée.
+                let mut action = outer;
+                while let effects::Action::Scaled { action: inner, .. } = action {
+                    action = inner;
+                }
                 match action {
                     // M2-T4 : soin instantané d'un actif ou d'un consommable
+                    effects::Action::Heal(amount) if *amount <= Fixed::ZERO => push(
+                        LintErrorKind::OutOfRange,
+                        format!("{at} : Heal = {amount} : doit être > 0"),
+                    ),
                     effects::Action::Heal(_) => {}
                     // D61 : bouclier instantané
                     effects::Action::GainShield(0) => push(
@@ -3439,7 +3949,12 @@ fn lint_synergies(registry: &Registry, errors: &mut Vec<LintError>) {
         };
         let id = &synergy.id;
         if let Some(mods) = &synergy.def.projectile {
-            lint_carried_projectile(&format!("synergie « {id} » : projectile"), mods, &mut push);
+            lint_carried_projectile(
+                registry,
+                &format!("synergie « {id} » : projectile"),
+                mods,
+                &mut push,
+            );
         }
         let set: BTreeSet<&str> = synergy.def.requires.iter().map(String::as_str).collect();
         if set.len() < 2 {
@@ -3481,7 +3996,7 @@ fn lint_synergies(registry: &Registry, errors: &mut Vec<LintError>) {
                 );
                 continue;
             }
-            lint_effect(registry, &at, effect, &mut push);
+            lint_effect(registry, &at, effect, false, &mut push);
         }
     }
 }

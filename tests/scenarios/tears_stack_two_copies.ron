@@ -1,0 +1,36 @@
+// M3-T1 (§66) : deux exemplaires d'un objet `Pierce(1)` s'additionnent (règle de composition :
+// addition). Une seule larme plein ouest (f20) ; quatre `target` alignées (x = 600, 560, 520, 480,
+// en y = -194 : centres à -200). Avec deux `perforant` la larme traverse deux cibles et s'arrête
+// dans la troisième ; la quatrième n'est jamais touchée.
+//
+// À regarder : la larme s'arrête dans la troisième cible, la quatrième reste intacte.
+Scenario(
+    game: "testbed",
+    map: "testbed/props_room.ldtk",
+    frames: 120,
+    powerup_drop_chance_override: "0",
+    characters: [
+        (character: "target", x: "600.0", y: "-194.0", at_frame: 1),
+        (character: "target", x: "560.0", y: "-194.0", at_frame: 1),
+        (character: "target", x: "520.0", y: "-194.0", at_frame: 1),
+        (character: "target", x: "480.0", y: "-194.0", at_frame: 1),
+    ],
+    players: [
+        (
+            inputs: [(from: 10, to: 30, buttons: [Fire], pan: (-127, 0))],
+            weapon: "larme",
+            items: ["perforant", "perforant"],
+        ),
+    ],
+    expect: [
+        ItemCount(handle: 0, id: "perforant", count: 2, at_frame: 1),
+        // Une larme (f20) : touche les cibles 14, 15 et 16 (f45, f57, f69), puis disparaît dans la
+        // troisième ; la quatrième (17) n'est jamais touchée.
+        EntityHits(net_id: 14, min: 1, max: Some(1), at_frame: 119),
+        EntityHits(net_id: 15, min: 1, max: Some(1), at_frame: 119),
+        EntityHits(net_id: 16, min: 1, max: Some(1), at_frame: 119),
+        EntityHits(net_id: 17, min: 0, max: Some(0), at_frame: 119),
+        EntityHits(net_id: 16, min: 0, max: Some(0), at_frame: 68),
+        BulletCount(count: 0, projectile: Some("larme"), at_frame: 75),
+    ],
+)

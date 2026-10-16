@@ -1,0 +1,44 @@
+// M3-T1 (§66) : `Split` : à l'impact sur un personnage, la larme se divise en trois (éventail de
+// 0,6 rad centré sur sa direction). Une seule larme plein ouest (f20) touche la première `target`
+// (x = 600) ; les trois larmes nées partent vers trois autres `target` placées à 100 unités du
+// point d'impact, dans l'axe de chacune.
+//
+// À regarder : une larme, un impact, trois larmes en éventail qui touchent chacune sa cible.
+Scenario(
+    game: "testbed",
+    map: "testbed/props_room.ldtk",
+    frames: 140,
+    powerup_drop_chance_override: "0",
+    characters: [
+        (character: "target", x: "600.0", y: "-194.0", at_frame: 1),
+        (character: "target", x: "514.5", y: "-164.4", at_frame: 1),
+        (character: "target", x: "514.5", y: "-223.6", at_frame: 1),
+        (character: "target", x: "510.0", y: "-194.0", at_frame: 1),
+    ],
+    players: [
+        (
+            inputs: [(from: 10, to: 30, buttons: [Fire], pan: (-127, 0))],
+            weapon: "larme",
+            items: ["division"],
+        ),
+    ],
+    expect: [
+        ItemCount(handle: 0, id: "division", count: 1, at_frame: 1),
+        // f45 : la larme (f20) touche la première cible (net id 14) et se divise : trois larmes.
+        EntityHits(net_id: 14, min: 1, max: Some(1), at_frame: 45),
+        BulletCount(count: 3, projectile: Some("larme"), at_frame: 46),
+        // f72 : chacune touche sa cible (net ids 15, 16, 17) ; avant, aucun coup.
+        EntityHits(net_id: 15, min: 0, max: Some(0), at_frame: 71),
+        EntityHits(net_id: 16, min: 0, max: Some(0), at_frame: 71),
+        EntityHits(net_id: 17, min: 0, max: Some(0), at_frame: 71),
+        HitsAtLeast(entity: Placed(1), hits: 1, at_frame: 72),
+        HitsAtLeast(entity: Placed(2), hits: 1, at_frame: 72),
+        HitsAtLeast(entity: Placed(3), hits: 1, at_frame: 72),
+        BulletCount(count: 0, projectile: Some("larme"), at_frame: 73),
+        // Personne n'est touché deux fois (l'enfant garde la liste des cibles du parent).
+        EntityHits(net_id: 14, min: 1, max: Some(1), at_frame: 139),
+        EntityHits(net_id: 15, min: 1, max: Some(1), at_frame: 139),
+        EntityHits(net_id: 16, min: 1, max: Some(1), at_frame: 139),
+        EntityHits(net_id: 17, min: 1, max: Some(1), at_frame: 139),
+    ],
+)
