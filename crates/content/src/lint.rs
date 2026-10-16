@@ -3640,11 +3640,19 @@ fn lint_items(registry: &Registry, errors: &mut Vec<LintError>) {
         }
         let active = matches!(item.def.kind, items::ItemKind::Active(_));
         let consumable = item.def.kind == items::ItemKind::Consumable;
-        if item.def.max_stack == Some(0) {
-            push(
-                LintErrorKind::OutOfRange,
-                format!("objet « {id} » : max_stack = 0 : doit être > 0 (ou absent)"),
-            );
+        if let Some(max_stack) = item.def.max_stack {
+            if max_stack == 0 {
+                push(
+                    LintErrorKind::OutOfRange,
+                    format!("objet « {id} » : max_stack = 0 : doit être > 0 (ou absent)"),
+                );
+            }
+            if !consumable {
+                push(
+                    LintErrorKind::Unsupported,
+                    format!("objet « {id} » : max_stack n'a de sens que pour un consommable"),
+                );
+            }
         }
         if consumable && !item.def.modifiers.is_empty() {
             push(
