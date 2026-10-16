@@ -967,13 +967,22 @@ fn map_probe() {
                 &FixedTransform3D,
                 &game::character::health::Health,
                 &sim_core::team::Team,
+                Option<&game::character::variant::Variant>,
             ), Without<Player>>()
             .iter(world)
-            .map(|(id, t, h, team)| (id.0, pos(t), h.current.to_num::<f32>(), *team))
+            .map(|(id, t, h, team, v)| {
+                (
+                    id.0,
+                    pos(t),
+                    h.current.to_num::<f32>(),
+                    *team,
+                    v.map(|v| v.0.clone()),
+                )
+            })
             .collect();
         others.sort_by_key(|o| o.0);
-        for (id, at, health, team) in others {
-            println!("personnage {id} {at:?} équipe {team:?} santé {health}");
+        for (id, at, health, team, variant) in others {
+            println!("personnage {id} {at:?} équipe {team:?} santé {health} variante {variant:?}");
         }
     }
     // M2-T11 : entités de carte lues (diagnostic)

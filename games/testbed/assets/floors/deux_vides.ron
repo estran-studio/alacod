@@ -1,0 +1,8 @@
+// M3-T7 (docs/conventions.md §72) : deux niveaux sans ennemi (`floor_a` sans son `follower`) : le portail s'ouvre
+// aussitôt. Scénario `champion_chance_floor` (les champions placés à l'étage 1 tirent leur chance à l'étage 1).
+(
+    levels: [
+        "testbed/floor_vide_a.ldtk",
+        "testbed/floor_vide_b.ldtk",
+    ],
+)

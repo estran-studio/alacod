@@ -2279,6 +2279,26 @@ fn lint_difficulty(registry: &Registry, manifest: &GameManifest, errors: &mut Ve
     }
 }
 
+/// M3-T7 : le pattern (après résolution des `Named`) joué par l'émetteur d'une mort est-il infini
+/// (`Ring` avec `every > 0` en tête) ? `None` : chaîne `Named` inconnue, cyclique ou plus profonde que
+/// [`MAX_NAMED_DEPTH`].
+fn death_pattern_infinite(registry: &Registry, pattern: &registry::PatternEntry) -> Option<bool> {
+    let mut current = pattern;
+    for _ in 0..=MAX_NAMED_DEPTH {
+        match current {
+            registry::PatternEntry::Named(name) => {
+                current = &registry
+                    .patterns
+                    .get(&registry::PatternId::from(name.clone()))?
+                    .pattern;
+            }
+            registry::PatternEntry::Ring { every, .. } => return Some(*every > 0),
+            _ => return Some(false),
+        }
+    }
+    None
+}
+
 /// T1.5 : `variants` d'un personnage (`docs/conventions.md` §25) : `chance` dans `[0, 1]`,
 /// `weight > 0`, nom en double, `skin` clé de `skins`, `MoveSpeed` refusé sur un personnage IA
 /// (sa vitesse est `EnemyMoveSpeed`). Une stat inconnue échoue déjà au chargement RON.
@@ -2403,14 +2423,29 @@ fn lint_variants(
                     }
                 }
                 effects::Action::SpawnPattern { pattern, weapon } => {
-                    if !registry
+                    match registry
                         .patterns
-                        .contains_key(&registry::PatternId::from(pattern.clone()))
+                        .get(&registry::PatternId::from(pattern.clone()))
                     {
-                        push(
+                        None => push(
                             LintErrorKind::BrokenReference,
                             format!("{at} : SpawnPattern : pattern « {pattern} » inconnu"),
-                        );
+                        ),
+                        // M3-T7 (§72) : l'émetteur d'une mort n'a pas de personnage pour l'arrêter : un
+                        // pattern infini (`Ring` avec `every > 0`) tirerait pour toujours. La chaîne
+                        // `Named` est suivie comme à l'exécution (`resolve_pattern`, profondeur
+                        // bornée) ; une chaîne cyclique ou trop profonde est refusée aussi.
+                        Some(file) => match death_pattern_infinite(registry, &file.pattern) {
+                            Some(true) => push(
+                                LintErrorKind::Unsupported,
+                                format!("{at} : SpawnPattern : pattern « {pattern} » infini (Ring avec every > 0, directement ou par `Named`) : refusé à la mort, utiliser every: 0"),
+                            ),
+                            None => push(
+                                LintErrorKind::Unsupported,
+                                format!("{at} : SpawnPattern : pattern « {pattern} » : chaîne `Named` cyclique, inconnue ou trop profonde"),
+                            ),
+                            Some(false) => {}
+                        },
                     }
                     if !registry
                         .weapons

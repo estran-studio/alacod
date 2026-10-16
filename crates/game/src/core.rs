@@ -163,6 +163,8 @@ impl Plugin for CoreSetupPlugin {
         app.add_plugins(crate::items::ItemsPlugin);
         // M3-T6 : familiers et orbitaux (§71), après les tirs des joueurs.
         app.add_plugins(crate::familiars::FamiliarsPlugin);
+        // M3-T7 : `on_death`, butin des champions (§72).
+        app.add_plugins(crate::champions::ChampionsPlugin);
         app.add_plugins(crate::loot::LootPlugin);
         app.add_plugins(crate::shop::ShopPlugin);
         app.add_plugins(crate::hub::HubPlugin);

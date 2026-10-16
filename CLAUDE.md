@@ -375,6 +375,8 @@ crate `APP`), jamais dans un crate `SIM`.
     - M2-T0c boss (§37) : `BossPhase` ; profil (§38) : `ProfileHas`.
     - M3-T0c contrats du monde (§62) : `DoorLocked` ; `EntityCount(kind: Rock)`.
     - M3-T0d familiers et champions (§63) : `FamiliarCount` ; `EnemyVariant` (existe, §25).
+    - M3-T7 champions (§72) : aucune attente nouvelle (`EnemyVariant`, `EnemyState`, `EnemyDistance`, `EntityCount`,
+      `EntityHealth`, `HasItem`, `BulletCount`, `FamiliarCount` couvrent les onze scénarios).
     - M3-T4 bombes, rochers, piques, mur secret (§69) : aucune attente nouvelle (`Consumable`, `EntityCount(kind: Rock |
       Barrel)`, `EntityHealth`, `Health`, `PlayerPosition`, `DoorLocked`, `EnemyDistance`, `Event(kind: "explosion")` couvrent
       les seize scénarios `bomb_*`, `rock_*`, `secret_wall_*`, `explode_effect`, `spikes_damage`) ; champ de scénario `PlayerScript::bomb`

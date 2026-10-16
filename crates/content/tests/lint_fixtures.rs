@@ -1928,3 +1928,43 @@ fn hub_without_door_fixture_reports_broken_reference() {
         "aucun service d'action EnterRun",
     );
 }
+
+/// M3-T7 (§72) : un `SpawnPattern` à la mort d'un champion ne peut pas être infini (`Ring` avec
+/// `every > 0`) ; un pattern à `every: 0` passe.
+#[test]
+fn champion_death_infinite_pattern_fixture_refuses_only_the_infinite_one() {
+    let (_, _, errors) = load_and_lint(&fixture_dir("champion_death_infinite_pattern")).unwrap();
+    assert_has_error(
+        &errors,
+        LintErrorKind::Unsupported,
+        "pattern « couronne » infini",
+    );
+    assert!(
+        !errors.iter().any(|e| e.message.contains("« unique »")),
+        "le pattern à every: 0 est accepté : {errors:#?}"
+    );
+}
+
+/// M3-T7 : le pattern infini est aussi refusé quand il est atteint par `Named` (deux niveaux), une
+/// chaîne cyclique est refusée, une chaîne qui aboutit à `every: 0` passe.
+#[test]
+fn champion_death_infinite_pattern_named_fixture_follows_the_chain() {
+    let (_, _, errors) =
+        load_and_lint(&fixture_dir("champion_death_infinite_pattern_named")).unwrap();
+    assert_has_error(
+        &errors,
+        LintErrorKind::Unsupported,
+        "pattern « alias2 » infini",
+    );
+    assert_has_error(
+        &errors,
+        LintErrorKind::Unsupported,
+        "pattern « boucle_a » : chaîne `Named` cyclique",
+    );
+    assert!(
+        !errors
+            .iter()
+            .any(|e| e.message.contains("« alias_unique »")),
+        "chaîne vers every: 0 acceptée : {errors:#?}"
+    );
+}

@@ -1,0 +1,35 @@
+// M3-T7 (§72) : `on_death` `SpawnCharacters` (variante `divise`). Le joueur 0 (carte `surfaces`) tire sur un `elite_divise` à 40 unités
+// de lui : à sa mort, trois `elite_divise` apparaissent en anneau (14 unités) autour de lui, de son équipe, **sans variante**
+// (la chance du personnage est de 1 : sans cette règle ils se diviseraient à leur tour sans fin). Témoin : variante `nu`.
+//
+// À regarder : un champion tombe, trois petits apparaissent autour de sa position et ne se divisent plus.
+Scenario(
+    game: "testbed",
+    map: "testbed/surfaces.ldtk",
+    frames: 160,
+    powerup_drop_chance_override: "0",
+    characters: [
+        (character: "elite_divise", x: "-528", y: "248", at_frame: 1, variant: "divise"),
+    ],
+    players: [
+        (
+            inputs: [(from: 20, to: 41, buttons: [Fire], pan: (127, 0))],
+            weapon: "larme",
+            items: [],
+        ),
+    ],
+    expect: [
+        EnemyVariant(entity: NetId(14), variant: Some("divise"), at_frame: 2),
+        // Le champion (net id 14, 7 points de vie) meurt à f55 : trois `elite_divise` (17, 18, 19) à sa place.
+        EntityCount(kind: Enemy, min: Some(1), max: Some(1), at_frame: 54),
+        EntityCount(kind: Enemy, min: Some(3), max: Some(3), at_frame: 55),
+        // Sans variante, malgré une chance de 1 : pas de division en cascade.
+        EnemyVariant(entity: NetId(17), variant: None, at_frame: 56),
+        EnemyVariant(entity: NetId(18), variant: None, at_frame: 56),
+        EnemyVariant(entity: NetId(19), variant: None, at_frame: 56),
+        // Anneau de 14 unités autour de la position du mort (-528, 248).
+        EnemyDistance(entity: NetId(17), target: Entity(NetId(18)), min: Some(23.5), max: Some(25.0), at_frame: 56),
+        EnemyDistance(entity: NetId(18), target: Entity(NetId(19)), min: Some(23.5), max: Some(25.0), at_frame: 56),
+        EntityCount(kind: Enemy, min: Some(3), max: Some(3), at_frame: 159),
+    ],
+)

@@ -890,6 +890,8 @@ pub struct SpawnParams<'w> {
     id_factory: ResMut<'w, GgrsNetIdFactory>,
     rng: ResMut<'w, RngStreams>,
     flow: Res<'w, FlowFieldCache>,
+    /// M3-T7 : étage courant (contexte de `chance` des variantes).
+    floor: Option<Res<'w, run::FloorState>>,
 }
 
 /// Marge (en pixels) gardée entre une apparition et les bords de la salle.
@@ -949,6 +951,8 @@ impl SpawnParams<'_> {
                 health_max,
                 self.rng.run_seed,
                 None,
+                self.difficulty
+                    .variant_context_at(self.floor.as_deref().map_or(0, |floor| floor.index)),
             );
         }
     }
