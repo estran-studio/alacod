@@ -31,18 +31,18 @@ use bevy::prelude::*;
 use bevy_fixed::fixed_math::{self, Fixed, FixedVec2};
 use bevy_ggrs::{GgrsSchedule, PlayerInputs, Rollback, RollbackDespawnCommandExtension};
 use combat::{
-    collider::{is_colliding, Collider, CollisionSettings},
+    collider::{Collider, CollisionSettings},
     collision_grid::{collider_aabb, union_aabb},
     downed::Downed,
     projectile::Projectile,
     team::team_allows_hit,
     weapons::{
         bullet_rollback_collision_system, bullet_rollback_system, spawn_bullet, Bullet,
-        BulletSpawn, BulletType, WeaponInventory, WeaponState, WeaponsConfig,
+        BulletSpawn, BulletType, WeaponsConfig,
     },
 };
 use items::{Inventory, ItemTable};
-use sim_core::{tag::Tags, team::Team};
+use sim_core::{frame_events::FrameEvents, tag::Tags, team::Team, triggers::WeaponFired};
 use utils::{
     frame::FrameCount,
     net_id::{GgrsNetId, GgrsNetIdFactory},
@@ -381,8 +381,18 @@ pub fn familiar_motion_system(
     }
 }
 
-/// `MirrorShot` : quand l'arme active du porteur a tiré cette frame (`WeaponState::last_fire_frame`),
-/// le familier tire **sa** arme (Q13, proposition par défaut : sans les modificateurs du porteur ni
+/// Le joueur `handle` a réellement tiré à `frame` : un événement [`WeaponFired`] de cette frame et de
+/// ce joueur. Pure. (`WeaponState::last_fire_frame` ne convient pas : sa valeur par défaut, 0,
+/// ferait croire à un tir à la frame 0.)
+pub fn owner_fired(events: &[WeaponFired], handle: usize, frame: u32) -> bool {
+    events
+        .iter()
+        .any(|event| event.frame == frame && event.player_handle == handle)
+}
+
+/// `MirrorShot` : quand le porteur a **réellement tiré** cette frame (`WeaponFired`, émis par
+/// `weapon_rollback_system` quand la balle part, jamais pour une gâchette que la cadence ou le
+/// chargeur refuse), le familier tire **sa** arme (Q13, proposition par défaut : sans les modificateurs du porteur ni
 /// ses objets) dans la direction de visée du porteur, au plus une fois tous les `every` frames.
 /// Un tir par déclenchement (pas de plomb multiple), sans dispersion ni recul (aucun RNG consommé).
 /// La balle porte le `GgrsNetId` et l'équipe du **porteur** (les kills lui reviennent, elle ne le
@@ -392,17 +402,11 @@ pub fn familiar_mirror_shot_system(
     mut commands: Commands,
     frame: Res<FrameCount>,
     inputs: Res<PlayerInputs<PeerConfig>>,
+    fired_events: Res<FrameEvents<WeaponFired>>,
     owners: Query<
-        (
-            &GgrsNetId,
-            &Player,
-            &WeaponInventory,
-            Has<Downed>,
-            Option<&Team>,
-        ),
+        (&GgrsNetId, &Player, Has<Downed>, Option<&Team>),
         (With<Rollback>, Without<FamiliarOf>),
     >,
-    weapon_states: Query<&WeaponState>,
     mut familiars: Query<
         (
             &GgrsNetId,
@@ -420,9 +424,10 @@ pub fn familiar_mirror_shot_system(
     collision_settings: Res<CollisionSettings>,
     mut id_factory: ResMut<GgrsNetIdFactory>,
 ) {
-    if familiars.is_empty() {
+    if familiars.is_empty() || fired_events.is_empty() {
         return;
     }
+    let fired_events: Vec<WeaponFired> = fired_events.iter().cloned().collect();
     let Some(weapons) = weapons.get(&global_assets.weapons) else {
         return;
     };
@@ -432,19 +437,13 @@ pub fn familiar_mirror_shot_system(
         let Some((weapon_id, every)) = behaviors.mirror_shot() else {
             continue;
         };
-        let Some((owner_id, player, inventory, downed, owner_team)) =
+        let Some((owner_id, player, downed, owner_team)) =
             owners.iter().find(|(id, ..)| id.0 == familiar.owner.0)
         else {
             continue;
         };
         let (input, _) = inputs[player.handle];
-        let fired = inventory
-            .weapons
-            .get(inventory.active_weapon_index)
-            .and_then(|(entity, _)| weapon_states.get(*entity).ok())
-            .is_some_and(|state| {
-                state.last_fire_frame == frame.frame && (frame.frame > 0 || input.fire)
-            });
+        let fired = owner_fired(&fired_events, player.handle, frame.frame);
         if downed || !fired || !gun.ready(frame.frame, every) {
             continue;
         }
@@ -519,6 +518,87 @@ pub fn familiar_mirror_shot_system(
     }
 }
 
+/// Le disque de rayon `bullet_radius` balayé le long du segment `old → new` touche-t-il le collider
+/// d'un familier centré en `center` (offset déjà ajouté) ? Test **géométrique** : l'AABB balayée ne
+/// sert qu'à présélectionner (elle recouvre les coins d'un déplacement diagonal et les disques sans
+/// qu'il y ait contact). Rond : distance du centre au segment `< R + r`. Rectangle : le segment
+/// traverse le rectangle, ou la distance segment–rectangle (point le plus proche d'un bout du segment
+/// ou d'un coin du rectangle) est `< r`. Arithmétique `FixedWide` (I64F32), positions relatives au
+/// centre, jamais de `f32`.
+pub fn swept_hits_collider(
+    old: FixedVec2,
+    new: FixedVec2,
+    bullet_radius: Fixed,
+    center: FixedVec2,
+    shape: &combat::collider::ColliderShape,
+) -> bool {
+    use combat::collider::ColliderShape;
+    type W = fixed_math::FixedWide;
+    let rel = |p: FixedVec2| {
+        (
+            W::from_num(p.x.saturating_sub(center.x)),
+            W::from_num(p.y.saturating_sub(center.y)),
+        )
+    };
+    let (a, b) = (rel(old), rel(new));
+    let r = W::from_num(bullet_radius);
+    let two = W::from_num(2);
+    // Distance² du point (0, 0)-centré `p` au segment `a → b`.
+    let seg_point_dist_sq = |p: (W, W)| -> W {
+        let d = (b.0 - a.0, b.1 - a.1);
+        let len_sq = d.0.saturating_mul(d.0) + d.1.saturating_mul(d.1);
+        let mut t = W::ZERO;
+        if len_sq > W::ZERO {
+            let dot = (p.0 - a.0).saturating_mul(d.0) + (p.1 - a.1).saturating_mul(d.1);
+            t = (dot / len_sq).clamp(W::ZERO, W::ONE);
+        }
+        let q = (
+            a.0 + d.0.saturating_mul(t) - p.0,
+            a.1 + d.1.saturating_mul(t) - p.1,
+        );
+        q.0.saturating_mul(q.0) + q.1.saturating_mul(q.1)
+    };
+    match shape {
+        ColliderShape::Circle { radius } => {
+            let reach = W::from_num(*radius) + r;
+            seg_point_dist_sq((W::ZERO, W::ZERO)) < reach.saturating_mul(reach)
+        }
+        ColliderShape::Rectangle { width, height } => {
+            let (hx, hy) = (W::from_num(*width) / two, W::from_num(*height) / two);
+            let point_rect_dist_sq = |p: (W, W)| -> W {
+                let dx = (p.0.abs() - hx).max(W::ZERO);
+                let dy = (p.1.abs() - hy).max(W::ZERO);
+                dx.saturating_mul(dx) + dy.saturating_mul(dy)
+            };
+            // Le segment traverse le rectangle (tranches par axe).
+            let d = (b.0 - a.0, b.1 - a.1);
+            let (mut t_min, mut t_max) = (W::ZERO, W::ONE);
+            let mut crosses = true;
+            for (start, delta, half) in [(a.0, d.0, hx), (a.1, d.1, hy)] {
+                if delta == W::ZERO {
+                    if start.abs() > half {
+                        crosses = false;
+                    }
+                } else {
+                    let (t1, t2) = ((-half - start) / delta, (half - start) / delta);
+                    t_min = t_min.max(t1.min(t2));
+                    t_max = t_max.min(t1.max(t2));
+                }
+            }
+            if crosses && t_min <= t_max {
+                return true;
+            }
+            let r_sq = r.saturating_mul(r);
+            if point_rect_dist_sq(a) < r_sq || point_rect_dist_sq(b) < r_sq {
+                return true;
+            }
+            [(hx, hy), (hx, -hy), (-hx, hy), (-hx, -hy)]
+                .into_iter()
+                .any(|corner| seg_point_dist_sq(corner) < r_sq)
+        }
+    }
+}
+
 /// `BlockBullets` : une balle (ordinaire ou composable) que `team_allows_hit` dit hostile au
 /// familier et dont le déplacement de la frame (AABB balayée) touche son collider est détruite par
 /// `despawn_rollback()`, sans `on_expire`, comme le blank. Entre le mouvement des balles et leurs
@@ -565,6 +645,13 @@ pub fn familiar_block_bullets_system(
             collider_aabb(&old, collider),
             collider_aabb(&transform.translation, collider),
         );
+        let radius = match &collider.shape {
+            combat::collider::ColliderShape::Circle { radius } => *radius,
+            combat::collider::ColliderShape::Rectangle { width, height } => {
+                (*width).max(*height) / Fixed::from_num(2)
+            }
+        };
+        let (old_xy, new_xy) = (old.truncate(), transform.translation.truncate());
         for (familiar_id, _, familiar_transform, familiar_collider, team) in &blockers {
             if !team_allows_hit(
                 bullet.source_team,
@@ -574,15 +661,13 @@ pub fn familiar_block_bullets_system(
             ) {
                 continue;
             }
+            // AABB balayée : présélection seulement ; le contact se décide par la géométrie.
             let body = collider_aabb(&familiar_transform.translation, familiar_collider);
-            if swept.overlaps(&body)
-                || is_colliding(
-                    &transform.translation,
-                    collider,
-                    &familiar_transform.translation,
-                    familiar_collider,
-                )
-            {
+            if !swept.overlaps(&body) {
+                continue;
+            }
+            let center = (familiar_transform.translation + familiar_collider.offset).truncate();
+            if swept_hits_collider(old_xy, new_xy, radius, center, &familiar_collider.shape) {
                 commands.entity(entity).despawn_rollback();
                 info!(
                     "ggrs{{f={} familiar_block familiar={} bullet={}}}",
@@ -725,5 +810,166 @@ mod tests {
         assert_eq!(rules.mirror_shot(), Some(("pistol", 12)));
         assert!(rules.blocks_bullets());
         assert_eq!(FamiliarBehaviors::default().motion(), None);
+    }
+
+    fn v(x: f32, y: f32) -> FixedVec2 {
+        FixedVec2::new(Fixed::from_num(x), Fixed::from_num(y))
+    }
+
+    fn rect(w: f32, h: f32) -> combat::collider::ColliderShape {
+        combat::collider::ColliderShape::Rectangle {
+            width: Fixed::from_num(w),
+            height: Fixed::from_num(h),
+        }
+    }
+
+    fn disc(r: f32) -> combat::collider::ColliderShape {
+        combat::collider::ColliderShape::Circle {
+            radius: Fixed::from_num(r),
+        }
+    }
+
+    /// L'AABB balayée d'un déplacement diagonal recouvre le coin d'un rectangle sans que la balle le
+    /// touche : le test géométrique ne bloque pas (distance du coin à la trajectoire 5,66 > 5), il
+    /// bloque dès que le rayon de la balle la dépasse.
+    #[test]
+    fn passage_en_coin_ne_bloque_pas() {
+        let (old, new) = (v(30.0, -10.0), v(-10.0, 30.0));
+        // Les deux AABB se recouvrent bien : sans test géométrique la balle serait détruite.
+        let swept = combat::grid::Aabb::from_center_size(
+            v(10.0, 10.0),
+            Fixed::from_num(40),
+            Fixed::from_num(40),
+        );
+        let body = combat::grid::Aabb::from_center_size(
+            v(0.0, 0.0),
+            Fixed::from_num(12),
+            Fixed::from_num(12),
+        );
+        assert!(swept.overlaps(&body));
+        assert!(!swept_hits_collider(
+            old,
+            new,
+            Fixed::from_num(5),
+            v(0.0, 0.0),
+            &rect(12.0, 12.0)
+        ));
+        assert!(swept_hits_collider(
+            old,
+            new,
+            Fixed::from_num(6),
+            v(0.0, 0.0),
+            &rect(12.0, 12.0)
+        ));
+    }
+
+    /// Deux disques dont les boîtes se recouvrent sans contact (trajectoire diagonale à 16,97 du
+    /// centre, somme des rayons 11).
+    #[test]
+    fn disque_en_diagonale_ne_bloque_pas() {
+        let (old, new) = (v(30.0, -6.0), v(-6.0, 30.0));
+        assert!(!swept_hits_collider(
+            old,
+            new,
+            Fixed::from_num(5),
+            v(0.0, 0.0),
+            &disc(6.0)
+        ));
+        assert!(swept_hits_collider(
+            old,
+            new,
+            Fixed::from_num(11),
+            v(0.0, 0.0),
+            &disc(6.0)
+        ));
+    }
+
+    #[test]
+    fn traversee_et_extremites_bloquent() {
+        // Traverse de part en part (tunnel d'une frame) : bloqué, rectangle et disque.
+        assert!(swept_hits_collider(
+            v(-30.0, 0.0),
+            v(30.0, 0.0),
+            Fixed::from_num(2),
+            v(0.0, 0.0),
+            &rect(12.0, 12.0)
+        ));
+        assert!(swept_hits_collider(
+            v(-30.0, 0.0),
+            v(30.0, 0.0),
+            Fixed::from_num(2),
+            v(0.0, 0.0),
+            &disc(6.0)
+        ));
+        // Arrive dans le corps.
+        assert!(swept_hits_collider(
+            v(-30.0, 0.0),
+            v(2.0, 1.0),
+            Fixed::from_num(2),
+            v(0.0, 0.0),
+            &rect(12.0, 12.0)
+        ));
+        // Passe à côté, parallèle, à 10 : rayon 2 + demi-largeur 6 = 8 < 10.
+        assert!(!swept_hits_collider(
+            v(-30.0, 10.0),
+            v(30.0, 10.0),
+            Fixed::from_num(2),
+            v(0.0, 0.0),
+            &rect(12.0, 12.0)
+        ));
+        assert!(swept_hits_collider(
+            v(-30.0, 7.0),
+            v(30.0, 7.0),
+            Fixed::from_num(2),
+            v(0.0, 0.0),
+            &rect(12.0, 12.0)
+        ));
+        // Balle immobile (segment nul) : contact ou non selon la distance.
+        assert!(swept_hits_collider(
+            v(5.0, 0.0),
+            v(5.0, 0.0),
+            Fixed::from_num(2),
+            v(0.0, 0.0),
+            &disc(6.0)
+        ));
+        assert!(!swept_hits_collider(
+            v(20.0, 0.0),
+            v(20.0, 0.0),
+            Fixed::from_num(2),
+            v(0.0, 0.0),
+            &disc(6.0)
+        ));
+        // Centre décalé : la géométrie est relative au centre donné.
+        assert!(swept_hits_collider(
+            v(70.0, 100.0),
+            v(90.0, 100.0),
+            Fixed::from_num(2),
+            v(80.0, 100.0),
+            &rect(12.0, 12.0)
+        ));
+    }
+
+    /// Un tir est un événement `WeaponFired` de **cette frame** et de **ce joueur** : à la frame 0, une
+    /// gâchette tenue que la cadence refuse n'émet rien et ne déclenche donc pas le familier.
+    #[test]
+    fn tir_du_porteur_exige_un_evenement_de_la_frame() {
+        let fired = |frame, player_handle| WeaponFired {
+            frame,
+            player_handle,
+        };
+        assert!(
+            !owner_fired(&[], 0, 0),
+            "frame 0, tir refusé par la cadence : aucun événement"
+        );
+        assert!(owner_fired(&[fired(0, 0)], 0, 0));
+        assert!(
+            !owner_fired(&[fired(0, 1)], 0, 0),
+            "le tir d'un autre joueur ne compte pas"
+        );
+        assert!(
+            !owner_fired(&[fired(19, 0)], 0, 20),
+            "un tir d'une autre frame ne compte pas"
+        );
+        assert!(owner_fired(&[fired(5, 1), fired(5, 0)], 0, 5));
     }
 }

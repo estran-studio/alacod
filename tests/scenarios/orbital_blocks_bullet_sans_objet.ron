@@ -15,6 +15,13 @@ Scenario(
     expect: [
         FamiliarCount(handle: 0, count: 0, at_frame: 5),
         // Témoin : sans l'orbital, la couronne de la tourelle touche le joueur dès f100 (santé 92).
+        // Mêmes frames que `orbital_blocks_bullet` : sans orbital, personne ne détruit les boules de feu avant
+        // qu'elles atteignent le joueur (f203 : 17).
+        BulletCount(count: 19, projectile: Some("fireball"), at_frame: 125),
+        BulletCount(count: 19, projectile: Some("fireball"), at_frame: 126),
+        BulletCount(count: 20, projectile: Some("fireball"), at_frame: 185),
+        BulletCount(count: 20, projectile: Some("fireball"), at_frame: 186),
+        BulletCount(count: 18, projectile: Some("fireball"), at_frame: 202),
         Health(handle: 0, max: Some(95.0), at_frame: 100),
         Health(handle: 0, max: Some(75.0), at_frame: 200),
     ],

@@ -16,6 +16,14 @@ Scenario(
         FamiliarCount(handle: 0, count: 1, at_frame: 5),
         // L'orbital reste à l'est du joueur (24 unités) et arrête la boule de feu de la tourelle.
         FamiliarDistance(handle: 0, rank: 0, min: Some(23.5), max: Some(24.5), at_frame: 100),
+        // Boules de feu en vol (`fireball`) : la couronne née à f122 (19 en vol) arrive sur l'orbital (x = 409, bord de
+        // son collider). f125 et f185 : la balle est au bord, sans contact (aucune destruction : même compte que le
+        // témoin) ; f126 et f186 : le contact détruit la boule de feu (un de moins que le témoin, 19 et 20).
+        BulletCount(count: 19, projectile: Some("fireball"), at_frame: 125),
+        BulletCount(count: 18, projectile: Some("fireball"), at_frame: 126),
+        BulletCount(count: 20, projectile: Some("fireball"), at_frame: 185),
+        BulletCount(count: 19, projectile: Some("fireball"), at_frame: 186),
+        BulletCount(count: 17, projectile: Some("fireball"), at_frame: 202),
         Health(handle: 0, min: Some(100.0), at_frame: 100),
         Health(handle: 0, min: Some(100.0), at_frame: 200),
     ],

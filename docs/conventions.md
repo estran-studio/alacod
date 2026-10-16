@@ -4437,18 +4437,25 @@ toujours » un personnage invulnérable (§16) : une balle à tête chercheuse p
   `max(5, excédent / 4)` unités par frame sans dépasser l'excédent. Les suiveurs d'un porteur, par rang croissant,
   forment une **file** : le premier vise le porteur, chacun des suivants le précédent (position déjà mise à jour dans
   la frame). Pas de mémoire de trajectoire : la file se déduit des positions courantes.
-- **`MirrorShot { weapon, every }`** : quand l'arme **active** du porteur a tiré cette frame
-  (`WeaponState::last_fire_frame`), le familier tire **sa** arme `weapon` (mode par défaut), dans la direction de
-  visée du porteur (`pan` de l'input), au plus une fois par `every` frames (`FamiliarGun`). **Q13 (réponse de la
-  fiche et du plan : proposition par défaut) : l'arme du familier, sans les modificateurs du porteur** ni ses objets
-  de larmes ; un seul tir par déclenchement (pas de plombs multiples), ni dispersion ni recul (aucun RNG consommé),
-  projectile composable de l'arme si elle en déclare un. La balle porte le `GgrsNetId` et l'équipe du **porteur**
-  (les kills et les points lui reviennent, elle ne le touche jamais), `player_handle` du porteur, les tags du familier.
-  Variante non retenue (larmes du porteur) : `Projectile::composed` de §66 prend ses ajouts en paramètre, il suffirait
-  d'y passer `items::projectile_mods` du porteur.
+- **`MirrorShot { weapon, every }`** : quand le porteur a **réellement tiré** cette frame, le familier tire **sa** arme
+  `weapon` (mode par défaut), dans la direction de visée du porteur (`pan` de l'input), au plus une fois par `every`
+  frames (`FamiliarGun`). Le déclencheur est l'événement transitoire `sim_core::triggers::WeaponFired { frame,
+  player_handle }`, émis par `weapon_rollback_system` quand la balle part (cadence respectée, chargeur non vide) et
+  lu la même frame (`owner_fired`, pure) : une gâchette tenue que la cadence refuse n'émet rien (à la frame 0,
+  `last_fire_frame` valait 0 par défaut et faisait croire à un tir). Événement transitoire : hors checksum, hors
+  snapshot, aucune trace ne bouge. **Q13 (réponse de la fiche et du plan : proposition par défaut) : l'arme du
+  familier, sans les modificateurs du porteur** ni ses objets de larmes ; un seul tir par déclenchement (pas de plombs
+  multiples), ni dispersion ni recul (aucun RNG consommé), projectile composable de l'arme si elle en déclare un. La
+  balle porte le `GgrsNetId` et l'équipe du **porteur** (les kills et les points lui reviennent, elle ne le touche
+  jamais), `player_handle` du porteur, les tags du familier. Variante non retenue (larmes du porteur) :
+  `Projectile::composed` de §66 prend ses ajouts en paramètre, il suffirait d'y passer `items::projectile_mods` du
+  porteur.
 - **`BlockBullets`** : entre le mouvement des balles et leurs collisions, une balle (ordinaire ou composable) que
-  `team_allows_hit` dit hostile au familier et dont l'AABB balayée de la frame touche son collider est détruite par
-  `despawn_rollback()` (sans `on_expire`), comme le blank.
+  `team_allows_hit` dit hostile au familier et dont le **disque balayé** de la frame (segment ancienne → nouvelle
+  position, rayon de la balle) touche son collider est détruite par `despawn_rollback()` (sans `on_expire`), comme le
+  blank. L'AABB balayée ne sert qu'à présélectionner ; le contact se décide par `swept_hits_collider` (pure,
+  `FixedWide`) : rond = distance du centre au segment < R + r ; rectangle = segment qui le traverse, ou distance
+  segment–rectangle < r (bouts du segment et coins). Une balle qui frôle un coin n'est donc plus détruite.
 
 Ordre dans `Weapon` : `weapon_rollback_system` → `familiar_sync_system` → `familiar_motion_system` →
 `familiar_mirror_shot_system` → `bullet_rollback_system` → `familiar_block_bullets_system` →
@@ -4474,7 +4481,8 @@ Personnages `compagnon` (`Follow` 28 + `MirrorShot` `pistol` tous les 12), `orbi
 | `familiar_mirror_shot`, `..._sans_objet` | une larme du porteur, deux coups sur la cible (le familier f58, le porteur f83) ; témoin : un seul |
 | `familiar_two_copies` | deux `compagnon` en file (rangs 0, 1) et un `trio` (rangs 2 à 4, à 120°) |
 | `familiar_lost_with_active` | l'actif remplacé détruit son familier, l'orbital passif reste |
-| `orbital_blocks_bullet`, `..._sans_objet` | l'orbital arrête la boule de feu de la tourelle : santé 100 à f200 contre 74 sans objet |
+| `orbital_blocks_bullet`, `..._sans_objet` | l'orbital arrête la boule de feu de la tourelle (f125 : au bord, 19 en vol comme le témoin ; f126 : 18 contre 19), santé 100 à f200 contre 74 sans objet |
+| `familiar_mirror_cadence` | gâchette tenue dès f0 : la cadence refuse le tir jusqu'à f20, le familier ne tire pas avant ; deux balles à f20 |
 | `familiar_quad` | quatre joueurs, deux familiers chacun, synctest (resimulation + checksums à chaque frame) |
 
 Diagnostic : `projectile_probe` (`ALACOD_PROJECTILES=<scénario>:<de>:<à>`) affiche aussi joueurs et familiers
