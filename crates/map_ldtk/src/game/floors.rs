@@ -40,10 +40,7 @@ use game::{
         health::Death,
         player::Player,
     },
-    run_state::{
-        finalize_run_summary_system, floor_levels, floors_victory_at_end,
-        resolve_run_mode_with_floors,
-    },
+    run_state::{finalize_run_summary_system, floor_levels, floors_victory_at_end},
     system_set::RollbackSystemSet,
 };
 use map::game::entity::{
@@ -184,11 +181,13 @@ pub fn compute_floor_plan(
     manifest: Option<Res<GameManifest>>,
     registry: Option<Res<Registry>>,
     floors_override: Option<Res<game::run_state::FloorsOverride>>,
+    hub: Option<Res<game::hub::HubSession>>,
 ) {
-    let mode = resolve_run_mode_with_floors(
+    let mode = game::hub::resolve_session_mode(
         manifest.as_deref(),
         registry.as_deref(),
         floors_override.as_deref().map(|o| o.0.as_str()),
+        hub.as_deref(),
     );
     let levels = floor_levels(&mode, registry.as_deref()).filter(|levels| !levels.is_empty());
     let mode_for_victory = mode.clone();

@@ -13,6 +13,9 @@ pub enum MapGenerationMode {
     /// M2-T10 : étage assemblé par une grammaire (`generation::floor`) : types de salles
     /// requis, boss en cul-de-sac à distance maximale. `Basic` reste inchangé.
     Floor(super::floor::FloorGrammar),
+    /// M2-T13 : carte telle quelle, sans assemblage ni réécriture (le hub, `docs/conventions.md`
+    /// §57). Variante ajoutée en dernier.
+    Static,
 }
 
 #[derive(Debug, Resource, Serialize, Deserialize)]

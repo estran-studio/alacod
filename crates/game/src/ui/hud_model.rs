@@ -61,6 +61,15 @@ pub(crate) struct HudPlayer<'w, 's> {
 }
 
 impl HudPlayer<'_, '_> {
+    /// Handle du joueur affiché (M2-T13 : son profil, son marchand).
+    pub(crate) fn handle(&self) -> Option<usize> {
+        let entity = self.entity()?;
+        self.players
+            .get(entity)
+            .ok()
+            .map(|(_, player, _)| player.handle)
+    }
+
     pub(crate) fn entity(&self) -> Option<Entity> {
         if let Some(handle) = self.follow_override.as_deref().map(|o| o.0) {
             if let Some((entity, _, _)) = self.players.iter().find(|(_, p, _)| p.handle == handle) {

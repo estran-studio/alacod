@@ -95,6 +95,9 @@ pub struct Scenario {
     /// dossier temporaire de `profile: true`. `None` : les profils se constituent seuls.
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub profile_setup: Option<ProfileSetup>,
+    /// Démarrer au hub (M2-T13, §57). `None` : la partie du scénario, comme avant.
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub hub: Option<HubSetup>,
     /// Force `PowerUpsConfig::drop_chance` pour ce scénario (T2.5), pour prouver le chemin
     /// « drop à la mort » sans dépendre du tirage réel du jeu (scénario
     /// `powerup_drop_on_kill`) — voir `scenario::runner::apply_powerup_drop_chance_override`.
@@ -197,6 +200,16 @@ pub struct ProfileSeed {
 pub struct ProfilePurchase {
     pub handle: usize,
     pub unlock: String,
+}
+
+/// Le scénario démarre **au hub** (M2-T13, `docs/conventions.md` §57) : `HubSession` posée avec la
+/// carte du hub du manifeste (`entry.hub`) et `Scenario::map` pour la run. `stay: true` empêche le
+/// lancement de la run une fois la sortie confirmée (la preuve de l'état `HubExit` reste dans la
+/// session ; la relance a son propre test).
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Default, Serialize, Deserialize)]
+pub struct HubSetup {
+    #[serde(default)]
+    pub stay: bool,
 }
 
 /// Profils d'un scénario `profile: true` (M2-T12) : états de départ puis achats, dans cet ordre.
