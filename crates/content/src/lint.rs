@@ -2364,14 +2364,28 @@ fn lint_variants(
                     }
                 }
                 effects::Action::SpawnPattern { pattern, weapon } => {
-                    if !registry
+                    match registry
                         .patterns
-                        .contains_key(&registry::PatternId::from(pattern.clone()))
+                        .get(&registry::PatternId::from(pattern.clone()))
                     {
-                        push(
+                        None => push(
                             LintErrorKind::BrokenReference,
                             format!("{at} : SpawnPattern : pattern « {pattern} » inconnu"),
-                        );
+                        ),
+                        // M3-T7 (§72) : l'émetteur d'une mort n'a pas de personnage pour l'arrêter : un
+                        // pattern infini (`Ring` avec `every > 0`) tirerait pour toujours.
+                        Some(file)
+                            if matches!(
+                                file.pattern,
+                                registry::PatternEntry::Ring { every, .. } if every > 0
+                            ) =>
+                        {
+                            push(
+                                LintErrorKind::Unsupported,
+                                format!("{at} : SpawnPattern : pattern « {pattern} » infini (Ring avec every > 0) : refusé à la mort, utiliser every: 0"),
+                            )
+                        }
+                        Some(_) => {}
                     }
                     if !registry
                         .weapons

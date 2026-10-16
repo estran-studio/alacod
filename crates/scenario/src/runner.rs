@@ -718,7 +718,10 @@ fn apply_scenario_character_placements(
     mut commands: Commands,
     mut id_factory: ResMut<GgrsNetIdFactory>,
     mut errors: ResMut<PlacementErrors>,
+    // M3-T7 : étage courant (contexte de `chance` des variantes)
+    floor: Option<Res<run::FloorState>>,
 ) {
+    let floor = floor.as_deref().map_or(0, |floor| floor.index);
     for (index, placement) in placements
         .0
         .iter()
@@ -766,6 +769,7 @@ fn apply_scenario_character_placements(
             placement.team,
             placement.variant.as_deref(),
             assets.difficulty.current(),
+            assets.difficulty.variant_context_at(floor),
         );
         if let Some(entity) = spawned {
             commands.entity(entity).insert(ScriptedPlacement(index));

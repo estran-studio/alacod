@@ -1,0 +1,2 @@
+// Ring avec every > 0 : tire toutes les 60 frames, sans fin.
+Ring(count: 8, speed: "60.0", projectile: "braise", every: 60)

@@ -627,6 +627,7 @@ pub fn floor_transition_system(
         &mut id_factory,
         characters,
         difficulty,
+        assets.difficulty.variant_context_at(next),
     );
     let weapons = data
         .weapon_locations

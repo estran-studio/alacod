@@ -66,6 +66,8 @@ pub fn enemy_spawn_from_spawners_system(
     mut id_factory: ResMut<GgrsNetIdFactory>,
     // T1.9 : difficulté (santé × difficulté ; 1 sans difficulté activée).
     difficulty: crate::clock::DifficultyReader,
+    // M3-T7 : étage courant (contexte de `chance` des variantes)
+    floor: Option<Res<run::FloorState>>,
 ) {
     // --- Step 0: Decrement cooldowns for all spawners first (deterministic order) ---
     // This ensures cooldowns are always decremented, even if spawner isn't selected
@@ -334,6 +336,7 @@ pub fn enemy_spawn_from_spawners_system(
             // Graine de run (T1.5 : tirage des variantes), lue sans toucher aux flux.
             rng_streams.run_seed,
             None,
+            difficulty.variant_context_at(floor.as_deref().map_or(0, |floor| floor.index)),
         );
 
         state.cooldown_remaining = config.max_cooldown;

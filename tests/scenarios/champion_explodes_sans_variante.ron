@@ -1,0 +1,32 @@
+// M3-T7 (docs/conventions.md §72) : `on_death` `Explode` (témoin : variante `nu`). Le joueur 0 (carte `surfaces`, en (-568, 248), un `compagnon`
+// à son pied) tire vers l'est sur un `elite_explosif` placé à 40 unités : deux larmes le tuent ; à la frame suivante,
+// `Explode` (rayon 70, 10 dégâts) touche le joueur (distance 40) et une cible à 46 unités, pas une cible à 106 ; le
+// familier, immunisé, n'est jamais touché. Témoin : même partie avec la variante `nu`, personne n'est blessé.
+//
+// À regarder : le champion tombe ; avec `explosif`, une explosion blesse le joueur et la cible proche, pas la lointaine.
+Scenario(
+    game: "testbed",
+    map: "testbed/surfaces.ldtk",
+    frames: 160,
+    powerup_drop_chance_override: "0",
+    characters: [
+        (character: "elite_explosif", x: "-528", y: "248", at_frame: 1, variant: "nu"),
+        (character: "target", x: "-528", y: "294", at_frame: 1),
+        (character: "target", x: "-528", y: "354", at_frame: 1),
+    ],
+    players: [
+        (
+            inputs: [(from: 20, to: 41, buttons: [Fire], pan: (127, 0))],
+            weapon: "larme",
+            items: ["compagnon"],
+        ),
+    ],
+    expect: [
+        FamiliarCount(handle: 0, count: 1, at_frame: 5),
+        EnemyVariant(entity: NetId(15), variant: Some("nu"), at_frame: 2),
+        // Témoin : même mort (f29), aucune explosion.
+        EntityCount(kind: Enemy, min: Some(2), max: Some(2), at_frame: 30),
+        Health(handle: 0, min: Some(100.0), max: Some(100.0), at_frame: 159),
+        EntityHealth(net_id: 16, min: Some(5000.0), max: Some(5000.0), at_frame: 159),
+    ],
+)

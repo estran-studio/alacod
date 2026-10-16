@@ -1,0 +1,15 @@
+({
+    "canon": (
+        config: (
+            name: "canon",
+            default_firing_mode: "default",
+            ammo_type: Balle,
+            firing_modes: {
+                "default": (firing_rate: "1.0"),
+            },
+            projectiles: {
+                "braise": (damage: "2.0", speed: "60.0", range: "200.0"),
+            },
+        ),
+    ),
+})
