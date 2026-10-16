@@ -73,7 +73,7 @@ impl From<MovementType> for NavProfile {
 ///
 /// `Hash` manuel (voir l'impl plus bas) : exclut `stationary` (T2.9). Motif identique à
 /// `CharacterAppearance` (`character/visuals.rs`).
-#[derive(Component, Clone, Debug, Serialize, Deserialize)]
+#[derive(Component, Clone, Serialize, Deserialize)]
 pub struct EnemyAiConfig {
     /// Movement type determines pathfinding behavior
     pub movement_type: MovementType,
@@ -107,6 +107,13 @@ pub struct EnemyAiConfig {
     /// T1.2) = corps à corps seulement, comportement inchangé.
     #[serde(default)]
     pub ranged: Option<RangedAttack>,
+    /// Portée de la vue directe (D66, `docs/conventions.md` §22) : un joueur **au-delà** de
+    /// `aggro_range` mais à moins de `sight_range` est ciblé s'il est en ligne de vue
+    /// (`FlowFieldCache::line_of_sight` : murs et portes fermées coupent le regard). `None`
+    /// (tout le contenu d'avant D66) = `aggro_range` : aucun changement. Statique, comme
+    /// `stationary` : exclu du `Hash`.
+    #[serde(default)]
+    pub sight_range: Option<fixed_math::Fixed>,
 }
 
 /// Tir à distance d'un ennemi (T1.2) : à moins de `range` de sa cible `Player` et
@@ -163,6 +170,33 @@ impl std::hash::Hash for EnemyAiConfig {
     }
 }
 
+/// `Debug` manuel (dump détaillé de la preuve §5) : les champs d'avant D66 dans l'ordre du
+/// `derive`, `sight_range` seulement s'il est posé : le dump `.full` d'un ennemi sans vue directe
+/// reste identique à celui d'avant le champ.
+impl std::fmt::Debug for EnemyAiConfig {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        let mut debug = f.debug_struct("EnemyAiConfig");
+        debug
+            .field("movement_type", &self.movement_type)
+            .field("aggro_range", &self.aggro_range)
+            .field("attack_range", &self.attack_range)
+            .field("attack_cooldown_frames", &self.attack_cooldown_frames)
+            .field("can_break", &self.can_break)
+            .field("attack_through", &self.attack_through)
+            .field("ignores", &self.ignores)
+            .field("path_through_breakables", &self.path_through_breakables)
+            .field("flee_threshold", &self.flee_threshold)
+            .field("attack_damage", &self.attack_damage)
+            .field("friendly_fire", &self.friendly_fire)
+            .field("stationary", &self.stationary)
+            .field("ranged", &self.ranged);
+        if let Some(range) = &self.sight_range {
+            debug.field("sight_range", range);
+        }
+        debug.finish()
+    }
+}
+
 impl Default for EnemyAiConfig {
     fn default() -> Self {
         Self {
@@ -179,11 +213,18 @@ impl Default for EnemyAiConfig {
             friendly_fire: FriendlyFire::Never,
             stationary: false,
             ranged: None,
+            sight_range: None,
         }
     }
 }
 
 impl EnemyAiConfig {
+    /// Portée de la vue directe effective : `sight_range`, jamais en dessous de `aggro_range`.
+    pub fn effective_sight_range(&self) -> fixed_math::Fixed {
+        self.sight_range
+            .map_or(self.aggro_range, |range| range.max(self.aggro_range))
+    }
+
     /// Get the navigation profile for this enemy
     pub fn nav_profile(&self) -> NavProfile {
         if self.path_through_breakables {
@@ -224,6 +265,7 @@ impl EnemyAiConfig {
             friendly_fire: FriendlyFire::Never,
             stationary: false,
             ranged: None,
+            sight_range: None,
         }
     }
 
@@ -243,6 +285,7 @@ impl EnemyAiConfig {
             friendly_fire: FriendlyFire::Never,
             stationary: false,
             ranged: None,
+            sight_range: None,
         }
     }
 
@@ -272,6 +315,7 @@ impl EnemyAiConfig {
             friendly_fire: FriendlyFire::Never,
             stationary: false,
             ranged: None,
+            sight_range: None,
         }
     }
 
@@ -295,6 +339,7 @@ impl EnemyAiConfig {
             friendly_fire: FriendlyFire::Never,
             stationary: false,
             ranged: None,
+            sight_range: None,
         }
     }
 }
@@ -304,6 +349,10 @@ impl EnemyAiConfig {
 pub struct EnemyAiConfigRon {
     pub movement_type: Option<MovementType>,
     pub aggro_range: Option<String>, // Fixed as string "300.0"
+    /// D66 : portée de la vue directe (chaîne `Fixed`), voir [`EnemyAiConfig::sight_range`].
+    /// Absent : `aggro_range`.
+    #[serde(default)]
+    pub sight_range: Option<String>,
     pub attack_range: Option<String>,
     pub attack_cooldown_frames: Option<u32>,
     pub can_break: Option<Vec<ObstacleType>>,
@@ -349,6 +398,13 @@ impl From<&EnemyAiConfigRon> for EnemyAiConfig {
                 config.aggro_range = fixed_math::new(val);
             } else {
                 warn!("Failed to parse aggro_range '{}' from RON config.", range);
+            }
+        }
+        if let Some(range) = &ron.sight_range {
+            if let Ok(val) = range.parse::<f32>() {
+                config.sight_range = Some(fixed_math::new(val));
+            } else {
+                warn!("Failed to parse sight_range '{}' from RON config.", range);
             }
         }
         if let Some(ref range) = ron.attack_range {

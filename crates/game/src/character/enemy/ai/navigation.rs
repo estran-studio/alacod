@@ -565,6 +565,71 @@ impl FlowFieldCache {
         self.target_ids.get(owner).copied()
     }
 
+    /// Ligne de vue dégagée entre deux points (D66) : le segment `from`→`to` ne traverse aucune
+    /// case de `wall_cells` (murs de l'IntGrid, terrain dynamique, portes fermées ; une fenêtre,
+    /// même intacte, laisse passer le regard). Parcours exact des cases touchées par le segment
+    /// (Amanatides-Woo en `FixedWide`, pas de flottant) : au passage d'un coin exact, le regard
+    /// passe sauf si les deux cases orthogonales sont des murs. Les cases des deux extrémités
+    /// ne comptent pas : ce sont celles des agents, qui s'y tiennent par construction.
+    pub fn line_of_sight(&self, from: fixed_math::FixedVec2, to: fixed_math::FixedVec2) -> bool {
+        use fixed_math::FixedWide as Wide;
+        let (start, end) = (GridPos::from_fixed(from), GridPos::from_fixed(to));
+        if start == end {
+            return true;
+        }
+        let cell_size = Wide::from_num(GRID_CELL_SIZE);
+        let (origin_x, origin_y) = (Wide::from_num(from.x), Wide::from_num(from.y));
+        let (dx, dy) = (
+            Wide::from_num(to.x) - origin_x,
+            Wide::from_num(to.y) - origin_y,
+        );
+        let (step_x, step_y) = (dx.signum().to_num::<i32>(), dy.signum().to_num::<i32>());
+        // Instant (fraction du segment) où le segment franchit la prochaine frontière d'un axe,
+        // et écart entre deux frontières ; `Wide::MAX` pour un axe que le segment ne parcourt pas.
+        let axis = |origin: Wide, delta: Wide, cell: i32, step: i32| -> (Wide, Wide) {
+            if step == 0 {
+                return (Wide::MAX, Wide::MAX);
+            }
+            let boundary = Wide::from_num(if step > 0 { cell + 1 } else { cell } * GRID_CELL_SIZE);
+            let length = delta.abs();
+            ((boundary - origin).abs() / length, cell_size / length)
+        };
+        let (mut t_x, delta_x) = axis(origin_x, dx, start.x, step_x);
+        let (mut t_y, delta_y) = axis(origin_y, dy, start.y, step_y);
+        let mut cell = start;
+        let budget = (end.x - start.x).abs() + (end.y - start.y).abs();
+        for _ in 0..budget {
+            if t_x.min(t_y) > Wide::ONE {
+                break;
+            }
+            if t_x < t_y {
+                cell.x += step_x;
+                t_x += delta_x;
+            } else if t_y < t_x {
+                cell.y += step_y;
+                t_y += delta_y;
+            } else {
+                let (side_x, side_y) = (
+                    GridPos::new(cell.x + step_x, cell.y),
+                    GridPos::new(cell.x, cell.y + step_y),
+                );
+                if self.wall_cells.contains(&side_x) && self.wall_cells.contains(&side_y) {
+                    return false;
+                }
+                cell = GridPos::new(cell.x + step_x, cell.y + step_y);
+                t_x += delta_x;
+                t_y += delta_y;
+            }
+            if cell == end {
+                break;
+            }
+            if self.wall_cells.contains(&cell) {
+                return false;
+            }
+        }
+        true
+    }
+
     /// Cells of the flow field path from `from`, up to `steps` cells ahead.
     pub fn path_ahead(&self, key: NavKey, from: GridPos, steps: usize) -> Vec<GridPos> {
         let Some(field) = self.get_flow_field(key) else {
@@ -1233,6 +1298,49 @@ fn build_flow_field(
 #[cfg(test)]
 mod tests {
     use super::*;
+
+    fn point(x: f32, y: f32) -> fixed_math::FixedVec2 {
+        fixed_math::FixedVec2::new(fixed_math::new(x), fixed_math::new(y))
+    }
+
+    /// D66 : un mur sur le segment coupe la vue, dans les huit sens et en oblique ; un mur à
+    /// côté du segment ne la coupe pas ; la vue est symétrique.
+    #[test]
+    fn line_of_sight_cut_by_wall_on_segment() {
+        let mut cache = FlowFieldCache::default();
+        assert!(cache.line_of_sight(point(8.0, 8.0), point(808.0, 8.0)));
+        cache.wall_cells.insert(GridPos::new(20, 0));
+        let (left, right) = (point(8.0, 8.0), point(808.0, 8.0));
+        assert!(!cache.line_of_sight(left, right));
+        assert!(!cache.line_of_sight(right, left));
+        // Un mur d'une rangée plus haut n'est pas sur le segment horizontal.
+        assert!(cache.line_of_sight(point(8.0, 24.0), point(808.0, 24.0)));
+        // Oblique : la case (10, 5) est traversée par le segment (0,0)→(20,10) en cases.
+        let mut cache = FlowFieldCache::default();
+        cache.wall_cells.insert(GridPos::new(10, 5));
+        assert!(!cache.line_of_sight(point(8.0, 8.0), point(328.0, 168.0)));
+        assert!(cache.line_of_sight(point(8.0, 8.0), point(328.0, 232.0)));
+        // Vertical, vers le bas.
+        let mut cache = FlowFieldCache::default();
+        cache.wall_cells.insert(GridPos::new(3, -4));
+        assert!(!cache.line_of_sight(point(56.0, 100.0), point(56.0, -200.0)));
+    }
+
+    /// D66 : les cases des extrémités ne comptent pas (un ennemi dont le centre touche une
+    /// case de mur voit quand même) ; deux cases voisines de la diagonale exacte forment une
+    /// paroi qui coupe la vue, une seule non.
+    #[test]
+    fn line_of_sight_endpoints_and_corners() {
+        let mut cache = FlowFieldCache::default();
+        cache.wall_cells.insert(GridPos::new(0, 0));
+        assert!(cache.line_of_sight(point(8.0, 8.0), point(168.0, 8.0)));
+        // Diagonale exacte (0,0)→(5,5) en passant par les coins de cases.
+        let mut cache = FlowFieldCache::default();
+        cache.wall_cells.insert(GridPos::new(2, 1));
+        assert!(cache.line_of_sight(point(0.0, 0.0), point(80.0, 80.0)));
+        cache.wall_cells.insert(GridPos::new(1, 2));
+        assert!(!cache.line_of_sight(point(0.0, 0.0), point(80.0, 80.0)));
+    }
 
     #[test]
     fn shared_flow_field_hash_equals_derived() {

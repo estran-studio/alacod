@@ -1,0 +1,14 @@
+// `throne` (D66, docs/conventions.md §22) : caverne d'essai des scénarios de vue directe
+// (`sight_*`) : 96 × 44 cases (1 536 × 704 unités), sans ennemi (`transit`) ; les scénarios
+// y posent leurs personnages (`characters`) à la position voulue. Jamais jouée dans une run.
+(
+    width: 96,
+    height: 44,
+    fill_ratio: "0.38",
+    iterations: 4,
+    birth: 5,
+    survive: 4,
+    min_floor_ratio: "0.3",
+    enemy_spawns: 0,
+    transit: true,
+)
