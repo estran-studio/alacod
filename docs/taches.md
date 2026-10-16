@@ -650,6 +650,26 @@ entrée depuis le hub (T13). Ajoutés le 2026-10-14 :
   transition d'étage de la grammaire, traces identiques ; jouée par `scripts/nightly.sh` ensuite.
 Calendrier indicatif : **huit semaines**.
 
+### Reprise au 2026-10-16 (sessions fermées, contexte frais)
+
+`main` = `85b8b2dd`. Mergé le 2026-10-15/16 : dettes D15/D63/D68/D77, M2-T12 profil et déblocages,
+M3-T0c contrats du monde, M3-T0f squelette `isaac`, `alacod-describe` (CLI de William), M2-T13 hub,
+`m2-armes-sources` (D62). Branches en cours, poussées sur origin, chacune avec une note de reprise :
+
+| Branche | sha | État | Reste |
+|---|---|---|---|
+| `m3-t0d-contrats-familiers-champions` (b0) | `4f4d5e25` | contrats écrits (Follow/Orbit/MirrorShot/BlockBullets, `FamiliarOf`, `ItemDef.familiar`, variantes v2, `SpawnCharacters`, lint, 9 fixtures, §63) ; tests des crates touchés verts | fusionner main (base 3bab4764, sans T13), test_crates, suite, lint, gen, check_sim_boundary, fuzz ; schéma `JsonSchema` des nouveaux types ; note à la fin de `docs/taches/rapports/m3-t0d-contrats-familiers-champions.md` |
+| `m2-full-run` (b1) | `facf4ff9` | plan seulement, aucun code | note de reprise dans `docs/taches/rapports/m2-full-run.md` |
+| `dette-d78-skin` (orch) | `ce857554` | lint « `player` sans skins 1 et 2 » + fixture, repli sur `starting_skin` dans `create_character` | **jamais compilé** : compiler, tests `content`, puis train |
+
+Reste pour sortir de M2 (tableau ci-dessous) : T14d et D64 (équilibrage : 26 objectifs / 174 morts sur
+200 graines ; session cloud sans nouvelle), `m2-full-run`, `m2-p2p-run-complete` (orca, Docker), revue
+humaine. Décisions du 2026-10-15 : `isaac` = M3, 1837 = M4, Hades retiré ; coop : l'hôte décide, achats du
+hub appliqués à la porte (plan §7 n° 10). Revue vidéo d'une partie de bots gungeon : faite par William
+sur son Mac (prompt du 2026-10-16). Pièges : `ALACOD_SCENARIO=… make test_scenarios` est écrasé par la
+variable Make `SCENARIO` (utiliser `SCENARIO=a,b`) ; tout nouveau kind de contenu demande son schéma
+(`content::schema::every_kind_has_a_schema`) ; purge des targets : crates sous `headless/build/<nom>`.
+
 ### Reste à faire pour sortir de M2 (revue-sortie-m2, 2026-10-15, base `7172660`)
 
 Audit critère par critère, avec les mesures : `docs/taches/rapports/revue-sortie-m2.md`. Bilan : sur
