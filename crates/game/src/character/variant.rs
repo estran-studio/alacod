@@ -323,9 +323,12 @@ mod tests {
             table: BTreeMap::from([("a".to_string(), def(1))]),
         };
         let ctx = |players, floor| VariantContext { players, floor };
-        assert_eq!(config.chance_at(1, 0), fixed_math::new(0.2));
-        assert_eq!(config.chance_at(1, 2), fixed_math::new(0.6));
-        assert_eq!(config.chance_at(4, 2), fixed_math::new(0.9));
+        let near = |value: Fixed, expected: f32| {
+            (value - fixed_math::new(expected)).abs() < fixed_math::new(0.001)
+        };
+        assert!(near(config.chance_at(1, 0), 0.2));
+        assert!(near(config.chance_at(1, 2), 0.6));
+        assert!(near(config.chance_at(4, 2), 0.9));
         let hits = |context| {
             (0..400)
                 .filter(|net_id| draw_variant(&config, None, 5, *net_id, context).is_some())

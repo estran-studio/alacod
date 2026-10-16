@@ -68,7 +68,7 @@ fn target_health(hits: &[(u32, f32)], shield_at_5: bool, frames: u32) -> f32 {
                 }
             })
             .after(game::character::enemy::ai::rules::charge_damage_translate_system)
-            .after(game::props::barrel_explosion_system)
+            .after(game::champions::champion_blast_system)
             .before(game::character::health::rollback_resolve_damage_events)
             .in_set(game::system_set::RollbackSystemSet::CollisionDamage),
         );
