@@ -1,0 +1,8 @@
+// Fixture M3-T13 : test.tears.hits : with_item <= without_item, le témoin passerait (OutOfRange).
+(
+    name: "fixture-tears_test_hits_not_above_control",
+    content_folders: [
+        (path: "objets", kind: "Item"),
+    ],
+    entry: (start_map: "maps/salle.ldtk", default_seed: 1),
+)
