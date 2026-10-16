@@ -3854,6 +3854,79 @@ Rechargement en jeu : `cargo run -p gungeon --features native`, ouvrir un écran
 modifier son `.html`. Le rapport précise les captures effectivement observées.
 
 
+## 57. Hub : stations, marchand de déblocages, entrée en run (M2-T13, chantier G2)
+
+Le hub est une **session à part** : une salle LDtk où l'on se déplace et interagit (simulation
+rollback, sans ennemi), puis la porte relance la session en run. Il ne change rien aux jeux sans
+`entry.hub` (`zombies`, `testbed`, `throne`, `isaac`) ni aux scénarios sans champ `hub`.
+
+**Données.** `game.ron` : `entry.hub: Some((map: "maps/hub.ldtk"))` et un dossier `(path: "hub",
+kind: "HubService")`. `hub/<id>.ron` (`meta::HubServiceDef`) : `name`, `needs` (conditions de profil :
+`Unlock("first_run")`, `Stat("runs", 2)`, toutes requises) et `action` : `EnterRun` (la porte) ou
+`Merchant` (l'écran des déblocages). `meta::MILESTONES` (`first_run`, `first_victory`) sont des
+conditions valides en plus des `Unlock` du jeu. **Lint** : carte du hub inconnue, hub sans service
+`EnterRun` (`BrokenReference`) ; condition `Unlock` inconnue (`BrokenReference`) ; `Stat(_, 0)`
+toujours vraie (`OutOfRange`). Fixtures `hub_unknown_unlock`, `hub_stat_zero`, `hub_without_door`.
+
+**Carte.** `maps/hub.ldtk` (une salle 16×12, quatre `PlayerSpawn`) et l'entité LDtk `HubStation`
+(champ `service` : id de `hub/<id>.ron`). Le hub est chargé avec `MapGenerationMode::Static` (variante
+ajoutée en dernier) : la carte est jouée **telle que dessinée**, sans assemblage de salles.
+
+**Stations dans la simulation.** `map_ldtk::game::local::spawn_hub_stations_when_map_loaded` pose une
+`game::hub::HubStation { service }` (rollback neutre) + `Interactable { Hub }`
+(`InteractionType::Hub`, en fin d'enum) par station dont le service est **ouvert** pour la session :
+en local, si le profil d'un des joueurs locaux remplit ses conditions ; **en ligne, le profil de
+l'hôte** reconstitué de la configuration de session (`ALACOD_RUN_UNLOCKS` pour les déblocages,
+`ALACOD_HOST_STATS=nom:n,…` pour les statistiques ; stand-in de la synchronisation des profils,
+hors périmètre). `GgrsNetId` triés par position puis service.
+`game::hub::hub_station_system` (`Interaction`) écrit `HubState` (ressource rollback **neutre**,
+vide par défaut) : `EnterRun` pose `exit: Some(HubExit { frame, handle })` (le premier ; **par défaut
+n'importe quel joueur déclenche la porte**, à confirmer par William), `Merchant` enregistre
+`visits[handle] = HubVisit { service, frame }`. Aucune autre règle : le profil n'est jamais lu dans
+`GgrsSchedule`.
+
+**Sortie : décision confirmée.** `game::hub::hub_exit_trigger` (`Update`) pose
+`RunRequest::EnterRun` quand `HubState.exit.frame <= ConfirmedFrameCount` : un état prédit puis annulé
+ne lance rien et les pairs qui confirment la même frame prennent la même décision au même moment.
+`EnterRun` et `ToHub` passent par le chemin du restart (`plan_run_request` : `Restart` local = retour
+direct en `GameLoading` ; en ligne, la salle `{lobby}-r{n}` et la graine dérivée de §33) ;
+`apply_run_request_system` bascule `HubSession.in_hub` et la carte (`hub::apply_to_map_config`).
+`HubState` est remis à zéro à la sortie d'`InGame`.
+
+**Phase.** `game::hub::HubSession { hub_map, run_map, in_hub }` (hors rollback, survit aux relances)
+est posée par `games/gungeon/src/main.rs` (le jeu démarre **au hub**) ou par un scénario
+(`hub: Some((stay: false))`). Au hub le mode de run est `Sandbox` (`hub::resolve_session_mode`) ; la
+run reprend le mode du manifeste (`Floors`, `entry.floors`). **Les outils sans binaire de jeu
+(`alacod-sim`, `make gen`, les campagnes de bots, le runner de scénarios sans champ `hub`) ne posent pas
+`HubSession` : ils jouent la run directement**, donc aucun faux soft-lock d'explorateur au hub (choix
+retenu plutôt que d'apprendre la porte aux bots). Fin de run : le bouton « Rejouer (R) » de l'écran
+de fin devient « Retour au hub (R) » (`RunRequest::ToHub`) quand `HubSession` existe ; le résumé de
+la run reste affiché, le profil est déjà écrit.
+
+**Marchand.** Écran `ScreenId::Merchant` (`ui/merchant_screen.html`, gabarit bevy_hui, même moteur
+que la pause et l'inventaire, §56) : une visite `HubVisit` du joueur affiché, dont la frame est
+confirmée, l'ouvre (`Screens::merchant_seen` : une visite ne rouvre pas l'écran). Lignes
+(`model::merchant_lines`) : les `Unlock` du jeu (ordre des ids), état `Owned` / `Available` /
+`Locked(raison)` calculé par `Profile::purchase` sur une copie. Entrée sur une ligne : commande
+`ScreenCommand::Buy(n)` → `game::profile::purchase_for_handle` (hors simulation) : débit de l'essence,
+profil écrit tout de suite (écriture atomique de §38), message affiché. **Un achat entre dans la
+simulation partagée au passage de la porte** : `RunUnlocks` est figé au lancement de chaque session
+(§51) et la run relit les profils au lancement ; au hub il ne change pas.
+
+**Scénarios.** `Scenario::hub: Option<HubSetup>` (`stay: true` : la run n'est pas lancée, la preuve
+reste dans la session du hub), attentes `HubExit { handle, exit_frame, none, at_frame }` et
+`HubVisit { handle, service, at_frame }`. `hub_use_stations` (marchand puis porte), `hub_buy_unlock`
+(écran, achat, `ProfileHas`, `RunUnlocks` inchangé). Le runner de scénarios ne suit pas une relance
+de session (sa boucle compte les frames d'une seule session) : la relance a son test,
+`crates/scenario/tests/hub.rs` (porte → requête une fois la frame confirmée → `Floors { etage_1 }`
+étage 0, `HubState` remis à zéro, `RunUnlocks` de la run contient le déblocage acheté au hub).
+
+**Limites.** Local : la graine de la run ne change pas d'une run à l'autre (le restart local garde la
+graine, §33). En ligne : la porte est jouée par le chemin du restart de §33 (preuve p2p rejouée par
+l'orchestrateur) ; les déblocages et services de l'hôte viennent de la configuration de session
+(`ALACOD_RUN_UNLOCKS`, `ALACOD_HOST_STATS`), pas encore d'un échange réseau, et un achat de l'hôte
+au hub n'atteint les pairs qu'avec la synchronisation des profils (hors périmètre).
+
 ## 60. Contrats des larmes et de l'empilement de projectiles (M3-T0a, chantier B5 v3)
 
 Contrats posés pour M3-T1 (larmes v3), M3-T6 (familiers qui tirent), M3-T11a (contenu de larmes)

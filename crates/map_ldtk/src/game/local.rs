@@ -511,6 +511,7 @@ fn spawn_hub_stations_when_map_loaded(
     services: Res<game::hub::HubServices>,
     profiles: Option<Res<meta::Profiles>>,
     session: Res<GgrsSessionBuilding>,
+    online: Option<Res<game::core::OnlineState>>,
     slots: FloorSlots,
 ) {
     let mut spawns: Vec<(&GlobalTransform, &HubStationRef)> = stations
@@ -531,15 +532,29 @@ fn spawn_hub_stations_when_map_loaded(
             .then_with(|| a_ref.0.cmp(&b_ref.0))
     });
     let empty = meta::Profile::new("");
-    let local_profiles: Vec<&meta::Profile> = session
-        .players
-        .iter()
-        .filter_map(|player| {
-            profiles
-                .as_deref()
-                .and_then(|profiles| profiles.0.get(&meta::local_id(player.handle)))
-        })
-        .collect();
+    // En ligne : le hub est celui du profil de l'hôte, transmis avec la configuration de session
+    // (M2-T13, comme `RunUnlocks`) ; jamais le profil du pair local.
+    let host_profile =
+        matches!(online.as_deref(), Some(game::core::OnlineState::Online)).then(|| {
+            game::profile::online_host_profile(
+                std::env::var(game::profile::RUN_UNLOCKS_ENV)
+                    .ok()
+                    .as_deref(),
+                std::env::var(game::profile::HOST_STATS_ENV).ok().as_deref(),
+            )
+        });
+    let local_profiles: Vec<&meta::Profile> = match &host_profile {
+        Some(host) => vec![host],
+        None => session
+            .players
+            .iter()
+            .filter_map(|player| {
+                profiles
+                    .as_deref()
+                    .and_then(|profiles| profiles.0.get(&meta::local_id(player.handle)))
+            })
+            .collect(),
+    };
 
     info!("Map is loaded with {} hub stations", spawns.len());
     for (transform, station) in spawns {
