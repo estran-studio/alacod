@@ -192,7 +192,24 @@ la boutique est voisine ouest du départ).
 - Campagne `etages_deux` 200 graines à 1 et 2 bots : mesurée avant les fusions ; contrôle des graines 1 à 20 (1 et
   2 bots) après la première fusion : issue, frames et dégâts identiques graine par graine. Le moteur fusionné
   rejoue les mêmes traces gungeon, donc les mêmes parties.
-- p2p gungeon à 2 clients : non rejoué ici (pas de Docker, à lancer par l'orchestrateur).
+- p2p gungeon à 2 clients : voir §7 bis.
+
+## 7 bis. p2p gungeon à deux clients (README §4)
+
+`docs/taches/rapports/m2-t14d-gabarits/p2p.sh` (signaling `docker compose -f docker-compose.ci.yaml up -d signaling`,
+`MATCHBOX_PORT=3566`, `COMPOSE_PROJECT_NAME=b2`, `docker compose down` à la fin) lance deux fois `$CARGO_TARGET_DIR/headless/gungeon
+--matchbox ws://127.0.0.1:3566 --lobby … --number-player 2 --players localhost remote` avec `ALACOD_HEADLESS=1 ALACOD_INPUT_DELAY=0
+ALACOD_STATE_TRACE=/tmp/p2p-$i.trace ALACOD_EXIT_AT_FRAME=600 APP_VERSION=x` et `ALACOD_INPUT=script:p2p_gungeon.ron` (deux joueurs,
+direction changée toutes les 60 frames, tir toutes les 6 frames, phases décalées) ; second client 8 s après le premier.
+État fusionné `030a4bc0` + cette branche, jeu au départ par défaut (`etages_deux`).
+
+- Sorties des deux clients : code 0 ; aucun `DesyncDetected`.
+- Traces : 599 lignes chacune, **`cmp` identiques**.
+- Frames resimulées : le compteur du jeu (« frames resimulées après rollback ») donne **56** (client 0) et **104** (client 1) ;
+  les numéros `ggrs{f=N}` présents en double dans les journaux : 204 (client 0) et 230 (client 1) numéros distincts (ils comptent
+  toute ligne de journal d'une frame rejouée, donc plus large que le compteur). Les rollbacks ont donc bien lieu.
+- Écarts : aucun. Limite : le jeu part de l'étage de la grammaire dès la frame 0 sans la salle du hub dans ce script ; la transition
+  d'étage et les salles verrouillées ne sont pas atteintes en 600 frames (aucune ligne `room_state` dans le journal).
 
 ## 8. Dettes ouvertes, points à relire
 
