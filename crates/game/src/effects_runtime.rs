@@ -861,6 +861,54 @@ pub(crate) fn apply_action_sourced(
                 assets,
             );
         }
+        // M3-T4 (§69) : l'explosion est une bombe à mèche d'une frame au point du porteur : même
+        // chemin que la bombe d'un joueur (`game::bombs`), explosion à la frame suivante, comme un
+        // baril. Posée par une commande différée : le `GgrsNetIdFactory` et la position du porteur
+        // se lisent à l'application, dans l'ordre déterministe des systèmes.
+        Action::Explode {
+            radius,
+            damage,
+            destroys,
+        } => {
+            let (radius, damage, destroys) = (*radius, *damage, *destroys);
+            let owner = net_id.clone();
+            commands.queue(move |world: &mut World| {
+                let Some(position) = world
+                    .get::<fixed_math::FixedTransform3D>(entity)
+                    .map(|transform| transform.translation)
+                else {
+                    return;
+                };
+                let team = world
+                    .get::<sim_core::team::Team>(entity)
+                    .copied()
+                    .unwrap_or(sim_core::team::Team::Neutral);
+                let id = world
+                    .resource_mut::<utils::net_id::GgrsNetIdFactory>()
+                    .next(format!("explode_{}", owner.0));
+                let at = fixed_math::FixedVec3::new(position.x, position.y, Fixed::ZERO);
+                let transform = fixed_math::FixedTransform3D::new(
+                    at,
+                    fixed_math::FixedMat3::IDENTITY,
+                    fixed_math::FixedVec3::ONE,
+                );
+                world.spawn((
+                    world::Bomb {
+                        owner,
+                        fuse_until: frame.saturating_add(1),
+                        radius,
+                        damage,
+                        friendly_fire: sim_core::damage::FriendlyFire::Always,
+                        team,
+                        destroys,
+                    },
+                    transform.to_bevy_transform(),
+                    transform,
+                    id,
+                    Rollback,
+                ));
+            });
+        }
         Action::RefillAmmo
         | Action::RefillAmmoOf(_)
         | Action::RepairAllWindows
@@ -870,8 +918,6 @@ pub(crate) fn apply_action_sourced(
         // M2-T7 : frise de boss seulement (exécutées par `game::boss`).
         | Action::SpawnEnemies { .. }
         | Action::Telegraph(_)
-        // M3-T0c : contrat seul, exécutée par M3-T4 (le lint la refuse d'ici là)
-        | Action::Explode { .. }
         // M3-T0d : mort d'un champion, exécutée par M3-T7 (refusée dans un effet par le lint)
         | Action::SpawnCharacters { .. }
         // M3-T1 : chance d'`on_hit` de projectile seulement
