@@ -255,6 +255,48 @@ struct StateTraceFile {
     /// `<fichier>-g1` écrit, `RunRequest::Restart` posé.
     first_written: bool,
     restart_requested: bool,
+    /// Depuis quand l'écriture attend la confirmation des dernières frames (voir
+    /// [`confirmation`]).
+    waiting_since: Option<std::time::Instant>,
+}
+
+/// Attente maximale de la confirmation des dernières frames avant d'écrire seulement les
+/// frames confirmées (pair parti sans avoir confirmé, session perdue).
+const CONFIRMATION_TIMEOUT: std::time::Duration = std::time::Duration::from_secs(10);
+
+/// Ce que [`confirmation`] décide pour une trace qui s'arrête avant `end`.
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+enum Confirmation {
+    /// Des frames avant `end` ne sont pas encore confirmées : attendre (le jeu continue).
+    Wait,
+    /// Écrire les frames `0..end` (toutes confirmées, ou `end` ramené aux confirmées après
+    /// l'attente maximale).
+    Write(u32),
+}
+
+/// Une frame prédite (entrée d'un pair devinée) peut être resimulée : seule une frame
+/// confirmée (`frame <= confirmed`, `ConfirmedFrameCount` de GGRS) est définitive. À l'arrêt
+/// demandé, le client en avance sur son pair a ses dernières frames prédites : sans cette
+/// attente, sa trace diffère de celle du pair sur ces lignes alors qu'il n'y a pas de desync.
+/// `confirmed` vaut `None` hors session. En synctest, la confirmation suit la frame courante
+/// avec `check_distance` de retard : l'attente est de quelques frames.
+fn confirmation(
+    recorded: impl Iterator<Item = u32>,
+    confirmed: Option<i32>,
+    end: u32,
+    waited: std::time::Duration,
+) -> Confirmation {
+    let Some(last) = recorded.filter(|frame| *frame < end).max() else {
+        return Confirmation::Write(end);
+    };
+    let confirmed = confirmed.unwrap_or(-1);
+    if i64::from(confirmed) >= i64::from(last) {
+        Confirmation::Write(end)
+    } else if waited >= CONFIRMATION_TIMEOUT {
+        Confirmation::Write(end.min(u32::try_from(confirmed + 1).unwrap_or(0)))
+    } else {
+        Confirmation::Wait
+    }
 }
 
 /// Ce que [`write_trace_at_exit_frame`] fait à cette frame (pur, D14).
@@ -327,6 +369,7 @@ impl Plugin for StateTracePlugin {
             game: 1,
             first_written: false,
             restart_requested: false,
+            waiting_since: None,
         })
         .add_systems(Last, write_trace_at_exit_frame.in_set(ExitRequests))
         .add_systems(
@@ -459,6 +502,45 @@ fn trace_path(path: &std::path::Path, restart: bool, game: u32) -> PathBuf {
     }
 }
 
+/// Fin (exclue) des frames à écrire, ou `None` tant que les dernières ne sont pas confirmées.
+fn confirmed_end(
+    file: &mut StateTraceFile,
+    trace: &StateTraceRecorder,
+    confirmed: Option<&bevy_ggrs::ConfirmedFrameCount>,
+    end: u32,
+) -> Option<u32> {
+    let since = *file
+        .waiting_since
+        .get_or_insert_with(std::time::Instant::now);
+    match confirmation(
+        trace.frames.keys().copied(),
+        confirmed.map(|c| c.0),
+        end,
+        since.elapsed(),
+    ) {
+        Confirmation::Wait => None,
+        Confirmation::Write(written_end) => {
+            if written_end < end {
+                warn!(
+                    "trace d'état tronquée à la frame {written_end} : dernières frames jamais confirmées"
+                );
+            }
+            file.waiting_since = None;
+            Some(written_end)
+        }
+    }
+}
+
+/// Nombre de lignes d'une trace qui s'arrête à la frame `at_frame` : `at_frame - 1`, toujours.
+/// La frame `at_frame - 1` n'est jamais écrite : `record_state` vit dans `SaveWorld`, et la
+/// `SaveGameState` de cette frame n'a pas encore été traitée quand le système voit `FrameCount`
+/// atteindre `at_frame` (constaté, reproductible en synctest). Un client en avance sur son pair,
+/// qui attend la confirmation (voir `confirmation`) pendant que sa frame courante avance,
+/// écrirait sinon une ligne de plus que le pair.
+fn last_trace_line(at_frame: u32) -> u32 {
+    at_frame.saturating_sub(1)
+}
+
 fn write_trace_at_exit_frame(
     mut commands: Commands,
     frame: Res<FrameCount>,
@@ -467,6 +549,7 @@ fn write_trace_at_exit_frame(
     mut exit: MessageWriter<AppExit>,
     snapshot_profile: Option<Res<utils::snapshot_profile::SnapshotProfile>>,
     set_timings: Option<Res<utils::system_profile::SetTimings>>,
+    confirmed: Option<Res<bevy_ggrs::ConfirmedFrameCount>>,
 ) {
     if file.written {
         return;
@@ -492,36 +575,38 @@ fn write_trace_at_exit_frame(
             return;
         }
         TraceStep::WriteFirst => {
-            let restart_at = file.restart_at_frame.unwrap_or(0);
+            // Même plafond que la trace de sortie : l'attente de confirmation fait avancer la
+            // simulation, la frame `restart_at - 1` n'est pas fiable (voir `last_trace_line`).
+            let restart_at = last_trace_line(file.restart_at_frame.unwrap_or(0));
+            let Some(end) = confirmed_end(&mut file, &trace, confirmed.as_deref(), restart_at)
+            else {
+                return;
+            };
             let path = trace_path(&file.path, true, 1);
             let out: String = trace
-                .lines_until(restart_at)
+                .lines_until(end)
                 .map(|line| format!("{line}\n"))
                 .collect();
             std::fs::write(&path, out).expect("écriture de la trace d'état");
-            write_full_history(&path, &trace, restart_at);
+            write_full_history(&path, &trace, end);
             info!("trace d'état de la partie 1 écrite dans {path:?}");
             file.first_written = true;
             return;
         }
         TraceStep::WriteAndExit => {}
     }
-    // La toute dernière frame demandée (`exit_at_frame - 1`) manque systématiquement :
-    // `record_state` vit dans `SaveWorld`, et la `SaveGameState` de cette dernière frame
-    // n'a pas encore été traitée quand ce système voit `FrameCount` atteindre
-    // `exit_at_frame` (constaté empiriquement, de façon reproductible : attendre plusieurs
-    // ticks de plus avant d'écrire ne change rien, la donnée n'arrive jamais par ce
-    // chemin). La trace compte donc `exit_at_frame - 1` lignes (frames `0..exit_at_frame -
-    // 2` inclus) au lieu de `exit_at_frame` : documenté ici plutôt que deviné plus loin ;
-    // aucun impact sur ce qui EST enregistré, complet et correct jusque-là.
+    let exit_at = last_trace_line(file.exit_at_frame);
+    let Some(end) = confirmed_end(&mut file, &trace, confirmed.as_deref(), exit_at) else {
+        return;
+    };
     let mut out = String::new();
-    for line in trace.lines_until(file.exit_at_frame) {
+    for line in trace.lines_until(end) {
         out.push_str(line);
         out.push('\n');
     }
     let path = trace_path(&file.path, restart, file.game);
     std::fs::write(&path, out).expect("écriture de la trace d'état");
-    write_full_history(&path, &trace, file.exit_at_frame);
+    write_full_history(&path, &trace, end);
     info!(
         "trace d'état écrite dans {path:?} ; frames resimulées après rollback : {}",
         trace.resimulated
@@ -578,6 +663,49 @@ mod restart_tests {
         assert_eq!(
             trace_step(400, 400, Some(600), 2, true, true),
             TraceStep::WriteAndExit
+        );
+    }
+
+    #[test]
+    fn plafond_des_lignes_independant_de_la_simulation() {
+        use std::time::Duration;
+        assert_eq!(last_trace_line(600), 599);
+        assert_eq!(last_trace_line(0), 0);
+        // La simulation a avancé pendant l'attente (trace jusqu'à 602, tout confirmé) :
+        // la partie 1 (`-g1`) comme la sortie s'arrêtent à 599 lignes, jamais 600.
+        assert_eq!(
+            confirmation(0..602, Some(601), last_trace_line(600), Duration::ZERO),
+            Confirmation::Write(599)
+        );
+    }
+
+    #[test]
+    fn attend_la_confirmation_des_dernieres_frames() {
+        use std::time::Duration;
+        let zero = Duration::ZERO;
+        // Confirmé jusqu'à la dernière frame enregistrée : tout s'écrit.
+        assert_eq!(
+            confirmation(0..598, Some(597), 600, zero),
+            Confirmation::Write(600)
+        );
+        // Frames prédites en fin de trace : on attend.
+        assert_eq!(
+            confirmation(0..598, Some(590), 600, zero),
+            Confirmation::Wait
+        );
+        // Pair parti : après l'attente maximale, seulement les frames confirmées.
+        assert_eq!(
+            confirmation(0..598, Some(590), 600, CONFIRMATION_TIMEOUT),
+            Confirmation::Write(591)
+        );
+        assert_eq!(
+            confirmation(0..598, None, 600, CONFIRMATION_TIMEOUT),
+            Confirmation::Write(0)
+        );
+        // Les frames au-delà de `end` ne comptent pas.
+        assert_eq!(
+            confirmation(0..700, Some(599), 600, zero),
+            Confirmation::Write(600)
         );
     }
 
