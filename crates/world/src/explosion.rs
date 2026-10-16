@@ -175,11 +175,11 @@ mod tests {
             ((0, 1), at(8, 24)),
             ((0, 0), at(8, 8)),
         ];
-        // Centre de l'explosion (16, 16) : les quatre premières à 11,3, (2,1) à 24,3
+        // Centre de l'explosion (16, 16) : les trois premières à 11,3, (2,1) à 25,3
         let hit = cells_in_radius(at(16, 16), Fixed::from_num(12), &cells);
         assert_eq!(hit, vec![(0, 0), (1, 0), (0, 1)]);
         assert_eq!(
-            cells_in_radius(at(16, 16), Fixed::from_num(25), &cells),
+            cells_in_radius(at(16, 16), Fixed::from_num(26), &cells),
             vec![(0, 0), (1, 0), (0, 1), (2, 1)]
         );
         assert!(cells_in_radius(at(16, 16), Fixed::ZERO, &cells).is_empty());
