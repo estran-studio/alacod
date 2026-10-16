@@ -1,0 +1,43 @@
+// M3-T6 (docs/conventions.md §71) : coop à quatre, deux familiers par joueur, synctest (quatre joueurs locaux : GGRS
+// resimule 2 frames à chaque frame et compare les checksums, donc toute divergence de familier se verrait). Carte
+// `arena` (quatre départs). Joueurs 0 et 2 : `essaim` (deux orbitaux par exemplaire) ; joueurs 1 et 3 : `compagnon`
+// et `orbital` (un suiveur et un orbital). Tous tirent à la `larme` ; 0 et 1 marchent vers l'est de f30 à f90.
+// Les numéros de `GgrsNetId` sont attribués porteur par porteur puis par rang. Aucun familier ne bloque un joueur.
+//
+// À regarder : huit petits carrés, deux autour de chaque joueur, qui tournent ou suivent ; les joueurs avancent
+// sans être gênés par eux.
+Scenario(
+    game: "testbed",
+    map: "testbed/arena.ldtk",
+    frames: 300,
+    powerup_drop_chance_override: "0",
+    players: [
+        (inputs: [(from: 30, to: 90, buttons: [Right], pan: (127, 0)), (from: 100, to: 300, buttons: [Fire], pan: (0, 127))], weapon: "larme", items: ["essaim"]),
+        (inputs: [(from: 30, to: 90, buttons: [Right], pan: (127, 0)), (from: 100, to: 300, buttons: [Fire], pan: (0, 127))], weapon: "larme", items: ["compagnon", "orbital"]),
+        (inputs: [(from: 100, to: 300, buttons: [Fire], pan: (0, 127))], weapon: "larme", items: ["essaim"]),
+        (inputs: [(from: 100, to: 300, buttons: [Fire], pan: (0, 127))], weapon: "larme", items: ["compagnon", "orbital"]),
+    ],
+    expect: [
+        FamiliarCount(handle: 0, count: 2, at_frame: 5),
+        FamiliarCount(handle: 1, count: 2, at_frame: 5),
+        FamiliarCount(handle: 2, count: 2, at_frame: 5),
+        FamiliarCount(handle: 3, count: 2, at_frame: 5),
+        // Orbitaux de l'essaim (rangs 0 et 1) : à 36 unités du porteur, diamétralement opposés (72).
+        FamiliarDistance(handle: 0, rank: 0, min: Some(35.5), max: Some(36.5), at_frame: 200),
+        FamiliarDistance(handle: 0, rank: 1, min: Some(35.5), max: Some(36.5), at_frame: 200),
+        FamiliarDistance(handle: 0, rank: 0, to_rank: Some(1), min: Some(71.0), max: Some(72.5), at_frame: 200),
+        FamiliarDistance(handle: 2, rank: 0, to_rank: Some(1), min: Some(71.0), max: Some(72.5), at_frame: 200),
+        // Suiveur (rang 0) et orbital (rang 1) des joueurs 1 et 3.
+        FamiliarDistance(handle: 1, rank: 0, max: Some(28.5), at_frame: 200),
+        FamiliarDistance(handle: 1, rank: 1, min: Some(35.5), max: Some(36.5), at_frame: 200),
+        FamiliarDistance(handle: 3, rank: 1, min: Some(35.5), max: Some(36.5), at_frame: 200),
+        PlayerAlive(handle: 0, at_frame: 299),
+        PlayerAlive(handle: 1, at_frame: 299),
+        PlayerAlive(handle: 2, at_frame: 299),
+        PlayerAlive(handle: 3, at_frame: 299),
+        FamiliarCount(handle: 0, count: 2, at_frame: 299),
+        FamiliarCount(handle: 1, count: 2, at_frame: 299),
+        FamiliarCount(handle: 2, count: 2, at_frame: 299),
+        FamiliarCount(handle: 3, count: 2, at_frame: 299),
+    ],
+)

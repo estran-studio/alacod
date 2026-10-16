@@ -2354,6 +2354,54 @@ fn check(world: &mut World, expectation: &Expectation) -> Result<(), String> {
                 ))
             }
         }
+        // M3-T6 : distance d'un familier à son porteur ou à un autre familier du même porteur.
+        Expectation::FamiliarDistance {
+            handle,
+            rank,
+            to_rank,
+            min,
+            max,
+            ..
+        } => {
+            let (owner, owner_position) = world
+                .query::<(
+                    &Player,
+                    &GgrsNetId,
+                    &bevy_fixed::fixed_math::FixedTransform3D,
+                )>()
+                .iter(world)
+                .find(|(player, ..)| player.handle == *handle)
+                .map(|(_, net_id, transform)| (net_id.clone(), transform.translation.truncate()))
+                .ok_or_else(|| format!("joueur {handle} absent"))?;
+            let position_of = |world: &mut World, wanted: u32| {
+                world
+                    .query::<(
+                        &behaviors::FamiliarOf,
+                        &bevy_fixed::fixed_math::FixedTransform3D,
+                    )>()
+                    .iter(world)
+                    .find(|(familiar, _)| familiar.owner == owner && familiar.rank == wanted)
+                    .map(|(_, transform)| transform.translation.truncate())
+                    .ok_or_else(|| format!("joueur {handle} : pas de familier de rang {wanted}"))
+            };
+            let familiar = position_of(world, *rank)?;
+            let other = match to_rank {
+                Some(other) => position_of(world, *other)?,
+                None => owner_position,
+            };
+            let distance = familiar.distance(&other);
+            if let Some(min) = min {
+                if distance < fixed_math::new(*min) {
+                    return Err(format!("distance {distance} < min {min}"));
+                }
+            }
+            if let Some(max) = max {
+                if distance > fixed_math::new(*max) {
+                    return Err(format!("distance {distance} > max {max}"));
+                }
+            }
+            Ok(())
+        }
         Expectation::Shelf {
             nth,
             item,

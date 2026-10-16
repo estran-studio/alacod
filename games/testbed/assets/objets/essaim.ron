@@ -1,0 +1,6 @@
+// M3-T6 (docs/conventions.md §71) : objet d'essai : deux orbitaux (`orbital`) par exemplaire (`per_copy: 2`). Scénario `familiar_quad` (quatre joueurs, deux familiers chacun).
+(
+    name: "Essaim",
+    kind: Passive,
+    familiar: Some((character: "orbital", per_copy: 2)),
+)

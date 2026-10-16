@@ -374,6 +374,8 @@ crate `APP`), jamais dans un crate `SIM`.
     - M2-T0c boss (§37) : `BossPhase` ; profil (§38) : `ProfileHas`.
     - M3-T0c contrats du monde (§62) : `DoorLocked` ; `EntityCount(kind: Rock)`.
     - M3-T0d familiers et champions (§63) : `FamiliarCount` ; `EnemyVariant` (existe, §25).
+    - M3-T6 familiers (§71) : `FamiliarDistance` (distance d'un familier à son porteur ou à un autre familier
+      du même porteur) ; `FamiliarCount` (§63) compte maintenant de vrais familiers.
     - M3-T1 larmes v3 (§66) : aucune attente nouvelle (`BulletCount` avec filtre `projectile`, `HitsAtLeast`,
       `HasStatus`, `StatusStacks`, `EnemyDistance`, `EntityHealth` couvrent les douze scénarios) ; `Stat`
       résout `Luck` avec la base 0 (`sim_core::stats::default_base`).

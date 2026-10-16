@@ -1207,6 +1207,8 @@ pub fn weapon_rollback_system(
 
     mut id_factory: ResMut<GgrsNetIdFactory>,
     mut reload_finished: Option<ResMut<FrameEvents<sim_core::triggers::ReloadFinished>>>,
+    // M3-T6 : un tir réellement parti (lu par `MirrorShot`)
+    mut weapon_fired: Option<ResMut<FrameEvents<sim_core::triggers::WeaponFired>>>,
     // M3-T1 (§66) : objets et synergies du tireur, dont les `projectile` s'ajoutent à l'arme
     // (absents hors jeu complet : chemin d'origine).
     item_inventories: Query<&items::Inventory>,
@@ -1624,6 +1626,12 @@ pub fn weapon_rollback_system(
                             }
                         }
                         weapon_state.last_fire_frame = frame.frame;
+                        if let Some(events) = weapon_fired.as_mut() {
+                            events.send(sim_core::triggers::WeaponFired {
+                                frame: frame.frame,
+                                player_handle: player.handle,
+                            });
+                        }
                     }
                 }
             } else {
@@ -2004,6 +2012,9 @@ impl Plugin for BaseWeaponGamePlugin {
         // (`World`, après `Weapon` et `Projectiles`) ; une file neutre non vide serait hachée
         // et déplacerait la trace de tout tir contre un mur.
         app.add_frame_events_transient::<crate::projectile::BulletWallHit>();
+        // M3-T6 : tir réellement parti (transitoire : émis par `weapon_rollback_system`, lu la même
+        // frame par `MirrorShot`).
+        app.add_frame_events_transient::<sim_core::triggers::WeaponFired>();
 
         // Rollback components for melee weapons
         app.rollback_and_trace::<melee::MeleeWeapon>()
