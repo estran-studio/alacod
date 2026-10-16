@@ -4520,8 +4520,10 @@ rochers ?
 Une salle dont le type porte `door_lock: Secret` garde ses portes **et leurs jumelles** (celles du bord de la
 salle voisine) fermées : au premier tick, `room_lock_system` les laisse closes et leur retire seulement
 `Interactable` (aucune Interaction ne les ouvre) ; les autres portes de salle s'ouvrent comme avant. Les deux
-branches `Locked → Cleared` (fin d'une salle de combat ou d'une arène **voisine**) ignorent aussi les portes
-secrètes (`secret_door`) : nettoyer la salle d'à côté n'ouvre pas le mur (`secret_wall_after_clear`). Le mode
+branches `Locked → Cleared` (fin d'une salle de combat ou d'une arène **voisine**) **et le verrouillage** d'une salle
+voisine (`to_close`) ignorent aussi les portes secrètes (`secret_door`), ouvertes ou fermées : leur état est du seul
+ressort de `secret_wall_system` (`secret_wall_open_then_fight` : mur ouvert, puis la salle voisine se verrouille et se
+nettoie, il reste ouvert ; témoin `_sans_bombe`) : nettoyer la salle d'à côté n'ouvre pas le mur (`secret_wall_after_clear`). Le mode
 `Floors` remet `DoorLocks` à zéro à la transition d'étage (`floor_transition_system`) : les portes renaissent
 fermées, et un étage répété (mêmes `LevelId`) ne les croit pas déjà ouvertes (`secret_wall_floors`).
 `secret_wall_system` (`World`, après `bomb_fuse_system`) : une `ExplosionRequest` qui `destroys` et dont le

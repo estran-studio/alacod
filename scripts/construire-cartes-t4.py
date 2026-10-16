@@ -9,6 +9,8 @@
   salles_secret_combat.ldtk  `salles.ldtk` dont la salle de récompense (collée à l'est de la salle de combat) est
                       de type `secrete` : scénario secret_wall_after_clear (nettoyer la salle de combat voisine
                       n'ouvre pas le mur secret)
+  salles_secret_combat_vide.ldtk  la même sans `dummy` : la salle de combat n'a pas d'ennemi tant qu'un scénario n'en
+                      place pas (secret_wall_open_then_fight : le mur est ouvert avant le verrouillage)
   salles_secret_floors.ldtk  `salles_secret.ldtk` plus un `dummy` ennemi dans la salle de départ (le portail du mode
                       `Floors` reste fermé tant qu'il vit) : séquence `deux_secrets`, scénario secret_wall_floors
   salles_secret.ldtk  deux salles assemblées (SalleDepart, SalleSecrete de type `secrete`, copie de
@@ -228,3 +230,21 @@ def secret_floors():
 
 
 secret_floors()
+
+
+# 6. `salles_secret_combat.ldtk` sans les `CharacterSpawn` : la salle de combat est vide jusqu'à ce qu'un
+# scénario y place un ennemi (`characters`), donc le mur secret peut être ouvert avant son verrouillage.
+def secret_after_combat_empty():
+    d = json.loads((DIR / "salles_secret_combat.ldtk").read_text())
+    for level in d["levels"]:
+        for layer in level["layerInstances"]:
+            if layer["__type"] == "Entities":
+                layer["entityInstances"] = [
+                    e for e in layer["entityInstances"] if e["__identifier"] != "CharacterSpawn"
+                ]
+    d["iid"] = iid("salles_secret_combat_vide", "project")
+    (DIR / "salles_secret_combat_vide.ldtk").write_text(json.dumps(d, indent=2) + "\n")
+    print("salles_secret_combat_vide", len(d["levels"]))
+
+
+secret_after_combat_empty()

@@ -549,7 +549,11 @@ pub fn room_lock_system(
                 let to_close: Vec<_> = order_iter!(doors)
                     .into_iter()
                     .filter(|(_, _, t, _, closed)| {
-                        !*closed && door_near(bounds, t.translation.truncate())
+                        let p = t.translation.truncate();
+                        // Une porte secrète (ouverte par une explosion) n'est jamais refermée par
+                        // le verrouillage d'une salle voisine : son état est du seul ressort de
+                        // `secret_wall_system`.
+                        !*closed && door_near(bounds, p) && !secret_door(p)
                     })
                     .collect();
 
