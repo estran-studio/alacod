@@ -1290,6 +1290,39 @@ fn projectile_probe() {
                 println!("f{frame} statuts #{id} = {list:?}");
             }
         }
+        // M3-T6 : joueurs et familiers (porteur, rang, position), toutes les 10 frames
+        if frame % 10 == 0 {
+            let players: Vec<String> = world
+                .query_filtered::<(&game::character::player::Player, &FixedTransform3D), Without<behaviors::FamiliarOf>>()
+                .iter(world)
+                .map(|(p, t)| format!("j{} ({:.0},{:.0})", p.handle, t.translation.x.to_num::<f32>(), t.translation.y.to_num::<f32>()))
+                .collect();
+            let mut familiars: Vec<(usize, u32, usize, f32, f32)> = world
+                .query::<(&GgrsNetId, &behaviors::FamiliarOf, &FixedTransform3D)>()
+                .iter(world)
+                .map(|(id, f, t)| {
+                    (
+                        f.owner.0,
+                        f.rank,
+                        id.0,
+                        t.translation.x.to_num::<f32>(),
+                        t.translation.y.to_num::<f32>(),
+                    )
+                })
+                .collect();
+            familiars.sort_by(|a, b| a.partial_cmp(b).unwrap());
+            if !familiars.is_empty() {
+                let list: Vec<String> = familiars
+                    .iter()
+                    .map(|(o, r, id, x, y)| format!("#{id}(porteur {o} rang {r}) ({x:.0},{y:.0})"))
+                    .collect();
+                println!(
+                    "f{frame} joueurs {} familiers {}",
+                    players.join(" "),
+                    list.join(" | ")
+                );
+            }
+        }
         let others: Vec<String> = world
             .query_filtered::<(
                 &GgrsNetId,

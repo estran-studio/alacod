@@ -160,6 +160,8 @@ impl Plugin for CoreSetupPlugin {
         // après par lisibilité).
         app.add_plugins(crate::powerups::PowerUpsPlugin);
         app.add_plugins(crate::items::ItemsPlugin);
+        // M3-T6 : familiers et orbitaux (§71), après les tirs des joueurs.
+        app.add_plugins(crate::familiars::FamiliarsPlugin);
         app.add_plugins(crate::loot::LootPlugin);
         app.add_plugins(crate::shop::ShopPlugin);
         app.add_plugins(crate::hub::HubPlugin);

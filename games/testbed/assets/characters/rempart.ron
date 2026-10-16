@@ -1,0 +1,57 @@
+// M3-T6 (docs/conventions.md §71) : orbital d'essai quasi immobile (un tour en 36000 frames : à f300 il a
+// tourné de 3°). Phase 0 : à l'est du porteur, à 24 unités. Détruit les balles hostiles qu'il touche.
+// Cité par l'objet `rempart` ; scénario `orbital_blocks_bullet`.
+(
+    movement: (
+        acceleration: "0.0",
+        max_speed: "0.0",
+        sprint_multiplier: "1.0",
+        sprint_acceleration_per_frame: "0.0",
+        sprint_deceleration_per_frame: "0.0",
+
+        dash_distance: "0.0",
+        dash_duration_frames: 0,
+        dash_cooldown_frames: 0,
+    ),
+
+    asset_name_ref: "rempart",
+
+    collider: (
+        shape: Rectangle(
+            width: "12.",
+            height: "12.",
+        ),
+        offset: ( x: "0.0", y: "-6.0", z: "0.0" )
+    ),
+
+    scale: "0.6",
+
+    base_health: (
+        max: "10.0",
+    ),
+
+    starting_skin: "1",
+    skins: {
+        "1": (layers: {}),
+    },
+
+    team: Some(Players),
+
+    ai: Some((
+        movement_type: None,
+        aggro_range: Some("0.0"),
+        attack_range: Some("0.0"),
+        attack_cooldown_frames: None,
+        can_break: None,
+        attack_through: None,
+        ignores: None,
+        path_through_breakables: None,
+        flee_threshold: None,
+        attack_damage: None,
+        stationary: Some(true),
+        behaviors: Some([
+            Orbit(radius: "24.0", frames_per_turn: 36000),
+            BlockBullets,
+        ]),
+    )),
+)

@@ -1,7 +1,7 @@
-// M3-T0d (docs/conventions.md §63) : familier d'essai (contrat seul). Personnage de l'équipe
+// M3-T0d (docs/conventions.md §63), exécuté par M3-T6 (§71) : familier d'essai. Personnage de l'équipe
 // `Players`, sans IA de poursuite : il suit son porteur (`Follow`) et tire avec lui (`MirrorShot`,
-// arme `pistol` du familier, sans les modificateurs du porteur : Q13). Cité par l'objet `compagnon`
-// (champ `familiar`) ; M3-T6 le crée au ramassage et exécute ses comportements.
+// arme `pistol` du familier, sans les modificateurs du porteur : Q13). Cité par les objets `compagnon`
+// et `compagnon_actif` (champ `familiar`) ; créé au ramassage, détruit à la perte de l'objet.
 (
     movement: (
         acceleration: "0.0",

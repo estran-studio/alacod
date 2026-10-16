@@ -379,6 +379,8 @@ crate `APP`), jamais dans un crate `SIM`.
       Barrel)`, `EntityHealth`, `Health`, `PlayerPosition`, `DoorLocked`, `EnemyDistance`, `Event(kind: "explosion")` couvrent
       les onze scénarios `bomb_*`, `rock_*`, `secret_wall_*`, `spikes_damage`) ; champ de scénario `PlayerScript::bomb`
       (la `BombDef` du joueur, le stock par `items: ["bomb", ...]`, bouton `Bomb` = bit 18, front montant).
+    - M3-T6 familiers (§71) : `FamiliarDistance` (distance d'un familier à son porteur ou à un autre familier
+      du même porteur) ; `FamiliarCount` (§63) compte maintenant de vrais familiers.
     - M3-T1 larmes v3 (§66) : aucune attente nouvelle (`BulletCount` avec filtre `projectile`, `HitsAtLeast`,
       `HasStatus`, `StatusStacks`, `EnemyDistance`, `EntityHealth` couvrent les douze scénarios) ; `Stat`
       résout `Luck` avec la base 0 (`sim_core::stats::default_base`).

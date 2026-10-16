@@ -1,0 +1,6 @@
+// M3-T6 (docs/conventions.md §71) : objet d'essai : un orbital (`orbital`) par exemplaire. Scénario `familiar_quad`.
+(
+    name: "Orbital",
+    kind: Passive,
+    familiar: Some((character: "orbital")),
+)

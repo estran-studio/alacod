@@ -4583,3 +4583,102 @@ une explosion de baril (aujourd'hui non : le baril n'a pas `destroys`).
 Rencontré quand `isaac` donne des bombes de départ à son personnage (dette : le faire change ses traces,
 décision de l'orchestrateur), que M3-T11d place rochers et piques dans les gabarits `combat` et que M3-T5
 place le mur secret ; d'ici là, scénarios testbed seulement.
+
+## 71. Familiers et orbitaux en jeu (M3-T6, chantier C3)
+
+M3-T6 exécute les contrats de §63 : `Follow`, `Orbit`, `MirrorShot`, `BlockBullets`, `FamiliarOf`,
+`ItemDef.familiar`. **Aucune trace existante ne bouge** : aucun objet existant n'a `familiar`, donc aucun
+`FamiliarOf` ni `FamiliarGun` (neutres) n'existe, et les systèmes sortent sans rien toucher quand il n'y a
+pas de familier (`game::familiars`, plugin `FamiliarsPlugin`, dans `RollbackSystemSet::Weapon`).
+
+### Apparition : dérivée de l'état
+
+`familiar_sync_system` compare chaque frame, par joueur, les familiers **voulus** (`desired_familiars` : les objets
+tenus dans l'ordre passifs (ordre de ramassage, un passif en double compte deux fois) puis actif ; `per_copy`
+fois le personnage de chaque objet à `familiar`) aux familiers **existants** (`FamiliarOf`, triés par rang).
+`reconcile` garde le plus long préfixe commun (par personnage) : le reste est détruit par `despawn_rollback()`
+puis recréé. Ramasser un objet crée ses familiers (rangs à la suite), perdre l'actif remplacé détruit ceux de
+l'actif (queue de liste : les autres gardent leur rang) ; perdre un passif du milieu refait les rangs suivants.
+Pas d'événement à rejouer : un rollback avant le ramassage retombe sur le même état. `GgrsNetId` (étiquette =
+id du personnage) : porteurs par `GgrsNetId` croissant, puis rang croissant ; le familier naît **sur le porteur**.
+Porteur à terre : ses familiers ne bougent ni ne tirent ; porteur mort (entité détruite) : ils restent en place,
+immobiles (proposition de la fiche, retenue).
+
+### Un familier est un personnage, ni `Enemy` ni `Player`
+
+Créé par `create_character` (`character/` du jeu), de l'équipe de sa fiche (sinon celle du porteur), avec :
+`FamiliarOf { owner, rank }` (rollback, neutre), `FamiliarBehaviors` (liste `ai.behaviors`, **statique**, comme
+`EnemyBehaviors`), `FamiliarGun` (neutre, seulement avec `MirrorShot`). Sans `Enemy` : ni compté par les salles,
+les vagues, le HUD ; sans `Player` : l'IA ennemie ne le cible pas. **Aucun obstacle** : couche `environment` (aucune
+entrée dans la matrice de collision), donc ni joueur, ni ennemi, ni balle n'est gêné par un familier ; il traverse
+aussi les murs (il vole). **Immunisé** : `Health.invulnerable_until_frame = u32::MAX`, que les collisions de balles,
+de projectiles et de mêlée respectent déjà (traversé, jamais touché). Limite : `Homing`/`Aimed` hostiles « visent
+toujours » un personnage invulnérable (§16) : une balle à tête chercheuse peut chasser un familier.
+
+### Comportements (`behaviors::familiar`, pures, `Fixed` seulement)
+
+- **`Orbit { radius, frames_per_turn }`** : `orbit_position(centre, radius, fpt, index, count, frame)` = centre +
+  `radius` × (cos, sin) de `index × 2π / count + 2π × (frame mod fpt) / fpt` (sens trigonométrique). `index` = rang
+  parmi les orbitaux du porteur, `count` = leur nombre. **Sans état** : se déduit du numéro de frame (fraction de
+  tour en entiers : `Fixed` est un I16F16, un tour de plus de 32 767 frames ne déborde pas), angle replié dans
+  `[-π, π]` (le CORDIC perd sa précision au-delà de 3π/2). Rang = ordre d'apparition.
+- **`Follow { gap }`** : `follow_step(position, ancre, gap)` : immobile à `gap` ou moins de l'ancre, sinon avance de
+  `max(5, excédent / 4)` unités par frame sans dépasser l'excédent. Les suiveurs d'un porteur, par rang croissant,
+  forment une **file** : le premier vise le porteur, chacun des suivants le précédent (position déjà mise à jour dans
+  la frame). Pas de mémoire de trajectoire : la file se déduit des positions courantes.
+- **`MirrorShot { weapon, every }`** : quand le porteur a **réellement tiré** cette frame, le familier tire **sa** arme
+  `weapon` (mode par défaut), dans la direction de visée du porteur (`pan` de l'input), au plus une fois par `every`
+  frames (`FamiliarGun`). Le déclencheur est l'événement transitoire `sim_core::triggers::WeaponFired { frame,
+  player_handle }`, émis par `weapon_rollback_system` quand la balle part (cadence respectée, chargeur non vide) et
+  lu la même frame (`owner_fired`, pure) : une gâchette tenue que la cadence refuse n'émet rien (à la frame 0,
+  `last_fire_frame` valait 0 par défaut et faisait croire à un tir). Événement transitoire : hors checksum, hors
+  snapshot, aucune trace ne bouge. **Q13 (réponse de la fiche et du plan : proposition par défaut) : l'arme du
+  familier, sans les modificateurs du porteur** ni ses objets de larmes ; un seul tir par déclenchement (pas de plombs
+  multiples), ni dispersion ni recul (aucun RNG consommé), projectile composable de l'arme si elle en déclare un. La
+  balle porte le `GgrsNetId` et l'équipe du **porteur** (les kills et les points lui reviennent, elle ne le touche
+  jamais), `player_handle` du porteur, les tags du familier. Variante non retenue (larmes du porteur) :
+  `Projectile::composed` de §66 prend ses ajouts en paramètre, il suffirait d'y passer `items::projectile_mods` du
+  porteur.
+- **`BlockBullets`** : entre le mouvement des balles et leurs collisions, une balle (ordinaire ou composable) que
+  `team_allows_hit` dit hostile au familier et dont le **disque balayé** de la frame (segment ancienne → nouvelle
+  position, rayon de la balle) touche son collider est détruite par `despawn_rollback()` (sans `on_expire`), comme le
+  blank. L'AABB balayée ne sert qu'à présélectionner ; le contact se décide par `swept_hits_collider` (pure,
+  `FixedWide`) : rond = distance du centre au segment < R + r ; rectangle = segment qui le traverse, ou distance
+  segment–rectangle < r (bouts du segment et coins). Une balle qui frôle un coin n'est donc plus détruite.
+
+Ordre dans `Weapon` : `weapon_rollback_system` → `familiar_sync_system` → `familiar_motion_system` →
+`familiar_mirror_shot_system` → `bullet_rollback_system` → `familiar_block_bullets_system` →
+`bullet_rollback_collision_system`. Les `GgrsNetId` des balles de familier sont donc alloués entre ceux des tirs de
+joueurs et le mouvement des balles, dans l'ordre porteur puis rang.
+
+### Lint et attentes
+
+Inchangé pour l'essentiel (§63). Un personnage cité par un objet `familiar` n'est plus signalé « n'apparaît dans
+aucune salle » (son atteignabilité est celle de l'objet). Attente de scénario **`FamiliarDistance { handle, rank,
+to_rank, min, max, at_frame }`** : distance du familier de rang `rank` du joueur `handle` à son porteur ou au
+familier de rang `to_rank` (avec `FamiliarCount` de §63).
+
+### Testbed et scénarios
+
+Personnages `compagnon` (`Follow` 28 + `MirrorShot` `pistol` tous les 12), `orbital` (`Orbit` 36, un tour en 120 frames,
+`BlockBullets`), `rempart` (`Orbit` 24 en 36 000 frames : quasi immobile à l'est du porteur, `BlockBullets`). Objets
+`compagnon`, `compagnon_actif` (actif), `orbital`, `essaim` (`per_copy: 2`), `trio` (`per_copy: 3`), `rempart`.
+
+| Scénario | Prouve |
+|---|---|
+| `familiar_follow` | apparaît sur le porteur, reste dans sa laisse, rattrape et garde 28 unités |
+| `familiar_mirror_shot`, `..._sans_objet` | une larme du porteur, deux coups sur la cible (le familier f58, le porteur f83) ; témoin : un seul |
+| `familiar_two_copies` | deux `compagnon` en file (rangs 0, 1) et un `trio` (rangs 2 à 4, à 120°) |
+| `familiar_lost_with_active` | l'actif remplacé détruit son familier, l'orbital passif reste |
+| `orbital_blocks_bullet`, `..._sans_objet` | l'orbital arrête la boule de feu de la tourelle (f125 : au bord, 19 en vol comme le témoin ; f126 : 18 contre 19), santé 100 à f200 contre 74 sans objet |
+| `familiar_mirror_cadence` | gâchette tenue dès f0 : la cadence refuse le tir jusqu'à f20, le familier ne tire pas avant ; deux balles à f20 |
+| `familiar_quad` | quatre joueurs, deux familiers chacun, synctest (resimulation + checksums à chaque frame) |
+
+Diagnostic : `projectile_probe` (`ALACOD_PROJECTILES=<scénario>:<de>:<à>`) affiche aussi joueurs et familiers
+(porteur, rang, position) toutes les 10 frames.
+
+### Atteignabilité
+
+M3-T11b met au moins deux familiers et un orbital dans le pool trésor d'`isaac` ; d'ici là, scénarios testbed seulement
+(dette nommée, à fermer par T11b).
+
