@@ -469,68 +469,6 @@ mod tests {
         );
     }
 
-    /// Relevé jetable des graines de scénarios (`--ignored --nocapture`).
-    #[test]
-    #[ignore]
-    fn isaac_releve_des_graines() {
-        let path = get_crate_root_path!("../../games/isaac/assets/maps/salles.ldtk");
-        let data: LdtkJson = load_ldtk_json_file(&path).unwrap();
-        let grammar = isaac_grammar("sous_sol");
-        for seed in 1..=300 {
-            let g = isaac_floor(&data, &grammar, seed);
-            let rooms = &g.generated_rooms;
-            let index: std::collections::BTreeMap<&str, usize> = rooms
-                .iter()
-                .enumerate()
-                .map(|(i, r)| (r.iid(), i))
-                .collect();
-            let adj = |i: usize| -> Vec<usize> {
-                rooms[i]
-                    .neighbour_iids()
-                    .iter()
-                    .map(|n| index[n.as_str()])
-                    .collect()
-            };
-            let find = |p: &str| rooms.iter().position(|r| r.template.starts_with(p));
-            let secret = find("Secrete").unwrap();
-            let tresor = find("Tresor").unwrap();
-            let boss = find("Boss").unwrap();
-            let (ox, oy, _, _) = rooms[0].world_rect();
-            let cell = |i: usize| {
-                let (x, y, _, _) = rooms[i].world_rect();
-                ((x - ox) / 240, (y - oy) / 144)
-            };
-            if matches!(seed, 1 | 5 | 8 | 23 | 26 | 123) {
-                let list: Vec<String> = rooms
-                    .iter()
-                    .enumerate()
-                    .map(|(i, r)| {
-                        let (x, y, _, _) = r.world_rect();
-                        format!(
-                            "{}#{i}@{},{}[{}]",
-                            r.template,
-                            (x - ox) / 240,
-                            (y - oy) / 144,
-                            adj(i).iter().map(|j| j.to_string()).collect::<Vec<_>>().join(",")
-                        )
-                    })
-                    .collect();
-                println!("PLAN {seed} : {}", list.join(" "));
-            }
-            println!(
-                "seed {seed:4} n={:2} secret_near_start={} tresor_near_start={} diable={} boss={} loops={} secret_at={:?} tresor_at={:?}",
-                rooms.len(),
-                adj(secret).contains(&0),
-                adj(tresor).contains(&0),
-                find("Diable").is_some(),
-                rooms[boss].template,
-                rooms.iter().enumerate().map(|(i, _)| adj(i).len()).sum::<usize>() / 2 + 2 - rooms.len() - adj(secret).len(),
-                cell(secret),
-                cell(tresor)
-            );
-        }
-    }
-
     /// M2-T11 (`docs/conventions.md` §46) : les gabarits `CombatEW` et `CombatNS` de `gungeon`
     /// portent deux barils et une table. Sur 1 000 graines de la grammaire `etage`, la génération
     /// réussit, chaque salle générée à partir de ces gabarits garde ses trois objets de décor

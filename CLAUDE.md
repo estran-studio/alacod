@@ -381,6 +381,11 @@ crate `APP`), jamais dans un crate `SIM`.
       Barrel)`, `EntityHealth`, `Health`, `PlayerPosition`, `DoorLocked`, `EnemyDistance`, `Event(kind: "explosion")` couvrent
       les seize scénarios `bomb_*`, `rock_*`, `secret_wall_*`, `explode_effect`, `spikes_damage`) ; champ de scénario `PlayerScript::bomb`
       (la `BombDef` du joueur, le stock par `items: ["bomb", ...]`, bouton `Bomb` = bit 18, front montant).
+    - M3-T5 grille (§70) : `RoomLayout(kind, nth, size: Some((l, h)), touches: [types], apart: [types])` (géométrie
+      d'une salle typée relue sur ses bornes : taille en pixels, voisinage par un bord commun ; à employer sur un
+      étage unique, les mondes des étages se superposent) ; `DoorLocked` lit désormais `door_lock_at` (étage courant,
+      `RoomKindDef::lock_from_floor`) ; aucune autre attente nouvelle (`RoomState`, `BossPhase`, `Consumable`, `Event`,
+      `EntityCount` couvrent les scénarios `grid_*` et `key_door_*`).
     - M3-T6 familiers (§71) : `FamiliarDistance` (distance d'un familier à son porteur ou à un autre familier
       du même porteur) ; `FamiliarCount` (§63) compte maintenant de vrais familiers.
     - M3-T1 larmes v3 (§66) : aucune attente nouvelle (`BulletCount` avec filtre `projectile`, `HitsAtLeast`,

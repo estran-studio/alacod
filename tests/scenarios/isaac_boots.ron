@@ -3,8 +3,8 @@
 // sans arrêt vers la droite avec les larmes (chargeur de 9999 : aucun rechargement).
 //
 // À regarder : le joueur est vivant dans la salle de départ, les larmes partent à 2,5 tirs/s sans jamais
-// recharger, les ennemis des salles voisines dorment ; seules les six portes de la salle secrète (trois
-// portes, avec leurs jumelles) sont fermées, murées tant qu'aucune bombe n'explose.
+// recharger, les ennemis des salles voisines dorment ; seules six portes sont fermées (les quatre de la salle
+// secrète, dont deux murées, et les deux jumelles de ses voisines) : le mur secret ne cède qu'à une bombe.
 Scenario(
     powerup_drop_chance_override: "0.0",
     game: "isaac",

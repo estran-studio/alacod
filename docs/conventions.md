@@ -4294,7 +4294,9 @@ défaut). Lint : `Key(0)`. Attente : `DoorLocked(kind, nth, locked, at_frame)` (
 (Q8, proposition retenue : `cell` = 15 × 9 cases, une seule taille). Lint (`lint_floor_grammars`) :
 `cell` et `max` > 0, `max` contient au moins `rooms.0` salles, et chaque gabarit de la grammaire
 fait exactement `cell` cases avec une ouverture centrée sur chacun des quatre côtés. `plan_floor`
-**refuse** `Grid` (`FloorError::Unsupported`) tant que M3-T5 n'est pas livrée.
+**refusait** `Grid` (`FloorError::Unsupported`) tant que M3-T5 n'était pas livrée : le planificateur est
+`map::generation::grid` (§70), le lint des gabarits passe aux multiples de `cell` et aux ouvertures par
+case de salle (§70), `Grid` gagne `loops`, `secret` et `post_boss`.
 
 ### Testbed et scénarios
 
@@ -4640,7 +4642,7 @@ fermées, et un étage répété (mêmes `LevelId`) ne les croit pas déjà ouve
 rayon touche le **bord du collider** d'une de ces portes (`world::rect_within_radius`, strict) ouvre
 **toutes** les portes de la salle (colliders retirés) et la range dans `DoorLocks` (`DoorLocked(kind, nth,
 locked: false)`). Le champ de flux relit les portes à chaque mise à jour : les deux salles sont reliées
-(`secret_wall_bomb`, un ennemi de la salle secrète rejoint le joueur). Placement par la grammaire : M3-T5.
+(`secret_wall_bomb`, un ennemi de la salle secrète rejoint le joueur). Placement par la grammaire : M3-T5 (§70).
 
 ### Piques
 
@@ -4706,8 +4708,203 @@ une explosion de baril (aujourd'hui non : le baril n'a pas `destroys`).
 ### Atteignabilité
 
 Rencontré quand `isaac` donne des bombes de départ à son personnage (dette : le faire change ses traces,
-décision de l'orchestrateur), que M3-T11d place rochers et piques dans les gabarits `combat` et que M3-T5
-place le mur secret ; d'ici là, scénarios testbed seulement.
+décision de l'orchestrateur), que M3-T11d place rochers et piques dans les gabarits `combat` ; M3-T5 a placé
+le mur secret (§70 : une salle secrète par étage de `isaac`, graines 5 et 8 : `grid_secret_*`).
+
+## 70. Étage en grille : planificateur, salle secrète, trésor à clé, salle post-boss (M3-T5, chantier E2 v2)
+
+Exécute `FloorLayout::Grid` (contrat de §62) : un étage d'Isaac pose ses salles sur une grille de cases de
+même taille, une porte par côté partagé relié, des boucles possibles, des culs-de-sac pour les salles
+spéciales, une salle secrète voisine de plusieurs salles. Code : `map::generation::grid` (planificateur et
+contrôle indépendant), `map::generation::floor` (dispatch, `FloorPlan`), `map::generation::imp::floor`,
+`map_ldtk::generation::to` (portes de plus, murage exact), `map_ldtk::game::rooms` (portes à clé, minicarte),
+`content::lint` (gabarits et clés). **`Graph` est inchangé** : mêmes plans, mêmes traces pour `gungeon`,
+`zombies`, `throne` et `testbed` (preuve en fin de §).
+
+### Contenu : la grammaire
+
+```ron
+// games/isaac/assets/floor_grammars/sous_sol.ron
+(templates: "maps/salles.ldtk", grammar: (
+    rooms: (8, 12),                                   // départ, boss, requises, secrète, diable compris
+    required: {"boss": 1, "tresor": 1, "secrete": 1}, // en grille : exactement ce nombre
+    min_boss_distance: 3,
+    layout: Some(Grid(
+        cell: (15, 9),                                // une case de salle, en cases de 16 px (Q8)
+        max: (7, 7),                                  // étendue de la grille, en cases de salle
+        loops: 1,                                     // boucles au plus (défaut 0 : un arbre)
+        secret: "secrete",                            // type de la salle secrète (défaut)
+        post_boss: Some((kind: "diable", chance: "0.33")), // salle post-boss, absente : aucune
+    )),
+))
+```
+
+Réponse de William à Q8 : **case unique et grandes salles 2×1, 1×2, 2×2 dès T5** (formes en L hors périmètre).
+Un gabarit couvre un rectangle de cases de salle : sa taille en cases de 16 px est un **multiple de `cell`**, et
+**chaque côté de chaque case de salle** a une ouverture `LevelConnection` **centrée sur ce segment** (un 2×1 :
+deux ouvertures au nord, deux au sud, une à l'ouest et à l'est). Cette ouverture est un *port* : `(côté, case le
+long du côté)`. Lecture de « ouverture centrée sur chaque côté » pour une grande salle : **par segment de case**,
+seule façon d'aligner ses portes sur celles de voisines 1×1 ; à relire (Q8 ne tranchait pas ce point). Un
+gabarit n'a plus besoin d'être un cul-de-sac : le boss et le trésor ont leurs quatre ouvertures, le plan n'en
+relie qu'une, le chargeur mure les autres. Les quatre `BossN/E/S/W` de T0f disparaissent.
+
+### Algorithme (`grid::attempt`, une tentative = une graine)
+
+1. **Départ** (gabarit `Spawn` du type de départ) au centre de la grille, aligné sur les tuiles comme en `Graph`.
+2. **Remplissage** : croissance, une pose = tirage d'un gabarit parmi ceux qui ont au moins une pose valide (un 2×2
+   n'est pas favorisé par ses huit ports), puis d'une pose de ce gabarit. Une pose est valide si le rectangle est
+   dans la grille et dans le monde (`max_width`/`max_heigth`), sans salle, et **ne touche que son parent** (règle
+   d'Isaac). Sauf à `loops` pas de croissance tirés d'un flux local, où la pose peut toucher **une seconde** salle
+   ordinaire, reliée par une porte de plus (une boucle ; ports libres face à face exigés).
+3. **Boss** sur une salle de profondeur maximale (distance en salles, boucles comprises) : le cul-de-sac le plus loin ;
+   `min_boss_distance` ; strictement le plus loin de l'étage.
+4. **Salle post-boss** : la chance (`post_boss.chance`) est tirée **une fois par étage** par un flux local de la
+   graine de l'emplacement (avant les tentatives : toutes les tentatives voient la même décision) ; la place est
+   réservée dans `rooms` ; la case est accrochée au boss (seul voisin) et n'est pas comptée comme « plus loin que le
+   boss ». Le boss a donc un voisin de plus, elle.
+5. **Salles requises** (hors boss et secrète) : culs-de-sac accrochés à une salle ordinaire (départ ou remplissage)
+   de profondeur ≤ celle du boss − 2.
+6. **Salle secrète** (`required` la demande) : un rectangle libre, sans voisin boss ni post-boss, qui touche **au
+   moins deux salles ordinaires** par un port libre de part et d'autre ; une porte par voisine (la première dans
+   l'ordre des ports). Les candidats sont énumérés dans l'ordre (`BTreeSet`), tirés comme les poses.
+7. **Contrôle indépendant** `validate_grid_plan`, relu depuis les `Room` (positions, connexions) et non depuis l'état du
+   planificateur : bornes, types **exacts**, un seul départ en tête, un seul boss, alignement sur la grille et
+   tailles multiples, aucun chevauchement ni identifiant en double, **portes réciproques entre salles voisines aux
+   ouvertures face à face** (aucune porte vers le vide), connexité hors salle secrète, arêtes ≤ arbre + `loops`, deux
+   salles voisines (hors secrète) toujours reliées, boss en cul-de-sac strictement le plus loin (distances sans la
+   secrète : un raccourci par elle ne compte pas) à la salle post-boss près, requises en culs-de-sac, secrète à ≥ 2
+   portes toutes ordinaires et loin du boss. Un plan refusé relance une tentative.
+
+**Déterminisme.** `BTreeMap`/`BTreeSet`, `Vec` parcourus dans l'ordre de pose, aucun `HashMap`. Le RNG d'une
+tentative est découpé en **flux locaux** par usage (croissance, pas de boucle, secrète, départ, identifiants de salle
+par indice) dérivés de la graine de la tentative (`mix`) : ajouter un tirage à l'un ne déplace pas les autres. Les
+tirages bornés prennent les bits de poids fort du LCG (`below` : `RollbackRng::next_u32_range` prend un modulo, dont
+les bits de poids faible alternent). Identifiants de salle `seed ^ (indice + 1) × 0x9E3779B9` : injectif, jamais deux
+salles au même identifiant. Graine par emplacement : inchangée (§40).
+
+**Terminaison (le risque de la fiche).** Aucune boucle `while`. La croissance est un `for` borné par le nombre de
+salles ; une pose énumère un nombre fini de candidats (parents × ports × gabarits × ports) ; les pas de boucle sont
+tirés sans remise ; les tentatives sont bornées par `max_attempts` (`FloorError::Exhausted`, `NoTemplate` si un type
+n'a aucun gabarit à ports). `grid::step_bound(grammaire, gabarits)` majore les évaluations de candidats ;
+`FloorPlan::steps` les compte, tentatives échouées comprises. Tests : 1 000 graines sous la borne (maximum observé
+353 pour une borne de 77 millions, gabarits du test), grammaire impossible (grille d'une case, distance du boss
+irréaliste, plus de requises que de salles) : échec explicite sous la borne.
+
+### Plan : de l'arbre au graphe
+
+`PlannedRoom.links: Vec<PlannedLink { mine, other, theirs }>` : les portes qui ne sont l'arête de pose (parent) d'aucune
+salle (boucle, voisines supplémentaires de la salle secrète), portées par la salle posée en dernier des deux ; vide en
+`Graph`. `IMapGeneration::get_links` (vide par défaut) et `IMapGenerator::add_link` les rendent après les salles
+(`map_generation`, aucun tirage : `Graph` inchangé). `Room::connections` finales portent déjà toutes les portes :
+l'appariement des portes (`get_doors`) est inchangé.
+
+**Murage exact.** `GeneratedMap::close_unused_openings` raisonne par direction (un côté est utilisé dès qu'il a un
+voisin) : insuffisant pour une grande salle dont seules certaines ouvertures d'un côté mènent quelque part. En grille
+le chargeur appelle `close_unused_openings_exact` : chaque salle générée garde la liste de ses ouvertures sans porte
+du plan (lue dans ses connexions finales) et les mure. `Graph` garde l'ancienne fonction (cartes identiques).
+
+### Salle secrète
+
+Type `secrete` (`rooms/secrete.ron`, `door_lock: Secret`) : une par étage si `required` la demande, murée (§69 : une
+explosion `destroys` ouvre toutes ses portes). Elle n'est reliée qu'à des salles **ordinaires** (départ, combat) :
+seules, les portes du mur secret restent closes (`doors_closed` de `isaac_boots`, graine 1 : six portes, les quatre de la salle secrète dont deux murées et les deux jumelles de ses deux voisines).
+**Accessible à la bombe** : ses voisines sont atteignables du départ sans la franchir (testé sur 1 000 graines, deux
+grammaires) et `grid_secret_bomb` l'ouvre par une vraie explosion. **Minicarte** (M2-T18, `hud_model::minimap_rooms`) :
+elle lit déjà les bornes de chaque salle et `RoomStates`, donc dessine une grille (grandes salles à leur taille)
+sans changement ; l'adaptateur de carte (`update_hud_room_geometry`) ne lui donne pas la salle secrète **tant que son
+mur est fermé** (`hidden_from_minimap`, unitaire) : elle apparaît à l'ouverture (`DoorLocks`).
+
+### Trésor à clé
+
+`RoomKindDef.lock_from_floor: u32` (défaut 0, champ de fin de structure absent du contenu existant) : étage de la
+séquence `Floors` (indice, 0 = le premier) à partir duquel `door_lock` s'applique ; `RoomKindTable::door_lock_at(kind,
+floor)`. `rooms/tresor.ron` d'`isaac` : `door_lock: Some(Key(1)), lock_from_floor: 1` (Q6 : fermé à partir du second
+étage). **`DoorLock::Key` n'était exécuté par personne** (T0c le disait pour T4, qui n'a fait que `Secret`) :
+- `InteractionType::KeyDoor` (fin d'enum) : au premier tick, la porte d'une salle `Key(n)` de l'étage courant **et sa
+  jumelle** (`DoorConfig::paired_door` renseigné : les ouvertures murées restent des portes de salle ordinaires)
+  gardent leur collider et leur `Interactable` devient `KeyDoor` (même portée) : `handle_door_interaction` ne les voit
+  plus, donc **aucun coût de porte** n'est débité. Prompt du HUD « Ouvrir — clé ».
+- `key_door_system` (`Interaction`, après tous les handlers qui écrivent `Inventory`) : une Interaction sur une porte
+  `KeyDoor` consomme `n` clés **de l'interacteur** (Q4 : les clés sont par joueur), retire collider, couche et
+  `Interactable` de toutes les portes scellées de la salle, inscrit la salle dans `DoorLocks`
+  (`ggrs{f=… key_door_open room=… by=…}`) ; sans clé suffisante : `key_door_refused`, rien ne change.
+- ni l'ouverture d'office, ni le verrouillage d'une salle de combat voisine, ni sa fin (`Locked → Cleared`) ne touchent
+  une porte à clé, ouverte ou fermée (même règle que le mur secret).
+- `DoorLocked` (attente) et le lint lisent `door_lock_at` avec l'étage courant.
+**Clé obtenable** : lint (§ plus bas) et donnée : `consumables_per_floor: {"key": 1}` de la séquence `sous_sol`
+(servi à l'arrivée du second étage) ; `pleureur.ron` gagne `starting_consumables: {"key": 0}` : `blank_system` ne sert
+que les joueurs qui **ont** un `Inventory` (posé au premier ramassage ou par `starting_consumables`), sans quoi la clé du
+second étage n'aurait servi personne avant le premier ramassage.
+
+### Salle post-boss
+
+Type `diable` (`rooms/diable.ron`, vide ; le marché est T8). Tirée par `post_boss.chance` (un tiers pour `isaac`), une fois
+par étage, accrochée au boss, jamais voisine de la salle secrète. Le boss verrouille sa salle comme avant ; à sa mort ses
+portes s'ouvrent, celle de la salle post-boss comprise.
+
+### Lint
+
+`lint_floor_grammars` (grammaires en grille) : taille d'un gabarit d'un type nécessaire multiple de `cell`, ouverture
+centrée sur **chaque segment de chaque côté** (message : côté et segment), `FloorGrammar::problems()` : `secret` égal au
+départ/boss/remplissage, plus d'une secrète requise, `post_boss.chance` hors [0, 1], `post_boss.kind` déjà pris ;
+`lock_from_floor` sans `door_lock` ; **clé obtenable** : un type `Key(n)` exigé par une grammaire que nomme une séquence
+`Floors` doit avoir une source de ≥ n clés pour l'étage où le verrou s'applique (`consumables_per_floor["key"]` servi à
+partir de l'étage 1 seulement, pool de butin qui donne `key`, `starting_consumables`). Fixtures : `grid_template_size_not_multiple`,
+`grid_template_missing_opening`, `grid_post_boss_chance_out_of_range`, `lock_from_floor_without_lock`,
+`key_room_without_key_source`, `key_room_key_at_floor_zero_only` ; cas valides `grid_large_rooms_ok`,
+`key_room_with_key_source`.
+
+### `isaac` en grille
+
+Gabarits `maps/salles.ldtk` (`docs/taches/rapports/m3-t5-grammaire-grille.make_salles.py`) : `Depart`, `Combat`, `Boss`
+(1×1), `BossGrand` (2×2), `Tresor` (1×1), `TresorLong` (2×1), `TresorHaut` (1×2), `Secrete`, `Diable`, `Transit`. Grammaires :
+`sous_sol` (8 à 12 salles, 7×7), `sous_sol_grand` (12 à 15, 8×8, deux boucles), `sous_sol_court` (3 salles, désignée par
+`entry.start_map = floor:sous_sol_court` pour les scénarios générés sans carte : `boss_gardien`), `sous_sol_transit` (un
+départ et une salle sans ennemi : portail ouvert aussitôt). Séquences : `sous_sol` (**défaut : deux étages**, clé au second),
+`sous_sol_un`, `sous_sol_grand`, `sous_sol_court`, `sous_sol_cle` (étage de passage puis `sous_sol` : le second étage des
+scénarios à clé sans jouer le premier). Objet `bomb` (copie du testbed : la bombe des scénarios ; `isaac` n'en donne toujours
+pas au départ). **Les traces d'isaac bougent** : (1) la carte est une grille ; (2) le joueur a un `Inventory`
+(`starting_consumables`). Preuve et traces re-bénies : rapport `docs/taches/rapports/m3-t5-grammaire-grille.md`.
+
+### Scénarios et attente `RoomLayout`
+
+Attente nouvelle `RoomLayout(kind, nth, size: Some((w, h)), touches: [types], apart: [types], at_frame)` (même tri que
+`RoomState`, géométrie relue sur `RoomBounds`, à employer sur un étage unique : les mondes des étages se superposent) :
+taille en pixels (2×2 = 480 × 288) et voisinage par un bord commun.
+
+| Scénario | Prouve |
+|---|---|
+| `grid_floor_seed_1`, `_23`, `_123` | un étage entier joué par le bot `explorateur` jusqu'à la victoire : boss 1×1 (graine 1, trésor 1×2, boucle), **boss 2×2** avec salle du diable et trésor 2×1 (graine 23), diable et boucle (graine 123) ; tailles, voisinages, secrète fermée, trésor ouvert au premier étage |
+| `grid_secret_room` | graine 5 : secrète placée (voisine du départ et d'un combat, loin du boss), fermée, rien n'y entre |
+| `grid_secret_bomb`, `grid_secret_no_bomb` | graine 8 : la bombe (explosion f55) ouvre toutes les portes de la secrète, le joueur y entre ; témoin sans bombe : il s'arrête contre le mur |
+| `grid_treasure_key`, `grid_treasure_floor0` | séquence `sous_sol_cle`, graine -1013904216 (plan du second étage = graine 26) : le trésor est fermé à clé, la clé du second étage l'ouvre (f56), le joueur entre ; témoin du premier étage : porte ordinaire |
+| `grid_post_boss` | graine 8 : la salle du diable collée au boss et à lui seul, boss verrouillé puis nettoyé, victoire |
+| `isaac_floor_seed_1`, `isaac_boots` | partie ordinaire (séquence par défaut) : premier étage nettoyé, portail, second étage : trésor fermé, clé servie, secrète fermée |
+
+Tests : `map::generation::grid` (unitaires : ports par forme, `port_cell`/`origin_for` réciproques, pose d'un 2×2 sur un
+rectangle libre qui ne touche que le parent, 1 000 graines, boucles bornées, chance 0 et 1, déterminisme, grammaires
+impossibles, plan altéré refusé), `map_ldtk::generation` (`isaac_etages_de_grille_sur_1000_graines` : 2 × 1 000 graines
+sur les gabarits réels, `isaac_grille_de_12_a_15_salles_sous_deux_fois_grand_de_gungeon`), `map_ldtk::game::rooms`
+(minicarte), `world::rooms` (`door_lock_at`), `content` (lint et fixtures).
+
+### Mesures
+
+1 000 graines, gabarits du test (départ, combat, boss 1×1 et 2×2, trésor 1×1/2×1/1×2, secrète, diable) : 1,08 tentative en
+moyenne, 353 évaluations de candidats au plus ; gabarits d'`isaac` (2 grammaires × 1 000 graines) : salle du diable 304
+fois sur 1 000 (un tiers), boucle dans 510 étages `sous_sol` sur 1 000 et 927 `sous_sol_grand` ; génération d'un étage de 12 à
+15 salles en grille 0,52 ms contre 0,70 ms pour `grand` de gungeon (rapport 0,74 ; fiche : moins de 2).
+
+### Questions pour William
+
+Ouverture « centrée sur chaque côté » d'une grande salle : lue par segment de case de salle (voir plus haut). Bot et
+trésor à clé : l'`explorateur` n'ouvre pas les portes à clé (T14). Aucune salle secrète n'apparaît sur la minicarte de la
+fiche T16 tant que le mur est fermé : T16 reprendra le dessin.
+
+### Atteignabilité
+
+La séquence par défaut d'`isaac` est en grille : toute partie ordinaire la rencontre (deux étages). Secrète : graines 5 et 8
+(`grid_secret_*`) ; trésor à clé : second étage de toute partie par défaut, graine -1013904216 de `sous_sol_cle` ;
+post-boss : graines 8, 23, 123.
 
 ## 71. Familiers et orbitaux en jeu (M3-T6, chantier C3)
 
