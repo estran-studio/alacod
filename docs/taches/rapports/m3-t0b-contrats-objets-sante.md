@@ -78,3 +78,10 @@ puis `Action::Scaled` (`actions.rs`, `describe.rs`, `effects_runtime.rs`, `power
 journal (`docs/taches.md`). `cargo check --workspace --tests` (features par défaut) échoue sur
 `crates/game/src/ui/screens/hui.rs` (champs `merchant*` manquants dans des tests) ; ce fichier est
 identique à `origin/main`, la même compilation y échoue donc aussi.
+
+Vérifications après la fusion de `c0aceb3e` : `cargo test -p content` OK ; `make test_scenarios_par
+SHARDS=3` (sans BLESS) OK, 391 scénarios, aucune trace existante modifiée, `hit_iframes.trace`
+identique à la trace bénie ; `make test_crates` OK ; `make gen` ×5 OK sans diff ; `make lint` ×5
+OK ; `cargo fmt --all -- --check` OK ; `make check_sim_boundary` OK. `cargo check --workspace
+--tests` : échec reproduit sur `origin/main` (`hui.rs`, champs `merchant*`), `cargo check -p game
+--tests` passe sur la branche.
