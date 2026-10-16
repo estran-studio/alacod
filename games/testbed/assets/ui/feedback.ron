@@ -31,6 +31,7 @@
         // Événements (lot B) : coup porté par un joueur local, dégâts reçus, ennemi tué, dash,
         // blank, porte ouverte.
         "hit": "sounds/hit.ogg",
+        "melee": "sounds/melee.ogg",
         "hurt": "sounds/hurt.ogg",
         "death": "sounds/death.ogg",
         "dash": "sounds/dash.ogg",
@@ -38,5 +39,7 @@
         "door": "sounds/door.ogg",
     },
     // Volume par clé de `sounds`, en dB (0 : inchangé ; plage -60 à +12), ex. {"hit": -3.0}.
-    volumes: {},
+    // -12 dB partout (2026-10-16, retour de William : tout trop fort par défaut ;
+    // les fichiers des lots A/B sont normalisés à -3 dBFS crête).
+    volumes: {"shot_pistol": -12.0, "shot_shotgun": -12.0, "shot_smg": -12.0, "reload": -12.0, "hit": -12.0, "melee": -9.0, "hurt": -12.0, "death": -6.0, "dash": -12.0, "blank": -12.0, "door": -12.0},
 )

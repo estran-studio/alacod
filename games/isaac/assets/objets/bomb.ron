@@ -1,0 +1,9 @@
+// `isaac` (M3-T5, docs/conventions.md §70 ; copie de `testbed`, M3-T4, §69) : la bombe, consommable `bomb`
+// (nom réservé, `game::loot::BOMB_ITEM`). Isaac n'en donne pas encore au départ (décision de
+// l'orchestrateur, §69) : les scénarios `grid_secret_bomb` la donnent par `PlayerScript::items`, avec
+// la `BombDef` de `PlayerScript::bomb`. Elle ouvre le mur de la salle secrète.
+(
+    name: "Bombe",
+    kind: Consumable,
+    rarity: Common,
+)

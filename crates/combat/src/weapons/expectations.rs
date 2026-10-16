@@ -537,9 +537,27 @@ pub enum Expectation {
         doors_closed: Option<u32>,
         at_frame: u32,
     },
+    /// M3-T5 (`docs/conventions.md` §70) : géométrie de la `nth` salle de type `kind` (même tri que
+    /// `RoomState`) dans la carte générée, relue à la frame `at_frame` : `size` = (largeur, hauteur)
+    /// en pixels (grandes salles de la grille : 480 × 288 pour une 2×2 de 15 × 9 cases), `touches` =
+    /// types dont au moins une salle partage un bord avec elle, `apart` = types dont aucune salle ne
+    /// la touche. À employer sur un étage unique (les mondes des étages se superposent).
+    RoomLayout {
+        kind: String,
+        #[serde(default)]
+        nth: usize,
+        #[serde(default, skip_serializing_if = "Option::is_none")]
+        size: Option<(u32, u32)>,
+        #[serde(default, skip_serializing_if = "Vec::is_empty")]
+        touches: Vec<String>,
+        #[serde(default, skip_serializing_if = "Vec::is_empty")]
+        apart: Vec<String>,
+        at_frame: u32,
+    },
     /// M3-T0c (`docs/conventions.md` §62) : la porte de la `nth` salle de type `kind` (même tri que
     /// `RoomState`) est fermée à clé ou murée (`locked: true`) ou ouverte (`false`) à la frame
-    /// exacte `at_frame`. Une salle dont le type n'a pas de `door_lock` n'est jamais verrouillée.
+    /// exacte `at_frame`. Une salle dont le type n'a pas de `door_lock` à l'étage courant (M3-T5 :
+    /// `door_lock_at`, `lock_from_floor`, étage `0` hors `Floors`) n'est jamais verrouillée.
     DoorLocked {
         kind: String,
         #[serde(default)]
@@ -634,6 +652,7 @@ impl Expectation {
             | Self::ScreenText { at_frame, .. }
             | Self::RoomState { at_frame, .. }
             | Self::DoorLocked { at_frame, .. }
+            | Self::RoomLayout { at_frame, .. }
             | Self::ItemCount { at_frame, .. }
             | Self::Shelf { at_frame, .. }
             | Self::ShelfCount { at_frame, .. }

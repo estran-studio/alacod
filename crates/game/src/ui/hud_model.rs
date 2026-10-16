@@ -957,6 +957,43 @@ mod tests {
         assert!(snapshot.texts["minimap"].contains("boss · boss · inexplorée"));
     }
 
+    /// M3-T5 (§70) : la minicarte dessine une grille de salles de tailles différentes (une 2×2 et une
+    /// 1×2 à côté de cases 1×1) à leur échelle commune, sans chevauchement (la salle secrète fermée, que
+    /// l'adaptateur de carte ne fournit pas, laisse simplement un trou).
+    #[test]
+    fn minicarte_dessine_une_grille_de_salles_de_tailles_differentes() {
+        let room = |id: &str, kind: &str, x: i32, y: i32, w: i32, h: i32| HudRoomBounds {
+            id: id.into(),
+            kind: kind.into(),
+            position: FixedVec2::new(Fixed::from_num(x), Fixed::from_num(y)),
+            size: FixedVec2::new(Fixed::from_num(w), Fixed::from_num(h)),
+        };
+        // cases de 240 × 144 ; le monde a son y vers le haut : boss 2×2 au nord-est, trésor 1×2 à l'ouest
+        let geometry = HudRoomGeometry(vec![
+            room("depart", "depart", 0, 0, 240, 144),
+            room("combat", "combat", 240, 0, 240, 144),
+            room("boss", "boss", 480, 0, 480, 288),
+            room("tresor", "tresor", -240, 0, 240, 288),
+        ]);
+        let rooms = minimap_rooms(&geometry, &RoomStates::default(), &BTreeSet::new(), None);
+        assert_eq!(rooms.len(), 4);
+        let rect = |id: &str| rooms.iter().find(|r| r.id == id).unwrap().rect;
+        // même échelle sur les deux axes : une 2×2 fait deux fois le côté d'une 1×1
+        let (small, big) = (rect("depart"), rect("boss"));
+        assert!((big[2] - 2.0 * small[2]).abs() < 1e-6 && (big[3] - 2.0 * small[3]).abs() < 1e-6);
+        assert!((small[2] / small[3] - 240.0 / 144.0).abs() < 1e-5);
+        for (i, a) in rooms.iter().enumerate() {
+            for b in &rooms[i + 1..] {
+                let apart = a.rect[0] + a.rect[2] <= b.rect[0] + 1e-6
+                    || b.rect[0] + b.rect[2] <= a.rect[0] + 1e-6
+                    || a.rect[1] + a.rect[3] <= b.rect[1] + 1e-6
+                    || b.rect[1] + b.rect[3] <= a.rect[1] + 1e-6;
+                assert!(apart, "{} chevauche {}", a.id, b.id);
+            }
+            assert!(a.rect.iter().all(|v| (0.0..=1.0).contains(v)));
+        }
+    }
+
     /// D72 : une salle non combattante (jamais activée, donc `Dormant`) visitée puis quittée
     /// reste marquée visitée ; l'étage suivant repart de zéro.
     #[test]

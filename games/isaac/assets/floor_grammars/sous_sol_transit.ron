@@ -1,0 +1,14 @@
+// Étage « de passage » de `isaac` (M3-T5, docs/conventions.md §70) : un départ et une salle sans
+// ennemi (type `transit`, tenant lieu de boss), donc un portail ouvert dès la première frame. Sert
+// aux scénarios qui veulent le second étage de la séquence `sous_sol_cle` (trésor fermé à clé) sans
+// jouer le premier.
+(
+    templates: "maps/salles.ldtk",
+    grammar: (
+        rooms: (2, 2),
+        required: {"transit": 1},
+        boss: "transit",
+        min_boss_distance: 1,
+        layout: Some(Grid(cell: (15, 9), max: (3, 3))),
+    ),
+)

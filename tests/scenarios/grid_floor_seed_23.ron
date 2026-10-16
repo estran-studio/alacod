@@ -1,0 +1,32 @@
+// M3-T5 (docs/conventions.md §70) : un étage en grille avec un **boss 2×2** (480 × 288 px), graine 23 (séquence
+// `sous_sol_un`). Neuf salles : le départ, quatre combats, le boss, la salle du diable (case accrochée au boss, tirée
+// ici), un trésor **2×1** à l'ouest et la salle secrète sous le départ. Le bot `explorateur` bat le boss en premier
+// (il est plus proche que les derniers combats), puis nettoie le reste.
+//
+// À regarder : le boss verrouille sa grande salle (f520), passe en phase 1 (f659), meurt (f779) et la salle se rouvre
+// (ses portes, celle de la salle du diable comprise) ; le bot finit les deux combats restants (f1355 à f1653) et la
+// victoire n'arrive qu'à f1654 : un étage se gagne quand il n'a plus d'ennemi, pas à la mort du boss seulement.
+Scenario(
+    powerup_drop_chance_override: "0.0",
+    game: "isaac",
+    map_seed: 23,
+    floors: Some("sous_sol_un"),
+    frames: 1750,
+    players: [
+        (bot: explorateur),
+    ],
+    expect: [
+        EntityCount(kind: Enemy, min: Some(9), max: Some(9), at_frame: 5),
+        RoomLayout(kind: "boss", size: Some((480, 288)), touches: ["combat", "diable"], apart: ["depart", "tresor", "secrete"], at_frame: 5),
+        RoomLayout(kind: "diable", size: Some((240, 144)), touches: ["boss"], apart: ["combat", "depart", "secrete", "tresor"], at_frame: 5),
+        RoomLayout(kind: "tresor", size: Some((480, 144)), touches: ["combat"], at_frame: 5),
+        RoomLayout(kind: "secrete", touches: ["depart", "combat"], apart: ["boss", "diable"], at_frame: 5),
+        RoomState(kind: "boss", state: Locked, at_frame: 600),
+        BossPhase(entity: NetId(127), phase: 1, at_frame: 700),
+        RoomState(kind: "boss", state: Cleared, at_frame: 850),
+        EntityCount(kind: Enemy, min: Some(4), at_frame: 900),
+        DoorLocked(kind: "secrete", locked: true, at_frame: 1700),
+        RunState(step: Ended(Victory), at_frame: 1700),
+        PlayerAlive(handle: 0, at_frame: 1749),
+    ],
+)

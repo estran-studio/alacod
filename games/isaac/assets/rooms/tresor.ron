@@ -1,0 +1,10 @@
+// Type de salle `tresor` (M3-T5, docs/conventions.md §70) : un cul-de-sac sans ennemi, un coffre ouvert
+// au centre (pool `salle`, en attendant les pools de trésor de M3-T8). Sa porte est **fermée à clé** à
+// partir du second étage (`lock_from_floor: 1`) : une Interaction avec une clé l'ouvre (§70). La clé
+// d'un étage vient de `consumables_per_floor` de la séquence `sous_sol`.
+(
+    locks: false,
+    door_lock: Some(Key(1)),
+    lock_from_floor: 1,
+    chest: Some((table: Some("salle"), locked: false, rarity: Common)),
+)

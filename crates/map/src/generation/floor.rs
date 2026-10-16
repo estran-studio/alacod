@@ -42,15 +42,12 @@ pub enum FloorError {
     NoTemplate(String),
     /// Aucune tentative n'a satisfait la grammaire.
     Exhausted { attempts: u32 },
-    /// La disposition demandée n'est pas encore planifiable (`FloorLayout::Grid`, M3-T5).
-    Unsupported(String),
 }
 
 impl std::fmt::Display for FloorError {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
         match self {
             Self::NoTemplate(kind) => write!(f, "aucun gabarit de type « {kind} »"),
-            Self::Unsupported(what) => write!(f, "{what} : pas encore planifiable (M3-T5)"),
             Self::Exhausted { attempts } => {
                 write!(
                     f,
@@ -70,6 +67,19 @@ pub struct PlannedRoom {
     /// Connexions utilisées à la pose : (celle de cette salle, celle du parent).
     pub via: Option<(usize, usize)>,
     pub kind: String,
+    /// Portes supplémentaires hors de l'arbre de pose (boucles et voisines de la salle secrète
+    /// d'une grille, M3-T5) ; toujours vide en `Graph`. Chaque porte est portée par la salle posée
+    /// en dernier des deux.
+    pub links: Vec<PlannedLink>,
+}
+
+/// Une porte entre deux salles qui n'est pas l'arête de pose : la connexion de la salle qui la
+/// porte, l'autre salle (index dans le plan) et sa connexion.
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub struct PlannedLink {
+    pub mine: usize,
+    pub other: usize,
+    pub theirs: usize,
 }
 
 /// Plan d'un étage : salles dans l'ordre de pose (chaque salle suit son parent).
@@ -78,9 +88,12 @@ pub struct FloorPlan {
     pub rooms: Vec<PlannedRoom>,
     /// Numéro (à partir de 1) de la tentative réussie.
     pub attempts: u32,
+    /// Évaluations de candidats de toute la planification, tentatives échouées comprises (grille
+    /// seulement, 0 en `Graph`) : la preuve de terminaison de `grid::step_bound`.
+    pub steps: u64,
 }
 
-fn kind_of(level: &AvailableLevel) -> &str {
+pub(super) fn kind_of(level: &AvailableLevel) -> &str {
     level.room_kind.as_deref().unwrap_or("")
 }
 
@@ -194,6 +207,7 @@ impl Attempt<'_> {
             depth,
             via: Some((candidate.level_connection, candidate.parent_connection)),
             kind: kind.to_string(),
+            links: Vec::new(),
         });
         true
     }
@@ -252,6 +266,7 @@ fn try_attempt(
         depth: 0,
         via: None,
         kind: grammar.start.clone(),
+        links: Vec::new(),
     });
 
     // 2. remplissage
@@ -369,7 +384,7 @@ pub fn plan_floor(
     rng: &mut RollbackRng,
 ) -> Result<FloorPlan, FloorError> {
     if let world::FloorLayout::Grid { .. } = grammar.layout() {
-        return Err(FloorError::Unsupported("layout Grid".into()));
+        return super::grid::plan_grid(grammar, context, rng);
     }
     for kind in grammar.required.keys().chain([&grammar.filler]) {
         if !context.available_levels.iter().any(|l| kind_of(l) == kind) {
@@ -386,6 +401,7 @@ pub fn plan_floor(
             return Ok(FloorPlan {
                 rooms,
                 attempts: attempt,
+                steps: 0,
             });
         }
     }
@@ -611,20 +627,14 @@ mod tests {
     }
 
     #[test]
-    fn la_disposition_en_grille_est_refusee_proprement() {
-        let mut g = grammar();
-        g.layout = Some(world::FloorLayout::Grid {
-            cell: (15, 9),
-            max: (5, 5),
-        });
-        let mut rng = RollbackRng::new(1);
-        assert_eq!(
-            plan_floor(&g, &context(1, templates()), &mut rng).unwrap_err(),
-            FloorError::Unsupported("layout Grid".into())
-        );
-        // `Graph` explicite = l'absence de champ
-        g.layout = Some(world::FloorLayout::Graph);
-        assert!(plan_floor(&g, &context(1, templates()), &mut rng).is_ok());
+    fn graph_explicite_est_l_absence_de_champ() {
+        let mut explicit = grammar();
+        explicit.layout = Some(world::FloorLayout::Graph);
+        let run = |g: &FloorGrammar| {
+            let mut rng = RollbackRng::new(1);
+            signature(&plan_floor(g, &context(1, templates()), &mut rng).unwrap())
+        };
+        assert_eq!(run(&grammar()), run(&explicit));
     }
 
     #[test]

@@ -1,0 +1,32 @@
+// M3-T5 (docs/conventions.md §70) : un étage entier en grille, graine 1 (séquence `sous_sol_un`). Neuf salles :
+// le départ, cinq combats, un boss 1×1 au bout (à l'ouest), un trésor **1×2** (grande salle verticale) au nord-est
+// et la salle secrète collée sous deux salles de combat. Une boucle relie deux salles de combat voisines. Le bot
+// `explorateur` nettoie tout et gagne.
+//
+// À regarder : les cinq combats se verrouillent et se rouvrent (f57 à f1204) ; le boss verrouille sa salle (f1340),
+// passe en phase 1 (f1465, couronne), meurt avant f1587 ; victoire f1588. La porte de la salle secrète reste fermée
+// pendant toute la partie (aucune bombe) ; le trésor n'est pas fermé à clé au premier étage (`lock_from_floor: 1`).
+Scenario(
+    powerup_drop_chance_override: "0.0",
+    game: "isaac",
+    map_seed: 1,
+    floors: Some("sous_sol_un"),
+    frames: 1700,
+    players: [
+        (bot: explorateur),
+    ],
+    expect: [
+        EntityCount(kind: Enemy, min: Some(11), max: Some(11), at_frame: 5),
+        RoomLayout(kind: "boss", size: Some((240, 144)), touches: ["combat"], apart: ["depart", "tresor", "secrete"], at_frame: 5),
+        RoomLayout(kind: "tresor", size: Some((240, 288)), touches: ["combat"], apart: ["boss"], at_frame: 5),
+        RoomLayout(kind: "secrete", touches: ["combat"], apart: ["boss", "depart", "tresor"], at_frame: 5),
+        DoorLocked(kind: "secrete", locked: true, at_frame: 5),
+        DoorLocked(kind: "tresor", locked: false, at_frame: 5),
+        RoomState(kind: "boss", state: Locked, at_frame: 1400),
+        BossPhase(entity: NetId(111), phase: 1, at_frame: 1500),
+        RoomState(kind: "boss", state: Cleared, at_frame: 1600),
+        DoorLocked(kind: "secrete", locked: true, at_frame: 1650),
+        RunState(step: Ended(Victory), at_frame: 1650),
+        PlayerAlive(handle: 0, at_frame: 1699),
+    ],
+)

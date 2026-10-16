@@ -541,6 +541,7 @@ fn filter_world_sprites(
         (),
         Or<(
             With<crate::character::enemy::Enemy>,
+            With<crate::character::visuals::DeathGhost>,
             With<crate::weapons::Bullet>,
             With<crate::powerups::PowerUpPickup>,
             With<crate::weapons::WeaponPickup>,

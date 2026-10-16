@@ -1,7 +1,7 @@
-// Manifeste du jeu `isaac` (M3-T0f, docs/conventions.md §3, §17, §40 et §65) : le clone de squelette
-// d'Isaac, sur les contrats de la vague 0 de M4. Un étage `sous_sol` (nom provisoire, Q9) assemblé par
-// la grammaire d'étage en arbre existante (`Graph`), de trois types de salle de même taille
-// (départ, combat, boss), en mode `Floors` : défaite à la mort, victoire quand le boss est vaincu.
+// Manifeste du jeu `isaac` (M3-T0f, docs/conventions.md §3, §17, §40 et §65 ; grille : M3-T5, §70) : le clone de
+// squelette d'Isaac. Deux étages `sous_sol` (nom provisoire, Q9) assemblés par la grammaire d'étage en grille
+// (`Grid`, salles de 15 x 9 cases : départ, combat, boss, trésor, secrète, diable ; 1x1, 2x1, 1x2, 2x2), en mode
+// `Floors` : défaite à la mort, victoire quand le boss du dernier étage est vaincu.
 // Sprites, sons, interface et caméra copiés de `gungeon` (placeholders, voir `assets.yaml`).
 (
     name: "isaac",
@@ -25,7 +25,7 @@
         (path: "maps", kind: "Map"),
     ],
     entry: (
-        start_map: "maps/salles.ldtk",
+        start_map: "floor:sous_sol_court",
         default_seed: 123456,
         mode: Floors,
         floors: "sous_sol",

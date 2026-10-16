@@ -4,6 +4,7 @@
 
 use std::collections::BTreeMap;
 
+use bevy_fixed::fixed_math::Fixed;
 use serde::{Deserialize, Serialize};
 
 fn default_start() -> String {
@@ -50,37 +51,88 @@ pub struct FloorGrammar {
     pub layout: Option<FloorLayout>,
 }
 
-/// Disposition d'un étage assemblé (M3-T0c, `docs/conventions.md` §62).
-#[derive(Debug, Clone, Copy, PartialEq, Eq, Default, Serialize, Deserialize)]
+/// Disposition d'un étage assemblé (M3-T0c, `docs/conventions.md` §62 ; planificateur : M3-T5, §70).
+#[derive(Debug, Clone, PartialEq, Eq, Default, Serialize, Deserialize)]
 #[cfg_attr(feature = "schema", derive(schemars::JsonSchema))]
 pub enum FloorLayout {
     /// Arbre de gabarits par connexions alignées (M2-T10).
     #[default]
     Graph,
-    /// Cases de salle sur une grille (M3-T5) : `cell` = taille d'une salle en cases de 16 px
-    /// (Q8 : 15 × 9, une seule taille), `max` = étendue maximale de la grille en salles. Le
-    /// planificateur la refuse (`FloorError::Unsupported`) tant que M3-T5 n'est pas livrée.
-    Grid { cell: (u32, u32), max: (u32, u32) },
+    /// Cases de salle sur une grille (M3-T5, §70) : `cell` = taille d'une case en cases de 16 px
+    /// (Q8 : 15 × 9), `max` = étendue maximale de la grille en cases. Un gabarit couvre un
+    /// rectangle de cases (1×1, 2×1, 1×2, 2×2…, Q8 : grandes salles dès T5) dont chaque côté de
+    /// chaque case a une ouverture centrée.
+    Grid {
+        cell: (u32, u32),
+        max: (u32, u32),
+        /// Arêtes supplémentaires entre deux salles voisines (boucles), au plus ce nombre ; 0 :
+        /// un arbre, comme Isaac.
+        #[serde(default)]
+        loops: u32,
+        /// Type de la salle secrète (case vide voisine d'au moins deux salles, ouvertures
+        /// `door_lock: Secret`), posée seulement si `required` la demande.
+        #[serde(default = "default_secret")]
+        secret: String,
+        /// Salle accrochée au boss (le marché du diable), tirée avec une chance ; absente : aucune.
+        #[serde(default, skip_serializing_if = "Option::is_none")]
+        post_boss: Option<PostBoss>,
+    },
+}
+
+/// Salle post-boss d'une disposition en grille (M3-T5) : une case accrochée au boss, tirée avec la
+/// probabilité `chance` par un RNG local de la graine de l'emplacement. Quand elle est tirée, elle
+/// compte dans les bornes `rooms` (le planificateur réserve sa place).
+#[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
+#[cfg_attr(feature = "schema", derive(schemars::JsonSchema))]
+pub struct PostBoss {
+    /// Type de la salle (gabarit `room_kind`), `diable` par défaut.
+    #[serde(default = "default_post_boss")]
+    pub kind: String,
+    /// Probabilité d'apparition, `Fixed` en chaîne dans [0, 1].
+    #[cfg_attr(feature = "schema", schemars(with = "bevy_fixed::schema::FixedString"))]
+    #[cfg_attr(feature = "schema", schemars(extend("x-lint" = "[0, 1]")))]
+    pub chance: Fixed,
+}
+
+fn default_secret() -> String {
+    "secrete".to_string()
+}
+fn default_post_boss() -> String {
+    "diable".to_string()
 }
 
 impl FloorGrammar {
     /// Disposition effective (`Graph` si absente).
     pub fn layout(&self) -> FloorLayout {
-        self.layout.unwrap_or_default()
+        self.layout.clone().unwrap_or_default()
     }
 }
 
 impl FloorGrammar {
-    /// Types de salle dont il faut au moins un gabarit : départ, boss, remplissage, requis.
+    /// Types de salle dont il faut au moins un gabarit : départ, boss, remplissage, requis et, en
+    /// grille, la salle post-boss quand elle a une chance d'apparaître.
     pub fn kinds_needed(&self) -> Vec<&str> {
         let mut kinds = vec![self.start.as_str(), self.boss.as_str()];
         if self.rooms.1 > 2 + self.others() || self.min_boss_distance > 1 {
             kinds.push(self.filler.as_str());
         }
         kinds.extend(self.required.keys().map(String::as_str));
+        if let Some(post) = self.post_boss() {
+            if post.chance > Fixed::ZERO {
+                kinds.push(post.kind.as_str());
+            }
+        }
         kinds.sort_unstable();
         kinds.dedup();
         kinds
+    }
+
+    /// Salle post-boss de la disposition en grille, s'il y en a une.
+    pub fn post_boss(&self) -> Option<&PostBoss> {
+        match self.layout.as_ref()? {
+            FloorLayout::Grid { post_boss, .. } => post_boss.as_ref(),
+            FloorLayout::Graph => None,
+        }
     }
 
     /// Salles requises hors départ et boss.
@@ -124,7 +176,14 @@ impl FloorGrammar {
         if self.required.get(&self.boss).is_some_and(|n| *n > 1) {
             out.push(format!("required : un seul boss (« {} »)", self.boss));
         }
-        if let FloorLayout::Grid { cell, max } = self.layout() {
+        if let FloorLayout::Grid {
+            cell,
+            max,
+            secret,
+            post_boss,
+            ..
+        } = self.layout()
+        {
             if cell.0 == 0 || cell.1 == 0 {
                 out.push(format!("layout Grid : cell = {cell:?} : doit être > 0"));
             }
@@ -136,6 +195,39 @@ impl FloorGrammar {
                 out.push(format!(
                     "layout Grid : max = {max:?} ne contient pas les {min} salles minimum"
                 ));
+            }
+            if [&self.start, &self.boss, &self.filler].contains(&&secret) {
+                out.push(format!(
+                    "layout Grid : secret « {secret} » est aussi le type du départ, du boss ou du remplissage"
+                ));
+            }
+            if self.required.contains_key(&self.filler) {
+                out.push(format!(
+                    "required : « {} » est le type de remplissage : une salle requise de ce type se confond avec lui",
+                    self.filler
+                ));
+            }
+            if self.required.get(&secret).is_some_and(|n| *n > 1) {
+                out.push(format!(
+                    "required : une seule salle secrète par étage (« {secret} »)"
+                ));
+            }
+            if let Some(post) = post_boss {
+                if post.chance < Fixed::ZERO || post.chance > Fixed::ONE {
+                    out.push(format!(
+                        "layout Grid : post_boss.chance = {} : hors de [0, 1]",
+                        post.chance
+                    ));
+                }
+                if post.kind == secret
+                    || [&self.start, &self.boss, &self.filler].contains(&&post.kind)
+                    || self.required.contains_key(&post.kind)
+                {
+                    out.push(format!(
+                        "layout Grid : post_boss.kind « {} » est déjà un autre type de la grammaire",
+                        post.kind
+                    ));
+                }
             }
         }
         let fixed = 2 + self.others();
@@ -152,5 +244,72 @@ impl FloorGrammar {
             ));
         }
         out
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    fn grid(secret: &str, post: Option<(&str, f32)>) -> FloorGrammar {
+        FloorGrammar {
+            rooms: (8, 12),
+            required: [("boss", 1), ("tresor", 1), ("secrete", 1)]
+                .map(|(k, n)| (k.to_string(), n))
+                .into(),
+            start: "depart".into(),
+            boss: "boss".into(),
+            filler: "combat".into(),
+            min_boss_distance: 3,
+            max_attempts: 64,
+            layout: Some(FloorLayout::Grid {
+                cell: (15, 9),
+                max: (7, 7),
+                loops: 1,
+                secret: secret.into(),
+                post_boss: post.map(|(kind, chance)| PostBoss {
+                    kind: kind.into(),
+                    chance: Fixed::from_num(chance),
+                }),
+            }),
+        }
+    }
+
+    #[test]
+    fn une_grille_valide_n_a_aucun_probleme_et_le_post_boss_compte_dans_les_types_necessaires() {
+        let g = grid("secrete", Some(("diable", 0.33)));
+        assert_eq!(g.problems(), Vec::<String>::new());
+        assert!(g.kinds_needed().contains(&"diable"));
+        // chance nulle : le type n'est jamais tiré, aucun gabarit n'est exigé
+        assert!(!grid("secrete", Some(("diable", 0.0)))
+            .kinds_needed()
+            .contains(&"diable"));
+        assert_eq!(g.post_boss().map(|p| p.kind.as_str()), Some("diable"));
+    }
+
+    #[test]
+    fn les_types_de_la_grille_ne_se_confondent_pas() {
+        let has = |g: &FloorGrammar, needle: &str| g.problems().iter().any(|p| p.contains(needle));
+        assert!(has(
+            &grid("secrete", Some(("diable", 1.5))),
+            "hors de [0, 1]"
+        ));
+        assert!(has(&grid("secrete", Some(("boss", 0.5))), "post_boss.kind"));
+        assert!(has(
+            &grid("secrete", Some(("tresor", 0.5))),
+            "post_boss.kind"
+        ));
+        assert!(has(&grid("combat", None), "secret « combat »"));
+        let mut twice = grid("secrete", None);
+        twice.required.insert("secrete".into(), 2);
+        assert!(has(&twice, "une seule salle secrète"));
+        let mut filler = grid("secrete", None);
+        filler.required.insert("combat".into(), 1);
+        assert!(has(&filler, "type de remplissage"));
+        // en `Graph`, aucune de ces règles ne s'applique
+        let mut graph = grid("secrete", None);
+        graph.layout = None;
+        graph.required.insert("combat".into(), 1);
+        assert!(!has(&graph, "type de remplissage"));
     }
 }

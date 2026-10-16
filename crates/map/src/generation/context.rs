@@ -6,7 +6,7 @@ use std::{fmt::Display, rc::Rc, usize};
 
 // This package does the conversion between ldtk map and my AvailableLevel struct to be used by the algo
 
-#[derive(Clone, Copy, Debug, PartialEq)]
+#[derive(Clone, Copy, Debug, PartialEq, Eq, PartialOrd, Ord)]
 pub enum Side {
     N,
     S,

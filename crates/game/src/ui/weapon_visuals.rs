@@ -32,7 +32,9 @@ pub fn attach_weapon_visuals(
             continue;
         };
 
-        commands.entity(entity).insert((
+        // `try_insert` : même course que `attach_character_visuals` — le porteur
+        // a pu mourir (arme détruite avec lui) avant l'application différée.
+        commands.entity(entity).try_insert((
             AnimationVisualsBundle::new(
                 map_layers.clone(),
                 animation_handle.clone(),

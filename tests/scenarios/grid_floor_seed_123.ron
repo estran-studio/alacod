@@ -1,0 +1,29 @@
+// M3-T5 (docs/conventions.md §70) : un étage en grille avec une salle du diable et une boucle, graine 123 (séquence
+// `sous_sol_un`). Neuf salles : le départ, quatre combats dont deux voisins reliés par une porte de plus (la boucle,
+// `loops: 1`), le boss 1×1 au nord-est avec la salle du diable collée à lui, un trésor 1×1 au nord et la salle secrète
+// sous deux combats. Le bot `explorateur` nettoie les quatre combats avant le boss.
+//
+// À regarder : quatre combats (f64 à f900), puis le boss verrouille sa salle (f1001), phase 1 (f1114), mort ;
+// victoire f1236.
+Scenario(
+    powerup_drop_chance_override: "0.0",
+    game: "isaac",
+    map_seed: 123,
+    floors: Some("sous_sol_un"),
+    frames: 1350,
+    players: [
+        (bot: explorateur),
+    ],
+    expect: [
+        EntityCount(kind: Enemy, min: Some(9), max: Some(9), at_frame: 5),
+        RoomLayout(kind: "boss", size: Some((240, 144)), touches: ["combat", "diable"], apart: ["depart", "tresor", "secrete"], at_frame: 5),
+        RoomLayout(kind: "diable", touches: ["boss"], apart: ["combat", "depart", "secrete", "tresor"], at_frame: 5),
+        RoomLayout(kind: "tresor", size: Some((240, 144)), touches: ["combat"], apart: ["boss", "diable"], at_frame: 5),
+        RoomLayout(kind: "secrete", touches: ["combat"], apart: ["boss", "diable", "tresor"], at_frame: 5),
+        RoomState(kind: "boss", state: Locked, at_frame: 1050),
+        BossPhase(entity: NetId(121), phase: 1, at_frame: 1150),
+        RoomState(kind: "boss", state: Cleared, at_frame: 1300),
+        RunState(step: Ended(Victory), at_frame: 1300),
+        PlayerAlive(handle: 0, at_frame: 1349),
+    ],
+)
