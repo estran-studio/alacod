@@ -29,6 +29,11 @@ pub enum LootPick {
     /// Une arme de `weapons/weapons.ron` (D62). Le tirage la désigne par `weapon:<id>`
     /// ([`loot_weapon`]) ; la rareté sert au filtre d'un coffre et au prix d'un présentoir.
     Weapon(String, Rarity),
+    /// M3-T3 (§68) : un tas de `n` sous au sol (un `ShellPickup`, la monnaie `shells`), ramassé au
+    /// contact. Le tirage le désigne par `currency:<n>` ([`loot_currency`]) ; il compte comme un
+    /// consommable de rareté `Common` (récompense de salle, rocher, coffre de rareté minimale
+    /// `Common`). Refusé dans le pool d'une boutique (lint). Ajoutée en fin d'enum.
+    Currency(u32),
 }
 
 /// Préfixe de l'identifiant tiré pour une arme (voir [`LootPick::Weapon`]).
@@ -37,6 +42,14 @@ pub const WEAPON_LOOT_PREFIX: &str = "weapon:";
 /// L'arme désignée par un identifiant tiré (`weapon:<id>`), `None` pour un objet.
 pub fn loot_weapon(drawn: &str) -> Option<&str> {
     drawn.strip_prefix(WEAPON_LOOT_PREFIX)
+}
+
+/// Préfixe de l'identifiant tiré pour un tas de sous (voir [`LootPick::Currency`]).
+pub const CURRENCY_LOOT_PREFIX: &str = "currency:";
+
+/// Le montant désigné par un identifiant tiré (`currency:<n>`), `None` pour un objet ou une arme.
+pub fn loot_currency(drawn: &str) -> Option<u32> {
+    drawn.strip_prefix(CURRENCY_LOOT_PREFIX)?.parse().ok()
 }
 
 /// Une entrée pondérée. Un poids ≤ 0 est refusé par le lint.
@@ -199,6 +212,14 @@ fn candidates<'a>(
                 Vec::new()
             } else {
                 vec![Cow::Owned(format!("{WEAPON_LOOT_PREFIX}{id}"))]
+            }
+        }
+        // Un tas de sous compte comme un consommable `Common` : ni rareté ni exclusion d'objet tenu.
+        LootPick::Currency(amount) => {
+            if Rarity::Common < min_rarity {
+                Vec::new()
+            } else {
+                vec![Cow::Owned(format!("{CURRENCY_LOOT_PREFIX}{amount}"))]
             }
         }
     }
@@ -370,6 +391,7 @@ mod tests {
             projectile: None,
             familiar: None,
             max_stack: None,
+            refuse_when_full: false,
             stack: Default::default(),
         }
     }
@@ -612,5 +634,45 @@ mod tests {
         assert_eq!(pool.weapons_only().entries.len(), 2);
         assert_eq!(pool.weapon_rarity("laser"), Some(Rarity::Rare));
         assert_eq!(pool.weapon_rarity("absent"), None);
+    }
+    #[test]
+    fn currency_pick_is_a_common_consumable_that_reads_back_as_an_amount() {
+        assert_eq!(loot_currency("currency:7"), Some(7));
+        assert_eq!(loot_currency("currency:x"), None);
+        assert_eq!(loot_currency("weapon:laser"), None);
+        assert_eq!(loot_currency("key"), None);
+        let pool = table(
+            vec![
+                entry(LootPick::Currency(5), 1),
+                entry(LootPick::Item("b".into()), 1),
+            ],
+            false,
+        );
+        let draw = |min: Rarity, consumables_only: bool, seed: u32| {
+            draw_loot(
+                &pool,
+                &items(),
+                None,
+                min,
+                consumables_only,
+                &mut RollbackRng::new(seed),
+            )
+        };
+        // Récompense de salle (consommables seulement) : l'objet rare est exclu, restent les sous.
+        for seed in 0..50 {
+            assert_eq!(draw(Rarity::Common, true, seed).as_deref(), Some("currency:5"));
+        }
+        // Coffre de rareté minimale Rare : les sous (Common) ne sont pas candidats.
+        for seed in 0..50 {
+            assert_eq!(draw(Rarity::Rare, false, seed).as_deref(), Some("b"));
+        }
+        // Coffre ordinaire : les deux sortent.
+        let seen: BTreeSet<_> = (0..200)
+            .filter_map(|seed| draw(Rarity::Common, false, seed))
+            .collect();
+        assert_eq!(
+            seen,
+            BTreeSet::from(["b".to_string(), "currency:5".to_string()])
+        );
     }
 }

@@ -57,7 +57,7 @@ fn loot_pool_items(registry: &Registry) -> BTreeSet<String> {
                 items::LootPick::Item(id) => {
                     found.insert(id.clone());
                 }
-                items::LootPick::Weapon(..) => {}
+                items::LootPick::Weapon(..) | items::LootPick::Currency(_) => {}
                 items::LootPick::Rarity(rarity) => {
                     found.extend(
                         registry

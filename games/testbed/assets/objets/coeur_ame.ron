@@ -1,0 +1,11 @@
+// M3-T3 (docs/conventions.md §68, Q2) : « cœur d'âme » d'essai. Au ramassage, `GainSoul("4")` : quatre
+// points de vie d'âme (`ExtraHealth`), absorbés point par point avant les PV. N'entre pas dans
+// l'inventaire, jamais refusé (aucun plafond de vie d'âme).
+(
+    name: "Cœur d'âme",
+    kind: Consumable,
+    rarity: Common,
+    effects: [
+        (on: OnUse, do: [GainSoul("4")]),
+    ],
+)

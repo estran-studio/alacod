@@ -176,6 +176,7 @@ pub fn describe_action(action: &Action) -> String {
             format!("vous subissez {status} (×{stacks})")
         }
         Action::ApplyStatusSelf { status, .. } => format!("vous subissez {status}"),
+        Action::GainSoul(n) => format!("gagnez {} point(s) de vie d'âme", number(*n)),
     }
 }
 

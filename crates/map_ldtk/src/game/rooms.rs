@@ -789,13 +789,13 @@ pub fn rock_loot_system(
             "ggrs{{f={} rock_loot key={} item={}}}",
             frame.frame, key, item_id
         );
-        game::items::spawn_item_pickup(
-            &mut commands,
-            &items,
-            item_id,
-            FixedVec3::new(rock.x, rock.y, Fixed::ZERO),
-            &mut id_factory,
-        );
+        let position = FixedVec3::new(rock.x, rock.y, Fixed::ZERO);
+        // M3-T3 (§68) : un tas de sous (entrée `Currency` du pool), sinon l'objet.
+        if let Some(amount) = items::loot_currency(&item_id) {
+            game::shop::spawn_shell_pickup(&mut commands, &mut id_factory, amount, position, 0);
+        } else {
+            game::items::spawn_item_pickup(&mut commands, &items, item_id, position, &mut id_factory);
+        }
     }
 }
 

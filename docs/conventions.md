@@ -3944,6 +3944,7 @@ en headless et dans la liste fermée `content::ui::HUD_SOURCES` :
 |---|---|
 | `blanks` | compteur `Inventory::consumables["blank"]` |
 | `keys` | compteur `Inventory::consumables["key"]` |
+| `bombs` | compteur `Inventory::consumables["bomb"]` (M3-T3, §68) |
 | `shells` | monnaie `Currency` (les douilles de boutique la créditent) |
 | `passives` | noms des passifs ; `Icons` utilise leurs ids |
 | `active_item` | nom de l'objet actif |

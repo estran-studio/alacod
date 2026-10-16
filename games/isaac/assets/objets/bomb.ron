@@ -1,0 +1,9 @@
+// `isaac` (M3-T3, docs/conventions.md §68) : consommable `bomb` (nom réservé, `game::loot::BOMB_ITEM`),
+// un compteur par joueur plafonné à 99 : au plafond le ramassage est refusé et la bombe reste au sol.
+// La pose (bouton Bomb) exige un `BombCarrier` : le personnage n'en a pas encore (M3-T11).
+(
+    name: "Bombe",
+    kind: Consumable,
+    rarity: Common,
+    max_stack: Some(99),
+)
