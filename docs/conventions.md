@@ -4744,7 +4744,12 @@ Un gabarit couvre un rectangle de cases de salle : sa taille en cases de 16 px e
 **chaque côté de chaque case de salle** a une ouverture `LevelConnection` **centrée sur ce segment** (un 2×1 :
 deux ouvertures au nord, deux au sud, une à l'ouest et à l'est). Cette ouverture est un *port* : `(côté, case le
 long du côté)`. Lecture de « ouverture centrée sur chaque côté » pour une grande salle : **par segment de case**,
-seule façon d'aligner ses portes sur celles de voisines 1×1 ; à relire (Q8 ne tranchait pas ce point). Un
+seule façon d'aligner ses portes sur celles de voisines 1×1 ; à relire (Q8 ne tranchait pas ce point). Deux salles ne
+se relient que par des ouvertures **de même largeur** (sinon leurs bords ne coïncident pas : le contrôle indépendant
+refuserait la porte, `Layout::width` l'exclut dès la pose ; le lint exige une même largeur pour tous les gabarits d'une
+grammaire en grille). **L'étendue `max` est bornée par le monde** : le départ est à la case `(max - taille) / 2` et le
+monde fait ±1000 px (`max_width`/`max_heigth`), si bien que huit colonnes de 240 px ne tiennent pas (la huitième est
+refusée par `Layout::free`) : `sous_sol_grand` est en 7×7, comme `sous_sol`. Un
 gabarit n'a plus besoin d'être un cul-de-sac : le boss et le trésor ont leurs quatre ouvertures, le plan n'en
 relie qu'une, le chargeur mure les autres. Les quatre `BossN/E/S/W` de T0f disparaissent.
 
@@ -4891,8 +4896,8 @@ sur les gabarits réels, `isaac_grille_de_12_a_15_salles_sous_deux_fois_grand_de
 
 1 000 graines, gabarits du test (départ, combat, boss 1×1 et 2×2, trésor 1×1/2×1/1×2, secrète, diable) : 1,08 tentative en
 moyenne, 353 évaluations de candidats au plus ; gabarits d'`isaac` (2 grammaires × 1 000 graines) : salle du diable 304
-fois sur 1 000 (un tiers), boucle dans 510 étages `sous_sol` sur 1 000 et 927 `sous_sol_grand` ; génération d'un étage de 12 à
-15 salles en grille 0,52 ms contre 0,70 ms pour `grand` de gungeon (rapport 0,74 ; fiche : moins de 2).
+fois sur 1 000 (un tiers), boucle dans 510 étages `sous_sol` sur 1 000 et 929 `sous_sol_grand` ; génération d'un étage de 12 à
+15 salles en grille 0,80 ms contre 0,99 ms pour `grand` de gungeon (rapport 0,81, machine partagée ; fiche : moins de 2).
 
 ### Questions pour William
 

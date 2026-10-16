@@ -1214,6 +1214,36 @@ impl OpeningGrid {
     /// couche absente ou de dimensions différentes de `size` : tous les segments sont sans
     /// ouverture.
     pub fn segment_faults(&self, size: (u32, u32), cell: (u32, u32)) -> Vec<OpeningFault> {
+        self.segment_lines(size, cell)
+            .into_iter()
+            .filter_map(|(side, segment, segments, line)| {
+                SegmentFault::of(&line).map(|fault| OpeningFault {
+                    side,
+                    segment,
+                    segments,
+                    fault,
+                })
+            })
+            .collect()
+    }
+
+    /// Largeur (nombre de cases ouvertes) de l'ouverture de chaque segment de côté d'un gabarit
+    /// de `size` cases de 16 px, dans l'ordre haut, bas, gauche, droite ; un segment sans
+    /// ouverture vaut 0. Vide si la taille n'est pas un multiple de `cell`. M3-T5 : le
+    /// planificateur n'accepte une porte que si les deux ouvertures ont la même largeur.
+    pub fn opening_widths(&self, size: (u32, u32), cell: (u32, u32)) -> Vec<usize> {
+        self.segment_lines(size, cell)
+            .into_iter()
+            .map(|(_, _, _, line)| line.iter().filter(|open| **open).count())
+            .collect()
+    }
+
+    /// Cases de chaque segment de côté : `(côté, rang, nombre de segments du côté, cases)`.
+    fn segment_lines(
+        &self,
+        size: (u32, u32),
+        cell: (u32, u32),
+    ) -> Vec<(OpeningSide, u32, u32, Vec<bool>)> {
         if !size_fits_cell(size, cell) {
             return Vec::new();
         }
@@ -1223,35 +1253,17 @@ impl OpeningGrid {
             self.width == width && self.height == height && self.open.len() == width * height;
         let at = |x: usize, y: usize| consistent && self.open[y * width + x];
         let mut out = Vec::new();
-        let mut check = |side: OpeningSide, segment: usize, segments: usize, line: Vec<bool>| {
-            if let Some(fault) = SegmentFault::of(&line) {
-                out.push(OpeningFault {
-                    side,
-                    segment: segment as u32,
-                    segments: segments as u32,
-                    fault,
-                });
-            }
-        };
         let (across, down) = (width / cell_w, height / cell_h);
         for (side, y) in [(OpeningSide::Top, 0), (OpeningSide::Bottom, height - 1)] {
             for s in 0..across {
-                check(
-                    side,
-                    s,
-                    across,
-                    (0..cell_w).map(|i| at(s * cell_w + i, y)).collect(),
-                );
+                let line = (0..cell_w).map(|i| at(s * cell_w + i, y)).collect();
+                out.push((side, s as u32, across as u32, line));
             }
         }
         for (side, x) in [(OpeningSide::Left, 0), (OpeningSide::Right, width - 1)] {
             for s in 0..down {
-                check(
-                    side,
-                    s,
-                    down,
-                    (0..cell_h).map(|i| at(x, s * cell_h + i)).collect(),
-                );
+                let line = (0..cell_h).map(|i| at(x, s * cell_h + i)).collect();
+                out.push((side, s as u32, down as u32, line));
             }
         }
         out
@@ -4400,6 +4412,28 @@ mod tests {
         assert!(!size_fits_cell((5, 3), (0, 3)));
         // pas de segment défini : la taille est l'erreur
         assert_eq!(connection(6, 3, &[]).segment_faults((6, 3), CELL), []);
+    }
+
+    #[test]
+    fn opening_widths_count_open_cells_per_segment() {
+        // 2 × 1 : haut 1 et 3 cases, bas 1 et 1, gauche 1, droite 1
+        let open = [
+            (2, 0),
+            (6, 0),
+            (7, 0),
+            (8, 0),
+            (2, 2),
+            (7, 2),
+            (0, 1),
+            (9, 1),
+        ];
+        assert_eq!(
+            connection(10, 3, &open).opening_widths((10, 3), CELL),
+            [1, 3, 1, 1, 1, 1]
+        );
+        assert!(OpeningGrid::default()
+            .opening_widths((6, 3), CELL)
+            .is_empty());
     }
 
     #[test]

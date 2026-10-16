@@ -1702,6 +1702,16 @@ fn grid_and_key_fixtures_report_their_rule() {
             LintErrorKind::Unsupported,
             "trésor fermé à clé sans source de clé",
         ),
+        (
+            "key_room_floor_zero_locked_two_floors",
+            LintErrorKind::Unsupported,
+            "étage(s) d'indice 0 sans clé",
+        ),
+        (
+            "grid_template_opening_widths_differ",
+            LintErrorKind::OutOfRange,
+            "gabarit « Boss » (type « boss ») a une ouverture de 5 case(s) mais gabarit « Depart » une de 3 case(s)",
+        ),
     ] {
         let (_, _, errors) = load_and_lint(&fixture_dir(fixture)).unwrap();
         assert_has_error(&errors, kind, expected);
@@ -1719,7 +1729,11 @@ fn grid_and_key_fixtures_report_their_rule() {
 /// l'étage du verrou ne produisent aucune erreur : la règle n'est pas durcie à tort.
 #[test]
 fn valid_grid_and_key_fixtures_have_no_lint_error() {
-    for fixture in ["grid_large_rooms_ok", "key_room_with_key_source"] {
+    for fixture in [
+        "grid_large_rooms_ok",
+        "key_room_with_key_source",
+        "key_room_lock_never_applies",
+    ] {
         let (_, _, errors) = load_and_lint(&fixture_dir(fixture)).unwrap();
         assert!(errors.is_empty(), "{fixture} : {errors:#?}");
     }

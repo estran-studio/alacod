@@ -23,7 +23,8 @@
 //! dans l'ordre de pose). Le RNG de chaque tentative est découpé en **flux locaux** par usage
 //! (croissance, boucles, secrète, départ, identifiants de salle) dérivés de la graine de la
 //! tentative : ajouter un tirage à l'un ne déplace pas les autres. Les tirages bornés utilisent les
-//! bits de poids fort du LCG (les bits de poids faible d'un LCG alternent).
+//! bits de poids fort du LCG (les bits de poids faible d'un LCG alternent), sauf le nombre de salles :
+//! premier tirage d'une tentative, à graine déjà mélangée (`next_u32_range_inclusive`).
 //!
 //! **Terminaison.** Aucune boucle `while` : la croissance est un `for` borné par le nombre de
 //! salles, une pose énumère un nombre fini de candidats (parents × ports × gabarits × ports), les
@@ -292,6 +293,17 @@ impl<'a> Layout<'a> {
             .then_some(port)
     }
 
+    /// Largeur (en cases) de l'ouverture d'un port : deux salles ne se relient que par des
+    /// ouvertures de même largeur (sinon leurs bords ne coïncident pas : porte vers le vide).
+    fn width(&self, tpl: usize, port: Port) -> usize {
+        let level = &self.templates[tpl].level;
+        level
+            .connections
+            .iter()
+            .find(|c| c.index == self.templates[tpl].ports[&port])
+            .map_or(0, |c| c.size)
+    }
+
     /// Dans la grille, dans le monde et sans salle sur le rectangle.
     fn free(&self, tpl: usize, origin: Cell) -> bool {
         let (w, h) = self.templates[tpl].size;
@@ -408,7 +420,9 @@ impl<'a> Layout<'a> {
             let Some(their) = self.border_port(otpl, oorigin, target, own.0.get_opposite()) else {
                 continue;
             };
-            if !self.used.contains(&(other, their)) {
+            if !self.used.contains(&(other, their))
+                && self.width(tpl, own) == self.width(otpl, their)
+            {
                 return Some((other, their, own));
             }
         }
@@ -443,7 +457,9 @@ impl<'a> Layout<'a> {
                 let facing = parent_port.0.get_opposite();
                 for &tpl in candidates {
                     for port in templates[tpl].ports.keys().copied() {
-                        if port.0 != facing {
+                        if port.0 != facing
+                            || self.width(tpl, port) != self.width(ptpl, parent_port)
+                        {
                             continue;
                         }
                         self.steps += 1;
@@ -648,7 +664,12 @@ fn attempt(
             for _ in 0..*count {
                 let list = layout.placements(
                     &kind_templates,
-                    &|index, slot| params.ordinary(&slot.kind) && depths[index] + 2 <= boss_depth,
+                    &|index, slot| {
+                        params.ordinary(&slot.kind)
+                            && depths
+                                .get(index)
+                                .is_some_and(|depth| depth + 2 <= boss_depth)
+                    },
                     None,
                 );
                 layout.place(&mut growth, kind, &list)?;
@@ -735,7 +756,9 @@ fn place_secret(
             else {
                 continue;
             };
-            if layout.used.contains(&(other, their)) {
+            if layout.used.contains(&(other, their))
+                || layout.width(tpl, own) != layout.width(otpl, their)
+            {
                 continue;
             }
             doors.insert(other, (other, their, own));
@@ -1633,6 +1656,80 @@ mod tests {
         assert!(tiny.placements(&boss, &|_, _| true, None).is_empty());
     }
 
+    /// Deux salles ne se relient que par des ouvertures de même largeur : un boss aux ouvertures de
+    /// 5 cases (centrées, donc ports valides) ne se pose jamais contre un départ aux ouvertures de 3,
+    /// et la grammaire échoue explicitement au lieu de produire un plan que le contrôle refuserait.
+    #[test]
+    fn deux_salles_ne_se_relient_que_par_des_ouvertures_de_meme_largeur() {
+        let mut wide = level("boss_large", "boss", false, (1, 1), &[]);
+        for c in &mut wide.connections {
+            let segment = if matches!(c.side, Side::N | Side::S) {
+                15
+            } else {
+                9
+            };
+            c.size = 5;
+            c.starting_at = c.starting_at / segment * segment + (segment - 5) / 2;
+        }
+        let levels = vec![
+            level("depart", "depart", true, (1, 1), &[]),
+            level("combat", "combat", false, (1, 1), &[]),
+            wide,
+        ];
+        let context = context(1, levels);
+        let templates = grid_templates(&context, CELL);
+        let boss = templates
+            .iter()
+            .position(|t| kind_of(&t.level) == "boss")
+            .unwrap();
+        assert!(
+            templates[boss].ports.len() == 4,
+            "les ouvertures larges sont des ports"
+        );
+        let mut layout = Layout {
+            templates: &templates,
+            geometry: Geometry {
+                cell_px: (240, 144),
+                origin_px: (-600, -360),
+            },
+            max: (5, 5),
+            world: (1000, 1000),
+            slots: Vec::new(),
+            occupied: BTreeMap::new(),
+            edges: Vec::new(),
+            used: BTreeSet::new(),
+            steps: 0,
+        };
+        layout.put(0, (2, 2), "depart");
+        assert!(layout.placements(&[boss], &|_, _| true, None).is_empty());
+        let combat = layout.placements(&[1], &|_, _| true, None);
+        assert!(
+            !combat.is_empty(),
+            "des ouvertures de même largeur se relient"
+        );
+        let grammar = FloorGrammar {
+            rooms: (3, 3),
+            required: [("boss".to_string(), 1)].into(),
+            start: "depart".into(),
+            boss: "boss".into(),
+            filler: "combat".into(),
+            min_boss_distance: 2,
+            max_attempts: 8,
+            layout: Some(FloorLayout::Grid {
+                cell: CELL,
+                max: (5, 5),
+                loops: 0,
+                secret: "secrete".into(),
+                post_boss: None,
+            }),
+        };
+        let mut rng = RollbackRng::new(1);
+        assert_eq!(
+            super::super::floor::plan_floor(&grammar, &context, &mut rng).unwrap_err(),
+            FloorError::Exhausted { attempts: 8 }
+        );
+    }
+
     /// Terminaison : une grammaire impossible échoue explicitement, vite, et le nombre
     /// d'évaluations reste sous la borne ; pas de boucle sans fin.
     #[test]
@@ -1726,22 +1823,21 @@ mod tests {
         let mut strict = grammar.clone();
         strict.min_boss_distance = 30;
         assert!(validate_grid_plan(&strict, (16, 16), &good.rooms).is_err());
-        // plus de boucles que permis : chaque porte ajoutée entre deux salles voisines non reliées
-        let mut loose = grammar.clone();
-        if let Some(FloorLayout::Grid { loops, .. }) = loose.layout.as_mut() {
-            *loops = 0;
+        // plus de boucles que permis : un plan à boucle, jugé contre la même grammaire sans boucle
+        let mut with_loops = grammar.clone();
+        if let Some(FloorLayout::Grid { loops, .. }) = with_loops.layout.as_mut() {
+            *loops = 3;
         }
-        let looped = plan(
-            &{
-                let mut g = grammar.clone();
-                if let Some(FloorLayout::Grid { loops, .. }) = g.layout.as_mut() {
-                    *loops = 3;
-                }
-                g
-            },
-            9,
-        )
-        .unwrap();
-        let _ = (looped, loose);
+        let looped = (0..50)
+            .map(|seed| plan(&with_loops, seed).unwrap())
+            .find(|p| {
+                p.rooms
+                    .iter()
+                    .any(|r| r.kind != "secrete" && !r.links.is_empty())
+            })
+            .expect("un étage à boucle sur 50 graines");
+        assert!(validate_grid_plan(&with_loops, (16, 16), &looped.rooms).is_ok());
+        let error = validate_grid_plan(&grammar, (16, 16), &looped.rooms).unwrap_err();
+        assert!(error.contains("boucle"), "{error}");
     }
 }

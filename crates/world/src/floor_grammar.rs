@@ -201,6 +201,12 @@ impl FloorGrammar {
                     "layout Grid : secret « {secret} » est aussi le type du départ, du boss ou du remplissage"
                 ));
             }
+            if self.required.contains_key(&self.filler) {
+                out.push(format!(
+                    "required : « {} » est le type de remplissage : une salle requise de ce type se confond avec lui",
+                    self.filler
+                ));
+            }
             if self.required.get(&secret).is_some_and(|n| *n > 1) {
                 out.push(format!(
                     "required : une seule salle secrète par étage (« {secret} »)"
@@ -238,5 +244,72 @@ impl FloorGrammar {
             ));
         }
         out
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    fn grid(secret: &str, post: Option<(&str, f32)>) -> FloorGrammar {
+        FloorGrammar {
+            rooms: (8, 12),
+            required: [("boss", 1), ("tresor", 1), ("secrete", 1)]
+                .map(|(k, n)| (k.to_string(), n))
+                .into(),
+            start: "depart".into(),
+            boss: "boss".into(),
+            filler: "combat".into(),
+            min_boss_distance: 3,
+            max_attempts: 64,
+            layout: Some(FloorLayout::Grid {
+                cell: (15, 9),
+                max: (7, 7),
+                loops: 1,
+                secret: secret.into(),
+                post_boss: post.map(|(kind, chance)| PostBoss {
+                    kind: kind.into(),
+                    chance: Fixed::from_num(chance),
+                }),
+            }),
+        }
+    }
+
+    #[test]
+    fn une_grille_valide_n_a_aucun_probleme_et_le_post_boss_compte_dans_les_types_necessaires() {
+        let g = grid("secrete", Some(("diable", 0.33)));
+        assert_eq!(g.problems(), Vec::<String>::new());
+        assert!(g.kinds_needed().contains(&"diable"));
+        // chance nulle : le type n'est jamais tiré, aucun gabarit n'est exigé
+        assert!(!grid("secrete", Some(("diable", 0.0)))
+            .kinds_needed()
+            .contains(&"diable"));
+        assert_eq!(g.post_boss().map(|p| p.kind.as_str()), Some("diable"));
+    }
+
+    #[test]
+    fn les_types_de_la_grille_ne_se_confondent_pas() {
+        let has = |g: &FloorGrammar, needle: &str| g.problems().iter().any(|p| p.contains(needle));
+        assert!(has(
+            &grid("secrete", Some(("diable", 1.5))),
+            "hors de [0, 1]"
+        ));
+        assert!(has(&grid("secrete", Some(("boss", 0.5))), "post_boss.kind"));
+        assert!(has(
+            &grid("secrete", Some(("tresor", 0.5))),
+            "post_boss.kind"
+        ));
+        assert!(has(&grid("combat", None), "secret « combat »"));
+        let mut twice = grid("secrete", None);
+        twice.required.insert("secrete".into(), 2);
+        assert!(has(&twice, "une seule salle secrète"));
+        let mut filler = grid("secrete", None);
+        filler.required.insert("combat".into(), 1);
+        assert!(has(&filler, "type de remplissage"));
+        // en `Graph`, aucune de ces règles ne s'applique
+        let mut graph = grid("secrete", None);
+        graph.layout = None;
+        graph.required.insert("combat".into(), 1);
+        assert!(!has(&graph, "type de remplissage"));
     }
 }

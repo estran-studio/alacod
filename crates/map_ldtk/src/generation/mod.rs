@@ -437,25 +437,30 @@ mod tests {
         let (mut grid_time, mut grand_time) =
             (std::time::Duration::ZERO, std::time::Duration::ZERO);
         let runs = 100;
+        let timed = |work: &mut dyn FnMut()| {
+            let started = std::time::Instant::now();
+            work();
+            started.elapsed()
+        };
         for seed in 1..=runs {
-            let started = std::time::Instant::now();
-            let generator = isaac_floor(&isaac, &grid, seed);
-            std::hint::black_box(generator.generated_rooms.len());
-            grid_time += started.elapsed();
-            let started = std::time::Instant::now();
-            let config = MapGenerationConfig {
-                seed,
-                max_width: 1000,
-                max_heigth: 1000,
-                mode: MapGenerationMode::Floor(grand.clone()),
-                ..Default::default()
-            };
-            let context = from_map(&gungeon, config);
-            let mut generator = GeneratedMap::create(gungeon.clone());
-            map_generation(context, &mut generator).unwrap();
-            generator.close_unused_openings();
-            std::hint::black_box(generator.generated_rooms.len());
-            grand_time += started.elapsed();
+            grid_time += timed(&mut || {
+                let generator = isaac_floor(&isaac, &grid, seed);
+                std::hint::black_box(generator.generated_rooms.len());
+            });
+            grand_time += timed(&mut || {
+                let config = MapGenerationConfig {
+                    seed,
+                    max_width: 1000,
+                    max_heigth: 1000,
+                    mode: MapGenerationMode::Floor(grand.clone()),
+                    ..Default::default()
+                };
+                let context = from_map(&gungeon, config);
+                let mut generator = GeneratedMap::create(gungeon.clone());
+                map_generation(context, &mut generator).unwrap();
+                generator.close_unused_openings();
+                std::hint::black_box(generator.generated_rooms.len());
+            });
         }
         println!(
             "génération : isaac 12-15 salles en grille {:?} par étage, gungeon `grand` {:?} (rapport {:.2})",

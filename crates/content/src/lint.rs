@@ -3401,6 +3401,7 @@ fn lint_floor_grammars(registry: &Registry, errors: &mut Vec<LintError>) {
         // chaque côté de chaque case, une ouverture centrée sur le segment.
         if let world::FloorLayout::Grid { cell, .. } = entry.grammar.layout() {
             let needed = entry.grammar.kinds_needed();
+            let mut reference: Option<(&str, usize)> = None;
             for level in &map.levels {
                 let Some(kind) = level.room_kind.as_deref().filter(|k| needed.contains(k)) else {
                     continue;
@@ -3433,6 +3434,28 @@ fn lint_floor_grammars(registry: &Registry, errors: &mut Vec<LintError>) {
                             faults.join(" ; ")
                         ),
                     });
+                    continue;
+                }
+                // largeur des ouvertures : le planificateur n'accepte une porte que si les deux
+                // ouvertures ont la même largeur, donc elle est unique pour toute la grammaire
+                let mut widths = level.connection.opening_widths(level.size_cells, cell);
+                widths.dedup();
+                for width in widths {
+                    match &reference {
+                        None => reference = Some((level.id.as_str(), width)),
+                        Some((first, first_width)) if *first_width != width => {
+                            errors.push(LintError {
+                                kind: LintErrorKind::OutOfRange,
+                                file: file.clone(),
+                                message: format!(
+                                    "grammaire d'étage « {} » : gabarit « {} » (type « {kind} ») a une ouverture de {width} case(s) mais gabarit « {first} » une de {first_width} case(s) : toutes les ouvertures des gabarits d'une grille ont la même largeur (une porte ne relie que deux ouvertures de même largeur)",
+                                    entry.id, level.id
+                                ),
+                            });
+                            break;
+                        }
+                        Some(_) => {}
+                    }
                 }
             }
         }
@@ -3457,11 +3480,12 @@ const KEY_ITEM: &str = "key";
 
 /// M3-T5 (§70), trésor derrière une clé obtenable : un type de salle nécessaire à une grammaire
 /// d'étage dont la porte est verrouillée par `Key(n)` exige une source d'au moins `n` clés à
-/// l'étage où le verrou s'applique (`lock_from_floor`). Sources : `consumables_per_floor` de la
-/// séquence `Floors` qui nomme la grammaire à un étage d'indice ≥ `lock_from_floor` (remontés au
-/// début de chaque étage d'indice ≥ 1 seulement : l'étage 0 est servi par `starting_consumables`),
-/// un pool de butin qui peut donner la clé, ou `starting_consumables` d'un personnage. Une
-/// grammaire qu'aucune séquence ne nomme n'est pas vérifiée.
+/// **chaque** étage où le verrou s'applique. Pour chaque séquence `Floors` qui nomme la grammaire
+/// à l'indice `i ≥ lock_from_floor` (en dessous, la porte est ordinaire), `i` est couvert si
+/// `consumables_per_floor["key"] ≥ n` et `i ≥ 1` (remontés au changement d'étage : l'étage 0 ne
+/// les reçoit jamais), ou si un personnage a `starting_consumables["key"] ≥ n`, ou si un pool de
+/// butin peut donner la clé. Un message par séquence et par type, qui nomme les indices non
+/// couverts. Une grammaire qu'aucune séquence ne nomme n'est pas vérifiée.
 fn lint_key_sources(registry: &Registry, errors: &mut Vec<LintError>) {
     let pool_gives_key = crate::reach::loot_pool_items(registry).contains(KEY_ITEM);
     let most_starting_keys = registry
@@ -3472,27 +3496,6 @@ fn lint_key_sources(registry: &Registry, errors: &mut Vec<LintError>) {
         .copied()
         .unwrap_or(0);
     for entry in registry.floor_grammars.values() {
-        // indices, dans chaque séquence qui la nomme, où la grammaire pose un étage
-        let sequences: Vec<_> = registry
-            .floors
-            .values()
-            .map(|floors| {
-                let at: Vec<usize> = floors
-                    .levels
-                    .iter()
-                    .enumerate()
-                    .filter(|(_, level)| {
-                        registry::floor_designation(level).as_ref() == Some(&entry.id)
-                    })
-                    .map(|(index, _)| index)
-                    .collect();
-                (floors, at)
-            })
-            .filter(|(_, at)| !at.is_empty())
-            .collect();
-        if sequences.is_empty() {
-            continue;
-        }
         for kind in entry.grammar.kinds_needed() {
             let Some(room) = registry.rooms.get(kind) else {
                 continue;
@@ -3503,23 +3506,41 @@ fn lint_key_sources(registry: &Registry, errors: &mut Vec<LintError>) {
             if needed == 0 {
                 continue; // `Key(0)` : déjà refusé par `lint_room_kinds`
             }
-            let from = (room.def.lock_from_floor as usize).max(1);
-            let per_floor = sequences.iter().any(|(floors, at)| {
-                floors
+            if pool_gives_key || most_starting_keys >= needed {
+                continue;
+            }
+            for floors in registry.floors.values() {
+                let per_floor = floors
                     .consumables_per_floor
                     .get(KEY_ITEM)
                     .copied()
                     .unwrap_or(0)
-                    >= needed
-                    && at.iter().any(|index| *index >= from)
-            });
-            if !per_floor && !pool_gives_key && most_starting_keys < needed {
+                    >= needed;
+                let uncovered: Vec<String> = floors
+                    .levels
+                    .iter()
+                    .enumerate()
+                    .filter(|(_, level)| {
+                        registry::floor_designation(level).as_ref() == Some(&entry.id)
+                    })
+                    .map(|(index, _)| index)
+                    .filter(|index| *index as u32 >= room.def.lock_from_floor)
+                    .filter(|index| !(per_floor && *index >= 1))
+                    .map(|index| index.to_string())
+                    .collect();
+                if uncovered.is_empty() {
+                    continue;
+                }
                 errors.push(LintError {
                     kind: LintErrorKind::Unsupported,
                     file: entry.file.display().to_string(),
                     message: format!(
-                        "grammaire d'étage « {} » : type de salle « {kind} » : trésor fermé à clé sans source de clé : door_lock Key({needed}) (lock_from_floor = {}), or aucune séquence Floors qui nomme cette grammaire à un étage d'indice ≥ {from} n'a consumables_per_floor « {KEY_ITEM} » ≥ {needed}, aucun pool de butin ne donne « {KEY_ITEM} » et aucun personnage n'a starting_consumables « {KEY_ITEM} » ≥ {needed}",
-                        entry.id, room.def.lock_from_floor
+                        "grammaire d'étage « {} » : type de salle « {kind} » : trésor fermé à clé sans source de clé : door_lock Key({needed}) (lock_from_floor = {}), séquence Floors « {} » : étage(s) d'indice {} sans clé (consumables_per_floor « {KEY_ITEM} » ≥ {needed} : {}, et il ne sert qu'à partir de l'indice 1 ; aucun pool de butin ne donne « {KEY_ITEM} » et aucun personnage n'a starting_consumables « {KEY_ITEM} » ≥ {needed})",
+                        entry.id,
+                        room.def.lock_from_floor,
+                        floors.id,
+                        uncovered.join(", "),
+                        if per_floor { "présent" } else { "absent" }
                     ),
                 });
             }
