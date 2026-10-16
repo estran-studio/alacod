@@ -127,6 +127,21 @@ impl HubSession {
 #[derive(Resource, Clone, Copy, Debug, Default)]
 pub struct HubStay;
 
+/// Mode de génération de la carte de la phase courante : le hub est rendu tel quel
+/// ([`MapGenerationMode::Static`]), la run garde le mode de la carte du jeu.
+pub fn apply_to_map_config(
+    session: &HubSession,
+    config: &mut map::generation::config::MapGenerationConfig,
+) {
+    use map::generation::config::MapGenerationMode;
+    config.map_path = session.current_map().to_string();
+    if session.in_hub {
+        config.mode = MapGenerationMode::Static;
+    } else if matches!(config.mode, MapGenerationMode::Static) {
+        config.mode = MapGenerationMode::Basic;
+    }
+}
+
 /// Mode de run de la session : au hub, `Sandbox` (aucune condition de fin, pas de niveaux) ;
 /// sinon la résolution habituelle de `run_state`.
 pub fn resolve_session_mode(

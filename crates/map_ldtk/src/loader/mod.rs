@@ -210,6 +210,11 @@ pub fn get_asset_loader_generation() -> LdtkProjectLoader {
                 return crate::generation::cave::build_cave_ldtk(&map_json, &id, config.seed, cave);
             }
 
+            // M2-T13 : le hub est joué tel qu'il est dessiné.
+            if matches!(config.mode, MapGenerationMode::Static) {
+                return map_json;
+            }
+
             // Opt-in building composition; Basic and the M2 room contracts stay unchanged.
             if crate::generation::building::is_building_template(&map_json) {
                 return crate::generation::building::build_building_ldtk(&map_json, config.seed)

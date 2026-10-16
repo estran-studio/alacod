@@ -98,16 +98,18 @@ pub fn configure_map(
     hub: Option<Res<game::hub::HubSession>>,
     mut ggrs_state: ResMut<GggrsSessionConfigurationState>,
 ) {
-    commands.insert_resource(MapGenerationConfig {
+    let mut config = MapGenerationConfig {
         seed: map.seed,
-        // M2-T13 : au hub, la carte du hub ; sinon celle de la partie.
-        map_path: hub
-            .as_deref()
-            .map_or_else(|| map.map_path.clone(), |hub| hub.current_map().to_string()),
+        map_path: map.map_path.clone(),
         max_width: 1000,
         max_heigth: 1000,
         ..Default::default()
-    });
+    };
+    // M2-T13 : au hub, la carte du hub, jouée telle quelle ; sinon celle de la partie.
+    if let Some(hub) = hub.as_deref() {
+        game::hub::apply_to_map_config(hub, &mut config);
+    }
+    commands.insert_resource(config);
     ggrs_state.ready = true;
 }
 

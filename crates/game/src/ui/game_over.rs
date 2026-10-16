@@ -113,9 +113,16 @@ fn button_system(
     keyboard: Res<ButtonInput<KeyCode>>,
     screen: Query<(), With<GameOverUiRoot>>,
     interaction_query: Query<(&Interaction, &UiId), Changed<Interaction>>,
+    hub: Option<Res<crate::hub::HubSession>>,
 ) {
+    // M2-T13 : dans un jeu à hub, « Rejouer » ramène au hub (le profil de la run est déjà écrit).
+    let replay = if hub.is_some() {
+        RunRequest::ToHub
+    } else {
+        RunRequest::Restart
+    };
     if keyboard.just_pressed(KeyCode::KeyR) && !screen.is_empty() {
-        commands.insert_resource(RunRequest::Restart);
+        commands.insert_resource(replay);
     }
 
     for (interaction, id) in &interaction_query {
@@ -123,7 +130,7 @@ fn button_system(
             continue;
         }
         match id.id().as_str() {
-            "restart" => commands.insert_resource(RunRequest::Restart),
+            "restart" => commands.insert_resource(replay),
             "lobby" => commands.insert_resource(RunRequest::ToLobby),
             _ => {}
         }

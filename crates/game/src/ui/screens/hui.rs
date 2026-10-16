@@ -52,6 +52,7 @@ impl Plugin for HuiScreensPlugin {
 struct HuiHandles {
     pause: Option<Handle<HtmlTemplate>>,
     inventory: Option<Handle<HtmlTemplate>>,
+    merchant: Option<Handle<HtmlTemplate>>,
     row: Option<Handle<HtmlTemplate>>,
 }
 
@@ -77,8 +78,10 @@ fn load_templates(
     };
     handles.pause = load(ScreenId::Pause);
     handles.inventory = load(ScreenId::Inventory);
-    handles.row = (handles.pause.is_some() || handles.inventory.is_some())
-        .then(|| asset_server.load::<HtmlTemplate>(ROW_TEMPLATE));
+    handles.merchant = load(ScreenId::Merchant);
+    handles.row =
+        (handles.pause.is_some() || handles.inventory.is_some() || handles.merchant.is_some())
+            .then(|| asset_server.load::<HtmlTemplate>(ROW_TEMPLATE));
 }
 
 /// Racine d'un écran `bevy_hui` ; `shown` : la vue qui a servi aux propriétés.
@@ -178,6 +181,7 @@ fn sync_screen(
             let template = match view.screen {
                 ScreenId::Pause => &handles.pause,
                 ScreenId::Inventory => &handles.inventory,
+                ScreenId::Merchant => &handles.merchant,
             };
             let Some(template) = template.clone() else {
                 return;

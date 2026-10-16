@@ -91,6 +91,29 @@ pub fn purchase_unlock(
     )
 }
 
+/// Achat d'un joueur du hub (M2-T13) : débite et écrit son profil tout de suite (hors
+/// simulation) ; le déblocage n'entre dans une run qu'au prochain lancement (`RunUnlocks`, §51).
+pub fn purchase_for_handle(
+    profiles: &mut Profiles,
+    settings: &ProfileSettings,
+    handle: usize,
+    id: &str,
+    def: &UnlockDef,
+) -> Result<(), PurchaseError> {
+    let profile_id = local_id(handle);
+    let profile = profiles
+        .0
+        .entry(profile_id.clone())
+        .or_insert_with(|| Profile::new(profile_id));
+    purchase_unlock(profile, id, def)?;
+    if let Some(dir) = &settings.dir {
+        if let Err(e) = meta::save(dir, profile) {
+            warn!("profil {} non écrit : {e}", profile.id);
+        }
+    }
+    Ok(())
+}
+
 /// Crédite et écrit les profils quand la run se termine (une seule fois par run).
 pub fn write_profiles_at_run_end(
     run: Option<Res<Run>>,

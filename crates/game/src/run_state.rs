@@ -474,7 +474,7 @@ fn apply_run_request_system(
             _ => {}
         }
         if let Some(map_config) = map_config.as_deref_mut() {
-            map_config.map_path = hub.current_map().to_string();
+            crate::hub::apply_to_map_config(hub, map_config);
         }
     }
 
