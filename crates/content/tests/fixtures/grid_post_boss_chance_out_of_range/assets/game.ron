@@ -1,0 +1,10 @@
+// Fixture M3-T5 : grid_post_boss_chance_out_of_range (post_boss.chance = 1.5).
+(
+    name: "fixture-grid_post_boss_chance_out_of_range",
+    content_folders: [
+        (path: "rooms", kind: "Room"),
+        (path: "maps", kind: "Map"),
+        (path: "floor_grammars", kind: "FloorGrammar"),
+    ],
+    entry: (start_map: "floor:etage", default_seed: 1),
+)

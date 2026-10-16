@@ -271,14 +271,22 @@ mod tests {
                 let generator = isaac_floor(&data, &grammar, seed);
                 let rooms = &generator.generated_rooms;
                 let label = format!("{file} graine {seed}");
-                assert!((bounds.0..=bounds.1).contains(&rooms.len()), "{label} : {} salles", rooms.len());
+                assert!(
+                    (bounds.0..=bounds.1).contains(&rooms.len()),
+                    "{label} : {} salles",
+                    rooms.len()
+                );
                 let named = |prefix: &str| -> Vec<usize> {
                     (0..rooms.len())
                         .filter(|i| rooms[*i].template.starts_with(prefix))
                         .collect()
                 };
-                let (boss, tresor, secrete, diable) =
-                    (named("Boss"), named("Tresor"), named("Secrete"), named("Diable"));
+                let (boss, tresor, secrete, diable) = (
+                    named("Boss"),
+                    named("Tresor"),
+                    named("Secrete"),
+                    named("Diable"),
+                );
                 assert_eq!(
                     (boss.len(), tresor.len(), secrete.len()),
                     (1, 1, 1),
@@ -288,12 +296,20 @@ mod tests {
                 with_post += diable.len();
                 for room in rooms {
                     let (_, _, w, h) = room.world_rect();
-                    assert!(w % 240 == 0 && h % 144 == 0, "{label} : {} hors grille", room.template);
+                    assert!(
+                        w % 240 == 0 && h % 144 == 0,
+                        "{label} : {} hors grille",
+                        room.template
+                    );
                 }
                 let (ox, oy, _, _) = rooms[0].world_rect();
                 for room in rooms {
                     let (x, y, _, _) = room.world_rect();
-                    assert!((x - ox) % 240 == 0 && (y - oy) % 144 == 0, "{label} : {} décalée", room.template);
+                    assert!(
+                        (x - ox) % 240 == 0 && (y - oy) % 144 == 0,
+                        "{label} : {} décalée",
+                        room.template
+                    );
                 }
                 for (i, a) in rooms.iter().enumerate() {
                     for b in &rooms[i + 1..] {
@@ -308,8 +324,11 @@ mod tests {
                     }
                 }
                 // graphe des portes, relu depuis la carte générée
-                let index: BTreeMap<&str, usize> =
-                    rooms.iter().enumerate().map(|(i, r)| (r.iid(), i)).collect();
+                let index: BTreeMap<&str, usize> = rooms
+                    .iter()
+                    .enumerate()
+                    .map(|(i, r)| (r.iid(), i))
+                    .collect();
                 let mut adjacent = vec![BTreeSet::new(); rooms.len()];
                 for (i, room) in rooms.iter().enumerate() {
                     for other in room.neighbour_iids() {
@@ -321,15 +340,26 @@ mod tests {
                 // chaque ouverture non murée d'une salle est une porte vers une voisine : trois
                 // cases d'ouverture par porte
                 for (i, room) in rooms.iter().enumerate() {
-                    assert_eq!(room.open_cells(), 3 * room.neighbour_iids().len(), "{label} : {}", room.template);
+                    assert_eq!(
+                        room.open_cells(),
+                        3 * room.neighbour_iids().len(),
+                        "{label} : {}",
+                        room.template
+                    );
                     let _ = i;
                 }
                 let secret = secrete[0];
-                let ordinary = |i: usize| {
-                    rooms[i].template == "Depart" || rooms[i].template == "Combat"
-                };
-                assert!(adjacent[secret].len() >= 2, "{label} : secrète à {} portes", adjacent[secret].len());
-                assert!(adjacent[secret].iter().all(|r| ordinary(*r)), "{label} : secrète reliée à une salle spéciale");
+                let ordinary =
+                    |i: usize| rooms[i].template == "Depart" || rooms[i].template == "Combat";
+                assert!(
+                    adjacent[secret].len() >= 2,
+                    "{label} : secrète à {} portes",
+                    adjacent[secret].len()
+                );
+                assert!(
+                    adjacent[secret].iter().all(|r| ordinary(*r)),
+                    "{label} : secrète reliée à une salle spéciale"
+                );
                 // atteignables du départ sans franchir la secrète (une bombe y accède)
                 let mut seen = vec![false; rooms.len()];
                 seen[0] = true;
@@ -353,7 +383,11 @@ mod tests {
                 assert_eq!(adjacent[boss[0]].len(), 1 + post_degree, "{label}");
                 for i in 0..rooms.len() {
                     if i != boss[0] && i != secret && !diable.contains(&i) {
-                        assert!(depth[i] < depth[boss[0]], "{label} : {} aussi loin que le boss", rooms[i].template);
+                        assert!(
+                            depth[i] < depth[boss[0]],
+                            "{label} : {} aussi loin que le boss",
+                            rooms[i].template
+                        );
                     }
                 }
                 if let Some(post) = diable.first() {
@@ -400,7 +434,8 @@ mod tests {
         )
         .unwrap()
         .grammar;
-        let (mut grid_time, mut grand_time) = (std::time::Duration::ZERO, std::time::Duration::ZERO);
+        let (mut grid_time, mut grand_time) =
+            (std::time::Duration::ZERO, std::time::Duration::ZERO);
         let runs = 100;
         for seed in 1..=runs {
             let started = std::time::Instant::now();
@@ -428,7 +463,72 @@ mod tests {
             grand_time / runs as u32,
             grid_time.as_secs_f64() / grand_time.as_secs_f64()
         );
-        assert!(grid_time < grand_time * 2, "{grid_time:?} contre {grand_time:?}");
+        assert!(
+            grid_time < grand_time * 2,
+            "{grid_time:?} contre {grand_time:?}"
+        );
+    }
+
+    /// Relevé jetable des graines de scénarios (`--ignored --nocapture`).
+    #[test]
+    #[ignore]
+    fn isaac_releve_des_graines() {
+        let path = get_crate_root_path!("../../games/isaac/assets/maps/salles.ldtk");
+        let data: LdtkJson = load_ldtk_json_file(&path).unwrap();
+        let grammar = isaac_grammar("sous_sol");
+        for seed in 1..=300 {
+            let g = isaac_floor(&data, &grammar, seed);
+            let rooms = &g.generated_rooms;
+            let index: std::collections::BTreeMap<&str, usize> = rooms
+                .iter()
+                .enumerate()
+                .map(|(i, r)| (r.iid(), i))
+                .collect();
+            let adj = |i: usize| -> Vec<usize> {
+                rooms[i]
+                    .neighbour_iids()
+                    .iter()
+                    .map(|n| index[n.as_str()])
+                    .collect()
+            };
+            let find = |p: &str| rooms.iter().position(|r| r.template.starts_with(p));
+            let secret = find("Secrete").unwrap();
+            let tresor = find("Tresor").unwrap();
+            let boss = find("Boss").unwrap();
+            let (ox, oy, _, _) = rooms[0].world_rect();
+            let cell = |i: usize| {
+                let (x, y, _, _) = rooms[i].world_rect();
+                ((x - ox) / 240, (y - oy) / 144)
+            };
+            if matches!(seed, 1 | 5 | 8 | 23 | 26 | 123) {
+                let list: Vec<String> = rooms
+                    .iter()
+                    .enumerate()
+                    .map(|(i, r)| {
+                        let (x, y, _, _) = r.world_rect();
+                        format!(
+                            "{}#{i}@{},{}[{}]",
+                            r.template,
+                            (x - ox) / 240,
+                            (y - oy) / 144,
+                            adj(i).iter().map(|j| j.to_string()).collect::<Vec<_>>().join(",")
+                        )
+                    })
+                    .collect();
+                println!("PLAN {seed} : {}", list.join(" "));
+            }
+            println!(
+                "seed {seed:4} n={:2} secret_near_start={} tresor_near_start={} diable={} boss={} loops={} secret_at={:?} tresor_at={:?}",
+                rooms.len(),
+                adj(secret).contains(&0),
+                adj(tresor).contains(&0),
+                find("Diable").is_some(),
+                rooms[boss].template,
+                rooms.iter().enumerate().map(|(i, _)| adj(i).len()).sum::<usize>() / 2 + 2 - rooms.len() - adj(secret).len(),
+                cell(secret),
+                cell(tresor)
+            );
+        }
     }
 
     /// M2-T11 (`docs/conventions.md` §46) : les gabarits `CombatEW` et `CombatNS` de `gungeon`

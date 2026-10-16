@@ -1,9 +1,10 @@
 // M3-T0f (docs/conventions.md §65) : le clone `isaac` démarre. Un joueur dans la salle de départ d'un
-// étage assemblé par la grammaire `sous_sol` (graine 1), qui tire sans arrêt vers la droite avec les
-// larmes (chargeur de 9999 : aucun rechargement).
+// étage assemblé par la grammaire `sous_sol` (graine 1, disposition en grille depuis M3-T5, §70), qui tire
+// sans arrêt vers la droite avec les larmes (chargeur de 9999 : aucun rechargement).
 //
-// À regarder : le joueur est vivant dans la salle de départ (aucune porte fermée), les larmes partent
-// à 2,5 tirs/s sans jamais recharger, les ennemis des salles voisines dorment.
+// À regarder : le joueur est vivant dans la salle de départ, les larmes partent à 2,5 tirs/s sans jamais
+// recharger, les ennemis des salles voisines dorment ; seules les six portes de la salle secrète (trois
+// portes, avec leurs jumelles) sont fermées, murées tant qu'aucune bombe n'explose.
 Scenario(
     powerup_drop_chance_override: "0.0",
     game: "isaac",
@@ -14,7 +15,7 @@ Scenario(
     ],
     expect: [
         RoomState(kind: "depart", state: Dormant, at_frame: 100),
-        RoomState(kind: "combat", state: Dormant, doors_closed: Some(0), at_frame: 100),
+        RoomState(kind: "combat", state: Dormant, doors_closed: Some(6), at_frame: 100),
         ActiveWeapon(handle: 0, weapon: "larmes", at_frame: 100),
         PlayerAlive(handle: 0, at_frame: 300),
     ],

@@ -1,0 +1,28 @@
+// M3-T5 (docs/conventions.md §70) : la salle post-boss (`diable`) accrochée au boss. Graine 8 (séquence `sous_sol_un`) :
+// la chance de la grammaire (un tiers, tirée une fois par un flux local de la graine de l'emplacement) donne la salle
+// du diable, collée à l'est du boss et à aucune autre salle (le boss est le bout d'un couloir vertical de quatre
+// combats). Le bot `explorateur` nettoie les combats, bat le boss puis finit le dernier combat.
+//
+// À regarder : le boss verrouille sa salle (f628), passe en phase 1 (f740), meurt (f862) : la salle se rouvre, avec
+// sa porte vers la salle du diable ; victoire f1384 (la salle du diable est vide : son contenu est M3-T8).
+Scenario(
+    powerup_drop_chance_override: "0.0",
+    game: "isaac",
+    map_seed: 8,
+    floors: Some("sous_sol_un"),
+    frames: 1450,
+    players: [
+        (bot: explorateur),
+    ],
+    expect: [
+        EntityCount(kind: Enemy, min: Some(9), max: Some(9), at_frame: 5),
+        RoomLayout(kind: "diable", size: Some((240, 144)), touches: ["boss"], apart: ["combat", "depart", "secrete", "tresor"], at_frame: 5),
+        RoomLayout(kind: "boss", touches: ["combat", "diable"], apart: ["depart", "tresor", "secrete"], at_frame: 5),
+        RoomState(kind: "diable", state: Dormant, at_frame: 5),
+        RoomState(kind: "boss", state: Locked, at_frame: 650),
+        BossPhase(entity: NetId(113), phase: 1, at_frame: 800),
+        RoomState(kind: "boss", state: Cleared, at_frame: 900),
+        RunState(step: Ended(Victory), at_frame: 1400),
+        PlayerAlive(handle: 0, at_frame: 1449),
+    ],
+)

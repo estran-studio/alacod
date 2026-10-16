@@ -17,6 +17,10 @@
 //!   différé tant qu'un joueur ou un ennemi chevauche l'une d'elles.
 //! - Tant qu'une salle verrouillante dort, ses ennemis portent [`world::RoomDormant`] : sélection
 //!   de cible, déplacement et attaque sont sautés (`game::character::enemy::ai`).
+//! - Porte à clé (M3-T5, `docs/conventions.md` §70) : la porte d'une salle `door_lock: Key(n)` à
+//!   l'étage courant (et sa jumelle reliée par le plan) garde son collider ; son `Interactable`
+//!   devient `KeyDoor` ([`key_door_system`] l'ouvre contre `n` clés). Ni l'ouverture d'office, ni le
+//!   verrouillage d'une salle voisine n'y touchent.
 //!
 //! Les colliders des portes sont déjà rollback (`Collider`, `CollisionLayer`) ; le champ de flux
 //! suit tout seul (une porte avec collider est un mur, `rebuild_blocked_cells`).
@@ -49,7 +53,7 @@ use game::character::player::Player;
 use game::collider::CollisionSettings;
 use game::collider::{is_colliding, Collider, CollisionLayer};
 use game::global_asset::GlobalAsset;
-use game::interaction::Interactable;
+use game::interaction::{Interactable, InteractionEvent, InteractionType};
 use game::weapons::{melee::MeleeWeaponsConfig, WeaponsConfig};
 use map::game::entity::map::door::DoorComponent;
 use map::game::entity::map::level_id::LevelId;
@@ -114,6 +118,14 @@ impl Plugin for RoomsPlugin {
                     .after(game::boss::boss_defeated_system)
                     .before(game::character::health::rollback_apply_death)
                     .in_set(RollbackSystemSet::DeathManagement),
+                // M3-T5 (§70) : l'Interaction sur une porte à clé l'ouvre contre `n` clés, au bout
+                // de la chaîne des handlers d'interaction (ils écrivent tous `Inventory` : ordre
+                // total, jamais d'ambiguïté).
+                key_door_system
+                    .after(game::shop::shelf_interaction_system)
+                    .after(game::hub::hub_station_system)
+                    .before(RollbackSystemSet::Movement)
+                    .in_set(RollbackSystemSet::Interaction),
             ),
         );
         app.add_systems(
@@ -172,14 +184,33 @@ impl CurrentRooms<'_, '_> {
     }
 }
 
+/// Une salle secrète (`door_lock: Secret`) tant que son mur n'est pas ouvert (M3-T5, §70).
+fn hidden_from_minimap(
+    table: Option<&RoomKindTable>,
+    locks: Option<&DoorLocks>,
+    id: &str,
+    kind: &RoomKind,
+) -> bool {
+    table.is_some_and(|table| is_secret(table, kind))
+        && !locks.is_some_and(|locks| locks.is_open(id))
+}
+
 /// Présentation seulement : remplace aussi la liste quand l'étage disparaît ou change.
 /// `CurrentRooms` filtre les mondes LDtk superposés à partir de l'état rollback courant.
+///
+/// M3-T5 (§70) : une salle secrète (`door_lock: Secret`) n'apparaît sur la minicarte qu'ouverte
+/// (`DoorLocks`) : fermée, elle n'est pas dessinée, ni dans le cadrage de la carte.
 fn update_hud_room_geometry(
     rooms: CurrentRooms,
+    table: Option<Res<RoomKindTable>>,
+    locks: Option<Res<DoorLocks>>,
     mut geometry: ResMut<game::ui::hud_model::HudRoomGeometry>,
 ) {
     let mut next: Vec<_> = rooms
         .iter()
+        .filter(|(id, _, kind)| {
+            !hidden_from_minimap(table.as_deref(), locks.as_deref(), &id.0, kind)
+        })
         .map(|(id, bounds, kind)| game::ui::hud_model::HudRoomBounds {
             id: id.0.clone(),
             kind: kind.0.clone(),
@@ -206,6 +237,24 @@ fn sorted_rooms<'a>(rooms: &'a CurrentRooms) -> Vec<(&'a LevelId, &'a RoomBounds
 /// Le type de la salle porte-t-il un mur secret (`door_lock: Secret`) ?
 fn is_secret(table: &RoomKindTable, kind: &RoomKind) -> bool {
     table.door_lock(&kind.0) == Some(DoorLock::Secret)
+}
+
+/// Nombre de clés qu'ouvre la porte d'un type de salle **à l'étage `floor`** (`door_lock: Key(n)`
+/// à partir de `lock_from_floor`) ; `None` : porte ordinaire ou mur secret.
+pub(crate) fn key_lock_cost(table: &RoomKindTable, kind: &RoomKind, floor: u32) -> Option<u32> {
+    match table.door_lock_at(&kind.0, floor) {
+        Some(DoorLock::Key(n)) => Some(n),
+        _ => None,
+    }
+}
+
+/// Portée d'interaction d'une porte sans `Interactable` (sa plus grande dimension, comme à la
+/// création de la porte dans `plugin::spawn_map_items`).
+fn door_interaction_range(collider: &Collider) -> Fixed {
+    match collider.shape {
+        game::collider::ColliderShape::Rectangle { width, height } => width.max(height),
+        game::collider::ColliderShape::Circle { radius } => radius * Fixed::from_num(2),
+    }
 }
 
 fn door_near(bounds: &RoomBounds, p: FixedVec2) -> bool {
@@ -469,11 +518,14 @@ pub fn room_lock_system(
         ),
         (With<Player>, Without<Enemy>),
     >,
+    floor: Option<Res<run::FloorState>>,
+    door_configs: Query<(&DoorComponent, Option<&Interactable>)>,
 ) {
     let typed = sorted_rooms(&rooms);
     if typed.is_empty() {
         return;
     }
+    let floor_index = floor.as_ref().map_or(0, |floor| floor.index);
 
     // Une porte du mur secret (la porte d'une salle `Secret` et sa jumelle, au bord de la salle
     // voisine) ne s'ouvre que par une explosion (`secret_wall_system`) : ni l'ouverture d'office,
@@ -483,16 +535,45 @@ pub fn room_lock_system(
             .iter()
             .any(|(_, bounds, kind)| is_secret(&table, kind) && door_near(bounds, p))
     };
+    // M3-T5 : une porte à clé (la porte d'une salle `Key(n)` à l'étage courant et sa jumelle, reliées
+    // par le plan : `paired_door`) ne s'ouvre que par `key_door_system`. Une ouverture murée de la
+    // salle (sans jumelle) reste une porte de salle ordinaire.
+    let key_door = |entity: Entity, p: FixedVec2| {
+        door_configs
+            .get(entity)
+            .is_ok_and(|(door, _)| door.config.paired_door.is_some())
+            && typed.iter().any(|(_, bounds, kind)| {
+                key_lock_cost(&table, kind, floor_index).is_some() && door_near(bounds, p)
+            })
+    };
+    // Porte dont l'état (ouverte ou fermée) est du seul ressort de son système : ni l'ouverture
+    // d'office, ni le verrouillage ou la fin d'une salle voisine n'y touchent.
+    let sealed_door = |entity: Entity, p: FixedVec2| secret_door(p) || key_door(entity, p);
 
     // Portes de salle ouvertes par défaut (une fois).
     if !states.doors_opened {
-        for (_, entity, t, _, closed) in order_iter!(doors) {
+        for (_, entity, t, shape, closed) in order_iter!(doors) {
             let p = t.translation.truncate();
             if closed && typed.iter().any(|(_, bounds, _)| door_near(bounds, p)) {
                 if secret_door(p) {
                     // M3-T4 : porte d'une salle secrète (et sa jumelle) : un mur plein, qu'aucune
                     // Interaction n'ouvre ; seule une explosion `destroys` l'ouvre.
                     commands.entity(entity).remove::<Interactable>();
+                } else if key_door(entity, p) {
+                    // M3-T5 : porte à clé : elle garde son collider, son Interactable devient
+                    // `KeyDoor` (même portée) : `handle_door_interaction` ne la voit plus.
+                    let range = door_configs
+                        .get(entity)
+                        .ok()
+                        .and_then(|(_, interactable)| interactable)
+                        .map_or_else(
+                            || door_interaction_range(&shape.collider),
+                            |interactable| interactable.interaction_range,
+                        );
+                    commands.entity(entity).insert(Interactable {
+                        interaction_range: range,
+                        interaction_type: InteractionType::KeyDoor,
+                    });
                 } else {
                     commands
                         .entity(entity)
@@ -548,12 +629,13 @@ pub fn room_lock_system(
                 // Portes à refermer (ouvertes, au bord de la salle), par `GgrsNetId`.
                 let to_close: Vec<_> = order_iter!(doors)
                     .into_iter()
-                    .filter(|(_, _, t, _, closed)| {
+                    .filter(|(_, entity, t, _, closed)| {
                         let p = t.translation.truncate();
-                        // Une porte secrète (ouverte par une explosion) n'est jamais refermée par
-                        // le verrouillage d'une salle voisine : son état est du seul ressort de
-                        // `secret_wall_system`.
-                        !*closed && door_near(bounds, p) && !secret_door(p)
+                        // Une porte secrète (ouverte par une explosion) ou une porte à clé
+                        // (ouverte ou fermée) n'est jamais refermée par le verrouillage d'une
+                        // salle voisine : son état est du seul ressort de `secret_wall_system`
+                        // (resp. `key_door_system`).
+                        !*closed && door_near(bounds, p) && !sealed_door(*entity, p)
                     })
                     .collect();
 
@@ -681,7 +763,7 @@ pub fn room_lock_system(
                 }
                 for (_, entity, t, _, closed) in order_iter!(doors) {
                     let p = t.translation.truncate();
-                    if closed && door_near(bounds, p) && !secret_door(p) {
+                    if closed && door_near(bounds, p) && !sealed_door(entity, p) {
                         commands
                             .entity(entity)
                             .remove::<(Collider, CollisionLayer)>();
@@ -704,7 +786,7 @@ pub fn room_lock_system(
             RoomState::Locked if enemies_inside == 0 => {
                 for (_, entity, t, _, closed) in order_iter!(doors) {
                     let p = t.translation.truncate();
-                    if closed && door_near(bounds, p) && !secret_door(p) {
+                    if closed && door_near(bounds, p) && !sealed_door(entity, p) {
                         commands
                             .entity(entity)
                             .remove::<(Collider, CollisionLayer)>();
@@ -873,6 +955,97 @@ pub fn secret_wall_system(
                 frame.frame, level_id.0, request.id
             );
         }
+    }
+}
+
+/// Porte à clé (M3-T5, §70) : une `InteractionEvent` `KeyDoor` (ordre d'émission, `GgrsNetId` de
+/// l'interacteur) sur une porte scellée d'une salle `door_lock: Key(n)` de l'étage courant l'ouvre si
+/// l'interacteur a au moins `n` clés (`game::loot::KEY_ITEM`, la clé est à celui qui la possède) : `n`
+/// clés sont consommées, les colliders (et l'`Interactable`) de **toutes** les portes scellées de la
+/// salle (la porte de la salle et sa jumelle, reliées par le plan : `paired_door`) disparaissent, la
+/// salle entre dans `DoorLocks`. Le champ de flux relit les portes à chaque mise à jour : les deux
+/// salles sont reliées (comme `secret_wall_system`). Sinon la porte reste fermée et rien n'est
+/// consommé. Une porte près de deux salles à clé appartient à la première (position puis
+/// identifiant).
+#[allow(clippy::type_complexity)]
+pub fn key_door_system(
+    mut commands: Commands,
+    frame: Res<FrameCount>,
+    events: Res<FrameEvents<InteractionEvent>>,
+    table: Res<RoomKindTable>,
+    mut locks: ResMut<DoorLocks>,
+    floor: Option<Res<run::FloorState>>,
+    rooms: CurrentRooms,
+    doors: Query<
+        (
+            &GgrsNetId,
+            Entity,
+            &bevy_fixed::fixed_math::FixedTransform3D,
+            &DoorComponent,
+        ),
+        (With<Collider>, Without<Player>, Without<Enemy>),
+    >,
+    mut players: Query<(&GgrsNetId, Option<&mut items::Inventory>), With<Player>>,
+) {
+    if !events
+        .iter()
+        .any(|event| event.interaction_type == InteractionType::KeyDoor)
+    {
+        return;
+    }
+    let floor_index = floor.as_ref().map_or(0, |floor| floor.index);
+    let typed = sorted_rooms(&rooms);
+    for event in events
+        .iter()
+        .filter(|event| event.interaction_type == InteractionType::KeyDoor)
+    {
+        let Ok((_, _, door_t, _)) = doors.get(event.interactable) else {
+            continue;
+        };
+        let p = door_t.translation.truncate();
+        let Some((level_id, bounds, cost)) = typed.iter().find_map(|(id, bounds, kind)| {
+            let cost = key_lock_cost(&table, kind, floor_index)?;
+            door_near(bounds, p).then_some((*id, *bounds, cost))
+        }) else {
+            continue;
+        };
+        if locks.is_open(&level_id.0) {
+            continue;
+        }
+        let Some((_, mut inventory)) = players
+            .iter_mut()
+            .find(|(id, _)| id.0 == event.interactor_net_id.0)
+        else {
+            continue;
+        };
+        let keys = inventory
+            .as_deref()
+            .map_or(0, |inventory| inventory.consumable(game::loot::KEY_ITEM));
+        if keys < cost {
+            info!(
+                "ggrs{{f={} key_door_refused room={} by={} keys={}/{}}}",
+                frame.frame, level_id.0, event.interactor_net_id.0, keys, cost
+            );
+            continue;
+        }
+        if let Some(stock) = inventory
+            .as_deref_mut()
+            .and_then(|inventory| inventory.consumables.get_mut(game::loot::KEY_ITEM))
+        {
+            *stock -= cost;
+        }
+        for (_, entity, t, door) in order_iter!(doors) {
+            if door.config.paired_door.is_some() && door_near(bounds, t.translation.truncate()) {
+                commands
+                    .entity(entity)
+                    .remove::<(Collider, CollisionLayer, Interactable)>();
+            }
+        }
+        locks.0.insert(level_id.0.clone());
+        info!(
+            "ggrs{{f={} key_door_open room={} by={}}}",
+            frame.frame, level_id.0, event.interactor_net_id.0
+        );
     }
 }
 
@@ -1060,5 +1233,68 @@ pub fn boss_room_clear_system(
                 commands.entity(entity).insert(Death { last_hit_by: None });
             }
         }
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use world::RoomKindDef;
+
+    /// La salle secrète n'est dessinée qu'une fois son mur ouvert ; les autres types, toujours.
+    #[test]
+    fn la_salle_secrete_n_apparait_sur_la_minicarte_qu_ouverte() {
+        let table = RoomKindTable(
+            [
+                (
+                    "secrete".to_string(),
+                    RoomKindDef {
+                        door_lock: Some(DoorLock::Secret),
+                        ..Default::default()
+                    },
+                ),
+                (
+                    "tresor".to_string(),
+                    RoomKindDef {
+                        door_lock: Some(DoorLock::Key(1)),
+                        ..Default::default()
+                    },
+                ),
+                ("combat".to_string(), RoomKindDef::default()),
+            ]
+            .into(),
+        );
+        let secrete = RoomKind("secrete".into());
+        let mut locks = DoorLocks::default();
+        assert!(hidden_from_minimap(
+            Some(&table),
+            Some(&locks),
+            "s1",
+            &secrete
+        ));
+        assert!(hidden_from_minimap(Some(&table), None, "s1", &secrete));
+        locks.0.insert("s1".into());
+        assert!(!hidden_from_minimap(
+            Some(&table),
+            Some(&locks),
+            "s1",
+            &secrete
+        ));
+        // une autre salle secrète, fermée, reste cachée
+        assert!(hidden_from_minimap(
+            Some(&table),
+            Some(&locks),
+            "s2",
+            &secrete
+        ));
+        for kind in ["combat", "tresor", "inconnu"] {
+            assert!(!hidden_from_minimap(
+                Some(&table),
+                Some(&locks),
+                "x",
+                &RoomKind(kind.into())
+            ));
+        }
+        assert!(!hidden_from_minimap(None, None, "s1", &secrete));
     }
 }

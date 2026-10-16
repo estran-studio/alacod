@@ -20,6 +20,9 @@ plus besoin d'un gabarit à une seule ouverture (les quatre `BossN/E/S/W` de M3-
     TresorHaut     1x2    tresor
     Secrete        1x1    secrete     (coffre posé par le type de salle)
     Diable         1x1    diable      vide (le contenu est T8)
+    Transit        1x1    transit     vide, sans ennemi : un étage « de passage » (`sous_sol_transit`)
+                                      dont le portail s'ouvre aussitôt, pour atteindre le second étage
+                                      d'une séquence sans jouer le premier (scénarios du trésor à clé)
 
     python3 docs/taches/rapports/m3-t5-grammaire-grille.make_salles.py \\
         games/gungeon/assets/maps/etage_1.ldtk games/isaac/assets/maps/salles.ldtk
@@ -129,6 +132,7 @@ levels = [
     make('TresorHaut', 6, 'tresor', size=(1, 2)),
     make('Secrete', 7, 'secrete'),
     make('Diable', 8, 'diable'),
+    make('Transit', 9, 'transit'),
 ]
 d['levels'] = levels
 d['iid'] = iid('project')

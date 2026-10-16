@@ -74,6 +74,7 @@ pub fn run(registry: &Registry, manifest: &GameManifest) -> Vec<LintError> {
     lint_floors(registry, &mut errors);
     lint_caves(registry, &mut errors);
     lint_floor_grammars(registry, &mut errors);
+    lint_key_sources(registry, &mut errors);
     lint_surfaces(registry, &mut errors);
     lint_props(registry, &mut errors);
     lint_patterns(registry, &mut errors);
@@ -3395,31 +3396,41 @@ fn lint_floor_grammars(registry: &Registry, errors: &mut Vec<LintError>) {
             });
             continue;
         };
-        // M3-T0c (§62) : disposition en grille, tous les gabarits de la grammaire font `cell`
-        // cases (une seule taille, Q8) et ont une ouverture centrée sur chaque côté.
+        // M3-T0c (§62), M3-T5 (§70) : disposition en grille, chaque gabarit d'un type nécessaire
+        // couvre un rectangle de cases de salle (dimensions multiples de `cell`, Q8) et a, sur
+        // chaque côté de chaque case, une ouverture centrée sur le segment.
         if let world::FloorLayout::Grid { cell, .. } = entry.grammar.layout() {
             let needed = entry.grammar.kinds_needed();
             for level in &map.levels {
                 let Some(kind) = level.room_kind.as_deref().filter(|k| needed.contains(k)) else {
                     continue;
                 };
-                if level.size_cells != cell {
+                if !registry::size_fits_cell(level.size_cells, cell) {
                     errors.push(LintError {
                         kind: LintErrorKind::OutOfRange,
                         file: file.clone(),
                         message: format!(
-                            "grammaire d'étage « {} » : gabarit « {} » (type « {kind} ») fait {} × {} cases, la grille veut {} × {}",
+                            "grammaire d'étage « {} » : gabarit « {} » (type « {kind} ») fait {} × {} cases : doit être un multiple (au moins 1 × 1) de la case de salle {} × {} de la grille",
                             entry.id, level.id, level.size_cells.0, level.size_cells.1, cell.0, cell.1
                         ),
                     });
+                    continue;
                 }
-                if level.centered_openings != [true; 4] {
+                let faults = level.connection.segment_faults(level.size_cells, cell);
+                if !faults.is_empty() {
+                    let faults: Vec<String> = faults.iter().map(ToString::to_string).collect();
                     errors.push(LintError {
                         kind: LintErrorKind::OutOfRange,
                         file: file.clone(),
                         message: format!(
-                            "grammaire d'étage « {} » : gabarit « {} » sans ouverture centrée sur chaque côté (haut, bas, gauche, droite : {:?})",
-                            entry.id, level.id, level.centered_openings
+                            "grammaire d'étage « {} » : gabarit « {} » (type « {kind} », {} × {} cases, case de salle {} × {}) sans ouverture centrée sur chaque segment de chaque côté ({})",
+                            entry.id,
+                            level.id,
+                            level.size_cells.0,
+                            level.size_cells.1,
+                            cell.0,
+                            cell.1,
+                            faults.join(" ; ")
                         ),
                     });
                 }
@@ -3433,6 +3444,82 @@ fn lint_floor_grammars(registry: &Registry, errors: &mut Vec<LintError>) {
                     message: format!(
                         "grammaire d'étage « {} » : type de salle « {kind} » sans gabarit dans {} (room_kind)",
                         entry.id, entry.templates
+                    ),
+                });
+            }
+        }
+    }
+}
+
+/// Consommable qui ouvre une porte `door_lock: Key(n)` (`game::loot::KEY_ITEM`, que `content` ne
+/// peut pas importer).
+const KEY_ITEM: &str = "key";
+
+/// M3-T5 (§70), trésor derrière une clé obtenable : un type de salle nécessaire à une grammaire
+/// d'étage dont la porte est verrouillée par `Key(n)` exige une source d'au moins `n` clés à
+/// l'étage où le verrou s'applique (`lock_from_floor`). Sources : `consumables_per_floor` de la
+/// séquence `Floors` qui nomme la grammaire à un étage d'indice ≥ `lock_from_floor` (remontés au
+/// début de chaque étage d'indice ≥ 1 seulement : l'étage 0 est servi par `starting_consumables`),
+/// un pool de butin qui peut donner la clé, ou `starting_consumables` d'un personnage. Une
+/// grammaire qu'aucune séquence ne nomme n'est pas vérifiée.
+fn lint_key_sources(registry: &Registry, errors: &mut Vec<LintError>) {
+    let pool_gives_key = crate::reach::loot_pool_items(registry).contains(KEY_ITEM);
+    let most_starting_keys = registry
+        .characters
+        .values()
+        .filter_map(|c| c.starting_consumables.get(KEY_ITEM))
+        .max()
+        .copied()
+        .unwrap_or(0);
+    for entry in registry.floor_grammars.values() {
+        // indices, dans chaque séquence qui la nomme, où la grammaire pose un étage
+        let sequences: Vec<_> = registry
+            .floors
+            .values()
+            .map(|floors| {
+                let at: Vec<usize> = floors
+                    .levels
+                    .iter()
+                    .enumerate()
+                    .filter(|(_, level)| {
+                        registry::floor_designation(level).as_ref() == Some(&entry.id)
+                    })
+                    .map(|(index, _)| index)
+                    .collect();
+                (floors, at)
+            })
+            .filter(|(_, at)| !at.is_empty())
+            .collect();
+        if sequences.is_empty() {
+            continue;
+        }
+        for kind in entry.grammar.kinds_needed() {
+            let Some(room) = registry.rooms.get(kind) else {
+                continue;
+            };
+            let Some(world::DoorLock::Key(needed)) = room.def.door_lock else {
+                continue;
+            };
+            if needed == 0 {
+                continue; // `Key(0)` : déjà refusé par `lint_room_kinds`
+            }
+            let from = (room.def.lock_from_floor as usize).max(1);
+            let per_floor = sequences.iter().any(|(floors, at)| {
+                floors
+                    .consumables_per_floor
+                    .get(KEY_ITEM)
+                    .copied()
+                    .unwrap_or(0)
+                    >= needed
+                    && at.iter().any(|index| *index >= from)
+            });
+            if !per_floor && !pool_gives_key && most_starting_keys < needed {
+                errors.push(LintError {
+                    kind: LintErrorKind::Unsupported,
+                    file: entry.file.display().to_string(),
+                    message: format!(
+                        "grammaire d'étage « {} » : type de salle « {kind} » : trésor fermé à clé sans source de clé : door_lock Key({needed}) (lock_from_floor = {}), or aucune séquence Floors qui nomme cette grammaire à un étage d'indice ≥ {from} n'a consumables_per_floor « {KEY_ITEM} » ≥ {needed}, aucun pool de butin ne donne « {KEY_ITEM} » et aucun personnage n'a starting_consumables « {KEY_ITEM} » ≥ {needed}",
+                        entry.id, room.def.lock_from_floor
                     ),
                 });
             }
@@ -4601,6 +4688,17 @@ fn lint_room_kinds(registry: &Registry, errors: &mut Vec<LintError>) {
                 kind: LintErrorKind::OutOfRange,
                 file: room.file.display().to_string(),
                 message: format!("type de salle « {} » : {message}", room.id),
+            });
+        }
+        // M3-T5 (§70) : `lock_from_floor` ne retarde que le verrou d'une porte.
+        if room.def.lock_from_floor > 0 && room.def.door_lock.is_none() {
+            errors.push(LintError {
+                kind: LintErrorKind::OutOfRange,
+                file: room.file.display().to_string(),
+                message: format!(
+                    "type de salle « {} » : lock_from_floor sans door_lock (lock_from_floor = {}, aucun verrou à retarder)",
+                    room.id, room.def.lock_from_floor
+                ),
             });
         }
     }

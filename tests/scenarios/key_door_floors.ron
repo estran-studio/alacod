@@ -1,0 +1,46 @@
+// M3-T5 (docs/conventions.md §70) : `lock_from_floor`. Séquence `deux_cles` : deux étages identiques de
+// `testbed/salles_cle_floors.ldtk` (même carte, donc mêmes `LevelId`), dont le trésor est de type `tresor_ferme`
+// (`door_lock: Key(1)`, `lock_from_floor: 1`) ; un `dummy` dans la salle de départ garde le portail fermé. Une clé
+// est servie au début de chaque étage (`consumables_per_floor`) ; le joueur n'en porte pas à l'étage 0 (il tient un
+// `blank`, qui lui donne un inventaire). Étage 0 : la porte du trésor est ordinaire, ouverte d'office : le joueur la
+// franchit (f10-60), revient (f60-110) et abat le `dummy` (f140-300) ; le portail s'ouvre sous ses pieds et il passe
+// à l'étage 1 (f306), où le même `dummy` renaît et où une clé lui est servie. Étage 1 : même trajet vers la porte
+// (f310-360), qui est cette fois fermée ; il la touche par Interaction (f365-370) et entre dans le trésor.
+//
+// À regarder : à l'étage 0 la porte est ouverte (`DoorLocked` faux) et le joueur passe au-delà du point où il
+// s'arrête à l'étage 1 (x -842,4 ; il est en x -806,5 à f59) ; à l'étage 1 elle est fermée (`DoorLocked` vrai, le joueur butte contre elle,
+// f330 à f364) puis l'Interaction l'ouvre en consommant la clé servie par l'étage (`Consumable(key)` 1 puis 0).
+Scenario(
+    powerup_drop_chance_override: "0.0",
+    game: "testbed",
+    floors: Some("deux_cles"),
+    map_seed: 1,
+    frames: 520,
+    players: [
+        (
+            items: ["blank"],
+            inputs: [
+                (from: 10, to: 60, buttons: [Right], pan: (0, 0)),
+                (from: 60, to: 110, buttons: [Left], pan: (0, 0)),
+                (from: 140, to: 300, buttons: [Fire], pan: (0, 100)),
+                (from: 310, to: 360, buttons: [Right], pan: (0, 0)),
+                (from: 365, to: 370, buttons: [Interaction]),
+                (from: 410, to: 500, buttons: [Right], pan: (0, 0)),
+            ],
+        ),
+    ],
+    expect: [
+        FloorIndex(index: 0, at_frame: 50),
+        DoorLocked(kind: "tresor_ferme", nth: 0, locked: false, at_frame: 50),
+        Consumable(handle: 0, id: "key", count: 0, at_frame: 50),
+        PlayerPosition(handle: 0, x: -806.5, y: -574, tolerance: 1.5, at_frame: 59),
+        FloorIndex(index: 1, at_frame: 320),
+        DoorLocked(kind: "tresor_ferme", nth: 0, locked: true, at_frame: 320),
+        Consumable(handle: 0, id: "key", count: 1, at_frame: 320),
+        DoorLocked(kind: "tresor_ferme", nth: 0, locked: true, at_frame: 364),
+        PlayerPosition(handle: 0, x: -842.4, y: -584, tolerance: 1, at_frame: 364),
+        DoorLocked(kind: "tresor_ferme", nth: 0, locked: false, at_frame: 390),
+        Consumable(handle: 0, id: "key", count: 0, at_frame: 390),
+        PlayerPosition(handle: 0, x: -714, y: -574, tolerance: 1.5, at_frame: 519),
+    ],
+)
