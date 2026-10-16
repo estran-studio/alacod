@@ -53,11 +53,38 @@ Autres livrables : `PlayerScript::bomb` (scénarios), `fuzz_inputs` avec `ALACOD
 - `fuzz_inputs` : `ALACOD_FUZZ=0:8` (zombies, 3600 frames) sans divergence ; `ALACOD_FUZZ=0:8 ALACOD_FUZZ_BOMBS=1`
   (personnage à huit bombes dans `rock_flow`, huit explosions par partie) sans divergence.
 
+## p2p à deux clients (prédiction réelle)
+
+Montage **temporaire non commité** (restauré par `git checkout`) : `start_map` de `games/testbed/assets/game.ron` sur une
+carte `p2p_t4.ldtk` (`salles_secret.ldtk` + couche `Rocks` : trois rochers dont un à butin devant les joueurs, salle
+secrète derrière) et `bomb: Some((fuse_frames: 20, radius: "40.0", damage: "10.0"))`, `starting_consumables: {"bomb": 8}`
+dans le `player_config.ron` du testbed. Binaire `cargo build -p testbed --profile headless --no-default-features`.
+Script d'inputs (`/tmp/p2p_t4_script.ron`, deux joueurs, 600 frames) : marche vers les rochers, `Bomb` aux frames 25-26,
+90-91, 130, 200-201, 300, 420 (rochers, puis mur secret, puis en jeu libre), tir et visée qui changent toutes les 6
+frames, direction qui change : chaque changement est une prédiction ratée chez le pair.
+
+Commande (script bash, `MATCHBOX_PORT=3556 COMPOSE_PROJECT_NAME=b1`, `docker compose -f docker-compose.ci.yaml up -d signaling`),
+un client lancé 8 s après l'autre :
+`RUST_LOG=info ALACOD_HEADLESS=1 ALACOD_INPUT_DELAY=0 ALACOD_INPUT=script:/tmp/p2p_t4_script.ron
+ALACOD_STATE_TRACE=/tmp/p2p-$i.trace ALACOD_EXIT_AT_FRAME=600 APP_VERSION=x ../target/headless/testbed --matchbox
+ws://127.0.0.1:3556 --lobby test-$$ --number-player 2 --players localhost remote --cid client_$i --name client_$i`.
+
+- Les deux clients sortent avec le code 0 ; `cmp /tmp/p2p-0.trace /tmp/p2p-1.trace` : **identiques**, 599 lignes chacune.
+- **Frames resimulées** (comptées aux `ggrs{f=N …}` en double, le compteur final du log est faux) : client 0, 212 lignes
+  ggrs en double sur 107 frames distinctes ; client 1, 207 lignes sur 107 frames (frames 0 à 558 et 0 à 595) : la
+  prédiction a bien raté et resimulé. Parmi elles, des poses de bombe et des explosions : frames 91, 130, 150, 220, 300,
+  420 (client 0) et 130, 150, 220, 300, 420 (client 1) apparaissent deux fois dans le journal.
+- **Événements** (`bomb_place`, `explosion`, `rock_broken`, `rock_loot`, `secret_wall_open`, dédoublonnés) : 44 lignes
+  distinctes de chaque côté, **ensembles identiques**, aux mêmes frames. Rocher cassé : f45, trois rochers
+  (`net_id` 5 à 7, dont le rocher à butin, butin `key` tiré par `rock:<salle>:7:-7`) par l'explosion de la bombe du
+  joueur posée à f25 (explosion f45 puis f46) ; mur secret : `secret_wall_open` à f110 (bombe posée à f90). Les douze
+  explosions vues ont lieu aux frames 45, 46, 110, 111, 150 (×2), 220, 221, 320 (×2), 440 (×2) ; les poses résimulées
+  donnent des lignes en double mais aucun événement n'existe d'un seul côté.
+- Écarts : aucun. Limite : la prédiction ne rate que sur les inputs du pair distant ; le rocher à butin et le mur
+  secret ont chacun été cassés une seule fois (par les bombes des frames 25 et 90) sous prédiction.
+
 ## Non fait, non vérifié
 
-- **p2p à deux clients non rejoué** (pas de Docker dans cette session) : l'input `Bomb` existait déjà (bit 18, T0c),
-  mais la pose, l'explosion et la suppression d'entités rollback sont nouvelles : à rejouer par l'orchestrateur
-  (`make test_multiplayer`, ou `scripts/check-p2p-traces.py` sur un scénario à bombes).
 - Pas de visuel de bombe ni d'explosion (T17), pas de bombes du bot (T14), pas de placement du mur secret par la
   grammaire (T5), pas de porte à clés (`Key(n)`, T8).
 - Aucun bench ni campagne (machine partagée).
