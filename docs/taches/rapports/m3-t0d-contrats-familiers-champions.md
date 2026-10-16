@@ -37,33 +37,28 @@ Branche `m3-t0d-contrats-familiers-champions` (depuis `origin/main` 3bab4764). C
 
 ## Preuves
 
-Voir la section « Vérification » ci-dessous (suite des scénarios, crates, lint, gen, frontière sim).
-Aucune trace existante n'est censée bouger : variantes en fin d'enum, champs optionnels absents des
-contenus existants, `FamiliarOf` neutre sans porteur.
+Branche fusionnée avec `origin/main` (T13 hub, D62) : conflits dans `expectations.rs` (`FamiliarCount`
++ `HubExit`/`HubVisit`), `lint.rs` (`lint_familiars` + `lint_hub_services`) et `lint_fixtures.rs`
+(tests des deux tâches), résolus en gardant les deux. Mesuré le 2026-10-16 après la fusion :
+
+- `cargo check -p game -p scenario --tests` : vert.
+- `make test_crates` : vert, 881 tests passés, 0 échec.
+- `make test_scenarios_par SHARDS=3` : vert, 368 scénarios en 3 tranches (155 s) ; **aucune trace
+  bougée** (`git status` propre, aucun bless) : variantes en fin d'enum, champs optionnels absents des
+  contenus existants, `FamiliarOf` neutre sans porteur.
+- `make lint` : 0 erreur pour zombies, testbed, throne, gungeon, isaac. `make gen` (4 jeux + isaac) : vert.
+- `make check_sim_boundary` : OK (11 crates, 5 en dette D69).
+- Fuzz `ALACOD_FUZZ=0:8` (`fuzz_inputs`, 3600 frames) : 8 graines sans divergence.
+- `content::schema::every_kind_has_a_schema` : vert (nouveaux types en `JsonSchema`).
+- p2p : non rejoué ici (`FamiliarOf` est neutre, la session ne change pas) ; celui de l'orchestrateur suffit.
 
 ## Non fait (hors périmètre)
 
 Création et comportement des familiers (M3-T6), champions en jeu (M3-T7), visuels (M3-T17), alliés qui
 combattent (D5).
 
-## Note de reprise (session fermée avant la fin)
+## Points à relire
 
-**État** : code et contenu écrits ; **non vérifié par la suite complète**. Vérifié seulement :
-`cargo test -p behaviors -p effects -p items -p content` (verts, dont les neuf fixtures,
-`every_kind_has_a_schema`, `shipped_games_lint_without_error` avec le `compagnon` du testbed),
-`cargo check` de `game`, `map_ldtk`, `scenario` (tests compris), `cargo fmt --check`.
-
-**Reste** :
-1. `make test_crates` (jamais terminé : la chaîne a été interrompue), puis `make test_scenarios_par
-   SHARDS=3` : aucune trace existante ne doit bouger (variantes en fin d'enum, champs optionnels,
-   `FamiliarOf` neutre ; si une trace bouge, preuve §5 avant tout bless).
-2. `make lint` ×4 (+ `isaac`), `make gen` ×4 (+ `isaac`), `make check_sim_boundary`, fuzz
-   `ALACOD_FUZZ=0:8`, p2p si la session ou l'état rollback change (`FamiliarOf` est neutre : le p2p de
-   l'orchestrateur suffit).
-3. Fusionner `origin/main` (T13 y est, 85b8b2dd) avant `LIVRÉ m3-t0d-contrats-familiers-champions <sha>` ;
-   remplacer la section « Preuves » ci-dessus par les résultats réels.
-
-**Points à relire** : `draw_variant` résout `chance` avec 1 joueur à l'étage 0 (voir « Décisions ») ;
-`lint_variants` prend maintenant `registry` ; le personnage `compagnon` du testbed a son propre
-`asset_name_ref` (l'id d'un personnage), il n'a pas de sprite dédié (réutilise les couches vides de
-`skins`, comme `ally`).
+`draw_variant` résout `chance` avec 1 joueur à l'étage 0 (voir « Décisions ») ; `lint_variants` prend
+maintenant `registry` ; le personnage `compagnon` du testbed a son propre `asset_name_ref` et réutilise
+les couches vides de `skins`, comme `ally`.
