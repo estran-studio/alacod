@@ -1061,6 +1061,12 @@ fn variant_chance_out_of_range_fixture_reports_chance() {
 }
 
 #[test]
+fn player_skin_second_missing_fixture_reports_skin() {
+    let (_, _, errors) = load_and_lint(&fixture_dir("player_skin_second_missing")).unwrap();
+    assert_has_error(&errors, LintErrorKind::BrokenReference, "skin « 2 »");
+}
+
+#[test]
 fn variant_skin_unknown_fixture_reports_skin() {
     let (_, _, errors) = load_and_lint(&fixture_dir("variant_skin_unknown")).unwrap();
     assert_has_error(&errors, LintErrorKind::BrokenReference, "skin « dore »");
