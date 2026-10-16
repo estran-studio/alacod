@@ -461,15 +461,17 @@ fn record_state(world: &mut World) {
     recorder.frames.insert(frame, hash_line);
 }
 
-/// D14 : à la sortie de la première partie (restart demandé), la trace repart de zéro.
+/// D14 : à la sortie de la première partie (restart demandé), la trace repart de zéro. Aussi à
+/// la sortie du hub (M2-T13, `RunRequest::EnterRun`) : les frames de la run repartent de 0 et ne
+/// doivent ni se mêler à celles du hub ni compter comme des frames resimulées.
 fn next_game_after_restart(
     mut file: ResMut<StateTraceFile>,
     mut trace: ResMut<StateTraceRecorder>,
 ) {
     if file.restart_requested && file.game == 1 {
         file.game = 2;
-        trace.clear();
     }
+    trace.clear();
 }
 
 /// Avec `ALACOD_STATE_TRACE_FULL=1` : écrit aussi `<fichier>.full`, le détail des dernières

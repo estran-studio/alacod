@@ -155,14 +155,22 @@ impl ScriptedInputs {
     }
 }
 
+/// Pistes du hub (`HubSetup::inputs` d'un scénario rejoué par `ALACOD_INPUT=script:`), lues à la
+/// place de [`ScriptedInputs`] tant que la session est au hub (`HubSession::in_hub`) : les
+/// frames du hub et celles de la run repartent toutes deux de 0, une seule piste ne peut pas
+/// servir les deux phases. Hors hub, ou sans cette ressource : [`ScriptedInputs`].
+#[derive(Resource, Clone, Debug, Default)]
+pub struct ScriptedHubInputs(pub ScriptedInputs);
+
 impl InputSource {
     /// Source choisie par `ALACOD_INPUT` ; `script:<scénario.ron>` (natif) rejoue les inputs
     /// du `PlayerScript` de chaque joueur local (handle GGRS = index dans `players`) et
-    /// retourne la ressource [`ScriptedInputs`] à installer avec [`Self::Scripted`].
-    pub fn from_env() -> (Self, Option<ScriptedInputs>) {
+    /// retourne la ressource [`ScriptedInputs`] à installer avec [`Self::Scripted`], plus les
+    /// pistes du hub du scénario ([`ScriptedHubInputs`]) s'il en a.
+    pub fn from_env() -> (Self, Option<ScriptedInputs>, Option<ScriptedHubInputs>) {
         match std::env::var("ALACOD_INPUT").as_deref() {
-            Err(_) | Ok("devices") => (Self::Devices, None),
-            Ok("neutral") => (Self::Neutral, None),
+            Err(_) | Ok("devices") => (Self::Devices, None, None),
+            Ok("neutral") => (Self::Neutral, None, None),
             #[cfg(not(target_arch = "wasm32"))]
             Ok(value) if value.starts_with("script:") => {
                 let path = &value["script:".len()..];
@@ -170,7 +178,11 @@ impl InputSource {
                     .unwrap_or_else(|e| panic!("ALACOD_INPUT : lecture de {path} : {e}"));
                 let scenario = crate::replay::Scenario::from_ron(&source)
                     .unwrap_or_else(|e| panic!("ALACOD_INPUT : scénario {path} invalide : {e}"));
-                (Self::Scripted, Some(scenario.scripted_inputs()))
+                let hub = scenario
+                    .hub
+                    .is_some()
+                    .then(|| ScriptedHubInputs(scenario.hub_scripted_inputs()));
+                (Self::Scripted, Some(scenario.scripted_inputs()), hub)
             }
             Ok(other) => panic!(
                 "ALACOD_INPUT inconnu : {other} (attendu : devices, neutral, script:<scénario.ron>)"
@@ -201,6 +213,8 @@ pub fn read_local_inputs(
     local_players: Res<LocalPlayers>,
     frame: Res<FrameCount>,
     scripted: Option<Res<ScriptedInputs>>,
+    hub_scripted: Option<Res<ScriptedHubInputs>>,
+    hub: Option<Res<crate::hub::HubSession>>,
     remote: Option<Res<RemoteInputs>>,
     mutation_screen: Option<Res<crate::ui::mutation_screen::MutationScreenView>>,
 ) {
@@ -218,8 +232,13 @@ pub fn read_local_inputs(
 
     if *input_source == InputSource::Scripted {
         let scripted = scripted.expect("InputSource::Scripted demande la ressource ScriptedInputs");
+        // Au hub, les pistes du hub (frames du hub) ; sinon celles de la run.
+        let tracks = match (&hub_scripted, hub.as_deref()) {
+            (Some(hub_tracks), Some(session)) if session.in_hub => &hub_tracks.0,
+            _ => &*scripted,
+        };
         for handle in &local_players.0 {
-            local_inputs.insert(*handle, scripted.input_at(*handle, frame.frame));
+            local_inputs.insert(*handle, tracks.input_at(*handle, frame.frame));
         }
     }
 
