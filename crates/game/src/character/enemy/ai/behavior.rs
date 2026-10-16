@@ -35,7 +35,8 @@ use stats::StatReader;
 
 /// System to select targets for enemies based on proximity
 ///
-/// Target: the closest player in aggro range, unless an intact breakable obstacle (window)
+/// Target: the closest player in aggro range or, beyond it, within `sight_range` and in clear
+/// line of sight (D66), unless an intact breakable obstacle (window)
 /// is on the enemy's flow field path, within attack range: the enemy must break it first.
 pub fn enemy_target_selection(
     frame: Res<FrameCount>,
@@ -127,6 +128,23 @@ pub fn enemy_target_selection(
             _ => {}
         }
 
+        // Un joueur est perçu à moins de `aggro_range` (rayon seul) ou, à moins de `sight_range`
+        // (D66, défaut `aggro_range` : rien ne change), en ligne de vue dégagée. L'ennemi déjà
+        // en chasse d'un joueur le garde tant qu'il est à portée de vue, même derrière un coin :
+        // sans cela, le champ de flux qui contourne un mur lui ferait perdre sa cible en route.
+        // Aucun état nouveau : la cible mémorisée est celle de `EnemyTarget`, déjà rollback.
+        let sight_range = ai_config.effective_sight_range();
+        let alerted = (*state == MonsterState::Chasing && target.target_type == TargetType::Player)
+            .then(|| target.target.clone())
+            .flatten();
+        let perceives =
+            |id: &GgrsNetId, pos: &fixed_math::FixedVec2, distance: fixed_math::Fixed| {
+                distance < ai_config.aggro_range
+                    || (distance < sight_range
+                        && (alerted.as_ref() == Some(id)
+                            || flow_field_cache.line_of_sight(enemy_pos, *pos)))
+            };
+
         // Target the player the flow field leads to (the closest one along the path), so the
         // enemy chases and attacks the same player; fall back to the closest in straight line.
         // Champ du profil de l'ennemi (D38), gabarit petit : le joueur visé dépend des obstacles
@@ -144,7 +162,7 @@ pub fn enemy_target_selection(
                 let pos = transform.translation.truncate();
                 ((*id).clone(), enemy_pos.distance(&pos), pos)
             })
-            .filter(|(_, distance, _)| *distance < ai_config.aggro_range);
+            .filter(|(id, distance, pos)| perceives(id, pos, *distance));
 
         // Find closest player deterministically
         let mut closest_player: Option<(GgrsNetId, fixed_math::Fixed, fixed_math::FixedVec2)> =
@@ -155,7 +173,7 @@ pub fn enemy_target_selection(
             let player_pos = player_transform.translation.truncate();
             let distance = enemy_pos.distance(&player_pos);
 
-            if distance < ai_config.aggro_range {
+            if perceives(player_net_id, &player_pos, distance) {
                 match closest_player {
                     None => {
                         closest_player = Some(((*player_net_id).clone(), distance, player_pos));

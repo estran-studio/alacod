@@ -2224,6 +2224,10 @@ struct AiSchema {
     /// M2-T8 : `squad: Some(("id", Some("role")))`, voir `game::...::state::SquadRon`.
     #[serde(default)]
     squad: Option<(String, Option<String>)>,
+    /// D66 : portée de la vue directe (`sight_range`, `game::...::state::EnemyAiConfig`).
+    #[serde(default)]
+    #[schemars(extend("x-lint" = ">= 0"))]
+    sight_range: Option<FixedField>,
 }
 
 fn default_bleedout_frames() -> u32 {

@@ -1599,9 +1599,32 @@ Chase(profile: "GroundBreaker")]` : « les zombies deviennent un fichier », tra
 
 **Perception et ciblage** : `Sight(r)` = rayon seul, sans ligne de vue ni lumière ; se compile
 vers `aggro_range` (repli). `Hearing(r)` : un tir de joueur né à moins de `r` rend le tireur
-connu 120 frames, même hors de vue. `needs_light` ignoré (E8). `Targeting::Nearest { ignore }`
+connu 120 frames, même hors de vue (seulement pour un ennemi à `BehaviorRuntime`). `needs_light` ignoré (E8). `Targeting::Nearest { ignore }`
 (repli `ignore: []`) : l'algorithme d'origine (plus proche par le champ de flux, repli en ligne
 droite, joueurs à terre ignorés) ; un joueur portant un tag d'`ignore` n'est jamais ciblé.
+
+**Vue directe** (D66, champ `sight_range` de `ai`, chaîne `Fixed`, lint `>= 0`) : un joueur au-delà
+de `aggro_range` mais à moins de `sight_range` est **ciblé** s'il est en ligne de vue dégagée
+(`FlowFieldCache::line_of_sight`, segment ennemi→joueur contre `wall_cells` : murs de l'IntGrid,
+terrain dynamique et portes fermées coupent le regard, une fenêtre non ; parcours de grille exact en entiers (bits des `Fixed` en `i128`, frontière x ou y la plus proche
+décidée par produits croisés, sans quotient accumulé : verdict symétrique par construction) ; au passage
+d'un coin exact, deux cases orthogonales murées coupent la vue, une seule non). Un ennemi déjà
+en `Chasing` vers un joueur le garde tant que celui-ci est à moins de `sight_range`, coin ou pas
+(sans quoi le champ de flux qui contourne un mur lui ferait perdre sa cible en route) : la mémoire
+est `EnemyTarget`, déjà rollback, aucun état nouveau. `sight_range` absent (ou inférieur à
+`aggro_range`) = `aggro_range` : le chemin d'avant, aucune trace ne bouge ; le champ est
+statique et **exclu du `Hash`** de `EnemyAiConfig` (comme `stationary`) : `EnemyAiConfig` est bien rollbacké
+et sous checksum, mais le champ est immuable après la création de l'ennemi (donnée de contenu, jamais écrite
+en simulation), donc un rollback ne peut pas le faire diverger ; l'exclusion est un choix explicite qui garde
+les traces des jeux sans vue directe. Ne change **que** les
+ennemis dont le comportement dépend d'une cible : `move_enemies` suit le champ de flux vers le joueur
+le plus proche quel que soit l'état (`Idle` ou `Chasing`), si bien qu'un `Chase` seul approche de toute
+la carte, `aggro_range` ou non (constaté, D66) ; un ennemi à `Wander` (`rodeur`) ou un tireur, lui,
+n'agit qu'avec une cible. `throne/rodeur` : `sight_range: "900.0"`. Outil : test ignoré
+`sight_probe` (`ALACOD_SIGHT=<scénario>:<frame>`, ennemis, ligne de vue, cases d'un tir à `MIN`..`MAX`
+unités, `ALACOD_SIGHT_HIDDEN=1` pour les cases cachées). Scénarios : `throne_vue_directe` (caverne
+d'essai `essai_vue`, rodeur à 730 unités), `throne_vue_coupee` (témoin : mur sur le segment),
+`throne_rodeur_vue_graine_4` (la vraie carte, `cave:niveau_1` graine 4).
 
 **État et traces** (critère central : aucune trace existante ne change) :
 - les règles résolues sont un composant **statique, hors rollback** (`EnemyBehaviors`, comme
