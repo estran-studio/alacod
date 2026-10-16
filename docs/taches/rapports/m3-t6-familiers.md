@@ -18,6 +18,16 @@ bougé pendant la tâche, la fusion finale est « déjà à jour »). Convention
   numéro de frame, phase = rang parmi les orbitaux × 2π / leur nombre), **`MirrorShot`** (quand l'arme active du porteur
   a tiré ; arme du familier ; une fois par `every` frames, `FamiliarGun` neutre), **`BlockBullets`** (balle hostile dont
   l'AABB balayée touche le familier : `despawn_rollback`). Fonctions pures et testées dans `behaviors::familiar`.
+- **Corrections de revue** (verdict bloquant, trois points de code et un de scénario) :
+  1. `MirrorShot` se déclenche sur un **tir réellement parti** : événement transitoire `sim_core::triggers::WeaponFired`
+     émis par `weapon_rollback_system` (hors checksum et snapshot), lu par `owner_fired` (pure). Plus de lecture de
+     `WeaponState::last_fire_frame` (0 par défaut), plus de garde-fou `input.fire`. Test unitaire du cas frame 0 /
+     tir refusé par la cadence ; scénario `familiar_mirror_cadence` (gâchette tenue dès f0, la cadence refuse jusqu'à f20).
+  2. `BlockBullets` : l'AABB balayée ne présélectionne plus que ; contact décidé par `swept_hits_collider` (segment
+     balayé contre disque ou rectangle, `FixedWide`). Tests unitaires : passage en coin et disque en diagonale ne
+     bloquent pas, traversée, extrémité, parallèle, segment nul, centre décalé.
+  3. `orbital_blocks_bullet` : attentes `BulletCount` (`fireball`) : au bord sans contact (f125, f185) même compte que
+     le témoin, au contact (f126, f186) un de moins ; témoin `_sans_objet` aux mêmes frames.
 - **Attente** `FamiliarDistance { handle, rank, to_rank, min, max, at_frame }` ; `FamiliarCount` (T0d) compte de vrais
   familiers.
 - **Lint** : un personnage cité par un objet `familiar` n'est plus signalé « n'apparaît dans aucune salle ».
@@ -31,24 +41,32 @@ bougé pendant la tâche, la fusion finale est « déjà à jour »). Convention
   `desired_familiars`, `reconcile` (cinq cas), lecture des règles d'un familier.
 - Doc : §71, `CLAUDE.md` (liste des attentes), journal `docs/taches.md`.
 
-## 2. Vérifié (résultats réels, sur `origin/main` `c0aceb3e` + la branche)
+## 2. Vérifié (résultats réels, sur `origin/main` `803bf788` (M3-T0b incluse) + la branche, après les corrections)
 
-- `make test_scenarios_par SHARDS=3` **sans BLESS des traces existantes** : 398 scénarios (390 + 8 neufs), 3 tranches
-  « ok » (121 s) ; **aucune trace existante modifiée** (`git status` propre hors fichiers neufs).
-- `make test_crates` : 909 tests passés, 0 échec, 13 ignorés (dont `every_kind_has_a_schema`, `shipped_games_lint_without_error`).
-- `make lint` ×5 : « aucune erreur » (zombies, testbed, throne, gungeon, isaac) ; avertissements « aucune source » attendus
-  pour `orbital` et `rempart` (contenu de laboratoire).
+- `make test_scenarios_par SHARDS=3` **sans BLESS des traces existantes** : 401 scénarios, 3 tranches « ok » (116 s) ;
+  `git status` propre hors fichiers neufs. (Une première exécution a été tuée par un signal extérieur,
+  « Terminated: 15 », sans résultat ; rejouée seule : verte.)
+- `make test_crates` : 929 tests passés, 0 échec, 13 ignorés.
+- `make lint` ×5 : « aucune erreur » (zombies, testbed, throne, gungeon, isaac).
 - `make gen` ×5 : testbed (62 ok), zombies (16), throne (39), gungeon (55), isaac (10), aucun diff git.
 - `cargo fmt --all -- --check` propre ; `check-forbidden.sh` OK (39 occurrences auditées) ;
   `check-rollback-registration.sh` OK ; `make check_sim_boundary` : 11 crates, 5 en dette D69 ; `make test_tools` OK.
 - Fuzz `ALACOD_FUZZ=0:8` : 8 graines de 3 600 frames sans divergence (graine 4 : vague 2, 7 kills, comme avant).
-- **Mesure `familiar_quad`** (4 joueurs, 8 familiers, suite en 3 tranches donc machine partagée, indicatif) :
-  `advance_ms_avg` 0,098 ms (`four_players_idle` : 0,076), `save_ms_avg` 0,21 ms, `rollback_ms_worst` 1,34 ms
-  (`four_players_idle` : 1,13), 55 entités max, snapshot 18 Kio.
+- **Traces bougées par les corrections : une seule, `orbital_blocks_bullet.trace`** (rebénie seule). Preuve : à
+  f246 (ligne 247) l'ancienne trace compte 55 entités, la nouvelle 56. En rétablissant temporairement l'ancien test
+  (AABB seule) avec le code corrigé, l'ancienne trace redevient exacte : la cause est donc le seul correctif 2 (une
+  flèche qui frôlait un coin de l'orbital était détruite à tort). Les attentes ajoutées ne bougent pas une trace ;
+  `orbital_blocks_bullet_sans_objet` (sans orbital) et les 7 autres traces de familiers sont inchangées ;
+  `familiar_mirror_cadence` est neuve (bénie).
+- **p2p à deux clients avec prédiction : non rejoué, Docker indisponible sur cette machine** (`docker` absent). Reste à
+  faire sur l'autre machine ; le synctest de `familiar_quad` (resimulation et checksums à chaque frame) passe, mais ne
+  couvre pas un ramassage ou un remplacement prédit puis annulé.
+- **Mesure `familiar_quad`** (précédente, indicative) : `advance_ms_avg` 0,098 ms (`four_players_idle` : 0,076),
+  `rollback_ms_worst` 1,34 ms.
 
 ## 3. Non fait, incertain, non vérifié
 
-- **p2p à deux clients** (Docker) : non rejoué. Les nouveaux états rollback (`FamiliarOf`, `FamiliarGun`) sont
+- **p2p à deux clients** (Docker) : non rejoué (Docker indisponible, voir §2). Les nouveaux états rollback (`FamiliarOf`, `FamiliarGun`) sont
   neutres ; `familiar_quad` passe le synctest (resimulation et comparaison des checksums à chaque frame) mais pas
   un vrai rollback par prédiction.
 - **Bench** : non fait (T15). Aucune vidéo produite.
@@ -76,9 +94,8 @@ bougé pendant la tâche, la fusion finale est « déjà à jour »). Convention
 
 ## 5. Dettes et points à relire
 
-- `familiar_mirror_shot_system` détecte le tir du porteur par `WeaponState::last_fire_frame == frame` de l'arme
-  **active** : le tir d'une arme de mêlée ne déclenche rien ; au frame 0, `input.fire` est exigé (`last_fire_frame`
-  vaut 0 par défaut).
+- `familiar_mirror_shot_system` se déclenche sur `WeaponFired` (tir à distance parti) : le coup d'une arme de mêlée ne
+  déclenche rien.
 - `familiar_block_bullets_system` s'exécute entre `bullet_rollback_system` et `bullet_rollback_collision_system` ; les
   balles que les émetteurs ennemis font naître dans `Weapon` après lui ne sont testées qu'à la frame suivante.
 - Les logs (`familiar_spawn`, `familiar_lost`, `familiar_shot`, `familiar_block`) suivent le format `ggrs{f=…}` et ne
