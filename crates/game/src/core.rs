@@ -150,6 +150,7 @@ impl Plugin for CoreSetupPlugin {
         app.add_plugins(world::WorldPlugin);
         // Effets v1 (T1.10) : composants neutres, exécution dans `DeathManagement`.
         app.add_plugins(crate::effects_runtime::EffectsRuntimePlugin);
+        app.add_plugins(crate::effects_v3::EffectsV3Plugin);
         app.add_plugins(crate::progression::ProgressionPlugin);
         app.add_plugins(crate::economy::EconomyPlugin);
         app.add_plugins(crate::interaction::InteractionPlugin);

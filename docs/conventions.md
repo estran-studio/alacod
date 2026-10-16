@@ -4456,6 +4456,33 @@ statuts frame par frame) ; `map_probe` liste aussi les personnages non joueurs.
 Rencontré quand M3-T11a met les objets de larmes dans le pool trésor d'`isaac` ; d'ici là, scénarios
 testbed seulement.
 
+## 67. Effets v3 : `OnHit`, `OnEvent`/`Emit`, `ApplyStatus`, `PerCopy` (M3-T2, chantier C1 v3)
+
+Exécute les contrats de §61. **Aucune trace existante ne bouge** : variantes en fin d'enum, champs
+optionnels, files transitoires (hors checksum, vidées au `FrameStart`).
+
+- **`OnHit`** : le porteur a infligé un dégât **réel** (> 0, après immunité, bouclier, armure) à une autre
+  entité. `character::health::rollback_resolve_damage_events` émet `effects_v3::HitLanded`, lu par
+  `apply_effects_system`. Jamais pour un dégât que la source s'inflige. La condition `TargetInRange` lit
+  la position de la cible (`OnHit`, `OnKill`, `OnDamageTaken`) ; fausse sans cible.
+- **`ApplyStatus { status, stacks }`** dans un effet : statut posé sur la **cible** du déclencheur
+  (`OnHit`, `OnKill`, `OnDamageTaken` seulement, sinon lint). **`ApplyStatusSelf`** : sur le porteur.
+  Posé par `effects_v3::effect_status_system` avec la règle des `on_hit` de projectile (auteur crédité
+  des dégâts, `Slow` pose son modificateur de vitesse).
+- **`Emit(nom)` / `OnEvent(nom)`** : les effets `OnEvent` du même porteur répondent aux `Emit` de ses
+  effets, dans la même frame, par tours (`MAX_EVENT_ROUNDS` = 8, au-delà les émissions sont abandonnées
+  avec un `warn!`). Le lint refuse un nom vide ; il ne vérifie pas qu'un `OnEvent` a un émetteur.
+- **`Scaled { PerCopy }`** : l'action enveloppée n'est exécutée **qu'une fois par objet** (par le premier
+  exemplaire), multipliée par le nombre d'exemplaires (`Inventory::count`). Les actions non `Scaled`
+  s'exécutent **par exemplaire** (deux exemplaires = deux effets). `scale: None` est transparent.
+- **Limites par exemplaire (Q16)** : `ItemDef::stack` (`Shared`, défaut, ou `Independent`). `Shared` :
+  clé `item:<id>:<index>` commune, les `cooldown`/`charges` sont partagés ; `Independent` : clé
+  `item:<id>#k:<index>` par exemplaire.
+- Testbed et scénarios : objet `vipere` ; `effect_on_hit` (poison à l'impact, +1 de dégâts par
+  `OnEvent`), `effect_per_copy` (deux exemplaires, un coup : 2 piles de poison, pas 4). Unitaires :
+  `effects_v3::tests` (tri `classify`), `effects::runtime::tests`.
+- Hors périmètre : exécution des effets d'objet par les pools Isaac (T11b).
+
 ## 69. Bombes, explosions, rochers cassés, piques, mur secret (M3-T4, chantiers E3 et E4 v2)
 
 Exécute les contrats de §62. Code : `game::bombs` (`BombsPlugin`), `world::{bomb, explosion, surface}`,

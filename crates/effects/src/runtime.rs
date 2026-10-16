@@ -8,8 +8,8 @@ use sim_core::tag::{Tag, Tags};
 use crate::{Condition, Effect, GaugeThreshold, On};
 
 /// Déclencheurs exécutés (v1 + M2-T3 : `OnRoomClear`, `OnDodge`, `OnReload`, `OnPickup`,
-/// `OnFloorStart`, `OnBlank`). Les autres
-/// (`OnHit`, `OnUse` hors objet actif, `OnEvent`) restent des contrats : le lint les refuse.
+/// `OnFloorStart`, `OnBlank` + M3-T2 : `OnHit`, `OnEvent`). Seul `OnUse` hors objet actif reste un
+/// contrat : le lint le refuse.
 pub fn trigger_supported(on: &On) -> bool {
     matches!(
         on,
@@ -24,11 +24,13 @@ pub fn trigger_supported(on: &On) -> bool {
             | On::OnPickup
             | On::OnFloorStart
             | On::OnBlank
+            | On::OnHit
+            | On::OnEvent(_)
     )
 }
 
-/// Conditions exécutées (v1 + M2-T3 : `Carrying`, `SquadSize`). `TargetInRange` reste un
-/// contrat (aucune position de cible dans les déclencheurs) : le lint la refuse.
+/// Conditions exécutées (v1 + M2-T3 : `Carrying`, `SquadSize` + M3-T2 : `TargetInRange`, lue sur la
+/// cible de `OnHit`, `OnKill` et `OnDamageTaken` ; fausse sans cible).
 pub fn condition_supported(condition: &Condition) -> bool {
     matches!(
         condition,
@@ -38,16 +40,38 @@ pub fn condition_supported(condition: &Condition) -> bool {
             | Condition::NotHitFor(_)
             | Condition::Carrying(_)
             | Condition::SquadSize(_)
+            | Condition::TargetInRange(_)
     )
+}
+
+/// La cible d'un déclencheur (`OnHit`, `OnKill`, `OnDamageTaken`) : son `GgrsNetId` et sa position
+/// monde (`None` si inconnue), pour `TargetInRange` et `ApplyStatus` (M3-T2).
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub struct TargetRef {
+    pub id: usize,
+    pub position: Option<(Fixed, Fixed)>,
 }
 
 /// Ce qui est arrivé au porteur dans la frame.
 #[derive(Debug, Clone)]
 pub enum Trigger {
-    /// Le porteur a tué une cible portant ces tags.
-    Kill { target_tags: Tags },
-    /// Le porteur a subi des dégâts ; tags de la source (vides si inconnue).
-    DamageTaken { source_tags: Tags },
+    /// Le porteur a tué une cible portant ces tags (`target` : la victime, M3-T2).
+    Kill {
+        target_tags: Tags,
+        target: Option<TargetRef>,
+    },
+    /// Le porteur a subi des dégâts ; tags de la source (vides si inconnue) ; `target` : la source.
+    DamageTaken {
+        source_tags: Tags,
+        target: Option<TargetRef>,
+    },
+    /// M3-T2 : le porteur a touché `target` (dégât réel, après résolution), de tags `target_tags`.
+    Hit {
+        target_tags: Tags,
+        target: TargetRef,
+    },
+    /// M3-T2 : un effet du porteur a émis l'événement nommé `name` (`Action::Emit`).
+    Event { name: String },
     /// La jauge `id` est passée de `before` à `after` (`OnGauge(id, Above(x))` : franchie à
     /// la hausse si `before < x <= after`).
     GaugeMoved {
@@ -84,6 +108,20 @@ pub struct Carrier<'a> {
     pub carried: &'a [&'a str],
     /// Joueurs en vie dans la partie, pour `SquadSize`.
     pub squad_size: u32,
+    /// M3-T2 : position monde du porteur, pour `TargetInRange` (`None` : inconnue, condition fausse).
+    pub position: Option<(Fixed, Fixed)>,
+}
+
+/// L'effet répond-il à ce déclencheur : [`responds_to`] et, pour `OnPickup`, son filtre `item`
+/// (M3-T2 : absent, tout ramassage).
+pub fn effect_responds(effect: &Effect, trigger: &Trigger) -> bool {
+    if !responds_to(&effect.on, trigger) {
+        return false;
+    }
+    match (&effect.item, trigger) {
+        (Some(wanted), Trigger::Pickup { item }) => wanted == item,
+        _ => true,
+    }
 }
 
 /// L'effet répond-il à ce déclencheur (hors `Tick`, voir [`tick_due`]) ?
@@ -91,6 +129,8 @@ pub fn responds_to(on: &On, trigger: &Trigger) -> bool {
     match (on, trigger) {
         (On::OnKill, Trigger::Kill { .. }) => true,
         (On::OnDamageTaken, Trigger::DamageTaken { .. }) => true,
+        (On::OnHit, Trigger::Hit { .. }) => true,
+        (On::OnEvent(wanted), Trigger::Event { name }) => wanted == name,
         (On::OnLevelUp, Trigger::LevelUp) => true,
         (On::OnRoomClear, Trigger::RoomCleared) => true,
         (On::OnDodge, Trigger::Dodge) => true,
@@ -137,16 +177,53 @@ pub fn conditions_hold(
             .is_none_or(|hit| carrier.frame.saturating_sub(hit) >= *n),
         Condition::Carrying(item) => carrier.carried.iter().any(|c| c == item),
         Condition::SquadSize(n) => carrier.squad_size >= *n,
+        Condition::TargetInRange(range) => {
+            target_in_range(carrier.position, target_position(trigger), *range)
+        }
         _ => false,
     })
 }
 
 fn target_tags(trigger: Option<&Trigger>) -> Option<&Tags> {
     match trigger? {
-        Trigger::Kill { target_tags } => Some(target_tags),
-        Trigger::DamageTaken { source_tags } => Some(source_tags),
+        Trigger::Kill { target_tags, .. } => Some(target_tags),
+        Trigger::DamageTaken { source_tags, .. } => Some(source_tags),
+        Trigger::Hit { target_tags, .. } => Some(target_tags),
         _ => None,
     }
+}
+
+/// La cible du déclencheur, s'il en a une (`OnHit`, `OnKill`, `OnDamageTaken`).
+pub fn trigger_target(trigger: Option<&Trigger>) -> Option<&TargetRef> {
+    match trigger? {
+        Trigger::Kill { target, .. } | Trigger::DamageTaken { target, .. } => target.as_ref(),
+        Trigger::Hit { target, .. } => Some(target),
+        _ => None,
+    }
+}
+
+fn target_position(trigger: Option<&Trigger>) -> Option<(Fixed, Fixed)> {
+    trigger_target(trigger)?.position
+}
+
+/// `TargetInRange(range)` : la cible est à **au plus** `range` du porteur (distance au carré en
+/// `FixedWide`, sans racine) ; faux si l'une des positions manque ou si `range` est négatif.
+pub fn target_in_range(
+    carrier: Option<(Fixed, Fixed)>,
+    target: Option<(Fixed, Fixed)>,
+    range: Fixed,
+) -> bool {
+    use bevy_fixed::fixed_math::FixedWide;
+    let (Some((cx, cy)), Some((tx, ty))) = (carrier, target) else {
+        return false;
+    };
+    if range < Fixed::ZERO {
+        return false;
+    }
+    let dx = FixedWide::from_num(tx) - FixedWide::from_num(cx);
+    let dy = FixedWide::from_num(ty) - FixedWide::from_num(cy);
+    let r = FixedWide::from_num(range);
+    dx * dx + dy * dy <= r * r
 }
 
 /// Soin borné : `health + amount`, au plus `health_max`, jamais en dessous de `health`.
@@ -234,6 +311,7 @@ mod tests {
             last_hit_frame: last_hit,
             carried: &["fiole"],
             squad_size: 2,
+            position: Some((fx(0.0), fx(0.0))),
         }
     }
 
@@ -241,9 +319,11 @@ mod tests {
     fn chaque_declencheur_v1() {
         let kill = Trigger::Kill {
             target_tags: tags_of(&["zombie"]),
+            target: None,
         };
         let hurt = Trigger::DamageTaken {
             source_tags: Tags::new(),
+            target: None,
         };
         assert!(responds_to(&On::OnKill, &kill));
         assert!(!responds_to(&On::OnKill, &hurt));
@@ -273,8 +353,9 @@ mod tests {
             &On::OnGauge("autre".into(), GaugeThreshold::Above(fx(2.0))),
             &gauge
         ));
-        assert!(!trigger_supported(&On::OnHit));
-        assert!(!trigger_supported(&On::OnEvent("x".into())));
+        assert!(trigger_supported(&On::OnHit));
+        assert!(trigger_supported(&On::OnEvent("x".into())));
+        assert!(!trigger_supported(&On::OnUse));
     }
 
     #[test]
@@ -292,6 +373,7 @@ mod tests {
         let tags = tags_of(&["pilote"]);
         let kill = Trigger::Kill {
             target_tags: tags_of(&["zombie"]),
+            target: None,
         };
         let c = carrier(&tags, 40.0, Some(150));
         assert!(conditions_hold(&[Condition::HpBelow(fx(0.5))], &c, None));
@@ -319,7 +401,7 @@ mod tests {
             &carrier(&tags, 40.0, None),
             None
         ));
-        // ET ; non supportée = fausse
+        // ET ; `TargetInRange` sans cible : fausse
         assert!(!conditions_hold(
             &[
                 Condition::HpBelow(fx(0.5)),
@@ -351,7 +433,7 @@ mod tests {
         ] {
             assert!(trigger_supported(&on), "{on:?}");
         }
-        assert!(!condition_supported(&Condition::TargetInRange(fx(10.0))));
+        assert!(condition_supported(&Condition::TargetInRange(fx(10.0))));
         let tags = Tags::new();
         let c = carrier(&tags, 40.0, None);
         assert!(conditions_hold(
@@ -399,5 +481,95 @@ mod tests {
         assert_eq!(healed(fx(50.0), fx(100.0), fx(-5.0)), fx(50.0));
         // Au-dessus du max (max réduit) : jamais rabaissé par un soin
         assert_eq!(healed(fx(120.0), fx(100.0), fx(5.0)), fx(120.0));
+    }
+
+    fn hit_at(id: usize, x: f32, y: f32) -> Trigger {
+        Trigger::Hit {
+            target_tags: tags_of(&["zombie"]),
+            target: TargetRef {
+                id,
+                position: Some((fx(x), fx(y))),
+            },
+        }
+    }
+
+    #[test]
+    fn on_hit_on_event_et_filtre_de_ramassage() {
+        let hit = hit_at(7, 3.0, 4.0);
+        assert!(responds_to(&On::OnHit, &hit));
+        assert!(!responds_to(&On::OnKill, &hit));
+        let event = Trigger::Event { name: "tic".into() };
+        assert!(responds_to(&On::OnEvent("tic".into()), &event));
+        assert!(!responds_to(&On::OnEvent("autre".into()), &event));
+        assert!(!responds_to(&On::OnEvent("tic".into()), &hit));
+        // OnPickup filtré par objet
+        let pick = Trigger::Pickup {
+            item: "bottes".into(),
+        };
+        let any = Effect::new(On::OnPickup, vec![], vec![]);
+        let mut only_boots = Effect::new(On::OnPickup, vec![], vec![]);
+        only_boots.item = Some("bottes".into());
+        let mut only_lame = only_boots.clone();
+        only_lame.item = Some("lame".into());
+        assert!(effect_responds(&any, &pick));
+        assert!(effect_responds(&only_boots, &pick));
+        assert!(!effect_responds(&only_lame, &pick));
+        // le filtre ne concerne que `Pickup`
+        assert!(effect_responds(
+            &only_boots,
+            &Trigger::Pickup {
+                item: "bottes".into()
+            }
+        ));
+    }
+
+    #[test]
+    fn target_in_range_distance_inclusive_et_positions_manquantes() {
+        let tags = Tags::new();
+        let c = carrier(&tags, 40.0, None);
+        let in_range = |r: f32, trigger: &Trigger| {
+            conditions_hold(&[Condition::TargetInRange(fx(r))], &c, Some(trigger))
+        };
+        let hit = hit_at(7, 3.0, 4.0); // à 5 du porteur (0, 0)
+        assert!(in_range(5.0, &hit), "à exactement 5 : à portée");
+        assert!(!in_range(4.9, &hit));
+        assert!(in_range(100.0, &hit));
+        // OnKill et OnDamageTaken portent aussi une cible
+        let kill = Trigger::Kill {
+            target_tags: Tags::new(),
+            target: Some(TargetRef {
+                id: 1,
+                position: Some((fx(30.0), fx(0.0))),
+            }),
+        };
+        assert!(in_range(30.0, &kill) && !in_range(29.0, &kill));
+        // pas de cible, pas de position (cible ou porteur) : faux
+        assert!(!conditions_hold(
+            &[Condition::TargetInRange(fx(1000.0))],
+            &c,
+            None
+        ));
+        let no_pos = Trigger::Hit {
+            target_tags: Tags::new(),
+            target: TargetRef {
+                id: 2,
+                position: None,
+            },
+        };
+        assert!(!in_range(1000.0, &no_pos));
+        let mut blind = c.clone();
+        blind.position = None;
+        assert!(!conditions_hold(
+            &[Condition::TargetInRange(fx(1000.0))],
+            &blind,
+            Some(&hit)
+        ));
+        assert!(!target_in_range(
+            Some((fx(0.0), fx(0.0))),
+            Some((fx(0.0), fx(0.0))),
+            fx(-1.0)
+        ));
+        assert_eq!(trigger_target(Some(&hit)).map(|t| t.id), Some(7));
+        assert_eq!(trigger_target(Some(&Trigger::Reload)), None);
     }
 }

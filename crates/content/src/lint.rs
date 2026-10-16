@@ -146,6 +146,12 @@ pub(crate) fn lint_effect(
             format!("{at} : Tick(0) : doit être > 0"),
         );
     }
+    if matches!(&effect.on, effects::On::OnEvent(name) if name.is_empty()) {
+        push(
+            LintErrorKind::OutOfRange,
+            format!("{at} : OnEvent : nom vide"),
+        );
+    }
     // Jauges : seule celle de la progression existe en v1
     let gauge_known = |id: &str| registry.progression.values().any(|p| p.gauge == id);
     if let effects::On::OnGauge(id, _) = &effect.on {
@@ -232,12 +238,48 @@ pub(crate) fn lint_effect(
                     );
                 }
             }
+            // M3-T2 (§67) : statut posé sur la cible du déclencheur (`OnHit`, `OnKill`,
+            // `OnDamageTaken`) ou sur le porteur (`ApplyStatusSelf`)
+            effects::Action::ApplyStatus { status, stacks }
+            | effects::Action::ApplyStatusSelf { status, stacks } => {
+                let on_self = matches!(action, effects::Action::ApplyStatusSelf { .. });
+                if !on_self
+                    && !matches!(
+                        effect.on,
+                        effects::On::OnHit | effects::On::OnKill | effects::On::OnDamageTaken
+                    )
+                {
+                    push(
+                        LintErrorKind::Unsupported,
+                        format!("{at} : ApplyStatus : pas de cible hors OnHit, OnKill et OnDamageTaken (ApplyStatusSelf pose sur le porteur)"),
+                    );
+                }
+                if !registry
+                    .statuses
+                    .contains_key(&registry::StatusId::from(status.clone()))
+                {
+                    push(
+                        LintErrorKind::BrokenReference,
+                        format!("{at} : ApplyStatus : statut « {status} » inconnu"),
+                    );
+                }
+                if *stacks == 0 {
+                    push(
+                        LintErrorKind::OutOfRange,
+                        format!("{at} : ApplyStatus « {status} » : stacks = 0 : doit être > 0"),
+                    );
+                }
+            }
+            // M3-T2 : événement nommé, lu par les `OnEvent` du même porteur
+            effects::Action::Emit(name) if name.is_empty() => push(
+                LintErrorKind::OutOfRange,
+                format!("{at} : Emit : nom vide"),
+            ),
             effects::Action::RefillAmmo
             | effects::Action::RefillAmmoOf(_)
             | effects::Action::RepairAllWindows
             | effects::Action::KillAllWaveEnemies
             | effects::Action::DestroyTerrain { .. }
-            | effects::Action::ApplyStatus { .. }
             // M3-T1 : chance d'`on_hit` de projectile seulement
             | effects::Action::Chance { .. } => push(
                 LintErrorKind::Unsupported,
