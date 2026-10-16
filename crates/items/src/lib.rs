@@ -203,24 +203,17 @@ pub struct SynergyDef {
     pub projectile: Option<ProjectileMods>,
 }
 
-/// M3-T0a (§60) : listes de modificateurs de projectile des objets tenus par `inventory`, dans
+/// M3-T0a (§60), lu au tir par M3-T1 (§66) : `projectile` des objets tenus par `inventory`, dans
 /// l'ordre déterministe de la composition (`combat::projectile::compose`, après ceux de l'arme) :
 /// passifs dans l'ordre de ramassage (un passif en double compte deux fois), puis l'actif, puis
-/// les synergies actives par id croissant. Les objets sans `projectile` ne donnent rien. Pure :
-/// M3-T1 l'appellera au tir.
-pub fn projectile_sources<'a>(
+/// les synergies actives par id croissant. Les objets sans `projectile` ne donnent rien. Pure.
+pub fn projectile_mods<'a>(
     items: &'a ItemTable,
     synergies: &'a SynergyTable,
     inventory: &Inventory,
-) -> Vec<&'a [effects::projectile::ProjectileModifier]> {
-    let item_mods = |id: &str| {
-        items
-            .0
-            .get(id)
-            .and_then(|def| def.projectile.as_ref())
-            .map(|mods| mods.modifiers.as_slice())
-    };
-    let mut out: Vec<&[effects::projectile::ProjectileModifier]> = Vec::new();
+) -> Vec<&'a ProjectileMods> {
+    let item_mods = |id: &str| items.0.get(id).and_then(|def| def.projectile.as_ref());
+    let mut out: Vec<&ProjectileMods> = Vec::new();
     out.extend(inventory.passives.iter().filter_map(|id| item_mods(id)));
     if let Some(active) = &inventory.active {
         out.extend(item_mods(&active.item));
@@ -229,10 +222,22 @@ pub fn projectile_sources<'a>(
         synergies
             .active(inventory)
             .into_iter()
-            .filter_map(|(_, def)| def.projectile.as_ref())
-            .map(|mods| mods.modifiers.as_slice()),
+            .filter_map(|(_, def)| def.projectile.as_ref()),
     );
     out
+}
+
+/// Les seules listes de modificateurs de [`projectile_mods`] (même ordre), sans `on_hit` ni
+/// `on_expire`.
+pub fn projectile_sources<'a>(
+    items: &'a ItemTable,
+    synergies: &'a SynergyTable,
+    inventory: &Inventory,
+) -> Vec<&'a [effects::projectile::ProjectileModifier]> {
+    projectile_mods(items, synergies, inventory)
+        .into_iter()
+        .map(|mods| mods.modifiers.as_slice())
+        .collect()
 }
 
 /// Source des modificateurs d'une synergie.

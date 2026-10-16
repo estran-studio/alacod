@@ -596,7 +596,19 @@ pub fn move_enemies(
         // T1.4 : un behavior nouveau retenu (`KeepDistance`, `Flee`, `Strafe`, `Wander`,
         // `Charge`) impose sa direction et sa vitesse, sans ralentissement près du joueur ;
         // sinon (tous les ennemis d'avant T1.4) le calcul d'origine, inchangé.
-        let motion = behavior_runtime
+        // M3-T1 : `Fear` impose `Flee` (même recul que le behavior), qu'il soit listé ou non.
+        let feared = combat::status::feared(statuses);
+        let motion = feared
+            .then(|| {
+                super::rules::flee_motion(
+                    &flow_field_cache,
+                    nav_key,
+                    enemy_pos_v2,
+                    &body,
+                    enemy_target_opt.and_then(|target| target.last_known_position),
+                )
+            })
+            .or_else(|| behavior_runtime
             .zip(enemy_behaviors)
             .and_then(|(runtime, rules)| {
                 super::rules::behavior_motion(
@@ -610,7 +622,7 @@ pub fn move_enemies(
                     &body,
                     squad_slots.0.get(&net_id.0),
                 )
-            });
+            }));
         let desired_move_velocity_v2 = match &motion {
             Some(motion) => motion.direction * movement_speed.saturating_mul(motion.speed_mult),
             None => base_velocity_v2 * speed_factor_fixed,

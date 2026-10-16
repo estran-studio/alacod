@@ -36,6 +36,7 @@ use bevy::{
     prelude::*,
 };
 use bevy_fixed::fixed_math::{self, Fixed, FixedVec2, FixedVec3};
+use bevy_fixed::rng::RngStreams;
 use bevy_ggrs::{Rollback, RollbackDespawnCommandExtension};
 use effects::Action;
 use serde::{Deserialize, Serialize};
@@ -154,16 +155,16 @@ pub const BASE_SPRITE: f32 = 3.5;
 /// Garde-fou contre une chaîne `on_expire` sans fin (le lint refuse déjà les cycles).
 pub const MAX_GENERATION: u8 = 8;
 
-/// `Split` résolu (M3-T0a, contrat exécuté par M3-T1).
-#[derive(Clone, Debug, PartialEq, Eq)]
+/// `Split` résolu (M3-T0a, exécuté par M3-T1, §66).
+#[derive(Clone, Debug, PartialEq, Eq, Hash)]
 pub struct ResolvedSplit {
     pub count: u32,
     pub spread: Fixed,
     pub child: Option<String>,
 }
 
-/// `Orbit` résolu (M3-T0a, contrat exécuté par M3-T1).
-#[derive(Clone, Copy, Debug, PartialEq, Eq)]
+/// `Orbit` résolu (M3-T0a, exécuté par M3-T1, §66).
+#[derive(Clone, Copy, Debug, PartialEq, Eq, Hash)]
 pub struct ResolvedOrbit {
     pub radius: Fixed,
     pub frames_per_turn: u32,
@@ -172,8 +173,8 @@ pub struct ResolvedOrbit {
 /// Valeurs résolues d'une liste de modificateurs. Un même modificateur répété : le dernier
 /// l'emporte (le lint refuse les doublons).
 ///
-/// M3-T0a : plus `Copy` (`split` porte l'id du projectile enfant) ; `spectral`, `split`,
-/// `orbit` sont des contrats que [`Projectile::new`] ne lit pas encore (M3-T1).
+/// M3-T0a : plus `Copy` (`split` porte l'id du projectile enfant) ; M3-T1 : `spectral`, `split`
+/// et `orbit` sont lus par [`Projectile`] et exécutés par les systèmes de projectiles.
 #[derive(Clone, Debug, PartialEq, Eq)]
 pub struct ResolvedModifiers {
     pub bounces: u32,
@@ -286,8 +287,24 @@ pub fn compose(base: &[ProjectileModifier], ajouts: &[&[ProjectileModifier]]) ->
     out
 }
 
+/// Orbite d'un projectile `Orbit` (M3-T1, §66) : le contrat résolu et la phase de départ (angle
+/// de la direction de tir, fixé à l'apparition par [`Projectile::start_orbit`]).
+#[derive(Clone, Copy, Debug, PartialEq, Eq, Hash)]
+pub struct OrbitState {
+    pub radius: Fixed,
+    pub frames_per_turn: u32,
+    pub phase: Fixed,
+}
+
+/// Frames qu'un projectile `Orbit` met à atteindre son rayon (il part du tireur).
+pub const ORBIT_RAMP_FRAMES: u32 = 10;
+
 /// État rollback d'un projectile composable, posé à côté de `weapons::Bullet`.
-#[derive(Component, Clone, Hash)]
+///
+/// `Hash` manuel : les champs de M3-T1 (`spectral`, `split`, `orbit`, `luck`) ne sont hachés que
+/// s'ils sont actifs, donc le hash d'un projectile d'avant M3-T1 est exactement celui d'avant
+/// (aucune trace existante ne bouge).
+#[derive(Component, Clone)]
 pub struct Projectile {
     /// Id de contenu : l'arme pour un projectile tiré, l'entrée de `projectiles` pour un
     /// projectile né d'un `on_expire` (filtre de l'attente `BulletCount`).
@@ -315,13 +332,50 @@ pub struct Projectile {
     pub on_expire: Vec<ExpireAction>,
     /// Table `projectiles` de l'arme d'origine, partagée par toute la descendance.
     pub table: Arc<ProjectileTable>,
+    /// M3-T1 : traverse murs et obstacles (`Spectral`), pas les personnages.
+    pub spectral: bool,
+    /// M3-T1 : à l'impact sur un personnage, `count` projectiles en éventail (`Split`).
+    pub split: Option<ResolvedSplit>,
+    /// M3-T1 : tourne autour du tireur (`Orbit`).
+    pub orbit: Option<OrbitState>,
+    /// M3-T1 : stat `Luck` du tireur au tir, pour `Action::Chance` (0 par défaut).
+    pub luck: Fixed,
+}
+
+impl std::hash::Hash for Projectile {
+    fn hash<H: std::hash::Hasher>(&self, state: &mut H) {
+        // Champs d'avant M3-T1, dans l'ordre historique du `derive(Hash)`.
+        self.id.hash(state);
+        self.bounces_left.hash(state);
+        self.pierces_left.hash(state);
+        self.size.hash(state);
+        self.lifetime_left.hash(state);
+        self.homing.hash(state);
+        self.gravity.hash(state);
+        self.hits.hash(state);
+        self.ended.hash(state);
+        self.generation.hash(state);
+        self.damage_mult.hash(state);
+        self.on_hit.hash(state);
+        self.on_expire.hash(state);
+        self.table.hash(state);
+        // M3-T1 : seulement s'il y a quelque chose (jamais pour un projectile d'arme existante).
+        if self.spectral || self.split.is_some() || self.orbit.is_some() || self.luck != Fixed::ZERO
+        {
+            self.spectral.hash(state);
+            self.split.hash(state);
+            self.orbit.hash(state);
+            self.luck.hash(state);
+        }
+    }
 }
 
 /// Debug compact : la table n'est donnée que par ses clés (elle est identique pour toute la
 /// descendance d'un tir, la répéter à chaque ligne de la trace détaillée n'apprend rien).
 impl std::fmt::Debug for Projectile {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
-        f.debug_struct("Projectile")
+        let mut debug = f.debug_struct("Projectile");
+        debug
             .field("id", &self.id)
             .field("bounces_left", &self.bounces_left)
             .field("pierces_left", &self.pierces_left)
@@ -335,8 +389,17 @@ impl std::fmt::Debug for Projectile {
             .field("damage_mult", &self.damage_mult)
             .field("on_hit", &self.on_hit)
             .field("on_expire", &self.on_expire)
-            .field("table", &self.table.keys().collect::<Vec<_>>())
-            .finish()
+            .field("table", &self.table.keys().collect::<Vec<_>>());
+        // M3-T1 : seulement s'ils sont actifs (le dump détaillé d'un projectile d'avant ne change pas)
+        if self.spectral || self.split.is_some() || self.orbit.is_some() || self.luck != Fixed::ZERO
+        {
+            debug
+                .field("spectral", &self.spectral)
+                .field("split", &self.split)
+                .field("orbit", &self.orbit)
+                .field("luck", &self.luck);
+        }
+        debug.finish()
     }
 }
 
@@ -348,7 +411,66 @@ impl Projectile {
         damage_mult: Fixed,
         generation: u8,
     ) -> Self {
-        let resolved = resolve_modifiers(&spec.modifiers);
+        Self::from_resolved(
+            id,
+            resolve_modifiers(&spec.modifiers),
+            spec.on_hit.clone(),
+            spec.on_expire.clone(),
+            table,
+            damage_mult,
+            generation,
+        )
+    }
+
+    /// Projectile tiré, composé (M3-T1, §66) : les modificateurs de `base` (le mode de tir de
+    /// l'arme) et ceux des `extras` (`ProjectileMods` des objets et synergies, dans l'ordre de
+    /// `items::projectile_mods`) sont combinés par [`compose`] ; `on_hit` et `on_expire` s'y
+    /// ajoutent à ceux de l'arme, dans le même ordre. Sans `extras` : exactement
+    /// [`Projectile::new`].
+    pub fn composed(
+        id: String,
+        base: &ProjectileSpec,
+        extras: &[&ProjectileMods],
+        table: Arc<ProjectileTable>,
+        damage_mult: Fixed,
+    ) -> Self {
+        let lists: Vec<&[ProjectileModifier]> = extras
+            .iter()
+            .map(|mods| mods.modifiers.as_slice())
+            .collect();
+        let mut on_hit = base.on_hit.clone();
+        let mut on_expire = base.on_expire.clone();
+        for mods in extras {
+            on_hit.extend(mods.on_hit.iter().cloned());
+            on_expire.extend(mods.on_expire.iter().cloned());
+        }
+        Self::from_resolved(
+            id,
+            compose(&base.modifiers, &lists),
+            on_hit,
+            on_expire,
+            table,
+            damage_mult,
+            0,
+        )
+    }
+
+    /// Un `on_hit` contient une `Action::Chance` (la stat `Luck` du tireur est alors lue au tir).
+    pub fn has_chance(&self) -> bool {
+        self.on_hit
+            .iter()
+            .any(|action| matches!(action, Action::Chance { .. }))
+    }
+
+    fn from_resolved(
+        id: String,
+        resolved: ResolvedModifiers,
+        on_hit: Vec<Action>,
+        on_expire: Vec<ExpireAction>,
+        table: Arc<ProjectileTable>,
+        damage_mult: Fixed,
+        generation: u8,
+    ) -> Self {
         Self {
             id,
             bounces_left: resolved.bounces,
@@ -361,10 +483,32 @@ impl Projectile {
             ended: false,
             generation,
             damage_mult,
-            on_hit: spec.on_hit.clone(),
-            on_expire: spec.on_expire.clone(),
+            on_hit,
+            on_expire,
             table,
+            spectral: resolved.spectral,
+            split: resolved.split,
+            orbit: resolved.orbit.map(|orbit| OrbitState {
+                radius: orbit.radius,
+                frames_per_turn: orbit.frames_per_turn,
+                phase: Fixed::ZERO,
+            }),
+            luck: Fixed::ZERO,
         }
+    }
+
+    /// Fixe la phase de l'orbite sur la direction de tir (`velocity` à l'apparition) : le projectile
+    /// part du côté où il a été tiré. Sans `Orbit`, ne fait rien.
+    pub fn start_orbit(&mut self, velocity: FixedVec2) {
+        if let Some(orbit) = self.orbit.as_mut() {
+            orbit.phase = angle_of(velocity);
+        }
+    }
+
+    /// Chances résolues pour un coup (M3-T1, §66) : chaque `Action::Chance` de `on_hit` est
+    /// tirée (RNG local, voir [`resolve_chances`]).
+    pub fn resolved_on_hit(&self, run_seed: u32, net_id: usize) -> Vec<Action> {
+        resolve_chances(&self.on_hit, run_seed, net_id, self.luck)
     }
 
     /// Rayon de collision : `base` × `Size`.
@@ -471,6 +615,52 @@ pub fn projectile_wall_terrain_system(
 // ---------------------------------------------------------------------------------------
 // Mathématiques pures (testées unitairement)
 // ---------------------------------------------------------------------------------------
+
+/// `on_hit` d'un coup, chances résolues (M3-T1, §66). Une `Action::Chance` dont le tirage réussit
+/// est remplacée par son `then` ; celle qui échoue est **laissée telle quelle** (les systèmes
+/// d'application l'ignorent), ce qui garde le rang de chaque action dans la liste (la source des
+/// modificateurs posés, `projectile:<id>:<rang>`, ne dépend donc pas du hasard). Tirage :
+/// [`effects::chance::roll_chance`], RNG local de graine `(run_seed, net_id du projectile, rang)`,
+/// chance = `chance_with_luck(base, luck, per_luck)`. Les autres actions passent inchangées.
+pub fn resolve_chances(on_hit: &[Action], run_seed: u32, net_id: usize, luck: Fixed) -> Vec<Action> {
+    on_hit
+        .iter()
+        .enumerate()
+        .map(|(rank, action)| match action {
+            Action::Chance {
+                base,
+                per_luck,
+                then,
+            } => {
+                let chance = effects::chance_with_luck(*base, luck, *per_luck);
+                if effects::chance::roll_chance(run_seed, net_id, rank as u32, chance) {
+                    (**then).clone()
+                } else {
+                    action.clone()
+                }
+            }
+            other => other.clone(),
+        })
+        .collect()
+}
+
+/// Position d'un projectile `Orbit` autour de `center` après `age` frames (M3-T1) : angle
+/// `phase + 2π · (age mod frames_per_turn) / frames_per_turn`, rayon qui croît linéairement de 0
+/// à `radius` pendant [`ORBIT_RAMP_FRAMES`]. Pure, `Fixed` seulement.
+pub fn orbit_position(center: FixedVec2, orbit: &OrbitState, age: u32) -> FixedVec2 {
+    let per_turn = orbit.frames_per_turn.max(1);
+    let fraction = Fixed::saturating_from_num(age % per_turn) / Fixed::saturating_from_num(per_turn);
+    let angle = orbit
+        .phase
+        .saturating_add(fraction.saturating_mul(fixed_math::FIXED_TAU));
+    let ramp = Fixed::from_num(age.min(ORBIT_RAMP_FRAMES)) / Fixed::from_num(ORBIT_RAMP_FRAMES);
+    let radius = orbit.radius.saturating_mul(ramp);
+    let direction = direction_of(angle);
+    FixedVec2::new(
+        center.x.saturating_add(direction.x.saturating_mul(radius)),
+        center.y.saturating_add(direction.y.saturating_mul(radius)),
+    )
+}
 
 /// `Gravity(g)` sur une frame (60 par seconde) : `v.y += g / 3600`.
 pub fn apply_gravity(velocity: FixedVec2, gravity: Fixed) -> FixedVec2 {
@@ -754,13 +944,15 @@ pub fn spawn_child_projectile(
         );
         return None;
     };
-    let projectile = Projectile::new(
+    let mut projectile = Projectile::new(
         shot.projectile.clone(),
         &def.spec(),
         parent.projectile.table.clone(),
         parent.projectile.damage_mult,
         generation,
     );
+    // M3-T1 : la chance du tireur suit la descendance.
+    projectile.luck = parent.projectile.luck;
     let speed = shot.speed.unwrap_or(def.speed);
     let velocity = FixedVec2::new(
         shot.direction.x.saturating_mul(speed) / Fixed::from_num(60),
@@ -795,6 +987,130 @@ pub fn spawn_child_projectile(
     ))
 }
 
+/// `Split` (M3-T1, §66) : à l'impact du projectile `parent` sur un personnage, fait naître `count`
+/// projectiles en éventail de `spread` radians autour de sa direction de vol, à sa position.
+///
+/// - `child: Some(id)` : l'entrée `id` de la table `projectiles` de l'arme (dégâts, vitesse,
+///   portée et modificateurs de sa définition) ; id absent de la table (un objet n'a pas de table :
+///   le lint le refuse pour un objet) : ignoré avec un `warn!`.
+/// - `child: None` : le projectile par défaut du porteur, c'est-à-dire une copie du parent (mêmes
+///   dégâts, vitesse et portée, modificateurs et `on_hit` **restants**, sans `Split` ni `Orbit` ni
+///   `on_expire`).
+///
+/// Dans les deux cas, l'enfant garde la liste des personnages déjà touchés par le parent (il ne
+/// retouche pas la cible qu'il quitte) et compte une génération de plus ([`MAX_GENERATION`]).
+/// Les `GgrsNetId` sont alloués dans l'ordre de l'éventail, après ceux des projectiles de
+/// `GgrsNetId` plus petit (l'appelant itère dans cet ordre).
+pub fn spawn_split_children(
+    commands: &mut Commands,
+    parent: &Parent,
+    split: &ResolvedSplit,
+    frame: u32,
+    collision_settings: &CollisionSettings,
+    id_factory: &mut GgrsNetIdFactory,
+) {
+    let generation = parent.projectile.generation + 1;
+    if generation > MAX_GENERATION {
+        warn!(
+            "projectile {} : Split au-delà de {} générations, ignoré",
+            parent.projectile.id, MAX_GENERATION
+        );
+        return;
+    }
+    let forward = parent.bullet.velocity.normalize_or_zero();
+    let forward = if forward == FixedVec2::ZERO {
+        FixedVec2::new(fixed_math::FIXED_ONE, Fixed::ZERO)
+    } else {
+        forward
+    };
+    for angle in fan_angles(angle_of(forward), split.count, split.spread) {
+        let direction = direction_of(angle);
+        let (mut projectile, bullet_type, damage, speed, range, label) = match &split.child {
+            Some(id) => {
+                let Some(def) = parent.projectile.table.get(id) else {
+                    warn!(
+                        "projectile {} : Split : enfant « {} » absent de la table projectiles de l'arme, ignoré",
+                        parent.projectile.id, id
+                    );
+                    return;
+                };
+                let mut child = Projectile::new(
+                    id.clone(),
+                    &def.spec(),
+                    parent.projectile.table.clone(),
+                    parent.projectile.damage_mult,
+                    generation,
+                );
+                child.luck = parent.projectile.luck;
+                (
+                    child,
+                    BulletType::Standard {
+                        damage: def.damage,
+                        speed: def.speed,
+                    },
+                    def.damage.saturating_mul(parent.projectile.damage_mult),
+                    def.speed,
+                    def.range,
+                    id.clone(),
+                )
+            }
+            None => {
+                let mut child = parent.projectile.clone();
+                child.split = None;
+                child.orbit = None;
+                child.on_expire = Vec::new();
+                child.ended = false;
+                child.generation = generation;
+                (
+                    child,
+                    parent.bullet.bullet_type,
+                    parent.bullet.damage,
+                    bullet_type_speed(&parent.bullet.bullet_type),
+                    parent.bullet.range,
+                    parent.projectile.id.clone(),
+                )
+            }
+        };
+        // L'enfant ne retouche pas ce que le parent a déjà touché.
+        projectile.hits = parent.projectile.hits.clone();
+        let velocity = FixedVec2::new(
+            direction.x.saturating_mul(speed) / Fixed::from_num(60),
+            direction.y.saturating_mul(speed) / Fixed::from_num(60),
+        );
+        crate::weapons::spawn_bullet(
+            commands,
+            collision_settings,
+            id_factory,
+            crate::weapons::BulletSpawn {
+                position: parent.position,
+                rotation: fixed_math::FixedMat3::IDENTITY,
+                velocity,
+                bullet_type,
+                damage,
+                range,
+                player_handle: parent.bullet.player_handle,
+                created_at: frame,
+                source: &parent.bullet.source,
+                source_team: parent.bullet.source_team,
+                source_tags: &parent.bullet.tags,
+                friendly_fire: parent.bullet.friendly_fire,
+                projectile: Some(projectile),
+                id_label: label,
+                shot_size: fixed_math::FIXED_ONE,
+            },
+        );
+    }
+}
+
+/// Vitesse (unités/seconde) d'un type de balle.
+fn bullet_type_speed(bullet_type: &BulletType) -> Fixed {
+    match bullet_type {
+        BulletType::Standard { speed, .. }
+        | BulletType::Explosive { speed, .. }
+        | BulletType::Piercing { speed, .. } => *speed,
+    }
+}
+
 // ---------------------------------------------------------------------------------------
 // Systèmes (RollbackSystemSet::Projectiles)
 // ---------------------------------------------------------------------------------------
@@ -820,8 +1136,12 @@ type TargetQuery<'w, 's> = Query<
 /// `team_allows_hit` (`Team::Neutral` arrête le projectile sans être blessé). Un personnage
 /// invulnérable (i-frames du dash, `Health::is_invulnerable_at`) est traversé sans être
 /// touché ; `Homing` et `Aimed` le visent toujours.
-#[allow(clippy::type_complexity)]
+#[allow(clippy::type_complexity, clippy::too_many_arguments)]
 pub fn projectile_collision_system(
+    mut commands: Commands,
+    mut id_factory: ResMut<GgrsNetIdFactory>,
+    // M3-T1 : lecture seule de la graine de run (tirage de chance local, jamais un flux)
+    rng_streams: Res<RngStreams>,
     frame: Res<FrameCount>,
     settings: Res<CollisionSettings>,
     grids: Res<CollisionGrids>,
@@ -932,15 +1252,40 @@ pub fn projectile_collision_system(
                     projectile: projectile.id.clone(),
                     source: bullet.source.clone(),
                     target: target.clone(),
-                    actions: projectile.on_hit.clone(),
+                    // M3-T1 : chances résolues ici (le projectile seul connaît son net id)
+                    actions: projectile.resolved_on_hit(rng_streams.run_seed, net_id.0),
                     frame: frame.frame,
                 });
             }
-            if projectile.register_hit(target) {
+            let ended = projectile.register_hit(target);
+            // M3-T1 : `Split` à l'impact (après `register_hit` : l'enfant hérite de la cible
+            // touchée et des perforations restantes).
+            if let Some(split) = projectile.split.clone() {
+                let parent = Parent {
+                    bullet: &bullet,
+                    projectile: &projectile,
+                    position: transform.translation,
+                };
+                spawn_split_children(
+                    &mut commands,
+                    &parent,
+                    &split,
+                    frame.frame,
+                    &settings,
+                    &mut id_factory,
+                );
+            }
+            if ended {
                 break;
             }
         }
         if projectile.ended {
+            continue;
+        }
+
+        // M3-T1 : `Spectral` traverse murs et obstacles (jamais les personnages, traités plus
+        // haut).
+        if projectile.spectral {
             continue;
         }
 
@@ -1123,6 +1468,27 @@ pub fn projectile_steering_system(
         if projectile.ended {
             continue;
         }
+        // M3-T1 : `Orbit` tourne autour du tireur au lieu d'avancer : la vitesse de la frame
+        // suivante est l'écart jusqu'à la position d'orbite de la frame suivante. Le tireur
+        // disparu (mort, détruit) termine le projectile ; ni gravité ni guidage en orbite.
+        if let Some(orbit) = &projectile.orbit {
+            let center = target_query
+                .iter()
+                .find(|(id, ..)| id.0 == bullet.source.0)
+                .map(|(_, shooter, ..)| shooter.translation.truncate());
+            match center {
+                Some(center) => {
+                    let age = (frame.frame + 1).saturating_sub(bullet.created_at);
+                    let next = orbit_position(center, orbit, age);
+                    bullet.velocity = FixedVec2::new(
+                        next.x.saturating_sub(transform.translation.x),
+                        next.y.saturating_sub(transform.translation.y),
+                    );
+                }
+                None => bullet.range = Fixed::ZERO,
+            }
+            continue;
+        }
         if let Some(gravity) = projectile.gravity {
             bullet.velocity = apply_gravity(bullet.velocity, gravity);
         }
@@ -1237,7 +1603,7 @@ pub fn apply_projectile_on_hit_system(
 }
 
 /// Statuts (T1.3, `docs/conventions.md` §19) : ticks de `Burn` (un `DamageEvent` de genre
-/// `Fire` par tick, crédité à la source, résolu dans la même frame par le résolveur unique),
+/// `Fire` par tick ; `Poison` : genre `Poison`, M3-T1, crédité à la source, résolu dans la même frame par le résolveur unique),
 /// puis retrait des statuts expirés ; un porteur sans statut perd le composant. Après
 /// [`apply_projectile_on_hit_system`] (une pose de la frame compte), avant
 /// `RollbackSystemSet::CollisionDamage`.
@@ -1254,7 +1620,12 @@ pub fn status_tick_system(
             damage_events.send(DamageEvent {
                 source: tick.source.clone().unwrap_or_else(|| net_id.clone()),
                 target: net_id.clone(),
-                kind: DamageKind::Fire,
+                // M3-T1 : `Poison` inflige du poison, `Burn` du feu
+                kind: if tick.status == StatusDef::Poison {
+                    DamageKind::Poison
+                } else {
+                    DamageKind::Fire
+                },
                 amount: tick.damage,
                 frame: frame.frame,
                 tags,
@@ -1395,8 +1766,6 @@ mod tests {
                 },
             ]
         );
-        assert!(values.iter().all(ProjectileModifier::is_contract_only));
-        assert!(!ProjectileModifier::Bounce(1).is_contract_only());
     }
 
     fn all_kinds() -> Vec<ProjectileModifier> {
@@ -1833,5 +2202,294 @@ mod tests {
         let angle = 23.0 * 2.0 * pi / 24.0;
         assert!((last.x.to_num::<f64>() - angle.cos()).abs() < 1e-4);
         assert!((last.y.to_num::<f64>() - angle.sin()).abs() < 1e-4);
+    }
+
+    // ---- M3-T1 (§66) : paires de modificateurs, composition de projectile, chance, orbite ----
+
+    /// Toutes les paires ordonnées de variantes **différentes** : aucune règle ne les lie, donc
+    /// `compose([a], [[b]])` est la liste `[a, b]` résolue d'un seul bloc, dans les deux ordres.
+    #[test]
+    fn compose_deux_variantes_differentes_se_cumulent_sans_interaction() {
+        let kinds = all_kinds();
+        for (i, a) in kinds.iter().enumerate() {
+            for (j, b) in kinds.iter().enumerate() {
+                if i == j {
+                    continue;
+                }
+                let composed = compose(std::slice::from_ref(a), &[std::slice::from_ref(b)]);
+                assert_eq!(
+                    composed,
+                    resolve_modifiers(&[a.clone(), b.clone()]),
+                    "{} puis {}",
+                    a.name(),
+                    b.name()
+                );
+                let swapped = compose(std::slice::from_ref(b), &[std::slice::from_ref(a)]);
+                assert_eq!(composed, swapped, "{} / {} commutent", a.name(), b.name());
+            }
+        }
+    }
+
+    /// Toutes les paires d'une **même** variante, une valeur attendue par règle de la table du §60.
+    #[test]
+    fn compose_deux_variantes_identiques_suivent_leur_regle() {
+        use ProjectileModifier::*;
+        let pair = |m: ProjectileModifier| {
+            compose(std::slice::from_ref(&m), &[std::slice::from_ref(&m)])
+        };
+        let r = pair(Bounce(2));
+        assert_eq!(r.bounces, 4, "Bounce : addition");
+        let r = pair(Pierce(1));
+        assert_eq!(r.pierces, 2, "Pierce : addition");
+        let r = pair(Size(fx(1.5)));
+        assert_eq!(r.size, fx(2.25), "Size : produit");
+        let r = pair(Lifetime(30));
+        assert_eq!(r.lifetime, Some(30), "Lifetime : maximum");
+        let r = pair(Homing(fx(0.25)));
+        assert_eq!(r.homing, Some(fx(0.5)), "Homing : somme");
+        let r = pair(Homing(fx(0.75)));
+        assert_eq!(r.homing, Some(fx(1.0)), "Homing : plafonné à 1");
+        let r = pair(Gravity(fx(-60.0)));
+        assert_eq!(r.gravity, Some(fx(-120.0)), "Gravity : somme");
+        let r = pair(Spectral);
+        assert!(r.spectral, "Spectral : présence");
+        let r = pair(Split {
+            count: 2,
+            spread: fx(0.5),
+            child: None,
+        });
+        assert_eq!(r.split.unwrap().count, 4, "Split : addition des branches");
+        let r = pair(Orbit {
+            radius: fx(32.0),
+            frames_per_turn: 90,
+        });
+        assert_eq!(
+            r.orbit,
+            Some(ResolvedOrbit {
+                radius: fx(32.0),
+                frames_per_turn: 90
+            }),
+            "Orbit : présence, paramètres de la première source"
+        );
+    }
+
+    /// Les trois étages de `tears_stack_three` : rebond (arme), guidage (passif), division (actif).
+    #[test]
+    fn compose_trois_sources_rebond_guidage_division() {
+        use ProjectileModifier::*;
+        let r = compose(
+            &[Bounce(2)],
+            &[
+                &[Homing(fx(0.1))],
+                &[Split {
+                    count: 2,
+                    spread: fx(0.4),
+                    child: None,
+                }],
+            ],
+        );
+        assert_eq!(r.bounces, 2);
+        assert_eq!(r.homing, Some(fx(0.1)));
+        assert_eq!(r.split.as_ref().map(|s| s.count), Some(2));
+        assert_eq!(r.pierces, 0);
+    }
+
+    fn spec_of(modifiers: Vec<ProjectileModifier>, on_hit: Vec<Action>) -> ProjectileSpec {
+        ProjectileSpec {
+            modifiers,
+            on_hit,
+            on_expire: Vec::new(),
+        }
+    }
+
+    fn status_action(id: &str) -> Action {
+        Action::ApplyStatus {
+            status: id.into(),
+            stacks: 1,
+        }
+    }
+
+    /// `Projectile::composed` : modificateurs composés, `on_hit` et `on_expire` ajoutés dans
+    /// l'ordre arme puis objets ; sans objet, `Projectile::new` à l'identique (même hash).
+    #[test]
+    fn projectile_compose_arme_puis_objets_dans_l_ordre() {
+        use std::hash::{Hash, Hasher};
+        let table = Arc::new(ProjectileTable::new());
+        let hash = |p: &Projectile| {
+            let mut hasher = std::collections::hash_map::DefaultHasher::new();
+            p.hash(&mut hasher);
+            hasher.finish()
+        };
+        let weapon = spec_of(
+            vec![ProjectileModifier::Pierce(1)],
+            vec![status_action("brulure")],
+        );
+        let sans = Projectile::composed("larme".into(), &weapon, &[], table.clone(), fx(1.0));
+        let direct = Projectile::new("larme".into(), &weapon, table.clone(), fx(1.0), 0);
+        assert_eq!(hash(&sans), hash(&direct), "sans objet : chemin d'origine");
+
+        let item_a = spec_of(
+            vec![ProjectileModifier::Pierce(1), ProjectileModifier::Spectral],
+            vec![status_action("poison")],
+        );
+        let item_b = ProjectileSpec {
+            modifiers: vec![ProjectileModifier::Bounce(1)],
+            on_hit: vec![status_action("peur")],
+            on_expire: vec![ExpireAction::DestroyTerrain { radius: fx(8.0) }],
+        };
+        let p = Projectile::composed(
+            "larme".into(),
+            &weapon,
+            &[&item_a, &item_b],
+            table,
+            fx(1.0),
+        );
+        assert_eq!((p.pierces_left, p.bounces_left), (2, 1));
+        assert!(p.spectral);
+        assert_eq!(
+            p.on_hit,
+            vec![
+                status_action("brulure"),
+                status_action("poison"),
+                status_action("peur")
+            ]
+        );
+        assert_eq!(p.on_expire.len(), 1);
+        assert_ne!(hash(&p), hash(&direct));
+    }
+
+    #[test]
+    fn hash_du_projectile_distingue_les_champs_de_larmes() {
+        use std::hash::{Hash, Hasher};
+        let hash = |p: &Projectile| {
+            let mut hasher = std::collections::hash_map::DefaultHasher::new();
+            p.hash(&mut hasher);
+            hasher.finish()
+        };
+        let base = Projectile::new(
+            "a".into(),
+            &ProjectileSpec::default(),
+            Arc::new(ProjectileTable::new()),
+            fx(1.0),
+            0,
+        );
+        let mut spectral = base.clone();
+        spectral.spectral = true;
+        let mut lucky = base.clone();
+        lucky.luck = fx(2.0);
+        let mut orbiting = base.clone();
+        orbiting.orbit = Some(OrbitState {
+            radius: fx(10.0),
+            frames_per_turn: 30,
+            phase: fx(0.0),
+        });
+        let hashes = [&base, &spectral, &lucky, &orbiting].map(hash);
+        for i in 0..hashes.len() {
+            for j in i + 1..hashes.len() {
+                assert_ne!(hashes[i], hashes[j], "états {i} et {j} distincts");
+            }
+        }
+        assert_eq!(hash(&base), hash(&base.clone()));
+    }
+
+    #[test]
+    fn chance_resolue_laisse_le_rang_et_remplace_en_cas_de_succes() {
+        let chance = |base: f32, then: Action| Action::Chance {
+            base: fx(base),
+            per_luck: fx(0.0),
+            then: Box::new(then),
+        };
+        let on_hit = vec![
+            status_action("brulure"),
+            chance(1.0, status_action("poison")),
+            chance(0.0, status_action("peur")),
+        ];
+        let out = resolve_chances(&on_hit, 7, 42, fx(0.0));
+        assert_eq!(out.len(), 3, "rangs conservés");
+        assert_eq!(out[0], status_action("brulure"));
+        assert_eq!(out[1], status_action("poison"), "chance 1 : toujours");
+        assert_eq!(out[2], on_hit[2], "chance 0 : action laissée, ignorée plus loin");
+        // La chance lit la stat Luck : 0,5 + 5 × 0,1 = 1 : toujours, quelle que soit la graine.
+        let lucky = vec![Action::Chance {
+            base: fx(0.5),
+            per_luck: fx(0.125),
+            then: Box::new(status_action("poison")),
+        }];
+        for net_id in 0..50 {
+            assert_eq!(
+                resolve_chances(&lucky, 7, net_id, fx(4.0))[0],
+                status_action("poison")
+            );
+        }
+        // Même graine, même résultat.
+        assert_eq!(
+            resolve_chances(&lucky, 3, 9, fx(0.0)),
+            resolve_chances(&lucky, 3, 9, fx(0.0))
+        );
+    }
+
+    #[test]
+    fn orbite_tourne_autour_du_centre_a_rayon_constant() {
+        let orbit = OrbitState {
+            radius: fx(40.0),
+            frames_per_turn: 60,
+            phase: fx(0.0),
+        };
+        let center = FixedVec2::new(fx(100.0), fx(-20.0));
+        // Départ : sur le centre (rayon nul), puis le rayon croît jusqu'à ORBIT_RAMP_FRAMES.
+        assert_eq!(orbit_position(center, &orbit, 0), center);
+        let ramp_mid = orbit_position(center, &orbit, ORBIT_RAMP_FRAMES / 2);
+        let d_mid = ramp_mid.distance(&center);
+        assert!(
+            (d_mid - fx(20.0)).abs() < fx(0.5),
+            "mi-rampe : rayon {d_mid}"
+        );
+        for age in [ORBIT_RAMP_FRAMES, 15, 30, 45, 59] {
+            let at = orbit_position(center, &orbit, age);
+            let d = at.distance(&center);
+            assert!((d - fx(40.0)).abs() < fx(0.5), "âge {age} : rayon {d}");
+        }
+        // Un tour exact : retour au point de départ (phase 0 : +x du centre).
+        let first = orbit_position(center, &orbit, 60);
+        let start = orbit_position(center, &orbit, 0);
+        assert!(
+            (first.x - (center.x + fx(40.0))).abs() < fx(0.01) && (first.y - center.y).abs() < fx(0.01),
+            "âge 60 = âge 0 en angle, rayon plein : {first:?}"
+        );
+        assert_eq!(start, center);
+        // Quart de tour : sur +y.
+        let quarter = orbit_position(center, &orbit, 15);
+        assert!((quarter.x - center.x).abs() < fx(0.5));
+        assert!((quarter.y - (center.y + fx(40.0))).abs() < fx(0.5));
+    }
+
+    #[test]
+    fn orbite_part_du_cote_du_tir() {
+        let mut p = Projectile::new(
+            "a".into(),
+            &spec_of(
+                vec![ProjectileModifier::Orbit {
+                    radius: fx(30.0),
+                    frames_per_turn: 60,
+                }],
+                vec![],
+            ),
+            Arc::new(ProjectileTable::new()),
+            fx(1.0),
+            0,
+        );
+        p.start_orbit(FixedVec2::new(fx(0.0), fx(2.0)));
+        let phase = p.orbit.unwrap().phase;
+        assert!((phase - fixed_math::FIXED_PI / fx(2.0)).abs() < fx(0.01), "vers +y : {phase}");
+        // Sans Orbit : rien.
+        let mut plain = Projectile::new(
+            "a".into(),
+            &ProjectileSpec::default(),
+            Arc::new(ProjectileTable::new()),
+            fx(1.0),
+            0,
+        );
+        plain.start_orbit(FixedVec2::new(fx(0.0), fx(2.0)));
+        assert!(plain.orbit.is_none());
     }
 }

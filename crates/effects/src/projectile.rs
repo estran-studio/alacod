@@ -28,7 +28,7 @@ pub enum ProjectileModifier {
     // M3-T0a (`docs/conventions.md` §60) : contrats, **en fin d'enum** (le `derive(Hash)` hache
     // l'index de la variante : les six d'avant gardent le leur, le hash des armes existantes ne
     // bouge pas). Acceptés par le lint dans le RON (formes, plages) mais une arme qui les porte
-    // est refusée (`Unsupported`) tant que M3-T1 ne les exécute pas.
+    // était refusée (`Unsupported`) tant que M3-T1 (§66) ne les exécutait pas : elles le sont.
     /// Traverse les murs et les obstacles (pas les personnages).
     Spectral,
     /// À l'impact sur un personnage, `count` projectiles `child` en éventail de `spread`
@@ -64,15 +64,6 @@ impl ProjectileModifier {
             Self::Split { .. } => "Split",
             Self::Orbit { .. } => "Orbit",
         }
-    }
-
-    /// Contrat déclaré mais pas encore exécuté au tir (M3-T1) : le lint refuse une arme qui le
-    /// porte (`Unsupported`).
-    pub fn is_contract_only(&self) -> bool {
-        matches!(
-            self,
-            Self::Spectral | Self::Split { .. } | Self::Orbit { .. }
-        )
     }
 }
 

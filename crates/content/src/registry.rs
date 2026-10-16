@@ -610,7 +610,7 @@ pub enum ProjectileModifierEntry {
     Lifetime(u32),
     Homing(FixedField),
     Gravity(FixedField),
-    /// M3-T0a (§60) : contrats (exécution M3-T1), voir `effects::projectile::ProjectileModifier`.
+    /// M3-T0a (§60), exécutés par M3-T1 (§66), voir `effects::projectile::ProjectileModifier`.
     Spectral,
     Split {
         count: u32,
@@ -949,6 +949,10 @@ pub enum StatusKindEntry {
     Slow,
     Stun,
     Freeze,
+    /// M3-T1 (§66) : comme `Burn`, dégâts de poison.
+    Poison,
+    /// M3-T1 (§66) : l'ennemi fuit sa cible pendant `frames`.
+    Fear,
 }
 
 /// Statut (T1.3, `docs/conventions.md` §19), `statuses/<id>.ron` :
