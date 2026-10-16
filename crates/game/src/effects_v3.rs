@@ -187,6 +187,10 @@ pub fn apply_event_effects_system(
     let frame = frame.frame;
     let squad_size = alive.iter().count() as u32;
     let mut produced: Vec<EffectOut> = Vec::new();
+    // État d'effets des porteurs qui n'en ont pas encore : conservé d'un tour à l'autre (l'insertion par
+    // `Commands` n'est visible qu'après le système, sinon chaque tour repartirait d'un état vide et un
+    // effet à `charges` se rechargerait à chaque tour).
+    let mut locals: BTreeMap<usize, (Entity, EffectState)> = BTreeMap::new();
     for round in 0..MAX_EVENT_ROUNDS {
         if queue.is_empty() {
             break;
@@ -216,12 +220,15 @@ pub fn apply_event_effects_system(
             if dead_now || downed {
                 continue;
             }
-            let had_state = state_component.is_some();
             let mut state_component = state_component;
-            let mut local = EffectState::default();
             let state: &mut EffectState = match state_component.as_deref_mut() {
                 Some(state) => state,
-                None => &mut local,
+                None => {
+                    &mut locals
+                        .entry(net_id.0)
+                        .or_insert((entity, EffectState::default()))
+                        .1
+                }
             };
             let listed = listed_effects(
                 effects,
@@ -262,9 +269,6 @@ pub fn apply_event_effects_system(
                 &listed, &triggers, false, frame, net_id, &view, state, &mut body, &assets,
             );
             split_outputs(out, &mut next, &mut produced);
-            if !had_state && local != EffectState::default() {
-                commands.entity(entity).insert(local);
-            }
         }
         queue = next;
         if round + 1 == MAX_EVENT_ROUNDS && !queue.is_empty() {
@@ -274,6 +278,11 @@ pub fn apply_event_effects_system(
                 queue.len(),
                 MAX_EVENT_ROUNDS
             );
+        }
+    }
+    for (_, (entity, local)) in locals {
+        if local != EffectState::default() {
+            commands.entity(entity).insert(local);
         }
     }
     for event in produced {
@@ -838,5 +847,73 @@ mod tests {
         // 2 exemplaires : 2 émissions lues par 1 récepteur = 2 (et non 4)
         assert_eq!(damage_modifiers(2), 2);
         assert_eq!(damage_modifiers(3), 3);
+    }
+
+    /// Un porteur sans `EffectState` préalable : l'état (charges) vit d'un tour à l'autre dans le système.
+    /// `OnEvent("x")` à une charge qui soigne et réémet « x » : un seul soin, pas un par tour.
+    #[test]
+    fn un_effet_a_charges_ne_se_recharge_pas_a_chaque_tour() {
+        let mut app = app();
+        app.add_systems(Update, apply_event_effects_system);
+        let mut effect = on_event("x", vec![Action::Heal(fx(1.0)), Action::Emit("x".into())]);
+        effect.charges = Some(1);
+        let carrier = app
+            .world_mut()
+            .spawn((
+                id(1),
+                Effects(vec![effect]),
+                health(10.0),
+                Modifiers::default(),
+                Rollback,
+            ))
+            .id();
+        send_emit(&mut app, 1, "x");
+        app.update();
+        assert_eq!(
+            app.world().get::<Health>(carrier).unwrap().current,
+            fx(11.0)
+        );
+        // l'état est posé sur le porteur, charge consommée
+        assert!(app
+            .world()
+            .get::<crate::effects_runtime::EffectState>(carrier)
+            .is_some());
+    }
+
+    /// `PerCopy` sous une enveloppe `scale: None` : le nombre d'exemplaires est quand même compté.
+    #[test]
+    fn per_copy_sous_une_enveloppe_sans_echelle_est_multiplie() {
+        let mut app = app();
+        let def: ItemDef = ron::from_str(
+            r#"(name: "A", kind: Passive, effects: [
+                (on: OnEvent("go"), do: [
+                    Scaled(action: Scaled(action: Heal("1"), scale: Some(PerCopy)), scale: None),
+                ]),
+            ])"#,
+        )
+        .unwrap();
+        app.insert_resource(items::ItemTable(
+            [("amulette".to_string(), def)].into_iter().collect(),
+        ))
+        .add_systems(Update, apply_event_effects_system);
+        let carrier = app
+            .world_mut()
+            .spawn((
+                id(1),
+                Inventory {
+                    passives: vec!["amulette".into(); 3],
+                    ..Default::default()
+                },
+                health(10.0),
+                Modifiers::default(),
+                Rollback,
+            ))
+            .id();
+        send_emit(&mut app, 1, "go");
+        app.update();
+        assert_eq!(
+            app.world().get::<Health>(carrier).unwrap().current,
+            fx(13.0)
+        );
     }
 }

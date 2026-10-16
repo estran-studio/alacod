@@ -347,16 +347,22 @@ pub(crate) fn listed_effects<'a>(
     listed
 }
 
-/// Un effet contient-il un `Scaled { PerCopy }` (le nombre d'exemplaires ne se calcule que pour lui) ?
+/// Un effet contient-il un `Scaled { PerCopy }`, à n'importe quelle profondeur d'enveloppes (comme le
+/// lint et `effects_v3::classify`) ? Le nombre d'exemplaires ne se calcule que pour lui.
 fn has_per_copy(effect: &Effect) -> bool {
     effect.r#do.iter().any(|action| {
-        matches!(
-            action,
-            Action::Scaled {
-                scale: Some(effects::actions::Scale::PerCopy),
-                ..
+        let mut action = action;
+        while let Action::Scaled {
+            action: inner,
+            scale,
+        } = action
+        {
+            if *scale == Some(effects::actions::Scale::PerCopy) {
+                return true;
             }
-        )
+            action = inner;
+        }
+        false
     })
 }
 

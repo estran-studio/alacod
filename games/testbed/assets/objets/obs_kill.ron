@@ -1,0 +1,10 @@
+// M3-T2 (docs/conventions.md §67) : observateur de `effects_hundred_items`. Une seule exécution (`charges: Some(1)`)
+// qui pose +1 sur la stat `Damage` : la preuve que la famille s'exécute parmi les 100 objets
+// (les `cent_*` soignent à pleine santé : aucune conséquence visible).
+(
+    name: "obs_kill",
+    kind: Passive,
+    effects: [
+        (on: OnKill, charges: Some(1), do: [Modifier(stat: Damage, op: Add, value: "1")]),
+    ],
+)
