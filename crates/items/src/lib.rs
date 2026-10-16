@@ -159,6 +159,40 @@ pub enum Price {
 }
 
 impl Price {
+    /// Montant strictement positif exigé par le contrat (§61) : un prix nul n'a pas de sens
+    /// (un présentoir gratuit est `Shelf.price == 0` sans `cost`).
+    fn is_positive(&self) -> bool {
+        match self {
+            Self::Currency(amount) | Self::Consumable(_, amount) => *amount > 0,
+            Self::MaxHealth(amount) => *amount > Fixed::ZERO,
+        }
+    }
+
+    /// Problèmes de contenu d'un prix : montant nul, consommable inconnu, vie maximale hors
+    /// `]0, max_health]`. Vide : prix valide. Pure ; `consumable_exists` dit si l'id est un
+    /// objet consommable connu.
+    pub fn problems(
+        &self,
+        consumable_exists: impl Fn(&str) -> bool,
+        max_health: Fixed,
+    ) -> Vec<String> {
+        let mut out = Vec::new();
+        if !self.is_positive() {
+            out.push(format!("prix {self:?} : le montant doit être > 0"));
+        }
+        match self {
+            Self::Consumable(id, _) if !consumable_exists(id) => {
+                out.push(format!("prix {self:?} : consommable « {id} » inconnu"));
+            }
+            Self::MaxHealth(amount) if *amount > max_health => out.push(format!(
+                "prix {self:?} : vie maximale {amount} > {max_health} (hors ]0, max])"
+            )),
+            _ => {}
+        }
+        out
+    }
+
+    /// Un prix nul n'est jamais payable : `can_pay` et `pay` restent cohérents.
     pub fn can_pay(
         &self,
         currency: u32,
@@ -166,15 +200,17 @@ impl Price {
         max_health: Fixed,
         health: Fixed,
     ) -> bool {
+        if !self.is_positive() {
+            return false;
+        }
         match self {
             Self::Currency(amount) => currency >= *amount,
             Self::Consumable(id, amount) => inventory.consumable(id) >= *amount,
-            Self::MaxHealth(amount) => {
-                *amount > Fixed::ZERO && *amount <= max_health && health > *amount
-            }
+            Self::MaxHealth(amount) => *amount <= max_health && health > *amount,
         }
     }
 
+    /// Paie si `can_pay` ; ne panique jamais (`false` sans rien modifier sinon).
     pub fn pay(
         &self,
         currency: &mut u32,
@@ -187,13 +223,10 @@ impl Price {
         }
         match self {
             Self::Currency(amount) => *currency -= *amount,
-            Self::Consumable(id, amount) => {
-                let count = inventory
-                    .consumables
-                    .get_mut(id)
-                    .expect("can_pay checked count");
-                *count -= *amount;
-            }
+            Self::Consumable(id, amount) => match inventory.consumables.get_mut(id) {
+                Some(count) => *count -= *amount,
+                None => return false,
+            },
             Self::MaxHealth(amount) => {
                 *max_health -= *amount;
                 *health -= *amount;
@@ -680,5 +713,54 @@ mod m3_t0b_tests {
         assert!(
             !Price::MaxHealth(Fixed::from_num(4)).can_pay(currency, &inventory, max_health, health)
         );
+    }
+
+    #[test]
+    fn zero_prices_are_refused_and_never_panic() {
+        let mut currency = 5;
+        let mut inventory = Inventory::default();
+        let mut max_health = Fixed::from_num(6);
+        let mut health = Fixed::from_num(6);
+        for price in [
+            Price::Consumable("key".into(), 0),
+            Price::Currency(0),
+            Price::MaxHealth(Fixed::ZERO),
+        ] {
+            assert!(!price.can_pay(currency, &inventory, max_health, health));
+            assert!(!price.pay(&mut currency, &mut inventory, &mut max_health, &mut health));
+            assert_eq!(price.problems(|_| true, Fixed::from_num(6)).len(), 1);
+        }
+        assert_eq!(
+            (currency, max_health, health),
+            (5, Fixed::from_num(6), Fixed::from_num(6))
+        );
+        assert!(inventory.consumables.is_empty());
+    }
+
+    #[test]
+    fn price_problems_report_unknown_consumable_and_out_of_range_health() {
+        let max = Fixed::from_num(6);
+        assert!(Price::Consumable("key".into(), 1)
+            .problems(|id| id == "key", max)
+            .is_empty());
+        assert_eq!(
+            Price::Consumable("ghost".into(), 1)
+                .problems(|_| false, max)
+                .len(),
+            1
+        );
+        assert_eq!(
+            Price::MaxHealth(Fixed::from_num(7))
+                .problems(|_| true, max)
+                .len(),
+            1
+        );
+        assert_eq!(
+            Price::MaxHealth(Fixed::from_num(-1))
+                .problems(|_| true, max)
+                .len(),
+            1
+        );
+        assert!(Price::MaxHealth(max).problems(|_| true, max).is_empty());
     }
 }

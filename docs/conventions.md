@@ -4126,8 +4126,9 @@ en fin d'enum.
 `effects::Scale::PerCopy` est porté par l'action contractuelle `Scaled { action, scale }`.
 `effects::scale_value` est la règle pure : `PerCopy` multiplie par `Inventory::count(id)`, le
 champ absent ne modifie pas la valeur. `scale` est accepté seulement dans un effet d'objet ;
-les power-ups, personnages, mutations et synergies le refusent au lint. `Scale` est hors de
-l'exécution de cette dette.
+les power-ups, frises de boss, personnages, mutations et synergies le refusent au lint. L'action
+enveloppée est validée comme une action nue (`Heal` > 0, références de `SpawnPattern`…), y compris
+dans l'`OnUse` d'un objet. `Scale` est hors de l'exécution de cette dette.
 
 ### Prix et compteurs
 
@@ -4135,7 +4136,9 @@ l'exécution de cette dette.
 `Shelf` conserve `price: u32` pour son hash historique et reçoit `cost: Option<Price>` ; absent,
 `cost` ne contribue pas au hash, et `Price::Currency` est équivalent à `price`. Les règles pures
 `can_pay`/`pay` refusent un prix de vie qui tuerait le joueur et réduisent la vie courante et
-maximale ensemble ; l'interaction de boutique est M3-T8.
+maximale ensemble ; l'interaction de boutique est M3-T8. Un montant nul n'est jamais payable
+(`can_pay` faux, `pay` sans effet et sans panique) ; `Price::problems` donne les erreurs de contenu
+(montant nul, consommable inconnu, vie maximale hors `]0, max]`), sans surface de contenu avant T8.
 
 `ItemDef.max_stack: Option<u32>` ne plafonne un consommable que lorsqu'il est présent (Isaac :
 99). Absent conserve le comportement illimité actuel. Le ramassage au plafond laisse l'objet au
@@ -4147,7 +4150,9 @@ sol ; son exécution est M3-T3. `game::loot::BOMB_ITEM` réserve le nom `"bomb"`
 positif (après immunité, bouclier et armure), le résolveur pose `Health.invulnerable_until_frame`
 à `event.frame + n`, en conservant la valeur la plus longue. Un coup absorbé par un bouclier ou
 annulé par l'armure ne déclenche pas cette durée. La preuve future est le scénario
-`hit_iframes` : deux balles à dix frames d'écart, la seconde n'enlève rien avec `Some(30)`.
+`hit_iframes` : deux balles à dix frames d'écart, la seconde n'enlève rien avec `Some(30)` (4992) ;
+son témoin `hit_iframes_sans_iframes` (personnage `iframes_temoin`, sans `hit_iframes`) en perd
+deux (4984). Le résolveur lui-même est testé par `crates/scenario/tests/hit_iframes.rs`.
 
 **Q2 — modèle des cœurs (proposition par défaut).** Une demi-case vaut un point de `Health`,
 les personnages livrés gardent des PV pairs, et `ExtraHealth { soul: Fixed }` absorbe les dégâts

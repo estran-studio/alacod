@@ -85,3 +85,29 @@ identique à la trace bénie ; `make test_crates` OK ; `make gen` ×5 OK sans di
 OK ; `cargo fmt --all -- --check` OK ; `make check_sim_boundary` OK. `cargo check --workspace
 --tests` : échec reproduit sur `origin/main` (`hui.rs`, champs `merchant*`), `cargo check -p game
 --tests` passe sur la branche.
+
+## Revue indépendante : corrections
+
+1. `Scaled` est refusé au lint dans un power-up et dans une frise de boss (fixtures `scaled_in_powerup`,
+   `scaled_in_boss`) ; `lint_effect` le refusait déjà hors objet.
+2. L'action enveloppée par `Scaled` est validée comme une action nue, dans `lint_effect` et dans l'`OnUse`
+   d'un objet (fixture `scaled_inner_invalid` : `Heal` négatif, `SpawnPattern` inconnu ; `Heal <= 0`
+   est aussi refusé en `OnUse`, nu ou enveloppé ; `scaled_in_item_ok` : cas valide sans erreur).
+3. `Price` : montant > 0 pour les trois variantes ; `can_pay` refuse un montant nul, `pay` ne panique plus
+   (`Option` au lieu de `expect`) ; `Price::problems` (montant nul, consommable inconnu, vie maximale hors
+   `]0, max]`). Tests unitaires `zero_prices_are_refused_and_never_panic` et
+   `price_problems_report_unknown_consumable_and_out_of_range_health`. `Price` n'a pas de surface de
+   contenu avant M3-T8 (aucun fichier RON ne le porte) : pas de fixture de lint possible, d'où les tests
+   unitaires de la règle pure.
+4. `crates/scenario/tests/hit_iframes.rs` joue le vrai résolveur avec des `DamageEvent` injectés : second
+   coup dans les 30 frames ignoré (4992) puis coup suivant appliqué (4984) ; un dégât nul ne pose rien ;
+   un coup absorbé par le bouclier n'a que ses 15 frames et ne pose pas celles de `hit_iframes`.
+5. Témoin `hit_iframes_sans_iframes` (personnage `iframes_temoin`, attente 4984) à côté de `hit_iframes`
+   (4992) ; seule sa trace est bénie.
+6. Fixtures `item_max_stack_zero` et `character_hit_iframes_zero` (`crates/content/tests/m3_t0b_fixtures.rs`).
+
+## Vérifications de ce passage
+
+`cargo fmt --all -- --check` OK ; `make test_scenarios_par SHARDS=3` sans BLESS OK (392 scénarios, aucune
+trace existante modifiée, `hit_iframes.trace` inchangée) ; `make test_crates` OK ; `make gen` ×5 OK sans
+diff ; `make lint` ×5 OK ; `make check_sim_boundary` OK.

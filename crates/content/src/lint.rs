@@ -164,15 +164,22 @@ pub(crate) fn lint_effect(
             );
         }
     }
-    for action in &effect.r#do {
-        if let effects::Action::Scaled { scale, .. } = action {
+    for outer in &effect.r#do {
+        // M3-T0b : `Scaled` n'est qu'une enveloppe ; l'action intérieure est validée comme une
+        // action nue.
+        let mut action = outer;
+        while let effects::Action::Scaled {
+            action: inner,
+            scale,
+        } = action
+        {
             if !allow_scale {
                 push(
                     LintErrorKind::Unsupported,
                     format!("{at} : scale {scale:?} : uniquement dans un effet d'objet"),
                 );
             }
-            continue;
+            action = inner;
         }
         match action {
             effects::Action::Heal(amount) if *amount <= Fixed::ZERO => push(
@@ -1836,6 +1843,11 @@ fn lint_powerups(registry: &Registry, errors: &mut Vec<LintError>) {
                     "power-up « {} » : actions[{index}] : réservée à la mort d'un champion (§63)",
                     powerup.id
                 )),
+                // M3-T0b : `scale` est réservé aux effets d'objet
+                effects::Action::Scaled { .. } => push(format!(
+                    "power-up « {} » : actions[{index}] : Scaled réservée aux effets d'objet (§61)",
+                    powerup.id
+                )),
                 _ => {}
             }
         }
@@ -2683,6 +2695,11 @@ fn lint_boss(
                 | effects::Action::SpawnCharacters { .. } => push(
                     LintErrorKind::Unsupported,
                     format!("{at} : action {action:?} : pas exécutée par un boss (effets v2)"),
+                ),
+                // M3-T0b : `scale` est réservé aux effets d'objet
+                effects::Action::Scaled { .. } => push(
+                    LintErrorKind::Unsupported,
+                    format!("{at} : Scaled : réservée aux effets d'objet (§61)"),
                 ),
                 _ => {}
             }
@@ -3883,9 +3900,18 @@ fn lint_items(registry: &Registry, errors: &mut Vec<LintError>) {
                 );
                 continue;
             }
-            for action in &effect.r#do {
+            for outer in &effect.r#do {
+                // M3-T0b : l'enveloppe `Scaled` est transparente, l'action intérieure est validée.
+                let mut action = outer;
+                while let effects::Action::Scaled { action: inner, .. } = action {
+                    action = inner;
+                }
                 match action {
                     // M2-T4 : soin instantané d'un actif ou d'un consommable
+                    effects::Action::Heal(amount) if *amount <= Fixed::ZERO => push(
+                        LintErrorKind::OutOfRange,
+                        format!("{at} : Heal = {amount} : doit être > 0"),
+                    ),
                     effects::Action::Heal(_) => {}
                     // D61 : bouclier instantané
                     effects::Action::GainShield(0) => push(
@@ -3897,9 +3923,7 @@ fn lint_items(registry: &Registry, errors: &mut Vec<LintError>) {
                         LintErrorKind::OutOfRange,
                         format!("{at} : TimedModifier frames = 0 : doit être > 0"),
                     ),
-                    effects::Action::TimedModifier { .. }
-                    | effects::Action::Modifier { .. }
-                    | effects::Action::Scaled { .. } => {}
+                    effects::Action::TimedModifier { .. } | effects::Action::Modifier { .. } => {}
                     other => push(
                         LintErrorKind::Unsupported,
                         format!("{at} : action {other:?} : pas exécutée par OnUse d'un objet"),

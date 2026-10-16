@@ -1,0 +1,8 @@
+// Fixture M3-T0b : hit_iframes = 0
+(
+    name: "fixture-character_hit_iframes_zero",
+    content_folders: [
+        (path: "characters", kind: "Character"),
+    ],
+    entry: (start_map: "unused", default_seed: 1),
+)
