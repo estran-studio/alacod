@@ -4722,6 +4722,17 @@ fn lint_room_kinds(registry: &Registry, errors: &mut Vec<LintError>) {
                 ),
             });
         }
+        // Le mur secret ne lit pas l'étage (`is_secret`) : un retard serait ignoré, donc refusé.
+        if room.def.lock_from_floor > 0 && room.def.door_lock == Some(world::DoorLock::Secret) {
+            errors.push(LintError {
+                kind: LintErrorKind::OutOfRange,
+                file: room.file.display().to_string(),
+                message: format!(
+                    "type de salle « {} » : lock_from_floor sur door_lock Secret (le mur secret est actif dès le premier étage ; lock_from_floor = {})",
+                    room.id, room.def.lock_from_floor
+                ),
+            });
+        }
     }
     for map in registry.maps.values() {
         for (level, kind) in &map.room_kinds {

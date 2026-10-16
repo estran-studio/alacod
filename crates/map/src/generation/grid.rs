@@ -37,6 +37,7 @@ use std::{
     rc::Rc,
 };
 
+use bevy_fixed::fixed_math::Fixed;
 use bevy_fixed::rng::RollbackRng;
 use serde_json::Value;
 use world::{FloorGrammar, FloorLayout};
@@ -876,8 +877,9 @@ pub fn plan_grid(
     needed.push(&grammar.filler);
     needed.push(&grammar.start);
     needed.push(&grammar.boss);
-    if let Some(kind) = params.post_kind {
-        needed.push(kind);
+    // comme le lint (`kinds_needed`) : le gabarit post-boss n'est exigé que si la chance est > 0
+    if let Some(post) = grammar.post_boss().filter(|post| post.chance > Fixed::ZERO) {
+        needed.push(&post.kind);
     }
     for kind in needed {
         if !templates
@@ -1654,6 +1656,45 @@ mod tests {
         tiny.occupied.clear();
         tiny.put(0, (0, 0), "depart");
         assert!(tiny.placements(&boss, &|_, _| true, None).is_empty());
+    }
+
+    /// `post_boss` de chance 0 sans gabarit `diable` : plan valide (le lint n'exige pas le gabarit).
+    #[test]
+    fn post_boss_de_chance_nulle_n_exige_aucun_gabarit() {
+        let levels: Vec<_> = templates()
+            .into_iter()
+            .filter(|l| kind_of(l) != "diable")
+            .collect();
+        let context = context(3, levels);
+        let g = grammar(0, Some(0.0));
+        let mut rng = RollbackRng::new(3);
+        let plan = super::super::floor::plan_floor(&g, &context, &mut rng).unwrap();
+        assert!(plan.rooms.iter().all(|p| p.kind != "diable"));
+        // chance > 0 : le gabarit manque, échec explicite
+        let mut rng = RollbackRng::new(3);
+        assert_eq!(
+            super::super::floor::plan_floor(&grammar(0, Some(0.5)), &context, &mut rng)
+                .unwrap_err(),
+            FloorError::NoTemplate("diable".into())
+        );
+    }
+
+    /// La borne `step_bound` tient aussi avec des boucles et une secrète (1 000 graines).
+    #[test]
+    fn la_borne_de_pas_tient_avec_des_boucles() {
+        let g = grammar(3, Some(0.5));
+        let bound = step_bound(&g, &grid_templates(&context(1, templates()), CELL));
+        let mut max = 0;
+        for seed in 0..1000 {
+            let plan = plan(&g, seed).unwrap_or_else(|e| panic!("graine {seed} : {e}"));
+            assert!(
+                plan.steps <= bound,
+                "graine {seed} : {} > {bound}",
+                plan.steps
+            );
+            max = max.max(plan.steps);
+        }
+        assert!(max > 0);
     }
 
     /// Deux salles ne se relient que par des ouvertures de même largeur : un boss aux ouvertures de

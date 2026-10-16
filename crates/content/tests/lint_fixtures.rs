@@ -1688,6 +1688,11 @@ fn grid_and_key_fixtures_report_their_rule() {
             "post_boss.chance = 1.5",
         ),
         (
+            "lock_from_floor_on_secret",
+            LintErrorKind::OutOfRange,
+            "lock_from_floor sur door_lock Secret",
+        ),
+        (
             "lock_from_floor_without_lock",
             LintErrorKind::OutOfRange,
             "lock_from_floor sans door_lock",

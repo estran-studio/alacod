@@ -4852,7 +4852,7 @@ portes s'ouvrent, celle de la salle post-boss comprise.
 `lint_floor_grammars` (grammaires en grille) : taille d'un gabarit d'un type nécessaire multiple de `cell`, ouverture
 centrée sur **chaque segment de chaque côté** (message : côté et segment), `FloorGrammar::problems()` : `secret` égal au
 départ/boss/remplissage, plus d'une secrète requise, `post_boss.chance` hors [0, 1], `post_boss.kind` déjà pris ;
-`lock_from_floor` sans `door_lock` ; **clé obtenable** : un type `Key(n)` exigé par une grammaire que nomme une séquence
+`lock_from_floor` sans `door_lock` ou sur `Secret` (le mur secret ne lit pas l'étage) ; **clé obtenable** : un type `Key(n)` exigé par une grammaire que nomme une séquence
 `Floors` doit avoir une source de ≥ n clés pour l'étage où le verrou s'applique (`consumables_per_floor["key"]` servi à
 partir de l'étage 1 seulement, pool de butin qui donne `key`, `starting_consumables`). Fixtures : `grid_template_size_not_multiple`,
 `grid_template_missing_opening`, `grid_post_boss_chance_out_of_range`, `lock_from_floor_without_lock`,

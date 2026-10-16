@@ -122,3 +122,10 @@ La séquence par défaut d'`isaac` (`entry.floors = sous_sol`) est en grille : t
 (clé remise à l'arrivée). Graines nommées : secrète fermée `grid_floor_seed_1` (graine 1), `grid_secret_room` (5), ouverte à la bombe `grid_secret_bomb` (8) ; trésor à
 clé `grid_treasure_key` (séquence `sous_sol_cle`, graine -1013904216) et partie ordinaire `isaac_floor_seed_1` (graine 1, second étage atteint à f1919) ; post-boss graines 8
 (`grid_post_boss`), 23 et 123 (`grid_floor_seed_23`, `_123`) ; grand boss 2×2 graine 23 ; boucle graines 1 et 123.
+
+## 10. Suite de la revue (2e passage)
+
+1. `plan_grid` n'exige le gabarit post-boss que si `chance > 0` (comme `kinds_needed`) ; test `post_boss_de_chance_nulle_n_exige_aucun_gabarit` (plan valide sans `diable`, `NoTemplate` à chance 0,5).
+2. `Secret` + `lock_from_floor > 0` : **refusé au lint** (fixture `lock_from_floor_on_secret`). Choix : §70 ne définit `lock_from_floor` que pour `Key` (« trésor fermé dès le second étage ») ; faire lire l'étage au mur secret ajouterait un comportement non demandé, et `is_secret` sert aussi à la minicarte et au verrouillage voisin.
+3. Test `la_borne_de_pas_tient_avec_des_boucles` : `loops: 3`, post-boss, 1 000 graines, `steps <= step_bound`.
+4. `cargo test -p map -p world -p content -p map_ldtk` : 360 réussis, 0 échec ; `make test_scenarios SCENARIO=isaac_boots,isaac_floor_seed_1` sans BLESS : vert ; `make lint` ×5 : aucune erreur ; fmt propre.
