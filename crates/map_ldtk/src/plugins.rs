@@ -44,6 +44,31 @@ impl Plugin for EntityPlugin {
     }
 }
 
+/// M3-T17 (§82), présentation : la case de carte d'un rocher cassé n'est plus dessinée. La couche IntGrid
+/// `Rocks` est une couche de tuiles LDtk (statique) : sans ceci le rocher disparaît de la simulation
+/// (collider, `Rock`) mais reste à l'écran. Lit les indices `RockBroken` du journal de feedback (dérivés
+/// des `FrameEvents` transitoires), cherche la tuile `IntGridCell` dont le centre est à moins de 4 unités
+/// et la rend invisible ; sans rendu (headless) il n'y a aucune tuile et rien ne se passe.
+pub fn hide_broken_rock_tiles(
+    log: Res<game::feedback::FeedbackLog>,
+    mut tiles: Query<(
+        &IntGridCell,
+        &GlobalTransform,
+        &mut bevy_ecs_tilemap::tiles::TileVisible,
+    )>,
+) {
+    for cue in &log.frame_cues {
+        if cue.kind != game::feedback::FeedbackKind::RockBroken {
+            continue;
+        }
+        for (_, transform, mut visible) in &mut tiles {
+            if transform.translation().truncate().distance(cue.position) < 4.0 {
+                visible.0 = false;
+            }
+        }
+    }
+}
+
 pub struct LdtkRoguePlugin;
 
 impl Plugin for LdtkRoguePlugin {
@@ -56,6 +81,12 @@ impl Plugin for LdtkRoguePlugin {
                 },
                 ..default()
             })
-            .add_plugins(EntityPlugin);
+            .add_plugins(EntityPlugin)
+            .add_systems(
+                PostUpdate,
+                hide_broken_rock_tiles
+                    .run_if(resource_exists::<game::feedback::FeedbackLog>)
+                    .after(game::feedback_v3::record_v3_cues),
+            );
     }
 }

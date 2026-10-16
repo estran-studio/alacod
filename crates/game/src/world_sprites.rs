@@ -33,6 +33,7 @@ impl Plugin for WorldSpritePlugin {
                 skin_bullets,
                 // M3-T17 : après `skin_bullets` (qui pose la couleur d'équipe et agrandit le halo).
                 style_tears.after(skin_bullets),
+                hide_despawned_world_sprites,
             ),
         );
     }
@@ -226,6 +227,40 @@ fn skin_bullets(
             sprite.custom_size = Some(size * 2.0);
         }
         commands.entity(entity).insert(BulletSkinned);
+    }
+}
+
+/// Une bombe ou un rocher détruit par `despawn_rollback` est désactivé (`RollbackDespawned`) jusqu'à la
+/// confirmation de sa frame, mais son sprite enfant, lui, reste affiché : il serait encore là quelques
+/// frames après l'explosion. Cache le sprite tant que le parent est désactivé, le montre si un rollback
+/// le ressuscite. Ne touche que les bombes et les rochers (un présentoir vendu cache déjà le sien).
+#[allow(clippy::type_complexity)]
+fn hide_despawned_world_sprites(
+    gone: Query<
+        &WorldSprite,
+        (
+            With<bevy_ggrs::RollbackDespawned>,
+            Or<(With<world::Bomb>, With<world::Rock>)>,
+        ),
+    >,
+    alive: Query<
+        &WorldSprite,
+        (
+            Or<(With<world::Bomb>, With<world::Rock>)>,
+            Without<bevy_ggrs::RollbackDespawned>,
+        ),
+    >,
+    mut visibilities: Query<&mut Visibility>,
+) {
+    for world_sprite in &gone {
+        if let Ok(mut visibility) = visibilities.get_mut(world_sprite.child) {
+            visibility.set_if_neq(Visibility::Hidden);
+        }
+    }
+    for world_sprite in &alive {
+        if let Ok(mut visibility) = visibilities.get_mut(world_sprite.child) {
+            visibility.set_if_neq(Visibility::Inherited);
+        }
     }
 }
 

@@ -320,7 +320,13 @@ pub fn variant_tint(
     variant: &str,
 ) -> Option<(f32, f32, f32)> {
     let config = configs.get(global.character_configs.get(config_name)?)?;
-    let tint = config.variants.as_ref()?.table.get(variant)?.tint.as_deref()?;
+    let tint = config
+        .variants
+        .as_ref()?
+        .table
+        .get(variant)?
+        .tint
+        .as_deref()?;
     parse_tint(tint)
 }
 
@@ -557,12 +563,9 @@ pub fn cue_label(cue: &FeedbackCue) -> Option<String> {
             cue.value
         ),
         FeedbackKind::Champion => format!("{} {} ({})", cue.kind.label(), cue.net_id, note),
-        FeedbackKind::BombFuse => format!(
-            "{} {} ({} frames)",
-            cue.kind.label(),
-            cue.net_id,
-            cue.value
-        ),
+        FeedbackKind::BombFuse => {
+            format!("{} {} ({} frames)", cue.kind.label(), cue.net_id, cue.value)
+        }
         FeedbackKind::Explosion => format!("anneau d'explosion (rayon {})", cue.extra),
         FeedbackKind::RockBroken => format!("{} ({})", cue.kind.label(), note),
         FeedbackKind::SecretWall => format!("{} ouvert ({})", cue.kind.label(), note),
@@ -699,7 +702,10 @@ mod tests {
 
     #[test]
     fn orientation_des_familiers() {
-        assert!((outward_angle(Vec2::ZERO, Vec2::new(0.0, 5.0)) - std::f32::consts::FRAC_PI_2).abs() < 1e-6);
+        assert!(
+            (outward_angle(Vec2::ZERO, Vec2::new(0.0, 5.0)) - std::f32::consts::FRAC_PI_2).abs()
+                < 1e-6
+        );
         assert_eq!(outward_angle(Vec2::ONE, Vec2::ONE), 0.0);
         assert_eq!(follower_faces_left(-1.0, 10.0), Some(true));
         assert_eq!(follower_faces_left(0.0, 10.0), Some(false));

@@ -25,8 +25,7 @@ use utils::{frame::FrameCount, net_id::GgrsNetId};
 
 pub use content::feedback::{
     BlankFlashConfig, BossEndConfig, ExplosionFxConfig, FeedbackOverride, FeedbackSettings,
-    HitFlashConfig,
-    PatternTelegraphConfig, ResolvedFeedback, ShakeConfig, TelegraphConfig,
+    HitFlashConfig, PatternTelegraphConfig, ResolvedFeedback, ShakeConfig, TelegraphConfig,
 };
 
 use crate::character::enemy::ai::state::{BehaviorRuntime, ChargePhase, EnemyAiConfig};

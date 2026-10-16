@@ -827,7 +827,11 @@ fn t3_4_fixtures_have_a_single_rule_failure() {
         ),
         ("feedback_boss_freeze_zero", LintErrorKind::OutOfRange, 1),
         // M3-T17
-        ("feedback_explosion_frames_zero", LintErrorKind::OutOfRange, 1),
+        (
+            "feedback_explosion_frames_zero",
+            LintErrorKind::OutOfRange,
+            1,
+        ),
         (
             "feedback_explosion_amplitude_negative",
             LintErrorKind::OutOfRange,

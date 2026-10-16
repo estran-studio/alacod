@@ -199,7 +199,10 @@ pub fn orient_familiars(
         .map(|(net_id, t)| {
             (
                 net_id.0,
-                Vec2::new(t.translation.x.to_num::<f32>(), t.translation.y.to_num::<f32>()),
+                Vec2::new(
+                    t.translation.x.to_num::<f32>(),
+                    t.translation.y.to_num::<f32>(),
+                ),
             )
         })
         .collect();
