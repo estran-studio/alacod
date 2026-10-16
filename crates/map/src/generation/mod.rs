@@ -4,6 +4,7 @@ pub mod config;
 pub mod context;
 pub mod entity;
 pub mod floor;
+pub mod grid;
 pub mod position;
 pub mod room;
 
@@ -34,6 +35,13 @@ trait IMapGeneration {
         &mut self,
         rng: &mut RollbackRng,
     ) -> Option<(Room, RoomConnection, RoomConnection)>;
+
+    /// M3-T5 (grille) : portes qui ne sont l'arête de pose d'aucune salle (boucles, voisines de la
+    /// salle secrète), `(connexion d'une salle, connexion de l'autre)`. Vide partout ailleurs :
+    /// `Basic` et `Graph` ont une arête de pose par salle et rien d'autre.
+    fn get_links(&mut self) -> Vec<(RoomConnection, RoomConnection)> {
+        Vec::new()
+    }
 
     fn get_doors(&mut self, rng: &mut RollbackRng) -> Vec<(EntityLocation, DoorConfig)>;
     fn get_windows(&mut self, rng: &mut RollbackRng) -> Vec<(EntityLocation, WindowConfig)>;
@@ -74,6 +82,9 @@ pub trait IMapGenerator {
         connection_used: Option<&RoomConnection>,
         connected_to: Option<&RoomConnection>,
     );
+    /// M3-T5 : relie deux salles déjà ajoutées par une porte de plus (voir
+    /// [`IMapGeneration::get_links`]).
+    fn add_link(&mut self, a: &RoomConnection, b: &RoomConnection);
     fn add_doors(&mut self, rng: &mut RollbackRng, doors: &Vec<(EntityLocation, DoorConfig)>);
     fn add_windows(&mut self, rng: &mut RollbackRng, windows: &Vec<(EntityLocation, WindowConfig)>);
     fn add_player_spawns(
@@ -130,6 +141,10 @@ pub fn map_generation(
             Some(&next_room_connection),
             Some(&other_room_connection),
         );
+    }
+
+    for (a, b) in generator.get_links() {
+        map_generator.add_link(&a, &b);
     }
 
     let doors = generator.get_doors(&mut rng);

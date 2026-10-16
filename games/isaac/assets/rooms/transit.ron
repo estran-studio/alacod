@@ -1,0 +1,3 @@
+// Type de salle `transit` (M3-T5, docs/conventions.md §70) : l'unique salle, hors départ, de l'étage
+// de passage `sous_sol_transit` (sans ennemi, donc portail ouvert dès le départ) ; ne verrouille pas.
+(locks: false)

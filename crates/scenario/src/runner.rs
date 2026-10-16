@@ -2548,6 +2548,73 @@ fn check(world: &mut World, expectation: &Expectation) -> Result<(), String> {
             }
             Ok(())
         }
+        // M3-T5 : géométrie d'une salle typée (taille, voisinage par un bord commun).
+        Expectation::RoomLayout {
+            kind,
+            nth,
+            size,
+            touches,
+            apart,
+            ..
+        } => {
+            let mut rooms: Vec<_> = world
+                .query::<(&map::game::entity::map::room::RoomBounds, &world::RoomKind)>()
+                .iter(world)
+                .map(|(bounds, k)| {
+                    (
+                        bounds.position.x.to_num::<i32>(),
+                        bounds.position.y.to_num::<i32>(),
+                        bounds.size.x.to_num::<i32>(),
+                        bounds.size.y.to_num::<i32>(),
+                        k.0.clone(),
+                    )
+                })
+                .collect();
+            rooms.sort();
+            let of_kind: Vec<_> = rooms.iter().filter(|room| &room.4 == kind).collect();
+            let Some(&&(x, y, w, h, _)) = of_kind.get(*nth) else {
+                return Err(format!(
+                    "{} salle(s) de type « {kind} » (index {nth} demandé)",
+                    of_kind.len()
+                ));
+            };
+            if let Some((width, height)) = size {
+                if (w, h) != (*width as i32, *height as i32) {
+                    return Err(format!(
+                        "salle {kind}#{nth} : {w} × {h} (attendu {width} × {height})"
+                    ));
+                }
+            }
+            // un bord commun de longueur non nulle (salles voisines d'une grille)
+            let touching = |other: &&(i32, i32, i32, i32, String)| {
+                let (ox, oy, ow, oh, _) = **other;
+                let share_x = x < ox + ow && ox < x + w;
+                let share_y = y < oy + oh && oy < y + h;
+                (share_x && (y + h == oy || oy + oh == y))
+                    || (share_y && (x + w == ox || ox + ow == x))
+            };
+            let neighbours: std::collections::BTreeSet<&str> = rooms
+                .iter()
+                .filter(|other| (other.0, other.1) != (x, y))
+                .filter(touching)
+                .map(|other| other.4.as_str())
+                .collect();
+            for wanted in touches {
+                if !neighbours.contains(wanted.as_str()) {
+                    return Err(format!(
+                        "salle {kind}#{nth} : aucune salle « {wanted} » ne la touche (voisines : {neighbours:?})"
+                    ));
+                }
+            }
+            for refused in apart {
+                if neighbours.contains(refused.as_str()) {
+                    return Err(format!(
+                        "salle {kind}#{nth} : touche une salle « {refused} » (voisines : {neighbours:?})"
+                    ));
+                }
+            }
+            Ok(())
+        }
         // M3-T0c : porte verrouillée d'une salle typée (`world::DoorLocks`, `RoomKindDef::door_lock`).
         Expectation::DoorLocked {
             kind, nth, locked, ..
@@ -2569,9 +2636,13 @@ fn check(world: &mut World, expectation: &Expectation) -> Result<(), String> {
                     rooms.len()
                 ));
             };
+            // Verrou de l'étage courant (`lock_from_floor`, M3-T5) ; 0 hors `Floors`.
+            let floor = world
+                .get_resource::<run::FloorState>()
+                .map_or(0, |state| state.index);
             let has_lock = world
                 .resource::<world::RoomKindTable>()
-                .door_lock(kind)
+                .door_lock_at(kind, floor)
                 .is_some();
             let actual = has_lock && !world.resource::<world::DoorLocks>().is_open(id);
             if actual != *locked {

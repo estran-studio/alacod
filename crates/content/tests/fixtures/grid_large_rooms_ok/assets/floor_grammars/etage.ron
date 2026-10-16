@@ -1,0 +1,1 @@
+(templates: "maps/salles.ldtk", grammar: (rooms: (3, 6), required: {"boss": 1}, layout: Some(Grid(cell: (5, 3), max: (4, 4)))))

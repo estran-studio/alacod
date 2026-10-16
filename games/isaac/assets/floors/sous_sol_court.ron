@@ -1,0 +1,6 @@
+// `isaac` (M3-T5, docs/conventions.md §70) : l'étage court (`floor_grammars/sous_sol_court.ron`), seul niveau de
+// la séquence, dont `entry.start_map` est le niveau : la séquence des scénarios générés sans `floors`.
+(
+    levels: ["floor:sous_sol_court"],
+    victory_at_end: true,
+)

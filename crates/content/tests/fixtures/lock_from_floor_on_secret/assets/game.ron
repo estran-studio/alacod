@@ -1,0 +1,8 @@
+// Fixture M3-T5 : lock_from_floor_on_secret (lock_from_floor sur un mur secret).
+(
+    name: "fixture-lock_from_floor_on_secret",
+    content_folders: [
+        (path: "rooms", kind: "Room"),
+    ],
+    entry: (start_map: "maps/salle.ldtk", default_seed: 1),
+)

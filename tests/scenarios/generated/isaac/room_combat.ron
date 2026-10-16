@@ -4,7 +4,7 @@
 #![enable(implicit_some)]
 Scenario(
     game: "isaac",
-    map: "maps/salles.ldtk",
+    map: "floor:sous_sol_court",
     map_seed: 1,
     frames: 500,
     players: [
