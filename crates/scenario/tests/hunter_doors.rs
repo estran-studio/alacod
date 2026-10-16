@@ -28,6 +28,7 @@ fn buyers_finish_the_first_wave_when_awake_zombies_are_inaccessible() {
             shop: Default::default(),
             profile: false,
             profile_setup: None,
+            hub: None,
             powerup_drop_chance_override: None,
             floors: None,
             progression: None,

@@ -211,6 +211,7 @@ impl InputRecorder {
             shop: settings.shop,
             profile: settings.profile,
             profile_setup: None,
+            hub: None,
             powerup_drop_chance_override: settings.powerup_drop_chance_override,
             floors: settings.floors,
             // T1.10 : progression imposée par le scénario d'origine (sinon celle du manifeste).

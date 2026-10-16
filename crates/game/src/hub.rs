@@ -123,6 +123,10 @@ impl HubSession {
     }
 }
 
+/// Un scénario qui prouve la sortie sans la suivre (`HubSetup::stay`) : la run n'est pas lancée.
+#[derive(Resource, Clone, Copy, Debug, Default)]
+pub struct HubStay;
+
 /// Mode de run de la session : au hub, `Sandbox` (aucune condition de fin, pas de niveaux) ;
 /// sinon la résolution habituelle de `run_state`.
 pub fn resolve_session_mode(
@@ -145,9 +149,10 @@ pub fn hub_exit_trigger(
     session: Option<Res<HubSession>>,
     confirmed: Option<Res<bevy_ggrs::ConfirmedFrameCount>>,
     request: Option<Res<crate::run_state::RunRequest>>,
+    stay: Option<Res<HubStay>>,
     mut commands: Commands,
 ) {
-    let (Some(session), Some(confirmed), None) = (session, confirmed, request) else {
+    let (Some(session), Some(confirmed), None, None) = (session, confirmed, request, stay) else {
         return;
     };
     let Some(exit) = state.exit else {

@@ -442,6 +442,25 @@ pub enum Expectation {
         lacks: Vec<String>,
         at_frame: u32,
     },
+    /// La sortie du hub (`game::hub::HubState::exit`, M2-T13, §57) est posée par `handle` (ou par
+    /// n'importe qui si `handle` est absent) à la frame `exit_frame` (absente : n'importe laquelle),
+    /// vérifiée à la frame exacte `at_frame`. `none: true` : aucune sortie décidée.
+    HubExit {
+        #[serde(default)]
+        handle: Option<usize>,
+        #[serde(default)]
+        exit_frame: Option<u32>,
+        #[serde(default)]
+        none: bool,
+        at_frame: u32,
+    },
+    /// Le dernier service utilisé par `handle` (`HubState::visits`, M2-T13) est `service`, à la
+    /// frame exacte `at_frame`.
+    HubVisit {
+        handle: usize,
+        service: String,
+        at_frame: u32,
+    },
     /// Le texte de la source `source` du HUD (`game::ui::hud_model::HudSnapshot`, joueur
     /// affiché, sans préfixe) contient `contains` à la frame exacte `at_frame` (T1.18,
     /// `docs/conventions.md` §32). Présentation : lu hors simulation, hors trace.
@@ -603,6 +622,8 @@ impl Expectation {
             | Self::BossPhase { at_frame, .. }
             | Self::ProfileHas { at_frame, .. }
             | Self::RunUnlocks { at_frame, .. }
+            | Self::HubExit { at_frame, .. }
+            | Self::HubVisit { at_frame, .. }
             | Self::Event {
                 by_frame: at_frame, ..
             }
