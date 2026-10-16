@@ -4,11 +4,15 @@ use bevy_fixed::fixed_math::Fixed;
 use serde::{Deserialize, Serialize};
 use sim_core::tag::Tag;
 
+#[cfg_attr(feature = "schema", derive(schemars::JsonSchema))]
 #[derive(Clone, PartialEq, Eq, PartialOrd, Ord, Debug, Hash, Serialize, Deserialize)]
 pub enum GaugeThreshold {
-    Above(Fixed),
+    Above(
+        #[cfg_attr(feature = "schema", schemars(with = "bevy_fixed::schema::FixedString"))] Fixed,
+    ),
 }
 
+#[cfg_attr(feature = "schema", derive(schemars::JsonSchema))]
 #[derive(Clone, PartialEq, Eq, PartialOrd, Ord, Debug, Hash, Serialize, Deserialize)]
 pub enum On {
     OnHit,
@@ -20,7 +24,7 @@ pub enum On {
     OnPickup,
     OnUse,
     OnGauge(String, GaugeThreshold),
-    Tick(u32),
+    Tick(#[cfg_attr(feature = "schema", schemars(extend("x-lint" = "> 0")))] u32),
     OnEvent(String),
     /// T1.10 : montée de niveau du porteur (C4, jauge de progression franchie).
     OnLevelUp,
@@ -31,18 +35,24 @@ pub enum On {
     OnBlank,
 }
 
+#[cfg_attr(feature = "schema", derive(schemars::JsonSchema))]
 #[derive(Clone, PartialEq, Eq, PartialOrd, Ord, Debug, Hash, Serialize, Deserialize)]
 pub enum Condition {
     TargetTag(Tag),
     Carrying(String),
-    HpBelow(Fixed),
+    HpBelow(
+        #[cfg_attr(feature = "schema", schemars(with = "bevy_fixed::schema::FixedString"))] Fixed,
+    ),
     HasTag(Tag),
     SquadSize(u32),
-    TargetInRange(Fixed),
+    TargetInRange(
+        #[cfg_attr(feature = "schema", schemars(with = "bevy_fixed::schema::FixedString"))] Fixed,
+    ),
     NotHitFor(u32),
 }
 
 /// Quand les charges d'un effet reviennent (M2-T3, `Effect::charges`).
+#[cfg_attr(feature = "schema", derive(schemars::JsonSchema))]
 #[derive(Clone, Copy, PartialEq, Eq, PartialOrd, Ord, Debug, Hash, Serialize, Deserialize)]
 pub enum Recharge {
     /// À chaque salle nettoyée.
@@ -57,6 +67,7 @@ pub enum Recharge {
 /// avant épuisement) et `recharge` (retour des charges) sont optionnels ; sans eux, l'effet se
 /// comporte exactement comme en v1. Le `Hash` est écrit à la main : un effet sans ces champs
 /// garde le hash d'avant (traces existantes inchangées).
+#[cfg_attr(feature = "schema", derive(schemars::JsonSchema))]
 #[derive(Clone, PartialEq, Eq, Debug, Serialize, Deserialize)]
 pub struct Effect {
     pub on: On,
@@ -65,8 +76,10 @@ pub struct Effect {
     #[serde(rename = "do")]
     pub r#do: Vec<Action>,
     #[serde(default)]
+    #[cfg_attr(feature = "schema", schemars(extend("x-lint" = "> 0 (ou absent)")))]
     pub cooldown: Option<u32>,
     #[serde(default)]
+    #[cfg_attr(feature = "schema", schemars(extend("x-lint" = "> 0 (ou absent)")))]
     pub charges: Option<u32>,
     #[serde(default)]
     pub recharge: Option<Recharge>,

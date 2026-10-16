@@ -12,12 +12,18 @@ use utils::net_id::GgrsNetId;
 
 /// Définition d'une bombe, lue dans le personnage.
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Hash, Serialize, Deserialize)]
+#[cfg_attr(feature = "schema", derive(schemars::JsonSchema))]
 pub struct BombDef {
     /// Frames entre la pose et l'explosion (> 0).
+    #[cfg_attr(feature = "schema", schemars(extend("x-lint" = "> 0")))]
     pub fuse_frames: u32,
     /// Rayon de l'explosion (> 0).
+    #[cfg_attr(feature = "schema", schemars(with = "bevy_fixed::schema::FixedString"))]
+    #[cfg_attr(feature = "schema", schemars(extend("x-lint" = "> 0")))]
     pub radius: Fixed,
     /// Dégâts aux personnages du rayon (>= 0).
+    #[cfg_attr(feature = "schema", schemars(with = "bevy_fixed::schema::FixedString"))]
+    #[cfg_attr(feature = "schema", schemars(extend("x-lint" = ">= 0")))]
     pub damage: Fixed,
 }
 

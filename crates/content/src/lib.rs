@@ -1,3 +1,4 @@
+pub mod describe;
 pub mod expr;
 pub mod feedback;
 pub mod files;
@@ -5,6 +6,8 @@ pub mod lint;
 pub mod manifest;
 pub mod reach;
 pub mod registry;
+pub mod scaffold;
+pub mod schema;
 pub mod ui;
 pub mod value;
 

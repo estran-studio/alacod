@@ -20,6 +20,7 @@ fn default_attempts() -> u32 {
 }
 
 /// Exigences d'un étage (RON : fichier du kind de contenu `FloorGrammar`).
+#[cfg_attr(feature = "schema", derive(schemars::JsonSchema))]
 #[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
 pub struct FloorGrammar {
     /// Nombre de salles de l'étage, bornes incluses (départ, boss et salles requises comprises).
@@ -51,6 +52,7 @@ pub struct FloorGrammar {
 
 /// Disposition d'un étage assemblé (M3-T0c, `docs/conventions.md` §62).
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Default, Serialize, Deserialize)]
+#[cfg_attr(feature = "schema", derive(schemars::JsonSchema))]
 pub enum FloorLayout {
     /// Arbre de gabarits par connexions alignées (M2-T10).
     #[default]

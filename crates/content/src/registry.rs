@@ -344,9 +344,10 @@ pub struct VariantsEntry {
 }
 
 /// T1.5 : mirroir de `game::character::variant::VariantDef`.
-#[derive(Debug, Clone, Deserialize)]
+#[derive(schemars::JsonSchema, Debug, Clone, Deserialize)]
 pub struct VariantEntry {
     #[serde(default = "default_variant_weight")]
+    #[schemars(extend("x-lint" = "> 0"))]
     pub weight: u32,
     #[serde(default)]
     pub modifiers: Vec<VariantModifierEntry>,
@@ -361,7 +362,7 @@ fn default_variant_weight() -> u32 {
 }
 
 /// T1.5 : un modificateur de variante (format §9 ; une stat inconnue échoue au chargement).
-#[derive(Debug, Clone, Deserialize)]
+#[derive(schemars::JsonSchema, Debug, Clone, Deserialize)]
 pub struct VariantModifierEntry {
     pub stat: StatId,
     pub op: ModifierOp,
@@ -370,23 +371,27 @@ pub struct VariantModifierEntry {
 
 /// T1.4 : mirroir de `behaviors::Behavior` (`docs/conventions.md` §22) ; les `Fixed` passent
 /// par [`FixedField`].
-#[derive(Debug, Clone, Deserialize)]
+#[derive(schemars::JsonSchema, Debug, Clone, Deserialize)]
 pub enum BehaviorEntry {
     Chase {
         profile: String,
     },
     KeepDistance {
+        #[schemars(extend("x-lint" = "< max"))]
         min: FixedField,
         max: FixedField,
     },
     Strafe,
     Charge {
+        #[schemars(extend("x-lint" = "> 0"))]
         telegraph: u32,
     },
     Shoot {
         weapon: String,
         pattern: String,
+        #[schemars(extend("x-lint" = "> 0"))]
         range: FixedField,
+        #[schemars(extend("x-lint" = "> 0"))]
         cooldown_frames: u32,
     },
     Melee(String),
@@ -402,37 +407,40 @@ pub enum BehaviorEntry {
 }
 
 /// M2-T8 : mirroir de `behaviors::FormationShape`.
-#[derive(Debug, Clone, Deserialize)]
+#[derive(schemars::JsonSchema, Debug, Clone, Deserialize)]
 pub enum FormationShapeEntry {
     Arc {
+        #[schemars(extend("x-lint" = "> 0"))]
         radius: FixedField,
+        #[schemars(extend("x-lint" = "]0, 2π]"))]
         spread: FixedField,
     },
 }
 
 /// M2-T0c : mirroirs de `behaviors::boss` (`docs/conventions.md` §37) ; les `Fixed` passent par
 /// [`FixedField`], les actions sont le type réel `effects::Action`.
-#[derive(Debug, Clone, Deserialize)]
+#[derive(schemars::JsonSchema, Debug, Clone, Deserialize)]
 pub enum PhaseEndEntry {
-    HealthBelow(FixedField),
-    AfterFrames(u32),
+    HealthBelow(#[schemars(extend("x-lint" = "]0, 1]"))] FixedField),
+    AfterFrames(#[schemars(extend("x-lint" = "> 0"))] u32),
 }
 
-#[derive(Debug, Clone, Deserialize)]
+#[derive(schemars::JsonSchema, Debug, Clone, Deserialize)]
 pub struct TimelineEventEntry {
     pub at: u32,
     #[serde(rename = "do")]
     pub r#do: Vec<effects::Action>,
 }
 
-#[derive(Debug, Clone, Default, Deserialize)]
+#[derive(schemars::JsonSchema, Debug, Clone, Default, Deserialize)]
 pub struct TimelineEntry {
     pub events: Vec<TimelineEventEntry>,
     #[serde(default)]
+    #[schemars(extend("x-lint" = "> 0 (ou absent)"))]
     pub repeat: Option<u32>,
 }
 
-#[derive(Debug, Clone, Default, Deserialize)]
+#[derive(schemars::JsonSchema, Debug, Clone, Default, Deserialize)]
 pub struct PhaseEntry {
     #[serde(default)]
     pub until: Option<PhaseEndEntry>,
@@ -444,13 +452,13 @@ pub struct PhaseEntry {
     pub timeline: Option<TimelineEntry>,
 }
 
-#[derive(Debug, Clone, Default, Deserialize)]
+#[derive(schemars::JsonSchema, Debug, Clone, Default, Deserialize)]
 pub struct BossEntry {
     pub phases: Vec<PhaseEntry>,
 }
 
 /// T1.4 : mirroir de `behaviors::Targeting`.
-#[derive(Debug, Clone, Deserialize)]
+#[derive(schemars::JsonSchema, Debug, Clone, Deserialize)]
 pub enum TargetingEntry {
     Nearest {
         #[serde(default)]
@@ -468,21 +476,21 @@ pub struct ClockEntry {
 }
 
 /// T1.9 : mirroir de `run::clock::ClockFileSchema`.
-#[derive(Debug, Clone, Deserialize)]
+#[derive(schemars::JsonSchema, Debug, Clone, Deserialize)]
 struct ClockFileSchema {
     scope: ClockScopeEntry,
     events: Vec<ClockEventEntry>,
 }
 
 /// T1.9 : mirroir de `run::clock::ClockScope`.
-#[derive(Debug, Clone, Copy, PartialEq, Eq, Deserialize)]
+#[derive(schemars::JsonSchema, Debug, Clone, Copy, PartialEq, Eq, Deserialize)]
 pub enum ClockScopeEntry {
     Run,
     Floor,
 }
 
 /// T1.9 : un événement d'horloge (mirroir de `run::clock::ClockEventDef`).
-#[derive(Debug, Clone, Deserialize)]
+#[derive(schemars::JsonSchema, Debug, Clone, Deserialize)]
 pub struct ClockEventEntry {
     pub id: String,
     pub at: ClockTimeEntry,
@@ -491,7 +499,7 @@ pub struct ClockEventEntry {
 }
 
 /// T1.9 : mirroir de `run::clock::ClockTime`.
-#[derive(Debug, Clone, Copy, Deserialize)]
+#[derive(schemars::JsonSchema, Debug, Clone, Copy, Deserialize)]
 pub enum ClockTimeEntry {
     Frames(u32),
     Seconds(FixedField),
@@ -518,7 +526,7 @@ pub struct DifficultyEntry {
     pub value: String,
 }
 
-#[derive(Debug, Clone, Deserialize)]
+#[derive(schemars::JsonSchema, Debug, Clone, Deserialize)]
 struct DifficultyFileSchema {
     value: String,
 }
@@ -566,7 +574,7 @@ pub struct WeaponEntry {
 
 /// T1.1 (B5 v1) : mirroirs de `combat::projectile` pour le lint (`content` ne dépend pas de
 /// `combat`). Les champs `Fixed` passent par [`FixedField`] (littéral nu refusé).
-#[derive(Debug, Clone, Deserialize)]
+#[derive(schemars::JsonSchema, Debug, Clone, Deserialize)]
 pub enum ProjectileModifierEntry {
     Bounce(u32),
     Pierce(u32),
@@ -605,7 +613,7 @@ impl ProjectileModifierEntry {
 }
 
 /// Mirroir de `combat::projectile::Pattern`.
-#[derive(Debug, Clone, Deserialize)]
+#[derive(schemars::JsonSchema, Debug, Clone, Deserialize)]
 pub enum PatternEntry {
     Aimed {
         count: u32,
@@ -661,7 +669,7 @@ pub enum PatternEntry {
 }
 
 /// Mirroir de `combat::projectile::ExpireAction`.
-#[derive(Debug, Clone, Deserialize)]
+#[derive(schemars::JsonSchema, Debug, Clone, Deserialize)]
 pub enum ExpireActionEntry {
     Spawn(PatternEntry),
     /// T1.6 : creuse le terrain d'une caverne au point de fin du projectile.
@@ -671,7 +679,7 @@ pub enum ExpireActionEntry {
 }
 
 /// Mirroir de `combat::projectile::ProjectileSpec`.
-#[derive(Debug, Clone, Default, Deserialize)]
+#[derive(schemars::JsonSchema, Debug, Clone, Default, Deserialize)]
 pub struct ProjectileSpecEntry {
     #[serde(default)]
     pub modifiers: Vec<ProjectileModifierEntry>,
@@ -682,7 +690,7 @@ pub struct ProjectileSpecEntry {
 }
 
 /// Mirroir de `combat::projectile::ProjectileDef`.
-#[derive(Debug, Clone, Deserialize)]
+#[derive(schemars::JsonSchema, Debug, Clone, Deserialize)]
 pub struct ProjectileDefEntry {
     pub damage: FixedField,
     pub speed: FixedField,
@@ -805,7 +813,7 @@ pub struct FloorGrammarEntry {
     pub grammar: world::FloorGrammar,
 }
 
-#[derive(Debug, Clone, serde::Deserialize)]
+#[derive(schemars::JsonSchema, Debug, Clone, serde::Deserialize)]
 struct FloorGrammarFileSchema {
     templates: String,
     grammar: world::FloorGrammar,
@@ -828,12 +836,15 @@ pub struct SurfaceEntry {
     pub hazard: Option<world::HazardDef>,
 }
 
-#[derive(Debug, Clone, Deserialize)]
+#[derive(schemars::JsonSchema, Debug, Clone, Deserialize)]
 struct SurfaceFileSchema {
+    #[schemars(extend("x-lint" = "> 0 et unique"))]
     intgrid_value: u8,
     tags: Vec<String>,
+    #[schemars(extend("x-lint" = "> 0"))]
     move_speed: FixedField,
     #[serde(default)]
+    #[schemars(extend("x-lint" = "> 0"))]
     acceleration: Option<FixedField>,
     #[serde(default)]
     pit: Option<world::PitDef>,
@@ -842,7 +853,7 @@ struct SurfaceFileSchema {
 }
 
 /// When earned mutation choices are presented. Existing games keep immediate choices.
-#[derive(Debug, Clone, Copy, Default, PartialEq, Eq, Deserialize)]
+#[derive(schemars::JsonSchema, Debug, Clone, Copy, Default, PartialEq, Eq, Deserialize)]
 pub enum MutationTiming {
     #[default]
     Immediate,
@@ -875,18 +886,21 @@ pub struct ProgressionEntry {
 }
 
 /// Armes débloquées à partir de `level` (niveau max des joueurs).
-#[derive(Debug, Clone, Deserialize)]
+#[derive(schemars::JsonSchema, Debug, Clone, Deserialize)]
 pub struct WeaponPoolEntry {
     pub level: u32,
     pub weapons: Vec<String>,
 }
 
-#[derive(Debug, Clone, Deserialize)]
+#[derive(schemars::JsonSchema, Debug, Clone, Deserialize)]
 struct ProgressionFileSchema {
     gauge: String,
+    #[schemars(extend("x-lint" = "> 0"))]
     per_kill: FixedField,
     levels: Vec<FixedField>,
+    #[schemars(extend("x-lint" = "entre 1 et la taille du pool de mutations"))]
     choices: u32,
+    #[schemars(extend("x-lint" = "> 0"))]
     choice_frames: u32,
     #[serde(default)]
     choice_timing: MutationTiming,
@@ -895,12 +909,13 @@ struct ProgressionFileSchema {
     #[serde(default)]
     weapon_pool: Vec<WeaponPoolEntry>,
     #[serde(default)]
+    #[schemars(extend("x-lint" = "[0, 1]"))]
     weapon_drop_chance: Option<FixedField>,
 }
 
 /// Genre d'un statut (miroir de `combat::status::StatusDef`, T1.3 ; `content` ne dépend pas
 /// de `combat`).
-#[derive(Debug, Clone, Copy, PartialEq, Eq, Deserialize)]
+#[derive(schemars::JsonSchema, Debug, Clone, Copy, PartialEq, Eq, Deserialize)]
 pub enum StatusKindEntry {
     Burn,
     Slow,
@@ -921,15 +936,19 @@ pub struct StatusContentEntry {
     pub factor: Fixed,
 }
 
-#[derive(Debug, Clone, Deserialize)]
+#[derive(schemars::JsonSchema, Debug, Clone, Deserialize)]
 struct StatusFileSchema {
     kind: StatusKindEntry,
+    #[schemars(extend("x-lint" = "> 0"))]
     frames: u32,
     #[serde(default)]
+    #[schemars(extend("x-lint" = "> 0 (Burn)"))]
     damage: Option<FixedField>,
     #[serde(default)]
+    #[schemars(extend("x-lint" = "> 0 (Burn)"))]
     period: Option<u32>,
     #[serde(default)]
+    #[schemars(extend("x-lint" = "]0, 1] (Slow)"))]
     factor: Option<FixedField>,
 }
 
@@ -946,14 +965,16 @@ pub struct MutationEntry {
     pub effects: Vec<effects::Effect>,
 }
 
-#[derive(Debug, Clone, Deserialize)]
+#[derive(schemars::JsonSchema, Debug, Clone, Deserialize)]
 struct MutationFileSchema {
     name: String,
     #[serde(default = "one")]
+    #[schemars(extend("x-lint" = "> 0"))]
     weight: u32,
     #[serde(default)]
     tags: Vec<String>,
     #[serde(default = "one")]
+    #[schemars(extend("x-lint" = "> 0"))]
     max_stacks: u32,
     effects: Vec<effects::Effect>,
 }
@@ -962,7 +983,7 @@ fn one() -> u32 {
     1
 }
 
-#[derive(Debug, Clone, Deserialize)]
+#[derive(schemars::JsonSchema, Debug, Clone, Deserialize)]
 struct FloorsFileSchema {
     levels: Vec<String>,
     /// M2-T0d : voir [`FloorsEntry::victory_at_end`].
@@ -1624,7 +1645,7 @@ fn read_file(assets_dir: &ContentFiles, rel: &Path) -> Result<String, LintError>
 // par serde (pas de `deny_unknown_fields`), donc un fichier réel plus riche (collider,
 // sprite_config, audio_config...) se charge sans erreur.
 
-#[derive(Deserialize)]
+#[derive(schemars::JsonSchema, Deserialize)]
 struct CharacterFileSchema {
     movement: MovementSchema,
     /// M2-T2 (§43) : dash nommé.
@@ -1634,6 +1655,7 @@ struct CharacterFileSchema {
     base_health: HealthSchema,
     starting_skin: String,
     #[serde(default)]
+    #[schemars(with = "BTreeMap<String, serde_json::Value>")]
     skins: BTreeMap<String, serde::de::IgnoredAny>,
     #[serde(default)]
     starting_weapons: Vec<String>,
@@ -1643,13 +1665,17 @@ struct CharacterFileSchema {
     stats: BTreeMap<StatId, FixedField>,
     /// T1.3, chantier B6 : voir `game::character::config::CharacterConfig::bleedout_frames`.
     #[serde(default = "default_bleedout_frames")]
+    #[schemars(extend("x-lint" = "> 0"))]
     bleedout_frames: u32,
     #[serde(default = "default_revive_frames")]
+    #[schemars(extend("x-lint" = "> 0"))]
     revive_frames: u32,
     #[serde(default = "default_downed_speed_mult")]
+    #[schemars(extend("x-lint" = "]0, 1]"))]
     downed_speed_mult: FixedField,
     /// T2.2, chantier B7 : voir `game::character::config::CharacterConfig::weapon_slots`.
     #[serde(default = "default_weapon_slots")]
+    #[schemars(extend("x-lint" = "> 0"))]
     weapon_slots: u32,
     /// M2-T1 : voir `game::character::config::CharacterConfig::starting_consumables`.
     #[serde(default)]
@@ -1702,14 +1728,14 @@ fn default_scale() -> FixedField {
 }
 
 /// Mirroir RON de `game::collider::Collider` (seules les dimensions servent).
-#[derive(Deserialize)]
+#[derive(schemars::JsonSchema, Deserialize)]
 struct ColliderSchema {
     shape: ColliderShapeSchema,
     #[serde(default)]
     offset: OffsetSchema,
 }
 
-#[derive(Deserialize)]
+#[derive(schemars::JsonSchema, Deserialize)]
 enum ColliderShapeSchema {
     Rectangle {
         width: FixedField,
@@ -1720,11 +1746,12 @@ enum ColliderShapeSchema {
     },
 }
 
-#[derive(Deserialize)]
+#[derive(schemars::JsonSchema, Deserialize)]
 struct OffsetSchema {
     x: FixedField,
     y: FixedField,
     #[serde(rename = "z", default)]
+    #[schemars(with = "serde_json::Value")]
     _z: serde::de::IgnoredAny,
 }
 
@@ -1772,7 +1799,7 @@ pub const SMALL_AGENT_MAX: i32 = 20;
 
 /// Mirroir RON de `game::character::config::CharacterTest` (comme `WeaponTestSchema`) : les
 /// attentes ne sont que comptées (`content` ne type pas `Expectation`).
-#[derive(Deserialize)]
+#[derive(schemars::JsonSchema, Deserialize)]
 struct CharacterTestSchema {
     frames: u32,
     #[serde(default = "default_true")]
@@ -1780,21 +1807,24 @@ struct CharacterTestSchema {
     #[serde(default = "default_true")]
     moving: bool,
     #[serde(default)]
+    #[schemars(with = "Vec<serde_json::Value>")]
     expect_still: Vec<serde::de::IgnoredAny>,
     #[serde(default)]
+    #[schemars(with = "Vec<serde_json::Value>")]
     expect_moving: Vec<serde::de::IgnoredAny>,
     #[serde(default)]
     boss: Option<BossFightSchema>,
 }
 
 /// Mirroir de `game::gen_test::BossFightTest`.
-#[derive(Deserialize)]
+#[derive(schemars::JsonSchema, Deserialize)]
 struct BossFightSchema {
     #[serde(default)]
     floors: Option<String>,
     #[serde(default)]
     map: Option<String>,
     #[serde(default)]
+    #[schemars(with = "Vec<serde_json::Value>")]
     expect: Vec<serde::de::IgnoredAny>,
 }
 
@@ -1805,10 +1835,11 @@ struct ItemTestFile {
     test: Option<ItemTestSchema>,
 }
 
-#[derive(Deserialize)]
+#[derive(Deserialize, schemars::JsonSchema)]
 struct ItemTestSchema {
     frames: u32,
     #[serde(default)]
+    #[schemars(with = "Vec<serde_json::Value>")]
     expect: Vec<serde::de::IgnoredAny>,
 }
 
@@ -1819,7 +1850,7 @@ struct RoomTestFile {
     test: Option<RoomTestSchema>,
 }
 
-#[derive(Deserialize)]
+#[derive(Deserialize, schemars::JsonSchema)]
 struct RoomTestSchema {
     frames: u32,
     #[serde(default)]
@@ -1827,6 +1858,7 @@ struct RoomTestSchema {
     #[serde(default)]
     map: Option<String>,
     #[serde(default)]
+    #[schemars(with = "Vec<serde_json::Value>")]
     expect: Vec<serde::de::IgnoredAny>,
 }
 
@@ -1860,9 +1892,10 @@ fn default_true() -> bool {
     true
 }
 
-#[derive(Deserialize)]
+#[derive(schemars::JsonSchema, Deserialize)]
 struct VariantsSchema {
     #[serde(default = "default_variant_chance")]
+    #[schemars(extend("x-lint" = "[0, 1]"))]
     chance: FixedField,
     table: KeyedEntries<VariantEntry>,
 }
@@ -1871,7 +1904,7 @@ fn default_variant_chance() -> FixedField {
     FixedField(Fixed::from_num(1))
 }
 
-#[derive(Deserialize)]
+#[derive(schemars::JsonSchema, Deserialize)]
 struct AiSchema {
     #[serde(default)]
     behaviors: Option<Vec<BehaviorEntry>>,
@@ -1898,8 +1931,9 @@ fn default_weapon_slots() -> u32 {
     2
 }
 
-#[derive(Deserialize)]
+#[derive(schemars::JsonSchema, Deserialize)]
 struct MovementSchema {
+    #[schemars(extend("x-lint" = ">= 0"))]
     max_speed: FixedField,
     #[serde(default)]
     dash_duration_frames: u32,
@@ -1911,7 +1945,7 @@ struct MovementSchema {
     dash_recharge_frames: u32,
 }
 
-#[derive(Deserialize, PartialEq)]
+#[derive(schemars::JsonSchema, Deserialize, PartialEq)]
 enum DashEffectSchema {
     Roll,
     Shove,
@@ -1919,7 +1953,7 @@ enum DashEffectSchema {
 }
 
 /// M2-T2 : `dash` du personnage (miroir de `game::character::movement::DashConfig`).
-#[derive(Deserialize)]
+#[derive(schemars::JsonSchema, Deserialize)]
 struct DashSchema {
     #[serde(default)]
     duration_frames: Option<u32>,
@@ -1928,21 +1962,23 @@ struct DashSchema {
     #[serde(default)]
     effect: Option<DashEffectSchema>,
     #[serde(default)]
+    #[schemars(extend("x-lint" = "> 0"))]
     charges: Option<u32>,
     #[serde(default)]
     recharge_frames: Option<u32>,
 }
 
-#[derive(Deserialize)]
+#[derive(schemars::JsonSchema, Deserialize)]
 struct HealthSchema {
     /// F5 (chantier m0-v11) : littéral ou expression `players` (`crate::expr::NumOrExpr`).
+    #[schemars(extend("x-lint" = "> 0"))]
     max: NumOrExpr,
 }
 
-#[derive(Deserialize)]
+#[derive(schemars::JsonSchema, Deserialize)]
 struct WeaponsFileSchema(KeyedEntries<WeaponEntrySchema>);
 
-#[derive(Deserialize)]
+#[derive(schemars::JsonSchema, Deserialize)]
 struct WeaponEntrySchema {
     config: WeaponConfigSchema,
     /// T2.8 : sons de l'arme. Lu par aucun type de `game` aujourd'hui (les sons joués
@@ -1957,7 +1993,7 @@ struct WeaponEntrySchema {
     sprite_config: WeaponSpriteSchema,
 }
 
-#[derive(Deserialize, Default)]
+#[derive(schemars::JsonSchema, Deserialize, Default)]
 struct WeaponSpriteSchema {
     #[serde(default)]
     name: String,
@@ -1965,10 +2001,10 @@ struct WeaponSpriteSchema {
 
 /// D3 : `sprites/sprites.ron`, table `{ "id": (animation: "...", layers: { ... }) }`, lue en
 /// liste pour rapporter un id répété (comme `weapons.ron`, voir [`KeyedEntries`]).
-#[derive(Deserialize)]
+#[derive(schemars::JsonSchema, Deserialize)]
 struct SpriteSheetsFileSchema(KeyedEntries<SpriteSheetEntrySchema>);
 
-#[derive(Deserialize)]
+#[derive(schemars::JsonSchema, Deserialize)]
 struct SpriteSheetEntrySchema {
     animation: String,
     layers: BTreeMap<String, String>,
@@ -1980,7 +2016,7 @@ struct SheetImageSchema {
     path: String,
 }
 
-#[derive(Deserialize, Default)]
+#[derive(schemars::JsonSchema, Deserialize, Default)]
 struct WeaponAudioSchema {
     #[serde(default)]
     modes: BTreeMap<String, WeaponAudioModeSchema>,
@@ -1988,7 +2024,7 @@ struct WeaponAudioSchema {
 
 /// `String` (pas `Option<String>`, pour la même raison que `audio_config`) : un champ absent
 /// vaut `""`, ignoré par le lint.
-#[derive(Deserialize)]
+#[derive(schemars::JsonSchema, Deserialize)]
 struct WeaponAudioModeSchema {
     #[serde(default)]
     reloading: String,
@@ -1996,7 +2032,7 @@ struct WeaponAudioModeSchema {
     firing: String,
 }
 
-#[derive(Deserialize)]
+#[derive(schemars::JsonSchema, Deserialize)]
 struct WeaponConfigSchema {
     #[serde(default)]
     firing_modes: BTreeMap<String, FiringModeSchema>,
@@ -2033,11 +2069,13 @@ fn zero_spread() -> FixedField {
     FixedField(Fixed::ZERO)
 }
 
-#[derive(Deserialize)]
+#[derive(schemars::JsonSchema, Deserialize)]
 struct FiringModeSchema {
+    #[schemars(extend("x-lint" = "> 0"))]
     firing_rate: FixedField,
     /// D51 : voir `WeaponEntry::spreads` (absent : 0, aucune règle violée).
     #[serde(default = "zero_spread")]
+    #[schemars(extend("x-lint" = "[0, π] (radians)"))]
     spread: FixedField,
     /// T1.1 : voir `WeaponEntry::mode_projectiles`.
     #[serde(default)]
@@ -2049,7 +2087,7 @@ struct FiringModeSchema {
 }
 
 /// M3-T0a : mirroir de `combat::weapons::MagBulletConfig` (seule la variante compte).
-#[derive(Deserialize)]
+#[derive(schemars::JsonSchema, Deserialize)]
 #[allow(dead_code)]
 enum MagSchema {
     Mag { mag_size: u32, mag_limit: u32 },
@@ -2060,7 +2098,7 @@ enum MagSchema {
 /// Mirroir RON de `game::weapons::WeaponTest` (voir `WeaponTestRange`) : ignore `expect`,
 /// que `content` ne peut pas typer (`Expectation` vit dans `game`, `content` n'en dépend
 /// pas) — silencieusement, comme tout champ non déclaré ici (voir la doc du module).
-#[derive(Deserialize)]
+#[derive(schemars::JsonSchema, Deserialize)]
 struct WeaponTestSchema {
     frames: u32,
     min_hits: u32,
@@ -2078,16 +2116,17 @@ impl From<&WeaponTestSchema> for WeaponTestRange {
     }
 }
 
-#[derive(Deserialize)]
+#[derive(schemars::JsonSchema, Deserialize)]
 struct MeleeWeaponsFileSchema(KeyedEntries<MeleeWeaponEntrySchema>);
 
-#[derive(Deserialize)]
+#[derive(schemars::JsonSchema, Deserialize)]
 struct MeleeWeaponEntrySchema {
     config: MeleeWeaponConfigSchema,
 }
 
-#[derive(Deserialize)]
+#[derive(schemars::JsonSchema, Deserialize)]
 struct MeleeWeaponConfigSchema {
+    #[schemars(extend("x-lint" = ">= 0"))]
     damage: FixedField,
     #[serde(default)]
     test: Option<WeaponTestSchema>,
@@ -2097,13 +2136,13 @@ struct MeleeWeaponConfigSchema {
     friendly_fire: FriendlyFire,
 }
 
-#[derive(Deserialize)]
+#[derive(schemars::JsonSchema, Deserialize)]
 struct WaveConfigFileSchema {
     #[serde(default)]
     wave_tiers: Vec<WaveTierSchema>,
 }
 
-#[derive(Deserialize)]
+#[derive(schemars::JsonSchema, Deserialize)]
 struct WaveTierSchema {
     #[serde(default)]
     enemy_probabilities: BTreeMap<String, u32>,
@@ -2112,7 +2151,7 @@ struct WaveTierSchema {
 /// Mirroir de `game::economy::EconomyConfig` (T2.3, chantier C5 v1). Défauts identiques
 /// (voir leur doc respective) : un `economy.ron` qui ne déclare qu'un sous-ensemble des
 /// champs se comporte pareil ici et à l'exécution. F5 (chantier m0-v11) : `NumOrExpr`.
-#[derive(Deserialize)]
+#[derive(schemars::JsonSchema, Deserialize)]
 struct EconomyFileSchema {
     #[serde(default = "default_kill_points")]
     kill_points: NumOrExpr,
@@ -2125,6 +2164,7 @@ struct EconomyFileSchema {
     #[serde(default)]
     repair_points_cap_per_wave: Option<NumOrExpr>,
     #[serde(default = "default_refill_price_ratio")]
+    #[schemars(extend("x-lint" = "[0, 1]"))]
     refill_price_ratio: NumOrExpr,
     #[serde(default)]
     shells_drop: Option<(u32, u32)>,
@@ -2156,12 +2196,13 @@ fn default_refill_price_ratio() -> NumOrExpr {
 /// (`price > 0`, au moins un modificateur, `Mul` > 0, voir `lint::lint_perks`). La table est
 /// lue en liste ([`KeyedEntries`], T2.8) : un id écrit deux fois dans le fichier est
 /// rapporté `DuplicateId` au lieu d'être écrasé en silence.
-#[derive(Deserialize)]
+#[derive(schemars::JsonSchema, Deserialize)]
 struct PerksFileSchema(KeyedEntries<PerkEntrySchema>);
 
-#[derive(Deserialize)]
+#[derive(schemars::JsonSchema, Deserialize)]
 struct PerkEntrySchema {
     /// F5 (chantier m0-v11) : littéral ou expression `players` (`crate::expr::NumOrExpr`).
+    #[schemars(extend("x-lint" = "> 0"))]
     price: NumOrExpr,
     #[serde(default)]
     modifiers: Vec<PerkModifierSchema>,
@@ -2169,7 +2210,7 @@ struct PerkEntrySchema {
 
 /// Mirroir de `game::economy::PerkModifierDef` (`value` en [`FixedField`] : même règle de
 /// chaîne que le type réel `Fixed`, message plus clair pour un littéral nu).
-#[derive(Deserialize)]
+#[derive(schemars::JsonSchema, Deserialize)]
 struct PerkModifierSchema {
     #[serde(deserialize_with = "de_stat")]
     stat: StatId,
@@ -2180,8 +2221,9 @@ struct PerkModifierSchema {
 /// Mirroir de `game::powerups::PowerUpsConfig` (T2.5, chantier C1 v0) : `drop_chance`
 /// (racine du fichier, probabilité qu'un ennemi tué laisse tomber un power-up) et la table
 /// nommée des power-ups eux-mêmes.
-#[derive(Deserialize)]
+#[derive(schemars::JsonSchema, Deserialize)]
 struct PowerUpsFileSchema {
+    #[schemars(extend("x-lint" = "[0, 1]"))]
     drop_chance: FixedField,
     powerups: KeyedEntries<PowerUpEntrySchema>,
 }
@@ -2196,10 +2238,13 @@ struct PowerUpsFileSchema {
 /// `pickup_range`/`lifetime_frames` (T2.8) : obligatoires, comme dans le type réel
 /// `game::powerups::PowerUpDef` (un fichier qui les omet échoue au chargement du jeu ; le
 /// lint rapporte la même erreur plutôt que de laisser passer le fichier).
-#[derive(Deserialize)]
+#[derive(schemars::JsonSchema, Deserialize)]
 struct PowerUpEntrySchema {
+    #[schemars(extend("x-lint" = "> 0"))]
     weight: u32,
+    #[schemars(extend("x-lint" = "> 0"))]
     pickup_range: FixedField,
+    #[schemars(extend("x-lint" = "> 0"))]
     lifetime_frames: u32,
     #[serde(default)]
     actions: Vec<effects::Action>,
@@ -2241,6 +2286,21 @@ fn de_stat<'de, D: Deserializer<'de>>(d: D) -> Result<StatId, D::Error> {
 /// dernière valeur d'une clé répétée sans rien dire ; le chargeur, qui insère les entrées
 /// une à une dans le registre, rapporte ainsi le doublon comme `DuplicateId`.
 struct KeyedEntries<V>(Vec<(String, V)>);
+
+/// Schéma : une table `{ "id": V, … }`.
+impl<V: schemars::JsonSchema> schemars::JsonSchema for KeyedEntries<V> {
+    fn schema_name() -> std::borrow::Cow<'static, str> {
+        format!("Table<{}>", V::schema_name()).into()
+    }
+
+    fn json_schema(generator: &mut schemars::SchemaGenerator) -> schemars::Schema {
+        schemars::json_schema!({
+            "type": "object",
+            "description": "Table RON `{ \"id\": entrée, … }` : une entrée par id.",
+            "additionalProperties": generator.subschema_for::<V>()
+        })
+    }
+}
 
 impl<'de, V: Deserialize<'de>> Deserialize<'de> for KeyedEntries<V> {
     fn deserialize<D: Deserializer<'de>>(deserializer: D) -> Result<Self, D::Error> {
@@ -3876,4 +3936,56 @@ mod spawn_clearance_tests {
         assert_eq!(spawn_clearance_for(Fixed::from_num(40)), 2);
         assert_eq!(spawn_clearance_for(Fixed::from_num(41)), 3);
     }
+}
+
+/// Schéma exhaustif du fichier d'un kind (`crate::schema`), pour les types privés de ce module.
+pub(crate) fn schema_for_kind(kind: &str) -> Option<schemars::Schema> {
+    Some(match kind {
+        "Item" => schemars::schema_for!(ItemFileView),
+        "Synergy" => schemars::schema_for!(items::SynergyDef),
+        "LootTable" => schemars::schema_for!(items::LootTableDef),
+        "Room" => schemars::schema_for!(RoomFileView),
+        "Prop" => schemars::schema_for!(world::PropDef),
+        "Cave" => schemars::schema_for!(world::CaveConfig),
+        "Status" => schemars::schema_for!(StatusFileSchema),
+        "Mutation" => schemars::schema_for!(MutationFileSchema),
+        "Progression" => schemars::schema_for!(ProgressionFileSchema),
+        "FloorGrammar" => schemars::schema_for!(FloorGrammarFileSchema),
+        "Floors" => schemars::schema_for!(FloorsFileSchema),
+        "Surface" => schemars::schema_for!(SurfaceFileSchema),
+        "Clock" => schemars::schema_for!(ClockFileSchema),
+        "Difficulty" => schemars::schema_for!(DifficultyFileSchema),
+        "Economy" => schemars::schema_for!(EconomyFileSchema),
+        "Perk" => schemars::schema_for!(PerksFileSchema),
+        "PowerUp" => schemars::schema_for!(PowerUpsFileSchema),
+        "Character" => schemars::schema_for!(CharacterFileSchema),
+        "Weapon" => schemars::schema_for!(WeaponsFileSchema),
+        "MeleeWeapon" => schemars::schema_for!(MeleeWeaponsFileSchema),
+        "Pattern" => schemars::schema_for!(PatternEntry),
+        "Wave" => schemars::schema_for!(WaveConfigFileSchema),
+        "SpriteSheet" => schemars::schema_for!(SpriteSheetsFileSchema),
+        "Unlock" => schemars::schema_for!(items::UnlockDef),
+        "MetaEconomy" => schemars::schema_for!(meta::EssenceRules),
+        _ => return None,
+    })
+}
+
+// Vues pour le schéma seulement : le contrat (`items::ItemDef`, `world::RoomKindDef`) plus le
+// champ `test:` que le registre relit à part (`read_test_field`, gabarits générés M2-T17).
+#[allow(dead_code)]
+#[derive(schemars::JsonSchema)]
+struct ItemFileView {
+    #[serde(flatten)]
+    def: items::ItemDef,
+    /// M2-T17 : gabarit de test généré (`make gen`), scénario `item_<id>`.
+    test: Option<ItemTestSchema>,
+}
+
+#[allow(dead_code)]
+#[derive(schemars::JsonSchema)]
+struct RoomFileView {
+    #[serde(flatten)]
+    def: world::RoomKindDef,
+    /// M2-T17 : gabarit de test généré (`make gen`), scénario `room_<id>`.
+    test: Option<RoomTestSchema>,
 }

@@ -68,9 +68,13 @@ pub struct SurfaceDef {
 /// `damage` PV (dégâts `True`, ou typés : Q2 pour les demi-cœurs) au plus une fois par `period`
 /// frames. Contrat seul : la forme RON, le lint et la règle pure ; l'exécution vient de M3-T4.
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Hash, Serialize, Deserialize)]
+#[cfg_attr(feature = "schema", derive(schemars::JsonSchema))]
 pub struct HazardDef {
+    #[cfg_attr(feature = "schema", schemars(with = "bevy_fixed::schema::FixedString"))]
+    #[cfg_attr(feature = "schema", schemars(extend("x-lint" = "> 0")))]
     pub damage: Fixed,
     /// Frames entre deux coups sur le même joueur (> 0).
+    #[cfg_attr(feature = "schema", schemars(extend("x-lint" = "> 0")))]
     pub period: u32,
 }
 
@@ -100,8 +104,11 @@ impl HazardDef {
 /// Fosse (M2-T11, `docs/conventions.md` §46) : un joueur dont les pieds y entrent perd
 /// `fall_damage` PV et revient à sa dernière position sûre ; les ennemis au sol ne la traversent
 /// pas (champ de flux, déplacement), les volants la survolent.
+#[cfg_attr(feature = "schema", derive(schemars::JsonSchema))]
 #[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
 pub struct PitDef {
+    #[cfg_attr(feature = "schema", schemars(with = "bevy_fixed::schema::FixedString"))]
+    #[cfg_attr(feature = "schema", schemars(extend("x-lint" = "> 0")))]
     pub fall_damage: Fixed,
     /// Où revient le joueur tombé.
     #[serde(default)]
@@ -112,6 +119,7 @@ pub struct PitDef {
 }
 
 /// Point de retour d'un joueur tombé dans une fosse.
+#[cfg_attr(feature = "schema", derive(schemars::JsonSchema))]
 #[derive(Debug, Clone, Copy, Default, PartialEq, Eq, Serialize, Deserialize)]
 pub enum PitRespawn {
     /// Dernière position dont la case et ses 8 voisines étaient sans fosse

@@ -23,6 +23,7 @@ pub const CURRENCY_MULTIPLIER_STAT: &str = "powerup_currency_multiplier";
 /// Une action appliquée par un power-up ramassé. Liste fermée et minimale (T2.5, graine de
 /// C1 — `docs/plan-engine.md` §5) : un power-up futur qui a besoin d'un autre effet ajoute
 /// une variante ici, jamais un type de contenu séparé.
+#[cfg_attr(feature = "schema", derive(schemars::JsonSchema))]
 #[derive(Debug, Clone, PartialEq, Eq, Hash, Serialize, Deserialize)]
 pub enum Action {
     /// Modificateur de stat temporaire posé sur chaque joueur (ex. Insta-Kill : `stat:
@@ -33,7 +34,9 @@ pub enum Action {
     TimedModifier {
         stat: StatId,
         op: ModifierOp,
+        #[cfg_attr(feature = "schema", schemars(with = "bevy_fixed::schema::FixedString"))]
         value: Fixed,
+        #[cfg_attr(feature = "schema", schemars(extend("x-lint" = "> 0")))]
         frames: u32,
     },
     /// Remplit le chargeur de chaque arme portée par chaque joueur et recharge sa réserve
@@ -51,31 +54,53 @@ pub enum Action {
     /// `factor` s'applique par `ModifierOp::Mul` sur [`CURRENCY_MULTIPLIER_STAT`] — deux
     /// `CurrencyMultiplier` actifs en même temps se cumulent multiplicativement (limitation
     /// documentée, v0 minimal : pas de règle de non-stacking).
-    CurrencyMultiplier { factor: Fixed, frames: u32 },
+    CurrencyMultiplier {
+        #[cfg_attr(feature = "schema", schemars(with = "bevy_fixed::schema::FixedString"))]
+        #[cfg_attr(feature = "schema", schemars(extend("x-lint" = "> 0")))]
+        factor: Fixed,
+        #[cfg_attr(feature = "schema", schemars(extend("x-lint" = "> 0")))]
+        frames: u32,
+    },
     /// Creuse le terrain d'une caverne (T1.6, `docs/conventions.md` §21) : toute case `Rock`
     /// dont le centre est à moins de `radius` unités de la position de l'action devient
     /// `Floor`, `Wall` ne change jamais (`world::destroy_terrain`). Positionnelle : un
     /// projectile l'emploie (`on_hit` sur un mur, `on_expire`) ; refusée dans un power-up
     /// (lint), sans position. Ajoutée en dernier : les hashs des autres variantes ne bougent pas.
-    DestroyTerrain { radius: Fixed },
+    DestroyTerrain {
+        #[cfg_attr(feature = "schema", schemars(with = "bevy_fixed::schema::FixedString"))]
+        #[cfg_attr(feature = "schema", schemars(extend("x-lint" = "> 0")))]
+        radius: Fixed,
+    },
     /// T1.10 (effets v1, `docs/conventions.md` §27) : modificateur **permanent** posé sur le
     /// porteur de l'effet (source `effect:<porteur>:<index>`).
     Modifier {
         stat: StatId,
         op: ModifierOp,
+        #[cfg_attr(feature = "schema", schemars(with = "bevy_fixed::schema::FixedString"))]
         value: Fixed,
     },
     /// T1.10 : soigne le porteur de `amount` points, borné à sa santé maximale.
-    Heal(Fixed),
+    Heal(
+        #[cfg_attr(feature = "schema", schemars(extend("x-lint" = "> 0")))]
+        #[cfg_attr(feature = "schema", schemars(with = "bevy_fixed::schema::FixedString"))]
+        Fixed,
+    ),
     /// T1.10 : joue le pattern nommé `pattern` (kind `Pattern`, T1.2) depuis la position du
     /// porteur, avec la table de projectiles de l'arme `weapon` (config d'armes du jeu).
     SpawnPattern { pattern: String, weapon: String },
     /// T1.10 : ajoute `amount` à la jauge `id` du porteur (`Gauges`).
-    GaugeAdd(String, Fixed),
+    GaugeAdd(
+        String,
+        #[cfg_attr(feature = "schema", schemars(with = "bevy_fixed::schema::FixedString"))] Fixed,
+    ),
     /// T1.3 (statuts, `docs/conventions.md` §19) : pose `stacks` fois le statut `status` (id
     /// du kind `Status`) sur le personnage touché par un projectile (`on_hit`). Dans un effet
     /// ou un power-up : refusée par le lint en v1 (pas de cible).
-    ApplyStatus { status: String, stacks: u32 },
+    ApplyStatus {
+        status: String,
+        #[cfg_attr(feature = "schema", schemars(extend("x-lint" = "> 0")))]
+        stacks: u32,
+    },
     /// D40 : comme [`Self::RefillAmmo`], restreint à une munition : remplit le chargeur des
     /// armes de cette munition et recharge la réserve de cette munition seulement (butin par
     /// munition de `throne`). Power-up seulement (refusée dans un effet, comme `RefillAmmo`).
@@ -85,15 +110,19 @@ pub enum Action {
     /// ailleurs). Fait apparaître `count` personnages `id` dans la salle du boss, à des
     /// positions tirées du flux RNG de la salle (`room:<niveau>`). Ajoutée en fin d'enum : le
     /// hash des variantes d'avant ne bouge pas.
-    SpawnEnemies { id: String, count: u32 },
+    SpawnEnemies {
+        id: String,
+        #[cfg_attr(feature = "schema", schemars(extend("x-lint" = "> 0")))]
+        count: u32,
+    },
     /// M2-T7 : **frise de boss seulement**. Télégraphe de `n` frames posé devant le prochain
     /// `SpawnPattern` du même événement (l'émetteur joue `Sequence([Telegraph(n), pattern])`) :
     /// l'état est celui de l'émetteur, aucun type nouveau.
-    Telegraph(u32),
+    Telegraph(#[cfg_attr(feature = "schema", schemars(extend("x-lint" = "> 0")))] u32),
     /// D61 (`docs/conventions.md` §18, bouclier) : donne `n` points de bouclier au porteur ; chaque
     /// point absorbe un coup entier (`combat::actors::Shield`). Utilisable par un effet, un
     /// objet (`OnUse`), une synergie ; refusée dans un power-up (lint). Ajoutée en fin d'enum.
-    GainShield(u32),
+    GainShield(#[cfg_attr(feature = "schema", schemars(extend("x-lint" = "> 0")))] u32),
     /// M3-T0c (`docs/conventions.md` §62) : explosion centrée sur la position de l'action (celle
     /// du porteur, du projectile ou de la bombe). Inflige `damage` à chaque personnage à PV dont
     /// le centre est à **strictement** moins de `radius` (ordre `GgrsNetId`) et, si `destroys`,
@@ -101,7 +130,11 @@ pub enum Action {
     /// (`world::explosion_plan`). Contrat seul : l'exécution vient de M3-T4 (le baril ne bascule
     /// pas dessus ici, sa trace ne bouge pas). Ajoutée en fin d'enum : les hashs d'avant ne bougent pas.
     Explode {
+        #[cfg_attr(feature = "schema", schemars(with = "bevy_fixed::schema::FixedString"))]
+        #[cfg_attr(feature = "schema", schemars(extend("x-lint" = "> 0")))]
         radius: Fixed,
+        #[cfg_attr(feature = "schema", schemars(with = "bevy_fixed::schema::FixedString"))]
+        #[cfg_attr(feature = "schema", schemars(extend("x-lint" = ">= 0")))]
         damage: Fixed,
         destroys: bool,
     },

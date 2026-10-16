@@ -27,14 +27,15 @@ use std::collections::BTreeMap;
 
 /// Comment un objet actif se recharge. `n` est la charge requise : l'actif est prêt quand sa
 /// charge atteint `n`.
+#[cfg_attr(feature = "schema", derive(schemars::JsonSchema))]
 #[derive(Clone, Copy, Debug, PartialEq, Eq, Hash, Serialize, Deserialize)]
 pub enum ActiveCharge {
     /// `n` salles nettoyées (`world::RoomChanged` vers `Cleared`, M2-E1).
-    Rooms(u32),
+    Rooms(#[cfg_attr(feature = "schema", schemars(extend("x-lint" = "> 0")))] u32),
     /// `n` points de dégâts infligés par le porteur (`DamageEvent`, arrondi à l'entier inférieur).
-    Damage(u32),
+    Damage(#[cfg_attr(feature = "schema", schemars(extend("x-lint" = "> 0")))] u32),
     /// `n` frames écoulées.
-    Frames(u32),
+    Frames(#[cfg_attr(feature = "schema", schemars(extend("x-lint" = "> 0")))] u32),
 }
 
 impl ActiveCharge {
@@ -47,6 +48,7 @@ impl ActiveCharge {
 }
 
 /// Genre d'un objet.
+#[cfg_attr(feature = "schema", derive(schemars::JsonSchema))]
 #[derive(Clone, Copy, Debug, PartialEq, Eq, Hash, Serialize, Deserialize)]
 pub enum ItemKind {
     /// Effet permanent tant qu'il est tenu (modificateurs, effets).
@@ -60,6 +62,7 @@ pub enum ItemKind {
 #[derive(
     Clone, Copy, Debug, Default, PartialEq, Eq, Hash, PartialOrd, Ord, Serialize, Deserialize,
 )]
+#[cfg_attr(feature = "schema", derive(schemars::JsonSchema))]
 pub enum Rarity {
     #[default]
     Common,
@@ -71,10 +74,12 @@ pub enum Rarity {
 
 /// Modificateur d'un objet : un [`Modifier`] sans source ni expiration (la source est
 /// `item:<id>`, comme `powerup:<id>`).
+#[cfg_attr(feature = "schema", derive(schemars::JsonSchema))]
 #[derive(Clone, Debug, PartialEq, Eq, Hash, Serialize, Deserialize)]
 pub struct ItemModifier {
     pub stat: StatId,
     pub op: ModifierOp,
+    #[cfg_attr(feature = "schema", schemars(with = "bevy_fixed::schema::FixedString"))]
     pub value: Fixed,
 }
 
@@ -103,14 +108,18 @@ fn default_pickup_range() -> Fixed {
 /// Effet d'un consommable `blank` (M2-T1, `docs/conventions.md` §41) : l'appui sur `Blank`
 /// consomme un exemplaire, efface les balles ennemies dans `radius` (unités monde) autour du
 /// joueur et le rend invulnérable `iframes` frames (0 : aucune).
+#[cfg_attr(feature = "schema", derive(schemars::JsonSchema))]
 #[derive(Clone, Copy, Debug, PartialEq, Eq, Hash, Serialize, Deserialize)]
 pub struct BlankSpec {
+    #[cfg_attr(feature = "schema", schemars(with = "bevy_fixed::schema::FixedString"))]
+    #[cfg_attr(feature = "schema", schemars(extend("x-lint" = "> 0")))]
     pub radius: Fixed,
     #[serde(default)]
     pub iframes: u32,
 }
 
 /// Un objet de `items/<id>.ron` (id = nom de fichier).
+#[cfg_attr(feature = "schema", derive(schemars::JsonSchema))]
 #[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
 pub struct ItemDef {
     pub name: String,
@@ -128,6 +137,8 @@ pub struct ItemDef {
     pub rarity: Rarity,
     /// Portée de ramassage au contact d'un consommable, ou d'interaction (unités monde).
     #[serde(default = "default_pickup_range")]
+    #[cfg_attr(feature = "schema", schemars(with = "bevy_fixed::schema::FixedString"))]
+    #[cfg_attr(feature = "schema", schemars(extend("x-lint" = "> 0")))]
     pub pickup_range: Fixed,
     /// M2-T1 : le consommable est un **blank** (voir [`BlankSpec`]) ; le blank utilisé est le
     /// premier objet de la table (ordre des ids) qui porte cette donnée et que le joueur possède.
@@ -136,6 +147,7 @@ pub struct ItemDef {
     /// M2-T4 : un actif utilisable au plus `n` fois par étage du mode `Floors` (hors `Floors`,
     /// par partie) ; `None` : sans limite (v1 exact).
     #[serde(default)]
+    #[cfg_attr(feature = "schema", schemars(extend("x-lint" = "> 0 (ou absent)")))]
     pub uses_per_floor: Option<u32>,
     /// M2-T4 : un actif qui consomme `n` exemplaires du consommable `item` à l'usage ; sans le
     /// stock, l'usage est refusé (la charge reste). `None` : gratuit (v1 exact).
@@ -154,6 +166,7 @@ pub struct ItemDef {
 /// Une synergie (M2-T4, `docs/conventions.md` §44) : un fichier `synergies/<id>.ron` (kind
 /// `Synergy`). Active tant que **tous** les objets de `requires` sont tenus (passifs ou actif) ;
 /// ses `modifiers` ont la source `synergy:<id>`, ses `effects` la clé `synergy:<id>:<index>`.
+#[cfg_attr(feature = "schema", derive(schemars::JsonSchema))]
 #[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
 pub struct SynergyDef {
     pub name: String,

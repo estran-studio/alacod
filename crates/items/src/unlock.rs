@@ -18,6 +18,7 @@ use crate::{LootEntry, LootPick};
 
 /// Ce qu'un déblocage accorde.
 #[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
+#[cfg_attr(feature = "schema", derive(schemars::JsonSchema))]
 pub enum UnlockGrant {
     /// L'objet (fichier de `items/`) n'est tiré dans aucun pool tant que ce déblocage manque.
     Item(String),
@@ -31,11 +32,13 @@ pub enum UnlockGrant {
 
 /// Un déblocage, `unlocks/<id>.ron` (kind `Unlock`).
 #[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
+#[cfg_attr(feature = "schema", derive(schemars::JsonSchema))]
 pub struct UnlockDef {
     #[serde(default)]
     pub name: String,
     /// Prix en essence ; `None` : gratuit (conditions seules). Un prix ≤ 0 est refusé par le lint.
     #[serde(default)]
+    #[cfg_attr(feature = "schema", schemars(extend("x-lint" = "> 0")))]
     pub cost: Option<i64>,
     /// Déblocages à posséder d'abord (cycle refusé par le lint).
     #[serde(default)]

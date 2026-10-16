@@ -26,6 +26,7 @@ use std::collections::BTreeMap;
 pub struct RoomKind(pub String);
 
 /// Définition d'un type de salle (`rooms/<id>.ron`, kind de contenu `Room`).
+#[cfg_attr(feature = "schema", derive(schemars::JsonSchema))]
 #[derive(Clone, Debug, Default, PartialEq, Eq, Serialize, Deserialize)]
 pub struct RoomKindDef {
     /// La salle se verrouille quand un joueur debout y entre et qu'un ennemi y vit, et ses
@@ -53,10 +54,11 @@ pub struct RoomKindDef {
 
 /// Verrou de la porte d'une salle (M3-T0c, `docs/conventions.md` §62).
 #[derive(Clone, Copy, Debug, PartialEq, Eq, Hash, PartialOrd, Ord, Serialize, Deserialize)]
+#[cfg_attr(feature = "schema", derive(schemars::JsonSchema))]
 pub enum DoorLock {
     /// Reste fermée jusqu'à ce qu'un joueur la touche par Interaction avec `n` clés
     /// (`game::loot::KEY_ITEM`, consommées à l'ouverture). `n > 0`.
-    Key(u32),
+    Key(#[cfg_attr(feature = "schema", schemars(extend("x-lint" = "> 0")))] u32),
     /// Mur plein jusqu'à une explosion `destroys` qui le touche (M3-T4).
     Secret,
 }
@@ -86,9 +88,11 @@ impl DoorLock {
 
 /// Arène à tenir (M2-T7) : horloge de `clock` frames comptée depuis le verrouillage, vagues
 /// internes datées sur cette horloge.
+#[cfg_attr(feature = "schema", derive(schemars::JsonSchema))]
 #[derive(Clone, Debug, Default, PartialEq, Eq, Hash, Serialize, Deserialize)]
 pub struct ArenaDef {
     /// Durée à tenir, en frames depuis le verrouillage (> 0).
+    #[cfg_attr(feature = "schema", schemars(extend("x-lint" = "> 0")))]
     pub clock: u32,
     /// Vagues internes (au moins une), dans l'ordre de leurs `at`.
     pub waves: Vec<ArenaWave>,
@@ -96,6 +100,7 @@ pub struct ArenaDef {
 
 /// Une vague d'arène : à `at` frames du verrouillage, les personnages listés apparaissent dans
 /// la salle (positions tirées du flux RNG de la salle, `room:<niveau>`).
+#[cfg_attr(feature = "schema", derive(schemars::JsonSchema))]
 #[derive(Clone, Debug, Default, PartialEq, Eq, Hash, Serialize, Deserialize)]
 pub struct ArenaWave {
     pub at: u32,

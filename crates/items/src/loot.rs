@@ -19,6 +19,7 @@ use std::collections::{BTreeMap, BTreeSet};
 use crate::{Inventory, ItemKind, ItemTable, Rarity, RunUnlocks, UnlockTable};
 
 /// Ce qu'une entrée de table désigne.
+#[cfg_attr(feature = "schema", derive(schemars::JsonSchema))]
 #[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
 pub enum LootPick {
     /// Un objet précis (fichier de `items/`).
@@ -28,20 +29,25 @@ pub enum LootPick {
 }
 
 /// Une entrée pondérée. Un poids ≤ 0 est refusé par le lint.
+#[cfg_attr(feature = "schema", derive(schemars::JsonSchema))]
 #[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
 pub struct LootEntry {
     pub pick: LootPick,
+    #[cfg_attr(feature = "schema", schemars(extend("x-lint" = "> 0")))]
     pub weight: i32,
 }
 
 /// Récompense d'une salle de combat nettoyée (`Cleared`) tirée dans cette table.
+#[cfg_attr(feature = "schema", derive(schemars::JsonSchema))]
 #[derive(Clone, Copy, Debug, PartialEq, Eq, Serialize, Deserialize)]
 pub struct RoomRewardDef {
     /// Chance (0 à 1) qu'une salle nettoyée laisse une récompense.
+    #[cfg_attr(feature = "schema", schemars(with = "bevy_fixed::schema::FixedString"))]
     pub chance: Fixed,
     /// Si une récompense tombe : chance (0 à 1) que ce soit un coffre plutôt qu'un
     /// consommable de la table.
     #[serde(default)]
+    #[cfg_attr(feature = "schema", schemars(with = "bevy_fixed::schema::FixedString"))]
     pub chest_chance: Fixed,
     /// Rareté du coffre posé.
     #[serde(default)]
@@ -50,6 +56,7 @@ pub struct RoomRewardDef {
 
 /// Coffre posé par un type de salle (`rooms/<id>.ron`, champ `chest`) : une fois par salle de ce
 /// type, au centre, dès que l'étage la présente.
+#[cfg_attr(feature = "schema", derive(schemars::JsonSchema))]
 #[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
 pub struct RoomChestDef {
     /// Pool du coffre ; `None` : celui de l'étage, sinon [`DEFAULT_CHEST_TABLE`].
@@ -64,6 +71,7 @@ pub struct RoomChestDef {
 /// Boutique posée par un type de salle (`rooms/<id>.ron`, champ `shop`, M2-T6,
 /// `docs/conventions.md` §50) : `shelves` présentoirs tirés dans le pool `table`, au centre de
 /// chaque salle de ce type que l'étage présente.
+#[cfg_attr(feature = "schema", derive(schemars::JsonSchema))]
 #[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
 pub struct RoomShopDef {
     /// Pool de butin des présentoirs (`loot/<table>.ron`).
@@ -73,6 +81,7 @@ pub struct RoomShopDef {
 }
 
 /// Un pool de butin, `loot/<id>.ron`.
+#[cfg_attr(feature = "schema", derive(schemars::JsonSchema))]
 #[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
 pub struct LootTableDef {
     pub entries: Vec<LootEntry>,
