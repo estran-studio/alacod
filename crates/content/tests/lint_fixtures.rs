@@ -1713,19 +1713,11 @@ fn weapon_ammo_type_missing_fixture_is_refused() {
     assert_eq!(m4_t0a_errors(&errors), 1, "{errors:#?}");
 }
 
+/// M3-T1 (§66) : `Spectral`, `Split` et `Orbit` sont exécutés, une arme qui les porte passe.
 #[test]
-fn projectile_contract_fixture_is_unsupported() {
-    let (_, _, errors) = load_and_lint(&fixture_dir("projectile_contract_unsupported")).unwrap();
-    for name in ["Spectral", "Split", "Orbit"] {
-        assert_has_error(&errors, LintErrorKind::Unsupported, name);
-    }
-    assert!(
-        errors
-            .iter()
-            .filter(|e| !e.message.contains("entry.start_map"))
-            .all(|e| e.kind == LintErrorKind::Unsupported),
-        "formes valides : seul le refus de contrat, {errors:#?}"
-    );
+fn projectile_contract_fixture_is_clean() {
+    let (_, _, errors) = load_and_lint(&fixture_dir("projectile_contract_ok")).unwrap();
+    assert_eq!(m4_t0a_errors(&errors), 0, "{errors:#?}");
 }
 
 #[test]
@@ -1736,11 +1728,24 @@ fn projectile_split_out_of_range_fixture_reports_ranges() {
     assert_has_error(&errors, LintErrorKind::BrokenReference, "inconnu");
 }
 
+/// M3-T1 : un objet n'a pas de table `projectiles` : `Split` avec `child` et `on_expire: Spawn`
+/// sont refusés.
 #[test]
-fn item_projectile_fixture_is_unsupported() {
-    let (_, _, errors) = load_and_lint(&fixture_dir("item_projectile_unsupported")).unwrap();
-    assert_has_error(&errors, LintErrorKind::Unsupported, "ricochet");
-    assert_eq!(m4_t0a_errors(&errors), 1, "{errors:#?}");
+fn item_projectile_without_table_fixture_is_unsupported() {
+    let (_, _, errors) = load_and_lint(&fixture_dir("item_projectile_no_table")).unwrap();
+    assert_has_error(
+        &errors,
+        LintErrorKind::Unsupported,
+        "Split : child « eclat »",
+    );
+    assert_has_error(&errors, LintErrorKind::Unsupported, "on_expire Spawn");
+    assert_eq!(m4_t0a_errors(&errors), 2, "{errors:#?}");
+}
+
+#[test]
+fn item_projectile_ok_fixture_is_clean() {
+    let (_, _, errors) = load_and_lint(&fixture_dir("item_projectile_ok")).unwrap();
+    assert_eq!(m4_t0a_errors(&errors), 0, "{errors:#?}");
 }
 
 #[test]
@@ -1748,6 +1753,54 @@ fn item_projectile_out_of_range_fixture_reports_ranges() {
     let (_, _, errors) = load_and_lint(&fixture_dir("item_projectile_out_of_range")).unwrap();
     assert_has_error(&errors, LintErrorKind::OutOfRange, "Homing");
     assert_has_error(&errors, LintErrorKind::OutOfRange, "Bounce répété");
+}
+
+/// M3-T1 : `Action::Chance` : base dans [0, 1], enveloppe une action à modificateur ou
+/// `ApplyStatus` (statut vérifié à travers elle), jamais une autre `Chance` ni `DestroyTerrain` ;
+/// `Orbit` refuse `Homing` et `Gravity` dans la même liste.
+#[test]
+fn projectile_chance_out_of_range_fixture_reports_each_rule() {
+    let (_, _, errors) = load_and_lint(&fixture_dir("projectile_chance_out_of_range")).unwrap();
+    assert_has_error(&errors, LintErrorKind::OutOfRange, "Chance : base = 1.5");
+    assert_has_error(&errors, LintErrorKind::OutOfRange, "Chance : base = -0.1");
+    assert_has_error(&errors, LintErrorKind::OutOfRange, "Chance : then Chance");
+    assert_has_error(
+        &errors,
+        LintErrorKind::OutOfRange,
+        "Chance : then DestroyTerrain",
+    );
+    assert_has_error(
+        &errors,
+        LintErrorKind::BrokenReference,
+        "ApplyStatus : statut « inconnu » inconnu",
+    );
+    assert_has_error(&errors, LintErrorKind::Unsupported, "Orbit avec Homing");
+}
+
+#[test]
+fn projectile_split_cycle_fixture_reports_cycle() {
+    let (_, _, errors) = load_and_lint(&fixture_dir("projectile_split_cycle")).unwrap();
+    assert_has_error(
+        &errors,
+        LintErrorKind::OutOfRange,
+        "Split se divise en lui-même",
+    );
+}
+
+#[test]
+fn status_poison_fear_fixture_reports_ranges() {
+    let (_, _, errors) = load_and_lint(&fixture_dir("status_poison_fear_out_of_range")).unwrap();
+    assert_has_error(
+        &errors,
+        LintErrorKind::OutOfRange,
+        "damage = 0 : doit être > 0 (Poison)",
+    );
+    assert_has_error(
+        &errors,
+        LintErrorKind::OutOfRange,
+        "period = 0 : doit être > 0 (Poison)",
+    );
+    assert_has_error(&errors, LintErrorKind::OutOfRange, "frames = 0");
 }
 
 /// Erreurs d'une fixture M3-T0a hors la carte de départ absente (`start_map: "unused"`, commune

@@ -1,0 +1,5 @@
+// Fixture M3-T1 : `child` et `Spawn` désignent des ids de la table de l'arme, qu'un objet ne connaît pas.
+(name: "Eclateur", kind: Passive, projectile: Some((
+    modifiers: [Split(count: 2, spread: "0.4", child: Some("eclat"))],
+    on_expire: [Spawn(Ring(count: 4, speed: "100.0", projectile: "eclat", every: 0))],
+)))

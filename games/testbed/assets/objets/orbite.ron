@@ -1,0 +1,9 @@
+// M3-T1 (docs/conventions.md §66) : objet d'essai : les larmes tournent autour du porteur (rayon 40, un tour en 60 frames) pendant 240 frames. Scénario `tears_orbit`.
+(
+    name: "Orbite",
+    kind: Passive,
+    projectile: Some((modifiers: [Orbit(radius: "40.0", frames_per_turn: 60), Lifetime(240)])),
+    tags: ["larmes"],
+    rarity: Common,
+    test: Some((frames: 60)),
+)

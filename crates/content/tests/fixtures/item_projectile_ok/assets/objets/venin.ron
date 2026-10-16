@@ -1,0 +1,9 @@
+// Fixture M3-T1 : empilable, Split sans child, chances (la base seule, puis avec `per_luck`).
+(name: "Venin", kind: Passive, projectile: Some((
+    modifiers: [Pierce(1), Spectral, Split(count: 2, spread: "0.4")],
+    on_hit: [
+        ApplyStatus(status: "poison", stacks: 1),
+        Chance(base: "0.5", per_luck: "0.1", then: ApplyStatus(status: "peur", stacks: 1)),
+    ],
+    on_expire: [DestroyTerrain(radius: "24.0")],
+)))

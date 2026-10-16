@@ -819,8 +819,12 @@ pub fn spawn_bullet(
     commands: &mut Commands,
     collision_settings: &CollisionSettings,
     id_factory: &mut GgrsNetIdFactory,
-    spawn: BulletSpawn,
+    mut spawn: BulletSpawn,
 ) -> Entity {
+    // M3-T1 : un projectile `Orbit` part du côté où il a été tiré.
+    if let Some(projectile) = spawn.projectile.as_mut() {
+        projectile.start_orbit(spawn.velocity);
+    }
     let base_radius = match &spawn.bullet_type {
         BulletType::Explosive { .. } => fixed_math::new(8.0),
         BulletType::Standard { .. } | BulletType::Piercing { .. } => fixed_math::new(5.0),
@@ -1203,6 +1207,11 @@ pub fn weapon_rollback_system(
 
     mut id_factory: ResMut<GgrsNetIdFactory>,
     mut reload_finished: Option<ResMut<FrameEvents<sim_core::triggers::ReloadFinished>>>,
+    // M3-T1 (§66) : objets et synergies du tireur, dont les `projectile` s'ajoutent à l'arme
+    // (absents hors jeu complet : chemin d'origine).
+    item_inventories: Query<&items::Inventory>,
+    item_table: Option<Res<items::ItemTable>>,
+    synergy_table: Option<Res<items::SynergyTable>>,
 ) {
     let system_span = span!(Level::INFO, "ggrs", f = frame.frame, s = "weapon");
     let _enter = system_span.enter(); // Enter the span
@@ -1473,16 +1482,48 @@ pub fn weapon_rollback_system(
                         aim_dir.x /= fixed_math::new(127.0);
                         aim_dir.y /= fixed_math::new(127.0);
                         aim_dir = aim_dir.normalize_or_zero();
-                        // Projectile composable du mode de tir (T1.1), cloné par balle.
-                        let projectile = (!weapon_config.projectile.is_empty()).then(|| {
-                            Projectile::new(
+                        // Projectile composable du mode de tir (T1.1), cloné par balle. M3-T1
+                        // (§66) : les `projectile` des objets et synergies du tireur s'y
+                        // composent ; sans objet qui ajoute quelque chose, chemin d'origine.
+                        let carried = match (
+                            item_inventories.get(shooter).ok(),
+                            item_table.as_deref(),
+                            synergy_table.as_deref(),
+                        ) {
+                            (Some(held), Some(items), Some(synergies)) => {
+                                let mut mods = items::projectile_mods(items, synergies, held);
+                                mods.retain(|mods| !mods.is_empty());
+                                mods
+                            }
+                            _ => Vec::new(),
+                        };
+                        let mut projectile = if carried.is_empty() {
+                            (!weapon_config.projectile.is_empty()).then(|| {
+                                Projectile::new(
+                                    weapon.config.name.clone(),
+                                    &weapon_config.projectile,
+                                    std::sync::Arc::new(weapon.config.projectiles.clone()),
+                                    damage_mult,
+                                    0,
+                                )
+                            })
+                        } else {
+                            Some(Projectile::composed(
                                 weapon.config.name.clone(),
                                 &weapon_config.projectile,
+                                &carried,
                                 std::sync::Arc::new(weapon.config.projectiles.clone()),
                                 damage_mult,
-                                0,
-                            )
-                        });
+                            ))
+                        };
+                        // M3-T1 : la chance du tireur n'est lue (et gardée) que par un
+                        // projectile qui a une `Action::Chance` à tirer.
+                        if let Some(projectile) = projectile.as_mut() {
+                            if projectile.has_chance() {
+                                projectile.luck =
+                                    stats.get(shooter, &StatId::Luck, fixed_math::Fixed::ZERO);
+                            }
+                        }
 
                         match weapon_config.firing_mode {
                             FiringMode::Shotgun {

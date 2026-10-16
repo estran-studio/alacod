@@ -1,0 +1,28 @@
+// M3-T1 (§66) : `Spectral` traverse les murs, jamais les personnages. Le joueur 0 (en (696, -200))
+// tire une seule larme plein est (f20) ; le mur de la salle est à x = 744..760 et `target` est derrière,
+// en (800, -194) (avec `spectre`).
+//
+// À regarder : avec l'objet, la larme passe à travers le mur et touche `target` ; sans lui elle
+// s'arrête dans le mur.
+Scenario(
+    game: "testbed",
+    map: "testbed/props_room.ldtk",
+    frames: 120,
+    powerup_drop_chance_override: "0",
+    characters: [(character: "target", x: "800.0", y: "-194.0", at_frame: 1)],
+    players: [
+        (
+            inputs: [(from: 10, to: 30, buttons: [Fire], pan: (127, 0))],
+            weapon: "larme",
+            items: ["spectre"],
+        ),
+    ],
+    expect: [
+        HasItem(handle: 0, id: "spectre", at_frame: 1),
+        // La larme (f20) franchit le mur de la salle (x = 744..760) et touche `target` (net id 14)
+        // derrière lui à f49.
+        EntityHits(net_id: 14, min: 0, max: Some(0), at_frame: 48),
+        HitsAtLeast(entity: Placed(0), hits: 1, at_frame: 49),
+        EntityHits(net_id: 14, min: 1, max: Some(1), at_frame: 119),
+    ],
+)

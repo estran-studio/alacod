@@ -4325,3 +4325,128 @@ workspace par `games/*`, `make isaac`, `make lint` ×5 avec `games/isaac`).
 - **Scénarios** : `isaac_boots` (démarrage, tir continu sans rechargement), `isaac_floor_seed_1`
   (le bot `explorateur` bat l'étage, victoire à f1009) ; générés : `weapon_*`, `enemy_*`, `room_combat`,
   `boss_gardien`.
+
+## 66. Larmes v3 : tir composé, `Spectral`, `Split`, `Orbit`, `Poison`, `Fear`, chance d'effet (M3-T1, chantier B5 v3)
+
+M3-T1 fait **lire au tir** les contrats de §60 et ajoute les statuts v2 et la chance d'effet.
+**Aucune trace existante ne bouge** (suite complète sans `BLESS`) : tout passe par des objets, des
+modificateurs ou des champs que le contenu d'avant n'a pas. Scénarios neufs seulement : douze
+(`tears_*`, `status_poison`, `status_fear`) et les générés `weapon_status_poison`/`weapon_status_fear`,
+`item_*` des neuf objets d'essai.
+
+### Tir composé
+
+`weapon_rollback_system` lit, au tir d'un joueur, `items::Inventory` (le tireur), `ItemTable` et
+`SynergyTable` (`items::projectile_mods` : passifs dans l'ordre de ramassage, un passif en double
+compte deux fois, puis l'actif, puis les synergies actives par id). Les `ProjectileMods` **non vides**
+sont composés avec le `projectile:` du mode de tir par `Projectile::composed` (règles de `compose`,
+§60) ; leur `on_hit` et leur `on_expire` s'**ajoutent** à ceux de l'arme, dans le même ordre.
+
+- Aucun objet qui ajoute quelque chose (cas de tout le contenu d'avant) : chemin d'origine,
+  `Projectile::new` ou balle ordinaire sans `Projectile`, au bit près.
+- Une balle ordinaire devient un `Projectile` (id : le nom de l'arme) dès qu'un objet ajoute quelque
+  chose ; `Size` agrandit alors collider et sprite, comme pour une arme.
+- `Projectile` (rollback) gagne `spectral`, `split`, `orbit`, `luck` ; son `Hash` est **manuel** :
+  ces champs ne sont hachés que s'ils sont actifs, donc le hash d'un projectile d'avant M3-T1 est
+  inchangé (même règle pour le `Debug` du dump détaillé).
+- `combat` dépend maintenant de `items` (crate de simulation, sans rendu : `check_sim_boundary` inchangé).
+- Familiers (Q13, question ouverte) : le tir d'un familier n'est **pas** composé ici ; `Projectile::composed`
+  prend ses ajouts en paramètre, M3-T6 y passera `items::projectile_mods` du porteur s'il retient l'héritage.
+
+### `Spectral`, `Split`, `Orbit`
+
+- **`Spectral`** : `projectile_collision_system` saute la branche des murs (rebond, arrêt, `BulletWallHit`) ;
+  les personnages touchent toujours. La portée (`range`) borne encore le vol.
+- **`Split { count, spread, child }`** : à chaque impact sur un personnage (après `register_hit`),
+  `spawn_split_children` fait naître `count` projectiles en éventail de `spread` radians centré sur la
+  direction de vol, à la position du parent, un `GgrsNetId` chacun dans l'ordre de l'éventail.
+  `child: Some(id)` : l'entrée `id` de la table `projectiles` de l'arme (dégâts, vitesse, portée et
+  modificateurs de sa définition) ; `child: None` (**Q3 : le projectile par défaut du porteur**) : une
+  **copie du parent** (mêmes dégâts, vitesse et portée, modificateurs et `on_hit` restants, sans `Split`,
+  sans `Orbit`, sans `on_expire`). Dans les deux cas l'enfant **hérite de la liste des cibles déjà touchées**
+  (il ne retouche pas la cible qu'il quitte) et compte une génération de plus : au-delà de `MAX_GENERATION`
+  (8) la division est ignorée avec un `warn!`. L'enfant n'hérite pas de `ShotSize`. Lint : un cycle de
+  `Split` dans la table (`a → b → a`) est refusé (`OutOfRange`).
+- **`Orbit { radius, frames_per_turn }`** : `projectile_steering_system` fixe chaque frame la vitesse
+  de la frame suivante à l'écart jusqu'à `combat::projectile::orbit_position` : angle
+  `phase + 2π · (âge mod frames_per_turn) / frames_per_turn` (sens trigonométrique, `phase` = direction
+  de tir, fixée à l'apparition), rayon qui croît de 0 à `radius` pendant 10 frames
+  (`ORBIT_RAMP_FRAMES`), centre = position du **tireur** à cette frame. Ni gravité ni guidage en orbite
+  (lint : `Orbit` avec `Homing` ou `Gravity` dans la même liste est refusé). Le projectile ne s'arrête que
+  par un coup (`Pierce`), un mur (sauf `Spectral`), `Lifetime`, la portée (la longueur d'arc compte) ou la
+  disparition du tireur (portée mise à 0).
+
+### Statuts `Poison` et `Fear`
+
+`StatusDef::{Poison, Fear}` en fin d'enum (`status_def_ron_round_trip` ; `StatusDef` avait quatre variantes,
+le `Hash` dérivé garde l'index des anciennes). Contenu : `(kind: Poison, frames: 120, damage: "2", period: 30)`,
+`(kind: Fear, frames: 150)` ; le lint exige `damage > 0` et `period > 0` pour `Poison`, `frames > 0` pour les deux.
+
+- **`Poison`** : exactement les règles de `Burn` (ticks, piles jusqu'à 2, durée plafonnée à 2 × la base,
+  dernière source créditée) ; dégâts de genre `DamageKind::Poison` (`status_tick_system`).
+- **`Fear`** : `Statuses::feared()`. L'ennemi **fuit** sa cible : `move_enemies` impose le recul de
+  `Flee` (`ai::rules::flee_motion`, extrait de `behavior_motion` : champ de recul de l'ennemi, sinon à
+  l'opposé de la cible) qu'il liste `Flee` ou non ; `enemy_attack_system` ne lance plus d'attaque au corps à
+  corps et `melee_hold_system` pose `MeleeHold` (mêlée d'arme) tant que la peur dure. Réapplication :
+  durée rafraîchie ; sans effet sur un joueur. **Charme : Q12**, hors tâche (rien codé).
+
+### Chance d'effet
+
+`Action::Chance { base, per_luck, then }` (en fin d'enum `Action`) enveloppe une action d'`on_hit`
+(`ApplyStatus`, `TimedModifier`, `CurrencyMultiplier` ; ni une autre `Chance` ni `DestroyTerrain`) :
+
+```ron
+projectile: Some((on_hit: [Chance(base: "0.5", per_luck: "0.125", then: ApplyStatus(status: "poison", stacks: 1))]))
+```
+
+Chance finale `effects::chance_with_luck(base, Luck, per_luck)` (§60), `Luck` lue **au tir** et gardée dans
+`Projectile::luck` (seulement pour un projectile qui porte une `Chance`). Le tirage est un RNG **local** :
+`effects::chance::roll_chance(run_seed, net id du projectile, rang de l'action)`, graine mélangée
+(`chance_seed`, splitmix64 : deux net ids voisins ne donnent pas deux tirages voisins), aucun `RngStreams`
+consommé (la graine de run est lue seule). Il est résolu dans `projectile_collision_system` (le seul à
+connaître le net id) : l'événement `ProjectileHit` porte l'action `then` si le tirage réussit, la `Chance`
+elle-même sinon (les systèmes d'application l'ignorent), ce qui garde le **rang** de chaque action, donc la
+source `projectile:<id>:<rang>` des modificateurs posés. Lint : `base` dans `[0, 1]`, statut vérifié à travers
+la `Chance`. Refusée (`Unsupported`) dans un effet, un power-up et une frise de boss.
+
+### Lint
+
+`Spectral`, `Split` et `Orbit` ne sont plus refusés dans une arme ; un objet ou une synergie à `projectile:`
+est vérifié sans être refusé : mêmes plages qu'une arme, doublon refusé **dans une liste**, `on_hit` comme
+une arme (statut connu), et, faute de table `projectiles` (celle de l'arme qui tire), `Split` **sans** `child`
+et `on_expire` **sans** `Spawn` (`DestroyTerrain` seulement). Fixtures : `projectile_contract_ok`,
+`item_projectile_ok`, `item_projectile_no_table`, `item_projectile_out_of_range`,
+`projectile_chance_out_of_range`, `projectile_split_cycle`, `status_poison_fear_out_of_range`.
+
+`sim_core::stats::default_base` donne 0 à `Luck` (attente `Stat`, générateur `ItemHeld`).
+
+### Testbed et scénarios
+
+Carte `testbed/props_room.ldtk` (salle de 28 × 9 cases, un joueur en (696, -200), un `follower` en
+(328, -200) ; monde = `(x_ldtk + 280, -120 - y_ldtk)`), cibles `target` posées par `characters`. Objets
+d'essai (`tags: ["larmes"]`) : `guide` (`Homing`), `perforant` (`Pierce(1)`), `rebond` (`Bounce(2)`),
+`spectre` (`Spectral`), `division` (`Split` en 3, 0,6 rad), `orbite` (rayon 40, un tour en 60 frames),
+`venin` (`Chance` 0,5, +0,125 par `Luck`, `ApplyStatus poison`), `trefle` (`Luck` +4). Armes `status_poison`,
+`status_fear`. Statuts `poison`, `peur`.
+
+| Scénario | Prouve |
+|---|---|
+| `tears_item_homing`, `..._sans_objet` | un objet ajoute `Homing` à une arme sans modificateur : touche à f58 ; témoin : aucun coup |
+| `tears_stack_two_copies` | deux `perforant` : `Pierce` 1 + 1, la larme touche trois cibles sur quatre |
+| `tears_stack_three` | `rebond` + `guide` + `division` : une larme, impact, trois larmes de génération 1 qui se courbent vers le `follower` |
+| `tears_spectral_wall`, `..._sans_objet` | `Spectral` franchit le mur de la salle et touche la cible derrière (f49) ; témoin : arrêtée par le mur |
+| `tears_split` | une larme, trois enfants qui touchent chacun sa cible (f72), personne touché deux fois |
+| `tears_orbit` | la larme tourne autour du joueur et touche la cible derrière lui (demi-tour, f48) |
+| `status_poison` | ticks de 2 toutes les 30 frames, santé exacte de la cible, expiration |
+| `status_fear` | le `follower` touché fuit 150 frames (distance ≥ 360 à f300), reprend sa marche, ne touche pas le joueur |
+| `tears_luck_chance` | six larmes, chance 0,5 : quatre cibles empoisonnées (graine de run, net id, rang) |
+| `tears_luck_stat` | même tir avec `trefle` (`Luck` 4 → chance 1) : les six |
+
+Diagnostic : `ALACOD_PROJECTILES=<scénario>:<de>:<à> cargo test -p scenario --profile headless
+--no-default-features --test scenarios projectile_probe -- --ignored --nocapture` (projectiles, coups,
+statuts frame par frame) ; `map_probe` liste aussi les personnages non joueurs.
+
+### Atteignabilité
+
+Rencontré quand M3-T11a met les objets de larmes dans le pool trésor d'`isaac` ; d'ici là, scénarios
+testbed seulement.

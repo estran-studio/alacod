@@ -1,0 +1,30 @@
+// M3-T1 (docs/conventions.md §66) : `Poison` (comme `Burn`, dégâts de genre `Poison`). Le joueur 0
+// (en (696, -200), arme `status_poison`) tire une seule balle plein ouest (f10) sur une `target` placée en
+// (560, -194) : la balle touche, la cible porte le poison et perd 2 points de vie toutes les 30 frames
+// pendant 120 frames.
+//
+// À regarder : la cible se teinte de vert à l'impact, la teinte disparaît 120 frames plus tard.
+Scenario(
+    game: "testbed",
+    map: "testbed/props_room.ldtk",
+    frames: 220,
+    powerup_drop_chance_override: "0",
+    characters: [(character: "target", x: "560.0", y: "-194.0", at_frame: 1)],
+    players: [
+        (
+            inputs: [(from: 10, to: 12, buttons: [Fire], pan: (-127, 0))],
+            weapon: "status_poison",
+        ),
+    ],
+    expect: [
+        // f40 : la balle (f10) touche la cible (net id 14) et la rend malade ; un tick de 2 points
+        // toutes les 30 frames (f70, f100, f130, f160) puis le poison expire.
+        HasStatus(entity: Placed(0), status: "poison", at_frame: 45),
+        StatusStacks(entity: Placed(0), status: "poison", stacks: 1, at_frame: 45),
+        EntityHealth(net_id: 14, min: Some(4999.0), max: Some(4999.0), at_frame: 69),
+        EntityHealth(net_id: 14, min: Some(4997.0), max: Some(4997.0), at_frame: 70),
+        HasStatus(entity: Placed(0), status: "poison", present: false, at_frame: 200),
+        // 5000 - 1 (balle) - 4 × 2 (ticks de poison)
+        EntityHealth(net_id: 14, min: Some(4991.0), max: Some(4991.0), at_frame: 200),
+    ],
+)

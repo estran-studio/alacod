@@ -1,0 +1,48 @@
+// M3-T1 (§66) : `Action::Chance` sur l'`on_hit` d'un objet (`Luck` 4 : 0,5 + 4 × 0,125 = 1). Le joueur 0 tire six
+// larmes (f20, f40... f120) vers six `target` placées sur un arc de 170 unités ; chaque larme tire
+// sa chance avec un RNG local (graine de run, net id de la larme, rang de l'action), jamais
+// `RngStreams`. La trace fixe le nombre de cibles empoisonnées (le poison dure 120 frames : les
+// six touches s'étalent de f68 à f170, vérifiées à f175).
+//
+// À regarder : les larmes touchent les six cibles ; certaines seulement se teintent de vert.
+Scenario(
+    game: "testbed",
+    map: "testbed/props_room.ldtk",
+    frames: 200,
+    powerup_drop_chance_override: "0",
+    characters: [
+        (character: "target", x: "533.6", y: "-244.2", at_frame: 1),
+        (character: "target", x: "528.7", y: "-224.4", at_frame: 1),
+        (character: "target", x: "526.3", y: "-204.2", at_frame: 1),
+        (character: "target", x: "526.3", y: "-183.8", at_frame: 1),
+        (character: "target", x: "528.7", y: "-163.6", at_frame: 1),
+        (character: "target", x: "533.6", y: "-143.8", at_frame: 1),
+    ],
+    players: [
+        (
+            inputs: [
+            (from: 20, to: 22, buttons: [Fire], pan: (-121, -38)),
+            (from: 40, to: 42, buttons: [Fire], pan: (-125, -23)),
+            (from: 60, to: 62, buttons: [Fire], pan: (-127, -8)),
+            (from: 80, to: 82, buttons: [Fire], pan: (-127, 8)),
+            (from: 100, to: 102, buttons: [Fire], pan: (-125, 23)),
+            (from: 120, to: 122, buttons: [Fire], pan: (-121, 38)),
+            ],
+            weapon: "larme",
+            items: ["venin", "trefle"],
+        ),
+    ],
+    expect: [
+        HasItem(handle: 0, id: "trefle", at_frame: 1),
+        Stat(handle: 0, stat: Luck, value: 4.0, at_frame: 1),
+        // `Luck` 4 : chance 0,5 + 4 × 0,125 = 1 : les six cibles sont empoisonnées (dont les cibles 3 et 5,
+        // épargnées par le tirage de `tears_luck_chance`).
+        HitsAtLeast(entity: Placed(5), hits: 1, at_frame: 172),
+        HasStatus(entity: Placed(0), status: "poison", at_frame: 175),
+        HasStatus(entity: Placed(1), status: "poison", at_frame: 175),
+        HasStatus(entity: Placed(2), status: "poison", at_frame: 175),
+        HasStatus(entity: Placed(3), status: "poison", at_frame: 175),
+        HasStatus(entity: Placed(4), status: "poison", at_frame: 175),
+        HasStatus(entity: Placed(5), status: "poison", at_frame: 175),
+    ],
+)

@@ -1,8 +1,0 @@
-// Fixture M3-T0a (docs/conventions.md §60) : modificateurs de contrat Spectral/Split/Orbit sur une arme (Unsupported)
-(
-    name: "fixture-projectile_contract_unsupported",
-    content_folders: [
-        (path: "weapons.ron", kind: "Weapon"),
-    ],
-    entry: (start_map: "unused", default_seed: 1),
-)

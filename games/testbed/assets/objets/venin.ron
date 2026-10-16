@@ -1,0 +1,9 @@
+// M3-T1 (docs/conventions.md §66) : objet d'essai : chaque larme empoisonne avec une chance de 50 % (+12,5 % par point de `Luck`) ; tirage local par larme (graine de run, net id, rang). Scénario `tears_luck_chance`.
+(
+    name: "Venin",
+    kind: Passive,
+    projectile: Some((on_hit: [Chance(base: "0.5", per_luck: "0.125", then: ApplyStatus(status: "poison", stacks: 1))])),
+    tags: ["larmes"],
+    rarity: Common,
+    test: Some((frames: 60)),
+)

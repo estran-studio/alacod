@@ -62,3 +62,19 @@ omettait `scale`, champ obligatoire de `CharacterConfig` côté jeu mais absent 
 - `make lint` : OK pour les cinq jeux.
 - `cargo fmt --all -- --check` : OK.
 - `cargo test -p content` : OK, 262 tests (1 ignoré) ; `make check_sim_boundary` : OK.
+
+## Dette D79 (schéma sans `scale`)
+
+Le schéma de contenu donne `scale` = 1.0 par défaut alors que `CharacterConfig` l'exige : un
+personnage sans `scale` passe le lint et casse le chargement du jeu (cause du blocage de cette
+tâche). Le rendre obligatoire demande d'ajouter `scale` à 53 fixtures de `crates/content` : essayé,
+revenu en arrière, noté `docs/taches/dettes.md` D79.
+
+## Fusion de `origin/main` (c0aceb3e, M3-T1)
+
+Conflits résolus en gardant les deux intentions, variantes de `main` d'abord : `Action::Chance`
+puis `Action::Scaled` (`actions.rs`, `describe.rs`, `effects_runtime.rs`, `powerups.rs`), champ
+`ItemDef.projectile` de `main` conservé avec `max_stack` après (`items/src/lib.rs`), deux lignes de
+journal (`docs/taches.md`). `cargo check --workspace --tests` (features par défaut) échoue sur
+`crates/game/src/ui/screens/hui.rs` (champs `merchant*` manquants dans des tests) ; ce fichier est
+identique à `origin/main`, la même compilation y échoue donc aussi.

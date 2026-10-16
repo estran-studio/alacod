@@ -1,0 +1,9 @@
+// M3-T1 (docs/conventions.md §66) : objet d'essai : les larmes rebondissent deux fois sur les murs (`Bounce(2)`). Empilé dans `tears_stack_three`.
+(
+    name: "Rebond",
+    kind: Passive,
+    projectile: Some((modifiers: [Bounce(2)])),
+    tags: ["larmes"],
+    rarity: Common,
+    test: Some((frames: 60)),
+)

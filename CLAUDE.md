@@ -266,6 +266,10 @@ pièges) s'applique à chaque système et fait foi pour l'enregistrement rollbac
       et déplace les traces de tout porteur dès la frame 0. Remède : `impl Hash` manuel où la
       variante historique garde son hash d'avant (sans discriminant), la nouvelle en ajoute un ;
       le documenter au § conventions de la tâche.
+- [ ] **Ajouter un champ à un composant rollback sous checksum** (constaté par M3-T1, `Projectile`) :
+      le `derive(Hash)` hacherait le champ de **tous** les porteurs existants et déplacerait toutes les
+      traces. `impl Hash` manuel : les champs d'avant dans leur ordre, les champs nouveaux **seulement
+      s'ils sont actifs** (valeur non neutre) ; faire de même pour le `Debug` (dump détaillé, preuve §5).
 - [ ] **Donnée dérivée non rollbackée** (ex. `CursorPosition`, lue la même frame par un système
       du `GgrsSchedule`) : réécrite **à chaque frame, avant tout `continue`/retour anticipé** du
       système qui l'écrit ; sinon c'est un état caché qu'une frame resimulée lit avec la valeur
@@ -370,6 +374,9 @@ crate `APP`), jamais dans un crate `SIM`.
     - M2-T0c boss (§37) : `BossPhase` ; profil (§38) : `ProfileHas`.
     - M3-T0c contrats du monde (§62) : `DoorLocked` ; `EntityCount(kind: Rock)`.
     - M3-T0d familiers et champions (§63) : `FamiliarCount` ; `EnemyVariant` (existe, §25).
+    - M3-T1 larmes v3 (§66) : aucune attente nouvelle (`BulletCount` avec filtre `projectile`, `HitsAtLeast`,
+      `HasStatus`, `StatusStacks`, `EnemyDistance`, `EntityHealth` couvrent les douze scénarios) ; `Stat`
+      résout `Luck` avec la base 0 (`sim_core::stats::default_base`).
     - M2-T11 surfaces v2 (§46) : `EntityCount(kind: Barrel | Table)`.
     - M2-T13 hub (§57) : `HubExit`, `HubVisit` ; `RunUnlocks` (M2-T12, §51).
     - T1.18 HUD throne (§32) : `HudText` (texte d'une source du HUD, présentation, hors trace).
