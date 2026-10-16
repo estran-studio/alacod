@@ -41,3 +41,20 @@ f40 (un seul coup compté).
   sans cœurs noirs.
 - Q4 : choisir partage par joueur ou ressource rollback d'équipe pour sous, bombes et clés.
 - Q16 : confirmer les limites indépendantes par exemplaire pour tous les objets ou un réglage par objet.
+
+## Vérifications effectuées après fusion
+
+- `git fetch && git merge origin/main` : déjà à jour (`origin/main` à `2897e3cb`).
+- `cargo check -p content -p game --tests` : OK.
+- `cargo test -p content` : OK, 262 tests passés (1 ignoré).
+- `make lint` : OK pour zombies, testbed, throne, gungeon et isaac ; avertissements de contenu
+  préexistants seulement.
+- `make gen GAME=throne`, `make gen GAME=gungeon`, `make gen GAME=isaac` : OK, sans diff.
+- `make gen GAME=zombies` et `make gen GAME=testbed` : échec préexistant du générateur :
+  cible `target` introuvable dans l'exécution testbed ; aucune génération n'a été bénie.
+- `cargo fmt --all -- --check` : OK.
+- `make check_sim_boundary` : OK ; 11 crates simulation ECS seul, 5 dettes D69 signalées.
+- `make test_crates` : échec hors dette, plusieurs tests scénario paniquent sur la ressource
+  `run::Run` absente (`crates/scenario/src/runner.rs:1593`).
+- `make test_scenarios_par SHARDS=3` : échec identique sur les trois tranches, avant comparaison
+  de traces, sur `run::Run` absente. Les traces existantes n'ont pas bougé.
