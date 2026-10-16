@@ -115,6 +115,25 @@ impl VariantDef {
 #[derive(Component, Clone, Debug, PartialEq, Eq, Hash)]
 pub struct Variant(pub String);
 
+/// Contexte d'un tirage (M3-T7, §72) : nombre de joueurs de la session et index de l'étage **à
+/// l'apparition** (les identifiants `players` et `floor` de `chance`). Valeur figée au tirage : la
+/// variante ne change plus ensuite.
+#[derive(Clone, Copy, Debug, PartialEq, Eq)]
+pub struct VariantContext {
+    pub players: u32,
+    pub floor: u32,
+}
+
+impl Default for VariantContext {
+    /// Un joueur, étage 0 (hors partie : tests, outils).
+    fn default() -> Self {
+        Self {
+            players: 1,
+            floor: 0,
+        }
+    }
+}
+
 /// Graine du tirage d'un personnage : `fnv1a("variants") ^ run_seed ^ net_id` (tronqués en
 /// `u32`), indépendante de l'ordre d'apparition et du moment du chargement de la carte.
 pub fn variant_seed(run_seed: u32, net_id: u64) -> u32 {
@@ -129,14 +148,15 @@ pub fn draw_variant(
     forced: Option<&str>,
     run_seed: u32,
     net_id: u64,
+    context: VariantContext,
 ) -> Option<String> {
     if let Some(name) = forced.filter(|name| !name.is_empty()) {
         return config.table.contains_key(name).then(|| name.to_string());
     }
     let mut rng = RollbackRng::new(variant_seed(run_seed, net_id));
-    // M3-T0d : une expression se résout ici avec un joueur à l'étage 0 ; les vraies valeurs
-    // arrivent avec l'exécution (M3-T7). Un littéral est inchangé.
-    if rng.next_fixed() >= config.chance_at(1, 0) {
+    // M3-T7 : une expression se résout avec le nombre de joueurs et l'étage de l'apparition ; un
+    // littéral est inchangé (même tirage qu'avant).
+    if rng.next_fixed() >= config.chance_at(context.players, context.floor) {
         return None;
     }
     let total: u32 = config.table.values().map(|def| def.weight).sum();
@@ -203,13 +223,13 @@ mod tests {
         let config = table(0.5, &[("a", 1), ("b", 1), ("c", 1)]);
         for net_id in 0..50 {
             assert_eq!(
-                draw_variant(&config, None, 123456, net_id),
-                draw_variant(&config, None, 123456, net_id)
+                draw_variant(&config, None, 123456, net_id, VariantContext::default()),
+                draw_variant(&config, None, 123456, net_id, VariantContext::default())
             );
         }
         // Des net ids différents donnent des tirages différents (pas tous identiques).
         let draws: Vec<_> = (0..50)
-            .map(|id| draw_variant(&config, None, 123456, id))
+            .map(|id| draw_variant(&config, None, 123456, id, VariantContext::default()))
             .collect();
         assert!(draws.iter().any(|d| d != &draws[0]));
     }
@@ -219,8 +239,14 @@ mod tests {
         let never = table(0.0, &[("a", 1)]);
         let always = table(1.0, &[("a", 1)]);
         for net_id in 0..200 {
-            assert_eq!(draw_variant(&never, None, 7, net_id), None);
-            assert_eq!(draw_variant(&always, None, 7, net_id), Some("a".into()));
+            assert_eq!(
+                draw_variant(&never, None, 7, net_id, VariantContext::default()),
+                None
+            );
+            assert_eq!(
+                draw_variant(&always, None, 7, net_id, VariantContext::default()),
+                Some("a".into())
+            );
         }
     }
 
@@ -229,23 +255,38 @@ mod tests {
         let config = table(1.0, &[("jamais", 0), ("toujours", 3)]);
         for net_id in 0..200 {
             assert_eq!(
-                draw_variant(&config, None, 99, net_id),
+                draw_variant(&config, None, 99, net_id, VariantContext::default()),
                 Some("toujours".into())
             );
         }
-        assert_eq!(draw_variant(&table(1.0, &[("x", 0)]), None, 1, 1), None);
+        assert_eq!(
+            draw_variant(
+                &table(1.0, &[("x", 0)]),
+                None,
+                1,
+                1,
+                VariantContext::default()
+            ),
+            None
+        );
     }
 
     #[test]
     fn variante_imposee_sans_tirage() {
         let config = table(0.0, &[("rapide", 1), ("blinde", 1)]);
         assert_eq!(
-            draw_variant(&config, Some("blinde"), 1, 1),
+            draw_variant(&config, Some("blinde"), 1, 1, VariantContext::default()),
             Some("blinde".into())
         );
         // Inconnue : ignorée (refusée par le lint) ; vide : pas imposée, tirage normal.
-        assert_eq!(draw_variant(&config, Some("absente"), 1, 1), None);
-        assert_eq!(draw_variant(&config, Some(""), 1, 1), None);
+        assert_eq!(
+            draw_variant(&config, Some("absente"), 1, 1, VariantContext::default()),
+            None
+        );
+        assert_eq!(
+            draw_variant(&config, Some(""), 1, 1, VariantContext::default()),
+            None
+        );
     }
 
     #[test]
@@ -271,5 +312,44 @@ mod tests {
             variant_health(fixed_math::new(60.0), &def(1).modifiers("rapide"), 0),
             fixed_math::new(60.0)
         );
+    }
+
+    /// M3-T7 : la chance en expression suit le nombre de joueurs et l'étage de l'apparition ; un
+    /// littéral reste exact.
+    #[test]
+    fn chance_en_expression_suit_joueurs_et_etage() {
+        let config = VariantsConfig {
+            chance: ron::from_str("\"0.1 + floor * 0.2 + players * 0.1\"").unwrap(),
+            table: BTreeMap::from([("a".to_string(), def(1))]),
+        };
+        let ctx = |players, floor| VariantContext { players, floor };
+        let near = |value: Fixed, expected: f32| {
+            (value - fixed_math::new(expected)).abs() < fixed_math::new(0.001)
+        };
+        assert!(near(config.chance_at(1, 0), 0.2));
+        assert!(near(config.chance_at(1, 2), 0.6));
+        assert!(near(config.chance_at(4, 2), 0.9));
+        let hits = |context| {
+            (0..400)
+                .filter(|net_id| draw_variant(&config, None, 5, *net_id, context).is_some())
+                .count()
+        };
+        let (low, mid, high) = (hits(ctx(1, 0)), hits(ctx(1, 2)), hits(ctx(4, 2)));
+        assert!(low < mid && mid < high, "{low} < {mid} < {high}");
+        // Même graine, même net id, même contexte : même tirage ; un tirage qui réussit à l'étage
+        // 0 réussit aussi à l'étage 2 (la chance ne fait que croître : même nombre tiré).
+        for net_id in 0..400 {
+            let at0 = draw_variant(&config, None, 5, net_id, ctx(1, 0)).is_some();
+            let at2 = draw_variant(&config, None, 5, net_id, ctx(1, 2)).is_some();
+            assert!(!at0 || at2, "net id {net_id}");
+        }
+        let literal = table(0.5, &[("a", 1)]);
+        for net_id in 0..100 {
+            assert_eq!(
+                draw_variant(&literal, None, 5, net_id, ctx(1, 0)),
+                draw_variant(&literal, None, 5, net_id, ctx(4, 9)),
+                "un littéral ne dépend ni des joueurs ni de l'étage"
+            );
+        }
     }
 }

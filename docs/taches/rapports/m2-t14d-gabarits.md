@@ -144,7 +144,7 @@ Aucun au départ (400 parties). Pendant les essais : 4 à 1 bot (e1), 3 (e3), 2 
    visée sont dormants et hors de cause : déplacer le `shotgun_kin` de `CombatCroix` (hors de l'axe de la porte)
    ne change rien à la frame de blocage. **Cause : bot (`crates/bots`, pilotage `explore_step` /
    `BotNavigation::approach` et sa zone morte), pas données.** À 2 bots l'autre joueur débloque la partie.
-   Non codé (fiche : « ne pas toucher au bot ») ; consigné comme **D80** (`docs/taches/dettes.md`) avec la
+   Non codé (fiche : « ne pas toucher au bot ») ; consigné comme **D82** (`docs/taches/dettes.md`) avec la
    graine, la frame et la position ; pistes : freiner (ne pas relancer le pas quand le point visé est à moins
    d'un demi-pas), ou viser le milieu du passage (`chicane_step`, comme le champ de flux). Aucun levier de
    données : élargir les ouvertures exige des portes plus larges (entité `DoorHorizontal` de 32 px, appariement
@@ -194,10 +194,11 @@ la boutique est voisine ouest du départ).
 
 ## 8. Dettes ouvertes, points à relire
 
-- **D80** (nouvelle) : cycle limite de l'`explorateur` devant une ouverture de deux cases, 4 soft-locks sur 200 à 1 bot
+- **D82** (nouvelle) : cycle limite de l'`explorateur` devant une ouverture de deux cases, 4 soft-locks sur 200 à 1 bot
   (§5).
 - **D64** : fermée par cette tâche (mesures §4).
-- Le « secret » n'est pas caché (M3-T4 exécutera `DoorLock::Secret`).
+- Le « secret » n'est pas caché : `DoorLock::Secret` est exécuté (M3-T4, mergé pendant cette tâche) mais `gungeon` ne
+  donne aucune bombe (D81) ; un mur plein que personne ne casserait aurait rendu la salle et son coffre inaccessibles.
 - Les coffres et la boutique ne sont ouverts par les bots qu'avec `--shopping` ; les campagnes de la fiche (sans
   `--shopping`) ne mesurent donc pas leur effet.
 - Le jeu est nettement plus doux que la fiche d'origine : un `bullet_kin` fait 4 dégâts par balle (6) et a 30 PV

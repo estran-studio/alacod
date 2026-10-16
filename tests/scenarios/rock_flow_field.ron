@@ -1,0 +1,27 @@
+// M3-T4 (docs/conventions.md §69) : un rocher cassé rouvre le champ de flux. Carte `testbed/rock_flow.ldtk` : une
+// salle coupée par un mur ; le passage bas (2 cases) est bouché par deux rochers, le passage haut est ouvert (long
+// détour). Le joueur 0 (x -344) est immobile à 48 px des rochers ; un `follower` placé à l'est (x -136) le chasse.
+// Le joueur pose une bombe (f100, effective f105 ; mèche 20 frames, rayon 56, sans dégâts, tir ami coupé).
+//
+// À regarder : jusqu'à l'explosion (f125) le `follower` prend le détour par le haut (même trajet que dans
+// `rock_flow_field_blocked`) ; les deux rochers disparaissent, le champ de flux est refait et il revient droit
+// vers le joueur par le passage ouvert : il le rejoint vers f280, contre f360 sans bombe (témoin).
+Scenario(
+    powerup_drop_chance_override: "0.0",
+    game: "testbed",
+    map: "testbed/rock_flow.ldtk",
+    frames: 400,
+    characters: [(character: "follower", x: "-136.0", y: "-248.0", at_frame: 5)],
+    players: [(
+        bomb: (fuse_frames: 20, radius: "56.0", damage: "0.0", friendly_fire: Never),
+        items: ["bomb"],
+        inputs: [(from: 100, to: 101, buttons: [Bomb])],
+    )],
+    expect: [
+        EnemyDistance(entity: Placed(0), target: Player(0), min: 144.2, max: 146.2, at_frame: 120),
+        EnemyDistance(entity: Placed(0), target: Player(0), min: 81.3, max: 85.3, at_frame: 200),
+        EnemyDistance(entity: Placed(0), target: Player(0), min: 57.7, max: 61.7, at_frame: 240),
+        EnemyDistance(entity: Placed(0), target: Player(0), min: 29.0, max: 32.0, at_frame: 320),
+        EntityCount(kind: Rock, min: 0, max: 0, at_frame: 399),
+    ],
+)

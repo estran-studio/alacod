@@ -1,0 +1,25 @@
+// M3-T4 (docs/conventions.md §69) : témoin de `rock_flow_field`. Même carte, même `follower`, même joueur, mais
+// aucune bombe : les rochers restent, le `follower` fait tout le détour par le haut.
+//
+// À regarder : la distance au joueur reste voisine de 122 à f200 (le `follower` contourne par le haut) et il le
+// rejoint vers f360 ; avec la bombe de `rock_flow_field` il le rejoint vers f280. Les deux rochers sont intacts.
+Scenario(
+    powerup_drop_chance_override: "0.0",
+    game: "testbed",
+    map: "testbed/rock_flow.ldtk",
+    frames: 400,
+    characters: [(character: "follower", x: "-136.0", y: "-248.0", at_frame: 5)],
+    players: [(
+        bomb: (fuse_frames: 20, radius: "56.0", damage: "0.0", friendly_fire: Never),
+        items: ["bomb"],
+        inputs: [],
+    )],
+    expect: [
+        EnemyDistance(entity: Placed(0), target: Player(0), min: 144.2, max: 146.2, at_frame: 120),
+        EnemyDistance(entity: Placed(0), target: Player(0), min: 120.8, max: 124.8, at_frame: 200),
+        EnemyDistance(entity: Placed(0), target: Player(0), min: 107.2, max: 111.2, at_frame: 240),
+        EnemyDistance(entity: Placed(0), target: Player(0), min: 37.6, max: 41.6, at_frame: 320),
+        EnemyDistance(entity: Placed(0), target: Player(0), min: 29.0, max: 31.5, at_frame: 399),
+        EntityCount(kind: Rock, min: 2, max: 2, at_frame: 399),
+    ],
+)

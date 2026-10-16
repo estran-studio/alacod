@@ -1,0 +1,23 @@
+// M3-T4 (docs/conventions.md §69) : piques. Carte `testbed/spikes.ldtk` : couloir dont les colonnes 12 à 15
+// (x 312 à 376) sont des piques (`surfaces/piques.ron` : 5 PV, une fois toutes les 30 frames). Le joueur
+// marche à droite de f10 à f80 et s'arrête au milieu des piques.
+//
+// À regarder : le joueur perd 5 PV à son entrée sur les piques (f71) puis 5 PV toutes les 30 frames
+// tant qu'il y reste ; avant d'y entrer, sa santé est intacte (le témoin est le même couloir avant f70).
+Scenario(
+    powerup_drop_chance_override: "0.0",
+    game: "testbed",
+    map: "testbed/spikes.ldtk",
+    frames: 200,
+    players: [
+        (inputs: [(from: 10, to: 80, buttons: [Right], pan: (0, 0))]),
+    ],
+    expect: [
+        Health(handle: 0, min: 100, max: 100, at_frame: 60),
+        Health(handle: 0, min: 100, max: 100, at_frame: 70),
+        Health(handle: 0, min: 95, max: 95, at_frame: 71),
+        Health(handle: 0, min: 95, max: 95, at_frame: 100),
+        Health(handle: 0, min: 90, max: 90, at_frame: 101),
+        Health(handle: 0, min: 75, max: 75, at_frame: 199),
+    ],
+)

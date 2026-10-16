@@ -1,0 +1,8 @@
+// Fixture M3-T4 (exécution de Explode, aucune erreur de lint)
+(
+    name: "fixture-explode_effect_ok",
+    content_folders: [
+        (path: "characters", kind: "Character"),
+    ],
+    entry: (start_map: "maps/salle.ldtk", default_seed: 1),
+)

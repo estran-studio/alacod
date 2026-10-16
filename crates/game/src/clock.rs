@@ -169,9 +169,20 @@ pub struct DifficultyReader<'w> {
     pub clock: Res<'w, Clock>,
     pub config: Option<Res<'w, DifficultyConfig>>,
     pub frame: Res<'w, FrameCount>,
+    /// M3-T7 : nombre de joueurs de la session (contexte de `chance` des variantes).
+    pub players: Res<'w, PlayersCount>,
 }
 
 impl DifficultyReader<'_> {
+    /// Contexte d'un tirage de variante pour l'étage `floor` (M3-T7, §72) : joueurs de la
+    /// session (au moins 1) et index d'étage.
+    pub fn variant_context_at(&self, floor: u32) -> crate::character::variant::VariantContext {
+        crate::character::variant::VariantContext {
+            players: (self.players.0 as u32).max(1),
+            floor,
+        }
+    }
+
     /// Difficulté pour l'étage `floor` **maintenant**, évaluée à neuf (les personnages d'un
     /// nouvel étage apparaissent dans la frame du passage, avant la réévaluation de
     /// [`clock_system`]) : temps d'étage 0 pour un étage pas encore vu par l'horloge.

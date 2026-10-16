@@ -1,9 +1,11 @@
 pub mod args;
 pub mod audio;
 pub mod balance;
+pub mod bombs;
 pub mod boss;
 pub mod camera;
 pub mod cave_assets;
+pub mod champions;
 pub mod character;
 pub mod clock;
 pub mod collider;

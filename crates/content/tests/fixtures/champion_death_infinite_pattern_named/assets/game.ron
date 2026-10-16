@@ -1,0 +1,10 @@
+// Fixture M3-T7 (docs/conventions.md §72) : `SpawnPattern` à la mort d'un champion avec un pattern infini atteint par une chaîne `Named` (et un cycle) : refusé
+(
+    name: "fixture-champion_death_infinite_pattern_named",
+    content_folders: [
+        (path: "characters", kind: "Character"),
+        (path: "weapons.ron", kind: "Weapon"),
+        (path: "patterns", kind: "Pattern"),
+    ],
+    entry: (start_map: "unused", default_seed: 1),
+)

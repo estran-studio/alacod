@@ -1,0 +1,36 @@
+// M3-T4 (docs/conventions.md §69) : la bombe casse les rochers. Carte `testbed/rocks_static.ldtk` : trois rochers
+// ferment le couloir (colonne 12, x 304 à 320), un rocher à butin derrière (colonne 14). Le joueur marche à droite
+// (f10 à f100), s'arrête contre les rochers (x 293,8), pose une bombe (f110, effective f115 ; mèche 20 frames,
+// rayon 30, tir ami coupé) puis repart à droite (f140 à f200).
+//
+// À regarder : les trois rochers du couloir disparaissent à l'explosion (f135) ; le rocher à butin, à 50 px de la
+// bombe, reste ; le joueur passe l'ancienne ligne de rochers (x > 320) et s'arrête contre le rocher à butin ;
+// aucun butin n'apparaît (témoin de `rock_loot`, où le rayon couvre aussi le rocher à butin). Témoin de la
+// carte intacte : `rocks_static`, le joueur s'arrête à x 293,8 jusqu'à la fin.
+Scenario(
+    powerup_drop_chance_override: "0.0",
+    game: "testbed",
+    map: "testbed/rocks_static.ldtk",
+    frames: 260,
+    players: [
+        (
+            bomb: (fuse_frames: 20, radius: "30.0", damage: "10.0", friendly_fire: Never),
+            items: ["bomb"],
+            inputs: [
+                (from: 10, to: 100, buttons: [Right], pan: (0, 0)),
+                (from: 110, to: 111, buttons: [Bomb]),
+                (from: 140, to: 250, buttons: [Right], pan: (0, 0)),
+            ],
+        ),
+    ],
+    expect: [
+        EntityCount(kind: Rock, min: 4, max: 4, at_frame: 5),
+        EntityCount(kind: Rock, min: 4, max: 4, at_frame: 120),
+        PlayerPosition(handle: 0, x: 293.8, y: 696, tolerance: 1, at_frame: 120),
+        EntityCount(kind: Rock, min: 1, max: 1, at_frame: 136),
+        EntityCount(kind: Rock, min: 1, max: 1, at_frame: 259),
+        PlayerPosition(handle: 0, x: 325.5, y: 696, tolerance: 1, at_frame: 259),
+        Consumable(handle: 0, id: "key", count: 0, at_frame: 259),
+        Event(kind: "explosion", by_frame: 136),
+    ],
+)

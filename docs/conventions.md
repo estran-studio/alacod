@@ -3681,8 +3681,9 @@ gabarits décorés). Scripts : `docs/taches/rapports/m2-t14d-gabarits.make_gabar
 | `ArenaNS` | `arene` | N S | deux barils et une table (les vagues viennent de `rooms/arene.ron`) |
 
 Types de salle nouveaux (`rooms/`) : `coffre` (non verrouillant, coffre ouvert au centre, rareté mini Uncommon, pool
-de l'étage) et `secret` (idem, rareté Rare, cul-de-sac). **« Secret » ne l'est que par sa place** : la porte cachée
-(`DoorLock::Secret`, §62) est un contrat sans exécution (M3-T4). Un coffre de salle s'ouvre par Interaction : le
+de l'étage) et `secret` (idem, rareté Rare, cul-de-sac). **« Secret » ne l'est que par sa place** : le mur secret
+(`DoorLock::Secret`, §62, exécuté par M3-T4) exige une bombe et `gungeon` n'en donne aucune (D81) : un mur plein
+que personne ne casserait. Un coffre de salle s'ouvre par Interaction : le
 bot ne le fait qu'avec `alacod-sim --shopping`. Les tables ne sont jamais posées devant une ouverture (une table
 sur les deux cases d'ouverture murerait la salle). Les accessoires sont toujours trois par salle décorée (le test
 de décor compte `CombatEW`, `CombatNS`, `Coffre`, `Secret`, `ArenaNS`).
@@ -3714,7 +3715,7 @@ Joueur, boss, armes du joueur : intouchés (le renfort `bullet_kin` du boss prof
 
 **Mesures** (`alacod-sim`, `etages_deux`, 200 graines, explorateur, `until-floor 1`) : à 1 bot 200 morts sur 200 → 54
 (27 %) ; à 2 bots 174 → 7 (3,5 %) ; 0 desync. Soft-locks : 0 avant, 4 sur 200 à 1 bot après, 0 à 2 bots ; cause
-et pistes dans le rapport (bot : cycle limite devant une ouverture de deux cases, dette D79).
+et pistes dans le rapport (bot : cycle limite devant une ouverture de deux cases, dette D82).
 
 **Graines** (2 bots, `etages_deux`, `--shopping` ; `docs/taches/rapports/m2-t14d-gabarits/rencontre.py`) : 41 :
 coffre secret f369, coffre f1045, escouade f1096-f1233, arène f1476-f2226, boutique f2334, baril f604 ; 13 : secret
@@ -4242,7 +4243,7 @@ dans l'ordre croissant de `GgrsNetId.0` ; `destroys` casse aussi les rochers de 
 (`destroy_terrain`). Elle vit dans `world` (comme `destroy_terrain`, dans la frontière `SIM`), pas dans
 `combat` : elle ne connaît que des identifiants et des positions. Lint : `radius > 0`, `damage >= 0`,
 puis `Unsupported` dans un effet tant que M3-T4 ne l'exécute pas ; refusée dans un power-up. Le baril
-**ne bascule pas** dessus ici (sa trace ne doit pas bouger) : M3-T4 le fera avec preuve. Moment clé
+**ne bascule pas** dessus ici (sa trace ne doit pas bouger) : M3-T4 l'a fait (§69), traces identiques. Moment clé
 `explosion` (`world::Exploded`, `FrameEvents` neutre) déclaré, émis en T4.
 
 ### Bombe
@@ -4514,6 +4515,149 @@ statuts frame par frame) ; `map_probe` liste aussi les personnages non joueurs.
 Rencontré quand M3-T11a met les objets de larmes dans le pool trésor d'`isaac` ; d'ici là, scénarios
 testbed seulement.
 
+## 69. Bombes, explosions, rochers cassés, piques, mur secret (M3-T4, chantiers E3 et E4 v2)
+
+Exécute les contrats de §62. Code : `game::bombs` (`BombsPlugin`), `world::{bomb, explosion, surface}`,
+`map_ldtk::game::rooms::secret_wall_system`, `game::effects_runtime` (action `Explode`). **Aucune trace
+existante ne bouge** : tout état nouveau est neutre ou transitoire et absent des jeux sans `bomb`, sans
+rocher, sans piques ni salle secrète ; le baril garde sa trace (`barrel_chain`, `bench_floor`) en changeant
+de code.
+
+### Bombe
+
+`CharacterConfig.bomb` donne au joueur un composant `world::BombCarrier { def, held }` (rollback **neutre**,
+`PlayerScript::bomb` le pose aussi en scénario). `bomb_place_system` (`Effects`, après
+`synergy_modifiers_system`, joueurs par `GgrsNetId`) : au **front montant** de `INPUT_BOMB` (`held` réécrit à
+chaque frame, avant tout retour anticipé), joueur debout, avec au moins un consommable `bomb` dans son
+`Inventory` (`starting_consumables` ou `PlayerScript::items`), il en consomme un et pose une `world::Bomb`
+aux pieds (centre du collider, offset compris) : entité rollback neutre numérotée `bomb_<poseur>`,
+mèche de `fuse_frames`. `BombDef.friendly_fire` (fin de structure, défaut **`Always`**, Q4 : la bombe blesse
+son poseur et les autres joueurs, comme Isaac ; `Never` pour la couper). Sans `BombCarrier` rien ne lit le bit.
+
+### Explosion
+
+Trois sources, une règle. `world::ExplosionRequest { id, source, source_team, x, y, radius, damage,
+destroys, friendly_fire }` (`FrameEvents` **transitoire**, hors checksum : un baril en émet dans des parties
+existantes) est émise par `bomb_fuse_system` (bombe dont la mèche est écoulée, puis `despawn_rollback`), par
+le baril mort (lu dans `explosion_system`) et par l'action `Explode` (voir plus bas). Deux étages :
+
+1. `World` (`bomb_fuse_system` puis `explosion_terrain_system`, après `pit_system`, **avant**
+   `apply_destroy_terrain_system`) : si `destroys`, terrain de caverne (`DestroyTerrainRequest` : les murs
+   de `CellGrid` et le champ de flux sont refaits dans la frame, comme pour `DestroyTerrain`) et rochers.
+2. `CollisionDamage` (`explosion_system`, à l'emplacement de l'ancien `barrel_explosion_system`, avant
+   `rollback_resolve_damage_events`) : les demandes de la frame (bombes + barils morts) sont **triées par
+   `GgrsNetId` de l'objet** (tri stable) ; chacune envoie `damage` (`Physical`, tag `explosion`, source =
+   le poseur, donc crédité) à tout personnage à PV dont le centre est à **strictement** moins de `radius`
+   (`world::within_radius`), sauf l'objet lui-même, un personnage déjà à l'agonie (`Death`) et un personnage
+   **invulnérable** (`Health::is_invulnerable_at`, comme les balles : c'est ce qui protège les familiers de
+   M3-T6, `invulnerable_until_frame = u32::MAX`). Elle émet `world::Exploded` (transitoire, moment clé
+   `explosion`) ; un baril est détruit par `despawn_rollback()` avec sa demande. Une chaîne de barils
+   reste « un baril par frame » (le voisin touché meurt dans la frame, explose à la suivante).
+
+Écart avec le baril d'avant : le rayon est **strict** (`<`) et non inclusif, et un personnage invulnérable
+n'est plus visé (le résolveur l'ignorait déjà) ; aucune des scènes existantes ne place un personnage à
+exactement `radius` (traces de `barrel_chain` et des cartes à barils identiques).
+
+### Rochers et butin
+
+`explosion_terrain_system` casse chaque `world::Rock` dont le centre est à moins de `radius`
+(`world::cells_in_radius` : rendus par `(y, x)` croissants, un rocher cassé une seule fois par frame) par
+`despawn_rollback()`. Le champ de flux relit les `Obstacle` à chaque mise à jour : le passage s'ouvre sans code
+de plus (`rock_flow_field`). Chaque rocher cassé émet un `game::bombs::RockBroken` (transitoire) ;
+`map_ldtk::game::rooms::rock_loot_system` (`World`, après `explosion_terrain_system`, qui seul voit `CurrentRooms`)
+tire le butin d'un rocher à butin (`loot`) : un `ItemPickup` tiré par
+`items::draw_loot_with` (consommables seulement) avec un `RollbackRng` **local** de graine
+`loot_seed(graine, étage, "rock:<salle>:<x>:<y>")` (`game::bombs::rock_loot_key`, case de grille monde ;
+`<salle>` = identifiant de la plus petite salle **de l'étage courant** dont les bornes contiennent le rocher, `-`
+sinon : `game::bombs::room_of`, nourri par `CurrentRooms` ; en `Floors` les mondes se superposent, une salle d'un
+étage inactif donnerait une clé fausse) ; pool =
+celui de l'étage s'il existe, sinon `salle` (aucune chance : le tirage est certain). Q : pool propre aux
+rochers ?
+
+### Mur secret
+
+Une salle dont le type porte `door_lock: Secret` garde ses portes **et leurs jumelles** (celles du bord de la
+salle voisine) fermées : au premier tick, `room_lock_system` les laisse closes et leur retire seulement
+`Interactable` (aucune Interaction ne les ouvre) ; les autres portes de salle s'ouvrent comme avant. Les deux
+branches `Locked → Cleared` (fin d'une salle de combat ou d'une arène **voisine**) **et le verrouillage** d'une salle
+voisine (`to_close`) ignorent aussi les portes secrètes (`secret_door`), ouvertes ou fermées : leur état est du seul
+ressort de `secret_wall_system` (`secret_wall_open_then_fight` : mur ouvert, puis la salle voisine se verrouille et se
+nettoie, il reste ouvert ; témoin `_sans_bombe`) : nettoyer la salle d'à côté n'ouvre pas le mur (`secret_wall_after_clear`). Le mode
+`Floors` remet `DoorLocks` à zéro à la transition d'étage (`floor_transition_system`) : les portes renaissent
+fermées, et un étage répété (mêmes `LevelId`) ne les croit pas déjà ouvertes (`secret_wall_floors`).
+`secret_wall_system` (`World`, après `bomb_fuse_system`) : une `ExplosionRequest` qui `destroys` et dont le
+rayon touche le **bord du collider** d'une de ces portes (`world::rect_within_radius`, strict) ouvre
+**toutes** les portes de la salle (colliders retirés) et la range dans `DoorLocks` (`DoorLocked(kind, nth,
+locked: false)`). Le champ de flux relit les portes à chaque mise à jour : les deux salles sont reliées
+(`secret_wall_bomb`, un ennemi de la salle secrète rejoint le joueur). Placement par la grammaire : M3-T5.
+
+### Piques
+
+`hazard_system` (`World`, après `pit_system`, seulement si la carte a une case de piques) : un joueur debout
+dont les pieds sont sur une surface à `hazard` reçoit `damage` (`True`, tag `spikes`, source = lui-même) si
+`HazardDef::applies` : une fois toutes les `period` frames (`world::HazardState { last_hit }`, rollback
+neutre posé au premier coup), sauf pendant un dash si `dash_crosses` (champ de fin de structure, faux par
+défaut : le dash ne franchit pas les piques, il y est blessé quand il n'a pas d'i-frames). Surface du
+testbed : `surfaces/piques.ron` (valeur IntGrid 5, 5 PV, 30 frames).
+
+### Action `Explode`
+
+`effects::Action::Explode { radius, damage, destroys }` est exécutée dans un effet de personnage, d'objet
+tenu, de mutation ou une frise de boss (`apply_action_sourced`) : une **bombe à mèche d'une frame** est
+posée au point du porteur (commande différée : `GgrsNetIdFactory` et position se lisent à l'application),
+équipe du porteur, tir ami `Always` ; elle explose à la frame suivante par le même chemin. Le porteur n'est
+pas exempté : au centre du rayon, il prend les dégâts comme les autres (`explode_effect`). Le lint ne la
+refuse plus dans un effet (rayon > 0, dégâts >= 0 inchangés) ; `OnUse` d'un objet et les power-ups la
+refusent toujours (`OnUse` n'a pas de position). `Explode` en mort de champion : M3-T7.
+
+### Déterminisme
+
+`Fixed` partout (`FixedWide` pour les carrés), `order_iter!`/`order_mut_iter!`, `BTreeMap`/`BTreeSet`,
+`despawn_rollback()` pour bombes, barils et rochers, un seul `RollbackRng` local par rocher à butin.
+`ExplosionRequest` et `Exploded` sont transitoires (vidés au `FrameStart`, jamais lus avant leur émetteur) :
+`explosion_system` est après `bomb_fuse_system` et les dégâts d'une frame se résolvent dans la frame. Types
+neutres sans porteur hors des cartes concernées : `BombCarrier`, `Bomb`, `HazardState`, `Rock` (T0c),
+`DoorLocks` (T0c). `PlayerScript::bomb` est un champ de scénario sans effet sur les parties enregistrées.
+`fuzz_inputs` : `ALACOD_FUZZ_BOMBS=1` joue un personnage à huit bombes dans la salle à rochers du testbed
+(`rock_flow.ldtk`) avec des appuis aléatoires sur `Bomb`.
+
+### Testbed et scénarios
+
+Cartes `testbed/spikes.ldtk`, `testbed/rock_flow.ldtk`, `testbed/salles_secret.ldtk`
+(`scripts/construire-cartes-t4.py`) ; `rocks_static.ldtk` (T0c) sert aux bombes et au butin. Objet
+`objets/bomb.ron` (consommable `bomb`), surface `surfaces/piques.ron`.
+
+| Scénario | Prouve |
+|---|---|
+| `bomb_place_explode`, `bomb_hurts_owner` | pose au front montant, compteur `bomb` 1 → 0, explosion 20 frames après (f35, `explosion`) ; un mannequin à 35 px perd 50 PV, un autre à 100 px non ; tir ami coupé : le poseur intact, actif : il perd 50 |
+| `bomb_breaks_rock` | les trois rochers du couloir disparaissent, le rocher à butin (50 px) reste, le joueur passe ; aucun butin |
+| `bomb_digs_cave` | caverne `petite` : la bombe creuse (26, 15) et (27, 15) (7 cases détruites, f96) par la même requête que la grenade ; le joueur traverse |
+| `rock_loot` | rayon 60 : le rocher à butin laisse une clé (`loot_seed`), ramassée (f156) |
+| `bomb_chain_barrel` | bombe → premier baril (f80) → second (f81) → joueur 1 touché (100 → 70, f82) |
+| `secret_wall_bomb`, `secret_wall_closed` | porte fermée (`DoorLocked`), joueur et ennemi bloqués ; la bombe l'ouvre (f95) : ils passent ; témoin sans bombe |
+| `spikes_damage` | 5 PV à f71 puis toutes les 30 frames (95, 90, … 75 à f199), santé intacte avant |
+| `secret_wall_after_clear` | la salle de combat voisine nettoyée (f489) rouvre ses portes ordinaires, pas la porte secrète : le joueur s'arrête contre elle (x -714,8), aucune bombe |
+| `secret_wall_floors` | deux étages identiques (`deux_secrets`) : porte ouverte par une bombe à l'étage 0, de nouveau fermée à l'étage 1 (f306), rouverte par la seconde bombe (f395) |
+| `explode_effect` | un effet `Explode` (`kamikaze`, `Tick(40)`, une charge) : une seule explosion (f47), joueur 100 → 70, porteur 50 → 20 (aucune exemption), `dummy` hors rayon intact |
+| `rock_flow_field`, `rock_flow_field_blocked` | le `follower` prend le détour ; la bombe rouvre le passage direct : distance 59,7 à f240 contre 109,2 ; il rejoint le joueur vers f280 contre f360 |
+
+Unitaires : `game::effects_runtime` (`Explode` pose une bombe à mèche d'une frame, équipe et crédit du porteur,
+`destroys`), `game::bombs::room_of` (sélection de la salle parmi celles de l'étage courant), `world::explosion` (rayon strict, rectangle touché, cases triées), `world::surface`
+(`HazardDef::applies`), `game::bombs` (`explosion_system` : ordre des ids, invulnérables et mourants
+épargnés, ordre des explosions ; clé de butin), `content` (`explode_effect_ok`).
+
+### Questions pour William
+
+Q4 (reprise de §62) : tir ami de la bombe, proposition `Always` ; pool de butin propre aux rochers (le pool
+`salle` ne donne qu'une clé) ; dégâts des piques `True` en points (demi-cœurs : Q2) ; mur secret ouvert par
+une explosion de baril (aujourd'hui non : le baril n'a pas `destroys`).
+
+### Atteignabilité
+
+Rencontré quand `isaac` donne des bombes de départ à son personnage (dette : le faire change ses traces,
+décision de l'orchestrateur), que M3-T11d place rochers et piques dans les gabarits `combat` et que M3-T5
+place le mur secret ; d'ici là, scénarios testbed seulement.
+
 ## 71. Familiers et orbitaux en jeu (M3-T6, chantier C3)
 
 M3-T6 exécute les contrats de §63 : `Follow`, `Orbit`, `MirrorShot`, `BlockBullets`, `FamiliarOf`,
@@ -4612,3 +4756,90 @@ Diagnostic : `projectile_probe` (`ALACOD_PROJECTILES=<scénario>:<de>:<à>`) aff
 M3-T11b met au moins deux familiers et un orbital dans le pool trésor d'`isaac` ; d'ici là, scénarios testbed seulement
 (dette nommée, à fermer par T11b).
 
+
+## 72. Champions et élites v2 en jeu (M3-T7, chantier D2 v2)
+
+M3-T7 exécute les champs de `VariantDef` de §63 : `on_death`, `behaviors`, `loot`, `chance` en expression ;
+`tint` est lu par la présentation seule (T17 le dessine : aucune lecture ici, attente nulle). **Aucune trace
+existante ne bouge** : un personnage sans variante, ou dont la variante n'a aucun champ v2, ne passe par rien de
+neuf (`champion_death_system` sort sans rien toucher), `PatternGhost` est neutre. Le
+tirage de §25 (graine `fnv1a("variants") ^ graine ^ net id`, `RollbackRng` local, jamais `RngStreams`) est inchangé.
+
+### `chance` en expression : valeur figée à l'apparition
+
+`draw_variant(config, forced, graine, net id, VariantContext { players, floor })` : `players` = joueurs de la session
+(`PlayersCount`, au moins 1), `floor` = étage de l'apparition (`run::FloorState::index`, 0 hors mode `Floors` ;
+`variant_context_at(étage suivant)` au passage de niveau). `DifficultyReader` porte le contexte (`variant_context_at`) ;
+les cinq sites d'apparition (`spawn_enemy` : vagues, spawners, renforts de salle, `CharacterSpawn`, placements de
+scénario) le passent. Un littéral est exact : même tirage qu'avant, quels que soient joueurs et étage. Le lint
+(§63) borne l'expression dans [0, 1] pour 1 et 4 joueurs aux étages 0 et 5 : une expression qui dépasserait 1 à
+l'étage 5 est une erreur de contenu (`0,1 + floor × 0,18`). Variante **imposée** (`CharacterSpawn.variant`, placement
+de scénario) : aucun tirage, la chance ne compte pas.
+
+Piège connu (hérité de §25, **non corrigé**, une correction déplacerait les traces de tout contenu à variantes) : la
+graine `fnv ^ graine ^ net id` donne, via un générateur congruentiel, des **valeurs voisines à des net ids
+consécutifs** ; quarante ennemis posés d'un coup tirent donc presque le même nombre. Les scénarios de chance
+choisissent une graine (1942) qui répartit les tirages de part et d'autre des seuils ; dette à numéroter.
+
+### `behaviors`
+
+Ceux de la variante **remplacent** ceux du personnage à la création (`enemy::create::spawn_enemy`, après le tirage) :
+`EnemyBehaviors::rules`, et `ai.ranged` suit la première règle `Shoot` comme pour un personnage. `BehaviorRuntime`
+est posé si la nouvelle liste en a besoin. Un personnage dont la variante n'a pas de `behaviors` garde le chemin d'avant.
+
+### `on_death`
+
+`champion_death_system` (`RollbackSystemSet::DeathManagement`, après `rollback_check_defeat` et
+`shell_drop_on_death_system`, avant `rollback_apply_death`, comme `boss_defeated_system`) : pour chaque mort qui porte
+`Variant`, par `GgrsNetId` croissant, **à la frame de sa mort** :
+
+- **`SpawnCharacters { id, count }`** : `count` personnages `id` de l'**équipe du mort**, santé résolue (F5 × difficulté),
+  par `spawn_enemy`, à des **décalages fixes** (`split_offsets` : un anneau de 14 unités, rang 0 vers +x, aucune
+  consommation de RNG), `GgrsNetId` alloués dans l'ordre (mort, puis rang `k` ; clé de contenu `champion:<net id>:<k>`
+  dans les logs `champion_split`). Ils sont créés **sans variante** (`NO_VARIANT` = `"-"`, absente de toute table) : pas de
+  division en cascade, même si la chance du personnage est de 1.
+- **`Explode { radius, damage, destroys }`** : **le mécanisme de M3-T4 (§69), sans second chemin** : une **bombe à mèche
+  d'une frame** (`world::Bomb`, `fuse_until = mort + 1`, comme l'`Action::Explode` des effets) posée à la position du mort,
+  **de son équipe**, tir ami `Always`, créditée au dernier joueur qui l'a touché (points des victimes), sinon au mort ;
+  `destroys` est transmis. `game::bombs::bomb_fuse_system` puis `explosion_system` l'exécutent à la frame suivante (une
+  `ExplosionRequest`, un `DamageEvent` par cible, un `Exploded`, rayon strict, exclusions `Death` et **invulnérables** :
+  un familier immunisé n'est jamais touché, scénario `champion_explodes`). Une seule émission de dégâts et d'`Exploded`
+  par explosion ; `PendingBlasts` et `champion_blast_system` (premier jet de T7) n'existent plus. L'équipe du mort
+  (`Enemies`) est celle de la source : la difficulté d'étage multiplie donc les dégâts, comme ceux de tout ennemi.
+- **`SpawnPattern { pattern, weapon }`** : un émetteur **sans personnage** (`PatternGhost`, rollback neutre) à la position du
+  mort, de l'équipe du mort, joue le pattern avec la table de projectiles de l'arme (`effects_runtime::spawn_pattern`, le
+  chemin des effets), puis `pattern_ghost_cleanup_system` le détruit (`despawn_rollback`) quand son `Emitter` est fini. Les
+  projectiles naissent à la frame suivante (`Weapon`). Lint ajouté : un pattern **infini** (`Ring` avec `every > 0`, y compris
+  atteint par une chaîne `Named`, profondeur bornée ; chaîne cyclique ou inconnue refusée aussi) est
+  refusé à la mort (`Unsupported`) : l'émetteur n'a pas de personnage pour l'arrêter ; utiliser `every: 0`.
+- Toute autre action est refusée par le lint (§63) et, si elle arrivait, ignorée avec un `warn!`.
+
+### `loot`
+
+La table de la variante (`loot/<table>.ron`) est tirée à la mort par `items::draw_loot_with` avec un `RollbackRng` de graine
+`items::loot_seed(graine de run, étage, "champion:<net id>")` (§48 : indépendant du moment, jamais `RngStreams`), les
+déblocages actifs de la run appliqués comme pour un coffre ; l'objet (ou l'arme, `items::loot_weapon`) est posé au sol
+16 unités à l'est du mort (`spawn_item_pickup`, `spawn_loot_weapon`) et se ramasse comme n'importe quel objet.
+
+### Testbed et scénarios
+
+Personnages `elite_explosif` (variantes `explosif`, `salve`, `nu`), `elite_divise` (`divise`, `nu`), `elite_riche` (`riche`,
+`nu`), `elite_comportement` (`distant`, `nu`), `elite_chance` (chance `0,1 + 0,18 × floor`) ; pattern `couronne_unique` ;
+séquence `deux_vides` (deux niveaux sans ennemi, le portail s'ouvre aussitôt). Les scénarios **forcent** la variante
+(`variant:` du placement) et gardent un témoin `_sans_variante` (variante `nu`, sans effet).
+
+| Scénario | Prouve |
+|---|---|
+| `champion_explodes`, `..._sans_variante` | `Explode` à la frame suivant la mort (f29 → f30) : joueur 90, cible proche 4990, lointaine 5000 ; le familier (10 PV, immunisé) survit ; témoin : personne blessé |
+| `champion_splits`, `..._sans_variante` | trois `elite_divise` en anneau de 14 unités à la mort (f55), sans variante ; témoin : rien |
+| `champion_drops`, `..._sans_variante` | l'objet `bottes` (graine `champion:14`) est lâché, ramassé à f120 ; témoin : rien |
+| `champion_behaviors`, `..._sans_variante` | `KeepDistance` de la variante au lieu de `Chase` : le champion reste à plus de 190 unités ; témoin : il rejoint le joueur |
+| `champion_pattern` | `SpawnPattern` : huit boules de feu en couronne à f56, une seule couronne, émetteur détruit |
+| `champion_chance_floor_0`, `champion_chance_floor` | `chance` en expression : 2 champions sur 40 à l'étage 0 (10 %), 23 sur 40 à l'étage 1 (28 %) |
+
+Diagnostic : `map_probe` (`ALACOD_MAP_PROBE=<scénario>:<frame>`) liste aussi la variante des personnages.
+
+### Atteignabilité
+
+M3-T11c donne des champions à au moins trois ennemis des salles `combat` d'`isaac` (graine à nommer à ce moment) ; d'ici là,
+scénarios testbed seulement (dette nommée, à fermer par T11c).
