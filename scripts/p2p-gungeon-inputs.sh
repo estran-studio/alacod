@@ -19,7 +19,7 @@ set -euo pipefail
 PLAYERS=$1
 SEED=$2
 FRAMES=$3
-OUT_FILE=$4
+case "$4" in /*) OUT_FILE=$4 ;; *) OUT_FILE=$PWD/$4 ;; esac
 
 cd "$(dirname "${BASH_SOURCE[0]}")/.."
 DEV_FEATURES="$(./scripts/dev-features.sh features)"

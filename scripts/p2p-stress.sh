@@ -56,7 +56,7 @@ p2p_init "$GAME"
 mkdir -p "$OUT"
 rm -f "$OUT"/p2p-*.trace "$OUT"/p2p-*.log
 export NETEM OUT
-p2p_netns_reexec "$SELF" "$@"
+p2p_netns_reexec "$SELF" "$GAME" "$SCRIPT" ${3:+"$3"}
 
 pids=()
 suspender=""
@@ -154,7 +154,7 @@ disc=0
 interrupted=0
 resumed=0
 for ((i = 0; i < CLIENTS; i++)); do
-    n=$(awk '/trace d.état écrite dans/ {exit} /GGRS Event: Disconnected|Player .* disconnected/ {c++} END{print c+0}' "$OUT/p2p-$i.log")
+    n=$(awk '/trace d.état écrite dans/ {exit} /GGRS Event: Disconnected/ {c++} END{print c+0}' "$OUT/p2p-$i.log")
     disc=$((disc + n))
     a=$(awk '/trace d.état écrite dans/ {exit} /GGRS Event: NetworkInterrupted/ {c++} END{print c+0}' "$OUT/p2p-$i.log")
     b=$(awk '/trace d.état écrite dans/ {exit} /GGRS Event: NetworkResumed/ {c++} END{print c+0}' "$OUT/p2p-$i.log")

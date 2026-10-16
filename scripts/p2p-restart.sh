@@ -14,7 +14,8 @@
 #   posée à RESTART_AT : `restart` = « Rejouer », `lobby` = bouton « Lobby » (les pairs reviennent
 #   dans la salle d'origine, graine d'origine : la partie 2 doit être IDENTIQUE à la 1), `hub` =
 #   « Retour au hub » des jeux à hub : hub → run → hub → run, graine dérivée à chaque passage),
-#   OUT (/tmp/p2p-restart), MATCHBOX_PORT, MATCHBOX_URL, NETEM (voir `p2p-lib.sh`).
+#   TIMEOUT (900 s : au-delà, les clients sont tués et le script échoue ; `RESTART_KIND=lobby`
+#   bloque aujourd'hui, D86), OUT (/tmp/p2p-restart), MATCHBOX_PORT, MATCHBOX_URL, NETEM (voir `p2p-lib.sh`).
 #   Tout autre `ALACOD_*` de l'environnement est transmis aux clients (`ALACOD_SKIP_HUB=1`).
 # Bash, pas zsh (les `wait $pid` d'une variable non éclatée échouent en zsh).
 set -euo pipefail
@@ -29,6 +30,7 @@ STRESS=${STRESS:-0}
 SUSPEND_MS=${SUSPEND_MS:-12}
 RUN_MS=${RUN_MS:-30}
 LOCAL=${LOCAL:-1}
+TIMEOUT=${TIMEOUT:-900}
 RESTART_KIND=${RESTART_KIND:-restart}
 case "$RESTART_KIND" in
     restart) ;;
@@ -46,13 +48,14 @@ p2p_init "$GAME"
 mkdir -p "$OUT"
 rm -f "$OUT"/*.trace-g* "$OUT"/*.log
 export NETEM OUT
-p2p_netns_reexec "$SELF" "$@"
+p2p_netns_reexec "$SELF" ${1:+"$1"}
 
 pids=()
 suspender=""
 cleanup() {
-    [ -n "$suspender" ] && kill "$suspender" 2>/dev/null
-    [ -n "${pids[1]:-}" ] && kill -CONT "${pids[1]}" 2>/dev/null
+    # `set -e` : un `kill` sur un processus déjà parti ne doit pas changer le code de sortie du script.
+    [ -z "$suspender" ] || kill "$suspender" 2>/dev/null || true
+    [ -z "${pids[1]:-}" ] || kill -CONT "${pids[1]}" 2>/dev/null || true
     p2p_signaling_down
 }
 trap cleanup EXIT
@@ -82,10 +85,14 @@ if [ "$STRESS" = 1 ] && [ "$CLIENTS" -ge 2 ]; then
     ) >/dev/null 2>&1 &
     suspender=$!
 fi
+# Garde-fou : tue les clients au-delà de TIMEOUT (une partie 2 qui ne démarre jamais, D86).
+( sleep "$TIMEOUT"; kill -CONT "${pids[1]:-0}" 2>/dev/null; kill "${pids[@]}" 2>/dev/null ) >/dev/null 2>&1 &
+watchdog=$!
 status=0
 for pid in "${pids[@]}"; do
     wait "$pid" || status=1
 done
+kill "$watchdog" 2>/dev/null || true
 [ -z "$suspender" ] || kill "$suspender" 2>/dev/null || true
 [ "$status" -eq 0 ] || { echo "p2p : un client a échoué (voir $OUT/p2p-*.log)"; exit 1; }
 

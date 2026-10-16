@@ -332,7 +332,8 @@ fi
 # le binaire du jeu : leurs inputs sont enregistrés par `alacod-sim`
 # (`scripts/p2p-gungeon-inputs.sh`) puis rejoués par chaque client ; si la simulation change au
 # point que la run n'atteint plus l'étage 2, l'enregistrement ou EXPECT_FLOORS le dit (échec, pas
-# un faux vert). Signaling : le service `signaling` du compose (port NIGHTLY_GUNGEON_PORT).
+# un faux vert). Signaling : le service `signaling` du compose (port MATCHBOX_PORT, 3536 par défaut ; nécessite le
+# plugin `docker compose` v2).
 #   NIGHTLY_P2P_GUNGEON=1|0 (1 hors --quick), NIGHTLY_GUNGEON_SEED=10, NIGHTLY_GUNGEON_FRAMES=4500,
 #   NIGHTLY_GUNGEON_NETEM="delay 60ms 10ms loss 1%" (en plus : même run sur réseau dégradé,
 #   sans suspension, `tc netem` dans un espace de noms réseau sans root).
@@ -340,9 +341,9 @@ fi
 
 if [ "${NIGHTLY_P2P_GUNGEON:-$([ "${QUICK_MODE}" = true ] && echo 0 || echo 1)}" != 1 ]; then
     append_summary "### C2. P2P gungeon (run, transition d'étage): ⚠ SKIPPED (NIGHTLY_P2P_GUNGEON != 1)"
-elif ! command -v docker &> /dev/null; then
-    log_warn "Docker not found. Skipping p2p gungeon."
-    append_summary "### C2. P2P gungeon (run, transition d'étage): ⚠ SKIPPED (docker not found)"
+elif ! command -v docker &> /dev/null || ! docker compose version &> /dev/null; then
+    log_warn "Docker (plugin compose v2) not found. Skipping p2p gungeon."
+    append_summary "### C2. P2P gungeon (run, transition d'étage): ⚠ SKIPPED (docker compose not found)"
 else
     log_step "P2P gungeon (2 clients, transition d'étage)..."
     START_TIME=$(date +%s)

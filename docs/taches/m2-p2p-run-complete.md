@@ -18,3 +18,9 @@ William** : demande Docker (allumette locale) et deux machines. **Bloque la sort
 5. Intégrer au `nightly` ; consigner commit, commandes, graines, machines, limites.
 
 Ce n'est pas une tâche de session cloud (pas de Docker).
+
+## Livraison (2026-10-16, b2)
+
+Points 1, 3, 4, 5 faits sur une machine (VPS x86-64, Docker, sans affichage ni root) ; **le point 2 « deux machines » est préparé
+(`scripts/p2p-machine.sh`) et n'a pas été exécuté** (Mac arm64 indisponible). Rapport : `docs/taches/rapports/m2-p2p-run-complete.md`.
+D59 fermée ; D85 (hub + bots), D86 (retour au lobby bloqué), D87 (session fragile à la perte de paquets) ouvertes.

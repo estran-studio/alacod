@@ -36,13 +36,14 @@ p2p_init "$GAME"
 mkdir -p "$OUT"
 rm -f "$OUT"/p2p-*.trace "$OUT"/p2p-*.log
 export NETEM OUT
-p2p_netns_reexec "$SELF" "$@"
+p2p_netns_reexec "$SELF" "$GAME" "$SCRIPT" ${3:+"$3"}
 
 pids=()
 trap 'p2p_signaling_down; kill "${pids[@]}" 2>/dev/null' EXIT
 p2p_signaling_up
 
 PLAYERS=$(p2p_players "$CLIENTS")
+fail=0
 for ((i = 0; i < CLIENTS; i++)); do
     # shellcheck disable=SC2086
     ALACOD_HEADLESS=1 ALACOD_STATE_TRACE="$OUT/p2p-$i.trace" ALACOD_EXIT_AT_FRAME="$FRAMES" \
@@ -59,7 +60,8 @@ if kill -0 "$victim" 2>/dev/null; then
     kill -9 "$victim" 2>/dev/null
     echo "client $KILL_CLIENT tué (SIGKILL) après ${KILL_AFTER_S}s"
 else
-    echo "ÉCHEC : le client $KILL_CLIENT avait déjà quitté avant KILL_AFTER_S (partie trop courte ?)"
+    echo "ÉCHEC : le client $KILL_CLIENT avait déjà quitté avant KILL_AFTER_S (partie trop courte ?) : aucune déconnexion n'a eu lieu"
+    fail=1
 fi
 killed_at=$(date +%s)
 
@@ -74,7 +76,6 @@ kill "$watchdog" 2>/dev/null
 wait "$watchdog" 2>/dev/null
 waited=$(( $(date +%s) - killed_at ))
 
-fail=0
 echo "p2p-disconnect : jeu=$GAME frames=$FRAMES clients=$CLIENTS victime=$KILL_CLIENT netem='${NETEM:-}' ; survivants terminés ${waited}s après la mort du pair"
 echo "codes de sortie : ${codes[*]}   (victime : $KILL_CLIENT ; 137 = SIGKILL, 143 = tué par le garde-fou)"
 
