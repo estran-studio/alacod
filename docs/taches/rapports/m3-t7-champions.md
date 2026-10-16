@@ -11,7 +11,7 @@ finale est « déjà à jour »). Conventions : `docs/conventions.md` §72. Sess
   Un littéral est exact (même tirage).
 - **`behaviors` d'une variante** : remplacent ceux du personnage à la création (`ai.ranged` suit la première règle `Shoot`).
 - **`on_death`** (`game::champions`, `champion_death_system`, `DeathManagement`) : `SpawnCharacters` (anneau de 14 unités,
-  décalages fixes, équipe du mort, **sans variante** : pas de cascade), `Explode` (**mécanisme de M3-T4** : bombe à mèche d'une frame de l'équipe du mort, `destroys` transmis ; voir §6 bis), `SpawnPattern` (émetteur fantôme
+  décalages fixes, équipe du mort, **sans variante** : pas de cascade), `Explode` (**mécanisme de M3-T4** : bombe à mèche d'une frame de l'équipe du mort, `destroys` transmis ; voir §2 bis), `SpawnPattern` (émetteur fantôme
   `PatternGhost`, détruit à la fin de sa séquence), `loot` (tirage local `champion:<net id>`, objet ou arme au sol).
 - **`tint`** : champ disponible, aucune lecture dans la simulation (T17).
 - **Lint** : un `SpawnPattern` à la mort refuse un pattern infini (`Ring` avec `every > 0`) ; fixture
@@ -43,8 +43,8 @@ Après intégration de M3-T4 (`origin/m3-t4-bombes-rochers` `566f6dba`, qui cont
 ## 2 bis. Intégration avec M3-T4
 
 Décision d'orchestration : le mécanisme d'explosion de T4 fait foi. Conflits : `CLAUDE.md` et `docs/taches.md` (deux lignes
-conservées), `hit_iframes.rs` et `expectations.rs` (ancre d'ordre `.after(game::bombs::explosion_system)`). `champions.rs` n'a pas
-conflit mais a été réécrit : `PendingBlast(s)` et `champion_blast_system` supprimés ; `champion_death_system` pose une `world::Bomb`
+conservées), `hit_iframes.rs` et `expectations.rs` (ancre d'ordre `.after(game::bombs::explosion_system)`). `champions.rs` : 
+pas de conflit textuel mais a été réécrit : `PendingBlast(s)` et `champion_blast_system` supprimés ; `champion_death_system` pose une `world::Bomb`
 (`fuse_until = frame + 1`, équipe du mort, tir ami `Always`, source créditée au dernier joueur, **`destroys` transmis**, que `death_plan`
 jetait), exécutée par `bomb_fuse_system` / `explosion_system` : une seule émission de `DamageEvent` et d'`Exploded` par explosion,
 exclusions `Death` et invulnérables de T4. Observable de `champion_explodes` inchangé (mort f29 → dégâts f30 ; attentes
