@@ -426,6 +426,39 @@ mod tests {
         assert!(projectile_sources(&table, &synergies, &Inventory::default()).is_empty());
     }
 
+    /// M3-T1 : `projectile_mods` rend les `ProjectileMods` entiers (`on_hit` et `on_expire` avec les
+    /// modificateurs), dans l'ordre de `projectile_sources`.
+    #[test]
+    fn projectile_mods_porte_on_hit_et_on_expire_dans_le_meme_ordre() {
+        let parse = |src: &str| -> ItemDef { ron::from_str(src).unwrap() };
+        let table = ItemTable(BTreeMap::from([
+            (
+                "venin".to_string(),
+                parse(
+                    r#"(name: "V", kind: Passive, projectile: Some((on_hit: [ApplyStatus(status: "poison", stacks: 1)])))"#,
+                ),
+            ),
+            (
+                "mine".to_string(),
+                parse(
+                    r#"(name: "M", kind: Passive, projectile: Some((on_expire: [DestroyTerrain(radius: "8.0")])))"#,
+                ),
+            ),
+        ]));
+        let inventory = Inventory {
+            passives: vec!["mine".into(), "venin".into(), "venin".into()],
+            active: None,
+            consumables: BTreeMap::new(),
+        };
+        let synergies = SynergyTable::default();
+        let mods = projectile_mods(&table, &synergies, &inventory);
+        assert_eq!(mods.len(), 3, "un passif en double compte deux fois");
+        assert_eq!(mods[0].on_expire.len(), 1);
+        assert!(mods[0].on_hit.is_empty());
+        assert_eq!(mods[1], mods[2]);
+        assert_eq!(mods[1].on_hit.len(), 1);
+    }
+
     #[test]
     fn actif_sans_usage_garde_le_hash_d_avant_m2_t4() {
         // Équivalent de l'ancien `#[derive(Hash)]` sur `{ item, charge }`
