@@ -567,58 +567,72 @@ impl FlowFieldCache {
 
     /// Ligne de vue dégagée entre deux points (D66) : le segment `from`→`to` ne traverse aucune
     /// case de `wall_cells` (murs de l'IntGrid, terrain dynamique, portes fermées ; une fenêtre,
-    /// même intacte, laisse passer le regard). Parcours exact des cases touchées par le segment
-    /// (Amanatides-Woo en `FixedWide`, pas de flottant) : au passage d'un coin exact, le regard
-    /// passe sauf si les deux cases orthogonales sont des murs. Les cases des deux extrémités
-    /// ne comptent pas : ce sont celles des agents, qui s'y tiennent par construction.
+    /// même intacte, laisse passer le regard). Parcours de grille exact, en entiers : les bits des
+    /// `Fixed` en `i128`, et pour savoir quelle frontière (x ou y) le segment franchit en premier,
+    /// des **produits croisés** (`(distance à la frontière x) × |dy|` contre
+    /// `(distance à la frontière y) × |dx|`), jamais de quotient accumulé : le verdict est celui du
+    /// segment géométrique, donc le même dans les deux sens. Au passage exact d'un coin, le regard
+    /// passe sauf si les deux cases orthogonales sont des murs (un coin effleuré ne coupe pas).
+    /// Les cases des deux extrémités ne comptent pas : ce sont celles des agents.
     pub fn line_of_sight(&self, from: fixed_math::FixedVec2, to: fixed_math::FixedVec2) -> bool {
-        use fixed_math::FixedWide as Wide;
+        const CELL: i128 = (GRID_CELL_SIZE as i128) << 16;
+        let bits = |value: fixed_math::Fixed| i128::from(value.to_bits());
+        let (x0, y0) = (bits(from.x), bits(from.y));
+        let (dx, dy) = (bits(to.x) - x0, bits(to.y) - y0);
         let (start, end) = (GridPos::from_fixed(from), GridPos::from_fixed(to));
         if start == end {
             return true;
         }
-        let cell_size = Wide::from_num(GRID_CELL_SIZE);
-        let (origin_x, origin_y) = (Wide::from_num(from.x), Wide::from_num(from.y));
-        let (dx, dy) = (
-            Wide::from_num(to.x) - origin_x,
-            Wide::from_num(to.y) - origin_y,
-        );
-        let (step_x, step_y) = (dx.signum().to_num::<i32>(), dy.signum().to_num::<i32>());
-        // Instant (fraction du segment) où le segment franchit la prochaine frontière d'un axe,
-        // et écart entre deux frontières ; `Wide::MAX` pour un axe que le segment ne parcourt pas.
-        let axis = |origin: Wide, delta: Wide, cell: i32, step: i32| -> (Wide, Wide) {
-            if step == 0 {
-                return (Wide::MAX, Wide::MAX);
-            }
-            let boundary = Wide::from_num(if step > 0 { cell + 1 } else { cell } * GRID_CELL_SIZE);
-            let length = delta.abs();
-            ((boundary - origin).abs() / length, cell_size / length)
+        let (step_x, step_y) = (dx.signum() as i32, dy.signum() as i32);
+        let (length_x, length_y) = (dx.abs(), dy.abs());
+        // Distance (en bits) de l'origine à la prochaine frontière de chaque axe ; elle grandit
+        // de `CELL` à chaque case franchie sur l'axe.
+        let first_boundary = |origin: i128, cell: i32, step: i32| -> i128 {
+            let boundary = (i128::from(cell) + i128::from(step > 0)) * CELL;
+            (boundary - origin).abs()
         };
-        let (mut t_x, delta_x) = axis(origin_x, dx, start.x, step_x);
-        let (mut t_y, delta_y) = axis(origin_y, dy, start.y, step_y);
+        let mut next_x = first_boundary(x0, start.x, step_x);
+        let mut next_y = first_boundary(y0, start.y, step_y);
         let mut cell = start;
         let budget = (end.x - start.x).abs() + (end.y - start.y).abs();
         for _ in 0..budget {
-            if t_x.min(t_y) > Wide::ONE {
+            // Instants de franchissement `next_x / length_x` et `next_y / length_y`, comparés
+            // sans division ; un axe que le segment ne parcourt pas ne franchit jamais.
+            let order = match (step_x, step_y) {
+                (0, _) => std::cmp::Ordering::Greater,
+                (_, 0) => std::cmp::Ordering::Less,
+                _ => (next_x * length_y).cmp(&(next_y * length_x)),
+            };
+            // Franchissement au-delà (ou à) l'extrémité : la case suivante est celle de `to`.
+            let reached = match order {
+                std::cmp::Ordering::Less => next_x >= length_x,
+                std::cmp::Ordering::Greater => next_y >= length_y,
+                std::cmp::Ordering::Equal => next_x >= length_x,
+            };
+            if reached {
                 break;
             }
-            if t_x < t_y {
-                cell.x += step_x;
-                t_x += delta_x;
-            } else if t_y < t_x {
-                cell.y += step_y;
-                t_y += delta_y;
-            } else {
-                let (side_x, side_y) = (
-                    GridPos::new(cell.x + step_x, cell.y),
-                    GridPos::new(cell.x, cell.y + step_y),
-                );
-                if self.wall_cells.contains(&side_x) && self.wall_cells.contains(&side_y) {
-                    return false;
+            match order {
+                std::cmp::Ordering::Less => {
+                    cell.x += step_x;
+                    next_x += CELL;
                 }
-                cell = GridPos::new(cell.x + step_x, cell.y + step_y);
-                t_x += delta_x;
-                t_y += delta_y;
+                std::cmp::Ordering::Greater => {
+                    cell.y += step_y;
+                    next_y += CELL;
+                }
+                std::cmp::Ordering::Equal => {
+                    let (side_x, side_y) = (
+                        GridPos::new(cell.x + step_x, cell.y),
+                        GridPos::new(cell.x, cell.y + step_y),
+                    );
+                    if self.wall_cells.contains(&side_x) && self.wall_cells.contains(&side_y) {
+                        return false;
+                    }
+                    cell = GridPos::new(cell.x + step_x, cell.y + step_y);
+                    next_x += CELL;
+                    next_y += CELL;
+                }
             }
             if cell == end {
                 break;
@@ -1340,6 +1354,81 @@ mod tests {
         assert!(cache.line_of_sight(point(0.0, 0.0), point(80.0, 80.0)));
         cache.wall_cells.insert(GridPos::new(1, 2));
         assert!(!cache.line_of_sight(point(0.0, 0.0), point(80.0, 80.0)));
+    }
+
+    /// D66 (revue) : le segment (8,8)→(56,24) n'effleure que le coin (32,16) du mur (2,0) : il
+    /// passe, dans les deux sens (l'accumulation de quotients tronqués refusait l'aller et
+    /// acceptait le retour : `floor(2³²/6) + floor(2³²/3) = 2³¹ − 1` contre `2³²/2 = 2³¹`).
+    #[test]
+    fn line_of_sight_grazed_corner_passes_both_ways() {
+        let mut cache = FlowFieldCache::default();
+        cache.wall_cells.insert(GridPos::new(2, 0));
+        assert!(cache.line_of_sight(point(8.0, 8.0), point(56.0, 24.0)));
+        assert!(cache.line_of_sight(point(56.0, 24.0), point(8.0, 8.0)));
+        // Même pente, un cran plus bas : le segment traverse vraiment le mur.
+        assert!(!cache.line_of_sight(point(8.0, 8.0), point(56.0, 20.0)));
+        assert!(!cache.line_of_sight(point(56.0, 20.0), point(8.0, 8.0)));
+    }
+
+    /// D66 (revue) : la vue est symétrique par construction. 1 000 paires tirées d'une graine
+    /// fixe contre une grille de murs aléatoire (30 %), avec des pentes quelconques, nulles,
+    /// infinies (même x ou même y), 1 (diagonales exactes), des points sur des frontières de
+    /// cases (multiples de 8 unités, coins compris) et des points à fraction quelconque.
+    #[test]
+    fn line_of_sight_is_symmetric_on_random_grids() {
+        let mut state = 0x2545_F491_4F6C_DD1Du64;
+        let mut next = move || {
+            state ^= state << 13;
+            state ^= state >> 7;
+            state ^= state << 17;
+            state
+        };
+        let mut cache = FlowFieldCache::default();
+        for x in -12..12 {
+            for y in -12..12 {
+                if next() % 10 < 3 {
+                    cache.wall_cells.insert(GridPos::new(x, y));
+                }
+            }
+        }
+        let extent = 12 * GRID_CELL_SIZE;
+        let mut coordinate = |lattice: bool| -> f32 {
+            if lattice {
+                // multiples de 8 unités : frontières et centres de cases
+                ((next() % 49) as i32 - 24) as f32 * 8.0
+            } else {
+                let bits = (next() % (2 * extent as u64 * 65536)) as i64 - (extent as i64 * 65536);
+                bits as f32 / 65536.0
+            }
+        };
+        let (mut seen, mut clear) = (0, 0);
+        for pair in 0..1000 {
+            let lattice = pair % 2 == 0;
+            let (ax, ay, mut bx, mut by) = (
+                coordinate(lattice),
+                coordinate(lattice),
+                coordinate(lattice),
+                coordinate(lattice),
+            );
+            match pair % 5 {
+                0 => by = ay,             // pente nulle
+                1 => bx = ax,             // pente infinie
+                2 => by = ay + (bx - ax), // pente 1
+                3 => by = ay - (bx - ax), // pente -1
+                _ => {}
+            }
+            let (a, b) = (point(ax, ay), point(bx, by));
+            let forward = cache.line_of_sight(a, b);
+            assert_eq!(
+                forward,
+                cache.line_of_sight(b, a),
+                "asymétrique : ({ax}, {ay}) ↔ ({bx}, {by})"
+            );
+            seen += 1;
+            clear += usize::from(forward);
+        }
+        // Le tirage couvre les deux verdicts, sinon le test serait creux.
+        assert!(clear > 100 && clear < seen - 100, "{clear}/{seen} vues");
     }
 
     #[test]

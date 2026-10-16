@@ -34,8 +34,8 @@ Le collider (20 px) ne chevauche pas : seul le sprite de 32 px déborde ; c'est 
 
 `ai.sight_range` (donnée, chaîne `Fixed`, lint `>= 0`, défaut = `aggro_range`) : un joueur au-delà de
 `aggro_range` mais à moins de `sight_range` est ciblé s'il est en **ligne de vue dégagée**
-(`FlowFieldCache::line_of_sight` : segment contre `wall_cells`, parcours exact des cases en `FixedWide`,
-sans flottant ; deux cases murées de part et d'autre d'un coin exact coupent aussi ; extrémités exclues ;
+(`FlowFieldCache::line_of_sight` : segment contre `wall_cells`, parcours de grille exact en entiers
+(`i128`, produits croisés, voir « Revue » plus bas), sans flottant ; deux cases murées de part et d'autre d'un coin exact coupent aussi ; extrémités exclues ;
 fenêtres laissent voir ; tie-break par `net_id` inchangé). Un ennemi déjà `Chasing` vers un joueur le
 garde tant qu'il est à moins de `sight_range` (sinon le champ de flux qui contourne un mur lui ferait perdre
 sa cible). Mémoire = `EnemyTarget`, déjà rollback : aucun état nouveau.
@@ -85,3 +85,31 @@ Sur la fusion avec `origin/main` 64ec961c (suite verte sur la fusion) :
 - William doit confirmer en jeu que « coincé » ne reste pas d'un autre cas : le sprite 32 px qui longe un mur
   (5–12 px visuels) subsiste sur d'autres ennemis (`nav_stats`), sans effet sur le collider.
 - Le fuzz couvre zombies/testbed, pas la vue directe de throne : couverte par scénarios en synctest et par le p2p throne.
+
+## 7. Revue indépendante : traversée symétrique
+
+Défaut relevé : la première version accumulait des quotients tronqués en `FixedWide` (`t += delta`) : au
+passage d'un coin exact, `floor(2³²/6) + floor(2³²/3) = 2³¹ − 1` contre `2³²/2 = 2³¹`, d'où un verdict différent
+selon le sens ((8,8)→(56,24), seul mur (2,0), qui n'effleure que le coin (32,16)).
+
+Correctif : DDA entier. Les bits des `Fixed` en `i128` ; la frontière franchie en premier est décidée par
+`(distance à la frontière x) × |dy|` contre `(distance à la frontière y) × |dx|`, l'arrêt par comparaison
+à `|dx|`/`|dy|` ; aucune division. Les cases des extrémités restent exclues.
+
+Règle du coin : **un coin effleuré ne coupe pas, deux murs orthogonaux le coupent** (celle de la première
+version, de ses tests et du §22). La consigne de revue dit à la fois « le contre-exemple (un mur, coin
+seul) doit passer » et « les deux cases orthogonales doivent être libres, comme le flow field » : les deux
+sont incompatibles (le mur (2,0) est une orthogonale du coin (32,16)). J'ai gardé le contre-exemple, qui est
+explicite et testé ; le flow field interdit un pas diagonal par prudence de collision, ce qui n'est pas
+une règle de regard.
+
+Tests : `line_of_sight_grazed_corner_passes_both_ways` (contre-exemple dans les deux sens, plus son témoin
+qui traverse vraiment le mur) et `line_of_sight_is_symmetric_on_random_grids` (1 000 paires, graine fixe, grille
+24×24 à 30 % de murs, pentes 0, ∞, ±1 et quelconques, points sur frontières/coins et fractions quelconques,
+garde-fou : ni tout vu ni tout caché). **Rouges sur l'ancienne traversée** (« asymétrique : (128, −48) ↔
+(160, −80) »), verts sur la nouvelle.
+
+Rejeu après le correctif : `make test_scenarios_par SHARDS=3` **sans BLESS** : 3 tranches ok, aucune trace ne
+bouge, ni les 7 traces throne blessées plus haut ni les 3 scénarios D66 (aucun segment des parties jouées ne
+change de verdict : les verdicts de l'ancienne traversée ne divergeaient que sur des coins exacts, que ces
+parties ne rencontrent pas) ; hors throne, aucune trace touchée. `cargo test -p game` : sortie 0 ; fmt : sortie 0.
