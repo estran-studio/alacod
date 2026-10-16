@@ -85,14 +85,15 @@ rien ; les campagnes et la suite sont au premier plan). `CI=true` dans l'environ
 |---|---|
 | `make test_scenarios_par SHARDS=3` sur la branche (avant fusion), sans BLESS des traces existantes | **470 scénarios verts**, 1 123 s ; aucune `.trace` existante modifiée (`git status`), seules les deux nouvelles sont ajoutées |
 | même commande **sur la fusion avec `origin/main` `a9432ed9`** (M3-T2 comprise) | **484 scénarios verts**, 1 318 s |
+| même commande **sur la fusion finale avec `origin/main` `0a719425`** (outillage-p2p-stress comprise ; seul conflit : le journal de `docs/taches.md`) | **484 scénarios verts**, 1 044 s, aucune trace existante modifiée |
 | `make test_crates` | avant fusion : 955 réussis, 0 échec, 13 ignorés (70 suites) ; sur la fusion : **977 réussis**, 0 échec, 13 ignorés |
 | `make lint` ×5 (zombies, testbed, throne, gungeon, isaac) | 0 erreur, sur la branche et sur la fusion |
 | `make gen GAME=…` ×5 | sortie 0 et **aucun diff** (`git status` propre hors mes fichiers), sur la branche et sur la fusion |
 | `cargo fmt --all -- --check`, `check-forbidden.sh`, `check-rollback-registration.sh`, `make check_sim_boundary` | OK ; frontière : 11 crates de simulation, 5 en dette D69 |
 | `ALACOD_FUZZ=0:8 ALACOD_FUZZ_SCENARIO=gungeon_full_run` puis `…_four` (3 600 frames, synctest) | 8 graines chacun, **aucune divergence**, joueurs en vie |
 | `make bench` (strict, un processus, au calme relatif) | **échoue sur 27 scénarios** (29 dépassements) qui ne tiennent pas leur budget **déjà** (voir ci-dessous) ; mes trois scénarios passent |
-| p2p à deux clients (zombies, 600 frames, signaling Docker local, port 3566) | traces identiques, 599 lignes ; **0 frame resimulée** (aucun rollback réel obtenu, même avec `ALACOD_INPUT=script:tests/scenarios/p2p_smoke.ron`) |
-| `./scripts/p2p-restart.sh` (restart en ligne : touche `cleanup_rollback_world_system`) | partie 1 et partie 2 : traces identiques ; partie 2 ≠ partie 1 ; local : partie 2 = partie 1 ; sortie 0 |
+| p2p à deux clients, stress à rollbacks réels (`scripts/p2p-stress.sh zombies /tmp/inputs.ron 3000`, signaling Docker local port 3566), **sur la fusion `0a719425`** | `p2p-stress : OK` : codes de sortie 0 et 0, 0 `DesyncDetected`, **3 909 frames resimulées** (client 0), traces identiques sur 2 999 lignes. Un premier essai sans stress (600 frames, sans script) : traces identiques, 0 frame resimulée |
+| `./scripts/p2p-restart.sh` (restart en ligne : touche `cleanup_rollback_world_system`), **sur la fusion `0a719425`** | partie 1 et partie 2 : traces identiques (599 lignes) ; partie 2 ≠ partie 1 ; local : partie 2 = partie 1 |
 
 **Bench `grand`** (`bench_floor`, étage de 15 à 20 salles, 2 bots `fonceur`, 3 000 frames) : trois relevés isolés
 44,1 / 44,1 / 46,3 sim fps et pire rollback 25,3 à 26,6 ms ; dans `make bench` 48,1 fps et 24,8 ms ; 322 entités,
@@ -121,8 +122,9 @@ images du hub), corrigé. Aucun BLOQUANT.
   pas de root ; `lavapipe` est installé). `events.json` des deux scénarios produits sans rendu
   (`ALACOD_EVENTS_JSON`, `docs/taches/rapports/m2-full-run/`). La modification de `capture`/`play` pour le hub suivi
   est **compilée mais jamais exécutée** (pas de capture possible ici).
-- **p2p avec rollbacks réels : non obtenu** (0 frame resimulée). La run complète en ligne (hub, deux étages, D59 en
-  réel) est `m2-p2p-run-complete`. Le restart en ligne, lui, est vérifié (`p2p-restart.sh`).
+- **p2p de la run complète en ligne** (hub, deux étages, D59 en réel) : non fait, c'est `m2-p2p-run-complete`. Le
+  stress à rollbacks réels n'a été joué que sur **zombies** (3 909 frames resimulées, §4) et le restart en ligne
+  (`p2p-restart.sh`) ; aucun p2p sur gungeon.
 - `make bench` n'est pas vert sur ce poste (27 scénarios, 29 dépassements hérités, §4) ; seuls 6 de ces 27 ont été
   rejoués sur `main`.
 - Le fuzz d'inputs aléatoires ne traverse pas les étages (joueurs en vie, couverture non mesurée).
