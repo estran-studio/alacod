@@ -4073,6 +4073,59 @@ le joueur marche vers trois rochers qui ferment un couloir et s'y arrête ; quat
 (dont un à butin) à f5 et à la fin ; `joueur_hors_mur` tient.
 
 
+## 63. Contrats des familiers, orbitaux et champions v2 (M3-T0d)
+
+Contrats seuls : rien n'est rencontré en partie ordinaire, aucune trace ne bouge. M3-T6 exécute les
+familiers, M3-T7 les champions.
+
+**Behaviors de familier** (`behaviors::Behavior`, variantes **en fin d'enum**) : `Follow { gap }` (suit
+le porteur à `gap` unités, en file derrière les autres familiers du même porteur : rang = ordre
+d'apparition), `Orbit { radius, frames_per_turn }` (tourne autour du porteur, phase = rang × 2π /
+nombre d'orbitaux, par `fixed_math`), `MirrorShot { weapon, every }` (tire quand le porteur tire, dans
+sa direction de visée, au plus une fois tous les `every` frames ; **Q13** : l'arme du familier, sans les
+modificateurs du porteur), `BlockBullets` (une balle hostile qui touche le familier est détruite par
+`despawn_rollback`, comme le blank ; le familier est immunisé). `Behavior::is_familiar`. `select`
+ne retient jamais ces règles (un familier n'a pas d'IA de poursuite) ; kinds `Follow`, `Orbit`,
+`MirrorShot`, `BlockBullets` déclarés (`register_kinds`). Un familier est un **personnage** de
+`characters/` (équipe `Players` ; l'IA ennemie ne cible que `With<Player>`, un familier n'est donc ni
+visé ni attaqué : le ciblage ne change pas ici, allié qui combat = D5).
+
+**Lien au porteur.** `behaviors::FamiliarOf { owner: GgrsNetId, rank: u32 }` : composant rollback
+**neutre** (`rollback_and_trace_neutral`), contribution 0 sans porteur. Créé et détruit par les
+objets en M3-T6 ; son `GgrsNetId` viendra de `id_factory` au ramassage, dans l'ordre déterministe des
+ramassages de la frame.
+
+**Champ d'objet.** `ItemDef.familiar: Option<FamiliarRef { character, per_copy }>` (`per_copy` : 1 par
+défaut, par exemplaire tenu). Définition hors rollback et hors hash. **Lint** : personnage inconnu
+(`BrokenReference`), personnage sans behavior de familier, `per_copy = 0`, `gap`/`radius` ≤ 0,
+`frames_per_turn = 0`, `every = 0`, arme de `MirrorShot` inconnue ; réciproquement un behavior de
+familier sur un personnage qu'aucun objet ne cite est refusé (`Unsupported`, « sans porteur »).
+
+**Champions v2.** Champs optionnels de `VariantDef` (hors hash : le composant `Variant(nom)` ne change
+pas) : `on_death: [Action]` (vide par défaut), `behaviors: Option<Vec<Behavior>>` (remplace la liste
+du personnage), `loot: Option<String>` (pool de butin lâché à la mort, graine de §48 avec la clé de
+contenu `champion:<net_id>`), `tint: Option<String>` (`#rrggbb`, présentation seule). `chance`
+accepte un nombre (valeur inchangée) **ou une expression** (`NumOrExpr`, §18) avec les identifiants
+`players` et `floor` ; `VariantsConfig::chance_at(players, floor)`. Tant que M3-T7 n'exécute rien, le
+tirage de la variante résout l'expression avec 1 joueur à l'étage 0 (`draw_variant`) ; un nombre est
+toujours exact, le tirage de la graine de §25 est donc inchangé.
+**Nouvelle action** `Action::SpawnCharacters { id, count }` (fin d'enum) : fait apparaître `count`
+personnages à la position de l'action, à des **décalages fixes** autour du point, sans RNG (justification
+contre `SpawnEnemies`, qui tire ses positions dans le flux RNG de la salle `room:<niveau>` : la mort d'un
+champion ne doit pas déplacer ce tirage). **Lint** des actions à la mort : seules `Explode`, `SpawnCharacters`
+et `SpawnPattern` sont admises (`Unsupported` sinon ; `SpawnCharacters` est refusée dans un effet, un
+power-up et une frise de boss) ; `Explode` rayon > 0 et dégâts ≥ 0, `SpawnCharacters` personnage connu et
+`count > 0`, `SpawnPattern` pattern et arme connus, pool de butin connu, couleur `#rrggbb`, `behaviors`
+non vide et valides (mêmes règles que `ai.behaviors`), `chance` dans [0, 1] pour 1 et 4 joueurs aux
+étages 0 et 5.
+
+**Preuves.** Fixtures `familiar_ok`, `familiar_unknown_character`, `familiar_orphan_behavior`,
+`familiar_without_behavior`, `familiar_gap_zero`, `champion_ok`, `champion_bad_death`,
+`variant_chance_expression_range`, `variant_chance_expression_unknown` ; contenu `testbed` : personnage
+`compagnon` (`Follow` + `MirrorShot`, arme `pistol`) et objet `compagnon` (`familiar`), accepté par le lint,
+sans scénario de jeu (le ramassage ne crée rien encore). Attente de scénario `FamiliarCount { handle,
+count, at_frame }` (familiers dont le porteur est le joueur ; 0 tant que M3-T6 n'existe pas).
+
 ## 65. Le jeu `isaac` : squelette (M3-T0f)
 
 Le clone `isaac` démarre, sur la grammaire d'étage **en arbre existante** (`Graph`) : rien de nouveau

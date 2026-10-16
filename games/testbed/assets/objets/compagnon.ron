@@ -1,0 +1,7 @@
+// M3-T0d (docs/conventions.md §63) : objet d'essai qui donne un familier (le personnage `compagnon`,
+// un exemplaire par objet tenu). Contrat seul : le ramassage ne crée rien encore (M3-T6).
+(
+    name: "Compagnon",
+    kind: Passive,
+    familiar: Some((character: "compagnon", per_copy: 1)),
+)

@@ -138,6 +138,16 @@ pub enum Action {
         damage: Fixed,
         destroys: bool,
     },
+    /// M3-T0d (`docs/conventions.md` §63) : fait apparaître `count` personnages `id` à la position
+    /// de l'action (division d'un champion à sa mort). Contrairement à `SpawnEnemies` (frise de
+    /// boss, positions tirées du flux RNG de la salle), les positions sont des **décalages fixes
+    /// autour du point** (aucune consommation de RNG : le tirage d'une salle n'est pas touché par
+    /// la mort d'un champion). Contrat seul : l'exécution vient de M3-T7. Ajoutée en fin d'enum.
+    SpawnCharacters {
+        id: String,
+        #[cfg_attr(feature = "schema", schemars(extend("x-lint" = "> 0")))]
+        count: u32,
+    },
 }
 
 impl Action {
@@ -189,7 +199,8 @@ impl Action {
             | Action::SpawnEnemies { .. }
             | Action::Telegraph(_)
             | Action::GainShield(_)
-            | Action::Explode { .. } => None,
+            | Action::Explode { .. }
+            | Action::SpawnCharacters { .. } => None,
         }
     }
 }

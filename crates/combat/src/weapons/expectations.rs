@@ -442,6 +442,13 @@ pub enum Expectation {
         lacks: Vec<String>,
         at_frame: u32,
     },
+    /// Le joueur `handle` a exactement `count` familiers (`behaviors::FamiliarOf` dont le porteur
+    /// est ce joueur) à la frame exacte `at_frame` (M3-T0d, §63).
+    FamiliarCount {
+        handle: usize,
+        count: u32,
+        at_frame: u32,
+    },
     /// Le texte de la source `source` du HUD (`game::ui::hud_model::HudSnapshot`, joueur
     /// affiché, sans préfixe) contient `contains` à la frame exacte `at_frame` (T1.18,
     /// `docs/conventions.md` §32). Présentation : lu hors simulation, hors trace.
@@ -603,6 +610,7 @@ impl Expectation {
             | Self::BossPhase { at_frame, .. }
             | Self::ProfileHas { at_frame, .. }
             | Self::RunUnlocks { at_frame, .. }
+            | Self::FamiliarCount { at_frame, .. }
             | Self::Event {
                 by_frame: at_frame, ..
             }

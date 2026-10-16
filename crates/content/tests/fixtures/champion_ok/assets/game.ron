@@ -1,0 +1,8 @@
+// Fixture M3-T0d : champion_ok
+(
+    name: "fixture-champion_ok",
+    content_folders: [
+        (path: "characters", kind: "Character"),
+    ],
+    entry: (start_map: "unused", default_seed: 1),
+)
