@@ -1,0 +1,13 @@
+// M3-T2 : témoin de `effect_on_event` : le même scénario sans l'objet `echo` ; aucun `OnEvent` n'existe, les
+// dégâts restent à 1.
+Scenario(
+    powerup_drop_chance_override: "0.0",
+    game: "testbed",
+    map: "testbed/salles.ldtk",
+    map_seed: 1,
+    frames: 80,
+    players: [(inputs: [(from: 10, to: 13, buttons: [Interaction])])],
+    expect: [
+        Stat(handle: 0, stat: Damage, value: 1.0, at_frame: 60),
+    ],
+)

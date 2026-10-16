@@ -1,0 +1,12 @@
+// M3-T2 (docs/conventions.md §67) : `ApplyStatus` (poison sur la cible touchée) et `ApplyStatusSelf`
+// (lenteur sur le porteur) d'`OnHit`. Scénarios `effect_apply_status`.
+(
+    name: "Morsure",
+    kind: Passive,
+    effects: [
+        (on: OnHit, do: [
+            ApplyStatus(status: "poison", stacks: 1),
+            ApplyStatusSelf(status: "lenteur", stacks: 1),
+        ]),
+    ],
+)

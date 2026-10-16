@@ -32,10 +32,10 @@ use combat::downed::Downed;
 use combat::emitter::Emitter;
 use combat::projectile::{resolve_pattern, PatternLibrary};
 use effects::runtime::{
-    conditions_hold, healed, limits_allow, limits_consume, limits_recharge, responds_to, tick_due,
-    Carrier, Limits, Trigger,
+    conditions_hold, effect_responds, healed, limits_allow, limits_consume, limits_recharge,
+    tick_due, trigger_target, Carrier, Limits, TargetRef, Trigger,
 };
-use effects::{Action, Effect, On, Recharge};
+use effects::{Action, Condition, Effect, On, Recharge};
 use items::{BlankUsed, Inventory, ItemPicked, ItemTable, SynergyTable};
 use map::game::entity::map::{level_id::LevelId, room::RoomBounds};
 use sim_core::damage::DamageEvent;
@@ -51,6 +51,7 @@ use world::{RoomChanged, RoomState};
 
 use crate::character::health::{Death, Health, HealthRegen, HitBy};
 use crate::character::player::Player;
+use crate::effects_v3::{classify, positions_of, EffectOut, HitLanded, Step};
 use crate::global_asset::GlobalAsset;
 use crate::weapons::WeaponsConfig;
 
@@ -133,7 +134,7 @@ pub struct EffectAssets<'w> {
     library: Option<Res<'w, PatternLibrary>>,
 }
 
-type CarrierQuery<'w, 's> = Query<
+pub(crate) type CarrierQuery<'w, 's> = Query<
     'w,
     's,
     (
@@ -157,7 +158,7 @@ type CarrierQuery<'w, 's> = Query<
 >;
 
 /// Joueurs en vie (`SquadSize`).
-type AliveQuery<'w, 's> = Query<
+pub(crate) type AliveQuery<'w, 's> = Query<
     'w,
     's,
     (),
@@ -187,12 +188,23 @@ pub type OthersQuery<'w, 's> = Query<
 /// Tueur (net id) → tags des cibles tuées cette frame, dans l'ordre des net ids des victimes.
 /// Le tueur est le premier `HitBy` de `Death::last_hit_by` (un joueur par son handle).
 pub fn kills_by_killer(dead: &DeadQuery, others: &OthersQuery) -> BTreeMap<usize, Vec<Tags>> {
+    kills_with_victims(dead, others)
+        .into_iter()
+        .map(|(killer, victims)| (killer, victims.into_iter().map(|(tags, _)| tags).collect()))
+        .collect()
+}
+
+/// Comme [`kills_by_killer`], avec le `GgrsNetId` de chaque victime (`OnKill` + `TargetInRange`, M3-T2).
+pub fn kills_with_victims(
+    dead: &DeadQuery,
+    others: &OthersQuery,
+) -> BTreeMap<usize, Vec<(Tags, usize)>> {
     let player_net_ids: BTreeMap<usize, usize> = others
         .iter()
         .filter_map(|(id, _, player)| player.map(|p| (p.handle, id.0)))
         .collect();
-    let mut kills: BTreeMap<usize, Vec<Tags>> = BTreeMap::new();
-    for (_, death, tags) in order_iter!(dead) {
+    let mut kills: BTreeMap<usize, Vec<(Tags, usize)>> = BTreeMap::new();
+    for (victim, death, tags) in order_iter!(dead) {
         let killer = death.last_hit_by.as_ref().and_then(|hits| {
             hits.iter().find_map(|hit| match hit {
                 HitBy::Player(handle) => player_net_ids.get(handle).copied(),
@@ -203,28 +215,33 @@ pub fn kills_by_killer(dead: &DeadQuery, others: &OthersQuery) -> BTreeMap<usize
             kills
                 .entry(killer)
                 .or_default()
-                .push(tags.cloned().unwrap_or_default());
+                .push((tags.cloned().unwrap_or_default(), victim.0));
         }
     }
     kills
 }
 
 /// Un effet à exécuter pour un porteur : le sien ou celui d'un objet tenu.
-struct Listed<'a> {
-    /// Clé de `EffectState::limits` : `effect:<index>` ou `item:<id>:<index>`.
+pub(crate) struct Listed<'a> {
+    /// Clé de `EffectState::limits` : `effect:<index>` ou `item:<id>:<index>` (`item:<id>#k:<index>`
+    /// pour le k-ième exemplaire d'un objet `stack: Independent`, M3-T2).
     key: String,
     source: ModifierSource,
     /// Index dans le journal de trace (`index=`) : celui d'`Effects`, sinon celui du `ItemDef`.
     index: usize,
-    effect: &'a Effect,
+    pub(crate) effect: &'a Effect,
     /// Frame depuis laquelle `Tick` compte.
     posed: u32,
+    /// M3-T2 : rang de cet exemplaire parmi ceux du même objet (0 : le premier, et tout effet qui
+    /// n'est pas d'objet) et nombre d'exemplaires tenus, pour `Scaled { PerCopy }`.
+    copy_rank: u32,
+    copies: u32,
 }
 
 /// Les effets d'un porteur dans l'ordre : ceux d'[`Effects`] par index, puis ceux des objets
 /// (passifs dans l'ordre de ramassage, puis l'actif) par index de `ItemDef`, `OnUse` exclu
 /// (exécuté par `game::items`).
-fn listed_effects<'a>(
+pub(crate) fn listed_effects<'a>(
     effects: Option<&'a Effects>,
     inventory: Option<&'a Inventory>,
     table: Option<&'a ItemTable>,
@@ -248,6 +265,8 @@ fn listed_effects<'a>(
                 index,
                 effect,
                 posed: state.posed.get(index).copied().unwrap_or(frame),
+                copy_rank: 0,
+                copies: 1,
             });
         }
     }
@@ -257,13 +276,35 @@ fn listed_effects<'a>(
             .iter()
             .map(String::as_str)
             .chain(inventory.active.iter().map(|slot| slot.item.as_str()));
+        // Rang d'exemplaire de chaque id (ordre de ramassage) et nombre tenu (`PerCopy`).
+        let mut seen: BTreeMap<&str, u32> = BTreeMap::new();
         for id in held {
             let Some(def) = table.0.get(id) else { continue };
+            let rank = seen.entry(id).or_insert(0);
+            let copy_rank = *rank;
+            *rank += 1;
+            // Limites partagées (défaut) : tous les exemplaires ont la clé du premier ; propres à
+            // chaque exemplaire (`stack: Independent`) : suffixe `#k`.
+            let key_rank = if def.stack == items::StackMode::Independent {
+                copy_rank
+            } else {
+                0
+            };
+            let copies = if def.effects.iter().any(has_per_copy) {
+                inventory.count(id)
+            } else {
+                1
+            };
             for (index, effect) in def.effects.iter().enumerate() {
                 if effect.on == On::OnUse {
                     continue;
                 }
-                let key = format!("item:{id}:{index}");
+                // M3-T2 (§67) : un récepteur `OnEvent` écoute une fois par objet, pas par exemplaire
+                // (seule `Scaled(PerCopy)` multiplie) ; les émetteurs, eux, s'exécutent par exemplaire.
+                if copy_rank > 0 && matches!(effect.on, On::OnEvent(_)) {
+                    continue;
+                }
+                let key = items::item_effect_key(id, key_rank, index);
                 let posed = if matches!(effect.on, On::Tick(_)) {
                     *state.item_posed.entry(key.clone()).or_insert(frame)
                 } else {
@@ -275,6 +316,8 @@ fn listed_effects<'a>(
                     index,
                     effect,
                     posed,
+                    copy_rank,
+                    copies,
                 });
             }
         }
@@ -295,6 +338,8 @@ fn listed_effects<'a>(
                     index,
                     effect,
                     posed,
+                    copy_rank: 0,
+                    copies: 1,
                 });
             }
         }
@@ -302,28 +347,51 @@ fn listed_effects<'a>(
     listed
 }
 
+/// Un effet contient-il un `Scaled { PerCopy }`, à n'importe quelle profondeur d'enveloppes (comme le
+/// lint et `effects_v3::classify`) ? Le nombre d'exemplaires ne se calcule que pour lui.
+fn has_per_copy(effect: &Effect) -> bool {
+    effect.r#do.iter().any(|action| {
+        let mut action = action;
+        while let Action::Scaled {
+            action: inner,
+            scale,
+        } = action
+        {
+            if *scale == Some(effects::actions::Scale::PerCopy) {
+                return true;
+            }
+            action = inner;
+        }
+        false
+    })
+}
+
 /// Ce que les effets d'un porteur peuvent modifier.
-struct Body<'a, 'w, 's> {
-    entity: Entity,
-    has_emitter: bool,
-    health: &'a mut Health,
-    modifiers: &'a mut Modifiers,
-    gauges: Option<&'a mut Gauges>,
-    commands: &'a mut Commands<'w, 's>,
+pub(crate) struct Body<'a, 'w, 's> {
+    pub(crate) entity: Entity,
+    pub(crate) has_emitter: bool,
+    pub(crate) health: &'a mut Health,
+    pub(crate) modifiers: &'a mut Modifiers,
+    pub(crate) gauges: Option<&'a mut Gauges>,
+    pub(crate) commands: &'a mut Commands<'w, 's>,
+    /// M3-T2 : sorties hors du porteur (`Emit`, statuts à poser), vidées par l'appelant.
+    pub(crate) out: &'a mut Vec<EffectOut>,
 }
 
 /// Lecture seule du porteur pour les conditions.
-struct CarrierView<'a> {
-    tags: &'a Tags,
-    carried: &'a [&'a str],
-    squad_size: u32,
+pub(crate) struct CarrierView<'a> {
+    pub(crate) tags: &'a Tags,
+    pub(crate) carried: &'a [&'a str],
+    pub(crate) squad_size: u32,
+    /// Position monde du porteur (`TargetInRange`).
+    pub(crate) position: Option<(Fixed, Fixed)>,
 }
 
 /// Exécute les effets de `listed` qui répondent à `triggers` (et, si `tick`, à leur `Tick`).
 /// Ordre : déclencheurs, puis effets par ordre de liste. Les recharges (`PerRoom` sur
 /// `RoomCleared`, `PerFloor` sur `FloorStart`) précèdent les exécutions de la frame.
 #[allow(clippy::too_many_arguments)]
-fn run_listed(
+pub(crate) fn run_listed(
     listed: &[Listed],
     triggers: &[Trigger],
     tick: bool,
@@ -353,7 +421,7 @@ fn run_listed(
         let effect = entry.effect;
         let mut firings: Vec<Option<&Trigger>> = triggers
             .iter()
-            .filter(|t| responds_to(&effect.on, t))
+            .filter(|t| effect_responds(effect, t))
             .map(Some)
             .collect();
         if tick && tick_due(&effect.on, entry.posed, frame) {
@@ -368,6 +436,7 @@ fn run_listed(
                 last_hit_frame: state.last_hit_frame,
                 carried: view.carried,
                 squad_size: view.squad_size,
+                position: view.position,
             };
             if !conditions_hold(&effect.r#if, &carrier, trigger) {
                 continue;
@@ -386,20 +455,49 @@ fn run_listed(
                 "ggrs{{f={} effect carrier={} index={} on={:?}}}",
                 frame, net_id, entry.key, effect.on
             );
+            let target = trigger_target(trigger).map(|target| target.id);
             for action in &effect.r#do {
-                apply_action_sourced(
-                    action,
-                    net_id,
-                    entry.source.clone(),
-                    frame,
-                    body.health,
-                    body.modifiers,
-                    state,
-                    body.gauges.as_deref_mut(),
-                    (body.entity, body.has_emitter),
-                    body.commands,
-                    assets,
-                );
+                match classify(action, entry.copy_rank, entry.copies) {
+                    Step::Apply(action) => apply_action_sourced(
+                        &action,
+                        net_id,
+                        entry.source.clone(),
+                        frame,
+                        body.health,
+                        body.modifiers,
+                        state,
+                        body.gauges.as_deref_mut(),
+                        (body.entity, body.has_emitter),
+                        body.commands,
+                        assets,
+                    ),
+                    Step::Emit(name) => body.out.push(EffectOut::Emit {
+                        carrier: net_id.0,
+                        name,
+                    }),
+                    Step::Status {
+                        to_self,
+                        status,
+                        stacks,
+                    } => {
+                        // Sur le porteur, ou sur la cible du déclencheur (sans cible : rien, le lint
+                        // refuse `ApplyStatus` hors `OnHit`/`OnDamageTaken`).
+                        let (target, source) = if to_self {
+                            (Some(net_id.0), None)
+                        } else {
+                            (target, Some(net_id.clone()))
+                        };
+                        if let Some(target) = target {
+                            body.out.push(EffectOut::Status {
+                                source,
+                                target,
+                                status,
+                                stacks,
+                            });
+                        }
+                    }
+                    Step::Skip => {}
+                }
             }
         }
     }
@@ -415,6 +513,9 @@ pub fn apply_effects_system(
     others: OthersQuery,
     alive: AliveQuery,
     damage: Option<Res<FrameEvents<DamageEvent>>>,
+    hits: Option<Res<FrameEvents<HitLanded>>>,
+    positions_q: Query<(&GgrsNetId, &fixed_math::FixedTransform3D), With<Rollback>>,
+    mut outbox: ResMut<FrameEvents<EffectOut>>,
     table: Option<Res<ItemTable>>,
     synergies: Option<Res<SynergyTable>>,
     assets: EffectAssets,
@@ -424,8 +525,10 @@ pub fn apply_effects_system(
     }
     let frame = frame.frame;
     let squad_size = alive.iter().count() as u32;
+    // Positions des cibles : construites à la demande, seulement si un effet lit `TargetInRange`.
+    let mut positions: Option<BTreeMap<usize, (Fixed, Fixed)>> = None;
 
-    let kills = kills_by_killer(&dead, &others);
+    let kills = kills_with_victims(&dead, &others);
     let tags_by_net_id: BTreeMap<usize, Tags> = others
         .iter()
         .map(|(id, tags, _)| (id.0, tags.cloned().unwrap_or_default()))
@@ -446,7 +549,7 @@ pub fn apply_effects_system(
         downed,
         has_emitter,
         inventory,
-        _transform,
+        transform,
     ) in order_mut_iter!(carriers)
     {
         let had_state = state_component.is_some();
@@ -478,10 +581,28 @@ pub fn apply_effects_system(
         }
 
         // Déclencheurs de la frame
+        let uses_range = listed.iter().any(|l| {
+            l.effect
+                .r#if
+                .iter()
+                .any(|c| matches!(c, Condition::TargetInRange(_)))
+        });
+        let mut target_ref = |id: usize| TargetRef {
+            id,
+            position: if uses_range {
+                positions
+                    .get_or_insert_with(|| positions_of(&positions_q))
+                    .get(&id)
+                    .copied()
+            } else {
+                None
+            },
+        };
         let mut triggers: Vec<Trigger> = Vec::new();
-        for target_tags in kills.get(&net_id.0).into_iter().flatten() {
+        for (target_tags, victim) in kills.get(&net_id.0).into_iter().flatten() {
             triggers.push(Trigger::Kill {
                 target_tags: target_tags.clone(),
+                target: Some(target_ref(*victim)),
             });
         }
         // Dégâts subis cette frame : `HealthRegen` les date quand le porteur en a un (dégâts
@@ -498,7 +619,21 @@ pub fn apply_effects_system(
             let source_tags = hit_event
                 .and_then(|e| tags_by_net_id.get(&e.source.0).cloned())
                 .unwrap_or_default();
-            triggers.push(Trigger::DamageTaken { source_tags });
+            triggers.push(Trigger::DamageTaken {
+                source_tags,
+                target: hit_event.map(|e| target_ref(e.source.0)),
+            });
+        }
+        // M3-T2 : coups portés (dégât réel, après résolution), dans l'ordre d'émission
+        for hit in hits
+            .iter()
+            .flat_map(|events| events.iter())
+            .filter(|hit| hit.source == net_id.0)
+        {
+            triggers.push(Trigger::Hit {
+                target_tags: tags_by_net_id.get(&hit.target).cloned().unwrap_or_default(),
+                target: target_ref(hit.target),
+            });
         }
         for p in pending {
             triggers.push(match p {
@@ -515,7 +650,9 @@ pub fn apply_effects_system(
             tags: tags.unwrap_or(&no_tags),
             carried: &carried,
             squad_size,
+            position: transform.map(|t| (t.translation.x, t.translation.y)),
         };
+        let mut out: Vec<EffectOut> = Vec::new();
         let mut body = Body {
             entity,
             has_emitter,
@@ -523,10 +660,14 @@ pub fn apply_effects_system(
             modifiers: &mut modifiers,
             gauges: gauges.as_deref_mut(),
             commands: &mut commands,
+            out: &mut out,
         };
         run_listed(
             &listed, &triggers, true, frame, net_id, &view, state, &mut body, &assets,
         );
+        for event in out {
+            outbox.send(event);
+        }
         if !had_state && local != EffectState::default() {
             commands.entity(entity).insert(local);
         }
@@ -534,7 +675,7 @@ pub fn apply_effects_system(
 }
 
 /// Objets tenus (passifs puis actif), pour `Carrying`.
-fn carried_items(inventory: Option<&Inventory>) -> Vec<&str> {
+pub(crate) fn carried_items(inventory: Option<&Inventory>) -> Vec<&str> {
     inventory
         .map(|inventory| {
             inventory
@@ -561,6 +702,7 @@ pub fn apply_triggered_effects_system(
     pick_events: Option<Res<FrameEvents<ItemPicked>>>,
     blank_events: Option<Res<FrameEvents<BlankUsed>>>,
     floor: Option<Res<run::FloorState>>,
+    mut outbox: ResMut<FrameEvents<EffectOut>>,
     table: Option<Res<ItemTable>>,
     synergies: Option<Res<SynergyTable>>,
     assets: EffectAssets,
@@ -691,7 +833,9 @@ pub fn apply_triggered_effects_system(
                 tags: tags.unwrap_or(&no_tags),
                 carried: &carried,
                 squad_size,
+                position: transform.map(|t| (t.translation.x, t.translation.y)),
             };
+            let mut out: Vec<EffectOut> = Vec::new();
             let mut body = Body {
                 entity,
                 has_emitter,
@@ -699,10 +843,14 @@ pub fn apply_triggered_effects_system(
                 modifiers: &mut modifiers,
                 gauges: gauges.as_deref_mut(),
                 commands: &mut commands,
+                out: &mut out,
             };
             run_listed(
                 &listed, &triggers, false, frame, net_id, &view, state, &mut body, &assets,
             );
+            for event in out {
+                outbox.send(event);
+            }
         }
         if !had_state && local != EffectState::default() {
             commands.entity(entity).insert(local);
@@ -922,7 +1070,11 @@ pub(crate) fn apply_action_sourced(
         | Action::SpawnCharacters { .. }
         // M3-T1 : chance d'`on_hit` de projectile seulement
         | Action::Chance { .. }
-        | Action::Scaled { .. } => {
+        // M3-T2 : `Scaled`, `Emit` et `ApplyStatus*` sont triés par `effects_v3::classify` avant
+        // d'arriver ici (la frise de boss les refuse au lint)
+        | Action::Scaled { .. }
+        | Action::Emit(_)
+        | Action::ApplyStatusSelf { .. } => {
             warn!(
                 "effet de {} : action {:?} non exécutée en v1 (voir `alacod lint`)",
                 net_id, action
@@ -1006,6 +1158,7 @@ mod tests {
         app.init_resource::<bevy_ggrs::RollbackOrdered>()
             .init_resource::<Assets<WeaponsConfig>>()
             .insert_resource(FrameCount { frame: 50 })
+            .init_resource::<FrameEvents<EffectOut>>()
             .add_systems(Update, apply_effects_system);
         let alive = spawn_hurt_carrier(&mut app, 1, 50, false);
         let dead = spawn_hurt_carrier(&mut app, 2, 50, true);
@@ -1130,6 +1283,7 @@ mod tests {
         app.init_resource::<bevy_ggrs::RollbackOrdered>()
             .init_resource::<Assets<WeaponsConfig>>()
             .insert_resource(FrameCount { frame })
+            .init_resource::<FrameEvents<EffectOut>>()
             .insert_resource(run::FloorState {
                 index: floor_index,
                 ..Default::default()
@@ -1214,5 +1368,52 @@ mod tests {
         app.world_mut().resource_mut::<run::FloorState>().index = 1;
         app.update();
         assert_eq!(health(&app), fx(60.0), "charge rendue à l'étage 1");
+    }
+
+    /// Clés de limites (M3-T2, Q16) : `Shared` (défaut) → une seule clé pour tous les exemplaires ;
+    /// `Independent` → une clé par exemplaire (`#k`). Rang et nombre d'exemplaires pour `PerCopy`.
+    #[test]
+    fn cles_de_limites_partagees_ou_independantes() {
+        fn listed_keys(stack: &str) -> Vec<(String, u32, u32)> {
+            let def: items::ItemDef = ron::from_str(&format!(
+                r#"(name: "A", kind: Passive, stack: {stack}, effects: [
+                    (on: OnKill, charges: Some(1), do: [Scaled(action: Heal("1"), scale: Some(PerCopy))]),
+                ])"#
+            ))
+            .unwrap();
+            let table = ItemTable([("amulette".to_string(), def)].into_iter().collect());
+            let inventory = Inventory {
+                passives: vec!["amulette".into(), "amulette".into()],
+                ..Default::default()
+            };
+            let mut state = EffectState::default();
+            listed_effects(
+                None,
+                Some(&inventory),
+                Some(&table),
+                None,
+                &GgrsNetId(1, "t".into()),
+                &mut state,
+                10,
+                false,
+            )
+            .iter()
+            .map(|l| (l.key.clone(), l.copy_rank, l.copies))
+            .collect()
+        }
+        assert_eq!(
+            listed_keys("Shared"),
+            vec![
+                ("item:amulette:0".to_string(), 0, 2),
+                ("item:amulette:0".to_string(), 1, 2)
+            ]
+        );
+        assert_eq!(
+            listed_keys("Independent"),
+            vec![
+                ("item:amulette:0".to_string(), 0, 2),
+                ("item:amulette#1:0".to_string(), 1, 2)
+            ]
+        );
     }
 }

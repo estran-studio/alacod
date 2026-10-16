@@ -650,6 +650,36 @@ entrée depuis le hub (T13). Ajoutés le 2026-10-14 :
   transition d'étage de la grammaire, traces identiques ; jouée par `scripts/nightly.sh` ensuite.
 Calendrier indicatif : **huit semaines**.
 
+### État au 2026-10-16 (soir) et réponses de William aux questions de M3
+
+Orchestration passée sous OMP (orchestrateur Fable sur le VPS, workers `b0`/`b1`/`b3` sur le Mac et
+`b2` sur le VPS, un worktree et un target par worker, relecture indépendante par `gpt-6-astra` avant
+chaque merge ; `~/orca/worker.sh`). Mergé dans la journée : D78, M3-T0d, M3-T1, M3-T0b, M3-T6, M3-T4,
+M3-T7, M3-T13, M2-T14d + D64, M3-T2. En cours : M3-T17 (b0), `outillage-p2p-stress` (b1 : les p2p de
+T6/T4/T7 du jour n'avaient presque aucun rollback réel, seul celui de T2 en avait ; rejeu sur `main`
+avec rollbacks forcés), `m2-full-run` (b2). Les listes « lançable tout de suite » ci-dessous sont
+périmées pour T0a/T0c/T0d/T0f (mergées sous les noms `m4-t0*`) : vérifier `git log origin/main` avant
+tout dispatch.
+
+**Réponses de William (2026-10-16, orchestrateur OMP)** — elles lèvent les blocages des fiches :
+
+| Q | Réponse |
+|---|---|
+| Q2 (cœurs) | demi-cœur = 1 PV ; `ExtraHealth { soul }` (composant neutre) absorbée **avant** les PV, point par point ; cœurs d'âme dessinés en présentation |
+| Q4 (coop) | sous, bombes, clés **par joueur** (`Inventory` de chacun, comme aujourd'hui) ; celui qui ramasse possède |
+| Q5 (pools) | épuisement **par run et par pool** (trésor, boutique, boss, diable) ; `PoolState` rollback neutre, tirage indépendant du moment (`loot_seed` + index d'épuisement) |
+| Q6 (diable) | refus si le paiement tuerait, sinon vie max réduite définitivement (`can_pay` de T0b) ; les cœurs d'âme (Q2) paient à la place s'ils sont présents |
+| Q7 (curses) | les cinq : `Darkness` (HideMinimap), `Unknown` (HideHealth), `Blind` (HideItemNames), `Labyrinth` (FloorRooms ×2), `Modifier(stat)` (ex. Maze/Lost : vitesse ou chance en moins) |
+| Q8 (grille) | case unique **et** grandes salles 2×1 / 1×2 / 2×2 (boss, trésor) dès T5 (estimation T5 : 7 j) |
+| Q10 (transformations) | oui : contrat (`SynergyDef.requires_tag`) + une transformation d'exemple au testbed (`transformation_three`), petite tâche séparée après T2 |
+| Q12 (charme) | oui : l'ennemi charmé cible l'ennemi le plus proche (tie-break net id) pendant la durée, puis redevient hostile |
+| Q13 (familier) | `MirrorShot` tire **les larmes du porteur** (arme + objets via `Projectile::composed`) : reprise de T6, traces testbed de T6 bougent avec preuve §5 |
+| Q16 (limites) | `Shared` par défaut, `Independent` opt-in par objet (livré par T2) |
+| Q17 (visée) | option de personnage `aim: FourWay` (donnée), activée par `isaac` ; quantification dans `weapon_rollback_system`, traces isaac bougent (preuve §5), le bot T14 la connaît |
+
+Tâches de suivi créées par ces réponses (une branche chacune, après T2/T6) : `m3-q10-transformations`,
+`m3-q12-charme`, `m3-q13-mirror-shot-larmes`, `m3-q17-visee-quatre-directions`.
+
 ### Reprise au 2026-10-16 (sessions fermées, contexte frais)
 
 `main` = `85b8b2dd`. Mergé le 2026-10-15/16 : dettes D15/D63/D68/D77, M2-T12 profil et déblocages,
@@ -1564,5 +1594,6 @@ quand M2 commence. Les sprites de 1837 ne passent pas par cette voie : ils vienn
 | 2026-10-16 | m3-t7-champions « champions et élites v2 » (M3-T7 : `chance` en expression résolue à l'apparition (`VariantContext` joueurs/étage), `behaviors` de variante, `on_death` : `SpawnCharacters` en anneau sans variante, `Explode` par la bombe à mèche d'une frame de T4 (équipe du mort, `destroys` transmis), `SpawnPattern` par émetteur fantôme (pattern infini refusé au lint), `loot` par graine `champion:<net id>` ; testbed `elite_*` ; 11 scénarios ; §72) | `m3-t7-champions` | Claude (b0) | b0 : fusion `origin/main` (déjà à jour, `af46f192`), suite 3 tranches 412 scénarios sans trace existante bougée, test_crates (935), lint ×5, gen ×5 sans diff, fmt, check_forbidden, check_rollback_registration, check_sim_boundary, test_tools, fuzz 0:8, p2p 2 clients (traces identiques) ; après revue : mécanisme d'explosion de M3-T4, lint `Named`, seule `champion_explodes` rebénie, suite 426 scénarios, test_crates 946, p2p 73/65 frames rejouées. Dette : tirage de variante corrélé sur net ids consécutifs (§25). Atteignable seulement par le testbed jusqu'à M3-T11c. |
 | 2026-10-17 | m3-t4-bombes-rochers « bombes, rochers, piques, mur secret » (M3-T4 : bombe posée par `Bomb` (front montant, consommable `bomb`, `BombCarrier`), `explosion_system` (rayon strict, tri par `GgrsNetId`, invulnérables épargnés) à la place du système des barils, `Explode` exécuté (bombe à mèche d'une frame), rochers cassés par `despawn_rollback` + butin `loot_seed` `rock:<salle>:<x>:<y>`, caverne creusée par la même requête, mur secret (portes closes sans `Interactable`, ouvertes par explosion), piques `hazard` (`dash_crosses`), `PlayerScript::bomb`, fuzz `ALACOD_FUZZ_BOMBS`, 14 scénarios dont 3 témoins, §69, D80, D81) | `m3-t4-bombes-rochers` | Claude (b1) | b1 : fusion `origin/main` `af46f192` (M3-T6), suite 3 tranches 415 scénarios sans trace existante bougée (barils inclus), test_crates 939, lint/gen ×5, fmt, sim_boundary, check_forbidden, test_tools, fuzz 0:8 et `ALACOD_FUZZ_BOMBS=1`. p2p testbed 2 clients 600 frames (rocher cassé, mur secret ouvert, bombes) traces identiques avec ~107 frames resimulées. Non vérifié : bench, vidéos. Non fait : bombes d'`isaac` (D81), `Explode` en `OnUse` (D80). |
 | 2026-10-17 | m3-t4-bombes-rochers « bombes, rochers, piques, mur secret » (M3-T4 : bombe posée par `Bomb` (front montant, consommable `bomb`, `BombCarrier`), `explosion_system` (rayon strict, tri par `GgrsNetId`, invulnérables épargnés) à la place du système des barils, `Explode` exécuté (bombe à mèche d'une frame), rochers cassés par `despawn_rollback` + butin `loot_seed` `rock:<salle>:<x>:<y>`, caverne creusée par la même requête, mur secret (portes closes sans `Interactable`, ouvertes par explosion), piques `hazard` (`dash_crosses`), `PlayerScript::bomb`, fuzz `ALACOD_FUZZ_BOMBS`, 14 scénarios dont 3 témoins, §69, D80, D81) | `m3-t4-bombes-rochers` | Claude (b1) | b1 : fusion `origin/main` `af46f192` (M3-T6), suite 3 tranches 417 scénarios sans trace existante bougée (barils inclus), test_crates 939, lint/gen ×5, fmt, sim_boundary, check_forbidden, test_tools, fuzz 0:8 et `ALACOD_FUZZ_BOMBS=1`. p2p testbed 2 clients 600 frames (rocher cassé, mur secret ouvert, bombes) traces identiques avec ~107 frames resimulées. Non vérifié : bench, vidéos. Non fait : bombes d'`isaac` (D81), `Explode` en `OnUse` (D80). |
+| 2026-10-17 | M3-T2 : effets v3 (`OnHit`, `OnEvent`/`Emit` linéaire, `ApplyStatus`/`ApplyStatusSelf`, `Scaled { PerCopy }` linéaire, `OnPickup` filtré, `TargetInRange`, `stack: Independent`) | `m3-t2-effets-v3` | Worker b1 | Livré sauf transformations (Q10 non retenue) ; §67, 7 scénarios `effect_*` avec témoins + `effects_hundred_items` (+0,07 ms/frame), lint (item, PerCopy, OnKill), D83 ; suite 482 scénarios sans trace existante bougée, test_crates 975, lint/gen ×5, fuzz 0:8 ; p2p rejoué avec rollbacks réels (poses d'effet rejouées, traces identiques hors fenêtre de prédiction finale). |
 | 2026-10-16 | m2-t14d-gabarits « gabarits de salles gungeon et équilibrage D64 » (M2-T14d, session b2 : quinze gabarits dont `Coffre`, `Secret` et `ArenaNS`, types `coffre` et `secret`, surfaces `eau`/`sable`/`fosse` dans `gungeon`, grammaire `etage` à sept types exigés (escouade, coffre, secret en plus) validée sur 1 000 graines, scénarios générés `room_escouade`/`room_arene`/`room_coffre` ; D64 : salve du `bullet_kin` allégée et 30 PV, un ennemi de moins par gabarit, arène 750 frames, une récompense par salle de combat ; §52.d) | `m2-t14d-gabarits` | Claude (b2) | Données seulement. Campagne `etages_deux` 200 graines : 1 bot 200 morts → 54 (27 %), 2 bots 174 → 7 (3,5 %), 0 desync, soft-locks 0 → 4 à 1 bot (cycle limite du bot, **D82**, 0 à 2 bots). 43 traces gungeon rebénies après preuve §5 (frame 0 : données du `bullet_kin` et de `arsenal` ; étages : grammaire), 3 nouvelles, aucune d'un autre jeu. Graine 41 (2 bots, `--shopping`) : escouade, arène, deux coffres, boutique, baril. Rapport `docs/taches/rapports/m2-t14d-gabarits.md`. p2p gungeon à 2 clients non rejoué (à lancer par l'orchestrateur). |
 | 2026-10-18 | m3-t13-generateur-v3 « générateur v3 » (M3-T13 : gabarits `TearsOnTarget`, `FamiliarHeld`, `ChampionForced` en champs ajoutés aux `test:` (§78), lint + 4 fixtures, 28 scénarios testbed ajoutés, aucune trace existante modifiée ; échelle : 100 objets = 200 scénarios en 2 min 20 s) | b0 | livré, revue due |

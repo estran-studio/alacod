@@ -1,0 +1,8 @@
+// Fixture M3-T2 (docs/conventions.md §67) : `item` de OnPickup inconnu : BrokenReference
+(
+    name: "fixture-effect_item_filter_unknown",
+    content_folders: [
+        (path: "objets", kind: "Item"),
+    ],
+    entry: (start_map: "maps/salle.ldtk", default_seed: 1),
+)

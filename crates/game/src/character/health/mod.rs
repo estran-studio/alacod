@@ -142,6 +142,8 @@ pub fn rollback_resolve_damage_events(
     // T2.3, chantier C5 v1 : points au coup au but (voir `crate::economy`, doc du module,
     // section « Attribution des points »).
     mut points_credits: ResMut<FrameEvents<PointsCredit>>,
+    // M3-T2 : coups portés (dégât réel strictement positif), lus par `OnHit`.
+    mut hits_landed: ResMut<FrameEvents<crate::effects_v3::HitLanded>>,
     net_id_query: Query<(&GgrsNetId, Entity), With<Rollback>>,
     player_handle_query: Query<(&GgrsNetId, &Player)>,
     mut target_query: Query<
@@ -292,6 +294,14 @@ pub fn rollback_resolve_damage_events(
         // tir ami, immunités et résistances).
         if let Some(mut hit_count) = opt_hit_count {
             hit_count.0 += 1;
+        }
+
+        if amount > fixed_math::Fixed::ZERO && event.source.0 != target_net_id.0 {
+            hits_landed.send(crate::effects_v3::HitLanded {
+                frame: frame.frame,
+                source: event.source.0,
+                target: target_net_id.0,
+            });
         }
 
         let mut last_hit_by = Vec::with_capacity(2);

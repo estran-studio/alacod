@@ -1,5 +1,4 @@
 (name: "Bague", kind: Passive, effects: [
-    // OnUse n'a de sens que pour un objet actif ; OnEvent reste un contrat
+    // OnUse n'a de sens que pour un objet actif 
     (on: OnUse, do: [Heal("1.0")]),
-    (on: OnEvent("x"), do: [Heal("1.0")]),
 ])

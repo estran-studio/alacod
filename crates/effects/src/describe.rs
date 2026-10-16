@@ -168,15 +168,23 @@ pub fn describe_action(action: &Action) -> String {
             }
         }
         Action::Scaled { action, scale } => {
-            let suffix = scale.map_or(String::new(), |scale| format!(" ({scale:?})"));
+            let suffix = scale.map_or(String::new(), |_| " (par exemplaire)".to_string());
             format!("{}{}", describe_action(action), suffix)
         }
+        Action::Emit(name) => format!("émet l'événement {name}"),
+        Action::ApplyStatusSelf { status, stacks } if *stacks > 1 => {
+            format!("vous subissez {status} (×{stacks})")
+        }
+        Action::ApplyStatusSelf { status, .. } => format!("vous subissez {status}"),
     }
 }
 
 /// Une phrase par effet : « <déclencheur>[, <conditions>] : <actions>. ».
 pub fn describe_effect(effect: &Effect) -> String {
     let mut text = describe_trigger(&effect.on);
+    if let (On::OnPickup, Some(item)) = (&effect.on, &effect.item) {
+        text = format!("Au ramassage de {item}");
+    }
     for condition in &effect.r#if {
         text.push_str(", ");
         text.push_str(&describe_condition(condition));
@@ -258,5 +266,41 @@ mod tests {
             vec![Action::GaugeAdd("rads".into(), fx(1.0))],
         );
         assert_eq!(describe_effect(&irradie), "À chaque ennemi tué : +1 rads.");
+    }
+
+    #[test]
+    fn effets_v3() {
+        let mut ramassage = Effect::new(On::OnPickup, vec![], vec![Action::Emit("bravo".into())]);
+        assert_eq!(
+            describe_effect(&ramassage),
+            "À chaque ramassage : émet l'événement bravo."
+        );
+        ramassage.item = Some("bottes".into());
+        assert_eq!(
+            describe_effect(&ramassage),
+            "Au ramassage de bottes : émet l'événement bravo."
+        );
+        let coup = Effect::new(
+            On::OnHit,
+            vec![Condition::TargetInRange(fx(60.0))],
+            vec![
+                Action::ApplyStatus {
+                    status: "brulure".into(),
+                    stacks: 2,
+                },
+                Action::ApplyStatusSelf {
+                    status: "lenteur".into(),
+                    stacks: 1,
+                },
+                Action::Scaled {
+                    action: Box::new(Action::Heal(fx(1.0))),
+                    scale: Some(crate::actions::Scale::PerCopy),
+                },
+            ],
+        );
+        assert_eq!(
+            describe_effect(&coup),
+            "À chaque coup porté, cible à moins de 60 : pose brulure (×2), vous subissez lenteur, regagnez 1 points de vie (par exemplaire)."
+        );
     }
 }

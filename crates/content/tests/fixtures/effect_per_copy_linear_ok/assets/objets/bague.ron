@@ -1,0 +1,3 @@
+(name: "Objet", kind: Passive, effects: [
+    (on: OnHit, do: [Scaled(action: Heal("1"), scale: Some(PerCopy)), Scaled(action: Modifier(stat: Damage, op: Add, value: "1"), scale: Some(PerCopy)), Scaled(action: GainShield(1), scale: Some(PerCopy))]),
+])

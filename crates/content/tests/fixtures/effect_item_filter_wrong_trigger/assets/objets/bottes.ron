@@ -1,0 +1,3 @@
+(name: "Objet", kind: Passive, effects: [
+    (on: OnKill, item: Some("bottes"), do: [Heal("1")]),
+])

@@ -83,6 +83,10 @@ pub struct Effect {
     pub charges: Option<u32>,
     #[serde(default)]
     pub recharge: Option<Recharge>,
+    /// M3-T2 (§67) : filtre de `OnPickup` : l'effet ne répond qu'au ramassage de cet objet. Sans
+    /// effet (lint : refusé) pour un autre déclencheur. Hors hash quand absent.
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub item: Option<String>,
 }
 
 impl std::hash::Hash for Effect {
@@ -95,6 +99,9 @@ impl std::hash::Hash for Effect {
             self.cooldown.hash(state);
             self.charges.hash(state);
             self.recharge.hash(state);
+        }
+        if let Some(item) = &self.item {
+            item.hash(state);
         }
     }
 }
@@ -109,6 +116,7 @@ impl Effect {
             cooldown: None,
             charges: None,
             recharge: None,
+            item: None,
         }
     }
 }

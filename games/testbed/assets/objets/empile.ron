@@ -1,0 +1,11 @@
+// M3-T2 (docs/conventions.md §67) : `Scaled(PerCopy)` d'essai : à chaque coup, +1 de dégâts par exemplaire
+// tenu (une seule exécution par objet, multipliée). Scénarios `effect_scale_per_copy`.
+(
+    name: "Empile",
+    kind: Passive,
+    effects: [
+        (on: OnHit, do: [
+            Scaled(action: TimedModifier(stat: Damage, op: Add, value: "1", frames: 600), scale: Some(PerCopy)),
+        ]),
+    ],
+)
