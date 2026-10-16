@@ -45,11 +45,13 @@ Branche `m2-t13-hub` (depuis `verif/train15`). Conventions : `docs/conventions.m
 
 ## Preuves
 
-- Scénarios, `make test_crates`, lint ×4, `make gen` ×4, `check_sim_boundary`, fmt : voir ci-dessous.
+- Sur main 3bab4764 : `make test_crates`, suite des scénarios en 3 tranches, lint ×4, `make gen` ×4,
+  `check_sim_boundary`, fmt, fuzz `ALACOD_FUZZ=0:8` : tout vert.
+- p2p à deux clients **depuis le hub** (gungeon démarre au hub ; profils différents, `ALACOD_RUN_UNLOCKS`
+  et `ALACOD_HOST_STATS` identiques, port 3536) : 599 lignes de trace identiques. La porte franchie en
+  ligne (relance par le chemin du restart, §33) reste à rejouer par l'orchestrateur.
 - Aucune trace existante n'a bougé (`HubState`, `HubStation` neutres ; `hub` absent des scénarios
   existants ; `MapGenerationMode::Static` et `InteractionType::Hub` ajoutés en fin d'enum).
-- p2p à deux clients depuis le hub : à rejouer par l'orchestrateur (le hub en ligne passe par le
-  chemin du restart, §33).
 
 ## Pièges rencontrés
 
