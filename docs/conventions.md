@@ -4069,16 +4069,101 @@ simulation partagée au passage de la porte** : `RunUnlocks` est figé au lancem
 **Scénarios.** `Scenario::hub: Option<HubSetup>` (`stay: true` : la run n'est pas lancée, la preuve
 reste dans la session du hub), attentes `HubExit { handle, exit_frame, none, at_frame }` et
 `HubVisit { handle, service, at_frame }`. `hub_use_stations` (marchand puis porte), `hub_buy_unlock`
-(écran, achat, `ProfileHas`, `RunUnlocks` inchangé). Le runner de scénarios ne suit pas une relance
-de session (sa boucle compte les frames d'une seule session) : la relance a son test,
-`crates/scenario/tests/hub.rs` (porte → requête une fois la frame confirmée → `Floors { etage_1 }`
-étage 0, `HubState` remis à zéro, `RunUnlocks` de la run contient le déblocage acheté au hub).
+(écran, achat, `ProfileHas`, `RunUnlocks` inchangé). Avec `stay: true` le runner ne suit pas la relance
+(la preuve reste dans la session du hub) ; avec `stay: false` il la suit (m2-full-run, ci-dessous). La
+relance a aussi son test, `crates/scenario/tests/hub.rs` (porte → requête une fois la frame confirmée →
+`Floors { etage_1 }` étage 0, `HubState` et `RoomStates` remis à zéro, `RunUnlocks` de la run contient le
+déblocage acheté au hub).
 
 **Limites.** Local : la graine de la run ne change pas d'une run à l'autre (le restart local garde la
 graine, §33). En ligne : la porte est jouée par le chemin du restart de §33 (preuve p2p rejouée par
 l'orchestrateur) ; les déblocages et services de l'hôte viennent de la configuration de session
 (`ALACOD_RUN_UNLOCKS`, `ALACOD_HOST_STATS`), pas encore d'un échange réseau, et un achat de l'hôte
 au hub n'atteint les pairs qu'avec la synchronisation des profils (hors périmètre).
+
+### Run complète de M2 : `gungeon_full_run` (m2-full-run)
+
+Deux scénarios attestent les mécaniques de M2 du tableau ci-dessous dans **une** partie de bots (graine 10, `etages_deux`,
+`shopping: true`, profil à trois déblocages, hub puis run) : `gungeon_full_run` (2 bots `explorateur`, 7 700
+frames, victoire f7545) et `gungeon_full_run_four` (4 bots, 7 000 frames, victoire f6876, synctest). Les
+moments clés du premier sont dans `events.json` (page de revue), chaque ligne du tableau a une attente.
+
+| Mécanique | Frame (2 bots, frames de la run) | Attente |
+|---|---|---|
+| Entrée depuis le hub | marchand f80 et porte f175 du hub ; `hub` f1 | `HubVisit`, `HubExit(exit_frame: 175)`, `Event(hub)` |
+| Déblocages lus du profil (M2-T12) | f1 | `RunUnlocks(has: 3)`, `Event(unlock)` |
+| Escouade | verrou f1471 → f1605 | `SquadSize(bullet_kins)` = 3 (f1480), 0 (f1700) ; à 4 joueurs ≥ 2 (f2150), 0 (f2300) |
+| Salle verrouillée puis nettoyée | f42 → f139 | `Event(room)` ×2 |
+| Blank utilisé | f70, f82 | `Event(blank)` |
+| Objet ramassé | clé f157, rancune f3022 | `Event(item_pickup)`, `HasItem(rancune)`, `Consumable(key, 1)` |
+| Achat en boutique | f2825-f2887 (gilet, roulade) | `Event(purchase, shop)`, `HasItem(gilet)`, `HasItem(roulade)` |
+| Coffre à clé ouvert, clé consommée | f2928 (`arc`) | `Consumable(key)` 1 (f2920) → 0 (f2930), `Event(chest)` |
+| Arène tenue | f1890 → f2640 (750 frames) | `Event(arena)`, `RoomState(arene, nth: 1, Cleared)` |
+| Boss, trois phases | f3406, phases f3439 et f3487 | `BossPhase(NetId(205), 2)`, `Event(boss_phase)` |
+| Portail | f3489 | `Event(portal)` |
+| Second étage | f3691, puis coffre f4711, boutique f5249, arène f6172-6922, boss f7325 (phases f7471, f7532) | `FloorIndex(1)`, `EventAfter(chest, purchase, arena, boss_phase)`, `BossPhase(NetId(694), 2)` |
+| Victoire et profil | f7545 | `RunState(Ended(Victory))`, `ProfileHas(first_victory)` |
+
+**Non attestées, et pourquoi** : (1) la **salle secrète** : absente de la graine 10 et, de toute façon, son mur ne
+s'ouvre qu'à une explosion alors que gungeon ne donne aucune bombe (D81) ; (2) la **porte du hub conditionnée par un
+déblocage** : elle n'existe pas, `hub/porte.ron` (`EnterRun`) n'a aucune condition ; seul le marchand exige `first_run`
+(sa visite f120 le prouve pour le profil du scénario) ; l'effet des déblocages sur la run se prouve par `RunUnlocks`
+(le trèfle quitte les pools sans `tresor_trefle`, §51), pas par la porte. Attente ajoutée `SquadSize { squad, min,
+max, at_frame }` : ennemis vivants déclarant `ai.squad`.
+
+**Runner : la relance du hub est suivie** (`HubSetup { stay: false, inputs }`). Le scénario se joue en deux
+phases dans une même boucle : le hub (frames du hub ; seules `HubExit` et `HubVisit` sont évaluées, `inputs` :
+une piste par joueur, remplace `players[i]` pendant le hub) puis, quand la porte a relancé la session
+(`HubSession::in_hub` faux, `FrameCount` revenu à 0), la run (`swap_hub_inputs` rend aux joueurs leurs pistes ou
+leurs bots). `frames`, les autres attentes, la **trace** (l'enregistreur est vidé à la relance), `sim_fps` et
+`events.json` sont ceux de la run ; `play` et `capture` ne comptent `frames` et ne capturent qu'une fois la run
+commencée (`HubPhaseOver`) : la vidéo montre la run seule, sans image du hub. Refusés explicitement
+(échec du scénario) : les attentes continues et les réglages de joueur (`weapon`, `items`, `currency`…), qui
+ne s'appliquent qu'à la première session. `HubSetup { stay: true }` et les scénarios sans hub : inchangés.
+
+**`Scenario::shopping`** : le bot `explorateur` ouvre les coffres et achète les présentoirs (D62,
+`ExplorerOptions::shopping`) sans code côté appelant ; faux par défaut, aucune trace de bot ne bouge.
+
+**Moments clés ajoutés** (`crates/scenario/src/events.rs`) : `chest` (`ChestOpened`), `arena` (arène dont le
+type porte `RoomKindDef::arena`, de `Locked` à `Cleared` : « arène tenue (750 frames) »), `unlock` (`RunUnlocks`
+non vide, une fois), `hub` (« entrée en run depuis le hub », daté de la première frame de la run) ; l'achat
+en boutique est le moment `purchase` existant (`CurrencyEvent` de raison `shop`). Attente `EventAfter` : un
+moment clé survenu après une frame donnée (la seconde arène, le second boss). **Les moments clés tirés de
+`FrameEvents` (`room`, `blank`, `item_pickup`, `boss_phase`, `arena`, `chest`) portent la frame de la
+simulation qui les a émis, une de moins que celle lue après l'update : `by_frame` = frame affichée + 1.**
+
+**Trois défauts trouvés en le faisant** (aucune trace existante ne bouge) :
+1. *Hub → run : toutes les portes restaient fermées.* Le hub est une salle typée (`room_kind: depart`) : sa
+   session posait `RoomStates::doors_opened`, que la relance ne remettait pas à zéro ; aucun bot ni joueur ne
+   sortait de la salle de départ (mesure : 39 portes fermées contre 3 sans hub). Même défaut au restart
+   (touche R) avec les salles nettoyées de la partie précédente. `cleanup_rollback_world_system` remet
+   maintenant `RoomStates`, `ArenaClocks` et `DoorLocks` à zéro (assertions dans `tests/hub.rs`).
+2. *Quatre joueurs sur `gungeon` : panique « pas de point de spawn pour le joueur 2 ».* Le gabarit `Depart` n'a que
+   deux `PlayerSpawn` ; en ajouter décalait le barycentre du portail et la numérotation des entités de tous les
+   étages (toutes les traces gungeon). `map_ldtk::game::local::player_spawn_point` : un joueur sans point
+   propre prend celui de rang `handle % n` décalé de 24 unités vers le bas par tour, uniquement là où le
+   chargement paniquait. À l'étage suivant, `floors.rs` laisse déjà « en place » un joueur sans point.
+3. *`HashMap` des points de spawn* remplacé par un `BTreeMap` (deux entrées retirées de
+   `determinism-allowlist.json`).
+
+**Fuzz** : `ALACOD_FUZZ_SCENARIO=<nom>` (`fuzz_inputs`) joue le scénario avec des inputs aléatoires à la place de
+ses bots (attentes retirées, pistes du hub conservées) : `ALACOD_FUZZ=0:8 ALACOD_FUZZ_SCENARIO=gungeon_full_run
+cargo test -p scenario --profile headless --test fuzz_inputs -- --ignored --nocapture`.
+Résultat (2026-10-16, 3 600 frames, synctest) : graines 0 à 7 sur `gungeon_full_run` et sur
+`gungeon_full_run_four`, aucune divergence ; tous les joueurs restent en vie. La couverture n'est pas mesurée : des
+inputs aléatoires ne cherchent pas à traverser les étages, les deux scénarios de bots le font (synctest, 0 desync).
+
+**Vidéo et moments clés.** `scripts/scenario-video` ne tourne pas ici : `play_scenario --capture` ouvre une fenêtre
+winit (cachée) et panique (`Failed to build event loop`, « neither WAYLAND… nor DISPLAY is set » : ni X11 ni Wayland, aucun `Xvfb`
+installé, pas de droits root ; `lavapipe` est installé mais la fenêtre échoue avant). Les vidéos sont à rendre sur un
+poste avec écran. Les moments clés se produisent sans rendu : `ALACOD_EVENTS_JSON=<dossier> ALACOD_SCENARIO=<nom>
+make test_scenarios` écrit `<dossier>/<nom>.events.json`, au format de la capture ; ceux des deux scénarios sont dans
+`docs/taches/rapports/m2-full-run/` (à copier dans `target/videos/<commit>/<nom>.events.json` pour la page de revue).
+
+**Graine** : sur 64 graines à 2 bots (`alacod-sim --shopping`, 15 000 frames, avant la relance par le hub) : 48
+victoires, 13 soft-locks (bot, D82), 3 défaites, 0 desync ; la 10 est une graine où tout arrive (coffre à clé,
+achats, deux arènes, deux boss) et où les phases 0 → 1 → 2 du boss tombent aux deux étages ; elle gagne aussi à
+4 joueurs.
 
 ## 60. Contrats des larmes et de l'empilement de projectiles (M3-T0a, chantier B5 v3)
 
