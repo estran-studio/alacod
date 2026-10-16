@@ -6,7 +6,7 @@ Scenario(
     game: "testbed",
     map: "testbed/arena.ldtk",
     map_seed: 123456,
-    frames: 150,
+    frames: 200,
     players: [
         PlayerScript(
             inputs: [],

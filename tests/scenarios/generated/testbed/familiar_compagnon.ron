@@ -85,7 +85,7 @@ Scenario(
         ),
         EntityHits(
             net_id: 35,
-            min: 7,
+            min: 9,
             at_frame: 120,
         ),
         FamiliarCount(

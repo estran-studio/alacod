@@ -1,4 +1,4 @@
-// Fixture M3-T13 : test.tears.min_hits = 0 (OutOfRange).
+// Fixture M3-T13 : test.tears.hits : with_item = 0 (OutOfRange).
 (
     name: "fixture-tears_test_min_hits_zero",
     content_folders: [

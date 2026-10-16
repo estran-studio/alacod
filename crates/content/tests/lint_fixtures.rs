@@ -244,14 +244,90 @@ fn m1_audit_fixtures() {
             ],
         ),
         (
+            "champion_test_unknown_weapon",
+            LintErrorKind::BrokenReference,
+            &[
+                "personnage « grunt »",
+                "test.champions",
+                "arme « fantome » inconnue",
+            ],
+        ),
+        (
+            "champion_test_kill_untranslatable",
+            LintErrorKind::Unsupported,
+            &[
+                "personnage « grunt »",
+                "kill: true sans effet de mort traduisible",
+            ],
+        ),
+        (
+            "champion_test_weapon_without_kill",
+            LintErrorKind::OutOfRange,
+            &["personnage « grunt »", "`weapon` sans `kill: true`"],
+        ),
+        (
             "tears_test_min_hits_zero",
             LintErrorKind::OutOfRange,
-            &["objet « lentille »", "test.tears", "min_hits = 0"],
+            &["objet « lentille »", "test.tears.hits", "with_item = 0"],
+        ),
+        (
+            "tears_test_hits_not_above_control",
+            LintErrorKind::OutOfRange,
+            &[
+                "objet « lentille »",
+                "with_item (3) doit dépasser without_item (3)",
+            ],
+        ),
+        (
+            "tears_test_nothing_proven",
+            LintErrorKind::OutOfRange,
+            &["objet « lentille »", "ni `hits` ni `expect`"],
+        ),
+        (
+            "tears_test_expect_without_control",
+            LintErrorKind::OutOfRange,
+            &["objet « lentille »", "`expect` et `control` vont ensemble"],
+        ),
+        (
+            "tears_test_frames_zero",
+            LintErrorKind::OutOfRange,
+            &["objet « lentille »", "test.tears : frames = 0"],
+        ),
+        (
+            "tears_test_hit_target_out_of_range",
+            LintErrorKind::BrokenReference,
+            &["objet « lentille »", "cible 2 absente"],
+        ),
+        (
+            "tears_test_weapon_unknown",
+            LintErrorKind::BrokenReference,
+            &[
+                "objet « lentille »",
+                "test.tears : arme « fantome » inconnue",
+            ],
+        ),
+        (
+            "tears_test_target_unknown",
+            LintErrorKind::BrokenReference,
+            &["objet « lentille »", "« fantome » (targets[0]) inconnu"],
+        ),
+        (
+            "tears_test_target_no_counts_hits",
+            LintErrorKind::Unsupported,
+            &[
+                "objet « lentille »",
+                "la cible « cible » ne compte pas ses coups",
+            ],
         ),
         (
             "familiar_test_without_familiar",
             LintErrorKind::Unsupported,
             &["objet « bottes »", "test.familiar", "sans `familiar:`"],
+        ),
+        (
+            "familiar_test_frames_zero",
+            LintErrorKind::OutOfRange,
+            &["objet « bottes »", "test.familiar : frames = 0"],
         ),
         (
             "room_kind_unknown",

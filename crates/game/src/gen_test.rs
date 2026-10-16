@@ -34,35 +34,61 @@ pub struct ItemTest {
     pub familiar: Option<FamiliarTest>,
 }
 
-fn one_hit() -> u32 {
-    1
-}
-
-/// `tears:` du `test:` d'un objet : le joueur tient l'objet, tire sur la cible de l'arène du jeu
-/// (`target`, ou `generate_template.target`) et doit la toucher `min_hits` fois.
+/// `tears:` du `test:` d'un objet : le joueur tient l'objet et tire sur la cible de l'arène du jeu.
+/// Le gabarit écrit **deux** scénarios : `tears_<id>` (avec l'objet) et `tears_<id>_sans_objet` (le
+/// même tir sans l'objet, le témoin) ; la preuve est la différence entre les deux : chaque
+/// `hits` exige `with_item` coups avec l'objet et au plus `without_item` sans, et `expect` /
+/// `control` portent les attentes propres à l'objet (statut, projectiles, position…), l'une
+/// satisfaite avec l'objet, l'autre (son contraire) sans lui.
 #[derive(Debug, Deserialize, Clone, PartialEq)]
 pub struct TearsTest {
-    /// Durée du scénario `tears_<id>` ; absent : `test.frames` (le `ItemHeld` d'un objet déjà
+    /// Durée des scénarios `tears_<id>*` ; absent : `test.frames` (le `ItemHeld` d'un objet déjà
     /// généré garde ainsi sa durée).
     #[serde(default)]
     pub frames: Option<u32>,
     /// Arme du joueur (`PlayerScript::weapon`) ; absent : ses armes de départ.
     #[serde(default)]
     pub weapon: Option<String>,
-    /// Personnage qui compte ses coups (`counts_hits`), posé juste devant la cible de l'arène sur
-    /// la ligne de tir : sa santé règle la cible. Absent : la cible de l'arène.
+    /// Visée (vecteur joueur -> pointeur, unités monde) ; absent : vers la cible de l'arène.
     #[serde(default)]
-    pub target: Option<String>,
-    /// Coups minimum sur la cible à la dernière frame (défaut 1).
-    #[serde(default = "one_hit")]
-    pub min_hits: u32,
+    pub aim: Option<(i16, i16)>,
+    /// Personnages à `counts_hits` posés à `(dx, dy)` unités monde de la cible de l'arène
+    /// (cible d'index 0), désignés `Placed(n)` dans `expect`/`control` et d'index `n + 1` dans `hits`.
+    #[serde(default)]
+    pub targets: Vec<TearsTarget>,
+    #[serde(default)]
+    pub hits: Vec<TearsHits>,
+    /// Attentes avec l'objet, en plus de `HasItem`, des `Stat` et de `hits`.
     #[serde(default)]
     pub expect: Vec<Expectation>,
+    /// Attentes du témoin (sans objet) : le contraire de ce que `expect` prouve.
+    #[serde(default)]
+    pub control: Vec<Expectation>,
+}
+
+/// Un personnage cible posé par un `tears:` ou un `familiar:`.
+#[derive(Debug, Deserialize, Clone, PartialEq)]
+pub struct TearsTarget {
+    pub character: String,
+    pub dx: i32,
+    pub dy: i32,
+}
+
+/// Coups comptés sur une cible : au moins `with_item` avec l'objet, au plus `without_item` sans
+/// (le lint exige `with_item > without_item` et `with_item > 0`).
+#[derive(Debug, Deserialize, Clone, PartialEq)]
+pub struct TearsHits {
+    /// 0 : la cible de l'arène ; `n` : `targets[n - 1]`.
+    #[serde(default)]
+    pub target: usize,
+    pub with_item: u32,
+    #[serde(default)]
+    pub without_item: u32,
 }
 
 /// `familiar:` du `test:` d'un objet : le joueur tient l'objet ; `FamiliarCount` = `per_copy` ;
 /// `min_hits` > 0 : le joueur tire aussi sur la cible et elle doit recevoir au moins ce nombre de
-/// coups (plus que le joueur seul n'en donne : à fixer d'après la partie jouée).
+/// coups (plus que le joueur seul n'en donne : à fixer d'après le témoin).
 #[derive(Debug, Deserialize, Clone, PartialEq, Default)]
 pub struct FamiliarTest {
     /// Durée du scénario `familiar_<id>` ; absent : `test.frames`.
@@ -70,6 +96,8 @@ pub struct FamiliarTest {
     pub frames: Option<u32>,
     #[serde(default)]
     pub weapon: Option<String>,
+    /// Coups sur la cible de l'arène : au moins `min_hits` avec l'objet ; le témoin
+    /// `familiar_<id>_sans_objet` (même tir sans l'objet) en reçoit au plus `min_hits - 1`.
     #[serde(default)]
     pub min_hits: u32,
     #[serde(default)]
@@ -78,9 +106,10 @@ pub struct FamiliarTest {
 
 /// `champions:` du `test:` d'un personnage à `variants:` : gabarit `ChampionForced`, un scénario
 /// par entrée (`champion_<id>_<variante>`). L'ennemi apparaît avec la variante imposée
-/// (`CharacterPlacement::variant`) ; `kill` : le joueur le tire (dans l'axe, `weapon`) et les
-/// effets de mort déclarés (`Explode` : moment clé `explosion` ; `SpawnCharacters` : au moins
-/// `count` ennemis) sont attendus.
+/// (`CharacterPlacement::variant`) ; `kill` : le joueur le tire (dans l'axe, `weapon`), la **mort**
+/// est attendue (ennemis vivants avant et après, comptés par une sonde) ainsi que chaque effet de
+/// mort déclaré : `Explode` (moment clé `explosion`), `SpawnCharacters` (`count` ennemis de plus),
+/// `SpawnPattern` (balles de l'équipe ennemie), `loot` (le joueur marche jusqu'au butin : `HasItem`).
 #[derive(Debug, Deserialize, Clone, PartialEq)]
 pub struct ChampionTest {
     pub variant: String,

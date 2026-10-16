@@ -154,11 +154,20 @@ fn main() {
     let tears = count(GeneratedKind::Tears);
     let familiars = count(GeneratedKind::Familiar);
     let champions = count(GeneratedKind::Champion);
-    let characters =
-        generated.len() - ranged - melee - items - rooms - bosses - tears - familiars - champions;
+    let controls = count(GeneratedKind::Control);
+    let characters = generated.len()
+        - ranged
+        - melee
+        - items
+        - rooms
+        - bosses
+        - tears
+        - familiars
+        - champions
+        - controls;
     if !quiet {
         println!(
-        "alacod-gen : {} : {ranged} arme(s) à distance, {melee} de corps à corps, {characters} gabarit(s) de personnage, {items} objet(s), {rooms} salle(s), {bosses} boss, {tears} larme(s), {familiars} familier(s), {champions} champion(s) -> {}",
+        "alacod-gen : {} : {ranged} arme(s) à distance, {melee} de corps à corps, {characters} gabarit(s) de personnage, {items} objet(s), {rooms} salle(s), {bosses} boss, {tears} larme(s), {familiars} familier(s), {champions} champion(s), {controls} témoin(s) -> {}",
         game_dir.display(),
         out_dir.display(),
     );

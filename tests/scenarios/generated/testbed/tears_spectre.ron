@@ -93,11 +93,19 @@ Scenario(
             id: "spectre",
             at_frame: 1,
         ),
-        EntityHits(
-            net_id: 35,
-            min: 1,
+        BulletCount(
+            count: 1,
+            projectile: "larme",
             at_frame: 150,
         ),
     ],
     powerup_drop_chance_override: "0",
+    characters: [
+        CharacterPlacement(
+            character: "target",
+            x: "504",
+            y: "726",
+            at_frame: 1,
+        ),
+    ],
 )

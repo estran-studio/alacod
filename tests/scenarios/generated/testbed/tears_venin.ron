@@ -94,10 +94,24 @@ Scenario(
             at_frame: 1,
         ),
         EntityHits(
-            net_id: 35,
-            min: 1,
+            net_id: 37,
+            min: 9,
+            at_frame: 150,
+        ),
+        HasStatus(
+            entity: Placed(0),
+            status: "poison",
+            present: true,
             at_frame: 150,
         ),
     ],
     powerup_drop_chance_override: "0",
+    characters: [
+        CharacterPlacement(
+            character: "target",
+            x: "504",
+            y: "726",
+            at_frame: 1,
+        ),
+    ],
 )

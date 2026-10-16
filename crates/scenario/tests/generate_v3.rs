@@ -3,9 +3,11 @@
 
 use bevy_fixed::fixed_math::Fixed;
 use effects::Action;
-use game::gen_test::{ChampionTest, FamiliarTest, ItemTest, TearsTest};
+use game::gen_test::{ChampionTest, FamiliarTest, ItemTest, TearsHits, TearsTarget, TearsTest};
 use game::replay::{EntityRef, Expectation};
-use scenario::generate::{self, EnemyArena, EnemyProbe, TargetInfo, WeaponArena};
+use scenario::generate::{
+    self, ChampionDeath, ChampionShot, EnemyArena, EnemyProbe, TargetInfo, TearsRun, WeaponArena,
+};
 use sim_core::stats::StatId;
 
 fn item_def(src: &str) -> items::ItemDef {
@@ -38,6 +40,14 @@ fn noms_de_fichiers_stables_et_distincts() {
     assert_eq!(generate::tears_file_name("lentille"), "tears_lentille.ron");
     assert_eq!(generate::familiar_file_name("trio"), "familiar_trio.ron");
     assert_eq!(
+        generate::tears_control_file_name("lentille"),
+        "tears_lentille_sans_objet.ron"
+    );
+    assert_eq!(
+        generate::familiar_control_file_name("compagnon"),
+        "familiar_compagnon_sans_objet.ron"
+    );
+    assert_eq!(
         generate::champion_file_name("elite_divise", "divise"),
         "champion_elite_divise_divise.ron"
     );
@@ -62,72 +72,123 @@ fn noms_de_fichiers_stables_et_distincts() {
     }
 }
 
-#[test]
-fn tears_cible_de_l_arene() {
-    let def = item_def(
-        r#"(name: "L", kind: Passive, modifiers: [(stat: ShotSpeed, op: Pct, value: "0.5")])"#,
-    );
-    let tears = TearsTest {
-        frames: Some(150),
+fn tears(frames: Option<u32>) -> TearsTest {
+    TearsTest {
+        frames,
         weapon: Some("larme".into()),
-        target: None,
-        min_hits: 2,
+        aim: None,
+        targets: vec![TearsTarget {
+            character: "target".into(),
+            dx: -48,
+            dy: -18,
+        }],
+        hits: vec![TearsHits {
+            target: 0,
+            with_item: 5,
+            without_item: 0,
+        }],
         expect: vec![Expectation::BulletCount {
-            count: 0,
-            projectile: None,
+            count: 2,
+            projectile: Some("larme".into()),
             team: None,
             at_frame: 149,
         }],
-    };
+        control: vec![Expectation::BulletCount {
+            count: 0,
+            projectile: Some("larme".into()),
+            team: None,
+            at_frame: 149,
+        }],
+    }
+}
+
+fn run(control: bool, anchor: Option<TargetInfo>, stats: &[(StatId, f32)]) -> TearsRun<'_> {
+    TearsRun {
+        stats,
+        anchor,
+        net_ids: &[35, 37],
+        control,
+    }
+}
+
+#[test]
+fn tears_avec_objet_et_temoin_sans_objet() {
+    let def = item_def(
+        r#"(name: "L", kind: Passive, modifiers: [(stat: ShotSpeed, op: Pct, value: "0.5")])"#,
+    );
     let stats = [(StatId::ShotSpeed, 1.5)];
-    let s = generate::build_tears_scenario(
+    let with = generate::build_tears_scenario(
         &arena(),
         "lentille",
         &def,
         &item_test(60),
-        &tears,
-        &stats,
-        Some(target()),
+        &tears(Some(150)),
+        &run(false, Some(target()), &stats),
     );
-    assert_eq!(s.frames, 150, "tears.frames l'emporte sur test.frames");
-    assert_eq!(s.players[0].weapon.as_deref(), Some("larme"));
-    assert_eq!(s.players[0].items, vec!["lentille".to_string()]);
-    assert!(!s.players[0].inputs.is_empty(), "le joueur tire");
-    assert!(s.characters.is_empty());
+    assert_eq!(with.frames, 150, "tears.frames l'emporte sur test.frames");
+    assert_eq!(with.players[0].weapon.as_deref(), Some("larme"));
+    assert_eq!(with.players[0].items, vec!["lentille".to_string()]);
+    assert!(!with.players[0].inputs.is_empty(), "le joueur tire");
     assert!(
-        matches!(&s.expect[0], Expectation::HasItem { id, at_frame: 1, .. } if id == "lentille")
+        matches!(&with.expect[0], Expectation::HasItem { id, at_frame: 1, .. } if id == "lentille")
     );
-    assert!(s.expect.iter().any(
+    assert!(with.expect.iter().any(
         |e| matches!(e, Expectation::Stat { stat: StatId::ShotSpeed, value, .. } if *value == 1.5)
     ));
-    assert!(s.expect.iter().any(|e| matches!(
+    assert!(with.expect.iter().any(|e| matches!(
         e,
         Expectation::EntityHits {
             net_id: 35,
-            min: 2,
+            min: 5,
             max: None,
             at_frame: 150
         }
     )));
     assert!(matches!(
-        s.expect.last(),
-        Some(Expectation::BulletCount { at_frame: 149, .. })
+        with.expect.last(),
+        Some(Expectation::BulletCount { count: 2, .. })
     ));
+
+    // Le témoin : même tir, même placement, sans l'objet, attentes contraires.
+    let without = generate::build_tears_scenario(
+        &arena(),
+        "lentille",
+        &def,
+        &item_test(60),
+        &tears(Some(150)),
+        &run(true, Some(target()), &stats),
+    );
+    assert!(without.players[0].items.is_empty());
+    assert_eq!(without.players[0].inputs, with.players[0].inputs);
+    assert_eq!(without.characters, with.characters);
+    assert_eq!(without.frames, with.frames);
+    assert!(!without
+        .expect
+        .iter()
+        .any(|e| matches!(e, Expectation::HasItem { .. } | Expectation::Stat { .. })));
+    assert!(without.expect.iter().any(|e| matches!(
+        e,
+        Expectation::EntityHits {
+            net_id: 35,
+            min: 0,
+            max: Some(0),
+            at_frame: 150
+        }
+    )));
+    assert!(matches!(
+        without.expect.last(),
+        Some(Expectation::BulletCount { count: 0, .. })
+    ));
+
     // Sans `frames` propre : celle de `test:`.
-    let tears = TearsTest {
-        frames: None,
-        expect: vec![],
-        ..tears
-    };
     assert_eq!(
         generate::build_tears_scenario(
             &arena(),
             "lentille",
             &def,
             &item_test(90),
-            &tears,
-            &[],
-            None
+            &tears(None),
+            &run(false, None, &[]),
         )
         .frames,
         90
@@ -135,48 +196,43 @@ fn tears_cible_de_l_arene() {
 }
 
 #[test]
-fn tears_cible_de_remplacement_sur_la_ligne_de_tir() {
+fn tears_cibles_posees_relativement_a_l_arene() {
     let def = item_def(r#"(name: "P", kind: Passive)"#);
-    let tears = TearsTest {
-        frames: None,
-        weapon: None,
-        target: Some("target".into()),
-        min_hits: 1,
-        expect: vec![],
-    };
     let s = generate::build_tears_scenario(
         &arena(),
         "p",
         &def,
         &item_test(100),
-        &tears,
-        &[],
-        Some(target()),
+        &tears(None),
+        &run(false, Some(target()), &[]),
     );
     assert_eq!(s.characters.len(), 1);
     let placed = &s.characters[0];
     assert_eq!(placed.character, "target");
-    // 48 unités vers le joueur en x, 18 en y : sur la droite de visée (128, 48).
     assert_eq!(placed.x, Fixed::from_num(552 - 48));
     assert_eq!(placed.y, Fixed::from_num(744 - 18));
-    assert!(s.expect.iter().any(|e| matches!(
-        e,
-        Expectation::HitsAtLeast {
-            entity: EntityRef::Placed(0),
-            hits: 1,
-            at_frame: 100
-        }
-    )));
-    assert!(!s
-        .expect
-        .iter()
-        .any(|e| matches!(e, Expectation::EntityHits { .. })));
+    let positions = generate::tears_positions(target(), &tears(None).targets);
+    assert_eq!(
+        positions,
+        vec![
+            (Fixed::from_num(552), Fixed::from_num(744)),
+            (placed.x, placed.y)
+        ]
+    );
 }
 
 #[test]
-fn familiar_compte_per_copy_et_coups_seulement_si_demandes() {
+fn familiar_compte_per_copy_et_temoin_sans_objet() {
     let silent = FamiliarTest::default();
-    let s = generate::build_familiar_scenario(&arena(), "trio", &item_test(60), &silent, 3, None);
+    let s = generate::build_familiar_scenario(
+        &arena(),
+        "trio",
+        &item_test(60),
+        &silent,
+        3,
+        None,
+        false,
+    );
     assert_eq!(s.frames, 60);
     assert!(
         s.players[0].inputs.is_empty(),
@@ -201,57 +257,163 @@ fn familiar_compte_per_copy_et_coups_seulement_si_demandes() {
     let shooting = FamiliarTest {
         frames: Some(120),
         weapon: Some("larme".into()),
-        min_hits: 2,
+        min_hits: 9,
         expect: vec![],
     };
-    let s = generate::build_familiar_scenario(
+    let with = generate::build_familiar_scenario(
         &arena(),
         "compagnon",
         &item_test(60),
         &shooting,
         1,
         Some(35),
+        false,
     );
-    assert_eq!(s.frames, 120);
-    assert!(!s.players[0].inputs.is_empty());
-    assert!(s.expect.iter().any(|e| matches!(
+    assert_eq!(with.frames, 120);
+    assert!(!with.players[0].inputs.is_empty());
+    assert!(with.expect.iter().any(|e| matches!(
         e,
         Expectation::EntityHits {
             net_id: 35,
-            min: 2,
-            at_frame: 120,
-            ..
+            min: 9,
+            max: None,
+            at_frame: 120
         }
     )));
+    let without = generate::build_familiar_scenario(
+        &arena(),
+        "compagnon",
+        &item_test(60),
+        &shooting,
+        1,
+        Some(35),
+        true,
+    );
+    assert!(without.players[0].items.is_empty());
+    assert_eq!(without.players[0].inputs, with.players[0].inputs);
+    assert!(without.expect.iter().any(|e| matches!(
+        e,
+        Expectation::EntityHits {
+            net_id: 35,
+            min: 0,
+            max: Some(8),
+            at_frame: 120
+        }
+    )));
+    assert!(without
+        .expect
+        .iter()
+        .any(|e| matches!(e, Expectation::FamiliarCount { count: 0, .. })));
 }
 
-#[test]
-fn effets_de_mort_attendus() {
-    use game::replay::EntityKind;
-    let explode = Action::Explode {
+fn death() -> ChampionDeath {
+    ChampionDeath {
+        frame: 99,
+        enemies_before: 6,
+        enemy_bullets_before: 0,
+        enemy_bullets_after: 8,
+        items: vec!["boussole".into()],
+    }
+}
+
+fn explode() -> Action {
+    Action::Explode {
         radius: Fixed::from_num(70),
         damage: Fixed::from_num(10),
         destroys: false,
-    };
-    let split = Action::SpawnCharacters {
+    }
+}
+
+fn split(count: u32) -> Action {
+    Action::SpawnCharacters {
         id: "petit".into(),
-        count: 3,
+        count,
+    }
+}
+
+fn pattern() -> Action {
+    Action::SpawnPattern {
+        pattern: "couronne".into(),
+        weapon: "fireball_gun".into(),
+    }
+}
+
+#[test]
+fn mort_attendue_et_chaque_effet_traduit() {
+    use game::replay::EntityKind;
+    let enemies = |count: u32, at_frame: u32| Expectation::EntityCount {
+        kind: EntityKind::Enemy,
+        min: Some(count),
+        max: Some(count),
+        at_frame,
     };
-    assert!(generate::champion_death_expectations(&[], 100).is_empty());
-    assert!(generate::champion_death_expectations(&[Action::GainShield(1)], 100).is_empty());
-    let both = generate::champion_death_expectations(&[explode, split.clone(), split], 100);
+    // Explosion : la mort (6 avant, 5 après) puis le moment clé.
+    let expect = generate::champion_death_expectations(&[explode()], false, &death(), 150).unwrap();
+    assert_eq!(expect[0], enemies(6, 98));
+    assert_eq!(expect[1], enemies(5, 100));
     assert!(
-        matches!(&both[0], Expectation::Event { kind, by_frame: 100, .. } if kind == "explosion")
+        matches!(&expect[2], Expectation::Event { kind, by_frame: 150, .. } if kind == "explosion")
     );
-    assert!(matches!(
-        &both[1],
-        Expectation::EntityCount {
-            kind: EntityKind::Enemy,
-            min: Some(6),
-            max: None,
-            at_frame: 100
+    assert_eq!(expect.len(), 3);
+    // Division : 6 - 1 + 2 + 1 = 8.
+    let expect =
+        generate::champion_death_expectations(&[split(2), split(1)], false, &death(), 150).unwrap();
+    assert_eq!(expect[1], enemies(8, 100));
+    // Motif : les balles ennemies mesurées avant et après.
+    let expect = generate::champion_death_expectations(&[pattern()], false, &death(), 150).unwrap();
+    assert!(expect.iter().any(|e| matches!(
+        e,
+        Expectation::BulletCount {
+            count: 8,
+            team: Some(sim_core::team::Team::Enemies),
+            at_frame: 100,
+            ..
         }
+    )));
+    assert!(expect.iter().any(|e| matches!(
+        e,
+        Expectation::BulletCount {
+            count: 0,
+            at_frame: 98,
+            ..
+        }
+    )));
+    // Butin : l'objet ramassé à la dernière frame.
+    let expect = generate::champion_death_expectations(&[], true, &death(), 200).unwrap();
+    assert!(matches!(
+        expect.last(),
+        Some(Expectation::HasItem { id, at_frame: 199, .. }) if id == "boussole"
     ));
+}
+
+#[test]
+fn mort_sans_trace_mesurable_est_refusee() {
+    let silent = ChampionDeath {
+        enemy_bullets_after: 0,
+        items: vec![],
+        ..death()
+    };
+    // Aucun effet de mort traduisible.
+    assert!(
+        generate::champion_death_expectations(&[], false, &silent, 150)
+            .unwrap_err()
+            .contains("sans effet de mort traduisible")
+    );
+    assert!(
+        generate::champion_death_expectations(&[Action::GainShield(1)], false, &silent, 150)
+            .is_err()
+    );
+    // Un motif qui n'a produit aucune balle, un butin non ramassé : refusés, jamais ignorés.
+    assert!(
+        generate::champion_death_expectations(&[pattern()], false, &silent, 150)
+            .unwrap_err()
+            .contains("aucune balle ennemie")
+    );
+    assert!(
+        generate::champion_death_expectations(&[], true, &silent, 150)
+            .unwrap_err()
+            .contains("aucun objet")
+    );
 }
 
 #[test]
@@ -266,10 +428,6 @@ fn champion_variante_imposee_et_tir_dans_l_axe() {
         player_x: Fixed::from_num(424),
         player_y: Fixed::from_num(696),
     };
-    let split = Action::SpawnCharacters {
-        id: "petit".into(),
-        count: 2,
-    };
     let quiet = ChampionTest {
         variant: "nu".into(),
         kill: false,
@@ -281,8 +439,9 @@ fn champion_variante_imposee_et_tir_dans_l_axe() {
         "elite",
         150,
         &quiet,
-        &[split.clone()],
         &probe,
+        ChampionShot::None,
+        &[],
     );
     assert_eq!(s.characters[0].variant.as_deref(), Some("nu"));
     assert_eq!(
@@ -303,19 +462,57 @@ fn champion_variante_imposee_et_tir_dans_l_axe() {
     ));
 
     let kill = ChampionTest {
-        variant: "divise".into(),
+        variant: "riche".into(),
         kill: true,
         weapon: Some("larme".into()),
         expect: vec![],
     };
-    let s = generate::build_champion_scenario(&enemy_arena, "elite", 150, &kill, &[split], &probe);
+    let death_expect = generate::champion_death_expectations(&[], true, &death(), 200).unwrap();
+    let s = generate::build_champion_scenario(
+        &enemy_arena,
+        "elite",
+        200,
+        &kill,
+        &probe,
+        ChampionShot::UntilDeath {
+            death_frame: 99,
+            walk: true,
+        },
+        &death_expect,
+    );
     assert_eq!(s.players[0].weapon.as_deref(), Some("larme"));
+    // Tire jusqu'à la mort (frame 99 incluse), puis marche vers +x et appuie sur Interaction.
+    use game::replay::Button;
+    let fire = |segment: &&game::replay::Segment| segment.buttons == vec![Button::Fire];
     assert!(s.players[0]
         .inputs
         .iter()
-        .all(|segment| segment.pan == (127, 0)));
+        .filter(fire)
+        .all(|segment| segment.to <= 100));
+    assert!(s.players[0]
+        .inputs
+        .iter()
+        .any(|segment| segment.buttons == vec![Button::Right] && segment.from == 100));
+    assert!(s.players[0]
+        .inputs
+        .iter()
+        .any(|segment| segment.buttons == vec![Button::Interaction]));
     assert!(s
         .expect
         .iter()
-        .any(|e| matches!(e, Expectation::EntityCount { min: Some(2), .. })));
+        .any(|e| matches!(e, Expectation::HasItem { .. })));
+    // Sonde : tire jusqu'au bout.
+    let probe_run = generate::build_champion_scenario(
+        &enemy_arena,
+        "elite",
+        150,
+        &kill,
+        &probe,
+        ChampionShot::ToEnd,
+        &[],
+    );
+    assert!(probe_run.players[0]
+        .inputs
+        .iter()
+        .any(|segment| segment.to > 140));
 }

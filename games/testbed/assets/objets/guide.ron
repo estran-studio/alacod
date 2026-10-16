@@ -7,7 +7,7 @@
     rarity: Common,
     test: Some((
         frames: 60,
-        // M3-T13 (§78) : scénario généré `tears_guide` (gabarit TearsOnTarget : `larme` tire sur la cible, coups comptés).
-        tears: Some((weapon: Some("larme"), frames: Some(150), min_hits: 1)),
+        // M3-T13 (§78) : scénarios générés `tears_guide` et son témoin `tears_guide_sans_objet` : une cible hors de la ligne de tir n'est touchée qu'avec `Homing` (6 coups contre 0).
+        tears: Some((weapon: Some("larme"), frames: Some(150), targets: [(character: "target", dx: -40, dy: 15)], hits: [(target: 1, with_item: 6, without_item: 0)])),
     )),
 )

@@ -343,13 +343,24 @@ pub struct ItemTestEntry {
     pub familiar: Option<FamiliarTestEntry>,
 }
 
-/// M3-T13 : mirroir de `game::gen_test::TearsTest`.
+/// M3-T13 : mirroir de `game::gen_test::TearsTest` (attentes comptées).
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub struct TearsTestEntry {
     pub frames: Option<u32>,
     pub weapon: Option<String>,
-    pub target: Option<String>,
-    pub min_hits: u32,
+    /// `(personnage, dx, dy)` des cibles posées.
+    pub targets: Vec<(String, i32, i32)>,
+    pub hits: Vec<TearsHitsEntry>,
+    pub expect: usize,
+    pub control: usize,
+}
+
+/// M3-T13 : mirroir de `game::gen_test::TearsHits`.
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub struct TearsHitsEntry {
+    pub target: usize,
+    pub with_item: u32,
+    pub without_item: u32,
 }
 
 /// M3-T13 : mirroir de `game::gen_test::FamiliarTest`.
@@ -1948,7 +1959,8 @@ struct ItemTestSchema {
     familiar: Option<FamiliarTestSchema>,
 }
 
-/// Mirroir de `game::gen_test::TearsTest`.
+/// Mirroir de `game::gen_test::TearsTest` : les scénarios `tears_<id>` (avec l'objet) et
+/// `tears_<id>_sans_objet` (le témoin).
 #[derive(Deserialize, schemars::JsonSchema)]
 struct TearsTestSchema {
     #[serde(default)]
@@ -1957,17 +1969,36 @@ struct TearsTestSchema {
     #[serde(default)]
     weapon: Option<String>,
     #[serde(default)]
-    target: Option<String>,
-    #[serde(default = "one_u32")]
-    #[schemars(extend("x-lint" = "> 0"))]
-    min_hits: u32,
+    aim: Option<(i16, i16)>,
+    #[serde(default)]
+    targets: Vec<TearsTargetSchema>,
+    #[serde(default)]
+    hits: Vec<TearsHitsSchema>,
     #[serde(default)]
     #[schemars(with = "Vec<serde_json::Value>")]
     expect: Vec<serde::de::IgnoredAny>,
+    #[serde(default)]
+    #[schemars(with = "Vec<serde_json::Value>")]
+    control: Vec<serde::de::IgnoredAny>,
 }
 
-fn one_u32() -> u32 {
-    1
+/// Mirroir de `game::gen_test::TearsTarget`.
+#[derive(Deserialize, schemars::JsonSchema)]
+struct TearsTargetSchema {
+    character: String,
+    dx: i32,
+    dy: i32,
+}
+
+/// Mirroir de `game::gen_test::TearsHits`.
+#[derive(Deserialize, schemars::JsonSchema)]
+struct TearsHitsSchema {
+    #[serde(default)]
+    target: usize,
+    #[schemars(extend("x-lint" = "> 0"))]
+    with_item: u32,
+    #[serde(default)]
+    without_item: u32,
 }
 
 /// Mirroir de `game::gen_test::FamiliarTest`.
@@ -3173,8 +3204,22 @@ fn load_items(
                 tears: test.tears.map(|tears| TearsTestEntry {
                     frames: tears.frames,
                     weapon: tears.weapon,
-                    target: tears.target,
-                    min_hits: tears.min_hits,
+                    targets: tears
+                        .targets
+                        .into_iter()
+                        .map(|t| (t.character, t.dx, t.dy))
+                        .collect(),
+                    hits: tears
+                        .hits
+                        .into_iter()
+                        .map(|h| TearsHitsEntry {
+                            target: h.target,
+                            with_item: h.with_item,
+                            without_item: h.without_item,
+                        })
+                        .collect(),
+                    expect: tears.expect.len(),
+                    control: tears.control.len(),
                 }),
                 familiar: test.familiar.map(|familiar| FamiliarTestEntry {
                     frames: familiar.frames,

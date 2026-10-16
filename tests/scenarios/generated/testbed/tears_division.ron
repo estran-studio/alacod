@@ -95,9 +95,22 @@ Scenario(
         ),
         EntityHits(
             net_id: 35,
-            min: 1,
+            min: 5,
+            at_frame: 150,
+        ),
+        BulletCount(
+            count: 6,
+            projectile: "larme",
             at_frame: 150,
         ),
     ],
     powerup_drop_chance_override: "0",
+    characters: [
+        CharacterPlacement(
+            character: "target",
+            x: "504",
+            y: "726",
+            at_frame: 1,
+        ),
+    ],
 )

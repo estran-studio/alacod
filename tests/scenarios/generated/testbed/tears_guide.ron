@@ -94,10 +94,18 @@ Scenario(
             at_frame: 1,
         ),
         EntityHits(
-            net_id: 35,
-            min: 1,
+            net_id: 37,
+            min: 6,
             at_frame: 150,
         ),
     ],
     powerup_drop_chance_override: "0",
+    characters: [
+        CharacterPlacement(
+            character: "target",
+            x: "512",
+            y: "759",
+            at_frame: 1,
+        ),
+    ],
 )

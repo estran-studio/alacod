@@ -6,5 +6,5 @@
     kind: Passive,
     familiar: Some((character: "compagnon", per_copy: 1)),
     // M3-T13 (§78) : scénarios générés `item_compagnon` (ItemHeld) et `familiar_compagnon` (FamiliarHeld : `FamiliarCount` 1, coups du familier).
-    test: Some((frames: 60, familiar: Some((weapon: Some("larme"), frames: Some(120), min_hits: 7)))),
+    test: Some((frames: 60, familiar: Some((weapon: Some("larme"), frames: Some(120), min_hits: 9)))),
 )

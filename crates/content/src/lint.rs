@@ -1338,6 +1338,34 @@ fn lint_character_tests(registry: &Registry, errors: &mut Vec<LintError>) {
                     ),
                 );
             }
+            if champion.kill {
+                let translatable = character.variants.as_ref().is_some_and(|variants| {
+                    variants
+                        .table
+                        .iter()
+                        .filter(|(name, _)| *name == champion.variant)
+                        .any(|(_, def)| {
+                            def.loot.is_some()
+                                || def.on_death.iter().any(|action| {
+                                    matches!(
+                                        action,
+                                        effects::Action::Explode { .. }
+                                            | effects::Action::SpawnCharacters { .. }
+                                            | effects::Action::SpawnPattern { .. }
+                                    )
+                                })
+                        })
+                });
+                if known && !translatable {
+                    push(
+                        LintErrorKind::Unsupported,
+                        format!(
+                            "test.champions : variante « {} » : kill: true sans effet de mort traduisible (Explode, SpawnCharacters, SpawnPattern, loot)",
+                            champion.variant
+                        ),
+                    );
+                }
+            }
             if let Some(weapon) = &champion.weapon {
                 if !champion.kill {
                     push(
@@ -1471,32 +1499,69 @@ fn lint_item_tests(registry: &Registry, errors: &mut Vec<LintError>) {
                     "test.tears : frames = 0 : doit être > 0".to_string(),
                 );
             }
-            if tears.min_hits == 0 {
-                push(
-                    LintErrorKind::OutOfRange,
-                    "test.tears : min_hits = 0 : doit être > 0".to_string(),
-                );
-            }
             if let Some(weapon) = tears.weapon.as_deref().filter(|w| !weapon_known(w)) {
                 push(
                     LintErrorKind::BrokenReference,
                     format!("test.tears : arme « {weapon} » inconnue"),
                 );
             }
-            if let Some(target) = &tears.target {
+            for (index, (target, _, _)) in tears.targets.iter().enumerate() {
                 match registry
                     .characters
                     .get(&registry::CharacterId::from(target.clone()))
                 {
                     None => push(
                         LintErrorKind::BrokenReference,
-                        format!("test.tears : personnage cible « {target} » inconnu"),
+                        format!("test.tears : personnage cible « {target} » (targets[{index}]) inconnu"),
                     ),
                     Some(character) if !character.counts_hits => push(
                         LintErrorKind::Unsupported,
                         format!("test.tears : la cible « {target} » ne compte pas ses coups (`counts_hits: true`)"),
                     ),
                     Some(_) => {}
+                }
+            }
+            // Le témoin (même tir sans l'objet) est la preuve : chaque seuil doit dépasser ce que
+            // le témoin tolère, et chaque attente propre à l'objet doit avoir son contraire.
+            if tears.hits.is_empty() && tears.expect == 0 {
+                push(
+                    LintErrorKind::OutOfRange,
+                    "test.tears : ni `hits` ni `expect` : rien ne prouve l'effet de l'objet"
+                        .to_string(),
+                );
+            }
+            if (tears.expect == 0) != (tears.control == 0) {
+                push(
+                    LintErrorKind::OutOfRange,
+                    "test.tears : `expect` et `control` vont ensemble (la preuve propre à l'objet et son contraire sans lui)"
+                        .to_string(),
+                );
+            }
+            for hits in &tears.hits {
+                if hits.with_item == 0 {
+                    push(
+                        LintErrorKind::OutOfRange,
+                        "test.tears.hits : with_item = 0 : doit être > 0".to_string(),
+                    );
+                }
+                if hits.with_item <= hits.without_item {
+                    push(
+                        LintErrorKind::OutOfRange,
+                        format!(
+                            "test.tears.hits : with_item ({}) doit dépasser without_item ({}) : le témoin sans objet passerait le seuil",
+                            hits.with_item, hits.without_item
+                        ),
+                    );
+                }
+                if hits.target > tears.targets.len() {
+                    push(
+                        LintErrorKind::BrokenReference,
+                        format!(
+                            "test.tears.hits : cible {} absente (0 = la cible de l'arène, puis {} cible(s) posée(s))",
+                            hits.target,
+                            tears.targets.len()
+                        ),
+                    );
                 }
             }
         }
