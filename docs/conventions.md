@@ -4697,3 +4697,90 @@ Diagnostic : `projectile_probe` (`ALACOD_PROJECTILES=<scénario>:<de>:<à>`) aff
 M3-T11b met au moins deux familiers et un orbital dans le pool trésor d'`isaac` ; d'ici là, scénarios testbed seulement
 (dette nommée, à fermer par T11b).
 
+
+## 72. Champions et élites v2 en jeu (M3-T7, chantier D2 v2)
+
+M3-T7 exécute les champs de `VariantDef` de §63 : `on_death`, `behaviors`, `loot`, `chance` en expression ;
+`tint` est lu par la présentation seule (T17 le dessine : aucune lecture ici, attente nulle). **Aucune trace
+existante ne bouge** : un personnage sans variante, ou dont la variante n'a aucun champ v2, ne passe par rien de
+neuf (`champion_death_system` sort sans rien toucher), `PatternGhost` est neutre. Le
+tirage de §25 (graine `fnv1a("variants") ^ graine ^ net id`, `RollbackRng` local, jamais `RngStreams`) est inchangé.
+
+### `chance` en expression : valeur figée à l'apparition
+
+`draw_variant(config, forced, graine, net id, VariantContext { players, floor })` : `players` = joueurs de la session
+(`PlayersCount`, au moins 1), `floor` = étage de l'apparition (`run::FloorState::index`, 0 hors mode `Floors` ;
+`variant_context_at(étage suivant)` au passage de niveau). `DifficultyReader` porte le contexte (`variant_context_at`) ;
+les cinq sites d'apparition (`spawn_enemy` : vagues, spawners, renforts de salle, `CharacterSpawn`, placements de
+scénario) le passent. Un littéral est exact : même tirage qu'avant, quels que soient joueurs et étage. Le lint
+(§63) borne l'expression dans [0, 1] pour 1 et 4 joueurs aux étages 0 et 5 : une expression qui dépasserait 1 à
+l'étage 5 est une erreur de contenu (`0,1 + floor × 0,18`). Variante **imposée** (`CharacterSpawn.variant`, placement
+de scénario) : aucun tirage, la chance ne compte pas.
+
+Piège connu (hérité de §25, **non corrigé**, une correction déplacerait les traces de tout contenu à variantes) : la
+graine `fnv ^ graine ^ net id` donne, via un générateur congruentiel, des **valeurs voisines à des net ids
+consécutifs** ; quarante ennemis posés d'un coup tirent donc presque le même nombre. Les scénarios de chance
+choisissent une graine (1942) qui répartit les tirages de part et d'autre des seuils ; dette à numéroter.
+
+### `behaviors`
+
+Ceux de la variante **remplacent** ceux du personnage à la création (`enemy::create::spawn_enemy`, après le tirage) :
+`EnemyBehaviors::rules`, et `ai.ranged` suit la première règle `Shoot` comme pour un personnage. `BehaviorRuntime`
+est posé si la nouvelle liste en a besoin. Un personnage dont la variante n'a pas de `behaviors` garde le chemin d'avant.
+
+### `on_death`
+
+`champion_death_system` (`RollbackSystemSet::DeathManagement`, après `rollback_check_defeat` et
+`shell_drop_on_death_system`, avant `rollback_apply_death`, comme `boss_defeated_system`) : pour chaque mort qui porte
+`Variant`, par `GgrsNetId` croissant, **à la frame de sa mort** :
+
+- **`SpawnCharacters { id, count }`** : `count` personnages `id` de l'**équipe du mort**, santé résolue (F5 × difficulté),
+  par `spawn_enemy`, à des **décalages fixes** (`split_offsets` : un anneau de 14 unités, rang 0 vers +x, aucune
+  consommation de RNG), `GgrsNetId` alloués dans l'ordre (mort, puis rang `k` ; clé de contenu `champion:<net id>:<k>`
+  dans les logs `champion_split`). Ils sont créés **sans variante** (`NO_VARIANT` = `"-"`, absente de toute table) : pas de
+  division en cascade, même si la chance du personnage est de 1.
+- **`Explode { radius, damage, destroys }`** : **le mécanisme de M3-T4 (§69), sans second chemin** : une **bombe à mèche
+  d'une frame** (`world::Bomb`, `fuse_until = mort + 1`, comme l'`Action::Explode` des effets) posée à la position du mort,
+  **de son équipe**, tir ami `Always`, créditée au dernier joueur qui l'a touché (points des victimes), sinon au mort ;
+  `destroys` est transmis. `game::bombs::bomb_fuse_system` puis `explosion_system` l'exécutent à la frame suivante (une
+  `ExplosionRequest`, un `DamageEvent` par cible, un `Exploded`, rayon strict, exclusions `Death` et **invulnérables** :
+  un familier immunisé n'est jamais touché, scénario `champion_explodes`). Une seule émission de dégâts et d'`Exploded`
+  par explosion ; `PendingBlasts` et `champion_blast_system` (premier jet de T7) n'existent plus. L'équipe du mort
+  (`Enemies`) est celle de la source : la difficulté d'étage multiplie donc les dégâts, comme ceux de tout ennemi.
+- **`SpawnPattern { pattern, weapon }`** : un émetteur **sans personnage** (`PatternGhost`, rollback neutre) à la position du
+  mort, de l'équipe du mort, joue le pattern avec la table de projectiles de l'arme (`effects_runtime::spawn_pattern`, le
+  chemin des effets), puis `pattern_ghost_cleanup_system` le détruit (`despawn_rollback`) quand son `Emitter` est fini. Les
+  projectiles naissent à la frame suivante (`Weapon`). Lint ajouté : un pattern **infini** (`Ring` avec `every > 0`, y compris
+  atteint par une chaîne `Named`, profondeur bornée ; chaîne cyclique ou inconnue refusée aussi) est
+  refusé à la mort (`Unsupported`) : l'émetteur n'a pas de personnage pour l'arrêter ; utiliser `every: 0`.
+- Toute autre action est refusée par le lint (§63) et, si elle arrivait, ignorée avec un `warn!`.
+
+### `loot`
+
+La table de la variante (`loot/<table>.ron`) est tirée à la mort par `items::draw_loot_with` avec un `RollbackRng` de graine
+`items::loot_seed(graine de run, étage, "champion:<net id>")` (§48 : indépendant du moment, jamais `RngStreams`), les
+déblocages actifs de la run appliqués comme pour un coffre ; l'objet (ou l'arme, `items::loot_weapon`) est posé au sol
+16 unités à l'est du mort (`spawn_item_pickup`, `spawn_loot_weapon`) et se ramasse comme n'importe quel objet.
+
+### Testbed et scénarios
+
+Personnages `elite_explosif` (variantes `explosif`, `salve`, `nu`), `elite_divise` (`divise`, `nu`), `elite_riche` (`riche`,
+`nu`), `elite_comportement` (`distant`, `nu`), `elite_chance` (chance `0,1 + 0,18 × floor`) ; pattern `couronne_unique` ;
+séquence `deux_vides` (deux niveaux sans ennemi, le portail s'ouvre aussitôt). Les scénarios **forcent** la variante
+(`variant:` du placement) et gardent un témoin `_sans_variante` (variante `nu`, sans effet).
+
+| Scénario | Prouve |
+|---|---|
+| `champion_explodes`, `..._sans_variante` | `Explode` à la frame suivant la mort (f29 → f30) : joueur 90, cible proche 4990, lointaine 5000 ; le familier (10 PV, immunisé) survit ; témoin : personne blessé |
+| `champion_splits`, `..._sans_variante` | trois `elite_divise` en anneau de 14 unités à la mort (f55), sans variante ; témoin : rien |
+| `champion_drops`, `..._sans_variante` | l'objet `bottes` (graine `champion:14`) est lâché, ramassé à f120 ; témoin : rien |
+| `champion_behaviors`, `..._sans_variante` | `KeepDistance` de la variante au lieu de `Chase` : le champion reste à plus de 190 unités ; témoin : il rejoint le joueur |
+| `champion_pattern` | `SpawnPattern` : huit boules de feu en couronne à f56, une seule couronne, émetteur détruit |
+| `champion_chance_floor_0`, `champion_chance_floor` | `chance` en expression : 2 champions sur 40 à l'étage 0 (10 %), 23 sur 40 à l'étage 1 (28 %) |
+
+Diagnostic : `map_probe` (`ALACOD_MAP_PROBE=<scénario>:<frame>`) liste aussi la variante des personnages.
+
+### Atteignabilité
+
+M3-T11c donne des champions à au moins trois ennemis des salles `combat` d'`isaac` (graine à nommer à ce moment) ; d'ici là,
+scénarios testbed seulement (dette nommée, à fermer par T11c).

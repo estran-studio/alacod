@@ -1,0 +1,33 @@
+// M3-T7 (docs/conventions.md §72) : `on_death` `SpawnPattern`. Le joueur 0 (carte `surfaces`) tire sur un `elite_explosif` (variante `salve`) à
+// 40 unités : à sa mort, un émetteur sans personnage (`PatternGhost`) joue le pattern `couronne_unique` de l'arme `fireball_gun` (huit boules de
+// feu en couronne depuis la position du mort), puis est détruit ; les boules de feu blessent le joueur.
+//
+// À regarder : le champion tombe, une couronne de huit boules de feu part de sa position.
+Scenario(
+    game: "testbed",
+    map: "testbed/surfaces.ldtk",
+    frames: 160,
+    powerup_drop_chance_override: "0",
+    characters: [
+        (character: "elite_explosif", x: "-528", y: "248", at_frame: 1, variant: "salve"),
+    ],
+    players: [
+        (
+            inputs: [(from: 20, to: 41, buttons: [Fire], pan: (127, 0))],
+            weapon: "larme",
+            items: [],
+        ),
+    ],
+    expect: [
+        EnemyVariant(entity: NetId(14), variant: Some("salve"), at_frame: 2),
+        // Le champion (net id 14) meurt à f55 ; l'émetteur fantôme tire à la frame suivante : huit boules de feu (`fireball`) en couronne.
+        BulletCount(count: 0, projectile: Some("fireball"), at_frame: 55),
+        BulletCount(count: 8, projectile: Some("fireball"), at_frame: 56),
+        // Une seule couronne (`every: 0`) : huit boules jusqu'à f74, jamais seize ; elles s'arrêtent ensuite dans les murs
+        // de la carte (f75 : 7 ... f83 : 1). L'émetteur fantôme est détruit dès sa séquence finie.
+        BulletCount(count: 8, projectile: Some("fireball"), at_frame: 74),
+        BulletCount(count: 1, projectile: Some("fireball"), at_frame: 100),
+        // Une boule de feu (8 points de dégâts) touche le joueur.
+        Health(handle: 0, min: Some(92.0), max: Some(92.0), at_frame: 150),
+    ],
+)

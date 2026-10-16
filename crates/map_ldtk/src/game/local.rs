@@ -204,8 +204,16 @@ fn spawn_characters_when_map_loaded(
         .map(|(_, transform, spawn)| (transform, spawn))
         .collect();
     let difficulty = assets.difficulty.current();
-    let placed =
-        spawn_level_characters(&mut commands, &assets, &mut id_provider, spawns, difficulty);
+    // Premier niveau : étage 0 (les niveaux suivants du mode `Floors` : `floors.rs`).
+    let context = assets.difficulty.variant_context_at(0);
+    let placed = spawn_level_characters(
+        &mut commands,
+        &assets,
+        &mut id_provider,
+        spawns,
+        difficulty,
+        context,
+    );
     // T1.8 : premier niveau du mode `Floors` (ennemis placés, pour les kills du résumé).
     if plan.is_some() {
         floor_state.enemies_placed = placed;
@@ -222,6 +230,8 @@ pub(crate) fn spawn_level_characters(
     // T1.9 : difficulté de l'étage où ces personnages apparaissent (voir
     // `game::clock::DifficultyReader::at_floor`).
     difficulty: bevy_fixed::fixed_math::Fixed,
+    // M3-T7 : joueurs et étage de l'apparition (`chance` en expression des variantes).
+    context: game::character::variant::VariantContext,
 ) -> u32 {
     if spawns.is_empty() {
         return 0;
@@ -257,6 +267,7 @@ pub(crate) fn spawn_level_characters(
             team,
             spawn.variant.as_deref(),
             difficulty,
+            context,
         )
         .is_some()
         {
@@ -280,6 +291,7 @@ pub fn spawn_character(
     team: Option<Team>,
     variant: Option<&str>,
     difficulty: bevy_fixed::fixed_math::Fixed,
+    context: game::character::variant::VariantContext,
 ) -> Option<Entity> {
     if !assets
         .global_assets
@@ -333,6 +345,7 @@ pub fn spawn_character(
             .as_ref()
             .map_or(0, |config| config.seed as u32),
         variant,
+        context,
     ))
 }
 

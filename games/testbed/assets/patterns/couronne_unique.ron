@@ -1,0 +1,3 @@
+// M3-T7 (docs/conventions.md §72) : couronne de huit boules de feu **une seule fois** (`every: 0`), pour un `on_death`
+// de champion (`SpawnPattern` : l'émetteur n'a pas de personnage pour l'arrêter, le lint refuse un pattern infini).
+Ring(count: 8, speed: "60.0", projectile: "fireball", every: 0)
