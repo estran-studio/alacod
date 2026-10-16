@@ -121,15 +121,31 @@
   fichiers:
     - sounds/hit.ogg
     - sounds/hurt.ogg
-    - sounds/death.ogg
+    - sounds/melee.ogg
   source: https://kenney.nl/assets/impact-sounds (archive kenney_impact-sounds.zip, fichiers
     impactSoft_medium_000.ogg → hit, impactPunch_heavy_000.ogg → hurt,
-    impactSoft_heavy_000.ogg → death ; page lue le 2026-10-14, lot B de docs/plan-assets.md)
+    impactSoft_heavy_000.ogg → death ; page lue le 2026-10-14, lot B de docs/plan-assets.md.
+    (2026-10-16) impactPunch_medium_000.ogg → melee ; page relue le 2026-10-16, CC0).
+    death.ogg a quitté cette entrée le 2026-10-16 (voir sound-zombie-groan-gustavo-silveira).
   auteur: Kenney (www.kenney.nl)
   licence: CC0 1.0 (https://creativecommons.org/publicdomain/zero/1.0/) — affichée sur la page
     (« License Creative Commons CC0 ») et dans le License.txt de l'archive
   modifications: stéréo mixée en mono, 44,1 kHz, normalisé en crête (hit -9 dBFS, son
-    fréquent ; death -6 dBFS ; hurt -3 dBFS), ré-encodé en ogg vorbis (oggenc -q 5)
+    fréquent ; death -6 dBFS ; hurt -3 dBFS), ré-encodé en ogg vorbis (oggenc -q 5).
+    (2026-10-16) melee normalisé en crête à -3 dBFS (ffmpeg libvorbis -q 5).
+
+- id: sound-zombie-groan-gustavo-silveira
+  fichiers:
+    - sounds/death.ogg
+  source: https://opengameart.org/content/zombie-groan (fichier zombieHoouw_1_0.mp3 ;
+    page lue le 2026-10-16)
+  auteur: Gustavo Silveira (gustavoasilveira)
+  licence: CC BY 3.0 (https://creativecommons.org/licenses/by/3.0/)
+  attribution: '"Zombie groan" by Gustavo Silveira, CC BY 3.0'
+  modifications: rogné à 1,1 s, fondu de sortie (0,75 à 1,1 s), stéréo mixée en mono,
+    44,1 kHz, normalisé à -3 dBFS crête, ré-encodé en ogg vorbis (ffmpeg libvorbis -q 5).
+    Son de mort des ennemis ; famille distincte des impacts Kenney (hit, melee, hurt)
+    pour ne plus les confondre (retour de William, 2026-10-16).
 
 - id: sound-rpg-audio-kenney
   fichiers:
