@@ -59,6 +59,20 @@ Autres livrables : `PlayerScript::bomb` (scénarios), `fuzz_inputs` avec `ALACOD
    moment clé `explosion` ; test unitaire `game::effects_runtime` : bombe à mèche d'une frame, équipe et crédit du
    porteur, `destroys`, position.
 
+### Second passage de revue
+
+5. **Mur secret ouvert puis salle voisine verrouillée** : le verrouillage (`to_close`) refermait la porte jumelle déjà
+   ouverte, puis `Locked → Cleared` (exclusion inconditionnelle) ne la rouvrait pas. Les portes secrètes sont
+   maintenant exclues **des deux côtés** (`to_close` et réouverture) : leur état n'appartient qu'à
+   `secret_wall_system`. Scénario `secret_wall_open_then_fight` (carte `salles_secret_combat_vide.ldtk`, salle de
+   combat sans ennemi : bombe f130 → mur ouvert f155, puis un `dummy` placé à f250 verrouille la salle, abattu, salle
+   nettoyée f455, le joueur traverse : x -586,5 à f699, `DoorLocked` faux de bout en bout) et témoin
+   `secret_wall_open_then_fight_sans_bombe` (porte fermée, joueur arrêté à x -714,8). Contrôle : sans l'exclusion
+   dans `to_close`, le joueur reste bloqué (x -714,6). Traces neuves bénies : ces deux scénarios seulement ; aucune
+   trace existante n'a bougé. Suite 417 scénarios, `test_crates` 939, lint/gen ×5, fmt, `check_sim_boundary`,
+   `check-forbidden` verts. p2p non rejoué (seules les lignes de `rooms.rs` d'exclusion changent, hors des
+   scénarios p2p).
+
 Traces bénies (nouvelles, une à une) : `secret_wall_after_clear`, `secret_wall_floors`, `explode_effect`
 (scénarios neufs). Aucune trace existante n'a bougé, `rock_loot` comprise (le butin déplacé dans un autre système donne
 les mêmes `GgrsNetId` et la même suite).
