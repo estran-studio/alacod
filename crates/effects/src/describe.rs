@@ -138,6 +138,7 @@ pub fn describe_action(action: &Action) -> String {
         Action::KillAllWaveEnemies => "tous les ennemis de la vague tués".into(),
         Action::DestroyTerrain { radius } => format!("creuse la roche ({})", number(*radius)),
         Action::SpawnEnemies { id, count } => format!("{count} renfort(s) {id}"),
+        Action::SpawnCharacters { id, count } => format!("{count} {id} apparaissent"),
         Action::Explode {
             radius,
             damage,

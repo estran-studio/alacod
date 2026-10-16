@@ -2332,6 +2332,27 @@ fn check(world: &mut World, expectation: &Expectation) -> Result<(), String> {
                 ))
             }
         }
+        // M3-T0d : familiers du joueur (`behaviors::FamiliarOf`).
+        Expectation::FamiliarCount { handle, count, .. } => {
+            let owner = world
+                .query::<(&Player, &GgrsNetId)>()
+                .iter(world)
+                .find(|(player, _)| player.handle == *handle)
+                .map(|(_, net_id)| net_id.clone())
+                .ok_or_else(|| format!("joueur {handle} absent"))?;
+            let actual = world
+                .query::<&behaviors::FamiliarOf>()
+                .iter(world)
+                .filter(|familiar| familiar.owner == owner)
+                .count();
+            if actual == *count as usize {
+                Ok(())
+            } else {
+                Err(format!(
+                    "joueur {handle} : {actual} familier(s) (attendu {count})"
+                ))
+            }
+        }
         Expectation::Shelf {
             nth,
             item,

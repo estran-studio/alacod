@@ -16,6 +16,7 @@ use bevy_fixed::{
     fixed_math::{self, Fixed},
     rng::{fnv1a, RollbackRng},
 };
+use content::expr::NumOrExpr;
 use serde::Deserialize;
 use sim_core::{
     modifier::{Modifier, ModifierOp, ModifierSource},
@@ -26,15 +27,29 @@ use sim_core::{
 /// `variants: Some((chance: "0.25", table: { ... }))` d'un `CharacterConfig`.
 #[derive(Debug, Clone, Deserialize)]
 pub struct VariantsConfig {
-    /// Probabilité d'avoir une variante (`[0, 1]`, défaut 1).
+    /// Probabilité d'avoir une variante (`[0, 1]`, défaut 1). M3-T0d : un nombre (valeur
+    /// inchangée) **ou une expression** (`"0.1 + floor * 0.05"`, identifiants `players` et
+    /// `floor`, `docs/conventions.md` §18 et §63).
     #[serde(default = "full_chance")]
-    pub chance: Fixed,
+    pub chance: NumOrExpr,
     /// Variantes par nom (ordre `BTreeMap` : ordre du tirage pondéré).
     pub table: BTreeMap<String, VariantDef>,
 }
 
-fn full_chance() -> Fixed {
-    fixed_math::FIXED_ONE
+fn full_chance() -> NumOrExpr {
+    NumOrExpr::Literal(fixed_math::FIXED_ONE)
+}
+
+impl VariantsConfig {
+    /// Chance résolue pour `players` joueurs à l'étage `floor` (un littéral est inchangé). Une
+    /// expression en erreur donne 0 : le lint la refuse avant le jeu.
+    pub fn chance_at(&self, players: u32, floor: u32) -> Fixed {
+        let ctx = std::collections::BTreeMap::from([
+            ("players".to_string(), Fixed::from_num(players)),
+            ("floor".to_string(), Fixed::from_num(floor)),
+        ]);
+        self.chance.resolve_with(&ctx).unwrap_or(Fixed::ZERO)
+    }
 }
 
 fn unit_weight() -> u32 {
@@ -53,6 +68,21 @@ pub struct VariantDef {
     pub tags: Tags,
     #[serde(default)]
     pub skin: Option<String>,
+    /// M3-T0d (`docs/conventions.md` §63) : actions jouées **à la mort** du porteur (`Explode`,
+    /// `SpawnCharacters`, `SpawnPattern`). Vide : rien (v1 exacte). Contrat : exécuté par M3-T7 ;
+    /// la définition est hors rollback, le composant [`Variant`] ne change pas.
+    #[serde(default)]
+    pub on_death: Vec<effects::Action>,
+    /// M3-T0d : remplace la liste de behaviors du personnage. `None` : celle du personnage.
+    #[serde(default)]
+    pub behaviors: Option<Vec<behaviors::Behavior>>,
+    /// M3-T0d : table de butin (`loot/<table>.ron`) lâchée à la mort, tirée par la graine de §48
+    /// avec la clé de contenu `champion:<net_id>`.
+    #[serde(default)]
+    pub loot: Option<String>,
+    /// M3-T0d : teinte `#rrggbb` du sprite (présentation seule, hors trace).
+    #[serde(default)]
+    pub tint: Option<String>,
 }
 
 /// Modificateur de variante, `(stat: EnemyMoveSpeed, op: Mul, value: "1.5")`.
@@ -104,7 +134,9 @@ pub fn draw_variant(
         return config.table.contains_key(name).then(|| name.to_string());
     }
     let mut rng = RollbackRng::new(variant_seed(run_seed, net_id));
-    if rng.next_fixed() >= config.chance {
+    // M3-T0d : une expression se résout ici avec un joueur à l'étage 0 ; les vraies valeurs
+    // arrivent avec l'exécution (M3-T7). Un littéral est inchangé.
+    if rng.next_fixed() >= config.chance_at(1, 0) {
         return None;
     }
     let total: u32 = config.table.values().map(|def| def.weight).sum();
@@ -149,12 +181,16 @@ mod tests {
             }],
             tags: Tags::default(),
             skin: None,
+            on_death: vec![],
+            behaviors: None,
+            loot: None,
+            tint: None,
         }
     }
 
     fn table(chance: f32, entries: &[(&str, u32)]) -> VariantsConfig {
         VariantsConfig {
-            chance: fixed_math::new(chance),
+            chance: NumOrExpr::Literal(fixed_math::new(chance)),
             table: entries
                 .iter()
                 .map(|(name, weight)| (name.to_string(), def(*weight)))

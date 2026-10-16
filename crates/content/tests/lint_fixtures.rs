@@ -1759,6 +1759,101 @@ fn m4_t0a_errors(errors: &[content::LintError]) -> usize {
         .count()
 }
 
+/// Les fixtures n'ont pas de carte : la seule erreur tolérée d'un contenu valide est celle de
+/// `entry.start_map`.
+fn only_missing_start_map(errors: &[content::LintError]) -> bool {
+    errors
+        .iter()
+        .all(|error| error.message.contains("entry.start_map"))
+}
+
+/// M3-T0d (§63) : un familier valide (porteur, behaviors de familier) passe le lint.
+#[test]
+fn familiar_ok_fixture_is_clean() {
+    let (_, _, errors) = load_and_lint(&fixture_dir("familiar_ok")).unwrap();
+    assert!(only_missing_start_map(&errors), "{errors:?}");
+}
+
+#[test]
+fn familiar_unknown_character_fixture_reports_broken_reference() {
+    let (_, _, errors) = load_and_lint(&fixture_dir("familiar_unknown_character")).unwrap();
+    assert_has_error(
+        &errors,
+        LintErrorKind::BrokenReference,
+        "personnage « fantome » inconnu",
+    );
+}
+
+#[test]
+fn familiar_orphan_behavior_fixture_reports_missing_carrier() {
+    let (_, _, errors) = load_and_lint(&fixture_dir("familiar_orphan_behavior")).unwrap();
+    assert_has_error(&errors, LintErrorKind::Unsupported, "sans porteur");
+}
+
+#[test]
+fn familiar_without_behavior_fixture_reports_unsupported() {
+    let (_, _, errors) = load_and_lint(&fixture_dir("familiar_without_behavior")).unwrap();
+    assert_has_error(
+        &errors,
+        LintErrorKind::Unsupported,
+        "sans behavior de familier",
+    );
+}
+
+#[test]
+fn familiar_gap_zero_fixture_reports_out_of_range() {
+    let (_, _, errors) = load_and_lint(&fixture_dir("familiar_gap_zero")).unwrap();
+    assert_has_error(&errors, LintErrorKind::OutOfRange, "Follow : gap = 0");
+    assert_has_error(&errors, LintErrorKind::OutOfRange, "Orbit : radius = 0");
+    assert_has_error(
+        &errors,
+        LintErrorKind::OutOfRange,
+        "Orbit : frames_per_turn = 0",
+    );
+}
+
+#[test]
+fn champion_bad_death_fixture_reports_each_field() {
+    let (_, _, errors) = load_and_lint(&fixture_dir("champion_bad_death")).unwrap();
+    assert_has_error(&errors, LintErrorKind::Unsupported, "refusée à la mort");
+    assert_has_error(&errors, LintErrorKind::OutOfRange, "Explode : rayon = 0");
+    assert_has_error(
+        &errors,
+        LintErrorKind::BrokenReference,
+        "SpawnCharacters : personnage « fantome » inconnu",
+    );
+    assert_has_error(&errors, LintErrorKind::OutOfRange, "count = 0");
+    assert_has_error(
+        &errors,
+        LintErrorKind::BrokenReference,
+        "pool « fantome » inconnu",
+    );
+    assert_has_error(&errors, LintErrorKind::OutOfRange, "tint « rouge »");
+    assert_has_error(&errors, LintErrorKind::OutOfRange, "behaviors vide");
+}
+
+#[test]
+fn champion_ok_fixture_is_clean() {
+    let (_, _, errors) = load_and_lint(&fixture_dir("champion_ok")).unwrap();
+    assert!(only_missing_start_map(&errors), "{errors:?}");
+}
+
+#[test]
+fn variant_chance_expression_range_fixture_reports_out_of_range() {
+    let (_, _, errors) = load_and_lint(&fixture_dir("variant_chance_expression_range")).unwrap();
+    assert_has_error(&errors, LintErrorKind::OutOfRange, "doit être dans [0, 1]");
+}
+
+#[test]
+fn variant_chance_expression_unknown_fixture_reports_identifier() {
+    let (_, _, errors) = load_and_lint(&fixture_dir("variant_chance_expression_unknown")).unwrap();
+    assert_has_error(
+        &errors,
+        LintErrorKind::BrokenReference,
+        "identifiant « minutes » inconnu",
+    );
+}
+
 #[test]
 fn hub_unknown_unlock_fixture_reports_broken_reference() {
     let (_, _, errors) = load_and_lint(&fixture_dir("hub_unknown_unlock")).unwrap();

@@ -1,0 +1,5 @@
+(
+    name: "Objet",
+    kind: Passive,
+    familiar: Some((character: "fantome", per_copy: 1)),
+)

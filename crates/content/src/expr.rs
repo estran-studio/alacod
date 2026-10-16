@@ -707,6 +707,16 @@ impl NumOrExpr {
         }
     }
 
+    /// Résout ce champ avec un contexte quelconque (M3-T0d : `players` et `floor` pour la chance
+    /// d'une variante). Les littéraux sont inchangés.
+    pub fn resolve_with(&self, ctx: &dyn Context) -> Result<Fixed, EvalError> {
+        match self {
+            NumOrExpr::Integer(n) => Ok(Fixed::from_num(*n)),
+            NumOrExpr::Literal(f) => Ok(*f),
+            NumOrExpr::Expression(expr) => expr.try_eval(ctx),
+        }
+    }
+
     /// Résout ce champ en `u32` (arrondi au plus proche). Une valeur négative est une
     /// erreur de chargement (`EvalError::InvalidNumber`), pas un clamp silencieux.
     pub fn resolve_u32(&self, players: u32) -> Result<u32, EvalError> {

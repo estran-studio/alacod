@@ -355,6 +355,7 @@ mod tests {
             uses_per_floor: None,
             cost: None,
             projectile: None,
+            familiar: None,
         }
     }
 

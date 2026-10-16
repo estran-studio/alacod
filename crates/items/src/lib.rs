@@ -161,6 +161,28 @@ pub struct ItemDef {
     /// sans `Hash`) : le champ n'entre dans aucun checksum.
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub projectile: Option<ProjectileMods>,
+    /// M3-T0d (`docs/conventions.md` §63) : l'objet donne un **familier** (un personnage de
+    /// `characters/` à comportements de familier), `per_copy` par exemplaire tenu. `None` : aucun
+    /// (v1 exacte). Contrat : le ramassage ne crée rien encore (M3-T6) ; hors rollback et hors
+    /// hash (définition, ressource [`ItemTable`]).
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub familiar: Option<FamiliarRef>,
+}
+
+/// Le familier que donne un objet (M3-T0d, §63).
+#[cfg_attr(feature = "schema", derive(schemars::JsonSchema))]
+#[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
+pub struct FamiliarRef {
+    /// Id d'un personnage (`characters/`) qui porte au moins un behavior de familier.
+    pub character: String,
+    /// Familiers créés par exemplaire de l'objet tenu (1 par défaut).
+    #[serde(default = "one_familiar")]
+    #[cfg_attr(feature = "schema", schemars(extend("x-lint" = "> 0")))]
+    pub per_copy: u32,
+}
+
+fn one_familiar() -> u32 {
+    1
 }
 
 /// Une synergie (M2-T4, `docs/conventions.md` §44) : un fichier `synergies/<id>.ron` (kind

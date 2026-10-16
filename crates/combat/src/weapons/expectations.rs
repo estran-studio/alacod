@@ -442,6 +442,13 @@ pub enum Expectation {
         lacks: Vec<String>,
         at_frame: u32,
     },
+    /// Le joueur `handle` a exactement `count` familiers (`behaviors::FamiliarOf` dont le porteur
+    /// est ce joueur) à la frame exacte `at_frame` (M3-T0d, §63).
+    FamiliarCount {
+        handle: usize,
+        count: u32,
+        at_frame: u32,
+    },
     /// La sortie du hub (`game::hub::HubState::exit`, M2-T13, §57) est posée par `handle` (ou par
     /// n'importe qui si `handle` est absent) à la frame `exit_frame` (absente : n'importe laquelle),
     /// vérifiée à la frame exacte `at_frame`. `none: true` : aucune sortie décidée.
@@ -622,6 +629,7 @@ impl Expectation {
             | Self::BossPhase { at_frame, .. }
             | Self::ProfileHas { at_frame, .. }
             | Self::RunUnlocks { at_frame, .. }
+            | Self::FamiliarCount { at_frame, .. }
             | Self::HubExit { at_frame, .. }
             | Self::HubVisit { at_frame, .. }
             | Self::Event {
