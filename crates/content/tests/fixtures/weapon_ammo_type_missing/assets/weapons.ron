@@ -1,0 +1,14 @@
+// Fixture M3-T0a : `ammo_type` n'est facultatif que si tous les modes sont `Infinite` ; ici un mode
+// `Mag` consomme des munitions.
+({
+    "rifle": (
+        config: (
+            name: "rifle",
+            default_firing_mode: "default",
+            firing_modes: {
+                "default": (firing_rate: "5.0", mag: Mag(mag_size: 10, mag_limit: 2)),
+                "larme": (firing_rate: "3.0", mag: Infinite),
+            },
+        ),
+    ),
+})

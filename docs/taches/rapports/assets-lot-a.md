@@ -71,16 +71,46 @@ Mono 44,1 kHz, ogg vorbis (`oggenc -q 5`), entrées `sound-impact-kenney`,
   - `door` : porte fermée à l'image précédente, ouverte maintenant, sauf à l'image où
     `RoomStates::doors_opened` passe à `true` (au premier essai, l'ouverture d'office des portes
     de salle de gungeon sonnait à la frame 1).
-- **`shot_sounds`** (ajouté après l'essai en jeu) : le « pistolet » de gungeon est `Automatic` et
-  jouait `shot_smg`. `FeedbackSettings::shot_sounds` (nom d'arme → clé de `sounds`) passe avant
-  la famille du mode ; gungeon : `shot_sounds: {"pistolet": "shot_pistol"}`. Lint : arme à
-  distance connue et clé présente dans `sounds` (fixture `feedback_shot_sounds_unknown`, test
-  `feedback_shot_sounds_fixture_reports_weapon_and_key`, ajoutée à la table
-  `t3_4_fixtures_have_a_single_rule_failure`). Test unitaire
-  `arme_puis_famille_puis_repli_sur_shot` (ordre : arme, famille, `shot`, rien).
+- **`shot_sounds`** (ajouté après l'essai en jeu, **remplacé ensuite**, voir « Sons
+  paramétrables » ci-dessous) : le « pistolet » de gungeon est `Automatic` et jouait `shot_smg`.
 - **Pas de son de coffre** : les coffres (M2-T5) ne sont pas dans `main`.
 
+### Sons paramétrables (demande de William, 2026-10-15)
+
+- **`audio_config` des armes lu par le jeu** : le champ existait dans `weapons.ron` (un tir et
+  un rechargement par mode de tir) mais seul le lint le lisait. Il devient
+  `combat::weapons::WeaponAudioConfig` sur `WeaponAsset` (`#[serde(default)]`, vide = rien),
+  **jamais** copié dans le composant rollback `Weapon` (haché dans le checksum) : la
+  présentation le relit dans `Assets<WeaponsConfig>` par le nom de l'arme
+  (`game::feedback::WeaponAudio`).
+- **Priorité** : tir = `firing` du mode actif de l'arme, sinon la clé de la famille du mode,
+  sinon `shot` ; rechargement = `reloading` du mode actif, sinon `reload` (`shot_sound`,
+  `reload_sound`, test `arme_puis_famille_puis_repli`). Le rechargement prend maintenant le son
+  de l'arme active du joueur qui recharge.
+- **`shot_sounds` retiré** (champ, lint, fixture, test) : doublon de `audio_config`. Gungeon :
+  `audio_config` sur `pistolet` (`Automatic`) et `pistolet_jumele` (`Burst`) vers
+  `sounds/shot_pistol.ogg`.
+- **Volumes** : `volumes` dans `feedback.ron`, en dB par clé de `sounds` (plage [-60, 12],
+  `SOUND_VOLUME_DB_RANGE`) ; un son d'arme prend le volume de la clé qu'il remplace (famille
+  ou `reload`). `volumes: {}` dans les quatre jeux (aucun changement d'écoute).
+- **Lint** : mode d'`audio_config` absent de `firing_modes` (fixture `audio_unknown_mode`) ;
+  clé de `volumes` absente de `sounds` (fixture `feedback_volume_unknown_key`) ; volume hors
+  plage (`FeedbackSettings::problems`, test `volume_hors_plage_signale`).
+- Journal : `feedback f<N> sound <clé> <fichier>` pour tous les sons.
+
 ## 2. Vérifié
+
+**Après le paramétrage audio (2026-10-15)** :
+- `make test_scenarios` complet, sans `BLESS` : 302 scénarios, 3 tests réussis / 0 échec /
+  8 ignorés, 613 s ; traces inchangées.
+- `make test_crates` : 691 réussis / 0 échec / 10 ignorés (42 binaires).
+- `make lint` : aucune erreur dans les quatre jeux ; `cargo fmt --all -- --check` passe.
+- Essai du binaire natif gungeon par contrôle remote : tir pendant 40 frames, puis rechargement.
+  Journal `logs/game_run_LGfvKV.log` : `feedback f21 sound shot_smg sounds/shot_pistol.ogg`,
+  puis `feedback f46 sound reload sounds/reload.ogg`. La clé `shot_smg` désigne le volume de
+  la famille `Automatic`, le fichier du pistolet vient de son `audio_config`.
+- Limites : écoute à l'oreille non vérifiable par l'agent ; capture remote noire, donc aucune
+  validation visuelle revendiquée pour cet essai audio.
 
 `origin/main` a avancé pendant la tâche (M2-T14a, M2-T15, M2-T17, M2-T19 feedback v2,
 perf-suite, M2-T16) : fusionné dans la branche (8480d7bd, sans conflit textuel), puis
@@ -143,9 +173,9 @@ changeait, lue par la présentation. Les deux suites suivantes ont tourné sur u
 
 - **Coffre** (lot B) : à brancher quand M2-T5 sera dans `main` (`FrameEvents<ChestOpened>` ou
   le front « vidé » par `GgrsNetId`, même forme que `blank`/`door`).
-- Un seul son de rechargement pour toutes les armes ; armes lourdes (`lance_grenades`,
-  `roquette`, `mortier` de throne) sur `shot_pistol` faute d'échantillon dédié : à ajouter par
-  `shot_sounds` quand un son d'explosif existera.
+- Un seul son de rechargement fourni pour toutes les armes ; armes lourdes (`lance_grenades`,
+  `roquette`, `mortier` de throne) sur `shot_pistol` faute d'échantillon dédié : à donner par
+  leur `audio_config` quand un son d'explosif existera.
 - `games/testbed/assets/assets.yaml` ne déclare que les sons : les autres fichiers du testbed
   (copies de zombies) restent à enregistrer.
 - Question : volumes relatifs (`hit` -9, `death`/`dash` -6, autres -3 dBFS crête) à régler à

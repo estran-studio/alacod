@@ -661,19 +661,21 @@ fn feedback_t1_17_fixtures_report_their_field() {
     );
 }
 
-/// Lot A des assets : `shot_sounds` vers une arme inconnue et une clé absente de `sounds`.
+/// Assets : `volumes` règle une clé absente de `sounds` ; `audio_config` d'une arme vise un
+/// mode de tir qu'elle n'a pas.
 #[test]
-fn feedback_shot_sounds_fixture_reports_weapon_and_key() {
-    let (_, _, errors) = load_and_lint(&fixture_dir("feedback_shot_sounds_unknown")).unwrap();
+fn sound_config_fixtures_report_key_and_mode() {
+    let (_, _, errors) = load_and_lint(&fixture_dir("feedback_volume_unknown_key")).unwrap();
     assert_has_error(
         &errors,
         LintErrorKind::BrokenReference,
-        "shot_sounds « fantome » : arme inconnue",
+        "volumes.hit : clé absente de sounds",
     );
+    let (_, _, errors) = load_and_lint(&fixture_dir("audio_unknown_mode")).unwrap();
     assert_has_error(
         &errors,
         LintErrorKind::BrokenReference,
-        "shot_sounds.fantome = « shot_absente » : clé absente",
+        "audio_config.modes.rafale : mode de tir inconnu",
     );
 }
 
@@ -727,10 +729,11 @@ fn t3_4_fixtures_have_a_single_rule_failure() {
             1,
         ),
         (
-            "feedback_shot_sounds_unknown",
+            "feedback_volume_unknown_key",
             LintErrorKind::BrokenReference,
-            2,
+            1,
         ),
+        ("audio_unknown_mode", LintErrorKind::BrokenReference, 1),
         (
             "feedback_override_out_of_range",
             LintErrorKind::OutOfRange,
@@ -752,28 +755,15 @@ fn t3_4_fixtures_have_a_single_rule_failure() {
     }
 }
 
-/// T1.16 : écran de mutation (`ui/mutation_screen.ron`) — police absente, deux emplacements ;
 /// T1.18 : source de HUD inconnue ;
 /// une seule erreur par fixture en plus du start_map commun.
 #[test]
-fn mutation_screen_fixtures() {
-    for (name, kind, needle) in [
-        (
-            "mutation_screen_font_missing",
-            LintErrorKind::BrokenReference,
-            "champ font = « fonts/absente.ttf »",
-        ),
-        (
-            "mutation_screen_two_slots",
-            LintErrorKind::OutOfRange,
-            "2 emplacements, il en faut 3",
-        ),
-        (
-            "hud_unknown_source",
-            LintErrorKind::UnknownKind,
-            "hud : source inconnue « mana »",
-        ),
-    ] {
+fn hud_source_fixtures() {
+    for (name, kind, needle) in [(
+        "hud_unknown_source",
+        LintErrorKind::UnknownKind,
+        "hud : source inconnue « mana »",
+    )] {
         let (_, _, errors) = load_and_lint(&fixture_dir(name)).unwrap();
         assert_has_error(&errors, kind, needle);
         let others: Vec<_> = errors
@@ -782,6 +772,99 @@ fn mutation_screen_fixtures() {
             .collect();
         assert_eq!(others.len(), 1, "{name}: {errors:#?}");
     }
+}
+
+#[test]
+fn html_screen_missing_row_fixture_reports_referenced_template() {
+    let (registry, _, errors) = load_and_lint(&fixture_dir("html_screen_missing_row")).unwrap();
+    assert!(registry.ui_files.contains(&"ui/pause_screen.html".into()));
+    assert_has_error(&errors, LintErrorKind::BrokenReference, "ui/hui_row.html");
+    let error = errors
+        .iter()
+        .find(|error| error.message.contains("ui/hui_row.html"))
+        .unwrap();
+    assert_eq!(error.file, "ui/pause_screen.html");
+    assert_only_one_besides_start_map(&errors);
+}
+
+#[test]
+fn html_templates_are_discovered_without_ron_companions() {
+    let (registry, _, errors) = load_and_lint(&fixture_dir("html_screens_valid")).unwrap();
+    assert!(
+        errors
+            .iter()
+            .all(|error| error.message.contains("entry.start_map")),
+        "{errors:#?}"
+    );
+    for file in [
+        "ui/pause_screen.html",
+        "ui/inventory_screen.html",
+        "ui/hui_row.html",
+        "ui/hud.ron",
+        "other/menu.html",
+    ] {
+        assert!(registry.ui_files.contains(&file.into()), "{file}");
+    }
+    // Explicit single-file declarations must not be discovered twice.
+    assert_eq!(registry.ui_files.len(), 5);
+    assert_eq!(registry.hud_sources.len(), 1);
+    assert_eq!(registry.hud_sources[0].1, ["health"]);
+}
+
+#[test]
+fn referenced_html_must_be_readable_in_browser_inventory() {
+    let (registry, _, errors) = content::load_embedded(&[
+        (
+            "game.ron",
+            Some(
+                r#"(
+                    name: "html_unreadable",
+                    content_folders: [(path: "ui", kind: "Ui")],
+                    entry: (start_map: "unused", default_seed: 1),
+                )"#,
+            ),
+        ),
+        (
+            "ui/inventory_screen.html",
+            Some("<template><node id=\"weapons\"></node></template>"),
+        ),
+        // Inventoried, but unavailable as UTF-8 text.
+        ("ui/hui_row.html", None),
+    ])
+    .unwrap();
+    assert!(registry
+        .ui_files
+        .contains(&"ui/inventory_screen.html".into()));
+    assert!(!registry.ui_files.contains(&"ui/hui_row.html".into()));
+    assert!(
+        errors
+            .iter()
+            .any(|error| { error.kind == LintErrorKind::Parse && error.file == "ui/hui_row.html" }),
+        "{errors:#?}"
+    );
+    assert_has_error(&errors, LintErrorKind::BrokenReference, "ui/hui_row.html");
+}
+
+#[test]
+fn explicitly_declared_missing_html_reports_structured_error() {
+    let (_, _, errors) = content::load_embedded(&[(
+        "game.ron",
+        Some(
+            r#"(
+                name: "html_missing",
+                content_folders: [(path: "ui/absent_screen.html", kind: "Ui")],
+                entry: (start_map: "unused", default_seed: 1),
+            )"#,
+        ),
+    )])
+    .unwrap();
+    assert!(
+        errors.iter().any(|error| {
+            error.kind == LintErrorKind::Parse && error.file == "ui/absent_screen.html"
+        }),
+        "{errors:#?}"
+    );
+    assert_only_one_besides_start_map(&errors);
 }
 
 // D3 : table des feuilles de sprites (kind `SpriteSheet`).
@@ -1401,7 +1484,8 @@ fn assert_has_warning(fixture: &str, kind: content::LintWarningKind, needle: &st
 #[test]
 fn stat_unread_fixture_is_an_error() {
     let (_, _, errors) = load_and_lint(&fixture_dir("stat_unread")).unwrap();
-    assert_has_error(&errors, LintErrorKind::UnreadStat, "Luck");
+    // M3-T0a : `Luck` est lue (chance d'effet) ; une stat `Custom` sans lecteur reste refusée.
+    assert_has_error(&errors, LintErrorKind::UnreadStat, "superstition");
 }
 
 #[test]
@@ -1420,6 +1504,30 @@ fn reach_fixtures_report_their_warning() {
         assert!(
             errors.iter().all(|e| !e.message.contains("inatteignable")),
             "{fixture} : {errors:#?}"
+        );
+    }
+}
+
+/// D63 : seules les règles des ennemis atteints donnent une source d'armes.
+#[test]
+fn reached_enemy_rules_are_weapon_sources() {
+    let (registry, manifest, errors) = load_and_lint(&fixture_dir("reach_enemy_weapons")).unwrap();
+    assert!(errors.is_empty(), "{errors:#?}");
+    let warnings = content::warnings(&registry, &manifest);
+    for weapon in ["shoot", "phase", "enter", "timeline"] {
+        assert!(
+            warnings
+                .iter()
+                .all(|w| !w.message.contains(&format!("arme « {weapon} »"))),
+            "{warnings:#?}"
+        );
+    }
+    for weapon in ["unused", "lab_weapon"] {
+        assert!(
+            warnings
+                .iter()
+                .any(|w| w.message.contains(&format!("arme « {weapon} »"))),
+            "{warnings:#?}"
         );
     }
 }
@@ -1519,4 +1627,68 @@ fn entry_floors_fixtures_report_their_rule() {
         LintErrorKind::Unsupported,
         "exige entry.mode = Floors",
     );
+}
+
+// ---------------------------------------------------------------------------------------
+// M3-T0a (docs/conventions.md §60) : munitions infinies, contrats de larmes, projectile d'objet
+// ---------------------------------------------------------------------------------------
+
+#[test]
+fn weapon_infinite_with_ammo_type_fixture_is_refused() {
+    let (_, _, errors) = load_and_lint(&fixture_dir("weapon_infinite_with_ammo_type")).unwrap();
+    assert_has_error(&errors, LintErrorKind::OutOfRange, "Infinite");
+    assert_eq!(m4_t0a_errors(&errors), 1, "{errors:#?}");
+}
+
+#[test]
+fn weapon_ammo_type_missing_fixture_is_refused() {
+    let (_, _, errors) = load_and_lint(&fixture_dir("weapon_ammo_type_missing")).unwrap();
+    assert_has_error(&errors, LintErrorKind::Parse, "ammo_type absent");
+    assert_eq!(m4_t0a_errors(&errors), 1, "{errors:#?}");
+}
+
+#[test]
+fn projectile_contract_fixture_is_unsupported() {
+    let (_, _, errors) = load_and_lint(&fixture_dir("projectile_contract_unsupported")).unwrap();
+    for name in ["Spectral", "Split", "Orbit"] {
+        assert_has_error(&errors, LintErrorKind::Unsupported, name);
+    }
+    assert!(
+        errors
+            .iter()
+            .filter(|e| !e.message.contains("entry.start_map"))
+            .all(|e| e.kind == LintErrorKind::Unsupported),
+        "formes valides : seul le refus de contrat, {errors:#?}"
+    );
+}
+
+#[test]
+fn projectile_split_out_of_range_fixture_reports_ranges() {
+    let (_, _, errors) = load_and_lint(&fixture_dir("projectile_split_out_of_range")).unwrap();
+    assert_has_error(&errors, LintErrorKind::OutOfRange, "count = 0");
+    assert_has_error(&errors, LintErrorKind::OutOfRange, "radius");
+    assert_has_error(&errors, LintErrorKind::BrokenReference, "inconnu");
+}
+
+#[test]
+fn item_projectile_fixture_is_unsupported() {
+    let (_, _, errors) = load_and_lint(&fixture_dir("item_projectile_unsupported")).unwrap();
+    assert_has_error(&errors, LintErrorKind::Unsupported, "ricochet");
+    assert_eq!(m4_t0a_errors(&errors), 1, "{errors:#?}");
+}
+
+#[test]
+fn item_projectile_out_of_range_fixture_reports_ranges() {
+    let (_, _, errors) = load_and_lint(&fixture_dir("item_projectile_out_of_range")).unwrap();
+    assert_has_error(&errors, LintErrorKind::OutOfRange, "Homing");
+    assert_has_error(&errors, LintErrorKind::OutOfRange, "Bounce répété");
+}
+
+/// Erreurs d'une fixture M3-T0a hors la carte de départ absente (`start_map: "unused"`, commune
+/// aux fixtures sans carte).
+fn m4_t0a_errors(errors: &[content::LintError]) -> usize {
+    errors
+        .iter()
+        .filter(|e| !e.message.contains("entry.start_map"))
+        .count()
 }

@@ -6,6 +6,7 @@
 // À regarder : f10-15 le joueur prend les bottes, f38 la clé ; f30-80 il avance et entre dans la salle
 // de combat (f75 : les quatre portes se ferment) ; il tire ; les deux ennemis meurent ; les portes
 // se rouvrent ; le boss dort toujours.
+// HUD : f20 icône Bottes ; f60 clé 1 ; minicarte combat rouge/× f100, vert f650, cadrage stable.
 Scenario(
     powerup_drop_chance_override: "0.0",
     game: "gungeon",
@@ -27,6 +28,11 @@ Scenario(
     expect: [
         HasItem(handle: 0, id: "bottes", at_frame: 20),
         Consumable(handle: 0, id: "key", count: 1, at_frame: 60),
+        HudText(source: "passives", contains: "Bottes", at_frame: 20),
+        HudText(source: "keys", contains: "0", at_frame: 20),
+        HudText(source: "keys", contains: "1", at_frame: 60),
+        HudText(source: "minimap", contains: "combat · verrouillée · actuelle", at_frame: 100),
+        HudText(source: "minimap", contains: "combat · nettoyée · actuelle", at_frame: 650),
         RoomState(kind: "combat", state: Dormant, doors_closed: Some(0), at_frame: 29),
         RoomState(kind: "combat", state: Locked, doors_closed: Some(4), at_frame: 100),
         RoomState(kind: "combat", state: Cleared, doors_closed: Some(0), at_frame: 650),

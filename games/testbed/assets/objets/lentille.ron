@@ -1,0 +1,16 @@
+// M3-T0a (docs/conventions.md §60) : objet d'essai des stats de larmes. Passif : tirs 50 % plus
+// rapides (`ShotSpeed`, Pct) et 1,5 fois plus gros (`ShotSize`, Mul : rayon de collision et sprite).
+// Scénario `tears_shot_speed` (la balle de `larme` atteint `target` plus tôt).
+(
+    name: "Lentille",
+    kind: Passive,
+    modifiers: [
+        (stat: ShotSpeed, op: Pct, value: "0.5"),
+        (stat: ShotSize, op: Mul, value: "1.5"),
+    ],
+    tags: ["larmes"],
+    rarity: Common,
+    // Scénario généré `item_lentille` (gabarit ItemHeld) : `ShotSpeed` et `ShotSize` à 1,5 (base 1,
+    // `sim_core::stats::default_base`).
+    test: Some((frames: 60)),
+)

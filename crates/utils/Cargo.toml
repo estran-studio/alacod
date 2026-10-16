@@ -4,27 +4,12 @@ version = "0.2.0"
 edition = "2021"
 
 [dependencies]
-# D35 : `KeyCode` et `Camera2d` (camera/tod.rs, web/logs.rs) ; avant, ces features arrivaient
-# par les features par défaut de Bevy que `bevy_fixed` activait.
-bevy = { version = "0.19.1", default-features = false, features = ["keyboard", "bevy_camera"] }
+# ECS seul : la frontière simulation/présentation (scripts/check-sim-boundary.sh). Le journal
+# natif, le plugin web et la caméra de debug ont déménagé dans `game` (présentation).
+bevy = { version = "0.19.1", default-features = false }
 bevy_ggrs = "0.22.0"
 
 serde = { version = "1.0", features = ["derive"] }
 
-tracing = "0.1"
-tracing-subscriber = { version = "0.3.18", features = ["fmt", "env-filter", "registry"] }
-tracing-web = { version = "0.1" }
-# 0.2.5 ne compile plus pour wasm32 (crate symlink sans cible wasm)
-tracing-appender = "=0.2.4"
-
 rand = "0.8"
 getrandom = { version = "0.2", features = ["js"] }
-
-wasm-bindgen = "0.2"
-
-[target.'cfg(not(target_arch = "wasm32"))'.dependencies]
-chrono = "0.4"
-
-[target.'cfg(target_arch = "wasm32")'.dependencies]
-console_error_panic_hook = "0.1.6"
-web-sys = "0.3.68"

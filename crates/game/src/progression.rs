@@ -439,7 +439,8 @@ pub fn weapon_drop_on_death_system(
         ),
         (
             With<Rollback>,
-            Added<Death>,
+            // `With`, pas `Added` : voir `shop::shell_drop_on_death_system`.
+            With<Death>,
             // M2-T11 : un baril (équipe `Enemies`) ne laisse aucun butin
             Without<world::BarrelState>,
         ),

@@ -1,0 +1,13 @@
+// `gungeon` (M2-T14b) : passif rare, +10 de vie max et un point de bouclier au début de chaque
+// étage (`OnFloorStart`, §42 ; `GainShield`, D61).
+(
+    name: "Bastion",
+    kind: Passive,
+    modifiers: [(stat: MaxHealth, op: Add, value: "10")],
+    effects: [
+        (on: OnFloorStart, do: [GainShield(1)]),
+    ],
+    tags: ["defensif"],
+    rarity: Rare,
+    test: Some((frames: 60)),
+)

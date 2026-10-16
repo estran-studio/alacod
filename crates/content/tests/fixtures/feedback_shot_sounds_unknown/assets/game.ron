@@ -1,5 +1,0 @@
-(
-    name: "fixture-feedback_shot_sounds_unknown",
-    content_folders: [(path: "ui", kind: "Ui")],
-    entry: (start_map: "unused", default_seed: 1),
-)

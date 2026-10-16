@@ -1,0 +1,110 @@
+[
+  {
+    "passe": 1,
+    "version": "avant",
+    "scenario": "bench_bullets",
+    "fps": 474.6
+  },
+  {
+    "passe": 1,
+    "version": "avant",
+    "scenario": "bench_bullets_room",
+    "fps": 227.4
+  },
+  {
+    "passe": 1,
+    "version": "avant",
+    "scenario": "bench_horde",
+    "fps": 226.0
+  },
+  {
+    "passe": 1,
+    "version": "apres",
+    "scenario": "bench_bullets",
+    "fps": 522.6
+  },
+  {
+    "passe": 1,
+    "version": "apres",
+    "scenario": "bench_bullets_room",
+    "fps": 280.5
+  },
+  {
+    "passe": 1,
+    "version": "apres",
+    "scenario": "bench_horde",
+    "fps": 249.2
+  },
+  {
+    "passe": 2,
+    "version": "avant",
+    "scenario": "bench_bullets",
+    "fps": 476.7
+  },
+  {
+    "passe": 2,
+    "version": "avant",
+    "scenario": "bench_bullets_room",
+    "fps": 226.6
+  },
+  {
+    "passe": 2,
+    "version": "avant",
+    "scenario": "bench_horde",
+    "fps": 230.6
+  },
+  {
+    "passe": 2,
+    "version": "apres",
+    "scenario": "bench_bullets",
+    "fps": 553.6
+  },
+  {
+    "passe": 2,
+    "version": "apres",
+    "scenario": "bench_bullets_room",
+    "fps": 287.3
+  },
+  {
+    "passe": 2,
+    "version": "apres",
+    "scenario": "bench_horde",
+    "fps": 232.2
+  },
+  {
+    "passe": 3,
+    "version": "avant",
+    "scenario": "bench_bullets",
+    "fps": 456.2
+  },
+  {
+    "passe": 3,
+    "version": "avant",
+    "scenario": "bench_bullets_room",
+    "fps": 223.8
+  },
+  {
+    "passe": 3,
+    "version": "avant",
+    "scenario": "bench_horde",
+    "fps": 226.5
+  },
+  {
+    "passe": 3,
+    "version": "apres",
+    "scenario": "bench_bullets",
+    "fps": 524.2
+  },
+  {
+    "passe": 3,
+    "version": "apres",
+    "scenario": "bench_bullets_room",
+    "fps": 266.2
+  },
+  {
+    "passe": 3,
+    "version": "apres",
+    "scenario": "bench_horde",
+    "fps": 246.7
+  }
+]

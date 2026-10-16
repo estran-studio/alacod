@@ -1,0 +1,149 @@
+alacod lint games/zombies
+cargo run -q -p content --bin alacod --profile headless -- lint games/zombies
+warning: unused import: `std::hash::Hash`
+   --> crates/items/src/lib.rs:216:13
+    |
+216 |         use std::hash::Hash as _;
+    |             ^^^^^^^^^^^^^^^
+    |
+    = note: `#[warn(unused_imports)]` (part of `#[warn(unused)]`) on by default
+
+warning: unused import: `registry::BehaviorEntry`
+    --> crates/content/src/lint.rs:2003:9
+     |
+2003 |     use registry::BehaviorEntry;
+     |         ^^^^^^^^^^^^^^^^^^^^^^^
+     |
+     = note: `#[warn(unused_imports)]` (part of `#[warn(unused)]`) on by default
+
+games/zombies : aucune erreur (5 personnages, 4 armes, 6 armes de corps à corps, 1 vagues, 6 cartes)
+alacod lint games/testbed
+cargo run -q -p content --bin alacod --profile headless -- lint games/testbed
+warning: unused import: `std::hash::Hash`
+   --> crates/items/src/lib.rs:216:13
+    |
+216 |         use std::hash::Hash as _;
+    |             ^^^^^^^^^^^^^^^
+    |
+    = note: `#[warn(unused_imports)]` (part of `#[warn(unused)]`) on by default
+
+warning: unused import: `registry::BehaviorEntry`
+    --> crates/content/src/lint.rs:2003:9
+     |
+2003 |     use registry::BehaviorEntry;
+     |         ^^^^^^^^^^^^^^^^^^^^^^^
+     |
+     = note: `#[warn(unused_imports)]` (part of `#[warn(unused)]`) on by default
+
+avertissement : rooms/arene.ron: type de salle « arene » : aucune grammaire ni carte d'une séquence ne peut le tirer
+avertissement : rooms/arene_mortelle.ron: type de salle « arene_mortelle » : aucune grammaire ni carte d'une séquence ne peut le tirer
+avertissement : rooms/boss.ron: type de salle « boss » : aucune grammaire ni carte d'une séquence ne peut le tirer
+avertissement : characters/archer.ron: ennemi « archer » : n'apparaît dans aucune salle, arène, vague, caverne ni renfort de boss d'une partie
+avertissement : characters/charger.ron: ennemi « charger » : n'apparaît dans aucune salle, arène, vague, caverne ni renfort de boss d'une partie
+avertissement : characters/cible.ron: ennemi « cible » : n'apparaît dans aucune salle, arène, vague, caverne ni renfort de boss d'une partie
+avertissement : characters/coward.ron: ennemi « coward » : n'apparaît dans aucune salle, arène, vague, caverne ni renfort de boss d'une partie
+avertissement : characters/drifter.ron: ennemi « drifter » : n'apparaît dans aucune salle, arène, vague, caverne ni renfort de boss d'une partie
+avertissement : characters/escouade_tireur.ron: ennemi « escouade_tireur » : n'apparaît dans aucune salle, arène, vague, caverne ni renfort de boss d'une partie
+avertissement : characters/escouade_tireur_fragile.ron: ennemi « escouade_tireur_fragile » : n'apparaît dans aucune salle, arène, vague, caverne ni renfort de boss d'une partie
+avertissement : characters/gardien.ron: ennemi « gardien » : n'apparaît dans aucune salle, arène, vague, caverne ni renfort de boss d'une partie
+avertissement : characters/gardien_renforts.ron: ennemi « gardien_renforts » : n'apparaît dans aucune salle, arène, vague, caverne ni renfort de boss d'une partie
+avertissement : characters/gardien_tir.ron: ennemi « gardien_tir » : n'apparaît dans aucune salle, arène, vague, caverne ni renfort de boss d'une partie
+avertissement : characters/grunt.ron: ennemi « grunt » : n'apparaît dans aucune salle, arène, vague, caverne ni renfort de boss d'une partie
+avertissement : characters/grunt_plain.ron: ennemi « grunt_plain » : n'apparaît dans aucune salle, arène, vague, caverne ni renfort de boss d'une partie
+avertissement : characters/kiter.ron: ennemi « kiter » : n'apparaît dans aucune salle, arène, vague, caverne ni renfort de boss d'une partie
+avertissement : characters/pilote.ron: ennemi « pilote » : n'apparaît dans aucune salle, arène, vague, caverne ni renfort de boss d'une partie
+avertissement : characters/tourelle_anneau.ron: ennemi « tourelle_anneau » : n'apparaît dans aucune salle, arène, vague, caverne ni renfort de boss d'une partie
+avertissement : characters/tourelle_eventail.ron: ennemi « tourelle_eventail » : n'apparaît dans aucune salle, arène, vague, caverne ni renfort de boss d'une partie
+avertissement : characters/tourelle_ricochet.ron: ennemi « tourelle_ricochet » : n'apparaît dans aucune salle, arène, vague, caverne ni renfort de boss d'une partie
+avertissement : characters/tourelle_salve.ron: ennemi « tourelle_salve » : n'apparaît dans aucune salle, arène, vague, caverne ni renfort de boss d'une partie
+avertissement : characters/tourelle_spirale.ron: ennemi « tourelle_spirale » : n'apparaît dans aucune salle, arène, vague, caverne ni renfort de boss d'une partie
+avertissement : characters/turret.ron: ennemi « turret » : n'apparaît dans aucune salle, arène, vague, caverne ni renfort de boss d'une partie
+avertissement : objets/anneau_salle.ron: objet « anneau_salle » : aucune source (départ, étage, salle, coffre ni pool)
+avertissement : objets/bandoulier_comptee.ron: objet « bandoulier_comptee » : aucune source (départ, étage, salle, coffre ni pool)
+avertissement : objets/braise.ron: objet « braise » : aucune source (départ, étage, salle, coffre ni pool)
+avertissement : objets/canon.ron: objet « canon » : aucune source (départ, étage, salle, coffre ni pool)
+avertissement : objets/eclat.ron: objet « eclat » : aucune source (départ, étage, salle, coffre ni pool)
+avertissement : objets/egide.ron: objet « egide » : aucune source (départ, étage, salle, coffre ni pool)
+avertissement : objets/fiole.ron: objet « fiole » : aucune source (départ, étage, salle, coffre ni pool)
+avertissement : objets/obus.ron: objet « obus » : aucune source (départ, étage, salle, coffre ni pool)
+avertissement : objets/plaque.ron: objet « plaque » : aucune source (départ, étage, salle, coffre ni pool)
+avertissement : objets/porte_bonheur.ron: objet « porte_bonheur » : aucune source (départ, étage, salle, coffre ni pool)
+avertissement : objets/ration.ron: objet « ration » : aucune source (départ, étage, salle, coffre ni pool)
+avertissement : objets/sceau.ron: objet « sceau » : aucune source (départ, étage, salle, coffre ni pool)
+avertissement : objets/semelles.ron: objet « semelles » : aucune source (départ, étage, salle, coffre ni pool)
+avertissement : objets/talisman.ron: objet « talisman » : aucune source (départ, étage, salle, coffre ni pool)
+avertissement : ZombieShooter/Sprites/Character/weapons.ron: arme « fireball_gun » : aucun personnage, règle ennemie, mur ni pool ne la donne
+avertissement : ZombieShooter/Sprites/Character/weapons.ron: arme « foreuse » : aucun personnage, règle ennemie, mur ni pool ne la donne
+avertissement : ZombieShooter/Sprites/Character/weapons.ron: arme « grenade » : aucun personnage, règle ennemie, mur ni pool ne la donne
+avertissement : ZombieShooter/Sprites/Character/weapons.ron: arme « grenade_creuse » : aucun personnage, règle ennemie, mur ni pool ne la donne
+avertissement : ZombieShooter/Sprites/Character/weapons.ron: arme « proj_bounce » : aucun personnage, règle ennemie, mur ni pool ne la donne
+avertissement : ZombieShooter/Sprites/Character/weapons.ron: arme « proj_gravity » : aucun personnage, règle ennemie, mur ni pool ne la donne
+avertissement : ZombieShooter/Sprites/Character/weapons.ron: arme « proj_homing » : aucun personnage, règle ennemie, mur ni pool ne la donne
+avertissement : ZombieShooter/Sprites/Character/weapons.ron: arme « proj_lifetime » : aucun personnage, règle ennemie, mur ni pool ne la donne
+avertissement : ZombieShooter/Sprites/Character/weapons.ron: arme « proj_pierce » : aucun personnage, règle ennemie, mur ni pool ne la donne
+avertissement : ZombieShooter/Sprites/Character/weapons.ron: arme « proj_size » : aucun personnage, règle ennemie, mur ni pool ne la donne
+avertissement : ZombieShooter/Sprites/Character/weapons.ron: arme « rifle » : aucun personnage, règle ennemie, mur ni pool ne la donne
+avertissement : ZombieShooter/Sprites/Character/weapons.ron: arme « status_burn » : aucun personnage, règle ennemie, mur ni pool ne la donne
+avertissement : ZombieShooter/Sprites/Character/weapons.ron: arme « status_freeze » : aucun personnage, règle ennemie, mur ni pool ne la donne
+avertissement : ZombieShooter/Sprites/Character/weapons.ron: arme « status_slow » : aucun personnage, règle ennemie, mur ni pool ne la donne
+avertissement : ZombieShooter/Sprites/Character/weapons.ron: arme « status_stun » : aucun personnage, règle ennemie, mur ni pool ne la donne
+avertissement : ZombieShooter/Sprites/Character/weapons.ron: arme « tourelle_gun » : aucun personnage, règle ennemie, mur ni pool ne la donne
+games/testbed : 53 avertissement(s)
+games/testbed : aucune erreur (27 personnages, 19 armes, 6 armes de corps à corps, 0 vagues, 30 cartes)
+alacod lint games/throne
+cargo run -q -p content --bin alacod --profile headless -- lint games/throne
+warning: unused import: `std::hash::Hash`
+   --> crates/items/src/lib.rs:216:13
+    |
+216 |         use std::hash::Hash as _;
+    |             ^^^^^^^^^^^^^^^
+    |
+    = note: `#[warn(unused_imports)]` (part of `#[warn(unused)]`) on by default
+
+warning: unused import: `registry::BehaviorEntry`
+    --> crates/content/src/lint.rs:2003:9
+     |
+2003 |     use registry::BehaviorEntry;
+     |         ^^^^^^^^^^^^^^^^^^^^^^^
+     |
+     = note: `#[warn(unused_imports)]` (part of `#[warn(unused)]`) on by default
+
+games/throne : aucune erreur (14 personnages, 13 armes, 4 armes de corps à corps, 0 vagues, 1 cartes)
+alacod lint games/gungeon
+cargo run -q -p content --bin alacod --profile headless -- lint games/gungeon
+warning: unused import: `std::hash::Hash`
+   --> crates/items/src/lib.rs:216:13
+    |
+216 |         use std::hash::Hash as _;
+    |             ^^^^^^^^^^^^^^^
+    |
+    = note: `#[warn(unused_imports)]` (part of `#[warn(unused)]`) on by default
+
+warning: unused import: `registry::BehaviorEntry`
+    --> crates/content/src/lint.rs:2003:9
+     |
+2003 |     use registry::BehaviorEntry;
+     |         ^^^^^^^^^^^^^^^^^^^^^^^
+     |
+     = note: `#[warn(unused_imports)]` (part of `#[warn(unused)]`) on by default
+
+avertissement : weapons/weapons.ron: arme « arbalete » : aucun personnage, règle ennemie, mur ni pool ne la donne
+avertissement : weapons/weapons.ron: arme « arc » : aucun personnage, règle ennemie, mur ni pool ne la donne
+avertissement : weapons/weapons.ron: arme « boule_energie » : aucun personnage, règle ennemie, mur ni pool ne la donne
+avertissement : weapons/weapons.ron: arme « carabine_rafale » : aucun personnage, règle ennemie, mur ni pool ne la donne
+avertissement : weapons/weapons.ron: arme « chercheur » : aucun personnage, règle ennemie, mur ni pool ne la donne
+avertissement : weapons/weapons.ron: arme « double_canon » : aucun personnage, règle ennemie, mur ni pool ne la donne
+avertissement : weapons/weapons.ron: arme « fusil_pompe » : aucun personnage, règle ennemie, mur ni pool ne la donne
+avertissement : weapons/weapons.ron: arme « fusil_precision » : aucun personnage, règle ennemie, mur ni pool ne la donne
+avertissement : weapons/weapons.ron: arme « grenadier » : aucun personnage, règle ennemie, mur ni pool ne la donne
+avertissement : weapons/weapons.ron: arme « lance_flammes » : aucun personnage, règle ennemie, mur ni pool ne la donne
+avertissement : weapons/weapons.ron: arme « lance_roquettes » : aucun personnage, règle ennemie, mur ni pool ne la donne
+avertissement : weapons/weapons.ron: arme « laser » : aucun personnage, règle ennemie, mur ni pool ne la donne
+avertissement : weapons/weapons.ron: arme « mitraillette » : aucun personnage, règle ennemie, mur ni pool ne la donne
+avertissement : weapons/weapons.ron: arme « mitrailleuse_lourde » : aucun personnage, règle ennemie, mur ni pool ne la donne
+avertissement : weapons/weapons.ron: arme « pistolet_jumele » : aucun personnage, règle ennemie, mur ni pool ne la donne
+avertissement : weapons/weapons.ron: arme « pistolet_precis » : aucun personnage, règle ennemie, mur ni pool ne la donne
+avertissement : weapons/weapons.ron: arme « rebondisseur » : aucun personnage, règle ennemie, mur ni pool ne la donne
+avertissement : weapons/weapons.ron: arme « revolver » : aucun personnage, règle ennemie, mur ni pool ne la donne
+games/gungeon : 18 avertissement(s)
+games/gungeon : aucune erreur (11 personnages, 21 armes, 1 armes de corps à corps, 0 vagues, 3 cartes)

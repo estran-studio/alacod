@@ -2,15 +2,12 @@ use bevy::{asset::AssetMetaCheck, prelude::*, window::WindowResolution};
 use bevy_ecs_ldtk::prelude::*;
 
 use game::core::AppState;
+use game::web::WebPlugin;
 use map::{game::entity::map::door::DoorComponent, generation::config::MapGenerationConfig};
 use map_ldtk::{
     game::utility::load_levels_if_not_present,
     loader::{get_asset_loader_generation, reload_map, setup_generated_map, MapLoaderSettings},
     plugins::LdtkRoguePlugin,
-};
-use utils::{
-    camera::tod::{move_camera, setup_camera},
-    web::WebPlugin,
 };
 
 use std::env;
@@ -120,4 +117,37 @@ fn get_config() -> MapGenerationConfig {
         max_heigth: 1000,
         ..Default::default()
     }
+}
+
+/// Caméra de debug de l'exemple (ex-`utils::camera::tod`, retiré par hardening-engine-p2p-ci) :
+/// déplacement WASD.
+fn move_camera(
+    mut cameras: Query<&mut Transform, With<Camera2d>>,
+    input: Res<ButtonInput<KeyCode>>,
+) {
+    let movement_direction = if input.pressed(KeyCode::KeyW) {
+        (0, 1)
+    } else if input.pressed(KeyCode::KeyA) {
+        (-1, 0)
+    } else if input.pressed(KeyCode::KeyS) {
+        (0, -1)
+    } else if input.pressed(KeyCode::KeyD) {
+        (1, 0)
+    } else {
+        return;
+    };
+    for mut transform in cameras.iter_mut() {
+        transform.translation.x += movement_direction.0 as f32 * 3.0;
+        transform.translation.y += movement_direction.1 as f32 * 3.0;
+    }
+}
+
+fn setup_camera(mut commands: Commands) {
+    commands.spawn((
+        Camera2d::default(),
+        Projection::Orthographic(OrthographicProjection {
+            scale: 1.3,
+            ..OrthographicProjection::default_2d()
+        }),
+    ));
 }

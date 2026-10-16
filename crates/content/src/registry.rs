@@ -565,8 +565,12 @@ pub struct WeaponEntry {
     /// (`frames > 0`, `min_hits <= max_hits`). `None` : pas de `test:`, aucune règle à
     /// vérifier (l'arme obtient quand même un scénario généré, invariants seulement).
     pub test: Option<WeaponTestRange>,
-    /// Type de munition (T2.2), pour la règle « `Custom` au nom non vide » (T2.8).
-    pub ammo_type: AmmoType,
+    /// Type de munition (T2.2), pour la règle « `Custom` au nom non vide » (T2.8). M3-T0a :
+    /// `None` si le RON n'en déclare pas (permis seulement si tous les modes sont `Infinite`).
+    pub ammo_type: Option<AmmoType>,
+    /// M3-T0a : modes de tir à munitions infinies (`mag: Infinite`), pour les règles
+    /// « `ammo_type` absent seulement si tous les modes sont infinis » et inversement.
+    pub infinite_modes: BTreeSet<String>,
     /// Sons référencés par `audio_config` (T2.8), pour la règle « fichier présent sous
     /// `assets/` ». Dans l'ordre (mode, champ) : déterministe pour les messages.
     pub sounds: Vec<SoundRef>,
@@ -592,6 +596,18 @@ pub enum ProjectileModifierEntry {
     Lifetime(u32),
     Homing(FixedField),
     Gravity(FixedField),
+    /// M3-T0a (§60) : contrats (exécution M3-T1), voir `effects::projectile::ProjectileModifier`.
+    Spectral,
+    Split {
+        count: u32,
+        spread: FixedField,
+        #[serde(default)]
+        child: Option<String>,
+    },
+    Orbit {
+        radius: FixedField,
+        frames_per_turn: u32,
+    },
 }
 
 impl ProjectileModifierEntry {
@@ -603,6 +619,9 @@ impl ProjectileModifierEntry {
             Self::Lifetime(_) => "Lifetime",
             Self::Homing(_) => "Homing",
             Self::Gravity(_) => "Gravity",
+            Self::Spectral => "Spectral",
+            Self::Split { .. } => "Split",
+            Self::Orbit { .. } => "Orbit",
         }
     }
 }
@@ -734,6 +753,8 @@ pub struct SpriteSheetEntry {
 pub struct SoundRef {
     pub field: String,
     pub path: String,
+    /// Mode de tir de `audio_config.modes` (assets) : doit exister dans `firing_modes`.
+    pub mode: String,
 }
 
 #[derive(Debug, Clone)]
@@ -1333,14 +1354,11 @@ pub struct Registry {
     /// `Economy`) : le dernier traité gagne silencieusement, comme `wave_config`/
     /// `economy_config` dans `game::global_asset` (`.values().next()`).
     pub powerup_drop_chance: Option<PowerUpDropChanceEntry>,
-    /// Fichiers `Ui`/`Camera` validés (RON syntaxiquement correct, feedback typé). Pas de table typée par
-    /// id : rien ne les référence par id aujourd'hui (décision T1.5, voir le rapport de la
-    /// tâche).
+    /// Fichiers `Ui` validés : RON syntaxiquement correct (feedback/HUD/mutations typés)
+    /// ou HTML lisible, sans compagnon RON. Chemins relatifs à `assets/`, sans table par id.
     pub ui_files: Vec<PathBuf>,
     /// Réglages typés du feedback (T3.4) parmi les fichiers Ui.
     pub feedback: Vec<FeedbackEntry>,
-    /// T1.16 : écrans de mutation (`ui/mutation_screen.ron`) parmi les fichiers Ui.
-    pub mutation_screens: Vec<(PathBuf, crate::ui::MutationScreenLayout)>,
     /// T1.18 : sources des widgets de chaque `ui/hud.ron`.
     pub hud_sources: Vec<(PathBuf, Vec<String>)>,
     pub camera_files: Vec<PathBuf>,
@@ -1988,8 +2006,12 @@ struct WeaponConfigSchema {
     /// RON) plutôt que de la laisser silencieusement absente d'un `WeaponEntry` construit
     /// avec des valeurs par défaut. T2.8 : une variante inconnue est rapportée avec le nom
     /// du champ (`de_ammo_type`), un `Custom("")` par `lint::lint_weapons`.
-    #[serde(deserialize_with = "de_ammo_type")]
-    ammo_type: AmmoType,
+    ///
+    /// M3-T0a : optionnel ici (`None` si absent) ; le lint l'exige pour une arme dont un mode
+    /// consomme des munitions (comme avant, mais en erreur de lint plutôt qu'en erreur RON) et le
+    /// refuse pour une arme dont tous les modes sont `Infinite`.
+    #[serde(default, deserialize_with = "de_opt_ammo_type")]
+    ammo_type: Option<AmmoType>,
     /// T2.8 : mirroité seulement pour que le lint voie une valeur inconnue (enum fermé
     /// `FriendlyFire`, `#[serde(default)]` = `Never` comme le type réel) ; aucune règle
     /// sémantique dessus.
@@ -2020,6 +2042,20 @@ struct FiringModeSchema {
     /// T1.1 : voir `WeaponEntry::mode_projectiles`.
     #[serde(default)]
     projectile: ProjectileSpecEntry,
+    /// M3-T0a : voir `WeaponEntry::infinite_modes` (absent des fixtures : `None`). Écrit sans
+    /// `Some(..)` dans le RON, comme le champ réel.
+    #[serde(default, deserialize_with = "de_opt_mag")]
+    mag: Option<MagSchema>,
+}
+
+/// M3-T0a : mirroir de `combat::weapons::MagBulletConfig` (seule la variante compte).
+#[derive(schemars::JsonSchema)]
+#[derive(Deserialize)]
+#[allow(dead_code)]
+enum MagSchema {
+    Mag { mag_size: u32, mag_limit: u32  },
+    Magless { bullet_limit: u32  },
+    Infinite,
 }
 
 /// Mirroir RON de `game::weapons::WeaponTest` (voir `WeaponTestRange`) : ignore `expect`,
@@ -2204,8 +2240,12 @@ where
     T::deserialize(deserializer).map_err(|e| de::Error::custom(format!("champ {field} : {e}")))
 }
 
-fn de_ammo_type<'de, D: Deserializer<'de>>(d: D) -> Result<AmmoType, D::Error> {
-    with_field_name(d, "ammo_type")
+fn de_opt_mag<'de, D: Deserializer<'de>>(d: D) -> Result<Option<MagSchema>, D::Error> {
+    with_field_name(d, "mag").map(Some)
+}
+
+fn de_opt_ammo_type<'de, D: Deserializer<'de>>(d: D) -> Result<Option<AmmoType>, D::Error> {
+    with_field_name(d, "ammo_type").map(Some)
 }
 
 fn de_friendly_fire<'de, D: Deserializer<'de>>(d: D) -> Result<FriendlyFire, D::Error> {
@@ -2433,7 +2473,11 @@ fn load_weapons(
             let mut firing_rates = BTreeMap::new();
             let mut spreads = BTreeMap::new();
             let mut mode_projectiles = BTreeMap::new();
+            let mut infinite_modes = BTreeSet::new();
             for (mode, cfg) in entry.config.firing_modes {
+                if matches!(cfg.mag, Some(MagSchema::Infinite)) {
+                    infinite_modes.insert(mode.clone());
+                }
                 firing_rates.insert(mode.clone(), cfg.firing_rate);
                 spreads.insert(mode.clone(), cfg.spread);
                 mode_projectiles.insert(mode, cfg.projectile);
@@ -2445,6 +2489,7 @@ fn load_weapons(
                         sounds.push(SoundRef {
                             field: format!("audio_config.modes.{mode}.{name}"),
                             path,
+                            mode: mode.clone(),
                         });
                     }
                 }
@@ -2458,6 +2503,7 @@ fn load_weapons(
                     spreads,
                     test,
                     ammo_type: entry.config.ammo_type,
+                    infinite_modes,
                     sounds,
                     sprite: Some(entry.sprite_config.name).filter(|name| !name.is_empty()),
                     mode_projectiles,
@@ -3657,22 +3703,33 @@ fn load_maps(
     }
 }
 
-/// Les réglages `feedback.ron` déclarés comme Ui ont un schéma typé (T3.4), comme
-/// `mutation_screen.ron` (T1.16, [`crate::ui::MutationScreenLayout`]).
-/// Les autres fichiers Ui gardent la validation syntaxique.
+/// Les réglages `feedback.ron` déclarés comme Ui ont un schéma typé (T3.4).
+/// Les autres RON gardent la validation syntaxique ; les gabarits HTML doivent être lisibles.
 fn load_ui(
     assets_dir: &ContentFiles,
     decl: &ContentFolderDecl,
     registry: &mut Registry,
     errors: &mut Vec<LintError>,
 ) {
-    let files = match discover_files(assets_dir, decl, "ron") {
+    let mut files = match discover_files(assets_dir, decl, "ron") {
         Ok(files) => files,
         Err(error) => {
             errors.push(error);
             return;
         }
     };
+    // Une déclaration peut viser un fichier unique : `discover` le renvoie quelle que
+    // soit l'extension demandée. Ne pas le charger une seconde fois dans ce cas.
+    if !assets_dir.contains(Path::new(&decl.path)) {
+        match discover_files(assets_dir, decl, "html") {
+            Ok(html) => files.extend(html),
+            Err(error) => {
+                errors.push(error);
+                return;
+            }
+        }
+        files.sort();
+    }
     for rel in files {
         let text = match read_file(assets_dir, &rel) {
             Ok(text) => text,
@@ -3681,6 +3738,10 @@ fn load_ui(
                 continue;
             }
         };
+        if rel.extension().and_then(|extension| extension.to_str()) == Some("html") {
+            registry.ui_files.push(rel);
+            continue;
+        }
         let parsed = if rel.file_name().and_then(|name| name.to_str()) == Some("feedback.ron") {
             ron::from_str::<crate::feedback::FeedbackSettings>(&text).map(|settings| {
                 registry.feedback.push(FeedbackEntry {
@@ -3696,12 +3757,6 @@ fn load_ui(
                     .map(|w| w.kind.source().to_string())
                     .collect();
                 registry.hud_sources.push((rel.clone(), sources));
-            })
-        } else if rel.file_name().and_then(|name| name.to_str())
-            == Some(crate::ui::MUTATION_SCREEN_FILE_NAME)
-        {
-            ron::from_str::<crate::ui::MutationScreenLayout>(&text).map(|layout| {
-                registry.mutation_screens.push((rel.clone(), layout));
             })
         } else {
             ron::from_str::<ron::Value>(&text).map(|_| ())

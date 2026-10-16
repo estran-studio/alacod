@@ -152,6 +152,7 @@ pub enum PatternKind {
     Spiral,
     Burst,
     Scatter,
+    Ring,
 }
 
 impl PatternKind {
@@ -163,6 +164,7 @@ impl PatternKind {
             Self::Spiral => "spiral",
             Self::Burst => "burst",
             Self::Scatter => "scatter",
+            Self::Ring => "ring",
         }
     }
 }
@@ -191,10 +193,13 @@ pub fn fan_rays(center: f32, count: u32, spread: f32) -> Vec<f32> {
         .collect()
 }
 
+/// Longueur (px) des rayons du télégraphe d'une couronne (`Ring`) : courts, autour de l'émetteur.
+pub const RING_RAY_LENGTH: f32 = 40.0;
+
 /// Forme du prochain pattern d'un émetteur en télégraphe : la première étape qui tire, avant
 /// le prochain `Telegraph`/`Wait`, parmi `Fan`, `Spread`, `Aimed` (rayons), `Spiral` (rayons de
-/// la première salve : l'amorce), `Burst` et `Scatter` (cône). Un `Ring` n'a pas de forme
-/// propre : le cercle du télégraphe v1 le dit déjà. `aim` : visée figée de l'émetteur.
+/// la première salve : l'amorce), `Burst` et `Scatter` (cône), `Ring` (D67 : rayons courts
+/// dans les directions de tir de la salve). `aim` : visée figée de l'émetteur.
 pub fn pattern_shape(
     steps: &[Pattern],
     next_step: usize,
@@ -238,6 +243,16 @@ pub fn pattern_shape(
                     fan_rays(center, *count, to_f32(*spread)),
                     None,
                 ))
+            }
+            // D67 : la salve en couronne se dit par des rayons **courts** autour de l'émetteur,
+            // dans les directions de tir (départ = visée, pas TAU / count : `combat::projectile`),
+            // pas par un grand cercle qui ressemble à une zone de dégâts.
+            Pattern::Ring { count, .. } => {
+                let arm = std::f32::consts::TAU / (*count).max(1) as f32;
+                let rays = (0..*count).map(|i| center + arm * i as f32).collect();
+                let mut ring = shape(PatternKind::Ring, rays, None);
+                ring.length = length.min(RING_RAY_LENGTH);
+                return Some(ring);
             }
             Pattern::Spiral { count, .. } => {
                 let arm = std::f32::consts::TAU / (*count).max(1) as f32;
@@ -1202,15 +1217,21 @@ fn apply_layer_colors(
             &Children,
             Option<&HitFlash>,
             Option<&combat::status::Statuses>,
+            Option<&crate::character::visuals::MarkerTint>,
         ),
         With<combat::actors::Health>,
     >,
     mut sprites: Query<&mut Sprite>,
 ) {
-    for (layers, flash, statuses) in &characters {
+    for (layers, flash, statuses, marker) in &characters {
+        // D66 : la teinte du marqueur remplace le blanc de base (statuts et flash passent devant).
+        let base = marker.map_or(Color::WHITE, |marker| marker.0);
         let color = match flash {
             Some(flash) if frame.frame < flash.until_frame => flash.color,
-            _ => statuses.map(status_tint).unwrap_or(Color::WHITE),
+            _ => statuses
+                .map(status_tint)
+                .filter(|tint| *tint != Color::WHITE)
+                .unwrap_or(base),
         };
         for layer in layers.iter() {
             if let Ok(mut sprite) = sprites.get_mut(layer) {
@@ -1425,17 +1446,34 @@ mod telegraph_tests {
     }
 
     #[test]
-    fn forme_absente_pour_ring_et_apres_une_etape_bloquante() {
+    fn forme_ring_rayons_courts_dans_les_directions_de_tir() {
         let ring = Pattern::Ring {
             count: 8,
             speed: fixed(60.0),
             projectile: "p".into(),
             every: 0,
         };
-        assert_eq!(
-            pattern_shape(&[ring.clone()], 0, Vec2::X, Vec2::ZERO, 10.0),
-            None
-        );
+        let shape = pattern_shape(&[ring.clone()], 0, Vec2::X, Vec2::new(1.0, 2.0), 260.0).unwrap();
+        assert_eq!(shape.kind, PatternKind::Ring);
+        assert_eq!(shape.rays.len(), 8);
+        assert_eq!(shape.length, RING_RAY_LENGTH);
+        assert_eq!(shape.cone, None);
+        assert!((shape.rays[2] - std::f32::consts::FRAC_PI_2).abs() < 1e-5);
+        assert_eq!(pattern_label(220, &shape), "ring 220 (8 rayons)");
+        // Départ sur la visée.
+        let up = pattern_shape(&[ring], 0, Vec2::Y, Vec2::ZERO, 10.0).unwrap();
+        assert!((up.rays[0] - std::f32::consts::FRAC_PI_2).abs() < 1e-5);
+        assert_eq!(up.length, 10.0);
+    }
+
+    #[test]
+    fn forme_absente_apres_une_etape_bloquante() {
+        let ring = Pattern::Ring {
+            count: 8,
+            speed: fixed(60.0),
+            projectile: "p".into(),
+            every: 0,
+        };
         let fan = Pattern::Fan {
             count: 3,
             spread: fixed(1.0),
@@ -1444,7 +1482,7 @@ mod telegraph_tests {
         };
         // Le prochain tir est derrière un autre télégraphe : ce n'est pas celui qu'on annonce.
         let steps = vec![ring, Pattern::Wait(5), fan];
-        assert_eq!(pattern_shape(&steps, 0, Vec2::X, Vec2::ZERO, 10.0), None);
+        assert_eq!(pattern_shape(&steps, 1, Vec2::X, Vec2::ZERO, 10.0), None);
     }
 
     #[test]
@@ -1561,35 +1599,78 @@ fn shot_sound_key(mode: &crate::weapons::FiringMode) -> &'static str {
     }
 }
 
-/// Son de tir : la clé imposée à l'arme (`shot_sounds`), sinon celle de la famille de son mode
-/// de tir, sinon `shot` (repli), sinon aucun son.
-fn shot_sound_path<'a>(
-    settings: &'a FeedbackSettings,
-    weapon: Option<&str>,
+/// Son de tir : `firing` du mode actif dans l'`audio_config` de l'arme (`weapons.ron`), sinon
+/// la clé de la famille du mode dans `sounds`, sinon `shot`, sinon aucun son. Renvoie le
+/// chemin et la clé de `sounds` dont il prend le volume (`volumes`) : celle de la famille,
+/// même quand l'arme la remplace.
+fn shot_sound<'a>(
+    sounds: &'a BTreeMap<String, String>,
+    weapon_audio: Option<&'a crate::weapons::WeaponModeAudio>,
     mode: Option<&crate::weapons::FiringMode>,
-) -> Option<&'a String> {
-    let sounds = &settings.sounds;
-    weapon
-        .and_then(|name| settings.shot_sounds.get(name))
-        .and_then(|key| sounds.get(key))
-        .or_else(|| mode.and_then(|mode| sounds.get(shot_sound_key(mode))))
-        .or_else(|| sounds.get("shot"))
+) -> Option<(&'a str, &'static str)> {
+    let family = mode.map(shot_sound_key);
+    if let Some(path) = weapon_audio
+        .map(|audio| audio.firing.as_str())
+        .filter(|path| !path.is_empty())
+    {
+        return Some((path, family.unwrap_or("shot")));
+    }
+    family
+        .and_then(|key| sounds.get(key).map(|path| (path.as_str(), key)))
+        .or_else(|| sounds.get("shot").map(|path| (path.as_str(), "shot")))
 }
 
-/// Nom et mode de tir actif de l'arme active de cet inventaire.
-fn active_weapon_mode<'a>(
+/// Son de rechargement : `reloading` du mode actif dans l'`audio_config` de l'arme, sinon
+/// `reload`, sinon aucun son (volume : celui de `reload`).
+fn reload_sound<'a>(
+    sounds: &'a BTreeMap<String, String>,
+    weapon_audio: Option<&'a crate::weapons::WeaponModeAudio>,
+) -> Option<&'a str> {
+    weapon_audio
+        .map(|audio| audio.reloading.as_str())
+        .filter(|path| !path.is_empty())
+        .or_else(|| sounds.get("reload").map(String::as_str))
+}
+
+/// Arme active d'un inventaire, vue par les sons : nom, mode actif (nom et genre de tir).
+struct ActiveWeaponSound<'a> {
+    name: &'a str,
+    mode: Option<(&'a str, &'a crate::weapons::FiringMode)>,
+}
+
+fn active_weapon_sound<'a>(
     inventory: &'a crate::weapons::WeaponInventory,
-    weapon_states: &Query<&crate::weapons::WeaponState>,
-) -> Option<(&'a str, Option<&'a crate::weapons::FiringMode>)> {
+    weapon_states: &'a Query<&crate::weapons::WeaponState>,
+) -> Option<ActiveWeaponSound<'a>> {
     let (entity, weapon) = inventory.weapons.get(inventory.active_weapon_index)?;
     let mode = weapon_states.get(*entity).ok().and_then(|state| {
         weapon
             .config
             .firing_modes
-            .get(&state.active_mode)
-            .map(|mode| &mode.firing_mode)
+            .get_key_value(&state.active_mode)
+            .map(|(name, mode)| (name.as_str(), &mode.firing_mode))
     });
-    Some((weapon.config.name.as_str(), mode))
+    Some(ActiveWeaponSound {
+        name: weapon.config.name.as_str(),
+        mode,
+    })
+}
+
+/// Sons propres des armes (`audio_config` de `weapons.ron`), lus sur l'asset du registre : le
+/// composant rollback `Weapon` ne les porte pas.
+#[derive(bevy::ecs::system::SystemParam)]
+struct WeaponAudio<'w> {
+    global: Option<Res<'w, crate::global_asset::GlobalAsset>>,
+    weapons: Res<'w, Assets<crate::weapons::WeaponsConfig>>,
+}
+
+impl WeaponAudio<'_> {
+    /// Sons du mode `mode` de l'arme `weapon` (aucun si l'arme ou le mode n'en déclare pas).
+    fn mode(&self, weapon: &ActiveWeaponSound) -> Option<&crate::weapons::WeaponModeAudio> {
+        let (mode, _) = weapon.mode?;
+        let table = self.weapons.get(&self.global.as_ref()?.weapons)?;
+        table.0.get(weapon.name)?.audio_config.modes.get(mode)
+    }
 }
 
 /// Système jouant le son de tir pour chaque nouveau tir d'un joueur local.
@@ -1597,27 +1678,23 @@ fn active_weapon_mode<'a>(
 /// Un son par (tireur, frame de création) : le rollback de la session locale détruit puis
 /// recrée les balles des dernières frames à chaque image rendue, elles redeviennent
 /// `Added<Bullet>` et rejoueraient leur son ; un fusil à pompe ne joue pas un son par plomb.
-/// Le son est celui de l'arme active du tireur **à l'image rendue** (`shot_sounds`, sinon la
-/// famille de son mode actif) : la balle ne porte pas son arme, lui ajouter un champ ferait
-/// bouger les traces.
-#[allow(clippy::too_many_arguments)]
+/// Le son est celui de l'arme active du tireur **à l'image rendue** ([`shot_sound`]) : la balle
+/// ne porte pas son arme, lui ajouter un champ ferait bouger les traces.
 fn play_shot_sound_for_new_bullets(
-    audio: Res<Audio>,
-    asset_server: Res<AssetServer>,
-    config: Option<Res<FeedbackConfigLoaded>>,
+    sounds: FeedbackSounds,
+    weapon_audio: WeaponAudio,
     local_players: Query<(&GgrsNetId, &crate::weapons::WeaponInventory), With<LocalPlayer>>,
     weapon_states: Query<&crate::weapons::WeaponState>,
     new_bullets: Query<&crate::weapons::Bullet, Added<crate::weapons::Bullet>>,
-    frame_count: Res<FrameCount>,
     mut played: Local<BTreeSet<(usize, u32)>>,
 ) {
     // Oublie les tirs anciens, et ceux d'une partie précédente (le compteur repart de 0).
-    let frame = frame_count.frame;
+    let frame = sounds.frame.frame;
     played.retain(|&(_, created_at)| {
         created_at <= frame && frame - created_at <= SHOT_SOUND_MEMORY_FRAMES
     });
 
-    let Some(cfg) = config else {
+    let Some(cfg) = sounds.config.as_ref() else {
         return;
     };
     for bullet in new_bullets.iter() {
@@ -1630,84 +1707,81 @@ fn play_shot_sound_for_new_bullets(
         if !played.insert((bullet.source.0, bullet.created_at)) {
             continue;
         }
-        let active = active_weapon_mode(inventory, &weapon_states);
-        let weapon = active.map(|(name, _)| name);
-        let mode = active.and_then(|(_, mode)| mode);
-        let Some(sound_path) = shot_sound_path(&cfg.0, weapon, mode) else {
-            continue;
-        };
-        info!("feedback f{} sound {}", frame, sound_path);
-        audio.play(asset_server.load(sound_path));
+        let active = active_weapon_sound(inventory, &weapon_states);
+        let own = active.as_ref().and_then(|weapon| weapon_audio.mode(weapon));
+        let mode = active
+            .as_ref()
+            .and_then(|weapon| weapon.mode)
+            .map(|(_, m)| m);
+        if let Some((path, key)) = shot_sound(&cfg.0.sounds, own, mode) {
+            sounds.play_path(path, key);
+        }
     }
 }
 
 #[cfg(test)]
 mod shot_sound_tests {
     use super::*;
-    use crate::weapons::FiringMode;
+    use crate::weapons::{FiringMode, WeaponModeAudio};
 
     #[test]
-    fn arme_puis_famille_puis_repli_sur_shot() {
+    fn arme_puis_famille_puis_repli() {
         let shotgun = FiringMode::Shotgun {
             pellet_count: 8,
             spread_angle: Fixed::ZERO,
         };
         let automatic = FiringMode::Automatic {};
-        let mut settings: FeedbackSettings = ron::from_str(
-            r#"(
-                hit_flash: (frames: 4, color: (1.0, 1.0, 1.0)),
-                shake: (frames: 8, amplitude: 12.0),
-                sounds: {
-                    "shot": "repli.ogg",
-                    "shot_pistol": "pistolet.ogg",
-                    "shot_shotgun": "pompe.ogg",
-                    "shot_smg": "smg.ogg",
-                },
-                shot_sounds: {"pistolet": "shot_pistol", "muet": "absente"},
-            )"#,
-        )
-        .unwrap();
-        let path = |s: &FeedbackSettings, weapon, mode| {
-            shot_sound_path(s, weapon, mode).map(|p| p.to_string())
+        let mut sounds: BTreeMap<String, String> = [
+            ("shot", "repli.ogg"),
+            ("shot_shotgun", "pompe.ogg"),
+            ("shot_smg", "smg.ogg"),
+            ("reload", "recharge.ogg"),
+        ]
+        .into_iter()
+        .map(|(k, v)| (k.to_string(), v.to_string()))
+        .collect();
+        let own = WeaponModeAudio {
+            firing: "pistolet.ogg".into(),
+            reloading: "chargeur.ogg".into(),
         };
-        // La clé imposée à l'arme l'emporte sur la famille de son mode.
+        let silent = WeaponModeAudio::default();
+        // Le son du mode de l'arme l'emporte, avec le volume de la famille qu'il remplace.
         assert_eq!(
-            path(&settings, Some("pistolet"), Some(&automatic)).as_deref(),
-            Some("pistolet.ogg")
+            shot_sound(&sounds, Some(&own), Some(&automatic)),
+            Some(("pistolet.ogg", "shot_smg"))
         );
-        // Clé imposée absente de `sounds` (refusée par le lint) : la famille reprend.
+        assert_eq!(reload_sound(&sounds, Some(&own)), Some("chargeur.ogg"));
+        // Champs vides : la famille du mode et `reload`.
         assert_eq!(
-            path(&settings, Some("muet"), Some(&shotgun)).as_deref(),
-            Some("pompe.ogg")
+            shot_sound(&sounds, Some(&silent), Some(&shotgun)),
+            Some(("pompe.ogg", "shot_shotgun"))
         );
+        assert_eq!(reload_sound(&sounds, Some(&silent)), Some("recharge.ogg"));
+        // Famille absente de `sounds`, ou mode inconnu : repli sur `shot`.
+        sounds.remove("shot_smg");
         assert_eq!(
-            path(&settings, Some("mitraillette"), Some(&automatic)).as_deref(),
-            Some("smg.ogg")
+            shot_sound(&sounds, None, Some(&automatic)),
+            Some(("repli.ogg", "shot"))
         );
-        // Famille absente : repli sur `shot` ; mode inconnu aussi.
-        settings.sounds.remove("shot_smg");
-        assert_eq!(
-            path(&settings, None, Some(&automatic)).as_deref(),
-            Some("repli.ogg")
-        );
-        assert_eq!(path(&settings, None, None).as_deref(), Some("repli.ogg"));
-        // Ni la famille ni `shot` : aucun son.
-        settings.sounds.clear();
-        assert_eq!(path(&settings, None, Some(&shotgun)), None);
+        assert_eq!(shot_sound(&sounds, None, None), Some(("repli.ogg", "shot")));
+        // Rien de déclaré : aucun son.
+        sounds.clear();
+        assert_eq!(shot_sound(&sounds, None, Some(&shotgun)), None);
+        assert_eq!(reload_sound(&sounds, None), None);
     }
 }
 
-/// Système jouant le son de rechargement quand un joueur local commence à recharger.
+/// Système jouant le son de rechargement quand un joueur local commence à recharger
+/// ([`reload_sound`] de son arme active).
 ///
 /// Déclenché une fois, au passage « ne recharge pas » → « recharge » d'une image rendue à
 /// l'autre : `reloading_ending_frame` reste `Some` pendant tout le rechargement, et le jouer à
 /// chaque image superposait le même son des dizaines de fois.
 fn play_reload_sound_for_reload_events(
-    audio: Res<Audio>,
-    asset_server: Res<AssetServer>,
-    config: Option<Res<FeedbackConfigLoaded>>,
+    sounds: FeedbackSounds,
+    weapon_audio: WeaponAudio,
     query: Query<(&crate::weapons::WeaponInventory, &GgrsNetId), With<LocalPlayer>>,
-    frame_count: Res<FrameCount>,
+    weapon_states: Query<&crate::weapons::WeaponState>,
     mut reloading: Local<BTreeSet<usize>>,
 ) {
     let now: BTreeSet<usize> = query
@@ -1715,18 +1789,21 @@ fn play_reload_sound_for_reload_events(
         .filter(|(inv, _)| inv.reloading_ending_frame.is_some())
         .map(|(_, net_id)| net_id.0)
         .collect();
-    let started = now.difference(&reloading).count();
+    let started: Vec<usize> = now.difference(&reloading).copied().collect();
     *reloading = now;
 
-    let Some(cfg) = config else {
+    let Some(cfg) = sounds.config.as_ref() else {
         return;
     };
-    let Some(sound_path) = cfg.0.sounds.get("reload") else {
-        return;
-    };
-    for _ in 0..started {
-        info!("feedback f{} sound reload", frame_count.frame);
-        audio.play(asset_server.load(sound_path));
+    for (inventory, _) in query
+        .iter()
+        .filter(|(_, net_id)| started.contains(&net_id.0))
+    {
+        let active = active_weapon_sound(inventory, &weapon_states);
+        let own = active.as_ref().and_then(|weapon| weapon_audio.mode(weapon));
+        if let Some(path) = reload_sound(&cfg.0.sounds, own) {
+            sounds.play_path(path, "reload");
+        }
     }
 }
 
@@ -1735,7 +1812,7 @@ fn play_reload_sound_for_reload_events(
 // ou des `FrameEvents` de la dernière frame simulée, jamais écrits dans la simulation.
 // ---------------------------------------------------------------------------------------
 
-/// Lecteur des sons de `ui/feedback.ron` par clé.
+/// Lecteur des sons de `ui/feedback.ron`, au volume de leur clé (`volumes`, en dB).
 #[derive(bevy::ecs::system::SystemParam)]
 struct FeedbackSounds<'w> {
     audio: Res<'w, Audio>,
@@ -1750,8 +1827,20 @@ impl FeedbackSounds<'_> {
         let Some(path) = self.config.as_ref().and_then(|cfg| cfg.0.sounds.get(key)) else {
             return;
         };
-        info!("feedback f{} sound {}", self.frame.frame, key);
-        self.audio.play(self.asset_server.load(path));
+        self.play_path(path, key);
+    }
+
+    /// Joue le fichier `path` au volume de la clé `key` (0 dB si `volumes` ne la règle pas).
+    fn play_path(&self, path: &str, key: &str) {
+        let volume_db = self
+            .config
+            .as_ref()
+            .and_then(|cfg| cfg.0.volumes.get(key).copied())
+            .unwrap_or(0.0);
+        info!("feedback f{} sound {} {}", self.frame.frame, key, path);
+        self.audio
+            .play(self.asset_server.load(path.to_string()))
+            .with_volume(volume_db);
     }
 }
 

@@ -1,0 +1,8 @@
+(
+    name: "fixture-html_screens_valid",
+    content_folders: [
+        (path: "ui", kind: "Ui"),
+        (path: "other/menu.html", kind: "Ui"),
+    ],
+    entry: (start_map: "unused", default_seed: 1),
+)

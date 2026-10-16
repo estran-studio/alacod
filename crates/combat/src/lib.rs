@@ -50,7 +50,11 @@ impl Plugin for CombatPlugin {
         for (category, names) in [
             (
                 "projectile_modifier",
-                &["Bounce", "Pierce", "Size", "Lifetime", "Homing", "Gravity"][..],
+                // M3-T0a (§60) : `Spectral`, `Split`, `Orbit` (contrats, exécutés par M3-T1).
+                &[
+                    "Bounce", "Pierce", "Size", "Lifetime", "Homing", "Gravity", "Spectral",
+                    "Split", "Orbit",
+                ][..],
             ),
             (
                 "pattern",
@@ -63,6 +67,10 @@ impl Plugin for CombatPlugin {
                     "Wait",
                     "Scatter",
                     "Named",
+                    // M3-T0a : variantes de M2-T1 qui manquaient au registre des kinds.
+                    "Fan",
+                    "Spiral",
+                    "Burst",
                 ][..],
             ),
             ("status", &["Burn", "Slow", "Stun", "Freeze"][..]),
@@ -87,7 +95,10 @@ mod contract_tests {
         let mut app = App::new();
         app.add_plugins(CombatPlugin);
         let kinds = app.world().resource::<Kinds>();
-        for name in ["Bounce", "Pierce", "Size", "Lifetime", "Homing", "Gravity"] {
+        for name in [
+            "Bounce", "Pierce", "Size", "Lifetime", "Homing", "Gravity", "Spectral", "Split",
+            "Orbit",
+        ] {
             assert!(kinds.has("projectile_modifier", name));
         }
         for name in [
@@ -99,14 +110,17 @@ mod contract_tests {
             "Wait",
             "Scatter",
             "Named",
+            "Fan",
+            "Spiral",
+            "Burst",
         ] {
             assert!(kinds.has("pattern", name));
         }
         for name in ["Burn", "Slow", "Stun", "Freeze"] {
             assert!(kinds.has("status", name));
         }
-        assert_eq!(kinds.names("projectile_modifier").count(), 6);
-        assert_eq!(kinds.names("pattern").count(), 8);
+        assert_eq!(kinds.names("projectile_modifier").count(), 9);
+        assert_eq!(kinds.names("pattern").count(), 11);
         assert_eq!(kinds.names("status").count(), 4);
         let name = std::any::type_name::<Statuses>();
         assert!(app.world().resource::<TracedTypes>().0.contains(&name));

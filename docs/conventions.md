@@ -256,6 +256,7 @@ un seul problème en plus de `start_map: "unused"` commun à toutes), un test pa
 | arme | `ammo_type: Custom("")` (nom vide) (T2.8) | `OutOfRange` | `ammo_type_empty_custom` |
 | arme, corps à corps | `friendly_fire` : valeur inconnue (enum fermé `Never`/`Always`/`Cursed`) (T2.8) | `Parse` (nomme le champ) | `friendly_fire_unknown` |
 | arme | `audio_config.modes.<mode>.reloading`/`firing` : fichier absent de `assets/` (T2.8) | `BrokenReference` | `audio_missing_file` |
+| arme | `audio_config.modes.<mode>` : mode absent de `firing_modes` (assets) | `BrokenReference` | `audio_unknown_mode` |
 | arme | clé répétée dans `weapons.ron` (T3.4) | `DuplicateId` | `weapons_duplicate_key` |
 | corps à corps | clé répétée dans `melee_weapons.ron` (T3.4) | `DuplicateId` | `melee_duplicate_key` |
 | corps à corps | `damage >= 0` | `OutOfRange` | — |
@@ -281,9 +282,8 @@ un seul problème en plus de `start_map: "unused"` commun à toutes), un test pa
 | `ui/feedback.ron` | `shake.amplitude >= 0` (T3.4, zéro désactive la secousse) | `OutOfRange` | `feedback_amplitude_negative` |
 | `ui/feedback.ron` | chaque fichier de `sounds` présent sous `assets/` (T3.4) | `BrokenReference` | `feedback_missing_sound` |
 | `ui/feedback.ron` | arme de `by_weapon` connue du jeu (T1.17, §31) | `BrokenReference` | `feedback_by_weapon_unknown` |
+| `ui/feedback.ron` | clé de `volumes` présente dans `sounds` (assets) ; valeur dans [-60, 12] dB | `BrokenReference` / `OutOfRange` | `feedback_volume_unknown_key` |
 | `ui/feedback.ron` | surcharges `by_kind`/`by_weapon` dans les bornes (T1.17, §31) | `OutOfRange` | `feedback_override_out_of_range` |
-| `ui/mutation_screen.ron` | `font` présent sous `assets/` (T1.16, §30) | `BrokenReference` | `mutation_screen_font_missing` |
-| `ui/mutation_screen.ron` | exactement `MUTATION_SCREEN_SLOTS` (3) emplacements (T1.16, §30) | `OutOfRange` | `mutation_screen_two_slots` |
 | `ui/hud.ron` | source de widget inconnue (T1.18, §32) | `UnknownKind` | `hud_unknown_source` |
 | power-up | `RefillAmmoOf` : munition déclarée par au moins une arme (D40, §14) | `BrokenReference` | `powerup_refill_ammo_unknown` |
 | feuilles de sprites | `animation` et feuille de chaque calque présentes sous `assets/` (D3) | `BrokenReference` | `sprite_sheet_missing_file` |
@@ -319,7 +319,7 @@ enums ouverts (`AmmoType`, `StatId`, qui n'acceptent un nom libre que sous `Cust
 clé répétée. Le registre lit donc `perks.ron`, `weapons.ron`, `melee_weapons.ron` et la table
 `powerups` de `items/powerups.ron` en liste (`registry::KeyedEntries`) pour rapporter les
 doublons, y compris dans un même fichier. La première entrée est conservée, la seconde
-produit `DuplicateId`. Les fichiers `feedback.ron`, `hud.ron` et `mutation_screen.ron` déclarés sous le kind `Ui`
+produit `DuplicateId`. Les fichiers `feedback.ron` et `hud.ron` déclarés sous le kind `Ui`
 sont lus avec un schéma typé ; les autres fichiers Ui restent validés syntaxiquement.
 
 **CLI** : `cargo run -p content --bin alacod --profile headless -- lint games/<jeu>` (code
@@ -574,8 +574,8 @@ NIGHTLY_SEEDS=1..100 NIGHTLY_BOTS=4 NIGHTLY_WAVE=15 NIGHTLY_P2P=2,4,8 NIGHTLY_VI
         amplitude: 4.0,             // Amplitude du décalage en pixels
     ),
     sounds: {
-        // Tir : clé de la famille du mode de tir actif de l'arme (Manual : shot_pistol,
-        // Shotgun : shot_shotgun, Automatic/Burst : shot_smg), repli sur "shot".
+        // Sons de base. Tir : clé de la famille du mode de tir actif de l'arme (Manual :
+        // shot_pistol, Shotgun : shot_shotgun, Automatic/Burst : shot_smg), repli sur "shot".
         "shot_pistol": "sounds/shot_pistol.ogg",
         "shot_shotgun": "sounds/shot_shotgun.ogg",
         "shot_smg": "sounds/shot_smg.ogg",
@@ -590,13 +590,33 @@ NIGHTLY_SEEDS=1..100 NIGHTLY_BOTS=4 NIGHTLY_WAVE=15 NIGHTLY_P2P=2,4,8 NIGHTLY_VI
         "door": "sounds/door.ogg",
         // Les clés absentes désactivent le son correspondant
     },
+    // Volume par clé de `sounds`, en dB (0 : inchangé, plage [-60, 12]) ; un son d'arme
+    // (`audio_config`) prend le volume de la clé qu'il remplace.
+    volumes: {"hit": -3.0},
 )
 ```
 
+**Son propre d'une arme** (`weapons.ron`, champ `audio_config` de l'entrée, à côté de
+`config`/`sprite_config`) : un tir et un rechargement par mode de tir, chacun facultatif.
+```ron
+"pistolet": (
+    config: (...),
+    sprite_config: (...),
+    audio_config: (modes: {
+        "default": (firing: "sounds/shot_pistol.ogg", reloading: "sounds/reload_pistolet.ogg"),
+    }),
+),
+```
+Priorité du tir : `firing` du mode actif de l'arme, sinon la clé de sa famille dans `sounds`,
+sinon `shot` ; du rechargement : `reloading` du mode actif, sinon `reload`. `audio_config` reste
+sur l'asset `WeaponAsset` (lu par `game::feedback::WeaponAudio` dans
+`Assets<WeaponsConfig>`) et n'est jamais copié dans le composant rollback `Weapon` : aucune
+trace ne bouge. Lint : fichiers présents sous `assets/`, mode connu de `firing_modes`.
+
 **Systèmes** : tous en `PostUpdate` (hors `GgrsSchedule`), lisant les événements de simulation dans `FrameEvents<T>` émis par `GgrsSchedule`. Les trois émetteurs sont :
 - `DamageEvent` pour les impacts (flash, secousse si joueur local)
-- Spawn de `Bullet` pour le son de tir (source = joueur local) : un son par tir (tireur, frame de création), mémorisé pour ne pas repartir quand le rollback de la session locale recrée les balles des dernières frames (elles redeviennent `Added<Bullet>`). Clé : celle que `shot_sounds` impose à l'arme active du tireur (`shot_sounds: {"pistolet": "shot_pistol"}`, nom d'arme → clé de `sounds`, vérifié par le lint), sinon la famille de son mode de tir actif à l'image rendue (`Shotgun` → `shot_shotgun`, `Automatic`/`Burst` → `shot_smg`, `Manual` → `shot_pistol`), sinon `shot` (la balle ne porte pas son arme : un champ de plus ferait bouger les traces). Les échantillons sont des coups uniques courts (≤ 0,5 s, lot A de `docs/plan-assets.md`), joués en entier : plus de coupure en fondu.
-- Passage de `WeaponInventory.reloading_ending_frame` de `None` à `Some` pour le son de rechargement : une fois par rechargement, comparé d'une image rendue à la suivante
+- Spawn de `Bullet` pour le son de tir (source = joueur local) : un son par tir (tireur, frame de création), mémorisé pour ne pas repartir quand le rollback de la session locale recrée les balles des dernières frames (elles redeviennent `Added<Bullet>`). Son : celui de l'arme active du tireur et de son mode actif à l'image rendue, selon la priorité ci-dessus (familles : `Shotgun` → `shot_shotgun`, `Automatic`/`Burst` → `shot_smg`, `Manual` → `shot_pistol` ; la balle ne porte pas son arme : un champ de plus ferait bouger les traces). Les échantillons sont des coups uniques courts (≤ 0,5 s, lot A de `docs/plan-assets.md`), joués en entier : plus de coupure en fondu.
+- Passage de `WeaponInventory.reloading_ending_frame` de `None` à `Some` pour le son de rechargement (celui de l'arme active, priorité ci-dessus) : une fois par rechargement, comparé d'une image rendue à la suivante
 - Sons d'événements (lot B), joués par `FeedbackSounds::play(clé)` ; chaque signal est lu dans l'état ou dans les `FrameEvents` de la dernière frame simulée, jamais écrit :
   - `hit` : un `DamageEvent` dont la source est un joueur local et la cible non, un son par frame simulée (gardé par `DamageEvent.frame` : une image rendue sans nouvelle frame voit encore les mêmes événements). L'événement précède la résolution : un coup annulé (invulnérabilité) sonne aussi.
   - `hurt` : `Health.current` d'un joueur local en baisse d'une image rendue à l'autre, à `max` égal ; au plus un son toutes les 15 frames (`HURT_SOUND_MIN_FRAMES` : les PV peuvent baisser deux frames de suite).
@@ -927,6 +947,12 @@ vagues de zombies suit ce défaut ; F3 conserve sa bascule explicite.
 - `Icons(source)` : `size.1` est le côté d'un carré ; la rangée s'étend vers la droite depuis
   l'ancre, quel que soit le nombre de perks. `Text(source: "perks")` affiche les étiquettes
   séparées par des espaces.
+- M2-T18 : `Icons(source: "passives")` lit les objets passifs (ordre de ramassage,
+  doublons conservés), avec les mêmes entrées `icons` et le même repli gris/initiale.
+- `Map(source: "minimap")` dessine les rectangles des salles dans `size` : même échelle
+  sur les deux axes, cadrage stable de l'étage, y monde inversé vers l'UI. Salle courante :
+  bordure or ; verrouillée : rouge et `×` ; nettoyée : verte ; boss : violet et `B`.
+  Les salles dormantes restent des silhouettes. Voir §56 pour la limite d'exploration.
 - Les noms des perks et des power-ups viennent de leur propre contenu (`name` de `perks.ron`
   et de `items/powerups.ron`), pas de `hud.ron`.
 - Prix « en icône » : préfixe `$` devant le montant (`Ouvrir — $750`).
@@ -2051,7 +2077,7 @@ f122/f242/f362), `levelup_choice` (`ChoiceC` → `coriace`), `levelup_timeout` (
 f704), `weapon_pool_drop` (progression `armes`).
 
 **Hors périmètre** (écran de choix et HUD des rads livrés depuis : §30, §32) : déclencheurs et conditions v2,
-objets passifs/actifs (M2), modificateurs de projectiles (M4), pause, `--progression` dans
+objets passifs/actifs (M2), modificateurs de projectiles (M3, `isaac`), pause, `--progression` dans
 `alacod-sim`.
 
 ## 28. Générateur v1 et placement scripté (T1.13, voie V3)
@@ -2221,11 +2247,10 @@ Présentation seule : aucune trace ne change, la simulation ne fait jamais de pa
   (Entrée, A) ajoute à l'input du joueur affiché le bit de la carte surlignée
   (`read_local_inputs`) : seul chemin vers la simulation, le même que 1/2/3. Le D-pad et → gardent
   aussi leur action de déplacement (la partie continue pendant le choix).
-- **Mise en page** `ui/mutation_screen.ron` (kind `Ui`, schéma `content::ui::MutationScreenLayout`
-  partagé par le lint et le jeu) : police, titre, taille des cartes, `slots` (centre de chaque
-  carte depuis le centre de l'écran), couleurs, barre de temps, aide. Lint : police présente sous
-  `assets/` (BrokenReference), exactement trois `slots` et tailles > 0 (OutOfRange). Absent : pas
-  d'écran (le choix se fait aux touches 1/2/3 ou d'office).
+- **Mise en page** (D71, §56) : gabarit `bevy_hui` `ui/mutation_screen.html` (throne, testbed),
+  rempli par `game::ui::mutation_hui` depuis `MutationScreenView`. Remplace l'ancien
+  `ui/mutation_screen.ron` et son schéma de lint (retirés). Absent : pas d'écran (le choix se
+  fait aux touches 1/2/3 ou d'office).
 - **Transition de niveau** `game::ui::floor_transition` : à chaque changement de
   `FloorState::index` lu côté présentation (pas `FloorEntered`), voile noir qui s'éclaircit
   linéairement en `floor_fade_seconds` (`camera.ron`, défaut 0,4) et caméra posée sur sa cible
@@ -2297,8 +2322,10 @@ Présentation seule : aucune trace ne change.
 
 - **Liste fermée** `content::ui::HUD_SOURCES` : `health`, `wave`, `ammo`, `weapon`, `enemies`,
   `players`, `currency`, `perks`, `downed`, `powerups`, `prompt`, et (T1.18) `rads`, `level`,
-  `ammo_by_type`, `statuses`, `floor`. Le lint lit la source de chaque widget de `ui/hud.ron`
-  (`HudFileSchema`) : source inconnue = `UnknownKind` (fixture `hud_unknown_source`).
+  `ammo_by_type`, `statuses`, `floor`, puis (M2-T18, §56) `blanks`, `keys`, `shells`,
+  `passives`, `active_item`, `active_charge`, `minimap`. Le lint lit la source de chaque
+  widget de `ui/hud.ron` (`HudFileSchema`) : source inconnue = `UnknownKind`
+  (fixture `hud_unknown_source`).
 - **Modèle** `game::ui::hud_model` : `hud_values(&HudPlayerInput) -> HudPlayerValues` (pure,
   testée sans rendu) et `player_source_text(source, prefix, values)` ; `HudSnapshot { frame,
   texts, bars, values }` mis à jour en `Update` par `HudModelPlugin`, **aussi en headless** ; le
@@ -2493,6 +2520,11 @@ optionnel, nombre de portes fermées de la carte. Moment clé `room` (« salle c
 `two_rooms_door.ldtk` ; scénarios `rooms_lock_solo`, `rooms_dormant`, `rooms_lock_coop`,
 `rooms_door_occupied`. Diagnostic : `ALACOD_MAP_PROBE=<scénario>:<frame>` affiche aussi les salles
 (état) et les ennemis (position, dormant).
+
+D68 : si un ennemi chevauche une porte ouverte, une salle dormante réveille ses ennemis dès
+qu'un joueur debout y entre (même marge `PLAYER_INSET` que le verrouillage). La porte
+reste ouverte tant qu'un corps la chevauche. Un ennemi endormi sur une porte ne peut ainsi plus
+empêcher son propre réveil. La dormance est recalculée avant l'IA à chaque frame, sans état caché.
 
 ## 36. Objets et inventaire (M2-T0b, chantier C2)
 
@@ -3322,6 +3354,9 @@ profils existants sont inchangés (aucune trace existante ne bouge).
 - **Zone morte** : `surface_step` considère le bot arrivé quand son pas est sous `ROUTE_DEAD_ZONE`
   sur les deux axes ; sinon il restait immobile à 36 px de la portée, sans presser Interaction
   (graine 47 à 2 bots, `etages_deux`, soft-lock).
+- **D68 : à terre, l'explorateur envoie un input neutre** jusqu'à sa réanimation. Il poursuivait
+  sinon le repli de `prudent` ou le portail, quittant la portée de l'équipier. Le jeu continue
+  d'autoriser le déplacement à terre pour les joueurs humains (`downed_speed_mult`).
 - Campagne : `docs/taches/rapports/bot-explorateur-v2/campagne.sh` (lots de 10 graines).
 
 **`alacod-sim`** : `--floors <séquence> --until-floor N` existait (T1.14) ; le JSON gagne `outcome`
@@ -3457,6 +3492,11 @@ Scénarios : `shells_drop`, `shop_buy`, `shop_refused` (testbed), `shop_seeded` 
 
 **Hors périmètre** : marchand PNJ et déblocages méta (M2-T12, T13), vol, réduction de prix, HUD des
 shells (M2-T18).
+D68 : les drops de mort (douilles, power-ups et armes de progression) interrogent `With<Death>`
+avant `rollback_apply_death`, qui désactive immédiatement le mort. Le drop reste unique et se
+rejoue après restauration d'une mort posée en fin de frame (arène) ; les ticks `Added` ne font pas
+partie du snapshot rollback et ne peuvent pas servir à détecter cette mort.
+
 
 ## 52. Contenu `gungeon` (M2-T14, quatre parties)
 
@@ -3492,6 +3532,35 @@ Munitions : réserves distinctes par type `Custom` (`balles`, `cartouches`, `cal
 `Burst` ne tire pas plusieurs balles par frame mais `pellets_per_shot` balles espacées de
 `cooldown_frames` (voir `FiringMode::Burst`). Les traces `gungeon` existantes n'ont pas bougé
 (les 5 scénarios générés d'avant sont identiques après `GEN_BLESS=1`).
+
+### 52.b Objets et synergies (T14b)
+
+Données seulement (`games/gungeon/assets/{objets,synergies}/`), aucune mécanique ajoutée. Vingt objets
+au total (dix de plus), huit synergies (quatre de plus : la fiche dit « quatre synergies », lue comme
+quatre en plus des deux de M2-T4). Les pools de butin (`commun`, `boutique`, `boss`) tirent par rareté :
+les nouveaux objets y entrent sans toucher aux pools ; le prix en boutique suit la rareté (§50).
+
+| Objet | Rareté | Genre | Effet |
+|---|---|---|---|
+| `gilet` | Commun | passif | `OnPickup` (une charge) : +25 d'armure (D61) |
+| `egide` | Commun | consommable | `GainShield(1)` au ramassage (D61) |
+| `lunettes` | Commun | passif | `Range` +20 % |
+| `chargeur_rapide` | Commun | passif | `ReloadSpeed` +30 % |
+| `roulade` | Peu commun | passif | `OnDodge`, cooldown 60 : cadence +30 % pendant 120 frames |
+| `trophee` | Peu commun | passif | `OnKill`, cooldown 120 : soin 2 |
+| `parchemin` | Peu commun | passif | `OnBlank`, cooldown 300 : `GainShield(1)` |
+| `sablier` | Peu commun | actif `Frames(1800)` | vitesse +50 % pendant 240 frames |
+| `bastion` | Rare | passif | vie max +10 ; `OnFloorStart` : `GainShield(1)` |
+| `rancune` | Rare | passif | `OnDamageTaken` sous 50 % de vie, cooldown 600 : dégâts +50 % pendant 180 frames |
+
+Synergies : `rempart` (`gilet` + `bastion` : +25 d'armure), `fuite_armee` (`bottes` + `roulade` : vitesse
++10 %), `sang_froid` (`trophee` + `rancune` : dégâts +20 %), `tireur_d_elite` (`lunettes` + `chargeur_rapide` :
+dégâts +15 %).
+
+**Piège (armure).** `Armor` n'a pas de valeur de base chez le joueur : le générateur (`expected_item_stats`)
+refuse (`MissingStat`) un passif dont `modifiers` touche `Armor`. `gilet` pose donc son armure par un effet
+`OnPickup` (source `item:gilet:0`) ; `rempart` (synergie, sans `test:`) peut l'utiliser en `modifiers`.
+Les consommables (`egide`) n'ont pas de `test:` (comme `ration`, `blank`).
 
 ### 52.c Ennemis et boss (T14c)
 
@@ -3545,7 +3614,9 @@ Types tirables d'une grammaire = `FloorGrammar::kinds_needed()`. Avertissements 
   de M2-T5 est `reach::loot_pool_items` (et `loot_pool_weapons`), vides aujourd'hui : y renvoyer les
   ids de chaque pool (une dizaine de lignes) ;
 - arme sans source : `starting_weapons`, `WeaponLocation` des niveaux jouables, `weapon_pool` de
-  progression, pools.
+  progression, pools, armes citées par les règles des ennemis atteints (`Shoot`, phases de boss,
+  `SpawnPattern` des effets, entrées de phase et frises). Un ennemi inatteint ou `test_only`
+  ne compte pas comme source de ces armes.
 `MapEntry::levels` (`MapLevelInfo` : type de salle, personnages, armes murales par niveau LDtk) porte
 les données. Limites : pas de lecture des scénarios (une arme ou un objet donné par scénario seulement
 est signalé), ni des cartes assemblées autrement que par les désignations ci-dessus ; la sandbox
@@ -3556,7 +3627,8 @@ de personnage (`test_only: true,`), dans `config:` d'une arme (`config: (test_on
 l'ignore : pas d'avertissement « ennemi » ou « arme » pour lui, et un personnage marqué n'est pas une
 source d'armes. Lu par `content` seulement (`CharacterEntry::test_only`, `WeaponEntry::test_only`) : les
 types de `game` et `combat` l'ignorent comme tout champ inconnu, donc aucun effet en jeu et aucune trace
-qui bouge. Marqués : `cible` et `mannequin` (throne), `cible` (gungeon). Fixtures
+qui bouge. Marqués : `zombie_scaled` (zombies), `cible` et `mannequin` (throne), `cible` (gungeon). Fixtures
+`reach_enemy_weapons` (règles atteintes, phases et frises ; sources inatteintes et de test exclues),
 `reach_test_only_character` et `reach_test_only_weapon` (jumelles de `reach_enemy_unplaced` et
 `reach_weapon_no_source`, test `test_only_content_is_ignored_by_reach`).
 
@@ -3678,69 +3750,210 @@ bouge. À voir sur un poste avec GPU : voir le rapport `docs/taches/rapports/m2-
 indice prédit puis annulé par un rollback p2p reste dans le journal. Une fin de boss se détecte au
 tick où le boss disparaît : un boss retiré sans qu'une salle passe `Cleared` ne déclenche rien.
 
-## 56. Écrans pause et inventaire : test comparatif d'UI (M2-T18 partie 1, voie V4)
+## 56. Écrans en bevy_hui et HUD gungeon (M2-T18, voie V4)
 
-Décision ouverte du plan (`docs/plan-engine.md` §7.1, point 3) : le même menu de pause et le même
-inventaire gungeon, faits deux fois, pour que William choisisse sur pièces. Le HUD reste la couche
-maison (`ui/hud.ron`, §15) et n'est pas touché. Comparaison, mesures et recommandation :
-`docs/taches/rapports/m2-t18-ui-comparatif.md`. La seconde partie (HUD gungeon) vient après la décision.
+**Décision de William, 2026-10-15 : `bevy_hui` pour les écrans.** Le HUD reste la couche
+maison `ui/hud.ron` (§15). Le comparatif historique et ses mesures restent dans
+`docs/taches/rapports/m2-t18-ui-comparatif.md` ; la livraison de la seconde partie est décrite
+dans `docs/taches/rapports/m2-t18-hud-gungeon.md`.
 
-**Modèle commun** (`crates/game/src/ui/screens/model.rs`, pur) : `ScreensState` (écran ouvert, focus de
-chaque écran), `UiAction` (`Toggle(Pause|Inventory)`, `Up`, `Down`, `Confirm`, `Back`), `reduce` (le seul
-endroit qui change l'état), `pause_view` et `inventory_view` qui produisent une `ScreenView` : des sections
-nommées, `Text`, `List` (éléments avec `focused`) ou `Bar` (texte et fraction). Les deux rendus lisent
-cette vue et ne savent rien d'autre. Tout est testé sans rendu.
+### Écrans
 
-- **Pause** : Reprendre, Recommencer (`RunRequest::Restart`), Lobby (`RunRequest::ToLobby`, comme les
-  boutons de l'écran de fin), Réglages (vide : affiche « Aucun réglage pour l'instant. »). Sections
-  `title`, `entries`, `detail`, `hint`.
-- **Inventaire** : armes (en main, `chargeur | réserve`), objet actif et sa charge (`charge` : « 1 / 2 »,
-  « 2 / 2 · prêt », fraction), passifs, consommables (blanks, clés). Lu dans `WeaponInventory`,
-  `AmmoReserves`, `items::Inventory` et `ItemTable`, pour le joueur du HUD (`HudPlayer`). L'ordre du focus
-  est armes, actif, passifs, consommables (`inventory_focus_target`, testé).
-- **Entrées** (`screens::read_nav_keys`) : Échap / Start ouvre la pause ou ferme l'écran ouvert, `I` /
-  Select l'inventaire, ↑ ↓ / D-pad, Entrée ou Espace / A, Retour arrière / B. Hors d'un écran ouvert,
-  seules les deux touches d'ouverture agissent (flèches, Entrée et A restent des touches de jeu).
-  `ALACOD_INPUT=neutral` coupe les entrées. Pas de souris dans cette partie.
-- **La simulation ne s'arrête jamais** (GGRS) : pendant qu'un écran est ouvert, les entrées de jeu
-  continuent d'être envoyées (comme l'écran de mutation, §30). Les bloquer est une décision de la partie 2.
-  Rien n'entre dans l'input rollback : aucune trace ne bouge.
+`game/ui_hui` est activée par `render`, défaut des quatre jeux natifs et wasm et du rendu
+scénario. Les exécutables headless ne chargent pas Hui. Il n'y a plus de sélecteur de backend,
+de renderer `screens/custom.rs` ni de fichiers pause/inventaire RON.
 
-**Option A, couche maison** (`screens/custom.rs`, `games/gungeon/assets/ui/pause_screen.ron` et
-`inventory_screen.ron`) : un arbre `Column`/`Row` (gap, marge, largeur, fond, bordure) dont les feuilles
-sont `Label` (texte fixe), `Text`/`List`/`Bar` (liées par `bind` à une section de la vue). Le rendu
-reconstruit l'arbre `bevy_ui` quand la vue change ou que le fichier est rechargé.
+Le modèle pur (`screens/model.rs`) conserve `ScreensState`, `UiAction`, `reduce`,
+`pause_view`, `inventory_view` et `ScreenView`. Les sections nommées sont liées génériquement :
+`Text` → `{nom}`, `Bar` → `{nom_label}` et `{nom_width}`, `List` → conteneur `id="nom"`.
+Chaque ligne utilise `ui/hui_row.html`, avec marqueur, couleur et fond du focus. Un changement
+de vue remplit à nouveau les listes ; un rechargement HTML recrée leurs lignes.
+`sync_screen` tourne **avant `HuiSystems::Build`** : aucune commande de Hui ne doit
+construire une ligne déjà détruite lorsque l'inventaire change.
 
-**Option B, `bevy_hui` 0.7** (`screens/hui.rs`, feature `ui_hui`, `pause_screen.html`,
-`inventory_screen.html`, `hui_row.html`) : gabarits pseudo-HTML, `{propriétés}` posées depuis la vue
-(`view_properties`). Pas de boucle dans le langage : les lignes des listes sont des instances de
-`hui_row.html` créées par le code sous les conteneurs `id`. Un rechargement du gabarit reconstruit
-l'arbre (les lignes sont recréées).
+- Pause : Reprendre, Recommencer (`RunRequest::Restart`), Lobby (`RunRequest::ToLobby`),
+  Réglages (« Aucun réglage pour l'instant. »).
+- Inventaire : armes et munitions, actif et charge, passifs, consommables. Joueur affiché :
+  celui de `HudPlayer` (caméra forcée, sinon local de plus petit handle).
+- Navigation : Échap / Start, I / Select ; ↑ ↓ / D-pad ; Entrée ou Espace / A ;
+  Retour arrière / B. `ALACOD_INPUT=neutral` coupe la lecture des touches.
+- **La simulation continue et ses touches restent actives** sous les menus, comme avant :
+  aucun verrou d'input ni changement de trace n'est introduit.
+- Écran de fin : `ui/game_over_screen.html`, dans les quatre jeux. Résumé dérivé de
+  `Run.step`/`Run.summary`, mis à jour sans reconstruire la racine ; rollback de l'issue :
+  disparition de l'écran. Rejouer (R) et Lobby gardent leurs `RunRequest`, boutons souris
+  inclus. La présentation est chargée seulement dans `PresentationPlugin`.
+- **Écran de mutation (D71, 2026-10-15)** : `ui/mutation_screen.html` dans throne et testbed,
+  adaptateur `game::ui::mutation_hui` (`MutationHuiPlugin`, dans `PresentationPlugin`, feature
+  `ui_hui`). `MutationScreenView` et le protocole sont inchangés : valider émet toujours le bit
+  `ChoiceA/B/C` dans l'input (`confirm_input`), l'adaptateur ne lit que la vue. Propriétés du
+  gabarit : `name{i}`, `desc{i}`, `tint{i}`, `border{i}` (carte surlignée en or) pour trois cartes,
+  `bar_width` (barre de temps, en %). Écran dérivé de l'état : un rollback qui annule le choix le
+  fait disparaître. `mutation_screen.ron`, `MutationScreenLayout` et son lint sont retirés (aucune
+  trace ne bouge). Tests : `mutation_hui::gabarit_des_jeux_construit_et_recompile` construit les
+  vrais gabarits de throne et testbed.
 
-**Réglage** : `ALACOD_SCREENS=custom|hui` (défaut `custom`) ; `hui` exige la feature `ui_hui` (sinon rien
-ne s'affiche). Les fichiers de l'option B ne sont cherchés que si `pause_screen.ron` /
-`inventory_screen.ron` existent dans le dossier `Ui` du jeu. Registre de contenu : ces fichiers sont du
-kind `Ui` (syntaxe RON seulement, pas de schéma lint ; les `.html` ne sont pas lus par le lint).
+Les fichiers HTML sont découverts directement dans les dossiers `Ui`, sans compagnon RON.
+Le registre vérifie leur lecture UTF-8 ; le lint exige aussi `ui/hui_row.html` lisible
+si pause/inventaire le référencent. Fixtures `html_screen_missing_row` et
+`html_screens_valid`. Les inventaires de texte embarqués pour wasm incluent `.html`.
+Ce lint ne valide pas la grammaire complète de Hui.
 
-**Scénarios** : champ `ui: [(at_frame: 10, action: Toggle(Pause)), …]` (`game::ui::screens::UiStep`,
-ressource `ScreenScript`), joué en `Update` hors simulation, une fois par frame ; attente
-`ScreenText(screen: "pause" | "inventory", section, contains, closed, at_frame)` (texte de la section,
-« > » devant le focus ; `closed: true` exige l'écran fermé). Scénarios `ui_pause_menu` et `ui_inventory`
-(gungeon). Un réenregistrement ne garde pas `ui`.
+### HUD gungeon
 
-**Captures** (à produire sur un poste avec GPU, la revue est visuelle) :
+Nouvelles sources calculées par `hud_values` (pure), présentes dans `HudSnapshot` aussi
+en headless et dans la liste fermée `content::ui::HUD_SOURCES` :
+
+| Source | Valeur |
+|---|---|
+| `blanks` | compteur `Inventory::consumables["blank"]` |
+| `keys` | compteur `Inventory::consumables["key"]` |
+| `shells` | monnaie `Currency` (les douilles de boutique la créditent) |
+| `passives` | noms des passifs ; `Icons` utilise leurs ids |
+| `active_item` | nom de l'objet actif |
+| `active_charge` | charge / seuil, suffixe « · prêt » ; barre bornée entre 0 et 1 |
+| `minimap` | type, état, marqueur boss et salle actuelle ; rendu spatial par `Map` |
+
+Sans joueur/objet : textes vides et charge masquée. `HudRoomGeometry` reçoit uniquement
+la géométrie de l'étage courant depuis `CurrentRooms`, en `Update` avant `HudModelSet`.
+La carte se dérive de cette géométrie, de la position du joueur et de `RoomStates` :
+aucun nouveau composant/état rollback.
+**Mémoire de visite (D72, 2026-10-15)** : `RoomStates` ne retient pas une salle non combattante
+restée `Dormant` (boutique, récompense). `hud_model::MinimapVisits` (ressource de présentation,
+`Update`, hors rollback et hors trace) garde les ids des salles où un joueur **local** est entré
+(`track_minimap_visits`, avant `update_hud_snapshot`) ; elle repart de zéro quand la géométrie de
+l'étage change (nouvel étage, restart). Une salle visitée puis quittée reste « visitée ». Limite
+assumée : un rollback ne défait pas une visite (l'exploration n'est pas un fait de simulation) ;
+aucun état `Visited` rollback n'a été nécessaire. Preuve : scénario `minimap_shop_visit`
+(gungeon, `etages_grammaire`, graine 12 : la boutique est voisine du départ ; attentes `HudText`
+« boutique · inexplorée » f10, « visitée · actuelle » f90, « visitée » après la sortie f199, alors
+que `RoomState` reste `Dormant`).
+
+### Scénarios et revue visuelle
+
+Le script `ui: [(at_frame: 10, action: Toggle(Pause)), …]` joue en `Update`, hors input
+rollback. `ScreenText(screen, section, contains, closed, at_frame)` vérifie les menus ;
+`HudText(source, contains, at_frame)` vérifie les sources du HUD. Les scénarios existants
+`ui_inventory`, `gungeon_start`, `gungeon_clear`, `gungeon_boss` et `gungeon_two_floors`
+portent les attentes HUD, sans modifier leurs traces.
 
 ```bash
-# A, couche maison
-cargo run -p scenario --features render --bin play_scenario -- tests/scenarios/ui_pause_menu.ron --capture /tmp/ui/pause_maison --every 2
-cargo run -p scenario --features render --bin play_scenario -- tests/scenarios/ui_inventory.ron --capture /tmp/ui/inventaire_maison --every 2
-# B, bevy_hui
-ALACOD_SCREENS=hui cargo run -p scenario --features render,ui_hui --bin play_scenario -- tests/scenarios/ui_pause_menu.ron --capture /tmp/ui/pause_hui --every 2
-ALACOD_SCREENS=hui cargo run -p scenario --features render,ui_hui --bin play_scenario -- tests/scenarios/ui_inventory.ron --capture /tmp/ui/inventaire_hui --every 2
+cargo run -p scenario --profile headless --features render --bin play_scenario -- tests/scenarios/ui_pause_menu.ron --capture /tmp/ui/pause --every 1
+cargo run -p scenario --profile headless --features render --bin play_scenario -- tests/scenarios/ui_inventory.ron --capture /tmp/ui/inventaire --every 1
+cargo run -p scenario --profile headless --features render --bin play_scenario -- tests/scenarios/gungeon_boss_bot.ron --capture /tmp/ui/fin --every 10
 ```
 
-Images à comparer (`frame_NNNN.png`, n = frame de simulation) : pause 10 (ouverture), 20 à 22 (focus),
-31 (Réglages validé), 40 (retour sur Lobby), 51 (fermé), 62 et 64 ; inventaire 12 (actif prêt),
-20 (actif déchargé), 21 à 24 (focus), 31 (fermé). Rechargement à chaud à voir en jeu : `cargo run -p
-gungeon --features native` (A) ou `ALACOD_SCREENS=hui cargo run -p gungeon --features native,ui_hui` (B),
-ouvrir un écran (Échap ou I), puis modifier le `.ron` ou le `.html` correspondant.
+Frames à regarder (`frame_NNNNN.png`) : pause 10, 20–22, 31, 40, 51, 62, 64 ;
+inventaire/HUD 9 (actif prêt), 12, 20 (déchargé), 21–24 (focus), 31 (fermé).
+Carte : `gungeon_clear` 100 (verrouillage), 650 (nettoyée) ;
+`gungeon_boss` 320–450 (boss), 480–520 (blanks consommés) ;
+`gungeon_two_floors` 800 (nouvel étage). Fin : `gungeon_boss_bot` 450.
+Rechargement en jeu : `cargo run -p gungeon --features native`, ouvrir un écran puis
+modifier son `.html`. Le rapport précise les captures effectivement observées.
+
+
+## 60. Contrats des larmes et de l'empilement de projectiles (M3-T0a, chantier B5 v3)
+
+Contrats posés pour M3-T1 (larmes v3), M3-T6 (familiers qui tirent), M3-T11a (contenu de larmes)
+et M3-T15 (bench). **Aucune trace existante ne bouge** : variantes en fin d'enum, stats lues avec
+une base 1 sans être posées dans `Stats`, champs d'objet optionnels hors rollback.
+
+### Munitions infinies
+
+`MagBulletConfig::Infinite` (en fin d'enum, `combat::weapons`) : le mode tire tant que la cadence
+le permet ; jamais vide, jamais rechargé (pas même le délai de pompe d'un `Shotgun`), `mag_ammo` et
+`mag_size` restent à 0 (attente `Ammo` à 0 ; le HUD affichera `∞` ou rien, M3-T16). Réserve
+initiale : 0, comme `Magless`.
+
+```ron
+"larme": (config: (name: "larme", default_firing_mode: "default", firing_modes: {
+    "default": (firing_rate: "3.0", firing_mode: Automatic(), /* … */ mag: Infinite),
+})),
+```
+
+`ammo_type` devient facultatif dans le RON (`#[serde(default)]`, défaut `Custom("")`, la seule
+valeur qu'un RON ne peut pas écrire : T2.8 la refuse) **seulement** pour une arme dont tous les
+modes sont `Infinite`. Lint : `ammo_type` absent alors qu'un mode consomme (`Mag`, `Magless`) →
+`Parse` (comme l'erreur RON d'avant) ; `ammo_type` donné alors que tous les modes sont `Infinite` →
+`OutOfRange`. Une arme mixte (un mode `Mag`, un mode `Infinite`) garde son `ammo_type`.
+
+### Stats de larmes et `Luck`
+
+- `StatId::ShotSpeed` (vitesse de la balle) et `StatId::ShotSize` (rayon de collision et sprite,
+  après `Size`), **après `Custom`** dans l'enum : l'`Ord` des clés de `Stats` et le hash des stats
+  existantes ne changent pas. Lues au tir (`weapon_rollback_system`, `ShotStats`) par
+  `StatReader::get(…, 1)` : base 1 sans être posées dans `Stats` (le `Stats` de tout personnage
+  reste identique) ; à 1, aucun produit n'est calculé. `sim_core::stats::default_base` donne cette
+  base aux lecteurs hors simulation (attente `Stat`, générateur `ItemHeld`).
+- `Luck` a un lecteur de contrat : `effects::chance_with_luck(base, luck, par_point)` =
+  `clamp(base + luck × par_point, 0, 1)` en `Fixed`, saturant. Rien ne l'appelle encore dans la
+  simulation (M3-T1 : statut posé par une larme ; M3-T2 : effets d'objet). Le lint accepte donc
+  désormais un modificateur sur `Luck` (`stat_reader`).
+
+### Modificateurs de projectile portés par un objet
+
+Les contrats `ProjectileModifier`, `Pattern`, `ExpireAction` et `ProjectileSpec` vivent désormais
+dans `effects::projectile` (crate de simulation) et sont réexportés par `combat::projectile` :
+`items` (simulation, sans rendu) peut les porter sans dépendre de `combat` (dette D69). Le `Hash`,
+le `Debug` et le RON ne dépendent pas du crate de définition : aucune trace ne bouge.
+
+```ron
+// objets/<id>.ron (ou synergies/<id>.ron)
+(name: "Ricochet", kind: Passive, projectile: Some((modifiers: [Bounce(2)], on_hit: [], on_expire: [])))
+```
+
+`ItemDef.projectile` et `SynergyDef.projectile` : `Option<ProjectileMods>` (`ProjectileMods` =
+`ProjectileSpec` : `modifiers`, `on_hit`, `on_expire`), absent = v1 exacte. Ce sont des
+définitions (`ItemTable`/`SynergyTable`, ressources hors rollback, sans `Hash`) : le champ n'entre
+dans aucun checksum. **Le tir ne le lit pas encore** (M3-T1) : le lint vérifie sa forme (mêmes
+plages qu'une arme, doublon refusé dans la liste d'un objet) puis le refuse (`Unsupported`).
+
+### Composition (`combat::projectile::compose`)
+
+`compose(base, ajouts) -> ResolvedModifiers`, pure, `Fixed` seulement. Chaque liste est d'abord
+résolue seule (`resolve_modifiers` : dans une liste, le dernier l'emporte, le lint y refuse les
+doublons), puis les sources se combinent (règles par défaut de Q3, retenues par William le
+2026-10-15) :
+
+| Modificateur | Règle entre sources | Pourquoi |
+|---|---|---|
+| `Bounce(n)`, `Pierce(n)` | addition (saturante) | deux objets de rebond rebondissent plus |
+| `Size(f)` | produit | comme une stat multiplicative |
+| `Lifetime(n)` | maximum des sources qui en ont un | une larme vit au moins aussi longtemps |
+| `Homing(f)` | somme plafonnée à 1 | le guidage se renforce sans dépasser le virage complet |
+| `Gravity(g)` | somme | |
+| `Spectral` | présence | |
+| `Split` | addition des `count` ; `spread`, `child` de la première source | addition des branches |
+| `Orbit` | présence ; paramètres de la première source | |
+
+Ordre des sources, déterministe : arme (`base`), passifs dans l'ordre de ramassage (un passif en
+double compte deux fois), actif, synergies actives par id ; `items::projectile_sources(items,
+synergies, inventory)` rend les listes des objets dans cet ordre. Sans ajout,
+`compose(base, &[]) == resolve_modifiers(base)` exactement. `resolve_modifiers` reste l'unique
+appel au tir (inchangé) ; `ResolvedModifiers` n'est plus `Copy` (il porte `split`, `orbit`,
+`spectral`, que `Projectile::new` ne lit pas encore).
+
+### Nouveaux modificateurs (contrats)
+
+En fin d'enum `ProjectileModifier` (les six d'avant gardent leur hash, test
+`variantes_historiques_gardent_leur_hash`) :
+
+- `Spectral` : traverse murs et obstacles, pas les personnages ;
+- `Split(count, spread, child: Some("id"))` : à l'impact sur un personnage, `count` projectiles en
+  éventail de `spread` radians ; `child` = id de la table `projectiles` de l'arme, absent = le
+  projectile par défaut du porteur (Q3) ;
+- `Orbit(radius, frames_per_turn)` : tourne autour du tireur au lieu d'avancer.
+
+Lint : formes et plages (`Split.count > 0`, `spread >= 0`, `child` présent dans la table de
+l'arme ; `Orbit.radius > 0`, `frames_per_turn > 0`), puis `Unsupported` sur une arme tant que
+M3-T1 ne les exécute pas. Kinds `projectile_modifier` : `Spectral`, `Split`, `Orbit` (et `Fan`,
+`Spiral`, `Burst`, qui manquaient aux `pattern` déclarés par `CombatPlugin`).
+
+### Testbed et scénarios
+
+Arme `larme` (`Automatic`, 3 tirs/s, `mag: Infinite`, sans `ammo_type`) et objet `lentille`
+(`ShotSpeed Pct 0.5`, `ShotSize Mul 1.5`). Le testbed n'a pas de choix de personnage joueur dans
+un scénario : le « personnage d'essai » de la fiche est l'arme, donnée par `PlayerScript::weapon`.
+Scénarios : `tears_infinite` (300 frames de tir, `Ammo` à 0 tout du long, les coups continuent),
+`tears_shot_speed` (avec `lentille`, la larme touche `target` à une frame où, dans le témoin
+`tears_shot_speed_sans_objet`, elle n'est pas encore arrivée).

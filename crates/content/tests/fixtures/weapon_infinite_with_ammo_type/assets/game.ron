@@ -1,0 +1,8 @@
+// Fixture M3-T0a (docs/conventions.md §60) : arme à munitions infinies qui déclare un ammo_type (OutOfRange)
+(
+    name: "fixture-weapon_infinite_with_ammo_type",
+    content_folders: [
+        (path: "weapons.ron", kind: "Weapon"),
+    ],
+    entry: (start_map: "unused", default_seed: 1),
+)

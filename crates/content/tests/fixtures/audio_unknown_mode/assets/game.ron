@@ -1,0 +1,10 @@
+(
+    name: "fixture-audio-unknown-mode",
+    content_folders: [
+        (path: "weapons.ron", kind: "Weapon"),
+    ],
+    entry: (
+        start_map: "unused",
+        default_seed: 1,
+    ),
+)

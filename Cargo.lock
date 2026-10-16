@@ -5880,6 +5880,7 @@ dependencies = [
  "chrono",
  "clap 4.6.7",
  "combat",
+ "console_error_panic_hook",
  "content",
  "ed25519-dalek",
  "effects",
@@ -5901,6 +5902,10 @@ dependencies = [
  "stats",
  "telemetry",
  "thiserror 2.0.21",
+ "tracing",
+ "tracing-appender",
+ "tracing-subscriber",
+ "tracing-web",
  "ureq",
  "utils",
  "wasm-bindgen",
@@ -11831,17 +11836,9 @@ version = "0.2.0"
 dependencies = [
  "bevy 0.19.1",
  "bevy_ggrs",
- "chrono",
- "console_error_panic_hook",
  "getrandom 0.2.17",
  "rand 0.8.8",
  "serde",
- "tracing",
- "tracing-appender",
- "tracing-subscriber",
- "tracing-web",
- "wasm-bindgen",
- "web-sys",
 ]
 
 [[package]]

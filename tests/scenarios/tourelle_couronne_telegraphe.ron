@@ -1,0 +1,46 @@
+// D66 / D67 (lisibilité throne, présentation seule : ni dégâts ni portée ne changent). Une
+// `tourelle` immobile à 200 unités à droite du joueur tire sa salve en couronne.
+//
+// À regarder : la tourelle est teintée bleu acier et plus grande qu'un zombie (marqueur de
+// `tourelle.ron`) ; elle regarde le joueur (sprite tourné vers lui, flip) ; avant chaque salve
+// (télégraphe de 20 frames) huit rayons **courts** partent d'elle dans les directions de tir au
+// lieu d'une zone qui ressemble à des dégâts (moment clé `feedback` « télégraphe ring … (8 rayons) »).
+#![enable(implicit_some)]
+Scenario(
+    game: "throne",
+    map: "gabarit_armes.ldtk",
+    map_seed: 123456,
+    frames: 300,
+    players: [
+        PlayerScript(
+            inputs: [],
+        ),
+    ],
+    expect: [
+        Event(
+            kind: "feedback",
+            label_contains: "télégraphe ring",
+            by_frame: 300,
+        ),
+        Event(
+            kind: "feedback",
+            label_contains: "(8 rayons)",
+            by_frame: 300,
+        ),
+        EnemyNeverInWall(
+            entity: Placed(0),
+            from: 2,
+            to: 300,
+        ),
+    ],
+    powerup_drop_chance_override: "0",
+    characters: [
+        CharacterPlacement(
+            character: "tourelle",
+            x: "624",
+            y: "696",
+            at_frame: 1,
+        ),
+    ],
+    mode: Sandbox,
+)

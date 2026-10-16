@@ -1,0 +1,38 @@
+idle : trace-diff sans exclusion, code 0
+identique (1499 frames comparées, ignoré : rien)
+
+two_players_shooting : trace-diff sans exclusion, code 0
+identique (299 frames comparées, ignoré : rien)
+
+points_on_kill : trace-diff sans exclusion, code 0
+identique (599 frames comparées, ignoré : rien)
+
+downed_all_lose : trace-diff sans exclusion, code 0
+identique (1699 frames comparées, ignoré : rien)
+
+bench_floor : trace-diff sans exclusion, code 1
+première frame qui diffère : 83
+GgrsNetId(309, "bullet_kin"): animation::FacingDirection, bevy_fixed::fixed_math::FixedTransform3D, combat::actors::Velocity, combat::emitter::Emitter, game::character::enemy::ai::state::BehaviorRuntime, game::character::enemy::ai::state::EnemyTarget, game::character::enemy::ai::state::MonsterState, game::character::enemy::ai::state::RangedAttackState, world::rooms::RoomDormant
+  world::rooms::RoomDormant: RoomDormant -> None
+GgrsNetId(311, "bullet_kin"): combat::actors::Velocity, combat::emitter::Emitter, game::character::enemy::ai::state::BehaviorRuntime, game::character::enemy::ai::state::EnemyTarget, game::character::enemy::ai::state::MonsterState, game::character::enemy::ai::state::RangedAttackState, world::rooms::RoomDormant
+  world::rooms::RoomDormant: RoomDormant -> None
+GgrsNetId(321, "lanceur_kin"): animation::FacingDirection, bevy_fixed::fixed_math::FixedTransform3D, combat::actors::Velocity, combat::emitter::Emitter, game::character::enemy::ai::state::BehaviorRuntime, game::character::enemy::ai::state::EnemyTarget, game::character::enemy::ai::state::MonsterState, game::character::enemy::ai::state::RangedAttackState, world::rooms::RoomDormant
+  world::rooms::RoomDormant: RoomDormant -> None
+GgrsNetId(323, "bandana_kin"): combat::actors::Velocity, game::character::enemy::ai::state::BehaviorRuntime, game::character::enemy::ai::state::EnemyTarget, game::character::enemy::ai::state::MonsterState, world::rooms::RoomDormant
+  world::rooms::RoomDormant: RoomDormant -> None
+GgrsNetId(324, "bullet_kin"): animation::FacingDirection, bevy_fixed::fixed_math::FixedTransform3D, combat::actors::Velocity, combat::emitter::Emitter, game::character::enemy::ai::state::BehaviorRuntime, game::character::enemy::ai::state::EnemyTarget, game::character::enemy::ai::state::MonsterState, game::character::enemy::ai::state::RangedAttackState, world::rooms::RoomDormant
+  world::rooms::RoomDormant: RoomDormant -> None
+
+bot_explorer_two : trace-diff sans exclusion, code 1
+première frame qui diffère : 551
+GgrsNetId(155, "bullet_kin"): animation::FacingDirection, bevy_fixed::fixed_math::FixedTransform3D, combat::actors::Velocity, combat::emitter::Emitter, game::character::enemy::ai::state::BehaviorRuntime, game::character::enemy::ai::state::EnemyTarget, game::character::enemy::ai::state::MonsterState, game::character::enemy::ai::state::RangedAttackState, world::rooms::RoomDormant
+  world::rooms::RoomDormant: RoomDormant -> None
+GgrsNetId(157, "bullet_kin"): animation::FacingDirection, bevy_fixed::fixed_math::FixedTransform3D, combat::actors::Velocity, combat::emitter::Emitter, game::character::enemy::ai::state::BehaviorRuntime, game::character::enemy::ai::state::EnemyTarget, game::character::enemy::ai::state::MonsterState, game::character::enemy::ai::state::RangedAttackState, world::rooms::RoomDormant
+  world::rooms::RoomDormant: RoomDormant -> None
+GgrsNetId(160, "lanceur_kin"): animation::FacingDirection, bevy_fixed::fixed_math::FixedTransform3D, combat::actors::Velocity, combat::emitter::Emitter, game::character::enemy::ai::state::BehaviorRuntime, game::character::enemy::ai::state::EnemyTarget, game::character::enemy::ai::state::MonsterState, game::character::enemy::ai::state::RangedAttackState, world::rooms::RoomDormant
+  world::rooms::RoomDormant: RoomDormant -> None
+GgrsNetId(162, "bandana_kin"): animation::FacingDirection, bevy_fixed::fixed_math::FixedTransform3D, combat::actors::Velocity, game::character::enemy::ai::state::BehaviorRuntime, game::character::enemy::ai::state::EnemyTarget, game::character::enemy::ai::state::MonsterState, world::rooms::RoomDormant
+  world::rooms::RoomDormant: RoomDormant -> None
+GgrsNetId(163, "bullet_kin"): combat::actors::Velocity, combat::emitter::Emitter, game::character::enemy::ai::state::BehaviorRuntime, game::character::enemy::ai::state::EnemyTarget, game::character::enemy::ai::state::MonsterState, game::character::enemy::ai::state::RangedAttackState, world::rooms::RoomDormant
+  world::rooms::RoomDormant: RoomDormant -> None
+

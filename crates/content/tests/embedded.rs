@@ -18,7 +18,7 @@ fn inventory(root: &Path, dir: &Path, result: &mut Vec<(&'static str, Option<&'s
                 .into_boxed_str(),
         );
         let text = match path.extension().and_then(|ext| ext.to_str()) {
-            Some("ron" | "ldtk" | "json") => Some(Box::leak(
+            Some("ron" | "ldtk" | "json" | "html") => Some(Box::leak(
                 std::fs::read_to_string(&path).unwrap().into_boxed_str(),
             ) as &'static str),
             _ => None,

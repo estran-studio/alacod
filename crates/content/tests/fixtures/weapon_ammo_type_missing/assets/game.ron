@@ -1,0 +1,8 @@
+// Fixture M3-T0a (docs/conventions.md §60) : arme à chargeur sans ammo_type (Parse)
+(
+    name: "fixture-weapon_ammo_type_missing",
+    content_folders: [
+        (path: "weapons.ron", kind: "Weapon"),
+    ],
+    entry: (start_map: "unused", default_seed: 1),
+)

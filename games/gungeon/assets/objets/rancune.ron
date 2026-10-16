@@ -1,0 +1,12 @@
+// `gungeon` (M2-T14b) : passif rare, un coup reçu sous 50 % de vie donne +50 % de dégâts pendant 3 s,
+// au plus une fois toutes les 10 s (`OnDamageTaken` + `HpBelow`).
+(
+    name: "Rancune",
+    kind: Passive,
+    effects: [
+        (on: OnDamageTaken, if: [HpBelow("0.5")], cooldown: Some(600), do: [TimedModifier(stat: Damage, op: Pct, value: "0.5", frames: 180)]),
+    ],
+    tags: ["offensif"],
+    rarity: Rare,
+    test: Some((frames: 60)),
+)

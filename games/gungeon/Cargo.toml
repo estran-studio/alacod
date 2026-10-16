@@ -25,14 +25,10 @@ animation = { path = "../../crates/animation" }
 [features]
 default = ["lighting", "render"]
 
-# Rendu des tilemaps. Les builds headless (tests, replays) compilent sans.
-render = ["map_ldtk/render", "bevy_ecs_ldtk/render"]
+# Présentation (tilemaps et écrans). Les builds headless (tests, replays) compilent sans.
+render = ["map_ldtk/render", "bevy_ecs_ldtk/render", "game/ui_hui"]
 
 lighting = ["game/lighting"]
-
-# M2-T18 (docs/conventions.md §56) : option B du test comparatif d'UI (écrans en bevy_hui), avec
-# `ALACOD_SCREENS=hui`.
-ui_hui = ["game/ui_hui"]
 
 native = [
   "bevy/file_watcher",

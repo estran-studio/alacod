@@ -1,12 +1,11 @@
-//! Grilles de collision dérivées (T2.1, chantier B4b, `docs/taches.md`) : reconstruites à
+//! Candidats de collision dérivés (T2.1, chantier B4b, `docs/taches.md`) : reconstruites à
 //! partir de l'état rollback à des points précis de `GgrsSchedule`, jamais lues d'une frame
 //! à l'autre. [`CollisionGrids`] n'est donc **ni rollback ni checksum** (`docs/taches.md` :
 //! « donnée dérivée... reconstruite à chaque frame avant usage ») : elle ne participe jamais
-//! au résultat de la simulation, seulement à sa vitesse. Remplace les boucles « pour chaque
-//! balle/personnage, pour chaque cible » par des requêtes sur `combat::grid::SpatialGrid`
-//! (T1.8), déjà prouvé équivalent à la force brute par ses tests.
+//! au résultat de la simulation, seulement à sa vitesse. D15 remplace les cellules spatiales
+//! de T2.1 par un balayage des mêmes entrées, aux mêmes points du schedule.
 //!
-//! Deux grilles :
+//! Deux instantanés (les noms de grille de T2.1 sont gardés pour les consommateurs) :
 //! - [`CollisionGrids::walls`] : murs (`Collider` + `Wall` + `Rollback`) seulement. Statique
 //!   au sein d'une frame (les murs ne bougent jamais) et le plus souvent d'une frame à
 //!   l'autre : reconstruite seulement quand le nombre de murs *avec collider* change (une
@@ -37,19 +36,13 @@
 //!     qui rejette tout ce qui n'est pas une fenêtre — les entrées joueurs/ennemis, elles,
 //!     périmées à ce point, ne sont jamais lues pour cet usage).
 //!
-//! Taille de cellule : 64 = 2 × 32, où 32 couvre le plus grand côté des colliders les plus
-//! **courants** dans `characters` (joueur/ennemi 20×20 ; fenêtre jusqu'à 32×16, voir
-//! `games/zombies/assets/exemples/test_map.ldtk`) — l'écrasante majorité des entrées à
-//! chaque frame. Les entrées plus grandes et rares (hitbox de mêlée jusqu'à ~80 de diamètre
-//! pour un balayage à l'épée ; murs fusionnés jusqu'à plusieurs centaines d'unités,
-//! `map_ldtk::game::collider::generate_collision_rectangles`) restent correctes : elles
-//! occupent simplement plusieurs cellules (`SpatialGrid::insert`/`query_aabb` gèrent ce cas,
-//! T1.8 le prouve par équivalence avec la force brute), donc ce choix n'affecte que la
-//! performance, jamais la justesse.
+//! D15 : les deux instantanés sont de simples listes d'AABB, parcourues en balayage.
+//! Les requêtes gardent exactement le filtrage inclusif et le tri par `net_id` de T2.1.
+//! La grille de séparation des ennemis (`pathing`) reste indépendante de ces collisions.
 
-use crate::grid::{Aabb, SpatialGrid};
+use crate::grid::{Aabb, GridEntry};
 use bevy::prelude::*;
-use bevy_fixed::fixed_math::{self, Fixed, FixedVec2, FixedVec3};
+use bevy_fixed::fixed_math::{self, FixedVec2, FixedVec3};
 use bevy_ggrs::Rollback;
 use utils::{net_id::GgrsNetId, order_iter};
 
@@ -58,27 +51,54 @@ use crate::collider::{Collider, ColliderShape, Wall};
 /// Ressource dérivée (non rollback, non checksum) : voir la doc du module.
 #[derive(Resource)]
 pub struct CollisionGrids {
-    pub walls: SpatialGrid,
+    pub walls: CollisionCandidates,
     /// Nombre de murs (`With<Wall>, With<Collider>, With<Rollback>`) et somme de leurs
     /// `GgrsNetId` vus à la dernière reconstruction de `walls` ; sert seulement à détecter un
     /// changement (porte ouverte/fermée, mur ajouté, et T1.8 : murs d'un niveau remplacés
     /// par ceux du suivant, souvent en même nombre — le nombre seul ne suffit plus), voir
     /// [`maybe_rebuild_wall_grid`].
     walls_signature: (usize, usize),
-    pub characters: SpatialGrid,
+    pub characters: CollisionCandidates,
 }
 
-/// Taille de cellule partagée par les deux grilles (voir la doc du module).
-fn cell_size() -> Fixed {
-    fixed_math::new(64.0)
+/// Instantané des candidats : balayage des AABB, puis tri par `net_id`.
+/// D15 : aucun découpage en cellules ni insertion dans un arbre pour les collisions.
+#[derive(Default)]
+pub struct CollisionCandidates {
+    entries: Vec<GridEntry>,
+}
+
+impl CollisionCandidates {
+    pub fn clear(&mut self) {
+        self.entries.clear();
+    }
+
+    pub fn insert(&mut self, net_id: GgrsNetId, entity: Entity, aabb: Aabb) {
+        self.entries.push(GridEntry {
+            net_id,
+            entity,
+            aabb,
+        });
+    }
+
+    /// Chaque entrée apparaît une fois, y compris sur les bords inclus des AABB.
+    pub fn query_aabb(&self, aabb: &Aabb) -> Vec<&GridEntry> {
+        let mut result: Vec<_> = self
+            .entries
+            .iter()
+            .filter(|entry| entry.aabb.overlaps(aabb))
+            .collect();
+        result.sort_by_key(|entry| entry.net_id.0);
+        result
+    }
 }
 
 impl Default for CollisionGrids {
     fn default() -> Self {
         Self {
-            walls: SpatialGrid::new(cell_size()),
+            walls: CollisionCandidates::default(),
             walls_signature: (0, 0),
-            characters: SpatialGrid::new(cell_size()),
+            characters: CollisionCandidates::default(),
         }
     }
 }
@@ -175,5 +195,42 @@ pub fn rebuild_character_grid_post_movement(
     for (net_id, entity, transform, collider) in order_iter!(query) {
         let aabb = collider_aabb(&transform.translation, collider);
         grids.characters.insert(net_id.clone(), entity, aabb);
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use bevy_fixed::fixed_math::Fixed;
+
+    /// D15 : mêmes candidats ET même ordre que les anciennes cellules, y compris aux bords,
+    /// aux coordonnées négatives et pour une entrée couvrant plusieurs cellules.
+    #[test]
+    fn scan_matches_spatial_grid_in_order() {
+        let mut scan = CollisionCandidates::default();
+        let mut grid = crate::grid::SpatialGrid::new(Fixed::from_num(64));
+        for i in (0..50u32).rev() {
+            let center = FixedVec2::new(Fixed::from_num(i * 16), Fixed::from_num(-128));
+            let aabb = Aabb::from_center_size(center, Fixed::from_num(128), Fixed::from_num(256));
+            let net_id = GgrsNetId(i as usize, "candidate".into());
+            let entity = Entity::from_raw_u32(i).unwrap();
+            grid.insert(net_id.clone(), entity, aabb);
+            scan.insert(net_id, entity, aabb);
+        }
+        for x in -5..55 {
+            let center = FixedVec2::new(Fixed::from_num(x * 16), Fixed::ZERO);
+            let query = Aabb::from_circle(center, Fixed::from_num(16));
+            let ids = |entries: Vec<&GridEntry>| {
+                entries
+                    .into_iter()
+                    .map(|e| (e.net_id.0, e.entity))
+                    .collect::<Vec<_>>()
+            };
+            assert_eq!(ids(scan.query_aabb(&query)), ids(grid.query_aabb(&query)));
+        }
+        scan.clear();
+        assert!(scan
+            .query_aabb(&Aabb::from_circle(FixedVec2::ZERO, Fixed::ONE))
+            .is_empty());
     }
 }

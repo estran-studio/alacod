@@ -16,7 +16,7 @@ use crate::{
 use animation::{AnimationStateBundle, FacingDirection};
 use bevy::{
     log::{tracing::span, Level},
-    platform::collections::{HashMap, HashSet},
+    platform::collections::HashMap,
     prelude::*,
 };
 use bevy_common_assets::ron::RonAssetPlugin;
@@ -81,8 +81,26 @@ pub enum FiringMode {
 
 #[derive(Debug, Clone, Hash, Serialize, Deserialize, PartialEq)]
 pub enum MagBulletConfig {
-    Mag { mag_size: u32, mag_limit: u32 },
-    Magless { bullet_limit: u32 },
+    Mag {
+        mag_size: u32,
+        mag_limit: u32,
+    },
+    Magless {
+        bullet_limit: u32,
+    },
+    /// M3-T0a (`docs/conventions.md` §60, larmes d'isaac) : munitions infinies. Le mode tire
+    /// tant que la cadence le permet, jamais de rechargement (pas même le délai de pompe d'un
+    /// `Shotgun`), aucune réserve (`ammo_type` absent de l'arme, refusé par le lint s'il est
+    /// donné) ; `mag_ammo` reste à 0 (le HUD affiche `∞` ou rien : M3-T16). **En fin d'enum** :
+    /// le `derive(Hash)` des deux variantes d'avant ne change pas.
+    Infinite,
+}
+
+impl MagBulletConfig {
+    /// M3-T0a : munitions infinies (aucun chargeur, aucune réserve).
+    pub fn is_infinite(&self) -> bool {
+        matches!(self, Self::Infinite)
+    }
 }
 
 #[derive(Debug, Clone, Copy, Hash, Serialize, Deserialize, PartialEq)]
@@ -196,6 +214,11 @@ pub struct WeaponConfig {
     /// des scénarios existants, qui ne changent pas de comportement observable ; la valeur
     /// qui compte pour la simulation vit dans `combat::inventory::AmmoReserves`, déjà
     /// rollback). Voir le rapport de la tâche T2.2, décision « ammo_type hors hash ».
+    ///
+    /// M3-T0a : optionnel dans le RON (`#[serde(default)]`, défaut [`no_ammo_type`]) pour une arme
+    /// dont tous les modes sont `MagBulletConfig::Infinite` ; le lint le rend obligatoire pour
+    /// toute autre arme (comme avant) et le refuse sur une arme `Infinite`.
+    #[serde(default = "no_ammo_type")]
     pub ammo_type: AmmoType,
     /// Gabarit de scénario généré (T2.10, `crates/scenario/src/generate.rs`) : nombre de
     /// coups attendus sur `target` après `frames` images de tir continu. `None` (défaut) :
@@ -212,6 +235,13 @@ pub struct WeaponConfig {
     /// `FiringModeConfig`).
     #[serde(default, skip_serializing_if = "BTreeMap::is_empty")]
     pub projectiles: ProjectileTable,
+}
+
+/// M3-T0a : `ammo_type` d'une arme qui n'en déclare pas (munitions `Infinite`) :
+/// `Custom("")`, la seule valeur qu'aucun RON ne peut écrire (le lint refuse un `Custom` au nom
+/// vide, T2.8). La réserve de ce type reste à 0 et n'est jamais consultée par un mode `Infinite`.
+pub fn no_ammo_type() -> AmmoType {
+    AmmoType::Custom(String::new())
 }
 
 /// Hash manuel : reprend exactement les champs (et l'ordre) que dérivait `WeaponConfig`
@@ -285,6 +315,35 @@ pub struct WeaponSpriteConfig {
 pub struct WeaponAsset {
     pub config: WeaponConfig,
     pub sprite_config: WeaponSpriteConfig,
+    /// Sons de l'arme, par mode de tir. **Présentation seule** (`game::feedback`) : reste sur
+    /// l'asset, jamais copié dans le composant rollback [`Weapon`] (son `Hash` entre dans le
+    /// checksum). Vide par défaut : les sons de famille de `ui/feedback.ron` s'appliquent.
+    #[serde(default, skip_serializing_if = "WeaponAudioConfig::is_empty")]
+    pub audio_config: WeaponAudioConfig,
+}
+
+/// `audio_config` d'une arme dans `weapons.ron` : `(modes: {"default": (firing: "sounds/x.ogg",
+/// reloading: "sounds/y.ogg")})`. Un mode absent ou un champ vide laisse le son de
+/// `ui/feedback.ron` (famille du mode de tir pour le tir, `reload` pour le rechargement).
+#[derive(Debug, Clone, Default, PartialEq, Serialize, Deserialize)]
+pub struct WeaponAudioConfig {
+    #[serde(default)]
+    pub modes: BTreeMap<String, WeaponModeAudio>,
+}
+
+impl WeaponAudioConfig {
+    pub fn is_empty(&self) -> bool {
+        self.modes.is_empty()
+    }
+}
+
+/// Sons d'un mode de tir, chemins relatifs à `assets/` ; chaîne vide = pas de son propre.
+#[derive(Debug, Clone, Default, PartialEq, Serialize, Deserialize)]
+pub struct WeaponModeAudio {
+    #[serde(default, skip_serializing_if = "String::is_empty")]
+    pub firing: String,
+    #[serde(default, skip_serializing_if = "String::is_empty")]
+    pub reloading: String,
 }
 
 // Component for a weapon
@@ -517,6 +576,7 @@ pub fn default_mode_capacity(weapon: &WeaponAsset) -> u32 {
         .map_or(0, |mode| match mode.mag {
             MagBulletConfig::Mag { mag_size, .. } => mag_size,
             MagBulletConfig::Magless { bullet_limit } => bullet_limit,
+            MagBulletConfig::Infinite => 0,
         })
 }
 
@@ -530,7 +590,7 @@ pub fn default_mode_ammo_contribution(weapon: &WeaponAsset) -> (AmmoType, u32) {
                 mag_size,
                 mag_limit,
             } => mag_size * mag_limit,
-            MagBulletConfig::Magless { .. } => 0,
+            MagBulletConfig::Magless { .. } | MagBulletConfig::Infinite => 0,
         });
     (weapon.config.ammo_type.clone(), amount)
 }
@@ -570,6 +630,8 @@ pub fn spawn_weapon_for_player(
                 mag_size
             }
             MagBulletConfig::Magless { bullet_limit } => bullet_limit,
+            // M3-T0a : aucun chargeur, `mag_ammo` et `mag_size` restent à 0.
+            MagBulletConfig::Infinite => 0,
         };
         // `initial_mag_ammo` (T2.2) ne s'applique qu'au mode par défaut : c'est le seul dont
         // `WeaponPickup` a capturé le `mag_ammo` au moment du dépôt (voir sa doc) ; les
@@ -732,6 +794,10 @@ pub struct BulletSpawn<'a> {
     /// Préfixe du `GgrsNetId` de la balle (type de balle pour un tir de joueur, id de
     /// projectile pour un projectile né d'un pattern).
     pub id_label: String,
+    /// M3-T0a : stat `ShotSize` du tireur (1 sans modificateur, et pour les projectiles nés
+    /// d'un pattern et les tirs d'émetteur) : multiplie le rayon de collision et le sprite,
+    /// après `Size`. À 1, aucun calcul : rayon et sprite exactement ceux d'avant.
+    pub shot_size: fixed_math::Fixed,
 }
 
 /// `player_handle` d'une balle tirée par un émetteur (T1.2, ennemi) : aucun joueur. Seule la
@@ -760,6 +826,14 @@ pub fn spawn_bullet(
             fixed_math::to_f32(projectile.size) * crate::projectile::BASE_SPRITE,
         ),
         None => (base_radius, 3.5),
+    };
+    let (radius, sprite_size) = if spawn.shot_size == fixed_math::FIXED_ONE {
+        (radius, sprite_size)
+    } else {
+        (
+            radius.saturating_mul(spawn.shot_size),
+            sprite_size * fixed_math::to_f32(spawn.shot_size),
+        )
     };
     let color = match &spawn.bullet_type {
         BulletType::Standard { .. } => Color::BLACK,
@@ -852,6 +926,8 @@ fn spawn_bullet_rollback(
     // Projectile composable (T1.1) : `Size` agrandit collider et sprite ; `None` (mode de
     // tir sans `projectile:`) : balle ordinaire, inchangée.
     projectile: Option<Projectile>,
+    // M3-T0a : stats de larmes du porteur (`ShotSpeed`, `ShotSize`, 1 par défaut).
+    shot: ShotStats,
 ) -> Entity {
     let (velocity, damage) = match &bullet_type {
         BulletType::Standard {
@@ -867,10 +943,19 @@ fn spawn_bullet_rollback(
             speed,
             damage: damage_bullet,
             ..
-        } => (
-            direction * (*speed / fixed_math::Fixed::from_num(60)),
-            *damage_bullet,
-        ),
+        } => {
+            // M3-T0a : `ShotSpeed` multiplie la vitesse de la balle ; à 1, aucun produit (même
+            // valeur au bit près qu'avant la stat).
+            let speed = if shot.speed == fixed_math::FIXED_ONE {
+                *speed
+            } else {
+                speed.saturating_mul(shot.speed)
+            };
+            (
+                direction * (speed / fixed_math::Fixed::from_num(60)),
+                *damage_bullet,
+            )
+        }
     };
 
     // Stats branchées (T1.2, chantier B2) : sans modificateur actif, `damage_mult`/
@@ -933,8 +1018,17 @@ fn spawn_bullet_rollback(
             friendly_fire,
             projectile,
             id_label,
+            shot_size: shot.size,
         },
     )
+}
+
+/// M3-T0a : stats de larmes du tireur lues au tir (`StatId::ShotSpeed`, `StatId::ShotSize`,
+/// base 1 pour tout personnage, `sim_core::stats::default_base`).
+#[derive(Clone, Copy, Debug, PartialEq, Eq)]
+pub struct ShotStats {
+    pub speed: fixed_math::Fixed,
+    pub size: fixed_math::Fixed,
 }
 
 // SYSTEMS
@@ -1279,6 +1373,8 @@ pub fn weapon_rollback_system(
                 let current_frame = frame.frame;
                 let frames_since_last_shot = current_frame - weapon_state.last_fire_frame;
 
+                // M3-T0a : munitions infinies, jamais vide ni rechargé.
+                let infinite = weapon_config.mag.is_infinite();
                 let (can_fire, empty) = match weapon_config.firing_mode {
                     FiringMode::Automatic { .. } => (
                         frames_since_last_shot >= frame_per_shot,
@@ -1338,7 +1434,7 @@ pub fn weapon_rollback_system(
                     }
                 };
 
-                if empty {
+                if empty && !infinite {
                     // Empty mag: reload if the reserve has enough for a full mag, otherwise
                     // just a dry click (`reserve` computed above, unchanged since : neither
                     // branch reached this point after consuming it this frame).
@@ -1360,6 +1456,11 @@ pub fn weapon_rollback_system(
                         let damage_mult =
                             stats.get(shooter, &StatId::Damage, fixed_math::FIXED_ONE);
                         let range_mult = stats.get(shooter, &StatId::Range, fixed_math::FIXED_ONE);
+                        // M3-T0a : stats de larmes (1 par défaut, sans être posées dans `Stats`).
+                        let shot = ShotStats {
+                            speed: stats.get(shooter, &StatId::ShotSpeed, fixed_math::FIXED_ONE),
+                            size: stats.get(shooter, &StatId::ShotSize, fixed_math::FIXED_ONE),
+                        };
                         let mut aim_dir = fixed_math::FixedVec2::new(
                             fixed_math::Fixed::from_num(input.pan_x),
                             fixed_math::Fixed::from_num(input.pan_y),
@@ -1420,10 +1521,15 @@ pub fn weapon_rollback_system(
                                         damage_mult,
                                         range_mult,
                                         projectile.clone(),
+                                        shot,
                                     );
                                 }
-                                weapon_mode_state.mag_ammo -= 1; // Shotgun uses one ammo for all pellets
-                                inventory.start_reload(frame.frame, reload_time_seconds);
+                                // M3-T0a : `Infinite` ne consomme rien et n'a pas de délai de
+                                // pompe (la cadence seule règle le tir).
+                                if !infinite {
+                                    weapon_mode_state.mag_ammo -= 1; // Shotgun uses one ammo for all pellets
+                                    inventory.start_reload(frame.frame, reload_time_seconds);
+                                }
                             }
                             _ => {
                                 let random_fixed_val = rng_streams.get_mut("weapons").next_fixed();
@@ -1453,8 +1559,11 @@ pub fn weapon_rollback_system(
                                     damage_mult,
                                     range_mult,
                                     projectile,
+                                    shot,
                                 );
-                                weapon_mode_state.mag_ammo -= 1;
+                                if !infinite {
+                                    weapon_mode_state.mag_ammo -= 1;
+                                }
 
                                 if matches!(weapon_config.firing_mode, FiringMode::Burst { .. })
                                     && weapon_mode_state.burst_shots_left > 0
@@ -1593,12 +1702,13 @@ pub fn bullet_rollback_collision_system(
     );
     let _enter = system_span.enter();
 
-    let mut bullets_to_despawn_set = HashSet::new();
+    // Les Entity sont locales à chaque client ; seul le NetId fixe l’ordre des commandes.
+    let mut bullets_to_despawn = BTreeMap::new();
 
     for (ggrs_net_id, bullet_entity, bullet_transform, bullet, bullet_collider, bullet_layer) in
         order_iter!(bullet_query)
     {
-        if bullets_to_despawn_set.contains(&bullet_entity) {
+        if bullets_to_despawn.contains_key(&ggrs_net_id.0) {
             continue;
         }
 
@@ -1731,17 +1841,14 @@ pub fn bullet_rollback_collision_system(
         }
 
         if should_bullet_despawn_now {
-            bullets_to_despawn_set.insert(bullet_entity);
+            bullets_to_despawn.insert(ggrs_net_id.0, bullet_entity);
             // Since the original code had a `break` here, we effectively stop processing
             // more targets for this bullet after this first deterministic interaction.
         }
     }
 
-    // Deterministic despawning of bullets (already good)
-    let mut bullets_to_despawn_vec: Vec<Entity> = bullets_to_despawn_set.into_iter().collect();
-    bullets_to_despawn_vec.sort_by_key(|entity| entity.index()); // Or .to_bits()
     use bevy_ggrs::RollbackDespawnCommandExtension;
-    for entity in bullets_to_despawn_vec {
+    for entity in bullets_to_despawn.into_values() {
         commands.entity(entity).despawn_rollback();
     }
 }

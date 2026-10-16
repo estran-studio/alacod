@@ -1,0 +1,8 @@
+// Fixture M3-T0a (docs/conventions.md §60) : objet : Homing hors ]0, 1] et modificateur répété (OutOfRange)
+(
+    name: "fixture-item_projectile_out_of_range",
+    content_folders: [
+        (path: "objets", kind: "Item"),
+    ],
+    entry: (start_map: "unused", default_seed: 1),
+)

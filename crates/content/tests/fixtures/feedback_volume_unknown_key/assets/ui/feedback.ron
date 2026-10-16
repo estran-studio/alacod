@@ -1,0 +1,7 @@
+// Fixture (assets) : `volumes` règle une clé absente de `sounds` (valeur dans la plage).
+(
+    hit_flash: (frames: 4, color: (2.5, 2.5, 2.5)),
+    shake: (frames: 8, amplitude: 4.0),
+    sounds: {},
+    volumes: {"hit": -6.0},
+)

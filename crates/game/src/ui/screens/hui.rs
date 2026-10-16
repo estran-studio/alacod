@@ -1,12 +1,11 @@
-//! Option B du test comparatif : `bevy_hui` 0.7 (M2-T18, `docs/conventions.md` §56), feature
-//! `ui_hui`.
+//! Rendu des écrans en `bevy_hui` 0.7 (M2-T18, `docs/conventions.md` §56).
 //!
-//! `ui/pause_screen.html` et `ui/inventory_screen.html` sont des gabarits pseudo-HTML ; leurs
-//! `{propriétés}` reçoivent les textes et couleurs de la [`ScreenView`]. `bevy_hui` n'a ni boucle
-//! ni liste : les lignes de l'inventaire sont des instances de `ui/hui_row.html` que ce module
-//! crée sous les conteneurs `id="weapons"`, `"active"`, `"passives"`, `"consumables"`. Un
-//! rechargement à chaud reconstruit le gabarit (les lignes disparaissent) : elles sont recréées
-//! dès que les conteneurs neufs existent.
+//! Les gabarits `ui/*_screen.html` sont découverts directement dans [`Registry::ui_files`].
+//! Chaque section texte devient une propriété du même nom ; une jauge fournit `{nom_label}`
+//! et `{nom_width}`. Chaque liste remplit le conteneur dont l'`id` porte son nom, avec des
+//! instances de `ui/hui_row.html`. Aucun branchement de rendu ne dépend du contenu d'un écran.
+//! Un rechargement à chaud reconstruit le gabarit : les lignes sont recréées dès que les
+//! conteneurs neufs existent.
 //!
 //! Le focus (flèches, D-pad) est celui du modèle commun : `bevy_hui` n'a pas de navigation.
 
@@ -15,14 +14,12 @@ use bevy_hui::prelude::*;
 use content::registry::Registry;
 use std::collections::BTreeMap;
 
-use super::custom::layout_file;
 use super::model::{ListItem, ScreenId, ScreenView, Section};
-use super::{ScreenBackend, Screens};
+use super::Screens;
 use crate::core::AppState;
 
 const ROW_TEMPLATE: &str = "ui/hui_row.html";
 const TEXT: &str = "#ffffff";
-const MUTED: &str = "#ffffff99";
 const FOCUS: &str = "#f1c40f";
 const FOCUS_BACKGROUND: &str = "#ffffff22";
 const NO_BACKGROUND: &str = "#00000000";
@@ -45,15 +42,10 @@ impl Plugin for HuiScreensPlugin {
                 sync_screen
                     .after(super::update_screens)
                     .before(bevy_hui::HuiSystems::Build)
-                    .run_if(in_state(AppState::InGame))
-                    .run_if(is_hui_backend),
+                    .run_if(in_state(AppState::InGame)),
             )
             .add_systems(OnExit(AppState::InGame), despawn_screen);
     }
-}
-
-fn is_hui_backend(backend: Option<Res<ScreenBackend>>) -> bool {
-    backend.is_some_and(|backend| *backend == ScreenBackend::Hui)
 }
 
 #[derive(Resource, Default)]
@@ -73,20 +65,19 @@ fn load_templates(
     registry: Res<Registry>,
     mut handles: ResMut<HuiHandles>,
 ) {
-    // Les gabarits n'existent que là où les écrans de la couche maison existent (gungeon).
-    let present = |screen: ScreenId| {
-        let file = layout_file(screen);
+    let present = |file: &str| {
         registry
             .ui_files
             .iter()
-            .any(|path| path.to_string_lossy().replace('\\', "/").ends_with(&file))
+            .any(|path| path.to_string_lossy().replace('\\', "/").ends_with(file))
     };
     let load = |screen: ScreenId| {
-        present(screen).then(|| asset_server.load::<HtmlTemplate>(template_file(screen)))
+        let file = template_file(screen);
+        present(&file).then(|| asset_server.load::<HtmlTemplate>(file))
     };
     handles.pause = load(ScreenId::Pause);
     handles.inventory = load(ScreenId::Inventory);
-    handles.row = (present(ScreenId::Pause) || present(ScreenId::Inventory))
+    handles.row = (handles.pause.is_some() || handles.inventory.is_some())
         .then(|| asset_server.load::<HtmlTemplate>(ROW_TEMPLATE));
 }
 
@@ -107,13 +98,6 @@ fn despawn_screen(mut commands: Commands, roots: Query<Entity, With<HuiScreenRoo
     }
 }
 
-fn list_text(view: &ScreenView, name: &str) -> String {
-    match view.sections.get(name) {
-        Some(Section::Text(text)) => text.clone(),
-        _ => String::new(),
-    }
-}
-
 fn item_line(item: &ListItem) -> String {
     let mark = if item.focused { "> " } else { "  " };
     if item.detail.is_empty() {
@@ -123,36 +107,24 @@ fn item_line(item: &ListItem) -> String {
     }
 }
 
-/// Les propriétés des gabarits pour une vue (pur).
+/// Propriétés des sections, sans connaissance des écrans (pur).
 pub fn view_properties(view: &ScreenView) -> BTreeMap<String, String> {
     let mut props = BTreeMap::new();
-    props.insert("title".into(), list_text(view, "title"));
-    props.insert("hint".into(), list_text(view, "hint"));
-    props.insert("detail".into(), list_text(view, "detail"));
-    if let Some(Section::List(entries)) = view.sections.get("entries") {
-        for (index, item) in entries.iter().enumerate() {
-            props.insert(format!("e{index}"), item_line(item));
-            props.insert(
-                format!("c{index}"),
-                (if item.focused { FOCUS } else { TEXT }).into(),
-            );
-            props.insert(
-                format!("b{index}"),
-                (if item.focused {
-                    FOCUS_BACKGROUND
-                } else {
-                    NO_BACKGROUND
-                })
-                .into(),
-            );
+    for (name, section) in &view.sections {
+        match section {
+            Section::Text(text) => {
+                props.insert(name.clone(), text.clone());
+            }
+            Section::Bar { label, fraction } => {
+                props.insert(format!("{name}_label"), label.clone());
+                props.insert(
+                    format!("{name}_width"),
+                    format!("{}%", (fraction * 100.0).round() as i32),
+                );
+            }
+            // Les listes sont des lignes enfants, pas des propriétés à indices fixes.
+            Section::List(_) => {}
         }
-    }
-    if let Some(Section::Bar { label, fraction }) = view.sections.get("charge") {
-        props.insert("charge_label".into(), label.clone());
-        props.insert(
-            "charge_width".into(),
-            format!("{}%", (fraction * 100.0).round() as i32),
-        );
     }
     props
 }
@@ -160,7 +132,7 @@ pub fn view_properties(view: &ScreenView) -> BTreeMap<String, String> {
 fn row_properties(item: &ListItem) -> TemplateProperties {
     TemplateProperties::default()
         .with("label", &item_line(item))
-        .with("color", if item.focused { FOCUS } else { MUTED })
+        .with("color", if item.focused { FOCUS } else { TEXT })
         .with(
             "bg",
             if item.focused {
@@ -270,17 +242,6 @@ mod tests {
     use super::super::model::{inventory_view, pause_view, InventoryInput, ScreensState};
     use super::*;
 
-    #[test]
-    fn proprietes_du_menu_de_pause() {
-        let props = view_properties(&pause_view(&ScreensState::default()));
-        assert_eq!(props["title"], "Pause");
-        assert_eq!(props["e0"], "> Reprendre");
-        assert_eq!(props["c0"], FOCUS);
-        assert_eq!(props["e1"], "  Recommencer");
-        assert_eq!(props["c1"], TEXT);
-        assert_eq!(props["e3"], "  Réglages");
-    }
-
     fn copy_templates(name: &str) -> std::path::PathBuf {
         let dir = std::env::temp_dir().join(format!("alacod-{name}-{}", std::process::id()));
         std::fs::create_dir_all(dir.join("ui")).unwrap();
@@ -289,7 +250,9 @@ mod tests {
         for file in ["pause_screen.html", "inventory_screen.html", "hui_row.html"] {
             std::fs::copy(source.join(file), dir.join("ui").join(file)).unwrap();
         }
-        dir
+        // Chemin canonique : sur macOS `/var` est un lien vers `/private/var`, et le watcher de
+        // Bevy panique quand l'événement ne commence pas par la racine des assets.
+        dir.canonicalize().unwrap()
     }
 
     /// Horloge réelle de Bevy (`Time<Real>`) : le test mesure sans lire l'horloge système.
@@ -325,7 +288,7 @@ mod tests {
             state: ScreensState::default(),
             view: Some(view),
         });
-        app.add_systems(Update, sync_screen);
+        app.add_systems(Update, sync_screen.before(bevy_hui::HuiSystems::Build));
         app
     }
 
@@ -339,6 +302,32 @@ mod tests {
             std::thread::sleep(std::time::Duration::from_millis(1));
         }
         panic!("« {wanted} » jamais affiché : {:?}", texts(app));
+    }
+
+    #[test]
+    fn decouverte_html_sans_ron_et_liste_sans_nom_reserve() {
+        let dir = copy_templates("hui-discovery");
+        let file = dir.join("ui/pause_screen.html");
+        let edited = std::fs::read_to_string(&file)
+            .unwrap()
+            .replace("id=\"entries\"", "id=\"options\"");
+        std::fs::write(&file, edited).unwrap();
+        let mut view = pause_view(&ScreensState::default());
+        let entries = view.sections.remove("entries").unwrap();
+        view.sections.insert("options".into(), entries);
+        let mut app = app_on(&dir, view);
+        app.insert_resource(HuiHandles::default())
+            .insert_resource(Registry {
+                ui_files: vec![file, dir.join(ROW_TEMPLATE)],
+                ..default()
+            })
+            .add_systems(Startup, load_templates);
+        wait_for(&mut app, "> Reprendre");
+        let handles = app.world().resource::<HuiHandles>();
+        assert!(handles.pause.is_some());
+        assert!(handles.inventory.is_none());
+        assert!(handles.row.is_some());
+        let _ = std::fs::remove_dir_all(dir);
     }
 
     /// Le gabarit du menu de pause se construit, les propriétés remplissent les textes, un
@@ -358,6 +347,15 @@ mod tests {
         };
         app.world_mut().resource_mut::<Screens>().view = Some(pause_view(&moved));
         wait_for(&mut app, "> Recommencer");
+        let mut query = app.world_mut().query::<(&Text, &TextColor)>();
+        let focused: Vec<_> = query
+            .iter(app.world())
+            .filter(|(text, _)| text.0.starts_with("> "))
+            .collect();
+        assert_eq!(focused.len(), 1);
+        let (text, color) = focused[0];
+        assert_eq!(text.0, "> Recommencer");
+        assert_eq!(color.0.to_srgba().to_u8_array(), [241, 196, 15, 255]);
 
         let file = dir.join("ui/pause_screen.html");
         let edited = std::fs::read_to_string(&file)
@@ -373,12 +371,12 @@ mod tests {
             "hui : rechargement visible en {updates} updates, {:?}",
             real_elapsed(&app) - start
         );
+        wait_for(&mut app, "> Recommencer");
         let _ = std::fs::remove_dir_all(dir);
     }
 
-    /// Même mesure que la couche maison, pour un gabarit `bevy_hui` : modification sur disque,
-    /// sans `reload`. `cargo test -p game --features ui_hui,bevy/file_watcher -- --ignored
-    /// watcher --nocapture`.
+    /// Modification sur disque détectée par le watcher, sans appel à `reload`.
+    /// `cargo test -p game --features ui_hui,bevy/file_watcher -- --ignored watcher --nocapture`.
     #[test]
     #[ignore = "demande bevy/file_watcher"]
     fn watcher_de_fichiers_detecte_la_modification_hui() {
@@ -400,13 +398,13 @@ mod tests {
         app.insert_resource(HuiHandles {
             pause: Some(server.load("ui/pause_screen.html")),
             inventory: None,
-            row: None,
+            row: Some(server.load("ui/hui_row.html")),
         });
         app.insert_resource(Screens {
             state: ScreensState::default(),
             view: Some(pause_view(&ScreensState::default())),
         });
-        app.add_systems(Update, sync_screen);
+        app.add_systems(Update, sync_screen.before(bevy_hui::HuiSystems::Build));
         wait_for(&mut app, "> Reprendre");
         for _ in 0..200 {
             app.update();
@@ -469,6 +467,13 @@ mod tests {
             "hui : inventaire rechargé, lignes recréées en {updates} updates, {:?}",
             real_elapsed(&app) - start
         );
+        let row_file = dir.join(ROW_TEMPLATE);
+        let edited = std::fs::read_to_string(&row_file)
+            .unwrap()
+            .replace("{label}", "ligne {label}");
+        std::fs::write(&row_file, edited).unwrap();
+        app.world().resource::<AssetServer>().reload(ROW_TEMPLATE);
+        wait_for(&mut app, "ligne   Blank  ×2");
         let _ = std::fs::remove_dir_all(dir);
     }
 
@@ -508,6 +513,10 @@ mod tests {
             assert!(
                 shown.iter().any(|t| t.contains("Blank  ×2")),
                 "lignes absentes après le changement {step} : {shown:?}"
+            );
+            assert!(
+                shown.contains(&format!("{} / 2", step % 2)),
+                "charge absente après le changement {step} : {shown:?}"
             );
         }
         let _ = std::fs::remove_dir_all(dir);

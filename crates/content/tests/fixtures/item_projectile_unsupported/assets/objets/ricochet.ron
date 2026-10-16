@@ -1,0 +1,2 @@
+// Fixture M3-T0a : `projectile:` d'un objet est un contrat que le tir ne lit pas encore (M3-T1).
+(name: "Ricochet", kind: Passive, projectile: Some((modifiers: [Bounce(2)])))

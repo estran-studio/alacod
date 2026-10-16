@@ -61,101 +61,11 @@ use crate::{
     team::team_allows_hit,
     weapons::{Bullet, BulletType},
 };
-
-#[derive(Clone, PartialEq, Eq, PartialOrd, Ord, Debug, Hash, Serialize, Deserialize)]
-pub enum ProjectileModifier {
-    Bounce(u32),
-    Pierce(u32),
-    Size(Fixed),
-    Lifetime(u32),
-    Homing(Fixed),
-    Gravity(Fixed),
-}
-
-/// Les projectiles sont référencés par leur id de contenu. Les angles sont en radians,
-/// les vitesses en unités/seconde, les durées en frames. Sequence conserve l'ordre RON.
-#[derive(Clone, PartialEq, Eq, PartialOrd, Ord, Debug, Hash, Serialize, Deserialize)]
-pub enum Pattern {
-    Aimed {
-        count: u32,
-        spread: Fixed,
-        projectile: String,
-    },
-    Spread {
-        count: u32,
-        spread: Fixed,
-        projectile: String,
-    },
-    Ring {
-        count: u32,
-        speed: Fixed,
-        projectile: String,
-        every: u32,
-    },
-    Sequence(Vec<Pattern>),
-    Telegraph(u32),
-    Wait(u32),
-    // T1.2 : variantes ajoutées **en fin d'enum** — le `derive(Hash)` hache l'index de la
-    // variante, les variantes existantes gardent le leur (hash des armes et projectiles
-    // existants inchangé).
-    /// `count` tirs à des angles tirés au hasard dans `±spread/2` autour de la visée (flux
-    /// RNG `"patterns"`, émetteurs seulement : refusé en `on_expire` par le lint).
-    Scatter {
-        count: u32,
-        spread: Fixed,
-        projectile: String,
-    },
-    /// Pattern nommé du contenu (`patterns/<nom>.ron`, kind `Pattern`), résolu par
-    /// [`PatternLibrary`] (nom inconnu : erreur de lint, jamais de panique en jeu).
-    Named(String),
-    // M2-T1 : encore en fin d'enum (hash des variantes précédentes inchangé).
-    /// Éventail de `count` tirs répartis exactement sur `spread` radians (bornes comprises,
-    /// sans hasard, à la différence de `Scatter`), centré sur la visée ; `speed` > 0 remplace
-    /// celle de la définition du projectile.
-    Fan {
-        count: u32,
-        spread: Fixed,
-        speed: Fixed,
-        projectile: String,
-    },
-    /// Spirale (émetteurs seulement) : `shots` salves espacées de `every` frames, chacune de
-    /// `count` bras régulièrement répartis sur le cercle ; la salve `k` tourne de `k * step`
-    /// radians par rapport à la visée. `speed` > 0 remplace celle de la définition.
-    Spiral {
-        count: u32,
-        step: Fixed,
-        shots: u32,
-        every: u32,
-        speed: Fixed,
-        projectile: String,
-    },
-    /// Salves (émetteurs seulement) : `count` salves de `per_burst` tirs en éventail de
-    /// `spread` radians centré sur la visée, espacées de `interval` frames.
-    Burst {
-        count: u32,
-        per_burst: u32,
-        interval: u32,
-        spread: Fixed,
-        projectile: String,
-    },
-}
-
-impl Pattern {
-    /// Vrai si le pattern (ou un de ses enfants) contient une étape temporelle ou aléatoire
-    /// (`Telegraph`, `Wait`, `Scatter`, `Ring.every > 0` n'en est pas une : ignoré en
-    /// `on_expire`). `Named` n'est pas résolu ici.
-    pub fn has_emitter_only_step(&self) -> bool {
-        match self {
-            Pattern::Telegraph(_)
-            | Pattern::Wait(_)
-            | Pattern::Scatter { .. }
-            | Pattern::Spiral { .. }
-            | Pattern::Burst { .. } => true,
-            Pattern::Sequence(children) => children.iter().any(Pattern::has_emitter_only_step),
-            _ => false,
-        }
-    }
-}
+/// Contrats déplacés dans `effects::projectile` par M3-T0a (§60), réexportés ici : chemins
+/// inchangés pour tout le code existant.
+pub use effects::projectile::{
+    ExpireAction, Pattern, ProjectileModifier, ProjectileMods, ProjectileSpec,
+};
 
 /// Patterns nommés du jeu (kind de contenu `Pattern`, T1.2) : nom -> pattern. Ressource
 /// **hors rollback** (comme `Assets`) : remplie par `game` depuis le registre de contenu,
@@ -209,55 +119,6 @@ impl PatternLibrary {
     }
 }
 
-/// Action déclenchée à la fin d'un projectile (`on_expire`). `Hash` manuel (voir plus bas).
-#[derive(Clone, PartialEq, Eq, Debug, Serialize, Deserialize)]
-pub enum ExpireAction {
-    /// Fait naître le pattern au point de fin du projectile. Seuls les patterns instantanés
-    /// sont joués (`Aimed`, `Spread`, `Ring` une seule fois, `Sequence` de ceux-ci) ;
-    /// `Telegraph`/`Wait` appartiennent aux émetteurs (T1.2) et sont refusés par le lint.
-    Spawn(Pattern),
-    /// Creuse le terrain d'une caverne au point de fin (T1.6, `effects::Action::DestroyTerrain`
-    /// : `Rock` à moins de `radius` → `Floor`).
-    DestroyTerrain { radius: Fixed },
-}
-
-/// `#[derive(Hash)]` d'un enum à **une seule** variante n'écrit pas le discriminant : tant que
-/// `Spawn` était seule, son hash était celui du pattern. Ajouter une variante dérivée ferait
-/// écrire le discriminant et déplacerait le checksum de toute arme à `on_expire` (config
-/// hachée dès la frame 0, trace `weapon_grenade`). `Spawn` garde donc exactement son hash
-/// historique ; `DestroyTerrain` écrit un marqueur puis son rayon.
-impl std::hash::Hash for ExpireAction {
-    fn hash<H: std::hash::Hasher>(&self, state: &mut H) {
-        match self {
-            ExpireAction::Spawn(pattern) => pattern.hash(state),
-            ExpireAction::DestroyTerrain { radius } => {
-                "DestroyTerrain".hash(state);
-                radius.hash(state);
-            }
-        }
-    }
-}
-
-/// Comportement composable d'un projectile, tel que déclaré dans un mode de tir. Vide (tous
-/// les champs absents) : balle ordinaire, sans [`Projectile`].
-#[derive(Clone, Debug, Default, PartialEq, Eq, Hash, Serialize, Deserialize)]
-pub struct ProjectileSpec {
-    #[serde(default, skip_serializing_if = "Vec::is_empty")]
-    pub modifiers: Vec<ProjectileModifier>,
-    /// Actions posées sur chaque personnage touché (`effects::Action` à modificateur :
-    /// `TimedModifier`, `CurrencyMultiplier` ; les autres sont refusées par le lint).
-    #[serde(default, skip_serializing_if = "Vec::is_empty")]
-    pub on_hit: Vec<Action>,
-    #[serde(default, skip_serializing_if = "Vec::is_empty")]
-    pub on_expire: Vec<ExpireAction>,
-}
-
-impl ProjectileSpec {
-    pub fn is_empty(&self) -> bool {
-        self.modifiers.is_empty() && self.on_hit.is_empty() && self.on_expire.is_empty()
-    }
-}
-
 /// Projectile nommé de la table `projectiles` d'une arme, que `on_expire` fait naître.
 /// `speed` en unités/seconde (remplacée par celle d'un `Ring`), `range` en unités (> 0).
 #[derive(Clone, Debug, PartialEq, Eq, Hash, Serialize, Deserialize)]
@@ -293,9 +154,27 @@ pub const BASE_SPRITE: f32 = 3.5;
 /// Garde-fou contre une chaîne `on_expire` sans fin (le lint refuse déjà les cycles).
 pub const MAX_GENERATION: u8 = 8;
 
+/// `Split` résolu (M3-T0a, contrat exécuté par M3-T1).
+#[derive(Clone, Debug, PartialEq, Eq)]
+pub struct ResolvedSplit {
+    pub count: u32,
+    pub spread: Fixed,
+    pub child: Option<String>,
+}
+
+/// `Orbit` résolu (M3-T0a, contrat exécuté par M3-T1).
+#[derive(Clone, Copy, Debug, PartialEq, Eq)]
+pub struct ResolvedOrbit {
+    pub radius: Fixed,
+    pub frames_per_turn: u32,
+}
+
 /// Valeurs résolues d'une liste de modificateurs. Un même modificateur répété : le dernier
 /// l'emporte (le lint refuse les doublons).
-#[derive(Clone, Copy, Debug, PartialEq, Eq)]
+///
+/// M3-T0a : plus `Copy` (`split` porte l'id du projectile enfant) ; `spectral`, `split`,
+/// `orbit` sont des contrats que [`Projectile::new`] ne lit pas encore (M3-T1).
+#[derive(Clone, Debug, PartialEq, Eq)]
 pub struct ResolvedModifiers {
     pub bounces: u32,
     pub pierces: u32,
@@ -303,6 +182,9 @@ pub struct ResolvedModifiers {
     pub lifetime: Option<u32>,
     pub homing: Option<Fixed>,
     pub gravity: Option<Fixed>,
+    pub spectral: bool,
+    pub split: Option<ResolvedSplit>,
+    pub orbit: Option<ResolvedOrbit>,
 }
 
 pub fn resolve_modifiers(modifiers: &[ProjectileModifier]) -> ResolvedModifiers {
@@ -313,6 +195,9 @@ pub fn resolve_modifiers(modifiers: &[ProjectileModifier]) -> ResolvedModifiers 
         lifetime: None,
         homing: None,
         gravity: None,
+        spectral: false,
+        split: None,
+        orbit: None,
     };
     for modifier in modifiers {
         match modifier {
@@ -322,9 +207,83 @@ pub fn resolve_modifiers(modifiers: &[ProjectileModifier]) -> ResolvedModifiers 
             ProjectileModifier::Lifetime(frames) => resolved.lifetime = Some(*frames),
             ProjectileModifier::Homing(force) => resolved.homing = Some(*force),
             ProjectileModifier::Gravity(accel) => resolved.gravity = Some(*accel),
+            ProjectileModifier::Spectral => resolved.spectral = true,
+            ProjectileModifier::Split {
+                count,
+                spread,
+                child,
+            } => {
+                resolved.split = Some(ResolvedSplit {
+                    count: *count,
+                    spread: *spread,
+                    child: child.clone(),
+                })
+            }
+            ProjectileModifier::Orbit {
+                radius,
+                frames_per_turn,
+            } => {
+                resolved.orbit = Some(ResolvedOrbit {
+                    radius: *radius,
+                    frames_per_turn: *frames_per_turn,
+                })
+            }
         }
     }
     resolved
+}
+
+/// M3-T0a (`docs/conventions.md` §60, règles retenues par William le 2026-10-15, Q3) : compose
+/// les modificateurs de l'arme (`base`) avec ceux apportés par d'autres sources (`ajouts`), dans
+/// l'ordre déterministe fixé par l'appelant : arme, passifs dans l'ordre de ramassage (un passif
+/// en double compte deux fois), actif, synergies par id (voir `items::projectile_sources`).
+///
+/// Chaque liste est d'abord résolue seule ([`resolve_modifiers`] : dans une même liste, le
+/// dernier l'emporte, et le lint y refuse les doublons) ; les sources se combinent ensuite :
+///
+/// | Modificateur | Règle entre sources |
+/// |---|---|
+/// | `Bounce(n)`, `Pierce(n)` | addition (saturante) |
+/// | `Size(f)` | produit |
+/// | `Lifetime(n)` | maximum des sources qui en ont un |
+/// | `Homing(f)` | somme plafonnée à 1 |
+/// | `Gravity(g)` | somme |
+/// | `Spectral` | présence (une source suffit) |
+/// | `Split` | addition des `count` ; `spread` et `child` de la première source qui en a un |
+/// | `Orbit` | présence ; paramètres de la première source qui en a un |
+///
+/// Sans ajout, le résultat est exactement `resolve_modifiers(base)` (aucun calcul de plus, pas
+/// même un produit par 1). Fonction pure, `Fixed` seulement, opérations saturantes.
+pub fn compose(base: &[ProjectileModifier], ajouts: &[&[ProjectileModifier]]) -> ResolvedModifiers {
+    let mut out = resolve_modifiers(base);
+    for source in ajouts {
+        let add = resolve_modifiers(source);
+        out.bounces = out.bounces.saturating_add(add.bounces);
+        out.pierces = out.pierces.saturating_add(add.pierces);
+        out.size = out.size.saturating_mul(add.size);
+        out.lifetime = match (out.lifetime, add.lifetime) {
+            (Some(a), Some(b)) => Some(a.max(b)),
+            (a, b) => a.or(b),
+        };
+        out.homing = match (out.homing, add.homing) {
+            (Some(a), Some(b)) => Some(a.saturating_add(b).min(fixed_math::FIXED_ONE)),
+            (a, b) => a.or(b),
+        };
+        out.gravity = match (out.gravity, add.gravity) {
+            (Some(a), Some(b)) => Some(a.saturating_add(b)),
+            (a, b) => a.or(b),
+        };
+        out.spectral |= add.spectral;
+        out.split = match (out.split, add.split) {
+            (Some(mut a), Some(b)) => {
+                a.count = a.count.saturating_add(b.count);
+                Some(a)
+            }
+            (a, b) => a.or(b),
+        };
+        out.orbit = out.orbit.or(add.orbit);
+    }
+    out
 }
 
 /// État rollback d'un projectile composable, posé à côté de `weapons::Bullet`.
@@ -831,6 +790,7 @@ pub fn spawn_child_projectile(
             friendly_fire: parent.bullet.friendly_fire,
             projectile: Some(projectile),
             id_label: shot.projectile.clone(),
+            shot_size: fixed_math::FIXED_ONE,
         },
     ))
 }
@@ -1359,6 +1319,286 @@ mod tests {
 
     fn net(id: usize) -> GgrsNetId {
         GgrsNetId(id as _, "t".into())
+    }
+    // -----------------------------------------------------------------------------------
+    // M3-T0a (§60) : contrats de larmes et composition
+    // -----------------------------------------------------------------------------------
+
+    fn hash_of<T: std::hash::Hash>(value: &T) -> u64 {
+        use std::hash::Hasher;
+        let mut hasher = std::collections::hash_map::DefaultHasher::new();
+        value.hash(&mut hasher);
+        hasher.finish()
+    }
+
+    /// Les variantes de contrat sont en fin d'enum : les six variantes d'avant hachent comme
+    /// l'enum d'avant M3-T0a (copie locale), le checksum des armes existantes ne bouge pas.
+    #[test]
+    fn variantes_historiques_gardent_leur_hash() {
+        #[derive(Hash)]
+        enum Avant {
+            Bounce(u32),
+            Pierce(u32),
+            Size(Fixed),
+            Lifetime(u32),
+            Homing(Fixed),
+            Gravity(Fixed),
+        }
+        let pairs = [
+            (hash_of(&Avant::Bounce(2)), ProjectileModifier::Bounce(2)),
+            (hash_of(&Avant::Pierce(3)), ProjectileModifier::Pierce(3)),
+            (
+                hash_of(&Avant::Size(fx(1.5))),
+                ProjectileModifier::Size(fx(1.5)),
+            ),
+            (
+                hash_of(&Avant::Lifetime(9)),
+                ProjectileModifier::Lifetime(9),
+            ),
+            (
+                hash_of(&Avant::Homing(fx(0.5))),
+                ProjectileModifier::Homing(fx(0.5)),
+            ),
+            (
+                hash_of(&Avant::Gravity(fx(-2.0))),
+                ProjectileModifier::Gravity(fx(-2.0)),
+            ),
+        ];
+        for (avant, now) in pairs {
+            assert_eq!(avant, hash_of(&now), "{now:?}");
+        }
+    }
+
+    #[test]
+    fn contrats_spectral_split_orbit_ron() {
+        let values: Vec<ProjectileModifier> = ron::from_str(
+            r#"[Spectral, Split(count: 3, spread: "0.6"), Split(count: 2, spread: "0.3", child: Some("eclat")), Orbit(radius: "40", frames_per_turn: 60)]"#,
+        )
+        .unwrap();
+        assert_eq!(
+            values,
+            vec![
+                ProjectileModifier::Spectral,
+                ProjectileModifier::Split {
+                    count: 3,
+                    spread: fx(0.6),
+                    child: None
+                },
+                ProjectileModifier::Split {
+                    count: 2,
+                    spread: fx(0.3),
+                    child: Some("eclat".into())
+                },
+                ProjectileModifier::Orbit {
+                    radius: fx(40.0),
+                    frames_per_turn: 60
+                },
+            ]
+        );
+        assert!(values.iter().all(ProjectileModifier::is_contract_only));
+        assert!(!ProjectileModifier::Bounce(1).is_contract_only());
+    }
+
+    fn all_kinds() -> Vec<ProjectileModifier> {
+        vec![
+            ProjectileModifier::Bounce(2),
+            ProjectileModifier::Pierce(1),
+            ProjectileModifier::Size(fx(1.5)),
+            ProjectileModifier::Lifetime(30),
+            ProjectileModifier::Homing(fx(0.25)),
+            ProjectileModifier::Gravity(fx(-60.0)),
+            ProjectileModifier::Spectral,
+            ProjectileModifier::Split {
+                count: 2,
+                spread: fx(0.5),
+                child: None,
+            },
+            ProjectileModifier::Orbit {
+                radius: fx(32.0),
+                frames_per_turn: 90,
+            },
+        ]
+    }
+
+    /// Identité : sans ajout, `compose` rend exactement `resolve_modifiers`, quelle que soit la
+    /// liste (vide, chaque modificateur seul, tous ensemble).
+    #[test]
+    fn compose_sans_ajout_est_resolve_modifiers() {
+        assert_eq!(compose(&[], &[]), resolve_modifiers(&[]));
+        for modifier in all_kinds() {
+            let base = [modifier];
+            assert_eq!(compose(&base, &[]), resolve_modifiers(&base));
+        }
+        let all = all_kinds();
+        assert_eq!(compose(&all, &[]), resolve_modifiers(&all));
+        // Des sources vides n'ajoutent rien non plus.
+        assert_eq!(compose(&all, &[&[], &[]]), resolve_modifiers(&all));
+    }
+
+    #[test]
+    fn compose_bounce_et_pierce_s_additionnent() {
+        use ProjectileModifier::*;
+        let r = compose(
+            &[Bounce(1), Pierce(2)],
+            &[&[Bounce(2)], &[Pierce(3), Bounce(1)]],
+        );
+        assert_eq!((r.bounces, r.pierces), (4, 5));
+        let r = compose(&[], &[&[Bounce(u32::MAX)], &[Bounce(5)]]);
+        assert_eq!(r.bounces, u32::MAX, "addition saturante");
+    }
+
+    #[test]
+    fn compose_size_produit() {
+        use ProjectileModifier::*;
+        let r = compose(&[Size(fx(2.0))], &[&[Size(fx(1.5))], &[Size(fx(0.5))]]);
+        assert_eq!(r.size, fx(1.5));
+        // Une source sans Size compte pour 1.
+        assert_eq!(compose(&[Size(fx(2.0))], &[&[Bounce(1)]]).size, fx(2.0));
+    }
+
+    #[test]
+    fn compose_lifetime_maximum() {
+        use ProjectileModifier::*;
+        assert_eq!(
+            compose(&[Lifetime(30)], &[&[Lifetime(90)], &[Lifetime(60)]]).lifetime,
+            Some(90)
+        );
+        assert_eq!(compose(&[], &[&[Lifetime(40)]]).lifetime, Some(40));
+        assert_eq!(compose(&[Lifetime(40)], &[&[Bounce(1)]]).lifetime, Some(40));
+    }
+
+    #[test]
+    fn compose_homing_somme_plafonnee_a_un() {
+        use ProjectileModifier::*;
+        assert_eq!(
+            compose(&[Homing(fx(0.25))], &[&[Homing(fx(0.5))]]).homing,
+            Some(fx(0.75))
+        );
+        assert_eq!(
+            compose(
+                &[Homing(fx(0.75))],
+                &[&[Homing(fx(0.5))], &[Homing(fx(1.0))]]
+            )
+            .homing,
+            Some(fixed_math::FIXED_ONE)
+        );
+        assert_eq!(compose(&[], &[&[Homing(fx(0.5))]]).homing, Some(fx(0.5)));
+    }
+
+    #[test]
+    fn compose_gravity_somme() {
+        use ProjectileModifier::*;
+        assert_eq!(
+            compose(
+                &[Gravity(fx(-60.0))],
+                &[&[Gravity(fx(20.0))], &[Gravity(fx(-10.0))]]
+            )
+            .gravity,
+            Some(fx(-50.0))
+        );
+        assert_eq!(compose(&[], &[]).gravity, None);
+    }
+
+    #[test]
+    fn compose_spectral_orbit_presence_split_additionne() {
+        use ProjectileModifier::*;
+        let r = compose(&[], &[&[Bounce(1)], &[Spectral], &[Spectral]]);
+        assert!(r.spectral);
+        let r = compose(
+            &[Split {
+                count: 2,
+                spread: fx(0.5),
+                child: None,
+            }],
+            &[&[Split {
+                count: 3,
+                spread: fx(1.0),
+                child: Some("eclat".into()),
+            }]],
+        );
+        assert_eq!(
+            r.split,
+            Some(ResolvedSplit {
+                count: 5,
+                spread: fx(0.5),
+                child: None
+            }),
+            "branches additionnées, forme de la première source"
+        );
+        let r = compose(
+            &[],
+            &[
+                &[Orbit {
+                    radius: fx(30.0),
+                    frames_per_turn: 60,
+                }],
+                &[Orbit {
+                    radius: fx(50.0),
+                    frames_per_turn: 120,
+                }],
+            ],
+        );
+        assert_eq!(
+            r.orbit,
+            Some(ResolvedOrbit {
+                radius: fx(30.0),
+                frames_per_turn: 60
+            })
+        );
+    }
+
+    /// L'ordre des sources ne change que ce qui dépend de la « première source » (forme de
+    /// `Split`, paramètres d'`Orbit`) ; un passif en double (même source deux fois) compte deux
+    /// fois.
+    #[test]
+    fn compose_ordre_des_sources_et_doublons() {
+        use ProjectileModifier::*;
+        let a: &[ProjectileModifier] = &[
+            Bounce(1),
+            Orbit {
+                radius: fx(20.0),
+                frames_per_turn: 30,
+            },
+        ];
+        let b: &[ProjectileModifier] = &[
+            Bounce(2),
+            Orbit {
+                radius: fx(40.0),
+                frames_per_turn: 60,
+            },
+        ];
+        let ab = compose(&[], &[a, b]);
+        let ba = compose(&[], &[b, a]);
+        assert_eq!(ab.bounces, ba.bounces);
+        assert_eq!(ab.orbit.unwrap().radius, fx(20.0));
+        assert_eq!(ba.orbit.unwrap().radius, fx(40.0));
+        let twice = compose(
+            &[Size(fx(1.0))],
+            &[&[Size(fx(1.5)), Pierce(1)], &[Size(fx(1.5)), Pierce(1)]],
+        );
+        assert_eq!((twice.size, twice.pierces), (fx(2.25), 2));
+        // L'arme passe avant les objets : sa forme de Split l'emporte.
+        let weapon: &[ProjectileModifier] = &[Split {
+            count: 1,
+            spread: fx(0.2),
+            child: Some("arme".into()),
+        }];
+        let item: &[ProjectileModifier] = &[Split {
+            count: 1,
+            spread: fx(0.9),
+            child: Some("objet".into()),
+        }];
+        let r = compose(weapon, &[item]);
+        assert_eq!(r.split.unwrap().child.as_deref(), Some("arme"));
+    }
+
+    /// Dans une même liste (une arme), le dernier l'emporte, comme `resolve_modifiers` : la règle
+    /// d'empilement ne vaut qu'entre sources.
+    #[test]
+    fn compose_dans_une_liste_le_dernier_l_emporte() {
+        use ProjectileModifier::*;
+        assert_eq!(compose(&[Bounce(1), Bounce(3)], &[]).bounces, 3);
+        assert_eq!(compose(&[], &[&[Bounce(1), Bounce(3)]]).bounces, 3);
     }
 
     fn projectile(modifiers: Vec<ProjectileModifier>) -> Projectile {

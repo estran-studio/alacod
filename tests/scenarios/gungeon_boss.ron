@@ -6,6 +6,7 @@
 // À regarder : après le combat, le joueur avance vers l'est ; la salle du boss se verrouille ; le
 // `gatling` tire des éventails (`Fan`) puis, sous 50 % de santé, des spirales (`Spiral`) et, sous 10 %, un `bullet_kin` en renfort (M2-T7, trois phases) ; le joueur répond par deux blanks (M2-T1) qui effacent les balles proches ; il meurt, les portes se
 // rouvrent, écran de victoire.
+// HUD : boss B/× courant f320 ; blanks 2/1/0 aux frames 450/480/520.
 Scenario(
     powerup_drop_chance_override: "0.0",
     game: "gungeon",
@@ -35,12 +36,17 @@ Scenario(
         RoomState(kind: "combat", state: Cleared, at_frame: 240),
         // Verrouillée à f291 : ses deux portes (celles de la salle de combat, rouvertes, se referment avec leur jumelle).
         RoomState(kind: "boss", state: Locked, at_frame: 320, doors_closed: Some(2)),
+        HudText(source: "minimap", contains: "boss · boss · verrouillée · actuelle", at_frame: 320),
+        HudText(source: "blanks", contains: "2", at_frame: 450),
+        HudText(source: "blanks", contains: "1", at_frame: 480),
+        HudText(source: "blanks", contains: "0", at_frame: 520),
         BossPhase(entity: NetId(31), phase: 0, at_frame: 330),
         // Sous 50 % de santé : phase 1 (f428), puis la rage sous 10 % (f488 : un `bullet_kin` en renfort,
         // M2-T7) ; le boss meurt à f549.
         BossPhase(entity: NetId(31), phase: 1, at_frame: 450),
         BossPhase(entity: NetId(31), phase: 2, at_frame: 520),
         RoomState(kind: "boss", state: Cleared, at_frame: 560),
+        HudText(source: "minimap", contains: "boss · boss · nettoyée", at_frame: 560),
         // Étage vidé = victoire (`victory_at_end`, f550).
         RunState(step: Ended(Victory), at_frame: 650),
         PlayerAlive(handle: 0, at_frame: 690),
