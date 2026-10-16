@@ -1296,7 +1296,7 @@ fn lint_character_tests(registry: &Registry, errors: &mut Vec<LintError>) {
                 "champ test.frames = 0 : doit être > 0".to_string(),
             );
         }
-        if !test.still && !test.moving && test.boss.is_none() {
+        if !test.still && !test.moving && test.boss.is_none() && test.champions.is_empty() {
             push(
                 LintErrorKind::OutOfRange,
                 "test : aucun gabarit actif (still et moving faux)".to_string(),
@@ -1313,6 +1313,48 @@ fn lint_character_tests(registry: &Registry, errors: &mut Vec<LintError>) {
                 LintErrorKind::OutOfRange,
                 "test.expect_moving sans gabarit moving actif".to_string(),
             );
+        }
+        // M3-T13 (§78) : gabarit ChampionForced, une entrée par variante de la table.
+        let mut seen = BTreeSet::new();
+        for champion in &test.champions {
+            if !seen.insert(champion.variant.as_str()) {
+                push(
+                    LintErrorKind::DuplicateId,
+                    format!("test.champions : variante « {} » répétée", champion.variant),
+                );
+            }
+            let known = character.variants.as_ref().is_some_and(|variants| {
+                variants
+                    .table
+                    .iter()
+                    .any(|(name, _)| *name == champion.variant)
+            });
+            if !known {
+                push(
+                    LintErrorKind::BrokenReference,
+                    format!(
+                        "test.champions : variante « {} » absente de `variants`",
+                        champion.variant
+                    ),
+                );
+            }
+            if let Some(weapon) = &champion.weapon {
+                if !champion.kill {
+                    push(
+                        LintErrorKind::OutOfRange,
+                        "test.champions : `weapon` sans `kill: true`".to_string(),
+                    );
+                }
+                if !registry
+                    .weapons
+                    .contains_key(&registry::WeaponId::from(weapon.clone()))
+                {
+                    push(
+                        LintErrorKind::BrokenReference,
+                        format!("test.champions : arme « {weapon} » inconnue"),
+                    );
+                }
+            }
         }
         if let Some(fight) = &test.boss {
             if character.boss.is_none() {
@@ -1415,6 +1457,69 @@ fn lint_item_tests(registry: &Registry, errors: &mut Vec<LintError>) {
                 "test (gabarit ItemHeld) sur un consommable : seuls un passif et un actif sont tenus"
                     .to_string(),
             );
+        }
+        // M3-T13 (§78) : gabarits TearsOnTarget et FamiliarHeld.
+        let weapon_known = |weapon: &str| {
+            registry
+                .weapons
+                .contains_key(&registry::WeaponId::from(weapon.to_string()))
+        };
+        if let Some(tears) = &test.tears {
+            if tears.frames == Some(0) {
+                push(
+                    LintErrorKind::OutOfRange,
+                    "test.tears : frames = 0 : doit être > 0".to_string(),
+                );
+            }
+            if tears.min_hits == 0 {
+                push(
+                    LintErrorKind::OutOfRange,
+                    "test.tears : min_hits = 0 : doit être > 0".to_string(),
+                );
+            }
+            if let Some(weapon) = tears.weapon.as_deref().filter(|w| !weapon_known(w)) {
+                push(
+                    LintErrorKind::BrokenReference,
+                    format!("test.tears : arme « {weapon} » inconnue"),
+                );
+            }
+            if let Some(target) = &tears.target {
+                match registry
+                    .characters
+                    .get(&registry::CharacterId::from(target.clone()))
+                {
+                    None => push(
+                        LintErrorKind::BrokenReference,
+                        format!("test.tears : personnage cible « {target} » inconnu"),
+                    ),
+                    Some(character) if !character.counts_hits => push(
+                        LintErrorKind::Unsupported,
+                        format!("test.tears : la cible « {target} » ne compte pas ses coups (`counts_hits: true`)"),
+                    ),
+                    Some(_) => {}
+                }
+            }
+        }
+        if let Some(familiar) = &test.familiar {
+            if familiar.frames == Some(0) {
+                push(
+                    LintErrorKind::OutOfRange,
+                    "test.familiar : frames = 0 : doit être > 0".to_string(),
+                );
+            }
+            if item.def.familiar.is_none() {
+                push(
+                    LintErrorKind::Unsupported,
+                    "test.familiar (gabarit FamiliarHeld) sur un objet sans `familiar:`"
+                        .to_string(),
+                );
+            }
+            if let Some(weapon) = familiar.weapon.as_deref().filter(|w| !weapon_known(w)) {
+                push(
+                    LintErrorKind::BrokenReference,
+                    format!("test.familiar : arme « {weapon} » inconnue"),
+                );
+            }
         }
     }
 }

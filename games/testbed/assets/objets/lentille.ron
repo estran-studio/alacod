@@ -12,5 +12,9 @@
     rarity: Common,
     // Scénario généré `item_lentille` (gabarit ItemHeld) : `ShotSpeed` et `ShotSize` à 1,5 (base 1,
     // `sim_core::stats::default_base`).
-    test: Some((frames: 60)),
+    test: Some((
+        frames: 60,
+        // M3-T13 (§78) : scénario généré `tears_lentille` (gabarit TearsOnTarget : `larme` tire sur la cible, coups comptés).
+        tears: Some((weapon: Some("larme"), frames: Some(150), target: Some("target"), min_hits: 1)),
+    )),
 )

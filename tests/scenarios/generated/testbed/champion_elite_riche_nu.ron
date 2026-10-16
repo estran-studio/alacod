@@ -1,0 +1,32 @@
+// Généré par `alacod-gen`, ne pas éditer à la main (crates/scenario/src/generate.rs).
+// Gabarit ChampionForced (M3-T13, §78) : « elite_riche » apparaît à 200 unités
+// du joueur avec sa variante imposée ; effets de mort attendus si le joueur le tire.
+#![enable(implicit_some)]
+Scenario(
+    game: "testbed",
+    map: "testbed/arena.ldtk",
+    map_seed: 123456,
+    frames: 150,
+    players: [
+        PlayerScript(
+            inputs: [],
+        ),
+    ],
+    expect: [
+        EnemyVariant(
+            entity: Placed(0),
+            variant: "nu",
+            at_frame: 2,
+        ),
+    ],
+    powerup_drop_chance_override: "0",
+    characters: [
+        CharacterPlacement(
+            character: "elite_riche",
+            x: "624",
+            y: "696",
+            at_frame: 1,
+            variant: "nu",
+        ),
+    ],
+)

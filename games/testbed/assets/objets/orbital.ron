@@ -3,4 +3,6 @@
     name: "Orbital",
     kind: Passive,
     familiar: Some((character: "orbital")),
+    // M3-T13 (§78) : scénarios générés `item_orbital` (ItemHeld) et `familiar_orbital` (FamiliarHeld : `FamiliarCount` 1).
+    test: Some((frames: 60, familiar: Some((frames: Some(120), min_hits: 0)))),
 )

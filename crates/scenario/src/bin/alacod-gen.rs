@@ -150,10 +150,15 @@ fn main() {
     let items = count(GeneratedKind::Item);
     let rooms = count(GeneratedKind::Room);
     let bosses = count(GeneratedKind::Boss);
-    let characters = generated.len() - ranged - melee - items - rooms - bosses;
+    // M3-T13 : gabarits de larmes, de familiers et de champions.
+    let tears = count(GeneratedKind::Tears);
+    let familiars = count(GeneratedKind::Familiar);
+    let champions = count(GeneratedKind::Champion);
+    let characters =
+        generated.len() - ranged - melee - items - rooms - bosses - tears - familiars - champions;
     if !quiet {
         println!(
-        "alacod-gen : {} : {ranged} arme(s) à distance, {melee} de corps à corps, {characters} gabarit(s) de personnage, {items} objet(s), {rooms} salle(s), {bosses} boss -> {}",
+        "alacod-gen : {} : {ranged} arme(s) à distance, {melee} de corps à corps, {characters} gabarit(s) de personnage, {items} objet(s), {rooms} salle(s), {bosses} boss, {tears} larme(s), {familiars} familier(s), {champions} champion(s) -> {}",
         game_dir.display(),
         out_dir.display(),
     );

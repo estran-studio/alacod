@@ -5,5 +5,9 @@
     projectile: Some((modifiers: [Pierce(1)])),
     tags: ["larmes"],
     rarity: Common,
-    test: Some((frames: 60)),
+    test: Some((
+        frames: 60,
+        // M3-T13 (§78) : scénario généré `tears_perforant` (gabarit TearsOnTarget : `larme` tire sur la cible, coups comptés).
+        tears: Some((weapon: Some("larme"), frames: Some(150), min_hits: 1)),
+    )),
 )

@@ -10046,6 +10046,7 @@ dependencies = [
  "bots",
  "combat",
  "content",
+ "effects",
  "game",
  "items",
  "map",
