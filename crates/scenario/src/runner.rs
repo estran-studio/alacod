@@ -3299,7 +3299,11 @@ fn capture_frames(
 
     let frame = frame.frame;
     let run_started = hub_over.as_ref().map_or(true, |over| over.0);
-    if frame >= state.frames && run_started {
+    if !run_started {
+        // Hub suivi : aucune image tant que la run n'a pas commencé (la vidéo montre la run seule).
+        return;
+    }
+    if frame >= state.frames {
         // Laisser le temps aux dernières captures d'être écrites
         state.updates_after_end += 1;
         if state.updates_after_end > 10 {

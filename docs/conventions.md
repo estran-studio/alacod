@@ -4089,8 +4089,8 @@ phases dans une même boucle : le hub (frames du hub ; seules `HubExit` et `HubV
 une piste par joueur, remplace `players[i]` pendant le hub) puis, quand la porte a relancé la session
 (`HubSession::in_hub` faux, `FrameCount` revenu à 0), la run (`swap_hub_inputs` rend aux joueurs leurs pistes ou
 leurs bots). `frames`, les autres attentes, la **trace** (l'enregistreur est vidé à la relance), `sim_fps` et
-`events.json` sont ceux de la run ; `play` et `capture` ne comptent `frames` qu'une fois la run commencée
-(`HubPhaseOver`) : la vidéo montre la run seule (les images du hub sont écrasées). Refusés explicitement
+`events.json` sont ceux de la run ; `play` et `capture` ne comptent `frames` et ne capturent qu'une fois la run
+commencée (`HubPhaseOver`) : la vidéo montre la run seule, sans image du hub. Refusés explicitement
 (échec du scénario) : les attentes continues et les réglages de joueur (`weapon`, `items`, `currency`…), qui
 ne s'appliquent qu'à la première session. `HubSetup { stay: true }` et les scénarios sans hub : inchangés.
 
