@@ -644,7 +644,11 @@ mod tests {
     use super::*;
 
     fn deux_points() -> std::collections::BTreeMap<usize, Vec3> {
-        [(0, Vec3::new(-8.0, -8.0, 0.0)), (1, Vec3::new(24.0, -8.0, 0.0))].into()
+        [
+            (0, Vec3::new(-8.0, -8.0, 0.0)),
+            (1, Vec3::new(24.0, -8.0, 0.0)),
+        ]
+        .into()
     }
 
     #[test]

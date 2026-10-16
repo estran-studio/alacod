@@ -371,7 +371,8 @@ fn hub_events(
             events.previous = None;
         }
         HubFlow::Leaving => {
-            let running = app_state.is_some_and(|state| *state.get() == game::core::AppState::InGame)
+            let running = app_state
+                .is_some_and(|state| *state.get() == game::core::AppState::InGame)
                 && frame.frame >= 1;
             if !running {
                 events.events.clear();

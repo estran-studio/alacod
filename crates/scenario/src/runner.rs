@@ -1348,8 +1348,12 @@ pub fn run_with_options<F: FnOnce(&mut App)>(
     // Hub suivi (m2-full-run) : la session démarre au hub, la porte la relance en run.
     let hub_follow = scenario.hub.as_ref().is_some_and(|hub| !hub.stay)
         && app.world().contains_resource::<game::hub::HubSession>();
-    let is_hub_expectation =
-        |e: &Expectation| matches!(e, Expectation::HubExit { .. } | Expectation::HubVisit { .. });
+    let is_hub_expectation = |e: &Expectation| {
+        matches!(
+            e,
+            Expectation::HubExit { .. } | Expectation::HubVisit { .. }
+        )
+    };
     let mut hub_pending: Vec<&Expectation> = scenario
         .expect
         .iter()
@@ -1470,10 +1474,7 @@ pub fn run_with_options<F: FnOnce(&mut App)>(
             t_update += t0.elapsed().as_secs_f64();
         }
         frame = app.world().resource::<FrameCount>().frame;
-        if hub_phase
-            && frame == 0
-            && !app.world().resource::<game::hub::HubSession>().in_hub
-        {
+        if hub_phase && frame == 0 && !app.world().resource::<game::hub::HubSession>().in_hub {
             // La porte du hub a relancé la session : la run commence (frames de 0). Le chrono de
             // simulation repart avec elle (le hub n'entre pas dans `sim_fps`).
             hub_phase = false;
