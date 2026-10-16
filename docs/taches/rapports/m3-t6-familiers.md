@@ -105,3 +105,32 @@ bougé pendant la tâche, la fusion finale est « déjà à jour »). Convention
 
 Aucune partie ordinaire ne rencontre encore un familier. **Dette nommée, à fermer par M3-T11b** : au moins deux
 familiers et un orbital dans le pool trésor d'`isaac` (graine à nommer à ce moment).
+
+## 7. p2p à deux clients sous prédiction (testbed, Docker OrbStack)
+
+Binaire `testbed` (`cargo build -p testbed --profile headless --no-default-features`), signaling matchbox du
+`docker-compose.ci.yaml` (`MATCHBOX_PORT=3536`, `COMPOSE_PROJECT_NAME=b0`), script bash. Le testbed n'a aucun objet à ramasser
+dans une partie : un **système temporaire, non commité**, ajouté à `games/testbed/src/main.rs` (puis annulé par `git checkout`),
+posait à des frames fixes des objets aux pieds des joueurs (`compagnon_actif` f20 et `eclat` f200 pour le joueur 0 ;
+`essaim` f20 et `orbital` f260 pour le joueur 1). Inputs scriptés (`ALACOD_INPUT=script:` : ramassages par `Interaction` à
+f40, f210, f270 ; visée et tir qui changent toutes les 6 frames ; marche f300-340), `ALACOD_INPUT_DELAY=0`, second client lancé 8 s plus tard :
+
+```
+ALACOD_INPUT_DELAY=0 ALACOD_HEADLESS=1 ALACOD_INPUT=script:/tmp/p2p_script.ron ALACOD_STATE_TRACE=/tmp/p2p-$i.trace \
+ALACOD_EXIT_AT_FRAME=600 APP_VERSION=x ../target/headless/testbed --matchbox ws://127.0.0.1:3536 --lobby test-$$ \
+  --number-player 2 --players localhost remote --cid client_$i --name client_$i
+```
+
+- `cmp /tmp/p2p-0.trace /tmp/p2p-1.trace` : **identiques**, 599 lignes chacune.
+- Frames resimulées : le compteur du log final (`frames resimulées après rollback`) affiche 0 (1 sur un essai précédent) ;
+  il ne reflète pas ce qui s'est passé : en comptant dans les logs les frames dont `ggrs{f=N …}` apparaît plusieurs fois,
+  **client_0 : 66 exécutions en double, client_1 : 63** (sur 600 frames), donc de vrais rollbacks.
+- Création sous prédiction : à f40 le client 0 a joué deux fois la frame (spawns de `compagnon`, 2 `orbital` du joueur 31
+  rang 0 et 1), à f210 `eclat` remplace `compagnon_actif` (`familiar_lost owner=26 rank=0`), à f270 `orbital` ajoute le rang 2.
+  Cas de prédiction annulée : à f211 le client 0 a d'abord rejoué un ramassage de `compagnon_actif` et le spawn d'un familier
+  prédits, puis la resimulation de f211 n'a plus ni l'un ni l'autre ; le client 1 n'a jamais vu ces lignes. Les états finaux
+  concordent (traces identiques).
+- Logs filtrés : `make diff_log` ne dédoublonne pas les frames resimulées ; comparaison des lignes `familiar_*` et
+  `item_pickup` dédoublonnées (`sort -u`) : 21 lignes (client 0) contre 19 (client 1), la seule différence étant les deux
+  lignes de la frame 211 prédite puis annulée ci-dessus.
+- `familiar_shot` : 10 tirs de familier de f105 à f213 sur les deux clients, aux mêmes frames.
