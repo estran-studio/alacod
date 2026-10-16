@@ -377,7 +377,7 @@ crate `APP`), jamais dans un crate `SIM`.
     - M3-T0d familiers et champions (§63) : `FamiliarCount` ; `EnemyVariant` (existe, §25).
     - M3-T4 bombes, rochers, piques, mur secret (§69) : aucune attente nouvelle (`Consumable`, `EntityCount(kind: Rock |
       Barrel)`, `EntityHealth`, `Health`, `PlayerPosition`, `DoorLocked`, `EnemyDistance`, `Event(kind: "explosion")` couvrent
-      les onze scénarios `bomb_*`, `rock_*`, `secret_wall_*`, `spikes_damage`) ; champ de scénario `PlayerScript::bomb`
+      les quatorze scénarios `bomb_*`, `rock_*`, `secret_wall_*`, `explode_effect`, `spikes_damage`) ; champ de scénario `PlayerScript::bomb`
       (la `BombDef` du joueur, le stock par `items: ["bomb", ...]`, bouton `Bomb` = bit 18, front montant).
     - M3-T6 familiers (§71) : `FamiliarDistance` (distance d'un familier à son porteur ou à un autre familier
       du même porteur) ; `FamiliarCount` (§63) compte maintenant de vrais familiers.

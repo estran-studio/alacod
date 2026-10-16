@@ -6,6 +6,11 @@
   rock_flow.ldtk      une salle coupée par un mur à la colonne 15 : un passage de deux cases au milieu
                       bouché par deux rochers, un passage ouvert en haut (long détour) : scénarios
                       rock_flow_field et rock_flow_field_blocked
+  salles_secret_combat.ldtk  `salles.ldtk` dont la salle de récompense (collée à l'est de la salle de combat) est
+                      de type `secrete` : scénario secret_wall_after_clear (nettoyer la salle de combat voisine
+                      n'ouvre pas le mur secret)
+  salles_secret_floors.ldtk  `salles_secret.ldtk` plus un `dummy` ennemi dans la salle de départ (le portail du mode
+                      `Floors` reste fermé tant qu'il vit) : séquence `deux_secrets`, scénario secret_wall_floors
   salles_secret.ldtk  deux salles assemblées (SalleDepart, SalleSecrete de type `secrete`, copie de
                       `salles.ldtk` sans ennemi) : scénarios secret_wall_bomb et secret_wall_closed
 
@@ -172,3 +177,54 @@ def secret_project():
 
 
 secret_project()
+
+
+# 4. `salles.ldtk` (départ, combat aux deux `dummy`, récompense) dont la récompense devient la salle
+# secrète : la porte de l'est de la salle de combat et sa jumelle (bord ouest de la salle secrète) forment
+# le mur secret ; nettoyer la salle de combat ne doit pas l'ouvrir.
+def secret_after_combat():
+    d = copy.deepcopy(SALLES)
+    for level in d["levels"]:
+        if level["identifier"] == "SalleRecompense":
+            level["identifier"] = "SalleSecreteVoisine"
+            level["iid"] = iid("salles_secret_combat", "SalleSecreteVoisine")
+            for field in level["fieldInstances"]:
+                if field["__identifier"] == "room_kind":
+                    field["__value"] = "secrete"
+            for layer in level["layerInstances"]:
+                layer["iid"] = iid("salles_secret_combat", "secrete", layer["__identifier"])
+                for e in layer.get("entityInstances", []):
+                    e["iid"] = iid("salles_secret_combat", "door", e["px"][0], e["px"][1])
+    d["iid"] = iid("salles_secret_combat", "project")
+    (DIR / "salles_secret_combat.ldtk").write_text(json.dumps(d, indent=2) + "\n")
+    print("salles_secret_combat", len(d["levels"]))
+
+
+secret_after_combat()
+
+
+# 5. `salles_secret.ldtk` + un `dummy` ennemi dans la salle de départ, en haut de la salle (hors du
+# couloir vers la porte secrète) : deux étages identiques en `Floors` (séquence `deux_secrets`).
+def secret_floors():
+    d = json.loads((DIR / "salles_secret.ldtk").read_text())
+    template = next(
+        e
+        for level in SALLES["levels"]
+        if level["identifier"] == "SalleCombat"
+        for layer in level["layerInstances"]
+        for e in layer.get("entityInstances", [])
+        if e["__identifier"] == "CharacterSpawn"
+    )
+    dummy = copy.deepcopy(template)
+    dummy["iid"] = iid("salles_secret_floors", "dummy")
+    dummy["px"] = [32, 16]
+    dummy["__grid"] = [2, 1]
+    depart = d["levels"][0]
+    entities = next(l for l in depart["layerInstances"] if l["__type"] == "Entities")
+    entities["entityInstances"].append(dummy)
+    d["iid"] = iid("salles_secret_floors", "project")
+    (DIR / "salles_secret_floors.ldtk").write_text(json.dumps(d, indent=2) + "\n")
+    print("salles_secret_floors", len(d["levels"]))
+
+
+secret_floors()

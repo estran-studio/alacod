@@ -1,0 +1,30 @@
+// M3-T4 (docs/conventions.md §69) : l'action `Explode` d'un effet. Carte `testbed/rocks_static.ldtk` (couloir nu) ;
+// un `kamikaze` (50 PV, `Tick(40)` → `Explode` rayon 40, 30 dégâts, une charge) est placé à f5 à 35 px du joueur
+// 0 (immobile, x 168) ; un `dummy` (200 PV) à 97 px du kamikaze, hors rayon.
+//
+// À regarder : l'effet se déclenche vers f46 (placement f5 + 40), une bombe à mèche d'une frame naît au point du
+// porteur et explose à f47 (moment clé `explosion`, une seule fois : une charge) : le joueur (équipe Players, la
+// source est de l'équipe Enemies) perd 30 PV (100 → 70) ; le porteur, au centre du rayon, perd les mêmes 30 (50 → 20 :
+// l'explosion n'exempte personne, comme une bombe de joueur et son tir ami `Always`) ; le `dummy` hors rayon est intact.
+Scenario(
+    powerup_drop_chance_override: "0.0",
+    game: "testbed",
+    map: "testbed/rocks_static.ldtk",
+    frames: 100,
+    characters: [
+        (character: "kamikaze", x: "203.0", y: "696.0", at_frame: 5),
+        (character: "dummy", x: "300.0", y: "696.0", at_frame: 5),
+    ],
+    players: [(inputs: [])],
+    expect: [
+        Health(handle: 0, min: 100, max: 100, at_frame: 44),
+        EntityHealth(net_id: 15, min: 50, max: 50, at_frame: 44),
+        Health(handle: 0, min: 70, max: 70, at_frame: 48),
+        EntityHealth(net_id: 15, min: 20, max: 20, at_frame: 48),
+        EntityHealth(net_id: 16, min: 200, max: 200, at_frame: 48),
+        Health(handle: 0, min: 70, max: 70, at_frame: 99),
+        EntityHealth(net_id: 15, min: 20, max: 20, at_frame: 99),
+        EntityHealth(net_id: 16, min: 200, max: 200, at_frame: 99),
+        Event(kind: "explosion", by_frame: 48),
+    ],
+)

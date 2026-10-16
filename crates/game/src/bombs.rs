@@ -33,18 +33,13 @@
 
 use bevy::prelude::*;
 use bevy_fixed::fixed_math::{self, Fixed, FixedVec2};
-use bevy_fixed::rng::{RollbackRng, RunSeed};
 use bevy_ggrs::{GgrsSchedule, PlayerInputs, Rollback, RollbackDespawnCommandExtension};
 use combat::actors::DashState;
 use combat::actors::INPUT_BOMB;
 use combat::downed::Downed;
-use items::{
-    draw_loot_with, loot_seed, unlocked_table, Inventory, ItemTable, LootTables, RunUnlocks,
-    UnlockTable, DEFAULT_REWARD_TABLE,
-};
-use map::game::entity::map::{level_id::LevelId, room::RoomBounds};
+use items::Inventory;
 use sim_core::damage::{DamageEvent, DamageKind};
-use sim_core::frame_events::FrameEvents;
+use sim_core::frame_events::{FrameEvents, FrameEventsAppExt};
 use sim_core::tag::Tags;
 use sim_core::team::Team;
 use std::collections::{BTreeMap, BTreeSet};
@@ -63,14 +58,14 @@ use crate::character::player::jjrs::PeerConfig;
 use crate::character::player::Player;
 use crate::character::surface::feet_position;
 use crate::collider::Collider;
-use crate::loot::{seed_context, FloorLootTables, BOMB_ITEM};
+use crate::loot::BOMB_ITEM;
 use crate::system_set::RollbackSystemSet;
 
 pub struct BombsPlugin;
 
 impl Plugin for BombsPlugin {
     fn build(&self, app: &mut App) {
-        app.add_systems(
+        app.add_frame_events_transient::<RockBroken>().add_systems(
             GgrsSchedule,
             (
                 // Après les autres systèmes d'objets de `Effects` (le blank lit aussi `Inventory`).
@@ -205,29 +200,54 @@ pub fn bomb_fuse_system(
     }
 }
 
-/// Étage terrain des explosions qui `destroys` : terrain de caverne, rochers, butin des rochers.
-#[allow(clippy::too_many_arguments, clippy::type_complexity)]
+/// Un rocher vient d'être cassé (`FrameEvents` **transitoire**, émis dans l'ordre `(y, x)` des cases) :
+/// lu par `map_ldtk::game::rooms::rock_loot_system`, qui tire le butin d'un rocher `loot` dans la
+/// salle de l'étage courant (`CurrentRooms` n'est pas visible d'ici). Position en champs séparés.
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub struct RockBroken {
+    pub cell: (i32, i32),
+    pub x: Fixed,
+    pub y: Fixed,
+    pub loot: bool,
+}
+
+/// Salle d'un point : identifiant de la plus petite salle (ordre des identifiants) dont les bornes
+/// `(position, taille)` contiennent `point`, `-` si aucune. `rooms` ne doit contenir que les salles
+/// de l'étage courant : en `Floors` les mondes se superposent, un étage inactif donnerait une clé
+/// de butin fausse (voir `map_ldtk::game::rooms::rock_loot_system`).
+pub fn room_of<'a>(
+    rooms: impl IntoIterator<Item = (&'a str, FixedVec2, FixedVec2)>,
+    point: FixedVec2,
+) -> String {
+    rooms
+        .into_iter()
+        .filter(|(_, position, size)| {
+            point.x >= position.x
+                && point.x <= position.x + size.x
+                && point.y >= position.y
+                && point.y <= position.y + size.y
+        })
+        .map(|(id, ..)| id)
+        .min()
+        .unwrap_or("-")
+        .to_string()
+}
+
+/// Étage terrain des explosions qui `destroys` : terrain de caverne et rochers (`despawn_rollback`,
+/// ordre `(y, x)`) ; le butin d'un rocher à butin est tiré par `rock_loot_system` (`map_ldtk`).
+#[allow(clippy::type_complexity)]
 pub fn explosion_terrain_system(
     mut commands: Commands,
     frame: Res<FrameCount>,
     requests: Res<FrameEvents<ExplosionRequest>>,
     mut terrain: ResMut<FrameEvents<DestroyTerrainRequest>>,
+    mut broken_events: ResMut<FrameEvents<RockBroken>>,
     grid: Res<CellGrid>,
     rocks: Query<(&GgrsNetId, Entity, &Rock, &fixed_math::FixedTransform3D), With<Rollback>>,
-    rooms: Query<(&LevelId, &RoomBounds)>,
-    items: Res<ItemTable>,
-    tables: Res<LootTables>,
-    floors: Res<FloorLootTables>,
-    unlocks: Res<UnlockTable>,
-    active: Res<RunUnlocks>,
-    run_seed: Option<Res<RunSeed>>,
-    floor: Option<Res<run::FloorState>>,
-    mut id_factory: ResMut<GgrsNetIdFactory>,
 ) {
     if !requests.iter().any(|request| request.destroys) {
         return;
     }
-    let (run_seed, floor) = seed_context(&run_seed, &floor);
     let mut broken: BTreeSet<usize> = BTreeSet::new();
     for request in requests.iter().filter(|request| request.destroys) {
         let center = FixedVec2::new(request.x, request.y);
@@ -235,68 +255,30 @@ pub fn explosion_terrain_system(
             terrain.send(DestroyTerrainRequest::new(center, request.radius));
         }
         // Rochers du rayon, dans l'ordre (y, x) de leur case.
-        let candidates: Vec<((i32, i32), FixedVec2)> = order_iter!(rocks)
-            .into_iter()
+        let ordered = order_iter!(rocks);
+        let candidates: Vec<((i32, i32), FixedVec2)> = ordered
+            .iter()
             .filter(|(net_id, ..)| !broken.contains(&net_id.0))
             .map(|(_, _, rock, transform)| (rock.cell, transform.translation.truncate()))
             .collect();
         for cell in cells_in_radius(center, request.radius, &candidates) {
-            let Some((net_id, entity, rock, transform)) = order_iter!(rocks)
-                .into_iter()
-                .find(|(_, _, r, _)| r.cell == cell)
+            let Some((net_id, entity, rock, transform)) =
+                ordered.iter().find(|(_, _, r, _)| r.cell == cell)
             else {
                 continue;
             };
             broken.insert(net_id.0);
-            commands.entity(entity).despawn_rollback();
+            commands.entity(*entity).despawn_rollback();
             info!(
                 "ggrs{{f={} rock_broken net_id={} cell=({},{}) loot={}}}",
                 frame.frame, net_id.0, cell.0, cell.1, rock.loot
             );
-            if !rock.loot {
-                continue;
-            }
-            let position = transform.translation;
-            let room = rooms
-                .iter()
-                .filter(|(_, bounds)| bounds.contains(position.truncate()))
-                .map(|(id, _)| id.0.clone())
-                .min()
-                .unwrap_or_else(|| "-".to_string());
-            let key = rock_loot_key(&room, cell);
-            let table_id = floors
-                .for_floor(floor)
-                .filter(|id| tables.0.contains_key(*id))
-                .unwrap_or(DEFAULT_REWARD_TABLE);
-            let Some(table) = tables.0.get(table_id) else {
-                warn!("rocher « {key} » : pool de butin « {table_id} » inconnu");
-                continue;
-            };
-            let table = unlocked_table(table_id, table, &unlocks, &active);
-            let mut rng = RollbackRng::new(loot_seed(run_seed, floor, &key));
-            let Some(item_id) = draw_loot_with(
-                &table,
-                &items,
-                None,
-                items::Rarity::Common,
-                true,
-                &unlocks.hidden_items(&active),
-                &mut rng,
-            ) else {
-                warn!("rocher « {key} » : le pool « {table_id} » ne donne rien");
-                continue;
-            };
-            info!(
-                "ggrs{{f={} rock_loot key={} item={}}}",
-                frame.frame, key, item_id
-            );
-            crate::items::spawn_item_pickup(
-                &mut commands,
-                &items,
-                item_id,
-                position,
-                &mut id_factory,
-            );
+            broken_events.send(RockBroken {
+                cell,
+                x: transform.translation.x,
+                y: transform.translation.y,
+                loot: rock.loot,
+            });
         }
     }
 }
@@ -479,6 +461,7 @@ pub fn hazard_system(
 #[cfg(test)]
 mod tests {
     use super::*;
+    use items::loot_seed;
     use sim_core::damage::FriendlyFire;
 
     fn fx(v: i32) -> Fixed {
@@ -602,6 +585,31 @@ mod tests {
         assert_eq!(rock_loot_key("salle", (3, -2)), "rock:salle:3:-2");
         assert_ne!(rock_loot_key("a", (1, 2)), rock_loot_key("a", (2, 1)));
         assert_ne!(rock_loot_key("a", (1, 2)), rock_loot_key("b", (1, 2)));
+    }
+
+    #[test]
+    fn salle_du_rocher_parmi_les_salles_de_l_etage_courant() {
+        let v = |x: i32, y: i32| FixedVec2::new(fx(x), fx(y));
+        // Deux mondes superposés (`Floors`) : « b » (étage courant) et « a » (étage inactif, même
+        // emplacement) se recouvrent ; seul l'étage courant est passé à `room_of`.
+        let all = [("a", v(0, 0), v(100, 100)), ("b", v(0, 0), v(100, 100))];
+        assert_eq!(
+            room_of(all, v(50, 50)),
+            "a",
+            "non filtré : l'étage inactif gagne au min()"
+        );
+        let current = [("b", v(0, 0), v(100, 100)), ("c", v(200, 0), v(100, 100))];
+        assert_eq!(room_of(current, v(50, 50)), "b");
+        assert_eq!(room_of(current, v(250, 50)), "c");
+        assert_eq!(room_of(current, v(150, 50)), "-", "hors de toute salle");
+        // Bord inclusif ; plus petit identifiant quand deux salles se touchent
+        assert_eq!(
+            room_of(
+                [("z", v(0, 0), v(10, 10)), ("m", v(10, 0), v(10, 10))],
+                v(10, 5)
+            ),
+            "m"
+        );
     }
 
     #[test]

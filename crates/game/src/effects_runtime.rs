@@ -1019,6 +1019,82 @@ mod tests {
         );
     }
 
+    /// `Explode` d'un effet (M3-T4, §69) : une bombe à mèche d'une frame au point du porteur, de
+    /// l'équipe du porteur, créditée à son `GgrsNetId`, qui casse les rochers si `destroys`.
+    #[test]
+    fn explode_pose_une_bombe_a_meche_d_une_frame_de_l_equipe_du_porteur() {
+        fn run(
+            mut commands: Commands,
+            assets: EffectAssets,
+            mut carriers: Query<(Entity, &GgrsNetId, &mut Health, &mut Modifiers)>,
+        ) {
+            for (entity, net_id, mut health, mut modifiers) in &mut carriers {
+                apply_action_sourced(
+                    &Action::Explode {
+                        radius: Fixed::from_num(40),
+                        damage: Fixed::from_num(7),
+                        destroys: true,
+                    },
+                    net_id,
+                    effect_source(net_id, 0),
+                    50,
+                    &mut health,
+                    &mut modifiers,
+                    &mut EffectState::default(),
+                    None,
+                    (entity, false),
+                    &mut commands,
+                    &assets,
+                );
+            }
+        }
+        let mut app = App::new();
+        app.init_resource::<bevy_ggrs::RollbackOrdered>()
+            .init_resource::<Assets<WeaponsConfig>>()
+            .insert_resource(utils::net_id::GgrsNetIdFactory::default())
+            .add_systems(Update, run);
+        let transform = fixed_math::FixedTransform3D::new(
+            fixed_math::FixedVec3::new(fx(12.0), fx(-8.0), Fixed::ZERO),
+            fixed_math::FixedMat3::IDENTITY,
+            fixed_math::FixedVec3::ONE,
+        );
+        app.world_mut().spawn((
+            GgrsNetId(3, "kamikaze".into()),
+            transform,
+            sim_core::team::Team::Enemies,
+            Health {
+                current: fx(50.0),
+                max: fx(50.0),
+                invulnerable_until_frame: None,
+            },
+            Modifiers::default(),
+        ));
+        app.update();
+        let world = app.world_mut();
+        let bombs: Vec<(world::Bomb, fixed_math::FixedVec3)> = world
+            .query::<(&world::Bomb, &fixed_math::FixedTransform3D)>()
+            .iter(world)
+            .map(|(bomb, t)| (bomb.clone(), t.translation))
+            .collect();
+        assert_eq!(bombs.len(), 1);
+        let (bomb, at) = &bombs[0];
+        assert_eq!(
+            bomb.owner,
+            GgrsNetId(3, "kamikaze".into()),
+            "crédité au porteur"
+        );
+        assert_eq!(
+            bomb.team,
+            sim_core::team::Team::Enemies,
+            "équipe du porteur"
+        );
+        assert_eq!(bomb.fuse_until, 51, "mèche d'une frame");
+        assert!(bomb.is_due(51) && !bomb.is_due(50));
+        assert_eq!((bomb.radius, bomb.damage), (fx(40.0), fx(7.0)));
+        assert!(bomb.destroys);
+        assert_eq!((at.x, at.y), (fx(12.0), fx(-8.0)), "au point du porteur");
+    }
+
     use std::hash::{Hash, Hasher};
 
     fn hash_of<T: Hash>(value: &T) -> u64 {

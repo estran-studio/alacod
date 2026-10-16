@@ -39,14 +39,37 @@ Autres livrables : `PlayerScript::bomb` (scénarios), `fuzz_inputs` avec `ALACOD
 - **Jeux livrés** : aucun ne reçoit de bombes (`isaac` déplacerait ses traces : D81).
 - `HazardDef.dash_crosses` et `BombDef.friendly_fire` : champs de fin de structure, absents du contenu d'avant.
 
-## Vérifié (sur la fusion avec `main` `af46f192`, commit de fusion `fde0036f`)
+## Revue indépendante : corrections
 
-- `make test_scenarios_par SHARDS=3` **sans BLESS** : 412 scénarios verts ; **aucune trace existante modifiée**
-  (seules les 11 traces neuves de la branche, une par scénario ci-dessus).
+1. **Nettoyer une salle voisine n'ouvre plus le mur secret** : `room_lock_system` ignore les portes secrètes (la
+   porte d'une salle `Secret` et sa jumelle) dans ses deux branches `Locked → Cleared` (`secret_door`). Scénario
+   `secret_wall_after_clear` (carte `salles_secret_combat.ldtk`) : la salle de combat voisine est nettoyée (f489), ses
+   portes s'ouvrent, la porte secrète reste fermée et le joueur s'arrête contre elle. Contrôle : sans l'exclusion le
+   joueur traverse (x -586).
+2. **Mur secret en `Floors`** : `floor_transition_system` remet `DoorLocks` à zéro (les portes renaissent fermées ;
+   l'état était par `LevelId`, répété quand un étage réutilise la carte). Scénario `secret_wall_floors` (séquence
+   `deux_secrets`, deux étages identiques) : fermée, ouverte par une bombe, de nouveau fermée à l'étage 1 (f306),
+   rouverte par la seconde bombe. Contrôle : sans la remise à zéro, `DoorLocked` reste faux à l'étage 1 et le joueur
+   ne passe plus.
+3. **Salle du butin d'un rocher** : le calcul passe dans `map_ldtk::game::rooms::rock_loot_system` (seul à voir
+   `CurrentRooms`, `game` ne dépend pas de `map_ldtk`) ; `explosion_terrain_system` émet un `RockBroken` transitoire.
+   Test unitaire `game::bombs::room_of` : deux mondes superposés, seule la salle de l'étage courant est retenue.
+4. **`Explode` d'un effet testé** : scénario `explode_effect` (personnage `kamikaze`, `Tick(40)` une charge) : une
+   explosion (f47), joueur 100 → 70 (source `Enemies`), porteur 50 → 20 (aucune exemption), `dummy` hors rayon intact,
+   moment clé `explosion` ; test unitaire `game::effects_runtime` : bombe à mèche d'une frame, équipe et crédit du
+   porteur, `destroys`, position.
+
+Traces bénies (nouvelles, une à une) : `secret_wall_after_clear`, `secret_wall_floors`, `explode_effect`
+(scénarios neufs). Aucune trace existante n'a bougé, `rock_loot` comprise (le butin déplacé dans un autre système donne
+les mêmes `GgrsNetId` et la même suite).
+
+## Vérifié (sur la fusion avec `main` `af46f192`, après la revue ; commit de fusion `fde0036f`)
+
+- `make test_scenarios_par SHARDS=3` **sans BLESS** : 415 scénarios verts ; **aucune trace existante modifiée**
+  (seules les 14 traces neuves de la branche : les 11 scénarios ci-dessus et les trois de la revue).
   Les scénarios jouent en synctest (rollback et resimulation à chaque frame) : bombes, rochers, mur secret et
   piques passent sans mismatch.
-- `make test_crates` : 937 tests, 69 suites vertes. (Un test unitaire de `world::explosion` de ma branche, à
-  l'arithmétique fausse, avait échoué au premier passage : corrigé, `make test_crates` rejoué vert ; ce changement ne touche que du code de test, la suite de scénarios n'a pas été rejouée après lui.)
+- `make test_crates` : 939 tests, vertes.
 - `make lint` : cinq jeux « aucune erreur ». `make gen GAME=zombies|testbed|throne|gungeon|isaac` : sans diff.
 - `cargo fmt --all -- --check`, `make check_sim_boundary` (11 crates, 5 en dette D69), `make test_tools`,
   `./scripts/check-forbidden.sh`, `./scripts/check-rollback-registration.sh` : OK.
@@ -54,6 +77,8 @@ Autres livrables : `PlayerScript::bomb` (scénarios), `fuzz_inputs` avec `ALACOD
   (personnage à huit bombes dans `rock_flow`, huit explosions par partie) sans divergence.
 
 ## p2p à deux clients (prédiction réelle)
+
+Rejoué après la revue (`rooms.rs` et `bombs.rs` ont changé : butin déplacé, portes secrètes), même recette, même montage : voir les chiffres « après revue » en fin de section.
 
 Montage **temporaire non commité** (restauré par `git checkout`) : `start_map` de `games/testbed/assets/game.ron` sur une
 carte `p2p_t4.ldtk` (`salles_secret.ldtk` + couche `Rocks` : trois rochers dont un à butin devant les joueurs, salle
@@ -80,6 +105,7 @@ ws://127.0.0.1:3556 --lobby test-$$ --number-player 2 --players localhost remote
   joueur posée à f25 (explosion f45 puis f46) ; mur secret : `secret_wall_open` à f110 (bombe posée à f90). Les douze
   explosions vues ont lieu aux frames 45, 46, 110, 111, 150 (×2), 220, 221, 320 (×2), 440 (×2) ; les poses résimulées
   donnent des lignes en double mais aucun événement n'existe d'un seul côté.
+- **Après revue** : traces identiques (599 lignes), codes de sortie 0 ; client 0 : 224 lignes ggrs en double sur 110 frames, client 1 : 124 sur 62 ; mêmes 44 lignes d'événements distinctes des deux côtés (aucun écart).
 - Écarts : aucun. Limite : la prédiction ne rate que sur les inputs du pair distant ; le rocher à butin et le mur
   secret ont chacun été cassés une seule fois (par les bombes des frames 25 et 90) sous prédiction.
 

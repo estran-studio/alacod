@@ -4504,10 +4504,14 @@ exactement `radius` (traces de `barrel_chain` et des cartes à barils identiques
 `explosion_terrain_system` casse chaque `world::Rock` dont le centre est à moins de `radius`
 (`world::cells_in_radius` : rendus par `(y, x)` croissants, un rocher cassé une seule fois par frame) par
 `despawn_rollback()`. Le champ de flux relit les `Obstacle` à chaque mise à jour : le passage s'ouvre sans code
-de plus (`rock_flow_field`). Un rocher à butin (`loot`) pose un `ItemPickup` tiré par
+de plus (`rock_flow_field`). Chaque rocher cassé émet un `game::bombs::RockBroken` (transitoire) ;
+`map_ldtk::game::rooms::rock_loot_system` (`World`, après `explosion_terrain_system`, qui seul voit `CurrentRooms`)
+tire le butin d'un rocher à butin (`loot`) : un `ItemPickup` tiré par
 `items::draw_loot_with` (consommables seulement) avec un `RollbackRng` **local** de graine
 `loot_seed(graine, étage, "rock:<salle>:<x>:<y>")` (`game::bombs::rock_loot_key`, case de grille monde ;
-`<salle>` = identifiant de la plus petite salle dont les bornes contiennent le rocher, `-` sinon) ; pool =
+`<salle>` = identifiant de la plus petite salle **de l'étage courant** dont les bornes contiennent le rocher, `-`
+sinon : `game::bombs::room_of`, nourri par `CurrentRooms` ; en `Floors` les mondes se superposent, une salle d'un
+étage inactif donnerait une clé fausse) ; pool =
 celui de l'étage s'il existe, sinon `salle` (aucune chance : le tirage est certain). Q : pool propre aux
 rochers ?
 
@@ -4515,7 +4519,11 @@ rochers ?
 
 Une salle dont le type porte `door_lock: Secret` garde ses portes **et leurs jumelles** (celles du bord de la
 salle voisine) fermées : au premier tick, `room_lock_system` les laisse closes et leur retire seulement
-`Interactable` (aucune Interaction ne les ouvre) ; les autres portes de salle s'ouvrent comme avant.
+`Interactable` (aucune Interaction ne les ouvre) ; les autres portes de salle s'ouvrent comme avant. Les deux
+branches `Locked → Cleared` (fin d'une salle de combat ou d'une arène **voisine**) ignorent aussi les portes
+secrètes (`secret_door`) : nettoyer la salle d'à côté n'ouvre pas le mur (`secret_wall_after_clear`). Le mode
+`Floors` remet `DoorLocks` à zéro à la transition d'étage (`floor_transition_system`) : les portes renaissent
+fermées, et un étage répété (mêmes `LevelId`) ne les croit pas déjà ouvertes (`secret_wall_floors`).
 `secret_wall_system` (`World`, après `bomb_fuse_system`) : une `ExplosionRequest` qui `destroys` et dont le
 rayon touche le **bord du collider** d'une de ces portes (`world::rect_within_radius`, strict) ouvre
 **toutes** les portes de la salle (colliders retirés) et la range dans `DoorLocks` (`DoorLocked(kind, nth,
@@ -4536,7 +4544,8 @@ testbed : `surfaces/piques.ron` (valeur IntGrid 5, 5 PV, 30 frames).
 `effects::Action::Explode { radius, damage, destroys }` est exécutée dans un effet de personnage, d'objet
 tenu, de mutation ou une frise de boss (`apply_action_sourced`) : une **bombe à mèche d'une frame** est
 posée au point du porteur (commande différée : `GgrsNetIdFactory` et position se lisent à l'application),
-équipe du porteur, tir ami `Always` ; elle explose à la frame suivante par le même chemin. Le lint ne la
+équipe du porteur, tir ami `Always` ; elle explose à la frame suivante par le même chemin. Le porteur n'est
+pas exempté : au centre du rayon, il prend les dégâts comme les autres (`explode_effect`). Le lint ne la
 refuse plus dans un effet (rayon > 0, dégâts >= 0 inchangés) ; `OnUse` d'un objet et les power-ups la
 refusent toujours (`OnUse` n'a pas de position). `Explode` en mort de champion : M3-T7.
 
@@ -4566,9 +4575,13 @@ Cartes `testbed/spikes.ldtk`, `testbed/rock_flow.ldtk`, `testbed/salles_secret.l
 | `bomb_chain_barrel` | bombe → premier baril (f80) → second (f81) → joueur 1 touché (100 → 70, f82) |
 | `secret_wall_bomb`, `secret_wall_closed` | porte fermée (`DoorLocked`), joueur et ennemi bloqués ; la bombe l'ouvre (f95) : ils passent ; témoin sans bombe |
 | `spikes_damage` | 5 PV à f71 puis toutes les 30 frames (95, 90, … 75 à f199), santé intacte avant |
+| `secret_wall_after_clear` | la salle de combat voisine nettoyée (f489) rouvre ses portes ordinaires, pas la porte secrète : le joueur s'arrête contre elle (x -714,8), aucune bombe |
+| `secret_wall_floors` | deux étages identiques (`deux_secrets`) : porte ouverte par une bombe à l'étage 0, de nouveau fermée à l'étage 1 (f306), rouverte par la seconde bombe (f395) |
+| `explode_effect` | un effet `Explode` (`kamikaze`, `Tick(40)`, une charge) : une seule explosion (f47), joueur 100 → 70, porteur 50 → 20 (aucune exemption), `dummy` hors rayon intact |
 | `rock_flow_field`, `rock_flow_field_blocked` | le `follower` prend le détour ; la bombe rouvre le passage direct : distance 59,7 à f240 contre 109,2 ; il rejoint le joueur vers f280 contre f360 |
 
-Unitaires : `world::explosion` (rayon strict, rectangle touché, cases triées), `world::surface`
+Unitaires : `game::effects_runtime` (`Explode` pose une bombe à mèche d'une frame, équipe et crédit du porteur,
+`destroys`), `game::bombs::room_of` (sélection de la salle parmi celles de l'étage courant), `world::explosion` (rayon strict, rectangle touché, cases triées), `world::surface`
 (`HazardDef::applies`), `game::bombs` (`explosion_system` : ordre des ids, invulnérables et mourants
 épargnés, ordre des explosions ; clé de butin), `content` (`explode_effect_ok`).
 
