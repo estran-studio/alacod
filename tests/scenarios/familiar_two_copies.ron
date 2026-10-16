@@ -1,0 +1,35 @@
+// M3-T6 (§71) : plusieurs familiers par exemplaire et par objet. Le joueur 0 tient deux `compagnon` (un
+// familier chacun, rangs 0 et 1, en file) et un `trio` (trois orbitaux par exemplaire : rangs 2, 3, 4,
+// répartis à 120° autour du joueur à 36 unités).
+//
+// À regarder : deux suiveurs en file derrière le joueur et trois orbitaux qui tournent autour de lui.
+Scenario(
+    game: "testbed",
+    map: "testbed/surfaces.ldtk",
+    frames: 200,
+    powerup_drop_chance_override: "0",
+    players: [
+        (
+            inputs: [
+            (from: 20, to: 100, buttons: [Right], pan: (0, 0)),
+            ],
+            weapon: "larme",
+            items: ["compagnon", "compagnon", "trio"],
+        ),
+    ],
+    expect: [
+        ItemCount(handle: 0, id: "compagnon", count: 2, at_frame: 5),
+        // 2 `compagnon` (1 familier chacun) + 1 `trio` (3 orbitaux) = 5 familiers, rangs 0 à 4.
+        FamiliarCount(handle: 0, count: 5, at_frame: 5),
+        // Suiveurs (rangs 0 et 1) : en file, chacun à 28 unités du précédent (le rang 0 du porteur).
+        FamiliarDistance(handle: 0, rank: 0, min: Some(27.5), max: Some(28.5), at_frame: 150),
+        FamiliarDistance(handle: 0, rank: 1, to_rank: Some(0), min: Some(27.5), max: Some(28.5), at_frame: 150),
+        // Orbitaux (rangs 2 à 4) : sur le cercle de 36 unités, répartis à 120° (corde de 36 × √3 ≈ 62,4).
+        FamiliarDistance(handle: 0, rank: 2, min: Some(35.5), max: Some(36.5), at_frame: 60),
+        FamiliarDistance(handle: 0, rank: 3, min: Some(35.5), max: Some(36.5), at_frame: 60),
+        FamiliarDistance(handle: 0, rank: 4, min: Some(35.5), max: Some(36.5), at_frame: 150),
+        FamiliarDistance(handle: 0, rank: 2, to_rank: Some(3), min: Some(61.5), max: Some(63.3), at_frame: 60),
+        FamiliarDistance(handle: 0, rank: 3, to_rank: Some(4), min: Some(61.5), max: Some(63.3), at_frame: 150),
+        FamiliarDistance(handle: 0, rank: 4, to_rank: Some(2), min: Some(61.5), max: Some(63.3), at_frame: 150),
+    ],
+)

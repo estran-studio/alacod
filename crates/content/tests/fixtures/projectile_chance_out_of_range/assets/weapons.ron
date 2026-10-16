@@ -1,0 +1,23 @@
+// Fixture M3-T1 : chances refusées dans un `on_hit` d'arme ; Orbit et Homing dans la même liste.
+({
+    "tireur": (
+        config: (
+            name: "tireur",
+            default_firing_mode: "default",
+            ammo_type: Balle,
+            firing_modes: {
+                "default": (
+                    firing_rate: "3.0",
+                    projectile: (
+                        modifiers: [Orbit(radius: "40.0", frames_per_turn: 60), Homing("0.2")],
+                        on_hit: [
+                            Chance(base: "1.5", per_luck: "0.0", then: ApplyStatus(status: "inconnu", stacks: 1)),
+                            Chance(base: "0.5", per_luck: "0.0", then: Chance(base: "0.5", per_luck: "0.0", then: ApplyStatus(status: "inconnu", stacks: 1))),
+                            Chance(base: "0.5", per_luck: "0.0", then: DestroyTerrain(radius: "10.0")),
+                        ],
+                    ),
+                ),
+            },
+        ),
+    ),
+})

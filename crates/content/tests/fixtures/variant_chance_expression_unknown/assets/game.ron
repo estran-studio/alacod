@@ -1,0 +1,8 @@
+// Fixture M3-T0d : variant_chance_expression_unknown
+(
+    name: "fixture-variant_chance_expression_unknown",
+    content_folders: [
+        (path: "characters", kind: "Character"),
+    ],
+    entry: (start_map: "unused", default_seed: 1),
+)

@@ -1,16 +1,3 @@
-//! Objets (M2-T0b, chantier C2, `docs/conventions.md` §36) : contrats sans dépendance au rendu.
-//!
-//! - [`ItemDef`] : un objet de `items/*.ron` (kind de contenu `Item`) : genre ([`ItemKind`]),
-//!   modificateurs de stats, [`effects::Effect`] (réutilisés tels quels), tags, rareté.
-//! - [`ActiveCharge`] : comment un objet actif se recharge (salles nettoyées, dégâts infligés,
-//!   frames).
-//! - [`Inventory`] : composant rollback **neutre** du joueur (posé au premier ramassage, absent
-//!   de tout joueur qui n'a rien ramassé : contribution 0 au checksum).
-//! - [`ItemPickup`] : objet au sol (rollback, `GgrsNetId`).
-//! - [`ItemTable`] : les objets du jeu par identifiant (contenu, hors rollback).
-//!
-//! Les systèmes (ramassage, charge, usage) vivent dans `game::items`.
-
 pub mod loot;
 pub use loot::*;
 pub mod unlock;
@@ -127,40 +114,164 @@ pub struct ItemDef {
     /// Modificateurs permanents posés au ramassage d'un passif (retirés s'il est perdu).
     #[serde(default)]
     pub modifiers: Vec<ItemModifier>,
-    /// Effets (T1.10). T0b n'exécute que `OnUse` d'un actif (`TimedModifier`, `Modifier`) ;
-    /// le reste est refusé par le lint jusqu'aux effets v2.
     #[serde(default)]
     pub effects: Vec<Effect>,
     #[serde(default)]
     pub tags: Vec<String>,
     #[serde(default)]
     pub rarity: Rarity,
-    /// Portée de ramassage au contact d'un consommable, ou d'interaction (unités monde).
     #[serde(default = "default_pickup_range")]
     #[cfg_attr(feature = "schema", schemars(with = "bevy_fixed::schema::FixedString"))]
     #[cfg_attr(feature = "schema", schemars(extend("x-lint" = "> 0")))]
     pub pickup_range: Fixed,
-    /// M2-T1 : le consommable est un **blank** (voir [`BlankSpec`]) ; le blank utilisé est le
-    /// premier objet de la table (ordre des ids) qui porte cette donnée et que le joueur possède.
     #[serde(default)]
     pub blank: Option<BlankSpec>,
-    /// M2-T4 : un actif utilisable au plus `n` fois par étage du mode `Floors` (hors `Floors`,
-    /// par partie) ; `None` : sans limite (v1 exact).
     #[serde(default)]
     #[cfg_attr(feature = "schema", schemars(extend("x-lint" = "> 0 (ou absent)")))]
     pub uses_per_floor: Option<u32>,
-    /// M2-T4 : un actif qui consomme `n` exemplaires du consommable `item` à l'usage ; sans le
-    /// stock, l'usage est refusé (la charge reste). `None` : gratuit (v1 exact).
     #[serde(default)]
     pub cost: Option<(String, u32)>,
     /// M3-T0a (`docs/conventions.md` §60) : modificateurs de projectile ajoutés aux tirs du
     /// porteur (`modifiers`, `on_hit`, `on_expire`), composés avec ceux de l'arme par
-    /// `combat::projectile::compose` dans l'ordre de [`projectile_sources`]. `None` : v1 exacte.
-    /// Contrat : le tir ne le lit pas encore (M3-T1) ; le lint refuse un objet qui le porte
-    /// (`Unsupported`). `ItemDef` est une définition (ressource [`ItemTable`], hors rollback,
-    /// sans `Hash`) : le champ n'entre dans aucun checksum.
+    /// `combat::projectile::compose` dans l'ordre de [`projectile_mods`]. `None` : v1 exacte.
+    /// Lu au tir par M3-T1 (§66) ; le lint vérifie sa forme (un objet n'a pas de table
+    /// `projectiles` : `Split` sans `child`, `on_expire` sans `Spawn`). `ItemDef` est une
+    /// définition (ressource [`ItemTable`], hors rollback, sans `Hash`) : le champ n'entre dans
+    /// aucun checksum.
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub projectile: Option<ProjectileMods>,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub familiar: Option<FamiliarRef>,
+    /// M3-T0b : plafond d'un compteur consommable. Absent = illimité (exécution T3).
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    #[cfg_attr(feature = "schema", schemars(extend("x-lint" = "> 0 (ou absent)")))]
+    pub max_stack: Option<u32>,
+    /// M3-T2 (§67, Q16) : limites d'effet (`cooldown`, `charges`) partagées entre les exemplaires
+    /// du même objet (défaut, comportement d'avant) ou propres à chaque exemplaire.
+    #[serde(default, skip_serializing_if = "StackMode::is_shared")]
+    pub stack: StackMode,
+}
+
+/// Comment deux exemplaires d'un même passif comptent leurs limites d'effet (M3-T2, Q16). Le
+/// défaut `Shared` garde la clé `item:<id>:<index>` pour tous les exemplaires (aucune partie
+/// existante ne change) ; `Independent` donne au k-ième exemplaire (k >= 1) la clé
+/// `item:<id>#k:<index>` ([`item_effect_key`]), donc ses propres charges, cooldown et horloge `Tick`.
+#[cfg_attr(feature = "schema", derive(schemars::JsonSchema))]
+#[derive(Clone, Copy, Debug, Default, PartialEq, Eq, Hash, Serialize, Deserialize)]
+pub enum StackMode {
+    #[default]
+    Shared,
+    Independent,
+}
+
+impl StackMode {
+    pub fn is_shared(&self) -> bool {
+        matches!(self, StackMode::Shared)
+    }
+}
+
+/// Prix contractuel d'un présentoir (M3-T0b, §61). L'exécution vient de T8.
+#[cfg_attr(feature = "schema", derive(schemars::JsonSchema))]
+#[derive(Clone, Debug, PartialEq, Eq, Hash, Serialize, Deserialize)]
+pub enum Price {
+    Currency(u32),
+    Consumable(String, u32),
+    #[cfg_attr(feature = "schema", schemars(with = "bevy_fixed::schema::FixedString"))]
+    MaxHealth(Fixed),
+}
+
+impl Price {
+    /// Montant strictement positif exigé par le contrat (§61) : un prix nul n'a pas de sens
+    /// (un présentoir gratuit est `Shelf.price == 0` sans `cost`).
+    fn is_positive(&self) -> bool {
+        match self {
+            Self::Currency(amount) | Self::Consumable(_, amount) => *amount > 0,
+            Self::MaxHealth(amount) => *amount > Fixed::ZERO,
+        }
+    }
+
+    /// Problèmes de contenu d'un prix : montant nul, consommable inconnu, vie maximale hors
+    /// `]0, max_health]`. Vide : prix valide. Pure ; `consumable_exists` dit si l'id est un
+    /// objet consommable connu.
+    pub fn problems(
+        &self,
+        consumable_exists: impl Fn(&str) -> bool,
+        max_health: Fixed,
+    ) -> Vec<String> {
+        let mut out = Vec::new();
+        if !self.is_positive() {
+            out.push(format!("prix {self:?} : le montant doit être > 0"));
+        }
+        match self {
+            Self::Consumable(id, _) if !consumable_exists(id) => {
+                out.push(format!("prix {self:?} : consommable « {id} » inconnu"));
+            }
+            Self::MaxHealth(amount) if *amount > max_health => out.push(format!(
+                "prix {self:?} : vie maximale {amount} > {max_health} (hors ]0, max])"
+            )),
+            _ => {}
+        }
+        out
+    }
+
+    /// Un prix nul n'est jamais payable : `can_pay` et `pay` restent cohérents.
+    pub fn can_pay(
+        &self,
+        currency: u32,
+        inventory: &Inventory,
+        max_health: Fixed,
+        health: Fixed,
+    ) -> bool {
+        if !self.is_positive() {
+            return false;
+        }
+        match self {
+            Self::Currency(amount) => currency >= *amount,
+            Self::Consumable(id, amount) => inventory.consumable(id) >= *amount,
+            Self::MaxHealth(amount) => *amount <= max_health && health > *amount,
+        }
+    }
+
+    /// Paie si `can_pay` ; ne panique jamais (`false` sans rien modifier sinon).
+    pub fn pay(
+        &self,
+        currency: &mut u32,
+        inventory: &mut Inventory,
+        max_health: &mut Fixed,
+        health: &mut Fixed,
+    ) -> bool {
+        if !self.can_pay(*currency, inventory, *max_health, *health) {
+            return false;
+        }
+        match self {
+            Self::Currency(amount) => *currency -= *amount,
+            Self::Consumable(id, amount) => match inventory.consumables.get_mut(id) {
+                Some(count) => *count -= *amount,
+                None => return false,
+            },
+            Self::MaxHealth(amount) => {
+                *max_health -= *amount;
+                *health -= *amount;
+            }
+        }
+        true
+    }
+}
+
+/// Le familier que donne un objet (M3-T0d, §63).
+#[cfg_attr(feature = "schema", derive(schemars::JsonSchema))]
+#[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
+pub struct FamiliarRef {
+    /// Id d'un personnage (`characters/`) qui porte au moins un behavior de familier.
+    pub character: String,
+    /// Familiers créés par exemplaire de l'objet tenu (1 par défaut).
+    #[serde(default = "one_familiar")]
+    #[cfg_attr(feature = "schema", schemars(extend("x-lint" = "> 0")))]
+    pub per_copy: u32,
+}
+
+fn one_familiar() -> u32 {
+    1
 }
 
 /// Une synergie (M2-T4, `docs/conventions.md` §44) : un fichier `synergies/<id>.ron` (kind
@@ -181,24 +292,17 @@ pub struct SynergyDef {
     pub projectile: Option<ProjectileMods>,
 }
 
-/// M3-T0a (§60) : listes de modificateurs de projectile des objets tenus par `inventory`, dans
+/// M3-T0a (§60), lu au tir par M3-T1 (§66) : `projectile` des objets tenus par `inventory`, dans
 /// l'ordre déterministe de la composition (`combat::projectile::compose`, après ceux de l'arme) :
 /// passifs dans l'ordre de ramassage (un passif en double compte deux fois), puis l'actif, puis
-/// les synergies actives par id croissant. Les objets sans `projectile` ne donnent rien. Pure :
-/// M3-T1 l'appellera au tir.
-pub fn projectile_sources<'a>(
+/// les synergies actives par id croissant. Les objets sans `projectile` ne donnent rien. Pure.
+pub fn projectile_mods<'a>(
     items: &'a ItemTable,
     synergies: &'a SynergyTable,
     inventory: &Inventory,
-) -> Vec<&'a [effects::projectile::ProjectileModifier]> {
-    let item_mods = |id: &str| {
-        items
-            .0
-            .get(id)
-            .and_then(|def| def.projectile.as_ref())
-            .map(|mods| mods.modifiers.as_slice())
-    };
-    let mut out: Vec<&[effects::projectile::ProjectileModifier]> = Vec::new();
+) -> Vec<&'a ProjectileMods> {
+    let item_mods = |id: &str| items.0.get(id).and_then(|def| def.projectile.as_ref());
+    let mut out: Vec<&ProjectileMods> = Vec::new();
     out.extend(inventory.passives.iter().filter_map(|id| item_mods(id)));
     if let Some(active) = &inventory.active {
         out.extend(item_mods(&active.item));
@@ -207,10 +311,22 @@ pub fn projectile_sources<'a>(
         synergies
             .active(inventory)
             .into_iter()
-            .filter_map(|(_, def)| def.projectile.as_ref())
-            .map(|mods| mods.modifiers.as_slice()),
+            .filter_map(|(_, def)| def.projectile.as_ref()),
     );
     out
+}
+
+/// Les seules listes de modificateurs de [`projectile_mods`] (même ordre), sans `on_hit` ni
+/// `on_expire`.
+pub fn projectile_sources<'a>(
+    items: &'a ItemTable,
+    synergies: &'a SynergyTable,
+    inventory: &Inventory,
+) -> Vec<&'a [effects::projectile::ProjectileModifier]> {
+    projectile_mods(items, synergies, inventory)
+        .into_iter()
+        .map(|mods| mods.modifiers.as_slice())
+        .collect()
 }
 
 /// Source des modificateurs d'une synergie.
@@ -273,7 +389,6 @@ impl ActiveSlot {
 /// M2-T4 (traces inchangées, `docs/conventions.md` §44).
 impl std::hash::Hash for ActiveSlot {
     fn hash<H: std::hash::Hasher>(&self, state: &mut H) {
-        use std::hash::Hash as _;
         self.item.hash(state);
         self.charge.hash(state);
         if let Some(uses) = self.uses {
@@ -283,7 +398,6 @@ impl std::hash::Hash for ActiveSlot {
 }
 
 /// Inventaire d'un joueur (rollback, checksum et trace en variante **neutre**). Posé au premier
-/// ramassage seulement : un joueur qui n'a jamais rien ramassé n'en porte pas.
 #[derive(Component, Clone, Debug, Default, PartialEq, Eq, Hash)]
 pub struct Inventory {
     /// Passifs, dans l'ordre de ramassage.
@@ -300,6 +414,26 @@ impl Inventory {
 
     pub fn consumable(&self, id: &str) -> u32 {
         self.consumables.get(id).copied().unwrap_or(0)
+    }
+
+    /// Nombre d'exemplaires portés, tous types d'inventaire confondus.
+    pub fn count(&self, id: &str) -> u32 {
+        self.passives
+            .iter()
+            .filter(|item| item.as_str() == id)
+            .count() as u32
+            + u32::from(self.active.as_ref().is_some_and(|active| active.item == id))
+            + self.consumable(id)
+    }
+}
+
+/// Clé stable d'un effet porté par un exemplaire. Le premier exemplaire conserve la clé v1 ;
+/// les suivants reçoivent un suffixe `#k` (M3-T0b ; branchée par M3-T2 pour `StackMode::Independent`).
+pub fn item_effect_key(item_id: &str, copy_index: u32, effect_index: usize) -> String {
+    if copy_index == 0 {
+        format!("item:{item_id}:{effect_index}")
+    } else {
+        format!("item:{item_id}#{copy_index}:{effect_index}")
     }
 }
 
@@ -396,6 +530,39 @@ mod tests {
             ]
         );
         assert!(projectile_sources(&table, &synergies, &Inventory::default()).is_empty());
+    }
+
+    /// M3-T1 : `projectile_mods` rend les `ProjectileMods` entiers (`on_hit` et `on_expire` avec les
+    /// modificateurs), dans l'ordre de `projectile_sources`.
+    #[test]
+    fn projectile_mods_porte_on_hit_et_on_expire_dans_le_meme_ordre() {
+        let parse = |src: &str| -> ItemDef { ron::from_str(src).unwrap() };
+        let table = ItemTable(BTreeMap::from([
+            (
+                "venin".to_string(),
+                parse(
+                    r#"(name: "V", kind: Passive, projectile: Some((on_hit: [ApplyStatus(status: "poison", stacks: 1)])))"#,
+                ),
+            ),
+            (
+                "mine".to_string(),
+                parse(
+                    r#"(name: "M", kind: Passive, projectile: Some((on_expire: [DestroyTerrain(radius: "8.0")])))"#,
+                ),
+            ),
+        ]));
+        let inventory = Inventory {
+            passives: vec!["mine".into(), "venin".into(), "venin".into()],
+            active: None,
+            consumables: BTreeMap::new(),
+        };
+        let synergies = SynergyTable::default();
+        let mods = projectile_mods(&table, &synergies, &inventory);
+        assert_eq!(mods.len(), 3, "un passif en double compte deux fois");
+        assert_eq!(mods[0].on_expire.len(), 1);
+        assert!(mods[0].on_hit.is_empty());
+        assert_eq!(mods[1], mods[2]);
+        assert_eq!(mods[1].on_hit.len(), 1);
     }
 
     #[test]
@@ -510,5 +677,112 @@ mod tests {
         let inventory = Inventory::default();
         assert!(!inventory.has("x"));
         assert_eq!(inventory.consumable("key"), 0);
+    }
+}
+
+#[cfg(test)]
+mod m3_t0b_tests {
+    use super::*;
+
+    #[test]
+    fn inventory_count_includes_all_copy_kinds() {
+        let inventory = Inventory {
+            passives: vec!["amulet".into(), "amulet".into()],
+            active: Some(ActiveSlot::new("amulet".into())),
+            consumables: BTreeMap::from([("amulet".into(), 3)]),
+        };
+        assert_eq!(inventory.count("amulet"), 6);
+        assert_eq!(inventory.count("other"), 0);
+    }
+
+    #[test]
+    fn item_effect_key_keeps_first_copy_compatibility() {
+        assert_eq!(item_effect_key("amulet", 0, 2), "item:amulet:2");
+        assert_eq!(item_effect_key("amulet", 1, 2), "item:amulet#1:2");
+        assert_eq!(item_effect_key("amulet", 2, 2), "item:amulet#2:2");
+    }
+
+    #[test]
+    fn prices_pay_currency_consumables_and_non_lethal_max_health() {
+        let mut currency = 10;
+        let mut inventory = Inventory {
+            consumables: BTreeMap::from([("key".into(), 3)]),
+            ..Default::default()
+        };
+        let mut max_health = Fixed::from_num(6);
+        let mut health = Fixed::from_num(6);
+        assert!(Price::Currency(4).pay(
+            &mut currency,
+            &mut inventory,
+            &mut max_health,
+            &mut health
+        ));
+        assert!(Price::Consumable("key".into(), 2).pay(
+            &mut currency,
+            &mut inventory,
+            &mut max_health,
+            &mut health
+        ));
+        assert_eq!(inventory.consumable("key"), 1);
+        assert!(Price::MaxHealth(Fixed::from_num(2)).pay(
+            &mut currency,
+            &mut inventory,
+            &mut max_health,
+            &mut health
+        ));
+        assert_eq!(max_health, Fixed::from_num(4));
+        assert_eq!(health, Fixed::from_num(4));
+        assert!(
+            !Price::MaxHealth(Fixed::from_num(4)).can_pay(currency, &inventory, max_health, health)
+        );
+    }
+
+    #[test]
+    fn zero_prices_are_refused_and_never_panic() {
+        let mut currency = 5;
+        let mut inventory = Inventory::default();
+        let mut max_health = Fixed::from_num(6);
+        let mut health = Fixed::from_num(6);
+        for price in [
+            Price::Consumable("key".into(), 0),
+            Price::Currency(0),
+            Price::MaxHealth(Fixed::ZERO),
+        ] {
+            assert!(!price.can_pay(currency, &inventory, max_health, health));
+            assert!(!price.pay(&mut currency, &mut inventory, &mut max_health, &mut health));
+            assert_eq!(price.problems(|_| true, Fixed::from_num(6)).len(), 1);
+        }
+        assert_eq!(
+            (currency, max_health, health),
+            (5, Fixed::from_num(6), Fixed::from_num(6))
+        );
+        assert!(inventory.consumables.is_empty());
+    }
+
+    #[test]
+    fn price_problems_report_unknown_consumable_and_out_of_range_health() {
+        let max = Fixed::from_num(6);
+        assert!(Price::Consumable("key".into(), 1)
+            .problems(|id| id == "key", max)
+            .is_empty());
+        assert_eq!(
+            Price::Consumable("ghost".into(), 1)
+                .problems(|_| false, max)
+                .len(),
+            1
+        );
+        assert_eq!(
+            Price::MaxHealth(Fixed::from_num(7))
+                .problems(|_| true, max)
+                .len(),
+            1
+        );
+        assert_eq!(
+            Price::MaxHealth(Fixed::from_num(-1))
+                .problems(|_| true, max)
+                .len(),
+            1
+        );
+        assert!(Price::MaxHealth(max).problems(|_| true, max).is_empty());
     }
 }

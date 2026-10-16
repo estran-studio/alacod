@@ -869,4 +869,86 @@
             weapon_offset: ( x: "0.0", y: "-5.0" )
         ),
     ),
+    // M3-T1 (docs/conventions.md §66) : Poison : chaque balle empoisonne `target` (2 piles au plus, comme la brûlure ; dégâts de genre `Poison`). Scénarios `status_poison` et généré `weapon_status_poison`.
+    "status_poison": (
+        config: (
+            name: "status_poison",
+            default_firing_mode: "default",
+            ammo_type: Plomb,
+            firing_modes: {
+                "default": (
+                    firing_rate: "4.0",
+                    firing_mode: Manual(),
+                    spread: "0.0",
+                    recoil: "0.0",
+                    bullet_type: Standard(
+                        damage: "1.0",
+                        speed: "300.0",
+                    ),
+                    range: "900.0",
+                    reload_time_seconds: "1.0",
+                    mag: Mag(
+                        mag_size: 30,
+                        mag_limit: 4,
+                    ),
+                    projectile: (on_hit: [ApplyStatus(status: "poison", stacks: 1)]),
+                )
+            },
+            test: Some((
+                frames: 200,
+                min_hits: 2,
+                expect: [
+                    HasStatus(entity: Target, status: "poison", at_frame: 100),
+                ],
+            )),
+        ),
+        sprite_config: (
+            name: "pistol",
+            index: 3,
+            bullet_offset_right: ( x: "-5.0", y: "2.0" ),
+            bullet_offset_left: ( x: "0.0", y: "-2.0" ),
+            weapon_offset: ( x: "0.0", y: "-5.0" )
+        ),
+    ),
+    // M3-T1 (docs/conventions.md §66) : Fear : chaque balle effraie sa cible (`Flee` imposé pendant 150 frames). Scénarios `status_fear` et généré `weapon_status_fear`.
+    "status_fear": (
+        config: (
+            name: "status_fear",
+            default_firing_mode: "default",
+            ammo_type: Plomb,
+            firing_modes: {
+                "default": (
+                    firing_rate: "4.0",
+                    firing_mode: Manual(),
+                    spread: "0.0",
+                    recoil: "0.0",
+                    bullet_type: Standard(
+                        damage: "1.0",
+                        speed: "300.0",
+                    ),
+                    range: "900.0",
+                    reload_time_seconds: "1.0",
+                    mag: Mag(
+                        mag_size: 30,
+                        mag_limit: 4,
+                    ),
+                    projectile: (on_hit: [ApplyStatus(status: "peur", stacks: 1)]),
+                )
+            },
+            test: Some((
+                frames: 200,
+                min_hits: 1,
+                expect: [
+                    HasStatus(entity: Target, status: "peur", at_frame: 100),
+                ],
+            )),
+        ),
+        sprite_config: (
+            name: "pistol",
+            index: 3,
+            bullet_offset_right: ( x: "-5.0", y: "2.0" ),
+            bullet_offset_left: ( x: "0.0", y: "-2.0" ),
+            weapon_offset: ( x: "0.0", y: "-5.0" )
+        ),
+    ),
 })

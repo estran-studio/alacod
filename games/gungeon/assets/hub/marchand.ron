@@ -1,0 +1,3 @@
+// M2-T13 (§57) : le marchand de déblocages (écran bevy_hui, achats hors simulation, effet à la
+// run suivante). Ouvert dès la première run terminée (jalon `first_run`).
+(name: "Marchand", needs: [Unlock("first_run")], action: Merchant)

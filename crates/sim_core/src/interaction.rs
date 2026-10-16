@@ -54,5 +54,8 @@ pub enum InteractionType {
     /// `Interactable` sur une entité `items::Shelf` (`game::shop::spawn_shelf`) ; consommé par
     /// `game::shop::shelf_interaction_system`.
     Shop,
+    /// Utiliser une station du hub (M2-T13, `docs/conventions.md` §57). Posé avec `Interactable`
+    /// sur une entité `game::hub::HubStation` ; consommé par `game::hub::hub_station_system`.
+    Hub,
     // Future: Crate, etc.
 }

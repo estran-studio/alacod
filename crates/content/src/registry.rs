@@ -288,10 +288,12 @@ pub struct CharacterEntry {
     /// T1.5 : table de variantes (`variants`), dans l'ordre du fichier (doublons gardés pour
     /// la règle « nom en double »).
     pub variants: Option<VariantsEntry>,
-    /// T1.13 : `test:` (scénarios générés), pour `lint_character_test`.
+    /// T1.13 : `test:` (attentes comptées).
     pub test: Option<CharacterTestEntry>,
     /// T1.13 : `counts_hits`, pour la cible de `generate_template`.
     pub counts_hits: bool,
+    /// M3-T0b (§61) : i-frames après un dégât réel.
+    pub hit_iframes: Option<u32>,
     /// D41 : étendue du corps **en jeu** (collider × `scale`, comme `create_character`) : la plus
     /// grande distance du centre du personnage à un bord de son collider, en px. 0 sans collider.
     pub body_extent: Fixed,
@@ -310,6 +312,16 @@ pub struct CharacterTestEntry {
     pub expect_moving: usize,
     /// M2-T17 : gabarit `BossFight` (`boss:` du `test:`).
     pub boss: Option<BossFightEntry>,
+    /// M3-T13 (§78) : variantes du gabarit `ChampionForced`.
+    pub champions: Vec<ChampionTestEntry>,
+}
+
+/// M3-T13 : mirroir de `game::gen_test::ChampionTest` (attentes comptées).
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub struct ChampionTestEntry {
+    pub variant: String,
+    pub kill: bool,
+    pub weapon: Option<String>,
 }
 
 /// M2-T17 : mirroir de `game::gen_test::BossFightTest` (attentes comptées).
@@ -325,6 +337,38 @@ pub struct BossFightEntry {
 pub struct ItemTestEntry {
     pub frames: u32,
     pub expect: usize,
+    /// M3-T13 : gabarit `TearsOnTarget` (`tears:`).
+    pub tears: Option<TearsTestEntry>,
+    /// M3-T13 : gabarit `FamiliarHeld` (`familiar:`).
+    pub familiar: Option<FamiliarTestEntry>,
+}
+
+/// M3-T13 : mirroir de `game::gen_test::TearsTest` (attentes comptées).
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub struct TearsTestEntry {
+    pub frames: Option<u32>,
+    pub weapon: Option<String>,
+    /// `(personnage, dx, dy)` des cibles posées.
+    pub targets: Vec<(String, i32, i32)>,
+    pub hits: Vec<TearsHitsEntry>,
+    pub expect: usize,
+    pub control: usize,
+}
+
+/// M3-T13 : mirroir de `game::gen_test::TearsHits`.
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub struct TearsHitsEntry {
+    pub target: usize,
+    pub with_item: u32,
+    pub without_item: u32,
+}
+
+/// M3-T13 : mirroir de `game::gen_test::FamiliarTest`.
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub struct FamiliarTestEntry {
+    pub frames: Option<u32>,
+    pub weapon: Option<String>,
+    pub min_hits: u32,
 }
 
 /// M2-T17 : `test:` d'un type de salle (`game::gen_test::RoomTest`, attentes comptées).
@@ -339,7 +383,8 @@ pub struct RoomTestEntry {
 /// T1.5 : mirroir de `game::character::variant::VariantsConfig`.
 #[derive(Debug, Clone)]
 pub struct VariantsEntry {
-    pub chance: FixedField,
+    /// M3-T0d : nombre ou expression (`players`, `floor`).
+    pub chance: NumOrExpr,
     pub table: Vec<(String, VariantEntry)>,
 }
 
@@ -355,6 +400,16 @@ pub struct VariantEntry {
     pub tags: Vec<String>,
     #[serde(default)]
     pub skin: Option<String>,
+    /// M3-T0d (§63) : mirroir des champs de champion de `game::character::variant::VariantDef`.
+    #[serde(default)]
+    pub on_death: Vec<effects::Action>,
+    #[serde(default)]
+    pub behaviors: Option<Vec<BehaviorEntry>>,
+    #[serde(default)]
+    pub loot: Option<String>,
+    #[serde(default)]
+    #[schemars(extend("x-lint" = "#rrggbb"))]
+    pub tint: Option<String>,
 }
 
 fn default_variant_weight() -> u32 {
@@ -404,6 +459,23 @@ pub enum BehaviorEntry {
         #[serde(default)]
         volley: bool,
     },
+    /// M3-T0d (§63) : mirroirs des behaviors de familier de `behaviors::Behavior`.
+    Follow {
+        #[schemars(extend("x-lint" = "> 0"))]
+        gap: FixedField,
+    },
+    Orbit {
+        #[schemars(extend("x-lint" = "> 0"))]
+        radius: FixedField,
+        #[schemars(extend("x-lint" = "> 0"))]
+        frames_per_turn: u32,
+    },
+    MirrorShot {
+        weapon: String,
+        #[schemars(extend("x-lint" = "> 0"))]
+        every: u32,
+    },
+    BlockBullets,
 }
 
 /// M2-T8 : mirroir de `behaviors::FormationShape`.
@@ -582,7 +654,7 @@ pub enum ProjectileModifierEntry {
     Lifetime(u32),
     Homing(FixedField),
     Gravity(FixedField),
-    /// M3-T0a (§60) : contrats (exécution M3-T1), voir `effects::projectile::ProjectileModifier`.
+    /// M3-T0a (§60), exécutés par M3-T1 (§66), voir `effects::projectile::ProjectileModifier`.
     Spectral,
     Split {
         count: u32,
@@ -921,6 +993,10 @@ pub enum StatusKindEntry {
     Slow,
     Stun,
     Freeze,
+    /// M3-T1 (§66) : comme `Burn`, dégâts de poison.
+    Poison,
+    /// M3-T1 (§66) : l'ennemi fuit sa cible pendant `frames`.
+    Fear,
 }
 
 /// Statut (T1.3, `docs/conventions.md` §19), `statuses/<id>.ron` :
@@ -1181,6 +1257,16 @@ pub struct UnlockEntry {
     pub def: items::UnlockDef,
 }
 
+/// Service du hub (M2-T13, `docs/conventions.md` §57), un fichier RON par service
+/// (`hub/<id>.ron` dans un dossier de kind `HubService`, champs de [`meta::HubServiceDef`]) ;
+/// id = nom de fichier.
+#[derive(Debug, Clone)]
+pub struct HubServiceEntry {
+    pub id: String,
+    pub file: PathBuf,
+    pub def: meta::HubServiceDef,
+}
+
 /// Règles d'essence du jeu (M2-T12, kind `MetaEconomy`, `meta/<id>.ron`, champs de
 /// [`meta::EssenceRules`]) ; le premier fichier par identifiant fait foi.
 #[derive(Debug, Clone)]
@@ -1371,6 +1457,8 @@ pub struct Registry {
     pub loot_tables: BTreeMap<String, LootTableEntry>,
     /// M2-T12 : déblocages de méta-progression (kind `Unlock`).
     pub unlocks: BTreeMap<String, UnlockEntry>,
+    /// M2-T13 : services du hub (kind `HubService`).
+    pub hub_services: BTreeMap<String, HubServiceEntry>,
     /// M2-T12 : règles d'essence (kind `MetaEconomy`).
     pub meta_economy: BTreeMap<String, MetaEconomyEntry>,
     /// M2-T11 : objets de décor (kind `Prop`) : tables renversables et barils explosifs.
@@ -1450,6 +1538,7 @@ pub const KNOWN_KIND_NAMES: &[&str] = &[
     "LootTable",
     "Unlock",
     "MetaEconomy",
+    "HubService",
     "Prop",
 ];
 
@@ -1549,6 +1638,7 @@ impl Registry {
                 "Synergy" => load_synergies(&assets_dir, decl, &mut registry, &mut errors),
                 "LootTable" => load_loot_tables(&assets_dir, decl, &mut registry, &mut errors),
                 "Unlock" => load_unlocks(&assets_dir, decl, &mut registry, &mut errors),
+                "HubService" => load_hub_services(&assets_dir, decl, &mut registry, &mut errors),
                 "MetaEconomy" => load_meta_economy(&assets_dir, decl, &mut registry, &mut errors),
                 "Prop" => load_props(&assets_dir, decl, &mut registry, &mut errors),
                 "Surface" => load_surfaces(&assets_dir, decl, &mut registry, &mut errors),
@@ -1703,6 +1793,10 @@ struct CharacterFileSchema {
     /// T1.13 : cible de `generate_template` (règle « `counts_hits` »).
     #[serde(default)]
     counts_hits: bool,
+    /// M3-T0b (§61) : i-frames après un dégât réel.
+    #[serde(default)]
+    #[schemars(extend("x-lint" = "> 0 (ou absent)"))]
+    hit_iframes: Option<u32>,
     /// D63 : contenu de test, ignoré par l'analyse d'atteignabilité (`WeaponConfigSchema` idem).
     #[serde(default)]
     test_only: bool,
@@ -1814,6 +1908,22 @@ struct CharacterTestSchema {
     expect_moving: Vec<serde::de::IgnoredAny>,
     #[serde(default)]
     boss: Option<BossFightSchema>,
+    /// M3-T13 (§78) : un scénario `champion_<id>_<variante>` par entrée.
+    #[serde(default)]
+    champions: Vec<ChampionTestSchema>,
+}
+
+/// Mirroir de `game::gen_test::ChampionTest`.
+#[derive(schemars::JsonSchema, Deserialize)]
+struct ChampionTestSchema {
+    variant: String,
+    #[serde(default)]
+    kill: bool,
+    #[serde(default)]
+    weapon: Option<String>,
+    #[serde(default)]
+    #[schemars(with = "Vec<serde_json::Value>")]
+    expect: Vec<serde::de::IgnoredAny>,
 }
 
 /// Mirroir de `game::gen_test::BossFightTest`.
@@ -1838,6 +1948,69 @@ struct ItemTestFile {
 #[derive(Deserialize, schemars::JsonSchema)]
 struct ItemTestSchema {
     frames: u32,
+    #[serde(default)]
+    #[schemars(with = "Vec<serde_json::Value>")]
+    expect: Vec<serde::de::IgnoredAny>,
+    /// M3-T13 (§78) : scénario `tears_<id>`.
+    #[serde(default)]
+    tears: Option<TearsTestSchema>,
+    /// M3-T13 : scénario `familiar_<id>` (objet à `familiar:`).
+    #[serde(default)]
+    familiar: Option<FamiliarTestSchema>,
+}
+
+/// Mirroir de `game::gen_test::TearsTest` : les scénarios `tears_<id>` (avec l'objet) et
+/// `tears_<id>_sans_objet` (le témoin).
+#[derive(Deserialize, schemars::JsonSchema)]
+struct TearsTestSchema {
+    #[serde(default)]
+    #[schemars(extend("x-lint" = "> 0"))]
+    frames: Option<u32>,
+    #[serde(default)]
+    weapon: Option<String>,
+    #[serde(default)]
+    aim: Option<(i16, i16)>,
+    #[serde(default)]
+    targets: Vec<TearsTargetSchema>,
+    #[serde(default)]
+    hits: Vec<TearsHitsSchema>,
+    #[serde(default)]
+    #[schemars(with = "Vec<serde_json::Value>")]
+    expect: Vec<serde::de::IgnoredAny>,
+    #[serde(default)]
+    #[schemars(with = "Vec<serde_json::Value>")]
+    control: Vec<serde::de::IgnoredAny>,
+}
+
+/// Mirroir de `game::gen_test::TearsTarget`.
+#[derive(Deserialize, schemars::JsonSchema)]
+struct TearsTargetSchema {
+    character: String,
+    dx: i32,
+    dy: i32,
+}
+
+/// Mirroir de `game::gen_test::TearsHits`.
+#[derive(Deserialize, schemars::JsonSchema)]
+struct TearsHitsSchema {
+    #[serde(default)]
+    target: usize,
+    #[schemars(extend("x-lint" = "> 0"))]
+    with_item: u32,
+    #[serde(default)]
+    without_item: u32,
+}
+
+/// Mirroir de `game::gen_test::FamiliarTest`.
+#[derive(Deserialize, schemars::JsonSchema)]
+struct FamiliarTestSchema {
+    #[serde(default)]
+    #[schemars(extend("x-lint" = "> 0"))]
+    frames: Option<u32>,
+    #[serde(default)]
+    weapon: Option<String>,
+    #[serde(default)]
+    min_hits: u32,
     #[serde(default)]
     #[schemars(with = "Vec<serde_json::Value>")]
     expect: Vec<serde::de::IgnoredAny>,
@@ -1895,13 +2068,13 @@ fn default_true() -> bool {
 #[derive(schemars::JsonSchema, Deserialize)]
 struct VariantsSchema {
     #[serde(default = "default_variant_chance")]
-    #[schemars(extend("x-lint" = "[0, 1]"))]
-    chance: FixedField,
+    #[schemars(extend("x-lint" = "[0, 1] (nombre) ou expression `players`/`floor`"))]
+    chance: NumOrExpr,
     table: KeyedEntries<VariantEntry>,
 }
 
-fn default_variant_chance() -> FixedField {
-    FixedField(Fixed::from_num(1))
+fn default_variant_chance() -> NumOrExpr {
+    NumOrExpr::Literal(Fixed::from_num(1))
 }
 
 #[derive(schemars::JsonSchema, Deserialize)]
@@ -2432,8 +2605,18 @@ fn load_characters(
                         map: boss.map,
                         expect: boss.expect.len(),
                     }),
+                    champions: test
+                        .champions
+                        .into_iter()
+                        .map(|champion| ChampionTestEntry {
+                            variant: champion.variant,
+                            kill: champion.kill,
+                            weapon: champion.weapon,
+                        })
+                        .collect(),
                 }),
                 counts_hits: parsed.counts_hits,
+                hit_iframes: parsed.hit_iframes,
                 body_extent: parsed
                     .collider
                     .as_ref()
@@ -3018,6 +3201,31 @@ fn load_items(
             .map(|test| ItemTestEntry {
                 frames: test.frames,
                 expect: test.expect.len(),
+                tears: test.tears.map(|tears| TearsTestEntry {
+                    frames: tears.frames,
+                    weapon: tears.weapon,
+                    targets: tears
+                        .targets
+                        .into_iter()
+                        .map(|t| (t.character, t.dx, t.dy))
+                        .collect(),
+                    hits: tears
+                        .hits
+                        .into_iter()
+                        .map(|h| TearsHitsEntry {
+                            target: h.target,
+                            with_item: h.with_item,
+                            without_item: h.without_item,
+                        })
+                        .collect(),
+                    expect: tears.expect.len(),
+                    control: tears.control.len(),
+                }),
+                familiar: test.familiar.map(|familiar| FamiliarTestEntry {
+                    frames: familiar.frames,
+                    weapon: familiar.weapon,
+                    min_hits: familiar.min_hits,
+                }),
             });
         registry.items.insert(
             id.clone(),
@@ -3103,6 +3311,31 @@ fn load_unlocks(
         registry
             .unlocks
             .insert(id.clone(), UnlockEntry { id, file: rel, def });
+    }
+}
+
+/// M2-T13 : `hub/<id>.ron` (kind `HubService`), un service par fichier ; id = nom de fichier.
+fn load_hub_services(
+    assets_dir: &ContentFiles,
+    decl: &ContentFolderDecl,
+    registry: &mut Registry,
+    errors: &mut Vec<LintError>,
+) {
+    for (id, rel, def) in load_ron_files::<meta::HubServiceDef>(assets_dir, decl, errors) {
+        if let Some(existing) = registry.hub_services.get(&id) {
+            errors.push(LintError {
+                kind: LintErrorKind::DuplicateId,
+                file: rel.display().to_string(),
+                message: format!(
+                    "id de service du hub « {id} » déjà défini dans {}",
+                    existing.file.display()
+                ),
+            });
+            continue;
+        }
+        registry
+            .hub_services
+            .insert(id.clone(), HubServiceEntry { id, file: rel, def });
     }
 }
 
@@ -3966,6 +4199,7 @@ pub(crate) fn schema_for_kind(kind: &str) -> Option<schemars::Schema> {
         "SpriteSheet" => schemars::schema_for!(SpriteSheetsFileSchema),
         "Unlock" => schemars::schema_for!(items::UnlockDef),
         "MetaEconomy" => schemars::schema_for!(meta::EssenceRules),
+        "HubService" => schemars::schema_for!(meta::HubServiceDef),
         _ => return None,
     })
 }

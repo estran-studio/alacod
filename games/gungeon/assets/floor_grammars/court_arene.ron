@@ -1,0 +1,11 @@
+// Grammaire d'étage minimale à salle `arene` (M2-T14d, docs/conventions.md §52.d) : départ, une salle
+// `arene`, boss. Le `test:` de `rooms/arene.ron` (scénario généré `room_arene`) s'y appuie.
+(
+    templates: "maps/salles.ldtk",
+    grammar: (
+        rooms: (3, 3),
+        required: {"boss": 1},
+        filler: "arene",
+        min_boss_distance: 2,
+    ),
+)

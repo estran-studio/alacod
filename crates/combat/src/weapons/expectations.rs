@@ -442,6 +442,47 @@ pub enum Expectation {
         lacks: Vec<String>,
         at_frame: u32,
     },
+    /// Le joueur `handle` a exactement `count` familiers (`behaviors::FamiliarOf` dont le porteur
+    /// est ce joueur) à la frame exacte `at_frame` (M3-T0d, §63).
+    FamiliarCount {
+        handle: usize,
+        count: u32,
+        at_frame: u32,
+    },
+    /// M3-T6 (§71) : distance entre le familier de rang `rank` du joueur `handle` et son porteur
+    /// (`to_rank` absent) ou le familier de rang `to_rank` du même porteur, dans `[min, max]`
+    /// (bornes inclusives, `None` = pas de borne ; `f32` convertis en `Fixed`), à `at_frame`.
+    /// Échoue si le joueur ou un des familiers n'existe pas.
+    FamiliarDistance {
+        handle: usize,
+        rank: u32,
+        #[serde(default, skip_serializing_if = "Option::is_none")]
+        to_rank: Option<u32>,
+        #[serde(default, skip_serializing_if = "Option::is_none")]
+        min: Option<f32>,
+        #[serde(default, skip_serializing_if = "Option::is_none")]
+        max: Option<f32>,
+        at_frame: u32,
+    },
+    /// La sortie du hub (`game::hub::HubState::exit`, M2-T13, §57) est posée par `handle` (ou par
+    /// n'importe qui si `handle` est absent) à la frame `exit_frame` (absente : n'importe laquelle),
+    /// vérifiée à la frame exacte `at_frame`. `none: true` : aucune sortie décidée.
+    HubExit {
+        #[serde(default)]
+        handle: Option<usize>,
+        #[serde(default)]
+        exit_frame: Option<u32>,
+        #[serde(default)]
+        none: bool,
+        at_frame: u32,
+    },
+    /// Le dernier service utilisé par `handle` (`HubState::visits`, M2-T13) est `service`, à la
+    /// frame exacte `at_frame`.
+    HubVisit {
+        handle: usize,
+        service: String,
+        at_frame: u32,
+    },
     /// Le texte de la source `source` du HUD (`game::ui::hud_model::HudSnapshot`, joueur
     /// affiché, sans préfixe) contient `contains` à la frame exacte `at_frame` (T1.18,
     /// `docs/conventions.md` §32). Présentation : lu hors simulation, hors trace.
@@ -603,6 +644,10 @@ impl Expectation {
             | Self::BossPhase { at_frame, .. }
             | Self::ProfileHas { at_frame, .. }
             | Self::RunUnlocks { at_frame, .. }
+            | Self::FamiliarCount { at_frame, .. }
+            | Self::FamiliarDistance { at_frame, .. }
+            | Self::HubExit { at_frame, .. }
+            | Self::HubVisit { at_frame, .. }
             | Self::Event {
                 by_frame: at_frame, ..
             }

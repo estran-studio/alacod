@@ -2852,9 +2852,10 @@ d'id** du dossier `Floors` (`run_state::resolve_run_mode_with_floors`). Ajouter 
 passe avant l'ancien change la partie par défaut : les séquences de grammaire de `gungeon` sont
 nommées `etages_*` pour que `etage_1` (T0d) reste la première. Même piège pour tout nouveau jeu.
 
-**Gungeon.** Gabarits `games/gungeon/assets/maps/salles.ldtk` (9 gabarits de 8×8 tuiles, script
-`docs/taches/rapports/m2-t10-grammaire-etage.make_salles.py`) : `Depart`, `CombatEW/NS/T/Croix`,
-`Recompense`, `Boutique`, `BossW/N`. Grammaires `etage` (8–12 salles), `grand` (15–20) et `court`
+**Gungeon.** Gabarits `games/gungeon/assets/maps/salles.ldtk` (quinze gabarits de 8×8 tuiles depuis M2-T14d, §52.d ;
+les neuf d'origine viennent du script `docs/taches/rapports/m2-t10-grammaire-etage.make_salles.py`) : `Depart`,
+`CombatEW/NS/T/Croix`, `Recompense`, `Boutique`, `BossW/N`, puis `ArenaEW/Croix` (M2-T7), `EscouadeEW` (M2-T8),
+`Coffre`, `Secret` et `ArenaNS` (T14d). Grammaires `etage` (10–14 salles depuis T14d), `grand` (15–20) et `court`
 (3 salles : départ, combat, boss) ; séquences `etages_grammaire`, `etages_grand`, `etages_court`,
 `etages_court_deux`. T0d (`etage_1`) reste la séquence par défaut : les traces `gungeon_*` d'avant
 ne bougent pas, la grammaire est activée par `floors: Some("etages_...")`.
@@ -3486,6 +3487,42 @@ graine, mêmes coffres, l'un avec les trois déblocages : « amulette » ×2, l'
 
 **Traces** : aucune trace existante n'a bougé.
 
+### Armes aux sources (D62, `m2-armes-sources`)
+
+Une arme a une source quand un pool de butin la nomme. Les dix-huit armes de `gungeon` (hors
+`pistolet`, arme de départ, et `arsenal*`, contenu de test `test_only: true`) sont dans les pools.
+
+- **Entrée de pool** `LootPick::Weapon("id", Rareté)` (`items::loot`). Le tirage la désigne par
+  l'identifiant `weapon:<id>` (`items::loot_weapon`) ; la rareté joue comme celle d'un objet (filtre
+  de rareté d'un coffre, prix d'un présentoir). Une récompense de salle sans coffre (consommables
+  seulement) l'ignore. Le flux RNG avance comme avant (deux `next_u32` par tirage) : seul le candidat
+  change.
+- **Coffre** : l'arme tombe à côté du coffre (`game::loot::spawn_loot_weapon`), arme lâchée ordinaire
+  (`price: None`, chargeur plein), ramassée par l'interaction habituelle, qui échange avec l'emplacement
+  (`weapon_slots`, une seule arme pour le `pistolero`) : l'arme posée tombe à son tour.
+  `ChestOpened::item_id` vaut `weapon:<id>`.
+- **Boutique** : prix par rareté de l'arme (`economy.ron`, `shop_prices`). Acheter un présentoir
+  d'arme la pose au pied de l'acheteur (log `shop_buy item=weapon:<id>`), à ramasser ensuite.
+  `RoomShopDef` gagne `weapon_shelves` (les N premiers présentoirs ne tirent que des armes du pool :
+  au moins une arme par boutique) et `floor_tables` (pool de chaque étage, le dernier vaut pour les
+  suivants ; vide : `table`).
+- **Pondération par étage** : `boutique` puis `boutique_profond` (armes rares plus lourdes), et
+  `commun` puis `commun_profond` pour les coffres (`floors/etages_deux.ron`, champ `loot`).
+- **Échange d'emplacement** : l'arme lâchée par un échange ne peut pas être ramassée pendant
+  `WEAPON_SWAP_COOLDOWN_FRAMES` (30) frames (`WeaponPickup::can_buy_after_frame`, jusque-là réservé aux
+  armes murales). Sans ce délai, Interaction maintenu rééquipait à chaque frame l'arme qu'on vient de
+  poser (bug trouvé par le bot, emplacement unique).
+- **Lint** : arme inconnue (`BrokenReference`), `weapon_shelves` > `shelves`, `floor_tables` inconnu,
+  `weapon_shelves` sans arme dans le pool. `reach::loot_pool_weapons` compte les armes des pools :
+  `alacod lint games/gungeon` n'a plus d'avertissement d'arme.
+- **Atteignabilité** : le bot `explorateur` gagne l'option `ExplorerOptions::shopping`
+  (`alacod-sim --shopping`) : ouvrir les coffres (clé en main si verrouillés) et acheter les
+  présentoirs payables sont des buts d'exploration (Interaction sur la surface) ; l'arme qui tombe
+  est ramassée par le combat de `prudent` (butin au sol). Faux par défaut : aucune trace de bot ne
+  bouge. Test `explorer_finds_weapons_on_ordinary_floors` (`crates/scenario/tests/bots.rs`,
+  `ALACOD_SHOP_SEEDS`, `ALACOD_SHOP_FRAMES`) : partie `etages_deux`, graine 3, une arme autre que le
+  pistolet achetée à f69. Scénario `shop_weapon` : achat puis échange, bout en bout.
+
 ## 50. Boutique et monnaie `shells` (M2-T6, chantier C5)
 
 Les ennemis lâchent des douilles (`shells`), dépensées sur les présentoirs d'une salle `boutique`.
@@ -3625,6 +3662,65 @@ appuient). `alacod lint gungeon` : aucun nouvel avertissement d'ennemi.
 **Boss `gatling`** : phase 1 = couronne puis spirale 60 frames plus tard (répétition 150) ; phases 0 et 2
 inchangées. Un renfort `lanceur_kin` en phase 2 a été essayé : le bot meurt et `gungeon_boss_bot` dépasse son
 `EntityCount`, retiré.
+
+### 52.d Gabarits de salles et équilibrage de l'étage, D64 (T14d)
+
+Données seulement (`games/gungeon/assets/`, scénarios, traces gungeon), aucun code de moteur ; le test de
+grammaire `map_ldtk::generation::tests` a ses constantes mises à jour (bornes de `etage`, types exigés,
+gabarits décorés). Scripts : `docs/taches/rapports/m2-t14d-gabarits.make_gabarits.py` (gabarits et couche
+`Surfaces`) et `.make_ennemis.py` (composition des ennemis par gabarit), idempotents. Rapport et mesures :
+`docs/taches/rapports/m2-t14d-gabarits.md`.
+
+**Quinze gabarits** (8×8 cases, ouvertures de deux cases au milieu des côtés) : `Depart`, `CombatEW/NS/T/Croix`,
+`Recompense`, `Boutique`, `BossW/N`, `ArenaEW/Croix`, `EscouadeEW` (douze avant T14d) et trois nouveaux :
+
+| Gabarit | Type (`room_kind`) | Ouvertures | Contenu |
+|---|---|---|---|
+| `Coffre` | `coffre` | N E S W | trois tables, sable (`Surfaces`) autour du coffre central |
+| `Secret` | `secret` | W (cul-de-sac) | trois tables, eau et fosse dans les angles |
+| `ArenaNS` | `arene` | N S | deux barils et une table (les vagues viennent de `rooms/arene.ron`) |
+
+Types de salle nouveaux (`rooms/`) : `coffre` (non verrouillant, coffre ouvert au centre, rareté mini Uncommon, pool
+de l'étage) et `secret` (idem, rareté Rare, cul-de-sac). **« Secret » ne l'est que par sa place** : le mur secret
+(`DoorLock::Secret`, §62, exécuté par M3-T4) exige une bombe et `gungeon` n'en donne aucune (D81) : un mur plein
+que personne ne casserait. Un coffre de salle s'ouvre par Interaction : le
+bot ne le fait qu'avec `alacod-sim --shopping`. Les tables ne sont jamais posées devant une ouverture (une table
+sur les deux cases d'ouverture murerait la salle). Les accessoires sont toujours trois par salle décorée (le test
+de décor compte `CombatEW`, `CombatNS`, `Coffre`, `Secret`, `ArenaNS`).
+
+**Surfaces dans `gungeon`** : dossier `surfaces/` (`eau` 1, `sable` 2, `fosse` 4, copies de celles du testbed ;
+pas de glace, aucun gabarit n'en pose), couche IntGrid `Surfaces` ajoutée au projet de `salles.ldtk` et aux
+seuls niveaux `Coffre` et `Secret` ; la couche suit le gabarit dans l'étage assemblé (sonde `map_probe` : « fosse :
+3 cases » sur la graine 28). `SurfaceGrid` est neutre quand elle est vide : les étages sans gabarit à surface
+gardent leur hash.
+
+**Grammaire `etage`** : de 10 à 14 salles, types exigés `boss`, `recompense`, `boutique`, `arene`, **`escouade`**,
+`coffre`, `secret` (une fois chacun) ; le reste en `combat` (2 à 6 salles). La salle `escouade` de M2-T8 n'existait
+que dans la grammaire `court_escouade`. Validée sur 1 000 graines par `gungeon_etages_de_grammaire`
+(`ALACOD_FLOOR_SEEDS=1000`) et `gungeon_decor_sur_1000_graines`. `court`, `grand` et `court_escouade` ne
+bougent pas (leurs scénarios scriptés gardent leur forme). `court_arene` et `court_coffre` (départ, la salle, boss)
+portent les `test:` de `rooms/arene.ron` et `rooms/coffre.ron` ; `rooms/escouade.ron` joue `etages_court_escouade`.
+Scénarios générés `room_arene`, `room_coffre`, `room_escouade`, `room_secret` (grammaire `court_secret`, 5 salles).
+
+**D64, équilibrage** (leviers, tous en données). Un `bullet_kin` : 30 PV (40), salve de trois balles simples de
+4 dégâts (trois salves de deux, 6 dégâts), recharge de 150 frames (90), `ricochet` : `Bounce(1)`, portée 320 (500) ;
+idem `bullet_kin_squad`. Autres ennemis : `crachat` 4 (6), `chevrotine` 3 (5), explosion de `grenade` 10 (14) et
+éclat 3 (4), `bandana_kin` 10 de dégât (15), `tourelle_kin` 60 PV (90) et `croix` avec la nouvelle boule `boulette`
+(4 dégâts : `boule` reste celle du boss, non touchée). Gabarits (ennemis avant → après) : `CombatEW` 2 `bullet_kin` + `shotgun_kin` + `fuyard_kin` → 2 `bullet_kin` + `fuyard_kin` ;
+`CombatNS` 2 `bullet_kin` + `veteran_kin` + `tourelle_kin` → 2 `bullet_kin` + `veteran_kin` ; `CombatCroix` 3 `bullet_kin` +
+`bandana_kin` + `lanceur_kin` → 2 `bullet_kin` + `shotgun_kin` ; `CombatT` (3 `bullet_kin`) et `EscouadeEW` inchangés ; positions
+aux coins de la salle. Arène :
+horloge 750 (900), vagues à 0/250/500 (0/300/600), un `bullet_kin` au lieu de deux, un au lieu de trois. Soin :
+chaque salle `combat` nettoyée laisse une récompense (`salle.ron` : chance 1, ration 6/9) et la `ration` rend 25 PV (15).
+Joueur, boss, armes du joueur : intouchés (le renfort `bullet_kin` du boss profite de l'allègement).
+
+**Mesures** (`alacod-sim`, `etages_deux`, 200 graines, explorateur, `until-floor 1`) : à 1 bot 200 morts sur 200 → 54
+(27 %) ; à 2 bots 174 → 7 (3,5 %) ; 0 desync. Soft-locks : 0 avant, 4 sur 200 à 1 bot après, 0 à 2 bots ; cause
+et pistes dans le rapport (bot : cycle limite devant une ouverture de deux cases, dette D82).
+
+**Graines** (2 bots, `etages_deux`, `--shopping` ; `docs/taches/rapports/m2-t14d-gabarits/rencontre.py`) : 41 :
+coffre secret f369, coffre f1045, escouade f1096-f1233, arène f1476-f2226, boutique f2334, baril f604 ; 13 : secret
+f1100, coffre f3392, arène f2064-f2814, escouade f2971-f3257, boutique f1663.
 
 ## 53. Lint des kinds M2 et atteignabilité statique (M2-T15, voie V2)
 
@@ -3892,6 +3988,79 @@ Rechargement en jeu : `cargo run -p gungeon --features native`, ouvrir un écran
 modifier son `.html`. Le rapport précise les captures effectivement observées.
 
 
+## 57. Hub : stations, marchand de déblocages, entrée en run (M2-T13, chantier G2)
+
+Le hub est une **session à part** : une salle LDtk où l'on se déplace et interagit (simulation
+rollback, sans ennemi), puis la porte relance la session en run. Il ne change rien aux jeux sans
+`entry.hub` (`zombies`, `testbed`, `throne`, `isaac`) ni aux scénarios sans champ `hub`.
+
+**Données.** `game.ron` : `entry.hub: Some((map: "maps/hub.ldtk"))` et un dossier `(path: "hub",
+kind: "HubService")`. `hub/<id>.ron` (`meta::HubServiceDef`) : `name`, `needs` (conditions de profil :
+`Unlock("first_run")`, `Stat("runs", 2)`, toutes requises) et `action` : `EnterRun` (la porte) ou
+`Merchant` (l'écran des déblocages). `meta::MILESTONES` (`first_run`, `first_victory`) sont des
+conditions valides en plus des `Unlock` du jeu. **Lint** : carte du hub inconnue, hub sans service
+`EnterRun` (`BrokenReference`) ; condition `Unlock` inconnue (`BrokenReference`) ; `Stat(_, 0)`
+toujours vraie (`OutOfRange`). Fixtures `hub_unknown_unlock`, `hub_stat_zero`, `hub_without_door`.
+
+**Carte.** `maps/hub.ldtk` (une salle 16×12, quatre `PlayerSpawn`) et l'entité LDtk `HubStation`
+(champ `service` : id de `hub/<id>.ron`). Le hub est chargé avec `MapGenerationMode::Static` (variante
+ajoutée en dernier) : la carte est jouée **telle que dessinée**, sans assemblage de salles.
+
+**Stations dans la simulation.** `map_ldtk::game::local::spawn_hub_stations_when_map_loaded` pose une
+`game::hub::HubStation { service }` (rollback neutre) + `Interactable { Hub }`
+(`InteractionType::Hub`, en fin d'enum) par station dont le service est **ouvert** pour la session :
+en local, si le profil d'un des joueurs locaux remplit ses conditions ; **en ligne, le profil de
+l'hôte** reconstitué de la configuration de session (`ALACOD_RUN_UNLOCKS` pour les déblocages,
+`ALACOD_HOST_STATS=nom:n,…` pour les statistiques ; stand-in de la synchronisation des profils,
+hors périmètre). `GgrsNetId` triés par position puis service.
+`game::hub::hub_station_system` (`Interaction`) écrit `HubState` (ressource rollback **neutre**,
+vide par défaut) : `EnterRun` pose `exit: Some(HubExit { frame, handle })` (le premier ; **par défaut
+n'importe quel joueur déclenche la porte**, à confirmer par William), `Merchant` enregistre
+`visits[handle] = HubVisit { service, frame }`. Aucune autre règle : le profil n'est jamais lu dans
+`GgrsSchedule`.
+
+**Sortie : décision confirmée.** `game::hub::hub_exit_trigger` (`Update`) pose
+`RunRequest::EnterRun` quand `HubState.exit.frame <= ConfirmedFrameCount` : un état prédit puis annulé
+ne lance rien et les pairs qui confirment la même frame prennent la même décision au même moment.
+`EnterRun` et `ToHub` passent par le chemin du restart (`plan_run_request` : `Restart` local = retour
+direct en `GameLoading` ; en ligne, la salle `{lobby}-r{n}` et la graine dérivée de §33) ;
+`apply_run_request_system` bascule `HubSession.in_hub` et la carte (`hub::apply_to_map_config`).
+`HubState` est remis à zéro à la sortie d'`InGame`.
+
+**Phase.** `game::hub::HubSession { hub_map, run_map, in_hub }` (hors rollback, survit aux relances)
+est posée par `games/gungeon/src/main.rs` (le jeu démarre **au hub**) ou par un scénario
+(`hub: Some((stay: false))`). Au hub le mode de run est `Sandbox` (`hub::resolve_session_mode`) ; la
+run reprend le mode du manifeste (`Floors`, `entry.floors`). **Les outils sans binaire de jeu
+(`alacod-sim`, `make gen`, les campagnes de bots, le runner de scénarios sans champ `hub`) ne posent pas
+`HubSession` : ils jouent la run directement**, donc aucun faux soft-lock d'explorateur au hub (choix
+retenu plutôt que d'apprendre la porte aux bots). Fin de run : le bouton « Rejouer (R) » de l'écran
+de fin devient « Retour au hub (R) » (`RunRequest::ToHub`) quand `HubSession` existe ; le résumé de
+la run reste affiché, le profil est déjà écrit.
+
+**Marchand.** Écran `ScreenId::Merchant` (`ui/merchant_screen.html`, gabarit bevy_hui, même moteur
+que la pause et l'inventaire, §56) : une visite `HubVisit` du joueur affiché, dont la frame est
+confirmée, l'ouvre (`Screens::merchant_seen` : une visite ne rouvre pas l'écran). Lignes
+(`model::merchant_lines`) : les `Unlock` du jeu (ordre des ids), état `Owned` / `Available` /
+`Locked(raison)` calculé par `Profile::purchase` sur une copie. Entrée sur une ligne : commande
+`ScreenCommand::Buy(n)` → `game::profile::purchase_for_handle` (hors simulation) : débit de l'essence,
+profil écrit tout de suite (écriture atomique de §38), message affiché. **Un achat entre dans la
+simulation partagée au passage de la porte** : `RunUnlocks` est figé au lancement de chaque session
+(§51) et la run relit les profils au lancement ; au hub il ne change pas.
+
+**Scénarios.** `Scenario::hub: Option<HubSetup>` (`stay: true` : la run n'est pas lancée, la preuve
+reste dans la session du hub), attentes `HubExit { handle, exit_frame, none, at_frame }` et
+`HubVisit { handle, service, at_frame }`. `hub_use_stations` (marchand puis porte), `hub_buy_unlock`
+(écran, achat, `ProfileHas`, `RunUnlocks` inchangé). Le runner de scénarios ne suit pas une relance
+de session (sa boucle compte les frames d'une seule session) : la relance a son test,
+`crates/scenario/tests/hub.rs` (porte → requête une fois la frame confirmée → `Floors { etage_1 }`
+étage 0, `HubState` remis à zéro, `RunUnlocks` de la run contient le déblocage acheté au hub).
+
+**Limites.** Local : la graine de la run ne change pas d'une run à l'autre (le restart local garde la
+graine, §33). En ligne : la porte est jouée par le chemin du restart de §33 (preuve p2p rejouée par
+l'orchestrateur) ; les déblocages et services de l'hôte viennent de la configuration de session
+(`ALACOD_RUN_UNLOCKS`, `ALACOD_HOST_STATS`), pas encore d'un échange réseau, et un achat de l'hôte
+au hub n'atteint les pairs qu'avec la synchronisation des profils (hors périmètre).
+
 ## 60. Contrats des larmes et de l'empilement de projectiles (M3-T0a, chantier B5 v3)
 
 Contrats posés pour M3-T1 (larmes v3), M3-T6 (familiers qui tirent), M3-T11a (contenu de larmes)
@@ -3999,6 +4168,67 @@ Scénarios : `tears_infinite` (300 frames de tir, `Ammo` à 0 tout du long, les 
 `tears_shot_speed_sans_objet`, elle n'est pas encore arrivée).
 
 
+## 61. Contrats des objets et de la santé (M3-T0b)
+
+Contrats posés pour M3-T2 (effets v3), M3-T3 (cœurs et pickups), M3-T8 (marché du diable) et
+le contenu Isaac. **Aucune trace existante ne bouge** : les champs nouveaux sont optionnels et
+absents du contenu livré, les nouveaux types rollback sont neutres, et les variantes sont ajoutées
+en fin d'enum.
+
+### Inventaire et exemplaires
+
+`Inventory::count(id)` compte les passifs dans leur ordre (doublons compris), l'actif s'il porte
+`id`, et le compteur consommable `id`. La clé historique d'un effet est
+`item:<id>:<index>` pour le premier exemplaire ; les suivants réservent
+`item:<id>#<k>:<index>`, avec `k >= 1`. Le branchement dans `listed_effects` et l'exécution de
+`PerCopy` restent M3-T2 : ce point ne change aucune partie existante.
+
+`effects::Scale::PerCopy` est porté par l'action contractuelle `Scaled { action, scale }`.
+`effects::scale_value` est la règle pure : `PerCopy` multiplie par `Inventory::count(id)`, le
+champ absent ne modifie pas la valeur. `scale` est accepté seulement dans un effet d'objet ;
+les power-ups, frises de boss, personnages, mutations et synergies le refusent au lint. L'action
+enveloppée est validée comme une action nue (`Heal` > 0, références de `SpawnPattern`…), y compris
+dans l'`OnUse` d'un objet. `Scale` est hors de l'exécution de cette dette.
+
+### Prix et compteurs
+
+`items::Price` est `Currency(u32)`, `Consumable(String, u32)` ou `MaxHealth(Fixed)`. Un
+`Shelf` conserve `price: u32` pour son hash historique et reçoit `cost: Option<Price>` ; absent,
+`cost` ne contribue pas au hash, et `Price::Currency` est équivalent à `price`. Les règles pures
+`can_pay`/`pay` refusent un prix de vie qui tuerait le joueur et réduisent la vie courante et
+maximale ensemble ; l'interaction de boutique est M3-T8. Un montant nul n'est jamais payable
+(`can_pay` faux, `pay` sans effet et sans panique) ; `Price::problems` donne les erreurs de contenu
+(montant nul, consommable inconnu, vie maximale hors `]0, max]`), sans surface de contenu avant T8.
+
+`ItemDef.max_stack: Option<u32>` ne plafonne un consommable que lorsqu'il est présent (Isaac :
+99). Absent conserve le comportement illimité actuel. Le ramassage au plafond laisse l'objet au
+sol ; son exécution est M3-T3. `game::loot::BOMB_ITEM` réserve le nom `"bomb"`.
+
+### I-frames et questions ouvertes
+
+`CharacterConfig.hit_iframes: Option<u32>` est absent par défaut. Après un dégât final strictement
+positif (après immunité, bouclier et armure), le résolveur pose `Health.invulnerable_until_frame`
+à `event.frame + n`, en conservant la valeur la plus longue. Un coup absorbé par un bouclier ou
+annulé par l'armure ne déclenche pas cette durée. La preuve future est le scénario
+`hit_iframes` : deux balles à dix frames d'écart, la seconde n'enlève rien avec `Some(30)` (4992) ;
+son témoin `hit_iframes_sans_iframes` (personnage `iframes_temoin`, sans `hit_iframes`) en perd
+deux (4984). Le résolveur lui-même est testé par `crates/scenario/tests/hit_iframes.rs`.
+
+**Q2 — modèle des cœurs (proposition par défaut).** Une demi-case vaut un point de `Health`,
+les personnages livrés gardent des PV pairs, et `ExtraHealth { soul: Fixed }` absorbe les dégâts
+point par point avant les PV ; il reste distinct de `Shield`, qui absorbe un coup entier.
+T0b ne code pas cette couche.
+
+**Q4 — partage en coop (bloqué).** Option par joueur : chaque `Inventory` reste local, et le
+ramassage est attribué au premier `GgrsNetId` dans l'ordre déterministe. Option équipe : une
+ressource rollback d'équipe porte sous, bombes et clés, les prompts lisent cette ressource et
+un seul ramassage la crédite. T0b ne choisit ni ne code l'une des deux.
+
+**Q16 — exemplaires.** Proposition par défaut : limites indépendantes pour tous les exemplaires,
+avec preuve des traces gungeon touchées ; l'alternative est un champ par objet
+`stack: Independent | Shared`. T0b réserve la clé indépendante mais ne branche pas les limites
+dans `listed_effects` avant M3-T2.
+
 ## 62. Contrats du monde : bombes, rochers, piques, portes verrouillées, grille (M3-T0c)
 
 Contrats seuls, sans exécution : M3-T4 (bombes, rochers cassés, mur secret, piques) et M3-T5
@@ -4014,7 +4244,7 @@ dans l'ordre croissant de `GgrsNetId.0` ; `destroys` casse aussi les rochers de 
 (`destroy_terrain`). Elle vit dans `world` (comme `destroy_terrain`, dans la frontière `SIM`), pas dans
 `combat` : elle ne connaît que des identifiants et des positions. Lint : `radius > 0`, `damage >= 0`,
 puis `Unsupported` dans un effet tant que M3-T4 ne l'exécute pas ; refusée dans un power-up. Le baril
-**ne bascule pas** dessus ici (sa trace ne doit pas bouger) : M3-T4 le fera avec preuve. Moment clé
+**ne bascule pas** dessus ici (sa trace ne doit pas bouger) : M3-T4 l'a fait (§69), traces identiques. Moment clé
 `explosion` (`world::Exploded`, `FrameEvents` neutre) déclaré, émis en T4.
 
 ### Bombe
@@ -4073,6 +4303,59 @@ le joueur marche vers trois rochers qui ferment un couloir et s'y arrête ; quat
 (dont un à butin) à f5 et à la fin ; `joueur_hors_mur` tient.
 
 
+## 63. Contrats des familiers, orbitaux et champions v2 (M3-T0d)
+
+Contrats seuls : rien n'est rencontré en partie ordinaire, aucune trace ne bouge. M3-T6 exécute les
+familiers, M3-T7 les champions.
+
+**Behaviors de familier** (`behaviors::Behavior`, variantes **en fin d'enum**) : `Follow { gap }` (suit
+le porteur à `gap` unités, en file derrière les autres familiers du même porteur : rang = ordre
+d'apparition), `Orbit { radius, frames_per_turn }` (tourne autour du porteur, phase = rang × 2π /
+nombre d'orbitaux, par `fixed_math`), `MirrorShot { weapon, every }` (tire quand le porteur tire, dans
+sa direction de visée, au plus une fois tous les `every` frames ; **Q13** : l'arme du familier, sans les
+modificateurs du porteur), `BlockBullets` (une balle hostile qui touche le familier est détruite par
+`despawn_rollback`, comme le blank ; le familier est immunisé). `Behavior::is_familiar`. `select`
+ne retient jamais ces règles (un familier n'a pas d'IA de poursuite) ; kinds `Follow`, `Orbit`,
+`MirrorShot`, `BlockBullets` déclarés (`register_kinds`). Un familier est un **personnage** de
+`characters/` (équipe `Players` ; l'IA ennemie ne cible que `With<Player>`, un familier n'est donc ni
+visé ni attaqué : le ciblage ne change pas ici, allié qui combat = D5).
+
+**Lien au porteur.** `behaviors::FamiliarOf { owner: GgrsNetId, rank: u32 }` : composant rollback
+**neutre** (`rollback_and_trace_neutral`), contribution 0 sans porteur. Créé et détruit par les
+objets en M3-T6 ; son `GgrsNetId` viendra de `id_factory` au ramassage, dans l'ordre déterministe des
+ramassages de la frame.
+
+**Champ d'objet.** `ItemDef.familiar: Option<FamiliarRef { character, per_copy }>` (`per_copy` : 1 par
+défaut, par exemplaire tenu). Définition hors rollback et hors hash. **Lint** : personnage inconnu
+(`BrokenReference`), personnage sans behavior de familier, `per_copy = 0`, `gap`/`radius` ≤ 0,
+`frames_per_turn = 0`, `every = 0`, arme de `MirrorShot` inconnue ; réciproquement un behavior de
+familier sur un personnage qu'aucun objet ne cite est refusé (`Unsupported`, « sans porteur »).
+
+**Champions v2.** Champs optionnels de `VariantDef` (hors hash : le composant `Variant(nom)` ne change
+pas) : `on_death: [Action]` (vide par défaut), `behaviors: Option<Vec<Behavior>>` (remplace la liste
+du personnage), `loot: Option<String>` (pool de butin lâché à la mort, graine de §48 avec la clé de
+contenu `champion:<net_id>`), `tint: Option<String>` (`#rrggbb`, présentation seule). `chance`
+accepte un nombre (valeur inchangée) **ou une expression** (`NumOrExpr`, §18) avec les identifiants
+`players` et `floor` ; `VariantsConfig::chance_at(players, floor)`. Tant que M3-T7 n'exécute rien, le
+tirage de la variante résout l'expression avec 1 joueur à l'étage 0 (`draw_variant`) ; un nombre est
+toujours exact, le tirage de la graine de §25 est donc inchangé.
+**Nouvelle action** `Action::SpawnCharacters { id, count }` (fin d'enum) : fait apparaître `count`
+personnages à la position de l'action, à des **décalages fixes** autour du point, sans RNG (justification
+contre `SpawnEnemies`, qui tire ses positions dans le flux RNG de la salle `room:<niveau>` : la mort d'un
+champion ne doit pas déplacer ce tirage). **Lint** des actions à la mort : seules `Explode`, `SpawnCharacters`
+et `SpawnPattern` sont admises (`Unsupported` sinon ; `SpawnCharacters` est refusée dans un effet, un
+power-up et une frise de boss) ; `Explode` rayon > 0 et dégâts ≥ 0, `SpawnCharacters` personnage connu et
+`count > 0`, `SpawnPattern` pattern et arme connus, pool de butin connu, couleur `#rrggbb`, `behaviors`
+non vide et valides (mêmes règles que `ai.behaviors`), `chance` dans [0, 1] pour 1 et 4 joueurs aux
+étages 0 et 5.
+
+**Preuves.** Fixtures `familiar_ok`, `familiar_unknown_character`, `familiar_orphan_behavior`,
+`familiar_without_behavior`, `familiar_gap_zero`, `champion_ok`, `champion_bad_death`,
+`variant_chance_expression_range`, `variant_chance_expression_unknown` ; contenu `testbed` : personnage
+`compagnon` (`Follow` + `MirrorShot`, arme `pistol`) et objet `compagnon` (`familiar`), accepté par le lint,
+sans scénario de jeu (le ramassage ne crée rien encore). Attente de scénario `FamiliarCount { handle,
+count, at_frame }` (familiers dont le porteur est le joueur ; 0 tant que M3-T6 n'existe pas).
+
 ## 65. Le jeu `isaac` : squelette (M3-T0f)
 
 Le clone `isaac` démarre, sur la grammaire d'étage **en arbre existante** (`Graph`) : rien de nouveau
@@ -4107,3 +4390,583 @@ workspace par `games/*`, `make isaac`, `make lint` ×5 avec `games/isaac`).
 - **Scénarios** : `isaac_boots` (démarrage, tir continu sans rechargement), `isaac_floor_seed_1`
   (le bot `explorateur` bat l'étage, victoire à f1009) ; générés : `weapon_*`, `enemy_*`, `room_combat`,
   `boss_gardien`.
+
+## 66. Larmes v3 : tir composé, `Spectral`, `Split`, `Orbit`, `Poison`, `Fear`, chance d'effet (M3-T1, chantier B5 v3)
+
+M3-T1 fait **lire au tir** les contrats de §60 et ajoute les statuts v2 et la chance d'effet.
+**Aucune trace existante ne bouge** (suite complète sans `BLESS`) : tout passe par des objets, des
+modificateurs ou des champs que le contenu d'avant n'a pas. Scénarios neufs seulement : douze
+(`tears_*`, `status_poison`, `status_fear`) et les générés `weapon_status_poison`/`weapon_status_fear`,
+`item_*` des neuf objets d'essai.
+
+### Tir composé
+
+`weapon_rollback_system` lit, au tir d'un joueur, `items::Inventory` (le tireur), `ItemTable` et
+`SynergyTable` (`items::projectile_mods` : passifs dans l'ordre de ramassage, un passif en double
+compte deux fois, puis l'actif, puis les synergies actives par id). Les `ProjectileMods` **non vides**
+sont composés avec le `projectile:` du mode de tir par `Projectile::composed` (règles de `compose`,
+§60) ; leur `on_hit` et leur `on_expire` s'**ajoutent** à ceux de l'arme, dans le même ordre.
+
+- Aucun objet qui ajoute quelque chose (cas de tout le contenu d'avant) : chemin d'origine,
+  `Projectile::new` ou balle ordinaire sans `Projectile`, au bit près.
+- Une balle ordinaire devient un `Projectile` (id : le nom de l'arme) dès qu'un objet ajoute quelque
+  chose ; `Size` agrandit alors collider et sprite, comme pour une arme.
+- `Projectile` (rollback) gagne `spectral`, `split`, `orbit`, `luck` ; son `Hash` est **manuel** :
+  ces champs ne sont hachés que s'ils sont actifs, donc le hash d'un projectile d'avant M3-T1 est
+  inchangé (même règle pour le `Debug` du dump détaillé).
+- `combat` dépend maintenant de `items` (crate de simulation, sans rendu : `check_sim_boundary` inchangé).
+- Familiers (Q13, question ouverte) : le tir d'un familier n'est **pas** composé ici ; `Projectile::composed`
+  prend ses ajouts en paramètre, M3-T6 y passera `items::projectile_mods` du porteur s'il retient l'héritage.
+
+### `Spectral`, `Split`, `Orbit`
+
+- **`Spectral`** : `projectile_collision_system` saute la branche des murs (rebond, arrêt, `BulletWallHit`) ;
+  les personnages touchent toujours. La portée (`range`) borne encore le vol.
+- **`Split { count, spread, child }`** : à chaque impact sur un personnage (après `register_hit`),
+  `spawn_split_children` fait naître `count` projectiles en éventail de `spread` radians centré sur la
+  direction de vol, à la position du parent, un `GgrsNetId` chacun dans l'ordre de l'éventail.
+  `child: Some(id)` : l'entrée `id` de la table `projectiles` de l'arme (dégâts, vitesse, portée et
+  modificateurs de sa définition) ; `child: None` (**Q3 : le projectile par défaut du porteur**) : une
+  **copie du parent** (mêmes dégâts, vitesse et portée, modificateurs et `on_hit` restants, sans `Split`,
+  sans `Orbit`, sans `on_expire`). Dans les deux cas l'enfant **hérite de la liste des cibles déjà touchées**
+  (il ne retouche pas la cible qu'il quitte) et compte une génération de plus : au-delà de `MAX_GENERATION`
+  (8) la division est ignorée avec un `warn!`. L'enfant n'hérite pas de `ShotSize`. Lint : un cycle de
+  `Split` dans la table (`a → b → a`) est refusé (`OutOfRange`).
+- **`Orbit { radius, frames_per_turn }`** : `projectile_steering_system` fixe chaque frame la vitesse
+  de la frame suivante à l'écart jusqu'à `combat::projectile::orbit_position` : angle
+  `phase + 2π · (âge mod frames_per_turn) / frames_per_turn` (sens trigonométrique, `phase` = direction
+  de tir, fixée à l'apparition), rayon qui croît de 0 à `radius` pendant 10 frames
+  (`ORBIT_RAMP_FRAMES`), centre = position du **tireur** à cette frame. Ni gravité ni guidage en orbite
+  (lint : `Orbit` avec `Homing` ou `Gravity` dans la même liste est refusé). Le projectile ne s'arrête que
+  par un coup (`Pierce`), un mur (sauf `Spectral`), `Lifetime`, la portée (la longueur d'arc compte) ou la
+  disparition du tireur (portée mise à 0).
+
+### Statuts `Poison` et `Fear`
+
+`StatusDef::{Poison, Fear}` en fin d'enum (`status_def_ron_round_trip` ; `StatusDef` avait quatre variantes,
+le `Hash` dérivé garde l'index des anciennes). Contenu : `(kind: Poison, frames: 120, damage: "2", period: 30)`,
+`(kind: Fear, frames: 150)` ; le lint exige `damage > 0` et `period > 0` pour `Poison`, `frames > 0` pour les deux.
+
+- **`Poison`** : exactement les règles de `Burn` (ticks, piles jusqu'à 2, durée plafonnée à 2 × la base,
+  dernière source créditée) ; dégâts de genre `DamageKind::Poison` (`status_tick_system`).
+- **`Fear`** : `Statuses::feared()`. L'ennemi **fuit** sa cible : `move_enemies` impose le recul de
+  `Flee` (`ai::rules::flee_motion`, extrait de `behavior_motion` : champ de recul de l'ennemi, sinon à
+  l'opposé de la cible) qu'il liste `Flee` ou non ; `enemy_attack_system` ne lance plus d'attaque au corps à
+  corps et `melee_hold_system` pose `MeleeHold` (mêlée d'arme) tant que la peur dure. Réapplication :
+  durée rafraîchie ; sans effet sur un joueur. **Charme : Q12**, hors tâche (rien codé).
+
+### Chance d'effet
+
+`Action::Chance { base, per_luck, then }` (en fin d'enum `Action`) enveloppe une action d'`on_hit`
+(`ApplyStatus`, `TimedModifier`, `CurrencyMultiplier` ; ni une autre `Chance` ni `DestroyTerrain`) :
+
+```ron
+projectile: Some((on_hit: [Chance(base: "0.5", per_luck: "0.125", then: ApplyStatus(status: "poison", stacks: 1))]))
+```
+
+Chance finale `effects::chance_with_luck(base, Luck, per_luck)` (§60), `Luck` lue **au tir** et gardée dans
+`Projectile::luck` (seulement pour un projectile qui porte une `Chance`). Le tirage est un RNG **local** :
+`effects::chance::roll_chance(run_seed, net id du projectile, rang de l'action)`, graine mélangée
+(`chance_seed`, splitmix64 : deux net ids voisins ne donnent pas deux tirages voisins), aucun `RngStreams`
+consommé (la graine de run est lue seule). Il est résolu dans `projectile_collision_system` (le seul à
+connaître le net id) : l'événement `ProjectileHit` porte l'action `then` si le tirage réussit, la `Chance`
+elle-même sinon (les systèmes d'application l'ignorent), ce qui garde le **rang** de chaque action, donc la
+source `projectile:<id>:<rang>` des modificateurs posés. Lint : `base` dans `[0, 1]`, statut vérifié à travers
+la `Chance`. Refusée (`Unsupported`) dans un effet, un power-up et une frise de boss.
+
+### Lint
+
+`Spectral`, `Split` et `Orbit` ne sont plus refusés dans une arme ; un objet ou une synergie à `projectile:`
+est vérifié sans être refusé : mêmes plages qu'une arme, doublon refusé **dans une liste**, `on_hit` comme
+une arme (statut connu), et, faute de table `projectiles` (celle de l'arme qui tire), `Split` **sans** `child`
+et `on_expire` **sans** `Spawn` (`DestroyTerrain` seulement). Fixtures : `projectile_contract_ok`,
+`item_projectile_ok`, `item_projectile_no_table`, `item_projectile_out_of_range`,
+`projectile_chance_out_of_range`, `projectile_split_cycle`, `status_poison_fear_out_of_range`.
+
+`sim_core::stats::default_base` donne 0 à `Luck` (attente `Stat`, générateur `ItemHeld`).
+
+### Testbed et scénarios
+
+Carte `testbed/props_room.ldtk` (salle de 28 × 9 cases, un joueur en (696, -200), un `follower` en
+(328, -200) ; monde = `(x_ldtk + 280, -120 - y_ldtk)`), cibles `target` posées par `characters`. Objets
+d'essai (`tags: ["larmes"]`) : `guide` (`Homing`), `perforant` (`Pierce(1)`), `rebond` (`Bounce(2)`),
+`spectre` (`Spectral`), `division` (`Split` en 3, 0,6 rad), `orbite` (rayon 40, un tour en 60 frames),
+`venin` (`Chance` 0,5, +0,125 par `Luck`, `ApplyStatus poison`), `trefle` (`Luck` +4). Armes `status_poison`,
+`status_fear`. Statuts `poison`, `peur`.
+
+| Scénario | Prouve |
+|---|---|
+| `tears_item_homing`, `..._sans_objet` | un objet ajoute `Homing` à une arme sans modificateur : touche à f58 ; témoin : aucun coup |
+| `tears_stack_two_copies` | deux `perforant` : `Pierce` 1 + 1, la larme touche trois cibles sur quatre |
+| `tears_stack_three` | `rebond` + `guide` + `division` : une larme, impact, trois larmes de génération 1 qui se courbent vers le `follower` |
+| `tears_spectral_wall`, `..._sans_objet` | `Spectral` franchit le mur de la salle et touche la cible derrière (f49) ; témoin : arrêtée par le mur |
+| `tears_split` | une larme, trois enfants qui touchent chacun sa cible (f72), personne touché deux fois |
+| `tears_orbit` | la larme tourne autour du joueur et touche la cible derrière lui (demi-tour, f48) |
+| `status_poison` | ticks de 2 toutes les 30 frames, santé exacte de la cible, expiration |
+| `status_fear` | le `follower` touché fuit 150 frames (distance ≥ 360 à f300), reprend sa marche, ne touche pas le joueur |
+| `tears_luck_chance` | six larmes, chance 0,5 : quatre cibles empoisonnées (graine de run, net id, rang) |
+| `tears_luck_stat` | même tir avec `trefle` (`Luck` 4 → chance 1) : les six |
+
+Diagnostic : `ALACOD_PROJECTILES=<scénario>:<de>:<à> cargo test -p scenario --profile headless
+--no-default-features --test scenarios projectile_probe -- --ignored --nocapture` (projectiles, coups,
+statuts frame par frame) ; `map_probe` liste aussi les personnages non joueurs.
+
+### Atteignabilité
+
+Rencontré quand M3-T11a met les objets de larmes dans le pool trésor d'`isaac` ; d'ici là, scénarios
+testbed seulement.
+
+## 67. Effets v3 : `OnHit`, `OnEvent`/`Emit`, `ApplyStatus`, `PerCopy` (M3-T2, chantier C1 v3)
+
+Exécute les contrats de §61. **Aucune trace existante ne bouge** : variantes en fin d'enum, champs
+optionnels, files transitoires (hors checksum, vidées au `FrameStart`).
+
+- **`OnHit`** : le porteur a infligé un dégât **réel** (> 0, après immunité, bouclier, armure) à une autre
+  entité. `character::health::rollback_resolve_damage_events` émet `effects_v3::HitLanded`, lu par
+  `apply_effects_system`. Jamais pour un dégât que la source s'inflige. La condition `TargetInRange` lit
+  la position de la cible (`OnHit`, `OnKill`, `OnDamageTaken`) ; fausse sans cible.
+- **`ApplyStatus { status, stacks }`** dans un effet : statut posé sur la **cible** du déclencheur, donc
+  `OnHit` ou `OnDamageTaken` (la source du coup) seulement. **Pas `OnKill`** : la cible est morte dans la
+  frame, le statut ne serait jamais posé (lint : refusé) ; pour un effet à la mort, `ApplyStatusSelf` pose
+  sur le porteur. Posé par `effects_v3::effect_status_system` avec la règle des `on_hit` de projectile
+  (auteur crédité des dégâts, `Slow` pose son modificateur de vitesse). Statut inconnu et `stacks = 0` : lint.
+- **`OnPickup` filtré** : champ `item: Some("bottes")` de l'**effet** (pas une variante `OnPickup(Some(item))` :
+  l'enum `On` et le hash des effets existants ne bougent pas). Sans filtre, tout ramassage ; avec, le seul
+  objet nommé (le sien compris). Lint : `item` hors `OnPickup` et objet inconnu refusés. Hors hash quand absent.
+- **`Emit(nom)` / `OnEvent(nom)`** : les effets `OnEvent` du même porteur répondent aux `Emit` de ses
+  effets, dans la même frame, par tours (`MAX_EVENT_ROUNDS` = 8, au-delà les émissions sont abandonnées
+  avec un `warn!`). Le lint refuse un nom vide ; il ne vérifie pas qu'un `OnEvent` a un émetteur.
+- **`Scaled { PerCopy }`** : l'action enveloppée n'est exécutée **qu'une fois par objet** (par le premier
+  exemplaire), multipliée par le nombre d'exemplaires (`Inventory::count`). `scale: None` est transparent.
+  **Actions linéaires seulement** (`effects::actions::is_linear`) : `Heal`, `GainShield`,
+  `Modifier`/`TimedModifier` d'op `Add` ou `Pct`, `ApplyStatus`, `ApplyStatusSelf`, `Explode` (dégâts, pas le
+  rayon). Le lint refuse toute autre action sous `PerCopy` (`Modifier` `Mul`/`Set`, `Emit`, `RefillAmmo`…) :
+  l'exécution ne la sauterait pas sans rien dire.
+- **Composition `Emit` × `OnEvent` par exemplaire : linéaire.** Une action non `Scaled` s'exécute **par
+  exemplaire** (n exemplaires = n `Emit`), mais un effet `OnEvent` **écoute une fois par objet** (le récepteur
+  n'est pas dupliqué ; `listed_effects` ne le liste que pour le premier exemplaire). Exemple, la `vipere`
+  (`OnHit : Emit("coup")`, `OnEvent("coup") : +1 de dégâts`) : 1 exemplaire = 1 émission × 1 récepteur = +1 ;
+  2 exemplaires = 2 × 1 = **+2** (et non +4) ; seul `Scaled(PerCopy)` multiplie.
+- **Limites par exemplaire (Q16)** : `ItemDef::stack` (`Shared`, défaut, ou `Independent`). `Shared` :
+  clé `item:<id>:<index>` commune, les `cooldown`/`charges` sont partagés ; `Independent` : clé
+  `item:<id>#k:<index>` par exemplaire.
+- **Ordre d'exécution** : porteurs par `GgrsNetId` ; pour chacun, effets du personnage, puis objets (passifs
+  dans l'ordre de ramassage, puis l'actif), exemplaire après exemplaire, puis synergies. Les `Emit` sont
+  traités après (`apply_event_effects_system`), puis les statuts (`effect_status_system`).
+- **Scénarios** (chacun avec son témoin `_temoin`, sauf `effect_on_hit`/`effect_per_copy` dont le témoin est
+  la frame d'avant le coup) : `effect_on_hit` (`vipere`), `effect_on_event` (`echo`), `effect_target_in_range`
+  (`portee`), `effect_apply_status` (`morsure`), `effect_pickup_filtered` (`filtre`), `effect_per_copy`,
+  `effect_scale_per_copy` (`empile`). Unitaires : `effects_v3::tests`, `effects_runtime::tests`,
+  `effects::runtime::tests`, `crates/scenario/tests/effects_v3.rs` (`HitLanded` dans le vrai résolveur).
+- **Échelle** : `effects_hundred_items` (100 objets : 97 `cent_*` de charge et 3 observateurs à une charge, un par
+  famille `Tick`, `OnHit`, `OnKill`, dont la conséquence visible est comparée au témoin ; `machine_gun` sur un
+  `dummy` puis une `target`, le `follower` de la carte meurt aussi) et son témoin sans objets. `advance_ms_avg`, trois exécutions du même run, machine
+  partagée (indicatif) : **0,19 ms** avec les 100 objets, **0,12 ms** sans, 0,145 ms pour `four_players_idle`
+  (115 entités). Surcoût ≈ 0,07 ms par frame sur 16,7 : `listed_effects` n'est pas précalculé.
+- Hors périmètre : exécution des effets d'objet par les pools Isaac (T11b), transformations (Q10, non retenues
+  ici : `transformation_three` non livré).
+
+## 69. Bombes, explosions, rochers cassés, piques, mur secret (M3-T4, chantiers E3 et E4 v2)
+
+Exécute les contrats de §62. Code : `game::bombs` (`BombsPlugin`), `world::{bomb, explosion, surface}`,
+`map_ldtk::game::rooms::secret_wall_system`, `game::effects_runtime` (action `Explode`). **Aucune trace
+existante ne bouge** : tout état nouveau est neutre ou transitoire et absent des jeux sans `bomb`, sans
+rocher, sans piques ni salle secrète ; le baril garde sa trace (`barrel_chain`, `bench_floor`) en changeant
+de code.
+
+### Bombe
+
+`CharacterConfig.bomb` donne au joueur un composant `world::BombCarrier { def, held }` (rollback **neutre**,
+`PlayerScript::bomb` le pose aussi en scénario). `bomb_place_system` (`Effects`, après
+`synergy_modifiers_system`, joueurs par `GgrsNetId`) : au **front montant** de `INPUT_BOMB` (`held` réécrit à
+chaque frame, avant tout retour anticipé), joueur debout, avec au moins un consommable `bomb` dans son
+`Inventory` (`starting_consumables` ou `PlayerScript::items`), il en consomme un et pose une `world::Bomb`
+aux pieds (centre du collider, offset compris) : entité rollback neutre numérotée `bomb_<poseur>`,
+mèche de `fuse_frames`. `BombDef.friendly_fire` (fin de structure, défaut **`Always`**, Q4 : la bombe blesse
+son poseur et les autres joueurs, comme Isaac ; `Never` pour la couper). Sans `BombCarrier` rien ne lit le bit.
+
+### Explosion
+
+Trois sources, une règle. `world::ExplosionRequest { id, source, source_team, x, y, radius, damage,
+destroys, friendly_fire }` (`FrameEvents` **transitoire**, hors checksum : un baril en émet dans des parties
+existantes) est émise par `bomb_fuse_system` (bombe dont la mèche est écoulée, puis `despawn_rollback`), par
+le baril mort (lu dans `explosion_system`) et par l'action `Explode` (voir plus bas). Deux étages :
+
+1. `World` (`bomb_fuse_system` puis `explosion_terrain_system`, après `pit_system`, **avant**
+   `apply_destroy_terrain_system`) : si `destroys`, terrain de caverne (`DestroyTerrainRequest` : les murs
+   de `CellGrid` et le champ de flux sont refaits dans la frame, comme pour `DestroyTerrain`) et rochers.
+2. `CollisionDamage` (`explosion_system`, à l'emplacement de l'ancien `barrel_explosion_system`, avant
+   `rollback_resolve_damage_events`) : les demandes de la frame (bombes + barils morts) sont **triées par
+   `GgrsNetId` de l'objet** (tri stable) ; chacune envoie `damage` (`Physical`, tag `explosion`, source =
+   le poseur, donc crédité) à tout personnage à PV dont le centre est à **strictement** moins de `radius`
+   (`world::within_radius`), sauf l'objet lui-même, un personnage déjà à l'agonie (`Death`) et un personnage
+   **invulnérable** (`Health::is_invulnerable_at`, comme les balles : c'est ce qui protège les familiers de
+   M3-T6, `invulnerable_until_frame = u32::MAX`). Elle émet `world::Exploded` (transitoire, moment clé
+   `explosion`) ; un baril est détruit par `despawn_rollback()` avec sa demande. Une chaîne de barils
+   reste « un baril par frame » (le voisin touché meurt dans la frame, explose à la suivante).
+
+Écart avec le baril d'avant : le rayon est **strict** (`<`) et non inclusif, et un personnage invulnérable
+n'est plus visé (le résolveur l'ignorait déjà) ; aucune des scènes existantes ne place un personnage à
+exactement `radius` (traces de `barrel_chain` et des cartes à barils identiques).
+
+### Rochers et butin
+
+`explosion_terrain_system` casse chaque `world::Rock` dont le centre est à moins de `radius`
+(`world::cells_in_radius` : rendus par `(y, x)` croissants, un rocher cassé une seule fois par frame) par
+`despawn_rollback()`. Le champ de flux relit les `Obstacle` à chaque mise à jour : le passage s'ouvre sans code
+de plus (`rock_flow_field`). Chaque rocher cassé émet un `game::bombs::RockBroken` (transitoire) ;
+`map_ldtk::game::rooms::rock_loot_system` (`World`, après `explosion_terrain_system`, qui seul voit `CurrentRooms`)
+tire le butin d'un rocher à butin (`loot`) : un `ItemPickup` tiré par
+`items::draw_loot_with` (consommables seulement) avec un `RollbackRng` **local** de graine
+`loot_seed(graine, étage, "rock:<salle>:<x>:<y>")` (`game::bombs::rock_loot_key`, case de grille monde ;
+`<salle>` = identifiant de la plus petite salle **de l'étage courant** dont les bornes contiennent le rocher, `-`
+sinon : `game::bombs::room_of`, nourri par `CurrentRooms` ; en `Floors` les mondes se superposent, une salle d'un
+étage inactif donnerait une clé fausse) ; pool =
+celui de l'étage s'il existe, sinon `salle` (aucune chance : le tirage est certain). Q : pool propre aux
+rochers ?
+
+### Mur secret
+
+Une salle dont le type porte `door_lock: Secret` garde ses portes **et leurs jumelles** (celles du bord de la
+salle voisine) fermées : au premier tick, `room_lock_system` les laisse closes et leur retire seulement
+`Interactable` (aucune Interaction ne les ouvre) ; les autres portes de salle s'ouvrent comme avant. Les deux
+branches `Locked → Cleared` (fin d'une salle de combat ou d'une arène **voisine**) **et le verrouillage** d'une salle
+voisine (`to_close`) ignorent aussi les portes secrètes (`secret_door`), ouvertes ou fermées : leur état est du seul
+ressort de `secret_wall_system` (`secret_wall_open_then_fight` : mur ouvert, puis la salle voisine se verrouille et se
+nettoie, il reste ouvert ; témoin `_sans_bombe`) : nettoyer la salle d'à côté n'ouvre pas le mur (`secret_wall_after_clear`). Le mode
+`Floors` remet `DoorLocks` à zéro à la transition d'étage (`floor_transition_system`) : les portes renaissent
+fermées, et un étage répété (mêmes `LevelId`) ne les croit pas déjà ouvertes (`secret_wall_floors`).
+`secret_wall_system` (`World`, après `bomb_fuse_system`) : une `ExplosionRequest` qui `destroys` et dont le
+rayon touche le **bord du collider** d'une de ces portes (`world::rect_within_radius`, strict) ouvre
+**toutes** les portes de la salle (colliders retirés) et la range dans `DoorLocks` (`DoorLocked(kind, nth,
+locked: false)`). Le champ de flux relit les portes à chaque mise à jour : les deux salles sont reliées
+(`secret_wall_bomb`, un ennemi de la salle secrète rejoint le joueur). Placement par la grammaire : M3-T5.
+
+### Piques
+
+`hazard_system` (`World`, après `pit_system`, seulement si la carte a une case de piques) : un joueur debout
+dont les pieds sont sur une surface à `hazard` reçoit `damage` (`True`, tag `spikes`, source = lui-même) si
+`HazardDef::applies` : une fois toutes les `period` frames (`world::HazardState { last_hit }`, rollback
+neutre posé au premier coup), sauf pendant un dash si `dash_crosses` (champ de fin de structure, faux par
+défaut : le dash ne franchit pas les piques, il y est blessé quand il n'a pas d'i-frames). Surface du
+testbed : `surfaces/piques.ron` (valeur IntGrid 5, 5 PV, 30 frames).
+
+### Action `Explode`
+
+`effects::Action::Explode { radius, damage, destroys }` est exécutée dans un effet de personnage, d'objet
+tenu, de mutation ou une frise de boss (`apply_action_sourced`) : une **bombe à mèche d'une frame** est
+posée au point du porteur (commande différée : `GgrsNetIdFactory` et position se lisent à l'application),
+équipe du porteur, tir ami `Always` ; elle explose à la frame suivante par le même chemin. Le porteur n'est
+pas exempté : au centre du rayon, il prend les dégâts comme les autres (`explode_effect`). Le lint ne la
+refuse plus dans un effet (rayon > 0, dégâts >= 0 inchangés) ; `OnUse` d'un objet et les power-ups la
+refusent toujours (`OnUse` n'a pas de position). `Explode` en mort de champion : M3-T7.
+
+### Déterminisme
+
+`Fixed` partout (`FixedWide` pour les carrés), `order_iter!`/`order_mut_iter!`, `BTreeMap`/`BTreeSet`,
+`despawn_rollback()` pour bombes, barils et rochers, un seul `RollbackRng` local par rocher à butin.
+`ExplosionRequest` et `Exploded` sont transitoires (vidés au `FrameStart`, jamais lus avant leur émetteur) :
+`explosion_system` est après `bomb_fuse_system` et les dégâts d'une frame se résolvent dans la frame. Types
+neutres sans porteur hors des cartes concernées : `BombCarrier`, `Bomb`, `HazardState`, `Rock` (T0c),
+`DoorLocks` (T0c). `PlayerScript::bomb` est un champ de scénario sans effet sur les parties enregistrées.
+`fuzz_inputs` : `ALACOD_FUZZ_BOMBS=1` joue un personnage à huit bombes dans la salle à rochers du testbed
+(`rock_flow.ldtk`) avec des appuis aléatoires sur `Bomb`.
+
+### Testbed et scénarios
+
+Cartes `testbed/spikes.ldtk`, `testbed/rock_flow.ldtk`, `testbed/salles_secret.ldtk`
+(`scripts/construire-cartes-t4.py`) ; `rocks_static.ldtk` (T0c) sert aux bombes et au butin. Objet
+`objets/bomb.ron` (consommable `bomb`), surface `surfaces/piques.ron`.
+
+| Scénario | Prouve |
+|---|---|
+| `bomb_place_explode`, `bomb_hurts_owner` | pose au front montant, compteur `bomb` 1 → 0, explosion 20 frames après (f35, `explosion`) ; un mannequin à 35 px perd 50 PV, un autre à 100 px non ; tir ami coupé : le poseur intact, actif : il perd 50 |
+| `bomb_breaks_rock` | les trois rochers du couloir disparaissent, le rocher à butin (50 px) reste, le joueur passe ; aucun butin |
+| `bomb_digs_cave` | caverne `petite` : la bombe creuse (26, 15) et (27, 15) (7 cases détruites, f96) par la même requête que la grenade ; le joueur traverse |
+| `rock_loot` | rayon 60 : le rocher à butin laisse une clé (`loot_seed`), ramassée (f156) |
+| `bomb_chain_barrel` | bombe → premier baril (f80) → second (f81) → joueur 1 touché (100 → 70, f82) |
+| `secret_wall_bomb`, `secret_wall_closed` | porte fermée (`DoorLocked`), joueur et ennemi bloqués ; la bombe l'ouvre (f95) : ils passent ; témoin sans bombe |
+| `spikes_damage` | 5 PV à f71 puis toutes les 30 frames (95, 90, … 75 à f199), santé intacte avant |
+| `secret_wall_after_clear` | la salle de combat voisine nettoyée (f489) rouvre ses portes ordinaires, pas la porte secrète : le joueur s'arrête contre elle (x -714,8), aucune bombe |
+| `secret_wall_floors` | deux étages identiques (`deux_secrets`) : porte ouverte par une bombe à l'étage 0, de nouveau fermée à l'étage 1 (f306), rouverte par la seconde bombe (f395) |
+| `explode_effect` | un effet `Explode` (`kamikaze`, `Tick(40)`, une charge) : une seule explosion (f47), joueur 100 → 70, porteur 50 → 20 (aucune exemption), `dummy` hors rayon intact |
+| `rock_flow_field`, `rock_flow_field_blocked` | le `follower` prend le détour ; la bombe rouvre le passage direct : distance 59,7 à f240 contre 109,2 ; il rejoint le joueur vers f280 contre f360 |
+
+Unitaires : `game::effects_runtime` (`Explode` pose une bombe à mèche d'une frame, équipe et crédit du porteur,
+`destroys`), `game::bombs::room_of` (sélection de la salle parmi celles de l'étage courant), `world::explosion` (rayon strict, rectangle touché, cases triées), `world::surface`
+(`HazardDef::applies`), `game::bombs` (`explosion_system` : ordre des ids, invulnérables et mourants
+épargnés, ordre des explosions ; clé de butin), `content` (`explode_effect_ok`).
+
+### Questions pour William
+
+Q4 (reprise de §62) : tir ami de la bombe, proposition `Always` ; pool de butin propre aux rochers (le pool
+`salle` ne donne qu'une clé) ; dégâts des piques `True` en points (demi-cœurs : Q2) ; mur secret ouvert par
+une explosion de baril (aujourd'hui non : le baril n'a pas `destroys`).
+
+### Atteignabilité
+
+Rencontré quand `isaac` donne des bombes de départ à son personnage (dette : le faire change ses traces,
+décision de l'orchestrateur), que M3-T11d place rochers et piques dans les gabarits `combat` et que M3-T5
+place le mur secret ; d'ici là, scénarios testbed seulement.
+
+## 71. Familiers et orbitaux en jeu (M3-T6, chantier C3)
+
+M3-T6 exécute les contrats de §63 : `Follow`, `Orbit`, `MirrorShot`, `BlockBullets`, `FamiliarOf`,
+`ItemDef.familiar`. **Aucune trace existante ne bouge** : aucun objet existant n'a `familiar`, donc aucun
+`FamiliarOf` ni `FamiliarGun` (neutres) n'existe, et les systèmes sortent sans rien toucher quand il n'y a
+pas de familier (`game::familiars`, plugin `FamiliarsPlugin`, dans `RollbackSystemSet::Weapon`).
+
+### Apparition : dérivée de l'état
+
+`familiar_sync_system` compare chaque frame, par joueur, les familiers **voulus** (`desired_familiars` : les objets
+tenus dans l'ordre passifs (ordre de ramassage, un passif en double compte deux fois) puis actif ; `per_copy`
+fois le personnage de chaque objet à `familiar`) aux familiers **existants** (`FamiliarOf`, triés par rang).
+`reconcile` garde le plus long préfixe commun (par personnage) : le reste est détruit par `despawn_rollback()`
+puis recréé. Ramasser un objet crée ses familiers (rangs à la suite), perdre l'actif remplacé détruit ceux de
+l'actif (queue de liste : les autres gardent leur rang) ; perdre un passif du milieu refait les rangs suivants.
+Pas d'événement à rejouer : un rollback avant le ramassage retombe sur le même état. `GgrsNetId` (étiquette =
+id du personnage) : porteurs par `GgrsNetId` croissant, puis rang croissant ; le familier naît **sur le porteur**.
+Porteur à terre : ses familiers ne bougent ni ne tirent ; porteur mort (entité détruite) : ils restent en place,
+immobiles (proposition de la fiche, retenue).
+
+### Un familier est un personnage, ni `Enemy` ni `Player`
+
+Créé par `create_character` (`character/` du jeu), de l'équipe de sa fiche (sinon celle du porteur), avec :
+`FamiliarOf { owner, rank }` (rollback, neutre), `FamiliarBehaviors` (liste `ai.behaviors`, **statique**, comme
+`EnemyBehaviors`), `FamiliarGun` (neutre, seulement avec `MirrorShot`). Sans `Enemy` : ni compté par les salles,
+les vagues, le HUD ; sans `Player` : l'IA ennemie ne le cible pas. **Aucun obstacle** : couche `environment` (aucune
+entrée dans la matrice de collision), donc ni joueur, ni ennemi, ni balle n'est gêné par un familier ; il traverse
+aussi les murs (il vole). **Immunisé** : `Health.invulnerable_until_frame = u32::MAX`, que les collisions de balles,
+de projectiles et de mêlée respectent déjà (traversé, jamais touché). Limite : `Homing`/`Aimed` hostiles « visent
+toujours » un personnage invulnérable (§16) : une balle à tête chercheuse peut chasser un familier.
+
+### Comportements (`behaviors::familiar`, pures, `Fixed` seulement)
+
+- **`Orbit { radius, frames_per_turn }`** : `orbit_position(centre, radius, fpt, index, count, frame)` = centre +
+  `radius` × (cos, sin) de `index × 2π / count + 2π × (frame mod fpt) / fpt` (sens trigonométrique). `index` = rang
+  parmi les orbitaux du porteur, `count` = leur nombre. **Sans état** : se déduit du numéro de frame (fraction de
+  tour en entiers : `Fixed` est un I16F16, un tour de plus de 32 767 frames ne déborde pas), angle replié dans
+  `[-π, π]` (le CORDIC perd sa précision au-delà de 3π/2). Rang = ordre d'apparition.
+- **`Follow { gap }`** : `follow_step(position, ancre, gap)` : immobile à `gap` ou moins de l'ancre, sinon avance de
+  `max(5, excédent / 4)` unités par frame sans dépasser l'excédent. Les suiveurs d'un porteur, par rang croissant,
+  forment une **file** : le premier vise le porteur, chacun des suivants le précédent (position déjà mise à jour dans
+  la frame). Pas de mémoire de trajectoire : la file se déduit des positions courantes.
+- **`MirrorShot { weapon, every }`** : quand le porteur a **réellement tiré** cette frame, le familier tire **sa** arme
+  `weapon` (mode par défaut), dans la direction de visée du porteur (`pan` de l'input), au plus une fois par `every`
+  frames (`FamiliarGun`). Le déclencheur est l'événement transitoire `sim_core::triggers::WeaponFired { frame,
+  player_handle }`, émis par `weapon_rollback_system` quand la balle part (cadence respectée, chargeur non vide) et
+  lu la même frame (`owner_fired`, pure) : une gâchette tenue que la cadence refuse n'émet rien (à la frame 0,
+  `last_fire_frame` valait 0 par défaut et faisait croire à un tir). Événement transitoire : hors checksum, hors
+  snapshot, aucune trace ne bouge. **Q13 (réponse de la fiche et du plan : proposition par défaut) : l'arme du
+  familier, sans les modificateurs du porteur** ni ses objets de larmes ; un seul tir par déclenchement (pas de plombs
+  multiples), ni dispersion ni recul (aucun RNG consommé), projectile composable de l'arme si elle en déclare un. La
+  balle porte le `GgrsNetId` et l'équipe du **porteur** (les kills et les points lui reviennent, elle ne le touche
+  jamais), `player_handle` du porteur, les tags du familier. Variante non retenue (larmes du porteur) :
+  `Projectile::composed` de §66 prend ses ajouts en paramètre, il suffirait d'y passer `items::projectile_mods` du
+  porteur.
+- **`BlockBullets`** : entre le mouvement des balles et leurs collisions, une balle (ordinaire ou composable) que
+  `team_allows_hit` dit hostile au familier et dont le **disque balayé** de la frame (segment ancienne → nouvelle
+  position, rayon de la balle) touche son collider est détruite par `despawn_rollback()` (sans `on_expire`), comme le
+  blank. L'AABB balayée ne sert qu'à présélectionner ; le contact se décide par `swept_hits_collider` (pure,
+  `FixedWide`) : rond = distance du centre au segment < R + r ; rectangle = segment qui le traverse, ou distance
+  segment–rectangle < r (bouts du segment et coins). Une balle qui frôle un coin n'est donc plus détruite.
+
+Ordre dans `Weapon` : `weapon_rollback_system` → `familiar_sync_system` → `familiar_motion_system` →
+`familiar_mirror_shot_system` → `bullet_rollback_system` → `familiar_block_bullets_system` →
+`bullet_rollback_collision_system`. Les `GgrsNetId` des balles de familier sont donc alloués entre ceux des tirs de
+joueurs et le mouvement des balles, dans l'ordre porteur puis rang.
+
+### Lint et attentes
+
+Inchangé pour l'essentiel (§63). Un personnage cité par un objet `familiar` n'est plus signalé « n'apparaît dans
+aucune salle » (son atteignabilité est celle de l'objet). Attente de scénario **`FamiliarDistance { handle, rank,
+to_rank, min, max, at_frame }`** : distance du familier de rang `rank` du joueur `handle` à son porteur ou au
+familier de rang `to_rank` (avec `FamiliarCount` de §63).
+
+### Testbed et scénarios
+
+Personnages `compagnon` (`Follow` 28 + `MirrorShot` `pistol` tous les 12), `orbital` (`Orbit` 36, un tour en 120 frames,
+`BlockBullets`), `rempart` (`Orbit` 24 en 36 000 frames : quasi immobile à l'est du porteur, `BlockBullets`). Objets
+`compagnon`, `compagnon_actif` (actif), `orbital`, `essaim` (`per_copy: 2`), `trio` (`per_copy: 3`), `rempart`.
+
+| Scénario | Prouve |
+|---|---|
+| `familiar_follow` | apparaît sur le porteur, reste dans sa laisse, rattrape et garde 28 unités |
+| `familiar_mirror_shot`, `..._sans_objet` | une larme du porteur, deux coups sur la cible (le familier f58, le porteur f83) ; témoin : un seul |
+| `familiar_two_copies` | deux `compagnon` en file (rangs 0, 1) et un `trio` (rangs 2 à 4, à 120°) |
+| `familiar_lost_with_active` | l'actif remplacé détruit son familier, l'orbital passif reste |
+| `orbital_blocks_bullet`, `..._sans_objet` | l'orbital arrête la boule de feu de la tourelle (f125 : au bord, 19 en vol comme le témoin ; f126 : 18 contre 19), santé 100 à f200 contre 74 sans objet |
+| `familiar_mirror_cadence` | gâchette tenue dès f0 : la cadence refuse le tir jusqu'à f20, le familier ne tire pas avant ; deux balles à f20 |
+| `familiar_quad` | quatre joueurs, deux familiers chacun, synctest (resimulation + checksums à chaque frame) |
+
+Diagnostic : `projectile_probe` (`ALACOD_PROJECTILES=<scénario>:<de>:<à>`) affiche aussi joueurs et familiers
+(porteur, rang, position) toutes les 10 frames.
+
+### Atteignabilité
+
+M3-T11b met au moins deux familiers et un orbital dans le pool trésor d'`isaac` ; d'ici là, scénarios testbed seulement
+(dette nommée, à fermer par T11b).
+
+
+## 72. Champions et élites v2 en jeu (M3-T7, chantier D2 v2)
+
+M3-T7 exécute les champs de `VariantDef` de §63 : `on_death`, `behaviors`, `loot`, `chance` en expression ;
+`tint` est lu par la présentation seule (T17 le dessine : aucune lecture ici, attente nulle). **Aucune trace
+existante ne bouge** : un personnage sans variante, ou dont la variante n'a aucun champ v2, ne passe par rien de
+neuf (`champion_death_system` sort sans rien toucher), `PatternGhost` est neutre. Le
+tirage de §25 (graine `fnv1a("variants") ^ graine ^ net id`, `RollbackRng` local, jamais `RngStreams`) est inchangé.
+
+### `chance` en expression : valeur figée à l'apparition
+
+`draw_variant(config, forced, graine, net id, VariantContext { players, floor })` : `players` = joueurs de la session
+(`PlayersCount`, au moins 1), `floor` = étage de l'apparition (`run::FloorState::index`, 0 hors mode `Floors` ;
+`variant_context_at(étage suivant)` au passage de niveau). `DifficultyReader` porte le contexte (`variant_context_at`) ;
+les cinq sites d'apparition (`spawn_enemy` : vagues, spawners, renforts de salle, `CharacterSpawn`, placements de
+scénario) le passent. Un littéral est exact : même tirage qu'avant, quels que soient joueurs et étage. Le lint
+(§63) borne l'expression dans [0, 1] pour 1 et 4 joueurs aux étages 0 et 5 : une expression qui dépasserait 1 à
+l'étage 5 est une erreur de contenu (`0,1 + floor × 0,18`). Variante **imposée** (`CharacterSpawn.variant`, placement
+de scénario) : aucun tirage, la chance ne compte pas.
+
+Piège connu (hérité de §25, **non corrigé**, une correction déplacerait les traces de tout contenu à variantes) : la
+graine `fnv ^ graine ^ net id` donne, via un générateur congruentiel, des **valeurs voisines à des net ids
+consécutifs** ; quarante ennemis posés d'un coup tirent donc presque le même nombre. Les scénarios de chance
+choisissent une graine (1942) qui répartit les tirages de part et d'autre des seuils ; dette à numéroter.
+
+### `behaviors`
+
+Ceux de la variante **remplacent** ceux du personnage à la création (`enemy::create::spawn_enemy`, après le tirage) :
+`EnemyBehaviors::rules`, et `ai.ranged` suit la première règle `Shoot` comme pour un personnage. `BehaviorRuntime`
+est posé si la nouvelle liste en a besoin. Un personnage dont la variante n'a pas de `behaviors` garde le chemin d'avant.
+
+### `on_death`
+
+`champion_death_system` (`RollbackSystemSet::DeathManagement`, après `rollback_check_defeat` et
+`shell_drop_on_death_system`, avant `rollback_apply_death`, comme `boss_defeated_system`) : pour chaque mort qui porte
+`Variant`, par `GgrsNetId` croissant, **à la frame de sa mort** :
+
+- **`SpawnCharacters { id, count }`** : `count` personnages `id` de l'**équipe du mort**, santé résolue (F5 × difficulté),
+  par `spawn_enemy`, à des **décalages fixes** (`split_offsets` : un anneau de 14 unités, rang 0 vers +x, aucune
+  consommation de RNG), `GgrsNetId` alloués dans l'ordre (mort, puis rang `k` ; clé de contenu `champion:<net id>:<k>`
+  dans les logs `champion_split`). Ils sont créés **sans variante** (`NO_VARIANT` = `"-"`, absente de toute table) : pas de
+  division en cascade, même si la chance du personnage est de 1.
+- **`Explode { radius, damage, destroys }`** : **le mécanisme de M3-T4 (§69), sans second chemin** : une **bombe à mèche
+  d'une frame** (`world::Bomb`, `fuse_until = mort + 1`, comme l'`Action::Explode` des effets) posée à la position du mort,
+  **de son équipe**, tir ami `Always`, créditée au dernier joueur qui l'a touché (points des victimes), sinon au mort ;
+  `destroys` est transmis. `game::bombs::bomb_fuse_system` puis `explosion_system` l'exécutent à la frame suivante (une
+  `ExplosionRequest`, un `DamageEvent` par cible, un `Exploded`, rayon strict, exclusions `Death` et **invulnérables** :
+  un familier immunisé n'est jamais touché, scénario `champion_explodes`). Une seule émission de dégâts et d'`Exploded`
+  par explosion ; `PendingBlasts` et `champion_blast_system` (premier jet de T7) n'existent plus. L'équipe du mort
+  (`Enemies`) est celle de la source : la difficulté d'étage multiplie donc les dégâts, comme ceux de tout ennemi.
+- **`SpawnPattern { pattern, weapon }`** : un émetteur **sans personnage** (`PatternGhost`, rollback neutre) à la position du
+  mort, de l'équipe du mort, joue le pattern avec la table de projectiles de l'arme (`effects_runtime::spawn_pattern`, le
+  chemin des effets), puis `pattern_ghost_cleanup_system` le détruit (`despawn_rollback`) quand son `Emitter` est fini. Les
+  projectiles naissent à la frame suivante (`Weapon`). Lint ajouté : un pattern **infini** (`Ring` avec `every > 0`, y compris
+  atteint par une chaîne `Named`, profondeur bornée ; chaîne cyclique ou inconnue refusée aussi) est
+  refusé à la mort (`Unsupported`) : l'émetteur n'a pas de personnage pour l'arrêter ; utiliser `every: 0`.
+- Toute autre action est refusée par le lint (§63) et, si elle arrivait, ignorée avec un `warn!`.
+
+### `loot`
+
+La table de la variante (`loot/<table>.ron`) est tirée à la mort par `items::draw_loot_with` avec un `RollbackRng` de graine
+`items::loot_seed(graine de run, étage, "champion:<net id>")` (§48 : indépendant du moment, jamais `RngStreams`), les
+déblocages actifs de la run appliqués comme pour un coffre ; l'objet (ou l'arme, `items::loot_weapon`) est posé au sol
+16 unités à l'est du mort (`spawn_item_pickup`, `spawn_loot_weapon`) et se ramasse comme n'importe quel objet.
+
+### Testbed et scénarios
+
+Personnages `elite_explosif` (variantes `explosif`, `salve`, `nu`), `elite_divise` (`divise`, `nu`), `elite_riche` (`riche`,
+`nu`), `elite_comportement` (`distant`, `nu`), `elite_chance` (chance `0,1 + 0,18 × floor`) ; pattern `couronne_unique` ;
+séquence `deux_vides` (deux niveaux sans ennemi, le portail s'ouvre aussitôt). Les scénarios **forcent** la variante
+(`variant:` du placement) et gardent un témoin `_sans_variante` (variante `nu`, sans effet).
+
+| Scénario | Prouve |
+|---|---|
+| `champion_explodes`, `..._sans_variante` | `Explode` à la frame suivant la mort (f29 → f30) : joueur 90, cible proche 4990, lointaine 5000 ; le familier (10 PV, immunisé) survit ; témoin : personne blessé |
+| `champion_splits`, `..._sans_variante` | trois `elite_divise` en anneau de 14 unités à la mort (f55), sans variante ; témoin : rien |
+| `champion_drops`, `..._sans_variante` | l'objet `bottes` (graine `champion:14`) est lâché, ramassé à f120 ; témoin : rien |
+| `champion_behaviors`, `..._sans_variante` | `KeepDistance` de la variante au lieu de `Chase` : le champion reste à plus de 190 unités ; témoin : il rejoint le joueur |
+| `champion_pattern` | `SpawnPattern` : huit boules de feu en couronne à f56, une seule couronne, émetteur détruit |
+| `champion_chance_floor_0`, `champion_chance_floor` | `chance` en expression : 2 champions sur 40 à l'étage 0 (10 %), 23 sur 40 à l'étage 1 (28 %) |
+
+Diagnostic : `map_probe` (`ALACOD_MAP_PROBE=<scénario>:<frame>`) liste aussi la variante des personnages.
+
+### Atteignabilité
+
+M3-T11c donne des champions à au moins trois ennemis des salles `combat` d'`isaac` (graine à nommer à ce moment) ; d'ici là,
+scénarios testbed seulement (dette nommée, à fermer par T11c).
+
+## 78. Générateur v3 : gabarits `TearsOnTarget`, `FamiliarHeld`, `ChampionForced` (M3-T13)
+
+Code : `crates/scenario/src/generate.rs` (`build_tears_scenario`, `build_familiar_scenario`,
+`build_champion_scenario`, `champion_death_expectations`, `discover_target`), `game::gen_test`
+(`TearsTest`, `FamiliarTest`, `ChampionTest`), `game::character::config::CharacterTest::champions`,
+`content::lint` (`lint_item_tests`, `lint_character_tests`). Complète §28 et §54 : mêmes règles
+(opt-in par `test:`, aucun effet en jeu, un scénario écrit par `make gen GAME=<jeu>`, champ absent =
+rien de généré, les scénarios et traces existants ne bougent pas). **Aucune attente nouvelle** : les
+gabarits n'emploient que `HasItem`, `Stat`, `EntityHits`, `HitsAtLeast`, `FamiliarCount`,
+`EnemyVariant`, `EntityCount`, `Event`, `PlayerAlive`.
+
+Les trois gabarits sont des **champs ajoutés à des `test:` existants** : un objet ou un personnage
+déjà généré garde son fichier octet pour octet. Ils jouent dans l'arène de `generate_template`
+(`WeaponArena`, `target`/`cible` avec `counts_hits`) pour les objets, dans l'arène du gabarit ennemi
+(§28) pour les champions. Les nouveaux sujets sont rangés **après** les anciens dans `--list`.
+
+**Larmes** (`objets/<id>.ron`, fichiers `tears_<id>.ron` **et** `tears_<id>_sans_objet.ron`) :
+`test: Some((frames: 60, tears: Some((weapon: Some("larme"), frames: Some(150), targets: [(character: "target", dx: -48, dy: -18)], hits: [(target: 0, with_item: 5, without_item: 0)], expect: [...], control: [...]))))`.
+Le joueur tient l'objet (`PlayerScript::items`), tire par impulsions (`weapon`, visée `aim` : par
+défaut vers la cible de l'arène) ; le **témoin** rejoue le même tir, le même placement, sans l'objet :
+la preuve de l'effet est la différence entre les deux fichiers, dans le dépôt. Attentes avec l'objet :
+`HasItem`, une `Stat` par modificateur de stat (valeur sondée comme `ItemHeld`, §54), chaque `hits`
+(`EntityHits ≥ with_item`), puis `expect` ; témoin : chaque `hits` (`EntityHits ≤ without_item`),
+puis `control` (le contraire de `expect`). `targets` : personnages à `counts_hits` posés à `(dx, dy)`
+unités monde de la cible de l'arène (cible d'index 0 de `hits`, les posées ont l'index `n + 1`, et
+`Placed(n)` dans `expect`/`control`) ; leur santé règle le test ; les net ids sont retrouvés par
+position (`discover_hit_net_ids`). `frames` propre au gabarit (défaut `test.frames`) : le `ItemHeld`
+d'un objet existant ne change pas. Le lint exige `with_item > 0` et `with_item > without_item` (un
+seuil que le témoin passerait est refusé), `expect` et `control` ensemble, au moins un `hits` ou un
+`expect`. Un objet dont l'effet ne change pas les coups prouve par `expect`/`control` (ex.
+`BulletCount` exact, `HasStatus` / `present: false`).
+
+**Familier** (objet à `familiar:`, fichier `familiar_<id>.ron`, et `familiar_<id>_sans_objet.ron` si
+`min_hits > 0`) :
+`test: Some((frames: 60, familiar: Some((weapon: ..., frames: Some(120), min_hits: 9, expect: [...]))))`.
+Attentes : `HasItem`, `FamiliarCount = per_copy` à la frame 5 et à l'avant-dernière frame ; si
+`min_hits > 0`, le joueur tire aussi et la cible reçoit au moins `min_hits` coups ; le témoin (même
+tir sans l'objet) en reçoit au plus `min_hits - 1` et n'a aucun familier : fixer `min_hits` d'après
+le témoin. `familiar:` sur un objet sans `familiar:` : erreur de lint.
+
+**Champion** (personnage à `variants:`, fichier `champion_<id>_<variante>.ron`) :
+`test: Some((frames: 150, still: false, moving: false, champions: [(variant: "explosif", kill: true, weapon: Some("larme")), (variant: "nu")]))`.
+L'ennemi apparaît à 200 unités à droite du joueur avec la variante imposée
+(`CharacterPlacement::variant`, §63) ; attente `EnemyVariant(Placed(0))` à la frame 2. `kill: true` :
+une **sonde** (`probe_champion_death`) joue la partie, relève la frame de la mort (première frame sans
+`Variant`) et ce qui l'entoure ; le scénario attend alors **la mort** : `EntityCount(Enemy)` exact
+avant (frame − 1) et après (frame + 1 : avant − 1 + personnages nés), puis chaque effet de mort
+déclaré : `Explode` → moment clé `explosion` ; `SpawnCharacters` → `count` ennemis de plus ;
+`SpawnPattern` → `BulletCount` des balles de l'équipe ennemie (0 avant, le nombre mesuré après) ;
+`loot` → le joueur tire jusqu'à la mort puis marche vers +x et appuie sur Interaction (80 frames de
+marche), `HasItem` de l'objet ramassé (`frames` assez long). Une variante sans effet traduisible
+est refusée par le lint (`kill: true`), et un effet qui n'a laissé aucune trace à la sonde (motif sans
+balle, butin non ramassé) fait échouer la génération : rien n'est ignoré en silence. Une variante
+répétée ou absente de la table est une erreur ; `still: false, moving: false` : pas de gabarit
+`enemy_<id>_*` en plus.
+
+**Lint** (`content`) : voir ci-dessus ; `tears.frames`, `familiar.frames > 0` ; armes connues ;
+cibles `targets` connues et à `counts_hits` ; `hits.target` dans les cibles ; `champions` : variantes
+de la table, sans doublon, `weapon` seulement avec `kill` et connue, `kill` seulement avec un effet de
+mort traduisible. Fixtures : `champion_test_{unknown_variant,duplicate_variant,unknown_weapon,
+kill_untranslatable,weapon_without_kill}`, `tears_test_{min_hits_zero,hits_not_above_control,
+nothing_proven,expect_without_control,frames_zero,hit_target_out_of_range,weapon_unknown,
+target_unknown,target_no_counts_hits}`, `familiar_test_{without_familiar,frames_zero}`.
+Le schéma de `alacod describe` (kind `Item`, `Character`) expose les nouveaux champs.
+
+**Limites des preuves.** Le lint vérifie la cohérence des seuils **déclarés** (`with_item >
+without_item`, `expect`/`control` ensemble) ; leur adéquation aux parties réelles n'est prouvée qu'en
+jouant les scénarios (`make gen` joue l'objet et son témoin). Une preuve par `BulletCount` exact à
+une frame (`rebond`, `spectre` : 1 balle en vol contre 0 à la dernière frame) dépend de la phase
+tir/vol/durée de vie : un changement de cadence, de vitesse ou de `lifetime` de l'arme la fait
+basculer (les traces et le témoin le signalent) ; préférer un compte de coups quand l'effet en change.
+
+**Échelle** : le nom d'un fichier est une fonction de l'id seul (`tears_<id>`, `familiar_<id>`,
+`champion_<id>_<variante>`) ; ajouter un objet ordinaire = un `.ron` de contenu avec `test:`, jamais
+un scénario écrit à la main. Mesures : voir `docs/taches/rapports/m3-t13-generateur-v3.md`.

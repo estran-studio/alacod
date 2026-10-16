@@ -1,0 +1,8 @@
+// M3-T6 (docs/conventions.md §71) : objet d'essai : trois orbitaux (`orbital`) par exemplaire (`per_copy: 3`). Scénario `familiar_two_copies`.
+(
+    name: "Trio",
+    kind: Passive,
+    familiar: Some((character: "orbital", per_copy: 3)),
+    // M3-T13 (§78) : scénarios générés `item_trio` (ItemHeld) et `familiar_trio` (FamiliarHeld : `FamiliarCount` 3).
+    test: Some((frames: 60, familiar: Some((frames: Some(120), min_hits: 0)))),
+)

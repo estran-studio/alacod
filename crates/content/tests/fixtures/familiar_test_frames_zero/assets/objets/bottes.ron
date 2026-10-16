@@ -1,0 +1,1 @@
+(name: "Bottes", kind: Passive, test: Some((frames: 60, familiar: Some((frames: Some(0))))))

@@ -1,0 +1,8 @@
+// Fixture M3-T0b : `Scaled` refusé dans la frise d'un boss
+(
+    name: "fixture-scaled_in_boss",
+    content_folders: [
+        (path: "characters", kind: "Character"),
+    ],
+    entry: (start_map: "unused", default_seed: 1),
+)

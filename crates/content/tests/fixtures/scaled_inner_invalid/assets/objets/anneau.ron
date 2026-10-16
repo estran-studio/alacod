@@ -1,0 +1,4 @@
+(name: "Anneau", kind: Passive, effects: [
+    (on: Tick(60), do: [Scaled(action: Heal("-1.0"), scale: Some(PerCopy))]),
+    (on: Tick(60), do: [Scaled(action: SpawnPattern(pattern: "absent", weapon: "absente"), scale: Some(PerCopy))]),
+])

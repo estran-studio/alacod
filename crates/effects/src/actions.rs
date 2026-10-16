@@ -20,9 +20,17 @@ use sim_core::stats::StatId;
 /// module `game::powerups`, décision « pas de ressource globale toujours présente »).
 pub const CURRENCY_MULTIPLIER_STAT: &str = "powerup_currency_multiplier";
 
+/// Une action appliquée par un power-up ramassé ou un effet. Liste fermée et minimale ; une
+/// action qui doit être multipliée par le nombre d'exemplaires est enveloppée par `Scaled`.
+#[cfg_attr(feature = "schema", derive(schemars::JsonSchema))]
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Hash, Serialize, Deserialize)]
+pub enum Scale {
+    PerCopy,
+}
+
 /// Une action appliquée par un power-up ramassé. Liste fermée et minimale (T2.5, graine de
-/// C1 — `docs/plan-engine.md` §5) : un power-up futur qui a besoin d'un autre effet ajoute
-/// une variante ici, jamais un type de contenu séparé.
+/// C1 — `docs/plan-engine.md` §5) : un power-up futur qui a besoin d'un autre effet ajoute une
+/// variante ici, jamais un type de contenu séparé.
 #[cfg_attr(feature = "schema", derive(schemars::JsonSchema))]
 #[derive(Debug, Clone, PartialEq, Eq, Hash, Serialize, Deserialize)]
 pub enum Action {
@@ -138,6 +146,126 @@ pub enum Action {
         damage: Fixed,
         destroys: bool,
     },
+    /// M3-T0d (`docs/conventions.md` §63) : fait apparaître `count` personnages `id` à la position
+    /// de l'action (division d'un champion à sa mort). Contrairement à `SpawnEnemies` (frise de
+    /// boss, positions tirées du flux RNG de la salle), les positions sont des **décalages fixes
+    /// autour du point** (aucune consommation de RNG : le tirage d'une salle n'est pas touché par
+    /// la mort d'un champion). Contrat seul : l'exécution vient de M3-T7. Ajoutée en fin d'enum.
+    SpawnCharacters {
+        id: String,
+        #[cfg_attr(feature = "schema", schemars(extend("x-lint" = "> 0")))]
+        count: u32,
+    },
+    /// M3-T1 (`docs/conventions.md` §66) : exécute `then` avec une chance de
+    /// `clamp(base + Luck × per_luck, 0, 1)` ([`crate::chance_with_luck`]). **`on_hit` d'un
+    /// projectile seulement** (arme ou objet) ; le tirage est un RNG local de graine
+    /// `(graine de run, net id du projectile, rang de l'action)`, jamais `RngStreams`. `then` est
+    /// une action d'`on_hit` ordinaire (pas une autre `Chance`). Ajoutée en fin d'enum : les
+    /// hashs des variantes d'avant ne bougent pas.
+    Chance {
+        #[cfg_attr(feature = "schema", schemars(with = "bevy_fixed::schema::FixedString"))]
+        #[cfg_attr(feature = "schema", schemars(extend("x-lint" = "[0, 1]")))]
+        base: Fixed,
+        #[serde(default)]
+        #[cfg_attr(feature = "schema", schemars(with = "bevy_fixed::schema::FixedString"))]
+        per_luck: Fixed,
+        then: Box<Action>,
+    },
+    /// M3-T0b : ampleur par exemplaire. Lint : uniquement dans un effet d'objet ; exécution T2.
+    /// `scale: None` est accepté comme champ optionnel sans effet et conserve la forme de contrat.
+    /// Ajoutée après `Chance` (les variantes de `main` d'abord).
+    Scaled {
+        action: Box<Action>,
+        #[serde(default)]
+        scale: Option<Scale>,
+    },
+    /// M3-T2 (`docs/conventions.md` §67) : émet l'événement nommé `name` ; les effets `OnEvent(name)` du
+    /// **même porteur** y répondent dans la même frame (voir `game::effects_v3`). Effets seulement
+    /// (lint). Ajoutée en fin d'enum.
+    Emit(String),
+    /// M3-T2 : comme [`Self::ApplyStatus`], mais sur le **porteur** de l'effet (sans cible de
+    /// déclencheur). `ApplyStatus` dans un effet vise la cible du déclencheur (`OnHit`,
+    /// `OnDamageTaken` ; pas `OnKill` : la cible est morte, le lint refuse). Variante séparée plutôt qu'un champ `to` : le hash des `ApplyStatus` d'`on_hit`
+    /// de projectile (déjà en trace) ne bouge pas.
+    ApplyStatusSelf {
+        status: String,
+        #[cfg_attr(feature = "schema", schemars(extend("x-lint" = "> 0")))]
+        stacks: u32,
+    },
+}
+
+/// Règle pure de multiplication par exemplaire ([`scaled_action`] l'applique à une action).
+pub fn scale_value(value: Fixed, scale: Option<Scale>, copies: u32) -> Fixed {
+    match scale {
+        Some(Scale::PerCopy) => value * Fixed::from_num(copies),
+        None => value,
+    }
+}
+
+/// L'action a-t-elle une ampleur linéaire que `Scaled(PerCopy)` peut multiplier ? Liste blanche du
+/// lint, identique à ce que [`scaled_action`] sait faire (un `Scaled` imbriqué est déballé).
+pub fn is_linear(action: &Action) -> bool {
+    scaled_action(action, 2).is_some()
+}
+
+/// `action` multipliée par `copies` exemplaires (`Scale::PerCopy`, M3-T2). Rend `None` quand
+/// l'action n'a pas d'ampleur à multiplier ; les valeurs sont **linéaires** :
+/// `Heal`, `GainShield`, `Modifier`/`TimedModifier` d'op `Add` ou `Pct`, `ApplyStatus*` (piles),
+/// `Explode` (dégâts, pas le rayon). Un modificateur `Mul` ou `Set` n'est pas linéaire (`None`).
+/// `copies == 0` donne `None` (aucun exemplaire : rien à faire). Un `Scaled` imbriqué est déballé.
+pub fn scaled_action(action: &Action, copies: u32) -> Option<Action> {
+    if copies == 0 {
+        return None;
+    }
+    let n = Fixed::from_num(copies);
+    Some(match action {
+        Action::Heal(amount) => Action::Heal(amount.saturating_mul(n)),
+        Action::GainShield(points) => Action::GainShield(points.saturating_mul(copies)),
+        Action::Modifier { stat, op, value } if matches!(op, ModifierOp::Add | ModifierOp::Pct) => {
+            Action::Modifier {
+                stat: stat.clone(),
+                op: *op,
+                value: value.saturating_mul(n),
+            }
+        }
+        Action::TimedModifier {
+            stat,
+            op,
+            value,
+            frames,
+        } if matches!(op, ModifierOp::Add | ModifierOp::Pct) => Action::TimedModifier {
+            stat: stat.clone(),
+            op: *op,
+            value: value.saturating_mul(n),
+            frames: *frames,
+        },
+        Action::ApplyStatus { status, stacks } => Action::ApplyStatus {
+            status: status.clone(),
+            stacks: stacks.saturating_mul(copies),
+        },
+        Action::ApplyStatusSelf { status, stacks } => Action::ApplyStatusSelf {
+            status: status.clone(),
+            stacks: stacks.saturating_mul(copies),
+        },
+        Action::Explode {
+            radius,
+            damage,
+            destroys,
+        } => Action::Explode {
+            radius: *radius,
+            damage: damage.saturating_mul(n),
+            destroys: *destroys,
+        },
+        Action::Scaled {
+            action,
+            scale: Some(Scale::PerCopy),
+        } => return scaled_action(action, copies),
+        Action::Scaled {
+            action,
+            scale: None,
+        } => return scaled_action(action, copies),
+        _ => return None,
+    })
 }
 
 impl Action {
@@ -189,13 +317,104 @@ impl Action {
             | Action::SpawnEnemies { .. }
             | Action::Telegraph(_)
             | Action::GainShield(_)
-            | Action::Explode { .. } => None,
+            | Action::Explode { .. }
+            | Action::SpawnCharacters { .. }
+            | Action::Chance { .. }
+            | Action::Scaled { .. }
+            | Action::Emit(_)
+            | Action::ApplyStatusSelf { .. } => None,
         }
     }
 }
 
 #[cfg(test)]
 mod tests {
+    use super::*;
+
+    #[test]
+    fn scaled_action_multiplie_les_ampleurs_lineaires() {
+        let fx = |v: f32| Fixed::from_num(v);
+        assert_eq!(
+            scaled_action(&Action::Heal(fx(2.0)), 3),
+            Some(Action::Heal(fx(6.0)))
+        );
+        assert_eq!(
+            scaled_action(&Action::GainShield(2), 4),
+            Some(Action::GainShield(8))
+        );
+        assert_eq!(
+            scaled_action(
+                &Action::Modifier {
+                    stat: StatId::Damage,
+                    op: ModifierOp::Add,
+                    value: fx(1.5)
+                },
+                2
+            ),
+            Some(Action::Modifier {
+                stat: StatId::Damage,
+                op: ModifierOp::Add,
+                value: fx(3.0)
+            })
+        );
+        assert_eq!(
+            scaled_action(
+                &Action::ApplyStatus {
+                    status: "poison".into(),
+                    stacks: 2
+                },
+                3
+            ),
+            Some(Action::ApplyStatus {
+                status: "poison".into(),
+                stacks: 6
+            })
+        );
+        // Explosion : les dégâts, pas le rayon
+        assert_eq!(
+            scaled_action(
+                &Action::Explode {
+                    radius: fx(40.0),
+                    damage: fx(5.0),
+                    destroys: true
+                },
+                2
+            ),
+            Some(Action::Explode {
+                radius: fx(40.0),
+                damage: fx(10.0),
+                destroys: true
+            })
+        );
+    }
+
+    #[test]
+    fn scaled_action_refuse_le_non_lineaire_et_zero_exemplaire() {
+        let fx = |v: f32| Fixed::from_num(v);
+        for op in [ModifierOp::Mul, ModifierOp::Set] {
+            assert_eq!(
+                scaled_action(
+                    &Action::Modifier {
+                        stat: StatId::Damage,
+                        op,
+                        value: fx(2.0)
+                    },
+                    2
+                ),
+                None,
+                "{op:?}"
+            );
+        }
+        assert_eq!(scaled_action(&Action::Heal(fx(1.0)), 0), None);
+        assert_eq!(scaled_action(&Action::Emit("x".into()), 2), None);
+        assert_eq!(scaled_action(&Action::RefillAmmo, 2), None);
+        // Scaled imbriqué : déballé, une seule multiplication
+        let inner = Action::Scaled {
+            action: Box::new(Action::Heal(fx(1.0))),
+            scale: None,
+        };
+        assert_eq!(scaled_action(&inner, 3), Some(Action::Heal(fx(3.0))));
+    }
     use super::*;
     use bevy_fixed::fixed_math::new as fx;
 
@@ -288,5 +507,11 @@ mod tests {
         let ron_text =
             r#"TimedModifier(stat: PasUneStatConnue, op: Set, value: "1.0", frames: 60)"#;
         assert!(ron::from_str::<Action>(ron_text).is_err());
+    }
+
+    #[test]
+    fn per_copy_scale_is_pure_and_optional() {
+        assert_eq!(scale_value(fx(2.0), Some(Scale::PerCopy), 3), fx(6.0));
+        assert_eq!(scale_value(fx(2.0), None, 3), fx(2.0));
     }
 }

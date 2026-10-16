@@ -76,9 +76,27 @@ pub struct HazardDef {
     /// Frames entre deux coups sur le même joueur (> 0).
     #[cfg_attr(feature = "schema", schemars(extend("x-lint" = "> 0")))]
     pub period: u32,
+    /// Un joueur en plein dash traverse les piques sans être touché (M3-T4, §69). Faux (défaut) :
+    /// le dash n'y change rien, les piques le blessent sauf s'il a des i-frames à cette frame.
+    /// Fin de structure : absent des définitions d'avant.
+    #[serde(default)]
+    pub dash_crosses: bool,
+}
+
+/// Dernier coup de piques reçu par un joueur (M3-T4, §69), rollback **neutre** : posé à la première
+/// blessure, sur les seuls joueurs d'une carte à piques. Fait respecter `period` entre deux coups.
+#[derive(bevy::prelude::Component, Debug, Clone, Copy, PartialEq, Eq, Hash)]
+pub struct HazardState {
+    pub last_hit: u32,
 }
 
 impl HazardDef {
+    /// Les piques blessent-ils un joueur à `frame` ? Faux pendant un dash si `dash_crosses` ; sinon
+    /// un coup au plus toutes les `period` frames ([`HazardDef::is_due`]).
+    pub fn applies(&self, dashing: bool, last_hit: Option<u32>, frame: u32) -> bool {
+        !(dashing && self.dash_crosses) && self.is_due(last_hit, frame)
+    }
+
     /// Le joueur est-il blessé à `frame` ? `last_hit` = frame du dernier coup reçu de cette
     /// surface (`None` : jamais).
     pub fn is_due(&self, last_hit: Option<u32>, frame: u32) -> bool {
@@ -138,6 +156,16 @@ impl SurfaceTable {
     pub fn has_pits(&self) -> bool {
         self.0.values().any(|def| def.pit.is_some())
     }
+
+    /// Définition de piques de la surface `id`, s'il y en a une (M3-T4).
+    pub fn hazard(&self, id: SurfaceId) -> Option<&HazardDef> {
+        self.0.get(&id)?.hazard.as_ref()
+    }
+
+    /// Le jeu a au moins une surface de piques.
+    pub fn has_hazards(&self) -> bool {
+        self.0.values().any(|def| def.hazard.is_some())
+    }
 }
 
 impl SurfaceGrid {
@@ -154,6 +182,20 @@ impl SurfaceGrid {
                     .is_none_or(|id| table.pit(id).is_none())
             })
         })
+    }
+
+    /// Piques sous `position` (monde), s'il y en a (M3-T4).
+    pub fn hazard_at<'a>(
+        &self,
+        table: &'a SurfaceTable,
+        position: FixedVec2,
+    ) -> Option<&'a HazardDef> {
+        table.hazard(self.at(position)?)
+    }
+
+    /// La grille a au moins une case de piques.
+    pub fn has_hazard_cells(&self, table: &SurfaceTable) -> bool {
+        self.cells.values().any(|id| table.hazard(*id).is_some())
     }
 
     /// Cases de fosse de la grille, dans l'ordre de la grille (déterministe).
@@ -254,6 +296,31 @@ mod tests {
         assert!(grid.is_safe_cell(&table, 7, 5));
         assert!(grid.is_safe_cell(&table, 0, 1), "l'eau n'est pas une fosse");
         assert_eq!(grid.pit_cells(&table).collect::<Vec<_>>(), vec![(5, 5)]);
+    }
+
+    #[test]
+    fn piques_une_fois_par_periode_et_dash() {
+        let piques = HazardDef {
+            damage: Fixed::from_num(5),
+            period: 30,
+            dash_crosses: false,
+        };
+        assert!(piques.applies(false, None, 10), "premier coup");
+        assert!(
+            !piques.applies(false, Some(10), 39),
+            "avant la fin de la période"
+        );
+        assert!(piques.applies(false, Some(10), 40), "période écoulée");
+        assert!(
+            piques.applies(true, None, 10),
+            "le dash ne protège pas par défaut"
+        );
+        let franchis = HazardDef {
+            dash_crosses: true,
+            ..piques
+        };
+        assert!(!franchis.applies(true, None, 10), "dash_crosses : franchis");
+        assert!(franchis.applies(false, None, 10));
     }
 
     #[test]

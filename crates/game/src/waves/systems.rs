@@ -36,6 +36,8 @@ pub struct SpawnAssets<'w> {
     pub characters_asset: Res<'w, Assets<CharacterConfig>>,
     /// T1.9 : difficulté (santé × difficulté ; 1 sans difficulté activée).
     pub difficulty: crate::clock::DifficultyReader<'w>,
+    /// M3-T7 : étage courant (contexte de `chance` des variantes).
+    pub floor: Option<Res<'w, run::FloorState>>,
 }
 
 use super::{
@@ -340,6 +342,9 @@ pub fn wave_spawning_system(
             // Graine de run (T1.5 : tirage des variantes), lue sans toucher aux flux.
             rng_streams.run_seed,
             None,
+            spawn_assets
+                .difficulty
+                .variant_context_at(spawn_assets.floor.as_deref().map_or(0, |floor| floor.index)),
         );
 
         // Add WaveEnemy component to track this enemy for wave completion

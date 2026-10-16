@@ -1,0 +1,33 @@
+// M3-T1 (§66) : trois objets s'empilent sur une même larme : `rebond` (Bounce(2)), `guide`
+// (Homing(0.1)) et `division` (Split en trois). Une seule larme plein ouest (f20) touche `target`
+// (x = 600) et se divise en trois larmes (id `larme`, génération 1) qui ne retouchent pas la cible
+// qu'elles quittent, se courbent vers l'ennemi le plus proche et rebondissent sur les murs.
+//
+// À regarder : une larme part, touche la cible, trois larmes en éventail repartent.
+Scenario(
+    game: "testbed",
+    map: "testbed/props_room.ldtk",
+    frames: 160,
+    powerup_drop_chance_override: "0",
+    characters: [(character: "target", x: "600.0", y: "-194.0", at_frame: 1)],
+    players: [
+        (
+            inputs: [(from: 10, to: 30, buttons: [Fire], pan: (-127, 0))],
+            weapon: "larme",
+            items: ["rebond", "guide", "division"],
+        ),
+    ],
+    expect: [
+        ItemCount(handle: 0, id: "rebond", count: 1, at_frame: 1),
+        ItemCount(handle: 0, id: "guide", count: 1, at_frame: 1),
+        ItemCount(handle: 0, id: "division", count: 1, at_frame: 1),
+        // Avant l'impact, une larme (génération 0) qui s'est courbée vers `target` (net id 14).
+        BulletCount(count: 1, projectile: Some("larme"), at_frame: 44),
+        // Impact à f45 : trois larmes de génération 1 (même id), aucune ne retouche la cible.
+        BulletCount(count: 3, projectile: Some("larme"), at_frame: 46),
+        EntityHits(net_id: 14, min: 1, max: Some(1), at_frame: 159),
+        // Elles se courbent vers le `follower` (net id 12, 60 points de vie) : trois coups de 3,5.
+        EntityHealth(net_id: 12, min: Some(49.0), max: Some(50.0), at_frame: 120),
+        BulletCount(count: 0, projectile: Some("larme"), at_frame: 120),
+    ],
+)

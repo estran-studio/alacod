@@ -26,6 +26,17 @@ pub enum LootPick {
     Item(String),
     /// Un objet de cette rareté, tiré uniformément parmi ceux de la table d'objets.
     Rarity(Rarity),
+    /// Une arme de `weapons/weapons.ron` (D62). Le tirage la désigne par `weapon:<id>`
+    /// ([`loot_weapon`]) ; la rareté sert au filtre d'un coffre et au prix d'un présentoir.
+    Weapon(String, Rarity),
+}
+
+/// Préfixe de l'identifiant tiré pour une arme (voir [`LootPick::Weapon`]).
+pub const WEAPON_LOOT_PREFIX: &str = "weapon:";
+
+/// L'arme désignée par un identifiant tiré (`weapon:<id>`), `None` pour un objet.
+pub fn loot_weapon(drawn: &str) -> Option<&str> {
+    drawn.strip_prefix(WEAPON_LOOT_PREFIX)
 }
 
 /// Une entrée pondérée. Un poids ≤ 0 est refusé par le lint.
@@ -78,6 +89,23 @@ pub struct RoomShopDef {
     pub table: String,
     /// Nombre de présentoirs (> 0).
     pub shelves: u32,
+    /// D62 : nombre de présentoirs (les premiers) qui ne tirent que des armes du pool.
+    #[serde(default)]
+    pub weapon_shelves: u32,
+    /// D62 : pool de chaque étage (index = étage, le dernier vaut pour les suivants) ; vide :
+    /// `table` à tous les étages.
+    #[serde(default)]
+    pub floor_tables: Vec<String>,
+}
+
+impl RoomShopDef {
+    /// Le pool de la boutique à l'étage `floor`.
+    pub fn table_for_floor(&self, floor: u32) -> &str {
+        match self.floor_tables.len().checked_sub(1) {
+            Some(last) => self.floor_tables[(floor as usize).min(last)].as_str(),
+            None => self.table.as_str(),
+        }
+    }
 }
 
 /// Un pool de butin, `loot/<id>.ron`.
@@ -91,6 +119,30 @@ pub struct LootTableDef {
     pub exclude_held: bool,
     #[serde(default)]
     pub reward: Option<RoomRewardDef>,
+}
+
+impl LootTableDef {
+    /// Ce pool réduit à ses armes (la première étagère d'une boutique en tire une, D62).
+    pub fn weapons_only(&self) -> LootTableDef {
+        LootTableDef {
+            entries: self
+                .entries
+                .iter()
+                .filter(|entry| matches!(entry.pick, LootPick::Weapon(..)))
+                .cloned()
+                .collect(),
+            exclude_held: false,
+            reward: None,
+        }
+    }
+
+    /// Rareté sous laquelle ce pool donne l'arme `id` (prix d'un présentoir).
+    pub fn weapon_rarity(&self, id: &str) -> Option<Rarity> {
+        self.entries.iter().find_map(|entry| match &entry.pick {
+            LootPick::Weapon(weapon, rarity) if weapon == id => Some(*rarity),
+            _ => None,
+        })
+    }
 }
 
 /// Les pools du jeu par identifiant (hors rollback).
@@ -122,7 +174,7 @@ fn candidates<'a>(
     min_rarity: Rarity,
     consumables_only: bool,
     hidden: &BTreeSet<&str>,
-) -> Vec<&'a str> {
+) -> Vec<Cow<'a, str>> {
     let ok = |id: &str, def: &crate::ItemDef| {
         !hidden.contains(id)
             && (!consumables_only || def.kind == ItemKind::Consumable)
@@ -134,14 +186,21 @@ fn candidates<'a>(
             .0
             .get_key_value(id)
             .filter(|(id, def)| ok(id, def))
-            .map(|(id, _)| vec![id.as_str()])
+            .map(|(id, _)| vec![Cow::Borrowed(id.as_str())])
             .unwrap_or_default(),
         LootPick::Rarity(rarity) => items
             .0
             .iter()
             .filter(|(id, def)| def.rarity == *rarity && ok(id, def))
-            .map(|(id, _)| id.as_str())
+            .map(|(id, _)| Cow::Borrowed(id.as_str()))
             .collect(),
+        LootPick::Weapon(id, rarity) => {
+            if consumables_only || *rarity < min_rarity {
+                Vec::new()
+            } else {
+                vec![Cow::Owned(format!("{WEAPON_LOOT_PREFIX}{id}"))]
+            }
+        }
     }
 }
 
@@ -202,7 +261,7 @@ pub fn draw_loot_with(
     let held = held.filter(|_| table.exclude_held);
     let pick = rng.next_u32();
     let pick_candidate = rng.next_u32();
-    let mut pools: Vec<(i32, Vec<&str>)> = Vec::new();
+    let mut pools: Vec<(i32, Vec<Cow<str>>)> = Vec::new();
     for (min, held) in [(min_rarity, held), (Rarity::Common, None)] {
         pools = table
             .entries
@@ -259,16 +318,29 @@ pub struct ChestOpened {
 }
 
 /// Présentoir d'une boutique (rollback, checksum et trace en variante **neutre** : absent de
-/// toute partie sans boutique). `key` est sa clé de contenu (`shelf:<salle>:<i>`), `price` en
-/// `shells` (`Currency`), `sold` une fois acheté (l'`Interactable` est alors retiré).
-#[derive(Component, Clone, Debug, PartialEq, Eq, Hash)]
+/// toute partie sans boutique). `price` conserve le hash historique ; `cost` est optionnel et
+/// n'entre dans le hash que lorsqu'il est présent (M3-T0b).
+#[derive(Component, Clone, Debug, PartialEq, Eq)]
 pub struct Shelf {
     pub key: String,
     pub item_id: String,
     pub price: u32,
     pub sold: bool,
-    /// Anti-rebond d'un achat refusé : pas de nouvel essai avant cette frame.
     pub retry_after: u32,
+    pub cost: Option<crate::Price>,
+}
+
+impl std::hash::Hash for Shelf {
+    fn hash<H: std::hash::Hasher>(&self, state: &mut H) {
+        self.key.hash(state);
+        self.item_id.hash(state);
+        self.price.hash(state);
+        self.sold.hash(state);
+        self.retry_after.hash(state);
+        if let Some(cost) = &self.cost {
+            cost.hash(state);
+        }
+    }
 }
 
 /// Douilles au sol (`shells`), ramassées au contact et créditées à `Currency` (rollback,
@@ -296,6 +368,9 @@ mod tests {
             uses_per_floor: None,
             cost: None,
             projectile: None,
+            familiar: None,
+            max_stack: None,
+            stack: Default::default(),
         }
     }
 
@@ -480,5 +555,62 @@ mod tests {
             .as_deref(),
             Some("key")
         );
+    }
+    /// D62 : une entrée `Weapon` donne `weapon:<id>`, suit le filtre de rareté d'un coffre, est
+    /// ignorée d'une récompense de consommables, et `weapons_only` / `weapon_rarity` la retrouvent.
+    #[test]
+    fn weapon_entries() {
+        let pool = table(
+            vec![
+                entry(LootPick::Weapon("revolver".into(), Rarity::Common), 1),
+                entry(LootPick::Weapon("laser".into(), Rarity::Rare), 1),
+                entry(LootPick::Item("a".into()), 1),
+            ],
+            false,
+        );
+        let mut seen = BTreeSet::new();
+        for seed in 0..200 {
+            let drawn = draw_loot(
+                &pool,
+                &items(),
+                None,
+                Rarity::Common,
+                false,
+                &mut RollbackRng::new(seed),
+            )
+            .unwrap();
+            seen.insert(drawn);
+        }
+        assert!(seen.contains("weapon:revolver") && seen.contains("weapon:laser"));
+        assert!(seen.contains("a"));
+        assert_eq!(loot_weapon("weapon:laser"), Some("laser"));
+        assert_eq!(loot_weapon("a"), None);
+        // Coffre Rare : seules les raretés suffisantes (l'arme rare ; pas de repli si elle existe).
+        for seed in 0..50 {
+            let drawn = draw_loot(
+                &pool,
+                &items(),
+                None,
+                Rarity::Rare,
+                false,
+                &mut RollbackRng::new(seed),
+            );
+            assert_eq!(drawn.as_deref(), Some("weapon:laser"));
+        }
+        // Récompense de salle : consommables seulement, jamais d'arme.
+        for seed in 0..50 {
+            let drawn = draw_loot(
+                &pool,
+                &items(),
+                None,
+                Rarity::Common,
+                true,
+                &mut RollbackRng::new(seed),
+            );
+            assert!(drawn.is_none(), "{drawn:?}");
+        }
+        assert_eq!(pool.weapons_only().entries.len(), 2);
+        assert_eq!(pool.weapon_rarity("laser"), Some(Rarity::Rare));
+        assert_eq!(pool.weapon_rarity("absent"), None);
     }
 }

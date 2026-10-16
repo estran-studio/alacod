@@ -23,6 +23,7 @@ fn scenario(frames: u32) -> Scenario {
         shop: Default::default(),
         profile: false,
         profile_setup: None,
+        hub: None,
         powerup_drop_chance_override: None,
         floors: None,
         progression: None,

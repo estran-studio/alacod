@@ -68,6 +68,9 @@ pub struct EntryPoint {
     /// `floors`. Exige `mode: Floors` et un id de séquence existant (lint).
     #[serde(default)]
     pub floors: Option<String>,
+    /// M2-T13 (§57) : le hub du jeu. Absent : la partie démarre directement dans la run.
+    #[serde(default)]
+    pub hub: Option<HubEntry>,
     /// Progression active (T1.10, `docs/conventions.md` §27) : id d'un fichier du kind
     /// `Progression`. Absent (défaut) : aucune progression, même si le jeu en déclare une
     /// (le testbed la garde pour ses scénarios, qui l'imposent par `Scenario::progression`).
@@ -91,6 +94,13 @@ pub struct GameManifest {
     /// `docs/conventions.md` §28). Absent : les gabarits jouent dans le testbed.
     #[serde(default)]
     pub generate_template: Option<GenerateTemplate>,
+}
+
+/// `hub: Some((map: "maps/hub.ldtk"))` (M2-T13, §57) : la carte LDtk du hub, relative à
+/// `<jeu>/assets/` ; les services viennent du dossier de kind `HubService`.
+#[derive(Debug, Clone, Deserialize, PartialEq, Eq)]
+pub struct HubEntry {
+    pub map: String,
 }
 
 /// `generate_template: (map: "maps/salle.ldtk", target: "cible")` (T1.13) : les gabarits

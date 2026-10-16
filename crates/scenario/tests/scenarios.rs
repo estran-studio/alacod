@@ -959,6 +959,32 @@ fn map_probe() {
             h.current.to_num::<f32>()
         );
     }
+    // M3-T1 : personnages non joueurs (net id, position, équipe, santé), pour poser un scénario
+    {
+        let mut others: Vec<_> = world
+            .query_filtered::<(
+                &GgrsNetId,
+                &FixedTransform3D,
+                &game::character::health::Health,
+                &sim_core::team::Team,
+                Option<&game::character::variant::Variant>,
+            ), Without<Player>>()
+            .iter(world)
+            .map(|(id, t, h, team, v)| {
+                (
+                    id.0,
+                    pos(t),
+                    h.current.to_num::<f32>(),
+                    *team,
+                    v.map(|v| v.0.clone()),
+                )
+            })
+            .collect();
+        others.sort_by_key(|o| o.0);
+        for (id, at, health, team, variant) in others {
+            println!("personnage {id} {at:?} équipe {team:?} santé {health} variante {variant:?}");
+        }
+    }
     // M2-T11 : entités de carte lues (diagnostic)
     {
         let registry = world.resource::<map_ldtk::game::plugin::LdtkMapEntityLoadingRegistry>();
@@ -1203,6 +1229,136 @@ fn bullets_probe() {
     println!("balles : au plus {max_alive} en vol, x {min_x:.1}..{max_x:.1}, y max {max_y:.1}");
 }
 
+/// Diagnostic (M3-T1) : à chaque frame, les projectiles (net id, étiquette, position, génération)
+/// et les changements de coups reçus (`HitCount`) et de statuts, pour calibrer les scénarios de larmes
+/// (`ALACOD_PROJECTILES=<scénario>:<de>:<à>`).
+#[test]
+#[ignore]
+fn projectile_probe() {
+    use bevy::prelude::*;
+    use bevy_fixed::fixed_math::FixedTransform3D;
+    use utils::frame::FrameCount;
+    use utils::net_id::GgrsNetId;
+    let spec = std::env::var("ALACOD_PROJECTILES").unwrap_or_else(|_| "tears_split:0:140".into());
+    let p: Vec<&str> = spec.split(':').collect();
+    let (from, to): (u32, u32) = (p[1].parse().unwrap(), p[2].parse().unwrap());
+    let source = std::fs::read_to_string(scenarios_dir().join(format!("{}.ron", p[0]))).unwrap();
+    let mut app = scenario::runner::run_until(&Scenario::from_ron(&source).unwrap(), from);
+    let mut last_hits: std::collections::BTreeMap<usize, u32> = Default::default();
+    let mut last_status: std::collections::BTreeMap<usize, Vec<String>> = Default::default();
+    while app.world().resource::<FrameCount>().frame < to {
+        app.update();
+        let world = app.world_mut();
+        let frame = world.resource::<FrameCount>().frame;
+        let mut bullets: Vec<String> = world
+            .query::<(
+                &GgrsNetId,
+                &FixedTransform3D,
+                &combat::projectile::Projectile,
+            )>()
+            .iter(world)
+            .map(|(id, t, pr)| {
+                format!(
+                    "#{} {} ({:.0},{:.0}) g{}",
+                    id.0,
+                    pr.id,
+                    t.translation.x.to_num::<f32>(),
+                    t.translation.y.to_num::<f32>(),
+                    pr.generation
+                )
+            })
+            .collect();
+        bullets.sort();
+        if !bullets.is_empty() {
+            println!("f{frame} projectiles {}", bullets.join(" | "));
+        }
+        let hits: Vec<(usize, u32)> = world
+            .query::<(&GgrsNetId, &game::character::health::HitCount)>()
+            .iter(world)
+            .map(|(id, h)| (id.0, h.0))
+            .collect();
+        for (id, count) in hits {
+            if last_hits.insert(id, count) != Some(count) {
+                println!("f{frame} coups #{id} = {count}");
+            }
+        }
+        let statuses: Vec<(usize, Vec<String>)> = world
+            .query::<(&GgrsNetId, &combat::status::Statuses)>()
+            .iter(world)
+            .map(|(id, s)| {
+                (
+                    id.0,
+                    s.0.iter()
+                        .map(|e| format!("{}x{}", e.id, e.stacks))
+                        .collect(),
+                )
+            })
+            .collect();
+        for (id, list) in statuses {
+            if last_status.insert(id, list.clone()) != Some(list.clone()) {
+                println!("f{frame} statuts #{id} = {list:?}");
+            }
+        }
+        // M3-T6 : joueurs et familiers (porteur, rang, position), toutes les 10 frames
+        if frame % 10 == 0 {
+            let players: Vec<String> = world
+                .query_filtered::<(&game::character::player::Player, &FixedTransform3D), Without<behaviors::FamiliarOf>>()
+                .iter(world)
+                .map(|(p, t)| format!("j{} ({:.0},{:.0})", p.handle, t.translation.x.to_num::<f32>(), t.translation.y.to_num::<f32>()))
+                .collect();
+            let mut familiars: Vec<(usize, u32, usize, f32, f32)> = world
+                .query::<(&GgrsNetId, &behaviors::FamiliarOf, &FixedTransform3D)>()
+                .iter(world)
+                .map(|(id, f, t)| {
+                    (
+                        f.owner.0,
+                        f.rank,
+                        id.0,
+                        t.translation.x.to_num::<f32>(),
+                        t.translation.y.to_num::<f32>(),
+                    )
+                })
+                .collect();
+            familiars.sort_by(|a, b| a.partial_cmp(b).unwrap());
+            if !familiars.is_empty() {
+                let list: Vec<String> = familiars
+                    .iter()
+                    .map(|(o, r, id, x, y)| format!("#{id}(porteur {o} rang {r}) ({x:.0},{y:.0})"))
+                    .collect();
+                println!(
+                    "f{frame} joueurs {} familiers {}",
+                    players.join(" "),
+                    list.join(" | ")
+                );
+            }
+        }
+        let others: Vec<String> = world
+            .query_filtered::<(
+                &GgrsNetId,
+                &FixedTransform3D,
+                &game::character::health::Health,
+            ), (
+                Without<game::weapons::Bullet>,
+                With<game::character::enemy::Enemy>,
+            )>()
+            .iter(world)
+            .filter(|(id, ..)| id.0 < 20)
+            .map(|(id, t, h)| {
+                format!(
+                    "#{} ({:.0},{:.0}) pv{:.0}",
+                    id.0,
+                    t.translation.x.to_num::<f32>(),
+                    t.translation.y.to_num::<f32>(),
+                    h.current.to_num::<f32>()
+                )
+            })
+            .collect();
+        if frame % 20 == 0 && !others.is_empty() {
+            println!("f{frame} ennemis {}", others.join(" | "));
+        }
+    }
+}
+
 /// Diagnostic (M2-T1) : à chaque frame, le nombre de balles et leur position
 /// (`ALACOD_BULLET_LINES=<scénario>:<de>:<à>`), pour calibrer les attentes `BulletCount`.
 #[test]
@@ -1260,6 +1416,78 @@ fn bullet_lines() {
         println!(
             "f{frame} n={} {ps:?} joueurs={players:?} inv={inv:?} hp={hp:?}",
             ps.len()
+        );
+    }
+}
+
+/// Diagnostic (D62) : salles typées, présentoirs et coffres d'un scénario à une frame.
+/// `ALACOD_ROOM_PROBE=<scénario>:<frame>`
+#[test]
+#[ignore]
+fn room_probe() {
+    use bevy::prelude::*;
+    use bevy_fixed::fixed_math::FixedTransform3D;
+    use utils::net_id::GgrsNetId;
+    let spec = std::env::var("ALACOD_ROOM_PROBE").unwrap_or_else(|_| "shop_seeded:20".into());
+    let (name, frame) = spec.split_once(':').unwrap();
+    let source = std::fs::read_to_string(scenarios_dir().join(format!("{name}.ron"))).unwrap();
+    let mut app = scenario::runner::run_until(
+        &Scenario::from_ron(&source).unwrap(),
+        frame.parse().unwrap(),
+    );
+    let world = app.world_mut();
+    for (id, b, k) in world
+        .query::<(
+            &map::game::entity::map::level_id::LevelId,
+            &map::game::entity::map::room::RoomBounds,
+            &world::RoomKind,
+        )>()
+        .iter(world)
+    {
+        println!(
+            "salle {} {} pos ({},{}) taille ({},{})",
+            id.0,
+            k.0,
+            b.position.x.to_num::<f32>(),
+            b.position.y.to_num::<f32>(),
+            b.size.x.to_num::<f32>(),
+            b.size.y.to_num::<f32>()
+        );
+    }
+    for (p, t) in world
+        .query::<(&game::character::player::Player, &FixedTransform3D)>()
+        .iter(world)
+    {
+        println!(
+            "joueur {} ({},{})",
+            p.handle,
+            t.translation.x.to_num::<f32>(),
+            t.translation.y.to_num::<f32>()
+        );
+    }
+    for (id, s, t) in world
+        .query::<(&GgrsNetId, &items::Shelf, &FixedTransform3D)>()
+        .iter(world)
+    {
+        println!(
+            "présentoir {} {} {} ({},{})",
+            id.0,
+            s.item_id,
+            s.price,
+            t.translation.x.to_num::<f32>(),
+            t.translation.y.to_num::<f32>()
+        );
+    }
+    for (id, c, t) in world
+        .query::<(&GgrsNetId, &items::Chest, &FixedTransform3D)>()
+        .iter(world)
+    {
+        println!(
+            "coffre {} {} ({},{})",
+            id.0,
+            c.key,
+            t.translation.x.to_num::<f32>(),
+            t.translation.y.to_num::<f32>()
         );
     }
 }

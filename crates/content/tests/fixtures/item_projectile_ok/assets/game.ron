@@ -1,0 +1,9 @@
+// Fixture M3-T1 (docs/conventions.md §66) : objet à modificateurs, chance de statut et DestroyTerrain : valide
+(
+    name: "fixture-item_projectile_ok",
+    content_folders: [
+        (path: "objets", kind: "Item"),
+        (path: "statuses", kind: "Status"),
+    ],
+    entry: (start_map: "unused", default_seed: 1),
+)

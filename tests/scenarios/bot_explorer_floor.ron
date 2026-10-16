@@ -4,8 +4,8 @@
 // Aucune entrée scriptée : remplace à terme l'atteinte scriptée du boss de `gungeon_floor_seed_*`.
 //
 // À regarder : la salle de combat se verrouille vers f59 puis se rouvre ; la salle du boss se
-// verrouille ; le boss (trois phases depuis M2-T7) passe en phase 1 f499 et 2 f563, meurt f621, le portail
-// s'ouvre f622 et le bot le franchit f738 (étage 1). Arrêt à f760 : affaibli par le boss, le bot meurt ensuite
+// verrouille ; le boss (trois phases depuis M2-T7) passe en phase 1 f431 et 2 f493, meurt f553, le portail
+// s'ouvre f554 et le bot le franchit f706 (étage 1 ; f499, f563, f621, f622 et f738 avant M2-T14d, D64 : `bullet_kin` à 30 PV, §52.d). Arrêt à f760 : affaibli par le boss, le bot meurt ensuite
 // dans la première salle de combat de l'étage 1 (f821), à suivre par la campagne M2-T16.
 Scenario(
     powerup_drop_chance_override: "0.0",

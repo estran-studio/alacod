@@ -1,0 +1,73 @@
+// M3-T7 (docs/conventions.md §72) : champion d'essai (mannequin immobile à 7 points de vie : deux larmes).
+// Variante `explosif` : explose à sa mort (`Explode` rayon 70, 10 dégâts à tout ce qui a des PV dans le rayon,
+// joué à la frame suivante) ; variante `salve` : une couronne de huit boules de feu (`SpawnPattern`, émetteur sans personnage) ; variante `nu` : rien (témoin). Scénarios `champion_pattern`, `champion_explodes`, `champion_explodes_sans_variante`.
+(
+    movement: (
+        acceleration: "0.0",
+        max_speed: "0.0",
+        sprint_multiplier: "1.0",
+        sprint_acceleration_per_frame: "0.0",
+        sprint_deceleration_per_frame: "0.0",
+
+        dash_distance: "0.0",
+        dash_duration_frames: 0,
+        dash_cooldown_frames: 0,
+    ),
+
+    asset_name_ref: "elite_explosif",
+
+    collider: (
+        shape: Rectangle(
+            width: "20.",
+            height: "20.",
+        ),
+        offset: ( x: "0.0", y: "-6.0", z: "0.0" )
+    ),
+
+    scale: "1.0",
+
+    base_health: (
+        max: "7.0",
+    ),
+
+    starting_skin: "1",
+    skins: {
+        "1": (layers: {}),
+    },
+
+    ai: Some((
+        movement_type: None,
+        aggro_range: Some("0.0"),
+        attack_range: Some("0.0"),
+        attack_cooldown_frames: None,
+        can_break: None,
+        attack_through: None,
+        ignores: None,
+        path_through_breakables: None,
+        flee_threshold: None,
+        attack_damage: None,
+        stationary: Some(true),
+    )),
+
+    variants: Some((
+        chance: "1.0",
+        table: {
+            "explosif": (tags: ["champion"], on_death: [Explode(radius: "70.0", damage: "10.0", destroys: false)], tint: Some("#c0392b")),
+            "salve": (tags: ["champion"], on_death: [SpawnPattern(pattern: "couronne_unique", weapon: "fireball_gun")]),
+            "nu": (),
+        },
+    )),
+
+    // M3-T13 (§78) : scénarios générés `champion_elite_explosif_<variante>` (gabarit ChampionForced : variante imposée ;
+    // `kill` : le joueur tire dans l'axe et les effets de mort sont attendus).
+    test: Some((
+        frames: 150,
+        still: false,
+        moving: false,
+        champions: [
+            (variant: "explosif", kill: true, weapon: Some("larme")),
+            (variant: "salve", kill: true, weapon: Some("larme")),
+            (variant: "nu"),
+        ],
+    )),
+)

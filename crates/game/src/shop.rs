@@ -40,6 +40,7 @@ use crate::items::{apply_instant_effects, spawn_item_pickup, with_inventory, Fre
 use crate::loot::seed_context;
 use crate::rollback::RollbackTraceApp;
 use crate::system_set::RollbackSystemSet;
+use crate::weapons::WeaponsConfig;
 use run::currency::{Currency, CurrencyEvent};
 
 /// Prix d'un présentoir dont la rareté n'a pas de prix dans `economy.ron`.
@@ -104,10 +105,18 @@ pub fn draw_shelves(
     floor: u32,
     room: &str,
     count: u32,
+    weapon_shelves: u32,
 ) -> Vec<String> {
     let mut rng = RollbackRng::new(loot_seed(run_seed, floor, &format!("shop:{room}")));
     let mut out: Vec<String> = Vec::new();
-    for _ in 0..count {
+    // D62 : les premiers présentoirs ne tirent que des armes (au moins une par boutique).
+    let weapons_only = table.weapons_only();
+    for shelf in 0..count {
+        let table = if shelf < weapon_shelves && !weapons_only.entries.is_empty() {
+            &weapons_only
+        } else {
+            table
+        };
         for _ in 0..8 {
             let Some(item) = draw_loot(table, items, None, Rarity::Common, false, &mut rng) else {
                 break;
@@ -267,6 +276,8 @@ pub fn shelf_interaction_system(
     frame: Res<FrameCount>,
     events: Res<FrameEvents<InteractionEvent>>,
     table: Res<ItemTable>,
+    global_assets: Res<GlobalAsset>,
+    weapons: Res<Assets<WeaponsConfig>>,
     mut commands: Commands,
     mut picked: ResMut<FrameEvents<ItemPicked>>,
     mut currency_events: ResMut<FrameEvents<CurrencyEvent>>,
@@ -300,9 +311,11 @@ pub fn shelf_interaction_system(
         if shelf.sold || frame.frame < shelf.retry_after {
             continue;
         }
-        let Some(def) = table.0.get(&shelf.item_id) else {
+        let weapon = items::loot_weapon(&shelf.item_id).map(str::to_string);
+        let def = table.0.get(&shelf.item_id);
+        if weapon.is_none() && def.is_none() {
             continue;
-        };
+        }
         let Some((
             _,
             entity,
@@ -344,6 +357,31 @@ pub fn shelf_interaction_system(
         shelf.sold = true;
         let item_id = shelf.item_id.clone();
         commands.entity(event.interactable).remove::<Interactable>();
+
+        // D62 : une arme achetée tombe au pied du joueur, ramassée ensuite par l'interaction
+        // habituelle (échange d'emplacement compris).
+        if let Some(weapon_id) = weapon {
+            crate::loot::spawn_loot_weapon(
+                &mut commands,
+                &global_assets,
+                &weapons,
+                &weapon_id,
+                player_transform.translation,
+                &mut id_factory,
+            );
+            info!(
+                "ggrs{{f={} shop_buy net_id={} item={} price={} by={}}}",
+                frame.frame,
+                event.interactable_net_id.0,
+                item_id,
+                shelf.price,
+                event.interactor_net_id.0
+            );
+            continue;
+        }
+        let Some(def) = def else {
+            continue;
+        };
 
         // Même résultat qu'un ramassage (`items::handle_item_interaction` et
         // `item_consumable_pickup_system`).
@@ -460,6 +498,9 @@ mod tests {
             uses_per_floor: None,
             cost: None,
             projectile: None,
+            familiar: None,
+            max_stack: None,
+            stack: Default::default(),
         }
     }
 
@@ -484,8 +525,8 @@ mod tests {
     #[test]
     fn same_seed_same_shelves_without_duplicates() {
         let (table, items) = fixtures();
-        let first = draw_shelves(&table, &items, 7, 0, "room_a", 3);
-        assert_eq!(first, draw_shelves(&table, &items, 7, 0, "room_a", 3));
+        let first = draw_shelves(&table, &items, 7, 0, "room_a", 3, 0);
+        assert_eq!(first, draw_shelves(&table, &items, 7, 0, "room_a", 3, 0));
         assert_eq!(first.len(), 3);
         let unique: BTreeSet<_> = first.iter().collect();
         assert_eq!(unique.len(), 3);
@@ -494,11 +535,11 @@ mod tests {
     #[test]
     fn other_room_or_seed_changes_the_draw_stream() {
         let (table, items) = fixtures();
-        let base = draw_shelves(&table, &items, 7, 0, "room_a", 5);
+        let base = draw_shelves(&table, &items, 7, 0, "room_a", 5, 0);
         let others = [
-            draw_shelves(&table, &items, 8, 0, "room_a", 5),
-            draw_shelves(&table, &items, 7, 0, "room_b", 5),
-            draw_shelves(&table, &items, 7, 1, "room_a", 5),
+            draw_shelves(&table, &items, 8, 0, "room_a", 5, 0),
+            draw_shelves(&table, &items, 7, 0, "room_b", 5, 0),
+            draw_shelves(&table, &items, 7, 1, "room_a", 5, 0),
         ];
         assert!(others.iter().any(|other| *other != base));
     }

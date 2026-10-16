@@ -309,7 +309,15 @@ pub fn apply_powerup_actions_system(
                 | Action::ApplyStatus { .. }
                 // Frise de boss seulement (M2-T7, refusées par le lint)
                 | Action::SpawnEnemies { .. }
-                | Action::Telegraph(_) => {}
+                | Action::Telegraph(_)
+                // M3-T0d : mort d'un champion seulement
+                | Action::SpawnCharacters { .. }
+                // M3-T1 : `on_hit` de projectile seulement
+                | Action::Chance { .. }
+                | Action::Scaled { .. }
+                // M3-T2 : effets d objet seulement (refusés par le lint)
+                | Action::Emit(_)
+                | Action::ApplyStatusSelf { .. } => {}
                 Action::TimedModifier { .. } | Action::CurrencyMultiplier { .. } => {
                     for (net_id, _player, _dead, mut modifiers, _reserves, _inventory) in
                         order_mut_iter!(players)

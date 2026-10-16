@@ -1,0 +1,9 @@
+// Fixture M3-T0d : familiar_unknown_character
+(
+    name: "fixture-familiar_unknown_character",
+    content_folders: [
+        (path: "characters", kind: "Character"),
+        (path: "objets", kind: "Item"),
+    ],
+    entry: (start_map: "unused", default_seed: 1),
+)

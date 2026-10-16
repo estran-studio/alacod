@@ -1,0 +1,27 @@
+// M3-T1 (docs/conventions.md §66) : un objet ajoute `Homing` aux larmes du porteur. Le joueur 0
+// (en (696, -200), `larme`) tire une seule larme plein ouest (f20) ; `target` (placée en (560, -230), centre
+// à 36 unités sous la ligne de tir) ne peut pas être touchée en ligne droite (avec `guide`).
+//
+// À regarder : avec l'objet, la larme se courbe vers `target` et la touche ; sans lui, elle passe
+// à côté.
+Scenario(
+    game: "testbed",
+    map: "testbed/props_room.ldtk",
+    frames: 120,
+    powerup_drop_chance_override: "0",
+    characters: [(character: "target", x: "560.0", y: "-230.0", at_frame: 1)],
+    players: [
+        (
+            inputs: [(from: 10, to: 30, buttons: [Fire], pan: (-127, 0))],
+            weapon: "larme",
+            items: ["guide"],
+        ),
+    ],
+    expect: [
+        HasItem(handle: 0, id: "guide", at_frame: 1),
+        // La larme tirée à f20 se courbe vers `target` (net id 14) et la touche à f58 ; avant, aucun coup.
+        EntityHits(net_id: 14, min: 0, max: Some(0), at_frame: 57),
+        HitsAtLeast(entity: Placed(0), hits: 1, at_frame: 58),
+        EntityHits(net_id: 14, min: 1, max: Some(1), at_frame: 119),
+    ],
+)

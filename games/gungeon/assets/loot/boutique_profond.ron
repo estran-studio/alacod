@@ -1,0 +1,31 @@
+// Pool de la boutique de gungeon (M2-T6, docs/conventions.md §50) : de quoi dépenser des
+// douilles. Mêmes poids par rareté que `commun`, plus un peu de consommables (clé, blank).
+// D62 : les dix-huit armes y sont tirées au prix de leur rareté (`economy.ron`), et le premier
+// présentoir de la boutique ne tire que des armes (`weapon_shelves`). Ce pool : étage 2 et suivants : plus d’armes rares.
+(
+    entries: [
+        (pick: Rarity(Common), weight: 4),
+        (pick: Rarity(Uncommon), weight: 3),
+        (pick: Rarity(Rare), weight: 1),
+        (pick: Item("key"), weight: 2),
+        (pick: Item("blank"), weight: 1),
+        (pick: Weapon("revolver", Common), weight: 1),
+        (pick: Weapon("pistolet_precis", Common), weight: 1),
+        (pick: Weapon("pistolet_jumele", Common), weight: 1),
+        (pick: Weapon("fusil_pompe", Common), weight: 1),
+        (pick: Weapon("arbalete", Common), weight: 1),
+        (pick: Weapon("double_canon", Uncommon), weight: 2),
+        (pick: Weapon("mitraillette", Uncommon), weight: 2),
+        (pick: Weapon("carabine_rafale", Uncommon), weight: 2),
+        (pick: Weapon("fusil_precision", Uncommon), weight: 2),
+        (pick: Weapon("arc", Uncommon), weight: 2),
+        (pick: Weapon("rebondisseur", Uncommon), weight: 2),
+        (pick: Weapon("boule_energie", Uncommon), weight: 2),
+        (pick: Weapon("mitrailleuse_lourde", Rare), weight: 3),
+        (pick: Weapon("laser", Rare), weight: 3),
+        (pick: Weapon("chercheur", Rare), weight: 3),
+        (pick: Weapon("lance_roquettes", Rare), weight: 3),
+        (pick: Weapon("grenadier", Rare), weight: 3),
+        (pick: Weapon("lance_flammes", Rare), weight: 3),
+    ],
+)

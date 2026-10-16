@@ -11,6 +11,7 @@ sim_core = { path = "../sim_core" }
 utils = { path = "../utils" }
 serde = { version = "1.0", features = ["derive"] }
 effects = { path = "../effects" }
+items = { path = "../items" }
 
 animation = { path = "../animation" }
 stats = { path = "../stats" }

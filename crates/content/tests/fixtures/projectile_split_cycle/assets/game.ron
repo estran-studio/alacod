@@ -1,0 +1,8 @@
+// Fixture M3-T1 (docs/conventions.md §66) : un enfant de Split qui se divise en son ancêtre (cycle)
+(
+    name: "fixture-projectile_split_cycle",
+    content_folders: [
+        (path: "weapons.ron", kind: "Weapon"),
+    ],
+    entry: (start_map: "unused", default_seed: 1),
+)
