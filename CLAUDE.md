@@ -397,6 +397,9 @@ crate `APP`), jamais dans un crate `SIM`.
       `curse_pool_unset` n'attend que `None` / `seen: false`.
     - M2-T11 surfaces v2 (§46) : `EntityCount(kind: Barrel | Table)`.
     - M2-T13 hub (§57) : `HubExit`, `HubVisit` ; `RunUnlocks` (M2-T12, §51).
+    - m2-full-run (§57, « Run complète de M2 ») : `EventAfter` (moment clé survenu après une frame) ; moments
+      clés `chest`, `arena`, `unlock`, `hub` ; `Scenario::shopping` ; `hub: Some((stay: false, inputs: …))` :
+      le runner suit la relance du hub (frames de la run repartent de 0).
     - T1.18 HUD throne (§32) : `HudText` (texte d'une source du HUD, présentation, hors trace).
     - M2-T18 écrans (§56) : `ScreenText` (texte d'une section de l'écran de pause ou de l'inventaire, présentation, hors trace) ; le script `ui:` du scénario joue les actions d'UI (`Toggle(Pause)`, `Down`, `Confirm`…), jamais dans l'input rollback.
     - Réenregistrement : le scénario rejoué depuis son enregistrement garde ses réglages

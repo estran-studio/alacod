@@ -13,6 +13,12 @@
         // M2-T10 : étage assemblé de 15 à 20 salles, deux bots (mesure du 2026-10-12 : 18 sim fps
         // sur une machine partagée, 37 ennemis et 282 entités au plus ; gungeon_floor_seed_1 : 30).
         "bench_floor": (min_sim_fps: 40.0, max_rollback_ms: 18.0),
+        // m2-full-run : la run complète (hub, deux étages, victoire), VPS Debian 8 cœurs, 2026-10-16, chaque
+        // scénario seul, trois mesures (charge 1,4 à 2,0 au départ, dont mon propre processus), pire retenu :
+        // 2 joueurs 51,4 / 48,9 / 48,3 fps et 21,5 / 22,4 / 22,7 ms ; 4 joueurs 44,6 / 41,1 / 40,8 fps et
+        // 23,3 / 25,0 / 25,4 ms. Plafond de rollback = 2 × le pire, plancher = la moitié du pire.
+        "gungeon_full_run": (min_sim_fps: 24.0, max_rollback_ms: 46.0),
+        "gungeon_full_run_four": (min_sim_fps: 20.0, max_rollback_ms: 51.0),
         // M2-T16 : un étage `court` joué par des bots (mesure cloud du 2026-10-14 : 38 et 37).
         "bot_explorer_floor": (min_sim_fps: 120.0),
         "bot_explorer_two": (min_sim_fps: 100.0),

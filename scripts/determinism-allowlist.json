@@ -186,18 +186,6 @@
     "reason": "Propriétés LDtk consultées par clé ; ne pas utiliser leur ordre pour la génération."
   },
   {
-    "path": "crates/map_ldtk/src/game/local.rs",
-    "code": "let spawns: HashMap<usize, &GlobalTransform> = player_spawn",
-    "count": 1,
-    "reason": "Index des points de spawn par handle, consulté par clé pendant le chargement."
-  },
-  {
-    "path": "crates/map_ldtk/src/game/local.rs",
-    "code": "use bevy::{ecs::system::SystemParam, platform::collections::HashMap, prelude::*};",
-    "count": 1,
-    "reason": "Index des points de spawn par handle, consulté par clé pendant le chargement."
-  },
-  {
     "path": "crates/map_ldtk/src/game/plugin.rs",
     "code": "pub registered_entities: std::collections::HashSet<Entity>,",
     "count": 1,

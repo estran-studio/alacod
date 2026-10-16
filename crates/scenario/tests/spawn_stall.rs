@@ -45,6 +45,7 @@ fn empty_distance_range_spawns_after_deadline_without_desync() {
         profile: false,
         profile_setup: None,
         hub: None,
+        shopping: false,
         powerup_drop_chance_override: None,
         floors: None,
         progression: None,
