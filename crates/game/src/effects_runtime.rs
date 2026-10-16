@@ -1358,4 +1358,51 @@ mod tests {
         app.update();
         assert_eq!(health(&app), fx(60.0), "charge rendue à l'étage 1");
     }
+
+    /// Clés de limites (M3-T2, Q16) : `Shared` (défaut) → une seule clé pour tous les exemplaires ;
+    /// `Independent` → une clé par exemplaire (`#k`). Rang et nombre d'exemplaires pour `PerCopy`.
+    #[test]
+    fn cles_de_limites_partagees_ou_independantes() {
+        fn listed_keys(stack: &str) -> Vec<(String, u32, u32)> {
+            let def: items::ItemDef = ron::from_str(&format!(
+                r#"(name: "A", kind: Passive, stack: {stack}, effects: [
+                    (on: OnKill, charges: Some(1), do: [Scaled(action: Heal("1"), scale: Some(PerCopy))]),
+                ])"#
+            ))
+            .unwrap();
+            let table = ItemTable([("amulette".to_string(), def)].into_iter().collect());
+            let inventory = Inventory {
+                passives: vec!["amulette".into(), "amulette".into()],
+                ..Default::default()
+            };
+            let mut state = EffectState::default();
+            listed_effects(
+                None,
+                Some(&inventory),
+                Some(&table),
+                None,
+                &GgrsNetId(1, "t".into()),
+                &mut state,
+                10,
+                false,
+            )
+            .iter()
+            .map(|l| (l.key.clone(), l.copy_rank, l.copies))
+            .collect()
+        }
+        assert_eq!(
+            listed_keys("Shared"),
+            vec![
+                ("item:amulette:0".to_string(), 0, 2),
+                ("item:amulette:0".to_string(), 1, 2)
+            ]
+        );
+        assert_eq!(
+            listed_keys("Independent"),
+            vec![
+                ("item:amulette:0".to_string(), 0, 2),
+                ("item:amulette#1:0".to_string(), 1, 2)
+            ]
+        );
+    }
 }

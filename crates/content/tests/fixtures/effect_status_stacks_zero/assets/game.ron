@@ -1,0 +1,9 @@
+// Fixture M3-T2 (docs/conventions.md §67) : ApplyStatus avec stacks = 0 : OutOfRange
+(
+    name: "fixture-effect_status_stacks_zero",
+    content_folders: [
+        (path: "objets", kind: "Item"),
+        (path: "statuses", kind: "Status"),
+    ],
+    entry: (start_map: "maps/salle.ldtk", default_seed: 1),
+)

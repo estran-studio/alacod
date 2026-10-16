@@ -405,7 +405,6 @@ impl Plugin for EffectsV3Plugin {
 mod tests {
     use super::*;
     use effects::actions::Scale;
-    use sim_core::modifier::ModifierOp;
 
     fn fx(v: f32) -> Fixed {
         Fixed::from_num(v)
@@ -533,5 +532,255 @@ mod tests {
         );
         assert_eq!(next.get(&3), Some(&vec!["a".to_string(), "b".to_string()]));
         assert_eq!(rest.len(), 1);
+    }
+
+    // --- Tests ECS : les systèmes v3 sur de petits mondes ---
+
+    use crate::character::health::Health;
+    use crate::effects_runtime::{apply_effects_system, Effects};
+    use crate::weapons::WeaponsConfig;
+    use effects::{Condition, Effect, On};
+    use items::{Inventory, ItemDef};
+
+    fn app() -> App {
+        let mut app = App::new();
+        app.init_resource::<bevy_ggrs::RollbackOrdered>()
+            .init_resource::<Assets<WeaponsConfig>>()
+            .insert_resource(FrameCount { frame: 10 })
+            .init_resource::<FrameEvents<EffectOut>>()
+            .init_resource::<FrameEvents<HitLanded>>();
+        app
+    }
+
+    fn id(n: usize) -> GgrsNetId {
+        GgrsNetId(n, "t".into())
+    }
+
+    fn health(current: f32) -> Health {
+        Health {
+            current: fx(current),
+            max: fx(100.0),
+            invulnerable_until_frame: None,
+        }
+    }
+
+    fn on_event(name: &str, actions: Vec<Action>) -> Effect {
+        Effect::new(On::OnEvent(name.into()), Vec::<Condition>::new(), actions)
+    }
+
+    fn emits(app: &App, carrier: usize) -> Vec<String> {
+        app.world()
+            .resource::<FrameEvents<EffectOut>>()
+            .iter()
+            .filter_map(|e| match e {
+                EffectOut::Emit { carrier: c, name } if *c == carrier => Some(name.clone()),
+                _ => None,
+            })
+            .collect()
+    }
+
+    fn statuses_of(app: &App, entity: Entity) -> Vec<(String, u32)> {
+        app.world()
+            .get::<Statuses>(entity)
+            .map(|s| s.0.iter().map(|e| (e.id.clone(), e.stacks)).collect())
+            .unwrap_or_default()
+    }
+
+    fn send_emit(app: &mut App, carrier: usize, name: &str) {
+        app.world_mut()
+            .resource_mut::<FrameEvents<EffectOut>>()
+            .send(EffectOut::Emit {
+                carrier,
+                name: name.into(),
+            });
+    }
+
+    #[test]
+    fn une_chaine_de_trois_tours_se_resout_dans_la_meme_frame() {
+        let mut app = app();
+        app.add_systems(Update, apply_event_effects_system);
+        // a -> b -> c -> +1 de dégâts, trois tours dans UNE frame
+        let carrier = app
+            .world_mut()
+            .spawn((
+                id(1),
+                Effects(vec![
+                    on_event("a", vec![Action::Emit("b".into())]),
+                    on_event("b", vec![Action::Emit("c".into())]),
+                    on_event(
+                        "c",
+                        vec![Action::Modifier {
+                            stat: StatId::Damage,
+                            op: ModifierOp::Add,
+                            value: fx(1.0),
+                        }],
+                    ),
+                ]),
+                health(50.0),
+                Modifiers::default(),
+                Rollback,
+            ))
+            .id();
+        send_emit(&mut app, 1, "a");
+        app.update();
+        let modifiers = app.world().get::<Modifiers>(carrier).unwrap();
+        assert_eq!(modifiers.0.len(), 1, "le dernier maillon a tourné");
+        assert_eq!(modifiers.0[0].stat, StatId::Damage);
+    }
+
+    #[test]
+    fn le_plafond_de_tours_abandonne_les_emissions_restantes() {
+        let mut app = app();
+        app.add_systems(Update, apply_event_effects_system);
+        // « x » s'émet lui-même et pose un statut à chaque tour : exactement MAX_EVENT_ROUNDS poses.
+        app.world_mut().spawn((
+            id(1),
+            Effects(vec![on_event(
+                "x",
+                vec![
+                    Action::Emit("x".into()),
+                    Action::ApplyStatusSelf {
+                        status: "poison".into(),
+                        stacks: 1,
+                    },
+                ],
+            )]),
+            health(50.0),
+            Modifiers::default(),
+            Rollback,
+        ));
+        send_emit(&mut app, 1, "x");
+        app.update();
+        let poses = app
+            .world()
+            .resource::<FrameEvents<EffectOut>>()
+            .iter()
+            .filter(|e| matches!(e, EffectOut::Status { .. }))
+            .count();
+        assert_eq!(poses, MAX_EVENT_ROUNDS);
+        // le dernier « x » émis au-delà du plafond n'est relu par personne ce tour-là
+        assert_eq!(
+            emits(&app, 1),
+            vec!["x".to_string()],
+            "seul l'émission d'origine reste"
+        );
+    }
+
+    #[test]
+    fn apply_status_vise_la_cible_et_apply_status_self_le_porteur() {
+        let mut app = app();
+        let mut library = StatusLibrary::default();
+        library.statuses.insert(
+            "poison".into(),
+            combat::status::StatusSpec {
+                kind: StatusDef::Poison,
+                frames: 120,
+                damage: fx(2.0),
+                period: 30,
+                factor: fx(1.0),
+            },
+        );
+        library.statuses.insert(
+            "lenteur".into(),
+            combat::status::StatusSpec {
+                kind: StatusDef::Slow,
+                frames: 60,
+                damage: fx(0.0),
+                period: 0,
+                factor: fx(0.5),
+            },
+        );
+        app.insert_resource(library)
+            .add_systems(Update, (apply_effects_system, effect_status_system).chain());
+        let carrier = app
+            .world_mut()
+            .spawn((
+                id(1),
+                Team::Players,
+                Effects(vec![Effect::new(
+                    On::OnHit,
+                    Vec::<Condition>::new(),
+                    vec![
+                        Action::ApplyStatus {
+                            status: "poison".into(),
+                            stacks: 1,
+                        },
+                        Action::ApplyStatusSelf {
+                            status: "lenteur".into(),
+                            stacks: 1,
+                        },
+                    ],
+                )]),
+                health(50.0),
+                Modifiers::default(),
+                Rollback,
+            ))
+            .id();
+        let target = app
+            .world_mut()
+            .spawn((
+                id(2),
+                Team::Enemies,
+                health(50.0),
+                Modifiers::default(),
+                Rollback,
+            ))
+            .id();
+        let bystander = app
+            .world_mut()
+            .spawn((
+                id(3),
+                Team::Enemies,
+                health(50.0),
+                Modifiers::default(),
+                Rollback,
+            ))
+            .id();
+        app.world_mut()
+            .resource_mut::<FrameEvents<HitLanded>>()
+            .send(HitLanded {
+                frame: 10,
+                source: 1,
+                target: 2,
+            });
+        app.update();
+        assert_eq!(statuses_of(&app, target), vec![("poison".to_string(), 1)]);
+        assert_eq!(statuses_of(&app, carrier), vec![("lenteur".to_string(), 1)]);
+        assert!(statuses_of(&app, bystander).is_empty());
+    }
+
+    #[test]
+    fn per_copy_s_execute_une_fois_multiplie_par_le_nombre_d_exemplaires() {
+        let mut app = app();
+        let def: ItemDef = ron::from_str(
+            r#"(name: "A", kind: Passive, effects: [
+                (on: OnEvent("go"), do: [Scaled(action: Heal("2"), scale: Some(PerCopy))]),
+            ])"#,
+        )
+        .unwrap();
+        app.insert_resource(items::ItemTable(
+            [("amulette".to_string(), def)].into_iter().collect(),
+        ))
+        .add_systems(Update, apply_event_effects_system);
+        let carrier = app
+            .world_mut()
+            .spawn((
+                id(1),
+                Inventory {
+                    passives: vec!["amulette".into(), "amulette".into(), "amulette".into()],
+                    ..Default::default()
+                },
+                health(10.0),
+                Modifiers::default(),
+                Rollback,
+            ))
+            .id();
+        send_emit(&mut app, 1, "go");
+        app.update();
+        // une seule exécution de Heal(2) × 3 exemplaires = 6 (pas 3 × 6)
+        assert_eq!(
+            app.world().get::<Health>(carrier).unwrap().current,
+            fx(16.0)
+        );
     }
 }

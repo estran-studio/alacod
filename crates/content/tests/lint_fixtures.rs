@@ -513,6 +513,9 @@ fn t2_8_fixtures_have_a_single_problem() {
         ("prop_table_no_bullets", LintErrorKind::OutOfRange),
         ("effect_unsupported", LintErrorKind::Unsupported),
         ("effect_name_empty", LintErrorKind::OutOfRange),
+        ("effect_status_no_target", LintErrorKind::Unsupported),
+        ("effect_status_unknown", LintErrorKind::BrokenReference),
+        ("effect_status_stacks_zero", LintErrorKind::OutOfRange),
         ("effect_out_of_range", LintErrorKind::OutOfRange),
         ("effect_limits_invalid", LintErrorKind::OutOfRange),
         ("progression_out_of_range", LintErrorKind::OutOfRange),
@@ -1259,6 +1262,25 @@ fn item_effect_unsupported_fixture_reports_unsupported() {
         LintErrorKind::Unsupported,
         "OnUse n'a de sens que pour un objet actif",
     );
+}
+
+/// M3-T2 (§67) : `ApplyStatus` d'un effet (hors cible, statut inconnu, `stacks = 0`) et noms vides.
+#[test]
+fn effect_status_fixtures_report_one_rule_each() {
+    let (_, _, errors) = load_and_lint(&fixture_dir("effect_status_no_target")).unwrap();
+    assert_has_error(
+        &errors,
+        LintErrorKind::Unsupported,
+        "pas de cible hors OnHit",
+    );
+    let (_, _, errors) = load_and_lint(&fixture_dir("effect_status_unknown")).unwrap();
+    assert_has_error(
+        &errors,
+        LintErrorKind::BrokenReference,
+        "statut « fantome » inconnu",
+    );
+    let (_, _, errors) = load_and_lint(&fixture_dir("effect_status_stacks_zero")).unwrap();
+    assert_has_error(&errors, LintErrorKind::OutOfRange, "stacks = 0");
 }
 
 /// M2-T3 : cooldown/charges nuls et recharge sans charges.

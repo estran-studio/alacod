@@ -1,0 +1,9 @@
+// Fixture M3-T2 (docs/conventions.md §67) : ApplyStatus hors OnHit/OnKill/OnDamageTaken (pas de cible) : Unsupported
+(
+    name: "fixture-effect_status_no_target",
+    content_folders: [
+        (path: "objets", kind: "Item"),
+        (path: "statuses", kind: "Status"),
+    ],
+    entry: (start_map: "maps/salle.ldtk", default_seed: 1),
+)

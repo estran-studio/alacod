@@ -1,0 +1,3 @@
+(name: "Vipère", kind: Passive, effects: [
+    (on: OnHit, do: [ApplyStatus(status: "fantome", stacks: 1)]),
+])
