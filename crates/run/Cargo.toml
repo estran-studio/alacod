@@ -10,6 +10,11 @@ bevy_fixed = { path = "../bevy_fixed" }
 sim_core = { path = "../sim_core" }
 utils = { path = "../utils" }
 serde = { version = "1.0", features = ["derive"] }
+schemars = { version = "1", optional = true }
 
 [dev-dependencies]
 ron = "0.12"
+
+[features]
+# Schémas JSON du contenu (`alacod schema`) : jamais requis pour jouer.
+schema = ["dep:schemars", "bevy_fixed/schema", "sim_core/schema"]

@@ -511,6 +511,7 @@ mod tests {
                 weight: 1,
             }],
             exclude_held: false,
+            exhaust: false,
             reward: None,
         };
         let items = ItemTable(

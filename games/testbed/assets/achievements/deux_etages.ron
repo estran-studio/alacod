@@ -1,0 +1,6 @@
+// M3-T0e (§64) : accomplissement d'exemple : atteindre le deuxième étage (index 1) débloque
+// `manche_epuisable`. Évalué hors simulation à la fin de la run (`meta::achieved`, M3-T10).
+(
+    when: [FloorAtLeast(1)],
+    unlocks: ["manche_epuisable"],
+)

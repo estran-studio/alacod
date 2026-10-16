@@ -1,0 +1,13 @@
+// M3-T0e (docs/conventions.md §64) : mêmes deux niveaux que `deux_niveaux`, une curse tirée avec
+// une chance sur deux à chaque étage dans le pool des cinq curses du testbed (`curses/`).
+// Contrat seul : le tirage et les effets sont exécutés par M3-T9.
+(
+    levels: [
+        "testbed/floor_a.ldtk",
+        "testbed/floor_b.ldtk",
+    ],
+    curses: Some((
+        chance: "0.5",
+        pool: ["darkness", "unknown", "blind", "labyrinth", "maze"],
+    )),
+)

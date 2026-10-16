@@ -1,0 +1,9 @@
+// Fixture M3-T0e : accomplissements refusés par `lint::lint_achievements`.
+(
+    name: "fixture-achievement-invalid",
+    content_folders: [
+        (path: "achievements", kind: "Achievement"),
+        (path: "unlocks", kind: "Unlock"),
+    ],
+    entry: (start_map: "unused", default_seed: 1),
+)
