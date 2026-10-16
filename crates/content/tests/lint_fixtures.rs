@@ -226,6 +226,34 @@ fn m1_audit_fixtures() {
             &["personnage « gardien »", "BossFight", "sans boss:"],
         ),
         (
+            "champion_test_unknown_variant",
+            LintErrorKind::BrokenReference,
+            &[
+                "personnage « grunt »",
+                "test.champions",
+                "« fantome » absente de `variants`",
+            ],
+        ),
+        (
+            "champion_test_duplicate_variant",
+            LintErrorKind::DuplicateId,
+            &[
+                "personnage « grunt »",
+                "test.champions",
+                "« champion » répétée",
+            ],
+        ),
+        (
+            "tears_test_min_hits_zero",
+            LintErrorKind::OutOfRange,
+            &["objet « lentille »", "test.tears", "min_hits = 0"],
+        ),
+        (
+            "familiar_test_without_familiar",
+            LintErrorKind::Unsupported,
+            &["objet « bottes »", "test.familiar", "sans `familiar:`"],
+        ),
+        (
             "room_kind_unknown",
             LintErrorKind::UnknownKind,
             &[

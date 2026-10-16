@@ -4784,3 +4784,55 @@ Diagnostic : `map_probe` (`ALACOD_MAP_PROBE=<scénario>:<frame>`) liste aussi la
 
 M3-T11c donne des champions à au moins trois ennemis des salles `combat` d'`isaac` (graine à nommer à ce moment) ; d'ici là,
 scénarios testbed seulement (dette nommée, à fermer par T11c).
+
+## 78. Générateur v3 : gabarits `TearsOnTarget`, `FamiliarHeld`, `ChampionForced` (M3-T13)
+
+Code : `crates/scenario/src/generate.rs` (`build_tears_scenario`, `build_familiar_scenario`,
+`build_champion_scenario`, `champion_death_expectations`, `discover_target`), `game::gen_test`
+(`TearsTest`, `FamiliarTest`, `ChampionTest`), `game::character::config::CharacterTest::champions`,
+`content::lint` (`lint_item_tests`, `lint_character_tests`). Complète §28 et §54 : mêmes règles
+(opt-in par `test:`, aucun effet en jeu, un scénario écrit par `make gen GAME=<jeu>`, champ absent =
+rien de généré, les scénarios et traces existants ne bougent pas). **Aucune attente nouvelle** : les
+gabarits n'emploient que `HasItem`, `Stat`, `EntityHits`, `HitsAtLeast`, `FamiliarCount`,
+`EnemyVariant`, `EntityCount`, `Event`, `PlayerAlive`.
+
+Les trois gabarits sont des **champs ajoutés à des `test:` existants** : un objet ou un personnage
+déjà généré garde son fichier octet pour octet. Ils jouent dans l'arène de `generate_template`
+(`WeaponArena`, `target`/`cible` avec `counts_hits`) pour les objets, dans l'arène du gabarit ennemi
+(§28) pour les champions. Les nouveaux sujets sont rangés **après** les anciens dans `--list`.
+
+**Larmes** (`objets/<id>.ron`, fichier `tears_<id>.ron`) :
+`test: Some((frames: 60, tears: Some((weapon: Some("larme"), frames: Some(150), target: None, min_hits: 1, expect: [...]))))`.
+Le joueur tient l'objet (`PlayerScript::items`), tire par impulsions (`weapon` : arme du joueur,
+absent = ses armes de départ) sur la cible de l'arène. Attentes : `HasItem`, une `Stat` par
+modificateur de stat de l'objet (valeur sondée comme `ItemHeld`, §54), `EntityHits(cible) ≥ min_hits`
+à la dernière frame, puis `expect`. `frames` propre au gabarit (défaut `test.frames`) : le `ItemHeld`
+de 60 frames d'un objet existant ne change pas. `target: Some("<personnage>")` : cible réglable,
+un personnage à `counts_hits` posé 48 unités avant la cible de l'arène, sur la ligne de tir ; ses
+coups sont comptés (`HitsAtLeast(Placed(0))`) et sa santé règle le test.
+
+**Familier** (objet à `familiar:`, fichier `familiar_<id>.ron`) :
+`test: Some((frames: 60, familiar: Some((weapon: ..., frames: Some(120), min_hits: 7, expect: [...]))))`.
+Attentes : `HasItem`, `FamiliarCount = per_copy` à la frame 5 et à l'avant-dernière frame ; si
+`min_hits > 0`, le joueur tire aussi et la cible reçoit au moins `min_hits` coups (à fixer d'après la
+partie : le joueur seul en donne N, le familier en ajoute). `familiar:` sur un objet sans
+`familiar:` : erreur de lint.
+
+**Champion** (personnage à `variants:`, fichier `champion_<id>_<variante>.ron`) :
+`test: Some((frames: 150, still: false, moving: false, champions: [(variant: "explosif", kill: true, weapon: Some("larme")), (variant: "nu")]))`.
+L'ennemi apparaît à 200 unités à droite du joueur avec la variante imposée
+(`CharacterPlacement::variant`, §63) ; attente `EnemyVariant(Placed(0))` à la frame 2. `kill: true` :
+le joueur tire dans l'axe (+x) avec `weapon` et les effets de mort **déclarés** de la variante sont
+attendus : `Explode` → moment clé `explosion` ; `SpawnCharacters` → `EntityCount(Enemy) ≥ Σ count`
+(borne basse : les ennemis de l'arène comptent aussi). `still: false, moving: false` : pas de
+gabarit `enemy_<id>_*` en plus. Une variante répétée ou absente de la table est une erreur.
+
+**Lint** (`content`) : `tears.min_hits > 0`, `frames > 0`, arme connue, `target` connu et
+`counts_hits`; `familiar` seulement avec `familiar:` ; `champions` : variantes de la table, sans
+doublon, `weapon` seulement avec `kill`. Fixtures : `champion_test_unknown_variant`,
+`champion_test_duplicate_variant`, `tears_test_min_hits_zero`, `familiar_test_without_familiar`.
+Le schéma de `alacod describe` (kind `Item`, `Character`) expose les nouveaux champs.
+
+**Échelle** : le nom d'un fichier est une fonction de l'id seul (`tears_<id>`, `familiar_<id>`,
+`champion_<id>_<variante>`) ; ajouter un objet ordinaire = un `.ron` de contenu avec `test:`, jamais
+un scénario écrit à la main. Mesures : voir `docs/taches/rapports/m3-t13-generateur-v3.md`.

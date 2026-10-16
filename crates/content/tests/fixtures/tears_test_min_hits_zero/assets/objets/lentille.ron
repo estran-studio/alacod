@@ -1,0 +1,1 @@
+(name: "Lentille", kind: Passive, test: Some((frames: 60, tears: Some((min_hits: 0)))))

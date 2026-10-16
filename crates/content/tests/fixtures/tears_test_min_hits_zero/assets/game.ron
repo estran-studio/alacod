@@ -1,0 +1,8 @@
+// Fixture M3-T13 : test.tears.min_hits = 0 (OutOfRange).
+(
+    name: "fixture-tears_test_min_hits_zero",
+    content_folders: [
+        (path: "objets", kind: "Item"),
+    ],
+    entry: (start_map: "maps/salle.ldtk", default_seed: 1),
+)
