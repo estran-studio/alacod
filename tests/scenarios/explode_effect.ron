@@ -6,6 +6,9 @@
 // porteur et explose à f47 (moment clé `explosion`, une seule fois : une charge) : le joueur (équipe Players, la
 // source est de l'équipe Enemies) perd 30 PV (100 → 70) ; le porteur, au centre du rayon, perd les mêmes 30 (50 → 20 :
 // l'explosion n'exempte personne, comme une bombe de joueur et son tir ami `Always`) ; le `dummy` hors rayon est intact.
+//
+// M3-T17 (feedback v3, conventions §82) : l'effet Explode : anneau et secousse à f48 (moments clés `feedback`). Trace inchangée.
+
 Scenario(
     powerup_drop_chance_override: "0.0",
     game: "testbed",
@@ -26,5 +29,6 @@ Scenario(
         EntityHealth(net_id: 15, min: 20, max: 20, at_frame: 99),
         EntityHealth(net_id: 16, min: 200, max: 200, at_frame: 99),
         Event(kind: "explosion", by_frame: 48),
+        Event(kind: "feedback", label_contains: Some("anneau d'explosion (rayon 40)"), by_frame: 48),
     ],
 )

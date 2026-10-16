@@ -4,6 +4,9 @@
 // point d'impact, dans l'axe de chacune.
 //
 // À regarder : une larme, un impact, trois larmes en éventail qui touchent chacune sa cible.
+//
+// M3-T17 (feedback v3, conventions §82) : la larme divisible (plus grosse), puis trois enfants plus petits à f45 (moments clés `feedback`). Trace inchangée.
+
 Scenario(
     game: "testbed",
     map: "testbed/props_room.ldtk",
@@ -40,5 +43,7 @@ Scenario(
         EntityHits(net_id: 15, min: 1, max: Some(1), at_frame: 139),
         EntityHits(net_id: 16, min: 1, max: Some(1), at_frame: 139),
         EntityHits(net_id: 17, min: 1, max: Some(1), at_frame: 139),
+        Event(kind: "feedback", label_contains: Some("larme 18 (division)"), by_frame: 21),
+        Event(kind: "feedback", label_contains: Some("(génération 1)"), by_frame: 45),
     ],
 )

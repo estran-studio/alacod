@@ -3,6 +3,9 @@
 // direction. `target` est placée en ligne. Témoin `familiar_mirror_shot_sans_objet` : la même larme seule.
 //
 // À regarder : deux balles partent à la suite, la seconde du familier ; la cible reçoit deux coups.
+//
+// M3-T17 (feedback v3, conventions §82) : le suiveur tire avec le porteur (moments clés `feedback`). Trace inchangée.
+
 Scenario(
     game: "testbed",
     map: "testbed/surfaces.ldtk",
@@ -27,5 +30,6 @@ Scenario(
         EntityHits(net_id: 15, min: 1, max: Some(1), at_frame: 82),
         EntityHits(net_id: 15, min: 2, max: Some(2), at_frame: 83),
         EntityHits(net_id: 15, min: 2, max: Some(2), at_frame: 159),
+        Event(kind: "feedback", label_contains: Some("familier 14 (suiveur, porteur 8, rang 0)"), by_frame: 1),
     ],
 )

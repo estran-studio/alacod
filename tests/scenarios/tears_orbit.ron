@@ -4,6 +4,9 @@
 // 40 unités à l'ouest (en (656, -194)), au bout d'un demi-tour.
 //
 // À regarder : la larme décrit un cercle autour du joueur et touche la cible derrière lui.
+//
+// M3-T17 (feedback v3, conventions §82) : la larme en orbite (moments clés `feedback`). Trace inchangée.
+
 Scenario(
     game: "testbed",
     map: "testbed/props_room.ldtk",
@@ -26,5 +29,6 @@ Scenario(
         HitsAtLeast(entity: Placed(0), hits: 1, at_frame: 48),
         BulletCount(count: 0, projectile: Some("larme"), at_frame: 60),
         EntityHits(net_id: 14, min: 1, max: Some(1), at_frame: 119),
+        Event(kind: "feedback", label_contains: Some("larme 15 (orbite)"), by_frame: 21),
     ],
 )

@@ -3,6 +3,9 @@
 // feu en couronne depuis la position du mort), puis est détruit ; les boules de feu blessent le joueur.
 //
 // À regarder : le champion tombe, une couronne de huit boules de feu part de sa position.
+//
+// M3-T17 (feedback v3, conventions §82) : le champion à salve (turquoise) (moments clés `feedback`). Trace inchangée.
+
 Scenario(
     game: "testbed",
     map: "testbed/surfaces.ldtk",
@@ -29,5 +32,6 @@ Scenario(
         BulletCount(count: 1, projectile: Some("fireball"), at_frame: 100),
         // Une boule de feu (8 points de dégâts) touche le joueur.
         Health(handle: 0, min: Some(92.0), max: Some(92.0), at_frame: 150),
+        Event(kind: "feedback", label_contains: Some("champion 14 (salve)"), by_frame: 2),
     ],
 )

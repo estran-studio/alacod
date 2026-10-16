@@ -4,6 +4,9 @@
 // qu'elles quittent, se courbent vers l'ennemi le plus proche et rebondissent sur les murs.
 //
 // À regarder : une larme part, touche la cible, trois larmes en éventail repartent.
+//
+// M3-T17 (feedback v3, conventions §82) : la larme guidée et divisible (turquoise, +25 %), puis trois enfants plus petits à f45 (moments clés `feedback`). Trace inchangée.
+
 Scenario(
     game: "testbed",
     map: "testbed/props_room.ldtk",
@@ -29,5 +32,7 @@ Scenario(
         // Elles se courbent vers le `follower` (net id 12, 60 points de vie) : trois coups de 3,5.
         EntityHealth(net_id: 12, min: Some(49.0), max: Some(50.0), at_frame: 120),
         BulletCount(count: 0, projectile: Some("larme"), at_frame: 120),
+        Event(kind: "feedback", label_contains: Some("larme 15 (guidée, division)"), by_frame: 21),
+        Event(kind: "feedback", label_contains: Some("(guidée, génération 1)"), by_frame: 45),
     ],
 )

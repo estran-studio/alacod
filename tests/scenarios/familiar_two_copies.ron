@@ -3,6 +3,9 @@
 // répartis à 120° autour du joueur à 36 unités).
 //
 // À regarder : deux suiveurs en file derrière le joueur et trois orbitaux qui tournent autour de lui.
+//
+// M3-T17 (feedback v3, conventions §82) : deux suiveurs et trois orbitaux (pointe vers l'extérieur) (moments clés `feedback`). Trace inchangée.
+
 Scenario(
     game: "testbed",
     map: "testbed/surfaces.ldtk",
@@ -31,5 +34,7 @@ Scenario(
         FamiliarDistance(handle: 0, rank: 2, to_rank: Some(3), min: Some(61.5), max: Some(63.3), at_frame: 60),
         FamiliarDistance(handle: 0, rank: 3, to_rank: Some(4), min: Some(61.5), max: Some(63.3), at_frame: 150),
         FamiliarDistance(handle: 0, rank: 4, to_rank: Some(2), min: Some(61.5), max: Some(63.3), at_frame: 150),
+        Event(kind: "feedback", label_contains: Some("(suiveur, porteur 8, rang 1)"), by_frame: 1),
+        Event(kind: "feedback", label_contains: Some("(orbital, porteur 8, rang 4)"), by_frame: 1),
     ],
 )

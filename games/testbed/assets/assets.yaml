@@ -68,3 +68,19 @@
   licence: CC0 1.0 (https://creativecommons.org/publicdomain/zero/1.0/) — affichée sur la page
     et dans le License.txt de l'archive
   modifications: normalisé à -3 dBFS crête, ré-encodé en ogg vorbis (oggenc -q 5)
+
+- id: sprites-feedback-v3-projet
+  fichiers:
+    - sprites/feedback/tear.png
+    - sprites/feedback/bomb.png
+    - sprites/feedback/rock.png
+    - sprites/feedback/companion.png
+    - sprites/feedback/orbital.png
+    - sprites/feedback/champion.png
+  source: dessinées pour le projet par scripts/generer-sprites-feedback.py (M3-T17, docs/conventions.md
+    §82) ; aucune source tierce, aucun visuel tiré d'un jeu commercial
+  auteur: projet alacod
+  licence: CC0 1.0 (https://creativecommons.org/publicdomain/zero/1.0/) — œuvre originale du projet
+  modifications: sans objet (originaux) ; teintés au rendu (larmes, mèche de la bombe, champions)
+  statut: placeholder (formes de lisibilité : larme, bombe, rocher, suiveur, orbital, élite) — à
+    remplacer par la voie V6

@@ -172,3 +172,76 @@ pub fn face_stationary_enemies(
         }
     }
 }
+
+/// M3-T17 (§82), présentation : orientation des familiers. Un **suiveur** regarde du côté où va son
+/// porteur (sinon vers lui) ; un **orbital** tourne sur lui-même, la pointe de son sprite vers
+/// l'extérieur du cercle. Ne retourne/tourne que les calques à image (pas la barre de vie) ; passe
+/// après `set_sprite_flip`. Ne lit que des positions et ne touche ni l'état ni les traces.
+pub fn orient_familiars(
+    familiars: Query<(
+        &behaviors::FamiliarOf,
+        &crate::familiars::FamiliarBehaviors,
+        &bevy_fixed::fixed_math::FixedTransform3D,
+        &Children,
+    )>,
+    owners: Query<
+        (
+            &utils::net_id::GgrsNetId,
+            &bevy_fixed::fixed_math::FixedTransform3D,
+        ),
+        Without<behaviors::FamiliarOf>,
+    >,
+    mut sprites: Query<(&mut Sprite, &mut Transform)>,
+    mut owner_x: Local<std::collections::BTreeMap<usize, f32>>,
+) {
+    let positions: std::collections::BTreeMap<usize, Vec2> = owners
+        .iter()
+        .map(|(net_id, t)| {
+            (
+                net_id.0,
+                Vec2::new(t.translation.x.to_num::<f32>(), t.translation.y.to_num::<f32>()),
+            )
+        })
+        .collect();
+    let previous = std::mem::take(&mut *owner_x);
+    for (net_id, position) in &positions {
+        owner_x.insert(*net_id, position.x);
+    }
+    for (of, behaviors, transform, children) in &familiars {
+        let Some(owner) = positions.get(&of.owner.0) else {
+            continue;
+        };
+        let at = Vec2::new(
+            transform.translation.x.to_num::<f32>(),
+            transform.translation.y.to_num::<f32>(),
+        );
+        let motion = behaviors.motion();
+        let angle = match motion {
+            Some(crate::familiars::FamiliarMotion::Orbit { .. }) => {
+                Some(crate::feedback_v3::outward_angle(*owner, at))
+            }
+            _ => None,
+        };
+        let faces_left = match motion {
+            Some(crate::familiars::FamiliarMotion::Follow { .. }) => {
+                let moved = previous.get(&of.owner.0).map_or(0.0, |x| owner.x - x);
+                crate::feedback_v3::follower_faces_left(moved, owner.x - at.x)
+            }
+            _ => None,
+        };
+        for child in children.iter() {
+            let Ok((mut sprite, mut layer)) = sprites.get_mut(child) else {
+                continue;
+            };
+            if sprite.texture_atlas.is_none() {
+                continue;
+            }
+            if let Some(left) = faces_left {
+                sprite.flip_x = left;
+            }
+            if let Some(angle) = angle {
+                layer.rotation = Quat::from_rotation_z(angle);
+            }
+        }
+    }
+}

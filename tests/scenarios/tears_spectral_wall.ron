@@ -4,6 +4,9 @@
 //
 // À regarder : avec l'objet, la larme passe à travers le mur et touche `target` ; sans lui elle
 // s'arrête dans le mur.
+//
+// M3-T17 (feedback v3, conventions §82) : la larme spectrale est translucide (moments clés `feedback`). Trace inchangée.
+
 Scenario(
     game: "testbed",
     map: "testbed/props_room.ldtk",
@@ -24,5 +27,6 @@ Scenario(
         EntityHits(net_id: 14, min: 0, max: Some(0), at_frame: 48),
         HitsAtLeast(entity: Placed(0), hits: 1, at_frame: 49),
         EntityHits(net_id: 14, min: 1, max: Some(1), at_frame: 119),
+        Event(kind: "feedback", label_contains: Some("larme 15 (spectrale)"), by_frame: 21),
     ],
 )

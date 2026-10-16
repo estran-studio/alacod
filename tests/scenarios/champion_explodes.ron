@@ -4,6 +4,9 @@
 // familier, immunisé, n'est jamais touché. Témoin : même partie avec la variante `nu`, personne n'est blessé.
 //
 // À regarder : le champion tombe ; avec `explosif`, une explosion blesse le joueur et la cible proche, pas la lointaine.
+//
+// M3-T17 (feedback v3, conventions §82) : le champion explosif (rouge), anneau de rayon 70 à f30 (moments clés `feedback`). Trace inchangée.
+
 Scenario(
     game: "testbed",
     map: "testbed/surfaces.ldtk",
@@ -36,5 +39,7 @@ Scenario(
         // Le familier (10 points de vie, immunisé) a reçu la même explosion à 40 unités : toujours là.
         FamiliarCount(handle: 0, count: 1, at_frame: 159),
         Health(handle: 0, min: Some(90.0), max: Some(90.0), at_frame: 159),
+        Event(kind: "feedback", label_contains: Some("champion 15 (explosif)"), by_frame: 2),
+        Event(kind: "feedback", label_contains: Some("anneau d'explosion (rayon 70)"), by_frame: 30),
     ],
 )

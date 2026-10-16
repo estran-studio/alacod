@@ -4,6 +4,9 @@
 // derrière lui, jamais plus près. Il ne bloque pas le joueur (couche sans collision).
 //
 // À regarder : un carré qui suit le joueur à distance constante.
+//
+// M3-T17 (feedback v3, conventions §82) : un suiveur apparaît sur le porteur, retourné du côté où il avance (moments clés `feedback`). Trace inchangée.
+
 Scenario(
     game: "testbed",
     map: "testbed/surfaces.ldtk",
@@ -31,5 +34,6 @@ Scenario(
         // À l'arrêt : il reste à sa laisse, il n'est pas venu se coller au joueur.
         FamiliarDistance(handle: 0, rank: 0, min: Some(27.5), max: Some(28.5), at_frame: 190),
         FamiliarCount(handle: 0, count: 1, at_frame: 199),
+        Event(kind: "feedback", label_contains: Some("familier 14 (suiveur, porteur 8, rang 0)"), by_frame: 1),
     ],
 )

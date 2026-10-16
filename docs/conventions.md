@@ -4860,3 +4860,100 @@ basculer (les traces et le témoin le signalent) ; préférer un compte de coups
 **Échelle** : le nom d'un fichier est une fonction de l'id seul (`tears_<id>`, `familiar_<id>`,
 `champion_<id>_<variante>`) ; ajouter un objet ordinaire = un `.ron` de contenu avec `test:`, jamais
 un scénario écrit à la main. Mesures : voir `docs/taches/rapports/m3-t13-generateur-v3.md`.
+
+## 82. Feedback v3 : larmes lisibles, familiers, champions, bombes et explosions (M3-T17, voie V4)
+
+Complète §31 et §55 : mêmes règles. **Tout est présentation** : rien de rollback, rien dans le checksum ni
+dans les traces (aucune trace n'a bougé : suite complète sans `BLESS`), rien dans `GgrsSchedule`, aucun crate
+de simulation n'importe du rendu (`make check_sim_boundary`). Chaque effet est **dérivé de l'état** (composants
+`Projectile`, `Bomb`, `FamiliarOf`, `Variant`, ressource `DoorLocks`) ou des `FrameEvents` **transitoires** que
+la simulation émet déjà (`Exploded`, `RockBroken`) : un rollback qui rejoue la même situation redonne les mêmes
+indices. Code : `game::feedback_v3` (fonctions pures et journal), `game::feedback` (rendu des explosions, teinte
+des champions), `game::world_sprites` (larmes, bombe, rocher), `game::character::visuals::orient_familiars`.
+
+### Journal et moments clés
+
+`feedback_v3::record_v3_cues` (`PostUpdate`, après `record_feedback_cues`, headless compris) remplit
+`FeedbackLog` ; sept genres de plus dans `FeedbackKind` et un champ `note: Option<String>` dans `FeedbackCue`.
+`scenario::events` en fait des moments clés `feedback` (`feedback_v3::cue_label`) :
+
+| Genre | Quand | Libellé |
+|---|---|---|
+| `Tear` | première frame d'une larme à modificateurs (`TearLook::is_plain` faux) | « larme 15 (guidée, division) » : liste des traits, dans l'ordre guidée, spectrale, orbite, division, perforante, statut, génération n |
+| `Familiar` | un familier apparaît (`FamiliarOf`) | « familier 14 (suiveur, porteur 8, rang 0) » ; « orbital » pour `Orbit` |
+| `Champion` | un personnage à `Variant` dont la variante a un `tint` apparaît | « champion 15 (explosif) » |
+| `BombFuse` | une `Bomb` apparaît | « mèche 17 (19 frames) » (frames restantes à la pose) |
+| `Explosion` | un `Exploded` | « anneau d'explosion (rayon 48) » |
+| `RockBroken` | un `RockBroken` | « rocher cassé (19,44) » (case de grille) |
+| `SecretWall` | une salle entre dans `DoorLocks` | « mur secret ouvert (<iid de la salle>) » |
+
+Une larme **plate** (aucun trait) ne produit rien : le contenu d'avant garde ses journaux. La mémoire (ids déjà
+vus, salles déjà ouvertes) est remise à zéro quand le compteur de frames recule (nouvelle partie) ; un
+rollback qui retombe avant l'ouverture d'un mur la retire de `DoorLocks` et la mémoire suit. Limites de §31
+reprises : un tick qui simule plusieurs frames ne journalise que les `FrameEvents` de la dernière ; un indice
+prédit puis annulé par un rollback p2p reste dans le journal.
+
+### Larmes
+
+`feedback_v3::tear_look(projectile, statuts, base)` (pure) : **couleur** = celle du premier statut posé par l'`on_hit`
+(`Chance` déballée, `StatusLibrary` : brûlure orange, poison vert, gel bleu, peur violet, lenteur, étourdissement),
+sinon turquoise si guidée, sinon la couleur d'équipe d'avant (jaune joueur, rouge ennemi) ; **opacité** 0,5 si
+`Spectral` ; **taille** (facteur sur `custom_size`, déjà agrandi par `Size` : `Projectile::size`) : ×1,25 `Split`,
+×1,15 `Pierce`, ×0,8 par génération (plancher 0,5). `world_sprites::style_tears` l'applique **une fois** par larme,
+après `skin_bullets` (qui pose l'image et la couleur d'équipe). Une larme plate n'est pas touchée.
+
+### Familiers et orbitaux
+
+Sprites provisoires par l'entrée `compagnon`/`orbital`/`rempart` de la table `SpriteSheet` du jeu (visuels
+`character::visuals`, comme les ennemis : un jeu sans entrée garde le rendu d'avant, aucun). **Orientation**
+(`orient_familiars`, après `set_sprite_flip`) : un suiveur regarde du côté où va son porteur, à défaut vers lui
+(`follower_faces_left`) ; un orbital tourne sur lui-même, la pointe vers l'extérieur du cercle (`outward_angle`).
+Seuls les calques à image sont touchés (pas la barre de vie).
+
+### Champions
+
+`feedback::tint_champions` pose `ChampionTint(Option<Color>)` (présentation, une fois) d'après `VariantDef::tint` de
+la variante (`#rrggbb`, lu dans `CharacterConfig::variants` par `feedback_v3::variant_tint`) ; `apply_layer_colors`
+l'utilise comme **couleur de base** des calques, devant `MarkerTint` (D66) ; statuts et flash passent encore devant.
+Les variantes du testbed ont une teinte (sauf `nu`, le témoin).
+
+### Bombe, explosion, rocher, mur secret
+
+- **Mèche.** `world_sprites::sync_world_sprites` : l'enfant-sprite de la `Bomb` (entrée `bomb`) clignote selon les
+  frames restantes `fuse_until - frame` : demi-période `clamp(restant / 4, 2, 8)` frames (`blink_half_period`), rouge
+  (1, 0,25, 0,2) en phase allumée, gris sinon, taille jusqu'à +25 % sur les 30 dernières frames (`fuse_blink`).
+- **Explosion** (`ExplosionFxConfig`, `explosion:` de `ui/feedback.ron`, optionnel, actif par défaut) : deux anneaux
+  (plein rayon et 0,6 plus clair) sur `ring_frames` (18), orange ; secousse de `shake_frames` (10) d'amplitude
+  `shake_amplitude` (8) **pour un rayon de 100**, proportionnelle au rayon, bornée à [1, 3 × l'amplitude]
+  (`explosion_shake`). Valable pour la bombe, le baril et l'explosion d'un champion (même `Exploded`).
+- **Rocher cassé.** Sprite de rocher (entrée `rock`), puis six éclats par rocher (`debris_offset` : directions
+  réparties, vitesse selon l'indice, freinage ; `debris_alpha` : pleins puis estompés sur 24 frames), dérivés de
+  l'âge en frames de simulation, détruits à l'échéance.
+- **Mur secret.** Au tick où la salle entre dans `DoorLocks`, nuage de douze éclats ocre et anneau de poussière de rayon
+  48 à l'endroit de l'explosion de la même frame (sans explosion, seul le journal change).
+
+Lint (`FeedbackSettings::problems`, `OutOfRange`) : `explosion.ring_frames` dans `[1, 600]`, `shake_frames` dans `[0, 600]`,
+`shake_amplitude >= 0`, couleur dans `[0, 1]`. Fixtures `feedback_explosion_frames_zero`,
+`feedback_explosion_amplitude_negative`.
+
+### Assets provisoires
+
+`games/testbed/assets/sprites/feedback/` : `tear`, `bomb`, `rock`, `companion`, `orbital`, `champion` (PNG), feuilles
+`*_sheet.ron`, `anim_still.ron` ; entrées `bullet_player`, `bullet_enemy`, `bomb`, `rock`, `compagnon`, `orbital`,
+`rempart`, `elite_*` de `sprites/sprites.ron`. **Images originales du projet**, dessinées par
+`scripts/generer-sprites-feedback.py` (déterministe, CC0, `assets.yaml`), en niveaux de blanc pour que la teinte du
+rendu se voie ; statut `placeholder`, à remplacer par la voie V6. Les autres jeux n'ont pas ces entrées : rendu d'avant.
+
+### Preuve sans écran
+
+Attentes `Event(kind: "feedback", label_contains: …)` ajoutées à 23 scénarios (`tears_*`, `familiar_*`,
+`orbital_blocks_bullet`, `bomb_*`, `secret_wall_bomb`, `explode_effect`, `rock_loot`, `champion_*`), commentaire
+`// M3-T17` en tête de chacun, **traces inchangées**. Unitaires : `game::feedback_v3` (look d'une larme, mèche,
+secousse, éclats, teinte, orientation).
+
+### Limites
+
+- Aucun son d'explosion ni de mèche (aucun asset licencié retenu : `sounds` n'a pas de clé).
+- L'orbital et l'élite sont visibles dans le testbed seulement ; `isaac` aura ses propres entrées avec M3-T11.
+- Une bombe de champion (mèche d'une frame) apparaît une frame avec son sprite et un indice « mèche (0 frames) ».
+- Le mur secret n'a pas de sprite de porte propre : seule la poussière annonce l'ouverture.
