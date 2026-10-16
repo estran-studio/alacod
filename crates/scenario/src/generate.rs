@@ -42,7 +42,10 @@ use bevy_fixed::fixed_math::{self, Fixed};
 use game::character::config::{CharacterConfig, CharacterTest};
 use game::character::health::HitCount;
 use game::character::player::Player;
-use game::gen_test::{BossFightTest, ItemFile, ItemTest, RoomFile, RoomTest};
+use game::gen_test::{
+    BossFightTest, ChampionTest, FamiliarTest, ItemFile, ItemTest, RoomFile, RoomTest, TearsTarget,
+    TearsTest,
+};
 use game::replay::{
     Button, CharacterPlacement, EntityRef, Expectation, Invariants, PlayerScript, Scenario,
     Segment, WaveOverride,
@@ -72,6 +75,12 @@ pub enum Template {
     RoomClear,
     /// M2-T17 : la salle du boss, un bot `fonceur`.
     BossFight,
+    /// M3-T13 (§78) : le joueur tient l'objet de larmes et tire sur la cible de l'arène du jeu.
+    TearsOnTarget,
+    /// M3-T13 : le joueur tient l'objet familier (`FamiliarCount`, coups du familier).
+    FamiliarHeld,
+    /// M3-T13 : l'ennemi apparaît avec sa variante imposée ; effets de mort attendus.
+    ChampionForced,
 }
 
 impl Template {
@@ -80,7 +89,12 @@ impl Template {
             Template::WeaponOnTarget => "",
             Template::EnemyVsStillPlayer => "still",
             Template::EnemyVsMovingPlayer => "moving",
-            Template::ItemHeld | Template::RoomClear | Template::BossFight => "",
+            Template::ItemHeld
+            | Template::RoomClear
+            | Template::BossFight
+            | Template::TearsOnTarget
+            | Template::FamiliarHeld
+            | Template::ChampionForced => "",
         }
     }
 }
@@ -97,6 +111,14 @@ pub enum GeneratedKind {
     Room,
     /// M2-T17 : boss ([`Template::BossFight`]).
     Boss,
+    /// M3-T13 : objet de larmes ([`Template::TearsOnTarget`]).
+    Tears,
+    /// M3-T13 : objet familier ([`Template::FamiliarHeld`]).
+    Familiar,
+    /// M3-T13 : champion imposé ([`Template::ChampionForced`]).
+    Champion,
+    /// M3-T13 : témoin d'un objet de larmes ou familier : le même tir sans l'objet.
+    Control,
 }
 
 /// Catégorie d'une arme générée (détermine le registre d'où elle vient et la façon de
@@ -201,6 +223,26 @@ pub enum GenerateError {
         item_id: String,
         stat: String,
     },
+    /// M3-T13 : `test.champions` désigne une variante absente de la table du personnage.
+    UnknownVariant {
+        character_id: String,
+        variant: String,
+    },
+    /// M3-T13 : `test.familiar` sur un objet sans `familiar:`.
+    NotAFamiliar {
+        item_id: String,
+    },
+    /// M3-T13 : la sonde d'un champion forcé n'a pas pu mesurer ce qu'il faut attendre.
+    ChampionProbe {
+        character_id: String,
+        variant: String,
+        message: String,
+    },
+    /// M3-T13 : une cible de `tears:` n'a pas été retrouvée dans la sonde.
+    TearsTarget {
+        item_id: String,
+        index: usize,
+    },
 }
 
 impl std::fmt::Display for GenerateError {
@@ -224,6 +266,29 @@ impl std::fmt::Display for GenerateError {
             GenerateError::MissingPlayer { character_id } => write!(
                 f,
                 "personnage « {character_id} » : sonde du gabarit ennemi sans joueur 0 (carte sans spawn de joueur ?)"
+            ),
+            GenerateError::UnknownVariant {
+                character_id,
+                variant,
+            } => write!(
+                f,
+                "personnage « {character_id} » : test.champions : variante « {variant} » absente de `variants`"
+            ),
+            GenerateError::ChampionProbe {
+                character_id,
+                variant,
+                message,
+            } => write!(
+                f,
+                "personnage « {character_id} » variante « {variant} » : {message}"
+            ),
+            GenerateError::TearsTarget { item_id, index } => write!(
+                f,
+                "objet « {item_id} » : test.tears : la cible {index} n'a pas de compteur de coups dans la sonde (`counts_hits: true` ?)"
+            ),
+            GenerateError::NotAFamiliar { item_id } => write!(
+                f,
+                "objet « {item_id} » : test.familiar sur un objet sans `familiar:`"
             ),
             GenerateError::MissingStat { item_id, stat } => write!(
                 f,
@@ -344,6 +409,7 @@ pub fn generate_game(game_dir: &Path) -> Result<Vec<GeneratedScenario>, Generate
             .as_ref()
             .map(|_| content::EntryMode::Sandbox),
     };
+    let mut champions_out: Vec<GeneratedScenario> = Vec::new();
     for (id, entry) in &registry.characters {
         if entry.test.is_none() || !generated(&entry.file) {
             continue;
@@ -376,6 +442,58 @@ pub fn generate_game(game_dir: &Path) -> Result<Vec<GeneratedScenario>, Generate
                 subject_id: id.clone(),
                 kind: GeneratedKind::Character(template),
                 scenario: build_enemy_scenario(&arena, &id, template, &test, &probe),
+            });
+        }
+        // M3-T13 : gabarit ChampionForced, une entrée de `test.champions` par variante (ajoutés
+        // après tous les autres scénarios : l'ordre des sujets existants ne change pas).
+        for champion in &test.champions {
+            let Some(def) = config
+                .variants
+                .as_ref()
+                .and_then(|variants| variants.table.get(&champion.variant))
+            else {
+                return Err(GenerateError::UnknownVariant {
+                    character_id: id.clone(),
+                    variant: champion.variant.clone(),
+                });
+            };
+            let loot = def.loot.is_some();
+            let (shot, death_expect) = if champion.kill {
+                let death = probe_champion_death(&arena, &id, test.frames, champion, &probe, loot)
+                    .map_err(|message| GenerateError::ChampionProbe {
+                        character_id: id.clone(),
+                        variant: champion.variant.clone(),
+                        message,
+                    })?;
+                let expect = champion_death_expectations(&def.on_death, loot, &death, test.frames)
+                    .map_err(|message| GenerateError::ChampionProbe {
+                        character_id: id.clone(),
+                        variant: champion.variant.clone(),
+                        message,
+                    })?;
+                (
+                    ChampionShot::UntilDeath {
+                        death_frame: death.frame,
+                        walk: loot,
+                    },
+                    expect,
+                )
+            } else {
+                (ChampionShot::None, vec![])
+            };
+            champions_out.push(GeneratedScenario {
+                file_name: champion_file_name(&id, &champion.variant),
+                subject_id: id.clone(),
+                kind: GeneratedKind::Champion,
+                scenario: build_champion_scenario(
+                    &arena,
+                    &id,
+                    test.frames,
+                    champion,
+                    &probe,
+                    shot,
+                    &death_expect,
+                ),
             });
         }
         // M2-T17 : gabarit BossFight (`test.boss`, personnage qui a `boss:`).
@@ -430,7 +548,643 @@ pub fn generate_game(game_dir: &Path) -> Result<Vec<GeneratedScenario>, Generate
         });
     }
 
+    // M3-T13 : gabarits d'objet de larmes et d'objet familier (`test.tears`, `test.familiar`),
+    // chacun avec son témoin sans objet. Ajoutés après tous les autres sujets.
+    for (id, entry) in &registry.items {
+        if entry.test.is_none() || !generated(&entry.file) {
+            continue;
+        }
+        let file: ItemFile = parse_ron_file_implicit_some(&assets_dir, &entry.file)?;
+        let Some(test) = file.test else {
+            continue;
+        };
+        if let Some(tears) = &test.tears {
+            let probe = build_tears_scenario(
+                &weapon_arena,
+                id,
+                &entry.def,
+                &test,
+                tears,
+                &TearsRun::probe(),
+            );
+            let anchor = discover_target(&probe).ok_or_else(|| GenerateError::MissingTarget {
+                weapon_id: id.clone(),
+            })?;
+            let base = probe_player_stats(&probe).ok_or_else(|| GenerateError::MissingPlayer {
+                character_id: id.clone(),
+            })?;
+            let stats = expected_item_stats(id, &entry.def, &base)?;
+            let positions = tears_positions(anchor, &tears.targets);
+            let placed = build_tears_scenario(
+                &weapon_arena,
+                id,
+                &entry.def,
+                &test,
+                tears,
+                &TearsRun {
+                    stats: &[],
+                    anchor: Some(anchor),
+                    net_ids: &[],
+                    control: false,
+                },
+            );
+            let net_ids = discover_hit_net_ids(&placed, &positions).map_err(|index| {
+                GenerateError::TearsTarget {
+                    item_id: id.clone(),
+                    index,
+                }
+            })?;
+            for control in [false, true] {
+                let run = TearsRun {
+                    stats: &stats,
+                    anchor: Some(anchor),
+                    net_ids: &net_ids,
+                    control,
+                };
+                out.push(GeneratedScenario {
+                    file_name: if control {
+                        tears_control_file_name(id)
+                    } else {
+                        tears_file_name(id)
+                    },
+                    subject_id: id.clone(),
+                    kind: if control {
+                        GeneratedKind::Control
+                    } else {
+                        GeneratedKind::Tears
+                    },
+                    scenario: build_tears_scenario(
+                        &weapon_arena,
+                        id,
+                        &entry.def,
+                        &test,
+                        tears,
+                        &run,
+                    ),
+                });
+            }
+        }
+        if let Some(familiar) = &test.familiar {
+            let per_copy = entry
+                .def
+                .familiar
+                .as_ref()
+                .map(|f| f.per_copy)
+                .ok_or_else(|| GenerateError::NotAFamiliar {
+                    item_id: id.clone(),
+                })?;
+            let probe =
+                build_familiar_scenario(&weapon_arena, id, &test, familiar, per_copy, None, false);
+            let target = discover_target(&probe).ok_or_else(|| GenerateError::MissingTarget {
+                weapon_id: id.clone(),
+            })?;
+            let mut variants = vec![false];
+            if familiar.min_hits > 0 {
+                variants.push(true);
+            }
+            for control in variants {
+                out.push(GeneratedScenario {
+                    file_name: if control {
+                        familiar_control_file_name(id)
+                    } else {
+                        familiar_file_name(id)
+                    },
+                    subject_id: id.clone(),
+                    kind: if control {
+                        GeneratedKind::Control
+                    } else {
+                        GeneratedKind::Familiar
+                    },
+                    scenario: build_familiar_scenario(
+                        &weapon_arena,
+                        id,
+                        &test,
+                        familiar,
+                        per_copy,
+                        Some(target.net_id),
+                        control,
+                    ),
+                });
+            }
+        }
+    }
+    out.extend(champions_out);
+
     Ok(out)
+}
+
+/// Nom de fichier du gabarit [`Template::TearsOnTarget`] (stable : une fonction de l'id seul).
+pub fn tears_file_name(item_id: &str) -> String {
+    format!("tears_{item_id}.ron")
+}
+
+/// Nom du témoin de [`tears_file_name`] : le même tir sans l'objet.
+pub fn tears_control_file_name(item_id: &str) -> String {
+    format!("tears_{item_id}_sans_objet.ron")
+}
+
+/// Nom de fichier du gabarit [`Template::FamiliarHeld`].
+pub fn familiar_file_name(item_id: &str) -> String {
+    format!("familiar_{item_id}.ron")
+}
+
+/// Nom du témoin de [`familiar_file_name`].
+pub fn familiar_control_file_name(item_id: &str) -> String {
+    format!("familiar_{item_id}_sans_objet.ron")
+}
+
+/// Nom de fichier du gabarit [`Template::ChampionForced`].
+pub fn champion_file_name(character_id: &str, variant: &str) -> String {
+    format!("champion_{character_id}_{variant}.ron")
+}
+
+/// Cible de l'arène d'un gabarit à cible : net id et position.
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub struct TargetInfo {
+    pub net_id: usize,
+    pub x: Fixed,
+    pub y: Fixed,
+}
+
+/// Ce qui varie entre les scénarios d'un même `tears:` : stats attendues, ancre (cible de l'arène),
+/// net ids des cibles (index 0 = arène, puis `targets`) et témoin (sans objet) ou non.
+#[derive(Debug, Clone, Copy)]
+pub struct TearsRun<'a> {
+    pub stats: &'a [(sim_core::stats::StatId, f32)],
+    pub anchor: Option<TargetInfo>,
+    pub net_ids: &'a [usize],
+    pub control: bool,
+}
+
+impl TearsRun<'_> {
+    /// Sonde : aucune ancre, aucun net id, avec l'objet.
+    pub fn probe() -> TearsRun<'static> {
+        TearsRun {
+            stats: &[],
+            anchor: None,
+            net_ids: &[],
+            control: false,
+        }
+    }
+}
+
+/// Positions des cibles d'un `tears:` (index 0 : la cible de l'arène).
+pub fn tears_positions(anchor: TargetInfo, targets: &[TearsTarget]) -> Vec<(Fixed, Fixed)> {
+    std::iter::once((anchor.x, anchor.y))
+        .chain(targets.iter().map(|t| {
+            (
+                anchor.x + Fixed::from_num(t.dx),
+                anchor.y + Fixed::from_num(t.dy),
+            )
+        }))
+        .collect()
+}
+
+/// Scénarios du gabarit [`Template::TearsOnTarget`] (pur), avec l'objet ou, pour `run.control`, le
+/// même tir **sans** l'objet : `HasItem`, une `Stat` par modificateur de l'objet, les `hits`
+/// (au moins `with_item` coups ; au plus `without_item` pour le témoin) puis `expect` (ou
+/// `control`). Le joueur tire par impulsions ([`fire_pulses`]) avec `tears.weapon`.
+pub fn build_tears_scenario(
+    arena: &WeaponArena,
+    id: &str,
+    def: &items::ItemDef,
+    test: &ItemTest,
+    tears: &TearsTest,
+    run: &TearsRun,
+) -> Scenario {
+    let frames = tears.frames.unwrap_or(test.frames);
+    let net_id = |target: usize| run.net_ids.get(target).copied().unwrap_or(0);
+    let mut expect = if run.control {
+        vec![]
+    } else {
+        item_default_expectations(id, def, run.stats)
+    };
+    for hits in &tears.hits {
+        expect.push(Expectation::EntityHits {
+            net_id: net_id(hits.target),
+            min: if run.control { 0 } else { hits.with_item },
+            max: run.control.then_some(hits.without_item),
+            at_frame: frames,
+        });
+    }
+    expect.extend(
+        if run.control {
+            &tears.control
+        } else {
+            &tears.expect
+        }
+        .iter()
+        .cloned(),
+    );
+    let characters = tears
+        .targets
+        .iter()
+        .map(|target| {
+            let anchor = run
+                .anchor
+                .map_or((Fixed::ZERO, Fixed::ZERO), |t| (t.x, t.y));
+            CharacterPlacement {
+                character: target.character.clone(),
+                x: anchor.0 + Fixed::from_num(target.dx),
+                y: anchor.1 + Fixed::from_num(target.dy),
+                at_frame: ENEMY_AT_FRAME,
+                variant: None,
+                team: None,
+            }
+        })
+        .collect();
+    let mut scenario = base_scenario(
+        &arena.game,
+        &arena.map,
+        TEMPLATE_MAP_SEED,
+        frames,
+        PlayerScript {
+            inputs: fire_pulses_aimed(
+                INPUT_START_FRAME,
+                frames,
+                tears.aim.unwrap_or(AIM_AT_TARGET),
+            ),
+            weapon: tears.weapon.clone(),
+            items: if run.control {
+                vec![]
+            } else {
+                vec![id.to_string()]
+            },
+            ..PlayerScript::default()
+        },
+        expect,
+    );
+    scenario.characters = characters;
+    scenario.mode = arena.mode;
+    scenario
+}
+
+/// Scénario du gabarit [`Template::FamiliarHeld`] (pur) : `FamiliarCount` = `per_copy` ; si
+/// `familiar.min_hits > 0`, le joueur tire sur la cible de l'arène et elle reçoit au moins ce
+/// nombre de coups. `control` : le témoin, même tir sans l'objet, au plus `min_hits - 1` coups
+/// et aucun familier.
+pub fn build_familiar_scenario(
+    arena: &WeaponArena,
+    id: &str,
+    test: &ItemTest,
+    familiar: &FamiliarTest,
+    per_copy: u32,
+    target_net_id: Option<usize>,
+    control: bool,
+) -> Scenario {
+    let frames = familiar.frames.unwrap_or(test.frames);
+    let mut expect = vec![];
+    if !control {
+        expect.push(Expectation::HasItem {
+            handle: 0,
+            id: id.to_string(),
+            at_frame: 1,
+        });
+        expect.push(Expectation::FamiliarCount {
+            handle: 0,
+            count: per_copy,
+            at_frame: FAMILIAR_CHECK_FRAME,
+        });
+    }
+    let shooting = familiar.min_hits > 0;
+    if shooting {
+        expect.push(Expectation::EntityHits {
+            net_id: target_net_id.unwrap_or(0),
+            min: if control { 0 } else { familiar.min_hits },
+            max: control.then(|| familiar.min_hits - 1),
+            at_frame: frames,
+        });
+    }
+    if control {
+        expect.push(Expectation::FamiliarCount {
+            handle: 0,
+            count: 0,
+            at_frame: FAMILIAR_CHECK_FRAME,
+        });
+    } else {
+        // Le familier existe encore à la fin (aucune destruction à la fin de la partie).
+        expect.push(Expectation::FamiliarCount {
+            handle: 0,
+            count: per_copy,
+            at_frame: frames.saturating_sub(1),
+        });
+        expect.extend(familiar.expect.iter().cloned());
+    }
+    let mut scenario = base_scenario(
+        &arena.game,
+        &arena.map,
+        TEMPLATE_MAP_SEED,
+        frames,
+        PlayerScript {
+            inputs: if shooting {
+                fire_pulses(INPUT_START_FRAME, frames)
+            } else {
+                vec![]
+            },
+            weapon: familiar.weapon.clone(),
+            items: if control {
+                vec![]
+            } else {
+                vec![id.to_string()]
+            },
+            ..PlayerScript::default()
+        },
+        expect,
+    );
+    scenario.mode = arena.mode;
+    scenario
+}
+
+/// Frame où `FamiliarCount` est vérifié après l'apparition des familiers.
+pub const FAMILIAR_CHECK_FRAME: u32 = 5;
+
+/// Ce que la sonde mesure autour de la mort d'un champion tué par le joueur.
+#[derive(Debug, Clone, Default, PartialEq, Eq)]
+pub struct ChampionDeath {
+    /// Première frame sans porteur de `Variant` (le champion est mort à cette frame).
+    pub frame: u32,
+    /// Ennemis vivants à la frame qui précède la mort.
+    pub enemies_before: u32,
+    /// Balles de l'équipe ennemie à la frame qui précède la mort, et à la frame qui la suit.
+    pub enemy_bullets_before: u32,
+    pub enemy_bullets_after: u32,
+    /// Objets que le joueur tient à la dernière frame et ne tenait pas au départ (butin ramassé).
+    pub items: Vec<String>,
+}
+
+/// Marche du joueur vers le butin d'un champion tué (frames), puis appuis sur Interaction.
+const LOOT_WALK_FRAMES: u32 = 80;
+const LOOT_INTERACTION_PRESSES: u32 = 3;
+
+/// Comment le joueur du gabarit [`Template::ChampionForced`] joue.
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub enum ChampionShot {
+    /// Immobile, sans tirer.
+    None,
+    /// Tire jusqu'à la dernière frame (sonde de la mort).
+    ToEnd,
+    /// Tire jusqu'à la frame de mort puis, pour le butin, marche vers +x jusqu'à la fin.
+    UntilDeath { death_frame: u32, walk: bool },
+}
+
+/// Effets de mort attendus d'une variante tuée par le joueur (pur, `death` vient de
+/// [`probe_champion_death`]) : toujours la **mort** (ennemis vivants avant, puis `-1` et les
+/// personnages nés après) ; `Explode` → moment clé `explosion` ; `SpawnCharacters` → `count`
+/// ennemis de plus ; `SpawnPattern` → les balles de l'équipe ennemie mesurées ; `loot` → `HasItem`
+/// de chaque objet ramassé. `Err` : aucun effet de mort traduisible, ou un effet qui n'a laissé
+/// aucune trace mesurable (rien à attendre : on refuse plutôt que de l'ignorer).
+pub fn champion_death_expectations(
+    on_death: &[effects::Action],
+    loot: bool,
+    death: &ChampionDeath,
+    frames: u32,
+) -> Result<Vec<Expectation>, String> {
+    use effects::Action;
+    let spawned: u32 = on_death
+        .iter()
+        .map(|action| match action {
+            Action::SpawnCharacters { count, .. } => *count,
+            _ => 0,
+        })
+        .sum();
+    let exploding = on_death
+        .iter()
+        .any(|action| matches!(action, Action::Explode { .. }));
+    let pattern = on_death
+        .iter()
+        .any(|action| matches!(action, Action::SpawnPattern { .. }));
+    if !exploding && spawned == 0 && !pattern && !loot {
+        return Err(
+            "kill: true sans effet de mort traduisible (Explode, SpawnCharacters, SpawnPattern, loot)"
+                .to_string(),
+        );
+    }
+    let enemies = |count: u32, at_frame: u32| Expectation::EntityCount {
+        kind: game::replay::EntityKind::Enemy,
+        min: Some(count),
+        max: Some(count),
+        at_frame,
+    };
+    let mut expect = vec![
+        // Vivant avant, mort après : `death.frame` est la première frame sans porteur de variante.
+        enemies(death.enemies_before, death.frame - 1),
+        enemies(death.enemies_before - 1 + spawned, death.frame + 1),
+    ];
+    if exploding {
+        expect.push(Expectation::Event {
+            kind: "explosion".to_string(),
+            label_contains: None,
+            by_frame: frames,
+        });
+    }
+    if pattern {
+        if death.enemy_bullets_after <= death.enemy_bullets_before {
+            return Err("SpawnPattern : aucune balle ennemie après la mort".to_string());
+        }
+        for (count, at_frame) in [
+            (death.enemy_bullets_before, death.frame - 1),
+            (death.enemy_bullets_after, death.frame + 1),
+        ] {
+            expect.push(Expectation::BulletCount {
+                count,
+                projectile: None,
+                team: Some(sim_core::team::Team::Enemies),
+                at_frame,
+            });
+        }
+    }
+    if loot {
+        if death.items.is_empty() {
+            return Err(
+                "loot : le joueur n'a ramassé aucun objet (`frames` trop court, ou butin d'arme)"
+                    .to_string(),
+            );
+        }
+        expect.extend(death.items.iter().map(|item| Expectation::HasItem {
+            handle: 0,
+            id: item.clone(),
+            at_frame: frames - 1,
+        }));
+    }
+    Ok(expect)
+}
+
+/// Sonde de la mort d'un champion (simulation) : joue le scénario où le joueur tire jusqu'au bout,
+/// relève la première frame sans `Variant`, les ennemis et balles ennemies autour de cette frame ;
+/// pour un butin, rejoue avec la marche vers +x et relève les objets ramassés.
+pub fn probe_champion_death(
+    arena: &EnemyArena,
+    character_id: &str,
+    frames: u32,
+    champion: &ChampionTest,
+    probe: &EnemyProbe,
+    loot: bool,
+) -> Result<ChampionDeath, String> {
+    #[derive(Default, Clone, Copy)]
+    struct Snapshot {
+        variants: u32,
+        enemies: u32,
+        enemy_bullets: u32,
+    }
+    fn snapshots(scenario: &Scenario, frames: u32) -> BTreeMap<u32, Snapshot> {
+        let mut by_frame = BTreeMap::new();
+        crate::runner::run_visiting(scenario, frames, |world, frame| {
+            by_frame.insert(
+                frame,
+                Snapshot {
+                    variants: world
+                        .query::<&game::character::variant::Variant>()
+                        .iter(world)
+                        .count() as u32,
+                    enemies: world
+                        .query_filtered::<(), bevy::prelude::With<game::character::enemy::Enemy>>()
+                        .iter(world)
+                        .count() as u32,
+                    enemy_bullets: world
+                        .query::<&game::weapons::Bullet>()
+                        .iter(world)
+                        .filter(|bullet| bullet.source_team == sim_core::team::Team::Enemies)
+                        .count() as u32,
+                },
+            );
+        });
+        by_frame
+    }
+    let fire = build_champion_scenario(
+        arena,
+        character_id,
+        frames,
+        champion,
+        probe,
+        ChampionShot::ToEnd,
+        &[],
+    );
+    let by_frame = snapshots(&fire, frames);
+    let frame = by_frame
+        .iter()
+        .skip_while(|(_, snap)| snap.variants == 0)
+        .find(|(_, snap)| snap.variants == 0)
+        .map(|(frame, _)| *frame)
+        .ok_or_else(|| {
+            format!("le champion n'est pas mort en {frames} frames (arme ? frames ?)")
+        })?;
+    let before = by_frame[&(frame - 1)];
+    let after = by_frame
+        .get(&(frame + 1))
+        .ok_or("la mort est à la dernière frame")?;
+    let mut items = Vec::new();
+    if loot {
+        let walk = build_champion_scenario(
+            arena,
+            character_id,
+            frames,
+            champion,
+            probe,
+            ChampionShot::UntilDeath {
+                death_frame: frame,
+                walk: true,
+            },
+            &[],
+        );
+        let start = walk.players[0].items.clone();
+        let mut held = start.clone();
+        crate::runner::run_visiting(&walk, frames - 1, |world, _| {
+            if let Some(inventory) = crate::runner::probe_player_inventory(world, 0) {
+                held = inventory.passives.clone();
+                held.extend(inventory.active.map(|active| active.item));
+            }
+        });
+        items = held
+            .into_iter()
+            .filter(|item| !start.contains(item))
+            .collect();
+    }
+    Ok(ChampionDeath {
+        frame,
+        enemies_before: before.enemies,
+        enemy_bullets_before: before.enemy_bullets,
+        enemy_bullets_after: after.enemy_bullets,
+        items,
+    })
+}
+
+/// Scénario du gabarit [`Template::ChampionForced`] (pur) : le gabarit ennemi immobile, la variante
+/// imposée, `EnemyVariant` à la frame qui suit l'apparition ; `shot` : le jeu du joueur (tir dans
+/// l'axe, +x) ; `death_expect` : les attentes de [`champion_death_expectations`].
+pub fn build_champion_scenario(
+    arena: &EnemyArena,
+    character_id: &str,
+    frames: u32,
+    champion: &ChampionTest,
+    probe: &EnemyProbe,
+    shot: ChampionShot,
+    death_expect: &[Expectation],
+) -> Scenario {
+    let test = CharacterTest {
+        frames,
+        still: true,
+        moving: false,
+        expect_still: vec![Expectation::PlayerAlive {
+            handle: 0,
+            at_frame: frames,
+        }],
+        expect_moving: vec![],
+        boss: None,
+        champions: vec![],
+    };
+    let mut scenario = build_enemy_scenario(
+        arena,
+        character_id,
+        Template::EnemyVsStillPlayer,
+        &test,
+        probe,
+    );
+    scenario.characters[0].variant = Some(champion.variant.clone());
+    let mut expect = vec![Expectation::EnemyVariant {
+        entity: EntityRef::Placed(0),
+        variant: Some(champion.variant.clone()),
+        at_frame: ENEMY_AT_FRAME + 1,
+    }];
+    let kill_aim = (127, 0);
+    match shot {
+        ChampionShot::None => {}
+        ChampionShot::ToEnd => {
+            scenario.players[0].weapon = champion.weapon.clone();
+            scenario.players[0].inputs = fire_pulses_aimed(INPUT_START_FRAME, frames, kill_aim);
+        }
+        ChampionShot::UntilDeath { death_frame, walk } => {
+            scenario.players[0].weapon = champion.weapon.clone();
+            let mut inputs = fire_pulses_aimed(INPUT_START_FRAME, death_frame + 1, kill_aim);
+            if walk {
+                // Marche vers le butin (2,5 unités par frame : 80 frames couvrent les 200 unités
+                // qui séparent le joueur du champion, moins la portée de ramassage), puis appuie
+                // sur Interaction à trois reprises.
+                let arrival = (death_frame + 1 + LOOT_WALK_FRAMES).min(frames);
+                inputs.push(Segment {
+                    from: death_frame + 1,
+                    to: arrival,
+                    buttons: vec![Button::Right],
+                    pan: kill_aim,
+                });
+                for press in 0..LOOT_INTERACTION_PRESSES {
+                    let from = arrival + press * 4;
+                    if from < frames {
+                        inputs.push(Segment {
+                            from,
+                            to: from + 1,
+                            buttons: vec![Button::Interaction],
+                            pan: kill_aim,
+                        });
+                    }
+                }
+            }
+            scenario.players[0].inputs = inputs;
+        }
+    }
+    expect.extend(death_expect.iter().cloned());
+    expect.extend(champion.expect.iter().cloned());
+    scenario.expect = expect;
+    scenario
 }
 
 /// Jeu et carte d'un gabarit ennemi (T1.13).
@@ -490,7 +1244,10 @@ pub fn enemy_default_expectations(template: Template, frames: u32) -> Vec<Expect
         Template::WeaponOnTarget
         | Template::ItemHeld
         | Template::RoomClear
-        | Template::BossFight => vec![],
+        | Template::BossFight
+        | Template::TearsOnTarget
+        | Template::FamiliarHeld
+        | Template::ChampionForced => vec![],
     }
 }
 
@@ -1125,6 +1882,11 @@ pub fn build_weapon_scenario(
 /// `Manual`/`Shotgun`/`Burst` à leur propre cadence sans jamais la limiter, et ne change rien
 /// pour `Automatic` (qui ne regarde pas `is_firing`).
 fn fire_pulses(from: u32, to: u32) -> Vec<Segment> {
+    fire_pulses_aimed(from, to, AIM_AT_TARGET)
+}
+
+/// [`fire_pulses`] avec une visée choisie.
+fn fire_pulses_aimed(from: u32, to: u32, pan: (i16, i16)) -> Vec<Segment> {
     let mut segments = Vec::new();
     let mut frame = from;
     while frame + 1 < to {
@@ -1132,7 +1894,7 @@ fn fire_pulses(from: u32, to: u32) -> Vec<Segment> {
             from: frame,
             to: frame + 1,
             buttons: vec![Button::Fire],
-            pan: AIM_AT_TARGET,
+            pan,
         });
         frame += 2;
     }
@@ -1153,6 +1915,59 @@ pub fn discover_target_net_id(scenario: &Scenario) -> Option<usize> {
         .iter(world)
         .next()
         .map(|(net_id, _)| net_id.0)
+}
+
+/// Cible de l'arène (net id et position) : comme [`discover_target_net_id`], avec le transform.
+pub fn discover_target(scenario: &Scenario) -> Option<TargetInfo> {
+    let mut app = crate::runner::run_until(scenario, 1);
+    let world = app.world_mut();
+    world
+        .query::<(
+            &GgrsNetId,
+            &HitCount,
+            &bevy_fixed::fixed_math::FixedTransform3D,
+        )>()
+        .iter(world)
+        .next()
+        .map(|(net_id, _, transform)| TargetInfo {
+            net_id: net_id.0,
+            x: transform.translation.x,
+            y: transform.translation.y,
+        })
+}
+
+/// Net ids des cibles (`HitCount`) d'un gabarit de larmes, retrouvés par leur position
+/// (`positions[0]` : la cible de l'arène, puis les cibles posées) après leur apparition. `Err(i)` :
+/// aucune entité à compteur de coups à moins d'une unité de `positions[i]`.
+pub fn discover_hit_net_ids(
+    scenario: &Scenario,
+    positions: &[(Fixed, Fixed)],
+) -> Result<Vec<usize>, usize> {
+    let mut app = crate::runner::run_until(scenario, ENEMY_AT_FRAME + 2);
+    let world = app.world_mut();
+    let found: Vec<(usize, Fixed, Fixed)> = world
+        .query::<(
+            &GgrsNetId,
+            &HitCount,
+            &bevy_fixed::fixed_math::FixedTransform3D,
+        )>()
+        .iter(world)
+        .map(|(net_id, _, transform)| (net_id.0, transform.translation.x, transform.translation.y))
+        .collect();
+    positions
+        .iter()
+        .enumerate()
+        .map(|(index, (x, y))| {
+            found
+                .iter()
+                .filter(|(_, fx, fy)| {
+                    (*fx - *x).abs() < Fixed::ONE && (*fy - *y).abs() < Fixed::ONE
+                })
+                .map(|(net_id, _, _)| *net_id)
+                .min()
+                .ok_or(index)
+        })
+        .collect()
 }
 
 /// Lit et parse `assets_dir/file` comme `WeaponsConfig` (une seule fois par fichier, mis en
@@ -1237,6 +2052,26 @@ pub fn header_comment(subject_id: &str, kind: GeneratedKind) -> String {
             "// Généré par `alacod-gen`, ne pas éditer à la main (crates/scenario/src/generate.rs).\n\
              // Gabarit ItemHeld (M2-T17, §54) : le joueur commence avec « {subject_id} »\n\
              // (`PlayerScript::items`) ; un actif est utilisé à la frame {ITEM_USE_FRAME}.\n"
+        ),
+        GeneratedKind::Tears => format!(
+            "// Généré par `alacod-gen`, ne pas éditer à la main (crates/scenario/src/generate.rs).\n\
+             // Gabarit TearsOnTarget (M3-T13, §78) : le joueur tient « {subject_id} » et tire sur la\n\
+             // cible de l'arène ; les coups reçus sont comptés.\n"
+        ),
+        GeneratedKind::Familiar => format!(
+            "// Généré par `alacod-gen`, ne pas éditer à la main (crates/scenario/src/generate.rs).\n\
+             // Gabarit FamiliarHeld (M3-T13, §78) : le joueur tient « {subject_id} » ; ses familiers\n\
+             // apparaissent (`FamiliarCount`) et, s'il y a lieu, tirent avec lui.\n"
+        ),
+        GeneratedKind::Control => format!(
+            "// Généré par `alacod-gen`, ne pas éditer à la main (crates/scenario/src/generate.rs).\n\
+             // Témoin de « {subject_id} » (M3-T13, §78) : le même tir, sans l'objet ; il prouve que\n\
+             // les attentes de la partie avec l'objet ne passent pas sans lui.\n"
+        ),
+        GeneratedKind::Champion => format!(
+            "// Généré par `alacod-gen`, ne pas éditer à la main (crates/scenario/src/generate.rs).\n\
+             // Gabarit ChampionForced (M3-T13, §78) : « {subject_id} » apparaît à {ENEMY_OFFSET_X} unités\n\
+             // du joueur avec sa variante imposée ; effets de mort attendus si le joueur le tire.\n"
         ),
         GeneratedKind::Room => format!(
             "// Généré par `alacod-gen`, ne pas éditer à la main (crates/scenario/src/generate.rs).\n\

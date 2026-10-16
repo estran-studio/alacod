@@ -1,0 +1,36 @@
+// Généré par `alacod-gen`, ne pas éditer à la main (crates/scenario/src/generate.rs).
+// Gabarit FamiliarHeld (M3-T13, §78) : le joueur tient « compagnon_actif » ; ses familiers
+// apparaissent (`FamiliarCount`) et, s'il y a lieu, tirent avec lui.
+#![enable(implicit_some)]
+Scenario(
+    game: "testbed",
+    map: "testbed/arena.ldtk",
+    map_seed: 123456,
+    frames: 120,
+    players: [
+        PlayerScript(
+            inputs: [],
+            items: [
+                "compagnon_actif",
+            ],
+        ),
+    ],
+    expect: [
+        HasItem(
+            handle: 0,
+            id: "compagnon_actif",
+            at_frame: 1,
+        ),
+        FamiliarCount(
+            handle: 0,
+            count: 1,
+            at_frame: 5,
+        ),
+        FamiliarCount(
+            handle: 0,
+            count: 1,
+            at_frame: 119,
+        ),
+    ],
+    powerup_drop_chance_override: "0",
+)

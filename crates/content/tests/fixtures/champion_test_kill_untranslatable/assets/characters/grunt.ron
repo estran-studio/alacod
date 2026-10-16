@@ -1,0 +1,10 @@
+(
+    movement: (max_speed: "60.0"),
+    asset_name_ref: "grunt",
+    base_health: (max: "60.0"),
+    starting_skin: "1",
+    skins: {"1": (layers: {})},
+    ai: Some((behaviors: Some([Chase(profile: "Ground")]))),
+    variants: Some((chance: "0.5", table: {"champion": (on_death: [], tint: Some("#ff0000"))})),
+    test: Some((frames: 150, still: false, moving: false, champions: [(variant: "champion", kill: true)])),
+)

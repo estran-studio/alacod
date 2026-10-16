@@ -3,4 +3,6 @@
     name: "Compagnon actif",
     kind: Active(Frames(5)),
     familiar: Some((character: "compagnon")),
+    // M3-T13 (§78) : scénarios générés `item_compagnon_actif` (ItemHeld : actif chargé, utilisé) et `familiar_compagnon_actif`.
+    test: Some((frames: 60, familiar: Some((frames: Some(120))))),
 )

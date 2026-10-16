@@ -56,4 +56,16 @@
             "nu": (),
         },
     )),
+
+    // M3-T13 (§78) : scénarios générés `champion_elite_divise_<variante>` (gabarit ChampionForced : variante imposée ;
+    // `kill` : le joueur tire dans l'axe et les effets de mort sont attendus).
+    test: Some((
+        frames: 150,
+        still: false,
+        moving: false,
+        champions: [
+            (variant: "divise", kill: true, weapon: Some("larme")),
+            (variant: "nu"),
+        ],
+    )),
 )
