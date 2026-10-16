@@ -1,17 +1,22 @@
 // m2-full-run (docs/conventions.md §57, « Run complète de M2 ») : la run de M2 de bout en bout, deux
 // bots `explorateur` sur `etages_deux` (graine 10), avec `shopping: true` (coffres ouverts, présentoirs
-// achetés), en passant par le hub et un profil qui porte trois déblocages. Chaque mécanique de la
-// fiche a son moment clé (`events.json`) ET une attente.
+// achetés), en passant par le hub et un profil qui porte trois déblocages. Chaque mécanique listée
+// ci-dessous a son moment clé (`events.json`) ET une attente ; les deux exceptions sont dites plus bas.
 //
 // Deux phases : le hub (`hub: Some((stay: false, …))`, frames du hub : le joueur 0 va au marchand puis à
 // la porte ; le runner suit la relance) puis la run (frames de 0, tout le reste). Le profil est
 // constitué avant la partie (`profile_setup`) : 120 d'essence, jalon `first_run`, statistique `runs` = 1,
 // et trois achats (trèfle 20, coffres plus riches 60, étendard 40) ; la run les lit (`RunUnlocks`).
 //
+// Hors de cette run, et dit tel quel : la salle SECRÈTE n'est pas attestée (gungeon ne donne aucune bombe,
+// D81 : son mur ne s'ouvre qu'à une explosion) ; la porte du hub est toujours ouverte (`hub/porte.ron`, `EnterRun`, n'a
+// aucune condition) : seul le marchand dépend du profil (`first_run`), et les déblocages se prouvent par
+// `RunUnlocks` dans la run, pas par la porte.
+//
 // À regarder : hub f80 le marchand (écran ouvert, f120), f175 la porte ; run f1 « entrée en run depuis
 // le hub » et « déblocages du profil » ; f42 la première salle de combat se verrouille, f70 et f82 les
 // deux joueurs lâchent un blank, f139 salle nettoyée ; f157 un joueur ramasse une clé ; f1471-1605
-// l'escouade ; f1890-2640 l'ARÈNE (750 frames à tenir, « arène tenue » f2640) ; f2825-2887 achats en
+// l'ESCOUADE (trois `bullet_kin_squad` vivants f1480, plus aucun f1700) ; f1890-2640 l'ARÈNE (750 frames à tenir, « arène tenue » f2640) ; f2825-2887 achats en
 // boutique (gilet, roulade) ; f2928 le coffre à clé de la salle récompense (clé 1 → 0, un fusil `arc`
 // tombe) ; f3022 un objet (rancune) ramassé ; f3406 le boss se verrouille, f3439 phase 1, f3487 phase 2
 // (trois phases), f3488 salle nettoyée, f3489 PORTAIL ouvert, f3691 SECOND ÉTAGE ; f6172-6922 la
@@ -51,6 +56,10 @@ Scenario(
         (bot: explorateur),
     ],
     expect: [
+        // Escouade : les trois `bullet_kin_squad` de la salle sont là (f1480, pendant le verrou f1471-f1605),
+        // aucun ne reste une fois la salle nettoyée.
+        SquadSize(squad: "bullet_kins", min: 3, max: 3, at_frame: 1480),
+        SquadSize(squad: "bullet_kins", max: 0, at_frame: 1700),
         // Hub (frames du hub) : le marchand puis la porte.
         HubExit(none: true, at_frame: 60),
         HubVisit(handle: 0, service: "marchand", at_frame: 120),

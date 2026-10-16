@@ -54,6 +54,7 @@ après l'update : `by_frame` = frame + 1).
 |---|---|---|
 | Entrée depuis le hub (M2-T13) | marchand f80 (visite f120), porte f175 du hub, `hub` f1 | `HubVisit(marchand)`, `HubExit(joueur 0, f175)`, `Event(hub)` |
 | Déblocage lu depuis un profil (M2-T12) | f1 | `RunUnlocks(tresor_trefle, coffre_riche, etendard_royal)`, `Event(unlock)` |
+| Escouade | verrou f1471 → f1605 | `SquadSize(bullet_kins)` = 3 (f1480), 0 (f1700) ; 4 joueurs : ≥ 2 (f2150), 0 (f2300) |
 | Salle verrouillée puis nettoyée | f42 → f139 | `Event(room)` « verrouillée » puis « nettoyée » |
 | Blank utilisé | f70, f82 (les deux joueurs) | `Event(blank)` |
 | Objet ramassé | clé f157, rancune f3022 | `Event(item_pickup)`, `Consumable(key)`, `HasItem(rancune)` |
@@ -75,6 +76,12 @@ du boss tombent aux deux étages ; elle gagne à 2 et à 4 joueurs. Rejouées av
 les graines 1, 2, 9 et 10 gagnent (f6484, f6176, f7385, f7545) ; à 4 joueurs les quatre gagnent aussi (essai fait
 avec des points de spawn ajoutés au gabarit, puis refait avec le repli de spawn pour la 10 seule). Choix de la 10
 pour la richesse des événements, pas pour la durée (la 2 est la plus courte).
+
+**Non attestées (correction de revue)** : la **salle secrète** (absente de la graine 10 ; gungeon ne donne aucune
+bombe, D81, son mur ne s'ouvre qu'à une explosion) ; la **porte du hub conditionnée par un déblocage** (n'existe pas :
+`hub/porte.ron` est `EnterRun` sans condition ; seul le marchand exige `first_run`, prouvé par `HubVisit` f120).
+L'allégation « chaque mécanique de la fiche » est réduite au tableau ci-dessus. L'escouade n'avait qu'un libellé de salle ;
+elle a maintenant `SquadSize`.
 
 ## 4. Vérifié (résultats réels)
 
@@ -154,3 +161,17 @@ images du hub), corrigé. Aucun BLOQUANT.
 phases, portail, second étage, déblocage lu du profil, entrée par le hub. Commande d'une partie ordinaire :
 `alacod-sim --game gungeon --bots 2 --profiles explorateur,explorateur --floors etages_deux --until-floor 2
 --seeds 10..10 --shopping`.
+
+## 8. Correction de revue (budgets, couverture)
+
+- **Budgets** : `bench_floor` et tous les planchers existants **rétablis** comme sur `origin/main` (plus aucune valeur
+  relâchée). Deux scénarios neufs, chacun seul, 3 mesures, charge de départ 1,41 à 1,95 (elle inclut mon propre
+  processus, la machine n'était pas plus calme : la cible < 1,5 n'est atteinte qu'à la première mesure, le dis) :
+  2 joueurs 51,4 / 48,9 / 48,3 fps, 21,5 / 22,4 / 22,7 ms ; 4 joueurs 44,6 / 41,1 / 40,8 fps, 23,3 / 25,0 / 25,4 ms.
+  Budgets : `gungeon_full_run` 24 fps / 46 ms, `gungeon_full_run_four` 20 fps / 51 ms (2 × le pire, moitié du pire).
+  Les §4 ci-dessus qui parlent d'un budget `bench_floor` 20 / 50 sont **caducs**. Dette **D84** (`dettes.md`) : les 27
+  scénarios de `make bench` strict et `bench_floor` (24,8 à 26,6 ms contre 18) ; `make bench` strict n'est pas un
+  critère de merge.
+- **Couverture** : `SquadSize` ajoutée (escouade : 3 membres f1480, 0 f1700 ; 4 joueurs : ≥ 2 f2150, 0 f2300). Secret
+  et porte de hub : non attestées (D81 ; la porte du hub n'a aucune condition, voir §3). §57 et les commentaires des
+  scénarios réduits à la liste réelle.

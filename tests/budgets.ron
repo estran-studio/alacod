@@ -10,19 +10,15 @@
 (
     default: (min_sim_fps: 40.0),
     scenarios: {
-        // M2-T10 : étage assemblé de 15 à 20 salles (grammaire `grand`), deux bots `fonceur`. m2-full-run :
-        // mesuré le 2026-10-16 sur le VPS Debian de 8 cœurs (charge ambiante de 2 à 2,4, un seul
-        // processus) : trois relevés isolés 44,1 à 46,3 sim fps, pire rollback 25,3 à 26,6 ms
-        // (restauration 3,2 ms + 12 × 1,9 ms) ; dans `make bench` (suite en un processus) 48,1 fps et
-        // 24,8 ms ; 322 entités et 43 ennemis au plus. Même régime que le reste : la moitié de la
-        // mesure (arrondie à la dizaine) en fps, le double en rollback. Le plafond de 18 ms (mesure du
-        // 2026-10-12, poste M4) n'était pas tenable ici.
-        "bench_floor": (min_sim_fps: 20.0, max_rollback_ms: 50.0),
-        // m2-full-run : la run complète à 2 puis 4 joueurs (hub, deux étages, jusqu'à la victoire) ;
-        // mesure du 2026-10-16 dans `make bench` (même VPS, un processus) : 53,5 et 49,1 sim fps,
-        // rollback 20,2 et 20,7 ms (47,8 et 42,3 fps, 20,5 et 21,3 ms en trois tranches parallèles).
-        "gungeon_full_run": (min_sim_fps: 20.0, max_rollback_ms: 40.0),
-        "gungeon_full_run_four": (min_sim_fps: 20.0, max_rollback_ms: 40.0),
+        // M2-T10 : étage assemblé de 15 à 20 salles, deux bots (mesure du 2026-10-12 : 18 sim fps
+        // sur une machine partagée, 37 ennemis et 282 entités au plus ; gungeon_floor_seed_1 : 30).
+        "bench_floor": (min_sim_fps: 40.0, max_rollback_ms: 18.0),
+        // m2-full-run : la run complète (hub, deux étages, victoire), VPS Debian 8 cœurs, 2026-10-16, chaque
+        // scénario seul, trois mesures (charge 1,4 à 2,0 au départ, dont mon propre processus), pire retenu :
+        // 2 joueurs 51,4 / 48,9 / 48,3 fps et 21,5 / 22,4 / 22,7 ms ; 4 joueurs 44,6 / 41,1 / 40,8 fps et
+        // 23,3 / 25,0 / 25,4 ms. Plafond de rollback = 2 × le pire, plancher = la moitié du pire.
+        "gungeon_full_run": (min_sim_fps: 24.0, max_rollback_ms: 46.0),
+        "gungeon_full_run_four": (min_sim_fps: 20.0, max_rollback_ms: 51.0),
         // M2-T16 : un étage `court` joué par des bots (mesure cloud du 2026-10-14 : 38 et 37).
         "bot_explorer_floor": (min_sim_fps: 120.0),
         "bot_explorer_two": (min_sim_fps: 100.0),

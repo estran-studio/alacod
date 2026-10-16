@@ -4064,7 +4064,7 @@ au hub n'atteint les pairs qu'avec la synchronisation des profils (hors périmè
 
 ### Run complète de M2 : `gungeon_full_run` (m2-full-run)
 
-Deux scénarios attestent chaque mécanique de M2 dans **une** partie de bots (graine 10, `etages_deux`,
+Deux scénarios attestent les mécaniques de M2 du tableau ci-dessous dans **une** partie de bots (graine 10, `etages_deux`,
 `shopping: true`, profil à trois déblocages, hub puis run) : `gungeon_full_run` (2 bots `explorateur`, 7 700
 frames, victoire f7545) et `gungeon_full_run_four` (4 bots, 7 000 frames, victoire f6876, synctest). Les
 moments clés du premier sont dans `events.json` (page de revue), chaque ligne du tableau a une attente.
@@ -4073,6 +4073,7 @@ moments clés du premier sont dans `events.json` (page de revue), chaque ligne d
 |---|---|---|
 | Entrée depuis le hub | marchand f80 et porte f175 du hub ; `hub` f1 | `HubVisit`, `HubExit(exit_frame: 175)`, `Event(hub)` |
 | Déblocages lus du profil (M2-T12) | f1 | `RunUnlocks(has: 3)`, `Event(unlock)` |
+| Escouade | verrou f1471 → f1605 | `SquadSize(bullet_kins)` = 3 (f1480), 0 (f1700) ; à 4 joueurs ≥ 2 (f2150), 0 (f2300) |
 | Salle verrouillée puis nettoyée | f42 → f139 | `Event(room)` ×2 |
 | Blank utilisé | f70, f82 | `Event(blank)` |
 | Objet ramassé | clé f157, rancune f3022 | `Event(item_pickup)`, `HasItem(rancune)`, `Consumable(key, 1)` |
@@ -4083,6 +4084,13 @@ moments clés du premier sont dans `events.json` (page de revue), chaque ligne d
 | Portail | f3489 | `Event(portal)` |
 | Second étage | f3691, puis coffre f4711, boutique f5249, arène f6172-6922, boss f7325 (phases f7471, f7532) | `FloorIndex(1)`, `EventAfter(chest, purchase, arena, boss_phase)`, `BossPhase(NetId(694), 2)` |
 | Victoire et profil | f7545 | `RunState(Ended(Victory))`, `ProfileHas(first_victory)` |
+
+**Non attestées, et pourquoi** : (1) la **salle secrète** : absente de la graine 10 et, de toute façon, son mur ne
+s'ouvre qu'à une explosion alors que gungeon ne donne aucune bombe (D81) ; (2) la **porte du hub conditionnée par un
+déblocage** : elle n'existe pas, `hub/porte.ron` (`EnterRun`) n'a aucune condition ; seul le marchand exige `first_run`
+(sa visite f120 le prouve pour le profil du scénario) ; l'effet des déblocages sur la run se prouve par `RunUnlocks`
+(le trèfle quitte les pools sans `tresor_trefle`, §51), pas par la porte. Attente ajoutée `SquadSize { squad, min,
+max, at_frame }` : ennemis vivants déclarant `ai.squad`.
 
 **Runner : la relance du hub est suivie** (`HubSetup { stay: false, inputs }`). Le scénario se joue en deux
 phases dans une même boucle : le hub (frames du hub ; seules `HubExit` et `HubVisit` sont évaluées, `inputs` :

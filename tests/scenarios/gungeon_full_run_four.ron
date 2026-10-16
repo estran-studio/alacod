@@ -4,6 +4,8 @@
 // et 3 prennent ceux de 0 et 1, décalés de 24 unités vers le bas (`map_ldtk::game::local`). Les
 // quatre traversent les deux étages et gagnent.
 //
+// Comme `gungeon_full_run` : ni salle secrète (D81, pas de bombe) ni porte de hub conditionnée par le profil.
+//
 // À regarder : hub f175 la porte ; run f1 « entrée en run depuis le hub » ; f70-84 les quatre joueurs
 // lâchent un blank devant la première salle ; f148 le joueur 1 ramasse une clé ; f1113-1863 l'ARÈNE
 // tenue ; f2343 un coffre ; f2555-2617 achats en boutique ; f2671 le joueur 1 ouvre le coffre à clé (sa
@@ -48,6 +50,9 @@ Scenario(
         (bot: explorateur),
     ],
     expect: [
+        // Escouade (salle verrouillée f2131-f2205) : des membres de `bullet_kins` vivent pendant le verrou, plus aucun après.
+        SquadSize(squad: "bullet_kins", min: 2, at_frame: 2150),
+        SquadSize(squad: "bullet_kins", max: 0, at_frame: 2300),
         // Hub, entrée en run, déblocages.
         HubVisit(handle: 0, service: "marchand", at_frame: 120),
         HubExit(handle: Some(0), exit_frame: Some(175), at_frame: 177),

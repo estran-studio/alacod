@@ -360,6 +360,16 @@ pub enum Expectation {
         max: Option<f32>,
         at_frame: u32,
     },
+    /// m2-full-run : nombre d'ennemis vivants déclarant l'escouade `squad` (`ai.squad`, M2-T8, §49)
+    /// dans `[min, max]` (bornes inclusives, `None` = pas de borne) à `at_frame`, endormis ou non.
+    SquadSize {
+        squad: String,
+        #[serde(default, skip_serializing_if = "Option::is_none")]
+        min: Option<u32>,
+        #[serde(default, skip_serializing_if = "Option::is_none")]
+        max: Option<u32>,
+        at_frame: u32,
+    },
     /// Variante du personnage `entity` à `at_frame` (T1.5, `docs/conventions.md` §25) :
     /// `Some("rapide")`, ou `None` = aucune variante (pas de composant `Variant`). Échoue si
     /// l'entité n'existe pas.
@@ -634,6 +644,7 @@ impl Expectation {
             | Self::BulletCount { at_frame, .. }
             | Self::HitsAtLeast { at_frame, .. }
             | Self::EnemyState { at_frame, .. }
+            | Self::SquadSize { at_frame, .. }
             | Self::EnemyDistance { at_frame, .. }
             | Self::EnemyVariant { at_frame, .. }
             | Self::Clock { at_frame, .. }

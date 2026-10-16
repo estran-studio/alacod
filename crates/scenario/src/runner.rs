@@ -2144,6 +2144,23 @@ fn check(world: &mut World, expectation: &Expectation) -> Result<(), String> {
                 found.unwrap_or("aucun")
             )),
         },
+        Expectation::SquadSize {
+            squad, min, max, ..
+        } => {
+            use game::character::enemy::ai::state::EnemyBehaviors;
+            let count = world
+                .query::<&EnemyBehaviors>()
+                .iter(world)
+                .filter(|rules| rules.squad.as_deref() == Some(squad.as_str()))
+                .count() as u32;
+            if min.is_some_and(|m| count < m) || max.is_some_and(|m| count > m) {
+                Err(format!(
+                    "{count} ennemi(s) de l'escouade « {squad} » (min {min:?}, max {max:?})"
+                ))
+            } else {
+                Ok(())
+            }
+        }
         Expectation::EnemyVariant {
             entity, variant, ..
         } => {
