@@ -24,6 +24,8 @@
         // M2-T12 : déblocages de méta-progression et essence gagnée (docs/conventions.md §51).
         (path: "unlocks", kind: "Unlock"),
         (path: "meta", kind: "MetaEconomy"),
+        // M2-T13 : services du hub (docs/conventions.md §57).
+        (path: "hub", kind: "HubService"),
         // M2-E1 : types de salles du champ de niveau `room_kind`.
         (path: "rooms", kind: "Room"),
         // M2-T11 : tables renversables et barils explosifs (entités LDtk `Table` / `Barrel` des
@@ -45,6 +47,8 @@
         // (`floors/etages_deux.ron`, portail à la mort du boss du premier) ; l'étage squelette T0d
         // (`etage_1`) reste jouable par `floors: Some("etage_1")` et par les scénarios.
         floors: "etages_deux",
+        // M2-T13 : la partie démarre au hub (`maps/hub.ldtk`) ; la porte lance la run ci-dessus.
+        hub: Some((map: "maps/hub.ldtk")),
     ),
     // `docs/conventions.md` §28 : scénarios générés de gungeon (`make gen GAME=gungeon`) joués
     // sur la carte gabarit, en mode `Sandbox` imposé par le générateur.

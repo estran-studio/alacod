@@ -202,6 +202,7 @@ pub fn interaction_detection_system(
                 InteractionType::Chest => "Chest",
                 InteractionType::Table => "Table",
                 InteractionType::Shop => "Shop",
+                InteractionType::Hub => "Hub",
             };
             info!(
                 "{} interaction detected: interactor {} with {} ({}) at distance_sq {:?}",

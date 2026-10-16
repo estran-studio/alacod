@@ -208,6 +208,11 @@ pub enum RunRequest {
     Restart,
     /// Retour au lobby (`LobbyLocal`/`LobbyOnline` selon `OnlineState`).
     ToLobby,
+    /// M2-T13 (§57) : du hub vers la run. Comme `Restart` (mêmes pairs, même chemin en ligne), mais
+    /// la carte et le mode de la session passent à ceux de la run (`hub::HubSession`).
+    EnterRun,
+    /// M2-T13 : de la run vers le hub (fin de partie). Comme `Restart`, vers la carte du hub.
+    ToHub,
 }
 
 /// D13 : le lobby local attend une action du joueur avant de relancer une partie. Posée
@@ -246,8 +251,13 @@ fn plan_run_request(
     playing: bool,
     restart_online: bool,
 ) -> RunRequestPlan {
-    let restart_redirected = request == RunRequest::Restart && online && !restart_online;
-    if request == RunRequest::Restart && online && restart_online {
+    // M2-T13 : `EnterRun` et `ToHub` relancent comme `Restart` (la carte change, pas les pairs).
+    let restart_like = matches!(
+        request,
+        RunRequest::Restart | RunRequest::EnterRun | RunRequest::ToHub
+    );
+    let restart_redirected = restart_like && online && !restart_online;
+    if restart_like && online && restart_online {
         // D14 : même règle que le restart local (pas d'abandon), mais via une nouvelle
         // session en ligne.
         RunRequestPlan {
@@ -450,10 +460,23 @@ fn apply_run_request_system(
     mut run: ResMut<Run>,
     ggrs_config: Option<Res<crate::jjrs::GggrsSessionConfiguration>>,
     online_games: Res<crate::jjrs::restart::OnlineGames>,
+    mut hub: Option<ResMut<crate::hub::HubSession>>,
+    mut map_config: Option<ResMut<map::generation::config::MapGenerationConfig>>,
 ) {
     let Some(request) = request else {
         return;
     };
+    // M2-T13 : le hub et la run ont chacun leur carte ; un `Restart` garde la phase courante.
+    if let Some(hub) = hub.as_deref_mut() {
+        match *request {
+            RunRequest::EnterRun => hub.in_hub = false,
+            RunRequest::ToHub => hub.in_hub = true,
+            _ => {}
+        }
+        if let Some(map_config) = map_config.as_deref_mut() {
+            map_config.map_path = hub.current_map().to_string();
+        }
+    }
 
     #[cfg(target_arch = "wasm32")]
     if crate::jjrs::browser::session().is_some() {
@@ -538,6 +561,8 @@ fn cleanup_rollback_world_system(
     // T1.8 : l'index de niveau repart de zéro (la nouvelle partie repose son portail au
     // chargement de la carte, `map_ldtk::game::floors`).
     commands.insert_resource(FloorState::default());
+    // M2-T13 : la sortie du hub décidée dans la partie quittée ne vaut pas pour la suivante.
+    commands.insert_resource(crate::hub::HubState::default());
     // T1.9 : horloges et difficulté de la partie suivante repartent de zéro.
     commands.insert_resource(run::Clock::default());
     commands.insert_resource(FlowFieldCache::default());

@@ -29,6 +29,7 @@ use map::{
 use sim_core::team::Team;
 use utils::net_id::GgrsNetIdFactory;
 
+use super::entity::hub_station::HubStationRef;
 use super::floors::{FloorPlan, FloorSlots};
 use super::plugin::{LdtkMapLoadingEvent, MapNetIdAssignment};
 
@@ -81,6 +82,8 @@ impl Plugin for LdtkLocalGamePlugin {
                     // T2.3, chantier C5 v1 (armes murales, machines à perks).
                     spawn_weapon_locations_when_map_loaded,
                     spawn_soda_locations_when_map_loaded,
+                    // M2-T13 : stations du hub.
+                    spawn_hub_stations_when_map_loaded,
                 )
                     .chain()
                     .run_if(on_message::<LdtkMapLoadingEvent>)
@@ -92,11 +95,15 @@ impl Plugin for LdtkLocalGamePlugin {
 pub fn configure_map(
     mut commands: Commands,
     map: Res<LdtkGameMap>,
+    hub: Option<Res<game::hub::HubSession>>,
     mut ggrs_state: ResMut<GggrsSessionConfigurationState>,
 ) {
     commands.insert_resource(MapGenerationConfig {
         seed: map.seed,
-        map_path: map.map_path.clone(),
+        // M2-T13 : au hub, la carte du hub ; sinon celle de la partie.
+        map_path: hub
+            .as_deref()
+            .map_or_else(|| map.map_path.clone(), |hub| hub.current_map().to_string()),
         max_width: 1000,
         max_heigth: 1000,
         ..Default::default()
@@ -482,6 +489,88 @@ pub(crate) fn spawn_level_soda_locations(
                 interaction_type: InteractionType::Perk,
             },
             id_provider.next(format!("perk_machine_{}", location.perk)),
+            Rollback,
+        ));
+    }
+}
+
+/// Portée d'interaction d'une station du hub.
+const HUB_STATION_RANGE: f32 = 24.0;
+
+/// `HubStation` (M2-T13, §57) : une entité rollback `game::hub::HubStation` + `Interactable { Hub }`
+/// par entité LDtk dont le service existe (`hub/<id>.ron`) et s'ouvre pour la session : un
+/// service est ouvert si le profil d'**un** des joueurs locaux remplit ses conditions (un jeu
+/// sans profil ne voit que les services sans condition). Triées par position puis service
+/// (`GgrsNetId` indépendants de l'ordre de chargement).
+fn spawn_hub_stations_when_map_loaded(
+    mut commands: Commands,
+    mut id_provider: ResMut<GgrsNetIdFactory>,
+    stations: Query<(Entity, &GlobalTransform, &HubStationRef)>,
+    services: Res<game::hub::HubServices>,
+    profiles: Option<Res<meta::Profiles>>,
+    session: Res<GgrsSessionBuilding>,
+    slots: FloorSlots,
+) {
+    let mut spawns: Vec<(&GlobalTransform, &HubStationRef)> = stations
+        .iter()
+        .filter(|(entity, _, _)| slots.slot_of(*entity) == 0)
+        .map(|(_, transform, station)| (transform, station))
+        .collect();
+    if spawns.is_empty() {
+        return;
+    }
+    spawns.sort_by(|(a_transform, a_ref), (b_transform, b_ref)| {
+        let a_pos = a_transform.translation();
+        let b_pos = b_transform.translation();
+        a_pos
+            .x
+            .total_cmp(&b_pos.x)
+            .then_with(|| a_pos.y.total_cmp(&b_pos.y))
+            .then_with(|| a_ref.0.cmp(&b_ref.0))
+    });
+    let empty = meta::Profile::new("");
+    let local_profiles: Vec<&meta::Profile> = session
+        .players
+        .iter()
+        .filter_map(|player| {
+            profiles
+                .as_deref()
+                .and_then(|profiles| profiles.0.get(&meta::local_id(player.handle)))
+        })
+        .collect();
+
+    info!("Map is loaded with {} hub stations", spawns.len());
+    for (transform, station) in spawns {
+        let Some(def) = services.0.get(&station.0) else {
+            warn!("HubStation : service « {} » inconnu, ignoré", station.0);
+            continue;
+        };
+        let open = if local_profiles.is_empty() {
+            def.is_open(&empty)
+        } else {
+            local_profiles.iter().any(|profile| def.is_open(profile))
+        };
+        if !open {
+            continue;
+        }
+        let position = fixed_math::vec3_to_fixed(transform.translation());
+        let ggrs_transform = fixed_math::FixedTransform3D::new(
+            position,
+            fixed_math::FixedMat3::IDENTITY,
+            fixed_math::FixedVec3::ONE,
+        );
+        commands.spawn((
+            ggrs_transform.to_bevy_transform(),
+            ggrs_transform,
+            Visibility::default(),
+            game::hub::HubStation {
+                service: station.0.clone(),
+            },
+            Interactable {
+                interaction_range: fixed_math::new(HUB_STATION_RANGE),
+                interaction_type: InteractionType::Hub,
+            },
+            id_provider.next(format!("hub_{}", station.0)),
             Rollback,
         ));
     }
