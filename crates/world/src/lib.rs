@@ -27,7 +27,7 @@ pub use destroy::destroy_terrain;
 pub use explosion::{
     cells_in_radius, explosion_plan, rect_within_radius, within_radius, ExplosionPlan,
 };
-pub use floor_grammar::{FloorGrammar, FloorLayout};
+pub use floor_grammar::{FloorGrammar, FloorLayout, PostBoss};
 pub use grid::{CellGrid, CellKind, Destructible, CELL_SIZE};
 pub use plugin::{DestroyTerrainRequest, TerrainDestroyed, WorldPlugin};
 pub use props::{

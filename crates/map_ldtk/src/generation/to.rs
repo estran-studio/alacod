@@ -12,12 +12,13 @@ use serde_json::Value;
 use map::{
     game::entity::map::player_spawn::PlayerSpawnConfig,
     generation::{
+        context::Side,
         entity::{
             character_spawn::CharacterSpawnConfig, door::DoorConfig, enemy_spawn::EnemySpawnConfig,
             location::EntityLocation, prop::PropConfig, soda_location::SodaLocationConfig,
             weapon_location::WeaponLocationConfig, window::WindowConfig,
         },
-        room::{Room, RoomConnection},
+        room::{ConnectionTo, Room, RoomConnection},
         IMapGenerator,
     },
 };
@@ -31,6 +32,9 @@ pub struct GeneratedRoom {
     /// Gabarit LDtk d'origine (`level.identifier` est remplacé par l'iid de la salle) :
     /// signature des cartes générées (D45, tests de diversité).
     pub template: String,
+    /// Ouvertures du gabarit qu'aucune porte du plan ne prolonge : `(côté, première case, nombre de
+    /// cases)`, lues dans les connexions finales de la salle (M3-T5, grille).
+    unused_openings: Vec<(Side, usize, usize)>,
 }
 
 impl GeneratedRoom {
@@ -97,6 +101,18 @@ impl GeneratedRoom {
             level,
             ldtk: ldtk_json,
             template: room.level_def.level_id.clone(),
+            unused_openings: room
+                .level_def
+                .connections
+                .iter()
+                .filter(|def| {
+                    !matches!(
+                        room.connections.get(def.index).and_then(|c| c.to.as_ref()),
+                        Some(ConnectionTo::Room(_))
+                    )
+                })
+                .map(|def| (def.side, def.starting_at, def.size))
+                .collect(),
         }
     }
 }
@@ -253,6 +269,43 @@ impl GeneratedMap {
         }
     }
 
+    /// M3-T5 (disposition en grille) : mure exactement les ouvertures qu'aucune porte du plan ne
+    /// prolonge. `close_unused_openings` raisonne par direction (un côté est « utilisé » dès qu'il a
+    /// un voisin), insuffisant pour une grande salle qui a plusieurs ouvertures sur un côté dont
+    /// seules certaines mènent quelque part. À appeler après `map_generation` : les connexions
+    /// finales de chaque salle (portes de boucle et de salle secrète comprises) sont celles du plan.
+    pub fn close_unused_openings_exact(&mut self) {
+        for room in &mut self.generated_rooms {
+            let Some(layers) = room.level.layer_instances.as_mut() else {
+                continue;
+            };
+            let Some((w, h, openings)) = layers
+                .iter()
+                .find(|l| l.identifier == map_const::LAYER_CONNECTION)
+                .map(|l| (l.c_wid, l.c_hei, l.int_grid_csv.clone()))
+            else {
+                continue;
+            };
+            let Some(walls) = layers.iter_mut().find(|l| l.identifier == "Walls") else {
+                continue;
+            };
+            for (side, start, size) in &room.unused_openings {
+                for t in *start as i32..(*start + *size) as i32 {
+                    let (x, y) = match side {
+                        Side::N => (t, 0),
+                        Side::S => (t, h - 1),
+                        Side::W => (0, t),
+                        Side::E => (w - 1, t),
+                    };
+                    let i = (y * w + x) as usize;
+                    if openings.get(i).copied().unwrap_or(0) == 1 {
+                        walls.int_grid_csv[i] = 1;
+                    }
+                }
+            }
+        }
+    }
+
     pub fn get_generated_map(&self) -> LdtkJson {
         let mut new_map: LdtkJson = (*self.ldtk_json).clone();
 
@@ -356,6 +409,21 @@ impl IMapGenerator for GeneratedMap {
         }
 
         self.generated_rooms.push(generated_room);
+    }
+
+    fn add_link(&mut self, a: &RoomConnection, b: &RoomConnection) {
+        for (from, to) in [(a, b), (b, a)] {
+            let room = self
+                .generated_rooms
+                .iter_mut()
+                .find(|r| r.level.iid == from.level_iid)
+                .expect("une porte de plus relie deux salles déjà ajoutées");
+            room.level.neighbours.push(NeighbourLevel {
+                level_iid: to.level_iid.clone(),
+                dir: from.side.to_dir_str().into(),
+                ..Default::default()
+            });
+        }
     }
 
     fn add_doors(&mut self, rng: &mut RollbackRng, doors: &Vec<(EntityLocation, DoorConfig)>) {

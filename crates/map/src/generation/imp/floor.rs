@@ -72,6 +72,23 @@ impl IMapGeneration for FloorMapGeneration {
         ))
     }
 
+    fn get_links(&mut self) -> Vec<(RoomConnection, RoomConnection)> {
+        let Some(plan) = self.plan.as_ref() else {
+            return Vec::new();
+        };
+        plan.rooms
+            .iter()
+            .flat_map(|planned| {
+                planned.links.iter().map(|link| {
+                    (
+                        connection_of(&planned.room, link.mine),
+                        connection_of(&plan.rooms[link.other].room, link.theirs),
+                    )
+                })
+            })
+            .collect()
+    }
+
     fn get_doors(&mut self, rng: &mut RollbackRng) -> Vec<(EntityLocation, DoorConfig)> {
         self.basic.get_doors(rng)
     }

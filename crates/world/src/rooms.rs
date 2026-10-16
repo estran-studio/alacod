@@ -283,4 +283,48 @@ mod tests {
         assert_eq!(RoomStates::default().get("x"), RoomState::Dormant);
         assert!(!RoomKindTable::default().locks("combat"));
     }
+
+    fn table_with(kind: &str, door_lock: Option<DoorLock>, lock_from_floor: u32) -> RoomKindTable {
+        let mut table = RoomKindTable::default();
+        table.0.insert(
+            kind.to_string(),
+            RoomKindDef {
+                door_lock,
+                lock_from_floor,
+                ..Default::default()
+            },
+        );
+        table
+    }
+
+    #[test]
+    fn verrou_des_le_premier_etage_par_defaut() {
+        let table = table_with("tresor", Some(DoorLock::Key(1)), 0);
+        assert_eq!(table.door_lock_at("tresor", 0), Some(DoorLock::Key(1)));
+        assert_eq!(table.door_lock_at("tresor", 3), Some(DoorLock::Key(1)));
+        assert_eq!(table.door_lock("tresor"), Some(DoorLock::Key(1)));
+    }
+
+    #[test]
+    fn verrou_seulement_a_partir_de_lock_from_floor() {
+        let table = table_with("tresor_ferme", Some(DoorLock::Key(2)), 1);
+        assert_eq!(table.door_lock_at("tresor_ferme", 0), None);
+        assert_eq!(
+            table.door_lock_at("tresor_ferme", 1),
+            Some(DoorLock::Key(2))
+        );
+        assert_eq!(
+            table.door_lock_at("tresor_ferme", 2),
+            Some(DoorLock::Key(2))
+        );
+        // `door_lock` ignore l'étage : tous étages confondus.
+        assert_eq!(table.door_lock("tresor_ferme"), Some(DoorLock::Key(2)));
+    }
+
+    #[test]
+    fn verrou_absent_ou_type_inconnu() {
+        let table = table_with("combat", None, 1);
+        assert_eq!(table.door_lock_at("combat", 5), None);
+        assert_eq!(table.door_lock_at("inconnu", 5), None);
+    }
 }
