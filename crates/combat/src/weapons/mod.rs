@@ -722,6 +722,11 @@ pub struct WeaponPickup {
 /// `interaction::WindowRepairConfig::repair_cooldown_frames` (défaut 60, 1 s à 60 FPS).
 pub const WALL_WEAPON_PURCHASE_COOLDOWN_FRAMES: u32 = 60;
 
+/// D62 : délai (frames) pendant lequel l'arme lâchée par un échange d'emplacement ne peut pas
+/// être ramassée : Interaction maintenu (humain ou bot) rééquiperait sinon, à chaque frame,
+/// l'arme qu'on vient de poser.
+pub const WEAPON_SWAP_COOLDOWN_FRAMES: u32 = 30;
+
 /// Fait tomber une arme au sol (`WeaponPickup`), interactable au ramassage. Portée
 /// commune à `weapons::weapon_drop_system` (T2.2, `price: None`) et à T2.3 (armes murales,
 /// `map_ldtk::game::local::spawn_weapon_locations_when_map_loaded`, `price: Some(prix)`) :

@@ -1,0 +1,29 @@
+// Pool de coffres du premier étage de gungeon (D62) : les objets de `commun` plus les dix-huit armes
+// (poids 1 chacune, environ un coffre sur quatre) ; `commun` reste le pool de repli, sans arme. Le déblocage
+// `coffre_riche` enrichit aussi ce pool.
+(
+    entries: [
+        (pick: Rarity(Common), weight: 5),
+        (pick: Rarity(Uncommon), weight: 3),
+        (pick: Rarity(Rare), weight: 1),
+// armes du jeu y sont aussi (`Weapon(id, rareté)`, poids 1 chacune, soit environ un coffre sur
+        (pick: Weapon("revolver", Common), weight: 1),
+        (pick: Weapon("pistolet_precis", Common), weight: 1),
+        (pick: Weapon("pistolet_jumele", Common), weight: 1),
+        (pick: Weapon("fusil_pompe", Common), weight: 1),
+        (pick: Weapon("arbalete", Common), weight: 1),
+        (pick: Weapon("double_canon", Uncommon), weight: 1),
+        (pick: Weapon("mitraillette", Uncommon), weight: 1),
+        (pick: Weapon("carabine_rafale", Uncommon), weight: 1),
+        (pick: Weapon("fusil_precision", Uncommon), weight: 1),
+        (pick: Weapon("arc", Uncommon), weight: 1),
+        (pick: Weapon("rebondisseur", Uncommon), weight: 1),
+        (pick: Weapon("boule_energie", Uncommon), weight: 1),
+        (pick: Weapon("mitrailleuse_lourde", Rare), weight: 1),
+        (pick: Weapon("laser", Rare), weight: 1),
+        (pick: Weapon("chercheur", Rare), weight: 1),
+        (pick: Weapon("lance_roquettes", Rare), weight: 1),
+        (pick: Weapon("grenadier", Rare), weight: 1),
+        (pick: Weapon("lance_flammes", Rare), weight: 1),
+    ],
+)

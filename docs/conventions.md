@@ -3486,6 +3486,42 @@ graine, mêmes coffres, l'un avec les trois déblocages : « amulette » ×2, l'
 
 **Traces** : aucune trace existante n'a bougé.
 
+### Armes aux sources (D62, `m2-armes-sources`)
+
+Une arme a une source quand un pool de butin la nomme. Les dix-huit armes de `gungeon` (hors
+`pistolet`, arme de départ, et `arsenal*`, contenu de test `test_only: true`) sont dans les pools.
+
+- **Entrée de pool** `LootPick::Weapon("id", Rareté)` (`items::loot`). Le tirage la désigne par
+  l'identifiant `weapon:<id>` (`items::loot_weapon`) ; la rareté joue comme celle d'un objet (filtre
+  de rareté d'un coffre, prix d'un présentoir). Une récompense de salle sans coffre (consommables
+  seulement) l'ignore. Le flux RNG avance comme avant (deux `next_u32` par tirage) : seul le candidat
+  change.
+- **Coffre** : l'arme tombe à côté du coffre (`game::loot::spawn_loot_weapon`), arme lâchée ordinaire
+  (`price: None`, chargeur plein), ramassée par l'interaction habituelle, qui échange avec l'emplacement
+  (`weapon_slots`, une seule arme pour le `pistolero`) : l'arme posée tombe à son tour.
+  `ChestOpened::item_id` vaut `weapon:<id>`.
+- **Boutique** : prix par rareté de l'arme (`economy.ron`, `shop_prices`). Acheter un présentoir
+  d'arme la pose au pied de l'acheteur (log `shop_buy item=weapon:<id>`), à ramasser ensuite.
+  `RoomShopDef` gagne `weapon_shelves` (les N premiers présentoirs ne tirent que des armes du pool :
+  au moins une arme par boutique) et `floor_tables` (pool de chaque étage, le dernier vaut pour les
+  suivants ; vide : `table`).
+- **Pondération par étage** : `boutique` puis `boutique_profond` (armes rares plus lourdes), et
+  `commun` puis `commun_profond` pour les coffres (`floors/etages_deux.ron`, champ `loot`).
+- **Échange d'emplacement** : l'arme lâchée par un échange ne peut pas être ramassée pendant
+  `WEAPON_SWAP_COOLDOWN_FRAMES` (30) frames (`WeaponPickup::can_buy_after_frame`, jusque-là réservé aux
+  armes murales). Sans ce délai, Interaction maintenu rééquipait à chaque frame l'arme qu'on vient de
+  poser (bug trouvé par le bot, emplacement unique).
+- **Lint** : arme inconnue (`BrokenReference`), `weapon_shelves` > `shelves`, `floor_tables` inconnu,
+  `weapon_shelves` sans arme dans le pool. `reach::loot_pool_weapons` compte les armes des pools :
+  `alacod lint games/gungeon` n'a plus d'avertissement d'arme.
+- **Atteignabilité** : le bot `explorateur` gagne l'option `ExplorerOptions::shopping`
+  (`alacod-sim --shopping`) : ouvrir les coffres (clé en main si verrouillés) et acheter les
+  présentoirs payables sont des buts d'exploration (Interaction sur la surface) ; l'arme qui tombe
+  est ramassée par le combat de `prudent` (butin au sol). Faux par défaut : aucune trace de bot ne
+  bouge. Test `explorer_finds_weapons_on_ordinary_floors` (`crates/scenario/tests/bots.rs`,
+  `ALACOD_SHOP_SEEDS`, `ALACOD_SHOP_FRAMES`) : partie `etages_deux`, graine 3, une arme autre que le
+  pistolet achetée à f69. Scénario `shop_weapon` : achat puis échange, bout en bout.
+
 ## 50. Boutique et monnaie `shells` (M2-T6, chantier C5)
 
 Les ennemis lâchent des douilles (`shells`), dépensées sur les présentoirs d'une salle `boutique`.

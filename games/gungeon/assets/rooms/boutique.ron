@@ -1,7 +1,8 @@
 // Type de salle `boutique` (M2-T10, docs/conventions.md §35 et §40). M2-T6 (§50) : trois
 // présentoirs tirés dans le pool `boutique` (objets + prix par rareté, `economy.ron`) au centre,
-// à la place du coffre de M2-T5. Jamais verrouillée.
+// à la place du coffre de M2-T5. Jamais verrouillée. D62 : le premier présentoir ne tire que des
+// armes, et le pool dépend de l'étage (`boutique`, puis `boutique_profond`).
 (
     locks: false,
-    shop: Some((table: "boutique", shelves: 3)),
+    shop: Some((table: "boutique", shelves: 3, weapon_shelves: 1, floor_tables: ["boutique", "boutique_profond"])),
 )
