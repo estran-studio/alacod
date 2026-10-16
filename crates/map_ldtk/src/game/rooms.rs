@@ -32,8 +32,9 @@ use utils::frame::FrameCount;
 use utils::net_id::GgrsNetId;
 use utils::order_iter;
 use world::{
-    entrance_point, inside_box, room_rng_stream, ArenaClocks, RoomChanged, RoomDormant, RoomKind,
-    RoomKindTable, RoomState, RoomStates,
+    entrance_point, inside_box, rect_within_radius, room_rng_stream, ArenaClocks, DoorLock,
+    DoorLocks, ExplosionRequest, RoomChanged, RoomDormant, RoomKind, RoomKindTable, RoomState,
+    RoomStates,
 };
 
 use combat::actors::Velocity;
@@ -78,6 +79,16 @@ impl Plugin for RoomsPlugin {
                 room_lock_system
                     .after(super::floors::floor_transition_system)
                     .in_set(RollbackSystemSet::Run),
+                // M3-T4 (§69) : une explosion qui `destroys` ouvre le mur secret qu'elle touche,
+                // après l'émission des demandes de la frame (`World`, comme le terrain).
+                secret_wall_system
+                    .after(game::bombs::bomb_fuse_system)
+                    .in_set(RollbackSystemSet::World),
+                // M3-T4 : butin des rochers cassés, après `explosion_terrain_system` qui les casse.
+                rock_loot_system
+                    .after(game::bombs::explosion_terrain_system)
+                    .before(world::plugin::apply_destroy_terrain_system)
+                    .in_set(RollbackSystemSet::World),
                 room_chest_system
                     .after(room_lock_system)
                     .in_set(RollbackSystemSet::Run),
@@ -190,6 +201,11 @@ fn sorted_rooms<'a>(rooms: &'a CurrentRooms) -> Vec<(&'a LevelId, &'a RoomBounds
         (a.1.position.x, a.1.position.y, &a.0 .0).cmp(&(b.1.position.x, b.1.position.y, &b.0 .0))
     });
     typed
+}
+
+/// Le type de la salle porte-t-il un mur secret (`door_lock: Secret`) ?
+fn is_secret(table: &RoomKindTable, kind: &RoomKind) -> bool {
+    table.door_lock(&kind.0) == Some(DoorLock::Secret)
 }
 
 fn door_near(bounds: &RoomBounds, p: FixedVec2) -> bool {
@@ -459,14 +475,29 @@ pub fn room_lock_system(
         return;
     }
 
+    // Une porte du mur secret (la porte d'une salle `Secret` et sa jumelle, au bord de la salle
+    // voisine) ne s'ouvre que par une explosion (`secret_wall_system`) : ni l'ouverture d'office,
+    // ni la fin d'une salle voisine (`Locked → Cleared`) ne lui retirent son collider.
+    let secret_door = |p: FixedVec2| {
+        typed
+            .iter()
+            .any(|(_, bounds, kind)| is_secret(&table, kind) && door_near(bounds, p))
+    };
+
     // Portes de salle ouvertes par défaut (une fois).
     if !states.doors_opened {
         for (_, entity, t, _, closed) in order_iter!(doors) {
             let p = t.translation.truncate();
             if closed && typed.iter().any(|(_, bounds, _)| door_near(bounds, p)) {
-                commands
-                    .entity(entity)
-                    .remove::<(Collider, CollisionLayer, Interactable)>();
+                if secret_door(p) {
+                    // M3-T4 : porte d'une salle secrète (et sa jumelle) : un mur plein, qu'aucune
+                    // Interaction n'ouvre ; seule une explosion `destroys` l'ouvre.
+                    commands.entity(entity).remove::<Interactable>();
+                } else {
+                    commands
+                        .entity(entity)
+                        .remove::<(Collider, CollisionLayer, Interactable)>();
+                }
             }
         }
         states.doors_opened = true;
@@ -645,7 +676,8 @@ pub fn room_lock_system(
                     }
                 }
                 for (_, entity, t, _, closed) in order_iter!(doors) {
-                    if closed && door_near(bounds, t.translation.truncate()) {
+                    let p = t.translation.truncate();
+                    if closed && door_near(bounds, p) && !secret_door(p) {
                         commands
                             .entity(entity)
                             .remove::<(Collider, CollisionLayer)>();
@@ -667,7 +699,8 @@ pub fn room_lock_system(
             }
             RoomState::Locked if enemies_inside == 0 => {
                 for (_, entity, t, _, closed) in order_iter!(doors) {
-                    if closed && door_near(bounds, t.translation.truncate()) {
+                    let p = t.translation.truncate();
+                    if closed && door_near(bounds, p) && !secret_door(p) {
                         commands
                             .entity(entity)
                             .remove::<(Collider, CollisionLayer)>();
@@ -687,6 +720,154 @@ pub fn room_lock_system(
                 );
             }
             _ => {}
+        }
+    }
+}
+
+/// Butin des rochers à butin cassés dans la frame (`game::bombs::RockBroken`, ordre `(y, x)`) : un
+/// `ItemPickup` tiré par `items::draw_loot_with` avec un `RollbackRng` **local** de graine
+/// `loot_seed(graine, étage, "rock:<salle>:<x>:<y>")`. `<salle>` vient des seules salles de l'étage
+/// courant (`CurrentRooms`) : en `Floors` les mondes se superposent, une salle d'un étage inactif
+/// donnerait une clé fausse. Pool = celui de l'étage s'il existe, sinon `salle`.
+#[allow(clippy::too_many_arguments)]
+pub fn rock_loot_system(
+    mut commands: Commands,
+    frame: Res<FrameCount>,
+    broken: Res<FrameEvents<game::bombs::RockBroken>>,
+    rooms: CurrentRooms,
+    items: Res<items::ItemTable>,
+    tables: Res<items::LootTables>,
+    floors: Res<game::loot::FloorLootTables>,
+    unlocks: Res<items::UnlockTable>,
+    active: Res<items::RunUnlocks>,
+    run_seed: Option<Res<bevy_fixed::rng::RunSeed>>,
+    floor: Option<Res<run::FloorState>>,
+    mut id_factory: ResMut<GgrsNetIdFactory>,
+) {
+    if !broken.iter().any(|rock| rock.loot) {
+        return;
+    }
+    let (run_seed, floor) = game::loot::seed_context(&run_seed, &floor);
+    let current: Vec<(String, FixedVec2, FixedVec2)> = sorted_rooms(&rooms)
+        .into_iter()
+        .map(|(id, bounds, _)| (id.0.clone(), bounds.position, bounds.size))
+        .collect();
+    for rock in broken.iter().filter(|rock| rock.loot) {
+        let position = FixedVec2::new(rock.x, rock.y);
+        let room = game::bombs::room_of(
+            current.iter().map(|(id, p, s)| (id.as_str(), *p, *s)),
+            position,
+        );
+        let key = game::bombs::rock_loot_key(&room, rock.cell);
+        let table_id = floors
+            .for_floor(floor)
+            .filter(|id| tables.0.contains_key(*id))
+            .unwrap_or(items::DEFAULT_REWARD_TABLE);
+        let Some(table) = tables.0.get(table_id) else {
+            warn!("rocher « {key} » : pool de butin « {table_id} » inconnu");
+            continue;
+        };
+        let table = items::unlocked_table(table_id, table, &unlocks, &active);
+        let mut rng = bevy_fixed::rng::RollbackRng::new(items::loot_seed(run_seed, floor, &key));
+        let Some(item_id) = items::draw_loot_with(
+            &table,
+            &items,
+            None,
+            items::Rarity::Common,
+            true,
+            &unlocks.hidden_items(&active),
+            &mut rng,
+        ) else {
+            warn!("rocher « {key} » : le pool « {table_id} » ne donne rien");
+            continue;
+        };
+        info!(
+            "ggrs{{f={} rock_loot key={} item={}}}",
+            frame.frame, key, item_id
+        );
+        game::items::spawn_item_pickup(
+            &mut commands,
+            &items,
+            item_id,
+            FixedVec3::new(rock.x, rock.y, Fixed::ZERO),
+            &mut id_factory,
+        );
+    }
+}
+
+/// Mur secret (M3-T4, §69) : une `ExplosionRequest` qui `destroys` et dont le rayon touche une porte
+/// fermée d'une salle `door_lock: Secret` (porte de la salle ou jumelle de la salle voisine, par le
+/// bord de son collider) ouvre **toutes** les portes de cette salle : leurs colliders disparaissent
+/// (le champ de flux relit les portes à chaque mise à jour : les deux salles sont reliées) et la
+/// salle entre dans `DoorLocks`. Demandes dans leur ordre d'émission (`GgrsNetId` des bombes), salles
+/// par position puis identifiant, portes par `GgrsNetId`. Sans salle secrète : aucun effet.
+#[allow(clippy::type_complexity)]
+pub fn secret_wall_system(
+    mut commands: Commands,
+    frame: Res<FrameCount>,
+    requests: Res<FrameEvents<ExplosionRequest>>,
+    table: Res<RoomKindTable>,
+    mut locks: ResMut<DoorLocks>,
+    rooms: CurrentRooms,
+    doors: Query<
+        (
+            &GgrsNetId,
+            Entity,
+            &bevy_fixed::fixed_math::FixedTransform3D,
+            &Collider,
+        ),
+        (With<DoorComponent>, Without<Player>, Without<Enemy>),
+    >,
+) {
+    if requests.is_empty() {
+        return;
+    }
+    let secrets: Vec<_> = sorted_rooms(&rooms)
+        .into_iter()
+        .filter(|(id, _, kind)| is_secret(&table, kind) && !locks.is_open(&id.0))
+        .collect();
+    if secrets.is_empty() {
+        return;
+    }
+    let mut opened: std::collections::BTreeSet<String> = Default::default();
+    for request in requests.iter().filter(|request| request.destroys) {
+        let center = FixedVec2::new(request.x, request.y);
+        for (level_id, bounds, _) in &secrets {
+            if opened.contains(&level_id.0) {
+                continue;
+            }
+            let touched = order_iter!(doors).into_iter().any(|(_, _, t, collider)| {
+                let p = t.translation.truncate();
+                if !door_near(bounds, p) {
+                    return false;
+                }
+                let at = FixedVec2::new(p.x + collider.offset.x, p.y + collider.offset.y);
+                match collider.shape {
+                    game::collider::ColliderShape::Rectangle { width, height } => {
+                        let two = Fixed::from_num(2);
+                        rect_within_radius(center, at, width / two, height / two, request.radius)
+                    }
+                    game::collider::ColliderShape::Circle { radius } => {
+                        rect_within_radius(center, at, radius, radius, request.radius)
+                    }
+                }
+            });
+            if !touched {
+                continue;
+            }
+            for (_, entity, t, _) in order_iter!(doors) {
+                if door_near(bounds, t.translation.truncate()) {
+                    commands
+                        .entity(entity)
+                        .remove::<(Collider, CollisionLayer)>();
+                }
+            }
+            locks.0.insert(level_id.0.clone());
+            opened.insert(level_id.0.clone());
+            info!(
+                "ggrs{{f={} secret_wall_open room={} by={}}}",
+                frame.frame, level_id.0, request.id
+            );
         }
     }
 }

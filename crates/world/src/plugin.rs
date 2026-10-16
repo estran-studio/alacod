@@ -71,10 +71,15 @@ impl Plugin for WorldPlugin {
             .rollback_and_trace_neutral::<crate::props::TableState>()
             .rollback_and_trace_neutral::<crate::props::BarrelState>()
             .rollback_and_trace_neutral::<crate::props::PitSafePosition>()
+            .rollback_and_trace_neutral::<crate::surface::HazardState>()
             .add_frame_events_neutral::<crate::rooms::RoomChanged>()
             .add_frame_events_neutral::<DestroyTerrainRequest>()
             .add_frame_events_neutral::<TerrainDestroyed>()
-            .add_frame_events_neutral::<crate::bomb::Exploded>()
+            // M3-T4 (§69) : transitoires (un baril d'une partie existante en émet) ; la bombe et
+            // son état sont neutres (aucun porteur hors partie à bombes).
+            .add_frame_events_transient::<crate::bomb::Exploded>()
+            .add_frame_events_transient::<crate::bomb::ExplosionRequest>()
+            .rollback_and_trace_neutral::<crate::bomb::BombCarrier>()
             .add_systems(
                 GgrsSchedule,
                 apply_destroy_terrain_system.in_set(RollbackSystemSet::World),

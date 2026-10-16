@@ -400,6 +400,7 @@ pub fn build_app(scenario: &Scenario, headless: bool, config: &PlayConfig) -> Ap
                     mutations: p.mutations.clone(),
                     dash: p.dash.clone(),
                     items: p.items.clone(),
+                    bomb: p.bomb,
                 })
                 .collect(),
         ))
@@ -990,6 +991,8 @@ struct PlayerOverride {
     dash: Option<game::character::movement::DashConfig>,
     /// M2-T17 : voir `game::replay::PlayerScript::items`.
     items: Vec<String>,
+    /// M3-T4 : voir `game::replay::PlayerScript::bomb`.
+    bomb: Option<world::BombDef>,
 }
 
 #[derive(Resource)]
@@ -1051,6 +1054,7 @@ fn apply_player_overrides(
             && o.mutations.is_empty()
             && o.dash.is_none()
             && o.items.is_empty()
+            && o.bomb.is_none()
     }) {
         *applied = true;
         return;
@@ -1076,6 +1080,9 @@ fn apply_player_overrides(
                 game::character::dash::DashOverride(dash.clone()),
                 combat::actors::DashExtra::with_charges(dash.charges.unwrap_or(0)),
             ));
+        }
+        if let Some(def) = over.bomb {
+            commands.entity(entity).insert(world::BombCarrier::new(def));
         }
         if !over.tags.is_empty() {
             commands

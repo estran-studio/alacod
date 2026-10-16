@@ -10,12 +10,12 @@
 //!   fixes** autour de sa position (un anneau, aucun RNG), `GgrsNetId` alloués dans l'ordre (mort
 //!   puis rang `k`, clé de contenu `champion:<net_id>:<k>` dans les logs). Ils n'ont **jamais** de
 //!   variante (pas de division en cascade) ;
-//! - `Explode { radius, damage, .. }` : mise en file ([`PendingBlasts`], ressource rollback neutre) ;
-//!   les `DamageEvent` partent à la **frame suivante** ([`champion_blast_system`], avant le résolveur,
-//!   après les barils), parce que la file d'événements de dégâts de la frame est déjà résolue ;
-//!   comme le baril, tout personnage à PV dans le rayon (strictement, `world::within_radius`) est
-//!   touché, **le résolveur respecte `Health::is_invulnerable_at`** (un familier, immunisé, ne
-//!   l'est jamais). `destroys` n'est pas exécuté ici (rochers et murs secrets : M3-T4) ;
+//! - `Explode { radius, damage, destroys }` : le mécanisme est celui de M3-T4 (§69), sans second chemin :
+//!   une **bombe à mèche d'une frame** (`world::Bomb`, comme l'`Action::Explode` des effets) est posée
+//!   à la position du mort, de **son équipe**, créditée au dernier joueur qui l'a touché (sinon au
+//!   mort), `destroys` transmis ; `game::bombs::bomb_fuse_system` puis `explosion_system` l'exécutent à
+//!   la frame suivante (une `ExplosionRequest`, un `DamageEvent` par cible, un `Exploded`, exclusions
+//!   `Death` et invulnérables de T4 : un familier immunisé n'est jamais touché) ;
 //! - `SpawnPattern { pattern, weapon }` : un émetteur « fantôme » ([`PatternGhost`]) posé à la
 //!   position du mort, qui joue le pattern puis est détruit (`despawn_rollback`) quand il a fini ;
 //! - `loot` : un tirage local (`items::loot_seed(graine, étage, "champion:<net_id>")`, jamais
@@ -38,12 +38,7 @@ use effects::Action;
 use items::{
     draw_loot_with, loot_seed, unlocked_table, ItemTable, LootTables, RunUnlocks, UnlockTable,
 };
-use sim_core::{
-    damage::{DamageEvent, DamageKind, FriendlyFire},
-    frame_events::FrameEvents,
-    tag::Tags,
-    team::Team,
-};
+use sim_core::{damage::FriendlyFire, frame_events::FrameEvents, tag::Tags, team::Team};
 use utils::{
     frame::FrameCount,
     net_id::{GgrsNetId, GgrsNetIdFactory},
@@ -72,22 +67,6 @@ const DROP_OFFSET: i32 = 16;
 /// Variante imposée aux personnages d'une division : absente de toute table, donc « aucune ».
 pub const NO_VARIANT: &str = "-";
 
-/// Explosion en attente (voir la doc du module) : le centre et les valeurs sont figés à la mort.
-#[derive(Clone, Debug, PartialEq, Eq, Hash)]
-pub struct PendingBlast {
-    /// Qui est crédité des dégâts : le dernier joueur qui a touché le mort, sinon le mort.
-    pub source: GgrsNetId,
-    pub x: Fixed,
-    pub y: Fixed,
-    pub radius: Fixed,
-    pub damage: Fixed,
-}
-
-/// File des explosions de la frame précédente. Rollback, checksum **neutre** (vide : contribution
-/// 0, aucune trace existante ne bouge).
-#[derive(Resource, Clone, Debug, Default, PartialEq, Eq, Hash)]
-pub struct PendingBlasts(pub Vec<PendingBlast>);
-
 /// Émetteur sans personnage (`SpawnPattern` à la mort) : détruit une fois son `Emitter` terminé.
 /// Rollback, checksum neutre.
 #[derive(Component, Clone, Copy, Debug, Default, PartialEq, Eq, Hash)]
@@ -96,8 +75,8 @@ pub struct PatternGhost;
 /// Ce que les `on_death` d'un champion demandent, classé (fonction pure : testable sans ECS).
 #[derive(Debug, Default, Clone, PartialEq, Eq)]
 pub struct DeathPlan {
-    /// `(rayon, dégâts)`, dans l'ordre déclaré.
-    pub explosions: Vec<(Fixed, Fixed)>,
+    /// `(rayon, dégâts, destroys)`, dans l'ordre déclaré.
+    pub explosions: Vec<(Fixed, Fixed, bool)>,
     /// `(personnage, nombre)`, dans l'ordre déclaré.
     pub spawns: Vec<(String, u32)>,
     /// `(pattern, arme)`, dans l'ordre déclaré.
@@ -111,7 +90,11 @@ pub fn death_plan(actions: &[Action]) -> DeathPlan {
     let mut plan = DeathPlan::default();
     for action in actions {
         match action {
-            Action::Explode { radius, damage, .. } => plan.explosions.push((*radius, *damage)),
+            Action::Explode {
+                radius,
+                damage,
+                destroys,
+            } => plan.explosions.push((*radius, *damage, *destroys)),
             Action::SpawnCharacters { id, count } => plan.spawns.push((id.clone(), *count)),
             Action::SpawnPattern { pattern, weapon } => {
                 plan.patterns.push((pattern.clone(), weapon.clone()))
@@ -199,7 +182,6 @@ pub fn champion_death_system(
     loot: LootAssets,
     rng_streams: Res<RngStreams>,
     mut id_factory: ResMut<GgrsNetIdFactory>,
-    mut blasts: ResMut<PendingBlasts>,
     effect_assets: crate::effects_runtime::EffectAssets,
 ) {
     if dying.is_empty() {
@@ -274,7 +256,7 @@ pub fn champion_death_system(
             }
         }
 
-        // Explosions : file, jouées à la frame suivante.
+        // Explosions : une bombe à mèche d'une frame par action (mécanisme de M3-T4).
         if !plan.explosions.is_empty() {
             let source = death
                 .last_hit_by
@@ -285,14 +267,27 @@ pub fn champion_death_system(
                     HitBy::Entity(_) => None,
                 })
                 .unwrap_or_else(|| net_id.clone());
-            for (radius, damage) in &plan.explosions {
-                blasts.0.push(PendingBlast {
-                    source: source.clone(),
-                    x: center.x,
-                    y: center.y,
-                    radius: *radius,
-                    damage: *damage,
-                });
+            for (radius, damage, destroys) in &plan.explosions {
+                let at = fixed_math::FixedTransform3D::new(
+                    fixed_math::FixedVec3::new(center.x, center.y, fixed_math::FIXED_ZERO),
+                    fixed_math::FixedMat3::IDENTITY,
+                    fixed_math::FixedVec3::ONE,
+                );
+                commands.spawn((
+                    world::Bomb {
+                        owner: source.clone(),
+                        fuse_until: frame.frame.saturating_add(1),
+                        radius: *radius,
+                        damage: *damage,
+                        friendly_fire: FriendlyFire::Always,
+                        team: *team,
+                        destroys: *destroys,
+                    },
+                    at.to_bevy_transform(),
+                    at,
+                    id_factory.next(format!("explode_{}", net_id.0)),
+                    Rollback,
+                ));
             }
         }
 
@@ -415,61 +410,6 @@ fn drop_loot(
     );
 }
 
-/// Émet les `DamageEvent` des explosions mises en file à la frame précédente (voir la doc du
-/// module). Avant `rollback_resolve_damage_events`, après les barils (même file d'événements).
-#[allow(clippy::type_complexity)]
-pub fn champion_blast_system(
-    frame: Res<FrameCount>,
-    mut blasts: ResMut<PendingBlasts>,
-    mut damage_events: ResMut<FrameEvents<DamageEvent>>,
-    mut exploded: Option<ResMut<FrameEvents<world::Exploded>>>,
-    targets: Query<
-        (&GgrsNetId, &fixed_math::FixedTransform3D),
-        (With<Rollback>, With<crate::character::health::Health>),
-    >,
-) {
-    if blasts.0.is_empty() {
-        return;
-    }
-    let pending = std::mem::take(&mut blasts.0);
-    let candidates: Vec<(GgrsNetId, FixedVec2)> = order_iter!(targets)
-        .into_iter()
-        .map(|(id, t)| (id.clone(), t.translation.truncate()))
-        .collect();
-    for blast in pending {
-        let center = FixedVec2::new(blast.x, blast.y);
-        let mut hit = 0usize;
-        for (target, position) in &candidates {
-            if !world::within_radius(center, *position, blast.radius) {
-                continue;
-            }
-            hit += 1;
-            damage_events.send(DamageEvent {
-                source: blast.source.clone(),
-                target: target.clone(),
-                kind: DamageKind::Explosion,
-                amount: blast.damage,
-                frame: frame.frame,
-                tags: Tags::parse(["explosion"]),
-                source_team: Team::Neutral,
-                friendly_fire: FriendlyFire::Always,
-            });
-        }
-        if let Some(events) = exploded.as_mut() {
-            events.send(world::Exploded {
-                frame: frame.frame,
-                x: blast.x,
-                y: blast.y,
-                radius: blast.radius,
-            });
-        }
-        info!(
-            "ggrs{{f={} champion_explosion source={} targets={}}}",
-            frame.frame, blast.source.0, hit
-        );
-    }
-}
-
 /// Détruit les émetteurs fantômes dont la séquence est finie.
 pub fn pattern_ghost_cleanup_system(
     mut commands: Commands,
@@ -484,9 +424,7 @@ pub struct ChampionsPlugin;
 
 impl Plugin for ChampionsPlugin {
     fn build(&self, app: &mut App) {
-        app.init_resource::<PendingBlasts>()
-            .rollback_and_trace_resource_neutral::<PendingBlasts>()
-            .rollback_and_trace_neutral::<PatternGhost>()
+        app.rollback_and_trace_neutral::<PatternGhost>()
             .add_systems(
                 GgrsSchedule,
                 (
@@ -498,13 +436,6 @@ impl Plugin for ChampionsPlugin {
                         .before(rollback_apply_death),
                 )
                     .in_set(RollbackSystemSet::DeathManagement),
-            )
-            .add_systems(
-                GgrsSchedule,
-                champion_blast_system
-                    .after(crate::props::barrel_explosion_system)
-                    .before(crate::character::health::rollback_resolve_damage_events)
-                    .in_set(RollbackSystemSet::CollisionDamage),
             );
     }
 }
@@ -539,7 +470,7 @@ mod tests {
         ]);
         assert_eq!(
             plan.explosions,
-            vec![(fx(40.0), fx(10.0)), (fx(8.0), fx(0.0))]
+            vec![(fx(40.0), fx(10.0), false), (fx(8.0), fx(0.0), true)]
         );
         assert_eq!(plan.spawns, vec![("petit".to_string(), 2)]);
         assert_eq!(

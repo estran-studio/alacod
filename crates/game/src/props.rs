@@ -15,10 +15,10 @@
 //!   interaction la renverse à l'opposé du joueur : elle devient un mur mince (`Wall`, couche
 //!   `wall`) au bord renversé qui arrête les balles ; elle se brise après `bullets` balles
 //!   encaissées (`combat::projectile::BulletWallHit`).
-//! - **Barils** (`barrel_explosion_system`) : un baril est un personnage `Enemies` sans IA, blessé
-//!   par les balles des joueurs. À 0 PV il garde son `Death` jusqu'à la frame suivante, où il
-//!   explose : `damage` à tout ce qui a des PV dans `radius` (barils voisins compris, qui
-//!   explosent à leur tour une frame plus tard), puis `despawn_rollback()`.
+//! - **Barils** : un baril est un personnage `Enemies` sans IA, blessé par les balles des joueurs.
+//!   À 0 PV il garde son `Death` jusqu'à la frame suivante, où `crate::bombs::explosion_system`
+//!   (M3-T4) le fait exploser : `damage` à tout ce qui a des PV dans `radius` (barils voisins
+//!   compris, qui explosent à leur tour une frame plus tard), puis `despawn_rollback()`.
 
 use bevy::prelude::*;
 use bevy_fixed::fixed_math::{self, Fixed, FixedVec2, FixedWide};
@@ -67,10 +67,6 @@ impl Plugin for PropsPlugin {
                     table_cover_system.after(pit_system),
                 )
                     .in_set(RollbackSystemSet::World),
-                barrel_explosion_system
-                    .after(crate::character::enemy::ai::rules::charge_damage_translate_system)
-                    .before(crate::character::health::rollback_resolve_damage_events)
-                    .in_set(RollbackSystemSet::CollisionDamage),
             ),
         );
     }
@@ -260,80 +256,5 @@ pub fn table_cover_system(
         if state.bullets_left == 0 {
             commands.entity(entity).despawn_rollback();
         }
-    }
-}
-
-/// Explosion des barils morts à la frame précédente (voir la doc du module). Avant
-/// `rollback_resolve_damage_events` : les dégâts sont résolus dans la même frame, un baril
-/// voisin touché meurt donc cette frame et explose à la suivante (chaîne déterministe, barils
-/// pris par `GgrsNetId`).
-#[allow(clippy::type_complexity)]
-pub fn barrel_explosion_system(
-    frame: Res<FrameCount>,
-    mut commands: Commands,
-    mut damage_events: ResMut<FrameEvents<DamageEvent>>,
-    barrels: Query<
-        (
-            &GgrsNetId,
-            Entity,
-            &fixed_math::FixedTransform3D,
-            &BarrelState,
-            &Death,
-        ),
-        With<Rollback>,
-    >,
-    targets: Query<
-        (&GgrsNetId, &fixed_math::FixedTransform3D, Has<Death>),
-        (With<Rollback>, With<crate::character::health::Health>),
-    >,
-    players: Query<(&GgrsNetId, &Player), With<Rollback>>,
-) {
-    if barrels.is_empty() {
-        return;
-    }
-    let player_ids: BTreeMap<usize, GgrsNetId> = order_iter!(players)
-        .into_iter()
-        .map(|(net_id, player)| (player.handle, net_id.clone()))
-        .collect();
-    for (net_id, entity, transform, state, death) in order_iter!(barrels) {
-        // Crédité au dernier joueur qui l'a touché (points de la mort des victimes).
-        let source = death
-            .last_hit_by
-            .iter()
-            .flatten()
-            .find_map(|hit| match hit {
-                HitBy::Player(handle) => player_ids.get(handle).cloned(),
-                HitBy::Entity(_) => None,
-            })
-            .unwrap_or_else(|| net_id.clone());
-        let center: FixedVec2 = transform.translation.truncate();
-        let radius_sq =
-            FixedWide::from_num(state.radius).saturating_mul(FixedWide::from_num(state.radius));
-        let mut hit = 0usize;
-        for (target_id, target_transform, dying) in order_iter!(targets) {
-            if target_id.0 == net_id.0 || dying {
-                continue;
-            }
-            let offset = target_transform.translation.truncate() - center;
-            if offset.length_squared() > radius_sq {
-                continue;
-            }
-            hit += 1;
-            damage_events.send(DamageEvent {
-                source: source.clone(),
-                target: target_id.clone(),
-                kind: DamageKind::Physical,
-                amount: state.damage,
-                frame: frame.frame,
-                tags: Tags::parse(["explosion"]),
-                source_team: Team::Neutral,
-                friendly_fire: FriendlyFire::Always,
-            });
-        }
-        info!(
-            "ggrs{{f={} barrel_explosion net_id={} targets={}}}",
-            frame.frame, net_id.0, hit
-        );
-        commands.entity(entity).despawn_rollback();
     }
 }

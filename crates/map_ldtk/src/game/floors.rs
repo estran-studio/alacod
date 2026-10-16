@@ -483,6 +483,7 @@ pub fn floor_transition_system(
     plan: Res<FloorPlan>,
     mut floor_state: ResMut<FloorState>,
     mut room_states: Option<ResMut<world::RoomStates>>,
+    mut door_locks: ResMut<world::DoorLocks>,
     mut id_factory: ResMut<GgrsNetIdFactory>,
     mut flow_field_cache: ResMut<FlowFieldCache>,
     props: Res<world::PropTable>,
@@ -654,6 +655,11 @@ pub fn floor_transition_system(
     // s'ouvrent de nouveau au prochain tick (`rooms::room_lock_system`).
     if let Some(states) = room_states.as_mut() {
         states.doors_opened = false;
+    }
+    // M3-T4 (§69) : les portes secrètes du nouvel étage naissent fermées ; leur état « ouvert »
+    // (par `LevelId`, répété d'un étage à l'autre) est remis à zéro avec elles.
+    if !door_locks.0.is_empty() {
+        door_locks.0.clear();
     }
     floor_state.index = next;
     floor_state.portal_open = false;
