@@ -925,6 +925,8 @@ fn prompt_for(
                 price: shelf.price,
             }
         }
+        // M2-T13 : pas de prompt du hub avant le HUD de M2 (V4).
+        InteractionType::Hub => return String::new(),
         InteractionType::Weapon => {
             let Some(pickup) = pickup else {
                 return String::new();

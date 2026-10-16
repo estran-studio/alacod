@@ -80,6 +80,15 @@ fn main() -> AppExit {
             map_path: manifest.entry.start_map.clone(),
             seed: manifest.entry.default_seed,
         }))
-        .insert_resource(WaveModeEnabled(wave_mode))
-        .run()
+        .insert_resource(WaveModeEnabled(wave_mode));
+    // M2-T13 : la partie démarre au hub quand le manifeste en déclare un (`entry.hub`) ; la porte
+    // lance la run (`entry.start_map`, mode `Floors` du manifeste).
+    if let Some(hub) = &manifest.entry.hub {
+        app.insert_resource(game::hub::HubSession {
+            hub_map: hub.map.clone(),
+            run_map: manifest.entry.start_map.clone(),
+            in_hub: true,
+        });
+    }
+    app.run()
 }

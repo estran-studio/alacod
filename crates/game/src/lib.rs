@@ -17,6 +17,7 @@ pub mod frame;
 pub mod frame_events;
 pub mod gen_test;
 pub mod global_asset;
+pub mod hub;
 pub mod interaction;
 pub mod items;
 pub mod jjrs;

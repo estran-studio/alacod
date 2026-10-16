@@ -16,5 +16,8 @@ pub fn get_implementation(context: MapGenerationContext) -> Box<dyn IMapGenerati
         MapGenerationMode::Cave(_) => {
             unreachable!("une caverne est construite par map_ldtk::generation::cave")
         }
+        MapGenerationMode::Static => {
+            unreachable!("une carte statique est rendue telle quelle par le chargeur LDtk")
+        }
     }
 }

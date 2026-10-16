@@ -1,0 +1,31 @@
+// M2-T13 (docs/conventions.md §57) : la partie démarre au hub (`hub: Some((stay: true))`, carte
+// `maps/hub.ldtk`). Le joueur 0, dont le profil porte le jalon `first_run`, voit les deux stations :
+// il utilise d'abord le marchand (`HubVisit`), puis la porte (`HubExit` : la sortie est décidée
+// dans la simulation, par le joueur 0 à la frame de l'interaction). `stay` : la run n'est pas
+// lancée (la relance a son test dans `crates/scenario/tests/hub.rs`).
+//
+// À regarder : le pilote traverse la salle du hub, s'arrête au marchand (f80) puis à la porte (f170).
+Scenario(
+    powerup_drop_chance_override: "0.0",
+    game: "gungeon",
+    map: "maps/etage_1.ldtk",
+    floors: Some("etage_1"),
+    hub: Some((stay: true)),
+    frames: 260,
+    profile: true,
+    profile_setup: Some((profiles: [(handle: 0, unlocks: ["first_run"])])),
+    players: [(inputs: [
+        (from: 10, to: 42, buttons: [Right]),
+        (from: 42, to: 74, buttons: [Up]),
+        (from: 80, to: 82, buttons: [Interaction]),
+        (from: 100, to: 138, buttons: [Right]),
+        (from: 138, to: 157, buttons: [Down]),
+        (from: 170, to: 172, buttons: [Interaction]),
+    ])],
+    expect: [
+        HubExit(none: true, at_frame: 60),
+        HubVisit(handle: 0, service: "marchand", at_frame: 120),
+        HubExit(none: true, at_frame: 120),
+        HubExit(handle: Some(0), at_frame: 250),
+    ],
+)

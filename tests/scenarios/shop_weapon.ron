@@ -1,0 +1,34 @@
+// D62 (armes aux sources, docs/conventions.md §48 et §50) : un présentoir d'arme (`weapon:revolver`,
+// pool `boutique`, rareté Common = 15 douilles) au pied du joueur de gungeon (une seule arme,
+// `pistolet`), qui a 100 douilles. L'Interaction de f10 achète l'arme : elle tombe au sol, le solde
+// passe à 85 ; l'Interaction de f40 la ramasse : l'emplacement unique cède sa place, le pistolet
+// tombe à son tour et le revolver devient l'arme active.
+//
+// À regarder : f10 l'achat (85 douilles), f40 l'échange : revolver en main, pistolet au sol.
+Scenario(
+    powerup_drop_chance_override: "0.0",
+    game: "gungeon",
+    floors: Some("etage_1"),
+    shop: (shelves: [(key: "s", item: "weapon:revolver", price: 15, x: "88.0", y: "-120.0", at_frame: 5)]),
+    frames: 80,
+    players: [
+        (currency: Some(100), inputs: [
+            (from: 10, to: 11, buttons: [Interaction]),
+            (from: 40, to: 41, buttons: [Interaction]),
+        ]),
+    ],
+    expect: [
+        ShelfCount(count: 1, at_frame: 8),
+        Shelf(nth: 0, item: Some("weapon:revolver"), price: Some(15), sold: Some(false), at_frame: 8),
+        ActiveWeapon(handle: 0, weapon: "pistolet", at_frame: 9),
+        Currency(handle: 0, min: 100, max: 100, at_frame: 9),
+        WeaponPickups(min: Some(0), max: Some(0), at_frame: 9),
+        Currency(handle: 0, min: 85, max: 85, at_frame: 30),
+        Shelf(nth: 0, sold: Some(true), at_frame: 30),
+        WeaponPickups(min: Some(1), max: Some(1), at_frame: 30),
+        ActiveWeapon(handle: 0, weapon: "pistolet", at_frame: 30),
+        ActiveWeapon(handle: 0, weapon: "revolver", at_frame: 70),
+        WeaponPickups(min: Some(1), max: Some(1), at_frame: 70),
+        Currency(handle: 0, min: 85, max: 85, at_frame: 70),
+    ],
+)

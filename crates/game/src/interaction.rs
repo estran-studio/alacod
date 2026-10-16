@@ -202,6 +202,7 @@ pub fn interaction_detection_system(
                 InteractionType::Chest => "Chest",
                 InteractionType::Table => "Table",
                 InteractionType::Shop => "Shop",
+                InteractionType::Hub => "Hub",
             };
             info!(
                 "{} interaction detected: interactor {} with {} ({}) at distance_sq {:?}",
@@ -722,11 +723,11 @@ pub fn handle_weapon_pickup_interaction(
         // T2.3, chantier C5 v1 : anti-rebond d'une arme murale (voir la doc de
         // `WeaponPickup::can_buy_after_frame`) — une arme non murale (`wall_price: None`)
         // n'a jamais de cooldown posé, cette condition ne la bloque donc jamais.
-        if wall_price.is_some() {
-            if let Some(cooldown_frame) = pickup.can_buy_after_frame {
-                if frame.frame < cooldown_frame {
-                    continue;
-                }
+        // D62 : l'arme lâchée par un échange porte le même délai (voir plus bas), sinon
+        // maintenir Interaction rééquiperait à chaque frame l'arme qu'on vient de poser.
+        if let Some(cooldown_frame) = pickup.can_buy_after_frame {
+            if frame.frame < cooldown_frame {
+                continue;
             }
         }
 
@@ -869,7 +870,8 @@ pub fn handle_weapon_pickup_interaction(
         );
 
         if let Some((old_weapon, old_mag_ammo)) = displaced {
-            spawn_weapon_pickup(
+            let old_id = old_weapon.config.name.clone();
+            let dropped = spawn_weapon_pickup(
                 &mut commands,
                 old_weapon,
                 old_mag_ammo,
@@ -877,6 +879,16 @@ pub fn handle_weapon_pickup_interaction(
                 None,
                 &mut id_factory,
             );
+            commands
+                .entity(dropped)
+                .insert(crate::weapons::WeaponPickup {
+                    weapon_id: old_id,
+                    mag_ammo: old_mag_ammo,
+                    price: None,
+                    can_buy_after_frame: Some(
+                        frame.frame + crate::weapons::WEAPON_SWAP_COOLDOWN_FRAMES,
+                    ),
+                });
         }
     }
 }

@@ -1181,6 +1181,16 @@ pub struct UnlockEntry {
     pub def: items::UnlockDef,
 }
 
+/// Service du hub (M2-T13, `docs/conventions.md` §57), un fichier RON par service
+/// (`hub/<id>.ron` dans un dossier de kind `HubService`, champs de [`meta::HubServiceDef`]) ;
+/// id = nom de fichier.
+#[derive(Debug, Clone)]
+pub struct HubServiceEntry {
+    pub id: String,
+    pub file: PathBuf,
+    pub def: meta::HubServiceDef,
+}
+
 /// Règles d'essence du jeu (M2-T12, kind `MetaEconomy`, `meta/<id>.ron`, champs de
 /// [`meta::EssenceRules`]) ; le premier fichier par identifiant fait foi.
 #[derive(Debug, Clone)]
@@ -1371,6 +1381,8 @@ pub struct Registry {
     pub loot_tables: BTreeMap<String, LootTableEntry>,
     /// M2-T12 : déblocages de méta-progression (kind `Unlock`).
     pub unlocks: BTreeMap<String, UnlockEntry>,
+    /// M2-T13 : services du hub (kind `HubService`).
+    pub hub_services: BTreeMap<String, HubServiceEntry>,
     /// M2-T12 : règles d'essence (kind `MetaEconomy`).
     pub meta_economy: BTreeMap<String, MetaEconomyEntry>,
     /// M2-T11 : objets de décor (kind `Prop`) : tables renversables et barils explosifs.
@@ -1450,6 +1462,7 @@ pub const KNOWN_KIND_NAMES: &[&str] = &[
     "LootTable",
     "Unlock",
     "MetaEconomy",
+    "HubService",
     "Prop",
 ];
 
@@ -1549,6 +1562,7 @@ impl Registry {
                 "Synergy" => load_synergies(&assets_dir, decl, &mut registry, &mut errors),
                 "LootTable" => load_loot_tables(&assets_dir, decl, &mut registry, &mut errors),
                 "Unlock" => load_unlocks(&assets_dir, decl, &mut registry, &mut errors),
+                "HubService" => load_hub_services(&assets_dir, decl, &mut registry, &mut errors),
                 "MetaEconomy" => load_meta_economy(&assets_dir, decl, &mut registry, &mut errors),
                 "Prop" => load_props(&assets_dir, decl, &mut registry, &mut errors),
                 "Surface" => load_surfaces(&assets_dir, decl, &mut registry, &mut errors),
@@ -3106,6 +3120,31 @@ fn load_unlocks(
     }
 }
 
+/// M2-T13 : `hub/<id>.ron` (kind `HubService`), un service par fichier ; id = nom de fichier.
+fn load_hub_services(
+    assets_dir: &ContentFiles,
+    decl: &ContentFolderDecl,
+    registry: &mut Registry,
+    errors: &mut Vec<LintError>,
+) {
+    for (id, rel, def) in load_ron_files::<meta::HubServiceDef>(assets_dir, decl, errors) {
+        if let Some(existing) = registry.hub_services.get(&id) {
+            errors.push(LintError {
+                kind: LintErrorKind::DuplicateId,
+                file: rel.display().to_string(),
+                message: format!(
+                    "id de service du hub « {id} » déjà défini dans {}",
+                    existing.file.display()
+                ),
+            });
+            continue;
+        }
+        registry
+            .hub_services
+            .insert(id.clone(), HubServiceEntry { id, file: rel, def });
+    }
+}
+
 /// M2-T12 : `meta/<id>.ron` (kind `MetaEconomy`), règles d'essence ; id = nom de fichier.
 fn load_meta_economy(
     assets_dir: &ContentFiles,
@@ -3966,6 +4005,7 @@ pub(crate) fn schema_for_kind(kind: &str) -> Option<schemars::Schema> {
         "SpriteSheet" => schemars::schema_for!(SpriteSheetsFileSchema),
         "Unlock" => schemars::schema_for!(items::UnlockDef),
         "MetaEconomy" => schemars::schema_for!(meta::EssenceRules),
+        "HubService" => schemars::schema_for!(meta::HubServiceDef),
         _ => return None,
     })
 }

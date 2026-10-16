@@ -1758,3 +1758,25 @@ fn m4_t0a_errors(errors: &[content::LintError]) -> usize {
         .filter(|e| !e.message.contains("entry.start_map"))
         .count()
 }
+
+#[test]
+fn hub_unknown_unlock_fixture_reports_broken_reference() {
+    let (_, _, errors) = load_and_lint(&fixture_dir("hub_unknown_unlock")).unwrap();
+    assert_has_error(&errors, LintErrorKind::BrokenReference, "fantome");
+}
+
+#[test]
+fn hub_stat_zero_fixture_reports_out_of_range() {
+    let (_, _, errors) = load_and_lint(&fixture_dir("hub_stat_zero")).unwrap();
+    assert_has_error(&errors, LintErrorKind::OutOfRange, "toujours vraie");
+}
+
+#[test]
+fn hub_without_door_fixture_reports_broken_reference() {
+    let (_, _, errors) = load_and_lint(&fixture_dir("hub_without_door")).unwrap();
+    assert_has_error(
+        &errors,
+        LintErrorKind::BrokenReference,
+        "aucun service d'action EnterRun",
+    );
+}

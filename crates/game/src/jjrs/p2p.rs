@@ -23,7 +23,6 @@ use crate::{
     jjrs::{
         GggrsSessionConfiguration, GggrsSessionConfigurationState, GgrsPlayer, GgrsSessionBuilding,
     },
-    run_state::resolve_run_mode_with_floors,
 };
 
 // For matchbox socket connection
@@ -305,6 +304,7 @@ pub fn system_after_map_loaded(
     manifest: Option<Res<GameManifest>>,
     registry: Option<Res<Registry>>,
     floors_override: Option<Res<crate::run_state::FloorsOverride>>,
+    hub: Option<Res<crate::hub::HubSession>>,
     restart: Option<Res<OnlineRestart>>,
 ) {
     if !matches!(online_state.as_ref(), OnlineState::Online) {
@@ -363,10 +363,11 @@ pub fn system_after_map_loaded(
         .map(|player| player.handle)
         .collect();
     // T1.8 : une séquence imposée (scénario, `alacod-sim --floors`) force le mode `Floors`.
-    let mode = resolve_run_mode_with_floors(
+    let mode = crate::hub::resolve_session_mode(
         manifest.as_deref(),
         registry.as_deref(),
         floors_override.as_deref().map(|o| o.0.as_str()),
+        hub.as_deref(),
     );
     let run = Run::new(run_seed.0, mode, run_players, 0);
     // M2-T12 : en ligne, les déblocages sont ceux de la configuration de session (l'hôte), jamais

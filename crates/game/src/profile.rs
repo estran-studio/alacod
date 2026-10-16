@@ -75,6 +75,26 @@ pub fn online_run_unlocks(spec: Option<&str>) -> RunUnlocks {
     )
 }
 
+/// Statistiques du profil de l'hôte (`nom:valeur` séparés par des virgules), avec
+/// [`RUN_UNLOCKS_ENV`] : ce que le hub en ligne propose (M2-T13, décision de William : l'hôte
+/// décide). Absente : aucune statistique.
+pub const HOST_STATS_ENV: &str = "ALACOD_HOST_STATS";
+
+/// Profil de l'hôte reconstitué de la configuration de session : ses déblocages (`unlocks`) et ses
+/// statistiques (`stats`). Ni monnaie ni identité : le hub n'en lit que les conditions de service.
+pub fn online_host_profile(unlocks: Option<&str>, stats: Option<&str>) -> Profile {
+    let mut profile = Profile::new("host");
+    profile.unlocks = online_run_unlocks(unlocks).0;
+    for entry in stats.unwrap_or_default().split(',') {
+        if let Some((name, value)) = entry.split_once(':') {
+            if let Ok(value) = value.trim().parse::<u64>() {
+                profile.stats.insert(name.trim().to_string(), value);
+            }
+        }
+    }
+    profile
+}
+
 /// Achète `id` pour `profile` hors simulation (menu, `alacod-profile unlock`, scénario).
 pub fn purchase_unlock(
     profile: &mut Profile,
@@ -89,6 +109,29 @@ pub fn purchase_unlock(
             stat: def.stat.as_ref().map(|(stat, need)| (stat.as_str(), *need)),
         },
     )
+}
+
+/// Achat d'un joueur du hub (M2-T13) : débite et écrit son profil tout de suite (hors
+/// simulation) ; le déblocage n'entre dans une run qu'au prochain lancement (`RunUnlocks`, §51).
+pub fn purchase_for_handle(
+    profiles: &mut Profiles,
+    settings: &ProfileSettings,
+    handle: usize,
+    id: &str,
+    def: &UnlockDef,
+) -> Result<(), PurchaseError> {
+    let profile_id = local_id(handle);
+    let profile = profiles
+        .0
+        .entry(profile_id.clone())
+        .or_insert_with(|| Profile::new(profile_id));
+    purchase_unlock(profile, id, def)?;
+    if let Some(dir) = &settings.dir {
+        if let Err(e) = meta::save(dir, profile) {
+            warn!("profil {} non écrit : {e}", profile.id);
+        }
+    }
+    Ok(())
 }
 
 /// Crédite et écrit les profils quand la run se termine (une seule fois par run).
@@ -205,6 +248,15 @@ mod tests {
         let profiles = profiles();
         let ids = local_run_unlocks(Some(&profiles), &[0, 1], |id| id == "y").0;
         assert_eq!(ids.into_iter().collect::<Vec<_>>(), ["y"]);
+    }
+
+    #[test]
+    fn host_profile_reads_unlocks_and_stats() {
+        let profile = online_host_profile(Some("a, b"), Some("runs:3, kills:x, wins : 2,bad"));
+        assert!(profile.has_unlock("a") && profile.has_unlock("b"));
+        assert_eq!(profile.stat("runs"), 3);
+        assert_eq!(profile.stat("wins"), 2);
+        assert_eq!(profile.stat("kills"), 0);
     }
 
     #[test]

@@ -87,6 +87,7 @@ pub fn run(registry: &Registry, manifest: &GameManifest) -> Vec<LintError> {
     lint_synergies(registry, &mut errors);
     lint_loot(registry, &mut errors);
     lint_unlocks(registry, &mut errors);
+    lint_hub_services(registry, &mut errors);
     lint_entry_progression(registry, manifest, &mut errors);
     lint_forced_variants(registry, &mut errors);
     lint_character_tests(registry, &mut errors);
@@ -2989,6 +2990,33 @@ fn lint_entry_point(registry: &Registry, manifest: &GameManifest, errors: &mut V
                 .to_string(),
         });
     }
+    // M2-T13 : le hub désigne une carte chargée et offre au moins une porte d'entrée en run.
+    if let Some(hub) = &manifest.entry.hub {
+        let hub_map = registry::map_id_from_path(&hub.map);
+        if !registry.maps.contains_key(&hub_map) {
+            errors.push(LintError {
+                kind: LintErrorKind::BrokenReference,
+                file: crate::manifest::MANIFEST_FILE_NAME.to_string(),
+                message: format!(
+                    "champ entry.hub.map = « {} » : aucune carte chargée avec cet id (« {hub_map} »)",
+                    hub.map
+                ),
+            });
+        }
+        if !registry
+            .hub_services
+            .values()
+            .any(|service| service.def.action == meta::HubAction::EnterRun)
+        {
+            errors.push(LintError {
+                kind: LintErrorKind::BrokenReference,
+                file: crate::manifest::MANIFEST_FILE_NAME.to_string(),
+                message:
+                    "champ entry.hub : aucun service d'action EnterRun (dossier « HubService »)"
+                        .to_string(),
+            });
+        }
+    }
     // D59 : `entry.floors` désigne la séquence par défaut du mode `Floors`.
     if let Some(floors) = &manifest.entry.floors {
         if manifest.entry.mode != Some(crate::manifest::EntryMode::Floors) {
@@ -3009,6 +3037,43 @@ fn lint_entry_point(registry: &Registry, manifest: &GameManifest, errors: &mut V
                     "champ entry.floors = « {floors} » : aucune séquence de ce nom dans le dossier « Floors »"
                 ),
             });
+        }
+    }
+}
+
+/// M2-T13 (`docs/conventions.md` §57) : services du hub. Une condition `Unlock` désigne un
+/// déblocage du jeu ou un jalon du profil ; une statistique à 0 ne conditionne rien.
+fn lint_hub_services(registry: &Registry, errors: &mut Vec<LintError>) {
+    for service in registry.hub_services.values() {
+        let file = service.file.display().to_string();
+        let id = &service.id;
+        for need in &service.def.needs {
+            match need {
+                meta::HubCondition::Unlock(unlock) => {
+                    if !registry.unlocks.contains_key(unlock)
+                        && !meta::MILESTONES.contains(&unlock.as_str())
+                    {
+                        errors.push(LintError {
+                            kind: LintErrorKind::BrokenReference,
+                            file: file.clone(),
+                            message: format!(
+                                "service du hub « {id} » : condition Unlock(« {unlock} ») inconnue (ni déblocage du jeu, ni jalon)"
+                            ),
+                        });
+                    }
+                }
+                meta::HubCondition::Stat(name, min) => {
+                    if *min == 0 {
+                        errors.push(LintError {
+                            kind: LintErrorKind::OutOfRange,
+                            file: file.clone(),
+                            message: format!(
+                                "service du hub « {id} » : condition Stat(« {name} », 0) (toujours vraie)"
+                            ),
+                        });
+                    }
+                }
+            }
         }
     }
 }
@@ -3580,6 +3645,17 @@ fn lint_loot(registry: &Registry, errors: &mut Vec<LintError>) {
                         );
                     }
                 }
+                items::LootPick::Weapon(weapon, _) => {
+                    if !registry
+                        .weapons
+                        .contains_key(&crate::registry::WeaponId::from(weapon.clone()))
+                    {
+                        push(
+                            LintErrorKind::BrokenReference,
+                            format!("pool de butin « {id} » : entries[{index}] : arme « {weapon} » inconnue"),
+                        );
+                    }
+                }
                 items::LootPick::Rarity(rarity) => {
                     if !registry
                         .items
@@ -3665,6 +3741,53 @@ fn lint_loot(registry: &Registry, errors: &mut Vec<LintError>) {
                     room.id
                 ),
             );
+        }
+        if shop.weapon_shelves > shop.shelves {
+            push(
+                LintErrorKind::OutOfRange,
+                format!(
+                    "type de salle « {} » : boutique : weapon_shelves = {} > shelves = {}",
+                    room.id, shop.weapon_shelves, shop.shelves
+                ),
+            );
+        }
+        let mut shop_tables = vec![shop.table.as_str()];
+        shop_tables.extend(shop.floor_tables.iter().map(String::as_str));
+        for name in shop_tables.iter().skip(1) {
+            if !registry.loot_tables.contains_key(*name) {
+                push(
+                    LintErrorKind::BrokenReference,
+                    format!(
+                        "type de salle « {} » : boutique : floor_tables : pool « {name} » inconnu",
+                        room.id
+                    ),
+                );
+            }
+        }
+        if shop.weapon_shelves > 0 {
+            let used: Vec<&str> = if shop.floor_tables.is_empty() {
+                vec![shop.table.as_str()]
+            } else {
+                shop.floor_tables.iter().map(String::as_str).collect()
+            };
+            for name in used {
+                let has_weapon = registry.loot_tables.get(name).is_some_and(|table| {
+                    table
+                        .def
+                        .entries
+                        .iter()
+                        .any(|entry| matches!(entry.pick, items::LootPick::Weapon(..)))
+                });
+                if registry.loot_tables.contains_key(name) && !has_weapon {
+                    push(
+                        LintErrorKind::OutOfRange,
+                        format!(
+                            "type de salle « {} » : boutique : weapon_shelves > 0 mais le pool « {name} » n'a aucune arme",
+                            room.id
+                        ),
+                    );
+                }
+            }
         }
         match registry.loot_tables.get(&shop.table) {
             None => push(

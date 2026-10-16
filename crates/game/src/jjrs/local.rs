@@ -34,7 +34,6 @@ use crate::{
     jjrs::{
         GggrsSessionConfiguration, GggrsSessionConfigurationState, GgrsPlayer, GgrsSessionBuilding,
     },
-    run_state::resolve_run_mode_with_floors,
     weapons::WeaponsConfig,
 };
 
@@ -88,6 +87,7 @@ pub fn system_after_map_loaded_local(
     registry: Option<Res<Registry>>,
     floors_override: Option<Res<crate::run_state::FloorsOverride>>,
     profiles: Option<Res<meta::Profiles>>,
+    hub: Option<Res<crate::hub::HubSession>>,
 ) {
     if !matches!(online_state.as_ref(), OnlineState::Offline) {
         return;
@@ -156,10 +156,11 @@ pub fn system_after_map_loaded_local(
         .map(|player| player.handle)
         .collect();
     // T1.8 : une séquence imposée (scénario, `alacod-sim --floors`) force le mode `Floors`.
-    let mode = resolve_run_mode_with_floors(
+    let mode = crate::hub::resolve_session_mode(
         manifest.as_deref(),
         registry.as_deref(),
         floors_override.as_deref().map(|o| o.0.as_str()),
+        hub.as_deref(),
     );
     // M2-T12 : déblocages de la partie = union des profils des joueurs locaux, figés ici.
     // Seuls les `Unlock` du jeu comptent, pas les jalons du profil : une relance rejoue à l'identique.
