@@ -610,6 +610,20 @@ impl FlowFieldCache {
                 std::cmp::Ordering::Equal => next_x >= length_x,
             };
             if reached {
+                // Extrémité exactement sur un coin : si la case d'arrivée est la diagonale (pas
+                // de mur testé au-delà), les deux orthogonales comptent comme au coin de départ
+                // (sens inverse : franchissement à distance zéro). Sinon (signes mixtes) le sens
+                // inverse ne franchit aucun coin : rien à tester.
+                if order == std::cmp::Ordering::Equal
+                    && GridPos::new(cell.x + step_x, cell.y + step_y) == end
+                {
+                    let (side_x, side_y) = (
+                        GridPos::new(cell.x + step_x, cell.y),
+                        GridPos::new(cell.x, cell.y + step_y),
+                    );
+                    return !(self.wall_cells.contains(&side_x)
+                        && self.wall_cells.contains(&side_y));
+                }
                 break;
             }
             match order {
@@ -1368,6 +1382,23 @@ mod tests {
         // Même pente, un cran plus bas : le segment traverse vraiment le mur.
         assert!(!cache.line_of_sight(point(8.0, 8.0), point(56.0, 20.0)));
         assert!(!cache.line_of_sight(point(56.0, 20.0), point(8.0, 8.0)));
+    }
+
+    /// D66 (3e revue) : extrémité exactement sur un coin. Deux murs orthogonaux (1,2) et (2,1)
+    /// coupent la vue au coin d'arrivée comme au coin de départ ; un seul non ; extrémités libres.
+    #[test]
+    fn line_of_sight_endpoint_corner_both_ways() {
+        let mut cache = FlowFieldCache::default();
+        cache.wall_cells.insert(GridPos::new(1, 2));
+        cache.wall_cells.insert(GridPos::new(2, 1));
+        // arrivée sur le coin (32,32)
+        assert!(!cache.line_of_sight(point(8.0, 8.0), point(32.0, 32.0)));
+        // départ sur le coin
+        assert!(!cache.line_of_sight(point(32.0, 32.0), point(8.0, 8.0)));
+        // un seul mur : passe, dans les deux sens
+        cache.wall_cells.remove(&GridPos::new(2, 1));
+        assert!(cache.line_of_sight(point(8.0, 8.0), point(32.0, 32.0)));
+        assert!(cache.line_of_sight(point(32.0, 32.0), point(8.0, 8.0)));
     }
 
     /// D66 (revue) : la vue est symétrique par construction. 1 000 paires tirées d'une graine

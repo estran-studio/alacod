@@ -113,3 +113,14 @@ Rejeu après le correctif : `make test_scenarios_par SHARDS=3` **sans BLESS** : 
 bouge, ni les 7 traces throne blessées plus haut ni les 3 scénarios D66 (aucun segment des parties jouées ne
 change de verdict : les verdicts de l'ancienne traversée ne divergeaient que sur des coins exacts, que ces
 parties ne rencontrent pas) ; hors throne, aucune trace touchée. `cargo test -p game` : sortie 0 ; fmt : sortie 0.
+
+## 8. Troisième passage : coin d'extrémité
+
+Asymétrie restante : à l'arrivée exactement sur un coin, le `>=` arrêtait le parcours avant de tester les deux
+orthogonales, alors que le départ sur un coin les testait à distance zéro (murs (1,2) et (2,1), segment
+(8,8)→(32,32) : vrai, sens inverse faux). Correctif : à égalité d'arrivée, si la case d'arrivée est la diagonale
+du coin, les deux orthogonales sont testées (« deux murs coupent » vaut aux deux extrémités) ; en signes mixtes
+le sens inverse ne franchit aucun coin, donc rien n'est testé. Test `line_of_sight_endpoint_corner_both_ways`
+(deux murs : faux dans les deux sens ; un seul : vrai dans les deux sens) ; le test de symétrie aléatoire (points
+sur frontières et coins) reste vert. Rejeu : `cargo test -p game` 201 passés, les 3 scénarios D66 et les 7 traces
+throne sans BLESS : inchangés (aucun verdict de coin ne change dans ces parties) ; fmt ok.
