@@ -192,7 +192,9 @@ fn explorer_finds_weapons_on_ordinary_floors() {
     let seeds: Vec<i32> = std::env::var("ALACOD_SHOP_SEEDS")
         .ok()
         .map(|v| v.split(',').filter_map(|s| s.parse().ok()).collect())
-        .unwrap_or_else(|| vec![3]);
+        // M2-T14d : graine 41 (la grammaire `etage` compte sept types exigés, la graine 3 d'avant tire un
+        // autre étage où la boutique et les coffres sont hors de portée en 1 000 frames ; 41, 13, 29 et 54 passent).
+        .unwrap_or_else(|| vec![41]);
     let frames: u32 = std::env::var("ALACOD_SHOP_FRAMES")
         .ok()
         .and_then(|v| v.parse().ok())

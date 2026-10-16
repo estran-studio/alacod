@@ -105,15 +105,15 @@ mod tests {
         );
     }
 
-    /// M2-T10 : sur les neuf gabarits de `gungeon` (`maps/salles.ldtk`), chaque graine donne un étage
-    /// dans les bornes de sa grammaire (`floor_grammars/*.ron`), avec un seul boss en cul-de-sac,
-    /// sans chevauchement, et dont les ouvertures libres sont murées.
+    /// M2-T10 : sur les gabarits de `gungeon` (`maps/salles.ldtk`, quinze depuis M2-T14d), chaque graine
+    /// donne un étage dans les bornes de sa grammaire (`floor_grammars/*.ron`), avec un seul boss en
+    /// cul-de-sac, sans chevauchement, et dont les ouvertures libres sont murées.
     #[test]
     fn gungeon_etages_de_grammaire() {
         use map::generation::config::MapGenerationMode;
         use world::FloorGrammar;
         let path = get_crate_root_path!("../../games/gungeon/assets/maps/salles.ldtk");
-        for (file, bounds) in [("etage", (8, 12)), ("grand", (15, 20)), ("court", (3, 3))] {
+        for (file, bounds) in [("etage", (10, 14)), ("grand", (15, 20)), ("court", (3, 3))] {
             let ron_path = get_crate_root_path!("../../games/gungeon/assets/floor_grammars/");
             let text = std::fs::read_to_string(format!("{ron_path}{file}.ron")).unwrap();
             #[derive(serde::Deserialize)]
@@ -181,6 +181,23 @@ mod tests {
                         .filter(|r| r.template.starts_with("Arena"))
                         .count();
                     assert_eq!(arenas, *wanted, "{file} graine {seed} : {arenas} arène(s)");
+                }
+                // M2-T14d : chaque type exigé par la grammaire est posé exactement autant de fois
+                // (le gabarit porte le type en préfixe de son nom).
+                for (kind, prefix) in [
+                    ("escouade", "Escouade"),
+                    ("coffre", "Coffre"),
+                    ("secret", "Secret"),
+                    ("boutique", "Boutique"),
+                    ("recompense", "Recompense"),
+                ] {
+                    if let Some(wanted) = grammar.required.get(kind) {
+                        let found = rooms
+                            .iter()
+                            .filter(|r| r.template.starts_with(prefix))
+                            .count();
+                        assert_eq!(found, *wanted, "{file} graine {seed} : {found} {kind}");
+                    }
                 }
                 for (i, a) in rooms.iter().enumerate() {
                     for b in &rooms[i + 1..] {
@@ -323,7 +340,10 @@ mod tests {
                     .iter()
                     .filter(|e| e.identifier == "Table" || e.identifier == "Barrel")
                     .collect();
-                let expected = if room.template == "CombatEW" || room.template == "CombatNS" {
+                let expected = if matches!(
+                    room.template.as_str(),
+                    "CombatEW" | "CombatNS" | "Coffre" | "Secret" | "ArenaNS"
+                ) {
                     3
                 } else {
                     0

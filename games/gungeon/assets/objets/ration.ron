@@ -5,6 +5,6 @@
     kind: Consumable,
     rarity: Common,
     effects: [
-        (on: OnUse, do: [Heal("15")]),
+        (on: OnUse, do: [Heal("25")]),
     ],
 )

@@ -1,0 +1,11 @@
+// Grammaire d'étage minimale à salle `coffre` (M2-T14d, docs/conventions.md §52.d) : départ, une salle
+// `coffre`, boss. Le `test:` de `rooms/coffre.ron` (scénario généré `room_coffre`) s'y appuie.
+(
+    templates: "maps/salles.ldtk",
+    grammar: (
+        rooms: (3, 3),
+        required: {"boss": 1},
+        filler: "coffre",
+        min_boss_distance: 2,
+    ),
+)
