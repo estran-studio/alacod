@@ -20,8 +20,10 @@ conventions : sous-section « Run complète de M2 » de `docs/conventions.md` §
    **`gungeon_full_run_four`** (4 bots, même graine, 7 000 frames, synctest).
 5. **`fuzz_inputs`** : mode `ALACOD_FUZZ_SCENARIO=<nom>` (inputs aléatoires à la place des bots d'un scénario,
    pistes du hub conservées).
-6. **`bench_floor`** (grammaire `grand`) : plancher et plafond de rollback mesurés (§3). Budgets des deux scénarios.
-7. **Deux défauts du moteur trouvés et corrigés** (§2).
+6. **`bench_floor`** (grammaire `grand`) : plancher et plafond de rollback mesurés (§4). Budgets des deux scénarios.
+7. **`ALACOD_EVENTS_JSON=<dossier>`** (`tests/scenarios.rs`) : `events.json` sans rendu ; ceux des deux scénarios sont
+   dans `docs/taches/rapports/m2-full-run/` (page de revue). **La vidéo n'a pas pu être rendue** (§5).
+8. **Deux défauts du moteur trouvés et corrigés** (§2), plus un détail de déterminisme (`HashMap` → `BTreeMap`).
 
 ## 2. Défauts trouvés en le faisant (aucune trace existante ne bouge)
 
@@ -76,15 +78,73 @@ pour la richesse des événements, pas pour la durée (la 2 est la plus courte).
 
 ## 4. Vérifié (résultats réels)
 
-TBD
+Machine : VPS Debian 8 cœurs, partagé avec l'orchestrateur (charge ambiante de 1,6 à 2,4 quand je ne lançais
+rien ; les campagnes et la suite sont au premier plan). `CI=true` dans l'environnement : pas de `dev-dylib`.
+
+| Commande | Résultat |
+|---|---|
+| `make test_scenarios_par SHARDS=3` sur la branche (avant fusion), sans BLESS des traces existantes | **470 scénarios verts**, 1 123 s ; aucune `.trace` existante modifiée (`git status`), seules les deux nouvelles sont ajoutées |
+| même commande **sur la fusion avec `origin/main` `a9432ed9`** (M3-T2 comprise) | **484 scénarios verts**, 1 318 s |
+| `make test_crates` | avant fusion : 955 réussis, 0 échec, 13 ignorés (70 suites) ; sur la fusion : **977 réussis**, 0 échec, 13 ignorés |
+| `make lint` ×5 (zombies, testbed, throne, gungeon, isaac) | 0 erreur, sur la branche et sur la fusion |
+| `make gen GAME=…` ×5 | sortie 0 et **aucun diff** (`git status` propre hors mes fichiers), sur la branche et sur la fusion |
+| `cargo fmt --all -- --check`, `check-forbidden.sh`, `check-rollback-registration.sh`, `make check_sim_boundary` | OK ; frontière : 11 crates de simulation, 5 en dette D69 |
+| `ALACOD_FUZZ=0:8 ALACOD_FUZZ_SCENARIO=gungeon_full_run` puis `…_four` (3 600 frames, synctest) | 8 graines chacun, **aucune divergence**, joueurs en vie |
+| `make bench` (strict, un processus, au calme relatif) | **échoue sur 27 scénarios** (29 dépassements) qui ne tiennent pas leur budget **déjà** (voir ci-dessous) ; mes trois scénarios passent |
+| p2p à deux clients (zombies, 600 frames, signaling Docker local, port 3566) | traces identiques, 599 lignes ; **0 frame resimulée** (aucun rollback réel obtenu, même avec `ALACOD_INPUT=script:tests/scenarios/p2p_smoke.ron`) |
+| `./scripts/p2p-restart.sh` (restart en ligne : touche `cleanup_rollback_world_system`) | partie 1 et partie 2 : traces identiques ; partie 2 ≠ partie 1 ; local : partie 2 = partie 1 ; sortie 0 |
+
+**Bench `grand`** (`bench_floor`, étage de 15 à 20 salles, 2 bots `fonceur`, 3 000 frames) : trois relevés isolés
+44,1 / 44,1 / 46,3 sim fps et pire rollback 25,3 à 26,6 ms ; dans `make bench` 48,1 fps et 24,8 ms ; 322 entités,
+43 ennemis, instantané de 87 KiB. Budget `tests/budgets.ron` : `min_sim_fps: 20`, `max_rollback_ms: 50` (la moitié et
+le double, comme le reste du fichier). **L'ancien plafond de 18 ms (poste M4, 2026-10-12) n'était pas tenable sur ce
+poste** (il échouait en strict à 24,8 ms). Mesuré avec une charge ambiante de 2 à 2,4 (un processus de moi, le reste
+à l'orchestrateur) : « au calme » au sens du poste partagé, pas sur une machine vide. Budgets des deux nouveaux
+scénarios : 53,5 et 49,1 sim fps, rollback 20,2 et 20,7 ms dans `make bench` ; planchers 20 fps, plafonds 40 ms.
+
+**Les 27 scénarios (29 dépassements) de `make bench` ne sont pas les miens, 6 reproduits sur `origin/main`
+`a9432ed9`** (worktree jetable, même target, un processus, `ALACOD_BENCH_STRICT=1`) : `idle` 87,9 fps (plancher 110 ;
+88,7 sur ma branche), `two_players_idle` 70,1 (80 ; 79,2), `four_players_idle` 80,1 (100 ; 66,5), `bot_explorer_two`
+81,6 (100 ; 70,9), `testbed_follower` 90,6 (170 ; 89,4), `bench_cave` 72,7 fps et 14,6 ms de rollback (100 et 5 ;
+78,6 et 13,6). Les planchers ont été fixés sur d'autres machines (macOS arm64, cloud 4 cœurs) ; les 21 autres
+(`ammo_burst`, `bench_bullets*`, `testbed_*`, `weapons_workout`…) n'ont pas été rejoués sur `main`. Écarts de ±15 %
+d'un passage à l'autre. `scripts/scenario-metrics.py` n'a pas tourné (`make bench` s'arrête à l'échec).
+
+**Relecture indépendante** (agent `reviewer`, lecture seule, deux passes) : trois constats P2 à la première passe,
+corrigés — réglages de joueur perdus après le hub (refus explicite), `play`/`capture` qui s'arrêtaient au hub,
+seconde arène non distinguée de la première (`EventAfter`) — puis un quatrième à la seconde (la capture écrivait les
+images du hub), corrigé. Aucun BLOQUANT.
 
 ## 5. Non fait / incertain / non vérifié
 
-TBD
+- **Vidéo : non faite.** `scripts/scenario-video` panique à l'ouverture de la fenêtre (ni X11 ni Wayland, pas d'`Xvfb`,
+  pas de root ; `lavapipe` est installé). `events.json` des deux scénarios produits sans rendu
+  (`ALACOD_EVENTS_JSON`, `docs/taches/rapports/m2-full-run/`). La modification de `capture`/`play` pour le hub suivi
+  est **compilée mais jamais exécutée** (pas de capture possible ici).
+- **p2p avec rollbacks réels : non obtenu** (0 frame resimulée). La run complète en ligne (hub, deux étages, D59 en
+  réel) est `m2-p2p-run-complete`. Le restart en ligne, lui, est vérifié (`p2p-restart.sh`).
+- `make bench` n'est pas vert sur ce poste (27 scénarios, 29 dépassements hérités, §4) ; seuls 6 de ces 27 ont été
+  rejoués sur `main`.
+- Le fuzz d'inputs aléatoires ne traverse pas les étages (joueurs en vie, couverture non mesurée).
+- [INFERENCE] `ExplorerVisits` (état du bot, hors simulation) n'est pas remis à zéro au restart : un restart (R)
+  d'une partie de bots n'est pas couvert, non examiné.
+- 4 joueurs : pas de point de spawn propre pour les joueurs 2 et 3 (repli décalé), et à l'étage suivant ils restent
+  « en place » (`floors.rs`) ; pas de scénario à 4 joueurs de l'étage 2 au départ (ils gagnent, c'est tout).
 
 ## 6. Dettes, questions
 
-TBD
+- **Budgets de `make bench`** : 27 scénarios (29 dépassements) ne tiennent pas leur plancher ou leur plafond sur le
+  VPS Debian (relevés faits sur macOS arm64 / cloud 4 cœurs). Une tâche de recalibrage par machine (ou des budgets par
+  poste) manque ; sinon `make bench` ne peut pas servir de critère de sortie ici.
+- **Gabarit `Depart` à quatre `PlayerSpawn`** : propre, mais déplace le barycentre du portail et la numérotation
+  des entités de toutes les traces gungeon (essayé : boss 205 → 207). À faire avec un bless justifié si l'on veut des
+  points de départ propres ; le repli de `player_spawn_point` suffit tant que ce n'est pas fait.
+- **`Event`** ne filtre pas par frame (l'attente cherche dans tout l'historique) et les moments clés tirés de
+  `FrameEvents` ont une frame de retard sur la lecture : `EventAfter` règle le premier, pas le second (documenté).
+- Hub suivi : attentes continues et réglages de joueur refusés ; pas de rejeu depuis un enregistrement avec hub.
+- **D82** : 13 soft-locks sur 64 graines à 2 bots (cycle limite du bot devant une ouverture de deux cases).
+- Remote : le push en SSH échoue (« Host key verification failed », `github.com` absent de `known_hosts`) ; poussé
+  en HTTPS (identifiants `gh`), `origin` remis en HTTPS. Pas changé `known_hosts` (décision de confiance à toi).
 
 ## 7. Atteignabilité (M2, `docs/taches.md` §7)
 

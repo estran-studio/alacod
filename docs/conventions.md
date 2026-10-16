@@ -4122,6 +4122,16 @@ simulation qui les a émis, une de moins que celle lue après l'update : `by_fra
 **Fuzz** : `ALACOD_FUZZ_SCENARIO=<nom>` (`fuzz_inputs`) joue le scénario avec des inputs aléatoires à la place de
 ses bots (attentes retirées, pistes du hub conservées) : `ALACOD_FUZZ=0:8 ALACOD_FUZZ_SCENARIO=gungeon_full_run
 cargo test -p scenario --profile headless --test fuzz_inputs -- --ignored --nocapture`.
+Résultat (2026-10-16, 3 600 frames, synctest) : graines 0 à 7 sur `gungeon_full_run` et sur
+`gungeon_full_run_four`, aucune divergence ; tous les joueurs restent en vie. La couverture n'est pas mesurée : des
+inputs aléatoires ne cherchent pas à traverser les étages, les deux scénarios de bots le font (synctest, 0 desync).
+
+**Vidéo et moments clés.** `scripts/scenario-video` ne tourne pas ici : `play_scenario --capture` ouvre une fenêtre
+winit (cachée) et panique (`Failed to build event loop`, « neither WAYLAND… nor DISPLAY is set » : ni X11 ni Wayland, aucun `Xvfb`
+installé, pas de droits root ; `lavapipe` est installé mais la fenêtre échoue avant). Les vidéos sont à rendre sur un
+poste avec écran. Les moments clés se produisent sans rendu : `ALACOD_EVENTS_JSON=<dossier> ALACOD_SCENARIO=<nom>
+make test_scenarios` écrit `<dossier>/<nom>.events.json`, au format de la capture ; ceux des deux scénarios sont dans
+`docs/taches/rapports/m2-full-run/` (à copier dans `target/videos/<commit>/<nom>.events.json` pour la page de revue).
 
 **Graine** : sur 64 graines à 2 bots (`alacod-sim --shopping`, 15 000 frames, avant la relance par le hub) : 48
 victoires, 13 soft-locks (bot, D82), 3 défaites, 0 desync ; la 10 est une graine où tout arrive (coffre à clé,

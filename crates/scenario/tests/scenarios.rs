@@ -11,6 +11,8 @@
 //! - `make test_scenarios` : compile sans rendu, avec le profil `headless`.
 //! - `ALACOD_BLESS=1` : réécrit les traces de référence (après un changement voulu).
 //! - `ALACOD_SCENARIO=<nom>` : ne joue que ce scénario (plusieurs : `a,b,c`).
+//! - `ALACOD_EVENTS=1` : affiche les moments clés ; `ALACOD_EVENTS_JSON=<dossier>` les écrit en
+//!   `<dossier>/<nom>.events.json` (format de `events.json` de la capture vidéo, sans GPU).
 //! - `ALACOD_SCENARIO_SLICE=<k>/<n>` : ne joue que la tranche `k` (de 0 à `n-1`) des scénarios
 //!   triés (indice modulo `n`) : la suite complète par lots, quand une commande ne peut pas durer
 //!   assez longtemps (session cloud, M2-T11). Se combine avec `ALACOD_SCENARIO`.
@@ -259,6 +261,22 @@ fn scenarios() {
             for event in &outcome.events {
                 eprintln!("  f{:>5} {:<7} {}", event.frame, event.kind, event.label);
             }
+        }
+        // Moments clés au format de `events.json` de la capture vidéo (page de revue), sans rendu :
+        // `<dossier>/<nom>.events.json`.
+        if let Ok(dir) = std::env::var("ALACOD_EVENTS_JSON") {
+            let events: Vec<_> = outcome
+                .events
+                .iter()
+                .filter(|event| event.frame < scenario.frames)
+                .collect();
+            let path = PathBuf::from(&dir).join(format!("{}.events.json", name.replace('/', "__")));
+            std::fs::create_dir_all(&dir).expect("création du dossier ALACOD_EVENTS_JSON");
+            std::fs::write(
+                &path,
+                serde_json::to_string_pretty(&events).expect("sérialisation des moments clés"),
+            )
+            .unwrap_or_else(|e| panic!("écriture de {}: {e}", path.display()));
         }
 
         // Budget : bloquant seulement en bench (`ALACOD_BENCH_STRICT=1`, `make bench`) ; les
