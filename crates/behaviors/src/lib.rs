@@ -8,9 +8,11 @@
 //! et armes sont des chaînes de contenu, pour ne dépendre ni de game ni du crate qui exécutera
 //! un pattern.
 pub mod boss;
+pub mod familiar;
 pub use boss::{
     BossDef, BossDefeated, BossPhaseChanged, BossState, Phase, PhaseEnd, Timeline, TimelineEvent,
 };
+pub use familiar::FamiliarGun;
 
 use bevy::prelude::{App, Component, Plugin};
 use bevy_fixed::fixed_math::Fixed;
@@ -271,6 +273,8 @@ impl Plugin for BehaviorsPlugin {
         app.rollback_and_trace::<BehaviorState>();
         // M3-T0d : neutre (aucun porteur avant M3-T6), les traces ne bougent pas.
         app.rollback_and_trace_neutral::<FamiliarOf>();
+        // M3-T6 : idem (posé seulement sur un familier à `MirrorShot`).
+        app.rollback_and_trace_neutral::<FamiliarGun>();
     }
 }
 

@@ -1,0 +1,26 @@
+// M3-T6 (§71) : témoin de `familiar_mirror_shot` : la même larme, sans `compagnon` : un seul coup.
+//
+// À regarder : une seule balle, un seul coup sur la cible.
+Scenario(
+    game: "testbed",
+    map: "testbed/surfaces.ldtk",
+    frames: 160,
+    powerup_drop_chance_override: "0",
+    characters: [(character: "target", x: "-400.0", y: "254.0", at_frame: 1)],
+    players: [
+        (
+            inputs: [
+            (from: 30, to: 31, buttons: [Fire], pan: (127, 0)),
+            ],
+            weapon: "larme",
+            items: [],
+        ),
+    ],
+    expect: [
+        FamiliarCount(handle: 0, count: 0, at_frame: 5),
+        // Témoin : la larme seule touche la cible (net id 14) à f83, un seul coup.
+        EntityHits(net_id: 14, min: 0, max: Some(0), at_frame: 82),
+        EntityHits(net_id: 14, min: 1, max: Some(1), at_frame: 83),
+        EntityHits(net_id: 14, min: 1, max: Some(1), at_frame: 159),
+    ],
+)

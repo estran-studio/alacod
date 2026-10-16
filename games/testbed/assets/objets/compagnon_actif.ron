@@ -1,0 +1,6 @@
+// M3-T6 (docs/conventions.md §71) : objet d'essai : actif (chargé en 5 frames, sans effet à l'usage) qui donne un `compagnon`. Remplacé par un autre actif, le familier disparaît. Scénario `familiar_lost_with_active`.
+(
+    name: "Compagnon actif",
+    kind: Active(Frames(5)),
+    familiar: Some((character: "compagnon")),
+)

@@ -1,0 +1,22 @@
+// M3-T6 (docs/conventions.md §71) : `BlockBullets`. Carte `arena_tir` : la tourelle (net id 21, à 96 unités à l'est du
+// joueur 0, en (472, 696)) tire une couronne de 8 boules de feu toutes les 90 frames ; l'archer tire aussi. Le joueur 0
+// tient l'objet `rempart` : un orbital à 24 unités à l'est du joueur (quasi immobile), sur la ligne de la tourelle,
+// qui détruit la boule de feu qui part vers l'ouest. Témoin `orbital_blocks_bullet_sans_objet` : même partie sans objet.
+//
+// À regarder : la boule de feu qui vise le joueur disparaît au contact de l'orbital ; la santé du joueur baisse moins.
+Scenario(
+    game: "testbed",
+    map: "testbed/arena_tir.ldtk",
+    frames: 300,
+    powerup_drop_chance_override: "0",
+    players: [
+        (inputs: [], items: ["rempart"]),
+    ],
+    expect: [
+        FamiliarCount(handle: 0, count: 1, at_frame: 5),
+        // L'orbital reste à l'est du joueur (24 unités) et arrête la boule de feu de la tourelle.
+        FamiliarDistance(handle: 0, rank: 0, min: Some(23.5), max: Some(24.5), at_frame: 100),
+        Health(handle: 0, min: Some(100.0), at_frame: 100),
+        Health(handle: 0, min: Some(100.0), at_frame: 200),
+    ],
+)

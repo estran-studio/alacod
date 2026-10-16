@@ -385,8 +385,20 @@ pub fn warnings(registry: &Registry, manifest: &GameManifest) -> Vec<LintWarning
     }
 
     let characters = reachable_characters(registry, &reach);
+    // M3-T6 : un familier naît du ramassage de l'objet qui le cite ; son atteignabilité est celle de
+    // l'objet (avertissement « aucune source » de l'objet), pas d'une salle.
+    let familiars: BTreeSet<&str> = registry
+        .items
+        .values()
+        .filter_map(|item| item.def.familiar.as_ref())
+        .map(|familiar| familiar.character.as_str())
+        .collect();
     for c in registry.characters.values() {
-        if c.has_ai && !c.test_only && !characters.contains(c.id.as_str()) {
+        if c.has_ai
+            && !c.test_only
+            && !characters.contains(c.id.as_str())
+            && !familiars.contains(c.id.as_str())
+        {
             warn(
                 LintWarningKind::Unreachable,
                 c.file.display().to_string(),
