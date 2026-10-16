@@ -1,6 +1,6 @@
 # m2-t14d-gabarits — quinze gabarits, grammaire `etage` complète, équilibrage D64
 
-Branche `m2-t14d-gabarits` (depuis `origin/main` `433cfc6a`, fusionnée avec `af46f192` avant la livraison).
+Branche `m2-t14d-gabarits` (depuis `origin/main` `433cfc6a`, fusionnée avec `origin/main` `030a4bc0` avant la livraison (M3-T1, T0b, T6, T4, T7)).
 Données seulement : `games/gungeon/assets/`, scénarios, traces gungeon. Aucune ligne de code de moteur, de bot
 ou de boss ; seules les constantes de deux tests suivent les données (grammaire : `map_ldtk::generation::tests` ;
 graine par défaut de `explorer_finds_weapons_on_ordinary_floors`, `crates/scenario/tests/bots.rs`).
@@ -177,19 +177,21 @@ seul), `gungeon_two_floors` (le boss de l'étage 2 est le `NetId` 143), `shop_se
 `mitraillette` 30, `revolver` 15 ; même rôle, la graine tire un autre étage), `minimap_shop_visit` (graine 13 :
 la boutique est voisine ouest du départ).
 
-## 7. Vérifications (état fusionné avec `origin/main` `af46f192`)
+## 7. Vérifications (état fusionné avec `origin/main` `030a4bc0`)
 
-- `make test_scenarios_par SHARDS=3` : 404 scénarios, 3 tranches vertes, 914 s (traces gungeon rebénies sur
-  la branche avant la fusion, inchangées après : l'état fusionné rejoue les mêmes traces).
-- `make lint` : 0 erreur sur les cinq jeux ; `games/gungeon` : 0 avertissement (testbed : 76, bac à sable voulu, inchangé).
+- `make test_scenarios_par SHARDS=3` : 431 scénarios, 3 tranches vertes, 931 s. Les traces gungeon rebénies sur la
+  branche (avant les fusions) sont celles que rejoue l'état fusionné : aucune n'a bougé avec M3-T0b, T1, T6, T4, T7
+  (barils compris, M3-T4 a refait leur explosion).
+- `make lint` : 0 erreur sur les cinq jeux ; `games/gungeon` : 0 avertissement (testbed : 82, bac à sable voulu).
 - `make gen GAME=gungeon` : code 0, aucun fichier ne change.
+- `make test_crates` : code 0 (69 binaires de test verts). Seul test modifié hors constantes de grammaire :
+  `explorer_finds_weapons_on_ordinary_floors` (D62), dont la graine par défaut 3 tirait un autre étage où le bot
+  n'atteint ni boutique ni coffre en 1 000 frames : défaut passé à 41 (13, 29 et 54 passent aussi).
 - `cargo fmt --all -- --check` : propre.
 - Grammaire : `ALACOD_FLOOR_SEEDS=1000 cargo test -p map_ldtk gungeon_` : 2 tests verts.
-- Campagne `etages_deux` sur l'état fusionné : graines 1 à 20 à 1 et à 2 bots, résultats (issue, frames, dégâts)
-  identiques à ceux des 200 graines mesurées avant la fusion.
-- `make test_crates` : tout vert sauf `explorer_finds_weapons_on_ordinary_floors` (D62), dont la graine par défaut 3 tirait
-  un autre étage où le bot n'atteint ni boutique ni coffre en 1 000 frames : défaut passé à la graine 41 (13, 29 et 54
-  passent aussi), le test `bots` entier repasse (5 tests). C'est la seule modification de test hors constantes de grammaire.
+- Campagne `etages_deux` 200 graines à 1 et 2 bots : mesurée avant les fusions ; contrôle des graines 1 à 20 (1 et
+  2 bots) après la première fusion : issue, frames et dégâts identiques graine par graine. Le moteur fusionné
+  rejoue les mêmes traces gungeon, donc les mêmes parties.
 - p2p gungeon à 2 clients : non rejoué ici (pas de Docker, à lancer par l'orchestrateur).
 
 ## 8. Dettes ouvertes, points à relire
