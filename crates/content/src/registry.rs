@@ -4005,6 +4005,7 @@ pub(crate) fn schema_for_kind(kind: &str) -> Option<schemars::Schema> {
         "SpriteSheet" => schemars::schema_for!(SpriteSheetsFileSchema),
         "Unlock" => schemars::schema_for!(items::UnlockDef),
         "MetaEconomy" => schemars::schema_for!(meta::EssenceRules),
+        "HubService" => schemars::schema_for!(meta::HubServiceDef),
         _ => return None,
     })
 }

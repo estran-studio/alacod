@@ -11,6 +11,7 @@ use crate::Profile;
 
 /// Ce qu'un joueur doit avoir pour qu'un service s'ouvre pour lui.
 #[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
+#[cfg_attr(feature = "schema", derive(schemars::JsonSchema))]
 pub enum HubCondition {
     /// Le profil possède ce déblocage (`Unlock` du jeu ou jalon comme `first_run`).
     Unlock(String),
@@ -20,6 +21,7 @@ pub enum HubCondition {
 
 /// Ce que le service fait quand on l'utilise.
 #[derive(Clone, Copy, Debug, PartialEq, Eq, Serialize, Deserialize)]
+#[cfg_attr(feature = "schema", derive(schemars::JsonSchema))]
 pub enum HubAction {
     /// Ouvre l'écran du marchand de déblocages.
     Merchant,
@@ -29,6 +31,7 @@ pub enum HubAction {
 
 /// Un service du hub, `hub/<id>.ron` (kind `HubService`) ; id = nom de fichier.
 #[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
+#[cfg_attr(feature = "schema", derive(schemars::JsonSchema))]
 pub struct HubServiceDef {
     #[serde(default)]
     pub name: String,

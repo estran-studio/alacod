@@ -687,6 +687,7 @@ mod tests {
                 default_seed: 1,
                 mode,
                 floors: None,
+                hub: None,
                 progression: None,
                 clocks: None,
                 difficulty: None,
