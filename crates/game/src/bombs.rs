@@ -476,6 +476,123 @@ pub fn hazard_system(
 #[cfg(test)]
 mod tests {
     use super::*;
+    use sim_core::damage::FriendlyFire;
+
+    fn fx(v: i32) -> Fixed {
+        Fixed::from_num(v)
+    }
+
+    /// Cible à PV d'abscisse `x` (y = 0), invulnérable ou à l'agonie si demandé.
+    fn spawn_target(app: &mut App, id: usize, x: i32, invulnerable: bool, dying: bool) {
+        let transform = fixed_math::FixedTransform3D::new(
+            fixed_math::FixedVec3::new(fx(x), Fixed::ZERO, Fixed::ZERO),
+            fixed_math::FixedMat3::IDENTITY,
+            fixed_math::FixedVec3::ONE,
+        );
+        let mut entity = app.world_mut().spawn((
+            GgrsNetId(id, "cible".into()),
+            transform,
+            Health {
+                current: fx(100),
+                max: fx(100),
+                invulnerable_until_frame: invulnerable.then_some(u32::MAX),
+            },
+            Rollback,
+        ));
+        if dying {
+            entity.insert(Death::default());
+        }
+    }
+
+    fn request(id: usize, x: i32, radius: i32) -> ExplosionRequest {
+        ExplosionRequest {
+            id,
+            source: GgrsNetId(1, "player".into()),
+            source_team: Team::Players,
+            x: fx(x),
+            y: Fixed::ZERO,
+            radius: fx(radius),
+            damage: fx(10),
+            destroys: false,
+            friendly_fire: FriendlyFire::Always,
+        }
+    }
+
+    fn explosion_app(frame: u32) -> App {
+        let mut app = App::new();
+        app.init_resource::<bevy_ggrs::RollbackOrdered>()
+            .insert_resource(FrameCount { frame })
+            .init_resource::<FrameEvents<ExplosionRequest>>()
+            .init_resource::<FrameEvents<DamageEvent>>()
+            .init_resource::<FrameEvents<Exploded>>()
+            .add_systems(Update, explosion_system);
+        app
+    }
+
+    #[test]
+    fn une_explosion_epargne_les_invulnerables_et_les_mourants_et_suit_l_ordre_des_ids() {
+        let mut app = explosion_app(7);
+        // Dans le rayon 20 de x = 0 : 5, 7 (touchés), 3 (invulnérable : familier de M3-T6), 4 (agonie) ;
+        // 6 à exactement 20 (strict : hors rayon), 8 loin.
+        spawn_target(&mut app, 7, 10, false, false);
+        spawn_target(&mut app, 5, -10, false, false);
+        spawn_target(&mut app, 3, 0, true, false);
+        spawn_target(&mut app, 4, 5, false, true);
+        spawn_target(&mut app, 6, 20, false, false);
+        spawn_target(&mut app, 8, 200, false, false);
+        app.world_mut()
+            .resource_mut::<FrameEvents<ExplosionRequest>>()
+            .send(request(10, 0, 20));
+        app.update();
+        let hit: Vec<usize> = app
+            .world()
+            .resource::<FrameEvents<DamageEvent>>()
+            .iter()
+            .map(|event| event.target.0)
+            .collect();
+        assert_eq!(
+            hit,
+            vec![5, 7],
+            "ids croissants, sans invulnérable ni mourant"
+        );
+        assert_eq!(
+            app.world()
+                .resource::<FrameEvents<Exploded>>()
+                .iter()
+                .count(),
+            1
+        );
+    }
+
+    #[test]
+    fn plusieurs_explosions_d_une_frame_passent_par_id_croissant() {
+        let mut app = explosion_app(7);
+        spawn_target(&mut app, 1, 0, false, false);
+        {
+            let mut requests = app
+                .world_mut()
+                .resource_mut::<FrameEvents<ExplosionRequest>>();
+            // Émises dans le désordre (ordre des systèmes émetteurs) : 9 avant 2
+            let mut late = request(9, 0, 20);
+            late.damage = fx(90);
+            requests.send(late);
+            let mut early = request(2, 0, 20);
+            early.damage = fx(20);
+            requests.send(early);
+        }
+        app.update();
+        let damages: Vec<Fixed> = app
+            .world()
+            .resource::<FrameEvents<DamageEvent>>()
+            .iter()
+            .map(|event| event.amount)
+            .collect();
+        assert_eq!(
+            damages,
+            vec![fx(20), fx(90)],
+            "l'objet d'id 2 explose avant celui d'id 9"
+        );
+    }
 
     #[test]
     fn cle_de_butin_d_un_rocher() {
