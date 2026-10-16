@@ -604,6 +604,7 @@ mutation reste une dette explicite (§56 des conventions), avec son protocole d'
 | 7 | Web : cible ou vitrine | Vitrine (démos des clones) ; les cibles de perf sont natives, le web reste compilable. |
 | 8 | Format de sauvegarde | RON versionné, un profil par joueur (pubkey allumette), écrit hors simulation. |
 | 9 | Rejoindre en cours | Non pour la version 1 ; J4 seulement si la bible tranche oui (question ouverte 10). |
+| 10 | Progression en coop (hub, déblocages) | Tranché le 2026-10-15 : l'hôte décide (ses déblocages et son hub valent pour la run) ; chaque joueur gagne et écrit son propre profil ; un achat au hub prend effet au passage de la porte (M2-T12, M2-T13). La carte de campagne de 1837 suivra la même règle sauf décision contraire. |
 
 ### 7.1 L'UI : de quoi choisir
 

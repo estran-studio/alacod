@@ -12,14 +12,19 @@ use serde::{Deserialize, Serialize};
 
 use crate::Action;
 
+#[cfg_attr(feature = "schema", derive(schemars::JsonSchema))]
 #[derive(Clone, PartialEq, Eq, PartialOrd, Ord, Debug, Hash, Serialize, Deserialize)]
 pub enum ProjectileModifier {
     Bounce(u32),
     Pierce(u32),
-    Size(Fixed),
+    Size(#[cfg_attr(feature = "schema", schemars(with = "bevy_fixed::schema::FixedString"))] Fixed),
     Lifetime(u32),
-    Homing(Fixed),
-    Gravity(Fixed),
+    Homing(
+        #[cfg_attr(feature = "schema", schemars(with = "bevy_fixed::schema::FixedString"))] Fixed,
+    ),
+    Gravity(
+        #[cfg_attr(feature = "schema", schemars(with = "bevy_fixed::schema::FixedString"))] Fixed,
+    ),
     // M3-T0a (`docs/conventions.md` §60) : contrats, **en fin d'enum** (le `derive(Hash)` hache
     // l'index de la variante : les six d'avant gardent le leur, le hash des armes existantes ne
     // bouge pas). Acceptés par le lint dans le RON (formes, plages) mais une arme qui les porte
@@ -31,6 +36,7 @@ pub enum ProjectileModifier {
     /// projectile par défaut du porteur (Q3).
     Split {
         count: u32,
+        #[cfg_attr(feature = "schema", schemars(with = "bevy_fixed::schema::FixedString"))]
         spread: Fixed,
         #[serde(default)]
         child: Option<String>,
@@ -38,6 +44,7 @@ pub enum ProjectileModifier {
     /// Tourne autour du tireur à `radius` unités, un tour en `frames_per_turn` frames, au lieu
     /// d'avancer.
     Orbit {
+        #[cfg_attr(feature = "schema", schemars(with = "bevy_fixed::schema::FixedString"))]
         radius: Fixed,
         frames_per_turn: u32,
     },
@@ -71,20 +78,24 @@ impl ProjectileModifier {
 
 /// Les projectiles sont référencés par leur id de contenu. Les angles sont en radians,
 /// les vitesses en unités/seconde, les durées en frames. Sequence conserve l'ordre RON.
+#[cfg_attr(feature = "schema", derive(schemars::JsonSchema))]
 #[derive(Clone, PartialEq, Eq, PartialOrd, Ord, Debug, Hash, Serialize, Deserialize)]
 pub enum Pattern {
     Aimed {
         count: u32,
+        #[cfg_attr(feature = "schema", schemars(with = "bevy_fixed::schema::FixedString"))]
         spread: Fixed,
         projectile: String,
     },
     Spread {
         count: u32,
+        #[cfg_attr(feature = "schema", schemars(with = "bevy_fixed::schema::FixedString"))]
         spread: Fixed,
         projectile: String,
     },
     Ring {
         count: u32,
+        #[cfg_attr(feature = "schema", schemars(with = "bevy_fixed::schema::FixedString"))]
         speed: Fixed,
         projectile: String,
         every: u32,
@@ -99,6 +110,7 @@ pub enum Pattern {
     /// RNG `"patterns"`, émetteurs seulement : refusé en `on_expire` par le lint).
     Scatter {
         count: u32,
+        #[cfg_attr(feature = "schema", schemars(with = "bevy_fixed::schema::FixedString"))]
         spread: Fixed,
         projectile: String,
     },
@@ -111,7 +123,9 @@ pub enum Pattern {
     /// celle de la définition du projectile.
     Fan {
         count: u32,
+        #[cfg_attr(feature = "schema", schemars(with = "bevy_fixed::schema::FixedString"))]
         spread: Fixed,
+        #[cfg_attr(feature = "schema", schemars(with = "bevy_fixed::schema::FixedString"))]
         speed: Fixed,
         projectile: String,
     },
@@ -120,9 +134,11 @@ pub enum Pattern {
     /// radians par rapport à la visée. `speed` > 0 remplace celle de la définition.
     Spiral {
         count: u32,
+        #[cfg_attr(feature = "schema", schemars(with = "bevy_fixed::schema::FixedString"))]
         step: Fixed,
         shots: u32,
         every: u32,
+        #[cfg_attr(feature = "schema", schemars(with = "bevy_fixed::schema::FixedString"))]
         speed: Fixed,
         projectile: String,
     },
@@ -132,6 +148,7 @@ pub enum Pattern {
         count: u32,
         per_burst: u32,
         interval: u32,
+        #[cfg_attr(feature = "schema", schemars(with = "bevy_fixed::schema::FixedString"))]
         spread: Fixed,
         projectile: String,
     },
@@ -155,6 +172,7 @@ impl Pattern {
 }
 
 /// Action déclenchée à la fin d'un projectile (`on_expire`). `Hash` manuel (voir plus bas).
+#[cfg_attr(feature = "schema", derive(schemars::JsonSchema))]
 #[derive(Clone, PartialEq, Eq, Debug, Serialize, Deserialize)]
 pub enum ExpireAction {
     /// Fait naître le pattern au point de fin du projectile. Seuls les patterns instantanés
@@ -163,7 +181,10 @@ pub enum ExpireAction {
     Spawn(Pattern),
     /// Creuse le terrain d'une caverne au point de fin (T1.6, `effects::Action::DestroyTerrain`
     /// : `Rock` à moins de `radius` → `Floor`).
-    DestroyTerrain { radius: Fixed },
+    DestroyTerrain {
+        #[cfg_attr(feature = "schema", schemars(with = "bevy_fixed::schema::FixedString"))]
+        radius: Fixed,
+    },
 }
 
 /// `#[derive(Hash)]` d'un enum à **une seule** variante n'écrit pas le discriminant : tant que
@@ -185,6 +206,7 @@ impl std::hash::Hash for ExpireAction {
 
 /// Comportement composable d'un projectile, tel que déclaré dans un mode de tir. Vide (tous
 /// les champs absents) : balle ordinaire, sans `combat::projectile::Projectile`.
+#[cfg_attr(feature = "schema", derive(schemars::JsonSchema))]
 #[derive(Clone, Debug, Default, PartialEq, Eq, Hash, Serialize, Deserialize)]
 pub struct ProjectileSpec {
     #[serde(default, skip_serializing_if = "Vec::is_empty")]

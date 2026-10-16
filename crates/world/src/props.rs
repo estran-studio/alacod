@@ -16,6 +16,7 @@ use serde::{Deserialize, Serialize};
 /// Table(bullets: 6)
 /// Barrel(health: "20.0", radius: "48.0", damage: "30.0")
 /// ```
+#[cfg_attr(feature = "schema", derive(schemars::JsonSchema))]
 #[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
 pub enum PropDef {
     Table(TableDef),
@@ -35,15 +36,20 @@ impl PropDef {
 /// Table renversable : obstacle `Barricade` tant qu'elle est debout (bloque le passage, pas
 /// les balles) ; renversée par une interaction, elle devient une couverture qui arrête les
 /// balles et se brise après `bullets` balles.
+#[cfg_attr(feature = "schema", derive(schemars::JsonSchema))]
 #[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
 pub struct TableDef {
     /// Balles encaissées une fois renversée avant d'être détruite (> 0, lint).
     pub bullets: u32,
     /// Épaisseur (unités) de la couverture une fois renversée, au bord opposé au joueur.
     #[serde(default = "default_flipped_thickness")]
+    #[cfg_attr(feature = "schema", schemars(with = "bevy_fixed::schema::FixedString"))]
+    #[cfg_attr(feature = "schema", schemars(extend("x-lint" = "> 0")))]
     pub thickness: Fixed,
     /// Portée de l'interaction (unités, depuis le bord du collider).
     #[serde(default = "default_flip_range")]
+    #[cfg_attr(feature = "schema", schemars(with = "bevy_fixed::schema::FixedString"))]
+    #[cfg_attr(feature = "schema", schemars(extend("x-lint" = "> 0")))]
     pub range: Fixed,
 }
 
@@ -57,11 +63,15 @@ fn default_flip_range() -> Fixed {
 
 /// Baril explosif : `health` PV ; à 0, explosion de rayon `radius` qui inflige `damage` à
 /// tout ce qu'elle touche (joueurs, ennemis, autres barils : chaîne).
+#[cfg_attr(feature = "schema", derive(schemars::JsonSchema))]
 #[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
 pub struct BarrelDef {
+    #[cfg_attr(feature = "schema", schemars(with = "bevy_fixed::schema::FixedString"))]
     pub health: Fixed,
     /// Rayon de l'explosion en unités (> 0, lint).
+    #[cfg_attr(feature = "schema", schemars(with = "bevy_fixed::schema::FixedString"))]
     pub radius: Fixed,
+    #[cfg_attr(feature = "schema", schemars(with = "bevy_fixed::schema::FixedString"))]
     pub damage: Fixed,
 }
 

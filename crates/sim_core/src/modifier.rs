@@ -6,6 +6,7 @@ use serde::{Deserialize, Serialize};
 
 use crate::stats::StatId;
 
+#[cfg_attr(feature = "schema", derive(schemars::JsonSchema))]
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Hash, Serialize, Deserialize)]
 pub enum ModifierOp {
     Add,

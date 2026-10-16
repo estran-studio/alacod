@@ -22,6 +22,16 @@ impl FixedField {
     }
 }
 
+impl schemars::JsonSchema for FixedField {
+    fn schema_name() -> std::borrow::Cow<'static, str> {
+        <bevy_fixed::schema::FixedString as schemars::JsonSchema>::schema_name()
+    }
+
+    fn json_schema(generator: &mut schemars::SchemaGenerator) -> schemars::Schema {
+        <bevy_fixed::schema::FixedString as schemars::JsonSchema>::json_schema(generator)
+    }
+}
+
 impl<'de> Deserialize<'de> for FixedField {
     fn deserialize<D>(deserializer: D) -> Result<Self, D::Error>
     where

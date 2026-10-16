@@ -10,6 +10,7 @@ use std::fmt;
 /// Une étiquette. Type newtype transparent en (dé)sérialisation : un champ RON
 /// `Vec<String>` ou une liste `["froid", "arbres"]` désérialise directement en `Tag`
 /// pour chaque élément, sans wrapper explicite dans le RON.
+#[cfg_attr(feature = "schema", derive(schemars::JsonSchema))]
 #[derive(Debug, Clone, PartialEq, Eq, PartialOrd, Ord, Hash, Serialize, Deserialize)]
 #[serde(transparent)]
 pub struct Tag(pub String);
