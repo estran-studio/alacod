@@ -3,5 +3,5 @@
 // `bullet_kin`. Montre le rebond des balles ennemies sur les murs de la salle.
 Sequence([
     Telegraph(20),
-    Burst(count: 3, per_burst: 2, interval: 8, spread: "0.15", projectile: "ricochet"),
+    Burst(count: 3, per_burst: 1, interval: 12, spread: "0.15", projectile: "ricochet"),
 ])

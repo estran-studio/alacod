@@ -2,9 +2,9 @@
 // récompense une fois sur trois ; une fois sur quatre c'est un coffre (pool `commun`).
 (
     entries: [
-        (pick: Item("key"), weight: 3),
+        (pick: Item("key"), weight: 1),
         (pick: Item("blank"), weight: 2),
-        (pick: Item("ration"), weight: 2),
+        (pick: Item("ration"), weight: 4),
     ],
-    reward: Some((chance: "0.33", chest_chance: "0.25")),
+    reward: Some((chance: "0.5", chest_chance: "0.1")),
 )

@@ -11,7 +11,7 @@
  "iid": "2d8cb738-d75b-4494-964b-0d20aaea6b01",
  "jsonVersion": "1.5.3",
  "appBuildId": 473703,
- "nextUid": 50,
+ "nextUid": 54,
  "identifierStyle": "Capitalize",
  "toc": [],
  "worldLayout": "Free",
@@ -408,6 +408,63 @@
     ],
     "autoSourceLayerDefUid": null,
     "tilesetDefUid": 1,
+    "tilePivotX": 0,
+    "tilePivotY": 0,
+    "biomeFieldUid": null
+   },
+   {
+    "__type": "IntGrid",
+    "identifier": "Surfaces",
+    "type": "IntGrid",
+    "uid": 50,
+    "doc": null,
+    "uiColor": null,
+    "gridSize": 16,
+    "guideGridWid": 0,
+    "guideGridHei": 0,
+    "displayOpacity": 1,
+    "inactiveOpacity": 1,
+    "hideInList": false,
+    "hideFieldsWhenInactive": false,
+    "canSelectWhenInactive": true,
+    "renderInWorldView": true,
+    "pxOffsetX": 0,
+    "pxOffsetY": 0,
+    "parallaxFactorX": 0,
+    "parallaxFactorY": 0,
+    "parallaxScaling": true,
+    "requiredTags": [],
+    "excludedTags": [],
+    "autoTilesKilledByOtherLayerUid": null,
+    "uiFilterTags": [],
+    "useAsyncRender": false,
+    "intGridValues": [
+     {
+      "value": 1,
+      "identifier": "eau",
+      "color": "#3B7DD8",
+      "tile": null,
+      "groupUid": 0
+     },
+     {
+      "value": 2,
+      "identifier": "sable",
+      "color": "#D8C27A",
+      "tile": null,
+      "groupUid": 0
+     },
+     {
+      "value": 4,
+      "identifier": "fosse",
+      "color": "#202020",
+      "tile": null,
+      "groupUid": 0
+     }
+    ],
+    "intGridValuesGroups": [],
+    "autoRuleGroups": [],
+    "autoSourceLayerDefUid": null,
+    "tilesetDefUid": null,
     "tilePivotX": 0,
     "tilePivotY": 0,
     "biomeFieldUid": null
@@ -1967,118 +2024,6 @@
        "__worldY": 48
       },
       {
-       "__identifier": "CharacterSpawn",
-       "__grid": [
-        2,
-        2
-       ],
-       "__pivot": [
-        0,
-        0
-       ],
-       "__tags": [],
-       "__tile": null,
-       "__smartColor": "#3050C0",
-       "iid": "36683f27-ecf5-414c-8737-fe0af7478fa4",
-       "width": 16,
-       "height": 16,
-       "defUid": 44,
-       "px": [
-        32,
-        32
-       ],
-       "fieldInstances": [
-        {
-         "__identifier": "character",
-         "__type": "String",
-         "__value": "bullet_kin",
-         "__tile": null,
-         "defUid": 45,
-         "realEditorValues": [
-          {
-           "id": "V_String",
-           "params": [
-            "bullet_kin"
-           ]
-          }
-         ]
-        },
-        {
-         "__identifier": "team",
-         "__type": "String",
-         "__value": "enemies",
-         "__tile": null,
-         "defUid": 46,
-         "realEditorValues": [
-          {
-           "id": "V_String",
-           "params": [
-            "enemies"
-           ]
-          }
-         ]
-        }
-       ],
-       "__worldX": 32,
-       "__worldY": 32
-      },
-      {
-       "__identifier": "CharacterSpawn",
-       "__grid": [
-        5,
-        2
-       ],
-       "__pivot": [
-        0,
-        0
-       ],
-       "__tags": [],
-       "__tile": null,
-       "__smartColor": "#3050C0",
-       "iid": "87a57de4-19c6-46e6-95a9-3a25b1ec0f67",
-       "width": 16,
-       "height": 16,
-       "defUid": 44,
-       "px": [
-        80,
-        32
-       ],
-       "fieldInstances": [
-        {
-         "__identifier": "character",
-         "__type": "String",
-         "__value": "bullet_kin",
-         "__tile": null,
-         "defUid": 45,
-         "realEditorValues": [
-          {
-           "id": "V_String",
-           "params": [
-            "bullet_kin"
-           ]
-          }
-         ]
-        },
-        {
-         "__identifier": "team",
-         "__type": "String",
-         "__value": "enemies",
-         "__tile": null,
-         "defUid": 46,
-         "realEditorValues": [
-          {
-           "id": "V_String",
-           "params": [
-            "enemies"
-           ]
-          }
-         ]
-        }
-       ],
-       "__worldX": 80,
-       "__worldY": 32
-      },
-      {
        "__identifier": "Barrel",
        "__grid": [
         3,
@@ -2174,8 +2119,8 @@
       {
        "__identifier": "CharacterSpawn",
        "__grid": [
-        5,
-        5
+        2,
+        2
        ],
        "__pivot": [
         0,
@@ -2184,26 +2129,82 @@
        "__tags": [],
        "__tile": null,
        "__smartColor": "#3050C0",
-       "iid": "dd3c4405-c9a0-58eb-af73-ec92503119c6",
+       "iid": "96b7b733-b993-52da-89de-199d96cef517",
        "width": 16,
        "height": 16,
        "defUid": 44,
        "px": [
-        80,
-        80
+        32,
+        32
        ],
        "fieldInstances": [
         {
          "__identifier": "character",
          "__type": "String",
-         "__value": "shotgun_kin",
+         "__value": "bullet_kin",
          "__tile": null,
          "defUid": 45,
          "realEditorValues": [
           {
            "id": "V_String",
            "params": [
-            "shotgun_kin"
+            "bullet_kin"
+           ]
+          }
+         ]
+        },
+        {
+         "__identifier": "team",
+         "__type": "String",
+         "__value": "enemies",
+         "__tile": null,
+         "defUid": 46,
+         "realEditorValues": [
+          {
+           "id": "V_String",
+           "params": [
+            "enemies"
+           ]
+          }
+         ]
+        }
+       ],
+       "__worldX": 32,
+       "__worldY": 32
+      },
+      {
+       "__identifier": "CharacterSpawn",
+       "__grid": [
+        5,
+        2
+       ],
+       "__pivot": [
+        0,
+        0
+       ],
+       "__tags": [],
+       "__tile": null,
+       "__smartColor": "#3050C0",
+       "iid": "947a1eae-14ba-5bed-ac09-f5cad115b132",
+       "width": 16,
+       "height": 16,
+       "defUid": 44,
+       "px": [
+        80,
+        32
+       ],
+       "fieldInstances": [
+        {
+         "__identifier": "character",
+         "__type": "String",
+         "__value": "bullet_kin",
+         "__tile": null,
+         "defUid": 45,
+         "realEditorValues": [
+          {
+           "id": "V_String",
+           "params": [
+            "bullet_kin"
            ]
           }
          ]
@@ -2225,7 +2226,7 @@
         }
        ],
        "__worldX": 80,
-       "__worldY": 80
+       "__worldY": 32
       },
       {
        "__identifier": "CharacterSpawn",
@@ -2622,118 +2623,6 @@
        "__worldY": 112
       },
       {
-       "__identifier": "CharacterSpawn",
-       "__grid": [
-        2,
-        2
-       ],
-       "__pivot": [
-        0,
-        0
-       ],
-       "__tags": [],
-       "__tile": null,
-       "__smartColor": "#3050C0",
-       "iid": "2ddac6a9-a2bc-46a9-bd15-c91565333c1b",
-       "width": 16,
-       "height": 16,
-       "defUid": 44,
-       "px": [
-        32,
-        32
-       ],
-       "fieldInstances": [
-        {
-         "__identifier": "character",
-         "__type": "String",
-         "__value": "bullet_kin",
-         "__tile": null,
-         "defUid": 45,
-         "realEditorValues": [
-          {
-           "id": "V_String",
-           "params": [
-            "bullet_kin"
-           ]
-          }
-         ]
-        },
-        {
-         "__identifier": "team",
-         "__type": "String",
-         "__value": "enemies",
-         "__tile": null,
-         "defUid": 46,
-         "realEditorValues": [
-          {
-           "id": "V_String",
-           "params": [
-            "enemies"
-           ]
-          }
-         ]
-        }
-       ],
-       "__worldX": 32,
-       "__worldY": 32
-      },
-      {
-       "__identifier": "CharacterSpawn",
-       "__grid": [
-        5,
-        2
-       ],
-       "__pivot": [
-        0,
-        0
-       ],
-       "__tags": [],
-       "__tile": null,
-       "__smartColor": "#3050C0",
-       "iid": "853473cb-6a42-49a8-aa51-0976d340a2c5",
-       "width": 16,
-       "height": 16,
-       "defUid": 44,
-       "px": [
-        80,
-        32
-       ],
-       "fieldInstances": [
-        {
-         "__identifier": "character",
-         "__type": "String",
-         "__value": "bullet_kin",
-         "__tile": null,
-         "defUid": 45,
-         "realEditorValues": [
-          {
-           "id": "V_String",
-           "params": [
-            "bullet_kin"
-           ]
-          }
-         ]
-        },
-        {
-         "__identifier": "team",
-         "__type": "String",
-         "__value": "enemies",
-         "__tile": null,
-         "defUid": 46,
-         "realEditorValues": [
-          {
-           "id": "V_String",
-           "params": [
-            "enemies"
-           ]
-          }
-         ]
-        }
-       ],
-       "__worldX": 80,
-       "__worldY": 32
-      },
-      {
        "__identifier": "Table",
        "__grid": [
         1,
@@ -2829,6 +2718,118 @@
       {
        "__identifier": "CharacterSpawn",
        "__grid": [
+        2,
+        2
+       ],
+       "__pivot": [
+        0,
+        0
+       ],
+       "__tags": [],
+       "__tile": null,
+       "__smartColor": "#3050C0",
+       "iid": "614f6ca3-51cc-54a8-924a-51838d47d5ba",
+       "width": 16,
+       "height": 16,
+       "defUid": 44,
+       "px": [
+        32,
+        32
+       ],
+       "fieldInstances": [
+        {
+         "__identifier": "character",
+         "__type": "String",
+         "__value": "bullet_kin",
+         "__tile": null,
+         "defUid": 45,
+         "realEditorValues": [
+          {
+           "id": "V_String",
+           "params": [
+            "bullet_kin"
+           ]
+          }
+         ]
+        },
+        {
+         "__identifier": "team",
+         "__type": "String",
+         "__value": "enemies",
+         "__tile": null,
+         "defUid": 46,
+         "realEditorValues": [
+          {
+           "id": "V_String",
+           "params": [
+            "enemies"
+           ]
+          }
+         ]
+        }
+       ],
+       "__worldX": 32,
+       "__worldY": 32
+      },
+      {
+       "__identifier": "CharacterSpawn",
+       "__grid": [
+        5,
+        2
+       ],
+       "__pivot": [
+        0,
+        0
+       ],
+       "__tags": [],
+       "__tile": null,
+       "__smartColor": "#3050C0",
+       "iid": "da7f3c62-31cd-5611-9a58-8dd337d2193d",
+       "width": 16,
+       "height": 16,
+       "defUid": 44,
+       "px": [
+        80,
+        32
+       ],
+       "fieldInstances": [
+        {
+         "__identifier": "character",
+         "__type": "String",
+         "__value": "bullet_kin",
+         "__tile": null,
+         "defUid": 45,
+         "realEditorValues": [
+          {
+           "id": "V_String",
+           "params": [
+            "bullet_kin"
+           ]
+          }
+         ]
+        },
+        {
+         "__identifier": "team",
+         "__type": "String",
+         "__value": "enemies",
+         "__tile": null,
+         "defUid": 46,
+         "realEditorValues": [
+          {
+           "id": "V_String",
+           "params": [
+            "enemies"
+           ]
+          }
+         ]
+        }
+       ],
+       "__worldX": 80,
+       "__worldY": 32
+      },
+      {
+       "__identifier": "CharacterSpawn",
+       "__grid": [
         4,
         5
        ],
@@ -2881,62 +2882,6 @@
        ],
        "__worldX": 64,
        "__worldY": 80
-      },
-      {
-       "__identifier": "CharacterSpawn",
-       "__grid": [
-        6,
-        6
-       ],
-       "__pivot": [
-        0,
-        0
-       ],
-       "__tags": [],
-       "__tile": null,
-       "__smartColor": "#3050C0",
-       "iid": "d3643a65-bf17-5d39-bcda-a2a48f523435",
-       "width": 16,
-       "height": 16,
-       "defUid": 44,
-       "px": [
-        96,
-        96
-       ],
-       "fieldInstances": [
-        {
-         "__identifier": "character",
-         "__type": "String",
-         "__value": "tourelle_kin",
-         "__tile": null,
-         "defUid": 45,
-         "realEditorValues": [
-          {
-           "id": "V_String",
-           "params": [
-            "tourelle_kin"
-           ]
-          }
-         ]
-        },
-        {
-         "__identifier": "team",
-         "__type": "String",
-         "__value": "enemies",
-         "__tile": null,
-         "defUid": 46,
-         "realEditorValues": [
-          {
-           "id": "V_String",
-           "params": [
-            "enemies"
-           ]
-          }
-         ]
-        }
-       ],
-       "__worldX": 96,
-       "__worldY": 96
       }
      ],
      "gridTiles": []
@@ -3331,7 +3276,7 @@
        "__tags": [],
        "__tile": null,
        "__smartColor": "#3050C0",
-       "iid": "b9fcd802-46c2-4430-9575-a244b82e0c2b",
+       "iid": "82b64eb6-68fe-57b6-b559-8a1523530373",
        "width": 16,
        "height": 16,
        "defUid": 44,
@@ -3387,7 +3332,7 @@
        "__tags": [],
        "__tile": null,
        "__smartColor": "#3050C0",
-       "iid": "edf77f3f-a22a-4f7e-8550-961af23e38e3",
+       "iid": "b7ca68e0-f154-5e57-a1c0-d537d8dbb592",
        "width": 16,
        "height": 16,
        "defUid": 44,
@@ -3429,62 +3374,6 @@
        ],
        "__worldX": 80,
        "__worldY": 32
-      },
-      {
-       "__identifier": "CharacterSpawn",
-       "__grid": [
-        2,
-        5
-       ],
-       "__pivot": [
-        0,
-        0
-       ],
-       "__tags": [],
-       "__tile": null,
-       "__smartColor": "#3050C0",
-       "iid": "37002091-d307-48e6-9b49-41e841f81725",
-       "width": 16,
-       "height": 16,
-       "defUid": 44,
-       "px": [
-        32,
-        80
-       ],
-       "fieldInstances": [
-        {
-         "__identifier": "character",
-         "__type": "String",
-         "__value": "bullet_kin",
-         "__tile": null,
-         "defUid": 45,
-         "realEditorValues": [
-          {
-           "id": "V_String",
-           "params": [
-            "bullet_kin"
-           ]
-          }
-         ]
-        },
-        {
-         "__identifier": "team",
-         "__type": "String",
-         "__value": "enemies",
-         "__tile": null,
-         "defUid": 46,
-         "realEditorValues": [
-          {
-           "id": "V_String",
-           "params": [
-            "enemies"
-           ]
-          }
-         ]
-        }
-       ],
-       "__worldX": 32,
-       "__worldY": 80
       }
      ],
      "gridTiles": []
@@ -3921,7 +3810,7 @@
        "__tags": [],
        "__tile": null,
        "__smartColor": "#3050C0",
-       "iid": "5e80d039-01aa-4f0c-a000-48aab10a3987",
+       "iid": "99eadd37-01ce-5aa7-bb98-8d2efd7b9722",
        "width": 16,
        "height": 16,
        "defUid": 44,
@@ -3977,7 +3866,7 @@
        "__tags": [],
        "__tile": null,
        "__smartColor": "#3050C0",
-       "iid": "6a4c3ba8-f285-4b0b-8988-a8125efc02fc",
+       "iid": "2f42db24-9613-53bf-a53b-9eb80b4fc2b2",
        "width": 16,
        "height": 16,
        "defUid": 44,
@@ -4023,7 +3912,7 @@
       {
        "__identifier": "CharacterSpawn",
        "__grid": [
-        2,
+        3,
         5
        ],
        "__pivot": [
@@ -4033,26 +3922,26 @@
        "__tags": [],
        "__tile": null,
        "__smartColor": "#3050C0",
-       "iid": "45b736ec-8c75-466d-abba-232d4b864be4",
+       "iid": "81119994-6503-5042-9645-ca8a25cff0fd",
        "width": 16,
        "height": 16,
        "defUid": 44,
        "px": [
-        32,
+        48,
         80
        ],
        "fieldInstances": [
         {
          "__identifier": "character",
          "__type": "String",
-         "__value": "bullet_kin",
+         "__value": "shotgun_kin",
          "__tile": null,
          "defUid": 45,
          "realEditorValues": [
           {
            "id": "V_String",
            "params": [
-            "bullet_kin"
+            "shotgun_kin"
            ]
           }
          ]
@@ -4073,120 +3962,8 @@
          ]
         }
        ],
-       "__worldX": 32,
+       "__worldX": 48,
        "__worldY": 80
-      },
-      {
-       "__identifier": "CharacterSpawn",
-       "__grid": [
-        5,
-        5
-       ],
-       "__pivot": [
-        0,
-        0
-       ],
-       "__tags": [],
-       "__tile": null,
-       "__smartColor": "#3050C0",
-       "iid": "d654461d-a3d7-5fbb-afdb-e8f00b746e5b",
-       "width": 16,
-       "height": 16,
-       "defUid": 44,
-       "px": [
-        80,
-        80
-       ],
-       "fieldInstances": [
-        {
-         "__identifier": "character",
-         "__type": "String",
-         "__value": "bandana_kin",
-         "__tile": null,
-         "defUid": 45,
-         "realEditorValues": [
-          {
-           "id": "V_String",
-           "params": [
-            "bandana_kin"
-           ]
-          }
-         ]
-        },
-        {
-         "__identifier": "team",
-         "__type": "String",
-         "__value": "enemies",
-         "__tile": null,
-         "defUid": 46,
-         "realEditorValues": [
-          {
-           "id": "V_String",
-           "params": [
-            "enemies"
-           ]
-          }
-         ]
-        }
-       ],
-       "__worldX": 80,
-       "__worldY": 80
-      },
-      {
-       "__identifier": "CharacterSpawn",
-       "__grid": [
-        5,
-        6
-       ],
-       "__pivot": [
-        0,
-        0
-       ],
-       "__tags": [],
-       "__tile": null,
-       "__smartColor": "#3050C0",
-       "iid": "9083739d-8486-5222-a351-038ad3e95918",
-       "width": 16,
-       "height": 16,
-       "defUid": 44,
-       "px": [
-        80,
-        96
-       ],
-       "fieldInstances": [
-        {
-         "__identifier": "character",
-         "__type": "String",
-         "__value": "lanceur_kin",
-         "__tile": null,
-         "defUid": 45,
-         "realEditorValues": [
-          {
-           "id": "V_String",
-           "params": [
-            "lanceur_kin"
-           ]
-          }
-         ]
-        },
-        {
-         "__identifier": "team",
-         "__type": "String",
-         "__value": "enemies",
-         "__tile": null,
-         "defUid": 46,
-         "realEditorValues": [
-          {
-           "id": "V_String",
-           "params": [
-            "enemies"
-           ]
-          }
-         ]
-        }
-       ],
-       "__worldX": 80,
-       "__worldY": 96
       }
      ],
      "gridTiles": []
@@ -6847,7 +6624,7 @@
        "__tags": [],
        "__tile": null,
        "__smartColor": "#3050C0",
-       "iid": "c3b9932b-e7cc-51b3-b66f-8ee0deb840fb",
+       "iid": "7f5aa8ef-1bed-5b4d-8866-eee2f86401f4",
        "width": 16,
        "height": 16,
        "defUid": 44,
@@ -6903,7 +6680,7 @@
        "__tags": [],
        "__tile": null,
        "__smartColor": "#3050C0",
-       "iid": "c1e8b710-453e-55a2-8e1d-b3c310a590cb",
+       "iid": "b7a980c6-e2d8-53ef-b448-f00795549792",
        "width": 16,
        "height": 16,
        "defUid": 44,
@@ -6959,12 +6736,12 @@
        "__tags": [],
        "__tile": null,
        "__smartColor": "#3050C0",
-       "iid": "cf9041d9-fa03-5b41-986d-a0c3b6777ca6",
+       "iid": "f828a423-7bca-5ee5-b181-b6d0cee040e5",
        "width": 16,
        "height": 16,
        "defUid": 44,
        "px": [
-        56,
+        48,
         96
        ],
        "fieldInstances": [
@@ -6999,7 +6776,7 @@
          ]
         }
        ],
-       "__worldX": 56,
+       "__worldX": 48,
        "__worldY": 96
       }
      ],
@@ -7177,6 +6954,1521 @@
       1,
       1,
       1,
+      1,
+      1,
+      1
+     ],
+     "autoLayerTiles": [],
+     "entityInstances": [],
+     "gridTiles": []
+    }
+   ]
+  },
+  {
+   "identifier": "Coffre",
+   "iid": "c7b3a112-2a2f-50e2-982a-c3ee89b9f12e",
+   "uid": 51,
+   "worldX": 0,
+   "worldY": 0,
+   "worldDepth": 0,
+   "pxWid": 128,
+   "pxHei": 128,
+   "__bgColor": "#696A79",
+   "bgColor": null,
+   "useAutoIdentifier": true,
+   "bgRelPath": null,
+   "bgPos": null,
+   "bgPivotX": 0.5,
+   "bgPivotY": 0.5,
+   "__smartColor": "#ADADB5",
+   "__bgPos": null,
+   "externalRelPath": null,
+   "fieldInstances": [
+    {
+     "__identifier": "spawn",
+     "__type": "Bool",
+     "__value": false,
+     "__tile": null,
+     "defUid": 26,
+     "realEditorValues": []
+    },
+    {
+     "__identifier": "room_kind",
+     "__type": "String",
+     "__value": "coffre",
+     "__tile": null,
+     "defUid": 47,
+     "realEditorValues": [
+      {
+       "id": "V_String",
+       "params": [
+        "coffre"
+       ]
+      }
+     ]
+    }
+   ],
+   "__neighbours": [],
+   "layerInstances": [
+    {
+     "__identifier": "Entities",
+     "__type": "Entities",
+     "__cWid": 8,
+     "__cHei": 8,
+     "__gridSize": 16,
+     "__opacity": 1,
+     "__pxTotalOffsetX": 0,
+     "__pxTotalOffsetY": 0,
+     "__tilesetDefUid": null,
+     "__tilesetRelPath": null,
+     "iid": "3a1cf9b1-10e6-5a0a-8c7a-4bb9c6207a00",
+     "levelId": 51,
+     "layerDefUid": 19,
+     "pxOffsetX": 0,
+     "pxOffsetY": 0,
+     "visible": true,
+     "optionalRules": [],
+     "seed": 1234567,
+     "overrideTilesetUid": null,
+     "intGridCsv": [],
+     "autoLayerTiles": [],
+     "entityInstances": [
+      {
+       "__identifier": "DoorHorizontal",
+       "__grid": [
+        3,
+        0
+       ],
+       "__pivot": [
+        0,
+        0
+       ],
+       "__tags": [],
+       "__tile": null,
+       "__smartColor": "#F0A20E",
+       "iid": "7cf682a9-ae0a-59fd-8159-6af2488efa88",
+       "width": 32,
+       "height": 16,
+       "defUid": 28,
+       "px": [
+        48,
+        0
+       ],
+       "fieldInstances": [
+        {
+         "__identifier": "price",
+         "__type": "Int",
+         "__value": 0,
+         "__tile": null,
+         "defUid": 36,
+         "realEditorValues": []
+        },
+        {
+         "__identifier": "electrify",
+         "__type": "Bool",
+         "__value": false,
+         "__tile": null,
+         "defUid": 37,
+         "realEditorValues": []
+        }
+       ],
+       "__worldX": 48,
+       "__worldY": 0
+      },
+      {
+       "__identifier": "DoorVertical",
+       "__grid": [
+        7,
+        3
+       ],
+       "__pivot": [
+        0,
+        0
+       ],
+       "__tags": [],
+       "__tile": null,
+       "__smartColor": "#F0A20E",
+       "iid": "6576f429-8668-5cd9-8c9b-66c319096312",
+       "width": 16,
+       "height": 32,
+       "defUid": 40,
+       "px": [
+        112,
+        48
+       ],
+       "fieldInstances": [
+        {
+         "__identifier": "price",
+         "__type": "Int",
+         "__value": 0,
+         "__tile": null,
+         "defUid": 41,
+         "realEditorValues": []
+        },
+        {
+         "__identifier": "electrify",
+         "__type": "Bool",
+         "__value": false,
+         "__tile": null,
+         "defUid": 42,
+         "realEditorValues": []
+        }
+       ],
+       "__worldX": 112,
+       "__worldY": 48
+      },
+      {
+       "__identifier": "DoorHorizontal",
+       "__grid": [
+        3,
+        7
+       ],
+       "__pivot": [
+        0,
+        0
+       ],
+       "__tags": [],
+       "__tile": null,
+       "__smartColor": "#F0A20E",
+       "iid": "a9b22701-696d-584a-9ead-1bc7b25c9662",
+       "width": 32,
+       "height": 16,
+       "defUid": 28,
+       "px": [
+        48,
+        112
+       ],
+       "fieldInstances": [
+        {
+         "__identifier": "price",
+         "__type": "Int",
+         "__value": 0,
+         "__tile": null,
+         "defUid": 36,
+         "realEditorValues": []
+        },
+        {
+         "__identifier": "electrify",
+         "__type": "Bool",
+         "__value": false,
+         "__tile": null,
+         "defUid": 37,
+         "realEditorValues": []
+        }
+       ],
+       "__worldX": 48,
+       "__worldY": 112
+      },
+      {
+       "__identifier": "DoorVertical",
+       "__grid": [
+        0,
+        3
+       ],
+       "__pivot": [
+        0,
+        0
+       ],
+       "__tags": [],
+       "__tile": null,
+       "__smartColor": "#F0A20E",
+       "iid": "1901697b-01c9-5e7c-8be1-d59e31505c10",
+       "width": 16,
+       "height": 32,
+       "defUid": 40,
+       "px": [
+        0,
+        48
+       ],
+       "fieldInstances": [
+        {
+         "__identifier": "price",
+         "__type": "Int",
+         "__value": 0,
+         "__tile": null,
+         "defUid": 41,
+         "realEditorValues": []
+        },
+        {
+         "__identifier": "electrify",
+         "__type": "Bool",
+         "__value": false,
+         "__tile": null,
+         "defUid": 42,
+         "realEditorValues": []
+        }
+       ],
+       "__worldX": 0,
+       "__worldY": 48
+      },
+      {
+       "__identifier": "Table",
+       "__grid": [
+        1,
+        1
+       ],
+       "__pivot": [
+        0,
+        0
+       ],
+       "__tags": [],
+       "__tile": {
+        "tilesetUid": 38,
+        "x": 32,
+        "y": 112,
+        "w": 16,
+        "h": 16
+       },
+       "__smartColor": "#B5651D",
+       "iid": "d19bad9d-e676-5293-8385-d8689868710d",
+       "width": 32,
+       "height": 16,
+       "defUid": 48,
+       "px": [
+        16,
+        16
+       ],
+       "fieldInstances": [],
+       "__worldX": 16,
+       "__worldY": 16
+      },
+      {
+       "__identifier": "Table",
+       "__grid": [
+        5,
+        1
+       ],
+       "__pivot": [
+        0,
+        0
+       ],
+       "__tags": [],
+       "__tile": {
+        "tilesetUid": 38,
+        "x": 32,
+        "y": 112,
+        "w": 16,
+        "h": 16
+       },
+       "__smartColor": "#B5651D",
+       "iid": "c409a68f-e19a-5918-8fc2-32906185da2e",
+       "width": 32,
+       "height": 16,
+       "defUid": 48,
+       "px": [
+        80,
+        16
+       ],
+       "fieldInstances": [],
+       "__worldX": 80,
+       "__worldY": 16
+      },
+      {
+       "__identifier": "Table",
+       "__grid": [
+        1,
+        6
+       ],
+       "__pivot": [
+        0,
+        0
+       ],
+       "__tags": [],
+       "__tile": {
+        "tilesetUid": 38,
+        "x": 32,
+        "y": 112,
+        "w": 16,
+        "h": 16
+       },
+       "__smartColor": "#B5651D",
+       "iid": "92ad389f-2929-5ff3-b897-9f622f6386b3",
+       "width": 32,
+       "height": 16,
+       "defUid": 48,
+       "px": [
+        16,
+        96
+       ],
+       "fieldInstances": [],
+       "__worldX": 16,
+       "__worldY": 96
+      }
+     ],
+     "gridTiles": []
+    },
+    {
+     "__identifier": "Surfaces",
+     "__type": "IntGrid",
+     "__cWid": 8,
+     "__cHei": 8,
+     "__gridSize": 16,
+     "__opacity": 1,
+     "__pxTotalOffsetX": 0,
+     "__pxTotalOffsetY": 0,
+     "__tilesetDefUid": null,
+     "__tilesetRelPath": null,
+     "iid": "8019fa97-6865-573b-9263-0fe887b1c2f1",
+     "levelId": 51,
+     "layerDefUid": 50,
+     "pxOffsetX": 0,
+     "pxOffsetY": 0,
+     "visible": true,
+     "optionalRules": [],
+     "seed": 1234567,
+     "overrideTilesetUid": null,
+     "intGridCsv": [
+      0,
+      0,
+      0,
+      0,
+      0,
+      0,
+      0,
+      0,
+      0,
+      0,
+      0,
+      0,
+      0,
+      0,
+      0,
+      0,
+      0,
+      0,
+      2,
+      2,
+      2,
+      2,
+      0,
+      0,
+      0,
+      0,
+      2,
+      2,
+      2,
+      2,
+      0,
+      0,
+      0,
+      0,
+      2,
+      2,
+      2,
+      2,
+      0,
+      0,
+      0,
+      0,
+      2,
+      2,
+      2,
+      2,
+      0,
+      0,
+      0,
+      0,
+      0,
+      0,
+      0,
+      0,
+      0,
+      0,
+      0,
+      0,
+      0,
+      0,
+      0,
+      0,
+      0,
+      0
+     ],
+     "autoLayerTiles": [],
+     "entityInstances": [],
+     "gridTiles": []
+    },
+    {
+     "__identifier": "LevelConnection",
+     "__type": "IntGrid",
+     "__cWid": 8,
+     "__cHei": 8,
+     "__gridSize": 16,
+     "__opacity": 1,
+     "__pxTotalOffsetX": 0,
+     "__pxTotalOffsetY": 0,
+     "__tilesetDefUid": null,
+     "__tilesetRelPath": null,
+     "iid": "51034549-59b9-5852-ae40-45040137c7ba",
+     "levelId": 51,
+     "layerDefUid": 25,
+     "pxOffsetX": 0,
+     "pxOffsetY": 0,
+     "visible": true,
+     "optionalRules": [],
+     "seed": 1234567,
+     "overrideTilesetUid": null,
+     "intGridCsv": [
+      0,
+      0,
+      0,
+      1,
+      1,
+      0,
+      0,
+      0,
+      0,
+      0,
+      0,
+      0,
+      0,
+      0,
+      0,
+      0,
+      0,
+      0,
+      0,
+      0,
+      0,
+      0,
+      0,
+      0,
+      1,
+      0,
+      0,
+      0,
+      0,
+      0,
+      0,
+      1,
+      1,
+      0,
+      0,
+      0,
+      0,
+      0,
+      0,
+      1,
+      0,
+      0,
+      0,
+      0,
+      0,
+      0,
+      0,
+      0,
+      0,
+      0,
+      0,
+      0,
+      0,
+      0,
+      0,
+      0,
+      0,
+      0,
+      0,
+      1,
+      1,
+      0,
+      0,
+      0
+     ],
+     "autoLayerTiles": [],
+     "entityInstances": [],
+     "gridTiles": []
+    },
+    {
+     "__identifier": "Walls",
+     "__type": "IntGrid",
+     "__cWid": 8,
+     "__cHei": 8,
+     "__gridSize": 16,
+     "__opacity": 1,
+     "__pxTotalOffsetX": 0,
+     "__pxTotalOffsetY": 0,
+     "__tilesetDefUid": 1,
+     "__tilesetRelPath": "atlas/SunnyLand_by_Ansimuz-extended.png",
+     "iid": "9ffaf278-7430-5c88-8a8a-76fa70d37e99",
+     "levelId": 51,
+     "layerDefUid": 3,
+     "pxOffsetX": 0,
+     "pxOffsetY": 0,
+     "visible": true,
+     "optionalRules": [],
+     "seed": 1234567,
+     "overrideTilesetUid": null,
+     "intGridCsv": [
+      1,
+      1,
+      1,
+      0,
+      0,
+      1,
+      1,
+      1,
+      1,
+      0,
+      0,
+      0,
+      0,
+      0,
+      0,
+      1,
+      1,
+      0,
+      0,
+      0,
+      0,
+      0,
+      0,
+      1,
+      0,
+      0,
+      0,
+      0,
+      0,
+      0,
+      0,
+      0,
+      0,
+      0,
+      0,
+      0,
+      0,
+      0,
+      0,
+      0,
+      1,
+      0,
+      0,
+      0,
+      0,
+      0,
+      0,
+      1,
+      1,
+      0,
+      0,
+      0,
+      0,
+      0,
+      0,
+      1,
+      1,
+      1,
+      1,
+      0,
+      0,
+      1,
+      1,
+      1
+     ],
+     "autoLayerTiles": [],
+     "entityInstances": [],
+     "gridTiles": []
+    }
+   ]
+  },
+  {
+   "identifier": "Secret",
+   "iid": "3311d26e-811f-5ee4-ab7a-40c9eb697600",
+   "uid": 52,
+   "worldX": 0,
+   "worldY": 0,
+   "worldDepth": 0,
+   "pxWid": 128,
+   "pxHei": 128,
+   "__bgColor": "#696A79",
+   "bgColor": null,
+   "useAutoIdentifier": true,
+   "bgRelPath": null,
+   "bgPos": null,
+   "bgPivotX": 0.5,
+   "bgPivotY": 0.5,
+   "__smartColor": "#ADADB5",
+   "__bgPos": null,
+   "externalRelPath": null,
+   "fieldInstances": [
+    {
+     "__identifier": "spawn",
+     "__type": "Bool",
+     "__value": false,
+     "__tile": null,
+     "defUid": 26,
+     "realEditorValues": []
+    },
+    {
+     "__identifier": "room_kind",
+     "__type": "String",
+     "__value": "secret",
+     "__tile": null,
+     "defUid": 47,
+     "realEditorValues": [
+      {
+       "id": "V_String",
+       "params": [
+        "secret"
+       ]
+      }
+     ]
+    }
+   ],
+   "__neighbours": [],
+   "layerInstances": [
+    {
+     "__identifier": "Entities",
+     "__type": "Entities",
+     "__cWid": 8,
+     "__cHei": 8,
+     "__gridSize": 16,
+     "__opacity": 1,
+     "__pxTotalOffsetX": 0,
+     "__pxTotalOffsetY": 0,
+     "__tilesetDefUid": null,
+     "__tilesetRelPath": null,
+     "iid": "5691525f-f9f5-5715-b51e-d0fb9fb6f5d3",
+     "levelId": 52,
+     "layerDefUid": 19,
+     "pxOffsetX": 0,
+     "pxOffsetY": 0,
+     "visible": true,
+     "optionalRules": [],
+     "seed": 1234567,
+     "overrideTilesetUid": null,
+     "intGridCsv": [],
+     "autoLayerTiles": [],
+     "entityInstances": [
+      {
+       "__identifier": "DoorVertical",
+       "__grid": [
+        0,
+        3
+       ],
+       "__pivot": [
+        0,
+        0
+       ],
+       "__tags": [],
+       "__tile": null,
+       "__smartColor": "#F0A20E",
+       "iid": "d58fe1e2-beba-5bb1-a8f2-a0bf719f6978",
+       "width": 16,
+       "height": 32,
+       "defUid": 40,
+       "px": [
+        0,
+        48
+       ],
+       "fieldInstances": [
+        {
+         "__identifier": "price",
+         "__type": "Int",
+         "__value": 0,
+         "__tile": null,
+         "defUid": 41,
+         "realEditorValues": []
+        },
+        {
+         "__identifier": "electrify",
+         "__type": "Bool",
+         "__value": false,
+         "__tile": null,
+         "defUid": 42,
+         "realEditorValues": []
+        }
+       ],
+       "__worldX": 0,
+       "__worldY": 48
+      },
+      {
+       "__identifier": "Table",
+       "__grid": [
+        3,
+        1
+       ],
+       "__pivot": [
+        0,
+        0
+       ],
+       "__tags": [],
+       "__tile": {
+        "tilesetUid": 38,
+        "x": 32,
+        "y": 112,
+        "w": 16,
+        "h": 16
+       },
+       "__smartColor": "#B5651D",
+       "iid": "9adfb404-7e38-5ab9-bad7-8ecab775f85a",
+       "width": 32,
+       "height": 16,
+       "defUid": 48,
+       "px": [
+        48,
+        16
+       ],
+       "fieldInstances": [],
+       "__worldX": 48,
+       "__worldY": 16
+      },
+      {
+       "__identifier": "Table",
+       "__grid": [
+        3,
+        6
+       ],
+       "__pivot": [
+        0,
+        0
+       ],
+       "__tags": [],
+       "__tile": {
+        "tilesetUid": 38,
+        "x": 32,
+        "y": 112,
+        "w": 16,
+        "h": 16
+       },
+       "__smartColor": "#B5651D",
+       "iid": "1446de0c-0048-5ff9-a8fe-3e1718b127dd",
+       "width": 32,
+       "height": 16,
+       "defUid": 48,
+       "px": [
+        48,
+        96
+       ],
+       "fieldInstances": [],
+       "__worldX": 48,
+       "__worldY": 96
+      },
+      {
+       "__identifier": "Table",
+       "__grid": [
+        5,
+        6
+       ],
+       "__pivot": [
+        0,
+        0
+       ],
+       "__tags": [],
+       "__tile": {
+        "tilesetUid": 38,
+        "x": 32,
+        "y": 112,
+        "w": 16,
+        "h": 16
+       },
+       "__smartColor": "#B5651D",
+       "iid": "df66c9c4-7a9b-5e4e-957b-9228cac11815",
+       "width": 32,
+       "height": 16,
+       "defUid": 48,
+       "px": [
+        80,
+        96
+       ],
+       "fieldInstances": [],
+       "__worldX": 80,
+       "__worldY": 96
+      }
+     ],
+     "gridTiles": []
+    },
+    {
+     "__identifier": "Surfaces",
+     "__type": "IntGrid",
+     "__cWid": 8,
+     "__cHei": 8,
+     "__gridSize": 16,
+     "__opacity": 1,
+     "__pxTotalOffsetX": 0,
+     "__pxTotalOffsetY": 0,
+     "__tilesetDefUid": null,
+     "__tilesetRelPath": null,
+     "iid": "6fc86934-ee03-54bb-b14d-55b80e981b56",
+     "levelId": 52,
+     "layerDefUid": 50,
+     "pxOffsetX": 0,
+     "pxOffsetY": 0,
+     "visible": true,
+     "optionalRules": [],
+     "seed": 1234567,
+     "overrideTilesetUid": null,
+     "intGridCsv": [
+      0,
+      0,
+      0,
+      0,
+      0,
+      0,
+      0,
+      0,
+      0,
+      0,
+      0,
+      0,
+      0,
+      4,
+      4,
+      0,
+      0,
+      0,
+      0,
+      0,
+      0,
+      0,
+      4,
+      0,
+      0,
+      0,
+      0,
+      0,
+      0,
+      0,
+      0,
+      0,
+      0,
+      0,
+      0,
+      0,
+      0,
+      0,
+      0,
+      0,
+      0,
+      0,
+      0,
+      0,
+      0,
+      0,
+      0,
+      0,
+      0,
+      1,
+      1,
+      0,
+      0,
+      0,
+      0,
+      0,
+      0,
+      0,
+      0,
+      0,
+      0,
+      0,
+      0,
+      0
+     ],
+     "autoLayerTiles": [],
+     "entityInstances": [],
+     "gridTiles": []
+    },
+    {
+     "__identifier": "LevelConnection",
+     "__type": "IntGrid",
+     "__cWid": 8,
+     "__cHei": 8,
+     "__gridSize": 16,
+     "__opacity": 1,
+     "__pxTotalOffsetX": 0,
+     "__pxTotalOffsetY": 0,
+     "__tilesetDefUid": null,
+     "__tilesetRelPath": null,
+     "iid": "7150a359-b453-57cf-b798-a6e0f8e79e83",
+     "levelId": 52,
+     "layerDefUid": 25,
+     "pxOffsetX": 0,
+     "pxOffsetY": 0,
+     "visible": true,
+     "optionalRules": [],
+     "seed": 1234567,
+     "overrideTilesetUid": null,
+     "intGridCsv": [
+      0,
+      0,
+      0,
+      0,
+      0,
+      0,
+      0,
+      0,
+      0,
+      0,
+      0,
+      0,
+      0,
+      0,
+      0,
+      0,
+      0,
+      0,
+      0,
+      0,
+      0,
+      0,
+      0,
+      0,
+      1,
+      0,
+      0,
+      0,
+      0,
+      0,
+      0,
+      0,
+      1,
+      0,
+      0,
+      0,
+      0,
+      0,
+      0,
+      0,
+      0,
+      0,
+      0,
+      0,
+      0,
+      0,
+      0,
+      0,
+      0,
+      0,
+      0,
+      0,
+      0,
+      0,
+      0,
+      0,
+      0,
+      0,
+      0,
+      0,
+      0,
+      0,
+      0,
+      0
+     ],
+     "autoLayerTiles": [],
+     "entityInstances": [],
+     "gridTiles": []
+    },
+    {
+     "__identifier": "Walls",
+     "__type": "IntGrid",
+     "__cWid": 8,
+     "__cHei": 8,
+     "__gridSize": 16,
+     "__opacity": 1,
+     "__pxTotalOffsetX": 0,
+     "__pxTotalOffsetY": 0,
+     "__tilesetDefUid": 1,
+     "__tilesetRelPath": "atlas/SunnyLand_by_Ansimuz-extended.png",
+     "iid": "e29ec9bc-3f7a-50c2-b507-953de8a28716",
+     "levelId": 52,
+     "layerDefUid": 3,
+     "pxOffsetX": 0,
+     "pxOffsetY": 0,
+     "visible": true,
+     "optionalRules": [],
+     "seed": 1234567,
+     "overrideTilesetUid": null,
+     "intGridCsv": [
+      1,
+      1,
+      1,
+      1,
+      1,
+      1,
+      1,
+      1,
+      1,
+      0,
+      0,
+      0,
+      0,
+      0,
+      0,
+      1,
+      1,
+      0,
+      0,
+      0,
+      0,
+      0,
+      0,
+      1,
+      0,
+      0,
+      0,
+      0,
+      0,
+      0,
+      0,
+      1,
+      0,
+      0,
+      0,
+      0,
+      0,
+      0,
+      0,
+      1,
+      1,
+      0,
+      0,
+      0,
+      0,
+      0,
+      0,
+      1,
+      1,
+      0,
+      0,
+      0,
+      0,
+      0,
+      0,
+      1,
+      1,
+      1,
+      1,
+      1,
+      1,
+      1,
+      1,
+      1
+     ],
+     "autoLayerTiles": [],
+     "entityInstances": [],
+     "gridTiles": []
+    }
+   ]
+  },
+  {
+   "identifier": "ArenaNS",
+   "iid": "eb8175f7-399d-5aee-96b3-61805a1c07b2",
+   "uid": 53,
+   "worldX": 0,
+   "worldY": 0,
+   "worldDepth": 0,
+   "pxWid": 128,
+   "pxHei": 128,
+   "__bgColor": "#696A79",
+   "bgColor": null,
+   "useAutoIdentifier": true,
+   "bgRelPath": null,
+   "bgPos": null,
+   "bgPivotX": 0.5,
+   "bgPivotY": 0.5,
+   "__smartColor": "#ADADB5",
+   "__bgPos": null,
+   "externalRelPath": null,
+   "fieldInstances": [
+    {
+     "__identifier": "spawn",
+     "__type": "Bool",
+     "__value": false,
+     "__tile": null,
+     "defUid": 26,
+     "realEditorValues": []
+    },
+    {
+     "__identifier": "room_kind",
+     "__type": "String",
+     "__value": "arene",
+     "__tile": null,
+     "defUid": 47,
+     "realEditorValues": [
+      {
+       "id": "V_String",
+       "params": [
+        "arene"
+       ]
+      }
+     ]
+    }
+   ],
+   "__neighbours": [],
+   "layerInstances": [
+    {
+     "__identifier": "Entities",
+     "__type": "Entities",
+     "__cWid": 8,
+     "__cHei": 8,
+     "__gridSize": 16,
+     "__opacity": 1,
+     "__pxTotalOffsetX": 0,
+     "__pxTotalOffsetY": 0,
+     "__tilesetDefUid": null,
+     "__tilesetRelPath": null,
+     "iid": "b1d92bb0-baff-5c75-becd-1226cc53781e",
+     "levelId": 53,
+     "layerDefUid": 19,
+     "pxOffsetX": 0,
+     "pxOffsetY": 0,
+     "visible": true,
+     "optionalRules": [],
+     "seed": 1234567,
+     "overrideTilesetUid": null,
+     "intGridCsv": [],
+     "autoLayerTiles": [],
+     "entityInstances": [
+      {
+       "__identifier": "DoorHorizontal",
+       "__grid": [
+        3,
+        0
+       ],
+       "__pivot": [
+        0,
+        0
+       ],
+       "__tags": [],
+       "__tile": null,
+       "__smartColor": "#F0A20E",
+       "iid": "b8ccbd16-ea61-582c-97a2-4cd201e76746",
+       "width": 32,
+       "height": 16,
+       "defUid": 28,
+       "px": [
+        48,
+        0
+       ],
+       "fieldInstances": [
+        {
+         "__identifier": "price",
+         "__type": "Int",
+         "__value": 0,
+         "__tile": null,
+         "defUid": 36,
+         "realEditorValues": []
+        },
+        {
+         "__identifier": "electrify",
+         "__type": "Bool",
+         "__value": false,
+         "__tile": null,
+         "defUid": 37,
+         "realEditorValues": []
+        }
+       ],
+       "__worldX": 48,
+       "__worldY": 0
+      },
+      {
+       "__identifier": "DoorHorizontal",
+       "__grid": [
+        3,
+        7
+       ],
+       "__pivot": [
+        0,
+        0
+       ],
+       "__tags": [],
+       "__tile": null,
+       "__smartColor": "#F0A20E",
+       "iid": "bdc1fc45-6ccb-537e-9787-31559d72956a",
+       "width": 32,
+       "height": 16,
+       "defUid": 28,
+       "px": [
+        48,
+        112
+       ],
+       "fieldInstances": [
+        {
+         "__identifier": "price",
+         "__type": "Int",
+         "__value": 0,
+         "__tile": null,
+         "defUid": 36,
+         "realEditorValues": []
+        },
+        {
+         "__identifier": "electrify",
+         "__type": "Bool",
+         "__value": false,
+         "__tile": null,
+         "defUid": 37,
+         "realEditorValues": []
+        }
+       ],
+       "__worldX": 48,
+       "__worldY": 112
+      },
+      {
+       "__identifier": "Table",
+       "__grid": [
+        1,
+        3
+       ],
+       "__pivot": [
+        0,
+        0
+       ],
+       "__tags": [],
+       "__tile": {
+        "tilesetUid": 38,
+        "x": 32,
+        "y": 112,
+        "w": 16,
+        "h": 16
+       },
+       "__smartColor": "#B5651D",
+       "iid": "2c154dcb-6898-5e9a-a65f-cab243a74aaf",
+       "width": 32,
+       "height": 16,
+       "defUid": 48,
+       "px": [
+        16,
+        48
+       ],
+       "fieldInstances": [],
+       "__worldX": 16,
+       "__worldY": 48
+      },
+      {
+       "__identifier": "Barrel",
+       "__grid": [
+        6,
+        3
+       ],
+       "__pivot": [
+        0,
+        0
+       ],
+       "__tags": [],
+       "__tile": {
+        "tilesetUid": 38,
+        "x": 32,
+        "y": 112,
+        "w": 16,
+        "h": 16
+       },
+       "__smartColor": "#C0392B",
+       "iid": "03180b52-6a92-5c3f-8760-118a55381fee",
+       "width": 16,
+       "height": 16,
+       "defUid": 49,
+       "px": [
+        96,
+        48
+       ],
+       "fieldInstances": [],
+       "__worldX": 96,
+       "__worldY": 48
+      },
+      {
+       "__identifier": "Barrel",
+       "__grid": [
+        6,
+        4
+       ],
+       "__pivot": [
+        0,
+        0
+       ],
+       "__tags": [],
+       "__tile": {
+        "tilesetUid": 38,
+        "x": 32,
+        "y": 112,
+        "w": 16,
+        "h": 16
+       },
+       "__smartColor": "#C0392B",
+       "iid": "60a7f2e0-cbcb-50fe-96af-b30f3897aa78",
+       "width": 16,
+       "height": 16,
+       "defUid": 49,
+       "px": [
+        96,
+        64
+       ],
+       "fieldInstances": [],
+       "__worldX": 96,
+       "__worldY": 64
+      }
+     ],
+     "gridTiles": []
+    },
+    {
+     "__identifier": "LevelConnection",
+     "__type": "IntGrid",
+     "__cWid": 8,
+     "__cHei": 8,
+     "__gridSize": 16,
+     "__opacity": 1,
+     "__pxTotalOffsetX": 0,
+     "__pxTotalOffsetY": 0,
+     "__tilesetDefUid": null,
+     "__tilesetRelPath": null,
+     "iid": "1bbd0096-162a-502d-9515-15463032445b",
+     "levelId": 53,
+     "layerDefUid": 25,
+     "pxOffsetX": 0,
+     "pxOffsetY": 0,
+     "visible": true,
+     "optionalRules": [],
+     "seed": 1234567,
+     "overrideTilesetUid": null,
+     "intGridCsv": [
+      0,
+      0,
+      0,
+      1,
+      1,
+      0,
+      0,
+      0,
+      0,
+      0,
+      0,
+      0,
+      0,
+      0,
+      0,
+      0,
+      0,
+      0,
+      0,
+      0,
+      0,
+      0,
+      0,
+      0,
+      0,
+      0,
+      0,
+      0,
+      0,
+      0,
+      0,
+      0,
+      0,
+      0,
+      0,
+      0,
+      0,
+      0,
+      0,
+      0,
+      0,
+      0,
+      0,
+      0,
+      0,
+      0,
+      0,
+      0,
+      0,
+      0,
+      0,
+      0,
+      0,
+      0,
+      0,
+      0,
+      0,
+      0,
+      0,
+      1,
+      1,
+      0,
+      0,
+      0
+     ],
+     "autoLayerTiles": [],
+     "entityInstances": [],
+     "gridTiles": []
+    },
+    {
+     "__identifier": "Walls",
+     "__type": "IntGrid",
+     "__cWid": 8,
+     "__cHei": 8,
+     "__gridSize": 16,
+     "__opacity": 1,
+     "__pxTotalOffsetX": 0,
+     "__pxTotalOffsetY": 0,
+     "__tilesetDefUid": 1,
+     "__tilesetRelPath": "atlas/SunnyLand_by_Ansimuz-extended.png",
+     "iid": "a397196e-a0e4-5ddd-9d70-fcc6b4435d52",
+     "levelId": 53,
+     "layerDefUid": 3,
+     "pxOffsetX": 0,
+     "pxOffsetY": 0,
+     "visible": true,
+     "optionalRules": [],
+     "seed": 1234567,
+     "overrideTilesetUid": null,
+     "intGridCsv": [
+      1,
+      1,
+      1,
+      0,
+      0,
+      1,
+      1,
+      1,
+      1,
+      0,
+      0,
+      0,
+      0,
+      0,
+      0,
+      1,
+      1,
+      0,
+      0,
+      0,
+      0,
+      0,
+      0,
+      1,
+      1,
+      0,
+      0,
+      0,
+      0,
+      0,
+      0,
+      1,
+      1,
+      0,
+      0,
+      0,
+      0,
+      0,
+      0,
+      1,
+      1,
+      0,
+      0,
+      0,
+      0,
+      0,
+      0,
+      1,
+      1,
+      0,
+      0,
+      0,
+      0,
+      0,
+      0,
+      1,
+      1,
+      1,
+      1,
+      0,
+      0,
       1,
       1,
       1
