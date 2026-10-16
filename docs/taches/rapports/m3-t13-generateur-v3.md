@@ -1,28 +1,30 @@
 # Rapport M3-T13 : générateur v3 (`m3-t13-generateur-v3`)
 
-## Fait
+## Fait (état final)
 - Trois gabarits, **champs ajoutés aux `test:` existants** (conventions §78) : `TearsOnTarget`
-  (`tears:` d'un objet → `tears_<id>.ron`), `FamiliarHeld` (`familiar:` → `familiar_<id>.ron`),
+  (`tears:` d'un objet → `tears_<id>.ron` + témoin `tears_<id>_sans_objet.ron`), `FamiliarHeld`
+  (`familiar:` → `familiar_<id>.ron`, + `familiar_<id>_sans_objet.ron` si `min_hits > 0`),
   `ChampionForced` (`champions:` d'un personnage → `champion_<id>_<variante>.ron`). Les fichiers
-  existants (`item_<id>`, `enemy_<id>_*`) sont inchangés : le gabarit a sa propre `frames`.
-- Fonctions pures testées (`crates/scenario/tests/generate_v3.rs`, 6 tests) : noms de fichiers,
-  attentes de chaque gabarit, cible de remplacement sur la ligne de tir, effets de mort.
-- Cible à PV réglable : `tears.target` (personnage à `counts_hits` posé devant la cible de l'arène).
-- Lint (`lint_item_tests`, `lint_character_tests`) + 4 fixtures ; schéma `alacod describe`
-  (Item, Character) à jour (miroirs `ItemTestSchema`, `CharacterTestSchema`) ; `--list`/`--only`
-  voient les nouveaux sujets (comptes `larme(s)`, `familier(s)`, `champion(s)` dans le résumé).
+  existants (`item_<id>`, `enemy_<id>_*`) sont inchangés : chaque gabarit a sa propre `frames`.
+- Schéma `tears:` : `frames`, `weapon`, `aim`, `targets: [(character, dx, dy)]` (cibles à
+  `counts_hits` posées relativement à la cible de l'arène, PV réglables), `hits: [(target, with_item,
+  without_item)]`, `expect` (avec l'objet) / `control` (son contraire, sans l'objet).
+- Champion `kill: true` : une sonde mesure la mort ; attentes `EntityCount(Enemy)` **exactes** à
+  f−1 et f+1, puis chaque effet traduit (`Explode` → `explosion`, `SpawnCharacters`, `SpawnPattern` →
+  `BulletCount` équipe ennemie, `loot` → marche + Interaction + `HasItem`).
+- Fonctions pures testées (`crates/scenario/tests/generate_v3.rs`, 7 tests).
+- Lint (`lint_item_tests`, `lint_character_tests`) + **16 fixtures** ; schéma `alacod describe`
+  (Item, Character) à jour ; `--list`/`--only` voient les nouveaux sujets (comptes `larme(s)`,
+  `familier(s)`, `champion(s)`, `témoin(s)` dans le résumé).
 - Contenu testbed avec `test:` : 7 objets de larmes, 6 objets familiers, 5 personnages à champions.
-- Aucun changement de simulation : pas de trace existante touchée, aucune attente nouvelle.
+- Aucun changement de simulation : pas de trace préexistante touchée, aucune attente nouvelle.
 
 ## Vérifié
-- `make gen` ×5 sur les cinq jeux : exit 0 à chaque tour, `git status tests` vide (aucun fichier
-  ni trace existant modifié).
+- `make gen` ×5 sur les cinq jeux : exit 0 à chaque tour, `git status tests` vide.
 - Fichiers générés ajoutés (tous au testbed ; zombies, throne, gungeon, isaac : 0) : 36 scénarios
   avec trace : 7 `tears_*` + 7 `tears_*_sans_objet`, 6 `familiar_*` + 1 `familiar_compagnon_sans_objet`,
-  6 `item_*` (ItemHeld des objets familiers), 9 `champion_*`.
-  `familiar_compagnon` : 9 coups sur la cible contre 5 pour le joueur seul (`tears_guide`) ;
-  `min_hits: 7`. Variantes `explosif` (moment clé `explosion`) et `divise` (`EntityCount`) tuées par le
-  joueur et attentes vertes.
+  6 `item_*` (ItemHeld des objets familiers), 9 `champion_*`. Mesures objet/témoin : tableau de la
+  section « Revue » ; `familiar_compagnon` 9 coups contre 4 (témoin), `min_hits: 9`.
 - `make test_scenarios_par SHARDS=3` (sans BLESS) : 3 tranches ok, 464 scénarios, 189 s (après la revue).
 - `make test_crates` ok ; `cargo test -p content` (96 + 159 fixtures) ok ; `make test_tools` ok ;
   `make check_sim_boundary` ok ; `check-forbidden`, `check-rollback-registration` ok ;
@@ -39,7 +41,9 @@
   prouve déjà par `tears_item_orbit`) et `trefle` (chance, non déterministe à compter).
 - Aucun `test:` ajouté à isaac : il n'a ni objet de larmes ni familier (T11a).
 
-## Revue indépendante (verdict bloquant, corrigé)
+## Revue (historique)
+
+### Premier passage : verdict bloquant, corrigé
 1. **`tears:` ne prouvait pas l'effet de l'objet** : `min_hits: 1` passait sans l'objet. Corrigé : le
    gabarit écrit `tears_<id>` et le témoin `tears_<id>_sans_objet` (même tir, même placement, sans
    l'objet) ; `hits: [(target, with_item, without_item)]` + `expect`/`control` ; le lint refuse un seuil
@@ -79,6 +83,7 @@ changés par la revue) `tears_{division,guide,lentille,perforant,rebond,spectre,
 - Seuil N de l'échelle (voir ci-dessus).
 
 ## Dettes
+- Le lint vérifie les seuils déclarés, pas leur adéquation aux mesures : seul `make gen` (qui joue) le prouve.
 - `generate_game` rejoue toute la sonde de tous les sujets même avec `--only` : le temps de
   `--only` n'est pas proportionnel au sujet (≈ 18 s pour le testbed).
 - `EntityCount` d'un champion qui se divise est une borne basse (les ennemis de l'arène comptent).

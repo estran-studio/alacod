@@ -4850,6 +4850,13 @@ nothing_proven,expect_without_control,frames_zero,hit_target_out_of_range,weapon
 target_unknown,target_no_counts_hits}`, `familiar_test_{without_familiar,frames_zero}`.
 Le schéma de `alacod describe` (kind `Item`, `Character`) expose les nouveaux champs.
 
+**Limites des preuves.** Le lint vérifie la cohérence des seuils **déclarés** (`with_item >
+without_item`, `expect`/`control` ensemble) ; leur adéquation aux parties réelles n'est prouvée qu'en
+jouant les scénarios (`make gen` joue l'objet et son témoin). Une preuve par `BulletCount` exact à
+une frame (`rebond`, `spectre` : 1 balle en vol contre 0 à la dernière frame) dépend de la phase
+tir/vol/durée de vie : un changement de cadence, de vitesse ou de `lifetime` de l'arme la fait
+basculer (les traces et le témoin le signalent) ; préférer un compte de coups quand l'effet en change.
+
 **Échelle** : le nom d'un fichier est une fonction de l'id seul (`tears_<id>`, `familiar_<id>`,
 `champion_<id>_<variante>`) ; ajouter un objet ordinaire = un `.ron` de contenu avec `test:`, jamais
 un scénario écrit à la main. Mesures : voir `docs/taches/rapports/m3-t13-generateur-v3.md`.
