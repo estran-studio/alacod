@@ -362,6 +362,25 @@ fn lint_characters(registry: &Registry, errors: &mut Vec<LintError>) {
             });
         }
 
+        // D78 : le personnage joueur (`player`) porte le skin "1" pour le handle 0 et "2" pour
+        // tous les autres (`game::character::player::create`) : sans "2", le second joueur en
+        // ligne n'a pas de skin.
+        if character.id.as_str() == "player" {
+            for skin in ["1", "2"] {
+                if !character.skins.contains(skin) {
+                    errors.push(LintError {
+                        kind: LintErrorKind::BrokenReference,
+                        file: file.clone(),
+                        message: format!(
+                            "personnage « player » : skin « {skin} » absent de skins ({:?}) : le joueur de handle {} n'aurait pas de skin",
+                            character.skins,
+                            if skin == "1" { "0" } else { "1 et plus" }
+                        ),
+                    });
+                }
+            }
+        }
+
         // Hors plage : santé > 0 (littéral seulement ; une expression est validée par
         // `lint_num_or_expr`).
         if let Some(max) = character.base_health_max.literal() {
