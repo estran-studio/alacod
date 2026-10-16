@@ -56,6 +56,9 @@ struct SyncTestMismatches {
 /// Updates maximum pour charger la map avant la première frame de simulation.
 const MAX_LOADING_UPDATES: u32 = 10_000;
 
+/// Frames maximum de la phase du hub d'un scénario qui suit la relance (`HubSetup { stay: false }`).
+const HUB_PHASE_MAX_FRAMES: u32 = 2_000;
+
 /// Métriques de performance d'un scénario.
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct Metrics {
@@ -428,6 +431,10 @@ pub fn build_app(scenario: &Scenario, headless: bool, config: &PlayConfig) -> Ap
         // joueurs de `bot_assignments` sont remplacés ensuite quel que soit ce mode.
         .add_plugins(BotsPlugin)
         .insert_resource(bot_assignments(scenario))
+        .insert_resource(bots::explorer::ExplorerOptions {
+            boss_direct: false,
+            shopping: scenario.shopping,
+        })
         .init_resource::<SyncTestMismatches>()
         .add_observer(|mismatch: On<SyncTestMismatch>, mut log: ResMut<SyncTestMismatches>| {
             let m = mismatch.event();
@@ -457,7 +464,7 @@ pub fn build_app(scenario: &Scenario, headless: bool, config: &PlayConfig) -> Ap
         app.insert_resource(game::run_state::FloorsOverride(floors.clone()));
     }
     // M2-T13 : le scénario démarre au hub du manifeste (`entry.hub`).
-    if let Some(hub) = scenario.hub {
+    if let Some(hub) = &scenario.hub {
         let hub_map = app
             .world()
             .resource::<content::manifest::GameManifest>()
@@ -473,6 +480,16 @@ pub fn build_app(scenario: &Scenario, headless: bool, config: &PlayConfig) -> Ap
             });
             if hub.stay {
                 app.insert_resource(game::hub::HubStay);
+            } else if !hub.inputs.is_empty() {
+                // m2-full-run : le hub a ses propres pistes, sans bot ; les `players` du scénario
+                // reprennent la main quand la porte relance la session (`swap_hub_inputs`).
+                app.insert_resource(RunPhaseInputs {
+                    scripted: scenario.scripted_inputs(),
+                    bots: bot_assignments(scenario),
+                })
+                .insert_resource(scenario.hub_scripted_inputs())
+                .insert_resource(BotAssignments::default())
+                .add_systems(Update, swap_hub_inputs);
             }
         }
     }
@@ -531,6 +548,33 @@ fn bot_assignments(scenario: &Scenario) -> BotAssignments {
         }
     }
     BotAssignments(assignments)
+}
+
+/// Inputs de la run d'un scénario qui passe par le hub avec ses propres pistes
+/// (`HubSetup::inputs`) : posés quand la porte relance la session.
+#[derive(Resource)]
+struct RunPhaseInputs {
+    scripted: ScriptedInputs,
+    bots: BotAssignments,
+}
+
+/// Quand `HubSession::in_hub` passe à faux (la sortie du hub est confirmée), les pistes et les
+/// bots du scénario remplacent ceux du hub. Les joueurs sont encore ceux du hub ou en cours de
+/// recréation : aucune frame de run n'est lue avant cet échange.
+fn swap_hub_inputs(
+    mut commands: Commands,
+    session: Option<Res<game::hub::HubSession>>,
+    run_inputs: Option<Res<RunPhaseInputs>>,
+) {
+    let (Some(session), Some(run_inputs)) = (session, run_inputs) else {
+        return;
+    };
+    if session.in_hub {
+        return;
+    }
+    commands.insert_resource(run_inputs.scripted.clone());
+    commands.insert_resource(run_inputs.bots.clone());
+    commands.remove_resource::<RunPhaseInputs>();
 }
 
 /// Fait avancer le scénario (headless) jusqu'à la frame `frame` et rend l'app, pour
@@ -1278,12 +1322,24 @@ pub fn run_with_options<F: FnOnce(&mut App)>(
     app.finish();
     app.cleanup();
 
+    // Hub suivi (m2-full-run) : la session démarre au hub, la porte la relance en run.
+    let hub_follow = scenario.hub.as_ref().is_some_and(|hub| !hub.stay)
+        && app.world().contains_resource::<game::hub::HubSession>();
+    let is_hub_expectation =
+        |e: &Expectation| matches!(e, Expectation::HubExit { .. } | Expectation::HubVisit { .. });
+    let mut hub_pending: Vec<&Expectation> = scenario
+        .expect
+        .iter()
+        .filter(|e| hub_follow && is_hub_expectation(e))
+        .collect();
+    hub_pending.sort_by_key(|e| e.at_frame());
+
     // Séparer les attentes ponctuelles des attentes continues (NoDamageBetween, et T1.4 :
     // EnemyContactBefore, EnemyNeverInWall)
     let mut pending: Vec<&Expectation> = scenario
         .expect
         .iter()
-        .filter(|e| !is_continuous(e))
+        .filter(|e| !is_continuous(e) && !(hub_follow && is_hub_expectation(e)))
         .collect();
     pending.sort_by_key(|e| e.at_frame());
 
@@ -1362,7 +1418,15 @@ pub fn run_with_options<F: FnOnce(&mut App)>(
         .query::<(&Player, Has<combat::downed::Downed>)>();
     let mut floors_softlocked = false;
 
-    let max_updates = MAX_LOADING_UPDATES + scenario.frames;
+    // Hub suivi (`HubSetup { stay: false }`) : la phase du hub s'ajoute au budget d'updates.
+    let mut hub_phase = hub_follow;
+    let max_updates = MAX_LOADING_UPDATES
+        + scenario.frames
+        + if hub_follow {
+            MAX_LOADING_UPDATES + HUB_PHASE_MAX_FRAMES
+        } else {
+            0
+        };
     let mut frame = 0;
     let mut stopped_early = false;
     let mut previous_snapshot = None;
@@ -1383,6 +1447,16 @@ pub fn run_with_options<F: FnOnce(&mut App)>(
             t_update += t0.elapsed().as_secs_f64();
         }
         frame = app.world().resource::<FrameCount>().frame;
+        if hub_phase
+            && frame == 0
+            && !app.world().resource::<game::hub::HubSession>().in_hub
+        {
+            // La porte du hub a relancé la session : la run commence (frames de 0). Le chrono de
+            // simulation repart avec elle (le hub n'entre pas dans `sim_fps`).
+            hub_phase = false;
+            sim_start = None;
+            sim_elapsed = 0.0;
+        }
         if let Some(start) = sim_start {
             sim_elapsed = start.elapsed().as_secs_f64();
         }
@@ -1465,8 +1539,15 @@ pub fn run_with_options<F: FnOnce(&mut App)>(
             break; // la session synctest n'avance plus après un mismatch
         }
 
-        while pending.first().is_some_and(|e| e.at_frame() <= frame) {
-            let expectation = pending.remove(0);
+        // Attentes du hub (phase hub d'un scénario qui suit la relance) ou de la run : les frames
+        // repartent de 0 à la run, chaque liste n'est lue que pendant sa phase.
+        let due = if hub_phase {
+            &mut hub_pending
+        } else {
+            &mut pending
+        };
+        while due.first().is_some_and(|e| e.at_frame() <= frame) {
+            let expectation = due.remove(0);
             if let Err(reason) = check(app.world_mut(), expectation) {
                 failures.push(format!("frame {frame}: {expectation:?} : {reason}"));
             }
@@ -1533,7 +1614,7 @@ pub fn run_with_options<F: FnOnce(&mut App)>(
             previous_snapshot = Some(crate::softlock::snapshot(app.world_mut()));
         }
 
-        if stopped_early || floors_softlocked || frame >= scenario.frames {
+        if stopped_early || floors_softlocked || (frame >= scenario.frames && !hub_phase) {
             break;
         }
     }
@@ -1550,6 +1631,23 @@ pub fn run_with_options<F: FnOnce(&mut App)>(
         0.0
     };
 
+    if hub_follow {
+        if hub_phase {
+            failures.push(format!(
+                "la porte du hub n'a jamais relancé la run (frame {frame} au hub)"
+            ));
+        }
+        failures.extend(hub_pending.iter().map(|expectation| {
+            format!("{expectation:?} : jamais évaluée, la phase du hub s'est terminée avant")
+        }));
+        if scenario.expect.iter().any(is_continuous) {
+            failures.push(
+                "attentes continues (NoDamageBetween, EnemyContactBefore, EnemyNeverInWall) \
+                 non prises en charge avec un hub suivi (`hub: Some((stay: false))`)"
+                    .into(),
+            );
+        }
+    }
     if frame < scenario.frames && !stopped_early && !floors_softlocked {
         failures.push(format!(
             "la simulation n'a atteint que la frame {frame} sur {} (map pas chargée ?)",

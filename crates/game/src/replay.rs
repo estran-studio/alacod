@@ -98,6 +98,11 @@ pub struct Scenario {
     /// Démarrer au hub (M2-T13, §57). `None` : la partie du scénario, comme avant.
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub hub: Option<HubSetup>,
+    /// Les bots `explorateur` ouvrent les coffres et achètent les présentoirs qu'ils peuvent payer
+    /// (D62, `bots::explorer::ExplorerOptions::shopping`, l'option `--shopping` d'`alacod-sim`).
+    /// Faux par défaut : aucune trace de bot existante ne bouge.
+    #[serde(default, skip_serializing_if = "std::ops::Not::not")]
+    pub shopping: bool,
     /// Force `PowerUpsConfig::drop_chance` pour ce scénario (T2.5), pour prouver le chemin
     /// « drop à la mort » sans dépendre du tirage réel du jeu (scénario
     /// `powerup_drop_on_kill`) — voir `scenario::runner::apply_powerup_drop_chance_override`.
@@ -206,10 +211,19 @@ pub struct ProfilePurchase {
 /// carte du hub du manifeste (`entry.hub`) et `Scenario::map` pour la run. `stay: true` empêche le
 /// lancement de la run une fois la sortie confirmée (la preuve de l'état `HubExit` reste dans la
 /// session ; la relance a son propre test).
-#[derive(Debug, Clone, Copy, PartialEq, Eq, Default, Serialize, Deserialize)]
+///
+/// `stay: false` (m2-full-run, §57) : le runner suit la relance. Le scénario se joue alors en deux
+/// phases : le hub (frames du hub, attentes `HubExit` et `HubVisit` seulement), puis la run, dont
+/// les frames repartent de 0 : `frames`, les autres attentes, la trace et les moments clés sont
+/// ceux de la run. `inputs` (un script par joueur, indice = handle) pilote le hub à la place de
+/// `players[i].inputs`/`bot` ; vide, le hub est joué avec les `players` du scénario (comme avec
+/// `stay: true`).
+#[derive(Debug, Clone, PartialEq, Default, Serialize, Deserialize)]
 pub struct HubSetup {
     #[serde(default)]
     pub stay: bool,
+    #[serde(default, skip_serializing_if = "Vec::is_empty")]
+    pub inputs: Vec<Vec<Segment>>,
 }
 
 /// Profils d'un scénario `profile: true` (M2-T12) : états de départ puis achats, dans cet ordre.
@@ -585,6 +599,18 @@ impl Scenario {
                         .map(Segment::to_input_segment)
                         .collect()
                 })
+                .collect(),
+        }
+    }
+
+    /// Pistes du hub (`HubSetup::inputs`), dans le même format que [`Self::scripted_inputs`].
+    pub fn hub_scripted_inputs(&self) -> ScriptedInputs {
+        ScriptedInputs {
+            players: self
+                .hub
+                .iter()
+                .flat_map(|hub| hub.inputs.iter())
+                .map(|segments| segments.iter().map(Segment::to_input_segment).collect())
                 .collect(),
         }
     }

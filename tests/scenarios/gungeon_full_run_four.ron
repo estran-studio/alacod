@@ -1,0 +1,72 @@
+// m2-full-run (docs/conventions.md §57, « Run complète de M2 ») : la même run que `gungeon_full_run`
+// (graine 10, `etages_deux`, hub puis run, profil à trois déblocages, `shopping`) à QUATRE joueurs,
+// quatre bots `explorateur`, en synctest. Le gabarit `Depart` de `gungeon` porte quatre `PlayerSpawn`
+// (index 0 à 3) depuis cette tâche. Les quatre traversent les deux étages et gagnent.
+//
+// À regarder : hub f175 la porte ; run f1 « entrée en run depuis le hub » ; f70-84 les quatre joueurs
+// lâchent un blank devant la première salle ; f148 un joueur ramasse une clé ; f1050-1800 l'arène tenue ;
+// f2362-2424 achats en boutique ; f2478 et f2552 coffres ouverts ; f2969 le boss se verrouille, phases
+// f3017 et f3051, f3059 portail, f3265 SECOND ÉTAGE ; f5143-5893 la seconde arène ; f6301 le second
+// boss, phases f6357 et f6381, f6408 VICTOIRE des quatre joueurs.
+Scenario(
+    powerup_drop_chance_override: "0.0",
+    game: "gungeon",
+    map: "maps/etage_1.ldtk",
+    floors: Some("etages_deux"),
+    map_seed: 10,
+    frames: 6500,
+    shopping: true,
+    profile: true,
+    profile_setup: Some((
+        profiles: [(handle: 0, unlocks: ["first_run"], essence: 120, stats: {"runs": 1})],
+        purchases: [
+            (handle: 0, unlock: "tresor_trefle"),
+            (handle: 0, unlock: "coffre_riche"),
+            (handle: 0, unlock: "etendard_royal"),
+        ],
+    )),
+    hub: Some((stay: false, inputs: [
+        [
+            (from: 10, to: 42, buttons: [Right]),
+            (from: 42, to: 74, buttons: [Up]),
+            (from: 80, to: 82, buttons: [Interaction]),
+            (from: 100, to: 138, buttons: [Right]),
+            (from: 138, to: 157, buttons: [Down]),
+            (from: 170, to: 172, buttons: [Interaction]),
+        ],
+        [],
+        [],
+        [],
+    ])),
+    players: [
+        (bot: explorateur),
+        (bot: explorateur),
+        (bot: explorateur),
+        (bot: explorateur),
+    ],
+    expect: [
+        HubVisit(handle: 0, service: "marchand", at_frame: 120),
+        HubExit(handle: Some(0), exit_frame: Some(175), at_frame: 177),
+        Event(kind: "hub", label_contains: "entrée en run depuis le hub", by_frame: 1),
+        Event(kind: "unlock", label_contains: "tresor_trefle", by_frame: 1),
+        RunUnlocks(has: ["tresor_trefle", "coffre_riche", "etendard_royal"], at_frame: 5),
+        PlayerAlive(handle: 3, at_frame: 5),
+        Event(kind: "blank", label_contains: "joueur 3", by_frame: 70),
+        Event(kind: "item_pickup", label_contains: "key", by_frame: 148),
+        Event(kind: "arena", label_contains: "tenue (750 frames)", by_frame: 1800),
+        Event(kind: "purchase", label_contains: "(shop)", by_frame: 2362),
+        Event(kind: "chest", by_frame: 2478),
+        Event(kind: "boss_phase", label_contains: "phase 0 → 1", by_frame: 3017),
+        BossPhase(entity: NetId(213), phase: 2, at_frame: 3051),
+        Event(kind: "portal", by_frame: 3059),
+        FloorIndex(index: 0, at_frame: 3200),
+        FloorIndex(index: 1, at_frame: 3400),
+        Event(kind: "arena", label_contains: "tenue (750 frames)", by_frame: 5893),
+        BossPhase(entity: NetId(752), phase: 2, at_frame: 6390),
+        RunState(step: Ended(Victory), at_frame: 6450),
+        PlayerAlive(handle: 0, at_frame: 6499),
+        PlayerAlive(handle: 1, at_frame: 6499),
+        PlayerAlive(handle: 2, at_frame: 6499),
+        PlayerAlive(handle: 3, at_frame: 6499),
+    ],
+)

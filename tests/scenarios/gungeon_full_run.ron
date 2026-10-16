@@ -1,0 +1,101 @@
+// m2-full-run (docs/conventions.md §57, « Run complète de M2 ») : la run de M2 de bout en bout, deux
+// bots `explorateur` sur `etages_deux` (graine 10), avec `shopping: true` (coffres ouverts, présentoirs
+// achetés), en passant par le hub et un profil qui porte trois déblocages. Chaque mécanique de la
+// fiche a son moment clé (`events.json`) ET une attente.
+//
+// Deux phases : le hub (`hub: Some((stay: false, …))`, frames du hub : le joueur 0 va au marchand puis à
+// la porte ; le runner suit la relance) puis la run (frames de 0, tout le reste). Le profil est
+// constitué avant la partie (`profile_setup`) : 120 d'essence, jalon `first_run`, statistique `runs` = 1,
+// et trois achats (trèfle 20, coffres plus riches 60, étendard 40) ; la run les lit (`RunUnlocks`).
+//
+// À regarder : hub f80 le marchand (écran ouvert, f120), f175 la porte ; run f1 « entrée en run depuis
+// le hub » et « déblocages du profil » ; f42 la première salle de combat se verrouille, f70 et f82 les
+// deux joueurs lâchent un blank, f139 salle nettoyée ; f157 un joueur ramasse une clé ; f1471-1605
+// l'escouade ; f1890-2640 l'ARÈNE (750 frames à tenir, « arène tenue » f2640) ; f2825-2887 achats en
+// boutique (gilet, roulade) ; f2928 le coffre à clé de la salle récompense (clé 1 → 0, un fusil `arc`
+// tombe) ; f3022 un objet (rancune) ramassé ; f3406 le boss se verrouille, f3439 phase 1, f3487 phase 2
+// (trois phases), f3488 salle nettoyée, f3489 PORTAIL ouvert, f3691 SECOND ÉTAGE ; f6172-6922 la
+// seconde arène ; f7325 le second boss, phases f7471 et f7532, f7545 VICTOIRE. Fin : le profil du
+// joueur 0 gagne `first_victory` et l'essence de la run.
+Scenario(
+    powerup_drop_chance_override: "0.0",
+    game: "gungeon",
+    map: "maps/etage_1.ldtk",
+    floors: Some("etages_deux"),
+    map_seed: 10,
+    frames: 7700,
+    shopping: true,
+    profile: true,
+    profile_setup: Some((
+        profiles: [(handle: 0, unlocks: ["first_run"], essence: 120, stats: {"runs": 1})],
+        purchases: [
+            (handle: 0, unlock: "tresor_trefle"),
+            (handle: 0, unlock: "coffre_riche"),
+            (handle: 0, unlock: "etendard_royal"),
+        ],
+    )),
+    hub: Some((stay: false, inputs: [
+        [
+            // Le marchand (f80, interaction), puis la porte (f170).
+            (from: 10, to: 42, buttons: [Right]),
+            (from: 42, to: 74, buttons: [Up]),
+            (from: 80, to: 82, buttons: [Interaction]),
+            (from: 100, to: 138, buttons: [Right]),
+            (from: 138, to: 157, buttons: [Down]),
+            (from: 170, to: 172, buttons: [Interaction]),
+        ],
+        [],
+    ])),
+    players: [
+        (bot: explorateur),
+        (bot: explorateur),
+    ],
+    expect: [
+        // Hub (frames du hub) : le marchand puis la porte.
+        HubExit(none: true, at_frame: 60),
+        HubVisit(handle: 0, service: "marchand", at_frame: 120),
+        HubExit(handle: Some(0), exit_frame: Some(175), at_frame: 177),
+        // Run (frames de 0). Entrée depuis le hub et déblocages lus du profil.
+        Event(kind: "hub", label_contains: "entrée en run depuis le hub", by_frame: 1),
+        Event(kind: "unlock", label_contains: "tresor_trefle", by_frame: 1),
+        RunUnlocks(has: ["tresor_trefle", "coffre_riche", "etendard_royal"], at_frame: 5),
+        // Salle verrouillée puis nettoyée, blanks, clé ramassée.
+        Event(kind: "room", label_contains: "salle combat verrouillée", by_frame: 42),
+        Event(kind: "blank", by_frame: 70),
+        Event(kind: "room", label_contains: "salle combat nettoyée", by_frame: 139),
+        Event(kind: "item_pickup", label_contains: "key", by_frame: 157),
+        Consumable(handle: 0, id: "key", count: 1, at_frame: 200),
+        Event(kind: "room", label_contains: "salle escouade nettoyée", by_frame: 1605),
+        // Arène tenue.
+        Event(kind: "room", label_contains: "salle arene verrouillée", by_frame: 1890),
+        Event(kind: "arena", label_contains: "tenue (750 frames)", by_frame: 2640),
+        // Boutique : achats, objets tenus.
+        Event(kind: "purchase", label_contains: "(shop)", by_frame: 2825),
+        HasItem(handle: 0, id: "gilet", at_frame: 2900),
+        HasItem(handle: 0, id: "roulade", at_frame: 2900),
+        // Coffre à clé ouvert : la clé est consommée.
+        Consumable(handle: 0, id: "key", count: 1, at_frame: 2920),
+        Event(kind: "chest", label_contains: "weapon:arc", by_frame: 2928),
+        Consumable(handle: 0, id: "key", count: 0, at_frame: 2930),
+        // Objet ramassé.
+        Event(kind: "item_pickup", label_contains: "rancune", by_frame: 3022),
+        HasItem(handle: 0, id: "rancune", at_frame: 3100),
+        // Boss du premier étage et ses trois phases, portail, second étage.
+        Event(kind: "room", label_contains: "salle boss verrouillée", by_frame: 3406),
+        Event(kind: "boss_phase", label_contains: "phase 0 → 1", by_frame: 3439),
+        BossPhase(entity: NetId(205), phase: 2, at_frame: 3487),
+        Event(kind: "portal", by_frame: 3489),
+        RoomState(kind: "boss", state: Cleared, at_frame: 3500),
+        FloorIndex(index: 0, at_frame: 3600),
+        Event(kind: "floor", label_contains: "niveau 1", by_frame: 3691),
+        FloorIndex(index: 1, at_frame: 3800),
+        // Second étage : seconde arène, second boss, victoire.
+        Event(kind: "arena", label_contains: "tenue (750 frames)", by_frame: 6922),
+        BossPhase(entity: NetId(694), phase: 2, at_frame: 7535),
+        RunState(step: Ended(Victory), at_frame: 7600),
+        // Le profil du joueur 0 enregistre la fin de run.
+        ProfileHas(handle: 0, unlock: "first_victory", at_frame: 7700),
+        PlayerAlive(handle: 0, at_frame: 7699),
+        PlayerAlive(handle: 1, at_frame: 7699),
+    ],
+)

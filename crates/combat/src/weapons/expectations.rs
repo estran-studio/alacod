@@ -197,7 +197,10 @@ pub enum Expectation {
     /// "weapon", "move", "melee", "death", "window", "door", "downed", "revived", "defeat",
     /// "drop", "pickup" (T2.2, chantier B7), "portal", "floor" (T1.8, mode `Floors`),
     /// "terrain" (T1.6, terrain de caverne creusé), "levelup", "mutation" (T1.10), "feedback"
-    /// (T1.17 : "télégraphe", "hit stop", "secousse" dans le libellé).
+    /// (T1.17 : "télégraphe", "hit stop", "secousse" dans le libellé), et pour M2 : "item_pickup",
+    /// "blank", "room", "boss_phase", "purchase" (achat en boutique : raison `shop` dans le
+    /// libellé), "chest" (coffre ouvert), "arena" (arène tenue), "unlock" (déblocages du profil
+    /// lus par la partie), "hub" (run entrée depuis le hub).
     Event {
         kind: String,
         #[serde(default, skip_serializing_if = "Option::is_none")]

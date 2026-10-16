@@ -4,7 +4,7 @@
 //! Partagé par le jeu `zombies` (`games/zombies`) et les scénarios de test, pour qu'ils jouent
 //! exactement la même partie.
 
-use bevy::{ecs::system::SystemParam, platform::collections::HashMap, prelude::*};
+use bevy::{ecs::system::SystemParam, prelude::*};
 use bevy_fixed::fixed_math;
 use bevy_ggrs::Rollback;
 use game::{
@@ -113,6 +113,25 @@ pub fn configure_map(
     ggrs_state.ready = true;
 }
 
+/// Décalage (unités monde, vers le bas) par « tour » des joueurs qui n'ont pas de point de départ
+/// propre : `gungeon` n'en a que deux (gabarit `Depart`) et se joue jusqu'à quatre. Ajouter des
+/// `PlayerSpawn` au gabarit déplacerait le barycentre du portail et la numérotation des entités de
+/// toutes les étages ; cette règle ne s'applique qu'où le chargement paniquait avant.
+const EXTRA_PLAYER_SPAWN_SHIFT: f32 = 24.0;
+
+/// Point de départ du joueur `handle` : son `PlayerSpawn` (`index == handle`), sinon, quand il y a
+/// plus de joueurs que de points, celui de rang `handle % n` (points triés par index) décalé de
+/// [`EXTRA_PLAYER_SPAWN_SHIFT`] par tour complet. `spawns` n'est pas vide.
+fn player_spawn_point(spawns: &std::collections::BTreeMap<usize, Vec3>, handle: usize) -> Vec3 {
+    if let Some(point) = spawns.get(&handle) {
+        return *point;
+    }
+    let ordered: Vec<&Vec3> = spawns.values().collect();
+    let mut point = *ordered[handle % ordered.len()];
+    point.y -= EXTRA_PLAYER_SPAWN_SHIFT * (handle / ordered.len()) as f32;
+    point
+}
+
 #[allow(clippy::too_many_arguments)]
 fn spawn_players_when_map_loaded(
     mut commands: Commands,
@@ -129,10 +148,10 @@ fn spawn_players_when_map_loaded(
 ) {
     // T1.8 : seuls les points de départ du premier niveau (emplacement 0 ; la carte unique
     // hors mode `Floors`).
-    let spawns: HashMap<usize, &GlobalTransform> = player_spawn
+    let spawns: std::collections::BTreeMap<usize, Vec3> = player_spawn
         .iter()
         .filter(|(entity, _, _)| slots.slot_of(*entity) == 0)
-        .map(|(_, transform, config)| (config.index, transform))
+        .map(|(_, transform, config)| (config.index, transform.translation()))
         .collect();
 
     info!("Map is loaded with {} player spawns", spawns.len());
@@ -143,11 +162,9 @@ fn spawn_players_when_map_loaded(
 
     for ggrs_player in ggrs_session_building.players.iter() {
         let handle = ggrs_player.handle;
-        let transform = spawns
-            .get(&handle)
-            .unwrap_or_else(|| panic!("pas de point de spawn pour le joueur {handle}"));
+        let translation = player_spawn_point(&spawns, handle);
 
-        if transform.translation().x == 0.0 && transform.translation().y == 0.0 {
+        if translation.x == 0.0 && translation.y == 0.0 {
             return;
         }
 
@@ -167,7 +184,7 @@ fn spawn_players_when_map_loaded(
             &melee_weapons_asset,
             &character_asset,
             &collision_settings,
-            fixed_math::vec3_to_fixed(transform.translation()),
+            fixed_math::vec3_to_fixed(translation),
             ggrs_player.is_local,
             handle,
             ggrs_player.name.clone(),
@@ -619,5 +636,30 @@ fn parse_team(name: &str) -> Option<Team> {
             warn!("CharacterSpawn : champ « team » inconnu « {name} », ignoré");
             None
         }
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    fn deux_points() -> std::collections::BTreeMap<usize, Vec3> {
+        [(0, Vec3::new(-8.0, -8.0, 0.0)), (1, Vec3::new(24.0, -8.0, 0.0))].into()
+    }
+
+    #[test]
+    fn chaque_joueur_a_son_point_quand_il_y_en_a_assez() {
+        let spawns = deux_points();
+        assert_eq!(player_spawn_point(&spawns, 0), Vec3::new(-8.0, -8.0, 0.0));
+        assert_eq!(player_spawn_point(&spawns, 1), Vec3::new(24.0, -8.0, 0.0));
+    }
+
+    #[test]
+    fn les_joueurs_en_trop_reprennent_les_points_decales_vers_le_bas() {
+        let spawns = deux_points();
+        // Joueurs 2 et 3 : points 0 et 1 une fois décalés ; joueur 4 : point 0 décalé deux fois.
+        assert_eq!(player_spawn_point(&spawns, 2), Vec3::new(-8.0, -32.0, 0.0));
+        assert_eq!(player_spawn_point(&spawns, 3), Vec3::new(24.0, -32.0, 0.0));
+        assert_eq!(player_spawn_point(&spawns, 4), Vec3::new(-8.0, -56.0, 0.0));
     }
 }
