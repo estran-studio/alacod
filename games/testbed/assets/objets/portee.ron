@@ -1,0 +1,10 @@
+// M3-T2 (docs/conventions.md §67) : `TargetInRange` d'essai, lue sur la cible d'`OnHit`. Une cible à moins
+// de 200 unités : +1 de dégâts ; à moins de 50 : +10. Scénarios `effect_target_in_range`.
+(
+    name: "Portée",
+    kind: Passive,
+    effects: [
+        (on: OnHit, if: [TargetInRange("200")], do: [Modifier(stat: Damage, op: Add, value: "1")]),
+        (on: OnHit, if: [TargetInRange("50")], do: [Modifier(stat: Damage, op: Add, value: "10")]),
+    ],
+)

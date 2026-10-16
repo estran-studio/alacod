@@ -1,0 +1,11 @@
+// Fixture T1.10 (`lint::lint_effect`) : déclencheur, condition et action non exécutés en v1.
+(
+    name: "fixture-effect_unsupported",
+    content_folders: [
+        (path: "characters/hero.ron", kind: "Character"),
+    ],
+    entry: (
+        start_map: "unused",
+        default_seed: 1,
+    ),
+)

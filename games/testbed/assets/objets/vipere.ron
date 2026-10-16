@@ -1,0 +1,15 @@
+// M3-T2 (docs/conventions.md §67) : passif d'essai des effets v3. Un coup porté (`OnHit`) empoisonne
+// la cible (`ApplyStatus`, une pile par exemplaire : `Scaled(PerCopy)`) et émet « coup » ; l'effet
+// `OnEvent("coup")` du même porteur y répond dans la même frame (+1 de dégâts). Scénarios
+// `effect_on_hit`, `effect_per_copy`.
+(
+    name: "Vipère",
+    kind: Passive,
+    effects: [
+        (on: OnHit, do: [
+            Scaled(action: ApplyStatus(status: "poison", stacks: 1), scale: Some(PerCopy)),
+            Emit("coup"),
+        ]),
+        (on: OnEvent("coup"), do: [Modifier(stat: Damage, op: Add, value: "1")]),
+    ],
+)

@@ -10,10 +10,8 @@
     skins: {
         "1": (layers: {}),
     },
-    // Erreurs volontaires : OnHit (v2), TargetInRange (contrat) et OnEvent (contrat), RefillAmmo dans un effet.
+    // Erreur volontaire : RefillAmmo dans un effet.
     effects: [
-        (on: OnHit, do: [Heal("5")]),
-        (on: OnEvent("x"), do: [Heal("5")]),
         (on: OnKill, if: [TargetInRange("10")], do: [RefillAmmo]),
     ],
 )

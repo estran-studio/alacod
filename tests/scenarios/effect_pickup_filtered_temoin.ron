@@ -1,0 +1,22 @@
+// M3-T2 : témoin de `effect_pickup_filtered` : mêmes ramassages (lame, bottes) sans l'objet `filtre` ; les
+// dégâts restent à 1.
+Scenario(
+    powerup_drop_chance_override: "0.0",
+    game: "testbed",
+    map: "testbed/salles.ldtk",
+    map_seed: 1,
+    frames: 160,
+    items: [
+        (id: "lame", x: "-904.0", y: "-584.0", at_frame: 50),
+        (id: "bottes", x: "-904.0", y: "-584.0", at_frame: 100),
+    ],
+    players: [
+        (inputs: [
+            (from: 60, to: 63, buttons: [Interaction]),
+            (from: 110, to: 113, buttons: [Interaction]),
+        ]),
+    ],
+    expect: [
+        Stat(handle: 0, stat: Damage, value: 1.0, at_frame: 150),
+    ],
+)

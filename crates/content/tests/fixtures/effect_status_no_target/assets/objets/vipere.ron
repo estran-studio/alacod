@@ -1,0 +1,3 @@
+(name: "Vipère", kind: Passive, effects: [
+    (on: OnDodge, do: [ApplyStatus(status: "poison", stacks: 1)]),
+])

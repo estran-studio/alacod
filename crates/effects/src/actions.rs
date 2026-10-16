@@ -179,14 +179,93 @@ pub enum Action {
         #[serde(default)]
         scale: Option<Scale>,
     },
+    /// M3-T2 (`docs/conventions.md` §67) : émet l'événement nommé `name` ; les effets `OnEvent(name)` du
+    /// **même porteur** y répondent dans la même frame (voir `game::effects_v3`). Effets seulement
+    /// (lint). Ajoutée en fin d'enum.
+    Emit(String),
+    /// M3-T2 : comme [`Self::ApplyStatus`], mais sur le **porteur** de l'effet (sans cible de
+    /// déclencheur). `ApplyStatus` dans un effet vise la cible du déclencheur (`OnHit`,
+    /// `OnDamageTaken` ; pas `OnKill` : la cible est morte, le lint refuse). Variante séparée plutôt qu'un champ `to` : le hash des `ApplyStatus` d'`on_hit`
+    /// de projectile (déjà en trace) ne bouge pas.
+    ApplyStatusSelf {
+        status: String,
+        #[cfg_attr(feature = "schema", schemars(extend("x-lint" = "> 0")))]
+        stacks: u32,
+    },
 }
 
-/// Règle pure de multiplication par exemplaire ; l'exécution des actions reste T2.
+/// Règle pure de multiplication par exemplaire ([`scaled_action`] l'applique à une action).
 pub fn scale_value(value: Fixed, scale: Option<Scale>, copies: u32) -> Fixed {
     match scale {
         Some(Scale::PerCopy) => value * Fixed::from_num(copies),
         None => value,
     }
+}
+
+/// L'action a-t-elle une ampleur linéaire que `Scaled(PerCopy)` peut multiplier ? Liste blanche du
+/// lint, identique à ce que [`scaled_action`] sait faire (un `Scaled` imbriqué est déballé).
+pub fn is_linear(action: &Action) -> bool {
+    scaled_action(action, 2).is_some()
+}
+
+/// `action` multipliée par `copies` exemplaires (`Scale::PerCopy`, M3-T2). Rend `None` quand
+/// l'action n'a pas d'ampleur à multiplier ; les valeurs sont **linéaires** :
+/// `Heal`, `GainShield`, `Modifier`/`TimedModifier` d'op `Add` ou `Pct`, `ApplyStatus*` (piles),
+/// `Explode` (dégâts, pas le rayon). Un modificateur `Mul` ou `Set` n'est pas linéaire (`None`).
+/// `copies == 0` donne `None` (aucun exemplaire : rien à faire). Un `Scaled` imbriqué est déballé.
+pub fn scaled_action(action: &Action, copies: u32) -> Option<Action> {
+    if copies == 0 {
+        return None;
+    }
+    let n = Fixed::from_num(copies);
+    Some(match action {
+        Action::Heal(amount) => Action::Heal(amount.saturating_mul(n)),
+        Action::GainShield(points) => Action::GainShield(points.saturating_mul(copies)),
+        Action::Modifier { stat, op, value } if matches!(op, ModifierOp::Add | ModifierOp::Pct) => {
+            Action::Modifier {
+                stat: stat.clone(),
+                op: *op,
+                value: value.saturating_mul(n),
+            }
+        }
+        Action::TimedModifier {
+            stat,
+            op,
+            value,
+            frames,
+        } if matches!(op, ModifierOp::Add | ModifierOp::Pct) => Action::TimedModifier {
+            stat: stat.clone(),
+            op: *op,
+            value: value.saturating_mul(n),
+            frames: *frames,
+        },
+        Action::ApplyStatus { status, stacks } => Action::ApplyStatus {
+            status: status.clone(),
+            stacks: stacks.saturating_mul(copies),
+        },
+        Action::ApplyStatusSelf { status, stacks } => Action::ApplyStatusSelf {
+            status: status.clone(),
+            stacks: stacks.saturating_mul(copies),
+        },
+        Action::Explode {
+            radius,
+            damage,
+            destroys,
+        } => Action::Explode {
+            radius: *radius,
+            damage: damage.saturating_mul(n),
+            destroys: *destroys,
+        },
+        Action::Scaled {
+            action,
+            scale: Some(Scale::PerCopy),
+        } => return scaled_action(action, copies),
+        Action::Scaled {
+            action,
+            scale: None,
+        } => return scaled_action(action, copies),
+        _ => return None,
+    })
 }
 
 impl Action {
@@ -241,13 +320,101 @@ impl Action {
             | Action::Explode { .. }
             | Action::SpawnCharacters { .. }
             | Action::Chance { .. }
-            | Action::Scaled { .. } => None,
+            | Action::Scaled { .. }
+            | Action::Emit(_)
+            | Action::ApplyStatusSelf { .. } => None,
         }
     }
 }
 
 #[cfg(test)]
 mod tests {
+    use super::*;
+
+    #[test]
+    fn scaled_action_multiplie_les_ampleurs_lineaires() {
+        let fx = |v: f32| Fixed::from_num(v);
+        assert_eq!(
+            scaled_action(&Action::Heal(fx(2.0)), 3),
+            Some(Action::Heal(fx(6.0)))
+        );
+        assert_eq!(
+            scaled_action(&Action::GainShield(2), 4),
+            Some(Action::GainShield(8))
+        );
+        assert_eq!(
+            scaled_action(
+                &Action::Modifier {
+                    stat: StatId::Damage,
+                    op: ModifierOp::Add,
+                    value: fx(1.5)
+                },
+                2
+            ),
+            Some(Action::Modifier {
+                stat: StatId::Damage,
+                op: ModifierOp::Add,
+                value: fx(3.0)
+            })
+        );
+        assert_eq!(
+            scaled_action(
+                &Action::ApplyStatus {
+                    status: "poison".into(),
+                    stacks: 2
+                },
+                3
+            ),
+            Some(Action::ApplyStatus {
+                status: "poison".into(),
+                stacks: 6
+            })
+        );
+        // Explosion : les dégâts, pas le rayon
+        assert_eq!(
+            scaled_action(
+                &Action::Explode {
+                    radius: fx(40.0),
+                    damage: fx(5.0),
+                    destroys: true
+                },
+                2
+            ),
+            Some(Action::Explode {
+                radius: fx(40.0),
+                damage: fx(10.0),
+                destroys: true
+            })
+        );
+    }
+
+    #[test]
+    fn scaled_action_refuse_le_non_lineaire_et_zero_exemplaire() {
+        let fx = |v: f32| Fixed::from_num(v);
+        for op in [ModifierOp::Mul, ModifierOp::Set] {
+            assert_eq!(
+                scaled_action(
+                    &Action::Modifier {
+                        stat: StatId::Damage,
+                        op,
+                        value: fx(2.0)
+                    },
+                    2
+                ),
+                None,
+                "{op:?}"
+            );
+        }
+        assert_eq!(scaled_action(&Action::Heal(fx(1.0)), 0), None);
+        assert_eq!(scaled_action(&Action::Emit("x".into()), 2), None);
+        assert_eq!(scaled_action(&Action::RefillAmmo, 2), None);
+        // Scaled imbriqué : déballé, une seule multiplication
+        let inner = Action::Scaled {
+            action: Box::new(Action::Heal(fx(1.0))),
+            scale: None,
+        };
+        assert_eq!(scaled_action(&inner, 3), Some(Action::Heal(fx(3.0))));
+    }
     use super::*;
     use bevy_fixed::fixed_math::new as fx;
 

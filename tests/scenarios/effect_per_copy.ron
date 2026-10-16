@@ -1,0 +1,28 @@
+// M3-T2 (docs/conventions.md §67) : `Scaled(PerCopy)` : deux `vipere` tenues, UN coup : l'effet n'est exécuté qu'une fois, par
+// le premier exemplaire, ×2 (deux piles de poison, pas quatre). Composition linéaire : l'`Emit` (non `Scaled`)
+// s'exécute par exemplaire (2 émissions) mais le récepteur `OnEvent` écoute une fois par objet : +2 de
+// dégâts (1 + 2 = 3), pas +4.
+//
+// À regarder : la cible se teinte de vert à l'impact (poison), pas avant ; le bonus de dégâts
+// (« coup » émis puis lu dans la même frame) n'existe qu'après le premier coup.
+Scenario(
+    game: "testbed",
+    map: "testbed/props_room.ldtk",
+    frames: 150,
+    powerup_drop_chance_override: "0",
+    characters: [(character: "target", x: "560.0", y: "-194.0", at_frame: 1)],
+    players: [
+        (
+            inputs: [(from: 30, to: 32, buttons: [Fire], pan: (-127, 0))],
+            weapon: "pistol",
+            items: ["vipere", "vipere"],
+        ),
+    ],
+    expect: [
+        HasStatus(entity: Placed(0), status: "poison", present: false, at_frame: 29),
+        Stat(handle: 0, stat: Damage, value: 1.0, at_frame: 29),
+        HasStatus(entity: Placed(0), status: "poison", at_frame: 60),
+        StatusStacks(entity: Placed(0), status: "poison", stacks: 2, at_frame: 60),
+        Stat(handle: 0, stat: Damage, value: 3.0, at_frame: 60),
+    ],
+)

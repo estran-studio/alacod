@@ -40,6 +40,8 @@ impl Plugin for EffectsPlugin {
                     "Tick",
                     "OnEvent",
                     "OnLevelUp",
+                    "OnFloorStart",
+                    "OnBlank",
                 ][..],
             ),
             (
@@ -81,6 +83,8 @@ mod contract_tests {
             "Tick",
             "OnEvent",
             "OnLevelUp",
+            "OnFloorStart",
+            "OnBlank",
         ] {
             assert!(kinds.has("effect_trigger", name));
         }
@@ -95,7 +99,7 @@ mod contract_tests {
         ] {
             assert!(kinds.has("effect_condition", name));
         }
-        assert_eq!(kinds.names("effect_trigger").count(), 12);
+        assert_eq!(kinds.names("effect_trigger").count(), 14);
         assert_eq!(kinds.names("effect_condition").count(), 7);
     }
 }

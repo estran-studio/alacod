@@ -1,0 +1,29 @@
+// M3-T2 (docs/conventions.md §67) : `OnPickup` filtré (`item: Some("bottes")`). Le `filtre` (f10), puis la `lame`
+// (f60, sans effet sur lui), puis les `bottes` (f110, +1 de dégâts).
+//
+// À regarder : les dégâts restent à 1 aux ramassages du filtre et de la lame, passent à 2 au ramassage des
+// bottes. Témoin : `effect_pickup_filtered_temoin` (mêmes ramassages sans le filtre : rien ne bouge).
+Scenario(
+    powerup_drop_chance_override: "0.0",
+    game: "testbed",
+    map: "testbed/salles.ldtk",
+    map_seed: 1,
+    frames: 160,
+    items: [
+        (id: "filtre", x: "-904.0", y: "-584.0", at_frame: 5),
+        (id: "lame", x: "-904.0", y: "-584.0", at_frame: 50),
+        (id: "bottes", x: "-904.0", y: "-584.0", at_frame: 100),
+    ],
+    players: [
+        (inputs: [
+            (from: 10, to: 13, buttons: [Interaction]),
+            (from: 60, to: 63, buttons: [Interaction]),
+            (from: 110, to: 113, buttons: [Interaction]),
+        ]),
+    ],
+    expect: [
+        Stat(handle: 0, stat: Damage, value: 1.0, at_frame: 40),
+        Stat(handle: 0, stat: Damage, value: 1.0, at_frame: 100),
+        Stat(handle: 0, stat: Damage, value: 2.0, at_frame: 150),
+    ],
+)

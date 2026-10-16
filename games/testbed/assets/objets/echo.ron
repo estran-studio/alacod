@@ -1,0 +1,11 @@
+// M3-T2 (docs/conventions.md §67) : `Emit`/`OnEvent` d'essai. Le ramassage émet « go » ; seul l'effet
+// qui écoute « go » répond (+1 de dégâts), pas celui qui écoute « autre » (+10). Scénarios `effect_on_event`.
+(
+    name: "Écho",
+    kind: Passive,
+    effects: [
+        (on: OnPickup, do: [Emit("go")]),
+        (on: OnEvent("go"), do: [Modifier(stat: Damage, op: Add, value: "1")]),
+        (on: OnEvent("autre"), do: [Modifier(stat: Damage, op: Add, value: "10")]),
+    ],
+)

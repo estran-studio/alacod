@@ -146,6 +146,28 @@ pub struct ItemDef {
     #[serde(default, skip_serializing_if = "Option::is_none")]
     #[cfg_attr(feature = "schema", schemars(extend("x-lint" = "> 0 (ou absent)")))]
     pub max_stack: Option<u32>,
+    /// M3-T2 (§67, Q16) : limites d'effet (`cooldown`, `charges`) partagées entre les exemplaires
+    /// du même objet (défaut, comportement d'avant) ou propres à chaque exemplaire.
+    #[serde(default, skip_serializing_if = "StackMode::is_shared")]
+    pub stack: StackMode,
+}
+
+/// Comment deux exemplaires d'un même passif comptent leurs limites d'effet (M3-T2, Q16). Le
+/// défaut `Shared` garde la clé `item:<id>:<index>` pour tous les exemplaires (aucune partie
+/// existante ne change) ; `Independent` donne au k-ième exemplaire (k >= 1) la clé
+/// `item:<id>#k:<index>` ([`item_effect_key`]), donc ses propres charges, cooldown et horloge `Tick`.
+#[cfg_attr(feature = "schema", derive(schemars::JsonSchema))]
+#[derive(Clone, Copy, Debug, Default, PartialEq, Eq, Hash, Serialize, Deserialize)]
+pub enum StackMode {
+    #[default]
+    Shared,
+    Independent,
+}
+
+impl StackMode {
+    pub fn is_shared(&self) -> bool {
+        matches!(self, StackMode::Shared)
+    }
 }
 
 /// Prix contractuel d'un présentoir (M3-T0b, §61). L'exécution vient de T8.
@@ -406,7 +428,7 @@ impl Inventory {
 }
 
 /// Clé stable d'un effet porté par un exemplaire. Le premier exemplaire conserve la clé v1 ;
-/// les suivants reçoivent un suffixe `#k` (M3-T0b, exécution branchée en M3-T2).
+/// les suivants reçoivent un suffixe `#k` (M3-T0b ; branchée par M3-T2 pour `StackMode::Independent`).
 pub fn item_effect_key(item_id: &str, copy_index: u32, effect_index: usize) -> String {
     if copy_index == 0 {
         format!("item:{item_id}:{effect_index}")
