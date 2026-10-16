@@ -88,8 +88,12 @@ Scenario(
         FloorIndex(index: 0, at_frame: 3600),
         Event(kind: "floor", label_contains: "niveau 1", by_frame: 3691),
         FloorIndex(index: 1, at_frame: 3800),
-        // Second étage : seconde arène, second boss, victoire.
-        Event(kind: "arena", label_contains: "tenue (750 frames)", by_frame: 6923),
+        // Second étage (événements postérieurs à l'arrivée f3691) : coffre, boutique, seconde arène,
+        // second boss, victoire.
+        EventAfter(kind: "chest", label_contains: "weapon:lance_roquettes", after_frame: 3800, by_frame: 4712),
+        EventAfter(kind: "purchase", label_contains: "(shop)", after_frame: 3800, by_frame: 5250),
+        EventAfter(kind: "arena", label_contains: "tenue (750 frames)", after_frame: 3800, by_frame: 6923),
+        EventAfter(kind: "boss_phase", label_contains: "phase 1 → 2", after_frame: 3800, by_frame: 7533),
         BossPhase(entity: NetId(694), phase: 2, at_frame: 7535),
         RunState(step: Ended(Victory), at_frame: 7600),
         // Le profil du joueur 0 enregistre la fin de run.

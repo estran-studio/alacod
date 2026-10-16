@@ -71,7 +71,11 @@ Scenario(
         Event(kind: "portal", by_frame: 3226),
         FloorIndex(index: 0, at_frame: 3300),
         FloorIndex(index: 1, at_frame: 3500),
-        // Second étage : arène, boss, victoire des quatre.
+        // Second étage (événements postérieurs à l'arrivée f3424) : coffre, boutique, arène, boss.
+        EventAfter(kind: "chest", label_contains: "joueur 2 ouvre", after_frame: 3500, by_frame: 4442),
+        EventAfter(kind: "purchase", label_contains: "(shop)", after_frame: 3500, by_frame: 4901),
+        EventAfter(kind: "arena", label_contains: "tenue (750 frames)", after_frame: 3500, by_frame: 6316),
+        EventAfter(kind: "boss_phase", label_contains: "phase 1 → 2", after_frame: 3500, by_frame: 6857),
         RoomState(kind: "arene", nth: 0, state: Cleared, at_frame: 6330),
         BossPhase(entity: NetId(774), phase: 2, at_frame: 6857),
         RunState(step: Ended(Victory), at_frame: 6950),

@@ -207,6 +207,19 @@ pub enum Expectation {
         label_contains: Option<String>,
         by_frame: u32,
     },
+    /// Comme [`Self::Event`], mais l'événement doit être survenu **après** `after_frame` (frame de
+    /// l'événement `> after_frame`, hors `by_frame` : la vérification se fait à `by_frame`). Prouve
+    /// le même moment clé une seconde fois (la seconde arène, le second boss) là où `Event`
+    /// serait satisfait par le premier. Les moments clés tirés de `FrameEvents` (`room`, `blank`,
+    /// `item_pickup`, `boss_phase`, `arena`, `chest`) portent la frame de la simulation qui les a
+    /// émis, une de moins que celle lue après l'update : `by_frame` = frame de l'événement + 1.
+    EventAfter {
+        kind: String,
+        #[serde(default, skip_serializing_if = "Option::is_none")]
+        label_contains: Option<String>,
+        after_frame: u32,
+        by_frame: u32,
+    },
     /// Le joueur `handle` est à terre (`combat::downed::Downed`) à la frame exacte
     /// `at_frame` — vérification ponctuelle, comme `PlayerAlive`/`PlayerDead` (T1.3,
     /// chantier B6).
@@ -652,6 +665,9 @@ impl Expectation {
             | Self::HubExit { at_frame, .. }
             | Self::HubVisit { at_frame, .. }
             | Self::Event {
+                by_frame: at_frame, ..
+            }
+            | Self::EventAfter {
                 by_frame: at_frame, ..
             }
             | Self::PlayerRevived {

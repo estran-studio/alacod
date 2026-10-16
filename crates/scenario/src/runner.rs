@@ -480,16 +480,23 @@ pub fn build_app(scenario: &Scenario, headless: bool, config: &PlayConfig) -> Ap
             });
             if hub.stay {
                 app.insert_resource(game::hub::HubStay);
-            } else if !hub.inputs.is_empty() {
-                // m2-full-run : le hub a ses propres pistes, sans bot ; les `players` du scénario
-                // reprennent la main quand la porte relance la session (`swap_hub_inputs`).
-                app.insert_resource(RunPhaseInputs {
-                    scripted: scenario.scripted_inputs(),
-                    bots: bot_assignments(scenario),
-                })
-                .insert_resource(scenario.hub_scripted_inputs())
-                .insert_resource(BotAssignments::default())
-                .add_systems(Update, swap_hub_inputs);
+            } else {
+                // La relance est suivie : `play` et `capture` n'arrêtent la partie qu'une fois la
+                // run commencée (`HubPhaseOver`).
+                app.init_resource::<HubPhaseOver>()
+                    .add_systems(Update, track_hub_phase);
+                if !hub.inputs.is_empty() {
+                    // m2-full-run : le hub a ses propres pistes, sans bot ; les `players` du
+                    // scénario reprennent la main quand la porte relance la session
+                    // (`swap_hub_inputs`).
+                    app.insert_resource(RunPhaseInputs {
+                        scripted: scenario.scripted_inputs(),
+                        bots: bot_assignments(scenario),
+                    })
+                    .insert_resource(scenario.hub_scripted_inputs())
+                    .insert_resource(BotAssignments::default())
+                    .add_systems(Update, swap_hub_inputs);
+                }
             }
         }
     }
@@ -548,6 +555,22 @@ fn bot_assignments(scenario: &Scenario) -> BotAssignments {
         }
     }
     BotAssignments(assignments)
+}
+
+/// Hub suivi (`HubSetup { stay: false }`) : vrai une fois la run commencée (la session relancée
+/// repart de la frame 0). `play` et `capture` ne comptent les frames de `Scenario::frames` qu'à
+/// partir de là.
+#[derive(Resource, Default)]
+struct HubPhaseOver(bool);
+
+fn track_hub_phase(
+    session: Res<game::hub::HubSession>,
+    frame: Res<FrameCount>,
+    mut over: ResMut<HubPhaseOver>,
+) {
+    if !over.0 && !session.in_hub && frame.frame == 0 {
+        over.0 = true;
+    }
 }
 
 /// Inputs de la run d'un scénario qui passe par le hub avec ses propres pistes
@@ -1647,6 +1670,25 @@ pub fn run_with_options<F: FnOnce(&mut App)>(
                     .into(),
             );
         }
+        // `apply_player_overrides` ne s'applique qu'à la première session : les joueurs de la run
+        // lancée par la porte n'en recevraient aucun, mieux vaut refuser que mal jouer.
+        if scenario.players.iter().any(|p| {
+            !p.tags.is_empty()
+                || !p.immune_to.is_empty()
+                || !p.modifiers.is_empty()
+                || p.weapon.is_some()
+                || p.currency.is_some()
+                || !p.mutations.is_empty()
+                || p.dash.is_some()
+                || !p.items.is_empty()
+                || p.bomb.is_some()
+        }) {
+            failures.push(
+                "réglages de joueur (tags, weapon, currency, items, modifiers, mutations, dash, \
+                 bomb) non pris en charge avec un hub suivi (`hub: Some((stay: false))`)"
+                    .into(),
+            );
+        }
     }
     if frame < scenario.frames && !stopped_early && !floors_softlocked {
         failures.push(format!(
@@ -2200,6 +2242,33 @@ fn check(world: &mut World, expectation: &Expectation) -> Result<(), String> {
                     .map(|l| format!(", label contient '{}'", l))
                     .unwrap_or_default();
                 Err(format!("événement '{}' non trouvé{}", kind, label_desc))
+            }
+        }
+        Expectation::EventAfter {
+            kind,
+            label_contains,
+            after_frame,
+            by_frame: _,
+        } => {
+            let events = world.resource::<GameEvents>();
+            let found = events.events.iter().any(|event| {
+                event.kind == kind.as_str()
+                    && event.frame > *after_frame
+                    && label_contains
+                        .as_ref()
+                        .map_or(true, |label| event.label.contains(label))
+            });
+            if found {
+                Ok(())
+            } else {
+                let label_desc = label_contains
+                    .as_ref()
+                    .map(|l| format!(", label contient '{}'", l))
+                    .unwrap_or_default();
+                Err(format!(
+                    "événement '{}' non trouvé après la frame {}{}",
+                    kind, after_frame, label_desc
+                ))
             }
         }
         // À terre (T1.3, chantier B6). `PlayerDowned` : vérification ponctuelle (comme
@@ -3091,8 +3160,10 @@ pub fn play(scenario: &Scenario, config: PlayConfig) -> AppExit {
     let mut app = build_app(scenario, false, &config);
     app.add_systems(
         Update,
-        move |frame: Res<FrameCount>, mut exit: MessageWriter<AppExit>| {
-            if frame.frame >= frames {
+        move |frame: Res<FrameCount>,
+              hub_over: Option<Res<HubPhaseOver>>,
+              mut exit: MessageWriter<AppExit>| {
+            if frame.frame >= frames && hub_over.map_or(true, |over| over.0) {
                 exit.write(AppExit::Success);
             }
         },
@@ -3212,6 +3283,7 @@ fn capture_frames(
     session: Option<Res<bevy_ggrs::Session<game::character::player::jjrs::PeerConfig>>>,
     mut state: ResMut<CaptureState>,
     events: Res<GameEvents>,
+    hub_over: Option<Res<HubPhaseOver>>,
     mut exit: MessageWriter<AppExit>,
 ) {
     use bevy::render::view::screenshot::{save_to_disk, Screenshot};
@@ -3225,7 +3297,8 @@ fn capture_frames(
     };
 
     let frame = frame.frame;
-    if frame >= state.frames {
+    let run_started = hub_over.as_ref().map_or(true, |over| over.0);
+    if frame >= state.frames && run_started {
         // Laisser le temps aux dernières captures d'être écrites
         state.updates_after_end += 1;
         if state.updates_after_end > 10 {
