@@ -3663,6 +3663,63 @@ appuient). `alacod lint gungeon` : aucun nouvel avertissement d'ennemi.
 inchangées. Un renfort `lanceur_kin` en phase 2 a été essayé : le bot meurt et `gungeon_boss_bot` dépasse son
 `EntityCount`, retiré.
 
+### 52.d Gabarits de salles et équilibrage de l'étage, D64 (T14d)
+
+Données seulement (`games/gungeon/assets/`, scénarios, traces gungeon), aucun code de moteur ; le test de
+grammaire `map_ldtk::generation::tests` a ses constantes mises à jour (bornes de `etage`, types exigés,
+gabarits décorés). Scripts : `docs/taches/rapports/m2-t14d-gabarits.make_gabarits.py` (gabarits et couche
+`Surfaces`) et `.make_ennemis.py` (composition des ennemis par gabarit), idempotents. Rapport et mesures :
+`docs/taches/rapports/m2-t14d-gabarits.md`.
+
+**Quinze gabarits** (8×8 cases, ouvertures de deux cases au milieu des côtés) : `Depart`, `CombatEW/NS/T/Croix`,
+`Recompense`, `Boutique`, `BossW/N`, `ArenaEW/Croix`, `EscouadeEW` (douze avant T14d) et trois nouveaux :
+
+| Gabarit | Type (`room_kind`) | Ouvertures | Contenu |
+|---|---|---|---|
+| `Coffre` | `coffre` | N E S W | trois tables, sable (`Surfaces`) autour du coffre central |
+| `Secret` | `secret` | W (cul-de-sac) | trois tables, eau et fosse dans les angles |
+| `ArenaNS` | `arene` | N S | deux barils et une table (les vagues viennent de `rooms/arene.ron`) |
+
+Types de salle nouveaux (`rooms/`) : `coffre` (non verrouillant, coffre ouvert au centre, rareté mini Uncommon, pool
+de l'étage) et `secret` (idem, rareté Rare, cul-de-sac). **« Secret » ne l'est que par sa place** : la porte cachée
+(`DoorLock::Secret`, §62) est un contrat sans exécution (M3-T4). Un coffre de salle s'ouvre par Interaction : le
+bot ne le fait qu'avec `alacod-sim --shopping`. Les tables ne sont jamais posées devant une ouverture (une table
+sur les deux cases d'ouverture murerait la salle). Les accessoires sont toujours trois par salle décorée (le test
+de décor compte `CombatEW`, `CombatNS`, `Coffre`, `Secret`, `ArenaNS`).
+
+**Surfaces dans `gungeon`** : dossier `surfaces/` (`eau` 1, `sable` 2, `fosse` 4, copies de celles du testbed ;
+pas de glace, aucun gabarit n'en pose), couche IntGrid `Surfaces` ajoutée au projet de `salles.ldtk` et aux
+seuls niveaux `Coffre` et `Secret` ; la couche suit le gabarit dans l'étage assemblé (sonde `map_probe` : « fosse :
+3 cases » sur la graine 28). `SurfaceGrid` est neutre quand elle est vide : les étages sans gabarit à surface
+gardent leur hash.
+
+**Grammaire `etage`** : de 10 à 14 salles, types exigés `boss`, `recompense`, `boutique`, `arene`, **`escouade`**,
+`coffre`, `secret` (une fois chacun) ; le reste en `combat` (2 à 6 salles). La salle `escouade` de M2-T8 n'existait
+que dans la grammaire `court_escouade`. Validée sur 1 000 graines par `gungeon_etages_de_grammaire`
+(`ALACOD_FLOOR_SEEDS=1000`) et `gungeon_decor_sur_1000_graines`. `court`, `grand` et `court_escouade` ne
+bougent pas (leurs scénarios scriptés gardent leur forme). `court_arene` et `court_coffre` (départ, la salle, boss)
+portent les `test:` de `rooms/arene.ron` et `rooms/coffre.ron` ; `rooms/escouade.ron` joue `etages_court_escouade`.
+Scénarios générés `room_arene`, `room_coffre`, `room_escouade`.
+
+**D64, équilibrage** (leviers, tous en données). Un `bullet_kin` : 30 PV (40), salve de trois balles simples de
+4 dégâts (trois salves de deux, 6 dégâts), recharge de 150 frames (90), `ricochet` : `Bounce(1)`, portée 320 (500) ;
+idem `bullet_kin_squad`. Autres ennemis : `crachat` 4 (6), `chevrotine` 3 (5), explosion de `grenade` 10 (14) et
+éclat 3 (4), `bandana_kin` 10 de dégât (15), `tourelle_kin` 60 PV (90) et `croix` avec la nouvelle boule `boulette`
+(4 dégâts : `boule` reste celle du boss, non touchée). Gabarits : un `bullet_kin` de moins dans chaque salle de
+combat sauf `CombatT` (scénarios scriptés), `shotgun_kin` seulement dans `CombatCroix`, `veteran_kin` dans
+`CombatNS`, `fuyard_kin` dans `CombatEW` ; positions aux coins de la salle. Arène :
+horloge 750 (900), vagues à 0/250/500 (0/300/600), un `bullet_kin` au lieu de deux, un au lieu de trois. Soin :
+chaque salle `combat` nettoyée laisse une récompense (`salle.ron` : chance 1, ration 6/9) et la `ration` rend 25 PV (15).
+Joueur, boss, armes du joueur : intouchés (le renfort `bullet_kin` du boss profite de l'allègement).
+
+**Mesures** (`alacod-sim`, `etages_deux`, 200 graines, explorateur, `until-floor 1`) : à 1 bot 200 morts sur 200 → 54
+(27 %) ; à 2 bots 174 → 7 (3,5 %) ; 0 desync. Soft-locks : 0 avant, 4 sur 200 à 1 bot après, 0 à 2 bots ; cause
+et pistes dans le rapport (bot : cycle limite devant une ouverture de deux cases, dette D79).
+
+**Graines** (2 bots, `etages_deux`, `--shopping` ; `docs/taches/rapports/m2-t14d-gabarits/rencontre.py`) : 41 :
+coffre secret f369, coffre f1045, escouade f1096-f1233, arène f1476-f2226, boutique f2334, baril f604 ; 13 : secret
+f1100, coffre f3392, arène f2064-f2814, escouade f2971-f3257, boutique f1663.
+
 ## 53. Lint des kinds M2 et atteignabilité statique (M2-T15, voie V2)
 
 Lint seulement : aucune simulation touchée, aucune trace ne bouge.
