@@ -224,6 +224,9 @@ pub fn explosion_terrain_system(
     floor: Option<Res<run::FloorState>>,
     mut id_factory: ResMut<GgrsNetIdFactory>,
 ) {
+    if !requests.iter().any(|request| request.destroys) {
+        return;
+    }
     let (run_seed, floor) = seed_context(&run_seed, &floor);
     let mut broken: BTreeSet<usize> = BTreeSet::new();
     for request in requests.iter().filter(|request| request.destroys) {

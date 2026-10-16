@@ -274,7 +274,8 @@ pièges) s'applique à chaque système et fait foi pour l'enregistrement rollbac
       du `GgrsSchedule`) : réécrite **à chaque frame, avant tout `continue`/retour anticipé** du
       système qui l'écrit ; sinon c'est un état caché qu'une frame resimulée lit avec la valeur
       d'une frame plus récente (desync du dash, scénario `dash_aim_change`, 2026-10-03). Les
-      scénarios à visée constante ne le voient pas : `fuzz_inputs` (`ALACOD_FUZZ=0:8`) oui.
+      scénarios à visée constante ne le voient pas : `fuzz_inputs` (`ALACOD_FUZZ=0:8`) oui ; `ALACOD_FUZZ_BOMBS=1` y joue un
+      personnage à bombes (M3-T4, §69).
 - [ ] Logs utilisent `GgrsNetId`/`player.handle` (pas `Entity`) pour comparaison
 - [ ] Trace logs suivent format `ggrs{{f={} system_name key=value...}}` pour diff_log
 
@@ -374,6 +375,10 @@ crate `APP`), jamais dans un crate `SIM`.
     - M2-T0c boss (§37) : `BossPhase` ; profil (§38) : `ProfileHas`.
     - M3-T0c contrats du monde (§62) : `DoorLocked` ; `EntityCount(kind: Rock)`.
     - M3-T0d familiers et champions (§63) : `FamiliarCount` ; `EnemyVariant` (existe, §25).
+    - M3-T4 bombes, rochers, piques, mur secret (§69) : aucune attente nouvelle (`Consumable`, `EntityCount(kind: Rock |
+      Barrel)`, `EntityHealth`, `Health`, `PlayerPosition`, `DoorLocked`, `EnemyDistance`, `Event(kind: "explosion")` couvrent
+      les onze scénarios `bomb_*`, `rock_*`, `secret_wall_*`, `spikes_damage`) ; champ de scénario `PlayerScript::bomb`
+      (la `BombDef` du joueur, le stock par `items: ["bomb", ...]`, bouton `Bomb` = bit 18, front montant).
     - M3-T1 larmes v3 (§66) : aucune attente nouvelle (`BulletCount` avec filtre `projectile`, `HitsAtLeast`,
       `HasStatus`, `StatusStacks`, `EnemyDistance`, `EntityHealth` couvrent les douze scénarios) ; `Stat`
       résout `Luck` avec la base 0 (`sim_core::stats::default_base`).

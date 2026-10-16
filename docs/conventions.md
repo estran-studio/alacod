@@ -4184,7 +4184,7 @@ dans l'ordre croissant de `GgrsNetId.0` ; `destroys` casse aussi les rochers de 
 (`destroy_terrain`). Elle vit dans `world` (comme `destroy_terrain`, dans la frontière `SIM`), pas dans
 `combat` : elle ne connaît que des identifiants et des positions. Lint : `radius > 0`, `damage >= 0`,
 puis `Unsupported` dans un effet tant que M3-T4 ne l'exécute pas ; refusée dans un power-up. Le baril
-**ne bascule pas** dessus ici (sa trace ne doit pas bouger) : M3-T4 le fera avec preuve. Moment clé
+**ne bascule pas** dessus ici (sa trace ne doit pas bouger) : M3-T4 l'a fait (§69), traces identiques. Moment clé
 `explosion` (`world::Exploded`, `FrameEvents` neutre) déclaré, émis en T4.
 
 ### Bombe
@@ -4455,3 +4455,131 @@ statuts frame par frame) ; `map_probe` liste aussi les personnages non joueurs.
 
 Rencontré quand M3-T11a met les objets de larmes dans le pool trésor d'`isaac` ; d'ici là, scénarios
 testbed seulement.
+
+## 69. Bombes, explosions, rochers cassés, piques, mur secret (M3-T4, chantiers E3 et E4 v2)
+
+Exécute les contrats de §62. Code : `game::bombs` (`BombsPlugin`), `world::{bomb, explosion, surface}`,
+`map_ldtk::game::rooms::secret_wall_system`, `game::effects_runtime` (action `Explode`). **Aucune trace
+existante ne bouge** : tout état nouveau est neutre ou transitoire et absent des jeux sans `bomb`, sans
+rocher, sans piques ni salle secrète ; le baril garde sa trace (`barrel_chain`, `bench_floor`) en changeant
+de code.
+
+### Bombe
+
+`CharacterConfig.bomb` donne au joueur un composant `world::BombCarrier { def, held }` (rollback **neutre**,
+`PlayerScript::bomb` le pose aussi en scénario). `bomb_place_system` (`Effects`, après
+`synergy_modifiers_system`, joueurs par `GgrsNetId`) : au **front montant** de `INPUT_BOMB` (`held` réécrit à
+chaque frame, avant tout retour anticipé), joueur debout, avec au moins un consommable `bomb` dans son
+`Inventory` (`starting_consumables` ou `PlayerScript::items`), il en consomme un et pose une `world::Bomb`
+aux pieds (centre du collider, offset compris) : entité rollback neutre numérotée `bomb_<poseur>`,
+mèche de `fuse_frames`. `BombDef.friendly_fire` (fin de structure, défaut **`Always`**, Q4 : la bombe blesse
+son poseur et les autres joueurs, comme Isaac ; `Never` pour la couper). Sans `BombCarrier` rien ne lit le bit.
+
+### Explosion
+
+Trois sources, une règle. `world::ExplosionRequest { id, source, source_team, x, y, radius, damage,
+destroys, friendly_fire }` (`FrameEvents` **transitoire**, hors checksum : un baril en émet dans des parties
+existantes) est émise par `bomb_fuse_system` (bombe dont la mèche est écoulée, puis `despawn_rollback`), par
+le baril mort (lu dans `explosion_system`) et par l'action `Explode` (voir plus bas). Deux étages :
+
+1. `World` (`bomb_fuse_system` puis `explosion_terrain_system`, après `pit_system`, **avant**
+   `apply_destroy_terrain_system`) : si `destroys`, terrain de caverne (`DestroyTerrainRequest` : les murs
+   de `CellGrid` et le champ de flux sont refaits dans la frame, comme pour `DestroyTerrain`) et rochers.
+2. `CollisionDamage` (`explosion_system`, à l'emplacement de l'ancien `barrel_explosion_system`, avant
+   `rollback_resolve_damage_events`) : les demandes de la frame (bombes + barils morts) sont **triées par
+   `GgrsNetId` de l'objet** (tri stable) ; chacune envoie `damage` (`Physical`, tag `explosion`, source =
+   le poseur, donc crédité) à tout personnage à PV dont le centre est à **strictement** moins de `radius`
+   (`world::within_radius`), sauf l'objet lui-même, un personnage déjà à l'agonie (`Death`) et un personnage
+   **invulnérable** (`Health::is_invulnerable_at`, comme les balles : c'est ce qui protège les familiers de
+   M3-T6, `invulnerable_until_frame = u32::MAX`). Elle émet `world::Exploded` (transitoire, moment clé
+   `explosion`) ; un baril est détruit par `despawn_rollback()` avec sa demande. Une chaîne de barils
+   reste « un baril par frame » (le voisin touché meurt dans la frame, explose à la suivante).
+
+Écart avec le baril d'avant : le rayon est **strict** (`<`) et non inclusif, et un personnage invulnérable
+n'est plus visé (le résolveur l'ignorait déjà) ; aucune des scènes existantes ne place un personnage à
+exactement `radius` (traces de `barrel_chain` et des cartes à barils identiques).
+
+### Rochers et butin
+
+`explosion_terrain_system` casse chaque `world::Rock` dont le centre est à moins de `radius`
+(`world::cells_in_radius` : rendus par `(y, x)` croissants, un rocher cassé une seule fois par frame) par
+`despawn_rollback()`. Le champ de flux relit les `Obstacle` à chaque mise à jour : le passage s'ouvre sans code
+de plus (`rock_flow_field`). Un rocher à butin (`loot`) pose un `ItemPickup` tiré par
+`items::draw_loot_with` (consommables seulement) avec un `RollbackRng` **local** de graine
+`loot_seed(graine, étage, "rock:<salle>:<x>:<y>")` (`game::bombs::rock_loot_key`, case de grille monde ;
+`<salle>` = identifiant de la plus petite salle dont les bornes contiennent le rocher, `-` sinon) ; pool =
+celui de l'étage s'il existe, sinon `salle` (aucune chance : le tirage est certain). Q : pool propre aux
+rochers ?
+
+### Mur secret
+
+Une salle dont le type porte `door_lock: Secret` garde ses portes **et leurs jumelles** (celles du bord de la
+salle voisine) fermées : au premier tick, `room_lock_system` les laisse closes et leur retire seulement
+`Interactable` (aucune Interaction ne les ouvre) ; les autres portes de salle s'ouvrent comme avant.
+`secret_wall_system` (`World`, après `bomb_fuse_system`) : une `ExplosionRequest` qui `destroys` et dont le
+rayon touche le **bord du collider** d'une de ces portes (`world::rect_within_radius`, strict) ouvre
+**toutes** les portes de la salle (colliders retirés) et la range dans `DoorLocks` (`DoorLocked(kind, nth,
+locked: false)`). Le champ de flux relit les portes à chaque mise à jour : les deux salles sont reliées
+(`secret_wall_bomb`, un ennemi de la salle secrète rejoint le joueur). Placement par la grammaire : M3-T5.
+
+### Piques
+
+`hazard_system` (`World`, après `pit_system`, seulement si la carte a une case de piques) : un joueur debout
+dont les pieds sont sur une surface à `hazard` reçoit `damage` (`True`, tag `spikes`, source = lui-même) si
+`HazardDef::applies` : une fois toutes les `period` frames (`world::HazardState { last_hit }`, rollback
+neutre posé au premier coup), sauf pendant un dash si `dash_crosses` (champ de fin de structure, faux par
+défaut : le dash ne franchit pas les piques, il y est blessé quand il n'a pas d'i-frames). Surface du
+testbed : `surfaces/piques.ron` (valeur IntGrid 5, 5 PV, 30 frames).
+
+### Action `Explode`
+
+`effects::Action::Explode { radius, damage, destroys }` est exécutée dans un effet de personnage, d'objet
+tenu, de mutation ou une frise de boss (`apply_action_sourced`) : une **bombe à mèche d'une frame** est
+posée au point du porteur (commande différée : `GgrsNetIdFactory` et position se lisent à l'application),
+équipe du porteur, tir ami `Always` ; elle explose à la frame suivante par le même chemin. Le lint ne la
+refuse plus dans un effet (rayon > 0, dégâts >= 0 inchangés) ; `OnUse` d'un objet et les power-ups la
+refusent toujours (`OnUse` n'a pas de position). `Explode` en mort de champion : M3-T7.
+
+### Déterminisme
+
+`Fixed` partout (`FixedWide` pour les carrés), `order_iter!`/`order_mut_iter!`, `BTreeMap`/`BTreeSet`,
+`despawn_rollback()` pour bombes, barils et rochers, un seul `RollbackRng` local par rocher à butin.
+`ExplosionRequest` et `Exploded` sont transitoires (vidés au `FrameStart`, jamais lus avant leur émetteur) :
+`explosion_system` est après `bomb_fuse_system` et les dégâts d'une frame se résolvent dans la frame. Types
+neutres sans porteur hors des cartes concernées : `BombCarrier`, `Bomb`, `HazardState`, `Rock` (T0c),
+`DoorLocks` (T0c). `PlayerScript::bomb` est un champ de scénario sans effet sur les parties enregistrées.
+`fuzz_inputs` : `ALACOD_FUZZ_BOMBS=1` joue un personnage à huit bombes dans la salle à rochers du testbed
+(`rock_flow.ldtk`) avec des appuis aléatoires sur `Bomb`.
+
+### Testbed et scénarios
+
+Cartes `testbed/spikes.ldtk`, `testbed/rock_flow.ldtk`, `testbed/salles_secret.ldtk`
+(`scripts/construire-cartes-t4.py`) ; `rocks_static.ldtk` (T0c) sert aux bombes et au butin. Objet
+`objets/bomb.ron` (consommable `bomb`), surface `surfaces/piques.ron`.
+
+| Scénario | Prouve |
+|---|---|
+| `bomb_place_explode`, `bomb_hurts_owner` | pose au front montant, compteur `bomb` 1 → 0, explosion 20 frames après (f35, `explosion`) ; un mannequin à 35 px perd 50 PV, un autre à 100 px non ; tir ami coupé : le poseur intact, actif : il perd 50 |
+| `bomb_breaks_rock` | les trois rochers du couloir disparaissent, le rocher à butin (50 px) reste, le joueur passe ; aucun butin |
+| `bomb_digs_cave` | caverne `petite` : la bombe creuse (26, 15) et (27, 15) (7 cases détruites, f96) par la même requête que la grenade ; le joueur traverse |
+| `rock_loot` | rayon 60 : le rocher à butin laisse une clé (`loot_seed`), ramassée (f156) |
+| `bomb_chain_barrel` | bombe → premier baril (f80) → second (f81) → joueur 1 touché (100 → 70, f82) |
+| `secret_wall_bomb`, `secret_wall_closed` | porte fermée (`DoorLocked`), joueur et ennemi bloqués ; la bombe l'ouvre (f95) : ils passent ; témoin sans bombe |
+| `spikes_damage` | 5 PV à f71 puis toutes les 30 frames (95, 90, … 75 à f199), santé intacte avant |
+| `rock_flow_field`, `rock_flow_field_blocked` | le `follower` prend le détour ; la bombe rouvre le passage direct : distance 59,7 à f240 contre 109,2 ; il rejoint le joueur vers f280 contre f360 |
+
+Unitaires : `world::explosion` (rayon strict, rectangle touché, cases triées), `world::surface`
+(`HazardDef::applies`), `game::bombs` (`explosion_system` : ordre des ids, invulnérables et mourants
+épargnés, ordre des explosions ; clé de butin), `content` (`explode_effect_ok`).
+
+### Questions pour William
+
+Q4 (reprise de §62) : tir ami de la bombe, proposition `Always` ; pool de butin propre aux rochers (le pool
+`salle` ne donne qu'une clé) ; dégâts des piques `True` en points (demi-cœurs : Q2) ; mur secret ouvert par
+une explosion de baril (aujourd'hui non : le baril n'a pas `destroys`).
+
+### Atteignabilité
+
+Rencontré quand `isaac` donne des bombes de départ à son personnage (dette : le faire change ses traces,
+décision de l'orchestrateur), que M3-T11d place rochers et piques dans les gabarits `combat` et que M3-T5
+place le mur secret ; d'ici là, scénarios testbed seulement.
