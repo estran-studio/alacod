@@ -159,9 +159,30 @@ pub fn attach_character_visuals(
 /// et meurt dans `Update`, dérivé de l'état comme les autres visuels.
 #[derive(Component)]
 pub struct DeathGhost {
+    /// `GgrsNetId` du mort : un rollback qui annule la mort le fait revivre, le
+    /// fantôme doit alors disparaître (`remove_revived_death_ghosts`).
+    net_id: usize,
     start: usize,
     end: usize,
     age: u32,
+}
+
+/// Supprime le fantôme dont l'ennemi est de nouveau vivant (mort prédite annulée
+/// par un rollback) : l'ennemi est revenu dans la query, hors `RollbackDespawned`.
+pub fn remove_revived_death_ghosts(
+    mut commands: Commands,
+    ghosts: Query<(Entity, &DeathGhost)>,
+    enemies: Query<&GgrsNetId, With<combat::actors::Enemy>>,
+) {
+    if ghosts.is_empty() {
+        return;
+    }
+    let alive: std::collections::BTreeSet<usize> = enemies.iter().map(|id| id.0).collect();
+    for (entity, ghost) in &ghosts {
+        if alive.contains(&ghost.net_id) {
+            commands.entity(entity).despawn();
+        }
+    }
 }
 
 /// Ticks de rendu par image de l'animation de mort (~90 ms à 60 ticks/s, le
@@ -189,6 +210,7 @@ pub fn spawn_death_ghosts(
         With<combat::actors::Enemy>,
     >,
     mut previous: Local<EnemySnapshot>,
+    ghosts: Query<&DeathGhost>,
     mut last_frame: Local<Option<u32>>,
 ) {
     // Nouvelle partie : les disparitions sont des déchargements, pas des morts.
@@ -210,8 +232,9 @@ pub fn spawn_death_ghosts(
             ),
         );
     }
+    let ghosted: std::collections::BTreeSet<usize> = ghosts.iter().map(|g| g.net_id).collect();
     for (net_id, (config_name, _skin, position)) in previous.iter() {
-        if current.contains_key(net_id) {
+        if current.contains_key(net_id) || ghosted.contains(net_id) {
             continue;
         }
         let Some(config) = global_assets
@@ -268,7 +291,12 @@ pub fn spawn_death_ghosts(
             // passait sous le sol et ne se voyait pas).
             Transform::from_translation(Vec3::new(position.x, position.y, 10.0))
                 .with_scale(Vec3::splat(sheet.scale)),
-            DeathGhost { start, end, age: 0 },
+            DeathGhost {
+                net_id: *net_id,
+                start,
+                end,
+                age: 0,
+            },
         ));
     }
     *previous = current;
@@ -345,5 +373,39 @@ pub fn face_stationary_enemies(
                 sprite.flip_x = dx < 0.0;
             }
         }
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    fn ghost(net_id: usize) -> DeathGhost {
+        DeathGhost {
+            net_id,
+            start: 0,
+            end: 1,
+            age: 0,
+        }
+    }
+
+    /// Mort prédite annulée par un rollback : l ennemi revient, son fantôme part ;
+    /// le fantôme d un autre ennemi mort reste.
+    #[test]
+    fn revived_enemy_removes_only_its_ghost() {
+        let mut app = App::new();
+        app.add_systems(Update, remove_revived_death_ghosts);
+        let g1 = app.world_mut().spawn(ghost(1)).id();
+        let g2 = app.world_mut().spawn(ghost(2)).id();
+        app.update();
+        assert!(app.world().get_entity(g1).is_ok(), "ennemi toujours mort");
+        app.world_mut()
+            .spawn((combat::actors::Enemy {}, GgrsNetId(1, String::new())));
+        app.update();
+        assert!(
+            app.world().get_entity(g1).is_err(),
+            "ennemi revenu : fantôme supprimé"
+        );
+        assert!(app.world().get_entity(g2).is_ok(), "autre fantôme intact");
     }
 }
