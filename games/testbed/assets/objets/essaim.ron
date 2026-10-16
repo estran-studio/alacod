@@ -3,4 +3,6 @@
     name: "Essaim",
     kind: Passive,
     familiar: Some((character: "orbital", per_copy: 2)),
+    // M3-T13 (§78) : scénarios générés `item_essaim` (ItemHeld) et `familiar_essaim` (FamiliarHeld : `FamiliarCount` 2).
+    test: Some((frames: 60, familiar: Some((frames: Some(120), min_hits: 0)))),
 )

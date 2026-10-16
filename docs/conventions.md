@@ -4833,3 +4833,79 @@ Diagnostic : `map_probe` (`ALACOD_MAP_PROBE=<scénario>:<frame>`) liste aussi la
 
 M3-T11c donne des champions à au moins trois ennemis des salles `combat` d'`isaac` (graine à nommer à ce moment) ; d'ici là,
 scénarios testbed seulement (dette nommée, à fermer par T11c).
+
+## 78. Générateur v3 : gabarits `TearsOnTarget`, `FamiliarHeld`, `ChampionForced` (M3-T13)
+
+Code : `crates/scenario/src/generate.rs` (`build_tears_scenario`, `build_familiar_scenario`,
+`build_champion_scenario`, `champion_death_expectations`, `discover_target`), `game::gen_test`
+(`TearsTest`, `FamiliarTest`, `ChampionTest`), `game::character::config::CharacterTest::champions`,
+`content::lint` (`lint_item_tests`, `lint_character_tests`). Complète §28 et §54 : mêmes règles
+(opt-in par `test:`, aucun effet en jeu, un scénario écrit par `make gen GAME=<jeu>`, champ absent =
+rien de généré, les scénarios et traces existants ne bougent pas). **Aucune attente nouvelle** : les
+gabarits n'emploient que `HasItem`, `Stat`, `EntityHits`, `HitsAtLeast`, `FamiliarCount`,
+`EnemyVariant`, `EntityCount`, `Event`, `PlayerAlive`.
+
+Les trois gabarits sont des **champs ajoutés à des `test:` existants** : un objet ou un personnage
+déjà généré garde son fichier octet pour octet. Ils jouent dans l'arène de `generate_template`
+(`WeaponArena`, `target`/`cible` avec `counts_hits`) pour les objets, dans l'arène du gabarit ennemi
+(§28) pour les champions. Les nouveaux sujets sont rangés **après** les anciens dans `--list`.
+
+**Larmes** (`objets/<id>.ron`, fichiers `tears_<id>.ron` **et** `tears_<id>_sans_objet.ron`) :
+`test: Some((frames: 60, tears: Some((weapon: Some("larme"), frames: Some(150), targets: [(character: "target", dx: -48, dy: -18)], hits: [(target: 0, with_item: 5, without_item: 0)], expect: [...], control: [...]))))`.
+Le joueur tient l'objet (`PlayerScript::items`), tire par impulsions (`weapon`, visée `aim` : par
+défaut vers la cible de l'arène) ; le **témoin** rejoue le même tir, le même placement, sans l'objet :
+la preuve de l'effet est la différence entre les deux fichiers, dans le dépôt. Attentes avec l'objet :
+`HasItem`, une `Stat` par modificateur de stat (valeur sondée comme `ItemHeld`, §54), chaque `hits`
+(`EntityHits ≥ with_item`), puis `expect` ; témoin : chaque `hits` (`EntityHits ≤ without_item`),
+puis `control` (le contraire de `expect`). `targets` : personnages à `counts_hits` posés à `(dx, dy)`
+unités monde de la cible de l'arène (cible d'index 0 de `hits`, les posées ont l'index `n + 1`, et
+`Placed(n)` dans `expect`/`control`) ; leur santé règle le test ; les net ids sont retrouvés par
+position (`discover_hit_net_ids`). `frames` propre au gabarit (défaut `test.frames`) : le `ItemHeld`
+d'un objet existant ne change pas. Le lint exige `with_item > 0` et `with_item > without_item` (un
+seuil que le témoin passerait est refusé), `expect` et `control` ensemble, au moins un `hits` ou un
+`expect`. Un objet dont l'effet ne change pas les coups prouve par `expect`/`control` (ex.
+`BulletCount` exact, `HasStatus` / `present: false`).
+
+**Familier** (objet à `familiar:`, fichier `familiar_<id>.ron`, et `familiar_<id>_sans_objet.ron` si
+`min_hits > 0`) :
+`test: Some((frames: 60, familiar: Some((weapon: ..., frames: Some(120), min_hits: 9, expect: [...]))))`.
+Attentes : `HasItem`, `FamiliarCount = per_copy` à la frame 5 et à l'avant-dernière frame ; si
+`min_hits > 0`, le joueur tire aussi et la cible reçoit au moins `min_hits` coups ; le témoin (même
+tir sans l'objet) en reçoit au plus `min_hits - 1` et n'a aucun familier : fixer `min_hits` d'après
+le témoin. `familiar:` sur un objet sans `familiar:` : erreur de lint.
+
+**Champion** (personnage à `variants:`, fichier `champion_<id>_<variante>.ron`) :
+`test: Some((frames: 150, still: false, moving: false, champions: [(variant: "explosif", kill: true, weapon: Some("larme")), (variant: "nu")]))`.
+L'ennemi apparaît à 200 unités à droite du joueur avec la variante imposée
+(`CharacterPlacement::variant`, §63) ; attente `EnemyVariant(Placed(0))` à la frame 2. `kill: true` :
+une **sonde** (`probe_champion_death`) joue la partie, relève la frame de la mort (première frame sans
+`Variant`) et ce qui l'entoure ; le scénario attend alors **la mort** : `EntityCount(Enemy)` exact
+avant (frame − 1) et après (frame + 1 : avant − 1 + personnages nés), puis chaque effet de mort
+déclaré : `Explode` → moment clé `explosion` ; `SpawnCharacters` → `count` ennemis de plus ;
+`SpawnPattern` → `BulletCount` des balles de l'équipe ennemie (0 avant, le nombre mesuré après) ;
+`loot` → le joueur tire jusqu'à la mort puis marche vers +x et appuie sur Interaction (80 frames de
+marche), `HasItem` de l'objet ramassé (`frames` assez long). Une variante sans effet traduisible
+est refusée par le lint (`kill: true`), et un effet qui n'a laissé aucune trace à la sonde (motif sans
+balle, butin non ramassé) fait échouer la génération : rien n'est ignoré en silence. Une variante
+répétée ou absente de la table est une erreur ; `still: false, moving: false` : pas de gabarit
+`enemy_<id>_*` en plus.
+
+**Lint** (`content`) : voir ci-dessus ; `tears.frames`, `familiar.frames > 0` ; armes connues ;
+cibles `targets` connues et à `counts_hits` ; `hits.target` dans les cibles ; `champions` : variantes
+de la table, sans doublon, `weapon` seulement avec `kill` et connue, `kill` seulement avec un effet de
+mort traduisible. Fixtures : `champion_test_{unknown_variant,duplicate_variant,unknown_weapon,
+kill_untranslatable,weapon_without_kill}`, `tears_test_{min_hits_zero,hits_not_above_control,
+nothing_proven,expect_without_control,frames_zero,hit_target_out_of_range,weapon_unknown,
+target_unknown,target_no_counts_hits}`, `familiar_test_{without_familiar,frames_zero}`.
+Le schéma de `alacod describe` (kind `Item`, `Character`) expose les nouveaux champs.
+
+**Limites des preuves.** Le lint vérifie la cohérence des seuils **déclarés** (`with_item >
+without_item`, `expect`/`control` ensemble) ; leur adéquation aux parties réelles n'est prouvée qu'en
+jouant les scénarios (`make gen` joue l'objet et son témoin). Une preuve par `BulletCount` exact à
+une frame (`rebond`, `spectre` : 1 balle en vol contre 0 à la dernière frame) dépend de la phase
+tir/vol/durée de vie : un changement de cadence, de vitesse ou de `lifetime` de l'arme la fait
+basculer (les traces et le témoin le signalent) ; préférer un compte de coups quand l'effet en change.
+
+**Échelle** : le nom d'un fichier est une fonction de l'id seul (`tears_<id>`, `familiar_<id>`,
+`champion_<id>_<variante>`) ; ajouter un objet ordinaire = un `.ron` de contenu avec `test:`, jamais
+un scénario écrit à la main. Mesures : voir `docs/taches/rapports/m3-t13-generateur-v3.md`.

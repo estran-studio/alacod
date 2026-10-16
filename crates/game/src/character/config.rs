@@ -34,6 +34,9 @@ pub struct CharacterTest {
     /// M2-T17 (§54) : gabarit `BossFight`, pour un personnage qui a `boss:`.
     #[serde(default)]
     pub boss: Option<crate::gen_test::BossFightTest>,
+    /// M3-T13 (§78) : gabarits `ChampionForced`, une entrée par variante testée.
+    #[serde(default)]
+    pub champions: Vec<crate::gen_test::ChampionTest>,
 }
 
 fn enabled() -> bool {

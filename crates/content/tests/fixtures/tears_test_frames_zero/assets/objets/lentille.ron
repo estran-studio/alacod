@@ -1,0 +1,1 @@
+(name: "Lentille", kind: Passive, test: Some((frames: 60, tears: Some((frames: Some(0), hits: [(with_item: 1)])))))

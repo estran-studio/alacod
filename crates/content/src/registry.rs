@@ -312,6 +312,16 @@ pub struct CharacterTestEntry {
     pub expect_moving: usize,
     /// M2-T17 : gabarit `BossFight` (`boss:` du `test:`).
     pub boss: Option<BossFightEntry>,
+    /// M3-T13 (§78) : variantes du gabarit `ChampionForced`.
+    pub champions: Vec<ChampionTestEntry>,
+}
+
+/// M3-T13 : mirroir de `game::gen_test::ChampionTest` (attentes comptées).
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub struct ChampionTestEntry {
+    pub variant: String,
+    pub kill: bool,
+    pub weapon: Option<String>,
 }
 
 /// M2-T17 : mirroir de `game::gen_test::BossFightTest` (attentes comptées).
@@ -327,6 +337,38 @@ pub struct BossFightEntry {
 pub struct ItemTestEntry {
     pub frames: u32,
     pub expect: usize,
+    /// M3-T13 : gabarit `TearsOnTarget` (`tears:`).
+    pub tears: Option<TearsTestEntry>,
+    /// M3-T13 : gabarit `FamiliarHeld` (`familiar:`).
+    pub familiar: Option<FamiliarTestEntry>,
+}
+
+/// M3-T13 : mirroir de `game::gen_test::TearsTest` (attentes comptées).
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub struct TearsTestEntry {
+    pub frames: Option<u32>,
+    pub weapon: Option<String>,
+    /// `(personnage, dx, dy)` des cibles posées.
+    pub targets: Vec<(String, i32, i32)>,
+    pub hits: Vec<TearsHitsEntry>,
+    pub expect: usize,
+    pub control: usize,
+}
+
+/// M3-T13 : mirroir de `game::gen_test::TearsHits`.
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub struct TearsHitsEntry {
+    pub target: usize,
+    pub with_item: u32,
+    pub without_item: u32,
+}
+
+/// M3-T13 : mirroir de `game::gen_test::FamiliarTest`.
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub struct FamiliarTestEntry {
+    pub frames: Option<u32>,
+    pub weapon: Option<String>,
+    pub min_hits: u32,
 }
 
 /// M2-T17 : `test:` d'un type de salle (`game::gen_test::RoomTest`, attentes comptées).
@@ -1866,6 +1908,22 @@ struct CharacterTestSchema {
     expect_moving: Vec<serde::de::IgnoredAny>,
     #[serde(default)]
     boss: Option<BossFightSchema>,
+    /// M3-T13 (§78) : un scénario `champion_<id>_<variante>` par entrée.
+    #[serde(default)]
+    champions: Vec<ChampionTestSchema>,
+}
+
+/// Mirroir de `game::gen_test::ChampionTest`.
+#[derive(schemars::JsonSchema, Deserialize)]
+struct ChampionTestSchema {
+    variant: String,
+    #[serde(default)]
+    kill: bool,
+    #[serde(default)]
+    weapon: Option<String>,
+    #[serde(default)]
+    #[schemars(with = "Vec<serde_json::Value>")]
+    expect: Vec<serde::de::IgnoredAny>,
 }
 
 /// Mirroir de `game::gen_test::BossFightTest`.
@@ -1890,6 +1948,69 @@ struct ItemTestFile {
 #[derive(Deserialize, schemars::JsonSchema)]
 struct ItemTestSchema {
     frames: u32,
+    #[serde(default)]
+    #[schemars(with = "Vec<serde_json::Value>")]
+    expect: Vec<serde::de::IgnoredAny>,
+    /// M3-T13 (§78) : scénario `tears_<id>`.
+    #[serde(default)]
+    tears: Option<TearsTestSchema>,
+    /// M3-T13 : scénario `familiar_<id>` (objet à `familiar:`).
+    #[serde(default)]
+    familiar: Option<FamiliarTestSchema>,
+}
+
+/// Mirroir de `game::gen_test::TearsTest` : les scénarios `tears_<id>` (avec l'objet) et
+/// `tears_<id>_sans_objet` (le témoin).
+#[derive(Deserialize, schemars::JsonSchema)]
+struct TearsTestSchema {
+    #[serde(default)]
+    #[schemars(extend("x-lint" = "> 0"))]
+    frames: Option<u32>,
+    #[serde(default)]
+    weapon: Option<String>,
+    #[serde(default)]
+    aim: Option<(i16, i16)>,
+    #[serde(default)]
+    targets: Vec<TearsTargetSchema>,
+    #[serde(default)]
+    hits: Vec<TearsHitsSchema>,
+    #[serde(default)]
+    #[schemars(with = "Vec<serde_json::Value>")]
+    expect: Vec<serde::de::IgnoredAny>,
+    #[serde(default)]
+    #[schemars(with = "Vec<serde_json::Value>")]
+    control: Vec<serde::de::IgnoredAny>,
+}
+
+/// Mirroir de `game::gen_test::TearsTarget`.
+#[derive(Deserialize, schemars::JsonSchema)]
+struct TearsTargetSchema {
+    character: String,
+    dx: i32,
+    dy: i32,
+}
+
+/// Mirroir de `game::gen_test::TearsHits`.
+#[derive(Deserialize, schemars::JsonSchema)]
+struct TearsHitsSchema {
+    #[serde(default)]
+    target: usize,
+    #[schemars(extend("x-lint" = "> 0"))]
+    with_item: u32,
+    #[serde(default)]
+    without_item: u32,
+}
+
+/// Mirroir de `game::gen_test::FamiliarTest`.
+#[derive(Deserialize, schemars::JsonSchema)]
+struct FamiliarTestSchema {
+    #[serde(default)]
+    #[schemars(extend("x-lint" = "> 0"))]
+    frames: Option<u32>,
+    #[serde(default)]
+    weapon: Option<String>,
+    #[serde(default)]
+    min_hits: u32,
     #[serde(default)]
     #[schemars(with = "Vec<serde_json::Value>")]
     expect: Vec<serde::de::IgnoredAny>,
@@ -2484,6 +2605,15 @@ fn load_characters(
                         map: boss.map,
                         expect: boss.expect.len(),
                     }),
+                    champions: test
+                        .champions
+                        .into_iter()
+                        .map(|champion| ChampionTestEntry {
+                            variant: champion.variant,
+                            kill: champion.kill,
+                            weapon: champion.weapon,
+                        })
+                        .collect(),
                 }),
                 counts_hits: parsed.counts_hits,
                 hit_iframes: parsed.hit_iframes,
@@ -3071,6 +3201,31 @@ fn load_items(
             .map(|test| ItemTestEntry {
                 frames: test.frames,
                 expect: test.expect.len(),
+                tears: test.tears.map(|tears| TearsTestEntry {
+                    frames: tears.frames,
+                    weapon: tears.weapon,
+                    targets: tears
+                        .targets
+                        .into_iter()
+                        .map(|t| (t.character, t.dx, t.dy))
+                        .collect(),
+                    hits: tears
+                        .hits
+                        .into_iter()
+                        .map(|h| TearsHitsEntry {
+                            target: h.target,
+                            with_item: h.with_item,
+                            without_item: h.without_item,
+                        })
+                        .collect(),
+                    expect: tears.expect.len(),
+                    control: tears.control.len(),
+                }),
+                familiar: test.familiar.map(|familiar| FamiliarTestEntry {
+                    frames: familiar.frames,
+                    weapon: familiar.weapon,
+                    min_hits: familiar.min_hits,
+                }),
             });
         registry.items.insert(
             id.clone(),

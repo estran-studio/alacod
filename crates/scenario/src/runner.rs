@@ -551,6 +551,34 @@ pub fn run_until(scenario: &Scenario, frame: u32) -> App {
     app
 }
 
+/// Joue `scenario` jusqu'à la frame `frames` en appelant `visit(monde, frame)` une fois par frame
+/// de simulation atteinte (sonde du générateur, M3-T13 : mesures image par image sans attentes).
+pub fn run_visiting<F: FnMut(&mut World, u32)>(scenario: &Scenario, frames: u32, mut visit: F) {
+    let config = PlayConfig {
+        follow_handle: None,
+    };
+    let mut app = build_app(scenario, true, &config);
+    app.finish();
+    app.cleanup();
+    let mut last = None;
+    for _ in 0..MAX_LOADING_UPDATES + frames {
+        app.update();
+        let frame = app.world().resource::<FrameCount>().frame;
+        if last != Some(frame) {
+            last = Some(frame);
+            visit(app.world_mut(), frame);
+        }
+        if frame >= frames {
+            break;
+        }
+    }
+}
+
+/// Inventaire du joueur `handle` (copie), pour les sondes du générateur.
+pub fn probe_player_inventory(world: &mut World, handle: usize) -> Option<items::Inventory> {
+    player_inventory(world, handle).ok().flatten()
+}
+
 #[derive(Resource)]
 struct WeaponOverrides(Vec<game::replay::WeaponOverride>);
 

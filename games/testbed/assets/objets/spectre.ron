@@ -5,5 +5,9 @@
     projectile: Some((modifiers: [Spectral])),
     tags: ["larmes"],
     rarity: Common,
-    test: Some((frames: 60)),
+    test: Some((
+        frames: 60,
+        // M3-T13 (§78) : scénarios générés `tears_spectre` et son témoin `tears_spectre_sans_objet` : 1 balle en vol contre 0.
+        tears: Some((weapon: Some("larme"), frames: Some(150), targets: [(character: "target", dx: -48, dy: -18)], expect: [BulletCount(count: 1, projectile: Some("larme"), at_frame: 150)], control: [BulletCount(count: 0, projectile: Some("larme"), at_frame: 150)])),
+    )),
 )

@@ -1,0 +1,8 @@
+// Fixture M3-T13 : test.familiar sur un objet sans `familiar:` (Unsupported).
+(
+    name: "fixture-familiar_test_without_familiar",
+    content_folders: [
+        (path: "objets", kind: "Item"),
+    ],
+    entry: (start_map: "maps/salle.ldtk", default_seed: 1),
+)
