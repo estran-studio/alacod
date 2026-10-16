@@ -118,11 +118,27 @@ if [ "$max" -lt "$MIN_RESIMULATED" ]; then
     fail=1
 fi
 
+# Déconnexion GGRS (`Player '…' disconnected`, `NetworkInterrupted`) AVANT l'écriture de la
+# trace : un échec. Après, le pair qui a fini sa trace et quitté est normal.
+disc=0
+for i in 0 1; do
+    n=$(awk '/trace d.état écrite dans/ {exit} /disconnected|Disconnected|NetworkInterrupted/ {c++} END{print c+0}' "$OUT/p2p-$i.log")
+    disc=$((disc + n))
+done
+echo "déconnexions avant la fin de la trace : $disc"
+[ "$disc" = 0 ] || { echo "ÉCHEC : déconnexion GGRS en cours de partie"; fail=1; }
+
+# Chaque trace fait exactement FRAMES-1 lignes (la frame FRAMES-1 n'est jamais écrite).
+want=$((FRAMES - 1))
 if [ -f "$OUT/p2p-0.trace" ] && [ -f "$OUT/p2p-1.trace" ]; then
     l0=$(wc -l < "$OUT/p2p-0.trace" | tr -d ' ')
     l1=$(wc -l < "$OUT/p2p-1.trace" | tr -d ' ')
+    if [ "$l0" != "$want" ] || [ "$l1" != "$want" ]; then
+        echo "ÉCHEC : longueur des traces : client 0 = $l0, client 1 = $l1 lignes, attendu $want (FRAMES-1)"
+        fail=1
+    fi
     if cmp -s "$OUT/p2p-0.trace" "$OUT/p2p-1.trace"; then
-        echo "cmp des traces : identiques ($l0 lignes comparées)"
+        echo "cmp des traces : identiques ($l0 lignes comparées, attendu $want)"
     else
         first=$(cmp "$OUT/p2p-0.trace" "$OUT/p2p-1.trace" 2>&1 | sed -n 's/.*line \([0-9]*\).*/\1/p')
         echo "ÉCHEC : traces DIFFÉRENTES (première ligne différente : ${first:-?} ; $l0 et $l1 lignes ; $OUT/p2p-{0,1}.trace)"

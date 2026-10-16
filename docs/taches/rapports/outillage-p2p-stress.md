@@ -74,3 +74,22 @@ tronque le fichier avant la lecture), pas du jeu.
   d'objets dans un binaire de test) serait une tâche à part.
 - Le compteur « resimulées » est celui du client le plus resimulé : le client 1 (suspendu) n'en a presque pas, le client 0 les porte. Une
   variante qui suspend alternativement les deux clients doublerait la couverture ; non faite.
+
+## 7. Passage de relecture (worker b4)
+
+1. **Trace `-g1` du restart** (`state_trace.rs`) : `WriteFirst` plafonnait à `restart_at` : une ligne de plus si la simulation avançait pendant l'attente
+   (600 au lieu de 599). Fonction commune `last_trace_line(at_frame) = at_frame - 1`, utilisée par `-g1` et par la trace de sortie ; test
+   `plafond_des_lignes_independant_de_la_simulation` (trace enregistrée jusqu'à 602, tout confirmé : 599 lignes). `scripts/p2p-restart.sh` rejoué
+   (docker) : p2p partie 1 et partie 2 identiques (599 lignes), local partie 2 = partie 1 (599).
+2. **`p2p-stress-inputs.py`** : segments coupés aux bornes de chaque `--hold` ; maintien exact à la frame près (un maintien d'une frame ne disparaît plus).
+   Test `scripts/tests/test_p2p_stress_inputs.py` (dans `make test_tools`) et `--selftest` : `Interaction` sur `[13,14[`, `Dash` sur `[40,77[`, 50 graines.
+3. **`p2p-stress.sh`** : chaque trace doit faire `FRAMES-1` lignes (échec sinon, message dédié) ; une déconnexion GGRS (`disconnected`, `Disconnected`,
+   `NetworkInterrupted`) dans le journal **avant** la ligne « trace d'état écrite » est un échec (après, le pair qui a fini et quitté est normal : voir
+   `jjrs::log_ggrs_events`, qui ne traite le départ du pair comme perte qu'en cas de desync en headless).
+4. **Rejeu du montage (b)** avec les scripts corrigés (montage temporaire, annulé : carte `rocks_static` + 2e `PlayerSpawn`, `bomb` 40 px/20 frames,
+   30 bombes, `Right` f20–140, `Bomb` toutes les 100 frames dès f25 par `--hold`) : `p2p-stress.sh testbed … 3000` OK, codes 0/0, `DesyncDetected` 0,
+   **9886 / 1 frames resimulées**, déconnexions 0, traces **identiques, 2999 lignes = FRAMES-1 contrôlées**. Journal client 0 : 187 `bomb_place`,
+   270 `explosion`, 6 `rock_broken` (pas de `secret_wall_open` ni `rock_loot` : carte sans salle secrète, contrairement à l'ancien `p2p_t4`).
+   Un premier essai a échoué sur « pas de point de spawn pour le joueur 1 » (carte à un seul spawn) : erreur de montage.
+5. Vérifications : `make test_crates` vert (`game --lib` 194), `make test_scenarios_par SHARDS=3` sans BLESS : 482 scénarios, 3 tranches ok, aucune trace
+   bougée ; `make test_tools` 18 ok ; fmt ok.

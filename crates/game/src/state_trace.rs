@@ -531,6 +531,16 @@ fn confirmed_end(
     }
 }
 
+/// Nombre de lignes d'une trace qui s'arrête à la frame `at_frame` : `at_frame - 1`, toujours.
+/// La frame `at_frame - 1` n'est jamais écrite : `record_state` vit dans `SaveWorld`, et la
+/// `SaveGameState` de cette frame n'a pas encore été traitée quand le système voit `FrameCount`
+/// atteindre `at_frame` (constaté, reproductible en synctest). Un client en avance sur son pair,
+/// qui attend la confirmation (voir `confirmation`) pendant que sa frame courante avance,
+/// écrirait sinon une ligne de plus que le pair.
+fn last_trace_line(at_frame: u32) -> u32 {
+    at_frame.saturating_sub(1)
+}
+
 fn write_trace_at_exit_frame(
     mut commands: Commands,
     frame: Res<FrameCount>,
@@ -565,7 +575,9 @@ fn write_trace_at_exit_frame(
             return;
         }
         TraceStep::WriteFirst => {
-            let restart_at = file.restart_at_frame.unwrap_or(0);
+            // Même plafond que la trace de sortie : l'attente de confirmation fait avancer la
+            // simulation, la frame `restart_at - 1` n'est pas fiable (voir `last_trace_line`).
+            let restart_at = last_trace_line(file.restart_at_frame.unwrap_or(0));
             let Some(end) = confirmed_end(&mut file, &trace, confirmed.as_deref(), restart_at)
             else {
                 return;
@@ -583,13 +595,7 @@ fn write_trace_at_exit_frame(
         }
         TraceStep::WriteAndExit => {}
     }
-    // La frame `exit_at_frame - 1` n'est jamais écrite : `record_state` vit dans `SaveWorld`,
-    // et la `SaveGameState` de cette frame n'a pas encore été traitée quand ce système voit
-    // `FrameCount` atteindre `exit_at_frame` (constaté, reproductible en synctest). La trace
-    // compte donc `exit_at_frame - 1` lignes, toujours : un client en avance sur son pair, qui
-    // attend la confirmation (voir `confirmation`) pendant que sa frame courante avance encore,
-    // écrirait sinon une ligne de plus que le pair.
-    let exit_at = file.exit_at_frame.saturating_sub(1);
+    let exit_at = last_trace_line(file.exit_at_frame);
     let Some(end) = confirmed_end(&mut file, &trace, confirmed.as_deref(), exit_at) else {
         return;
     };
@@ -657,6 +663,19 @@ mod restart_tests {
         assert_eq!(
             trace_step(400, 400, Some(600), 2, true, true),
             TraceStep::WriteAndExit
+        );
+    }
+
+    #[test]
+    fn plafond_des_lignes_independant_de_la_simulation() {
+        use std::time::Duration;
+        assert_eq!(last_trace_line(600), 599);
+        assert_eq!(last_trace_line(0), 0);
+        // La simulation a avancé pendant l'attente (trace jusqu'à 602, tout confirmé) :
+        // la partie 1 (`-g1`) comme la sortie s'arrêtent à 599 lignes, jamais 600.
+        assert_eq!(
+            confirmation(0..602, Some(601), last_trace_line(600), Duration::ZERO),
+            Confirmation::Write(599)
         );
     }
 

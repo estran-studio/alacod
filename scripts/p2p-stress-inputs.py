@@ -14,15 +14,22 @@ Chaque changement d'entrée d'un pair est une prédiction fausse pour l'autre (a
 """
 import argparse
 import random
+import sys
 
 DEFAULT_POOL = ["Up", "Down", "Left", "Right", "Fire", "Dash", "Reload", "Sprint", "Melee"]
 
 
 def player(rng, frames, pool, holds):
+    """Segments d'un joueur. Les segments sont coupés aux bornes des `holds` : un maintien
+    `[de, à[` s'applique donc à la frame près.
+    Testé par `_test_bounds` (`python3 scripts/p2p-stress-inputs.py --selftest`, `make test_tools`).
+    """
+    cuts = sorted({b for _, start, stop in holds for b in (start, stop)})
     segments = []
     frame = 0
     while frame < frames:
         end = min(frames, frame + rng.randint(1, 3))
+        end = min([end] + [b for b in cuts if frame < b < end])
         buttons = [b for b in pool if rng.random() < 0.3]
         for name, start, stop in holds:
             if start <= frame < stop and name not in buttons:
@@ -55,5 +62,24 @@ def main():
     print("    ],\n)")
 
 
+def _test_bounds():
+    """Chaque maintien couvre exactement `[de, à[` (`python3 scripts/p2p-stress-inputs.py --selftest`)."""
+    import re
+
+    for seed in range(50):
+        out = player(random.Random(seed), 100, ["Up"], [("Interaction", 13, 14), ("Dash", 40, 77)])
+        held = {"Interaction": set(), "Dash": set()}
+        for m in re.finditer(r"from: (\d+), to: (\d+), buttons: \[([^\]]*)\]", out):
+            for name in held:
+                if name in m.group(3):
+                    held[name].update(range(int(m.group(1)), int(m.group(2))))
+        assert held["Interaction"] == {13}, (seed, held["Interaction"])
+        assert held["Dash"] == set(range(40, 77)), seed
+
+
 if __name__ == "__main__":
-    main()
+    if sys.argv[1:] == ["--selftest"]:
+        _test_bounds()
+        print("selftest OK")
+    else:
+        main()
