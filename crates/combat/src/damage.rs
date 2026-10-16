@@ -174,7 +174,13 @@ mod layer_tests {
     #[test]
     fn shield_goes_first_and_leaves_armor_and_soul_untouched() {
         let (mut shield, mut soul) = (1, fx(4));
-        let out = apply_layers(&DamageKind::Physical, fx(8), &mut shield, fx(100), &mut soul);
+        let out = apply_layers(
+            &DamageKind::Physical,
+            fx(8),
+            &mut shield,
+            fx(100),
+            &mut soul,
+        );
         assert_eq!(out, Layered::ShieldAbsorbed);
         assert_eq!((shield, soul), (0, fx(4)));
     }
@@ -183,7 +189,13 @@ mod layer_tests {
     fn armor_comes_before_soul() {
         // 8 dégâts, 100 d'armure : 4 passent l'armure, 3 points d'âme les absorbent, 1 reste.
         let (mut shield, mut soul) = (0, fx(3));
-        let out = apply_layers(&DamageKind::Physical, fx(8), &mut shield, fx(100), &mut soul);
+        let out = apply_layers(
+            &DamageKind::Physical,
+            fx(8),
+            &mut shield,
+            fx(100),
+            &mut soul,
+        );
         assert_eq!(
             out,
             Layered::Through {

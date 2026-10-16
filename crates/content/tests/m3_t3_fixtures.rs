@@ -41,15 +41,23 @@ fn currency_zero_is_refused_in_a_pool() {
 #[test]
 fn a_shop_pool_cannot_sell_coins() {
     let (_, _, errors) = load_and_lint(&fixture_dir("shop_currency_pool")).unwrap();
-    assert_has_error(
-        &errors,
-        LintErrorKind::Unsupported,
-        "a une entrée Currency",
-    );
+    assert_has_error(&errors, LintErrorKind::Unsupported, "a une entrée Currency");
 }
 
 #[test]
 fn starting_consumables_respect_max_stack() {
     let (_, _, errors) = load_and_lint(&fixture_dir("character_starting_over_max_stack")).unwrap();
     assert_has_error(&errors, LintErrorKind::OutOfRange, "dépasse max_stack = 2");
+}
+
+#[test]
+fn an_unlock_cannot_add_zero_coins_to_a_pool() {
+    let (_, _, errors) = load_and_lint(&fixture_dir("unlock_currency_zero")).unwrap();
+    assert_has_error(&errors, LintErrorKind::OutOfRange, "Currency(0)");
+}
+
+#[test]
+fn an_unlock_cannot_add_coins_to_a_shop_pool() {
+    let (_, _, errors) = load_and_lint(&fixture_dir("unlock_currency_shop_pool")).unwrap();
+    assert_has_error(&errors, LintErrorKind::Unsupported, "pool de boutique");
 }

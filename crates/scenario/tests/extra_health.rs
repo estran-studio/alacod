@@ -153,13 +153,21 @@ fn layers_apply_in_the_order_shield_armor_soul_health() {
     );
     // f50 (après les 15 frames du bouclier) : l'armure divise par 2 (4), l'âme prend 4 (reste 2).
     assert_eq!(
-        target_state(&[(12, 8.0, phys.clone()), (50, 8.0, phys.clone())], setup, 60),
+        target_state(
+            &[(12, 8.0, phys.clone()), (50, 8.0, phys.clone())],
+            setup,
+            60
+        ),
         (5000.0, 2.0, 0)
     );
     // f90 : 4 après armure, 2 points d'âme puis 2 PV.
     assert_eq!(
         target_state(
-            &[(12, 8.0, phys.clone()), (50, 8.0, phys.clone()), (90, 8.0, phys)],
+            &[
+                (12, 8.0, phys.clone()),
+                (50, 8.0, phys.clone()),
+                (90, 8.0, phys)
+            ],
             setup,
             100
         ),
@@ -179,7 +187,11 @@ fn a_hit_absorbed_by_soul_still_starts_the_hit_iframes() {
     // Le troisième (f50) passe : 10 - 3 - 3 = 4.
     assert_eq!(
         target_state(
-            &[(12, 3.0, phys.clone()), (22, 3.0, phys.clone()), (50, 3.0, phys)],
+            &[
+                (12, 3.0, phys.clone()),
+                (22, 3.0, phys.clone()),
+                (50, 3.0, phys)
+            ],
             setup,
             60
         ),
@@ -223,14 +235,18 @@ fn isaac_health_at_130(strip: bool) -> f32 {
             bevy_ggrs::GgrsSchedule,
             (move |frame: Res<utils::frame::FrameCount>,
                    mut configs: ResMut<Assets<game::character::config::CharacterConfig>>,
-                   players: Query<(&game::character::player::Player, &game::character::health::Health)>| {
+                   players: Query<(
+                &game::character::player::Player,
+                &game::character::health::Health,
+            )>| {
                 if strip && frame.frame < 2 {
                     for (_, config) in configs.iter_mut() {
                         config.hit_iframes = None;
                     }
                 }
                 if frame.frame == 130 {
-                    if let Some((_, health)) = players.iter().find(|(player, _)| player.handle == 0) {
+                    if let Some((_, health)) = players.iter().find(|(player, _)| player.handle == 0)
+                    {
                         *sink.lock().unwrap() = health.current.to_num::<f32>();
                     }
                 }

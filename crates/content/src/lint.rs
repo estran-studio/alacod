@@ -4136,7 +4136,9 @@ fn lint_items(registry: &Registry, errors: &mut Vec<LintError>) {
         {
             push(
                 LintErrorKind::Unsupported,
-                format!("objet « {id} » : refuse_when_full exige un consommable avec un effet Heal"),
+                format!(
+                    "objet « {id} » : refuse_when_full exige un consommable avec un effet Heal"
+                ),
             );
         }
         if consumable && !item.def.modifiers.is_empty() {
@@ -4380,6 +4382,12 @@ fn lint_unlocks(registry: &Registry, errors: &mut Vec<LintError>) {
                         push(
                             LintErrorKind::OutOfRange,
                             format!("déblocage « {id} » : grants[{index}] : poids {weight} (doit être > 0)"),
+                        );
+                    }
+                    if matches!(pick, items::LootPick::Currency(0)) {
+                        push(
+                            LintErrorKind::OutOfRange,
+                            format!("déblocage « {id} » : grants[{index}] : Currency(0) : le montant doit être > 0"),
                         );
                     }
                     if matches!(pick, items::LootPick::Currency(_))

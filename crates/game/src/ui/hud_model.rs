@@ -333,7 +333,10 @@ pub fn hud_values(input: &HudPlayerInput) -> HudPlayerValues {
             .map(|floor| floor.index),
         consumables: (input.player_present
             && input.item_table.is_some_and(|table| !table.0.is_empty()))
-        .then(|| ["blank", "key", crate::loot::BOMB_ITEM].map(|id| input.items.map_or(0, |items| items.consumable(id)))),
+        .then(|| {
+            ["blank", "key", crate::loot::BOMB_ITEM]
+                .map(|id| input.items.map_or(0, |items| items.consumable(id)))
+        }),
         passives: input
             .items
             .map(|items| {

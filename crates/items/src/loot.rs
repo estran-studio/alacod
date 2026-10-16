@@ -660,7 +660,10 @@ mod tests {
         };
         // Récompense de salle (consommables seulement) : l'objet rare est exclu, restent les sous.
         for seed in 0..50 {
-            assert_eq!(draw(Rarity::Common, true, seed).as_deref(), Some("currency:5"));
+            assert_eq!(
+                draw(Rarity::Common, true, seed).as_deref(),
+                Some("currency:5")
+            );
         }
         // Coffre de rareté minimale Rare : les sous (Common) ne sont pas candidats.
         for seed in 0..50 {

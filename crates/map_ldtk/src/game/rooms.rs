@@ -794,7 +794,13 @@ pub fn rock_loot_system(
         if let Some(amount) = items::loot_currency(&item_id) {
             game::shop::spawn_shell_pickup(&mut commands, &mut id_factory, amount, position, 0);
         } else {
-            game::items::spawn_item_pickup(&mut commands, &items, item_id, position, &mut id_factory);
+            game::items::spawn_item_pickup(
+                &mut commands,
+                &items,
+                item_id,
+                position,
+                &mut id_factory,
+            );
         }
     }
 }

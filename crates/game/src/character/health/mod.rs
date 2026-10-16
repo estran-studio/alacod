@@ -260,8 +260,12 @@ pub fn rollback_resolve_damage_events(
         };
         let mut no_shield = 0u32;
         let mut no_soul = fixed_math::Fixed::ZERO;
-        let shield_points = opt_shield.as_deref_mut().map_or(&mut no_shield, |s| &mut s.0);
-        let soul_points = opt_extra.as_deref_mut().map_or(&mut no_soul, |e| &mut e.soul);
+        let shield_points = opt_shield
+            .as_deref_mut()
+            .map_or(&mut no_shield, |s| &mut s.0);
+        let soul_points = opt_extra
+            .as_deref_mut()
+            .map_or(&mut no_soul, |e| &mut e.soul);
         let (amount, to_health) =
             match apply_layers(&event.kind, amount, shield_points, armor, soul_points) {
                 Layered::ShieldAbsorbed => {
@@ -292,7 +296,9 @@ pub fn rollback_resolve_damage_events(
                 frame.frame,
                 target_net_id.0,
                 amount - to_health,
-                opt_extra.as_deref().map_or(fixed_math::Fixed::ZERO, |e| e.soul)
+                opt_extra
+                    .as_deref()
+                    .map_or(fixed_math::Fixed::ZERO, |e| e.soul)
             );
         }
 

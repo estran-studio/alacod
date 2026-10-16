@@ -4567,6 +4567,132 @@ optionnels, files transitoires (hors checksum, vidées au `FrameStart`).
 - Hors périmètre : exécution des effets d'objet par les pools Isaac (T11b), transformations (Q10, non retenues
   ici : `transformation_three` non livré).
 
+## 68. Cœurs, i-frames, sous, bombes et clés au sol (M3-T3, chantiers C4 et C5)
+
+Exécute les contrats de §61 (Q2, Q4, `max_stack`, `hit_iframes`). Code : `combat::{actors::ExtraHealth,
+damage::apply_layers}`, `character::health::rollback_resolve_damage_events`, `effects::Action::GainSoul`,
+`items::{ItemDef::accepts, LootPick::Currency}`, `game::{items, shop, loot, champions}`,
+`map_ldtk::game::rooms::rock_loot_system`. **Aucune trace existante ne bouge** hors `isaac` (voir « Traces ») :
+tout type nouveau est neutre ou absent des jeux existants, les variantes sont ajoutées en fin d'enum.
+
+### Couche de vie `ExtraHealth` (Q2 de William)
+
+Un demi-cœur vaut **1 PV** (`Health` en points, les PV d'`isaac` restent pairs). `combat::actors::ExtraHealth
+{ soul: Fixed }` est un composant rollback **neutre** (`rollback_and_trace_neutral`), posé au premier gain
+(`combat::actors::queue_gain_soul`, comme `Shield`) : sans porteur il ne contribue pas au checksum. Il n'entre
+pas dans `Health.max`, ne se régénère pas, n'est borné par rien (le plafond de 12 cœurs d'Isaac est un
+réglage de T16) et reste posé à `soul == 0`.
+
+**Ordre retenu des couches de défense**, en un seul endroit pur et testé, `combat::damage::apply_layers`
+(appelé par `rollback_resolve_damage_events`, après `resolve_damage`) :
+
+1. **bouclier** (`Shield`) : un point absorbe le coup **entier** (brèves i-frames `SHIELD_IFRAMES`) ; ni
+   l'armure ni l'âme ne sont touchées ;
+2. **armure** (`stat Armor`, `after_armor`) : réduction proportionnelle ;
+3. **`ExtraHealth`** : absorbe ce qui reste **point par point** ;
+4. **PV** : ce qui reste après l'âme, via `DamageAccumulator` (donc mort, à terre et `last_hit_by` comme avant).
+
+`DamageKind::True` ignore le bouclier et l'armure (des atténuations) mais **pas** `ExtraHealth` (c'est de la
+vie : une chute ou des piques entament d'abord les cœurs d'âme, comme dans Isaac). Un coup que l'âme absorbe
+en entier **est un coup** : `hit_iframes` démarrent, `HitLanded` (donc `OnHit`) et `HitCount` le comptent, le
+crédit de points aussi ; en revanche rien n'est accumulé (`DamageAccumulator` intact : ni mort, ni `last_hit_by`,
+ni `OnDamageTaken`, ni délai de régénération — `OnDamageTaken` se lit sur la perte de PV). Sans bouclier, avec
+une armure ≤ 0 et sans âme, le montant reste exactement celui de `resolve_damage` (identité, aucune trace ne
+bouge). Traces de jeu : `ggrs{f=… soul_absorb target=… took=… left=…}` (et `shield_absorb` comme avant).
+
+**Consommable « cœur d'âme »** : action `effects::Action::GainSoul(Fixed)` (variante **en fin d'enum**, linéaire
+donc acceptée sous `Scaled(PerCopy)` dans un effet, décrite par `describe_action`), exécutée dans un effet de
+personnage ou d'objet (`effects_runtime`) et à `OnUse` d'un consommable (`items::apply_instant_effects`) ;
+refusée dans un power-up et dans les actions où `GainShield` l'est ; lint `GainSoul = 0` (`OutOfRange`).
+**Écart connu, antérieur** : `apply_instant_effects` n'exécute pas l'enveloppe `Scaled` (le lint la déballe et
+valide l'action intérieure, T0b) : `OnUse: [Scaled(GainSoul(..))]` est accepté puis sans effet, comme
+`Scaled(Heal)` ou `Scaled(GainShield)` avant cette tâche (dette, voir le rapport). Un consommable à
+effets s'applique au ramassage et n'entre pas dans l'inventaire (§44). `testbed` : `coeur_ame` (4 points) ;
+`isaac` : `coeur_ame` (2 points = un cœur entier).
+
+**Attente de scénario** `ExtraHealth(handle, n, at_frame)` : points de vie d'âme du joueur (0 sans le composant),
+égalité exacte. **T8 (Q6)** : `ExtraHealth::soul` est un champ public de `combat` ; `Price::MaxHealth` reçoit déjà
+`health` et `max_health` en `Fixed` et T8 y ajoutera `soul` à l'appel de `can_pay`/`pay` (« les cœurs d'âme
+paient à la place s'ils sont présents ») : rien n'est décidé ici sur la règle de paiement.
+
+### Plafonds et refus au ramassage
+
+`ItemDef::accepts(stock, at_full_health)` (pure) : faux pour un consommable dont le compteur a atteint
+`max_stack`, et, quand l'objet déclare **`refuse_when_full: true`**, à pleine vie (`Health.current >= max`).
+`refuse_when_full` (champ de fin d'`ItemDef`, hors hash, faux par défaut) est réservé aux consommables qui
+soignent (lint : exige un effet `Heal`) ; **un cœur reste donc au sol seulement pour les consommables qui le
+déclarent** (`coeur`) : la `ration` garde son comportement (ramassée sans effet à pleine vie).
+`item_consumable_pickup_system` prend le **premier joueur à portée (ordre `GgrsNetId`) qui peut le prendre** :
+un joueur au plafond ou à pleine vie laisse le tas à un autre joueur à portée, sinon l'objet reste au sol et
+sera ramassé plus tard. Sans `max_stack` ni `refuse_when_full`, `accepts` est toujours vrai : le premier joueur
+à portée, comme avant. **Boutique** : un présentoir de consommable que l'acheteur ne peut pas prendre ne vend
+pas : rien n'est dépensé, `CurrencyEvent { delta: 0, reason: "shop_full" }` et anti-rebond `retry_after`
+(`ggrs{shop_full}`). Lint : `max_stack` déjà vérifié (T0b) ; `starting_consumables` qui dépasse `max_stack`
+(`OutOfRange`), `refuse_when_full` sans `Heal` (`Unsupported`). `isaac` : `key` et `bomb` plafonnés à 99 ;
+`testbed` : `bomb` à 3.
+
+### Sous au sol (`LootPick::Currency`)
+
+Entrée de pool `pick: Currency(n)` (variante **en fin** de `LootPick`, `n > 0` au lint). Le tirage la désigne par
+`currency:<n>` (`items::loot_currency`, comme `weapon:<id>`) ; elle compte comme un **consommable `Common`** : elle
+sort d'une récompense de salle ou d'un rocher (`consumables_only`), pas d'un coffre de rareté minimale
+supérieure. Les consommateurs du tirage posent un **`ShellPickup`** (la même entité que les douilles des
+ennemis, M2-T6 §50 : `game::shop::spawn_shell_pickup`, ramassé au contact par `shell_pickup_system`, crédité à
+`Currency` par `CurrencyEvent { reason: "pickup" }`) : coffre (`chest_interaction_system`), récompense de salle
+(`room_reward_system`), butin de champion (`champions::drop_loot`), butin de rocher (`rock_loot_system`). Un pool
+de **boutique** ne peut pas en porter (lint `Unsupported`, y compris les entrées ajoutées par un déblocage) :
+un présentoir ne vend pas de sous. La mort d'un ennemi laisse déjà des sous par `economy.ron`
+`shells_drop` (§50, `isaac` : 2 à 5) ; un champion peut en lâcher par son pool. `isaac` : `loot/salle.ron`
+(récompense de salle) gagne `Currency(1)`, `coeur`, `coeur_ame` et `bomb` aux poids 4, 3, 1 et 2.
+
+### Partage en coop (Q4 de William) : par joueur
+
+Sous, bombes et clés sont **par joueur** (l'`Inventory` et le `Currency` de chacun, comme avant) : celui qui
+ramasse possède. Rien de nouveau à coder, sinon l'ordre de ramassage déjà déterministe (plus petit `GgrsNetId`
+à portée qui peut prendre l'objet ; coffre : premier événement d'interaction). Prompts et HUD lisent le joueur
+concerné (prompt du coffre : les clés de l'interacteur) ; le HUD gagne la source **`bombs`** (compteur `bomb` du
+joueur affiché, à côté de `keys` et `shells`, liste fermée `content::ui::HUD_SOURCES`) ; `isaac/ui/hud.ron`
+l'affiche. Aucune ressource d'équipe (l'option « équipe » de §61 n'est pas retenue).
+
+### I-frames de `isaac`
+
+`pleureur` (le personnage joueur) pose `hit_iframes: Some(60)` : une seconde d'invulnérabilité après avoir
+perdu de la vie (résolveur de T0b, §61). Deux ennemis au contact qui frappent à quelques frames d'écart ne
+retirent plus qu'un coup (`hit_iframes_isaac` : 4 PV à f130 et 3 PV à f260, contre 3 et 1 sans la donnée —
+témoin joué par `crates/scenario/tests/extra_health.rs`, `isaac_without_hit_iframes_loses_more`).
+
+### Traces
+
+Seuls les scénarios `isaac` où le joueur subit un coup ou qui tirent une récompense de salle bougent
+(`isaac_floor_seed_1`, `generated/isaac/{boss_gardien, enemy_mouche_moving, enemy_mouche_still,
+enemy_suiveur_moving, enemy_suiveur_still}`) : cause = `hit_iframes` de `pleureur` (preuve §5 dans le rapport
+de la tâche). Toutes les autres traces (testbed, zombies, gungeon, throne, générées) sont identiques.
+
+### Scénarios (testbed sauf mention)
+
+| Scénario | Prouve |
+|---|---|
+| `soul_heart_absorbs` / `_temoin` | la `tourelle_spirale` retire 8 PV par volée ; avec un `coeur_ame` (4) : ExtraHealth 4 puis 0, santé 100 → 96 → 88 ; sans : 92 → 84 |
+| `heart_full_stays` / `_temoin` | à pleine vie le `coeur` (`refuse_when_full`) reste au sol et soigne dès le premier coup (96) ; la `ration` ramassée à f5 est perdue (92) |
+| `coin_pickup` | un coffre du pool `pieces` (`Currency(7)`) laisse un tas de 7 sous, ramassé : 500 → 507 |
+| `bomb_pickup_cap` | au plafond (3) la bombe du sol est refusée (3 à f29) ; après la pose d'une bombe (explosion), elle est ramassée (3 à f40) |
+| `coop_pickups_per_player` | deux joueurs : une clé chacun, la bombe du milieu va à P0 (plafond 3), la seconde est refusée par P0 et prise par P1 ; 7 sous pour P1 seul ; HUD sur P0 |
+| `hit_iframes_isaac` (`isaac`) | voir ci-dessus |
+
+Unitaires : `combat::damage::layer_tests` (ordre bouclier → armure → âme → PV, `True`, coup absorbé en entier),
+`items::tests::accepts_refuses_a_full_counter_and_a_wasted_heal`, `items::loot::tests`
+(`currency_pick_is_a_common_consumable…`), `crates/scenario/tests/extra_health.rs` (les mêmes règles dans le vrai
+résolveur), `crates/content/tests/m3_t3_fixtures.rs` (7 fixtures : `item_refuse_when_full_without_heal`,
+`item_gain_soul_zero`, `loot_currency_zero`, `shop_currency_pool`, `character_starting_over_max_stack`,
+`unlock_currency_zero`, `unlock_currency_shop_pool`).
+
+### Atteignabilité et dettes
+
+Récompense de salle `combat` d'`isaac` (cœurs, sous, bombes, clés) ; mort d'ennemi d'`isaac` (`shells_drop`) ;
+tables de champions et d'ennemis de M3-T11d. L'`OnDamageTaken` ne se déclenche pas sur un coup que l'âme
+absorbe en entier (à reprendre si un objet doit réagir aux cœurs d'âme perdus) ; `ExtraHealth` n'a pas de
+plafond ; la pose de bombe d'`isaac` (`BombCarrier`) est M3-T11 ; HUD des cœurs : T16.
+
 ## 69. Bombes, explosions, rochers cassés, piques, mur secret (M3-T4, chantiers E3 et E4 v2)
 
 Exécute les contrats de §62. Code : `game::bombs` (`BombsPlugin`), `world::{bomb, explosion, surface}`,
