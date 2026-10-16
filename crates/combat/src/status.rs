@@ -375,8 +375,20 @@ mod tests {
     fn poison_suit_les_regles_de_burn() {
         let lib = library();
         let mut s = Statuses::default();
-        s.apply("poison", &lib.statuses["poison"], Some((net(7), None)), 100, 1);
-        s.apply("poison", &lib.statuses["poison"], Some((net(7), None)), 160, 1);
+        s.apply(
+            "poison",
+            &lib.statuses["poison"],
+            Some((net(7), None)),
+            100,
+            1,
+        );
+        s.apply(
+            "poison",
+            &lib.statuses["poison"],
+            Some((net(7), None)),
+            160,
+            1,
+        );
         assert_eq!(s.0[0].expires_at_frame, 340, "durée empilée comme Burn");
         assert_eq!(s.stacks("poison"), 2);
         let ticks = s.tick(190, &lib);
@@ -395,7 +407,10 @@ mod tests {
         assert_eq!(s.0[0].expires_at_frame, 270, "rafraîchi depuis f150");
         assert_eq!(s.stacks("peur"), 1);
         assert!(s.feared());
-        assert!(!s.incapacitated() && !s.frozen(), "la peur n'immobilise pas");
+        assert!(
+            !s.incapacitated() && !s.frozen(),
+            "la peur n'immobilise pas"
+        );
         assert!(s.tick(200, &lib).is_empty(), "aucun tick de dégâts");
         s.tick(270, &lib);
         assert!(!s.feared(), "expiré");

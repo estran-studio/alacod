@@ -1,0 +1,9 @@
+// M3-T1 (docs/conventions.md §66) : objet d'essai : les larmes traversent murs et obstacles (`Spectral`), jamais les personnages. Scénario `tears_spectral_wall`.
+(
+    name: "Spectre",
+    kind: Passive,
+    projectile: Some((modifiers: [Spectral])),
+    tags: ["larmes"],
+    rarity: Common,
+    test: Some((frames: 60)),
+)

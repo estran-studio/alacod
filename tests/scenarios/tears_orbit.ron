@@ -1,0 +1,30 @@
+// M3-T1 (§66) : `Orbit` : la larme tourne autour du tireur (rayon 40, un tour en 60 frames) au lieu
+// d'avancer. Une seule larme plein est (f20) : sans orbite elle s'arrêterait dans le mur de la
+// salle 4 frames plus tard ; en orbite elle fait le tour du joueur et touche `target`, placée à
+// 40 unités à l'ouest (en (656, -194)), au bout d'un demi-tour.
+//
+// À regarder : la larme décrit un cercle autour du joueur et touche la cible derrière lui.
+Scenario(
+    game: "testbed",
+    map: "testbed/props_room.ldtk",
+    frames: 120,
+    powerup_drop_chance_override: "0",
+    characters: [(character: "target", x: "656.0", y: "-194.0", at_frame: 1)],
+    players: [
+        (
+            inputs: [(from: 10, to: 30, buttons: [Fire], pan: (127, 0))],
+            weapon: "larme",
+            items: ["orbite"],
+        ),
+    ],
+    expect: [
+        HasItem(handle: 0, id: "orbite", at_frame: 1),
+        // f40 : la larme (f20) tourne encore autour du joueur (sans orbite elle serait déjà arrêtée
+        // dans le mur est de la salle). f48 : elle a fait un demi-tour et touche `target` (net id 14).
+        BulletCount(count: 1, projectile: Some("larme"), at_frame: 40),
+        EntityHits(net_id: 14, min: 0, max: Some(0), at_frame: 47),
+        HitsAtLeast(entity: Placed(0), hits: 1, at_frame: 48),
+        BulletCount(count: 0, projectile: Some("larme"), at_frame: 60),
+        EntityHits(net_id: 14, min: 1, max: Some(1), at_frame: 119),
+    ],
+)

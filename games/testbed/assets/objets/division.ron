@@ -1,0 +1,9 @@
+// M3-T1 (docs/conventions.md §66) : objet d'essai : à l'impact sur un personnage, la larme se divise en trois en éventail (`Split` sans `child` : copie du tir du porteur). Scénarios `tears_split`, `tears_stack_three`.
+(
+    name: "Division",
+    kind: Passive,
+    projectile: Some((modifiers: [Split(count: 3, spread: "0.6")])),
+    tags: ["larmes"],
+    rarity: Common,
+    test: Some((frames: 60)),
+)

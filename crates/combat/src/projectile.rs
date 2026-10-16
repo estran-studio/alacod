@@ -622,7 +622,12 @@ pub fn projectile_wall_terrain_system(
 /// modificateurs posés, `projectile:<id>:<rang>`, ne dépend donc pas du hasard). Tirage :
 /// [`effects::chance::roll_chance`], RNG local de graine `(run_seed, net_id du projectile, rang)`,
 /// chance = `chance_with_luck(base, luck, per_luck)`. Les autres actions passent inchangées.
-pub fn resolve_chances(on_hit: &[Action], run_seed: u32, net_id: usize, luck: Fixed) -> Vec<Action> {
+pub fn resolve_chances(
+    on_hit: &[Action],
+    run_seed: u32,
+    net_id: usize,
+    luck: Fixed,
+) -> Vec<Action> {
     on_hit
         .iter()
         .enumerate()
@@ -649,7 +654,8 @@ pub fn resolve_chances(on_hit: &[Action], run_seed: u32, net_id: usize, luck: Fi
 /// à `radius` pendant [`ORBIT_RAMP_FRAMES`]. Pure, `Fixed` seulement.
 pub fn orbit_position(center: FixedVec2, orbit: &OrbitState, age: u32) -> FixedVec2 {
     let per_turn = orbit.frames_per_turn.max(1);
-    let fraction = Fixed::saturating_from_num(age % per_turn) / Fixed::saturating_from_num(per_turn);
+    let fraction =
+        Fixed::saturating_from_num(age % per_turn) / Fixed::saturating_from_num(per_turn);
     let angle = orbit
         .phase
         .saturating_add(fraction.saturating_mul(fixed_math::FIXED_TAU));
@@ -2234,9 +2240,8 @@ mod tests {
     #[test]
     fn compose_deux_variantes_identiques_suivent_leur_regle() {
         use ProjectileModifier::*;
-        let pair = |m: ProjectileModifier| {
-            compose(std::slice::from_ref(&m), &[std::slice::from_ref(&m)])
-        };
+        let pair =
+            |m: ProjectileModifier| compose(std::slice::from_ref(&m), &[std::slice::from_ref(&m)]);
         let r = pair(Bounce(2));
         assert_eq!(r.bounces, 4, "Bounce : addition");
         let r = pair(Pierce(1));
@@ -2337,13 +2342,7 @@ mod tests {
             on_hit: vec![status_action("peur")],
             on_expire: vec![ExpireAction::DestroyTerrain { radius: fx(8.0) }],
         };
-        let p = Projectile::composed(
-            "larme".into(),
-            &weapon,
-            &[&item_a, &item_b],
-            table,
-            fx(1.0),
-        );
+        let p = Projectile::composed("larme".into(), &weapon, &[&item_a, &item_b], table, fx(1.0));
         assert_eq!((p.pierces_left, p.bounces_left), (2, 1));
         assert!(p.spectral);
         assert_eq!(
@@ -2408,7 +2407,10 @@ mod tests {
         assert_eq!(out.len(), 3, "rangs conservés");
         assert_eq!(out[0], status_action("brulure"));
         assert_eq!(out[1], status_action("poison"), "chance 1 : toujours");
-        assert_eq!(out[2], on_hit[2], "chance 0 : action laissée, ignorée plus loin");
+        assert_eq!(
+            out[2], on_hit[2],
+            "chance 0 : action laissée, ignorée plus loin"
+        );
         // La chance lit la stat Luck : 0,5 + 5 × 0,1 = 1 : toujours, quelle que soit la graine.
         let lucky = vec![Action::Chance {
             base: fx(0.5),
@@ -2453,7 +2455,8 @@ mod tests {
         let first = orbit_position(center, &orbit, 60);
         let start = orbit_position(center, &orbit, 0);
         assert!(
-            (first.x - (center.x + fx(40.0))).abs() < fx(0.01) && (first.y - center.y).abs() < fx(0.01),
+            (first.x - (center.x + fx(40.0))).abs() < fx(0.01)
+                && (first.y - center.y).abs() < fx(0.01),
             "âge 60 = âge 0 en angle, rayon plein : {first:?}"
         );
         assert_eq!(start, center);
@@ -2480,7 +2483,10 @@ mod tests {
         );
         p.start_orbit(FixedVec2::new(fx(0.0), fx(2.0)));
         let phase = p.orbit.unwrap().phase;
-        assert!((phase - fixed_math::FIXED_PI / fx(2.0)).abs() < fx(0.01), "vers +y : {phase}");
+        assert!(
+            (phase - fixed_math::FIXED_PI / fx(2.0)).abs() < fx(0.01),
+            "vers +y : {phase}"
+        );
         // Sans Orbit : rien.
         let mut plain = Projectile::new(
             "a".into(),

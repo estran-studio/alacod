@@ -1,0 +1,4 @@
+// M3-T1 (docs/conventions.md §66) : poison — 2 points de poison toutes les 30 frames pendant 120
+// frames ; réappliqué, la durée s'empile jusqu'à 240 (2 piles), comme la brûlure (genre de dégâts :
+// `Poison`). Scénarios `status_poison`, `tears_luck_chance`.
+(kind: Poison, frames: 120, damage: "2", period: 30)

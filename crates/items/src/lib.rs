@@ -155,10 +155,11 @@ pub struct ItemDef {
     pub cost: Option<(String, u32)>,
     /// M3-T0a (`docs/conventions.md` §60) : modificateurs de projectile ajoutés aux tirs du
     /// porteur (`modifiers`, `on_hit`, `on_expire`), composés avec ceux de l'arme par
-    /// `combat::projectile::compose` dans l'ordre de [`projectile_sources`]. `None` : v1 exacte.
-    /// Contrat : le tir ne le lit pas encore (M3-T1) ; le lint refuse un objet qui le porte
-    /// (`Unsupported`). `ItemDef` est une définition (ressource [`ItemTable`], hors rollback,
-    /// sans `Hash`) : le champ n'entre dans aucun checksum.
+    /// `combat::projectile::compose` dans l'ordre de [`projectile_mods`]. `None` : v1 exacte.
+    /// Lu au tir par M3-T1 (§66) ; le lint vérifie sa forme (un objet n'a pas de table
+    /// `projectiles` : `Split` sans `child`, `on_expire` sans `Spawn`). `ItemDef` est une
+    /// définition (ressource [`ItemTable`], hors rollback, sans `Hash`) : le champ n'entre dans
+    /// aucun checksum.
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub projectile: Option<ProjectileMods>,
     /// M3-T0d (`docs/conventions.md` §63) : l'objet donne un **familier** (un personnage de

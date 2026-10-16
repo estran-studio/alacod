@@ -851,7 +851,9 @@ fn lint_projectile_spec(
     {
         push(
             LintErrorKind::Unsupported,
-            format!("{at} : Orbit avec Homing ou Gravity : l'orbite impose la vitesse du projectile"),
+            format!(
+                "{at} : Orbit avec Homing ou Gravity : l'orbite impose la vitesse du projectile"
+            ),
         );
     }
     for action in &spec.on_hit {
@@ -1039,7 +1041,9 @@ fn lint_carried_projectile(
     {
         push(
             LintErrorKind::Unsupported,
-            format!("{at} : Orbit avec Homing ou Gravity : l'orbite impose la vitesse du projectile"),
+            format!(
+                "{at} : Orbit avec Homing ou Gravity : l'orbite impose la vitesse du projectile"
+            ),
         );
     }
     for action in &mods.on_hit {
@@ -3694,7 +3698,10 @@ fn lint_statuses(registry: &Registry, errors: &mut Vec<LintError>) {
                     "Poison"
                 };
                 if status.damage <= Fixed::ZERO {
-                    push(format!("damage = {} : doit être > 0 ({name})", status.damage));
+                    push(format!(
+                        "damage = {} : doit être > 0 ({name})",
+                        status.damage
+                    ));
                 }
                 if status.period == 0 {
                     push(format!("period = 0 : doit être > 0 ({name})"));

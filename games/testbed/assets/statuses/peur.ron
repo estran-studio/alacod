@@ -1,0 +1,4 @@
+// M3-T1 (docs/conventions.md §66) : peur — l'ennemi touché fuit sa cible pendant 150 frames (`Flee`
+// imposé, aucune attaque au corps à corps) ; réappliquée, la durée est rafraîchie. Scénario
+// `status_fear`.
+(kind: Fear, frames: 150)

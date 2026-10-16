@@ -608,21 +608,23 @@ pub fn move_enemies(
                     enemy_target_opt.and_then(|target| target.last_known_position),
                 )
             })
-            .or_else(|| behavior_runtime
-            .zip(enemy_behaviors)
-            .and_then(|(runtime, rules)| {
-                super::rules::behavior_motion(
-                    rules.active(boss.map_or(0, |b| b.phase)),
-                    runtime,
-                    frame.frame,
-                    enemy_pos_v2,
-                    enemy_target_opt.and_then(|target| target.last_known_position),
-                    &flow_field_cache,
-                    nav_key,
-                    &body,
-                    squad_slots.0.get(&net_id.0),
-                )
-            }));
+            .or_else(|| {
+                behavior_runtime
+                    .zip(enemy_behaviors)
+                    .and_then(|(runtime, rules)| {
+                        super::rules::behavior_motion(
+                            rules.active(boss.map_or(0, |b| b.phase)),
+                            runtime,
+                            frame.frame,
+                            enemy_pos_v2,
+                            enemy_target_opt.and_then(|target| target.last_known_position),
+                            &flow_field_cache,
+                            nav_key,
+                            &body,
+                            squad_slots.0.get(&net_id.0),
+                        )
+                    })
+            });
         let desired_move_velocity_v2 = match &motion {
             Some(motion) => motion.direction * movement_speed.saturating_mul(motion.speed_mult),
             None => base_velocity_v2 * speed_factor_fixed,

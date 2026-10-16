@@ -1733,7 +1733,11 @@ fn projectile_split_out_of_range_fixture_reports_ranges() {
 #[test]
 fn item_projectile_without_table_fixture_is_unsupported() {
     let (_, _, errors) = load_and_lint(&fixture_dir("item_projectile_no_table")).unwrap();
-    assert_has_error(&errors, LintErrorKind::Unsupported, "Split : child « eclat »");
+    assert_has_error(
+        &errors,
+        LintErrorKind::Unsupported,
+        "Split : child « eclat »",
+    );
     assert_has_error(&errors, LintErrorKind::Unsupported, "on_expire Spawn");
     assert_eq!(m4_t0a_errors(&errors), 2, "{errors:#?}");
 }
@@ -1760,7 +1764,11 @@ fn projectile_chance_out_of_range_fixture_reports_each_rule() {
     assert_has_error(&errors, LintErrorKind::OutOfRange, "Chance : base = 1.5");
     assert_has_error(&errors, LintErrorKind::OutOfRange, "Chance : base = -0.1");
     assert_has_error(&errors, LintErrorKind::OutOfRange, "Chance : then Chance");
-    assert_has_error(&errors, LintErrorKind::OutOfRange, "Chance : then DestroyTerrain");
+    assert_has_error(
+        &errors,
+        LintErrorKind::OutOfRange,
+        "Chance : then DestroyTerrain",
+    );
     assert_has_error(
         &errors,
         LintErrorKind::BrokenReference,
@@ -1772,14 +1780,26 @@ fn projectile_chance_out_of_range_fixture_reports_each_rule() {
 #[test]
 fn projectile_split_cycle_fixture_reports_cycle() {
     let (_, _, errors) = load_and_lint(&fixture_dir("projectile_split_cycle")).unwrap();
-    assert_has_error(&errors, LintErrorKind::OutOfRange, "Split se divise en lui-même");
+    assert_has_error(
+        &errors,
+        LintErrorKind::OutOfRange,
+        "Split se divise en lui-même",
+    );
 }
 
 #[test]
 fn status_poison_fear_fixture_reports_ranges() {
     let (_, _, errors) = load_and_lint(&fixture_dir("status_poison_fear_out_of_range")).unwrap();
-    assert_has_error(&errors, LintErrorKind::OutOfRange, "damage = 0 : doit être > 0 (Poison)");
-    assert_has_error(&errors, LintErrorKind::OutOfRange, "period = 0 : doit être > 0 (Poison)");
+    assert_has_error(
+        &errors,
+        LintErrorKind::OutOfRange,
+        "damage = 0 : doit être > 0 (Poison)",
+    );
+    assert_has_error(
+        &errors,
+        LintErrorKind::OutOfRange,
+        "period = 0 : doit être > 0 (Poison)",
+    );
     assert_has_error(&errors, LintErrorKind::OutOfRange, "frames = 0");
 }
 

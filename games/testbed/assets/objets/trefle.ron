@@ -1,0 +1,11 @@
+// M3-T1 (docs/conventions.md §66) : objet d'essai : +4 de `Luck` (la chance de `venin` passe de 50 % à
+// 100 %). Scénario `tears_luck_chance`.
+(
+    name: "Trèfle",
+    kind: Passive,
+    modifiers: [(stat: Luck, op: Add, value: "4")],
+    tags: ["larmes"],
+    rarity: Common,
+    // Scénario généré `item_trefle` (gabarit ItemHeld) : `Luck` à 4 (base 0).
+    test: Some((frames: 60)),
+)

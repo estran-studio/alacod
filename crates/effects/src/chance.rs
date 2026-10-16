@@ -76,7 +76,11 @@ mod tests {
     #[test]
     fn tirage_local_deterministe_et_independant_du_rang() {
         let a = roll_chance(7, 42, 0, fx(0.5));
-        assert_eq!(a, roll_chance(7, 42, 0, fx(0.5)), "même graine, même tirage");
+        assert_eq!(
+            a,
+            roll_chance(7, 42, 0, fx(0.5)),
+            "même graine, même tirage"
+        );
         assert_ne!(chance_seed(7, 42, 0), chance_seed(7, 42, 1));
         assert_ne!(chance_seed(7, 42, 0), chance_seed(7, 43, 0));
         assert_ne!(chance_seed(7, 42, 0), chance_seed(8, 42, 0));

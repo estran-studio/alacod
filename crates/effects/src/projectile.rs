@@ -219,5 +219,5 @@ impl ProjectileSpec {
 /// M3-T0a : modificateurs de projectile **portés par un objet** (`items::ItemDef::projectile`,
 /// `items::SynergyDef::projectile`), ajoutés aux tirs du porteur. Même forme que la spec d'un
 /// mode de tir (`modifiers`, `on_hit`, `on_expire`) ; composés avec ceux de l'arme par
-/// `combat::projectile::compose` (M3-T1 les lira au tir).
+/// `combat::projectile::compose` (lus au tir par M3-T1, §66).
 pub type ProjectileMods = ProjectileSpec;
