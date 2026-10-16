@@ -11,8 +11,7 @@ finale est « déjà à jour »). Conventions : `docs/conventions.md` §72. Sess
   Un littéral est exact (même tirage).
 - **`behaviors` d'une variante** : remplacent ceux du personnage à la création (`ai.ranged` suit la première règle `Shoot`).
 - **`on_death`** (`game::champions`, `champion_death_system`, `DeathManagement`) : `SpawnCharacters` (anneau de 14 unités,
-  décalages fixes, équipe du mort, **sans variante** : pas de cascade), `Explode` (file `PendingBlasts`, rollback neutre,
-  `DamageEvent` à la frame suivante, tir ami, **respecte `is_invulnerable_at`**), `SpawnPattern` (émetteur fantôme
+  décalages fixes, équipe du mort, **sans variante** : pas de cascade), `Explode` (**mécanisme de M3-T4** : bombe à mèche d'une frame de l'équipe du mort, `destroys` transmis ; voir §6 bis), `SpawnPattern` (émetteur fantôme
   `PatternGhost`, détruit à la fin de sa séquence), `loot` (tirage local `champion:<net id>`, objet ou arme au sol).
 - **`tint`** : champ disponible, aucune lecture dans la simulation (T17).
 - **Lint** : un `SpawnPattern` à la mort refuse un pattern infini (`Ring` avec `every > 0`) ; fixture
@@ -28,33 +27,39 @@ finale est « déjà à jour »). Conventions : `docs/conventions.md` §72. Sess
 
 ## 2. Vérifié (résultats réels, sur `origin/main` `af46f192` + la branche)
 
-- `make test_scenarios_par SHARDS=3` **sans BLESS des traces existantes** : 412 scénarios (401 + 11), 3 tranches « ok »
-  (130 s) ; `git status` propre hors fichiers neufs : **aucune trace existante modifiée** (aucune preuve §5 nécessaire).
-- `make test_crates` : 935 tests passés, 0 échec, 13 ignorés. Deux corrections de tests existants, dues à la nouvelle
-  ressource d'événements : `hit_iframes.rs` et `expectations.rs` ordonnent maintenant leurs systèmes après
-  `champion_blast_system` (qui est après `barrel_explosion_system`) ; la première exécution avait 5 échecs
-  (ambiguïté d'ordre du `GgrsSchedule` sur `FrameEvents<DamageEvent>` ; un test unitaire de chance mal calculé).
-- `make lint` ×5 : « aucune erreur » ; `make gen` ×5 (testbed 62 ok, zombies 16, throne 39, gungeon 55, isaac 10) sans diff.
-- `cargo fmt --all -- --check` propre ; `check-forbidden.sh` OK (39) ; `check-rollback-registration.sh` OK ;
-  `make check_sim_boundary` OK (11 crates, 5 en dette D69) ; `make test_tools` OK.
-- Fuzz `ALACOD_FUZZ=0:8` : 8 graines de 3 600 frames sans divergence.
-- **p2p deux clients** (Docker OrbStack, `MATCHBOX_PORT=3536`, `COMPOSE_PROJECT_NAME=b0`, binaire `testbed`,
-  `ALACOD_INPUT=script:` visée tournante, `ALACOD_INPUT_DELAY=0`, client 1 lancé 8 s plus tard) : le nouvel état rollback
-  (`PendingBlasts`, `PatternGhost`) change l'enregistrement, donc rejoué. Carte `arena.ldtk` **modifiée temporairement**
-  (non commitée, annulée) : `dummy`, `target`, `follower` remplacés par `elite_explosif`, `elite_divise`, `elite_riche`
-  (variante tirée, chance 1). `cmp` des traces : **identiques, 599 lignes** ; exécutions de frame en double (frames
-  resimulées) : **79 (client 0) et 83 (client 1)** sur 600 frames (le compteur « frames resimulées » du log final affiche 2
-  et 3 : il sous-compte) ; un champion `explosif` est mort à f50, son explosion est partie à f51, aux mêmes frames des deux
-  côtés. Un seul champion est mort dans ce run (visée tournante) : `elite_divise` et `elite_riche` n'ont pas été
-  exercés en p2p.
+Après intégration de M3-T4 (`origin/m3-t4-bombes-rochers` `566f6dba`, qui contient M3-T6 ; `origin/main` n'avait pas bougé) :
+
+- `make test_scenarios_par SHARDS=3` sans BLESS des traces existantes : **426 scénarios** (dont les 15 de T4 et les 11 de T7),
+  3 tranches « ok » (138 s) ; aucune trace existante ni de T4 modifiée.
+- `make test_crates` : 946 tests passés, 0 échec, 13 ignorés.
+- `make lint` ×5 « aucune erreur » ; `make gen` ×5 (testbed 62, zombies 16, throne 39, gungeon 55, isaac 10) sans diff ;
+  `cargo fmt --all -- --check`, `check-forbidden` (39), `check-rollback-registration`, `make check_sim_boundary` (11 crates),
+  `make test_tools` OK.
+- Fuzz `ALACOD_FUZZ=0:8` : 8 graines sans divergence (le fuzz de T4 affiche « 0 explosion(s) » sans `ALACOD_FUZZ_BOMBS`).
+- **p2p deux clients** (Docker, `MATCHBOX_PORT=3536`, `COMPOSE_PROJECT_NAME=b0`, même recette, `arena.ldtk` modifiée
+  temporairement puis annulée) : `cmp` **identiques, 599 lignes** ; 73 (client 0) et 65 (client 1) exécutions de frame en
+  double ; le champion `explosif` meurt à f50, l'explosion de T4 part à f51 (`explosion id=45`), aux mêmes frames des deux côtés.
+
+## 2 bis. Intégration avec M3-T4
+
+Décision d'orchestration : le mécanisme d'explosion de T4 fait foi. Conflits : `CLAUDE.md` et `docs/taches.md` (deux lignes
+conservées), `hit_iframes.rs` et `expectations.rs` (ancre d'ordre `.after(game::bombs::explosion_system)`). `champions.rs` n'a pas
+conflit mais a été réécrit : `PendingBlast(s)` et `champion_blast_system` supprimés ; `champion_death_system` pose une `world::Bomb`
+(`fuse_until = frame + 1`, équipe du mort, tir ami `Always`, source créditée au dernier joueur, **`destroys` transmis**, que `death_plan`
+jetait), exécutée par `bomb_fuse_system` / `explosion_system` : une seule émission de `DamageEvent` et d'`Exploded` par explosion,
+exclusions `Death` et invulnérables de T4. Observable de `champion_explodes` inchangé (mort f29 → dégâts f30 ; attentes
+passées sans modification). **Trace bougée : `champion_explodes.trace` seule** (changement de mécanisme : une entité `Bomb`
+(+1 entité, un `GgrsNetId` alloué) existe pendant la frame de mort, ligne 29 : 13 → 14 entités) ; rebénie seule, les autres
+traces de T7 sont inchangées. `PendingBlasts` n'existe plus : un état rollback neutre de moins.
+Lint : le pattern infini d'un `SpawnPattern` à la mort suit désormais la chaîne `Named` (profondeur bornée, cycle ou nom
+inconnu refusés) ; fixture `champion_death_infinite_pattern_named`.
 
 ## 3. Non fait, incertain, non vérifié
 
-- **`destroys` de `Explode`** (rochers, murs secrets) n'est pas exécuté : M3-T4 (en cours) est le propriétaire de
-  l'exécution d'`Explode` ; la fonction partageable est `champion_blast_system` / `PendingBlasts` (voir §72). À
-  l'intégration : un seul émetteur de `world::Exploded` par explosion.
+- **`destroys` de `Explode`** : transmis à la bombe de T4 (rochers, caverne, murs secrets) ; aucun scénario de T7 ne le
+  prouve (testé par T4 pour ses propres bombes).
 - **Teinte** : aucune lecture (T17).
-- **Relecture indépendante** : à faire avant merge (demandée par la consigne).
+- **Relecture indépendante** : faite (verdict bloquant : intégration T4, lint `Named`), corrigée ici.
 - Bench non mesuré ; aucune vidéo.
 - p2p : divise et riche non exercés (voir §2).
 
@@ -66,8 +71,8 @@ finale est « déjà à jour »). Conventions : `docs/conventions.md` §72. Sess
   petits champions doit un jour le demander explicitement (non prévu).
 - **Équipe de la division = équipe du mort** ; santé résolue et difficulté de l'étage courant ; pas de comptage de vague
   (`WaveEnemy`) : une division en mode vagues n'allonge pas la vague. À confirmer pour T11c.
-- **Explosion sans équipe** (`Neutral`, tir ami `Always`) : blesse aussi les alliés du champion et les autres ennemis,
-  comme un baril.
+- **Explosion de l'équipe du mort** (`Enemies`, tir ami `Always`) : blesse aussi les alliés du champion et les autres ennemis ;
+  la difficulté d'étage multiplie ses dégâts.
 - **SpawnPattern infini refusé au lint** plutôt que borné au runtime.
 
 ## 5. Dettes et points à relire
@@ -81,7 +86,6 @@ finale est « déjà à jour »). Conventions : `docs/conventions.md` §72. Sess
 - L'étage des apparitions est `run::FloorState::index` (le `Clock::floor_index` ne bouge que si une horloge est
   configurée) ; ajouter `FloorState` à `DifficultyReader` provoquait un conflit d'accès avec
   `spawn_characters_when_map_loaded` : l'étage est donc un paramètre explicite des appelants.
-- `PendingBlast` ne garde pas d'équipe source : toujours `Neutral` (voir §4).
 
 ## 6. Atteignabilité
 

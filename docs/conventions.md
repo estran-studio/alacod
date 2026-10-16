@@ -4701,7 +4701,7 @@ M3-T11b met au moins deux familiers et un orbital dans le pool trésor d'`isaac`
 M3-T7 exécute les champs de `VariantDef` de §63 : `on_death`, `behaviors`, `loot`, `chance` en expression ;
 `tint` est lu par la présentation seule (T17 le dessine : aucune lecture ici, attente nulle). **Aucune trace
 existante ne bouge** : un personnage sans variante, ou dont la variante n'a aucun champ v2, ne passe par rien de
-neuf (`champion_death_system` sort sans rien toucher), `PendingBlasts` et `PatternGhost` sont neutres. Le
+neuf (`champion_death_system` sort sans rien toucher), `PatternGhost` est neutre. Le
 tirage de §25 (graine `fnv1a("variants") ^ graine ^ net id`, `RollbackRng` local, jamais `RngStreams`) est inchangé.
 
 ### `chance` en expression : valeur figée à l'apparition
@@ -4737,27 +4737,21 @@ est posé si la nouvelle liste en a besoin. Un personnage dont la variante n'a p
   consommation de RNG), `GgrsNetId` alloués dans l'ordre (mort, puis rang `k` ; clé de contenu `champion:<net id>:<k>`
   dans les logs `champion_split`). Ils sont créés **sans variante** (`NO_VARIANT` = `"-"`, absente de toute table) : pas de
   division en cascade, même si la chance du personnage est de 1.
-- **`Explode { radius, damage, destroys }`** : le centre et les valeurs sont figés à la mort dans `PendingBlasts` (ressource
-  rollback, checksum neutre) ; `champion_blast_system` (`CollisionDamage`, après `barrel_explosion_system`, avant le
-  résolveur) émet à la **frame suivante** un `DamageEvent` (genre `Explosion`, tag `explosion`, équipe `Neutral`, tir ami
-  `Always`) par personnage à PV dont le centre est **strictement** dans le rayon (`world::within_radius`), triés par
-  `GgrsNetId` ; la file de dégâts de la frame de la mort est déjà résolue, comme pour les barils (même délai d'une frame).
-  Source créditée : le dernier joueur qui a touché le mort (points des victimes), sinon le mort. **Le résolveur
-  respecte `Health::is_invulnerable_at`** : un familier (§71, `invulnerable_until_frame = u32::MAX`), un joueur en i-frames
-  ne sont pas touchés (scénario `champion_explodes`). `destroys` **n'est pas exécuté ici** (rochers, murs secrets :
-  M3-T4, qui exécute `Explode` côté objets et bombes) ; `world::Exploded` (moment clé `explosion`) est émis à chaque
-  explosion pour que la vidéo la montre.
+- **`Explode { radius, damage, destroys }`** : **le mécanisme de M3-T4 (§69), sans second chemin** : une **bombe à mèche
+  d'une frame** (`world::Bomb`, `fuse_until = mort + 1`, comme l'`Action::Explode` des effets) posée à la position du mort,
+  **de son équipe**, tir ami `Always`, créditée au dernier joueur qui l'a touché (points des victimes), sinon au mort ;
+  `destroys` est transmis. `game::bombs::bomb_fuse_system` puis `explosion_system` l'exécutent à la frame suivante (une
+  `ExplosionRequest`, un `DamageEvent` par cible, un `Exploded`, rayon strict, exclusions `Death` et **invulnérables** :
+  un familier immunisé n'est jamais touché, scénario `champion_explodes`). Une seule émission de dégâts et d'`Exploded`
+  par explosion ; `PendingBlasts` et `champion_blast_system` (premier jet de T7) n'existent plus. L'équipe du mort
+  (`Enemies`) est celle de la source : la difficulté d'étage multiplie donc les dégâts, comme ceux de tout ennemi.
 - **`SpawnPattern { pattern, weapon }`** : un émetteur **sans personnage** (`PatternGhost`, rollback neutre) à la position du
   mort, de l'équipe du mort, joue le pattern avec la table de projectiles de l'arme (`effects_runtime::spawn_pattern`, le
   chemin des effets), puis `pattern_ghost_cleanup_system` le détruit (`despawn_rollback`) quand son `Emitter` est fini. Les
-  projectiles naissent à la frame suivante (`Weapon`). Lint ajouté : un pattern **infini** (`Ring` avec `every > 0`) est
+  projectiles naissent à la frame suivante (`Weapon`). Lint ajouté : un pattern **infini** (`Ring` avec `every > 0`, y compris
+  atteint par une chaîne `Named`, profondeur bornée ; chaîne cyclique ou inconnue refusée aussi) est
   refusé à la mort (`Unsupported`) : l'émetteur n'a pas de personnage pour l'arrêter ; utiliser `every: 0`.
 - Toute autre action est refusée par le lint (§63) et, si elle arrivait, ignorée avec un `warn!`.
-
-**`Explode` partageable avec M3-T4** : la forme (`world::explosion_plan`, `within_radius`) est celle de §62 ; ici seule
-l'émission des dégâts (`PendingBlast` → `DamageEvent`) est écrite, pour les besoins de `on_death`. M3-T4 pourra appeler
-`champion_blast_system` comme exécution de `Explode` ou la remplacer par la sienne ; à l'intégration, vérifier qu'une
-explosion n'émet pas deux fois `Exploded`.
 
 ### `loot`
 
