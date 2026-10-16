@@ -1,0 +1,7 @@
+// `isaac` (M3-T5, docs/conventions.md §70) : un seul étage `sous_sol` ; les scénarios d'un étage
+// complet (`grid_floor_seed_*`, `isaac_floor_seed_1`) la désignent par `floors:`. Le trésor y est
+// ouvert (premier étage).
+(
+    levels: ["floor:sous_sol"],
+    victory_at_end: true,
+)

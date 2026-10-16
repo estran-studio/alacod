@@ -38,6 +38,40 @@ pub struct GeneratedRoom {
 }
 
 impl GeneratedRoom {
+    /// Identifiant de la salle générée.
+    pub fn iid(&self) -> &str {
+        &self.level.iid
+    }
+
+    /// Identifiants des salles reliées à celle-ci par une porte du plan (arêtes de pose, boucles
+    /// et portes de la salle secrète comprises ; contrôle des tests de grille, M3-T5).
+    pub fn neighbour_iids(&self) -> Vec<String> {
+        self.level
+            .neighbours
+            .iter()
+            .map(|n| n.level_iid.clone())
+            .collect()
+    }
+
+    /// Nombre de cases d'ouverture (`LevelConnection`) au bord de la salle que le mur ne ferme pas :
+    /// trois par porte dans les gabarits de `isaac` (contrôle des tests de grille, M3-T5).
+    pub fn open_cells(&self) -> usize {
+        let Some(layers) = self.level.layer_instances.as_ref() else {
+            return 0;
+        };
+        let find = |name: &str| layers.iter().find(|l| l.identifier == name);
+        let (Some(openings), Some(walls)) = (find(map_const::LAYER_CONNECTION), find("Walls"))
+        else {
+            return 0;
+        };
+        openings
+            .int_grid_csv
+            .iter()
+            .zip(&walls.int_grid_csv)
+            .filter(|(opening, wall)| **opening == 1 && **wall == 0)
+            .count()
+    }
+
     /// Rectangle monde de la salle (`world_x`, `world_y`, largeur, hauteur) en pixels.
     pub fn world_rect(&self) -> (i32, i32, i32, i32) {
         (
